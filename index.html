@@ -626,9 +626,8 @@
         // ============ 載入 3D 模型 ============
         async function loadFaceMask() {
             try {
-                // 嘗試從根目錄載入 GLB
                 const loader = new THREE.GLTFLoader();
-                const gltf = await loader.loadAsync('./0_Monochrome_portrait_of_a_serious_man_Hunyuan_3D_a0e932ca (1).glb');
+                const gltf = await loader.loadAsync('./0_Monochrome_portrait_of_a_serious_man_Hunyuan_3D_a0e932ca(1).glb');
                 
                 maskModel = gltf.scene;
                 
@@ -651,7 +650,6 @@
                 updateSystemStatus('✅ 3D 模型已載入');
             } catch (error) {
                 console.warn('GLB 未找到，使用預設幾何體');
-                // 備用方案
                 const geometry = new THREE.SphereGeometry(1, 32, 32);
                 const material = new THREE.MeshStandardMaterial({
                     color: 0xe0e0e0,
