@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TENKI v10.5</title>
+    <title>TENKI v10.5 - AI 情緒檢測相機</title>
     <script src="https://cdn.jsdelivr.net/npm/three@r128/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@r128/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4.1633559619/camera_utils.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; }
         body { 
             font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #0a0e27 0%, #131729 100%);
+            background: #000;
             color: #e0e0e0;
-            height: 100vh;
             overflow: hidden;
         }
         .container {
@@ -22,6 +22,7 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            background: linear-gradient(135deg, #0a0e27 0%, #131729 100%);
         }
         .header {
             background: rgba(10, 14, 39, 0.95);
@@ -30,6 +31,7 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            flex-shrink: 0;
         }
         .logo {
             font-size: 24px;
@@ -54,6 +56,8 @@
         .main {
             flex: 1;
             display: flex;
+            gap: 0;
+            min-height: 0;
         }
         .video-section {
             flex: 1;
@@ -62,17 +66,15 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            min-width: 0;
         }
         video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
             display: none;
         }
-        #canvas {
+        #glContainer {
             width: 100%;
             height: 100%;
+            position: relative;
         }
         .sidebar {
             width: 350px;
@@ -83,6 +85,7 @@
             flex-direction: column;
             gap: 20px;
             overflow-y: auto;
+            flex-shrink: 0;
         }
         .section-title {
             font-size: 12px;
@@ -176,12 +179,12 @@
     <div class="container">
         <div class="header">
             <div class="logo">TENKI v10.5</div>
-            <button class="btn" onclick="startCamera()">🎥 啟動相機</button>
+            <button class="btn" onclick="appState.startCamera()">🎥 啟動相機</button>
         </div>
         <div class="main">
             <div class="video-section">
                 <video id="video"></video>
-                <canvas id="canvas"></canvas>
+                <div id="glContainer"></div>
                 <div class="fps-counter" id="fpsCounter">FPS: 0</div>
             </div>
             <div class="sidebar">
@@ -203,12 +206,12 @@
                     <div class="section-title">💫 系統狀態</div>
                     <div class="info-panel">
                         <div class="info-label">狀態</div>
-                        <div class="info-value" id="systemStatus">就緒</div>
+                        <div class="info-value" id="systemStatus">初始化中...</div>
                     </div>
                 </div>
                 <div>
                     <div class="section-title">🎯 情緒掃描</div>
-                    <button class="btn" id="scanBtn" onclick="startScan()" style="width: 100%;">開始掃描</button>
+                    <button class="btn" id="scanBtn" onclick="appState.startScan()" style="width: 100%;">開始掃描</button>
                     <div id="scanProgress" style="display: none; text-align: center;">
                         <div class="loading-spinner"></div>
                         <div style="margin-top: 10px; font-size: 14px;">掃描中... <span id="scanTime">3</span>s</div>
@@ -223,200 +226,289 @@
             <div class="emotion-icon" id="emotionIcon">😊</div>
             <div class="emotion-name" id="emotionName">快樂</div>
             <div class="emotion-desc" id="emotionDesc">您呈現出積極樂觀的情緒狀態。</div>
-            <button class="btn" onclick="closeResults()">🔄 重新掃描</button>
+            <button class="btn" onclick="appState.closeResults()">🔄 重新掃描</button>
         </div>
     </div>
 
     <script>
-        let scene, camera, renderer, maskModel;
-        let faceMesh = null;
-        let fps = 0, frameCount = 0, lastTime = Date.now();
+        // ============ 全局應用狀態 ============
+        const appState = {
+            scene: null,
+            camera: null,
+            renderer: null,
+            maskModel: null,
+            faceMesh: null,
+            fps: 0,
+            frameCount: 0,
+            lastTime: Date.now(),
+            isCameraActive: false,
 
-        const EMOTIONS = [
-            { name: '快樂', icon: '😊', desc: '您呈現出積極樂觀的情緒狀態。' },
-            { name: '冷靜', icon: '😐', desc: '您保持著穩定平和的心境。' },
-            { name: '專注', icon: '😌', desc: '您展現出深入思考的專注力。' },
-            { name: '驚訝', icon: '😲', desc: '您對某些事物表現出新鮮感。' },
-            { name: '放鬆', icon: '😌', desc: '您表現出輕鬆愜意的狀態。' }
-        ];
-
-        // Three.js 初始化
-        function initThree() {
-            const canvas = document.getElementById('canvas');
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-            camera.position.z = 2;
-
-            renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-            renderer.setClearColor(0x000000, 0);
-
-            const light1 = new THREE.DirectionalLight(0xffffff, 0.8);
-            light1.position.set(1, 1, 1);
-            scene.add(light1);
-
-            const light2 = new THREE.AmbientLight(0xffffff, 0.4);
-            scene.add(light2);
-
-            loadModel();
-        }
-
-        // 加載 GLB 模型
-        async function loadModel() {
-            try {
-                const loader = new THREE.GLTFLoader();
-                const gltf = await loader.load('./0_Monochrome_portrait_of_a_serious_man_Hunyuan_3D_a0e932ca(1).glb');
-                maskModel = gltf.scene;
-                maskModel.traverse(child => {
-                    if (child.isMesh) {
-                        child.material = new THREE.MeshStandardMaterial({
-                            color: 0xe0e0e0,
-                            metalness: 0.3,
-                            roughness: 0.7
-                        });
-                    }
-                });
-                scene.add(maskModel);
-                document.getElementById('systemStatus').textContent = '✅ 3D 模型已載入';
-            } catch (error) {
-                console.warn('GLB 載入失敗，使用球體');
-                const geo = new THREE.SphereGeometry(1, 32, 32);
-                const mat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0 });
-                maskModel = new THREE.Mesh(geo, mat);
-                scene.add(maskModel);
-            }
-        }
-
-        // 初始化 Face Mesh
-        async function initFaceMesh() {
-            faceMesh = new FaceMesh({
-                locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-            });
-            faceMesh.setOptions({
-                maxNumFaces: 1,
-                refineLandmarks: true,
-                minDetectionConfidence: 0.7,
-                minTrackingConfidence: 0.7
-            });
-            faceMesh.onResults(onResults);
-        }
-
-        function onResults(results) {
-            if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-                document.getElementById('landmarkCount').textContent = '0 / 468';
-                return;
-            }
-            const landmarks = results.multiFaceLandmarks[0];
-            document.getElementById('landmarkCount').textContent = `${landmarks.length} / 468`;
-
-            if (maskModel && landmarks.length > 0) {
-                const left = landmarks[33];
-                const right = landmarks[263];
-                const nose = landmarks[1];
-                const centerX = (left.x + right.x) / 2;
-                const centerY = (left.y + right.y) / 2;
-                const centerZ = (left.z + right.z) / 2;
-
-                maskModel.position.x = (centerX - 0.5) * 2;
-                maskModel.position.y = (0.5 - centerY) * 2;
-                maskModel.position.z = centerZ * -10;
-
-                const yaw = Math.atan2(nose.x - centerX, 0.05);
-                const pitch = (centerY - nose.y) * 100;
-                const roll = Math.atan2(right.y - left.y, right.x - left.x);
-
-                maskModel.rotation.x = pitch * (Math.PI / 180);
-                maskModel.rotation.y = yaw;
-                maskModel.rotation.z = roll;
-
-                const faceWidth = Math.abs(left.x - right.x);
-                const scale = faceWidth * 10;
-                maskModel.scale.set(Math.max(0.5, Math.min(2, scale)), Math.max(0.5, Math.min(2, scale)), Math.max(0.5, Math.min(2, scale)));
-            }
-        }
-
-        // 啟動相機
-        async function startCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-                    audio: false
-                });
-                const video = document.getElementById('video');
-                video.srcObject = stream;
-                video.play();
-
-                await initFaceMesh();
-
-                async function process() {
-                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                        await faceMesh.send({ image: video });
-                        updateFPS();
-                        renderer.render(scene, camera);
-                    }
-                    requestAnimationFrame(process);
+            // ============ Three.js 初始化 ============
+            initThreeJS() {
+                const container = document.getElementById('glContainer');
+                
+                // 確保容器有尺寸
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                
+                if (width === 0 || height === 0) {
+                    console.error('Container has zero dimensions');
+                    return false;
                 }
-                process();
-                document.getElementById('systemStatus').textContent = '✅ 相機運行中';
-            } catch (error) {
-                document.getElementById('systemStatus').textContent = '❌ 相機錯誤';
-            }
-        }
 
-        function updateFPS() {
-            frameCount++;
-            const now = Date.now();
-            const delta = (now - lastTime) / 1000;
-            if (delta >= 1) {
-                fps = frameCount;
-                frameCount = 0;
-                lastTime = now;
-                document.getElementById('fpsCounter').textContent = `FPS: ${fps}`;
-                document.getElementById('fpsDisplay').textContent = `${fps} FPS`;
-            }
-        }
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x000000);
 
-        // 掃描功能
-        function startScan() {
-            document.getElementById('scanBtn').style.display = 'none';
-            document.getElementById('scanProgress').style.display = 'block';
+                this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+                this.camera.position.z = 2;
 
-            let time = 3;
-            const timer = setInterval(() => {
-                document.getElementById('scanTime').textContent = time;
-                time--;
-                if (time < 0) {
-                    clearInterval(timer);
-                    completeScan();
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+                this.renderer.setSize(width, height);
+                this.renderer.setPixelRatio(window.devicePixelRatio || 1);
+                
+                container.appendChild(this.renderer.domElement);
+
+                // 光源
+                const keyLight = new THREE.DirectionalLight(0xffffff, 1);
+                keyLight.position.set(5, 5, 5);
+                this.scene.add(keyLight);
+
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                this.scene.add(ambientLight);
+
+                // 加載模型
+                this.loadModel();
+
+                // 啟動渲染循環
+                this.renderLoop();
+
+                document.getElementById('systemStatus').textContent = '✅ Three.js 已初始化';
+                return true;
+            },
+
+            // ============ 加載 GLB 模型 ============
+            loadModel() {
+                try {
+                    const loader = new THREE.GLTFLoader();
+                    loader.load(
+                        './0_Monochrome_portrait_of_a_serious_man_Hunyuan_3D_a0e932ca(1).glb',
+                        (gltf) => {
+                            this.maskModel = gltf.scene;
+                            this.maskModel.scale.set(1.5, 1.5, 1.5);
+                            
+                            this.maskModel.traverse((child) => {
+                                if (child.isMesh) {
+                                    child.material = new THREE.MeshStandardMaterial({
+                                        color: 0xcccccc,
+                                        metalness: 0.4,
+                                        roughness: 0.6,
+                                        emissive: 0x111111
+                                    });
+                                }
+                            });
+                            
+                            this.scene.add(this.maskModel);
+                            document.getElementById('systemStatus').textContent = '✅ 3D 模型已載入';
+                        },
+                        undefined,
+                        () => {
+                            console.warn('GLB 載入失敗，使用球體');
+                            this.useFallbackModel();
+                        }
+                    );
+                } catch (error) {
+                    console.error('模型加載錯誤:', error);
+                    this.useFallbackModel();
                 }
-            }, 1000);
-        }
+            },
 
-        function completeScan() {
-            const emotion = EMOTIONS[Math.floor(Math.random() * EMOTIONS.length)];
-            document.getElementById('emotionIcon').textContent = emotion.icon;
-            document.getElementById('emotionName').textContent = emotion.name;
-            document.getElementById('emotionDesc').textContent = emotion.desc;
-            document.getElementById('resultsScreen').classList.add('active');
-            document.getElementById('scanProgress').style.display = 'none';
-        }
+            // ============ 備用模型 ============
+            useFallbackModel() {
+                const geometry = new THREE.SphereGeometry(1, 32, 32);
+                const material = new THREE.MeshStandardMaterial({
+                    color: 0xcccccc,
+                    metalness: 0.3,
+                    roughness: 0.7
+                });
+                this.maskModel = new THREE.Mesh(geometry, material);
+                this.scene.add(this.maskModel);
+                document.getElementById('systemStatus').textContent = '⚠ 使用球體模型';
+            },
 
-        function closeResults() {
-            document.getElementById('resultsScreen').classList.remove('active');
-            document.getElementById('scanBtn').style.display = 'block';
-        }
+            // ============ 渲染循環 ============
+            renderLoop() {
+                requestAnimationFrame(() => this.renderLoop());
+                
+                if (this.renderer && this.scene && this.camera) {
+                    this.renderer.render(this.scene, this.camera);
+                }
+                
+                this.updateFPS();
+            },
 
-        window.addEventListener('resize', () => {
-            if (renderer) {
-                const w = document.getElementById('canvas').clientWidth;
-                const h = document.getElementById('canvas').clientHeight;
-                camera.aspect = w / h;
-                camera.updateProjectionMatrix();
-                renderer.setSize(w, h);
+            // ============ 初始化 Face Mesh ============
+            async initFaceMesh() {
+                this.faceMesh = new FaceMesh({
+                    locateFile: (file) => 
+                        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+                });
+
+                this.faceMesh.setOptions({
+                    maxNumFaces: 1,
+                    refineLandmarks: true,
+                    minDetectionConfidence: 0.7,
+                    minTrackingConfidence: 0.7
+                });
+
+                this.faceMesh.onResults((results) => this.onFaceMeshResults(results));
+            },
+
+            // ============ Face Mesh 結果 ============
+            onFaceMeshResults(results) {
+                if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+                    document.getElementById('landmarkCount').textContent = '0 / 468';
+                    return;
+                }
+
+                const landmarks = results.multiFaceLandmarks[0];
+                document.getElementById('landmarkCount').textContent = `${landmarks.length} / 468`;
+
+                if (this.maskModel && landmarks.length > 0) {
+                    const left = landmarks[33];
+                    const right = landmarks[263];
+                    const nose = landmarks[1];
+
+                    const centerX = (left.x + right.x) / 2;
+                    const centerY = (left.y + right.y) / 2;
+                    const centerZ = (left.z + right.z) / 2;
+
+                    this.maskModel.position.x = (centerX - 0.5) * 2;
+                    this.maskModel.position.y = (0.5 - centerY) * 2;
+                    this.maskModel.position.z = centerZ * -10;
+
+                    const yaw = Math.atan2(nose.x - centerX, 0.05);
+                    const pitch = (centerY - nose.y) * 100;
+                    const roll = Math.atan2(right.y - left.y, right.x - left.x);
+
+                    this.maskModel.rotation.x = pitch * (Math.PI / 180);
+                    this.maskModel.rotation.y = yaw;
+                    this.maskModel.rotation.z = roll;
+
+                    const faceWidth = Math.abs(left.x - right.x);
+                    const scale = faceWidth * 10;
+                    const s = Math.max(0.5, Math.min(2, scale));
+                    this.maskModel.scale.set(s, s, s);
+                }
+            },
+
+            // ============ 啟動相機 ============
+            async startCamera() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { 
+                            width: { ideal: 1280 }, 
+                            height: { ideal: 720 }, 
+                            facingMode: 'user' 
+                        },
+                        audio: false
+                    });
+
+                    const video = document.getElementById('video');
+                    video.srcObject = stream;
+                    video.play();
+
+                    await this.initFaceMesh();
+
+                    const processFrame = async () => {
+                        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                            await this.faceMesh.send({ image: video });
+                        }
+                        requestAnimationFrame(processFrame);
+                    };
+
+                    processFrame();
+                    this.isCameraActive = true;
+                    document.getElementById('systemStatus').textContent = '✅ 相機運行中';
+                } catch (error) {
+                    console.error('相機錯誤:', error);
+                    document.getElementById('systemStatus').textContent = '❌ 相機啟動失敗';
+                }
+            },
+
+            // ============ 更新 FPS ============
+            updateFPS() {
+                this.frameCount++;
+                const now = Date.now();
+                const delta = (now - this.lastTime) / 1000;
+
+                if (delta >= 1) {
+                    this.fps = this.frameCount;
+                    this.frameCount = 0;
+                    this.lastTime = now;
+
+                    document.getElementById('fpsCounter').textContent = `FPS: ${this.fps}`;
+                    document.getElementById('fpsDisplay').textContent = `${this.fps} FPS`;
+                }
+            },
+
+            // ============ 情緒掃描 ============
+            startScan() {
+                document.getElementById('scanBtn').style.display = 'none';
+                document.getElementById('scanProgress').style.display = 'block';
+
+                let time = 3;
+                const timer = setInterval(() => {
+                    document.getElementById('scanTime').textContent = time;
+                    time--;
+                    if (time < 0) {
+                        clearInterval(timer);
+                        this.completeScan();
+                    }
+                }, 1000);
+            },
+
+            completeScan() {
+                const emotions = [
+                    { name: '快樂', icon: '😊', desc: '您呈現出積極樂觀的情緒狀態。' },
+                    { name: '冷靜', icon: '😐', desc: '您保持著穩定平和的心境。' },
+                    { name: '專注', icon: '😌', desc: '您展現出深入思考的專注力。' },
+                    { name: '驚訝', icon: '😲', desc: '您對某些事物表現出新鮮感。' },
+                    { name: '放鬆', icon: '😌', desc: '您表現出輕鬆愜意的狀態。' }
+                ];
+
+                const emotion = emotions[Math.floor(Math.random() * emotions.length)];
+                document.getElementById('emotionIcon').textContent = emotion.icon;
+                document.getElementById('emotionName').textContent = emotion.name;
+                document.getElementById('emotionDesc').textContent = emotion.desc;
+                document.getElementById('resultsScreen').classList.add('active');
+                document.getElementById('scanProgress').style.display = 'none';
+            },
+
+            closeResults() {
+                document.getElementById('resultsScreen').classList.remove('active');
+                document.getElementById('scanBtn').style.display = 'block';
             }
+        };
+
+        // ============ 初始化 ============
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                appState.initThreeJS();
+            }, 100);
         });
 
-        document.addEventListener('DOMContentLoaded', initThree);
+        // ============ 視窗調整 ============
+        window.addEventListener('resize', () => {
+            if (appState.renderer && appState.camera) {
+                const container = document.getElementById('glContainer');
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                
+                appState.camera.aspect = width / height;
+                appState.camera.updateProjectionMatrix();
+                appState.renderer.setSize(width, height);
+            }
+        });
     </script>
 </body>
 </html>
