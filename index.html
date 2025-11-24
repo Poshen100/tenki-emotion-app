@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TENKI v10.5 - AI 情緒檢測相機</title>
+    <title>TENKI v10.5 - AI 情緒檢測</title>
     <script src="https://cdn.jsdelivr.net/npm/three@r128/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@r128/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4.1633559619/camera_utils.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; }
         body { 
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #000;
             color: #e0e0e0;
             overflow: hidden;
@@ -22,36 +21,39 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            background: linear-gradient(135deg, #0a0e27 0%, #131729 100%);
         }
         .header {
             background: rgba(10, 14, 39, 0.95);
-            padding: 20px;
+            padding: 16px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid rgba(0, 212, 255, 0.2);
             flex-shrink: 0;
+            z-index: 10;
         }
         .logo {
-            font-size: 24px;
-            font-weight: bold;
+            font-size: 20px;
+            font-weight: 700;
             background: linear-gradient(90deg, #00d4ff, #9d4edd);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
         }
         .btn {
-            padding: 10px 20px;
+            padding: 8px 16px;
             background: linear-gradient(90deg, #00d4ff, #9d4edd);
             color: white;
             border: none;
-            border-radius: 8px;
-            font-weight: bold;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
             cursor: pointer;
+            transition: all 200ms;
         }
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
         }
         .main {
             flex: 1;
@@ -67,64 +69,89 @@
             align-items: center;
             justify-content: center;
             min-width: 0;
+            overflow: hidden;
         }
-        video {
-            display: none;
-        }
-        #glContainer {
+        #videoElement {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            position: relative;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        #canvas3d {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .fps-counter {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00d4ff;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #00d4ff;
+            z-index: 50;
         }
         .sidebar {
-            width: 350px;
-            background: rgba(10, 14, 39, 0.95);
+            width: 320px;
+            background: rgba(10, 14, 39, 0.98);
             border-left: 1px solid rgba(0, 212, 255, 0.2);
-            padding: 20px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 16px;
             overflow-y: auto;
             flex-shrink: 0;
         }
         .section-title {
-            font-size: 12px;
-            font-weight: bold;
+            font-size: 10px;
+            font-weight: 700;
             color: #00d4ff;
             text-transform: uppercase;
             letter-spacing: 1.5px;
             border-bottom: 2px solid rgba(0, 212, 255, 0.3);
-            padding-bottom: 8px;
+            padding-bottom: 6px;
         }
         .info-panel {
-            background: rgba(0, 212, 255, 0.1);
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            border-radius: 8px;
-            padding: 16px;
+            background: rgba(0, 212, 255, 0.08);
+            border: 1px solid rgba(0, 212, 255, 0.25);
+            border-radius: 6px;
+            padding: 12px;
         }
         .info-label {
             color: #00d4ff;
-            font-weight: bold;
-            margin-bottom: 8px;
-            font-size: 12px;
+            font-weight: 600;
+            font-size: 10px;
+            margin-bottom: 4px;
         }
         .info-value {
             color: #e0e0e0;
-            font-size: 18px;
+            font-size: 16px;
+            font-weight: 600;
         }
-        .fps-counter {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            border: 2px solid #00d4ff;
-            border-radius: 8px;
-            padding: 10px 15px;
-            font-family: monospace;
-            font-size: 12px;
-            color: #00d4ff;
-            z-index: 100;
+        .scan-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 8px;
         }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 212, 255, 0.2);
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 12px auto 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
         .results-screen {
             position: fixed;
             top: 0;
@@ -135,43 +162,39 @@
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 200;
+            z-index: 300;
         }
-        .results-screen.active {
-            display: flex;
-        }
+        .results-screen.active { display: flex; }
         .results-content {
             text-align: center;
-            max-width: 600px;
+            max-width: 500px;
         }
         .emotion-icon {
             font-size: 80px;
             margin-bottom: 20px;
+            display: block;
         }
         .emotion-name {
             font-size: 2.5rem;
-            font-weight: bold;
-            margin-bottom: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
             background: linear-gradient(90deg, #00d4ff, #9d4edd);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         .emotion-desc {
-            font-size: 18px;
+            font-size: 16px;
             margin-bottom: 30px;
             color: #a0a0a0;
         }
-        .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(0, 212, 255, 0.2);
-            border-top: 3px solid #00d4ff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 10px auto;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @media (max-width: 900px) {
+            .sidebar {
+                width: 280px;
+                padding: 12px;
+            }
+            .section-title {
+                font-size: 9px;
+            }
         }
     </style>
 </head>
@@ -179,12 +202,12 @@
     <div class="container">
         <div class="header">
             <div class="logo">TENKI v10.5</div>
-            <button class="btn" onclick="appState.startCamera()">🎥 啟動相機</button>
+            <button class="btn" onclick="app.startCamera()">🎥 啟動相機</button>
         </div>
         <div class="main">
             <div class="video-section">
-                <video id="video"></video>
-                <div id="glContainer"></div>
+                <video id="videoElement"></video>
+                <canvas id="canvas3d"></canvas>
                 <div class="fps-counter" id="fpsCounter">FPS: 0</div>
             </div>
             <div class="sidebar">
@@ -192,29 +215,22 @@
                     <div class="section-title">📊 追蹤狀態</div>
                     <div class="info-panel">
                         <div class="info-label">檢測點數</div>
-                        <div class="info-value" id="landmarkCount">0 / 468</div>
+                        <div class="info-value" id="landmarkCount">0/468</div>
                     </div>
                 </div>
                 <div>
-                    <div class="section-title">⚡ 性能指標</div>
+                    <div class="section-title">⚡ 性能</div>
                     <div class="info-panel">
-                        <div class="info-label">幀率 (FPS)</div>
+                        <div class="info-label">幀率</div>
                         <div class="info-value" id="fpsDisplay">0 FPS</div>
                     </div>
                 </div>
                 <div>
-                    <div class="section-title">💫 系統狀態</div>
-                    <div class="info-panel">
-                        <div class="info-label">狀態</div>
-                        <div class="info-value" id="systemStatus">初始化中...</div>
-                    </div>
-                </div>
-                <div>
-                    <div class="section-title">🎯 情緒掃描</div>
-                    <button class="btn" id="scanBtn" onclick="appState.startScan()" style="width: 100%;">開始掃描</button>
+                    <div class="section-title">🎯 掃描</div>
+                    <button class="btn scan-btn" id="scanBtn" onclick="app.startScan()">開始掃描</button>
                     <div id="scanProgress" style="display: none; text-align: center;">
                         <div class="loading-spinner"></div>
-                        <div style="margin-top: 10px; font-size: 14px;">掃描中... <span id="scanTime">3</span>s</div>
+                        <div style="font-size: 12px; color: #00d4ff;">掃描中...<span id="scanTime">3</span>s</div>
                     </div>
                 </div>
             </div>
@@ -223,185 +239,125 @@
 
     <div class="results-screen" id="resultsScreen">
         <div class="results-content">
-            <div class="emotion-icon" id="emotionIcon">😊</div>
+            <span class="emotion-icon" id="emotionIcon">😊</span>
             <div class="emotion-name" id="emotionName">快樂</div>
-            <div class="emotion-desc" id="emotionDesc">您呈現出積極樂觀的情緒狀態。</div>
-            <button class="btn" onclick="appState.closeResults()">🔄 重新掃描</button>
+            <div class="emotion-desc" id="emotionDesc">您呈現出積極樂觀的情緒。</div>
+            <button class="btn" onclick="app.closeResults()">🔄 重新掃描</button>
         </div>
     </div>
 
     <script>
-        // ============ 全局應用狀態 ============
-        const appState = {
-            scene: null,
-            camera: null,
-            renderer: null,
-            maskModel: null,
-            faceMesh: null,
-            fps: 0,
-            frameCount: 0,
-            lastTime: Date.now(),
-            isCameraActive: false,
+        const app = {
+            scene: null, camera: null, renderer: null, maskModel: null,
+            faceMesh: null, fps: 0, frameCount: 0, lastTime: Date.now(),
 
-            // ============ Three.js 初始化 ============
-            initThreeJS() {
-                const container = document.getElementById('glContainer');
-                
-                // 確保容器有尺寸
-                const width = container.clientWidth;
-                const height = container.clientHeight;
-                
-                if (width === 0 || height === 0) {
-                    console.error('Container has zero dimensions');
-                    return false;
-                }
+            init() {
+                this.initThree();
+            },
+
+            initThree() {
+                const canvas = document.getElementById('canvas3d');
+                const w = canvas.clientWidth, h = canvas.clientHeight;
 
                 this.scene = new THREE.Scene();
-                this.scene.background = new THREE.Color(0x000000);
-
-                this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+                this.camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
                 this.camera.position.z = 2;
 
-                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-                this.renderer.setSize(width, height);
+                this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+                this.renderer.setSize(w, h);
                 this.renderer.setPixelRatio(window.devicePixelRatio || 1);
-                
-                container.appendChild(this.renderer.domElement);
+                this.renderer.setClearColor(0x000000, 0);
 
-                // 光源
-                const keyLight = new THREE.DirectionalLight(0xffffff, 1);
-                keyLight.position.set(5, 5, 5);
-                this.scene.add(keyLight);
+                const light1 = new THREE.DirectionalLight(0xffffff, 1.2);
+                light1.position.set(3, 3, 5);
+                this.scene.add(light1);
 
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-                this.scene.add(ambientLight);
+                const light2 = new THREE.AmbientLight(0xffffff, 0.8);
+                this.scene.add(light2);
 
-                // 加載模型
                 this.loadModel();
-
-                // 啟動渲染循環
-                this.renderLoop();
-
-                document.getElementById('systemStatus').textContent = '✅ Three.js 已初始化';
-                return true;
+                this.animate();
             },
 
-            // ============ 加載 GLB 模型 ============
             loadModel() {
-                try {
-                    const loader = new THREE.GLTFLoader();
-                    loader.load(
-                        './0_Monochrome_portrait_of_a_serious_man_Hunyuan_3D_a0e932ca(1).glb',
-                        (gltf) => {
-                            this.maskModel = gltf.scene;
-                            this.maskModel.scale.set(1.5, 1.5, 1.5);
-                            
-                            this.maskModel.traverse((child) => {
-                                if (child.isMesh) {
-                                    child.material = new THREE.MeshStandardMaterial({
-                                        color: 0xcccccc,
-                                        metalness: 0.4,
-                                        roughness: 0.6,
-                                        emissive: 0x111111
-                                    });
-                                }
-                            });
-                            
-                            this.scene.add(this.maskModel);
-                            document.getElementById('systemStatus').textContent = '✅ 3D 模型已載入';
-                        },
-                        undefined,
-                        () => {
-                            console.warn('GLB 載入失敗，使用球體');
-                            this.useFallbackModel();
-                        }
-                    );
-                } catch (error) {
-                    console.error('模型加載錯誤:', error);
-                    this.useFallbackModel();
-                }
+                const loader = new THREE.GLTFLoader();
+                loader.load('./0_Monochrome_portrait_of_a_serious_man_Hunyuan_3D_a0e932ca(1).glb',
+                    (gltf) => {
+                        this.maskModel = gltf.scene;
+                        this.maskModel.scale.set(1.2, 1.2, 1.2);
+                        this.maskModel.traverse((child) => {
+                            if (child.isMesh) {
+                                child.material = new THREE.MeshStandardMaterial({
+                                    color: 0xb0b0b0,
+                                    metalness: 0.3,
+                                    roughness: 0.7,
+                                    emissive: 0x0a0a0a
+                                });
+                            }
+                        });
+                        this.scene.add(this.maskModel);
+                    },
+                    undefined,
+                    () => this.useFallback()
+                );
             },
 
-            // ============ 備用模型 ============
-            useFallbackModel() {
-                const geometry = new THREE.SphereGeometry(1, 32, 32);
-                const material = new THREE.MeshStandardMaterial({
-                    color: 0xcccccc,
-                    metalness: 0.3,
-                    roughness: 0.7
-                });
-                this.maskModel = new THREE.Mesh(geometry, material);
+            useFallback() {
+                const geo = new THREE.SphereGeometry(0.8, 32, 32);
+                const mat = new THREE.MeshStandardMaterial({ color: 0xb0b0b0 });
+                this.maskModel = new THREE.Mesh(geo, mat);
                 this.scene.add(this.maskModel);
-                document.getElementById('systemStatus').textContent = '⚠ 使用球體模型';
             },
 
-            // ============ 渲染循環 ============
-            renderLoop() {
-                requestAnimationFrame(() => this.renderLoop());
-                
-                if (this.renderer && this.scene && this.camera) {
-                    this.renderer.render(this.scene, this.camera);
-                }
-                
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                if (this.renderer) this.renderer.render(this.scene, this.camera);
                 this.updateFPS();
             },
 
-            // ============ 初始化 Face Mesh ============
             async initFaceMesh() {
                 this.faceMesh = new FaceMesh({
-                    locateFile: (file) => 
-                        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+                    locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
                 });
-
                 this.faceMesh.setOptions({
-                    maxNumFaces: 1,
+                    maxNumFaces: 1, 
                     refineLandmarks: true,
-                    minDetectionConfidence: 0.7,
+                    minDetectionConfidence: 0.7, 
                     minTrackingConfidence: 0.7
                 });
-
-                this.faceMesh.onResults((results) => this.onFaceMeshResults(results));
+                this.faceMesh.onResults((r) => this.onResults(r));
             },
 
-            // ============ Face Mesh 結果 ============
-            onFaceMeshResults(results) {
-                if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-                    document.getElementById('landmarkCount').textContent = '0 / 468';
+            onResults(results) {
+                if (!results.multiFaceLandmarks?.length) {
+                    document.getElementById('landmarkCount').textContent = '0/468';
                     return;
                 }
+                const l = results.multiFaceLandmarks[0];
+                document.getElementById('landmarkCount').textContent = `${l.length}/468`;
 
-                const landmarks = results.multiFaceLandmarks[0];
-                document.getElementById('landmarkCount').textContent = `${landmarks.length} / 468`;
+                if (this.maskModel && l.length > 0) {
+                    const left = l[33], right = l[263], nose = l[1];
+                    const cx = (left.x + right.x) / 2, cy = (left.y + right.y) / 2, cz = (left.z + right.z) / 2;
 
-                if (this.maskModel && landmarks.length > 0) {
-                    const left = landmarks[33];
-                    const right = landmarks[263];
-                    const nose = landmarks[1];
+                    this.maskModel.position.x = (cx - 0.5) * 2.5;
+                    this.maskModel.position.y = (0.5 - cy) * 2.5;
+                    this.maskModel.position.z = cz * -8;
 
-                    const centerX = (left.x + right.x) / 2;
-                    const centerY = (left.y + right.y) / 2;
-                    const centerZ = (left.z + right.z) / 2;
-
-                    this.maskModel.position.x = (centerX - 0.5) * 2;
-                    this.maskModel.position.y = (0.5 - centerY) * 2;
-                    this.maskModel.position.z = centerZ * -10;
-
-                    const yaw = Math.atan2(nose.x - centerX, 0.05);
-                    const pitch = (centerY - nose.y) * 100;
+                    const yaw = Math.atan2(nose.x - cx, 0.05);
+                    const pitch = (cy - nose.y) * 100 * (Math.PI / 180);
                     const roll = Math.atan2(right.y - left.y, right.x - left.x);
 
-                    this.maskModel.rotation.x = pitch * (Math.PI / 180);
+                    this.maskModel.rotation.x = pitch;
                     this.maskModel.rotation.y = yaw;
                     this.maskModel.rotation.z = roll;
 
                     const faceWidth = Math.abs(left.x - right.x);
-                    const scale = faceWidth * 10;
-                    const s = Math.max(0.5, Math.min(2, scale));
-                    this.maskModel.scale.set(s, s, s);
+                    const scale = Math.max(0.6, Math.min(1.8, faceWidth * 8));
+                    this.maskModel.scale.set(scale, scale, scale);
                 }
             },
 
-            // ============ 啟動相機 ============
             async startCamera() {
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({
@@ -412,74 +368,47 @@
                         },
                         audio: false
                     });
-
-                    const video = document.getElementById('video');
+                    const video = document.getElementById('videoElement');
                     video.srcObject = stream;
                     video.play();
-
                     await this.initFaceMesh();
-
-                    const processFrame = async () => {
+                    const process = async () => {
                         if (video.readyState === video.HAVE_ENOUGH_DATA) {
                             await this.faceMesh.send({ image: video });
                         }
-                        requestAnimationFrame(processFrame);
+                        requestAnimationFrame(process);
                     };
-
-                    processFrame();
-                    this.isCameraActive = true;
-                    document.getElementById('systemStatus').textContent = '✅ 相機運行中';
-                } catch (error) {
-                    console.error('相機錯誤:', error);
-                    document.getElementById('systemStatus').textContent = '❌ 相機啟動失敗';
+                    process();
+                } catch (e) {
+                    console.error('相機錯誤:', e);
                 }
             },
 
-            // ============ 更新 FPS ============
-            updateFPS() {
-                this.frameCount++;
-                const now = Date.now();
-                const delta = (now - this.lastTime) / 1000;
-
-                if (delta >= 1) {
-                    this.fps = this.frameCount;
-                    this.frameCount = 0;
-                    this.lastTime = now;
-
-                    document.getElementById('fpsCounter').textContent = `FPS: ${this.fps}`;
-                    document.getElementById('fpsDisplay').textContent = `${this.fps} FPS`;
-                }
-            },
-
-            // ============ 情緒掃描 ============
             startScan() {
                 document.getElementById('scanBtn').style.display = 'none';
                 document.getElementById('scanProgress').style.display = 'block';
-
-                let time = 3;
+                let t = 3;
                 const timer = setInterval(() => {
-                    document.getElementById('scanTime').textContent = time;
-                    time--;
-                    if (time < 0) {
-                        clearInterval(timer);
-                        this.completeScan();
+                    document.getElementById('scanTime').textContent = t--;
+                    if (t < 0) { 
+                        clearInterval(timer); 
+                        this.completeScan(); 
                     }
                 }, 1000);
             },
 
             completeScan() {
                 const emotions = [
-                    { name: '快樂', icon: '😊', desc: '您呈現出積極樂觀的情緒狀態。' },
-                    { name: '冷靜', icon: '😐', desc: '您保持著穩定平和的心境。' },
-                    { name: '專注', icon: '😌', desc: '您展現出深入思考的專注力。' },
-                    { name: '驚訝', icon: '😲', desc: '您對某些事物表現出新鮮感。' },
-                    { name: '放鬆', icon: '😌', desc: '您表現出輕鬆愜意的狀態。' }
+                    { n: '快樂', i: '😊', d: '您呈現出積極樂觀的情緒。' },
+                    { n: '冷靜', i: '😐', d: '您保持著穩定平和的心境。' },
+                    { n: '專注', i: '😌', d: '您展現出深入思考的專注力。' },
+                    { n: '驚訝', i: '😲', d: '您對某些事物表現出新鮮感。' },
+                    { n: '放鬆', i: '😌', d: '您表現出輕鬆愜意的狀態。' }
                 ];
-
-                const emotion = emotions[Math.floor(Math.random() * emotions.length)];
-                document.getElementById('emotionIcon').textContent = emotion.icon;
-                document.getElementById('emotionName').textContent = emotion.name;
-                document.getElementById('emotionDesc').textContent = emotion.desc;
+                const e = emotions[Math.floor(Math.random() * emotions.length)];
+                document.getElementById('emotionIcon').textContent = e.i;
+                document.getElementById('emotionName').textContent = e.n;
+                document.getElementById('emotionDesc').textContent = e.d;
                 document.getElementById('resultsScreen').classList.add('active');
                 document.getElementById('scanProgress').style.display = 'none';
             },
@@ -487,26 +416,29 @@
             closeResults() {
                 document.getElementById('resultsScreen').classList.remove('active');
                 document.getElementById('scanBtn').style.display = 'block';
+            },
+
+            updateFPS() {
+                this.frameCount++;
+                const now = Date.now();
+                if (now - this.lastTime >= 1000) {
+                    this.fps = this.frameCount;
+                    this.frameCount = 0;
+                    this.lastTime = now;
+                    document.getElementById('fpsCounter').textContent = `FPS: ${this.fps}`;
+                    document.getElementById('fpsDisplay').textContent = `${this.fps} FPS`;
+                }
             }
         };
 
-        // ============ 初始化 ============
-        window.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => {
-                appState.initThreeJS();
-            }, 100);
-        });
-
-        // ============ 視窗調整 ============
+        window.addEventListener('DOMContentLoaded', () => app.init());
         window.addEventListener('resize', () => {
-            if (appState.renderer && appState.camera) {
-                const container = document.getElementById('glContainer');
-                const width = container.clientWidth;
-                const height = container.clientHeight;
-                
-                appState.camera.aspect = width / height;
-                appState.camera.updateProjectionMatrix();
-                appState.renderer.setSize(width, height);
+            if (app.renderer) {
+                const canvas = document.getElementById('canvas3d');
+                const w = canvas.clientWidth, h = canvas.clientHeight;
+                app.camera.aspect = w / h;
+                app.camera.updateProjectionMatrix();
+                app.renderer.setSize(w, h);
             }
         });
     </script>
