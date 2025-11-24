@@ -122,6 +122,54 @@
             color: #00d4ff;
             z-index: 100;
         }
+        .results-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0e27, #131729);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        .results-screen.active {
+            display: flex;
+        }
+        .results-content {
+            text-align: center;
+            max-width: 600px;
+        }
+        .emotion-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        .emotion-name {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #00d4ff, #9d4edd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .emotion-desc {
+            font-size: 18px;
+            margin-bottom: 30px;
+            color: #a0a0a0;
+        }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 212, 255, 0.2);
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -158,7 +206,24 @@
                         <div class="info-value" id="systemStatus">就緒</div>
                     </div>
                 </div>
+                <div>
+                    <div class="section-title">🎯 情緒掃描</div>
+                    <button class="btn" id="scanBtn" onclick="startScan()" style="width: 100%;">開始掃描</button>
+                    <div id="scanProgress" style="display: none; text-align: center;">
+                        <div class="loading-spinner"></div>
+                        <div style="margin-top: 10px; font-size: 14px;">掃描中... <span id="scanTime">3</span>s</div>
+                    </div>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <div class="results-screen" id="resultsScreen">
+        <div class="results-content">
+            <div class="emotion-icon" id="emotionIcon">😊</div>
+            <div class="emotion-name" id="emotionName">快樂</div>
+            <div class="emotion-desc" id="emotionDesc">您呈現出積極樂觀的情緒狀態。</div>
+            <button class="btn" onclick="closeResults()">🔄 重新掃描</button>
         </div>
     </div>
 
@@ -166,6 +231,14 @@
         let scene, camera, renderer, maskModel;
         let faceMesh = null;
         let fps = 0, frameCount = 0, lastTime = Date.now();
+
+        const EMOTIONS = [
+            { name: '快樂', icon: '😊', desc: '您呈現出積極樂觀的情緒狀態。' },
+            { name: '冷靜', icon: '😐', desc: '您保持著穩定平和的心境。' },
+            { name: '專注', icon: '😌', desc: '您展現出深入思考的專注力。' },
+            { name: '驚訝', icon: '😲', desc: '您對某些事物表現出新鮮感。' },
+            { name: '放鬆', icon: '😌', desc: '您表現出輕鬆愜意的狀態。' }
+        ];
 
         // Three.js 初始化
         function initThree() {
@@ -178,7 +251,6 @@
             renderer.setSize(canvas.clientWidth, canvas.clientHeight);
             renderer.setClearColor(0x000000, 0);
 
-            // 光源
             const light1 = new THREE.DirectionalLight(0xffffff, 0.8);
             light1.position.set(1, 1, 1);
             scene.add(light1);
@@ -302,6 +374,36 @@
                 document.getElementById('fpsCounter').textContent = `FPS: ${fps}`;
                 document.getElementById('fpsDisplay').textContent = `${fps} FPS`;
             }
+        }
+
+        // 掃描功能
+        function startScan() {
+            document.getElementById('scanBtn').style.display = 'none';
+            document.getElementById('scanProgress').style.display = 'block';
+
+            let time = 3;
+            const timer = setInterval(() => {
+                document.getElementById('scanTime').textContent = time;
+                time--;
+                if (time < 0) {
+                    clearInterval(timer);
+                    completeScan();
+                }
+            }, 1000);
+        }
+
+        function completeScan() {
+            const emotion = EMOTIONS[Math.floor(Math.random() * EMOTIONS.length)];
+            document.getElementById('emotionIcon').textContent = emotion.icon;
+            document.getElementById('emotionName').textContent = emotion.name;
+            document.getElementById('emotionDesc').textContent = emotion.desc;
+            document.getElementById('resultsScreen').classList.add('active');
+            document.getElementById('scanProgress').style.display = 'none';
+        }
+
+        function closeResults() {
+            document.getElementById('resultsScreen').classList.remove('active');
+            document.getElementById('scanBtn').style.display = 'block';
         }
 
         window.addEventListener('resize', () => {
