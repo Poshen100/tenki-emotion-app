@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v10.8 - Root Path Fix</title>
+    <title>TENKI v10.9 - Perfect Scale</title>
     
     <!-- 引入核心庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -78,6 +78,7 @@
             border-bottom: 1px solid var(--border);
             border-radius: 10px;
             pointer-events: auto;
+            width: fit-content;
         }
 
         .logo {
@@ -94,24 +95,21 @@
             border: 1px solid var(--secondary);
             color: var(--secondary);
             border-radius: 4px;
+            margin-left: 20px;
         }
 
         .sidebar {
             position: absolute;
             right: 20px;
             top: 100px;
-            width: 200px;
+            width: 220px;
             background: rgba(0,0,0,0.8);
             backdrop-filter: blur(10px);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 20px;
             pointer-events: auto;
-            transform: translateX(120%);
-            transition: transform 0.3s ease;
         }
-
-        .sidebar.active { transform: translateX(0); }
 
         .scan-trigger {
             position: absolute;
@@ -134,6 +132,7 @@
             transition: all 0.3s;
             box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
             z-index: 20;
+            font-weight: bold;
         }
 
         .scan-trigger:active {
@@ -220,8 +219,10 @@
             pointer-events: auto;
         }
 
-        .emotion-title { font-size: 2rem; color: var(--secondary); margin-bottom: 10px; }
-        .fps-counter { position: fixed; top: 80px; left: 20px; font-size: 12px; color: lime; z-index: 5; }
+        .emotion-title { font-size: 2rem; color: var(--secondary); margin-bottom: 10px; font-weight: bold; }
+        .emotion-desc { font-size: 0.9rem; line-height: 1.5; }
+        
+        .fps-counter { position: fixed; top: 80px; left: 20px; font-size: 12px; color: lime; z-index: 5; font-family: monospace; }
 
         .scanner-line {
             position: absolute;
@@ -253,10 +254,31 @@
             font-size: 10px;
             color: rgba(255,255,255,0.5);
             z-index: 200;
+            font-family: monospace;
         }
 
-        @media (min-width: 768px) {
-            .sidebar { transform: translateX(0); }
+        .section-label {
+            color: var(--primary);
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 3px;
+        }
+
+        .info-row {
+            font-size: 0.8rem;
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .info-value {
+            color: var(--primary);
+            font-weight: bold;
         }
     </style>
 </head>
@@ -264,7 +286,7 @@
 
     <div id="loader">
         <div class="spinner"></div>
-        <p>TENKI SYSTEM v10.8</p>
+        <p>TENKI SYSTEM v10.9</p>
         <p style="font-size: 0.8rem; opacity: 0.7; margin-top: 10px;" id="loading-text">Initializing...</p>
     </div>
 
@@ -279,16 +301,31 @@
         
         <div class="header">
             <div class="logo">TENKI</div>
-            <div class="status-badge">ONLINE</div>
+            <div class="status-badge">v10.9</div>
         </div>
 
         <div class="sidebar">
-            <h3 style="color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px; margin-bottom:10px;">CONTROLS</h3>
-            <p style="font-size:0.8rem; margin-bottom:5px;">MODEL: <span style="color:lime">ROOT/3D</span></p>
-            <p style="font-size:0.8rem; margin-bottom:5px;">TRACKING: <span style="color:var(--primary)">468 PTS</span></p>
-            <p style="font-size:0.8rem; margin-bottom:15px;">PRIVACY: <span id="privacy-status" style="color:lime">SECURE</span></p>
-            <div style="font-size: 0.7rem; opacity: 0.6; line-height: 1.4;">
-                Hold the red button to reveal real face.
+            <div class="section-label">📊 System Status</div>
+            <div class="info-row">
+                <span>3D Model:</span>
+                <span class="info-value" id="model-status">LOADING</span>
+            </div>
+            <div class="info-row">
+                <span>Face Track:</span>
+                <span class="info-value" id="track-status">READY</span>
+            </div>
+            <div class="info-row">
+                <span>Privacy:</span>
+                <span class="info-value" id="privacy-status">SECURE</span>
+            </div>
+            
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
+                <div class="section-label">🎮 Controls</div>
+                <div style="font-size: 0.75rem; opacity: 0.8; line-height: 1.6;">
+                    • Hold RED button to reveal face<br>
+                    • Click CYAN button to scan<br>
+                    • Full head tracking enabled
+                </div>
             </div>
         </div>
 
@@ -305,11 +342,11 @@
 
     <div id="result-card">
         <h2 class="emotion-title" id="emotion-result">NEUTRAL</h2>
-        <p style="margin-bottom: 20px;" id="emotion-desc">System analysis complete.</p>
-        <div style="width: 100%; background: #333; height: 5px; margin-bottom: 20px;">
+        <p class="emotion-desc" id="emotion-desc">System analysis complete.</p>
+        <div style="width: 100%; background: #333; height: 5px; margin: 20px 0;">
             <div style="width: 75%; background: var(--secondary); height: 100%;"></div>
         </div>
-        <button onclick="closeResult()" style="background: transparent; border: 1px solid var(--primary); color: var(--primary); padding: 10px 30px; cursor: pointer;">CLOSE</button>
+        <button onclick="closeResult()" style="background: transparent; border: 1px solid var(--primary); color: var(--primary); padding: 10px 30px; cursor: pointer; font-weight: bold; transition: all 0.3s;" onmouseover="this.style.background='var(--primary)'; this.style.color='black'" onmouseout="this.style.background='transparent'; this.style.color='var(--primary)'">CLOSE</button>
     </div>
 
     <script>
@@ -331,14 +368,14 @@
             scene = new THREE.Scene();
             
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 2; 
+            camera.position.z = 1; // 靠近一點
 
             renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             canvasContainer.appendChild(renderer.domElement);
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
             scene.add(ambientLight);
 
             const directionalLight = new THREE.DirectionalLight(0x00f3ff, 1.2); 
@@ -365,11 +402,12 @@
             dracoLoader.setDecoderConfig({ type: 'js' });
             loader.setDRACOLoader(dracoLoader);
             
-            // === 關鍵修改：檔案現在在根目錄，所以直接寫檔名 ===
+            // 檔案在根目錄
             const modelPath = './3d-head.glb?v=' + Date.now();
             
             console.log("Loading model from:", modelPath);
             loadingText.innerText = "Downloading 3D Model...";
+            document.getElementById('model-status').innerText = 'LOADING';
 
             loader.load(modelPath, (gltf) => {
                 maskMesh = gltf.scene;
@@ -389,11 +427,13 @@
                     }
                 });
 
-                maskMesh.scale.set(6, 6, 6); 
+                // === v10.9 優化：縮放從 6 改為 1.5 ===
+                maskMesh.scale.set(1.5, 1.5, 1.5);
                 
                 scene.add(maskMesh);
                 console.log("✅ Model Loaded");
-                statusMsg.innerText = "3D Model Active";
+                loadingText.innerText = "Ready...";
+                document.getElementById('model-status').innerText = 'ACTIVE';
                 
             }, 
             (xhr) => {
@@ -405,12 +445,13 @@
             (error) => {
                 console.error('Loader Error:', error);
                 loadingText.innerText = "Model Load Failed.";
+                document.getElementById('model-status').innerText = 'ERROR';
                 createPlaceholderMask(); 
             });
         }
 
         function createPlaceholderMask() {
-            const geometry = new THREE.IcosahedronGeometry(1.0, 1);
+            const geometry = new THREE.IcosahedronGeometry(0.5, 1);
             const material = new THREE.MeshStandardMaterial({ 
                 color: 0x222222,
                 roughness: 0.4,
@@ -474,14 +515,19 @@
                     scene.add(window.bgMesh);
                 }
                 if (window.bgMesh) window.bgMesh.visible = true;
+                document.getElementById('privacy-status').innerText = 'REVEALED';
             } else {
                 if (maskMesh) maskMesh.visible = true;
                 if (window.bgMesh) window.bgMesh.visible = false;
+                document.getElementById('privacy-status').innerText = 'SECURE';
             }
 
             if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
                 const landmarks = results.multiFaceLandmarks[0];
                 updateMaskPosition(landmarks);
+                document.getElementById('track-status').innerText = '468 PTS';
+            } else {
+                document.getElementById('track-status').innerText = 'SEARCHING';
             }
 
             renderer.render(scene, camera);
@@ -496,9 +542,10 @@
             const top = landmarks[10];
             const bottom = landmarks[152];
 
-            const x = (0.5 - nose.x) * 4; 
-            const y = (0.5 - nose.y) * 3;
-            const z = -nose.z * 5; 
+            // === v10.9 優化：調整位置倍數 ===
+            const x = (0.5 - nose.x) * 2.5;    // 縮小倍數
+            const y = (0.5 - nose.y) * 2.0;    // 縮小倍數
+            const z = -nose.z * 2;              // 縮小倍數
 
             const vectorX = rightEye.x - leftEye.x;
             const vectorY = rightEye.y - leftEye.y;
@@ -507,29 +554,24 @@
             const rotationY = (leftEye.z - rightEye.z) * 3;
             const rotationX = (nose.y - (top.y + bottom.y)/2) * 5;
 
-            maskMesh.position.lerp(new THREE.Vector3(x, y, 0), 0.5);
+            maskMesh.position.lerp(new THREE.Vector3(x, y, z), 0.5);
             maskMesh.rotation.z = rotationZ;
             maskMesh.rotation.y = rotationY;
             maskMesh.rotation.x = rotationX;
         }
 
         const privacyBtn = document.getElementById('privacy-btn');
-        const privacyStatus = document.getElementById('privacy-status');
 
         const startReveal = () => {
             isPrivacyMode = true;
             privacyBtn.style.background = 'var(--alert)';
             privacyBtn.style.color = 'white';
-            privacyStatus.innerText = "WARNING: REAL FACE";
-            privacyStatus.style.color = "var(--alert)";
         };
         
         const endReveal = () => {
             isPrivacyMode = false;
             privacyBtn.style.background = 'var(--bg-dark)';
             privacyBtn.style.color = 'var(--alert)';
-            privacyStatus.innerText = "SECURE";
-            privacyStatus.style.color = "lime";
         };
 
         privacyBtn.addEventListener('mousedown', startReveal);
@@ -555,10 +597,11 @@
 
         function showRandomEmotion() {
             const emotions = [
-                { t: "JOY", d: "High dopamine levels detected. Positive engagement." },
-                { t: "FOCUSED", d: "Beta waves dominant. Concentration level 92%." },
+                { t: "JOY", d: "High dopamine levels detected. Positive engagement at 92%." },
+                { t: "FOCUSED", d: "Beta waves dominant. Concentration level: 87%." },
                 { t: "CALM", d: "Heart rate steady. Parasympathetic nervous system active." },
-                { t: "SURPRISED", d: "Sudden spike in alertness vectors." }
+                { t: "INSPIRED", d: "Creativity index elevated. Neural patterns optimized." },
+                { t: "ALERT", d: "Adrenaline response detected. Awareness: 95%." }
             ];
             const pick = emotions[Math.floor(Math.random() * emotions.length)];
             
