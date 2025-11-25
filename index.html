@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -137,6 +138,9 @@
             font-size: 16px;
             font-weight: 600;
         }
+        .status-good { color: #00ff00; }
+        .status-warning { color: #ffaa00; }
+        .status-error { color: #ff0000; }
         .scan-btn {
             width: 100%;
             padding: 10px;
@@ -187,15 +191,6 @@
             margin-bottom: 30px;
             color: #a0a0a0;
         }
-        @media (max-width: 900px) {
-            .sidebar {
-                width: 280px;
-                padding: 12px;
-            }
-            .section-title {
-                font-size: 9px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -226,7 +221,14 @@
                     </div>
                 </div>
                 <div>
-                    <div class="section-title">🎯 掃描</div>
+                    <div class="section-title">📦 模型狀態</div>
+                    <div class="info-panel">
+                        <div class="info-label">3D 模型</div>
+                        <div class="info-value" id="modelStatus" style="font-size: 12px; color: #ffaa00;">載入中...</div>
+                    </div>
+                </div>
+                <div>
+                    <div class="section-title">🎯 情緒掃描</div>
                     <button class="btn scan-btn" id="scanBtn" onclick="app.startScan()">開始掃描</button>
                     <div id="scanProgress" style="display: none; text-align: center;">
                         <div class="loading-spinner"></div>
@@ -247,12 +249,16 @@
     </div>
 
     <script>
+        const GLB_URL = 'https://raw.githubusercontent.com/Poshen100/tenki-emotion-app/main/models/3d-head.glb';
+
         const app = {
             scene: null, camera: null, renderer: null, maskModel: null,
             faceMesh: null, fps: 0, frameCount: 0, lastTime: Date.now(),
+            currentLandmarks: null, modelLoaded: false,
 
             init() {
                 this.initThree();
+                this.loadModel();
             },
 
             initThree() {
@@ -275,38 +281,63 @@
                 const light2 = new THREE.AmbientLight(0xffffff, 0.8);
                 this.scene.add(light2);
 
-                this.loadModel();
                 this.animate();
             },
 
             loadModel() {
                 const loader = new THREE.GLTFLoader();
-                loader.load('./0_Monochrome_portrait_of_a_serious_man_Hunyuan_3D_a0e932ca(1).glb',
-                    (gltf) => {
-                        this.maskModel = gltf.scene;
-                        this.maskModel.scale.set(1.2, 1.2, 1.2);
-                        this.maskModel.traverse((child) => {
-                            if (child.isMesh) {
-                                child.material = new THREE.MeshStandardMaterial({
-                                    color: 0xb0b0b0,
-                                    metalness: 0.3,
-                                    roughness: 0.7,
-                                    emissive: 0x0a0a0a
-                                });
-                            }
-                        });
-                        this.scene.add(this.maskModel);
+                
+                console.log('載入模型:', GLB_URL);
+                document.getElementById('modelStatus').textContent = '載入中...';
+                document.getElementById('modelStatus').className = 'status-warning';
+
+                loader.load(
+                    GLB_URL,
+                    (gltf) => this.onModelLoaded(gltf),
+                    (progress) => {
+                        const percent = Math.round((progress.loaded / progress.total) * 100);
+                        console.log(`進度: ${percent}%`);
                     },
-                    undefined,
-                    () => this.useFallback()
+                    (error) => this.onModelError(error)
                 );
             },
 
-            useFallback() {
+            onModelLoaded(gltf) {
+                console.log('✅ 模型加載成功');
+                this.maskModel = gltf.scene;
+                this.maskModel.scale.set(1.2, 1.2, 1.2);
+                
+                this.maskModel.traverse((child) => {
+                    if (child.isMesh) {
+                        child.material = new THREE.MeshStandardMaterial({
+                            color: 0xb0b0b0,
+                            metalness: 0.3,
+                            roughness: 0.7,
+                            emissive: 0x0a0a0a
+                        });
+                    }
+                });
+                
+                this.scene.add(this.maskModel);
+                this.modelLoaded = true;
+                
+                document.getElementById('modelStatus').textContent = '✅ 已加載';
+                document.getElementById('modelStatus').className = 'status-good';
+            },
+
+            onModelError(error) {
+                console.error('❌ 加載失敗:', error);
+                document.getElementById('modelStatus').textContent = '❌ 使用備用';
+                document.getElementById('modelStatus').className = 'status-error';
+                this.loadFallbackModel();
+            },
+
+            loadFallbackModel() {
                 const geo = new THREE.SphereGeometry(0.8, 32, 32);
                 const mat = new THREE.MeshStandardMaterial({ color: 0xb0b0b0 });
                 this.maskModel = new THREE.Mesh(geo, mat);
                 this.scene.add(this.maskModel);
+                this.modelLoaded = true;
             },
 
             animate() {
@@ -335,8 +366,9 @@
                 }
                 const l = results.multiFaceLandmarks[0];
                 document.getElementById('landmarkCount').textContent = `${l.length}/468`;
+                this.currentLandmarks = l;
 
-                if (this.maskModel && l.length > 0) {
+                if (this.maskModel && l.length > 0 && this.modelLoaded) {
                     const left = l[33], right = l[263], nose = l[1];
                     const cx = (left.x + right.x) / 2, cy = (left.y + right.y) / 2, cz = (left.z + right.z) / 2;
 
@@ -381,18 +413,25 @@
                     process();
                 } catch (e) {
                     console.error('相機錯誤:', e);
+                    alert('無法啟動相機。請檢查權限。');
                 }
             },
 
             startScan() {
+                if (!this.currentLandmarks) {
+                    alert('請先啟動相機進行人臉檢測');
+                    return;
+                }
+
                 document.getElementById('scanBtn').style.display = 'none';
                 document.getElementById('scanProgress').style.display = 'block';
+                
                 let t = 3;
                 const timer = setInterval(() => {
                     document.getElementById('scanTime').textContent = t--;
-                    if (t < 0) { 
-                        clearInterval(timer); 
-                        this.completeScan(); 
+                    if (t < 0) {
+                        clearInterval(timer);
+                        this.completeScan();
                     }
                 }, 1000);
             },
@@ -401,7 +440,7 @@
                 const emotions = [
                     { n: '快樂', i: '😊', d: '您呈現出積極樂觀的情緒。' },
                     { n: '冷靜', i: '😐', d: '您保持著穩定平和的心境。' },
-                    { n: '專注', i: '😌', d: '您展現出深入思考的專注力。' },
+                    { n: '專注', i: '🤔', d: '您展現出深入思考的專注力。' },
                     { n: '驚訝', i: '😲', d: '您對某些事物表現出新鮮感。' },
                     { n: '放鬆', i: '😌', d: '您表現出輕鬆愜意的狀態。' }
                 ];
@@ -444,3 +483,4 @@
     </script>
 </body>
 </html>
+```
