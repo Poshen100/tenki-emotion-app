@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v10.0 - Noir Emotion Interface</title>
+    <title>TENKI v10.5 - 3D AI Emotion Interface</title>
     
     <!-- 引入核心庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -32,7 +32,6 @@
             height: 100vh;
         }
 
-        /* UI 層次結構 */
         #canvas-container {
             position: absolute;
             top: 0;
@@ -50,10 +49,9 @@
             left: 0;
             width: 100%;
             height: 100%;
-            transform: scaleX(-1); /* 鏡像翻轉 */
+            transform: scaleX(-1);
         }
 
-        /* 介面覆蓋層 */
         #ui-layer {
             position: absolute;
             top: 0;
@@ -61,14 +59,13 @@
             width: 100%;
             height: 100%;
             z-index: 10;
-            pointer-events: none; /* 讓點擊穿透到按鈕 */
+            pointer-events: none;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             padding: 20px;
         }
 
-        /* 頂部導航 */
         .header {
             display: flex;
             justify-content: space-between;
@@ -97,7 +94,6 @@
             border-radius: 4px;
         }
 
-        /* 側邊欄控制 */
         .sidebar {
             position: absolute;
             right: 20px;
@@ -115,7 +111,6 @@
 
         .sidebar.active { transform: translateX(0); }
 
-        /* 掃描按鈕 (主要交互) */
         .scan-trigger {
             position: absolute;
             bottom: 40px;
@@ -145,7 +140,6 @@
             color: black;
         }
 
-        /* 隱私保護按鈕 (Hold to Reveal) */
         .privacy-btn {
             position: absolute;
             bottom: 40px;
@@ -173,7 +167,6 @@
             transform: scale(0.95);
         }
 
-        /* 載入畫面 */
         #loader {
             position: fixed;
             top: 0;
@@ -200,7 +193,6 @@
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* 結果卡片 */
         #result-card {
             position: absolute;
             top: 50%;
@@ -229,7 +221,6 @@
         .emotion-title { font-size: 2rem; color: var(--secondary); margin-bottom: 10px; }
         .fps-counter { position: fixed; top: 80px; left: 20px; font-size: 12px; color: lime; z-index: 5; }
 
-        /* 掃描線動畫 */
         .scanner-line {
             position: absolute;
             top: 0;
@@ -260,22 +251,16 @@
 </head>
 <body>
 
-    <!-- 載入層 -->
     <div id="loader">
         <div class="spinner"></div>
-        <p>INITIALIZING TENKI v10.0...</p>
-        <p style="font-size: 0.8rem; opacity: 0.7; margin-top: 10px;">Loading AI Models & 3D Engine</p>
+        <p>INITIALIZING TENKI v10.5</p>
+        <p style="font-size: 0.8rem; opacity: 0.7; margin-top: 10px;">Loading 3D Neural Models...</p>
     </div>
 
-    <!-- 攝像頭視頻 (隱藏) -->
     <video id="input-video" playsinline></video>
 
-    <!-- 渲染容器 -->
-    <div id="canvas-container">
-        <!-- Three.js 和 Video 畫布將通過 JS 插入這裡 -->
-    </div>
+    <div id="canvas-container"></div>
 
-    <!-- UI 介面 -->
     <div id="ui-layer">
         <div class="scanner-line"></div>
         
@@ -286,28 +271,25 @@
 
         <div class="sidebar">
             <h3 style="color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px; margin-bottom:10px;">CONTROLS</h3>
-            <p style="font-size:0.8rem; margin-bottom:5px;">RENDERING: <span style="color:lime">ACTIVE</span></p>
+            <p style="font-size:0.8rem; margin-bottom:5px;">RENDERING: <span style="color:lime">3D GLB</span></p>
             <p style="font-size:0.8rem; margin-bottom:5px;">TRACKING: <span style="color:var(--primary)">468 PTS</span></p>
             <p style="font-size:0.8rem; margin-bottom:15px;">PRIVACY: <span id="privacy-status" style="color:lime">SECURE</span></p>
             <div style="font-size: 0.7rem; opacity: 0.6; line-height: 1.4;">
-                Hold the red button to reveal real face data. Click center button to scan emotion.
+                Hold the red button to reveal real face.
             </div>
         </div>
 
         <div class="fps-counter">FPS: <span id="fps">0</span></div>
 
-        <!-- 觸發按鈕 -->
         <div class="scan-trigger" id="scan-btn">
             SCAN<br>EMOTION
         </div>
 
-        <!-- 隱私按鈕 -->
         <div class="privacy-btn" id="privacy-btn">
             HOLD<br>REAL
         </div>
     </div>
 
-    <!-- 結果彈窗 -->
     <div id="result-card">
         <h2 class="emotion-title" id="emotion-result">NEUTRAL</h2>
         <p style="margin-bottom: 20px;" id="emotion-desc">System analysis complete.</p>
@@ -318,49 +300,43 @@
     </div>
 
     <script>
-        // === 全局變量 ===
         const videoElement = document.getElementById('input-video');
         const canvasContainer = document.getElementById('canvas-container');
         let scene, camera, renderer, faceMesh;
-        let maskMesh = null; // 3D 頭套模型
-        let isPrivacyMode = false; // 是否顯示真臉
+        let maskMesh = null; 
+        let isPrivacyMode = false; 
         let isScanning = false;
         
-        // 性能監控
         let lastTime = 0;
         let frameCount = 0;
         const fpsElement = document.getElementById('fps');
 
-        // === 1. 初始化 Three.js 場景 ===
         function initThreeJS() {
             scene = new THREE.Scene();
             
-            // 設置相機
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 2; // 將相機稍微後拉
+            camera.position.z = 2; 
 
             renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             canvasContainer.appendChild(renderer.domElement);
 
-            // 燈光系統 (Noir 風格)
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            // 光照系統 - 增強亮度以確保看得到模型
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
             scene.add(ambientLight);
 
-            const directionalLight = new THREE.DirectionalLight(0x00f3ff, 1); // 青色主光
+            const directionalLight = new THREE.DirectionalLight(0x00f3ff, 1.2); 
             directionalLight.position.set(1, 1, 2);
             scene.add(directionalLight);
 
-            const rimLight = new THREE.DirectionalLight(0xbc13fe, 1.5); // 紫色邊緣光
+            const rimLight = new THREE.DirectionalLight(0xbc13fe, 1.5); 
             rimLight.position.set(-1, 0, 1);
             scene.add(rimLight);
 
-            // === 創建預設 3D 面具 (佔位符) ===
-            // 實際項目中，這裡會被 loadFaceMask() 替換
-            createPlaceholderMask();
+            // 載入您的 3D 模型
+            loadFaceMask();
 
-            // 調整大小監聽
             window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
@@ -368,46 +344,64 @@
             });
         }
 
-        // 創建一個簡單的幾何面具作為演示
+        // === 關鍵修改：載入 models/3d-head.glb ===
+        function loadFaceMask() {
+            const loader = new THREE.GLTFLoader();
+            
+            console.log("正在嘗試載入 ./models/3d-head.glb ...");
+
+            loader.load('./models/3d-head.glb', (gltf) => {
+                maskMesh = gltf.scene;
+
+                // 強制覆蓋材質，確保不會是全黑的
+                maskMesh.traverse((node) => {
+                    if (node.isMesh) {
+                        node.material = new THREE.MeshStandardMaterial({
+                            color: 0xc0c0c0,      // 銀灰色
+                            metalness: 0.6,       // 金屬感
+                            roughness: 0.3,       // 光滑度
+                            emissive: 0x111111,   // 微微自發光
+                            side: THREE.DoubleSide
+                        });
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                    }
+                });
+
+                // 調整大小 (根據截圖中的模型比例進行預估)
+                maskMesh.scale.set(6, 6, 6); 
+                
+                scene.add(maskMesh);
+                console.log("✅ 3D 模型載入成功！");
+                
+            }, 
+            // 載入進度
+            (xhr) => {
+                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+            },
+            // 錯誤處理
+            (error) => {
+                console.error('❌ 模型載入失敗，切換回備用球體:', error);
+                createPlaceholderMask(); // 如果找不到檔案，用球體代替
+            });
+        }
+
+        // 備用方案 (如果讀不到檔案)
         function createPlaceholderMask() {
             const geometry = new THREE.IcosahedronGeometry(1.0, 1);
             const material = new THREE.MeshStandardMaterial({ 
                 color: 0x222222,
                 roughness: 0.4,
                 metalness: 0.8,
-                wireframe: true, // Cyberpunk 風格
+                wireframe: true,
                 emissive: 0x00f3ff,
                 emissiveIntensity: 0.2
             });
             maskMesh = new THREE.Mesh(geometry, material);
-            maskMesh.scale.set(1, 1.2, 1); // 拉長一點像人臉
+            maskMesh.scale.set(1, 1.2, 1);
             scene.add(maskMesh);
         }
 
-        /* 
-        // === [進階] 載入 GLB 模型代碼 ===
-        // 如果您有真實模型，請取消此函數註釋並替換 createPlaceholderMask()
-        function loadFaceMask() {
-            const loader = new THREE.GLTFLoader();
-            loader.load('./mask.glb', (gltf) => {
-                maskMesh = gltf.scene;
-                // 調整模型大小和材質
-                maskMesh.traverse((node) => {
-                    if (node.isMesh) {
-                        node.material = new THREE.MeshStandardMaterial({
-                            color: 0x333333,
-                            metalness: 0.9,
-                            roughness: 0.2
-                        });
-                    }
-                });
-                maskMesh.scale.set(10, 10, 10); // 根據模型實際尺寸調整
-                scene.add(maskMesh);
-            });
-        }
-        */
-
-        // === 2. 初始化 MediaPipe Face Mesh ===
         async function initFaceMesh() {
             const faceMesh = new FaceMesh({locateFile: (file) => {
                 return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
@@ -422,7 +416,6 @@
 
             faceMesh.onResults(onResults);
 
-            // 啟動攝像頭
             const camera = new Camera(videoElement, {
                 onFrame: async () => {
                     await faceMesh.send({image: videoElement});
@@ -433,12 +426,9 @@
             camera.start();
         }
 
-        // === 3. 處理追蹤結果 ===
         function onResults(results) {
-            // 隱藏 Loading
             document.getElementById('loader').style.display = 'none';
 
-            // FPS 計算
             const now = performance.now();
             frameCount++;
             if (now - lastTime >= 1000) {
@@ -447,37 +437,25 @@
                 lastTime = now;
             }
 
-            // 繪製背景 (相機畫面)
-            // 在 Three.js 場景後面，我們其實不需要繪製 Canvas 2D 背景，
-            // 但為了實現 "Hold to Reveal"，我們需要動態決定是否渲染視頻背景
-            
             renderer.autoClear = false;
             renderer.clear();
 
-            // 如果按下隱私按鈕 (Hold)，則顯示相機背景 (移除頭套效果)
             if (isPrivacyMode) {
-                // 這裡可以使用 CanvasTexture 將 video 渲染到 Three.js 背景
-                // 為簡化，我們直接讓 maskMesh 消失
                 if (maskMesh) maskMesh.visible = false;
-                
-                // 創建一個全屏平面顯示 Video
                 if (!window.videoTexture) {
                     window.videoTexture = new THREE.VideoTexture(videoElement);
                     const bgGeo = new THREE.PlaneGeometry(2 * camera.aspect, 2);
                     const bgMat = new THREE.MeshBasicMaterial({ map: window.videoTexture });
                     window.bgMesh = new THREE.Mesh(bgGeo, bgMat);
-                    window.bgMesh.position.z = -1; // 在所有物體後面
+                    window.bgMesh.position.z = -1;
                     scene.add(window.bgMesh);
                 }
-                window.bgMesh.visible = true;
-
+                if (window.bgMesh) window.bgMesh.visible = true;
             } else {
-                // 隱私模式：顯示 3D 頭套，背景全黑或虛化
                 if (maskMesh) maskMesh.visible = true;
                 if (window.bgMesh) window.bgMesh.visible = false;
             }
 
-            // 更新頭部位置
             if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
                 const landmarks = results.multiFaceLandmarks[0];
                 updateMaskPosition(landmarks);
@@ -486,46 +464,32 @@
             renderer.render(scene, camera);
         }
 
-        // === 4. 數學魔法：將 Face Mesh 點轉換為 3D 坐標 ===
         function updateMaskPosition(landmarks) {
             if (!maskMesh) return;
 
-            // 獲取關鍵點
-            // 1: 鼻尖, 152: 下巴, 10: 頂部, 33: 左眼角, 263: 右眼角
             const nose = landmarks[1];
             const leftEye = landmarks[33];
             const rightEye = landmarks[263];
             const top = landmarks[10];
             const bottom = landmarks[152];
 
-            // 計算中心點 (MediaPipe 坐標是歸一化的 0.0 ~ 1.0)
-            // Three.js 視口範圍大約是 -aspect ~ aspect (x) 和 -1 ~ 1 (y)
-            
-            // 簡單的位置映射
-            const x = (0.5 - nose.x) * 4; // 乘數取決於相機距離
+            const x = (0.5 - nose.x) * 4; 
             const y = (0.5 - nose.y) * 3;
-            // Z 軸深度估算
             const z = -nose.z * 5; 
 
-            // 計算旋轉
-            // 這裡使用簡化的歐拉角計算
             const vectorX = rightEye.x - leftEye.x;
             const vectorY = rightEye.y - leftEye.y;
-            const rotationZ = Math.atan2(vectorY, vectorX); // Roll
+            const rotationZ = Math.atan2(vectorY, vectorX);
             
-            const rotationY = (leftEye.z - rightEye.z) * 3; // Yaw (近似)
-            const rotationX = (nose.y - (top.y + bottom.y)/2) * 5; // Pitch (近似)
+            const rotationY = (leftEye.z - rightEye.z) * 3;
+            const rotationX = (nose.y - (top.y + bottom.y)/2) * 5;
 
-            // 平滑插值 (Lerp) 避免抖動
             maskMesh.position.lerp(new THREE.Vector3(x, y, 0), 0.5);
             maskMesh.rotation.z = rotationZ;
             maskMesh.rotation.y = rotationY;
             maskMesh.rotation.x = rotationX;
         }
 
-        // === 5. UI 交互邏輯 ===
-        
-        // 隱私按鈕 (Hold to Reveal)
         const privacyBtn = document.getElementById('privacy-btn');
         const privacyStatus = document.getElementById('privacy-status');
 
@@ -545,14 +509,12 @@
             privacyStatus.style.color = "lime";
         };
 
-        // 支持鼠標和觸控
         privacyBtn.addEventListener('mousedown', startReveal);
         privacyBtn.addEventListener('mouseup', endReveal);
         privacyBtn.addEventListener('mouseleave', endReveal);
         privacyBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startReveal(); });
         privacyBtn.addEventListener('touchend', (e) => { e.preventDefault(); endReveal(); });
 
-        // 掃描按鈕
         const scanBtn = document.getElementById('scan-btn');
         const resultCard = document.getElementById('result-card');
         
@@ -561,7 +523,6 @@
             isScanning = true;
             document.body.classList.add('scanning');
             
-            // 模擬分析過程
             setTimeout(() => {
                 document.body.classList.remove('scanning');
                 showRandomEmotion();
@@ -587,7 +548,6 @@
             resultCard.classList.remove('show');
         }
 
-        // === 啟動程序 ===
         initThreeJS();
         initFaceMesh();
 
