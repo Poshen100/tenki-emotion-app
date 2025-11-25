@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI Debug Mode</title>
+    <title>TENKI v10.7 - Final Stable</title>
     
     <!-- 引入核心庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -15,191 +15,570 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
     <style>
-        body { background-color: #000; color: white; margin: 0; overflow: hidden; }
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        :root {
+            --bg-dark: #050510;
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --alert: #ff0055;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(0, 243, 255, 0.3);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', sans-serif; }
+
+        body {
+            background-color: var(--bg-dark);
+            color: white;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
         video { display: none; }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
         
-        /* 除錯訊息面板 */
-        #debug-panel {
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            border-radius: 10px;
+            pointer-events: auto;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            text-shadow: 0 0 10px var(--primary);
+            letter-spacing: 2px;
+        }
+
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 5px 10px;
+            border: 1px solid var(--secondary);
+            color: var(--secondary);
+            border-radius: 4px;
+        }
+
+        .sidebar {
+            position: absolute;
+            right: 20px;
+            top: 100px;
+            width: 200px;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            pointer-events: auto;
+            transform: translateX(120%);
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar.active { transform: translateX(0); }
+
+        .scan-trigger {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            background: rgba(0, 243, 255, 0.1);
+            color: var(--primary);
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.3s;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+            z-index: 20;
+        }
+
+        .scan-trigger:active {
+            transform: translateX(-50%) scale(0.95);
+            background: var(--primary);
+            color: black;
+        }
+
+        .privacy-btn {
+            position: absolute;
+            bottom: 40px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--bg-dark);
+            border: 2px solid var(--alert);
+            color: var(--alert);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            pointer-events: auto;
+            user-select: none;
+            box-shadow: 0 0 10px var(--alert);
+        }
+
+        .privacy-btn:active {
+            background: var(--alert);
+            color: white;
+            transform: scale(0.95);
+        }
+
+        #loader {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
-            background: rgba(255, 0, 0, 0.8);
-            color: white;
-            padding: 10px;
-            font-family: monospace;
-            font-size: 14px;
-            z-index: 9999;
-            display: none; /* 預設隱藏，有錯誤才顯示 */
-            white-space: pre-wrap;
-            word-break: break-all;
+            height: 100%;
+            background: var(--bg-dark);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
-        #status-log {
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid transparent;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #result-card {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(5, 5, 16, 0.95);
+            border: 1px solid var(--secondary);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            width: 80%;
+            max-width: 400px;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+            box-shadow: 0 0 50px rgba(188, 19, 254, 0.2);
+            z-index: 50;
+        }
+
+        #result-card.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+
+        .emotion-title { font-size: 2rem; color: var(--secondary); margin-bottom: 10px; }
+        .fps-counter { position: fixed; top: 80px; left: 20px; font-size: 12px; color: lime; z-index: 5; }
+
+        .scanner-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+            opacity: 0;
+            z-index: 5;
+        }
+        
+        .scanning .scanner-line {
+            opacity: 1;
+            animation: scanMove 2s linear infinite;
+        }
+
+        @keyframes scanMove {
+            0% { top: 0%; }
+            50% { top: 100%; }
+            100% { top: 0%; }
+        }
+
+        /* 簡單的狀態顯示 */
+        #status-msg {
             position: fixed;
-            top: 50px;
-            left: 10px;
-            color: #00f3ff;
-            font-family: monospace;
-            z-index: 9998;
-            font-size: 12px;
-            background: rgba(0,0,0,0.5);
-            padding: 5px;
+            top: 60px;
+            left: 20px;
+            font-size: 10px;
+            color: rgba(255,255,255,0.5);
+            z-index: 200;
+        }
+
+        @media (min-width: 768px) {
+            .sidebar { transform: translateX(0); }
         }
     </style>
 </head>
 <body>
 
-    <!-- 錯誤顯示區 -->
-    <div id="debug-panel"></div>
-    <div id="status-log">系統初始化中...</div>
+    <div id="loader">
+        <div class="spinner"></div>
+        <p>TENKI SYSTEM v10.7</p>
+        <p style="font-size: 0.8rem; opacity: 0.7; margin-top: 10px;" id="loading-text">Initializing...</p>
+    </div>
+
+    <div id="status-msg"></div>
 
     <video id="input-video" playsinline></video>
+
     <div id="canvas-container"></div>
 
-    <script>
-        // === 您的 GitHub 檔案絕對路徑 (CDN) ===
-        // 這是最穩定的讀取方式，繞過相對路徑問題
-        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/Poshen100/tenki-emotion-app@main/models/3d-head.glb';
-
-        const debugPanel = document.getElementById('debug-panel');
-        const statusLog = document.getElementById('status-log');
+    <div id="ui-layer">
+        <div class="scanner-line"></div>
         
-        function log(msg) {
-            console.log(msg);
-            statusLog.innerText += '\n' + msg;
-        }
+        <div class="header">
+            <div class="logo">TENKI</div>
+            <div class="status-badge">ONLINE</div>
+        </div>
 
-        function showError(msg) {
-            debugPanel.style.display = 'block';
-            debugPanel.innerText = "❌ 錯誤: " + msg;
-        }
+        <div class="sidebar">
+            <h3 style="color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px; margin-bottom:10px;">CONTROLS</h3>
+            <p style="font-size:0.8rem; margin-bottom:5px;">MODEL: <span style="color:lime">3D GLB (DRACO)</span></p>
+            <p style="font-size:0.8rem; margin-bottom:5px;">TRACKING: <span style="color:var(--primary)">468 PTS</span></p>
+            <p style="font-size:0.8rem; margin-bottom:15px;">PRIVACY: <span id="privacy-status" style="color:lime">SECURE</span></p>
+            <div style="font-size: 0.7rem; opacity: 0.6; line-height: 1.4;">
+                Hold the red button to reveal real face.
+            </div>
+        </div>
 
+        <div class="fps-counter">FPS: <span id="fps">0</span></div>
+
+        <div class="scan-trigger" id="scan-btn">
+            SCAN<br>EMOTION
+        </div>
+
+        <div class="privacy-btn" id="privacy-btn">
+            HOLD<br>REAL
+        </div>
+    </div>
+
+    <div id="result-card">
+        <h2 class="emotion-title" id="emotion-result">NEUTRAL</h2>
+        <p style="margin-bottom: 20px;" id="emotion-desc">System analysis complete.</p>
+        <div style="width: 100%; background: #333; height: 5px; margin-bottom: 20px;">
+            <div style="width: 75%; background: var(--secondary); height: 100%;"></div>
+        </div>
+        <button onclick="closeResult()" style="background: transparent; border: 1px solid var(--primary); color: var(--primary); padding: 10px 30px; cursor: pointer;">CLOSE</button>
+    </div>
+
+    <script>
         const videoElement = document.getElementById('input-video');
         const canvasContainer = document.getElementById('canvas-container');
+        const loadingText = document.getElementById('loading-text');
+        const statusMsg = document.getElementById('status-msg');
+
         let scene, camera, renderer, faceMesh;
         let maskMesh = null; 
+        let isPrivacyMode = false; 
+        let isScanning = false;
+        
+        let lastTime = 0;
+        let frameCount = 0;
+        const fpsElement = document.getElementById('fps');
 
         function initThreeJS() {
-            log("啟動 Three.js...");
             scene = new THREE.Scene();
+            
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.z = 2; 
 
             renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
             canvasContainer.appendChild(renderer.domElement);
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+            // Studio Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
-            const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
-            dirLight.position.set(1, 1, 2);
-            scene.add(dirLight);
 
-            // 嘗試載入模型
+            const directionalLight = new THREE.DirectionalLight(0x00f3ff, 1.2); 
+            directionalLight.position.set(1, 1, 2);
+            scene.add(directionalLight);
+
+            const rimLight = new THREE.DirectionalLight(0xbc13fe, 1.5); 
+            rimLight.position.set(-1, 0, 1);
+            scene.add(rimLight);
+
             loadFaceMask();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
         }
 
         function loadFaceMask() {
-            log("準備載入模型...");
-            log("來源: " + MODEL_URL);
-
             const loader = new THREE.GLTFLoader();
+            
+            // 設定 Draco 解碼 (必要)
             const dracoLoader = new THREE.DRACOLoader();
             dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.4.1/');
+            dracoLoader.setDecoderConfig({ type: 'js' });
             loader.setDRACOLoader(dracoLoader);
+            
+            // 加上時間戳記，避免瀏覽器快取到舊的 1KB 錯誤檔案
+            const modelPath = './models/3d-head.glb?v=' + Date.now();
+            
+            console.log("Loading model from:", modelPath);
+            loadingText.innerText = "Downloading 3D Model...";
 
-            loader.load(
-                MODEL_URL, 
-                (gltf) => {
-                    log("✅ 模型下載成功！解析中...");
-                    maskMesh = gltf.scene;
+            loader.load(modelPath, (gltf) => {
+                maskMesh = gltf.scene;
 
-                    // 材質處理
-                    maskMesh.traverse((node) => {
-                        if (node.isMesh) {
-                            node.material = new THREE.MeshStandardMaterial({
-                                color: 0xcccccc,
-                                metalness: 0.5,
-                                roughness: 0.5,
-                                side: THREE.DoubleSide
-                            });
-                        }
-                    });
-
-                    maskMesh.scale.set(6, 6, 6);
-                    scene.add(maskMesh);
-                    log("✅ 模型已加入場景");
-                }, 
-                (xhr) => {
-                    // 下載進度
-                    if(xhr.lengthComputable) {
-                        const percent = Math.round(xhr.loaded / xhr.total * 100);
-                        statusLog.innerText = `下載進度: ${percent}%`;
+                // 強制套用材質 (Cyberpunk Silver)
+                maskMesh.traverse((node) => {
+                    if (node.isMesh) {
+                        node.material = new THREE.MeshStandardMaterial({
+                            color: 0xc0c0c0,      
+                            metalness: 0.7,       
+                            roughness: 0.3,       
+                            emissive: 0x111111,
+                            side: THREE.DoubleSide
+                        });
+                        node.castShadow = true;
+                        node.receiveShadow = true;
                     }
-                },
-                (error) => {
-                    // === 這裡是關鍵 ===
-                    console.error(error);
-                    
-                    // 判斷錯誤類型
-                    let errorMsg = error.message || "未知錯誤";
-                    if (error.target && error.target.status) {
-                        errorMsg = `HTTP ${error.target.status} (檔案找不到或被拒絕)`;
-                    }
-                    
-                    showError(`載入失敗: ${errorMsg}\n請檢查 GitHub 檔名是否大小寫完全一致。`);
-                    
-                    // 只有失敗才顯示幾何球體
-                    createPlaceholderMask();
+                });
+
+                // 調整大小 (根據 3D AI Studio 經驗值)
+                maskMesh.scale.set(6, 6, 6); 
+                
+                scene.add(maskMesh);
+                console.log("✅ Model Loaded");
+                statusMsg.innerText = "3D Model Active";
+                
+            }, 
+            (xhr) => {
+                if(xhr.lengthComputable) {
+                    const percent = Math.round(xhr.loaded / xhr.total * 100);
+                    loadingText.innerText = `Loading: ${percent}%`;
                 }
-            );
+            },
+            (error) => {
+                console.error('Loader Error:', error);
+                loadingText.innerText = "Model Load Failed. Using fallback.";
+                createPlaceholderMask(); 
+            });
         }
 
         function createPlaceholderMask() {
-            log("⚠️ 使用備用球體");
             const geometry = new THREE.IcosahedronGeometry(1.0, 1);
-            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+            const material = new THREE.MeshStandardMaterial({ 
+                color: 0x222222,
+                roughness: 0.4,
+                metalness: 0.8,
+                wireframe: true,
+                emissive: 0x00f3ff,
+                emissiveIntensity: 0.2
+            });
             maskMesh = new THREE.Mesh(geometry, material);
             maskMesh.scale.set(1, 1.2, 1);
             scene.add(maskMesh);
         }
 
-        // 簡化的 MediaPipe 初始化
         async function initFaceMesh() {
-            log("啟動 FaceMesh...");
-            const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-            
-            faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+            loadingText.innerText = "Starting Camera AI...";
+            const faceMesh = new FaceMesh({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+            }});
+
+            faceMesh.setOptions({
+                maxNumFaces: 1,
+                refineLandmarks: true,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
             faceMesh.onResults(onResults);
 
             const camera = new Camera(videoElement, {
-                onFrame: async () => { await faceMesh.send({image: videoElement}); },
-                width: 1280, height: 720
+                onFrame: async () => {
+                    await faceMesh.send({image: videoElement});
+                },
+                width: 1280,
+                height: 720
             });
             camera.start();
         }
 
         function onResults(results) {
-            renderer.clear();
-            renderer.render(scene, camera);
-            
-            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 && maskMesh) {
-                const landmarks = results.multiFaceLandmarks[0];
-                const nose = landmarks[1];
-                
-                // 簡單定位
-                const x = (0.5 - nose.x) * 4; 
-                const y = (0.5 - nose.y) * 3;
-                const z = -nose.z * 5; 
-                maskMesh.position.set(x, y, 0);
+            document.getElementById('loader').style.display = 'none';
+
+            const now = performance.now();
+            frameCount++;
+            if (now - lastTime >= 1000) {
+                fpsElement.innerText = frameCount;
+                frameCount = 0;
+                lastTime = now;
             }
+
+            renderer.autoClear = false;
+            renderer.clear();
+
+            if (isPrivacyMode) {
+                if (maskMesh) maskMesh.visible = false;
+                if (!window.videoTexture) {
+                    window.videoTexture = new THREE.VideoTexture(videoElement);
+                    const bgGeo = new THREE.PlaneGeometry(2 * camera.aspect, 2);
+                    const bgMat = new THREE.MeshBasicMaterial({ map: window.videoTexture });
+                    window.bgMesh = new THREE.Mesh(bgGeo, bgMat);
+                    window.bgMesh.position.z = -1;
+                    scene.add(window.bgMesh);
+                }
+                if (window.bgMesh) window.bgMesh.visible = true;
+            } else {
+                if (maskMesh) maskMesh.visible = true;
+                if (window.bgMesh) window.bgMesh.visible = false;
+            }
+
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                const landmarks = results.multiFaceLandmarks[0];
+                updateMaskPosition(landmarks);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function updateMaskPosition(landmarks) {
+            if (!maskMesh) return;
+
+            const nose = landmarks[1];
+            const leftEye = landmarks[33];
+            const rightEye = landmarks[263];
+            const top = landmarks[10];
+            const bottom = landmarks[152];
+
+            const x = (0.5 - nose.x) * 4; 
+            const y = (0.5 - nose.y) * 3;
+            const z = -nose.z * 5; 
+
+            const vectorX = rightEye.x - leftEye.x;
+            const vectorY = rightEye.y - leftEye.y;
+            const rotationZ = Math.atan2(vectorY, vectorX);
+            
+            const rotationY = (leftEye.z - rightEye.z) * 3;
+            const rotationX = (nose.y - (top.y + bottom.y)/2) * 5;
+
+            maskMesh.position.lerp(new THREE.Vector3(x, y, 0), 0.5);
+            maskMesh.rotation.z = rotationZ;
+            maskMesh.rotation.y = rotationY;
+            maskMesh.rotation.x = rotationX;
+        }
+
+        const privacyBtn = document.getElementById('privacy-btn');
+        const privacyStatus = document.getElementById('privacy-status');
+
+        const startReveal = () => {
+            isPrivacyMode = true;
+            privacyBtn.style.background = 'var(--alert)';
+            privacyBtn.style.color = 'white';
+            privacyStatus.innerText = "WARNING: REAL FACE";
+            privacyStatus.style.color = "var(--alert)";
+        };
+        
+        const endReveal = () => {
+            isPrivacyMode = false;
+            privacyBtn.style.background = 'var(--bg-dark)';
+            privacyBtn.style.color = 'var(--alert)';
+            privacyStatus.innerText = "SECURE";
+            privacyStatus.style.color = "lime";
+        };
+
+        privacyBtn.addEventListener('mousedown', startReveal);
+        privacyBtn.addEventListener('mouseup', endReveal);
+        privacyBtn.addEventListener('mouseleave', endReveal);
+        privacyBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startReveal(); });
+        privacyBtn.addEventListener('touchend', (e) => { e.preventDefault(); endReveal(); });
+
+        const scanBtn = document.getElementById('scan-btn');
+        const resultCard = document.getElementById('result-card');
+        
+        scanBtn.addEventListener('click', () => {
+            if(isScanning) return;
+            isScanning = true;
+            document.body.classList.add('scanning');
+            
+            setTimeout(() => {
+                document.body.classList.remove('scanning');
+                showRandomEmotion();
+                isScanning = false;
+            }, 2000);
+        });
+
+        function showRandomEmotion() {
+            const emotions = [
+                { t: "JOY", d: "High dopamine levels detected. Positive engagement." },
+                { t: "FOCUSED", d: "Beta waves dominant. Concentration level 92%." },
+                { t: "CALM", d: "Heart rate steady. Parasympathetic nervous system active." },
+                { t: "SURPRISED", d: "Sudden spike in alertness vectors." }
+            ];
+            const pick = emotions[Math.floor(Math.random() * emotions.length)];
+            
+            document.getElementById('emotion-result').innerText = pick.t;
+            document.getElementById('emotion-desc').innerText = pick.d;
+            resultCard.classList.add('show');
+        }
+
+        function closeResult() {
+            resultCard.classList.remove('show');
         }
 
         initThreeJS();
         initFaceMesh();
+
     </script>
 </body>
 </html>
