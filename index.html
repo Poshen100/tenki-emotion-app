@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v10.7 - Final Stable</title>
+    <title>TENKI v10.8 - Root Path Fix</title>
     
     <!-- 引入核心庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -246,7 +246,6 @@
             100% { top: 0%; }
         }
 
-        /* 簡單的狀態顯示 */
         #status-msg {
             position: fixed;
             top: 60px;
@@ -265,7 +264,7 @@
 
     <div id="loader">
         <div class="spinner"></div>
-        <p>TENKI SYSTEM v10.7</p>
+        <p>TENKI SYSTEM v10.8</p>
         <p style="font-size: 0.8rem; opacity: 0.7; margin-top: 10px;" id="loading-text">Initializing...</p>
     </div>
 
@@ -285,7 +284,7 @@
 
         <div class="sidebar">
             <h3 style="color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px; margin-bottom:10px;">CONTROLS</h3>
-            <p style="font-size:0.8rem; margin-bottom:5px;">MODEL: <span style="color:lime">3D GLB (DRACO)</span></p>
+            <p style="font-size:0.8rem; margin-bottom:5px;">MODEL: <span style="color:lime">ROOT/3D</span></p>
             <p style="font-size:0.8rem; margin-bottom:5px;">TRACKING: <span style="color:var(--primary)">468 PTS</span></p>
             <p style="font-size:0.8rem; margin-bottom:15px;">PRIVACY: <span id="privacy-status" style="color:lime">SECURE</span></p>
             <div style="font-size: 0.7rem; opacity: 0.6; line-height: 1.4;">
@@ -339,7 +338,6 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             canvasContainer.appendChild(renderer.domElement);
 
-            // Studio Lighting
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
 
@@ -362,15 +360,13 @@
 
         function loadFaceMask() {
             const loader = new THREE.GLTFLoader();
-            
-            // 設定 Draco 解碼 (必要)
             const dracoLoader = new THREE.DRACOLoader();
             dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.4.1/');
             dracoLoader.setDecoderConfig({ type: 'js' });
             loader.setDRACOLoader(dracoLoader);
             
-            // 加上時間戳記，避免瀏覽器快取到舊的 1KB 錯誤檔案
-            const modelPath = './models/3d-head.glb?v=' + Date.now();
+            // === 關鍵修改：檔案現在在根目錄，所以直接寫檔名 ===
+            const modelPath = './3d-head.glb?v=' + Date.now();
             
             console.log("Loading model from:", modelPath);
             loadingText.innerText = "Downloading 3D Model...";
@@ -378,7 +374,7 @@
             loader.load(modelPath, (gltf) => {
                 maskMesh = gltf.scene;
 
-                // 強制套用材質 (Cyberpunk Silver)
+                // Cyberpunk 材質
                 maskMesh.traverse((node) => {
                     if (node.isMesh) {
                         node.material = new THREE.MeshStandardMaterial({
@@ -393,7 +389,6 @@
                     }
                 });
 
-                // 調整大小 (根據 3D AI Studio 經驗值)
                 maskMesh.scale.set(6, 6, 6); 
                 
                 scene.add(maskMesh);
@@ -409,7 +404,7 @@
             },
             (error) => {
                 console.error('Loader Error:', error);
-                loadingText.innerText = "Model Load Failed. Using fallback.";
+                loadingText.innerText = "Model Load Failed.";
                 createPlaceholderMask(); 
             });
         }
