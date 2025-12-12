@@ -1,784 +1,710 @@
+
+
+移至內容
+透過螢幕閱讀器使用 Gmail
+系統已不再支援這個瀏覽器版本，請升級為支援的瀏覽器。
+已使用 84% 的儲存空間
+你收發的電子郵件、Google 相簿中的備份內容以及儲存到 Google 雲端硬碟的內容都會占用儲存空間。
+會話群組
+儲存空間配額：102 GB，目前使用量：84%
+條款 · 隱私權 · 計劃政策
+上次帳戶活動時間：14 小時前
+詳細資料
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v12.0 - 皮膚質感版</title>
-    
-    <!-- 核心庫 -->
+    <title>TENKI v18.0 - Stardust Soul</title>
+
+    <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+    <!-- UI 庫 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
+        /* --- 2050 SCI-FI 風格 --- */
         :root {
-            --bg-dark: #050510;
-            --primary: #00f3ff;
-            --secondary: #bc13fe;
-            --alert: #ff0055;
-            --glass: rgba(255, 255, 255, 0.05);
-            --border: rgba(0, 243, 255, 0.3);
+            --bg-deep: #000000;
+            --soul-cyan: #00F0FF;
+            --soul-gold: #FFD700;
+            --soul-alert: #FF3333;
+            --bg-mist: #051020;
+            /* Deep Blue Mist */
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', monospace; }
-
         body {
-            background-color: var(--bg-dark);
+            background: var(--bg-deep);
             color: white;
+            font-family: 'Courier New', monospace;
             overflow: hidden;
             width: 100vw;
             height: 100vh;
+            margin: 0;
+            padding: 0;
         }
 
-        #canvas-container {
+        /* 1. 絕對隱私：移除畫面，只留數據 */
+        #input-video {
+            position: fixed;
+            top: -9999px;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* 2. 3D 星塵層 */
+        #universe {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             z-index: 1;
+            background: radial-gradient(circle at center, #0b1a26 0%, #000000 100%);
+            /* Slightly bluer gradient */
         }
 
-        video { display: none; }
-        
-        canvas {
+        /* 3. UI HUD 層 */
+        #hud-layer {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            transform: scaleX(-1);
-        }
-
-        #ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             z-index: 10;
             pointer-events: none;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 20px;
+            padding: 24px;
         }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(10px);
-            padding: 15px;
-            border-bottom: 1px solid var(--border);
-            border-radius: 10px;
+        /* 指紋掃描器 (PPG Trigger) */
+        .fingerprint-sensor {
             pointer-events: auto;
-            width: fit-content;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--primary);
-            text-shadow: 0 0 10px var(--primary);
-            letter-spacing: 2px;
-        }
-
-        .status-badge {
-            font-size: 0.8rem;
-            padding: 5px 10px;
-            border: 1px solid var(--secondary);
-            color: var(--secondary);
-            border-radius: 4px;
-            margin-left: 20px;
-        }
-
-        .sidebar {
-            position: absolute;
-            right: 20px;
-            top: 100px;
-            width: 220px;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 20px;
-            pointer-events: auto;
-        }
-
-        .section-label {
-            color: var(--primary);
-            font-size: 0.75rem;
-            font-weight: bold;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 5px;
-        }
-
-        .info-row {
-            font-size: 0.8rem;
-            margin: 6px 0;
-            display: flex;
-            justify-content: space-between;
-            color: rgba(255,255,255,0.7);
-        }
-
-        .info-value {
-            color: var(--primary);
-            font-weight: bold;
-        }
-
-        .mode-toggle {
-            display: flex;
-            gap: 8px;
-            margin-top: 10px;
-            pointer-events: auto;
-        }
-
-        .mode-btn {
-            flex: 1;
-            padding: 6px;
-            border: 1px solid var(--border);
-            background: rgba(0,0,0,0.3);
-            color: var(--primary);
-            border-radius: 4px;
-            font-size: 0.7rem;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .mode-btn.active {
-            background: var(--secondary);
-            color: white;
-            border-color: var(--secondary);
-        }
-
-        .scan-trigger {
-            position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
+            position: relative;
             width: 80px;
             height: 80px;
             border-radius: 50%;
-            border: 2px solid var(--primary);
-            background: rgba(0, 243, 255, 0.1);
-            color: var(--primary);
-            font-size: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(0, 240, 255, 0.3);
             display: flex;
-            align-items: center;
             justify-content: center;
-            text-align: center;
+            align-items: center;
             cursor: pointer;
-            pointer-events: auto;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            backdrop-filter: blur(4px);
+        }
+
+        .fingerprint-sensor.active {
+            transform: scale(1.1);
+            border-color: var(--soul-cyan);
+            background: rgba(0, 240, 255, 0.1);
+            box-shadow: 0 0 50px var(--soul-cyan);
+        }
+
+        .fingerprint-sensor i {
             transition: all 0.3s;
-            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
-            z-index: 20;
-            font-weight: bold;
+            opacity: 0.6;
         }
 
-        .scan-trigger:active {
-            transform: translateX(-50%) scale(0.95);
-            background: var(--primary);
-            color: black;
+        .fingerprint-sensor.active i {
+            opacity: 1;
+            color: var(--soul-cyan);
         }
 
-        .privacy-btn {
+        /* 進度光環 */
+        .sensor-ring {
             position: absolute;
-            bottom: 40px;
-            right: 30px;
-            width: 60px;
-            height: 60px;
+            inset: -10px;
             border-radius: 50%;
-            background: var(--bg-dark);
-            border: 2px solid var(--alert);
-            color: var(--alert);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            border: 2px solid transparent;
+            border-top-color: var(--soul-cyan);
+            border-right-color: var(--soul-cyan);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .active .sensor-ring {
+            opacity: 1;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg)
+            }
+
+            100% {
+                transform: rotate(360deg)
+            }
+        }
+
+        /* 文字特效 */
+        .status-text {
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            letter-spacing: 4px;
             font-size: 10px;
-            font-weight: bold;
-            cursor: pointer;
-            pointer-events: auto;
-            user-select: none;
-            box-shadow: 0 0 10px var(--alert);
-            transition: all 0.3s;
+            opacity: 0.7;
         }
 
-        .privacy-btn:active {
-            background: var(--alert);
-            color: white;
-            transform: scale(0.95);
-        }
-
-        #loader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg-dark);
-            z-index: 100;
+        /* 結果展示 (極簡) */
+        .result-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 50;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
             display: flex;
             flex-direction: column;
-            align-items: center;
             justify-content: center;
-        }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid transparent;
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        #result-card {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0.9);
-            background: rgba(5, 5, 16, 0.95);
-            border: 1px solid var(--secondary);
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            width: 80%;
-            max-width: 400px;
+            align-items: center;
             opacity: 0;
             pointer-events: none;
-            transition: all 0.3s;
-            box-shadow: 0 0 50px rgba(188, 19, 254, 0.2);
-            z-index: 50;
+            transition: opacity 0.8s ease;
         }
 
-        #result-card.show {
+        .result-overlay.show {
             opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
             pointer-events: auto;
         }
 
-        .emotion-title { 
-            font-size: 2rem; 
-            color: var(--secondary); 
-            margin-bottom: 10px; 
-            font-weight: bold; 
-        }
-        
-        .emotion-desc { 
-            font-size: 0.9rem; 
-            line-height: 1.5;
-            margin-bottom: 20px;
-        }
-
-        .fps-counter { 
-            position: fixed; 
-            top: 80px; 
-            left: 20px; 
-            font-size: 12px; 
-            color: lime; 
-            z-index: 5; 
-            font-family: monospace; 
-        }
-
-        .scanner-line {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: var(--primary);
-            box-shadow: 0 0 10px var(--primary);
-            opacity: 0;
-            z-index: 5;
-        }
-        
-        .scanning .scanner-line {
-            opacity: 1;
-            animation: scanMove 2s linear infinite;
-        }
-
-        @keyframes scanMove {
-            0% { top: 0%; }
-            50% { top: 100%; }
-            100% { top: 0%; }
-        }
-
-        #status-msg {
-            position: fixed;
-            top: 60px;
-            left: 20px;
-            font-size: 10px;
-            color: rgba(255,255,255,0.5);
-            z-index: 200;
-            font-family: monospace;
-        }
-
-        .result-button {
-            background: transparent;
-            border: 1px solid var(--primary);
-            color: var(--primary);
-            padding: 10px 30px;
-            cursor: pointer;
+        .score-display {
+            font-size: 80px;
             font-weight: bold;
-            border-radius: 5px;
-            transition: all 0.3s;
-            font-family: 'Courier New', monospace;
-        }
-
-        .result-button:hover {
-            background: var(--primary);
-            color: black;
-        }
-
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 180px;
-                padding: 15px;
-            }
+            background: linear-gradient(to bottom, #fff, #666);
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -4px;
         }
     </style>
 </head>
+
 <body>
 
-    <div id="loader">
-        <div class="spinner"></div>
-        <p style="font-size: 1.2rem; margin-bottom: 10px;">TENKI v12.0</p>
-        <p style="font-size: 0.8rem; opacity: 0.7; margin-top: 10px;" id="loading-text">初始化中...</p>
-    </div>
-
-    <div id="status-msg"></div>
-
+    <!-- 隱藏的傳感器輸入 -->
     <video id="input-video" playsinline></video>
 
-    <div id="canvas-container"></div>
+    <!-- 3D 視覺核心 -->
+    <div id="universe"></div>
 
-    <div id="ui-layer">
-        <div class="scanner-line"></div>
-        
-        <div class="header">
-            <div class="logo">TENKI</div>
-            <div class="status-badge">v12.0</div>
-        </div>
+    <!-- HUD 介面 -->
+    <div id="hud-layer">
 
-        <div class="sidebar">
-            <div class="section-label">📊 系統狀態</div>
-            <div class="info-row">
-                <span>3D 模型:</span>
-                <span class="info-value" id="model-status">載入中</span>
+        <!-- Top Bar -->
+        <div class="flex justify-between items-start">
+            <div>
+                <div class="text-xl font-bold tracking-[6px] text-white">TENKI</div>
+                <div class="text-[8px] text-cyan-500 tracking-widest mt-1">QUANTUM_SENSING_v18.0</div>
             </div>
-            <div class="info-row">
-                <span>臉部追蹤:</span>
-                <span class="info-value" id="track-status">就緒</span>
-            </div>
-            <div class="info-row">
-                <span>質感:</span>
-                <span class="info-value" id="texture-status">皮膚</span>
-            </div>
-            <div class="info-row">
-                <span>隱私狀態:</span>
-                <span class="info-value" id="privacy-status">安全</span>
-            </div>
-
-            <div class="mode-toggle">
-                <button class="mode-btn active" id="skin-mode" onclick="switchMode('skin')">🎭 皮膚</button>
-                <button class="mode-btn" id="noir-mode" onclick="switchMode('noir')">⚫ 寫真</button>
-            </div>
-            
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
-                <div class="section-label">🎮 控制</div>
-                <div style="font-size: 0.75rem; opacity: 0.8; line-height: 1.6;">
-                    • 按住紅按鈕顯示真臉<br>
-                    • 點擊青色按鈕掃描<br>
-                    • 完整頭部追蹤啟用
+            <div class="text-right">
+                <div id="connection-status" class="text-[10px] text-gray-500 border border-gray-800 px-2 py-1 rounded">
+                    WAITING FOR SIGNAL
                 </div>
             </div>
         </div>
 
-        <div class="fps-counter">FPS: <span id="fps">0</span></div>
-
-        <div class="scan-trigger" id="scan-btn">
-            掃描<br>情緒
+        <!-- Center Prompt -->
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none transition-opacity duration-500"
+            id="center-prompt">
+            <div class="text-[10px] tracking-[4px] text-gray-400 mb-2">INITIALIZING CORE</div>
+            <div class="w-1 h-1 bg-white rounded-full mx-auto animate-ping"></div>
         </div>
 
-        <div class="privacy-btn" id="privacy-btn">
-            按住<br>真臉
+        <!-- Bottom Controls -->
+        <div class="flex flex-col items-center pb-10">
+            <div id="scan-trigger" class="fingerprint-sensor">
+                <div class="sensor-ring"></div>
+                <i data-lucide="fingerprint" class="w-8 h-8 text-white"></i>
+            </div>
+            <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-500 transition-all duration-300">
+                ALIGN SENSORS
+            </div>
         </div>
     </div>
 
-    <div id="result-card">
-        <h2 class="emotion-title" id="emotion-result">中性</h2>
-        <p class="emotion-desc" id="emotion-desc">系統分析完成。</p>
-        <div style="width: 100%; background: #333; height: 5px; margin: 20px 0; border-radius: 3px;">
-            <div style="width: 75%; background: var(--secondary); height: 100%; border-radius: 3px;"></div>
+    <!-- 結果頁 -->
+    <div id="result-view" class="result-overlay">
+        <div class="text-[10px] tracking-[6px] text-cyan-400 mb-4">ANALYSIS COMPLETE</div>
+        <div class="score-display" id="final-score">00</div>
+        <div class="text-[12px] tracking-[4px] text-gray-400 mt-2">TEI INDEX</div>
+
+        <div class="mt-12 flex gap-4">
+            <button onclick="app.reset()"
+                class="border border-white/20 px-6 py-3 text-[10px] tracking-widest hover:bg-white hover:text-black transition">
+                RESYNC
+            </button>
         </div>
-        <button onclick="closeResult()" class="result-button">關閉</button>
     </div>
 
     <script>
-        const videoElement = document.getElementById('input-video');
-        const canvasContainer = document.getElementById('canvas-container');
-        const loadingText = document.getElementById('loading-text');
-        const statusMsg = document.getElementById('status-msg');
+        lucide.createIcons();
 
-        let scene, camera, renderer, faceMesh;
-        let maskMesh = null; 
-        let isPrivacyMode = false; 
-        let isScanning = false;
-        let currentMode = 'skin'; // 'skin' 或 'noir'
-        
-        let lastTime = 0;
-        let frameCount = 0;
-        const fpsElement = document.getElementById('fps');
-
-        // === v12.0 新增：穩定置中系統 ===
-        let faceCenter = { x: 0, y: 0 };
-        let isFaceCentered = false;
-        let stabilizationCounter = 0;
-        const STABILIZATION_THRESHOLD = 5; // 5 幀以上判定為穩定
-
-        function initThreeJS() {
-            scene = new THREE.Scene();
-            
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 1.2;
-
-            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.shadowMap.enabled = true;
-            canvasContainer.appendChild(renderer.domElement);
-
-            // 棚拍打光配置
-            const keyLight = new THREE.DirectionalLight(0xffffff, 1.1);
-            keyLight.position.set(1, 1, 2);
-            keyLight.castShadow = true;
-            scene.add(keyLight);
-
-            const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
-            fillLight.position.set(-1, -1, 1);
-            scene.add(fillLight);
-
-            const rimLight = new THREE.DirectionalLight(0xffffff, 1.5);
-            rimLight.position.set(-1, 0, 1);
-            rimLight.castShadow = true;
-            scene.add(rimLight);
-
-            const amb = new THREE.AmbientLight(0xffffff, 0.15);
-            scene.add(amb);
-
-            loadFaceMask();
-
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-        }
-
-        function loadFaceMask() {
-            const loader = new THREE.GLTFLoader();
-            const dracoLoader = new THREE.DRACOLoader();
-            dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.4.1/');
-            dracoLoader.setDecoderConfig({ type: 'js' });
-            loader.setDRACOLoader(dracoLoader);
-            
-            const modelPath = './3d-head.glb?v=' + Date.now();
-            
-            console.log("載入模型:", modelPath);
-            loadingText.innerText = "下載 3D 模型中...";
-            document.getElementById('model-status').innerText = '載入中';
-
-            loader.load(modelPath, (gltf) => {
-                maskMesh = gltf.scene;
-
-                // === v12.0 優化：皮膚質感材質 ===
-                maskMesh.traverse((node) => {
-                    if (node.isMesh) {
-                        applySkinMaterial(node);
-                    }
-                });
-
-                maskMesh.scale.set(1.0, 1.0, 1.0);
-                scene.add(maskMesh);
-                console.log("✅ 模型已加載");
-                loadingText.innerText = "準備中...";
-                document.getElementById('model-status').innerText = '啟用中';
-                
-            }, 
-            (xhr) => {
-                if(xhr.lengthComputable) {
-                    const percent = Math.round(xhr.loaded / xhr.total * 100);
-                    loadingText.innerText = `載入: ${percent}%`;
+        // 核心應用邏輯
+        const app = {
+            config: {
+                particleCount: 8000, // 8000顆星塵
+                particleSize: 0.08,
+                colors: {
+                    idle: 0x0088ff, // (Not used directly in vertex colors mode, but good fallback)
+                    active: 0xffffff,
+                    scan: 0x00F0FF,
+                    error: 0xff3333,
+                    gold: 0xFFD700,
+                    cyan: 0x00F0FF
                 }
             },
-            (error) => {
-                console.error('載入失敗:', error);
-                loadingText.innerText = "模型載入失敗。";
-                document.getElementById('model-status').innerText = '錯誤';
-                createPlaceholderMask(); 
-            });
-        }
+            state: {
+                isFaceDetected: false,
+                isScanning: false,
+                scanProgress: 0,
+                mouthOpen: 0, // 0 to 1
+                headRot: { x: 0, y: 0, z: 0 },
+                energy: 0, // 能量等級
+                isDebugMode: false // Debug Mode
+            },
 
-        // === v12.0 新增：皮膚材質系統 ===
-        function applySkinMaterial(node) {
-            if (currentMode === 'skin') {
-                node.material = new THREE.MeshStandardMaterial({
-                    color: 0xd4a574,      // 自然膚色
-                    metalness: 0.05,      // 幾乎無金屬感
-                    roughness: 0.6,       // 自然粗糙感（皮膚）
-                    emissive: 0x3d2817,   // 暖色自發光
-                    emissiveIntensity: 0.1,
-                    side: THREE.DoubleSide
-                });
-            } else {
-                // Noir 寫真模式
-                node.material = new THREE.MeshStandardMaterial({
-                    color: 0xf3f3f3,
-                    metalness: 0.4,
-                    roughness: 0.7,
-                    emissive: 0x1a1a1a,
-                    emissiveIntensity: 0.18,
-                    side: THREE.DoubleSide
-                });
-            }
-            node.castShadow = true;
-            node.receiveShadow = true;
-        }
+            init: function () {
+                this.initThree();
+                this.initAI();
+                this.initEvents();
+            },
 
-        function switchMode(mode) {
-            currentMode = mode;
-            document.getElementById('skin-mode').classList.toggle('active', mode === 'skin');
-            document.getElementById('noir-mode').classList.toggle('active', mode === 'noir');
-            
-            if (maskMesh) {
-                maskMesh.traverse((node) => {
-                    if (node.isMesh) {
-                        applySkinMaterial(node);
+            // --- 1. The Stardust Engine (Three.js) ---
+            initThree: function () {
+                const container = document.getElementById('universe');
+                this.scene = new THREE.Scene();
+                // 深空迷霧 (Deep Blue Mist)
+                this.scene.fog = new THREE.FogExp2(0x051020, 0.02); // Lighter density, blue tint
+
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.z = 5;
+
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                container.appendChild(this.renderer.domElement);
+
+                // 創建星塵球體 (Fibonacci Sphere Distribution)
+                const geometry = new THREE.BufferGeometry();
+                const positions = [];
+                const originalPositions = []; // 記憶原始位置用於呼吸動畫
+                const randomness = []; // 每個粒子的隨機特性
+                const colors = []; // 每個粒子的顏色
+                const colorPhase = []; // 呼吸相位
+
+                const phi = Math.PI * (3. - Math.sqrt(5.)); // 黃金角度
+
+                const color1 = new THREE.Color(this.config.colors.cyan);
+                const color2 = new THREE.Color(this.config.colors.gold);
+
+                for (let i = 0; i < this.config.particleCount; i++) {
+                    const y = 1 - (i / (this.config.particleCount - 1)) * 2;
+                    const radius = Math.sqrt(1 - y * y);
+                    const theta = phi * i;
+
+                    const x = Math.cos(theta) * radius;
+                    const z = Math.sin(theta) * radius;
+
+                    // 放大球體半徑
+                    const r = 2.5;
+
+                    positions.push(x * r, y * r, z * r);
+                    originalPositions.push(x * r, y * r, z * r);
+                    const rVal = Math.random();
+                    randomness.push(rVal);
+                    colorPhase.push(Math.random() * Math.PI * 2);
+
+                    // 混色: 60% Cyan, 40% Gold based on random noise
+                    // Use rVal so we can reproduce it in animate loop
+                    const isGold = rVal > 0.6;
+                    const c = isGold ? color2 : color1;
+                    colors.push(c.r, c.g, c.b);
+                }
+
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                geometry.setAttribute('originalPosition', new THREE.Float32BufferAttribute(originalPositions, 3));
+                geometry.setAttribute('random', new THREE.Float32BufferAttribute(randomness, 1));
+                geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+                geometry.setAttribute('phase', new THREE.Float32BufferAttribute(colorPhase, 1));
+
+                // 程式化生成光點材質
+                const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32;
+                const ctx = canvas.getContext('2d');
+                const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+                grad.addColorStop(0, 'rgba(255,255,255,1)');
+                grad.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+                grad.addColorStop(0.5, 'rgba(255,255,255,0.2)'); // More neutral so vertex color tints it
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grad; ctx.fillRect(0, 0, 32, 32);
+                const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
+
+                this.material = new THREE.PointsMaterial({
+                    size: this.config.particleSize,
+                    map: tex,
+                    transparent: true,
+                    opacity: 0.9,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    vertexColors: true // Enable vertex colors
+                });
+
+                this.cloud = new THREE.Points(geometry, this.material);
+                this.scene.add(this.cloud);
+
+                this.animate();
+            },
+
+            animate: function () {
+                requestAnimationFrame(() => this.animate());
+
+                const time = Date.now() * 0.001;
+                const positions = this.cloud.geometry.attributes.position.array;
+                const originals = this.cloud.geometry.attributes.originalPosition.array;
+                const randoms = this.cloud.geometry.attributes.random.array;
+
+                // --- 靈魂物理學 (The Soul Physics) ---
+
+                // 1. 基礎自轉 (Idle Rotation)
+                // 當頭部轉動時，球體會加速轉向該方向
+                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
+                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
+
+                // 2. 能量反應 (Energy Response)
+                // 如果張嘴 (Mouth Open) 或掃描中 (Scanning)，能量增強
+                let targetEnergy = 0.2; // 基礎呼吸
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 2.0; // 張嘴爆發
+                if (this.state.isScanning) targetEnergy = 3.0; // 掃描時極限震動
+
+                // 平滑過渡能量
+                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
+
+                // 3. 粒子更新循環
+                const colors = this.cloud.geometry.attributes.color.array;
+                const phases = this.cloud.geometry.attributes.phase.array;
+
+                // 3. 粒子更新循環
+                for (let i = 0; i < this.config.particleCount; i++) {
+                    const idx = i * 3;
+
+                    // 獲取原始球體座標
+                    const ox = originals[idx];
+                    const oy = originals[idx + 1];
+                    const oz = originals[idx + 2];
+
+                    // 計算噪聲/波動 (Noise)
+                    const noise = Math.sin(time * 2 + randoms[i] * 10) * this.state.energy * 0.1;
+                    const expansion = 1 + (this.state.mouthOpen * 0.3); // 張嘴時球體變大
+
+                    // 應用位置
+                    positions[idx] = ox * expansion + (ox * noise);
+                    positions[idx + 1] = oy * expansion + (oy * noise);
+                    positions[idx + 2] = oz * expansion + (oz * noise);
+
+                    // 呼吸燈效 (Breathing Effect)
+                    if (!this.state.isScanning) {
+                        // 讓原本的顏色根據時間呼吸變亮/變暗
+                        // 我們這裡簡單做：亮度調整
+                        // 若是金，就是金呼吸；若是青，就是青呼吸
+                        const phase = phases[i];
+                        // 呼吸頻率: 1.5 ~ 3.0
+                        const breath = 0.5 + 0.5 * Math.sin(time * 2 + phase);
+
+                        // 重新賦色 (需要知道原本是哪種顏色? 
+                        // 優化：我們可以在 init 時存一個 baseColor array，或者在這裡簡單判斷)
+                        // 為了效能，我們這裡做一個簡單的 trick: 
+                        // 我們知道初始化時只有兩種顏色。我們直接用 randoms[i] 作為顏色區分的種子 (因為上面用 random > 0.6 決定顏色)
+                        // wait, randoms in animate loop is same array.
+                        // Re-derive base color:
+                        // But verifying color array is expensive.
+                        // FAST WAY: Just modulate global brightness? No, individual breathing requested.
+
+                        // Better: Use `randoms` to determine base color again.
+                        // Init: const isGold = randoms[i] > 0.6; (Wait, init used Math.random(), pushed to randomness. So randomness[i] IS the value)
+                        // Let's assume we align logic.
+                        // To be safe, let's just Modulate the CURRENT value? No, that drifts.
+
+                        // Correct approach: Re-calculate base color from stored randoms, then apply breath.
+                        // I need to ensure Init logic matches this.
+                        // Let's modify Init to set randoms array EXACTLY as used for color decision.
                     }
+                }
+
+                // RE-WRITE LOOP FOR COLOR BREATHING (Integrated above for perf, but here for clarity in this replace block)
+                // Actually, let's just separate the color update to be clean.
+
+                if (!this.state.isScanning) {
+                    const c1 = new THREE.Color(this.config.colors.cyan);
+                    const c2 = new THREE.Color(this.config.colors.gold);
+
+                    for (let i = 0; i < this.config.particleCount; i++) {
+                        const idx = i * 3;
+                        // Logic must match init: isGold = randoms[i] (if we store it thus)
+                        // But in init I did: randoms.push(Math.random()); isGold = Math.random() > 0.6; -> These are DIFFERENT random calls!
+                        // FIX: I must rely on the color that is already there? No, I want to pulse it.
+                        // Simplest: Just pulse the INTENSITY of whatever is in the buffer.
+                        // But `colors` buffer is modified by Scan mode.
+                        // So I need a `baseColors` attribute to restore from.
+                        // FOR NOW: I will just use the random value to decide.
+
+                        // Note: In the PREVIOUS block I added `colors` but didn't add `baseColors`.
+                        // I will assume `randoms[i] > 0.6` is Gold if I change init to match.
+                        // Let's Just do:
+
+                        const rVal = randoms[i];
+                        // IMPORTANT: I need to sync init logic. I will change init logic in my thought process to use `randoms[i]` for color choice.
+                        const isGold = rVal > 0.6;
+
+                        const base = isGold ? c2 : c1;
+                        const phase = phases[i];
+                        const breath = 0.4 + 0.6 * Math.sin(time * 1.5 + phase); // 0.4 ~ 1.0 brightness
+
+                        colors[idx] = base.r * breath;
+                        colors[idx + 1] = base.g * breath;
+                        colors[idx + 2] = base.b * breath;
+                    }
+                    this.cloud.geometry.attributes.color.needsUpdate = true;
+                    this.material.size = this.config.particleSize;
+
+                } else {
+                    // Scanning: Force all Cyan + Bright
+                    const scanC = new THREE.Color(this.config.colors.scan);
+                    for (let i = 0; i < this.config.particleCount; i++) {
+                        const idx = i * 3;
+                        colors[idx] = scanC.r;
+                        colors[idx + 1] = scanC.g;
+                        colors[idx + 2] = scanC.b;
+                    }
+                    this.cloud.geometry.attributes.color.needsUpdate = true;
+                    this.material.size = 0.12;
+                }
+
+                this.cloud.geometry.attributes.position.needsUpdate = true;
+
+                // Scan / Face overrides handled by color loop above now.
+                // Re-render handled by end of function.
+
+                this.renderer.render(this.scene, this.camera);
+            },
+
+            // --- 2. AI Sensing (MediaPipe) ---
+            initAI: function () {
+                const video = document.getElementById('input-video');
+                const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
+
+                faceMesh.setOptions({
+                    maxNumFaces: 1,
+                    refineLandmarks: true,
+                    minDetectionConfidence: 0.6,
+                    minTrackingConfidence: 0.6
                 });
-            }
-            
-            document.getElementById('texture-status').innerText = mode === 'skin' ? '皮膚' : '寫真';
-        }
 
-        function createPlaceholderMask() {
-            const geometry = new THREE.IcosahedronGeometry(0.5, 2);
-            const material = new THREE.MeshStandardMaterial({ 
-                color: 0xd4a574,
-                metalness: 0.05,
-                roughness: 0.6,
-                emissive: 0x3d2817,
-                emissiveIntensity: 0.1
-            });
-            maskMesh = new THREE.Mesh(geometry, material);
-            maskMesh.scale.set(1.0, 1.2, 1.0);
-            scene.add(maskMesh);
-        }
+                faceMesh.onResults((res) => this.processData(res));
 
-        async function initFaceMesh() {
-            loadingText.innerText = "啟動相機 AI...";
-            const faceMesh = new FaceMesh({locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-            }});
+                const camera = new Camera(video, {
+                    onFrame: async () => await faceMesh.send({ image: video }),
+                    width: 640, height: 480 // 降低解析度以提升效能，我們不需要高清圖
+                });
 
-            faceMesh.setOptions({
-                maxNumFaces: 1,
-                refineLandmarks: true,
-                minDetectionConfidence: 0.7,
-                minTrackingConfidence: 0.7
-            });
+                // 嘗試啟動相機，失敗則進入 Debug Mode
+                camera.start()
+                    .then(() => {
+                        console.log("Camera started");
+                        // 設置超時檢查，如果相機啟動但沒有數據也切換 (可選)
+                        setTimeout(() => {
+                            if (!this.state.isFaceDetected && !this.state.isDebugMode) {
+                                console.warn("Camera running but no face detected for too long - hint user or keep waiting");
+                            }
+                        }, 5000);
+                    })
+                    .catch((err) => {
+                        console.error("Camera failed", err);
+                        this.enableDebugMode();
+                    });
 
-            faceMesh.onResults(onResults);
-
-            const camera = new Camera(videoElement, {
-                onFrame: async () => {
-                    await faceMesh.send({image: videoElement});
-                },
-                width: 1280,
-                height: 720
-            });
-            camera.start();
-        }
-
-        function onResults(results) {
-            document.getElementById('loader').style.display = 'none';
-
-            const now = performance.now();
-            frameCount++;
-            if (now - lastTime >= 1000) {
-                fpsElement.innerText = frameCount;
-                frameCount = 0;
-                lastTime = now;
-            }
-
-            renderer.autoClear = false;
-            renderer.clear();
-
-            if (isPrivacyMode) {
-                if (maskMesh) maskMesh.visible = false;
-                if (!window.videoTexture) {
-                    window.videoTexture = new THREE.VideoTexture(videoElement);
-                    const bgGeo = new THREE.PlaneGeometry(2 * camera.aspect, 2);
-                    const bgMat = new THREE.MeshBasicMaterial({ map: window.videoTexture });
-                    window.bgMesh = new THREE.Mesh(bgGeo, bgMat);
-                    window.bgMesh.position.z = -1;
-                    scene.add(window.bgMesh);
+                // 額外保險：如果 getUserMedia 被拒絕或不支援
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    this.enableDebugMode();
                 }
-                if (window.bgMesh) window.bgMesh.visible = true;
-                document.getElementById('privacy-status').innerText = '已揭示';
-            } else {
-                if (maskMesh) maskMesh.visible = true;
-                if (window.bgMesh) window.bgMesh.visible = false;
-                document.getElementById('privacy-status').innerText = '安全';
-            }
+            },
 
-            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                const landmarks = results.multiFaceLandmarks[0];
-                
-                // === v12.0 新增：穩定置中檢測 ===
-                checkIfCentered(landmarks);
-                
-                updateMaskPosition(landmarks);
-                document.getElementById('track-status').innerText = '468 特徵點';
-            } else {
-                document.getElementById('track-status').innerText = '搜尋中';
-                stabilizationCounter = 0;
-                isFaceCentered = false;
-            }
+            enableDebugMode: function () {
+                if (this.state.isDebugMode) return;
+                this.state.isDebugMode = true;
+                this.state.isFaceDetected = true; // 強制讓系統認為已偵測到人臉 (以啟用互動)
 
-            renderer.render(scene, camera);
-        }
+                console.log("Entering DEBUG MODE: Mouse Fallback");
 
-        // === v12.0 新增：檢測臉部是否置中 ===
-        function checkIfCentered(landmarks) {
-            const nose = landmarks[1];
-            const leftEye = landmarks[33];
-            const rightEye = landmarks[263];
-            
-            const faceX = (leftEye.x + rightEye.x) / 2;
-            const faceY = (leftEye.y + rightEye.y) / 2;
-            
-            // 檢查是否接近中心（±0.15 容差）
-            const isNearCenter = Math.abs(faceX - 0.5) < 0.15 && Math.abs(faceY - 0.5) < 0.12;
-            
-            if (isNearCenter) {
-                stabilizationCounter++;
-                if (stabilizationCounter >= STABILIZATION_THRESHOLD) {
-                    isFaceCentered = true;
+                const statusEl = document.getElementById('connection-status');
+                const instructionEl = document.getElementById('instruction');
+                const promptEl = document.getElementById('center-prompt');
+
+                statusEl.innerText = "DEBUG MODE: MOUSE LINK";
+                statusEl.style.color = "#FFD700"; // Gold
+                statusEl.style.borderColor = "#FFD700";
+
+                promptEl.style.opacity = 0;
+                instructionEl.innerText = "MOUSE MOVE TO ROTATE / CLICK TO SCAN";
+                instructionEl.style.color = "#FFD700";
+
+                // 滑鼠跟隨
+                window.addEventListener('mousemove', (e) => {
+                    // Normalize -1 to 1
+                    const x = (e.clientX / window.innerWidth) * 2 - 1;
+                    const y = (e.clientY / window.innerHeight) * 2 - 1;
+
+                    // 模擬頭部轉動
+                    this.state.headRot.y = x;
+                    this.state.headRot.x = y;
+                });
+            },
+
+            processData: function (results) {
+                const statusEl = document.getElementById('connection-status');
+                const promptEl = document.getElementById('center-prompt');
+                const hintEl = document.getElementById('instruction');
+
+                if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                    // 已連線
+                    this.state.isFaceDetected = true;
+                    statusEl.innerText = "NEURAL LINK: STABLE";
+                    statusEl.style.color = "#00F0FF";
+                    statusEl.style.borderColor = "#00F0FF";
+
+                    if (!this.state.isScanning) {
+                        promptEl.style.opacity = 0; // 隱藏初始化提示
+                        hintEl.innerText = "HOLD FINGERPRINT TO SCAN";
+                        hintEl.style.color = "white";
+                    }
+
+                    const landmarks = results.multiFaceLandmarks[0];
+
+                    // 1. 計算頭部轉動 (用於控制星塵旋轉)
+                    // 鼻頭 (1) vs 臉中心
+                    const nose = landmarks[1];
+                    this.state.headRot.x = (nose.y - 0.5) * 2; // 上下
+                    this.state.headRot.y = (nose.x - 0.5) * 2; // 左右
+
+                    // 2. 計算嘴巴開合 (用於控制星塵爆發)
+                    // 上唇(13) 下唇(14)
+                    const upperLip = landmarks[13];
+                    const lowerLip = landmarks[14];
+                    const distance = Math.sqrt(
+                        Math.pow(upperLip.x - lowerLip.x, 2) +
+                        Math.pow(upperLip.y - lowerLip.y, 2)
+                    );
+                    // 歸一化張嘴程度 (0 ~ 1)
+                    let open = (distance - 0.02) * 5;
+                    if (open < 0) open = 0;
+                    if (open > 1) open = 1;
+
+                    // 平滑數值
+                    this.state.mouthOpen += (open - this.state.mouthOpen) * 0.2;
+
+                } else {
+                    // 斷線
+                    this.state.isFaceDetected = false;
+                    statusEl.innerText = "SEARCHING SIGNAL...";
+                    statusEl.style.color = "gray";
+                    statusEl.style.borderColor = "#333";
+
+                    promptEl.style.opacity = 1;
+                    hintEl.innerText = "ALIGN SENSORS";
+                    hintEl.style.color = "gray";
+
+                    this.state.mouthOpen = 0;
+                    this.state.headRot = { x: 0, y: 0, z: 0 };
                 }
-            } else {
-                stabilizationCounter = 0;
-                isFaceCentered = false;
+            },
+
+            // --- 3. Interaction (Fingerprint) ---
+            initEvents: function () {
+                const btn = document.getElementById('scan-trigger');
+
+                const start = (e) => {
+                    e.preventDefault();
+                    if (!this.state.isFaceDetected) return;
+
+                    this.state.isScanning = true;
+                    btn.classList.add('active');
+                    document.getElementById('instruction').innerText = "ANALYZING BIOMETRICS...";
+
+                    if (navigator.vibrate) navigator.vibrate(50);
+
+                    // 開始 2 秒 PPG 模擬
+                    let progress = 0;
+                    this.scanInterval = setInterval(() => {
+                        progress += 2;
+
+                        // 震動反饋 (模擬心跳)
+                        if (progress % 20 === 0 && navigator.vibrate) navigator.vibrate(10);
+
+                        if (progress >= 100) {
+                            this.finishScan();
+                        }
+                    }, 40); // 40ms * 50 = 2000ms
+                };
+
+                const end = (e) => {
+                    e.preventDefault();
+                    if (!this.state.isScanning) return;
+
+                    // 中斷掃描
+                    this.state.isScanning = false;
+                    clearInterval(this.scanInterval);
+                    btn.classList.remove('active');
+                    document.getElementById('instruction').innerText = "HOLD FINGERPRINT TO SCAN";
+                };
+
+                btn.addEventListener('mousedown', start);
+                btn.addEventListener('touchstart', start);
+                window.addEventListener('mouseup', end);
+                window.addEventListener('touchend', end);
+            },
+
+            finishScan: function () {
+                clearInterval(this.scanInterval);
+                this.state.isScanning = false;
+
+                // 成功特效
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+                const resultView = document.getElementById('result-view');
+                resultView.classList.add('show');
+
+                // 數字跑動特效
+                const scoreEl = document.getElementById('final-score');
+                let score = 0;
+                const target = Math.floor(Math.random() * (98 - 75) + 75);
+                const scoreAnim = setInterval(() => {
+                    score += 2;
+                    scoreEl.innerText = score;
+                    if (score >= target) {
+                        scoreEl.innerText = target;
+                        clearInterval(scoreAnim);
+                    }
+                }, 20);
+            },
+
+            reset: function () {
+                document.getElementById('result-view').classList.remove('show');
+                document.getElementById('scan-trigger').classList.remove('active');
+                document.getElementById('instruction').innerText = "HOLD FINGERPRINT TO SCAN";
             }
-            
-            faceCenter = { x: faceX, y: faceY };
-        }
-
-        function updateMaskPosition(landmarks) {
-            if (!maskMesh) return;
-
-            const nose = landmarks[1];
-            const leftEye = landmarks[33];
-            const rightEye = landmarks[263];
-            const top = landmarks[10];
-            const bottom = landmarks[152];
-
-            // === v12.0 優化：穩定置中模式 ===
-            let x, y, z;
-            
-            if (isFaceCentered) {
-                // 正對鏡頭時，鎖定在中心
-                x = 0;
-                y = 0;
-                z = -nose.z * 2;
-            } else {
-                // 非中心時，正常追蹤
-                x = (0.5 - nose.x) * 2.5;
-                y = (0.5 - nose.y) * 2.0;
-                z = -nose.z * 2;
-            }
-
-            const vectorX = rightEye.x - leftEye.x;
-            const vectorY = rightEye.y - leftEye.y;
-            const rotationZ = Math.atan2(vectorY, vectorX);
-            
-            const rotationY = (leftEye.z - rightEye.z) * 3;
-            const rotationX = (nose.y - (top.y + bottom.y)/2) * 5;
-
-            maskMesh.position.lerp(new THREE.Vector3(x, y, z), 0.5);
-            maskMesh.rotation.z = rotationZ;
-            maskMesh.rotation.y = rotationY;
-            maskMesh.rotation.x = rotationX;
-        }
-
-        const privacyBtn = document.getElementById('privacy-btn');
-
-        const startReveal = () => {
-            isPrivacyMode = true;
-            privacyBtn.style.background = 'var(--alert)';
-            privacyBtn.style.color = 'white';
-        };
-        
-        const endReveal = () => {
-            isPrivacyMode = false;
-            privacyBtn.style.background = 'var(--bg-dark)';
-            privacyBtn.style.color = 'var(--alert)';
         };
 
-        privacyBtn.addEventListener('mousedown', startReveal);
-        privacyBtn.addEventListener('mouseup', endReveal);
-        privacyBtn.addEventListener('mouseleave', endReveal);
-        privacyBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startReveal(); });
-        privacyBtn.addEventListener('touchend', (e) => { e.preventDefault(); endReveal(); });
-
-        const scanBtn = document.getElementById('scan-btn');
-        const resultCard = document.getElementById('result-card');
-        
-        scanBtn.addEventListener('click', () => {
-            if(isScanning) return;
-            isScanning = true;
-            document.body.classList.add('scanning');
-            
-            setTimeout(() => {
-                document.body.classList.remove('scanning');
-                showRandomEmotion();
-                isScanning = false;
-            }, 2000);
-        });
-
-        function showRandomEmotion() {
-            const emotions = [
-                { t: "喜悅", d: "多巴胺水平升高。呈現積極參與狀態。" },
-                { t: "專注", d: "Beta 波段主導。專注力指數: 92%。" },
-                { t: "平靜", d: "心率穩定。副交感神經系統活躍。" },
-                { t: "受鼓舞", d: "創意指數提升。神經模式已優化。" },
-                { t: "警惕", d: "腎上腺素反應檢測到。意識度: 95%。" }
-            ];
-            const pick = emotions[Math.floor(Math.random() * emotions.length)];
-            
-            document.getElementById('emotion-result').innerText = pick.t;
-            document.getElementById('emotion-desc').innerText = pick.d;
-            resultCard.classList.add('show');
-        }
-
-        function closeResult() {
-            resultCard.classList.remove('show');
-        }
-
-        initThreeJS();
-        initFaceMesh();
+        window.onload = () => app.init();
+        window.onresize = () => {
+            app.camera.aspect = window.innerWidth / window.innerHeight;
+            app.camera.updateProjectionMatrix();
+            app.renderer.setSize(window.innerWidth, window.innerHeight);
+        };
 
     </script>
 </body>
+
 </html>
+index.html
+目前顯示的是「index.html」。
