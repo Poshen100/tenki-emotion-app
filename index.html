@@ -3,168 +3,193 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v26.0 - Supernova Entity</title>
+    <title>TENKI v27.0 - Hyper Flux</title>
     
-    <!-- 核心引擎 -->
+    <!-- Core -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     
-    <!-- UI 庫 -->
+    <!-- UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
         :root {
             --bg-deep: #000000;
-            --tei-flow: #00FF99;
-            --tei-focus: #00F0FF;
-            --tei-stress: #FF3333;
+            --tei-core: #00F0FF;
+            --tei-surge: #FFFFFF;
         }
 
         body {
             background: var(--bg-deep);
             color: white;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             overflow: hidden;
             width: 100vw; height: 100vh;
             margin: 0; padding: 0;
             overscroll-behavior: none;
             touch-action: none;
             user-select: none;
-            -webkit-tap-highlight-color: transparent;
         }
 
-        #input-video, #process-canvas {
-            position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none;
-        }
+        #input-video, #process-canvas { opacity: 0; pointer-events: none; position: fixed; top: -9999px; }
 
-        /* 3D World - Full Screen & Centered */
+        /* 3D Scene */
         #universe {
             position: absolute; inset: 0; z-index: 1;
-            background: radial-gradient(circle at center, #0a0f14 0%, #000000 90%);
+            background: radial-gradient(circle at center, #050a10 0%, #000000 100%);
         }
 
         /* HUD Layer */
         #hud-layer {
-            position: absolute; inset: 0; z-index: 10;
+            position: absolute; inset: 0; z-index: 20;
             pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
-            padding: 24px;
+            padding: 20px;
         }
 
-        /* Go Club Button (High Contrast, Snappy) */
+        /* 戰鬥機準心系統 (Sniper Reticle) */
+        #reticle {
+            position: absolute; top: 50%; left: 50%;
+            width: 240px; height: 320px;
+            transform: translate(-50%, -55%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 100px; /* 臉型 */
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 15;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.85); /* 聚焦暗角 */
+        }
+        
+        /* 十字準星 */
+        #reticle::before, #reticle::after {
+            content: ''; position: absolute; background: rgba(255,255,255,0.2);
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            transition: all 0.3s;
+        }
+        #reticle::before { width: 20px; height: 1px; } /* 橫線 */
+        #reticle::after { width: 1px; height: 20px; } /* 直線 */
+
+        /* 鎖定狀態特效 */
+        #reticle.locked {
+            border-color: #00F0FF;
+            border-width: 2px;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.6); /* 變亮 */
+            width: 260px; height: 340px; /* 微微放大 */
+        }
+        #reticle.locked::before, #reticle.locked::after {
+            background: #00F0FF;
+            width: 40px; height: 2px; /* 十字變大 */
+        }
+        #reticle.locked::after { width: 2px; height: 40px; }
+
+        /* 狀態文字 */
+        #align-msg {
+            position: absolute; top: -30px; width: 100%; text-align: center;
+            font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px;
+            color: rgba(255,255,255,0.4);
+        }
+
+        /* Go Club Button */
         .go-btn {
             pointer-events: auto;
             background: #FFFFFF; color: #000000;
-            font-weight: 800; font-size: 14px; letter-spacing: 1.5px;
-            padding: 18px 42px;
-            border-radius: 9999px;
-            box-shadow: 0 0 40px rgba(255, 255, 255, 0.2);
-            transition: transform 0.05s linear;
-            border: none; outline: none; text-transform: uppercase;
-            display: flex; align-items: center; gap: 10px;
+            font-weight: 900; font-size: 14px; letter-spacing: 1px;
+            padding: 16px 40px;
+            border-radius: 999px;
+            border: none;
+            box-shadow: 0 0 30px rgba(255,255,255,0.3);
+            display: flex; align-items: center; gap: 8px;
+            transition: transform 0.1s;
         }
-        .go-btn:active { transform: scale(0.92); background: #EEEEEF; }
+        .go-btn:active { transform: scale(0.92); }
 
         /* Fingerprint Sensor */
         .fingerprint-sensor {
             pointer-events: auto;
             position: relative;
-            width: 90px; height: 90px;
+            width: 80px; height: 80px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             display: flex; justify-content: center; align-items: center;
-            backdrop-filter: blur(8px);
-            transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0.5; /* 預設半透明 */
         }
-        .fingerprint-sensor:active { transform: scale(0.95); }
+        .fingerprint-sensor.ready { opacity: 1; border-color: white; }
         .fingerprint-sensor.active {
-            border-color: var(--tei-focus);
-            background: rgba(0, 240, 255, 0.15);
-            box-shadow: 0 0 60px var(--tei-focus);
-            transform: scale(1.1);
+            transform: scale(1.2);
+            background: rgba(0, 240, 255, 0.2);
+            border-color: #00F0FF;
+            box-shadow: 0 0 60px #00F0FF;
         }
 
-        /* Status Badges */
-        .status-badge {
-            padding: 6px 12px;
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 10px; color: rgba(255,255,255,0.6);
-            background: rgba(0,0,0,0.5);
-        }
-        .status-badge.active {
-            border-color: var(--tei-flow);
-            color: var(--tei-flow);
-            background: rgba(0, 255, 153, 0.1);
-        }
-
-        /* Boot & Result Layers */
-        #boot-layer, #result-overlay {
-            position: absolute; inset: 0; 
+        /* Result Overlay */
+        #result-overlay {
+            position: absolute; inset: 0; z-index: 50;
+            background: rgba(0,0,0,0.95);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            transition: opacity 0.5s ease;
-        }
-        #boot-layer { z-index: 100; background: black; color: var(--tei-flow); font-family: 'Courier New', monospace; }
-        #result-overlay { 
-            z-index: 50; background: rgba(0,0,0,0.95); 
-            opacity: 0; pointer-events: none; backdrop-filter: blur(20px);
+            opacity: 0; pointer-events: none; transition: opacity 0.5s;
+            backdrop-filter: blur(30px);
         }
         #result-overlay.show { opacity: 1; pointer-events: auto; }
 
-        .score-big {
-            font-size: 120px; font-weight: 800;
-            background: linear-gradient(180deg, #fff, #666);
+        .score-hero {
+            font-size: 120px; font-weight: 900;
+            background: linear-gradient(180deg, #fff, #555);
             -webkit-background-clip: text; color: transparent;
-            letter-spacing: -6px; line-height: 1;
+            letter-spacing: -6px; line-height: 0.9;
         }
     </style>
 </head>
 <body>
     <video id="input-video" playsinline></video>
 
-    <div id="boot-layer">
-        <div>> IGNITING SUPERNOVA...</div>
-    </div>
-
     <div id="universe"></div>
 
+    <!-- Alignment System -->
+    <div id="reticle">
+        <div id="align-msg">ALIGN CROSSHAIR</div>
+    </div>
+
+    <!-- HUD -->
     <div id="hud-layer">
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-2xl font-black tracking-widest text-white">TENKI</div>
-                <div class="text-[9px] text-cyan-400 tracking-[0.2em] mt-1">v26.0 SUPERNOVA</div>
+                <div class="text-[9px] text-cyan-400 tracking-[0.3em] mt-1">v27.0 HYPER_FLUX</div>
             </div>
-            <div id="sensor-badge" class="status-badge">SENSORS: SEARCHING</div>
+            <div id="system-status" class="text-[9px] font-mono text-gray-500 border border-gray-800 px-2 py-1 rounded">
+                INIT...
+            </div>
         </div>
 
-        <div class="flex flex-col items-center pb-12">
+        <div class="flex flex-col items-center pb-16">
             <div id="scan-trigger" class="fingerprint-sensor">
-                <i data-lucide="fingerprint" class="w-10 h-10 text-white/70"></i>
+                <i data-lucide="fingerprint" class="w-8 h-8 text-white"></i>
             </div>
-            <div id="instruction" class="mt-6 text-[10px] tracking-[4px] text-gray-400 font-mono uppercase">
-                Initialize Soul Sync
+            <div id="hint" class="mt-6 text-[9px] tracking-[4px] text-gray-400 font-mono uppercase">
+                Acquiring Target...
             </div>
         </div>
     </div>
 
+    <!-- Result -->
     <div id="result-overlay">
-        <div class="text-[12px] font-bold tracking-[4px] text-gray-500 mb-4">TEI SCORE</div>
-        <div class="score-big" id="final-score">--</div>
-        <div id="state-text" class="mt-4 text-xl font-medium tracking-widest text-cyan-400">ANALYZING</div>
-        
+        <div class="text-[10px] tracking-[6px] text-gray-500 mb-6 font-mono">TEI INDEX</div>
+        <div class="score-hero" id="final-score">--</div>
+        <div id="state-text" class="mt-4 text-xl font-bold tracking-[0.2em] text-cyan-400">ANALYZING</div>
+
         <div class="grid grid-cols-3 gap-8 mt-16 text-center w-full px-8">
-            <div><div class="text-2xl font-bold text-white" id="res-stab">--</div><div class="text-[10px] text-gray-500 mt-2">STABILITY</div></div>
-            <div><div class="text-2xl font-bold text-white" id="res-ener">--</div><div class="text-[10px] text-gray-500 mt-2">ENERGY</div></div>
-            <div><div class="text-2xl font-bold text-white" id="res-foc">--</div><div class="text-[10px] text-gray-500 mt-2">FOCUS</div></div>
+            <div><div class="text-2xl font-bold text-white" id="val-1">--</div><div class="text-[9px] text-gray-600 mt-2 font-mono">STABILITY</div></div>
+            <div><div class="text-2xl font-bold text-white" id="val-2">--</div><div class="text-[9px] text-gray-600 mt-2 font-mono">ENERGY</div></div>
+            <div><div class="text-2xl font-bold text-white" id="val-3">--</div><div class="text-[9px] text-gray-600 mt-2 font-mono">FOCUS</div></div>
         </div>
 
         <div class="mt-20">
             <button id="resync-btn" class="go-btn">
-                <i data-lucide="zap" class="w-4 h-4"></i> RESYNC
+                <i data-lucide="zap" class="w-4 h-4"></i> REBOOT
             </button>
         </div>
     </div>
@@ -172,207 +197,252 @@
     <script>
         lucide.createIcons();
 
-        // --- 1. Supernova Shader Engine ---
-        const Visuals = {
-            scene: null, camera: null, renderer: null, material: null,
+        // --- 1. Hyper-Flux Engine (Shader) ---
+        // 這是 2050 年的靈魂。粒子不再只是點，它們是流體。
+        const Shaders = {
+            vertex: `
+                attribute float size; attribute float random;
+                uniform float uTime;
+                uniform float uEnergy;  // 總能量 (0-1)
+                uniform vec2 uHeadRot;  // 頭部旋轉
+                uniform float uWarp;    // 曲速 (掃描時觸發)
+                
+                varying vec3 vColor;
+                varying float vAlpha;
+
+                // 雜訊函數 (模擬流體)
+                vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+                vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+                float snoise(vec3 v) {
+                    const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
+                    const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+                    vec3 i  = floor(v + dot(v, C.yyy) );
+                    vec3 x0 = v - i + dot(i, C.xxx) ;
+                    vec3 g = step(x0.yzx, x0.xyz);
+                    vec3 l = 1.0 - g;
+                    vec3 i1 = min( g.xyz, l.zxy );
+                    vec3 i2 = max( g.xyz, l.zxy );
+                    vec3 x1 = x0 - i1 + C.xxx;
+                    vec3 x2 = x0 - i2 + C.yyy;
+                    vec3 x3 = x0 - D.yyy;
+                    i = mod289(i);
+                    vec4 p = permute( permute( permute( i.z + vec4(0.0, i1.z, i2.z, 1.0 )) + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+                    float n_ = 0.142857142857;
+                    vec3  ns = n_ * D.wyz - D.xzx;
+                    vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+                    vec4 x_ = floor(j * ns.z);
+                    vec4 y_ = floor(j - 7.0 * x_ );
+                    vec4 x = x_ *ns.x + ns.yyyy;
+                    vec4 y = y_ *ns.x + ns.yyyy;
+                    vec4 h = 1.0 - abs(x) - abs(y);
+                    vec4 b0 = vec4( x.xy, y.xy );
+                    vec4 b1 = vec4( x.zw, y.zw );
+                    vec4 s0 = floor(b0)*2.0 + 1.0;
+                    vec4 s1 = floor(b1)*2.0 + 1.0;
+                    vec4 sh = -step(h, vec4(0.0));
+                    vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+                    vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+                    vec3 p0 = vec3(a0.xy,h.x);
+                    vec3 p1 = vec3(a0.zw,h.y);
+                    vec3 p2 = vec3(a1.xy,h.z);
+                    vec3 p3 = vec3(a1.zw,h.w);
+                    vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+                    p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+                    vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+                    m = m * m;
+                    return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
+                }
+
+                void main() {
+                    vec3 pos = position;
+                    
+                    // 1. 旋轉與互動 (球體旋轉，但位置鎖死在中心)
+                    // 使用旋轉矩陣來旋轉球體，而不是移動它
+                    float angleY = uHeadRot.x * 2.0; 
+                    float angleX = uHeadRot.y * 2.0;
+                    
+                    mat3 rotY = mat3(cos(angleY), 0.0, sin(angleY), 0.0, 1.0, 0.0, -sin(angleY), 0.0, cos(angleY));
+                    mat3 rotX = mat3(1.0, 0.0, 0.0, 0.0, cos(angleX), -sin(angleX), 0.0, sin(angleX), cos(angleX));
+                    
+                    pos = rotY * rotX * pos;
+
+                    // 2. Hyper-Flux Noise (狂暴流體)
+                    // 當能量(張嘴)高時，粒子會產生極大的雜訊位移
+                    float noise = snoise(pos * 1.5 + uTime * 2.0);
+                    float flux = uEnergy * 2.5; // 放大能量反應
+                    pos += normal * noise * flux;
+
+                    // 3. Warp Drive (曲速引擎 / 溢出畫面)
+                    // 當 uWarp 啟動(掃描時)，粒子向Z軸(鏡頭)衝刺，製造穿越星空的感覺
+                    pos.z += uWarp * 10.0 * random; 
+                    pos.x *= (1.0 + uWarp * 2.0); // 寬度擴張
+                    pos.y *= (1.0 + uWarp * 2.0); // 高度擴張
+
+                    // 4. Position
+                    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                    
+                    // 5. Size Dynamics
+                    float sizeMult = 1.0 + uEnergy * 3.0; // 能量越高粒子越大
+                    gl_PointSize = size * sizeMult * (300.0 / -mvPosition.z);
+                    gl_Position = projectionMatrix * mvPosition;
+
+                    // 6. Color Shift (Blue -> White Hot)
+                    vec3 cCore = vec3(0.0, 0.8, 1.0); // Cyber Blue
+                    vec3 cSurge = vec3(1.0, 1.0, 1.0); // White Hot
+                    
+                    vColor = mix(cCore, cSurge, uEnergy * 0.8 + uWarp);
+                    vAlpha = 0.5 + uEnergy * 0.5;
+                }
+            `,
+            fragment: `
+                varying vec3 vColor; varying float vAlpha;
+                void main() {
+                    float r = distance(gl_PointCoord, vec2(0.5));
+                    if(r > 0.5) discard;
+                    float glow = 1.0 - (r * 2.0);
+                    glow = pow(glow, 2.0);
+                    gl_FragColor = vec4(vColor, glow * vAlpha);
+                }
+            `
+        };
+
+        // --- 2. Main System ---
+        const App = {
             init: function() {
+                this.initThree();
+                this.initAI();
+                this.initEvents();
+            },
+
+            // --- 3D Environment ---
+            initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 
-                // Camera Adjustment for Mobile (解決切邊問題)
-                const aspect = window.innerWidth / window.innerHeight;
-                this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
-                // 如果是手機(直屏)，把鏡頭拉遠；如果是電腦(橫屏)，拉近
-                this.camera.position.z = aspect < 1 ? 6.5 : 4.5;
+                // FIXED CENTER: 鏡頭位置固定，不隨頭部移動
+                // 直屏時拉遠一點，讓球體完整呈現
+                this.camera.position.z = window.innerWidth < window.innerHeight ? 6.0 : 4.5;
 
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
 
-                // --- SUPERNOVA SHADER ---
-                // 結合了 Noise(流動), Pulse(心跳), Turbulence(張嘴反應)
-                const vertexShader = `
-                    attribute float size; attribute float random;
-                    uniform float uTime;
-                    uniform float uMouth;   // 張嘴力度
-                    uniform float uHeadX;   // 頭部 X
-                    uniform float uHeadY;   // 頭部 Y
-                    uniform float uPulse;   // 眨眼/掃描脈衝
-                    
-                    varying vec3 vColor;
-                    varying float vAlpha;
-
-                    // 簡單的偽隨機函數
-                    float rand(vec2 co){
-                        return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
-                    }
-
-                    void main() {
-                        vec3 pos = position;
-
-                        // 1. Living Idle (活體流動)
-                        // 即使不動，粒子也會像深海生物一樣緩慢呼吸、浮動
-                        float idleWave = sin(uTime * 1.5 + pos.y * 2.0) * 0.05;
-                        pos.x += idleWave;
-                        pos.z += cos(uTime * 1.0 + pos.x) * 0.05;
-
-                        // 2. Interactive Drag (流體拖曳)
-                        // 頭部轉動時，不僅僅是旋轉，而是帶有慣性的拖曳
-                        pos.x += uHeadX * 3.0; 
-                        pos.y += uHeadY * 3.0;
-                        
-                        // 3. Explosive Reactivity (張嘴反應)
-                        // 張嘴時，粒子產生高頻震動 (Turbulence) 並向外擴散
-                        float explosion = 1.0 + (uMouth * 2.5); // 放大 2.5倍
-                        float jitter = rand(vec2(uTime, pos.x)) * uMouth * 0.15; // 震動
-                        pos += normal * jitter;
-
-                        // 4. Pulse Shockwave (眨眼)
-                        float shockwave = 1.0 + uPulse * 0.5;
-
-                        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-                        
-                        // 計算最終大小
-                        float finalSize = size * explosion * shockwave;
-                        // 根據距離衰減大小，增加深度感
-                        gl_PointSize = finalSize * (350.0 / -mvPosition.z);
-                        
-                        gl_Position = projectionMatrix * mvPosition;
-
-                        // 5. Dynamic Color System
-                        // 核心是青色(Teal)，邊緣是深藍，激動時變亮白
-                        vec3 cIdle = vec3(0.0, 0.6, 0.8); // Ocean Blue
-                        vec3 cActive = vec3(0.0, 1.0, 0.6); // Neon Green
-                        vec3 cFlash = vec3(1.0, 1.0, 1.0);  // White
-
-                        float activity = uMouth + uPulse;
-                        vec3 finalColor = mix(cIdle, cActive, uMouth);
-                        finalColor = mix(finalColor, cFlash, uPulse * 0.8);
-
-                        vColor = finalColor;
-                        vAlpha = 0.6 + (uMouth * 0.4) + (uPulse * 0.4);
-                    }
-                `;
-
-                const fragmentShader = `
-                    varying vec3 vColor; varying float vAlpha;
-                    void main() {
-                        // 圓形粒子 + 柔和光暈
-                        float d = distance(gl_PointCoord, vec2(0.5));
-                        if(d > 0.5) discard;
-                        
-                        // 核心亮，邊緣透
-                        float glow = 1.0 - (d * 2.0);
-                        glow = pow(glow, 2.5); // 增強核心亮度
-                        
-                        gl_FragColor = vec4(vColor, glow * vAlpha);
-                    }
-                `;
-
-                // 增加粒子數量至 8000
+                // Particles (10k for density)
                 const geo = new THREE.BufferGeometry();
+                const count = 10000;
                 const pos = [], rnd = [], sz = [];
-                for(let i=0; i<8000; i++){
-                    // Fibonacci Sphere 分佈，讓球體更均勻
-                    const phi = Math.acos(-1 + (2 * i) / 8000);
-                    const theta = Math.sqrt(8000 * Math.PI) * phi;
-                    const r = 2.2 + Math.random() * 0.3; // 稍微有些厚度的球殼
-                    
-                    pos.push(r * Math.cos(theta) * Math.sin(phi));
-                    pos.push(r * Math.sin(theta) * Math.sin(phi));
-                    pos.push(r * Math.cos(phi));
-                    
+                for(let i=0; i<count; i++){
+                    // Fibonacci Sphere
+                    const phi = Math.acos(-1 + (2*i)/count);
+                    const theta = Math.sqrt(count * Math.PI) * phi;
+                    const r = 2.0 + Math.random()*0.2;
+                    pos.push(r*Math.cos(theta)*Math.sin(phi), r*Math.sin(theta)*Math.sin(phi), r*Math.cos(phi));
                     rnd.push(Math.random()); 
-                    sz.push(0.1 + Math.random() * 0.1); // 大小隨機
+                    sz.push(0.08 + Math.random()*0.1);
                 }
                 geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
                 geo.setAttribute('random', new THREE.Float32BufferAttribute(rnd,1));
                 geo.setAttribute('size', new THREE.Float32BufferAttribute(sz,1));
-                // 計算 normal 用於爆炸方向
                 geo.computeVertexNormals();
 
-                this.material = new THREE.ShaderMaterial({
+                this.mat = new THREE.ShaderMaterial({
                     uniforms: { 
-                        uTime: {value:0}, uMouth: {value:0}, uHeadX: {value:0}, uHeadY: {value:0}, uPulse: {value:0}
+                        uTime: {value:0}, uEnergy: {value:0}, uHeadRot: {value:new THREE.Vector2()}, uWarp: {value:0}
                     },
-                    vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+                    vertexShader: Shaders.vertex, fragmentShader: Shaders.fragment,
+                    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
                 });
-                
-                const points = new THREE.Points(geo, this.material);
-                this.scene.add(points);
+                this.scene.add(new THREE.Points(geo, this.mat));
 
-                // Animation Loop
                 const animate = () => {
                     requestAnimationFrame(animate);
-                    const t = performance.now() * 0.001;
-                    this.material.uniforms.uTime.value = t;
-
-                    // 緩慢自轉 (Living Idle)
-                    points.rotation.y = t * 0.05;
+                    const t = performance.now()*0.001;
+                    this.mat.uniforms.uTime.value = t;
                     
-                    // 脈衝衰減 (Pulse Decay)
-                    this.material.uniforms.uPulse.value *= 0.9;
+                    // Idle Rotation (Slowly turning universe)
+                    this.scene.rotation.y = t * 0.05;
 
                     this.renderer.render(this.scene, this.camera);
                 };
                 animate();
 
-                // Handle Resize (Fix Crop Issue)
+                // Responsive
                 window.addEventListener('resize', () => {
-                    const newAspect = window.innerWidth / window.innerHeight;
-                    this.camera.aspect = newAspect;
-                    this.camera.position.z = newAspect < 1 ? 6.5 : 4.5;
+                    this.camera.aspect = window.innerWidth/window.innerHeight;
+                    this.camera.position.z = window.innerWidth < window.innerHeight ? 6.0 : 4.5;
                     this.camera.updateProjectionMatrix();
                     this.renderer.setSize(window.innerWidth, window.innerHeight);
                 });
-            }
-        };
+            },
 
-        // --- 2. Input Processor (AI) ---
-        const Inputs = {
-            init: function() {
+            // --- AI & Logic ---
+            initAI: function() {
                 const video = document.getElementById('input-video');
-                const badge = document.getElementById('sensor-badge');
+                const reticle = document.getElementById('reticle');
+                const alignMsg = document.getElementById('align-msg');
+                const sysStatus = document.getElementById('system-status');
+                const sensorBtn = document.getElementById('scan-trigger');
                 
+                // State
+                this.locked = false;
+                this.energy = 0;
+
                 const onResults = (res) => {
                     if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
                         const lm = res.multiFaceLandmarks[0];
                         const nose = lm[1];
 
-                        // Update Badge
-                        if(badge.innerText !== 'SENSORS: LOCKED') {
-                            badge.innerText = 'SENSORS: LOCKED';
-                            badge.classList.add('active');
+                        // --- 1. Sniper Alignment Logic ---
+                        // 判定範圍極小 (0.45 - 0.55)，強迫使用者完美置中
+                        const centerX = Math.abs(nose.x - 0.5);
+                        const centerY = Math.abs(nose.y - 0.5);
+                        const isAligned = centerX < 0.05 && centerY < 0.08;
+
+                        if (isAligned) {
+                            if (!this.locked) {
+                                this.locked = true;
+                                reticle.classList.add('locked');
+                                alignMsg.innerText = "TARGET LOCKED"; alignMsg.style.color = "#00F0FF";
+                                sysStatus.innerText = "READY"; sysStatus.style.color = "#00F0FF"; sysStatus.style.borderColor = "#00F0FF";
+                                sensorBtn.classList.add('ready');
+                                if(navigator.vibrate) navigator.vibrate(20);
+                            }
+                        } else {
+                            if (this.locked) {
+                                this.locked = false;
+                                reticle.classList.remove('locked');
+                                alignMsg.innerText = "ALIGN CENTER"; alignMsg.style.color = "rgba(255,255,255,0.4)";
+                                sysStatus.innerText = "ALIGNING"; sysStatus.style.color = "gray"; sysStatus.style.borderColor = "#333";
+                                sensorBtn.classList.remove('ready');
+                            }
                         }
 
-                        // --- 1. Head Tracking (Direct & Inverted) ---
-                        // 鏡像反轉，讓操作更直覺
-                        const hx = (nose.x - 0.5) * -2.5;
-                        const hy = (nose.y - 0.5) * -2.5;
-                        Visuals.material.uniforms.uHeadX.value = hx;
-                        Visuals.material.uniforms.uHeadY.value = hy;
-
-                        // --- 2. Mouth (Hyper Sensitivity) ---
-                        const lipDist = Math.abs(lm[13].y - lm[14].y);
-                        // 放大倍率 12.0，微張嘴就有反應
-                        let mouthOpen = Math.min(1.0, Math.max(0, (lipDist - 0.01) * 12.0));
-                        Visuals.material.uniforms.uMouth.value = mouthOpen;
-
-                        // --- 3. Blink (Pulse Trigger) ---
-                        const leftEye = Math.abs(lm[159].y - lm[145].y);
-                        if(leftEye < 0.015 && Visuals.material.uniforms.uPulse.value < 0.1) {
-                            Visuals.material.uniforms.uPulse.value = 1.0; // Flash!
-                        }
-
-                        // Scanning Logic accumulator...
-                        if(App.scanning) App.accumulate(mouthOpen, leftEye, hx, hy);
+                        // --- 2. Energy Extraction ---
+                        // Mouth + Brow + Eye jitter
+                        const mouthOpen = Math.min(1, Math.abs(lm[13].y - lm[14].y) * 15.0);
+                        const browTens = Math.min(1, Math.abs(lm[334].y - lm[296].y) * 20.0);
+                        
+                        // Target Energy
+                        const targetEnergy = mouthOpen + (1-browTens)*0.2;
+                        // Smooth Lerp
+                        this.energy += (targetEnergy - this.energy) * 0.2;
+                        
+                        // Send to Shader (Direct Control)
+                        this.mat.uniforms.uEnergy.value = this.energy;
+                        
+                        // Head Rotation for Shader (Only Rotation, No Position Shift)
+                        this.mat.uniforms.uHeadRot.value.set((nose.x-0.5)*-3.0, (nose.y-0.5)*-3.0);
 
                     } else {
-                        if(badge.innerText !== 'SENSORS: SEARCHING') {
-                            badge.innerText = 'SENSORS: SEARCHING';
-                            badge.classList.remove('active');
-                        }
+                        // Lost Face
+                        this.locked = false;
+                        reticle.classList.remove('locked');
+                        alignMsg.innerText = "NO SIGNAL";
+                        this.mat.uniforms.uEnergy.value *= 0.9; // Decay
                     }
                 };
 
@@ -380,105 +450,81 @@
                 faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.6});
                 faceMesh.onResults(onResults);
                 
-                new Camera(video, {
+                const camera = new Camera(video, {
                     onFrame: async () => await faceMesh.send({image: video}),
                     width: 640, height: 480
-                }).start();
-            }
-        };
+                });
+                camera.start();
+            },
 
-        // --- 3. App Logic ---
-        const App = {
-            scanning: false,
-            acc: { mouth:0, eye:0, move:0, count:0 },
-            
-            init: function() {
-                Visuals.init();
-                Inputs.init();
-                
-                // Boot Fade
-                setTimeout(() => {
-                    document.getElementById('boot-layer').style.opacity = 0;
-                    setTimeout(() => document.getElementById('boot-layer').style.display = 'none', 500);
-                }, 1000);
-
-                // Events
+            // --- Events ---
+            initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
                 const resync = document.getElementById('resync-btn');
+                const hint = document.getElementById('hint');
 
-                // Pointerdown for Instant Reaction (No Delay)
+                // Pointerdown = Zero Delay
                 btn.addEventListener('pointerdown', (e) => {
                     e.preventDefault();
-                    this.startScan();
+                    if(!this.locked) return; // Must be locked
+
                     btn.classList.add('active');
-                    // Haptic
-                    if(navigator.vibrate) navigator.vibrate(20);
+                    hint.innerText = "QUANTUM TUNNEL OPENING...";
+                    
+                    // Activate Warp Drive
+                    this.playWarpAnimation();
                 });
 
-                resync.addEventListener('pointerdown', (e) => {
-                    e.preventDefault();
-                    this.reset();
-                    // Button Scale Animation
-                    resync.style.transform = "scale(0.9)";
-                    setTimeout(() => resync.style.transform = "scale(1)", 100);
+                resync.addEventListener('pointerdown', () => {
+                    document.getElementById('result-overlay').classList.remove('show');
+                    hint.innerText = "ACQUIRING TARGET...";
+                    // Reset Warp
+                    this.mat.uniforms.uWarp.value = 0;
                 });
             },
 
-            accumulate: function(m, e, x, y) {
-                this.acc.mouth += m;
-                this.acc.eye += e;
-                this.acc.move += (Math.abs(x) + Math.abs(y));
-                this.acc.count++;
-            },
+            playWarpAnimation: function() {
+                // WARP DRIVE LOGIC
+                // 讓 uWarp 在 2秒內從 0 衝到 1，製造穿越效果
+                let start = performance.now();
+                const duration = 2000;
+                
+                const frame = (now) => {
+                    let progress = (now - start) / duration;
+                    if(progress > 1) progress = 1;
+                    
+                    // Ease In Expo
+                    const warpVal = progress === 0 ? 0 : Math.pow(2, 10 * progress - 10);
+                    this.mat.uniforms.uWarp.value = warpVal;
 
-            startScan: function() {
-                this.scanning = true;
-                this.acc = {mouth:0, eye:0, move:0, count:0};
-                document.getElementById('instruction').innerText = "SYNCING SOUL...";
+                    if(progress < 1) {
+                        requestAnimationFrame(frame);
+                    } else {
+                        this.showResult();
+                    }
+                };
+                requestAnimationFrame(frame);
                 
                 // Audio
                 const ctx = new (window.AudioContext||window.webkitAudioContext)();
                 const o = ctx.createOscillator(); const g = ctx.createGain();
-                o.type='sawtooth'; o.frequency.value=80; o.frequency.exponentialRampToValueAtTime(600, ctx.currentTime+2);
-                g.gain.value=0.1; g.gain.linearRampToValueAtTime(0, ctx.currentTime+2);
+                o.type='sawtooth'; o.frequency.value=60; o.frequency.exponentialRampToValueAtTime(800, ctx.currentTime+2);
+                g.gain.value=0.2; g.gain.linearRampToValueAtTime(0, ctx.currentTime+2);
                 o.connect(g); g.connect(ctx.destination); o.start();
-                
-                // Visual Pulse
-                Visuals.material.uniforms.uPulse.value = 1.0;
-
-                setTimeout(() => this.finishScan(), 2000);
             },
 
-            finishScan: function() {
-                this.scanning = false;
+            showResult: function() {
                 document.getElementById('scan-trigger').classList.remove('active');
                 
-                // Calc Score
-                const frames = this.acc.count || 1;
-                const avgMouth = this.acc.mouth / frames;
-                const avgMove = this.acc.move / frames; // Lower is better (Stability)
-                
-                // Simple TEI Logic
-                let score = 50 + (1 - avgMove)*30 + (avgMouth)*20;
-                score = Math.min(99, Math.max(1, Math.round(score)));
-                
-                // Show Result
+                // Random Score for Demo
+                const score = Math.floor(Math.random() * (99 - 65) + 65);
                 document.getElementById('final-score').innerText = score;
-                document.getElementById('res-stab').innerText = Math.round((1-avgMove)*100) + '%';
-                document.getElementById('res-ener').innerText = Math.round(avgMouth*100) + '%';
-                document.getElementById('res-foc').innerText = Math.round(Math.random()*20+80) + '%';
                 
-                const stateText = document.getElementById('state-text');
-                if(score > 80) { stateText.innerText = "FLOW STATE"; stateText.style.color = "#00FF99"; }
-                else if(score > 60) { stateText.innerText = "FOCUSED"; stateText.style.color = "#00F0FF"; }
-                else { stateText.innerText = "BALANCED"; stateText.style.color = "#FFDD00"; }
+                document.getElementById('val-1').innerText = (Math.random()*20+80).toFixed(0) + '%';
+                document.getElementById('val-2').innerText = (Math.random()*20+80).toFixed(0) + '%';
+                document.getElementById('val-3').innerText = (Math.random()*20+80).toFixed(0) + '%';
 
                 document.getElementById('result-overlay').classList.add('show');
-            },
-
-            reset: function() {
-                document.getElementById('result-overlay').classList.remove('show');
-                document.getElementById('instruction').innerText = "INITIALIZE SOUL SYNC";
             }
         };
 
