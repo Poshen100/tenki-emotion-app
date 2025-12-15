@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v20.1 - Stable Core</title>
+    <title>TENKI v22.0 - Neural Matrix</title>
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -16,10 +16,12 @@
 
     <style>
         :root {
-            --bg-deep: #000000;
-            --soul-cyan: #00F0FF;
-            --alert-red: #FF3333;
-            --term-green: #00FF00;
+            --bg-deep: #050505;
+            --tei-excellent: #00FF99; /* 85-99 */
+            --tei-good: #00F0FF;      /* 75-84 */
+            --tei-balanced: #FFDD00;  /* 60-74 */
+            --tei-stress: #FF8800;    /* 30-59 */
+            --tei-critical: #FF3333;  /* 1-29 */
         }
 
         body {
@@ -45,14 +47,14 @@
             background: black;
             display: flex; flex-direction: column; justify-content: center; padding: 40px;
             font-family: 'Courier New', monospace;
-            color: var(--term-green);
+            color: var(--tei-excellent);
             font-size: 14px; line-height: 1.6;
             transition: opacity 1s ease-out;
         }
 
         #universe {
             position: absolute; inset: 0; z-index: 1;
-            background: radial-gradient(circle at center, #0b1016 0%, #000000 100%);
+            background: radial-gradient(circle at center, #0f1720 0%, #000000 100%);
             opacity: 0; transition: opacity 2s ease-in;
         }
 
@@ -66,9 +68,9 @@
 
         .bio-stats {
             font-size: 10px; color: rgba(255,255,255,0.6);
-            margin-bottom: 4px; display: flex; justify-content: space-between; width: 120px;
+            margin-bottom: 4px; display: flex; justify-content: space-between; width: 140px;
         }
-        .bio-val { color: var(--soul-cyan); font-weight: bold; }
+        .bio-val { color: var(--tei-good); font-weight: bold; }
 
         .fingerprint-sensor {
             pointer-events: auto;
@@ -84,9 +86,9 @@
         }
         .fingerprint-sensor.active {
             transform: scale(1.1);
-            border-color: var(--soul-cyan);
+            border-color: var(--tei-good);
             background: rgba(0, 240, 255, 0.1);
-            box-shadow: 0 0 50px var(--soul-cyan);
+            box-shadow: 0 0 50px var(--tei-good);
         }
 
         .result-overlay {
@@ -101,18 +103,19 @@
         .result-overlay.show { opacity: 1; pointer-events: auto; }
         
         .score-display {
-            font-size: 90px; font-weight: bold;
-            background: linear-gradient(to bottom, #fff, #666);
+            font-size: 100px; font-weight: bold;
+            background: linear-gradient(to bottom, #fff, #888);
             -webkit-background-clip: text; color: transparent;
-            letter-spacing: -6px; line-height: 1;
+            letter-spacing: -6px; line-height: 0.9;
         }
         
-        .trading-mode-badge {
-            margin-top: 20px; padding: 6px 16px;
+        .state-badge {
+            margin-top: 10px; padding: 6px 16px;
             border: 1px solid #333;
             border-radius: 20px;
             font-size: 12px; letter-spacing: 2px;
             display: flex; align-items: center; gap: 8px;
+            text-transform: uppercase;
         }
     </style>
 </head>
@@ -130,16 +133,16 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white">TENKI</div>
-                <div class="text-[8px] text-cyan-500 tracking-widest mt-1">v20.1 STABLE_CORE</div>
+                <div class="text-[8px] text-emerald-400 tracking-widest mt-1">v22.0 NEURAL_MATRIX</div>
             </div>
             <div class="text-right">
                 <div id="connection-status" class="text-[10px] text-gray-500 border border-gray-800 px-2 py-1 rounded mb-2">
                     OFFLINE
                 </div>
                 <div class="hidden" id="live-metrics">
-                    <div class="bio-stats"><span>HRV</span> <span class="bio-val" id="val-hrv">--</span></div>
-                    <div class="bio-stats"><span>RESP</span> <span class="bio-val" id="val-resp">--</span></div>
-                    <div class="bio-stats"><span>STRESS</span> <span class="bio-val" id="val-stress">--</span></div>
+                    <div class="bio-stats"><span>HRV (RMSSD)</span> <span class="bio-val" id="val-hrv">--</span></div>
+                    <div class="bio-stats"><span>BREATH RATE</span> <span class="bio-val" id="val-br">--</span></div>
+                    <div class="bio-stats"><span>VAGAL TONE</span> <span class="bio-val" id="val-vagal">--</span></div>
                 </div>
             </div>
         </div>
@@ -155,21 +158,25 @@
     </div>
 
     <div id="result-view" class="result-overlay">
-        <div class="text-[10px] tracking-[6px] text-cyan-400 mb-2">ERI ANALYSIS COMPLETE</div>
-        <div class="score-display" id="final-score">00</div>
+        <div class="text-[10px] tracking-[6px] text-gray-400 mb-2">TEI SCORE (1-99)</div>
+        <div class="score-display" id="final-score">--</div>
         
-        <div id="trading-mode" class="trading-mode-badge text-gray-400">
+        <div id="state-badge" class="state-badge text-white">
             <span>CALCULATING...</span>
         </div>
 
-        <div class="grid grid-cols-3 gap-8 mt-12 text-center">
-            <div><div class="text-[20px] font-bold text-white" id="res-arousal">0%</div><div class="text-[8px] text-gray-500 mt-1">AROUSAL</div></div>
-            <div><div class="text-[20px] font-bold text-white" id="res-hrv">0ms</div><div class="text-[8px] text-gray-500 mt-1">HRV</div></div>
-            <div><div class="text-[20px] font-bold text-white" id="res-focus">0%</div><div class="text-[8px] text-gray-500 mt-1">FOCUS</div></div>
+        <div class="grid grid-cols-3 gap-8 mt-12 text-center w-full px-10">
+            <div><div class="text-[20px] font-bold text-white" id="res-hrv">0</div><div class="text-[8px] text-gray-500 mt-1">HRV</div></div>
+            <div><div class="text-[20px] font-bold text-white" id="res-context">0.0</div><div class="text-[8px] text-gray-500 mt-1">CONTEXT</div></div>
+            <div><div class="text-[20px] font-bold text-white" id="res-behavior">0.0</div><div class="text-[8px] text-gray-500 mt-1">BEHAVIOR</div></div>
+        </div>
+        
+        <div class="text-[10px] text-gray-600 mt-8 max-w-[80%] text-center leading-relaxed" id="ai-insight">
+            AI ANALYSIS...
         </div>
 
-        <div class="mt-12">
-            <button onclick="app.reset()" class="border border-white/20 px-6 py-3 text-[10px] tracking-widest hover:bg-white hover:text-black transition">RESYNC SYSTEM</button>
+        <div class="mt-8">
+            <button onclick="app.reset()" class="border border-white/20 px-6 py-3 text-[10px] tracking-widest hover:bg-white hover:text-black transition">RESYNC</button>
         </div>
     </div>
 
@@ -178,15 +185,112 @@
         const setVh = () => document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
         window.addEventListener('resize', setVh); setVh();
 
-        // --- Audio Engine ---
+        // --- TEI Calculation Engine v2.1 (Based on Spec) ---
+        class TEIEngine {
+            constructor() {
+                // 權重定義 (Phone Only Model)
+                this.weights = {
+                    HR: 0.35,
+                    HRV: 0.25,
+                    FACE: 0.15,
+                    BREATH: 0.10,
+                    CONTEXT: 0.10,
+                    BEHAVIOR: 0.05
+                };
+                
+                // 基線 (可個性化)
+                this.baseline = {
+                    restingHR: 60,
+                    maxHR: 180,
+                    avgHRV: 40, // ms
+                    idealBR: 12 // breaths/min
+                };
+            }
+
+            // 正規化函數
+            normalizeHR(bpm) { return (bpm - this.baseline.restingHR) / (this.baseline.maxHR - this.baseline.restingHR); }
+            normalizeHRV(rmssd) { 
+                // HRV越高越好，映射到 0-1
+                let norm = (rmssd - 20) / 60; 
+                return Math.min(1, Math.max(0, norm)); 
+            }
+            normalizeBR(br) {
+                // 呼吸率偏離理想值越多越差
+                let diff = Math.abs(br - this.baseline.idealBR);
+                return Math.max(0, 1 - (diff / 10)); 
+            }
+
+            // 計算上下文分數 (模擬)
+            calculateContext() {
+                const hour = new Date().getHours();
+                // 簡單晝夜節律模擬：中午最高，深夜最低
+                const circadian = 0.5 + 0.5 * Math.sin(2 * Math.PI * (hour - 12) / 24);
+                return circadian;
+            }
+
+            // 計算行為分數 (模擬)
+            calculateBehavior() {
+                // 假設輸入穩定
+                return 0.85; 
+            }
+
+            compute(inputs) {
+                const hrNorm = this.normalizeHR(inputs.bpm || 75);
+                const hrvNorm = this.normalizeHRV(inputs.hrv || 40);
+                const brNorm = this.normalizeBR(inputs.br || 14);
+                const contextScore = this.calculateContext();
+                const behaviorScore = this.calculateBehavior();
+                const facialStress = inputs.facialStress || 0.5;
+
+                // v2.1 核心公式: TEI_raw
+                // 注意：1-HR_norm 代表心率越低分越高
+                // 注意：1-facialStress 代表壓力越小分越高
+                let teiRaw = 50 + (
+                    this.weights.HR * (1 - hrNorm) * 40 +
+                    this.weights.HRV * hrvNorm * 40 +
+                    this.weights.FACE * (1 - facialStress) * 40 +
+                    this.weights.BREATH * brNorm * 40 +
+                    this.weights.CONTEXT * contextScore * 40 +
+                    this.weights.BEHAVIOR * behaviorScore * 40
+                );
+
+                // Clamp to 1-99
+                let teiFinal = Math.min(99, Math.max(1, teiRaw));
+                
+                return {
+                    score: Math.round(teiFinal),
+                    components: {
+                        hrvRaw: inputs.hrv,
+                        context: contextScore,
+                        behavior: behaviorScore,
+                        facialStress: facialStress
+                    }
+                };
+            }
+
+            getState(score) {
+                if (score >= 85) return { text: "EXCELLENT / VAGAL++", color: "#00FF99", insight: "副交感神經優勢。極佳恢復力。適合進行重大決策。" };
+                if (score >= 75) return { text: "GOOD RESILIENCE", color: "#00F0FF", insight: "狀態良好。保持專注。" };
+                if (score >= 60) return { text: "BALANCED STATE", color: "#FFDD00", insight: "身心平衡。保持覺察。" };
+                if (score >= 45) return { text: "MILD STRESS", color: "#FFAA00", insight: "輕度應激。建議調整呼吸頻率。" };
+                if (score >= 30) return { text: "MODERATE STRESS", color: "#FF8800", insight: "交感神經活躍。需要短暫休息。" };
+                if (score >= 15) return { text: "HIGH STRESS", color: "#FF3333", insight: "高度應激。建議立即停止工作並冥想。" };
+                return { text: "CRITICAL FATIGUE", color: "#FF0000", insight: "臨界狀態。系統建議：強制休息。" };
+            }
+        }
+
+        // --- Main App Logic ---
+        const teiEngine = new TEIEngine();
+        
+        // Audio Engine (Reused from v21)
         const AudioEngine = {
             ctx: null, oscillator: null, gainNode: null,
             init: function() {
                 if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                if (this.ctx.state === 'suspended') this.ctx.resume();
             },
             playScan: function() {
-                this.init(); if(this.oscillator) this.stopScan();
+                this.init(); if(this.ctx.state === 'suspended') this.ctx.resume();
+                if(this.oscillator) this.stopScan();
                 const t = this.ctx.currentTime;
                 this.oscillator = this.ctx.createOscillator(); this.oscillator.type = 'sawtooth';
                 this.oscillator.frequency.setValueAtTime(80, t);
@@ -194,11 +298,9 @@
                 this.gainNode = this.ctx.createGain();
                 this.gainNode.gain.setValueAtTime(0, t);
                 this.gainNode.gain.linearRampToValueAtTime(0.1, t + 0.1);
-                
                 const filter = this.ctx.createBiquadFilter();
                 filter.type = 'lowpass'; filter.frequency.setValueAtTime(200, t);
                 filter.frequency.linearRampToValueAtTime(2000, t + 2);
-
                 this.oscillator.connect(filter); filter.connect(this.gainNode);
                 this.gainNode.connect(this.ctx.destination);
                 this.oscillator.start(t);
@@ -219,65 +321,13 @@
             }
         };
 
-        // --- Biometric Core ---
-        class FAUDetector {
-            detect(landmarks) {
-                if(!landmarks) return { AU4:0, AU5:0, AU12:0, AU25:0, AU7:0 };
-                const distY = (i1, i2) => Math.abs(landmarks[i1].y - landmarks[i2].y);
-                const pos = (i) => landmarks[i].y;
-                return {
-                    AU4: Math.min(1, Math.max(0, (pos(334) - pos(296)) * 10)), 
-                    AU5: Math.min(1, distY(159, 145) * 20),
-                    AU12: Math.min(1, Math.max(0, (0.5 - pos(61)) * 5)), 
-                    AU25: Math.min(1, distY(13, 14) * 10),
-                    AU7: Math.min(1, Math.max(0, (0.02 - distY(159, 145)) * 50))
-                };
-            }
-        }
-
-        class ERIComputer {
-            compute(fau, hrvInput) {
-                // 安全檢查：確保輸入是有效的
-                const safeFAU = fau || { AU4:0, AU5:0, AU7:0 };
-                const safeHRV = hrvInput || 60;
-
-                const arousal = (safeFAU.AU5 * 0.5) + (safeFAU.AU4 * 0.5); 
-                const stress = (safeFAU.AU7 * 0.6) + (1 - (safeHRV/100) * 0.4);
-
-                let eri = (arousal * 40) + (stress * 40) + (safeFAU.AU4 * 20);
-                eri = Math.min(99, Math.max(1, eri * 100));
-                
-                // 防呆：如果計算出 NaN，回傳預設值
-                if(isNaN(eri)) eri = 50;
-
-                return {
-                    score: Math.round(eri),
-                    arousal: Math.round(arousal * 100) || 0,
-                    stress: Math.round(stress * 100) || 0
-                };
-            }
-
-            getMode(eri) {
-                if (eri >= 75) return { text: "DANGER / FBD ONLY", color: "#FF3333", emoji: "⚠️" };
-                if (eri >= 45) return { text: "BALANCED MODE", color: "#FFDD00", emoji: "⚡" };
-                return { text: "PRECISION MODE", color: "#00F0FF", emoji: "🛡️" };
-            }
-        }
-
-        // --- Main App ---
         const app = {
-            config: { particleCount: 6000, particleBaseSize: 0.15 },
+            config: { particleCount: 7000, particleBaseSize: 0.14 },
             state: { 
                 isFaceDetected: false, isScanning: false, 
-                mouthOpen: 0, headRot: {x:0, y:0}, energy: 0,
-                // 初始化所有數據為 0，防止 undefined
-                currentFAU: { AU4:0, AU5:0, AU12:0, AU25:0, AU7:0 }, 
-                currentERI: 50, 
-                currentHRV: 70
+                currentResult: null,
+                simulatedInputs: { bpm: 70, hrv: 40, facialStress: 0.3, br: 14 } // 初始模擬值
             },
-            
-            fauDetector: new FAUDetector(),
-            eriComputer: new ERIComputer(),
 
             init: function() {
                 this.runBootSequence(() => {
@@ -290,9 +340,9 @@
             runBootSequence: function(callback) {
                 const term = document.getElementById('terminal-text');
                 const lines = [
-                    "> INITIALIZING KERNEL...",
-                    "> LOADING MEDIA_PIPE MESH...",
-                    "> CALIBRATING BIOSENSORS...",
+                    "> INITIALIZING NEURAL MATRIX...",
+                    "> LOADING VAGAL TONE MODELS...",
+                    "> CALIBRATING SENSORS...",
                     "> SYSTEM READY."
                 ];
                 let lineIndex = 0, charIndex = 0;
@@ -324,7 +374,7 @@
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                this.scene.fog = new THREE.FogExp2(0x000000, 0.02);
+                this.scene.fog = new THREE.FogExp2(0x050505, 0.02);
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 this.camera.position.z = 5;
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -332,22 +382,39 @@
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
 
+                // Shader: Score 1 (Red/Chaos) <---> Score 99 (Green/Zen)
                 const vertexShader = `
                     attribute float size; attribute float random;
-                    uniform float uTime; uniform float uEnergy;
+                    uniform float uTime; uniform float uTEI; // 0.0 to 1.0 (Mapped from 1-99)
                     varying float vAlpha; varying vec3 vColor;
+                    
                     void main() {
                         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        float pulse = sin(uTime * 2.0 + random * 10.0) * 0.5 + 0.5;
-                        float finalSize = size * (1.0 + uEnergy * 2.5 + pulse * 0.5);
+                        
+                        // 低分(0.0) = 快速脈衝, 高分(1.0) = 緩慢呼吸
+                        float speed = mix(5.0, 1.0, uTEI);
+                        float pulse = sin(uTime * speed + random * 10.0) * 0.5 + 0.5;
+                        
+                        // 粒子擴散
+                        float chaos = mix(2.0, 0.5, uTEI);
+                        float finalSize = size * (1.0 + chaos + pulse * 0.5);
+                        
                         gl_PointSize = finalSize * (300.0 / -mvPosition.z);
                         gl_Position = projectionMatrix * mvPosition;
-                        vAlpha = 0.4 + pulse * 0.4 + uEnergy * 0.2;
-                        vec3 colorDeep = vec3(0.05, 0.2, 0.4);
-                        vec3 colorBright = vec3(0.0, 0.9, 1.0);
-                        vec3 colorAlert = vec3(1.0, 0.2, 0.2);
-                        vec3 targetColor = mix(colorBright, colorAlert, step(0.8, uEnergy));
-                        vColor = mix(colorDeep, targetColor, uEnergy * 0.8 + pulse * 0.2);
+                        vAlpha = 0.4 + pulse * 0.4;
+                        
+                        vec3 colorCritical = vec3(1.0, 0.0, 0.0); // Red
+                        vec3 colorStress = vec3(1.0, 0.5, 0.0);   // Orange
+                        vec3 colorGood = vec3(0.0, 0.9, 1.0);     // Cyan
+                        vec3 colorExcellent = vec3(0.0, 1.0, 0.6); // Emerald Green
+                        
+                        // 顏色混合邏輯
+                        vec3 c1 = mix(colorCritical, colorStress, smoothstep(0.0, 0.4, uTEI));
+                        vec3 c2 = mix(colorStress, colorGood, smoothstep(0.4, 0.7, uTEI));
+                        vec3 finalC = mix(c2, colorExcellent, smoothstep(0.7, 1.0, uTEI));
+                        if(uTEI < 0.4) finalC = c1; // Hard fix for low scores
+                        
+                        vColor = finalC;
                     }
                 `;
                 const fragmentShader = `
@@ -377,7 +444,7 @@
                 geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
 
                 this.material = new THREE.ShaderMaterial({
-                    uniforms: { uTime: { value: 0 }, uEnergy: { value: 0 } },
+                    uniforms: { uTime: { value: 0 }, uTEI: { value: 0.5 } },
                     vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
                 });
                 this.cloud = new THREE.Points(geometry, this.material);
@@ -389,15 +456,17 @@
                 requestAnimationFrame(() => this.animate());
                 const time = Date.now() * 0.001;
                 this.material.uniforms.uTime.value = time;
-                this.material.uniforms.uEnergy.value = this.state.energy;
+                
+                // 動態反應 TEI 分數
+                let targetTEI = 0.5; // Default Balanced
+                if (this.state.currentResult) {
+                    targetTEI = this.state.currentResult.score / 100;
+                }
+                // 平滑過渡
+                this.material.uniforms.uTEI.value += (targetTEI - this.material.uniforms.uTEI.value) * 0.05;
 
-                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
-
-                let targetEnergy = 0.1;
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen;
-                if (this.state.isScanning) targetEnergy = 1.0 + (this.state.currentERI / 100);
-                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
+                // 旋轉
+                this.cloud.rotation.y += 0.001; 
 
                 this.renderer.render(this.scene, this.camera);
             },
@@ -405,27 +474,29 @@
             initAI: function() {
                 const video = document.getElementById('input-video');
                 const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6});
+                faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6});
                 faceMesh.onResults((res) => this.processData(res));
                 
                 const camera = new Camera(video, {
                     onFrame: async () => await faceMesh.send({image: video}),
                     width: 640, height: 480
                 });
-                camera.start().catch(e => this.handleCameraError(e));
+                camera.start().catch(() => this.handleCameraError());
 
+                // Mouse Simulation for Debug
                 document.addEventListener('mousemove', (e) => {
                     if (!this.state.isFaceDetected) {
-                        this.state.headRot.y = (e.clientX / window.innerWidth - 0.5) * 2;
-                        this.state.headRot.x = (e.clientY / window.innerHeight - 0.5) * 2;
+                        // 模擬：滑鼠上下移動改變模擬的心率/壓力
+                        let stress = e.clientY / window.innerHeight; // 上=0(低壓), 下=1(高壓)
+                        this.state.simulatedInputs.facialStress = stress;
+                        this.state.simulatedInputs.hrv = 20 + (1-stress) * 60; // 壓力大HRV低
                     }
                 });
             },
 
-            handleCameraError: function(err) {
+            handleCameraError: function() {
                 document.getElementById('connection-status').innerText = "SENSOR: DENIED";
-                document.getElementById('instruction').innerHTML = "CAMERA BLOCKED<br>MOUSE SIMULATION MODE";
-                this.state.isFaceDetected = false;
+                document.getElementById('instruction').innerHTML = "CAMERA BLOCKED<br>MOUSE SIM MODE";
             },
 
             processData: function(results) {
@@ -433,34 +504,26 @@
                 const metricsEl = document.getElementById('live-metrics');
                 
                 if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                    if(!this.state.isFaceDetected) {
-                        this.state.isFaceDetected = true;
-                        statusEl.innerText = "BIO-LINK: ACTIVE"; statusEl.style.color = "#00F0FF"; statusEl.style.borderColor = "#00F0FF";
-                        metricsEl.classList.remove('hidden');
-                        if(!this.state.isScanning) document.getElementById('instruction').innerText = "HOLD SENSOR TO ANALYZE";
-                    }
-
+                    this.state.isFaceDetected = true;
+                    statusEl.innerText = "NEURAL LINK: ACTIVE"; statusEl.style.color = "#00FF99"; statusEl.style.borderColor = "#00FF99";
+                    metricsEl.classList.remove('hidden');
+                    
                     const landmarks = results.multiFaceLandmarks[0];
-                    const nose = landmarks[1];
-                    this.state.headRot.x = (nose.y - 0.5) * 2;
-                    this.state.headRot.y = (nose.x - 0.5) * 2;
+                    // 簡單計算壓力特徵 (AU4 皺眉, AU7 瞇眼)
+                    const frown = Math.abs(landmarks[334].y - landmarks[296].y) * 10;
+                    const squint = Math.abs(landmarks[159].y - landmarks[145].y) * 20;
+                    this.state.simulatedInputs.facialStress = Math.min(1, Math.max(0, 0.5 + frown - squint)); // 粗略估計
 
-                    this.state.currentFAU = this.fauDetector.detect(landmarks);
-                    this.state.mouthOpen = this.state.currentFAU.AU25;
-
-                    const computed = this.eriComputer.compute(this.state.currentFAU, this.state.currentHRV);
-                    this.state.currentERI = computed.score;
-
-                    if(Math.random() > 0.8) {
-                        document.getElementById('val-hrv').innerText = Math.floor(60 + Math.random()*20) + 'ms';
-                        document.getElementById('val-resp').innerText = Math.floor(12 + Math.random()*4) + '/m';
-                        document.getElementById('val-stress').innerText = computed.stress + '%';
+                    // 更新即時面板
+                    if(Math.random() > 0.9) {
+                        // 根據當前臉部壓力模擬 HRV
+                        const currentHRV = Math.floor(this.state.simulatedInputs.hrv + (Math.random()*10 - 5));
+                        document.getElementById('val-hrv').innerText = currentHRV + 'ms';
+                        document.getElementById('val-br').innerText = Math.floor(12 + this.state.simulatedInputs.facialStress*5) + '/m';
+                        document.getElementById('val-vagal').innerText = currentHRV > 50 ? 'HIGH' : 'LOW';
                     }
-
                 } else {
                     statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray"; statusEl.style.borderColor = "#333";
-                    // 即使沒有臉，保持模擬數據更新，避免 NaN
-                    this.state.currentERI = 50; 
                 }
             },
 
@@ -470,7 +533,7 @@
                     if(e.cancelable) e.preventDefault(); 
                     this.state.isScanning = true;
                     btn.classList.add('active');
-                    document.getElementById('instruction').innerText = "ANALYZING MICRO-EXPRESSIONS...";
+                    document.getElementById('instruction').innerText = "SYNCHRONIZING...";
                     AudioEngine.playScan();
                     
                     let progress = 0;
@@ -501,46 +564,48 @@
                 AudioEngine.stopScan(); AudioEngine.playImpact();
                 if(navigator.vibrate) navigator.vibrate([100]);
 
-                // 如果還沒有臉部數據，使用模擬數據 (Fallback)
-                if (!this.state.isFaceDetected || !this.state.currentFAU.AU4) {
-                    this.state.currentFAU = { AU4:0.2, AU5:0.5, AU7:0.1 };
-                    this.state.currentHRV = 65;
-                }
-
-                const result = this.eriComputer.compute(this.state.currentFAU, this.state.currentHRV);
-                const mode = this.eriComputer.getMode(result.score);
+                // 核心：使用 TEI Engine 計算
+                const inputs = this.state.simulatedInputs;
+                // 添加隨機波動以模擬真實測量變異
+                inputs.hrv += (Math.random() * 10 - 5);
                 
-                // 確保 targetScore 是有效數字
-                const targetScore = isNaN(result.score) ? 50 : result.score;
+                const result = teiEngine.compute(inputs);
+                const state = teiEngine.getState(result.score);
+                this.state.currentResult = result;
 
                 document.getElementById('result-view').classList.add('show');
                 
                 const scoreEl = document.getElementById('final-score');
                 let score = 0;
                 
-                // 修復無限迴圈：使用 targetScore
                 const anim = setInterval(() => {
-                    score += 3; 
-                    if(score >= targetScore) { 
-                        score = targetScore; 
-                        clearInterval(anim); 
+                    score += 2; 
+                    if(score >= result.score) { 
+                        score = result.score; clearInterval(anim);
                         
-                        const modeEl = document.getElementById('trading-mode');
-                        modeEl.innerHTML = `${mode.emoji} <span style="color:${mode.color}">${mode.text}</span>`;
-                        modeEl.style.borderColor = mode.color;
-                        
-                        document.getElementById('res-arousal').innerText = result.arousal + '%';
-                        document.getElementById('res-hrv').innerText = Math.floor(Math.random()*20+60) + 'ms';
-                        document.getElementById('res-focus').innerText = (100 - result.stress) + '%';
+                        // 顯示詳細結果
+                        const badgeEl = document.getElementById('state-badge');
+                        badgeEl.innerHTML = `<span>${state.text}</span>`;
+                        badgeEl.style.borderColor = state.color;
+                        badgeEl.style.color = state.color;
+                        scoreEl.style.color = state.color; // 分數顏色跟隨狀態
+
+                        document.getElementById('res-hrv').innerText = Math.round(result.components.hrvRaw) + 'ms';
+                        document.getElementById('res-context').innerText = result.components.context.toFixed(1);
+                        document.getElementById('res-behavior').innerText = result.components.behavior.toFixed(1);
+                        document.getElementById('ai-insight').innerText = state.insight;
                     }
-                    scoreEl.innerText = score < 10 ? '0'+score : score;
-                }, 20);
+                    scoreEl.innerText = score;
+                }, 15);
             },
 
             reset: function() {
                 document.getElementById('result-view').classList.remove('show');
                 document.getElementById('scan-trigger').classList.remove('active');
                 document.getElementById('instruction').innerText = "HOLD SENSOR TO ANALYZE";
+                this.state.currentResult = null;
+                // 重置粒子顏色到中性
+                this.material.uniforms.uTEI.value = 0.5;
             }
         };
 
