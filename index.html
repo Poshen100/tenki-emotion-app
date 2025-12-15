@@ -2,10 +2,10 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v28.0 - Singularity</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TENKI v29.0 - Zero Friction</title>
     
-    <!-- Core Engines -->
+    <!-- Engines -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
@@ -17,174 +17,162 @@
     <style>
         :root {
             --bg-deep: #000000;
-            --neon-cyan: #00F0FF;
-            --neon-danger: #FF003C;
+            --neon-core: #00F0FF;
             --neon-ready: #00FF9D;
+            --neon-alert: #FF003C;
+        }
+
+        /* 1. iOS Touch Fixes (關鍵修復：防止放大鏡與選取) */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none; /* 防止長按跳出菜單 */
+            -webkit-user-select: none;   /* 防止文字選取 */
+            user-select: none;
         }
 
         body {
             background: var(--bg-deep);
             color: white;
-            font-family: 'Courier New', monospace; /* Tech feel */
+            font-family: -apple-system, BlinkMacSystemFont, "Courier New", monospace;
             overflow: hidden;
             width: 100vw; height: 100vh;
             margin: 0; padding: 0;
             overscroll-behavior: none;
             touch-action: none;
-            user-select: none;
         }
 
-        #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
+        #input-video { position: fixed; top: -999px; left: -999px; opacity: 0; pointer-events: none; }
 
         /* 3D Scene */
         #universe {
-            position: absolute; inset: 0; z-index: 1;
-            background: radial-gradient(circle at center, #050810 0%, #000000 100%);
+            position: fixed; inset: 0; z-index: 1;
+            background: radial-gradient(circle at center, #080c14 0%, #000000 100%);
         }
 
         /* -----------------------
-           SNIPER RETICLE SYSTEM 
+           RETICLE (準心系統)
            ----------------------- */
         #reticle-layer {
-            position: absolute; inset: 0; z-index: 15;
+            position: absolute; inset: 0; z-index: 10;
             pointer-events: none;
             display: flex; justify-content: center; align-items: center;
-            transition: all 0.3s ease;
         }
 
-        /* The Crosshair */
         .crosshair {
             position: relative;
-            width: 280px; height: 380px; /* Face Shape */
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 120px;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.85); /* Focus Mask */
+            width: 260px; height: 340px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 130px;
+            transition: all 0.2s ease-out;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.85); /* 聚焦遮罩 */
         }
         
-        /* Corner Markers */
         .corner {
             position: absolute; width: 20px; height: 20px;
-            border-color: rgba(255,255,255,0.3); border-style: solid;
+            border-color: rgba(255,255,255,0.4); border-style: solid;
             transition: all 0.3s;
         }
-        .tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; border-radius: 20px 0 0 0; }
-        .tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; border-radius: 0 20px 0 0; }
-        .bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; border-radius: 0 0 0 20px; }
-        .br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; border-radius: 0 0 20px 0; }
+        .tl { top: 20px; left: 20px; border-width: 2px 0 0 2px; }
+        .tr { top: 20px; right: 20px; border-width: 2px 2px 0 0; }
+        .bl { bottom: 20px; left: 20px; border-width: 0 0 2px 2px; }
+        .br { bottom: 20px; right: 20px; border-width: 0 2px 2px 0; }
 
-        /* Center Dot */
-        .center-dot {
-            position: absolute; top: 50%; left: 50%;
-            width: 4px; height: 4px; background: rgba(255,255,255,0.3);
-            transform: translate(-50%, -50%); border-radius: 50%;
-        }
-
-        /* LOCKED STATE (Green) */
+        /* LOCKED STATE */
         .crosshair.locked {
             border-color: var(--neon-ready);
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.6); /* Brighter world */
-            transform: scale(1.05);
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.6); /* 變亮 */
+            transform: scale(1.02);
         }
         .crosshair.locked .corner { border-color: var(--neon-ready); width: 30px; height: 30px; }
-        .crosshair.locked .center-dot { background: var(--neon-ready); width: 6px; height: 6px; box-shadow: 0 0 10px var(--neon-ready); }
-
-        /* ERROR STATE (Red - Misaligned) */
-        .crosshair.error {
-            border-color: var(--neon-danger);
-        }
-        .crosshair.error .corner { border-color: var(--neon-danger); }
-
-        /* Align Message */
-        #align-msg {
-            position: absolute; bottom: -40px; width: 100%; text-align: center;
-            font-size: 10px; letter-spacing: 2px; font-weight: bold;
-            text-shadow: 0 2px 4px black;
-        }
 
         /* -----------------------
-           UI ELEMENTS
+           INTERACTIVE UI
            ----------------------- */
         #hud-layer {
             position: absolute; inset: 0; z-index: 20;
             pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
-            padding: 24px;
+            padding: 24px 20px 40px 20px; /* 增加底部 Padding 避開 Home Bar */
         }
 
-        .fingerprint-sensor {
-            pointer-events: auto;
+        /* 2. Fingerprint Button (修復：觸控區域與回饋) */
+        .fingerprint-btn {
+            pointer-events: auto; /* 恢復點擊 */
             position: relative;
-            width: 80px; height: 80px;
+            width: 88px; height: 88px;
             border-radius: 50%;
-            background: rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.3);
             display: flex; justify-content: center; align-items: center;
-            transition: all 0.3s;
-            opacity: 0.3; /* Disabled look */
+            transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+            backdrop-filter: blur(10px);
+            touch-action: none; /* 關鍵：防止瀏覽器預設手勢 */
         }
         
-        /* Only active when locked */
-        .fingerprint-sensor.ready {
-            opacity: 1; border-color: var(--neon-ready);
+        .fingerprint-btn.ready {
+            border-color: var(--neon-ready);
             background: rgba(0, 255, 157, 0.1);
-            cursor: pointer;
-            animation: pulse-ready 2s infinite;
+            box-shadow: 0 0 20px rgba(0, 255, 157, 0.2);
+            animation: pulse 2s infinite;
         }
-        @keyframes pulse-ready {
-            0% { box-shadow: 0 0 0 0 rgba(0, 255, 157, 0.4); }
-            70% { box-shadow: 0 0 0 15px rgba(0, 255, 157, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(0, 255, 157, 0); }
-        }
-
-        .fingerprint-sensor.active {
-            transform: scale(0.95);
+        
+        .fingerprint-btn.active {
+            transform: scale(0.9); /* 物理按壓感 */
             background: var(--neon-ready);
-            box-shadow: 0 0 50px var(--neon-ready);
+            box-shadow: 0 0 60px var(--neon-ready);
+            border-color: transparent;
         }
-        .fingerprint-sensor.active i { color: black; }
+        .fingerprint-btn.active i { color: black; stroke-width: 3px; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,255,157,0.4); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(0,255,157,0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,255,157,0); }
+        }
 
         /* Result Overlay */
         #result-overlay {
             position: absolute; inset: 0; z-index: 50;
             background: black;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.3s ease-out;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
         }
         #result-overlay.show { opacity: 1; pointer-events: auto; }
 
         .score-hero {
-            font-size: 140px; font-weight: 900;
-            color: white; line-height: 0.8;
-            letter-spacing: -8px;
-            text-shadow: 0 0 30px rgba(255,255,255,0.5);
+            font-family: -apple-system, sans-serif;
+            font-size: 130px; font-weight: 800;
+            color: white; line-height: 0.85;
+            letter-spacing: -6px;
+            background: linear-gradient(180deg, #fff, #888);
+            -webkit-background-clip: text; color: transparent;
         }
 
         /* Go Club Button */
-        .go-btn {
+        .restart-btn {
             pointer-events: auto;
             background: white; color: black;
-            padding: 16px 48px; border-radius: 99px;
-            font-weight: 900; letter-spacing: 1px;
-            box-shadow: 0 0 20px rgba(255,255,255,0.3);
+            padding: 18px 48px; border-radius: 99px;
+            font-weight: 800; font-size: 14px; letter-spacing: 1px;
+            border: none;
+            box-shadow: 0 0 40px rgba(255,255,255,0.2);
             transition: transform 0.1s;
         }
-        .go-btn:active { transform: scale(0.95); }
+        .restart-btn:active { transform: scale(0.92); }
 
     </style>
 </head>
 <body>
     <video id="input-video" playsinline></video>
 
+    <!-- Universe -->
     <div id="universe"></div>
 
-    <!-- Reticle System -->
+    <!-- Reticle -->
     <div id="reticle-layer">
         <div id="crosshair" class="crosshair">
             <div class="corner tl"></div><div class="corner tr"></div>
             <div class="corner bl"></div><div class="corner br"></div>
-            <div class="center-dot"></div>
-            <div id="align-msg" class="text-gray-500">ALIGN FACE TO CENTER</div>
         </div>
     </div>
 
@@ -193,195 +181,126 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-2xl font-black tracking-widest text-white">TENKI</div>
-                <div class="text-[9px] text-cyan-400 tracking-[0.4em] mt-1">v28.0 SINGULARITY</div>
+                <div class="text-[9px] text-cyan-400 tracking-[0.4em] mt-1">v29.0 ZERO_FRICTION</div>
             </div>
-            <div id="status-badge" class="text-[9px] border border-gray-700 text-gray-500 px-2 py-1 rounded">INIT</div>
+            <div id="status-text" class="text-[10px] font-mono text-gray-500 border border-gray-800 px-3 py-1 rounded">INIT</div>
         </div>
 
-        <div class="flex flex-col items-center pb-16">
-            <div id="scan-trigger" class="fingerprint-sensor">
-                <i data-lucide="fingerprint" class="w-10 h-10 text-white"></i>
+        <div class="flex flex-col items-center pb-12">
+            <div id="scan-trigger" class="fingerprint-btn">
+                <i data-lucide="fingerprint" class="w-10 h-10 text-white/80 transition-colors duration-200"></i>
             </div>
-            <div id="instruction" class="mt-6 text-[9px] tracking-[4px] text-gray-500 font-bold">
-                SYSTEM LOCKED
+            <div id="instruction" class="mt-6 text-[10px] tracking-[4px] text-gray-500 font-bold uppercase transition-colors duration-300">
+                Align Face
             </div>
         </div>
     </div>
 
     <!-- Result -->
     <div id="result-overlay">
-        <div class="text-[10px] tracking-[6px] text-gray-500 mb-8">TEI INDEX</div>
+        <div class="text-[10px] tracking-[6px] text-gray-500 mb-8 font-mono">TEI INDEX</div>
         <div class="score-hero" id="final-score">--</div>
-        <div id="state-text" class="mt-4 text-xl font-bold tracking-[0.2em] text-cyan-400">CALCULATING</div>
+        <div id="state-text" class="mt-6 text-xl font-bold tracking-[0.3em] text-cyan-400">ANALYZING</div>
         
-        <div class="grid grid-cols-3 gap-8 mt-16 text-center w-full px-8">
-            <div><div class="text-3xl font-bold text-white" id="val-stab">--</div><div class="text-[9px] text-gray-500 mt-2">STABILITY</div></div>
-            <div><div class="text-3xl font-bold text-white" id="val-ener">--</div><div class="text-[9px] text-gray-500 mt-2">ENERGY</div></div>
-            <div><div class="text-3xl font-bold text-white" id="val-foc">--</div><div class="text-[9px] text-gray-500 mt-2">FOCUS</div></div>
+        <div class="grid grid-cols-3 gap-6 mt-16 text-center w-full px-6">
+            <div><div class="text-3xl font-bold text-white" id="val-1">--</div><div class="text-[9px] text-gray-600 mt-2 font-mono">STABILITY</div></div>
+            <div><div class="text-3xl font-bold text-white" id="val-2">--</div><div class="text-[9px] text-gray-600 mt-2 font-mono">ENERGY</div></div>
+            <div><div class="text-3xl font-bold text-white" id="val-3">--</div><div class="text-[9px] text-gray-600 mt-2 font-mono">FOCUS</div></div>
         </div>
 
         <div class="mt-24">
-            <button id="resync-btn" class="go-btn">REBOOT SYSTEM</button>
+            <button id="resync-btn" class="restart-btn">REBOOT SYSTEM</button>
         </div>
     </div>
 
     <script>
         lucide.createIcons();
 
-        // --- 1. Singularity Shader (The "Burst" Engine) ---
-        const Shaders = {
-            vertex: `
-                attribute float size; attribute float random;
-                uniform float uTime;
-                uniform float uMouth;   // 0-1 (Turbulence)
-                uniform vec2 uHeadRot;  // Rotation only
-                uniform float uWarp;    // 0-1 (The Burst)
-                
-                varying vec3 vColor;
-                varying float vAlpha;
+        // 3. Disable Context Menu Globally (防止長按跳出選單)
+        document.addEventListener('contextmenu', event => event.preventDefault());
 
-                // Simplex Noise (Fluidity)
-                vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-                vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-                vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
-                vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-                float snoise(vec3 v) { 
-                    const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
-                    const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
-                    vec3 i  = floor(v + dot(v, C.yyy) );
-                    vec3 x0 = v - i + dot(i, C.xxx) ;
-                    vec3 g = step(x0.yzx, x0.xyz);
-                    vec3 l = 1.0 - g;
-                    vec3 i1 = min( g.xyz, l.zxy );
-                    vec3 i2 = max( g.xyz, l.zxy );
-                    vec3 x1 = x0 - i1 + C.xxx;
-                    vec3 x2 = x0 - i2 + C.yyy;
-                    vec3 x3 = x0 - D.yyy;
-                    i = mod289(i);
-                    vec4 p = permute( permute( permute( i.z + vec4(0.0, i1.z, i2.z, 1.0 )) + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
-                    float n_ = 0.142857142857;
-                    vec3  ns = n_ * D.wyz - D.xzx;
-                    vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-                    vec4 x_ = floor(j * ns.z);
-                    vec4 y_ = floor(j - 7.0 * x_ );
-                    vec4 x = x_ *ns.x + ns.yyyy;
-                    vec4 y = y_ *ns.x + ns.yyyy;
-                    vec4 h = 1.0 - abs(x) - abs(y);
-                    vec4 b0 = vec4( x.xy, y.xy );
-                    vec4 b1 = vec4( x.zw, y.zw );
-                    vec4 s0 = floor(b0)*2.0 + 1.0;
-                    vec4 s1 = floor(b1)*2.0 + 1.0;
-                    vec4 sh = -step(h, vec4(0.0));
-                    vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
-                    vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
-                    vec3 p0 = vec3(a0.xy,h.x);
-                    vec3 p1 = vec3(a0.zw,h.y);
-                    vec3 p2 = vec3(a1.xy,h.z);
-                    vec3 p3 = vec3(a1.zw,h.w);
-                    vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
-                    p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-                    vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-                    m = m * m;
-                    return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
-                }
-
-                void main() {
-                    vec3 pos = position;
-
-                    // 1. Position Locking (FIXED CENTER)
-                    // We rotate the FIELD, not the SPHERE position.
-                    // This keeps it perfectly centered no matter what.
-                    float rotX = uHeadRot.x * 2.0;
-                    float rotY = uHeadRot.y * 2.0;
-                    mat3 ry = mat3(cos(rotX), 0., sin(rotX), 0., 1., 0., -sin(rotX), 0., cos(rotX));
-                    mat3 rx = mat3(1., 0., 0., 0., cos(rotY), -sin(rotY), 0., sin(rotY), cos(rotY));
-                    pos = ry * rx * pos;
-
-                    // 2. Idle "Breathing" (Alive)
-                    // Slow, deep sine waves
-                    float breath = sin(uTime * 0.8 + pos.y * 2.0) * 0.08;
-                    pos += normal * breath;
-
-                    // 3. Turbulent Reaction (Mouth)
-                    // High frequency noise when mouth opens
-                    float noise = snoise(pos * 2.5 + uTime * 3.0);
-                    float chaos = uMouth * 3.0; // Massive expansion
-                    pos += normal * noise * chaos;
-
-                    // 4. THE WARP DRIVE (Burst Out of Screen)
-                    // When uWarp > 0, particles fly towards camera (+Z)
-                    // and spread out (X/Y) to cover the screen.
-                    float warpZ = uWarp * 15.0; // Fly forward 15 units
-                    float warpSpread = 1.0 + (uWarp * 5.0); // Spread 5x
-                    
-                    pos.z += warpZ; 
-                    pos.x *= warpSpread;
-                    pos.y *= warpSpread;
-
-                    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-                    
-                    // Size dynamics
-                    float finalSize = size * (1.0 + uMouth * 2.0 + uWarp * 5.0);
-                    gl_PointSize = finalSize * (400.0 / -mvPosition.z);
-                    gl_Position = projectionMatrix * mvPosition;
-
-                    // 5. Colors: Deep Blue -> Cyan -> WHITE HOT
-                    vec3 cDeep = vec3(0.0, 0.4, 0.8);
-                    vec3 cNeon = vec3(0.0, 1.0, 0.9);
-                    vec3 cWhite = vec3(1.0, 1.0, 1.0);
-                    
-                    float energy = uMouth + uWarp;
-                    vec3 color = mix(cDeep, cNeon, smoothstep(0.0, 0.5, energy));
-                    color = mix(color, cWhite, smoothstep(0.5, 1.5, energy));
-
-                    vColor = color;
-                    vAlpha = 0.6 + energy * 0.4;
-                }
-            `,
-            fragment: `
-                varying vec3 vColor; varying float vAlpha;
-                void main() {
-                    float d = distance(gl_PointCoord, vec2(0.5));
-                    if(d > 0.5) discard;
-                    float glow = 1.0 - (d * 2.0);
-                    glow = pow(glow, 2.0);
-                    gl_FragColor = vec4(vColor, glow * vAlpha);
-                }
-            `
-        };
-
-        // --- 2. Main Logic ---
-        const App = {
-            locked: false,
-            energy: 0,
-            
+        // --- 1. Hyper-Flux Engine ---
+        const Visuals = {
+            scene: null, camera: null, renderer: null, material: null,
             init: function() {
-                this.init3D();
-                this.initAI();
-                this.initEvents();
-            },
-
-            init3D: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                // Fix camera for mobile portrait
+                
+                // 4. Camera Fix (解決被切到問題)
                 const aspect = window.innerWidth / window.innerHeight;
                 this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
-                this.camera.position.z = aspect < 1 ? 6.0 : 4.5; // Perfect framing
+                // 拉遠距離：手機直屏(aspect<1) 拉到 7.5，確保球體完整且有留白
+                this.camera.position.z = aspect < 1 ? 7.5 : 5.0;
 
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
 
-                // 12,000 Particles for High Density
-                const count = 12000;
+                // Shader: The "Overflow" Burst
+                const vertexShader = `
+                    attribute float size; attribute float random;
+                    uniform float uTime;
+                    uniform float uEnergy;
+                    uniform vec2 uHeadRot;
+                    uniform float uWarp; // 0 to 1
+                    
+                    varying vec3 vColor; varying float vAlpha;
+
+                    // Noise Function
+                    vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                    vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                    vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+                    vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+                    float snoise(vec3 v) { const vec2 C = vec2(1.0/6.0, 1.0/3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0); vec3 i  = floor(v + dot(v, C.yyy) ); vec3 x0 = v - i + dot(i, C.xxx) ; vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min( g.xyz, l.zxy ); vec3 i2 = max( g.xyz, l.zxy ); vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy; i = mod289(i); vec4 p = permute( permute( permute( i.z + vec4(0.0, i1.z, i2.z, 1.0 )) + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) + i.x + vec4(0.0, i1.x, i2.x, 1.0 )); float n_ = 0.142857142857; vec3  ns = n_ * D.wyz - D.xzx; vec4 j = p - 49.0 * floor(p * ns.z * ns.z); vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_ ); vec4 x = x_ *ns.x + ns.yyyy; vec4 y = y_ *ns.x + ns.yyyy; vec4 h = 1.0 - abs(x) - abs(y); vec4 b0 = vec4( x.xy, y.xy ); vec4 b1 = vec4( x.zw, y.zw ); vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0)); vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ; vec3 p0 = vec3(a0.xy,h.x); vec3 p1 = vec3(a0.zw,h.y); vec3 p2 = vec3(a1.xy,h.z); vec3 p3 = vec3(a1.zw,h.w); vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3))); p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w; vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m; return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) ); }
+
+                    void main() {
+                        vec3 pos = position;
+
+                        // Rotation (Locked Center)
+                        float rotX = uHeadRot.x * 2.0;
+                        float rotY = uHeadRot.y * 2.0;
+                        mat3 ry = mat3(cos(rotX), 0., sin(rotX), 0., 1., 0., -sin(rotX), 0., cos(rotX));
+                        mat3 rx = mat3(1., 0., 0., 0., cos(rotY), -sin(rotY), 0., sin(rotY), cos(rotY));
+                        pos = ry * rx * pos;
+
+                        // Fluid Noise
+                        float noise = snoise(pos * 1.5 + uTime);
+                        pos += normal * noise * (uEnergy * 2.0);
+
+                        // WARP DRIVE (Burst Out)
+                        // Exponential Z movement towards camera
+                        float warpZ = uWarp * 20.0; 
+                        pos.z += warpZ;
+                        // Spread X/Y to fill screen
+                        pos.x *= (1.0 + uWarp * 3.0);
+                        pos.y *= (1.0 + uWarp * 3.0);
+
+                        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                        float sizeMult = 1.0 + uEnergy * 2.0 + uWarp * 5.0;
+                        gl_PointSize = size * sizeMult * (400.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+
+                        // Color
+                        vec3 c1 = vec3(0.0, 0.5, 0.9); // Deep Blue
+                        vec3 c2 = vec3(0.0, 1.0, 0.8); // Cyan
+                        vec3 c3 = vec3(1.0, 1.0, 1.0); // White
+                        
+                        float t = uEnergy + uWarp;
+                        vColor = mix(c1, c2, smoothstep(0.0, 0.5, t));
+                        vColor = mix(vColor, c3, smoothstep(0.5, 1.5, t));
+                        vAlpha = 0.5 + t * 0.5;
+                    }
+                `;
+                
+                // 12k Particles
                 const geo = new THREE.BufferGeometry();
+                const count = 12000;
                 const pos=[], rnd=[], sz=[];
                 for(let i=0; i<count; i++){
                     const phi = Math.acos(-1 + (2*i)/count);
                     const theta = Math.sqrt(count * Math.PI) * phi;
-                    const r = 2.0 + Math.random()*0.4; // Thick shell
+                    const r = 2.0 + Math.random()*0.3;
                     pos.push(r*Math.cos(theta)*Math.sin(phi), r*Math.sin(theta)*Math.sin(phi), r*Math.cos(phi));
                     rnd.push(Math.random()); sz.push(0.05 + Math.random()*0.1);
                 }
@@ -391,8 +310,8 @@
                 geo.computeVertexNormals();
 
                 this.mat = new THREE.ShaderMaterial({
-                    uniforms: { uTime:{value:0}, uMouth:{value:0}, uHeadRot:{value:new THREE.Vector2()}, uWarp:{value:0} },
-                    vertexShader: Shaders.vertex, fragmentShader: Shaders.fragment,
+                    uniforms: { uTime:{value:0}, uEnergy:{value:0}, uHeadRot:{value:new THREE.Vector2()}, uWarp:{value:0} },
+                    vertexShader: vertexShader, fragmentShader: `varying vec3 vColor; varying float vAlpha; void main() { float d=distance(gl_PointCoord,vec2(0.5)); if(d>0.5)discard; float g=1.0-(d*2.0); g=pow(g,2.0); gl_FragColor=vec4(vColor,g*vAlpha); }`,
                     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
                 });
                 this.scene.add(new THREE.Points(geo, this.mat));
@@ -400,38 +319,60 @@
                 const animate = () => {
                     requestAnimationFrame(animate);
                     this.mat.uniforms.uTime.value = performance.now()*0.001;
-                    this.scene.rotation.y = performance.now()*0.00005; // Very slow drift
                     this.renderer.render(this.scene, this.camera);
                 };
                 animate();
+
+                window.addEventListener('resize', () => {
+                    const asp = window.innerWidth/window.innerHeight;
+                    this.camera.aspect = asp;
+                    this.camera.position.z = asp < 1 ? 7.5 : 5.0; // Maintain distance fix
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+            }
+        };
+
+        // --- 2. AI Logic ---
+        const App = {
+            locked: false,
+            energy: 0,
+            
+            init: function() {
+                Visuals.init();
+                this.initAI();
+                this.initUI();
             },
 
             initAI: function() {
                 const video = document.getElementById('input-video');
                 const crosshair = document.getElementById('crosshair');
-                const alignMsg = document.getElementById('align-msg');
-                const statusBadge = document.getElementById('status-badge');
+                const statusTxt = document.getElementById('status-text');
                 const trigger = document.getElementById('scan-trigger');
                 const instruct = document.getElementById('instruction');
 
                 const onResults = (res) => {
                     if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
+                        const nose = res.multiFaceLandmarks[0][1];
                         const lm = res.multiFaceLandmarks[0];
-                        const nose = lm[1];
 
-                        // --- 1. SNIPER ALIGNMENT LOGIC ---
-                        // Tight tolerance: 0.45 - 0.55
-                        const dx = Math.abs(nose.x - 0.5);
-                        const dy = Math.abs(nose.y - 0.5);
-                        const aligned = dx < 0.06 && dy < 0.08;
+                        // 5. MIRRORING FIX (翻轉 X 軸座標)
+                        // MediaPipe output: x=0 (Left of Image) -> User's Right
+                        // We need 1 - nose.x to match mirror behavior
+                        const mirrorX = 1.0 - nose.x;
+                        const mirrorY = nose.y;
 
-                        if (aligned) {
+                        // 6. Tolerance Calibration (微調中心判定)
+                        // 手機鏡頭通常在頂部，稍微允許 Y 軸偏上一點 (0.4 - 0.6)
+                        const dx = Math.abs(mirrorX - 0.5);
+                        const dy = Math.abs(mirrorY - 0.5);
+                        const isCentered = dx < 0.08 && dy < 0.1; // Slightly looser for UX
+
+                        if (isCentered) {
                             if (!this.locked) {
                                 this.locked = true;
                                 crosshair.classList.add('locked');
-                                crosshair.classList.remove('error');
-                                alignMsg.innerText = "TARGET LOCKED"; alignMsg.style.color = "#00FF9D";
-                                statusBadge.innerText = "READY"; statusBadge.style.color = "#00FF9D"; statusBadge.style.borderColor = "#00FF9D";
+                                statusTxt.innerText = "READY"; statusTxt.style.color = "#00FF9D"; statusTxt.style.borderColor = "#00FF9D";
                                 trigger.classList.add('ready');
                                 instruct.innerText = "HOLD TO SCAN"; instruct.style.color = "white";
                                 if(navigator.vibrate) navigator.vibrate(20);
@@ -440,30 +381,20 @@
                             if (this.locked) {
                                 this.locked = false;
                                 crosshair.classList.remove('locked');
-                                crosshair.classList.add('error'); // Red hint
-                                alignMsg.innerText = "ALIGN CENTER"; alignMsg.style.color = "#FF003C";
-                                statusBadge.innerText = "ALIGNING"; statusBadge.style.color = "gray"; statusBadge.style.borderColor = "#333";
+                                statusTxt.innerText = "ALIGN FACE"; statusTxt.style.color = "gray"; statusTxt.style.borderColor = "#333";
                                 trigger.classList.remove('ready');
-                                instruct.innerText = "SYSTEM LOCKED"; instruct.style.color = "gray";
+                                instruct.innerText = "ALIGN FACE"; instruct.style.color = "gray";
                             }
                         }
 
-                        // --- 2. ENERGY EXTRACTION ---
-                        // Direct connection to shader
-                        const hx = (nose.x - 0.5) * -4.0; 
-                        const hy = (nose.y - 0.5) * -4.0;
-                        this.mat.uniforms.uHeadRot.value.set(hx, hy);
+                        // Sync Visuals
+                        const hx = (mirrorX - 0.5) * -3.0; // Reverse rotation for intuitive feel
+                        const hy = (mirrorY - 0.5) * -3.0;
+                        Visuals.mat.uniforms.uHeadRot.value.set(hx, hy);
 
                         const mouth = Math.min(1, Math.abs(lm[13].y - lm[14].y) * 15.0);
-                        // Smooth lerp for mouth
                         this.energy += (mouth - this.energy) * 0.2;
-                        this.mat.uniforms.uMouth.value = this.energy;
-
-                    } else {
-                        this.locked = false;
-                        crosshair.classList.remove('locked');
-                        alignMsg.innerText = "NO SIGNAL";
-                        trigger.classList.remove('ready');
+                        Visuals.mat.uniforms.uEnergy.value = this.energy;
                     }
                 };
 
@@ -474,63 +405,66 @@
                 new Camera(video, { onFrame: async () => await faceMesh.send({image: video}), width: 640, height: 480 }).start();
             },
 
-            initEvents: function() {
+            initUI: function() {
                 const btn = document.getElementById('scan-trigger');
                 const resync = document.getElementById('resync-btn');
                 const overlay = document.getElementById('result-overlay');
                 const crosshair = document.getElementById('crosshair');
 
-                // WARP DRIVE TRIGGER
+                // 7. Touch Event Handling (Pointer Events for Instant Reaction)
                 btn.addEventListener('pointerdown', (e) => {
-                    e.preventDefault();
-                    if(!this.locked) return; // Mechanical lock
+                    e.preventDefault(); // Stop native behavior
+                    if(!this.locked) return;
 
                     btn.classList.add('active');
-                    // Audio
-                    const ctx = new (window.AudioContext||window.webkitAudioContext)();
-                    const o=ctx.createOscillator(); const g=ctx.createGain();
-                    o.type='sawtooth'; o.frequency.value=100; o.frequency.exponentialRampToValueAtTime(800, ctx.currentTime+1.5);
-                    g.gain.value=0.2; g.gain.linearRampToValueAtTime(0, ctx.currentTime+1.5);
-                    o.connect(g); g.connect(ctx.destination); o.start();
-
-                    // Animation: Warp 0 -> 1
-                    let start = performance.now();
-                    const dur = 1500;
-                    
-                    const frame = (now) => {
-                        let p = (now - start) / dur;
-                        if(p > 1) p = 1;
-                        
-                        // Exponential Warp
-                        let warp = p * p * p; 
-                        this.mat.uniforms.uWarp.value = warp;
-
-                        if(p < 1) requestAnimationFrame(frame);
-                        else this.showResult();
-                    };
-                    requestAnimationFrame(frame);
-                    
-                    // Hide Reticle during warp
-                    crosshair.style.opacity = 0;
+                    this.playWarp();
                 });
 
-                resync.addEventListener('pointerdown', () => {
+                resync.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
                     overlay.classList.remove('show');
                     crosshair.style.opacity = 1;
-                    this.mat.uniforms.uWarp.value = 0; // Reset Warp
-                    document.getElementById('scan-trigger').classList.remove('active');
+                    Visuals.mat.uniforms.uWarp.value = 0;
+                    btn.classList.remove('active');
                 });
             },
 
+            playWarp: function() {
+                // Audio
+                const ctx = new (window.AudioContext||window.webkitAudioContext)();
+                const o=ctx.createOscillator(); const g=ctx.createGain();
+                o.type='sawtooth'; o.frequency.value=80; o.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime+1.5);
+                g.gain.value=0.2; g.gain.linearRampToValueAtTime(0, ctx.currentTime+1.5);
+                o.connect(g); g.connect(ctx.destination); o.start();
+
+                // Warp Animation (0 -> 1)
+                let start = performance.now();
+                const dur = 1500;
+                
+                const frame = (now) => {
+                    let p = (now - start) / dur;
+                    if(p>1) p=1;
+                    // Expo ease in
+                    Visuals.mat.uniforms.uWarp.value = p * p * p; 
+                    
+                    if(p<1) requestAnimationFrame(frame);
+                    else {
+                        document.getElementById('crosshair').style.opacity = 0;
+                        this.showResult();
+                    }
+                };
+                requestAnimationFrame(frame);
+            },
+
             showResult: function() {
-                const score = Math.floor(Math.random()*(99-65)+65);
+                const score = Math.floor(Math.random()*(99-70)+70);
                 document.getElementById('final-score').innerText = score;
-                document.getElementById('val-stab').innerText = (Math.random()*10+85).toFixed(0) + '%';
-                document.getElementById('val-ener').innerText = (Math.random()*20+70).toFixed(0) + '%';
-                document.getElementById('val-foc').innerText = (Math.random()*15+80).toFixed(0) + '%';
+                document.getElementById('val-1').innerText = (Math.random()*10+85).toFixed(0)+'%';
+                document.getElementById('val-2').innerText = (Math.random()*20+75).toFixed(0)+'%';
+                document.getElementById('val-3').innerText = (Math.random()*15+80).toFixed(0)+'%';
                 
                 const st = document.getElementById('state-text');
-                if(score>85) { st.innerText="FLOW STATE"; st.style.color="#00FF9D"; }
+                if(score>90) { st.innerText="FLOW STATE"; st.style.color="#00FF9D"; }
                 else { st.innerText="FOCUSED"; st.style.color="#00F0FF"; }
 
                 document.getElementById('result-overlay').classList.add('show');
