@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v24.0 - Hyper Sync</title>
+    <title>TENKI v25.0 - Quantum Tether</title>
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -16,7 +16,7 @@
 
     <style>
         :root {
-            --bg-deep: #050505;
+            --bg-deep: #000000;
             --tei-excellent: #00FF99;
             --tei-good: #00F0FF;
             --tei-neutral: #FFDD00;
@@ -27,14 +27,15 @@
         body {
             background: var(--bg-deep);
             color: white;
-            font-family: 'Courier New', monospace;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             overflow: hidden;
             width: 100vw; 
             height: calc(var(--vh, 1vh) * 100);
             margin: 0; padding: 0;
             overscroll-behavior: none;
-            touch-action: none;
+            touch-action: manipulation; /* 優化觸控反應 */
             user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         #input-video, #process-canvas {
@@ -42,171 +43,166 @@
             width: 1px; height: 1px; opacity: 0; pointer-events: none;
         }
 
-        /* 瞄準系統 (Alignment System) */
-        #face-guide {
-            position: absolute; top: 50%; left: 50%;
-            width: 280px; height: 360px;
-            transform: translate(-50%, -55%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 140px; /* 臉型橢圓 */
-            pointer-events: none;
-            z-index: 20;
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.8); /* 聚焦遮罩 */
-        }
-        
-        /* 瞄準角落標記 */
-        .guide-corner {
-            position: absolute; width: 20px; height: 20px;
-            border-color: rgba(255,255,255,0.3); border-style: solid;
-            transition: all 0.3s ease;
-        }
-        .gc-tl { top: 20px; left: 20px; border-width: 2px 0 0 2px; border-top-left-radius: 8px; }
-        .gc-tr { top: 20px; right: 20px; border-width: 2px 2px 0 0; border-top-right-radius: 8px; }
-        .gc-bl { bottom: 20px; left: 20px; border-width: 0 0 2px 2px; border-bottom-left-radius: 8px; }
-        .gc-br { bottom: 20px; right: 20px; border-width: 0 2px 2px 0; border-bottom-right-radius: 8px; }
-
-        /* 鎖定狀態 */
-        #face-guide.locked {
-            border-color: var(--tei-good);
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); /* 變亮 */
-            transform: translate(-50%, -55%) scale(1.02);
-        }
-        #face-guide.locked .guide-corner {
-            border-color: var(--tei-good);
-            width: 30px; height: 30px; /* 鎖定時角落收縮視覺 */
-        }
-
-        /* 狀態文字 */
-        #align-status {
-            position: absolute; top: -40px; width: 100%; text-align: center;
-            font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,0.5);
-        }
-
-        #boot-layer {
-            position: absolute; inset: 0; z-index: 100;
-            background: black;
-            display: flex; flex-direction: column; justify-content: center; padding: 40px;
-            font-family: 'Courier New', monospace;
-            color: var(--tei-excellent);
-            font-size: 14px; line-height: 1.6;
-            transition: opacity 1s ease-out;
-        }
-
+        /* 3D World */
         #universe {
             position: absolute; inset: 0; z-index: 1;
             background: radial-gradient(circle at center, #0f1720 0%, #000000 100%);
-            opacity: 0; transition: opacity 2s ease-in;
+            opacity: 0; transition: opacity 1s ease-in;
         }
 
+        /* Go Club Style Button */
+        .go-btn {
+            background: #FFFFFF;
+            color: #000000;
+            font-weight: 800;
+            font-size: 14px;
+            letter-spacing: 1px;
+            padding: 16px 40px;
+            border-radius: 9999px; /* Pill Shape */
+            box-shadow: 0 10px 30px rgba(255, 255, 255, 0.15);
+            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            outline: none;
+            text-transform: uppercase;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .go-btn:active {
+            transform: scale(0.94);
+            background: #E0E0E0;
+            box-shadow: 0 2px 10px rgba(255, 255, 255, 0.1);
+        }
+
+        /* HUD Layer */
         #hud-layer {
             position: absolute; inset: 0; z-index: 10;
             pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 24px;
-            opacity: 0; transition: opacity 2s ease-in;
+            opacity: 0; transition: opacity 1s ease-in;
         }
 
+        /* Top Bar */
+        .top-bar {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Fingerprint Sensor */
         .fingerprint-sensor {
             pointer-events: auto;
             position: relative;
             width: 80px; height: 80px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(0, 240, 255, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             display: flex; justify-content: center; align-items: center;
             cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            backdrop-filter: blur(4px);
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
         }
         .fingerprint-sensor.active {
-            transform: scale(1.1);
+            transform: scale(1.15);
             border-color: var(--tei-good);
-            background: rgba(0, 240, 255, 0.1);
-            box-shadow: 0 0 50px var(--tei-good);
-        }
-        /* 鎖定前禁用按鈕 */
-        .fingerprint-sensor.disabled {
-            opacity: 0.3; pointer-events: none; border-color: #333;
+            background: rgba(0, 240, 255, 0.2);
+            box-shadow: 0 0 40px var(--tei-good);
         }
 
+        /* Result Overlay */
         .result-overlay {
             position: absolute; inset: 0; z-index: 50;
-            background: rgba(0,0,0,0.98);
-            backdrop-filter: blur(20px);
+            background: rgba(0,0,0,0.92);
+            backdrop-filter: blur(30px);
             display: flex; flex-direction: column;
             justify-content: center; align-items: center;
             opacity: 0; pointer-events: none;
-            transition: opacity 0.8s ease;
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Snappy fade */
         }
         .result-overlay.show { opacity: 1; pointer-events: auto; }
         
         .score-display {
-            font-size: 110px; font-weight: bold;
-            background: linear-gradient(to bottom, #fff, #888);
-            -webkit-background-clip: text; color: transparent;
-            letter-spacing: -8px; line-height: 0.9;
+            font-family: -apple-system, sans-serif;
+            font-size: 120px; font-weight: 800;
+            color: white;
+            letter-spacing: -6px; line-height: 0.9;
+            text-shadow: 0 0 40px rgba(255,255,255,0.3);
+        }
+
+        /* Align Guide */
+        #align-guide {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 250px; height: 320px;
+            border: 1px dashed rgba(255,255,255,0.2);
+            border-radius: 120px;
+            pointer-events: none;
+            opacity: 0; transition: opacity 0.5s;
+        }
+        #align-guide.visible { opacity: 1; }
+        #align-guide.locked { border: 2px solid var(--tei-good); border-style: solid; box-shadow: 0 0 30px rgba(0,240,255,0.2); }
+
+        #boot-layer {
+            position: absolute; inset: 0; z-index: 100;
+            background: black;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Courier New', monospace;
+            color: var(--tei-good);
+            transition: opacity 0.5s ease-out;
         }
     </style>
 </head>
 <body>
     <video id="input-video" playsinline></video>
 
-    <!-- Boot Sequence -->
+    <!-- Boot -->
     <div id="boot-layer">
-        <div id="terminal-text"></div>
+        <div>> ESTABLISHING QUANTUM LINK...</div>
     </div>
 
-    <!-- 3D World -->
+    <!-- 3D -->
     <div id="universe"></div>
-
-    <!-- Alignment Guide (New) -->
-    <div id="face-guide">
-        <div id="align-status">ALIGN FACE</div>
-        <div class="guide-corner gc-tl"></div>
-        <div class="guide-corner gc-tr"></div>
-        <div class="guide-corner gc-bl"></div>
-        <div class="guide-corner gc-br"></div>
-    </div>
+    <div id="align-guide"></div>
 
     <!-- HUD -->
     <div id="hud-layer">
-        <div class="flex justify-between items-start">
+        <div class="top-bar">
             <div>
-                <div class="text-xl font-bold tracking-[6px] text-white">TENKI</div>
-                <div class="text-[8px] text-emerald-400 tracking-widest mt-1">v24.0 HYPER_SYNC</div>
+                <div class="text-xl font-bold tracking-[4px] text-white">TENKI</div>
+                <div class="text-[9px] text-cyan-400 tracking-widest mt-1">v25.0 QUANTUM_TETHER</div>
             </div>
             <div class="text-right">
-                <div id="connection-status" class="text-[10px] text-gray-500 border border-gray-800 px-2 py-1 rounded mb-2">
-                    OFFLINE
-                </div>
+                <div id="status-text" class="text-[10px] text-gray-400">WAITING FOR SENSOR...</div>
             </div>
         </div>
 
-        <div class="flex flex-col items-center pb-10">
-            <div id="scan-trigger" class="fingerprint-sensor disabled">
-                <i data-lucide="fingerprint" class="w-8 h-8 text-white"></i>
+        <div class="flex flex-col items-center pb-12">
+            <div id="scan-trigger" class="fingerprint-sensor">
+                <i data-lucide="fingerprint" class="w-8 h-8 text-white/80"></i>
             </div>
-            <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-500 transition-all duration-300">
-                ALIGN FACE TO UNLOCK
+            <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-500 font-mono">
+                INITIALIZING...
             </div>
         </div>
     </div>
 
-    <!-- Results -->
+    <!-- Result View -->
     <div id="result-view" class="result-overlay">
-        <div class="text-[10px] tracking-[6px] text-gray-400 mb-2">TEI SCORE</div>
+        <div class="text-[12px] font-bold tracking-[4px] text-gray-500 mb-4">TEI SCORE</div>
         <div class="score-display" id="final-score">--</div>
-        <div id="state-badge" class="mt-4 px-4 py-1 border border-white/20 rounded-full text-[10px] tracking-widest text-white uppercase">
-            CALCULATING...
+        
+        <div id="state-text" class="mt-4 text-xl font-medium tracking-widest text-cyan-400">
+            CALCULATING
         </div>
-        <div class="grid grid-cols-3 gap-8 mt-12 text-center w-full px-10">
-            <div><div class="text-[20px] font-bold text-white" id="res-stability">0%</div><div class="text-[8px] text-gray-500 mt-1">STABILITY</div></div>
-            <div><div class="text-[20px] font-bold text-white" id="res-blink">0</div><div class="text-[8px] text-gray-500 mt-1">BLINKS</div></div>
-            <div><div class="text-[20px] font-bold text-white" id="res-relax">0%</div><div class="text-[8px] text-gray-500 mt-1">RELAXATION</div></div>
+
+        <div class="grid grid-cols-3 gap-12 mt-16 text-center w-full px-8">
+            <div><div class="text-2xl font-bold text-white" id="res-stability">--</div><div class="text-[10px] text-gray-500 mt-2 font-mono">STABILITY</div></div>
+            <div><div class="text-2xl font-bold text-white" id="res-focus">--</div><div class="text-[10px] text-gray-500 mt-2 font-mono">FOCUS</div></div>
+            <div><div class="text-2xl font-bold text-white" id="res-relax">--</div><div class="text-[10px] text-gray-500 mt-2 font-mono">RELAX</div></div>
         </div>
-        <div class="mt-12">
-            <button onclick="app.reset()" class="border border-white/20 px-6 py-3 text-[10px] tracking-widest hover:bg-white hover:text-black transition">RESYNC</button>
+
+        <div class="mt-16">
+            <button id="resync-btn" class="go-btn">
+                <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> RESYNC
+            </button>
         </div>
     </div>
 
@@ -215,421 +211,318 @@
         const setVh = () => document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
         window.addEventListener('resize', setVh); setVh();
 
-        // --- 1. TEI Logic (v23 Core) ---
-        class TEIEngine {
-            constructor() {
-                this.weights = { STABILITY: 0.4, TENSION: 0.3, ALERTNESS: 0.2, CONTEXT: 0.1 };
-            }
-            compute(inputs) {
-                // Stability: 1.0 is perfect still
-                const stabilityScore = Math.max(0, 1 - (inputs.avgHeadDelta * 25)); 
-                // Relaxation: Open mouth slightly & relaxed brows is good
-                const relaxScore = (inputs.avgMouthOpen * 0.5) + (1 - inputs.avgBrowFrown) * 0.5;
-                // Alertness: Eye openness
-                const alertScore = Math.min(1, inputs.avgEyeOpen * 1.5);
-                // Context: Time of day
-                const hour = new Date().getHours();
-                const contextScore = 0.5 + 0.5 * Math.sin(2 * Math.PI * (hour - 10) / 24);
+        // --- Core Engine: TEI Scoring ---
+        const TEI = {
+            compute: (data) => {
+                // Raw inputs 0-1
+                const stability = Math.max(0, 1 - (data.headShake * 30)); // Head movement penalty
+                const relaxation = (data.mouth * 0.4) + (1 - data.frown) * 0.6; // Mouth & Brows
+                const focus = Math.min(1, data.eyeOpen * 1.5);
 
-                let raw = (stabilityScore * this.weights.STABILITY + 
-                           relaxScore * this.weights.TENSION + 
-                           alertScore * this.weights.ALERTNESS + 
-                           contextScore * this.weights.CONTEXT) * 100;
-                
+                const rawScore = (stability * 0.4 + relaxation * 0.3 + focus * 0.3) * 100;
                 return {
-                    score: Math.min(99, Math.max(1, Math.round(raw))),
-                    components: { stability: stabilityScore, relaxation: relaxScore }
+                    score: Math.min(99, Math.max(1, Math.round(rawScore))),
+                    details: { stability, relaxation, focus }
                 };
-            }
-            getState(score) {
-                if (score >= 80) return { text: "FLOW STATE", color: "#00FF99" };
-                if (score >= 60) return { text: "FOCUSED", color: "#00F0FF" };
-                if (score >= 40) return { text: "BALANCED", color: "#FFDD00" };
-                if (score >= 20) return { text: "STRESSED", color: "#FF8800" };
-                return { text: "OVERLOAD", color: "#FF0000" };
-            }
-        }
-
-        // --- 2. Main App ---
-        const teiEngine = new TEIEngine();
-        
-        const AudioEngine = {
-            ctx: null, osc: null, gain: null,
-            init: function() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
-            playScan: function() {
-                this.init(); if(this.ctx.state === 'suspended') this.ctx.resume();
-                if(this.osc) this.stopScan();
-                const t = this.ctx.currentTime;
-                this.osc = this.ctx.createOscillator(); this.osc.type = 'sawtooth';
-                this.osc.frequency.setValueAtTime(60, t);
-                this.osc.frequency.exponentialRampToValueAtTime(500, t + 2.0);
-                this.gain = this.ctx.createGain();
-                this.gain.gain.setValueAtTime(0, t);
-                this.gain.gain.linearRampToValueAtTime(0.15, t + 0.2);
-                const filter = this.ctx.createBiquadFilter();
-                filter.type = 'lowpass'; filter.frequency.setValueAtTime(100, t);
-                filter.frequency.linearRampToValueAtTime(1200, t + 2.0);
-                this.osc.connect(filter); filter.connect(this.gain); this.gain.connect(this.ctx.destination);
-                this.osc.start(t);
             },
-            stopScan: function() { if(this.osc) { try{this.osc.stop(this.ctx.currentTime+0.1);}catch(e){} this.osc=null; } },
-            playImpact: function() {
-                this.init(); const t=this.ctx.currentTime;
-                const o=this.ctx.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(0.01,t+0.6);
-                const g=this.ctx.createGain(); g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.6);
-                o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.6);
+            getLevel: (s) => {
+                if(s >= 85) return { t:"FLOW STATE", c:"#00FF99" };
+                if(s >= 65) return { t:"FOCUSED", c:"#00F0FF" };
+                if(s >= 45) return { t:"BALANCED", c:"#FFDD00" };
+                return { t:"STRESSED", c:"#FF3333" };
             }
         };
 
+        // --- Audio ---
+        const AudioFX = {
+            ctx: null,
+            play: (type) => {
+                if(!AudioFX.ctx) AudioFX.ctx = new (window.AudioContext||window.webkitAudioContext)();
+                if(AudioFX.ctx.state === 'suspended') AudioFX.ctx.resume();
+                const t = AudioFX.ctx.currentTime;
+                const o = AudioFX.ctx.createOscillator();
+                const g = AudioFX.ctx.createGain();
+                o.connect(g); g.connect(AudioFX.ctx.destination);
+
+                if(type === 'scan') {
+                    o.type = 'sawtooth'; o.frequency.setValueAtTime(80, t); o.frequency.linearRampToValueAtTime(800, t+2);
+                    g.gain.setValueAtTime(0.05, t); g.gain.linearRampToValueAtTime(0.2, t+1.8); g.gain.linearRampToValueAtTime(0, t+2);
+                    o.start(t); o.stop(t+2);
+                } else if(type === 'click') {
+                    o.type = 'sine'; o.frequency.setValueAtTime(800, t); o.frequency.exponentialRampToValueAtTime(100, t+0.1);
+                    g.gain.setValueAtTime(0.1, t); g.gain.linearRampToValueAtTime(0, t+0.1);
+                    o.start(t); o.stop(t+0.1);
+                }
+            }
+        };
+
+        // --- Main App ---
         const app = {
-            config: { particleCount: 7500 },
+            config: { particleCount: 8000 },
             state: { 
-                isFaceDetected: false, isScanning: false, isAligned: false,
-                // Direct Sync Variables (for Visuals)
-                sync: { headX: 0, headY: 0, mouth: 0, blink: 0, eyeOpen: 0 },
-                // Accumulators (for Score)
-                acc: { headDelta: 0, mouthOpen: 0, browFrown: 0, eyeOpen: 0, blinkCount: 0, samples: 0 },
-                prevNose: null
+                faceDetected: false, scanning: false, 
+                // Instant Sync Data
+                sync: { rotX: 0, rotY: 0, mouth: 0, blink: 0 },
+                // Accumulators
+                acc: { headShake: 0, mouth: 0, frown: 0, eyeOpen: 0, frames: 0 },
+                lastNose: null
             },
 
             init: function() {
-                this.runBootSequence(() => {
-                    this.initThree();
-                    this.initAI();
-                    this.initEvents();
-                });
-            },
-
-            runBootSequence: function(callback) {
-                const term = document.getElementById('terminal-text');
-                const lines = ["> INIT HYPER_SYNC...", "> CONNECTING NEURAL LATTICE...", "> READY."];
-                let lineIndex = 0, charIndex = 0;
-                function typeWriter() {
-                    if (lineIndex < lines.length) {
-                        if (charIndex < lines[lineIndex].length) {
-                            term.innerHTML += lines[lineIndex].charAt(charIndex++);
-                            setTimeout(typeWriter, 15);
-                        } else {
-                            term.innerHTML += "<br>"; lineIndex++; charIndex = 0;
-                            setTimeout(typeWriter, 200);
-                        }
-                    } else {
-                        setTimeout(() => {
-                            document.getElementById('boot-layer').style.opacity = 0;
-                            document.getElementById('universe').style.opacity = 1;
-                            document.getElementById('hud-layer').style.opacity = 1;
-                            setTimeout(() => {
-                                document.getElementById('boot-layer').style.display = 'none';
-                                callback();
-                            }, 500);
-                        }, 500);
-                    }
-                }
-                typeWriter();
+                this.initThree();
+                this.initAI();
+                this.initUI();
+                
+                // Fast Boot
+                setTimeout(() => {
+                    document.getElementById('boot-layer').style.opacity = 0;
+                    document.getElementById('universe').style.opacity = 1;
+                    document.getElementById('hud-layer').style.opacity = 1;
+                    setTimeout(() => document.getElementById('boot-layer').style.display='none', 500);
+                }, 1500);
             },
 
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                this.scene.fog = new THREE.FogExp2(0x050505, 0.02);
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 this.camera.position.z = 5;
-                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false }); // Fast render
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
 
-                // Updated Shader for Hyper-Reactivity
+                // ULTRA-REACTIVE SHADER
                 const vertexShader = `
                     attribute float size; attribute float random;
                     uniform float uTime;
-                    uniform float uMouth;   // 嘴巴開合 (Expansion)
-                    uniform float uBlink;   // 眨眼 (Flash intensity)
-                    uniform vec2 uHeadRot;  // 頭部旋轉 (Parallax)
+                    uniform float uMouth;   // 0.0 - 1.0 (Instant)
+                    uniform float uBlink;   // 0.0 - 1.0 (Instant)
+                    uniform vec2 uHeadRot;  // -1.0 - 1.0 (Instant)
                     
-                    varying float vAlpha; varying vec3 vColor;
-                    
-                    void main() {
-                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        
-                        // 1. Parallax Effect based on Head Rotation
-                        // 讓粒子跟隨頭部轉動而傾斜，創造深度感
-                        float parallaxX = position.x + uHeadRot.x * 2.0;
-                        float parallaxY = position.y + uHeadRot.y * 2.0;
-                        mvPosition = modelViewMatrix * vec4(parallaxX, parallaxY, position.z, 1.0);
+                    varying vec3 vColor;
+                    varying float vAlpha;
 
-                        // 2. Breath/Voice Expansion (Mouth)
-                        // 嘴巴張開時，粒子向外爆炸
-                        float expansion = 1.0 + (uMouth * 1.5) + (uBlink * 0.2);
+                    void main() {
+                        vec4 pos = vec4(position, 1.0);
+                        
+                        // 1. Direct Parallax (No lag)
+                        pos.x += uHeadRot.x * 2.5; 
+                        pos.y += uHeadRot.y * 2.5;
+
+                        // 2. Explosive Expansion (Mouth)
+                        // Nonlinear expansion for dramatic effect
+                        float expansion = 1.0 + (pow(uMouth, 2.0) * 3.0) + (uBlink * 0.5);
+                        
+                        // 3. Jitter (Tension)
+                        float jitter = sin(uTime * 20.0 + random * 100.0) * uMouth * 0.05;
+                        pos.x += jitter;
+                        
+                        vec4 mvPosition = modelViewMatrix * pos;
                         gl_PointSize = size * expansion * (300.0 / -mvPosition.z);
                         gl_Position = projectionMatrix * mvPosition;
+
+                        // 4. Color Flash (Blink)
+                        vec3 baseColor = vec3(0.0, 0.4, 0.8); // Deep Tech Blue
+                        vec3 activeColor = vec3(0.0, 1.0, 0.8); // Cyan
+                        vec3 flashColor = vec3(1.0, 1.0, 1.0); // White
                         
-                        // 3. Blink Flash
-                        vAlpha = 0.4 + (uBlink * 0.6) + (uMouth * 0.3);
-                        
-                        // Color Dynamics
-                        vec3 colorBase = vec3(0.0, 0.2, 0.4); // Deep Blue
-                        vec3 colorActive = vec3(0.0, 1.0, 1.0); // Cyan
-                        vec3 colorFlash = vec3(1.0, 1.0, 1.0);  // White (Blink)
-                        
-                        float activity = uMouth + uBlink;
-                        vec3 c = mix(colorBase, colorActive, activity);
-                        vColor = mix(c, colorFlash, uBlink);
+                        vec3 c = mix(baseColor, activeColor, uMouth);
+                        vColor = mix(c, flashColor, uBlink);
+                        vAlpha = 0.5 + uBlink * 0.5 + uMouth * 0.2;
                     }
                 `;
+
                 const fragmentShader = `
-                    varying float vAlpha; varying vec3 vColor;
+                    varying vec3 vColor; varying float vAlpha;
                     void main() {
-                        float r = distance(gl_PointCoord, vec2(0.5));
-                        if (r > 0.5) discard;
-                        float glow = 1.0 - (r * 2.0); glow = pow(glow, 2.0);
+                        float d = distance(gl_PointCoord, vec2(0.5));
+                        if(d > 0.5) discard;
+                        float glow = 1.0 - (d * 2.0);
                         gl_FragColor = vec4(vColor, glow * vAlpha);
                     }
                 `;
 
-                const geometry = new THREE.BufferGeometry();
-                const positions = [], randoms = [], sizes = [];
+                const geo = new THREE.BufferGeometry();
+                const pos = [], rnd = [], sz = [];
                 for(let i=0; i<this.config.particleCount; i++){
-                    const r = 2.5, theta = Math.random()*Math.PI*2, phi = Math.acos(2*Math.random()-1);
-                    positions.push(r*Math.sin(phi)*Math.cos(theta), r*Math.sin(phi)*Math.sin(theta), r*Math.cos(phi));
-                    randoms.push(Math.random()); sizes.push(0.12 * (0.5+Math.random()));
+                    const r=2.5, t=Math.random()*6.28, p=Math.acos(2*Math.random()-1);
+                    pos.push(r*Math.sin(p)*Math.cos(t), r*Math.sin(p)*Math.sin(t), r*Math.cos(p));
+                    rnd.push(Math.random()); sz.push(0.12 * (0.5+Math.random()));
                 }
-                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-                geometry.setAttribute('random', new THREE.Float32BufferAttribute(randoms, 1));
-                geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+                geo.setAttribute('random', new THREE.Float32BufferAttribute(rnd,1));
+                geo.setAttribute('size', new THREE.Float32BufferAttribute(sz,1));
 
-                this.material = new THREE.ShaderMaterial({
+                this.mat = new THREE.ShaderMaterial({
                     uniforms: { 
-                        uTime: { value: 0 },
-                        uMouth: { value: 0 },
-                        uBlink: { value: 0 },
-                        uHeadRot: { value: new THREE.Vector2(0,0) }
+                        uTime: {value:0}, uMouth: {value:0}, uBlink: {value:0}, uHeadRot: {value:new THREE.Vector2(0,0)}
                     },
                     vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
                 });
-                this.cloud = new THREE.Points(geometry, this.material);
-                this.scene.add(this.cloud);
-                this.animate();
-            },
-
-            animate: function() {
-                requestAnimationFrame(() => this.animate());
-                this.material.uniforms.uTime.value = Date.now() * 0.001;
+                this.scene.add(new THREE.Points(geo, this.mat));
                 
-                // Hyper-Sync: 直接將狀態變數注入 Shader (Smoothing)
-                // 1. Head Rotation (Lerp for smooth follow)
-                const targetRotX = this.state.sync.headX * 0.5;
-                const targetRotY = this.state.sync.headY * 0.5;
-                this.material.uniforms.uHeadRot.value.x += (targetRotX - this.material.uniforms.uHeadRot.value.x) * 0.1;
-                this.material.uniforms.uHeadRot.value.y += (targetRotY - this.material.uniforms.uHeadRot.value.y) * 0.1;
-                
-                this.cloud.rotation.y += 0.001; // Base rotation
-                this.cloud.rotation.x = this.material.uniforms.uHeadRot.value.y * 0.5;
-                this.cloud.rotation.y += this.material.uniforms.uHeadRot.value.x * 0.5;
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    this.mat.uniforms.uTime.value = performance.now() * 0.001;
+                    
+                    // --- QUANTUM TETHER: DIRECT MAPPING (NO LERP) ---
+                    // 直接賦值，不做任何平滑，確保 1:1 跟隨
+                    this.mat.uniforms.uHeadRot.value.set(this.state.sync.rotX, this.state.sync.rotY);
+                    this.mat.uniforms.uMouth.value = this.state.sync.mouth;
+                    
+                    // Blink decay needs to be fast
+                    if(this.state.sync.blink > 0) {
+                        this.mat.uniforms.uBlink.value = 1.0;
+                        this.state.sync.blink = 0;
+                    } else {
+                        this.mat.uniforms.uBlink.value *= 0.85; // Fast fade out
+                    }
 
-                // 2. Mouth (Lerp)
-                const currentMouth = this.material.uniforms.uMouth.value;
-                this.material.uniforms.uMouth.value += (this.state.sync.mouth - currentMouth) * 0.2; // Fast reaction
-
-                // 3. Blink (Decay)
-                if (this.state.sync.blink > 0) {
-                    this.material.uniforms.uBlink.value = 1.0; // Flash!
-                    this.state.sync.blink = 0; // Reset trigger
-                } else {
-                    this.material.uniforms.uBlink.value *= 0.9; // Fade out
-                }
-
-                this.renderer.render(this.scene, this.camera);
+                    this.renderer.render(this.scene, this.camera);
+                };
+                animate();
             },
 
             initAI: function() {
                 const video = document.getElementById('input-video');
-                const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6});
-                faceMesh.onResults((res) => this.processData(res));
+                const guide = document.getElementById('align-guide');
+                const status = document.getElementById('status-text');
                 
-                const camera = new Camera(video, {
+                const onResults = (res) => {
+                    if(res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
+                        const lm = res.multiFaceLandmarks[0];
+                        const nose = lm[1];
+                        
+                        this.state.faceDetected = true;
+                        guide.classList.add('visible');
+                        
+                        // 1. Direct Visual Sync (Visualization Only)
+                        // Invert X for mirror feel. Amplify for effect.
+                        this.state.sync.rotX = (nose.x - 0.5) * -3.5; 
+                        this.state.sync.rotY = (nose.y - 0.5) * -3.5;
+                        
+                        const upperLip = lm[13].y, lowerLip = lm[14].y;
+                        const mouthOpen = Math.min(1, Math.max(0, (lowerLip - upperLip) * 15.0)); // High sensitivity
+                        this.state.sync.mouth = mouthOpen;
+
+                        // Blink Check
+                        const leftEye = Math.abs(lm[159].y - lm[145].y);
+                        if(leftEye < 0.01) this.state.sync.blink = 1.0;
+
+                        // Alignment Check
+                        const isCentered = Math.abs(nose.x - 0.5) < 0.1 && Math.abs(nose.y - 0.5) < 0.15;
+                        if(isCentered) {
+                            guide.classList.add('locked');
+                            status.innerText = "SENSORS LOCKED"; status.style.color = "#00FF99";
+                        } else {
+                            guide.classList.remove('locked');
+                            status.innerText = "ALIGN FACE"; status.style.color = "gray";
+                        }
+
+                        // 2. Data Accumulation (For Score)
+                        if(this.state.scanning) {
+                            if(this.state.lastNose) {
+                                const delta = Math.sqrt(Math.pow(nose.x - this.state.lastNose.x, 2) + Math.pow(nose.y - this.state.lastNose.y, 2));
+                                this.state.acc.headShake += delta;
+                            }
+                            this.state.lastNose = {x: nose.x, y: nose.y};
+                            this.state.acc.mouth += mouthOpen;
+                            this.state.acc.frown += Math.abs(lm[334].y - lm[296].y);
+                            this.state.acc.eyeOpen += leftEye;
+                            this.state.acc.frames++;
+                        } else {
+                            this.state.lastNose = {x: nose.x, y: nose.y};
+                        }
+
+                    } else {
+                        this.state.faceDetected = false;
+                        guide.classList.remove('visible', 'locked');
+                        status.innerText = "SEARCHING..."; status.style.color = "gray";
+                    }
+                };
+
+                const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
+                faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.6});
+                faceMesh.onResults(onResults);
+                
+                new Camera(video, {
                     onFrame: async () => await faceMesh.send({image: video}),
                     width: 640, height: 480
-                });
-                camera.start().catch(() => this.handleCameraError());
-
-                // Mouse fallback
-                document.addEventListener('mousemove', (e) => {
-                    if (!this.state.isFaceDetected) {
-                        this.state.sync.headX = (e.clientX / window.innerWidth - 0.5) * 2;
-                        this.state.sync.headY = (e.clientY / window.innerHeight - 0.5) * 2;
-                    }
-                });
-                document.addEventListener('mousedown', () => { if(!this.state.isFaceDetected) this.state.sync.mouth = 0.8; });
-                document.addEventListener('mouseup', () => { if(!this.state.isFaceDetected) this.state.sync.mouth = 0; });
+                }).start();
             },
 
-            handleCameraError: function() {
-                document.getElementById('connection-status').innerText = "SENSOR: DENIED";
-                document.getElementById('align-status').innerText = "MOUSE MODE ACTIVE";
-            },
+            initUI: function() {
+                const trigger = document.getElementById('scan-trigger');
+                const resyncBtn = document.getElementById('resync-btn');
+                const instruction = document.getElementById('instruction');
 
-            processData: function(results) {
-                const guideEl = document.getElementById('face-guide');
-                const statusEl = document.getElementById('align-status');
-                const btn = document.getElementById('scan-trigger');
-                
-                if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                    this.state.isFaceDetected = true;
-                    const lm = results.multiFaceLandmarks[0];
-                    const nose = lm[1];
-
-                    // --- 1. Alignment Logic (瞄準系統) ---
-                    // 檢查鼻尖是否在中心區域 (0.4 - 0.6)
-                    const isCenteredX = nose.x > 0.4 && nose.x < 0.6;
-                    const isCenteredY = nose.y > 0.4 && nose.y < 0.6;
-                    // 檢查距離 (臉部寬度)
-                    const faceWidth = Math.abs(lm[234].x - lm[454].x); // 耳對耳
-                    const isGoodDist = faceWidth > 0.3 && faceWidth < 0.6;
-
-                    if (isCenteredX && isCenteredY && isGoodDist) {
-                        if (!this.state.isAligned) {
-                            this.state.isAligned = true;
-                            guideEl.classList.add('locked');
-                            statusEl.innerText = "LOCKED // READY TO SCAN";
-                            statusEl.style.color = "#00FF99";
-                            btn.classList.remove('disabled');
-                            if(navigator.vibrate) navigator.vibrate(20);
-                        }
-                    } else {
-                        if (this.state.isAligned) {
-                            this.state.isAligned = false;
-                            guideEl.classList.remove('locked');
-                            statusEl.innerText = "ALIGN FACE TO CENTER";
-                            statusEl.style.color = "rgba(255,255,255,0.5)";
-                            btn.classList.add('disabled');
-                        }
-                    }
-
-                    // --- 2. Hyper-Sync Visuals (視覺同步) ---
-                    // Head Rotation (Inverted for mirror effect)
-                    this.state.sync.headX = (nose.x - 0.5) * -3.0; 
-                    this.state.sync.headY = (nose.y - 0.5) * -3.0;
-
-                    // Mouth Opening
-                    const mouthDist = Math.abs(lm[13].y - lm[14].y);
-                    this.state.sync.mouth = Math.min(1.0, mouthDist * 8.0); // Amplify for effect
-
-                    // Blinking (EAR)
-                    const leftEyeH = Math.abs(lm[159].y - lm[145].y);
-                    const rightEyeH = Math.abs(lm[386].y - lm[374].y);
-                    const avgEye = (leftEyeH + rightEyeH) / 2;
-                    if (avgEye < 0.015 && this.state.sync.blink === 0) {
-                         this.state.sync.blink = 1.0; // Trigger Flash
-                         this.state.acc.blinkCount++;
-                    }
-
-                    // --- 3. Accumulate Data for Scanning ---
-                    if (this.state.isScanning) {
-                        // Head Stability
-                        if (this.state.prevNose) {
-                            const delta = Math.sqrt(Math.pow(nose.x - this.state.prevNose.x, 2) + Math.pow(nose.y - this.state.prevNose.y, 2));
-                            this.state.acc.headDelta += delta;
-                        }
-                        this.state.prevNose = {x: nose.x, y: nose.y};
-                        this.state.acc.mouthOpen += mouthDist;
-                        this.state.acc.browFrown += Math.abs(lm[334].y - lm[296].y);
-                        this.state.acc.eyeOpen += avgEye;
-                        this.state.acc.samples++;
-                    } else {
-                        this.state.prevNose = {x: nose.x, y: nose.y}; // Keep updating for smoother start
-                    }
-
-                } else {
-                    this.state.isFaceDetected = false;
-                    guideEl.classList.remove('locked');
-                    statusEl.innerText = "SEARCHING FACE...";
-                    btn.classList.add('disabled');
-                }
-            },
-
-            initEvents: function() {
-                const btn = document.getElementById('scan-trigger');
-                const start = (e) => {
-                    if(e.cancelable) e.preventDefault(); 
-                    if(!this.state.isAligned && this.state.isFaceDetected) return; // Prevent if not aligned
-                    
-                    this.state.isScanning = true;
-                    // Reset accumulators
-                    this.state.acc = { headDelta: 0, mouthOpen: 0, browFrown: 0, eyeOpen: 0, blinkCount: 0, samples: 0 };
-                    
-                    btn.classList.add('active');
-                    document.getElementById('instruction').innerText = "GATHERING BIOMETRICS...";
-                    AudioEngine.playScan();
-                    
-                    let progress = 0;
-                    this.scanInterval = setInterval(() => {
-                        progress += 2; 
-                        if (progress >= 100) this.finishScan();
-                    }, 40);
-                };
-                const end = (e) => {
+                // Start Scan
+                const startScan = (e) => {
                     if(e.cancelable) e.preventDefault();
-                    if(!this.state.isScanning) return;
-                    this.state.isScanning = false;
-                    clearInterval(this.scanInterval);
-                    btn.classList.remove('active');
-                    AudioEngine.stopScan();
-                    document.getElementById('instruction').innerText = "ALIGN FACE TO UNLOCK";
+                    if(!this.state.faceDetected) return;
+                    
+                    this.state.scanning = true;
+                    this.state.acc = {headShake:0, mouth:0, frown:0, eyeOpen:0, frames:0}; // Reset
+                    
+                    trigger.classList.add('active');
+                    instruction.innerText = "ANALYZING...";
+                    AudioFX.play('scan');
+                    
+                    // 2 Seconds Scan
+                    setTimeout(this.finishScan.bind(this), 2000);
                 };
-                
-                btn.addEventListener('mousedown', start);
-                btn.addEventListener('touchstart', start, {passive: false});
-                window.addEventListener('mouseup', end);
-                window.addEventListener('touchend', end, {passive: false});
+
+                // Resync (Instant Reset)
+                const doResync = (e) => {
+                    if(e.cancelable) e.preventDefault();
+                    AudioFX.play('click');
+                    
+                    // Instant Visual Feedback
+                    resyncBtn.style.transform = "scale(0.9)";
+                    setTimeout(() => resyncBtn.style.transform = "scale(1)", 100);
+                    
+                    // Hide Result, Show HUD Immediately
+                    document.getElementById('result-view').classList.remove('show');
+                    document.getElementById('instruction').innerText = "READY TO SCAN";
+                    trigger.classList.remove('active');
+                    
+                    this.state.scanning = false;
+                };
+
+                trigger.addEventListener('pointerdown', startScan);
+                resyncBtn.addEventListener('pointerdown', doResync); // Fast click
             },
 
             finishScan: function() {
-                clearInterval(this.scanInterval);
-                this.state.isScanning = false;
-                AudioEngine.stopScan(); AudioEngine.playImpact();
-                if(navigator.vibrate) navigator.vibrate([100]);
-
-                // Calculate Average
-                const s = this.state.acc.samples || 1;
-                const avgInputs = {
-                    avgHeadDelta: this.state.acc.headDelta / s,
-                    avgMouthOpen: this.state.acc.mouthOpen / s,
-                    avgBrowFrown: this.state.acc.browFrown / s,
-                    avgEyeOpen: this.state.acc.eyeOpen / s
+                this.state.scanning = false;
+                const frames = this.state.acc.frames || 1;
+                
+                // Average the accumulated data
+                const data = {
+                    headShake: this.state.acc.headShake / frames,
+                    mouth: this.state.acc.mouth / frames,
+                    frown: this.state.acc.frown / frames,
+                    eyeOpen: this.state.acc.eyeOpen / frames
                 };
 
-                const result = teiEngine.compute(avgInputs);
-                const state = teiEngine.getState(result.score);
+                const result = TEI.compute(data);
+                const level = TEI.getLevel(result.score);
+
+                // Update UI
+                const scoreEl = document.getElementById('final-score');
+                const stateText = document.getElementById('state-text');
+                
+                scoreEl.innerText = result.score;
+                scoreEl.style.color = level.c;
+                stateText.innerText = level.t;
+                stateText.style.color = level.c;
+
+                document.getElementById('res-stability').innerText = Math.round(result.details.stability * 100) + '%';
+                document.getElementById('res-focus').innerText = Math.round(result.details.focus * 100) + '%';
+                document.getElementById('res-relax').innerText = Math.round(result.details.relaxation * 100) + '%';
 
                 document.getElementById('result-view').classList.add('show');
-                
-                const scoreEl = document.getElementById('final-score');
-                let score = 0;
-                const anim = setInterval(() => {
-                    score += 3; 
-                    if(score >= result.score) { 
-                        score = result.score; clearInterval(anim);
-                        
-                        const badgeEl = document.getElementById('state-badge');
-                        badgeEl.innerText = state.text;
-                        badgeEl.style.borderColor = state.color;
-                        badgeEl.style.color = state.color;
-                        scoreEl.style.color = state.color;
-
-                        document.getElementById('res-stability').innerText = Math.round(result.components.stability*100) + '%';
-                        document.getElementById('res-blink').innerText = this.state.acc.blinkCount;
-                        document.getElementById('res-relax').innerText = Math.round(result.components.relaxation*100) + '%';
-                    }
-                    scoreEl.innerText = score;
-                }, 20);
-            },
-
-            reset: function() {
-                document.getElementById('result-view').classList.remove('show');
-                document.getElementById('scan-trigger').classList.remove('active');
-                document.getElementById('instruction').innerText = "ALIGN FACE TO UNLOCK";
             }
         };
 
