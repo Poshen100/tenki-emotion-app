@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v22.0 - Neural Matrix</title>
+    <title>TENKI v23.0 - Reality Core</title>
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -17,11 +17,11 @@
     <style>
         :root {
             --bg-deep: #050505;
-            --tei-excellent: #00FF99; /* 85-99 */
-            --tei-good: #00F0FF;      /* 75-84 */
-            --tei-balanced: #FFDD00;  /* 60-74 */
-            --tei-stress: #FF8800;    /* 30-59 */
-            --tei-critical: #FF3333;  /* 1-29 */
+            --tei-excellent: #00FF99; /* 80-99: Flow State */
+            --tei-good: #00F0FF;      /* 60-79: Focused */
+            --tei-neutral: #FFDD00;   /* 40-59: Balanced */
+            --tei-stress: #FF8800;    /* 20-39: Stressed */
+            --tei-critical: #FF0000;  /* 01-19: Overload */
         }
 
         body {
@@ -103,10 +103,10 @@
         .result-overlay.show { opacity: 1; pointer-events: auto; }
         
         .score-display {
-            font-size: 100px; font-weight: bold;
+            font-size: 110px; font-weight: bold;
             background: linear-gradient(to bottom, #fff, #888);
             -webkit-background-clip: text; color: transparent;
-            letter-spacing: -6px; line-height: 0.9;
+            letter-spacing: -8px; line-height: 0.9;
         }
         
         .state-badge {
@@ -133,16 +133,16 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white">TENKI</div>
-                <div class="text-[8px] text-emerald-400 tracking-widest mt-1">v22.0 NEURAL_MATRIX</div>
+                <div class="text-[8px] text-emerald-400 tracking-widest mt-1">v23.0 REALITY_CORE</div>
             </div>
             <div class="text-right">
                 <div id="connection-status" class="text-[10px] text-gray-500 border border-gray-800 px-2 py-1 rounded mb-2">
                     OFFLINE
                 </div>
                 <div class="hidden" id="live-metrics">
-                    <div class="bio-stats"><span>HRV (RMSSD)</span> <span class="bio-val" id="val-hrv">--</span></div>
-                    <div class="bio-stats"><span>BREATH RATE</span> <span class="bio-val" id="val-br">--</span></div>
-                    <div class="bio-stats"><span>VAGAL TONE</span> <span class="bio-val" id="val-vagal">--</span></div>
+                    <div class="bio-stats"><span>TENSION</span> <span class="bio-val" id="val-tension">--</span></div>
+                    <div class="bio-stats"><span>STABILITY</span> <span class="bio-val" id="val-stability">--</span></div>
+                    <div class="bio-stats"><span>ALERTNESS</span> <span class="bio-val" id="val-alertness">--</span></div>
                 </div>
             </div>
         </div>
@@ -158,7 +158,7 @@
     </div>
 
     <div id="result-view" class="result-overlay">
-        <div class="text-[10px] tracking-[6px] text-gray-400 mb-2">TEI SCORE (1-99)</div>
+        <div class="text-[10px] tracking-[6px] text-gray-400 mb-2">TEI SCORE</div>
         <div class="score-display" id="final-score">--</div>
         
         <div id="state-badge" class="state-badge text-white">
@@ -166,12 +166,12 @@
         </div>
 
         <div class="grid grid-cols-3 gap-8 mt-12 text-center w-full px-10">
-            <div><div class="text-[20px] font-bold text-white" id="res-hrv">0</div><div class="text-[8px] text-gray-500 mt-1">HRV</div></div>
+            <div><div class="text-[20px] font-bold text-white" id="res-stability">0%</div><div class="text-[8px] text-gray-500 mt-1">STABILITY</div></div>
             <div><div class="text-[20px] font-bold text-white" id="res-context">0.0</div><div class="text-[8px] text-gray-500 mt-1">CONTEXT</div></div>
-            <div><div class="text-[20px] font-bold text-white" id="res-behavior">0.0</div><div class="text-[8px] text-gray-500 mt-1">BEHAVIOR</div></div>
+            <div><div class="text-[20px] font-bold text-white" id="res-relax">0%</div><div class="text-[8px] text-gray-500 mt-1">RELAXATION</div></div>
         </div>
         
-        <div class="text-[10px] text-gray-600 mt-8 max-w-[80%] text-center leading-relaxed" id="ai-insight">
+        <div class="text-[10px] text-gray-400 mt-8 max-w-[80%] text-center leading-relaxed font-bold tracking-widest" id="ai-insight">
             AI ANALYSIS...
         </div>
 
@@ -185,148 +185,129 @@
         const setVh = () => document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
         window.addEventListener('resize', setVh); setVh();
 
-        // --- TEI Calculation Engine v2.1 (Based on Spec) ---
-        class TEIEngine {
+        // --- 1. Realistic Engine (Solo Founder Optimized) ---
+        class RealTEIEngine {
             constructor() {
-                // 權重定義 (Phone Only Model)
+                // 加權因子 (基於 MediaPipe 可靠度)
                 this.weights = {
-                    HR: 0.35,
-                    HRV: 0.25,
-                    FACE: 0.15,
-                    BREATH: 0.10,
-                    CONTEXT: 0.10,
-                    BEHAVIOR: 0.05
-                };
-                
-                // 基線 (可個性化)
-                this.baseline = {
-                    restingHR: 60,
-                    maxHR: 180,
-                    avgHRV: 40, // ms
-                    idealBR: 12 // breaths/min
+                    STABILITY: 0.40, // 頭部穩定度 (代理呼吸/平靜)
+                    TENSION: 0.30,   // 臉部張力 (嘴/眼)
+                    ALERTNESS: 0.20, // 眼睛開合
+                    CONTEXT: 0.10    // 晝夜節律
                 };
             }
 
-            // 正規化函數
-            normalizeHR(bpm) { return (bpm - this.baseline.restingHR) / (this.baseline.maxHR - this.baseline.restingHR); }
-            normalizeHRV(rmssd) { 
-                // HRV越高越好，映射到 0-1
-                let norm = (rmssd - 20) / 60; 
-                return Math.min(1, Math.max(0, norm)); 
-            }
-            normalizeBR(br) {
-                // 呼吸率偏離理想值越多越差
-                let diff = Math.abs(br - this.baseline.idealBR);
-                return Math.max(0, 1 - (diff / 10)); 
+            // 計算頭部穩定度 (代理呼吸/平靜)
+            // stability input: 0 (shaking) to 1 (still)
+            computeStability(headDelta) {
+                // Delta 越小，分數越高
+                // 假設 delta > 0.05 是大動作
+                const score = Math.max(0, 1 - (headDelta * 20));
+                return score;
             }
 
-            // 計算上下文分數 (模擬)
-            calculateContext() {
-                const hour = new Date().getHours();
-                // 簡單晝夜節律模擬：中午最高，深夜最低
-                const circadian = 0.5 + 0.5 * Math.sin(2 * Math.PI * (hour - 12) / 24);
-                return circadian;
+            // 計算臉部張力 (0=Tense, 1=Relaxed)
+            // 反轉邏輯：張力越小，分數越高
+            computeRelaxation(mouthOpen, browFrown) {
+                // 嘴巴微開 (relaxed) 比緊閉 (tense) 好
+                // 眉頭緊鎖 (frown) 是扣分項
+                const relaxScore = (mouthOpen * 0.5) + (1 - browFrown) * 0.5;
+                return Math.min(1, Math.max(0, relaxScore));
             }
 
-            // 計算行為分數 (模擬)
-            calculateBehavior() {
-                // 假設輸入穩定
-                return 0.85; 
+            // 計算警覺度 (0=Sleepy, 1=Alert)
+            computeAlertness(eyeOpen) {
+                // 眼睛太開可能是驚恐，太閉是疲勞。取 0.6-0.8 為最佳區間
+                // 簡單線性映射：越開越警覺 (直至上限)
+                return Math.min(1, eyeOpen * 1.2);
             }
 
             compute(inputs) {
-                const hrNorm = this.normalizeHR(inputs.bpm || 75);
-                const hrvNorm = this.normalizeHRV(inputs.hrv || 40);
-                const brNorm = this.normalizeBR(inputs.br || 14);
-                const contextScore = this.calculateContext();
-                const behaviorScore = this.calculateBehavior();
-                const facialStress = inputs.facialStress || 0.5;
-
-                // v2.1 核心公式: TEI_raw
-                // 注意：1-HR_norm 代表心率越低分越高
-                // 注意：1-facialStress 代表壓力越小分越高
-                let teiRaw = 50 + (
-                    this.weights.HR * (1 - hrNorm) * 40 +
-                    this.weights.HRV * hrvNorm * 40 +
-                    this.weights.FACE * (1 - facialStress) * 40 +
-                    this.weights.BREATH * brNorm * 40 +
-                    this.weights.CONTEXT * contextScore * 40 +
-                    this.weights.BEHAVIOR * behaviorScore * 40
-                );
-
-                // Clamp to 1-99
-                let teiFinal = Math.min(99, Math.max(1, teiRaw));
+                // Inputs: { headDelta, mouthOpen, browFrown, eyeOpen }
                 
+                const stabilityScore = this.computeStability(inputs.headDelta);
+                const relaxationScore = this.computeRelaxation(inputs.mouthOpen, inputs.browFrown);
+                const alertnessScore = this.computeAlertness(inputs.eyeOpen);
+                
+                // 晝夜節律 (Context)
+                const hour = new Date().getHours();
+                const contextScore = 0.5 + 0.5 * Math.sin(2 * Math.PI * (hour - 10) / 24); // 10AM Peak
+
+                // 加權總分
+                let rawScore = (
+                    stabilityScore * this.weights.STABILITY +
+                    relaxationScore * this.weights.TENSION +
+                    alertnessScore * this.weights.ALERTNESS +
+                    contextScore * this.weights.CONTEXT
+                ) * 100;
+
+                // 映射到 1-99
+                let finalScore = Math.min(99, Math.max(1, Math.round(rawScore)));
+
                 return {
-                    score: Math.round(teiFinal),
+                    score: finalScore,
                     components: {
-                        hrvRaw: inputs.hrv,
-                        context: contextScore,
-                        behavior: behaviorScore,
-                        facialStress: facialStress
+                        stability: stabilityScore,
+                        relaxation: relaxationScore,
+                        context: contextScore
                     }
                 };
             }
 
             getState(score) {
-                if (score >= 85) return { text: "EXCELLENT / VAGAL++", color: "#00FF99", insight: "副交感神經優勢。極佳恢復力。適合進行重大決策。" };
-                if (score >= 75) return { text: "GOOD RESILIENCE", color: "#00F0FF", insight: "狀態良好。保持專注。" };
-                if (score >= 60) return { text: "BALANCED STATE", color: "#FFDD00", insight: "身心平衡。保持覺察。" };
-                if (score >= 45) return { text: "MILD STRESS", color: "#FFAA00", insight: "輕度應激。建議調整呼吸頻率。" };
-                if (score >= 30) return { text: "MODERATE STRESS", color: "#FF8800", insight: "交感神經活躍。需要短暫休息。" };
-                if (score >= 15) return { text: "HIGH STRESS", color: "#FF3333", insight: "高度應激。建議立即停止工作並冥想。" };
-                return { text: "CRITICAL FATIGUE", color: "#FF0000", insight: "臨界狀態。系統建議：強制休息。" };
+                if (score >= 80) return { text: "FLOW STATE", color: "#00FF99", insight: "心流狀態。適合高難度操作。" };
+                if (score >= 60) return { text: "FOCUSED", color: "#00F0FF", insight: "專注穩定。保持節奏。" };
+                if (score >= 40) return { text: "BALANCED", color: "#FFDD00", insight: "狀態平衡。注意微小波動。" };
+                if (score >= 20) return { text: "STRESSED", color: "#FF8800", insight: "檢測到壓力。建議深呼吸。" };
+                return { text: "OVERLOAD", color: "#FF0000", insight: "系統過載。立即停止操作。" };
             }
         }
 
-        // --- Main App Logic ---
-        const teiEngine = new TEIEngine();
+        // --- 2. Main App ---
+        const teiEngine = new RealTEIEngine();
         
-        // Audio Engine (Reused from v21)
+        // Audio (Shepard Tone Simulation)
         const AudioEngine = {
-            ctx: null, oscillator: null, gainNode: null,
-            init: function() {
-                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-            },
+            ctx: null, osc: null, gain: null,
+            init: function() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
             playScan: function() {
                 this.init(); if(this.ctx.state === 'suspended') this.ctx.resume();
-                if(this.oscillator) this.stopScan();
+                if(this.osc) this.stopScan();
                 const t = this.ctx.currentTime;
-                this.oscillator = this.ctx.createOscillator(); this.oscillator.type = 'sawtooth';
-                this.oscillator.frequency.setValueAtTime(80, t);
-                this.oscillator.frequency.exponentialRampToValueAtTime(600, t + 2.5);
-                this.gainNode = this.ctx.createGain();
-                this.gainNode.gain.setValueAtTime(0, t);
-                this.gainNode.gain.linearRampToValueAtTime(0.1, t + 0.1);
+                this.osc = this.ctx.createOscillator(); this.osc.type = 'sawtooth';
+                this.osc.frequency.setValueAtTime(60, t);
+                this.osc.frequency.exponentialRampToValueAtTime(400, t + 2.0); // 掃描升頻
+                this.gain = this.ctx.createGain();
+                this.gain.gain.setValueAtTime(0, t);
+                this.gain.gain.linearRampToValueAtTime(0.15, t + 0.2);
+                
                 const filter = this.ctx.createBiquadFilter();
-                filter.type = 'lowpass'; filter.frequency.setValueAtTime(200, t);
-                filter.frequency.linearRampToValueAtTime(2000, t + 2);
-                this.oscillator.connect(filter); filter.connect(this.gainNode);
-                this.gainNode.connect(this.ctx.destination);
-                this.oscillator.start(t);
+                filter.type = 'lowpass'; filter.frequency.setValueAtTime(100, t);
+                filter.frequency.linearRampToValueAtTime(1000, t + 2.0);
+                
+                this.osc.connect(filter); filter.connect(this.gain); this.gain.connect(this.ctx.destination);
+                this.osc.start(t);
             },
             stopScan: function() {
-                if (this.oscillator) {
-                    try { this.oscillator.stop(this.ctx.currentTime + 0.1); } catch(e){}
-                    this.oscillator = null;
-                }
+                if(this.osc) { try{ this.osc.stop(this.ctx.currentTime + 0.1); }catch(e){} this.osc=null; }
             },
             playImpact: function() {
                 this.init(); const t = this.ctx.currentTime;
-                const osc = this.ctx.createOscillator(); osc.type = 'sine';
-                osc.frequency.setValueAtTime(150, t); osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.5);
-                const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.8, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
-                osc.connect(gain); gain.connect(this.ctx.destination);
-                osc.start(t); osc.stop(t + 0.5);
+                const o = this.ctx.createOscillator(); o.type='sine'; 
+                o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(0.01, t+0.6);
+                const g = this.ctx.createGain(); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.01, t+0.6);
+                o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.6);
             }
         };
 
         const app = {
-            config: { particleCount: 7000, particleBaseSize: 0.14 },
+            config: { particleCount: 6000, particleBaseSize: 0.15 },
             state: { 
-                isFaceDetected: false, isScanning: false, 
-                currentResult: null,
-                simulatedInputs: { bpm: 70, hrv: 40, facialStress: 0.3, br: 14 } // 初始模擬值
+                isFaceDetected: false, isScanning: false, currentResult: null,
+                // Buffer for stability calc
+                prevNose: {x:0, y:0}, headDeltaAccumulator: 0, frameCount: 0,
+                // Real-time metrics
+                metrics: { headDelta: 0.05, mouthOpen: 0.1, browFrown: 0.1, eyeOpen: 0.8 }
             },
 
             init: function() {
@@ -340,10 +321,10 @@
             runBootSequence: function(callback) {
                 const term = document.getElementById('terminal-text');
                 const lines = [
-                    "> INITIALIZING NEURAL MATRIX...",
-                    "> LOADING VAGAL TONE MODELS...",
+                    "> SYSTEM CHECK: OK",
+                    "> LOADING MEDIA_PIPE...",
                     "> CALIBRATING SENSORS...",
-                    "> SYSTEM READY."
+                    "> READY."
                 ];
                 let lineIndex = 0, charIndex = 0;
                 function typeWriter() {
@@ -362,7 +343,7 @@
                             document.getElementById('hud-layer').style.opacity = 1;
                             setTimeout(() => {
                                 document.getElementById('boot-layer').style.display = 'none';
-                                document.getElementById('instruction').innerText = "ALIGN SENSORS";
+                                document.getElementById('instruction').innerText = "ALIGN FACE";
                                 callback();
                             }, 1000);
                         }, 500);
@@ -382,39 +363,23 @@
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
 
-                // Shader: Score 1 (Red/Chaos) <---> Score 99 (Green/Zen)
+                // Shader: Score 1 (Red/Chaos) <---> Score 99 (Green/Flow)
                 const vertexShader = `
                     attribute float size; attribute float random;
-                    uniform float uTime; uniform float uTEI; // 0.0 to 1.0 (Mapped from 1-99)
+                    uniform float uTime; uniform float uTEI; 
                     varying float vAlpha; varying vec3 vColor;
-                    
                     void main() {
                         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        
-                        // 低分(0.0) = 快速脈衝, 高分(1.0) = 緩慢呼吸
                         float speed = mix(5.0, 1.0, uTEI);
                         float pulse = sin(uTime * speed + random * 10.0) * 0.5 + 0.5;
-                        
-                        // 粒子擴散
-                        float chaos = mix(2.0, 0.5, uTEI);
+                        float chaos = mix(1.5, 0.2, uTEI);
                         float finalSize = size * (1.0 + chaos + pulse * 0.5);
-                        
                         gl_PointSize = finalSize * (300.0 / -mvPosition.z);
                         gl_Position = projectionMatrix * mvPosition;
                         vAlpha = 0.4 + pulse * 0.4;
-                        
-                        vec3 colorCritical = vec3(1.0, 0.0, 0.0); // Red
-                        vec3 colorStress = vec3(1.0, 0.5, 0.0);   // Orange
-                        vec3 colorGood = vec3(0.0, 0.9, 1.0);     // Cyan
-                        vec3 colorExcellent = vec3(0.0, 1.0, 0.6); // Emerald Green
-                        
-                        // 顏色混合邏輯
-                        vec3 c1 = mix(colorCritical, colorStress, smoothstep(0.0, 0.4, uTEI));
-                        vec3 c2 = mix(colorStress, colorGood, smoothstep(0.4, 0.7, uTEI));
-                        vec3 finalC = mix(c2, colorExcellent, smoothstep(0.7, 1.0, uTEI));
-                        if(uTEI < 0.4) finalC = c1; // Hard fix for low scores
-                        
-                        vColor = finalC;
+                        vec3 colorCritical = vec3(1.0, 0.0, 0.0);
+                        vec3 colorFlow = vec3(0.0, 1.0, 0.6);
+                        vColor = mix(colorCritical, colorFlow, uTEI);
                     }
                 `;
                 const fragmentShader = `
@@ -428,18 +393,13 @@
                 `;
 
                 const geometry = new THREE.BufferGeometry();
-                const positions = [], originals = [], randoms = [], sizes = [];
-                const phi = Math.PI * (3. - Math.sqrt(5.));
-                for (let i = 0; i < this.config.particleCount; i++) {
-                    const y = 1 - (i / (this.config.particleCount - 1)) * 2;
-                    const radius = Math.sqrt(1 - y * y);
-                    const theta = phi * i;
-                    const x = Math.cos(theta) * radius, z = Math.sin(theta) * radius;
-                    positions.push(x*2.5, y*2.5, z*2.5); originals.push(x*2.5, y*2.5, z*2.5);
-                    randoms.push(Math.random()); sizes.push(this.config.particleBaseSize * (0.5 + Math.random()));
+                const positions = [], randoms = [], sizes = [];
+                for(let i=0; i<6000; i++){
+                    const r = 2.5, theta = Math.random()*Math.PI*2, phi = Math.acos(2*Math.random()-1);
+                    positions.push(r*Math.sin(phi)*Math.cos(theta), r*Math.sin(phi)*Math.sin(theta), r*Math.cos(phi));
+                    randoms.push(Math.random()); sizes.push(0.15 * (0.5+Math.random()));
                 }
                 geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-                geometry.setAttribute('originalPosition', new THREE.Float32BufferAttribute(originals, 3));
                 geometry.setAttribute('random', new THREE.Float32BufferAttribute(randoms, 1));
                 geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
 
@@ -454,20 +414,14 @@
 
             animate: function() {
                 requestAnimationFrame(() => this.animate());
-                const time = Date.now() * 0.001;
-                this.material.uniforms.uTime.value = time;
+                this.material.uniforms.uTime.value = Date.now() * 0.001;
                 
-                // 動態反應 TEI 分數
-                let targetTEI = 0.5; // Default Balanced
-                if (this.state.currentResult) {
-                    targetTEI = this.state.currentResult.score / 100;
-                }
+                let targetTEI = 0.5;
+                if(this.state.currentResult) targetTEI = this.state.currentResult.score / 100;
                 // 平滑過渡
                 this.material.uniforms.uTEI.value += (targetTEI - this.material.uniforms.uTEI.value) * 0.05;
 
-                // 旋轉
                 this.cloud.rotation.y += 0.001; 
-
                 this.renderer.render(this.scene, this.camera);
             },
 
@@ -483,20 +437,20 @@
                 });
                 camera.start().catch(() => this.handleCameraError());
 
-                // Mouse Simulation for Debug
+                // Fallback: Mouse movement simulates tension
                 document.addEventListener('mousemove', (e) => {
                     if (!this.state.isFaceDetected) {
-                        // 模擬：滑鼠上下移動改變模擬的心率/壓力
-                        let stress = e.clientY / window.innerHeight; // 上=0(低壓), 下=1(高壓)
-                        this.state.simulatedInputs.facialStress = stress;
-                        this.state.simulatedInputs.hrv = 20 + (1-stress) * 60; // 壓力大HRV低
+                        // Mouse movement = stability jitter
+                        const jitter = Math.abs(e.movementX) + Math.abs(e.movementY);
+                        this.state.metrics.headDelta = Math.min(0.2, jitter * 0.001);
+                        this.state.metrics.eyeOpen = 0.8;
                     }
                 });
             },
 
             handleCameraError: function() {
                 document.getElementById('connection-status').innerText = "SENSOR: DENIED";
-                document.getElementById('instruction').innerHTML = "CAMERA BLOCKED<br>MOUSE SIM MODE";
+                document.getElementById('instruction').innerHTML = "NO CAMERA<br>MOUSE SIM MODE";
             },
 
             processData: function(results) {
@@ -504,24 +458,40 @@
                 const metricsEl = document.getElementById('live-metrics');
                 
                 if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                    this.state.isFaceDetected = true;
-                    statusEl.innerText = "NEURAL LINK: ACTIVE"; statusEl.style.color = "#00FF99"; statusEl.style.borderColor = "#00FF99";
-                    metricsEl.classList.remove('hidden');
-                    
-                    const landmarks = results.multiFaceLandmarks[0];
-                    // 簡單計算壓力特徵 (AU4 皺眉, AU7 瞇眼)
-                    const frown = Math.abs(landmarks[334].y - landmarks[296].y) * 10;
-                    const squint = Math.abs(landmarks[159].y - landmarks[145].y) * 20;
-                    this.state.simulatedInputs.facialStress = Math.min(1, Math.max(0, 0.5 + frown - squint)); // 粗略估計
-
-                    // 更新即時面板
-                    if(Math.random() > 0.9) {
-                        // 根據當前臉部壓力模擬 HRV
-                        const currentHRV = Math.floor(this.state.simulatedInputs.hrv + (Math.random()*10 - 5));
-                        document.getElementById('val-hrv').innerText = currentHRV + 'ms';
-                        document.getElementById('val-br').innerText = Math.floor(12 + this.state.simulatedInputs.facialStress*5) + '/m';
-                        document.getElementById('val-vagal').innerText = currentHRV > 50 ? 'HIGH' : 'LOW';
+                    if(!this.state.isFaceDetected) {
+                        this.state.isFaceDetected = true;
+                        statusEl.innerText = "SENSORS: LINKED"; statusEl.style.color = "#00FF99"; statusEl.style.borderColor = "#00FF99";
+                        metricsEl.classList.remove('hidden');
+                        document.getElementById('instruction').innerText = "HOLD FINGERPRINT TO SCAN";
                     }
+
+                    const landmarks = results.multiFaceLandmarks[0];
+                    const nose = landmarks[1];
+
+                    // 1. Stability (Head Delta)
+                    const delta = Math.sqrt(Math.pow(nose.x - this.state.prevNose.x, 2) + Math.pow(nose.y - this.state.prevNose.y, 2));
+                    this.state.prevNose = {x: nose.x, y: nose.y};
+                    // Smooth accumulated delta
+                    this.state.metrics.headDelta = this.state.metrics.headDelta * 0.9 + delta * 0.1;
+
+                    // 2. Alertness (Eye Openness - simplified vertical dist)
+                    const leftEyeH = Math.abs(landmarks[159].y - landmarks[145].y);
+                    const rightEyeH = Math.abs(landmarks[386].y - landmarks[374].y);
+                    this.state.metrics.eyeOpen = (leftEyeH + rightEyeH) * 20; // scale up
+
+                    // 3. Tension (Mouth & Brow)
+                    const mouthDist = Math.abs(landmarks[13].y - landmarks[14].y);
+                    this.state.metrics.mouthOpen = mouthDist * 10;
+                    const browDist = Math.abs(landmarks[334].y - landmarks[296].y);
+                    this.state.metrics.browFrown = Math.max(0, (0.05 - browDist) * 20); // Closer brows = frown
+
+                    // Update HUD numbers occasionally
+                    if(Math.random() > 0.9) {
+                        document.getElementById('val-tension').innerText = Math.round((1-this.state.metrics.mouthOpen)*100) + '%';
+                        document.getElementById('val-stability').innerText = Math.round((1-this.state.metrics.headDelta*10)*100) + '%';
+                        document.getElementById('val-alertness').innerText = Math.round(this.state.metrics.eyeOpen*100) + '%';
+                    }
+
                 } else {
                     statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray"; statusEl.style.borderColor = "#333";
                 }
@@ -533,12 +503,12 @@
                     if(e.cancelable) e.preventDefault(); 
                     this.state.isScanning = true;
                     btn.classList.add('active');
-                    document.getElementById('instruction').innerText = "SYNCHRONIZING...";
+                    document.getElementById('instruction').innerText = "CALCULATING TEI...";
                     AudioEngine.playScan();
                     
                     let progress = 0;
                     this.scanInterval = setInterval(() => {
-                        progress += 2;
+                        progress += 2; // 2 seconds scan (50 steps * 40ms)
                         if (progress >= 100) this.finishScan();
                     }, 40);
                 };
@@ -549,7 +519,7 @@
                     clearInterval(this.scanInterval);
                     btn.classList.remove('active');
                     AudioEngine.stopScan();
-                    document.getElementById('instruction').innerText = "HOLD SENSOR TO ANALYZE";
+                    document.getElementById('instruction').innerText = "HOLD FINGERPRINT TO SCAN";
                 };
                 
                 btn.addEventListener('mousedown', start);
@@ -564,12 +534,8 @@
                 AudioEngine.stopScan(); AudioEngine.playImpact();
                 if(navigator.vibrate) navigator.vibrate([100]);
 
-                // 核心：使用 TEI Engine 計算
-                const inputs = this.state.simulatedInputs;
-                // 添加隨機波動以模擬真實測量變異
-                inputs.hrv += (Math.random() * 10 - 5);
-                
-                const result = teiEngine.compute(inputs);
+                // --- REAL CALCULATION ---
+                const result = teiEngine.compute(this.state.metrics);
                 const state = teiEngine.getState(result.score);
                 this.state.currentResult = result;
 
@@ -579,32 +545,32 @@
                 let score = 0;
                 
                 const anim = setInterval(() => {
-                    score += 2; 
+                    score += 3; 
                     if(score >= result.score) { 
                         score = result.score; clearInterval(anim);
                         
-                        // 顯示詳細結果
+                        // Badge UI Update
                         const badgeEl = document.getElementById('state-badge');
                         badgeEl.innerHTML = `<span>${state.text}</span>`;
                         badgeEl.style.borderColor = state.color;
                         badgeEl.style.color = state.color;
-                        scoreEl.style.color = state.color; // 分數顏色跟隨狀態
+                        scoreEl.style.color = state.color;
 
-                        document.getElementById('res-hrv').innerText = Math.round(result.components.hrvRaw) + 'ms';
+                        // Detailed Metrics
+                        document.getElementById('res-stability').innerText = Math.round(result.components.stability*100) + '%';
                         document.getElementById('res-context').innerText = result.components.context.toFixed(1);
-                        document.getElementById('res-behavior').innerText = result.components.behavior.toFixed(1);
+                        document.getElementById('res-relax').innerText = Math.round(result.components.relaxation*100) + '%';
                         document.getElementById('ai-insight').innerText = state.insight;
                     }
                     scoreEl.innerText = score;
-                }, 15);
+                }, 20);
             },
 
             reset: function() {
                 document.getElementById('result-view').classList.remove('show');
                 document.getElementById('scan-trigger').classList.remove('active');
-                document.getElementById('instruction').innerText = "HOLD SENSOR TO ANALYZE";
+                document.getElementById('instruction').innerText = "HOLD FINGERPRINT TO SCAN";
                 this.state.currentResult = null;
-                // 重置粒子顏色到中性
                 this.material.uniforms.uTEI.value = 0.5;
             }
         };
