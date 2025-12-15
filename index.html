@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v30.0 - Ethereal Bond</title>
+    <title>TENKI v31.0 - Apple Grade</title>
     
     <!-- Core -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -15,80 +15,105 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* 0. Global Reset & Touch Fixes */
-        * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; }
-        
+        /* 1. NUCLEAR TOUCH FIXES (絕對禁止放大鏡) */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none; /* 全局禁止瀏覽器手勢 */
+        }
+
         body {
             background: #000000;
             color: white;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
             overflow: hidden;
             width: 100vw; height: 100vh;
             margin: 0; padding: 0;
-            overscroll-behavior: none;
-            touch-action: none;
         }
 
         #input-video { position: fixed; top: -999px; opacity: 0; pointer-events: none; }
 
-        /* 3D Scene - The only focus */
+        /* 3D Scene */
         #universe {
             position: fixed; inset: 0; z-index: 1;
-            /* 移除背景漸層，讓黑色更純粹，突顯粒子光芒 */
-            background: #000000; 
+            background: radial-gradient(circle at center, #05080a 0%, #000000 120%);
         }
 
-        /* HUD - Minimalist */
+        /* HUD Layer */
         #hud-layer {
             position: absolute; inset: 0; z-index: 20;
             pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
-            padding: 30px 24px 50px 24px;
+            padding: 40px 24px 60px 24px;
         }
 
-        /* Dynamic Status Text (Floating) */
-        #dynamic-status {
-            text-align: center;
-            font-size: 10px; letter-spacing: 4px; font-weight: 700;
-            color: rgba(255,255,255,0.3);
-            text-transform: uppercase;
-            transition: all 0.5s ease;
-            text-shadow: 0 0 10px rgba(0,0,0,0.5);
+        /* 2. Apple-Style Guidance (智慧導引) */
+        #guide-pill {
+            background: rgba(20, 20, 20, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px 24px;
+            border-radius: 99px;
+            display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transform: translateY(0); opacity: 1;
         }
-        #dynamic-status.locked { color: #00FF9D; text-shadow: 0 0 20px #00FF9D; }
+        #guide-pill.hidden { transform: translateY(-20px); opacity: 0; }
+        
+        #guide-icon { color: #FF3333; transition: color 0.3s; }
+        #guide-text { font-size: 13px; font-weight: 600; letter-spacing: 1px; color: white; text-transform: uppercase; }
+        
+        /* Locked State */
+        #guide-pill.locked { border-color: #00FF9D; background: rgba(0, 255, 157, 0.1); }
+        #guide-pill.locked #guide-icon { color: #00FF9D; }
 
-        /* The Sensor Button (No Frame, Just Light) */
-        .fingerprint-btn {
-            pointer-events: auto;
+        /* 3. The Solid Button (堅實按鈕) */
+        .scan-container {
             position: relative;
-            width: 90px; height: 90px;
-            border-radius: 50%;
-            /* 預設隱藏，只有鎖定時才發光出現 */
-            background: rgba(255, 255, 255, 0.02);
+            width: 100px; height: 100px;
             display: flex; justify-content: center; align-items: center;
-            transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
-            opacity: 0.3; transform: scale(0.8);
+            pointer-events: auto; /* 允許點擊 */
         }
-        
-        .fingerprint-btn.ready {
-            opacity: 1; transform: scale(1);
-            background: rgba(0, 255, 157, 0.05);
-            box-shadow: 0 0 30px rgba(0, 255, 157, 0.1);
-            border: 1px solid rgba(0, 255, 157, 0.3);
-            animation: breathe 3s infinite ease-in-out;
-        }
-        
-        .fingerprint-btn.active {
-            transform: scale(1.1);
-            background: #00FF9D;
-            box-shadow: 0 0 80px #00FF9D;
-            border-color: transparent;
-        }
-        .fingerprint-btn.active i { color: black; }
 
-        @keyframes breathe {
-            0%, 100% { box-shadow: 0 0 20px rgba(0,255,157,0.1); border-color: rgba(0, 255, 157, 0.3); }
-            50% { box-shadow: 0 0 40px rgba(0,255,157,0.3); border-color: rgba(0, 255, 157, 0.6); }
+        /* Outer Glow Ring (Breathing) */
+        .scan-ring {
+            position: absolute; inset: 0;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s;
+        }
+        .scan-container.ready .scan-ring {
+            border-color: #00FF9D;
+            box-shadow: 0 0 30px rgba(0, 255, 157, 0.2);
+            animation: pulse-ring 2s infinite ease-in-out;
+        }
+
+        /* Inner Button */
+        .scan-btn {
+            width: 70px; height: 70px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex; justify-content: center; align-items: center;
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(5px);
+        }
+        
+        /* Active States */
+        .scan-container.ready .scan-btn { background: rgba(255, 255, 255, 0.2); cursor: pointer; }
+        .scan-container.active .scan-btn { 
+            transform: scale(0.9); /* 物理下壓感 */
+            background: #00FF9D;
+            box-shadow: 0 0 50px #00FF9D; 
+        }
+        .scan-container.active .scan-btn i { color: black; }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.5; }
         }
 
         /* Result Overlay */
@@ -96,23 +121,23 @@
             position: absolute; inset: 0; z-index: 50;
             background: black;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+            opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
         }
         #result-overlay.show { opacity: 1; pointer-events: auto; }
 
+        /* 4. Sci-Fi Number (Glitch Font) */
         .score-hero {
-            font-size: 140px; font-weight: 900; color: white;
+            font-size: 140px; font-weight: 800; color: white;
+            font-variant-numeric: tabular-nums; /* 等寬數字，避免跳動時抖動 */
             letter-spacing: -8px; line-height: 0.8;
-            background: linear-gradient(180deg, #fff, #444);
-            -webkit-background-clip: text; color: transparent;
+            text-shadow: 0 0 40px rgba(255,255,255,0.4);
         }
 
-        /* Reboot Button */
         .restart-btn {
             pointer-events: auto;
             background: white; color: black;
-            padding: 18px 50px; border-radius: 99px;
-            font-weight: 800; letter-spacing: 1px;
+            padding: 16px 40px; border-radius: 99px;
+            font-weight: 700; letter-spacing: 1px;
             transition: transform 0.1s;
         }
         .restart-btn:active { transform: scale(0.95); }
@@ -123,32 +148,38 @@
 
     <div id="universe"></div>
 
-    <!-- Minimal HUD -->
+    <!-- HUD -->
     <div id="hud-layer">
-        <div class="w-full flex justify-center pt-8">
-            <div id="dynamic-status">Searching Signal...</div>
+        <!-- Top Guidance Pill -->
+        <div class="w-full flex justify-center">
+            <div id="guide-pill">
+                <i id="guide-icon" data-lucide="scan-face" class="w-5 h-5"></i>
+                <span id="guide-text">INITIALIZING...</span>
+            </div>
         </div>
 
-        <div class="flex flex-col items-center pb-12">
-            <!-- 指紋按鈕：只有在鎖定時才亮起 -->
-            <div id="scan-trigger" class="fingerprint-btn">
-                <i data-lucide="fingerprint" class="w-10 h-10 text-white transition-all duration-300"></i>
+        <!-- Bottom Trigger -->
+        <div class="flex flex-col items-center">
+            <div id="scan-wrapper" class="scan-container">
+                <div class="scan-ring"></div>
+                <div class="scan-btn">
+                    <i data-lucide="fingerprint" class="w-8 h-8 text-white transition-colors"></i>
+                </div>
+            </div>
+            <div id="hint-text" class="mt-6 text-[10px] tracking-[3px] text-gray-500 font-bold uppercase transition-opacity duration-300 opacity-0">
+                Tap to Scan
             </div>
         </div>
     </div>
 
     <!-- Result -->
     <div id="result-overlay">
-        <div class="text-[10px] tracking-[6px] text-gray-500 mb-8 font-mono">SOUL RESONANCE</div>
-        <div class="score-hero" id="final-score">--</div>
-        <div id="state-text" class="mt-6 text-xl font-bold tracking-[0.3em] text-cyan-400">ANALYZING</div>
+        <div class="text-[10px] tracking-[6px] text-gray-500 mb-8 font-mono">TEI RESONANCE</div>
+        <!-- Digital Rolling Number -->
+        <div class="score-hero" id="final-score">00</div>
         
-        <div class="grid grid-cols-3 gap-6 mt-16 text-center w-full px-6">
-            <div><div class="text-3xl font-bold text-white" id="val-1">--</div><div class="text-[9px] text-gray-600 mt-2 font-mono">SYNC</div></div>
-            <div><div class="text-3xl font-bold text-white" id="val-2">--</div><div class="text-[9px] text-gray-600 mt-2 font-mono">ENERGY</div></div>
-            <div><div class="text-3xl font-bold text-white" id="val-3">--</div><div class="text-[9px] text-gray-600 mt-2 font-mono">FLOW</div></div>
-        </div>
-
+        <div id="state-text" class="mt-6 text-xl font-bold tracking-[0.3em] text-cyan-400 opacity-0 transition-opacity duration-1000">ANALYZING</div>
+        
         <div class="mt-24">
             <button id="resync-btn" class="restart-btn">REBOOT SYSTEM</button>
         </div>
@@ -156,114 +187,86 @@
 
     <script>
         lucide.createIcons();
-        document.addEventListener('contextmenu', e => e.preventDefault()); // Stop menu
-
-        // --- 1. Ethereal Visuals (Shader) ---
-        const Shaders = {
-            vertex: `
-                attribute float size; attribute float random;
-                uniform float uTime;
-                uniform float uEnergy;  // 0 (Calm) -> 1 (High)
-                uniform float uLock;    // 0 (Lost) -> 1 (Locked)
-                uniform float uWarp;    // 0 (None) -> 1 (Burst)
-                
-                varying vec3 vColor; varying float vAlpha;
-
-                // Noise
-                vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-                vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-                vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
-                vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-                float snoise(vec3 v) { const vec2 C = vec2(1.0/6.0, 1.0/3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0); vec3 i  = floor(v + dot(v, C.yyy) ); vec3 x0 = v - i + dot(i, C.xxx) ; vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min( g.xyz, l.zxy ); vec3 i2 = max( g.xyz, l.zxy ); vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy; i = mod289(i); vec4 p = permute( permute( permute( i.z + vec4(0.0, i1.z, i2.z, 1.0 )) + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) + i.x + vec4(0.0, i1.x, i2.x, 1.0 )); float n_ = 0.142857142857; vec3  ns = n_ * D.wyz - D.xzx; vec4 j = p - 49.0 * floor(p * ns.z * ns.z); vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_ ); vec4 x = x_ *ns.x + ns.yyyy; vec4 y = y_ *ns.x + ns.yyyy; vec4 h = 1.0 - abs(x) - abs(y); vec4 b0 = vec4( x.xy, y.xy ); vec4 b1 = vec4( x.zw, y.zw ); vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0)); vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ; vec3 p0 = vec3(a0.xy,h.x); vec3 p1 = vec3(a0.zw,h.y); vec3 p2 = vec3(a1.xy,h.z); vec3 p3 = vec3(a1.zw,h.w); vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3))); p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w; vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m; return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) ); }
-
-                void main() {
-                    vec3 pos = position;
-
-                    // 1. Magnetic Lock Visual (視覺磁吸)
-                    // 如果 uLock 低 (未對準)，粒子會散開 (Disperse)
-                    // 如果 uLock 高 (對準)，粒子會凝聚 (Condense)
-                    float disperse = (1.0 - uLock) * 1.5; 
-                    pos += normal * disperse * snoise(pos + uTime);
-
-                    // 2. Hyper Turbulence (Mouth/Energy)
-                    float noise = snoise(pos * 2.0 + uTime * 2.0);
-                    pos += normal * noise * (uEnergy * 3.0);
-
-                    // 3. WARP DRIVE (Burst Out) - Unbounded
-                    float warpZ = uWarp * 25.0; // Fly closer
-                    float warpSpread = 1.0 + (uWarp * 6.0); // Spread wider
-                    pos.z += warpZ;
-                    pos.x *= warpSpread;
-                    pos.y *= warpSpread;
-
-                    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-                    
-                    // 4. Size Logic
-                    // Unlocked: Small, faint dots
-                    // Locked: Bright, solid stars
-                    // Burst: Huge streaks
-                    float baseSize = size * (0.5 + uLock * 0.5);
-                    float sizeMult = 1.0 + uEnergy * 2.0 + uWarp * 8.0;
-                    gl_PointSize = baseSize * sizeMult * (400.0 / -mvPosition.z);
-                    gl_Position = projectionMatrix * mvPosition;
-
-                    // 5. Color Logic
-                    // Unlocked: Gray/Dim Blue
-                    // Locked: Neon Cyan
-                    // Burst: Pure White
-                    vec3 cDim = vec3(0.1, 0.2, 0.3);
-                    vec3 cNeon = vec3(0.0, 1.0, 0.8);
-                    vec3 cWhite = vec3(1.0, 1.0, 1.0);
-
-                    vec3 color = mix(cDim, cNeon, uLock); // Lock transition
-                    color = mix(color, cWhite, uWarp);    // Burst transition
-
-                    vColor = color;
-                    vAlpha = 0.3 + (uLock * 0.5) + (uEnergy * 0.2);
-                }
-            `,
-            fragment: `
-                varying vec3 vColor; varying float vAlpha;
-                void main() {
-                    float d = distance(gl_PointCoord, vec2(0.5));
-                    if(d > 0.5) discard;
-                    float glow = 1.0 - (d * 2.0);
-                    glow = pow(glow, 2.0);
-                    gl_FragColor = vec4(vColor, glow * vAlpha);
-                }
-            `
-        };
-
-        // --- 2. System ---
-        const App = {
-            lockScore: 0, // 0 to 1 smooth value
-            energy: 0,
-            
+        
+        // --- 1. Visual Engine (The Burst) ---
+        const Visuals = {
+            scene: null, camera: null, renderer: null, mat: null,
             init: function() {
-                this.init3D();
-                this.initAI();
-                this.initEvents();
-            },
-
-            init3D: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                const aspect = window.innerWidth / window.innerHeight;
-                this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
-                this.camera.position.z = aspect < 1 ? 7.0 : 5.0; // Distance fix
+                const asp = window.innerWidth / window.innerHeight;
+                this.camera = new THREE.PerspectiveCamera(75, asp, 0.1, 1000);
+                this.camera.position.z = asp < 1 ? 7.5 : 5.0; // Mobile distance fix
 
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
 
-                // 15k Particles for Density
-                const count = 15000;
+                // Shader
+                const vertexShader = `
+                    attribute float size; attribute float random;
+                    uniform float uTime;
+                    uniform float uEnergy;  
+                    uniform float uLock;    // 0 -> 1 (Alignment)
+                    uniform float uWarp;    // 0 -> 1 (Burst)
+                    uniform vec2 uHead;
+                    
+                    varying vec3 vColor; varying float vAlpha;
+
+                    // Simple noise
+                    float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+
+                    void main() {
+                        vec3 pos = position;
+
+                        // 1. Lock Interaction (Magnetism)
+                        // Unlocked: Particles drift apart (Noise)
+                        // Locked: Particles snap to sphere
+                        float drift = (1.0 - uLock) * 2.0 * sin(pos.x + uTime);
+                        pos += normal * drift;
+
+                        // 2. Rotation
+                        float rx = uHead.x * 2.0; float ry = uHead.y * 2.0;
+                        mat3 rot = mat3(cos(rx),0,sin(rx), 0,1,0, -sin(rx),0,cos(rx));
+                        pos = rot * pos;
+
+                        // 3. Warp Burst (Unbound)
+                        // Exponential Z-move + X/Y Spread
+                        float wz = uWarp * 25.0;
+                        pos.z += wz;
+                        float spread = 1.0 + uWarp * 5.0;
+                        pos.x *= spread; pos.y *= spread;
+
+                        // 4. Energy Jitter
+                        pos += normal * uEnergy * 0.2 * rand(vec2(uTime, pos.z));
+
+                        vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
+                        
+                        // Size: Bigger when locked or bursting
+                        float s = size * (0.5 + uLock * 0.5 + uEnergy + uWarp * 6.0);
+                        gl_PointSize = s * (400.0 / -mvPos.z);
+                        gl_Position = projectionMatrix * mvPos;
+
+                        // Color: Dim Blue -> Bright Cyan -> White
+                        vec3 cDim = vec3(0.1, 0.2, 0.4);
+                        vec3 cLock = vec3(0.0, 1.0, 0.8);
+                        vec3 cBurst = vec3(1.0, 1.0, 1.0);
+                        
+                        vec3 c = mix(cDim, cLock, uLock);
+                        c = mix(c, cBurst, uWarp);
+                        
+                        vColor = c;
+                        vAlpha = 0.4 + uLock * 0.6;
+                    }
+                `;
+
+                // 12k Particles
                 const geo = new THREE.BufferGeometry();
                 const pos=[], rnd=[], sz=[];
-                for(let i=0; i<count; i++){
-                    const phi = Math.acos(-1 + (2*i)/count);
-                    const theta = Math.sqrt(count * Math.PI) * phi;
+                for(let i=0; i<12000; i++){
+                    const phi = Math.acos(-1 + (2*i)/12000);
+                    const theta = Math.sqrt(12000 * Math.PI) * phi;
                     const r = 2.0 + Math.random()*0.3;
                     pos.push(r*Math.cos(theta)*Math.sin(phi), r*Math.sin(theta)*Math.sin(phi), r*Math.cos(phi));
                     rnd.push(Math.random()); sz.push(0.05 + Math.random()*0.1);
@@ -274,90 +277,109 @@
                 geo.computeVertexNormals();
 
                 this.mat = new THREE.ShaderMaterial({
-                    uniforms: { uTime:{value:0}, uEnergy:{value:0}, uLock:{value:0}, uWarp:{value:0} },
-                    vertexShader: Shaders.vertex, fragmentShader: Shaders.fragment,
+                    uniforms: { uTime:{value:0}, uEnergy:{value:0}, uLock:{value:0}, uWarp:{value:0}, uHead:{value:new THREE.Vector2()} },
+                    vertexShader, fragmentShader: `varying vec3 vColor; varying float vAlpha; void main() { float d=distance(gl_PointCoord,vec2(0.5)); if(d>0.5)discard; float g=1.0-(d*2.0); g=pow(g,2.0); gl_FragColor=vec4(vColor,g*vAlpha); }`,
                     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
                 });
                 this.scene.add(new THREE.Points(geo, this.mat));
 
-                const animate = () => {
-                    requestAnimationFrame(animate);
+                const anim = () => {
+                    requestAnimationFrame(anim);
                     this.mat.uniforms.uTime.value = performance.now()*0.001;
-                    
-                    // Sphere Rotation: Slow when unlocked, Fast when locked
-                    const rotSpeed = 0.05 + (this.mat.uniforms.uLock.value * 0.1);
-                    this.scene.rotation.y += 0.001 * rotSpeed;
-
+                    this.scene.rotation.y += 0.001;
                     this.renderer.render(this.scene, this.camera);
                 };
-                animate();
+                anim();
+            }
+        };
 
-                window.addEventListener('resize', () => {
-                    const asp = window.innerWidth/window.innerHeight;
-                    this.camera.aspect = asp;
-                    this.camera.position.z = asp < 1 ? 7.0 : 5.0;
-                    this.camera.updateProjectionMatrix();
-                    this.renderer.setSize(window.innerWidth, window.innerHeight);
-                });
+        // --- 2. Logic & Guidance ---
+        const App = {
+            locked: false,
+            lockVal: 0,
+            
+            init: function() {
+                Visuals.init();
+                this.initAI();
+                this.initUI();
             },
 
             initAI: function() {
                 const video = document.getElementById('input-video');
-                const statusTxt = document.getElementById('dynamic-status');
-                const btn = document.getElementById('scan-trigger');
-                
+                const guidePill = document.getElementById('guide-pill');
+                const guideText = document.getElementById('guide-text');
+                const guideIcon = document.getElementById('guide-icon');
+                const wrapper = document.getElementById('scan-wrapper');
+                const hint = document.getElementById('hint-text');
+
                 const onResults = (res) => {
                     let targetLock = 0;
-                    let targetEnergy = 0;
+                    let msg = "SEARCHING FACE...";
+                    let iconColor = "#FF3333";
+                    let isReady = false;
 
                     if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
                         const nose = res.multiFaceLandmarks[0][1];
                         const lm = res.multiFaceLandmarks[0];
-
-                        // --- 1. MAGNETIC LOCK ALGORITHM (磁吸鎖定) ---
+                        
                         // Mirror Correction
                         const mx = 1.0 - nose.x;
                         const my = nose.y;
+                        
+                        // Face Width (Distance estimation)
+                        // Left Ear (234) to Right Ear (454)
+                        const width = Math.abs(lm[234].x - lm[454].x);
 
-                        // Much wider tolerance (0.3 - 0.7) = Easy to align
-                        const dx = Math.abs(mx - 0.5);
-                        const dy = Math.abs(my - 0.5);
-                        const inZone = dx < 0.2 && dy < 0.25;
-
-                        if (inZone) {
-                            targetLock = 1.0; // Snaps to 1 if roughly centered
-                            statusTxt.innerText = "LINK ESTABLISHED";
-                            statusTxt.classList.add('locked');
-                            btn.classList.add('ready');
+                        // --- INTELLIGENT GUIDANCE LOGIC ---
+                        if (width < 0.35) {
+                            msg = "MOVE CLOSER"; // 太遠
+                        } else if (width > 0.7) {
+                            msg = "MOVE BACK";   // 太近
+                        } else if (mx < 0.35) {
+                            msg = "MOVE RIGHT";  // 偏左
+                        } else if (mx > 0.65) {
+                            msg = "MOVE LEFT";   // 偏右
+                        } else if (my < 0.35) {
+                            msg = "MOVE DOWN";
+                        } else if (my > 0.7) {
+                            msg = "MOVE UP";
                         } else {
-                            targetLock = 0.0;
-                            statusTxt.innerText = "MOVE CLOSER TO CENTER";
-                            statusTxt.classList.remove('locked');
-                            btn.classList.remove('ready');
+                            // Perfect
+                            msg = "PERFECT LOCK";
+                            iconColor = "#00FF9D";
+                            isReady = true;
+                            targetLock = 1.0;
                         }
 
-                        // --- 2. ENERGY ---
-                        const mouth = Math.min(1, Math.abs(lm[13].y - lm[14].y) * 15.0);
-                        targetEnergy = mouth;
-
-                        // Rotate Scene slightly with head (Parallax)
-                        this.scene.rotation.x = (my - 0.5) * 0.5;
-                        this.scene.rotation.z = (mx - 0.5) * 0.5;
+                        // Pass Head Rot to Visuals
+                        Visuals.mat.uniforms.uHead.value.set((mx-0.5)*-2, (my-0.5)*-2);
+                        // Mouth Energy
+                        const mouth = Math.min(1, Math.abs(lm[13].y-lm[14].y)*15);
+                        Visuals.mat.uniforms.uEnergy.value = mouth;
 
                     } else {
                         targetLock = 0.0;
-                        statusTxt.innerText = "SEARCHING SIGNAL...";
-                        statusTxt.classList.remove('locked');
-                        btn.classList.remove('ready');
                     }
 
-                    // Smooth Interpolation (Lerp)
-                    this.lockScore += (targetLock - this.lockScore) * 0.1;
-                    this.energy += (targetEnergy - this.energy) * 0.2;
+                    // UI Updates
+                    guideText.innerText = msg;
+                    guideIcon.style.color = iconColor;
+                    
+                    if (isReady) {
+                        guidePill.classList.add('locked');
+                        wrapper.classList.add('ready');
+                        hint.style.opacity = 1;
+                        this.locked = true;
+                    } else {
+                        guidePill.classList.remove('locked');
+                        wrapper.classList.remove('ready');
+                        hint.style.opacity = 0;
+                        this.locked = false;
+                    }
 
-                    // Send to Shader
-                    this.mat.uniforms.uLock.value = this.lockScore;
-                    this.mat.uniforms.uEnergy.value = this.energy;
+                    // Smooth Lock Value for Visuals
+                    this.lockVal += (targetLock - this.lockVal) * 0.1;
+                    Visuals.mat.uniforms.uLock.value = this.lockVal;
                 };
 
                 const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
@@ -367,45 +389,48 @@
                 new Camera(video, { onFrame: async () => await faceMesh.send({image: video}), width: 640, height: 480 }).start();
             },
 
-            initEvents: function() {
-                const btn = document.getElementById('scan-trigger');
+            initUI: function() {
+                const wrapper = document.getElementById('scan-wrapper');
                 const resync = document.getElementById('resync-btn');
                 const overlay = document.getElementById('result-overlay');
 
-                btn.addEventListener('pointerdown', (e) => {
-                    e.preventDefault();
-                    if(this.lockScore < 0.8) return; // Must be mostly locked
+                // --- 1. NUCLEAR TOUCH EVENT (e.preventDefault) ---
+                // This stops iOS magnifier/menu instantly.
+                const handleStart = (e) => {
+                    e.preventDefault(); // THE KEY
+                    if(!this.locked) return;
 
-                    btn.classList.add('active');
-                    
-                    // Audio
-                    const ctx = new (window.AudioContext||window.webkitAudioContext)();
-                    const o=ctx.createOscillator(); const g=ctx.createGain();
-                    o.type='sawtooth'; o.frequency.value=60; o.frequency.exponentialRampToValueAtTime(800, ctx.currentTime+2);
-                    g.gain.value=0.2; g.gain.linearRampToValueAtTime(0, ctx.currentTime+2);
-                    o.connect(g); g.connect(ctx.destination); o.start();
-
-                    // Trigger Warp
+                    wrapper.classList.add('active');
                     this.playWarp();
-                });
+                };
 
-                resync.addEventListener('pointerdown', () => {
-                    overlay.classList.remove('show');
-                    this.mat.uniforms.uWarp.value = 0;
-                    btn.classList.remove('active');
+                // Add both touch and mouse listeners for compatibility
+                wrapper.addEventListener('touchstart', handleStart, {passive: false});
+                wrapper.addEventListener('mousedown', handleStart);
+
+                resync.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.reset();
                 });
+                resync.addEventListener('click', () => this.reset());
             },
 
             playWarp: function() {
+                // Audio (Sawtooth Rise)
+                const ctx = new (window.AudioContext||window.webkitAudioContext)();
+                const o=ctx.createOscillator(); const g=ctx.createGain();
+                o.type='sawtooth'; o.frequency.value=60; o.frequency.exponentialRampToValueAtTime(800, ctx.currentTime+1.5);
+                g.gain.value=0.2; g.gain.linearRampToValueAtTime(0, ctx.currentTime+1.5);
+                o.connect(g); g.connect(ctx.destination); o.start();
+
+                // Warp Animation
                 let start = performance.now();
-                const dur = 2000;
-                
+                const dur = 1500;
                 const frame = (now) => {
                     let p = (now - start) / dur;
                     if(p>1) p=1;
-                    // Exponential warp for "Hyperspace" feel
-                    this.mat.uniforms.uWarp.value = Math.pow(p, 4);
-                    
+                    // Expo ease in
+                    Visuals.mat.uniforms.uWarp.value = p * p * p * p;
                     if(p<1) requestAnimationFrame(frame);
                     else this.showResult();
                 };
@@ -413,17 +438,35 @@
             },
 
             showResult: function() {
-                const score = Math.floor(Math.random()*(99-72)+72);
-                document.getElementById('final-score').innerText = score;
-                document.getElementById('val-1').innerText = (Math.random()*5+90).toFixed(0)+'%';
-                document.getElementById('val-2').innerText = (Math.random()*10+85).toFixed(0)+'%';
-                document.getElementById('val-3').innerText = (Math.random()*15+80).toFixed(0)+'%';
+                document.getElementById('scan-wrapper').classList.remove('active');
                 
-                const st = document.getElementById('state-text');
-                if(score>90) { st.innerText="ETHER LINKED"; st.style.color="#00FF9D"; }
-                else { st.innerText="RESONATING"; st.style.color="#00F0FF"; }
+                const finalScore = Math.floor(Math.random()*(99-72)+72);
+                
+                // --- 2. DECRYPTION EFFECT (Rolling Numbers) ---
+                const scoreEl = document.getElementById('final-score');
+                let rolls = 0;
+                const rollInterval = setInterval(() => {
+                    scoreEl.innerText = Math.floor(Math.random()*99); // Chaos
+                    rolls++;
+                    if(rolls > 20) {
+                        clearInterval(rollInterval);
+                        scoreEl.innerText = finalScore; // Lock
+                        
+                        // Show Text
+                        const st = document.getElementById('state-text');
+                        st.style.opacity = 1;
+                        if(finalScore > 90) { st.innerText="FLOW STATE"; st.style.color="#00FF9D"; }
+                        else { st.innerText="OPTIMAL"; st.style.color="#00F0FF"; }
+                    }
+                }, 30); // Fast update
 
                 document.getElementById('result-overlay').classList.add('show');
+            },
+
+            reset: function() {
+                document.getElementById('result-overlay').classList.remove('show');
+                Visuals.mat.uniforms.uWarp.value = 0;
+                document.getElementById('state-text').style.opacity = 0;
             }
         };
 
