@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v23.0 - Reality Core</title>
+    <title>TENKI v24.0 - Hyper Sync</title>
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -17,11 +17,11 @@
     <style>
         :root {
             --bg-deep: #050505;
-            --tei-excellent: #00FF99; /* 80-99: Flow State */
-            --tei-good: #00F0FF;      /* 60-79: Focused */
-            --tei-neutral: #FFDD00;   /* 40-59: Balanced */
-            --tei-stress: #FF8800;    /* 20-39: Stressed */
-            --tei-critical: #FF0000;  /* 01-19: Overload */
+            --tei-excellent: #00FF99;
+            --tei-good: #00F0FF;
+            --tei-neutral: #FFDD00;
+            --tei-stress: #FF8800;
+            --tei-critical: #FF0000;
         }
 
         body {
@@ -40,6 +40,47 @@
         #input-video, #process-canvas {
             position: fixed; top: -9999px; left: -9999px;
             width: 1px; height: 1px; opacity: 0; pointer-events: none;
+        }
+
+        /* 瞄準系統 (Alignment System) */
+        #face-guide {
+            position: absolute; top: 50%; left: 50%;
+            width: 280px; height: 360px;
+            transform: translate(-50%, -55%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 140px; /* 臉型橢圓 */
+            pointer-events: none;
+            z-index: 20;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.8); /* 聚焦遮罩 */
+        }
+        
+        /* 瞄準角落標記 */
+        .guide-corner {
+            position: absolute; width: 20px; height: 20px;
+            border-color: rgba(255,255,255,0.3); border-style: solid;
+            transition: all 0.3s ease;
+        }
+        .gc-tl { top: 20px; left: 20px; border-width: 2px 0 0 2px; border-top-left-radius: 8px; }
+        .gc-tr { top: 20px; right: 20px; border-width: 2px 2px 0 0; border-top-right-radius: 8px; }
+        .gc-bl { bottom: 20px; left: 20px; border-width: 0 0 2px 2px; border-bottom-left-radius: 8px; }
+        .gc-br { bottom: 20px; right: 20px; border-width: 0 2px 2px 0; border-bottom-right-radius: 8px; }
+
+        /* 鎖定狀態 */
+        #face-guide.locked {
+            border-color: var(--tei-good);
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); /* 變亮 */
+            transform: translate(-50%, -55%) scale(1.02);
+        }
+        #face-guide.locked .guide-corner {
+            border-color: var(--tei-good);
+            width: 30px; height: 30px; /* 鎖定時角落收縮視覺 */
+        }
+
+        /* 狀態文字 */
+        #align-status {
+            position: absolute; top: -40px; width: 100%; text-align: center;
+            font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,0.5);
         }
 
         #boot-layer {
@@ -66,12 +107,6 @@
             opacity: 0; transition: opacity 2s ease-in;
         }
 
-        .bio-stats {
-            font-size: 10px; color: rgba(255,255,255,0.6);
-            margin-bottom: 4px; display: flex; justify-content: space-between; width: 140px;
-        }
-        .bio-val { color: var(--tei-good); font-weight: bold; }
-
         .fingerprint-sensor {
             pointer-events: auto;
             position: relative;
@@ -90,10 +125,14 @@
             background: rgba(0, 240, 255, 0.1);
             box-shadow: 0 0 50px var(--tei-good);
         }
+        /* 鎖定前禁用按鈕 */
+        .fingerprint-sensor.disabled {
+            opacity: 0.3; pointer-events: none; border-color: #333;
+        }
 
         .result-overlay {
             position: absolute; inset: 0; z-index: 50;
-            background: rgba(0,0,0,0.95);
+            background: rgba(0,0,0,0.98);
             backdrop-filter: blur(20px);
             display: flex; flex-direction: column;
             justify-content: center; align-items: center;
@@ -108,74 +147,65 @@
             -webkit-background-clip: text; color: transparent;
             letter-spacing: -8px; line-height: 0.9;
         }
-        
-        .state-badge {
-            margin-top: 10px; padding: 6px 16px;
-            border: 1px solid #333;
-            border-radius: 20px;
-            font-size: 12px; letter-spacing: 2px;
-            display: flex; align-items: center; gap: 8px;
-            text-transform: uppercase;
-        }
     </style>
 </head>
 <body>
     <video id="input-video" playsinline></video>
-    <canvas id="process-canvas"></canvas>
 
+    <!-- Boot Sequence -->
     <div id="boot-layer">
         <div id="terminal-text"></div>
     </div>
 
+    <!-- 3D World -->
     <div id="universe"></div>
 
+    <!-- Alignment Guide (New) -->
+    <div id="face-guide">
+        <div id="align-status">ALIGN FACE</div>
+        <div class="guide-corner gc-tl"></div>
+        <div class="guide-corner gc-tr"></div>
+        <div class="guide-corner gc-bl"></div>
+        <div class="guide-corner gc-br"></div>
+    </div>
+
+    <!-- HUD -->
     <div id="hud-layer">
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white">TENKI</div>
-                <div class="text-[8px] text-emerald-400 tracking-widest mt-1">v23.0 REALITY_CORE</div>
+                <div class="text-[8px] text-emerald-400 tracking-widest mt-1">v24.0 HYPER_SYNC</div>
             </div>
             <div class="text-right">
                 <div id="connection-status" class="text-[10px] text-gray-500 border border-gray-800 px-2 py-1 rounded mb-2">
                     OFFLINE
                 </div>
-                <div class="hidden" id="live-metrics">
-                    <div class="bio-stats"><span>TENSION</span> <span class="bio-val" id="val-tension">--</span></div>
-                    <div class="bio-stats"><span>STABILITY</span> <span class="bio-val" id="val-stability">--</span></div>
-                    <div class="bio-stats"><span>ALERTNESS</span> <span class="bio-val" id="val-alertness">--</span></div>
-                </div>
             </div>
         </div>
 
         <div class="flex flex-col items-center pb-10">
-            <div id="scan-trigger" class="fingerprint-sensor">
+            <div id="scan-trigger" class="fingerprint-sensor disabled">
                 <i data-lucide="fingerprint" class="w-8 h-8 text-white"></i>
             </div>
             <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-500 transition-all duration-300">
-                SYSTEM BOOTING...
+                ALIGN FACE TO UNLOCK
             </div>
         </div>
     </div>
 
+    <!-- Results -->
     <div id="result-view" class="result-overlay">
         <div class="text-[10px] tracking-[6px] text-gray-400 mb-2">TEI SCORE</div>
         <div class="score-display" id="final-score">--</div>
-        
-        <div id="state-badge" class="state-badge text-white">
-            <span>CALCULATING...</span>
+        <div id="state-badge" class="mt-4 px-4 py-1 border border-white/20 rounded-full text-[10px] tracking-widest text-white uppercase">
+            CALCULATING...
         </div>
-
         <div class="grid grid-cols-3 gap-8 mt-12 text-center w-full px-10">
             <div><div class="text-[20px] font-bold text-white" id="res-stability">0%</div><div class="text-[8px] text-gray-500 mt-1">STABILITY</div></div>
-            <div><div class="text-[20px] font-bold text-white" id="res-context">0.0</div><div class="text-[8px] text-gray-500 mt-1">CONTEXT</div></div>
+            <div><div class="text-[20px] font-bold text-white" id="res-blink">0</div><div class="text-[8px] text-gray-500 mt-1">BLINKS</div></div>
             <div><div class="text-[20px] font-bold text-white" id="res-relax">0%</div><div class="text-[8px] text-gray-500 mt-1">RELAXATION</div></div>
         </div>
-        
-        <div class="text-[10px] text-gray-400 mt-8 max-w-[80%] text-center leading-relaxed font-bold tracking-widest" id="ai-insight">
-            AI ANALYSIS...
-        </div>
-
-        <div class="mt-8">
+        <div class="mt-12">
             <button onclick="app.reset()" class="border border-white/20 px-6 py-3 text-[10px] tracking-widest hover:bg-white hover:text-black transition">RESYNC</button>
         </div>
     </div>
@@ -185,88 +215,44 @@
         const setVh = () => document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
         window.addEventListener('resize', setVh); setVh();
 
-        // --- 1. Realistic Engine (Solo Founder Optimized) ---
-        class RealTEIEngine {
+        // --- 1. TEI Logic (v23 Core) ---
+        class TEIEngine {
             constructor() {
-                // 加權因子 (基於 MediaPipe 可靠度)
-                this.weights = {
-                    STABILITY: 0.40, // 頭部穩定度 (代理呼吸/平靜)
-                    TENSION: 0.30,   // 臉部張力 (嘴/眼)
-                    ALERTNESS: 0.20, // 眼睛開合
-                    CONTEXT: 0.10    // 晝夜節律
-                };
+                this.weights = { STABILITY: 0.4, TENSION: 0.3, ALERTNESS: 0.2, CONTEXT: 0.1 };
             }
-
-            // 計算頭部穩定度 (代理呼吸/平靜)
-            // stability input: 0 (shaking) to 1 (still)
-            computeStability(headDelta) {
-                // Delta 越小，分數越高
-                // 假設 delta > 0.05 是大動作
-                const score = Math.max(0, 1 - (headDelta * 20));
-                return score;
-            }
-
-            // 計算臉部張力 (0=Tense, 1=Relaxed)
-            // 反轉邏輯：張力越小，分數越高
-            computeRelaxation(mouthOpen, browFrown) {
-                // 嘴巴微開 (relaxed) 比緊閉 (tense) 好
-                // 眉頭緊鎖 (frown) 是扣分項
-                const relaxScore = (mouthOpen * 0.5) + (1 - browFrown) * 0.5;
-                return Math.min(1, Math.max(0, relaxScore));
-            }
-
-            // 計算警覺度 (0=Sleepy, 1=Alert)
-            computeAlertness(eyeOpen) {
-                // 眼睛太開可能是驚恐，太閉是疲勞。取 0.6-0.8 為最佳區間
-                // 簡單線性映射：越開越警覺 (直至上限)
-                return Math.min(1, eyeOpen * 1.2);
-            }
-
             compute(inputs) {
-                // Inputs: { headDelta, mouthOpen, browFrown, eyeOpen }
-                
-                const stabilityScore = this.computeStability(inputs.headDelta);
-                const relaxationScore = this.computeRelaxation(inputs.mouthOpen, inputs.browFrown);
-                const alertnessScore = this.computeAlertness(inputs.eyeOpen);
-                
-                // 晝夜節律 (Context)
+                // Stability: 1.0 is perfect still
+                const stabilityScore = Math.max(0, 1 - (inputs.avgHeadDelta * 25)); 
+                // Relaxation: Open mouth slightly & relaxed brows is good
+                const relaxScore = (inputs.avgMouthOpen * 0.5) + (1 - inputs.avgBrowFrown) * 0.5;
+                // Alertness: Eye openness
+                const alertScore = Math.min(1, inputs.avgEyeOpen * 1.5);
+                // Context: Time of day
                 const hour = new Date().getHours();
-                const contextScore = 0.5 + 0.5 * Math.sin(2 * Math.PI * (hour - 10) / 24); // 10AM Peak
+                const contextScore = 0.5 + 0.5 * Math.sin(2 * Math.PI * (hour - 10) / 24);
 
-                // 加權總分
-                let rawScore = (
-                    stabilityScore * this.weights.STABILITY +
-                    relaxationScore * this.weights.TENSION +
-                    alertnessScore * this.weights.ALERTNESS +
-                    contextScore * this.weights.CONTEXT
-                ) * 100;
-
-                // 映射到 1-99
-                let finalScore = Math.min(99, Math.max(1, Math.round(rawScore)));
-
+                let raw = (stabilityScore * this.weights.STABILITY + 
+                           relaxScore * this.weights.TENSION + 
+                           alertScore * this.weights.ALERTNESS + 
+                           contextScore * this.weights.CONTEXT) * 100;
+                
                 return {
-                    score: finalScore,
-                    components: {
-                        stability: stabilityScore,
-                        relaxation: relaxationScore,
-                        context: contextScore
-                    }
+                    score: Math.min(99, Math.max(1, Math.round(raw))),
+                    components: { stability: stabilityScore, relaxation: relaxScore }
                 };
             }
-
             getState(score) {
-                if (score >= 80) return { text: "FLOW STATE", color: "#00FF99", insight: "心流狀態。適合高難度操作。" };
-                if (score >= 60) return { text: "FOCUSED", color: "#00F0FF", insight: "專注穩定。保持節奏。" };
-                if (score >= 40) return { text: "BALANCED", color: "#FFDD00", insight: "狀態平衡。注意微小波動。" };
-                if (score >= 20) return { text: "STRESSED", color: "#FF8800", insight: "檢測到壓力。建議深呼吸。" };
-                return { text: "OVERLOAD", color: "#FF0000", insight: "系統過載。立即停止操作。" };
+                if (score >= 80) return { text: "FLOW STATE", color: "#00FF99" };
+                if (score >= 60) return { text: "FOCUSED", color: "#00F0FF" };
+                if (score >= 40) return { text: "BALANCED", color: "#FFDD00" };
+                if (score >= 20) return { text: "STRESSED", color: "#FF8800" };
+                return { text: "OVERLOAD", color: "#FF0000" };
             }
         }
 
         // --- 2. Main App ---
-        const teiEngine = new RealTEIEngine();
+        const teiEngine = new TEIEngine();
         
-        // Audio (Shepard Tone Simulation)
         const AudioEngine = {
             ctx: null, osc: null, gain: null,
             init: function() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
@@ -276,38 +262,34 @@
                 const t = this.ctx.currentTime;
                 this.osc = this.ctx.createOscillator(); this.osc.type = 'sawtooth';
                 this.osc.frequency.setValueAtTime(60, t);
-                this.osc.frequency.exponentialRampToValueAtTime(400, t + 2.0); // 掃描升頻
+                this.osc.frequency.exponentialRampToValueAtTime(500, t + 2.0);
                 this.gain = this.ctx.createGain();
                 this.gain.gain.setValueAtTime(0, t);
                 this.gain.gain.linearRampToValueAtTime(0.15, t + 0.2);
-                
                 const filter = this.ctx.createBiquadFilter();
                 filter.type = 'lowpass'; filter.frequency.setValueAtTime(100, t);
-                filter.frequency.linearRampToValueAtTime(1000, t + 2.0);
-                
+                filter.frequency.linearRampToValueAtTime(1200, t + 2.0);
                 this.osc.connect(filter); filter.connect(this.gain); this.gain.connect(this.ctx.destination);
                 this.osc.start(t);
             },
-            stopScan: function() {
-                if(this.osc) { try{ this.osc.stop(this.ctx.currentTime + 0.1); }catch(e){} this.osc=null; }
-            },
+            stopScan: function() { if(this.osc) { try{this.osc.stop(this.ctx.currentTime+0.1);}catch(e){} this.osc=null; } },
             playImpact: function() {
-                this.init(); const t = this.ctx.currentTime;
-                const o = this.ctx.createOscillator(); o.type='sine'; 
-                o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(0.01, t+0.6);
-                const g = this.ctx.createGain(); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.01, t+0.6);
+                this.init(); const t=this.ctx.currentTime;
+                const o=this.ctx.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(0.01,t+0.6);
+                const g=this.ctx.createGain(); g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.6);
                 o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.6);
             }
         };
 
         const app = {
-            config: { particleCount: 6000, particleBaseSize: 0.15 },
+            config: { particleCount: 7500 },
             state: { 
-                isFaceDetected: false, isScanning: false, currentResult: null,
-                // Buffer for stability calc
-                prevNose: {x:0, y:0}, headDeltaAccumulator: 0, frameCount: 0,
-                // Real-time metrics
-                metrics: { headDelta: 0.05, mouthOpen: 0.1, browFrown: 0.1, eyeOpen: 0.8 }
+                isFaceDetected: false, isScanning: false, isAligned: false,
+                // Direct Sync Variables (for Visuals)
+                sync: { headX: 0, headY: 0, mouth: 0, blink: 0, eyeOpen: 0 },
+                // Accumulators (for Score)
+                acc: { headDelta: 0, mouthOpen: 0, browFrown: 0, eyeOpen: 0, blinkCount: 0, samples: 0 },
+                prevNose: null
             },
 
             init: function() {
@@ -320,12 +302,7 @@
 
             runBootSequence: function(callback) {
                 const term = document.getElementById('terminal-text');
-                const lines = [
-                    "> SYSTEM CHECK: OK",
-                    "> LOADING MEDIA_PIPE...",
-                    "> CALIBRATING SENSORS...",
-                    "> READY."
-                ];
+                const lines = ["> INIT HYPER_SYNC...", "> CONNECTING NEURAL LATTICE...", "> READY."];
                 let lineIndex = 0, charIndex = 0;
                 function typeWriter() {
                     if (lineIndex < lines.length) {
@@ -343,9 +320,8 @@
                             document.getElementById('hud-layer').style.opacity = 1;
                             setTimeout(() => {
                                 document.getElementById('boot-layer').style.display = 'none';
-                                document.getElementById('instruction').innerText = "ALIGN FACE";
                                 callback();
-                            }, 1000);
+                            }, 500);
                         }, 500);
                     }
                 }
@@ -363,23 +339,42 @@
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
 
-                // Shader: Score 1 (Red/Chaos) <---> Score 99 (Green/Flow)
+                // Updated Shader for Hyper-Reactivity
                 const vertexShader = `
                     attribute float size; attribute float random;
-                    uniform float uTime; uniform float uTEI; 
+                    uniform float uTime;
+                    uniform float uMouth;   // 嘴巴開合 (Expansion)
+                    uniform float uBlink;   // 眨眼 (Flash intensity)
+                    uniform vec2 uHeadRot;  // 頭部旋轉 (Parallax)
+                    
                     varying float vAlpha; varying vec3 vColor;
+                    
                     void main() {
                         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        float speed = mix(5.0, 1.0, uTEI);
-                        float pulse = sin(uTime * speed + random * 10.0) * 0.5 + 0.5;
-                        float chaos = mix(1.5, 0.2, uTEI);
-                        float finalSize = size * (1.0 + chaos + pulse * 0.5);
-                        gl_PointSize = finalSize * (300.0 / -mvPosition.z);
+                        
+                        // 1. Parallax Effect based on Head Rotation
+                        // 讓粒子跟隨頭部轉動而傾斜，創造深度感
+                        float parallaxX = position.x + uHeadRot.x * 2.0;
+                        float parallaxY = position.y + uHeadRot.y * 2.0;
+                        mvPosition = modelViewMatrix * vec4(parallaxX, parallaxY, position.z, 1.0);
+
+                        // 2. Breath/Voice Expansion (Mouth)
+                        // 嘴巴張開時，粒子向外爆炸
+                        float expansion = 1.0 + (uMouth * 1.5) + (uBlink * 0.2);
+                        gl_PointSize = size * expansion * (300.0 / -mvPosition.z);
                         gl_Position = projectionMatrix * mvPosition;
-                        vAlpha = 0.4 + pulse * 0.4;
-                        vec3 colorCritical = vec3(1.0, 0.0, 0.0);
-                        vec3 colorFlow = vec3(0.0, 1.0, 0.6);
-                        vColor = mix(colorCritical, colorFlow, uTEI);
+                        
+                        // 3. Blink Flash
+                        vAlpha = 0.4 + (uBlink * 0.6) + (uMouth * 0.3);
+                        
+                        // Color Dynamics
+                        vec3 colorBase = vec3(0.0, 0.2, 0.4); // Deep Blue
+                        vec3 colorActive = vec3(0.0, 1.0, 1.0); // Cyan
+                        vec3 colorFlash = vec3(1.0, 1.0, 1.0);  // White (Blink)
+                        
+                        float activity = uMouth + uBlink;
+                        vec3 c = mix(colorBase, colorActive, activity);
+                        vColor = mix(c, colorFlash, uBlink);
                     }
                 `;
                 const fragmentShader = `
@@ -387,24 +382,29 @@
                     void main() {
                         float r = distance(gl_PointCoord, vec2(0.5));
                         if (r > 0.5) discard;
-                        float glow = 1.0 - (r * 2.0); glow = pow(glow, 1.5);
+                        float glow = 1.0 - (r * 2.0); glow = pow(glow, 2.0);
                         gl_FragColor = vec4(vColor, glow * vAlpha);
                     }
                 `;
 
                 const geometry = new THREE.BufferGeometry();
                 const positions = [], randoms = [], sizes = [];
-                for(let i=0; i<6000; i++){
+                for(let i=0; i<this.config.particleCount; i++){
                     const r = 2.5, theta = Math.random()*Math.PI*2, phi = Math.acos(2*Math.random()-1);
                     positions.push(r*Math.sin(phi)*Math.cos(theta), r*Math.sin(phi)*Math.sin(theta), r*Math.cos(phi));
-                    randoms.push(Math.random()); sizes.push(0.15 * (0.5+Math.random()));
+                    randoms.push(Math.random()); sizes.push(0.12 * (0.5+Math.random()));
                 }
                 geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
                 geometry.setAttribute('random', new THREE.Float32BufferAttribute(randoms, 1));
                 geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
 
                 this.material = new THREE.ShaderMaterial({
-                    uniforms: { uTime: { value: 0 }, uTEI: { value: 0.5 } },
+                    uniforms: { 
+                        uTime: { value: 0 },
+                        uMouth: { value: 0 },
+                        uBlink: { value: 0 },
+                        uHeadRot: { value: new THREE.Vector2(0,0) }
+                    },
                     vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
                 });
                 this.cloud = new THREE.Points(geometry, this.material);
@@ -416,12 +416,29 @@
                 requestAnimationFrame(() => this.animate());
                 this.material.uniforms.uTime.value = Date.now() * 0.001;
                 
-                let targetTEI = 0.5;
-                if(this.state.currentResult) targetTEI = this.state.currentResult.score / 100;
-                // 平滑過渡
-                this.material.uniforms.uTEI.value += (targetTEI - this.material.uniforms.uTEI.value) * 0.05;
+                // Hyper-Sync: 直接將狀態變數注入 Shader (Smoothing)
+                // 1. Head Rotation (Lerp for smooth follow)
+                const targetRotX = this.state.sync.headX * 0.5;
+                const targetRotY = this.state.sync.headY * 0.5;
+                this.material.uniforms.uHeadRot.value.x += (targetRotX - this.material.uniforms.uHeadRot.value.x) * 0.1;
+                this.material.uniforms.uHeadRot.value.y += (targetRotY - this.material.uniforms.uHeadRot.value.y) * 0.1;
+                
+                this.cloud.rotation.y += 0.001; // Base rotation
+                this.cloud.rotation.x = this.material.uniforms.uHeadRot.value.y * 0.5;
+                this.cloud.rotation.y += this.material.uniforms.uHeadRot.value.x * 0.5;
 
-                this.cloud.rotation.y += 0.001; 
+                // 2. Mouth (Lerp)
+                const currentMouth = this.material.uniforms.uMouth.value;
+                this.material.uniforms.uMouth.value += (this.state.sync.mouth - currentMouth) * 0.2; // Fast reaction
+
+                // 3. Blink (Decay)
+                if (this.state.sync.blink > 0) {
+                    this.material.uniforms.uBlink.value = 1.0; // Flash!
+                    this.state.sync.blink = 0; // Reset trigger
+                } else {
+                    this.material.uniforms.uBlink.value *= 0.9; // Fade out
+                }
+
                 this.renderer.render(this.scene, this.camera);
             },
 
@@ -437,63 +454,98 @@
                 });
                 camera.start().catch(() => this.handleCameraError());
 
-                // Fallback: Mouse movement simulates tension
+                // Mouse fallback
                 document.addEventListener('mousemove', (e) => {
                     if (!this.state.isFaceDetected) {
-                        // Mouse movement = stability jitter
-                        const jitter = Math.abs(e.movementX) + Math.abs(e.movementY);
-                        this.state.metrics.headDelta = Math.min(0.2, jitter * 0.001);
-                        this.state.metrics.eyeOpen = 0.8;
+                        this.state.sync.headX = (e.clientX / window.innerWidth - 0.5) * 2;
+                        this.state.sync.headY = (e.clientY / window.innerHeight - 0.5) * 2;
                     }
                 });
+                document.addEventListener('mousedown', () => { if(!this.state.isFaceDetected) this.state.sync.mouth = 0.8; });
+                document.addEventListener('mouseup', () => { if(!this.state.isFaceDetected) this.state.sync.mouth = 0; });
             },
 
             handleCameraError: function() {
                 document.getElementById('connection-status').innerText = "SENSOR: DENIED";
-                document.getElementById('instruction').innerHTML = "NO CAMERA<br>MOUSE SIM MODE";
+                document.getElementById('align-status').innerText = "MOUSE MODE ACTIVE";
             },
 
             processData: function(results) {
-                const statusEl = document.getElementById('connection-status');
-                const metricsEl = document.getElementById('live-metrics');
+                const guideEl = document.getElementById('face-guide');
+                const statusEl = document.getElementById('align-status');
+                const btn = document.getElementById('scan-trigger');
                 
                 if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                    if(!this.state.isFaceDetected) {
-                        this.state.isFaceDetected = true;
-                        statusEl.innerText = "SENSORS: LINKED"; statusEl.style.color = "#00FF99"; statusEl.style.borderColor = "#00FF99";
-                        metricsEl.classList.remove('hidden');
-                        document.getElementById('instruction').innerText = "HOLD FINGERPRINT TO SCAN";
+                    this.state.isFaceDetected = true;
+                    const lm = results.multiFaceLandmarks[0];
+                    const nose = lm[1];
+
+                    // --- 1. Alignment Logic (瞄準系統) ---
+                    // 檢查鼻尖是否在中心區域 (0.4 - 0.6)
+                    const isCenteredX = nose.x > 0.4 && nose.x < 0.6;
+                    const isCenteredY = nose.y > 0.4 && nose.y < 0.6;
+                    // 檢查距離 (臉部寬度)
+                    const faceWidth = Math.abs(lm[234].x - lm[454].x); // 耳對耳
+                    const isGoodDist = faceWidth > 0.3 && faceWidth < 0.6;
+
+                    if (isCenteredX && isCenteredY && isGoodDist) {
+                        if (!this.state.isAligned) {
+                            this.state.isAligned = true;
+                            guideEl.classList.add('locked');
+                            statusEl.innerText = "LOCKED // READY TO SCAN";
+                            statusEl.style.color = "#00FF99";
+                            btn.classList.remove('disabled');
+                            if(navigator.vibrate) navigator.vibrate(20);
+                        }
+                    } else {
+                        if (this.state.isAligned) {
+                            this.state.isAligned = false;
+                            guideEl.classList.remove('locked');
+                            statusEl.innerText = "ALIGN FACE TO CENTER";
+                            statusEl.style.color = "rgba(255,255,255,0.5)";
+                            btn.classList.add('disabled');
+                        }
                     }
 
-                    const landmarks = results.multiFaceLandmarks[0];
-                    const nose = landmarks[1];
+                    // --- 2. Hyper-Sync Visuals (視覺同步) ---
+                    // Head Rotation (Inverted for mirror effect)
+                    this.state.sync.headX = (nose.x - 0.5) * -3.0; 
+                    this.state.sync.headY = (nose.y - 0.5) * -3.0;
 
-                    // 1. Stability (Head Delta)
-                    const delta = Math.sqrt(Math.pow(nose.x - this.state.prevNose.x, 2) + Math.pow(nose.y - this.state.prevNose.y, 2));
-                    this.state.prevNose = {x: nose.x, y: nose.y};
-                    // Smooth accumulated delta
-                    this.state.metrics.headDelta = this.state.metrics.headDelta * 0.9 + delta * 0.1;
+                    // Mouth Opening
+                    const mouthDist = Math.abs(lm[13].y - lm[14].y);
+                    this.state.sync.mouth = Math.min(1.0, mouthDist * 8.0); // Amplify for effect
 
-                    // 2. Alertness (Eye Openness - simplified vertical dist)
-                    const leftEyeH = Math.abs(landmarks[159].y - landmarks[145].y);
-                    const rightEyeH = Math.abs(landmarks[386].y - landmarks[374].y);
-                    this.state.metrics.eyeOpen = (leftEyeH + rightEyeH) * 20; // scale up
+                    // Blinking (EAR)
+                    const leftEyeH = Math.abs(lm[159].y - lm[145].y);
+                    const rightEyeH = Math.abs(lm[386].y - lm[374].y);
+                    const avgEye = (leftEyeH + rightEyeH) / 2;
+                    if (avgEye < 0.015 && this.state.sync.blink === 0) {
+                         this.state.sync.blink = 1.0; // Trigger Flash
+                         this.state.acc.blinkCount++;
+                    }
 
-                    // 3. Tension (Mouth & Brow)
-                    const mouthDist = Math.abs(landmarks[13].y - landmarks[14].y);
-                    this.state.metrics.mouthOpen = mouthDist * 10;
-                    const browDist = Math.abs(landmarks[334].y - landmarks[296].y);
-                    this.state.metrics.browFrown = Math.max(0, (0.05 - browDist) * 20); // Closer brows = frown
-
-                    // Update HUD numbers occasionally
-                    if(Math.random() > 0.9) {
-                        document.getElementById('val-tension').innerText = Math.round((1-this.state.metrics.mouthOpen)*100) + '%';
-                        document.getElementById('val-stability').innerText = Math.round((1-this.state.metrics.headDelta*10)*100) + '%';
-                        document.getElementById('val-alertness').innerText = Math.round(this.state.metrics.eyeOpen*100) + '%';
+                    // --- 3. Accumulate Data for Scanning ---
+                    if (this.state.isScanning) {
+                        // Head Stability
+                        if (this.state.prevNose) {
+                            const delta = Math.sqrt(Math.pow(nose.x - this.state.prevNose.x, 2) + Math.pow(nose.y - this.state.prevNose.y, 2));
+                            this.state.acc.headDelta += delta;
+                        }
+                        this.state.prevNose = {x: nose.x, y: nose.y};
+                        this.state.acc.mouthOpen += mouthDist;
+                        this.state.acc.browFrown += Math.abs(lm[334].y - lm[296].y);
+                        this.state.acc.eyeOpen += avgEye;
+                        this.state.acc.samples++;
+                    } else {
+                        this.state.prevNose = {x: nose.x, y: nose.y}; // Keep updating for smoother start
                     }
 
                 } else {
-                    statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray"; statusEl.style.borderColor = "#333";
+                    this.state.isFaceDetected = false;
+                    guideEl.classList.remove('locked');
+                    statusEl.innerText = "SEARCHING FACE...";
+                    btn.classList.add('disabled');
                 }
             },
 
@@ -501,14 +553,19 @@
                 const btn = document.getElementById('scan-trigger');
                 const start = (e) => {
                     if(e.cancelable) e.preventDefault(); 
+                    if(!this.state.isAligned && this.state.isFaceDetected) return; // Prevent if not aligned
+                    
                     this.state.isScanning = true;
+                    // Reset accumulators
+                    this.state.acc = { headDelta: 0, mouthOpen: 0, browFrown: 0, eyeOpen: 0, blinkCount: 0, samples: 0 };
+                    
                     btn.classList.add('active');
-                    document.getElementById('instruction').innerText = "CALCULATING TEI...";
+                    document.getElementById('instruction').innerText = "GATHERING BIOMETRICS...";
                     AudioEngine.playScan();
                     
                     let progress = 0;
                     this.scanInterval = setInterval(() => {
-                        progress += 2; // 2 seconds scan (50 steps * 40ms)
+                        progress += 2; 
                         if (progress >= 100) this.finishScan();
                     }, 40);
                 };
@@ -519,7 +576,7 @@
                     clearInterval(this.scanInterval);
                     btn.classList.remove('active');
                     AudioEngine.stopScan();
-                    document.getElementById('instruction').innerText = "HOLD FINGERPRINT TO SCAN";
+                    document.getElementById('instruction').innerText = "ALIGN FACE TO UNLOCK";
                 };
                 
                 btn.addEventListener('mousedown', start);
@@ -534,33 +591,36 @@
                 AudioEngine.stopScan(); AudioEngine.playImpact();
                 if(navigator.vibrate) navigator.vibrate([100]);
 
-                // --- REAL CALCULATION ---
-                const result = teiEngine.compute(this.state.metrics);
+                // Calculate Average
+                const s = this.state.acc.samples || 1;
+                const avgInputs = {
+                    avgHeadDelta: this.state.acc.headDelta / s,
+                    avgMouthOpen: this.state.acc.mouthOpen / s,
+                    avgBrowFrown: this.state.acc.browFrown / s,
+                    avgEyeOpen: this.state.acc.eyeOpen / s
+                };
+
+                const result = teiEngine.compute(avgInputs);
                 const state = teiEngine.getState(result.score);
-                this.state.currentResult = result;
 
                 document.getElementById('result-view').classList.add('show');
                 
                 const scoreEl = document.getElementById('final-score');
                 let score = 0;
-                
                 const anim = setInterval(() => {
                     score += 3; 
                     if(score >= result.score) { 
                         score = result.score; clearInterval(anim);
                         
-                        // Badge UI Update
                         const badgeEl = document.getElementById('state-badge');
-                        badgeEl.innerHTML = `<span>${state.text}</span>`;
+                        badgeEl.innerText = state.text;
                         badgeEl.style.borderColor = state.color;
                         badgeEl.style.color = state.color;
                         scoreEl.style.color = state.color;
 
-                        // Detailed Metrics
                         document.getElementById('res-stability').innerText = Math.round(result.components.stability*100) + '%';
-                        document.getElementById('res-context').innerText = result.components.context.toFixed(1);
+                        document.getElementById('res-blink').innerText = this.state.acc.blinkCount;
                         document.getElementById('res-relax').innerText = Math.round(result.components.relaxation*100) + '%';
-                        document.getElementById('ai-insight').innerText = state.insight;
                     }
                     scoreEl.innerText = score;
                 }, 20);
@@ -569,9 +629,7 @@
             reset: function() {
                 document.getElementById('result-view').classList.remove('show');
                 document.getElementById('scan-trigger').classList.remove('active');
-                document.getElementById('instruction').innerText = "HOLD FINGERPRINT TO SCAN";
-                this.state.currentResult = null;
-                this.material.uniforms.uTEI.value = 0.5;
+                document.getElementById('instruction').innerText = "ALIGN FACE TO UNLOCK";
             }
         };
 
