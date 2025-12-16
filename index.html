@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v23.0 - Infinity Flow</title>
+    <title>TENKI v24.0 - True Stardust</title>
     
     <!-- Core Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -15,72 +15,60 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* --- 1. CORE LAYOUT FIXES (NO CROPPING) --- */
+        /* --- GLOBAL & VIEWPORT FIXES --- */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         :root {
             --bg-deep: #000000;
-            --glass-panel: rgba(20, 20, 25, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --accent-cyan: #00F0FF;
-            --accent-purple: #9D00FF;
+            --ring-eri: #00FF88; /* Green */
+            --ring-hrv: #00F0FF; /* Blue */
+            --ring-load: #FFAA00; /* Orange */
         }
 
         body {
             background: var(--bg-deep);
             color: white;
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
-            width: 100%; height: 100dvh; /* Dynamic Viewport Height */
+            width: 100%; height: 100dvh;
             position: fixed; margin: 0; padding: 0;
             overflow: hidden; touch-action: none;
-            user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; /* No magnifying glass */
+            user-select: none; -webkit-user-select: none;
         }
 
         #input-video { position: fixed; opacity: 0; pointer-events: none; }
         #universe { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
 
-        /* --- 2. LAYER SYSTEM --- */
+        /* --- LAYER SYSTEM --- */
         .layer {
             position: absolute; inset: 0; z-index: 10;
             display: flex; flex-direction: column;
-            /* Safe Area Padding to prevent cropping */
             padding: calc(env(safe-area-inset-top) + 20px) 24px calc(env(safe-area-inset-bottom) + 30px) 24px;
-            opacity: 0; pointer-events: none; transform: scale(0.98);
+            opacity: 0; pointer-events: none; transform: scale(0.95); filter: blur(10px);
             transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .layer.active { opacity: 1; pointer-events: auto; transform: scale(1); }
-        .layer.hidden-layer { opacity: 0; transform: scale(1.1); pointer-events: none; filter: blur(10px); }
+        .layer.active { opacity: 1; pointer-events: auto; transform: scale(1); filter: blur(0); }
+        .layer.hidden-layer { opacity: 0; transform: scale(1.05); pointer-events: none; filter: blur(10px); }
 
-        /* --- 3. APPLE PAY STYLE ALIGNMENT HINT --- */
+        /* --- SMART ALIGNMENT HINT (Capsule) --- */
         #align-hint-capsule {
-            position: absolute; top: 18%; left: 50%; transform: translateX(-50%) translateY(-20px);
-            background: rgba(10, 10, 10, 0.8);
-            backdrop-filter: blur(20px);
-            padding: 12px 24px;
+            position: absolute; top: 16%; left: 50%; transform: translateX(-50%) translateY(-20px);
+            background: rgba(10, 10, 10, 0.6);
+            backdrop-filter: blur(12px);
+            padding: 8px 16px;
             border-radius: 99px;
-            border: 1px solid rgba(255,255,255,0.15);
-            display: flex; align-items: center; gap: 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex; align-items: center; gap: 8px;
             opacity: 0; pointer-events: none; transition: all 0.4s ease;
-            overflow: hidden; z-index: 50;
+            z-index: 50;
         }
         #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         
-        /* The Shimmer Effect */
-        #align-hint-capsule::after {
-            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-            transform: skewX(-20deg); animation: shimmer 2s infinite;
-        }
-        @keyframes shimmer { 0% { left: -100%; } 100% { left: 200%; } }
-
-        /* --- 4. PPG SCAN BUTTON (OUTER RING) --- */
+        /* --- PPG SCAN BUTTON --- */
         .scan-wrapper {
             position: relative; width: 100px; height: 100px;
             display: flex; align-items: center; justify-content: center;
             margin: 0 auto;
         }
-        
         .fingerprint-btn {
             width: 70px; height: 70px; border-radius: 50%;
             background: rgba(255,255,255,0.05);
@@ -88,318 +76,376 @@
             display: flex; align-items: center; justify-content: center;
             transition: transform 0.2s; cursor: pointer; z-index: 2;
         }
-        .fingerprint-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.1); }
+        .fingerprint-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.15); }
+        
+        .ppg-ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1; }
+        .ppg-track { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 2; }
+        .ppg-fill {
+            fill: none; stroke: #00F0FF; stroke-width: 3; stroke-linecap: round;
+            stroke-dasharray: 283; stroke-dashoffset: 283;
+            transition: stroke-dashoffset 0s linear;
+        }
+        .scanning .ppg-fill { transition: stroke-dashoffset 2s linear; stroke-dashoffset: 0; }
+        .scanning-15s .ppg-fill { transition: stroke-dashoffset 15s linear; stroke-dashoffset: 0; }
 
-        /* The SVG Ring */
-        .ppg-ring-svg {
-            position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1;
-        }
-        .ppg-circle-track { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 3; }
-        .ppg-circle-fill {
-            fill: none; stroke: var(--accent-cyan); stroke-width: 3; stroke-linecap: round;
-            stroke-dasharray: 283; stroke-dashoffset: 283; /* 2 * PI * 45 */
-            transition: stroke-dashoffset 0s linear; /* Controlled by JS */
-        }
-        .scanning .ppg-circle-fill {
-            transition: stroke-dashoffset 2s linear; /* 2s Scan Time */
-            stroke-dashoffset: 0;
-        }
-
-        /* --- 5. GALAXY BENTO DASHBOARD --- */
-        .bento-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto auto;
-            gap: 12px;
-            width: 100%;
-        }
-
-        .bento-card {
-            background: var(--glass-panel);
-            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
-            border: 1px solid var(--glass-border);
-            border-radius: 28px;
-            padding: 20px;
+        /* --- TRIPLE RING DASHBOARD (Card Style) --- */
+        .dashboard-card {
+            background: rgba(20, 24, 30, 0.7);
+            backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 32px;
+            padding: 30px 20px;
+            text-align: center;
             position: relative; overflow: hidden;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
+        }
+        
+        /* Subtle Green Glow Gradient for Card */
+        .dashboard-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 100%;
+            background: radial-gradient(circle at 50% 0%, rgba(0, 255, 136, 0.1), transparent 70%);
+            pointer-events: none;
         }
 
-        /* Three Ring Data (The Three Circles) */
-        .ring-stat-container {
-            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+        /* The SVG Triple Ring */
+        .triple-ring-svg { width: 220px; height: 220px; margin: 0 auto; display: block; transform: rotate(-90deg); }
+        .ring-track { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 8; }
+        .ring-fill { 
+            fill: none; stroke-width: 8; stroke-linecap: round;
+            transition: stroke-dashoffset 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        .mini-ring {
-            width: 60px; height: 60px; position: relative;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .mini-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-        .mini-track { stroke: rgba(255,255,255,0.1); stroke-width: 4; fill: none; }
-        .mini-fill { 
-            stroke-width: 4; fill: none; stroke-linecap: round;
-            stroke-dasharray: 157; stroke-dashoffset: 157;
-            transition: stroke-dashoffset 1s ease-out;
-        }
+        
+        /* Ring Colors */
+        .r-eri { stroke: var(--ring-eri); stroke-dasharray: 565; stroke-dashoffset: 565; } /* r=90, 2*pi*90 ≈ 565 */
+        .r-hrv { stroke: var(--ring-hrv); stroke-dasharray: 471; stroke-dashoffset: 471; } /* r=75, 2*pi*75 ≈ 471 */
+        .r-load { stroke: var(--ring-load); stroke-dasharray: 377; stroke-dashoffset: 377; } /* r=60, 2*pi*60 ≈ 377 */
 
-        .col-span-2 { grid-column: span 2; }
-        .text-label { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: 1px; text-transform: uppercase; }
-        .text-huge { font-size: 48px; font-weight: 800; color: white; line-height: 1; letter-spacing: -1px; }
+        .score-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .score-val { font-size: 56px; font-weight: 800; color: white; line-height: 1; letter-spacing: -2px; }
+        .score-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: 2px; margin-top: 4px; }
+
+        /* Legend Dots */
+        .legend-row {
+            display: flex; justify-content: center; gap: 24px; margin-top: 24px;
+        }
+        .legend-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 4px; }
+        .l-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 1px; }
+        .l-val { font-size: 16px; font-weight: 700; color: white; }
+
+        /* Strategy Card */
+        .strategy-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 20px;
+            margin-top: 16px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .icon-box {
+            width: 48px; height: 48px; border-radius: 16px;
+            background: rgba(0, 255, 136, 0.1); display: flex; align-items: center; justify-content: center;
+        }
 
     </style>
 </head>
 <body>
+
     <video id="input-video" playsinline webkit-playsinline></video>
+    
+    <!-- BACKGROUND: V18.0 STARDUST ENGINE -->
     <div id="universe"></div>
 
-    <!-- LAYER 1: HOME & SCANNER -->
+    <!-- LAYER 1: HOME (SCANNER) -->
     <div id="layer-home" class="layer active justify-between">
         
         <!-- Top: Branding -->
         <div class="mt-8 text-center">
-            <h1 class="text-3xl font-bold text-white tracking-tight">TENKI</h1>
-            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1">QUANTUM SENSING</p>
+            <h1 class="text-3xl font-bold text-white tracking-tight drop-shadow-lg">TENKI</h1>
+            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1 uppercase">Stardust Soul v24</p>
         </div>
 
-        <!-- Middle: Smart Alignment Hint (Apple Pay Style) -->
-        <!-- This floats and only appears when needed or preparing -->
+        <!-- Smart Alignment Hint -->
         <div id="align-hint-capsule">
-            <div id="hint-icon-box" class="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center">
-                <i id="hint-icon" data-lucide="scan-face" class="w-3 h-3 text-cyan-400"></i>
-            </div>
-            <span id="hint-text" class="text-xs font-bold text-white tracking-wide">Ready to Scan</span>
+            <i id="hint-icon" data-lucide="scan-face" class="w-3 h-3 text-cyan-400"></i>
+            <span id="hint-text" class="text-xs font-bold text-white tracking-wide">Ready</span>
         </div>
 
         <!-- Bottom: PPG Scan Button -->
         <div class="mb-12 flex flex-col items-center">
             <div class="scan-wrapper" id="scan-wrapper">
                 <svg class="ppg-ring-svg" viewBox="0 0 100 100">
-                    <circle class="ppg-circle-track" cx="50" cy="50" r="45"></circle>
-                    <circle class="ppg-circle-fill" id="ppg-progress" cx="50" cy="50" r="45"></circle>
+                    <circle class="ppg-track" cx="50" cy="50" r="45"></circle>
+                    <circle class="ppg-fill" id="ppg-progress" cx="50" cy="50" r="45"></circle>
                 </svg>
                 <div id="scan-trigger" class="fingerprint-btn">
-                    <i data-lucide="fingerprint" class="w-8 h-8 text-white opacity-80"></i>
+                    <i data-lucide="fingerprint" class="w-8 h-8 text-white opacity-90"></i>
                 </div>
             </div>
             <div id="instruction" class="mt-4 text-[10px] tracking-[2px] text-gray-500 font-mono transition-opacity">
-                HOLD TO ANALYZE
+                HOLD TO SCAN (2s)
             </div>
         </div>
     </div>
 
-    <!-- LAYER 2: RESULT DASHBOARD (GALAXY BENTO) -->
+    <!-- LAYER 2: RESULT DASHBOARD (TRIPLE RING) -->
     <div id="layer-result" class="layer hidden-layer">
         
         <!-- Header -->
-        <div class="flex justify-between items-center mb-6 mt-2">
-            <div>
-                <div class="text-xs text-gray-400 mb-1">Today's Energy</div>
-                <div class="flex items-center gap-2">
-                    <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-                    <span class="text-sm font-bold text-white">Live Sync</span>
-                </div>
-            </div>
-            <button onclick="App.reset()" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center active:scale-95 transition">
-                <i data-lucide="rotate-ccw" class="w-4 h-4 text-gray-400"></i>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-white">ERI Dashboard</h2>
+            <button onclick="App.reset()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                <i data-lucide="x" class="w-4 h-4 text-white"></i>
             </button>
         </div>
 
-        <!-- Bento Grid -->
-        <div class="bento-grid">
+        <!-- Main Card -->
+        <div class="dashboard-card">
             
-            <!-- 1. MAIN SCORE (ERI) -->
-            <div class="bento-card col-span-2 flex items-center justify-between relative">
-                <!-- Galaxy Gradient -->
-                <div class="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-blue-600/10 pointer-events-none"></div>
-                
-                <div class="relative z-10">
-                    <div class="text-label mb-1 text-cyan-400">ERI SCORE</div>
-                    <div class="text-huge" id="res-eri">--</div>
-                    <div class="text-xs text-gray-400 mt-1" id="res-status">CALCULATING</div>
-                </div>
+            <div class="relative">
+                <!-- Triple Ring SVG -->
+                <svg class="triple-ring-svg" viewBox="0 0 220 220">
+                    <!-- Tracks -->
+                    <circle class="ring-track" cx="110" cy="110" r="90"></circle>
+                    <circle class="ring-track" cx="110" cy="110" r="75"></circle>
+                    <circle class="ring-track" cx="110" cy="110" r="60"></circle>
+                    
+                    <!-- Fills (Animated) -->
+                    <circle class="ring-fill r-eri" id="ring-eri" cx="110" cy="110" r="90"></circle>
+                    <circle class="ring-fill r-hrv" id="ring-hrv" cx="110" cy="110" r="75"></circle>
+                    <circle class="ring-fill r-load" id="ring-load" cx="110" cy="110" r="60"></circle>
+                </svg>
 
-                <!-- Large Ring -->
-                <div class="mini-ring" style="width: 80px; height: 80px;">
-                    <svg viewBox="0 0 100 100">
-                        <circle class="mini-track" cx="50" cy="50" r="45"></circle>
-                        <circle class="mini-fill" id="ring-eri" cx="50" cy="50" r="45" stroke="#00F0FF" style="stroke-dasharray: 283; stroke-dashoffset: 283;"></circle>
-                    </svg>
-                    <i data-lucide="activity" class="absolute w-6 h-6 text-white"></i>
-                </div>
-            </div>
-
-            <!-- 2. HRV Ring -->
-            <div class="bento-card flex flex-col items-center justify-center gap-2">
-                <div class="mini-ring">
-                    <svg viewBox="0 0 100 100">
-                        <circle class="mini-track" cx="50" cy="50" r="45"></circle>
-                        <circle class="mini-fill" id="ring-hrv" cx="50" cy="50" r="45" stroke="#9D00FF"></circle>
-                    </svg>
-                    <div class="absolute text-sm font-bold" id="val-hrv">--</div>
-                </div>
-                <div class="text-label mt-1">HRV (ms)</div>
-            </div>
-
-            <!-- 3. Stability Ring -->
-            <div class="bento-card flex flex-col items-center justify-center gap-2">
-                <div class="mini-ring">
-                    <svg viewBox="0 0 100 100">
-                        <circle class="mini-track" cx="50" cy="50" r="45"></circle>
-                        <circle class="mini-fill" id="ring-stab" cx="50" cy="50" r="45" stroke="#00FF88"></circle>
-                    </svg>
-                    <div class="absolute text-sm font-bold" id="val-stab">--</div>
-                </div>
-                <div class="text-label mt-1">Stability</div>
-            </div>
-
-            <!-- 4. Strategy -->
-            <div class="bento-card col-span-2 flex flex-col justify-center bg-purple-900/10 border-purple-500/20">
-                <div class="flex items-center gap-2 mb-2">
-                    <i data-lucide="zap" class="w-3 h-3 text-purple-400"></i>
-                    <span class="text-label text-purple-300">Strategy</span>
-                </div>
-                <div class="text-lg font-bold text-white">
-                    Failed Breakdown <span class="text-gray-500">&</span> Scalp
+                <!-- Center Score -->
+                <div class="score-container">
+                    <div class="score-val" id="res-score">--</div>
+                    <div class="score-label">SCORE</div>
                 </div>
             </div>
 
-            <!-- 5. Enhanced Scan -->
-            <button onclick="alert('Starting 15s Deep Scan...')" class="bento-card col-span-2 py-4 flex items-center justify-center gap-2 active:scale-95 transition bg-white/5 hover:bg-white/10">
-                <span class="text-xs font-bold text-gray-300 tracking-widest">ENHANCED SCAN (15s)</span>
-                <i data-lucide="arrow-right" class="w-3 h-3 text-gray-500"></i>
-            </button>
+            <!-- Legend -->
+            <div class="legend-row">
+                <div class="legend-item">
+                    <div class="dot bg-[#00FF88]"></div>
+                    <div class="l-label">ERI</div>
+                    <div class="l-val" id="val-eri">--</div>
+                </div>
+                <div class="legend-item">
+                    <div class="dot bg-[#00F0FF]"></div>
+                    <div class="l-label">HRV</div>
+                    <div class="l-val" id="val-hrv">--</div>
+                </div>
+                <div class="legend-item">
+                    <div class="dot bg-[#FFAA00]"></div>
+                    <div class="l-label">LOAD</div>
+                    <div class="l-val" id="val-load">--</div>
+                </div>
+            </div>
 
+            <!-- Status Text -->
+            <div class="mt-6">
+                <div class="text-lg font-bold text-white" id="res-title">Ready to Perform</div>
+                <div class="text-xs text-gray-400 mt-1 max-w-[240px] mx-auto leading-relaxed">
+                    Your recovery is optimal. Push your limits today.
+                </div>
+            </div>
         </div>
+
+        <!-- Strategy Section -->
+        <div class="mt-6 mb-2">
+            <h3 class="text-sm font-bold text-white mb-2">Strategy</h3>
+            <div class="strategy-card">
+                <div class="icon-box">
+                    <i data-lucide="zap" class="w-6 h-6 text-[#00FF88]"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold text-[#00FF88] tracking-widest mb-1">RECOMMENDED</div>
+                    <div class="text-sm font-bold text-white mb-1">Failed Breakdown <span class="text-gray-500">&</span> Scalp</div>
+                    <div class="text-[10px] text-gray-400">High volatility expected.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Scan Button -->
+        <button onclick="App.startEnhancedScan()" class="w-full mt-auto py-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 active:bg-white/10 transition">
+            <span class="text-xs font-bold text-gray-300 tracking-widest">ENHANCED SCAN (15s)</span>
+            <i data-lucide="arrow-right" class="w-3 h-3 text-gray-500"></i>
+        </button>
+
     </div>
 
     <script>
         lucide.createIcons();
 
         const App = {
-            state: {
-                isScanning: false,
-                faceDetected: false,
-                hintState: 'idle'
+            config: { particleCount: 8000 },
+            state: { 
+                isScanning: false, 
+                scanDuration: 2000, // Default 2s
+                mouthOpen: 0, 
+                headRot: {x:0, y:0}, 
+                energy: 0 
             },
-            
+
             init: function() {
                 this.initThree();
                 this.initAI();
                 this.initEvents();
             },
 
-            // --- 1. SMART ALIGNMENT (THE APPLE PAY LOGIC) ---
-            updateHint: function(landmarks) {
-                // Don't update hint if already scanning (keep focus)
-                if(this.state.isScanning) {
-                    this.showHint("Scanning...", "fingerprint", "text-cyan-400");
-                    return;
-                }
-
-                if (!landmarks) {
-                    this.showHint("Find Face", "scan-face", "text-red-400");
-                    return;
-                }
-
-                // Landmarks: 1=NoseTip, 234=LeftCheek, 454=RightCheek
-                const nose = landmarks[1];
-                const width = Math.abs(landmarks[234].x - landmarks[454].x);
-                const tilt = Math.abs(landmarks[10].x - landmarks[152].x); // Top vs Bottom head
-
-                let msg = "Ready to Scan";
-                let icon = "check";
-                let color = "text-green-400";
-
-                // Logic Cascade
-                if (width < 0.35) {
-                    msg = "Move Closer"; icon = "move"; color = "text-yellow-400";
-                } else if (nose.x < 0.4) {
-                    msg = "Move Right"; icon = "arrow-right"; color = "text-yellow-400";
-                } else if (nose.x > 0.6) {
-                    msg = "Move Left"; icon = "arrow-left"; color = "text-yellow-400";
-                } else if (tilt > 0.1) {
-                    msg = "Straighten Head"; icon = "refresh-cw"; color = "text-yellow-400";
-                }
-
-                this.showHint(msg, icon, color);
-            },
-
-            showHint: function(text, iconName, colorClass) {
-                const capsule = document.getElementById('align-hint-capsule');
-                const txt = document.getElementById('hint-text');
-                const iconBox = document.getElementById('hint-icon-box');
-                
-                // Only update DOM if changed to prevent flicker
-                if (txt.innerText !== text) {
-                    txt.innerText = text;
-                    iconBox.innerHTML = `<i data-lucide="${iconName}" class="w-3 h-3 ${colorClass}"></i>`;
-                    lucide.createIcons();
-                    
-                    if(text === "Ready to Scan" && navigator.vibrate) navigator.vibrate(20);
-                }
-                
-                // Always show
-                capsule.classList.add('show');
-            },
-
-            // --- 2. THREE.JS STARDUST ---
+            // --- 1. V18.0 STARDUST ENGINE (RESTORED) ---
             initThree: function() {
                 const container = document.getElementById('universe');
-                const scene = new THREE.Scene();
-                scene.fog = new THREE.FogExp2(0x000000, 0.03);
+                this.scene = new THREE.Scene();
+                this.scene.fog = new THREE.FogExp2(0x000000, 0.02);
                 
-                const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-                camera.position.z = 5;
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                this.camera.position.z = 5;
                 
-                const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                container.appendChild(renderer.domElement);
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                container.appendChild(this.renderer.domElement);
 
-                // Galaxy Particles
+                // GLSL Shader for Soft Circular Particles (v18.0)
+                const vertexShader = `
+                    attribute float size; attribute float random; uniform float uTime; uniform float uScale; varying float vRandom;
+                    void main() { vRandom = random; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                    gl_PointSize = (15.0 * size * uScale) * (5.0 / -mvPosition.z); gl_Position = projectionMatrix * mvPosition; }
+                `;
+                const fragmentShader = `
+                    uniform vec3 color; varying float vRandom;
+                    void main() { vec2 xy = gl_PointCoord.xy - vec2(0.5); float ll = length(xy); if(ll>0.5) discard;
+                    float strength = pow((0.5-ll)*2.0, 2.0); gl_FragColor = vec4(color, strength*0.9); }
+                `;
+
+                // Fibonacci Sphere Distribution
                 const geometry = new THREE.BufferGeometry();
-                const pos = [], sizes = [];
-                for(let i=0; i<6000; i++) {
-                    const r = 4 * Math.sqrt(Math.random());
-                    const theta = Math.random() * 2 * Math.PI;
-                    pos.push(r * Math.cos(theta), r * Math.sin(theta) * 0.8, (Math.random()-0.5)*2);
-                    sizes.push(Math.random());
+                const pos = [], orig = [], rnd = [], sizes = [];
+                const phi = Math.PI * (3. - Math.sqrt(5.));
+
+                for (let i = 0; i < this.config.particleCount; i++) {
+                    const y = 1 - (i / (this.config.particleCount - 1)) * 2;
+                    const radius = Math.sqrt(1 - y * y);
+                    const theta = phi * i;
+                    const r = 2.5; 
+                    const x = Math.cos(theta) * radius * r;
+                    const z = Math.sin(theta) * radius * r;
+                    
+                    pos.push(x, y * r, z); orig.push(x, y * r, z);
+                    rnd.push(Math.random()); sizes.push(0.5 + Math.random() * 1.5);
                 }
+                
                 geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+                geometry.setAttribute('originalPosition', new THREE.Float32BufferAttribute(orig, 3));
+                geometry.setAttribute('random', new THREE.Float32BufferAttribute(rnd, 1));
                 geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
 
-                const material = new THREE.PointsMaterial({
-                    size: 0.04, color: 0x00F0FF, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending
+                this.material = new THREE.ShaderMaterial({
+                    uniforms: {
+                        uTime: { value: 0 },
+                        uScale: { value: 1.0 },
+                        color: { value: new THREE.Color(0x0088ff) }
+                    },
+                    vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
                 });
-                const cloud = new THREE.Points(geometry, material);
-                scene.add(cloud);
 
-                const animate = () => {
-                    requestAnimationFrame(animate);
-                    cloud.rotation.z += 0.0005;
-                    // Pulse color if scanning
-                    if(this.state.isScanning) {
-                        const t = Date.now() * 0.005;
-                        const s = 1 + Math.sin(t) * 0.2;
-                        cloud.scale.set(s,s,s);
-                        material.color.setHex(0x9D00FF);
-                    } else {
-                        cloud.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
-                        material.color.setHex(0x00F0FF);
-                    }
-                    renderer.render(scene, camera);
-                };
-                animate();
+                this.cloud = new THREE.Points(geometry, this.material);
+                this.scene.add(this.cloud);
+                this.animate();
             },
 
-            // --- 3. AI ---
+            animate: function() {
+                requestAnimationFrame(() => this.animate());
+                const time = Date.now() * 0.001;
+                this.material.uniforms.uTime.value = time;
+                
+                // Head Sync
+                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
+                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
+
+                // Energy Expansion (Breathing)
+                let targetEnergy = 0.2;
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 3.0;
+                if (this.state.isScanning) targetEnergy = 4.0;
+                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
+
+                const positions = this.cloud.geometry.attributes.position.array;
+                const originals = this.cloud.geometry.attributes.originalPosition.array;
+                const rnd = this.cloud.geometry.attributes.random.array;
+
+                for (let i = 0; i < this.config.particleCount; i++) {
+                    const idx = i * 3;
+                    const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
+                    const noise = Math.sin(time * 2 + rnd[i] * 10) * this.state.energy * 0.1;
+                    const expansion = 1 + (this.state.mouthOpen * 0.2);
+                    positions[idx] = ox * expansion + (ox * noise);
+                    positions[idx+1] = oy * expansion + (oy * noise);
+                    positions[idx+2] = oz * expansion + (oz * noise);
+                }
+                this.cloud.geometry.attributes.position.needsUpdate = true;
+
+                // Color Logic
+                if (this.state.isScanning) {
+                    this.material.uniforms.color.value.setHex(0x00F0FF);
+                    this.material.uniforms.uScale.value = 1.5;
+                } else {
+                    this.material.uniforms.color.value.setHex(0x112233);
+                    this.material.uniforms.uScale.value = 0.8;
+                }
+                this.renderer.render(this.scene, this.camera);
+            },
+
+            // --- 2. SMART ALIGNMENT ---
             initAI: function() {
                 const video = document.getElementById('input-video');
                 const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
                 faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5});
                 
                 faceMesh.onResults((res) => {
+                    const hint = document.getElementById('align-hint-capsule');
+                    const hintText = document.getElementById('hint-text');
+                    const hintIcon = document.getElementById('hint-icon');
+                    
                     if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
-                        this.updateHint(res.multiFaceLandmarks[0]);
+                        const lm = res.multiFaceLandmarks[0];
+                        // Update 3D State
+                        this.state.headRot.x = (lm[1].y - 0.5) * 2;
+                        this.state.headRot.y = (lm[1].x - 0.5) * 2;
+                        
+                        // Alignment Logic
+                        const noseX = lm[1].x;
+                        const width = Math.abs(lm[234].x - lm[454].x);
+                        
+                        let msg = "Ready to Scan";
+                        let icon = "check-circle";
+                        let color = "text-green-400";
+                        
+                        if(width < 0.35) { msg = "Move Closer"; icon = "maximize"; color = "text-yellow-400"; }
+                        else if(noseX < 0.4) { msg = "Move Right"; icon = "arrow-right"; color = "text-yellow-400"; }
+                        else if(noseX > 0.6) { msg = "Move Left"; icon = "arrow-left"; color = "text-yellow-400"; }
+                        
+                        // Only update DOM if changed
+                        if(hintText.innerText !== msg && !this.state.isScanning) {
+                            hintText.innerText = msg;
+                            hintIcon.outerHTML = `<i id="hint-icon" data-lucide="${icon}" class="w-3 h-3 ${color}"></i>`;
+                            lucide.createIcons();
+                            if(msg === "Ready to Scan" && navigator.vibrate) navigator.vibrate(20);
+                        }
+                        
+                        if(!this.state.isScanning) hint.classList.add('show');
+                        else hint.classList.remove('show');
+                        
                     } else {
-                        this.updateHint(null);
+                        if(!this.state.isScanning) {
+                            hintText.innerText = "Find Face";
+                            hintIcon.outerHTML = `<i id="hint-icon" data-lucide="scan-face" class="w-3 h-3 text-red-400"></i>`;
+                            lucide.createIcons();
+                            hint.classList.add('show');
+                        }
                     }
                 });
                 
@@ -410,7 +456,7 @@
                 camera.start();
             },
 
-            // --- 4. EVENTS & SCAN LOGIC ---
+            // --- 3. INTERACTION & SCAN LOGIC ---
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
                 const wrapper = document.getElementById('scan-wrapper');
@@ -420,33 +466,57 @@
                     if(this.state.isScanning) return;
                     
                     this.state.isScanning = true;
+                    // Class determines speed: default 'scanning' (2s)
+                    wrapper.classList.remove('scanning-15s');
                     wrapper.classList.add('scanning');
+                    
                     document.getElementById('instruction').innerText = "KEEP STILL...";
                     document.getElementById('instruction').style.color = "#00F0FF";
                     if(navigator.vibrate) navigator.vibrate(50);
                     
-                    // 2 Seconds Timer
                     this.scanTimer = setTimeout(() => {
                         this.finishScan();
-                    }, 2000);
+                    }, this.state.scanDuration);
                 };
 
                 const end = (e) => {
                     if(!this.state.isScanning) return;
-                    // If released before 2s
                     this.state.isScanning = false;
                     clearTimeout(this.scanTimer);
                     wrapper.classList.remove('scanning');
-                    document.getElementById('instruction').innerText = "HOLD TO ANALYZE";
+                    wrapper.classList.remove('scanning-15s');
+                    document.getElementById('instruction').innerText = "HOLD TO SCAN (2s)";
                     document.getElementById('instruction').style.color = "gray";
                 };
 
                 btn.addEventListener('mousedown', start);
                 btn.addEventListener('touchstart', start, {passive: false});
-                
                 btn.addEventListener('mouseup', end);
                 btn.addEventListener('touchend', end);
                 btn.addEventListener('mouseleave', end);
+            },
+
+            startEnhancedScan: function() {
+                // Return to home state but prep for 15s
+                this.reset();
+                setTimeout(() => {
+                    this.state.scanDuration = 15000; // 15s
+                    document.getElementById('instruction').innerText = "HOLD FOR 15s...";
+                    
+                    // Hook into the styling
+                    const wrapper = document.getElementById('scan-wrapper');
+                    const btn = document.getElementById('scan-trigger');
+                    
+                    // Need a one-time listener override or just let the user press again with new duration
+                    // Let's force start it if they hold
+                    const startDeep = (e) => {
+                        if(!this.state.isScanning && this.state.scanDuration === 15000) {
+                            wrapper.classList.add('scanning-15s'); // Slower ring
+                        }
+                    };
+                    btn.addEventListener('mousedown', startDeep);
+                    btn.addEventListener('touchstart', startDeep);
+                }, 600);
             },
 
             finishScan: function() {
@@ -454,9 +524,7 @@
                 
                 const home = document.getElementById('layer-home');
                 const result = document.getElementById('layer-result');
-                const hint = document.getElementById('align-hint-capsule');
                 
-                hint.classList.remove('show');
                 home.classList.remove('active');
                 home.classList.add('hidden-layer');
                 
@@ -468,33 +536,28 @@
             },
 
             animateResults: function() {
-                // Mock Data
-                const score = Math.floor(Math.random() * (95 - 65) + 65);
-                const hrv = Math.floor(Math.random() * 40 + 40);
-                const stab = Math.floor(Math.random() * 20 + 70);
+                const score = Math.floor(Math.random() * (92 - 75) + 75);
+                const hrv = Math.floor(Math.random() * 50 + 40);
+                const load = Math.floor(Math.random() * 30 + 30);
                 
-                // 1. Text Animation
-                this.countUp('res-eri', score);
+                // Text Count Up
+                this.countUp('res-score', score);
+                this.countUp('val-eri', score);
                 this.countUp('val-hrv', hrv);
-                this.countUp('val-stab', stab);
+                this.countUp('val-load', load);
                 
-                document.getElementById('res-status').innerText = score > 80 ? "PEAK PERFORMANCE" : "BALANCED FLOW";
+                // Ring Animation
+                // ERI (Max 565)
+                const eriOffset = 565 - (score/100 * 565);
+                document.getElementById('ring-eri').style.strokeDashoffset = eriOffset;
                 
-                // 2. Ring Animation (CSS Dashoffset)
-                // Full circle = 283 (large) or 157 (small)
+                // HRV (Max 471)
+                const hrvOffset = 471 - (hrv/150 * 471); // normalized
+                document.getElementById('ring-hrv').style.strokeDashoffset = hrvOffset;
                 
-                setTimeout(() => {
-                    // ERI Large Ring
-                    const eriOffset = 283 - (score / 100 * 283);
-                    document.getElementById('ring-eri').style.strokeDashoffset = eriOffset;
-                    
-                    // Small Rings
-                    const hrvOffset = 157 - ((hrv/100) * 157); // normalized roughly
-                    document.getElementById('ring-hrv').style.strokeDashoffset = hrvOffset;
-                    
-                    const stabOffset = 157 - (stab/100 * 157);
-                    document.getElementById('ring-stab').style.strokeDashoffset = stabOffset;
-                }, 100);
+                // LOAD (Max 377)
+                const loadOffset = 377 - (load/100 * 377);
+                document.getElementById('ring-load').style.strokeDashoffset = loadOffset;
             },
 
             countUp: function(id, target) {
@@ -502,40 +565,44 @@
                 const el = document.getElementById(id);
                 const interval = setInterval(() => {
                     curr += 2;
-                    if(curr >= target) {
-                        curr = target;
-                        clearInterval(interval);
-                    }
+                    if(curr >= target) { curr = target; clearInterval(interval); }
                     el.innerText = curr;
                 }, 20);
             },
 
             reset: function() {
-                document.getElementById('layer-result').classList.remove('active');
-                document.getElementById('layer-result').classList.add('hidden-layer');
+                const home = document.getElementById('layer-home');
+                const result = document.getElementById('layer-result');
+                const wrapper = document.getElementById('scan-wrapper');
+                
+                result.classList.remove('active');
+                result.classList.add('hidden-layer');
                 
                 // Reset Rings
-                document.getElementById('ring-eri').style.strokeDashoffset = 283;
-                document.getElementById('ring-hrv').style.strokeDashoffset = 157;
-                document.getElementById('ring-stab').style.strokeDashoffset = 157;
-                document.getElementById('res-eri').innerText = "--";
+                document.getElementById('ring-eri').style.strokeDashoffset = 565;
+                document.getElementById('ring-hrv').style.strokeDashoffset = 471;
+                document.getElementById('ring-load').style.strokeDashoffset = 377;
+                document.getElementById('res-score').innerText = "--";
+                
+                // Reset State
+                this.state.isScanning = false;
+                this.state.scanDuration = 2000;
                 
                 setTimeout(() => {
-                    document.getElementById('layer-home').classList.remove('hidden-layer');
-                    document.getElementById('layer-home').classList.add('active');
-                    document.getElementById('scan-wrapper').classList.remove('scanning');
-                    document.getElementById('instruction').innerText = "HOLD TO ANALYZE";
-                    document.getElementById('instruction').style.color = "gray";
-                    this.state.isScanning = false;
+                    home.classList.remove('hidden-layer');
+                    home.classList.add('active');
+                    wrapper.classList.remove('scanning');
+                    wrapper.classList.remove('scanning-15s');
+                    document.getElementById('instruction').innerText = "HOLD TO SCAN (2s)";
                 }, 400);
             }
         };
 
         window.onload = () => App.init();
         window.onresize = () => {
-            // Re-calc viewport height for iOS
-            let vh = window.innerHeight * 0.01;
-            document.documentElement.style.setProperty('--vh', `${vh}px`);
+            App.camera.aspect = window.innerWidth / window.innerHeight;
+            App.camera.updateProjectionMatrix();
+            App.renderer.setSize(window.innerWidth, window.innerHeight);
         };
     </script>
 </body>
