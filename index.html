@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v25.2 - Diamond Cut</title>
+    <title>TENKI v26.0 - Precision Particle</title>
     
     <!-- Core Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -37,11 +37,11 @@
 
         #input-video { position: fixed; opacity: 0; pointer-events: none; }
         
-        /* SHARPNESS FIX: Pure Black Background to make particles pop */
+        /* PURE BLACK BACKGROUND FOR CONTRAST */
         #universe { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             z-index: 0; pointer-events: none; 
-            background: #000000; 
+            background: #000000;
         }
 
         /* --- UI LAYERS --- */
@@ -151,7 +151,7 @@
     <div id="layer-home" class="layer active justify-between">
         <div class="mt-8 text-center">
             <h1 class="text-3xl font-bold text-white tracking-tight drop-shadow-lg">TENKI</h1>
-            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1 uppercase">Diamond Cut v25.2</p>
+            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1 uppercase">Precision V26</p>
         </div>
 
         <div id="align-hint-capsule">
@@ -233,12 +233,12 @@
         lucide.createIcons();
 
         const App = {
-            config: { particleCount: 8000 }, // BACK TO GOLDEN COUNT
+            config: { particleCount: 8000 }, // BACK TO 8000 (Golden Ratio)
             state: { 
                 isScanning: false, 
                 scanDuration: 2000, 
                 mouthOpen: 0, 
-                eyesOpen: 0, // NEW
+                eyesOpen: 0, 
                 headRot: {x:0, y:0}, 
                 energy: 0 
             },
@@ -249,49 +249,47 @@
                 this.initEvents();
             },
 
-            // --- 1. DIAMOND ENGINE (Sharp & Clean) ---
+            // --- 1. PRECISION ENGINE (Restored v18.0 Logic) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                // Minimal fog to keep sharpness
-                this.scene.fog = new THREE.FogExp2(0x000000, 0.005);
+                this.scene.fog = new THREE.FogExp2(0x000000, 0.02); // Standard fog
                 
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 
-                // Responsive camera setup - Slightly closer than v25.1 but safe from crop
+                // Fixed optimal distance
                 const isMobile = window.innerWidth < 768;
-                this.camera.position.z = isMobile ? 7.0 : 5.5; 
+                this.camera.position.z = isMobile ? 6.5 : 5.0; 
                 
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3.0)); 
                 container.appendChild(this.renderer.domElement);
 
-                // DIAMOND SHADER: High Contrast, No Blur
+                // SHADER: The Original v18.0 Recipe
+                // No complex gaussian, just pure mathematical dot
                 const vertexShader = `
                     attribute float size; attribute float random; uniform float uTime; uniform float uScale; uniform float uPixelRatio; varying float vRandom;
                     void main() { 
                         vRandom = random; 
                         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        // Tuned size for sharpness (25.0 base)
-                        gl_PointSize = (25.0 * size * uScale) * (10.0 / -mvPosition.z) * uPixelRatio; 
+                        // Size 3.0 * PixelRatio => Crisp points on Retina
+                        gl_PointSize = (3.0 * size * uScale) * (50.0 / -mvPosition.z) * uPixelRatio; 
                         gl_Position = projectionMatrix * mvPosition; 
                     }
                 `;
                 const fragmentShader = `
                     uniform vec3 color; varying float vRandom;
                     void main() { 
-                        // Calculate distance from center of point
                         vec2 xy = gl_PointCoord.xy - vec2(0.5); 
                         float dist = length(xy); 
                         if(dist > 0.5) discard;
                         
-                        // SHARP CUTOFF - The Diamond Look
-                        // High glow at center, fast drop off. No "cloudy" edges.
-                        float strength = 1.0 - (dist * 2.0);
-                        strength = pow(strength, 2.5); 
+                        // Pure circular glow (v18 style)
+                        // This prevents the "blob" effect
+                        float strength = pow((0.5 - dist) * 2.0, 2.0); 
                         
-                        gl_FragColor = vec4(color, strength); 
+                        gl_FragColor = vec4(color, strength * 0.8); // 0.8 Opacity
                     }
                 `;
 
@@ -304,7 +302,7 @@
                     const radius = Math.sqrt(1 - y * y);
                     const theta = phi * i;
                     
-                    const r = 3.0; 
+                    const r = 2.8; 
                     const x = Math.cos(theta) * radius * r;
                     const z = Math.sin(theta) * radius * r;
                     
@@ -337,17 +335,16 @@
                 const time = Date.now() * 0.001;
                 this.material.uniforms.uTime.value = time;
                 
-                // --- SYNC LOGIC ---
-                // Eyes = Turbulence/Speed (Awakening)
+                // --- SYNC LOGIC (Subtle & Elegant) ---
                 const baseSpeed = 0.001;
                 const eyeSpeedBoost = this.state.eyesOpen * 0.005; 
-                this.cloud.rotation.y += baseSpeed + eyeSpeedBoost + (this.state.headRot.y * 0.02);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.02);
+                this.cloud.rotation.y += baseSpeed + eyeSpeedBoost + (this.state.headRot.y * 0.03);
+                this.cloud.rotation.x += (this.state.headRot.x * 0.03);
 
-                // Mouth = Expansion (Breathing)
+                // Mouth = Expansion
                 let targetEnergy = 0.2;
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 2.5;
-                if (this.state.isScanning) targetEnergy = 1.2; // Stable scan
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 3.0;
+                if (this.state.isScanning) targetEnergy = 1.5; 
                 
                 this.state.energy += (targetEnergy - this.state.energy) * 0.1;
 
@@ -359,8 +356,8 @@
                     const idx = i * 3;
                     const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
                     
-                    // Eyes add "shimmer" (high frequency noise)
-                    const shimmer = Math.sin(time * 10 + rnd[i] * 100) * this.state.eyesOpen * 0.05;
+                    // Eye Shimmer (Subtle)
+                    const shimmer = Math.sin(time * 10 + rnd[i] * 50) * this.state.eyesOpen * 0.03;
                     
                     const noise = Math.sin(time * 2 + rnd[i] * 10) * this.state.energy * 0.1;
                     const expansion = 1 + (this.state.mouthOpen * 0.2) + shimmer;
@@ -371,18 +368,17 @@
                 }
                 this.cloud.geometry.attributes.position.needsUpdate = true;
 
-                // Color Logic
                 if (this.state.isScanning) {
                     this.material.uniforms.color.value.setHex(0x9D00FF);
                     this.material.uniforms.uScale.value = 1.1;
                 } else {
-                    this.material.uniforms.color.value.setHex(0x00F0FF); // Classic Cyan
+                    this.material.uniforms.color.value.setHex(0x00F0FF); 
                     this.material.uniforms.uScale.value = 0.9;
                 }
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // --- 2. AI & FACE SYNC ---
+            // --- 2. AI & SYNC ---
             initAI: function() {
                 const video = document.getElementById('input-video');
                 const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
@@ -396,22 +392,17 @@
                     if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
                         const lm = res.multiFaceLandmarks[0];
                         
-                        // Head
                         this.state.headRot.x = (lm[1].y - 0.5) * 2;
                         this.state.headRot.y = (lm[1].x - 0.5) * 2;
                         
-                        // Mouth
                         const mouthDist = Math.abs(lm[13].y - lm[14].y);
                         this.state.mouthOpen = Math.min(1.0, Math.max(0, (mouthDist - 0.02) * 5));
                         
-                        // Eyes (Left: 159-145, Right: 386-374)
                         const leftEye = Math.abs(lm[159].y - lm[145].y);
                         const rightEye = Math.abs(lm[386].y - lm[374].y);
                         const avgEye = (leftEye + rightEye) / 2;
-                        // Normalize (0.01 is closed, 0.03 is open approx)
                         this.state.eyesOpen = Math.min(1.0, Math.max(0, (avgEye - 0.01) * 30));
 
-                        // Alignment
                         const noseX = lm[1].x;
                         const width = Math.abs(lm[234].x - lm[454].x);
                         let msg = "Ready to Scan";
@@ -449,7 +440,7 @@
                 camera.start();
             },
 
-            // --- 3. LOGIC & EVENTS ---
+            // --- 3. INTERACTION ---
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
                 const wrapper = document.getElementById('scan-wrapper');
