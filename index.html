@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v25.0 - Retina Stardust</title>
+    <title>TENKI v25.1 - Crystal Stardust</title>
     
     <!-- Core Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -15,22 +15,21 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* --- 1. GLOBAL RESET & HIGH PRECISION RENDERING --- */
+        /* --- GLOBAL & VIEWPORT FIXES --- */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         :root {
             --bg-deep: #000000;
-            --ring-eri: #00FF88; /* Green */
-            --ring-hrv: #00F0FF; /* Blue */
-            --ring-load: #FFAA00; /* Orange */
+            --ring-eri: #00FF88;
+            --ring-hrv: #00F0FF;
+            --ring-load: #FFAA00;
         }
 
         body {
             background: var(--bg-deep);
             color: white;
-            /* Using System Fonts stack for native feel */
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
-            width: 100%; height: 100dvh;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+            width: 100vw; height: 100dvh;
             position: fixed; margin: 0; padding: 0;
             overflow: hidden; touch-action: none;
             user-select: none; -webkit-user-select: none;
@@ -38,38 +37,38 @@
 
         #input-video { position: fixed; opacity: 0; pointer-events: none; }
         
-        /* The Universe Canvas - Fixed & High Z-Index Management */
-        #universe { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+        /* CANVAS Z-INDEX FIX */
+        #universe { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 0; pointer-events: none; 
+            /* Deep Space Gradient */
+            background: radial-gradient(circle at center, #080a10 0%, #000000 100%);
+        }
 
-        /* --- 2. LAYER SYSTEM (SMOOTH TRANSITIONS) --- */
+        /* --- LAYER SYSTEM --- */
         .layer {
             position: absolute; inset: 0; z-index: 10;
             display: flex; flex-direction: column;
             padding: calc(env(safe-area-inset-top) + 20px) 24px calc(env(safe-area-inset-bottom) + 30px) 24px;
-            opacity: 0; pointer-events: none; 
-            transform: scale(0.98); filter: blur(10px);
-            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), 
-                        transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-                        filter 0.6s ease;
+            opacity: 0; pointer-events: none; transform: scale(0.95); filter: blur(10px);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .layer.active { opacity: 1; pointer-events: auto; transform: scale(1); filter: blur(0); }
         .layer.hidden-layer { opacity: 0; transform: scale(1.05); pointer-events: none; filter: blur(10px); }
 
-        /* --- 3. SMART ALIGNMENT CAPSULE (Apple Pay Style) --- */
+        /* --- SMART ALIGNMENT CAPSULE --- */
         #align-hint-capsule {
-            position: absolute; top: 16%; left: 50%; transform: translateX(-50%) translateY(-20px);
-            background: rgba(15, 15, 15, 0.85); /* Slightly darker for contrast */
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            position: absolute; top: 15%; left: 50%; transform: translateX(-50%) translateY(-20px);
+            background: rgba(10, 10, 10, 0.6); backdrop-filter: blur(12px);
             padding: 8px 16px; border-radius: 99px;
-            border: 1px solid rgba(255,255,255,0.12);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
             display: flex; align-items: center; gap: 8px;
-            opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0; pointer-events: none; transition: all 0.4s ease;
             z-index: 50;
         }
         #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         
-        /* --- 4. PPG SCAN BUTTON & GLOW RING --- */
+        /* --- PPG SCAN BUTTON & RING --- */
         .scan-wrapper {
             position: relative; width: 100px; height: 100px;
             display: flex; align-items: center; justify-content: center;
@@ -77,43 +76,38 @@
         }
         .fingerprint-btn {
             width: 70px; height: 70px; border-radius: 50%;
-            background: rgba(255,255,255,0.03);
+            background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.2);
             display: flex; align-items: center; justify-content: center;
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-            cursor: pointer; z-index: 2;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            transition: transform 0.2s; cursor: pointer; z-index: 2;
         }
-        .fingerprint-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.4); }
+        .fingerprint-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.15); }
         
         .ppg-ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1; }
         .ppg-track { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 2; }
+        
         .ppg-fill {
             fill: none; stroke: #00F0FF; stroke-width: 3; stroke-linecap: round;
             stroke-dasharray: 283; stroke-dashoffset: 283;
             transition: stroke-dashoffset 0s linear;
-            filter: drop-shadow(0 0 4px #00F0FF); /* Glow effect */
         }
-        
         .scan-wrapper.scanning-2s .ppg-fill { transition: stroke-dashoffset 2s linear; stroke-dashoffset: 0; }
         .scan-wrapper.scanning-15s .ppg-fill { transition: stroke-dashoffset 15s linear; stroke-dashoffset: 0; }
 
-        /* --- 5. RESULT DASHBOARD (Glass & Gradients) --- */
+        /* --- DASHBOARD --- */
         .dashboard-card {
-            background: rgba(20, 24, 30, 0.6);
-            backdrop-filter: blur(50px) saturate(180%); /* iOS Vibrancy Effect */
-            -webkit-backdrop-filter: blur(50px) saturate(180%);
+            background: rgba(20, 24, 30, 0.7);
+            backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 36px; /* Ultra rounded */
+            border-radius: 32px;
             padding: 30px 20px; text-align: center;
             position: relative; overflow: hidden;
-            box-shadow: 0 24px 48px -12px rgba(0,0,0,0.8);
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
         }
-        /* Refined Glow */
         .dashboard-card::before {
             content: ''; position: absolute; top: 0; left: 0; right: 0; height: 100%;
-            background: radial-gradient(circle at 50% -20%, rgba(0, 255, 136, 0.15), transparent 60%);
-            pointer-events: none; mix-blend-mode: screen;
+            background: radial-gradient(circle at 50% 0%, rgba(0, 255, 136, 0.1), transparent 70%);
+            pointer-events: none;
         }
 
         .triple-ring-svg { width: 220px; height: 220px; margin: 0 auto; display: block; transform: rotate(-90deg); }
@@ -122,8 +116,7 @@
             fill: none; stroke-width: 8; stroke-linecap: round;
             transition: stroke-dashoffset 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        
-        .r-eri { stroke: var(--ring-eri); stroke-dasharray: 565; stroke-dashoffset: 565; filter: drop-shadow(0 0 2px var(--ring-eri)); }
+        .r-eri { stroke: var(--ring-eri); stroke-dasharray: 565; stroke-dashoffset: 565; }
         .r-hrv { stroke: var(--ring-hrv); stroke-dasharray: 471; stroke-dashoffset: 471; }
         .r-load { stroke: var(--ring-load); stroke-dasharray: 377; stroke-dashoffset: 377; }
 
@@ -131,35 +124,25 @@
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .score-val { font-size: 64px; font-weight: 800; color: white; line-height: 1; letter-spacing: -3px; text-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        .score-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 3px; margin-top: 6px; }
+        .score-val { font-size: 56px; font-weight: 800; color: white; line-height: 1; letter-spacing: -2px; }
+        .score-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: 2px; margin-top: 4px; }
 
         .legend-row { display: flex; justify-content: center; gap: 24px; margin-top: 24px; }
         .legend-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        .dot { width: 6px; height: 6px; border-radius: 50%; margin-bottom: 6px; box-shadow: 0 0 8px currentColor; }
-        .l-label { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: 1px; }
-        .l-val { font-size: 15px; font-weight: 700; color: white; font-variant-numeric: tabular-nums; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 4px; }
+        .l-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 1px; }
+        .l-val { font-size: 16px; font-weight: 700; color: white; }
 
         .strategy-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 24px; padding: 16px 20px; margin-top: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px; padding: 20px; margin-top: 16px;
             display: flex; align-items: center; gap: 16px;
-            backdrop-filter: blur(10px);
         }
         .icon-box {
-            width: 44px; height: 44px; border-radius: 14px;
+            width: 48px; height: 48px; border-radius: 16px;
             background: rgba(0, 255, 136, 0.1); display: flex; align-items: center; justify-content: center;
-            border: 1px solid rgba(0, 255, 136, 0.1);
         }
-
-        .btn-enhanced {
-            width: 100%; mt-auto; padding: 18px; border-radius: 20px;
-            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            transition: all 0.2s; backdrop-filter: blur(10px);
-        }
-        .btn-enhanced:active { background: rgba(255,255,255,0.08); transform: scale(0.98); }
 
     </style>
 </head>
@@ -167,18 +150,19 @@
 
     <video id="input-video" playsinline webkit-playsinline></video>
     
-    <!-- HIGH-RES CANVAS -->
+    <!-- FIXED POSITION, FULL SCREEN CANVAS -->
     <div id="universe"></div>
 
-    <!-- LAYER 1: HOME -->
+    <!-- LAYER 1: HOME (SCANNER) -->
     <div id="layer-home" class="layer active justify-between">
+        
         <div class="mt-8 text-center">
-            <h1 class="text-4xl font-extrabold text-white tracking-tight drop-shadow-xl">TENKI</h1>
-            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-2 font-medium uppercase">Retina Engine v25</p>
+            <h1 class="text-3xl font-bold text-white tracking-tight drop-shadow-lg">TENKI</h1>
+            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1 uppercase">Crystal Stardust</p>
         </div>
 
         <div id="align-hint-capsule">
-            <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-cyan-400"></i>
+            <i id="hint-icon" data-lucide="scan-face" class="w-3 h-3 text-cyan-400"></i>
             <span id="hint-text" class="text-xs font-bold text-white tracking-wide">Ready</span>
         </div>
 
@@ -189,10 +173,10 @@
                     <circle class="ppg-fill" id="ppg-progress" cx="50" cy="50" r="45"></circle>
                 </svg>
                 <div id="scan-trigger" class="fingerprint-btn">
-                    <i data-lucide="fingerprint" class="w-9 h-9 text-white opacity-90"></i>
+                    <i data-lucide="fingerprint" class="w-8 h-8 text-white opacity-90"></i>
                 </div>
             </div>
-            <div id="instruction" class="mt-5 text-[11px] tracking-[2px] text-gray-400 font-medium transition-opacity">
+            <div id="instruction" class="mt-4 text-[10px] tracking-[2px] text-gray-500 font-mono transition-opacity">
                 HOLD TO SCAN (2s)
             </div>
         </div>
@@ -200,10 +184,10 @@
 
     <!-- LAYER 2: RESULT DASHBOARD -->
     <div id="layer-result" class="layer hidden-layer">
-        <div class="flex justify-between items-center mb-4 px-2">
-            <h2 class="text-xl font-bold text-white tracking-tight">Daily Energy</h2>
-            <button onclick="App.resetToHome()" class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center active:bg-white/10">
-                <i data-lucide="x" class="w-4 h-4 text-gray-300"></i>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-white">ERI Dashboard</h2>
+            <button onclick="App.resetToHome()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                <i data-lucide="x" class="w-4 h-4 text-white"></i>
             </button>
         </div>
 
@@ -213,7 +197,6 @@
                     <circle class="ring-track" cx="110" cy="110" r="90"></circle>
                     <circle class="ring-track" cx="110" cy="110" r="75"></circle>
                     <circle class="ring-track" cx="110" cy="110" r="60"></circle>
-                    
                     <circle class="ring-fill r-eri" id="ring-eri" cx="110" cy="110" r="90"></circle>
                     <circle class="ring-fill r-hrv" id="ring-hrv" cx="110" cy="110" r="75"></circle>
                     <circle class="ring-fill r-load" id="ring-load" cx="110" cy="110" r="60"></circle>
@@ -223,32 +206,30 @@
                     <div class="score-label">SCORE</div>
                 </div>
             </div>
-
             <div class="legend-row">
-                <div class="legend-item"><div class="dot bg-[#00FF88]" style="color:#00FF88"></div><div class="l-label">ERI</div><div class="l-val" id="val-eri">--</div></div>
-                <div class="legend-item"><div class="dot bg-[#00F0FF]" style="color:#00F0FF"></div><div class="l-label">HRV</div><div class="l-val" id="val-hrv">--</div></div>
-                <div class="legend-item"><div class="dot bg-[#FFAA00]" style="color:#FFAA00"></div><div class="l-label">LOAD</div><div class="l-val" id="val-load">--</div></div>
+                <div class="legend-item"><div class="dot bg-[#00FF88]"></div><div class="l-label">ERI</div><div class="l-val" id="val-eri">--</div></div>
+                <div class="legend-item"><div class="dot bg-[#00F0FF]"></div><div class="l-label">HRV</div><div class="l-val" id="val-hrv">--</div></div>
+                <div class="legend-item"><div class="dot bg-[#FFAA00]"></div><div class="l-label">LOAD</div><div class="l-val" id="val-load">--</div></div>
             </div>
-
             <div class="mt-6">
                 <div class="text-lg font-bold text-white" id="res-title">Ready to Perform</div>
-                <div class="text-xs text-gray-400 mt-1 max-w-[240px] mx-auto leading-relaxed font-medium">Your recovery is optimal. Push your limits today.</div>
+                <div class="text-xs text-gray-400 mt-1 max-w-[240px] mx-auto leading-relaxed">Your recovery is optimal. Push your limits today.</div>
             </div>
         </div>
 
         <div class="mt-6 mb-2">
-            <h3 class="text-xs font-bold text-gray-400 mb-3 px-2 uppercase tracking-wider">Recommended Strategy</h3>
+            <h3 class="text-sm font-bold text-white mb-2">Strategy</h3>
             <div class="strategy-card">
                 <div class="icon-box"><i data-lucide="zap" class="w-6 h-6 text-[#00FF88]"></i></div>
                 <div>
-                    <div class="text-[10px] font-bold text-[#00FF88] tracking-widest mb-1">AGGRESSIVE</div>
+                    <div class="text-[10px] font-bold text-[#00FF88] tracking-widest mb-1">RECOMMENDED</div>
                     <div class="text-sm font-bold text-white mb-1">Failed Breakdown <span class="text-gray-500">&</span> Scalp</div>
-                    <div class="text-[10px] text-gray-400 font-medium">Market volatility is high.</div>
+                    <div class="text-[10px] text-gray-400">High volatility expected.</div>
                 </div>
             </div>
         </div>
 
-        <button onclick="App.prepEnhancedScan()" class="btn-enhanced mt-auto">
+        <button onclick="App.prepEnhancedScan()" class="w-full mt-auto py-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 active:bg-white/10 transition">
             <span class="text-xs font-bold text-gray-300 tracking-widest">ENHANCED SCAN (15s)</span>
             <i data-lucide="arrow-right" class="w-3 h-3 text-gray-500"></i>
         </button>
@@ -258,9 +239,7 @@
         lucide.createIcons();
 
         const App = {
-            config: { 
-                particleCount: 12000 // Increased from 8k to 12k for high density
-            },
+            config: { particleCount: 15000 }, // High density for sharpness
             state: { 
                 isScanning: false, 
                 scanDuration: 2000, 
@@ -275,74 +254,46 @@
                 this.initEvents();
             },
 
-            // --- 1. RETINA STARDUST ENGINE ---
+            // --- CRYSTAL STARDUST ENGINE (v25.1) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                // Deep black fog, starts further out for depth
-                this.scene.fog = new THREE.FogExp2(0x000000, 0.015);
+                this.scene.fog = new THREE.FogExp2(0x000000, 0.01); // Minimal fog
                 
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 
-                // Responsive camera setup
+                // CAMERA FIX: Pull back to ensure full visibility on mobile
                 const isMobile = window.innerWidth < 768;
-                this.camera.position.z = isMobile ? 6.5 : 5; 
+                this.camera.position.z = isMobile ? 8.5 : 6; 
                 
-                this.renderer = new THREE.WebGLRenderer({ 
-                    alpha: true, 
-                    antialias: true, // Essential for Retina
-                    powerPreference: "high-performance"
-                });
-                
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                // CRITICAL: Set Pixel Ratio to device native (up to 3x on iPhone)
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5)); // Cap at 2.5 to save battery
-                
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3.0)); // Unlock full retina
                 container.appendChild(this.renderer.domElement);
 
-                // High Precision Shader
-                // Adds a uniform 'uPixelRatio' to scale points correctly on high DPI screens
+                // SHADER UPGRADE: Sharp, High-Res Points
                 const vertexShader = `
-                    attribute float size; 
-                    attribute float random; 
-                    uniform float uTime; 
-                    uniform float uScale; 
-                    uniform float uPixelRatio; // Pass pixel ratio
-                    varying float vRandom;
-                    
+                    attribute float size; attribute float random; uniform float uTime; uniform float uScale; uniform float uPixelRatio; varying float vRandom;
                     void main() { 
                         vRandom = random; 
                         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        
-                        // Size calculation: Base * Random * Scale * Perspective * PixelRatio
-                        float baseSize = 35.0; // Base size boosted
-                        gl_PointSize = (baseSize * size * uScale) * (5.0 / -mvPosition.z) * uPixelRatio;
+                        // Micro-particles: Base size reduced to 3.0 for crystal look
+                        gl_PointSize = (3.0 * size * uScale) * (50.0 / -mvPosition.z) * uPixelRatio; 
                         gl_Position = projectionMatrix * mvPosition; 
                     }
                 `;
-                
-                // Soft Gaussian Glow Shader
                 const fragmentShader = `
-                    uniform vec3 color; 
-                    varying float vRandom;
-                    
+                    uniform vec3 color; varying float vRandom;
                     void main() { 
-                        // Center of the point
                         vec2 xy = gl_PointCoord.xy - vec2(0.5); 
-                        float dist = length(xy);
-                        
-                        // Gaussian Falloff for smooth, glowy stars
-                        // exp(-dist * factor) - Higher factor = sharper core
-                        float alpha = exp(-dist * 3.5);
-                        
-                        // Discard outer edges for performance
-                        if (dist > 0.5) discard;
-                        
-                        gl_FragColor = vec4(color, alpha * 0.9); // 0.9 max opacity
+                        float dist = length(xy); 
+                        if(dist > 0.5) discard;
+                        // Sharp Falloff: Hard core, little fuzz
+                        float strength = pow(1.0 - dist * 2.0, 3.0); 
+                        gl_FragColor = vec4(color, strength * 1.0); 
                     }
                 `;
 
-                // Fibonacci Sphere Distribution (Perfect Math)
                 const geometry = new THREE.BufferGeometry();
                 const pos = [], orig = [], rnd = [], sizes = [];
                 const phi = Math.PI * (3. - Math.sqrt(5.));
@@ -352,13 +303,13 @@
                     const radius = Math.sqrt(1 - y * y);
                     const theta = phi * i;
                     
-                    const r = 2.8; 
+                    const r = 3.5; // Bigger sphere radius
                     const x = Math.cos(theta) * radius * r;
                     const z = Math.sin(theta) * radius * r;
                     
                     pos.push(x, y * r, z); orig.push(x, y * r, z);
-                    // More randomness in size for depth
-                    rnd.push(Math.random()); sizes.push(0.3 + Math.random() * 0.7);
+                    rnd.push(Math.random()); 
+                    sizes.push(0.5 + Math.random() * 1.5); // Variance
                 }
                 
                 geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -370,13 +321,10 @@
                     uniforms: {
                         uTime: { value: 0 },
                         uScale: { value: 1.0 },
-                        uPixelRatio: { value: this.renderer.getPixelRatio() }, // Pass it here
+                        uPixelRatio: { value: this.renderer.getPixelRatio() },
                         color: { value: new THREE.Color(0x0088ff) }
                     },
-                    vertexShader, fragmentShader, 
-                    transparent: true, 
-                    depthWrite: false, 
-                    blending: THREE.AdditiveBlending // Glow effect
+                    vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
                 });
 
                 this.cloud = new THREE.Points(geometry, this.material);
@@ -390,16 +338,13 @@
                 this.material.uniforms.uTime.value = time;
                 
                 // Head Sync
-                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
+                this.cloud.rotation.y += 0.001 + (this.state.headRot.y * 0.03);
+                this.cloud.rotation.x += (this.state.headRot.x * 0.03);
 
-                // Energy Expansion
+                // Energy Control
                 let targetEnergy = 0.2;
                 if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 3.0;
-                
-                // LIMIT EXPANSION DURING SCAN to prevent "Explosion"
-                if (this.state.isScanning) targetEnergy = 1.5; 
-                
+                if (this.state.isScanning) targetEnergy = 2.0; 
                 this.state.energy += (targetEnergy - this.state.energy) * 0.1;
 
                 const positions = this.cloud.geometry.attributes.position.array;
@@ -410,7 +355,8 @@
                     const idx = i * 3;
                     const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
                     const noise = Math.sin(time * 2 + rnd[i] * 10) * this.state.energy * 0.1;
-                    const expansion = 1 + (this.state.mouthOpen * 0.2);
+                    // More subtle expansion for crystal look
+                    const expansion = 1 + (this.state.mouthOpen * 0.15); 
                     positions[idx] = ox * expansion + (ox * noise);
                     positions[idx+1] = oy * expansion + (oy * noise);
                     positions[idx+2] = oz * expansion + (oz * noise);
@@ -420,7 +366,7 @@
                 // Color Logic
                 if (this.state.isScanning) {
                     this.material.uniforms.color.value.setHex(0x9D00FF);
-                    this.material.uniforms.uScale.value = 1.1; // Gentle zoom
+                    this.material.uniforms.uScale.value = 1.1;
                 } else {
                     this.material.uniforms.color.value.setHex(0x112233);
                     this.material.uniforms.uScale.value = 0.8;
@@ -428,7 +374,7 @@
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // --- 2. AI & ALIGNMENT ---
+            // --- AI & ALIGNMENT ---
             initAI: function() {
                 const video = document.getElementById('input-video');
                 const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
@@ -457,7 +403,7 @@
                         
                         if(hintText.innerText !== msg && !this.state.isScanning) {
                             hintText.innerText = msg;
-                            hintIcon.outerHTML = `<i id="hint-icon" data-lucide="${icon}" class="w-4 h-4 ${color}"></i>`;
+                            hintIcon.outerHTML = `<i id="hint-icon" data-lucide="${icon}" class="w-3 h-3 ${color}"></i>`;
                             lucide.createIcons();
                             if(msg === "Ready to Scan" && navigator.vibrate) navigator.vibrate(20);
                         }
@@ -468,7 +414,7 @@
                     } else {
                         if(!this.state.isScanning) {
                             hintText.innerText = "Find Face";
-                            hintIcon.outerHTML = `<i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-red-400"></i>`;
+                            hintIcon.outerHTML = `<i id="hint-icon" data-lucide="scan-face" class="w-3 h-3 text-red-400"></i>`;
                             lucide.createIcons();
                             hint.classList.add('show');
                         }
@@ -482,7 +428,7 @@
                 camera.start();
             },
 
-            // --- 3. LOGIC & EVENTS ---
+            // --- EVENTS & SCAN LOGIC ---
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
                 const wrapper = document.getElementById('scan-wrapper');
@@ -543,11 +489,15 @@
                         if(navigator.vibrate) navigator.vibrate(10);
                     } else {
                         clearInterval(this.countInterval);
+                        // Ensure finishScan triggers if timer ends naturally
                     }
                 }, 1000);
             },
 
             prepEnhancedScan: function() {
+                // FIXED: Clear interval to prevent double triggers
+                clearInterval(this.countInterval);
+                
                 document.getElementById('layer-result').classList.remove('active');
                 document.getElementById('layer-result').classList.add('hidden-layer');
                 setTimeout(() => {
