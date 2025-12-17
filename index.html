@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v26.0 - Precision Particle</title>
+    <title>TENKI v27.0 - Quantum Sharpness</title>
     
     <!-- Core Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -37,7 +37,7 @@
 
         #input-video { position: fixed; opacity: 0; pointer-events: none; }
         
-        /* PURE BLACK BACKGROUND FOR CONTRAST */
+        /* PURE BLACK CANVAS - NO CSS FILTERS */
         #universe { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             z-index: 0; pointer-events: none; 
@@ -95,7 +95,7 @@
 
         /* --- DASHBOARD --- */
         .dashboard-card {
-            background: rgba(20, 24, 30, 0.75);
+            background: rgba(20, 24, 30, 0.8);
             backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 32px;
@@ -151,7 +151,7 @@
     <div id="layer-home" class="layer active justify-between">
         <div class="mt-8 text-center">
             <h1 class="text-3xl font-bold text-white tracking-tight drop-shadow-lg">TENKI</h1>
-            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1 uppercase">Precision V26</p>
+            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1 uppercase">Quantum Sharpness</p>
         </div>
 
         <div id="align-hint-capsule">
@@ -233,7 +233,7 @@
         lucide.createIcons();
 
         const App = {
-            config: { particleCount: 8000 }, // BACK TO 8000 (Golden Ratio)
+            config: { particleCount: 8000 }, // GOLDEN COUNT
             state: { 
                 isScanning: false, 
                 scanDuration: 2000, 
@@ -249,32 +249,31 @@
                 this.initEvents();
             },
 
-            // --- 1. PRECISION ENGINE (Restored v18.0 Logic) ---
+            // --- 1. QUANTUM SHARPNESS ENGINE (v27.0) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                this.scene.fog = new THREE.FogExp2(0x000000, 0.02); // Standard fog
+                this.scene.fog = new THREE.FogExp2(0x000000, 0.002); // Almost no fog
                 
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 
-                // Fixed optimal distance
+                // Keep distinct distance. Not too close.
                 const isMobile = window.innerWidth < 768;
-                this.camera.position.z = isMobile ? 6.5 : 5.0; 
+                this.camera.position.z = isMobile ? 8.0 : 6.0; 
                 
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3.0)); 
                 container.appendChild(this.renderer.domElement);
 
-                // SHADER: The Original v18.0 Recipe
-                // No complex gaussian, just pure mathematical dot
+                // --- KEY CHANGE: ULTRA SHARP SHADER ---
                 const vertexShader = `
                     attribute float size; attribute float random; uniform float uTime; uniform float uScale; uniform float uPixelRatio; varying float vRandom;
                     void main() { 
                         vRandom = random; 
                         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        // Size 3.0 * PixelRatio => Crisp points on Retina
-                        gl_PointSize = (3.0 * size * uScale) * (50.0 / -mvPosition.z) * uPixelRatio; 
+                        // Size reduced to 4.0 for sharp, tiny points
+                        gl_PointSize = (4.0 * size * uScale) * (50.0 / -mvPosition.z) * uPixelRatio; 
                         gl_Position = projectionMatrix * mvPosition; 
                     }
                 `;
@@ -285,11 +284,12 @@
                         float dist = length(xy); 
                         if(dist > 0.5) discard;
                         
-                        // Pure circular glow (v18 style)
-                        // This prevents the "blob" effect
-                        float strength = pow((0.5 - dist) * 2.0, 2.0); 
+                        // --- THE DIAMOND CUT FORMULA ---
+                        // Power of 5.0 cuts off soft edges aggressively. 
+                        // Creates a hard, bright core.
+                        float strength = pow(1.0 - dist * 2.0, 5.0); 
                         
-                        gl_FragColor = vec4(color, strength * 0.8); // 0.8 Opacity
+                        gl_FragColor = vec4(color, strength); 
                     }
                 `;
 
@@ -302,7 +302,8 @@
                     const radius = Math.sqrt(1 - y * y);
                     const theta = phi * i;
                     
-                    const r = 2.8; 
+                    // Expanded Radius to 4.0 to prevent clustering
+                    const r = 4.0; 
                     const x = Math.cos(theta) * radius * r;
                     const z = Math.sin(theta) * radius * r;
                     
@@ -335,16 +336,17 @@
                 const time = Date.now() * 0.001;
                 this.material.uniforms.uTime.value = time;
                 
-                // --- SYNC LOGIC (Subtle & Elegant) ---
+                // --- SYNC LOGIC ---
+                // Eyes = Rotation Speed
                 const baseSpeed = 0.001;
-                const eyeSpeedBoost = this.state.eyesOpen * 0.005; 
+                const eyeSpeedBoost = this.state.eyesOpen * 0.008; 
                 this.cloud.rotation.y += baseSpeed + eyeSpeedBoost + (this.state.headRot.y * 0.03);
                 this.cloud.rotation.x += (this.state.headRot.x * 0.03);
 
                 // Mouth = Expansion
                 let targetEnergy = 0.2;
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 3.0;
-                if (this.state.isScanning) targetEnergy = 1.5; 
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 4.0; // Big reaction
+                if (this.state.isScanning) targetEnergy = 1.0; // Keep scan tight
                 
                 this.state.energy += (targetEnergy - this.state.energy) * 0.1;
 
@@ -356,11 +358,11 @@
                     const idx = i * 3;
                     const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
                     
-                    // Eye Shimmer (Subtle)
-                    const shimmer = Math.sin(time * 10 + rnd[i] * 50) * this.state.eyesOpen * 0.03;
+                    // Shimmer
+                    const shimmer = Math.sin(time * 10 + rnd[i] * 50) * this.state.eyesOpen * 0.05;
                     
                     const noise = Math.sin(time * 2 + rnd[i] * 10) * this.state.energy * 0.1;
-                    const expansion = 1 + (this.state.mouthOpen * 0.2) + shimmer;
+                    const expansion = 1 + (this.state.mouthOpen * 0.3) + shimmer;
                     
                     positions[idx] = ox * expansion + (ox * noise);
                     positions[idx+1] = oy * expansion + (oy * noise);
@@ -370,7 +372,7 @@
 
                 if (this.state.isScanning) {
                     this.material.uniforms.color.value.setHex(0x9D00FF);
-                    this.material.uniforms.uScale.value = 1.1;
+                    this.material.uniforms.uScale.value = 1.0; // Don't zoom in scan
                 } else {
                     this.material.uniforms.color.value.setHex(0x00F0FF); 
                     this.material.uniforms.uScale.value = 0.9;
