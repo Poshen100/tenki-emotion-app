@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v30.0 - Steve's Vision</title>
+    <title>TENKI v31.0 - Aurora Stardust</title>
     
     <!-- Core Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -15,20 +15,25 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* --- 1. THE FOUNDATION --- */
+        /* --- 1. GLOBAL & AURORA PALETTE --- */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         :root {
-            --bg-deep: #000000;
-            --glass-panel: rgba(18, 18, 20, 0.85); /* Darker, less milkiness */
-            --glass-border: rgba(255, 255, 255, 0.15); /* Sharper border */
+            --bg-deep: #020408; /* Deep Space Blue, not pure black */
+            /* Go Club Inspired Neon Palette */
+            --aurora-cyan: #00F0FF;
+            --aurora-blue: #4361EE;
+            --aurora-purple: #7209B7;
+            --aurora-pink: #F72585;
+            
+            --glass-card: rgba(20, 25, 40, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.12);
         }
 
         body {
             background: var(--bg-deep);
             color: white;
-            /* Apple's System Font Stack - The only choice for Steve */
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
             width: 100vw; height: 100dvh;
             position: fixed; margin: 0; padding: 0;
             overflow: hidden; touch-action: none;
@@ -37,82 +42,131 @@
 
         #input-video { position: fixed; opacity: 0; pointer-events: none; }
         
-        /* THE VOID: Pure #000000 */
+        /* Deep Universe Background */
         #universe { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             z-index: 0; pointer-events: none; 
-            background: #000000; 
+            background: radial-gradient(circle at center, #0a0e17 0%, #000000 100%);
         }
 
-        /* --- 2. UI LAYERS (Precision Animation) --- */
+        /* --- 2. LAYER SYSTEM --- */
         .layer {
             position: absolute; inset: 0; z-index: 10;
             display: flex; flex-direction: column;
-            padding: calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 20px) 20px;
-            opacity: 0; pointer-events: none; transform: scale(0.98); filter: blur(20px); /* Heavy blur for transition depth */
-            transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); /* Apple's spring curve */
+            padding: calc(env(safe-area-inset-top) + 20px) 24px calc(env(safe-area-inset-bottom) + 30px) 24px;
+            opacity: 0; pointer-events: none; transform: scale(0.96); filter: blur(20px);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .layer.active { opacity: 1; pointer-events: auto; transform: scale(1); filter: blur(0); }
-        .layer.hidden-layer { opacity: 0; transform: scale(1.1); pointer-events: none; filter: blur(40px); }
+        .layer.hidden-layer { opacity: 0; transform: scale(1.05); pointer-events: none; filter: blur(20px); }
 
-        /* --- 3. SCANNER UI (Refined) --- */
+        /* --- 3. SCANNER UI (Apple Pay Style) --- */
         #align-hint-capsule {
             position: absolute; top: 15%; left: 50%; transform: translateX(-50%) translateY(-20px);
-            background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            padding: 10px 18px; border-radius: 99px; border: 0.5px solid rgba(255,255,255,0.2);
-            display: flex; align-items: center; gap: 8px; opacity: 0; pointer-events: none; transition: all 0.4s ease;
-            z-index: 50; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            background: rgba(10, 15, 30, 0.8); backdrop-filter: blur(20px);
+            padding: 10px 20px; border-radius: 99px;
+            border: 1px solid rgba(255,255,255,0.15);
+            display: flex; align-items: center; gap: 10px;
+            opacity: 0; pointer-events: none; transition: all 0.4s ease;
+            z-index: 50; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
         #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         
-        .scan-wrapper { position: relative; width: 100px; height: 100px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
-        
-        .fingerprint-btn { 
-            width: 72px; height: 72px; border-radius: 50%; 
-            background: rgba(30, 30, 30, 0.5); 
-            border: 0.5px solid rgba(255,255,255,0.3); 
-            display: flex; align-items: center; justify-content: center; 
-            transition: transform 0.2s; backdrop-filter: blur(10px);
+        .scan-wrapper {
+            position: relative; width: 110px; height: 110px;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto;
+            background: radial-gradient(circle, rgba(67, 97, 238, 0.1) 0%, transparent 70%);
         }
-        .fingerprint-btn:active { transform: scale(0.94); background: rgba(255,255,255,0.1); }
-        
-        /* Razor sharp SVG lines */
-        .ppg-ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
-        .ppg-fill { 
-            fill: none; stroke: #00F0FF; stroke-width: 2.5; stroke-linecap: round; 
-            stroke-dasharray: 283; stroke-dashoffset: 283; 
-            transition: stroke-dashoffset 0s linear; 
-            filter: drop-shadow(0 0 3px #00F0FF); 
+        .fingerprint-btn {
+            width: 72px; height: 72px; border-radius: 50%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.2s; cursor: pointer; z-index: 2;
+            backdrop-filter: blur(10px);
         }
-        .scanning-2s .ppg-fill { transition: stroke-dashoffset 2s linear; stroke-dashoffset: 0; }
-        .scanning-15s .ppg-fill { transition: stroke-dashoffset 15s linear; stroke-dashoffset: 0; }
+        .fingerprint-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.1); border-color: var(--aurora-cyan); }
+        
+        .ppg-ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1; }
+        .ppg-fill {
+            fill: none; stroke: url(#grad1); /* Gradient Stroke */
+            stroke-width: 4; stroke-linecap: round;
+            stroke-dasharray: 283; stroke-dashoffset: 283;
+            transition: stroke-dashoffset 0s linear;
+            filter: drop-shadow(0 0 6px var(--aurora-cyan));
+        }
+        .scan-wrapper.scanning-2s .ppg-fill { transition: stroke-dashoffset 2s linear; stroke-dashoffset: 0; }
+        .scan-wrapper.scanning-15s .ppg-fill { transition: stroke-dashoffset 15s linear; stroke-dashoffset: 0; }
 
-        /* --- 4. DASHBOARD (High Contrast Bento) --- */
+        /* --- 4. GO CLUB BENTO DASHBOARD --- */
         .bento-grid {
-            display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto 1fr;
-            gap: 12px; height: 100%; width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto auto 1fr;
+            gap: 16px; height: 100%; width: 100%;
         }
-        .bento-card {
-            background: var(--glass-panel);
-            backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px);
-            border: 0.5px solid var(--glass-border);
-            border-radius: 24px; padding: 18px;
+
+        .card {
+            background: var(--glass-card);
+            backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+            border: 1px solid var(--glass-border);
+            border-radius: 32px; /* Go Club Rounded */
+            padding: 20px;
             position: relative; overflow: hidden;
             display: flex; flex-direction: column; justify-content: space-between;
-            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
         }
-        .col-span-2 { grid-column: span 2; }
-        
-        .lbl { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.5px; }
-        .val-big { font-size: 34px; font-weight: 700; color: white; letter-spacing: -0.5px; }
-        .val-sub { font-size: 13px; color: rgba(255,255,255,0.6); font-weight: 500; }
 
-        /* Status Tag */
-        .emo-tag {
-            padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
-            background: rgba(255,255,255,0.08); border: 0.5px solid rgba(255,255,255,0.1);
-            display: inline-block; margin-top: 6px; color: white;
+        .col-span-2 { grid-column: span 2; }
+
+        /* Typography */
+        .lbl { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.5px; z-index: 2; }
+        .val-huge { font-size: 56px; font-weight: 800; color: white; line-height: 1; letter-spacing: -2px; z-index: 2; text-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .val-big { font-size: 32px; font-weight: 700; color: white; letter-spacing: -1px; z-index: 2; }
+        .val-sub { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.8); z-index: 2; }
+
+        /* WIDGET STYLES */
+        
+        /* 1. Liquid ERI Card */
+        .card-liquid {
+            background: linear-gradient(135deg, #1A1C2E 0%, #0F1119 100%);
         }
+        .liquid-blob {
+            position: absolute; bottom: -50%; right: -20%; width: 200px; height: 200px;
+            background: linear-gradient(to top right, var(--aurora-blue), var(--aurora-cyan));
+            border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+            filter: blur(40px); opacity: 0.6; animation: blob-float 10s infinite alternate;
+        }
+        @keyframes blob-float { from { transform: rotate(0deg) translate(0,0); } to { transform: rotate(20deg) translate(-20px, 20px); } }
+
+        /* 2. Gradient Bar Chart */
+        .bar-container { display: flex; align-items: flex-end; gap: 6px; height: 50px; margin-top: auto; }
+        .bar { 
+            flex: 1; border-radius: 6px; 
+            background: linear-gradient(to top, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); 
+            position: relative; overflow: hidden;
+        }
+        .bar-fill {
+            position: absolute; bottom: 0; left: 0; width: 100%; 
+            background: linear-gradient(to top, var(--aurora-purple), var(--aurora-pink));
+            border-radius: 6px; transition: height 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* 3. Ring Widget */
+        .ring-container { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; }
+        .ring-bg { position: absolute; inset: 0; border-radius: 50%; border: 6px solid rgba(255,255,255,0.1); }
+        .ring-val { position: absolute; inset: 0; border-radius: 50%; border: 6px solid transparent; border-top-color: var(--aurora-green); border-right-color: var(--aurora-cyan); transform: rotate(-45deg); }
+
+        /* Action Button */
+        .btn-aurora {
+            width: 100%; padding: 18px; border-radius: 24px; margin-top: 10px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            color: white; font-weight: 700; font-size: 13px; letter-spacing: 1px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: all 0.2s; backdrop-filter: blur(10px);
+        }
+        .btn-aurora:active { transform: scale(0.98); background: rgba(255,255,255,0.1); }
 
     </style>
 </head>
@@ -120,18 +174,28 @@
 
     <video id="input-video" playsinline webkit-playsinline></video>
     
-    <!-- THE VOID ENGINE -->
+    <!-- SVG Gradient Defs -->
+    <svg width="0" height="0">
+        <defs>
+            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#00F0FF;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#7209B7;stop-opacity:1" />
+            </linearGradient>
+        </defs>
+    </svg>
+
+    <!-- UNIVERSE (Fixed) -->
     <div id="universe"></div>
 
-    <!-- HOME -->
+    <!-- LAYER 1: HOME -->
     <div id="layer-home" class="layer active justify-between">
         <div class="mt-8 text-center">
-            <h1 class="text-3xl font-bold text-white tracking-tight">TENKI</h1>
-            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-2 font-medium uppercase">Retina XDR</p>
+            <h1 class="text-3xl font-bold text-white tracking-tight drop-shadow-lg">TENKI</h1>
+            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-2 font-bold uppercase">Aurora Stardust</p>
         </div>
 
         <div id="align-hint-capsule">
-            <i id="hint-icon" data-lucide="scan-face" class="w-3 h-3 text-cyan-400"></i>
+            <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-cyan-400"></i>
             <span id="hint-text" class="text-xs font-bold text-white tracking-wide">Ready</span>
         </div>
 
@@ -141,7 +205,7 @@
                     <circle class="ppg-fill" id="ppg-progress" cx="50" cy="50" r="45"></circle>
                 </svg>
                 <div id="scan-trigger" class="fingerprint-btn">
-                    <i data-lucide="fingerprint" class="w-8 h-8 text-white opacity-80"></i>
+                    <i data-lucide="fingerprint" class="w-9 h-9 text-white opacity-80"></i>
                 </div>
             </div>
             <div id="instruction" class="mt-5 text-[11px] tracking-[2px] text-gray-400 font-bold transition-opacity">
@@ -150,109 +214,97 @@
         </div>
     </div>
 
-    <!-- RESULT DASHBOARD -->
+    <!-- LAYER 2: DASHBOARD (BENTO) -->
     <div id="layer-result" class="layer hidden-layer">
         
-        <div class="flex justify-between items-start mb-2 px-1">
+        <div class="flex justify-between items-center mb-4 px-2">
             <div>
-                <div class="text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-0.5">Snapshot</div>
-                <div class="text-lg font-bold text-white">Analysis</div>
+                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Live Snapshot</div>
+                <div class="text-xl font-bold text-white">Your Energy</div>
             </div>
-            <button onclick="App.resetToHome()" class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center active:bg-white/10">
-                <i data-lucide="x" class="w-4 h-4 text-gray-300"></i>
+            <button onclick="App.resetToHome()" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center active:bg-white/10 backdrop-blur-md">
+                <i data-lucide="x" class="w-5 h-5 text-gray-300"></i>
             </button>
         </div>
 
         <div class="bento-grid">
             
-            <!-- EMOTION -->
-            <div class="bento-card col-span-2 flex-row items-center justify-between relative overflow-hidden">
-                <div class="absolute right-0 top-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-2xl pointer-events-none"></div>
-                <div class="z-10">
-                    <div class="lbl">Detected State</div>
-                    <div class="val-big" id="res-emotion">--</div>
-                    <div class="emo-tag" id="res-confidence">High Confidence</div>
+            <!-- 1. ERI SCORE (Liquid Card) -->
+            <div class="card card-liquid col-span-2 flex-row items-center relative">
+                <div class="liquid-blob"></div> <!-- Blob Effect -->
+                <div class="z-10 flex-1">
+                    <div class="lbl text-cyan-200">ERI Score</div>
+                    <div class="val-huge" id="res-eri">--</div>
+                    <div class="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 backdrop-blur-md">
+                        <div class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+                        <span class="text-[10px] font-bold text-white tracking-wider" id="res-status">OPTIMAL</span>
+                    </div>
                 </div>
-                <div class="text-right z-10">
-                    <div class="lbl">Arousal</div>
-                    <div class="text-2xl font-bold text-white" id="res-arousal">--</div>
+                <!-- Circular Chart -->
+                <div class="z-10 relative w-24 h-24 flex items-center justify-center">
+                    <svg viewBox="0 0 100 100" class="w-full h-full rotate-[-90deg]">
+                        <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="8" fill="none"></circle>
+                        <circle cx="50" cy="50" r="40" stroke="url(#grad1)" stroke-width="8" fill="none" stroke-dasharray="251" stroke-dashoffset="50" stroke-linecap="round"></circle>
+                    </svg>
+                    <i data-lucide="zap" class="absolute w-6 h-6 text-white"></i>
                 </div>
             </div>
 
-            <!-- ERI -->
-            <div class="bento-card">
-                <div class="lbl">ERI Score</div>
-                <div class="val-big" id="res-eri">--</div>
-                <div class="val-sub text-green-400" id="res-eri-desc">Optimal</div>
-            </div>
-
-            <!-- HRV -->
-            <div class="bento-card">
-                <div class="lbl">HRV (Est)</div>
-                <div class="val-big" id="res-hrv">--</div>
-                <div class="val-sub">ms</div>
-            </div>
-
-            <!-- STRATEGY -->
-            <div class="bento-card col-span-2" style="background: rgba(20, 22, 28, 0.9);">
-                <div class="flex items-center gap-2 mb-2">
-                    <i data-lucide="zap" class="w-4 h-4 text-yellow-400"></i>
-                    <div class="lbl text-yellow-400" style="margin-bottom: 0;">Strategy</div>
+            <!-- 2. HRV (Graph) -->
+            <div class="card">
+                <div class="flex justify-between items-start z-10">
+                    <div class="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                        <i data-lucide="heart-pulse" class="w-4 h-4 text-purple-300"></i>
+                    </div>
+                    <span class="text-xs font-bold text-purple-300">+12%</span>
                 </div>
-                <div class="text-lg font-bold text-white">
+                <div class="mt-2 z-10">
+                    <div class="val-big" id="res-hrv">--</div>
+                    <div class="lbl mt-1">HRV (ms)</div>
+                </div>
+            </div>
+
+            <!-- 3. LOAD (Bar Chart) -->
+            <div class="card">
+                <div class="lbl z-10">System Load</div>
+                <div class="bar-container z-10">
+                    <div class="bar"><div class="bar-fill" style="height: 40%"></div></div>
+                    <div class="bar"><div class="bar-fill" style="height: 60%"></div></div>
+                    <div class="bar"><div class="bar-fill" style="height: 30%"></div></div>
+                    <div class="bar"><div class="bar-fill" style="height: 80%"></div></div>
+                </div>
+                <div class="val-sub mt-2 text-right z-10">62%</div>
+            </div>
+
+            <!-- 4. STRATEGY -->
+            <div class="card col-span-2" style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(0,0,0,0));">
+                <div class="flex items-center gap-2 mb-2 z-10">
+                    <i data-lucide="crosshair" class="w-4 h-4 text-cyan-400"></i>
+                    <div class="lbl text-cyan-200" style="margin-bottom: 0;">Strategy</div>
+                </div>
+                <div class="text-lg font-bold text-white z-10">
                     Failed Breakdown <span class="text-gray-500">&</span> Scalp
-                </div>
-                <div class="val-sub mt-1 text-gray-400" id="res-strategy-hint">
-                    Market volatility aligns with your state.
                 </div>
             </div>
 
         </div>
-        
-        <button onclick="App.resetToHome()" class="w-full mt-4 py-4 rounded-2xl bg-white/5 border border-white/10 text-xs text-white font-bold tracking-widest active:bg-white/10 transition">
-            COMPLETE SESSION
+
+        <button onclick="App.prepEnhancedScan()" class="btn-aurora">
+            <span>ENHANCED SCAN (15s)</span>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-gray-400"></i>
         </button>
     </div>
 
     <script>
         lucide.createIcons();
 
-        // --- 1. ENGINE: FACS LOGIC ---
-        class EmotionClassifier {
-            constructor() {
-                this.emotions = {
-                    'Joy': { color: 0xFFD700, arousal: 0.7 },
-                    'Surprise': { color: 0xFF8C00, arousal: 0.95 },
-                    'Sadness': { color: 0x708090, arousal: 0.2 },
-                    'Anger': { color: 0xFF4500, arousal: 0.9 },
-                    'Disgust': { color: 0x228B22, arousal: 0.6 },
-                    'Fear': { color: 0x9370DB, arousal: 0.85 },
-                    'Neutral': { color: 0x00F0FF, arousal: 0.3 }
-                };
-            }
-            classify(au) {
-                const scores = {
-                    'Joy': (au.AU6 * 0.5 + au.AU12 * 0.3) + au.AU5 * 0.1,
-                    'Surprise': (au.AU1 * 0.2 + au.AU2 * 0.2) + au.AU5 * 0.3,
-                    'Sadness': au.AU4 * 0.4,
-                    'Anger': au.AU4 * 0.4 + au.AU7 * 0.3,
-                    'Neutral': Math.max(0, 1 - (au.totalActivity * 1.5))
-                };
-                let max = -1, dom = 'Neutral';
-                for (const [e, s] of Object.entries(scores)) { if (s > max) { max = s; dom = e; } }
-                return { emotion: dom, data: this.emotions[dom], confidence: max };
-            }
-        }
-
-        // --- 2. APP CORE ---
         const App = {
             config: { particleCount: 8000 }, 
             state: { 
                 isScanning: false, scanDuration: 2000, 
                 mouthOpen: 0, headRot: {x:0, y:0}, energy: 0,
-                detectedEmotion: 'Neutral', lastResult: null
+                eyesOpen: 0
             },
-            engine: new EmotionClassifier(),
 
             init: function() {
                 this.initThree();
@@ -260,31 +312,27 @@
                 this.initEvents();
             },
 
-            // --- 3. RETINA VISUAL ENGINE (NO FOG, HARD SHADER) ---
+            // --- 1. THREE.JS ENGINE (AURORA SHADER) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                // NO FOG. Pure vacuum.
+                // Minimal fog for depth
+                this.scene.fog = new THREE.FogExp2(0x020408, 0.005);
                 
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 const isMobile = window.innerWidth < 768;
                 this.camera.position.z = isMobile ? 8.0 : 6.0; 
                 
-                this.renderer = new THREE.WebGLRenderer({ 
-                    alpha: false, // Opaque background for performance and contrast
-                    antialias: true, 
-                    powerPreference: "high-performance" 
-                });
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3.0)); // MAX DPI
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3.0)); 
                 container.appendChild(this.renderer.domElement);
 
-                // SHADER: THE CRYSTAL POINT
+                // DIAMOND SHADER with COLOR MIX
                 const vertexShader = `
                     attribute float size; attribute float random; uniform float uTime; uniform float uScale; uniform float uPixelRatio; varying float vRandom;
                     void main() { 
                         vRandom = random; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        // Size 4.0 * PixelRatio = Razor Sharp on iPhone
                         gl_PointSize = (4.0 * size * uScale) * (50.0 / -mvPosition.z) * uPixelRatio; 
                         gl_Position = projectionMatrix * mvPosition; 
                     }
@@ -292,17 +340,13 @@
                 const fragmentShader = `
                     uniform vec3 color; varying float vRandom;
                     void main() { 
-                        vec2 xy = gl_PointCoord.xy - vec2(0.5); 
-                        float dist = length(xy); 
+                        vec2 xy = gl_PointCoord.xy - vec2(0.5); float dist = length(xy); 
                         if(dist > 0.5) discard;
                         
-                        // JOBS STYLE: Extreme sharpness.
-                        // pow(..., 20.0) concentrates light in the absolute center.
-                        // No fuzziness.
-                        float strength = pow(1.0 - dist * 2.0, 20.0); 
+                        // Sharp Diamond Cut
+                        float strength = pow(1.0 - dist * 2.0, 8.0); 
                         
-                        // Boost center brightness to compensate for small size
-                        gl_FragColor = vec4(color, strength * 2.0); 
+                        gl_FragColor = vec4(color, strength); 
                     }
                 `;
 
@@ -321,10 +365,10 @@
                 this.material = new THREE.ShaderMaterial({
                     uniforms: {
                         uTime: { value: 0 }, uScale: { value: 1.0 }, uPixelRatio: { value: this.renderer.getPixelRatio() },
+                        // Default color: Electric Cyan
                         color: { value: new THREE.Color(0x00F0FF) }
                     },
-                    vertexShader, fragmentShader, 
-                    blending: THREE.AdditiveBlending, depthWrite: false, transparent: true
+                    vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
                 });
                 this.cloud = new THREE.Points(geometry, this.material);
                 this.scene.add(this.cloud);
@@ -334,27 +378,31 @@
             animate: function() {
                 requestAnimationFrame(() => this.animate());
                 const time = Date.now() * 0.001;
-                this.material.uniforms.uTime.value = time;
                 
-                // Physics: v18 Wild Style
-                this.cloud.rotation.y += 0.001 + (this.state.headRot.y * 0.05);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
+                // Physics
+                this.cloud.rotation.y += 0.001 + (this.state.headRot.y * 0.03);
+                this.cloud.rotation.x += (this.state.headRot.x * 0.03);
 
                 let targetEnergy = 0.2;
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 4.0;
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 3.0;
                 if (this.state.isScanning) targetEnergy = 1.0; 
                 this.state.energy += (targetEnergy - this.state.energy) * 0.1;
                 
                 const s = 1.0 + (this.state.energy * 0.15);
                 this.cloud.scale.set(s, s, s);
 
+                // AURORA COLOR LOGIC
                 if (this.state.isScanning) {
-                    this.material.uniforms.color.value.setHex(0xFFFFFF); // White hot
-                } else if (this.state.lastResult) {
-                    const target = new THREE.Color(this.state.lastResult.data.color);
-                    this.material.uniforms.color.value.lerp(target, 0.05);
+                    // Pulse between Purple and Cyan during scan
+                    const hue = (Math.sin(time * 2) + 1) * 0.5; // 0 to 1
+                    const c1 = new THREE.Color(0x00F0FF);
+                    const c2 = new THREE.Color(0x8B5CF6);
+                    this.material.uniforms.color.value.lerpColors(c1, c2, hue);
+                    this.material.uniforms.uScale.value = 1.2;
                 } else {
+                    // Default to Cyan-Blue
                     this.material.uniforms.color.value.lerp(new THREE.Color(0x00F0FF), 0.05);
+                    this.material.uniforms.uScale.value = 0.9;
                 }
                 this.renderer.render(this.scene, this.camera);
             },
@@ -373,26 +421,22 @@
                         this.state.headRot.y = (lm[1].x - 0.5) * 2;
                         const mouthDist = Math.abs(lm[13].y - lm[14].y);
                         this.state.mouthOpen = Math.min(1.0, Math.max(0, (mouthDist - 0.02) * 5));
-
-                        // AU Calc
-                        const au = {
-                            AU1: Math.abs(lm[70].y - lm[159].y) * 10, AU2: Math.abs(lm[105].y - lm[386].y) * 10,
-                            AU4: Math.max(0, 0.05 - Math.abs(lm[70].x - lm[300].x)) * 20,
-                            AU5: Math.abs(lm[159].y - lm[145].y) * 10, AU6: (0.5 - lm[215].y) * 2,
-                            AU7: (0.02 - Math.abs(lm[159].y - lm[145].y)) * 10, AU12: (Math.abs(lm[61].x - lm[291].x) - 0.1) * 5,
-                            totalActivity: 0
-                        };
-                        au.totalActivity = Object.values(au).reduce((a,b)=>a+b,0);
-                        this.state.detectedEmotion = this.engine.classify(au).emotion;
-
+                        
                         // Align
+                        const noseX = lm[1].x;
                         const width = Math.abs(lm[234].x - lm[454].x);
                         let msg = "Ready to Scan";
-                        if(width < 0.35) msg = "Move Closer";
-                        else if(lm[1].x < 0.4 || lm[1].x > 0.6) msg = "Center Face";
+                        let icon = "check-circle";
+                        let color = "text-cyan-400";
+                        
+                        if(width < 0.35) { msg = "Move Closer"; icon = "maximize"; color = "text-purple-400"; }
+                        else if(noseX < 0.4 || noseX > 0.6) { msg = "Center Face"; icon = "scan-face"; color = "text-purple-400"; }
                         
                         if(hintText.innerText !== msg && !this.state.isScanning) {
                             hintText.innerText = msg;
+                            // Update icon dynamically
+                            document.getElementById('hint-icon').outerHTML = `<i id="hint-icon" data-lucide="${icon}" class="w-4 h-4 ${color}"></i>`;
+                            lucide.createIcons();
                             if(msg === "Ready to Scan" && navigator.vibrate) navigator.vibrate(20);
                         }
                         if(!this.state.isScanning) hint.classList.add('show'); else hint.classList.remove('show');
@@ -412,19 +456,28 @@
                     e.preventDefault();
                     if(this.state.isScanning) return;
                     this.state.isScanning = true;
-                    wrapper.classList.add('scanning-2s');
-                    document.getElementById('instruction').innerText = "CALIBRATING...";
-                    document.getElementById('instruction').style.color = "#00F0FF";
+                    
+                    if(this.state.scanDuration > 5000) {
+                        wrapper.classList.add('scanning-15s');
+                        this.startCountdown(15);
+                    } else {
+                        wrapper.classList.add('scanning-2s');
+                        document.getElementById('instruction').innerText = "KEEP STILL...";
+                        document.getElementById('instruction').style.color = "#00F0FF";
+                    }
                     if(navigator.vibrate) navigator.vibrate(50);
-                    this.scanTimer = setTimeout(() => { this.finishScan(); }, 2000);
+                    this.scanTimer = setTimeout(() => { this.finishScan(); }, this.state.scanDuration);
                 };
 
                 const end = (e) => {
                     if(!this.state.isScanning) return;
                     this.state.isScanning = false;
                     clearTimeout(this.scanTimer);
+                    clearInterval(this.countInterval);
                     wrapper.classList.remove('scanning-2s');
-                    document.getElementById('instruction').innerText = "HOLD TO SCAN";
+                    wrapper.classList.remove('scanning-15s');
+                    const txt = this.state.scanDuration > 5000 ? "HOLD FOR 15s..." : "HOLD TO SCAN (2s)";
+                    document.getElementById('instruction').innerText = txt;
                     document.getElementById('instruction').style.color = "gray";
                 };
 
@@ -435,54 +488,73 @@
                 btn.addEventListener('mouseleave', end);
             },
 
-            finishScan: function() {
-                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                
-                const emotionKey = this.state.detectedEmotion;
-                this.state.lastResult = { emotion: emotionKey, data: this.engine.emotions[emotionKey], confidence: 0.88 };
-
-                document.getElementById('layer-home').classList.remove('active');
-                document.getElementById('layer-home').classList.add('hidden-layer');
-                document.getElementById('scan-wrapper').classList.remove('scanning-2s');
-                
-                setTimeout(() => {
-                    document.getElementById('layer-result').classList.remove('hidden-layer');
-                    document.getElementById('layer-result').classList.add('active');
-                    this.populateResults();
-                }, 300);
+            startCountdown: function(seconds) {
+                const el = document.getElementById('instruction');
+                el.style.color = "#8B5CF6"; // Purple
+                let left = seconds;
+                el.innerText = `ANALYZING... ${left}`;
+                this.countInterval = setInterval(() => {
+                    left--;
+                    if(left > 0) el.innerText = `ANALYZING... ${left}`;
+                    else clearInterval(this.countInterval);
+                }, 1000);
             },
 
-            populateResults: function() {
-                const res = this.state.lastResult;
-                const emoEl = document.getElementById('res-emotion');
-                emoEl.innerText = res.emotion;
-                emoEl.style.color = '#' + res.data.color.toString(16);
-                
-                document.getElementById('res-arousal').innerText = res.data.arousal.toFixed(2);
-                
-                const eri = Math.floor(50 + (res.data.arousal * 40));
-                document.getElementById('res-eri').innerText = eri;
-                
-                let eriStatus = "Balanced";
-                if(eri > 70) { eriStatus = "High Energy"; document.getElementById('res-eri-desc').className = "val-sub text-yellow-400"; }
-                else if(eri < 30) { eriStatus = "Low Energy"; document.getElementById('res-eri-desc').className = "val-sub text-blue-400"; }
-                else { document.getElementById('res-eri-desc').className = "val-sub text-green-400"; }
-                document.getElementById('res-eri-desc').innerText = eriStatus;
-
-                document.getElementById('res-hrv').innerText = Math.floor(40 + Math.random() * 40);
-            },
-
-            resetToHome: function() {
+            prepEnhancedScan: function() {
+                clearInterval(this.countInterval);
                 document.getElementById('layer-result').classList.remove('active');
                 document.getElementById('layer-result').classList.add('hidden-layer');
-                this.state.lastResult = null;
                 setTimeout(() => {
                     document.getElementById('layer-home').classList.remove('hidden-layer');
                     document.getElementById('layer-home').classList.add('active');
-                    this.state.isScanning = false;
-                    document.getElementById('instruction').innerText = "HOLD TO SCAN";
-                    document.getElementById('instruction').style.color = "gray";
+                    this.state.scanDuration = 15000;
+                    document.getElementById('instruction').innerText = "HOLD FOR 15s...";
                 }, 400);
+            },
+
+            resetToHome: function() {
+                this.prepEnhancedScan();
+                setTimeout(() => {
+                    this.state.scanDuration = 2000;
+                    document.getElementById('instruction').innerText = "HOLD TO SCAN (2s)";
+                }, 450);
+            },
+
+            finishScan: function() {
+                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                clearInterval(this.countInterval);
+                const home = document.getElementById('layer-home');
+                const result = document.getElementById('layer-result');
+                const wrapper = document.getElementById('scan-wrapper');
+                
+                wrapper.classList.remove('scanning-2s');
+                wrapper.classList.remove('scanning-15s');
+                home.classList.remove('active');
+                home.classList.add('hidden-layer');
+                
+                setTimeout(() => {
+                    result.classList.remove('hidden-layer');
+                    result.classList.add('active');
+                    this.animateResults();
+                }, 300);
+            },
+
+            animateResults: function() {
+                const score = Math.floor(Math.random() * (92 - 75) + 75);
+                const hrv = Math.floor(Math.random() * 50 + 40);
+                
+                this.countUp('res-eri', score);
+                this.countUp('res-hrv', hrv);
+            },
+
+            countUp: function(id, target) {
+                let curr = 0;
+                const el = document.getElementById(id);
+                const interval = setInterval(() => {
+                    curr += 2;
+                    if(curr >= target) { curr = target; clearInterval(interval); }
+                    el.innerText = curr;
+                }, 20);
             }
         };
 
