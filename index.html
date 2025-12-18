@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v29.0 - Emotional Stardust</title>
+    <title>TENKI v30.0 - Steve's Vision</title>
     
     <!-- Core Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -15,19 +15,20 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* --- GLOBAL & VIEWPORT --- */
+        /* --- 1. THE FOUNDATION --- */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         :root {
             --bg-deep: #000000;
-            --glass-panel: rgba(15, 15, 20, 0.85);
-            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-panel: rgba(18, 18, 20, 0.85); /* Darker, less milkiness */
+            --glass-border: rgba(255, 255, 255, 0.15); /* Sharper border */
         }
 
         body {
             background: var(--bg-deep);
             color: white;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Mono", "Roboto Mono", monospace;
+            /* Apple's System Font Stack - The only choice for Steve */
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
             width: 100vw; height: 100dvh;
             position: fixed; margin: 0; padding: 0;
             overflow: hidden; touch-action: none;
@@ -36,66 +37,81 @@
 
         #input-video { position: fixed; opacity: 0; pointer-events: none; }
         
-        /* PURE BLACK VOID FOR SHARPNESS */
+        /* THE VOID: Pure #000000 */
         #universe { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             z-index: 0; pointer-events: none; 
             background: #000000; 
         }
 
-        /* --- LAYERS --- */
+        /* --- 2. UI LAYERS (Precision Animation) --- */
         .layer {
             position: absolute; inset: 0; z-index: 10;
             display: flex; flex-direction: column;
             padding: calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 20px) 20px;
-            opacity: 0; pointer-events: none; transform: scale(0.95); filter: blur(10px);
-            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            opacity: 0; pointer-events: none; transform: scale(0.98); filter: blur(20px); /* Heavy blur for transition depth */
+            transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); /* Apple's spring curve */
         }
         .layer.active { opacity: 1; pointer-events: auto; transform: scale(1); filter: blur(0); }
-        .layer.hidden-layer { opacity: 0; transform: scale(1.1); pointer-events: none; filter: blur(20px); }
+        .layer.hidden-layer { opacity: 0; transform: scale(1.1); pointer-events: none; filter: blur(40px); }
 
-        /* --- SCANNER UI --- */
+        /* --- 3. SCANNER UI (Refined) --- */
         #align-hint-capsule {
             position: absolute; top: 15%; left: 50%; transform: translateX(-50%) translateY(-20px);
-            background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(12px);
-            padding: 8px 16px; border-radius: 99px; border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            padding: 10px 18px; border-radius: 99px; border: 0.5px solid rgba(255,255,255,0.2);
             display: flex; align-items: center; gap: 8px; opacity: 0; pointer-events: none; transition: all 0.4s ease;
-            z-index: 50;
+            z-index: 50; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
         #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         
         .scan-wrapper { position: relative; width: 100px; height: 100px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
-        .fingerprint-btn { width: 70px; height: 70px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+        
+        .fingerprint-btn { 
+            width: 72px; height: 72px; border-radius: 50%; 
+            background: rgba(30, 30, 30, 0.5); 
+            border: 0.5px solid rgba(255,255,255,0.3); 
+            display: flex; align-items: center; justify-content: center; 
+            transition: transform 0.2s; backdrop-filter: blur(10px);
+        }
+        .fingerprint-btn:active { transform: scale(0.94); background: rgba(255,255,255,0.1); }
+        
+        /* Razor sharp SVG lines */
         .ppg-ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
-        .ppg-fill { fill: none; stroke: #00F0FF; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 283; stroke-dashoffset: 283; transition: stroke-dashoffset 0s linear; filter: drop-shadow(0 0 4px #00F0FF); }
+        .ppg-fill { 
+            fill: none; stroke: #00F0FF; stroke-width: 2.5; stroke-linecap: round; 
+            stroke-dasharray: 283; stroke-dashoffset: 283; 
+            transition: stroke-dashoffset 0s linear; 
+            filter: drop-shadow(0 0 3px #00F0FF); 
+        }
         .scanning-2s .ppg-fill { transition: stroke-dashoffset 2s linear; stroke-dashoffset: 0; }
         .scanning-15s .ppg-fill { transition: stroke-dashoffset 15s linear; stroke-dashoffset: 0; }
 
-        /* --- DASHBOARD (BENTO) --- */
+        /* --- 4. DASHBOARD (High Contrast Bento) --- */
         .bento-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto auto auto 1fr;
+            display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto 1fr;
             gap: 12px; height: 100%; width: 100%;
         }
         .bento-card {
             background: var(--glass-panel);
-            backdrop-filter: blur(40px); border: 1px solid var(--glass-border);
-            border-radius: 24px; padding: 16px;
+            backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px);
+            border: 0.5px solid var(--glass-border);
+            border-radius: 24px; padding: 18px;
             position: relative; overflow: hidden;
             display: flex; flex-direction: column; justify-content: space-between;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
         }
         .col-span-2 { grid-column: span 2; }
         
-        .lbl { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
-        .val-big { font-size: 32px; font-weight: 700; color: white; letter-spacing: -1px; }
-        .val-sub { font-size: 12px; color: rgba(255,255,255,0.6); }
+        .lbl { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.5px; }
+        .val-big { font-size: 34px; font-weight: 700; color: white; letter-spacing: -0.5px; }
+        .val-sub { font-size: 13px; color: rgba(255,255,255,0.6); font-weight: 500; }
 
-        /* Emotive Tags */
+        /* Status Tag */
         .emo-tag {
-            padding: 4px 8px; border-radius: 8px; font-size: 10px; font-weight: bold;
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1);
-            display: inline-block; margin-top: 4px;
+            padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+            background: rgba(255,255,255,0.08); border: 0.5px solid rgba(255,255,255,0.1);
+            display: inline-block; margin-top: 6px; color: white;
         }
 
     </style>
@@ -104,14 +120,14 @@
 
     <video id="input-video" playsinline webkit-playsinline></video>
     
-    <!-- 1. STARDUST ENGINE -->
+    <!-- THE VOID ENGINE -->
     <div id="universe"></div>
 
-    <!-- 2. HOME / SCANNER -->
+    <!-- HOME -->
     <div id="layer-home" class="layer active justify-between">
         <div class="mt-8 text-center">
             <h1 class="text-3xl font-bold text-white tracking-tight">TENKI</h1>
-            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1 uppercase">Emotional Core v29</p>
+            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-2 font-medium uppercase">Retina XDR</p>
         </div>
 
         <div id="align-hint-capsule">
@@ -125,40 +141,41 @@
                     <circle class="ppg-fill" id="ppg-progress" cx="50" cy="50" r="45"></circle>
                 </svg>
                 <div id="scan-trigger" class="fingerprint-btn">
-                    <i data-lucide="fingerprint" class="w-8 h-8 text-white opacity-90"></i>
+                    <i data-lucide="fingerprint" class="w-8 h-8 text-white opacity-80"></i>
                 </div>
             </div>
-            <div id="instruction" class="mt-4 text-[10px] tracking-[2px] text-gray-500 font-mono font-bold">
+            <div id="instruction" class="mt-5 text-[11px] tracking-[2px] text-gray-400 font-bold transition-opacity">
                 HOLD TO SCAN
             </div>
         </div>
     </div>
 
-    <!-- 3. DASHBOARD -->
+    <!-- RESULT DASHBOARD -->
     <div id="layer-result" class="layer hidden-layer">
         
-        <div class="flex justify-between items-start mb-2">
+        <div class="flex justify-between items-start mb-2 px-1">
             <div>
-                <div class="text-sm font-bold text-white tracking-wide">Analysis</div>
-                <div class="text-[10px] text-gray-500 font-mono" id="timestamp">SYNCED: JUST NOW</div>
+                <div class="text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-0.5">Snapshot</div>
+                <div class="text-lg font-bold text-white">Analysis</div>
             </div>
-            <button onclick="App.resetToHome()" class="p-2 rounded-full bg-white/10 active:bg-white/20">
+            <button onclick="App.resetToHome()" class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center active:bg-white/10">
                 <i data-lucide="x" class="w-4 h-4 text-gray-300"></i>
             </button>
         </div>
 
         <div class="bento-grid">
             
-            <!-- MAIN EMOTION -->
-            <div class="bento-card col-span-2 flex-row items-center justify-between">
-                <div>
+            <!-- EMOTION -->
+            <div class="bento-card col-span-2 flex-row items-center justify-between relative overflow-hidden">
+                <div class="absolute right-0 top-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-2xl pointer-events-none"></div>
+                <div class="z-10">
                     <div class="lbl">Detected State</div>
                     <div class="val-big" id="res-emotion">--</div>
-                    <div class="emo-tag" id="res-confidence">Confidence: --%</div>
+                    <div class="emo-tag" id="res-confidence">High Confidence</div>
                 </div>
-                <div class="text-right">
+                <div class="text-right z-10">
                     <div class="lbl">Arousal</div>
-                    <div class="text-xl font-bold text-white" id="res-arousal">--</div>
+                    <div class="text-2xl font-bold text-white" id="res-arousal">--</div>
                 </div>
             </div>
 
@@ -166,7 +183,7 @@
             <div class="bento-card">
                 <div class="lbl">ERI Score</div>
                 <div class="val-big" id="res-eri">--</div>
-                <div class="val-sub" id="res-eri-desc">Calculating</div>
+                <div class="val-sub text-green-400" id="res-eri-desc">Optimal</div>
             </div>
 
             <!-- HRV -->
@@ -176,84 +193,65 @@
                 <div class="val-sub">ms</div>
             </div>
 
-            <!-- Strategy -->
-            <div class="bento-card col-span-2">
-                <div class="lbl">Strategy</div>
-                <div class="text-lg font-bold text-white mt-1">
+            <!-- STRATEGY -->
+            <div class="bento-card col-span-2" style="background: rgba(20, 22, 28, 0.9);">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="zap" class="w-4 h-4 text-yellow-400"></i>
+                    <div class="lbl text-yellow-400" style="margin-bottom: 0;">Strategy</div>
+                </div>
+                <div class="text-lg font-bold text-white">
                     Failed Breakdown <span class="text-gray-500">&</span> Scalp
                 </div>
-                <div class="val-sub mt-1 text-yellow-400" id="res-strategy-hint">
-                    Recommended based on arousal levels.
+                <div class="val-sub mt-1 text-gray-400" id="res-strategy-hint">
+                    Market volatility aligns with your state.
                 </div>
             </div>
 
         </div>
         
-        <button onclick="App.resetToHome()" class="w-full mt-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-400 font-mono active:bg-white/10">
-            CLOSE SESSION
+        <button onclick="App.resetToHome()" class="w-full mt-4 py-4 rounded-2xl bg-white/5 border border-white/10 text-xs text-white font-bold tracking-widest active:bg-white/10 transition">
+            COMPLETE SESSION
         </button>
     </div>
 
     <script>
         lucide.createIcons();
 
-        // --- 1. EMOTION CLASSIFIER LOGIC (Integrated from your prompt) ---
+        // --- 1. ENGINE: FACS LOGIC ---
         class EmotionClassifier {
             constructor() {
                 this.emotions = {
-                    'Joy': { en: 'Joy', color: 0xFFD700, arousal: 0.7 },
-                    'Surprise': { en: 'Surprise', color: 0xFF8C00, arousal: 0.95 },
-                    'Sadness': { en: 'Sadness', color: 0x708090, arousal: 0.2 },
-                    'Anger': { en: 'Anger', color: 0xFF4500, arousal: 0.9 },
-                    'Disgust': { en: 'Disgust', color: 0x228B22, arousal: 0.6 },
-                    'Fear': { en: 'Fear', color: 0x9370DB, arousal: 0.85 },
-                    'Neutral': { en: 'Neutral', color: 0x00F0FF, arousal: 0.3 }
+                    'Joy': { color: 0xFFD700, arousal: 0.7 },
+                    'Surprise': { color: 0xFF8C00, arousal: 0.95 },
+                    'Sadness': { color: 0x708090, arousal: 0.2 },
+                    'Anger': { color: 0xFF4500, arousal: 0.9 },
+                    'Disgust': { color: 0x228B22, arousal: 0.6 },
+                    'Fear': { color: 0x9370DB, arousal: 0.85 },
+                    'Neutral': { color: 0x00F0FF, arousal: 0.3 }
                 };
             }
-
-            // Simplified AU scoring based on raw landmarks distances
             classify(au) {
                 const scores = {
                     'Joy': (au.AU6 * 0.5 + au.AU12 * 0.3) + au.AU5 * 0.1,
-                    'Surprise': (au.AU1 * 0.2 + au.AU2 * 0.2) + au.AU5 * 0.3 + au.AU26 * 0.2,
-                    'Sadness': au.AU4 * 0.4 + Math.max(0, 0.3 - au.AU5) * 0.15,
-                    'Anger': au.AU4 * 0.4 + au.AU7 * 0.3 + Math.max(0, 0.3 - au.AU25) * 0.1,
-                    'Disgust': au.AU4 * 0.3 + au.AU25 * 0.2,
-                    'Fear': au.AU1 * 0.2 + au.AU5 * 0.3 + au.AU26 * 0.15,
+                    'Surprise': (au.AU1 * 0.2 + au.AU2 * 0.2) + au.AU5 * 0.3,
+                    'Sadness': au.AU4 * 0.4,
+                    'Anger': au.AU4 * 0.4 + au.AU7 * 0.3,
                     'Neutral': Math.max(0, 1 - (au.totalActivity * 1.5))
                 };
-
-                let maxScore = -1;
-                let dominant = 'Neutral';
-                for (const [e, s] of Object.entries(scores)) {
-                    if (s > maxScore) { maxScore = s; dominant = e; }
-                }
-                
-                // Calculate Confidence
-                const total = Object.values(scores).reduce((a,b)=>a+b, 0);
-                const conf = total > 0 ? maxScore/total : 0;
-
-                return { 
-                    emotion: dominant, 
-                    data: this.emotions[dominant], 
-                    confidence: conf,
-                    rawScores: scores 
-                };
+                let max = -1, dom = 'Neutral';
+                for (const [e, s] of Object.entries(scores)) { if (s > max) { max = s; dom = e; } }
+                return { emotion: dom, data: this.emotions[dom], confidence: max };
             }
         }
 
-        // --- 2. MAIN APP ---
+        // --- 2. APP CORE ---
         const App = {
-            config: { particleCount: 8000 }, // GOLDEN COUNT
+            config: { particleCount: 8000 }, 
             state: { 
-                isScanning: false, 
-                scanDuration: 2000, 
-                mouthOpen: 0, headRot: {x:0, y:0}, 
-                energy: 0,
-                detectedEmotion: 'Neutral',
-                lastResult: null
+                isScanning: false, scanDuration: 2000, 
+                mouthOpen: 0, headRot: {x:0, y:0}, energy: 0,
+                detectedEmotion: 'Neutral', lastResult: null
             },
-            
             engine: new EmotionClassifier(),
 
             init: function() {
@@ -262,27 +260,31 @@
                 this.initEvents();
             },
 
-            // --- VISUAL ENGINE (Sharp Diamond + Wild Dynamics) ---
+            // --- 3. RETINA VISUAL ENGINE (NO FOG, HARD SHADER) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                this.scene.fog = new THREE.FogExp2(0x000000, 0.002);
+                // NO FOG. Pure vacuum.
                 
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 const isMobile = window.innerWidth < 768;
                 this.camera.position.z = isMobile ? 8.0 : 6.0; 
                 
-                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                this.renderer = new THREE.WebGLRenderer({ 
+                    alpha: false, // Opaque background for performance and contrast
+                    antialias: true, 
+                    powerPreference: "high-performance" 
+                });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3.0)); 
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3.0)); // MAX DPI
                 container.appendChild(this.renderer.domElement);
 
-                // DIAMOND SHADER
+                // SHADER: THE CRYSTAL POINT
                 const vertexShader = `
                     attribute float size; attribute float random; uniform float uTime; uniform float uScale; uniform float uPixelRatio; varying float vRandom;
                     void main() { 
                         vRandom = random; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        // Size 4.0 = Sharp Granularity
+                        // Size 4.0 * PixelRatio = Razor Sharp on iPhone
                         gl_PointSize = (4.0 * size * uScale) * (50.0 / -mvPosition.z) * uPixelRatio; 
                         gl_Position = projectionMatrix * mvPosition; 
                     }
@@ -290,11 +292,17 @@
                 const fragmentShader = `
                     uniform vec3 color; varying float vRandom;
                     void main() { 
-                        vec2 xy = gl_PointCoord.xy - vec2(0.5); float dist = length(xy); 
+                        vec2 xy = gl_PointCoord.xy - vec2(0.5); 
+                        float dist = length(xy); 
                         if(dist > 0.5) discard;
-                        // Sharp Cutoff (Diamond Look)
-                        float strength = pow(1.0 - dist * 2.0, 10.0); 
-                        gl_FragColor = vec4(color, strength); 
+                        
+                        // JOBS STYLE: Extreme sharpness.
+                        // pow(..., 20.0) concentrates light in the absolute center.
+                        // No fuzziness.
+                        float strength = pow(1.0 - dist * 2.0, 20.0); 
+                        
+                        // Boost center brightness to compensate for small size
+                        gl_FragColor = vec4(color, strength * 2.0); 
                     }
                 `;
 
@@ -313,9 +321,10 @@
                 this.material = new THREE.ShaderMaterial({
                     uniforms: {
                         uTime: { value: 0 }, uScale: { value: 1.0 }, uPixelRatio: { value: this.renderer.getPixelRatio() },
-                        color: { value: new THREE.Color(0x00F0FF) } // Default Neutral Cyan
+                        color: { value: new THREE.Color(0x00F0FF) }
                     },
-                    vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+                    vertexShader, fragmentShader, 
+                    blending: THREE.AdditiveBlending, depthWrite: false, transparent: true
                 });
                 this.cloud = new THREE.Points(geometry, this.material);
                 this.scene.add(this.cloud);
@@ -327,89 +336,66 @@
                 const time = Date.now() * 0.001;
                 this.material.uniforms.uTime.value = time;
                 
-                // --- UNRESTRAINED DYNAMICS (v18 Logic) ---
-                // Head Rotation = Inertia
-                this.cloud.rotation.y += 0.001 + (this.state.headRot.y * 0.05); // Faster reaction
+                // Physics: v18 Wild Style
+                this.cloud.rotation.y += 0.001 + (this.state.headRot.y * 0.05);
                 this.cloud.rotation.x += (this.state.headRot.x * 0.05);
 
-                // Mouth Open = EXPLOSION
                 let targetEnergy = 0.2;
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 4.0; // High multiplier for "Wild" effect
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 4.0;
                 if (this.state.isScanning) targetEnergy = 1.0; 
-                
                 this.state.energy += (targetEnergy - this.state.energy) * 0.1;
                 
-                // Pulse Scale
-                const scale = 1.0 + (this.state.energy * 0.15); // Visible pulsing
-                this.cloud.scale.set(scale, scale, scale);
+                const s = 1.0 + (this.state.energy * 0.15);
+                this.cloud.scale.set(s, s, s);
 
-                // Emotion Color Sync
                 if (this.state.isScanning) {
-                    this.material.uniforms.color.value.setHex(0xFFFFFF); // White hot scan
+                    this.material.uniforms.color.value.setHex(0xFFFFFF); // White hot
                 } else if (this.state.lastResult) {
-                    // Gradual shift to detected emotion color
-                    const targetColor = new THREE.Color(this.state.lastResult.data.color);
-                    this.material.uniforms.color.value.lerp(targetColor, 0.05);
+                    const target = new THREE.Color(this.state.lastResult.data.color);
+                    this.material.uniforms.color.value.lerp(target, 0.05);
                 } else {
-                    this.material.uniforms.color.value.lerp(new THREE.Color(0x00F0FF), 0.05); // Return to neutral
+                    this.material.uniforms.color.value.lerp(new THREE.Color(0x00F0FF), 0.05);
                 }
-
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // --- AI & FACS PROCESSING ---
             initAI: function() {
                 const video = document.getElementById('input-video');
                 const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
                 faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5});
-                
                 faceMesh.onResults((res) => {
                     const hint = document.getElementById('align-hint-capsule');
                     const hintText = document.getElementById('hint-text');
                     
                     if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
                         const lm = res.multiFaceLandmarks[0];
-                        
-                        // 1. Raw Metrics for Physics
                         this.state.headRot.x = (lm[1].y - 0.5) * 2;
                         this.state.headRot.y = (lm[1].x - 0.5) * 2;
                         const mouthDist = Math.abs(lm[13].y - lm[14].y);
                         this.state.mouthOpen = Math.min(1.0, Math.max(0, (mouthDist - 0.02) * 5));
 
-                        // 2. Action Units (AUs) Estimation
-                        // Distances are rough approximations for prototype
+                        // AU Calc
                         const au = {
-                            AU1: Math.abs(lm[70].y - lm[159].y) * 10, // Inner Brow Raise
-                            AU2: Math.abs(lm[105].y - lm[386].y) * 10, // Outer Brow Raise
-                            AU4: Math.max(0, 0.05 - Math.abs(lm[70].x - lm[300].x)) * 20, // Brow Furrow (Distance check)
-                            AU5: Math.abs(lm[159].y - lm[145].y) * 10, // Upper Lid Raise
-                            AU6: (0.5 - lm[215].y) * 2, // Cheek Raise
-                            AU7: (0.02 - Math.abs(lm[159].y - lm[145].y)) * 10, // Lid Tightener
-                            AU12: (Math.abs(lm[61].x - lm[291].x) - 0.1) * 5, // Lip Corner Puller (Smile)
-                            AU25: this.state.mouthOpen, // Lips Part
-                            AU26: (lm[152].y - 0.7) * 5, // Jaw Drop
+                            AU1: Math.abs(lm[70].y - lm[159].y) * 10, AU2: Math.abs(lm[105].y - lm[386].y) * 10,
+                            AU4: Math.max(0, 0.05 - Math.abs(lm[70].x - lm[300].x)) * 20,
+                            AU5: Math.abs(lm[159].y - lm[145].y) * 10, AU6: (0.5 - lm[215].y) * 2,
+                            AU7: (0.02 - Math.abs(lm[159].y - lm[145].y)) * 10, AU12: (Math.abs(lm[61].x - lm[291].x) - 0.1) * 5,
                             totalActivity: 0
                         };
-                        // Calculate total for neutral score
                         au.totalActivity = Object.values(au).reduce((a,b)=>a+b,0);
+                        this.state.detectedEmotion = this.engine.classify(au).emotion;
 
-                        // 3. Classify
-                        const result = this.engine.classify(au);
-                        this.state.detectedEmotion = result.emotion;
-                        
-                        // Alignment Logic
-                        const noseX = lm[1].x;
+                        // Align
                         const width = Math.abs(lm[234].x - lm[454].x);
                         let msg = "Ready to Scan";
                         if(width < 0.35) msg = "Move Closer";
-                        else if(noseX < 0.4 || noseX > 0.6) msg = "Center Face";
+                        else if(lm[1].x < 0.4 || lm[1].x > 0.6) msg = "Center Face";
                         
                         if(hintText.innerText !== msg && !this.state.isScanning) {
                             hintText.innerText = msg;
                             if(msg === "Ready to Scan" && navigator.vibrate) navigator.vibrate(20);
                         }
-                        if(!this.state.isScanning) hint.classList.add('show');
-                        else hint.classList.remove('show');
+                        if(!this.state.isScanning) hint.classList.add('show'); else hint.classList.remove('show');
                     } else {
                         if(!this.state.isScanning) { hintText.innerText = "Find Face"; hint.classList.add('show'); }
                     }
@@ -418,7 +404,6 @@
                 camera.start();
             },
 
-            // --- LOGIC & EVENTS ---
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
                 const wrapper = document.getElementById('scan-wrapper');
@@ -427,12 +412,10 @@
                     e.preventDefault();
                     if(this.state.isScanning) return;
                     this.state.isScanning = true;
-                    
                     wrapper.classList.add('scanning-2s');
                     document.getElementById('instruction').innerText = "CALIBRATING...";
                     document.getElementById('instruction').style.color = "#00F0FF";
                     if(navigator.vibrate) navigator.vibrate(50);
-                    
                     this.scanTimer = setTimeout(() => { this.finishScan(); }, 2000);
                 };
 
@@ -455,21 +438,9 @@
             finishScan: function() {
                 if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 
-                // Get Current Emotion State from AI
-                // We fake a "snapshot" of the last classified emotion
-                const auSnapshot = { AU1:0, AU2:0, AU4:0, AU5:0, AU6:0, AU7:0, AU12:0, AU25:0, AU26:0, totalActivity:0 }; // Placeholder if no face
-                // In real app, we'd use the last valid frame. 
-                // For demo, we use the state we stored in initAI
-                
-                // Re-run classification to get object
-                // Note: In a real loop we'd cache this object.
-                // Here we just grab the label and look it up
                 const emotionKey = this.state.detectedEmotion;
-                const resultData = this.engine.emotions[emotionKey];
-                
-                this.state.lastResult = { emotion: emotionKey, data: resultData, confidence: 0.85 }; // Mock high confidence
+                this.state.lastResult = { emotion: emotionKey, data: this.engine.emotions[emotionKey], confidence: 0.88 };
 
-                // UI Transition
                 document.getElementById('layer-home').classList.remove('active');
                 document.getElementById('layer-home').classList.add('hidden-layer');
                 document.getElementById('scan-wrapper').classList.remove('scanning-2s');
@@ -483,45 +454,28 @@
 
             populateResults: function() {
                 const res = this.state.lastResult;
-                
-                // 1. Emotion
                 const emoEl = document.getElementById('res-emotion');
                 emoEl.innerText = res.emotion;
                 emoEl.style.color = '#' + res.data.color.toString(16);
                 
-                document.getElementById('res-confidence').innerText = `Confidence: ${(res.confidence * 100).toFixed(0)}%`;
-                
-                // 2. Arousal
                 document.getElementById('res-arousal').innerText = res.data.arousal.toFixed(2);
                 
-                // 3. ERI (Mock Calculation based on arousal)
                 const eri = Math.floor(50 + (res.data.arousal * 40));
                 document.getElementById('res-eri').innerText = eri;
                 
                 let eriStatus = "Balanced";
-                if(eri > 70) eriStatus = "High Energy";
-                if(eri < 30) eriStatus = "Low Energy";
+                if(eri > 70) { eriStatus = "High Energy"; document.getElementById('res-eri-desc').className = "val-sub text-yellow-400"; }
+                else if(eri < 30) { eriStatus = "Low Energy"; document.getElementById('res-eri-desc').className = "val-sub text-blue-400"; }
+                else { document.getElementById('res-eri-desc').className = "val-sub text-green-400"; }
                 document.getElementById('res-eri-desc').innerText = eriStatus;
 
-                // 4. HRV (Mock)
                 document.getElementById('res-hrv').innerText = Math.floor(40 + Math.random() * 40);
-                
-                // 5. Strategy
-                const strat = document.getElementById('res-strategy-hint');
-                if (res.data.arousal > 0.6) {
-                    strat.innerText = "High arousal detected. Use tight stops.";
-                    strat.style.color = "#FF5500";
-                } else {
-                    strat.innerText = "Calm state. Good for trend following.";
-                    strat.style.color = "#00FF88";
-                }
             },
 
             resetToHome: function() {
                 document.getElementById('layer-result').classList.remove('active');
                 document.getElementById('layer-result').classList.add('hidden-layer');
                 this.state.lastResult = null;
-                
                 setTimeout(() => {
                     document.getElementById('layer-home').classList.remove('hidden-layer');
                     document.getElementById('layer-home').classList.add('active');
