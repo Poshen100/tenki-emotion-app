@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v27.0 - Pure Granularity</title>
+    <title>TENKI v27.1 - Wild Granularity</title>
     
     <!-- Core Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -68,17 +68,16 @@
         }
         #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         
-        /* --- PPG SCANNER (High Contrast) --- */
+        /* --- PPG SCANNER --- */
         .scan-wrapper {
             position: relative; width: 100px; height: 100px;
             display: flex; align-items: center; justify-content: center;
             margin: 0 auto;
-            /* Dark radial back to separate from stars */
             background: radial-gradient(circle, #000000 0%, transparent 70%);
         }
         .fingerprint-btn {
             width: 70px; height: 70px; border-radius: 50%;
-            background: rgba(40, 40, 45, 0.8); /* Darker, more solid */
+            background: rgba(40, 40, 45, 0.8);
             border: 1px solid rgba(255,255,255,0.3);
             display: flex; align-items: center; justify-content: center;
             transition: transform 0.2s; cursor: pointer; z-index: 2;
@@ -100,7 +99,7 @@
 
         /* --- DASHBOARD --- */
         .dashboard-card {
-            background: rgba(18, 20, 24, 0.9); /* High opacity for legibility */
+            background: rgba(18, 20, 24, 0.9);
             backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 32px;
@@ -156,7 +155,7 @@
     <div id="layer-home" class="layer active justify-between">
         <div class="mt-8 text-center">
             <h1 class="text-3xl font-bold text-white tracking-tight drop-shadow-lg">TENKI</h1>
-            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1 uppercase">Pure Granularity v27</p>
+            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1 uppercase">Wild Granularity</p>
         </div>
 
         <div id="align-hint-capsule">
@@ -238,11 +237,12 @@
         lucide.createIcons();
 
         const App = {
-            config: { particleCount: 8000 }, // GOLDEN COUNT
+            config: { particleCount: 8000 },
             state: { 
                 isScanning: false, 
                 scanDuration: 2000, 
                 mouthOpen: 0, 
+                eyesOpen: 0, // NEW STATE
                 headRot: {x:0, y:0}, 
                 energy: 0 
             },
@@ -253,15 +253,13 @@
                 this.initEvents();
             },
 
-            // --- 1. SHARP ENGINE (NO BLUR, SMALL PARTICLES) ---
+            // --- 1. SHARP ENGINE (NO BLUR) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
                 this.scene.fog = new THREE.FogExp2(0x000000, 0.005);
                 
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-                
-                // Camera Distance: Optimized for 8000 points
                 const isMobile = window.innerWidth < 768;
                 this.camera.position.z = isMobile ? 8.0 : 6.0; 
                 
@@ -270,13 +268,13 @@
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3.0)); 
                 container.appendChild(this.renderer.domElement);
 
-                // SHADER: High Contrast Points
+                // SHADER: High Contrast, Sharp Cutoff
                 const vertexShader = `
                     attribute float size; attribute float random; uniform float uTime; uniform float uScale; uniform float uPixelRatio; varying float vRandom;
                     void main() { 
                         vRandom = random; 
                         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        // TINY POINTS: Base size 4.0 (Needle sharp)
+                        // Size 4.0 = Sharp Granularity
                         gl_PointSize = (4.0 * size * uScale) * (50.0 / -mvPosition.z) * uPixelRatio; 
                         gl_Position = projectionMatrix * mvPosition; 
                     }
@@ -289,7 +287,7 @@
                         if(dist > 0.5) discard;
                         
                         // EXTREME CUTOFF: Center is 1.0, edge drops instantly
-                        // This creates the "Diamond" look instead of "Cotton Ball"
+                        // The "Diamond" look
                         float strength = pow(1.0 - dist * 2.0, 10.0); 
                         
                         gl_FragColor = vec4(color, strength); 
@@ -338,13 +336,19 @@
                 const time = Date.now() * 0.001;
                 this.material.uniforms.uTime.value = time;
                 
-                this.cloud.rotation.y += 0.001 + (this.state.headRot.y * 0.03);
+                // --- WILD PHYSICS ---
+                // EYES = TURBULENCE (Rotation Speed Boost)
+                // Base speed 0.001, adds up to 0.02 when eyes wide open
+                const turbulence = 0.001 + (this.state.eyesOpen * 0.02);
+                
+                this.cloud.rotation.y += turbulence + (this.state.headRot.y * 0.03);
                 this.cloud.rotation.x += (this.state.headRot.x * 0.03);
 
-                // Energy Control
+                // MOUTH = EXPLOSION (High Expansion)
                 let targetEnergy = 0.2;
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 3.0;
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 5.0; // WILD MULTIPLIER
                 if (this.state.isScanning) targetEnergy = 2.0; 
+                
                 this.state.energy += (targetEnergy - this.state.energy) * 0.1;
 
                 const positions = this.cloud.geometry.attributes.position.array;
@@ -354,11 +358,16 @@
                 for (let i = 0; i < this.config.particleCount; i++) {
                     const idx = i * 3;
                     const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
+                    
+                    // Jitter effect when high energy
+                    const jitter = (Math.random() - 0.5) * this.state.energy * 0.05;
                     const noise = Math.sin(time * 2 + rnd[i] * 10) * this.state.energy * 0.1;
-                    const expansion = 1 + (this.state.mouthOpen * 0.2);
-                    positions[idx] = ox * expansion + (ox * noise);
-                    positions[idx+1] = oy * expansion + (oy * noise);
-                    positions[idx+2] = oz * expansion + (oz * noise);
+                    
+                    const expansion = 1 + (this.state.mouthOpen * 0.3) + noise + jitter;
+                    
+                    positions[idx] = ox * expansion;
+                    positions[idx+1] = oy * expansion;
+                    positions[idx+2] = oz * expansion;
                 }
                 this.cloud.geometry.attributes.position.needsUpdate = true;
 
@@ -367,12 +376,12 @@
                     this.material.uniforms.uScale.value = 1.1;
                 } else {
                     this.material.uniforms.color.value.setHex(0x00F0FF);
-                    this.material.uniforms.uScale.value = 0.9;
+                    this.material.uniforms.uScale.value = 0.9 + (this.state.eyesOpen * 0.2); // Eyes also boost size slightly
                 }
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // --- 2. AI & ALIGNMENT ---
+            // --- 2. AI (Eyes + Mouth + Head) ---
             initAI: function() {
                 const video = document.getElementById('input-video');
                 const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
@@ -381,7 +390,6 @@
                 faceMesh.onResults((res) => {
                     const hint = document.getElementById('align-hint-capsule');
                     const hintText = document.getElementById('hint-text');
-                    const hintIcon = document.getElementById('hint-icon');
                     
                     if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
                         const lm = res.multiFaceLandmarks[0];
@@ -391,6 +399,13 @@
                         // Mouth
                         const mouthDist = Math.abs(lm[13].y - lm[14].y);
                         this.state.mouthOpen = Math.min(1.0, Math.max(0, (mouthDist - 0.02) * 5));
+                        
+                        // Eyes Openness (Simple Vertical Distance)
+                        const leftEye = Math.abs(lm[159].y - lm[145].y);
+                        const rightEye = Math.abs(lm[386].y - lm[374].y);
+                        const avgEye = (leftEye + rightEye) / 2;
+                        // Thresholds: ~0.01 closed, ~0.03 open. Multiplier to normalize 0-1
+                        this.state.eyesOpen = Math.min(1.0, Math.max(0, (avgEye - 0.01) * 35));
 
                         const noseX = lm[1].x;
                         const width = Math.abs(lm[234].x - lm[454].x);
