@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v28.1 - Sync Core</title>
+    <title>TENKI v32.0 - Hybrid Soul</title>
     
     <!-- Core Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -15,16 +15,18 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* --- 1. GLOBAL & AURORA PALETTE --- */
+        /* --- 1. GLOBAL & AURORA PALETTE (v31 Style) --- */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         :root {
-            --bg-deep: #020408;
+            /* v31 Aurora Palette */
+            --bg-deep: #020408; 
             --aurora-cyan: #00F0FF;
             --aurora-blue: #4361EE;
             --aurora-purple: #7209B7;
             --aurora-pink: #F72585;
-            --glass-card: rgba(20, 25, 40, 0.75);
+            
+            --glass-card: rgba(20, 25, 40, 0.65); /* Slightly clearer */
             --glass-border: rgba(255, 255, 255, 0.12);
         }
 
@@ -40,11 +42,12 @@
 
         #input-video { position: fixed; opacity: 0; pointer-events: none; }
         
-        /* UNIVERSE (Fixed Background) */
+        /* UNIVERSE (v18 Fog Settings) */
         #universe { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             z-index: 0; pointer-events: none; 
-            background: radial-gradient(circle at center, #0a0e17 0%, #000000 100%);
+            /* Soft radial background to support the glow */
+            background: radial-gradient(circle at center, #0b1016 0%, #000000 100%);
         }
 
         /* --- 2. LAYER SYSTEM --- */
@@ -58,20 +61,18 @@
         .layer.active { opacity: 1; pointer-events: auto; transform: scale(1); filter: blur(0); }
         .layer.hidden-layer { opacity: 0; transform: scale(1.05); pointer-events: none; filter: blur(20px); }
 
-        /* --- 3. SMART ALIGNMENT CAPSULE (FIXED) --- */
+        /* --- 3. SCANNER UI --- */
         #align-hint-capsule {
-            position: absolute; top: 16%; left: 50%; transform: translateX(-50%) translateY(-20px);
-            background: rgba(15, 15, 20, 0.9); backdrop-filter: blur(20px);
+            position: absolute; top: 15%; left: 50%; transform: translateX(-50%) translateY(-20px);
+            background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(20px);
             padding: 10px 20px; border-radius: 99px;
-            border: 1px solid var(--aurora-cyan); /* Highlighted border */
+            border: 1px solid rgba(255,255,255,0.15);
             display: flex; align-items: center; gap: 10px;
             opacity: 0; pointer-events: none; transition: all 0.4s ease;
-            z-index: 100; /* High Z-Index */
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+            z-index: 50; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
         #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         
-        /* --- 4. SCANNER UI --- */
         .scan-wrapper {
             position: relative; width: 110px; height: 110px;
             display: flex; align-items: center; justify-content: center;
@@ -90,7 +91,8 @@
         
         .ppg-ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1; }
         .ppg-fill {
-            fill: none; stroke: var(--aurora-cyan); stroke-width: 4; stroke-linecap: round;
+            fill: none; stroke: url(#grad1);
+            stroke-width: 4; stroke-linecap: round;
             stroke-dasharray: 283; stroke-dashoffset: 283;
             transition: stroke-dashoffset 0s linear;
             filter: drop-shadow(0 0 6px var(--aurora-cyan));
@@ -98,7 +100,7 @@
         .scan-wrapper.scanning-2s .ppg-fill { transition: stroke-dashoffset 2s linear; stroke-dashoffset: 0; }
         .scan-wrapper.scanning-15s .ppg-fill { transition: stroke-dashoffset 15s linear; stroke-dashoffset: 0; }
 
-        /* --- 5. DASHBOARD (BENTO) --- */
+        /* --- 4. BENTO DASHBOARD --- */
         .bento-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -125,7 +127,7 @@
         .val-big { font-size: 32px; font-weight: 700; color: white; letter-spacing: -1px; z-index: 2; }
         .val-sub { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.8); z-index: 2; }
 
-        /* WIDGET STYLES */
+        /* Liquid ERI Card */
         .card-liquid { background: linear-gradient(135deg, #1A1C2E 0%, #0F1119 100%); }
         .liquid-blob {
             position: absolute; bottom: -50%; right: -20%; width: 200px; height: 200px;
@@ -137,25 +139,26 @@
 
         /* Bar Chart */
         .bar-container { display: flex; align-items: flex-end; gap: 6px; height: 50px; margin-top: auto; }
-        .bar { flex: 1; border-radius: 6px; background: rgba(255,255,255,0.1); position: relative; overflow: hidden; }
+        .bar { 
+            flex: 1; border-radius: 6px; 
+            background: linear-gradient(to top, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); 
+            position: relative; overflow: hidden;
+        }
         .bar-fill {
             position: absolute; bottom: 0; left: 0; width: 100%; 
             background: linear-gradient(to top, var(--aurora-purple), var(--aurora-pink));
-            border-radius: 6px; transition: height 1s;
+            border-radius: 6px; transition: height 1s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        /* Action Buttons */
+        /* Action Button */
         .btn-aurora {
-            width: 100%; padding: 16px; border-radius: 20px;
+            width: 100%; padding: 18px; border-radius: 24px; margin-top: 10px;
             background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-            color: white; font-weight: 700; font-size: 12px; letter-spacing: 1px;
+            color: white; font-weight: 700; font-size: 13px; letter-spacing: 1px;
             display: flex; align-items: center; justify-content: center; gap: 8px;
             transition: all 0.2s; backdrop-filter: blur(10px);
         }
         .btn-aurora:active { transform: scale(0.98); background: rgba(255,255,255,0.1); }
-        .btn-primary { background: var(--aurora-blue); border-color: var(--aurora-blue); }
-
-        .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 
     </style>
 </head>
@@ -163,7 +166,6 @@
 
     <video id="input-video" playsinline webkit-playsinline></video>
     
-    <!-- GRADIENT DEF -->
     <svg width="0" height="0">
         <defs>
             <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -173,22 +175,19 @@
         </defs>
     </svg>
 
-    <!-- UNIVERSE (v18 Visuals Preserved) -->
+    <!-- UNIVERSE (v18 Visuals) -->
     <div id="universe"></div>
 
     <!-- LAYER 1: HOME -->
     <div id="layer-home" class="layer active justify-between">
         <div class="mt-8 text-center">
             <h1 class="text-3xl font-bold text-white tracking-tight drop-shadow-lg">TENKI</h1>
-            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-2 font-bold uppercase">Sync Core v28.1</p>
+            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-2 font-bold uppercase">Hybrid Soul v32</p>
         </div>
 
-        <!-- ALIGNMENT HINT (Restored) -->
         <div id="align-hint-capsule">
-            <div id="hint-icon-box" class="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center">
-                <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-cyan-400"></i>
-            </div>
-            <span id="hint-text" class="text-xs font-bold text-white tracking-wide">Find Face</span>
+            <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-cyan-400"></i>
+            <span id="hint-text" class="text-xs font-bold text-white tracking-wide">Ready</span>
         </div>
 
         <div class="mb-12 flex flex-col items-center">
@@ -201,7 +200,7 @@
                 </div>
             </div>
             <div id="instruction" class="mt-5 text-[11px] tracking-[2px] text-gray-400 font-bold transition-opacity">
-                HOLD TO SCAN (2s)
+                HOLD TO SCAN
             </div>
         </div>
     </div>
@@ -221,7 +220,7 @@
 
         <div class="bento-grid">
             
-            <!-- ERI (Liquid) -->
+            <!-- 1. ERI SCORE (Liquid Card) -->
             <div class="card card-liquid col-span-2 flex-row items-center relative">
                 <div class="liquid-blob"></div>
                 <div class="z-10 flex-1">
@@ -232,17 +231,22 @@
                         <span class="text-[10px] font-bold text-white tracking-wider" id="res-status">OPTIMAL</span>
                     </div>
                 </div>
-                <!-- Circle Chart -->
+                <!-- Circular Chart (Triple Ring Data from v28) -->
                 <div class="z-10 relative w-24 h-24 flex items-center justify-center">
                     <svg viewBox="0 0 100 100" class="w-full h-full rotate-[-90deg]">
-                        <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="8" fill="none"></circle>
-                        <circle cx="50" cy="50" r="40" stroke="url(#grad1)" stroke-width="8" fill="none" stroke-dasharray="251" stroke-dashoffset="50" stroke-linecap="round"></circle>
+                        <!-- Background Tracks -->
+                        <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="6" fill="none"></circle>
+                        <circle cx="50" cy="50" r="32" stroke="rgba(255,255,255,0.1)" stroke-width="6" fill="none"></circle>
+                        
+                        <!-- Animated Rings -->
+                        <circle id="ring-eri" cx="50" cy="50" r="40" stroke="url(#grad1)" stroke-width="6" fill="none" stroke-dasharray="251" stroke-dashoffset="251" stroke-linecap="round"></circle>
+                        <circle id="ring-hrv" cx="50" cy="50" r="32" stroke="#4361EE" stroke-width="6" fill="none" stroke-dasharray="201" stroke-dashoffset="201" stroke-linecap="round"></circle>
                     </svg>
-                    <i data-lucide="zap" class="absolute w-6 h-6 text-white"></i>
+                    <i data-lucide="zap" class="absolute w-5 h-5 text-white"></i>
                 </div>
             </div>
 
-            <!-- HRV -->
+            <!-- 2. HRV (Graph) -->
             <div class="card">
                 <div class="flex justify-between items-start z-10">
                     <div class="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center">
@@ -256,7 +260,7 @@
                 </div>
             </div>
 
-            <!-- LOAD -->
+            <!-- 3. LOAD (Bar Chart) -->
             <div class="card">
                 <div class="lbl z-10">System Load</div>
                 <div class="bar-container z-10">
@@ -268,7 +272,7 @@
                 <div class="val-sub mt-2 text-right z-10">62%</div>
             </div>
 
-            <!-- STRATEGY -->
+            <!-- 4. STRATEGY -->
             <div class="card col-span-2" style="background: rgba(139, 92, 246, 0.1);">
                 <div class="flex items-center gap-2 mb-2 z-10">
                     <i data-lucide="crosshair" class="w-4 h-4 text-cyan-400"></i>
@@ -281,17 +285,10 @@
 
         </div>
 
-        <!-- ACTIONS ROW -->
-        <div class="btn-row">
-            <button onclick="App.resetToHome()" class="btn-aurora">
-                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                <span>QUICK RESCAN</span>
-            </button>
-            <button onclick="App.prepEnhancedScan()" class="btn-aurora btn-primary">
-                <span>DEEP (15s)</span>
-                <i data-lucide="arrow-right" class="w-4 h-4"></i>
-            </button>
-        </div>
+        <button onclick="App.prepEnhancedScan()" class="btn-aurora">
+            <span>ENHANCED SCAN (15s)</span>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-gray-400"></i>
+        </button>
     </div>
 
     <script>
@@ -311,48 +308,51 @@
                 this.initEvents();
             },
 
-            // --- 1. THREE.JS ENGINE (v27 Sharp + v18 Dynamics) ---
+            // --- 1. V18.0 STARDUST ENGINE (SOFT GLOW, ADDITIVE) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                this.scene.fog = new THREE.FogExp2(0x020408, 0.005);
+                // RESTORED: Fog for depth and softness (The v18 look)
+                this.scene.fog = new THREE.FogExp2(0x000000, 0.03);
                 
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 const isMobile = window.innerWidth < 768;
-                this.camera.position.z = isMobile ? 8.0 : 6.0; 
+                this.camera.position.z = isMobile ? 6.5 : 5; // v18 spacing
                 
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3.0)); 
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5)); 
                 container.appendChild(this.renderer.domElement);
 
-                // DIAMOND SHADER
+                // v18 SHADER: SOFT PARTICLES
                 const vertexShader = `
                     attribute float size; attribute float random; uniform float uTime; uniform float uScale; uniform float uPixelRatio; varying float vRandom;
                     void main() { 
                         vRandom = random; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        gl_PointSize = (4.0 * size * uScale) * (50.0 / -mvPosition.z) * uPixelRatio; 
+                        // Size 15.0 base (Softer, larger)
+                        gl_PointSize = (15.0 * size * uScale) * (5.0 / -mvPosition.z) * uPixelRatio; 
                         gl_Position = projectionMatrix * mvPosition; 
                     }
                 `;
                 const fragmentShader = `
                     uniform vec3 color; varying float vRandom;
                     void main() { 
-                        vec2 xy = gl_PointCoord.xy - vec2(0.5); float dist = length(xy); 
-                        if(dist > 0.5) discard;
-                        float strength = pow(1.0 - dist * 2.0, 8.0); 
-                        gl_FragColor = vec4(color, strength); 
+                        vec2 xy = gl_PointCoord.xy - vec2(0.5); float ll = length(xy); 
+                        if(ll > 0.5) discard;
+                        // v18 Logic: Pow 2.0 = Soft Glow
+                        float strength = pow((0.5 - ll) * 2.0, 2.0);
+                        gl_FragColor = vec4(color, strength * 0.9); 
                     }
                 `;
 
                 const geometry = new THREE.BufferGeometry();
                 const pos = [], sizes = [];
                 for (let i = 0; i < this.config.particleCount; i++) {
-                    const r = 3.5; 
+                    const r = 2.8; 
                     const theta = Math.random() * 2 * Math.PI;
                     const phi = Math.acos(2 * Math.random() - 1);
                     pos.push(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
-                    sizes.push(0.5 + Math.random());
+                    sizes.push(0.5 + Math.random() * 1.5); // v18 variance
                 }
                 geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
                 geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
@@ -360,7 +360,7 @@
                 this.material = new THREE.ShaderMaterial({
                     uniforms: {
                         uTime: { value: 0 }, uScale: { value: 1.0 }, uPixelRatio: { value: this.renderer.getPixelRatio() },
-                        color: { value: new THREE.Color(0x00F0FF) }
+                        color: { value: new THREE.Color(0x00F0FF) } // Cyan Base
                     },
                     vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
                 });
@@ -373,67 +373,53 @@
                 requestAnimationFrame(() => this.animate());
                 const time = Date.now() * 0.001;
                 
-                // --- FULL FACE SYNC (Form Follows Function) ---
-                
-                // 1. EYES = ACTIVITY (Turbulence)
-                // When eyes are open, particles glimmer and rotate faster
-                const eyeFactor = this.state.eyesOpen; 
-                this.cloud.rotation.y += 0.001 + (eyeFactor * 0.01) + (this.state.headRot.y * 0.03);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.03);
+                // Physics: v18 Smooth
+                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
+                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
 
-                // 2. MOUTH = EXPANSION (Breath)
                 let targetEnergy = 0.2;
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 4.0; // Explosive expansion
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 3.0;
                 if (this.state.isScanning) targetEnergy = 1.0; 
-                
                 this.state.energy += (targetEnergy - this.state.energy) * 0.1;
                 
-                // Apply Scale
-                const s = 1.0 + (this.state.energy * 0.2);
+                // Noise Wave (v18 feature)
+                const positions = this.cloud.geometry.attributes.position.array;
+                const rnd = positions; // Reuse pos as random seed roughly
+                
+                // Simple pulse scale is performant
+                const s = 1.0 + (this.state.energy * 0.1);
                 this.cloud.scale.set(s, s, s);
 
                 // Color Logic
                 if (this.state.isScanning) {
-                    const hue = (Math.sin(time * 3) + 1) * 0.5; 
+                    const hue = (Math.sin(time * 2) + 1) * 0.5; 
                     const c1 = new THREE.Color(0x00F0FF);
                     const c2 = new THREE.Color(0x8B5CF6);
                     this.material.uniforms.color.value.lerpColors(c1, c2, hue);
-                    this.material.uniforms.uScale.value = 1.2 + (eyeFactor * 0.2); // Eyes boost brightness too
+                    this.material.uniforms.uScale.value = 1.2;
                 } else {
                     this.material.uniforms.color.value.lerp(new THREE.Color(0x00F0FF), 0.05);
-                    this.material.uniforms.uScale.value = 0.9 + (eyeFactor * 0.3);
+                    this.material.uniforms.uScale.value = 1.0;
                 }
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // --- 2. AI SYNC FIX ---
             initAI: function() {
                 const video = document.getElementById('input-video');
                 const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
                 faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5});
-                
                 faceMesh.onResults((res) => {
+                    const hint = document.getElementById('align-hint-capsule');
                     const hintText = document.getElementById('hint-text');
-                    const hintCapsule = document.getElementById('align-hint-capsule');
                     
                     if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
                         const lm = res.multiFaceLandmarks[0];
-                        
-                        // Head
                         this.state.headRot.x = (lm[1].y - 0.5) * 2;
                         this.state.headRot.y = (lm[1].x - 0.5) * 2;
-                        
-                        // Mouth (Upper 13, Lower 14)
                         const mouthDist = Math.abs(lm[13].y - lm[14].y);
-                        // Normalize: 0.0 to 0.1 typically
-                        this.state.mouthOpen = Math.min(1.0, Math.max(0, (mouthDist - 0.01) * 8)); // Boosted sensitivity
+                        this.state.mouthOpen = Math.min(1.0, Math.max(0, (mouthDist - 0.02) * 5));
                         
-                        // Eyes (Left: 159-145)
-                        const eyeDist = Math.abs(lm[159].y - lm[145].y);
-                        // Normalize: 0.005 closed, 0.025 open
-                        this.state.eyesOpen = Math.min(1.0, Math.max(0, (eyeDist - 0.005) * 40));
-
-                        // Alignment Hint Logic
+                        // Align
                         const noseX = lm[1].x;
                         const width = Math.abs(lm[234].x - lm[454].x);
                         let msg = "Ready to Scan";
@@ -441,38 +427,23 @@
                         let color = "text-cyan-400";
                         
                         if(width < 0.35) { msg = "Move Closer"; icon = "maximize"; color = "text-purple-400"; }
-                        else if(noseX < 0.4) { msg = "Move Right"; icon = "arrow-right"; color = "text-purple-400"; }
-                        else if(noseX > 0.6) { msg = "Move Left"; icon = "arrow-left"; color = "text-purple-400"; }
+                        else if(noseX < 0.4 || noseX > 0.6) { msg = "Center Face"; icon = "scan-face"; color = "text-purple-400"; }
                         
                         if(hintText.innerText !== msg && !this.state.isScanning) {
                             hintText.innerText = msg;
-                            document.getElementById('hint-icon-box').innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i>`;
+                            document.getElementById('hint-icon').outerHTML = `<i id="hint-icon" data-lucide="${icon}" class="w-4 h-4 ${color}"></i>`;
                             lucide.createIcons();
                             if(msg === "Ready to Scan" && navigator.vibrate) navigator.vibrate(20);
                         }
-                        
-                        // Show hint capsule
-                        if(!this.state.isScanning) hintCapsule.classList.add('show');
-                        else hintCapsule.classList.remove('show');
-                        
+                        if(!this.state.isScanning) hint.classList.add('show'); else hint.classList.remove('show');
                     } else {
-                        // No face
-                        if(!this.state.isScanning) { 
-                            if(hintText.innerText !== "Find Face") {
-                                hintText.innerText = "Find Face";
-                                document.getElementById('hint-icon-box').innerHTML = `<i data-lucide="scan-face" class="w-4 h-4 text-red-400"></i>`;
-                                lucide.createIcons();
-                            }
-                            hintCapsule.classList.add('show'); 
-                        }
+                        if(!this.state.isScanning) { hintText.innerText = "Find Face"; hint.classList.add('show'); }
                     }
                 });
-                
                 const camera = new Camera(video, { onFrame: async () => await faceMesh.send({image: video}), width: 640, height: 480 });
                 camera.start();
             },
 
-            // --- 3. EVENTS ---
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
                 const wrapper = document.getElementById('scan-wrapper');
@@ -570,6 +541,13 @@
                 
                 this.countUp('res-eri', score);
                 this.countUp('res-hrv', hrv);
+                
+                // Animate Rings
+                const eriOffset = 251 - (score/100 * 251);
+                document.getElementById('ring-eri').style.strokeDashoffset = eriOffset;
+                
+                const hrvOffset = 201 - (hrv/100 * 201);
+                document.getElementById('ring-hrv').style.strokeDashoffset = hrvOffset;
             },
 
             countUp: function(id, target) {
