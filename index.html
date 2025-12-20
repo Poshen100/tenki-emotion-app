@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v18.0 - Stardust Soul</title>
+    <title>TENKI v18.5 - Pro Stardust</title>
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -16,9 +16,13 @@
 
     <style>
         :root {
+            /* 2050 SCI-FI PALETTE */
             --bg-deep: #000000;
             --soul-cyan: #00F0FF;
+            --soul-gold: #FFD700;
             --term-green: #00FF00;
+            --neon-green: #00FF41; /* Snapshot 用的綠 */
+            --neon-yellow: #FFB800; /* Snapshot 用的黃 */
         }
 
         body {
@@ -53,7 +57,7 @@
         #universe {
             position: absolute; inset: 0; z-index: 1;
             background: radial-gradient(circle at center, #0b1016 0%, #000000 100%);
-            opacity: 0; transition: opacity 2s ease-in; /* 啟動後淡入 */
+            opacity: 0; transition: opacity 2s ease-in;
         }
 
         /* 4. HUD 層 */
@@ -62,7 +66,7 @@
             pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 24px;
-            opacity: 0; transition: opacity 2s ease-in; /* 啟動後淡入 */
+            opacity: 0; transition: opacity 2s ease-in;
         }
 
         /* 指紋掃描器 */
@@ -85,22 +89,121 @@
             box-shadow: 0 0 50px var(--soul-cyan);
         }
         
-        /* 結果展示 */
+        /* 5. 結果展示層 */
         .result-overlay {
             position: absolute; inset: 0; z-index: 50;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.95); /* 加深背景以突顯數據 */
             backdrop-filter: blur(20px);
             display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
+            justify-content: flex-start; /* 改為靠上對齊，因為內容變多了 */
+            align-items: center;
             opacity: 0; pointer-events: none;
             transition: opacity 0.8s ease;
+            overflow-y: auto; /* 允許長內容滾動 */
+            padding: 40px 20px;
         }
         .result-overlay.show { opacity: 1; pointer-events: auto; }
+        
         .score-display {
             font-size: 80px; font-weight: bold;
             background: linear-gradient(to bottom, #fff, #666);
             -webkit-background-clip: text; color: transparent;
             letter-spacing: -4px;
+            line-height: 1;
+            margin-top: 20px;
+        }
+
+        /* === 6. PROFESSIONAL SNAPSHOT MODULE (新功能) === */
+        
+        /* 容器與折疊動畫 */
+        .snapshot-card {
+            width: 100%;
+            max-width: 360px;
+            background: rgba(10, 14, 26, 0.6);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 16px;
+            margin-top: 30px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            pointer-events: auto;
+        }
+
+        /* 標頭 */
+        .snapshot-header {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .snapshot-title {
+            font-size: 12px; font-weight: 600; color: #fff; letter-spacing: 1px;
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        .snapshot-summary {
+            font-family: 'Courier New', monospace; font-size: 10px; color: var(--soul-cyan);
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .chevron { transition: transform 0.3s ease; opacity: 0.5; }
+        .snapshot-card.expanded .chevron { transform: rotate(180deg); opacity: 1; color: var(--soul-cyan); }
+
+        /* 內容區域 */
+        .snapshot-body {
+            max-height: 0; opacity: 0;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            background: rgba(0, 0, 0, 0.3);
+        }
+        .snapshot-card.expanded .snapshot-body {
+            max-height: 500px; opacity: 1; padding: 0 20px 20px 20px;
+        }
+
+        /* 數據網格 */
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+        .data-cell {
+            background: rgba(255, 255, 255, 0.03); border-radius: 8px; padding: 12px;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .cell-full { grid-column: span 2; }
+        .cell-label { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .cell-value { font-family: 'Courier New', monospace; font-size: 16px; color: #fff; font-weight: 500; }
+
+        /* 視覺化元件 */
+        .viz-bar-container {
+            width: 100%; height: 4px; background: #333; margin-top: 8px; position: relative; border-radius: 2px;
+        }
+        .viz-baseline-mark {
+            position: absolute; left: 60%; top: -3px; bottom: -3px; width: 2px; background: #666;
+        }
+        .viz-current-dot {
+            position: absolute; left: 45%; top: -2px; width: 8px; height: 8px;
+            background: var(--neon-yellow); border-radius: 50%; transform: translateX(-50%);
+            box-shadow: 0 0 5px var(--neon-yellow);
+        }
+
+        .stress-blocks { display: flex; gap: 4px; margin-top: 8px; }
+        .s-block { flex: 1; height: 6px; border: 1px solid #444; border-radius: 2px; }
+        .s-block.active { background: var(--neon-green); border-color: var(--neon-green); }
+        .s-block.warn { background: var(--neon-yellow); border-color: var(--neon-yellow); }
+
+        .rri-wave {
+            width: 100%; height: 20px; stroke: var(--neon-green); stroke-width: 1.5;
+            fill: none; margin-top: 5px; opacity: 0.8;
+        }
+
+        .trend-tag {
+            font-size: 9px; padding: 2px 6px; border-radius: 4px;
+            background: rgba(255, 51, 51, 0.1); color: #ff3333; border: 1px solid #ff3333;
+            display: inline-block; margin-left: 8px;
+        }
+
+        .pro-footer {
+            margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);
+            font-size: 8px; color: #444; text-align: center; font-family: 'Courier New', monospace;
         }
     </style>
 </head>
@@ -121,7 +224,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white">TENKI</div>
-                <div class="text-[8px] text-cyan-500 tracking-widest mt-1">QUANTUM_SENSING_v18.0</div>
+                <div class="text-[8px] text-cyan-500 tracking-widest mt-1">QUANTUM_SENSING_v18.5</div>
             </div>
             <div class="text-right">
                 <div id="connection-status" class="text-[10px] text-gray-500 border border-gray-800 px-2 py-1 rounded">
@@ -140,17 +243,126 @@
         </div>
     </div>
 
+    <!-- 結果頁面 -->
     <div id="result-view" class="result-overlay">
-        <div class="text-[10px] tracking-[6px] text-cyan-400 mb-4">ANALYSIS COMPLETE</div>
+        <div class="text-[10px] tracking-[6px] text-cyan-400 mb-2">ANALYSIS COMPLETE</div>
         <div class="score-display" id="final-score">00</div>
-        <div class="text-[12px] tracking-[4px] text-gray-400 mt-2">TEI INDEX</div>
-        <div class="mt-12">
-            <button onclick="app.reset()" class="border border-white/20 px-6 py-3 text-[10px] tracking-widest hover:bg-white hover:text-black transition">RESYNC</button>
+        <div class="text-[12px] tracking-[4px] text-gray-400 mt-2 mb-4">TEI INDEX</div>
+
+        <!-- PROFESSIONAL SNAPSHOT MODULE -->
+        <div class="snapshot-card" id="pro-snapshot">
+            
+            <!-- 標頭：點擊觸發展開 -->
+            <div class="snapshot-header" onclick="toggleSnapshot()">
+                <div class="snapshot-title">
+                    <i data-lucide="activity" style="width: 14px;"></i>
+                    BIOMETRICS
+                </div>
+                <div class="snapshot-summary">
+                    <span>READY TO TRADE</span>
+                    <i data-lucide="chevron-down" class="chevron" id="snap-chevron" style="width: 16px;"></i>
+                </div>
+            </div>
+
+            <!-- 內容：展開後顯示 -->
+            <div class="snapshot-body">
+                
+                <!-- 第一組：自律神經 -->
+                <div style="font-size: 9px; color: var(--soul-cyan); margin-bottom: 5px; opacity: 0.7; letter-spacing: 1px;">AUTONOMIC SYSTEM</div>
+                <div class="data-grid">
+                    
+                    <!-- HRV (含 Baseline) -->
+                    <div class="data-cell">
+                        <div class="cell-label">HRV (rMSSD)</div>
+                        <div class="cell-value">43 <span style="font-size:10px; color:#666;">ms</span></div>
+                        <!-- 視覺化：滑桿 -->
+                        <div class="viz-bar-container">
+                            <div class="viz-baseline-mark"></div>
+                            <div class="viz-current-dot"></div>
+                        </div>
+                    </div>
+
+                    <!-- RRI (穩定性波形) -->
+                    <div class="data-cell">
+                        <div class="cell-label">RRI STABILITY</div>
+                        <div class="cell-value" style="font-size: 14px;">Good</div>
+                        <!-- 視覺化：波形 -->
+                        <svg class="rri-wave" viewBox="0 0 100 20" preserveAspectRatio="none">
+                            <path d="M0,10 Q10,5 20,10 T40,10 T60,10 T80,10 T100,10" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- 第二組：呼吸與壓力 -->
+                <div style="font-size: 9px; color: var(--soul-cyan); margin: 15px 0 5px 0; opacity: 0.7; letter-spacing: 1px;">REGULATION & LOAD</div>
+                <div class="data-grid">
+                    
+                    <!-- 呼吸頻率 -->
+                    <div class="data-cell">
+                        <div class="cell-label">RESP RATE</div>
+                        <div class="cell-value">15 <span style="font-size:10px; color:#666;">/min</span></div>
+                        <div style="height:4px; width:60%; background:#333; margin-top:8px; border-radius:2px;">
+                            <div style="height:100%; width:100%; background:var(--neon-green);"></div>
+                        </div>
+                    </div>
+
+                    <!-- 壓力區間 -->
+                    <div class="data-cell">
+                        <div class="cell-label">STRESS ZONE</div>
+                        <div class="cell-value" style="font-size: 14px; color: var(--neon-yellow);">MODERATE</div>
+                        <!-- 視覺化：區塊 -->
+                        <div class="stress-blocks">
+                            <div class="s-block active"></div>
+                            <div class="s-block active"></div>
+                            <div class="s-block warn"></div>
+                            <div class="s-block"></div>
+                            <div class="s-block"></div>
+                        </div>
+                    </div>
+
+                    <!-- 累積負荷 (跨欄) -->
+                    <div class="data-cell cell-full">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div class="cell-label">CUMULATIVE LOAD</div>
+                                <div class="cell-value">
+                                    62% 
+                                    <span class="trend-tag">▲ +8%</span>
+                                </div>
+                            </div>
+                            <div style="text-align:right; font-size:9px; color:#666; max-width: 100px; line-height: 1.2;">
+                                Caution: Fatigue accumulating.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 專業腳註 -->
+                <div class="pro-footer">
+                    Compared to your last 7 active days baseline
+                </div>
+
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button onclick="app.reset()" class="border border-white/20 px-8 py-3 text-[10px] tracking-widest hover:bg-white hover:text-black transition uppercase">Resync Sensors</button>
         </div>
     </div>
 
     <script>
         lucide.createIcons();
+
+        // 展開/收合 Snapshot 的功能
+        function toggleSnapshot() {
+            const card = document.getElementById('pro-snapshot');
+            
+            // Toggle CSS class
+            card.classList.toggle('expanded');
+            
+            // Haptic Feedback
+            if (navigator.vibrate) navigator.vibrate(10);
+        }
 
         const app = {
             config: { particleCount: 8000, particleSize: 0.08 },
@@ -183,16 +395,15 @@
                         if (charIndex < currentLine.length) {
                             term.innerHTML += currentLine.charAt(charIndex);
                             charIndex++;
-                            setTimeout(typeWriter, 20); // 打字速度
+                            setTimeout(typeWriter, 20);
                         } else {
                             term.innerHTML += "<br>";
                             lineIndex++;
                             charIndex = 0;
-                            setTimeout(typeWriter, 300); // 換行停頓
+                            setTimeout(typeWriter, 300);
                         }
                     } else {
                         setTimeout(() => {
-                            // 淡出 Boot，淡入 Main
                             document.getElementById('boot-layer').style.opacity = 0;
                             document.getElementById('universe').style.opacity = 1;
                             document.getElementById('hud-layer').style.opacity = 1;
@@ -246,7 +457,7 @@
                 const ctx = canvas.getContext('2d');
                 const grad = ctx.createRadialGradient(16,16,0,16,16,16);
                 grad.addColorStop(0, 'rgba(255,255,255,1)');
-                grad.addColorStop(0.2, 'rgba(100,255,255,0.8)'); // 青色光暈
+                grad.addColorStop(0.2, 'rgba(100,255,255,0.8)');
                 grad.addColorStop(1, 'rgba(0,0,0,0)');
                 ctx.fillStyle = grad; ctx.fillRect(0,0,32,32);
                 const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
@@ -267,7 +478,6 @@
                 const originals = this.cloud.geometry.attributes.originalPosition.array;
                 const randoms = this.cloud.geometry.attributes.random.array;
 
-                // 物理效果
                 this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
                 this.cloud.rotation.x += (this.state.headRot.x * 0.05);
 
@@ -287,14 +497,13 @@
                 }
                 this.cloud.geometry.attributes.position.needsUpdate = true;
                 
-                // 顏色反應
                 if (this.state.isScanning) {
                     this.material.color.setHex(0x00F0FF); this.material.size = 0.12;
                 } else if (this.state.isFaceDetected) {
                     const r=0+this.state.mouthOpen, g=0.5+this.state.mouthOpen*0.5, b=1;
                     this.material.color.setRGB(r, g, b); this.material.size = 0.08;
                 } else {
-                    this.material.color.setHex(0x112233); // 暗淡
+                    this.material.color.setHex(0x112233);
                 }
                 this.renderer.render(this.scene, this.camera);
             },
@@ -312,7 +521,6 @@
                 });
                 camera.start();
 
-                // Mouse Fallback (Debug)
                 document.addEventListener('mousemove', (e) => {
                     if (!this.state.isFaceDetected) {
                         this.state.headRot.y = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -341,8 +549,6 @@
                     if(open < 0) open = 0; if(open > 1) open = 1;
                     this.state.mouthOpen += (open - this.state.mouthOpen) * 0.2;
                 } else {
-                    // 保持 Mouse Debug 模式
-                    // this.state.isFaceDetected = false; 
                     statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray"; statusEl.style.borderColor = "#333";
                     if(!this.state.isScanning) { hintEl.innerText = "ALIGN SENSORS / USE MOUSE"; hintEl.style.color = "gray"; }
                 }
@@ -353,7 +559,6 @@
                 const btn = document.getElementById('scan-trigger');
                 const start = (e) => {
                     e.preventDefault();
-                    // 允許 Mouse Debug 下掃描
                     this.state.isScanning = true;
                     btn.classList.add('active');
                     document.getElementById('instruction').innerText = "ANALYZING BIOMETRICS...";
@@ -392,6 +597,9 @@
                     score += 2; scoreEl.innerText = score;
                     if(score >= target) { scoreEl.innerText = target; clearInterval(scoreAnim); }
                 }, 20);
+                
+                // 重置 Snapshot 狀態 (收合)
+                document.getElementById('pro-snapshot').classList.remove('expanded');
             },
 
             reset: function() {
