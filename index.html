@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v19.0 - Sonic Stardust</title>
+    <title>TENKI v20.0 - Prism Heart</title>
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -16,9 +16,9 @@
 
     <style>
         :root {
-            --bg-deep: #000000;
+            --bg-deep: #050510; /* 背景不再是死黑，而是極深的午夜藍 */
             --soul-cyan: #00F0FF;
-            --audio-gold: #FFD700;
+            --heart-pink: #FF66CC;
         }
 
         body {
@@ -39,7 +39,8 @@
         /* 2. 3D 星塵層 */
         #universe {
             position: absolute; inset: 0; z-index: 1;
-            background: radial-gradient(circle at center, #0b1016 0%, #000000 100%);
+            /* 背景加入極細微的漸層，讓空間更有層次 */
+            background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
         }
 
         /* 3. HUD 層 */
@@ -50,10 +51,11 @@
             padding: 24px;
         }
 
-        /* 音頻可視化條 (簡易版) */
+        /* 音頻可視化條 */
         .audio-bar {
             width: 4px; height: 20px; background: rgba(255,255,255,0.2);
-            margin: 0 1px; transition: height 0.1s;
+            margin: 0 1px; transition: height 0.05s ease-out;
+            border-radius: 2px;
         }
 
         /* 指紋掃描器 */
@@ -62,24 +64,24 @@
             position: relative;
             width: 80px; height: 80px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(0, 240, 255, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2); /* 邊框更柔和 */
             display: flex; justify-content: center; align-items: center;
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(8px);
         }
         .fingerprint-sensor.active {
             transform: scale(1.1);
-            border-color: var(--soul-cyan);
-            background: rgba(0, 240, 255, 0.1);
-            box-shadow: 0 0 50px var(--soul-cyan);
+            border-color: var(--heart-pink); /* 掃描時變粉色 */
+            background: rgba(255, 100, 200, 0.15);
+            box-shadow: 0 0 40px var(--heart-pink);
         }
         
         /* 結果展示 */
         .result-overlay {
             position: absolute; inset: 0; z-index: 50;
-            background: rgba(0,0,0,0.9);
+            background: rgba(10, 10, 20, 0.95);
             backdrop-filter: blur(20px);
             display: flex; flex-direction: column;
             justify-content: center; align-items: center;
@@ -89,7 +91,8 @@
         .result-overlay.show { opacity: 1; pointer-events: auto; }
         .score-display {
             font-size: 80px; font-weight: bold;
-            background: linear-gradient(to bottom, #fff, #666);
+            /* 字體漸層 */
+            background: linear-gradient(to bottom, #FF99CC, #99CCFF);
             -webkit-background-clip: text; color: transparent;
             letter-spacing: -4px;
         }
@@ -106,13 +109,12 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white">TENKI</div>
-                <div class="text-[8px] text-cyan-500 tracking-widest mt-1">SONIC_STARDUST_v19.0</div>
+                <div class="text-[8px] text-purple-300 tracking-widest mt-1">PRISM_HEART_v20.0</div>
             </div>
             <div class="text-right flex flex-col items-end">
-                <div id="connection-status" class="text-[10px] text-gray-500 border border-gray-800 px-2 py-1 rounded mb-2">
-                    WAITING FOR INPUT
+                <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2">
+                    WAITING...
                 </div>
-                <!-- 音頻指示器 -->
                 <div class="flex items-end h-4" id="audio-visualizer">
                     <div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div>
                 </div>
@@ -121,20 +123,20 @@
 
         <div class="flex flex-col items-center pb-10">
             <div id="scan-trigger" class="fingerprint-sensor">
-                <i data-lucide="fingerprint" class="w-8 h-8 text-white"></i>
+                <i data-lucide="fingerprint" class="w-8 h-8 text-white/80"></i>
             </div>
-            <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-500 transition-all duration-300">
-                CLICK TO INITIALIZE
+            <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-400 transition-all duration-300">
+                CLICK TO START
             </div>
         </div>
     </div>
 
     <div id="result-view" class="result-overlay">
-        <div class="text-[10px] tracking-[6px] text-cyan-400 mb-4">SOUL RESONANCE</div>
+        <div class="text-[10px] tracking-[6px] text-pink-300 mb-4">AURA ANALYSIS</div>
         <div class="score-display" id="final-score">00</div>
-        <div class="text-[12px] tracking-[4px] text-gray-400 mt-2">BPM / VIBE</div>
+        <div class="text-[12px] tracking-[4px] text-gray-400 mt-2">VIBE RESONANCE</div>
         <div class="mt-12">
-            <button onclick="app.reset()" class="border border-white/20 px-6 py-3 text-[10px] tracking-widest hover:bg-white hover:text-black transition">RESYNC</button>
+            <button onclick="app.reset()" class="border border-white/20 px-6 py-3 text-[10px] tracking-widest hover:bg-white hover:text-purple-900 transition rounded-full">RESYNC</button>
         </div>
     </div>
 
@@ -144,33 +146,23 @@
         const app = {
             config: { particleCount: 8000, particleSize: 0.08 },
             state: { 
-                isFaceDetected: false, 
-                isScanning: false, 
-                mouthOpen: 0, 
-                headRot: {x:0, y:0}, 
-                energy: 0,
-                audioData: 0 // 新增：音頻能量級別 (0-255)
+                isFaceDetected: false, isScanning: false, mouthOpen: 0, 
+                headRot: {x:0, y:0}, energy: 0, audioData: 0 
             },
-            
-            audioCtx: null,
-            analyser: null,
-            dataArray: null,
+            audioCtx: null, analyser: null, dataArray: null,
 
             init: function() {
-                // 不再有 Boot Sequence，直接啟動 Three.js
                 this.initThree();
                 this.initEvents();
-                // 為了用戶體驗，我們等待第一次點擊才啟動 AI 和 Audio (瀏覽器策略)
             },
 
-            // --- 1. Three.js Engine (Optimized) ---
+            // --- 1. Three.js Engine (Vertex Colors) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                // 減少 Fog 計算，改用簡單背景
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 this.camera.position.z = 5;
-                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false }); // 關閉 AA 提升效能
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
@@ -179,11 +171,17 @@
                 const geometry = new THREE.BufferGeometry();
                 const positions = new Float32Array(this.config.particleCount * 3);
                 const originals = new Float32Array(this.config.particleCount * 3);
+                const colors = new Float32Array(this.config.particleCount * 3); // 新增顏色數據
                 const randoms = new Float32Array(this.config.particleCount);
                 const phi = Math.PI * (3. - Math.sqrt(5.));
 
+                // 顏色定義 (RGB 0-1)
+                const topColor = new THREE.Color(0xFF66CC); // 粉紅 (頂部)
+                const midColor = new THREE.Color(0x9966FF); // 紫色 (中間)
+                const botColor = new THREE.Color(0x00CCFF); // 青藍 (底部)
+
                 for (let i = 0; i < this.config.particleCount; i++) {
-                    const y = 1 - (i / (this.config.particleCount - 1)) * 2;
+                    const y = 1 - (i / (this.config.particleCount - 1)) * 2; // y 範圍 1 到 -1
                     const radius = Math.sqrt(1 - y * y);
                     const theta = phi * i;
                     const x = Math.cos(theta) * radius;
@@ -194,9 +192,28 @@
                     positions[idx] = x * r; positions[idx+1] = y * r; positions[idx+2] = z * r;
                     originals[idx] = x * r; originals[idx+1] = y * r; originals[idx+2] = z * r;
                     randoms[i] = Math.random();
+
+                    // --- 漸層色計算 ---
+                    // 將 y (-1 到 1) 轉換為 0 到 1
+                    const normalizedY = (y + 1) / 2; 
+                    const mixedColor = new THREE.Color();
+                    
+                    if (normalizedY > 0.5) {
+                        // 上半部：紫 -> 粉
+                        mixedColor.copy(midColor).lerp(topColor, (normalizedY - 0.5) * 2);
+                    } else {
+                        // 下半部：藍 -> 紫
+                        mixedColor.copy(botColor).lerp(midColor, normalizedY * 2);
+                    }
+
+                    colors[idx] = mixedColor.r;
+                    colors[idx+1] = mixedColor.g;
+                    colors[idx+2] = mixedColor.b;
                 }
+
                 geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
                 geometry.setAttribute('originalPosition', new THREE.BufferAttribute(originals, 3));
+                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3)); // 綁定顏色
                 geometry.setAttribute('random', new THREE.BufferAttribute(randoms, 1));
 
                 // 材質
@@ -204,84 +221,76 @@
                 const ctx = canvas.getContext('2d');
                 const grad = ctx.createRadialGradient(16,16,0,16,16,16);
                 grad.addColorStop(0, 'rgba(255,255,255,1)');
-                grad.addColorStop(0.2, 'rgba(100,255,255,0.8)');
+                grad.addColorStop(0.4, 'rgba(255,255,255,0.8)'); // 核心亮白
                 grad.addColorStop(1, 'rgba(0,0,0,0)');
                 ctx.fillStyle = grad; ctx.fillRect(0,0,32,32);
                 const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
 
                 this.material = new THREE.PointsMaterial({
-                    size: this.config.particleSize, map: tex, transparent: true, opacity: 0.8,
-                    blending: THREE.AdditiveBlending, depthWrite: false, color: 0x0088ff
+                    size: this.config.particleSize, 
+                    map: tex, 
+                    transparent: true, 
+                    opacity: 0.9,
+                    vertexColors: true, // 重要：開啟頂點著色
+                    blending: THREE.AdditiveBlending, 
+                    depthWrite: false
                 });
+                
                 this.cloud = new THREE.Points(geometry, this.material);
                 this.scene.add(this.cloud);
                 this.animate();
             },
 
-            // --- 2. Audio & AI System ---
+            // --- 2. Sensors ---
             startSensors: async function() {
                 const hintEl = document.getElementById('instruction');
-                hintEl.innerText = "ACCESSING SENSORS...";
-
-                // 2.1 Audio Setup
+                hintEl.innerText = "SENSORS ACTIVE...";
                 try {
                     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     this.analyser = this.audioCtx.createAnalyser();
-                    this.analyser.fftSize = 64; // 降低 FFT Size 提升效能，我們只需要大概的能量
-                    
-                    // 請求 Audio 和 Video 權限
+                    this.analyser.fftSize = 64;
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                    
-                    // 連接音頻
                     const source = this.audioCtx.createMediaStreamSource(stream);
                     source.connect(this.analyser);
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                    
-                    // 連接影像 (AI)
                     this.initAI(stream);
-                    
                 } catch (e) {
-                    console.error("Sensor Init Failed", e);
-                    hintEl.innerText = "SENSORS BLOCKED. MOUSE MODE.";
-                    this.initAI(null); // Fallback
+                    hintEl.innerText = "USE MOUSE MODE";
+                    this.initAI(null);
                 }
             },
 
             updateAudio: function() {
                 if (!this.analyser) return;
                 this.analyser.getByteFrequencyData(this.dataArray);
-                // 計算平均音量
                 let sum = 0;
                 for(let i = 0; i < this.dataArray.length; i++) sum += this.dataArray[i];
                 this.state.audioData = sum / this.dataArray.length;
                 
-                // 更新 UI Visualizer
+                // Visualizer UI color update
                 const bars = document.querySelectorAll('.audio-bar');
                 const step = Math.floor(this.dataArray.length / 4);
                 bars.forEach((bar, i) => {
                     const h = (this.dataArray[i * step] / 255) * 20;
                     bar.style.height = Math.max(2, h) + 'px';
-                    bar.style.background = this.state.audioData > 50 ? '#00F0FF' : 'rgba(255,255,255,0.2)';
+                    // UI Bar 顏色也變成粉紫漸層
+                    bar.style.background = this.state.audioData > 20 ? '#FF99CC' : 'rgba(255,255,255,0.2)';
                 });
             },
 
             initAI: function(stream) {
                 const video = document.getElementById('input-video');
-                
                 if (stream) {
                     video.srcObject = stream;
                     const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
                     faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6});
                     faceMesh.onResults((res) => this.processData(res));
-                    
                     const camera = new Camera(video, {
                         onFrame: async () => await faceMesh.send({image: video}),
                         width: 640, height: 480
                     });
                     camera.start();
                 }
-
-                // Mouse Fallback
                 document.addEventListener('mousemove', (e) => {
                     if (!this.state.isFaceDetected) {
                         this.state.headRot.y = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -296,8 +305,8 @@
 
                 if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
                     this.state.isFaceDetected = true;
-                    statusEl.innerText = "LINK: STABLE"; statusEl.style.color = "#00F0FF"; statusEl.style.borderColor = "#00F0FF";
-                    if(!this.state.isScanning) { hintEl.innerText = "HOLD FINGERPRINT"; hintEl.style.color = "white"; }
+                    statusEl.innerText = "LINK: STABLE"; statusEl.style.color = "#FF99CC"; statusEl.style.borderColor = "#FF99CC";
+                    if(!this.state.isScanning) { hintEl.innerText = "HOLD TO SCAN"; hintEl.style.color = "white"; }
                     
                     const landmarks = results.multiFaceLandmarks[0];
                     const nose = landmarks[1];
@@ -313,7 +322,7 @@
                 }
             },
 
-            // --- 3. Animation Loop (Optimized) ---
+            // --- 3. Animation Loop ---
             animate: function() {
                 requestAnimationFrame(() => this.animate());
                 
@@ -323,34 +332,24 @@
                 const originals = this.cloud.geometry.attributes.originalPosition.array;
                 const randoms = this.cloud.geometry.attributes.random.array;
 
-                // 物理參數計算
                 this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
                 this.cloud.rotation.x += (this.state.headRot.x * 0.05);
 
-                // 音頻驅動能量
-                // audioData 範圍 0-255，正規化為 0-1
                 const audioForce = (this.state.audioData || 0) / 255; 
-                
-                let targetEnergy = 0.2 + (audioForce * 0.8); // 基礎能量 + 音頻
+                let targetEnergy = 0.2 + (audioForce * 0.8);
                 if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 1.5;
                 if (this.state.isScanning) targetEnergy = 3.0;
                 
                 this.state.energy += (targetEnergy - this.state.energy) * 0.1;
 
                 const expansionBase = 1 + (this.state.mouthOpen * 0.3) + (audioForce * 0.2);
-
-                // 優化：減少迴圈內的 Math 計算
                 const pulse = Math.sin(time * 2) * this.state.energy * 0.1;
-                
-                // Audio Jitter (高頻躁動)
-                const jitter = audioForce * 0.1;
+                const jitter = audioForce * 0.15; // 音頻震動
 
                 for (let i = 0; i < this.config.particleCount; i++) {
                     const idx = i * 3;
                     const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
                     const r = randoms[i];
-                    
-                    // 使用預計算的 pulse 加上一點隨機相位
                     const noise = pulse * (r + 0.5) + (Math.random() - 0.5) * jitter;
                     const expansion = expansionBase;
 
@@ -360,39 +359,32 @@
                 }
                 this.cloud.geometry.attributes.position.needsUpdate = true;
                 
-                // 顏色反應
+                // 視覺反饋調整
                 if (this.state.isScanning) {
-                    this.material.color.setHex(0x00F0FF); 
                     this.material.size = 0.12 + audioForce * 0.1;
+                    this.material.opacity = 1.0;
                 } else {
-                    // 根據音量改變顏色亮度
-                    const baseBlue = 0.2;
-                    const r = this.state.mouthOpen + (audioForce * 0.5); 
-                    const g = baseBlue + (this.state.mouthOpen * 0.5) + (audioForce * 0.5);
-                    const b = 0.6 + (audioForce * 0.4);
-                    this.material.color.setRGB(r, g, b); 
                     this.material.size = 0.08 + (audioForce * 0.05);
+                    this.material.opacity = 0.8;
                 }
+                
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // --- 4. Interaction ---
+            // --- 4. Events ---
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
                 
                 const start = (e) => {
                     e.preventDefault();
-                    
-                    // 第一次點擊時啟動 Sensor
                     if (!this.audioCtx) {
                         this.startSensors();
-                        document.getElementById('instruction').innerText = "SENSORS ACTIVE. HOLD TO SCAN.";
+                        document.getElementById('instruction').innerText = "SENSORS READY. HOLD NOW.";
                         return;
                     }
-
                     this.state.isScanning = true;
                     btn.classList.add('active');
-                    document.getElementById('instruction').innerText = "SYNCING SOUL...";
+                    document.getElementById('instruction').innerText = "READING AURA...";
                     if(navigator.vibrate) navigator.vibrate(50);
                     
                     let progress = 0;
@@ -409,7 +401,7 @@
                     this.state.isScanning = false;
                     clearInterval(this.scanInterval);
                     btn.classList.remove('active');
-                    document.getElementById('instruction').innerText = "HOLD FINGERPRINT";
+                    document.getElementById('instruction').innerText = "HOLD TO SCAN";
                 };
 
                 btn.addEventListener('mousedown', start);
@@ -423,23 +415,20 @@
                 this.state.isScanning = false;
                 if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 document.getElementById('result-view').classList.add('show');
-                
-                const scoreEl = document.getElementById('final-score');
-                // 將音頻能量納入評分
                 const audioBonus = Math.floor(this.state.audioData / 5); 
                 const target = Math.min(99, Math.floor(Math.random() * (95 - 70) + 70) + audioBonus);
-                
                 let score = 0;
                 const scoreAnim = setInterval(() => {
                     score += 2; scoreEl.innerText = score;
                     if(score >= target) { scoreEl.innerText = target; clearInterval(scoreAnim); }
                 }, 20);
+                const scoreEl = document.getElementById('final-score');
             },
 
             reset: function() {
                 document.getElementById('result-view').classList.remove('show');
                 document.getElementById('scan-trigger').classList.remove('active');
-                document.getElementById('instruction').innerText = "HOLD FINGERPRINT";
+                document.getElementById('instruction').innerText = "HOLD TO SCAN";
             }
         };
 
