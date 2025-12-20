@@ -2,470 +2,330 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v18.5 - Pro Stardust</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TENKI v27.1 - Wild Granularity</title>
     
-    <!-- 核心引擎 -->
+    <!-- Core Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     
-    <!-- UI 庫 -->
+    <!-- UI / Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
+        /* --- GLOBAL --- */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
         :root {
-            /* 2050 SCI-FI PALETTE */
             --bg-deep: #000000;
-            --soul-cyan: #00F0FF;
-            --soul-gold: #FFD700;
-            --term-green: #00FF00;
-            --neon-green: #00FF41; /* Snapshot 用的綠 */
-            --neon-yellow: #FFB800; /* Snapshot 用的黃 */
+            --ring-eri: #00FF88;
+            --ring-hrv: #00F0FF;
+            --ring-load: #FFAA00;
         }
 
         body {
             background: var(--bg-deep);
             color: white;
-            font-family: 'Courier New', monospace;
-            overflow: hidden;
-            width: 100vw; height: 100vh;
-            margin: 0; padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+            width: 100vw; height: 100dvh;
+            position: fixed; margin: 0; padding: 0;
+            overflow: hidden; touch-action: none;
+            user-select: none; -webkit-user-select: none;
         }
 
-        /* 1. 絕對隱私 */
-        #input-video {
-            position: fixed; top: -9999px; left: -9999px;
-            width: 1px; height: 1px; opacity: 0; pointer-events: none;
+        #input-video { position: fixed; opacity: 0; pointer-events: none; }
+        
+        /* PURE BLACK VOID */
+        #universe { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 0; pointer-events: none; 
+            background: #000000; 
         }
 
-        /* 2. 啟動層 (Boot Screen) */
-        #boot-layer {
-            position: absolute; inset: 0; z-index: 100;
-            background: black;
-            display: flex; flex-direction: column; justify-content: center; padding: 40px;
-            font-family: 'Courier New', monospace;
-            color: var(--term-green);
-            font-size: 14px; line-height: 1.6;
-            transition: opacity 1s ease-out;
-        }
-        .cursor::after { content: '█'; animation: blink 1s infinite; }
-        @keyframes blink { 0%, 100% {opacity: 1} 50% {opacity: 0} }
-
-        /* 3. 3D 星塵層 */
-        #universe {
-            position: absolute; inset: 0; z-index: 1;
-            background: radial-gradient(circle at center, #0b1016 0%, #000000 100%);
-            opacity: 0; transition: opacity 2s ease-in;
-        }
-
-        /* 4. HUD 層 */
-        #hud-layer {
+        /* --- LAYERS --- */
+        .layer {
             position: absolute; inset: 0; z-index: 10;
-            pointer-events: none;
-            display: flex; flex-direction: column; justify-content: space-between;
-            padding: 24px;
-            opacity: 0; transition: opacity 2s ease-in;
-        }
-
-        /* 指紋掃描器 */
-        .fingerprint-sensor {
-            pointer-events: auto;
-            position: relative;
-            width: 80px; height: 80px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(0, 240, 255, 0.3);
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            backdrop-filter: blur(4px);
-        }
-        .fingerprint-sensor.active {
-            transform: scale(1.1);
-            border-color: var(--soul-cyan);
-            background: rgba(0, 240, 255, 0.1);
-            box-shadow: 0 0 50px var(--soul-cyan);
-        }
-        
-        /* 5. 結果展示層 */
-        .result-overlay {
-            position: absolute; inset: 0; z-index: 50;
-            background: rgba(0,0,0,0.95); /* 加深背景以突顯數據 */
-            backdrop-filter: blur(20px);
             display: flex; flex-direction: column;
-            justify-content: flex-start; /* 改為靠上對齊，因為內容變多了 */
-            align-items: center;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.8s ease;
-            overflow-y: auto; /* 允許長內容滾動 */
-            padding: 40px 20px;
+            padding: calc(env(safe-area-inset-top) + 20px) 24px calc(env(safe-area-inset-bottom) + 30px) 24px;
+            opacity: 0; pointer-events: none; transform: scale(0.95); filter: blur(10px);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .result-overlay.show { opacity: 1; pointer-events: auto; }
-        
-        .score-display {
-            font-size: 80px; font-weight: bold;
-            background: linear-gradient(to bottom, #fff, #666);
-            -webkit-background-clip: text; color: transparent;
-            letter-spacing: -4px;
-            line-height: 1;
-            margin-top: 20px;
-        }
+        .layer.active { opacity: 1; pointer-events: auto; transform: scale(1); filter: blur(0); }
+        .layer.hidden-layer { opacity: 0; transform: scale(1.05); pointer-events: none; filter: blur(10px); }
 
-        /* === 6. PROFESSIONAL SNAPSHOT MODULE (新功能) === */
-        
-        /* 容器與折疊動畫 */
-        .snapshot-card {
-            width: 100%;
-            max-width: 360px;
-            background: rgba(10, 14, 26, 0.6);
-            border: 1px solid rgba(0, 240, 255, 0.2);
-            border-radius: 16px;
-            margin-top: 30px;
-            margin-bottom: 20px;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            pointer-events: auto;
-        }
-
-        /* 標頭 */
-        .snapshot-header {
-            padding: 16px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        .snapshot-title {
-            font-size: 12px; font-weight: 600; color: #fff; letter-spacing: 1px;
+        /* --- ALIGNMENT HINT --- */
+        #align-hint-capsule {
+            position: absolute; top: 15%; left: 50%; transform: translateX(-50%) translateY(-20px);
+            background: rgba(10, 10, 10, 0.9);
+            backdrop-filter: blur(12px);
+            padding: 8px 16px; border-radius: 99px;
+            border: 1px solid rgba(255,255,255,0.2);
             display: flex; align-items: center; gap: 8px;
+            opacity: 0; pointer-events: none; transition: all 0.4s ease;
+            z-index: 50; box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+        }
+        #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        
+        /* --- PPG SCANNER --- */
+        .scan-wrapper {
+            position: relative; width: 100px; height: 100px;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto;
+            background: radial-gradient(circle, #000000 0%, transparent 70%);
+        }
+        .fingerprint-btn {
+            width: 70px; height: 70px; border-radius: 50%;
+            background: rgba(40, 40, 45, 0.8);
+            border: 1px solid rgba(255,255,255,0.3);
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.2s; cursor: pointer; z-index: 2;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+        .fingerprint-btn:active { transform: scale(0.95); border-color: #00F0FF; }
+        
+        .ppg-ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1; }
+        .ppg-track { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 2; }
+        .ppg-fill {
+            fill: none; stroke: #00F0FF; stroke-width: 3; stroke-linecap: round;
+            stroke-dasharray: 283; stroke-dashoffset: 283;
+            transition: stroke-dashoffset 0s linear;
+            filter: drop-shadow(0 0 4px #00F0FF);
+        }
+        .scan-wrapper.scanning-2s .ppg-fill { transition: stroke-dashoffset 2s linear; stroke-dashoffset: 0; }
+        .scan-wrapper.scanning-15s .ppg-fill { transition: stroke-dashoffset 15s linear; stroke-dashoffset: 0; }
+
+        /* --- DASHBOARD --- */
+        .dashboard-card {
+            background: rgba(18, 20, 24, 0.9);
+            backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 32px;
+            padding: 30px 20px; text-align: center;
+            position: relative; overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+        }
+        
+        .triple-ring-svg { width: 220px; height: 220px; margin: 0 auto; display: block; transform: rotate(-90deg); }
+        .ring-track { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 8; }
+        .ring-fill { 
+            fill: none; stroke-width: 8; stroke-linecap: round;
+            transition: stroke-dashoffset 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .r-eri { stroke: var(--ring-eri); stroke-dasharray: 565; stroke-dashoffset: 565; }
+        .r-hrv { stroke: var(--ring-hrv); stroke-dasharray: 471; stroke-dashoffset: 471; }
+        .r-load { stroke: var(--ring-load); stroke-dasharray: 377; stroke-dashoffset: 377; }
+
+        .score-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .score-val { font-size: 56px; font-weight: 800; color: white; line-height: 1; letter-spacing: -2px; }
+        .score-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: 2px; margin-top: 4px; }
+
+        .legend-row { display: flex; justify-content: center; gap: 24px; margin-top: 24px; }
+        .legend-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 4px; }
+        .l-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 1px; }
+        .l-val { font-size: 16px; font-weight: 700; color: white; }
+
+        .strategy-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px; padding: 20px; margin-top: 16px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .icon-box {
+            width: 48px; height: 48px; border-radius: 16px;
+            background: rgba(0, 255, 136, 0.1); display: flex; align-items: center; justify-content: center;
         }
 
-        .snapshot-summary {
-            font-family: 'Courier New', monospace; font-size: 10px; color: var(--soul-cyan);
-            display: flex; align-items: center; gap: 10px;
-        }
-
-        .chevron { transition: transform 0.3s ease; opacity: 0.5; }
-        .snapshot-card.expanded .chevron { transform: rotate(180deg); opacity: 1; color: var(--soul-cyan); }
-
-        /* 內容區域 */
-        .snapshot-body {
-            max-height: 0; opacity: 0;
-            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-            background: rgba(0, 0, 0, 0.3);
-        }
-        .snapshot-card.expanded .snapshot-body {
-            max-height: 500px; opacity: 1; padding: 0 20px 20px 20px;
-        }
-
-        /* 數據網格 */
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
-        .data-cell {
-            background: rgba(255, 255, 255, 0.03); border-radius: 8px; padding: 12px;
-            display: flex; flex-direction: column; justify-content: space-between;
-        }
-        .cell-full { grid-column: span 2; }
-        .cell-label { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-        .cell-value { font-family: 'Courier New', monospace; font-size: 16px; color: #fff; font-weight: 500; }
-
-        /* 視覺化元件 */
-        .viz-bar-container {
-            width: 100%; height: 4px; background: #333; margin-top: 8px; position: relative; border-radius: 2px;
-        }
-        .viz-baseline-mark {
-            position: absolute; left: 60%; top: -3px; bottom: -3px; width: 2px; background: #666;
-        }
-        .viz-current-dot {
-            position: absolute; left: 45%; top: -2px; width: 8px; height: 8px;
-            background: var(--neon-yellow); border-radius: 50%; transform: translateX(-50%);
-            box-shadow: 0 0 5px var(--neon-yellow);
-        }
-
-        .stress-blocks { display: flex; gap: 4px; margin-top: 8px; }
-        .s-block { flex: 1; height: 6px; border: 1px solid #444; border-radius: 2px; }
-        .s-block.active { background: var(--neon-green); border-color: var(--neon-green); }
-        .s-block.warn { background: var(--neon-yellow); border-color: var(--neon-yellow); }
-
-        .rri-wave {
-            width: 100%; height: 20px; stroke: var(--neon-green); stroke-width: 1.5;
-            fill: none; margin-top: 5px; opacity: 0.8;
-        }
-
-        .trend-tag {
-            font-size: 9px; padding: 2px 6px; border-radius: 4px;
-            background: rgba(255, 51, 51, 0.1); color: #ff3333; border: 1px solid #ff3333;
-            display: inline-block; margin-left: 8px;
-        }
-
-        .pro-footer {
-            margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);
-            font-size: 8px; color: #444; text-align: center; font-family: 'Courier New', monospace;
-        }
     </style>
 </head>
 <body>
 
-    <video id="input-video" playsinline></video>
-
-    <!-- 啟動畫面 -->
-    <div id="boot-layer">
-        <div id="terminal-text"></div>
-        <div class="cursor"></div>
-    </div>
-
-    <!-- 主程式 -->
+    <video id="input-video" playsinline webkit-playsinline></video>
+    
+    <!-- UNIVERSE -->
     <div id="universe"></div>
 
-    <div id="hud-layer">
-        <div class="flex justify-between items-start">
-            <div>
-                <div class="text-xl font-bold tracking-[6px] text-white">TENKI</div>
-                <div class="text-[8px] text-cyan-500 tracking-widest mt-1">QUANTUM_SENSING_v18.5</div>
-            </div>
-            <div class="text-right">
-                <div id="connection-status" class="text-[10px] text-gray-500 border border-gray-800 px-2 py-1 rounded">
-                    OFFLINE
-                </div>
-            </div>
+    <!-- LAYER 1: HOME -->
+    <div id="layer-home" class="layer active justify-between">
+        <div class="mt-8 text-center">
+            <h1 class="text-3xl font-bold text-white tracking-tight drop-shadow-lg">TENKI</h1>
+            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1 uppercase">Wild Granularity</p>
         </div>
 
-        <div class="flex flex-col items-center pb-10">
-            <div id="scan-trigger" class="fingerprint-sensor">
-                <i data-lucide="fingerprint" class="w-8 h-8 text-white"></i>
+        <div id="align-hint-capsule">
+            <i id="hint-icon" data-lucide="scan-face" class="w-3 h-3 text-cyan-400"></i>
+            <span id="hint-text" class="text-xs font-bold text-white tracking-wide">Ready</span>
+        </div>
+
+        <div class="mb-12 flex flex-col items-center">
+            <div class="scan-wrapper" id="scan-wrapper">
+                <svg class="ppg-ring-svg" viewBox="0 0 100 100">
+                    <circle class="ppg-track" cx="50" cy="50" r="45"></circle>
+                    <circle class="ppg-fill" id="ppg-progress" cx="50" cy="50" r="45"></circle>
+                </svg>
+                <div id="scan-trigger" class="fingerprint-btn">
+                    <i data-lucide="fingerprint" class="w-8 h-8 text-white opacity-90"></i>
+                </div>
             </div>
-            <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-500 transition-all duration-300">
-                SYSTEM BOOTING...
+            <div id="instruction" class="mt-4 text-[10px] tracking-[2px] text-gray-500 font-mono transition-opacity font-bold">
+                HOLD TO SCAN (2s)
             </div>
         </div>
     </div>
 
-    <!-- 結果頁面 -->
-    <div id="result-view" class="result-overlay">
-        <div class="text-[10px] tracking-[6px] text-cyan-400 mb-2">ANALYSIS COMPLETE</div>
-        <div class="score-display" id="final-score">00</div>
-        <div class="text-[12px] tracking-[4px] text-gray-400 mt-2 mb-4">TEI INDEX</div>
+    <!-- LAYER 2: RESULT -->
+    <div id="layer-result" class="layer hidden-layer">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-white">ERI Dashboard</h2>
+            <button onclick="App.resetToHome()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                <i data-lucide="x" class="w-4 h-4 text-white"></i>
+            </button>
+        </div>
 
-        <!-- PROFESSIONAL SNAPSHOT MODULE -->
-        <div class="snapshot-card" id="pro-snapshot">
-            
-            <!-- 標頭：點擊觸發展開 -->
-            <div class="snapshot-header" onclick="toggleSnapshot()">
-                <div class="snapshot-title">
-                    <i data-lucide="activity" style="width: 14px;"></i>
-                    BIOMETRICS
-                </div>
-                <div class="snapshot-summary">
-                    <span>READY TO TRADE</span>
-                    <i data-lucide="chevron-down" class="chevron" id="snap-chevron" style="width: 16px;"></i>
+        <div class="dashboard-card">
+            <div class="relative">
+                <svg class="triple-ring-svg" viewBox="0 0 220 220">
+                    <circle class="ring-track" cx="110" cy="110" r="90"></circle>
+                    <circle class="ring-track" cx="110" cy="110" r="75"></circle>
+                    <circle class="ring-track" cx="110" cy="110" r="60"></circle>
+                    
+                    <circle class="ring-fill r-eri" id="ring-eri" cx="110" cy="110" r="90"></circle>
+                    <circle class="ring-fill r-hrv" id="ring-hrv" cx="110" cy="110" r="75"></circle>
+                    <circle class="ring-fill r-load" id="ring-load" cx="110" cy="110" r="60"></circle>
+                </svg>
+                <div class="score-container">
+                    <div class="score-val" id="res-score">--</div>
+                    <div class="score-label">SCORE</div>
                 </div>
             </div>
-
-            <!-- 內容：展開後顯示 -->
-            <div class="snapshot-body">
-                
-                <!-- 第一組：自律神經 -->
-                <div style="font-size: 9px; color: var(--soul-cyan); margin-bottom: 5px; opacity: 0.7; letter-spacing: 1px;">AUTONOMIC SYSTEM</div>
-                <div class="data-grid">
-                    
-                    <!-- HRV (含 Baseline) -->
-                    <div class="data-cell">
-                        <div class="cell-label">HRV (rMSSD)</div>
-                        <div class="cell-value">43 <span style="font-size:10px; color:#666;">ms</span></div>
-                        <!-- 視覺化：滑桿 -->
-                        <div class="viz-bar-container">
-                            <div class="viz-baseline-mark"></div>
-                            <div class="viz-current-dot"></div>
-                        </div>
-                    </div>
-
-                    <!-- RRI (穩定性波形) -->
-                    <div class="data-cell">
-                        <div class="cell-label">RRI STABILITY</div>
-                        <div class="cell-value" style="font-size: 14px;">Good</div>
-                        <!-- 視覺化：波形 -->
-                        <svg class="rri-wave" viewBox="0 0 100 20" preserveAspectRatio="none">
-                            <path d="M0,10 Q10,5 20,10 T40,10 T60,10 T80,10 T100,10" />
-                        </svg>
-                    </div>
-                </div>
-
-                <!-- 第二組：呼吸與壓力 -->
-                <div style="font-size: 9px; color: var(--soul-cyan); margin: 15px 0 5px 0; opacity: 0.7; letter-spacing: 1px;">REGULATION & LOAD</div>
-                <div class="data-grid">
-                    
-                    <!-- 呼吸頻率 -->
-                    <div class="data-cell">
-                        <div class="cell-label">RESP RATE</div>
-                        <div class="cell-value">15 <span style="font-size:10px; color:#666;">/min</span></div>
-                        <div style="height:4px; width:60%; background:#333; margin-top:8px; border-radius:2px;">
-                            <div style="height:100%; width:100%; background:var(--neon-green);"></div>
-                        </div>
-                    </div>
-
-                    <!-- 壓力區間 -->
-                    <div class="data-cell">
-                        <div class="cell-label">STRESS ZONE</div>
-                        <div class="cell-value" style="font-size: 14px; color: var(--neon-yellow);">MODERATE</div>
-                        <!-- 視覺化：區塊 -->
-                        <div class="stress-blocks">
-                            <div class="s-block active"></div>
-                            <div class="s-block active"></div>
-                            <div class="s-block warn"></div>
-                            <div class="s-block"></div>
-                            <div class="s-block"></div>
-                        </div>
-                    </div>
-
-                    <!-- 累積負荷 (跨欄) -->
-                    <div class="data-cell cell-full">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <div class="cell-label">CUMULATIVE LOAD</div>
-                                <div class="cell-value">
-                                    62% 
-                                    <span class="trend-tag">▲ +8%</span>
-                                </div>
-                            </div>
-                            <div style="text-align:right; font-size:9px; color:#666; max-width: 100px; line-height: 1.2;">
-                                Caution: Fatigue accumulating.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 專業腳註 -->
-                <div class="pro-footer">
-                    Compared to your last 7 active days baseline
-                </div>
-
+            <div class="legend-row">
+                <div class="legend-item"><div class="dot bg-[#00FF88]"></div><div class="l-label">ERI</div><div class="l-val" id="val-eri">--</div></div>
+                <div class="legend-item"><div class="dot bg-[#00F0FF]"></div><div class="l-label">HRV</div><div class="l-val" id="val-hrv">--</div></div>
+                <div class="legend-item"><div class="dot bg-[#FFAA00]"></div><div class="l-label">LOAD</div><div class="l-val" id="val-load">--</div></div>
+            </div>
+            <div class="mt-6">
+                <div class="text-lg font-bold text-white" id="res-title">Ready to Perform</div>
+                <div class="text-xs text-gray-400 mt-1 max-w-[240px] mx-auto leading-relaxed">Your recovery is optimal. Push your limits today.</div>
             </div>
         </div>
 
-        <div class="mt-4">
-            <button onclick="app.reset()" class="border border-white/20 px-8 py-3 text-[10px] tracking-widest hover:bg-white hover:text-black transition uppercase">Resync Sensors</button>
+        <div class="mt-6 mb-2">
+            <h3 class="text-sm font-bold text-white mb-2">Strategy</h3>
+            <div class="strategy-card">
+                <div class="icon-box"><i data-lucide="zap" class="w-6 h-6 text-[#00FF88]"></i></div>
+                <div>
+                    <div class="text-[10px] font-bold text-[#00FF88] tracking-widest mb-1">RECOMMENDED</div>
+                    <div class="text-sm font-bold text-white mb-1">Failed Breakdown <span class="text-gray-500">&</span> Scalp</div>
+                    <div class="text-[10px] text-gray-400">High volatility expected.</div>
+                </div>
+            </div>
         </div>
+
+        <button onclick="App.prepEnhancedScan()" class="w-full mt-auto py-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 active:bg-white/10 transition">
+            <span class="text-xs font-bold text-gray-300 tracking-widest">ENHANCED SCAN (15s)</span>
+            <i data-lucide="arrow-right" class="w-3 h-3 text-gray-500"></i>
+        </button>
     </div>
 
     <script>
         lucide.createIcons();
 
-        // 展開/收合 Snapshot 的功能
-        function toggleSnapshot() {
-            const card = document.getElementById('pro-snapshot');
-            
-            // Toggle CSS class
-            card.classList.toggle('expanded');
-            
-            // Haptic Feedback
-            if (navigator.vibrate) navigator.vibrate(10);
-        }
-
-        const app = {
-            config: { particleCount: 8000, particleSize: 0.08 },
-            state: { isFaceDetected: false, isScanning: false, mouthOpen: 0, headRot: {x:0, y:0}, energy: 0 },
+        const App = {
+            config: { particleCount: 8000 },
+            state: { 
+                isScanning: false, 
+                scanDuration: 2000, 
+                mouthOpen: 0, 
+                eyesOpen: 0, // NEW STATE
+                headRot: {x:0, y:0}, 
+                energy: 0 
+            },
 
             init: function() {
-                this.runBootSequence(() => {
-                    this.initThree();
-                    this.initAI();
-                    this.initEvents();
-                });
+                this.initThree();
+                this.initAI();
+                this.initEvents();
             },
 
-            // --- 0. Boot Sequence ---
-            runBootSequence: function(callback) {
-                const term = document.getElementById('terminal-text');
-                const lines = [
-                    "> INITIALIZING KERNEL...",
-                    "> CONNECTING NEURAL NET...",
-                    "> CALIBRATING SENSORS...",
-                    "> OPTIMIZING QUANTUM FIELDS...",
-                    "> SYSTEM READY."
-                ];
-                let lineIndex = 0;
-                let charIndex = 0;
-
-                function typeWriter() {
-                    if (lineIndex < lines.length) {
-                        const currentLine = lines[lineIndex];
-                        if (charIndex < currentLine.length) {
-                            term.innerHTML += currentLine.charAt(charIndex);
-                            charIndex++;
-                            setTimeout(typeWriter, 20);
-                        } else {
-                            term.innerHTML += "<br>";
-                            lineIndex++;
-                            charIndex = 0;
-                            setTimeout(typeWriter, 300);
-                        }
-                    } else {
-                        setTimeout(() => {
-                            document.getElementById('boot-layer').style.opacity = 0;
-                            document.getElementById('universe').style.opacity = 1;
-                            document.getElementById('hud-layer').style.opacity = 1;
-                            setTimeout(() => {
-                                document.getElementById('boot-layer').style.display = 'none';
-                                document.getElementById('instruction').innerText = "ALIGN SENSORS";
-                                callback();
-                            }, 1000);
-                        }, 800);
-                    }
-                }
-                typeWriter();
-            },
-
-            // --- 1. Three.js Engine ---
+            // --- 1. SHARP ENGINE (NO BLUR) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                this.scene.fog = new THREE.FogExp2(0x000000, 0.03);
+                this.scene.fog = new THREE.FogExp2(0x000000, 0.005);
+                
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-                this.camera.position.z = 5;
+                const isMobile = window.innerWidth < 768;
+                this.camera.position.z = isMobile ? 8.0 : 6.0; 
+                
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3.0)); 
                 container.appendChild(this.renderer.domElement);
 
-                // 星塵粒子
+                // SHADER: High Contrast, Sharp Cutoff
+                const vertexShader = `
+                    attribute float size; attribute float random; uniform float uTime; uniform float uScale; uniform float uPixelRatio; varying float vRandom;
+                    void main() { 
+                        vRandom = random; 
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        // Size 4.0 = Sharp Granularity
+                        gl_PointSize = (4.0 * size * uScale) * (50.0 / -mvPosition.z) * uPixelRatio; 
+                        gl_Position = projectionMatrix * mvPosition; 
+                    }
+                `;
+                const fragmentShader = `
+                    uniform vec3 color; varying float vRandom;
+                    void main() { 
+                        vec2 xy = gl_PointCoord.xy - vec2(0.5); 
+                        float dist = length(xy); 
+                        if(dist > 0.5) discard;
+                        
+                        // EXTREME CUTOFF: Center is 1.0, edge drops instantly
+                        // The "Diamond" look
+                        float strength = pow(1.0 - dist * 2.0, 10.0); 
+                        
+                        gl_FragColor = vec4(color, strength); 
+                    }
+                `;
+
                 const geometry = new THREE.BufferGeometry();
-                const positions = [];
-                const originals = [];
-                const randoms = [];
+                const pos = [], orig = [], rnd = [], sizes = [];
                 const phi = Math.PI * (3. - Math.sqrt(5.));
 
                 for (let i = 0; i < this.config.particleCount; i++) {
                     const y = 1 - (i / (this.config.particleCount - 1)) * 2;
                     const radius = Math.sqrt(1 - y * y);
                     const theta = phi * i;
-                    const x = Math.cos(theta) * radius;
-                    const z = Math.sin(theta) * radius;
-                    const r = 2.5;
-                    positions.push(x*r, y*r, z*r);
-                    originals.push(x*r, y*r, z*r);
-                    randoms.push(Math.random());
+                    
+                    const r = 3.5; 
+                    const x = Math.cos(theta) * radius * r;
+                    const z = Math.sin(theta) * radius * r;
+                    
+                    pos.push(x, y * r, z); orig.push(x, y * r, z);
+                    rnd.push(Math.random()); sizes.push(0.5 + Math.random());
                 }
-                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-                geometry.setAttribute('originalPosition', new THREE.Float32BufferAttribute(originals, 3));
-                geometry.setAttribute('random', new THREE.Float32BufferAttribute(randoms, 1));
+                
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+                geometry.setAttribute('originalPosition', new THREE.Float32BufferAttribute(orig, 3));
+                geometry.setAttribute('random', new THREE.Float32BufferAttribute(rnd, 1));
+                geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
 
-                // 程式化材質
-                const canvas = document.createElement('canvas'); canvas.width=32; canvas.height=32;
-                const ctx = canvas.getContext('2d');
-                const grad = ctx.createRadialGradient(16,16,0,16,16,16);
-                grad.addColorStop(0, 'rgba(255,255,255,1)');
-                grad.addColorStop(0.2, 'rgba(100,255,255,0.8)');
-                grad.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = grad; ctx.fillRect(0,0,32,32);
-                const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
-
-                this.material = new THREE.PointsMaterial({
-                    size: this.config.particleSize, map: tex, transparent: true, opacity: 0.8,
-                    blending: THREE.AdditiveBlending, depthWrite: false, color: 0x0088ff
+                this.material = new THREE.ShaderMaterial({
+                    uniforms: {
+                        uTime: { value: 0 },
+                        uScale: { value: 1.0 },
+                        uPixelRatio: { value: this.renderer.getPixelRatio() },
+                        color: { value: new THREE.Color(0x0088ff) }
+                    },
+                    vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
                 });
+
                 this.cloud = new THREE.Points(geometry, this.material);
                 this.scene.add(this.cloud);
                 this.animate();
@@ -474,146 +334,258 @@
             animate: function() {
                 requestAnimationFrame(() => this.animate());
                 const time = Date.now() * 0.001;
+                this.material.uniforms.uTime.value = time;
+                
+                // --- WILD PHYSICS ---
+                // EYES = TURBULENCE (Rotation Speed Boost)
+                // Base speed 0.001, adds up to 0.02 when eyes wide open
+                const turbulence = 0.001 + (this.state.eyesOpen * 0.02);
+                
+                this.cloud.rotation.y += turbulence + (this.state.headRot.y * 0.03);
+                this.cloud.rotation.x += (this.state.headRot.x * 0.03);
+
+                // MOUTH = EXPLOSION (High Expansion)
+                let targetEnergy = 0.2;
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 5.0; // WILD MULTIPLIER
+                if (this.state.isScanning) targetEnergy = 2.0; 
+                
+                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
+
                 const positions = this.cloud.geometry.attributes.position.array;
                 const originals = this.cloud.geometry.attributes.originalPosition.array;
-                const randoms = this.cloud.geometry.attributes.random.array;
-
-                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
-
-                let targetEnergy = 0.2;
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 2.0;
-                if (this.state.isScanning) targetEnergy = 3.0;
-                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
+                const rnd = this.cloud.geometry.attributes.random.array;
 
                 for (let i = 0; i < this.config.particleCount; i++) {
                     const idx = i * 3;
                     const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
-                    const noise = Math.sin(time * 2 + randoms[i] * 10) * this.state.energy * 0.1;
-                    const expansion = 1 + (this.state.mouthOpen * 0.3);
-                    positions[idx] = ox * expansion + (ox * noise);
-                    positions[idx+1] = oy * expansion + (oy * noise);
-                    positions[idx+2] = oz * expansion + (oz * noise);
+                    
+                    // Jitter effect when high energy
+                    const jitter = (Math.random() - 0.5) * this.state.energy * 0.05;
+                    const noise = Math.sin(time * 2 + rnd[i] * 10) * this.state.energy * 0.1;
+                    
+                    const expansion = 1 + (this.state.mouthOpen * 0.3) + noise + jitter;
+                    
+                    positions[idx] = ox * expansion;
+                    positions[idx+1] = oy * expansion;
+                    positions[idx+2] = oz * expansion;
                 }
                 this.cloud.geometry.attributes.position.needsUpdate = true;
-                
+
                 if (this.state.isScanning) {
-                    this.material.color.setHex(0x00F0FF); this.material.size = 0.12;
-                } else if (this.state.isFaceDetected) {
-                    const r=0+this.state.mouthOpen, g=0.5+this.state.mouthOpen*0.5, b=1;
-                    this.material.color.setRGB(r, g, b); this.material.size = 0.08;
+                    this.material.uniforms.color.value.setHex(0x9D00FF);
+                    this.material.uniforms.uScale.value = 1.1;
                 } else {
-                    this.material.color.setHex(0x112233);
+                    this.material.uniforms.color.value.setHex(0x00F0FF);
+                    this.material.uniforms.uScale.value = 0.9 + (this.state.eyesOpen * 0.2); // Eyes also boost size slightly
                 }
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // --- 2. AI Vision ---
+            // --- 2. AI (Eyes + Mouth + Head) ---
             initAI: function() {
                 const video = document.getElementById('input-video');
                 const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6});
-                faceMesh.onResults((res) => this.processData(res));
+                faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5});
+                
+                faceMesh.onResults((res) => {
+                    const hint = document.getElementById('align-hint-capsule');
+                    const hintText = document.getElementById('hint-text');
+                    
+                    if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
+                        const lm = res.multiFaceLandmarks[0];
+                        this.state.headRot.x = (lm[1].y - 0.5) * 2;
+                        this.state.headRot.y = (lm[1].x - 0.5) * 2;
+                        
+                        // Mouth
+                        const mouthDist = Math.abs(lm[13].y - lm[14].y);
+                        this.state.mouthOpen = Math.min(1.0, Math.max(0, (mouthDist - 0.02) * 5));
+                        
+                        // Eyes Openness (Simple Vertical Distance)
+                        const leftEye = Math.abs(lm[159].y - lm[145].y);
+                        const rightEye = Math.abs(lm[386].y - lm[374].y);
+                        const avgEye = (leftEye + rightEye) / 2;
+                        // Thresholds: ~0.01 closed, ~0.03 open. Multiplier to normalize 0-1
+                        this.state.eyesOpen = Math.min(1.0, Math.max(0, (avgEye - 0.01) * 35));
+
+                        const noseX = lm[1].x;
+                        const width = Math.abs(lm[234].x - lm[454].x);
+                        let msg = "Ready to Scan";
+                        let icon = "check-circle";
+                        let color = "text-green-400";
+                        
+                        if(width < 0.35) { msg = "Move Closer"; icon = "maximize"; color = "text-yellow-400"; }
+                        else if(noseX < 0.4) { msg = "Move Right"; icon = "arrow-right"; color = "text-yellow-400"; }
+                        else if(noseX > 0.6) { msg = "Move Left"; icon = "arrow-left"; color = "text-yellow-400"; }
+                        
+                        if(hintText.innerText !== msg && !this.state.isScanning) {
+                            hintText.innerText = msg;
+                            hintIcon.outerHTML = `<i id="hint-icon" data-lucide="${icon}" class="w-3 h-3 ${color}"></i>`;
+                            lucide.createIcons();
+                            if(msg === "Ready to Scan" && navigator.vibrate) navigator.vibrate(20);
+                        }
+                        
+                        if(!this.state.isScanning) hint.classList.add('show');
+                        else hint.classList.remove('show');
+                        
+                    } else {
+                        if(!this.state.isScanning) {
+                            hintText.innerText = "Find Face";
+                            hintIcon.outerHTML = `<i id="hint-icon" data-lucide="scan-face" class="w-3 h-3 text-red-400"></i>`;
+                            lucide.createIcons();
+                            hint.classList.add('show');
+                        }
+                    }
+                });
                 
                 const camera = new Camera(video, {
                     onFrame: async () => await faceMesh.send({image: video}),
                     width: 640, height: 480
                 });
                 camera.start();
-
-                document.addEventListener('mousemove', (e) => {
-                    if (!this.state.isFaceDetected) {
-                        this.state.headRot.y = (e.clientX / window.innerWidth - 0.5) * 2;
-                        this.state.headRot.x = (e.clientY / window.innerHeight - 0.5) * 2;
-                    }
-                });
             },
 
-            processData: function(results) {
-                const statusEl = document.getElementById('connection-status');
-                const hintEl = document.getElementById('instruction');
-
-                if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                    this.state.isFaceDetected = true;
-                    statusEl.innerText = "LINK: STABLE"; statusEl.style.color = "#00F0FF"; statusEl.style.borderColor = "#00F0FF";
-                    if(!this.state.isScanning) { hintEl.innerText = "HOLD FINGERPRINT TO SCAN"; hintEl.style.color = "white"; }
-                    
-                    const landmarks = results.multiFaceLandmarks[0];
-                    const nose = landmarks[1];
-                    this.state.headRot.x = (nose.y - 0.5) * 2;
-                    this.state.headRot.y = (nose.x - 0.5) * 2;
-
-                    const upperLip = landmarks[13], lowerLip = landmarks[14];
-                    const distance = Math.sqrt(Math.pow(upperLip.x - lowerLip.x, 2) + Math.pow(upperLip.y - lowerLip.y, 2));
-                    let open = (distance - 0.02) * 5; 
-                    if(open < 0) open = 0; if(open > 1) open = 1;
-                    this.state.mouthOpen += (open - this.state.mouthOpen) * 0.2;
-                } else {
-                    statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray"; statusEl.style.borderColor = "#333";
-                    if(!this.state.isScanning) { hintEl.innerText = "ALIGN SENSORS / USE MOUSE"; hintEl.style.color = "gray"; }
-                }
-            },
-
-            // --- 3. Interaction ---
+            // --- 3. EVENTS ---
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
+                const wrapper = document.getElementById('scan-wrapper');
+                
                 const start = (e) => {
                     e.preventDefault();
+                    if(this.state.isScanning) return;
+                    
                     this.state.isScanning = true;
-                    btn.classList.add('active');
-                    document.getElementById('instruction').innerText = "ANALYZING BIOMETRICS...";
+                    if(this.state.scanDuration > 5000) {
+                        wrapper.classList.add('scanning-15s');
+                        this.startCountdown(15);
+                    } else {
+                        wrapper.classList.add('scanning-2s');
+                        document.getElementById('instruction').innerText = "KEEP STILL...";
+                        document.getElementById('instruction').style.color = "#00F0FF";
+                    }
                     if(navigator.vibrate) navigator.vibrate(50);
                     
-                    let progress = 0;
-                    this.scanInterval = setInterval(() => {
-                        progress += 2;
-                        if (progress % 20 === 0 && navigator.vibrate) navigator.vibrate(10);
-                        if (progress >= 100) this.finishScan();
-                    }, 40);
+                    this.scanTimer = setTimeout(() => {
+                        this.finishScan();
+                    }, this.state.scanDuration);
                 };
+
                 const end = (e) => {
-                    e.preventDefault();
                     if(!this.state.isScanning) return;
                     this.state.isScanning = false;
-                    clearInterval(this.scanInterval);
-                    btn.classList.remove('active');
-                    document.getElementById('instruction').innerText = "HOLD FINGERPRINT TO SCAN";
+                    clearTimeout(this.scanTimer);
+                    clearInterval(this.countInterval);
+                    wrapper.classList.remove('scanning-2s');
+                    wrapper.classList.remove('scanning-15s');
+                    const txt = this.state.scanDuration > 5000 ? "HOLD FOR 15s..." : "HOLD TO SCAN (2s)";
+                    document.getElementById('instruction').innerText = txt;
+                    document.getElementById('instruction').style.color = "gray";
                 };
+
                 btn.addEventListener('mousedown', start);
-                btn.addEventListener('touchstart', start);
-                window.addEventListener('mouseup', end);
-                window.addEventListener('touchend', end);
+                btn.addEventListener('touchstart', start, {passive: false});
+                btn.addEventListener('mouseup', end);
+                btn.addEventListener('touchend', end);
+                btn.addEventListener('mouseleave', end);
+            },
+
+            startCountdown: function(seconds) {
+                const el = document.getElementById('instruction');
+                el.style.color = "#9D00FF";
+                let left = seconds;
+                el.innerText = `ANALYZING... ${left}`;
+                this.countInterval = setInterval(() => {
+                    left--;
+                    if(left > 0) {
+                        el.innerText = `ANALYZING... ${left}`;
+                        if(navigator.vibrate) navigator.vibrate(10);
+                    } else {
+                        clearInterval(this.countInterval);
+                    }
+                }, 1000);
+            },
+
+            prepEnhancedScan: function() {
+                clearInterval(this.countInterval);
+                document.getElementById('layer-result').classList.remove('active');
+                document.getElementById('layer-result').classList.add('hidden-layer');
+                setTimeout(() => {
+                    document.getElementById('layer-home').classList.remove('hidden-layer');
+                    document.getElementById('layer-home').classList.add('active');
+                    this.state.scanDuration = 15000;
+                    document.getElementById('instruction').innerText = "HOLD FOR 15s...";
+                    
+                    document.getElementById('ring-eri').style.strokeDashoffset = 565;
+                    document.getElementById('ring-hrv').style.strokeDashoffset = 471;
+                    document.getElementById('ring-load').style.strokeDashoffset = 377;
+                    document.getElementById('res-score').innerText = "--";
+                }, 400);
+            },
+
+            resetToHome: function() {
+                this.prepEnhancedScan();
+                setTimeout(() => {
+                    this.state.scanDuration = 2000;
+                    document.getElementById('instruction').innerText = "HOLD TO SCAN (2s)";
+                }, 450);
             },
 
             finishScan: function() {
-                clearInterval(this.scanInterval);
-                this.state.isScanning = false;
                 if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                document.getElementById('result-view').classList.add('show');
-                const scoreEl = document.getElementById('final-score');
-                let score = 0;
-                const target = Math.floor(Math.random() * (98 - 75) + 75);
-                const scoreAnim = setInterval(() => {
-                    score += 2; scoreEl.innerText = score;
-                    if(score >= target) { scoreEl.innerText = target; clearInterval(scoreAnim); }
-                }, 20);
+                clearInterval(this.countInterval);
+                const home = document.getElementById('layer-home');
+                const result = document.getElementById('layer-result');
+                const wrapper = document.getElementById('scan-wrapper');
                 
-                // 重置 Snapshot 狀態 (收合)
-                document.getElementById('pro-snapshot').classList.remove('expanded');
+                wrapper.classList.remove('scanning-2s');
+                wrapper.classList.remove('scanning-15s');
+                home.classList.remove('active');
+                home.classList.add('hidden-layer');
+                
+                setTimeout(() => {
+                    result.classList.remove('hidden-layer');
+                    result.classList.add('active');
+                    this.animateResults();
+                }, 300);
             },
 
-            reset: function() {
-                document.getElementById('result-view').classList.remove('show');
-                document.getElementById('scan-trigger').classList.remove('active');
-                document.getElementById('instruction').innerText = "HOLD FINGERPRINT TO SCAN";
+            animateResults: function() {
+                const score = Math.floor(Math.random() * (92 - 75) + 75);
+                const hrv = Math.floor(Math.random() * 50 + 40);
+                const load = Math.floor(Math.random() * 30 + 30);
+                
+                this.countUp('res-score', score);
+                this.countUp('val-eri', score);
+                this.countUp('val-hrv', hrv);
+                this.countUp('val-load', load);
+                
+                setTimeout(() => {
+                    const eriOffset = 565 - (score/100 * 565);
+                    document.getElementById('ring-eri').style.strokeDashoffset = eriOffset;
+                    
+                    const hrvOffset = 471 - (hrv/150 * 471);
+                    document.getElementById('ring-hrv').style.strokeDashoffset = hrvOffset;
+                    
+                    const loadOffset = 377 - (load/100 * 377);
+                    document.getElementById('ring-load').style.strokeDashoffset = loadOffset;
+                }, 100);
+            },
+
+            countUp: function(id, target) {
+                let curr = 0;
+                const el = document.getElementById(id);
+                const interval = setInterval(() => {
+                    curr += 2;
+                    if(curr >= target) { curr = target; clearInterval(interval); }
+                    el.innerText = curr;
+                }, 20);
             }
         };
 
-        window.onload = () => app.init();
+        window.onload = () => App.init();
         window.onresize = () => {
-            app.camera.aspect = window.innerWidth / window.innerHeight;
-            app.camera.updateProjectionMatrix();
-            app.renderer.setSize(window.innerWidth, window.innerHeight);
+            App.camera.aspect = window.innerWidth / window.innerHeight;
+            App.camera.updateProjectionMatrix();
+            App.renderer.setSize(window.innerWidth, window.innerHeight);
         };
     </script>
 </body>
