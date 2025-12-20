@@ -2,249 +2,285 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v27.1 - Wild Granularity</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TENKI v19.0 - Aesthetic Flow</title>
     
-    <!-- Core Engine -->
+    <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     
-    <!-- UI / Icons -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- UI 庫 -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* --- GLOBAL --- */
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        
+        /* --- AESTHETIC UI 系統 --- */
         :root {
-            --bg-deep: #000000;
-            --ring-eri: #00FF88;
-            --ring-hrv: #00F0FF;
-            --ring-load: #FFAA00;
+            --bg-deep: #050505;
+            --primary: #4F46E5; /* Go Club 紫藍 */
+            --accent: #00F0FF;  /* 發光青 */
+            --glass: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --card-gradient: linear-gradient(135deg, rgba(30, 30, 40, 0.9), rgba(20, 20, 25, 0.95));
         }
 
         body {
             background: var(--bg-deep);
             color: white;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
-            width: 100vw; height: 100dvh;
-            position: fixed; margin: 0; padding: 0;
-            overflow: hidden; touch-action: none;
-            user-select: none; -webkit-user-select: none;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif; /* 改回圓潤字體 */
+            overflow: hidden;
+            width: 100vw; height: 100vh;
+            margin: 0; padding: 0;
         }
 
-        #input-video { position: fixed; opacity: 0; pointer-events: none; }
+        /* 1. 絕對隱私 */
+        #input-video {
+            position: fixed; top: -9999px; left: -9999px;
+            width: 1px; height: 1px; opacity: 0; pointer-events: none;
+        }
+
+        /* 2. 3D 星塵層 */
+        #universe {
+            position: absolute; inset: 0; z-index: 1;
+            background: radial-gradient(circle at 50% 30%, #1a1f35 0%, #000000 80%);
+            transition: filter 0.5s ease;
+        }
         
-        /* PURE BLACK VOID */
-        #universe { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            z-index: 0; pointer-events: none; 
-            background: #000000; 
+        /* 模糊背景 (當結果頁出現時) */
+        body.has-result #universe {
+            filter: blur(20px) brightness(0.4);
         }
 
-        /* --- LAYERS --- */
-        .layer {
+        /* 3. Apple-style 智能引導層 (Guidance) */
+        #guidance-layer {
             position: absolute; inset: 0; z-index: 10;
-            display: flex; flex-direction: column;
-            padding: calc(env(safe-area-inset-top) + 20px) 24px calc(env(safe-area-inset-bottom) + 30px) 24px;
-            opacity: 0; pointer-events: none; transform: scale(0.95); filter: blur(10px);
-            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            display: flex; justify-content: center; align-items: center;
+            transition: opacity 0.5s;
         }
-        .layer.active { opacity: 1; pointer-events: auto; transform: scale(1); filter: blur(0); }
-        .layer.hidden-layer { opacity: 0; transform: scale(1.05); pointer-events: none; filter: blur(10px); }
 
-        /* --- ALIGNMENT HINT --- */
-        #align-hint-capsule {
-            position: absolute; top: 15%; left: 50%; transform: translateX(-50%) translateY(-20px);
-            background: rgba(10, 10, 10, 0.9);
-            backdrop-filter: blur(12px);
-            padding: 8px 16px; border-radius: 99px;
-            border: 1px solid rgba(255,255,255,0.2);
-            display: flex; align-items: center; gap: 8px;
-            opacity: 0; pointer-events: none; transition: all 0.4s ease;
-            z-index: 50; box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+        /* 智能光環 (The Ring) */
+        .smart-ring {
+            width: 280px; height: 350px;
+            border-radius: 140px; /* 橢圓 */
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 0 0px rgba(255, 255, 255, 0);
         }
-        #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-        
-        /* --- PPG SCANNER --- */
-        .scan-wrapper {
-            position: relative; width: 100px; height: 100px;
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto;
-            background: radial-gradient(circle, #000000 0%, transparent 70%);
+
+        /* 光環狀態：太遠 */
+        .smart-ring.too-far {
+            transform: scale(0.8);
+            border-color: rgba(255, 255, 255, 0.3);
+            border-style: dashed;
+            animation: pulse-slow 2s infinite;
         }
+
+        /* 光環狀態：偏移 (靠左/靠右) */
+        .smart-ring.move-left { transform: translateX(-30px); border-right-color: var(--accent); }
+        .smart-ring.move-right { transform: translateX(30px); border-left-color: var(--accent); }
+        .smart-ring.move-up { transform: translateY(-30px); border-bottom-color: var(--accent); }
+        .smart-ring.move-down { transform: translateY(30px); border-top-color: var(--accent); }
+
+        /* 光環狀態：鎖定 (Locked) */
+        .smart-ring.locked {
+            transform: scale(1);
+            border: 3px solid var(--accent);
+            box-shadow: 0 0 40px var(--accent), inset 0 0 20px rgba(0, 240, 255, 0.2);
+            background: rgba(0, 240, 255, 0.05);
+        }
+
+        /* 指紋按鈕 (Apple Pay 風格) */
+        .scan-trigger-container {
+            position: absolute; bottom: 60px; left: 0; width: 100%;
+            display: flex; justify-content: center; pointer-events: none;
+        }
+
         .fingerprint-btn {
-            width: 70px; height: 70px; border-radius: 50%;
-            background: rgba(40, 40, 45, 0.8);
-            border: 1px solid rgba(255,255,255,0.3);
-            display: flex; align-items: center; justify-content: center;
-            transition: transform 0.2s; cursor: pointer; z-index: 2;
-            backdrop-filter: blur(20px);
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            pointer-events: auto;
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            display: flex; justify-content: center; align-items: center;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+            opacity: 0.5; transform: scale(0.9);
         }
-        .fingerprint-btn:active { transform: scale(0.95); border-color: #00F0FF; }
-        
-        .ppg-ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1; }
-        .ppg-track { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 2; }
-        .ppg-fill {
-            fill: none; stroke: #00F0FF; stroke-width: 3; stroke-linecap: round;
-            stroke-dasharray: 283; stroke-dashoffset: 283;
-            transition: stroke-dashoffset 0s linear;
-            filter: drop-shadow(0 0 4px #00F0FF);
-        }
-        .scan-wrapper.scanning-2s .ppg-fill { transition: stroke-dashoffset 2s linear; stroke-dashoffset: 0; }
-        .scan-wrapper.scanning-15s .ppg-fill { transition: stroke-dashoffset 15s linear; stroke-dashoffset: 0; }
 
-        /* --- DASHBOARD --- */
-        .dashboard-card {
-            background: rgba(18, 20, 24, 0.9);
-            backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 32px;
-            padding: 30px 20px; text-align: center;
+        .smart-ring.locked ~ .scan-trigger-container .fingerprint-btn {
+            opacity: 1; transform: scale(1);
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+            cursor: pointer;
+        }
+
+        .fingerprint-btn.scanning {
+            transform: scale(1.2);
+            border-color: var(--accent);
+            background: rgba(0, 240, 255, 0.2);
+        }
+
+        /* 4. Go Club 風格結果頁 (Result) */
+        #result-layer {
+            position: absolute; inset: 0; z-index: 50;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            pointer-events: none; opacity: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 50%);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(20px);
+        }
+
+        #result-layer.show {
+            opacity: 1; pointer-events: auto;
+            transform: translateY(0);
+            background: rgba(0,0,0,0.4); /* 全屏變暗 */
+        }
+
+        /* 卡片容器 */
+        .cards-wrapper {
+            padding: 24px;
+            padding-bottom: 40px;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+
+        /* 主數據卡 (Hero Card) */
+        .hero-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); /* 亮眼藍青漸層 */
+            border-radius: 24px;
+            padding: 24px;
+            color: black;
+            box-shadow: 0 20px 40px rgba(0, 242, 254, 0.2);
             position: relative; overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.9);
         }
         
-        .triple-ring-svg { width: 220px; height: 220px; margin: 0 auto; display: block; transform: rotate(-90deg); }
-        .ring-track { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 8; }
-        .ring-fill { 
-            fill: none; stroke-width: 8; stroke-linecap: round;
-            transition: stroke-dashoffset 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        .hero-card::after {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 60%);
+            opacity: 0.5; pointer-events: none;
         }
-        .r-eri { stroke: var(--ring-eri); stroke-dasharray: 565; stroke-dashoffset: 565; }
-        .r-hrv { stroke: var(--ring-hrv); stroke-dasharray: 471; stroke-dashoffset: 471; }
-        .r-load { stroke: var(--ring-load); stroke-dasharray: 377; stroke-dashoffset: 377; }
 
-        .score-container {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-        .score-val { font-size: 56px; font-weight: 800; color: white; line-height: 1; letter-spacing: -2px; }
-        .score-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: 2px; margin-top: 4px; }
+        .hero-title { font-size: 14px; font-weight: 600; opacity: 0.7; letter-spacing: 0.5px; text-transform: uppercase; }
+        .hero-value { font-size: 72px; font-weight: 800; letter-spacing: -2px; line-height: 1; margin: 10px 0; }
+        .hero-subtitle { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
 
-        .legend-row { display: flex; justify-content: center; gap: 24px; margin-top: 24px; }
-        .legend-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 4px; }
-        .l-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 1px; }
-        .l-val { font-size: 16px; font-weight: 700; color: white; }
+        /* 次要卡片 (Grid) */
+        .grid-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        
+        .glass-card {
+            background: rgba(30, 30, 35, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 16px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            min-height: 120px;
+        }
 
-        .strategy-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px; padding: 20px; margin-top: 16px;
-            display: flex; align-items: center; gap: 16px;
+        .card-icon { 
+            width: 36px; height: 36px; border-radius: 50%; 
+            background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;
+            margin-bottom: 12px;
         }
-        .icon-box {
-            width: 48px; height: 48px; border-radius: 16px;
-            background: rgba(0, 255, 136, 0.1); display: flex; align-items: center; justify-content: center;
+        
+        .stat-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+        .stat-value { font-size: 24px; font-weight: 700; color: white; }
+
+        /* 再掃描按鈕 */
+        .rescan-btn {
+            background: white; color: black;
+            border: none; border-radius: 50px;
+            padding: 16px; font-weight: 700; font-size: 16px;
+            width: 100%; margin-top: 10px;
+            display: flex; justify-content: center; align-items: center; gap: 8px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            cursor: pointer; transition: transform 0.2s;
         }
+        .rescan-btn:active { transform: scale(0.98); }
+
+        /* 動畫 */
+        @keyframes pulse-slow { 0% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 0.6; transform: scale(0.82); } 100% { opacity: 0.3; transform: scale(0.8); } }
+        
+        /* 隱藏元素 */
+        .hidden { display: none !important; }
 
     </style>
 </head>
 <body>
 
-    <video id="input-video" playsinline webkit-playsinline></video>
-    
-    <!-- UNIVERSE -->
+    <video id="input-video" playsinline></video>
+
+    <!-- 3D 背景 -->
     <div id="universe"></div>
 
-    <!-- LAYER 1: HOME -->
-    <div id="layer-home" class="layer active justify-between">
-        <div class="mt-8 text-center">
-            <h1 class="text-3xl font-bold text-white tracking-tight drop-shadow-lg">TENKI</h1>
-            <p class="text-[10px] text-cyan-400 tracking-[6px] mt-1 uppercase">Wild Granularity</p>
+    <!-- 智能引導層 (Guidance) -->
+    <div id="guidance-layer">
+        <div class="smart-ring" id="smart-ring">
+            <!-- 這裡沒有文字，只有光圈 -->
         </div>
-
-        <div id="align-hint-capsule">
-            <i id="hint-icon" data-lucide="scan-face" class="w-3 h-3 text-cyan-400"></i>
-            <span id="hint-text" class="text-xs font-bold text-white tracking-wide">Ready</span>
-        </div>
-
-        <div class="mb-12 flex flex-col items-center">
-            <div class="scan-wrapper" id="scan-wrapper">
-                <svg class="ppg-ring-svg" viewBox="0 0 100 100">
-                    <circle class="ppg-track" cx="50" cy="50" r="45"></circle>
-                    <circle class="ppg-fill" id="ppg-progress" cx="50" cy="50" r="45"></circle>
-                </svg>
-                <div id="scan-trigger" class="fingerprint-btn">
-                    <i data-lucide="fingerprint" class="w-8 h-8 text-white opacity-90"></i>
-                </div>
-            </div>
-            <div id="instruction" class="mt-4 text-[10px] tracking-[2px] text-gray-500 font-mono transition-opacity font-bold">
-                HOLD TO SCAN (2s)
+        
+        <div class="scan-trigger-container">
+            <div id="scan-trigger" class="fingerprint-btn">
+                <i data-lucide="fingerprint" width="32" height="32" color="white"></i>
             </div>
         </div>
     </div>
 
-    <!-- LAYER 2: RESULT -->
-    <div id="layer-result" class="layer hidden-layer">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-white">ERI Dashboard</h2>
-            <button onclick="App.resetToHome()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                <i data-lucide="x" class="w-4 h-4 text-white"></i>
+    <!-- Go Club 風格結果層 -->
+    <div id="result-layer">
+        <div class="cards-wrapper">
+            
+            <!-- 大數據卡 -->
+            <div class="hero-card">
+                <div class="hero-title">Daily TEI Score</div>
+                <div class="hero-value" id="final-score">00</div>
+                <div class="hero-subtitle">
+                    <i data-lucide="trending-up" width="16"></i> 
+                    <span>Excellent Condition</span>
+                </div>
+            </div>
+
+            <!-- 次要數據網格 -->
+            <div class="grid-cards">
+                <div class="glass-card">
+                    <div class="card-icon" style="color: #FFD700;">
+                        <i data-lucide="zap" width="18"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Energy</div>
+                        <div class="stat-value">92%</div>
+                    </div>
+                </div>
+                <div class="glass-card">
+                    <div class="card-icon" style="color: #00F0FF;">
+                        <i data-lucide="activity" width="18"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Focus</div>
+                        <div class="stat-value">High</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 再掃描按鈕 -->
+            <button class="rescan-btn" onclick="app.reset()">
+                <i data-lucide="rotate-ccw" width="18"></i>
+                Rescan (2s)
             </button>
         </div>
-
-        <div class="dashboard-card">
-            <div class="relative">
-                <svg class="triple-ring-svg" viewBox="0 0 220 220">
-                    <circle class="ring-track" cx="110" cy="110" r="90"></circle>
-                    <circle class="ring-track" cx="110" cy="110" r="75"></circle>
-                    <circle class="ring-track" cx="110" cy="110" r="60"></circle>
-                    
-                    <circle class="ring-fill r-eri" id="ring-eri" cx="110" cy="110" r="90"></circle>
-                    <circle class="ring-fill r-hrv" id="ring-hrv" cx="110" cy="110" r="75"></circle>
-                    <circle class="ring-fill r-load" id="ring-load" cx="110" cy="110" r="60"></circle>
-                </svg>
-                <div class="score-container">
-                    <div class="score-val" id="res-score">--</div>
-                    <div class="score-label">SCORE</div>
-                </div>
-            </div>
-            <div class="legend-row">
-                <div class="legend-item"><div class="dot bg-[#00FF88]"></div><div class="l-label">ERI</div><div class="l-val" id="val-eri">--</div></div>
-                <div class="legend-item"><div class="dot bg-[#00F0FF]"></div><div class="l-label">HRV</div><div class="l-val" id="val-hrv">--</div></div>
-                <div class="legend-item"><div class="dot bg-[#FFAA00]"></div><div class="l-label">LOAD</div><div class="l-val" id="val-load">--</div></div>
-            </div>
-            <div class="mt-6">
-                <div class="text-lg font-bold text-white" id="res-title">Ready to Perform</div>
-                <div class="text-xs text-gray-400 mt-1 max-w-[240px] mx-auto leading-relaxed">Your recovery is optimal. Push your limits today.</div>
-            </div>
-        </div>
-
-        <div class="mt-6 mb-2">
-            <h3 class="text-sm font-bold text-white mb-2">Strategy</h3>
-            <div class="strategy-card">
-                <div class="icon-box"><i data-lucide="zap" class="w-6 h-6 text-[#00FF88]"></i></div>
-                <div>
-                    <div class="text-[10px] font-bold text-[#00FF88] tracking-widest mb-1">RECOMMENDED</div>
-                    <div class="text-sm font-bold text-white mb-1">Failed Breakdown <span class="text-gray-500">&</span> Scalp</div>
-                    <div class="text-[10px] text-gray-400">High volatility expected.</div>
-                </div>
-            </div>
-        </div>
-
-        <button onclick="App.prepEnhancedScan()" class="w-full mt-auto py-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 active:bg-white/10 transition">
-            <span class="text-xs font-bold text-gray-300 tracking-widest">ENHANCED SCAN (15s)</span>
-            <i data-lucide="arrow-right" class="w-3 h-3 text-gray-500"></i>
-        </button>
     </div>
 
     <script>
         lucide.createIcons();
 
-        const App = {
-            config: { particleCount: 8000 },
+        const app = {
+            config: { particleCount: 6000, particleSize: 0.08 }, // 稍微減少粒子數以提升手機效能
             state: { 
+                isLocked: false, 
                 isScanning: false, 
-                scanDuration: 2000, 
                 mouthOpen: 0, 
-                eyesOpen: 0, // NEW STATE
-                headRot: {x:0, y:0}, 
-                energy: 0 
+                headRot: {x:0, y:0} 
             },
 
             init: function() {
@@ -253,77 +289,51 @@
                 this.initEvents();
             },
 
-            // --- 1. SHARP ENGINE (NO BLUR) ---
+            // --- 1. Three.js (Background) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                this.scene.fog = new THREE.FogExp2(0x000000, 0.005);
-                
+                this.scene.fog = new THREE.FogExp2(0x050505, 0.02);
+
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-                const isMobile = window.innerWidth < 768;
-                this.camera.position.z = isMobile ? 8.0 : 6.0; 
-                
+                this.camera.position.z = 5;
+
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3.0)); 
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
 
-                // SHADER: High Contrast, Sharp Cutoff
-                const vertexShader = `
-                    attribute float size; attribute float random; uniform float uTime; uniform float uScale; uniform float uPixelRatio; varying float vRandom;
-                    void main() { 
-                        vRandom = random; 
-                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        // Size 4.0 = Sharp Granularity
-                        gl_PointSize = (4.0 * size * uScale) * (50.0 / -mvPosition.z) * uPixelRatio; 
-                        gl_Position = projectionMatrix * mvPosition; 
-                    }
-                `;
-                const fragmentShader = `
-                    uniform vec3 color; varying float vRandom;
-                    void main() { 
-                        vec2 xy = gl_PointCoord.xy - vec2(0.5); 
-                        float dist = length(xy); 
-                        if(dist > 0.5) discard;
-                        
-                        // EXTREME CUTOFF: Center is 1.0, edge drops instantly
-                        // The "Diamond" look
-                        float strength = pow(1.0 - dist * 2.0, 10.0); 
-                        
-                        gl_FragColor = vec4(color, strength); 
-                    }
-                `;
-
+                // 粒子系統
                 const geometry = new THREE.BufferGeometry();
-                const pos = [], orig = [], rnd = [], sizes = [];
-                const phi = Math.PI * (3. - Math.sqrt(5.));
-
-                for (let i = 0; i < this.config.particleCount; i++) {
-                    const y = 1 - (i / (this.config.particleCount - 1)) * 2;
-                    const radius = Math.sqrt(1 - y * y);
-                    const theta = phi * i;
-                    
-                    const r = 3.5; 
-                    const x = Math.cos(theta) * radius * r;
-                    const z = Math.sin(theta) * radius * r;
-                    
-                    pos.push(x, y * r, z); orig.push(x, y * r, z);
-                    rnd.push(Math.random()); sizes.push(0.5 + Math.random());
-                }
+                const positions = [];
+                const originals = [];
                 
-                geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-                geometry.setAttribute('originalPosition', new THREE.Float32BufferAttribute(orig, 3));
-                geometry.setAttribute('random', new THREE.Float32BufferAttribute(rnd, 1));
-                geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+                for (let i = 0; i < this.config.particleCount; i++) {
+                    // 球體分佈
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos((Math.random() * 2) - 1);
+                    const r = 2.5 + Math.random() * 0.5;
 
-                this.material = new THREE.ShaderMaterial({
-                    uniforms: {
-                        uTime: { value: 0 },
-                        uScale: { value: 1.0 },
-                        uPixelRatio: { value: this.renderer.getPixelRatio() },
-                        color: { value: new THREE.Color(0x0088ff) }
-                    },
-                    vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+                    const x = r * Math.sin(phi) * Math.cos(theta);
+                    const y = r * Math.sin(phi) * Math.sin(theta);
+                    const z = r * Math.cos(phi);
+
+                    positions.push(x, y, z);
+                    originals.push(x, y, z);
+                }
+
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                geometry.setAttribute('original', new THREE.Float32BufferAttribute(originals, 3));
+
+                // 圓形粒子材質
+                const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+                this.material = new THREE.PointsMaterial({
+                    size: this.config.particleSize,
+                    map: sprite,
+                    alphaTest: 0.5,
+                    transparent: true,
+                    opacity: 0.8,
+                    color: 0x4F46E5 // 初始深藍
                 });
 
                 this.cloud = new THREE.Points(geometry, this.material);
@@ -333,110 +343,46 @@
 
             animate: function() {
                 requestAnimationFrame(() => this.animate());
+                
                 const time = Date.now() * 0.001;
-                this.material.uniforms.uTime.value = time;
                 
-                // --- WILD PHYSICS ---
-                // EYES = TURBULENCE (Rotation Speed Boost)
-                // Base speed 0.001, adds up to 0.02 when eyes wide open
-                const turbulence = 0.001 + (this.state.eyesOpen * 0.02);
-                
-                this.cloud.rotation.y += turbulence + (this.state.headRot.y * 0.03);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.03);
-
-                // MOUTH = EXPLOSION (High Expansion)
-                let targetEnergy = 0.2;
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 5.0; // WILD MULTIPLIER
-                if (this.state.isScanning) targetEnergy = 2.0; 
-                
-                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
-
-                const positions = this.cloud.geometry.attributes.position.array;
-                const originals = this.cloud.geometry.attributes.originalPosition.array;
-                const rnd = this.cloud.geometry.attributes.random.array;
-
-                for (let i = 0; i < this.config.particleCount; i++) {
-                    const idx = i * 3;
-                    const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
-                    
-                    // Jitter effect when high energy
-                    const jitter = (Math.random() - 0.5) * this.state.energy * 0.05;
-                    const noise = Math.sin(time * 2 + rnd[i] * 10) * this.state.energy * 0.1;
-                    
-                    const expansion = 1 + (this.state.mouthOpen * 0.3) + noise + jitter;
-                    
-                    positions[idx] = ox * expansion;
-                    positions[idx+1] = oy * expansion;
-                    positions[idx+2] = oz * expansion;
-                }
-                this.cloud.geometry.attributes.position.needsUpdate = true;
-
-                if (this.state.isScanning) {
-                    this.material.uniforms.color.value.setHex(0x9D00FF);
-                    this.material.uniforms.uScale.value = 1.1;
+                // 待機緩慢旋轉
+                if (!this.state.isScanning) {
+                    this.cloud.rotation.y += 0.001;
+                    this.cloud.rotation.x += 0.0005;
                 } else {
-                    this.material.uniforms.color.value.setHex(0x00F0FF);
-                    this.material.uniforms.uScale.value = 0.9 + (this.state.eyesOpen * 0.2); // Eyes also boost size slightly
+                    // 掃描時加速
+                    this.cloud.rotation.y += 0.05;
                 }
+
+                // 頭部互動
+                this.cloud.rotation.x += this.state.headRot.x * 0.05;
+                this.cloud.rotation.y += this.state.headRot.y * 0.05;
+
+                // 顏色呼吸
+                if (this.state.isLocked) {
+                    this.material.color.setHex(0x00F0FF); // 鎖定變青色
+                } else {
+                    this.material.color.setHex(0x4F46E5); // 待機深藍
+                }
+
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // --- 2. AI (Eyes + Mouth + Head) ---
+            // --- 2. AI & Guidance Logic (The Apple Pay Style) ---
             initAI: function() {
                 const video = document.getElementById('input-video');
                 const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5});
                 
-                faceMesh.onResults((res) => {
-                    const hint = document.getElementById('align-hint-capsule');
-                    const hintText = document.getElementById('hint-text');
-                    
-                    if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
-                        const lm = res.multiFaceLandmarks[0];
-                        this.state.headRot.x = (lm[1].y - 0.5) * 2;
-                        this.state.headRot.y = (lm[1].x - 0.5) * 2;
-                        
-                        // Mouth
-                        const mouthDist = Math.abs(lm[13].y - lm[14].y);
-                        this.state.mouthOpen = Math.min(1.0, Math.max(0, (mouthDist - 0.02) * 5));
-                        
-                        // Eyes Openness (Simple Vertical Distance)
-                        const leftEye = Math.abs(lm[159].y - lm[145].y);
-                        const rightEye = Math.abs(lm[386].y - lm[374].y);
-                        const avgEye = (leftEye + rightEye) / 2;
-                        // Thresholds: ~0.01 closed, ~0.03 open. Multiplier to normalize 0-1
-                        this.state.eyesOpen = Math.min(1.0, Math.max(0, (avgEye - 0.01) * 35));
-
-                        const noseX = lm[1].x;
-                        const width = Math.abs(lm[234].x - lm[454].x);
-                        let msg = "Ready to Scan";
-                        let icon = "check-circle";
-                        let color = "text-green-400";
-                        
-                        if(width < 0.35) { msg = "Move Closer"; icon = "maximize"; color = "text-yellow-400"; }
-                        else if(noseX < 0.4) { msg = "Move Right"; icon = "arrow-right"; color = "text-yellow-400"; }
-                        else if(noseX > 0.6) { msg = "Move Left"; icon = "arrow-left"; color = "text-yellow-400"; }
-                        
-                        if(hintText.innerText !== msg && !this.state.isScanning) {
-                            hintText.innerText = msg;
-                            hintIcon.outerHTML = `<i id="hint-icon" data-lucide="${icon}" class="w-3 h-3 ${color}"></i>`;
-                            lucide.createIcons();
-                            if(msg === "Ready to Scan" && navigator.vibrate) navigator.vibrate(20);
-                        }
-                        
-                        if(!this.state.isScanning) hint.classList.add('show');
-                        else hint.classList.remove('show');
-                        
-                    } else {
-                        if(!this.state.isScanning) {
-                            hintText.innerText = "Find Face";
-                            hintIcon.outerHTML = `<i id="hint-icon" data-lucide="scan-face" class="w-3 h-3 text-red-400"></i>`;
-                            lucide.createIcons();
-                            hint.classList.add('show');
-                        }
-                    }
+                faceMesh.setOptions({
+                    maxNumFaces: 1,
+                    refineLandmarks: true,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
                 });
-                
+
+                faceMesh.onResults((res) => this.updateGuidance(res));
+
                 const camera = new Camera(video, {
                     onFrame: async () => await faceMesh.send({image: video}),
                     width: 640, height: 480
@@ -444,148 +390,139 @@
                 camera.start();
             },
 
-            // --- 3. EVENTS ---
+            updateGuidance: function(results) {
+                const ring = document.getElementById('smart-ring');
+                
+                if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                    const landmarks = results.multiFaceLandmarks[0];
+                    const nose = landmarks[1]; // 鼻頭
+                    const leftEye = landmarks[33];
+                    const rightEye = landmarks[263];
+                    
+                    // 計算臉部大小 (距離)
+                    const faceWidth = Math.abs(leftEye.x - rightEye.x);
+                    
+                    // 重置 Class
+                    ring.className = 'smart-ring'; 
+
+                    // 1. 距離判斷 (太遠/太近)
+                    if (faceWidth < 0.15) {
+                        ring.classList.add('too-far'); // 光圈變小、虛線
+                        this.state.isLocked = false;
+                        return;
+                    }
+
+                    // 2. 位置判斷 (偏移) - 這是引導核心
+                    // 0.5 是中心點
+                    const centerX = 0.5; 
+                    const centerY = 0.5;
+                    const tolerance = 0.1; // 容許誤差
+
+                    let isCentered = true;
+
+                    if (nose.x < centerX - tolerance) {
+                        ring.classList.add('move-left'); // 提示往左
+                        isCentered = false;
+                    } else if (nose.x > centerX + tolerance) {
+                        ring.classList.add('move-right'); // 提示往右
+                        isCentered = false;
+                    }
+
+                    if (nose.y < centerY - tolerance) {
+                        ring.classList.add('move-up');
+                        isCentered = false;
+                    } else if (nose.y > centerY + tolerance) {
+                        ring.classList.add('move-down');
+                        isCentered = false;
+                    }
+
+                    // 3. 鎖定判斷
+                    if (isCentered) {
+                        ring.classList.add('locked'); // 變實線、發光、變色
+                        this.state.isLocked = true;
+                        
+                        // 更新頭部轉動數據給 3D
+                        this.state.headRot.x = (nose.y - 0.5) * 2;
+                        this.state.headRot.y = (nose.x - 0.5) * 2;
+                    } else {
+                        this.state.isLocked = false;
+                    }
+
+                } else {
+                    // 沒人臉
+                    ring.className = 'smart-ring too-far';
+                    this.state.isLocked = false;
+                }
+            },
+
+            // --- 3. Interaction & Flow ---
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
-                const wrapper = document.getElementById('scan-wrapper');
                 
-                const start = (e) => {
+                const startScan = (e) => {
                     e.preventDefault();
-                    if(this.state.isScanning) return;
-                    
+                    if (!this.state.isLocked) return; // 沒鎖定不能按
+
                     this.state.isScanning = true;
-                    if(this.state.scanDuration > 5000) {
-                        wrapper.classList.add('scanning-15s');
-                        this.startCountdown(15);
-                    } else {
-                        wrapper.classList.add('scanning-2s');
-                        document.getElementById('instruction').innerText = "KEEP STILL...";
-                        document.getElementById('instruction').style.color = "#00F0FF";
-                    }
-                    if(navigator.vibrate) navigator.vibrate(50);
+                    btn.classList.add('scanning');
                     
-                    this.scanTimer = setTimeout(() => {
+                    if (navigator.vibrate) navigator.vibrate(50);
+
+                    // 2秒後完成
+                    setTimeout(() => {
                         this.finishScan();
-                    }, this.state.scanDuration);
+                    }, 2000);
                 };
 
-                const end = (e) => {
-                    if(!this.state.isScanning) return;
-                    this.state.isScanning = false;
-                    clearTimeout(this.scanTimer);
-                    clearInterval(this.countInterval);
-                    wrapper.classList.remove('scanning-2s');
-                    wrapper.classList.remove('scanning-15s');
-                    const txt = this.state.scanDuration > 5000 ? "HOLD FOR 15s..." : "HOLD TO SCAN (2s)";
-                    document.getElementById('instruction').innerText = txt;
-                    document.getElementById('instruction').style.color = "gray";
-                };
-
-                btn.addEventListener('mousedown', start);
-                btn.addEventListener('touchstart', start, {passive: false});
-                btn.addEventListener('mouseup', end);
-                btn.addEventListener('touchend', end);
-                btn.addEventListener('mouseleave', end);
-            },
-
-            startCountdown: function(seconds) {
-                const el = document.getElementById('instruction');
-                el.style.color = "#9D00FF";
-                let left = seconds;
-                el.innerText = `ANALYZING... ${left}`;
-                this.countInterval = setInterval(() => {
-                    left--;
-                    if(left > 0) {
-                        el.innerText = `ANALYZING... ${left}`;
-                        if(navigator.vibrate) navigator.vibrate(10);
-                    } else {
-                        clearInterval(this.countInterval);
-                    }
-                }, 1000);
-            },
-
-            prepEnhancedScan: function() {
-                clearInterval(this.countInterval);
-                document.getElementById('layer-result').classList.remove('active');
-                document.getElementById('layer-result').classList.add('hidden-layer');
-                setTimeout(() => {
-                    document.getElementById('layer-home').classList.remove('hidden-layer');
-                    document.getElementById('layer-home').classList.add('active');
-                    this.state.scanDuration = 15000;
-                    document.getElementById('instruction').innerText = "HOLD FOR 15s...";
-                    
-                    document.getElementById('ring-eri').style.strokeDashoffset = 565;
-                    document.getElementById('ring-hrv').style.strokeDashoffset = 471;
-                    document.getElementById('ring-load').style.strokeDashoffset = 377;
-                    document.getElementById('res-score').innerText = "--";
-                }, 400);
-            },
-
-            resetToHome: function() {
-                this.prepEnhancedScan();
-                setTimeout(() => {
-                    this.state.scanDuration = 2000;
-                    document.getElementById('instruction').innerText = "HOLD TO SCAN (2s)";
-                }, 450);
+                btn.addEventListener('mousedown', startScan);
+                btn.addEventListener('touchstart', startScan);
             },
 
             finishScan: function() {
-                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                clearInterval(this.countInterval);
-                const home = document.getElementById('layer-home');
-                const result = document.getElementById('layer-result');
-                const wrapper = document.getElementById('scan-wrapper');
+                this.state.isScanning = false;
+                document.getElementById('scan-trigger').classList.remove('scanning');
+                if (navigator.vibrate) navigator.vibrate([50, 50]);
+
+                // 顯示結果
+                this.showResult();
+            },
+
+            showResult: function() {
+                document.body.classList.add('has-result');
+                document.getElementById('guidance-layer').style.opacity = 0; // 隱藏掃描UI
+                document.getElementById('result-layer').classList.add('show');
+
+                // 跑分動畫
+                const scoreEl = document.getElementById('final-score');
+                let score = 0;
+                const target = Math.floor(Math.random() * (98 - 85) + 85); // 隨機高分
                 
-                wrapper.classList.remove('scanning-2s');
-                wrapper.classList.remove('scanning-15s');
-                home.classList.remove('active');
-                home.classList.add('hidden-layer');
+                const timer = setInterval(() => {
+                    score += 4;
+                    if (score >= target) {
+                        score = target;
+                        clearInterval(timer);
+                    }
+                    scoreEl.innerText = score;
+                }, 30);
+            },
+
+            reset: function() {
+                document.body.classList.remove('has-result');
+                document.getElementById('result-layer').classList.remove('show');
                 
+                // 延遲一下顯示掃描UI，讓轉場更順
                 setTimeout(() => {
-                    result.classList.remove('hidden-layer');
-                    result.classList.add('active');
-                    this.animateResults();
+                    document.getElementById('guidance-layer').style.opacity = 1;
                 }, 300);
-            },
-
-            animateResults: function() {
-                const score = Math.floor(Math.random() * (92 - 75) + 75);
-                const hrv = Math.floor(Math.random() * 50 + 40);
-                const load = Math.floor(Math.random() * 30 + 30);
-                
-                this.countUp('res-score', score);
-                this.countUp('val-eri', score);
-                this.countUp('val-hrv', hrv);
-                this.countUp('val-load', load);
-                
-                setTimeout(() => {
-                    const eriOffset = 565 - (score/100 * 565);
-                    document.getElementById('ring-eri').style.strokeDashoffset = eriOffset;
-                    
-                    const hrvOffset = 471 - (hrv/150 * 471);
-                    document.getElementById('ring-hrv').style.strokeDashoffset = hrvOffset;
-                    
-                    const loadOffset = 377 - (load/100 * 377);
-                    document.getElementById('ring-load').style.strokeDashoffset = loadOffset;
-                }, 100);
-            },
-
-            countUp: function(id, target) {
-                let curr = 0;
-                const el = document.getElementById(id);
-                const interval = setInterval(() => {
-                    curr += 2;
-                    if(curr >= target) { curr = target; clearInterval(interval); }
-                    el.innerText = curr;
-                }, 20);
             }
         };
 
-        window.onload = () => App.init();
+        window.onload = () => app.init();
         window.onresize = () => {
-            App.camera.aspect = window.innerWidth / window.innerHeight;
-            App.camera.updateProjectionMatrix();
-            App.renderer.setSize(window.innerWidth, window.innerHeight);
+            app.camera.aspect = window.innerWidth / window.innerHeight;
+            app.camera.updateProjectionMatrix();
+            app.renderer.setSize(window.innerWidth, window.innerHeight);
         };
     </script>
 </body>
