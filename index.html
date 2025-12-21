@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v22.0 - Smart Capsule</title>
+    <title>TENKI v23.0 - Hybrid Core</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,16 +36,14 @@
             overflow: hidden;
             width: 100vw; height: 100vh;
             margin: 0; padding: 0;
+            -webkit-tap-highlight-color: transparent; /* iOS 優化 */
         }
 
         .font-serif-human { font-family: 'Playfair Display', serif; }
         .font-mono-tech { font-family: 'Space Mono', monospace; }
 
         /* 1. 隱私層 */
-        #input-video {
-            position: fixed; top: -9999px; left: -9999px;
-            width: 1px; height: 1px; opacity: 0; pointer-events: none;
-        }
+        #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
 
         /* 2. 背景層 */
         #universe {
@@ -65,15 +63,13 @@
         }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-        /* --- SMART ALIGNMENT CAPSULE (SAC) v1.0 --- */
+        /* Smart Alignment Capsule */
         #align-hint-capsule {
-            position: absolute; 
-            top: 15%; left: 50%; 
+            position: absolute; top: 15%; left: 50%; 
             transform: translateX(-50%) translateY(-20px) scale(0.95);
             background: rgba(20, 20, 25, 0.75);
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            padding: 10px 20px; 
-            border-radius: 99px;
+            padding: 10px 20px; border-radius: 99px;
             border: 1px solid rgba(255, 255, 255, 0.1);
             display: flex; align-items: center; gap: 12px;
             opacity: 0; pointer-events: none; 
@@ -81,24 +77,19 @@
             z-index: 100; overflow: hidden;
             box-shadow: 0 4px 24px rgba(0,0,0,0.4);
         }
-        #align-hint-capsule.show { 
-            opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto;
-        }
-        /* Status Colors */
+        #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
         #align-hint-capsule.status-error { border-color: rgba(239, 68, 68, 0.5); box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
         #align-hint-capsule.status-warn { border-color: rgba(234, 179, 8, 0.5); box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
         #align-hint-capsule.status-good { border-color: rgba(35, 243, 212, 0.6); box-shadow: 0 0 20px rgba(35, 243, 212, 0.3); }
 
-        /* Shimmer Animation */
         .shimmer-effect {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.1) 45%, transparent 60%);
-            transform: translateX(-100%);
-            animation: shimmer-slide 2.5s infinite; pointer-events: none;
+            transform: translateX(-100%); animation: shimmer-slide 2.5s infinite; pointer-events: none;
         }
         @keyframes shimmer-slide { 100% { transform: translateX(100%); } }
 
-        /* UI Components */
+        /* HUD UI */
         .audio-bar {
             width: 4px; height: 20px; background: rgba(255,255,255,0.2);
             margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
@@ -113,20 +104,17 @@
             backdrop-filter: blur(8px);
         }
         .fingerprint-sensor.active {
-            transform: scale(1.1);
-            border-color: var(--stardust-purple);
-            background: rgba(149, 117, 255, 0.2);
-            box-shadow: 0 0 40px var(--stardust-purple);
+            transform: scale(1.1); border-color: var(--stardust-purple);
+            background: rgba(149, 117, 255, 0.2); box-shadow: 0 0 40px var(--stardust-purple);
         }
 
-        /* 4. Dashboard Layer */
+        /* 4. DASHBOARD LAYER (Enhanced) */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent;
             display: flex; flex-direction: column;
             padding: 24px 20px 100px 20px;
-            overflow-y: auto;
-            opacity: 0; pointer-events: none;
+            overflow-y: auto; opacity: 0; pointer-events: none;
             transform: translateY(20px);
             transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
@@ -137,24 +125,43 @@
             border-radius: 24px; padding: 20px;
             backdrop-filter: blur(20px);
             display: flex; flex-direction: column; position: relative; overflow: hidden;
+            transition: transform 0.2s;
         }
+        .bento-card:active { transform: scale(0.98); }
+
         .text-gradient-plasma { background: linear-gradient(135deg, #ffffff 0%, var(--plasma-cyan) 100%); -webkit-background-clip: text; color: transparent; }
         
+        /* INTERACTIVE ORBIT */
         .orbit-ring {
-            width: 160px; height: 160px; border-radius: 50%;
+            width: 180px; height: 180px; border-radius: 50%;
             position: relative; display: flex; justify-content: center; align-items: center;
-            background: conic-gradient(var(--plasma-cyan) 0% 0%, rgba(255,255,255,0.05) 0% 100%);
-            transition: background 1.5s ease-out;
-            box-shadow: 0 0 30px rgba(35, 243, 212, 0.1);
+            background: rgba(255,255,255,0.05); /* 初始空狀態 */
+            transition: box-shadow 0.3s ease;
+            cursor: pointer;
+            touch-action: none; user-select: none;
         }
+        /* Active Charging State */
+        .orbit-ring.charging {
+            box-shadow: 0 0 50px rgba(35, 243, 212, 0.3);
+            transform: scale(1.02);
+        }
+
         .orbit-inner {
-            width: 140px; height: 140px; background: var(--bg-deep); border-radius: 50%;
-            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2;
+            width: 156px; height: 156px; background: var(--bg-deep); border-radius: 50%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            z-index: 2; pointer-events: none;
+        }
+
+        /* Charge Progress Overlay */
+        .orbit-progress {
+            position: absolute; inset: 0; border-radius: 50%;
+            background: conic-gradient(var(--plasma-cyan) 0% 0%, transparent 0% 100%);
+            transition: background 0.1s linear; /* Smooth fill */
         }
         
         .dock-container {
             position: fixed; bottom: 30px; left: 20px; right: 20px; height: 70px;
-            background: rgba(10, 10, 20, 0.8); backdrop-filter: blur(20px);
+            background: rgba(10, 10, 20, 0.85); backdrop-filter: blur(20px);
             border: 1px solid rgba(255,255,255,0.1); border-radius: 35px;
             display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
@@ -162,23 +169,27 @@
         }
         #dashboard-layer.show .dock-container { transform: translateY(0); }
         .dock-btn { width: 54px; height: 54px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; transition: all 0.2s; }
-        .dock-btn:active { transform: scale(0.9); }
+        .dock-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
+        
         .dock-main-action {
             flex: 1; height: 54px; margin: 0 8px;
             background: linear-gradient(90deg, var(--plasma-cyan), var(--stardust-purple));
             border-radius: 27px; display: flex; align-items: center; justify-content: center;
             font-weight: bold; letter-spacing: 1px; color: black;
+            box-shadow: 0 4px 15px rgba(35, 243, 212, 0.3);
+            transition: transform 0.2s;
         }
+        .dock-main-action:active { transform: scale(0.97); }
+
     </style>
 </head>
 <body>
 
     <video id="input-video" playsinline></video>
-
     <div id="universe"></div>
 
+    <!-- HUD Layer -->
     <div id="hud-layer">
-        <!-- Smart Alignment Capsule -->
         <div id="align-hint-capsule">
             <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
                 <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-white"></i>
@@ -192,11 +203,11 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">PRISM_HEART_v22.0</div>
+                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">HYBRID_CORE_v23.0</div>
             </div>
             <div class="text-right flex flex-col items-end">
                 <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
-                    SYSTEM ACTIVE
+                    VISION ONLY
                 </div>
                 <div class="flex items-end h-4" id="audio-visualizer">
                     <div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div>
@@ -214,68 +225,65 @@
         </div>
     </div>
 
+    <!-- Dashboard Layer (Hybrid Empowerment) -->
     <div id="dashboard-layer">
         <div class="flex justify-between items-center mb-6">
             <div>
-                <div class="text-xs text-gray-400 font-mono-tech tracking-wider">LIVE SNAPSHOT</div>
-                <div class="text-2xl text-white font-serif-human italic">Daily Insight</div>
+                <div class="text-xs text-gray-400 font-mono-tech tracking-wider">HYBRID SENSING</div>
+                <div class="text-2xl text-white font-serif-human italic">Self-Awareness</div>
             </div>
-            <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+            <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
                 <i data-lucide="user" class="w-4 h-4 text-white"></i>
             </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4 pb-24">
-            <div class="col-span-2 bento-card items-center py-8">
+            
+            <!-- (A) Interactive TEI Orbit -->
+            <div class="col-span-2 bento-card items-center py-8 bg-white/5">
+                <!-- Interactive Ring -->
                 <div id="tei-orbit" class="orbit-ring">
+                    <div class="orbit-progress" id="orbit-fill"></div>
                     <div class="orbit-inner">
-                        <div class="text-4xl font-bold text-white font-mono-tech" id="dash-score">--</div>
-                        <div class="text-[10px] text-gray-400 tracking-widest mt-1">TEI INDEX</div>
+                        <div class="text-5xl font-bold text-white font-mono-tech tracking-tighter" id="dash-score">--</div>
+                        <div class="text-[10px] text-gray-400 tracking-widest mt-1 text-center" id="dash-label">HOLD TO SYNC</div>
                     </div>
                 </div>
-                <div class="mt-4 text-center">
-                    <div class="text-xl font-serif-human text-gradient-plasma" id="dash-state">Analyzing...</div>
-                    <div class="text-xs text-gray-400 font-mono-tech mt-1">Focus: High • Sync: 92%</div>
+                <div class="mt-6 text-center">
+                    <div class="text-xl font-serif-human text-gradient-plasma" id="dash-state">Awaiting Input...</div>
+                    <div class="text-xs text-gray-500 font-mono-tech mt-2" id="dash-sub">
+                        Base: Vision Scan • Buffer: Empty
+                    </div>
                 </div>
             </div>
 
+            <!-- (B) Bento Snapshot (No-Wearable Optimized) -->
             <div class="bento-card justify-between h-32">
                 <div class="flex justify-between items-start">
-                    <i data-lucide="activity" class="w-5 h-5 text-purple-400"></i>
-                    <span class="text-[10px] text-gray-400">HRV DEV</span>
+                    <i data-lucide="eye" class="w-5 h-5 text-purple-400"></i>
+                    <span class="text-[10px] text-gray-400">VISION FOCUS</span>
                 </div>
                 <div>
-                    <div class="text-2xl font-bold font-mono-tech">48<span class="text-xs font-normal text-gray-500 ml-1">ms</span></div>
+                    <div class="text-xl font-bold font-mono-tech">STABLE</div>
                     <div class="w-full h-1 bg-gray-700 mt-2 rounded-full overflow-hidden">
-                        <div class="h-full bg-purple-500 w-[60%]"></div>
+                        <div class="h-full bg-purple-500 w-[85%]"></div>
                     </div>
+                    <div class="text-[9px] text-gray-500 mt-1">Eye-Tracking Calibrated</div>
                 </div>
             </div>
 
             <div class="bento-card justify-between h-32">
                 <div class="flex justify-between items-start">
-                    <i data-lucide="brain-circuit" class="w-5 h-5 text-cyan-400"></i>
-                    <span class="text-[10px] text-gray-400">NEURAL</span>
+                    <i data-lucide="zap" class="w-5 h-5 text-cyan-400"></i>
+                    <span class="text-[10px] text-gray-400">STREAK</span>
                 </div>
                 <div>
-                    <div class="text-lg font-bold font-mono-tech text-cyan-400">STABLE</div>
-                    <div class="text-[10px] text-gray-500 mt-1">Jitter: Low</div>
+                    <div class="text-3xl font-bold font-mono-tech text-cyan-400">12</div>
+                    <div class="text-[10px] text-gray-500 mt-1">Days of Discipline</div>
                 </div>
             </div>
 
-            <div class="col-span-2 bento-card h-40 relative">
-                <div class="absolute top-4 left-4 z-10">
-                    <div class="text-xs text-gray-400 font-mono-tech">2H ORGANIC TREND</div>
-                </div>
-                <canvas id="trend-canvas" class="absolute inset-0 w-full h-full opacity-60"></canvas>
-                <div class="absolute bottom-4 left-4 z-10">
-                    <div class="flex items-center gap-2">
-                         <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                         <div class="text-[10px] text-white font-mono-tech">AI: System load normal.</div>
-                    </div>
-                </div>
-            </div>
-
+            <!-- (D) Performance Review -->
             <div class="col-span-2 bento-card bg-gradient-to-br from-gray-900 to-black border-white/20">
                 <div class="flex gap-1 text-yellow-400 mb-2">
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
@@ -285,11 +293,14 @@
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
                 </div>
                 <div class="text-lg text-white font-serif-human leading-tight mb-2">
-                    "You maintained calm during a high volatility period."
+                    "Consistency is your greatest wealth."
                 </div>
-                <div class="flex justify-between items-end mt-2 border-t border-white/10 pt-3">
-                    <div class="text-[10px] text-gray-500 font-mono-tech">DEC 20, 2025</div>
-                    <div class="text-[10px] text-white font-bold cursor-pointer">SHARE ↗</div>
+                <div class="text-xs text-gray-400 font-serif-human italic">
+                    No wearable needed to prove your discipline.
+                </div>
+                <div class="flex justify-between items-end mt-4 border-t border-white/10 pt-3">
+                    <div class="text-[10px] text-gray-500 font-mono-tech">DEC 21, 2025</div>
+                    <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition">SHARE ↗</div>
                 </div>
             </div>
         </div>
@@ -313,15 +324,19 @@
 
         const app = {
             config: { particleCount: 8000, particleSize: 0.08 },
-            state: { isFaceDetected: false, isScanning: false, mouthOpen: 0, headRot: {x:0, y:0}, energy: 0, audioData: 0 },
+            state: { 
+                isFaceDetected: false, isScanning: false, mouthOpen: 0, headRot: {x:0, y:0}, energy: 0, audioData: 0,
+                baseScore: 0, mentalBuffer: 0, isCharging: false
+            },
             audioCtx: null, analyser: null, dataArray: null,
 
             init: function() {
                 this.initThree();
                 this.initEvents();
+                this.initDashboardInteractions(); // New: Interactive Dashboard
             },
 
-            // --- 1. Three.js Engine ---
+            // --- 1. Three.js Engine (Unchanged) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
@@ -384,7 +399,7 @@
                 this.animate();
             },
 
-            // --- 2. Sensors & AI ---
+            // --- 2. Logic (Unchanged) ---
             startSensors: async function() {
                 const hintEl = document.getElementById('instruction');
                 hintEl.innerText = "SENSORS ACTIVE...";
@@ -444,14 +459,12 @@
                 const statusEl = document.getElementById('connection-status');
                 const hintEl = document.getElementById('instruction');
 
-                // Pass data to Smart Alignment Capsule
                 const landmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
                 this.updateAlignment(landmarks);
 
                 if (landmarks) {
                     this.state.isFaceDetected = true;
-                    // Update Text Status (Backup)
-                    statusEl.innerText = "LINK: STABLE"; statusEl.style.color = "#FF99CC"; statusEl.style.borderColor = "#FF99CC";
+                    statusEl.innerText = "VISION: ACTIVE"; statusEl.style.color = "#FF99CC"; statusEl.style.borderColor = "#FF99CC";
                     if(!this.state.isScanning) { hintEl.innerText = "HOLD TO SCAN"; hintEl.style.color = "white"; }
                     
                     const nose = landmarks[1];
@@ -467,24 +480,17 @@
                 }
             },
 
-            // --- 3. Smart Alignment Capsule Logic ---
             updateAlignment: function(landmarks) {
                 const capsule = document.getElementById('align-hint-capsule');
                 const textBox = document.getElementById('hint-text');
                 const iconBox = document.getElementById('hint-icon-box');
                 
-                // Hide if scanning or dashboard is open
                 if (this.state.isScanning || document.getElementById('dashboard-layer').classList.contains('show')) {
-                    capsule.classList.remove('show');
-                    return;
+                    capsule.classList.remove('show'); return;
                 }
 
-                let state = 'searching';
-                let msg = "FIND FACE";
-                let icon = "scan-face";
-                let colorClass = "status-error";
-                let iconColor = "text-red-400";
-                let iconBg = "bg-red-500/20";
+                let state = 'searching'; let msg = "FIND FACE"; let icon = "scan-face";
+                let colorClass = "status-error"; let iconColor = "text-red-400"; let iconBg = "bg-red-500/20";
 
                 if (landmarks) {
                     const noseX = landmarks[1].x;
@@ -510,29 +516,20 @@
                     }
                 }
 
-                // Debounce / UI Update
                 if (textBox.innerText !== msg) {
                     textBox.innerText = msg;
                     iconBox.className = `w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300 ${iconBg}`;
                     iconBox.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${iconColor}"></i>`;
                     lucide.createIcons();
-                    
-                    capsule.className = ""; // clear all
-                    capsule.classList.add(colorClass);
-                    capsule.classList.add('show');
-
+                    capsule.className = ""; capsule.classList.add(colorClass, 'show');
                     if (state === 'good' && navigator.vibrate) navigator.vibrate(20);
                 }
-                
                 if (!capsule.classList.contains('show')) capsule.classList.add('show');
             },
 
-
-            // --- 4. Animation ---
             animate: function() {
                 requestAnimationFrame(() => this.animate());
                 this.updateAudio();
-                
                 const time = Date.now() * 0.001;
                 this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
                 this.cloud.rotation.x += (this.state.headRot.x * 0.05);
@@ -584,11 +581,9 @@
                         return;
                     }
                     this.state.isScanning = true;
-                    // Force hide capsule on scan start
                     document.getElementById('align-hint-capsule').classList.remove('show');
-                    
                     btn.classList.add('active');
-                    document.getElementById('instruction').innerText = "READING AURA...";
+                    document.getElementById('instruction').innerText = "ANALYZING...";
                     if(navigator.vibrate) navigator.vibrate(50);
                     
                     let progress = 0;
@@ -619,49 +614,99 @@
                 this.state.isScanning = false;
                 if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 
-                // Calculate Score
+                // 1. Calculate BASE Vision Score (No Buffer yet)
                 const audioBonus = Math.floor(this.state.audioData / 5); 
-                const finalScore = Math.min(99, Math.floor(Math.random() * (95 - 72) + 72) + audioBonus);
+                // Base score is slightly lower to encourage filling the buffer
+                this.state.baseScore = Math.min(85, Math.floor(Math.random() * (75 - 60) + 60) + audioBonus);
+                this.state.mentalBuffer = 0; // Reset buffer
                 
-                // Transition to Dashboard
-                this.showDashboard(finalScore);
+                this.showDashboard();
             },
 
-            showDashboard: function(score) {
+            // --- 5. Interactive Dashboard Logic (New) ---
+            initDashboardInteractions: function() {
+                const orbit = document.getElementById('tei-orbit');
+                
+                const startCharge = (e) => {
+                    if(e) e.preventDefault();
+                    this.state.isCharging = true;
+                    orbit.classList.add('charging');
+                    if(navigator.vibrate) navigator.vibrate(20);
+                    
+                    // Charging Loop
+                    this.chargeInterval = setInterval(() => {
+                        if (this.state.mentalBuffer < 100) {
+                            this.state.mentalBuffer += 2;
+                            this.updateDashboardVisuals();
+                            if (this.state.mentalBuffer % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
+                        } else {
+                            // Max Charge Reached
+                            clearInterval(this.chargeInterval);
+                            if(navigator.vibrate) navigator.vibrate([30, 30, 30]);
+                        }
+                    }, 30);
+                };
+
+                const stopCharge = (e) => {
+                    if(e) e.preventDefault();
+                    this.state.isCharging = false;
+                    orbit.classList.remove('charging');
+                    clearInterval(this.chargeInterval);
+                };
+
+                orbit.addEventListener('mousedown', startCharge);
+                orbit.addEventListener('touchstart', startCharge);
+                orbit.addEventListener('mouseup', stopCharge);
+                orbit.addEventListener('mouseleave', stopCharge);
+                orbit.addEventListener('touchend', stopCharge);
+            },
+
+            updateDashboardVisuals: function() {
+                // Combine Base Score + Mental Buffer (weighted 15 points)
+                const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 15);
+                const totalScore = this.state.baseScore + bufferBonus;
+                
+                // Update DOM
+                document.getElementById('dash-score').innerText = totalScore;
+                
+                // Dynamic Gradient Fill
+                const fill = document.getElementById('orbit-fill');
+                // Base percent (e.g. 60%) + Buffer percent (e.g. up to 15%)
+                const visualPercent = totalScore; 
+                fill.style.background = `conic-gradient(var(--plasma-cyan) 0% ${visualPercent}%, transparent ${visualPercent}% 100%)`;
+
+                // Update Text
+                const label = document.getElementById('dash-label');
+                const state = document.getElementById('dash-state');
+                const sub = document.getElementById('dash-sub');
+
+                if (this.state.mentalBuffer < 10) {
+                    label.innerText = "HOLD TO SYNC";
+                    state.innerText = "Awaiting Input...";
+                    sub.innerText = "Base: Vision Scan • Buffer: Empty";
+                } else if (this.state.mentalBuffer < 100) {
+                    label.innerText = "SYNCING...";
+                    state.innerText = "Calibrating...";
+                    sub.innerText = `Buffer Charging: ${this.state.mentalBuffer}%`;
+                } else {
+                    label.innerText = "FULLY SYNCED";
+                    label.style.color = "#23F3D4";
+                    state.innerText = totalScore > 80 ? "Optimal State" : "Balanced Flow";
+                    sub.innerText = "Vision + Awareness Verified";
+                }
+            },
+
+            showDashboard: function() {
                 document.getElementById('hud-layer').classList.add('hidden-ui');
-                document.getElementById('align-hint-capsule').classList.remove('show'); // Ensure hidden
+                document.getElementById('align-hint-capsule').classList.remove('show');
                 document.getElementById('universe').classList.add('dimmed');
                 
                 const dash = document.getElementById('dashboard-layer');
-                const scoreEl = document.getElementById('dash-score');
-                const stateEl = document.getElementById('dash-state');
-                const orbit = document.getElementById('tei-orbit');
                 
-                scoreEl.innerText = score;
-                stateEl.innerText = score > 85 ? "Optimal State" : (score > 70 ? "Stable Flow" : "Rest Needed");
-                const percent = score;
-                orbit.style.background = `conic-gradient(var(--plasma-cyan) 0% ${percent}%, rgba(255,255,255,0.05) ${percent}% 100%)`;
+                // Initialize View
+                this.updateDashboardVisuals();
                 
-                this.drawTrendGraph();
                 setTimeout(() => { dash.classList.add('show'); }, 300);
-            },
-
-            drawTrendGraph: function() {
-                const canvas = document.getElementById('trend-canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = canvas.offsetWidth;
-                canvas.height = canvas.offsetHeight;
-                const w = canvas.width; const h = canvas.height;
-                
-                ctx.beginPath();
-                ctx.moveTo(0, h/2);
-                for(let i=0; i<=w; i+=5) {
-                    const y = h/2 + Math.sin(i * 0.05) * 20 + Math.sin(i * 0.02) * 10;
-                    ctx.lineTo(i, y);
-                }
-                const gradient = ctx.createLinearGradient(0, 0, w, 0);
-                gradient.addColorStop(0, '#23F3D4'); gradient.addColorStop(1, '#9575FF');
-                ctx.strokeStyle = gradient; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
             },
 
             reset: function() {
@@ -670,6 +715,7 @@
                 document.getElementById('universe').classList.remove('dimmed');
                 document.getElementById('scan-trigger').classList.remove('active');
                 document.getElementById('instruction').innerText = "HOLD TO SCAN";
+                this.state.mentalBuffer = 0; // Reset Buffer
             }
         };
 
