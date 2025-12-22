@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v25.0 - Zero Trace</title>
+    <title>TENKI v27.0 - Hybrid Empowerment</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,8 +25,9 @@
             --plasma-cyan: #23F3D4;
             --sunset-orange: #FF9A76;
             --stardust-purple: #9575FF;
-            --glass-bg: rgba(20, 20, 35, 0.6);
+            --glass-bg: rgba(20, 20, 35, 0.5);
             --glass-border: rgba(255, 255, 255, 0.08);
+            --glow-color: var(--plasma-cyan);
         }
 
         body {
@@ -37,20 +38,33 @@
             width: 100vw; height: 100vh;
             margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
         .font-serif-human { font-family: 'Playfair Display', serif; }
         .font-mono-tech { font-family: 'Space Mono', monospace; }
 
+        /* 1. 隱私層 & 背景 */
         #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
-
+        
         #universe {
             position: absolute; inset: 0; z-index: 1;
             background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
             transition: opacity 1s ease, filter 1s ease;
         }
-        #universe.dimmed { opacity: 0.4; filter: blur(8px); }
+        #universe.dimmed { opacity: 0.3; filter: blur(12px); }
+        
+        /* 動態環境光暈 (Ambient Glow) */
+        #ambient-glow {
+            position: absolute; inset: 0; z-index: 2;
+            background: radial-gradient(circle at 50% 40%, var(--glow-color) 0%, transparent 60%);
+            opacity: 0; transition: opacity 0.5s ease, background 1.5s ease;
+            pointer-events: none; mix-blend-mode: screen;
+        }
+        #ambient-glow.active { opacity: 0.15; }
+        #ambient-glow.charging { opacity: 0.4; transition: opacity 0.2s ease; } /* Charging state */
 
+        /* 2. HUD 層 */
         #hud-layer {
             position: absolute; inset: 0; z-index: 10;
             pointer-events: none;
@@ -60,7 +74,7 @@
         }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-        /* Smart Alignment Capsule */
+        /* Smart Capsule */
         #align-hint-capsule {
             position: absolute; top: 15%; left: 50%; 
             transform: translateX(-50%) translateY(-20px) scale(0.95);
@@ -75,8 +89,6 @@
             box-shadow: 0 4px 24px rgba(0,0,0,0.4);
         }
         #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
-        #align-hint-capsule.status-error { border-color: rgba(239, 68, 68, 0.5); box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
-        #align-hint-capsule.status-warn { border-color: rgba(234, 179, 8, 0.5); box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
         #align-hint-capsule.status-good { border-color: rgba(35, 243, 212, 0.6); box-shadow: 0 0 20px rgba(35, 243, 212, 0.3); }
 
         .shimmer-effect {
@@ -87,25 +99,18 @@
         @keyframes shimmer-slide { 100% { transform: translateX(100%); } }
 
         /* UI Components */
-        .audio-bar {
-            width: 4px; height: 20px; background: rgba(255,255,255,0.2);
-            margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
-        }
+        .audio-bar { width: 4px; height: 20px; background: rgba(255,255,255,0.2); margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px; }
         .fingerprint-sensor {
-            pointer-events: auto; position: relative;
-            width: 80px; height: 80px; border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            backdrop-filter: blur(8px);
+            pointer-events: auto; position: relative; width: 80px; height: 80px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); backdrop-filter: blur(8px);
         }
-        .fingerprint-sensor.active {
-            transform: scale(1.1); border-color: var(--stardust-purple);
-            background: rgba(149, 117, 255, 0.2); box-shadow: 0 0 40px var(--stardust-purple);
-        }
+        .fingerprint-sensor.active { transform: scale(1.1); border-color: var(--stardust-purple); background: rgba(149, 117, 255, 0.2); box-shadow: 0 0 40px var(--stardust-purple); }
 
-        /* Dashboard */
+        /* =========================================
+           HYBRID EMPOWERMENT DASHBOARD
+           ========================================= */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent;
@@ -120,30 +125,45 @@
         .bento-card {
             background: var(--glass-bg); border: 1px solid var(--glass-border);
             border-radius: 24px; padding: 20px;
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
             display: flex; flex-direction: column; position: relative; overflow: hidden;
-            transition: transform 0.2s;
+            transition: transform 0.2s; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
         }
         .bento-card:active { transform: scale(0.98); }
-
+        
+        .sparkline-bg { position: absolute; bottom: 0; left: 0; width: 100%; height: 60%; opacity: 0.1; pointer-events: none; }
         .text-gradient-plasma { background: linear-gradient(135deg, #ffffff 0%, var(--plasma-cyan) 100%); -webkit-background-clip: text; color: transparent; }
-        
-        .orbit-ring {
-            width: 180px; height: 180px; border-radius: 50%;
+
+        /* INTERACTIVE ORBIT CORE */
+        .tei-orbit-container {
+            width: 200px; height: 200px;
             position: relative; display: flex; justify-content: center; align-items: center;
-            background: rgba(255,255,255,0.05); transition: box-shadow 0.3s ease; cursor: pointer; touch-action: none; user-select: none;
+            cursor: pointer; /* Signal interactivity */
         }
-        .orbit-ring.charging { box-shadow: 0 0 50px rgba(35, 243, 212, 0.3); transform: scale(1.02); }
-        .orbit-inner {
-            width: 156px; height: 156px; background: var(--bg-deep); border-radius: 50%;
-            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2; pointer-events: none;
-        }
-        .orbit-progress {
+        .tei-ring-outer {
             position: absolute; inset: 0; border-radius: 50%;
-            background: conic-gradient(var(--plasma-cyan) 0% 0%, transparent 0% 100%);
-            transition: background 0.1s linear;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+        .tei-orbit-container:active .tei-ring-outer {
+            transform: scale(0.95);
+            border-color: var(--plasma-cyan);
         }
         
+        .tei-ring-progress {
+            position: absolute; inset: 6px; border-radius: 50%;
+            background: conic-gradient(var(--plasma-cyan) 0% 0%, transparent 0% 100%);
+            mask: radial-gradient(transparent 65%, black 66%); -webkit-mask: radial-gradient(transparent 65%, black 66%);
+            transition: background 0.1s linear; /* Fast response for manual fill */
+        }
+        
+        /* Particle Pulse Animation for "Ready to Fill" state */
+        @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(35, 243, 212, 0.2); } 70% { box-shadow: 0 0 0 15px rgba(35, 243, 212, 0); } 100% { box-shadow: 0 0 0 0 rgba(35, 243, 212, 0); } }
+        .tei-orbit-container.waiting { animation: pulse-ring 2s infinite; border-radius: 50%; }
+
+        .tei-orbit-inner { position: relative; z-index: 2; text-align: center; pointer-events: none; }
+        
+        /* Dock */
         .dock-container {
             position: fixed; bottom: 30px; left: 20px; right: 20px; height: 70px;
             background: rgba(10, 10, 20, 0.85); backdrop-filter: blur(20px);
@@ -160,25 +180,18 @@
             background: linear-gradient(90deg, var(--plasma-cyan), var(--stardust-purple));
             border-radius: 27px; display: flex; align-items: center; justify-content: center;
             font-weight: bold; letter-spacing: 1px; color: black;
-            box-shadow: 0 4px 15px rgba(35, 243, 212, 0.3);
-            transition: transform 0.2s;
+            box-shadow: 0 4px 15px rgba(35, 243, 212, 0.3); transition: transform 0.2s;
         }
         .dock-main-action:active { transform: scale(0.97); }
 
-        /* Privacy Badge */
-        .privacy-badge {
-            font-size: 8px; color: #00F0FF; 
-            border: 1px solid rgba(0, 240, 255, 0.3); 
-            padding: 2px 6px; border-radius: 4px; 
-            background: rgba(0,0,0,0.3);
-            margin-top: 4px;
-        }
+        .privacy-badge { font-size: 9px; color: var(--plasma-cyan); border: 1px solid rgba(35, 243, 212, 0.3); padding: 2px 8px; border-radius: 99px; background: rgba(0,0,0,0.3); letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
     <video id="input-video" playsinline></video>
     <div id="universe"></div>
+    <div id="ambient-glow"></div>
 
     <!-- HUD Layer -->
     <div id="hud-layer">
@@ -186,21 +199,17 @@
             <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
                 <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-white"></i>
             </div>
-            <span id="hint-text" class="text-xs font-bold text-white tracking-wide uppercase transition-all duration-300">
-                Searching...
-            </span>
+            <span id="hint-text" class="text-xs font-bold text-white tracking-wide uppercase transition-all duration-300">Searching...</span>
             <div class="shimmer-effect"></div>
         </div>
 
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">ZERO_TRACE_v25.0</div>
+                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">HYBRID_CORE_v27.0</div>
             </div>
             <div class="text-right flex flex-col items-end">
-                <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
-                    STANDBY
-                </div>
+                <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">STANDBY</div>
                 <div class="flex items-end h-4" id="audio-visualizer">
                     <div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div>
                 </div>
@@ -217,67 +226,105 @@
         </div>
     </div>
 
-    <!-- Dashboard Layer -->
+    <!-- Hybrid Empowerment Dashboard -->
     <div id="dashboard-layer">
+        
+        <!-- Header -->
         <div class="flex justify-between items-center mb-6">
             <div>
-                <div class="text-xs text-gray-400 font-mono-tech tracking-wider flex items-center gap-2">
-                    HYBRID SENSING
-                    <span class="privacy-badge">SECURE: OFF</span>
+                <div class="text-[10px] text-gray-400 font-mono-tech tracking-widest flex items-center gap-2 mb-1">
+                    STATUS: HYBRID SYNC <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
                 </div>
                 <div class="text-2xl text-white font-serif-human italic">Self-Awareness</div>
             </div>
-            <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
-                <i data-lucide="user" class="w-4 h-4 text-white"></i>
+            <div class="flex flex-col items-end">
+                 <span class="privacy-badge mb-1">ZERO TRACE</span>
+                 <i data-lucide="user" class="w-5 h-5 text-white/80"></i>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 pb-24">
-            <!-- (A) Interactive TEI Orbit -->
-            <div class="col-span-2 bento-card items-center py-8 bg-white/5">
-                <div id="tei-orbit" class="orbit-ring">
-                    <div class="orbit-progress" id="orbit-fill"></div>
-                    <div class="orbit-inner">
+        <!-- Bento Grid -->
+        <div class="grid grid-cols-2 gap-3 pb-28">
+            
+            <!-- (A) Interactive TEI Orbit (The "Mental Buffer") -->
+            <div class="col-span-2 bento-card items-center py-6">
+                <!-- Added 'waiting' class for pulse effect -->
+                <div class="tei-orbit-container waiting" id="interactive-orbit">
+                    <div class="tei-ring-outer"></div>
+                    <div class="tei-ring-progress" id="tei-ring-fill"></div>
+                    <div class="tei-orbit-inner">
                         <div class="text-5xl font-bold text-white font-mono-tech tracking-tighter" id="dash-score">--</div>
-                        <div class="text-[10px] text-gray-400 tracking-widest mt-1 text-center" id="dash-label">HOLD TO SYNC</div>
+                        <div class="text-[10px] text-gray-400 tracking-widest mt-1" id="dash-action-label">HOLD TO FILL</div>
                     </div>
                 </div>
-                <div class="mt-6 text-center">
-                    <div class="text-xl font-serif-human text-gradient-plasma" id="dash-state">Awaiting Input...</div>
-                    <div class="text-xs text-gray-500 font-mono-tech mt-2" id="dash-sub">
-                        Sensors Disengaged • Privacy Secure
+                <div class="mt-4 text-center">
+                    <div class="text-2xl font-serif-human text-gradient-plasma" id="dash-state">Awaiting Energy</div>
+                    <div class="text-xs text-gray-400 font-mono-tech mt-2 flex justify-center gap-4" id="dash-meta">
+                        <span>Vision: Ready</span>
+                        <span>Buffer: Empty</span>
                     </div>
-                    <div class="text-[9px] text-gray-600 mt-1 font-mono-tech" id="baseline-debug"></div>
                 </div>
             </div>
 
-            <!-- (B) Metrics -->
+            <!-- (B) No-Wearable Optimized Widgets -->
+            <!-- Vision Focus Card -->
             <div class="bento-card justify-between h-32">
-                <div class="flex justify-between items-start">
-                    <i data-lucide="heart-pulse" class="w-5 h-5 text-purple-400"></i>
-                    <span class="text-[10px] text-gray-400">EST. HRV</span>
+                <div class="flex justify-between items-start relative z-10">
+                    <i data-lucide="eye" class="w-5 h-5 text-purple-400"></i>
+                    <span class="text-[10px] text-gray-400">VISION FOCUS</span>
                 </div>
-                <div>
-                    <div class="text-xl font-bold font-mono-tech" id="metric-hrv">--</div>
+                <div class="relative z-10">
+                    <div class="text-xl font-bold font-mono-tech text-purple-300">STABLE</div>
+                    <div class="text-[9px] text-gray-500 mt-1">Eye-Tracking Calib.</div>
                     <div class="w-full h-1 bg-gray-700 mt-2 rounded-full overflow-hidden">
-                        <div class="h-full bg-purple-500 w-[70%]"></div>
+                        <div class="h-full bg-purple-500 w-[85%]"></div>
                     </div>
-                    <div class="text-[9px] text-gray-500 mt-1">RMSSD (ms)</div>
                 </div>
+                <svg class="sparkline-bg" viewBox="0 0 100 40" preserveAspectRatio="none">
+                    <path d="M0,20 Q20,10 40,20 T80,20 T100,20" fill="none" stroke="rgba(149, 117, 255, 0.3)" stroke-width="2"/>
+                </svg>
             </div>
 
+            <!-- Neural Jitter Card -->
             <div class="bento-card justify-between h-32">
-                <div class="flex justify-between items-start">
-                    <i data-lucide="zap" class="w-5 h-5 text-cyan-400"></i>
+                <div class="flex justify-between items-start relative z-10">
+                    <i data-lucide="brain-circuit" class="w-5 h-5 text-cyan-400"></i>
+                    <span class="text-[10px] text-gray-400">NEURAL JITTER</span>
+                </div>
+                <div class="relative z-10">
+                    <div class="text-lg font-bold font-mono-tech text-cyan-400">LOW</div>
+                    <div class="text-[9px] text-gray-500 mt-1">Head Micro-Rot: 0.02</div>
+                </div>
+                <svg class="sparkline-bg" viewBox="0 0 100 40" preserveAspectRatio="none">
+                    <path d="M0,20 L10,21 L20,19 L30,20 L40,20 L100,20" fill="none" stroke="rgba(35, 243, 212, 0.3)" stroke-width="2"/>
+                </svg>
+            </div>
+
+            <!-- (C) Discipline Streak (Behavior) -->
+            <div class="bento-card justify-between h-32">
+                <div class="flex justify-between items-start relative z-10">
+                    <i data-lucide="zap" class="w-5 h-5 text-yellow-400"></i>
                     <span class="text-[10px] text-gray-400">STREAK</span>
                 </div>
-                <div>
-                    <div class="text-3xl font-bold font-mono-tech text-cyan-400" id="streak-count">1</div>
-                    <div class="text-[10px] text-gray-500 mt-1">Days Consistent</div>
+                <div class="relative z-10">
+                    <div class="text-3xl font-bold font-mono-tech text-yellow-400" id="streak-count">12</div>
+                    <div class="text-[9px] text-gray-500 mt-1">Days of Discipline</div>
+                </div>
+            </div>
+            
+            <!-- Decision Timer (Context) -->
+            <div class="bento-card justify-between h-32">
+                <div class="flex justify-between items-start relative z-10">
+                    <i data-lucide="timer" class="w-5 h-5 text-white"></i>
+                    <span class="text-[10px] text-gray-400">READY</span>
+                </div>
+                <div class="relative z-10">
+                    <div class="text-lg font-bold font-mono-tech text-white">PLANNING</div>
+                    <div class="text-[9px] text-gray-500 mt-1">Pre-Session Check</div>
                 </div>
             </div>
 
-            <!-- (C) Review -->
+            <!-- (D) Daily Review (Targeted Copy) -->
             <div class="col-span-2 bento-card bg-gradient-to-br from-gray-900 to-black border-white/20">
                 <div class="flex gap-1 text-yellow-400 mb-2">
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
@@ -286,16 +333,20 @@
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
                 </div>
-                <div class="text-lg text-white font-serif-human leading-tight mb-2" id="dash-quote">
-                    "Consistency is your greatest wealth."
+                <div class="text-xl text-white font-serif-human leading-tight mb-2 italic" id="dash-quote">
+                    "Mindful Executor."
+                </div>
+                <div class="text-xs text-gray-400 font-serif-human">
+                    No wearable needed to prove your discipline.
                 </div>
                 <div class="flex justify-between items-end mt-4 border-t border-white/10 pt-3">
                     <div class="text-[10px] text-gray-500 font-mono-tech" id="dash-date">DATE</div>
-                    <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition">SHARE ↗</div>
+                    <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition tracking-widest">SHARE ↗</div>
                 </div>
             </div>
         </div>
 
+        <!-- Floating Dock -->
         <div class="dock-container">
             <div class="dock-btn bg-white/5 hover:bg-white/10">
                 <i data-lucide="list-checks" class="w-5 h-5"></i>
@@ -321,19 +372,11 @@
                     scan_history: []
                 };
             }
-            load() {
-                const stored = localStorage.getItem('tenki_baseline_v1');
-                return stored ? JSON.parse(stored) : null;
-            }
-            save() {
-                localStorage.setItem('tenki_baseline_v1', JSON.stringify(this.data));
-            }
+            load() { const stored = localStorage.getItem('tenki_baseline_v1'); return stored ? JSON.parse(stored) : null; }
+            save() { localStorage.setItem('tenki_baseline_v1', JSON.stringify(this.data)); }
             getTimeKey() {
                 const h = new Date().getHours();
-                if (h >= 6 && h < 9) return 'morning';
-                if (h >= 9 && h < 17) return 'work';
-                if (h >= 17 && h < 21) return 'evening';
-                return 'night';
+                if (h >= 6 && h < 9) return 'morning'; if (h >= 9 && h < 17) return 'work'; if (h >= 17 && h < 21) return 'evening'; return 'night';
             }
             recordScan(result) {
                 this.data.scan_history.push({ ts: Date.now(), ...result });
@@ -345,10 +388,7 @@
                 this.data.time_shifts[timeKey] = Math.max(-0.3, Math.min(0.3, newShift));
                 this.save();
             }
-            getShift() {
-                if (this.data.samples_count < 3) return 0;
-                return this.data.time_shifts[this.getTimeKey()];
-            }
+            getShift() { return this.data.samples_count < 3 ? 0 : this.data.time_shifts[this.getTimeKey()]; }
         }
 
         // --- Signal Fusion Engine ---
@@ -366,12 +406,11 @@
                 const baselineShift = baselineMgr.getShift();
                 const arousal = Math.max(-1, Math.min(1, rawArousal + baselineShift));
 
+                // This is the "Base Score" from Vision, maxing out at 85 to allow manual buffer fill
                 let score = 50 + (valence * 25) + (arousal * 25);
-                score = Math.floor(Math.max(1, Math.min(99, score)));
+                score = Math.floor(Math.max(20, Math.min(85, score)));
 
-                const hrv = Math.floor(40 + (1 - Math.abs(arousal)) * 40);
-
-                return { score, valence, arousal, hrv, baselineShift };
+                return { score, valence, arousal, baselineShift };
             }
         };
 
@@ -395,7 +434,7 @@
             init: function() {
                 this.initThree();
                 this.initEvents();
-                this.initDashboardInteractions();
+                this.initInteraction();
                 
                 const d = new Date();
                 document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}).toUpperCase();
@@ -463,7 +502,7 @@
                 this.animate();
             },
 
-            // --- 2. Sensors with Zero-Trace Protocol ---
+            // --- 2. Sensors with Zero-Trace ---
             startSensors: async function() {
                 const hintEl = document.getElementById('instruction');
                 hintEl.innerText = "SENSORS ACTIVE...";
@@ -471,7 +510,6 @@
                     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     this.analyser = this.audioCtx.createAnalyser();
                     this.analyser.fftSize = 64;
-                    // Keep stream reference to stop it later
                     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
                     const source = this.audioCtx.createMediaStreamSource(this.stream);
                     source.connect(this.analyser);
@@ -483,23 +521,12 @@
                 }
             },
 
-            // === 🛡️ ZERO-TRACE PROTOCOL ===
             disconnectSensors: function() {
-                // 1. Stop all tracks (Mic & Camera) -> iOS Mic indicator turns off
-                if (this.stream) {
-                    this.stream.getTracks().forEach(track => track.stop());
-                    this.stream = null;
-                }
-                // 2. Suspend Audio Context -> Saves CPU
-                if (this.audioCtx) {
-                    this.audioCtx.suspend();
-                }
-                // 3. Update Status
+                if (this.stream) { this.stream.getTracks().forEach(track => track.stop()); this.stream = null; }
+                if (this.audioCtx) { this.audioCtx.suspend(); }
                 document.getElementById('connection-status').innerText = "SECURE: OFFLINE";
                 document.getElementById('connection-status').style.color = "#666";
                 document.getElementById('connection-status').style.borderColor = "#333";
-                
-                // Clear visualizer
                 const bars = document.querySelectorAll('.audio-bar');
                 bars.forEach(bar => bar.style.height = '2px');
             },
@@ -510,7 +537,6 @@
                 let sum = 0;
                 for(let i = 0; i < this.dataArray.length; i++) sum += this.dataArray[i];
                 this.state.audioData = sum / this.dataArray.length;
-                
                 const bars = document.querySelectorAll('.audio-bar');
                 const step = Math.floor(this.dataArray.length / 4);
                 bars.forEach((bar, i) => {
@@ -544,7 +570,6 @@
             processData: function(results) {
                 const statusEl = document.getElementById('connection-status');
                 const hintEl = document.getElementById('instruction');
-
                 const landmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
                 this.updateAlignment(landmarks);
 
@@ -556,7 +581,6 @@
                     const nose = landmarks[1];
                     this.state.headRot.x = (nose.y - 0.5) * 2;
                     this.state.headRot.y = (nose.x - 0.5) * 2;
-
                     const upperLip = landmarks[13], lowerLip = landmarks[14];
                     const dist = Math.sqrt(Math.pow(upperLip.x - lowerLip.x, 2) + Math.pow(upperLip.y - lowerLip.y, 2));
                     this.state.mouthOpen += ((dist - 0.02) * 5 - this.state.mouthOpen) * 0.2;
@@ -570,36 +594,17 @@
                 const capsule = document.getElementById('align-hint-capsule');
                 const textBox = document.getElementById('hint-text');
                 const iconBox = document.getElementById('hint-icon-box');
+                if (this.state.isScanning || document.getElementById('dashboard-layer').classList.contains('show')) { capsule.classList.remove('show'); return; }
                 
-                if (this.state.isScanning || document.getElementById('dashboard-layer').classList.contains('show')) {
-                    capsule.classList.remove('show'); return;
-                }
-
                 let state = 'searching'; let msg = "FIND FACE"; let icon = "scan-face";
                 let colorClass = "status-error"; let iconColor = "text-red-400"; let iconBg = "bg-red-500/20";
 
                 if (landmarks) {
-                    const noseX = landmarks[1].x;
-                    const cheekL = landmarks[234].x;
-                    const cheekR = landmarks[454].x;
-                    const faceWidth = Math.abs(cheekL - cheekR);
-
-                    if (faceWidth < 0.30) {
-                        state = 'too-far'; msg = "MOVE CLOSER"; icon = "maximize";
-                        colorClass = "status-warn"; iconColor = "text-blue-400"; iconBg = "bg-blue-500/20";
-                    } 
-                    else if (noseX < 0.35) {
-                        state = 'move-right'; msg = "MOVE RIGHT →"; icon = "arrow-right";
-                        colorClass = "status-warn"; iconColor = "text-yellow-400"; iconBg = "bg-yellow-500/20";
-                    }
-                    else if (noseX > 0.65) {
-                        state = 'move-left'; msg = "← MOVE LEFT"; icon = "arrow-left";
-                        colorClass = "status-warn"; iconColor = "text-yellow-400"; iconBg = "bg-yellow-500/20";
-                    }
-                    else {
-                        state = 'good'; msg = "READY TO SCAN"; icon = "check-circle";
-                        colorClass = "status-good"; iconColor = "text-cyan-400"; iconBg = "bg-cyan-500/20";
-                    }
+                    const noseX = landmarks[1].x; const cheekL = landmarks[234].x; const cheekR = landmarks[454].x; const faceWidth = Math.abs(cheekL - cheekR);
+                    if (faceWidth < 0.30) { state = 'too-far'; msg = "MOVE CLOSER"; icon = "maximize"; colorClass = "status-warn"; iconColor = "text-blue-400"; iconBg = "bg-blue-500/20"; } 
+                    else if (noseX < 0.35) { state = 'move-right'; msg = "MOVE RIGHT →"; icon = "arrow-right"; colorClass = "status-warn"; iconColor = "text-yellow-400"; iconBg = "bg-yellow-500/20"; }
+                    else if (noseX > 0.65) { state = 'move-left'; msg = "← MOVE LEFT"; icon = "arrow-left"; colorClass = "status-warn"; iconColor = "text-yellow-400"; iconBg = "bg-yellow-500/20"; }
+                    else { state = 'good'; msg = "READY TO SCAN"; icon = "check-circle"; colorClass = "status-good"; iconColor = "text-cyan-400"; iconBg = "bg-cyan-500/20"; }
                 }
 
                 if (textBox.innerText !== msg) {
@@ -624,7 +629,6 @@
                 let targetEnergy = 0.2 + (audioForce * 0.8);
                 if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 1.5;
                 if (this.state.isScanning) targetEnergy = 3.0;
-                
                 this.state.energy += (targetEnergy - this.state.energy) * 0.1;
 
                 const positions = this.cloud.geometry.attributes.position.array;
@@ -645,33 +649,21 @@
                     positions[idx+2] = oz * expansion + (oz * noise);
                 }
                 this.cloud.geometry.attributes.position.needsUpdate = true;
-                
-                if (this.state.isScanning) {
-                    this.material.size = 0.12 + audioForce * 0.1;
-                    this.material.opacity = 1.0;
-                } else {
-                    this.material.size = 0.08 + (audioForce * 0.05);
-                    this.material.opacity = 0.8;
-                }
+                if (this.state.isScanning) { this.material.size = 0.12 + audioForce * 0.1; this.material.opacity = 1.0; } 
+                else { this.material.size = 0.08 + (audioForce * 0.05); this.material.opacity = 0.8; }
                 this.renderer.render(this.scene, this.camera);
             },
 
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
-                
                 const start = (e) => {
                     e.preventDefault();
-                    if (!this.stream) {
-                        this.startSensors();
-                        document.getElementById('instruction').innerText = "SENSORS READY. HOLD NOW.";
-                        return;
-                    }
+                    if (!this.stream) { this.startSensors(); document.getElementById('instruction').innerText = "SENSORS READY. HOLD NOW."; return; }
                     this.state.isScanning = true;
                     document.getElementById('align-hint-capsule').classList.remove('show');
                     btn.classList.add('active');
                     document.getElementById('instruction').innerText = "ANALYZING...";
                     if(navigator.vibrate) navigator.vibrate(50);
-                    
                     let progress = 0;
                     this.scanInterval = setInterval(() => {
                         progress += 2;
@@ -679,7 +671,6 @@
                         if (progress >= 100) this.finishScan();
                     }, 40);
                 };
-                
                 const end = (e) => {
                     e.preventDefault();
                     if(!this.state.isScanning) return;
@@ -688,11 +679,8 @@
                     btn.classList.remove('active');
                     document.getElementById('instruction').innerText = "HOLD TO SCAN";
                 };
-
-                btn.addEventListener('mousedown', start);
-                btn.addEventListener('touchstart', start);
-                window.addEventListener('mouseup', end);
-                window.addEventListener('touchend', end);
+                btn.addEventListener('mousedown', start); btn.addEventListener('touchstart', start);
+                window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
             },
 
             finishScan: function() {
@@ -707,78 +695,97 @@
                 );
                 
                 baselineMgr.recordScan(this.state.engineResult);
-                this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
-                this.state.mentalBuffer = 0;
                 
-                // --- 🛡️ ZERO-TRACE: KILL SENSORS ---
+                // Initial Base Score (Vision Only)
+                this.state.baseScore = this.state.engineResult.score;
+                this.state.mentalBuffer = 0; // Reset buffer for interaction
+                
+                // Zero-Trace
                 this.disconnectSensors();
                 
+                // Show Dashboard
                 this.showDashboard();
             },
 
-            // --- Dashboard Interactions ---
-            initDashboardInteractions: function() {
-                const orbit = document.getElementById('tei-orbit');
+            // --- 3. Hybrid Empowerment Interaction ---
+            initInteraction: function() {
+                const orbit = document.getElementById('interactive-orbit');
+                
                 const startCharge = (e) => {
                     if(e) e.preventDefault();
                     this.state.isCharging = true;
-                    orbit.classList.add('charging');
-                    if(navigator.vibrate) navigator.vibrate(20);
+                    document.getElementById('ambient-glow').classList.add('charging');
+                    if(navigator.vibrate) navigator.vibrate(30);
+                    
                     this.chargeInterval = setInterval(() => {
                         if (this.state.mentalBuffer < 100) {
-                            this.state.mentalBuffer += 2;
+                            this.state.mentalBuffer += 2.5; // Fill speed
                             this.updateDashboardVisuals();
-                            if (this.state.mentalBuffer % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
+                            if (this.state.mentalBuffer % 15 === 0 && navigator.vibrate) navigator.vibrate(10);
                         } else {
+                            // Full
                             clearInterval(this.chargeInterval);
-                            if(navigator.vibrate) navigator.vibrate([30, 30, 30]);
+                            if(navigator.vibrate) navigator.vibrate([50, 50, 100]);
+                            orbit.classList.remove('waiting');
                         }
                     }, 30);
                 };
+
                 const stopCharge = (e) => {
                     if(e) e.preventDefault();
                     this.state.isCharging = false;
-                    orbit.classList.remove('charging');
+                    document.getElementById('ambient-glow').classList.remove('charging');
                     clearInterval(this.chargeInterval);
                 };
-                orbit.addEventListener('mousedown', startCharge);
-                orbit.addEventListener('touchstart', startCharge);
-                orbit.addEventListener('mouseup', stopCharge);
-                orbit.addEventListener('mouseleave', stopCharge);
-                orbit.addEventListener('touchend', stopCharge);
+
+                orbit.addEventListener('mousedown', startCharge); orbit.addEventListener('touchstart', startCharge);
+                orbit.addEventListener('mouseup', stopCharge); orbit.addEventListener('mouseleave', stopCharge); orbit.addEventListener('touchend', stopCharge);
             },
 
             updateDashboardVisuals: function() {
-                const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 10);
+                // Hybrid Score Calculation: Base (Vision) + Buffer (Mental)
+                // The buffer adds up to 15 points of "Readiness"
+                const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 15);
                 const totalScore = Math.min(99, this.state.baseScore + bufferBonus);
                 
+                // Update Text
                 document.getElementById('dash-score').innerText = totalScore;
-                document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
                 
-                const visualPercent = totalScore; 
-                const fill = document.getElementById('orbit-fill');
-                fill.style.background = `conic-gradient(var(--plasma-cyan) 0% ${visualPercent}%, transparent ${visualPercent}% 100%)`;
-
-                const label = document.getElementById('dash-label');
+                // Visual Update
+                const ringFill = document.getElementById('tei-ring-fill');
+                const glow = document.getElementById('ambient-glow');
+                const label = document.getElementById('dash-action-label');
                 const state = document.getElementById('dash-state');
-                const sub = document.getElementById('dash-sub');
-                const debug = document.getElementById('baseline-debug');
-                const shift = this.state.engineResult.baselineShift.toFixed(2);
-                debug.innerText = `Baseline Shift: ${shift > 0 ? '+'+shift : shift}`;
+                const meta = document.getElementById('dash-meta');
+                
+                // Color Logic
+                let themeColor = '#23F3D4'; // Cyan
+                if (totalScore < 50) themeColor = '#FF9A76'; // Orange
+                else if (totalScore < 75) themeColor = '#9575FF'; // Purple
+                
+                document.documentElement.style.setProperty('--glow-color', themeColor);
+                
+                // Ring Fill
+                const visualPercent = (this.state.mentalBuffer / 100) * 100; // Progress of filling
+                ringFill.style.background = `conic-gradient(${themeColor} 0% ${visualPercent}%, transparent ${visualPercent}% 100%)`;
 
-                if (this.state.mentalBuffer < 10) {
-                    label.innerText = "HOLD TO SYNC";
-                    state.innerText = "Processing...";
-                    sub.innerText = "Applying Baseline V1...";
+                // Glow Intensity based on buffer fill
+                glow.style.opacity = 0.1 + (this.state.mentalBuffer / 200);
+
+                // States
+                if (this.state.mentalBuffer <= 5) {
+                    label.innerText = "HOLD TO FILL";
+                    state.innerText = "Awaiting Energy";
+                    meta.innerHTML = `<span>Vision: ${this.state.baseScore}</span><span>Buffer: Empty</span>`;
                 } else if (this.state.mentalBuffer < 100) {
-                    label.innerText = "SYNCING...";
-                    state.innerText = "Calibrating...";
-                    sub.innerText = `Buffer: ${this.state.mentalBuffer}%`;
+                    label.innerText = "CHARGING...";
+                    state.innerText = "Empowering...";
+                    meta.innerHTML = `<span>Syncing... ${Math.floor(this.state.mentalBuffer)}%</span>`;
                 } else {
                     label.innerText = "FULLY SYNCED";
-                    label.style.color = "#23F3D4";
-                    state.innerText = totalScore > 75 ? "Flow State" : (totalScore > 50 ? "Balanced" : "Low Energy");
-                    sub.innerText = "Sensors Disengaged • Privacy Secure";
+                    label.style.color = themeColor;
+                    state.innerText = totalScore > 80 ? "Peak State" : (totalScore > 60 ? "Ready to Trade" : "Low Energy");
+                    meta.innerHTML = `<span>Vision + Mental Synced</span>`;
                 }
             },
 
@@ -796,11 +803,13 @@
                 document.getElementById('dashboard-layer').classList.remove('show');
                 document.getElementById('hud-layer').classList.remove('hidden-ui');
                 document.getElementById('universe').classList.remove('dimmed');
+                document.getElementById('ambient-glow').style.opacity = 0;
                 document.getElementById('scan-trigger').classList.remove('active');
                 document.getElementById('instruction').innerText = "CLICK TO ACTIVATE";
                 
-                // Sensors are already killed. We just wait for user to click again to restart them.
+                // Reset State
                 this.state.mentalBuffer = 0;
+                document.getElementById('interactive-orbit').classList.add('waiting');
             }
         };
 
