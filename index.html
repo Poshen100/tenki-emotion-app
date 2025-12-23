@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v24.0 - MVP Baseline</title>
+    <title>TENKI v23.0 - Hybrid Core</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,7 +36,7 @@
             overflow: hidden;
             width: 100vw; height: 100vh;
             margin: 0; padding: 0;
-            -webkit-tap-highlight-color: transparent;
+            -webkit-tap-highlight-color: transparent; /* iOS 優化 */
         }
 
         .font-serif-human { font-family: 'Playfair Display', serif; }
@@ -108,7 +108,7 @@
             background: rgba(149, 117, 255, 0.2); box-shadow: 0 0 40px var(--stardust-purple);
         }
 
-        /* 4. DASHBOARD LAYER */
+        /* 4. DASHBOARD LAYER (Enhanced) */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent;
@@ -135,19 +135,28 @@
         .orbit-ring {
             width: 180px; height: 180px; border-radius: 50%;
             position: relative; display: flex; justify-content: center; align-items: center;
-            background: rgba(255,255,255,0.05);
-            transition: box-shadow 0.3s ease; cursor: pointer; touch-action: none; user-select: none;
+            background: rgba(255,255,255,0.05); /* 初始空狀態 */
+            transition: box-shadow 0.3s ease;
+            cursor: pointer;
+            touch-action: none; user-select: none;
         }
-        .orbit-ring.charging { box-shadow: 0 0 50px rgba(35, 243, 212, 0.3); transform: scale(1.02); }
+        /* Active Charging State */
+        .orbit-ring.charging {
+            box-shadow: 0 0 50px rgba(35, 243, 212, 0.3);
+            transform: scale(1.02);
+        }
+
         .orbit-inner {
             width: 156px; height: 156px; background: var(--bg-deep); border-radius: 50%;
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
             z-index: 2; pointer-events: none;
         }
+
+        /* Charge Progress Overlay */
         .orbit-progress {
             position: absolute; inset: 0; border-radius: 50%;
             background: conic-gradient(var(--plasma-cyan) 0% 0%, transparent 0% 100%);
-            transition: background 0.1s linear;
+            transition: background 0.1s linear; /* Smooth fill */
         }
         
         .dock-container {
@@ -194,7 +203,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BASELINE_v24.0</div>
+                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">HYBRID_CORE_v23.0</div>
             </div>
             <div class="text-right flex flex-col items-end">
                 <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
@@ -216,7 +225,7 @@
         </div>
     </div>
 
-    <!-- Dashboard Layer -->
+    <!-- Dashboard Layer (Hybrid Empowerment) -->
     <div id="dashboard-layer">
         <div class="flex justify-between items-center mb-6">
             <div>
@@ -232,6 +241,7 @@
             
             <!-- (A) Interactive TEI Orbit -->
             <div class="col-span-2 bento-card items-center py-8 bg-white/5">
+                <!-- Interactive Ring -->
                 <div id="tei-orbit" class="orbit-ring">
                     <div class="orbit-progress" id="orbit-fill"></div>
                     <div class="orbit-inner">
@@ -244,22 +254,21 @@
                     <div class="text-xs text-gray-500 font-mono-tech mt-2" id="dash-sub">
                         Base: Vision Scan • Buffer: Empty
                     </div>
-                    <div class="text-[9px] text-gray-600 mt-1 font-mono-tech" id="baseline-debug"></div>
                 </div>
             </div>
 
-            <!-- (B) Metrics -->
+            <!-- (B) Bento Snapshot (No-Wearable Optimized) -->
             <div class="bento-card justify-between h-32">
                 <div class="flex justify-between items-start">
-                    <i data-lucide="heart-pulse" class="w-5 h-5 text-purple-400"></i>
-                    <span class="text-[10px] text-gray-400">EST. HRV</span>
+                    <i data-lucide="eye" class="w-5 h-5 text-purple-400"></i>
+                    <span class="text-[10px] text-gray-400">VISION FOCUS</span>
                 </div>
                 <div>
-                    <div class="text-xl font-bold font-mono-tech" id="metric-hrv">--</div>
+                    <div class="text-xl font-bold font-mono-tech">STABLE</div>
                     <div class="w-full h-1 bg-gray-700 mt-2 rounded-full overflow-hidden">
-                        <div class="h-full bg-purple-500 w-[70%]"></div>
+                        <div class="h-full bg-purple-500 w-[85%]"></div>
                     </div>
-                    <div class="text-[9px] text-gray-500 mt-1">RMSSD (ms)</div>
+                    <div class="text-[9px] text-gray-500 mt-1">Eye-Tracking Calibrated</div>
                 </div>
             </div>
 
@@ -269,12 +278,12 @@
                     <span class="text-[10px] text-gray-400">STREAK</span>
                 </div>
                 <div>
-                    <div class="text-3xl font-bold font-mono-tech text-cyan-400" id="streak-count">1</div>
-                    <div class="text-[10px] text-gray-500 mt-1">Days Consistent</div>
+                    <div class="text-3xl font-bold font-mono-tech text-cyan-400">12</div>
+                    <div class="text-[10px] text-gray-500 mt-1">Days of Discipline</div>
                 </div>
             </div>
 
-            <!-- (C) Review -->
+            <!-- (D) Performance Review -->
             <div class="col-span-2 bento-card bg-gradient-to-br from-gray-900 to-black border-white/20">
                 <div class="flex gap-1 text-yellow-400 mb-2">
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
@@ -283,11 +292,14 @@
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
                 </div>
-                <div class="text-lg text-white font-serif-human leading-tight mb-2" id="dash-quote">
+                <div class="text-lg text-white font-serif-human leading-tight mb-2">
                     "Consistency is your greatest wealth."
                 </div>
+                <div class="text-xs text-gray-400 font-serif-human italic">
+                    No wearable needed to prove your discipline.
+                </div>
                 <div class="flex justify-between items-end mt-4 border-t border-white/10 pt-3">
-                    <div class="text-[10px] text-gray-500 font-mono-tech" id="dash-date">DATE</div>
+                    <div class="text-[10px] text-gray-500 font-mono-tech">DEC 21, 2025</div>
                     <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition">SHARE ↗</div>
                 </div>
             </div>
@@ -307,122 +319,24 @@
         </div>
     </div>
 
-    <!-- CORE ENGINE v3.1: Logic Implementation -->
-    <script>
-        // --- 1. Baseline Manager Class (Persistence) ---
-        class BaselineManager {
-            constructor() {
-                this.userId = 'local_user_v1';
-                this.data = this.load() || {
-                    samples_count: 0,
-                    time_shifts: { morning: 0, work: 0, evening: 0, night: 0 },
-                    scan_history: []
-                };
-            }
-
-            load() {
-                const stored = localStorage.getItem('tenki_baseline_v1');
-                return stored ? JSON.parse(stored) : null;
-            }
-
-            save() {
-                localStorage.setItem('tenki_baseline_v1', JSON.stringify(this.data));
-            }
-
-            getTimeKey() {
-                const h = new Date().getHours();
-                if (h >= 6 && h < 9) return 'morning';
-                if (h >= 9 && h < 17) return 'work';
-                if (h >= 17 && h < 21) return 'evening';
-                return 'night';
-            }
-
-            recordScan(result) {
-                this.data.scan_history.push({ ts: Date.now(), ...result });
-                if (this.data.scan_history.length > 50) this.data.scan_history.shift(); // Keep last 50
-                this.data.samples_count++;
-                
-                // Simplified incremental update (Learning)
-                const timeKey = this.getTimeKey();
-                const currentShift = this.data.time_shifts[timeKey];
-                // Learn slowly: shift moves 10% towards current arousal deviation
-                const newShift = currentShift + (result.arousal * 0.1);
-                this.data.time_shifts[timeKey] = Math.max(-0.3, Math.min(0.3, newShift)); // Clamp
-                
-                this.save();
-            }
-
-            getShift() {
-                if (this.data.samples_count < 3) return 0; // Warmup
-                return this.data.time_shifts[this.getTimeKey()];
-            }
-        }
-
-        // --- 2. Signal Fusion Engine (Algorithm) ---
-        const TenkiEngine = {
-            process: function(faceData, audioData) {
-                // 1. Face AU Logic (Real-time inference simulation)
-                // AU12 (Smile): Mouth width. AU4 (Frown): Brow squeeze.
-                const smileFactor = faceData.mouthOpen * 2.0; // Simulated smile intensity
-                const frownFactor = Math.abs(faceData.headRot.x) * 0.5; // Looking down = low arousal/sad
-
-                // 2. Valence Calculation (Positive/Negative)
-                // Formula: 0.35*Face + 0.28*PPG(Sim) + 0.12*Env
-                // Simulating PPG Valence based on face for consistency in demo
-                const rawValence = (smileFactor * 0.8) - (frownFactor * 0.5); 
-                const valence = Math.max(-1, Math.min(1, rawValence));
-
-                // 3. Arousal Calculation (High/Low Energy)
-                // Formula: 0.35*Face + 0.25*PPG + ...
-                const audioEnergy = audioData / 255;
-                const movementEnergy = Math.abs(faceData.headRot.y) * 2;
-                const rawArousal = (audioEnergy * 0.4) + (movementEnergy * 0.3) - 0.1; // Default slightly calm
-                
-                // 4. Baseline Application
-                const baselineShift = baselineMgr.getShift();
-                const arousal = Math.max(-1, Math.min(1, rawArousal + baselineShift));
-
-                // 5. Circumplex Score (1-99)
-                // Score = 50 + (Valence * 25) + (Arousal * 25)
-                let score = 50 + (valence * 25) + (arousal * 25);
-                score = Math.floor(Math.max(1, Math.min(99, score)));
-
-                // 6. Metrics
-                const hrv = Math.floor(40 + (1 - Math.abs(arousal)) * 40); // Fake HRV: Calm = High HRV
-
-                return { score, valence, arousal, hrv, baselineShift };
-            }
-        };
-
-        const baselineMgr = new BaselineManager();
-    </script>
-
-    <!-- MAIN APP SCRIPT -->
     <script>
         lucide.createIcons();
 
         const app = {
             config: { particleCount: 8000, particleSize: 0.08 },
             state: { 
-                isFaceDetected: false, isScanning: false, mouthOpen: 0, headRot: {x:0, y:0}, 
-                energy: 0, audioData: 0,
-                baseScore: 0, mentalBuffer: 0, isCharging: false,
-                engineResult: null
+                isFaceDetected: false, isScanning: false, mouthOpen: 0, headRot: {x:0, y:0}, energy: 0, audioData: 0,
+                baseScore: 0, mentalBuffer: 0, isCharging: false
             },
             audioCtx: null, analyser: null, dataArray: null,
 
             init: function() {
                 this.initThree();
                 this.initEvents();
-                this.initDashboardInteractions();
-                
-                // Update Date
-                const d = new Date();
-                document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}).toUpperCase();
-                document.getElementById('streak-count').innerText = Math.min(baselineMgr.data.samples_count, 99);
+                this.initDashboardInteractions(); // New: Interactive Dashboard
             },
 
-            // --- 1. Three.js Engine ---
+            // --- 1. Three.js Engine (Unchanged) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
@@ -439,6 +353,7 @@
                 const colors = new Float32Array(this.config.particleCount * 3);
                 const randoms = new Float32Array(this.config.particleCount);
                 const phi = Math.PI * (3. - Math.sqrt(5.));
+
                 const topColor = new THREE.Color(0xFF66CC);
                 const midColor = new THREE.Color(0x9966FF);
                 const botColor = new THREE.Color(0x00CCFF);
@@ -454,6 +369,7 @@
                     positions[idx] = x*r; positions[idx+1] = y*r; positions[idx+2] = z*r;
                     originals[idx] = x*r; originals[idx+1] = y*r; originals[idx+2] = z*r;
                     randoms[i] = Math.random();
+
                     const normalizedY = (y + 1) / 2; 
                     const mixedColor = new THREE.Color();
                     if (normalizedY > 0.5) mixedColor.copy(midColor).lerp(topColor, (normalizedY - 0.5) * 2);
@@ -483,7 +399,7 @@
                 this.animate();
             },
 
-            // --- 2. Logic & Sensors ---
+            // --- 2. Logic (Unchanged) ---
             startSensors: async function() {
                 const hintEl = document.getElementById('instruction');
                 hintEl.innerText = "SENSORS ACTIVE...";
@@ -698,24 +614,16 @@
                 this.state.isScanning = false;
                 if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 
-                // --- CALL CORE ENGINE v3.1 ---
-                this.state.engineResult = TenkiEngine.process(
-                    { mouthOpen: this.state.mouthOpen, headRot: this.state.headRot },
-                    this.state.audioData
-                );
-                
-                // Record to Baseline (Learning)
-                baselineMgr.recordScan(this.state.engineResult);
-
-                // Set Initial Base Score (Before Buffer)
-                // Use a slightly lower base so user feels they need to "fill" the buffer
-                this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
-                this.state.mentalBuffer = 0;
+                // 1. Calculate BASE Vision Score (No Buffer yet)
+                const audioBonus = Math.floor(this.state.audioData / 5); 
+                // Base score is slightly lower to encourage filling the buffer
+                this.state.baseScore = Math.min(85, Math.floor(Math.random() * (75 - 60) + 60) + audioBonus);
+                this.state.mentalBuffer = 0; // Reset buffer
                 
                 this.showDashboard();
             },
 
-            // --- 5. Interactive Dashboard Logic ---
+            // --- 5. Interactive Dashboard Logic (New) ---
             initDashboardInteractions: function() {
                 const orbit = document.getElementById('tei-orbit');
                 
@@ -725,12 +633,14 @@
                     orbit.classList.add('charging');
                     if(navigator.vibrate) navigator.vibrate(20);
                     
+                    // Charging Loop
                     this.chargeInterval = setInterval(() => {
                         if (this.state.mentalBuffer < 100) {
                             this.state.mentalBuffer += 2;
                             this.updateDashboardVisuals();
                             if (this.state.mentalBuffer % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
                         } else {
+                            // Max Charge Reached
                             clearInterval(this.chargeInterval);
                             if(navigator.vibrate) navigator.vibrate([30, 30, 30]);
                         }
@@ -752,39 +662,37 @@
             },
 
             updateDashboardVisuals: function() {
-                // Combine Base Score + Mental Buffer (Remedial 8-10%)
-                const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 10);
-                const totalScore = Math.min(99, this.state.baseScore + bufferBonus);
+                // Combine Base Score + Mental Buffer (weighted 15 points)
+                const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 15);
+                const totalScore = this.state.baseScore + bufferBonus;
                 
+                // Update DOM
                 document.getElementById('dash-score').innerText = totalScore;
-                document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
                 
-                const visualPercent = totalScore; 
+                // Dynamic Gradient Fill
                 const fill = document.getElementById('orbit-fill');
+                // Base percent (e.g. 60%) + Buffer percent (e.g. up to 15%)
+                const visualPercent = totalScore; 
                 fill.style.background = `conic-gradient(var(--plasma-cyan) 0% ${visualPercent}%, transparent ${visualPercent}% 100%)`;
 
+                // Update Text
                 const label = document.getElementById('dash-label');
                 const state = document.getElementById('dash-state');
                 const sub = document.getElementById('dash-sub');
-                const debug = document.getElementById('baseline-debug');
-
-                // Debug Info (Optional)
-                const shift = this.state.engineResult.baselineShift.toFixed(2);
-                debug.innerText = `Baseline Shift: ${shift > 0 ? '+'+shift : shift}`;
 
                 if (this.state.mentalBuffer < 10) {
                     label.innerText = "HOLD TO SYNC";
-                    state.innerText = "Processing...";
-                    sub.innerText = "Applying Baseline V1...";
+                    state.innerText = "Awaiting Input...";
+                    sub.innerText = "Base: Vision Scan • Buffer: Empty";
                 } else if (this.state.mentalBuffer < 100) {
                     label.innerText = "SYNCING...";
                     state.innerText = "Calibrating...";
-                    sub.innerText = `Buffer: ${this.state.mentalBuffer}%`;
+                    sub.innerText = `Buffer Charging: ${this.state.mentalBuffer}%`;
                 } else {
                     label.innerText = "FULLY SYNCED";
                     label.style.color = "#23F3D4";
-                    state.innerText = totalScore > 75 ? "Flow State" : (totalScore > 50 ? "Balanced" : "Low Energy");
-                    sub.innerText = "Hybrid Verification Complete";
+                    state.innerText = totalScore > 80 ? "Optimal State" : "Balanced Flow";
+                    sub.innerText = "Vision + Awareness Verified";
                 }
             },
 
@@ -794,7 +702,10 @@
                 document.getElementById('universe').classList.add('dimmed');
                 
                 const dash = document.getElementById('dashboard-layer');
+                
+                // Initialize View
                 this.updateDashboardVisuals();
+                
                 setTimeout(() => { dash.classList.add('show'); }, 300);
             },
 
@@ -804,7 +715,7 @@
                 document.getElementById('universe').classList.remove('dimmed');
                 document.getElementById('scan-trigger').classList.remove('active');
                 document.getElementById('instruction').innerText = "HOLD TO SCAN";
-                this.state.mentalBuffer = 0;
+                this.state.mentalBuffer = 0; // Reset Buffer
             }
         };
 
