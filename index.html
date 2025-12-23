@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v24.0 - MVP Baseline</title>
+    <title>TENKI v24.0 - Privacy Secured</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -197,7 +197,7 @@
                 <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BASELINE_v24.0</div>
             </div>
             <div class="text-right flex flex-col items-end">
-                <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
+                <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech transition-all duration-300">
                     VISION ONLY
                 </div>
                 <div class="flex items-end h-4" id="audio-visualizer">
@@ -407,9 +407,10 @@
                 isFaceDetected: false, isScanning: false, mouthOpen: 0, headRot: {x:0, y:0}, 
                 energy: 0, audioData: 0,
                 baseScore: 0, mentalBuffer: 0, isCharging: false,
-                engineResult: null
+                engineResult: null,
+                sensorsActive: false // NEW: Track sensor state for phantom mode
             },
-            audioCtx: null, analyser: null, dataArray: null,
+            audioCtx: null, analyser: null, dataArray: null, stream: null, // NEW: Store stream for stopping
 
             init: function() {
                 this.initThree();
@@ -491,19 +492,49 @@
                     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     this.analyser = this.audioCtx.createAnalyser();
                     this.analyser.fftSize = 64;
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                    const source = this.audioCtx.createMediaStreamSource(stream);
+                    // NEW: Store stream to stop later
+                    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                    const source = this.audioCtx.createMediaStreamSource(this.stream);
                     source.connect(this.analyser);
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                    this.initAI(stream);
+                    this.initAI(this.stream);
+                    this.state.sensorsActive = true; // NEW: Flag
                 } catch (e) {
                     hintEl.innerText = "USE MOUSE MODE";
                     this.initAI(null);
                 }
             },
 
+            // NEW: Stop Sensors (Snap & Seal)
+            stopSensors: function() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.stream = null;
+                }
+                if (this.audioCtx) {
+                    this.audioCtx.close();
+                    this.audioCtx = null;
+                }
+                const video = document.getElementById('input-video');
+                video.srcObject = null;
+                
+                this.state.sensorsActive = false;
+                
+                // Update Status UI to Privacy Secured
+                const statusEl = document.getElementById('connection-status');
+                statusEl.innerHTML = `<i data-lucide="shield-check" class="w-3 h-3 inline-block mr-1"></i>PRIVACY SECURED`;
+                statusEl.className = "text-[10px] text-green-400 border border-green-400/30 bg-green-900/20 px-2 py-1 rounded mb-2 font-mono-tech transition-all duration-300";
+                lucide.createIcons();
+                
+                // Reset Audio Bars
+                document.querySelectorAll('.audio-bar').forEach(bar => bar.style.height = '4px');
+            },
+
             updateAudio: function() {
-                if (!this.analyser) return;
+                if (!this.analyser || !this.state.sensorsActive) {
+                    // Phantom Mode Logic inside updateAudio if needed, or handled in animate
+                    return; 
+                }
                 this.analyser.getByteFrequencyData(this.dataArray);
                 let sum = 0;
                 for(let i = 0; i < this.dataArray.length; i++) sum += this.dataArray[i];
@@ -526,7 +557,10 @@
                     faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6});
                     faceMesh.onResults((res) => this.processData(res));
                     const camera = new Camera(video, {
-                        onFrame: async () => await faceMesh.send({image: video}),
+                        onFrame: async () => {
+                            // Only process if sensors are active to prevent errors after stop
+                            if (this.state.sensorsActive) await faceMesh.send({image: video});
+                        },
                         width: 640, height: 480
                     });
                     camera.start();
@@ -540,6 +574,8 @@
             },
 
             processData: function(results) {
+                if (!this.state.sensorsActive) return; // Ignore residual frames
+
                 const statusEl = document.getElementById('connection-status');
                 const hintEl = document.getElementById('instruction');
 
@@ -548,7 +584,10 @@
 
                 if (landmarks) {
                     this.state.isFaceDetected = true;
-                    statusEl.innerText = "VISION: ACTIVE"; statusEl.style.color = "#FF99CC"; statusEl.style.borderColor = "#FF99CC";
+                    // Only update text if we are in vision mode and not yet secured
+                    if (statusEl.innerText.includes("VISION") || statusEl.innerText.includes("SEARCHING")) {
+                        statusEl.innerText = "VISION: ACTIVE"; statusEl.style.color = "#FF99CC"; statusEl.style.borderColor = "#FF99CC";
+                    }
                     if(!this.state.isScanning) { hintEl.innerText = "HOLD TO SCAN"; hintEl.style.color = "white"; }
                     
                     const nose = landmarks[1];
@@ -560,7 +599,9 @@
                     this.state.mouthOpen += ((dist - 0.02) * 5 - this.state.mouthOpen) * 0.2;
                     if(this.state.mouthOpen < 0) this.state.mouthOpen = 0;
                 } else {
-                    statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray"; statusEl.style.borderColor = "#333";
+                     if (statusEl.innerText.includes("VISION") || statusEl.innerText.includes("SEARCHING")) {
+                        statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray"; statusEl.style.borderColor = "#333";
+                     }
                 }
             },
 
@@ -615,10 +656,24 @@
                 requestAnimationFrame(() => this.animate());
                 this.updateAudio();
                 const time = Date.now() * 0.001;
-                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
+                
+                // --- PHANTOM MODE VS LIVE MODE ---
+                let audioForce = 0;
+                
+                if (this.state.sensorsActive) {
+                    // Live Data
+                    audioForce = (this.state.audioData || 0) / 255;
+                    this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
+                    this.cloud.rotation.x += (this.state.headRot.x * 0.05);
+                } else {
+                    // Phantom Breathing (Simulated) - No sensors needed
+                    audioForce = (Math.sin(time * 1.5) * 0.1) + 0.1; // Gentle sine wave
+                    // Slowly centre the head rotation if it was off-center
+                    this.state.headRot.x *= 0.95;
+                    this.state.headRot.y *= 0.95;
+                    this.cloud.rotation.y += 0.002; // Constant slow rotation
+                }
 
-                const audioForce = (this.state.audioData || 0) / 255; 
                 let targetEnergy = 0.2 + (audioForce * 0.8);
                 if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 1.5;
                 if (this.state.isScanning) targetEnergy = 3.0;
@@ -628,9 +683,14 @@
                 const positions = this.cloud.geometry.attributes.position.array;
                 const originals = this.cloud.geometry.attributes.originalPosition.array;
                 const randoms = this.cloud.geometry.attributes.random.array;
+                
                 const expansionBase = 1 + (this.state.mouthOpen * 0.3) + (audioForce * 0.2);
+                
+                // Jitter only active when real audio is present or scanning
+                const jitterForce = this.state.sensorsActive ? 0.15 : 0.05;
+                const jitter = audioForce * jitterForce;
+                
                 const pulse = Math.sin(time * 2) * this.state.energy * 0.1;
-                const jitter = audioForce * 0.15;
 
                 for (let i = 0; i < this.config.particleCount; i++) {
                     const idx = i * 3;
@@ -704,11 +764,13 @@
                     this.state.audioData
                 );
                 
+                // NEW: Stop Sensors Immediately (Privacy Seal)
+                this.stopSensors();
+                
                 // Record to Baseline (Learning)
                 baselineMgr.recordScan(this.state.engineResult);
 
                 // Set Initial Base Score (Before Buffer)
-                // Use a slightly lower base so user feels they need to "fill" the buffer
                 this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
                 this.state.mentalBuffer = 0;
                 
@@ -752,7 +814,6 @@
             },
 
             updateDashboardVisuals: function() {
-                // Combine Base Score + Mental Buffer (Remedial 8-10%)
                 const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 10);
                 const totalScore = Math.min(99, this.state.baseScore + bufferBonus);
                 
@@ -768,7 +829,6 @@
                 const sub = document.getElementById('dash-sub');
                 const debug = document.getElementById('baseline-debug');
 
-                // Debug Info (Optional)
                 const shift = this.state.engineResult.baselineShift.toFixed(2);
                 debug.innerText = `Baseline Shift: ${shift > 0 ? '+'+shift : shift}`;
 
@@ -803,8 +863,16 @@
                 document.getElementById('hud-layer').classList.remove('hidden-ui');
                 document.getElementById('universe').classList.remove('dimmed');
                 document.getElementById('scan-trigger').classList.remove('active');
-                document.getElementById('instruction').innerText = "HOLD TO SCAN";
+                
+                // IMPORTANT: Reset UI but compel user to restart sensors manually for privacy
+                document.getElementById('instruction').innerText = "TAP TO RE-ACTIVATE";
                 this.state.mentalBuffer = 0;
+                
+                // Reset connection status text to prompt
+                const statusEl = document.getElementById('connection-status');
+                statusEl.innerText = "WAITING FOR INPUT";
+                statusEl.className = "text-[10px] text-gray-500 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech transition-all duration-300";
+                statusEl.style.color = ""; statusEl.style.borderColor = "";
             }
         };
 
