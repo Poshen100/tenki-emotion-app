@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v24.0 - MVP Baseline</title>
+    <title>TENKI v24.0 - Privacy Secured MVP</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43,18 +43,18 @@
         .font-serif-human { font-family: 'Playfair Display', serif; }
         .font-mono-tech { font-family: 'Space Mono', monospace; }
 
-        /* 1. 隱私層: 隱藏原始影像流，只保留數據 */
+        /* 1. 隱私層 */
         #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
 
         /* 2. 背景層: Three.js */
         #universe {
             position: absolute; inset: 0; z-index: 1;
             background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
-            transition: opacity 1s ease, filter 1s ease;
+            transition: opacity 1s ease;
         }
         #universe.dimmed { opacity: 0.3; filter: blur(12px); }
 
-        /* 3. HUD 層: 掃描介面 */
+        /* 3. HUD 層 */
         #hud-layer {
             position: absolute; inset: 0; z-index: 10;
             pointer-events: none;
@@ -64,7 +64,7 @@
         }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; transform: scale(1.05); }
 
-        /* 智能對齊膠囊 (Smart Alignment Capsule) */
+        /* 智能對齊膠囊 */
         #align-hint-capsule {
             position: absolute; top: 15%; left: 50%; 
             transform: translateX(-50%) translateY(-20px) scale(0.9);
@@ -104,14 +104,6 @@
             transform: scale(1.15); border-color: var(--stardust-purple);
             background: rgba(149, 117, 255, 0.15); box-shadow: 0 0 50px rgba(149, 117, 255, 0.4);
         }
-        .fingerprint-sensor i { transition: all 0.3s; }
-        .fingerprint-sensor.active i { opacity: 0.8; transform: scale(0.9); }
-
-        /* Audio Visualizer Bars */
-        .audio-bar {
-            width: 3px; height: 16px; background: rgba(255,255,255,0.3);
-            margin: 0 1.5px; transition: height 0.08s ease-out; border-radius: 2px;
-        }
 
         /* 4. DASHBOARD LAYER */
         #dashboard-layer {
@@ -138,7 +130,7 @@
             -webkit-background-clip: text; color: transparent; 
         }
         
-        /* INTERACTIVE ORBIT (Remedial Layer UI) */
+        /* Interactive Orbit */
         .orbit-ring {
             width: 190px; height: 190px; border-radius: 50%;
             position: relative; display: flex; justify-content: center; align-items: center;
@@ -193,6 +185,10 @@
         }
         .dock-main-action:active { transform: scale(0.96); }
 
+        .audio-bar {
+            width: 3px; height: 16px; background: rgba(255,255,255,0.3);
+            margin: 0 1.5px; transition: height 0.08s ease-out; border-radius: 2px;
+        }
     </style>
 </head>
 <body>
@@ -202,19 +198,17 @@
 
     <!-- HUD Layer -->
     <div id="hud-layer">
-        <!-- 頂部狀態列 -->
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-2xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
                 <div class="flex gap-2 mt-2">
                     <div class="text-[9px] bg-white/10 px-2 py-0.5 rounded text-white/70 font-mono-tech backdrop-blur-md">V24.0</div>
-                    <div class="text-[9px] border border-white/20 px-2 py-0.5 rounded text-purple-300 font-mono-tech tracking-wider">BASELINE_MVP</div>
+                    <div class="text-[9px] border border-white/20 px-2 py-0.5 rounded text-purple-300 font-mono-tech tracking-wider">PRIVACY_PROTOCOL</div>
                 </div>
             </div>
             <div class="text-right flex flex-col items-end">
-                <div id="connection-status" class="text-[9px] text-emerald-400 bg-emerald-900/30 border border-emerald-500/30 px-2 py-1 rounded mb-2 font-mono-tech flex items-center gap-1">
-                    <div class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
-                    VISION READY
+                <div id="connection-status" class="text-[9px] text-gray-400 bg-white/5 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech flex items-center gap-1 transition-all duration-500">
+                    IDLE
                 </div>
                 <div class="flex items-end h-4" id="audio-visualizer">
                     <div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div>
@@ -222,7 +216,6 @@
             </div>
         </div>
 
-        <!-- 智能對齊提示 (Capsule) -->
         <div id="align-hint-capsule">
             <div id="hint-icon-box" class="w-5 h-5 rounded-full flex items-center justify-center transition-colors duration-300">
                 <i id="hint-icon" data-lucide="scan-face" class="w-3 h-3 text-white"></i>
@@ -233,7 +226,6 @@
             <div class="shimmer-effect"></div>
         </div>
 
-        <!-- 底部觸發區 -->
         <div class="flex flex-col items-center pb-12">
             <div id="scan-trigger" class="fingerprint-sensor">
                 <i data-lucide="fingerprint" class="w-8 h-8 text-white/80"></i>
@@ -257,8 +249,7 @@
         </div>
 
         <div class="grid grid-cols-2 gap-4 pb-32">
-            
-            <!-- (A) Interactive TEI Orbit (Remedial Layer) -->
+            <!-- (A) Interactive TEI Orbit -->
             <div class="col-span-2 bento-card items-center py-10 bg-gradient-to-b from-white/10 to-transparent">
                 <div id="tei-orbit" class="orbit-ring">
                     <div class="orbit-progress" id="orbit-glow"></div>
@@ -273,7 +264,7 @@
                     <div class="text-[11px] text-gray-400 font-mono-tech mt-2 flex justify-center items-center gap-2">
                          <span id="dash-sub">Hold circle to fuse signals</span>
                     </div>
-                    <!-- Debug Data for MVP Verification -->
+                    <!-- Debug Info -->
                     <div class="mt-4 pt-3 border-t border-white/10 grid grid-cols-3 gap-2 text-[8px] text-gray-500 font-mono-tech text-center opacity-60">
                         <div>
                             <span class="block text-gray-300">VALENCE</span>
@@ -331,12 +322,12 @@
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
                 </div>
                 <div class="text-lg text-white font-serif-human leading-tight mb-2 opacity-90" id="dash-quote">
-                    "Your baseline is adapting. Consistency is the key to accuracy."
+                    "Your privacy is secured. Sensors are offline."
                 </div>
                 <div class="flex justify-between items-end mt-4 border-t border-white/10 pt-3">
                     <div class="text-[10px] text-gray-500 font-mono-tech" id="dash-date">DATE</div>
                     <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition flex items-center gap-1">
-                        EXPORT DATA <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+                        EXPORT <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
                     </div>
                 </div>
             </div>
@@ -356,31 +347,26 @@
         </div>
     </div>
 
-    <!-- CORE LOGIC: Signal Fusion & Baseline Manager -->
+    <!-- LOGIC 1: Baseline & Engine -->
     <script>
-        // --- 1. Baseline Manager Class (The "Memory") ---
         class BaselineManager {
             constructor() {
                 this.storageKey = 'tenki_baseline_v24';
                 this.data = this.load() || {
                     samples_count: 0,
-                    // Morning, Work (Day), Evening, Night
                     time_shifts: { morning: 0, work: 0, evening: 0, night: 0 }, 
                     scan_history: []
                 };
             }
-
             load() {
                 try {
                     const stored = localStorage.getItem(this.storageKey);
                     return stored ? JSON.parse(stored) : null;
                 } catch(e) { return null; }
             }
-
             save() {
                 localStorage.setItem(this.storageKey, JSON.stringify(this.data));
             }
-
             getTimeKey() {
                 const h = new Date().getHours();
                 if (h >= 5 && h < 10) return 'morning';
@@ -388,147 +374,75 @@
                 if (h >= 18 && h < 23) return 'evening';
                 return 'night';
             }
-
-            // The core "Learning" function
             recordScan(result) {
-                // 1. Save History
                 this.data.scan_history.push({ ts: Date.now(), ...result });
-                if (this.data.scan_history.length > 50) this.data.scan_history.shift(); // Keep last 50
+                if (this.data.scan_history.length > 50) this.data.scan_history.shift(); 
                 this.data.samples_count++;
                 
-                // 2. Adaptive Learning (Bias Correction)
-                // If user is consistently lower arousal than 0 in the morning,
-                // the system learns to "expect" that, shifting the baseline down.
                 const timeKey = this.getTimeKey();
                 const currentShift = this.data.time_shifts[timeKey];
-                
-                // Learning Rate: 0.1 (Slow adaptation)
-                // If arousal is -0.5, and shift is 0 -> shift becomes -0.05.
-                // Next time, we add -0.05 to the raw arousal to normalize it.
-                // NOTE: For MVP, we use Inverse Logic -> If usually low, we boost score to normalize? 
-                // Actually, Baseline usually means "Subtract this to get deviation".
-                // Here, we'll use it as "Typical Level".
-                
                 const newShift = currentShift + ((result.rawArousal - currentShift) * 0.1);
-                this.data.time_shifts[timeKey] = Math.max(-0.5, Math.min(0.5, newShift)); // Clamp
+                this.data.time_shifts[timeKey] = Math.max(-0.5, Math.min(0.5, newShift)); 
                 
                 this.save();
                 return this.data.samples_count;
             }
-
             getShift() {
-                // Return the "Expected Arousal" for this time of day
-                if (this.data.samples_count < 3) return 0; // Cold start
+                if (this.data.samples_count < 3) return 0;
                 return this.data.time_shifts[this.getTimeKey()];
             }
         }
 
-        // --- 2. Signal Fusion Engine (The "Science") ---
         const TenkiEngine = {
             process: function(faceData, audioData) {
-                // Input Normalization
-                // Audio: 0-255 -> 0.0-1.0
-                const audioNorm = Math.min(1, audioData / 50); // Amplify sensitivity
-
-                // 1. Valence Calculation (Positive/Negative Emotion)
-                // Logic: Smile (Mouth Width) increases Valence. Frown (Head Down) decreases it.
-                // MediaPipe MouthOpen is actually "Height". We need width for smile? 
-                // For MVP: High Mouth Open + Low Audio usually = Smile/Laugh.
-                // Head Pitch Down = Negative.
-                
+                const audioNorm = Math.min(1, audioData / 50); 
                 let valenceScore = 0;
-                
-                // Smile heuristic: If mouth is wide (simulated by open/width ratio)
-                // Here we use pure Mouth Open as "Intensity" and Head Pitch as "Mood"
-                if (faceData.mouthOpen > 0.05) valenceScore += 0.4; // Smiling/Talking
-                
-                // Head Pitch: Positive X is looking down (in Three.js coords used here)
-                // Negative X is looking up.
-                // Looking Up = Confident/Happy (+). Looking Down = Sad/Tired (-).
+                if (faceData.mouthOpen > 0.05) valenceScore += 0.4; 
                 valenceScore -= (faceData.headRot.x * 0.8); 
-                
                 const valence = Math.max(-1, Math.min(1, valenceScore));
 
-                // 2. Arousal Calculation (Energy Level)
-                // Logic: Audio Volume + Head Movement + Eye Openness (simulated)
                 const movementEnergy = (Math.abs(faceData.headRot.x) + Math.abs(faceData.headRot.y)) * 1.5;
                 const rawArousal = (audioNorm * 0.5) + (movementEnergy * 0.4) + (faceData.mouthOpen * 0.1);
-                
-                // 3. Baseline Correction
                 const baseline = baselineMgr.getShift();
-                // Arousal Deviation = Raw - Baseline. 
-                // But for the Score, we want absolute energy but contextualized.
-                // Let's simple add the baseline context.
-                // If baseline is High (0.5), and raw is (0.5), user is "Normal" -> 0.
-                // If baseline is Low (-0.5), and raw is (0.5), user is "High Energy" -> +1.
-                
-                // Formula: Adjusted Arousal
                 const arousal = Math.max(-1, Math.min(1, rawArousal));
 
-                // 4. Circumplex Score Calculation
-                // The Holy Grail Formula: 50 + (V*25) + (A*25)
-                // V: -1 to 1, A: -1 to 1
-                // Max: 50 + 25 + 25 = 100. Min: 50 - 25 - 25 = 0.
                 let score = 50 + (valence * 25) + (arousal * 25);
-                
-                // Clamp
                 score = Math.floor(Math.max(1, Math.min(99, score)));
-
-                // 5. HRV Simulation (Inverse to Arousal)
-                // High Arousal (Stress/Excitement) = Low HRV.
-                // Low Arousal (Calm) = High HRV.
                 const hrv = Math.floor(60 + ((1 - arousal) * 40)); 
 
-                return { 
-                    score, 
-                    valence, 
-                    arousal, 
-                    rawArousal,
-                    hrv, 
-                    baselineUsed: baseline 
-                };
+                return { score, valence, arousal, rawArousal, hrv, baselineUsed: baseline };
             }
         };
 
         const baselineMgr = new BaselineManager();
     </script>
 
-    <!-- MAIN APP CONTROLLER -->
+    <!-- LOGIC 2: App Controller with Snap & Seal Protocol -->
     <script>
         lucide.createIcons();
 
         const app = {
             config: { particleCount: 7000, particleSize: 0.09 },
             state: { 
-                isFaceDetected: false, 
-                isScanning: false, 
-                mouthOpen: 0, 
-                headRot: {x:0, y:0}, 
-                energy: 0, 
-                audioData: 0,
-                baseScore: 0, 
-                mentalBuffer: 0, 
-                isCharging: false,
-                engineResult: null
+                isFaceDetected: false, isScanning: false, mouthOpen: 0, headRot: {x:0, y:0}, 
+                energy: 0, audioData: 0, baseScore: 0, mentalBuffer: 0, 
+                isCharging: false, engineResult: null, sensorsActive: false 
             },
-            audioCtx: null, analyser: null, dataArray: null,
+            audioCtx: null, analyser: null, dataArray: null, stream: null, faceMesh: null, camera: null,
 
             init: function() {
                 this.initThree();
                 this.initEvents();
                 this.initDashboardInteractions();
                 
-                // Update Date
                 const d = new Date();
                 document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {
                     weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
                 }).toUpperCase();
-                
-                // Load historical count
                 document.getElementById('streak-count').innerText = baselineMgr.data.samples_count;
             },
 
-            // --- THREE.JS VISUAL ENGINE ---
+            // --- THREE.JS ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
@@ -539,46 +453,37 @@
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
 
-                // Particles
                 const geometry = new THREE.BufferGeometry();
                 const positions = new Float32Array(this.config.particleCount * 3);
                 const originals = new Float32Array(this.config.particleCount * 3);
                 const colors = new Float32Array(this.config.particleCount * 3);
-                const randoms = new Float32Array(this.config.particleCount); // For phase offset
+                const randoms = new Float32Array(this.config.particleCount);
                 
-                const color1 = new THREE.Color(0x23F3D4); // Cyan
-                const color2 = new THREE.Color(0x9575FF); // Purple
-                const color3 = new THREE.Color(0xFF9A76); // Orange
+                const color1 = new THREE.Color(0x23F3D4); 
+                const color2 = new THREE.Color(0x9575FF); 
+                const color3 = new THREE.Color(0xFF9A76); 
 
                 for (let i = 0; i < this.config.particleCount; i++) {
-                    // Sphere distribution
                     const phi = Math.acos(-1 + (2 * i) / this.config.particleCount);
                     const theta = Math.sqrt(this.config.particleCount * Math.PI) * phi;
                     const r = 2.8;
-
                     const x = r * Math.sin(phi) * Math.cos(theta);
                     const y = r * Math.sin(phi) * Math.sin(theta);
                     const z = r * Math.cos(phi);
-
                     positions[i*3] = x; positions[i*3+1] = y; positions[i*3+2] = z;
                     originals[i*3] = x; originals[i*3+1] = y; originals[i*3+2] = z;
                     randoms[i] = Math.random();
-
-                    // Gradient Color
                     const mixed = new THREE.Color();
                     const ratio = (y + r) / (r * 2);
                     if (ratio < 0.5) mixed.copy(color1).lerp(color2, ratio * 2);
                     else mixed.copy(color2).lerp(color3, (ratio - 0.5) * 2);
-                    
                     colors[i*3] = mixed.r; colors[i*3+1] = mixed.g; colors[i*3+2] = mixed.b;
                 }
-
                 geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
                 geometry.setAttribute('originalPosition', new THREE.BufferAttribute(originals, 3));
                 geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
                 geometry.setAttribute('random', new THREE.BufferAttribute(randoms, 1));
 
-                // Texture
                 const canvas = document.createElement('canvas'); canvas.width=32; canvas.height=32;
                 const ctx = canvas.getContext('2d');
                 const grad = ctx.createRadialGradient(16,16,0,16,16,16);
@@ -598,71 +503,89 @@
                 this.animate();
             },
 
-            // --- SENSOR INTEGRATION ---
+            // --- SENSOR INTEGRATION (Snap & Seal) ---
             startSensors: async function() {
                 const hintEl = document.getElementById('instruction');
-                hintEl.innerText = "INITIALIZING SENSORS...";
+                hintEl.innerText = "WAKING SENSORS...";
                 
                 try {
-                    // Audio
                     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     this.analyser = this.audioCtx.createAnalyser();
                     this.analyser.fftSize = 64;
                     this.analyser.smoothingTimeConstant = 0.8;
                     
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                    const source = this.audioCtx.createMediaStreamSource(stream);
+                    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                    const source = this.audioCtx.createMediaStreamSource(this.stream);
                     source.connect(this.analyser);
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
                     
-                    // Video / Face
-                    this.initAI(stream);
+                    this.initAI(this.stream);
+                    this.state.sensorsActive = true;
+                    
                 } catch (e) {
                     console.error(e);
-                    hintEl.innerText = "ACCESS DENIED. REFRESH.";
+                    hintEl.innerText = "ACCESS DENIED.";
                     hintEl.style.color = "red";
                 }
+            },
+
+            stopSensors: function() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.stream = null;
+                }
+                if (this.camera) {
+                    const video = document.getElementById('input-video');
+                    video.pause();
+                    video.srcObject = null;
+                }
+                if (this.audioCtx) {
+                    this.audioCtx.close();
+                    this.audioCtx = null;
+                }
+                
+                this.state.sensorsActive = false;
+                this.state.isFaceDetected = false;
+                
+                const statusEl = document.getElementById('connection-status');
+                statusEl.innerHTML = `<i data-lucide="shield-check" class="w-3 h-3 text-gray-400"></i> PRIVACY SECURED`;
+                statusEl.className = "text-[9px] text-gray-400 bg-white/5 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech flex items-center gap-1 transition-all duration-500";
+                lucide.createIcons();
+                document.querySelectorAll('.audio-bar').forEach(bar => bar.style.height = '4px');
             },
 
             initAI: function(stream) {
                 const video = document.getElementById('input-video');
                 video.srcObject = stream;
+                video.play();
                 
-                const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                faceMesh.setOptions({
-                    maxNumFaces: 1, 
-                    refineLandmarks: true, 
-                    minDetectionConfidence: 0.5, 
-                    minTrackingConfidence: 0.5
-                });
+                if (!this.faceMesh) {
+                    this.faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+                    this.faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
+                    this.faceMesh.onResults((res) => this.processFaceData(res));
+                }
                 
-                faceMesh.onResults((res) => this.processFaceData(res));
-                
-                const camera = new Camera(video, {
-                    onFrame: async () => await faceMesh.send({image: video}),
+                this.camera = new Camera(video, {
+                    onFrame: async () => {
+                        if (this.state.sensorsActive && video.readyState >= 2) {
+                            await this.faceMesh.send({image: video});
+                        }
+                    },
                     width: 640, height: 480
                 });
-                camera.start();
-                
-                // Fallback mouse movement for desktop debug
-                document.addEventListener('mousemove', (e) => {
-                    if (!this.state.isFaceDetected) {
-                        this.state.headRot.y = (e.clientX / window.innerWidth - 0.5) * 2;
-                        this.state.headRot.x = (e.clientY / window.innerHeight - 0.5) * 2;
-                    }
-                });
+                this.camera.start();
             },
 
             updateAudio: function() {
-                if (!this.analyser) return;
+                if (!this.analyser || !this.state.sensorsActive) {
+                    this.state.audioData = this.state.audioData * 0.9; 
+                    return;
+                }
                 this.analyser.getByteFrequencyData(this.dataArray);
                 let sum = 0;
-                // Focus on lower frequencies for "Energy"
                 for(let i = 0; i < this.dataArray.length/2; i++) sum += this.dataArray[i];
-                const avg = sum / (this.dataArray.length/2);
-                this.state.audioData = avg;
+                this.state.audioData = sum / (this.dataArray.length/2);
                 
-                // UI Visualizer
                 const bars = document.querySelectorAll('.audio-bar');
                 bars.forEach((bar, i) => {
                     const h = (this.dataArray[i*2] / 255) * 16;
@@ -671,42 +594,38 @@
             },
 
             processFaceData: function(results) {
+                if(!this.state.sensorsActive) return;
+
                 const statusEl = document.getElementById('connection-status');
                 const hintEl = document.getElementById('instruction');
-                
-                // Logic: Check if face exists
                 const landmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
                 
                 this.updateAlignment(landmarks);
 
                 if (landmarks) {
                     this.state.isFaceDetected = true;
-                    statusEl.innerHTML = `<div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> VISION LOCKED`;
-                    
+                    if(statusEl.innerText.includes("SEARCHING") || statusEl.innerText.includes("IDLE")) {
+                        statusEl.innerHTML = `<div class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]"></div> VISION LOCKED`;
+                        statusEl.className = "text-[9px] text-emerald-400 bg-emerald-900/20 border border-emerald-500/30 px-2 py-1 rounded mb-2 font-mono-tech flex items-center gap-1";
+                    }
                     if(!this.state.isScanning && hintEl.innerText.includes("INITIALIZING")) {
                         hintEl.innerText = "HOLD TO SCAN";
                         hintEl.style.color = "white";
                     }
 
-                    // 1. Calculate Head Rotation (Simplified)
-                    // Nose (1) vs Sides (234, 454)
                     const nose = landmarks[1];
-                    this.state.headRot.x = (nose.y - 0.5) * 2.5; // Pitch
-                    this.state.headRot.y = (nose.x - 0.5) * 2.5; // Yaw
+                    this.state.headRot.x = (nose.y - 0.5) * 2.5; 
+                    this.state.headRot.y = (nose.x - 0.5) * 2.5; 
 
-                    // 2. Calculate Mouth Open (AU12/AU26 Proxy)
-                    const upperLip = landmarks[13];
-                    const lowerLip = landmarks[14];
+                    const upperLip = landmarks[13], lowerLip = landmarks[14];
                     const distance = Math.sqrt(Math.pow(upperLip.x - lowerLip.x, 2) + Math.pow(upperLip.y - lowerLip.y, 2));
-                    // Smooth the value
                     this.state.mouthOpen += ((distance * 5) - this.state.mouthOpen) * 0.1;
-                    
                 } else {
                     statusEl.innerHTML = `<div class="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></div> SEARCHING`;
+                    statusEl.className = "text-[9px] text-red-300 bg-red-900/20 border border-red-500/30 px-2 py-1 rounded mb-2 font-mono-tech flex items-center gap-1";
                 }
             },
 
-            // --- UI ALIGNMENT LOGIC ---
             updateAlignment: function(landmarks) {
                 if (this.state.isScanning || document.getElementById('dashboard-layer').classList.contains('show')) return;
                 
@@ -716,7 +635,7 @@
                 const iconEl = document.getElementById('hint-icon');
 
                 let msg = "SEARCHING FACE";
-                let status = "error"; // error, warn, good
+                let status = "error"; 
                 let icon = "scan-face";
 
                 if (landmarks) {
@@ -732,13 +651,11 @@
                     else { msg = "READY TO SCAN"; status = "good"; icon = "check"; }
                 }
 
-                // Update DOM efficiently
                 if (textBox.innerText !== msg) {
                     textBox.innerText = msg;
                     iconEl.setAttribute('data-lucide', icon);
                     lucide.createIcons();
-                    
-                    capsule.className = ""; // Reset
+                    capsule.className = ""; 
                     capsule.classList.add('show', `status-${status}`);
                     
                     if (status === "good") {
@@ -749,43 +666,44 @@
                 }
             },
 
-            // --- ANIMATION LOOP ---
             animate: function() {
                 requestAnimationFrame(() => this.animate());
                 this.updateAudio();
-                
                 const time = Date.now() * 0.001;
                 
-                // Audio force
-                const audioForce = this.state.audioData / 255; // 0 to 1
-                
-                // Update Energy State
-                let targetEnergy = 0.5 + (audioForce * 1.5) + (this.state.mouthOpen * 2);
-                if (this.state.isScanning) targetEnergy = 4.0;
-                
-                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
+                let audioForce = 0;
+                let targetEnergy = 0;
 
-                // Rotate Cloud based on head
+                if (this.state.sensorsActive) {
+                    audioForce = this.state.audioData / 255;
+                    targetEnergy = 0.5 + (audioForce * 1.5) + (this.state.mouthOpen * 2);
+                    if (this.state.isScanning) targetEnergy = 4.0;
+                } else {
+                    // PHANTOM BREATHING MODE
+                    audioForce = (Math.sin(time * 1.5) * 0.1) + 0.1; 
+                    targetEnergy = 0.6 + (Math.sin(time * 0.8) * 0.2); 
+                    this.state.headRot.x *= 0.95;
+                    this.state.headRot.y *= 0.95;
+                }
+                
+                this.state.energy += (targetEnergy - this.state.energy) * 0.05; 
+
                 this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.03);
                 this.cloud.rotation.x += (this.state.headRot.x * 0.03);
 
-                // Update Particles
                 const positions = this.cloud.geometry.attributes.position.array;
                 const originals = this.cloud.geometry.attributes.originalPosition.array;
                 const randoms = this.cloud.geometry.attributes.random.array;
                 
                 const pulse = Math.sin(time * 2.5) * (this.state.energy * 0.15);
-                const breath = Math.sin(time * 0.5) * 0.05; // Life breath
+                const breath = Math.sin(time * 0.5) * 0.05;
 
                 for (let i = 0; i < this.config.particleCount; i++) {
                     const idx = i * 3;
                     const r = randoms[i];
-                    
-                    // Complex noise function
                     const noise = pulse * r + breath;
-                    const audioJitter = (Math.random() - 0.5) * (audioForce * 0.3);
+                    const audioJitter = this.state.sensorsActive ? (Math.random() - 0.5) * (audioForce * 0.3) : 0;
                     
-                    // Expansion
                     let expansion = 1 + noise;
                     if (this.state.isScanning) expansion += (Math.random() * 0.2);
 
@@ -793,18 +711,16 @@
                     positions[idx+1] = originals[idx+1] * expansion + audioJitter;
                     positions[idx+2] = originals[idx+2] * expansion + audioJitter;
                 }
-                
                 this.cloud.geometry.attributes.position.needsUpdate = true;
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // --- INTERACTION LOGIC ---
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
                 
                 const startScan = (e) => {
                     e.preventDefault();
-                    if (!this.audioCtx) {
+                    if (!this.state.sensorsActive) {
                         this.startSensors();
                         return;
                     }
@@ -818,9 +734,8 @@
                         this.scanTimer = setInterval(() => {
                             progress += 2;
                             if (progress >= 100) this.completeScan();
-                        }, 30); // 1.5s scan
+                        }, 30);
                     } else {
-                        // Feedback for bad alignment
                         const cap = document.getElementById('align-hint-capsule');
                         cap.style.transform = "translateX(-50%) scale(1.1)";
                         setTimeout(()=> cap.style.transform = "translateX(-50%) scale(1)", 200);
@@ -845,19 +760,17 @@
                 clearInterval(this.scanTimer);
                 this.state.isScanning = false;
                 
-                // 1. Capture Data Snapshot
                 const result = TenkiEngine.process(
                     { mouthOpen: this.state.mouthOpen, headRot: this.state.headRot },
                     this.state.audioData
                 );
                 this.state.engineResult = result;
 
-                // 2. Update Baseline
+                // --- SNAP & SEAL: Cut connection immediately ---
+                this.stopSensors(); 
+
                 const newCount = baselineMgr.recordScan(result);
                 document.getElementById('streak-count').innerText = newCount;
-
-                // 3. Set Dashboard Data
-                // Initially, we show the RAW Score (or slightly lower) to encourage "Syncing"
                 this.state.baseScore = result.score; 
                 this.state.mentalBuffer = 0;
 
@@ -868,14 +781,11 @@
                 document.getElementById('hud-layer').classList.add('hidden-ui');
                 document.getElementById('universe').classList.add('dimmed');
                 document.getElementById('dashboard-layer').classList.add('show');
-                
                 this.updateDashboardState();
             },
 
-            // --- DASHBOARD & REMEDIAL LAYER ---
             initDashboardInteractions: function() {
                 const orbit = document.getElementById('tei-orbit');
-                
                 const chargeStart = (e) => {
                     if(e) e.preventDefault();
                     if (this.state.mentalBuffer >= 100) return;
@@ -884,7 +794,7 @@
                     orbit.classList.add('charging');
                     
                     this.chargeTimer = setInterval(() => {
-                        this.state.mentalBuffer += 1.5; // Fill speed
+                        this.state.mentalBuffer += 1.5; 
                         if (this.state.mentalBuffer >= 100) {
                             this.state.mentalBuffer = 100;
                             this.completeSync();
@@ -909,25 +819,17 @@
 
             updateDashboardState: function() {
                 const res = this.state.engineResult;
-                const buffer = this.state.mentalBuffer; // 0 to 100
-                
-                // Remedial Logic:
-                // We add up to 10 points based on the buffer
-                // This simulates the user taking a moment to breathe/sync.
+                const buffer = this.state.mentalBuffer;
                 const visualScore = Math.min(99, Math.floor(res.score + (buffer * 0.1)));
                 
-                // Update DOM
                 document.getElementById('dash-score').innerText = visualScore;
                 
                 const fill = document.getElementById('orbit-fill');
                 const glow = document.getElementById('orbit-glow');
-                
-                // The ring fills based on Buffer, not Score
                 const fillPct = buffer;
                 fill.style.background = `conic-gradient(var(--plasma-cyan) 0% ${fillPct}%, transparent ${fillPct}% 100%)`;
                 glow.style.background = `conic-gradient(var(--plasma-cyan) 0% ${fillPct}%, transparent ${fillPct}% 100%)`;
 
-                // Debug Text
                 document.getElementById('debug-valence').innerText = res.valence.toFixed(2);
                 document.getElementById('debug-arousal').innerText = res.arousal.toFixed(2);
                 document.getElementById('debug-baseline').innerText = res.baselineUsed.toFixed(2);
@@ -941,8 +843,6 @@
                 document.getElementById('dash-label').style.color = "#23F3D4";
                 document.getElementById('dash-state').innerText = "Optimum State";
                 document.getElementById('dash-sub').innerText = "Physiological signals aligned";
-                
-                // Haptic Feedback for success
                 if(navigator.vibrate) navigator.vibrate([50, 50, 50]);
             },
 
@@ -951,12 +851,14 @@
                 document.getElementById('hud-layer').classList.remove('hidden-ui');
                 document.getElementById('universe').classList.remove('dimmed');
                 
-                // Reset States
                 this.state.mentalBuffer = 0;
                 document.getElementById('dash-label').innerText = "SYNC REQUIRED";
                 document.getElementById('dash-label').style.color = "gray";
                 document.getElementById('dash-state').innerText = "Analysis Complete";
-                document.getElementById('instruction').innerText = "HOLD TO SCAN";
+                document.getElementById('instruction').innerText = "TAP TO INITIALIZE";
+                
+                document.getElementById('connection-status').innerText = "IDLE";
+                document.getElementById('connection-status').className = "text-[9px] text-gray-500 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech";
             }
         };
 
