@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v24.0 - MVP Baseline</title>
+    <title>TENKI v24.1 - Privacy Core</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -194,7 +194,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BASELINE_v24.0</div>
+                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BASELINE_v24.1</div>
             </div>
             <div class="text-right flex flex-col items-end">
                 <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
@@ -223,8 +223,17 @@
                 <div class="text-xs text-gray-400 font-mono-tech tracking-wider">HYBRID SENSING</div>
                 <div class="text-2xl text-white font-serif-human italic">Self-Awareness</div>
             </div>
-            <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
-                <i data-lucide="user" class="w-4 h-4 text-white"></i>
+            
+            <div class="flex gap-3">
+                <!-- 隱私狀態指示器 -->
+                <div id="privacy-indicator" class="h-8 px-3 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2 transition-all duration-300">
+                    <i data-lucide="shield-check" class="w-3 h-3 text-green-400"></i>
+                    <span class="text-[10px] text-green-400 font-mono-tech tracking-wider">SECURE</span>
+                </div>
+                <!-- 裝飾用 User Icon -->
+                <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
+                    <i data-lucide="user" class="w-4 h-4 text-white"></i>
+                </div>
             </div>
         </div>
 
@@ -345,7 +354,6 @@
                 // Simplified incremental update (Learning)
                 const timeKey = this.getTimeKey();
                 const currentShift = this.data.time_shifts[timeKey];
-                // Learn slowly: shift moves 10% towards current arousal deviation
                 const newShift = currentShift + (result.arousal * 0.1);
                 this.data.time_shifts[timeKey] = Math.max(-0.3, Math.min(0.3, newShift)); // Clamp
                 
@@ -361,34 +369,22 @@
         // --- 2. Signal Fusion Engine (Algorithm) ---
         const TenkiEngine = {
             process: function(faceData, audioData) {
-                // 1. Face AU Logic (Real-time inference simulation)
-                // AU12 (Smile): Mouth width. AU4 (Frown): Brow squeeze.
-                const smileFactor = faceData.mouthOpen * 2.0; // Simulated smile intensity
-                const frownFactor = Math.abs(faceData.headRot.x) * 0.5; // Looking down = low arousal/sad
-
-                // 2. Valence Calculation (Positive/Negative)
-                // Formula: 0.35*Face + 0.28*PPG(Sim) + 0.12*Env
-                // Simulating PPG Valence based on face for consistency in demo
+                const smileFactor = faceData.mouthOpen * 2.0; 
+                const frownFactor = Math.abs(faceData.headRot.x) * 0.5; 
                 const rawValence = (smileFactor * 0.8) - (frownFactor * 0.5); 
                 const valence = Math.max(-1, Math.min(1, rawValence));
 
-                // 3. Arousal Calculation (High/Low Energy)
-                // Formula: 0.35*Face + 0.25*PPG + ...
                 const audioEnergy = audioData / 255;
                 const movementEnergy = Math.abs(faceData.headRot.y) * 2;
-                const rawArousal = (audioEnergy * 0.4) + (movementEnergy * 0.3) - 0.1; // Default slightly calm
+                const rawArousal = (audioEnergy * 0.4) + (movementEnergy * 0.3) - 0.1; 
                 
-                // 4. Baseline Application
                 const baselineShift = baselineMgr.getShift();
                 const arousal = Math.max(-1, Math.min(1, rawArousal + baselineShift));
 
-                // 5. Circumplex Score (1-99)
-                // Score = 50 + (Valence * 25) + (Arousal * 25)
                 let score = 50 + (valence * 25) + (arousal * 25);
                 score = Math.floor(Math.max(1, Math.min(99, score)));
 
-                // 6. Metrics
-                const hrv = Math.floor(40 + (1 - Math.abs(arousal)) * 40); // Fake HRV: Calm = High HRV
+                const hrv = Math.floor(40 + (1 - Math.abs(arousal)) * 40); 
 
                 return { score, valence, arousal, hrv, baselineShift };
             }
@@ -404,25 +400,29 @@
         const app = {
             config: { particleCount: 8000, particleSize: 0.08 },
             state: { 
-                isFaceDetected: false, isScanning: false, mouthOpen: 0, headRot: {x:0, y:0}, 
-                energy: 0, audioData: 0,
+                isFaceDetected: false, 
+                isScanning: false, 
+                isSensorActive: false, // 追蹤硬體狀態
+                mouthOpen: 0, 
+                headRot: {x:0, y:0}, 
+                energy: 0, 
+                audioData: 0,
                 baseScore: 0, mentalBuffer: 0, isCharging: false,
                 engineResult: null
             },
-            audioCtx: null, analyser: null, dataArray: null,
+            audioCtx: null, analyser: null, dataArray: null, stream: null,
 
             init: function() {
                 this.initThree();
                 this.initEvents();
                 this.initDashboardInteractions();
                 
-                // Update Date
                 const d = new Date();
                 document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}).toUpperCase();
                 document.getElementById('streak-count').innerText = Math.min(baselineMgr.data.samples_count, 99);
             },
 
-            // --- 1. Three.js Engine ---
+            // --- Three.js Engine ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
@@ -483,7 +483,7 @@
                 this.animate();
             },
 
-            // --- 2. Logic & Sensors ---
+            // --- Sensors Logic ---
             startSensors: async function() {
                 const hintEl = document.getElementById('instruction');
                 hintEl.innerText = "SENSORS ACTIVE...";
@@ -491,18 +491,75 @@
                     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     this.analyser = this.audioCtx.createAnalyser();
                     this.analyser.fftSize = 64;
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                    const source = this.audioCtx.createMediaStreamSource(stream);
+                    
+                    // 保存 stream 以便之後關閉
+                    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                    const source = this.audioCtx.createMediaStreamSource(this.stream);
                     source.connect(this.analyser);
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                    this.initAI(stream);
+                    
+                    this.initAI(this.stream);
+                    this.state.isSensorActive = true;
+                    this.updatePrivacyUI(false);
+                    
                 } catch (e) {
+                    console.error(e);
                     hintEl.innerText = "USE MOUSE MODE";
                     this.initAI(null);
                 }
             },
 
+            stopSensors: function() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop()); // 徹底關閉硬體
+                    this.stream = null;
+                }
+                if (this.audioCtx) {
+                    this.audioCtx.close();
+                    this.audioCtx = null;
+                }
+                
+                this.state.isSensorActive = false;
+                this.state.isFaceDetected = false;
+                
+                const statusEl = document.getElementById('connection-status');
+                statusEl.innerText = "SIMULATION MODE";
+                statusEl.style.color = "#23F3D4";
+                statusEl.style.borderColor = "#23F3D4";
+                
+                this.updatePrivacyUI(true);
+            },
+
+            updatePrivacyUI: function(isSecure) {
+                const indicator = document.getElementById('privacy-indicator');
+                if(!indicator) return;
+                
+                if(isSecure) {
+                    indicator.className = "h-8 px-3 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2 transition-all duration-300";
+                    indicator.innerHTML = `<i data-lucide="shield-check" class="w-3 h-3 text-green-400"></i><span class="text-[10px] text-green-400 font-mono-tech tracking-wider">SECURE</span>`;
+                } else {
+                    indicator.className = "h-8 px-3 rounded-full bg-red-500/10 border border-red-500/30 flex items-center gap-2 transition-all duration-300";
+                    indicator.innerHTML = `<i data-lucide="radio" class="w-3 h-3 text-red-400 animate-pulse"></i><span class="text-[10px] text-red-400 font-mono-tech tracking-wider">LIVE DATA</span>`;
+                }
+                lucide.createIcons();
+            },
+
             updateAudio: function() {
+                // 模擬模式：生成虛擬呼吸數據
+                if (!this.state.isSensorActive) {
+                    const time = Date.now() * 0.001;
+                    this.state.audioData = 30 + Math.sin(time * 0.8) * 15; // 模擬緩慢呼吸
+                    
+                    const bars = document.querySelectorAll('.audio-bar');
+                    bars.forEach((bar, i) => {
+                        const h = 5 + Math.sin(time * 2 + i) * 5 + (this.state.audioData/255)*20;
+                        bar.style.height = h + 'px';
+                        bar.style.background = 'rgba(35, 243, 212, 0.4)';
+                    });
+                    return;
+                }
+
+                // 真實模式
                 if (!this.analyser) return;
                 this.analyser.getByteFrequencyData(this.dataArray);
                 let sum = 0;
@@ -532,14 +589,17 @@
                     camera.start();
                 }
                 document.addEventListener('mousemove', (e) => {
-                    if (!this.state.isFaceDetected) {
-                        this.state.headRot.y = (e.clientX / window.innerWidth - 0.5) * 2;
-                        this.state.headRot.x = (e.clientY / window.innerHeight - 0.5) * 2;
+                    if (!this.state.isFaceDetected && !this.state.isSensorActive) {
+                        // 當感測器關閉且是電腦版時，用滑鼠輕微互動
+                        this.state.headRot.y = (e.clientX / window.innerWidth - 0.5) * 1.5;
+                        this.state.headRot.x = (e.clientY / window.innerHeight - 0.5) * 1.5;
                     }
                 });
             },
 
             processData: function(results) {
+                if(!this.state.isSensorActive) return; // 雙重保險
+
                 const statusEl = document.getElementById('connection-status');
                 const hintEl = document.getElementById('instruction');
 
@@ -613,8 +673,16 @@
 
             animate: function() {
                 requestAnimationFrame(() => this.animate());
-                this.updateAudio();
+                this.updateAudio(); 
                 const time = Date.now() * 0.001;
+
+                // 模擬模式動畫邏輯
+                if (!this.state.isSensorActive) {
+                    this.state.headRot.x = Math.sin(time * 0.5) * 0.15;
+                    this.state.headRot.y = Math.cos(time * 0.3) * 0.15;
+                    this.state.mouthOpen = 0.05 + Math.max(0, Math.sin(time * 1.5) * 0.05);
+                }
+
                 this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
                 this.cloud.rotation.x += (this.state.headRot.x * 0.05);
 
@@ -698,24 +766,19 @@
                 this.state.isScanning = false;
                 if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 
-                // --- CALL CORE ENGINE v3.1 ---
                 this.state.engineResult = TenkiEngine.process(
                     { mouthOpen: this.state.mouthOpen, headRot: this.state.headRot },
                     this.state.audioData
                 );
                 
-                // Record to Baseline (Learning)
                 baselineMgr.recordScan(this.state.engineResult);
-
-                // Set Initial Base Score (Before Buffer)
-                // Use a slightly lower base so user feels they need to "fill" the buffer
                 this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
                 this.state.mentalBuffer = 0;
                 
                 this.showDashboard();
             },
 
-            // --- 5. Interactive Dashboard Logic ---
+            // --- Dashboard Logic ---
             initDashboardInteractions: function() {
                 const orbit = document.getElementById('tei-orbit');
                 
@@ -752,7 +815,6 @@
             },
 
             updateDashboardVisuals: function() {
-                // Combine Base Score + Mental Buffer (Remedial 8-10%)
                 const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 10);
                 const totalScore = Math.min(99, this.state.baseScore + bufferBonus);
                 
@@ -768,7 +830,6 @@
                 const sub = document.getElementById('dash-sub');
                 const debug = document.getElementById('baseline-debug');
 
-                // Debug Info (Optional)
                 const shift = this.state.engineResult.baselineShift.toFixed(2);
                 debug.innerText = `Baseline Shift: ${shift > 0 ? '+'+shift : shift}`;
 
@@ -795,7 +856,12 @@
                 
                 const dash = document.getElementById('dashboard-layer');
                 this.updateDashboardVisuals();
-                setTimeout(() => { dash.classList.add('show'); }, 300);
+                
+                setTimeout(() => { 
+                    dash.classList.add('show'); 
+                    // 關鍵功能：延遲 0.5 秒後自動關閉硬體
+                    this.stopSensors();
+                }, 500);
             },
 
             reset: function() {
@@ -803,8 +869,9 @@
                 document.getElementById('hud-layer').classList.remove('hidden-ui');
                 document.getElementById('universe').classList.remove('dimmed');
                 document.getElementById('scan-trigger').classList.remove('active');
-                document.getElementById('instruction').innerText = "HOLD TO SCAN";
+                document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
                 this.state.mentalBuffer = 0;
+                // 注意：重置後不自動開啟相機，需再次點擊指紋才會開啟，符合極致隱私原則
             }
         };
 
