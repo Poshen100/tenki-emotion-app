@@ -36,10 +36,8 @@
             font-family: 'Space Mono', monospace;
             overflow: hidden;
             width: 100vw; 
-            /* --- 關鍵修復 --- */
-            height: 100vh; /* 舊瀏覽器備用 */
-            height: 100dvh; /* 自動扣除瀏覽器工具列的高度 */
-            /* ---------------- */
+            height: 100vh; /* Fallback */
+            height: 100dvh; /* Mobile Fix */
             margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
         }
@@ -64,7 +62,6 @@
             pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 24px;
-            /* 確保 HUD 底部不會太貼齊邊緣 */
             padding-bottom: calc(24px + env(safe-area-inset-bottom)); 
             transition: opacity 0.5s ease;
         }
@@ -96,24 +93,80 @@
         }
         @keyframes shimmer-slide { 100% { transform: translateX(100%); } }
 
-        /* HUD UI */
+        /* HUD UI & SCANNER STYLES (NEW) */
         .audio-bar {
             width: 4px; height: 20px; background: rgba(255,255,255,0.2);
             margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
         }
+        
+        /* 掃描按鈕容器 */
         .fingerprint-sensor {
             pointer-events: auto; position: relative;
             width: 80px; height: 80px; border-radius: 50%;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.2);
             display: flex; justify-content: center; align-items: center;
-            cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             backdrop-filter: blur(8px);
+            /* 為了不遮擋擴散光，不設 overflow: hidden */
         }
-        .fingerprint-sensor.active {
-            transform: scale(1.1); border-color: var(--stardust-purple);
-            background: rgba(149, 117, 255, 0.2); box-shadow: 0 0 40px var(--stardust-purple);
+        
+        .fingerprint-sensor:active, .fingerprint-sensor.active {
+            transform: scale(0.95); /* 按壓時輕微縮小，更有實體感 */
+            border-color: rgba(255, 255, 255, 0.5);
         }
+
+        /* Feature 1: 熱力光暈 (Sensor Heat) */
+        .sensor-heat {
+            position: absolute;
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 50, 50, 0.5) 0%, rgba(255, 0, 0, 0) 70%);
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.3s ease, transform 0.4s ease-out;
+            pointer-events: none;
+            z-index: 1;
+        }
+        /* 當按鈕激活時觸發熱力 */
+        .fingerprint-sensor.active .sensor-heat {
+            opacity: 1;
+            transform: scale(1.6); /* 擴散到按鈕外 */
+        }
+
+        /* Feature 2: 進度環 (Scan Ring SVG) */
+        .scan-ring {
+            position: absolute;
+            top: 0; left: 0;
+            width: 80px; height: 80px;
+            transform: rotate(-90deg); /* 從頂部開始 */
+            pointer-events: none;
+            z-index: 2;
+        }
+        .ring-bg {
+            fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 2;
+        }
+        .ring-progress-path {
+            fill: none; 
+            stroke: var(--plasma-cyan); 
+            stroke-width: 3;
+            stroke-linecap: round;
+            /* 2 * PI * 38 (半徑) ≈ 238.7 */
+            stroke-dasharray: 239; 
+            stroke-dashoffset: 239; /* 初始隱藏 */
+            transition: stroke-dashoffset 0.1s linear; /* 平滑過渡 */
+        }
+
+        /* Icon 在最上層 */
+        .fingerprint-icon {
+            z-index: 3; position: relative;
+            transition: color 0.3s;
+        }
+        .fingerprint-sensor.active .fingerprint-icon {
+            color: var(--plasma-cyan);
+            opacity: 0.8;
+        }
+
 
         /* 4. DASHBOARD LAYER */
         #dashboard-layer {
@@ -160,15 +213,13 @@
         .dock-container {
             position: fixed; 
             left: 20px; right: 20px; height: 70px;
-            /* --- 底部安全區域修復 --- */
-            bottom: 30px; /* 預設 */
-            bottom: calc(30px + env(safe-area-inset-bottom)); /* 避開 iPhone 橫條 */
-            /* --------------------- */
+            bottom: 30px; 
+            bottom: calc(30px + env(safe-area-inset-bottom));
             background: rgba(10, 10, 20, 0.85); backdrop-filter: blur(20px);
             border: 1px solid rgba(255,255,255,0.1); border-radius: 35px;
             display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            transform: translateY(200px); /* 加大位移確保隱藏時不被看見 */
+            transform: translateY(200px);
             transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         #dashboard-layer.show .dock-container { transform: translateY(0); }
@@ -220,8 +271,18 @@
         </div>
 
         <div class="flex flex-col items-center pb-10">
+            <!-- UPDATED SCAN TRIGGER BUTTON -->
             <div id="scan-trigger" class="fingerprint-sensor">
-                <i data-lucide="fingerprint" class="w-8 h-8 text-white/80"></i>
+                <!-- Feature 1: Heat Effect Layer -->
+                <div class="sensor-heat"></div>
+                
+                <!-- Feature 2: SVG Progress Ring (Size 80x80) -->
+                <svg class="scan-ring" viewBox="0 0 80 80">
+                    <circle class="ring-bg" cx="40" cy="40" r="38"></circle>
+                    <circle id="scan-progress-ring" class="ring-progress-path" cx="40" cy="40" r="38"></circle>
+                </svg>
+                
+                <i data-lucide="fingerprint" class="fingerprint-icon w-8 h-8 text-white/80"></i>
             </div>
             <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300">
                 CLICK TO INITIALIZE
@@ -669,6 +730,10 @@
 
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
+                const ringPath = document.getElementById('scan-progress-ring');
+                
+                // SVG Circle Circumference: 2 * PI * r(38) ≈ 239
+                const circumference = 239; 
                 
                 const start = (e) => {
                     e.preventDefault();
@@ -683,9 +748,17 @@
                     document.getElementById('instruction').innerText = "ANALYZING...";
                     if(navigator.vibrate) navigator.vibrate(50);
                     
+                    // Reset ring
+                    ringPath.style.strokeDashoffset = circumference;
+                    
                     let progress = 0;
                     this.scanInterval = setInterval(() => {
                         progress += 2;
+                        
+                        // Update SVG Ring offset
+                        const offset = circumference - (progress / 100) * circumference;
+                        ringPath.style.strokeDashoffset = offset;
+
                         if (progress % 20 === 0 && navigator.vibrate) navigator.vibrate(10);
                         if (progress >= 100) this.finishScan();
                     }, 40);
@@ -697,6 +770,7 @@
                     this.state.isScanning = false;
                     clearInterval(this.scanInterval);
                     btn.classList.remove('active');
+                    ringPath.style.strokeDashoffset = circumference; // Reset visually
                     document.getElementById('instruction').innerText = "HOLD TO SCAN";
                 };
 
@@ -816,6 +890,7 @@
                 document.getElementById('hud-layer').classList.remove('hidden-ui');
                 document.getElementById('universe').classList.remove('dimmed');
                 document.getElementById('scan-trigger').classList.remove('active');
+                document.getElementById('scan-progress-ring').style.strokeDashoffset = 239; // Reset ring
                 document.getElementById('instruction').innerText = "HOLD TO SCAN";
                 this.state.mentalBuffer = 0;
             }
