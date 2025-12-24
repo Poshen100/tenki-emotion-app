@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v24.0 - Ultimate</title>
+    <title>TENKI v24.0 - Soul Remastered</title>
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -75,43 +75,33 @@
         #align-hint-capsule.status-warn { border-color: rgba(234, 179, 8, 0.5); box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
         #align-hint-capsule.status-good { border-color: rgba(35, 243, 212, 0.6); box-shadow: 0 0 20px rgba(35, 243, 212, 0.3); }
 
-        /* --- 極致質感傳感器按鈕 (New Optical Button) --- */
+        /* --- 極致質感傳感器按鈕 (Optical Glass) --- */
         .sensor-btn {
             pointer-events: auto;
             width: 88px; height: 88px;
             border-radius: 50%;
-            
-            /* 物理材質：多重背景模擬厚玻璃 */
             background: 
                 linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.01) 100%),
                 radial-gradient(circle at 50% 0%, rgba(255,255,255,0.15) 0%, transparent 60%);
-            
-            /* 邊框光學 */
             border: 1px solid rgba(255,255,255,0.15);
             box-shadow: 
                 inset 0 1px 1px rgba(255,255,255,0.3),
                 inset 0 -1px 1px rgba(0,0,0,0.2),
                 0 8px 32px rgba(0,0,0,0.3);
-                
             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             display: flex; align-items: center; justify-content: center;
             position: relative; 
             transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
-
-        /* 呼吸光暈 */
         .sensor-btn::before {
             content: ''; position: absolute; inset: -3px; border-radius: 50%;
             background: transparent; border: 1px solid rgba(255,255,255,0.1);
             opacity: 0.6; animation: sensor-breath 3s infinite ease-in-out; pointer-events: none;
         }
-
         .sensor-btn i {
             filter: drop-shadow(0 0 8px rgba(255,255,255,0.4));
             transition: all 0.3s ease; opacity: 0.9;
         }
-
-        /* 激活狀態 */
         .sensor-btn:active, .sensor-btn.active {
             transform: scale(0.92); border-color: var(--plasma-cyan);
             background: rgba(35, 243, 212, 0.05);
@@ -120,18 +110,14 @@
                 0 0 30px rgba(35, 243, 212, 0.6),
                 0 0 60px rgba(35, 243, 212, 0.3);
         }
-
         .sensor-btn:active i, .sensor-btn.active i {
             color: var(--plasma-cyan);
-            filter: drop-shadow(0 0 12px var(--plasma-cyan));
-            transform: scale(0.9);
+            filter: drop-shadow(0 0 12px var(--plasma-cyan)); transform: scale(0.9);
         }
-        
         .sensor-btn:active::before, .sensor-btn.active::before {
             animation: none; border-color: var(--plasma-cyan);
             opacity: 0.2; transform: scale(1.4); transition: 0.3s;
         }
-
         @keyframes sensor-breath {
             0%, 100% { transform: scale(1); opacity: 0.4; border-color: rgba(255,255,255,0.1); }
             50% { transform: scale(1.08); opacity: 0; border-color: rgba(255,255,255,0.3); }
@@ -225,7 +211,6 @@
         </div>
 
         <div class="flex flex-col items-center pb-10">
-            <!-- Updated Button Class -->
             <button id="scan-trigger" class="sensor-btn">
                 <i data-lucide="fingerprint" class="w-8 h-8 text-white/80"></i>
             </button>
@@ -295,6 +280,7 @@
 
     <!-- CORE LOGIC -->
     <script>
+        // --- 1. Baseline & Algo ---
         class BaselineManager {
             constructor() {
                 this.userId = 'local_user_v1';
@@ -312,6 +298,7 @@
             }
             getShift() { return this.data.samples_count<3 ? 0 : this.data.time_shifts[this.getTimeKey()]; }
         }
+        const baselineMgr = new BaselineManager();
 
         const TenkiEngine = {
             process: function(face, audio) {
@@ -324,29 +311,32 @@
                 return { score, valence: val, arousal: aro, hrv: Math.floor(40+(1-Math.abs(aro))*40), baselineShift: shift };
             }
         };
-        const baselineMgr = new BaselineManager();
 
         lucide.createIcons();
 
+        // --- 2. Main App (Visuals Remastered) ---
         const app = {
-            config: { particleCount: 7000 },
+            config: { particleCount: 7500 }, // 增加密度
             state: { isFaceDetected: false, isScanning: false, mouthOpen: 0, headRot: {x:0, y:0}, energy: 0, audioData: 0, baseScore: 0, mentalBuffer: 0, engineResult: null },
             audioCtx: null, analyser: null, dataArray: null,
 
             init: function() {
-                this.initThree(); // Uses the "True Soul" Sphere logic
+                this.initThree(); 
                 this.initEvents();
                 this.initDashboardInteractions();
                 document.getElementById('dash-date').innerText = new Date().toLocaleDateString('en-US', {month:'short', day:'numeric'}).toUpperCase();
                 document.getElementById('streak-count').innerText = Math.min(baselineMgr.data.samples_count, 99);
             },
 
-            // --- 視覺修復：Fibonacci Sphere Particle System ---
+            // --- 視覺核心修復：Wild Fibonacci Sphere ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-                this.camera.position.z = 5;
+                
+                // [關鍵修改] 鏡頭拉遠，讓球體在畫面中更完整，不壓迫邊緣
+                this.camera.position.z = 6.5; 
+
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -360,12 +350,13 @@
                 ctx.fillStyle = grad; ctx.fillRect(0,0,32,32);
                 const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
 
-                // Sphere Geometry
+                // Sphere Geometry with "Chaos Factor"
                 const count = this.config.particleCount;
                 const geometry = new THREE.BufferGeometry();
                 const positions = new Float32Array(count * 3);
                 const colors = new Float32Array(count * 3);
                 const originalPos = new Float32Array(count * 3);
+                const randomness = new Float32Array(count); // [新增] 用於奔放感
                 
                 const phi = Math.PI * (3 - Math.sqrt(5));
                 const c1 = new THREE.Color(0xFF66CC), c2 = new THREE.Color(0x9575FF), c3 = new THREE.Color(0x23F3D4);
@@ -374,11 +365,16 @@
                     const y = 1 - (i / (count - 1)) * 2;
                     const r = Math.sqrt(1 - y * y), theta = phi * i;
                     const x = Math.cos(theta) * r, z = Math.sin(theta) * r;
-                    const rad = 2.8;
+                    
+                    // [關鍵修改] 球體半徑縮小至 2.2，配合鏡頭距離
+                    const rad = 2.2; 
                     
                     const idx = i*3;
                     positions[idx]=x*rad; positions[idx+1]=y*rad; positions[idx+2]=z*rad;
                     originalPos[idx]=x*rad; originalPos[idx+1]=y*rad; originalPos[idx+2]=z*rad;
+
+                    // [新增] 每個粒子都有獨特的亂數因子
+                    randomness[i] = Math.random();
 
                     const ny = (y+1)/2;
                     const c = new THREE.Color();
@@ -387,6 +383,7 @@
                 }
                 geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
                 geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                geometry.setAttribute('random', new THREE.BufferAttribute(randomness, 1)); // Pass random
 
                 this.material = new THREE.PointsMaterial({ size: 0.08, map: tex, transparent: true, opacity: 0.9, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false });
                 this.cloud = new THREE.Points(geometry, this.material);
@@ -434,7 +431,7 @@
                     if(!this.state.isScanning) { hint.innerText = "HOLD TO SCAN"; hint.style.color = "white"; }
                     this.state.headRot = { x: (lm[1].y - 0.5) * 2, y: (lm[1].x - 0.5) * 2 };
                     const dist = Math.sqrt(Math.pow(lm[13].x - lm[14].x, 2) + Math.pow(lm[13].y - lm[14].y, 2));
-                    this.state.mouthOpen += ((dist - 0.02) * 5 - this.state.mouthOpen) * 0.2;
+                    this.state.mouthOpen += ((dist - 0.02) * 5 - this.state.mouthOpen) * 0.2; // Smooth transition
                 } else { st.innerText = "SEARCHING..."; st.style.color = "gray"; st.style.borderColor = "#333"; }
             },
 
@@ -459,8 +456,11 @@
                 cap.classList.add('show');
             },
 
+            // --- 視覺同步核心 (Sync Core) ---
             animate: function() {
                 requestAnimationFrame(() => this.animate());
+                
+                // Audio
                 if(this.analyser) {
                     this.analyser.getByteFrequencyData(this.dataArray);
                     let sum = 0; for(let i=0; i<this.dataArray.length; i++) sum+=this.dataArray[i];
@@ -469,17 +469,65 @@
                 }
 
                 const time = Date.now() * 0.001;
-                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
-
-                const audioForce = (this.state.audioData || 0) / 255; 
-                const pulse = Math.sin(time * 2) * (0.1 + audioForce * 0.2);
-                const positions = this.cloud.geometry.attributes.position.array;
-                const originals = this.cloud.geometry.attributes.position.array; // Actually need explicit original
-                // For simplified physics in this integration, we rely on rotation mostly
                 
-                if (this.state.isScanning) { this.material.size = 0.12; this.material.color.setHex(0xFF99CC); }
-                else { this.material.size = 0.08; this.material.color.setHex(0xFFFFFF); }
+                // 1. Rotation (Head Sync)
+                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05); // Y軸隨頭轉
+                this.cloud.rotation.x += (this.state.headRot.x * 0.05); // X軸隨抬頭低頭
+                
+                // 2. Dynamic Energy (Audio + Mouth)
+                const audioForce = (this.state.audioData || 0) / 255; 
+                // [關鍵] 嘴巴張開係數，放大 2 倍以增強視覺衝擊
+                const mouthForce = this.state.mouthOpen * 2.0; 
+                
+                // 3. Particle System Update (Wildness Logic)
+                const positions = this.cloud.geometry.attributes.position.array;
+                const originals = this.cloud.geometry.attributes.position.array; // Use same array as base ref is simplified here, ideally separate
+                // In this optimized version, we calculate offset from "implied" original radius to save memory or assume current is frame-based
+                // Re-calculating "Originals" for pure chaos logic:
+                
+                // 為了效能與邏輯清晰，我們這裡用一個簡單的數學模型：
+                // 原始位置是固定的 (我們其實需要一個 separate array 來存 original，但在 init 裡已經做了)
+                // 這裡我們假設 animate 裡無法簡單存取 originalPos (除非把它掛在 this 上)，
+                // 修正：我們在 initThree 裡沒有把 originalPos 掛到 this，所以我們用一種 trick：
+                // 我們知道球體半徑是 2.2。我們將點歸一化再乘上新的半徑。
+                
+                for(let i=0; i < this.config.particleCount; i++) {
+                    const idx = i*3;
+                    const x = positions[idx], y = positions[idx+1], z = positions[idx+2];
+                    
+                    // Normalize to get direction
+                    const d = Math.sqrt(x*x + y*y + z*z);
+                    const nx = x/d, ny = y/d, nz = z/d;
+                    
+                    // [隨機能量] Per-particle chaos
+                    // 使用 init 時生成的 randomness 屬性
+                    const rVal = this.cloud.geometry.attributes.random.array[i]; 
+                    
+                    // [奔放感算法]
+                    // 基礎呼吸 + 音頻震動 + 嘴巴張開的爆發力
+                    // random * sin(time) 創造不規則律動
+                    const breath = Math.sin(time * 2 + rVal * 10) * 0.05; 
+                    const wildness = (Math.sin(time * 10 + rVal * 20) * 0.1) * (audioForce + mouthForce);
+                    
+                    // [張嘴同步] 嘴巴張開時，球體膨脹且粒子抖動劇烈
+                    const expansion = 2.2 + breath + (audioForce * 0.5) + (mouthForce * 1.5) + wildness;
+                    
+                    positions[idx] = nx * expansion;
+                    positions[idx+1] = ny * expansion;
+                    positions[idx+2] = nz * expansion;
+                }
+                this.cloud.geometry.attributes.position.needsUpdate = true;
+
+                // Color/Size Shift on Scan
+                if (this.state.isScanning) { 
+                    this.material.size = 0.12; 
+                    this.material.color.setHex(0xFF99CC); 
+                    this.cloud.rotation.y += 0.1; // Fast spin
+                }
+                else { 
+                    this.material.size = 0.08; 
+                    this.material.color.setHex(0xFFFFFF); 
+                }
                 
                 this.renderer.render(this.scene, this.camera);
             },
