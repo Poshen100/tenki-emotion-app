@@ -3,487 +3,710 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v24.1 - Biometric Enhanced MVP</title>
+    <title>TENKI v24.0 - MVP Baseline</title>
     
-    <!-- 字體庫 (保留 v24.0) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-    
-    <!-- 核心引擎 (保留 v24.0) -->
+    <!-- 核心依賴庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    
-    <!-- UI 庫 (保留 v24.0) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- 字體與設計系統 -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
     <style>
         :root {
-            --bg-deep: #050510;
-            --plasma-cyan: #23F3D4;
-            --sunset-orange: #FF9A76;
-            --stardust-purple: #9575FF;
-            --blood-red: #FF4D4D; /* 新增：生物感應暗示色 */
-            --glass-bg: rgba(20, 20, 35, 0.6);
-            --glass-border: rgba(255, 255, 255, 0.08);
+            --bg-void: #050510;
+            --core-cyan: #23F3D4;
+            --soul-purple: #9575FF;
+            --alert-red: #FF4D4D;
+            --glass-panel: rgba(20, 20, 35, 0.65);
         }
 
         body {
-            background: var(--bg-deep);
+            margin: 0; padding: 0; overflow: hidden;
+            background-color: var(--bg-void);
             color: white;
             font-family: 'Space Mono', monospace;
-            overflow: hidden;
-            width: 100vw; height: 100vh;
-            margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
+            width: 100vw; height: 100vh;
         }
 
-        .font-serif-human { font-family: 'Playfair Display', serif; }
-        .font-mono-tech { font-family: 'Space Mono', monospace; }
-
-        /* 1. 隱私層 */
-        #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
-
-        /* 2. 背景層 (保留 v24.0) */
-        #universe {
-            position: absolute; inset: 0; z-index: 1;
-            background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
-            transition: opacity 1s ease, filter 1s ease;
+        /* 1. 隱藏影像流 (用於運算) */
+        #input-video {
+            position: absolute; top: 0; left: 0;
+            width: 1px; height: 1px; opacity: 0; pointer-events: none;
         }
-        #universe.dimmed { opacity: 0.4; filter: blur(8px); }
 
-        /* 3. HUD 層 */
+        /* 2. 視覺層：星塵粒子 */
+        #universe-container {
+            position: fixed; inset: 0; z-index: 1;
+            transition: filter 1s ease, opacity 1s ease;
+        }
+        #universe-container.blur-mode {
+            filter: blur(8px) brightness(0.6);
+            transform: scale(1.05);
+        }
+
+        /* 3. HUD 層 UI */
         #hud-layer {
-            position: absolute; inset: 0; z-index: 10;
-            pointer-events: none;
+            position: fixed; inset: 0; z-index: 10;
+            padding: 24px; pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
-            padding: 24px;
             transition: opacity 0.5s ease;
         }
-        #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
+        #hud-layer.hidden-ui { opacity: 0; }
 
-        /* --- 膠囊引導 (微調：掃描狀態) --- */
-        #align-hint-capsule {
-            position: absolute; top: 15%; left: 50%; 
-            transform: translateX(-50%) translateY(-20px) scale(0.95);
-            background: rgba(20, 20, 25, 0.75);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            padding: 10px 20px; border-radius: 99px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex; align-items: center; gap: 12px;
-            opacity: 0; pointer-events: none; 
-            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-            z-index: 100; overflow: hidden;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+        /* 智能對齊膠囊 (Smart Alignment Capsule) */
+        .capsule-wrapper {
+            position: absolute; top: 15%; left: 50%;
+            transform: translate(-50%, -20px) scale(0.9);
+            opacity: 0; pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 100;
         }
-        #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
-        #align-hint-capsule.status-error { border-color: rgba(239, 68, 68, 0.5); }
-        #align-hint-capsule.status-warn { border-color: rgba(234, 179, 8, 0.5); }
-        #align-hint-capsule.status-good { border-color: rgba(35, 243, 212, 0.6); }
-        #align-hint-capsule.is-scanning { border-color: var(--blood-red); background: rgba(255, 77, 77, 0.15); }
+        .capsule-wrapper.show {
+            transform: translate(-50%, 0) scale(1);
+            opacity: 1;
+        }
+        
+        .capsule-body {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 8px 16px; border-radius: 99px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        
+        /* 狀態顏色邏輯 */
+        .capsule-wrapper[data-status="error"] .capsule-body { border-color: rgba(255, 77, 77, 0.5); box-shadow: 0 0 15px rgba(255, 77, 77, 0.2); }
+        .capsule-wrapper[data-status="warn"] .capsule-body { border-color: rgba(255, 200, 0, 0.5); }
+        .capsule-wrapper[data-status="good"] .capsule-body { border-color: rgba(35, 243, 212, 0.5); box-shadow: 0 0 15px rgba(35, 243, 212, 0.2); }
 
-        .shimmer-effect {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.1) 45%, transparent 60%);
-            transform: translateX(-100%); animation: shimmer-slide 2.5s infinite; pointer-events: none;
-        }
-        @keyframes shimmer-slide { 100% { transform: translateX(100%); } }
-
-        /* --- 生物感應器與進度環 (微調注入) --- */
-        .sensor-container {
-            position: relative; width: 100px; height: 100px;
-            display: flex; justify-content: center; align-items: center;
-        }
-        .scan-ring-svg {
-            position: absolute; top: 0; left: 0; width: 100px; height: 100px;
-            transform: rotate(-90deg); pointer-events: none; z-index: 1;
-        }
-        .scan-ring-circle {
-            fill: none; stroke: var(--plasma-cyan); stroke-width: 2.5;
-            stroke-dasharray: 283; stroke-dashoffset: 283;
-            transition: stroke-dashoffset 0.1s linear;
-        }
-        .fingerprint-sensor {
-            pointer-events: auto; position: relative;
+        /* 熱力指紋按鈕 (Sensor Heat) */
+        .sensor-btn {
+            pointer-events: auto;
             width: 80px; height: 80px; border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            backdrop-filter: blur(8px); z-index: 2; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.05);
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+            position: relative; overflow: visible;
         }
-        /* 熱力視覺暗示層 */
-        .sensor-heat {
-            position: absolute; inset: 0;
-            background: radial-gradient(circle, var(--blood-red) 0%, transparent 70%);
-            opacity: 0; transform: scale(0.5);
-            transition: opacity 0.4s, transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+        .sensor-btn::after {
+            content: ''; position: absolute; inset: -5px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .sensor-btn.active {
+            transform: scale(0.95);
+            border-color: var(--alert-red);
+            background: rgba(255, 77, 77, 0.1);
+            box-shadow: 0 0 30px rgba(255, 77, 77, 0.4);
+        }
+        .sensor-btn.active::after { opacity: 1; }
+
+        /* 4. Dashboard 層 */
+        #dashboard-layer {
+            position: fixed; inset: 0; z-index: 50;
+            background: transparent;
+            transform: translateY(100vh); opacity: 0;
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+            display: flex; flex-direction: column;
+            overflow-y: auto; padding: 20px;
             pointer-events: none;
         }
-        .fingerprint-sensor.active {
-            transform: scale(1.1); border-color: var(--blood-red);
-            background: rgba(149, 117, 255, 0.1); box-shadow: 0 0 40px rgba(255, 77, 77, 0.2);
-        }
-        .fingerprint-sensor.active .sensor-heat {
-            opacity: 0.4; transform: scale(1.3);
+        #dashboard-layer.active {
+            transform: translateY(0); opacity: 1; pointer-events: auto;
         }
 
-        /* 4. DASHBOARD LAYER (保留 v24.0) */
-        #dashboard-layer {
-            position: absolute; inset: 0; z-index: 50;
-            background: transparent; display: flex; flex-direction: column;
-            padding: 24px 20px 100px 20px; overflow-y: auto; opacity: 0; pointer-events: none;
-            transform: translateY(20px); transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        .bento-card {
+            background: var(--glass-panel);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px; padding: 20px;
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+            margin-bottom: 12px;
         }
-        #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
-        .bento-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 24px; padding: 20px; backdrop-filter: blur(20px); display: flex; flex-direction: column; position: relative; overflow: hidden; transition: transform 0.2s; }
-        .orbit-ring { width: 180px; height: 180px; border-radius: 50%; position: relative; display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.05); transition: box-shadow 0.3s ease; cursor: pointer; touch-action: none; user-select: none; }
-        .orbit-progress { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(var(--plasma-cyan) 0% 0%, transparent 0% 100%); }
-        .orbit-inner { width: 156px; height: 156px; background: var(--bg-deep); border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2; pointer-events: none; }
-        .dock-container { position: fixed; bottom: 30px; left: 20px; right: 20px; height: 70px; background: rgba(10, 10, 20, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 35px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: translateY(100px); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        #dashboard-layer.show .dock-container { transform: translateY(0); }
 
+        /* 互動式軌道 (Mental Buffer Ring) */
+        .orbit-container {
+            width: 160px; height: 160px; margin: 0 auto;
+            position: relative; cursor: pointer;
+            border-radius: 50%;
+            transition: transform 0.2s; -webkit-tap-highlight-color: transparent;
+        }
+        .orbit-container:active { transform: scale(0.98); }
+        .orbit-bg { position: absolute; inset: 0; border-radius: 50%; border: 6px solid rgba(255,255,255,0.05); }
+        .orbit-progress {
+            position: absolute; inset: 0; border-radius: 50%;
+            background: conic-gradient(var(--core-cyan) 0% 0%, transparent 0% 100%);
+            mask: radial-gradient(transparent 62%, black 63%);
+            -webkit-mask: radial-gradient(transparent 62%, black 63%);
+            transition: background 0.1s linear;
+        }
+        .orbit-data {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; pointer-events: none;
+        }
+
+        .text-plasma {
+            background: linear-gradient(135deg, #fff 30%, var(--core-cyan));
+            -webkit-background-clip: text; color: transparent;
+        }
+
+        /* Dock Action Bar */
+        .dock-bar {
+            position: fixed; bottom: 30px; left: 20px; right: 20px;
+            height: 64px; background: rgba(10,10,15,0.9);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 32px; display: flex; align-items: center; padding: 0 8px;
+            backdrop-filter: blur(20px); box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            transform: translateY(100px); transition: transform 0.5s 0.2s;
+        }
+        #dashboard-layer.active .dock-bar { transform: translateY(0); }
+
+        .btn-action {
+            flex: 1; background: var(--core-cyan); color: #000;
+            height: 48px; border-radius: 24px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; gap: 8px; margin: 0 8px;
+            box-shadow: 0 0 20px rgba(35, 243, 212, 0.4);
+        }
     </style>
 </head>
 <body>
 
+    <!-- Camera (Hidden) -->
     <video id="input-video" playsinline></video>
-    <div id="universe"></div>
+    
+    <!-- Visuals: Soul Particles -->
+    <div id="universe-container"></div>
 
     <!-- HUD Layer -->
     <div id="hud-layer">
-        <div id="align-hint-capsule">
-            <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
-                <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-white"></i>
+        <!-- Smart Capsule -->
+        <div id="align-hint-capsule" class="capsule-wrapper" data-status="searching">
+            <div class="capsule-body">
+                <div id="capsule-icon" class="w-5 h-5 flex items-center justify-center">
+                    <i data-lucide="scan-face" class="text-white"></i>
+                </div>
+                <span id="capsule-text" class="text-xs font-bold tracking-widest text-white uppercase">SEARCHING</span>
             </div>
-            <span id="hint-text" class="text-xs font-bold text-white tracking-wide uppercase transition-all duration-300">
-                Searching...
-            </span>
-            <div class="shimmer-effect"></div>
         </div>
 
+        <!-- Header -->
         <div class="flex justify-between items-start">
             <div>
-                <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BASELINE_v24.1</div>
+                <h1 class="text-xl font-bold tracking-[6px]">TENKI</h1>
+                <p class="text-[9px] text-gray-400 mt-1 tracking-widest">v24.0 MVP BASELINE</p>
             </div>
-            <div class="text-right flex flex-col items-end">
-                <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
-                    VISION ONLY
+            <div class="flex flex-col items-end">
+                <div id="status-badge" class="px-2 py-0.5 border border-white/20 rounded text-[9px] text-gray-400 uppercase mb-1">
+                    Vision: Offline
+                </div>
+                <div class="flex gap-[2px] h-3 items-end" id="audio-viz">
+                    <div class="w-1 bg-white/20 h-2 rounded-sm transition-all bar"></div>
+                    <div class="w-1 bg-white/20 h-3 rounded-sm transition-all bar"></div>
+                    <div class="w-1 bg-white/20 h-1 rounded-sm transition-all bar"></div>
                 </div>
             </div>
         </div>
 
-        <div class="flex flex-col items-center pb-10">
-            <!-- 微調：感應器容器與進度環 -->
-            <div class="sensor-container">
-                <svg class="scan-ring-svg">
-                    <circle id="scan-progress-bar" class="scan-ring-circle" cx="50" cy="50" r="45"></circle>
-                </svg>
-                <div id="scan-trigger" class="fingerprint-sensor">
-                    <div class="sensor-heat"></div>
-                    <i data-lucide="fingerprint" class="w-8 h-8 text-white/80 z-10"></i>
-                </div>
-            </div>
-            <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300">
-                CLICK TO INITIALIZE
+        <!-- Trigger -->
+        <div class="flex flex-col items-center pb-12 w-full">
+            <button id="scan-trigger" class="sensor-btn mb-6">
+                <i data-lucide="fingerprint" class="w-8 h-8 text-white/80"></i>
+            </button>
+            <div id="main-instruction" class="text-[10px] tracking-[4px] text-gray-400 uppercase transition-all">
+                Initialize Sensors
             </div>
         </div>
     </div>
 
-    <!-- Dashboard Layer (保留 v24.0) -->
+    <!-- Dashboard Layer -->
     <div id="dashboard-layer">
         <div class="flex justify-between items-center mb-6">
             <div>
-                <div class="text-xs text-gray-400 font-mono-tech tracking-wider">HYBRID SENSING</div>
-                <div class="text-2xl text-white font-serif-human italic">Self-Awareness</div>
+                <p class="text-[10px] text-gray-400 font-bold tracking-wider">BASELINE PROTOCOL</p>
+                <h2 class="text-2xl font-serif italic text-white">Inner State</h2>
             </div>
             <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
-                <i data-lucide="user" class="w-4 h-4 text-white"></i>
+                <i data-lucide="user" class="w-4 h-4"></i>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 pb-24">
-            <div class="col-span-2 bento-card items-center py-8 bg-white/5">
-                <div id="tei-orbit" class="orbit-ring">
-                    <div class="orbit-progress" id="orbit-fill"></div>
-                    <div class="orbit-inner">
-                        <div class="text-5xl font-bold text-white font-mono-tech tracking-tighter" id="dash-score">--</div>
-                        <div class="text-[10px] text-gray-400 tracking-widest mt-1 text-center" id="dash-label">HOLD TO SYNC</div>
-                    </div>
-                </div>
-                <div class="mt-6 text-center">
-                    <div class="text-xl font-serif-human text-white" id="dash-state">Awaiting Input...</div>
-                    <div class="text-xs text-gray-500 font-mono-tech mt-2" id="dash-sub">Base: Vision Scan • Buffer: Empty</div>
-                    <div class="text-[9px] text-gray-600 mt-1 font-mono-tech" id="baseline-debug"></div>
+        <div class="bento-card flex flex-col items-center py-8 relative overflow-hidden">
+            <!-- Background Decoration -->
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50"></div>
+            
+            <div id="tei-orbit" class="orbit-container">
+                <div class="orbit-bg"></div>
+                <div id="orbit-fill" class="orbit-progress"></div>
+                <div class="orbit-data">
+                    <span id="score-val" class="text-5xl font-bold tracking-tighter">--</span>
+                    <span id="score-label" class="text-[9px] text-gray-400 tracking-widest mt-1">HOLD TO SYNC</span>
                 </div>
             </div>
 
-            <div class="bento-card justify-between h-32">
-                <div class="flex justify-between items-start">
-                    <i data-lucide="heart-pulse" class="w-5 h-5 text-purple-400"></i>
-                    <span class="text-[10px] text-gray-400">EST. HRV</span>
-                </div>
-                <div>
-                    <div class="text-xl font-bold font-mono-tech" id="metric-hrv">--</div>
-                    <div class="w-full h-1 bg-gray-700 mt-2 rounded-full overflow-hidden">
-                        <div class="h-full bg-purple-500 w-[70%]"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bento-card justify-between h-32">
-                <div class="flex justify-between items-start">
-                    <i data-lucide="zap" class="w-5 h-5 text-cyan-400"></i>
-                    <span class="text-[10px] text-gray-400">STREAK</span>
-                </div>
-                <div>
-                    <div class="text-3xl font-bold font-mono-tech text-cyan-400" id="streak-count">1</div>
+            <div class="mt-6 text-center z-10">
+                <div id="state-text" class="text-xl font-serif text-plasma">Awaiting Input</div>
+                <div class="text-[10px] text-gray-500 mt-2 font-mono" id="baseline-info">
+                    Base: -- • Shift: --
                 </div>
             </div>
         </div>
 
-        <div class="dock-container">
-            <div class="dock-btn w-[54px] flex justify-center text-white"><i data-lucide="list-checks" class="w-5 h-5"></i></div>
-            <div class="flex-1 h-[54px] mx-2 bg-white/10 rounded-[27px] flex items-center justify-center font-bold text-xs" onclick="app.reset()">RESET SCAN</div>
-            <div class="dock-btn w-[54px] flex justify-center text-white"><i data-lucide="x" class="w-5 h-5"></i></div>
+        <div class="grid grid-cols-2 gap-3 mb-24">
+            <div class="bento-card h-32 flex flex-col justify-between">
+                <div class="flex justify-between">
+                    <i data-lucide="activity" class="w-4 h-4 text-purple-400"></i>
+                    <span class="text-[9px] text-gray-500">VALENCE</span>
+                </div>
+                <div>
+                    <div id="val-val" class="text-xl font-bold">0.0</div>
+                    <div class="w-full bg-white/10 h-1 mt-2 rounded overflow-hidden">
+                        <div id="val-bar" class="h-full bg-purple-500 w-1/2 transition-all duration-500"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="bento-card h-32 flex flex-col justify-between">
+                <div class="flex justify-between">
+                    <i data-lucide="zap" class="w-4 h-4 text-yellow-400"></i>
+                    <span class="text-[9px] text-gray-500">AROUSAL</span>
+                </div>
+                <div>
+                    <div id="aro-val" class="text-xl font-bold">0.0</div>
+                    <div class="w-full bg-white/10 h-1 mt-2 rounded overflow-hidden">
+                        <div id="aro-bar" class="h-full bg-yellow-500 w-1/2 transition-all duration-500"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dock-bar">
+            <button class="w-10 h-10 rounded-full flex items-center justify-center text-white/60">
+                <i data-lucide="history" class="w-5 h-5"></i>
+            </button>
+            <button class="btn-action" onclick="App.reset()">
+                <i data-lucide="play" class="w-4 h-4 fill-black"></i>
+                RESUME
+            </button>
+            <button class="w-10 h-10 rounded-full flex items-center justify-center text-white/60">
+                <i data-lucide="share-2" class="w-5 h-5"></i>
+            </button>
         </div>
     </div>
 
-    <!-- CORE ENGINE (保留 v24.0 完全邏輯) -->
+    <!-- LOGIC CORE -->
     <script>
+        // --- 1. Baseline System (v24.0 MVP) ---
         class BaselineManager {
             constructor() {
-                this.userId = 'local_user_v1';
-                this.data = JSON.parse(localStorage.getItem('tenki_baseline_v1')) || { samples_count: 0, time_shifts: { morning: 0, work: 0, evening: 0, night: 0 }, scan_history: [] };
+                this.key = 'TENKI_BASELINE_V1';
+                this.data = this.load() || { history: [], bias: 0 };
             }
-            save() { localStorage.setItem('tenki_baseline_v1', JSON.stringify(this.data)); }
-            getTimeKey() {
-                const h = new Date().getHours();
-                if (h >= 6 && h < 9) return 'morning';
-                if (h >= 9 && h < 17) return 'work';
-                if (h >= 17 && h < 21) return 'evening';
-                return 'night';
+            
+            load() {
+                try { return JSON.parse(localStorage.getItem(this.key)); } catch(e) { return null; }
             }
-            recordScan(result) {
-                this.data.scan_history.push({ ts: Date.now(), ...result });
-                const timeKey = this.getTimeKey();
-                const newShift = this.data.time_shifts[timeKey] + (result.arousal * 0.1);
-                this.data.time_shifts[timeKey] = Math.max(-0.3, Math.min(0.3, newShift));
-                this.data.samples_count++;
+            
+            save() {
+                localStorage.setItem(this.key, JSON.stringify(this.data));
+            }
+
+            // 學習演算法：根據歷史紀錄微調基準線
+            update(scanResult) {
+                // 簡單的時間衰減平均
+                this.data.history.push({ t: Date.now(), val: scanResult.arousal });
+                if (this.data.history.length > 20) this.data.history.shift();
+                
+                // 計算偏差：如果用戶長期處於低喚醒(Low Arousal)，系統會將基準線下調，
+                // 讓用戶更容易在未來獲得標準分數
+                const avg = this.data.history.reduce((a,b) => a + b.val, 0) / this.data.history.length;
+                this.data.bias = avg * 0.2; // 20% weight to history
                 this.save();
+                return this.data.bias;
             }
-            getShift() { return this.data.samples_count < 3 ? 0 : this.data.time_shifts[this.getTimeKey()]; }
         }
 
+        // --- 2. Signal Fusion Engine (v24.0 Scientific) ---
         const TenkiEngine = {
-            process: function(faceData, audioData) {
-                const smileFactor = faceData.mouthOpen * 2.0;
-                const frownFactor = Math.abs(faceData.headRot.x) * 0.5;
-                const valence = Math.max(-1, Math.min(1, (smileFactor * 0.8) - (frownFactor * 0.5)));
-                const rawArousal = (audioData / 255 * 0.4) + (Math.abs(faceData.headRot.y) * 0.6) - 0.1;
-                const arousal = Math.max(-1, Math.min(1, rawArousal + baselineMgr.getShift()));
+            baseline: new BaselineManager(),
+            
+            compute: function(faceMetrics, audioLevel) {
+                // Feature Extraction
+                const { smile, frown, tilt } = faceMetrics;
+                
+                // 1. Valence (情緒效價): 
+                // 笑(AU12)增加正值，皺眉(AU4)增加負值
+                // 範圍 -1.0 ~ 1.0
+                let valence = (smile * 1.5) - (frown * 0.8);
+                valence = Math.max(-1, Math.min(1, valence));
+
+                // 2. Arousal (喚醒度):
+                // 聲音大 + 頭部移動快 = 高能量
+                // 範圍 -1.0 ~ 1.0
+                let rawArousal = (audioLevel * 0.6) + (Math.abs(tilt) * 0.4) - 0.2; // 預設微偏冷靜
+                
+                // Apply Baseline Shift (校正)
+                const shift = this.baseline.update({ arousal: rawArousal });
+                let arousal = Math.max(-1, Math.min(1, rawArousal - shift));
+
+                // 3. Circumplex Model Score (環狀模型公式)
+                // Score = 50 + (V * 25) + (A * 25)
+                // 為了讓體驗更有趣，我們加上一點點隨機擾動 (Sensor Noise Simulation)
                 let score = 50 + (valence * 25) + (arousal * 25);
+                
+                // Clamp 1-99
                 score = Math.floor(Math.max(1, Math.min(99, score)));
-                const hrv = Math.floor(40 + (1 - Math.abs(arousal)) * 40);
-                return { score, valence, arousal, hrv, baselineShift: baselineMgr.getShift() };
+
+                return { score, valence, arousal, shift };
             }
         };
 
-        const baselineMgr = new BaselineManager();
-    </script>
-
-    <!-- MAIN APP SCRIPT (微調視覺引導邏輯) -->
-    <script>
-        lucide.createIcons();
-
-        const app = {
-            config: { particleCount: 8000, particleSize: 0.08 },
-            state: { 
-                isFaceDetected: false, isScanning: false, mouthOpen: 0, headRot: {x:0, y:0}, 
-                energy: 0, audioData: 0, baseScore: 0, mentalBuffer: 0, isCharging: false
+        // --- 3. App Logic & Visuals ---
+        const App = {
+            state: {
+                scanning: false,
+                faceFound: false,
+                mouthDist: 0,
+                browDist: 0,
+                headRot: { x:0, y:0 },
+                audioVol: 0,
+                buffer: 0, // Mental Buffer
+                result: null
+            },
+            
+            init: async function() {
+                lucide.createIcons();
+                this.initVisuals(); // Three.js
+                this.setupEvents();
             },
 
-            init: function() {
-                this.initThree();
-                this.initEvents();
-                this.initDashboardInteractions();
-                document.getElementById('streak-count').innerText = Math.min(baselineMgr.data.samples_count, 99);
-            },
-
-            // --- 1. Three.js Engine (保留 v24.0 全部代碼) ---
-            initThree: function() {
-                const container = document.getElementById('universe');
-                this.scene = new THREE.Scene();
-                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-                this.camera.position.z = 5;
-                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-                container.appendChild(this.renderer.domElement);
-
-                const geometry = new THREE.BufferGeometry();
-                const positions = new Float32Array(this.config.particleCount * 3);
-                const originals = new Float32Array(this.config.particleCount * 3);
-                const randoms = new Float32Array(this.config.particleCount);
-
-                for (let i = 0; i < this.config.particleCount; i++) {
-                    const idx = i * 3;
-                    const r = 2.5;
-                    const theta = Math.random() * Math.PI * 2;
-                    const phi = Math.acos(2 * Math.random() - 1);
-                    positions[idx] = r * Math.sin(phi) * Math.cos(theta);
-                    positions[idx+1] = r * Math.sin(phi) * Math.sin(theta);
-                    positions[idx+2] = r * Math.cos(phi);
-                    originals[idx] = positions[idx]; originals[idx+1] = positions[idx+1]; originals[idx+2] = positions[idx+2];
-                    randoms[i] = Math.random();
-                }
-                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-                geometry.setAttribute('originalPosition', new THREE.BufferAttribute(originals, 3));
-                geometry.setAttribute('random', new THREE.BufferAttribute(randoms, 1));
-
-                this.material = new THREE.PointsMaterial({ size: this.config.particleSize, color: 0x9575FF, transparent: true, opacity: 0.8 });
-                this.cloud = new THREE.Points(geometry, this.material);
-                this.scene.add(this.cloud);
-                this.animate();
-            },
-
-            animate: function() {
-                requestAnimationFrame(() => this.animate());
-                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
+            // === AI Vision Setup ===
+            startSensors: async function() {
+                const badge = document.getElementById('status-badge');
+                const triggerText = document.getElementById('main-instruction');
                 
-                // 粒子受能量影響 (保留 v24.0)
-                let targetEnergy = 0.2 + (this.state.audioData / 255);
-                if (this.state.isScanning) targetEnergy = 2.5;
-                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
+                triggerText.innerText = "Connecting...";
+                
+                try {
+                    // Audio
+                    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.analyser = this.audioCtx.createAnalyser();
+                    this.analyser.fftSize = 32;
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                    const src = this.audioCtx.createMediaStreamSource(stream);
+                    src.connect(this.analyser);
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
 
-                const pos = this.cloud.geometry.attributes.position.array;
-                const ori = this.cloud.geometry.attributes.originalPosition.array;
-                for (let i = 0; i < this.config.particleCount; i++) {
-                    const idx = i * 3;
-                    pos[idx] = ori[idx] * (1 + this.state.energy * 0.1);
-                    pos[idx+1] = ori[idx+1] * (1 + this.state.energy * 0.1);
-                    pos[idx+2] = ori[idx+2] * (1 + this.state.energy * 0.1);
+                    // Video / FaceMesh
+                    const video = document.getElementById('input-video');
+                    video.srcObject = stream;
+                    await video.play();
+
+                    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+                    faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5 });
+                    faceMesh.onResults(this.onFaceResults.bind(this));
+
+                    const camera = new Camera(video, {
+                        onFrame: async () => { await faceMesh.send({image: video}); },
+                        width: 640, height: 480
+                    });
+                    camera.start();
+
+                    badge.innerText = "VISION: ACTIVE";
+                    badge.style.color = "#23F3D4"; badge.style.borderColor = "#23F3D4";
+                    triggerText.innerText = "HOLD TO SCAN";
+
+                } catch(e) {
+                    console.error(e);
+                    badge.innerText = "VISION: ERROR";
+                    triggerText.innerText = "MOUSE MODE ONLY";
+                    // Fallback to mouse interaction
+                    window.addEventListener('mousemove', (e) => {
+                        this.state.headRot.x = (e.clientY/window.innerHeight - 0.5);
+                        this.state.headRot.y = (e.clientX/window.innerWidth - 0.5);
+                    });
                 }
-                this.cloud.geometry.attributes.position.needsUpdate = true;
-                this.renderer.render(this.scene, this.camera);
             },
 
-            // --- 2. 視覺與 AI (微調：膠囊文字引導) ---
-            initAI: function(stream) {
-                const video = document.getElementById('input-video');
-                if (stream) video.srcObject = stream;
-                const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true});
-                faceMesh.onResults((res) => this.processData(res));
-                new Camera(video, { onFrame: async () => await faceMesh.send({image: video}) }).start();
-            },
+            onFaceResults: function(results) {
+                const landmarks = results.multiFaceLandmarks[0];
+                this.updateCapsuleUI(landmarks); // 呼叫膠囊邏輯
 
-            processData: function(results) {
-                const landmarks = results.multiFaceLandmarks?.[0];
-                this.state.isFaceDetected = !!landmarks;
-                this.updateAlignmentUI(landmarks);
-                if (landmarks) {
-                    this.state.headRot.y = (landmarks[1].x - 0.5) * 2;
-                    this.state.mouthOpen = Math.abs(landmarks[13].y - landmarks[14].y) * 10;
+                if(landmarks) {
+                    this.state.faceFound = true;
+                    // 計算特徵
+                    const upperLip = landmarks[13].y;
+                    const lowerLip = landmarks[14].y;
+                    this.state.mouthDist = Math.abs(upperLip - lowerLip) * 10; // Openness
+                    
+                    // 眉頭距離 (皺眉偵測)
+                    const browL = landmarks[107].x; // 概略點
+                    const browR = landmarks[336].x;
+                    this.state.browDist = Math.abs(browL - browR);
+
+                    // 頭部旋轉 (Pose)
+                    const nose = landmarks[1];
+                    this.state.headRot.x = (nose.y - 0.5) * 2;
+                    this.state.headRot.y = (nose.x - 0.5) * 2;
+                } else {
+                    this.state.faceFound = false;
                 }
             },
 
-            updateAlignmentUI: function(landmarks) {
+            // === UI: Capsule Logic ===
+            updateCapsuleUI: function(landmarks) {
                 const capsule = document.getElementById('align-hint-capsule');
-                const textBox = document.getElementById('hint-text');
+                const text = document.getElementById('capsule-text');
+                const icon = document.getElementById('capsule-icon');
 
-                // --- 微調：掃囊狀態文字 ---
-                if (this.state.isScanning) {
-                    textBox.innerText = "HOLD STILL / 保持不動";
-                    capsule.className = "show is-scanning";
+                // 如果正在掃描或已進入 Dashboard，隱藏膠囊
+                if (this.state.scanning || document.getElementById('dashboard-layer').classList.contains('active')) {
+                    capsule.classList.remove('show');
                     return;
                 }
 
-                if (landmarks) {
-                    textBox.innerText = "READY TO SCAN";
-                    capsule.className = "show status-good";
-                } else {
-                    textBox.innerText = "FIND FACE";
-                    capsule.className = "show status-error";
+                if (!landmarks) {
+                    // No Face
+                    capsule.dataset.status = "error";
+                    text.innerText = "FIND FACE";
+                    capsule.classList.add('show');
+                    return;
                 }
+
+                // Check Alignment
+                const noseX = landmarks[1].x;
+                let msg = "READY";
+                let status = "good";
+
+                if (noseX < 0.35) { msg = "MOVE RIGHT →"; status = "warn"; }
+                else if (noseX > 0.65) { msg = "← MOVE LEFT"; status = "warn"; }
+                else { msg = "READY TO SCAN"; status = "good"; }
+
+                // Update DOM only if changed
+                if (text.innerText !== msg) {
+                    text.innerText = msg;
+                    capsule.dataset.status = status;
+                    if(status === 'good' && navigator.vibrate) navigator.vibrate(20);
+                }
+                
+                capsule.classList.add('show');
             },
 
-            // --- 3. 交互事件 (微調：進度環與熱力暗示) ---
-            initEvents: function() {
-                const btn = document.getElementById('scan-trigger');
-                const progressBar = document.getElementById('scan-progress-bar');
+            // === Three.js Particles (保留原始視覺靈魂) ===
+            initVisuals: function() {
+                const container = document.getElementById('universe-container');
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                camera.position.z = 5;
+
+                const renderer = new THREE.WebGLRenderer({ alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                container.appendChild(renderer.domElement);
+
+                // Create Particles
+                const count = 6000;
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(count * 3);
+                const colors = new Float32Array(count * 3);
                 
-                const start = (e) => {
-                    e.preventDefault();
-                    if (!this.state.isFaceDetected) { this.startSensors(); return; }
+                const color1 = new THREE.Color(0x23F3D4); // Cyan
+                const color2 = new THREE.Color(0x9575FF); // Purple
+
+                for(let i=0; i<count; i++) {
+                    const r = 4 * Math.random();
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos(2 * Math.random() - 1);
                     
-                    this.state.isScanning = true;
-                    btn.classList.add('active');
-                    document.getElementById('instruction').innerText = "BIOMETRIC SENSING...";
-                    if(navigator.vibrate) navigator.vibrate(50);
+                    positions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+                    positions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+                    positions[i*3+2] = r * Math.cos(phi);
+
+                    const mixed = color1.clone().lerp(color2, Math.random());
+                    colors[i*3] = mixed.r; colors[i*3+1] = mixed.g; colors[i*3+2] = mixed.b;
+                }
+
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+                const material = new THREE.PointsMaterial({
+                    size: 0.03, vertexColors: true, transparent: true, opacity: 0.8
+                });
+                const particles = new THREE.Points(geometry, material);
+                scene.add(particles);
+
+                // Animation Loop
+                const animate = () => {
+                    requestAnimationFrame(animate);
                     
-                    let progress = 0;
-                    this.scanInterval = setInterval(() => {
-                        progress += 1.5;
+                    // Audio Reactivity
+                    if(this.analyser) {
+                        this.analyser.getByteFrequencyData(this.dataArray);
+                        const avg = this.dataArray.reduce((a,b)=>a+b,0) / this.dataArray.length;
+                        this.state.audioVol = avg / 255; // 0.0 ~ 1.0
                         
-                        // 微調：更新 SVG 進度環
-                        const offset = 283 - (progress / 100) * 283;
-                        progressBar.style.strokeDashoffset = offset;
+                        // Update Audio Bars UI
+                        const bars = document.querySelectorAll('.bar');
+                        bars.forEach((b, i) => {
+                            b.style.height = 4 + (this.dataArray[i*4] / 10) + 'px';
+                        });
+                    }
 
-                        if (progress >= 100) this.finishScan();
-                    }, 40);
+                    // Physics based on Head & Audio
+                    const targetScale = 1 + (this.state.audioVol * 0.5) + (this.state.mouthDist * 1.0);
+                    particles.scale.setScalar(THREE.MathUtils.lerp(particles.scale.x, targetScale, 0.1));
+                    
+                    particles.rotation.y += 0.002 + (this.state.headRot.y * 0.02);
+                    particles.rotation.x += (this.state.headRot.x * 0.02);
+
+                    if(this.state.scanning) {
+                        particles.rotation.y += 0.05; // Fast spin on scan
+                        material.color.setHex(0xFF4D4D); // Red tint
+                    } else {
+                        material.color.setHex(0xFFFFFF);
+                    }
+
+                    renderer.render(scene, camera);
                 };
-                
-                const end = (e) => {
-                    if(!this.state.isScanning) return;
-                    clearInterval(this.scanInterval);
-                    this.state.isScanning = false;
+                animate();
+            },
+
+            // === Interaction Flow ===
+            setupEvents: function() {
+                const btn = document.getElementById('scan-trigger');
+                const orbit = document.getElementById('tei-orbit');
+
+                // 1. Scan Trigger
+                const startScan = (e) => {
+                    e.preventDefault();
+                    if(!this.audioCtx) { this.startSensors(); return; } // First click init
+                    
+                    this.state.scanning = true;
+                    btn.classList.add('active');
+                    document.getElementById('main-instruction').innerText = "ANALYZING...";
+                    if(navigator.vibrate) navigator.vibrate(50);
+
+                    // Scan Timer
+                    let p = 0;
+                    this.scanTimer = setInterval(() => {
+                        p += 2;
+                        if(p >= 100) this.completeScan();
+                    }, 30);
+                };
+
+                const endScan = (e) => {
+                    if(!this.state.scanning) return;
+                    this.state.scanning = false;
                     btn.classList.remove('active');
-                    progressBar.style.strokeDashoffset = 283; // 重置
-                    document.getElementById('instruction').innerText = "HOLD TO SCAN";
+                    clearInterval(this.scanTimer);
+                    document.getElementById('main-instruction').innerText = "HOLD TO SCAN";
                 };
 
-                btn.addEventListener('mousedown', start);
-                btn.addEventListener('touchstart', start);
-                window.addEventListener('mouseup', end);
-                window.addEventListener('touchend', end);
+                btn.addEventListener('mousedown', startScan);
+                btn.addEventListener('touchstart', startScan);
+                window.addEventListener('mouseup', endScan);
+                window.addEventListener('touchend', endScan);
+
+                // 2. Mental Buffer (Orbit) Interaction
+                const chargeBuffer = (e) => {
+                    e.preventDefault();
+                    if(this.state.buffer >= 100) return;
+                    
+                    this.chargeTimer = setInterval(() => {
+                        this.state.buffer = Math.min(100, this.state.buffer + 2);
+                        this.updateDashboard();
+                        if(this.state.buffer % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
+                    }, 20);
+                };
+                const stopBuffer = () => clearInterval(this.chargeTimer);
+
+                orbit.addEventListener('mousedown', chargeBuffer);
+                orbit.addEventListener('touchstart', chargeBuffer);
+                orbit.addEventListener('mouseup', stopBuffer);
+                orbit.addEventListener('touchend', stopBuffer);
             },
 
-            startSensors: async function() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                    this.initAI(stream);
-                    document.getElementById('instruction').innerText = "SENSORS READY. HOLD NOW.";
-                } catch (e) { console.error(e); }
-            },
-
-            finishScan: function() {
-                clearInterval(this.scanInterval);
-                this.state.isScanning = false;
-                const result = TenkiEngine.process({ mouthOpen: this.state.mouthOpen, headRot: this.state.headRot }, 50);
-                baselineMgr.recordScan(result);
+            completeScan: function() {
+                this.state.scanning = false;
+                clearInterval(this.scanTimer);
                 
-                this.state.baseScore = result.score;
-                this.showDashboard(result);
+                // === EXECUTE v3.1 ALGORITHM ===
+                // 將真實數據傳入引擎
+                const faceMetrics = {
+                    smile: this.state.mouthDist, // Simplified smile proxy
+                    frown: (0.1 - this.state.browDist) * 10, // Proxied
+                    tilt: this.state.headRot.x
+                };
+                
+                this.state.result = TenkiEngine.compute(faceMetrics, this.state.audioVol);
+                this.state.buffer = 0; // Reset buffer
+
+                this.showDashboard();
             },
 
-            showDashboard: function(result) {
+            showDashboard: function() {
                 document.getElementById('hud-layer').classList.add('hidden-ui');
-                document.getElementById('universe').classList.add('dimmed');
-                document.getElementById('dash-score').innerText = result.score;
-                document.getElementById('metric-hrv').innerText = result.hrv;
-                document.getElementById('orbit-fill').style.background = `conic-gradient(var(--plasma-cyan) 0% ${result.score}%, transparent ${result.score}% 100%)`;
-                document.getElementById('dashboard-layer').classList.add('show');
+                document.getElementById('universe-container').classList.add('blur-mode');
+                
+                const dash = document.getElementById('dashboard-layer');
+                dash.classList.add('active');
+                
+                this.updateDashboard();
             },
 
-            initDashboardInteractions: function() { /* 保留 v24.0 Buffer 邏輯 */ },
-            
-            reset: function() { location.reload(); }
+            updateDashboard: function() {
+                const res = this.state.result;
+                // Remedial Layer: Mental Buffer adds up to 10 points
+                const bonus = Math.floor(this.state.buffer * 0.1); 
+                const finalScore = Math.min(99, res.score + bonus);
+
+                document.getElementById('score-val').innerText = finalScore;
+                
+                // Orbit Fill Visual
+                const fill = document.getElementById('orbit-fill');
+                fill.style.background = `conic-gradient(#23F3D4 0% ${finalScore}%, transparent 0% 100%)`;
+
+                // Metrics
+                document.getElementById('val-val').innerText = res.valence.toFixed(2);
+                document.getElementById('val-bar').style.width = ((res.valence + 1)/2 * 100) + '%';
+                
+                document.getElementById('aro-val').innerText = res.arousal.toFixed(2);
+                document.getElementById('aro-bar').style.width = ((res.arousal + 1)/2 * 100) + '%';
+
+                // Status Text
+                const lbl = document.getElementById('score-label');
+                const st = document.getElementById('state-text');
+                
+                if (this.state.buffer < 10) {
+                    lbl.innerText = "HOLD RING TO SYNC";
+                    st.innerText = "Calculated.";
+                } else if (this.state.buffer < 100) {
+                    lbl.innerText = "SYNCING...";
+                    st.innerText = "Calibrating...";
+                } else {
+                    lbl.innerText = "SYNC COMPLETE";
+                    lbl.style.color = "#23F3D4";
+                    st.innerText = finalScore > 60 ? "Flow State" : "Recovery Mode";
+                }
+
+                document.getElementById('baseline-info').innerText = 
+                    `Baseline Offset: ${res.shift.toFixed(3)}`;
+            },
+
+            reset: function() {
+                document.getElementById('dashboard-layer').classList.remove('active');
+                document.getElementById('hud-layer').classList.remove('hidden-ui');
+                document.getElementById('universe-container').classList.remove('blur-mode');
+                document.getElementById('main-instruction').innerText = "HOLD TO SCAN";
+            }
         };
 
-        window.onload = () => app.init();
+        window.onload = () => App.init();
     </script>
 </body>
 </html>
