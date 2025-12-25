@@ -94,103 +94,19 @@
             width: 4px; height: 20px; background: rgba(255,255,255,0.2);
             margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
         }
-
-        /* 
-         * =============================================
-         * REDESIGNED SENSOR BUTTON (2050 Style)
-         * =============================================
-         */
         .fingerprint-sensor {
-            pointer-events: auto; 
-            position: relative;
-            /* 增大尺寸以適應指腹 */
-            width: 120px; 
-            height: 120px; 
-            border-radius: 50%;
-            
-            /* 複雜的玻璃/光學層次背景 */
-            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.02) 0%, rgba(10, 10, 20, 0.4) 60%, rgba(255, 255, 255, 0.02) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            
-            /* 光暈與陰影 */
-            box-shadow: 
-                0 0 0 1px rgba(255, 255, 255, 0.02),
-                inset 0 0 30px rgba(0, 0, 0, 0.8),
-                0 10px 40px rgba(0,0,0,0.5);
-                
+            pointer-events: auto; position: relative;
+            width: 80px; height: 80px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             display: flex; justify-content: center; align-items: center;
-            cursor: pointer; 
-            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-            overflow: visible;
+            cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            backdrop-filter: blur(8px);
         }
-
-        /* 外部旋轉環 (裝飾) */
-        .fingerprint-sensor::before {
-            content: ''; position: absolute; inset: -8px;
-            border-radius: 50%;
-            border: 1px dashed rgba(255, 255, 255, 0.15);
-            animation: sensor-spin 10s linear infinite;
-            pointer-events: none;
-        }
-
-        /* 內部呼吸光 (誘導按壓) */
-        .fingerprint-sensor::after {
-            content: ''; position: absolute; inset: 0;
-            border-radius: 50%;
-            background: radial-gradient(circle at center, var(--plasma-cyan) 0%, transparent 70%);
-            opacity: 0;
-            transition: opacity 0.3s;
-            mix-blend-mode: screen;
-        }
-        
-        /* 待機時的呼吸效果 */
-        .fingerprint-sensor:not(.active) {
-            animation: sensor-breathe 4s ease-in-out infinite;
-        }
-
-        @keyframes sensor-spin { 100% { transform: rotate(360deg); } }
-        @keyframes sensor-breathe {
-            0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02), inset 0 0 30px rgba(0, 0, 0, 0.8); border-color: rgba(255,255,255,0.08); }
-            50% { box-shadow: 0 0 15px rgba(35, 243, 212, 0.15), inset 0 0 10px rgba(35, 243, 212, 0.05); border-color: rgba(35, 243, 212, 0.3); }
-        }
-
-        /* 圖標樣式調整 */
-        .fingerprint-sensor svg {
-            width: 48px; height: 48px; /* 加大圖標 */
-            opacity: 0.6;
-            transition: all 0.3s;
-            filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
-        }
-
-        /* 懸停狀態 */
-        .fingerprint-sensor:hover {
-            transform: scale(1.02);
-            border-color: rgba(35, 243, 212, 0.4);
-            box-shadow: 0 0 25px rgba(35, 243, 212, 0.2), inset 0 0 20px rgba(35, 243, 212, 0.1);
-        }
-        .fingerprint-sensor:hover svg { opacity: 1; color: var(--plasma-cyan); }
-
-        /* 激活狀態 (按壓時) - 2050 能量充能感 */
         .fingerprint-sensor.active {
-            transform: scale(0.96); /* 物理按壓反饋 */
-            border-color: var(--stardust-purple);
-            background: rgba(149, 117, 255, 0.15);
-            box-shadow: 
-                0 0 60px var(--stardust-purple), 
-                inset 0 0 40px var(--stardust-purple);
+            transform: scale(1.1); border-color: var(--stardust-purple);
+            background: rgba(149, 117, 255, 0.2); box-shadow: 0 0 40px var(--stardust-purple);
         }
-        .fingerprint-sensor.active::before {
-            border-style: solid; border-color: var(--plasma-cyan);
-            animation: sensor-spin 1s linear infinite; /* 加速旋轉 */
-            opacity: 0.5;
-        }
-        .fingerprint-sensor.active svg {
-            color: white; transform: scale(0.9);
-            filter: drop-shadow(0 0 10px white);
-        }
-        /* ============================================= */
-
 
         /* 4. DASHBOARD LAYER */
         #dashboard-layer {
@@ -291,11 +207,10 @@
         </div>
 
         <div class="flex flex-col items-center pb-10">
-            <!-- 指紋按鈕 -->
             <div id="scan-trigger" class="fingerprint-sensor">
-                <i data-lucide="fingerprint" class="text-white/80"></i>
+                <i data-lucide="fingerprint" class="w-8 h-8 text-white/80"></i>
             </div>
-            <div id="instruction" class="mt-8 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300">
+            <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300">
                 CLICK TO INITIALIZE
             </div>
         </div>
@@ -814,4 +729,228 @@
             animate: function() {
                 requestAnimationFrame(() => this.animate());
                 this.updateAudio(); 
-                const time = Date.now() *
+                const time = Date.now() * 0.001;
+
+                if (!this.state.isSensorActive) {
+                    this.state.headRot.x = Math.sin(time * 0.5) * 0.15;
+                    this.state.headRot.y = Math.cos(time * 0.3) * 0.15;
+                    this.state.mouthOpen = 0.05 + Math.max(0, Math.sin(time * 1.5) * 0.05);
+                }
+
+                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
+                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
+
+                const audioForce = (this.state.audioData || 0) / 255; 
+                let targetEnergy = 0.2 + (audioForce * 0.8);
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 1.5;
+                if (this.state.isScanning) targetEnergy = 3.0;
+                
+                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
+
+                const positions = this.cloud.geometry.attributes.position.array;
+                const originals = this.cloud.geometry.attributes.originalPosition.array;
+                const randoms = this.cloud.geometry.attributes.random.array;
+                const expansionBase = 1 + (this.state.mouthOpen * 0.3) + (audioForce * 0.2);
+                const pulse = Math.sin(time * 2) * this.state.energy * 0.1;
+                const jitter = audioForce * 0.15;
+
+                for (let i = 0; i < this.config.particleCount; i++) {
+                    const idx = i * 3;
+                    const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
+                    const r = randoms[i];
+                    const noise = pulse * (r + 0.5) + (Math.random() - 0.5) * jitter;
+                    const expansion = expansionBase;
+                    positions[idx] = ox * expansion + (ox * noise);
+                    positions[idx+1] = oy * expansion + (oy * noise);
+                    positions[idx+2] = oz * expansion + (oz * noise);
+                }
+                this.cloud.geometry.attributes.position.needsUpdate = true;
+                
+                if (this.state.isScanning) {
+                    this.material.size = 0.12 + audioForce * 0.1;
+                    this.material.opacity = 1.0;
+                } else {
+                    this.material.size = 0.08 + (audioForce * 0.05);
+                    this.material.opacity = 0.8;
+                }
+                this.renderer.render(this.scene, this.camera);
+            },
+
+            initEvents: function() {
+                const btn = document.getElementById('scan-trigger');
+                
+                const start = (e) => {
+                    e.preventDefault();
+                    if (!this.audioCtx) {
+                        this.startSensors();
+                        document.getElementById('instruction').innerText = "SENSORS READY. HOLD NOW.";
+                        return;
+                    }
+                    this.state.isScanning = true;
+                    this.state.scanBuffer = []; 
+                    document.getElementById('align-hint-capsule').classList.remove('show');
+                    btn.classList.add('active');
+                    document.getElementById('instruction').innerText = "BIOMETRICS SYNC...";
+                    if(navigator.vibrate) navigator.vibrate(50);
+                    
+                    let progress = 0;
+                    this.scanInterval = setInterval(() => {
+                        progress += 2;
+                        if (progress % 20 === 0 && navigator.vibrate) navigator.vibrate(10);
+                        if (progress >= 100) this.finishScan();
+                    }, 40);
+                };
+                
+                const end = (e) => {
+                    e.preventDefault();
+                    if(!this.state.isScanning) return;
+                    this.state.isScanning = false;
+                    clearInterval(this.scanInterval);
+                    btn.classList.remove('active');
+                    document.getElementById('instruction').innerText = "HOLD TO SCAN";
+                };
+
+                btn.addEventListener('mousedown', start);
+                btn.addEventListener('touchstart', start);
+                window.addEventListener('mouseup', end);
+                window.addEventListener('touchend', end);
+            },
+
+            finishScan: function() {
+                clearInterval(this.scanInterval);
+                this.state.isScanning = false;
+                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                
+                // --- 運算引擎介入 (v24.3) ---
+                this.state.engineResult = TenkiEngine.calculatePole(this.state.scanBuffer);
+                
+                baselineMgr.recordSession();
+                
+                this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
+                this.state.mentalBuffer = 0;
+                
+                this.showDashboard();
+            },
+
+            initDashboardInteractions: function() {
+                const orbit = document.getElementById('tei-orbit');
+                const startCharge = (e) => {
+                    if(e) e.preventDefault();
+                    this.state.isCharging = true;
+                    orbit.classList.add('charging');
+                    if(navigator.vibrate) navigator.vibrate(20);
+                    
+                    this.chargeInterval = setInterval(() => {
+                        if (this.state.mentalBuffer < 100) {
+                            this.state.mentalBuffer += 2;
+                            this.updateDashboardVisuals();
+                            if (this.state.mentalBuffer % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
+                        } else {
+                            clearInterval(this.chargeInterval);
+                            if(navigator.vibrate) navigator.vibrate([30, 30, 30]);
+                        }
+                    }, 30);
+                };
+                const stopCharge = (e) => {
+                    if(e) e.preventDefault();
+                    this.state.isCharging = false;
+                    orbit.classList.remove('charging');
+                    clearInterval(this.chargeInterval);
+                };
+                orbit.addEventListener('mousedown', startCharge);
+                orbit.addEventListener('touchstart', startCharge);
+                orbit.addEventListener('mouseup', stopCharge);
+                orbit.addEventListener('mouseleave', stopCharge);
+                orbit.addEventListener('touchend', stopCharge);
+            },
+
+            updateDashboardVisuals: function() {
+                const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 10);
+                const totalScore = Math.min(99, this.state.baseScore + bufferBonus);
+                
+                const scoreEl = document.getElementById('dash-score');
+                const currentDisplay = parseInt(scoreEl.innerText) || 0;
+                if (currentDisplay < totalScore) {
+                    scoreEl.innerText = currentDisplay + 1;
+                } else if (currentDisplay > totalScore) {
+                    scoreEl.innerText = currentDisplay - 1;
+                }
+                
+                // 更新數據
+                document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
+                // v24.3 UPDATE: 顯示警覺度
+                document.getElementById('alert-score-display').innerText = this.state.engineResult.alertness + '%';
+                
+                const visualPercent = totalScore; 
+                const fill = document.getElementById('orbit-fill');
+                fill.style.background = `conic-gradient(var(--plasma-cyan) 0% ${visualPercent}%, transparent ${visualPercent}% 100%)`;
+
+                const label = document.getElementById('dash-label');
+                const state = document.getElementById('dash-state');
+                const sub = document.getElementById('dash-sub');
+                const debug = document.getElementById('baseline-debug');
+                const stability = Math.floor(this.state.engineResult.stability * 100);
+
+                // v24.3 UPDATE: 動態調整副標題 (顯示標記)
+                let statusText = `Bio Stability: ${stability}%`;
+                if(this.state.engineResult.markers.surprise) statusText += " • High Interest";
+                if(this.state.engineResult.markers.anxiety) statusText += " • Tension Detected";
+                debug.innerText = statusText;
+
+                if (this.state.mentalBuffer < 10) {
+                    label.innerText = "HOLD TO SYNC";
+                    state.innerText = "Quantifying...";
+                    sub.innerText = "Processing Biometrics...";
+                } else if (this.state.mentalBuffer < 100) {
+                    label.innerText = "SYNCING POLES...";
+                    state.innerText = "Calibrating...";
+                    sub.innerText = `Buffer: ${this.state.mentalBuffer}%`;
+                } else {
+                    label.innerText = "POLE LOCKED";
+                    label.style.color = "#23F3D4";
+                    state.innerText = totalScore > 75 ? "Flow State" : (totalScore > 50 ? "Balanced" : "Drifting");
+                    sub.innerText = "Quantum Calculation Complete";
+                }
+            },
+
+            showDashboard: function() {
+                document.getElementById('hud-layer').classList.add('hidden-ui');
+                document.getElementById('align-hint-capsule').classList.remove('show');
+                document.getElementById('universe').classList.add('dimmed');
+                
+                const dash = document.getElementById('dashboard-layer');
+                this.updateDashboardVisuals();
+                
+                let rollInterval = setInterval(() => {
+                    this.updateDashboardVisuals();
+                    if(this.state.mentalBuffer === 0 && parseInt(document.getElementById('dash-score').innerText) >= this.state.baseScore) {
+                        clearInterval(rollInterval);
+                    }
+                }, 20);
+
+                setTimeout(() => { 
+                    dash.classList.add('show'); 
+                    this.stopSensors();
+                }, 500);
+            },
+
+            reset: function() {
+                document.getElementById('dashboard-layer').classList.remove('show');
+                document.getElementById('hud-layer').classList.remove('hidden-ui');
+                document.getElementById('universe').classList.remove('dimmed');
+                document.getElementById('scan-trigger').classList.remove('active');
+                document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
+                document.getElementById('dash-score').innerText = "00";
+                this.state.mentalBuffer = 0;
+            }
+        };
+
+        window.onload = () => app.init();
+        window.onresize = () => {
+            app.camera.aspect = window.innerWidth / window.innerHeight;
+            app.camera.updateProjectionMatrix();
+            app.renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+    </script>
+</body>
+</html>
