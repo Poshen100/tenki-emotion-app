@@ -272,6 +272,7 @@
                 </div>
             </div>
 
+            <!-- UPDATE: ALERTNESS CARD (Was Pole Count) -->
             <div class="bento-card justify-between h-32">
                 <div class="flex justify-between items-start">
                     <i data-lucide="eye" class="w-5 h-5 text-cyan-400"></i>
@@ -279,7 +280,7 @@
                 </div>
                 <div>
                     <div class="text-3xl font-bold font-mono-tech text-cyan-400" id="alert-score-display">--</div>
-                    <div class="text-[10px] text-gray-500 mt-1">Ocular Tension</div>
+                    <div class="text-[10px] text-gray-500 mt-1">Ocular Tension %</div>
                 </div>
             </div>
 
@@ -316,7 +317,7 @@
         </div>
     </div>
 
-    <!-- CORE ENGINE v3.3: Biometric Local Statistics -->
+    <!-- CORE ENGINE v24.3: Biometric Eye & Pole Logic -->
     <script>
         class BaselineManager {
             constructor() {
@@ -336,74 +337,86 @@
             }
         }
 
+        // ============================================
+        // v24.3 ENGINE: MULTI-DIMENSIONAL POLE CALC
+        // ============================================
         const TenkiEngine = {
-            // 運算核心：根據採樣陣列計算極數 (Mean & Variance)
             calculatePole: function(sampleBuffer) {
-                if (!sampleBuffer || sampleBuffer.length === 0) return { score: 50, stability: 0, hrv: 50, alertness: 0 };
+                if (!sampleBuffer || sampleBuffer.length === 0) {
+                    return { score: 50, stability: 0, hrv: 50, alertness: 0, samples: 0, markers: { surprise: false, anxiety: false } };
+                }
 
                 const count = sampleBuffer.length;
 
-                // 1. 計算頭部移動標準差 (Head Stability)
+                // 1. 頭部穩定度 (保留舊邏輯)
                 let sumHead = 0;
-                sampleBuffer.forEach(s => sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)));
+                sampleBuffer.forEach(s => {
+                    sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y));
+                });
                 const meanHead = sumHead / count;
+                
                 let varianceHead = 0;
                 sampleBuffer.forEach(s => {
                     const diff = (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)) - meanHead;
                     varianceHead += diff * diff;
                 });
                 const stdDevHead = Math.sqrt(varianceHead / count);
-                const headStability = Math.max(0, 1 - (stdDevHead * 4)); 
+                const headStability = Math.max(0, 1 - (stdDevHead * 4));
 
-                // 2. 計算眼部與眉毛均值 (Eye/Brow Statistics)
-                let sumEyeOpen = 0, sumEyeTens = 0, sumBrowH = 0, sumEnergy = 0;
+                // 2. 眼部數據融合 (v24.3 新增)
+                let sumEyeOpen = 0, sumEyeTens = 0, sumBrowH = 0;
                 sampleBuffer.forEach(s => {
-                    sumEyeOpen += s.eyeOpen;
-                    sumEyeTens += s.eyeTens;
-                    sumBrowH += s.browH;
-                    sumEnergy += (s.audioData / 255) + (s.mouthOpen * 2);
+                    sumEyeOpen += (s.eyeOpen || 0);
+                    sumEyeTens += (s.eyeTens || 0);
+                    sumBrowH += (s.browH || 0);
                 });
 
-                const avgEyeOpenness = sumEyeOpen / count; // 0-1
-                const avgEyeTension = sumEyeTens / count;   // 0-1
-                const avgBrowHeight = sumBrowH / count;     // 0-1
-                const avgEnergy = sumEnergy / count;
+                const avgEyeOpenness = sumEyeOpen / count;
+                const avgEyeTension = sumEyeTens / count;
+                const avgBrowHeight = sumBrowH / count;
 
-                // 3. 整合算法 (Enhanced Pole Calculation)
-                // 穩定度融合：頭部穩定 + 眼睛不緊張 + 眼睛有睜開
+                // 3. 增強穩定度 (融合眼部數據)
                 const enhancedStability = headStability * 0.5 
                                         + (1 - avgEyeTension) * 0.3 
                                         + avgEyeOpenness * 0.2;
 
-                // 警覺度 (Alertness): 眼睛睜開且不緊張
-                const alertness = avgEyeOpenness * 0.6 + (1 - avgEyeTension) * 0.4;
-                
-                // 情感標記修正
-                const surpriseMarker = avgBrowHeight > 0.7 ? 0.3 : 0;
-                const anxietyMarker = avgEyeTension > 0.6 ? -0.2 : 0;
+                // 4. 警覺度 (新增維度)
+                const alertness = Math.floor((avgEyeOpenness * 0.6 + (1 - avgEyeTension) * 0.4) * 100);
+
+                // 5. 能量值 (保留)
+                let sumEnergy = 0;
+                sampleBuffer.forEach(s => {
+                    sumEnergy += (s.audioData / 255) + (s.mouthOpen * 2);
+                });
+                const avgEnergy = sumEnergy / count;
                 const energyScore = Math.min(1, avgEnergy * 1.5);
 
-                // 最終分數計算
+                // 6. 情感標記 (新增)
+                const surpriseMarker = avgBrowHeight > 0.7 ? 0.3 : 0;
+                const anxietyMarker = avgEyeTension > 0.6 ? -0.2 : 0;
+
+                // 7. 最終分數
                 let rawScore = 60 
                              + (enhancedStability * 30) 
                              + (energyScore * 10)
                              + (surpriseMarker * 5)
                              + (anxietyMarker * 5);
 
-                // 信賴度加權
                 const reliability = Math.min(1, count / 30);
                 const finalScore = Math.floor(rawScore * reliability);
-                
-                // 模擬 HRV
                 const estimatedHRV = Math.floor(30 + (enhancedStability * 60) + (Math.random() * 10));
 
                 return {
                     score: Math.max(10, Math.min(99, finalScore)),
                     stability: enhancedStability,
-                    alertness: Math.floor(alertness * 100),
+                    alertness: alertness,
+                    energy: energyScore,
                     hrv: estimatedHRV,
                     samples: count,
-                    markers: { surprise: surpriseMarker > 0, anxiety: anxietyMarker < 0 }
+                    markers: { 
+                        surprise: surpriseMarker > 0, 
+                        anxiety: anxietyMarker < 0 
+                    }
                 };
             }
         };
@@ -581,6 +594,32 @@
                 });
             },
 
+            // ========== 新增：眼部特徵提取函數 (v24.3) ==========
+            getEyeOpenness: function(landmarks) {
+                const leftTop = landmarks[159], leftBot = landmarks[145];
+                const rightTop = landmarks[386], rightBot = landmarks[374];
+                const leftDist = Math.abs(leftTop.y - leftBot.y);
+                const rightDist = Math.abs(rightTop.y - rightBot.y);
+                const avgDist = (leftDist + rightDist) / 2;
+                return Math.min(1, avgDist / 0.05);
+            },
+
+            getEyeTension: function(landmarks) {
+                const lLeft = landmarks[33], lRight = landmarks[133], lTop = landmarks[159], lBot = landmarks[145];
+                const width = Math.abs(lLeft.x - lRight.x);
+                const height = Math.abs(lTop.y - lBot.y);
+                const aspect = height / width;
+                return Math.max(0, 1 - (aspect * 2.5));
+            },
+
+            getEyebrowHeight: function(landmarks) {
+                const lBrow = landmarks[105], rBrow = landmarks[334];
+                const eyeY = (landmarks[159].y + landmarks[145].y) / 2;
+                const lH = eyeY - lBrow.y;
+                const rH = eyeY - rBrow.y;
+                return Math.min(1, (lH + rH) / 0.08);
+            },
+
             initAI: function(stream) {
                 const video = document.getElementById('input-video');
                 if (stream) {
@@ -600,31 +639,6 @@
                         this.state.headRot.x = (e.clientY / window.innerHeight - 0.5) * 1.5;
                     }
                 });
-            },
-
-            // --- 特徵提取算法 (NEW) ---
-            getEyeOpenness: function(landmarks) {
-                const leftTop = landmarks[159], leftBot = landmarks[145];
-                const rightTop = landmarks[386], rightBot = landmarks[374];
-                const leftDist = Math.abs(leftTop.y - leftBot.y);
-                const rightDist = Math.abs(rightTop.y - rightBot.y);
-                return Math.min(1, (leftDist + rightDist) / 0.05);
-            },
-
-            getEyeTension: function(landmarks) {
-                const lLeft = landmarks[33], lRight = landmarks[133], lTop = landmarks[159], lBot = landmarks[145];
-                const width = Math.abs(lLeft.x - lRight.x);
-                const height = Math.abs(lTop.y - lBot.y);
-                const aspect = height / width;
-                return Math.max(0, 1 - (aspect * 2.5));
-            },
-
-            getEyebrowHeight: function(landmarks) {
-                const lBrow = landmarks[105], rBrow = landmarks[334];
-                const eyeY = (landmarks[159].y + landmarks[145].y) / 2;
-                const lH = eyeY - lBrow.y;
-                const rH = eyeY - rBrow.y;
-                return Math.min(1, (lH + rH) / 0.08);
             },
 
             processData: function(results) {
@@ -650,13 +664,13 @@
                     this.state.mouthOpen += ((dist - 0.02) * 5 - this.state.mouthOpen) * 0.2;
                     if(this.state.mouthOpen < 0) this.state.mouthOpen = 0;
                     
-                    // --- 採樣收集 (加入新的眼睛/眉毛數據) ---
+                    // --- 採樣收集 (v24.3: 包含眼部與眉毛數據) ---
                     if (this.state.isScanning) {
                         this.state.scanBuffer.push({
                             headRot: { x: this.state.headRot.x, y: this.state.headRot.y },
                             mouthOpen: this.state.mouthOpen,
                             audioData: this.state.audioData || 0,
-                            // NEW METRICS
+                            // ✨ NEW BIOMETRICS
                             eyeOpen: this.getEyeOpenness(landmarks),
                             eyeTens: this.getEyeTension(landmarks),
                             browH: this.getEyebrowHeight(landmarks)
@@ -807,7 +821,7 @@
                 this.state.isScanning = false;
                 if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 
-                // --- 運算引擎介入 ---
+                // --- 運算引擎介入 (v24.3) ---
                 this.state.engineResult = TenkiEngine.calculatePole(this.state.scanBuffer);
                 
                 baselineMgr.recordSession();
@@ -862,7 +876,9 @@
                     scoreEl.innerText = currentDisplay - 1;
                 }
                 
+                // 更新數據
                 document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
+                // v24.3 UPDATE: 顯示警覺度
                 document.getElementById('alert-score-display').innerText = this.state.engineResult.alertness + '%';
                 
                 const visualPercent = totalScore; 
@@ -875,7 +891,7 @@
                 const debug = document.getElementById('baseline-debug');
                 const stability = Math.floor(this.state.engineResult.stability * 100);
 
-                // 動態調整副標題
+                // v24.3 UPDATE: 動態調整副標題 (顯示標記)
                 let statusText = `Bio Stability: ${stability}%`;
                 if(this.state.engineResult.markers.surprise) statusText += " • High Interest";
                 if(this.state.engineResult.markers.anxiety) statusText += " • Tension Detected";
