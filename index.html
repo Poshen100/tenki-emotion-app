@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TENKI v24.3 - Biometric Pole Logic</title>
     
     <!-- 字體庫 -->
@@ -34,7 +34,9 @@
             color: white;
             font-family: 'Space Mono', monospace;
             overflow: hidden;
-            width: 100vw; height: 100vh;
+            width: 100vw; 
+            height: 100vh; /* Fallback */
+            height: 100dvh; /* Mobile Fix */
             margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
         }
@@ -59,6 +61,8 @@
             pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 24px;
+            /* Safe Area Fix */
+            padding-bottom: calc(30px + env(safe-area-inset-bottom));
             transition: opacity 0.5s ease;
         }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
@@ -94,19 +98,76 @@
             width: 4px; height: 20px; background: rgba(255,255,255,0.2);
             margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
         }
-        .fingerprint-sensor {
-            pointer-events: auto; position: relative;
-            width: 80px; height: 80px; border-radius: 50%;
+
+        /* 
+           ========================================
+           UPDATED FINGERPRINT SENSOR STYLES (v24.3)
+           ========================================
+        */
+        .fingerprint-wrapper {
+            position: relative;
+            width: 100px; height: 100px;
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: auto;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 核心按鈕 */
+        .fingerprint-core {
+            width: 70px; height: 70px; border-radius: 50%;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.2);
             display: flex; justify-content: center; align-items: center;
-            cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             backdrop-filter: blur(8px);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy effect */
+            z-index: 10;
         }
-        .fingerprint-sensor.active {
-            transform: scale(1.1); border-color: var(--stardust-purple);
-            background: rgba(149, 117, 255, 0.2); box-shadow: 0 0 40px var(--stardust-purple);
+
+        /* 按下時變大 & 發光 */
+        .fingerprint-wrapper.active .fingerprint-core {
+            transform: scale(1.15); /* 變大 */
+            background: rgba(149, 117, 255, 0.15);
+            border-color: var(--stardust-purple);
+            box-shadow: 0 0 30px rgba(149, 117, 255, 0.4);
         }
+
+        /* SVG 進度環容器 */
+        .progress-svg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            transform: rotate(-90deg);
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* 進度條路徑 */
+        .progress-circle {
+            fill: none;
+            stroke: var(--plasma-cyan);
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            /* 2 * PI * 46 ≈ 289 */
+            stroke-dasharray: 289; 
+            stroke-dashoffset: 289; /* 初始隱藏 */
+            transition: stroke-dashoffset 0.05s linear; /* Smooth fill */
+            filter: drop-shadow(0 0 4px var(--plasma-cyan));
+        }
+
+        /* Icon 變色 */
+        .fingerprint-icon {
+            transition: all 0.3s;
+            opacity: 0.7;
+        }
+        .fingerprint-wrapper.active .fingerprint-icon {
+            color: var(--plasma-cyan);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        /* ======================================== */
+
 
         /* 4. DASHBOARD LAYER */
         #dashboard-layer {
@@ -151,12 +212,15 @@
         }
         
         .dock-container {
-            position: fixed; bottom: 30px; left: 20px; right: 20px; height: 70px;
+            position: fixed; 
+            bottom: 30px; 
+            bottom: calc(30px + env(safe-area-inset-bottom));
+            left: 20px; right: 20px; height: 70px;
             background: rgba(10, 10, 20, 0.85); backdrop-filter: blur(20px);
             border: 1px solid rgba(255,255,255,0.1); border-radius: 35px;
             display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            transform: translateY(100px); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: translateY(150px); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         #dashboard-layer.show .dock-container { transform: translateY(0); }
         .dock-btn { width: 54px; height: 54px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; transition: all 0.2s; }
@@ -207,11 +271,24 @@
         </div>
 
         <div class="flex flex-col items-center pb-10">
-            <div id="scan-trigger" class="fingerprint-sensor">
-                <i data-lucide="fingerprint" class="w-8 h-8 text-white/80"></i>
+            <!-- UPDATED SCAN BUTTON (v24.3) -->
+            <div id="scan-trigger-wrapper" class="fingerprint-wrapper">
+                <!-- SVG Progress Ring -->
+                <svg class="progress-svg" viewBox="0 0 100 100">
+                    <!-- Background Ring -->
+                    <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"></circle>
+                    <!-- Active Progress Ring -->
+                    <circle id="scan-progress-bar" class="progress-circle" cx="50" cy="50" r="46"></circle>
+                </svg>
+                
+                <!-- Inner Button -->
+                <div class="fingerprint-core">
+                    <i data-lucide="fingerprint" class="fingerprint-icon w-8 h-8 text-white"></i>
+                </div>
             </div>
+
             <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300">
-                CLICK TO INITIALIZE
+                HOLD TO INITIALIZE
             </div>
         </div>
     </div>
@@ -272,7 +349,7 @@
                 </div>
             </div>
 
-            <!-- UPDATE: ALERTNESS CARD (Was Pole Count) -->
+            <!-- UPDATE: ALERTNESS CARD -->
             <div class="bento-card justify-between h-32">
                 <div class="flex justify-between items-start">
                     <i data-lucide="eye" class="w-5 h-5 text-cyan-400"></i>
@@ -348,7 +425,7 @@
 
                 const count = sampleBuffer.length;
 
-                // 1. 頭部穩定度 (保留舊邏輯)
+                // 1. 頭部穩定度
                 let sumHead = 0;
                 sampleBuffer.forEach(s => {
                     sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y));
@@ -363,7 +440,7 @@
                 const stdDevHead = Math.sqrt(varianceHead / count);
                 const headStability = Math.max(0, 1 - (stdDevHead * 4));
 
-                // 2. 眼部數據融合 (v24.3 新增)
+                // 2. 眼部數據融合
                 let sumEyeOpen = 0, sumEyeTens = 0, sumBrowH = 0;
                 sampleBuffer.forEach(s => {
                     sumEyeOpen += (s.eyeOpen || 0);
@@ -375,15 +452,15 @@
                 const avgEyeTension = sumEyeTens / count;
                 const avgBrowHeight = sumBrowH / count;
 
-                // 3. 增強穩定度 (融合眼部數據)
+                // 3. 增強穩定度
                 const enhancedStability = headStability * 0.5 
                                         + (1 - avgEyeTension) * 0.3 
                                         + avgEyeOpenness * 0.2;
 
-                // 4. 警覺度 (新增維度)
+                // 4. 警覺度
                 const alertness = Math.floor((avgEyeOpenness * 0.6 + (1 - avgEyeTension) * 0.4) * 100);
 
-                // 5. 能量值 (保留)
+                // 5. 能量值
                 let sumEnergy = 0;
                 sampleBuffer.forEach(s => {
                     sumEnergy += (s.audioData / 255) + (s.mouthOpen * 2);
@@ -391,7 +468,7 @@
                 const avgEnergy = sumEnergy / count;
                 const energyScore = Math.min(1, avgEnergy * 1.5);
 
-                // 6. 情感標記 (新增)
+                // 6. 情感標記
                 const surpriseMarker = avgBrowHeight > 0.7 ? 0.3 : 0;
                 const anxietyMarker = avgEyeTension > 0.6 ? -0.2 : 0;
 
@@ -594,7 +671,7 @@
                 });
             },
 
-            // ========== 新增：眼部特徵提取函數 (v24.3) ==========
+            // ========== 眼部特徵提取函數 (v24.3) ==========
             getEyeOpenness: function(landmarks) {
                 const leftTop = landmarks[159], leftBot = landmarks[145];
                 const rightTop = landmarks[386], rightBot = landmarks[374];
@@ -664,13 +741,11 @@
                     this.state.mouthOpen += ((dist - 0.02) * 5 - this.state.mouthOpen) * 0.2;
                     if(this.state.mouthOpen < 0) this.state.mouthOpen = 0;
                     
-                    // --- 採樣收集 (v24.3: 包含眼部與眉毛數據) ---
                     if (this.state.isScanning) {
                         this.state.scanBuffer.push({
                             headRot: { x: this.state.headRot.x, y: this.state.headRot.y },
                             mouthOpen: this.state.mouthOpen,
                             audioData: this.state.audioData || 0,
-                            // ✨ NEW BIOMETRICS
                             eyeOpen: this.getEyeOpenness(landmarks),
                             eyeTens: this.getEyeTension(landmarks),
                             browH: this.getEyebrowHeight(landmarks)
@@ -777,7 +852,11 @@
             },
 
             initEvents: function() {
-                const btn = document.getElementById('scan-trigger');
+                const btnWrapper = document.getElementById('scan-trigger-wrapper');
+                const ringPath = document.getElementById('scan-progress-bar');
+                
+                // SVG Circle Circumference: 2 * PI * 46 ≈ 289
+                const maxOffset = 289; 
                 
                 const start = (e) => {
                     e.preventDefault();
@@ -789,13 +868,24 @@
                     this.state.isScanning = true;
                     this.state.scanBuffer = []; 
                     document.getElementById('align-hint-capsule').classList.remove('show');
-                    btn.classList.add('active');
+                    
+                    // Add Active Class (Triggers Grow Animation)
+                    btnWrapper.classList.add('active');
+                    
                     document.getElementById('instruction').innerText = "BIOMETRICS SYNC...";
                     if(navigator.vibrate) navigator.vibrate(50);
                     
+                    // Reset ring to empty
+                    ringPath.style.strokeDashoffset = maxOffset;
+                    
                     let progress = 0;
                     this.scanInterval = setInterval(() => {
-                        progress += 2;
+                        progress += 2; // Speed of scan
+                        
+                        // Update Progress Ring
+                        const currentOffset = maxOffset - ((progress / 100) * maxOffset);
+                        ringPath.style.strokeDashoffset = currentOffset;
+
                         if (progress % 20 === 0 && navigator.vibrate) navigator.vibrate(10);
                         if (progress >= 100) this.finishScan();
                     }, 40);
@@ -806,12 +896,20 @@
                     if(!this.state.isScanning) return;
                     this.state.isScanning = false;
                     clearInterval(this.scanInterval);
-                    btn.classList.remove('active');
+                    
+                    // Reset Button State
+                    btnWrapper.classList.remove('active');
+                    
+                    // Immediate Feedback: Snap back to empty if failed
+                    ringPath.style.transition = 'none'; // Remove transition for instant reset
+                    ringPath.style.strokeDashoffset = maxOffset;
+                    setTimeout(() => { ringPath.style.transition = 'stroke-dashoffset 0.05s linear'; }, 100);
+                    
                     document.getElementById('instruction').innerText = "HOLD TO SCAN";
                 };
 
-                btn.addEventListener('mousedown', start);
-                btn.addEventListener('touchstart', start);
+                btnWrapper.addEventListener('mousedown', start);
+                btnWrapper.addEventListener('touchstart', start);
                 window.addEventListener('mouseup', end);
                 window.addEventListener('touchend', end);
             },
@@ -878,7 +976,6 @@
                 
                 // 更新數據
                 document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
-                // v24.3 UPDATE: 顯示警覺度
                 document.getElementById('alert-score-display').innerText = this.state.engineResult.alertness + '%';
                 
                 const visualPercent = totalScore; 
@@ -891,7 +988,6 @@
                 const debug = document.getElementById('baseline-debug');
                 const stability = Math.floor(this.state.engineResult.stability * 100);
 
-                // v24.3 UPDATE: 動態調整副標題 (顯示標記)
                 let statusText = `Bio Stability: ${stability}%`;
                 if(this.state.engineResult.markers.surprise) statusText += " • High Interest";
                 if(this.state.engineResult.markers.anxiety) statusText += " • Tension Detected";
@@ -938,9 +1034,14 @@
                 document.getElementById('dashboard-layer').classList.remove('show');
                 document.getElementById('hud-layer').classList.remove('hidden-ui');
                 document.getElementById('universe').classList.remove('dimmed');
-                document.getElementById('scan-trigger').classList.remove('active');
+                document.getElementById('scan-trigger-wrapper').classList.remove('active');
                 document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
                 document.getElementById('dash-score').innerText = "00";
+                
+                // Reset Ring
+                const ringPath = document.getElementById('scan-progress-bar');
+                if(ringPath) ringPath.style.strokeDashoffset = 289;
+
                 this.state.mentalBuffer = 0;
             }
         };
