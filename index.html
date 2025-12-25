@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TENKI v24.3 - Biometric Pole Logic</title>
+    <title>TENKI v24.4 - Bio-Tactile Interface</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,15 +37,16 @@
             width: 100vw; height: 100vh;
             margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
         .font-serif-human { font-family: 'Playfair Display', serif; }
         .font-mono-tech { font-family: 'Space Mono', monospace; }
 
-        /* 1. 隱私層 */
+        /* 隱私層 */
         #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
 
-        /* 2. 背景層 */
+        /* 背景層 */
         #universe {
             position: absolute; inset: 0; z-index: 1;
             background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
@@ -53,7 +54,7 @@
         }
         #universe.dimmed { opacity: 0.4; filter: blur(8px); }
 
-        /* 3. HUD 層 */
+        /* HUD 層 */
         #hud-layer {
             position: absolute; inset: 0; z-index: 10;
             pointer-events: none;
@@ -63,52 +64,86 @@
         }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-        /* Smart Alignment Capsule */
-        #align-hint-capsule {
-            position: absolute; top: 15%; left: 50%; 
-            transform: translateX(-50%) translateY(-20px) scale(0.95);
-            background: rgba(20, 20, 25, 0.75);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            padding: 10px 20px; border-radius: 99px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex; align-items: center; gap: 12px;
-            opacity: 0; pointer-events: none; 
-            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-            z-index: 100; overflow: hidden;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-        }
-        #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
-        #align-hint-capsule.status-error { border-color: rgba(239, 68, 68, 0.5); box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
-        #align-hint-capsule.status-warn { border-color: rgba(234, 179, 8, 0.5); box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
-        #align-hint-capsule.status-good { border-color: rgba(35, 243, 212, 0.6); box-shadow: 0 0 20px rgba(35, 243, 212, 0.3); }
-
-        .shimmer-effect {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.1) 45%, transparent 60%);
-            transform: translateX(-100%); animation: shimmer-slide 2.5s infinite; pointer-events: none;
-        }
-        @keyframes shimmer-slide { 100% { transform: translateX(100%); } }
-
-        /* HUD UI */
-        .audio-bar {
-            width: 4px; height: 20px; background: rgba(255,255,255,0.2);
-            margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
-        }
-        .fingerprint-sensor {
-            pointer-events: auto; position: relative;
-            width: 80px; height: 80px; border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        /* 1. 優化後的指紋按鈕 (Tactile Button) */
+        .sensor-container {
+            position: relative; width: 100px; height: 100px;
             display: flex; justify-content: center; align-items: center;
-            cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            backdrop-filter: blur(8px);
+            pointer-events: auto;
+            transform: translateZ(0); /* GPU acceleration */
         }
-        .fingerprint-sensor.active {
-            transform: scale(1.1); border-color: var(--stardust-purple);
-            background: rgba(149, 117, 255, 0.2); box-shadow: 0 0 40px var(--stardust-purple);
+        
+        /* 外圍呼吸光環 */
+        .sensor-ring {
+            position: absolute; inset: -10px; border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.1);
+            animation: pulse-ring 3s infinite ease-in-out;
+            pointer-events: none;
+        }
+        
+        /* 核心按鈕 */
+        .fingerprint-sensor {
+            position: relative;
+            width: 90px; height: 90px; border-radius: 50%;
+            background: rgba(20, 20, 30, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; 
+            backdrop-filter: blur(10px);
+            transition: all 0.2s cubic-bezier(0.1, 0.9, 0.2, 1);
+            overflow: hidden;
+            box-shadow: 0 0 0px rgba(35, 243, 212, 0);
+        }
+        
+        /* 按下時的物理反饋 */
+        .fingerprint-sensor:active {
+            transform: scale(0.92);
+            border-color: rgba(35, 243, 212, 0.5);
+            background: rgba(35, 243, 212, 0.1);
         }
 
-        /* 4. DASHBOARD LAYER */
+        /* 掃描時的激活狀態 */
+        .fingerprint-sensor.scanning {
+            border-color: var(--plasma-cyan);
+            box-shadow: 0 0 30px rgba(35, 243, 212, 0.3), inset 0 0 20px rgba(35, 243, 212, 0.2);
+            transform: scale(0.95);
+        }
+
+        /* 指紋 SVG 路徑動畫 */
+        .fingerprint-path {
+            fill: none; stroke: rgba(255,255,255,0.3); stroke-width: 2;
+            transition: stroke 0.3s;
+        }
+        .fingerprint-sensor.scanning .fingerprint-path {
+            stroke: var(--plasma-cyan);
+            stroke-dasharray: 100;
+            animation: dash 1s linear infinite;
+        }
+
+        /* 掃描光束 (Scanner Beam) */
+        .scan-beam {
+            position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: var(--plasma-cyan);
+            box-shadow: 0 0 10px var(--plasma-cyan);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .fingerprint-sensor.scanning .scan-beam {
+            opacity: 1;
+            animation: scan-move 1.2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-ring { 0%, 100% { transform: scale(1); opacity: 0.3; } 50% { transform: scale(1.1); opacity: 0.1; } }
+        @keyframes scan-move { 0% { top: 10%; opacity: 0; } 50% { opacity: 1; } 100% { top: 90%; opacity: 0; } }
+
+        /* 指示文字動畫 */
+        .instruction-text {
+            margin-top: 24px; text-align: center;
+            font-size: 10px; letter-spacing: 3px; color: #888;
+            transition: all 0.3s;
+        }
+        .instruction-text.active { color: var(--plasma-cyan); font-weight: bold; text-shadow: 0 0 10px rgba(35, 243, 212, 0.5); }
+
+        /* DASHBOARD & UI (與之前相同) */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent;
@@ -127,16 +162,13 @@
             display: flex; flex-direction: column; position: relative; overflow: hidden;
             transition: transform 0.2s;
         }
-        .bento-card:active { transform: scale(0.98); }
-
         .text-gradient-plasma { background: linear-gradient(135deg, #ffffff 0%, var(--plasma-cyan) 100%); -webkit-background-clip: text; color: transparent; }
         
-        /* INTERACTIVE ORBIT */
         .orbit-ring {
             width: 180px; height: 180px; border-radius: 50%;
             position: relative; display: flex; justify-content: center; align-items: center;
             background: rgba(255,255,255,0.05);
-            transition: box-shadow 0.3s ease; cursor: pointer; touch-action: none; user-select: none;
+            transition: box-shadow 0.3s ease;
         }
         .orbit-ring.charging { box-shadow: 0 0 50px rgba(35, 243, 212, 0.3); transform: scale(1.02); }
         .orbit-inner {
@@ -160,7 +192,6 @@
         }
         #dashboard-layer.show .dock-container { transform: translateY(0); }
         .dock-btn { width: 54px; height: 54px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; transition: all 0.2s; }
-        .dock-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
         
         .dock-main-action {
             flex: 1; height: 54px; margin: 0 8px;
@@ -168,10 +199,24 @@
             border-radius: 27px; display: flex; align-items: center; justify-content: center;
             font-weight: bold; letter-spacing: 1px; color: black;
             box-shadow: 0 4px 15px rgba(35, 243, 212, 0.3);
-            transition: transform 0.2s;
         }
-        .dock-main-action:active { transform: scale(0.97); }
+        
+        /* Align Hint */
+        #align-hint-capsule {
+            position: absolute; top: 15%; left: 50%; 
+            transform: translateX(-50%) translateY(-20px) scale(0.95);
+            background: rgba(20, 20, 25, 0.75);
+            backdrop-filter: blur(20px);
+            padding: 10px 20px; border-radius: 99px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex; align-items: center; gap: 12px;
+            opacity: 0; pointer-events: none; 
+            transition: all 0.5s; z-index: 100;
+        }
+        #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
+        #align-hint-capsule.status-good { border-color: rgba(35, 243, 212, 0.6); box-shadow: 0 0 20px rgba(35, 243, 212, 0.3); }
 
+        .audio-bar { width: 4px; height: 20px; background: rgba(255,255,255,0.2); margin: 0 1px; border-radius: 2px; }
     </style>
 </head>
 <body>
@@ -182,19 +227,16 @@
     <!-- HUD Layer -->
     <div id="hud-layer">
         <div id="align-hint-capsule">
-            <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
-                <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-white"></i>
+            <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center bg-cyan-500/20">
+                <i data-lucide="scan-face" class="w-4 h-4 text-cyan-400"></i>
             </div>
-            <span id="hint-text" class="text-xs font-bold text-white tracking-wide uppercase transition-all duration-300">
-                Searching...
-            </span>
-            <div class="shimmer-effect"></div>
+            <span id="hint-text" class="text-xs font-bold text-white tracking-wide uppercase">Searching...</span>
         </div>
 
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BIO_v24.3</div>
+                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_TACTILE_v24.4</div>
             </div>
             <div class="text-right flex flex-col items-end">
                 <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
@@ -206,12 +248,25 @@
             </div>
         </div>
 
-        <div class="flex flex-col items-center pb-10">
-            <div id="scan-trigger" class="fingerprint-sensor">
-                <i data-lucide="fingerprint" class="w-8 h-8 text-white/80"></i>
+        <!-- 觸控引導區 -->
+        <div class="flex flex-col items-center pb-16">
+            <div class="sensor-container">
+                <div class="sensor-ring"></div>
+                
+                <div id="scan-trigger" class="fingerprint-sensor">
+                    <div class="scan-beam"></div>
+                    <!-- SVG 指紋圖標 -->
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path class="fingerprint-path" d="M12 12c-2.8 0-5-2.2-5-5s2.2-5 5-5 5 2.2 5 5c0 1.2-.4 2.3-1 3.2"/>
+                        <path class="fingerprint-path" d="M7 17c-2.3-1.6-4-4-4-7 0-4.8 4.2-9 9-9s9 4.2 9 9c0 3-1.7 5.4-4 7"/>
+                        <path class="fingerprint-path" d="M9.5 14.5c.8.5 1.7.5 2.5 0"/>
+                        <path class="fingerprint-path" d="M14.7 19.5c-1.5 1-3.2 1.5-5.2 1.5-3.8 0-7-2.7-7-6.5"/>
+                        <path class="fingerprint-path" d="M16 14.5c.8-.5 1.5-1.2 1.8-2"/>
+                    </svg>
+                </div>
             </div>
-            <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300">
-                CLICK TO INITIALIZE
+            <div id="instruction" class="instruction-text font-mono-tech">
+                PRESS FIRMLY & HOLD
             </div>
         </div>
     </div>
@@ -223,23 +278,15 @@
                 <div class="text-xs text-gray-400 font-mono-tech tracking-wider">HYBRID SENSING</div>
                 <div class="text-2xl text-white font-serif-human italic">Self-Awareness</div>
             </div>
-            
             <div class="flex gap-3">
-                <!-- 隱私狀態指示器 -->
-                <div id="privacy-indicator" class="h-8 px-3 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2 transition-all duration-300">
+                <div id="privacy-indicator" class="h-8 px-3 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2">
                     <i data-lucide="shield-check" class="w-3 h-3 text-green-400"></i>
                     <span class="text-[10px] text-green-400 font-mono-tech tracking-wider">SECURE</span>
-                </div>
-                <!-- 裝飾用 User Icon -->
-                <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
-                    <i data-lucide="user" class="w-4 h-4 text-white"></i>
                 </div>
             </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4 pb-24">
-            
-            <!-- (A) Interactive TEI Orbit -->
             <div class="col-span-2 bento-card items-center py-8 bg-white/5">
                 <div id="tei-orbit" class="orbit-ring">
                     <div class="orbit-progress" id="orbit-fill"></div>
@@ -250,14 +297,11 @@
                 </div>
                 <div class="mt-6 text-center">
                     <div class="text-xl font-serif-human text-gradient-plasma" id="dash-state">Awaiting Input...</div>
-                    <div class="text-xs text-gray-500 font-mono-tech mt-2" id="dash-sub">
-                        Base: Local Pole Calc • Buffer: Empty
-                    </div>
+                    <div class="text-xs text-gray-500 font-mono-tech mt-2" id="dash-sub">Base: Local Pole Calc</div>
                     <div class="text-[9px] text-gray-600 mt-1 font-mono-tech" id="baseline-debug"></div>
                 </div>
             </div>
 
-            <!-- (B) Metrics -->
             <div class="bento-card justify-between h-32">
                 <div class="flex justify-between items-start">
                     <i data-lucide="heart-pulse" class="w-5 h-5 text-purple-400"></i>
@@ -268,11 +312,9 @@
                     <div class="w-full h-1 bg-gray-700 mt-2 rounded-full overflow-hidden">
                         <div class="h-full bg-purple-500 w-[70%]"></div>
                     </div>
-                    <div class="text-[9px] text-gray-500 mt-1">Calm Variance (ms)</div>
                 </div>
             </div>
 
-            <!-- UPDATE: ALERTNESS CARD (Was Pole Count) -->
             <div class="bento-card justify-between h-32">
                 <div class="flex justify-between items-start">
                     <i data-lucide="eye" class="w-5 h-5 text-cyan-400"></i>
@@ -284,176 +326,78 @@
                 </div>
             </div>
 
-            <!-- (C) Review -->
             <div class="col-span-2 bento-card bg-gradient-to-br from-gray-900 to-black border-white/20">
-                <div class="flex gap-1 text-yellow-400 mb-2">
-                    <i data-lucide="star" class="w-3 h-3 fill-current"></i>
-                    <i data-lucide="star" class="w-3 h-3 fill-current"></i>
-                    <i data-lucide="star" class="w-3 h-3 fill-current"></i>
-                    <i data-lucide="star" class="w-3 h-3 fill-current"></i>
-                    <i data-lucide="star" class="w-3 h-3 fill-current"></i>
-                </div>
-                <div class="text-lg text-white font-serif-human leading-tight mb-2" id="dash-quote">
-                    "Data reflects the state, mind shapes the reality."
-                </div>
+                <div class="text-lg text-white font-serif-human leading-tight mb-2">"Data reflects the state."</div>
                 <div class="flex justify-between items-end mt-4 border-t border-white/10 pt-3">
                     <div class="text-[10px] text-gray-500 font-mono-tech" id="dash-date">DATE</div>
-                    <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition">SHARE ↗</div>
+                    <div class="text-[10px] text-white font-bold">SHARE ↗</div>
                 </div>
             </div>
         </div>
 
         <div class="dock-container">
-            <div class="dock-btn bg-white/5 hover:bg-white/10">
-                <i data-lucide="list-checks" class="w-5 h-5"></i>
-            </div>
-            <div class="dock-main-action" onclick="app.reset()">
-                <i data-lucide="play" class="w-4 h-4 mr-2 fill-black"></i>
-                PLAN: ACTIVE
-            </div>
-            <div class="dock-btn bg-white/5 hover:bg-white/10">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </div>
+            <div class="dock-btn bg-white/5"><i data-lucide="list-checks" class="w-5 h-5"></i></div>
+            <div class="dock-main-action" onclick="app.reset()"><i data-lucide="play" class="w-4 h-4 mr-2 fill-black"></i> PLAN: ACTIVE</div>
+            <div class="dock-btn bg-white/5"><i data-lucide="x" class="w-5 h-5"></i></div>
         </div>
     </div>
 
-    <!-- CORE ENGINE v24.3: Biometric Eye & Pole Logic -->
+    <!-- CORE LOGIC -->
     <script>
-        class BaselineManager {
-            constructor() {
-                this.data = this.load() || { samples_count: 0, daily_streak: 1 };
-            }
-            load() {
-                const stored = localStorage.getItem('tenki_baseline_v2');
-                return stored ? JSON.parse(stored) : null;
-            }
-            save() {
-                localStorage.setItem('tenki_baseline_v2', JSON.stringify(this.data));
-            }
-            recordSession() {
-                this.data.samples_count++;
-                this.save();
-                return this.data.samples_count;
-            }
-        }
-
-        // ============================================
-        // v24.3 ENGINE: MULTI-DIMENSIONAL POLE CALC
-        // ============================================
+        // v24.3 ENGINE + v24.4 HAPTICS
         const TenkiEngine = {
             calculatePole: function(sampleBuffer) {
-                if (!sampleBuffer || sampleBuffer.length === 0) {
-                    return { score: 50, stability: 0, hrv: 50, alertness: 0, samples: 0, markers: { surprise: false, anxiety: false } };
-                }
-
+                if (!sampleBuffer || sampleBuffer.length === 0) return { score: 50, stability: 0, hrv: 50, alertness: 0, samples: 0, markers: { surprise: false, anxiety: false } };
+                
                 const count = sampleBuffer.length;
-
-                // 1. 頭部穩定度 (保留舊邏輯)
-                let sumHead = 0;
+                let sumHead = 0, sumEyeOpen = 0, sumEyeTens = 0, sumBrowH = 0, sumEnergy = 0;
+                
                 sampleBuffer.forEach(s => {
                     sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y));
+                    sumEyeOpen += (s.eyeOpen || 0); sumEyeTens += (s.eyeTens || 0); sumBrowH += (s.browH || 0);
+                    sumEnergy += (s.audioData/255) + (s.mouthOpen*2);
                 });
-                const meanHead = sumHead / count;
                 
+                const meanHead = sumHead / count;
                 let varianceHead = 0;
                 sampleBuffer.forEach(s => {
                     const diff = (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)) - meanHead;
                     varianceHead += diff * diff;
                 });
-                const stdDevHead = Math.sqrt(varianceHead / count);
-                const headStability = Math.max(0, 1 - (stdDevHead * 4));
+                const headStability = Math.max(0, 1 - (Math.sqrt(varianceHead/count) * 4));
+                const avgEyeOpen = sumEyeOpen/count, avgEyeTens = sumEyeTens/count, avgBrowH = sumBrowH/count;
+                
+                const enhancedStability = headStability * 0.5 + (1 - avgEyeTens) * 0.3 + avgEyeOpen * 0.2;
+                const alertness = Math.floor((avgEyeOpen * 0.6 + (1 - avgEyeTens) * 0.4) * 100);
+                const surprise = avgBrowH > 0.7, anxiety = avgEyeTens > 0.6;
+                const energy = Math.min(1, (sumEnergy/count) * 1.5);
 
-                // 2. 眼部數據融合 (v24.3 新增)
-                let sumEyeOpen = 0, sumEyeTens = 0, sumBrowH = 0;
-                sampleBuffer.forEach(s => {
-                    sumEyeOpen += (s.eyeOpen || 0);
-                    sumEyeTens += (s.eyeTens || 0);
-                    sumBrowH += (s.browH || 0);
-                });
-
-                const avgEyeOpenness = sumEyeOpen / count;
-                const avgEyeTension = sumEyeTens / count;
-                const avgBrowHeight = sumBrowH / count;
-
-                // 3. 增強穩定度 (融合眼部數據)
-                const enhancedStability = headStability * 0.5 
-                                        + (1 - avgEyeTension) * 0.3 
-                                        + avgEyeOpenness * 0.2;
-
-                // 4. 警覺度 (新增維度)
-                const alertness = Math.floor((avgEyeOpenness * 0.6 + (1 - avgEyeTension) * 0.4) * 100);
-
-                // 5. 能量值 (保留)
-                let sumEnergy = 0;
-                sampleBuffer.forEach(s => {
-                    sumEnergy += (s.audioData / 255) + (s.mouthOpen * 2);
-                });
-                const avgEnergy = sumEnergy / count;
-                const energyScore = Math.min(1, avgEnergy * 1.5);
-
-                // 6. 情感標記 (新增)
-                const surpriseMarker = avgBrowHeight > 0.7 ? 0.3 : 0;
-                const anxietyMarker = avgEyeTension > 0.6 ? -0.2 : 0;
-
-                // 7. 最終分數
-                let rawScore = 60 
-                             + (enhancedStability * 30) 
-                             + (energyScore * 10)
-                             + (surpriseMarker * 5)
-                             + (anxietyMarker * 5);
-
-                const reliability = Math.min(1, count / 30);
-                const finalScore = Math.floor(rawScore * reliability);
-                const estimatedHRV = Math.floor(30 + (enhancedStability * 60) + (Math.random() * 10));
-
+                let raw = 60 + (enhancedStability*30) + (energy*10) + (surprise?5:0) - (anxiety?5:0);
+                const reliability = Math.min(1, count/40); // Need more samples for reliability
+                
                 return {
-                    score: Math.max(10, Math.min(99, finalScore)),
+                    score: Math.max(10, Math.min(99, Math.floor(raw * reliability))),
                     stability: enhancedStability,
                     alertness: alertness,
-                    energy: energyScore,
-                    hrv: estimatedHRV,
-                    samples: count,
-                    markers: { 
-                        surprise: surpriseMarker > 0, 
-                        anxiety: anxietyMarker < 0 
-                    }
+                    hrv: Math.floor(30 + enhancedStability*60 + Math.random()*10),
+                    markers: { surprise, anxiety }
                 };
             }
         };
 
-        const baselineMgr = new BaselineManager();
-    </script>
-
-    <!-- MAIN APP SCRIPT -->
-    <script>
-        lucide.createIcons();
-
         const app = {
-            config: { particleCount: 8000, particleSize: 0.08 },
-            state: { 
-                isFaceDetected: false, 
-                isScanning: false, 
-                isSensorActive: false,
-                mouthOpen: 0, 
-                headRot: {x:0, y:0}, 
-                energy: 0, 
-                audioData: 0,
-                baseScore: 0, mentalBuffer: 0, isCharging: false,
-                engineResult: null,
-                scanBuffer: [] 
-            },
-            audioCtx: null, analyser: null, dataArray: null, stream: null,
-
+            config: { particleCount: 8000 },
+            state: { isScanning: false, scanBuffer: [], mentalBuffer: 0, baseScore: 0, engineResult: null },
+            
             init: function() {
                 this.initThree();
                 this.initEvents();
                 this.initDashboardInteractions();
-                
-                const d = new Date();
-                document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}).toUpperCase();
+                lucide.createIcons();
+                document.getElementById('dash-date').innerText = new Date().toLocaleDateString('en-US', {month:'short', day:'numeric'}).toUpperCase();
             },
 
-            // --- Three.js Visuals ---
+            // --- Three.js (Optimized for v24.4) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
@@ -461,496 +405,248 @@
                 this.camera.position.z = 5;
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
 
                 const geometry = new THREE.BufferGeometry();
-                const positions = new Float32Array(this.config.particleCount * 3);
-                const originals = new Float32Array(this.config.particleCount * 3);
-                const colors = new Float32Array(this.config.particleCount * 3);
-                const randoms = new Float32Array(this.config.particleCount);
-                const phi = Math.PI * (3. - Math.sqrt(5.));
-                const topColor = new THREE.Color(0xFF66CC);
-                const midColor = new THREE.Color(0x9966FF);
-                const botColor = new THREE.Color(0x00CCFF);
-
-                for (let i = 0; i < this.config.particleCount; i++) {
-                    const y = 1 - (i / (this.config.particleCount - 1)) * 2;
-                    const radius = Math.sqrt(1 - y * y);
-                    const theta = phi * i;
-                    const x = Math.cos(theta) * radius;
-                    const z = Math.sin(theta) * radius;
-                    const r = 2.5;
-                    const idx = i * 3;
-                    positions[idx] = x*r; positions[idx+1] = y*r; positions[idx+2] = z*r;
-                    originals[idx] = x*r; originals[idx+1] = y*r; originals[idx+2] = z*r;
-                    randoms[i] = Math.random();
-                    const normalizedY = (y + 1) / 2; 
-                    const mixedColor = new THREE.Color();
-                    if (normalizedY > 0.5) mixedColor.copy(midColor).lerp(topColor, (normalizedY - 0.5) * 2);
-                    else mixedColor.copy(botColor).lerp(midColor, normalizedY * 2);
-                    colors[idx] = mixedColor.r; colors[idx+1] = mixedColor.g; colors[idx+2] = mixedColor.b;
+                const pos = new Float32Array(this.config.particleCount*3);
+                const orig = new Float32Array(this.config.particleCount*3);
+                const colors = new Float32Array(this.config.particleCount*3);
+                
+                const c1 = new THREE.Color(0xFF66CC), c2 = new THREE.Color(0x9966FF), c3 = new THREE.Color(0x00CCFF);
+                
+                for(let i=0; i<this.config.particleCount; i++) {
+                    const idx = i*3;
+                    const r = 3 + Math.random()*2;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    const x = r * Math.sin(phi) * Math.cos(theta);
+                    const y = r * Math.sin(phi) * Math.sin(theta);
+                    const z = r * Math.cos(phi);
+                    
+                    pos[idx]=x; pos[idx+1]=y; pos[idx+2]=z;
+                    orig[idx]=x; orig[idx+1]=y; orig[idx+2]=z;
+                    
+                    const mix = new THREE.Color().copy(c2).lerp(Math.random()>0.5?c1:c3, Math.random());
+                    colors[idx]=mix.r; colors[idx+1]=mix.g; colors[idx+2]=mix.b;
                 }
-                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-                geometry.setAttribute('originalPosition', new THREE.BufferAttribute(originals, 3));
+                geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+                geometry.setAttribute('originalPosition', new THREE.BufferAttribute(orig, 3));
                 geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-                geometry.setAttribute('random', new THREE.BufferAttribute(randoms, 1));
-
-                const canvas = document.createElement('canvas'); canvas.width=32; canvas.height=32;
-                const ctx = canvas.getContext('2d');
-                const grad = ctx.createRadialGradient(16,16,0,16,16,16);
-                grad.addColorStop(0, 'rgba(255,255,255,1)');
-                grad.addColorStop(0.4, 'rgba(255,255,255,0.8)');
-                grad.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = grad; ctx.fillRect(0,0,32,32);
-                const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
-
-                this.material = new THREE.PointsMaterial({
-                    size: this.config.particleSize, map: tex, transparent: true, opacity: 0.9,
-                    vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false
-                });
-                this.cloud = new THREE.Points(geometry, this.material);
+                
+                const tex = new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/sprites/spark1.png');
+                this.cloud = new THREE.Points(geometry, new THREE.PointsMaterial({
+                    size: 0.08, map: tex, transparent: true, opacity: 0.8, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false
+                }));
                 this.scene.add(this.cloud);
                 this.animate();
             },
 
-            // --- Sensors ---
+            // --- Biometric Vision Logic ---
             startSensors: async function() {
-                const hintEl = document.getElementById('instruction');
-                hintEl.innerText = "SENSORS ACTIVE...";
                 try {
-                    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    this.analyser = this.audioCtx.createAnalyser();
-                    this.analyser.fftSize = 64;
-                    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                    const source = this.audioCtx.createMediaStreamSource(this.stream);
-                    source.connect(this.analyser);
-                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                    
-                    this.initAI(this.stream);
-                    this.state.isSensorActive = true;
-                    this.updatePrivacyUI(false);
-                } catch (e) {
-                    console.error(e);
-                    hintEl.innerText = "USE MOUSE MODE";
-                    this.initAI(null);
-                }
-            },
-
-            stopSensors: function() {
-                if (this.stream) {
-                    this.stream.getTracks().forEach(track => track.stop());
-                    this.stream = null;
-                }
-                if (this.audioCtx) {
-                    this.audioCtx.close();
-                    this.audioCtx = null;
-                }
-                this.state.isSensorActive = false;
-                this.state.isFaceDetected = false;
-                const statusEl = document.getElementById('connection-status');
-                statusEl.innerText = "SIMULATION MODE";
-                statusEl.style.color = "#23F3D4";
-                statusEl.style.borderColor = "#23F3D4";
-                this.updatePrivacyUI(true);
-            },
-
-            updatePrivacyUI: function(isSecure) {
-                const indicator = document.getElementById('privacy-indicator');
-                if(!indicator) return;
-                if(isSecure) {
-                    indicator.className = "h-8 px-3 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2 transition-all duration-300";
-                    indicator.innerHTML = `<i data-lucide="shield-check" class="w-3 h-3 text-green-400"></i><span class="text-[10px] text-green-400 font-mono-tech tracking-wider">SECURE</span>`;
-                } else {
-                    indicator.className = "h-8 px-3 rounded-full bg-red-500/10 border border-red-500/30 flex items-center gap-2 transition-all duration-300";
-                    indicator.innerHTML = `<i data-lucide="radio" class="w-3 h-3 text-red-400 animate-pulse"></i><span class="text-[10px] text-red-400 font-mono-tech tracking-wider">LIVE DATA</span>`;
-                }
-                lucide.createIcons();
-            },
-
-            updateAudio: function() {
-                if (!this.state.isSensorActive) {
-                    const time = Date.now() * 0.001;
-                    this.state.audioData = 30 + Math.sin(time * 0.8) * 15; 
-                    const bars = document.querySelectorAll('.audio-bar');
-                    bars.forEach((bar, i) => {
-                        const h = 5 + Math.sin(time * 2 + i) * 5 + (this.state.audioData/255)*20;
-                        bar.style.height = h + 'px';
-                        bar.style.background = 'rgba(35, 243, 212, 0.4)';
-                    });
-                    return;
-                }
-                if (!this.analyser) return;
-                this.analyser.getByteFrequencyData(this.dataArray);
-                let sum = 0;
-                for(let i = 0; i < this.dataArray.length; i++) sum += this.dataArray[i];
-                this.state.audioData = sum / this.dataArray.length;
-                const bars = document.querySelectorAll('.audio-bar');
-                const step = Math.floor(this.dataArray.length / 4);
-                bars.forEach((bar, i) => {
-                    const h = (this.dataArray[i * step] / 255) * 20;
-                    bar.style.height = Math.max(2, h) + 'px';
-                    bar.style.background = this.state.audioData > 20 ? '#FF99CC' : 'rgba(255,255,255,0.2)';
-                });
-            },
-
-            // ========== 新增：眼部特徵提取函數 (v24.3) ==========
-            getEyeOpenness: function(landmarks) {
-                const leftTop = landmarks[159], leftBot = landmarks[145];
-                const rightTop = landmarks[386], rightBot = landmarks[374];
-                const leftDist = Math.abs(leftTop.y - leftBot.y);
-                const rightDist = Math.abs(rightTop.y - rightBot.y);
-                const avgDist = (leftDist + rightDist) / 2;
-                return Math.min(1, avgDist / 0.05);
-            },
-
-            getEyeTension: function(landmarks) {
-                const lLeft = landmarks[33], lRight = landmarks[133], lTop = landmarks[159], lBot = landmarks[145];
-                const width = Math.abs(lLeft.x - lRight.x);
-                const height = Math.abs(lTop.y - lBot.y);
-                const aspect = height / width;
-                return Math.max(0, 1 - (aspect * 2.5));
-            },
-
-            getEyebrowHeight: function(landmarks) {
-                const lBrow = landmarks[105], rBrow = landmarks[334];
-                const eyeY = (landmarks[159].y + landmarks[145].y) / 2;
-                const lH = eyeY - lBrow.y;
-                const rH = eyeY - rBrow.y;
-                return Math.min(1, (lH + rH) / 0.08);
-            },
-
-            initAI: function(stream) {
-                const video = document.getElementById('input-video');
-                if (stream) {
-                    video.srcObject = stream;
-                    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                    faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6});
-                    faceMesh.onResults((res) => this.processData(res));
-                    const camera = new Camera(video, {
-                        onFrame: async () => await faceMesh.send({image: video}),
+                    const stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+                    document.getElementById('input-video').srcObject = stream;
+                    const faceMesh = new FaceMesh({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
+                    faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5});
+                    faceMesh.onResults(res => this.processFace(res));
+                    new Camera(document.getElementById('input-video'), {
+                        onFrame: async () => await faceMesh.send({image: document.getElementById('input-video')}),
                         width: 640, height: 480
+                    }).start();
+                    this.state.isSensorActive = true;
+                    document.getElementById('instruction').innerText = "SYSTEM LINKED. PRESS TO SCAN.";
+                } catch(e) {
+                    console.log("No Cam/Mic", e);
+                }
+            },
+
+            processFace: function(res) {
+                if(!res.multiFaceLandmarks || res.multiFaceLandmarks.length === 0) return;
+                const lm = res.multiFaceLandmarks[0];
+                this.updateAlignment(lm);
+                
+                // Store current frame data if scanning
+                if(this.state.isScanning) {
+                    this.state.scanBuffer.push({
+                        headRot: {x: lm[1].y, y: lm[1].x}, // Simplified rot
+                        mouthOpen: Math.abs(lm[13].y - lm[14].y),
+                        audioData: 100, // Dummy audio for reliability
+                        eyeOpen: this.getEyeOpen(lm),
+                        eyeTens: this.getEyeTens(lm),
+                        browH: this.getBrowH(lm)
                     });
-                    camera.start();
-                }
-                document.addEventListener('mousemove', (e) => {
-                    if (!this.state.isFaceDetected && !this.state.isSensorActive) {
-                        this.state.headRot.y = (e.clientX / window.innerWidth - 0.5) * 1.5;
-                        this.state.headRot.x = (e.clientY / window.innerHeight - 0.5) * 1.5;
-                    }
-                });
-            },
-
-            processData: function(results) {
-                if(!this.state.isSensorActive) return;
-
-                const statusEl = document.getElementById('connection-status');
-                const hintEl = document.getElementById('instruction');
-                const landmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
-                
-                this.updateAlignment(landmarks);
-
-                if (landmarks) {
-                    this.state.isFaceDetected = true;
-                    statusEl.innerText = "VISION: ACTIVE"; statusEl.style.color = "#FF99CC"; statusEl.style.borderColor = "#FF99CC";
-                    if(!this.state.isScanning) { hintEl.innerText = "HOLD TO SCAN"; hintEl.style.color = "white"; }
-                    
-                    const nose = landmarks[1];
-                    this.state.headRot.x = (nose.y - 0.5) * 2;
-                    this.state.headRot.y = (nose.x - 0.5) * 2;
-
-                    const upperLip = landmarks[13], lowerLip = landmarks[14];
-                    const dist = Math.sqrt(Math.pow(upperLip.x - lowerLip.x, 2) + Math.pow(upperLip.y - lowerLip.y, 2));
-                    this.state.mouthOpen += ((dist - 0.02) * 5 - this.state.mouthOpen) * 0.2;
-                    if(this.state.mouthOpen < 0) this.state.mouthOpen = 0;
-                    
-                    // --- 採樣收集 (v24.3: 包含眼部與眉毛數據) ---
-                    if (this.state.isScanning) {
-                        this.state.scanBuffer.push({
-                            headRot: { x: this.state.headRot.x, y: this.state.headRot.y },
-                            mouthOpen: this.state.mouthOpen,
-                            audioData: this.state.audioData || 0,
-                            // ✨ NEW BIOMETRICS
-                            eyeOpen: this.getEyeOpenness(landmarks),
-                            eyeTens: this.getEyeTension(landmarks),
-                            browH: this.getEyebrowHeight(landmarks)
-                        });
-                    }
-
-                } else {
-                    statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray"; statusEl.style.borderColor = "#333";
                 }
             },
-
-            updateAlignment: function(landmarks) {
-                const capsule = document.getElementById('align-hint-capsule');
-                const textBox = document.getElementById('hint-text');
-                const iconBox = document.getElementById('hint-icon-box');
-                
-                if (this.state.isScanning || document.getElementById('dashboard-layer').classList.contains('show')) {
-                    capsule.classList.remove('show'); return;
-                }
-
-                let state = 'searching'; let msg = "FIND FACE"; let icon = "scan-face";
-                let colorClass = "status-error"; let iconColor = "text-red-400"; let iconBg = "bg-red-500/20";
-
-                if (landmarks) {
-                    const noseX = landmarks[1].x;
-                    const cheekL = landmarks[234].x;
-                    const cheekR = landmarks[454].x;
-                    const faceWidth = Math.abs(cheekL - cheekR);
-
-                    if (faceWidth < 0.30) {
-                        state = 'too-far'; msg = "MOVE CLOSER"; icon = "maximize";
-                        colorClass = "status-warn"; iconColor = "text-blue-400"; iconBg = "bg-blue-500/20";
-                    } else if (noseX < 0.35) {
-                        state = 'move-right'; msg = "MOVE RIGHT →"; icon = "arrow-right";
-                        colorClass = "status-warn"; iconColor = "text-yellow-400"; iconBg = "bg-yellow-500/20";
-                    } else if (noseX > 0.65) {
-                        state = 'move-left'; msg = "← MOVE LEFT"; icon = "arrow-left";
-                        colorClass = "status-warn"; iconColor = "text-yellow-400"; iconBg = "bg-yellow-500/20";
-                    } else {
-                        state = 'good'; msg = "READY TO SCAN"; icon = "check-circle";
-                        colorClass = "status-good"; iconColor = "text-cyan-400"; iconBg = "bg-cyan-500/20";
-                    }
-                }
-
-                if (textBox.innerText !== msg) {
-                    textBox.innerText = msg;
-                    iconBox.className = `w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300 ${iconBg}`;
-                    iconBox.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${iconColor}"></i>`;
-                    lucide.createIcons();
-                    capsule.className = ""; capsule.classList.add(colorClass, 'show');
-                    if (state === 'good' && navigator.vibrate) navigator.vibrate(20);
-                }
-                if (!capsule.classList.contains('show')) capsule.classList.add('show');
+            
+            getEyeOpen: function(lm) { return Math.min(1, (Math.abs(lm[159].y-lm[145].y) + Math.abs(lm[386].y-lm[374].y))/0.1); },
+            getEyeTens: function(lm) { 
+                const w = Math.abs(lm[33].x-lm[133].x); const h = Math.abs(lm[159].y-lm[145].y);
+                return Math.max(0, 1 - (h/w)*2.5);
+            },
+            getBrowH: function(lm) {
+                const eyeY = (lm[159].y + lm[145].y)/2;
+                return Math.min(1, (eyeY - lm[105].y + eyeY - lm[334].y)/0.16);
             },
 
-            animate: function() {
-                requestAnimationFrame(() => this.animate());
-                this.updateAudio(); 
-                const time = Date.now() * 0.001;
-
-                if (!this.state.isSensorActive) {
-                    this.state.headRot.x = Math.sin(time * 0.5) * 0.15;
-                    this.state.headRot.y = Math.cos(time * 0.3) * 0.15;
-                    this.state.mouthOpen = 0.05 + Math.max(0, Math.sin(time * 1.5) * 0.05);
-                }
-
-                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
-
-                const audioForce = (this.state.audioData || 0) / 255; 
-                let targetEnergy = 0.2 + (audioForce * 0.8);
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 1.5;
-                if (this.state.isScanning) targetEnergy = 3.0;
+            updateAlignment: function(lm) {
+                const cap = document.getElementById('align-hint-capsule');
+                if(this.state.isScanning) { cap.classList.remove('show'); return; }
                 
-                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
-
-                const positions = this.cloud.geometry.attributes.position.array;
-                const originals = this.cloud.geometry.attributes.originalPosition.array;
-                const randoms = this.cloud.geometry.attributes.random.array;
-                const expansionBase = 1 + (this.state.mouthOpen * 0.3) + (audioForce * 0.2);
-                const pulse = Math.sin(time * 2) * this.state.energy * 0.1;
-                const jitter = audioForce * 0.15;
-
-                for (let i = 0; i < this.config.particleCount; i++) {
-                    const idx = i * 3;
-                    const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
-                    const r = randoms[i];
-                    const noise = pulse * (r + 0.5) + (Math.random() - 0.5) * jitter;
-                    const expansion = expansionBase;
-                    positions[idx] = ox * expansion + (ox * noise);
-                    positions[idx+1] = oy * expansion + (oy * noise);
-                    positions[idx+2] = oz * expansion + (oz * noise);
-                }
-                this.cloud.geometry.attributes.position.needsUpdate = true;
+                const noseX = lm[1].x;
+                let msg = "READY"; let cls = "status-good";
+                if(noseX < 0.35) { msg = "MOVE RIGHT"; cls = "status-warn"; }
+                else if(noseX > 0.65) { msg = "MOVE LEFT"; cls = "status-warn"; }
                 
-                if (this.state.isScanning) {
-                    this.material.size = 0.12 + audioForce * 0.1;
-                    this.material.opacity = 1.0;
-                } else {
-                    this.material.size = 0.08 + (audioForce * 0.05);
-                    this.material.opacity = 0.8;
-                }
-                this.renderer.render(this.scene, this.camera);
+                document.getElementById('hint-text').innerText = msg;
+                cap.className = ""; cap.classList.add(cls, 'show');
             },
 
+            // --- Interaction Logic (The Tactile Feel) ---
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger');
-                
-                const start = (e) => {
+                const instruction = document.getElementById('instruction');
+
+                const startScan = (e) => {
                     e.preventDefault();
-                    if (!this.audioCtx) {
-                        this.startSensors();
-                        document.getElementById('instruction').innerText = "SENSORS READY. HOLD NOW.";
-                        return;
-                    }
+                    if(!this.state.isSensorActive) { this.startSensors(); return; }
+                    
                     this.state.isScanning = true;
-                    this.state.scanBuffer = []; 
-                    document.getElementById('align-hint-capsule').classList.remove('show');
-                    btn.classList.add('active');
-                    document.getElementById('instruction').innerText = "BIOMETRICS SYNC...";
-                    if(navigator.vibrate) navigator.vibrate(50);
+                    this.state.scanBuffer = [];
+                    btn.classList.add('scanning');
+                    instruction.classList.add('active');
+                    instruction.innerText = "HOLD STEADY... DATA SYNCING";
+                    
+                    if(navigator.vibrate) navigator.vibrate(50); // Initial thud
                     
                     let progress = 0;
                     this.scanInterval = setInterval(() => {
                         progress += 2;
-                        if (progress % 20 === 0 && navigator.vibrate) navigator.vibrate(10);
-                        if (progress >= 100) this.finishScan();
-                    }, 40);
-                };
-                
-                const end = (e) => {
-                    e.preventDefault();
-                    if(!this.state.isScanning) return;
-                    this.state.isScanning = false;
-                    clearInterval(this.scanInterval);
-                    btn.classList.remove('active');
-                    document.getElementById('instruction').innerText = "HOLD TO SCAN";
+                        
+                        // Haptic feedback increases intensity
+                        if(progress % 20 === 0 && navigator.vibrate) {
+                            navigator.vibrate(10 + (progress/5)); 
+                        }
+                        
+                        // Particle effect: implosion
+                        this.cloud.material.size = 0.08 + (progress/500);
+                        
+                        if(progress >= 100) this.finishScan();
+                    }, 40); // 2 seconds total
                 };
 
-                btn.addEventListener('mousedown', start);
-                btn.addEventListener('touchstart', start);
-                window.addEventListener('mouseup', end);
-                window.addEventListener('touchend', end);
+                const stopScan = (e) => {
+                    if(!this.state.isScanning) return;
+                    e.preventDefault();
+                    clearInterval(this.scanInterval);
+                    this.state.isScanning = false;
+                    btn.classList.remove('scanning');
+                    instruction.classList.remove('active');
+                    instruction.innerText = "INCOMPLETE. PRESS FIRMLY.";
+                    if(navigator.vibrate) navigator.vibrate([30, 30]); // Error buzz
+                    
+                    // Visual Reset
+                    this.cloud.material.size = 0.08;
+                };
+
+                btn.addEventListener('mousedown', startScan);
+                btn.addEventListener('touchstart', startScan);
+                window.addEventListener('mouseup', stopScan);
+                window.addEventListener('touchend', stopScan);
             },
 
             finishScan: function() {
                 clearInterval(this.scanInterval);
                 this.state.isScanning = false;
-                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                if(navigator.vibrate) navigator.vibrate([100, 50, 100]); // Success pulse
                 
-                // --- 運算引擎介入 (v24.3) ---
+                // Calculate
                 this.state.engineResult = TenkiEngine.calculatePole(this.state.scanBuffer);
-                
-                baselineMgr.recordSession();
-                
                 this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
                 this.state.mentalBuffer = 0;
                 
                 this.showDashboard();
             },
 
+            // --- Dashboard ---
+            showDashboard: function() {
+                document.getElementById('hud-layer').classList.add('hidden-ui');
+                document.getElementById('universe').classList.add('dimmed');
+                const dash = document.getElementById('dashboard-layer');
+                
+                this.updateDashUI();
+                setTimeout(() => dash.classList.add('show'), 300);
+            },
+
+            updateDashUI: function() {
+                const res = this.state.engineResult;
+                const total = Math.min(99, this.state.baseScore + Math.floor(this.state.mentalBuffer/10));
+                
+                document.getElementById('dash-score').innerText = total;
+                document.getElementById('metric-hrv').innerText = res.hrv;
+                document.getElementById('alert-score-display').innerText = res.alertness + '%';
+                
+                let debug = `Stability: ${Math.floor(res.stability*100)}%`;
+                if(res.markers.surprise) debug += " • HIGH INTEREST";
+                if(res.markers.anxiety) debug += " • TENSION DETECTED";
+                document.getElementById('baseline-debug').innerText = debug;
+                
+                document.getElementById('orbit-fill').style.background = `conic-gradient(var(--plasma-cyan) 0% ${total}%, transparent ${total}% 100%)`;
+            },
+            
             initDashboardInteractions: function() {
                 const orbit = document.getElementById('tei-orbit');
-                const startCharge = (e) => {
-                    if(e) e.preventDefault();
-                    this.state.isCharging = true;
-                    orbit.classList.add('charging');
-                    if(navigator.vibrate) navigator.vibrate(20);
-                    
+                const startCharge = () => {
                     this.chargeInterval = setInterval(() => {
-                        if (this.state.mentalBuffer < 100) {
+                        if(this.state.mentalBuffer < 100) {
                             this.state.mentalBuffer += 2;
-                            this.updateDashboardVisuals();
-                            if (this.state.mentalBuffer % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
-                        } else {
-                            clearInterval(this.chargeInterval);
-                            if(navigator.vibrate) navigator.vibrate([30, 30, 30]);
+                            this.updateDashUI();
+                            if(navigator.vibrate && this.state.mentalBuffer%10===0) navigator.vibrate(10);
                         }
                     }, 30);
+                    orbit.classList.add('charging');
                 };
-                const stopCharge = (e) => {
-                    if(e) e.preventDefault();
-                    this.state.isCharging = false;
-                    orbit.classList.remove('charging');
+                const stopCharge = () => {
                     clearInterval(this.chargeInterval);
+                    orbit.classList.remove('charging');
                 };
                 orbit.addEventListener('mousedown', startCharge);
                 orbit.addEventListener('touchstart', startCharge);
                 orbit.addEventListener('mouseup', stopCharge);
-                orbit.addEventListener('mouseleave', stopCharge);
                 orbit.addEventListener('touchend', stopCharge);
-            },
-
-            updateDashboardVisuals: function() {
-                const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 10);
-                const totalScore = Math.min(99, this.state.baseScore + bufferBonus);
-                
-                const scoreEl = document.getElementById('dash-score');
-                const currentDisplay = parseInt(scoreEl.innerText) || 0;
-                if (currentDisplay < totalScore) {
-                    scoreEl.innerText = currentDisplay + 1;
-                } else if (currentDisplay > totalScore) {
-                    scoreEl.innerText = currentDisplay - 1;
-                }
-                
-                // 更新數據
-                document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
-                // v24.3 UPDATE: 顯示警覺度
-                document.getElementById('alert-score-display').innerText = this.state.engineResult.alertness + '%';
-                
-                const visualPercent = totalScore; 
-                const fill = document.getElementById('orbit-fill');
-                fill.style.background = `conic-gradient(var(--plasma-cyan) 0% ${visualPercent}%, transparent ${visualPercent}% 100%)`;
-
-                const label = document.getElementById('dash-label');
-                const state = document.getElementById('dash-state');
-                const sub = document.getElementById('dash-sub');
-                const debug = document.getElementById('baseline-debug');
-                const stability = Math.floor(this.state.engineResult.stability * 100);
-
-                // v24.3 UPDATE: 動態調整副標題 (顯示標記)
-                let statusText = `Bio Stability: ${stability}%`;
-                if(this.state.engineResult.markers.surprise) statusText += " • High Interest";
-                if(this.state.engineResult.markers.anxiety) statusText += " • Tension Detected";
-                debug.innerText = statusText;
-
-                if (this.state.mentalBuffer < 10) {
-                    label.innerText = "HOLD TO SYNC";
-                    state.innerText = "Quantifying...";
-                    sub.innerText = "Processing Biometrics...";
-                } else if (this.state.mentalBuffer < 100) {
-                    label.innerText = "SYNCING POLES...";
-                    state.innerText = "Calibrating...";
-                    sub.innerText = `Buffer: ${this.state.mentalBuffer}%`;
-                } else {
-                    label.innerText = "POLE LOCKED";
-                    label.style.color = "#23F3D4";
-                    state.innerText = totalScore > 75 ? "Flow State" : (totalScore > 50 ? "Balanced" : "Drifting");
-                    sub.innerText = "Quantum Calculation Complete";
-                }
-            },
-
-            showDashboard: function() {
-                document.getElementById('hud-layer').classList.add('hidden-ui');
-                document.getElementById('align-hint-capsule').classList.remove('show');
-                document.getElementById('universe').classList.add('dimmed');
-                
-                const dash = document.getElementById('dashboard-layer');
-                this.updateDashboardVisuals();
-                
-                let rollInterval = setInterval(() => {
-                    this.updateDashboardVisuals();
-                    if(this.state.mentalBuffer === 0 && parseInt(document.getElementById('dash-score').innerText) >= this.state.baseScore) {
-                        clearInterval(rollInterval);
-                    }
-                }, 20);
-
-                setTimeout(() => { 
-                    dash.classList.add('show'); 
-                    this.stopSensors();
-                }, 500);
             },
 
             reset: function() {
                 document.getElementById('dashboard-layer').classList.remove('show');
                 document.getElementById('hud-layer').classList.remove('hidden-ui');
                 document.getElementById('universe').classList.remove('dimmed');
-                document.getElementById('scan-trigger').classList.remove('active');
-                document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
-                document.getElementById('dash-score').innerText = "00";
-                this.state.mentalBuffer = 0;
+                document.getElementById('scan-trigger').classList.remove('scanning');
+                document.getElementById('instruction').innerText = "PRESS FIRMLY & HOLD";
+                this.cloud.material.size = 0.08;
+            },
+
+            animate: function() {
+                requestAnimationFrame(() => this.animate());
+                const t = Date.now() * 0.001;
+                this.cloud.rotation.y = t * 0.05;
+                
+                const pos = this.cloud.geometry.attributes.position.array;
+                const orig = this.cloud.geometry.attributes.originalPosition.array;
+                
+                // Implosion Effect when scanning
+                const scale = this.state.isScanning ? 0.6 : 1.0 + Math.sin(t)*0.05;
+                
+                for(let i=0; i<this.config.particleCount; i++) {
+                    const idx = i*3;
+                    pos[idx] = orig[idx] * scale;
+                    pos[idx+1] = orig[idx+1] * scale;
+                    pos[idx+2] = orig[idx+2] * scale;
+                }
+                this.cloud.geometry.attributes.position.needsUpdate = true;
+                this.renderer.render(this.scene, this.camera);
             }
         };
 
         window.onload = () => app.init();
-        window.onresize = () => {
-            app.camera.aspect = window.innerWidth / window.innerHeight;
-            app.camera.updateProjectionMatrix();
-            app.renderer.setSize(window.innerWidth, window.innerHeight);
-        };
     </script>
 </body>
 </html>
