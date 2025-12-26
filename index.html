@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v24.3 - Biometric Triple Orbit</title>
+    <title>TENKI v24.4 - High Fidelity Dashboard</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -32,16 +32,15 @@
         body {
             background: var(--bg-deep);
             color: white;
-            font-family: 'Space Mono', monospace;
+            font-family: 'Inter', sans-serif; /* 改為更現代的 UI 字體 */
             overflow: hidden;
             width: 100vw; 
-            height: 100vh; /* Fallback */
-            height: 100dvh; /* Mobile Fix */
+            height: 100vh;
+            height: 100dvh;
             margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
         }
 
-        .font-serif-human { font-family: 'Playfair Display', serif; }
         .font-mono-tech { font-family: 'Space Mono', monospace; }
 
         /* 1. 隱私層 */
@@ -96,6 +95,7 @@
             margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
         }
 
+        /* 掃描按鈕相關 */
         .fingerprint-wrapper {
             position: relative;
             width: 100px; height: 100px;
@@ -132,7 +132,7 @@
         .fingerprint-icon { transition: all 0.3s; opacity: 0.7; }
         .fingerprint-wrapper.active .fingerprint-icon { color: var(--plasma-cyan); opacity: 1; transform: scale(1.1); }
 
-        /* 4. DASHBOARD LAYER */
+        /* 4. DASHBOARD LAYER - REFINED */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent;
@@ -146,59 +146,66 @@
 
         .bento-card {
             background: var(--glass-bg); border: 1px solid var(--glass-border);
-            border-radius: 24px; padding: 20px;
-            backdrop-filter: blur(20px);
+            border-radius: 32px; /* 更圓潤 */
+            padding: 24px;
+            backdrop-filter: blur(30px);
             display: flex; flex-direction: column; position: relative; overflow: hidden;
             transition: transform 0.2s;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
         }
         .bento-card:active { transform: scale(0.98); }
 
-        .text-gradient-plasma { background: linear-gradient(135deg, #ffffff 0%, var(--plasma-cyan) 100%); -webkit-background-clip: text; color: transparent; }
+        .text-gradient-plasma { background: linear-gradient(135deg, #ffffff 50%, var(--plasma-cyan) 100%); -webkit-background-clip: text; color: transparent; }
         
         /* NEW: TRIPLE RING CONTAINER */
         #orbit-container {
-            width: 220px; height: 220px;
+            width: 260px; height: 260px; /* 加大尺寸 */
             position: relative;
             display: flex; justify-content: center; align-items: center;
             cursor: pointer;
+            margin: 0 auto;
             -webkit-tap-highlight-color: transparent;
         }
         #orbit-container.charging { transform: scale(1.02); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         
-        /* Canvas positioning */
         #triple-ring-canvas {
             position: absolute; inset: 0; width: 100%; height: 100%;
             z-index: 1;
+            /* 讓 Canvas 在 Retina 螢幕上清晰 */
+            image-rendering: -webkit-optimize-contrast;
         }
         
         .orbit-inner-text {
             position: relative; z-index: 2;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             pointer-events: none;
-            text-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        
+        #dash-score {
+            font-variant-numeric: tabular-nums; /* 防止數字跳動時寬度改變 */
         }
 
         .dock-container {
             position: fixed; 
             bottom: 30px; 
             bottom: calc(30px + env(safe-area-inset-bottom));
-            left: 20px; right: 20px; height: 70px;
-            background: rgba(10, 10, 20, 0.85); backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.1); border-radius: 35px;
-            display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            left: 20px; right: 20px; height: 72px;
+            background: rgba(15, 15, 25, 0.9); backdrop-filter: blur(25px);
+            border: 1px solid rgba(255,255,255,0.12); border-radius: 40px;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 10px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
             transform: translateY(150px); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         #dashboard-layer.show .dock-container { transform: translateY(0); }
-        .dock-btn { width: 54px; height: 54px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; transition: all 0.2s; }
-        .dock-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
+        .dock-btn { width: 56px; height: 56px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; transition: all 0.2s; background: rgba(255,255,255,0.03); }
+        .dock-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
         
         .dock-main-action {
-            flex: 1; height: 54px; margin: 0 8px;
+            flex: 1; height: 56px; margin: 0 10px;
             background: linear-gradient(90deg, var(--plasma-cyan), var(--stardust-purple));
-            border-radius: 27px; display: flex; align-items: center; justify-content: center;
-            font-weight: bold; letter-spacing: 1px; color: black;
-            box-shadow: 0 4px 15px rgba(35, 243, 212, 0.3);
+            border-radius: 30px; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; letter-spacing: 0.5px; color: #000;
+            box-shadow: 0 4px 20px rgba(35, 243, 212, 0.4);
             transition: transform 0.2s;
         }
         .dock-main-action:active { transform: scale(0.97); }
@@ -225,7 +232,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BIO_v24.3</div>
+                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BIO_v24.4</div>
             </div>
             <div class="text-right flex flex-col items-end">
                 <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
@@ -257,13 +264,13 @@
     <div id="dashboard-layer">
         <div class="flex justify-between items-center mb-6">
             <div>
-                <div class="text-xs text-gray-400 font-mono-tech tracking-wider">HYBRID SENSING</div>
-                <div class="text-2xl text-white font-serif-human italic">Self-Awareness</div>
+                <div class="text-xs text-gray-400 font-mono-tech tracking-wider uppercase">Hybrid Sensing</div>
+                <div class="text-2xl text-white font-bold italic">Self-Awareness</div>
             </div>
             <div class="flex gap-3">
                 <div id="privacy-indicator" class="h-8 px-3 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2 transition-all duration-300">
                     <i data-lucide="shield-check" class="w-3 h-3 text-green-400"></i>
-                    <span class="text-[10px] text-green-400 font-mono-tech tracking-wider">SECURE</span>
+                    <span class="text-[10px] text-green-400 font-bold tracking-wider">SECURE</span>
                 </div>
                 <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
                     <i data-lucide="user" class="w-4 h-4 text-white"></i>
@@ -273,82 +280,97 @@
 
         <div class="grid grid-cols-2 gap-4 pb-24">
             
-            <!-- (A) REFACTORED: Triple Ring Orbit -->
-            <div class="col-span-2 bento-card items-center py-6 bg-white/5 overflow-visible">
+            <!-- (A) REFACTORED: High Fidelity Triple Ring -->
+            <div class="col-span-2 bento-card items-center py-8 bg-white/5 overflow-visible border-white/10">
                 <!-- Canvas Container -->
                 <div id="orbit-container">
-                    <canvas id="triple-ring-canvas" width="440" height="440"></canvas>
+                    <canvas id="triple-ring-canvas"></canvas>
                     
                     <!-- Center Text Overlay -->
                     <div class="orbit-inner-text">
-                        <div class="text-5xl font-bold text-white font-mono-tech tracking-tighter" id="dash-score">00</div>
-                        <div class="text-[10px] text-cyan-300 tracking-widest mt-1 text-center font-bold" id="dash-label">HOLD TO SYNC</div>
+                        <div class="text-6xl font-black text-white tracking-tighter" id="dash-score">00</div>
+                        <div class="text-[10px] text-cyan-300 tracking-[0.2em] mt-2 font-bold uppercase" id="dash-label">SCORE</div>
                     </div>
                 </div>
 
-                <div class="mt-4 text-center relative z-10">
-                    <div class="text-xl font-serif-human text-gradient-plasma" id="dash-state">Awaiting Input...</div>
-                    <div class="text-xs text-gray-500 font-mono-tech mt-2" id="dash-sub">
-                        Mercury • Plasma • Stardust
+                <div class="mt-6 text-center relative z-10 w-full">
+                    <div class="text-xl font-serif-human text-gradient-plasma font-bold" id="dash-state">Analysing...</div>
+                    <div class="flex justify-center gap-4 mt-3">
+                        <div class="flex flex-col items-center">
+                            <span class="text-[10px] text-gray-500 font-bold">MERCURY</span>
+                            <span class="text-xs text-white font-mono-tech" id="val-mercury">--</span>
+                        </div>
+                         <div class="flex flex-col items-center">
+                            <span class="text-[10px] text-gray-500 font-bold">PLASMA</span>
+                            <span class="text-xs text-white font-mono-tech" id="val-plasma">--</span>
+                        </div>
+                         <div class="flex flex-col items-center">
+                            <span class="text-[10px] text-gray-500 font-bold">STARDUST</span>
+                            <span class="text-xs text-white font-mono-tech" id="val-stardust">--</span>
+                        </div>
                     </div>
-                    <div class="text-[9px] text-gray-600 mt-1 font-mono-tech" id="baseline-debug"></div>
                 </div>
             </div>
 
             <!-- (B) Metrics -->
-            <div class="bento-card justify-between h-32">
+            <div class="bento-card justify-between h-36">
                 <div class="flex justify-between items-start">
-                    <i data-lucide="heart-pulse" class="w-5 h-5 text-purple-400"></i>
-                    <span class="text-[10px] text-gray-400">VAR. HRV</span>
+                    <div class="p-2 bg-purple-500/20 rounded-full">
+                        <i data-lucide="heart-pulse" class="w-4 h-4 text-purple-400"></i>
+                    </div>
+                    <span class="text-[10px] text-gray-400 font-bold">HRV COHERENCE</span>
                 </div>
                 <div>
-                    <div class="text-xl font-bold font-mono-tech" id="metric-hrv">--</div>
-                    <div class="w-full h-1 bg-gray-700 mt-2 rounded-full overflow-hidden">
-                        <div class="h-full bg-purple-500 w-[70%]"></div>
+                    <div class="text-3xl font-bold font-mono-tech text-white" id="metric-hrv">--</div>
+                    <div class="w-full h-1.5 bg-gray-800 mt-3 rounded-full overflow-hidden">
+                        <div class="h-full bg-purple-500 w-[0%]" id="bar-hrv" style="transition: width 1s cubic-bezier(0.19, 1, 0.22, 1)"></div>
                     </div>
-                    <div class="text-[9px] text-gray-500 mt-1">Plasma Coherence</div>
                 </div>
             </div>
 
-            <div class="bento-card justify-between h-32">
+            <div class="bento-card justify-between h-36">
                 <div class="flex justify-between items-start">
-                    <i data-lucide="eye" class="w-5 h-5 text-cyan-400"></i>
-                    <span class="text-[10px] text-gray-400">ALERTNESS</span>
+                    <div class="p-2 bg-cyan-500/20 rounded-full">
+                        <i data-lucide="eye" class="w-4 h-4 text-cyan-400"></i>
+                    </div>
+                    <span class="text-[10px] text-gray-400 font-bold">ALERTNESS</span>
                 </div>
                 <div>
-                    <div class="text-3xl font-bold font-mono-tech text-cyan-400" id="alert-score-display">--</div>
-                    <div class="text-[10px] text-gray-500 mt-1">Mercury Tension</div>
+                    <div class="text-3xl font-bold font-mono-tech text-cyan-400" id="alert-score-display">--%</div>
+                    <div class="w-full h-1.5 bg-gray-800 mt-3 rounded-full overflow-hidden">
+                        <div class="h-full bg-cyan-400 w-[0%]" id="bar-alert" style="transition: width 1s cubic-bezier(0.19, 1, 0.22, 1)"></div>
+                    </div>
                 </div>
             </div>
 
             <!-- (C) Review -->
-            <div class="col-span-2 bento-card bg-gradient-to-br from-gray-900 to-black border-white/20">
-                <div class="flex gap-1 text-yellow-400 mb-2">
+            <div class="col-span-2 bento-card bg-gradient-to-br from-[#0f1016] to-[#000] border-white/10">
+                <div class="flex gap-1 text-orange-400 mb-3">
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
                 </div>
-                <div class="text-lg text-white font-serif-human leading-tight mb-2" id="dash-quote">
+                <div class="text-lg text-white font-serif font-medium leading-snug italic opacity-90" id="dash-quote">
                     "Data reflects the state, mind shapes the reality."
                 </div>
-                <div class="flex justify-between items-end mt-4 border-t border-white/10 pt-3">
+                <div class="flex justify-between items-end mt-5 border-t border-white/5 pt-4">
                     <div class="text-[10px] text-gray-500 font-mono-tech" id="dash-date">DATE</div>
-                    <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition">SHARE ↗</div>
+                    <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition tracking-widest">SHARE REPORT</div>
                 </div>
             </div>
         </div>
 
         <div class="dock-container">
-            <div class="dock-btn bg-white/5 hover:bg-white/10">
+            <div class="dock-btn">
                 <i data-lucide="list-checks" class="w-5 h-5"></i>
             </div>
             <div class="dock-main-action" onclick="app.reset()">
                 <i data-lucide="play" class="w-4 h-4 mr-2 fill-black"></i>
-                PLAN: ACTIVE
+                RESYNC
             </div>
-            <div class="dock-btn bg-white/5 hover:bg-white/10">
+            <div class="dock-btn">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </div>
         </div>
@@ -356,7 +378,6 @@
 
     <!-- CORE ENGINE v24.3 -->
     <script>
-        // ... (BaselineManager & TenkiEngine are unchanged) ...
         class BaselineManager {
             constructor() {
                 this.data = this.load() || { samples_count: 0, daily_streak: 1 };
@@ -433,36 +454,45 @@
         const baselineMgr = new BaselineManager();
     </script>
 
-    <!-- NEW: TRIPLE RING VISUALIZER ENGINE -->
+    <!-- REFACTORED: HIGH FIDELITY TRIPLE ORBIT VISUALIZER -->
     <script>
         class TripleOrbitVisualizer {
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId);
                 this.ctx = this.canvas.getContext('2d');
+                
+                // Hi-DPI Setup
+                const dpr = window.devicePixelRatio || 1;
+                // Container size is 260px via CSS
+                const size = 260;
+                this.canvas.width = size * dpr;
+                this.canvas.height = size * dpr;
+                this.ctx.scale(dpr, dpr);
+                
                 this.active = false;
+                this.centerX = size / 2;
+                this.centerY = size / 2;
                 
-                // Config
-                this.centerX = this.canvas.width / 2;
-                this.centerY = this.canvas.height / 2;
+                // Targets
+                this.targetStress = 0; 
+                this.targetCoherence = 1; 
+                this.targetFill = 0.2;
                 
-                // Data Inputs
-                this.stressScore = 0; // 0-1 (Inner Ring)
-                this.coherence = 1;   // 0-1 (Middle Ring)
-                this.fillLevel = 0.2; // 0-1 (Outer Ring)
-                
-                // State
+                // Animation State
                 this.time = 0;
+                this.introProgress = 0; // 0 to 1 (Speed Run)
                 this.particles = [];
                 this.initParticles();
             }
 
             initParticles() {
-                for(let i=0; i<60; i++) {
+                for(let i=0; i<40; i++) {
                     this.particles.push({
                         angle: Math.random() * Math.PI * 2,
-                        speed: (Math.random() - 0.5) * 0.02,
-                        radiusOffset: (Math.random() - 0.5) * 10,
-                        alpha: Math.random()
+                        speed: 0.01 + Math.random() * 0.02,
+                        radiusOffset: (Math.random() - 0.5) * 6,
+                        alpha: 0.3 + Math.random() * 0.7,
+                        size: 1 + Math.random()
                     });
                 }
             }
@@ -470,8 +500,28 @@
             start() {
                 if(!this.active) {
                     this.active = true;
+                    this.introProgress = 0;
                     this.loop();
+                    // Speed Run Tween
+                    this.animateIntro();
                 }
+            }
+
+            animateIntro() {
+                const startTime = Date.now();
+                const duration = 1600; // 1.6s for full speed run
+                
+                const step = () => {
+                    if (!this.active) return;
+                    const now = Date.now();
+                    const elapsed = now - startTime;
+                    // EaseOutExpo for "Snappy" feel
+                    let p = Math.min(1, elapsed / duration);
+                    this.introProgress = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
+                    
+                    if (p < 1) requestAnimationFrame(step);
+                };
+                step();
             }
 
             stop() {
@@ -479,170 +529,143 @@
             }
 
             updateData(stress, coherence, fill) {
-                this.stressScore = stress; // Higher stress = more liquid noise
-                this.coherence = coherence; // Higher coherence = blue, smooth sine
-                this.fillLevel = fill; // 0.2 to 1.0
+                this.targetStress = stress; 
+                this.targetCoherence = coherence;
+                this.targetFill = fill;
             }
 
             loop() {
                 if(!this.active) return;
                 requestAnimationFrame(() => this.loop());
                 
-                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                this.time += 0.05;
+                this.ctx.clearRect(0, 0, this.canvas.width / window.devicePixelRatio, this.canvas.height / window.devicePixelRatio);
+                this.time += 0.03;
 
-                // 1. Inner Ring: Mercury Fluid (Stress)
-                this.drawMercury();
+                // 1. Outer Ring: Stardust (With Fill Logic)
+                this.drawStardust();
 
-                // 2. Middle Ring: Plasma Pulse (Coherence)
+                // 2. Middle Ring: Plasma
                 this.drawPlasma();
 
-                // 3. Outer Ring: Stardust Orbit (System Load/Fill)
-                this.drawStardust();
+                // 3. Inner Ring: Mercury
+                this.drawMercury();
             }
 
-            drawMercury() {
-                const baseR = 45;
-                const agitation = 0.5 + (this.stressScore * 2.5); // Increase noise amplitude
-                const speed = 1 + (this.stressScore * 2); 
+            drawStardust() {
+                const r = 110;
+                // Calculate current visible fill based on intro + manual fill
+                // Initial state is 20% (0.2). If syncing, it goes up to targetFill.
+                // During intro, it zips from 0 to current target.
+                const displayFill = this.targetFill * this.introProgress;
+                
+                const startAngle = -Math.PI / 2;
+                const endAngle = startAngle + (Math.PI * 2 * displayFill);
+
+                // Track Background
+                this.ctx.beginPath();
+                this.ctx.arc(this.centerX, this.centerY, r, 0, Math.PI * 2);
+                this.ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+                this.ctx.lineWidth = 14;
+                this.ctx.lineCap = "round";
+                this.ctx.stroke();
+
+                // Active Gradient Track
+                if(displayFill > 0.01) {
+                    const grad = this.ctx.createLinearGradient(0, 0, 260, 260);
+                    grad.addColorStop(0, '#9575FF'); // Purple
+                    grad.addColorStop(1, '#5E30EB'); // Deep Purple
+                    
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.centerX, this.centerY, r, startAngle, endAngle);
+                    this.ctx.strokeStyle = grad;
+                    this.ctx.lineWidth = 14;
+                    this.ctx.shadowBlur = 15;
+                    this.ctx.shadowColor = "rgba(149, 117, 255, 0.4)";
+                    this.ctx.stroke();
+                    this.ctx.shadowBlur = 0;
+                }
+
+                // Particles (Only appear in filled area)
+                this.particles.forEach(p => {
+                    p.angle += p.speed;
+                    // Keep particle within the "filled" arc logic relative to rotation
+                    let normAngle = (p.angle - startAngle) % (Math.PI * 2);
+                    if (normAngle < 0) normAngle += Math.PI * 2;
+                    
+                    // Only draw if inside the current filled sector
+                    if (normAngle < (Math.PI * 2 * displayFill)) {
+                        const px = this.centerX + Math.cos(p.angle) * (r + p.radiusOffset);
+                        const py = this.centerY + Math.sin(p.angle) * (r + p.radiusOffset);
+                        
+                        this.ctx.beginPath();
+                        this.ctx.arc(px, py, p.size, 0, Math.PI * 2);
+                        this.ctx.fillStyle = `rgba(200, 180, 255, ${p.alpha})`;
+                        this.ctx.fill();
+                    }
+                });
+            }
+
+            drawPlasma() {
+                const r = 85;
+                const pulse = Math.sin(this.time * 2) * 0.05 + 1; // Slight size pulse
+                const effectiveR = r * this.introProgress; // Grow from center at start
+
+                this.ctx.beginPath();
+                this.ctx.arc(this.centerX, this.centerY, effectiveR, 0, Math.PI * 2);
+                this.ctx.strokeStyle = "rgba(35, 243, 212, 0.2)"; // Dim Cyan
+                this.ctx.lineWidth = 6;
+                this.ctx.stroke();
+
+                // Active Arc (represents Coherence)
+                const cohAngle = Math.PI * 2 * this.targetCoherence * this.introProgress;
                 
                 this.ctx.beginPath();
-                for (let i = 0; i <= 360; i+=5) {
-                    const rad = (i * Math.PI) / 180;
-                    // Noise simulation using overlaid sines
-                    const noise = Math.sin(rad * 5 + this.time * speed) * 2 * agitation + 
-                                  Math.cos(rad * 3 - this.time * speed) * 2 * agitation;
-                    const r = baseR + noise;
-                    const x = this.centerX + Math.cos(rad) * r;
-                    const y = this.centerY + Math.sin(rad) * r;
-                    if(i===0) this.ctx.moveTo(x, y);
-                    else this.ctx.lineTo(x, y);
-                }
-                this.ctx.closePath();
-                
-                // Liquid Metal Gradient
-                const grad = this.ctx.createRadialGradient(this.centerX-10, this.centerY-10, 5, this.centerX, this.centerY, 60);
-                grad.addColorStop(0, '#FFFFFF');
-                grad.addColorStop(0.5, '#A0A0A0');
-                
-                // Reflection color derived from plasma state
-                const reflectColor = this.coherence > 0.5 ? '#23F3D4' : '#FF7733';
-                grad.addColorStop(1, reflectColor); 
-                
-                this.ctx.fillStyle = grad;
-                this.ctx.fill();
-                
-                // Specular highlight
-                this.ctx.shadowBlur = 15;
-                this.ctx.shadowColor = reflectColor;
-                this.ctx.strokeStyle = "rgba(255,255,255,0.5)";
-                this.ctx.lineWidth = 2;
+                this.ctx.arc(this.centerX, this.centerY, effectiveR, -Math.PI/2, -Math.PI/2 + cohAngle);
+                this.ctx.strokeStyle = "#23F3D4";
+                this.ctx.lineWidth = 6;
+                this.ctx.lineCap = "round";
+                // Glow
+                this.ctx.shadowBlur = 10 * pulse;
+                this.ctx.shadowColor = "#23F3D4";
                 this.ctx.stroke();
                 this.ctx.shadowBlur = 0;
             }
 
-            drawPlasma() {
-                const baseR = 75;
-                const isCoherent = this.coherence > 0.6;
-                
-                // Color Lerp
-                // Coherent: Cyan (#23F3D4), Incoherent: Orange (#FF7733)
-                // Simplified color switch for canvas (could be full lerp)
-                const color = isCoherent ? "rgba(35, 243, 212," : "rgba(255, 119, 51,";
-                
-                // Breathing Cycle (4-6s)
-                const breath = Math.sin(this.time * 0.3) * 0.5 + 0.5; // 0 to 1 slow
+            drawMercury() {
+                // Liquid Blob Logic
+                // Radius modulated by Perlin-ish noise (sum of sines)
+                const baseR = 50 * this.introProgress;
+                if(baseR < 1) return;
+
+                const agitation = 0.5 + (this.targetStress * 2.0); 
                 
                 this.ctx.beginPath();
-                this.ctx.lineWidth = 3;
-                this.ctx.lineCap = "round";
-                
-                for (let i = 0; i <= 360; i++) {
+                for (let i = 0; i <= 360; i+=6) {
                     const rad = (i * Math.PI) / 180;
-                    
-                    // Wave Logic
-                    let wave = 0;
-                    if (isCoherent) {
-                        // Perfect Sine
-                        wave = Math.sin(rad * 6 + this.time) * (3 + breath * 2);
-                    } else {
-                        // Incoherent jagged
-                        wave = Math.sin(rad * 12 + this.time * 3) * 3 + 
-                               Math.cos(rad * 20 - this.time) * 2;
-                    }
-                    
-                    const r = baseR + wave;
+                    // Smooth deformation
+                    const offset = Math.sin(rad * 4 + this.time) * 3 * agitation + 
+                                   Math.cos(rad * 3 - this.time * 1.5) * 3 * agitation;
+                    const r = baseR + offset;
                     const x = this.centerX + Math.cos(rad) * r;
                     const y = this.centerY + Math.sin(rad) * r;
-                    
                     if(i===0) this.ctx.moveTo(x, y);
                     else this.ctx.lineTo(x, y);
                 }
                 this.ctx.closePath();
-                
-                // Glow
-                this.ctx.strokeStyle = color + "0.8)";
-                this.ctx.shadowBlur = 15 + (breath * 10);
-                this.ctx.shadowColor = isCoherent ? "#23F3D4" : "#FF7733";
+
+                // Liquid Metal Gradient Look
+                const grad = this.ctx.createRadialGradient(this.centerX - 15, this.centerY - 15, 5, this.centerX, this.centerY, baseR);
+                grad.addColorStop(0, '#FFFFFF');
+                grad.addColorStop(0.3, '#E0FFFF');
+                grad.addColorStop(1, '#23F3D4'); // Cyan tint edge
+
+                this.ctx.fillStyle = grad;
+                this.ctx.fill();
+
+                // Inner rim light
+                this.ctx.lineWidth = 1.5;
+                this.ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
                 this.ctx.stroke();
-                this.ctx.shadowBlur = 0; // reset
-            }
-
-            drawStardust() {
-                const baseR = 100;
-                const maxAngle = Math.PI * 2 * this.fillLevel; // Map 0-100 fill to angle
-                
-                this.ctx.save();
-                this.ctx.translate(this.centerX, this.centerY);
-                
-                // Base track (dim)
-                this.ctx.beginPath();
-                this.ctx.arc(0, 0, baseR, 0, Math.PI * 2);
-                this.ctx.strokeStyle = "rgba(255,255,255,0.05)";
-                this.ctx.lineWidth = 1;
-                this.ctx.stroke();
-
-                // Active track (fill) - Dashed initially (at 20%)
-                this.ctx.beginPath();
-                // Rotate to start from top (-90deg)
-                this.ctx.rotate(-Math.PI / 2); 
-                
-                if (this.fillLevel < 0.95) {
-                    this.ctx.setLineDash([2, 4]); // Dashed for unfilled
-                } else {
-                    this.ctx.setLineDash([]); // Solid for filled
-                }
-                
-                this.ctx.arc(0, 0, baseR, 0, maxAngle);
-                this.ctx.strokeStyle = "#9575FF"; // Purple Stardust
-                this.ctx.lineWidth = 2;
-                this.ctx.shadowBlur = 10;
-                this.ctx.shadowColor = "#9575FF";
-                this.ctx.stroke();
-                
-                // Particles
-                this.particles.forEach(p => {
-                    // Brownian Motion Logic
-                    p.angle += p.speed;
-                    // Restrict particle visibility to the "filled" area
-                    // Normalize angle to 0 - 2PI
-                    let normAngle = p.angle % (Math.PI * 2);
-                    if(normAngle < 0) normAngle += Math.PI * 2;
-
-                    // Only draw if within the filled arc (with some buffer for randomness)
-                    if (normAngle < maxAngle) {
-                        const r = baseR + p.radiusOffset;
-                        const x = Math.cos(p.angle) * r;
-                        const y = Math.sin(p.angle) * r;
-                        
-                        this.ctx.beginPath();
-                        this.ctx.arc(x, y, 1.5, 0, Math.PI * 2);
-                        this.ctx.fillStyle = `rgba(149, 117, 255, ${p.alpha})`;
-                        this.ctx.fill();
-                    }
-                });
-
-                this.ctx.restore();
             }
         }
     </script>
@@ -650,6 +673,24 @@
     <!-- MAIN APP SCRIPT -->
     <script>
         lucide.createIcons();
+
+        // --- Helper: Animate Number (Speed Run) ---
+        function animateValue(obj, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                // EaseOutExpo
+                const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+                const current = Math.floor(ease * (end - start) + start);
+                
+                obj.innerText = current < 10 ? "0" + current : current;
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
 
         const app = {
             config: { particleCount: 8000, particleSize: 0.08 },
@@ -661,25 +702,25 @@
                 headRot: {x:0, y:0}, 
                 energy: 0, 
                 audioData: 0,
-                baseScore: 0, mentalBuffer: 0, isCharging: false,
+                baseScore: 0, mentalBuffer: 20, // Start at 20%
+                isCharging: false,
                 engineResult: null,
                 scanBuffer: [] 
             },
             audioCtx: null, analyser: null, dataArray: null, stream: null,
-            visualizer: null, // NEW: Canvas Visualizer Instance
+            visualizer: null,
 
             init: function() {
                 this.initThree();
                 this.initEvents();
-                // Initialize the Triple Ring Visualizer
                 this.visualizer = new TripleOrbitVisualizer('triple-ring-canvas');
                 this.initDashboardInteractions();
                 
                 const d = new Date();
-                document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}).toUpperCase();
+                document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}).toUpperCase();
             },
 
-            // --- Three.js Visuals (Unchanged) ---
+            // --- Three.js (Unchanged) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
@@ -785,10 +826,10 @@
                 if(!indicator) return;
                 if(isSecure) {
                     indicator.className = "h-8 px-3 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2 transition-all duration-300";
-                    indicator.innerHTML = `<i data-lucide="shield-check" class="w-3 h-3 text-green-400"></i><span class="text-[10px] text-green-400 font-mono-tech tracking-wider">SECURE</span>`;
+                    indicator.innerHTML = `<i data-lucide="shield-check" class="w-3 h-3 text-green-400"></i><span class="text-[10px] text-green-400 font-bold tracking-wider">SECURE</span>`;
                 } else {
                     indicator.className = "h-8 px-3 rounded-full bg-red-500/10 border border-red-500/30 flex items-center gap-2 transition-all duration-300";
-                    indicator.innerHTML = `<i data-lucide="radio" class="w-3 h-3 text-red-400 animate-pulse"></i><span class="text-[10px] text-red-400 font-mono-tech tracking-wider">LIVE DATA</span>`;
+                    indicator.innerHTML = `<i data-lucide="radio" class="w-3 h-3 text-red-400 animate-pulse"></i><span class="text-[10px] text-red-400 font-bold tracking-wider">LIVE DATA</span>`;
                 }
                 lucide.createIcons();
             },
@@ -819,7 +860,7 @@
                 });
             },
 
-            // --- Biometric Calculations (Unchanged) ---
+            // --- Biometrics (Unchanged) ---
             getEyeOpenness: function(landmarks) {
                 const leftTop = landmarks[159], leftBot = landmarks[145];
                 const rightTop = landmarks[386], rightBot = landmarks[374];
@@ -1045,14 +1086,12 @@
                 baselineMgr.recordSession();
                 
                 this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
-                
-                // Set initial state for "Stardust Ring" - Start at 20% (unfilled)
+                // Reset Mental Buffer to initial 20%
                 this.state.mentalBuffer = 20; 
                 
                 this.showDashboard();
             },
 
-            // --- Updated Dashboard Interactions (Triple Ring) ---
             initDashboardInteractions: function() {
                 const container = document.getElementById('orbit-container');
                 
@@ -1065,9 +1104,9 @@
                     // Willpower Filling Logic: 20 -> 100
                     this.chargeInterval = setInterval(() => {
                         if (this.state.mentalBuffer < 100) {
-                            this.state.mentalBuffer += 1.5; // Fill speed
-                            this.updateDashboardVisuals();
-                            if (this.state.mentalBuffer % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
+                            this.state.mentalBuffer += 1.5; 
+                            this.updateDashboardVisuals(true); // true = force update
+                            if (Math.floor(this.state.mentalBuffer) % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
                         } else {
                             clearInterval(this.chargeInterval);
                             if(navigator.vibrate) navigator.vibrate([30, 30, 30]);
@@ -1089,61 +1128,62 @@
                 container.addEventListener('touchend', stopCharge);
             },
 
-            updateDashboardVisuals: function() {
+            updateDashboardVisuals: function(isManualFill = false) {
                 if(!this.state.engineResult) return;
 
-                // 1. Data Mapping for Triple Ring
-                
-                // Inner Ring: Facial Stress -> Mercury Turbulence
-                // Alertness relates to eye tension (stress), map 0-1
-                const tension = 1 - (this.state.engineResult.alertness / 100); // Higher alertness (wide eyes) = lower stress usually
+                // 1. Calculations
+                const tension = 1 - (this.state.engineResult.alertness / 100); 
                 const facialStress = (this.state.engineResult.markers.anxiety ? 0.8 : 0.2) + (tension * 0.5);
-
-                // Middle Ring: HRV -> Plasma Coherence
-                // Higher HRV in this context = Better Coherence
                 const coherenceRatio = this.state.engineResult.hrv / 100;
-
-                // Outer Ring: Mental Buffer -> Stardust Fill (0.2 to 1.0)
                 const fillPercentage = this.state.mentalBuffer / 100;
+                
+                const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 10);
+                const totalScore = Math.min(99, this.state.baseScore + bufferBonus);
 
-                // Update Visualizer
+                // 2. Update Canvas Visualizer
                 if(this.visualizer) {
                     this.visualizer.updateData(Math.min(1, facialStress), Math.min(1, coherenceRatio), fillPercentage);
                 }
 
-                // 2. UI Text Updates
-                const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 10);
-                const totalScore = Math.min(99, this.state.baseScore + bufferBonus);
-                
+                // 3. UI Text Updates (Logic for Speed Run vs Manual Fill)
                 const scoreEl = document.getElementById('dash-score');
-                scoreEl.innerText = totalScore < 10 ? `0${totalScore}` : totalScore;
-                
-                document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
-                document.getElementById('alert-score-display').innerText = this.state.engineResult.alertness + '%';
+                if (isManualFill) {
+                    // Direct update when sliding
+                    scoreEl.innerText = totalScore < 10 ? `0${totalScore}` : totalScore;
+                } else {
+                    // Speed Run on Entry
+                    animateValue(scoreEl, 0, totalScore, 1600);
+                }
+
+                // Update Metric Bars with delay to sync with speed run
+                setTimeout(() => {
+                    document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
+                    document.getElementById('bar-hrv').style.width = this.state.engineResult.hrv + '%';
+                    
+                    document.getElementById('alert-score-display').innerText = this.state.engineResult.alertness + '%';
+                    document.getElementById('bar-alert').style.width = this.state.engineResult.alertness + '%';
+                }, 100);
+
+                // Small Stats below rings
+                document.getElementById('val-mercury').innerText = (facialStress * 100).toFixed(0) + '%';
+                document.getElementById('val-plasma').innerText = (coherenceRatio * 100).toFixed(0);
+                document.getElementById('val-stardust').innerText = Math.floor(this.state.mentalBuffer) + '%';
 
                 const label = document.getElementById('dash-label');
                 const state = document.getElementById('dash-state');
-                const sub = document.getElementById('dash-sub');
-                const debug = document.getElementById('baseline-debug');
 
-                debug.innerText = `Coh: ${coherenceRatio.toFixed(2)} | Stress: ${facialStress.toFixed(2)}`;
-
-                // Interaction Logic State
                 if (this.state.mentalBuffer < 25) {
-                    label.innerText = "HOLD TO SYNC";
-                    label.style.color = "#23F3D4";
+                    label.innerText = "WILLPOWER FILL";
+                    label.style.color = "#9575FF";
                     state.innerText = "System Loaded";
-                    sub.innerText = "Initializing Willpower Fill...";
                 } else if (this.state.mentalBuffer < 99) {
                     label.innerText = "SYNCING...";
-                    label.style.color = "#9575FF";
+                    label.style.color = "#FF7733";
                     state.innerText = "Charging Orbit";
-                    sub.innerText = `Power Level: ${Math.floor(this.state.mentalBuffer)}%`;
                 } else {
-                    label.innerText = "SYSTEM OPTIMIZED";
-                    label.style.color = "#FF9A76";
+                    label.innerText = "OPTIMIZED";
+                    label.style.color = "#23F3D4";
                     state.innerText = "Flow State Achieved";
-                    sub.innerText = "All Poles Synchronized";
                 }
             },
 
@@ -1153,9 +1193,11 @@
                 document.getElementById('universe').classList.add('dimmed');
                 
                 const dash = document.getElementById('dashboard-layer');
-                this.updateDashboardVisuals();
                 
-                // Start the Canvas Loop
+                // Initialize Visuals before showing
+                this.updateDashboardVisuals(false); // false triggers speed run
+                
+                // Start Canvas
                 if(this.visualizer) this.visualizer.start();
 
                 setTimeout(() => { 
@@ -1172,10 +1214,14 @@
                 document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
                 document.getElementById('dash-score').innerText = "00";
                 
+                // Reset Bars
+                document.getElementById('bar-hrv').style.width = '0%';
+                document.getElementById('bar-alert').style.width = '0%';
+
                 const ringPath = document.getElementById('scan-progress-bar');
                 if(ringPath) ringPath.style.strokeDashoffset = 289;
 
-                this.state.mentalBuffer = 0;
+                this.state.mentalBuffer = 20;
                 if(this.visualizer) this.visualizer.stop();
             }
         };
