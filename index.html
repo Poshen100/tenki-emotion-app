@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v24.3 - Biometric Pole Logic</title>
+    <title>TENKI v24.3 - Smooth Core</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -61,7 +61,6 @@
             pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 24px;
-            /* Safe Area Fix */
             padding-bottom: calc(30px + env(safe-area-inset-bottom));
             transition: opacity 0.5s ease;
         }
@@ -99,11 +98,6 @@
             margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
         }
 
-        /* 
-           ========================================
-           UPDATED FINGERPRINT SENSOR STYLES (v24.3)
-           ========================================
-        */
         .fingerprint-wrapper {
             position: relative;
             width: 100px; height: 100px;
@@ -112,62 +106,33 @@
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
         }
-
-        /* 核心按鈕 */
         .fingerprint-core {
             width: 70px; height: 70px; border-radius: 50%;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.2);
             display: flex; justify-content: center; align-items: center;
             backdrop-filter: blur(8px);
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy effect */
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
             z-index: 10;
         }
-
-        /* 按下時變大 & 發光 */
         .fingerprint-wrapper.active .fingerprint-core {
-            transform: scale(1.15); /* 變大 */
+            transform: scale(1.15);
             background: rgba(149, 117, 255, 0.15);
             border-color: var(--stardust-purple);
             box-shadow: 0 0 30px rgba(149, 117, 255, 0.4);
         }
-
-        /* SVG 進度環容器 */
         .progress-svg {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            transform: rotate(-90deg);
-            z-index: 5;
-            pointer-events: none;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            transform: rotate(-90deg); z-index: 5; pointer-events: none;
         }
-
-        /* 進度條路徑 */
         .progress-circle {
-            fill: none;
-            stroke: var(--plasma-cyan);
-            stroke-width: 2.5;
-            stroke-linecap: round;
-            /* 2 * PI * 46 ≈ 289 */
-            stroke-dasharray: 289; 
-            stroke-dashoffset: 289; /* 初始隱藏 */
-            transition: stroke-dashoffset 0.05s linear; /* Smooth fill */
+            fill: none; stroke: var(--plasma-cyan); stroke-width: 2.5; stroke-linecap: round;
+            stroke-dasharray: 289; stroke-dashoffset: 289;
+            transition: stroke-dashoffset 0.05s linear;
             filter: drop-shadow(0 0 4px var(--plasma-cyan));
         }
-
-        /* Icon 變色 */
-        .fingerprint-icon {
-            transition: all 0.3s;
-            opacity: 0.7;
-        }
-        .fingerprint-wrapper.active .fingerprint-icon {
-            color: var(--plasma-cyan);
-            opacity: 1;
-            transform: scale(1.1);
-        }
-
-        /* ======================================== */
-
+        .fingerprint-icon { transition: all 0.3s; opacity: 0.7; }
+        .fingerprint-wrapper.active .fingerprint-icon { color: var(--plasma-cyan); opacity: 1; transform: scale(1.1); }
 
         /* 4. DASHBOARD LAYER */
         #dashboard-layer {
@@ -192,7 +157,6 @@
 
         .text-gradient-plasma { background: linear-gradient(135deg, #ffffff 0%, var(--plasma-cyan) 100%); -webkit-background-clip: text; color: transparent; }
         
-        /* INTERACTIVE ORBIT */
         .orbit-ring {
             width: 180px; height: 180px; border-radius: 50%;
             position: relative; display: flex; justify-content: center; align-items: center;
@@ -213,7 +177,6 @@
         
         .dock-container {
             position: fixed; 
-            bottom: 30px; 
             bottom: calc(30px + env(safe-area-inset-bottom));
             left: 20px; right: 20px; height: 70px;
             background: rgba(10, 10, 20, 0.85); backdrop-filter: blur(20px);
@@ -235,7 +198,6 @@
             transition: transform 0.2s;
         }
         .dock-main-action:active { transform: scale(0.97); }
-
     </style>
 </head>
 <body>
@@ -271,22 +233,15 @@
         </div>
 
         <div class="flex flex-col items-center pb-10">
-            <!-- UPDATED SCAN BUTTON (v24.3) -->
             <div id="scan-trigger-wrapper" class="fingerprint-wrapper">
-                <!-- SVG Progress Ring -->
                 <svg class="progress-svg" viewBox="0 0 100 100">
-                    <!-- Background Ring -->
                     <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"></circle>
-                    <!-- Active Progress Ring -->
                     <circle id="scan-progress-bar" class="progress-circle" cx="50" cy="50" r="46"></circle>
                 </svg>
-                
-                <!-- Inner Button -->
                 <div class="fingerprint-core">
                     <i data-lucide="fingerprint" class="fingerprint-icon w-8 h-8 text-white"></i>
                 </div>
             </div>
-
             <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300">
                 HOLD TO INITIALIZE
             </div>
@@ -300,14 +255,11 @@
                 <div class="text-xs text-gray-400 font-mono-tech tracking-wider">HYBRID SENSING</div>
                 <div class="text-2xl text-white font-serif-human italic">Self-Awareness</div>
             </div>
-            
             <div class="flex gap-3">
-                <!-- 隱私狀態指示器 -->
                 <div id="privacy-indicator" class="h-8 px-3 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2 transition-all duration-300">
                     <i data-lucide="shield-check" class="w-3 h-3 text-green-400"></i>
                     <span class="text-[10px] text-green-400 font-mono-tech tracking-wider">SECURE</span>
                 </div>
-                <!-- 裝飾用 User Icon -->
                 <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
                     <i data-lucide="user" class="w-4 h-4 text-white"></i>
                 </div>
@@ -315,8 +267,6 @@
         </div>
 
         <div class="grid grid-cols-2 gap-4 pb-24">
-            
-            <!-- (A) Interactive TEI Orbit -->
             <div class="col-span-2 bento-card items-center py-8 bg-white/5">
                 <div id="tei-orbit" class="orbit-ring">
                     <div class="orbit-progress" id="orbit-fill"></div>
@@ -334,7 +284,6 @@
                 </div>
             </div>
 
-            <!-- (B) Metrics -->
             <div class="bento-card justify-between h-32">
                 <div class="flex justify-between items-start">
                     <i data-lucide="heart-pulse" class="w-5 h-5 text-purple-400"></i>
@@ -349,7 +298,6 @@
                 </div>
             </div>
 
-            <!-- UPDATE: ALERTNESS CARD -->
             <div class="bento-card justify-between h-32">
                 <div class="flex justify-between items-start">
                     <i data-lucide="eye" class="w-5 h-5 text-cyan-400"></i>
@@ -361,7 +309,6 @@
                 </div>
             </div>
 
-            <!-- (C) Review -->
             <div class="col-span-2 bento-card bg-gradient-to-br from-gray-900 to-black border-white/20">
                 <div class="flex gap-1 text-yellow-400 mb-2">
                     <i data-lucide="star" class="w-3 h-3 fill-current"></i>
@@ -394,7 +341,7 @@
         </div>
     </div>
 
-    <!-- CORE ENGINE v24.3: Biometric Eye & Pole Logic -->
+    <!-- CORE ENGINE v24.3 -->
     <script>
         class BaselineManager {
             constructor() {
@@ -414,9 +361,6 @@
             }
         }
 
-        // ============================================
-        // v24.3 ENGINE: MULTI-DIMENSIONAL POLE CALC
-        // ============================================
         const TenkiEngine = {
             calculatePole: function(sampleBuffer) {
                 if (!sampleBuffer || sampleBuffer.length === 0) {
@@ -424,12 +368,8 @@
                 }
 
                 const count = sampleBuffer.length;
-
-                // 1. 頭部穩定度
                 let sumHead = 0;
-                sampleBuffer.forEach(s => {
-                    sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y));
-                });
+                sampleBuffer.forEach(s => { sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)); });
                 const meanHead = sumHead / count;
                 
                 let varianceHead = 0;
@@ -440,7 +380,6 @@
                 const stdDevHead = Math.sqrt(varianceHead / count);
                 const headStability = Math.max(0, 1 - (stdDevHead * 4));
 
-                // 2. 眼部數據融合
                 let sumEyeOpen = 0, sumEyeTens = 0, sumBrowH = 0;
                 sampleBuffer.forEach(s => {
                     sumEyeOpen += (s.eyeOpen || 0);
@@ -451,34 +390,17 @@
                 const avgEyeOpenness = sumEyeOpen / count;
                 const avgEyeTension = sumEyeTens / count;
                 const avgBrowHeight = sumBrowH / count;
-
-                // 3. 增強穩定度
-                const enhancedStability = headStability * 0.5 
-                                        + (1 - avgEyeTension) * 0.3 
-                                        + avgEyeOpenness * 0.2;
-
-                // 4. 警覺度
+                const enhancedStability = headStability * 0.5 + (1 - avgEyeTension) * 0.3 + avgEyeOpenness * 0.2;
                 const alertness = Math.floor((avgEyeOpenness * 0.6 + (1 - avgEyeTension) * 0.4) * 100);
 
-                // 5. 能量值
                 let sumEnergy = 0;
-                sampleBuffer.forEach(s => {
-                    sumEnergy += (s.audioData / 255) + (s.mouthOpen * 2);
-                });
+                sampleBuffer.forEach(s => { sumEnergy += (s.audioData / 255) + (s.mouthOpen * 2); });
                 const avgEnergy = sumEnergy / count;
                 const energyScore = Math.min(1, avgEnergy * 1.5);
-
-                // 6. 情感標記
                 const surpriseMarker = avgBrowHeight > 0.7 ? 0.3 : 0;
                 const anxietyMarker = avgEyeTension > 0.6 ? -0.2 : 0;
 
-                // 7. 最終分數
-                let rawScore = 60 
-                             + (enhancedStability * 30) 
-                             + (energyScore * 10)
-                             + (surpriseMarker * 5)
-                             + (anxietyMarker * 5);
-
+                let rawScore = 60 + (enhancedStability * 30) + (energyScore * 10) + (surpriseMarker * 5) + (anxietyMarker * 5);
                 const reliability = Math.min(1, count / 30);
                 const finalScore = Math.floor(rawScore * reliability);
                 const estimatedHRV = Math.floor(30 + (enhancedStability * 60) + (Math.random() * 10));
@@ -490,10 +412,7 @@
                     energy: energyScore,
                     hrv: estimatedHRV,
                     samples: count,
-                    markers: { 
-                        surprise: surpriseMarker > 0, 
-                        anxiety: anxietyMarker < 0 
-                    }
+                    markers: { surprise: surpriseMarker > 0, anxiety: anxietyMarker < 0 }
                 };
             }
         };
@@ -506,7 +425,7 @@
         lucide.createIcons();
 
         const app = {
-            config: { particleCount: 8000, particleSize: 0.08 },
+            config: { particleCount: 7000, particleSize: 0.1 }, // 稍微調整數量和大小
             state: { 
                 isFaceDetected: false, 
                 isScanning: false, 
@@ -530,13 +449,13 @@
                 document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}).toUpperCase();
             },
 
-            // --- Three.js Visuals ---
+            // --- Three.js Visuals (Optimized for smooth rolling) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 this.camera.position.z = 5;
-                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); // Enable antialias
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
@@ -545,8 +464,10 @@
                 const positions = new Float32Array(this.config.particleCount * 3);
                 const originals = new Float32Array(this.config.particleCount * 3);
                 const colors = new Float32Array(this.config.particleCount * 3);
-                const randoms = new Float32Array(this.config.particleCount);
+                const randoms = new Float32Array(this.config.particleCount); // Keep this for wave offset, not jitter
                 const phi = Math.PI * (3. - Math.sqrt(5.));
+                
+                // Colors
                 const topColor = new THREE.Color(0xFF66CC);
                 const midColor = new THREE.Color(0x9966FF);
                 const botColor = new THREE.Color(0x00CCFF);
@@ -561,7 +482,9 @@
                     const idx = i * 3;
                     positions[idx] = x*r; positions[idx+1] = y*r; positions[idx+2] = z*r;
                     originals[idx] = x*r; originals[idx+1] = y*r; originals[idx+2] = z*r;
-                    randoms[i] = Math.random();
+                    
+                    randoms[i] = Math.random(); // Used for phase offset, not random jitter
+                    
                     const normalizedY = (y + 1) / 2; 
                     const mixedColor = new THREE.Color();
                     if (normalizedY > 0.5) mixedColor.copy(midColor).lerp(topColor, (normalizedY - 0.5) * 2);
@@ -573,18 +496,25 @@
                 geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
                 geometry.setAttribute('random', new THREE.BufferAttribute(randoms, 1));
 
-                const canvas = document.createElement('canvas'); canvas.width=32; canvas.height=32;
+                // --- Improved Texture (Softer edges to remove spikes) ---
+                const canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64;
                 const ctx = canvas.getContext('2d');
-                const grad = ctx.createRadialGradient(16,16,0,16,16,16);
+                // Use a tighter gradient so the center is solid and edge fades quickly
+                const grad = ctx.createRadialGradient(32,32,0,32,32,32);
                 grad.addColorStop(0, 'rgba(255,255,255,1)');
-                grad.addColorStop(0.4, 'rgba(255,255,255,0.8)');
+                grad.addColorStop(0.3, 'rgba(255,255,255,0.6)'); // Tighter core
                 grad.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = grad; ctx.fillRect(0,0,32,32);
+                ctx.fillStyle = grad; ctx.fillRect(0,0,64,64);
                 const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
 
                 this.material = new THREE.PointsMaterial({
-                    size: this.config.particleSize, map: tex, transparent: true, opacity: 0.9,
-                    vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false
+                    size: this.config.particleSize, 
+                    map: tex, 
+                    transparent: true, 
+                    opacity: 0.9,
+                    vertexColors: true, 
+                    blending: THREE.AdditiveBlending, 
+                    depthWrite: false
                 });
                 this.cloud = new THREE.Points(geometry, this.material);
                 this.scene.add(this.cloud);
@@ -671,30 +601,19 @@
                 });
             },
 
-            // ========== 眼部特徵提取函數 (v24.3) ==========
             getEyeOpenness: function(landmarks) {
                 const leftTop = landmarks[159], leftBot = landmarks[145];
                 const rightTop = landmarks[386], rightBot = landmarks[374];
-                const leftDist = Math.abs(leftTop.y - leftBot.y);
-                const rightDist = Math.abs(rightTop.y - rightBot.y);
-                const avgDist = (leftDist + rightDist) / 2;
+                const avgDist = (Math.abs(leftTop.y - leftBot.y) + Math.abs(rightTop.y - rightBot.y)) / 2;
                 return Math.min(1, avgDist / 0.05);
             },
-
             getEyeTension: function(landmarks) {
                 const lLeft = landmarks[33], lRight = landmarks[133], lTop = landmarks[159], lBot = landmarks[145];
-                const width = Math.abs(lLeft.x - lRight.x);
-                const height = Math.abs(lTop.y - lBot.y);
-                const aspect = height / width;
-                return Math.max(0, 1 - (aspect * 2.5));
+                return Math.max(0, 1 - ((Math.abs(lTop.y - lBot.y) / Math.abs(lLeft.x - lRight.x)) * 2.5));
             },
-
             getEyebrowHeight: function(landmarks) {
-                const lBrow = landmarks[105], rBrow = landmarks[334];
                 const eyeY = (landmarks[159].y + landmarks[145].y) / 2;
-                const lH = eyeY - lBrow.y;
-                const rH = eyeY - rBrow.y;
-                return Math.min(1, (lH + rH) / 0.08);
+                return Math.min(1, ((eyeY - landmarks[105].y) + (eyeY - landmarks[334].y)) / 0.08);
             },
 
             initAI: function(stream) {
@@ -720,11 +639,9 @@
 
             processData: function(results) {
                 if(!this.state.isSensorActive) return;
-
                 const statusEl = document.getElementById('connection-status');
                 const hintEl = document.getElementById('instruction');
                 const landmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
-                
                 this.updateAlignment(landmarks);
 
                 if (landmarks) {
@@ -751,7 +668,6 @@
                             browH: this.getEyebrowHeight(landmarks)
                         });
                     }
-
                 } else {
                     statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray"; statusEl.style.borderColor = "#333";
                 }
@@ -801,6 +717,7 @@
                 if (!capsule.classList.contains('show')) capsule.classList.add('show');
             },
 
+            // --- ANIMATION LOOP: NO JITTER, JUST SMOOTH ROLLING ---
             animate: function() {
                 requestAnimationFrame(() => this.animate());
                 this.updateAudio(); 
@@ -812,8 +729,11 @@
                     this.state.mouthOpen = 0.05 + Math.max(0, Math.sin(time * 1.5) * 0.05);
                 }
 
-                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
+                // Smooth Rotation (Rolling)
+                this.cloud.rotation.y += 0.003 + (this.state.headRot.y * 0.05);
                 this.cloud.rotation.x += (this.state.headRot.x * 0.05);
+                // Subtle breathing z-rotation
+                this.cloud.rotation.z = Math.sin(time * 0.2) * 0.05;
 
                 const audioForce = (this.state.audioData || 0) / 255; 
                 let targetEnergy = 0.2 + (audioForce * 0.8);
@@ -825,27 +745,33 @@
                 const positions = this.cloud.geometry.attributes.position.array;
                 const originals = this.cloud.geometry.attributes.originalPosition.array;
                 const randoms = this.cloud.geometry.attributes.random.array;
+                
+                // Expansion is smoother now
                 const expansionBase = 1 + (this.state.mouthOpen * 0.3) + (audioForce * 0.2);
-                const pulse = Math.sin(time * 2) * this.state.energy * 0.1;
-                const jitter = audioForce * 0.15;
+                const pulse = Math.sin(time * 2) * this.state.energy * 0.05;
 
                 for (let i = 0; i < this.config.particleCount; i++) {
                     const idx = i * 3;
                     const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
                     const r = randoms[i];
-                    const noise = pulse * (r + 0.5) + (Math.random() - 0.5) * jitter;
-                    const expansion = expansionBase;
-                    positions[idx] = ox * expansion + (ox * noise);
-                    positions[idx+1] = oy * expansion + (oy * noise);
-                    positions[idx+2] = oz * expansion + (oz * noise);
+                    
+                    // --- KEY CHANGE: Removed Math.random() in loop to kill "fuzz/spikes" ---
+                    // Instead, use sine wave based on position to create smooth surface ripple
+                    const surfaceWave = Math.sin(time * 3 + ox + oy) * (0.02 * audioForce);
+                    
+                    const expansion = expansionBase + pulse + surfaceWave;
+                    
+                    positions[idx] = ox * expansion;
+                    positions[idx+1] = oy * expansion;
+                    positions[idx+2] = oz * expansion;
                 }
                 this.cloud.geometry.attributes.position.needsUpdate = true;
                 
                 if (this.state.isScanning) {
-                    this.material.size = 0.12 + audioForce * 0.1;
+                    this.material.size = this.config.particleSize * 1.5;
                     this.material.opacity = 1.0;
                 } else {
-                    this.material.size = 0.08 + (audioForce * 0.05);
+                    this.material.size = this.config.particleSize + (audioForce * 0.05);
                     this.material.opacity = 0.8;
                 }
                 this.renderer.render(this.scene, this.camera);
@@ -854,8 +780,6 @@
             initEvents: function() {
                 const btnWrapper = document.getElementById('scan-trigger-wrapper');
                 const ringPath = document.getElementById('scan-progress-bar');
-                
-                // SVG Circle Circumference: 2 * PI * 46 ≈ 289
                 const maxOffset = 289; 
                 
                 const start = (e) => {
@@ -868,24 +792,15 @@
                     this.state.isScanning = true;
                     this.state.scanBuffer = []; 
                     document.getElementById('align-hint-capsule').classList.remove('show');
-                    
-                    // Add Active Class (Triggers Grow Animation)
                     btnWrapper.classList.add('active');
-                    
                     document.getElementById('instruction').innerText = "BIOMETRICS SYNC...";
                     if(navigator.vibrate) navigator.vibrate(50);
-                    
-                    // Reset ring to empty
                     ringPath.style.strokeDashoffset = maxOffset;
-                    
                     let progress = 0;
                     this.scanInterval = setInterval(() => {
-                        progress += 2; // Speed of scan
-                        
-                        // Update Progress Ring
+                        progress += 2; 
                         const currentOffset = maxOffset - ((progress / 100) * maxOffset);
                         ringPath.style.strokeDashoffset = currentOffset;
-
                         if (progress % 20 === 0 && navigator.vibrate) navigator.vibrate(10);
                         if (progress >= 100) this.finishScan();
                     }, 40);
@@ -896,15 +811,10 @@
                     if(!this.state.isScanning) return;
                     this.state.isScanning = false;
                     clearInterval(this.scanInterval);
-                    
-                    // Reset Button State
                     btnWrapper.classList.remove('active');
-                    
-                    // Immediate Feedback: Snap back to empty if failed
-                    ringPath.style.transition = 'none'; // Remove transition for instant reset
+                    ringPath.style.transition = 'none'; 
                     ringPath.style.strokeDashoffset = maxOffset;
                     setTimeout(() => { ringPath.style.transition = 'stroke-dashoffset 0.05s linear'; }, 100);
-                    
                     document.getElementById('instruction').innerText = "HOLD TO SCAN";
                 };
 
@@ -918,15 +828,10 @@
                 clearInterval(this.scanInterval);
                 this.state.isScanning = false;
                 if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                
-                // --- 運算引擎介入 (v24.3) ---
                 this.state.engineResult = TenkiEngine.calculatePole(this.state.scanBuffer);
-                
                 baselineMgr.recordSession();
-                
                 this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
                 this.state.mentalBuffer = 0;
-                
                 this.showDashboard();
             },
 
@@ -937,7 +842,6 @@
                     this.state.isCharging = true;
                     orbit.classList.add('charging');
                     if(navigator.vibrate) navigator.vibrate(20);
-                    
                     this.chargeInterval = setInterval(() => {
                         if (this.state.mentalBuffer < 100) {
                             this.state.mentalBuffer += 2;
@@ -974,7 +878,6 @@
                     scoreEl.innerText = currentDisplay - 1;
                 }
                 
-                // 更新數據
                 document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
                 document.getElementById('alert-score-display').innerText = this.state.engineResult.alertness + '%';
                 
@@ -1038,7 +941,6 @@
                 document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
                 document.getElementById('dash-score').innerText = "00";
                 
-                // Reset Ring
                 const ringPath = document.getElementById('scan-progress-bar');
                 if(ringPath) ringPath.style.strokeDashoffset = 289;
 
