@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v24.3 - Smooth Core</title>
+    <title>TENKI v24.3 - Rolling Sphere</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,8 +35,8 @@
             font-family: 'Space Mono', monospace;
             overflow: hidden;
             width: 100vw; 
-            height: 100vh; /* Fallback */
-            height: 100dvh; /* Mobile Fix */
+            height: 100vh;
+            height: 100dvh;
             margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
         }
@@ -44,10 +44,10 @@
         .font-serif-human { font-family: 'Playfair Display', serif; }
         .font-mono-tech { font-family: 'Space Mono', monospace; }
 
-        /* 1. 隱私層 */
+        /* 隱私層 */
         #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
 
-        /* 2. 背景層 */
+        /* 背景層 */
         #universe {
             position: absolute; inset: 0; z-index: 1;
             background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
@@ -55,7 +55,7 @@
         }
         #universe.dimmed { opacity: 0.4; filter: blur(8px); }
 
-        /* 3. HUD 層 */
+        /* HUD 層 */
         #hud-layer {
             position: absolute; inset: 0; z-index: 10;
             pointer-events: none;
@@ -98,6 +98,7 @@
             margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
         }
 
+        /* FINGERPRINT SENSOR */
         .fingerprint-wrapper {
             position: relative;
             width: 100px; height: 100px;
@@ -134,7 +135,7 @@
         .fingerprint-icon { transition: all 0.3s; opacity: 0.7; }
         .fingerprint-wrapper.active .fingerprint-icon { color: var(--plasma-cyan); opacity: 1; transform: scale(1.1); }
 
-        /* 4. DASHBOARD LAYER */
+        /* DASHBOARD */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent;
@@ -341,7 +342,7 @@
         </div>
     </div>
 
-    <!-- CORE ENGINE v24.3 -->
+    <!-- ENGINE -->
     <script>
         class BaselineManager {
             constructor() {
@@ -366,7 +367,6 @@
                 if (!sampleBuffer || sampleBuffer.length === 0) {
                     return { score: 50, stability: 0, hrv: 50, alertness: 0, samples: 0, markers: { surprise: false, anxiety: false } };
                 }
-
                 const count = sampleBuffer.length;
                 let sumHead = 0;
                 sampleBuffer.forEach(s => { sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)); });
@@ -420,12 +420,12 @@
         const baselineMgr = new BaselineManager();
     </script>
 
-    <!-- MAIN APP SCRIPT -->
+    <!-- APP SCRIPT -->
     <script>
         lucide.createIcons();
 
         const app = {
-            config: { particleCount: 7000, particleSize: 0.1 }, // 稍微調整數量和大小
+            config: { particleCount: 6500, particleSize: 0.11 }, // Adjusted for solidity
             state: { 
                 isFaceDetected: false, 
                 isScanning: false, 
@@ -449,13 +449,13 @@
                 document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}).toUpperCase();
             },
 
-            // --- Three.js Visuals (Optimized for smooth rolling) ---
+            // --- Three.js Visuals (ENHANCED ROLLING) ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-                this.camera.position.z = 5;
-                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); // Enable antialias
+                this.camera.position.z = 4.8;
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
@@ -464,45 +464,68 @@
                 const positions = new Float32Array(this.config.particleCount * 3);
                 const originals = new Float32Array(this.config.particleCount * 3);
                 const colors = new Float32Array(this.config.particleCount * 3);
-                const randoms = new Float32Array(this.config.particleCount); // Keep this for wave offset, not jitter
+                const sizes = new Float32Array(this.config.particleCount);
+
                 const phi = Math.PI * (3. - Math.sqrt(5.));
                 
-                // Colors
-                const topColor = new THREE.Color(0xFF66CC);
-                const midColor = new THREE.Color(0x9966FF);
-                const botColor = new THREE.Color(0x00CCFF);
+                // Color Palette (Cyber Planet)
+                const cCyan = new THREE.Color(0x23F3D4);
+                const cDeep = new THREE.Color(0x05445E);
+                const cWhite = new THREE.Color(0xffffff);
 
                 for (let i = 0; i < this.config.particleCount; i++) {
                     const y = 1 - (i / (this.config.particleCount - 1)) * 2;
                     const radius = Math.sqrt(1 - y * y);
                     const theta = phi * i;
+                    const r = 2.4; 
+
                     const x = Math.cos(theta) * radius;
                     const z = Math.sin(theta) * radius;
-                    const r = 2.5;
+
                     const idx = i * 3;
-                    positions[idx] = x*r; positions[idx+1] = y*r; positions[idx+2] = z*r;
-                    originals[idx] = x*r; originals[idx+1] = y*r; originals[idx+2] = z*r;
+                    positions[idx] = x * r; 
+                    positions[idx+1] = y * r; 
+                    positions[idx+2] = z * r;
+                    originals[idx] = x * r; 
+                    originals[idx+1] = y * r; 
+                    originals[idx+2] = z * r;
+
+                    // --- TEXTURE GENERATION (KEY FOR ROLLING) ---
+                    // Create "islands" of color using a simple mathematical pattern
+                    // When the sphere rotates, these islands move, creating the rolling sensation
+                    const noise = Math.sin(x*3) * Math.cos(z*3) + Math.sin(y*4);
                     
-                    randoms[i] = Math.random(); // Used for phase offset, not random jitter
-                    
-                    const normalizedY = (y + 1) / 2; 
-                    const mixedColor = new THREE.Color();
-                    if (normalizedY > 0.5) mixedColor.copy(midColor).lerp(topColor, (normalizedY - 0.5) * 2);
-                    else mixedColor.copy(botColor).lerp(midColor, normalizedY * 2);
-                    colors[idx] = mixedColor.r; colors[idx+1] = mixedColor.g; colors[idx+2] = mixedColor.b;
+                    const mixColor = new THREE.Color();
+                    if (noise > 0.5) {
+                        // "Highlight" Island
+                        mixColor.copy(cCyan).lerp(cWhite, 0.3);
+                        sizes[i] = 1.2; 
+                    } else if (noise > 0.0) {
+                        // "Ocean"
+                        mixColor.copy(cDeep).lerp(cCyan, 0.4);
+                        sizes[i] = 0.8;
+                    } else {
+                        // "Deep Ocean"
+                        mixColor.copy(cDeep);
+                        sizes[i] = 0.5;
+                    }
+
+                    colors[idx] = mixColor.r; colors[idx+1] = mixColor.g; colors[idx+2] = mixColor.b;
                 }
+                
                 geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
                 geometry.setAttribute('originalPosition', new THREE.BufferAttribute(originals, 3));
                 geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-                geometry.setAttribute('random', new THREE.BufferAttribute(randoms, 1));
+                geometry.setAttribute('sizeScale', new THREE.BufferAttribute(sizes, 1));
 
-                // --- Improved Texture (Softer edges to remove spikes) ---
-                const canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64;
+                // --- TEXTURE (Glow Dot) ---
+                const canvas = document.createElement('canvas'); 
+                canvas.width=64; canvas.height=64;
                 const ctx = canvas.getContext('2d');
-                // Use a tighter gradient so the center is solid and edge fades quickly
                 const grad = ctx.createRadialGradient(32,32,0,32,32,32);
                 grad.addColorStop(0, 'rgba(255,255,255,1)');
-                grad.addColorStop(0.3, 'rgba(255,255,255,0.6)'); // Tighter core
+                grad.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+                grad.addColorStop(0.5, 'rgba(35, 243, 212, 0.2)');
                 grad.addColorStop(1, 'rgba(0,0,0,0)');
                 ctx.fillStyle = grad; ctx.fillRect(0,0,64,64);
                 const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
@@ -521,7 +544,66 @@
                 this.animate();
             },
 
-            // --- Sensors ---
+            // --- ANIMATION (SOLID ROLLING) ---
+            animate: function() {
+                requestAnimationFrame(() => this.animate());
+                this.updateAudio(); 
+                const time = Date.now() * 0.001;
+
+                if (!this.state.isSensorActive) {
+                    this.state.headRot.x = Math.sin(time * 0.5) * 0.1;
+                    this.state.headRot.y = Math.cos(time * 0.3) * 0.1;
+                    this.state.mouthOpen = 0.05 + Math.sin(time * 1.5) * 0.02;
+                }
+
+                // --- ROLLING PHYSICS ---
+                // Constant base rotation + Head influence
+                // This makes it always look like a rotating planet
+                this.cloud.rotation.y += 0.004 + (this.state.headRot.y * 0.05); 
+                this.cloud.rotation.x += 0.001 + (this.state.headRot.x * 0.05);
+                this.cloud.rotation.z = Math.sin(time * 0.2) * 0.02; // Very subtle tilt
+
+                const audioForce = (this.state.audioData || 0) / 255; 
+                let targetEnergy = 0.1 + (audioForce * 0.6);
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 1.2;
+                if (this.state.isScanning) targetEnergy = 2.5;
+                
+                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
+
+                const positions = this.cloud.geometry.attributes.position.array;
+                const originals = this.cloud.geometry.attributes.originalPosition.array;
+                const sizes = this.cloud.geometry.attributes.sizeScale.array;
+                
+                // Breathing effect (Whole sphere expands/contracts)
+                const expansionBase = 1 + (this.state.mouthOpen * 0.2) + (audioForce * 0.1);
+                const pulse = Math.sin(time * 2.5) * (this.state.energy * 0.03);
+
+                for (let i = 0; i < this.config.particleCount; i++) {
+                    const idx = i * 3;
+                    const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
+                    
+                    // No random jitter -> No fuzziness
+                    // Particles just scale in/out from center based on energy
+                    const scale = expansionBase + pulse;
+                    
+                    positions[idx] = ox * scale;
+                    positions[idx+1] = oy * scale;
+                    positions[idx+2] = oz * scale;
+                }
+                this.cloud.geometry.attributes.position.needsUpdate = true;
+                
+                if (this.state.isScanning) {
+                    this.material.size = this.config.particleSize * 1.3;
+                    this.material.opacity = 1.0;
+                    this.cloud.rotation.y += 0.05; // Fast spin on scan
+                } else {
+                    this.material.size = this.config.particleSize;
+                    this.material.opacity = 0.8 + (audioForce * 0.2);
+                }
+                this.renderer.render(this.scene, this.camera);
+            },
+
+            // --- SENSORS & LOGIC (UNCHANGED) ---
             startSensors: async function() {
                 const hintEl = document.getElementById('instruction');
                 hintEl.innerText = "SENSORS ACTIVE...";
@@ -533,7 +615,6 @@
                     const source = this.audioCtx.createMediaStreamSource(this.stream);
                     source.connect(this.analyser);
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                    
                     this.initAI(this.stream);
                     this.state.isSensorActive = true;
                     this.updatePrivacyUI(false);
@@ -543,25 +624,15 @@
                     this.initAI(null);
                 }
             },
-
             stopSensors: function() {
-                if (this.stream) {
-                    this.stream.getTracks().forEach(track => track.stop());
-                    this.stream = null;
-                }
-                if (this.audioCtx) {
-                    this.audioCtx.close();
-                    this.audioCtx = null;
-                }
+                if (this.stream) { this.stream.getTracks().forEach(track => track.stop()); this.stream = null; }
+                if (this.audioCtx) { this.audioCtx.close(); this.audioCtx = null; }
                 this.state.isSensorActive = false;
                 this.state.isFaceDetected = false;
                 const statusEl = document.getElementById('connection-status');
-                statusEl.innerText = "SIMULATION MODE";
-                statusEl.style.color = "#23F3D4";
-                statusEl.style.borderColor = "#23F3D4";
+                statusEl.innerText = "SIMULATION MODE"; statusEl.style.color = "#23F3D4"; statusEl.style.borderColor = "#23F3D4";
                 this.updatePrivacyUI(true);
             },
-
             updatePrivacyUI: function(isSecure) {
                 const indicator = document.getElementById('privacy-indicator');
                 if(!indicator) return;
@@ -574,7 +645,6 @@
                 }
                 lucide.createIcons();
             },
-
             updateAudio: function() {
                 if (!this.state.isSensorActive) {
                     const time = Date.now() * 0.001;
@@ -600,22 +670,16 @@
                     bar.style.background = this.state.audioData > 20 ? '#FF99CC' : 'rgba(255,255,255,0.2)';
                 });
             },
-
-            getEyeOpenness: function(landmarks) {
-                const leftTop = landmarks[159], leftBot = landmarks[145];
-                const rightTop = landmarks[386], rightBot = landmarks[374];
-                const avgDist = (Math.abs(leftTop.y - leftBot.y) + Math.abs(rightTop.y - rightBot.y)) / 2;
-                return Math.min(1, avgDist / 0.05);
+            getEyeOpenness: function(l) {
+                return Math.min(1, ((Math.abs(l[159].y-l[145].y)+Math.abs(l[386].y-l[374].y))/2)/0.05);
             },
-            getEyeTension: function(landmarks) {
-                const lLeft = landmarks[33], lRight = landmarks[133], lTop = landmarks[159], lBot = landmarks[145];
-                return Math.max(0, 1 - ((Math.abs(lTop.y - lBot.y) / Math.abs(lLeft.x - lRight.x)) * 2.5));
+            getEyeTension: function(l) {
+                return Math.max(0, 1-((Math.abs(l[159].y-l[145].y)/Math.abs(l[33].x-l[133].x))*2.5));
             },
-            getEyebrowHeight: function(landmarks) {
-                const eyeY = (landmarks[159].y + landmarks[145].y) / 2;
-                return Math.min(1, ((eyeY - landmarks[105].y) + (eyeY - landmarks[334].y)) / 0.08);
+            getEyebrowHeight: function(l) {
+                const ey = (l[159].y+l[145].y)/2;
+                return Math.min(1, ((ey-l[105].y)+(ey-l[334].y))/0.08);
             },
-
             initAI: function(stream) {
                 const video = document.getElementById('input-video');
                 if (stream) {
@@ -636,28 +700,22 @@
                     }
                 });
             },
-
             processData: function(results) {
                 if(!this.state.isSensorActive) return;
                 const statusEl = document.getElementById('connection-status');
                 const hintEl = document.getElementById('instruction');
                 const landmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
                 this.updateAlignment(landmarks);
-
                 if (landmarks) {
                     this.state.isFaceDetected = true;
                     statusEl.innerText = "VISION: ACTIVE"; statusEl.style.color = "#FF99CC"; statusEl.style.borderColor = "#FF99CC";
                     if(!this.state.isScanning) { hintEl.innerText = "HOLD TO SCAN"; hintEl.style.color = "white"; }
-                    
                     const nose = landmarks[1];
                     this.state.headRot.x = (nose.y - 0.5) * 2;
                     this.state.headRot.y = (nose.x - 0.5) * 2;
-
-                    const upperLip = landmarks[13], lowerLip = landmarks[14];
-                    const dist = Math.sqrt(Math.pow(upperLip.x - lowerLip.x, 2) + Math.pow(upperLip.y - lowerLip.y, 2));
+                    const dist = Math.sqrt(Math.pow(landmarks[13].x - landmarks[14].x, 2) + Math.pow(landmarks[13].y - landmarks[14].y, 2));
                     this.state.mouthOpen += ((dist - 0.02) * 5 - this.state.mouthOpen) * 0.2;
                     if(this.state.mouthOpen < 0) this.state.mouthOpen = 0;
-                    
                     if (this.state.isScanning) {
                         this.state.scanBuffer.push({
                             headRot: { x: this.state.headRot.x, y: this.state.headRot.y },
@@ -672,25 +730,18 @@
                     statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray"; statusEl.style.borderColor = "#333";
                 }
             },
-
             updateAlignment: function(landmarks) {
                 const capsule = document.getElementById('align-hint-capsule');
                 const textBox = document.getElementById('hint-text');
                 const iconBox = document.getElementById('hint-icon-box');
-                
                 if (this.state.isScanning || document.getElementById('dashboard-layer').classList.contains('show')) {
                     capsule.classList.remove('show'); return;
                 }
-
                 let state = 'searching'; let msg = "FIND FACE"; let icon = "scan-face";
                 let colorClass = "status-error"; let iconColor = "text-red-400"; let iconBg = "bg-red-500/20";
-
                 if (landmarks) {
                     const noseX = landmarks[1].x;
-                    const cheekL = landmarks[234].x;
-                    const cheekR = landmarks[454].x;
-                    const faceWidth = Math.abs(cheekL - cheekR);
-
+                    const faceWidth = Math.abs(landmarks[234].x - landmarks[454].x);
                     if (faceWidth < 0.30) {
                         state = 'too-far'; msg = "MOVE CLOSER"; icon = "maximize";
                         colorClass = "status-warn"; iconColor = "text-blue-400"; iconBg = "bg-blue-500/20";
@@ -705,7 +756,6 @@
                         colorClass = "status-good"; iconColor = "text-cyan-400"; iconBg = "bg-cyan-500/20";
                     }
                 }
-
                 if (textBox.innerText !== msg) {
                     textBox.innerText = msg;
                     iconBox.className = `w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300 ${iconBg}`;
@@ -716,72 +766,10 @@
                 }
                 if (!capsule.classList.contains('show')) capsule.classList.add('show');
             },
-
-            // --- ANIMATION LOOP: NO JITTER, JUST SMOOTH ROLLING ---
-            animate: function() {
-                requestAnimationFrame(() => this.animate());
-                this.updateAudio(); 
-                const time = Date.now() * 0.001;
-
-                if (!this.state.isSensorActive) {
-                    this.state.headRot.x = Math.sin(time * 0.5) * 0.15;
-                    this.state.headRot.y = Math.cos(time * 0.3) * 0.15;
-                    this.state.mouthOpen = 0.05 + Math.max(0, Math.sin(time * 1.5) * 0.05);
-                }
-
-                // Smooth Rotation (Rolling)
-                this.cloud.rotation.y += 0.003 + (this.state.headRot.y * 0.05);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
-                // Subtle breathing z-rotation
-                this.cloud.rotation.z = Math.sin(time * 0.2) * 0.05;
-
-                const audioForce = (this.state.audioData || 0) / 255; 
-                let targetEnergy = 0.2 + (audioForce * 0.8);
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 1.5;
-                if (this.state.isScanning) targetEnergy = 3.0;
-                
-                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
-
-                const positions = this.cloud.geometry.attributes.position.array;
-                const originals = this.cloud.geometry.attributes.originalPosition.array;
-                const randoms = this.cloud.geometry.attributes.random.array;
-                
-                // Expansion is smoother now
-                const expansionBase = 1 + (this.state.mouthOpen * 0.3) + (audioForce * 0.2);
-                const pulse = Math.sin(time * 2) * this.state.energy * 0.05;
-
-                for (let i = 0; i < this.config.particleCount; i++) {
-                    const idx = i * 3;
-                    const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
-                    const r = randoms[i];
-                    
-                    // --- KEY CHANGE: Removed Math.random() in loop to kill "fuzz/spikes" ---
-                    // Instead, use sine wave based on position to create smooth surface ripple
-                    const surfaceWave = Math.sin(time * 3 + ox + oy) * (0.02 * audioForce);
-                    
-                    const expansion = expansionBase + pulse + surfaceWave;
-                    
-                    positions[idx] = ox * expansion;
-                    positions[idx+1] = oy * expansion;
-                    positions[idx+2] = oz * expansion;
-                }
-                this.cloud.geometry.attributes.position.needsUpdate = true;
-                
-                if (this.state.isScanning) {
-                    this.material.size = this.config.particleSize * 1.5;
-                    this.material.opacity = 1.0;
-                } else {
-                    this.material.size = this.config.particleSize + (audioForce * 0.05);
-                    this.material.opacity = 0.8;
-                }
-                this.renderer.render(this.scene, this.camera);
-            },
-
             initEvents: function() {
                 const btnWrapper = document.getElementById('scan-trigger-wrapper');
                 const ringPath = document.getElementById('scan-progress-bar');
                 const maxOffset = 289; 
-                
                 const start = (e) => {
                     e.preventDefault();
                     if (!this.audioCtx) {
@@ -799,31 +787,26 @@
                     let progress = 0;
                     this.scanInterval = setInterval(() => {
                         progress += 2; 
-                        const currentOffset = maxOffset - ((progress / 100) * maxOffset);
-                        ringPath.style.strokeDashoffset = currentOffset;
+                        ringPath.style.strokeDashoffset = maxOffset - ((progress / 100) * maxOffset);
                         if (progress % 20 === 0 && navigator.vibrate) navigator.vibrate(10);
                         if (progress >= 100) this.finishScan();
                     }, 40);
                 };
-                
                 const end = (e) => {
                     e.preventDefault();
                     if(!this.state.isScanning) return;
                     this.state.isScanning = false;
                     clearInterval(this.scanInterval);
                     btnWrapper.classList.remove('active');
-                    ringPath.style.transition = 'none'; 
-                    ringPath.style.strokeDashoffset = maxOffset;
+                    ringPath.style.transition = 'none'; ringPath.style.strokeDashoffset = maxOffset;
                     setTimeout(() => { ringPath.style.transition = 'stroke-dashoffset 0.05s linear'; }, 100);
                     document.getElementById('instruction').innerText = "HOLD TO SCAN";
                 };
-
                 btnWrapper.addEventListener('mousedown', start);
                 btnWrapper.addEventListener('touchstart', start);
                 window.addEventListener('mouseup', end);
                 window.addEventListener('touchend', end);
             },
-
             finishScan: function() {
                 clearInterval(this.scanInterval);
                 this.state.isScanning = false;
@@ -834,7 +817,6 @@
                 this.state.mentalBuffer = 0;
                 this.showDashboard();
             },
-
             initDashboardInteractions: function() {
                 const orbit = document.getElementById('tei-orbit');
                 const startCharge = (e) => {
@@ -865,25 +847,19 @@
                 orbit.addEventListener('mouseleave', stopCharge);
                 orbit.addEventListener('touchend', stopCharge);
             },
-
             updateDashboardVisuals: function() {
                 const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 10);
                 const totalScore = Math.min(99, this.state.baseScore + bufferBonus);
-                
                 const scoreEl = document.getElementById('dash-score');
                 const currentDisplay = parseInt(scoreEl.innerText) || 0;
-                if (currentDisplay < totalScore) {
-                    scoreEl.innerText = currentDisplay + 1;
-                } else if (currentDisplay > totalScore) {
-                    scoreEl.innerText = currentDisplay - 1;
-                }
+                if (currentDisplay < totalScore) scoreEl.innerText = currentDisplay + 1;
+                else if (currentDisplay > totalScore) scoreEl.innerText = currentDisplay - 1;
                 
                 document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
                 document.getElementById('alert-score-display').innerText = this.state.engineResult.alertness + '%';
                 
-                const visualPercent = totalScore; 
                 const fill = document.getElementById('orbit-fill');
-                fill.style.background = `conic-gradient(var(--plasma-cyan) 0% ${visualPercent}%, transparent ${visualPercent}% 100%)`;
+                fill.style.background = `conic-gradient(var(--plasma-cyan) 0% ${totalScore}%, transparent ${totalScore}% 100%)`;
 
                 const label = document.getElementById('dash-label');
                 const state = document.getElementById('dash-state');
@@ -897,42 +873,27 @@
                 debug.innerText = statusText;
 
                 if (this.state.mentalBuffer < 10) {
-                    label.innerText = "HOLD TO SYNC";
-                    state.innerText = "Quantifying...";
-                    sub.innerText = "Processing Biometrics...";
+                    label.innerText = "HOLD TO SYNC"; state.innerText = "Quantifying..."; sub.innerText = "Processing Biometrics...";
                 } else if (this.state.mentalBuffer < 100) {
-                    label.innerText = "SYNCING POLES...";
-                    state.innerText = "Calibrating...";
-                    sub.innerText = `Buffer: ${this.state.mentalBuffer}%`;
+                    label.innerText = "SYNCING POLES..."; state.innerText = "Calibrating..."; sub.innerText = `Buffer: ${this.state.mentalBuffer}%`;
                 } else {
-                    label.innerText = "POLE LOCKED";
-                    label.style.color = "#23F3D4";
+                    label.innerText = "POLE LOCKED"; label.style.color = "#23F3D4";
                     state.innerText = totalScore > 75 ? "Flow State" : (totalScore > 50 ? "Balanced" : "Drifting");
                     sub.innerText = "Quantum Calculation Complete";
                 }
             },
-
             showDashboard: function() {
                 document.getElementById('hud-layer').classList.add('hidden-ui');
                 document.getElementById('align-hint-capsule').classList.remove('show');
                 document.getElementById('universe').classList.add('dimmed');
-                
                 const dash = document.getElementById('dashboard-layer');
                 this.updateDashboardVisuals();
-                
                 let rollInterval = setInterval(() => {
                     this.updateDashboardVisuals();
-                    if(this.state.mentalBuffer === 0 && parseInt(document.getElementById('dash-score').innerText) >= this.state.baseScore) {
-                        clearInterval(rollInterval);
-                    }
+                    if(this.state.mentalBuffer === 0 && parseInt(document.getElementById('dash-score').innerText) >= this.state.baseScore) clearInterval(rollInterval);
                 }, 20);
-
-                setTimeout(() => { 
-                    dash.classList.add('show'); 
-                    this.stopSensors();
-                }, 500);
+                setTimeout(() => { dash.classList.add('show'); this.stopSensors(); }, 500);
             },
-
             reset: function() {
                 document.getElementById('dashboard-layer').classList.remove('show');
                 document.getElementById('hud-layer').classList.remove('hidden-ui');
@@ -940,10 +901,8 @@
                 document.getElementById('scan-trigger-wrapper').classList.remove('active');
                 document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
                 document.getElementById('dash-score').innerText = "00";
-                
                 const ringPath = document.getElementById('scan-progress-bar');
                 if(ringPath) ringPath.style.strokeDashoffset = 289;
-
                 this.state.mentalBuffer = 0;
             }
         };
