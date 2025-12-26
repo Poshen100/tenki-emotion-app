@@ -2,11 +2,26 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tenki Pro - Neural Sync</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TENKI v24.3 - Neural Sync</title>
+    
+    <!-- 字體庫 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <!-- 核心引擎 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    
+    <!-- UI 庫 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
     <style>
         /* =========================================
-           1. 核心基礎樣式 (v24.3 - 保留不動)
+           1. 核心基礎樣式 (v24.3 Base)
            ========================================= */
         :root {
             --bg-deep: #050510;
@@ -25,12 +40,16 @@
             font-family: var(--font-mono);
             overflow: hidden;
             width: 100vw; 
-            height: 100vh; /* Fallback */
-            height: 100dvh; /* Mobile Fix */
+            height: 100vh; height: 100dvh;
             margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
         }
+
+        .font-serif-human { font-family: var(--font-serif); }
+        .font-mono-tech { font-family: var(--font-mono); }
+
+        #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
 
         /* 背景層 */
         #universe {
@@ -38,45 +57,55 @@
             background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
             transition: opacity 1s ease, filter 1s ease;
         }
-        #universe.active-mode {
-            /* 進入儀表板後背景微調 */
-            background: radial-gradient(circle at 50% 80%, #202040 0%, #050510 100%);
-        }
+        #universe.dimmed { opacity: 0.4; filter: blur(8px); }
 
         /* HUD 層 */
         #hud-layer {
             position: absolute; inset: 0; z-index: 10;
             pointer-events: none;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.5s ease, transform 0.5s ease;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 24px;
+            padding-bottom: calc(30px + env(safe-area-inset-bottom));
+            transition: opacity 0.5s ease;
         }
-        #hud-layer.hidden-ui { opacity: 0; pointer-events: none; transform: scale(1.1); }
+        #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-        /* 提示膠囊 */
+        /* Align Capsule */
         #align-hint-capsule {
-            position: absolute; bottom: 20%; left: 50%;
-            transform: translateX(-50%) translateY(20px);
+            position: absolute; top: 15%; left: 50%; 
+            transform: translateX(-50%) translateY(-20px) scale(0.95);
             background: rgba(20, 20, 25, 0.75);
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            padding: 10px 24px; border-radius: 99px;
+            padding: 10px 20px; border-radius: 99px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            font-size: 13px; letter-spacing: 1px; color: rgba(255,255,255,0.7);
-            opacity: 0; pointer-events: none;
+            display: flex; align-items: center; gap: 12px;
+            opacity: 0; pointer-events: none; 
             transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-            z-index: 100;
+            z-index: 100; overflow: hidden;
         }
-        #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+        #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
+        #align-hint-capsule.status-error { border-color: rgba(239, 68, 68, 0.5); box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
+        #align-hint-capsule.status-warn { border-color: rgba(234, 179, 8, 0.5); box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
+        #align-hint-capsule.status-good { border-color: rgba(35, 243, 212, 0.6); box-shadow: 0 0 20px rgba(35, 243, 212, 0.3); }
 
-        /* Fingerprint v24.3 Styles */
+        .shimmer-effect {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.1) 45%, transparent 60%);
+            transform: translateX(-100%); animation: shimmer-slide 2.5s infinite; pointer-events: none;
+        }
+        @keyframes shimmer-slide { 100% { transform: translateX(100%); } }
+
+        .audio-bar {
+            width: 4px; height: 20px; background: rgba(255,255,255,0.2);
+            margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
+        }
+
+        /* Fingerprint Scanner v24.3 */
         .fingerprint-wrapper {
-            position: relative;
-            width: 100px; height: 100px;
+            position: relative; width: 100px; height: 100px;
             display: flex; justify-content: center; align-items: center;
-            pointer-events: auto;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
+            pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent;
         }
-
         .fingerprint-core {
             width: 70px; height: 70px; border-radius: 50%;
             background: rgba(255, 255, 255, 0.05);
@@ -86,168 +115,117 @@
             transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
             z-index: 10;
         }
-
         .fingerprint-wrapper.active .fingerprint-core {
             transform: scale(1.15);
             background: rgba(149, 117, 255, 0.15);
             border-color: var(--stardust-purple);
             box-shadow: 0 0 30px rgba(149, 117, 255, 0.4);
         }
-
         .progress-svg {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             transform: rotate(-90deg); z-index: 5; pointer-events: none;
         }
-
         .progress-circle {
-            fill: none;
-            stroke: var(--plasma-cyan);
-            stroke-width: 2.5;
-            stroke-linecap: round;
-            stroke-dasharray: 289; /* v24.3 Spec */
-            stroke-dashoffset: 289;
+            fill: none; stroke: var(--plasma-cyan); stroke-width: 2.5;
+            stroke-linecap: round; stroke-dasharray: 289; stroke-dashoffset: 289;
             transition: stroke-dashoffset 0.05s linear;
             filter: drop-shadow(0 0 4px var(--plasma-cyan));
         }
+        .fingerprint-icon { transition: all 0.3s; opacity: 0.7; }
+        .fingerprint-wrapper.active .fingerprint-icon { color: var(--plasma-cyan); opacity: 1; transform: scale(1.1); }
 
-        .fingerprint-icon {
-            width: 32px; height: 32px;
-            stroke: rgba(255,255,255,0.7); transition: all 0.3s;
-        }
-        .fingerprint-wrapper.active .fingerprint-icon {
-            stroke: var(--plasma-cyan); transform: scale(1.1);
-        }
 
         /* =========================================
-           2. DASHBOARD LAYER (全新設計：結果頁)
+           2. DASHBOARD LAYER (New Neural Sync Design)
            ========================================= */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
-            background: transparent;
+            background: linear-gradient(180deg, rgba(5,5,16,0) 0%, rgba(5,5,16,0.9) 100%);
             display: flex; flex-direction: column;
-            padding: 50px 20px 100px 20px; /* Adjusted padding */
+            padding: 50px 20px 100px 20px;
             overflow-y: auto; opacity: 0; pointer-events: none;
             transform: translateY(30px);
-            transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
 
         /* Header */
-        .dash-header {
-            margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end;
-        }
+        .dash-header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }
         .dash-title h1 {
             font-family: var(--font-serif); font-size: 32px; margin: 0; line-height: 1;
             background: linear-gradient(to right, #fff, #aaa); -webkit-background-clip: text; color: transparent;
         }
-        .dash-title span {
-            font-size: 10px; letter-spacing: 2px; color: var(--plasma-cyan); text-transform: uppercase;
-        }
+        .dash-title span { font-size: 10px; letter-spacing: 2px; color: var(--plasma-cyan); text-transform: uppercase; }
         .live-badge {
             font-size: 10px; color: var(--sunset-orange); border: 1px solid rgba(255, 154, 118, 0.3);
             padding: 4px 8px; border-radius: 4px; display: flex; align-items: center; gap: 6px;
         }
         .live-dot { width: 4px; height: 4px; background: var(--sunset-orange); border-radius: 50%; animation: blink 1s infinite; }
 
-        /* Grid System */
+        /* Bento Grid */
         .bento-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 220px 140px auto; 
-            gap: 12px;
-            width: 100%;
+            display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 220px 140px auto; gap: 12px; width: 100%;
         }
         .col-span-2 { grid-column: span 2; }
-
+        
         .card {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 16px;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 24px; padding: 16px;
             position: relative; overflow: hidden;
             backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
             box-shadow: 0 4px 30px rgba(0,0,0,0.2);
             display: flex; flex-direction: column;
         }
 
-        /* 2.1 Neural Jitter Card (The Filament) */
-        .neural-card {
-            background: linear-gradient(160deg, rgba(20,20,35,0.6) 0%, rgba(35,243,212,0.05) 100%);
-        }
-        .card-top {
-            display: flex; justify-content: space-between; align-items: flex-start; z-index: 2;
-        }
+        /* Neural Card */
+        .neural-card { background: linear-gradient(160deg, rgba(20,20,35,0.6) 0%, rgba(35,243,212,0.05) 100%); }
+        .card-top { display: flex; justify-content: space-between; align-items: flex-start; z-index: 2; }
         .metric-label { font-size: 10px; letter-spacing: 1px; color: rgba(255,255,255,0.5); text-transform: uppercase; }
-        .metric-value { 
-            font-size: 36px; font-weight: 500; color: white; line-height: 1; margin-top: 4px; 
-            font-family: var(--font-mono);
-        }
+        .metric-value { font-size: 36px; font-weight: 500; color: white; line-height: 1; margin-top: 4px; font-family: var(--font-mono); }
         .metric-unit { font-size: 12px; color: rgba(255,255,255,0.4); margin-left: 2px; }
-        
         .neural-status {
             font-size: 11px; padding: 4px 10px; border-radius: 20px;
             background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
             color: var(--plasma-cyan); margin-top: 8px; display: inline-block;
         }
-
         #neural-canvas {
-            position: absolute; left: 0; right: 0; bottom: 0; top: 30%;
-            width: 100%; height: 70%; z-index: 1;
-            /* Fade out edges */
+            position: absolute; left: 0; right: 0; bottom: 0; top: 30%; width: 100%; height: 70%; z-index: 1;
             mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
             -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
         }
 
-        /* 2.2 HRV Gyroscope */
-        .gyro-container {
-            flex: 1; display: flex; justify-content: center; align-items: center; position: relative;
-        }
-        .gyro-ring {
-            position: absolute; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1);
-        }
+        /* HRV Gyro */
+        .gyro-container { flex: 1; display: flex; justify-content: center; align-items: center; position: relative; }
+        .gyro-ring { position: absolute; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
         .gyro-1 { width: 80px; height: 80px; border-top-color: var(--stardust-purple); animation: spin 4s linear infinite; }
         .gyro-2 { width: 60px; height: 60px; border-bottom-color: var(--plasma-cyan); animation: spin 6s linear infinite reverse; }
-        .gyro-dot {
-            width: 6px; height: 6px; background: white; border-radius: 50%;
-            box-shadow: 0 0 10px white;
-        }
+        .gyro-dot { width: 6px; height: 6px; background: white; border-radius: 50%; box-shadow: 0 0 10px white; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* 2.3 Stress Heatmap */
-        .heat-container {
-            flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 5px;
-        }
-        .heat-bar-bg {
-            width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; position: relative;
-        }
+        /* Stress Heatmap */
+        .heat-container { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 5px; }
+        .heat-bar-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; position: relative; }
         .heat-bar-fill {
             position: absolute; top: 0; left: 0; height: 100%; width: 100%;
             background: linear-gradient(90deg, #23F3D4, #9575FF, #FF9A76);
             border-radius: 3px; opacity: 0.9;
-            /* JS will control mask to simulate fill */
             mask-image: linear-gradient(to right, black 35%, transparent 35%);
             -webkit-mask-image: linear-gradient(to right, black 35%, transparent 35%);
             transition: mask-image 0.5s ease, -webkit-mask-image 0.5s ease;
         }
         .heat-knob {
             position: absolute; top: -4px; width: 2px; height: 14px; background: white;
-            box-shadow: 0 0 8px white; left: 35%;
-            transition: left 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+            box-shadow: 0 0 8px white; left: 35%; transition: left 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
-        /* 2.4 AI Terminal */
+        /* AI Terminal */
         .ai-card {
             border-top: 1px solid var(--stardust-purple);
             background: linear-gradient(180deg, rgba(149, 117, 255, 0.05) 0%, rgba(20,20,35,0.6) 100%);
             padding: 20px;
         }
-        .ai-content {
-            font-family: 'Space Mono', monospace; font-size: 12px; line-height: 1.6;
-            color: rgba(255,255,255,0.85);
-            height: 100%; display: flex; align-items: center;
-        }
+        .ai-content { font-family: 'Space Mono', monospace; font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.85); height: 100%; display: flex; align-items: center; }
         .cursor { display: inline-block; width: 6px; height: 14px; background: var(--plasma-cyan); margin-left: 4px; animation: blink 0.8s infinite; vertical-align: middle; }
-
         @keyframes blink { 50% { opacity: 0; } }
 
         /* Dock */
@@ -271,37 +249,61 @@
             background: linear-gradient(90deg, rgba(35, 243, 212, 0.1), rgba(149, 117, 255, 0.1));
             color: var(--plasma-cyan);
             border: 1px solid rgba(35, 243, 212, 0.2);
+            cursor: pointer;
         }
 
     </style>
 </head>
 <body>
 
-    <!-- 1. 背景層 -->
+    <video id="input-video" playsinline></video>
     <div id="universe"></div>
 
-    <!-- 2. HUD 掃描層 (v24.3 樣式與結構完全保留) -->
+    <!-- HUD Layer (v24.3 Original) -->
     <div id="hud-layer">
-        <div class="fingerprint-wrapper" id="fingerprint-btn">
-            <svg class="progress-svg">
-                <!-- 尺寸根據 v24.3 設定 -->
-                <circle class="progress-circle" cx="50" cy="50" r="46"></circle>
-            </svg>
-            <div class="fingerprint-core">
-                <svg class="fingerprint-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 1a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2 2 2 0 0 0 2-2V3a2 2 0 0 0-2-2z"/>
-                    <path d="M12 7v10"/>
-                    <path d="M8 11v6"/>
-                    <path d="M16 11v6"/>
-                    <path d="M8 17h8"/>
-                    <path d="M12 21v2"/>
-                </svg>
+        <div id="align-hint-capsule">
+            <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
+                <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-white"></i>
+            </div>
+            <span id="hint-text" class="text-xs font-bold text-white tracking-wide uppercase transition-all duration-300">
+                Searching...
+            </span>
+            <div class="shimmer-effect"></div>
+        </div>
+
+        <div class="flex justify-between items-start">
+            <div>
+                <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
+                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BIO_v24.3</div>
+            </div>
+            <div class="text-right flex flex-col items-end">
+                <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
+                    VISION ONLY
+                </div>
+                <div class="flex items-end h-4" id="audio-visualizer">
+                    <div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div>
+                </div>
             </div>
         </div>
-        <div id="align-hint-capsule">按住開始神經連結</div>
+
+        <div class="flex flex-col items-center pb-10">
+            <!-- UPDATED SCAN BUTTON (v24.3) -->
+            <div id="scan-trigger-wrapper" class="fingerprint-wrapper">
+                <svg class="progress-svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"></circle>
+                    <circle id="scan-progress-bar" class="progress-circle" cx="50" cy="50" r="46"></circle>
+                </svg>
+                <div class="fingerprint-core">
+                    <i data-lucide="fingerprint" class="fingerprint-icon w-8 h-8 text-white"></i>
+                </div>
+            </div>
+            <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300">
+                HOLD TO INITIALIZE
+            </div>
+        </div>
     </div>
 
-    <!-- 3. DASHBOARD 數據層 (全新優化版) -->
+    <!-- Dashboard Layer (New Neural Sync Design) -->
     <div id="dashboard-layer">
         
         <div class="dash-header">
@@ -321,9 +323,9 @@
                 <div class="card-top">
                     <div>
                         <div class="metric-label">Neural Jitter</div>
-                        <div class="metric-value"><span id="jitter-val">42</span><span class="metric-unit">ms</span></div>
+                        <div class="metric-value"><span id="jitter-val">--</span><span class="metric-unit">ms</span></div>
                     </div>
-                    <div class="neural-status" id="jitter-status">Coherent Flow</div>
+                    <div class="neural-status" id="jitter-status">Calibrating...</div>
                 </div>
                 <!-- 呼吸感神經弦 Canvas -->
                 <canvas id="neural-canvas"></canvas>
@@ -337,23 +339,26 @@
                     <div class="gyro-ring gyro-2"></div>
                     <div class="gyro-dot"></div>
                 </div>
-                <div style="text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 5px; font-family: var(--font-mono);">94<span style="font-size:10px; opacity:0.6;">%</span></div>
+                <div style="text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 5px; font-family: var(--font-mono);">
+                    <span id="metric-hrv-display">--</span><span style="font-size:10px; opacity:0.6;">%</span>
+                </div>
             </div>
 
-            <!-- Stress Heatmap: Gradient Slider -->
+            <!-- Stress Heatmap -->
             <div class="card">
                 <div class="metric-label">Stress Zone</div>
                 <div class="heat-container">
-                    <div style="font-size: 14px; margin-bottom: 10px; color: var(--plasma-cyan); font-family: var(--font-mono);">Eustress</div>
+                    <div style="font-size: 14px; margin-bottom: 10px; color: var(--plasma-cyan); font-family: var(--font-mono);" id="stress-label">
+                        Eustress
+                    </div>
                     <div class="heat-bar-bg">
-                        <!-- 利用 CSS Mask 做的動態進度條 -->
                         <div class="heat-bar-fill" id="stress-fill"></div>
                         <div class="heat-knob" id="stress-knob"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- AI Insight Terminal: Typewriter -->
+            <!-- AI Insight Terminal -->
             <div class="card ai-card col-span-2">
                 <div class="metric-label" style="color:var(--stardust-purple); margin-bottom:8px;">> AI Insight Protocol</div>
                 <div class="ai-content">
@@ -362,221 +367,540 @@
             </div>
 
         </div>
+
+        <!-- Dock -->
+        <div class="dock-container" id="dock">
+            <div class="dock-action" onclick="app.reset()">ACCESS DEEP DIVE</div>
+        </div>
     </div>
 
-    <!-- 4. DOCK -->
-    <div class="dock-container" id="dock">
-        <div class="dock-action">ACCESS DEEP DIVE</div>
-    </div>
-
+    <!-- CORE ENGINE v24.3: Biometric Eye & Pole Logic -->
     <script>
-        // ==========================================
-        // 1. 核心邏輯：指紋與轉場 (v24.3 邏輯完全保留)
-        // ==========================================
-        const fingerprintBtn = document.getElementById('fingerprint-btn');
-        const progressCircle = document.querySelector('.progress-circle');
-        const hudLayer = document.getElementById('hud-layer');
-        const dashboardLayer = document.getElementById('dashboard-layer');
-        const universe = document.getElementById('universe');
-        const hintCapsule = document.getElementById('align-hint-capsule');
-        const dock = document.getElementById('dock');
-        
-        let isScanning = false;
-        
-        // 初始顯示提示
-        setTimeout(() => hintCapsule.classList.add('show'), 1000);
+        // ... (保留 TenkiEngine 與 BaselineManager 邏輯)
+        class BaselineManager {
+            constructor() {
+                this.data = this.load() || { samples_count: 0, daily_streak: 1 };
+            }
+            load() {
+                const stored = localStorage.getItem('tenki_baseline_v2');
+                return stored ? JSON.parse(stored) : null;
+            }
+            save() {
+                localStorage.setItem('tenki_baseline_v2', JSON.stringify(this.data));
+            }
+            recordSession() {
+                this.data.samples_count++;
+                this.save();
+                return this.data.samples_count;
+            }
+        }
 
-        // 事件監聽
-        fingerprintBtn.addEventListener('touchstart', startScan, {passive: false});
-        fingerprintBtn.addEventListener('mousedown', startScan);
-        fingerprintBtn.addEventListener('touchend', stopScan);
-        fingerprintBtn.addEventListener('mouseup', stopScan);
-        fingerprintBtn.addEventListener('mouseleave', stopScan);
+        const TenkiEngine = {
+            calculatePole: function(sampleBuffer) {
+                if (!sampleBuffer || sampleBuffer.length === 0) {
+                    return { score: 50, stability: 0.5, hrv: 50, alertness: 50, samples: 0, markers: { surprise: false, anxiety: false } };
+                }
+                const count = sampleBuffer.length;
+                let sumHead = 0;
+                sampleBuffer.forEach(s => { sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)); });
+                const varianceHead = sampleBuffer.reduce((acc, s) => {
+                    const diff = (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)) - (sumHead/count);
+                    return acc + diff * diff;
+                }, 0);
+                const stdDevHead = Math.sqrt(varianceHead / count);
+                const headStability = Math.max(0, 1 - (stdDevHead * 4));
 
-        function startScan(e) {
-            e.preventDefault();
-            if (isScanning) return;
-            isScanning = true;
-            hintCapsule.classList.remove('show');
-            fingerprintBtn.classList.add('active');
-            
-            // v24.3 Spec: dasharray 289
-            let dashOffset = 289;
-            const step = 289 / 60; // 約1秒滿
+                let sumEyeOpen = 0, sumEyeTens = 0;
+                sampleBuffer.forEach(s => { sumEyeOpen += (s.eyeOpen || 0); sumEyeTens += (s.eyeTens || 0); });
+                const avgEyeOpenness = sumEyeOpen / count;
+                const avgEyeTension = sumEyeTens / count;
+                const enhancedStability = headStability * 0.5 + (1 - avgEyeTension) * 0.3 + avgEyeOpenness * 0.2;
+                
+                // 產生適合新 Dashboard 的數據
+                const hrvVal = Math.floor(40 + (enhancedStability * 50) + (Math.random() * 10)); // 40-100 range
+                const stressVal = Math.floor(avgEyeTension * 100); // 0-100
+                
+                return {
+                    score: Math.floor(enhancedStability * 100),
+                    stability: enhancedStability, // 0.0 - 1.0
+                    hrv: hrvVal,
+                    stress: stressVal,
+                    markers: { surprise: avgEyeOpenness > 0.8, anxiety: avgEyeTension > 0.6 }
+                };
+            }
+        };
 
-            const animateScan = () => {
-                if (!isScanning) return;
-                dashOffset -= step;
-                progressCircle.style.strokeDashoffset = Math.max(0, dashOffset);
+        const baselineMgr = new BaselineManager();
+    </script>
 
-                if (dashOffset > 0) {
-                    requestAnimationFrame(animateScan);
+    <!-- MAIN APP SCRIPT -->
+    <script>
+        lucide.createIcons();
+
+        const app = {
+            config: { particleCount: 8000, particleSize: 0.08 },
+            state: { 
+                isFaceDetected: false, isScanning: false, isSensorActive: false,
+                mouthOpen: 0, headRot: {x:0, y:0}, energy: 0, audioData: 0,
+                engineResult: null, scanBuffer: [] 
+            },
+            audioCtx: null, analyser: null, dataArray: null, stream: null,
+            canvas: null, ctx: null, neuralTimer: null,
+
+            init: function() {
+                this.initThree();
+                this.initEvents();
+            },
+
+            // --- Three.js Visuals (Background) ---
+            initThree: function() {
+                const container = document.getElementById('universe');
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                this.camera.position.z = 5;
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                container.appendChild(this.renderer.domElement);
+
+                // Particles Setup (Same as v24.3)
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(this.config.particleCount * 3);
+                const originals = new Float32Array(this.config.particleCount * 3);
+                const colors = new Float32Array(this.config.particleCount * 3);
+                const randoms = new Float32Array(this.config.particleCount);
+                const topColor = new THREE.Color(0xFF66CC);
+                const midColor = new THREE.Color(0x9966FF);
+                const botColor = new THREE.Color(0x00CCFF);
+
+                for (let i = 0; i < this.config.particleCount; i++) {
+                    const y = 1 - (i / (this.config.particleCount - 1)) * 2;
+                    const r = 2.5;
+                    const theta = Math.PI * (3. - Math.sqrt(5.)) * i;
+                    const x = Math.cos(theta) * Math.sqrt(1 - y * y) * r;
+                    const z = Math.sin(theta) * Math.sqrt(1 - y * y) * r;
+                    
+                    const idx = i * 3;
+                    positions[idx] = x; positions[idx+1] = y*r; positions[idx+2] = z;
+                    originals[idx] = x; originals[idx+1] = y*r; originals[idx+2] = z;
+                    randoms[i] = Math.random();
+                    
+                    const normalizedY = (y + 1) / 2; 
+                    const mixedColor = new THREE.Color();
+                    if (normalizedY > 0.5) mixedColor.copy(midColor).lerp(topColor, (normalizedY - 0.5) * 2);
+                    else mixedColor.copy(botColor).lerp(midColor, normalizedY * 2);
+                    colors[idx] = mixedColor.r; colors[idx+1] = mixedColor.g; colors[idx+2] = mixedColor.b;
+                }
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('originalPosition', new THREE.BufferAttribute(originals, 3));
+                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                geometry.setAttribute('random', new THREE.BufferAttribute(randoms, 1));
+
+                const canvas = document.createElement('canvas'); canvas.width=32; canvas.height=32;
+                const ctx = canvas.getContext('2d');
+                const grad = ctx.createRadialGradient(16,16,0,16,16,16);
+                grad.addColorStop(0, 'rgba(255,255,255,1)');
+                grad.addColorStop(0.4, 'rgba(255,255,255,0.8)');
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grad; ctx.fillRect(0,0,32,32);
+                const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
+
+                this.material = new THREE.PointsMaterial({
+                    size: this.config.particleSize, map: tex, transparent: true, opacity: 0.9,
+                    vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false
+                });
+                this.cloud = new THREE.Points(geometry, this.material);
+                this.scene.add(this.cloud);
+                this.animate();
+            },
+
+            // --- Sensors ---
+            startSensors: async function() {
+                const hintEl = document.getElementById('instruction');
+                hintEl.innerText = "SENSORS ACTIVE...";
+                try {
+                    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.analyser = this.audioCtx.createAnalyser();
+                    this.analyser.fftSize = 64;
+                    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                    const source = this.audioCtx.createMediaStreamSource(this.stream);
+                    source.connect(this.analyser);
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                    
+                    this.initAI(this.stream);
+                    this.state.isSensorActive = true;
+                } catch (e) {
+                    console.error(e);
+                    hintEl.innerText = "USE MOUSE MODE";
+                    this.initAI(null);
+                }
+            },
+
+            stopSensors: function() {
+                if (this.stream) { this.stream.getTracks().forEach(track => track.stop()); this.stream = null; }
+                if (this.audioCtx) { this.audioCtx.close(); this.audioCtx = null; }
+                this.state.isSensorActive = false;
+                this.state.isFaceDetected = false;
+                const statusEl = document.getElementById('connection-status');
+                statusEl.innerText = "SIMULATION MODE";
+            },
+
+            updateAudio: function() {
+                if (!this.state.isSensorActive) {
+                    const time = Date.now() * 0.001;
+                    this.state.audioData = 30 + Math.sin(time * 0.8) * 15; 
+                } else if (this.analyser) {
+                    this.analyser.getByteFrequencyData(this.dataArray);
+                    let sum = 0; for(let i = 0; i < this.dataArray.length; i++) sum += this.dataArray[i];
+                    this.state.audioData = sum / this.dataArray.length;
+                }
+                const bars = document.querySelectorAll('.audio-bar');
+                bars.forEach((bar, i) => {
+                    const h = (this.state.audioData / 255) * 20 + 5;
+                    bar.style.height = Math.min(20, h) + 'px';
+                });
+            },
+
+            // ========== Eye Feature Extraction (v24.3) ==========
+            getEyeOpenness: function(landmarks) {
+                const leftDist = Math.abs(landmarks[159].y - landmarks[145].y);
+                const rightDist = Math.abs(landmarks[386].y - landmarks[374].y);
+                return Math.min(1, (leftDist + rightDist) / 0.1); // Normalized approx
+            },
+            getEyeTension: function(landmarks) {
+                const height = Math.abs(landmarks[159].y - landmarks[145].y);
+                const width = Math.abs(landmarks[33].x - landmarks[133].x);
+                const aspect = height / width;
+                return Math.max(0, 1 - (aspect * 3)); // Normalized
+            },
+
+            initAI: function(stream) {
+                const video = document.getElementById('input-video');
+                if (stream) {
+                    video.srcObject = stream;
+                    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+                    faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6});
+                    faceMesh.onResults((res) => this.processData(res));
+                    const camera = new Camera(video, { onFrame: async () => await faceMesh.send({image: video}), width: 640, height: 480 });
+                    camera.start();
+                }
+                document.addEventListener('mousemove', (e) => {
+                    if (!this.state.isFaceDetected && !this.state.isSensorActive) {
+                        this.state.headRot.y = (e.clientX / window.innerWidth - 0.5) * 1.5;
+                        this.state.headRot.x = (e.clientY / window.innerHeight - 0.5) * 1.5;
+                    }
+                });
+            },
+
+            processData: function(results) {
+                if(!this.state.isSensorActive) return;
+                const statusEl = document.getElementById('connection-status');
+                const landmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
+                
+                this.updateAlignment(landmarks); // Keep alignment logic
+
+                if (landmarks) {
+                    this.state.isFaceDetected = true;
+                    statusEl.innerText = "VISION: ACTIVE"; statusEl.style.color = "#FF99CC";
+                    
+                    const nose = landmarks[1];
+                    this.state.headRot.x = (nose.y - 0.5) * 2;
+                    this.state.headRot.y = (nose.x - 0.5) * 2;
+
+                    // Push to buffer if scanning
+                    if (this.state.isScanning) {
+                        this.state.scanBuffer.push({
+                            headRot: { x: this.state.headRot.x, y: this.state.headRot.y },
+                            audioData: this.state.audioData || 0,
+                            eyeOpen: this.getEyeOpenness(landmarks),
+                            eyeTens: this.getEyeTension(landmarks)
+                        });
+                    }
                 } else {
-                    completeScan();
+                    statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray";
                 }
-            };
-            requestAnimationFrame(animateScan);
-        }
+            },
 
-        function stopScan() {
-            if (!isScanning) return;
-            isScanning = false;
-            fingerprintBtn.classList.remove('active');
-            progressCircle.style.strokeDashoffset = 289; // Reset to 289
-            if(hudLayer.style.opacity !== '0') hintCapsule.classList.add('show');
-        }
-
-        function completeScan() {
-            isScanning = false;
-            
-            // UI 轉場
-            hudLayer.classList.add('hidden-ui');
-            universe.classList.add('active-mode');
-            
-            setTimeout(() => {
-                dashboardLayer.classList.add('show');
-                dock.classList.add('show');
+            updateAlignment: function(landmarks) {
+                const capsule = document.getElementById('align-hint-capsule');
+                const textBox = document.getElementById('hint-text');
+                const iconBox = document.getElementById('hint-icon-box');
                 
-                // 啟動 Dashboard 專屬功能 (結果頁邏輯)
-                initNeuralFilament(); 
-                startDataSimulation();
-                typeWriter("偵測到呼吸性竇性心律 (RSA) 耦合。神經震顫指數穩定。建議：維持當前 ALPHA 波段。");
-            }, 600);
-        }
-
-
-        // ==========================================
-        // 2. DASHBOARD 優化邏輯 (結果頁動態)
-        // ==========================================
-
-        // --- A. Neural Filament Canvas (呼吸感電漿弦) ---
-        function initNeuralFilament() {
-            const canvas = document.getElementById('neural-canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // 設定高解析度 Canvas
-            const dpr = window.devicePixelRatio || 1;
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            ctx.scale(dpr, dpr);
-            
-            let time = 0;
-            let breathCycle = 0; // 模擬呼吸週期
-
-            function render() {
-                ctx.clearRect(0, 0, rect.width, rect.height);
+                if (this.state.isScanning || document.getElementById('dashboard-layer').classList.contains('show')) {
+                    capsule.classList.remove('show'); return;
+                }
                 
-                // 模擬呼吸週期 (約 5-6秒一圈)
-                breathCycle += 0.015;
-                // breathVal: -1 (吐氣極值) 到 1 (吸氣極值)
-                const breathVal = Math.sin(breathCycle); 
-                const isInhale = breathVal > 0;
+                let msg = "FIND FACE"; let icon = "scan-face"; let color = "text-red-400"; let bg = "bg-red-500/20"; let border = "status-error";
+                
+                if (landmarks) {
+                    msg = "READY TO SCAN"; icon = "check-circle"; color = "text-cyan-400"; bg = "bg-cyan-500/20"; border = "status-good";
+                }
+                
+                if(textBox.innerText !== msg) {
+                    textBox.innerText = msg;
+                    iconBox.className = `w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300 ${bg}`;
+                    iconBox.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${color}"></i>`;
+                    capsule.className = ""; capsule.classList.add(border, 'show');
+                    lucide.createIcons();
+                }
+                if (!capsule.classList.contains('show')) capsule.classList.add('show');
+            },
 
-                // 根據呼吸改變：
-                // 吸氣(Inhale): 紫色光暈, 振幅較大 (SNS活躍)
-                // 呼氣(Exhale): 青色光暈, 振幅平穩 (PNS活躍)
-                const tension = isInhale ? 1.4 : 0.7; // 線條張力
-                
-                // 顏色計算 (插值)
-                // Cyan: 35, 243, 212 | Purple: 149, 117, 255
-                // 簡單做兩個顏色的切換
-                const r = isInhale ? 149 : 35;
-                const g = isInhale ? 117 : 243;
-                const b = isInhale ? 255 : 212;
-                
-                ctx.lineWidth = 2;
-                ctx.lineCap = 'round';
-                ctx.shadowBlur = isInhale ? 15 : 6;
-                ctx.shadowColor = `rgba(${r},${g},${b},0.6)`;
-                ctx.strokeStyle = `rgba(${r},${g},${b},0.8)`;
+            animate: function() {
+                requestAnimationFrame(() => this.animate());
+                this.updateAudio(); 
+                const time = Date.now() * 0.001;
 
-                ctx.beginPath();
+                if (!this.state.isSensorActive) {
+                    this.state.headRot.x = Math.sin(time * 0.5) * 0.15;
+                    this.state.headRot.y = Math.cos(time * 0.3) * 0.15;
+                }
+                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
+                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
+
+                const positions = this.cloud.geometry.attributes.position.array;
+                const originals = this.cloud.geometry.attributes.originalPosition.array;
+                const randoms = this.cloud.geometry.attributes.random.array;
                 
-                const centerY = rect.height / 2 + 10;
-                const width = rect.width;
+                // Enhance pulse effect when scanning
+                let pulse = Math.sin(time * 2) * (this.state.isScanning ? 0.3 : 0.05);
                 
-                for (let x = 0; x < width; x += 2) {
-                    // 主波形：多重正弦波疊加
-                    // 1. 基礎長波 (隨呼吸起伏)
-                    let y = centerY + Math.sin(x * 0.01 + time) * (15 * tension);
+                for (let i = 0; i < this.config.particleCount; i++) {
+                    const idx = i * 3;
+                    const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
+                    const r = randoms[i];
+                    const noise = pulse * (r + 0.5);
+                    positions[idx] = ox + (ox * noise);
+                    positions[idx+1] = oy + (oy * noise);
+                    positions[idx+2] = oz + (oz * noise);
+                }
+                this.cloud.geometry.attributes.position.needsUpdate = true;
+                this.renderer.render(this.scene, this.camera);
+            },
+
+            initEvents: function() {
+                const btnWrapper = document.getElementById('scan-trigger-wrapper');
+                const ringPath = document.getElementById('scan-progress-bar');
+                const maxOffset = 289; 
+                
+                const start = (e) => {
+                    e.preventDefault();
+                    if (!this.audioCtx) {
+                        this.startSensors();
+                        document.getElementById('instruction').innerText = "SENSORS READY. HOLD NOW.";
+                        return;
+                    }
+                    this.state.isScanning = true;
+                    this.state.scanBuffer = []; 
+                    btnWrapper.classList.add('active');
+                    document.getElementById('instruction').innerText = "BIOMETRICS SYNC...";
+                    if(navigator.vibrate) navigator.vibrate(50);
                     
-                    // 2. 雜訊波 (Neural Jitter) - 移動較快
-                    y += Math.sin(x * 0.04 - time * 2) * (5 * tension);
+                    let progress = 0;
+                    ringPath.style.transition = 'stroke-dashoffset 0.05s linear';
                     
-                    // 3. 隨機微顫 (生物電訊號質感)
-                    y += (Math.random() - 0.5) * (isInhale ? 3 : 1.5);
-
-                    if (x === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-
-                time += 0.08; // 波形流動速度
-                requestAnimationFrame(render);
-            }
-            render();
-        }
-
-        // --- B. 數據模擬 (Jitter 數值 & Stress Bar) ---
-        function startDataSimulation() {
-            // 1. Jitter Value: 隨呼吸起伏
-            const jitterValEl = document.getElementById('jitter-val');
-            const jitterStatusEl = document.getElementById('jitter-status');
-            
-            setInterval(() => {
-                const base = 42;
-                // 隨機抖動 +/- 3
-                const noise = Math.floor(Math.random() * 6 - 3);
-                jitterValEl.innerText = base + noise;
+                    this.scanInterval = setInterval(() => {
+                        progress += 2;
+                        ringPath.style.strokeDashoffset = maxOffset - ((progress / 100) * maxOffset);
+                        if (progress >= 100) this.finishScan();
+                    }, 30); // 1.5 sec scan
+                };
                 
-                // 偶爾切換狀態文字
-                if(Math.random() > 0.8) {
-                    jitterStatusEl.innerText = "Resonant Flow";
-                    jitterStatusEl.style.color = "var(--plasma-cyan)";
-                    jitterStatusEl.style.borderColor = "rgba(35, 243, 212, 0.3)";
-                } else if (Math.random() < 0.2) {
-                     jitterStatusEl.innerText = "Signal Syncing...";
-                     jitterStatusEl.style.color = "rgba(255,255,255,0.7)";
-                     jitterStatusEl.style.borderColor = "rgba(255, 255, 255, 0.1)";
-                }
-            }, 800);
+                const end = (e) => {
+                    if(!this.state.isScanning) return;
+                    this.state.isScanning = false;
+                    clearInterval(this.scanInterval);
+                    btnWrapper.classList.remove('active');
+                    ringPath.style.transition = 'none';
+                    ringPath.style.strokeDashoffset = maxOffset;
+                    document.getElementById('instruction').innerText = "HOLD TO SCAN";
+                };
 
-            // 2. Stress Bar: 緩慢游動
-            const fill = document.getElementById('stress-fill');
-            const knob = document.getElementById('stress-knob');
-            
-            let stressPct = 35;
-            setInterval(() => {
-                // 模擬緩慢游走
-                stressPct += (Math.random() - 0.5) * 8;
-                // 限制範圍
-                if(stressPct < 25) stressPct = 25;
-                if(stressPct > 55) stressPct = 55;
+                btnWrapper.addEventListener('mousedown', start);
+                btnWrapper.addEventListener('touchstart', start);
+                window.addEventListener('mouseup', end);
+                window.addEventListener('touchend', end);
+            },
+
+            finishScan: function() {
+                clearInterval(this.scanInterval);
+                this.state.isScanning = false;
+                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 
-                // 更新 CSS mask 與 Knob 位置
+                // 1. Calculate Result
+                this.state.engineResult = TenkiEngine.calculatePole(this.state.scanBuffer);
+                baselineMgr.recordSession();
+                
+                // 2. Transition to Dashboard
+                this.showDashboard();
+            },
+
+            // ==========================================
+            // NEW DASHBOARD LOGIC (NEURAL SYNC)
+            // ==========================================
+            
+            showDashboard: function() {
+                // UI Transitions
+                document.getElementById('hud-layer').classList.add('hidden-ui');
+                document.getElementById('universe').classList.add('dimmed');
+                document.getElementById('dashboard-layer').classList.add('show');
+                document.getElementById('dock').classList.add('show');
+                
+                // Start Visualizers
+                setTimeout(() => {
+                    this.initNeuralViz();
+                    this.updateDashboardRealtime();
+                    this.startAIInsight();
+                    this.stopSensors(); // Save battery
+                }, 500);
+            },
+
+            initNeuralViz: function() {
+                this.canvas = document.getElementById('neural-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                const dpr = window.devicePixelRatio || 1;
+                const rect = this.canvas.getBoundingClientRect();
+                this.canvas.width = rect.width * dpr;
+                this.canvas.height = rect.height * dpr;
+                this.ctx.scale(dpr, dpr);
+                
+                let time = 0;
+                let breathCycle = 0;
+
+                const render = () => {
+                    if (!document.getElementById('dashboard-layer').classList.contains('show')) return;
+                    
+                    this.ctx.clearRect(0, 0, rect.width, rect.height);
+                    
+                    // Use calculated stability to affect jitter
+                    const stability = this.state.engineResult ? this.state.engineResult.stability : 0.5;
+                    const jitterFactor = (1 - stability) * 10; 
+
+                    breathCycle += 0.02;
+                    const breathVal = Math.sin(breathCycle);
+                    const isInhale = breathVal > 0;
+
+                    // Color Shift based on breath: Purple (Active) <-> Cyan (Calm)
+                    const r = isInhale ? 149 : 35;
+                    const g = isInhale ? 117 : 243;
+                    const b = isInhale ? 255 : 212;
+                    
+                    this.ctx.lineWidth = 2;
+                    this.ctx.lineCap = 'round';
+                    this.ctx.shadowBlur = isInhale ? 15 : 6;
+                    this.ctx.shadowColor = `rgba(${r},${g},${b},0.6)`;
+                    this.ctx.strokeStyle = `rgba(${r},${g},${b},0.8)`;
+                    this.ctx.beginPath();
+                    
+                    const centerY = rect.height / 2 + 10;
+                    
+                    for (let x = 0; x < rect.width; x += 2) {
+                        // Base Wave
+                        let y = centerY + Math.sin(x * 0.01 + time) * 10;
+                        // Jitter Wave (Based on stability)
+                        y += Math.sin(x * 0.05 - time * 2) * (3 + jitterFactor);
+                        // Random Micro-tremors
+                        y += (Math.random() - 0.5) * (isInhale ? 3 : 1);
+
+                        if (x === 0) this.ctx.moveTo(x, y);
+                        else this.ctx.lineTo(x, y);
+                    }
+                    this.ctx.stroke();
+                    time += 0.08;
+                    requestAnimationFrame(render);
+                };
+                render();
+            },
+
+            updateDashboardRealtime: function() {
+                const jitterValEl = document.getElementById('jitter-val');
+                const jitterStatusEl = document.getElementById('jitter-status');
+                const hrvEl = document.getElementById('metric-hrv-display');
+                const stressFill = document.getElementById('stress-fill');
+                const stressKnob = document.getElementById('stress-knob');
+                
+                const result = this.state.engineResult;
+                
+                // Initial Set
+                hrvEl.innerText = result.hrv;
+                
+                // Set Stress Heatmap
+                const stressPct = Math.min(80, Math.max(20, result.stress));
                 const maskStyle = `linear-gradient(to right, black ${stressPct}%, transparent ${stressPct}%)`;
-                fill.style.webkitMaskImage = maskStyle;
-                fill.style.maskImage = maskStyle;
-                knob.style.left = `${stressPct}%`;
-            }, 1500);
-        }
+                stressFill.style.webkitMaskImage = maskStyle;
+                stressFill.style.maskImage = maskStyle;
+                stressKnob.style.left = `${stressPct}%`;
+                
+                if(stressPct > 60) document.getElementById('stress-label').innerText = "Adrenal Response";
+                else document.getElementById('stress-label').innerText = "Eustress";
 
-        // --- C. AI 打字機效果 ---
-        function typeWriter(txt) {
-            const el = document.getElementById('ai-text');
-            let i = 0;
-            el.innerHTML = "";
-            function type() {
-                if (i < txt.length) {
-                    el.innerHTML += txt.charAt(i);
-                    i++;
-                    setTimeout(type, 35); // 打字速度
+                // Simulate live jitter updates
+                setInterval(() => {
+                    const base = 42;
+                    const noise = Math.floor(Math.random() * 6 - 3);
+                    jitterValEl.innerText = base + noise;
+                    
+                    if(Math.random() > 0.7) {
+                        if (result.stability > 0.7) {
+                            jitterStatusEl.innerText = "Coherent Flow";
+                            jitterStatusEl.style.color = "var(--plasma-cyan)";
+                        } else {
+                            jitterStatusEl.innerText = "Syncing...";
+                            jitterStatusEl.style.color = "var(--stardust-purple)";
+                        }
+                    }
+                }, 800);
+            },
+
+            startAIInsight: function() {
+                const result = this.state.engineResult;
+                let text = "Analyzing neural patterns... ";
+                
+                if (result.stability > 0.8) {
+                    text += "偵測到高度神經相干性 (High Coherence)。Alpha 波段穩定，建議進入深度工作流。";
+                } else if (result.markers.anxiety) {
+                    text += "偵測到微幅視覺張力。交感神經活躍。建議：執行 4-7-8 呼吸法重置節律。";
+                } else {
+                    text += "生物節律正常。RSA 耦合運作中。系統狀態：待機就緒。";
                 }
-            }
-            type();
-        }
 
+                const el = document.getElementById('ai-text');
+                let i = 0;
+                const type = () => {
+                    if (i < text.length) {
+                        el.innerHTML += text.charAt(i);
+                        i++;
+                        setTimeout(type, 30);
+                    }
+                };
+                type();
+            },
+
+            reset: function() {
+                document.getElementById('dashboard-layer').classList.remove('show');
+                document.getElementById('dock').classList.remove('show');
+                document.getElementById('hud-layer').classList.remove('hidden-ui');
+                document.getElementById('universe').classList.remove('dimmed');
+                document.getElementById('scan-trigger-wrapper').classList.remove('active');
+                
+                // Clear AI Text
+                document.getElementById('ai-text').innerText = "";
+                
+                // Reset Ring
+                const ringPath = document.getElementById('scan-progress-bar');
+                if(ringPath) ringPath.style.strokeDashoffset = 289;
+                
+                document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
+            }
+        };
+
+        window.onload = () => app.init();
+        window.onresize = () => {
+            app.camera.aspect = window.innerWidth / window.innerHeight;
+            app.camera.updateProjectionMatrix();
+            app.renderer.setSize(window.innerWidth, window.innerHeight);
+        };
     </script>
 </body>
 </html>
