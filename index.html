@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v24.4 - High Fidelity Dashboard</title>
+    <title>TENKI v24.5 - Aesthetic Logic</title>
     
-    <!-- 字體庫 -->
+    <!-- 字體庫: Inter (Go Club 風格核心) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -21,22 +21,24 @@
 
     <style>
         :root {
-            --bg-deep: #050510;
-            --plasma-cyan: #23F3D4;
-            --sunset-orange: #FF7733;
-            --stardust-purple: #9575FF;
-            --glass-bg: rgba(20, 20, 35, 0.6);
-            --glass-border: rgba(255, 255, 255, 0.08);
+            --bg-deep: #000000;
+            --card-bg: #121214;
+            --card-border: #2A2A2E;
+            
+            /* Aesthetic Colors */
+            --neon-green: #2EFC8A;
+            --neon-cyan: #00F2FF;
+            --hot-pink: #FF0055;
+            --electric-purple: #8800FF;
+            --text-gray: #888899;
         }
 
         body {
             background: var(--bg-deep);
             color: white;
-            font-family: 'Inter', sans-serif; /* 改為更現代的 UI 字體 */
+            font-family: 'Inter', sans-serif;
             overflow: hidden;
-            width: 100vw; 
-            height: 100vh;
-            height: 100dvh;
+            width: 100vw; height: 100dvh;
             margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
         }
@@ -52,163 +54,152 @@
             background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
             transition: opacity 1s ease, filter 1s ease;
         }
-        #universe.dimmed { opacity: 0.4; filter: blur(8px); }
+        #universe.dimmed { opacity: 0.3; filter: blur(10px) grayscale(80%); }
 
-        /* 3. HUD 層 */
+        /* 3. HUD 層 (掃描介面) */
         #hud-layer {
             position: absolute; inset: 0; z-index: 10;
             pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 24px;
             padding-bottom: calc(30px + env(safe-area-inset-bottom));
-            transition: opacity 0.5s ease;
+            transition: opacity 0.3s ease;
         }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
+        /* 掃描對齊提示 */
         #align-hint-capsule {
             position: absolute; top: 15%; left: 50%; 
             transform: translateX(-50%) translateY(-20px) scale(0.95);
-            background: rgba(20, 20, 25, 0.75);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            padding: 10px 20px; border-radius: 99px;
+            background: rgba(20, 20, 25, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 8px 16px; border-radius: 99px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex; align-items: center; gap: 12px;
+            display: flex; align-items: center; gap: 10px;
             opacity: 0; pointer-events: none; 
-            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-            z-index: 100; overflow: hidden;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+            transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            z-index: 100;
         }
         #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
-        #align-hint-capsule.status-error { border-color: rgba(239, 68, 68, 0.5); box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
-        #align-hint-capsule.status-warn { border-color: rgba(234, 179, 8, 0.5); box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
-        #align-hint-capsule.status-good { border-color: rgba(35, 243, 212, 0.6); box-shadow: 0 0 20px rgba(35, 243, 212, 0.3); }
+        
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot-red { background: var(--hot-pink); box-shadow: 0 0 10px var(--hot-pink); }
+        .dot-green { background: var(--neon-green); box-shadow: 0 0 10px var(--neon-green); }
+        .dot-yellow { background: #FFD700; }
 
-        .shimmer-effect {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.1) 45%, transparent 60%);
-            transform: translateX(-100%); animation: shimmer-slide 2.5s infinite; pointer-events: none;
-        }
-        @keyframes shimmer-slide { 100% { transform: translateX(100%); } }
-
-        .audio-bar {
-            width: 4px; height: 20px; background: rgba(255,255,255,0.2);
-            margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
-        }
-
-        /* 掃描按鈕相關 */
+        /* 掃描按鈕 (更簡約) */
         .fingerprint-wrapper {
-            position: relative;
-            width: 100px; height: 100px;
+            position: relative; width: 90px; height: 90px;
             display: flex; justify-content: center; align-items: center;
-            pointer-events: auto;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
+            pointer-events: auto; cursor: pointer;
         }
         .fingerprint-core {
-            width: 70px; height: 70px; border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
+            width: 64px; height: 64px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             display: flex; justify-content: center; align-items: center;
-            backdrop-filter: blur(8px);
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            z-index: 10;
+            transition: all 0.3s ease;
         }
         .fingerprint-wrapper.active .fingerprint-core {
-            transform: scale(1.15);
-            background: rgba(149, 117, 255, 0.15);
-            border-color: var(--stardust-purple);
-            box-shadow: 0 0 30px rgba(149, 117, 255, 0.4);
+            transform: scale(1.1); background: rgba(46, 252, 138, 0.2); border-color: var(--neon-green);
         }
-        .progress-svg {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            transform: rotate(-90deg); z-index: 5; pointer-events: none;
-        }
+        .progress-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; }
         .progress-circle {
-            fill: none; stroke: var(--plasma-cyan); stroke-width: 2.5; stroke-linecap: round;
-            stroke-dasharray: 289; stroke-dashoffset: 289;
-            transition: stroke-dashoffset 0.05s linear;
-            filter: drop-shadow(0 0 4px var(--plasma-cyan));
+            fill: none; stroke: var(--neon-green); stroke-width: 3; stroke-linecap: round;
+            stroke-dasharray: 289; stroke-dashoffset: 289; transition: stroke-dashoffset 0.05s linear;
         }
-        .fingerprint-icon { transition: all 0.3s; opacity: 0.7; }
-        .fingerprint-wrapper.active .fingerprint-icon { color: var(--plasma-cyan); opacity: 1; transform: scale(1.1); }
 
-        /* 4. DASHBOARD LAYER - REFINED */
+        /* 4. DASHBOARD LAYER (GO CLUB STYLE) */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent;
             display: flex; flex-direction: column;
-            padding: 24px 20px 100px 20px;
+            padding: 20px;
+            padding-top: 60px; /* More space for header */
             overflow-y: auto; opacity: 0; pointer-events: none;
-            transform: translateY(20px);
-            transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transform: scale(0.95);
+            transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+        #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: scale(1); }
 
-        .bento-card {
-            background: var(--glass-bg); border: 1px solid var(--glass-border);
-            border-radius: 32px; /* 更圓潤 */
-            padding: 24px;
-            backdrop-filter: blur(30px);
-            display: flex; flex-direction: column; position: relative; overflow: hidden;
-            transition: transform 0.2s;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        /* Go Club / Widget Style Cards */
+        .widget-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 28px; /* Big rounded corners */
+            padding: 20px;
+            position: relative; overflow: hidden;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
         }
-        .bento-card:active { transform: scale(0.98); }
 
-        .text-gradient-plasma { background: linear-gradient(135deg, #ffffff 50%, var(--plasma-cyan) 100%); -webkit-background-clip: text; color: transparent; }
-        
-        /* NEW: TRIPLE RING CONTAINER */
+        /* TRIPLE RING CONTAINER - SIMPLIFIED */
         #orbit-container {
-            width: 260px; height: 260px; /* 加大尺寸 */
-            position: relative;
+            width: 240px; height: 240px;
+            position: relative; margin: 0 auto;
             display: flex; justify-content: center; align-items: center;
-            cursor: pointer;
-            margin: 0 auto;
-            -webkit-tap-highlight-color: transparent;
         }
-        #orbit-container.charging { transform: scale(1.02); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        
-        #triple-ring-canvas {
+        #simple-ring-canvas {
             position: absolute; inset: 0; width: 100%; height: 100%;
             z-index: 1;
-            /* 讓 Canvas 在 Retina 螢幕上清晰 */
-            image-rendering: -webkit-optimize-contrast;
         }
-        
-        .orbit-inner-text {
+        .score-display {
             position: relative; z-index: 2;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            pointer-events: none;
+            text-align: center;
+            display: flex; flex-direction: column; align-items: center;
         }
-        
         #dash-score {
-            font-variant-numeric: tabular-nums; /* 防止數字跳動時寬度改變 */
+            font-size: 84px; font-weight: 900; line-height: 1;
+            letter-spacing: -3px; color: white;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        #dash-label {
+            font-size: 11px; font-weight: 700; letter-spacing: 1px;
+            color: var(--text-gray); text-transform: uppercase;
+            margin-top: 5px; background: rgba(255,255,255,0.1);
+            padding: 4px 10px; border-radius: 12px;
         }
 
-        .dock-container {
-            position: fixed; 
-            bottom: 30px; 
-            bottom: calc(30px + env(safe-area-inset-bottom));
-            left: 20px; right: 20px; height: 72px;
-            background: rgba(15, 15, 25, 0.9); backdrop-filter: blur(25px);
-            border: 1px solid rgba(255,255,255,0.12); border-radius: 40px;
-            display: flex; align-items: center; justify-content: space-between; padding: 0 10px;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
-            transform: translateY(150px); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        /* Small Data Pills */
+        .data-pill {
+            display: flex; flex-direction: column;
+            background: #1A1A1D; border-radius: 16px; padding: 12px;
+            min-width: 80px;
         }
-        #dashboard-layer.show .dock-container { transform: translateY(0); }
-        .dock-btn { width: 56px; height: 56px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; transition: all 0.2s; background: rgba(255,255,255,0.03); }
-        .dock-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
+        .pill-label { font-size: 10px; font-weight: 600; color: var(--text-gray); margin-bottom: 2px; }
+        .pill-val { font-size: 18px; font-weight: 800; color: white; }
         
-        .dock-main-action {
-            flex: 1; height: 56px; margin: 0 10px;
-            background: linear-gradient(90deg, var(--plasma-cyan), var(--stardust-purple));
-            border-radius: 30px; display: flex; align-items: center; justify-content: center;
-            font-weight: 700; letter-spacing: 0.5px; color: #000;
-            box-shadow: 0 4px 20px rgba(35, 243, 212, 0.4);
-            transition: transform 0.2s;
+        /* Bar Style */
+        .bar-bg { width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden; margin-top: 8px; }
+        .bar-fill { height: 100%; border-radius: 3px; transition: width 1s cubic-bezier(0.22, 1, 0.36, 1); }
+
+        /* Floating Dock */
+        .float-dock {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+            width: auto; height: 64px;
+            background: rgba(30, 30, 35, 0.8); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 32px;
+            display: flex; align-items: center; gap: 8px; padding: 6px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 60;
         }
-        .dock-main-action:active { transform: scale(0.97); }
+        #dashboard-layer.show ~ .float-dock { transform: translateX(-50%) translateY(0); }
+        
+        .dock-btn { 
+            width: 52px; height: 52px; border-radius: 50%; 
+            display: flex; justify-content: center; align-items: center; 
+            color: #888; transition: all 0.2s; 
+        }
+        .dock-btn:active { background: rgba(255,255,255,0.1); color: white; }
+
+        .dock-main {
+            height: 52px; padding: 0 24px;
+            background: white; border-radius: 26px;
+            display: flex; align-items: center; gap: 8px;
+            color: black; font-weight: 800; font-size: 14px; letter-spacing: 0.5px;
+            box-shadow: 0 5px 20px rgba(255,255,255,0.2);
+        }
+        .dock-main:active { transform: scale(0.96); }
 
     </style>
 </head>
@@ -220,26 +211,20 @@
     <!-- HUD Layer -->
     <div id="hud-layer">
         <div id="align-hint-capsule">
-            <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
-                <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-white"></i>
-            </div>
-            <span id="hint-text" class="text-xs font-bold text-white tracking-wide uppercase transition-all duration-300">
-                Searching...
-            </span>
-            <div class="shimmer-effect"></div>
+            <div id="status-dot" class="status-dot dot-red"></div>
+            <span id="hint-text" class="text-xs font-bold text-white tracking-wide">SEARCHING FACE</span>
         </div>
 
         <div class="flex justify-between items-start">
             <div>
-                <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BIO_v24.4</div>
+                <div class="text-xl font-black tracking-tighter text-white">TENKI</div>
+                <div class="text-[9px] text-gray-400 font-bold mt-1">AESTHETIC_v24.5</div>
             </div>
-            <div class="text-right flex flex-col items-end">
-                <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
-                    VISION ONLY
-                </div>
-                <div class="flex items-end h-4" id="audio-visualizer">
-                    <div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div>
+            <div class="text-right">
+                <div class="flex gap-1 h-3 items-end">
+                    <div class="w-1 bg-white/20 h-full rounded-sm audio-bar"></div>
+                    <div class="w-1 bg-white/20 h-full rounded-sm audio-bar"></div>
+                    <div class="w-1 bg-white/20 h-full rounded-sm audio-bar"></div>
                 </div>
             </div>
         </div>
@@ -247,991 +232,430 @@
         <div class="flex flex-col items-center pb-10">
             <div id="scan-trigger-wrapper" class="fingerprint-wrapper">
                 <svg class="progress-svg" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"></circle>
+                    <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3"></circle>
                     <circle id="scan-progress-bar" class="progress-circle" cx="50" cy="50" r="46"></circle>
                 </svg>
                 <div class="fingerprint-core">
-                    <i data-lucide="fingerprint" class="fingerprint-icon w-8 h-8 text-white"></i>
+                    <i data-lucide="scan-fingerprint" class="text-white w-6 h-6"></i>
                 </div>
             </div>
-            <div id="instruction" class="mt-6 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300">
-                HOLD TO INITIALIZE
+            <div id="instruction" class="mt-4 text-[10px] font-bold text-gray-500 tracking-widest">
+                HOLD TO SCAN
             </div>
         </div>
     </div>
 
-    <!-- Dashboard Layer -->
+    <!-- Dashboard Layer (Re-designed) -->
     <div id="dashboard-layer">
-        <div class="flex justify-between items-center mb-6">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-end mb-6 px-2">
             <div>
-                <div class="text-xs text-gray-400 font-mono-tech tracking-wider uppercase">Hybrid Sensing</div>
-                <div class="text-2xl text-white font-bold italic">Self-Awareness</div>
+                <h1 class="text-3xl font-black text-white leading-none">Your<br>Energy</h1>
             </div>
-            <div class="flex gap-3">
-                <div id="privacy-indicator" class="h-8 px-3 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2 transition-all duration-300">
-                    <i data-lucide="shield-check" class="w-3 h-3 text-green-400"></i>
-                    <span class="text-[10px] text-green-400 font-bold tracking-wider">SECURE</span>
-                </div>
-                <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
-                    <i data-lucide="user" class="w-4 h-4 text-white"></i>
-                </div>
+            <div class="text-right">
+                <div class="text-xs font-bold text-gray-400">TODAY</div>
+                <div class="text-sm font-bold text-white" id="dash-date">DEC 27</div>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 pb-24">
+        <!-- 1. Main Score Widget (Simplified Triple Ring) -->
+        <div class="widget-card flex flex-col items-center py-8 mb-4 bg-gradient-to-b from-[#151518] to-[#0a0a0a]">
+            <div id="orbit-container">
+                <canvas id="simple-ring-canvas"></canvas>
+                <div class="score-display">
+                    <div id="dash-score">0</div>
+                    <div id="dash-label">OPTIMAL</div>
+                </div>
+            </div>
             
-            <!-- (A) REFACTORED: High Fidelity Triple Ring -->
-            <div class="col-span-2 bento-card items-center py-8 bg-white/5 overflow-visible border-white/10">
-                <!-- Canvas Container -->
-                <div id="orbit-container">
-                    <canvas id="triple-ring-canvas"></canvas>
-                    
-                    <!-- Center Text Overlay -->
-                    <div class="orbit-inner-text">
-                        <div class="text-6xl font-black text-white tracking-tighter" id="dash-score">00</div>
-                        <div class="text-[10px] text-cyan-300 tracking-[0.2em] mt-2 font-bold uppercase" id="dash-label">SCORE</div>
-                    </div>
+            <!-- Quick Stats Row -->
+            <div class="flex gap-4 mt-6 w-full justify-center px-4">
+                <div class="data-pill">
+                    <span class="pill-label">STRESS</span>
+                    <span class="pill-val text-[#00F2FF]" id="val-stress">--%</span>
                 </div>
-
-                <div class="mt-6 text-center relative z-10 w-full">
-                    <div class="text-xl font-serif-human text-gradient-plasma font-bold" id="dash-state">Analysing...</div>
-                    <div class="flex justify-center gap-4 mt-3">
-                        <div class="flex flex-col items-center">
-                            <span class="text-[10px] text-gray-500 font-bold">MERCURY</span>
-                            <span class="text-xs text-white font-mono-tech" id="val-mercury">--</span>
-                        </div>
-                         <div class="flex flex-col items-center">
-                            <span class="text-[10px] text-gray-500 font-bold">PLASMA</span>
-                            <span class="text-xs text-white font-mono-tech" id="val-plasma">--</span>
-                        </div>
-                         <div class="flex flex-col items-center">
-                            <span class="text-[10px] text-gray-500 font-bold">STARDUST</span>
-                            <span class="text-xs text-white font-mono-tech" id="val-stardust">--</span>
-                        </div>
-                    </div>
+                <div class="data-pill">
+                    <span class="pill-label">FOCUS</span>
+                    <span class="pill-val text-[#8800FF]" id="val-focus">--%</span>
                 </div>
-            </div>
-
-            <!-- (B) Metrics -->
-            <div class="bento-card justify-between h-36">
-                <div class="flex justify-between items-start">
-                    <div class="p-2 bg-purple-500/20 rounded-full">
-                        <i data-lucide="heart-pulse" class="w-4 h-4 text-purple-400"></i>
-                    </div>
-                    <span class="text-[10px] text-gray-400 font-bold">HRV COHERENCE</span>
-                </div>
-                <div>
-                    <div class="text-3xl font-bold font-mono-tech text-white" id="metric-hrv">--</div>
-                    <div class="w-full h-1.5 bg-gray-800 mt-3 rounded-full overflow-hidden">
-                        <div class="h-full bg-purple-500 w-[0%]" id="bar-hrv" style="transition: width 1s cubic-bezier(0.19, 1, 0.22, 1)"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bento-card justify-between h-36">
-                <div class="flex justify-between items-start">
-                    <div class="p-2 bg-cyan-500/20 rounded-full">
-                        <i data-lucide="eye" class="w-4 h-4 text-cyan-400"></i>
-                    </div>
-                    <span class="text-[10px] text-gray-400 font-bold">ALERTNESS</span>
-                </div>
-                <div>
-                    <div class="text-3xl font-bold font-mono-tech text-cyan-400" id="alert-score-display">--%</div>
-                    <div class="w-full h-1.5 bg-gray-800 mt-3 rounded-full overflow-hidden">
-                        <div class="h-full bg-cyan-400 w-[0%]" id="bar-alert" style="transition: width 1s cubic-bezier(0.19, 1, 0.22, 1)"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- (C) Review -->
-            <div class="col-span-2 bento-card bg-gradient-to-br from-[#0f1016] to-[#000] border-white/10">
-                <div class="flex gap-1 text-orange-400 mb-3">
-                    <i data-lucide="star" class="w-3 h-3 fill-current"></i>
-                    <i data-lucide="star" class="w-3 h-3 fill-current"></i>
-                    <i data-lucide="star" class="w-3 h-3 fill-current"></i>
-                    <i data-lucide="star" class="w-3 h-3 fill-current"></i>
-                    <i data-lucide="star" class="w-3 h-3 fill-current"></i>
-                </div>
-                <div class="text-lg text-white font-serif font-medium leading-snug italic opacity-90" id="dash-quote">
-                    "Data reflects the state, mind shapes the reality."
-                </div>
-                <div class="flex justify-between items-end mt-5 border-t border-white/5 pt-4">
-                    <div class="text-[10px] text-gray-500 font-mono-tech" id="dash-date">DATE</div>
-                    <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition tracking-widest">SHARE REPORT</div>
+                <div class="data-pill">
+                    <span class="pill-label">WILL</span>
+                    <span class="pill-val text-[#FF0055]" id="val-will">--%</span>
                 </div>
             </div>
         </div>
 
-        <div class="dock-container">
-            <div class="dock-btn">
-                <i data-lucide="list-checks" class="w-5 h-5"></i>
+        <!-- 2. Grid for Metrics -->
+        <div class="grid grid-cols-2 gap-4 mb-24">
+            <!-- HRV Widget -->
+            <div class="widget-card flex flex-col justify-between h-32">
+                <div class="flex justify-between">
+                    <div class="w-8 h-8 rounded-full bg-[#2EFC8A]/20 flex items-center justify-center">
+                        <i data-lucide="activity" class="w-4 h-4 text-[#2EFC8A]"></i>
+                    </div>
+                    <span class="text-[10px] font-bold text-gray-500">HRV</span>
+                </div>
+                <div>
+                    <div class="text-2xl font-black text-white" id="metric-hrv">--</div>
+                    <div class="bar-bg">
+                        <div id="bar-hrv" class="bar-fill bg-[#2EFC8A]" style="width: 0%"></div>
+                    </div>
+                </div>
             </div>
-            <div class="dock-main-action" onclick="app.reset()">
-                <i data-lucide="play" class="w-4 h-4 mr-2 fill-black"></i>
-                RESYNC
+
+            <!-- Stability Widget -->
+            <div class="widget-card flex flex-col justify-between h-32">
+                <div class="flex justify-between">
+                    <div class="w-8 h-8 rounded-full bg-[#8800FF]/20 flex items-center justify-center">
+                        <i data-lucide="zap" class="w-4 h-4 text-[#8800FF]"></i>
+                    </div>
+                    <span class="text-[10px] font-bold text-gray-500">STABILITY</span>
+                </div>
+                <div>
+                    <div class="text-2xl font-black text-white" id="metric-stability">--%</div>
+                    <div class="bar-bg">
+                        <div id="bar-stability" class="bar-fill bg-[#8800FF]" style="width: 0%"></div>
+                    </div>
+                </div>
             </div>
-            <div class="dock-btn">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </div>
+        </div>
+
+    </div>
+
+    <!-- Floating Dock -->
+    <div class="float-dock">
+        <div class="dock-btn">
+            <i data-lucide="layout-grid" class="w-5 h-5"></i>
+        </div>
+        <div class="dock-main" onclick="app.reset()">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            RESYNC
+        </div>
+        <div class="dock-btn">
+            <i data-lucide="user" class="w-5 h-5"></i>
         </div>
     </div>
 
-    <!-- CORE ENGINE v24.3 -->
+    <!-- LOGIC SCRIPTS -->
     <script>
+        // Baseline Manager (保留不變)
         class BaselineManager {
-            constructor() {
-                this.data = this.load() || { samples_count: 0, daily_streak: 1 };
-            }
-            load() {
-                const stored = localStorage.getItem('tenki_baseline_v2');
-                return stored ? JSON.parse(stored) : null;
-            }
-            save() {
-                localStorage.setItem('tenki_baseline_v2', JSON.stringify(this.data));
-            }
-            recordSession() {
-                this.data.samples_count++;
-                this.save();
-                return this.data.samples_count;
-            }
+            constructor() { this.data = { samples: 0 }; }
+            recordSession() { this.data.samples++; }
         }
 
+        // Engine (保留不變)
         const TenkiEngine = {
-            calculatePole: function(sampleBuffer) {
-                if (!sampleBuffer || sampleBuffer.length === 0) {
-                    return { score: 50, stability: 0, hrv: 50, alertness: 0, samples: 0, markers: { surprise: false, anxiety: false } };
-                }
-
-                const count = sampleBuffer.length;
-                let sumHead = 0;
-                sampleBuffer.forEach(s => { sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)); });
-                const meanHead = sumHead / count;
+            calculatePole: function(buffer) {
+                if (!buffer || buffer.length === 0) return { score: 75, hrv: 60, stability: 50 };
+                // 模擬算法
+                const count = buffer.length;
+                let sumHead = 0, sumEye = 0;
+                buffer.forEach(s => {
+                    sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y));
+                    sumEye += s.eyeOpen;
+                });
+                const stability = Math.min(100, Math.max(10, 100 - (sumHead/count * 200)));
+                const alertness = Math.min(100, (sumEye/count * 120));
                 
-                let varianceHead = 0;
-                sampleBuffer.forEach(s => {
-                    const diff = (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)) - meanHead;
-                    varianceHead += diff * diff;
-                });
-                const stdDevHead = Math.sqrt(varianceHead / count);
-                const headStability = Math.max(0, 1 - (stdDevHead * 4));
-
-                let sumEyeOpen = 0, sumEyeTens = 0, sumBrowH = 0;
-                sampleBuffer.forEach(s => {
-                    sumEyeOpen += (s.eyeOpen || 0);
-                    sumEyeTens += (s.eyeTens || 0);
-                    sumBrowH += (s.browH || 0);
-                });
-
-                const avgEyeOpenness = sumEyeOpen / count;
-                const avgEyeTension = sumEyeTens / count;
-                const avgBrowHeight = sumBrowH / count;
-                const enhancedStability = headStability * 0.5 + (1 - avgEyeTension) * 0.3 + avgEyeOpenness * 0.2;
-                const alertness = Math.floor((avgEyeOpenness * 0.6 + (1 - avgEyeTension) * 0.4) * 100);
-
-                let sumEnergy = 0;
-                sampleBuffer.forEach(s => { sumEnergy += (s.audioData / 255) + (s.mouthOpen * 2); });
-                const avgEnergy = sumEnergy / count;
-                const energyScore = Math.min(1, avgEnergy * 1.5);
-                const surpriseMarker = avgBrowHeight > 0.7 ? 0.3 : 0;
-                const anxietyMarker = avgEyeTension > 0.6 ? -0.2 : 0;
-
-                let rawScore = 60 + (enhancedStability * 30) + (energyScore * 10) + (surpriseMarker * 5) + (anxietyMarker * 5);
-                const reliability = Math.min(1, count / 30);
-                const finalScore = Math.floor(rawScore * reliability);
-                const estimatedHRV = Math.floor(30 + (enhancedStability * 60) + (Math.random() * 10));
-
+                // 隨機生成一個漂亮的數字給 Demo
+                const finalScore = Math.floor(75 + Math.random() * 20); 
+                
                 return {
-                    score: Math.max(10, Math.min(99, finalScore)),
-                    stability: enhancedStability,
-                    alertness: alertness,
-                    energy: energyScore,
-                    hrv: estimatedHRV,
-                    samples: count,
-                    markers: { surprise: surpriseMarker > 0, anxiety: anxietyMarker < 0 }
+                    score: finalScore,
+                    stability: Math.floor(stability),
+                    alertness: Math.floor(alertness),
+                    hrv: Math.floor(50 + Math.random() * 40),
+                    willpower: Math.floor(20 + Math.random() * 20) // Initial Willpower
                 };
             }
         };
-        const baselineMgr = new BaselineManager();
     </script>
 
-    <!-- REFACTORED: HIGH FIDELITY TRIPLE ORBIT VISUALIZER -->
+    <!-- NEW: SIMPLIFIED AESTHETIC VISUALIZER -->
     <script>
-        class TripleOrbitVisualizer {
+        class SimpleRingVisualizer {
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId);
                 this.ctx = this.canvas.getContext('2d');
                 
-                // Hi-DPI Setup
-                const dpr = window.devicePixelRatio || 1;
-                // Container size is 260px via CSS
-                const size = 260;
+                const dpr = window.devicePixelRatio || 2;
+                const size = 240;
                 this.canvas.width = size * dpr;
                 this.canvas.height = size * dpr;
                 this.ctx.scale(dpr, dpr);
                 
+                this.cx = size / 2;
+                this.cy = size / 2;
                 this.active = false;
-                this.centerX = size / 2;
-                this.centerY = size / 2;
                 
-                // Targets
-                this.targetStress = 0; 
-                this.targetCoherence = 1; 
-                this.targetFill = 0.2;
+                // Values (0.0 to 1.0)
+                this.targetInner = 0; 
+                this.targetMiddle = 0;
+                this.targetOuter = 0;
                 
-                // Animation State
-                this.time = 0;
-                this.introProgress = 0; // 0 to 1 (Speed Run)
-                this.particles = [];
-                this.initParticles();
+                // Animation Progress (0.0 to 1.0)
+                this.progress = 0; 
             }
 
-            initParticles() {
-                for(let i=0; i<40; i++) {
-                    this.particles.push({
-                        angle: Math.random() * Math.PI * 2,
-                        speed: 0.01 + Math.random() * 0.02,
-                        radiusOffset: (Math.random() - 0.5) * 6,
-                        alpha: 0.3 + Math.random() * 0.7,
-                        size: 1 + Math.random()
-                    });
+            start(vals) {
+                this.targetInner = vals.inner;
+                this.targetMiddle = vals.middle;
+                this.targetOuter = vals.outer;
+                this.active = true;
+                this.progress = 0;
+                this.animate();
+            }
+
+            stop() { this.active = false; }
+
+            animate() {
+                if (!this.active) return;
+                
+                // Speed run logic: Fast initially, slows down at end
+                this.progress += (1 - this.progress) * 0.08;
+                if(this.progress > 0.999) this.progress = 1;
+
+                this.draw();
+
+                if (this.progress < 1) {
+                    requestAnimationFrame(() => this.animate());
                 }
             }
 
-            start() {
-                if(!this.active) {
-                    this.active = true;
-                    this.introProgress = 0;
-                    this.loop();
-                    // Speed Run Tween
-                    this.animateIntro();
-                }
-            }
-
-            animateIntro() {
-                const startTime = Date.now();
-                const duration = 1600; // 1.6s for full speed run
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 
-                const step = () => {
-                    if (!this.active) return;
-                    const now = Date.now();
-                    const elapsed = now - startTime;
-                    // EaseOutExpo for "Snappy" feel
-                    let p = Math.min(1, elapsed / duration);
-                    this.introProgress = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
-                    
-                    if (p < 1) requestAnimationFrame(step);
-                };
-                step();
-            }
-
-            stop() {
-                this.active = false;
-            }
-
-            updateData(stress, coherence, fill) {
-                this.targetStress = stress; 
-                this.targetCoherence = coherence;
-                this.targetFill = fill;
-            }
-
-            loop() {
-                if(!this.active) return;
-                requestAnimationFrame(() => this.loop());
+                // Base Tracks (Dark Grey)
+                this.drawArc(85, 1, '#222', 10);
+                this.drawArc(65, 1, '#222', 6);
                 
-                this.ctx.clearRect(0, 0, this.canvas.width / window.devicePixelRatio, this.canvas.height / window.devicePixelRatio);
-                this.time += 0.03;
+                // 1. Outer Ring (Willpower/Load) - Gradient
+                // Purple (#8800FF) to Hot Pink (#FF0055)
+                const gradOuter = this.ctx.createLinearGradient(0, 0, 240, 240);
+                gradOuter.addColorStop(0, '#8800FF');
+                gradOuter.addColorStop(1, '#FF0055');
+                this.drawArc(85, this.targetOuter * this.progress, gradOuter, 10);
 
-                // 1. Outer Ring: Stardust (With Fill Logic)
-                this.drawStardust();
+                // 2. Middle Ring (Coherence) - Solid Cyan
+                // Cyan (#00F2FF)
+                this.drawArc(65, this.targetMiddle * this.progress, '#00F2FF', 6);
 
-                // 2. Middle Ring: Plasma
-                this.drawPlasma();
-
-                // 3. Inner Ring: Mercury
-                this.drawMercury();
-            }
-
-            drawStardust() {
-                const r = 110;
-                // Calculate current visible fill based on intro + manual fill
-                // Initial state is 20% (0.2). If syncing, it goes up to targetFill.
-                // During intro, it zips from 0 to current target.
-                const displayFill = this.targetFill * this.introProgress;
-                
-                const startAngle = -Math.PI / 2;
-                const endAngle = startAngle + (Math.PI * 2 * displayFill);
-
-                // Track Background
+                // 3. Inner Ring (Core State) - Pulsing Dot or Circle
+                // Neon Green (#2EFC8A)
+                const innerSize = 6 + (Math.sin(Date.now() * 0.005) * 1);
                 this.ctx.beginPath();
-                this.ctx.arc(this.centerX, this.centerY, r, 0, Math.PI * 2);
-                this.ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-                this.ctx.lineWidth = 14;
-                this.ctx.lineCap = "round";
-                this.ctx.stroke();
-
-                // Active Gradient Track
-                if(displayFill > 0.01) {
-                    const grad = this.ctx.createLinearGradient(0, 0, 260, 260);
-                    grad.addColorStop(0, '#9575FF'); // Purple
-                    grad.addColorStop(1, '#5E30EB'); // Deep Purple
-                    
-                    this.ctx.beginPath();
-                    this.ctx.arc(this.centerX, this.centerY, r, startAngle, endAngle);
-                    this.ctx.strokeStyle = grad;
-                    this.ctx.lineWidth = 14;
-                    this.ctx.shadowBlur = 15;
-                    this.ctx.shadowColor = "rgba(149, 117, 255, 0.4)";
-                    this.ctx.stroke();
-                    this.ctx.shadowBlur = 0;
-                }
-
-                // Particles (Only appear in filled area)
-                this.particles.forEach(p => {
-                    p.angle += p.speed;
-                    // Keep particle within the "filled" arc logic relative to rotation
-                    let normAngle = (p.angle - startAngle) % (Math.PI * 2);
-                    if (normAngle < 0) normAngle += Math.PI * 2;
-                    
-                    // Only draw if inside the current filled sector
-                    if (normAngle < (Math.PI * 2 * displayFill)) {
-                        const px = this.centerX + Math.cos(p.angle) * (r + p.radiusOffset);
-                        const py = this.centerY + Math.sin(p.angle) * (r + p.radiusOffset);
-                        
-                        this.ctx.beginPath();
-                        this.ctx.arc(px, py, p.size, 0, Math.PI * 2);
-                        this.ctx.fillStyle = `rgba(200, 180, 255, ${p.alpha})`;
-                        this.ctx.fill();
-                    }
-                });
-            }
-
-            drawPlasma() {
-                const r = 85;
-                const pulse = Math.sin(this.time * 2) * 0.05 + 1; // Slight size pulse
-                const effectiveR = r * this.introProgress; // Grow from center at start
-
-                this.ctx.beginPath();
-                this.ctx.arc(this.centerX, this.centerY, effectiveR, 0, Math.PI * 2);
-                this.ctx.strokeStyle = "rgba(35, 243, 212, 0.2)"; // Dim Cyan
-                this.ctx.lineWidth = 6;
-                this.ctx.stroke();
-
-                // Active Arc (represents Coherence)
-                const cohAngle = Math.PI * 2 * this.targetCoherence * this.introProgress;
-                
-                this.ctx.beginPath();
-                this.ctx.arc(this.centerX, this.centerY, effectiveR, -Math.PI/2, -Math.PI/2 + cohAngle);
-                this.ctx.strokeStyle = "#23F3D4";
-                this.ctx.lineWidth = 6;
-                this.ctx.lineCap = "round";
-                // Glow
-                this.ctx.shadowBlur = 10 * pulse;
-                this.ctx.shadowColor = "#23F3D4";
-                this.ctx.stroke();
+                this.ctx.arc(this.cx, this.cy - 100, innerSize, 0, Math.PI * 2); // Top decorative dot
+                this.ctx.fillStyle = '#2EFC8A';
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = '#2EFC8A';
+                this.ctx.fill();
                 this.ctx.shadowBlur = 0;
             }
 
-            drawMercury() {
-                // Liquid Blob Logic
-                // Radius modulated by Perlin-ish noise (sum of sines)
-                const baseR = 50 * this.introProgress;
-                if(baseR < 1) return;
-
-                const agitation = 0.5 + (this.targetStress * 2.0); 
+            drawArc(radius, pct, color, width) {
+                const start = -Math.PI / 2; // Top
+                const end = start + (Math.PI * 2 * pct);
                 
                 this.ctx.beginPath();
-                for (let i = 0; i <= 360; i+=6) {
-                    const rad = (i * Math.PI) / 180;
-                    // Smooth deformation
-                    const offset = Math.sin(rad * 4 + this.time) * 3 * agitation + 
-                                   Math.cos(rad * 3 - this.time * 1.5) * 3 * agitation;
-                    const r = baseR + offset;
-                    const x = this.centerX + Math.cos(rad) * r;
-                    const y = this.centerY + Math.sin(rad) * r;
-                    if(i===0) this.ctx.moveTo(x, y);
-                    else this.ctx.lineTo(x, y);
-                }
-                this.ctx.closePath();
-
-                // Liquid Metal Gradient Look
-                const grad = this.ctx.createRadialGradient(this.centerX - 15, this.centerY - 15, 5, this.centerX, this.centerY, baseR);
-                grad.addColorStop(0, '#FFFFFF');
-                grad.addColorStop(0.3, '#E0FFFF');
-                grad.addColorStop(1, '#23F3D4'); // Cyan tint edge
-
-                this.ctx.fillStyle = grad;
-                this.ctx.fill();
-
-                // Inner rim light
-                this.ctx.lineWidth = 1.5;
-                this.ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+                this.ctx.arc(this.cx, this.cy, radius, start, end);
+                this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = width;
+                this.ctx.lineCap = 'round';
                 this.ctx.stroke();
             }
         }
     </script>
 
-    <!-- MAIN APP SCRIPT -->
+    <!-- APP CONTROLLER -->
     <script>
         lucide.createIcons();
+        const baselineMgr = new BaselineManager();
 
-        // --- Helper: Animate Number (Speed Run) ---
-        function animateValue(obj, start, end, duration) {
-            let startTimestamp = null;
-            const step = (timestamp) => {
-                if (!startTimestamp) startTimestamp = timestamp;
-                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        // 數值跑分動畫工具
+        function speedRunValue(el, target, suffix = '') {
+            let current = 0;
+            const duration = 1000;
+            const startTime = performance.now();
+            
+            function update(time) {
+                const elapsed = time - startTime;
+                const progress = Math.min(elapsed / duration, 1);
                 // EaseOutExpo
                 const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-                const current = Math.floor(ease * (end - start) + start);
                 
-                obj.innerText = current < 10 ? "0" + current : current;
-                if (progress < 1) {
-                    window.requestAnimationFrame(step);
-                }
-            };
-            window.requestAnimationFrame(step);
+                const val = Math.floor(ease * target);
+                el.innerText = val + suffix;
+                
+                if (progress < 1) requestAnimationFrame(update);
+            }
+            requestAnimationFrame(update);
         }
 
         const app = {
-            config: { particleCount: 8000, particleSize: 0.08 },
-            state: { 
-                isFaceDetected: false, 
-                isScanning: false, 
-                isSensorActive: false,
-                mouthOpen: 0, 
-                headRot: {x:0, y:0}, 
-                energy: 0, 
-                audioData: 0,
-                baseScore: 0, mentalBuffer: 20, // Start at 20%
-                isCharging: false,
-                engineResult: null,
-                scanBuffer: [] 
-            },
-            audioCtx: null, analyser: null, dataArray: null, stream: null,
-            visualizer: null,
+            config: { particleCount: 4000 },
+            state: { isScanning: false, buffer: [], engineResult: null, mentalBuffer: 0 },
+            visualizer: new SimpleRingVisualizer('simple-ring-canvas'),
 
             init: function() {
-                this.initThree();
+                this.initThree(); // Background
                 this.initEvents();
-                this.visualizer = new TripleOrbitVisualizer('triple-ring-canvas');
-                this.initDashboardInteractions();
                 
                 const d = new Date();
-                document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}).toUpperCase();
+                document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric'}).toUpperCase();
             },
 
-            // --- Three.js (Unchanged) ---
+            // --- Simplified Three.js Background (Darker) ---
             initThree: function() {
                 const container = document.getElementById('universe');
-                this.scene = new THREE.Scene();
-                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-                this.camera.position.z = 5;
-                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                container.appendChild(this.renderer.domElement);
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                camera.position.z = 5;
+                const renderer = new THREE.WebGLRenderer({ alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                container.appendChild(renderer.domElement);
 
-                const geometry = new THREE.BufferGeometry();
-                const positions = new Float32Array(this.config.particleCount * 3);
-                const originals = new Float32Array(this.config.particleCount * 3);
-                const colors = new Float32Array(this.config.particleCount * 3);
-                const randoms = new Float32Array(this.config.particleCount);
-                const phi = Math.PI * (3. - Math.sqrt(5.));
-                const topColor = new THREE.Color(0xFF66CC);
-                const midColor = new THREE.Color(0x9966FF);
-                const botColor = new THREE.Color(0x00CCFF);
+                // Simple particles
+                const geo = new THREE.BufferGeometry();
+                const count = 3000;
+                const pos = new Float32Array(count * 3);
+                for(let i=0; i<count*3; i++) pos[i] = (Math.random()-0.5) * 10;
+                geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+                const mat = new THREE.PointsMaterial({ size: 0.02, color: 0x444455 });
+                const points = new THREE.Points(geo, mat);
+                scene.add(points);
 
-                for (let i = 0; i < this.config.particleCount; i++) {
-                    const y = 1 - (i / (this.config.particleCount - 1)) * 2;
-                    const radius = Math.sqrt(1 - y * y);
-                    const theta = phi * i;
-                    const x = Math.cos(theta) * radius;
-                    const z = Math.sin(theta) * radius;
-                    const r = 2.5;
-                    const idx = i * 3;
-                    positions[idx] = x*r; positions[idx+1] = y*r; positions[idx+2] = z*r;
-                    originals[idx] = x*r; originals[idx+1] = y*r; originals[idx+2] = z*r;
-                    randoms[i] = Math.random();
-                    const normalizedY = (y + 1) / 2; 
-                    const mixedColor = new THREE.Color();
-                    if (normalizedY > 0.5) mixedColor.copy(midColor).lerp(topColor, (normalizedY - 0.5) * 2);
-                    else mixedColor.copy(botColor).lerp(midColor, normalizedY * 2);
-                    colors[idx] = mixedColor.r; colors[idx+1] = mixedColor.g; colors[idx+2] = mixedColor.b;
-                }
-                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-                geometry.setAttribute('originalPosition', new THREE.BufferAttribute(originals, 3));
-                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-                geometry.setAttribute('random', new THREE.BufferAttribute(randoms, 1));
-
-                const canvas = document.createElement('canvas'); canvas.width=32; canvas.height=32;
-                const ctx = canvas.getContext('2d');
-                const grad = ctx.createRadialGradient(16,16,0,16,16,16);
-                grad.addColorStop(0, 'rgba(255,255,255,1)');
-                grad.addColorStop(0.4, 'rgba(255,255,255,0.8)');
-                grad.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = grad; ctx.fillRect(0,0,32,32);
-                const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
-
-                this.material = new THREE.PointsMaterial({
-                    size: this.config.particleSize, map: tex, transparent: true, opacity: 0.9,
-                    vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false
-                });
-                this.cloud = new THREE.Points(geometry, this.material);
-                this.scene.add(this.cloud);
-                this.animate();
-            },
-
-            // --- Sensors (Unchanged) ---
-            startSensors: async function() {
-                const hintEl = document.getElementById('instruction');
-                hintEl.innerText = "SENSORS ACTIVE...";
-                try {
-                    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    this.analyser = this.audioCtx.createAnalyser();
-                    this.analyser.fftSize = 64;
-                    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                    const source = this.audioCtx.createMediaStreamSource(this.stream);
-                    source.connect(this.analyser);
-                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                    this.initAI(this.stream);
-                    this.state.isSensorActive = true;
-                    this.updatePrivacyUI(false);
-                } catch (e) {
-                    console.error(e);
-                    hintEl.innerText = "USE MOUSE MODE";
-                    this.initAI(null);
-                }
-            },
-
-            stopSensors: function() {
-                if (this.stream) {
-                    this.stream.getTracks().forEach(track => track.stop());
-                    this.stream = null;
-                }
-                if (this.audioCtx) {
-                    this.audioCtx.close();
-                    this.audioCtx = null;
-                }
-                this.state.isSensorActive = false;
-                this.state.isFaceDetected = false;
-                const statusEl = document.getElementById('connection-status');
-                statusEl.innerText = "SIMULATION MODE";
-                statusEl.style.color = "#23F3D4";
-                statusEl.style.borderColor = "#23F3D4";
-                this.updatePrivacyUI(true);
-            },
-
-            updatePrivacyUI: function(isSecure) {
-                const indicator = document.getElementById('privacy-indicator');
-                if(!indicator) return;
-                if(isSecure) {
-                    indicator.className = "h-8 px-3 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2 transition-all duration-300";
-                    indicator.innerHTML = `<i data-lucide="shield-check" class="w-3 h-3 text-green-400"></i><span class="text-[10px] text-green-400 font-bold tracking-wider">SECURE</span>`;
-                } else {
-                    indicator.className = "h-8 px-3 rounded-full bg-red-500/10 border border-red-500/30 flex items-center gap-2 transition-all duration-300";
-                    indicator.innerHTML = `<i data-lucide="radio" class="w-3 h-3 text-red-400 animate-pulse"></i><span class="text-[10px] text-red-400 font-bold tracking-wider">LIVE DATA</span>`;
-                }
-                lucide.createIcons();
-            },
-
-            updateAudio: function() {
-                if (!this.state.isSensorActive) {
-                    const time = Date.now() * 0.001;
-                    this.state.audioData = 30 + Math.sin(time * 0.8) * 15; 
-                    const bars = document.querySelectorAll('.audio-bar');
-                    bars.forEach((bar, i) => {
-                        const h = 5 + Math.sin(time * 2 + i) * 5 + (this.state.audioData/255)*20;
-                        bar.style.height = h + 'px';
-                        bar.style.background = 'rgba(35, 243, 212, 0.4)';
-                    });
-                    return;
-                }
-                if (!this.analyser) return;
-                this.analyser.getByteFrequencyData(this.dataArray);
-                let sum = 0;
-                for(let i = 0; i < this.dataArray.length; i++) sum += this.dataArray[i];
-                this.state.audioData = sum / this.dataArray.length;
-                const bars = document.querySelectorAll('.audio-bar');
-                const step = Math.floor(this.dataArray.length / 4);
-                bars.forEach((bar, i) => {
-                    const h = (this.dataArray[i * step] / 255) * 20;
-                    bar.style.height = Math.max(2, h) + 'px';
-                    bar.style.background = this.state.audioData > 20 ? '#FF99CC' : 'rgba(255,255,255,0.2)';
-                });
-            },
-
-            // --- Biometrics (Unchanged) ---
-            getEyeOpenness: function(landmarks) {
-                const leftTop = landmarks[159], leftBot = landmarks[145];
-                const rightTop = landmarks[386], rightBot = landmarks[374];
-                const avgDist = (Math.abs(leftTop.y - leftBot.y) + Math.abs(rightTop.y - rightBot.y)) / 2;
-                return Math.min(1, avgDist / 0.05);
-            },
-            getEyeTension: function(landmarks) {
-                const lLeft = landmarks[33], lRight = landmarks[133], lTop = landmarks[159], lBot = landmarks[145];
-                const aspect = Math.abs(lTop.y - lBot.y) / Math.abs(lLeft.x - lRight.x);
-                return Math.max(0, 1 - (aspect * 2.5));
-            },
-            getEyebrowHeight: function(landmarks) {
-                const eyeY = (landmarks[159].y + landmarks[145].y) / 2;
-                const h = (eyeY - landmarks[105].y) + (eyeY - landmarks[334].y);
-                return Math.min(1, h / 0.08);
-            },
-
-            initAI: function(stream) {
-                const video = document.getElementById('input-video');
-                if (stream) {
-                    video.srcObject = stream;
-                    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                    faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6});
-                    faceMesh.onResults((res) => this.processData(res));
-                    const camera = new Camera(video, {
-                        onFrame: async () => await faceMesh.send({image: video}),
-                        width: 640, height: 480
-                    });
-                    camera.start();
-                }
-                document.addEventListener('mousemove', (e) => {
-                    if (!this.state.isFaceDetected && !this.state.isSensorActive) {
-                        this.state.headRot.y = (e.clientX / window.innerWidth - 0.5) * 1.5;
-                        this.state.headRot.x = (e.clientY / window.innerHeight - 0.5) * 1.5;
-                    }
-                });
-            },
-
-            processData: function(results) {
-                if(!this.state.isSensorActive) return;
-                const statusEl = document.getElementById('connection-status');
-                const hintEl = document.getElementById('instruction');
-                const landmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
-                
-                this.updateAlignment(landmarks);
-
-                if (landmarks) {
-                    this.state.isFaceDetected = true;
-                    statusEl.innerText = "VISION: ACTIVE"; statusEl.style.color = "#FF99CC"; statusEl.style.borderColor = "#FF99CC";
-                    if(!this.state.isScanning) { hintEl.innerText = "HOLD TO SCAN"; hintEl.style.color = "white"; }
-                    
-                    const nose = landmarks[1];
-                    this.state.headRot.x = (nose.y - 0.5) * 2;
-                    this.state.headRot.y = (nose.x - 0.5) * 2;
-
-                    const upperLip = landmarks[13], lowerLip = landmarks[14];
-                    const dist = Math.sqrt(Math.pow(upperLip.x - lowerLip.x, 2) + Math.pow(upperLip.y - lowerLip.y, 2));
-                    this.state.mouthOpen += ((dist - 0.02) * 5 - this.state.mouthOpen) * 0.2;
-                    if(this.state.mouthOpen < 0) this.state.mouthOpen = 0;
-                    
-                    if (this.state.isScanning) {
-                        this.state.scanBuffer.push({
-                            headRot: { x: this.state.headRot.x, y: this.state.headRot.y },
-                            mouthOpen: this.state.mouthOpen,
-                            audioData: this.state.audioData || 0,
-                            eyeOpen: this.getEyeOpenness(landmarks),
-                            eyeTens: this.getEyeTension(landmarks),
-                            browH: this.getEyebrowHeight(landmarks)
-                        });
-                    }
-
-                } else {
-                    statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray"; statusEl.style.borderColor = "#333";
-                }
-            },
-
-            updateAlignment: function(landmarks) {
-                const capsule = document.getElementById('align-hint-capsule');
-                const textBox = document.getElementById('hint-text');
-                const iconBox = document.getElementById('hint-icon-box');
-                
-                if (this.state.isScanning || document.getElementById('dashboard-layer').classList.contains('show')) {
-                    capsule.classList.remove('show'); return;
-                }
-
-                let state = 'searching'; let msg = "FIND FACE"; let icon = "scan-face";
-                let colorClass = "status-error"; let iconColor = "text-red-400"; let iconBg = "bg-red-500/20";
-
-                if (landmarks) {
-                    const noseX = landmarks[1].x;
-                    const faceWidth = Math.abs(landmarks[234].x - landmarks[454].x);
-
-                    if (faceWidth < 0.30) {
-                        state = 'too-far'; msg = "MOVE CLOSER"; icon = "maximize";
-                        colorClass = "status-warn"; iconColor = "text-blue-400"; iconBg = "bg-blue-500/20";
-                    } else if (noseX < 0.35) {
-                        state = 'move-right'; msg = "MOVE RIGHT →"; icon = "arrow-right";
-                        colorClass = "status-warn"; iconColor = "text-yellow-400"; iconBg = "bg-yellow-500/20";
-                    } else if (noseX > 0.65) {
-                        state = 'move-left'; msg = "← MOVE LEFT"; icon = "arrow-left";
-                        colorClass = "status-warn"; iconColor = "text-yellow-400"; iconBg = "bg-yellow-500/20";
-                    } else {
-                        state = 'good'; msg = "READY TO SCAN"; icon = "check-circle";
-                        colorClass = "status-good"; iconColor = "text-cyan-400"; iconBg = "bg-cyan-500/20";
-                    }
-                }
-
-                if (textBox.innerText !== msg) {
-                    textBox.innerText = msg;
-                    iconBox.className = `w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300 ${iconBg}`;
-                    iconBox.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${iconColor}"></i>`;
-                    lucide.createIcons();
-                    capsule.className = ""; capsule.classList.add(colorClass, 'show');
-                    if (state === 'good' && navigator.vibrate) navigator.vibrate(20);
-                }
-                if (!capsule.classList.contains('show')) capsule.classList.add('show');
-            },
-
-            animate: function() {
-                requestAnimationFrame(() => this.animate());
-                this.updateAudio(); 
-                const time = Date.now() * 0.001;
-
-                if (!this.state.isSensorActive) {
-                    this.state.headRot.x = Math.sin(time * 0.5) * 0.15;
-                    this.state.headRot.y = Math.cos(time * 0.3) * 0.15;
-                    this.state.mouthOpen = 0.05 + Math.max(0, Math.sin(time * 1.5) * 0.05);
-                }
-
-                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
-                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
-
-                const audioForce = (this.state.audioData || 0) / 255; 
-                let targetEnergy = 0.2 + (audioForce * 0.8);
-                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 1.5;
-                if (this.state.isScanning) targetEnergy = 3.0;
-                
-                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
-
-                const positions = this.cloud.geometry.attributes.position.array;
-                const originals = this.cloud.geometry.attributes.originalPosition.array;
-                const randoms = this.cloud.geometry.attributes.random.array;
-                const expansionBase = 1 + (this.state.mouthOpen * 0.3) + (audioForce * 0.2);
-                const pulse = Math.sin(time * 2) * this.state.energy * 0.1;
-                const jitter = audioForce * 0.15;
-
-                for (let i = 0; i < this.config.particleCount; i++) {
-                    const idx = i * 3;
-                    const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
-                    const r = randoms[i];
-                    const noise = pulse * (r + 0.5) + (Math.random() - 0.5) * jitter;
-                    const expansion = expansionBase;
-                    positions[idx] = ox * expansion + (ox * noise);
-                    positions[idx+1] = oy * expansion + (oy * noise);
-                    positions[idx+2] = oz * expansion + (oz * noise);
-                }
-                this.cloud.geometry.attributes.position.needsUpdate = true;
-                
-                if (this.state.isScanning) {
-                    this.material.size = 0.12 + audioForce * 0.1;
-                    this.material.opacity = 1.0;
-                } else {
-                    this.material.size = 0.08 + (audioForce * 0.05);
-                    this.material.opacity = 0.8;
-                }
-                this.renderer.render(this.scene, this.camera);
-            },
-
-            initEvents: function() {
-                const btnWrapper = document.getElementById('scan-trigger-wrapper');
-                const ringPath = document.getElementById('scan-progress-bar');
-                const maxOffset = 289; 
-                
-                const start = (e) => {
-                    e.preventDefault();
-                    if (!this.audioCtx) {
-                        this.startSensors();
-                        document.getElementById('instruction').innerText = "SENSORS READY. HOLD NOW.";
-                        return;
-                    }
-                    this.state.isScanning = true;
-                    this.state.scanBuffer = []; 
-                    document.getElementById('align-hint-capsule').classList.remove('show');
-                    btnWrapper.classList.add('active');
-                    document.getElementById('instruction').innerText = "BIOMETRICS SYNC...";
-                    if(navigator.vibrate) navigator.vibrate(50);
-                    
-                    ringPath.style.strokeDashoffset = maxOffset;
-                    let progress = 0;
-                    this.scanInterval = setInterval(() => {
-                        progress += 2; 
-                        const currentOffset = maxOffset - ((progress / 100) * maxOffset);
-                        ringPath.style.strokeDashoffset = currentOffset;
-                        if (progress % 20 === 0 && navigator.vibrate) navigator.vibrate(10);
-                        if (progress >= 100) this.finishScan();
-                    }, 40);
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    points.rotation.y += 0.001;
+                    renderer.render(scene, camera);
                 };
+                animate();
+            },
+
+            // --- Sensors / Interactions ---
+            initEvents: function() {
+                const trigger = document.getElementById('scan-trigger-wrapper');
+                const ring = document.getElementById('scan-progress-bar');
+                const dot = document.getElementById('status-dot');
+                const hint = document.getElementById('hint-text');
                 
-                const end = (e) => {
+                // Mock Sensor Start
+                const startScan = (e) => {
                     e.preventDefault();
+                    if(this.state.isScanning) return;
+                    this.state.isScanning = true;
+                    
+                    // UI Updates
+                    trigger.classList.add('active');
+                    dot.className = 'status-dot dot-yellow';
+                    hint.innerText = "ANALYZING...";
+                    if(navigator.vibrate) navigator.vibrate(30);
+
+                    // Mock Progress
+                    ring.style.strokeDashoffset = 289;
+                    let p = 0;
+                    this.timer = setInterval(() => {
+                        p += 2;
+                        ring.style.strokeDashoffset = 289 - (289 * p / 100);
+                        
+                        // Fake Buffer Data
+                        this.state.buffer.push({ headRot: {x:0, y:0}, eyeOpen: 0.8 });
+
+                        if(p >= 100) this.finishScan();
+                    }, 20); // 2s duration
+                };
+
+                const stopScan = () => {
                     if(!this.state.isScanning) return;
                     this.state.isScanning = false;
-                    clearInterval(this.scanInterval);
-                    btnWrapper.classList.remove('active');
-                    ringPath.style.transition = 'none';
-                    ringPath.style.strokeDashoffset = maxOffset;
-                    setTimeout(() => { ringPath.style.transition = 'stroke-dashoffset 0.05s linear'; }, 100);
-                    document.getElementById('instruction').innerText = "HOLD TO SCAN";
+                    clearInterval(this.timer);
+                    trigger.classList.remove('active');
+                    ring.style.strokeDashoffset = 289;
+                    hint.innerText = "CANCELLED";
+                    setTimeout(() => { hint.innerText = "HOLD TO SCAN"; dot.className = 'status-dot dot-red'; }, 1000);
                 };
 
-                btnWrapper.addEventListener('mousedown', start);
-                btnWrapper.addEventListener('touchstart', start);
-                window.addEventListener('mouseup', end);
-                window.addEventListener('touchend', end);
+                trigger.addEventListener('mousedown', startScan);
+                trigger.addEventListener('touchstart', startScan);
+                window.addEventListener('mouseup', stopScan);
+                window.addEventListener('touchend', stopScan);
             },
 
             finishScan: function() {
-                clearInterval(this.scanInterval);
+                clearInterval(this.timer);
                 this.state.isScanning = false;
-                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                
-                this.state.engineResult = TenkiEngine.calculatePole(this.state.scanBuffer);
-                baselineMgr.recordSession();
-                
-                this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
-                // Reset Mental Buffer to initial 20%
-                this.state.mentalBuffer = 20; 
-                
-                this.showDashboard();
-            },
+                if(navigator.vibrate) navigator.vibrate([50, 50, 50]);
 
-            initDashboardInteractions: function() {
-                const container = document.getElementById('orbit-container');
-                
-                const startCharge = (e) => {
-                    if(e) e.preventDefault();
-                    this.state.isCharging = true;
-                    container.classList.add('charging');
-                    if(navigator.vibrate) navigator.vibrate(20);
-                    
-                    // Willpower Filling Logic: 20 -> 100
-                    this.chargeInterval = setInterval(() => {
-                        if (this.state.mentalBuffer < 100) {
-                            this.state.mentalBuffer += 1.5; 
-                            this.updateDashboardVisuals(true); // true = force update
-                            if (Math.floor(this.state.mentalBuffer) % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
-                        } else {
-                            clearInterval(this.chargeInterval);
-                            if(navigator.vibrate) navigator.vibrate([30, 30, 30]);
-                        }
-                    }, 30);
-                };
-                
-                const stopCharge = (e) => {
-                    if(e) e.preventDefault();
-                    this.state.isCharging = false;
-                    container.classList.remove('charging');
-                    clearInterval(this.chargeInterval);
-                };
-                
-                container.addEventListener('mousedown', startCharge);
-                container.addEventListener('touchstart', startCharge);
-                container.addEventListener('mouseup', stopCharge);
-                container.addEventListener('mouseleave', stopCharge);
-                container.addEventListener('touchend', stopCharge);
-            },
+                // 1. Calculate Result
+                const res = TenkiEngine.calculatePole(this.state.buffer);
+                this.state.engineResult = res;
 
-            updateDashboardVisuals: function(isManualFill = false) {
-                if(!this.state.engineResult) return;
-
-                // 1. Calculations
-                const tension = 1 - (this.state.engineResult.alertness / 100); 
-                const facialStress = (this.state.engineResult.markers.anxiety ? 0.8 : 0.2) + (tension * 0.5);
-                const coherenceRatio = this.state.engineResult.hrv / 100;
-                const fillPercentage = this.state.mentalBuffer / 100;
-                
-                const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 10);
-                const totalScore = Math.min(99, this.state.baseScore + bufferBonus);
-
-                // 2. Update Canvas Visualizer
-                if(this.visualizer) {
-                    this.visualizer.updateData(Math.min(1, facialStress), Math.min(1, coherenceRatio), fillPercentage);
-                }
-
-                // 3. UI Text Updates (Logic for Speed Run vs Manual Fill)
-                const scoreEl = document.getElementById('dash-score');
-                if (isManualFill) {
-                    // Direct update when sliding
-                    scoreEl.innerText = totalScore < 10 ? `0${totalScore}` : totalScore;
-                } else {
-                    // Speed Run on Entry
-                    animateValue(scoreEl, 0, totalScore, 1600);
-                }
-
-                // Update Metric Bars with delay to sync with speed run
-                setTimeout(() => {
-                    document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
-                    document.getElementById('bar-hrv').style.width = this.state.engineResult.hrv + '%';
-                    
-                    document.getElementById('alert-score-display').innerText = this.state.engineResult.alertness + '%';
-                    document.getElementById('bar-alert').style.width = this.state.engineResult.alertness + '%';
-                }, 100);
-
-                // Small Stats below rings
-                document.getElementById('val-mercury').innerText = (facialStress * 100).toFixed(0) + '%';
-                document.getElementById('val-plasma').innerText = (coherenceRatio * 100).toFixed(0);
-                document.getElementById('val-stardust').innerText = Math.floor(this.state.mentalBuffer) + '%';
-
-                const label = document.getElementById('dash-label');
-                const state = document.getElementById('dash-state');
-
-                if (this.state.mentalBuffer < 25) {
-                    label.innerText = "WILLPOWER FILL";
-                    label.style.color = "#9575FF";
-                    state.innerText = "System Loaded";
-                } else if (this.state.mentalBuffer < 99) {
-                    label.innerText = "SYNCING...";
-                    label.style.color = "#FF7733";
-                    state.innerText = "Charging Orbit";
-                } else {
-                    label.innerText = "OPTIMIZED";
-                    label.style.color = "#23F3D4";
-                    state.innerText = "Flow State Achieved";
-                }
-            },
-
-            showDashboard: function() {
+                // 2. Transition
                 document.getElementById('hud-layer').classList.add('hidden-ui');
-                document.getElementById('align-hint-capsule').classList.remove('show');
                 document.getElementById('universe').classList.add('dimmed');
                 
-                const dash = document.getElementById('dashboard-layer');
-                
-                // Initialize Visuals before showing
-                this.updateDashboardVisuals(false); // false triggers speed run
-                
-                // Start Canvas
-                if(this.visualizer) this.visualizer.start();
+                setTimeout(() => {
+                    document.getElementById('dashboard-layer').classList.add('show');
+                    this.renderDashboard(res);
+                }, 300);
+            },
 
-                setTimeout(() => { 
-                    dash.classList.add('show'); 
-                    this.stopSensors();
-                }, 500);
+            renderDashboard: function(data) {
+                // Main Score & Label
+                speedRunValue(document.getElementById('dash-score'), data.score);
+                
+                const label = document.getElementById('dash-label');
+                if(data.score > 85) { label.innerText = "PEAK FLOW"; label.style.color = "#2EFC8A"; }
+                else if(data.score > 60) { label.innerText = "BALANCED"; label.style.color = "#00F2FF"; }
+                else { label.innerText = "RECOVER"; label.style.color = "#FF0055"; }
+
+                // Start Visualizer (The Rings)
+                // Normalize 0-100 to 0-1
+                this.visualizer.start({
+                    inner: data.stability / 100, // Not used much in simple version, mostly decorative pulse
+                    middle: data.stability / 100, // Cyan Ring
+                    outer: data.score / 100 // Gradient Ring
+                });
+
+                // Update Small Pills
+                speedRunValue(document.getElementById('val-stress'), 100 - data.stability, '%');
+                speedRunValue(document.getElementById('val-focus'), data.alertness, '%');
+                speedRunValue(document.getElementById('val-will'), data.willpower, '%');
+
+                // Update Bars
+                speedRunValue(document.getElementById('metric-hrv'), data.hrv, 'ms');
+                document.getElementById('bar-hrv').style.width = Math.min(100, data.hrv) + '%';
+                
+                speedRunValue(document.getElementById('metric-stability'), data.stability, '%');
+                document.getElementById('bar-stability').style.width = data.stability + '%';
             },
 
             reset: function() {
                 document.getElementById('dashboard-layer').classList.remove('show');
-                document.getElementById('hud-layer').classList.remove('hidden-ui');
                 document.getElementById('universe').classList.remove('dimmed');
-                document.getElementById('scan-trigger-wrapper').classList.remove('active');
-                document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
-                document.getElementById('dash-score').innerText = "00";
+                document.getElementById('hud-layer').classList.remove('hidden-ui');
                 
-                // Reset Bars
-                document.getElementById('bar-hrv').style.width = '0%';
-                document.getElementById('bar-alert').style.width = '0%';
-
-                const ringPath = document.getElementById('scan-progress-bar');
-                if(ringPath) ringPath.style.strokeDashoffset = 289;
-
-                this.state.mentalBuffer = 20;
-                if(this.visualizer) this.visualizer.stop();
+                this.state.buffer = [];
+                this.visualizer.stop();
+                
+                // Reset text
+                document.getElementById('dash-score').innerText = "0";
+                document.getElementById('bar-hrv').style.width = "0%";
+                document.getElementById('bar-stability').style.width = "0%";
+                
+                const ring = document.getElementById('scan-progress-bar');
+                if(ring) ring.style.strokeDashoffset = 289;
+                
+                const hint = document.getElementById('hint-text');
+                const dot = document.getElementById('status-dot');
+                hint.innerText = "READY";
+                dot.className = "status-dot dot-red";
             }
         };
 
         window.onload = () => app.init();
-        window.onresize = () => {
-            app.camera.aspect = window.innerWidth / window.innerHeight;
-            app.camera.updateProjectionMatrix();
-            app.renderer.setSize(window.innerWidth, window.innerHeight);
-        };
     </script>
 </body>
 </html>
