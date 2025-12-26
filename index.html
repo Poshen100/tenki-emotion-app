@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v24.0 - MVP Baseline (Spectrum Ed.)</title>
+    <title>TENKI v24.1 - Fixed Spectrum</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,10 +42,8 @@
         .font-serif-human { font-family: 'Playfair Display', serif; }
         .font-mono-tech { font-family: 'Space Mono', monospace; }
 
-        /* 1. 隱私層 */
+        /* 隱私層 & 背景層 (保持不變) */
         #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
-
-        /* 2. 背景層 */
         #universe {
             position: absolute; inset: 0; z-index: 1;
             background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
@@ -53,13 +51,11 @@
         }
         #universe.dimmed { opacity: 0.4; filter: blur(8px); }
 
-        /* 3. HUD 層 */
+        /* HUD 層 (保持不變) */
         #hud-layer {
-            position: absolute; inset: 0; z-index: 10;
-            pointer-events: none;
+            position: absolute; inset: 0; z-index: 10; pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
-            padding: 24px;
-            padding-bottom: calc(24px + env(safe-area-inset-bottom)); 
+            padding: 24px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); 
             transition: opacity 0.5s ease;
         }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
@@ -90,7 +86,7 @@
         }
         @keyframes shimmer-slide { 100% { transform: translateX(100%); } }
 
-        /* HUD Scanner */
+        /* Scanner Button Styles */
         .audio-bar { width: 4px; height: 20px; background: rgba(255,255,255,0.2); margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px; }
         .fingerprint-sensor {
             pointer-events: auto; position: relative; width: 80px; height: 80px; border-radius: 50%;
@@ -114,7 +110,7 @@
         .fingerprint-icon { z-index: 3; position: relative; transition: color 0.3s; }
         .fingerprint-sensor.active .fingerprint-icon { color: var(--plasma-cyan); opacity: 0.8; }
 
-        /* 4. DASHBOARD LAYER */
+        /* DASHBOARD LAYER (修復重點) */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50; background: transparent;
             display: flex; flex-direction: column; padding: 24px 20px 100px 20px;
@@ -129,45 +125,55 @@
             display: flex; flex-direction: column; position: relative; overflow: hidden;
             transition: transform 0.2s;
         }
-        .bento-card:active { transform: scale(0.98); }
-        .text-gradient-plasma { background: linear-gradient(135deg, #ffffff 0%, var(--plasma-cyan) 100%); -webkit-background-clip: text; color: transparent; }
 
-        /* --- NEW SPECTRUM SYSTEM STYLES --- */
+        /* --- 這裡開始是修復後的圓環樣式 --- */
         .spectrum-container {
-            width: 220px; height: 220px; position: relative;
+            width: 240px; height: 240px; /* 稍微加大一點 */
+            position: relative;
             display: flex; justify-content: center; align-items: center;
             cursor: pointer; user-select: none;
-            /* Container scales slightly on charge */
-            transition: transform 0.1s ease;
+            margin: 0 auto; /* 水平居中 */
+            border-radius: 50%; /* 確保容器本身也是圓形 */
         }
         .spectrum-container:active { transform: scale(0.98); }
         
-        /* Layer 1: Core Text */
+        /* Layer 1: Core Text (內層數字) */
         .spectrum-core {
             position: absolute; z-index: 10; pointer-events: none;
             text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        /* Layer 2: WebGL Shader Canvas */
+        
+        /* Layer 2: WebGL Canvas (光譜環) */
         #spectrum-canvas {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 5; pointer-events: none;
-            /* Blend mode makes the neon colors pop against dark bg */
-            mix-blend-mode: screen; 
+            border-radius: 50%; /* 關鍵：強制裁切成圓形，消除方形邊角 */
+            /* mix-blend-mode: screen; */ /* 先移除，避免背景變黑 */
         }
-        /* Layer 3: Status Pulse Ring */
+
+        /* Layer 3: Status Pulse Ring (外層呼吸燈) */
         .status-pulse-ring {
-            position: absolute; inset: 10px; border-radius: 50%;
-            border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 0 20px rgba(35, 243, 212, 0.0);
+            position: absolute; inset: -10px; /* 向外擴展10px */
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.05); /* 默認微弱邊框 */
+            box-shadow: 0 0 0px rgba(35, 243, 212, 0);
             z-index: 6; pointer-events: none;
             transition: all 0.5s ease;
         }
-        .spectrum-container.charging .status-pulse-ring {
-            border-color: rgba(35, 243, 212, 0.5);
-            box-shadow: 0 0 30px rgba(35, 243, 212, 0.2);
-            animation: pulse-ring 1s infinite alternate;
+        
+        /* 當充電或同步時的呼吸效果 */
+        .spectrum-container.charging .status-pulse-ring,
+        .spectrum-container.synced .status-pulse-ring {
+            border-color: rgba(35, 243, 212, 0.4);
+            box-shadow: 0 0 30px rgba(35, 243, 212, 0.15);
+            animation: pulse-ring 1.5s infinite ease-in-out;
         }
-        @keyframes pulse-ring { from { transform: scale(0.98); opacity: 0.5; } to { transform: scale(1.02); opacity: 1; } }
+
+        @keyframes pulse-ring { 
+            0% { transform: scale(0.95); opacity: 0.5; border-color: rgba(35, 243, 212, 0.3); } 
+            50% { transform: scale(1.05); opacity: 1; border-color: rgba(35, 243, 212, 0.8); }
+            100% { transform: scale(0.95); opacity: 0.5; border-color: rgba(35, 243, 212, 0.3); } 
+        }
 
         /* Dock */
         .dock-container {
@@ -212,7 +218,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BASELINE_v24.0</div>
+                <div class="text-[8px] text-purple-300 tracking-widest mt-1 font-mono-tech">MVP_BASELINE_v24.1</div>
             </div>
             <div class="text-right flex flex-col items-end">
                 <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
@@ -253,23 +259,23 @@
 
         <div class="grid grid-cols-2 gap-4 pb-24">
             
-            <!-- (A) NEW: Tri-Layer Spectrum System -->
+            <!-- (A) 修復後的圓環結構 -->
             <div class="col-span-2 bento-card items-center py-8 bg-white/5 overflow-visible">
                 <!-- Spectrum Container -->
                 <div id="tei-orbit" class="spectrum-container">
-                    <!-- Layer 3: Pulse Ring -->
+                    <!-- Layer 3: Pulse Ring (Outer) -->
                     <div class="status-pulse-ring"></div>
-                    <!-- Layer 2: WebGL Canvas -->
-                    <canvas id="spectrum-canvas" width="440" height="440"></canvas>
-                    <!-- Layer 1: Core Text -->
+                    <!-- Layer 2: WebGL Canvas (Middle) -->
+                    <canvas id="spectrum-canvas"></canvas>
+                    <!-- Layer 1: Core Text (Inner) -->
                     <div class="spectrum-core">
                         <div class="text-6xl font-bold font-mono-tech tracking-tighter transition-colors duration-300" id="dash-score" style="color:white;">--</div>
                         <div class="text-[10px] text-gray-400 tracking-widest mt-2" id="dash-label">HOLD TO SYNC</div>
                     </div>
                 </div>
 
-                <div class="mt-4 text-center z-10">
-                    <div class="text-xl font-serif-human text-gradient-plasma" id="dash-state">Awaiting Input...</div>
+                <div class="mt-6 text-center z-10">
+                    <div class="text-xl font-serif-human" id="dash-state" style="color: #23F3D4;">Awaiting Input...</div>
                     <div class="text-xs text-gray-500 font-mono-tech mt-2" id="dash-sub">
                         Base: Vision Scan • Buffer: Empty
                     </div>
@@ -336,25 +342,24 @@
         </div>
     </div>
 
-    <!-- LOGIC: Spectrum Ring WebGL Class -->
+    <!-- LOGIC: Spectrum Ring WebGL Class (Fixed Transparency) -->
     <script>
         class SpectrumRing {
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId);
-                this.gl = this.canvas.getContext('webgl');
+                // 修正：確保 alpha 通道正確，避免背景變黑
+                this.gl = this.canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false });
                 if (!this.gl) return;
                 
-                // Adjust for High DPI
                 const dpr = Math.min(window.devicePixelRatio, 2);
-                this.canvas.width = 220 * dpr;
-                this.canvas.height = 220 * dpr;
+                this.canvas.width = 240 * dpr;
+                this.canvas.height = 240 * dpr;
                 this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
 
                 this.program = this.createProgram(this.vertexShaderSrc(), this.fragmentShaderSrc());
                 this.initBuffers();
                 this.startTime = Date.now();
                 
-                // Uniform Locations
                 this.uTime = this.gl.getUniformLocation(this.program, 'u_time');
                 this.uResolution = this.gl.getUniformLocation(this.program, 'u_resolution');
                 this.uScore = this.gl.getUniformLocation(this.program, 'u_score');
@@ -362,7 +367,13 @@
 
                 this.targetScore = 0.0;
                 this.currentScore = 0.0;
-                this.metrics = [0.5, 0.5, 0.5, 0.5]; // Default balanced
+                this.metrics = [0.5, 0.5, 0.5, 0.5];
+
+                // 修正：設置清除顏色為全透明
+                this.gl.clearColor(0.0, 0.0, 0.0, 0.0);
+                // 修正：啟用混合模式，確保 Shader 畫出的透明度能正確疊加到 CSS 背景上
+                this.gl.enable(this.gl.BLEND);
+                this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
 
                 this.animate();
             }
@@ -379,12 +390,11 @@
                     precision mediump float;
                     uniform vec2 u_resolution;
                     uniform float u_time;
-                    uniform float u_score; // 0.0 to 1.0
-                    uniform vec4 u_metrics; // x=stress, y=coherence, z=load, w=energy
+                    uniform float u_score; 
+                    uniform vec4 u_metrics;
 
                     #define PI 3.14159265359
 
-                    // Helper to convert Hue-Sat-Bri to RGB
                     vec3 hsb2rgb(in vec3 c){
                         vec3 rgb = clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
                         rgb = rgb*rgb*(3.0-2.0*rgb);
@@ -395,51 +405,50 @@
                         vec2 st = gl_FragCoord.xy/u_resolution.xy;
                         st = st * 2.0 - 1.0;
                         float r = length(st);
-                        float a = atan(st.y, st.x) + PI; // Angle 0 to 2PI (Starts at -X axis in GLSL atan usually, lets normalize)
-                        
-                        // Rotate so 0 is top (-PI/2 visually)
-                        // Actually let's map standard 0-1 radial
+                        float a = atan(st.y, st.x) + PI;
                         float angleNorm = a / (2.0 * PI); 
-                        // Shift phase so 0 starts at top (0.25 offset backwards? No, standard GL coord:
-                        // Top is PI/2, Right is 0. Let's rotate 90 deg (0.25)
-                        angleNorm = fract(angleNorm + 0.25);
+                        angleNorm = fract(angleNorm + 0.25); // Rotate start to top
 
-                        // Ring Dimensions
-                        float width = 0.12;
-                        float radius = 0.8;
-                        float mask = smoothstep(width, width-0.01, abs(r-radius));
+                        // Ring Mask Logic (The Donut Shape)
+                        // 調整：讓環更明顯，不要太粗填滿中間
+                        float width = 0.15; 
+                        float radius = 0.75; 
                         
-                        // Soft edges
-                        mask *= smoothstep(0.0, 0.1, angleNorm) * smoothstep(1.0, 0.9, angleNorm); // Avoid hard cut at 0/1 if needed, but cycle is continuous
+                        // 使用平滑邊緣切割出圓環
+                        float outer = smoothstep(radius + width, radius + width - 0.02, r);
+                        float inner = smoothstep(radius - width, radius - width + 0.02, r);
+                        float mask = outer * inner;
+                        
+                        // Mask gap at top (optional visual flair)
+                        // mask *= smoothstep(0.0, 0.01, abs(angleNorm - 0.0)); 
 
-                        // Quadrant Logic
+                        // Quadrant Data
                         float segmentData = 0.0;
-                        if(angleNorm < 0.25) segmentData = u_metrics.x;      // 0-90: Stress
-                        else if(angleNorm < 0.5) segmentData = u_metrics.y; // 90-180: Coherence
-                        else if(angleNorm < 0.75) segmentData = u_metrics.z;// 180-270: Load
-                        else segmentData = u_metrics.w;                     // 270-360: Energy
+                        if(angleNorm < 0.25) segmentData = u_metrics.x;      
+                        else if(angleNorm < 0.5) segmentData = u_metrics.y; 
+                        else if(angleNorm < 0.75) segmentData = u_metrics.z;
+                        else segmentData = u_metrics.w;                     
 
-                        // Base Color: Dynamic Hue based on Angle + Time
-                        // We map angleNorm to a specific color palette range or full spectrum
-                        vec3 color = hsb2rgb(vec3(angleNorm * 0.8 + 0.1 + (u_time * 0.05), 0.7 + (segmentData*0.3), 1.0));
-                        
-                        // Brightness based on data
+                        // Color Logic
+                        vec3 color = hsb2rgb(vec3(angleNorm * 0.8 + 0.1 + (u_time * 0.05), 0.6 + (segmentData*0.4), 1.0));
                         float brightness = 0.5 + (segmentData * 0.8);
                         
-                        // Score Cutoff (Progress Bar Effect)
-                        // Smooth step for progress edge
+                        // Progress Logic
                         float scoreEdge = smoothstep(u_score, u_score - 0.02, angleNorm);
-                        // Also invert for background track opacity
-                        float track = 0.1; 
-                        float alpha = mask * max(track, scoreEdge);
+                        
+                        // Background Track (Dimmer ring)
+                        float trackAlpha = 0.15; 
+                        
+                        // Combine: Active part gets high alpha, inactive gets track alpha
+                        float finalAlpha = mask * (scoreEdge + (1.0 - scoreEdge) * trackAlpha);
 
-                        // If it's the active part, add extra glow
-                        if(angleNorm < u_score) {
-                            color += vec3(0.2); // White tint
-                            brightness *= 1.2;
+                        // Highlight Active Tip
+                        if(abs(angleNorm - u_score) < 0.01 && u_score > 0.01) {
+                            brightness += 0.5;
+                            color = vec3(1.0);
                         }
 
-                        gl_FragColor = vec4(color * brightness, alpha);
+                        gl_FragColor = vec4(color * brightness, finalAlpha);
                     }
                 `;
             }
@@ -464,7 +473,6 @@
             initBuffers() {
                 const buffer = this.gl.createBuffer();
                 this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-                // Full quad covering -1 to 1
                 this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([
                     -1.0, -1.0,  1.0, -1.0, -1.0,  1.0,
                     -1.0,  1.0,  1.0, -1.0,  1.0,  1.0
@@ -481,9 +489,10 @@
 
             animate() {
                 requestAnimationFrame(() => this.animate());
-                
-                // Smooth Lerp Score
                 this.currentScore += (this.targetScore - this.currentScore) * 0.1;
+                
+                // Clear buffer with transparent color
+                this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
                 this.gl.useProgram(this.program);
                 this.gl.uniform1f(this.uTime, (Date.now() - this.startTime) * 0.001);
@@ -496,9 +505,8 @@
         }
     </script>
 
-    <!-- CORE LOGIC & APP -->
+    <!-- CORE LOGIC & APP (保持原有邏輯不變) -->
     <script>
-        // --- Baseline Manager (Same as before) ---
         class BaselineManager {
             constructor() {
                 this.userId = 'local_user_v1';
@@ -521,7 +529,6 @@
         }
         const baselineMgr = new BaselineManager();
 
-        // --- Tenki Engine (Same Logic) ---
         const TenkiEngine = {
             process: function(faceData, audioData) {
                 const smileFactor = faceData.mouthOpen * 2.0;
@@ -540,7 +547,6 @@
             }
         };
 
-        // --- MAIN APP ---
         lucide.createIcons();
 
         const app = {
@@ -558,16 +564,11 @@
                 this.initEvents();
                 this.initDashboardInteractions();
                 
-                // Init Spectrum Ring
-                this.spectrumRing = new SpectrumRing('spectrum-canvas');
-
-                // UI Updates
                 const d = new Date();
                 document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}).toUpperCase();
                 document.getElementById('streak-count').innerText = Math.min(baselineMgr.data.samples_count, 99);
             },
 
-            // ... [Three.js / Audio / AI / Scanner logic remains identical to original] ...
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
@@ -746,10 +747,14 @@
                 baselineMgr.recordScan(this.state.engineResult);
                 this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
                 this.state.mentalBuffer = 0;
+                
+                // 初始化光譜環（只在第一次掃描完成時創建）
+                if(!this.spectrumRing) {
+                    this.spectrumRing = new SpectrumRing('spectrum-canvas');
+                }
                 this.showDashboard();
             },
 
-            // --- DASHBOARD INTERACTIONS ---
             initDashboardInteractions: function() {
                 const container = document.getElementById('tei-orbit');
                 const startCharge = (e) => {
@@ -761,7 +766,11 @@
                             this.state.mentalBuffer += 2;
                             this.updateDashboardVisuals();
                             if (this.state.mentalBuffer % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
-                        } else { clearInterval(this.chargeInterval); if(navigator.vibrate) navigator.vibrate([30, 30, 30]); }
+                        } else { 
+                            clearInterval(this.chargeInterval); 
+                            container.classList.add('synced'); // Add sync state visual
+                            if(navigator.vibrate) navigator.vibrate([30, 30, 30]); 
+                        }
                     }, 30);
                 };
                 const stopCharge = (e) => { if(e) e.preventDefault(); this.state.isCharging = false; container.classList.remove('charging'); clearInterval(this.chargeInterval); };
@@ -777,27 +786,19 @@
                 scoreEl.innerText = totalScore;
                 document.getElementById('metric-hrv').innerText = this.state.engineResult.hrv;
                 
-                // --- UPDATE SPECTRUM RING SHADER ---
-                // Mapping TenkiEngine result to the 4 Quadrants:
-                // 1. Stress (0-90): Inverse Valence (if valence is -1, stress is high 1.0)
                 const stress = (this.state.engineResult.valence * -0.5) + 0.5;
-                // 2. Coherence (90-180): HRV normalized (assuming max hrv ~80 for this demo)
                 const coherence = Math.min(1.0, this.state.engineResult.hrv / 80);
-                // 3. Load (180-270): Mouth open history or static load
                 const load = Math.min(1.0, this.state.mouthOpen * 5); 
-                // 4. Energy (270-360): Arousal
                 const energy = (this.state.engineResult.arousal * 0.5) + 0.5;
 
                 if (this.spectrumRing) {
-                    // Update WebGL Uniforms
                     this.spectrumRing.update(totalScore / 100, [stress, coherence, load, energy]);
                 }
 
-                // Dynamic Text Color based on Score Region
-                if(totalScore < 30) scoreEl.style.color = '#FF9A76'; // Orange/Red
-                else if(totalScore < 60) scoreEl.style.color = '#FDE047'; // Yellow
-                else if(totalScore < 85) scoreEl.style.color = '#23F3D4'; // Cyan
-                else scoreEl.style.color = '#9575FF'; // Purple
+                if(totalScore < 30) scoreEl.style.color = '#FF9A76'; 
+                else if(totalScore < 60) scoreEl.style.color = '#FDE047'; 
+                else if(totalScore < 85) scoreEl.style.color = '#23F3D4'; 
+                else scoreEl.style.color = '#9575FF'; 
 
                 const label = document.getElementById('dash-label');
                 const state = document.getElementById('dash-state');
@@ -833,6 +834,7 @@
                 document.getElementById('scan-trigger').classList.remove('active');
                 document.getElementById('scan-progress-ring').style.strokeDashoffset = 239;
                 document.getElementById('instruction').innerText = "HOLD TO SCAN";
+                document.getElementById('tei-orbit').classList.remove('synced');
                 this.state.mentalBuffer = 0;
             }
         };
