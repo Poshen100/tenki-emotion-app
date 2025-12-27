@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v24.3 - Double Ring 2050</title>
+    <title>TENKI v24.3 - Snapshot Logic</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- 加入 Inter 字體以獲得現代粗體效果 -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -23,11 +22,12 @@
     <style>
         :root {
             --bg-deep: #050510;
-            --plasma-cyan: #00F0FF; /* Cyberpunk Cyan */
+            --plasma-cyan: #00F0FF; 
             --void-purple: #7000FF;
+            --alert-orange: #FF5500;
             --matrix-green: #00FF94;
-            --glass-bg: rgba(10, 10, 20, 0.8);
-            --glass-border: rgba(255, 255, 255, 0.15);
+            --glass-bg: rgba(10, 10, 20, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.12);
         }
 
         body {
@@ -35,9 +35,7 @@
             color: white;
             font-family: 'Space Mono', monospace;
             overflow: hidden;
-            width: 100vw; 
-            height: 100vh;
-            height: 100dvh;
+            width: 100vw; height: 100dvh;
             margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
         }
@@ -46,10 +44,8 @@
         .font-serif-human { font-family: 'Playfair Display', serif; }
         .font-mono-tech { font-family: 'Space Mono', monospace; }
 
-        /* 1. 隱私層 */
+        /* 隱私層 & 背景層 */
         #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
-
-        /* 2. 背景層 */
         #universe {
             position: absolute; inset: 0; z-index: 1;
             background: radial-gradient(circle at center, #111 0%, #000 100%);
@@ -57,18 +53,17 @@
         }
         #universe.dimmed { opacity: 0.3; filter: blur(10px); }
 
-        /* 3. HUD 層 */
+        /* HUD 層 */
         #hud-layer {
             position: absolute; inset: 0; z-index: 10;
             pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
-            padding: 24px;
-            padding-bottom: calc(30px + env(safe-area-inset-bottom));
+            padding: 24px; padding-bottom: calc(30px + env(safe-area-inset-bottom));
             transition: opacity 0.5s ease;
         }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-        /* Smart Alignment Capsule */
+        /* Alignment Capsule */
         #align-hint-capsule {
             position: absolute; top: 15%; left: 50%; 
             transform: translateX(-50%) translateY(-20px) scale(0.95);
@@ -101,8 +96,7 @@
 
         /* FINGERPRINT SENSOR */
         .fingerprint-wrapper {
-            position: relative;
-            width: 100px; height: 100px;
+            position: relative; width: 100px; height: 100px;
             display: flex; justify-content: center; align-items: center;
             pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent;
         }
@@ -112,8 +106,7 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             display: flex; justify-content: center; align-items: center;
             backdrop-filter: blur(8px);
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            z-index: 10;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 10;
         }
         .fingerprint-wrapper.active .fingerprint-core {
             transform: scale(1.15); background: rgba(0, 240, 255, 0.15);
@@ -131,12 +124,15 @@
         .fingerprint-icon { transition: all 0.3s; opacity: 0.7; }
         .fingerprint-wrapper.active .fingerprint-icon { color: var(--plasma-cyan); opacity: 1; transform: scale(1.1); }
 
-        /* 4. DASHBOARD LAYER */
+        /* ========================================= */
+        /* DASHBOARD LAYOUT */
+        /* ========================================= */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent;
             display: flex; flex-direction: column;
-            padding: 24px 20px 100px 20px;
+            /* CRITICAL FIX: Increased padding-bottom to clear the dock */
+            padding: 24px 20px 140px 20px; 
             overflow-y: auto; opacity: 0; pointer-events: none;
             transform: translateY(20px);
             transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -153,58 +149,66 @@
         }
         .bento-card:active { transform: scale(0.98); }
 
-        /* 
-         * =========================================
-         * 2050 DOUBLE RING ORBIT STYLES
-         * =========================================
-         */
+        /* Double Ring Styles (Unchanged) */
         .orbit-container {
-            width: 280px; height: 280px; /* Bigger for 2050 look */
-            position: relative;
+            width: 280px; height: 280px; position: relative;
             display: flex; justify-content: center; align-items: center;
-            margin: 10px auto;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
+            margin: 10px auto; cursor: pointer; -webkit-tap-highlight-color: transparent;
         }
         .orbit-container.charging { transform: scale(1.02); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        
-        /* Inner Content */
         .orbit-data-center {
-            position: absolute;
-            z-index: 10;
+            position: absolute; z-index: 10;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            text-align: center;
-            pointer-events: none;
+            text-align: center; pointer-events: none;
         }
-
-        /* 2050 Metallic Number */
         .metallic-text {
             background: linear-gradient(180deg, #FFFFFF 20%, #A0A0A0 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+            -webkit-background-clip: text; background-clip: text; color: transparent;
             filter: drop-shadow(0 4px 10px rgba(255,255,255,0.2));
-            letter-spacing: -4px;
-            line-height: 1;
+            letter-spacing: -4px; line-height: 1;
         }
-
-        /* SVG Rings */
         .ring-svg {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            transform: rotate(-90deg);
-            overflow: visible;
+            transform: rotate(-90deg); overflow: visible;
         }
-        .ring-track {
-            fill: none; stroke: rgba(255, 255, 255, 0.08); stroke-linecap: round;
-        }
-        .ring-value {
-            fill: none; stroke-linecap: round;
-            transition: stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-        /* Glow Filters */
+        .ring-track { fill: none; stroke: rgba(255, 255, 255, 0.08); stroke-linecap: round; }
+        .ring-value { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .glow-outer { filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.5)); }
         .glow-inner { filter: drop-shadow(0 0 6px rgba(112, 0, 255, 0.5)); }
 
+        /* ========================================= */
+        /* NEW: LIVE PULSE GRAPH ANIMATION */
+        /* ========================================= */
+        .pulse-graph-container {
+            display: flex; align-items: flex-end; justify-content: space-between;
+            height: 40px; width: 100%; gap: 3px;
+        }
+        .pulse-bar {
+            width: 100%; background: var(--plasma-cyan);
+            border-radius: 2px;
+            opacity: 0.6;
+            animation: pulse-eq 1.2s ease-in-out infinite;
+        }
+        /* Stagger animations for wave effect */
+        .pulse-bar:nth-child(1) { animation-delay: 0.0s; height: 30%; }
+        .pulse-bar:nth-child(2) { animation-delay: 0.1s; height: 50%; }
+        .pulse-bar:nth-child(3) { animation-delay: 0.2s; height: 80%; background: #fff; opacity: 1; box-shadow: 0 0 10px var(--plasma-cyan); }
+        .pulse-bar:nth-child(4) { animation-delay: 0.3s; height: 60%; }
+        .pulse-bar:nth-child(5) { animation-delay: 0.4s; height: 40%; }
+        .pulse-bar:nth-child(6) { animation-delay: 0.5s; height: 70%; }
+        .pulse-bar:nth-child(7) { animation-delay: 0.2s; height: 45%; }
+        
+        @keyframes pulse-eq {
+            0%, 100% { transform: scaleY(0.5); opacity: 0.4; }
+            50% { transform: scaleY(1.2); opacity: 1; }
+        }
+
+        /* ANS Bar Styles */
+        .ans-bar-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 99px; overflow: hidden; display: flex; }
+        .ans-fill-sns { height: 100%; background: var(--alert-orange); } /* Sympathetic */
+        .ans-fill-pns { height: 100%; background: var(--plasma-cyan); }  /* Parasympathetic */
+        
+        /* DOCK (Fixed Bottom) */
         .dock-container {
             position: fixed; 
             bottom: calc(30px + env(safe-area-inset-bottom));
@@ -214,11 +218,11 @@
             display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.6);
             transform: translateY(150px); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 100; /* Ensure it stays above content visually but content scrolls behind */
         }
         #dashboard-layer.show .dock-container { transform: translateY(0); }
         .dock-btn { width: 54px; height: 54px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; transition: all 0.2s; }
         .dock-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
-        
         .dock-main-action {
             flex: 1; height: 54px; margin: 0 8px;
             background: linear-gradient(90deg, #FFFFFF, #CCCCCC);
@@ -279,7 +283,7 @@
         </div>
     </div>
 
-    <!-- Dashboard Layer (Double Ring 2050 Logic) -->
+    <!-- Dashboard Layer -->
     <div id="dashboard-layer">
         <div class="flex justify-between items-center mb-6">
             <div>
@@ -295,21 +299,18 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 pb-24">
+        <div class="grid grid-cols-2 gap-4">
             
-            <!-- (A) DOUBLE RING ORBIT -->
+            <!-- (A) MAIN SCORE ORBIT -->
             <div class="col-span-2 bento-card items-center py-8 bg-black/40 border-white/20">
                 <div id="tei-orbit-container" class="orbit-container">
-                    <!-- SVG Definition for Gradients -->
                     <svg style="width:0;height:0;position:absolute;" aria-hidden="true" focusable="false">
                         <defs>
-                            <!-- Outer Ring Gradient (Cyan/Silver) -->
                             <linearGradient id="grad-score" x1="0%" y1="0%" x2="100%" y2="100%">
                                 <stop offset="0%" stop-color="#FFFFFF" />
                                 <stop offset="50%" stop-color="#00F0FF" />
                                 <stop offset="100%" stop-color="#0080FF" />
                             </linearGradient>
-                            <!-- Middle Ring Gradient (Purple/Void) -->
                             <linearGradient id="grad-hrv" x1="100%" y1="0%" x2="0%" y2="100%">
                                 <stop offset="0%" stop-color="#D400FF" />
                                 <stop offset="100%" stop-color="#7000FF" />
@@ -317,58 +318,104 @@
                         </defs>
                     </svg>
 
-                    <!-- The Rings -->
                     <svg class="ring-svg" viewBox="0 0 280 280">
-                        <!-- Outer Track (Score) r=120 -->
                         <circle cx="140" cy="140" r="120" class="ring-track" stroke-width="12"></circle>
-                        <circle id="ring-score" cx="140" cy="140" r="120" class="ring-value glow-outer" 
-                                stroke="url(#grad-score)" stroke-width="12" stroke-dasharray="753" stroke-dashoffset="753"></circle>
-
-                        <!-- Middle Track (HRV) r=95 -->
+                        <circle id="ring-score" cx="140" cy="140" r="120" class="ring-value glow-outer" stroke="url(#grad-score)" stroke-width="12" stroke-dasharray="753" stroke-dashoffset="753"></circle>
                         <circle cx="140" cy="140" r="95" class="ring-track" stroke-width="8"></circle>
-                        <circle id="ring-hrv" cx="140" cy="140" r="95" class="ring-value glow-inner" 
-                                stroke="url(#grad-hrv)" stroke-width="8" stroke-dasharray="596" stroke-dashoffset="596"></circle>
+                        <circle id="ring-hrv" cx="140" cy="140" r="95" class="ring-value glow-inner" stroke="url(#grad-hrv)" stroke-width="8" stroke-dasharray="596" stroke-dashoffset="596"></circle>
                     </svg>
 
-                    <!-- Center Text -->
                     <div class="orbit-data-center">
                         <div class="text-[10px] font-mono-tech text-gray-500 tracking-[0.3em] mb-2 font-bold">TEI SCORE</div>
                         <div class="text-[110px] font-sans-bold metallic-text" id="dash-score">00</div>
                         <div class="text-[10px] font-mono-tech text-cyan-300 tracking-widest mt-2 cursor-pointer" id="dash-label">HOLD TO RESYNC</div>
                     </div>
                 </div>
-
                 <div class="mt-4 text-center w-full px-4">
                     <div class="text-xl font-serif-human text-white" id="dash-state">Awaiting Input...</div>
                     <div class="text-[9px] text-gray-500 mt-1 font-mono-tech uppercase tracking-wider" id="baseline-debug"></div>
                 </div>
             </div>
 
-            <!-- (B) Metrics -->
-            <div class="bento-card justify-between h-32 bg-white/5 border-white/10">
+            <!-- (B) BIOMETRIC SNAPSHOT (New Logic) -->
+            <div class="col-span-2 mt-2 mb-2">
+                <div class="text-[10px] text-gray-500 font-mono-tech tracking-widest mb-3 flex items-center gap-2">
+                    <span class="w-1 h-1 bg-cyan-400 rounded-full"></span> BIOMETRIC SNAPSHOT
+                </div>
+            </div>
+
+            <!-- 1. ANS Balance (Sympathetic vs Parasympathetic) -->
+            <div class="bento-card justify-between h-36 bg-white/5 border-white/10">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-[10px] text-gray-400 font-bold uppercase">ANS Balance</span>
+                    <i data-lucide="scale" class="w-4 h-4 text-cyan-300 opacity-60"></i>
+                </div>
+                <div class="flex-1 flex flex-col justify-center">
+                    <div class="flex justify-between text-[10px] font-bold mb-1">
+                        <span class="text-[#FF5500]">SNS</span>
+                        <span class="text-[#00F0FF]">PNS</span>
+                    </div>
+                    <div class="ans-bar-bg">
+                        <div id="ans-left" class="ans-fill-sns" style="width: 50%"></div>
+                        <div id="ans-right" class="ans-fill-pns" style="width: 50%"></div>
+                    </div>
+                    <div class="flex justify-between text-[9px] text-gray-500 mt-1">
+                        <span>Fight/Flight</span>
+                        <span>Rest/Digest</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Stress / Load -->
+            <div class="bento-card justify-between h-36 bg-white/5 border-white/10">
                 <div class="flex justify-between items-start">
-                    <i data-lucide="activity" class="w-5 h-5 text-purple-400"></i>
-                    <span class="text-[10px] text-gray-400 font-bold">HRV</span>
+                    <span class="text-[10px] text-gray-400 font-bold uppercase">Total Load</span>
+                    <i data-lucide="activity" class="w-4 h-4 text-[#FF5500] opacity-60"></i>
+                </div>
+                <div>
+                    <div class="text-3xl font-sans-bold text-[#FF5500]" id="stress-display">--</div>
+                    <div class="w-full bg-gray-700 h-1 mt-2 rounded-full overflow-hidden">
+                        <div id="stress-bar" class="h-full bg-[#FF5500]" style="width: 0%"></div>
+                    </div>
+                    <div class="text-[9px] text-gray-500 mt-2">Physiological Strain</div>
+                </div>
+            </div>
+
+            <!-- 3. HRV -->
+            <div class="bento-card justify-between h-36 bg-white/5 border-white/10">
+                <div class="flex justify-between items-start">
+                    <span class="text-[10px] text-gray-400 font-bold uppercase">HRV (rMSSD)</span>
+                    <i data-lucide="heart-pulse" class="w-4 h-4 text-purple-400 opacity-60"></i>
                 </div>
                 <div>
                     <div class="text-3xl font-sans-bold text-white" id="metric-hrv">--</div>
-                    <div class="text-[9px] text-gray-500 mt-1">Coherence</div>
+                    <div class="text-[9px] text-gray-500 mt-1">Coherence Index</div>
                 </div>
             </div>
 
-            <div class="bento-card justify-between h-32 bg-white/5 border-white/10">
-                <div class="flex justify-between items-start">
-                    <i data-lucide="zap" class="w-5 h-5 text-cyan-400"></i>
-                    <span class="text-[10px] text-gray-400 font-bold">FOCUS</span>
+            <!-- 4. Live Pulse / Energy (Dynamic Graph) -->
+            <div class="bento-card justify-between h-36 bg-white/5 border-white/10 relative overflow-hidden">
+                <div class="flex justify-between items-start z-10">
+                    <span class="text-[10px] text-gray-400 font-bold uppercase">Pos. Energy</span>
+                    <i data-lucide="zap" class="w-4 h-4 text-yellow-400 opacity-60"></i>
                 </div>
-                <div>
-                    <div class="text-3xl font-sans-bold text-white" id="alert-score-display">--</div>
-                    <div class="text-[9px] text-gray-500 mt-1">Load %</div>
+                
+                <!-- Pulsing Graph Visualizer -->
+                <div class="flex-1 flex flex-col justify-end z-10">
+                    <div class="text-xl font-sans-bold text-white mb-1" id="energy-score-display">--</div>
+                    <div class="pulse-graph-container">
+                        <div class="pulse-bar"></div><div class="pulse-bar"></div><div class="pulse-bar"></div>
+                        <div class="pulse-bar"></div><div class="pulse-bar"></div><div class="pulse-bar"></div>
+                        <div class="pulse-bar"></div>
+                    </div>
                 </div>
+                
+                <!-- Glow Background -->
+                <div class="absolute -bottom-10 -right-10 w-24 h-24 bg-cyan-500/10 blur-xl rounded-full"></div>
             </div>
 
-            <!-- (C) Review -->
-            <div class="col-span-2 bento-card bg-black border-white/20">
+            <!-- (C) LOG -->
+            <div class="col-span-2 bento-card bg-black border-white/20 mt-2">
                 <div class="text-xs text-cyan-300 font-mono-tech mb-2 tracking-widest">SYSTEM_LOG</div>
                 <div class="text-lg text-white font-serif-human leading-tight mb-2 opacity-90" id="dash-quote">
                     "Sync complete. Resonance levels optimized for current trajectory."
@@ -394,7 +441,7 @@
         </div>
     </div>
 
-    <!-- CORE ENGINE v24.3 (Unchanged Logic) -->
+    <!-- CORE ENGINE v24.3 (Calculates Metrics) -->
     <script>
         class BaselineManager {
             constructor() {
@@ -424,6 +471,7 @@
                 let sumHead = 0;
                 sampleBuffer.forEach(s => { sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)); });
                 const meanHead = sumHead / count;
+                
                 let varianceHead = 0;
                 sampleBuffer.forEach(s => {
                     const diff = (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)) - meanHead;
@@ -442,7 +490,10 @@
                 const avgEyeTension = sumEyeTens / count;
                 const avgBrowHeight = sumBrowH / count;
 
+                // Enhanced Stability Logic
                 const enhancedStability = headStability * 0.5 + (1 - avgEyeTension) * 0.3 + avgEyeOpenness * 0.2;
+                
+                // Alertness (Proxy for SNS activation)
                 const alertness = Math.floor((avgEyeOpenness * 0.6 + (1 - avgEyeTension) * 0.4) * 100);
 
                 let sumEnergy = 0;
@@ -453,17 +504,17 @@
                 const surpriseMarker = avgBrowHeight > 0.7 ? 0.3 : 0;
                 const anxietyMarker = avgEyeTension > 0.6 ? -0.2 : 0;
 
+                // Final Scoring
                 let rawScore = 60 + (enhancedStability * 30) + (energyScore * 10) + (surpriseMarker * 5) + (anxietyMarker * 5);
                 const reliability = Math.min(1, count / 30);
                 const finalScore = Math.floor(rawScore * reliability);
-                
                 const estimatedHRV = Math.floor(40 + (enhancedStability * 50) + (Math.random() * 10));
 
                 return {
                     score: Math.max(10, Math.min(99, finalScore)),
                     stability: enhancedStability,
                     alertness: alertness,
-                    energy: energyScore,
+                    energy: Math.floor(energyScore * 100), // Converted to percentage for UI
                     hrv: estimatedHRV,
                     samples: count,
                     markers: { surprise: surpriseMarker > 0, anxiety: anxietyMarker < 0 }
@@ -568,7 +619,6 @@
                     const source = this.audioCtx.createMediaStreamSource(this.stream);
                     source.connect(this.analyser);
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                    
                     this.initAI(this.stream);
                     this.state.isSensorActive = true;
                     this.updatePrivacyUI(false);
@@ -861,7 +911,7 @@
                 container.addEventListener('touchend', stopCharge);
             },
 
-            // --- DOUBLE RING UPDATE LOGIC (2050) ---
+            // --- REFACTORED UPDATE LOGIC FOR SNAPSHOT ---
             updateDashboardVisuals: function() {
                 const bufferBonus = Math.floor((this.state.mentalBuffer / 100) * 10);
                 const totalScore = Math.min(99, this.state.baseScore + bufferBonus);
@@ -872,29 +922,47 @@
                 if (currentDisplay < totalScore) scoreEl.innerText = currentDisplay + 1;
                 else if (currentDisplay > totalScore) scoreEl.innerText = currentDisplay - 1;
 
-                // 2. Metrics Text
+                // 2. Main Metrics
                 const hrvVal = this.state.engineResult.hrv;
-                const alertVal = this.state.engineResult.alertness;
+                const alertness = this.state.engineResult.alertness;
+                const energyVal = this.state.engineResult.energy; // 0-100ish
+                const stability = Math.floor(this.state.engineResult.stability * 100);
+
+                // --- NEW SNAPSHOT UPDATES ---
+                
+                // A. ANS Balance (Sympathetic vs Parasympathetic)
+                // We derive this from Alertness & Stability. High Alert = SNS, High Stability = PNS.
+                const ansSns = Math.min(100, Math.max(10, alertness)); 
+                const ansPns = Math.min(100, Math.max(10, stability));
+                const totalAns = ansSns + ansPns;
+                const pctSns = (ansSns / totalAns) * 100;
+                const pctPns = 100 - pctSns;
+                document.getElementById('ans-left').style.width = pctSns + '%';
+                document.getElementById('ans-right').style.width = pctPns + '%';
+
+                // B. Stress / Load (Inverse of Stability + Anxiety Marker)
+                let stressLevel = 100 - stability;
+                if(this.state.engineResult.markers.anxiety) stressLevel += 15;
+                stressLevel = Math.min(99, Math.max(5, stressLevel));
+                document.getElementById('stress-display').innerText = stressLevel + '%';
+                document.getElementById('stress-bar').style.width = stressLevel + '%';
+
+                // C. HRV & Energy
                 document.getElementById('metric-hrv').innerText = hrvVal;
-                document.getElementById('alert-score-display').innerText = alertVal + '%';
+                document.getElementById('energy-score-display').innerText = energyVal + ' / 100';
 
                 // 3. SVG Rings Update
-                // Ring 1 (Score) - Circumference = 2 * PI * 120 ≈ 753
-                const cScore = 753;
-                const offScore = cScore - ((totalScore / 100) * cScore);
+                const cScore = 753; const offScore = cScore - ((totalScore / 100) * cScore);
                 document.getElementById('ring-score').style.strokeDashoffset = offScore;
 
-                // Ring 2 (HRV) - Circumference = 2 * PI * 95 ≈ 596
                 const hrvPercent = Math.min(100, Math.max(0, hrvVal)); 
-                const cHrv = 596;
-                const offHrv = cHrv - ((hrvPercent / 100) * cHrv);
+                const cHrv = 596; const offHrv = cHrv - ((hrvPercent / 100) * cHrv);
                 document.getElementById('ring-hrv').style.strokeDashoffset = offHrv;
 
-                // 4. Labels
+                // 4. Labels & Status
                 const label = document.getElementById('dash-label');
                 const state = document.getElementById('dash-state');
                 const debug = document.getElementById('baseline-debug');
-                const stability = Math.floor(this.state.engineResult.stability * 100);
 
                 let statusText = `STABILITY ${stability}%`;
                 if(this.state.engineResult.markers.surprise) statusText += " // SURGE";
@@ -904,7 +972,7 @@
                 if (this.state.mentalBuffer < 10) {
                     label.innerText = "HOLD TO RESYNC"; state.innerText = "Processing...";
                 } else if (this.state.mentalBuffer < 100) {
-                    label.innerText = "SYNCING..."; state.innerText = "Calibrating Resonance...";
+                    label.innerText = "SYNCING..."; state.innerText = "Calibrating...";
                 } else {
                     label.innerText = "SYSTEM LOCKED"; label.style.color = "#00F0FF";
                     state.innerText = totalScore > 75 ? "Flow State Active" : "Neural Balance";
