@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v25.0 - BIO ENGINE</title>
+    <title>TENKI v25.1 - Bio Stable</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,8 +25,8 @@
             --plasma-cyan: #00F0FF; 
             --electric-rose: #FF0055;
             --void-purple: #7000FF;
-            --bio-green: #00FF94; /* v25 Signature Color */
-            --glass-bg: rgba(15, 20, 25, 0.85);
+            --bio-green: #00FF94;
+            --glass-bg: rgba(15, 20, 25, 0.9);
             --glass-border: rgba(255, 255, 255, 0.1);
             --card-radius: 32px;
         }
@@ -43,8 +43,8 @@
         /* Layers */
         #universe { position: absolute; inset: 0; z-index: 1; background: radial-gradient(circle at center, #111 0%, #000 100%); transition: opacity 1s; }
         #universe.dimmed { opacity: 0.3; filter: blur(15px); }
-        #input-video { position: fixed; top: 0; left: 0; opacity: 0; pointer-events: none; } /* Hidden Video */
-        #rppg-canvas { position: fixed; top: 0; left: 0; opacity: 0; pointer-events: none; } /* Hidden Canvas for Processing */
+        #input-video { position: fixed; top: 0; left: 0; opacity: 0; pointer-events: none; }
+        #rppg-canvas { position: fixed; top: 0; left: 0; opacity: 0; pointer-events: none; }
 
         /* HUD Layer */
         #hud-layer {
@@ -157,7 +157,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-[#00FF94] tracking-widest mt-1 font-mono-tech">v25.0 BIO-ENGINE</div>
+                <div class="text-[8px] text-[#00FF94] tracking-widest mt-1 font-mono-tech">v25.1 BIO-ENGINE</div>
             </div>
             <div class="text-right">
                 <div class="flex items-center gap-2 mb-1 justify-end">
@@ -261,70 +261,81 @@
         </div>
     </div>
 
-    <!-- WEB WORKER SCRIPT (Inline Blob) -->
+    <!-- WEB WORKER SCRIPT (FIXED ALGORITHM) -->
     <script id="worker-script" type="javascript/worker">
         let buffer = [];
-        const BUFFER_SIZE = 200; // ~6.6 seconds at 30fps
+        const BUFFER_SIZE = 180; // 6 seconds
         
         self.onmessage = function(e) {
             const { val, type } = e.data;
-            
             if (type === 'reset') { buffer = []; return; }
 
-            // 1. Buffer Green Channel
+            // 1. Buffer Management
             buffer.push(val);
             if (buffer.length > BUFFER_SIZE) buffer.shift();
 
-            // Need enough data (calibration)
             if (buffer.length < 90) {
                 self.postMessage({ status: 'buffering', count: buffer.length });
                 return;
             }
 
-            // 2. Signal Processing (Moving Average Detrending)
+            // 2. Detrending (Remove baseline drift)
             const detrended = [];
             const windowSize = 15;
             for(let i = 0; i < buffer.length; i++) {
-                // Calculate local mean
                 let sum = 0, count = 0;
                 const start = Math.max(0, i - windowSize);
                 const end = Math.min(buffer.length, i + windowSize);
                 for(let j = start; j < end; j++) { sum += buffer[j]; count++; }
                 const mean = sum / count;
-                detrended.push(buffer[i] - mean); // Zero-centered signal
+                detrended.push(buffer[i] - mean);
             }
 
-            // 3. Peak Detection
+            // 3. Dynamic Thresholding (Robust Peak Detection)
+            let min = 0, max = 0;
+            detrended.forEach(v => {
+                if(v < min) min = v;
+                if(v > max) max = v;
+            });
+            
+            // Threshold is 60% of max amplitude to ignore noise
+            const threshold = max * 0.6; 
             const peaks = [];
-            // Basic thresholding on smoothed signal
+            const minPeakDist = 9; // Min 0.3s between beats (Debounce)
+
             for(let i = 2; i < detrended.length - 2; i++) {
                 const v = detrended[i];
-                if(v > 0.5 && v > detrended[i-1] && v > detrended[i-2] && v > detrended[i+1] && v > detrended[i+2]) {
-                    peaks.push(i);
+                if(v > threshold && v > detrended[i-1] && v > detrended[i-2] && v > detrended[i+1] && v > detrended[i+2]) {
+                    if (peaks.length === 0 || (i - peaks[peaks.length-1]) > minPeakDist) {
+                        peaks.push(i);
+                    }
                 }
             }
 
-            // 4. Calculate Metrics
+            // 4. Calculate Stats
             let bpm = 0;
             let hrv = 0;
 
-            if (peaks.length > 2) {
-                let totalDiff = 0;
+            if (peaks.length > 3) {
                 const rrIntervals = [];
                 for(let i = 1; i < peaks.length; i++) {
                     const diff = peaks[i] - peaks[i-1];
-                    rrIntervals.push(diff);
-                    totalDiff += diff;
+                    // Filter unrealistic beats (40-180bpm equivalent in frames)
+                    if(diff > 8 && diff < 45) { 
+                        rrIntervals.push(diff);
+                    }
                 }
-                const avgDiff = totalDiff / rrIntervals.length;
-                // Assuming 30fps roughly
-                bpm = Math.round(60 / (avgDiff / 30));
 
-                // rMSSD Calculation
-                if(rrIntervals.length > 1) {
+                if(rrIntervals.length > 2) {
+                    // BPM
+                    let totalDiff = 0;
+                    rrIntervals.forEach(d => totalDiff += d);
+                    const avgDiff = totalDiff / rrIntervals.length;
+                    bpm = Math.round(60 / (avgDiff / 30));
+
+                    // HRV (rMSSD)
                     let sumSq = 0;
                     for(let i=0; i<rrIntervals.length-1; i++) {
-                        // Convert frame diff to ms
                         const t1 = rrIntervals[i] * 33.3;
                         const t2 = rrIntervals[i+1] * 33.3;
                         const d = t1 - t2;
@@ -334,15 +345,15 @@
                 }
             }
 
-            // Normalized Raw Value for Graphing (Scaled to 0-100)
+            // Visualization scaling
             const lastVal = detrended[detrended.length-1];
-            // Scale factor roughly estimated for typical webcam noise floor
-            const graphVal = Math.max(0, Math.min(100, 50 + (lastVal * 15)));
+            const range = max - min || 1;
+            const graphVal = Math.max(0, Math.min(100, ((lastVal - min) / range) * 100));
 
             self.postMessage({ 
                 status: 'active', 
                 bpm: Math.min(180, Math.max(40, bpm)), 
-                hrv: Math.min(200, hrv),
+                hrv: hrv, 
                 raw: graphVal 
             });
         };
@@ -414,15 +425,21 @@
                         dot.className = 'signal-dot good';
                         
                         // Update Data
-                        if (bpm > 45 && bpm < 140) {
+                        if (bpm > 45 && bpm < 160) {
                             this.state.bpm += (bpm - this.state.bpm) * 0.1; // Smooth
                             document.getElementById('bpm-val').innerText = Math.round(this.state.bpm);
                         }
                         if (hrv > 0) {
                             this.state.hrv = hrv;
                             document.getElementById('hrv-val').innerText = hrv;
+                            // Scale visual bar (max 150ms)
                             document.getElementById('hrv-bar').style.width = Math.min(100, (hrv/150)*100) + '%';
-                            document.getElementById('hrv-status').innerText = hrv > 50 ? "Adaptive" : "Stressed";
+                            
+                            let statusText = "Analyzing";
+                            if(hrv < 20) statusText = "High Stress";
+                            else if(hrv < 50) statusText = "Normal";
+                            else statusText = "High Resilience";
+                            document.getElementById('hrv-status').innerText = statusText;
                         }
 
                         // Update Graph
@@ -431,7 +448,6 @@
                         const bars = document.querySelectorAll('.bio-bar');
                         bars.forEach((b, i) => {
                             b.style.height = this.state.graphData[i] + '%';
-                            // Dynamic color based on height (pulse peak)
                             b.style.opacity = this.state.graphData[i] > 60 ? 1 : 0.5;
                         });
                     }
@@ -470,30 +486,25 @@
                             }
 
                             // 2. Neuro Focus (Stable head)
-                            // Simply invert magnitude of posture shift for demo stability
                             const stab = Math.max(0, 100 - (Math.abs(this.state.posture.x) + Math.abs(this.state.posture.y))*2);
                             const stabEl = document.getElementById('stability-val');
                             if(stabEl) stabEl.innerText = Math.floor(stab) + "%";
 
-                            // 3. rPPG EXTRACTION (The Heavy Lifting)
-                            // Forehead ROI: roughly between landmark 10 (top) and 151 (mid forehead)
+                            // 3. rPPG EXTRACTION
                             const width = video.videoWidth;
                             const height = video.videoHeight;
                             
-                            // Map normalized coordinates to pixel
                             const fx = Math.floor(lm[10].x * width);
                             const fy = Math.floor(lm[10].y * height);
-                            // Define a small box 10x10 around the forehead center
-                            // Avoiding resize/drawing full frame for performance
                             
                             if (this.state.isScanning) {
                                 try {
+                                    // Extract 10x10 pixel area from forehead
                                     ctx.drawImage(video, fx - 5, fy + 5, 10, 10, 0, 0, 10, 10);
                                     const frame = ctx.getImageData(0, 0, 10, 10);
                                     const data = frame.data;
                                     
                                     let greenSum = 0;
-                                    // Loop through pixels (RGBA)
                                     for(let i = 0; i < data.length; i += 4) {
                                         greenSum += data[i+1]; // Green channel
                                     }
@@ -533,38 +544,30 @@
                         return;
                     }
                     this.state.isScanning = true;
-                    worker.postMessage({ type: 'reset' }); // Reset worker buffer
+                    worker.postMessage({ type: 'reset' });
                     
                     btn.classList.add('active');
                     document.getElementById('instruction').innerText = "CALIBRATING...";
                     
                     if(navigator.vibrate) navigator.vibrate(50);
                     
-                    // Animation Timer (Visual only, Logic is in Worker)
                     let p = 0;
                     this.scanTimer = setInterval(() => {
                         p++;
                         ring.style.strokeDashoffset = 339 - ((p/100)*339);
                         if (p > 100) {
-                             // Wait until we have a BPM lock before showing dashboard
                              const debugText = document.getElementById('bio-debug').innerText;
                              if(debugText.includes('SIGNAL LOCKED')) {
                                  this.finishScan();
                              } else {
-                                 // Keep spinning if buffering
-                                 p = 80; 
+                                 p = 80; // Wait for signal lock
                              }
                         }
                     }, 50);
                 };
 
                 const end = (e) => {
-                    // Optional: Cancel if released too early? 
-                    // For rPPG, it's better to tap to start/stop or hold. 
-                    // Implementation here assumes HOLD logic.
-                    // If user releases, we stop scanning.
                     if (this.state.isScanning && !document.getElementById('dashboard-layer').classList.contains('show')) {
-                        // User released before lock
                         this.state.isScanning = false;
                         clearInterval(this.scanTimer);
                         btn.classList.remove('active');
@@ -580,14 +583,9 @@
 
             finishScan: function() {
                 clearInterval(this.scanTimer);
-                // Keep scanning true so worker keeps updating graph in dashboard
-                // But stop the button animation
-                
                 if(navigator.vibrate) navigator.vibrate([50, 50, 100]);
-                
                 document.getElementById('hud-layer').classList.add('hidden-ui');
                 document.getElementById('universe').classList.add('dimmed');
-                
                 setTimeout(() => {
                     document.getElementById('dashboard-layer').classList.add('show');
                 }, 300);
