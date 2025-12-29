@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v25.8 - Hyper HUD</title>
+    <title>TENKI v25.9 - Stable Fix</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,7 +23,6 @@
         :root {
             --bg-deep: #030305;
             --plasma-cyan: #00F0FF; 
-            /* Compliance State Colors */
             --state-stable: #00FF94;   /* 80-99 */
             --state-control: #FFD600;  /* 60-79 */
             --state-volatile: #FF8800; /* 40-59 */
@@ -133,7 +132,7 @@
             position: absolute; inset: 0; z-index: 50; 
             background: transparent; display: flex; flex-direction: column; 
             padding: 20px; padding-top: calc(50px + env(safe-area-inset-top));
-            padding-bottom: 120px; /* 防止底部被按鈕擋住 */
+            padding-bottom: 120px; 
             overflow-y: auto; opacity: 0; pointer-events: none; 
             transform: translateY(20px);
             transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -244,7 +243,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_25.8</div>
+                <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_25.9</div>
             </div>
             
             <div class="text-right flex flex-col items-end">
@@ -283,7 +282,7 @@
         </div>
     </div>
 
-    <!-- Dashboard Layer (v25.8 Hyper HUD) -->
+    <!-- Dashboard Layer (v25.9 Hyper HUD) -->
     <div id="dashboard-layer">
         <!-- Header: 數據完整性 (Data Integrity) -->
         <div class="mb-6">
@@ -456,7 +455,6 @@
                 this.initEvents();
                 this.initDashboardInteractions();
                 this.initEnvironment();
-                // Initialize graph bars
                 const container = document.getElementById('ppg-graph');
                 for(let i=0; i<30; i++) {
                     const d = document.createElement('div');
@@ -602,8 +600,14 @@
             },
 
             stopSensors: function() {
-                if (this.stream) { this.stream.getTracks().forEach(track => track.stop()); this.stream = null; }
-                if (this.audioCtx) { this.audioCtx.close(); this.audioCtx = null; }
+                if (this.stream) { 
+                    this.stream.getTracks().forEach(track => track.stop()); 
+                    this.stream = null; 
+                }
+                if (this.audioCtx) { 
+                    this.audioCtx.close(); 
+                    this.audioCtx = null; 
+                }
                 this.state.isSensorActive = false;
                 this.state.isFaceDetected = false;
                 document.getElementById('connection-status').innerText = "SIMULATION MODE";
@@ -793,7 +797,7 @@
                     this.scanInterval = setInterval(() => {
                         progress += 2; 
                         ringPath.style.strokeDashoffset = maxOffset - ((progress / 100) * maxOffset);
-                        if (progress % 10 === 0 && navigator.vibrate) navigator.vibrate(10);
+                        if (progress % 10 === 0 && navigator.vibrate) navigator.vibrate(10 + (progress / 5));
                         if (progress >= 100) this.finishScan();
                     }, 40);
                 };
@@ -828,116 +832,138 @@
             },
 
             initDashboardInteractions: function() {
-                // Not used in v25.8 dashboard
+                // Not used in v25.9
             },
 
-            // --- v25.8 HYPER HUD LOGIC ---
+            // --- V25.9 HYPER HUD LOGIC ---
             updateDashboardVisuals: function() {
-                const res = this.state.engineResult;
-                // Handle missing data (NaN protection)
-                const safeEnergy = (res && res.energy) ? res.energy : 50;
-                const safeHrv = (res && res.hrv) ? res.hrv : 60;
-                const safeScore = (res && res.score) ? res.score : 0;
-                
-                const bufferPct = this.state.mentalBuffer; 
-                
-                // 1. Progress Bar (Top)
-                document.getElementById('resonance-fill').style.width = bufferPct + "%";
-                document.getElementById('confidence-score').innerText = bufferPct + "%";
-
-                // 2. BPM (Live Simulation)
-                const baseBpm = 65 + Math.floor(safeEnergy * 0.3);
-                const liveBpm = baseBpm + (Math.floor(Math.random() * 3) - 1);
-                document.getElementById('bpm-val').innerText = liveBpm;
-
-                // Animate Graph
-                const bars = document.querySelectorAll('.bio-bar');
-                bars.forEach((b) => {
-                    const h = 20 + (safeEnergy * 0.5) + (Math.random() * 40);
-                    b.style.height = h + '%';
-                    b.style.opacity = h > 60 ? 1 : 0.4;
-                });
-
-                // 3. HRV Spectrum
-                document.getElementById('hrv-val').innerText = safeHrv + 'ms';
-                const rec = Math.min(100, (safeHrv/120)*100); 
-                document.getElementById('ans-pns').style.width = rec + '%';
-                document.getElementById('ans-sns').style.width = (100-rec) + '%';
-
-                // 4. TEI Score
-                const currentScore = Math.floor((safeScore * bufferPct) / 100);
-                document.getElementById('tei-score').innerText = this.state.mentalBuffer === 100 ? safeScore : currentScore;
-
-                // 5. Radar
-                const focus = Math.min(100, (res ? res.alertness : 50) + 10);
-                const posture = Math.min(100, (res ? (res.stability*100) : 50) + 10);
-                const calm = rec;
-                
-                const p1y = 10 + ((100-focus) * 0.4); 
-                const p2x = 90 - ((100-posture) * 0.2); 
-                const p2y = 80 - ((100-posture) * 0.2);
-                const p3x = 10 + ((100-calm) * 0.2); 
-                const p3y = 80 - ((100-calm) * 0.2);
-                document.getElementById('radar-poly').setAttribute('points', `${50},${p1y} ${p2x},${p2y} ${p3x},${p3y}`);
-
-                // 6. AI Behavior (Compliance)
-                if (this.state.mentalBuffer === 100) {
-                    const phraseEl = document.getElementById('ai-phrase');
-                    const btn = document.getElementById('dynamic-action-btn');
-                    const btnText = document.getElementById('btn-text');
-                    const btnIcon = document.getElementById('btn-icon');
+                try {
+                    const res = this.state.engineResult;
+                    // Crash Guard: NaN Protection
+                    const safeEnergy = (res && res.energy) ? res.energy : 50;
+                    const safeHrv = (res && res.hrv) ? res.hrv : 60;
+                    const safeScore = (res && res.score) ? res.score : 50;
                     
-                    btn.disabled = false;
-                    btnIcon.classList.remove('animate-spin');
-                    btn.className = "flex-1 h-12 rounded-full font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95";
+                    const bufferPct = this.state.mentalBuffer; 
+                    
+                    // 1. Progress Bar
+                    const integFill = document.getElementById('resonance-fill');
+                    const confScore = document.getElementById('confidence-score');
+                    if(integFill) integFill.style.width = bufferPct + "%";
+                    if(confScore) confScore.innerText = bufferPct + "%";
 
-                    if (safeScore >= 80) {
-                        phraseEl.innerText = "Status Stable"; phraseEl.style.color = "var(--state-stable)";
-                        btn.classList.add('bg-[#00FF94]', 'text-black', 'shadow-[#00FF94]/30');
-                        btnText.innerText = "DECISION FLOW READY";
-                        btnIcon.setAttribute('data-lucide', 'arrow-right-circle');
-                    } else if (safeScore >= 60) {
-                        phraseEl.innerText = "Status Controllable"; phraseEl.style.color = "var(--state-control)";
-                        btn.classList.add('bg-[#FFD600]', 'text-black', 'shadow-[#FFD600]/30');
-                        btnText.innerText = "TIMED MODE ACTIVE";
-                        btnIcon.setAttribute('data-lucide', 'timer');
-                    } else if (safeScore >= 40) {
-                        phraseEl.innerText = "Status Volatile"; phraseEl.style.color = "var(--state-volatile)";
-                        btn.classList.add('bg-[#FF8800]', 'text-black', 'shadow-[#FF8800]/30');
-                        btnText.innerText = "QUALITY REDUCED";
-                        btnIcon.setAttribute('data-lucide', 'alert-circle');
-                    } else {
-                        phraseEl.innerText = "Risk Elevated"; phraseEl.style.color = "var(--state-risk)";
-                        btn.classList.add('bg-[#FF0055]', 'text-white', 'shadow-[#FF0055]/30');
-                        btnText.innerText = "FUNCTION LIMITED";
-                        btnIcon.setAttribute('data-lucide', 'shield-ban');
+                    // 2. BPM Simulation
+                    const baseBpm = 65 + Math.floor(safeEnergy * 0.3);
+                    const liveBpm = baseBpm + (Math.floor(Math.random() * 3) - 1);
+                    const bpmVal = document.getElementById('bpm-val');
+                    if(bpmVal) bpmVal.innerText = liveBpm;
+
+                    // 3. Graph
+                    const bars = document.querySelectorAll('.bio-bar');
+                    if(bars) {
+                        bars.forEach((b) => {
+                            const h = 20 + (safeEnergy * 0.5) + (Math.random() * 40);
+                            b.style.height = h + '%';
+                            b.style.opacity = h > 60 ? 1 : 0.4;
+                        });
                     }
-                    lucide.createIcons();
+
+                    // 4. HRV Spectrum
+                    const hrvVal = document.getElementById('hrv-val');
+                    const pnsBar = document.getElementById('ans-pns');
+                    const snsBar = document.getElementById('ans-sns');
+                    if(hrvVal) hrvVal.innerText = safeHrv + 'ms';
+                    
+                    const rec = Math.min(100, (safeHrv/120)*100); 
+                    if(pnsBar) pnsBar.style.width = rec + '%';
+                    if(snsBar) snsBar.style.width = (100-rec) + '%';
+
+                    // 5. TEI Score
+                    const teiEl = document.getElementById('tei-score');
+                    const currentScore = Math.floor((safeScore * bufferPct) / 100);
+                    if(teiEl) teiEl.innerText = this.state.mentalBuffer === 100 ? safeScore : currentScore;
+
+                    // 6. Radar
+                    const poly = document.getElementById('radar-poly');
+                    if(poly) {
+                        const focus = Math.min(100, (res ? res.alertness : 50) + 10);
+                        const posture = Math.min(100, (res ? (res.stability*100) : 50) + 10);
+                        const calm = rec;
+                        const p1y = 10 + ((100-focus) * 0.4); 
+                        const p2x = 90 - ((100-posture) * 0.2); const p2y = 80 - ((100-posture) * 0.2);
+                        const p3x = 10 + ((100-calm) * 0.2); const p3y = 80 - ((100-calm) * 0.2);
+                        poly.setAttribute('points', `${50},${p1y} ${p2x},${p2y} ${p3x},${p3y}`);
+                    }
+
+                    // 7. AI Behavior Layer
+                    if (this.state.mentalBuffer === 100) {
+                        const phraseEl = document.getElementById('ai-phrase');
+                        const btn = document.getElementById('dynamic-action-btn');
+                        const btnText = document.getElementById('btn-text');
+                        const btnIcon = document.getElementById('btn-icon');
+                        
+                        if(btn) {
+                            btn.disabled = false;
+                            btn.className = "flex-1 h-12 rounded-full font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95";
+                            if(btnIcon) btnIcon.classList.remove('animate-spin');
+
+                            if (safeScore >= 80) {
+                                if(phraseEl) { phraseEl.innerText = "Status Stable"; phraseEl.style.color = "var(--state-stable)"; }
+                                btn.classList.add('bg-[#00FF94]', 'text-black', 'shadow-[#00FF94]/30');
+                                if(btnText) btnText.innerText = "DECISION FLOW READY";
+                                if(btnIcon) btnIcon.setAttribute('data-lucide', 'arrow-right-circle');
+                            } else if (safeScore >= 60) {
+                                if(phraseEl) { phraseEl.innerText = "Status Controllable"; phraseEl.style.color = "var(--state-control)"; }
+                                btn.classList.add('bg-[#FFD600]', 'text-black', 'shadow-[#FFD600]/30');
+                                if(btnText) btnText.innerText = "TIMED MODE ACTIVE";
+                                if(btnIcon) btnIcon.setAttribute('data-lucide', 'timer');
+                            } else if (safeScore >= 40) {
+                                if(phraseEl) { phraseEl.innerText = "Status Volatile"; phraseEl.style.color = "var(--state-volatile)"; }
+                                btn.classList.add('bg-[#FF8800]', 'text-black', 'shadow-[#FF8800]/30');
+                                if(btnText) btnText.innerText = "QUALITY REDUCED";
+                                if(btnIcon) btnIcon.setAttribute('data-lucide', 'alert-circle');
+                            } else {
+                                if(phraseEl) { phraseEl.innerText = "Risk Elevated"; phraseEl.style.color = "var(--state-risk)"; }
+                                btn.classList.add('bg-[#FF0055]', 'text-white', 'shadow-[#FF0055]/30');
+                                if(btnText) btnText.innerText = "FUNCTION LIMITED";
+                                if(btnIcon) btnIcon.setAttribute('data-lucide', 'shield-ban');
+                            }
+                            lucide.createIcons();
+                        }
+                    }
+                } catch(e) {
+                    console.log("Visual Update Error", e);
                 }
             },
 
             showDashboard: function() {
-                document.getElementById('hud-layer').classList.add('hidden-ui');
-                document.getElementById('align-hint-capsule').classList.remove('show');
-                document.getElementById('universe').classList.add('dimmed');
-                
                 const dash = document.getElementById('dashboard-layer');
-                this.updateDashboardVisuals();
-                
-                let rollInterval = setInterval(() => {
-                    if (this.state.mentalBuffer < 100) {
-                        this.state.mentalBuffer += 2;
-                        this.updateDashboardVisuals();
-                    } else {
-                        clearInterval(rollInterval);
-                        if(navigator.vibrate) navigator.vibrate(50);
-                    }
-                }, 20);
+                const hud = document.getElementById('hud-layer');
+                const uni = document.getElementById('universe');
+                const align = document.getElementById('align-hint-capsule');
 
-                setTimeout(() => { 
-                    dash.classList.add('show'); 
-                    this.stopSensors();
-                }, 500);
+                if(hud) hud.classList.add('hidden-ui');
+                if(align) align.classList.remove('show');
+                if(uni) uni.classList.add('dimmed');
+                
+                // CRITICAL FIX: Ensure transition to dashboard happens even if calculation lags
+                if(dash) {
+                    this.updateDashboardVisuals();
+                    let rollInterval = setInterval(() => {
+                        if (this.state.mentalBuffer < 100) {
+                            this.state.mentalBuffer += 2;
+                            this.updateDashboardVisuals();
+                        } else {
+                            clearInterval(rollInterval);
+                            if(navigator.vibrate) navigator.vibrate(50);
+                        }
+                    }, 20);
+
+                    setTimeout(() => { 
+                        dash.classList.add('show'); 
+                        this.stopSensors(); // FORCE STOP SENSORS
+                    }, 500);
+                }
             },
 
             reset: function() {
@@ -946,6 +972,7 @@
                 document.getElementById('universe').classList.remove('dimmed');
                 document.getElementById('scan-trigger-wrapper').classList.remove('active');
                 document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
+                document.getElementById('instruction').style.color = "#9CA3AF";
                 
                 const ringPath = document.getElementById('scan-progress-bar');
                 if(ringPath) ringPath.style.strokeDashoffset = 339;
