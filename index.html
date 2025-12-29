@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v25.9 - Stable Fix</title>
+    <title>TENKI v26.0 - Master Integration</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -23,6 +23,9 @@
         :root {
             --bg-deep: #030305;
             --plasma-cyan: #00F0FF; 
+            --void-purple: #7000FF;
+            
+            /* Compliance Colors */
             --state-stable: #00FF94;   /* 80-99 */
             --state-control: #FFD600;  /* 60-79 */
             --state-volatile: #FF8800; /* 40-59 */
@@ -36,7 +39,7 @@
         body {
             background: var(--bg-deep);
             color: white;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Space Mono', monospace; /* 回歸原本的 Tech 字體 */
             overflow: hidden;
             width: 100vw; height: 100dvh;
             margin: 0; padding: 0;
@@ -44,6 +47,8 @@
             user-select: none;
         }
 
+        .font-sans-bold { font-family: 'Inter', sans-serif; font-weight: 900; }
+        .font-serif-human { font-family: 'Playfair Display', serif; }
         .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
 
         /* 隱私層 & 背景層 */
@@ -55,7 +60,7 @@
             background: radial-gradient(circle at center, #0a0a10 0%, #000 100%);
             transition: opacity 1s ease, filter 1s ease;
         }
-        #universe.dimmed { opacity: 0.1; filter: blur(20px); }
+        #universe.dimmed { opacity: 0.2; filter: blur(20px); }
 
         /* HUD 層 */
         #hud-layer {
@@ -67,7 +72,7 @@
         }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-        /* Environment Sensors UI */
+        /* Environmental Sensors UI */
         .env-readout {
             font-size: 9px; letter-spacing: 1px;
             display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
@@ -126,13 +131,14 @@
         @keyframes pulse-icon { 0% { opacity: 0.8; transform: scale(1); } 100% { opacity: 1; transform: scale(1.05); } }
 
         /* ========================================= */
-        /* v25.8 HYPER HUD DASHBOARD STYLES          */
+        /* v26.0 MASTER DASHBOARD STYLES             */
         /* ========================================= */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50; 
             background: transparent; display: flex; flex-direction: column; 
+            /* 關鍵：增加底部 Padding，讓內容可以滑動到 Dock 上方 */
             padding: 20px; padding-top: calc(50px + env(safe-area-inset-top));
-            padding-bottom: 120px; 
+            padding-bottom: 140px; 
             overflow-y: auto; opacity: 0; pointer-events: none; 
             transform: translateY(20px);
             transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -140,30 +146,40 @@
         #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
 
         .bento-card {
-            background: rgba(18, 18, 24, 0.85); 
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px; padding: 20px;
+            background: var(--glass-bg); 
+            border: 1px solid var(--glass-border);
+            border-radius: var(--card-radius); padding: 20px;
             backdrop-filter: blur(40px); display: flex; flex-direction: column; 
             box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; overflow: hidden;
         }
 
-        /* 1. Integrity Bar (Top) */
-        .integrity-track {
-            width: 100%; height: 4px; background: rgba(255,255,255,0.1);
-            border-radius: 2px; margin-top: 12px; position: relative; overflow: hidden;
+        /* 1. Orbit Ring (The Soul) */
+        .orbit-container {
+            width: 280px; height: 280px; position: relative;
+            display: flex; justify-content: center; align-items: center;
+            margin: 0 auto 20px auto; cursor: pointer; -webkit-tap-highlight-color: transparent;
         }
-        .integrity-fill {
-            position: absolute; left: 0; top: 0; height: 100%; width: 0%;
-            background: linear-gradient(90deg, #00F0FF, #00FF94);
-            box-shadow: 0 0 15px var(--plasma-cyan);
-            transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        .orbit-data-center {
+            position: absolute; z-index: 10;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; pointer-events: none;
         }
-        .integrity-fill::after {
-            content: ''; position: absolute; top: 0; right: 0; width: 5px; height: 100%;
-            background: #fff; box-shadow: 0 0 10px #fff;
+        .metallic-text {
+            background: linear-gradient(180deg, #FFFFFF 20%, #A0A0A0 100%);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+            filter: drop-shadow(0 4px 10px rgba(255,255,255,0.2));
+            letter-spacing: -6px; line-height: 1; font-family: 'Inter', sans-serif; font-weight: 900;
         }
+        .ring-svg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            transform: rotate(-90deg); overflow: visible;
+        }
+        .ring-track { fill: none; stroke: rgba(255, 255, 255, 0.08); stroke-linecap: round; }
+        .ring-value { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .glow-outer { filter: drop-shadow(0 0 15px rgba(0, 240, 255, 0.4)); }
+        .glow-inner { filter: drop-shadow(0 0 10px rgba(112, 0, 255, 0.4)); }
 
-        /* 2. Heart Scanner Overlay */
+        /* 2. Scanning Overlay for Graph */
         .scanner-overlay {
             position: absolute; inset: 0; pointer-events: none; z-index: 10;
             background: linear-gradient(90deg, transparent 0%, rgba(0, 255, 148, 0.1) 50%, transparent 100%);
@@ -174,7 +190,7 @@
 
         /* 3. Pulse Graph */
         .bio-graph-container {
-            width: 100%; height: 50px; display: flex; align-items: flex-end; gap: 3px;
+            width: 100%; height: 60px; display: flex; align-items: flex-end; gap: 3px;
             position: relative; z-index: 5;
         }
         .bio-bar { 
@@ -192,14 +208,24 @@
         .radar-bg { fill: rgba(255,255,255,0.05); stroke: rgba(255,255,255,0.1); stroke-width: 1; }
         .radar-poly { fill: rgba(0, 240, 255, 0.15); stroke: #00F0FF; stroke-width: 2; filter: drop-shadow(0 0 5px rgba(0,240,255,0.5)); transition: all 0.5s ease; }
 
-        /* Dock */
+        /* 5. Dock (Floating Action) */
         .dock-container {
-            position: fixed; bottom: 40px; left: 20px; right: 20px; height: 64px;
-            background: rgba(20, 20, 30, 0.95); backdrop-filter: blur(30px);
-            border: 1px solid rgba(255,255,255,0.15); border-radius: 32px;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 15px 50px rgba(0,0,0,0.8); z-index: 100;
+            position: fixed; bottom: 40px; left: 20px; right: 20px; height: 72px;
+            background: rgba(20, 20, 30, 0.9); backdrop-filter: blur(30px);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 40px;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 10px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8); z-index: 100;
         }
+        .dock-btn { width: 56px; height: 56px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; transition: all 0.2s; }
+        .dock-main-action {
+            flex: 1; height: 56px; margin: 0 8px;
+            background: white;
+            border-radius: 28px; display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-weight: 800; letter-spacing: 1px; color: black; font-size: 12px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            transition: transform 0.2s;
+        }
+        .dock-main-action:active { transform: scale(0.97); }
 
         #align-hint-capsule {
             position: absolute; top: 15%; left: 50%; 
@@ -243,7 +269,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_25.9</div>
+                <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_26.0</div>
             </div>
             
             <div class="text-right flex flex-col items-end">
@@ -282,49 +308,73 @@
         </div>
     </div>
 
-    <!-- Dashboard Layer (v25.9 Hyper HUD) -->
+    <!-- Dashboard Layer (v26.0 Master Integration) -->
     <div id="dashboard-layer">
-        <!-- Header: 數據完整性 (Data Integrity) -->
-        <div class="mb-6">
-            <div class="flex justify-between items-end mb-1">
-                <div>
-                    <div class="text-[10px] text-cyan-400 font-bold uppercase tracking-[0.2em] mb-1">LIVE BIO-STREAM</div>
-                    <div class="text-2xl font-bold text-white tracking-tight">Signal Analysis</div>
-                </div>
-                <div class="text-right">
-                    <span id="confidence-val" class="text-2xl font-mono-tech text-white font-bold">0%</span>
-                    <div class="text-[9px] text-gray-500 font-bold">TRUST LEVEL</div>
-                </div>
+        <!-- 1. Header & Orbit (The Hero) -->
+        <div class="flex justify-between items-end mb-4 px-2">
+            <div>
+                <div class="text-[10px] text-cyan-400 font-bold uppercase tracking-[0.2em] mb-1">ANALYSIS COMPLETE</div>
+                <div class="text-2xl font-bold text-white tracking-tight">Bio-Resonance</div>
             </div>
-            <!-- 進度條 -->
-            <div class="integrity-track">
-                <div id="resonance-fill" class="integrity-fill"></div>
+            <div class="text-right">
+                <span id="confidence-val" class="text-xl font-mono-tech text-white font-bold">100%</span>
+                <div class="text-[9px] text-gray-500 font-bold">TRUST</div>
             </div>
         </div>
 
-        <!-- Metrics Grid -->
+        <!-- ORBIT RESTORED -->
+        <div class="col-span-2 items-center mb-6">
+            <div id="tei-orbit-container" class="orbit-container">
+                <svg style="width:0;height:0;position:absolute;" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="grad-score" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#FFFFFF" />
+                            <stop offset="50%" stop-color="#00F0FF" />
+                            <stop offset="100%" stop-color="#0080FF" />
+                        </linearGradient>
+                        <linearGradient id="grad-hrv" x1="100%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#D400FF" />
+                            <stop offset="100%" stop-color="#7000FF" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+
+                <svg class="ring-svg" viewBox="0 0 280 280">
+                    <circle cx="140" cy="140" r="120" class="ring-track" stroke-width="12"></circle>
+                    <circle id="ring-score" cx="140" cy="140" r="120" class="ring-value glow-outer" stroke="url(#grad-score)" stroke-width="12" stroke-dasharray="753" stroke-dashoffset="753"></circle>
+                    
+                    <circle cx="140" cy="140" r="105" class="ring-track" stroke-width="10" stroke="rgba(255,255,255,0.1)" stroke-dasharray="2 8"></circle>
+                    <circle id="ring-hrv" cx="140" cy="140" r="105" class="ring-value glow-inner" stroke="url(#grad-hrv)" stroke-width="4" stroke-linecap="round" stroke-dasharray="660" stroke-dashoffset="660"></circle>
+                </svg>
+
+                <div class="orbit-data-center">
+                    <div class="text-[10px] font-mono-tech text-gray-500 tracking-[0.3em] mb-2 font-bold">TEI SCORE</div>
+                    <div class="text-[110px] font-sans-bold metallic-text" id="dash-score">--</div>
+                    <div class="text-[10px] font-mono-tech text-cyan-300 tracking-widest mt-2 cursor-pointer" id="dash-state">CALCULATING...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Metrics Grid -->
         <div class="grid grid-cols-2 gap-3">
             
-            <!-- 1. Heart Rate (帶有掃描特效) -->
+            <!-- Heart Rate (Scanner Effect) -->
             <div class="col-span-2 bento-card py-5 relative">
-                <div class="scanner-overlay"></div> <!-- 掃描雷射光 -->
-                
+                <div class="scanner-overlay"></div>
                 <div class="flex justify-between items-start mb-4 relative z-10">
                     <div class="flex items-center gap-2">
                         <div class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div>
                         <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">LIVE PULSE</span>
                     </div>
-                    <!-- 修正後的 BPM 顯示 -->
                     <div class="flex items-baseline gap-1">
                         <span id="bpm-val" class="text-5xl font-bold text-white tracking-tighter tabular-nums">--</span>
                         <span class="text-xs text-gray-500 font-bold">BPM</span>
                     </div>
                 </div>
-                <!-- 動態圖表 -->
                 <div class="bio-graph-container" id="ppg-graph"></div>
             </div>
 
-            <!-- 2. Cardio Load (HRV) -->
+            <!-- Cardio Load (HRV) -->
             <div class="col-span-2 bento-card">
                 <div class="flex justify-between items-center mb-2">
                     <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1">
@@ -342,7 +392,7 @@
                 </div>
             </div>
 
-            <!-- 3. Radar (Stability) -->
+            <!-- Radar (Stability) -->
             <div class="bento-card justify-between h-40 relative">
                 <div class="text-[10px] text-gray-400 font-bold uppercase z-10">Stability Axis</div>
                 <div class="radar-container absolute inset-0 top-4">
@@ -356,31 +406,29 @@
                 </div>
             </div>
 
-            <!-- 4. System Score (AI Output) -->
-            <div class="bento-card justify-between h-40 bg-gradient-to-br from-[#111] to-[#151520]">
-                <div>
-                    <div class="text-[10px] text-gray-400 font-bold uppercase mb-1">TEI Score</div>
-                    <div id="ai-phrase" class="text-[10px] text-white font-bold leading-tight opacity-80">Calibrating...</div>
+            <!-- System Log (Restored) -->
+            <div class="bento-card h-40 justify-between">
+                <div class="text-[9px] text-gray-500 font-mono-tech mb-2 tracking-widest">SYSTEM_LOG</div>
+                <div class="text-xs text-white font-serif-human leading-tight opacity-90" id="dash-quote">
+                    "Data Integrity verified. Ready for decision flow."
                 </div>
-                <div class="text-right">
-                    <div class="text-4xl font-bold text-white leading-none tabular-nums" id="tei-score">--</div>
-                </div>
+                <div class="text-[8px] text-gray-600 font-mono-tech mt-2" id="dash-date">DATE</div>
             </div>
-            
-            <div class="h-10 w-full"></div>
         </div>
 
         <!-- Dock (Action Loop) -->
-        <div class="dock-container flex gap-3 px-4">
-            <button class="w-12 h-12 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-white hover:bg-white/10 active:scale-95 transition-transform">
+        <div class="dock-container">
+            <div class="dock-btn bg-white/5 hover:bg-white/10">
                 <i data-lucide="share-2" class="w-5 h-5"></i>
-            </button>
-            
-            <!-- Action Button -->
-            <button id="dynamic-action-btn" class="flex-1 h-12 rounded-full bg-white/10 border border-white/10 text-gray-400 font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95" onclick="app.reset()" disabled>
-                <i data-lucide="loader" class="w-4 h-4 animate-spin" id="btn-icon"></i>
+            </div>
+            <!-- Main Button -->
+            <button id="dynamic-action-btn" class="dock-main-action" onclick="app.reset()" disabled>
+                <i id="btn-icon" data-lucide="loader" class="w-4 h-4 animate-spin"></i>
                 <span id="btn-text">PROCESSING...</span>
             </button>
+            <div class="dock-btn bg-white/5 hover:bg-white/10">
+                <i data-lucide="settings" class="w-5 h-5"></i>
+            </div>
         </div>
     </div>
 
@@ -421,7 +469,10 @@
 
                 const reliability = Math.min(1, count / 30);
                 const finalScore = Math.floor(rawScore * reliability);
-                const estimatedHRV = Math.floor(40 + (finalStability * 50) + (Math.random() * 10));
+                
+                // Proxy HRV (based on stability + random flux for demo logic in fallback)
+                // Real implementation would pass real HRV from worker if available
+                const estimatedHRV = Math.floor(40 + (finalStability * 60) + (Math.random() * 10));
 
                 return {
                     score: Math.max(10, Math.min(99, finalScore)),
@@ -455,6 +506,7 @@
                 this.initEvents();
                 this.initDashboardInteractions();
                 this.initEnvironment();
+                // Initialize graph bars
                 const container = document.getElementById('ppg-graph');
                 for(let i=0; i<30; i++) {
                     const d = document.createElement('div');
@@ -462,6 +514,8 @@
                     d.style.height = '10%';
                     container.appendChild(d);
                 }
+                const d = new Date();
+                document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}).toUpperCase();
             },
 
             // --- Environment ---
@@ -600,14 +654,8 @@
             },
 
             stopSensors: function() {
-                if (this.stream) { 
-                    this.stream.getTracks().forEach(track => track.stop()); 
-                    this.stream = null; 
-                }
-                if (this.audioCtx) { 
-                    this.audioCtx.close(); 
-                    this.audioCtx = null; 
-                }
+                if (this.stream) { this.stream.getTracks().forEach(track => track.stop()); this.stream = null; }
+                if (this.audioCtx) { this.audioCtx.close(); this.audioCtx = null; }
                 this.state.isSensorActive = false;
                 this.state.isFaceDetected = false;
                 document.getElementById('connection-status').innerText = "SIMULATION MODE";
@@ -797,7 +845,7 @@
                     this.scanInterval = setInterval(() => {
                         progress += 2; 
                         ringPath.style.strokeDashoffset = maxOffset - ((progress / 100) * maxOffset);
-                        if (progress % 10 === 0 && navigator.vibrate) navigator.vibrate(10 + (progress / 5));
+                        if (progress % 10 === 0 && navigator.vibrate) navigator.vibrate(10);
                         if (progress >= 100) this.finishScan();
                     }, 40);
                 };
@@ -832,138 +880,155 @@
             },
 
             initDashboardInteractions: function() {
-                // Not used in v25.9
+                const container = document.getElementById('tei-orbit-container');
+                const startCharge = (e) => {
+                    if(e) e.preventDefault();
+                    this.state.isCharging = true;
+                    container.classList.add('charging');
+                    if(navigator.vibrate) navigator.vibrate(20);
+                    this.chargeInterval = setInterval(() => {
+                        if (this.state.mentalBuffer < 100) {
+                            this.state.mentalBuffer += 2;
+                            this.updateDashboardVisuals();
+                            if (this.state.mentalBuffer % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
+                        } else {
+                            clearInterval(this.chargeInterval);
+                            if(navigator.vibrate) navigator.vibrate([30, 30, 30]);
+                        }
+                    }, 30);
+                };
+                const stopCharge = (e) => {
+                    if(e) e.preventDefault();
+                    this.state.isCharging = false;
+                    container.classList.remove('charging');
+                    clearInterval(this.chargeInterval);
+                };
+                container.addEventListener('mousedown', startCharge); container.addEventListener('touchstart', startCharge);
+                container.addEventListener('mouseup', stopCharge); container.addEventListener('mouseleave', stopCharge);
+                container.addEventListener('touchend', stopCharge);
             },
 
-            // --- V25.9 HYPER HUD LOGIC ---
+            // --- V26.0 MASTER DASHBOARD LOGIC ---
             updateDashboardVisuals: function() {
-                try {
-                    const res = this.state.engineResult;
-                    // Crash Guard: NaN Protection
-                    const safeEnergy = (res && res.energy) ? res.energy : 50;
-                    const safeHrv = (res && res.hrv) ? res.hrv : 60;
-                    const safeScore = (res && res.score) ? res.score : 50;
+                const res = this.state.engineResult;
+                // Protection against NaN
+                const safeEnergy = (res && res.energy) ? res.energy : 50;
+                const safeHrv = (res && res.hrv) ? res.hrv : 60;
+                const safeScore = (res && res.score) ? res.score : 0;
+                
+                const bufferPct = this.state.mentalBuffer; 
+                
+                // 1. Progress Bar (Top) & Confidence
+                const integFill = document.getElementById('resonance-fill');
+                const confScore = document.getElementById('confidence-val');
+                if(integFill) integFill.style.width = bufferPct + "%";
+                if(confScore) confScore.innerText = bufferPct + "%";
+
+                // 2. ORBIT SCORE (Center Hero)
+                const scoreEl = document.getElementById('dash-score');
+                const currentScore = Math.floor((safeScore * bufferPct) / 100);
+                // Animate numbers up
+                if(scoreEl) scoreEl.innerText = (this.state.mentalBuffer === 100) ? safeScore : currentScore;
+
+                const cScore = 753; 
+                const offScore = cScore - ((currentScore / 100) * cScore);
+                document.getElementById('ring-score').style.strokeDashoffset = offScore;
+                
+                const hrvPercent = Math.min(100, Math.max(0, safeHrv)); 
+                const cHrv = 660; 
+                const offHrv = cHrv - ((hrvPercent / 100) * cHrv);
+                document.getElementById('ring-hrv').style.strokeDashoffset = offHrv;
+
+                // 3. BPM Simulation (Live)
+                const baseBpm = 65 + Math.floor(safeEnergy * 0.3);
+                const liveBpm = baseBpm + (Math.floor(Math.random() * 3) - 1);
+                document.getElementById('bpm-val').innerText = liveBpm;
+
+                const bars = document.querySelectorAll('.bio-bar');
+                bars.forEach((b) => {
+                    const h = 20 + (safeEnergy * 0.5) + (Math.random() * 40);
+                    b.style.height = h + '%';
+                    b.style.opacity = h > 60 ? 1 : 0.4;
+                });
+
+                // 4. HRV Spectrum
+                document.getElementById('hrv-val').innerText = safeHrv + 'ms';
+                const rec = Math.min(100, (safeHrv/120)*100); 
+                document.getElementById('ans-pns').style.width = rec + '%';
+                document.getElementById('ans-sns').style.width = (100-rec) + '%';
+
+                // 5. Radar
+                const focus = Math.min(100, (res ? res.alertness : 50) + 10);
+                const posture = Math.min(100, (res ? (res.stability*100) : 50) + 10);
+                const calm = rec;
+                
+                const p1y = 10 + ((100-focus) * 0.4); 
+                const p2x = 90 - ((100-posture) * 0.2); const p2y = 80 - ((100-posture) * 0.2);
+                const p3x = 10 + ((100-calm) * 0.2); const p3y = 80 - ((100-calm) * 0.2);
+                document.getElementById('radar-poly').setAttribute('points', `${50},${p1y} ${p2x},${p2y} ${p3x},${p3y}`);
+
+                // 6. AI Behavior & Action Button
+                if (this.state.mentalBuffer === 100) {
+                    const phraseEl = document.getElementById('dash-state');
+                    const btn = document.getElementById('dynamic-action-btn');
+                    const btnText = document.getElementById('btn-text');
+                    const btnIcon = document.getElementById('btn-icon');
                     
-                    const bufferPct = this.state.mentalBuffer; 
-                    
-                    // 1. Progress Bar
-                    const integFill = document.getElementById('resonance-fill');
-                    const confScore = document.getElementById('confidence-score');
-                    if(integFill) integFill.style.width = bufferPct + "%";
-                    if(confScore) confScore.innerText = bufferPct + "%";
+                    btn.disabled = false;
+                    btnIcon.classList.remove('animate-spin');
+                    btn.className = "flex-1 h-12 rounded-full font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95";
 
-                    // 2. BPM Simulation
-                    const baseBpm = 65 + Math.floor(safeEnergy * 0.3);
-                    const liveBpm = baseBpm + (Math.floor(Math.random() * 3) - 1);
-                    const bpmVal = document.getElementById('bpm-val');
-                    if(bpmVal) bpmVal.innerText = liveBpm;
-
-                    // 3. Graph
-                    const bars = document.querySelectorAll('.bio-bar');
-                    if(bars) {
-                        bars.forEach((b) => {
-                            const h = 20 + (safeEnergy * 0.5) + (Math.random() * 40);
-                            b.style.height = h + '%';
-                            b.style.opacity = h > 60 ? 1 : 0.4;
-                        });
+                    // Compliance Logic
+                    if (safeScore >= 80) {
+                        phraseEl.innerText = "Status Stable"; phraseEl.style.color = "var(--state-stable)";
+                        btn.classList.add('bg-[#00FF94]', 'text-black', 'shadow-[#00FF94]/30');
+                        btnText.innerText = "DECISION FLOW READY";
+                        btnIcon.setAttribute('data-lucide', 'arrow-right-circle');
+                    } else if (safeScore >= 60) {
+                        phraseEl.innerText = "Status Controllable"; phraseEl.style.color = "var(--state-control)";
+                        btn.classList.add('bg-[#FFD600]', 'text-black', 'shadow-[#FFD600]/30');
+                        btnText.innerText = "TIMED MODE ACTIVE";
+                        btnIcon.setAttribute('data-lucide', 'timer');
+                    } else if (safeScore >= 40) {
+                        phraseEl.innerText = "Status Volatile"; phraseEl.style.color = "var(--state-volatile)";
+                        btn.classList.add('bg-[#FF8800]', 'text-black', 'shadow-[#FF8800]/30');
+                        btnText.innerText = "QUALITY REDUCED";
+                        btnIcon.setAttribute('data-lucide', 'alert-circle');
+                    } else {
+                        phraseEl.innerText = "Risk Elevated"; phraseEl.style.color = "var(--state-risk)";
+                        btn.classList.add('bg-[#FF0055]', 'text-white', 'shadow-[#FF0055]/30');
+                        btnText.innerText = "FUNCTION LIMITED";
+                        btnIcon.setAttribute('data-lucide', 'shield-ban');
                     }
-
-                    // 4. HRV Spectrum
-                    const hrvVal = document.getElementById('hrv-val');
-                    const pnsBar = document.getElementById('ans-pns');
-                    const snsBar = document.getElementById('ans-sns');
-                    if(hrvVal) hrvVal.innerText = safeHrv + 'ms';
-                    
-                    const rec = Math.min(100, (safeHrv/120)*100); 
-                    if(pnsBar) pnsBar.style.width = rec + '%';
-                    if(snsBar) snsBar.style.width = (100-rec) + '%';
-
-                    // 5. TEI Score
-                    const teiEl = document.getElementById('tei-score');
-                    const currentScore = Math.floor((safeScore * bufferPct) / 100);
-                    if(teiEl) teiEl.innerText = this.state.mentalBuffer === 100 ? safeScore : currentScore;
-
-                    // 6. Radar
-                    const poly = document.getElementById('radar-poly');
-                    if(poly) {
-                        const focus = Math.min(100, (res ? res.alertness : 50) + 10);
-                        const posture = Math.min(100, (res ? (res.stability*100) : 50) + 10);
-                        const calm = rec;
-                        const p1y = 10 + ((100-focus) * 0.4); 
-                        const p2x = 90 - ((100-posture) * 0.2); const p2y = 80 - ((100-posture) * 0.2);
-                        const p3x = 10 + ((100-calm) * 0.2); const p3y = 80 - ((100-calm) * 0.2);
-                        poly.setAttribute('points', `${50},${p1y} ${p2x},${p2y} ${p3x},${p3y}`);
-                    }
-
-                    // 7. AI Behavior Layer
-                    if (this.state.mentalBuffer === 100) {
-                        const phraseEl = document.getElementById('ai-phrase');
-                        const btn = document.getElementById('dynamic-action-btn');
-                        const btnText = document.getElementById('btn-text');
-                        const btnIcon = document.getElementById('btn-icon');
-                        
-                        if(btn) {
-                            btn.disabled = false;
-                            btn.className = "flex-1 h-12 rounded-full font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95";
-                            if(btnIcon) btnIcon.classList.remove('animate-spin');
-
-                            if (safeScore >= 80) {
-                                if(phraseEl) { phraseEl.innerText = "Status Stable"; phraseEl.style.color = "var(--state-stable)"; }
-                                btn.classList.add('bg-[#00FF94]', 'text-black', 'shadow-[#00FF94]/30');
-                                if(btnText) btnText.innerText = "DECISION FLOW READY";
-                                if(btnIcon) btnIcon.setAttribute('data-lucide', 'arrow-right-circle');
-                            } else if (safeScore >= 60) {
-                                if(phraseEl) { phraseEl.innerText = "Status Controllable"; phraseEl.style.color = "var(--state-control)"; }
-                                btn.classList.add('bg-[#FFD600]', 'text-black', 'shadow-[#FFD600]/30');
-                                if(btnText) btnText.innerText = "TIMED MODE ACTIVE";
-                                if(btnIcon) btnIcon.setAttribute('data-lucide', 'timer');
-                            } else if (safeScore >= 40) {
-                                if(phraseEl) { phraseEl.innerText = "Status Volatile"; phraseEl.style.color = "var(--state-volatile)"; }
-                                btn.classList.add('bg-[#FF8800]', 'text-black', 'shadow-[#FF8800]/30');
-                                if(btnText) btnText.innerText = "QUALITY REDUCED";
-                                if(btnIcon) btnIcon.setAttribute('data-lucide', 'alert-circle');
-                            } else {
-                                if(phraseEl) { phraseEl.innerText = "Risk Elevated"; phraseEl.style.color = "var(--state-risk)"; }
-                                btn.classList.add('bg-[#FF0055]', 'text-white', 'shadow-[#FF0055]/30');
-                                if(btnText) btnText.innerText = "FUNCTION LIMITED";
-                                if(btnIcon) btnIcon.setAttribute('data-lucide', 'shield-ban');
-                            }
-                            lucide.createIcons();
-                        }
-                    }
-                } catch(e) {
-                    console.log("Visual Update Error", e);
+                    lucide.createIcons();
+                } else {
+                    document.getElementById('dash-state').innerText = "CALCULATING...";
+                    document.getElementById('dash-state').style.color = "#00F0FF";
                 }
             },
 
             showDashboard: function() {
-                const dash = document.getElementById('dashboard-layer');
-                const hud = document.getElementById('hud-layer');
-                const uni = document.getElementById('universe');
-                const align = document.getElementById('align-hint-capsule');
-
-                if(hud) hud.classList.add('hidden-ui');
-                if(align) align.classList.remove('show');
-                if(uni) uni.classList.add('dimmed');
+                document.getElementById('hud-layer').classList.add('hidden-ui');
+                document.getElementById('align-hint-capsule').classList.remove('show');
+                document.getElementById('universe').classList.add('dimmed');
                 
-                // CRITICAL FIX: Ensure transition to dashboard happens even if calculation lags
-                if(dash) {
-                    this.updateDashboardVisuals();
-                    let rollInterval = setInterval(() => {
-                        if (this.state.mentalBuffer < 100) {
-                            this.state.mentalBuffer += 2;
-                            this.updateDashboardVisuals();
-                        } else {
-                            clearInterval(rollInterval);
-                            if(navigator.vibrate) navigator.vibrate(50);
-                        }
-                    }, 20);
+                const dash = document.getElementById('dashboard-layer');
+                this.updateDashboardVisuals();
+                
+                let rollInterval = setInterval(() => {
+                    if (this.state.mentalBuffer < 100) {
+                        this.state.mentalBuffer += 2;
+                        this.updateDashboardVisuals();
+                    } else {
+                        clearInterval(rollInterval);
+                        if(navigator.vibrate) navigator.vibrate(50);
+                    }
+                }, 20);
 
-                    setTimeout(() => { 
-                        dash.classList.add('show'); 
-                        this.stopSensors(); // FORCE STOP SENSORS
-                    }, 500);
-                }
+                setTimeout(() => { 
+                    dash.classList.add('show'); 
+                    this.stopSensors();
+                }, 500);
             },
 
             reset: function() {
@@ -974,6 +1039,7 @@
                 document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
                 document.getElementById('instruction').style.color = "#9CA3AF";
                 
+                document.getElementById('dash-score').innerText = "00"; // Reset Score
                 const ringPath = document.getElementById('scan-progress-bar');
                 if(ringPath) ringPath.style.strokeDashoffset = 339;
 
