@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v25.1 - Bio Stable</title>
+    <title>TENKI v25.2 - Bio Safe</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,7 +26,7 @@
             --electric-rose: #FF0055;
             --void-purple: #7000FF;
             --bio-green: #00FF94;
-            --glass-bg: rgba(15, 20, 25, 0.9);
+            --glass-bg: rgba(15, 20, 25, 0.92);
             --glass-border: rgba(255, 255, 255, 0.1);
             --card-radius: 32px;
         }
@@ -157,7 +157,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-[#00FF94] tracking-widest mt-1 font-mono-tech">v25.1 BIO-ENGINE</div>
+                <div class="text-[8px] text-[#00FF94] tracking-widest mt-1 font-mono-tech">v25.2 BIO-SAFE</div>
             </div>
             <div class="text-right">
                 <div class="flex items-center gap-2 mb-1 justify-end">
@@ -194,7 +194,7 @@
             </div>
             <div class="h-8 px-3 rounded-full bg-[#00FF94]/10 border border-[#00FF94]/30 flex items-center gap-2">
                 <i data-lucide="cpu" class="w-3 h-3 text-[#00FF94]"></i>
-                <span class="text-[10px] text-[#00FF94] font-bold tracking-wider">WORKER ACTIVE</span>
+                <span class="text-[10px] text-[#00FF94] font-bold tracking-wider">FILTER ACTIVE</span>
             </div>
         </div>
 
@@ -211,7 +211,7 @@
                 <div class="bio-graph-container" id="ppg-graph">
                     <!-- Bars injected by JS -->
                 </div>
-                <div class="text-[9px] text-gray-500 mt-2 font-mono-tech text-right">SOURCE: RPPG / GREEN CHANNEL</div>
+                <div class="text-[9px] text-gray-500 mt-2 font-mono-tech text-right">SOURCE: RPPG / ECTOPIC FILTER ENABLED</div>
             </div>
 
             <!-- REAL HRV -->
@@ -261,14 +261,19 @@
         </div>
     </div>
 
-    <!-- WEB WORKER SCRIPT (FIXED ALGORITHM) -->
+    <!-- WEB WORKER SCRIPT (v25.2 Arrhythmia Safe) -->
     <script id="worker-script" type="javascript/worker">
         let buffer = [];
-        const BUFFER_SIZE = 180; // 6 seconds
+        const BUFFER_SIZE = 240; // 8 seconds buffer for stable median
+        let hrvHistory = []; // For smoothing output
         
         self.onmessage = function(e) {
             const { val, type } = e.data;
-            if (type === 'reset') { buffer = []; return; }
+            if (type === 'reset') { 
+                buffer = []; 
+                hrvHistory = [];
+                return; 
+            }
 
             // 1. Buffer Management
             buffer.push(val);
@@ -287,8 +292,7 @@
                 const start = Math.max(0, i - windowSize);
                 const end = Math.min(buffer.length, i + windowSize);
                 for(let j = start; j < end; j++) { sum += buffer[j]; count++; }
-                const mean = sum / count;
-                detrended.push(buffer[i] - mean);
+                detrended.push(buffer[i] - (sum / count));
             }
 
             // 3. Dynamic Thresholding (Robust Peak Detection)
@@ -298,10 +302,10 @@
                 if(v > max) max = v;
             });
             
-            // Threshold is 60% of max amplitude to ignore noise
-            const threshold = max * 0.6; 
+            // 55% threshold to catch weaker beats but avoid noise
+            const threshold = max * 0.55; 
             const peaks = [];
-            const minPeakDist = 9; // Min 0.3s between beats (Debounce)
+            const minPeakDist = 9; // Debounce
 
             for(let i = 2; i < detrended.length - 2; i++) {
                 const v = detrended[i];
@@ -312,40 +316,59 @@
                 }
             }
 
-            // 4. Calculate Stats
+            // 4. Calculate Stats with Ectopic Filtering
             let bpm = 0;
-            let hrv = 0;
+            let finalHrv = 0;
 
-            if (peaks.length > 3) {
+            if (peaks.length > 4) {
                 const rrIntervals = [];
                 for(let i = 1; i < peaks.length; i++) {
                     const diff = peaks[i] - peaks[i-1];
-                    // Filter unrealistic beats (40-180bpm equivalent in frames)
-                    if(diff > 8 && diff < 45) { 
+                    // Broad filter for physics limits
+                    if(diff > 8 && diff < 50) { 
                         rrIntervals.push(diff);
                     }
                 }
 
-                if(rrIntervals.length > 2) {
-                    // BPM
+                if(rrIntervals.length > 3) {
+                    // A. Median Filter
+                    const sortedRR = [...rrIntervals].sort((a,b) => a-b);
+                    const medianRR = sortedRR[Math.floor(sortedRR.length / 2)];
+
+                    // B. Filter Ectopic Beats (deviating > 25% from median)
+                    const validRR = rrIntervals.filter(rr => {
+                        const deviation = Math.abs(rr - medianRR);
+                        return deviation < (medianRR * 0.25);
+                    });
+                    
+                    // Fallback if too many filtered
+                    const calcRR = validRR.length > 2 ? validRR : rrIntervals;
+
+                    // C. BPM
                     let totalDiff = 0;
-                    rrIntervals.forEach(d => totalDiff += d);
-                    const avgDiff = totalDiff / rrIntervals.length;
+                    calcRR.forEach(d => totalDiff += d);
+                    const avgDiff = totalDiff / calcRR.length;
                     bpm = Math.round(60 / (avgDiff / 30));
 
-                    // HRV (rMSSD)
+                    // D. HRV (rMSSD)
                     let sumSq = 0;
-                    for(let i=0; i<rrIntervals.length-1; i++) {
-                        const t1 = rrIntervals[i] * 33.3;
-                        const t2 = rrIntervals[i+1] * 33.3;
+                    for(let i=0; i<calcRR.length-1; i++) {
+                        const t1 = calcRR[i] * 33.3;
+                        const t2 = calcRR[i+1] * 33.3;
                         const d = t1 - t2;
                         sumSq += d*d;
                     }
-                    hrv = Math.round(Math.sqrt(sumSq / (rrIntervals.length - 1)));
+                    const rawHrv = Math.sqrt(sumSq / (calcRR.length - 1));
+
+                    // E. Smoothing
+                    hrvHistory.push(rawHrv);
+                    if(hrvHistory.length > 5) hrvHistory.shift();
+                    let hSum = 0; hrvHistory.forEach(h => hSum += h);
+                    finalHrv = Math.round(hSum / hrvHistory.length);
                 }
             }
 
-            // Visualization scaling
+            // Visualization
             const lastVal = detrended[detrended.length-1];
             const range = max - min || 1;
             const graphVal = Math.max(0, Math.min(100, ((lastVal - min) / range) * 100));
@@ -353,7 +376,7 @@
             self.postMessage({ 
                 status: 'active', 
                 bpm: Math.min(180, Math.max(40, bpm)), 
-                hrv: hrv, 
+                hrv: Math.min(120, finalHrv), // Clamp HRV visual
                 raw: graphVal 
             });
         };
@@ -375,7 +398,6 @@
                 this.initWorkerHandler();
                 this.initEvents();
                 
-                // Initialize graph bars
                 const container = document.getElementById('ppg-graph');
                 for(let i=0; i<40; i++) {
                     const d = document.createElement('div');
@@ -425,19 +447,18 @@
                         dot.className = 'signal-dot good';
                         
                         // Update Data
-                        if (bpm > 45 && bpm < 160) {
+                        if (bpm > 45 && bpm < 140) {
                             this.state.bpm += (bpm - this.state.bpm) * 0.1; // Smooth
                             document.getElementById('bpm-val').innerText = Math.round(this.state.bpm);
                         }
                         if (hrv > 0) {
                             this.state.hrv = hrv;
                             document.getElementById('hrv-val').innerText = hrv;
-                            // Scale visual bar (max 150ms)
-                            document.getElementById('hrv-bar').style.width = Math.min(100, (hrv/150)*100) + '%';
+                            document.getElementById('hrv-bar').style.width = Math.min(100, (hrv/120)*100) + '%';
                             
                             let statusText = "Analyzing";
-                            if(hrv < 20) statusText = "High Stress";
-                            else if(hrv < 50) statusText = "Normal";
+                            if(hrv < 20) statusText = "Needs Rest";
+                            else if(hrv < 50) statusText = "Normal Range";
                             else statusText = "High Resilience";
                             document.getElementById('hrv-status').innerText = statusText;
                         }
@@ -456,7 +477,6 @@
 
             startSensors: async function() {
                 try {
-                    // Get Camera
                     const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, frameRate: 30 } });
                     const video = document.getElementById('input-video');
                     video.srcObject = stream;
@@ -473,48 +493,37 @@
                             const lm = res.multiFaceLandmarks[0];
                             const hint = document.getElementById('align-hint-capsule');
                             
-                            // 1. Posture Update (Hybrid)
+                            // Posture
                             const nx = lm[1].x;
                             if (nx < 0.35 || nx > 0.65) hint.classList.add('show');
                             else hint.classList.remove('show');
 
-                            this.state.posture.x = (lm[1].x - 0.5) * 50; // px offset
+                            this.state.posture.x = (lm[1].x - 0.5) * 50; 
                             this.state.posture.y = (lm[1].y - 0.5) * 50;
                             const dot = document.getElementById('posture-dot');
-                            if(dot) {
-                                dot.style.transform = `translate(${this.state.posture.x}px, ${this.state.posture.y}px)`;
-                            }
+                            if(dot) dot.style.transform = `translate(${this.state.posture.x}px, ${this.state.posture.y}px)`;
 
-                            // 2. Neuro Focus (Stable head)
+                            // Focus (Stability)
                             const stab = Math.max(0, 100 - (Math.abs(this.state.posture.x) + Math.abs(this.state.posture.y))*2);
                             const stabEl = document.getElementById('stability-val');
                             if(stabEl) stabEl.innerText = Math.floor(stab) + "%";
 
-                            // 3. rPPG EXTRACTION
+                            // rPPG Extraction
                             const width = video.videoWidth;
                             const height = video.videoHeight;
-                            
                             const fx = Math.floor(lm[10].x * width);
                             const fy = Math.floor(lm[10].y * height);
                             
                             if (this.state.isScanning) {
                                 try {
-                                    // Extract 10x10 pixel area from forehead
                                     ctx.drawImage(video, fx - 5, fy + 5, 10, 10, 0, 0, 10, 10);
                                     const frame = ctx.getImageData(0, 0, 10, 10);
                                     const data = frame.data;
-                                    
                                     let greenSum = 0;
-                                    for(let i = 0; i < data.length; i += 4) {
-                                        greenSum += data[i+1]; // Green channel
-                                    }
+                                    for(let i = 0; i < data.length; i += 4) greenSum += data[i+1];
                                     const avgGreen = greenSum / (data.length / 4);
-                                    
-                                    // Send to Worker
                                     worker.postMessage({ type: 'data', val: avgGreen });
-                                } catch(e) {
-                                    console.error("Frame access error");
-                                }
+                                } catch(e) {}
                             }
                         }
                     });
@@ -559,9 +568,7 @@
                              const debugText = document.getElementById('bio-debug').innerText;
                              if(debugText.includes('SIGNAL LOCKED')) {
                                  this.finishScan();
-                             } else {
-                                 p = 80; // Wait for signal lock
-                             }
+                             } else { p = 80; }
                         }
                     }, 50);
                 };
