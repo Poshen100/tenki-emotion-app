@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v25.4 - Dynamic Resonance</title>
+    <title>TENKI v25.5 - Pro Analytics</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Playfair+Display:ital,wght@0,400;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -21,13 +21,14 @@
 
     <style>
         :root {
-            --bg-deep: #050510;
+            --bg-deep: #030305;
             --plasma-cyan: #00F0FF; 
             --bio-green: #00FF94;
             --alert-rose: #FF0055;
-            --glass-bg: rgba(15, 20, 25, 0.95);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --card-radius: 28px;
+            --warn-yellow: #FFD600;
+            --glass-bg: rgba(18, 18, 24, 0.95);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --card-radius: 24px;
         }
 
         body {
@@ -36,12 +37,11 @@
             width: 100vw; height: 100dvh; margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent; user-select: none;
         }
-        .font-mono-tech { font-family: 'Space Mono', monospace; }
-        .font-serif-human { font-family: 'Playfair Display', serif; }
+        .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
 
         /* Layers */
-        #universe { position: absolute; inset: 0; z-index: 1; background: radial-gradient(circle at center, #111 0%, #000 100%); transition: opacity 1s; }
-        #universe.dimmed { opacity: 0.2; filter: blur(20px); }
+        #universe { position: absolute; inset: 0; z-index: 1; background: radial-gradient(circle at center, #0a0a10 0%, #000 100%); transition: opacity 1s; }
+        #universe.dimmed { opacity: 0.1; filter: blur(20px); }
         #input-video, #rppg-canvas { position: fixed; top: 0; left: 0; opacity: 0; pointer-events: none; }
 
         /* HUD Layer */
@@ -53,7 +53,7 @@
         }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; transform: scale(1.1); filter: blur(10px); }
 
-        /* Scanner Button (2s Fast Scan) */
+        /* Fingerprint Scanner */
         .fingerprint-wrapper {
             position: relative; width: 100px; height: 100px;
             display: flex; justify-content: center; align-items: center;
@@ -62,7 +62,7 @@
         }
         .fingerprint-core {
             width: 70px; height: 70px; border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1);
             display: flex; justify-content: center; align-items: center;
             backdrop-filter: blur(10px); position: relative; overflow: hidden; z-index: 20;
             transition: all 0.3s;
@@ -95,52 +95,54 @@
 
         .bento-card {
             background: var(--glass-bg); border: 1px solid var(--glass-border);
-            border-radius: var(--card-radius); padding: 20px;
+            border-radius: var(--card-radius); padding: 16px;
             backdrop-filter: blur(40px); display: flex; flex-direction: column; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4); position: relative; overflow: hidden;
         }
 
-        /* Dynamic Resonance Bar (The Game Changer) */
+        /* Signal Bar */
         .resonance-bar-container {
-            width: 100%; height: 6px; background: rgba(255,255,255,0.1);
-            border-radius: 3px; overflow: hidden; margin-top: 8px; margin-bottom: 20px;
-            position: relative;
+            width: 100%; height: 4px; background: rgba(255,255,255,0.1);
+            border-radius: 2px; overflow: hidden; margin-top: 8px; margin-bottom: 20px;
         }
         .resonance-fill {
             height: 100%; background: linear-gradient(90deg, #00F0FF, #00FF94); 
-            width: 0%; transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy fill */
-            box-shadow: 0 0 15px var(--plasma-cyan);
-            position: relative;
+            width: 0%; transition: width 0.3s ease; box-shadow: 0 0 10px var(--plasma-cyan);
         }
-        /* Flash effect when a beat is caught */
         .resonance-fill.beat-catch { filter: brightness(2.0); }
 
-        /* Status Text Animation */
-        @keyframes pulse-text { 0%,100%{opacity:1} 50%{opacity:0.5} }
-        .status-pulse { animation: pulse-text 1.5s infinite; }
-
-        /* Risk Badge */
-        .risk-badge {
-            padding: 4px 12px; border-radius: 99px; font-size: 10px; font-weight: 800;
-            text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 6px;
-            transition: all 0.5s; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+        /* ANS Spectrum Bar (New) */
+        .ans-spectrum {
+            width: 100%; height: 6px; background: #222; border-radius: 3px; display: flex; overflow: hidden; margin-top: 8px;
         }
-        .risk-badge.complete { background: rgba(0, 255, 148, 0.15); color: #00FF94; border-color: #00FF94; }
+        .ans-sns { background: var(--alert-rose); width: 10%; transition: width 0.5s; opacity: 0.8; }
+        .ans-pns { background: var(--bio-green); width: 90%; transition: width 0.5s; opacity: 0.8; }
 
-        /* Graph */
+        /* Radar Chart (New) */
+        .radar-container {
+            width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; position: relative;
+        }
+        .radar-svg { width: 100px; height: 100px; overflow: visible; }
+        .radar-bg { fill: rgba(255,255,255,0.05); stroke: rgba(255,255,255,0.1); stroke-width: 1; }
+        .radar-poly { 
+            fill: rgba(0, 240, 255, 0.2); stroke: var(--plasma-cyan); stroke-width: 2; 
+            transition: all 0.5s ease; filter: drop-shadow(0 0 8px rgba(0,240,255,0.3));
+        }
+
+        /* Pulse Graph */
         .bio-graph-container {
-            width: 100%; height: 50px; display: flex; align-items: flex-end; gap: 2px;
+            width: 100%; height: 40px; display: flex; align-items: flex-end; gap: 2px;
             mask-image: linear-gradient(to right, transparent, black 15%);
         }
-        .bio-bar { flex: 1; background: var(--plasma-cyan); opacity: 0.6; border-radius: 1px; transition: height 0.05s linear; }
+        .bio-bar { flex: 1; background: var(--bio-green); opacity: 0.6; border-radius: 1px; transition: height 0.05s linear; }
 
         /* DOCK */
         .dock-container {
             position: fixed; bottom: 30px; left: 20px; right: 20px; height: 64px;
-            background: rgba(15, 20, 25, 0.95); backdrop-filter: blur(20px);
+            background: rgba(20, 20, 30, 0.9); backdrop-filter: blur(20px);
             border: 1px solid rgba(255,255,255,0.1); border-radius: 32px;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5); transform: translateY(150px); 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: translateY(150px); 
             transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 100;
         }
         #dashboard-layer.show .dock-container { transform: translateY(0); }
@@ -151,11 +153,11 @@
     <canvas id="rppg-canvas" width="100" height="100"></canvas>
     <div id="universe"></div>
 
-    <!-- HUD (Phase 1: Face ID Lock) -->
+    <!-- HUD -->
     <div id="hud-layer">
         <div class="absolute top-10 left-0 w-full text-center">
-            <div class="text-[10px] text-gray-500 font-mono-tech tracking-widest mb-1">TENKI v25.4</div>
-            <div class="text-xl font-bold text-white font-sans tracking-wider">Identity Lock</div>
+            <div class="text-[10px] text-gray-500 font-mono-tech tracking-widest mb-1">TENKI v25.5</div>
+            <div class="text-xl font-bold text-white tracking-wider">Identity Check</div>
         </div>
 
         <div class="flex flex-col items-center justify-center h-full pb-10">
@@ -166,7 +168,7 @@
                 </svg>
                 <div class="fingerprint-core">
                     <div class="scan-beam"></div>
-                    <i data-lucide="fingerprint" class="w-8 h-8 text-white/90"></i>
+                    <i data-lucide="scan-face" class="w-8 h-8 text-white/90"></i>
                 </div>
             </div>
             <div id="instruction" class="mt-6 text-[10px] tracking-[2px] text-gray-400 font-mono-tech font-bold uppercase">
@@ -175,80 +177,94 @@
         </div>
     </div>
 
-    <!-- Dashboard (Phase 2: Dynamic Accumulation) -->
+    <!-- Dashboard -->
     <div id="dashboard-layer">
         <!-- Header -->
         <div class="mb-2">
             <div class="flex justify-between items-end mb-2">
                 <div>
                     <div class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Bio-Resonance</div>
-                    <div class="text-2xl font-serif-human italic text-white">Data Integrity</div>
+                    <div class="text-2xl font-bold text-white tracking-tight">Data Integrity</div>
                 </div>
-                <div id="risk-badge" class="risk-badge">
-                    <div id="risk-dot" class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
-                    <span id="risk-text">Acquiring...</span>
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+                    <span class="text-[10px] font-bold text-cyan-400 tracking-wider">LIVE SIGNAL</span>
                 </div>
             </div>
-            
-            <!-- Dynamic Resonance Bar -->
             <div class="resonance-bar-container">
                 <div id="resonance-fill" class="resonance-fill"></div>
             </div>
-            
             <div class="flex justify-between text-[9px] text-gray-500 font-mono-tech">
-                <span id="scan-status" class="status-pulse text-cyan-400">SIGNAL LOCKED</span>
+                <span id="scan-status" class="text-cyan-400">ACQUIRING SAMPLES...</span>
                 <span id="confidence-score">0% TRUST</span>
             </div>
         </div>
 
-        <!-- Metrics -->
+        <!-- Professional Metrics Grid -->
         <div class="grid grid-cols-2 gap-3">
             
-            <!-- Real-Time Pulse -->
-            <div class="col-span-2 bento-card py-5">
-                <div class="flex justify-between items-center mb-4">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="heart-pulse" class="w-4 h-4 text-rose-500"></i>
-                        <span class="text-[10px] font-bold text-gray-400 tracking-widest">LIVE PULSE</span>
+            <!-- 1. Cardio Load (HRV Spectrum) -->
+            <div class="col-span-2 bento-card">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                        <i data-lucide="activity" class="w-3 h-3"></i> Cardio Load (HRV)
                     </div>
-                    <div class="text-right">
-                        <span id="bpm-val" class="text-5xl font-bold text-white tracking-tighter">--</span>
-                        <span class="text-xs text-gray-500 font-bold">BPM</span>
-                    </div>
+                    <div id="hrv-val" class="text-xl font-bold text-white font-mono-tech">--ms</div>
+                </div>
+                <!-- ANS Spectrum Bar -->
+                <div class="flex justify-between text-[9px] font-bold text-gray-500 mb-1">
+                    <span>STRESS (SNS)</span>
+                    <span>RECOVERY (PNS)</span>
+                </div>
+                <div class="ans-spectrum">
+                    <div id="ans-sns" class="ans-sns"></div>
+                    <div id="ans-pns" class="ans-pns"></div>
+                </div>
+                <div id="hrv-insight" class="text-[10px] text-white mt-2 font-medium">Calibrating Autonomic Balance...</div>
+            </div>
+
+            <!-- 2. Heart Rate (BPM) -->
+            <div class="bento-card justify-between h-36">
+                <div class="flex justify-between items-start">
+                    <span class="text-[10px] text-gray-400 font-bold uppercase">Heart Rate</span>
+                    <i data-lucide="heart" class="w-4 h-4 text-rose-500"></i>
+                </div>
+                <div>
+                    <span id="bpm-val" class="text-4xl font-bold text-white tracking-tighter">--</span>
+                    <span class="text-xs text-gray-500 font-bold">BPM</span>
                 </div>
                 <div class="bio-graph-container" id="ppg-graph"></div>
             </div>
 
-            <!-- HRV -->
-            <div class="bento-card h-32 justify-between">
-                <div class="text-[10px] text-gray-400 font-bold uppercase">Stress (HRV)</div>
-                <div>
-                    <div id="hrv-val" class="text-3xl font-bold text-white">--</div>
-                    <div id="hrv-status" class="text-[10px] text-gray-400 mt-1">Calculating...</div>
-                </div>
-                <div class="w-full bg-white/10 h-1 mt-2 rounded-full overflow-hidden">
-                    <div id="hrv-bar" class="h-full bg-gray-500 transition-all duration-500" style="width: 0%"></div>
+            <!-- 3. Neuro-Kinetic Radar (Face + Posture) -->
+            <div class="bento-card justify-between h-36 relative">
+                <div class="text-[10px] text-gray-400 font-bold uppercase z-10">Stability Axis</div>
+                <div class="radar-container absolute inset-0">
+                    <svg class="radar-svg" viewBox="0 0 100 100">
+                        <!-- Background Triangle -->
+                        <polygon points="50,10 90,80 10,80" class="radar-bg" />
+                        <!-- Data Polygon -->
+                        <polygon id="radar-poly" points="50,50 50,50 50,50" class="radar-poly" />
+                    </svg>
+                    <!-- Labels -->
+                    <span class="absolute top-2 text-[8px] text-gray-500 font-bold">FOCUS</span>
+                    <span class="absolute bottom-2 right-2 text-[8px] text-gray-500 font-bold">POSTURE</span>
+                    <span class="absolute bottom-2 left-2 text-[8px] text-gray-500 font-bold">CALM</span>
                 </div>
             </div>
 
-            <!-- Posture -->
-            <div class="bento-card h-32 justify-between">
-                <div class="text-[10px] text-gray-400 font-bold uppercase">Posture</div>
-                <div class="flex-1 flex items-center justify-center relative my-2">
-                    <div class="w-full h-[1px] bg-white/10 absolute"></div>
-                    <div class="h-full w-[1px] bg-white/10 absolute"></div>
-                    <div id="posture-dot" class="w-3 h-3 bg-white rounded-full shadow-[0_0_10px_white] transition-all duration-300"></div>
+            <!-- 4. TEI Score & Risk Assessment -->
+            <div class="col-span-2 bento-card py-4 bg-gradient-to-r from-[#111] to-[#151520]">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="text-[10px] text-gray-400 font-bold uppercase mb-1">TEI Risk Index</div>
+                        <div id="risk-advice" class="text-xs text-white font-bold">Waiting for data...</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-3xl font-bold text-white leading-none" id="tei-score">--</div>
+                        <div class="text-[9px] text-gray-500 mt-1">/ 100</div>
+                    </div>
                 </div>
-                <div id="posture-text" class="text-[9px] text-center text-gray-400">CHECKING...</div>
-            </div>
-
-            <!-- TEI Score -->
-            <div class="col-span-2 bento-card flex-row items-center justify-between py-4">
-                <div>
-                    <div class="text-[10px] text-gray-400 font-bold uppercase mb-1">TEI Score</div>
-                    <div class="text-xs text-gray-500">Emotion + Risk Index</div>
-                </div>
-                <div class="text-2xl font-bold text-white" id="tei-score">--</div>
             </div>
         </div>
 
@@ -256,142 +272,85 @@
         <div class="dock-container">
             <button id="main-action-btn" class="w-full h-full flex items-center justify-center gap-2 text-sm font-bold text-white uppercase tracking-wider" onclick="app.reset()" disabled>
                 <i data-lucide="loader" class="w-4 h-4 animate-spin" id="btn-icon"></i>
-                <span id="btn-text">Collecting Data...</span>
+                <span id="btn-text">ANALYZING...</span>
             </button>
         </div>
     </div>
 
-    <!-- WORKER (Dynamic Confidence Core) -->
+    <!-- WORKER (Same Robust v25.2 Core) -->
     <script id="worker-script" type="javascript/worker">
-        let buffer = [];
-        const BUFFER_SIZE = 240; 
-        let hrvHistory = [];
-        
+        let buffer = []; const BUFFER_SIZE = 240; let hrvHistory = [];
         self.onmessage = function(e) {
             const { val, type } = e.data;
             if (type === 'reset') { buffer = []; hrvHistory = []; return; }
+            buffer.push(val); if(buffer.length > BUFFER_SIZE) buffer.shift();
+            if(buffer.length < 60) { self.postMessage({ status: 'buffering' }); return; }
 
-            buffer.push(val);
-            if (buffer.length > BUFFER_SIZE) buffer.shift();
-            
-            // Wait for minimal buffer
-            if (buffer.length < 60) { self.postMessage({ status: 'buffering' }); return; }
-
-            // Detrend
-            const detrended = [];
-            const windowSize = 15;
-            for(let i = 0; i < buffer.length; i++) {
-                let sum = 0, count = 0;
-                for(let j = Math.max(0, i-windowSize); j < Math.min(buffer.length, i+windowSize); j++) { sum += buffer[j]; count++; }
-                detrended.push(buffer[i] - (sum / count));
+            const detrended = []; const windowSize = 15;
+            for(let i=0; i<buffer.length; i++) {
+                let sum=0, count=0;
+                for(let j=Math.max(0, i-windowSize); j<Math.min(buffer.length, i+windowSize); j++) { sum+=buffer[j]; count++; }
+                detrended.push(buffer[i]-(sum/count));
             }
 
-            // Peak Detection
-            let min = 0, max = 0;
-            detrended.forEach(v => { if(v<min) min=v; if(v>max) max=v; });
-            const threshold = max * 0.55; 
-            const peaks = [];
-            
-            // ** Dynamic Beat Detection **
-            let detectedNewBeat = false;
-
-            for(let i = 2; i < detrended.length - 2; i++) {
-                const v = detrended[i];
-                if(v > threshold && v > detrended[i-1] && v > detrended[i-2] && v > detrended[i+1] && v > detrended[i+2]) {
-                    if (peaks.length === 0 || (i - peaks[peaks.length-1]) > 9) {
+            let min=0, max=0; detrended.forEach(v=>{ if(v<min)min=v; if(v>max)max=v; });
+            const threshold = max*0.55; const peaks = []; let newBeat = false;
+            for(let i=2; i<detrended.length-2; i++) {
+                if(detrended[i]>threshold && detrended[i]>detrended[i-1] && detrended[i]>detrended[i+1]) {
+                    if(peaks.length===0 || (i-peaks[peaks.length-1])>9) {
                         peaks.push(i);
-                        // Check if this is a "fresh" beat (at the end of buffer)
-                        if (i > buffer.length - 5) detectedNewBeat = true;
+                        if(i > buffer.length-5) newBeat = true;
                     }
                 }
             }
 
-            // Stats
-            let bpm = 0, finalHrv = 0;
-            if (peaks.length > 4) {
-                const rrIntervals = [];
-                for(let i = 1; i < peaks.length; i++) {
-                    const diff = peaks[i] - peaks[i-1];
-                    if(diff > 8 && diff < 50) rrIntervals.push(diff);
-                }
-                if(rrIntervals.length > 3) {
-                    const sortedRR = [...rrIntervals].sort((a,b)=>a-b);
-                    const medianRR = sortedRR[Math.floor(sortedRR.length/2)];
-                    // Arrhythmia Filter
-                    const validRR = rrIntervals.filter(rr => Math.abs(rr-medianRR) < (medianRR*0.25));
-                    const calcRR = validRR.length > 2 ? validRR : rrIntervals;
-
-                    let totalDiff = 0; calcRR.forEach(d => totalDiff+=d);
-                    bpm = Math.round(60 / ((totalDiff/calcRR.length)/30));
-
-                    let sumSq = 0;
-                    for(let i=0; i<calcRR.length-1; i++) {
-                        const d = (calcRR[i]*33.3) - (calcRR[i+1]*33.3);
-                        sumSq += d*d;
-                    }
-                    const rawHrv = Math.sqrt(sumSq / (calcRR.length-1));
-                    hrvHistory.push(rawHrv);
-                    if(hrvHistory.length > 5) hrvHistory.shift();
-                    let hSum = 0; hrvHistory.forEach(h => hSum += h);
-                    finalHrv = Math.round(hSum / hrvHistory.length);
+            let bpm=0, finalHrv=0;
+            if(peaks.length > 4) {
+                const rr=[]; for(let i=1; i<peaks.length; i++) { let d=peaks[i]-peaks[i-1]; if(d>8 && d<50) rr.push(d); }
+                if(rr.length>3) {
+                    const sorted=[...rr].sort((a,b)=>a-b); const med=sorted[Math.floor(sorted.length/2)];
+                    const valid=rr.filter(r=>Math.abs(r-med)<(med*0.25)); const calc=valid.length>2?valid:rr;
+                    
+                    let td=0; calc.forEach(d=>td+=d); bpm=Math.round(60/((td/calc.length)/30));
+                    let sq=0; for(let i=0; i<calc.length-1; i++) { let d=(calc[i]*33.3)-(calc[i+1]*33.3); sq+=d*d; }
+                    
+                    const rawH=Math.sqrt(sq/(calc.length-1));
+                    hrvHistory.push(rawH); if(hrvHistory.length>5) hrvHistory.shift();
+                    let hSum=0; hrvHistory.forEach(h=>hSum+=h); finalHrv=Math.round(hSum/hrvHistory.length);
                 }
             }
-
-            const lastVal = detrended[detrended.length-1];
-            const range = max - min || 1;
-            const graphVal = Math.max(0, Math.min(100, ((lastVal - min) / range) * 100));
-
-            self.postMessage({ 
-                status: 'active', 
-                bpm: Math.min(180, Math.max(40, bpm)), 
-                hrv: Math.min(120, finalHrv), 
-                raw: graphVal,
-                newBeat: detectedNewBeat // Tell UI we found a beat!
-            });
+            const lastVal = detrended[detrended.length-1]; const range=max-min||1;
+            const gVal = Math.max(0, Math.min(100, ((lastVal-min)/range)*100));
+            
+            self.postMessage({ status: 'active', bpm: Math.min(180, Math.max(40, bpm)), hrv: Math.min(120, finalHrv), raw: gVal, newBeat: newBeat });
         };
     </script>
 
-    <!-- MAIN APP -->
+    <!-- APP LOGIC -->
     <script>
         lucide.createIcons();
         const workerBlob = new Blob([document.getElementById('worker-script').textContent], {type: "text/javascript"});
         const worker = new Worker(window.URL.createObjectURL(workerBlob));
         
         const app = {
-            state: { 
-                isScanning: false, 
-                isDeepScanning: false, 
-                bpm: 0, 
-                hrv: 0, 
-                graphData: new Array(40).fill(50), 
-                // Dynamic Confidence Logic
-                validBeatsCount: 0,
-                targetBeats: 20 // Collect 20 clean beats to finish
-            },
+            state: { isScanning: false, isDeepScanning: false, bpm: 0, hrv: 0, validBeatsCount: 0, targetBeats: 20, posture: {x:0, y:0}, graphData: new Array(40).fill(50) },
+            timers: { scan: null },
             
             init: function() {
-                this.initThree();
-                this.initWorker();
-                this.initEvents();
-                // Init Graph UI
-                const container = document.getElementById('ppg-graph');
-                for(let i=0; i<40; i++) {
-                    const d = document.createElement('div');
-                    d.className = 'bio-bar'; d.style.height = '10%';
-                    container.appendChild(d);
-                }
+                this.initThree(); this.initWorker(); this.initEvents();
+                const c = document.getElementById('ppg-graph');
+                for(let i=0; i<40; i++) { const d=document.createElement('div'); d.className='bio-bar'; d.style.height='10%'; c.appendChild(d); }
             },
 
             initThree: function() {
-                const container = document.getElementById('universe');
+                const c = document.getElementById('universe');
                 this.scene = new THREE.Scene();
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 this.camera.position.z = 5;
                 this.renderer = new THREE.WebGLRenderer({ alpha: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                container.appendChild(this.renderer.domElement);
-                const geo = new THREE.BufferGeometry();
-                const pos = new Float32Array(3000*3);
+                c.appendChild(this.renderer.domElement);
+                const geo = new THREE.BufferGeometry(); const pos = new Float32Array(3000*3);
                 for(let i=0; i<3000*3; i++) pos[i] = (Math.random()-0.5)*10;
                 geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
                 const mat = new THREE.PointsMaterial({ size: 0.05, color: 0x00F0FF, transparent: true, opacity: 0.5 });
@@ -399,108 +358,115 @@
                 this.scene.add(this.cloud);
                 this.animate();
             },
-
-            animate: function() {
-                requestAnimationFrame(() => this.animate());
-                this.cloud.rotation.y += 0.001;
-                this.renderer.render(this.scene, this.camera);
-            },
+            animate: function() { requestAnimationFrame(()=>this.animate()); this.cloud.rotation.y+=0.001; this.renderer.render(this.scene, this.camera); },
 
             initWorker: function() {
                 worker.onmessage = (e) => {
-                    // Only process if in dashboard mode and not finished
-                    if (!this.state.isDeepScanning) return; 
-
+                    if (!this.state.isDeepScanning) return;
                     const { status, bpm, hrv, raw, newBeat } = e.data;
                     
                     if (status === 'active') {
-                        // 1. DYNAMIC CONFIDENCE LOGIC
+                        // Dynamic Confidence
                         if (newBeat && bpm > 40 && this.state.validBeatsCount < this.state.targetBeats) {
                             this.state.validBeatsCount++;
                             this.updateProgress();
-                            
-                            // Visual Feedback for beat
-                            document.getElementById('risk-dot').classList.remove('animate-pulse');
-                            void document.getElementById('risk-dot').offsetWidth; // trigger reflow
-                            document.getElementById('risk-dot').classList.add('animate-pulse');
-                            
-                            if(navigator.vibrate) navigator.vibrate(15); // Light tap
+                            if(navigator.vibrate) navigator.vibrate(10);
                         }
 
-                        // 2. Data Updates
-                        if (bpm > 45) {
+                        // Update Metrics
+                        if (bpm > 40) {
                             this.state.bpm += (bpm - this.state.bpm) * 0.1;
                             document.getElementById('bpm-val').innerText = Math.round(this.state.bpm);
                         }
                         if (hrv > 0) {
                             this.state.hrv = hrv;
                             document.getElementById('hrv-val').innerText = hrv + "ms";
-                            document.getElementById('hrv-bar').style.width = Math.min(100, (hrv/100)*100) + '%';
-                            
-                            // Risk logic
-                            let status = "Analyzing...";
-                            let color = "gray";
-                            if(hrv < 30) { status = "High Stress"; color = "#FF0055"; }
-                            else if(hrv < 50) { status = "Moderate Load"; color = "#FFD600"; }
-                            else { status = "Optimal State"; color = "#00FF94"; }
-                            document.getElementById('hrv-status').innerText = status;
-                            document.getElementById('hrv-bar').style.backgroundColor = color;
+                            this.updateProVisuals(hrv);
                         }
 
                         // Graph
-                        this.state.graphData.shift();
-                        this.state.graphData.push(raw);
+                        this.state.graphData.shift(); this.state.graphData.push(raw);
                         const bars = document.querySelectorAll('.bio-bar');
-                        bars.forEach((b, i) => {
-                            b.style.height = this.state.graphData[i] + '%';
-                            b.style.opacity = this.state.graphData[i] > 60 ? 1 : 0.4;
+                        bars.forEach((b, i) => { 
+                            b.style.height = this.state.graphData[i] + '%'; 
+                            b.style.opacity = this.state.graphData[i]>60?1:0.4; 
                         });
                     }
                 };
             },
 
+            updateProVisuals: function(hrv) {
+                // 1. ANS Spectrum (Split HRV into Stress vs Recovery)
+                // Normalize HRV 0-100 (where 100 is best)
+                const recoveryScore = Math.min(100, (hrv / 100) * 100); 
+                const stressScore = 100 - recoveryScore;
+                
+                document.getElementById('ans-pns').style.width = recoveryScore + "%";
+                document.getElementById('ans-sns').style.width = stressScore + "%";
+                
+                let insight = "Analyzing...";
+                if (hrv > 60) insight = "High Resilience - Peak Performance Ready";
+                else if (hrv > 30) insight = "Normal State - Balanced Load";
+                else insight = "Elevated Stress - Recovery Recommended";
+                document.getElementById('hrv-insight').innerText = insight;
+                if(hrv < 30) document.getElementById('hrv-insight').style.color = "#FF0055";
+                else document.getElementById('hrv-insight').style.color = "#00FF94";
+
+                // 2. Radar Chart (SVG Polygon)
+                // Points: Focus(Top), Posture(Right), Calm(Left)
+                const focus = 90; // Mock derived from blink
+                const posture = Math.max(0, 100 - (Math.abs(this.state.posture.x)*2));
+                const calm = recoveryScore;
+                
+                // Map to SVG coords (Center 50,50)
+                // Top: 50, 10 + (100-focus)*0.4
+                const p1y = 10 + ((100-focus) * 0.4);
+                // Right: 90 - (100-posture)*0.4, 80 - (100-posture)*0.2
+                const p2x = 90 - ((100-posture) * 0.2);
+                const p2y = 80 - ((100-posture) * 0.2);
+                // Left: 10 + (100-calm)*0.4, 80...
+                const p3x = 10 + ((100-calm) * 0.2);
+                const p3y = 80 - ((100-calm) * 0.2);
+                
+                document.getElementById('radar-poly').setAttribute('points', `50,${p1y} ${p2x},${p2y} ${p3x},${p3y}`);
+            },
+
             updateProgress: function() {
                 const pct = (this.state.validBeatsCount / this.state.targetBeats) * 100;
                 const fill = document.getElementById('resonance-fill');
-                
                 fill.style.width = pct + "%";
                 fill.classList.add('beat-catch');
-                setTimeout(() => fill.classList.remove('beat-catch'), 100);
-
+                setTimeout(()=>fill.classList.remove('beat-catch'), 100);
                 document.getElementById('confidence-score').innerText = Math.floor(pct) + "% TRUST";
-
-                if(this.state.validBeatsCount >= this.state.targetBeats) {
-                    this.finalizeSession();
-                }
+                if(this.state.validBeatsCount >= this.state.targetBeats) this.finalizeSession();
             },
 
             finalizeSession: function() {
                 this.state.isDeepScanning = false;
-                
-                // Complete UI
                 document.getElementById('scan-status').innerText = "ANALYSIS COMPLETE";
-                document.getElementById('scan-status').classList.remove('status-pulse');
                 document.getElementById('scan-status').style.color = "#00FF94";
+                document.getElementById('resonance-fill').style.background = "#00FF94";
                 
-                const badge = document.getElementById('risk-badge');
-                badge.classList.add('complete');
-                badge.innerHTML = `<i data-lucide="check-circle" class="w-3 h-3"></i> COMPLETE`;
-                lucide.createIcons();
+                // TEI Calculation & Risk Advice
+                const tei = Math.min(99, Math.floor((this.state.hrv * 0.5) + 40));
+                document.getElementById('tei-score').innerText = tei;
+                
+                let advice = "";
+                let color = "white";
+                if (tei > 80) { advice = "✅ LOW RISK: TRADING APPROVED"; color="#00FF94"; }
+                else if (tei > 50) { advice = "⚠️ CAUTION: MONITOR STRESS"; color="#FFD600"; }
+                else { advice = "⛔ HIGH RISK: PAUSE ACTIVITY"; color="#FF0055"; }
+                
+                const advEl = document.getElementById('risk-advice');
+                advEl.innerText = advice;
+                advEl.style.color = color;
 
-                // Generate TEI Score based on real data
-                // Posture (mocked here but from face mesh in real)
-                const postureScore = 85; 
-                const tei = Math.floor((this.state.hrv * 0.6) + (postureScore * 0.4));
-                document.getElementById('tei-score').innerText = Math.min(99, Math.max(10, tei));
-
-                // Unlock Button
                 const btn = document.getElementById('main-action-btn');
                 btn.disabled = false;
                 document.getElementById('btn-text').innerText = "START NEW SCAN";
                 document.getElementById('btn-icon').setAttribute('data-lucide', 'rotate-ccw');
                 document.getElementById('btn-icon').classList.remove('animate-spin');
                 lucide.createIcons();
-                
                 if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
             },
 
@@ -510,7 +476,6 @@
                     const video = document.getElementById('input-video');
                     video.srcObject = stream;
                     await video.play();
-
                     const canvas = document.getElementById('rppg-canvas');
                     const ctx = canvas.getContext('2d', { willReadFrequently: true });
                     const faceMesh = new FaceMesh({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
@@ -519,93 +484,62 @@
                     faceMesh.onResults(res => {
                         if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
                             const lm = res.multiFaceLandmarks[0];
+                            this.state.posture.x = (lm[1].x - 0.5) * 50; 
                             
-                            // Posture Visuals
-                            const nx = (lm[1].x - 0.5) * 50; 
-                            const ny = (lm[1].y - 0.5) * 50;
-                            const dot = document.getElementById('posture-dot');
-                            if(dot) dot.style.transform = `translate(${nx}px, ${ny}px)`;
-                            const isCenter = Math.abs(nx) < 5 && Math.abs(ny) < 5;
-                            document.getElementById('posture-text').innerText = isCenter ? "ALIGNED" : "ADJUST";
-                            
-                            // rPPG Extraction
-                            const width = video.videoWidth; const height = video.videoHeight;
-                            const fx = Math.floor(lm[10].x * width); const fy = Math.floor(lm[10].y * height);
-                            if (this.state.isScanning || this.state.isDeepScanning) {
+                            const fx = Math.floor(lm[10].x * video.videoWidth); 
+                            const fy = Math.floor(lm[10].y * video.videoHeight);
+                            if (this.state.isDeepScanning || this.state.isScanning) {
                                 try {
                                     ctx.drawImage(video, fx - 5, fy + 5, 10, 10, 0, 0, 10, 10);
                                     const data = ctx.getImageData(0, 0, 10, 10).data;
                                     let gSum = 0; for(let i=0; i<data.length; i+=4) gSum+=data[i+1];
-                                    worker.postMessage({ type: 'data', val: gSum / 25 });
+                                    worker.postMessage({ type: 'data', val: gSum/25 });
                                 } catch(e) {}
                             }
                         }
                     });
-
                     const camera = new Camera(video, { onFrame: async () => { await faceMesh.send({image: video}); }, width: 320, height: 240 });
                     camera.start();
-                    this.state.isSensorActive = true;
-                } catch(e) { console.error(e); }
+                } catch(e) {}
             },
 
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger-wrapper');
                 const ring = document.getElementById('scan-progress-bar');
-                let scanTimer = null;
-                
                 const start = (e) => {
                     e.preventDefault();
-                    if(!this.state.isSensorActive) { this.startSensors(); document.getElementById('instruction').innerText = "CAMERA READY"; return; }
-                    
-                    this.state.isScanning = true;
-                    worker.postMessage({ type: 'reset' });
-                    btn.classList.add('active');
-                    document.getElementById('instruction').innerText = "CONNECTING...";
-                    if(navigator.vibrate) navigator.vibrate(50);
-                    
-                    let p = 0;
-                    scanTimer = setInterval(() => {
-                        p += 2;
-                        ring.style.strokeDashoffset = 308 - ((p/100)*308);
-                        if(p >= 100) {
-                            clearInterval(scanTimer);
-                            this.finishInitialScan();
-                        }
-                    }, 40);
-                };
-
-                const end = (e) => {
-                    if (this.state.isScanning && !this.state.isDeepScanning) {
-                        this.state.isScanning = false;
-                        clearInterval(scanTimer);
-                        btn.classList.remove('active');
-                        ring.style.strokeDashoffset = 308;
-                        document.getElementById('instruction').innerText = "HOLD 2S TO START";
+                    if(!this.state.isDeepScanning && !this.state.isScanning) {
+                        this.startSensors(); 
+                        this.state.isScanning = true;
                         worker.postMessage({ type: 'reset' });
+                        btn.classList.add('active');
+                        document.getElementById('instruction').innerText = "CONNECTING...";
+                        if(navigator.vibrate) navigator.vibrate(50);
+                        let p = 0;
+                        this.timers.scan = setInterval(() => {
+                            p += 2; ring.style.strokeDashoffset = 308 - ((p/100)*308);
+                            if(p >= 100) {
+                                clearInterval(this.timers.scan);
+                                this.finishInitialScan();
+                            }
+                        }, 40);
                     }
                 };
-
                 btn.addEventListener('mousedown', start); btn.addEventListener('touchstart', start);
-                window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
             },
 
             finishInitialScan: function() {
                 if(navigator.vibrate) navigator.vibrate([50, 50]);
                 document.getElementById('hud-layer').classList.add('hidden-ui');
                 document.getElementById('universe').classList.add('dimmed');
-                
                 setTimeout(() => {
                     document.getElementById('dashboard-layer').classList.add('show');
                     this.state.isDeepScanning = true;
                     this.state.validBeatsCount = 0;
                 }, 400);
             },
-
-            reset: function() {
-                location.reload();
-            }
+            reset: function() { location.reload(); }
         };
-
         window.onload = () => app.init();
     </script>
 </body>
