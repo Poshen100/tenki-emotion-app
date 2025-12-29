@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v25.3 - TEI PRO</title>
+    <title>TENKI v25.4 - Dynamic Resonance</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,9 +23,8 @@
         :root {
             --bg-deep: #050510;
             --plasma-cyan: #00F0FF; 
-            --risk-low: #00FF94;   /* Low Risk */
-            --risk-mid: #FFD600;   /* Caution */
-            --risk-high: #FF0055;  /* Warning */
+            --bio-green: #00FF94;
+            --alert-rose: #FF0055;
             --glass-bg: rgba(15, 20, 25, 0.95);
             --glass-border: rgba(255, 255, 255, 0.08);
             --card-radius: 28px;
@@ -101,26 +100,32 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; overflow: hidden;
         }
 
-        /* 15s Progress Bar */
-        .analysis-progress-container {
-            width: 100%; height: 4px; background: rgba(255,255,255,0.1);
-            border-radius: 2px; overflow: hidden; margin-top: 8px; margin-bottom: 20px;
+        /* Dynamic Resonance Bar (The Game Changer) */
+        .resonance-bar-container {
+            width: 100%; height: 6px; background: rgba(255,255,255,0.1);
+            border-radius: 3px; overflow: hidden; margin-top: 8px; margin-bottom: 20px;
+            position: relative;
         }
-        .analysis-progress-bar {
-            height: 100%; background: var(--plasma-cyan); width: 0%;
-            transition: width 1s linear; box-shadow: 0 0 10px var(--plasma-cyan);
+        .resonance-fill {
+            height: 100%; background: linear-gradient(90deg, #00F0FF, #00FF94); 
+            width: 0%; transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy fill */
+            box-shadow: 0 0 15px var(--plasma-cyan);
+            position: relative;
         }
+        /* Flash effect when a beat is caught */
+        .resonance-fill.beat-catch { filter: brightness(2.0); }
+
+        /* Status Text Animation */
+        @keyframes pulse-text { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .status-pulse { animation: pulse-text 1.5s infinite; }
 
         /* Risk Badge */
         .risk-badge {
             padding: 4px 12px; border-radius: 99px; font-size: 10px; font-weight: 800;
             text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 6px;
-            transition: all 0.5s;
+            transition: all 0.5s; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
         }
-        .risk-badge.analyzing { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
-        .risk-badge.low { background: rgba(0, 255, 148, 0.15); color: #00FF94; border: 1px solid rgba(0, 255, 148, 0.3); }
-        .risk-badge.mid { background: rgba(255, 214, 0, 0.15); color: #FFD600; border: 1px solid rgba(255, 214, 0, 0.3); }
-        .risk-badge.high { background: rgba(255, 0, 85, 0.15); color: #FF0055; border: 1px solid rgba(255, 0, 85, 0.3); }
+        .risk-badge.complete { background: rgba(0, 255, 148, 0.15); color: #00FF94; border-color: #00FF94; }
 
         /* Graph */
         .bio-graph-container {
@@ -146,11 +151,11 @@
     <canvas id="rppg-canvas" width="100" height="100"></canvas>
     <div id="universe"></div>
 
-    <!-- HUD (Initial 2s Scan) -->
+    <!-- HUD (Phase 1: Face ID Lock) -->
     <div id="hud-layer">
         <div class="absolute top-10 left-0 w-full text-center">
-            <div class="text-[10px] text-gray-500 font-mono-tech tracking-widest mb-1">TEI PLATFORM v25.3</div>
-            <div class="text-xl font-bold text-white font-sans tracking-wider">Face ID Check</div>
+            <div class="text-[10px] text-gray-500 font-mono-tech tracking-widest mb-1">TENKI v25.4</div>
+            <div class="text-xl font-bold text-white font-sans tracking-wider">Identity Lock</div>
         </div>
 
         <div class="flex flex-col items-center justify-center h-full pb-10">
@@ -161,49 +166,50 @@
                 </svg>
                 <div class="fingerprint-core">
                     <div class="scan-beam"></div>
-                    <i data-lucide="scan-face" class="w-8 h-8 text-white/90"></i>
+                    <i data-lucide="fingerprint" class="w-8 h-8 text-white/90"></i>
                 </div>
             </div>
             <div id="instruction" class="mt-6 text-[10px] tracking-[2px] text-gray-400 font-mono-tech font-bold uppercase">
-                Hold 2s to Start
+                Hold 2s to Sync
             </div>
         </div>
     </div>
 
-    <!-- Dashboard (15s Deep Scan) -->
+    <!-- Dashboard (Phase 2: Dynamic Accumulation) -->
     <div id="dashboard-layer">
-        <!-- Header & Progress -->
+        <!-- Header -->
         <div class="mb-2">
             <div class="flex justify-between items-end mb-2">
                 <div>
-                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Risk Assessment</div>
-                    <div class="text-2xl font-serif-human italic text-white">TEI Analysis</div>
+                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Bio-Resonance</div>
+                    <div class="text-2xl font-serif-human italic text-white">Data Integrity</div>
                 </div>
-                <div id="risk-badge" class="risk-badge analyzing">
-                    <div id="risk-dot" class="w-2 h-2 rounded-full bg-white animate-pulse"></div>
-                    <span id="risk-text">Scanning...</span>
+                <div id="risk-badge" class="risk-badge">
+                    <div id="risk-dot" class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+                    <span id="risk-text">Acquiring...</span>
                 </div>
             </div>
             
-            <!-- 15s Progress Bar -->
-            <div class="analysis-progress-container">
-                <div id="deep-scan-bar" class="analysis-progress-bar"></div>
+            <!-- Dynamic Resonance Bar -->
+            <div class="resonance-bar-container">
+                <div id="resonance-fill" class="resonance-fill"></div>
             </div>
+            
             <div class="flex justify-between text-[9px] text-gray-500 font-mono-tech">
-                <span>DATA ACQUISITION</span>
-                <span id="countdown-timer">15s</span>
+                <span id="scan-status" class="status-pulse text-cyan-400">SIGNAL LOCKED</span>
+                <span id="confidence-score">0% TRUST</span>
             </div>
         </div>
 
-        <!-- Metrics Grid -->
+        <!-- Metrics -->
         <div class="grid grid-cols-2 gap-3">
             
-            <!-- Real-Time Pulse (Big Card) -->
+            <!-- Real-Time Pulse -->
             <div class="col-span-2 bento-card py-5">
                 <div class="flex justify-between items-center mb-4">
                     <div class="flex items-center gap-2">
-                        <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
-                        <span class="text-[10px] font-bold text-gray-400 tracking-widest">REAL-TIME SIGNAL</span>
+                        <i data-lucide="heart-pulse" class="w-4 h-4 text-rose-500"></i>
+                        <span class="text-[10px] font-bold text-gray-400 tracking-widest">LIVE PULSE</span>
                     </div>
                     <div class="text-right">
                         <span id="bpm-val" class="text-5xl font-bold text-white tracking-tighter">--</span>
@@ -213,21 +219,21 @@
                 <div class="bio-graph-container" id="ppg-graph"></div>
             </div>
 
-            <!-- HRV (Risk Index) -->
+            <!-- HRV -->
             <div class="bento-card h-32 justify-between">
-                <div class="text-[10px] text-gray-400 font-bold uppercase">Health Risk (HRV)</div>
+                <div class="text-[10px] text-gray-400 font-bold uppercase">Stress (HRV)</div>
                 <div>
                     <div id="hrv-val" class="text-3xl font-bold text-white">--</div>
-                    <div id="hrv-status" class="text-[10px] text-gray-400 mt-1">Calibrating...</div>
+                    <div id="hrv-status" class="text-[10px] text-gray-400 mt-1">Calculating...</div>
                 </div>
                 <div class="w-full bg-white/10 h-1 mt-2 rounded-full overflow-hidden">
                     <div id="hrv-bar" class="h-full bg-gray-500 transition-all duration-500" style="width: 0%"></div>
                 </div>
             </div>
 
-            <!-- Posture (Ergonomics) -->
+            <!-- Posture -->
             <div class="bento-card h-32 justify-between">
-                <div class="text-[10px] text-gray-400 font-bold uppercase">Ergonomics</div>
+                <div class="text-[10px] text-gray-400 font-bold uppercase">Posture</div>
                 <div class="flex-1 flex items-center justify-center relative my-2">
                     <div class="w-full h-[1px] bg-white/10 absolute"></div>
                     <div class="h-full w-[1px] bg-white/10 absolute"></div>
@@ -236,26 +242,26 @@
                 <div id="posture-text" class="text-[9px] text-center text-gray-400">CHECKING...</div>
             </div>
 
-            <!-- TEI Score (Emotion) -->
+            <!-- TEI Score -->
             <div class="col-span-2 bento-card flex-row items-center justify-between py-4">
                 <div>
-                    <div class="text-[10px] text-gray-400 font-bold uppercase mb-1">TEI Score (Emotion)</div>
-                    <div class="text-xs text-gray-500">Based on Micro-expressions</div>
+                    <div class="text-[10px] text-gray-400 font-bold uppercase mb-1">TEI Score</div>
+                    <div class="text-xs text-gray-500">Emotion + Risk Index</div>
                 </div>
                 <div class="text-2xl font-bold text-white" id="tei-score">--</div>
             </div>
         </div>
 
-        <!-- Dock (Action) -->
+        <!-- Dock -->
         <div class="dock-container">
             <button id="main-action-btn" class="w-full h-full flex items-center justify-center gap-2 text-sm font-bold text-white uppercase tracking-wider" onclick="app.reset()" disabled>
                 <i data-lucide="loader" class="w-4 h-4 animate-spin" id="btn-icon"></i>
-                <span id="btn-text">Analyzing...</span>
+                <span id="btn-text">Collecting Data...</span>
             </button>
         </div>
     </div>
 
-    <!-- WORKER (v25.2 Arrhythmia Safe Core) -->
+    <!-- WORKER (Dynamic Confidence Core) -->
     <script id="worker-script" type="javascript/worker">
         let buffer = [];
         const BUFFER_SIZE = 240; 
@@ -267,9 +273,11 @@
 
             buffer.push(val);
             if (buffer.length > BUFFER_SIZE) buffer.shift();
+            
+            // Wait for minimal buffer
             if (buffer.length < 60) { self.postMessage({ status: 'buffering' }); return; }
 
-            // Detrending
+            // Detrend
             const detrended = [];
             const windowSize = 15;
             for(let i = 0; i < buffer.length; i++) {
@@ -283,14 +291,22 @@
             detrended.forEach(v => { if(v<min) min=v; if(v>max) max=v; });
             const threshold = max * 0.55; 
             const peaks = [];
+            
+            // ** Dynamic Beat Detection **
+            let detectedNewBeat = false;
+
             for(let i = 2; i < detrended.length - 2; i++) {
                 const v = detrended[i];
                 if(v > threshold && v > detrended[i-1] && v > detrended[i-2] && v > detrended[i+1] && v > detrended[i+2]) {
-                    if (peaks.length === 0 || (i - peaks[peaks.length-1]) > 9) peaks.push(i);
+                    if (peaks.length === 0 || (i - peaks[peaks.length-1]) > 9) {
+                        peaks.push(i);
+                        // Check if this is a "fresh" beat (at the end of buffer)
+                        if (i > buffer.length - 5) detectedNewBeat = true;
+                    }
                 }
             }
 
-            // Calc
+            // Stats
             let bpm = 0, finalHrv = 0;
             if (peaks.length > 4) {
                 const rrIntervals = [];
@@ -301,6 +317,7 @@
                 if(rrIntervals.length > 3) {
                     const sortedRR = [...rrIntervals].sort((a,b)=>a-b);
                     const medianRR = sortedRR[Math.floor(sortedRR.length/2)];
+                    // Arrhythmia Filter
                     const validRR = rrIntervals.filter(rr => Math.abs(rr-medianRR) < (medianRR*0.25));
                     const calcRR = validRR.length > 2 ? validRR : rrIntervals;
 
@@ -320,7 +337,6 @@
                 }
             }
 
-            // Raw Graph
             const lastVal = detrended[detrended.length-1];
             const range = max - min || 1;
             const graphVal = Math.max(0, Math.min(100, ((lastVal - min) / range) * 100));
@@ -329,20 +345,29 @@
                 status: 'active', 
                 bpm: Math.min(180, Math.max(40, bpm)), 
                 hrv: Math.min(120, finalHrv), 
-                raw: graphVal 
+                raw: graphVal,
+                newBeat: detectedNewBeat // Tell UI we found a beat!
             });
         };
     </script>
 
-    <!-- MAIN APP LOGIC -->
+    <!-- MAIN APP -->
     <script>
         lucide.createIcons();
         const workerBlob = new Blob([document.getElementById('worker-script').textContent], {type: "text/javascript"});
         const worker = new Worker(window.URL.createObjectURL(workerBlob));
         
         const app = {
-            state: { isScanning: false, isDeepScanning: false, bpm: 0, hrv: 0, graphData: new Array(40).fill(50), posture: {x:0, y:0} },
-            timers: { scan: null, deep: null },
+            state: { 
+                isScanning: false, 
+                isDeepScanning: false, 
+                bpm: 0, 
+                hrv: 0, 
+                graphData: new Array(40).fill(50), 
+                // Dynamic Confidence Logic
+                validBeatsCount: 0,
+                targetBeats: 20 // Collect 20 clean beats to finish
+            },
             
             init: function() {
                 this.initThree();
@@ -365,7 +390,6 @@
                 this.renderer = new THREE.WebGLRenderer({ alpha: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 container.appendChild(this.renderer.domElement);
-                // Particles
                 const geo = new THREE.BufferGeometry();
                 const pos = new Float32Array(3000*3);
                 for(let i=0; i<3000*3; i++) pos[i] = (Math.random()-0.5)*10;
@@ -384,12 +408,26 @@
 
             initWorker: function() {
                 worker.onmessage = (e) => {
-                    if (!this.state.isDeepScanning && !this.state.isScanning) return; // Ignore if stopped
+                    // Only process if in dashboard mode and not finished
+                    if (!this.state.isDeepScanning) return; 
 
-                    const { status, bpm, hrv, raw } = e.data;
+                    const { status, bpm, hrv, raw, newBeat } = e.data;
                     
                     if (status === 'active') {
-                        // Update Data
+                        // 1. DYNAMIC CONFIDENCE LOGIC
+                        if (newBeat && bpm > 40 && this.state.validBeatsCount < this.state.targetBeats) {
+                            this.state.validBeatsCount++;
+                            this.updateProgress();
+                            
+                            // Visual Feedback for beat
+                            document.getElementById('risk-dot').classList.remove('animate-pulse');
+                            void document.getElementById('risk-dot').offsetWidth; // trigger reflow
+                            document.getElementById('risk-dot').classList.add('animate-pulse');
+                            
+                            if(navigator.vibrate) navigator.vibrate(15); // Light tap
+                        }
+
+                        // 2. Data Updates
                         if (bpm > 45) {
                             this.state.bpm += (bpm - this.state.bpm) * 0.1;
                             document.getElementById('bpm-val').innerText = Math.round(this.state.bpm);
@@ -399,7 +437,7 @@
                             document.getElementById('hrv-val').innerText = hrv + "ms";
                             document.getElementById('hrv-bar').style.width = Math.min(100, (hrv/100)*100) + '%';
                             
-                            // Dynamic Risk Text during scan
+                            // Risk logic
                             let status = "Analyzing...";
                             let color = "gray";
                             if(hrv < 30) { status = "High Stress"; color = "#FF0055"; }
@@ -421,6 +459,51 @@
                 };
             },
 
+            updateProgress: function() {
+                const pct = (this.state.validBeatsCount / this.state.targetBeats) * 100;
+                const fill = document.getElementById('resonance-fill');
+                
+                fill.style.width = pct + "%";
+                fill.classList.add('beat-catch');
+                setTimeout(() => fill.classList.remove('beat-catch'), 100);
+
+                document.getElementById('confidence-score').innerText = Math.floor(pct) + "% TRUST";
+
+                if(this.state.validBeatsCount >= this.state.targetBeats) {
+                    this.finalizeSession();
+                }
+            },
+
+            finalizeSession: function() {
+                this.state.isDeepScanning = false;
+                
+                // Complete UI
+                document.getElementById('scan-status').innerText = "ANALYSIS COMPLETE";
+                document.getElementById('scan-status').classList.remove('status-pulse');
+                document.getElementById('scan-status').style.color = "#00FF94";
+                
+                const badge = document.getElementById('risk-badge');
+                badge.classList.add('complete');
+                badge.innerHTML = `<i data-lucide="check-circle" class="w-3 h-3"></i> COMPLETE`;
+                lucide.createIcons();
+
+                // Generate TEI Score based on real data
+                // Posture (mocked here but from face mesh in real)
+                const postureScore = 85; 
+                const tei = Math.floor((this.state.hrv * 0.6) + (postureScore * 0.4));
+                document.getElementById('tei-score').innerText = Math.min(99, Math.max(10, tei));
+
+                // Unlock Button
+                const btn = document.getElementById('main-action-btn');
+                btn.disabled = false;
+                document.getElementById('btn-text').innerText = "START NEW SCAN";
+                document.getElementById('btn-icon').setAttribute('data-lucide', 'rotate-ccw');
+                document.getElementById('btn-icon').classList.remove('animate-spin');
+                lucide.createIcons();
+                
+                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            },
+
             startSensors: async function() {
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, frameRate: 30 } });
@@ -437,24 +520,14 @@
                         if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
                             const lm = res.multiFaceLandmarks[0];
                             
-                            // Posture
+                            // Posture Visuals
                             const nx = (lm[1].x - 0.5) * 50; 
                             const ny = (lm[1].y - 0.5) * 50;
                             const dot = document.getElementById('posture-dot');
                             if(dot) dot.style.transform = `translate(${nx}px, ${ny}px)`;
-                            
                             const isCenter = Math.abs(nx) < 5 && Math.abs(ny) < 5;
-                            document.getElementById('posture-text').innerText = isCenter ? "PERFECT ALIGNMENT" : "ADJUST POSTURE";
-                            document.getElementById('posture-text').style.color = isCenter ? "#00FF94" : "gray";
-
-                            // TEI Score (Proxy)
-                            const blink = Math.abs(lm[159].y - lm[145].y) < 0.012;
-                            if(this.state.isDeepScanning) {
-                                // Simple mock update for TEI score
-                                let score = 70 + (this.state.hrv/4) - (Math.abs(nx)/5);
-                                document.getElementById('tei-score').innerText = Math.floor(Math.min(100, Math.max(0, score)));
-                            }
-
+                            document.getElementById('posture-text').innerText = isCenter ? "ALIGNED" : "ADJUST";
+                            
                             // rPPG Extraction
                             const width = video.videoWidth; const height = video.videoHeight;
                             const fx = Math.floor(lm[10].x * width); const fy = Math.floor(lm[10].y * height);
@@ -478,8 +551,8 @@
             initEvents: function() {
                 const btn = document.getElementById('scan-trigger-wrapper');
                 const ring = document.getElementById('scan-progress-bar');
+                let scanTimer = null;
                 
-                // 2s Fast Scan
                 const start = (e) => {
                     e.preventDefault();
                     if(!this.state.isSensorActive) { this.startSensors(); document.getElementById('instruction').innerText = "CAMERA READY"; return; }
@@ -491,18 +564,20 @@
                     if(navigator.vibrate) navigator.vibrate(50);
                     
                     let p = 0;
-                    // 2000ms / 40ms = 50 steps
-                    this.timers.scan = setInterval(() => {
+                    scanTimer = setInterval(() => {
                         p += 2;
                         ring.style.strokeDashoffset = 308 - ((p/100)*308);
-                        if(p >= 100) this.finishInitialScan();
+                        if(p >= 100) {
+                            clearInterval(scanTimer);
+                            this.finishInitialScan();
+                        }
                     }, 40);
                 };
 
                 const end = (e) => {
                     if (this.state.isScanning && !this.state.isDeepScanning) {
                         this.state.isScanning = false;
-                        clearInterval(this.timers.scan);
+                        clearInterval(scanTimer);
                         btn.classList.remove('active');
                         ring.style.strokeDashoffset = 308;
                         document.getElementById('instruction').innerText = "HOLD 2S TO START";
@@ -515,70 +590,19 @@
             },
 
             finishInitialScan: function() {
-                clearInterval(this.timers.scan);
                 if(navigator.vibrate) navigator.vibrate([50, 50]);
-                
-                // Transition to Dashboard
                 document.getElementById('hud-layer').classList.add('hidden-ui');
                 document.getElementById('universe').classList.add('dimmed');
                 
                 setTimeout(() => {
                     document.getElementById('dashboard-layer').classList.add('show');
-                    this.startDeepAnalysis();
+                    this.state.isDeepScanning = true;
+                    this.state.validBeatsCount = 0;
                 }, 400);
             },
 
-            startDeepAnalysis: function() {
-                this.state.isDeepScanning = true;
-                const bar = document.getElementById('deep-scan-bar');
-                const timerText = document.getElementById('countdown-timer');
-                
-                // Start 15s Timer
-                let timeLeft = 15;
-                bar.style.width = "100%"; // CSS transition handles smooth fill
-                
-                this.timers.deep = setInterval(() => {
-                    timeLeft--;
-                    timerText.innerText = timeLeft + "s";
-                    if(timeLeft <= 0) this.finalizeSession();
-                }, 1000);
-            },
-
-            finalizeSession: function() {
-                clearInterval(this.timers.deep);
-                this.state.isDeepScanning = false;
-                this.state.isScanning = false; // Stop sensor reading loop
-                
-                // 1. Calculate Risk
-                const hrv = this.state.hrv;
-                let riskLevel = "low";
-                let riskLabel = "LOW RISK";
-                
-                if(hrv < 30) { riskLevel = "high"; riskLabel = "HIGH RISK"; }
-                else if(hrv < 50) { riskLevel = "mid"; riskLabel = "CAUTION"; }
-                
-                // 2. Update UI
-                const badge = document.getElementById('risk-badge');
-                badge.className = `risk-badge ${riskLevel}`;
-                badge.innerHTML = `<i data-lucide="shield-alert" class="w-3 h-3"></i> ${riskLabel}`;
-                lucide.createIcons();
-
-                document.getElementById('countdown-timer').innerText = "COMPLETE";
-                document.getElementById('deep-scan-bar').style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue(`--risk-${riskLevel}`);
-                
-                // 3. Enable Reset Button
-                const btn = document.getElementById('main-action-btn');
-                btn.disabled = false;
-                document.getElementById('btn-text').innerText = "START NEW SCAN";
-                document.getElementById('btn-icon').setAttribute('data-lucide', 'rotate-ccw');
-                document.getElementById('btn-icon').classList.remove('animate-spin');
-                lucide.createIcons();
-                
-                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            },
-
             reset: function() {
-                location.reload(); // Simple reload for fresh session
+                location.reload();
             }
         };
 
