@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v25.8.1 - ANS Spectrum [2050 Edition]</title>
+    <title>TENKI v25.8.2 - ANS Spectrum [Solid Edition]</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -231,7 +231,7 @@
             letter-spacing: -4px; line-height: 1;
         }
         
-        /* 2050 RINGS CSS */
+        /* 2050 RINGS CSS - REVISED FOR SOLID LINES */
         .ring-svg {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             transform: rotate(-90deg); overflow: visible;
@@ -243,30 +243,40 @@
         /* 內部 HRV 2050 改裝 */
         .ring-inner-bg {
             fill: none; stroke: rgba(255,255,255,0.03); 
-            stroke-width: 14; 
+            stroke-width: 12; /* Increased background track thickness */
         }
+        
+        /* 機械刻度 (保持質感) */
         .mech-track {
-            fill: none; stroke: rgba(255, 255, 255, 0.15); stroke-width: 1;
-            stroke-dasharray: 2 10; /* 刻度感 */
+            fill: none; stroke: rgba(255, 255, 255, 0.1); stroke-width: 1;
+            stroke-dasharray: 2 10; 
             transform-origin: 50% 50%;
             animation: spin-cw 20s linear infinite;
         }
+
+        /* 紫線 (Data Stream) - 改為實心全圓 */
         .data-stream {
-            fill: none; stroke: var(--void-purple); stroke-width: 2;
-            stroke-dasharray: 50 150;
-            opacity: 0.5;
+            fill: none; 
+            stroke: var(--void-purple); 
+            stroke-width: 2; /* 細緻實線 */
+            stroke-dasharray: none; /* !!! 關鍵修改：移除虛線，改為實心 !!! */
+            opacity: 0.8;
             transform-origin: 50% 50%;
-            animation: spin-ccw 8s linear infinite;
+            /* 讓它稍微慢速轉動或保持靜止，這裡保留慢速轉動增加科技感，但因為是實心圈，轉動看不出來，除非有材質。
+               為了確保「不要斷」的視覺，我們保持它是實線圈即可。 */
         }
+
+        /* 核心數值環 (HRV) - 加粗 */
         .ring-hrv-2050 {
             fill: none; 
-            stroke-width: 6; 
-            stroke-linecap: square; /* 數位方角風格 */
+            stroke-width: 12; /* !!! 關鍵修改：加粗 (原為6) !!! */
+            stroke-linecap: round; /* 圓角收尾 */
             stroke-dasharray: 660; 
             stroke-dashoffset: 660; 
             transition: stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1);
-            filter: drop-shadow(0 0 8px #D400FF); /* 強烈霓虹光 */
+            filter: drop-shadow(0 0 8px #D400FF);
         }
+
         @keyframes spin-cw { 100% { transform: rotate(360deg); } }
         @keyframes spin-ccw { 100% { transform: rotate(-360deg); } }
 
@@ -363,7 +373,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_25.8.1</div>
+                <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_25.8.2</div>
             </div>
             
             <div class="text-right flex flex-col items-end">
@@ -422,7 +432,7 @@
 
         <div class="grid grid-cols-2 gap-4">
             
-            <!-- (A) ORBIT SCORE [2050 UPGRADE] -->
+            <!-- (A) ORBIT SCORE [SOLID EDITION] -->
             <div class="col-span-2 bento-card items-center py-8 bg-black/40 border-white/20">
                 <div id="tei-orbit-container" class="orbit-container">
                     <svg style="width:0;height:0;position:absolute;" aria-hidden="true" focusable="false">
@@ -447,9 +457,16 @@
                         <circle id="ring-score" cx="140" cy="140" r="120" class="ring-value glow-outer" stroke="url(#grad-score)" stroke-width="8" stroke-dasharray="753" stroke-dashoffset="753"></circle>
                         
                         <!-- 2050 HRV Layers (Inner) -->
-                        <circle cx="140" cy="140" r="100" class="ring-inner-bg"></circle>
-                        <circle cx="140" cy="140" r="92" class="mech-track"></circle>
-                        <circle cx="140" cy="140" r="108" class="data-stream"></circle>
+                        <!-- 1. Background Track (Thicker) -->
+                        <circle cx="140" cy="140" r="105" class="ring-inner-bg"></circle>
+                        
+                        <!-- 2. Decorative Solid Purple Line (Moved inward to avoid overlap, SOLID LINE) -->
+                        <circle cx="140" cy="140" r="95" class="data-stream"></circle>
+                        
+                        <!-- 3. Mechanical Ticks (Texture) -->
+                        <circle cx="140" cy="140" r="90" class="mech-track"></circle>
+                        
+                        <!-- 4. Actual HRV Value (Thicker, On Top) -->
                         <circle id="ring-hrv" cx="140" cy="140" r="105" class="ring-hrv-2050" stroke="url(#grad-hrv-2050)" stroke-dasharray="660" stroke-dashoffset="660"></circle>
                     </svg>
 
