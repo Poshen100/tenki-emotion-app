@@ -175,8 +175,8 @@
             background: transparent;
             display: flex; flex-direction: column;
             /* 
-               [FIX]: Increased bottom padding from 140px to 220px. 
-               This ensures the last element (System Log) can scroll ABOVE the dock. 
+               [修復]: 將底部 padding 從 140px 增加到 220px。
+               這確保了最後一個元件 (System Log) 可以被捲動到 Dock 之上，不會被遮擋。
             */
             padding: 24px 20px 220px 20px; 
             overflow-y: auto; opacity: 0; pointer-events: none;
@@ -248,7 +248,7 @@
         }
         .bio-bar { flex: 1; background: var(--state-stable); opacity: 0.6; border-radius: 1px; transition: height 0.05s linear; }
 
-        /* Dock - Updated to prevent click blocking */
+        /* Dock - 更新以防止點擊阻擋 */
         .dock-container {
             position: fixed; 
             bottom: calc(30px + env(safe-area-inset-bottom));
@@ -259,10 +259,10 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.6);
             transform: translateY(150px); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
             z-index: 100;
-            /* [FIX]: Ensure the dock container doesn't block touches on underlying content in its transparent areas */
+            /* [修復]: 確保 Dock 容器的透明部分不會阻擋對下方內容的觸控 */
             pointer-events: none; 
         }
-        /* [FIX]: Re-enable pointer events for the buttons */
+        /* [修復]: 重新啟用按鈕的指針事件 */
         .dock-btn, .dock-main-action { pointer-events: auto; }
 
         #dashboard-layer.show .dock-container { transform: translateY(0); }
@@ -459,7 +459,7 @@
                 </div>
             </div>
             
-            <!-- [FIX]: Extra spacer at bottom of grid to ensure scroll clearance -->
+            <!-- [修復]: 額外的底部間隔，確保滑動到底部時內容不會貼在邊緣 -->
             <div class="col-span-2 h-6"></div>
         </div>
 
