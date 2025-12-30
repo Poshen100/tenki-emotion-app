@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v25.8 - Hybrid Core</title>
+    <title>TENKI v25.8.1 - ANS Spectrum</title>
     
     <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,11 +27,10 @@
             --alert-orange: #FF5500;
             --matrix-green: #00FF94;
             
-            /* Compliance State Colors */
-            --state-stable: #00FF94;   /* 80-99 */
-            --state-control: #FFD600;  /* 60-79 */
-            --state-volatile: #FF8800; /* 40-59 */
-            --state-risk: #FF0055;     /* 1-39 */
+            --state-stable: #00FF94;   
+            --state-control: #FFD600;  
+            --state-volatile: #FF8800; 
+            --state-risk: #FF0055;     
 
             --glass-bg: rgba(15, 15, 20, 0.92);
             --glass-border: rgba(255, 255, 255, 0.12);
@@ -168,18 +167,16 @@
         @keyframes pulse-icon { 0% { opacity: 0.8; transform: scale(1); } 100% { opacity: 1; transform: scale(1.05); } }
 
         /* ========================================= */
-        /* DASHBOARD LAYOUT (REFACTORED v25.8) */
+        /* DASHBOARD LAYOUT */
         /* ========================================= */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent;
             display: flex; flex-direction: column;
-            /* 修正：增加頂部和底部 Padding，避免被切掉或遮擋 */
             padding: 24px 20px 140px 20px; 
             padding-top: calc(50px + env(safe-area-inset-top));
             overflow-y: auto; opacity: 0; pointer-events: none;
             transform: translateY(20px);
-            /* 保留原版過場動畫 */
             transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
@@ -194,7 +191,7 @@
         }
         .bento-card:active { transform: scale(0.98); }
 
-        /* 🟢 v25.8 Feature: Top Integrity Bar */
+        /* Top Integrity Bar */
         .integrity-track {
             width: 100%; height: 4px; background: rgba(255,255,255,0.1);
             border-radius: 2px; margin-top: 8px; position: relative; overflow: hidden;
@@ -206,7 +203,7 @@
             transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        /* 🟢 v25.8 Feature: Scanner Overlay on Graph */
+        /* Scanner Overlay */
         .scanner-overlay {
             position: absolute; inset: 0; pointer-events: none; z-index: 10;
             background: linear-gradient(90deg, transparent 0%, rgba(0, 255, 148, 0.1) 50%, transparent 100%);
@@ -215,7 +212,7 @@
         }
         @keyframes scan-pass { 0% { transform: translateX(-150%) skewX(-20deg); } 100% { transform: translateX(350%) skewX(-20deg); } }
 
-        /* Orbit (Preserved) */
+        /* Orbit */
         .orbit-container {
             width: 280px; height: 280px; position: relative;
             display: flex; justify-content: center; align-items: center;
@@ -242,12 +239,31 @@
         .glow-outer { filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.5)); }
         .glow-inner { filter: drop-shadow(0 0 6px rgba(112, 0, 255, 0.5)); }
 
-        .ans-spectrum {
-            width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; 
-            display: flex; overflow: hidden; margin-top: 8px;
+        /* 🟢 NEW ANS SPECTRUM BARS */
+        .ans-bar-container {
+            width: 100%; height: 28px; background: rgba(0,0,0,0.4); 
+            border-radius: 99px; padding: 2px;
+            display: flex; position: relative; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
         }
-        .ans-sns { background: var(--state-volatile); width: 10%; transition: width 0.8s; opacity: 0.9; }
-        .ans-pns { background: var(--state-stable); width: 90%; transition: width 0.8s; opacity: 0.9; }
+        .ans-midpoint {
+            position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; 
+            background: rgba(255,255,255,0.3); z-index: 10;
+        }
+        .ans-sns-fill {
+            height: 100%; border-radius: 99px 0 0 99px;
+            background: linear-gradient(90deg, rgba(255,85,0,0.8), rgba(255,160,0,0.8));
+            display: flex; align-items: center; justify-content: flex-start;
+            padding-left: 8px; font-size: 9px; font-weight: bold; color: black;
+            transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .ans-pns-fill {
+            height: 100%; border-radius: 0 99px 99px 0;
+            background: linear-gradient(90deg, rgba(0,255,148,0.6), rgba(0,240,255,0.8));
+            display: flex; align-items: center; justify-content: flex-end;
+            padding-right: 8px; font-size: 9px; font-weight: bold; color: black;
+            transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+        }
 
         .radar-container {
             width: 100%; height: 100%; display: flex; justify-content: center; 
@@ -300,7 +316,7 @@
     
     <div id="universe"></div>
 
-    <!-- HUD Layer (Visual Scanner - Preserved) -->
+    <!-- HUD Layer -->
     <div id="hud-layer">
         <div id="align-hint-capsule">
             <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
@@ -315,14 +331,13 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_25.8</div>
+                <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_25.8.1</div>
             </div>
             
             <div class="text-right flex flex-col items-end">
                 <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
                     VISION ONLY
                 </div>
-                <!-- Environment Sensors -->
                 <div class="env-readout font-mono-tech mb-2">
                     <div id="env-lux" class="env-item">
                         <span>LUX</span>
@@ -332,9 +347,6 @@
                         <span>STAB</span>
                         <div class="env-bar"><div id="env-stab-bar" class="env-fill" style="width: 100%"></div></div>
                     </div>
-                </div>
-                <div class="flex items-end h-4" id="audio-visualizer">
-                    <div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div><div class="audio-bar"></div>
                 </div>
             </div>
         </div>
@@ -357,9 +369,9 @@
         </div>
     </div>
 
-    <!-- Dashboard Layer (Snapshot Refactored v25.8) -->
+    <!-- Dashboard Layer -->
     <div id="dashboard-layer">
-        <!-- Header: 數據完整性 & 進度條 (置頂) -->
+        <!-- Header -->
         <div class="mb-6">
             <div class="flex justify-between items-end mb-1">
                 <div>
@@ -371,7 +383,6 @@
                     <div class="text-[9px] text-gray-500 font-bold">DATA TRUST</div>
                 </div>
             </div>
-            <!-- Integrity Bar -->
             <div class="integrity-track">
                 <div id="resonance-fill" class="integrity-fill"></div>
             </div>
@@ -379,7 +390,7 @@
 
         <div class="grid grid-cols-2 gap-4">
             
-            <!-- (A) MAIN SCORE ORBIT -->
+            <!-- (A) ORBIT SCORE -->
             <div class="col-span-2 bento-card items-center py-8 bg-black/40 border-white/20">
                 <div id="tei-orbit-container" class="orbit-container">
                     <svg style="width:0;height:0;position:absolute;" aria-hidden="true" focusable="false">
@@ -410,36 +421,60 @@
                         <div class="text-[10px] font-mono-tech text-cyan-300 tracking-widest mt-2 cursor-pointer" id="dash-label">HOLD TO RESYNC</div>
                     </div>
                 </div>
-                <!-- AI Output -->
                 <div class="mt-4 text-center w-full px-4">
                     <div class="text-xl font-serif-human text-white" id="dash-state">Status Stable</div>
-                    <div class="text-[9px] text-gray-500 mt-1 font-mono-tech uppercase tracking-wider" id="baseline-debug"></div>
                 </div>
             </div>
 
-            <!-- (B) V25.8 COMPLIANCE GRID -->
-            
-            <!-- 1. Cardio Load (HRV) -->
-            <div class="col-span-2 bento-card">
-                <div class="flex justify-between items-center mb-2">
-                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                        <i data-lucide="activity" class="w-3 h-3"></i> HRV Load
+            <!-- (B) 🟢 ANS SPECTRUM (Autonomic Balance) - 醫療級升級版 -->
+            <div class="col-span-2 bento-card relative overflow-hidden group">
+                <!-- Header -->
+                <div class="flex justify-between items-start mb-3">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                            <i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i> Autonomic Balance
+                        </span>
+                        <span class="text-xs text-gray-400 mt-1">HRV / Stress Index</span>
                     </div>
-                    <div id="hrv-val" class="text-xl font-bold text-white font-mono-tech tabular-nums">--ms</div>
+                    <!-- Raw Value (Still useful for pros) -->
+                    <div class="text-right">
+                        <div id="hrv-val" class="text-xl font-bold text-white font-mono-tech tabular-nums tracking-tighter">--</div>
+                        <span class="text-[9px] text-gray-500 font-bold uppercase">RMSSD (ms)</span>
+                    </div>
                 </div>
-                <div class="flex justify-between text-[9px] font-bold text-gray-500 mb-1">
-                    <span>ACTIVE</span>
-                    <span>RESTING</span>
+
+                <!-- The Spectrum Bar (Medical Grade) -->
+                <div class="ans-bar-container">
+                    <!-- Middle Marker -->
+                    <div class="ans-midpoint"></div>
+                    
+                    <!-- SNS (Stress) Bar -->
+                    <div id="ans-sns-bar" class="ans-sns-fill" style="width: 50%">
+                        SNS
+                    </div>
+                    
+                    <!-- PNS (Recovery) Bar -->
+                    <div id="ans-pns-bar" class="ans-pns-fill" style="width: 50%">
+                        PNS
+                    </div>
                 </div>
-                <div class="ans-spectrum">
-                    <div id="ans-sns" class="ans-sns"></div>
-                    <div id="ans-pns" class="ans-pns"></div>
+
+                <!-- Legend / Values -->
+                <div class="flex justify-between mt-2 text-[9px] font-bold font-mono-tech tracking-wide">
+                    <div class="text-orange-400 flex flex-col">
+                        <span>SYMPATHETIC</span>
+                        <span id="sns-val" class="opacity-80">--%</span>
+                    </div>
+                    <div class="text-cyan-400 flex flex-col items-end">
+                        <span>PARASYMPATHETIC</span>
+                        <span id="pns-val" class="opacity-80">--%</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- 2. Heart Rate (with Scanner Overlay) -->
+            <!-- 2. Heart Rate -->
             <div class="bento-card justify-between h-36 relative overflow-hidden">
-                <div class="scanner-overlay"></div> <!-- 🟢 v25.8: Laser Effect -->
+                <div class="scanner-overlay"></div>
                 <div class="flex justify-between items-start relative z-10">
                     <span class="text-[10px] text-gray-400 font-bold uppercase">Live Pulse</span>
                     <i data-lucide="heart" class="w-4 h-4 text-gray-500"></i>
@@ -448,12 +483,10 @@
                     <span id="bpm-val" class="text-4xl font-bold text-white tracking-tighter tabular-nums">--</span>
                     <span class="text-xs text-gray-500 font-bold">BPM</span>
                 </div>
-                <div class="bio-graph-container" id="ppg-graph">
-                    <!-- Bars injected by JS -->
-                </div>
+                <div class="bio-graph-container" id="ppg-graph"></div>
             </div>
 
-            <!-- 3. Radar (Stability) -->
+            <!-- 3. Radar -->
             <div class="bento-card justify-between h-36 relative">
                 <div class="text-[10px] text-gray-400 font-bold uppercase z-10">Stability</div>
                 <div class="radar-container absolute inset-0">
@@ -467,11 +500,11 @@
                 </div>
             </div>
 
-            <!-- (C) LOG (Preserved) -->
+            <!-- Log -->
             <div class="col-span-2 bento-card bg-black border-white/20 mt-2">
                 <div class="text-xs text-cyan-300 font-mono-tech mb-2 tracking-widest">SYSTEM_LOG</div>
                 <div class="text-lg text-white font-serif-human leading-tight mb-2 opacity-90" id="dash-quote">
-                    "Data Integrity verified. Ready for decision flow."
+                    "Bio-metrics synchronized. Analysis ready."
                 </div>
                 <div class="flex justify-between items-end mt-4 border-t border-white/10 pt-3">
                     <div class="text-[10px] text-gray-500 font-mono-tech" id="dash-date">DATE</div>
@@ -485,7 +518,6 @@
             <div class="dock-btn bg-white/5 hover:bg-white/10">
                 <i data-lucide="share-2" class="w-5 h-5"></i>
             </div>
-            <!-- Main Button: Dynamic -->
             <button id="dynamic-action-btn" class="dock-main-action" onclick="app.reset()">
                 <i id="btn-icon" data-lucide="rotate-ccw" class="w-4 h-4 text-black"></i>
                 <span id="btn-text">PROCESSING...</span>
@@ -496,7 +528,7 @@
         </div>
     </div>
 
-    <!-- ENGINE (Hybrid Logic) -->
+    <!-- ENGINE -->
     <script>
         class BaselineManager {
             constructor() { this.data = this.load() || { samples_count: 0 }; }
@@ -506,7 +538,6 @@
         }
 
         const TenkiEngine = {
-            // Updated Hybrid Calculation accepting Environmental factors
             calculatePole: function(sampleBuffer, env) {
                 if (!sampleBuffer || sampleBuffer.length === 0) return { score: 50, stability: 0, hrv: 50, alertness: 0, energy: 30 };
 
@@ -518,28 +549,21 @@
                     sumEnergy += (s.audioData || 0);
                 });
                 
-                // Stability Logic (Impacted by Device Motion)
                 const rawStability = Math.max(0, 1 - (sumHead / count) * 3);
                 const finalStability = Math.max(0, rawStability - (env.motion || 0));
 
                 let sumEyeTens = 0;
                 sampleBuffer.forEach(s => { sumEyeTens += (s.eyeTens || 0); });
                 const avgEyeTension = sumEyeTens / count;
-                
-                // Alertness (Focus)
                 const alertness = Math.floor((1 - avgEyeTension) * 100);
 
-                // Scoring
                 let rawScore = 60 + (finalStability * 30);
                 if (env.lux > 50) rawScore += 5; else rawScore -= 5;
-
                 const reliability = Math.min(1, count / 30);
                 const finalScore = Math.floor(rawScore * reliability);
                 
-                // Proxy HRV
+                // Proxy HRV (40-100 range roughly)
                 const estimatedHRV = Math.floor(40 + (finalStability * 50) + (Math.random() * 10));
-
-                // Energy for BPM
                 const avgEnergy = sumEnergy / count;
 
                 return {
@@ -547,14 +571,14 @@
                     stability: finalStability,
                     alertness: alertness,
                     hrv: estimatedHRV,
-                    energy: avgEnergy // 保留能量作為 BPM 計算基礎
+                    energy: avgEnergy
                 };
             }
         };
         const baselineMgr = new BaselineManager();
     </script>
 
-    <!-- APP LOGIC -->
+    <!-- APP -->
     <script>
         lucide.createIcons();
 
@@ -574,7 +598,6 @@
                 this.initEvents();
                 this.initDashboardInteractions();
                 this.initEnvironment();
-                // Initialize graph bars
                 const container = document.getElementById('ppg-graph');
                 for(let i=0; i<30; i++) {
                     const d = document.createElement('div');
@@ -586,7 +609,6 @@
                 document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}).toUpperCase();
             },
 
-            // --- Environment ---
             initEnvironment: function() {
                 const c = document.getElementById('light-analysis-canvas');
                 if(c) this.lightCtx = c.getContext('2d', { willReadFrequently: true });
@@ -625,7 +647,6 @@
                 const luxItem = document.getElementById('env-lux');
                 const stabBar = document.getElementById('env-stab-bar');
                 const stabItem = document.getElementById('env-stab');
-
                 if(luxBar) {
                     luxBar.style.width = lux + '%';
                     if(lux < 20) { luxItem.classList.add('warn'); luxItem.classList.remove('good'); }
@@ -639,7 +660,6 @@
                 }
             },
 
-            // --- Three.js ---
             initThree: function() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
@@ -700,7 +720,6 @@
                 this.animate();
             },
 
-            // --- Sensors ---
             startSensors: async function() {
                 document.getElementById('instruction').innerText = "SENSORS ACTIVE...";
                 try {
@@ -775,7 +794,6 @@
                 if(!this.state.isSensorActive) return;
                 const statusEl = document.getElementById('connection-status');
                 const landmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
-                
                 this.updateAlignment(landmarks);
 
                 if (landmarks) {
@@ -917,14 +935,13 @@
                 this.state.isScanning = false;
                 if(navigator.vibrate) navigator.vibrate([50, 50, 100]);
                 
-                // Hybrid Engine Call
                 this.state.engineResult = TenkiEngine.calculatePole(this.state.scanBuffer, { 
                     lux: this.state.envLux, 
                     motion: this.state.deviceMotion 
                 });
                 
                 baselineMgr.recordSession();
-                this.state.baseScore = Math.max(10, this.state.engineResult.score - 10); // 初步分數
+                this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
                 this.state.mentalBuffer = 0;
                 this.showDashboard();
             },
@@ -937,7 +954,7 @@
                     if(navigator.vibrate) navigator.vibrate(20);
                     this.chargeInterval = setInterval(() => {
                         if (this.state.mentalBuffer < 100) {
-                            this.state.mentalBuffer += 1.5; // Sync Speed
+                            this.state.mentalBuffer += 1.5;
                             this.updateDashboardVisuals();
                             if (Math.floor(this.state.mentalBuffer) % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
                         } else {
@@ -956,26 +973,18 @@
                 window.addEventListener('touchend', stopCharge);
             },
 
-            // 🟢 The Core Visual Updater (Snapshot Refactored + NaN Safe)
             updateDashboardVisuals: function() {
                 const res = this.state.engineResult;
-                // Safety Checks
                 const safeEnergy = (res && Number.isFinite(res.energy)) ? res.energy : 30;
                 const safeHrv = (res && Number.isFinite(res.hrv)) ? res.hrv : 60;
                 const safeScore = (res && Number.isFinite(res.score)) ? res.score : 0;
                 
-                // Buffer Percentage (Data Integrity)
                 const bufferPct = Math.min(100, Math.floor(this.state.mentalBuffer));
 
-                // 1. Integrity Bar (Top)
                 document.getElementById('resonance-fill').style.width = bufferPct + "%";
                 document.getElementById('confidence-val').innerText = bufferPct + "%";
                 
-                // 2. Score Orbit
-                // "Locked" score when buffer is full, otherwise slightly lower to encourage syncing
                 const currentTargetScore = bufferPct === 100 ? safeScore : Math.floor((safeScore * (80 + bufferPct*0.2)) / 100);
-                
-                // Rolling logic (Visual only)
                 const scoreEl = document.getElementById('dash-score');
                 const currentDisplay = parseInt(scoreEl.innerText) || 0;
                 if (currentDisplay < currentTargetScore) scoreEl.innerText = currentDisplay + 1;
@@ -985,7 +994,6 @@
                 const offScore = cScore - ((currentTargetScore / 100) * cScore);
                 document.getElementById('ring-score').style.strokeDashoffset = offScore;
                 
-                // Label State
                 const label = document.getElementById('dash-label');
                 if (bufferPct < 100) {
                      label.innerText = "HOLD TO RESYNC"; label.style.color = "#9CA3AF";
@@ -993,12 +1001,10 @@
                      label.innerText = "SYSTEM LOCKED"; label.style.color = "#00F0FF";
                 }
 
-                // 3. Heart Rate (Animated with Jitter)
                 const baseBpm = 60 + Math.floor(safeEnergy * 0.4);
                 const jitter = (Math.floor(Date.now() / 1000) % 2 === 0) ? 1 : -1;
                 document.getElementById('bpm-val').innerText = baseBpm + jitter;
 
-                // Graph Animation
                 const bars = document.querySelectorAll('.bio-bar');
                 bars.forEach((b) => { 
                     const h = 20 + (safeEnergy * 0.4) + (Math.random() * 40);
@@ -1006,22 +1012,31 @@
                     b.style.opacity = h > 60 ? 1 : 0.4;
                 });
 
-                // 4. HRV Spectrum
-                document.getElementById('hrv-val').innerText = safeHrv + 'ms';
-                const rec = Math.min(100, (safeHrv/120)*100);
-                document.getElementById('ans-pns').style.width = rec + '%';
-                document.getElementById('ans-sns').style.width = (100-rec) + '%';
+                // 🟢 🟢 NEW HRV SPECTRUM LOGIC
+                // Calculate conceptual percentages for the bar
+                // High HRV = High Recovery (PNS). Low HRV = High Stress (SNS).
+                // Assuming max healthy visual HRV ~120ms for this scale.
+                const pnsPct = Math.min(90, Math.max(10, Math.floor((safeHrv / 120) * 100)));
+                const snsPct = 100 - pnsPct;
+                
+                document.getElementById('hrv-val').innerText = safeHrv;
+                
+                // Update Bar Widths
+                document.getElementById('ans-sns-bar').style.width = snsPct + '%';
+                document.getElementById('ans-pns-bar').style.width = pnsPct + '%';
+                
+                // Update Text Values
+                document.getElementById('sns-val').innerText = snsPct + '%';
+                document.getElementById('pns-val').innerText = pnsPct + '%';
 
-                // 5. Radar
                 const focus = Math.min(100, (res ? res.alertness : 50) + 10);
                 const pos = Math.min(100, (res ? res.stability*100 : 50));
                 
                 const p1y = 10 + ((100-focus) * 0.4); 
                 const p2x = 90 - ((100-pos) * 0.2); const p2y = 80 - ((100-pos) * 0.2);
-                const p3x = 10 + ((100-rec) * 0.2); const p3y = 80 - ((100-rec) * 0.2);
+                const p3x = 10 + ((100-pnsPct) * 0.2); const p3y = 80 - ((100-pnsPct) * 0.2);
                 document.getElementById('radar-poly').setAttribute('points', `${50},${p1y} ${p2x},${p2y} ${p3x},${p3y}`);
 
-                // 6. Action Button (Unlock on 100%)
                 if (bufferPct === 100) this.unlockAction(safeScore);
             },
 
@@ -1066,10 +1081,8 @@
                 const dash = document.getElementById('dashboard-layer');
                 this.updateDashboardVisuals();
                 
-                // Double Ring Speed Calculation (Rolling Effect)
                 let rollInterval = setInterval(() => {
                     this.updateDashboardVisuals();
-                    // Stop rolling if we hit target in Phase 1
                     const scoreEl = document.getElementById('dash-score');
                     if(this.state.mentalBuffer === 0 && parseInt(scoreEl.innerText) >= Math.floor(this.state.baseScore * 0.8)) {
                         clearInterval(rollInterval);
@@ -1090,16 +1103,12 @@
                 document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
                 document.getElementById('instruction').style.color = "#9CA3AF";
                 document.getElementById('dash-score').innerText = "00";
-                
-                // Reset State
                 this.state.mentalBuffer = 0;
                 document.getElementById('resonance-fill').style.width = "0%";
                 
-                // Reset Button
                 const btn = document.getElementById('dynamic-action-btn');
                 btn.disabled = true;
-                btn.className = "dock-main-action"; // Restore default class
-                // Remove injected colors
+                btn.className = "dock-main-action"; 
                 btn.classList.remove('bg-[#00FF94]', 'bg-[#FFD600]', 'bg-[#FF8800]', 'bg-[#FF0055]', 'text-black', 'text-white');
                 document.getElementById('btn-text').innerText = "PROCESSING...";
                 document.getElementById('btn-icon').setAttribute('data-lucide', 'rotate-ccw');
