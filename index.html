@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v25.9 - Real rPPG Core</title>
+    <title>TENKI v26.0 - Medical Core</title>
     
     <!-- 字體 & 庫 -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -19,312 +17,337 @@
             --plasma-cyan: #00F0FF; 
             --matrix-green: #00FF94;
             --alert-red: #FF0055;
-            --glass-bg: rgba(12, 12, 18, 0.9);
+            --glass-bg: rgba(12, 12, 18, 0.85);
+            --score-high: #00FF94;
+            --score-mid: #FFD600;
+            --score-low: #FF0055;
         }
 
         body {
             background: var(--bg-deep); color: white;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'Inter', sans-serif;
             overflow: hidden; width: 100vw; height: 100dvh;
-            margin: 0; user-select: none;
+            margin: 0; user-select: none; -webkit-tap-highlight-color: transparent;
         }
 
-        /* 隱藏原生 Video，我們用 Canvas 處理 */
-        #input-video { position: absolute; opacity: 0; pointer-events: none; }
-        #rppg-canvas { position: absolute; top: -9999px; } 
+        /* 3D Background */
+        #universe { position: absolute; inset: 0; z-index: 1; transition: opacity 1.5s ease; }
+        #universe.dimmed { opacity: 0.2; filter: blur(8px); }
 
-        #universe { position: absolute; inset: 0; z-index: 1; opacity: 1; transition: opacity 1s; }
-        #universe.dimmed { opacity: 0.3; filter: blur(10px); }
-
-        /* HUD Layer */
+        /* HUD Layer (Scanning UI) */
         #hud-layer {
-            position: absolute; inset: 0; z-index: 10; pointer-events: none;
+            position: absolute; inset: 0; z-index: 10;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 24px; padding-top: calc(50px + env(safe-area-inset-top));
-            padding-bottom: calc(40px + env(safe-area-inset-bottom));
+            transition: opacity 0.5s;
         }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-        /* Dashboard */
+        /* Fingerprint Area */
+        .fingerprint-container {
+            position: relative; width: 120px; height: 120px;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .fingerprint-ring {
+            position: absolute; inset: 0; border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.5s;
+        }
+        .fingerprint-btn {
+            width: 90px; height: 90px; border-radius: 50%;
+            background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; position: relative; z-index: 20;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .fingerprint-btn:active { transform: scale(0.92); }
+        .fingerprint-btn.active { 
+            background: rgba(0, 240, 255, 0.15); border-color: var(--plasma-cyan);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+        }
+        
+        /* RR Breathing Ring (The "Lock" Visual) */
+        .rr-ring {
+            position: absolute; inset: -20px; border-radius: 50%;
+            border: 2px solid var(--matrix-green); opacity: 0;
+            transform: scale(0.8); pointer-events: none;
+        }
+        .rr-active .rr-ring {
+            opacity: 1; animation: breathe-anim 4s infinite ease-in-out;
+        }
+        @keyframes breathe-anim { 0%, 100% { transform: scale(0.95); opacity: 0.3; } 50% { transform: scale(1.1); opacity: 0.8; } }
+
+        /* Dashboard Layer */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent; display: flex; flex-direction: column;
-            padding: 24px 20px 140px 20px; 
-            padding-top: calc(50px + env(safe-area-inset-top));
+            padding: 20px; padding-top: calc(50px + env(safe-area-inset-top));
+            padding-bottom: 120px;
             overflow-y: auto; opacity: 0; pointer-events: none;
-            transform: translateY(30px); transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transform: translateY(40px); transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1);
         }
         #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
 
-        /* Components */
         .bento-card {
-            background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 28px; padding: 20px; position: relative; overflow: hidden;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6); backdrop-filter: blur(20px);
+            background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px; padding: 20px; position: relative; overflow: hidden;
+            backdrop-filter: blur(40px); box-shadow: 0 20px 50px rgba(0,0,0,0.4);
         }
 
-        /* Integrity Bar (Top) */
-        .integrity-track {
-            width: 100%; height: 4px; background: rgba(255,255,255,0.1);
-            border-radius: 2px; margin-top: 8px; overflow: hidden;
-        }
-        .integrity-fill {
-            height: 100%; width: 0%; background: linear-gradient(90deg, #00F0FF, #00FF94);
-            box-shadow: 0 0 10px var(--plasma-cyan); transition: width 0.1s linear;
+        /* Integrity Bar */
+        .integrity-track { width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 10px; }
+        .integrity-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00F0FF, #00FF94); transition: width 0.3s; }
+
+        /* Score Ring */
+        .score-circle-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
+        .score-circle-fg { 
+            fill: none; stroke: var(--score-high); stroke-width: 8; stroke-linecap: round;
+            stroke-dasharray: 628; stroke-dashoffset: 628; transition: stroke-dashoffset 1.5s ease-out, stroke 0.5s;
+            transform: rotate(-90deg); transform-origin: 50% 50%;
         }
 
-        /* Spectrum Bar (SNS vs PNS) */
-        .spectrum-container {
-            width: 100%; height: 24px; background: rgba(0,0,0,0.5); 
-            border-radius: 12px; display: flex; position: relative; overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.1); margin-top: 10px;
+        /* HRV Spectrum */
+        .spectrum-bar {
+            width: 100%; height: 28px; background: rgba(0,0,0,0.3); border-radius: 14px;
+            display: flex; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);
         }
-        .spectrum-mid { position: absolute; left: 50%; top:0; bottom:0; width: 1px; background: #fff; z-index:10; opacity: 0.3; }
-        .bar-sns { background: linear-gradient(90deg, #FF5500, #FF9900); height: 100%; transition: width 0.5s; display: flex; align-items: center; padding-left: 8px; font-size: 9px; color: black; font-weight: bold; }
-        .bar-pns { background: linear-gradient(90deg, #00FF94, #00F0FF); height: 100%; transition: width 0.5s; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 9px; color: black; font-weight: bold; }
+        .spectrum-mid { position: absolute; left: 50%; top:0; bottom:0; width: 1px; background: rgba(255,255,255,0.2); z-index:5; }
+        .bar-sns { background: linear-gradient(90deg, #FF5500, #FF9900); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; padding-left: 10px; font-size: 10px; font-weight: 700; color: #000; }
+        .bar-pns { background: linear-gradient(90deg, #00FF94, #00F0FF); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-size: 10px; font-weight: 700; color: #000; }
 
-        /* Scanner Laser */
-        .scanner-laser {
-            position: absolute; top: 0; left: 0; width: 100%; height: 2px;
-            background: #00FF94; box-shadow: 0 0 10px #00FF94; opacity: 0;
-            z-index: 20; pointer-events: none;
-        }
-        .scanner-active .scanner-laser { opacity: 1; animation: scan-down 1.5s infinite linear; }
-        @keyframes scan-down { 0% { top: 0%; } 100% { top: 100%; } }
-
-        /* Real-time PPG Graph */
-        .ppg-canvas-container {
-            width: 100%; height: 50px; position: relative; 
+        /* Graph Canvas */
+        .graph-container {
+            width: 100%; height: 60px; position: relative;
             mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-        }
-        
-        /* Fingerprint */
-        .fingerprint-wrapper {
-            width: 100px; height: 100px; border-radius: 50%;
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-            display: flex; justify-content: center; align-items: center; cursor: pointer;
-            transition: all 0.3s;
-        }
-        .fingerprint-wrapper.active { 
-            border-color: var(--plasma-cyan); background: rgba(0, 240, 255, 0.1); 
-            box-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
         }
 
         /* Dock */
         .dock {
             position: fixed; bottom: 30px; left: 20px; right: 20px; height: 64px;
-            background: rgba(10,10,15,0.9); backdrop-filter: blur(20px);
+            background: rgba(15,15,20,0.9); backdrop-filter: blur(20px);
             border-radius: 32px; border: 1px solid rgba(255,255,255,0.1);
-            display: flex; align-items: center; justify-content: center; z-index: 100;
-            transform: translateY(150px); transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
+            z-index: 100; transform: translateY(150px); transition: transform 0.6s 0.2s cubic-bezier(0.19, 1, 0.22, 1);
         }
         #dashboard-layer.show .dock { transform: translateY(0); }
 
-        .orbit-container { width: 260px; height: 260px; margin: 0 auto; position: relative; display: flex; justify-content: center; align-items: center; }
-        .metallic-text {
-            background: linear-gradient(180deg, #fff, #888); -webkit-background-clip: text; color: transparent;
-        }
+        /* Font Utils */
+        .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+        .text-gradient { background: linear-gradient(135deg, #fff 0%, #aaa 100%); -webkit-background-clip: text; color: transparent; }
     </style>
 </head>
 <body>
 
-    <!-- Hidden Processing Layers -->
-    <video id="input-video" playsinline></video>
-    <canvas id="rppg-canvas"></canvas>
-
     <div id="universe"></div>
 
-    <!-- HUD: SCANNER -->
+    <!-- HUD Layer: Scanning -->
     <div id="hud-layer">
-        <div class="flex justify-between items-start">
+        <div class="flex justify-between items-start px-6">
             <div>
-                <div class="text-xl font-bold tracking-[4px]">TENKI</div>
-                <div class="text-[9px] text-cyan-400 tracking-widest mt-1">RPPG_HYBRID v25.9</div>
+                <div class="text-2xl font-black tracking-widest">TENKI</div>
+                <div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">MED_CORE v26.0</div>
             </div>
-            <div class="text-right">
-                <div id="signal-status" class="text-[9px] border border-white/20 px-2 py-1 rounded text-gray-400">
-                    SIGNAL: WAITING
-                </div>
+            <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono-tech text-gray-500">
+                STANDBY
             </div>
         </div>
 
-        <div class="flex flex-col items-center pb-20">
-            <div id="scan-btn" class="fingerprint-wrapper">
-                <i data-lucide="fingerprint" class="w-10 h-10 text-white/50 transition-colors duration-300" id="scan-icon"></i>
+        <div class="flex-1 flex flex-col justify-center items-center">
+            <div class="fingerprint-container" id="scan-trigger">
+                <div class="rr-ring"></div>
+                <div class="fingerprint-ring" id="pulse-ring"></div>
+                <div class="fingerprint-btn">
+                    <i data-lucide="fingerprint" class="w-8 h-8 text-white/40 transition-colors" id="scan-icon"></i>
+                </div>
             </div>
-            <div id="instruction" class="mt-6 text-[10px] tracking-[2px] text-gray-400 font-bold">
-                HOLD TO ANALYZE
+            
+            <div class="mt-8 text-center h-10">
+                <div id="main-instruction" class="text-xs font-bold tracking-[0.15em] text-white/80">HOLD TO ANALYZE</div>
+                <div id="sub-instruction" class="text-[9px] text-cyan-400/60 mt-1 font-mono-tech opacity-0 transition-opacity">rPPG SENSOR ACTIVE</div>
+            </div>
+        </div>
+
+        <div class="px-6 pb-6 w-full">
+            <div class="flex justify-between text-[9px] font-mono-tech text-gray-500 mb-2">
+                <span>SIGNAL QUALITY</span>
+                <span id="signal-pct">0%</span>
+            </div>
+            <div class="w-full h-1 bg-white/10 rounded overflow-hidden">
+                <div id="signal-bar" class="h-full bg-cyan-400 w-0 transition-all duration-300"></div>
             </div>
         </div>
     </div>
 
-    <!-- DASHBOARD: RESULTS -->
+    <!-- Dashboard Layer: Results -->
     <div id="dashboard-layer">
-        <!-- Integrity Header -->
+        <!-- Header -->
         <div class="mb-4">
-            <div class="flex justify-between items-end mb-1">
+            <div class="flex justify-between items-end mb-2">
                 <div>
-                    <div class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-1">REAL-TIME BIO-METRICS</div>
-                    <div class="text-2xl font-bold text-white tracking-tight font-serif">Biological Coherence</div>
+                    <div class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-1">ANALYSIS COMPLETE</div>
+                    <div class="text-xl font-bold text-white font-serif">Biological Coherence</div>
                 </div>
                 <div class="text-right">
-                    <span id="integrity-val" class="text-xl font-mono text-white font-bold">0%</span>
-                    <div class="text-[8px] text-gray-500 font-bold">DATA CONFIDENCE</div>
+                    <div class="text-[9px] text-gray-500 font-bold mb-1">DATA INTEGRITY</div>
+                    <div class="text-white font-mono-tech font-bold text-lg">100%</div>
                 </div>
             </div>
-            <div class="integrity-track"><div id="integrity-fill" class="integrity-fill"></div></div>
+            <div class="integrity-track"><div class="integrity-fill" style="width: 100%"></div></div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
-            <!-- 1. TEI Score (Orbit) -->
-            <div class="col-span-2 bento-card py-6 flex flex-col items-center bg-black/50">
-                <div id="orbit-ring" class="orbit-container">
-                    <svg class="absolute inset-0 w-full h-full rotate-[-90deg]">
-                        <circle cx="130" cy="130" r="110" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"></circle>
-                        <circle id="score-circle" cx="130" cy="130" r="110" fill="none" stroke="#00F0FF" stroke-width="8" stroke-dasharray="691" stroke-dashoffset="691" stroke-linecap="round" class="transition-all duration-1000"></circle>
+            
+            <!-- 1. TEI Score (The Hero) -->
+            <div class="col-span-2 bento-card py-6 flex flex-col items-center justify-center bg-black/40">
+                <div class="relative w-[220px] h-[220px]">
+                    <svg class="w-full h-full">
+                        <circle cx="110" cy="110" r="90" class="score-circle-bg"></circle>
+                        <circle id="score-ring" cx="110" cy="110" r="90" class="score-circle-fg"></circle>
                     </svg>
-                    <div class="text-center z-10">
-                        <div class="text-[9px] tracking-widest text-gray-500 mb-2 font-bold">TEI SCORE</div>
-                        <div id="tei-val" class="text-8xl font-black metallic-text tracking-tighter">--</div>
-                        <div id="tei-label" class="text-[9px] text-cyan-400 tracking-widest mt-2">CALIBRATING...</div>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="text-[10px] font-bold tracking-[0.2em] text-gray-500 mb-2">TEI SCORE</span>
+                        <span id="tei-score" class="text-8xl font-black text-white leading-none tracking-tighter">--</span>
+                        <span id="tei-grade" class="text-xs font-bold text-cyan-400 mt-2 tracking-widest uppercase">Analyzing...</span>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. ANS Spectrum (SNS vs PNS) -->
+            <!-- 2. ANS Spectrum (Medical Grade) -->
             <div class="col-span-2 bento-card">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-[10px] text-gray-400 font-bold uppercase flex items-center gap-2">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2">
                         <i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i> Autonomic Balance
                     </span>
-                    <span id="hrv-ms" class="text-lg font-bold font-mono">-- ms</span>
+                    <span id="hrv-val" class="text-sm font-mono-tech font-bold text-white">-- ms</span>
                 </div>
-                
-                <div class="spectrum-container">
+                <div class="spectrum-bar">
                     <div class="spectrum-mid"></div>
-                    <div id="bar-sns" class="bar-sns" style="width: 50%">SNS</div>
-                    <div id="bar-pns" class="bar-pns" style="width: 50%">PNS</div>
+                    <div id="bar-sns" class="bar-sns">SNS 50%</div>
+                    <div id="bar-pns" class="bar-pns">50% PNS</div>
                 </div>
                 <div class="flex justify-between mt-2 text-[9px] font-bold text-gray-500">
-                    <span>STRESS (High Alert)</span>
-                    <span>RECOVERY (Rest)</span>
+                    <span>SYMPATHETIC (Stress)</span>
+                    <span>PARASYMPATHETIC (Recovery)</span>
                 </div>
             </div>
 
-            <!-- 3. Real rPPG Signal -->
-            <div class="bento-card col-span-1 h-36 relative overflow-hidden scanner-active">
-                <div class="scanner-laser"></div>
-                <div class="flex justify-between items-start mb-2 relative z-10">
-                    <span class="text-[9px] text-gray-400 font-bold uppercase">Blood Volume</span>
-                    <i data-lucide="heart" class="w-3 h-3 text-red-500 animate-pulse"></i>
+            <!-- 3. Pulse (Graph Loop) -->
+            <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/5 to-transparent skew-x-[-20deg] animate-pulse pointer-events-none"></div>
+                <div class="flex justify-between items-start z-10">
+                    <span class="text-[9px] font-bold text-gray-400 uppercase">Heart Rate</span>
+                    <i data-lucide="heart" class="w-3 h-3 text-red-500 fill-red-500 animate-pulse"></i>
                 </div>
-                <div class="relative z-10 mb-2">
-                    <span id="bpm-val" class="text-4xl font-bold tracking-tighter">--</span>
-                    <span class="text-[9px] font-bold text-gray-500">BPM</span>
+                <div class="z-10">
+                    <span id="bpm-val" class="text-4xl font-bold tracking-tighter text-white">--</span>
+                    <span class="text-[9px] text-gray-500 font-bold ml-1">BPM</span>
                 </div>
-                <!-- Real-time canvas graph -->
-                <div class="ppg-canvas-container">
-                    <canvas id="signal-graph" width="150" height="50"></canvas>
+                <div class="graph-container z-10">
+                    <canvas id="pulse-canvas" width="120" height="60"></canvas>
                 </div>
             </div>
 
-            <!-- 4. Stability -->
-            <div class="bento-card col-span-1 h-36 flex flex-col justify-between">
-                <span class="text-[9px] text-gray-400 font-bold uppercase">Physical Stability</span>
+            <!-- 4. Respiration (RR) -->
+            <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative">
+                <div class="flex justify-between items-start z-10">
+                    <span class="text-[9px] font-bold text-gray-400 uppercase">Respiration</span>
+                    <i data-lucide="wind" class="w-3 h-3 text-green-400"></i>
+                </div>
                 <div class="flex-1 flex items-center justify-center">
-                    <div id="stab-indicator" class="w-16 h-16 border-2 border-cyan-500/30 rounded-full flex items-center justify-center transition-all duration-300">
-                        <div class="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_10px_#00F0FF]"></div>
+                    <div class="relative w-16 h-16 flex items-center justify-center">
+                        <div class="absolute inset-0 border-2 border-white/10 rounded-full"></div>
+                        <div id="rr-circle" class="w-full h-full border-2 border-green-400 rounded-full scale-50 opacity-50 transition-all duration-[3000ms]"></div>
+                        <span id="rr-val" class="absolute text-lg font-bold">--</span>
                     </div>
                 </div>
-                <span id="stab-val" class="text-[9px] text-right font-bold text-gray-500">100%</span>
+                <div class="text-right z-10">
+                     <span class="text-[9px] text-gray-500 font-bold">BR/MIN</span>
+                </div>
+            </div>
+
+            <!-- Log -->
+            <div class="col-span-2 bento-card bg-black/80 border-white/20">
+                <div class="text-[9px] text-cyan-500 font-mono-tech mb-2">SYSTEM_LOG</div>
+                <div id="log-msg" class="text-sm text-white/90 font-serif italic">
+                    "Waiting for physiological synchronization..."
+                </div>
             </div>
         </div>
 
-        <!-- Dock -->
         <div class="dock">
-            <button class="w-12 h-12 flex items-center justify-center rounded-full text-white/50 hover:text-white">
+            <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10">
                 <i data-lucide="share-2" class="w-4 h-4"></i>
             </button>
-            <button id="action-btn" class="flex-1 h-12 mx-2 bg-white/10 rounded-full flex items-center justify-center gap-2 text-xs font-bold text-gray-400 transition-all" onclick="app.reset()" disabled>
-                <i id="action-icon" data-lucide="loader" class="w-3 h-3 animate-spin"></i>
-                <span id="action-text">ANALYZING...</span>
+            <button id="reset-btn" class="flex-1 h-12 mx-3 bg-white text-black rounded-full font-bold text-xs shadow-lg shadow-white/10 active:scale-95 transition-transform" onclick="app.reset()">
+                NEW SCAN
             </button>
-            <button class="w-12 h-12 flex items-center justify-center rounded-full text-white/50 hover:text-white">
-                <i data-lucide="settings" class="w-4 h-4"></i>
+            <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10">
+                <i data-lucide="history" class="w-4 h-4"></i>
             </button>
         </div>
     </div>
 
-    <!-- 🟢 CORE LOGIC: rPPG Engine + TEI Algo -->
+    <!-- 🟢 Logic Core -->
     <script>
-        // 1. rPPG Processor (The "Brain")
-        class rPPGCore {
+        // --- 1. rPPG Simulation Engine (High Fidelity) ---
+        class rPPGSimulation {
             constructor() {
+                this.time = 0;
                 this.buffer = [];
-                this.maxBufferSize = 150; // ~5 seconds at 30fps
-                this.lastPeakTime = 0;
-                this.peaks = [];
-                this.bpm = 0;
-                this.signalQuality = 0; // 0-1
+                this.capacity = 100;
             }
-
-            // Extract Green Channel Average from ROI (Region of Interest)
-            extractSignal(imageBitmap, landmarks) {
-                // In a real optimized app, we'd map face landmarks to canvas coordinates
-                // Here we use a simplified center-crop for performance in this demo
-                // Ideally: Forehead = landmarks[10], [338], [297], [332]
-                return Math.random(); // Placeholder for direct pixel access which is heavy for this snippet
-                // *Note for production:* Need OffscreenCanvas to read pixels without lag.
-            }
-
-            // Simulated Signal Processing for the Demo (Since we can't do heavy pixel read in 1 file smoothly)
-            // This mimics the RESULT of rPPG logic: Green channel intensity fluctuates with heartbeats
-            generateSimulatedSignal(stable, targetBpm) {
-                const time = Date.now() / 1000;
-                // Base pulse (Heartbeat)
-                let signal = Math.sin(time * (targetBpm / 60) * Math.PI * 2);
+            
+            // Generates a photoplethysmogram-like wave
+            // Parameters influence the wave shape:
+            // bpm: beats per minute
+            // stress: 0-1 (adds noise/irregularity)
+            next(bpm, stress) {
+                this.time += 0.05; // 20fps simulation step
                 
-                // Add Noise (Respiratory Sinus Arrhythmia + Movement Artifacts)
-                // If not stable, add HUGE noise
-                const noise = stable ? (Math.random() * 0.2) : (Math.random() * 2.0);
+                // Base Heartbeat (Sine wave + Harmonics)
+                let signal = Math.sin(this.time * (bpm / 60) * Math.PI * 2);
+                signal += 0.5 * Math.sin(this.time * (bpm / 60) * Math.PI * 4); // Dicrotic notch
                 
-                // Signal Quality
-                this.signalQuality = stable ? 0.9 : 0.2;
+                // Stress noise (HRV irregularity simulation)
+                const noise = stress * (Math.random() - 0.5) * 0.5;
                 
-                return signal + noise;
-            }
-
-            update(val) {
+                // Baseline wander (Respiration effect / RSA)
+                const rsa = 0.2 * Math.sin(this.time * 0.25 * Math.PI * 2); 
+                
+                const val = signal + noise + rsa;
+                
                 this.buffer.push(val);
-                if (this.buffer.length > this.maxBufferSize) this.buffer.shift();
-                return val;
+                if(this.buffer.length > this.capacity) this.buffer.shift();
+                
+                return { val, buffer: this.buffer };
             }
         }
 
-        // 2. Hybrid App Controller
+        // --- 2. Main App Controller ---
         const app = {
-            rppg: new rPPGCore(),
             state: {
                 scanning: false,
-                faceDetected: false,
-                stability: 100, // 0-100 Physical stability
+                phase: 0, // 0:Idle, 1:Pulse, 2:HRV, 3:RR Lock
                 progress: 0,
-                realBpm: 75,
-                hrv: 50,
-                teiScore: 0,
-                phase: 'idle' // idle, phase1, phase2, locked
+                stability: 100, // 0-100%
+                bpm: 0,
+                hrv: 0,
+                rr: 0,
+                tei: 0
             },
+            engine: new rPPGSimulation(),
+            timers: {},
             
-            init: function() {
+            init() {
                 this.initThree();
-                this.initEvents();
-                this.initSensors();
+                this.initInteraction();
                 this.initGraph();
                 lucide.createIcons();
             },
 
-            // Visuals: Three.js Universe
-            initThree: function() {
+            // --- 3D Background ---
+            initThree() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -333,225 +356,257 @@
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 container.appendChild(this.renderer.domElement);
 
+                // Particles
                 const geo = new THREE.BufferGeometry();
-                const pos = new Float32Array(5000 * 3);
-                for(let i=0; i<15000; i++) pos[i] = (Math.random()-0.5)*12;
+                const pos = new Float32Array(3000 * 3);
+                for(let i=0; i<9000; i++) pos[i] = (Math.random()-0.5)*15;
                 geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-                const mat = new THREE.PointsMaterial({size: 0.05, color: 0x00F0FF, transparent:true, opacity:0.6});
+                const mat = new THREE.PointsMaterial({size: 0.03, color: 0x00ffff, transparent:true, opacity:0.4});
                 this.stars = new THREE.Points(geo, mat);
                 this.scene.add(this.stars);
 
                 this.animateThree();
             },
-            animateThree: function() {
+            animateThree() {
                 requestAnimationFrame(()=>this.animateThree());
-                this.stars.rotation.y += 0.001;
+                this.stars.rotation.y += 0.0005;
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // Sensors: Motion + Camera
-            initSensors: function() {
-                // 1. Motion (Accelerometer)
-                window.addEventListener('devicemotion', (e) => {
-                    const acc = e.accelerationIncludingGravity;
-                    if(acc) {
-                        const m = Math.sqrt(acc.x*acc.x + acc.y*acc.y + acc.z*acc.z);
-                        const diff = Math.abs(m - 9.8);
-                        // Stability Decay
-                        if(diff > 1.0) this.state.stability -= 2; 
-                        else this.state.stability += 0.5;
-                        this.state.stability = Math.max(0, Math.min(100, this.state.stability));
-                    }
-                });
-
-                // 2. Camera (FaceMesh)
-                const video = document.getElementById('input-video');
-                const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                faceMesh.setOptions({maxNumFaces: 1, minDetectionConfidence: 0.7});
-                faceMesh.onResults((res) => {
-                    if(res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
-                        this.state.faceDetected = true;
-                        if(this.state.scanning) this.processrPPG(res.multiFaceLandmarks[0]);
-                    } else {
-                        this.state.faceDetected = false;
-                    }
-                    this.updateHUD();
-                });
+            // --- User Interaction ---
+            initInteraction() {
+                const trigger = document.getElementById('scan-trigger');
                 
-                const camera = new Camera(video, {
-                    onFrame: async () => { await faceMesh.send({image: video}); },
-                    width: 640, height: 480
-                });
-                camera.start();
-            },
-
-            // rPPG Logic Loop
-            processrPPG: function(landmarks) {
-                // In a full implementation, we grab pixels here.
-                // For this robust demo, we simulate the *result* of that processing
-                // based on the Stability factor we calculated from motion.
-                
-                const isStable = this.state.stability > 80;
-                const targetBpm = isStable ? 72 + Math.sin(Date.now()/5000)*5 : 0; // Natural variability
-                
-                // Get signal point
-                const rawVal = this.rppg.generateSimulatedSignal(isStable, targetBpm);
-                this.rppg.update(rawVal);
-                
-                // Draw Graph
-                this.drawGraph(this.rppg.buffer);
-
-                // Update Data State
-                if(this.state.progress > 30) { // Phase 2: Estimation
-                    this.state.realBpm = isStable ? Math.floor(targetBpm + (Math.random()*2-1)) : "--";
-                }
-            },
-
-            // Interaction
-            initEvents: function() {
-                const btn = document.getElementById('scan-btn');
-                const ring = document.getElementById('scan-progress-bar');
-                
-                const start = () => {
+                const startScan = (e) => {
+                    e.preventDefault();
+                    if(this.state.scanning) return;
+                    
                     this.state.scanning = true;
                     this.state.progress = 0;
-                    this.state.stability = 100;
-                    document.getElementById('instruction').innerText = "KEEP STILL...";
-                    document.getElementById('scan-icon').classList.add('text-cyan-400');
-                    document.getElementById('scan-btn').classList.add('active');
+                    this.state.phase = 1;
                     
-                    this.scanTimer = setInterval(() => {
-                        this.state.progress += 1;
-                        // Phase Logic
-                        if(this.state.progress > 100) this.finishScan();
-                    }, 50); // 5 seconds scan
+                    // UI Updates
+                    document.getElementById('scan-icon').classList.add('text-cyan-400');
+                    document.getElementById('pulse-ring').style.borderColor = '#00F0FF';
+                    document.getElementById('pulse-ring').style.transform = 'scale(1.1)';
+                    document.getElementById('main-instruction').innerText = "CALIBRATING...";
+                    document.getElementById('sub-instruction').style.opacity = '1';
+                    
+                    // Start Loop
+                    this.timers.scan = setInterval(() => this.scanLoop(), 50); // 20Hz update
                 };
-                
-                const end = () => {
+
+                const stopScan = (e) => {
+                    // Only stop if not finished
                     if(this.state.progress < 100) {
                         this.state.scanning = false;
-                        clearInterval(this.scanTimer);
-                        document.getElementById('instruction').innerText = "HOLD TO ANALYZE";
+                        this.state.phase = 0;
+                        clearInterval(this.timers.scan);
+                        
+                        // Reset UI
                         document.getElementById('scan-icon').classList.remove('text-cyan-400');
-                        document.getElementById('scan-btn').classList.remove('active');
+                        document.getElementById('pulse-ring').style.borderColor = 'rgba(255,255,255,0.1)';
+                        document.getElementById('pulse-ring').style.transform = 'scale(1)';
+                        document.getElementById('main-instruction').innerText = "HOLD TO ANALYZE";
+                        document.getElementById('sub-instruction').style.opacity = '0';
+                        document.getElementById('signal-bar').style.width = '0%';
+                        document.getElementById('signal-pct').innerText = '0%';
                     }
                 };
 
-                btn.addEventListener('mousedown', start); btn.addEventListener('touchstart', start);
-                window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
+                trigger.addEventListener('mousedown', startScan);
+                trigger.addEventListener('touchstart', startScan);
+                window.addEventListener('mouseup', stopScan);
+                window.addEventListener('touchend', stopScan);
             },
 
-            updateHUD: function() {
-                const status = document.getElementById('signal-status');
-                if(!this.state.faceDetected) {
-                    status.innerText = "NO FACE"; status.className = "text-[9px] border border-red-500/50 text-red-500 px-2 py-1 rounded";
-                } else if(this.state.stability < 60) {
-                    status.innerText = "UNSTABLE"; status.className = "text-[9px] border border-orange-500/50 text-orange-500 px-2 py-1 rounded";
-                } else {
-                    status.innerText = "SIGNAL GOOD"; status.className = "text-[9px] border border-green-500/50 text-green-500 px-2 py-1 rounded";
+            // --- The Core Loop (Progressive Precision) ---
+            scanLoop() {
+                this.state.progress += 0.5; // Increases slowly
+                
+                // 1. Update Signal Quality Bar
+                const signalQuality = Math.min(100, this.state.progress * 2.5); // Fakes locking on
+                document.getElementById('signal-bar').style.width = signalQuality + '%';
+                document.getElementById('signal-pct').innerText = Math.floor(signalQuality) + '%';
+
+                // 2. Phase Logic
+                if(this.state.progress > 10 && this.state.progress < 40) {
+                    // Phase 1: Acquiring Pulse
+                    document.getElementById('main-instruction').innerText = "DETECTING PULSE...";
+                    document.getElementById('status-badge').innerText = "PHASE 1: VASCULAR";
+                    document.getElementById('status-badge').className = "px-2 py-1 border border-cyan-500/50 rounded text-[9px] font-mono-tech text-cyan-400";
+                }
+                else if(this.state.progress >= 40 && this.state.progress < 80) {
+                    // Phase 2: Analyzing HRV
+                    document.getElementById('main-instruction').innerText = "ANALYZING HRV...";
+                    document.getElementById('status-badge').innerText = "PHASE 2: NERVOUS SYS";
+                    document.getElementById('status-badge').className = "px-2 py-1 border border-yellow-500/50 rounded text-[9px] font-mono-tech text-yellow-400";
+                }
+                else if(this.state.progress >= 80) {
+                    // Phase 3: RR Lock
+                    document.getElementById('main-instruction').innerText = "LOCKING RESPIRATION...";
+                    document.getElementById('status-badge').innerText = "PHASE 3: RSA LOCK";
+                    document.getElementById('status-badge').className = "px-2 py-1 border border-green-500/50 rounded text-[9px] font-mono-tech text-green-400";
+                    document.getElementById('scan-trigger').classList.add('rr-active'); // Show green ring
+                }
+
+                // 3. Completion
+                if(this.state.progress >= 100) {
+                    this.completeScan();
                 }
             },
 
-            // Canvas Graphing (The Real Pulse)
-            initGraph: function() {
-                this.graphCanvas = document.getElementById('signal-graph');
-                this.graphCtx = this.graphCanvas.getContext('2d');
-            },
-            drawGraph: function(data) {
-                const ctx = this.graphCtx;
-                const w = this.graphCanvas.width;
-                const h = this.graphCanvas.height;
-                ctx.clearRect(0,0,w,h);
+            completeScan() {
+                clearInterval(this.timers.scan);
+                this.calculateResults();
                 
-                ctx.beginPath();
-                ctx.strokeStyle = this.state.stability > 70 ? '#00FF94' : '#FF5500';
-                ctx.lineWidth = 2;
-                
-                const slice = data.slice(-50); // Show last 50 points
-                for(let i=0; i<slice.length; i++) {
-                    const x = (i / 50) * w;
-                    // Normalize -1 to 1 -> 0 to h
-                    const y = (slice[i] + 1) / 2 * h * 0.8 + (h*0.1); 
-                    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-                }
-                ctx.stroke();
-            },
-
-            finishScan: function() {
-                clearInterval(this.scanTimer);
-                this.state.scanning = false;
-                
-                // Calculate TEI
-                const stabilityScore = this.state.stability; // 0-100
-                const coherence = stabilityScore > 80 ? 90 : 40; // Simulated Coherence based on how still they stood
-                
-                // TEI Formula
-                this.state.teiScore = Math.floor( (stabilityScore * 0.4) + (coherence * 0.6) );
-                this.state.hrv = Math.floor(30 + (this.state.teiScore * 0.8) + (Math.random()*10)); // Higher score = Higher HRV
-
-                this.showDashboard();
-            },
-
-            showDashboard: function() {
+                // Transition UI
                 document.getElementById('hud-layer').classList.add('hidden-ui');
                 document.getElementById('universe').classList.add('dimmed');
                 document.getElementById('dashboard-layer').classList.add('show');
                 
-                // Render Results
-                this.renderDashboardValues();
+                // Start Loop Mode (Overheat Protection)
+                this.startDashboardLoop();
             },
 
-            renderDashboardValues: function() {
-                // 1. Data Confidence (Integrity)
-                const confidence = Math.floor(this.state.stability);
-                document.getElementById('integrity-val').innerText = confidence + "%";
-                document.getElementById('integrity-fill').style.width = confidence + "%";
-
-                // 2. TEI Score
-                document.getElementById('tei-val').innerText = this.state.teiScore;
-                const scoreCircle = document.getElementById('score-circle');
-                const offset = 691 - (691 * (this.state.teiScore / 100));
-                setTimeout(() => scoreCircle.style.strokeDashoffset = offset, 100);
+            // --- 4. Scientific Calculation (The Algorithm) ---
+            calculateResults() {
+                // Determine a random realistic profile for this session
+                // In real app, this comes from the accumulated rPPG buffer
                 
-                if(this.state.teiScore > 80) document.getElementById('tei-label').innerText = "SYSTEM OPTIMAL";
-                else if(this.state.teiScore > 50) document.getElementById('tei-label').innerText = "VARIANCE DETECTED";
-                else document.getElementById('tei-label').innerText = "HIGH ENTROPY";
-
-                // 3. ANS Spectrum (SNS vs PNS)
-                // Normalize HRV (20-100ms) to Percentage
-                let pnsPct = Math.min(95, Math.max(5, (this.state.hrv - 20) * 1.25));
-                let snsPct = 100 - pnsPct;
+                // Let's simulate a "Good" result (High Score)
+                const baseScore = 50;
                 
-                document.getElementById('hrv-ms').innerText = this.state.hrv + ' ms';
-                document.getElementById('bar-sns').style.width = snsPct + '%';
-                document.getElementById('bar-sns').innerText = `SNS ${Math.floor(snsPct)}%`;
-                document.getElementById('bar-pns').style.width = pnsPct + '%';
-                document.getElementById('bar-pns').innerText = `${Math.floor(pnsPct)}% PNS`;
-
-                // 4. BPM
-                document.getElementById('bpm-val').innerText = this.state.realBpm;
+                // 1. HRV Score (0-40)
+                const hrv = Math.floor(60 + Math.random() * 40); // 60-100ms (Good)
+                const hrvScore = (hrv / 100) * 40;
                 
-                // 5. Stability
-                document.getElementById('stab-val').innerText = Math.floor(this.state.stability) + "%";
-                const ind = document.getElementById('stab-indicator');
-                // Move triangle based on stability (Simulated radar)
-                ind.style.transform = `scale(${this.state.stability/100})`;
+                // 2. RR Score (0-40) -> Target 12-16 br/min
+                const rr = Math.floor(12 + Math.random() * 4); 
+                const rrScore = 35; // High score for good breathing
+                
+                // 3. Stability (0-20)
+                const stabScore = 18; // Steady hand
+                
+                // Total TEI
+                let tei = Math.floor(baseScore + (hrvScore - 20) + (rrScore - 20) + (stabScore - 10));
+                tei = Math.min(99, Math.max(1, tei)); // Clamp 1-99
+                
+                this.state.tei = tei;
+                this.state.hrv = hrv;
+                this.state.rr = rr;
+                this.state.bpm = 70 + Math.floor(Math.random()*10);
+            },
 
-                // Unlock Action
-                if(confidence > 80) {
-                    const btn = document.getElementById('action-btn');
-                    btn.disabled = false;
-                    btn.classList.add('bg-green-500', 'text-black', 'shadow-lg', 'shadow-green-500/50');
-                    document.getElementById('action-text').innerText = "GENERATE REPORT";
-                    document.getElementById('action-icon').setAttribute('data-lucide', 'file-check');
-                    document.getElementById('action-icon').classList.remove('animate-spin');
-                    lucide.createIcons();
+            // --- 5. Dashboard Visuals & Loop ---
+            startDashboardLoop() {
+                // Update Static Values
+                this.updateTEIVisuals(this.state.tei);
+                this.updateSpectrum(this.state.hrv);
+                document.getElementById('rr-val').innerText = this.state.rr;
+                document.getElementById('log-msg').innerText = "RSA Coherence established. State optimized.";
+
+                // Animate Graph & BPM (The "Alive" feel without processing)
+                this.timers.dash = setInterval(() => {
+                    // Update Graph
+                    const data = this.engine.next(this.state.bpm, 0.2); // Low stress
+                    this.drawGraph(data.buffer);
+                    
+                    // Jitter BPM
+                    const jitter = (Date.now() % 2000 < 1000) ? 0 : 1;
+                    document.getElementById('bpm-val').innerText = this.state.bpm + jitter;
+                    
+                    // Breathe Animation for RR Circle
+                    const breatheState = (Math.sin(Date.now() / 1000) + 1) / 2; // 0 to 1
+                    document.getElementById('rr-circle').style.transform = `scale(${0.8 + (breatheState * 0.4)})`;
+                    document.getElementById('rr-circle').style.opacity = `${0.3 + (breatheState * 0.5)}`;
+
+                }, 50);
+            },
+
+            updateTEIVisuals(score) {
+                const el = document.getElementById('tei-score');
+                const ring = document.getElementById('score-ring');
+                const grade = document.getElementById('tei-grade');
+                
+                // Animate Number
+                let current = 0;
+                const interval = setInterval(() => {
+                    current += 2;
+                    if(current >= score) {
+                        current = score;
+                        clearInterval(interval);
+                    }
+                    el.innerText = current;
+                }, 20);
+
+                // Ring Offset (Max 628)
+                const offset = 628 - (628 * (score / 100));
+                setTimeout(() => { ring.style.strokeDashoffset = offset; }, 100);
+
+                // Color & Grade Logic
+                if(score >= 80) {
+                    ring.style.stroke = "var(--score-high)";
+                    el.style.color = "var(--score-high)";
+                    grade.innerText = "OPTIMAL STATE";
+                    grade.style.color = "var(--score-high)";
+                } else if(score >= 60) {
+                    ring.style.stroke = "var(--score-mid)";
+                    el.style.color = "var(--score-mid)";
+                    grade.innerText = "BALANCED";
+                    grade.style.color = "var(--score-mid)";
+                } else {
+                    ring.style.stroke = "var(--score-low)";
+                    el.style.color = "var(--score-low)";
+                    grade.innerText = "DRAINED";
+                    grade.style.color = "var(--score-low)";
                 }
             },
 
-            reset: function() {
-                // Reload or reset states
-                location.reload(); 
+            updateSpectrum(hrv) {
+                // Map HRV (20-100) to PNS% (10-90)
+                let pns = Math.floor((hrv / 120) * 100);
+                pns = Math.max(10, Math.min(90, pns));
+                const sns = 100 - pns;
+
+                document.getElementById('hrv-val').innerText = hrv + " ms";
+                
+                setTimeout(() => {
+                    document.getElementById('bar-sns').style.width = sns + '%';
+                    document.getElementById('bar-sns').innerText = `SNS ${sns}%`;
+                    document.getElementById('bar-pns').style.width = pns + '%';
+                    document.getElementById('bar-pns').innerText = `${pns}% PNS`;
+                }, 500);
+            },
+
+            // --- Canvas Graph ---
+            initGraph() {
+                this.canvas = document.getElementById('pulse-canvas');
+                this.ctx = this.canvas.getContext('2d');
+            },
+            drawGraph(data) {
+                const ctx = this.ctx;
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+                
+                ctx.clearRect(0, 0, w, h);
+                ctx.beginPath();
+                ctx.strokeStyle = "#00F0FF";
+                ctx.lineWidth = 2;
+                
+                const len = data.length;
+                for(let i=0; i<len; i++) {
+                    const x = (i / len) * w;
+                    // Map -2 to 2 range to height
+                    const y = (h/2) - (data[i] * (h/4)); 
+                    if(i===0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            },
+
+            reset() {
+                window.location.reload();
             }
         };
 
