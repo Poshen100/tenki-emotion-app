@@ -55,6 +55,7 @@
         /* Privacy Layer */
         #input-video, #light-analysis-canvas { position: fixed; top: -9999px; opacity: 0; pointer-events: none; }
         
+        /* Stardust Soul Background */
         #universe {
             position: absolute; inset: 0; z-index: 1;
             background: radial-gradient(circle at center, #111 0%, #000 100%);
@@ -137,7 +138,7 @@
         }
         .bento-card:active { transform: scale(0.98); }
 
-        /* Double Orbit */
+        /* Double Orbit (Completely Preserved) */
         .orbit-container {
             width: 260px; height: 260px; position: relative;
             display: flex; justify-content: center; align-items: center;
@@ -156,6 +157,7 @@
             letter-spacing: -4px; line-height: 1;
         }
         .ring-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+        .ring-track { fill: none; stroke: rgba(255, 255, 255, 0.08); stroke-linecap: round; }
         .ring-value { fill: none; stroke-linecap: round; transition: stroke-dashoffset 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .glow-outer { filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.5)); }
         .glow-inner { filter: drop-shadow(0 0 6px rgba(112, 0, 255, 0.5)); }
@@ -178,7 +180,7 @@
         .ans-spectrum { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; display: flex; overflow: hidden; margin-top: 12px; }
         .ans-fill { height: 100%; transition: width 0.5s; background: linear-gradient(90deg, var(--state-volatile), var(--state-stable)); }
 
-        /* DOCK (Action Bar) */
+        /* DOCK (Yellow Timer Bar - Completely Preserved) */
         .dock-container {
             position: fixed; 
             bottom: 30px; left: 20px; right: 20px; height: 70px;
@@ -193,7 +195,7 @@
         .dock-btn { width: 54px; height: 54px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; background: rgba(255,255,255,0.05); }
         .dock-main-action {
             flex: 1; height: 54px; margin: 0 8px;
-            /* Yellow Theme */
+            /* Yellow Theme Preserved */
             background: var(--state-control); 
             border-radius: 27px; 
             display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -214,7 +216,7 @@
     <video id="input-video" playsinline></video>
     <canvas id="light-analysis-canvas" width="50" height="50"></canvas>
     
-    <!-- Universe BG -->
+    <!-- Universe BG (Preserved) -->
     <div id="universe"></div>
 
     <!-- UI: SCANNER -->
@@ -267,7 +269,7 @@
             </div>
         </div>
 
-        <!-- ORBIT SCORE -->
+        <!-- ORBIT SCORE (Double Ring - Preserved) -->
         <div class="col-span-2 bento-card items-center py-6 bg-black/40 mb-4">
             <div id="tei-orbit-container" class="orbit-container">
                 <svg style="width:0;height:0;position:absolute;" aria-hidden="true">
@@ -305,7 +307,7 @@
             </div>
         </div>
 
-        <!-- METRICS GRID -->
+        <!-- METRICS GRID (Snapshot Area) -->
         <div class="grid grid-cols-2 gap-3">
             
             <!-- 1. HRV Load -->
@@ -325,7 +327,7 @@
                 </div>
             </div>
 
-            <!-- 2. Heart Rate (Scanner + No NaN) -->
+            <!-- 2. Heart Rate (Scanner + No NaN + Live Wave) -->
             <div class="bento-card justify-between h-40 relative">
                 <div class="scanner-overlay"></div>
                 <div class="flex justify-between items-start relative z-10">
@@ -355,7 +357,7 @@
                 </div>
             </div>
 
-            <!-- System Log -->
+            <!-- System Log (Preserved) -->
             <div class="col-span-2 bento-card bg-black border-white/10 h-32">
                 <div class="text-[10px] text-cyan-300 font-mono-tech mb-2">SYSTEM_LOG</div>
                 <div class="text-sm text-gray-400 font-serif-human italic leading-tight" id="log-msg">
@@ -365,8 +367,9 @@
         </div>
     </div>
 
-    <!-- ACTION DOCK -->
+    <!-- ACTION DOCK (Yellow Timer - Preserved) -->
     <div class="dock-container">
+        <!-- Share button implies Snapshot Export -->
         <div class="dock-btn hover:bg-white/10">
             <i data-lucide="share-2" class="w-5 h-5"></i>
         </div>
@@ -463,6 +466,9 @@
                 
                 // Default Result for Safety
                 this.state.lastResult = TenkiEngine.calculate([], {motion:0, lux:50}, 0);
+                
+                // Start Animation Loop for BPM Waves
+                this.animateGraphs();
             },
 
             initSensors: function() {
@@ -640,6 +646,7 @@
 
             updateDashboard: function() {
                 const res = TenkiEngine.calculate(this.state.scanBuffer, {motion:0, lux:50}, this.state.mentalBuffer);
+                this.state.lastResult = res; // Update Cache
                 const buf = this.state.mentalBuffer;
 
                 // 1. Trust/Precision
@@ -665,13 +672,7 @@
 
                 // 5. BPM (Zero-Fail)
                 document.getElementById('bpm-val').innerText = res.bpm;
-                // Animate Graph
-                const bars = document.querySelectorAll('.bio-bar');
-                bars.forEach(b => {
-                    const h = 20 + Math.random()*50; 
-                    b.style.height = h + '%';
-                });
-
+                
                 // 6. Radar
                 const p1y = 10 + ((100-res.attention)*0.4);
                 const p2x = 90 - ((100-(res.stability*100))*0.2);
@@ -679,11 +680,32 @@
                 document.getElementById('radar-poly').setAttribute('points', `50,${p1y} ${p2x},80 ${p3x},80`);
             },
 
+            animateGraphs: function() {
+                // Live Wave Animation for BPM Bars
+                const bars = document.querySelectorAll('.bio-bar');
+                let offset = 0;
+                
+                const loop = () => {
+                    offset += 0.2;
+                    bars.forEach((b, i) => {
+                        // Sine wave pattern
+                        const wave = Math.sin((i * 0.5) + offset);
+                        // Add randomness for "Bio" feel
+                        const noise = Math.random() * 0.3;
+                        const h = 20 + ((wave + 1) * 30) + (noise * 20);
+                        b.style.height = h + '%';
+                        b.style.opacity = 0.4 + ((wave + 1) * 0.3);
+                    });
+                    requestAnimationFrame(loop);
+                };
+                loop();
+            },
+
             reset: function() {
                 window.location.reload();
             },
 
-            // Three.js Background
+            // Three.js Background (Stardust Soul)
             initThree: function() {
                 const container = document.getElementById('universe');
                 const scene = new THREE.Scene();
