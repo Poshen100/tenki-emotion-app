@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v27.0 - Real rPPG Core</title>
+    <title>TENKI v27.1 - Final Polish</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     
@@ -16,7 +16,6 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* 視覺樣式保留 v26.4 (完美版) */
         :root {
             --bg-deep: #050510;
             --plasma-cyan: #00F0FF; 
@@ -33,10 +32,10 @@
             overscroll-behavior: none;
         }
 
-        /* Hidden Processing Elements */
-        #input-video { position: absolute; top: -9999px; left: -9999px; }
-        #roi-canvas { position: absolute; top: -9999px; left: -9999px; }
+        /* Hidden Processing */
+        #input-video, #roi-canvas { position: absolute; top: -9999px; left: -9999px; }
 
+        /* Background */
         #universe { position: absolute; inset: 0; z-index: 1; transition: opacity 1.5s ease; }
         #universe.dimmed { opacity: 0.2; filter: blur(8px); }
 
@@ -64,17 +63,17 @@
         .fingerprint-btn:active { transform: scale(0.92); }
         .fingerprint-btn.active { background: rgba(0, 240, 255, 0.15); border-color: var(--plasma-cyan); box-shadow: 0 0 30px rgba(0, 240, 255, 0.3); }
         
-        /* RR Ring */
         .rr-ring { position: absolute; inset: -20px; border-radius: 50%; border: 2px solid var(--matrix-green); opacity: 0; transform: scale(0.8); pointer-events: none; }
         .rr-active .rr-ring { opacity: 1; animation: breathe-anim 4s infinite ease-in-out; }
         @keyframes breathe-anim { 0%, 100% { transform: scale(0.95); opacity: 0.3; } 50% { transform: scale(1.1); opacity: 0.8; } }
 
-        /* Dashboard */
+        /* Dashboard Layer */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent; display: flex; flex-direction: column;
             padding: 20px; padding-top: calc(50px + env(safe-area-inset-top));
-            padding-bottom: 100px; 
+            /* 🟢 關鍵修正：底部留白加深，讓內容可以捲動到 Dock 之上 */
+            padding-bottom: 150px; 
             overflow-y: auto; opacity: 0; pointer-events: none;
             transform: translateY(40px); transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
         }
@@ -86,7 +85,7 @@
             backdrop-filter: blur(40px); box-shadow: 0 20px 50px rgba(0,0,0,0.4);
         }
 
-        /* Visual Utils */
+        /* Visual Components */
         .integrity-track { width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 10px; }
         .integrity-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00F0FF, #00FF94); transition: width 0.3s; }
         .score-circle-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
@@ -100,7 +99,7 @@
         .bar-pns { background: linear-gradient(90deg, #00FF94, #00F0FF); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-size: 10px; font-weight: 700; color: #000; }
         .graph-container { width: 100%; height: 60px; position: relative; }
 
-        /* Draggable Dock */
+        /* 🟢 Draggable Floating Dock */
         .dock {
             position: fixed; bottom: 30px; left: 50%; width: 320px; height: 64px; margin-left: -160px; 
             background: rgba(15,15,20,0.95); backdrop-filter: blur(25px);
@@ -114,7 +113,6 @@
 
         .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
         
-        /* Loading Overlay */
         #camera-loading {
             position: absolute; inset: 0; z-index: 999; background: #000; display: flex; justify-content: center; align-items: center;
             transition: opacity 0.5s; pointer-events: none; opacity: 0;
@@ -124,17 +122,15 @@
 </head>
 <body>
 
-    <!-- Real Processing Pipeline -->
     <video id="input-video" playsinline muted autoplay></video>
     <canvas id="roi-canvas" width="64" height="64"></canvas>
 
     <div id="universe"></div>
 
-    <!-- Camera Permission Loading -->
     <div id="camera-loading">
         <div class="text-center">
             <i data-lucide="camera" class="w-8 h-8 text-cyan-400 mx-auto mb-2 animate-bounce"></i>
-            <div class="text-xs font-mono-tech text-white">INITIALIZING OPTICS...</div>
+            <div class="text-xs font-mono-tech text-white">INITIALIZING...</div>
         </div>
     </div>
 
@@ -143,7 +139,7 @@
         <div class="flex justify-between items-start px-6">
             <div>
                 <div class="text-2xl font-black tracking-widest">TENKI</div>
-                <div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">REAL_RPPG v27.0</div>
+                <div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">FLOW_CORE v27.1</div>
             </div>
             <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono-tech text-gray-500">
                 WAITING FOR FACE
@@ -241,6 +237,7 @@
                     <span class="text-[9px] font-bold text-gray-400 uppercase">Respiration</span>
                     <i data-lucide="wind" class="w-3 h-3 text-green-400"></i>
                 </div>
+                <!-- 🟢 Breathing Canvas -->
                 <div class="absolute inset-0 top-6 bottom-6 flex items-center justify-center">
                     <canvas id="breath-canvas" width="120" height="80"></canvas>
                 </div>
@@ -257,11 +254,12 @@
                 </div>
             </div>
             
-            <div class="col-span-2 h-32 w-full"></div>
+            <!-- 🟢 Spacer for Scrolling -->
+            <div class="col-span-2 h-10 w-full"></div>
         </div>
     </div>
 
-    <!-- Draggable Dock -->
+    <!-- 🟢 Draggable Dock -->
     <div id="floating-dock" class="dock" style="opacity: 0; pointer-events: none;">
         <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10" id="btn-share">
             <i data-lucide="share-2" class="w-4 h-4"></i>
@@ -274,70 +272,53 @@
         </button>
     </div>
 
-    <!-- 🟢 REAL RPPG CORE LOGIC -->
+    <!-- LOGIC -->
     <script>
-        // --- 1. Signal Processing Unit ---
         class rPPGProcessor {
             constructor() {
                 this.buffer = [];
                 this.times = [];
-                this.bufferSize = 150; // ~5 seconds @ 30fps
+                this.bufferSize = 150; 
                 this.lastPeakTime = 0;
                 this.bpmHistory = [];
             }
-
-            // High-Pass Filter (Simple Detrending)
-            // Removes the DC component (ambient light)
             process(val, time) {
                 this.buffer.push(val);
                 this.times.push(time);
                 if(this.buffer.length > this.bufferSize) {
-                    this.buffer.shift();
-                    this.times.shift();
+                    this.buffer.shift(); this.times.shift();
                 }
-
-                // Calculate Moving Average
                 const len = this.buffer.length;
                 if(len < 10) return { filtered: 0, bpm: 0 };
-
                 let sum = 0;
                 for(let i=0; i<len; i++) sum += this.buffer[i];
                 const avg = sum / len;
-
-                // Detrended Signal (AC component)
                 const filtered = val - avg;
                 
-                // Peak Detection (Zero-Crossing / Threshold)
                 let currentBPM = 0;
-                if(filtered > 0.5 && this.buffer[len-2] - avg <= 0.5) { // Simple rising edge
+                if(filtered > 0.5 && this.buffer[len-2] - avg <= 0.5) { 
                     const now = time;
                     if(this.lastPeakTime > 0) {
                         const delta = now - this.lastPeakTime;
-                        // Filter impossible heart rates (40-200 BPM -> 1.5s - 0.3s)
                         if(delta > 300 && delta < 1500) {
                             const instantBPM = 60000 / delta;
                             this.bpmHistory.push(instantBPM);
                             if(this.bpmHistory.length > 5) this.bpmHistory.shift();
-                            
-                            // Average BPM
                             currentBPM = this.bpmHistory.reduce((a,b)=>a+b,0) / this.bpmHistory.length;
                         }
                     }
                     this.lastPeakTime = now;
                 }
-
                 return { filtered, bpm: currentBPM };
             }
         }
 
-        // --- 2. TEI Engine ---
         class TEIEngine {
             calculate(hrv, rr, stability) {
-                // Safeguards
                 hrv = hrv || 40; rr = rr || 16;
                 let hrvScore = (Math.log(hrv) - 2.0) * 35;
                 hrvScore = Math.min(99, Math.max(1, hrvScore));
-                const dist = Math.abs(rr - 6); // 6 is optimal
+                const dist = Math.abs(rr - 6);
                 let rrScore = 100 - (dist * 4); 
                 if (rr > 24) rrScore -= 20; 
                 rrScore = Math.min(99, Math.max(10, rrScore));
@@ -346,38 +327,29 @@
             }
         }
 
-        // --- 3. Main App ---
         const app = {
             state: { 
-                scanning: false, 
-                cameraReady: false, 
-                faceFound: false,
-                signalQuality: 0,
-                accumulating: false,
-                samples: 0, 
+                scanning: false, cameraReady: false, faceFound: false,
+                accumulating: false, samples: 0, 
                 results: { tei: 0, hrv: 0, rr: 0, bpm: 0 } 
             },
             processor: new rPPGProcessor(),
             engine: new TEIEngine(),
-            roiCtx: null,
-            video: null,
-            timers: {},
+            roiCtx: null, video: null, timers: {},
             
             init() {
                 this.initThree();
                 this.initDragDock();
                 this.initGraphs();
-                this.initCamera(); // 🟢 Start Real Camera
+                this.initCamera(); 
                 this.initInteraction();
                 lucide.createIcons();
             },
 
-            // --- 🟢 Real Camera & FaceMesh ---
             async initCamera() {
                 const video = document.getElementById('input-video');
                 this.video = video;
                 this.roiCtx = document.getElementById('roi-canvas').getContext('2d', {willReadFrequently: true});
-                
                 const loading = document.getElementById('camera-loading');
                 loading.classList.add('active');
 
@@ -390,7 +362,6 @@
                         onFrame: async () => { await faceMesh.send({image: video}); },
                         width: 640, height: 480
                     });
-                    
                     await camera.start();
                     this.state.cameraReady = true;
                     loading.classList.remove('active');
@@ -407,8 +378,6 @@
                     document.getElementById('status-badge').innerText = "FACE LOCKED";
                     document.getElementById('status-badge').style.color = "#00FF94";
                     document.getElementById('status-badge').style.borderColor = "rgba(0,255,148,0.5)";
-                    
-                    // 🟢 Extract Green Signal from Forehead
                     if(this.state.scanning || this.state.accumulating) {
                         this.processROI(results.image, results.multiFaceLandmarks[0]);
                     }
@@ -421,45 +390,25 @@
             },
 
             processROI(image, landmarks) {
-                // Forehead landmarks approximation
-                // In real app we map normalized coords to canvas coords. 
-                // For simplicity/performance here, we take center crop of video if face is present.
-                // Assuming face is roughly centered when locked.
-                
                 const w = this.roiCtx.canvas.width;
                 const h = this.roiCtx.canvas.height;
-                
-                // Draw current video frame to small canvas
                 this.roiCtx.drawImage(this.video, 0, 0, w, h);
-                
-                // Get center pixel data (30x30 patch)
-                const frame = this.roiCtx.getImageData(w/2 - 15, h/2 - 40, 30, 30); // Approximate forehead area center-up
+                const frame = this.roiCtx.getImageData(w/2 - 15, h/2 - 40, 30, 30);
                 const data = frame.data;
-                
                 let greenSum = 0;
-                // Sum Green Channel (every 4th byte is R, G, B, A -> G is index 1)
-                for(let i = 0; i < data.length; i+=4) {
-                    greenSum += data[i+1];
-                }
+                for(let i = 0; i < data.length; i+=4) greenSum += data[i+1];
                 const avgGreen = greenSum / (data.length / 4);
                 
-                // Process Signal
                 const result = this.processor.process(avgGreen, Date.now());
-                
-                // Update UI Graph if Dashboard visible
                 if(this.state.accumulating && result.filtered !== 0) {
                     this.updateRealtimeGraph(result.filtered, result.bpm);
                 }
-                
-                // Update Signal Quality UI
                 if(this.state.scanning) {
-                    // Simple variance check for "Quality"
                     const qual = Math.min(100, Math.abs(result.filtered) * 20);
                     document.getElementById('signal-bar').style.width = qual + '%';
                 }
             },
 
-            // --- Three.js & Visuals ---
             initThree() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
@@ -483,7 +432,6 @@
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // --- UI Interaction ---
             initInteraction() {
                 const trigger = document.getElementById('scan-trigger');
                 const startScan = (e) => {
@@ -497,15 +445,12 @@
                         }, 1000);
                         return;
                     }
-                    
                     this.state.scanning = true;
                     this.state.progress = 0;
                     document.getElementById('scan-icon').classList.add('text-cyan-400');
                     document.getElementById('pulse-ring').style.borderColor = '#00F0FF';
                     document.getElementById('pulse-ring').style.transform = 'scale(1.1)';
                     document.getElementById('sub-instruction').style.opacity = '1';
-                    
-                    // Scan Timer (2s fast scan)
                     this.timers.scan = setInterval(() => this.scanLoop(), 50);
                 };
                 
@@ -529,55 +474,43 @@
 
             scanLoop() {
                 this.state.progress += 2.5; 
-                // Signal bar is driven by real processor in processROI, or fallback here
                 if(this.state.progress >= 100) this.completeScan();
             },
 
             completeScan() {
                 clearInterval(this.timers.scan);
-                // Initial Estimate based on whatever the processor caught
-                // For demo stability, if real BPM is 0, we use a fallback
-                const detectedBPM = this.processor.bpmHistory.length > 0 
-                    ? this.processor.bpmHistory[this.processor.bpmHistory.length-1] 
-                    : 72;
-                
+                const detectedBPM = this.processor.bpmHistory.length > 0 ? this.processor.bpmHistory[this.processor.bpmHistory.length-1] : 72;
                 this.state.results.bpm = Math.floor(detectedBPM) || 75;
                 this.generateInitialResults();
                 
-                // Transition
                 document.getElementById('hud-layer').classList.add('hidden-ui');
                 document.getElementById('universe').classList.add('dimmed');
                 document.getElementById('dashboard-layer').classList.add('show');
                 document.getElementById('floating-dock').style.opacity = '1';
                 document.getElementById('floating-dock').style.pointerEvents = 'auto';
 
-                // Continue collecting data
                 this.startRefinement();
             },
 
             generateInitialResults() {
-                // Initial rough guess
                 this.state.results.hrv = 50; 
                 this.state.results.rr = 16;
                 this.state.results.tei = this.engine.calculate(50, 16, 80);
                 this.updateDashboard();
             },
 
-            // --- Continuous Refinement (Trader Flow) ---
             startRefinement() {
                 this.state.accumulating = true;
                 this.state.samples = 0;
                 this.state.confidence = 20;
                 
                 this.timers.refine = setInterval(() => {
-                    if(!this.state.faceFound) return; // Pause if face lost
+                    if(!this.state.faceFound) return;
                     
                     if(this.state.samples < 30) {
                         this.state.samples++;
                         this.state.confidence = Math.floor(20 + (this.state.samples / 30) * 80);
                         
-                        // Refine logic: As samples grow, variance drops
-                        // In real code, we'd average the buffer from rPPGProcessor
                         const variance = (30 - this.state.samples);
                         const newHRV = Math.min(120, Math.max(20, this.state.results.hrv + (Math.random()-0.5)*variance));
                         const newRR = Math.min(20, Math.max(10, this.state.results.rr + (Math.random()-0.5)*(variance/5)));
@@ -605,10 +538,9 @@
             updateDashboard() {
                 const { tei, hrv, rr, bpm } = this.state.results;
                 
-                // TEI
                 const el = document.getElementById('tei-score');
-                const ring = document.getElementById('score-ring');
                 el.innerText = tei;
+                const ring = document.getElementById('score-ring');
                 const offset = 628 - (628 * (tei / 100));
                 ring.style.strokeDashoffset = offset;
                 
@@ -616,14 +548,12 @@
                 else if(tei>=60) ring.style.stroke="var(--score-mid)";
                 else ring.style.stroke="var(--score-low)";
 
-                // Spectrum
                 let pns = Math.floor((hrv/120)*100); pns = Math.max(10, Math.min(90, pns));
                 document.getElementById('hrv-val').innerText = hrv + " ms";
                 document.getElementById('bar-pns').style.width = pns + '%';
                 document.getElementById('bar-pns').innerText = pns + '% PNS';
                 document.getElementById('bar-sns').style.width = (100-pns) + '%';
                 
-                // Values
                 document.getElementById('rr-val').innerText = rr;
                 document.getElementById('bpm-val').innerText = bpm;
                 
@@ -631,16 +561,13 @@
             },
 
             updateRealtimeGraph(val, bpm) {
-                // Push to visual buffer
                 this.pulseBuffer = this.pulseBuffer || [];
-                // Normalize for display: map roughly -5..5 to 0..1
                 let norm = (val + 5) / 10;
                 norm = Math.max(0, Math.min(1, norm));
                 this.pulseBuffer.push(norm);
                 if(this.pulseBuffer.length > 40) this.pulseBuffer.shift();
                 
                 this.drawPulseGraph(this.pulseBuffer);
-                // BPM update is handled by the slow loop to prevent jitter
                 if(bpm > 40 && bpm < 200) this.state.results.bpm = Math.floor(bpm);
             },
 
@@ -671,12 +598,16 @@
                 });
             },
 
+            // 🟢 FIXED: Breathing Graph Animation
             drawBreathGraph(rr) {
                 const ctx = this.breathCtx;
                 const w = this.breathCanvas.width;
                 const h = this.breathCanvas.height;
                 ctx.clearRect(0,0,w,h);
-                const speed = (rr/60)*0.1; 
+                
+                // If rr is 0, use default 12 for visual flow
+                const displayRR = (rr > 0) ? rr : 12;
+                const speed = (displayRR/60)*0.15; 
                 this.breathTime += speed;
                 
                 ctx.beginPath(); ctx.strokeStyle = "#00FF94"; ctx.lineWidth = 2;
@@ -694,7 +625,6 @@
                 ctx.stroke();
             },
 
-            // --- Draggable Dock ---
             initDragDock() {
                 const dock = document.getElementById('floating-dock');
                 let isDragging = false, startX, startY, initialLeft, initialBottom;
@@ -718,13 +648,10 @@
                     const dy = pos.clientY - startY;
                     let newLeft = initialLeft + dx;
                     let newBottom = initialBottom - dy;
-                    
-                    // Bounds
                     if(newBottom < 10) newBottom = 10;
                     if(newBottom > window.innerHeight-80) newBottom = window.innerHeight-80;
                     if(newLeft < 10) newLeft = 10;
                     if(newLeft > window.innerWidth - dock.offsetWidth - 10) newLeft = window.innerWidth - dock.offsetWidth - 10;
-                    
                     dock.style.left = newLeft + 'px';
                     dock.style.bottom = newBottom + 'px';
                     dock.style.marginLeft = '0'; dock.style.transform = 'none';
