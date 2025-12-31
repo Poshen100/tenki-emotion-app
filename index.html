@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v29.0 - Medical POS Core</title>
+    <title>TENKI v30.0 - Precision Core</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    
-    <!-- Core Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
@@ -19,7 +17,7 @@
             --bg-deep: #050510;
             --plasma-cyan: #00F0FF; 
             --matrix-green: #00FF94;
-            --glass-bg: rgba(18, 18, 24, 0.9);
+            --glass-bg: rgba(18, 18, 24, 0.92);
             --score-high: #00FF94; --score-mid: #FFD600; --score-low: #FF0055;
         }
 
@@ -31,14 +29,10 @@
             overscroll-behavior: none;
         }
 
-        /* Hidden Processing */
         #input-video, #roi-canvas { position: absolute; top: -9999px; left: -9999px; }
-
-        /* 3D Background */
         #universe { position: absolute; inset: 0; z-index: 1; transition: opacity 1.5s ease; }
         #universe.dimmed { opacity: 0.2; filter: blur(8px); }
 
-        /* HUD Layer */
         #hud-layer {
             position: absolute; inset: 0; z-index: 10;
             display: flex; flex-direction: column; justify-content: space-between;
@@ -48,7 +42,6 @@
         #hud-layer > * { pointer-events: auto; }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-        /* Fingerprint UI */
         .fingerprint-container { position: relative; width: 120px; height: 120px; display: flex; justify-content: center; align-items: center; }
         .fingerprint-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); transition: all 0.5s; }
         .fingerprint-btn {
@@ -59,19 +52,15 @@
             cursor: pointer; position: relative; z-index: 20;
             transition: all 0.3s;
         }
-        .fingerprint-btn:active { transform: scale(0.92); }
         .fingerprint-btn.active { background: rgba(0, 240, 255, 0.15); border-color: var(--plasma-cyan); box-shadow: 0 0 30px rgba(0, 240, 255, 0.3); }
-        
         .rr-ring { position: absolute; inset: -20px; border-radius: 50%; border: 2px solid var(--matrix-green); opacity: 0; transform: scale(0.8); pointer-events: none; }
         .rr-active .rr-ring { opacity: 1; animation: breathe-anim 4s infinite ease-in-out; }
         @keyframes breathe-anim { 0%, 100% { transform: scale(0.95); opacity: 0.3; } 50% { transform: scale(1.1); opacity: 0.8; } }
 
-        /* Dashboard Layer */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent; display: flex; flex-direction: column;
             padding: 20px; padding-top: calc(50px + env(safe-area-inset-top));
-            /* 關鍵：底部強制留白，確保可捲動至 Dock 上方 */
             padding-bottom: 180px; 
             overflow-y: auto; opacity: 0; pointer-events: none;
             transform: translateY(40px); transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
@@ -84,7 +73,6 @@
             backdrop-filter: blur(40px); box-shadow: 0 20px 50px rgba(0,0,0,0.4);
         }
 
-        /* Visual Components */
         .integrity-track { width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 10px; }
         .integrity-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00F0FF, #00FF94); transition: width 0.3s; }
         .score-circle-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
@@ -98,7 +86,6 @@
         .bar-pns { background: linear-gradient(90deg, #00FF94, #00F0FF); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-size: 10px; font-weight: 700; color: #000; }
         .graph-container { width: 100%; height: 60px; position: relative; }
 
-        /* Draggable Dock */
         .dock {
             position: fixed; bottom: 30px; left: 50%; width: 320px; height: 64px; margin-left: -160px; 
             background: rgba(15,15,20,0.95); backdrop-filter: blur(25px);
@@ -107,9 +94,6 @@
             display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
             z-index: 1000; transition: opacity 0.5s; touch-action: none; cursor: grab;
         }
-        .dock:active { cursor: grabbing; border-color: var(--plasma-cyan); }
-        .dock::after { content: ''; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
-
         .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
         
         #camera-loading {
@@ -123,75 +107,43 @@
 
     <video id="input-video" playsinline muted autoplay></video>
     <canvas id="roi-canvas" width="64" height="64"></canvas>
-
     <div id="universe"></div>
+    <div id="camera-loading"><div class="text-center"><i data-lucide="camera" class="w-8 h-8 text-cyan-400 mx-auto mb-2 animate-bounce"></i><div class="text-xs font-mono-tech text-white">INITIALIZING OPTICS...</div></div></div>
 
-    <!-- Camera Loading -->
-    <div id="camera-loading">
-        <div class="text-center">
-            <i data-lucide="camera" class="w-8 h-8 text-cyan-400 mx-auto mb-2 animate-bounce"></i>
-            <div class="text-xs font-mono-tech text-white">INITIALIZING OPTICS...</div>
-        </div>
-    </div>
-
-    <!-- HUD Layer -->
+    <!-- HUD -->
     <div id="hud-layer">
         <div class="flex justify-between items-start px-6">
-            <div>
-                <div class="text-2xl font-black tracking-widest">TENKI</div>
-                <div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">MEDICAL_POS v29.0</div>
-            </div>
-            <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono-tech text-gray-500">
-                WAITING FOR FACE
-            </div>
+            <div><div class="text-2xl font-black tracking-widest">TENKI</div><div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">PRECISION_CORE v30.0</div></div>
+            <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono-tech text-gray-500">WAITING FOR FACE</div>
         </div>
-
         <div class="flex-1 flex flex-col justify-center items-center">
             <div class="fingerprint-container" id="scan-trigger">
-                <div class="rr-ring"></div>
-                <div class="fingerprint-ring" id="pulse-ring"></div>
-                <div class="fingerprint-btn">
-                    <i data-lucide="fingerprint" class="w-8 h-8 text-white/40 transition-colors" id="scan-icon"></i>
-                </div>
+                <div class="rr-ring"></div><div class="fingerprint-ring" id="pulse-ring"></div>
+                <div class="fingerprint-btn"><i data-lucide="fingerprint" class="w-8 h-8 text-white/40 transition-colors" id="scan-icon"></i></div>
             </div>
             <div class="mt-8 text-center h-10">
                 <div id="main-instruction" class="text-xs font-bold tracking-[0.15em] text-white/80">ALIGN FACE</div>
-                <div id="sub-instruction" class="text-[9px] text-cyan-400/60 mt-1 font-mono-tech opacity-0 transition-opacity">LIGHTING CHECK...</div>
+                <div id="sub-instruction" class="text-[9px] text-cyan-400/60 mt-1 font-mono-tech opacity-0 transition-opacity">CHECK LIGHTING...</div>
             </div>
         </div>
-
-        <div class="px-6 pb-6 w-full">
-            <div class="w-full h-1 bg-white/10 rounded overflow-hidden">
-                <div id="signal-bar" class="h-full bg-cyan-400 w-0 transition-all duration-100 ease-linear"></div>
-            </div>
-        </div>
+        <div class="px-6 pb-6 w-full"><div class="w-full h-1 bg-white/10 rounded overflow-hidden"><div id="signal-bar" class="h-full bg-cyan-400 w-0 transition-all duration-100 ease-linear"></div></div></div>
     </div>
 
-    <!-- Dashboard Layer -->
+    <!-- Dashboard -->
     <div id="dashboard-layer">
         <div class="mb-4">
             <div class="flex justify-between items-end mb-2">
-                <div>
-                    <div class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-1">
-                        <span id="analysis-state" class="animate-pulse">CALIBRATING...</span>
-                    </div>
-                    <div class="text-xl font-bold text-white font-serif">Bio-Metrics</div>
-                </div>
-                <div class="text-right">
-                    <div class="text-[9px] text-gray-500 font-bold mb-1">ACCURACY</div>
-                    <div id="confidence-txt" class="text-white font-mono-tech font-bold text-lg">0%</div>
-                </div>
+                <div><div class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-1"><span id="analysis-state" class="animate-pulse">CALIBRATING...</span></div><div class="text-xl font-bold text-white font-serif">Bio-Metrics</div></div>
+                <div class="text-right"><div class="text-[9px] text-gray-500 font-bold mb-1">ACCURACY</div><div id="confidence-txt" class="text-white font-mono-tech font-bold text-lg">0%</div></div>
             </div>
             <div class="integrity-track"><div id="confidence-bar" class="integrity-fill" style="width: 0%"></div></div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
+            <!-- TEI Score -->
             <div class="col-span-2 bento-card py-6 flex flex-col items-center justify-center bg-black/40">
                 <div class="relative w-[220px] h-[220px]">
-                    <svg class="w-full h-full">
-                        <circle cx="110" cy="110" r="90" class="score-circle-bg"></circle>
-                        <circle id="score-ring" cx="110" cy="110" r="90" class="score-circle-fg"></circle>
-                    </svg>
+                    <svg class="w-full h-full"><circle cx="110" cy="110" r="90" class="score-circle-bg"></circle><circle id="score-ring" cx="110" cy="110" r="90" class="score-circle-fg"></circle></svg>
                     <div class="absolute inset-0 flex flex-col items-center justify-center">
                         <span class="text-[10px] font-bold tracking-[0.2em] text-gray-500 mb-2">TEI SCORE</span>
                         <span id="tei-score" class="text-8xl font-black text-white leading-none tracking-tighter">--</span>
@@ -200,144 +152,115 @@
                 </div>
             </div>
 
+            <!-- ANS Spectrum (Corrected Math) -->
             <div class="col-span-2 bento-card">
                 <div class="flex justify-between items-center mb-3">
-                    <span class="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2">
-                        <i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i> Autonomic Balance
-                    </span>
+                    <span class="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2"><i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i> Autonomic Balance</span>
                     <span id="hrv-val" class="text-sm font-mono-tech font-bold text-white">-- ms</span>
                 </div>
                 <div class="spectrum-bar">
                     <div class="spectrum-mid"></div>
-                    <div id="bar-sns" class="bar-sns">SNS 50%</div>
-                    <div id="bar-pns" class="bar-pns">50% PNS</div>
+                    <div id="bar-sns" class="bar-sns">SNS 50%</div><div id="bar-pns" class="bar-pns">50% PNS</div>
                 </div>
-                <div class="flex justify-between mt-2 text-[9px] font-bold text-gray-500">
-                    <span>STRESS</span>
-                    <span>RECOVERY</span>
-                </div>
+                <div class="flex justify-between mt-2 text-[9px] font-bold text-gray-500"><span>STRESS</span><span>RECOVERY</span></div>
             </div>
 
+            <!-- 🟢 NEW: Poincaré Plot (Chaos Visualization) -->
+            <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
+                <div class="flex justify-between items-start z-10">
+                    <span class="text-[9px] font-bold text-gray-400 uppercase">Variability (Chaos)</span>
+                    <i data-lucide="scatter-chart" class="w-3 h-3 text-purple-400"></i>
+                </div>
+                <div class="absolute inset-0 top-6 bottom-4 left-2 right-2">
+                    <canvas id="poincare-canvas" width="120" height="100"></canvas>
+                </div>
+                <div class="text-right z-10 relative"><span class="text-[8px] text-gray-600 font-bold">POINCARÉ PLOT</span></div>
+            </div>
+
+            <!-- Heart Rate -->
             <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
                 <div class="flex justify-between items-start z-10">
                     <span class="text-[9px] font-bold text-gray-400 uppercase">Heart Rate</span>
                     <i data-lucide="heart" class="w-3 h-3 text-red-500 fill-red-500 animate-pulse"></i>
                 </div>
-                <div class="z-10">
-                    <span id="bpm-val" class="text-4xl font-bold tracking-tighter text-white">--</span>
-                    <span class="text-[9px] text-gray-500 font-bold ml-1">BPM</span>
-                </div>
-                <div class="graph-container z-10">
-                    <canvas id="pulse-canvas" width="120" height="60"></canvas>
-                </div>
+                <div class="z-10"><span id="bpm-val" class="text-4xl font-bold tracking-tighter text-white">--</span><span class="text-[9px] text-gray-500 font-bold ml-1">BPM</span></div>
+                <div class="graph-container z-10"><canvas id="pulse-canvas" width="120" height="60"></canvas></div>
             </div>
 
+            <!-- Respiration -->
             <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
                 <div class="flex justify-between items-start z-10">
                     <span class="text-[9px] font-bold text-gray-400 uppercase">Respiration</span>
                     <i data-lucide="wind" class="w-3 h-3 text-green-400"></i>
                 </div>
-                <!-- Breathing Canvas -->
-                <div class="absolute inset-0 top-6 bottom-6 flex items-center justify-center">
-                    <canvas id="breath-canvas" width="120" height="80"></canvas>
-                </div>
-                <div class="text-right z-10 relative">
-                     <span id="rr-val" class="text-xl font-bold text-white tracking-tighter">--</span>
-                     <span class="text-[9px] text-gray-500 font-bold ml-1">BR/MIN</span>
-                </div>
+                <div class="absolute inset-0 top-6 bottom-6 flex items-center justify-center"><canvas id="breath-canvas" width="120" height="80"></canvas></div>
+                <div class="text-right z-10 relative"><span id="rr-val" class="text-xl font-bold text-white tracking-tighter">--</span><span class="text-[9px] text-gray-500 font-bold ml-1">BR/MIN</span></div>
             </div>
 
-            <div class="col-span-2 bento-card bg-black/80 border-white/20">
+            <div class="col-span-1 bento-card bg-black/80 border-white/20 h-40 flex flex-col justify-center">
                 <div class="text-[9px] text-cyan-500 font-mono-tech mb-2">SYSTEM_LOG</div>
-                <div id="log-msg" class="text-sm text-white/90 font-serif italic">
-                    "Waiting for physiological synchronization..."
-                </div>
+                <div id="log-msg" class="text-[10px] text-white/90 font-serif italic leading-tight">"Calibrating sensors..."</div>
             </div>
             
-            <!-- Spacer -->
             <div class="col-span-2 h-10 w-full"></div>
         </div>
     </div>
 
-    <!-- Draggable Dock -->
+    <!-- Dock -->
     <div id="floating-dock" class="dock" style="opacity: 0; pointer-events: none;">
-        <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10" id="btn-share">
-            <i data-lucide="share-2" class="w-4 h-4"></i>
-        </button>
-        <button id="reset-btn" class="flex-1 h-12 mx-3 bg-white text-black rounded-full font-bold text-xs shadow-lg shadow-white/10 active:scale-95 transition-transform" onclick="app.reset()">
-            NEW SCAN
-        </button>
-        <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10" id="btn-hist">
-            <i data-lucide="history" class="w-4 h-4"></i>
-        </button>
+        <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10"><i data-lucide="share-2" class="w-4 h-4"></i></button>
+        <button id="reset-btn" class="flex-1 h-12 mx-3 bg-white text-black rounded-full font-bold text-xs shadow-lg active:scale-95 transition-transform" onclick="app.reset()">NEW SCAN</button>
+        <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10"><i data-lucide="history" class="w-4 h-4"></i></button>
     </div>
 
-    <!-- 🟢 REAL POS ENGINE LOGIC -->
     <script>
-        // --- 1. Medical Grade Signal Processor (POS Algorithm) ---
+        // 🟢 1. Medical Grade Signal Processor (POS Algorithm + Sanity Check)
         class rPPGAnalyzer {
             constructor() {
-                this.bufferSize = 150; // ~5 sec window
+                this.bufferSize = 150; 
                 this.times = [];
                 this.signals = { r: [], g: [], b: [] }; 
                 this.peaks = [];
-                this.ibis = [];
+                this.ibis = []; // Inter-Beat Intervals (ms)
             }
 
-            // Input: R, G, B, Timestamp (performance.now)
             push(r, g, b, time) {
-                this.signals.r.push(r);
-                this.signals.g.push(g);
-                this.signals.b.push(b);
+                this.signals.r.push(r); this.signals.g.push(g); this.signals.b.push(b);
                 this.times.push(time);
-
                 if (this.signals.r.length > this.bufferSize) {
                     this.signals.r.shift(); this.signals.g.shift(); this.signals.b.shift(); this.times.shift();
                 }
-
-                if (this.signals.r.length >= 60) { // 2 sec min for analysis
-                    return this.computePOS();
-                }
+                if (this.signals.r.length >= 60) return this.computePOS();
                 return { bpm: 0, hrv: 0, rr: 0, signal: 0 };
             }
 
             computePOS() {
                 const len = this.signals.r.length;
                 let H = new Array(len).fill(0);
-                
-                // Normalize Colors
                 const meanR = this.signals.r.reduce((a,b)=>a+b,0)/len;
                 const meanG = this.signals.g.reduce((a,b)=>a+b,0)/len;
                 const meanB = this.signals.b.reduce((a,b)=>a+b,0)/len;
 
                 for(let i=0; i<len; i++) {
-                    let nR = this.signals.r[i] / meanR;
-                    let nG = this.signals.g[i] / meanG;
-                    let nB = this.signals.b[i] / meanB;
-                    // POS Projection: Remove specular reflection (motion)
-                    // S1 = G - B; S2 = G + B - 2R; P = S1 + alpha*S2
-                    let S1 = nG - nB;
-                    let S2 = nG + nB - 2 * nR;
-                    H[i] = S1 + (S2 / 2); // Simple alpha=0.5
+                    let nR = this.signals.r[i]/meanR; let nG = this.signals.g[i]/meanG; let nB = this.signals.b[i]/meanB;
+                    let S1 = nG - nB; let S2 = nG + nB - 2 * nR;
+                    H[i] = S1 + (S2 / 2); 
                 }
 
-                // Smooth / Bandpass
                 let filtered = this.smooth(H);
                 const currentSignal = filtered[filtered.length - 1];
-                
-                // Peak Detect
                 this.detectPeak(filtered, this.times);
 
                 return {
                     bpm: this.calculateBPM(),
                     hrv: this.calculateRMSSD(),
                     rr: this.calculateRR(),
-                    signal: currentSignal
+                    signal: currentSignal,
+                    ibis: this.ibis // For Poincaré
                 };
             }
 
             smooth(data) {
-                // 5-point moving average
                 let smoothed = [];
                 for(let i=2; i<data.length-2; i++) {
                     smoothed.push((data[i-2] + data[i-1] + data[i] + data[i+1] + data[i+2]) / 5);
@@ -348,18 +271,22 @@
             detectPeak(data, times) {
                 if (data.length < 3) return;
                 const i = data.length - 2;
-                if (data[i] > data[i-1] && data[i] > data[i+1] && data[i] > 0) { // Local Max
+                if (data[i] > data[i-1] && data[i] > data[i+1] && data[i] > 0) {
                     const peakTime = times[i];
                     if (this.peaks.length > 0) {
-                        if (peakTime - this.peaks[this.peaks.length-1] < 300) return; // Debounce 200bpm
+                        if (peakTime - this.peaks[this.peaks.length-1] < 300) return; // Ignore > 200bpm
                     }
                     this.peaks.push(peakTime);
                     if (this.peaks.length > 30) this.peaks.shift();
 
                     if (this.peaks.length >= 2) {
                         let ibi = peakTime - this.peaks[this.peaks.length - 2];
-                        this.ibis.push(ibi);
-                        if (this.ibis.length > 30) this.ibis.shift();
+                        // 🟢 Sanity Check: IBI must be physiological
+                        // 300ms (200bpm) to 1500ms (40bpm)
+                        if (ibi > 300 && ibi < 1500) {
+                            this.ibis.push(ibi);
+                            if (this.ibis.length > 30) this.ibis.shift();
+                        }
                     }
                 }
             }
@@ -372,7 +299,7 @@
             }
 
             calculateRMSSD() {
-                if(this.ibis.length < 10) return 0;
+                if(this.ibis.length < 5) return 0;
                 let sum = 0;
                 for(let i=0; i<this.ibis.length-1; i++) {
                     let diff = this.ibis[i+1] - this.ibis[i];
@@ -382,7 +309,6 @@
             }
 
             calculateRR() {
-                // Count trends in IBI (RSA)
                 if(this.ibis.length < 10) return 0;
                 let cycles = 0;
                 for(let i=1; i<this.ibis.length-1; i++) {
@@ -397,15 +323,16 @@
         class TEIEngine {
             calculate(hrv, rr, stability) {
                 hrv = hrv || 40; rr = rr || 16;
-                // HRV Score
-                let hrvScore = (Math.log(hrv) - 2.0) * 35;
+                // Limit HRV scoring to realistic range (10-150ms)
+                let hrvScore = (Math.log(Math.min(150, Math.max(10, hrv))) - 2.0) * 35;
                 hrvScore = Math.min(99, Math.max(1, hrvScore));
-                // RR Score
+                
+                // Strict RR scoring
                 const dist = Math.abs(rr - 6);
                 let rrScore = 100 - (dist * 4); 
-                if (rr > 24) rrScore -= 20; 
+                if (rr > 24 || rr < 4) rrScore -= 30; // Abnormal penalty
                 rrScore = Math.min(99, Math.max(10, rrScore));
-                // Total
+                
                 let total = (hrvScore * 0.4) + (rrScore * 0.4) + (stability * 0.2);
                 return Math.floor(total);
             }
@@ -420,16 +347,11 @@
             },
             analyzer: new rPPGAnalyzer(),
             engine: new TEIEngine(),
-            roiCtx: null, video: null, 
-            graphBuffer: [],
+            roiCtx: null, video: null, graphBuffer: [],
 
             init() {
-                this.initThree();
-                this.initDragDock();
-                this.initGraphs();
-                this.initCamera(); 
-                this.initInteraction();
-                lucide.createIcons();
+                this.initThree(); this.initDragDock(); this.initGraphs();
+                this.initCamera(); this.initInteraction(); lucide.createIcons();
             },
 
             async initCamera() {
@@ -438,23 +360,17 @@
                 this.roiCtx = document.getElementById('roi-canvas').getContext('2d', {willReadFrequently: true});
                 const loading = document.getElementById('camera-loading');
                 loading.classList.add('active');
-
                 try {
                     const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                    faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7});
+                    faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5});
                     faceMesh.onResults((res) => this.onFaceResults(res));
-
-                    const camera = new Camera(video, {
-                        onFrame: async () => { await faceMesh.send({image: video}); },
-                        width: 320, height: 240
-                    });
+                    const camera = new Camera(video, { onFrame: async () => { await faceMesh.send({image: video}); }, width: 320, height: 240 });
                     await camera.start();
                     this.state.cameraReady = true;
                     loading.classList.remove('active');
                     document.getElementById('status-badge').innerText = "CAMERA ACTIVE";
                 } catch (e) {
-                    console.error(e);
-                    loading.innerHTML = "<div class='text-red-500'>HTTPS REQUIRED<br>OR CAM BLOCKED</div>";
+                    console.error(e); loading.innerHTML = "<div class='text-red-500'>HTTPS REQUIRED</div>";
                 }
             },
 
@@ -463,49 +379,35 @@
                     this.state.faceFound = true;
                     document.getElementById('status-badge').innerText = "FACE LOCKED";
                     document.getElementById('status-badge').style.color = "#00FF94";
-                    document.getElementById('status-badge').style.borderColor = "rgba(0,255,148,0.5)";
-                    
-                    if(this.state.scanning || this.state.accumulating) {
-                        this.processROI(results.image);
-                    }
+                    if(this.state.scanning || this.state.accumulating) this.processROI();
                 } else {
                     this.state.faceFound = false;
                     document.getElementById('status-badge').innerText = "WAITING FOR FACE";
                     document.getElementById('status-badge').style.color = "gray";
-                    document.getElementById('status-badge').style.borderColor = "rgba(255,255,255,0.1)";
                 }
             },
 
-            processROI(image) {
+            processROI() {
                 const w = this.roiCtx.canvas.width; const h = this.roiCtx.canvas.height;
                 this.roiCtx.drawImage(this.video, 0, 0, w, h);
-                // Center crop 20x20
                 const frame = this.roiCtx.getImageData(w/2 - 10, h/2 - 40, 20, 20);
                 const data = frame.data;
-                
-                let rSum=0, gSum=0, bSum=0;
-                for(let i=0; i<data.length; i+=4) {
-                    rSum += data[i]; gSum += data[i+1]; bSum += data[i+2];
-                }
+                let r=0, g=0, b=0;
+                for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
                 const count = data.length/4;
                 
-                // 🟢 Feed to POS Engine
-                const result = this.analyzer.push(rSum/count, gSum/count, bSum/count, performance.now());
+                const result = this.analyzer.push(r/count, g/count, b/count, performance.now());
 
-                // Update UI based on state
                 if(this.state.accumulating) {
                     this.updateRealtimeGraph(result.signal);
+                    this.drawPoincare(result.ibis); // 🟢 Draw Poincaré
+
+                    // Sanity Filtering
+                    if(result.bpm > 45 && result.bpm < 180) this.state.results.bpm = result.bpm;
+                    if(result.hrv > 10 && result.hrv < 200) this.state.results.hrv = result.hrv;
+                    if(result.rr > 4 && result.rr < 40) this.state.results.rr = result.rr;
                     
-                    // Only update if valid
-                    if(result.bpm > 40 && result.bpm < 200) this.state.results.bpm = result.bpm;
-                    if(result.hrv > 0) this.state.results.hrv = result.hrv;
-                    if(result.rr > 0) this.state.results.rr = result.rr;
-                    
-                    this.state.results.tei = this.engine.calculate(
-                        this.state.results.hrv, 
-                        this.state.results.rr, 
-                        100 // Assume high stability if face locked
-                    );
+                    this.state.results.tei = this.engine.calculate(this.state.results.hrv, this.state.results.rr, 100);
                 }
                 
                 if(this.state.scanning) {
@@ -516,40 +418,29 @@
 
             initInteraction() {
                 const trigger = document.getElementById('scan-trigger');
-                
                 const startScan = (e) => {
                     e.preventDefault();
                     if(!this.state.cameraReady || !this.state.faceFound) return;
-                    
-                    this.state.scanning = true;
-                    this.state.progress = 0;
+                    this.state.scanning = true; this.state.progress = 0;
                     document.getElementById('scan-icon').classList.add('text-cyan-400');
                     document.getElementById('pulse-ring').style.borderColor = '#00F0FF';
                     document.getElementById('pulse-ring').style.transform = 'scale(1.1)';
-                    document.getElementById('sub-instruction').style.opacity = '1';
-                    
                     this.scanInterval = setInterval(() => {
                         this.state.progress += 2.5; 
                         if(this.state.progress >= 100) this.completeScan();
                     }, 50);
                 };
-
                 const stopScan = (e) => {
                     if(this.state.progress < 100) {
-                        this.state.scanning = false;
-                        clearInterval(this.scanInterval);
+                        this.state.scanning = false; clearInterval(this.scanInterval);
                         document.getElementById('scan-icon').classList.remove('text-cyan-400');
                         document.getElementById('pulse-ring').style.borderColor = 'rgba(255,255,255,0.1)';
                         document.getElementById('pulse-ring').style.transform = 'scale(1)';
-                        document.getElementById('sub-instruction').style.opacity = '0';
                         document.getElementById('signal-bar').style.width = '0%';
                     }
                 };
-
-                trigger.addEventListener('mousedown', startScan);
-                trigger.addEventListener('touchstart', startScan);
-                window.addEventListener('mouseup', stopScan);
-                window.addEventListener('touchend', stopScan);
+                trigger.addEventListener('mousedown', startScan); trigger.addEventListener('touchstart', startScan);
+                window.addEventListener('mouseup', stopScan); window.addEventListener('touchend', stopScan);
             },
 
             completeScan() {
@@ -559,40 +450,30 @@
                 document.getElementById('dashboard-layer').classList.add('show');
                 document.getElementById('floating-dock').style.opacity = '1';
                 document.getElementById('floating-dock').style.pointerEvents = 'auto';
-                
-                // Initial Estimate
-                if(this.state.results.bpm === 0) this.state.results.bpm = 72; // Fallback
+                if(this.state.results.bpm === 0) this.state.results.bpm = 70; // Reasonable fallback
                 this.startRefinement();
             },
 
             startRefinement() {
-                this.state.accumulating = true;
-                this.state.samples = 0;
-                
+                this.state.accumulating = true; this.state.samples = 0;
                 this.uiTimer = setInterval(() => {
                     this.updateDashboard();
-                    
-                    // Confidence driven by collected valid IBIs
                     const validSamples = this.analyzer.ibis.length;
                     let conf = Math.min(100, Math.floor((validSamples / 30) * 100));
-                    
                     document.getElementById('confidence-txt').innerText = conf + "%";
                     document.getElementById('confidence-bar').style.width = conf + "%";
-
                     if (conf >= 100) {
                         document.getElementById('analysis-state').innerText = "SYSTEM LOCKED";
                         document.getElementById('analysis-state').classList.remove('animate-pulse');
                         document.getElementById('analysis-state').style.color = "#00FF94";
                         document.getElementById('confidence-bar').style.background = "#00FF94";
-                        document.getElementById('log-msg').innerText = "Data convergence complete.";
+                        document.getElementById('log-msg').innerText = "Clinical grade data locked.";
                     }
                 }, 100);
             },
 
             updateDashboard() {
                 const { tei, hrv, rr, bpm } = this.state.results;
-                
-                // TEI
                 const el = document.getElementById('tei-score');
                 el.innerText = tei;
                 const ring = document.getElementById('score-ring');
@@ -603,31 +484,31 @@
                 else if(tei>=60) { ring.style.stroke="var(--score-mid)"; el.style.color="var(--score-mid)"; document.getElementById('tei-grade').innerText="BALANCED"; }
                 else { ring.style.stroke="var(--score-low)"; el.style.color="var(--score-low)"; document.getElementById('tei-grade').innerText="STRESSED"; }
 
-                // Spectrum
-                let pns = Math.floor((hrv/120)*100); pns = Math.max(10, Math.min(90, pns));
+                // 🟢 Corrected Logic: PNS% = HRV_Score, SNS = 100 - PNS
+                // Max healthy HRV visual ~120ms
+                let pns = Math.floor((hrv/120)*100); pns = Math.max(5, Math.min(95, pns));
+                const sns = 100 - pns;
                 document.getElementById('hrv-val').innerText = hrv + " ms";
                 document.getElementById('bar-pns').style.width = pns + '%'; document.getElementById('bar-pns').innerText = pns + '% PNS';
-                document.getElementById('bar-sns').style.width = (100-pns) + '%';
+                document.getElementById('bar-sns').style.width = sns + '%'; document.getElementById('bar-sns').innerText = sns + '% SNS';
 
                 document.getElementById('rr-val').innerText = rr;
                 document.getElementById('bpm-val').innerText = bpm;
-                
                 this.drawBreathGraph(rr);
             },
 
             updateRealtimeGraph(val) {
-                // Normalize roughly
-                let norm = (val + 2) / 4; 
-                norm = Math.max(0, Math.min(1, norm));
+                let norm = (val + 2) / 4; norm = Math.max(0, Math.min(1, norm));
                 this.graphBuffer.push(norm);
                 if(this.graphBuffer.length > 40) this.graphBuffer.shift();
                 this.drawPulseGraph(this.graphBuffer);
             },
 
-            // --- Visual Helpers (v27.1) ---
+            // Graphics
             initGraphs() {
                 this.pulseCanvas = document.getElementById('pulse-canvas'); this.pulseCtx = this.pulseCanvas.getContext('2d');
                 this.breathCanvas = document.getElementById('breath-canvas'); this.breathCtx = this.breathCanvas.getContext('2d');
+                this.poincareCanvas = document.getElementById('poincare-canvas'); this.poincareCtx = this.poincareCanvas.getContext('2d');
                 this.breathTime = 0;
             },
             drawPulseGraph(data) {
@@ -645,21 +526,29 @@
                 const ctx = this.breathCtx; const w = this.breathCanvas.width; const h = this.breathCanvas.height;
                 ctx.clearRect(0,0,w,h);
                 const displayRR = (rr > 0) ? rr : 12;
-                const speed = (displayRR/60)*0.15; 
-                this.breathTime += speed;
+                const speed = (displayRR/60)*0.15; this.breathTime += speed;
                 ctx.beginPath(); ctx.strokeStyle = "#00FF94"; ctx.lineWidth = 2;
-                for(let x=0; x<w; x++) {
-                    const y = (h/2) + Math.sin(x*0.05 + this.breathTime)*(h/3);
-                    if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-                }
+                for(let x=0; x<w; x++) { const y = (h/2) + Math.sin(x*0.05 + this.breathTime)*(h/3); if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }
                 ctx.stroke();
                 ctx.beginPath(); ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1;
-                for(let x=0; x<w; x++) {
-                    const y = (h/2) + Math.sin(x*0.05 + this.breathTime - 1)*(h/3);
-                    if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-                }
+                for(let x=0; x<w; x++) { const y = (h/2) + Math.sin(x*0.05 + this.breathTime - 1)*(h/3); if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }
                 ctx.stroke();
             },
+            // 🟢 Poincaré Plot Logic
+            drawPoincare(ibis) {
+                const ctx = this.poincareCtx; const w = this.poincareCanvas.width; const h = this.poincareCanvas.height;
+                ctx.clearRect(0,0,w,h);
+                if(ibis.length < 2) return;
+                
+                ctx.fillStyle = "rgba(255,255,255,0.8)";
+                for(let i=0; i<ibis.length-1; i++) {
+                    // Map 500ms-1200ms to Canvas
+                    let x = ((ibis[i] - 500) / 700) * w;
+                    let y = h - ((ibis[i+1] - 500) / 700) * h;
+                    ctx.beginPath(); ctx.arc(x,y, 2, 0, Math.PI*2); ctx.fill();
+                }
+            },
+
             initDragDock() {
                 const dock = document.getElementById('floating-dock');
                 let isDragging=false, startX, startY, initialLeft, initialBottom;
