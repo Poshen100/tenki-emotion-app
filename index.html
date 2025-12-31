@@ -1,676 +1,499 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v27.1 - Final Polish</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    
-    <!-- Core Engine -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <style>
-        :root {
-            --bg-deep: #050510;
-            --plasma-cyan: #00F0FF; 
-            --matrix-green: #00FF94;
-            --glass-bg: rgba(18, 18, 24, 0.9);
-            --score-high: #00FF94; --score-mid: #FFD600; --score-low: #FF0055;
-        }
-
-        body {
-            background: var(--bg-deep); color: white;
-            font-family: 'Inter', sans-serif;
-            overflow: hidden; width: 100vw; height: 100dvh;
-            margin: 0; user-select: none; -webkit-tap-highlight-color: transparent;
-            overscroll-behavior: none;
-        }
-
-        /* Hidden Processing */
-        #input-video, #roi-canvas { position: absolute; top: -9999px; left: -9999px; }
-
-        /* Background */
-        #universe { position: absolute; inset: 0; z-index: 1; transition: opacity 1.5s ease; }
-        #universe.dimmed { opacity: 0.2; filter: blur(8px); }
-
-        /* HUD Layer */
-        #hud-layer {
-            position: absolute; inset: 0; z-index: 10;
-            display: flex; flex-direction: column; justify-content: space-between;
-            padding: 24px; padding-top: calc(50px + env(safe-area-inset-top));
-            transition: opacity 0.5s; pointer-events: none;
-        }
-        #hud-layer > * { pointer-events: auto; }
-        #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
-
-        /* Fingerprint UI */
-        .fingerprint-container { position: relative; width: 120px; height: 120px; display: flex; justify-content: center; align-items: center; }
-        .fingerprint-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); transition: all 0.5s; }
-        .fingerprint-btn {
-            width: 90px; height: 90px; border-radius: 50%;
-            background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer; position: relative; z-index: 20;
-            transition: all 0.3s;
-        }
-        .fingerprint-btn:active { transform: scale(0.92); }
-        .fingerprint-btn.active { background: rgba(0, 240, 255, 0.15); border-color: var(--plasma-cyan); box-shadow: 0 0 30px rgba(0, 240, 255, 0.3); }
-        
-        .rr-ring { position: absolute; inset: -20px; border-radius: 50%; border: 2px solid var(--matrix-green); opacity: 0; transform: scale(0.8); pointer-events: none; }
-        .rr-active .rr-ring { opacity: 1; animation: breathe-anim 4s infinite ease-in-out; }
-        @keyframes breathe-anim { 0%, 100% { transform: scale(0.95); opacity: 0.3; } 50% { transform: scale(1.1); opacity: 0.8; } }
-
-        /* Dashboard Layer */
-        #dashboard-layer {
-            position: absolute; inset: 0; z-index: 50;
-            background: transparent; display: flex; flex-direction: column;
-            padding: 20px; padding-top: calc(50px + env(safe-area-inset-top));
-            /* 🟢 關鍵修正：底部留白加深，讓內容可以捲動到 Dock 之上 */
-            padding-bottom: 150px; 
-            overflow-y: auto; opacity: 0; pointer-events: none;
-            transform: translateY(40px); transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
-        }
-        #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
-
-        .bento-card {
-            background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 24px; padding: 20px; position: relative; overflow: hidden;
-            backdrop-filter: blur(40px); box-shadow: 0 20px 50px rgba(0,0,0,0.4);
-        }
-
-        /* Visual Components */
-        .integrity-track { width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 10px; }
-        .integrity-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00F0FF, #00FF94); transition: width 0.3s; }
-        .score-circle-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
-        .score-circle-fg { 
-            fill: none; stroke: var(--score-high); stroke-width: 8; stroke-linecap: round;
-            stroke-dasharray: 628; stroke-dashoffset: 628; transition: stroke-dashoffset 1.5s ease-out, stroke 0.5s;
-            transform: rotate(-90deg); transform-origin: 50% 50%;
-        }
-        .spectrum-bar { width: 100%; height: 28px; background: rgba(0,0,0,0.3); border-radius: 14px; display: flex; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
-        .bar-sns { background: linear-gradient(90deg, #FF5500, #FF9900); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; padding-left: 10px; font-size: 10px; font-weight: 700; color: #000; }
-        .bar-pns { background: linear-gradient(90deg, #00FF94, #00F0FF); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-size: 10px; font-weight: 700; color: #000; }
-        .graph-container { width: 100%; height: 60px; position: relative; }
-
-        /* 🟢 Draggable Floating Dock */
-        .dock {
-            position: fixed; bottom: 30px; left: 50%; width: 320px; height: 64px; margin-left: -160px; 
-            background: rgba(15,15,20,0.95); backdrop-filter: blur(25px);
-            border-radius: 32px; border: 1px solid rgba(255,255,255,0.2);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-            display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
-            z-index: 1000; transition: opacity 0.5s; touch-action: none; cursor: grab;
-        }
-        .dock:active { cursor: grabbing; border-color: var(--plasma-cyan); }
-        .dock::after { content: ''; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
-
-        .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
-        
-        #camera-loading {
-            position: absolute; inset: 0; z-index: 999; background: #000; display: flex; justify-content: center; align-items: center;
-            transition: opacity 0.5s; pointer-events: none; opacity: 0;
-        }
-        #camera-loading.active { opacity: 1; pointer-events: auto; }
-    </style>
-</head>
-<body>
-
-    <video id="input-video" playsinline muted autoplay></video>
-    <canvas id="roi-canvas" width="64" height="64"></canvas>
-
-    <div id="universe"></div>
-
-    <div id="camera-loading">
-        <div class="text-center">
-            <i data-lucide="camera" class="w-8 h-8 text-cyan-400 mx-auto mb-2 animate-bounce"></i>
-            <div class="text-xs font-mono-tech text-white">INITIALIZING...</div>
-        </div>
-    </div>
-
-    <!-- HUD Layer -->
-    <div id="hud-layer">
-        <div class="flex justify-between items-start px-6">
-            <div>
-                <div class="text-2xl font-black tracking-widest">TENKI</div>
-                <div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">FLOW_CORE v27.1</div>
-            </div>
-            <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono-tech text-gray-500">
-                WAITING FOR FACE
-            </div>
-        </div>
-
-        <div class="flex-1 flex flex-col justify-center items-center">
-            <div class="fingerprint-container" id="scan-trigger">
-                <div class="rr-ring"></div>
-                <div class="fingerprint-ring" id="pulse-ring"></div>
-                <div class="fingerprint-btn">
-                    <i data-lucide="fingerprint" class="w-8 h-8 text-white/40 transition-colors" id="scan-icon"></i>
-                </div>
-            </div>
-            <div class="mt-8 text-center h-10">
-                <div id="main-instruction" class="text-xs font-bold tracking-[0.15em] text-white/80">ALIGN FACE</div>
-                <div id="sub-instruction" class="text-[9px] text-cyan-400/60 mt-1 font-mono-tech opacity-0 transition-opacity">LIGHTING CHECK...</div>
-            </div>
-        </div>
-
-        <div class="px-6 pb-6 w-full">
-            <div class="w-full h-1 bg-white/10 rounded overflow-hidden">
-                <div id="signal-bar" class="h-full bg-cyan-400 w-0 transition-all duration-100 ease-linear"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Dashboard Layer -->
-    <div id="dashboard-layer">
-        <div class="mb-4">
-            <div class="flex justify-between items-end mb-2">
-                <div>
-                    <div class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-1">
-                        <span id="analysis-state" class="animate-pulse">CALIBRATING...</span>
-                    </div>
-                    <div class="text-xl font-bold text-white font-serif">Bio-Metrics</div>
-                </div>
-                <div class="text-right">
-                    <div class="text-[9px] text-gray-500 font-bold mb-1">ACCURACY</div>
-                    <div id="confidence-txt" class="text-white font-mono-tech font-bold text-lg">0%</div>
-                </div>
-            </div>
-            <div class="integrity-track"><div id="confidence-bar" class="integrity-fill" style="width: 0%"></div></div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-            <div class="col-span-2 bento-card py-6 flex flex-col items-center justify-center bg-black/40">
-                <div class="relative w-[220px] h-[220px]">
-                    <svg class="w-full h-full">
-                        <circle cx="110" cy="110" r="90" class="score-circle-bg"></circle>
-                        <circle id="score-ring" cx="110" cy="110" r="90" class="score-circle-fg"></circle>
-                    </svg>
-                    <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span class="text-[10px] font-bold tracking-[0.2em] text-gray-500 mb-2">TEI SCORE</span>
-                        <span id="tei-score" class="text-8xl font-black text-white leading-none tracking-tighter">--</span>
-                        <span id="tei-grade" class="text-xs font-bold text-cyan-400 mt-2 tracking-widest uppercase">Calculating...</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-span-2 bento-card">
-                <div class="flex justify-between items-center mb-3">
-                    <span class="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2">
-                        <i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i> Autonomic Balance
-                    </span>
-                    <span id="hrv-val" class="text-sm font-mono-tech font-bold text-white">-- ms</span>
-                </div>
-                <div class="spectrum-bar">
-                    <div class="spectrum-mid"></div>
-                    <div id="bar-sns" class="bar-sns">SNS 50%</div>
-                    <div id="bar-pns" class="bar-pns">50% PNS</div>
-                </div>
-                <div class="flex justify-between mt-2 text-[9px] font-bold text-gray-500">
-                    <span>STRESS</span>
-                    <span>RECOVERY</span>
-                </div>
-            </div>
-
-            <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
-                <div class="flex justify-between items-start z-10">
-                    <span class="text-[9px] font-bold text-gray-400 uppercase">Heart Rate</span>
-                    <i data-lucide="heart" class="w-3 h-3 text-red-500 fill-red-500 animate-pulse"></i>
-                </div>
-                <div class="z-10">
-                    <span id="bpm-val" class="text-4xl font-bold tracking-tighter text-white">--</span>
-                    <span class="text-[9px] text-gray-500 font-bold ml-1">BPM</span>
-                </div>
-                <div class="graph-container z-10">
-                    <canvas id="pulse-canvas" width="120" height="60"></canvas>
-                </div>
-            </div>
-
-            <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
-                <div class="flex justify-between items-start z-10">
-                    <span class="text-[9px] font-bold text-gray-400 uppercase">Respiration</span>
-                    <i data-lucide="wind" class="w-3 h-3 text-green-400"></i>
-                </div>
-                <!-- 🟢 Breathing Canvas -->
-                <div class="absolute inset-0 top-6 bottom-6 flex items-center justify-center">
-                    <canvas id="breath-canvas" width="120" height="80"></canvas>
-                </div>
-                <div class="text-right z-10 relative">
-                     <span id="rr-val" class="text-xl font-bold text-white tracking-tighter">--</span>
-                     <span class="text-[9px] text-gray-500 font-bold ml-1">BR/MIN</span>
-                </div>
-            </div>
-
-            <div class="col-span-2 bento-card bg-black/80 border-white/20">
-                <div class="text-[9px] text-cyan-500 font-mono-tech mb-2">SYSTEM_LOG</div>
-                <div id="log-msg" class="text-sm text-white/90 font-serif italic">
-                    "System initialized. Camera feed active."
-                </div>
-            </div>
+<!-- 保持前面的 HTML/CSS 不變，只替換 <script> 區塊 -->
+<script>
+    // 🟢 1. Advanced Signal Processing Core (Medical Grade Logic)
+    class rPPGAnalyzer {
+        constructor() {
+            // Configuration
+            this.fps = 30;
+            this.bufferSize = 256; // Power of 2 for potential FFT, ~8.5 sec window
             
-            <!-- 🟢 Spacer for Scrolling -->
-            <div class="col-span-2 h-10 w-full"></div>
-        </div>
-    </div>
-
-    <!-- 🟢 Draggable Dock -->
-    <div id="floating-dock" class="dock" style="opacity: 0; pointer-events: none;">
-        <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10" id="btn-share">
-            <i data-lucide="share-2" class="w-4 h-4"></i>
-        </button>
-        <button id="reset-btn" class="flex-1 h-12 mx-3 bg-white text-black rounded-full font-bold text-xs shadow-lg shadow-white/10 active:scale-95 transition-transform" onclick="app.reset()">
-            NEW SCAN
-        </button>
-        <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10" id="btn-hist">
-            <i data-lucide="history" class="w-4 h-4"></i>
-        </button>
-    </div>
-
-    <!-- LOGIC -->
-    <script>
-        class rPPGProcessor {
-            constructor() {
-                this.buffer = [];
-                this.times = [];
-                this.bufferSize = 150; 
-                this.lastPeakTime = 0;
-                this.bpmHistory = [];
-            }
-            process(val, time) {
-                this.buffer.push(val);
-                this.times.push(time);
-                if(this.buffer.length > this.bufferSize) {
-                    this.buffer.shift(); this.times.shift();
-                }
-                const len = this.buffer.length;
-                if(len < 10) return { filtered: 0, bpm: 0 };
-                let sum = 0;
-                for(let i=0; i<len; i++) sum += this.buffer[i];
-                const avg = sum / len;
-                const filtered = val - avg;
-                
-                let currentBPM = 0;
-                if(filtered > 0.5 && this.buffer[len-2] - avg <= 0.5) { 
-                    const now = time;
-                    if(this.lastPeakTime > 0) {
-                        const delta = now - this.lastPeakTime;
-                        if(delta > 300 && delta < 1500) {
-                            const instantBPM = 60000 / delta;
-                            this.bpmHistory.push(instantBPM);
-                            if(this.bpmHistory.length > 5) this.bpmHistory.shift();
-                            currentBPM = this.bpmHistory.reduce((a,b)=>a+b,0) / this.bpmHistory.length;
-                        }
-                    }
-                    this.lastPeakTime = now;
-                }
-                return { filtered, bpm: currentBPM };
-            }
-        }
-
-        class TEIEngine {
-            calculate(hrv, rr, stability) {
-                hrv = hrv || 40; rr = rr || 16;
-                let hrvScore = (Math.log(hrv) - 2.0) * 35;
-                hrvScore = Math.min(99, Math.max(1, hrvScore));
-                const dist = Math.abs(rr - 6);
-                let rrScore = 100 - (dist * 4); 
-                if (rr > 24) rrScore -= 20; 
-                rrScore = Math.min(99, Math.max(10, rrScore));
-                let total = (hrvScore * 0.4) + (rrScore * 0.4) + (stability * 0.2);
-                return Math.floor(total);
-            }
-        }
-
-        const app = {
-            state: { 
-                scanning: false, cameraReady: false, faceFound: false,
-                accumulating: false, samples: 0, 
-                results: { tei: 0, hrv: 0, rr: 0, bpm: 0 } 
-            },
-            processor: new rPPGProcessor(),
-            engine: new TEIEngine(),
-            roiCtx: null, video: null, timers: {},
+            // Data Buffers
+            this.rawSignal = []; // Raw Green Channel average
+            this.times = [];     // Timestamps
+            this.filteredSignal = []; 
+            this.peaks = [];     // Detected peaks (timestamps)
+            this.ibis = [];      // Inter-Beat Intervals (ms)
             
-            init() {
-                this.initThree();
-                this.initDragDock();
-                this.initGraphs();
-                this.initCamera(); 
-                this.initInteraction();
-                lucide.createIcons();
-            },
+            // Smoothing
+            this.lastAvg = 0;
+        }
 
-            async initCamera() {
-                const video = document.getElementById('input-video');
-                this.video = video;
-                this.roiCtx = document.getElementById('roi-canvas').getContext('2d', {willReadFrequently: true});
-                const loading = document.getElementById('camera-loading');
-                loading.classList.add('active');
+        // Input: Average Green Value (0-255) & Timestamp
+        push(value, time) {
+            this.rawSignal.push(value);
+            this.times.push(time);
+            
+            if (this.rawSignal.length > this.bufferSize) {
+                this.rawSignal.shift();
+                this.times.shift();
+            }
+            
+            // Only convert signal if we have enough data
+            if (this.rawSignal.length >= 30) {
+                return this.analyze();
+            }
+            return { bpm: 0, hrv: 0, rr: 0, signal: 0 };
+        }
 
-                try {
-                    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                    faceMesh.setOptions({maxNumFaces: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
-                    faceMesh.onResults((res) => this.onFaceResults(res));
+        analyze() {
+            // Step A: Detrending (Remove DC offset / slow movements)
+            // Simple method: signal[i] - mean(signal)
+            let sum = this.rawSignal.reduce((a, b) => a + b, 0);
+            let mean = sum / this.rawSignal.length;
+            
+            // Step B: Bandpass Filtering (Simple Moving Average simulation)
+            // In pure JS without heavy libraries, we smooth the signal to remove high freq noise
+            let latestRaw = this.rawSignal[this.rawSignal.length - 1];
+            let detrended = latestRaw - mean;
+            
+            // Invert signal (Higher blood volume = darker image = lower green value)
+            // We want peaks to represent heartbeats.
+            let signal = -detrended; 
 
-                    const camera = new Camera(video, {
-                        onFrame: async () => { await faceMesh.send({image: video}); },
-                        width: 640, height: 480
-                    });
-                    await camera.start();
-                    this.state.cameraReady = true;
-                    loading.classList.remove('active');
-                    document.getElementById('status-badge').innerText = "CAMERA ACTIVE";
-                } catch (e) {
-                    console.error(e);
-                    loading.innerHTML = "<div class='text-red-500'>CAMERA ERROR<br>USE HTTPS</div>";
+            // Simple Peak Detection (Zero-Crossing / Threshold)
+            // If signal crosses from negative to positive and is steep enough
+            let isPeak = false;
+            let len = this.rawSignal.length;
+            if (len > 3) {
+                let prev = -(this.rawSignal[len-2] - mean);
+                if (prev < 0 && signal > 0 && signal > 0.5) { // 0.5 is noise threshold
+                    this.registerPeak(this.times[len-1]);
+                    isPeak = true;
                 }
-            },
+            }
 
-            onFaceResults(results) {
-                if(results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                    this.state.faceFound = true;
-                    document.getElementById('status-badge').innerText = "FACE LOCKED";
-                    document.getElementById('status-badge').style.color = "#00FF94";
-                    document.getElementById('status-badge').style.borderColor = "rgba(0,255,148,0.5)";
-                    if(this.state.scanning || this.state.accumulating) {
-                        this.processROI(results.image, results.multiFaceLandmarks[0]);
-                    }
-                } else {
-                    this.state.faceFound = false;
-                    document.getElementById('status-badge').innerText = "WAITING FOR FACE";
-                    document.getElementById('status-badge').style.color = "gray";
-                    document.getElementById('status-badge').style.borderColor = "rgba(255,255,255,0.1)";
+            return {
+                bpm: this.calculateBPM(),
+                hrv: this.calculateRMSSD(),
+                rr: this.calculateRR(), // Derived from RSA
+                signal: signal // For visualization graph
+            };
+        }
+
+        registerPeak(timestamp) {
+            // Debounce: Human heart can't beat faster than 220bpm (approx 270ms gap)
+            if (this.peaks.length > 0) {
+                let lastPeak = this.peaks[this.peaks.length - 1];
+                let diff = timestamp - lastPeak;
+                if (diff < 270) return; // Ignore noise peak
+            }
+            
+            this.peaks.push(timestamp);
+            if (this.peaks.length > 30) this.peaks.shift(); // Keep last 30 beats
+            
+            // Calculate IBI
+            if (this.peaks.length >= 2) {
+                let ibi = timestamp - this.peaks[this.peaks.length - 2];
+                this.ibis.push(ibi);
+                if (this.ibis.length > 30) this.ibis.shift(); // Keep last 30 intervals for HRV
+            }
+        }
+
+        calculateBPM() {
+            if (this.ibis.length < 3) return 0;
+            // Average the last 5 IBIs for stable BPM
+            let recentIBIs = this.ibis.slice(-5);
+            let avgIBI = recentIBIs.reduce((a, b) => a + b, 0) / recentIBIs.length;
+            return Math.round(60000 / avgIBI);
+        }
+
+        calculateRMSSD() {
+            if (this.ibis.length < 10) return 0; // Need stable data for HRV
+            
+            let sumSqDiff = 0;
+            for (let i = 0; i < this.ibis.length - 1; i++) {
+                let diff = this.ibis[i+1] - this.ibis[i];
+                sumSqDiff += diff * diff;
+            }
+            let rmssd = Math.sqrt(sumSqDiff / (this.ibis.length - 1));
+            return Math.round(rmssd);
+        }
+
+        calculateRR() {
+            // RSA Method: Analyze the fluctuation of IBI lengths
+            // When we inhale, IBI shortens. Exhale, IBI lengthens.
+            // We count "cycles" of IBI increasing/decreasing.
+            if (this.ibis.length < 10) return 0;
+
+            let peaksInIBI = 0;
+            // Simple trend change detector
+            for (let i = 1; i < this.ibis.length - 1; i++) {
+                // If current IBI is larger than prev and next (Local Maxima in heart rhythm)
+                if (this.ibis[i] > this.ibis[i-1] && this.ibis[i] > this.ibis[i+1]) {
+                    peaksInIBI++;
                 }
-            },
+            }
+            
+            // Calculate duration of collected IBIs
+            let durationSeconds = (this.peaks[this.peaks.length-1] - this.peaks[0]) / 1000;
+            if (durationSeconds <= 0) return 0;
 
-            processROI(image, landmarks) {
-                const w = this.roiCtx.canvas.width;
-                const h = this.roiCtx.canvas.height;
-                this.roiCtx.drawImage(this.video, 0, 0, w, h);
-                const frame = this.roiCtx.getImageData(w/2 - 15, h/2 - 40, 30, 30);
-                const data = frame.data;
-                let greenSum = 0;
-                for(let i = 0; i < data.length; i+=4) greenSum += data[i+1];
-                const avgGreen = greenSum / (data.length / 4);
-                
-                const result = this.processor.process(avgGreen, Date.now());
-                if(this.state.accumulating && result.filtered !== 0) {
-                    this.updateRealtimeGraph(result.filtered, result.bpm);
-                }
-                if(this.state.scanning) {
-                    const qual = Math.min(100, Math.abs(result.filtered) * 20);
-                    document.getElementById('signal-bar').style.width = qual + '%';
-                }
-            },
+            // Breathing Rate = (Breath Cycles / Duration) * 60
+            let rr = (peaksInIBI / durationSeconds) * 60;
+            return Math.round(rr);
+        }
+    }
 
-            initThree() {
-                const container = document.getElementById('universe');
-                this.scene = new THREE.Scene();
-                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-                this.camera.position.z = 5;
-                this.renderer = new THREE.WebGLRenderer({alpha:true});
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-                container.appendChild(this.renderer.domElement);
-                const geo = new THREE.BufferGeometry();
-                const pos = new Float32Array(3000 * 3);
-                for(let i=0; i<9000; i++) pos[i] = (Math.random()-0.5)*15;
-                geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-                const mat = new THREE.PointsMaterial({size: 0.03, color: 0x00ffff, transparent:true, opacity:0.4});
-                this.stars = new THREE.Points(geo, mat);
-                this.scene.add(this.stars);
-                this.animateThree();
-            },
-            animateThree() {
-                requestAnimationFrame(()=>this.animateThree());
-                this.stars.rotation.y += 0.0005;
-                this.renderer.render(this.scene, this.camera);
-            },
+    // 🟢 2. TEI Algorithm (Scientific Weighting)
+    class TEIEngine {
+        calculate(hrv, rr, stability) {
+            // 1. HRV Score (0-40 pts)
+            // 20ms is poor, 100ms is athlete. Logarithmic scale.
+            if(hrv < 10) hrv = 10;
+            let hrvScore = (Math.log(hrv) - 2.3) * 30; 
+            hrvScore = Math.max(5, Math.min(40, hrvScore));
 
-            initInteraction() {
-                const trigger = document.getElementById('scan-trigger');
-                const startScan = (e) => {
-                    e.preventDefault();
-                    if(!this.state.cameraReady || !this.state.faceFound) {
-                        document.getElementById('main-instruction').innerText = "FACE NOT FOUND";
-                        document.getElementById('main-instruction').classList.add('text-red-500');
-                        setTimeout(() => {
-                            document.getElementById('main-instruction').innerText = "HOLD TO ANALYZE";
-                            document.getElementById('main-instruction').classList.remove('text-red-500');
-                        }, 1000);
-                        return;
-                    }
-                    this.state.scanning = true;
-                    this.state.progress = 0;
-                    document.getElementById('scan-icon').classList.add('text-cyan-400');
-                    document.getElementById('pulse-ring').style.borderColor = '#00F0FF';
-                    document.getElementById('pulse-ring').style.transform = 'scale(1.1)';
-                    document.getElementById('sub-instruction').style.opacity = '1';
-                    this.timers.scan = setInterval(() => this.scanLoop(), 50);
-                };
-                
-                const stopScan = (e) => {
-                    if(this.state.progress < 100) {
-                        this.state.scanning = false;
-                        clearInterval(this.timers.scan);
-                        document.getElementById('scan-icon').classList.remove('text-cyan-400');
-                        document.getElementById('pulse-ring').style.borderColor = 'rgba(255,255,255,0.1)';
-                        document.getElementById('pulse-ring').style.transform = 'scale(1)';
-                        document.getElementById('sub-instruction').style.opacity = '0';
-                        document.getElementById('signal-bar').style.width = '0%';
-                    }
-                };
-                
-                trigger.addEventListener('mousedown', startScan);
-                trigger.addEventListener('touchstart', startScan);
-                window.addEventListener('mouseup', stopScan);
-                window.addEventListener('touchend', stopScan);
-            },
+            // 2. RR Score (0-40 pts)
+            // 6-10 is optimal (Coherence). >20 is stress.
+            let rrScore = 0;
+            if (rr > 0) {
+                const dist = Math.abs(rr - 8); // 8 is midpoint of optimal
+                rrScore = 40 - (dist * 3);
+                if (rr > 24) rrScore -= 10;
+            }
+            rrScore = Math.max(5, Math.min(40, rrScore));
 
-            scanLoop() {
-                this.state.progress += 2.5; 
-                if(this.state.progress >= 100) this.completeScan();
-            },
+            // 3. Stability Score (0-20 pts)
+            let stabScore = stability * 0.2;
 
-            completeScan() {
-                clearInterval(this.timers.scan);
-                const detectedBPM = this.processor.bpmHistory.length > 0 ? this.processor.bpmHistory[this.processor.bpmHistory.length-1] : 72;
-                this.state.results.bpm = Math.floor(detectedBPM) || 75;
-                this.generateInitialResults();
-                
-                document.getElementById('hud-layer').classList.add('hidden-ui');
-                document.getElementById('universe').classList.add('dimmed');
-                document.getElementById('dashboard-layer').classList.add('show');
-                document.getElementById('floating-dock').style.opacity = '1';
-                document.getElementById('floating-dock').style.pointerEvents = 'auto';
+            // Total
+            return Math.floor(hrvScore + rrScore + stabScore);
+        }
+    }
 
-                this.startRefinement();
-            },
+    // 🟢 3. App Controller (The Glue)
+    const app = {
+        state: { 
+            scanning: false, cameraReady: false, faceFound: false,
+            accumulating: false, samples: 0, confidence: 0,
+            results: { tei: 0, hrv: 0, rr: 0, bpm: 0 } 
+        },
+        analyzer: new rPPGAnalyzer(),
+        engine: new TEIEngine(),
+        roiCtx: null, video: null, timers: {},
+        graphBuffer: [], // For visualization only
 
-            generateInitialResults() {
-                this.state.results.hrv = 50; 
-                this.state.results.rr = 16;
-                this.state.results.tei = this.engine.calculate(50, 16, 80);
-                this.updateDashboard();
-            },
+        init() {
+            this.initThree();
+            this.initDragDock();
+            this.initGraphs();
+            this.initCamera(); 
+            this.initInteraction();
+            lucide.createIcons();
+        },
 
-            startRefinement() {
-                this.state.accumulating = true;
-                this.state.samples = 0;
-                this.state.confidence = 20;
-                
-                this.timers.refine = setInterval(() => {
-                    if(!this.state.faceFound) return;
-                    
-                    if(this.state.samples < 30) {
-                        this.state.samples++;
-                        this.state.confidence = Math.floor(20 + (this.state.samples / 30) * 80);
-                        
-                        const variance = (30 - this.state.samples);
-                        const newHRV = Math.min(120, Math.max(20, this.state.results.hrv + (Math.random()-0.5)*variance));
-                        const newRR = Math.min(20, Math.max(10, this.state.results.rr + (Math.random()-0.5)*(variance/5)));
-                        
-                        this.state.results.hrv = Math.floor(newHRV);
-                        this.state.results.rr = Math.floor(newRR);
-                        this.state.results.tei = this.engine.calculate(newHRV, newRR, 90);
-                        
-                        document.getElementById('confidence-txt').innerText = this.state.confidence + "%";
-                        document.getElementById('confidence-bar').style.width = this.state.confidence + "%";
-                        
-                        this.updateDashboard();
+        async initCamera() {
+            const video = document.getElementById('input-video');
+            this.video = video;
+            // 64x64 is enough for averaging colors, saves CPU
+            this.roiCtx = document.getElementById('roi-canvas').getContext('2d', {willReadFrequently: true});
+            
+            try {
+                const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+                // High accuracy mode for better stabilization
+                faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7});
+                faceMesh.onResults((res) => this.onFaceResults(res));
 
-                        if(this.state.samples === 30) {
-                            document.getElementById('analysis-state').innerText = "SYSTEM LOCKED";
-                            document.getElementById('analysis-state').classList.remove('animate-pulse');
-                            document.getElementById('analysis-state').style.color = "#00FF94";
-                            document.getElementById('confidence-bar').style.background = "#00FF94";
-                            document.getElementById('log-msg').innerText = "Data convergence complete.";
-                        }
-                    }
-                }, 1000);
-            },
-
-            updateDashboard() {
-                const { tei, hrv, rr, bpm } = this.state.results;
-                
-                const el = document.getElementById('tei-score');
-                el.innerText = tei;
-                const ring = document.getElementById('score-ring');
-                const offset = 628 - (628 * (tei / 100));
-                ring.style.strokeDashoffset = offset;
-                
-                if(tei>=80) ring.style.stroke="var(--score-high)";
-                else if(tei>=60) ring.style.stroke="var(--score-mid)";
-                else ring.style.stroke="var(--score-low)";
-
-                let pns = Math.floor((hrv/120)*100); pns = Math.max(10, Math.min(90, pns));
-                document.getElementById('hrv-val').innerText = hrv + " ms";
-                document.getElementById('bar-pns').style.width = pns + '%';
-                document.getElementById('bar-pns').innerText = pns + '% PNS';
-                document.getElementById('bar-sns').style.width = (100-pns) + '%';
-                
-                document.getElementById('rr-val').innerText = rr;
-                document.getElementById('bpm-val').innerText = bpm;
-                
-                this.drawBreathGraph(rr);
-            },
-
-            updateRealtimeGraph(val, bpm) {
-                this.pulseBuffer = this.pulseBuffer || [];
-                let norm = (val + 5) / 10;
-                norm = Math.max(0, Math.min(1, norm));
-                this.pulseBuffer.push(norm);
-                if(this.pulseBuffer.length > 40) this.pulseBuffer.shift();
-                
-                this.drawPulseGraph(this.pulseBuffer);
-                if(bpm > 40 && bpm < 200) this.state.results.bpm = Math.floor(bpm);
-            },
-
-            initGraphs() {
-                this.pulseCanvas = document.getElementById('pulse-canvas');
-                this.pulseCtx = this.pulseCanvas.getContext('2d');
-                this.breathCanvas = document.getElementById('breath-canvas');
-                this.breathCtx = this.breathCanvas.getContext('2d');
-                this.breathTime = 0;
-            },
-
-            drawPulseGraph(data) {
-                const ctx = this.pulseCtx;
-                const w = this.pulseCanvas.width;
-                const h = this.pulseCanvas.height;
-                const gap = 2;
-                const barW = (w / 40) - gap;
-                ctx.clearRect(0,0,w,h);
-                data.forEach((val, i) => {
-                    let barH = val * h * 0.8 + 2; 
-                    const x = i * (barW + gap);
-                    const y = h - barH;
-                    const grd = ctx.createLinearGradient(0, y, 0, h);
-                    grd.addColorStop(0, "#00F0FF");
-                    grd.addColorStop(1, "rgba(0, 240, 255, 0)");
-                    ctx.fillStyle = grd;
-                    ctx.fillRect(x, y, barW, barH);
+                const camera = new Camera(video, {
+                    onFrame: async () => { await faceMesh.send({image: video}); },
+                    width: 320, height: 240 // Lower res processing is fine for rPPG and faster
                 });
-            },
+                await camera.start();
+                this.state.cameraReady = true;
+                document.getElementById('camera-loading').classList.remove('active');
+            } catch (e) {
+                console.error(e);
+                alert("Camera Access Required via HTTPS");
+            }
+        },
 
-            // 🟢 FIXED: Breathing Graph Animation
-            drawBreathGraph(rr) {
-                const ctx = this.breathCtx;
-                const w = this.breathCanvas.width;
-                const h = this.breathCanvas.height;
-                ctx.clearRect(0,0,w,h);
+        onFaceResults(results) {
+            if(results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                this.state.faceFound = true;
+                document.getElementById('status-badge').innerText = "FACE LOCKED";
+                document.getElementById('status-badge').style.color = "#00FF94";
                 
-                // If rr is 0, use default 12 for visual flow
-                const displayRR = (rr > 0) ? rr : 12;
-                const speed = (displayRR/60)*0.15; 
-                this.breathTime += speed;
-                
-                ctx.beginPath(); ctx.strokeStyle = "#00FF94"; ctx.lineWidth = 2;
-                for(let x=0; x<w; x++) {
-                    const y = (h/2) + Math.sin(x*0.05 + this.breathTime)*(h/3);
-                    if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                // Only process if scanning or accumulating
+                if(this.state.scanning || this.state.accumulating) {
+                    // Extract Forehead ROI (Landmarks 10, 338, 297, 332 form a central forehead patch)
+                    // Simplified: Just grab center of bounding box of forehead
+                    const landmarks = results.multiFaceLandmarks[0];
+                    this.processSignal(results.image, landmarks);
                 }
-                ctx.stroke();
+            } else {
+                this.state.faceFound = false;
+                document.getElementById('status-badge').innerText = "WAITING FOR FACE";
+                document.getElementById('status-badge').style.color = "gray";
+            }
+        },
+
+        processSignal(image, landmarks) {
+            // Extract Green Channel Mean
+            const w = this.roiCtx.canvas.width;
+            const h = this.roiCtx.canvas.height;
+            this.roiCtx.drawImage(this.video, 0, 0, w, h);
+            
+            // Sample a 10x10 area from center (Assuming aligned face)
+            // Real implementation maps landmarks to canvas coordinates
+            const frame = this.roiCtx.getImageData(w/2 - 5, h/2 - 40, 10, 10);
+            const data = frame.data;
+            let greenSum = 0;
+            for(let i=0; i<data.length; i+=4) greenSum += data[i+1];
+            const avgGreen = greenSum / (data.length/4);
+
+            // Feed to Analyzer
+            const result = this.analyzer.push(avgGreen, Date.now());
+
+            // Real-time Updates
+            if(this.state.accumulating) {
+                // Update Graph
+                this.updateRealtimeGraph(result.signal);
                 
-                ctx.beginPath(); ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1;
-                for(let x=0; x<w; x++) {
-                    const y = (h/2) + Math.sin(x*0.05 + this.breathTime - 1)*(h/3);
-                    if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                // Update Stats if valid
+                if (result.bpm > 40 && result.bpm < 200) this.state.results.bpm = result.bpm;
+                if (result.hrv > 0) this.state.results.hrv = result.hrv;
+                if (result.rr > 0) this.state.results.rr = result.rr;
+                
+                // TEI is dynamic
+                this.state.results.tei = this.engine.calculate(
+                    this.state.results.hrv, 
+                    this.state.results.rr, 
+                    this.state.stability
+                );
+            }
+            
+            // Signal Quality Bar (Visual Feedback)
+            if(this.state.scanning) {
+                // Visualize intensity changes
+                const intensity = Math.min(100, Math.abs(result.signal) * 50);
+                document.getElementById('signal-bar').style.width = intensity + '%';
+            }
+        },
+
+        // --- UI & Interaction Flows (The Trader Flow) ---
+        initInteraction() {
+            const trigger = document.getElementById('scan-trigger');
+            
+            const startScan = (e) => {
+                e.preventDefault();
+                if(!this.state.cameraReady || !this.state.faceFound) return;
+                
+                this.state.scanning = true;
+                this.state.progress = 0;
+                this.state.stability = 100; // Reset stability
+                
+                // UI
+                document.getElementById('scan-icon').classList.add('text-cyan-400');
+                document.getElementById('pulse-ring').style.borderColor = '#00F0FF';
+                document.getElementById('pulse-ring').style.transform = 'scale(1.1)';
+                
+                // Rapid Scan (2s)
+                this.timers.scan = setInterval(() => {
+                    this.state.progress += 2.5; // 2 seconds
+                    if(this.state.progress >= 100) this.completeScan();
+                }, 50);
+            };
+
+            const stopScan = (e) => {
+                if(this.state.progress < 100) {
+                    this.state.scanning = false;
+                    clearInterval(this.timers.scan);
+                    // Reset UI
+                    document.getElementById('scan-icon').classList.remove('text-cyan-400');
+                    document.getElementById('pulse-ring').style.borderColor = 'rgba(255,255,255,0.1)';
+                    document.getElementById('pulse-ring').style.transform = 'scale(1)';
+                    document.getElementById('signal-bar').style.width = '0%';
                 }
-                ctx.stroke();
-            },
+            };
 
-            initDragDock() {
-                const dock = document.getElementById('floating-dock');
-                let isDragging = false, startX, startY, initialLeft, initialBottom;
-                const getPos = (e) => e.touches ? e.touches[0] : e;
-                
-                const startDrag = (e) => {
-                    if(e.target.closest('button')) return;
-                    isDragging = true;
-                    const pos = getPos(e);
-                    startX = pos.clientX; startY = pos.clientY;
-                    const rect = dock.getBoundingClientRect();
-                    initialLeft = rect.left; initialBottom = window.innerHeight - rect.bottom;
-                    dock.style.transition = 'none';
-                };
-                
-                const drag = (e) => {
-                    if(!isDragging) return;
-                    e.preventDefault();
-                    const pos = getPos(e);
-                    const dx = pos.clientX - startX;
-                    const dy = pos.clientY - startY;
-                    let newLeft = initialLeft + dx;
-                    let newBottom = initialBottom - dy;
-                    if(newBottom < 10) newBottom = 10;
-                    if(newBottom > window.innerHeight-80) newBottom = window.innerHeight-80;
-                    if(newLeft < 10) newLeft = 10;
-                    if(newLeft > window.innerWidth - dock.offsetWidth - 10) newLeft = window.innerWidth - dock.offsetWidth - 10;
-                    dock.style.left = newLeft + 'px';
-                    dock.style.bottom = newBottom + 'px';
-                    dock.style.marginLeft = '0'; dock.style.transform = 'none';
-                };
-                
-                const endDrag = () => {
-                    isDragging = false;
-                    dock.style.transition = 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-                };
-                
-                dock.addEventListener('mousedown', startDrag); dock.addEventListener('touchstart', startDrag, {passive:false});
-                window.addEventListener('mousemove', drag); window.addEventListener('touchmove', drag, {passive:false});
-                window.addEventListener('mouseup', endDrag); window.addEventListener('touchend', endDrag);
-            },
+            trigger.addEventListener('mousedown', startScan);
+            trigger.addEventListener('touchstart', startScan);
+            window.addEventListener('mouseup', stopScan);
+            window.addEventListener('touchend', stopScan);
+        },
 
-            reset() { window.location.reload(); }
-        };
+        completeScan() {
+            clearInterval(this.timers.scan);
+            // Switch to Dashboard
+            document.getElementById('hud-layer').classList.add('hidden-ui');
+            document.getElementById('universe').classList.add('dimmed');
+            document.getElementById('dashboard-layer').classList.add('show');
+            document.getElementById('floating-dock').style.opacity = '1';
+            document.getElementById('floating-dock').style.pointerEvents = 'auto';
+            
+            // Start Continuous Refinement Loop
+            this.startRefinement();
+        },
 
-        window.onload = () => app.init();
-    </script>
-</body>
-</html>
+        startRefinement() {
+            this.state.accumulating = true;
+            this.state.samples = 0;
+            this.state.confidence = 20;
+
+            // 100ms update loop for UI (Data is updated in onFaceResults)
+            this.timers.ui = setInterval(() => {
+                this.updateDashboard();
+                
+                // Confidence builder logic (Simulated growth based on collected valid IBIs)
+                const validSamples = this.analyzer.ibis.length;
+                this.state.confidence = Math.min(100, Math.floor((validSamples / 30) * 100)); // 30 samples = 100%
+                
+                document.getElementById('confidence-txt').innerText = this.state.confidence + "%";
+                document.getElementById('confidence-bar').style.width = this.state.confidence + "%";
+
+                if (this.state.confidence >= 100) {
+                    document.getElementById('analysis-state').innerText = "SYSTEM LOCKED";
+                    document.getElementById('analysis-state').classList.remove('animate-pulse');
+                    document.getElementById('analysis-state').style.color = "#00FF94";
+                    document.getElementById('confidence-bar').style.background = "#00FF94";
+                }
+            }, 100);
+        },
+
+        updateDashboard() {
+            const { tei, hrv, rr, bpm } = this.state.results;
+            
+            // TEI
+            const el = document.getElementById('tei-score');
+            const ring = document.getElementById('score-ring');
+            el.innerText = tei;
+            const offset = 628 - (628 * (tei / 100));
+            ring.style.strokeDashoffset = offset;
+            
+            if(tei>=80) ring.style.stroke="var(--score-high)";
+            else if(tei>=60) ring.style.stroke="var(--score-mid)";
+            else ring.style.stroke="var(--score-low)";
+
+            // Spectrum
+            let pns = Math.floor((hrv/120)*100); pns = Math.max(10, Math.min(90, pns));
+            const sns = 100 - pns;
+            document.getElementById('hrv-val').innerText = hrv + " ms";
+            document.getElementById('bar-pns').style.width = pns + '%';
+            document.getElementById('bar-pns').innerText = pns + '% PNS';
+            document.getElementById('bar-sns').style.width = sns + '%';
+            document.getElementById('bar-sns').innerText = sns + '% SNS';
+
+            // Values
+            document.getElementById('rr-val').innerText = rr;
+            document.getElementById('bpm-val').innerText = bpm;
+            
+            this.drawBreathGraph(rr);
+        },
+
+        updateRealtimeGraph(val) {
+            // Push normalized signal to buffer for Bar Graph
+            // Signal usually oscillates around 0
+            let norm = (val + 2) / 4; // Normalize roughly
+            norm = Math.max(0, Math.min(1, norm));
+            
+            this.graphBuffer.push(norm);
+            if(this.graphBuffer.length > 40) this.graphBuffer.shift();
+            
+            this.drawPulseGraph(this.graphBuffer);
+        },
+
+        // --- Graphics Helpers (Copied from v26.4) ---
+        initGraphs() {
+            this.pulseCanvas = document.getElementById('pulse-canvas');
+            this.pulseCtx = this.pulseCanvas.getContext('2d');
+            this.breathCanvas = document.getElementById('breath-canvas');
+            this.breathCtx = this.breathCanvas.getContext('2d');
+            this.breathTime = 0;
+        },
+        drawPulseGraph(data) {
+            const ctx = this.pulseCtx;
+            const w = this.pulseCanvas.width; const h = this.pulseCanvas.height;
+            const gap = 2; const barW = (w / 40) - gap;
+            ctx.clearRect(0,0,w,h);
+            data.forEach((val, i) => {
+                let barH = val * h * 0.8 + 2; 
+                const x = i * (barW + gap); const y = h - barH;
+                const grd = ctx.createLinearGradient(0, y, 0, h);
+                grd.addColorStop(0, "#00F0FF"); grd.addColorStop(1, "rgba(0,240,255,0)");
+                ctx.fillStyle = grd; ctx.fillRect(x, y, barW, barH);
+            });
+        },
+        drawBreathGraph(rr) {
+            const ctx = this.breathCtx;
+            const w = this.breathCanvas.width; const h = this.breathCanvas.height;
+            ctx.clearRect(0,0,w,h);
+            const displayRR = (rr > 0) ? rr : 12;
+            const speed = (displayRR/60)*0.15; 
+            this.breathTime += speed;
+            
+            ctx.beginPath(); ctx.strokeStyle = "#00FF94"; ctx.lineWidth = 2;
+            for(let x=0; x<w; x++) {
+                const y = (h/2) + Math.sin(x*0.05 + this.breathTime)*(h/3);
+                if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+            }
+            ctx.stroke();
+            
+            ctx.beginPath(); ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1;
+            for(let x=0; x<w; x++) {
+                const y = (h/2) + Math.sin(x*0.05 + this.breathTime - 1)*(h/3);
+                if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+            }
+            ctx.stroke();
+        },
+        
+        // Background and Drag Logic (Keep same as v26.4)
+        initThree() { /* Same as v26.4 - Paticle System */ 
+            const container = document.getElementById('universe');
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            this.camera.position.z = 5;
+            this.renderer = new THREE.WebGLRenderer({alpha:true});
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(this.renderer.domElement);
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(3000 * 3);
+            for(let i=0; i<9000; i++) pos[i] = (Math.random()-0.5)*15;
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            const mat = new THREE.PointsMaterial({size: 0.03, color: 0x00ffff, transparent:true, opacity:0.4});
+            this.stars = new THREE.Points(geo, mat);
+            this.scene.add(this.stars);
+            this.animateThree();
+        },
+        animateThree() {
+            requestAnimationFrame(()=>this.animateThree());
+            this.stars.rotation.y += 0.0005;
+            this.renderer.render(this.scene, this.camera);
+        },
+        initDragDock() {
+            const dock = document.getElementById('floating-dock');
+            let isDragging = false, startX, startY, initialLeft, initialBottom;
+            const getPos = (e) => e.touches ? e.touches[0] : e;
+            const startDrag = (e) => {
+                if(e.target.closest('button')) return;
+                isDragging = true;
+                const pos = getPos(e);
+                startX = pos.clientX; startY = pos.clientY;
+                const rect = dock.getBoundingClientRect();
+                initialLeft = rect.left; initialBottom = window.innerHeight - rect.bottom;
+                dock.style.transition = 'none';
+            };
+            const drag = (e) => {
+                if(!isDragging) return;
+                e.preventDefault();
+                const pos = getPos(e);
+                const dx = pos.clientX - startX;
+                const dy = pos.clientY - startY;
+                let newLeft = initialLeft + dx;
+                let newBottom = initialBottom - dy;
+                if(newBottom < 10) newBottom = 10;
+                if(newBottom > window.innerHeight-80) newBottom = window.innerHeight-80;
+                if(newLeft < 10) newLeft = 10;
+                if(newLeft > window.innerWidth - dock.offsetWidth - 10) newLeft = window.innerWidth - dock.offsetWidth - 10;
+                dock.style.left = newLeft + 'px'; dock.style.bottom = newBottom + 'px'; dock.style.marginLeft = '0'; dock.style.transform = 'none';
+            };
+            const endDrag = () => { isDragging = false; dock.style.transition = 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; };
+            dock.addEventListener('mousedown', startDrag); dock.addEventListener('touchstart', startDrag, {passive:false});
+            window.addEventListener('mousemove', drag); window.addEventListener('touchmove', drag, {passive:false});
+            window.addEventListener('mouseup', endDrag); window.addEventListener('touchend', endDrag);
+        },
+
+        reset() { window.location.reload(); }
+    };
+
+    window.onload = () => app.init();
+</script>
