@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v26.1 - Medical Grade Core</title>
+    <title>TENKI v26.2 - Medical Core</title>
     
     <!-- 矽谷頂尖設計字體與庫 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* --- 視覺核心樣式 (保留 1200行 級別的設計質感) --- */
+        /* --- 視覺核心樣式 --- */
         :root {
             --bg-deep: #050510;
             --plasma-cyan: #00F0FF; 
@@ -68,7 +68,6 @@
             box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
         }
         
-        /* RR Breathing Ring (The "Lock" Visual) */
         .rr-ring {
             position: absolute; inset: -20px; border-radius: 50%;
             border: 2px solid var(--matrix-green); opacity: 0;
@@ -84,7 +83,7 @@
             position: absolute; inset: 0; z-index: 50;
             background: transparent; display: flex; flex-direction: column;
             padding: 20px; padding-top: calc(50px + env(safe-area-inset-top));
-            padding-bottom: 120px;
+            /* padding-bottom removed here, handled by spacer div */
             overflow-y: auto; opacity: 0; pointer-events: none;
             transform: translateY(40px); transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1);
         }
@@ -117,17 +116,19 @@
         .bar-sns { background: linear-gradient(90deg, #FF5500, #FF9900); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; padding-left: 10px; font-size: 10px; font-weight: 700; color: #000; }
         .bar-pns { background: linear-gradient(90deg, #00FF94, #00F0FF); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-size: 10px; font-weight: 700; color: #000; }
 
-        /* Graph Canvas */
+        /* Graph Canvas Container */
         .graph-container {
             width: 100%; height: 60px; position: relative;
-            mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+            /* 移除原本的 mask-image，讓柱狀圖更清晰 */
+            /* mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent); */
         }
 
         /* Dock */
         .dock {
             position: fixed; bottom: 30px; left: 20px; right: 20px; height: 64px;
-            background: rgba(15,15,20,0.9); backdrop-filter: blur(20px);
+            background: rgba(15,15,20,0.95); backdrop-filter: blur(25px);
             border-radius: 32px; border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
             display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
             z-index: 100; transform: translateY(150px); transition: transform 0.6s 0.2s cubic-bezier(0.19, 1, 0.22, 1);
         }
@@ -145,7 +146,7 @@
         <div class="flex justify-between items-start px-6">
             <div>
                 <div class="text-2xl font-black tracking-widest">TENKI</div>
-                <div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">MEDICAL_CORE v26.1</div>
+                <div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">MEDICAL_CORE v26.2</div>
             </div>
             <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono-tech text-gray-500">
                 STANDBY
@@ -215,7 +216,7 @@
                 </div>
             </div>
 
-            <!-- 2. ANS Spectrum (SNS vs PNS) -->
+            <!-- 2. ANS Spectrum (Medical Grade) -->
             <div class="col-span-2 bento-card">
                 <div class="flex justify-between items-center mb-3">
                     <span class="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2">
@@ -234,9 +235,8 @@
                 </div>
             </div>
 
-            <!-- 3. Pulse (Real rPPG Waveform Loop) -->
+            <!-- 3. Pulse (UPDATED: Bar Graph Visual) -->
             <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
-                <div class="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/5 to-transparent skew-x-[-20deg] animate-pulse pointer-events-none"></div>
                 <div class="flex justify-between items-start z-10">
                     <span class="text-[9px] font-bold text-gray-400 uppercase">Heart Rate</span>
                     <i data-lucide="heart" class="w-3 h-3 text-red-500 fill-red-500 animate-pulse"></i>
@@ -245,6 +245,7 @@
                     <span id="bpm-val" class="text-4xl font-bold tracking-tighter text-white">--</span>
                     <span class="text-[9px] text-gray-500 font-bold ml-1">BPM</span>
                 </div>
+                <!-- 改變為柱狀圖 -->
                 <div class="graph-container z-10">
                     <canvas id="pulse-canvas" width="120" height="60"></canvas>
                 </div>
@@ -275,8 +276,13 @@
                     "Waiting for physiological synchronization..."
                 </div>
             </div>
+
+            <!-- 🟢 隱形墊高層 (Bottom Spacer) -->
+            <!-- 這是關鍵，確保最底部的卡片能被推到 Dock 上方 -->
+            <div class="col-span-2 h-28 w-full"></div>
         </div>
 
+        <!-- Floating Dock -->
         <div class="dock">
             <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10">
                 <i data-lucide="share-2" class="w-4 h-4"></i>
@@ -290,62 +296,43 @@
         </div>
     </div>
 
-    <!-- 🟢 SYSTEM CORE: Algorithm & Logic -->
+    <!-- 🟢 SYSTEM CORE -->
     <script>
-        // --- 1. TEI Engine (The Brain) ---
-        // 負責核心算法：將生理數據轉換為 1-99 分的直覺分數
+        // --- 1. TEI Engine ---
         class TEIEngine {
             constructor() {}
-
-            // 公式：TEI = (HRV_Score * 0.4) + (RR_Score * 0.4) + (Stability * 0.2)
             calculateScore(hrvRaw, rrRaw, stability) {
-                // 1. HRV Score (Logarithmic Mapping)
-                // 20ms -> ~10pts, 80ms+ -> ~90pts
-                // 對數曲線能更好地區分一般人的健康狀態
                 let hrvScore = (Math.log(hrvRaw) - 2.0) * 35;
                 hrvScore = Math.min(99, Math.max(1, hrvScore));
 
-                // 2. RR Score (Based on deviation from 6-10 bpm optimal range)
-                // 6 bpm (0.1Hz) 是共振頻率，分數最高
                 const optimal = 6;
                 const dist = Math.abs(rrRaw - optimal);
                 let rrScore = 100 - (dist * 4); 
-                if (rrRaw > 24) rrScore -= 20; // Panic breathing penalty
+                if (rrRaw > 24) rrScore -= 20; 
                 rrScore = Math.min(99, Math.max(10, rrScore));
 
-                // 3. Weighting
-                // Signal stability is a multiplier for confidence
                 let total = (hrvScore * 0.4) + (rrScore * 0.4) + (stability * 0.2);
-                
                 return Math.floor(total);
             }
         }
 
-        // --- 2. rPPG Signal Generator (The Heart) ---
-        // 模擬真實的心跳波形與 RSA (呼吸性竇性心律不整)
+        // --- 2. rPPG Signal Generator ---
         class rPPGSignalGenerator {
             constructor() {
                 this.time = 0;
                 this.buffer = [];
-                this.capacity = 100;
+                this.capacity = 40; // Reduced capacity for bar graph visual
             }
             
             next(bpm, stressLevel) {
-                this.time += 0.05; 
+                this.time += 0.1; 
                 
-                // Base Pulse
+                // Pulse Logic
                 let signal = Math.sin(this.time * (bpm / 60) * Math.PI * 2);
-                
-                // Dicrotic Notch (心臟瓣膜閉合特徵) - 增加醫療真實感
                 signal += 0.5 * Math.sin(this.time * (bpm / 60) * Math.PI * 4 + 0.5); 
-                
-                // RSA (呼吸影響) - 模擬吸氣心跳快、吐氣心跳慢
-                const rsa = 0.3 * Math.sin(this.time * 0.25 * Math.PI * 2); 
-                
-                // Stress Noise
                 const noise = stressLevel * (Math.random() - 0.5) * 0.3;
                 
-                const val = signal + noise + rsa;
+                const val = signal + noise;
                 
                 this.buffer.push(val);
                 if(this.buffer.length > this.capacity) this.buffer.shift();
@@ -354,11 +341,11 @@
             }
         }
 
-        // --- 3. App Controller (The Flow) ---
+        // --- 3. App Controller ---
         const app = {
             state: {
                 scanning: false,
-                phase: 0, // 0:Idle, 1:Pulse, 2:HRV, 3:RR Lock
+                phase: 0,
                 progress: 0,
                 stability: 100,
                 results: { tei: 0, hrv: 0, rr: 0, bpm: 0 }
@@ -374,7 +361,7 @@
                 lucide.createIcons();
             },
 
-            // --- Visuals: 3D Universe ---
+            // --- 3D Background ---
             initThree() {
                 const container = document.getElementById('universe');
                 this.scene = new THREE.Scene();
@@ -400,7 +387,7 @@
                 this.renderer.render(this.scene, this.camera);
             },
 
-            // --- Interaction: Progressive Precision Flow ---
+            // --- Interaction ---
             initInteraction() {
                 const trigger = document.getElementById('scan-trigger');
                 
@@ -410,14 +397,12 @@
                     this.state.scanning = true;
                     this.state.progress = 0;
                     
-                    // UI Activation
                     document.getElementById('scan-icon').classList.add('text-cyan-400');
                     document.getElementById('pulse-ring').style.borderColor = '#00F0FF';
                     document.getElementById('pulse-ring').style.transform = 'scale(1.1)';
                     document.getElementById('main-instruction').innerText = "CALIBRATING...";
                     document.getElementById('sub-instruction').style.opacity = '1';
                     
-                    // Start Loop (Simulating rPPG Capture)
                     this.timers.scan = setInterval(() => this.scanLoop(), 50); 
                 };
 
@@ -425,7 +410,6 @@
                     if(this.state.progress < 100) {
                         this.state.scanning = false;
                         clearInterval(this.timers.scan);
-                        // Reset UI
                         document.getElementById('scan-icon').classList.remove('text-cyan-400');
                         document.getElementById('pulse-ring').style.borderColor = 'rgba(255,255,255,0.1)';
                         document.getElementById('pulse-ring').style.transform = 'scale(1)';
@@ -444,14 +428,11 @@
             },
 
             scanLoop() {
-                this.state.progress += 0.4; // Scan duration ~12.5s for demo
-                
+                this.state.progress += 0.4; 
                 const p = this.state.progress;
-                // Signal Bar Animation
                 document.getElementById('signal-bar').style.width = p + '%';
                 document.getElementById('signal-pct').innerText = Math.floor(p) + '%';
 
-                // Phase Logic
                 const badge = document.getElementById('status-badge');
                 if(p > 10 && p < 40) {
                     document.getElementById('main-instruction').innerText = "DETECTING PULSE...";
@@ -473,26 +454,17 @@
 
             completeScan() {
                 clearInterval(this.timers.scan);
-                
-                // Calculate Data
                 this.generateResults();
-                
-                // Transition
                 document.getElementById('hud-layer').classList.add('hidden-ui');
                 document.getElementById('universe').classList.add('dimmed');
                 document.getElementById('dashboard-layer').classList.add('show');
-                
-                // Start Dashboard Loop (Prevent Overheating)
                 this.startDashboardLoop();
             },
 
             generateResults() {
-                // Simulate Sensor Readings
-                const rawHRV = Math.floor(50 + Math.random() * 50); // 50-100ms
-                const rawRR = Math.floor(12 + Math.random() * 6); // 12-18 bpm
+                const rawHRV = Math.floor(50 + Math.random() * 50); 
+                const rawRR = Math.floor(12 + Math.random() * 6); 
                 const stability = 95;
-                
-                // Use TEI Engine
                 const teiScore = this.engine.calculateScore(rawHRV, rawRR, stability);
                 
                 this.state.results = {
@@ -503,31 +475,25 @@
                 };
             },
 
-            // --- Dashboard Render Loop ---
             startDashboardLoop() {
                 const { tei, hrv, rr } = this.state.results;
-
-                // 1. Render Statics
                 this.animateScore(tei);
                 this.animateSpectrum(hrv);
                 document.getElementById('rr-val').innerText = rr;
                 document.getElementById('log-msg').innerText = "RSA Coherence established. State optimized.";
 
-                // 2. Loop Graphics (Graph & BPM)
                 this.timers.dash = setInterval(() => {
                     const data = this.signalGen.next(this.state.results.bpm, 0.1);
-                    this.drawGraph(data.buffer);
+                    this.drawBarGraph(data.buffer); // Updated to Bar Graph
                     
-                    // Jitter BPM for realism
                     const jitter = (Date.now() % 2000 < 1000) ? 0 : 1;
                     document.getElementById('bpm-val').innerText = this.state.results.bpm + jitter;
                     
-                    // Breathing Circle Animation
                     const breathe = (Math.sin(Date.now() / 1500) + 1) / 2;
                     const circle = document.getElementById('rr-circle');
                     circle.style.transform = `scale(${0.8 + (breathe*0.4)})`;
                     circle.style.opacity = `${0.3 + (breathe*0.5)}`;
-                }, 40);
+                }, 50);
             },
 
             animateScore(score) {
@@ -561,7 +527,6 @@
             },
 
             animateSpectrum(hrv) {
-                // Map HRV 20-120 to PNS%
                 let pns = Math.floor((hrv / 120) * 100);
                 pns = Math.max(10, Math.min(90, pns));
                 const sns = 100 - pns;
@@ -579,22 +544,36 @@
                 this.canvas = document.getElementById('pulse-canvas');
                 this.ctx = this.canvas.getContext('2d');
             },
-            drawGraph(data) {
+
+            // 🟢 UPDATED: Draw Bar Graph (Visualizer Style)
+            drawBarGraph(data) {
                 const ctx = this.ctx;
                 const w = this.canvas.width;
                 const h = this.canvas.height;
+                const gap = 2;
+                const count = 30; // Show last 30 data points
+                const slice = data.slice(-count);
+                const barW = (w / count) - gap;
+
                 ctx.clearRect(0, 0, w, h);
-                ctx.beginPath();
-                ctx.strokeStyle = "#00F0FF";
-                ctx.lineWidth = 2;
                 
-                const len = data.length;
-                for(let i=0; i<len; i++) {
-                    const x = (i / len) * w;
-                    const y = (h/2) - (data[i] * (h/4));
-                    if(i===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                }
-                ctx.stroke();
+                slice.forEach((val, i) => {
+                    // Map sine wave (-1.5 to 1.5) to height (0 to h)
+                    // We add offset to make it look like a spectrum
+                    let normalized = (val + 1.5) / 3;
+                    let barH = normalized * h * 0.9; 
+                    
+                    const x = i * (barW + gap);
+                    const y = h - barH;
+
+                    // Gradient color for bars
+                    const grd = ctx.createLinearGradient(0, y, 0, h);
+                    grd.addColorStop(0, "rgba(0, 240, 255, 1)");
+                    grd.addColorStop(1, "rgba(0, 240, 255, 0.2)");
+                    
+                    ctx.fillStyle = grd;
+                    ctx.fillRect(x, y, barW, barH);
+                });
             },
 
             reset() { window.location.reload(); }
