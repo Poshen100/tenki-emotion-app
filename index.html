@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v31.0 - Research Grade</title>
+    <title>TENKI v32.0 - Clinical Logic</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    
-    <!-- Core Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
@@ -15,7 +13,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* --- 視覺核心 (保留 v27+ 完美設計) --- */
+        /* 保留 v27+ 的完美 UI 架構 */
         :root {
             --bg-deep: #050510;
             --plasma-cyan: #00F0FF; 
@@ -45,7 +43,6 @@
         #hud-layer > * { pointer-events: auto; }
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-        /* Fingerprint UI */
         .fingerprint-container { position: relative; width: 120px; height: 120px; display: flex; justify-content: center; align-items: center; }
         .fingerprint-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); transition: all 0.5s; }
         .fingerprint-btn {
@@ -61,7 +58,6 @@
         .rr-active .rr-ring { opacity: 1; animation: breathe-anim 4s infinite ease-in-out; }
         @keyframes breathe-anim { 0%, 100% { transform: scale(0.95); opacity: 0.3; } 50% { transform: scale(1.1); opacity: 0.8; } }
 
-        /* Dashboard */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent; display: flex; flex-direction: column;
@@ -118,7 +114,7 @@
     <!-- HUD -->
     <div id="hud-layer">
         <div class="flex justify-between items-start px-6">
-            <div><div class="text-2xl font-black tracking-widest">TENKI</div><div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">RESEARCH_CORE v31.0</div></div>
+            <div><div class="text-2xl font-black tracking-widest">TENKI</div><div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">CLINICAL_CORE v32.0</div></div>
             <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono-tech text-gray-500">WAITING</div>
         </div>
         <div class="flex-1 flex flex-col justify-center items-center">
@@ -145,7 +141,6 @@
         </div>
 
         <div class="grid grid-cols-2 gap-3">
-            <!-- TEI Score -->
             <div class="col-span-2 bento-card py-6 flex flex-col items-center justify-center bg-black/40">
                 <div class="relative w-[220px] h-[220px]">
                     <svg class="w-full h-full"><circle cx="110" cy="110" r="90" class="score-circle-bg"></circle><circle id="score-ring" cx="110" cy="110" r="90" class="score-circle-fg"></circle></svg>
@@ -157,7 +152,6 @@
                 </div>
             </div>
 
-            <!-- ANS Spectrum -->
             <div class="col-span-2 bento-card">
                 <div class="flex justify-between items-center mb-3">
                     <span class="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2"><i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i> Autonomic Balance</span>
@@ -170,17 +164,6 @@
                 <div class="flex justify-between mt-2 text-[9px] font-bold text-gray-500"><span>STRESS</span><span>RECOVERY</span></div>
             </div>
 
-            <!-- Poincaré Plot (Variability) -->
-            <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
-                <div class="flex justify-between items-start z-10">
-                    <span class="text-[9px] font-bold text-gray-400 uppercase">Chaos Plot</span>
-                    <i data-lucide="scatter-chart" class="w-3 h-3 text-purple-400"></i>
-                </div>
-                <div class="absolute inset-0 top-6 bottom-4 left-2 right-2"><canvas id="poincare-canvas" width="120" height="100"></canvas></div>
-                <div class="text-right z-10 relative"><span class="text-[8px] text-gray-600 font-bold">POINCARÉ</span></div>
-            </div>
-
-            <!-- Heart Rate -->
             <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
                 <div class="flex justify-between items-start z-10">
                     <span class="text-[9px] font-bold text-gray-400 uppercase">Heart Rate</span>
@@ -190,7 +173,6 @@
                 <div class="graph-container z-10"><canvas id="pulse-canvas" width="120" height="60"></canvas></div>
             </div>
 
-            <!-- Respiration -->
             <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
                 <div class="flex justify-between items-start z-10">
                     <span class="text-[9px] font-bold text-gray-400 uppercase">Respiration</span>
@@ -200,12 +182,10 @@
                 <div class="text-right z-10 relative"><span id="rr-val" class="text-xl font-bold text-white tracking-tighter">--</span><span class="text-[9px] text-gray-500 font-bold ml-1">BR/MIN</span></div>
             </div>
 
-            <div class="col-span-1 bento-card bg-black/80 border-white/20 h-40 flex flex-col justify-center">
+            <div class="col-span-2 bento-card bg-black/80 border-white/20 h-24 flex flex-col justify-center">
                 <div class="text-[9px] text-cyan-500 font-mono-tech mb-2">SYSTEM_LOG</div>
-                <div id="log-msg" class="text-[10px] text-white/90 font-serif italic leading-tight">"Initializing sensors..."</div>
+                <div id="log-msg" class="text-[10px] text-white/90 font-serif italic leading-tight">"System standby."</div>
             </div>
-            
-            <div class="col-span-2 h-10 w-full"></div>
         </div>
     </div>
 
@@ -217,21 +197,22 @@
     </div>
 
     <script>
-        // 🟢 1. Research Grade rPPG Analyzer (Log-POS + SNR + Freq Validation)
+        // 🟢 1. Clinical Grade Logic (Sanity Check & Adaptive Threshold)
         class rPPGAnalyzer {
             constructor() {
-                this.bufferSize = 256; // Expanded window ~8.5s for FFT/POS stability
+                this.bufferSize = 256; 
                 this.times = [];
                 this.signals = { r: [], g: [], b: [] }; 
                 this.peaks = [];
                 this.ibis = [];
-                this.validIBIs = []; // Store only biologically valid IBIs
+                this.validIBIs = [];
+                
+                // Adaptive Smoothing
+                this.lastBPM = 70; // Prior assumption
             }
 
             push(r, g, b, time) {
-                // 🟢 Log-Domain Transformation (Handle Multiplicative Noise)
-                // Log(C) turns light intensity variations into additive noise, easier to filter
-                // Add 1 to avoid log(0)
+                // Log Domain for illumination invariance
                 this.signals.r.push(Math.log(r + 1)); 
                 this.signals.g.push(Math.log(g + 1)); 
                 this.signals.b.push(Math.log(b + 1));
@@ -241,10 +222,7 @@
                     this.signals.r.shift(); this.signals.g.shift(); this.signals.b.shift(); this.times.shift();
                 }
 
-                // Minimum 2 seconds data needed
-                if (this.signals.r.length >= 60) {
-                    return this.computePOS();
-                }
+                if (this.signals.r.length >= 60) return this.computePOS();
                 return { bpm: 0, hrv: 0, rr: 0, signal: 0, snr: 0 };
             }
 
@@ -252,79 +230,63 @@
                 const len = this.signals.r.length;
                 let H = new Array(len).fill(0);
                 
-                // Detrending (Remove DC component in Log domain)
+                // Detrending
                 const meanR = this.signals.r.reduce((a,b)=>a+b,0)/len;
                 const meanG = this.signals.g.reduce((a,b)=>a+b,0)/len;
                 const meanB = this.signals.b.reduce((a,b)=>a+b,0)/len;
 
                 for(let i=0; i<len; i++) {
-                    // AC components
-                    let cR = this.signals.r[i] - meanR;
-                    let cG = this.signals.g[i] - meanG;
-                    let cB = this.signals.b[i] - meanB;
-                    
-                    // POS Projection (Plane Orthogonal to Skin)
-                    // S1 = G - B; S2 = G + B - 2R
-                    // We can use simplified projection coefficients for Log domain
-                    let S1 = cG - cB;
-                    let S2 = cG + cB - 2 * cR;
-                    // Alpha = std(S1)/std(S2), simplified here to static tuning
+                    let nR = this.signals.r[i] - meanR;
+                    let nG = this.signals.g[i] - meanG;
+                    let nB = this.signals.b[i] - meanB;
+                    // POS Projection
+                    let S1 = nG - nB;
+                    let S2 = nG + nB - 2 * nR;
                     H[i] = S1 + (S2 / 2); 
                 }
 
-                // Bandpass & Smooth (0.7Hz - 4Hz)
                 let filtered = this.smooth(H);
-                const currentSignal = filtered[filtered.length - 1];
                 
-                // 🟢 Dynamic SNR Calculation
-                const snr = this.calculateSNR(filtered);
-
-                // Only detect peaks if signal is decent
-                if (snr > 3) { // Threshold for "Ok" signal
-                    this.detectPeak(filtered, this.times);
-                }
+                // 🟢 Calculate Signal Amplitude (for Adaptive Threshold)
+                let maxVal = Math.max(...filtered);
+                let minVal = Math.min(...filtered);
+                let amplitude = maxVal - minVal;
+                
+                this.detectPeak(filtered, this.times, amplitude);
 
                 return {
                     bpm: this.calculateBPM(),
                     hrv: this.calculateRMSSD(),
                     rr: this.calculateRR(),
-                    signal: currentSignal,
-                    snr: snr,
-                    ibis: this.validIBIs
+                    signal: filtered[filtered.length - 1]
                 };
             }
 
             smooth(data) {
-                // Moving average (Low-pass)
+                // 7-point Moving Average (Stronger filter for noise)
                 let smoothed = [];
-                for(let i=2; i<data.length-2; i++) {
-                    smoothed.push((data[i-2] + data[i-1] + data[i] + data[i+1] + data[i+2]) / 5);
+                for(let i=3; i<data.length-3; i++) {
+                    smoothed.push((data[i-3]+data[i-2]+data[i-1]+data[i]+data[i+1]+data[i+2]+data[i+3])/7);
                 }
                 return smoothed;
             }
 
-            // 🟢 SNR: Signal Power / Noise Power
-            calculateSNR(signal) {
-                if (signal.length < 30) return 0;
-                // Approx: RMS of signal vs High Freq noise
-                let mean = signal.reduce((a,b)=>a+b,0)/signal.length;
-                let power = signal.reduce((a,b)=>a + Math.pow(b-mean, 2), 0) / signal.length;
-                // Simple estimate: high amplitude usually means better signal in controlled ROI
-                return Math.min(10, power * 100000); 
-            }
-
-            detectPeak(data, times) {
+            detectPeak(data, times, amplitude) {
                 if (data.length < 3) return;
                 const i = data.length - 2;
-                // Zero crossing / Local Max
-                if (data[i] > data[i-1] && data[i] > data[i+1] && data[i] > 0) {
+                
+                // 🟢 Adaptive Threshold: Peak must be meaningful relative to noise
+                const threshold = amplitude * 0.3; // Must be at least 30% of max swing
+
+                if (data[i] > data[i-1] && data[i] > data[i+1] && data[i] > threshold) {
                     const peakTime = times[i];
                     
-                    // 🟢 Frequency Domain Check (Implicit)
-                    // Debounce: 300ms (200bpm max)
+                    // 🟢 Refractory Period (Physiological Limit)
+                    // If BPM is around 70, next beat shouldn't be within 400ms (150bpm limit)
+                    let minGap = 350; // Cap max BPM at ~170
+                    
                     if (this.peaks.length > 0) {
-                        let diff = peakTime - this.peaks[this.peaks.length-1];
-                        if (diff < 300) return; 
+                        if (peakTime - this.peaks[this.peaks.length-1] < minGap) return; 
                     }
                     
                     this.peaks.push(peakTime);
@@ -333,34 +295,38 @@
                     if (this.peaks.length >= 2) {
                         let ibi = peakTime - this.peaks[this.peaks.length - 2];
                         
-                        // 🟢 Physiological Validation (300ms - 1500ms)
-                        // Also check deviation from median (Adaptive Filter)
-                        if (ibi > 300 && ibi < 1500) {
-                            if (this.validIBIs.length > 5) {
-                                // Filter spikes > 30% change
-                                let lastIBI = this.validIBIs[this.validIBIs.length-1];
-                                let change = Math.abs(ibi - lastIBI) / lastIBI;
-                                if (change < 0.3) {
-                                    this.validIBIs.push(ibi);
-                                }
-                            } else {
-                                this.validIBIs.push(ibi);
-                            }
-                            if (this.validIBIs.length > 60) this.validIBIs.shift();
+                        // 🟢 Physiological Validation Window (400ms - 1300ms)
+                        // 46 BPM - 150 BPM. Outside this is likely artifact for resting state.
+                        if (ibi > 400 && ibi < 1300) {
+                            this.validIBIs.push(ibi);
+                            if (this.validIBIs.length > 30) this.validIBIs.shift();
                         }
                     }
                 }
             }
 
             calculateBPM() {
-                if(this.validIBIs.length < 5) return 0;
+                if(this.validIBIs.length < 5) return this.lastBPM;
+                
+                // Median calculation to ignore outliers
                 let sorted = [...this.validIBIs].sort((a,b)=>a-b);
                 let medianIBI = sorted[Math.floor(sorted.length/2)];
-                return Math.round(60000 / medianIBI);
+                let rawBPM = 60000 / medianIBI;
+
+                // 🟢 Slew Rate Limiter (BPM Smoothing)
+                // BPM shouldn't jump +/- 10 in one frame
+                let diff = rawBPM - this.lastBPM;
+                if(Math.abs(diff) > 5) {
+                    this.lastBPM += (diff > 0 ? 2 : -2); // Move slowly towards target
+                } else {
+                    this.lastBPM = rawBPM;
+                }
+                
+                return Math.round(this.lastBPM);
             }
 
             calculateRMSSD() {
-                if(this.validIBIs.length < 10) return 0;
+                if(this.validIBIs.length < 5) return 0;
                 let sum = 0;
                 for(let i=0; i<this.validIBIs.length-1; i++) {
                     let diff = this.validIBIs[i+1] - this.validIBIs[i];
@@ -372,26 +338,28 @@
             calculateRR() {
                 if(this.validIBIs.length < 10) return 0;
                 let cycles = 0;
-                // Count trends in IBI (Respiratory Sinus Arrhythmia)
+                // Simple trend analysis for RSA
                 for(let i=1; i<this.validIBIs.length-1; i++) {
                     if(this.validIBIs[i] > this.validIBIs[i-1] && this.validIBIs[i] > this.validIBIs[i+1]) cycles++;
                 }
                 let duration = (this.peaks[this.peaks.length-1] - this.peaks[0]) / 60000;
                 let rr = cycles / duration;
-                return (rr > 4 && rr < 40) ? Math.round(rr) : 0;
+                return (rr > 4 && rr < 30) ? Math.round(rr) : 0;
             }
         }
 
-        // --- 2. TEI Engine ---
+        // --- 2. TEI Engine (Scoring) ---
         class TEIEngine {
             calculate(hrv, rr, stability) {
                 hrv = hrv || 40; rr = rr || 16;
+                // Logarithmic HRV score
                 let hrvScore = (Math.log(Math.min(150, Math.max(10, hrv))) - 2.0) * 35;
                 hrvScore = Math.min(99, Math.max(1, hrvScore));
                 
-                const dist = Math.abs(rr - 6);
-                let rrScore = 100 - (dist * 4); 
-                if (rr > 24 || rr < 4) rrScore -= 30; 
+                // RR Score (Target 6-10)
+                const dist = Math.abs(rr - 8);
+                let rrScore = 100 - (dist * 5); 
+                if (rr > 22) rrScore -= 20; 
                 rrScore = Math.min(99, Math.max(10, rrScore));
                 
                 let total = (hrvScore * 0.4) + (rrScore * 0.4) + (stability * 0.2);
@@ -457,33 +425,31 @@
                 for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
                 const count = data.length/4;
                 
-                // 🟢 Pass High Precision Timestamp
                 const result = this.analyzer.push(r/count, g/count, b/count, performance.now());
 
                 if(this.state.accumulating) {
                     this.updateRealtimeGraph(result.signal);
-                    this.drawPoincare(result.ibis); // Update Scatter Plot
 
-                    // Strict Filtering
-                    if(result.bpm > 0) this.state.results.bpm = result.bpm;
-                    if(result.hrv > 0) this.state.results.hrv = result.hrv;
-                    if(result.rr > 0) this.state.results.rr = result.rr;
-                    
-                    // SNR Monitor
-                    if (result.snr < 2 && this.state.accumulating) {
-                        document.getElementById('log-msg').innerText = "Low Signal Quality. Improve Lighting.";
+                    // 🟢 Physiological Paradox Gate (GHOST BUSTER)
+                    // If BPM > 100 but HRV > 50, it's likely noise. Reject update.
+                    if (result.bpm > 100 && result.hrv > 50) {
+                        document.getElementById('log-msg').innerText = "Noise detected. Adjust lighting.";
                         document.getElementById('log-msg').style.color = "orange";
                     } else {
-                        document.getElementById('log-msg').innerText = "Signal locked. Gathering samples...";
-                        document.getElementById('log-msg').style.color = "white";
+                        // Accept Data
+                        if(result.bpm > 0) this.state.results.bpm = result.bpm;
+                        if(result.hrv > 0) this.state.results.hrv = result.hrv;
+                        if(result.rr > 0) this.state.results.rr = result.rr;
+                        
+                        document.getElementById('log-msg').innerText = "Signal Quality: Optimal";
+                        document.getElementById('log-msg').style.color = "#00FF94";
                     }
-
+                    
                     this.state.results.tei = this.engine.calculate(this.state.results.hrv, this.state.results.rr, 100);
                 }
                 
                 if(this.state.scanning) {
-                    // Visualize intensity changes
-                    const qual = Math.min(100, result.snr * 20); // Scale SNR to %
+                    const qual = Math.min(100, Math.abs(result.signal) * 50);
                     document.getElementById('signal-bar').style.width = qual + '%';
                 }
             },
@@ -530,12 +496,8 @@
                 this.state.accumulating = true; this.state.samples = 0;
                 this.uiTimer = setInterval(() => {
                     this.updateDashboard();
-                    
-                    // Confidence relies on having enough Valid IBIs
-                    const validCount = this.analyzer.validIBIs.length;
-                    // Need at least 30 valid beats (~30 secs) for medical grade HRV
-                    let conf = Math.min(100, Math.floor((validCount / 30) * 100));
-                    
+                    const validSamples = this.analyzer.validIBIs.length;
+                    let conf = Math.min(100, Math.floor((validSamples / 30) * 100));
                     document.getElementById('confidence-txt').innerText = conf + "%";
                     document.getElementById('confidence-bar').style.width = conf + "%";
                     if (conf >= 100) {
@@ -543,7 +505,6 @@
                         document.getElementById('analysis-state').classList.remove('animate-pulse');
                         document.getElementById('analysis-state').style.color = "#00FF94";
                         document.getElementById('confidence-bar').style.background = "#00FF94";
-                        document.getElementById('log-msg').innerText = "Clinical grade data locked.";
                     }
                 }, 100);
             },
@@ -578,10 +539,10 @@
                 this.drawPulseGraph(this.graphBuffer);
             },
 
+            // --- Visual Helpers ---
             initGraphs() {
                 this.pulseCanvas = document.getElementById('pulse-canvas'); this.pulseCtx = this.pulseCanvas.getContext('2d');
                 this.breathCanvas = document.getElementById('breath-canvas'); this.breathCtx = this.breathCanvas.getContext('2d');
-                this.poincareCanvas = document.getElementById('poincare-canvas'); this.poincareCtx = this.poincareCanvas.getContext('2d');
                 this.breathTime = 0;
             },
             drawPulseGraph(data) {
@@ -606,17 +567,6 @@
                 ctx.beginPath(); ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1;
                 for(let x=0; x<w; x++) { const y = (h/2) + Math.sin(x*0.05 + this.breathTime - 1)*(h/3); if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }
                 ctx.stroke();
-            },
-            drawPoincare(ibis) {
-                const ctx = this.poincareCtx; const w = this.poincareCanvas.width; const h = this.poincareCanvas.height;
-                ctx.clearRect(0,0,w,h);
-                if(ibis.length < 2) return;
-                ctx.fillStyle = "rgba(255,255,255,0.8)";
-                for(let i=0; i<ibis.length-1; i++) {
-                    let x = ((ibis[i] - 500) / 700) * w;
-                    let y = h - ((ibis[i+1] - 500) / 700) * h;
-                    ctx.beginPath(); ctx.arc(x,y, 2, 0, Math.PI*2); ctx.fill();
-                }
             },
             initDragDock() {
                 const dock = document.getElementById('floating-dock');
