@@ -1,13 +1,9 @@
-<!-- ============================================
-     TENKI v41.5 - Complete HTML with Advanced Worker
-     ============================================ -->
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v41.5 - Advanced rPPG</title>
+    <title>TENKI v41.0 - Alive Core</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -29,11 +25,12 @@
             background: var(--bg-deep); color: white;
             font-family: 'Inter', sans-serif;
             overflow: hidden; width: 100vw; height: 100dvh;
-            margin: 0; user-select: none;
+            margin: 0; user-select: none; -webkit-tap-highlight-color: transparent;
+            overscroll-behavior: none;
         }
 
         #input-video, #roi-canvas { position: absolute; top: -9999px; left: -9999px; }
-        #universe { position: absolute; inset: 0; z-index: 1; }
+        #universe { position: absolute; inset: 0; z-index: 1; transition: opacity 1.5s ease; }
         #universe.dimmed { opacity: 0.2; filter: blur(8px); }
 
         #hud-layer {
@@ -46,7 +43,7 @@
         #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
         .fingerprint-container { position: relative; width: 120px; height: 120px; display: flex; justify-content: center; align-items: center; }
-        .fingerprint-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
+        .fingerprint-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); transition: all 0.5s; }
         .fingerprint-btn {
             width: 90px; height: 90px; border-radius: 50%;
             background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);
@@ -55,44 +52,57 @@
             cursor: pointer; position: relative; z-index: 20;
             transition: all 0.3s;
         }
-        .fingerprint-btn.active { background: rgba(0, 240, 255, 0.15); border-color: var(--plasma-cyan); }
+        .fingerprint-btn.active { background: rgba(0, 240, 255, 0.15); border-color: var(--plasma-cyan); box-shadow: 0 0 30px rgba(0, 240, 255, 0.3); }
+        
+        .rr-ring { position: absolute; inset: -20px; border-radius: 50%; border: 2px solid var(--matrix-green); opacity: 0; transform: scale(0.8); pointer-events: none; }
+        .rr-active .rr-ring { opacity: 1; animation: breathe-anim 4s infinite ease-in-out; }
+        @keyframes breathe-anim { 0%, 100% { transform: scale(0.95); opacity: 0.3; } 50% { transform: scale(1.1); opacity: 0.8; } }
 
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
+            background: transparent; display: flex; flex-direction: column;
             padding: 20px; padding-top: calc(50px + env(safe-area-inset-top));
             padding-bottom: 180px; 
             overflow-y: auto; opacity: 0; pointer-events: none;
-            transform: translateY(40px); transition: opacity 0.8s, transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+            transform: translateY(40px); transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
         }
         #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
 
         .bento-card {
             background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 24px; padding: 20px; position: relative;
+            border-radius: 24px; padding: 20px; position: relative; overflow: hidden;
             backdrop-filter: blur(40px); box-shadow: 0 20px 50px rgba(0,0,0,0.4);
         }
 
+        .integrity-track { width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 10px; }
+        .integrity-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00F0FF, #00FF94); transition: width 0.3s; }
         .score-circle-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
         .score-circle-fg { 
             fill: none; stroke: var(--score-high); stroke-width: 8; stroke-linecap: round;
-            stroke-dasharray: 628; stroke-dashoffset: 628; transition: stroke-dashoffset 1.5s, stroke 0.5s;
+            stroke-dasharray: 628; stroke-dashoffset: 628; transition: stroke-dashoffset 1.5s ease-out, stroke 0.5s;
             transform: rotate(-90deg); transform-origin: 50% 50%;
         }
+        .spectrum-bar { width: 100%; height: 28px; background: rgba(0,0,0,0.3); border-radius: 14px; display: flex; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+        .bar-sns { background: linear-gradient(90deg, #FF5500, #FF9900); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; padding-left: 10px; font-size: 10px; font-weight: 700; color: #000; }
+        .bar-pns { background: linear-gradient(90deg, #00FF94, #00F0FF); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-size: 10px; font-weight: 700; color: #000; }
+        .graph-container { width: 100%; height: 60px; position: relative; }
 
         .dock {
             position: fixed; bottom: 30px; left: 50%; width: 320px; height: 64px; margin-left: -160px; 
             background: rgba(15,15,20,0.95); backdrop-filter: blur(25px);
             border-radius: 32px; border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
             display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
-            z-index: 1000; opacity: 0; pointer-events: none;
+            z-index: 1000; transition: opacity 0.5s; touch-action: none; cursor: grab;
         }
-        .dock.show { opacity: 1; pointer-events: auto; }
+        .dock:active { cursor: grabbing; border-color: var(--plasma-cyan); }
+        .dock::after { content: ''; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
 
         .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
         
         #camera-loading {
             position: absolute; inset: 0; z-index: 999; background: #000; display: flex; justify-content: center; align-items: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.5s;
+            transition: opacity 0.5s; pointer-events: none; opacity: 0;
         }
         #camera-loading.active { opacity: 1; pointer-events: auto; }
     </style>
@@ -102,83 +112,92 @@
     <video id="input-video" playsinline muted autoplay></video>
     <canvas id="roi-canvas" width="64" height="64"></canvas>
     <div id="universe"></div>
-    <div id="camera-loading"><div class="text-center"><div class="text-xs font-mono-tech text-white">INITIALIZING...</div></div></div>
+    <div id="camera-loading"><div class="text-center"><i data-lucide="camera" class="w-8 h-8 text-cyan-400 mx-auto mb-2 animate-bounce"></i><div class="text-xs font-mono-tech text-white">INITIALIZING OPTICS...</div></div></div>
 
     <!-- HUD -->
     <div id="hud-layer">
         <div class="flex justify-between items-start px-6">
-            <div><div class="text-2xl font-black">TENKI</div><div class="text-[9px] text-cyan-400 font-mono-tech">v41.5 ADVANCED</div></div>
+            <div><div class="text-2xl font-black tracking-widest">TENKI</div><div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">ALIVE_CORE v41.0</div></div>
             <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono-tech text-gray-500">WAITING</div>
         </div>
         <div class="flex-1 flex flex-col justify-center items-center">
             <div class="fingerprint-container" id="scan-trigger">
-                <div class="fingerprint-ring" id="pulse-ring"></div>
-                <div class="fingerprint-btn"><i data-lucide="fingerprint" class="w-8 h-8 text-white/40" id="scan-icon"></i></div>
+                <div class="rr-ring"></div><div class="fingerprint-ring" id="pulse-ring"></div>
+                <div class="fingerprint-btn"><i data-lucide="fingerprint" class="w-8 h-8 text-white/40 transition-colors" id="scan-icon"></i></div>
             </div>
-            <div class="mt-8 text-center">
-                <div id="main-instruction" class="text-xs font-bold text-white/80">ALIGN FACE</div>
+            <div class="mt-8 text-center h-10">
+                <div id="main-instruction" class="text-xs font-bold tracking-[0.15em] text-white/80">ALIGN FACE</div>
+                <div id="sub-instruction" class="text-[9px] text-cyan-400/60 mt-1 font-mono-tech opacity-0 transition-opacity">CHECK LIGHTING...</div>
             </div>
         </div>
-        <div class="px-6 pb-6 w-full"><div class="w-full h-1 bg-white/10 rounded overflow-hidden"><div id="signal-bar" class="h-full bg-cyan-400 w-0 transition-all"></div></div></div>
+        <div class="px-6 pb-6 w-full"><div class="w-full h-1 bg-white/10 rounded overflow-hidden"><div id="signal-bar" class="h-full bg-cyan-400 w-0 transition-all duration-100 ease-linear"></div></div></div>
     </div>
 
     <!-- Dashboard -->
     <div id="dashboard-layer">
         <div class="mb-4">
             <div class="flex justify-between items-end mb-2">
-                <div><div class="text-[10px] text-cyan-400 font-bold">BIOMETRICS</div><div class="text-xl font-bold text-white">Analysis</div></div>
-                <div class="text-right"><div class="text-[9px] text-gray-500">ACCURACY</div><div id="confidence-txt" class="text-white font-mono-tech text-lg">0%</div></div>
+                <div><div class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-1"><span id="analysis-state" class="animate-pulse">CALIBRATING...</span></div><div class="text-xl font-bold text-white font-serif">Bio-Metrics</div></div>
+                <div class="text-right"><div class="text-[9px] text-gray-500 font-bold mb-1">ACCURACY</div><div id="confidence-txt" class="text-white font-mono-tech font-bold text-lg">0%</div></div>
             </div>
-            <div class="w-full h-1 bg-white/10 rounded overflow-hidden"><div id="confidence-bar" class="h-full bg-cyan-400 transition-all"></div></div>
+            <div class="integrity-track"><div id="confidence-bar" class="integrity-fill" style="width: 0%"></div></div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
             <!-- TEI Score -->
-            <div class="col-span-2 bento-card py-6 flex flex-col items-center justify-center">
+            <div class="col-span-2 bento-card py-6 flex flex-col items-center justify-center bg-black/40">
                 <div class="relative w-[220px] h-[220px]">
                     <svg class="w-full h-full"><circle cx="110" cy="110" r="90" class="score-circle-bg"></circle><circle id="score-ring" cx="110" cy="110" r="90" class="score-circle-fg"></circle></svg>
                     <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span class="text-[10px] text-gray-500">STRESS SCORE</span>
-                        <span id="tei-score" class="text-7xl font-black text-white mt-2">--</span>
-                        <span id="tei-grade" class="text-xs text-cyan-400 mt-3">CALIBRATING...</span>
+                        <span class="text-[10px] font-bold tracking-[0.2em] text-gray-500 mb-2">STRESS SCORE</span>
+                        <span id="tei-score" class="text-8xl font-black text-white leading-none tracking-tighter">--</span>
+                        <span id="tei-grade" class="text-xs font-bold text-cyan-400 mt-2 tracking-widest uppercase">Calculating...</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Heart Rate -->
-            <div class="bento-card col-span-1 h-32 flex flex-col justify-between">
-                <div class="flex justify-between items-center">
-                    <span class="text-[9px] font-bold text-gray-400">HEART RATE</span>
-                    <i data-lucide="heart" class="w-3 h-3 text-red-500 fill-red-500"></i>
+            <!-- ANS Spectrum -->
+            <div class="col-span-2 bento-card">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2"><i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i> Autonomic Balance</span>
+                    <span id="hrv-val" class="text-sm font-mono-tech font-bold text-white">-- ms</span>
                 </div>
-                <div><span id="bpm-val" class="text-3xl font-bold text-white">--</span><span class="text-[9px] text-gray-500 ml-1">BPM</span></div>
-                <canvas id="pulse-canvas" width="100" height="40"></canvas>
+                <div class="spectrum-bar">
+                    <div class="spectrum-mid"></div>
+                    <div id="bar-sns" class="bar-sns">SNS 50%</div><div id="bar-pns" class="bar-pns">50% PNS</div>
+                </div>
+                <div class="flex justify-between mt-2 text-[9px] font-bold text-gray-500">
+                    <span id="sns-txt">STRESS</span>
+                    <span id="pns-txt">RECOVERY</span>
+                </div>
+                <div class="mt-2 text-center">
+                    <span id="baseline-status" class="text-[9px] font-mono-tech px-2 py-1 rounded bg-white/5 text-gray-400">BASELINE: COLLECTING...</span>
+                </div>
             </div>
 
-            <!-- HRV -->
-            <div class="bento-card col-span-1 h-32 flex flex-col justify-between">
-                <div class="flex justify-between items-center">
-                    <span class="text-[9px] font-bold text-gray-400">HRV</span>
-                    <i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i>
+            <!-- Heart Rate (Alive Graph) -->
+            <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
+                <div class="flex justify-between items-start z-10">
+                    <span class="text-[9px] font-bold text-gray-400 uppercase">Heart Rate</span>
+                    <i data-lucide="heart" class="w-3 h-3 text-red-500 fill-red-500 animate-pulse"></i>
                 </div>
-                <div><span id="hrv-val" class="text-3xl font-bold text-white">--</span><span class="text-[9px] text-gray-500 ml-1">ms</span></div>
-                <div class="text-[9px] text-gray-500">RMSSD / SDNN</div>
+                <div class="z-10"><span id="bpm-val" class="text-4xl font-bold tracking-tighter text-white">--</span><span class="text-[9px] text-gray-500 font-bold ml-1">BPM</span></div>
+                <div class="graph-container z-10"><canvas id="pulse-canvas" width="120" height="60"></canvas></div>
             </div>
 
             <!-- Respiration -->
-            <div class="bento-card col-span-2 h-32 flex flex-col justify-between">
-                <div class="flex justify-between">
-                    <span class="text-[9px] font-bold text-gray-400">RESPIRATION & SIGNAL QUALITY</span>
-                    <span id="snr-txt" class="text-[9px] font-mono-tech text-gray-500">SNR: --</span>
+            <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
+                <div class="flex justify-between items-start z-10">
+                    <span class="text-[9px] font-bold text-gray-400 uppercase">Respiration</span>
+                    <i data-lucide="wind" class="w-3 h-3 text-green-400"></i>
                 </div>
-                <div class="flex items-end gap-4">
-                    <div><span id="rr-val" class="text-2xl font-bold">--</span><span class="text-[9px] ml-1">BR/MIN</span></div>
-                    <canvas id="breath-canvas" width="150" height="50"></canvas>
-                </div>
+                <div class="absolute inset-0 top-6 bottom-6 flex items-center justify-center"><canvas id="breath-canvas" width="120" height="80"></canvas></div>
+                <div class="text-right z-10 relative"><span id="rr-val" class="text-xl font-bold text-white tracking-tighter">--</span><span class="text-[9px] text-gray-500 font-bold ml-1">BR/MIN</span></div>
             </div>
 
-            <div class="col-span-2 bento-card bg-black/80 h-20 flex flex-col justify-center">
-                <div id="log-msg" class="text-[9px] text-white/70 font-serif italic">System standby...</div>
+            <div class="col-span-2 bento-card bg-black/80 border-white/20 h-24 flex flex-col justify-center">
+                <div class="text-[9px] text-cyan-500 font-mono-tech mb-2">SYSTEM_LOG</div>
+                <div id="log-msg" class="text-[10px] text-white/90 font-serif italic leading-tight">"System standby."</div>
             </div>
             
             <div class="col-span-2 h-10 w-full"></div>
@@ -186,261 +205,127 @@
     </div>
 
     <!-- Dock -->
-    <div id="floating-dock" class="dock">
+    <div id="floating-dock" class="dock" style="opacity: 0; pointer-events: none;">
         <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10"><i data-lucide="share-2" class="w-4 h-4"></i></button>
-        <button id="reset-btn" class="flex-1 h-10 mx-2 bg-white text-black rounded-full font-bold text-xs" onclick="app.reset()">NEW SCAN</button>
+        <button id="reset-btn" class="flex-1 h-12 mx-3 bg-white text-black rounded-full font-bold text-xs shadow-lg active:scale-95 transition-transform" onclick="app.reset()">NEW SCAN</button>
         <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10"><i data-lucide="history" class="w-4 h-4"></i></button>
     </div>
 
-    <!-- 🟢 ADVANCED WORKER EMBEDDED -->
+    <!-- 🟢 WEB WORKER (Non-Blocking Analysis) -->
     <script id="worker-code" type="javascript/worker">
-class AdvancedMedicalPOS {
-    constructor() {
-        this.bufferSize = 256;
-        this.samples = { r: [], g: [], b: [], t: [] };
-        this.peaks = [];
-        this.validIBIs = [];
-        this.lastBPM = 70;
-        
-        // 3-order IIR Butterworth (0.65-4Hz @ 30Hz)
-        this.filterState = {
-            b: [0.00654, 0.01308, 0.00654],
-            a: [1.0, -2.3741, 1.9294],
-            x: [0, 0, 0],
-            y: [0, 0, 0]
-        };
-        
-        this.suspectPeaks = [];
-        this.processedFrames = 0;
-    }
+        class MedicalPOS {
+            constructor() {
+                this.bufferSize = 256;
+                this.r = []; this.g = []; this.b = []; this.t = [];
+                this.peaks = []; this.ibis = [];
+                this.lastBPM = 70;
+            }
+            
+            process(r, g, b, t) {
+                // Always return raw signal for immediate visualization (The "Alive" fix)
+                // Normalize roughly around 0
+                const rawSignal = -(g - 128) / 128; 
 
-    process(r, g, b, t) {
-        this.samples.r.push(r);
-        this.samples.g.push(g);
-        this.samples.b.push(b);
-        this.samples.t.push(t);
+                this.r.push(r); this.g.push(g); this.b.push(b); this.t.push(t);
+                if(this.r.length > this.bufferSize) { this.r.shift(); this.g.shift(); this.b.shift(); this.t.shift(); }
+                
+                // If not enough data, just return signal for graph
+                if(this.r.length < 60) return { signal: rawSignal, bpm: 0, snr: 0, status: 'buffering' };
 
-        if (this.samples.r.length > this.bufferSize) {
-            this.samples.r.shift();
-            this.samples.g.shift();
-            this.samples.b.shift();
-            this.samples.t.shift();
-        }
+                // POS Algorithm
+                const len = this.r.length;
+                const mR = this.r.reduce((a,c)=>a+c,0)/len;
+                const mG = this.g.reduce((a,c)=>a+c,0)/len;
+                const mB = this.b.reduce((a,c)=>a+c,0)/len;
+                
+                let H = new Float32Array(len);
+                for(let i=0; i<len; i++) {
+                    let nR = this.r[i]/mR; let nG = this.g[i]/mG; let nB = this.b[i]/mB;
+                    let S1 = nG - nB; let S2 = nG + nB - 2*nR;
+                    H[i] = S1 + (S2/2);
+                }
+                
+                // Smoothing
+                let filtered = new Float32Array(len);
+                for(let i=4; i<len-4; i++) {
+                    let sum = 0; for(let j=-4; j<=4; j++) sum+=H[i+j];
+                    filtered[i] = sum/9;
+                }
+                
+                // Signal Quality
+                const processedSignal = filtered[len-5];
+                let noise = 0; for(let i=1; i<len; i++) noise += Math.abs(filtered[i]-filtered[i-1]);
+                const amplitude = Math.max(...filtered) - Math.min(...filtered);
+                const snr = amplitude / (noise/len + 0.00001);
 
-        this.processedFrames++;
+                // Peak Detect
+                if(snr > 1.5) this.detectPeak(filtered, this.t, amplitude);
 
-        // Raw signal for visualization
-        const rawSignal = (this.samples.g[this.samples.g.length - 1] - 128) / 128;
+                return {
+                    bpm: this.calcBPM(),
+                    hrv: this.calcRMSSD(),
+                    rr: this.calcRR(),
+                    signal: processedSignal, // The filtered clean signal
+                    snr: snr,
+                    validSamples: this.ibis.length,
+                    status: 'analyzing'
+                };
+            }
 
-        if (this.samples.r.length < 60) {
-            return { signal: rawSignal, bpm: 0, hrv: 0, snr: 0, validSamples: this.validIBIs.length, status: 'buffering' };
-        }
-
-        // === CORE ALGORITHM ===
-        // 1. RGB -> YCbCr
-        const { Cb, Cr } = this.rgbToYcbcr();
-
-        // 2. Modified POS on CbCr
-        const H = this.computeModifiedPOS(Cb, Cr);
-
-        // 3. Butterworth filter
-        const filtered = this.applyButterworthFilter(H);
-
-        // 4. SNR estimation
-        const { snr, amplitude } = this.estimateSNR(filtered);
-
-        // 5. Peak detection
-        if (snr > 1.2) {
-            this.adaptivePeakDetection(filtered, snr, amplitude);
-        }
-
-        return {
-            signal: filtered[filtered.length - 1],
-            bpm: this.calculateBPM(),
-            hrv: this.calculateRMSSD(),
-            snr: snr,
-            validSamples: this.validIBIs.length,
-            status: 'analyzing'
-        };
-    }
-
-    rgbToYcbcr() {
-        const len = this.samples.r.length;
-        const Cb = new Float32Array(len);
-        const Cr = new Float32Array(len);
-
-        for (let i = 0; i < len; i++) {
-            const r = this.samples.r[i] / 255;
-            const g = this.samples.g[i] / 255;
-            const b = this.samples.b[i] / 255;
-
-            Cb[i] = -0.169 * r - 0.331 * g + 0.5 * b;
-            Cr[i] = 0.5 * r - 0.419 * g - 0.081 * b;
-        }
-
-        return { Cb, Cr };
-    }
-
-    computeModifiedPOS(Cb, Cr) {
-        const len = Cb.length;
-        const meanCb = Cb.reduce((a,c)=>a+c,0) / len;
-        const meanCr = Cr.reduce((a,c)=>a+c,0) / len;
-
-        let varCb = 0, varCr = 0;
-        for (let i = 0; i < len; i++) {
-            varCb += Math.pow(Cb[i] - meanCb, 2);
-            varCr += Math.pow(Cr[i] - meanCr, 2);
-        }
-        varCb /= len;
-        varCr /= len;
-
-        const stdCb = Math.sqrt(varCb);
-        const stdCr = Math.sqrt(varCr);
-        const alpha = stdCb > stdCr ? 0.4 : 0.5;
-        const beta = 1.0 - alpha;
-
-        const H = new Float32Array(len);
-        for (let i = 0; i < len; i++) {
-            const nCb = (Cb[i] - meanCb) / (stdCb + 1e-6);
-            const nCr = (Cr[i] - meanCr) / (stdCr + 1e-6);
-            H[i] = alpha * nCb - beta * nCr;
-        }
-
-        return H;
-    }
-
-    applyButterworthFilter(H) {
-        const len = H.length;
-        const { b, a } = this.filterState;
-        const filtered = new Float32Array(len);
-
-        for (let i = 0; i < len; i++) {
-            let y = b[0] * H[i] + b[1] * this.filterState.x[0] + b[2] * this.filterState.x[1]
-                  - a[1] * this.filterState.y[0] - a[2] * this.filterState.y[1];
-
-            this.filterState.x[1] = this.filterState.x[0];
-            this.filterState.x[0] = H[i];
-            this.filterState.y[1] = this.filterState.y[0];
-            this.filterState.y[0] = y;
-
-            filtered[i] = y;
-        }
-
-        return filtered;
-    }
-
-    estimateSNR(signal) {
-        let min = signal[0], max = signal[0];
-        for (let i = 1; i < signal.length; i++) {
-            if (signal[i] < min) min = signal[i];
-            if (signal[i] > max) max = signal[i];
-        }
-        const amplitude = max - min;
-
-        let noiseSum = 0;
-        for (let i = 1; i < signal.length; i++) {
-            const diff = signal[i] - signal[i - 1];
-            noiseSum += diff * diff;
-        }
-        const noise = Math.sqrt(noiseSum / (signal.length - 1));
-        const snr = amplitude / (noise + 1e-6);
-
-        return { snr, amplitude };
-    }
-
-    adaptivePeakDetection(signal, snr, amplitude) {
-        const len = signal.length;
-        const i = len - 6;
-
-        if (signal[i] <= signal[i - 1] || signal[i] <= signal[i + 1]) return;
-
-        const threshold = amplitude * Math.max(0.35, 0.60 - (snr * 0.05));
-        if (signal[i] < threshold) return;
-
-        const now = this.samples.t[i];
-
-        if (this.peaks.length === 0) {
-            this.peaks.push(now);
-            return;
-        }
-
-        const lastPeak = this.peaks[this.peaks.length - 1];
-        const gap = now - lastPeak;
-
-        if (gap < 330 || gap > 1500) return;
-
-        if (this.peaks.length >= 2) {
-            const ibi = gap;
-            const prevIBI = lastPeak - this.peaks[this.peaks.length - 2];
-            const ibiBias = Math.abs(ibi - prevIBI) / prevIBI;
-
-            if (ibiBias > 0.30) {
-                this.suspectPeaks.push({ time: now, ibi: ibi });
-                if (this.suspectPeaks.length > 1) {
-                    const prev = this.suspectPeaks[0];
-                    if (Math.abs(ibi - prev.ibi) / prev.ibi < 0.25) {
-                        this.peaks.push(prev.time);
-                        const runInStart = this.peaks[0];
-                        if (now - runInStart > 10000) {
-                            this.validIBIs.push(prev.ibi);
-                            if (this.validIBIs.length > 60) this.validIBIs.shift();
+            detectPeak(data, times, amp) {
+                const i = data.length-6;
+                if(data[i] > data[i-1] && data[i] > data[i+1] && data[i] > amp*0.3) {
+                    const now = times[i];
+                    if(this.peaks.length > 0 && (now - this.peaks[this.peaks.length-1]) < 350) return;
+                    this.peaks.push(now);
+                    if(this.peaks.length > 30) this.peaks.shift();
+                    
+                    if(this.peaks.length >= 2) {
+                        const ibi = now - this.peaks[this.peaks.length-2];
+                        if(ibi > 350 && ibi < 1300) { 
+                            this.ibis.push(ibi);
+                            if(this.ibis.length > 30) this.ibis.shift();
                         }
-                        this.suspectPeaks.shift();
                     }
                 }
-                return;
+            }
+
+            calcBPM() {
+                if(this.ibis.length < 3) return this.lastBPM;
+                const sorted = [...this.ibis].sort((a,b)=>a-b);
+                const median = sorted[Math.floor(sorted.length/2)];
+                const raw = 60000/median;
+                if(Math.abs(raw - this.lastBPM) > 5) this.lastBPM += (raw>this.lastBPM?1:-1);
+                else this.lastBPM = raw;
+                return Math.round(this.lastBPM);
+            }
+
+            calcRMSSD() {
+                if(this.ibis.length < 5) return 0;
+                let sum=0; for(let i=0; i<this.ibis.length-1; i++) sum+=Math.pow(this.ibis[i+1]-this.ibis[i], 2);
+                return Math.min(150, Math.round(Math.sqrt(sum/(this.ibis.length-1))));
+            }
+
+            calcRR() {
+                if(this.ibis.length < 10) return 0;
+                let cycles=0;
+                for(let i=1; i<this.ibis.length-1; i++) {
+                    if(this.ibis[i]>this.ibis[i-1] && this.ibis[i]>this.ibis[i+1]) cycles++;
+                }
+                const dur = (this.peaks[this.peaks.length-1] - this.peaks[0])/60000;
+                return Math.round(cycles/dur)||0;
             }
         }
 
-        this.peaks.push(now);
-        if (this.peaks.length >= 2) {
-            const runInStart = this.peaks[0];
-            if (now - runInStart > 10000) {
-                this.validIBIs.push(gap);
-                if (this.validIBIs.length > 60) this.validIBIs.shift();
-            }
-        }
-
-        if (this.peaks.length > 50) this.peaks.shift();
-    }
-
-    calculateBPM() {
-        if (this.validIBIs.length < 3) return this.lastBPM;
-
-        const sorted = [...this.validIBIs].sort((a, b) => a - b);
-        const median = sorted[Math.floor(sorted.length / 2)];
-        const rawBPM = 60000 / median;
-
-        const diff = rawBPM - this.lastBPM;
-        if (Math.abs(diff) > 2) {
-            this.lastBPM += (diff > 0 ? 2 : -2);
-        } else {
-            this.lastBPM = rawBPM;
-        }
-
-        return Math.round(this.lastBPM);
-    }
-
-    calculateRMSSD() {
-        if (this.validIBIs.length < 5) return 0;
-
-        let sum = 0;
-        for (let i = 0; i < this.validIBIs.length - 1; i++) {
-            sum += Math.pow(this.validIBIs[i + 1] - this.validIBIs[i], 2);
-        }
-        return Math.min(150, Math.round(Math.sqrt(sum / (this.validIBIs.length - 1))));
-    }
-}
-
-const core = new AdvancedMedicalPOS();
-self.onmessage = function (e) {
-    const { r, g, b, t } = e.data;
-    const result = core.process(r, g, b, t);
-    self.postMessage(result);
-};
+        const core = new MedicalPOS();
+        self.onmessage = function(e) {
+            const { r, g, b, t } = e.data;
+            const res = core.process(r, g, b, t);
+            if(res) self.postMessage(res);
+        };
     </script>
 
-    <!-- MAIN APP -->
+    <!-- MAIN LOGIC -->
     <script>
         const blob = new Blob([document.getElementById('worker-code').textContent], {type: "text/javascript"});
         const worker = new Worker(window.URL.createObjectURL(blob));
@@ -452,38 +337,104 @@ self.onmessage = function (e) {
                 results: { tei: 0, hrv: 0, rr: 0, bpm: 0 },
                 graphBuffer: []
             },
-            roiCtx: null, video: null, lastPostTime: 0,
+            roiCtx: null, video: null,
 
             init() {
-                this.initThree();
-                this.initGraphs();
-                this.initCamera();
-                this.initInteraction();
+                this.initThree(); this.initGraphs();
+                this.initCamera(); this.initInteraction(); 
                 this.initWorkerListener();
                 lucide.createIcons();
             },
 
+            // 🟢 Main Thread Graph Rendering (The "Alive" Fix)
             initWorkerListener() {
                 worker.onmessage = (e) => {
                     const data = e.data;
                     
-                    // Graph rendering
+                    // 1. Instant Visualization (Always render signal)
+                    // If signal is flat (0), use fallback sine wave to keep UI alive
                     let signal = data.signal;
-                    if (Math.abs(signal) < 0.001) signal = Math.sin(performance.now() / 200) * 0.05;
+                    if (Math.abs(signal) < 0.001) signal = Math.sin(performance.now()/200) * 0.05;
                     this.updateRealtimeGraph(signal);
 
-                    if (this.state.accumulating && data.status === 'analyzing') {
-                        if (data.bpm > 0) this.state.results.bpm = data.bpm;
-                        if (data.hrv > 0) this.state.results.hrv = data.hrv;
+                    // 2. Data Update (Only when accumulating)
+                    if(this.state.accumulating && data.status === 'analyzing') {
+                        // Paradox Filter
+                        if (data.bpm > 110 && data.hrv > 80) {
+                            // Noise, skip update
+                        } else {
+                            if(data.bpm > 0) this.state.results.bpm = data.bpm;
+                            if(data.hrv > 0) this.state.results.hrv = data.hrv;
+                            if(data.rr > 0) this.state.results.rr = data.rr;
+                            this.calculateTEI();
+                        }
+                        
                         this.state.confidence = Math.min(100, Math.floor((data.validSamples / 30) * 100));
                         this.updateDashboardUI(data.snr);
                     }
 
-                    if (this.state.scanning) {
+                    if(this.state.scanning) {
                         const qual = Math.min(100, data.snr * 20);
                         document.getElementById('signal-bar').style.width = qual + '%';
                     }
                 };
+            },
+
+            calculateTEI() {
+                const { hrv, rr, bpm } = this.state.results;
+                if(hrv === 0) return;
+                const scoreHRV = Math.min(100, (hrv/100)*100);
+                const stressHR = Math.max(0, (bpm-60)*1.5);
+                const scoreRR = (rr > 20 || rr < 6) ? 0 : 100 - (Math.abs(rr-8)*5);
+                let rawScore = 50 + (scoreHRV*0.5) - (stressHR*0.3) + (scoreRR*0.2);
+                if(this.state.confidence < 20) rawScore = 50; 
+                this.state.results.tei = Math.max(1, Math.min(99, Math.floor(rawScore)));
+            },
+
+            updateDashboardUI(snr) {
+                const { tei, hrv, rr, bpm } = this.state.results;
+                
+                const elScore = document.getElementById('tei-score');
+                const ring = document.getElementById('score-ring');
+                const elGrade = document.getElementById('tei-grade');
+                
+                // Animation
+                const cur = parseInt(elScore.innerText)||0;
+                if(cur !== tei) elScore.innerText = cur + (tei>cur?1:-1);
+
+                if(this.state.confidence < 20) {
+                    elScore.innerText = "--";
+                    elGrade.innerText = "CALIBRATING...";
+                    elGrade.style.color = "#666";
+                    ring.style.stroke = "#333";
+                } else {
+                    const offset = 628 - (628*(tei/100));
+                    ring.style.strokeDashoffset = offset;
+                    if(tei>=80) { ring.style.stroke="var(--score-high)"; elGrade.innerText="OPTIMAL FLOW"; elGrade.style.color=ring.style.stroke; }
+                    else if(tei>=60) { ring.style.stroke="var(--score-mid)"; elGrade.innerText="BALANCED"; elGrade.style.color=ring.style.stroke; }
+                    else { ring.style.stroke="var(--score-low)"; elGrade.innerText="HIGH STRESS"; elGrade.style.color=ring.style.stroke; }
+                }
+
+                document.getElementById('confidence-txt').innerText = this.state.confidence + "%";
+                document.getElementById('confidence-bar').style.width = this.state.confidence + "%";
+                if(this.state.confidence >= 100) {
+                    document.getElementById('confidence-bar').style.background = "var(--matrix-green)";
+                    document.getElementById('analysis-state').innerText = "SYSTEM LOCKED";
+                    document.getElementById('analysis-state').style.color = "var(--matrix-green)";
+                    document.getElementById('analysis-state').classList.remove('animate-pulse');
+                }
+
+                document.getElementById('bpm-val').innerText = bpm;
+                document.getElementById('hrv-val').innerText = hrv + " ms";
+                document.getElementById('rr-val').innerText = rr;
+
+                let pns = Math.min(95, Math.max(5, (hrv/120)*100));
+                document.getElementById('bar-pns').style.width = pns + "%";
+                document.getElementById('bar-sns').style.width = (100-pns) + "%";
+
+                const log = document.getElementById('log-msg');
+                if(snr < 1.5) { log.innerText = "Signal weak. Adjust lighting."; log.style.color = "#FFD600"; }
+                else { log.innerText = "Signal optimal. Analyzing..."; log.style.color = "#fff"; }
             },
 
             async initCamera() {
@@ -494,141 +445,113 @@ self.onmessage = function (e) {
                     const faceMesh = new FaceMesh({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
                     faceMesh.setOptions({maxNumFaces: 1, minDetectionConfidence: 0.5});
                     faceMesh.onResults(res => {
-                        if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
+                        if(res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
                             this.state.faceFound = true;
                             document.getElementById('status-badge').innerText = "FACE LOCKED";
                             document.getElementById('status-badge').style.color = "#00FF94";
-                            if (this.state.scanning || this.state.accumulating) this.processROI();
+                            // Always process ROI to keep graph moving
+                            if(this.state.scanning || this.state.accumulating) this.processROI();
                         } else {
                             this.state.faceFound = false;
                             document.getElementById('status-badge').innerText = "WAITING";
+                            document.getElementById('status-badge').style.color = "gray";
                         }
                     });
                     const camera = new Camera(video, { onFrame: async () => { await faceMesh.send({image: video}); }, width: 320, height: 240 });
                     await camera.start();
                     this.state.cameraReady = true;
                     document.getElementById('camera-loading').classList.remove('active');
-                } catch (e) {
-                    document.getElementById('camera-loading').innerText = "HTTPS REQUIRED";
-                }
+                } catch(e) { document.getElementById('camera-loading').innerHTML = "HTTPS REQUIRED"; }
             },
 
             processROI() {
-                const now = performance.now();
-                if (now - this.lastPostTime < 100) return;  // Throttle
-                this.lastPostTime = now;
-
-                const w = 64, h = 64;
+                const w=64, h=64;
                 this.roiCtx.drawImage(this.video, 0, 0, w, h);
-                const frame = this.roiCtx.getImageData(27, 22, 20, 20);  // 20x20 ROI
+                const frame = this.roiCtx.getImageData(32-5, 32-20, 10, 10); 
                 const data = frame.data;
-                let r = 0, g = 0, b = 0;
-                for (let i = 0; i < data.length; i += 4) {
-                    r += data[i];
-                    g += data[i + 1];
-                    b += data[i + 2];
-                }
-                const count = data.length / 4;
-                worker.postMessage({ r: r / count, g: g / count, b: b / count, t: performance.now() });
-            },
-
-            updateDashboardUI(snr) {
-                const { tei, hrv, bpm } = this.state.results;
-                
-                document.getElementById('bpm-val').innerText = bpm;
-                document.getElementById('hrv-val').innerText = hrv;
-                document.getElementById('confidence-txt').innerText = this.state.confidence + "%";
-                document.getElementById('confidence-bar').style.width = this.state.confidence + "%";
-                document.getElementById('snr-txt').innerText = `SNR: ${snr.toFixed(1)}`;
-                document.getElementById('log-msg').innerText = snr < 1.5 ? "Signal weak. Improve lighting." : "Signal optimal. Analyzing...";
+                let r=0, g=0, b=0;
+                for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
+                const c = data.length/4;
+                worker.postMessage({ r: r/c, g: g/c, b: b/c, t: performance.now() });
             },
 
             updateRealtimeGraph(val) {
-                let norm = (val + 2) / 4;
-                norm = Math.max(0, Math.min(1, norm));
-                this.state.graphBuffer.push(norm);
-                if (this.state.graphBuffer.length > 40) this.state.graphBuffer.shift();
-
-                const ctx = this.pulseCtx;
-                const w = this.pulseCanvas.width;
-                const h = this.pulseCanvas.height;
-                const barW = (w / 40) - 1;
-
-                ctx.clearRect(0, 0, w, h);
-                this.state.graphBuffer.forEach((v, i) => {
-                    const bh = v * h * 0.8 + 2;
-                    const x = i * (barW + 1);
-                    const y = h - bh;
-                    ctx.fillStyle = `rgba(0, 240, 255, ${v + 0.2})`;
-                    ctx.fillRect(x, y, barW, bh);
+                let norm = (val + 2) / 4; norm = Math.max(0, Math.min(1, norm));
+                this.graphBuffer.push(norm); if(this.graphBuffer.length>40) this.graphBuffer.shift();
+                
+                const ctx = this.pulseCtx; const w = this.pulseCanvas.width; const h = this.pulseCanvas.height;
+                const gap=2, barW=(w/40)-gap;
+                ctx.clearRect(0,0,w,h);
+                this.graphBuffer.forEach((v, i) => {
+                    let bh = v*h*0.9 + 2; const x = i*(barW+gap); const y = h-bh;
+                    ctx.fillStyle = `rgba(0, 240, 255, ${v+0.2})`;
+                    ctx.fillRect(x,y,barW,bh);
                 });
+                
+                const bCtx = this.breathCtx; 
+                bCtx.clearRect(0,0,w,h);
+                this.breathTime += 0.05;
+                bCtx.beginPath(); bCtx.strokeStyle="#00FF94"; bCtx.lineWidth=2;
+                for(let x=0; x<w; x++) { bCtx.lineTo(x, (h/2)+Math.sin(x*0.05+this.breathTime)*(h/3)); }
+                bCtx.stroke();
             },
 
             initGraphs() {
-                this.pulseCanvas = document.getElementById('pulse-canvas');
-                this.pulseCtx = this.pulseCanvas.getContext('2d');
-                this.breathCanvas = document.getElementById('breath-canvas');
-                this.breathCtx = this.breathCanvas.getContext('2d');
+                this.pulseCanvas = document.getElementById('pulse-canvas'); this.pulseCtx = this.pulseCanvas.getContext('2d');
+                this.breathCanvas = document.getElementById('breath-canvas'); this.breathCtx = this.breathCanvas.getContext('2d');
+                this.breathTime = 0;
             },
 
             initInteraction() {
                 const btn = document.getElementById('scan-trigger');
                 const start = (e) => {
                     e.preventDefault();
-                    if (!this.state.cameraReady || !this.state.faceFound) return;
+                    if(!this.state.cameraReady || !this.state.faceFound) return;
                     this.state.scanning = true;
                     document.getElementById('scan-icon').classList.add('text-cyan-400');
+                    document.getElementById('pulse-ring').style.borderColor = '#00F0FF';
+                    document.getElementById('pulse-ring').style.transform = 'scale(1.1)';
                     
-                    let p = 0;
+                    let p=0;
                     this.scanTimer = setInterval(() => {
-                        p += 4;
-                        if (p >= 100) {
-                            clearInterval(this.scanTimer);
-                            this.completeScan();
-                        }
+                        p+=4; 
+                        if(p>=100) { clearInterval(this.scanTimer); this.completeScan(); }
                     }, 50);
                 };
-                btn.addEventListener('mousedown', start);
-                btn.addEventListener('touchstart', start);
+                btn.addEventListener('mousedown', start); btn.addEventListener('touchstart', start);
             },
 
             completeScan() {
                 document.getElementById('hud-layer').classList.add('hidden-ui');
                 document.getElementById('universe').classList.add('dimmed');
                 document.getElementById('dashboard-layer').classList.add('show');
-                document.getElementById('floating-dock').classList.add('show');
-                this.state.results.bpm = 72;
-                this.state.accumulating = true;
+                document.getElementById('floating-dock').style.opacity = '1';
+                document.getElementById('floating-dock').style.pointerEvents = 'auto';
+                this.state.results.bpm = 72; this.state.accumulating = true;
             },
 
             initThree() {
                 const c = document.getElementById('universe');
                 this.scene = new THREE.Scene();
-                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
                 this.camera.position.z = 5;
-                this.renderer = new THREE.WebGLRenderer({alpha: true});
+                this.renderer = new THREE.WebGLRenderer({alpha:true});
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 c.appendChild(this.renderer.domElement);
-                
-                const geo = new THREE.BufferGeometry();
-                const pos = new Float32Array(3000 * 3);
-                for (let i = 0; i < 9000; i++) pos[i] = (Math.random() - 0.5) * 15;
+                const geo = new THREE.BufferGeometry(); const pos = new Float32Array(3000*3);
+                for(let i=0; i<9000; i++) pos[i] = (Math.random()-0.5)*15;
                 geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-                const mat = new THREE.PointsMaterial({size: 0.03, color: 0x00ffff, transparent: true, opacity: 0.4});
+                const mat = new THREE.PointsMaterial({size: 0.03, color: 0x00ffff, transparent:true, opacity:0.4});
                 this.stars = new THREE.Points(geo, mat);
                 this.scene.add(this.stars);
-                this.animate();
+                this.animateThree();
             },
-
-            animate() {
-                requestAnimationFrame(() => this.animate());
+            animateThree() {
+                requestAnimationFrame(()=>this.animateThree());
                 this.stars.rotation.y += 0.0005;
                 this.renderer.render(this.scene, this.camera);
             },
-
-            reset() {
-                location.reload();
-            }
+            reset() { location.reload(); }
         };
 
         window.onload = () => app.init();
