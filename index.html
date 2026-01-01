@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v40.0 - Ultimate Hybrid</title>
+    <title>TENKI v41.0 - Alive Core</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -13,12 +13,11 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* --- iOS-like Fluid UI --- */
         :root {
-            --bg-deep: #000000;
+            --bg-deep: #050510;
             --plasma-cyan: #00F0FF; 
             --matrix-green: #00FF94;
-            --glass-bg: rgba(20, 20, 25, 0.85);
+            --glass-bg: rgba(18, 18, 24, 0.95);
             --score-high: #00FF94; --score-mid: #FFD600; --score-low: #FF0055;
         }
 
@@ -30,84 +29,74 @@
             overscroll-behavior: none;
         }
 
-        /* Hidden Processing */
         #input-video, #roi-canvas { position: absolute; top: -9999px; left: -9999px; }
-
-        /* 3D Background */
         #universe { position: absolute; inset: 0; z-index: 1; transition: opacity 1.5s ease; }
-        #universe.dimmed { opacity: 0.15; filter: blur(10px); transform: scale(1.05); }
+        #universe.dimmed { opacity: 0.2; filter: blur(8px); }
 
-        /* HUD Layer */
         #hud-layer {
             position: absolute; inset: 0; z-index: 10;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 24px; padding-top: calc(50px + env(safe-area-inset-top));
-            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: opacity 0.5s; pointer-events: none;
         }
-        #hud-layer.hidden-ui { opacity: 0; pointer-events: none; transform: scale(0.95); filter: blur(10px); }
+        #hud-layer > * { pointer-events: auto; }
+        #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-        /* Fingerprint UI */
         .fingerprint-container { position: relative; width: 120px; height: 120px; display: flex; justify-content: center; align-items: center; }
         .fingerprint-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); transition: all 0.5s; }
         .fingerprint-btn {
             width: 90px; height: 90px; border-radius: 50%;
-            background: rgba(255,255,255,0.05); backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
             display: flex; justify-content: center; align-items: center;
             cursor: pointer; position: relative; z-index: 20;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transition: all 0.3s;
         }
-        .fingerprint-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
-        .fingerprint-btn.active { background: rgba(0, 240, 255, 0.1); border-color: var(--plasma-cyan); box-shadow: 0 0 40px rgba(0, 240, 255, 0.2); }
+        .fingerprint-btn.active { background: rgba(0, 240, 255, 0.15); border-color: var(--plasma-cyan); box-shadow: 0 0 30px rgba(0, 240, 255, 0.3); }
         
-        /* Dashboard Layer */
+        .rr-ring { position: absolute; inset: -20px; border-radius: 50%; border: 2px solid var(--matrix-green); opacity: 0; transform: scale(0.8); pointer-events: none; }
+        .rr-active .rr-ring { opacity: 1; animation: breathe-anim 4s infinite ease-in-out; }
+        @keyframes breathe-anim { 0%, 100% { transform: scale(0.95); opacity: 0.3; } 50% { transform: scale(1.1); opacity: 0.8; } }
+
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
             background: transparent; display: flex; flex-direction: column;
             padding: 20px; padding-top: calc(50px + env(safe-area-inset-top));
             padding-bottom: 180px; 
             overflow-y: auto; opacity: 0; pointer-events: none;
-            transform: translateY(100px); transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+            transform: translateY(40px); transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
         }
         #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
 
         .bento-card {
             background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 28px; padding: 20px; position: relative; overflow: hidden;
-            backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-            transition: transform 0.2s;
+            border-radius: 24px; padding: 20px; position: relative; overflow: hidden;
+            backdrop-filter: blur(40px); box-shadow: 0 20px 50px rgba(0,0,0,0.4);
         }
-        .bento-card:active { transform: scale(0.98); }
 
-        /* Visual Components */
         .integrity-track { width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 10px; }
         .integrity-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00F0FF, #00FF94); transition: width 0.3s; }
-        
-        .score-circle-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; stroke-linecap: round; }
+        .score-circle-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
         .score-circle-fg { 
             fill: none; stroke: var(--score-high); stroke-width: 8; stroke-linecap: round;
-            stroke-dasharray: 628; stroke-dashoffset: 628; transition: stroke-dashoffset 1.5s cubic-bezier(0.19, 1, 0.22, 1), stroke 0.5s;
+            stroke-dasharray: 628; stroke-dashoffset: 628; transition: stroke-dashoffset 1.5s ease-out, stroke 0.5s;
             transform: rotate(-90deg); transform-origin: 50% 50%;
         }
-
-        .spectrum-bar { width: 100%; height: 12px; background: rgba(0,0,0,0.5); border-radius: 6px; display: flex; overflow: hidden; margin-top: 12px; }
-        .bar-sns { background: var(--score-low); height: 100%; width: 50%; transition: width 1s; opacity: 0.8; }
-        .bar-pns { background: var(--matrix-green); height: 100%; width: 50%; transition: width 1s; opacity: 0.8; }
-        
+        .spectrum-bar { width: 100%; height: 28px; background: rgba(0,0,0,0.3); border-radius: 14px; display: flex; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+        .bar-sns { background: linear-gradient(90deg, #FF5500, #FF9900); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; padding-left: 10px; font-size: 10px; font-weight: 700; color: #000; }
+        .bar-pns { background: linear-gradient(90deg, #00FF94, #00F0FF); height: 100%; width: 50%; transition: width 1s; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-size: 10px; font-weight: 700; color: #000; }
         .graph-container { width: 100%; height: 60px; position: relative; }
 
-        /* Floating Dock */
         .dock {
-            position: fixed; bottom: 30px; left: 50%; width: 300px; height: 64px; margin-left: -150px; 
-            background: rgba(25,25,30,0.9); backdrop-filter: blur(30px);
-            border-radius: 32px; border: 1px solid rgba(255,255,255,0.15);
-            box-shadow: 0 15px 50px rgba(0,0,0,0.5);
+            position: fixed; bottom: 30px; left: 50%; width: 320px; height: 64px; margin-left: -160px; 
+            background: rgba(15,15,20,0.95); backdrop-filter: blur(25px);
+            border-radius: 32px; border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
             display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
-            z-index: 1000; transition: opacity 0.5s, transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-            transform: translateY(150px);
+            z-index: 1000; transition: opacity 0.5s; touch-action: none; cursor: grab;
         }
-        #dashboard-layer.show ~ .dock { transform: translateY(0); }
+        .dock:active { cursor: grabbing; border-color: var(--plasma-cyan); }
+        .dock::after { content: ''; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
 
         .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
         
@@ -123,25 +112,25 @@
     <video id="input-video" playsinline muted autoplay></video>
     <canvas id="roi-canvas" width="64" height="64"></canvas>
     <div id="universe"></div>
-    <div id="camera-loading"><div class="text-center"><i data-lucide="aperture" class="w-8 h-8 text-cyan-400 mx-auto mb-2 animate-spin"></i><div class="text-xs font-mono-tech text-white">INITIALIZING OPTICS...</div></div></div>
+    <div id="camera-loading"><div class="text-center"><i data-lucide="camera" class="w-8 h-8 text-cyan-400 mx-auto mb-2 animate-bounce"></i><div class="text-xs font-mono-tech text-white">INITIALIZING OPTICS...</div></div></div>
 
     <!-- HUD -->
     <div id="hud-layer">
         <div class="flex justify-between items-start px-6">
-            <div><div class="text-2xl font-black tracking-widest text-white">TENKI</div><div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">HYBRID_CORE v40.0</div></div>
-            <div id="status-badge" class="px-2 py-1 border border-white/10 rounded-full text-[9px] font-mono-tech text-gray-500 bg-black/20 backdrop-blur">WAITING</div>
+            <div><div class="text-2xl font-black tracking-widest">TENKI</div><div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">ALIVE_CORE v41.0</div></div>
+            <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono-tech text-gray-500">WAITING</div>
         </div>
         <div class="flex-1 flex flex-col justify-center items-center">
             <div class="fingerprint-container" id="scan-trigger">
-                <div class="fingerprint-ring" id="pulse-ring"></div>
-                <div class="fingerprint-btn"><i data-lucide="fingerprint" class="w-8 h-8 text-white/50 transition-colors" id="scan-icon"></i></div>
+                <div class="rr-ring"></div><div class="fingerprint-ring" id="pulse-ring"></div>
+                <div class="fingerprint-btn"><i data-lucide="fingerprint" class="w-8 h-8 text-white/40 transition-colors" id="scan-icon"></i></div>
             </div>
             <div class="mt-8 text-center h-10">
                 <div id="main-instruction" class="text-xs font-bold tracking-[0.15em] text-white/80">ALIGN FACE</div>
                 <div id="sub-instruction" class="text-[9px] text-cyan-400/60 mt-1 font-mono-tech opacity-0 transition-opacity">CHECK LIGHTING...</div>
             </div>
         </div>
-        <div class="px-6 pb-6 w-full"><div class="w-full h-1 bg-white/10 rounded-full overflow-hidden"><div id="signal-bar" class="h-full bg-cyan-400 w-0 transition-all duration-100 ease-linear shadow-[0_0_10px_#00F0FF]"></div></div></div>
+        <div class="px-6 pb-6 w-full"><div class="w-full h-1 bg-white/10 rounded overflow-hidden"><div id="signal-bar" class="h-full bg-cyan-400 w-0 transition-all duration-100 ease-linear"></div></div></div>
     </div>
 
     <!-- Dashboard -->
@@ -156,64 +145,73 @@
 
         <div class="grid grid-cols-2 gap-3">
             <!-- TEI Score -->
-            <div class="col-span-2 bento-card py-8 flex flex-col items-center justify-center bg-black/40">
-                <div class="relative w-[200px] h-[200px]">
-                    <svg class="w-full h-full"><circle cx="100" cy="100" r="85" class="score-circle-bg"></circle><circle id="score-ring" cx="100" cy="100" r="85" class="score-circle-fg"></circle></svg>
+            <div class="col-span-2 bento-card py-6 flex flex-col items-center justify-center bg-black/40">
+                <div class="relative w-[220px] h-[220px]">
+                    <svg class="w-full h-full"><circle cx="110" cy="110" r="90" class="score-circle-bg"></circle><circle id="score-ring" cx="110" cy="110" r="90" class="score-circle-fg"></circle></svg>
                     <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span class="text-[9px] font-bold tracking-[0.2em] text-gray-500 mb-1">STRESS SCORE</span>
-                        <span id="tei-score" class="text-7xl font-black text-white leading-none tracking-tighter">--</span>
-                        <span id="tei-grade" class="text-[10px] font-bold text-gray-500 mt-2 tracking-widest uppercase bg-white/10 px-2 py-1 rounded">Analyzing...</span>
+                        <span class="text-[10px] font-bold tracking-[0.2em] text-gray-500 mb-2">STRESS SCORE</span>
+                        <span id="tei-score" class="text-8xl font-black text-white leading-none tracking-tighter">--</span>
+                        <span id="tei-grade" class="text-xs font-bold text-cyan-400 mt-2 tracking-widest uppercase">Calculating...</span>
                     </div>
                 </div>
             </div>
 
             <!-- ANS Spectrum -->
             <div class="col-span-2 bento-card">
-                <div class="flex justify-between items-center">
+                <div class="flex justify-between items-center mb-3">
                     <span class="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2"><i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i> Autonomic Balance</span>
                     <span id="hrv-val" class="text-sm font-mono-tech font-bold text-white">-- ms</span>
                 </div>
                 <div class="spectrum-bar">
-                    <div id="bar-sns" class="bar-sns"></div><div id="bar-pns" class="bar-pns"></div>
+                    <div class="spectrum-mid"></div>
+                    <div id="bar-sns" class="bar-sns">SNS 50%</div><div id="bar-pns" class="bar-pns">50% PNS</div>
                 </div>
-                <div class="flex justify-between mt-2 text-[9px] font-bold text-gray-500"><span>SYMPATHETIC</span><span>PARASYMPATHETIC</span></div>
+                <div class="flex justify-between mt-2 text-[9px] font-bold text-gray-500">
+                    <span id="sns-txt">STRESS</span>
+                    <span id="pns-txt">RECOVERY</span>
+                </div>
+                <div class="mt-2 text-center">
+                    <span id="baseline-status" class="text-[9px] font-mono-tech px-2 py-1 rounded bg-white/5 text-gray-400">BASELINE: COLLECTING...</span>
+                </div>
             </div>
 
-            <!-- Heart Rate -->
-            <div class="bento-card col-span-1 h-36 flex flex-col justify-between relative overflow-hidden">
+            <!-- Heart Rate (Alive Graph) -->
+            <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
                 <div class="flex justify-between items-start z-10">
                     <span class="text-[9px] font-bold text-gray-400 uppercase">Heart Rate</span>
                     <i data-lucide="heart" class="w-3 h-3 text-red-500 fill-red-500 animate-pulse"></i>
                 </div>
                 <div class="z-10"><span id="bpm-val" class="text-4xl font-bold tracking-tighter text-white">--</span><span class="text-[9px] text-gray-500 font-bold ml-1">BPM</span></div>
-                <div class="graph-container z-10"><canvas id="pulse-canvas" width="120" height="50"></canvas></div>
+                <div class="graph-container z-10"><canvas id="pulse-canvas" width="120" height="60"></canvas></div>
             </div>
 
             <!-- Respiration -->
-            <div class="bento-card col-span-1 h-36 flex flex-col justify-between relative overflow-hidden">
+            <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
                 <div class="flex justify-between items-start z-10">
                     <span class="text-[9px] font-bold text-gray-400 uppercase">Respiration</span>
                     <i data-lucide="wind" class="w-3 h-3 text-green-400"></i>
                 </div>
-                <div class="absolute inset-0 top-6 bottom-6 flex items-center justify-center"><canvas id="breath-canvas" width="120" height="60"></canvas></div>
+                <div class="absolute inset-0 top-6 bottom-6 flex items-center justify-center"><canvas id="breath-canvas" width="120" height="80"></canvas></div>
                 <div class="text-right z-10 relative"><span id="rr-val" class="text-xl font-bold text-white tracking-tighter">--</span><span class="text-[9px] text-gray-500 font-bold ml-1">BR/MIN</span></div>
             </div>
 
-            <div class="col-span-2 bento-card bg-black/80 border-white/20 h-20 flex flex-col justify-center">
-                <div class="text-[9px] text-cyan-500 font-mono-tech mb-1">SYSTEM_LOG</div>
-                <div id="log-msg" class="text-[10px] text-white/90 font-serif italic leading-tight">"Ready to capture biometrics."</div>
+            <div class="col-span-2 bento-card bg-black/80 border-white/20 h-24 flex flex-col justify-center">
+                <div class="text-[9px] text-cyan-500 font-mono-tech mb-2">SYSTEM_LOG</div>
+                <div id="log-msg" class="text-[10px] text-white/90 font-serif italic leading-tight">"System standby."</div>
             </div>
+            
+            <div class="col-span-2 h-10 w-full"></div>
         </div>
     </div>
 
     <!-- Dock -->
-    <div id="floating-dock" class="dock">
-        <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10 transition"><i data-lucide="share-2" class="w-4 h-4"></i></button>
+    <div id="floating-dock" class="dock" style="opacity: 0; pointer-events: none;">
+        <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10"><i data-lucide="share-2" class="w-4 h-4"></i></button>
         <button id="reset-btn" class="flex-1 h-12 mx-3 bg-white text-black rounded-full font-bold text-xs shadow-lg active:scale-95 transition-transform" onclick="app.reset()">NEW SCAN</button>
-        <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10 transition"><i data-lucide="history" class="w-4 h-4"></i></button>
+        <button class="w-10 h-10 flex items-center justify-center rounded-full text-white/50 hover:bg-white/10"><i data-lucide="history" class="w-4 h-4"></i></button>
     </div>
 
-    <!-- 🟢 WEB WORKER: The Calculation Core (Non-blocking) -->
+    <!-- 🟢 WEB WORKER (Non-Blocking Analysis) -->
     <script id="worker-code" type="javascript/worker">
         class MedicalPOS {
             constructor() {
@@ -224,10 +222,15 @@
             }
             
             process(r, g, b, t) {
+                // Always return raw signal for immediate visualization (The "Alive" fix)
+                // Normalize roughly around 0
+                const rawSignal = -(g - 128) / 128; 
+
                 this.r.push(r); this.g.push(g); this.b.push(b); this.t.push(t);
                 if(this.r.length > this.bufferSize) { this.r.shift(); this.g.shift(); this.b.shift(); this.t.shift(); }
                 
-                if(this.r.length < 60) return null;
+                // If not enough data, just return signal for graph
+                if(this.r.length < 60) return { signal: rawSignal, bpm: 0, snr: 0, status: 'buffering' };
 
                 // POS Algorithm
                 const len = this.r.length;
@@ -242,15 +245,15 @@
                     H[i] = S1 + (S2/2);
                 }
                 
-                // Smoothing (Low Pass)
+                // Smoothing
                 let filtered = new Float32Array(len);
                 for(let i=4; i<len-4; i++) {
                     let sum = 0; for(let j=-4; j<=4; j++) sum+=H[i+j];
                     filtered[i] = sum/9;
                 }
                 
-                // Signal & SNR
-                const signal = filtered[len-5]; // little delay for filter
+                // Signal Quality
+                const processedSignal = filtered[len-5];
                 let noise = 0; for(let i=1; i<len; i++) noise += Math.abs(filtered[i]-filtered[i-1]);
                 const amplitude = Math.max(...filtered) - Math.min(...filtered);
                 const snr = amplitude / (noise/len + 0.00001);
@@ -262,9 +265,10 @@
                     bpm: this.calcBPM(),
                     hrv: this.calcRMSSD(),
                     rr: this.calcRR(),
-                    signal: signal,
+                    signal: processedSignal, // The filtered clean signal
                     snr: snr,
-                    validSamples: this.ibis.length
+                    validSamples: this.ibis.length,
+                    status: 'analyzing'
                 };
             }
 
@@ -278,7 +282,7 @@
                     
                     if(this.peaks.length >= 2) {
                         const ibi = now - this.peaks[this.peaks.length-2];
-                        if(ibi > 350 && ibi < 1300) { // 46-170 bpm valid range
+                        if(ibi > 350 && ibi < 1300) { 
                             this.ibis.push(ibi);
                             if(this.ibis.length > 30) this.ibis.shift();
                         }
@@ -291,7 +295,6 @@
                 const sorted = [...this.ibis].sort((a,b)=>a-b);
                 const median = sorted[Math.floor(sorted.length/2)];
                 const raw = 60000/median;
-                // Smooth change
                 if(Math.abs(raw - this.lastBPM) > 5) this.lastBPM += (raw>this.lastBPM?1:-1);
                 else this.lastBPM = raw;
                 return Math.round(this.lastBPM);
@@ -322,9 +325,8 @@
         };
     </script>
 
-    <!-- MAIN APP -->
+    <!-- MAIN LOGIC -->
     <script>
-        // Init Worker
         const blob = new Blob([document.getElementById('worker-code').textContent], {type: "text/javascript"});
         const worker = new Worker(window.URL.createObjectURL(blob));
 
@@ -344,20 +346,22 @@
                 lucide.createIcons();
             },
 
+            // 🟢 Main Thread Graph Rendering (The "Alive" Fix)
             initWorkerListener() {
                 worker.onmessage = (e) => {
                     const data = e.data;
                     
-                    // 1. Always update Graph (Interpolation for smoothness)
+                    // 1. Instant Visualization (Always render signal)
+                    // If signal is flat (0), use fallback sine wave to keep UI alive
                     let signal = data.signal;
-                    if(data.snr < 1.0) signal = Math.sin(performance.now()/200)*0.05; // Fallback wave
+                    if (Math.abs(signal) < 0.001) signal = Math.sin(performance.now()/200) * 0.05;
                     this.updateRealtimeGraph(signal);
 
-                    // 2. Data Update (Gated)
-                    if(this.state.accumulating) {
-                        // Paradox Filter: Reject 150bpm + 150ms HRV
+                    // 2. Data Update (Only when accumulating)
+                    if(this.state.accumulating && data.status === 'analyzing') {
+                        // Paradox Filter
                         if (data.bpm > 110 && data.hrv > 80) {
-                            // Noise detected, do not update numbers
+                            // Noise, skip update
                         } else {
                             if(data.bpm > 0) this.state.results.bpm = data.bpm;
                             if(data.hrv > 0) this.state.results.hrv = data.hrv;
@@ -365,12 +369,10 @@
                             this.calculateTEI();
                         }
                         
-                        // Confidence calculation
                         this.state.confidence = Math.min(100, Math.floor((data.validSamples / 30) * 100));
                         this.updateDashboardUI(data.snr);
                     }
 
-                    // 3. Scan Progress (Signal Bar)
                     if(this.state.scanning) {
                         const qual = Math.min(100, data.snr * 20);
                         document.getElementById('signal-bar').style.width = qual + '%';
@@ -379,36 +381,27 @@
             },
 
             calculateTEI() {
-                // Firstbeat-style logic
                 const { hrv, rr, bpm } = this.state.results;
                 if(hrv === 0) return;
-
-                // Normalize inputs
                 const scoreHRV = Math.min(100, (hrv/100)*100);
                 const stressHR = Math.max(0, (bpm-60)*1.5);
                 const scoreRR = (rr > 20 || rr < 6) ? 0 : 100 - (Math.abs(rr-8)*5);
-
                 let rawScore = 50 + (scoreHRV*0.5) - (stressHR*0.3) + (scoreRR*0.2);
-                
-                // Confidence Masking: Don't show "1" score if confidence low
                 if(this.state.confidence < 20) rawScore = 50; 
-
                 this.state.results.tei = Math.max(1, Math.min(99, Math.floor(rawScore)));
             },
 
             updateDashboardUI(snr) {
                 const { tei, hrv, rr, bpm } = this.state.results;
                 
-                // TEI Display
-                const ring = document.getElementById('score-ring');
                 const elScore = document.getElementById('tei-score');
+                const ring = document.getElementById('score-ring');
                 const elGrade = document.getElementById('tei-grade');
                 
-                // Smooth number update
+                // Animation
                 const cur = parseInt(elScore.innerText)||0;
                 if(cur !== tei) elScore.innerText = cur + (tei>cur?1:-1);
 
-                // Hide score if low confidence
                 if(this.state.confidence < 20) {
                     elScore.innerText = "--";
                     elGrade.innerText = "CALIBRATING...";
@@ -417,13 +410,11 @@
                 } else {
                     const offset = 628 - (628*(tei/100));
                     ring.style.strokeDashoffset = offset;
-                    
                     if(tei>=80) { ring.style.stroke="var(--score-high)"; elGrade.innerText="OPTIMAL FLOW"; elGrade.style.color=ring.style.stroke; }
                     else if(tei>=60) { ring.style.stroke="var(--score-mid)"; elGrade.innerText="BALANCED"; elGrade.style.color=ring.style.stroke; }
                     else { ring.style.stroke="var(--score-low)"; elGrade.innerText="HIGH STRESS"; elGrade.style.color=ring.style.stroke; }
                 }
 
-                // Confidence
                 document.getElementById('confidence-txt').innerText = this.state.confidence + "%";
                 document.getElementById('confidence-bar').style.width = this.state.confidence + "%";
                 if(this.state.confidence >= 100) {
@@ -433,17 +424,14 @@
                     document.getElementById('analysis-state').classList.remove('animate-pulse');
                 }
 
-                // Values
                 document.getElementById('bpm-val').innerText = bpm;
                 document.getElementById('hrv-val').innerText = hrv + " ms";
                 document.getElementById('rr-val').innerText = rr;
 
-                // Spectrum
                 let pns = Math.min(95, Math.max(5, (hrv/120)*100));
                 document.getElementById('bar-pns').style.width = pns + "%";
                 document.getElementById('bar-sns').style.width = (100-pns) + "%";
 
-                // Log
                 const log = document.getElementById('log-msg');
                 if(snr < 1.5) { log.innerText = "Signal weak. Adjust lighting."; log.style.color = "#FFD600"; }
                 else { log.innerText = "Signal optimal. Analyzing..."; log.style.color = "#fff"; }
@@ -453,7 +441,6 @@
                 const video = document.getElementById('input-video');
                 this.video = video;
                 this.roiCtx = document.getElementById('roi-canvas').getContext('2d', {willReadFrequently: true});
-                
                 try {
                     const faceMesh = new FaceMesh({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
                     faceMesh.setOptions({maxNumFaces: 1, minDetectionConfidence: 0.5});
@@ -462,6 +449,7 @@
                             this.state.faceFound = true;
                             document.getElementById('status-badge').innerText = "FACE LOCKED";
                             document.getElementById('status-badge').style.color = "#00FF94";
+                            // Always process ROI to keep graph moving
                             if(this.state.scanning || this.state.accumulating) this.processROI();
                         } else {
                             this.state.faceFound = false;
@@ -473,30 +461,24 @@
                     await camera.start();
                     this.state.cameraReady = true;
                     document.getElementById('camera-loading').classList.remove('active');
-                } catch(e) { 
-                    document.getElementById('camera-loading').innerHTML = "HTTPS REQUIRED"; 
-                }
+                } catch(e) { document.getElementById('camera-loading').innerHTML = "HTTPS REQUIRED"; }
             },
 
             processROI() {
                 const w=64, h=64;
                 this.roiCtx.drawImage(this.video, 0, 0, w, h);
-                const frame = this.roiCtx.getImageData(32-5, 32-20, 10, 10); // Center crop
+                const frame = this.roiCtx.getImageData(32-5, 32-20, 10, 10); 
                 const data = frame.data;
                 let r=0, g=0, b=0;
                 for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
                 const c = data.length/4;
-                // Send to Worker
                 worker.postMessage({ r: r/c, g: g/c, b: b/c, t: performance.now() });
             },
 
-            // --- Visuals & Interaction ---
             updateRealtimeGraph(val) {
-                // Normalize for graph
                 let norm = (val + 2) / 4; norm = Math.max(0, Math.min(1, norm));
                 this.graphBuffer.push(norm); if(this.graphBuffer.length>40) this.graphBuffer.shift();
                 
-                // Draw Pulse
                 const ctx = this.pulseCtx; const w = this.pulseCanvas.width; const h = this.pulseCanvas.height;
                 const gap=2, barW=(w/40)-gap;
                 ctx.clearRect(0,0,w,h);
@@ -506,7 +488,6 @@
                     ctx.fillRect(x,y,barW,bh);
                 });
                 
-                // Draw Breath (Simulated Flow)
                 const bCtx = this.breathCtx; 
                 bCtx.clearRect(0,0,w,h);
                 this.breathTime += 0.05;
@@ -533,7 +514,7 @@
                     
                     let p=0;
                     this.scanTimer = setInterval(() => {
-                        p+=4; // 1.25s Fast Scan
+                        p+=4; 
                         if(p>=100) { clearInterval(this.scanTimer); this.completeScan(); }
                     }, 50);
                 };
@@ -544,7 +525,8 @@
                 document.getElementById('hud-layer').classList.add('hidden-ui');
                 document.getElementById('universe').classList.add('dimmed');
                 document.getElementById('dashboard-layer').classList.add('show');
-                // Initial rough guess to populate UI
+                document.getElementById('floating-dock').style.opacity = '1';
+                document.getElementById('floating-dock').style.pointerEvents = 'auto';
                 this.state.results.bpm = 72; this.state.accumulating = true;
             },
 
