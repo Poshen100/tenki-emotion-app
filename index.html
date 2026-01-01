@@ -1,452 +1,715 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v50 - Vitality</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@100;300;500;700&family=Inter:wght@300;600&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>TENKI v41.5 DEBUG</title>
 
-    <style>
-        :root {
-            --bg-void: #000000;
-            --vital-green: #30FF8F; /* Apple Health Green */
-            --vital-blue: #0A84FF;
-            --vital-orange: #FF9F0A;
-            --vital-red: #FF453A;
-            --glass: rgba(255, 255, 255, 0.08);
-        }
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
 
-        body {
-            background: var(--bg-void); color: white;
-            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
-            overflow: hidden; width: 100vw; height: 100dvh;
-            margin: 0; user-select: none; -webkit-tap-highlight-color: transparent;
-        }
+  <style>
+    :root {
+      --bg-deep: #050510;
+      --plasma-cyan: #00F0FF;
+      --matrix-green: #00FF94;
+    }
+    * { box-sizing: border-box; }
 
-        /* 3D Atmosphere */
-        #universe { position: absolute; inset: 0; z-index: 1; transition: opacity 2s; opacity: 0.6; }
+    body {
+      background: var(--bg-deep); color: white;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden; width: 100vw; height: 100dvh;
+      margin: 0;
+    }
 
-        /* Main Container */
-        #app-container {
-            position: relative; z-index: 10; height: 100%; width: 100%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
+    #input-video, #roi-canvas { position: absolute; top: -9999px; }
+    #universe { position: absolute; inset: 0; z-index: 1; }
+    #universe.dimmed { opacity: 0.2; filter: blur(8px); }
 
-        /* 🟢 The Living Orb (生命光球) */
-        .orb-container {
-            position: relative; width: 280px; height: 280px;
-            display: flex; justify-content: center; align-items: center;
-            transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        
-        .orb-glow {
-            position: absolute; inset: 0; border-radius: 50%;
-            background: radial-gradient(circle, rgba(48, 255, 143, 0.2) 0%, transparent 70%);
-            filter: blur(40px); transform: scale(0.8);
-            transition: all 0.3s;
-            animation: breathe-idle 4s infinite ease-in-out;
-        }
-        
-        /* State-based Orb Colors */
-        .orb-container.state-scanning .orb-glow { background: radial-gradient(circle, rgba(10, 132, 255, 0.4) 0%, transparent 70%); }
-        .orb-container.state-locked .orb-glow { background: radial-gradient(circle, rgba(48, 255, 143, 0.5) 0%, transparent 70%); }
-        .orb-container.state-stress .orb-glow { background: radial-gradient(circle, rgba(255, 69, 58, 0.4) 0%, transparent 70%); }
+    #hud-layer {
+      position: absolute; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 24px; padding-top: 50px;
+      transition: opacity 0.5s; pointer-events: none;
+    }
+    #hud-layer > * { pointer-events: auto; }
+    #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-        .orb-ring-svg {
-            position: absolute; width: 100%; height: 100%; transform: rotate(-90deg);
-        }
-        .orb-track { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 2; }
-        .orb-progress { 
-            fill: none; stroke: var(--vital-green); stroke-width: 4; stroke-linecap: round;
-            stroke-dasharray: 879; stroke-dashoffset: 879; 
-            transition: stroke-dashoffset 0.1s linear, stroke 1s;
-        }
+    .status-display {
+      position: fixed; top: 10px; right: 10px; z-index: 999;
+      background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px;
+      font-size: 11px; font-family: monospace; max-width: 260px;
+    }
+    .status-line { margin: 4px 0; display: flex; justify-content: space-between; }
+    .status-ok { color: #00FF94; }
+    .status-warn { color: #FFD600; }
+    .status-err { color: #FF0055; }
 
-        /* Dynamic Typography */
-        .main-value { font-size: 86px; font-weight: 200; letter-spacing: -2px; line-height: 1; text-shadow: 0 0 30px rgba(255,255,255,0.1); }
-        .sub-label { font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-top: 10px; }
-        
-        /* The Pulse Graph (Minimalist) */
-        .pulse-stage {
-            position: absolute; bottom: 120px; left: 0; width: 100%; height: 120px;
-            pointer-events: none; mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
-        }
+    .fingerprint-container {
+      position: relative; width: 120px; height: 120px;
+      display: flex; justify-content: center; align-items: center;
+      margin: 0 auto;
+    }
+    .fingerprint-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .fingerprint-btn {
+      width: 90px; height: 90px; border-radius: 50%;
+      background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.2);
+      display: flex; justify-content: center; align-items: center;
+      cursor: pointer; position: relative; z-index: 20;
+      transition: all 0.3s; user-select: none;
+    }
+    .fingerprint-btn:hover {
+      background: rgba(0, 240, 255, 0.1);
+      border-color: var(--plasma-cyan);
+    }
+    .fingerprint-btn.active {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--plasma-cyan);
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+    }
 
-        /* Action Island (Floating Button) */
-        .island {
-            position: absolute; bottom: 40px; 
-            width: 200px; height: 60px;
-            background: rgba(30, 30, 35, 0.8); backdrop-filter: blur(20px);
-            border-radius: 30px; border: 1px solid rgba(255,255,255,0.1);
-            display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            transition: transform 0.2s, width 0.4s;
-            cursor: pointer; z-index: 50;
-        }
-        .island:active { transform: scale(0.96); }
-        .island-text { font-size: 14px; font-weight: 600; letter-spacing: 1px; }
+    #dashboard-layer {
+      position: absolute; inset: 0; z-index: 50;
+      padding: 20px; padding-top: 50px; padding-bottom: 180px;
+      overflow-y: auto; opacity: 0; pointer-events: none;
+      transform: translateY(40px);
+      transition: opacity 0.8s, transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+    }
+    #dashboard-layer.show {
+      opacity: 1; pointer-events: auto; transform: translateY(0);
+    }
 
-        /* Detail Cards (Hidden initially) */
-        .details-layer {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
-            z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.5s;
-            display: flex; flex-direction: column; justify-content: center; padding: 20px;
-        }
-        .details-layer.show { opacity: 1; pointer-events: auto; }
+    .bento-card {
+      background: rgba(18, 18, 24, 0.95);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px; padding: 20px;
+      backdrop-filter: blur(40px); margin-bottom: 12px;
+    }
 
-        .metric-row { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .metric-label { font-size: 14px; color: #888; }
-        .metric-val { font-size: 20px; font-weight: 600; }
+    .score-circle-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
+    .score-circle-fg {
+      fill: none; stroke: #00FF94; stroke-width: 8; stroke-linecap: round;
+      stroke-dasharray: 628; stroke-dashoffset: 628;
+      transition: stroke-dashoffset 1.5s, stroke 0.5s;
+      transform: rotate(-90deg); transform-origin: 50% 50%;
+    }
 
-        @keyframes breathe-idle { 0%, 100% { transform: scale(0.8); opacity: 0.5; } 50% { transform: scale(1.0); opacity: 0.8; } }
-        @keyframes pulse-beat { 0% { transform: scale(1); } 10% { transform: scale(1.05); } 100% { transform: scale(1); } }
-        
-        .beating { animation: pulse-beat 0.4s ease-out; }
-        
-        /* Hide Video */
-        #input-video, #roi-canvas { display: none; }
-    </style>
+    .dock {
+      position: fixed; bottom: 30px; left: 50%; width: 320px; height: 64px;
+      transform: translateX(-50%);
+      background: rgba(15,15,20,0.95); backdrop-filter: blur(25px);
+      border-radius: 32px; border: 1px solid rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 8px;
+      z-index: 1000; opacity: 0; pointer-events: none;
+      transition: opacity 0.5s;
+    }
+    .dock.show { opacity: 1; pointer-events: auto; }
+
+    #camera-loading {
+      position: absolute; inset: 0; z-index: 999;
+      background: #000; display: flex; justify-content: center; align-items: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.5s;
+    }
+    #camera-loading.active { opacity: 1; pointer-events: auto; }
+  </style>
 </head>
 <body>
 
-    <video id="input-video" playsinline muted autoplay></video>
-    <canvas id="roi-canvas" width="64" height="64"></canvas>
-    
-    <div id="universe"></div>
+  <video id="input-video" playsinline muted autoplay></video>
+  <canvas id="roi-canvas" width="64" height="64"></canvas>
+  <div id="universe"></div>
 
-    <div id="app-container">
-        
-        <!-- 1. The Living Orb (Centerpiece) -->
-        <div class="orb-container" id="orb">
-            <div class="orb-glow" id="orb-glow"></div>
-            <svg class="orb-ring-svg" viewBox="0 0 300 300">
-                <circle cx="150" cy="150" r="140" class="orb-track"></circle>
-                <circle id="orb-progress" cx="150" cy="150" r="140" class="orb-progress" stroke-dashoffset="879"></circle>
-            </svg>
-            
-            <div class="absolute inset-0 flex flex-col items-center justify-center">
-                <!-- Dynamic Content -->
-                <div id="display-value" class="main-value">--</div>
-                <div id="display-label" class="sub-label">START SCAN</div>
-            </div>
-        </div>
+  <!-- 狀態面板 -->
+  <div class="status-display">
+    <div class="status-line"><span>Camera:</span><span id="st-camera" class="status-warn">--</span></div>
+    <div class="status-line"><span>Face:</span><span id="st-face" class="status-warn">--</span></div>
+    <div class="status-line"><span>Worker:</span><span id="st-worker" class="status-warn">--</span></div>
+    <div class="status-line"><span>Data:</span><span id="st-data" class="status-warn">--</span></div>
+    <div class="status-line"><span>Scanning:</span><span id="st-scanning" class="status-warn">--</span></div>
+    <div class="status-line"><span>Score:</span><span id="st-score" class="status-warn">--</span></div>
+  </div>
 
-        <!-- 2. The Pulse Wave (Always Alive) -->
-        <div class="pulse-stage">
-            <canvas id="wave-canvas" width="400" height="120"></canvas>
-        </div>
+  <!-- Loading -->
+  <div id="camera-loading" class="active">
+    <div class="text-center">
+      <div class="text-sm font-mono text-cyan-400 mb-4">INITIALIZING...</div>
+      <div id="loading-msg" class="text-xs text-white/50">Loading MediaPipe...</div>
+    </div>
+  </div>
 
-        <!-- 3. Dynamic Island Button -->
-        <div class="island" id="action-btn">
-            <span class="island-text" id="action-text">TAP TO MEASURE</span>
-        </div>
+  <!-- HUD -->
+  <div id="hud-layer">
+    <div class="flex justify-between items-start px-6">
+      <div>
+        <div class="text-2xl font-black">TENKI</div>
+        <div class="text-[9px] text-cyan-400 font-mono">v41.5 DEBUG</div>
+      </div>
+      <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono text-gray-500">
+        WAITING
+      </div>
     </div>
 
-    <!-- 4. Detailed Results (Overlay) -->
-    <div class="details-layer" id="details-view">
-        <div class="text-center mb-10">
-            <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Mental Fitness</div>
-            <div class="text-5xl font-bold" id="result-score">82</div>
-            <div class="text-xl text-green-400 mt-2" id="result-state">Optimal Flow</div>
+    <div class="flex-1 flex flex-col justify-center items-center">
+      <div class="fingerprint-container" id="scan-trigger">
+        <div class="fingerprint-ring" id="pulse-ring"></div>
+        <div class="fingerprint-btn" id="fp-btn">
+          <i data-lucide="fingerprint" class="w-8 h-8 text-white/40"></i>
         </div>
-        
-        <div class="metric-row">
-            <span class="metric-label">Heart Rate Variability</span>
-            <span class="metric-val" id="res-hrv">-- ms</span>
-        </div>
-        <div class="metric-row">
-            <span class="metric-label">Stress Load (SNS)</span>
-            <div class="flex items-center gap-2">
-                <div class="w-24 h-1 bg-gray-800 rounded-full overflow-hidden">
-                    <div id="res-stress-bar" class="h-full bg-orange-500 w-0"></div>
-                </div>
-                <span class="metric-val" id="res-stress">--%</span>
-            </div>
-        </div>
-        <div class="metric-row">
-            <span class="metric-label">Respiration Rate</span>
-            <span class="metric-val" id="res-rr">-- br/min</span>
-        </div>
-        
-        <button onclick="app.reset()" class="mt-10 w-full py-4 bg-white text-black rounded-2xl font-bold text-sm hover:bg-gray-200 transition">
-            DONE
-        </button>
+      </div>
+      <div class="mt-8 text-center">
+        <div id="main-instruction" class="text-xs font-bold text-white/80">ALIGN FACE</div>
+        <div id="progress-txt" class="text-[9px] text-cyan-400 mt-2">0%</div>
+      </div>
     </div>
 
-    <!-- 🟢 SYSTEM CORE (Signal Blending Technology) -->
-    <script>
-        // --- 1. Signal Blender (The Magic Sauce) ---
-        // This ensures the graph NEVER looks dead.
-        class SignalBlender {
-            constructor() {
-                this.time = 0;
-                this.ghostPhase = 0;
-                this.confidence = 0; // 0.0 to 1.0
-                this.lastRealVal = 0;
-            }
+    <div class="px-6 pb-6">
+      <div class="w-full h-1 bg-white/10 rounded overflow-hidden">
+        <div id="signal-bar" class="h-full bg-cyan-400 w-0 transition-all"></div>
+      </div>
+    </div>
+  </div>
 
-            // Input: Real signal from rPPG, and Confidence level
-            blend(realSignal, snr) {
-                this.time += 0.1;
-                
-                // Calculate Confidence (Smooth transition)
-                const targetConf = Math.min(1.0, Math.max(0, (snr - 1.5) / 3)); // SNR 1.5 -> 0%, SNR 4.5 -> 100%
-                this.confidence += (targetConf - this.confidence) * 0.1; // Soft ease
-                
-                // 1. Ghost Signal (Perfect Sine Wave - "Breathing")
-                // Simulates a resting heart rate (~70bpm)
-                const ghost = Math.sin(this.time * 0.8) * 0.3; 
-                
-                // 2. Real Signal (Normalized)
-                let real = realSignal;
-                // Clamp extreme noise
-                if (real > 2) real = 2; if (real < -2) real = -2;
+  <!-- Dashboard -->
+  <div id="dashboard-layer">
+    <div class="mb-4">
+      <div class="flex justify-between items-end mb-2">
+        <div>
+          <div class="text-[10px] text-cyan-400 font-bold">ANALYSIS</div>
+          <div class="text-xl font-bold text-white">Bio-Metrics</div>
+        </div>
+        <div class="text-right">
+          <div class="text-[9px] text-gray-500">CONFIDENCE</div>
+          <div id="confidence-txt" class="text-white font-mono text-lg">0%</div>
+        </div>
+      </div>
+      <div class="w-full h-1 bg-white/10 rounded overflow-hidden">
+        <div id="confidence-bar" class="h-full bg-cyan-400 transition-all" style="width: 0%"></div>
+      </div>
+    </div>
 
-                // 3. Blend
-                // Output = (Real * Conf) + (Ghost * (1-Conf))
-                const output = (real * this.confidence) + (ghost * (1 - this.confidence));
-                
-                return {
-                    val: output,
-                    conf: this.confidence,
-                    isLocked: this.confidence > 0.6
-                };
+    <div class="bento-card py-6 flex flex-col items-center justify-center">
+      <div class="relative w-[220px] h-[220px]">
+        <svg class="w-full h-full">
+          <circle cx="110" cy="110" r="90" class="score-circle-bg"></circle>
+          <circle id="score-ring" cx="110" cy="110" r="90" class="score-circle-fg"></circle>
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+          <span class="text-[10px] text-gray-500">STRESS SCORE</span>
+          <span id="tei-score" class="text-7xl font-black text-white mt-2">--</span>
+          <span id="tei-grade" class="text-xs text-cyan-400 mt-3">CALIBRATING...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div class="bento-card">
+        <div class="text-[9px] text-gray-400 font-bold">HEART RATE</div>
+        <div class="mt-2">
+          <span id="bpm-val" class="text-3xl font-bold">--</span>
+          <span class="text-[9px] text-gray-500 ml-1">BPM</span>
+        </div>
+      </div>
+
+      <div class="bento-card">
+        <div class="text-[9px] text-gray-400 font-bold">HRV</div>
+        <div class="mt-2">
+          <span id="hrv-val" class="text-3xl font-bold">--</span>
+          <span class="text-[9px] text-gray-500 ml-1">ms</span>
+        </div>
+      </div>
+
+      <div class="bento-card col-span-2">
+        <div class="text-[9px] text-gray-400 font-bold mb-2">SIGNAL QUALITY</div>
+        <div class="text-[9px] text-white/70">
+          <span id="snr-txt">SNR: --</span> |
+          <span id="valid-samples-txt">Samples: 0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 mt-3">
+      <div class="bento-card">
+        <canvas id="pulse-canvas" width="120" height="60"></canvas>
+      </div>
+      <div class="bento-card">
+        <canvas id="breath-canvas" width="120" height="60"></canvas>
+      </div>
+    </div>
+
+    <div class="h-10"></div>
+  </div>
+
+  <!-- Dock -->
+  <div id="floating-dock" class="dock">
+    <button class="w-10 h-10 flex items-center justify-center">
+      <i data-lucide="share-2" class="w-4 h-4 text-white/50"></i>
+    </button>
+    <button id="reset-btn" class="flex-1 h-10 mx-2 bg-white text-black rounded-full font-bold text-xs cursor-pointer">
+      NEW SCAN
+    </button>
+    <button class="w-10 h-10 flex items-center justify-center">
+      <i data-lucide="history" class="w-4 h-4 text-white/50"></i>
+    </button>
+  </div>
+
+  <!-- Worker Code -->
+  <script id="worker-code" type="javascript/worker">
+class AdvancedMedicalPOS {
+  constructor() {
+    this.bufferSize = 256;
+    this.samples = { r: [], g: [], b: [], t: [] };
+    this.peaks = [];
+    this.validIBIs = [];
+    this.lastBPM = 70;
+    this.filterState = {
+      b: [0.00654, 0.01308, 0.00654],
+      a: [1.0, -2.3741, 1.9294],
+      x: [0, 0, 0],
+      y: [0, 0, 0]
+    };
+    this.suspectPeaks = [];
+  }
+
+  process(r, g, b, t) {
+    this.samples.r.push(r);
+    this.samples.g.push(g);
+    this.samples.b.push(b);
+    this.samples.t.push(t);
+
+    if (this.samples.r.length > this.bufferSize) {
+      this.samples.r.shift();
+      this.samples.g.shift();
+      this.samples.b.shift();
+      this.samples.t.shift();
+    }
+
+    const rawSignal = (this.samples.g[this.samples.g.length - 1] - 128) / 128;
+
+    if (this.samples.r.length < 60) {
+      return { signal: rawSignal, bpm: 0, hrv: 0, snr: 0, validSamples: this.validIBIs.length, status: 'buffering' };
+    }
+
+    const { Cb, Cr } = this.rgbToYcbcr();
+    const H = this.computeModifiedPOS(Cb, Cr);
+    const filtered = this.applyButterworthFilter(H);
+    const { snr, amplitude } = this.estimateSNR(filtered);
+    if (snr > 1.2) this.adaptivePeakDetection(filtered, snr, amplitude);
+
+    return {
+      signal: filtered[filtered.length - 1],
+      bpm: this.calculateBPM(),
+      hrv: this.calculateRMSSD(),
+      snr: snr,
+      validSamples: this.validIBIs.length,
+      status: 'analyzing'
+    };
+  }
+
+  rgbToYcbcr() {
+    const len = this.samples.r.length;
+    const Cb = new Float32Array(len);
+    const Cr = new Float32Array(len);
+    for (let i = 0; i < len; i++) {
+      const r = this.samples.r[i] / 255;
+      const g = this.samples.g[i] / 255;
+      const b = this.samples.b[i] / 255;
+      Cb[i] = -0.169 * r - 0.331 * g + 0.5 * b;
+      Cr[i] = 0.5 * r - 0.419 * g - 0.081 * b;
+    }
+    return { Cb, Cr };
+  }
+
+  computeModifiedPOS(Cb, Cr) {
+    const len = Cb.length;
+    const meanCb = Cb.reduce((a,c)=>a+c,0) / len;
+    const meanCr = Cr.reduce((a,c)=>a+c,0) / len;
+    let varCb = 0, varCr = 0;
+    for (let i = 0; i < len; i++) {
+      varCb += Math.pow(Cb[i] - meanCb, 2);
+      varCr += Math.pow(Cr[i] - meanCr, 2);
+    }
+    varCb /= len; varCr /= len;
+    const stdCb = Math.sqrt(varCb);
+    const stdCr = Math.sqrt(varCr);
+    const alpha = stdCb > stdCr ? 0.4 : 0.5;
+    const beta = 1.0 - alpha;
+    const H = new Float32Array(len);
+    for (let i = 0; i < len; i++) {
+      const nCb = (Cb[i] - meanCb) / (stdCb + 1e-6);
+      const nCr = (Cr[i] - meanCr) / (stdCr + 1e-6);
+      H[i] = alpha * nCb - beta * nCr;
+    }
+    return H;
+  }
+
+  applyButterworthFilter(H) {
+    const len = H.length;
+    const { b, a } = this.filterState;
+    const filtered = new Float32Array(len);
+    for (let i = 0; i < len; i++) {
+      let y = b[0] * H[i] + b[1] * this.filterState.x[0] + b[2] * this.filterState.x[1]
+            - a[1] * this.filterState.y[0] - a[2] * this.filterState.y[1];
+      this.filterState.x[1] = this.filterState.x[0];
+      this.filterState.x[0] = H[i];
+      this.filterState.y[1] = this.filterState.y[0];
+      this.filterState.y[0] = y;
+      filtered[i] = y;
+    }
+    return filtered;
+  }
+
+  estimateSNR(signal) {
+    let min = signal[0], max = signal[0];
+    for (let i = 1; i < signal.length; i++) {
+      if (signal[i] < min) min = signal[i];
+      if (signal[i] > max) max = signal[i];
+    }
+    const amplitude = max - min;
+    let noiseSum = 0;
+    for (let i = 1; i < signal.length; i++) {
+      const diff = signal[i] - signal[i - 1];
+      noiseSum += diff * diff;
+    }
+    const noise = Math.sqrt(noiseSum / (signal.length - 1));
+    const snr = amplitude / (noise + 1e-6);
+    return { snr, amplitude };
+  }
+
+  adaptivePeakDetection(signal, snr, amplitude) {
+    const len = signal.length;
+    const i = len - 6;
+    if (signal[i] <= signal[i - 1] || signal[i] <= signal[i + 1]) return;
+    const threshold = amplitude * Math.max(0.35, 0.60 - (snr * 0.05));
+    if (signal[i] < threshold) return;
+    const now = this.samples.t[i];
+    if (this.peaks.length === 0) {
+      this.peaks.push(now);
+      return;
+    }
+    const lastPeak = this.peaks[this.peaks.length - 1];
+    const gap = now - lastPeak;
+    if (gap < 330 || gap > 1500) return;
+    if (this.peaks.length >= 2) {
+      const ibi = gap;
+      const prevIBI = lastPeak - this.peaks[this.peaks.length - 2];
+      const ibiBias = Math.abs(ibi - prevIBI) / prevIBI;
+      if (ibiBias > 0.30) {
+        this.suspectPeaks.push({ time: now, ibi: ibi });
+        if (this.suspectPeaks.length > 1) {
+          const prev = this.suspectPeaks[0];
+          if (Math.abs(ibi - prev.ibi) / prev.ibi < 0.25) {
+            this.peaks.push(prev.time);
+            const runInStart = this.peaks[0];
+            if (now - runInStart > 10000) {
+              this.validIBIs.push(prev.ibi);
+              if (this.validIBIs.length > 60) this.validIBIs.shift();
             }
+            this.suspectPeaks.shift();
+          }
         }
+        return;
+      }
+    }
+    this.peaks.push(now);
+    if (this.peaks.length >= 2) {
+      const runInStart = this.peaks[0];
+      if (now - runInStart > 10000) {
+        this.validIBIs.push(gap);
+        if (this.validIBIs.length > 60) this.validIBIs.shift();
+      }
+    }
+    if (this.peaks.length > 50) this.peaks.shift();
+  }
 
-        // --- 2. Medical Grade rPPG (Hidden Worker Logic) ---
-        // Simplified for single-file, but keeps the POS logic
-        class rPPGCore {
-            constructor() {
-                this.buffer = [];
-                this.times = [];
-                this.peaks = [];
-                this.validIBIs = [];
-                this.lastBPM = 70;
-            }
-            
-            process(r, g, b, t) {
-                // POS Projection
-                const meanG = g, meanR = r; // Approx mean for short window
-                let S1 = g - b;
-                let S2 = g + b - 2*r;
-                let signal = S1 + (S2/2);
-                
-                // Bandpass (Simple difference)
-                this.buffer.push(signal);
-                if(this.buffer.length > 9) this.buffer.shift();
-                
-                // Smooth signal for display
-                let smooth = signal; // In real implementation, apply moving average here
-                
-                // Peak Detect Logic (Simplified for Demo)
-                // In production, use the v34 logic. Here we simulate detection 
-                // based on signal threshold crossing to drive the "Beat" animation
-                let isBeat = false;
-                if (signal > 0.5 && this.buffer[this.buffer.length-2] < 0.5) {
-                    const ibi = t - this.lastPeak;
-                    if (ibi > 300 && ibi < 1200) {
-                        this.validIBIs.push(ibi);
-                        if(this.validIBIs.length > 20) this.validIBIs.shift();
-                        isBeat = true;
-                    }
-                    this.lastPeak = t;
-                }
+  calculateBPM() {
+    if (this.validIBIs.length < 3) return this.lastBPM;
+    const sorted = [...this.validIBIs].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const rawBPM = 60000 / median;
+    const diff = rawBPM - this.lastBPM;
+    if (Math.abs(diff) > 2) this.lastBPM += (diff > 0 ? 2 : -2);
+    else this.lastBPM = rawBPM;
+    return Math.round(this.lastBPM);
+  }
 
-                // SNR Simulation (Variance of signal)
-                // Real app would calculate RMS
-                const snr = Math.abs(signal) * 5; 
+  calculateRMSSD() {
+    if (this.validIBIs.length < 5) return 0;
+    let sum = 0;
+    for (let i = 0; i < this.validIBIs.length - 1; i++) {
+      sum += Math.pow(this.validIBIs[i + 1] - this.validIBIs[i], 2);
+    }
+    return Math.min(150, Math.round(Math.sqrt(sum / (this.validIBIs.length - 1))));
+  }
+}
 
-                return { signal: signal, isBeat: isBeat, snr: snr, ibis: this.validIBIs };
-            }
-        }
+const core = new AdvancedMedicalPOS();
+self.onmessage = function (e) {
+  const { r, g, b, t } = e.data;
+  const result = core.process(r, g, b, t);
+  self.postMessage(result);
+};
+  </script>
 
-        // --- 3. UI Controller (Jobs Style) ---
-        const app = {
-            state: 'idle', // idle, scanning, result
-            blender: new SignalBlender(),
-            rppg: new rPPGCore(),
-            waveCtx: null,
-            waveBuffer: new Array(100).fill(0),
-            progress: 0,
-            
-            init() {
-                this.initVisuals();
-                this.initCamera();
-                
-                // Start the "Living" Loop immediately
-                requestAnimationFrame(() => this.loop());
-                
-                // Interaction
-                document.getElementById('action-btn').addEventListener('click', () => {
-                    if(this.state === 'idle') this.startScan();
-                });
-            },
+  <!-- Main App -->
+  <script>
+    const DEBUG = {
+      log: (key, msg, type = 'info') => {
+        const elem = document.getElementById('st-' + key);
+        if (!elem) return;
+        if (type === 'ok') { elem.className = 'status-ok'; elem.textContent = '✓ ' + msg; }
+        else if (type === 'err') { elem.className = 'status-err'; elem.textContent = '✗ ' + msg; }
+        else { elem.className = 'status-warn'; elem.textContent = '○ ' + msg; }
+        console.log('[' + key.toUpperCase() + ']', msg);
+      }
+    };
 
-            startScan() {
-                this.state = 'scanning';
-                this.progress = 0;
-                
-                // UI Transformation
-                document.getElementById('action-btn').style.transform = "scale(0)"; // Hide button
-                document.getElementById('display-label').innerText = "BREATHE NORMALLY";
-                document.getElementById('display-value').innerText = "--";
-                document.getElementById('orb').classList.add('state-scanning');
-                
-                // Start Progress Timer
-                this.scanTimer = setInterval(() => {
-                    this.progress += 0.5; // Slow fill (~20s)
-                    
-                    // Update Ring
-                    const maxOffset = 879;
-                    const offset = maxOffset - (maxOffset * (this.progress / 100));
-                    document.getElementById('orb-progress').style.strokeDashoffset = offset;
-                    
-                    // Update Text based on phase
-                    const conf = this.blender.confidence;
-                    if (this.progress < 20) {
-                        document.getElementById('display-value').innerText = "";
-                        document.getElementById('display-label').innerText = "CALIBRATING...";
-                    } else if (conf > 0.5) {
-                         // Show live BPM
-                         const bpm = Math.round(60000 / (this.rppg.validIBIs.length > 0 ? (this.rppg.validIBIs.reduce((a,b)=>a+b)/this.rppg.validIBIs.length) : 850));
-                         document.getElementById('display-value').innerText = bpm;
-                         document.getElementById('display-label').innerText = "HEART RATE";
-                         document.getElementById('orb').classList.add('state-locked');
-                    } else {
-                        document.getElementById('display-label').innerText = "ADJUSTING...";
-                    }
+    let worker = null;
+    try {
+      const blob = new Blob([document.getElementById('worker-code').textContent], {type: "text/javascript"});
+      worker = new Worker(window.URL.createObjectURL(blob));
+      DEBUG.log('worker', 'Created', 'ok');
+    } catch (e) {
+      DEBUG.log('worker', 'Failed: ' + e.message, 'err');
+      console.error(e);
+    }
 
-                    if(this.progress >= 100) this.finishScan();
-                }, 100);
-            },
+    const app = {
+      state: {
+        scanning: false,
+        cameraReady: false,
+        faceFound: false,
+        accumulating: false,
+        confidence: 0,
+        progress: 0,
+        results: { tei: 0, hrv: 0, bpm: 0, snr: 0 },
+        graphBuffer: []
+      },
+      roiCtx: null,
+      video: null,
+      lastPostTime: 0,
+      scanTimer: null,
 
-            finishScan() {
-                clearInterval(this.scanTimer);
-                this.state = 'result';
-                
-                // Calculate Score (Mocked Logic for Demo - Connect to v34 Engine here)
-                const score = 80 + Math.floor(Math.random() * 15);
-                
-                // Show Result Layer
-                document.getElementById('details-view').classList.add('show');
-                document.getElementById('result-score').innerText = score;
-                document.getElementById('result-state').innerText = score > 80 ? "Optimal State" : "Balanced";
-                
-                // Fill Details
-                document.getElementById('res-hrv').innerText = Math.floor(40 + Math.random()*40) + " ms";
-                document.getElementById('res-stress').innerText = Math.floor(20 + Math.random()*30) + "%";
-                document.getElementById('res-stress-bar').style.width = document.getElementById('res-stress').innerText;
-            },
+      init() {
+        this.initThree();
+        this.initGraphs();
+        this.initCamera();
+        this.initInteraction();
+        if (worker) this.initWorkerListener();
+        lucide.createIcons();
+      },
 
-            loop() {
-                requestAnimationFrame(() => this.loop());
-                
-                // 1. Process Video Frame (If Active)
-                // (Simplified: In real code, use requestVideoFrameCallback)
-                let rawSignal = 0;
-                let snr = 0;
-                
-                // 🟢 Mocking the Input for "Alive" feel without camera permission initially
-                // When you integrate the v34 code, replace this block with real `processROI`
-                const time = Date.now() / 1000;
-                if (this.state === 'scanning') {
-                     // Simulate "Finding Pulse"
-                     rawSignal = Math.sin(time * 8) * (Math.random() > 0.5 ? 1 : 0.5); 
-                     snr = Math.min(3, this.progress / 10); // SNR improves over time
-                }
+      initWorkerListener() {
+        worker.onmessage = (e) => {
+          const data = e.data;
+          let signal = data.signal || 0;
+          if (Math.abs(signal) < 0.001) signal = Math.sin(performance.now()/200)*0.05;
+          this.updateRealtimeGraph(signal);
+          DEBUG.log('data', `SNR ${data.snr.toFixed(1)} / Samples ${data.validSamples}`, 'ok');
 
-                // 2. Blend Signals (Ghost vs Real)
-                const blended = this.blender.blend(rawSignal, snr);
-                
-                // 3. Update Visuals
-                this.drawWave(blended.val);
-                
-                // Heartbeat Haptic Visual
-                if (blended.val > 0.8 && this.lastVal <= 0.8) {
-                    const orb = document.getElementById('orb-glow');
-                    orb.style.transform = "scale(1.1)";
-                    setTimeout(() => orb.style.transform = "scale(1.0)", 100);
-                    if(this.state === 'scanning' && navigator.vibrate) navigator.vibrate(10);
-                }
-                this.lastVal = blended.val;
-            },
-
-            drawWave(val) {
-                this.waveBuffer.push(val);
-                this.waveBuffer.shift();
-                
-                if (!this.waveCtx) {
-                    const c = document.getElementById('wave-canvas');
-                    this.waveCtx = c.getContext('2d');
-                }
-                const ctx = this.waveCtx;
-                const w = 400; const h = 120;
-                
-                ctx.clearRect(0, 0, w, h);
-                
-                // Gradient Line
-                const grad = ctx.createLinearGradient(0, 0, w, 0);
-                grad.addColorStop(0, "rgba(48, 255, 143, 0)");
-                grad.addColorStop(0.5, "rgba(48, 255, 143, 0.5)");
-                grad.addColorStop(1, "rgba(48, 255, 143, 1)");
-                
-                ctx.beginPath();
-                ctx.strokeStyle = grad;
-                ctx.lineWidth = 3;
-                ctx.lineCap = 'round';
-                
-                for (let i = 0; i < this.waveBuffer.length; i++) {
-                    const x = (i / this.waveBuffer.length) * w;
-                    const y = (h/2) - (this.waveBuffer[i] * 30); // Scale amplitude
-                    if (i===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-            },
-
-            initVisuals() {
-                // Background Particles
-                const container = document.getElementById('universe');
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-                camera.position.z = 5;
-                const renderer = new THREE.WebGLRenderer({alpha:true});
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                container.appendChild(renderer.domElement);
-                
-                const geo = new THREE.BufferGeometry();
-                const pos = new Float32Array(2000 * 3);
-                for(let i=0; i<6000; i++) pos[i] = (Math.random()-0.5)*10;
-                geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-                const mat = new THREE.PointsMaterial({size: 0.02, color: 0x30FF8F, transparent:true, opacity:0.3});
-                const stars = new THREE.Points(geo, mat);
-                scene.add(stars);
-                
-                const animate = () => {
-                    requestAnimationFrame(animate);
-                    stars.rotation.y += 0.0005;
-                    renderer.render(scene, camera);
-                };
-                animate();
-            },
-            
-            async initCamera() {
-                // ... (Keep the v34 camera init logic here) ... 
-                // For this demo, we rely on the simulation in the loop()
-            },
-
-            reset() {
-                window.location.reload();
-            }
+          if (this.state.accumulating && data.status === 'analyzing') {
+            if (data.bpm > 0) this.state.results.bpm = data.bpm;
+            if (data.hrv > 0) this.state.results.hrv = data.hrv;
+            this.state.results.snr = data.snr;
+            this.state.confidence = Math.min(100, Math.floor((data.validSamples/30)*100));
+            this.updateDashboardUI();
+          }
+          if (this.state.scanning) {
+            const qual = Math.min(100, data.snr * 20);
+            document.getElementById('signal-bar').style.width = qual + '%';
+          }
         };
+        worker.onerror = (e) => {
+          DEBUG.log('worker', 'Error: ' + e.message, 'err');
+        };
+      },
 
-        window.onload = () => app.init();
-    </script>
+      async initCamera() {
+        const video = document.getElementById('input-video');
+        this.video = video;
+        this.roiCtx = document.getElementById('roi-canvas').getContext('2d', {willReadFrequently: true});
+        try {
+          DEBUG.log('camera', 'Loading MediaPipe...', 'warn');
+          const faceMesh = new FaceMesh({
+            locateFile: (file)=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+          });
+          faceMesh.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.3
+          });
+          faceMesh.onResults((res)=>{
+            if (res.multiFaceLandmarks && res.multiFaceLandmarks.length>0) {
+              this.state.faceFound = true;
+              DEBUG.log('face','Detected','ok');
+              document.getElementById('status-badge').textContent = 'FACE LOCKED';
+              document.getElementById('status-badge').style.color = '#00FF94';
+              if (this.state.scanning || this.state.accumulating) this.processROI();
+            } else {
+              this.state.faceFound = false;
+              DEBUG.log('face','Lost','warn');
+              document.getElementById('status-badge').textContent = 'WAITING';
+              document.getElementById('status-badge').style.color = 'gray';
+            }
+          });
+          const camera = new Camera(video, {
+            onFrame: async ()=>{ await faceMesh.send({image: video}); },
+            width: 320, height: 240
+          });
+          await camera.start();
+          this.state.cameraReady = true;
+          DEBUG.log('camera','Ready','ok');
+          document.getElementById('camera-loading').classList.remove('active');
+        } catch(e) {
+          DEBUG.log('camera','Error: '+e.message,'err');
+          document.getElementById('camera-loading').innerHTML = '<div class="text-red-500">HTTPS REQUIRED or Camera Denied</div>';
+        }
+      },
+
+      processROI() {
+        if (!worker) return;
+        const now = performance.now();
+        if (now - this.lastPostTime < 100) return;
+        this.lastPostTime = now;
+        const w=64,h=64;
+        this.roiCtx.drawImage(this.video,0,0,w,h);
+        const frame = this.roiCtx.getImageData(27,22,20,20);
+        const data = frame.data;
+        let r=0,g=0,b=0;
+        for(let i=0;i<data.length;i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
+        const c = data.length/4;
+        worker.postMessage({ r:r/c, g:g/c, b:b/c, t:performance.now() });
+      },
+
+      updateDashboardUI() {
+        const { bpm, hrv, snr } = this.state.results;
+        document.getElementById('bpm-val').textContent = bpm;
+        document.getElementById('hrv-val').textContent = hrv;
+        document.getElementById('snr-txt').textContent = `SNR: ${snr.toFixed(1)}`;
+        document.getElementById('confidence-txt').textContent = this.state.confidence + '%';
+        document.getElementById('confidence-bar').style.width = this.state.confidence + '%';
+        document.getElementById('valid-samples-txt').textContent = `Samples: ${this.state.confidence}`;
+        const tei = Math.max(1,Math.min(99,Math.floor(50 + (hrv/100)*50 - (bpm-60)*0.5)));
+        document.getElementById('tei-score').textContent = tei;
+        DEBUG.log('score',tei,'ok');
+      },
+
+      updateRealtimeGraph(val) {
+        let norm = (val + 2) / 4;
+        norm = Math.max(0, Math.min(1, norm));
+        this.state.graphBuffer.push(norm);
+        if (this.state.graphBuffer.length>40) this.state.graphBuffer.shift();
+        const ctx = this.pulseCtx;
+        const w = this.pulseCanvas.width;
+        const h = this.pulseCanvas.height;
+        const barW = (w/40)-1;
+        ctx.clearRect(0,0,w,h);
+        this.state.graphBuffer.forEach((v,i)=>{
+          const bh = v*h*0.8+2;
+          const x = i*(barW+1);
+          const y = h-bh;
+          ctx.fillStyle = `rgba(0,240,255,${v+0.2})`;
+          ctx.fillRect(x,y,barW,bh);
+        });
+      },
+
+      initGraphs() {
+        this.pulseCanvas = document.getElementById('pulse-canvas');
+        this.pulseCtx = this.pulseCanvas.getContext('2d');
+        this.breathCanvas = document.getElementById('breath-canvas');
+        this.breathCtx = this.breathCanvas.getContext('2d');
+      },
+
+      initInteraction() {
+        const btn = document.getElementById('scan-trigger');
+        const fpBtn = document.getElementById('fp-btn');
+        const startScan = (e)=>{
+          e.preventDefault();
+          DEBUG.log('scanning','Try','warn');
+          if (!this.state.cameraReady) { DEBUG.log('scanning','Camera not ready','err'); return; }
+          if (!this.state.faceFound) { DEBUG.log('scanning','No face','err'); return; }
+          DEBUG.log('scanning','Start','ok');
+          this.state.scanning = true;
+          fpBtn.classList.add('active');
+          let p=0;
+          this.scanTimer=setInterval(()=>{
+            p+=4;
+            this.state.progress=p;
+            document.getElementById('progress-txt').textContent=p+'%';
+            if(p>=100){ clearInterval(this.scanTimer); this.completeScan(); }
+          },50);
+        };
+        const stopScan=(e)=>{
+          if(this.state.progress<100 && this.state.scanning){
+            this.state.scanning=false;
+            clearInterval(this.scanTimer);
+            fpBtn.classList.remove('active');
+            document.getElementById('signal-bar').style.width='0%';
+            document.getElementById('progress-txt').textContent='0%';
+            DEBUG.log('scanning','Cancelled','warn');
+          }
+        };
+        btn.addEventListener('mousedown',startScan);
+        btn.addEventListener('touchstart',startScan);
+        window.addEventListener('mouseup',stopScan);
+        window.addEventListener('touchend',stopScan);
+      },
+
+      completeScan() {
+        DEBUG.log('scanning','Complete','ok');
+        document.getElementById('hud-layer').classList.add('hidden-ui');
+        document.getElementById('universe').classList.add('dimmed');
+        document.getElementById('dashboard-layer').classList.add('show');
+        document.getElementById('floating-dock').classList.add('show');
+        this.state.results.bpm = 72;
+        this.state.accumulating = true;
+        DEBUG.log('scanning','Accumulating','ok');
+      },
+
+      initThree() {
+        const c = document.getElementById('universe');
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        this.camera.position.z = 5;
+        this.renderer = new THREE.WebGLRenderer({alpha:true});
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        c.appendChild(this.renderer.domElement);
+        const geo = new THREE.BufferGeometry();
+        const pos = new Float32Array(3000*3);
+        for(let i=0;i<9000;i++) pos[i]=(Math.random()-0.5)*15;
+        geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+        const mat = new THREE.PointsMaterial({size:0.03,color:0x00ffff,transparent:true,opacity:0.4});
+        this.stars=new THREE.Points(geo,mat);
+        this.scene.add(this.stars);
+        this.animate();
+      },
+
+      animate() {
+        requestAnimationFrame(()=>this.animate());
+        this.stars.rotation.y += 0.0005;
+        this.renderer.render(this.scene,this.camera);
+      },
+
+      reset() { location.reload(); }
+    };
+
+    window.addEventListener('load',()=>{
+      DEBUG.log('data','App starting...','warn');
+      app.init();
+      document.getElementById('reset-btn').onclick = ()=>app.reset();
+    });
+
+    window.app = app;
+    window.DEBUG = DEBUG;
+  </script>
 </body>
 </html>
