@@ -1,715 +1,845 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>TENKI v41.5 DEBUG</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TENKI v41.6</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-deep: #050510;
+            --plasma-cyan: #00F0FF; 
+            --matrix-green: #00FF94;
+        }
 
-  <style>
-    :root {
-      --bg-deep: #050510;
-      --plasma-cyan: #00F0FF;
-      --matrix-green: #00FF94;
-    }
-    * { box-sizing: border-box; }
+        * { box-sizing: border-box; }
+        
+        body {
+            background: var(--bg-deep); color: white;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; width: 100vw; height: 100dvh;
+            margin: 0;
+        }
 
-    body {
-      background: var(--bg-deep); color: white;
-      font-family: 'Inter', sans-serif;
-      overflow: hidden; width: 100vw; height: 100dvh;
-      margin: 0;
-    }
+        #input-video, #roi-canvas { position: absolute; top: -9999px; }
+        
+        #universe { position: absolute; inset: 0; z-index: 1; }
+        #universe.dimmed { opacity: 0.2; filter: blur(8px); }
 
-    #input-video, #roi-canvas { position: absolute; top: -9999px; }
-    #universe { position: absolute; inset: 0; z-index: 1; }
-    #universe.dimmed { opacity: 0.2; filter: blur(8px); }
+        #hud-layer {
+            position: absolute; inset: 0; z-index: 10;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 24px; padding-top: 50px;
+            transition: opacity 0.5s; pointer-events: none;
+        }
+        #hud-layer > * { pointer-events: auto; }
+        #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
-    #hud-layer {
-      position: absolute; inset: 0; z-index: 10;
-      display: flex; flex-direction: column; justify-content: space-between;
-      padding: 24px; padding-top: 50px;
-      transition: opacity 0.5s; pointer-events: none;
-    }
-    #hud-layer > * { pointer-events: auto; }
-    #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
+        .status-display {
+            position: fixed; top: 10px; right: 10px; z-index: 999;
+            background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px;
+            font-size: 11px; font-family: monospace; max-width: 300px;
+        }
 
-    .status-display {
-      position: fixed; top: 10px; right: 10px; z-index: 999;
-      background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px;
-      font-size: 11px; font-family: monospace; max-width: 260px;
-    }
-    .status-line { margin: 4px 0; display: flex; justify-content: space-between; }
-    .status-ok { color: #00FF94; }
-    .status-warn { color: #FFD600; }
-    .status-err { color: #FF0055; }
+        .status-line {
+            margin: 4px 0; display: flex; justify-content: space-between;
+        }
 
-    .fingerprint-container {
-      position: relative; width: 120px; height: 120px;
-      display: flex; justify-content: center; align-items: center;
-      margin: 0 auto;
-    }
-    .fingerprint-ring {
-      position: absolute; inset: 0; border-radius: 50%;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    .fingerprint-btn {
-      width: 90px; height: 90px; border-radius: 50%;
-      background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.2);
-      display: flex; justify-content: center; align-items: center;
-      cursor: pointer; position: relative; z-index: 20;
-      transition: all 0.3s; user-select: none;
-    }
-    .fingerprint-btn:hover {
-      background: rgba(0, 240, 255, 0.1);
-      border-color: var(--plasma-cyan);
-    }
-    .fingerprint-btn.active {
-      background: rgba(0, 240, 255, 0.2);
-      border-color: var(--plasma-cyan);
-      box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
-    }
+        .status-ok { color: #00FF94; }
+        .status-warn { color: #FFD600; }
+        .status-err { color: #FF0055; }
 
-    #dashboard-layer {
-      position: absolute; inset: 0; z-index: 50;
-      padding: 20px; padding-top: 50px; padding-bottom: 180px;
-      overflow-y: auto; opacity: 0; pointer-events: none;
-      transform: translateY(40px);
-      transition: opacity 0.8s, transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
-    }
-    #dashboard-layer.show {
-      opacity: 1; pointer-events: auto; transform: translateY(0);
-    }
+        .fingerprint-container { 
+            position: relative; width: 120px; height: 120px; 
+            display: flex; justify-content: center; align-items: center;
+            margin: 0 auto;
+        }
 
-    .bento-card {
-      background: rgba(18, 18, 24, 0.95);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 24px; padding: 20px;
-      backdrop-filter: blur(40px); margin-bottom: 12px;
-    }
+        .fingerprint-ring { 
+            position: absolute; inset: 0; border-radius: 50%; 
+            border: 1px solid rgba(255,255,255,0.1); 
+        }
 
-    .score-circle-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
-    .score-circle-fg {
-      fill: none; stroke: #00FF94; stroke-width: 8; stroke-linecap: round;
-      stroke-dasharray: 628; stroke-dashoffset: 628;
-      transition: stroke-dashoffset 1.5s, stroke 0.5s;
-      transform: rotate(-90deg); transform-origin: 50% 50%;
-    }
+        .fingerprint-btn {
+            width: 90px; height: 90px; border-radius: 50%;
+            background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; position: relative; z-index: 20;
+            transition: all 0.3s;
+            user-select: none;
+        }
 
-    .dock {
-      position: fixed; bottom: 30px; left: 50%; width: 320px; height: 64px;
-      transform: translateX(-50%);
-      background: rgba(15,15,20,0.95); backdrop-filter: blur(25px);
-      border-radius: 32px; border: 1px solid rgba(255,255,255,0.2);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 8px;
-      z-index: 1000; opacity: 0; pointer-events: none;
-      transition: opacity 0.5s;
-    }
-    .dock.show { opacity: 1; pointer-events: auto; }
+        .fingerprint-btn:hover { 
+            background: rgba(0, 240, 255, 0.1); 
+            border-color: var(--plasma-cyan);
+        }
 
-    #camera-loading {
-      position: absolute; inset: 0; z-index: 999;
-      background: #000; display: flex; justify-content: center; align-items: center;
-      opacity: 0; pointer-events: none; transition: opacity 0.5s;
-    }
-    #camera-loading.active { opacity: 1; pointer-events: auto; }
-  </style>
+        .fingerprint-btn.active { 
+            background: rgba(0, 240, 255, 0.2); 
+            border-color: var(--plasma-cyan);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+        }
+
+        #dashboard-layer {
+            position: absolute; inset: 0; z-index: 50;
+            padding: 20px; padding-top: 50px; padding-bottom: 180px;
+            overflow-y: auto; opacity: 0; pointer-events: none;
+            transform: translateY(40px);
+            transition: opacity 0.8s, transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        #dashboard-layer.show { 
+            opacity: 1; 
+            pointer-events: auto; 
+            transform: translateY(0);
+        }
+
+        .bento-card {
+            background: rgba(18, 18, 24, 0.95);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px; padding: 20px; position: relative;
+            backdrop-filter: blur(40px);
+            margin-bottom: 12px;
+        }
+
+        .score-circle-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
+        .score-circle-fg { 
+            fill: none; stroke: #00FF94; stroke-width: 8; stroke-linecap: round;
+            stroke-dasharray: 628; stroke-dashoffset: 628;
+            transition: stroke-dashoffset 1.5s, stroke 0.5s;
+            transform: rotate(-90deg); transform-origin: 50% 50%;
+        }
+
+        .dock {
+            position: fixed; bottom: 30px; left: 50%; width: 320px; height: 64px;
+            transform: translateX(-50%);
+            background: rgba(15,15,20,0.95); backdrop-filter: blur(25px);
+            border-radius: 32px; border: 1px solid rgba(255,255,255,0.2);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 8px;
+            z-index: 1000; opacity: 0; pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        .dock.show { opacity: 1; pointer-events: auto; }
+
+        #camera-loading {
+            position: absolute; inset: 0; z-index: 999;
+            background: #000; display: flex; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.5s;
+        }
+
+        #camera-loading.active { opacity: 1; pointer-events: auto; }
+    </style>
 </head>
 <body>
 
-  <video id="input-video" playsinline muted autoplay></video>
-  <canvas id="roi-canvas" width="64" height="64"></canvas>
-  <div id="universe"></div>
+    <video id="input-video" playsinline muted autoplay></video>
+    <canvas id="roi-canvas" width="64" height="64"></canvas>
+    <div id="universe"></div>
 
-  <!-- 狀態面板 -->
-  <div class="status-display">
-    <div class="status-line"><span>Camera:</span><span id="st-camera" class="status-warn">--</span></div>
-    <div class="status-line"><span>Face:</span><span id="st-face" class="status-warn">--</span></div>
-    <div class="status-line"><span>Worker:</span><span id="st-worker" class="status-warn">--</span></div>
-    <div class="status-line"><span>Data:</span><span id="st-data" class="status-warn">--</span></div>
-    <div class="status-line"><span>Scanning:</span><span id="st-scanning" class="status-warn">--</span></div>
-    <div class="status-line"><span>Score:</span><span id="st-score" class="status-warn">--</span></div>
-  </div>
-
-  <!-- Loading -->
-  <div id="camera-loading" class="active">
-    <div class="text-center">
-      <div class="text-sm font-mono text-cyan-400 mb-4">INITIALIZING...</div>
-      <div id="loading-msg" class="text-xs text-white/50">Loading MediaPipe...</div>
-    </div>
-  </div>
-
-  <!-- HUD -->
-  <div id="hud-layer">
-    <div class="flex justify-between items-start px-6">
-      <div>
-        <div class="text-2xl font-black">TENKI</div>
-        <div class="text-[9px] text-cyan-400 font-mono">v41.5 DEBUG</div>
-      </div>
-      <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono text-gray-500">
-        WAITING
-      </div>
+    <!-- STATUS DISPLAY -->
+    <div class="status-display">
+        <div class="status-line"><span>Camera:</span><span id="st-camera" class="status-warn">--</span></div>
+        <div class="status-line"><span>Face:</span><span id="st-face" class="status-warn">--</span></div>
+        <div class="status-line"><span>Worker:</span><span id="st-worker" class="status-warn">--</span></div>
+        <div class="status-line"><span>Data:</span><span id="st-data" class="status-warn">--</span></div>
+        <div class="status-line"><span>Scanning:</span><span id="st-scanning" class="status-warn">--</span></div>
+        <div class="status-line"><span>Score:</span><span id="st-score" class="status-warn">--</span></div>
     </div>
 
-    <div class="flex-1 flex flex-col justify-center items-center">
-      <div class="fingerprint-container" id="scan-trigger">
-        <div class="fingerprint-ring" id="pulse-ring"></div>
-        <div class="fingerprint-btn" id="fp-btn">
-          <i data-lucide="fingerprint" class="w-8 h-8 text-white/40"></i>
+    <div id="camera-loading" class="active">
+        <div class="text-center">
+            <div class="text-sm font-mono text-cyan-400 mb-4">INITIALIZING...</div>
+            <div id="loading-msg" class="text-xs text-white/50">Loading MediaPipe...</div>
         </div>
-      </div>
-      <div class="mt-8 text-center">
-        <div id="main-instruction" class="text-xs font-bold text-white/80">ALIGN FACE</div>
-        <div id="progress-txt" class="text-[9px] text-cyan-400 mt-2">0%</div>
-      </div>
     </div>
 
-    <div class="px-6 pb-6">
-      <div class="w-full h-1 bg-white/10 rounded overflow-hidden">
-        <div id="signal-bar" class="h-full bg-cyan-400 w-0 transition-all"></div>
-      </div>
-    </div>
-  </div>
+    <!-- HUD -->
+    <div id="hud-layer">
+        <div class="flex justify-between items-start px-6">
+            <div>
+                <div class="text-2xl font-black">TENKI</div>
+                <div class="text-[9px] text-cyan-400 font-mono">v41.6</div>
+            </div>
+            <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono text-gray-500">
+                WAITING
+            </div>
+        </div>
 
-  <!-- Dashboard -->
-  <div id="dashboard-layer">
-    <div class="mb-4">
-      <div class="flex justify-between items-end mb-2">
-        <div>
-          <div class="text-[10px] text-cyan-400 font-bold">ANALYSIS</div>
-          <div class="text-xl font-bold text-white">Bio-Metrics</div>
+        <div class="flex-1 flex flex-col justify-center items-center">
+            <div class="fingerprint-container" id="scan-trigger">
+                <div class="fingerprint-ring" id="pulse-ring"></div>
+                <div class="fingerprint-btn" id="fp-btn">
+                    <i data-lucide="fingerprint" class="w-8 h-8 text-white/40"></i>
+                </div>
+            </div>
+            <div class="mt-8 text-center">
+                <div id="main-instruction" class="text-xs font-bold text-white/80">ALIGN FACE</div>
+                <div id="progress-txt" class="text-[9px] text-cyan-400 mt-2">0%</div>
+            </div>
         </div>
-        <div class="text-right">
-          <div class="text-[9px] text-gray-500">CONFIDENCE</div>
-          <div id="confidence-txt" class="text-white font-mono text-lg">0%</div>
-        </div>
-      </div>
-      <div class="w-full h-1 bg-white/10 rounded overflow-hidden">
-        <div id="confidence-bar" class="h-full bg-cyan-400 transition-all" style="width: 0%"></div>
-      </div>
-    </div>
 
-    <div class="bento-card py-6 flex flex-col items-center justify-center">
-      <div class="relative w-[220px] h-[220px]">
-        <svg class="w-full h-full">
-          <circle cx="110" cy="110" r="90" class="score-circle-bg"></circle>
-          <circle id="score-ring" cx="110" cy="110" r="90" class="score-circle-fg"></circle>
-        </svg>
-        <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <span class="text-[10px] text-gray-500">STRESS SCORE</span>
-          <span id="tei-score" class="text-7xl font-black text-white mt-2">--</span>
-          <span id="tei-grade" class="text-xs text-cyan-400 mt-3">CALIBRATING...</span>
+        <div class="px-6 pb-6">
+            <div class="w-full h-1 bg-white/10 rounded overflow-hidden">
+                <div id="signal-bar" class="h-full bg-cyan-400 w-0 transition-all"></div>
+            </div>
         </div>
-      </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-3">
-      <div class="bento-card">
-        <div class="text-[9px] text-gray-400 font-bold">HEART RATE</div>
-        <div class="mt-2">
-          <span id="bpm-val" class="text-3xl font-bold">--</span>
-          <span class="text-[9px] text-gray-500 ml-1">BPM</span>
+    <!-- Dashboard -->
+    <div id="dashboard-layer">
+        <div class="mb-4">
+            <div class="flex justify-between items-end mb-2">
+                <div>
+                    <div class="text-[10px] text-cyan-400 font-bold">ANALYSIS</div>
+                    <div class="text-xl font-bold text-white">Bio-Metrics</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-[9px] text-gray-500">CONFIDENCE</div>
+                    <div id="confidence-txt" class="text-white font-mono text-lg">0%</div>
+                </div>
+            </div>
+            <div class="w-full h-1 bg-white/10 rounded overflow-hidden">
+                <div id="confidence-bar" class="h-full bg-cyan-400 transition-all" style="width: 0%"></div>
+            </div>
         </div>
-      </div>
 
-      <div class="bento-card">
-        <div class="text-[9px] text-gray-400 font-bold">HRV</div>
-        <div class="mt-2">
-          <span id="hrv-val" class="text-3xl font-bold">--</span>
-          <span class="text-[9px] text-gray-500 ml-1">ms</span>
+        <div class="bento-card py-6 flex flex-col items-center justify-center">
+            <div class="relative w-[220px] h-[220px]">
+                <svg class="w-full h-full">
+                    <circle cx="110" cy="110" r="90" class="score-circle-bg"></circle>
+                    <circle id="score-ring" cx="110" cy="110" r="90" class="score-circle-fg"></circle>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <span class="text-[10px] text-gray-500">STRESS SCORE</span>
+                    <span id="tei-score" class="text-7xl font-black text-white mt-2">--</span>
+                    <span id="tei-grade" class="text-xs text-cyan-400 mt-3">CALIBRATING...</span>
+                </div>
+            </div>
         </div>
-      </div>
 
-      <div class="bento-card col-span-2">
-        <div class="text-[9px] text-gray-400 font-bold mb-2">SIGNAL QUALITY</div>
-        <div class="text-[9px] text-white/70">
-          <span id="snr-txt">SNR: --</span> |
-          <span id="valid-samples-txt">Samples: 0</span>
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bento-card">
+                <div class="text-[9px] text-gray-400 font-bold">HEART RATE</div>
+                <div class="mt-2"><span id="bpm-val" class="text-3xl font-bold">--</span><span class="text-[9px] text-gray-500 ml-1">BPM</span></div>
+            </div>
+
+            <div class="bento-card">
+                <div class="text-[9px] text-gray-400 font-bold">HRV</div>
+                <div class="mt-2"><span id="hrv-val" class="text-3xl font-bold">--</span><span class="text-[9px] text-gray-500 ml-1">ms</span></div>
+            </div>
+
+            <div class="bento-card col-span-2">
+                <div class="text-[9px] text-gray-400 font-bold mb-2">SIGNAL QUALITY</div>
+                <div class="text-[9px] text-white/70">
+                    <span id="snr-txt">SNR: --</span> | 
+                    <span id="valid-samples-txt">Samples: 0</span>
+                </div>
+            </div>
         </div>
-      </div>
+
+        <div class="grid grid-cols-2 gap-3 mt-3">
+            <div class="bento-card">
+                <canvas id="pulse-canvas" width="120" height="60"></canvas>
+            </div>
+            <div class="bento-card">
+                <canvas id="breath-canvas" width="120" height="60"></canvas>
+            </div>
+        </div>
+
+        <div class="h-10"></div>
     </div>
 
-    <div class="grid grid-cols-2 gap-3 mt-3">
-      <div class="bento-card">
-        <canvas id="pulse-canvas" width="120" height="60"></canvas>
-      </div>
-      <div class="bento-card">
-        <canvas id="breath-canvas" width="120" height="60"></canvas>
-      </div>
+    <!-- Dock -->
+    <div id="floating-dock" class="dock">
+        <button class="w-10 h-10 flex items-center justify-center">
+            <i data-lucide="share-2" class="w-4 h-4 text-white/50"></i>
+        </button>
+        <button id="reset-btn" class="flex-1 h-10 mx-2 bg-white text-black rounded-full font-bold text-xs cursor-pointer">
+            NEW SCAN
+        </button>
+        <button class="w-10 h-10 flex items-center justify-center">
+            <i data-lucide="history" class="w-4 h-4 text-white/50"></i>
+        </button>
     </div>
 
-    <div class="h-10"></div>
-  </div>
-
-  <!-- Dock -->
-  <div id="floating-dock" class="dock">
-    <button class="w-10 h-10 flex items-center justify-center">
-      <i data-lucide="share-2" class="w-4 h-4 text-white/50"></i>
-    </button>
-    <button id="reset-btn" class="flex-1 h-10 mx-2 bg-white text-black rounded-full font-bold text-xs cursor-pointer">
-      NEW SCAN
-    </button>
-    <button class="w-10 h-10 flex items-center justify-center">
-      <i data-lucide="history" class="w-4 h-4 text-white/50"></i>
-    </button>
-  </div>
-
-  <!-- Worker Code -->
-  <script id="worker-code" type="javascript/worker">
+    <script id="worker-code" type="javascript/worker">
 class AdvancedMedicalPOS {
-  constructor() {
-    this.bufferSize = 256;
-    this.samples = { r: [], g: [], b: [], t: [] };
-    this.peaks = [];
-    this.validIBIs = [];
-    this.lastBPM = 70;
-    this.filterState = {
-      b: [0.00654, 0.01308, 0.00654],
-      a: [1.0, -2.3741, 1.9294],
-      x: [0, 0, 0],
-      y: [0, 0, 0]
-    };
-    this.suspectPeaks = [];
-  }
-
-  process(r, g, b, t) {
-    this.samples.r.push(r);
-    this.samples.g.push(g);
-    this.samples.b.push(b);
-    this.samples.t.push(t);
-
-    if (this.samples.r.length > this.bufferSize) {
-      this.samples.r.shift();
-      this.samples.g.shift();
-      this.samples.b.shift();
-      this.samples.t.shift();
+    constructor() {
+        this.bufferSize = 256;
+        this.samples = { r: [], g: [], b: [], t: [] };
+        this.peaks = [];
+        this.validIBIs = [];
+        this.lastBPM = 70;
+        this.filterState = {
+            b: [0.00654, 0.01308, 0.00654],
+            a: [1.0, -2.3741, 1.9294],
+            x: [0, 0, 0],
+            y: [0, 0, 0]
+        };
+        this.suspectPeaks = [];
     }
 
-    const rawSignal = (this.samples.g[this.samples.g.length - 1] - 128) / 128;
+    process(r, g, b, t) {
+        this.samples.r.push(r);
+        this.samples.g.push(g);
+        this.samples.b.push(b);
+        this.samples.t.push(t);
 
-    if (this.samples.r.length < 60) {
-      return { signal: rawSignal, bpm: 0, hrv: 0, snr: 0, validSamples: this.validIBIs.length, status: 'buffering' };
+        if (this.samples.r.length > this.bufferSize) {
+            this.samples.r.shift();
+            this.samples.g.shift();
+            this.samples.b.shift();
+            this.samples.t.shift();
+        }
+
+        const rawSignal = (this.samples.g[this.samples.g.length - 1] - 128) / 128;
+
+        if (this.samples.r.length < 60) {
+            return { signal: rawSignal, bpm: 0, hrv: 0, snr: 0, validSamples: this.validIBIs.length, status: 'buffering' };
+        }
+
+        const { Cb, Cr } = this.rgbToYcbcr();
+        const H = this.computeModifiedPOS(Cb, Cr);
+        const filtered = this.applyButterworthFilter(H);
+        const { snr, amplitude } = this.estimateSNR(filtered);
+
+        if (snr > 1.2) {
+            this.adaptivePeakDetection(filtered, snr, amplitude);
+        }
+
+        return {
+            signal: filtered[filtered.length - 1],
+            bpm: this.calculateBPM(),
+            hrv: this.calculateRMSSD(),
+            snr: snr,
+            validSamples: this.validIBIs.length,
+            status: 'analyzing'
+        };
     }
 
-    const { Cb, Cr } = this.rgbToYcbcr();
-    const H = this.computeModifiedPOS(Cb, Cr);
-    const filtered = this.applyButterworthFilter(H);
-    const { snr, amplitude } = this.estimateSNR(filtered);
-    if (snr > 1.2) this.adaptivePeakDetection(filtered, snr, amplitude);
+    rgbToYcbcr() {
+        const len = this.samples.r.length;
+        const Cb = new Float32Array(len);
+        const Cr = new Float32Array(len);
 
-    return {
-      signal: filtered[filtered.length - 1],
-      bpm: this.calculateBPM(),
-      hrv: this.calculateRMSSD(),
-      snr: snr,
-      validSamples: this.validIBIs.length,
-      status: 'analyzing'
-    };
-  }
+        for (let i = 0; i < len; i++) {
+            const r = this.samples.r[i] / 255;
+            const g = this.samples.g[i] / 255;
+            const b = this.samples.b[i] / 255;
 
-  rgbToYcbcr() {
-    const len = this.samples.r.length;
-    const Cb = new Float32Array(len);
-    const Cr = new Float32Array(len);
-    for (let i = 0; i < len; i++) {
-      const r = this.samples.r[i] / 255;
-      const g = this.samples.g[i] / 255;
-      const b = this.samples.b[i] / 255;
-      Cb[i] = -0.169 * r - 0.331 * g + 0.5 * b;
-      Cr[i] = 0.5 * r - 0.419 * g - 0.081 * b;
-    }
-    return { Cb, Cr };
-  }
+            Cb[i] = -0.169 * r - 0.331 * g + 0.5 * b;
+            Cr[i] = 0.5 * r - 0.419 * g - 0.081 * b;
+        }
 
-  computeModifiedPOS(Cb, Cr) {
-    const len = Cb.length;
-    const meanCb = Cb.reduce((a,c)=>a+c,0) / len;
-    const meanCr = Cr.reduce((a,c)=>a+c,0) / len;
-    let varCb = 0, varCr = 0;
-    for (let i = 0; i < len; i++) {
-      varCb += Math.pow(Cb[i] - meanCb, 2);
-      varCr += Math.pow(Cr[i] - meanCr, 2);
+        return { Cb, Cr };
     }
-    varCb /= len; varCr /= len;
-    const stdCb = Math.sqrt(varCb);
-    const stdCr = Math.sqrt(varCr);
-    const alpha = stdCb > stdCr ? 0.4 : 0.5;
-    const beta = 1.0 - alpha;
-    const H = new Float32Array(len);
-    for (let i = 0; i < len; i++) {
-      const nCb = (Cb[i] - meanCb) / (stdCb + 1e-6);
-      const nCr = (Cr[i] - meanCr) / (stdCr + 1e-6);
-      H[i] = alpha * nCb - beta * nCr;
-    }
-    return H;
-  }
 
-  applyButterworthFilter(H) {
-    const len = H.length;
-    const { b, a } = this.filterState;
-    const filtered = new Float32Array(len);
-    for (let i = 0; i < len; i++) {
-      let y = b[0] * H[i] + b[1] * this.filterState.x[0] + b[2] * this.filterState.x[1]
-            - a[1] * this.filterState.y[0] - a[2] * this.filterState.y[1];
-      this.filterState.x[1] = this.filterState.x[0];
-      this.filterState.x[0] = H[i];
-      this.filterState.y[1] = this.filterState.y[0];
-      this.filterState.y[0] = y;
-      filtered[i] = y;
-    }
-    return filtered;
-  }
+    computeModifiedPOS(Cb, Cr) {
+        const len = Cb.length;
+        const meanCb = Cb.reduce((a,c)=>a+c,0) / len;
+        const meanCr = Cr.reduce((a,c)=>a+c,0) / len;
 
-  estimateSNR(signal) {
-    let min = signal[0], max = signal[0];
-    for (let i = 1; i < signal.length; i++) {
-      if (signal[i] < min) min = signal[i];
-      if (signal[i] > max) max = signal[i];
-    }
-    const amplitude = max - min;
-    let noiseSum = 0;
-    for (let i = 1; i < signal.length; i++) {
-      const diff = signal[i] - signal[i - 1];
-      noiseSum += diff * diff;
-    }
-    const noise = Math.sqrt(noiseSum / (signal.length - 1));
-    const snr = amplitude / (noise + 1e-6);
-    return { snr, amplitude };
-  }
+        let varCb = 0, varCr = 0;
+        for (let i = 0; i < len; i++) {
+            varCb += Math.pow(Cb[i] - meanCb, 2);
+            varCr += Math.pow(Cr[i] - meanCr, 2);
+        }
+        varCb /= len;
+        varCr /= len;
 
-  adaptivePeakDetection(signal, snr, amplitude) {
-    const len = signal.length;
-    const i = len - 6;
-    if (signal[i] <= signal[i - 1] || signal[i] <= signal[i + 1]) return;
-    const threshold = amplitude * Math.max(0.35, 0.60 - (snr * 0.05));
-    if (signal[i] < threshold) return;
-    const now = this.samples.t[i];
-    if (this.peaks.length === 0) {
-      this.peaks.push(now);
-      return;
+        const stdCb = Math.sqrt(varCb);
+        const stdCr = Math.sqrt(varCr);
+        const alpha = stdCb > stdCr ? 0.4 : 0.5;
+        const beta = 1.0 - alpha;
+
+        const H = new Float32Array(len);
+        for (let i = 0; i < len; i++) {
+            const nCb = (Cb[i] - meanCb) / (stdCb + 1e-6);
+            const nCr = (Cr[i] - meanCr) / (stdCr + 1e-6);
+            H[i] = alpha * nCb - beta * nCr;
+        }
+
+        return H;
     }
-    const lastPeak = this.peaks[this.peaks.length - 1];
-    const gap = now - lastPeak;
-    if (gap < 330 || gap > 1500) return;
-    if (this.peaks.length >= 2) {
-      const ibi = gap;
-      const prevIBI = lastPeak - this.peaks[this.peaks.length - 2];
-      const ibiBias = Math.abs(ibi - prevIBI) / prevIBI;
-      if (ibiBias > 0.30) {
-        this.suspectPeaks.push({ time: now, ibi: ibi });
-        if (this.suspectPeaks.length > 1) {
-          const prev = this.suspectPeaks[0];
-          if (Math.abs(ibi - prev.ibi) / prev.ibi < 0.25) {
-            this.peaks.push(prev.time);
+
+    applyButterworthFilter(H) {
+        const len = H.length;
+        const { b, a } = this.filterState;
+        const filtered = new Float32Array(len);
+
+        for (let i = 0; i < len; i++) {
+            let y = b[0] * H[i] + b[1] * this.filterState.x[0] + b[2] * this.filterState.x[1]
+                  - a[1] * this.filterState.y[0] - a[2] * this.filterState.y[1];
+
+            this.filterState.x[1] = this.filterState.x[0];
+            this.filterState.x[0] = H[i];
+            this.filterState.y[1] = this.filterState.y[0];
+            this.filterState.y[0] = y;
+
+            filtered[i] = y;
+        }
+
+        return filtered;
+    }
+
+    estimateSNR(signal) {
+        let min = signal[0], max = signal[0];
+        for (let i = 1; i < signal.length; i++) {
+            if (signal[i] < min) min = signal[i];
+            if (signal[i] > max) max = signal[i];
+        }
+        const amplitude = max - min;
+
+        if (amplitude < 0.0001) {
+            return { snr: 0.1, amplitude: 0.0001 };
+        }
+
+        let noiseSum = 0;
+        for (let i = 1; i < signal.length; i++) {
+            const diff = signal[i] - signal[i - 1];
+            noiseSum += diff * diff;
+        }
+        const noise = Math.sqrt(noiseSum / (signal.length - 1));
+        let snr = amplitude / (noise + 1e-6);
+
+        if (isNaN(snr) || !isFinite(snr)) {
+            snr = 0.1;
+        }
+
+        return { snr: Math.max(0.1, snr), amplitude };
+    }
+
+    adaptivePeakDetection(signal, snr, amplitude) {
+        const len = signal.length;
+        const i = len - 6;
+
+        if (signal[i] <= signal[i - 1] || signal[i] <= signal[i + 1]) return;
+
+        const threshold = amplitude * Math.max(0.35, 0.60 - (snr * 0.05));
+        if (signal[i] < threshold) return;
+
+        const now = this.samples.t[i];
+
+        if (this.peaks.length === 0) {
+            this.peaks.push(now);
+            return;
+        }
+
+        const lastPeak = this.peaks[this.peaks.length - 1];
+        const gap = now - lastPeak;
+
+        if (gap < 330 || gap > 1500) return;
+
+        if (this.peaks.length >= 2) {
+            const ibi = gap;
+            const prevIBI = lastPeak - this.peaks[this.peaks.length - 2];
+            const ibiBias = Math.abs(ibi - prevIBI) / prevIBI;
+
+            if (ibiBias > 0.30) {
+                this.suspectPeaks.push({ time: now, ibi: ibi });
+                if (this.suspectPeaks.length > 1) {
+                    const prev = this.suspectPeaks[0];
+                    if (Math.abs(ibi - prev.ibi) / prev.ibi < 0.25) {
+                        this.peaks.push(prev.time);
+                        const runInStart = this.peaks[0];
+                        if (now - runInStart > 10000) {
+                            this.validIBIs.push(prev.ibi);
+                            if (this.validIBIs.length > 60) this.validIBIs.shift();
+                        }
+                        this.suspectPeaks.shift();
+                    }
+                }
+                return;
+            }
+        }
+
+        this.peaks.push(now);
+        if (this.peaks.length >= 2) {
             const runInStart = this.peaks[0];
             if (now - runInStart > 10000) {
-              this.validIBIs.push(prev.ibi);
-              if (this.validIBIs.length > 60) this.validIBIs.shift();
+                this.validIBIs.push(gap);
+                if (this.validIBIs.length > 60) this.validIBIs.shift();
             }
-            this.suspectPeaks.shift();
-          }
         }
-        return;
-      }
-    }
-    this.peaks.push(now);
-    if (this.peaks.length >= 2) {
-      const runInStart = this.peaks[0];
-      if (now - runInStart > 10000) {
-        this.validIBIs.push(gap);
-        if (this.validIBIs.length > 60) this.validIBIs.shift();
-      }
-    }
-    if (this.peaks.length > 50) this.peaks.shift();
-  }
 
-  calculateBPM() {
-    if (this.validIBIs.length < 3) return this.lastBPM;
-    const sorted = [...this.validIBIs].sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
-    const rawBPM = 60000 / median;
-    const diff = rawBPM - this.lastBPM;
-    if (Math.abs(diff) > 2) this.lastBPM += (diff > 0 ? 2 : -2);
-    else this.lastBPM = rawBPM;
-    return Math.round(this.lastBPM);
-  }
-
-  calculateRMSSD() {
-    if (this.validIBIs.length < 5) return 0;
-    let sum = 0;
-    for (let i = 0; i < this.validIBIs.length - 1; i++) {
-      sum += Math.pow(this.validIBIs[i + 1] - this.validIBIs[i], 2);
+        if (this.peaks.length > 50) this.peaks.shift();
     }
-    return Math.min(150, Math.round(Math.sqrt(sum / (this.validIBIs.length - 1))));
-  }
+
+    calculateBPM() {
+        if (this.validIBIs.length < 3) return this.lastBPM;
+
+        const sorted = [...this.validIBIs].sort((a, b) => a - b);
+        const median = sorted[Math.floor(sorted.length / 2)];
+        const rawBPM = 60000 / median;
+
+        const diff = rawBPM - this.lastBPM;
+        if (Math.abs(diff) > 2) {
+            this.lastBPM += (diff > 0 ? 2 : -2);
+        } else {
+            this.lastBPM = rawBPM;
+        }
+
+        return Math.round(this.lastBPM);
+    }
+
+    calculateRMSSD() {
+        if (this.validIBIs.length < 5) return 0;
+
+        let sum = 0;
+        for (let i = 0; i < this.validIBIs.length - 1; i++) {
+            sum += Math.pow(this.validIBIs[i + 1] - this.validIBIs[i], 2);
+        }
+        return Math.min(150, Math.round(Math.sqrt(sum / (this.validIBIs.length - 1))));
+    }
 }
 
 const core = new AdvancedMedicalPOS();
 self.onmessage = function (e) {
-  const { r, g, b, t } = e.data;
-  const result = core.process(r, g, b, t);
-  self.postMessage(result);
+    const { r, g, b, t } = e.data;
+    const result = core.process(r, g, b, t);
+    self.postMessage(result);
 };
-  </script>
+    </script>
 
-  <!-- Main App -->
-  <script>
-    const DEBUG = {
-      log: (key, msg, type = 'info') => {
-        const elem = document.getElementById('st-' + key);
-        if (!elem) return;
-        if (type === 'ok') { elem.className = 'status-ok'; elem.textContent = '✓ ' + msg; }
-        else if (type === 'err') { elem.className = 'status-err'; elem.textContent = '✗ ' + msg; }
-        else { elem.className = 'status-warn'; elem.textContent = '○ ' + msg; }
-        console.log('[' + key.toUpperCase() + ']', msg);
-      }
-    };
-
-    let worker = null;
-    try {
-      const blob = new Blob([document.getElementById('worker-code').textContent], {type: "text/javascript"});
-      worker = new Worker(window.URL.createObjectURL(blob));
-      DEBUG.log('worker', 'Created', 'ok');
-    } catch (e) {
-      DEBUG.log('worker', 'Failed: ' + e.message, 'err');
-      console.error(e);
-    }
-
-    const app = {
-      state: {
-        scanning: false,
-        cameraReady: false,
-        faceFound: false,
-        accumulating: false,
-        confidence: 0,
-        progress: 0,
-        results: { tei: 0, hrv: 0, bpm: 0, snr: 0 },
-        graphBuffer: []
-      },
-      roiCtx: null,
-      video: null,
-      lastPostTime: 0,
-      scanTimer: null,
-
-      init() {
-        this.initThree();
-        this.initGraphs();
-        this.initCamera();
-        this.initInteraction();
-        if (worker) this.initWorkerListener();
-        lucide.createIcons();
-      },
-
-      initWorkerListener() {
-        worker.onmessage = (e) => {
-          const data = e.data;
-          let signal = data.signal || 0;
-          if (Math.abs(signal) < 0.001) signal = Math.sin(performance.now()/200)*0.05;
-          this.updateRealtimeGraph(signal);
-          DEBUG.log('data', `SNR ${data.snr.toFixed(1)} / Samples ${data.validSamples}`, 'ok');
-
-          if (this.state.accumulating && data.status === 'analyzing') {
-            if (data.bpm > 0) this.state.results.bpm = data.bpm;
-            if (data.hrv > 0) this.state.results.hrv = data.hrv;
-            this.state.results.snr = data.snr;
-            this.state.confidence = Math.min(100, Math.floor((data.validSamples/30)*100));
-            this.updateDashboardUI();
-          }
-          if (this.state.scanning) {
-            const qual = Math.min(100, data.snr * 20);
-            document.getElementById('signal-bar').style.width = qual + '%';
-          }
-        };
-        worker.onerror = (e) => {
-          DEBUG.log('worker', 'Error: ' + e.message, 'err');
-        };
-      },
-
-      async initCamera() {
-        const video = document.getElementById('input-video');
-        this.video = video;
-        this.roiCtx = document.getElementById('roi-canvas').getContext('2d', {willReadFrequently: true});
-        try {
-          DEBUG.log('camera', 'Loading MediaPipe...', 'warn');
-          const faceMesh = new FaceMesh({
-            locateFile: (file)=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-          });
-          faceMesh.setOptions({
-            maxNumFaces: 1,
-            refineLandmarks: true,
-            minDetectionConfidence: 0.3
-          });
-          faceMesh.onResults((res)=>{
-            if (res.multiFaceLandmarks && res.multiFaceLandmarks.length>0) {
-              this.state.faceFound = true;
-              DEBUG.log('face','Detected','ok');
-              document.getElementById('status-badge').textContent = 'FACE LOCKED';
-              document.getElementById('status-badge').style.color = '#00FF94';
-              if (this.state.scanning || this.state.accumulating) this.processROI();
-            } else {
-              this.state.faceFound = false;
-              DEBUG.log('face','Lost','warn');
-              document.getElementById('status-badge').textContent = 'WAITING';
-              document.getElementById('status-badge').style.color = 'gray';
+    <script>
+        const DEBUG = {
+            log: (key, msg, type = 'info') => {
+                const elem = document.getElementById(`st-${key}`);
+                if (!elem) return;
+                
+                if (type === 'ok') {
+                    elem.className = 'status-ok';
+                    elem.innerText = '✓ ' + msg;
+                } else if (type === 'err') {
+                    elem.className = 'status-err';
+                    elem.innerText = '✗ ' + msg;
+                } else {
+                    elem.className = 'status-warn';
+                    elem.innerText = '○ ' + msg;
+                }
+                
+                console.log(`[${key.toUpperCase()}] ${msg}`);
             }
-          });
-          const camera = new Camera(video, {
-            onFrame: async ()=>{ await faceMesh.send({image: video}); },
-            width: 320, height: 240
-          });
-          await camera.start();
-          this.state.cameraReady = true;
-          DEBUG.log('camera','Ready','ok');
-          document.getElementById('camera-loading').classList.remove('active');
-        } catch(e) {
-          DEBUG.log('camera','Error: '+e.message,'err');
-          document.getElementById('camera-loading').innerHTML = '<div class="text-red-500">HTTPS REQUIRED or Camera Denied</div>';
+        };
+
+        let worker = null;
+        try {
+            const blob = new Blob([document.getElementById('worker-code').textContent], {type: "text/javascript"});
+            worker = new Worker(window.URL.createObjectURL(blob));
+            DEBUG.log('worker', 'Created', 'ok');
+        } catch (e) {
+            DEBUG.log('worker', 'Failed: ' + e.message, 'err');
+            console.error('Worker creation error:', e);
         }
-      },
 
-      processROI() {
-        if (!worker) return;
-        const now = performance.now();
-        if (now - this.lastPostTime < 100) return;
-        this.lastPostTime = now;
-        const w=64,h=64;
-        this.roiCtx.drawImage(this.video,0,0,w,h);
-        const frame = this.roiCtx.getImageData(27,22,20,20);
-        const data = frame.data;
-        let r=0,g=0,b=0;
-        for(let i=0;i<data.length;i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
-        const c = data.length/4;
-        worker.postMessage({ r:r/c, g:g/c, b:b/c, t:performance.now() });
-      },
+        const app = {
+            state: { 
+                scanning: false,
+                cameraReady: false,
+                faceFound: false,
+                accumulating: false,
+                confidence: 0,
+                progress: 0,
+                results: { tei: 0, hrv: 0, bpm: 0, snr: 0 },
+                graphBuffer: []
+            },
+            roiCtx: null,
+            video: null,
+            lastPostTime: 0,
+            scanTimer: null,
 
-      updateDashboardUI() {
-        const { bpm, hrv, snr } = this.state.results;
-        document.getElementById('bpm-val').textContent = bpm;
-        document.getElementById('hrv-val').textContent = hrv;
-        document.getElementById('snr-txt').textContent = `SNR: ${snr.toFixed(1)}`;
-        document.getElementById('confidence-txt').textContent = this.state.confidence + '%';
-        document.getElementById('confidence-bar').style.width = this.state.confidence + '%';
-        document.getElementById('valid-samples-txt').textContent = `Samples: ${this.state.confidence}`;
-        const tei = Math.max(1,Math.min(99,Math.floor(50 + (hrv/100)*50 - (bpm-60)*0.5)));
-        document.getElementById('tei-score').textContent = tei;
-        DEBUG.log('score',tei,'ok');
-      },
+            init() {
+                DEBUG.log('data', 'Init', 'warn');
+                this.initThree();
+                this.initGraphs();
+                this.initCamera();
+                this.initInteraction();
+                if (worker) this.initWorkerListener();
+                lucide.createIcons();
+            },
 
-      updateRealtimeGraph(val) {
-        let norm = (val + 2) / 4;
-        norm = Math.max(0, Math.min(1, norm));
-        this.state.graphBuffer.push(norm);
-        if (this.state.graphBuffer.length>40) this.state.graphBuffer.shift();
-        const ctx = this.pulseCtx;
-        const w = this.pulseCanvas.width;
-        const h = this.pulseCanvas.height;
-        const barW = (w/40)-1;
-        ctx.clearRect(0,0,w,h);
-        this.state.graphBuffer.forEach((v,i)=>{
-          const bh = v*h*0.8+2;
-          const x = i*(barW+1);
-          const y = h-bh;
-          ctx.fillStyle = `rgba(0,240,255,${v+0.2})`;
-          ctx.fillRect(x,y,barW,bh);
+            initWorkerListener() {
+                if (!worker) {
+                    DEBUG.log('worker', 'Not available', 'err');
+                    return;
+                }
+
+                worker.onmessage = (e) => {
+                    const data = e.data;
+                    
+                    let signal = data.signal || 0;
+                    if (Math.abs(signal) < 0.001) {
+                        signal = Math.sin(performance.now() / 200) * 0.05;
+                    }
+                    this.updateRealtimeGraph(signal);
+
+                    DEBUG.log('data', `SNR: ${data.snr.toFixed(1)}, Samples: ${data.validSamples}`, 'ok');
+
+                    if (this.state.accumulating && data.status === 'analyzing') {
+                        if (data.bpm > 0) this.state.results.bpm = data.bpm;
+                        if (data.hrv > 0) this.state.results.hrv = data.hrv;
+                        this.state.results.snr = data.snr;
+                        this.state.confidence = Math.min(100, Math.floor((data.validSamples / 30) * 100));
+                        this.updateDashboardUI();
+                    }
+
+                    if (this.state.scanning) {
+                        const qual = Math.min(100, data.snr * 20);
+                        document.getElementById('signal-bar').style.width = qual + '%';
+                    }
+                };
+
+                worker.onerror = (e) => {
+                    DEBUG.log('worker', 'Error: ' + e.message, 'err');
+                    console.error('Worker error:', e);
+                };
+            },
+
+            async initCamera() {
+                const video = document.getElementById('input-video');
+                this.video = video;
+                this.roiCtx = document.getElementById('roi-canvas').getContext('2d', {willReadFrequently: true});
+
+                try {
+                    DEBUG.log('camera', 'Loading MediaPipe...', 'warn');
+                    
+                    const faceMesh = new FaceMesh({
+                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+                    });
+
+                    faceMesh.setOptions({
+                        maxNumFaces: 1,
+                        refineLandmarks: true,
+                        minDetectionConfidence: 0.1
+                    });
+
+                    faceMesh.onResults((res) => {
+                        if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
+                            this.state.faceFound = true;
+                            DEBUG.log('face', 'Detected', 'ok');
+                            document.getElementById('status-badge').innerText = 'FACE LOCKED';
+                            document.getElementById('status-badge').style.color = '#00FF94';
+                            
+                            if (this.state.scanning || this.state.accumulating) {
+                                this.processROI();
+                            }
+                        } else {
+                            this.state.faceFound = false;
+                            DEBUG.log('face', 'Lost', 'warn');
+                            document.getElementById('status-badge').innerText = 'WAITING';
+                            document.getElementById('status-badge').style.color = 'gray';
+                        }
+                    });
+
+                    const camera = new Camera(video, {
+                        onFrame: async () => {
+                            await faceMesh.send({image: video});
+                        },
+                        width: 320,
+                        height: 240
+                    });
+
+                    await camera.start();
+                    this.state.cameraReady = true;
+                    DEBUG.log('camera', 'Ready', 'ok');
+                    document.getElementById('camera-loading').classList.remove('active');
+                    document.getElementById('loading-msg').innerText = 'Camera initialized';
+
+                } catch (e) {
+                    DEBUG.log('camera', 'Error: ' + e.message, 'err');
+                    document.getElementById('camera-loading').innerHTML = '<div class="text-red-500">HTTPS REQUIRED or Camera Denied</div>';
+                }
+            },
+
+            processROI() {
+                if (!worker) return;
+
+                const now = performance.now();
+                if (now - this.lastPostTime < 100) return;
+                this.lastPostTime = now;
+
+                const w = 64, h = 64;
+                this.roiCtx.drawImage(this.video, 0, 0, w, h);
+                const frame = this.roiCtx.getImageData(27, 22, 20, 20);
+                const data = frame.data;
+
+                let r = 0, g = 0, b = 0;
+                for (let i = 0; i < data.length; i += 4) {
+                    r += data[i];
+                    g += data[i + 1];
+                    b += data[i + 2];
+                }
+                const count = data.length / 4;
+
+                worker.postMessage({
+                    r: r / count,
+                    g: g / count,
+                    b: b / count,
+                    t: performance.now()
+                });
+            },
+
+            updateDashboardUI() {
+                const { bpm, hrv, snr } = this.state.results;
+                
+                document.getElementById('bpm-val').innerText = bpm;
+                document.getElementById('hrv-val').innerText = hrv;
+                document.getElementById('snr-txt').innerText = `SNR: ${snr.toFixed(1)}`;
+                document.getElementById('confidence-txt').innerText = this.state.confidence + '%';
+                document.getElementById('confidence-bar').style.width = this.state.confidence + '%';
+                document.getElementById('valid-samples-txt').innerText = `Samples: ${this.state.confidence}`;
+
+                const tei = Math.floor(50 + (hrv / 100) * 50 - (bpm - 60) * 0.5);
+                document.getElementById('tei-score').innerText = Math.max(1, Math.min(99, tei));
+                DEBUG.log('score', tei, 'ok');
+            },
+
+            updateRealtimeGraph(val) {
+                let norm = (val + 2) / 4;
+                norm = Math.max(0, Math.min(1, norm));
+                this.state.graphBuffer.push(norm);
+                if (this.state.graphBuffer.length > 40) this.state.graphBuffer.shift();
+
+                const ctx = this.pulseCtx;
+                const w = this.pulseCanvas.width;
+                const h = this.pulseCanvas.height;
+                const barW = (w / 40) - 1;
+
+                ctx.clearRect(0, 0, w, h);
+                this.state.graphBuffer.forEach((v, i) => {
+                    const bh = v * h * 0.8 + 2;
+                    const x = i * (barW + 1);
+                    const y = h - bh;
+                    ctx.fillStyle = `rgba(0, 240, 255, ${v + 0.2})`;
+                    ctx.fillRect(x, y, barW, bh);
+                });
+            },
+
+            initGraphs() {
+                this.pulseCanvas = document.getElementById('pulse-canvas');
+                this.pulseCtx = this.pulseCanvas.getContext('2d');
+                this.breathCanvas = document.getElementById('breath-canvas');
+                this.breathCtx = this.breathCanvas.getContext('2d');
+            },
+
+            initInteraction() {
+                const btn = document.getElementById('scan-trigger');
+                const fpBtn = document.getElementById('fp-btn');
+
+                const startScan = (e) => {
+                    e.preventDefault();
+                    DEBUG.log('scanning', 'Attempting...', 'warn');
+
+                    if (!this.state.cameraReady) {
+                        DEBUG.log('scanning', 'Camera not ready', 'err');
+                        return;
+                    }
+                    if (!this.state.faceFound) {
+                        DEBUG.log('scanning', 'Face not detected', 'err');
+                        return;
+                    }
+
+                    DEBUG.log('scanning', 'Starting...', 'ok');
+                    this.state.scanning = true;
+                    fpBtn.classList.add('active');
+
+                    let p = 0;
+                    this.scanTimer = setInterval(() => {
+                        p += 4;
+                        this.state.progress = p;
+                        document.getElementById('progress-txt').innerText = p + '%';
+
+                        if (p >= 100) {
+                            clearInterval(this.scanTimer);
+                            this.completeScan();
+                        }
+                    }, 50);
+                };
+
+                const stopScan = (e) => {
+                    if (this.state.progress < 100 && this.state.scanning) {
+                        this.state.scanning = false;
+                        clearInterval(this.scanTimer);
+                        fpBtn.classList.remove('active');
+                        document.getElementById('signal-bar').style.width = '0%';
+                        document.getElementById('progress-txt').innerText = '0%';
+                        DEBUG.log('scanning', 'Cancelled', 'warn');
+                    }
+                };
+
+                btn.addEventListener('mousedown', startScan);
+                btn.addEventListener('touchstart', startScan);
+                window.addEventListener('mouseup', stopScan);
+                window.addEventListener('touchend', stopScan);
+            },
+
+            completeScan() {
+                DEBUG.log('scanning', 'Complete!', 'ok');
+                document.getElementById('hud-layer').classList.add('hidden-ui');
+                document.getElementById('universe').classList.add('dimmed');
+                document.getElementById('dashboard-layer').classList.add('show');
+                document.getElementById('floating-dock').classList.add('show');
+                
+                this.state.results.bpm = 72;
+                this.state.accumulating = true;
+                DEBUG.log('scanning', 'Accumulating...', 'ok');
+            },
+
+            initThree() {
+                const c = document.getElementById('universe');
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.z = 5;
+                this.renderer = new THREE.WebGLRenderer({alpha: true});
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                c.appendChild(this.renderer.domElement);
+                
+                const geo = new THREE.BufferGeometry();
+                const pos = new Float32Array(3000 * 3);
+                for (let i = 0; i < 9000; i++) {
+                    pos[i] = (Math.random() - 0.5) * 15;
+                }
+                geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+                const mat = new THREE.PointsMaterial({
+                    size: 0.03,
+                    color: 0x00ffff,
+                    transparent: true,
+                    opacity: 0.4
+                });
+                this.stars = new THREE.Points(geo, mat);
+                this.scene.add(this.stars);
+                this.animate();
+            },
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.stars.rotation.y += 0.0005;
+                this.renderer.render(this.scene, this.camera);
+            },
+
+            reset() {
+                location.reload();
+            }
+        };
+
+        window.addEventListener('load', () => {
+            DEBUG.log('data', 'App starting...', 'warn');
+            app.init();
+            document.getElementById('reset-btn').onclick = () => app.reset();
         });
-      },
 
-      initGraphs() {
-        this.pulseCanvas = document.getElementById('pulse-canvas');
-        this.pulseCtx = this.pulseCanvas.getContext('2d');
-        this.breathCanvas = document.getElementById('breath-canvas');
-        this.breathCtx = this.breathCanvas.getContext('2d');
-      },
-
-      initInteraction() {
-        const btn = document.getElementById('scan-trigger');
-        const fpBtn = document.getElementById('fp-btn');
-        const startScan = (e)=>{
-          e.preventDefault();
-          DEBUG.log('scanning','Try','warn');
-          if (!this.state.cameraReady) { DEBUG.log('scanning','Camera not ready','err'); return; }
-          if (!this.state.faceFound) { DEBUG.log('scanning','No face','err'); return; }
-          DEBUG.log('scanning','Start','ok');
-          this.state.scanning = true;
-          fpBtn.classList.add('active');
-          let p=0;
-          this.scanTimer=setInterval(()=>{
-            p+=4;
-            this.state.progress=p;
-            document.getElementById('progress-txt').textContent=p+'%';
-            if(p>=100){ clearInterval(this.scanTimer); this.completeScan(); }
-          },50);
-        };
-        const stopScan=(e)=>{
-          if(this.state.progress<100 && this.state.scanning){
-            this.state.scanning=false;
-            clearInterval(this.scanTimer);
-            fpBtn.classList.remove('active');
-            document.getElementById('signal-bar').style.width='0%';
-            document.getElementById('progress-txt').textContent='0%';
-            DEBUG.log('scanning','Cancelled','warn');
-          }
-        };
-        btn.addEventListener('mousedown',startScan);
-        btn.addEventListener('touchstart',startScan);
-        window.addEventListener('mouseup',stopScan);
-        window.addEventListener('touchend',stopScan);
-      },
-
-      completeScan() {
-        DEBUG.log('scanning','Complete','ok');
-        document.getElementById('hud-layer').classList.add('hidden-ui');
-        document.getElementById('universe').classList.add('dimmed');
-        document.getElementById('dashboard-layer').classList.add('show');
-        document.getElementById('floating-dock').classList.add('show');
-        this.state.results.bpm = 72;
-        this.state.accumulating = true;
-        DEBUG.log('scanning','Accumulating','ok');
-      },
-
-      initThree() {
-        const c = document.getElementById('universe');
-        this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        this.camera.position.z = 5;
-        this.renderer = new THREE.WebGLRenderer({alpha:true});
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        c.appendChild(this.renderer.domElement);
-        const geo = new THREE.BufferGeometry();
-        const pos = new Float32Array(3000*3);
-        for(let i=0;i<9000;i++) pos[i]=(Math.random()-0.5)*15;
-        geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-        const mat = new THREE.PointsMaterial({size:0.03,color:0x00ffff,transparent:true,opacity:0.4});
-        this.stars=new THREE.Points(geo,mat);
-        this.scene.add(this.stars);
-        this.animate();
-      },
-
-      animate() {
-        requestAnimationFrame(()=>this.animate());
-        this.stars.rotation.y += 0.0005;
-        this.renderer.render(this.scene,this.camera);
-      },
-
-      reset() { location.reload(); }
-    };
-
-    window.addEventListener('load',()=>{
-      DEBUG.log('data','App starting...','warn');
-      app.init();
-      document.getElementById('reset-btn').onclick = ()=>app.reset();
-    });
-
-    window.app = app;
-    window.DEBUG = DEBUG;
-  </script>
+        window.app = app;
+        window.DEBUG = DEBUG;
+    </script>
 </body>
 </html>
