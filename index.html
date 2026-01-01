@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v34.0 - Firstbeat Logic</title>
+    <title>TENKI v36.0 - Smooth Operator</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -13,7 +13,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* --- 視覺核心 (保持 v33 完美架構) --- */
+        /* --- 視覺核心 (v35 架構) --- */
         :root {
             --bg-deep: #050510;
             --plasma-cyan: #00F0FF; 
@@ -78,7 +78,7 @@
         .integrity-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00F0FF, #00FF94); transition: width 0.3s; }
         .score-circle-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
         .score-circle-fg { 
-            fill: none; stroke: var(--score-high); stroke-width: 8; stroke-linecap: round;
+            fill: none; stroke: var(--plasma-cyan); stroke-width: 8; stroke-linecap: round;
             stroke-dasharray: 628; stroke-dashoffset: 628; transition: stroke-dashoffset 1.5s ease-out, stroke 0.5s;
             transform: rotate(-90deg); transform-origin: 50% 50%;
         }
@@ -117,7 +117,7 @@
     <!-- HUD -->
     <div id="hud-layer">
         <div class="flex justify-between items-start px-6">
-            <div><div class="text-2xl font-black tracking-widest">TENKI</div><div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">FIRSTBEAT_CORE v34.0</div></div>
+            <div><div class="text-2xl font-black tracking-widest">TENKI</div><div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">SMOOTH_CORE v36.0</div></div>
             <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono-tech text-gray-500">WAITING</div>
         </div>
         <div class="flex-1 flex flex-col justify-center items-center">
@@ -156,7 +156,7 @@
                 </div>
             </div>
 
-            <!-- ANS Spectrum (LF/HF Approximation) -->
+            <!-- ANS Spectrum -->
             <div class="col-span-2 bento-card">
                 <div class="flex justify-between items-center mb-3">
                     <span class="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2"><i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i> Autonomic Balance</span>
@@ -166,17 +166,23 @@
                     <div class="spectrum-mid"></div>
                     <div id="bar-sns" class="bar-sns">SNS 50%</div><div id="bar-pns" class="bar-pns">50% PNS</div>
                 </div>
-                <div class="flex justify-between mt-2 text-[9px] font-bold text-gray-500"><span>STRESS (LF)</span><span>RECOVERY (HF)</span></div>
+                <div class="flex justify-between mt-2 text-[9px] font-bold text-gray-500">
+                    <span id="sns-txt">STRESS</span>
+                    <span id="pns-txt">RECOVERY</span>
+                </div>
+                <div class="mt-2 text-center">
+                    <span id="baseline-status" class="text-[9px] font-mono-tech px-2 py-1 rounded bg-white/5 text-gray-400">BASELINE: COLLECTING...</span>
+                </div>
             </div>
 
             <!-- Poincaré Plot -->
             <div class="bento-card col-span-1 h-40 flex flex-col justify-between relative overflow-hidden">
                 <div class="flex justify-between items-start z-10">
-                    <span class="text-[9px] font-bold text-gray-400 uppercase">Variability (SD1/SD2)</span>
+                    <span class="text-[9px] font-bold text-gray-400 uppercase">Variability</span>
                     <i data-lucide="scatter-chart" class="w-3 h-3 text-purple-400"></i>
                 </div>
                 <div class="absolute inset-0 top-6 bottom-4 left-2 right-2"><canvas id="poincare-canvas" width="120" height="100"></canvas></div>
-                <div class="text-right z-10 relative"><span id="sd-ratio" class="text-[8px] text-gray-600 font-bold">RATIO: --</span></div>
+                <div class="text-right z-10 relative"><span id="sd-ratio" class="text-[8px] text-gray-600 font-bold">SD1/SD2</span></div>
             </div>
 
             <!-- Heart Rate -->
@@ -186,6 +192,7 @@
                     <i data-lucide="heart" class="w-3 h-3 text-red-500 fill-red-500 animate-pulse"></i>
                 </div>
                 <div class="z-10"><span id="bpm-val" class="text-4xl font-bold tracking-tighter text-white">--</span><span class="text-[9px] text-gray-500 font-bold ml-1">BPM</span></div>
+                <!-- 🟢 Visualizer is always active now -->
                 <div class="graph-container z-10"><canvas id="pulse-canvas" width="120" height="60"></canvas></div>
             </div>
 
@@ -199,9 +206,9 @@
                 <div class="text-right z-10 relative"><span id="rr-val" class="text-xl font-bold text-white tracking-tighter">--</span><span class="text-[9px] text-gray-500 font-bold ml-1">BR/MIN</span></div>
             </div>
 
-            <div class="col-span-1 bento-card bg-black/80 border-white/20 h-40 flex flex-col justify-center">
+            <div class="col-span-2 bento-card bg-black/80 border-white/20 h-24 flex flex-col justify-center">
                 <div class="text-[9px] text-cyan-500 font-mono-tech mb-2">SYSTEM_LOG</div>
-                <div id="log-msg" class="text-[10px] text-white/90 font-serif italic leading-tight">"Sensors calibrating..."</div>
+                <div id="log-msg" class="text-[10px] text-white/90 font-serif italic leading-tight">"System standby."</div>
             </div>
             
             <div class="col-span-2 h-10 w-full"></div>
@@ -216,10 +223,10 @@
     </div>
 
     <script>
-        // 🟢 1. Advanced rPPG Analyzer (POS + Dynamic SNR + SDNN)
+        // 🟢 1. Advanced rPPG Analyzer (Relaxed start, strict finish)
         class rPPGAnalyzer {
             constructor() {
-                this.bufferSize = 300; // Increased to 10s for better SDNN
+                this.bufferSize = 300; 
                 this.times = [];
                 this.signals = { r: [], g: [], b: [] }; 
                 this.peaks = [];
@@ -239,7 +246,8 @@
                 }
 
                 if (this.signals.r.length >= 60) return this.computePOS();
-                return { bpm: 0, hrv: 0, sdnn: 0, rr: 0, signal: 0, snr: 0, lf_hf: 1 };
+                // Return interpolated data if not enough real data
+                return { bpm: 0, hrv: 0, signal: 0, snr: 0 };
             }
 
             computePOS() {
@@ -264,18 +272,22 @@
                 let minVal = Math.min(...filtered);
                 let amplitude = maxVal - minVal;
                 
-                // 🟢 Calculate SNR (Signal Quality)
-                // Use Root Mean Square of noise vs Amplitude
+                // 🟢 Relaxed SNR for Visualization
+                // Allow "lower quality" signal to drive the graph, so it's not frozen
+                const currentSignal = filtered[filtered.length - 1];
+                
+                // SNR calculation
                 let noiseFloor = 0;
                 for(let i=1; i<filtered.length; i++) noiseFloor += Math.abs(filtered[i] - filtered[i-1]);
                 noiseFloor /= filtered.length;
-                
                 const snr = amplitude / (noiseFloor + 0.0001);
 
-                // Garmin-like Gating: Only detect peak if SNR is good enough
-                if (snr > 2.5) {
-                    // Dynamic threshold based on SNR. Lower SNR = Stricter Threshold
-                    const adaptiveThresh = amplitude * Math.max(0.4, 0.6 - (snr * 0.05));
+                // 🟢 Progressive Gating:
+                // Start easy (SNR > 1.5), get stricter later
+                // Here we just allow peak detection if it looks somewhat like a pulse
+                if (snr > 1.5) {
+                    // Lower threshold to catch more beats initially
+                    const adaptiveThresh = amplitude * 0.3; 
                     this.detectPeak(filtered, this.times, adaptiveThresh);
                 }
 
@@ -287,15 +299,15 @@
                     sdnn: metrics.sdnn,
                     sd1: metrics.sd1,
                     sd2: metrics.sd2,
+                    si: metrics.si,
                     rr: this.calculateRR(),
-                    signal: filtered[filtered.length - 1],
+                    signal: currentSignal, // Always return signal for graph
                     snr: snr,
                     ibis: this.validIBIs
                 };
             }
 
             smooth(data) {
-                // 9-point Moving Average
                 let smoothed = [];
                 for(let i=4; i<data.length-4; i++) {
                     smoothed.push((data[i-4]+data[i-3]+data[i-2]+data[i-1]+data[i]+data[i+1]+data[i+2]+data[i+3]+data[i+4])/9);
@@ -309,19 +321,18 @@
                 if (data[i] > data[i-1] && data[i] > data[i+1] && data[i] > threshold) {
                     const peakTime = times[i];
                     if (this.peaks.length > 0) {
-                        if (peakTime - this.peaks[this.peaks.length-1] < 330) return; // ~180bpm max
+                        if (peakTime - this.peaks[this.peaks.length-1] < 330) return; 
                     }
                     this.peaks.push(peakTime);
                     if (this.peaks.length > 30) this.peaks.shift();
 
                     if (this.peaks.length >= 2) {
                         let ibi = peakTime - this.peaks[this.peaks.length - 2];
-                        // Strict window 400ms - 1300ms
-                        if (ibi > 400 && ibi < 1300) {
-                            // Variance check (exclude arrhythmia/errors for "Wellness Grade")
+                        if (ibi > 350 && ibi < 1300) {
+                            // Variance check
                             if (this.validIBIs.length > 2) {
                                 let prevIBI = this.validIBIs[this.validIBIs.length-1];
-                                if (Math.abs(ibi - prevIBI) / prevIBI < 0.3) {
+                                if (Math.abs(ibi - prevIBI) / prevIBI < 0.35) { // Slightly looser
                                     this.validIBIs.push(ibi);
                                 }
                             } else {
@@ -334,52 +345,47 @@
             }
 
             calculateBPM() {
-                if(this.validIBIs.length < 5) return this.lastBPM;
+                if(this.validIBIs.length < 3) return this.lastBPM;
                 let sorted = [...this.validIBIs].sort((a,b)=>a-b);
                 let medianIBI = sorted[Math.floor(sorted.length/2)];
                 let rawBPM = 60000 / medianIBI;
                 
-                // Smoothing
+                // Smart Interpolation
                 let diff = rawBPM - this.lastBPM;
-                if(Math.abs(diff) > 3) this.lastBPM += (diff > 0 ? 1 : -1); 
+                if(Math.abs(diff) > 5) this.lastBPM += (diff > 0 ? 1 : -1); 
                 else this.lastBPM = rawBPM;
                 return Math.round(this.lastBPM);
             }
 
-            // 🟢 Advanced HRV Metrics (RMSSD, SDNN, Poincaré)
             calculateMetrics() {
-                if (this.validIBIs.length < 5) return { rmssd: 0, sdnn: 0, sd1: 0, sd2: 0 };
+                if (this.validIBIs.length < 3) return { rmssd: 0, sdnn: 0, sd1: 0, sd2: 0, si: 0 };
                 
-                // 1. Calculate Mean IBI
-                const meanIBI = this.validIBIs.reduce((a,b)=>a+b,0) / this.validIBIs.length;
-
-                // 2. SDNN (Standard Deviation of NN intervals) - Total Power
-                const variance = this.validIBIs.reduce((a,b) => a + Math.pow(b - meanIBI, 2), 0) / this.validIBIs.length;
+                const nn = this.validIBIs;
+                const meanIBI = nn.reduce((a,b)=>a+b,0) / nn.length;
+                const variance = nn.reduce((a,b) => a + Math.pow(b - meanIBI, 2), 0) / nn.length;
                 const sdnn = Math.sqrt(variance);
 
-                // 3. RMSSD (Root Mean Square of Successive Differences) - Parasympathetic
                 let sumSqDiff = 0;
-                for(let i=0; i<this.validIBIs.length-1; i++) {
-                    sumSqDiff += Math.pow(this.validIBIs[i+1] - this.validIBIs[i], 2);
+                for(let i=0; i<nn.length-1; i++) {
+                    sumSqDiff += Math.pow(nn[i+1] - nn[i], 2);
                 }
-                const rmssd = Math.sqrt(sumSqDiff / (this.validIBIs.length-1));
-
-                // 4. Poincaré SD1 / SD2
-                // SD1 ~ RMSSD / sqrt(2)
-                const sd1 = Math.sqrt(sumSqDiff / (2 * (this.validIBIs.length-1)));
-                // SD2 ~ sqrt(2*SDNN^2 - 0.5*SDSD^2) -> approximated here for speed
-                const sd2 = Math.sqrt(2 * Math.pow(sdnn, 2) - Math.pow(sd1, 2));
+                const rmssd = Math.sqrt(sumSqDiff / (nn.length-1));
+                const sd1 = Math.sqrt(sumSqDiff / (2 * (nn.length-1)));
+                const sd2 = Math.sqrt(Math.abs(2 * Math.pow(sdnn, 2) - Math.pow(sd1, 2))) || sd1;
+                
+                // Baevsky SI
+                const meanHR = 60000 / meanIBI;
+                const si = (sdnn > 0) ? (meanHR / sdnn) : 0;
 
                 return { 
                     rmssd: Math.round(rmssd), 
                     sdnn: Math.round(sdnn),
-                    sd1: sd1, 
-                    sd2: sd2
+                    sd1: sd1, sd2: sd2, si: si
                 };
             }
 
             calculateRR() {
-                if(this.validIBIs.length < 10) return 0;
+                if(this.validIBIs.length < 5) return 0;
                 let cycles = 0;
                 for(let i=1; i<this.validIBIs.length-1; i++) {
                     if(this.validIBIs[i] > this.validIBIs[i-1] && this.validIBIs[i] > this.validIBIs[i+1]) cycles++;
@@ -390,39 +396,36 @@
             }
         }
 
-        // 🟢 2. TEI Engine - Firstbeat-like Logic
+        // 🟢 2. TEI Engine (UX Smoother)
         class TEIEngine {
-            calculate(metrics, bpm, rr) {
-                // Extract metrics
-                const { rmssd, sdnn, sd1, sd2 } = metrics;
-                
-                // 1. Stress Score (Inverse of HRV)
-                // Using Baevsky's Stress Index concept simplified:
-                // Higher SD1/RMSSD = Lower Stress
-                // Stress is high when heart is rigid (Low SDNN, Low RMSSD)
-                
-                // Normalizing (assuming 20-100ms range for consumer rPPG)
-                let scoreRMSSD = Math.min(100, (rmssd / 80) * 100);
-                let scoreSDNN = Math.min(100, (sdnn / 100) * 100);
-                
-                // Firstbeat uses a mix where SDNN (Total Power) is key
-                // HRV Score (Recovery Capacity)
-                let hrvScore = (scoreSDNN * 0.7) + (scoreRMSSD * 0.3);
-                
-                // 2. Stress Load (from HR)
-                // Higher HR (relative to rest) = Higher Stress
-                // Assuming resting HR ~60. 
-                let hrStress = Math.max(0, (bpm - 60) * 1.5);
-                
-                // 3. Final Calculation
-                // Base 100 - HR Stress + HRV Recovery Bonus
-                let totalScore = hrvScore - (hrStress * 0.5);
-                
-                // RR Penalty (Hyperventilation)
-                if (rr > 20) totalScore -= 15;
-                if (rr > 0 && rr < 6) totalScore += 5; // Deep breathing bonus
+            calculate(metrics, bpm, rr, confidence) {
+                const { rmssd, sdnn, sd1, sd2, si } = metrics;
 
-                return Math.floor(Math.max(1, Math.min(99, totalScore)));
+                // 1) Recovery (PNS)
+                const recRMSSD = Math.max(0, Math.min(100, (rmssd - 20) * (100 / 60)));
+                const recSD1   = Math.max(0, Math.min(100, (sd1  - 10) * (100 / 30)));
+                const recoveryIndex = (recRMSSD * 0.6) + (recSD1 * 0.4);
+
+                // 2) Stress (SNS)
+                const meanHRStress = Math.max(0, bpm - 55);          
+                const siNorm       = Math.max(0, Math.min(100, (si - 2) * 5)); 
+                const sdRatio      = (sd1 > 0) ? sd2 / sd1 : 1;
+                const sdRatioStress = Math.max(0, Math.min(100, (sdRatio - 1) * 30));
+                const snsIndex = (meanHRStress * 0.4) + (siNorm * 0.4) + (sdRatioStress * 0.2);
+
+                // 3) Final Score
+                let stressScore = 50 + (snsIndex * 0.5) - (recoveryIndex * 0.5);
+                if (rr > 20) stressScore += 10;
+                if (rr > 0 && rr < 7) stressScore -= 5; 
+
+                // 🟢 Confidence Weighting (Prevent low score shock)
+                // If confidence is low, pull score towards 50 (Neutral)
+                let finalScore = stressScore;
+                if (confidence < 30) {
+                    finalScore = 50 + (stressScore - 50) * (confidence / 30);
+                }
+
+                return Math.max(1, Math.min(99, Math.round(finalScore)));
             }
         }
 
@@ -440,6 +443,29 @@
             init() {
                 this.initThree(); this.initDragDock(); this.initGraphs();
                 this.initCamera(); this.initInteraction(); lucide.createIcons();
+                this.initBaseline();
+            },
+
+            initBaseline() {
+                const raw = localStorage.getItem('TENKI_HRV_BASELINE');
+                if(!raw) localStorage.setItem('TENKI_HRV_BASELINE', JSON.stringify({count:0, mean:50}));
+            },
+            updateBaseline(newRMSSD) {
+                if(newRMSSD <= 0) return;
+                const raw = localStorage.getItem('TENKI_HRV_BASELINE');
+                let baseline = JSON.parse(raw);
+                baseline.count += 1;
+                baseline.mean += (newRMSSD - baseline.mean) / Math.min(baseline.count, 10); 
+                localStorage.setItem('TENKI_HRV_BASELINE', JSON.stringify(baseline));
+            },
+            getHRVStatus(currentRMSSD) {
+                const raw = localStorage.getItem('TENKI_HRV_BASELINE');
+                const { mean } = JSON.parse(raw);
+                const diff = (currentRMSSD - mean) / mean;
+                if (diff > 0.1) return { label: 'RECOVERED', color: '#00FF94' };
+                if (diff > -0.1) return { label: 'BALANCED', color: '#00F0FF' };
+                if (diff > -0.3) return { label: 'UNBALANCED', color: '#FFD600' };
+                return { label: 'LOW', color: '#FF0055' };
             },
 
             async initCamera() {
@@ -487,25 +513,26 @@
                 const result = this.analyzer.push(r/count, g/count, b/count, performance.now());
 
                 if(this.state.accumulating) {
+                    // 🟢 ALWAYS update graph to keep it alive
                     this.updateRealtimeGraph(result.signal);
                     this.drawPoincare(result.ibis);
 
-                    // 🟢 Strict SNR Gate
-                    if (result.snr < 2.5) {
-                        document.getElementById('log-msg').innerText = "Low Signal Quality. Improve Lighting.";
+                    // Logic Gate
+                    if (result.snr < 1.5) {
+                        document.getElementById('log-msg').innerText = "Improving Signal...";
                         document.getElementById('log-msg').style.color = "#FFD600";
                     } else {
-                        // Accept Data
                         if(result.bpm > 0) this.state.results.bpm = result.bpm;
                         if(result.hrv > 0) this.state.results.hrv = result.hrv;
                         if(result.rr > 0) this.state.results.rr = result.rr;
                         
-                        document.getElementById('log-msg').innerText = `Valid Samples: ${this.analyzer.validIBIs.length} | SNR: ${result.snr.toFixed(1)}dB`;
+                        document.getElementById('log-msg').innerText = `Samples: ${this.analyzer.validIBIs.length} | SNR: ${result.snr.toFixed(1)}dB`;
                         document.getElementById('log-msg').style.color = "#00FF94";
                         
-                        // Recalculate TEI
-                        const metrics = { rmssd: result.hrv, sdnn: result.sdnn, sd1: result.sd1, sd2: result.sd2 };
-                        this.state.results.tei = this.engine.calculate(metrics, result.bpm, result.rr);
+                        const metrics = { rmssd: result.hrv, sdnn: result.sdnn, sd1: result.sd1, sd2: result.sd2, si: result.si };
+                        // Invert Stress Score -> Health Score (100 - X)
+                        let stressIndex = this.engine.calculate(metrics, result.bpm, result.rr, this.state.confidence);
+                        this.state.results.tei = 100 - stressIndex; 
                     }
                 }
                 
@@ -558,8 +585,10 @@
                 this.uiTimer = setInterval(() => {
                     this.updateDashboard();
                     
-                    const validCount = this.analyzer.validIBIs.length;
-                    let conf = Math.min(100, Math.floor((validCount / 30) * 100)); // 30 beats target
+                    const validSamples = this.analyzer.validIBIs.length;
+                    // 🟢 Progressive Confidence: 20 samples = 100%
+                    let conf = Math.min(100, Math.floor((validSamples / 20) * 100));
+                    this.state.confidence = conf;
                     
                     document.getElementById('confidence-txt').innerText = conf + "%";
                     document.getElementById('confidence-bar').style.width = conf + "%";
@@ -568,31 +597,45 @@
                         document.getElementById('analysis-state').classList.remove('animate-pulse');
                         document.getElementById('analysis-state').style.color = "#00FF94";
                         document.getElementById('confidence-bar').style.background = "#00FF94";
-                        document.getElementById('log-msg').innerText = "Clinical grade data locked.";
+                        
+                        if (this.state.results.hrv > 0) {
+                            this.updateBaseline(this.state.results.hrv);
+                            const status = this.getHRVStatus(this.state.results.hrv);
+                            const baseEl = document.getElementById('baseline-status');
+                            baseEl.innerText = `BASELINE: ${status.label}`;
+                            baseEl.style.color = status.color;
+                        }
                     }
                 }, 100);
             },
 
             updateDashboard() {
                 const { tei, hrv, rr, bpm } = this.state.results;
-                const el = document.getElementById('tei-score');
-                el.innerText = tei;
-                const ring = document.getElementById('score-ring');
-                const offset = 628 - (628 * (tei / 100));
-                ring.style.strokeDashoffset = offset;
                 
-                let grade = "BALANCED";
-                if(tei>=80) { ring.style.stroke="var(--score-high)"; el.style.color="var(--score-high)"; grade="OPTIMAL FLOW"; }
-                else if(tei>=60) { ring.style.stroke="var(--score-mid)"; el.style.color="var(--score-mid)"; grade="RECOVERING"; }
-                else { ring.style.stroke="var(--score-low)"; el.style.color="var(--score-low)"; grade="HIGH STRESS"; }
-                document.getElementById('tei-grade').innerText = grade;
+                // 🟢 UX Fix: Don't show red score if confidence < 30
+                const el = document.getElementById('tei-score');
+                const ring = document.getElementById('score-ring');
+                
+                if (this.state.confidence < 30) {
+                    el.innerText = "--";
+                    ring.style.stroke = "rgba(255,255,255,0.2)";
+                    document.getElementById('tei-grade').innerText = "ANALYZING...";
+                    document.getElementById('tei-grade').style.color = "gray";
+                } else {
+                    el.innerText = tei;
+                    const offset = 628 - (628 * (tei / 100));
+                    ring.style.strokeDashoffset = offset;
+                    
+                    let grade = "BALANCED";
+                    if(tei>=80) { ring.style.stroke="var(--score-high)"; el.style.color="var(--score-high)"; grade="OPTIMAL FLOW"; }
+                    else if(tei>=60) { ring.style.stroke="var(--score-mid)"; el.style.color="var(--score-mid)"; grade="BALANCED"; }
+                    else { ring.style.stroke="var(--score-low)"; el.style.color="var(--score-low)"; grade="HIGH STRESS"; }
+                    document.getElementById('tei-grade').innerText = grade;
+                    document.getElementById('tei-grade').style.color = ring.style.stroke;
+                }
 
-                // 🟢 Frequency Domain Approximation (Firstbeat-like)
-                // HF (PNS) ~ RMSSD^2, LF (SNS) ~ SDNN^2 - RMSSD^2
-                // Simplified for UI: 
-                // High RMSSD = High PNS. 
-                // We map HRV (20-100) to percentage.
-                let pns = Math.floor((hrv/100)*100); pns = Math.max(5, Math.min(95, pns));
+                // Spectrum
+                let pns = Math.floor((hrv/120)*100); pns = Math.max(5, Math.min(95, pns));
                 const sns = 100 - pns;
                 document.getElementById('hrv-val').innerText = hrv + " ms";
                 document.getElementById('bar-pns').style.width = pns + '%'; document.getElementById('bar-pns').innerText = pns + '% PNS';
@@ -604,7 +647,14 @@
             },
 
             updateRealtimeGraph(val) {
-                let norm = (val + 2) / 4; norm = Math.max(0, Math.min(1, norm));
+                // 🟢 Smart Interpolation for Graph
+                // If val is 0 (bad signal), repeat last value or decay to 0 slowly
+                let displayVal = val;
+                if (val === 0 && this.graphBuffer.length > 0) {
+                    displayVal = this.graphBuffer[this.graphBuffer.length-1] * 0.9;
+                }
+                
+                let norm = (displayVal + 2) / 4; norm = Math.max(0, Math.min(1, norm));
                 this.graphBuffer.push(norm);
                 if(this.graphBuffer.length > 40) this.graphBuffer.shift();
                 this.drawPulseGraph(this.graphBuffer);
