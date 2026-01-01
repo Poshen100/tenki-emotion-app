@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v38.0 - Unlocked Flow</title>
+    <title>TENKI v39.0 - Stable Core</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -13,7 +13,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* 視覺樣式保留 v36/37 */
+        /* 視覺樣式保留 v38 */
         :root {
             --bg-deep: #050510;
             --plasma-cyan: #00F0FF; 
@@ -117,7 +117,7 @@
     <!-- HUD -->
     <div id="hud-layer">
         <div class="flex justify-between items-start px-6">
-            <div><div class="text-2xl font-black tracking-widest">TENKI</div><div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">FLOW_CORE v38.0</div></div>
+            <div><div class="text-2xl font-black tracking-widest">TENKI</div><div class="text-[9px] text-cyan-400 tracking-[0.2em] font-mono-tech">STABLE_CORE v39.0</div></div>
             <div id="status-badge" class="px-2 py-1 border border-white/10 rounded text-[9px] font-mono-tech text-gray-500">WAITING</div>
         </div>
         <div class="flex-1 flex flex-col justify-center items-center">
@@ -222,7 +222,7 @@
     </div>
 
     <script>
-        // 🟢 1. Unlocked rPPG Analyzer (Continuous Flow)
+        // 🟢 1. Stabilized rPPG Analyzer
         class rPPGAnalyzer {
             constructor() {
                 this.bufferSize = 300; 
@@ -246,7 +246,6 @@
 
                 if (this.signals.r.length >= 60) return this.computePOS();
                 
-                // Return fallback signal to keep graph moving
                 let fallback = Math.sin(Date.now()/200) * 0.1;
                 return { bpm: 0, hrv: 0, rr: 0, signal: fallback, snr: 0 };
             }
@@ -273,15 +272,14 @@
                 let minVal = Math.min(...filtered);
                 let amplitude = maxVal - minVal;
                 
-                // SNR calculation
                 let noiseFloor = 0;
                 for(let i=1; i<filtered.length; i++) noiseFloor += Math.abs(filtered[i] - filtered[i-1]);
                 noiseFloor /= filtered.length;
                 const snr = amplitude / (noiseFloor + 0.0001);
 
-                // 🟢 RELAXED THRESHOLD: Always detect peaks if possible
-                if (snr > 1.0) {
-                    this.detectPeak(filtered, this.times, amplitude * 0.3);
+                if (snr > 1.5) {
+                    const adaptiveThresh = amplitude * 0.4; 
+                    this.detectPeak(filtered, this.times, adaptiveThresh);
                 }
 
                 const metrics = this.calculateMetrics();
@@ -294,7 +292,7 @@
                     sd2: metrics.sd2,
                     si: metrics.si,
                     rr: this.calculateRR(),
-                    signal: filtered[filtered.length - 1], // Always return signal
+                    signal: filtered[filtered.length - 1], 
                     snr: snr,
                     ibis: this.validIBIs
                 };
@@ -314,17 +312,20 @@
                 if (data[i] > data[i-1] && data[i] > data[i+1] && data[i] > threshold) {
                     const peakTime = times[i];
                     if (this.peaks.length > 0) {
-                        if (peakTime - this.peaks[this.peaks.length-1] < 400) return; 
+                        // 🟢 Strict Cap: 330ms = ~180 BPM Max
+                        if (peakTime - this.peaks[this.peaks.length-1] < 330) return; 
                     }
                     this.peaks.push(peakTime);
                     if (this.peaks.length > 30) this.peaks.shift();
 
                     if (this.peaks.length >= 2) {
                         let ibi = peakTime - this.peaks[this.peaks.length - 2];
-                        if (ibi > 400 && ibi < 1300) {
+                        // 🟢 VALIDATION: 330ms (180bpm) - 1500ms (40bpm)
+                        // This prevents 4000 BPM bugs
+                        if (ibi > 330 && ibi < 1500) {
                             if (this.validIBIs.length > 2) {
                                 let prevIBI = this.validIBIs[this.validIBIs.length-1];
-                                if (Math.abs(ibi - prevIBI) / prevIBI < 0.4) { // Relaxed to 40%
+                                if (Math.abs(ibi - prevIBI) / prevIBI < 0.4) {
                                     this.validIBIs.push(ibi);
                                 }
                             } else {
@@ -340,15 +341,18 @@
                 if(this.validIBIs.length < 3) return this.lastBPM;
                 let sorted = [...this.validIBIs].sort((a,b)=>a-b);
                 let medianIBI = sorted[Math.floor(sorted.length/2)];
+                // 🟢 SAFETY CHECK: If median IBI is too small, fallback
+                if(medianIBI < 300) medianIBI = 850; // ~70bpm default
                 let rawBPM = 60000 / medianIBI;
                 
-                // 🟢 AGGRESSIVE SMOOTHING
-                // Pull abnormal values back to normal range (Resting HR assumed ~70)
-                if (rawBPM > 110) rawBPM = this.lastBPM + 2; 
-                
+                // 🟢 Hard Clamp
+                if(rawBPM > 200) rawBPM = 200;
+                if(rawBPM < 40) rawBPM = 40;
+
                 let diff = rawBPM - this.lastBPM;
-                if(Math.abs(diff) > 3) this.lastBPM += (diff > 0 ? 1 : -1); 
+                if(Math.abs(diff) > 5) this.lastBPM += (diff > 0 ? 1 : -1); 
                 else this.lastBPM = rawBPM;
+                
                 return Math.round(this.lastBPM);
             }
 
@@ -380,7 +384,7 @@
             }
         }
 
-        // --- 2. TEI Engine ---
+        // 🟢 2. TEI Engine (UX Smoother)
         class TEIEngine {
             calculate(metrics, bpm, rr, confidence) {
                 const { rmssd, sdnn, sd1, sd2, si } = metrics;
@@ -397,7 +401,9 @@
                 let stressScore = 50 + (snsIndex * 0.5) - (recoveryIndex * 0.5);
                 if (rr > 20) stressScore += 10;
                 if (rr > 0 && rr < 7) stressScore -= 5; 
-                if (confidence < 20) stressScore = 50 + (stressScore - 50) * 0.2;
+
+                // 🟢 Confidence Mask: If confidence is low, pull score to 50
+                if (confidence < 30) stressScore = 50;
 
                 return Math.max(1, Math.min(99, Math.round(stressScore)));
             }
@@ -490,25 +496,23 @@
                     this.updateRealtimeGraph(result.signal);
                     this.drawPoincare(result.ibis);
 
-                    // 🟢 ALWAYS UPDATE, even with interpolation
-                    if(result.bpm > 0) this.state.results.bpm = result.bpm;
-                    else this.state.results.bpm = 72; // Fallback
-                    
-                    if(result.hrv > 0) this.state.results.hrv = result.hrv;
-                    if(result.rr > 0) this.state.results.rr = result.rr;
-                    
-                    // Signal Msg
+                    // Logic Gate
                     if (result.snr < 1.5) {
-                        document.getElementById('log-msg').innerText = "Signal Weak. Interpolating...";
+                        document.getElementById('log-msg').innerText = "Improving Signal...";
                         document.getElementById('log-msg').style.color = "#FFD600";
                     } else {
+                        // 🟢 Only update Numbers if valid
+                        if(result.bpm > 40 && result.bpm < 200) this.state.results.bpm = result.bpm;
+                        if(result.hrv > 0) this.state.results.hrv = result.hrv;
+                        if(result.rr > 0) this.state.results.rr = result.rr;
+                        
                         document.getElementById('log-msg').innerText = `Samples: ${this.analyzer.validIBIs.length} | SNR: ${result.snr.toFixed(1)}dB`;
                         document.getElementById('log-msg').style.color = "#00FF94";
+                        
+                        const metrics = { rmssd: result.hrv, sdnn: result.sdnn, sd1: result.sd1, sd2: result.sd2, si: result.si };
+                        let stressIndex = this.engine.calculate(metrics, result.bpm, result.rr, this.state.confidence);
+                        this.state.results.tei = 100 - stressIndex; 
                     }
-                    
-                    const metrics = { rmssd: result.hrv, sdnn: result.sdnn, sd1: result.sd1, sd2: result.sd2, si: result.si };
-                    let stressIndex = this.engine.calculate(metrics, result.bpm, result.rr, this.state.confidence);
-                    this.state.results.tei = 100 - stressIndex; 
                 }
                 
                 if(this.state.scanning) {
@@ -585,16 +589,26 @@
             updateDashboard() {
                 const { tei, hrv, rr, bpm } = this.state.results;
                 const el = document.getElementById('tei-score');
-                el.innerText = tei;
                 const ring = document.getElementById('score-ring');
-                const offset = 628 - (628 * (tei / 100));
-                ring.style.strokeDashoffset = offset;
                 
-                let grade = "BALANCED";
-                if(tei>=80) { ring.style.stroke="var(--score-high)"; el.style.color="var(--score-high)"; grade="OPTIMAL FLOW"; }
-                else if(tei>=60) { ring.style.stroke="var(--score-mid)"; el.style.color="var(--score-mid)"; grade="BALANCED"; }
-                else { ring.style.stroke="var(--score-low)"; el.style.color="var(--score-low)"; grade="HIGH STRESS"; }
-                document.getElementById('tei-grade').innerText = grade;
+                // 🟢 UX Mask: Hide score if low confidence
+                if (this.state.confidence < 30) {
+                    el.innerText = "--";
+                    ring.style.stroke = "rgba(255,255,255,0.2)";
+                    document.getElementById('tei-grade').innerText = "CALIBRATING...";
+                    document.getElementById('tei-grade').style.color = "gray";
+                } else {
+                    el.innerText = tei;
+                    const offset = 628 - (628 * (tei / 100));
+                    ring.style.strokeDashoffset = offset;
+                    
+                    let grade = "BALANCED";
+                    if(tei>=80) { ring.style.stroke="var(--score-high)"; el.style.color="var(--score-high)"; grade="OPTIMAL FLOW"; }
+                    else if(tei>=60) { ring.style.stroke="var(--score-mid)"; el.style.color="var(--score-mid)"; grade="BALANCED"; }
+                    else { ring.style.stroke="var(--score-low)"; el.style.color="var(--score-low)"; grade="HIGH STRESS"; }
+                    document.getElementById('tei-grade').innerText = grade;
+                    document.getElementById('tei-grade').style.color = ring.style.stroke;
+                }
 
                 let pns = Math.floor((hrv/120)*100); pns = Math.max(5, Math.min(95, pns));
                 const sns = 100 - pns;
@@ -608,7 +622,12 @@
             },
 
             updateRealtimeGraph(val) {
-                let norm = (val + 2) / 4; norm = Math.max(0, Math.min(1, norm));
+                // 🟢 Smart Interpolation for Graph
+                let displayVal = val;
+                if (val === 0 && this.graphBuffer.length > 0) {
+                    displayVal = this.graphBuffer[this.graphBuffer.length-1] * 0.9;
+                }
+                let norm = (displayVal + 2) / 4; norm = Math.max(0, Math.min(1, norm));
                 this.graphBuffer.push(norm);
                 if(this.graphBuffer.length > 40) this.graphBuffer.shift();
                 this.drawPulseGraph(this.graphBuffer);
@@ -649,16 +668,6 @@
                 if(ibis.length < 2) return;
                 ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.beginPath();
                 ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
-                
-                // Add fake points for better visual if not enough data
-                if (ibis.length < 10) {
-                    for(let i=0; i<10; i++) {
-                        let x = w/2 + (Math.random()-0.5)*20;
-                        let y = h/2 + (Math.random()-0.5)*20;
-                        ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.beginPath(); ctx.arc(x,y, 2, 0, Math.PI*2); ctx.fill();
-                    }
-                }
-
                 for(let i=0; i<ibis.length-1; i++) {
                     let x = ((ibis[i] - 400) / 800) * w;
                     let y = h - ((ibis[i+1] - 400) / 800) * h;
