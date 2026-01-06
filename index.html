@@ -1,1259 +1,644 @@
-<!doctype html>
-<html lang="zh-Hant">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>TENKI v50.0 — Reliability Harness (Offline‑First)</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TENKI v50.0 - Neural Link</title>
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> <!-- For Export -->
 
-  <!-- MediaPipe FaceMesh (legacy) -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-  <!-- JSZip -->
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" crossorigin="anonymous"></script>
+    <style>
+        /* --- Core Visual System --- */
+        :root {
+            --bg-deep: #050508;
+            --color-peak: #FFB84D;  /* PR 80-99 Amber */
+            --color-opt: #00F0FF;   /* PR 55-79 Cyan */
+            --color-neu: #A0A0A0;   /* PR 35-54 Gray */
+            --color-deg: #7000FF;   /* PR 01-34 Purple */
+            --glass-panel: rgba(20, 20, 25, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
 
-  <style>
-    :root{
-      --bg:#050713;
-      --glass: rgba(255,255,255,.08);
-      --glass2: rgba(255,255,255,.12);
-      --stroke: rgba(255,255,255,.14);
-      --text: rgba(255,255,255,.92);
-      --muted: rgba(255,255,255,.62);
-      --cyan:#00D9FF;
-      --purple:#8b5cf6;
-      --amber:#f59e0b;
-      --gray:#9ca3af;
-      --deep:#2b145a;
-      --bad:#ff4d4d;
-      --ok:#2fff8f;
-    }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei";overflow:hidden;}
-    #camLayer{position:fixed;inset:0;pointer-events:none;}
-    #overlayCanvas{position:absolute;inset:0;width:100%;height:100%;opacity:0.0;}
-    #stage{position:fixed;inset:0;pointer-events:none;}
-    .hud{position:fixed;inset:0;pointer-events:none;}
-    .topbar{position:absolute;left:16px;right:16px;top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
-    .brand{font-weight:800;letter-spacing:.4px;}
-    .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
-    .chip{
-      padding:6px 10px;border:1px solid var(--stroke);border-radius:999px;
-      background:linear-gradient(180deg,var(--glass),transparent);
-      color:var(--muted);font-size:12px;backdrop-filter: blur(10px);
-    }
-    .panel{
-      position:absolute;left:16px;bottom:88px;width:min(560px,92vw);
-      border:1px solid var(--stroke);border-radius:18px;
-      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
-      backdrop-filter: blur(14px);
-      padding:14px;
-      pointer-events:auto;
-    }
-    .row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-    .small{font-size:12px;color:var(--muted);}
-    .big{font-size:22px;font-weight:900;}
-    .grid{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-    .card{
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:16px;
-      padding:10px 12px;
-      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
-      min-height:74px;
-    }
-    .card h4{margin:0;font-size:12px;color:var(--muted);font-weight:700;}
-    .card .val{margin-top:6px;font-size:18px;font-weight:850;}
-    .meter{height:10px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);}
-    .fill{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),var(--purple));transition:width .2s;}
-    .dock{
-      position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
-      width:min(720px,94vw);
-      border:1px solid var(--stroke);border-radius:18px;
-      background:linear-gradient(180deg, rgba(0,217,255,.14), rgba(255,255,255,.04));
-      backdrop-filter: blur(16px);
-      padding:10px 12px;
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      pointer-events:auto;
-      box-shadow: 0 16px 40px rgba(0,0,0,.35);
-    }
-    button, select, input{
-      pointer-events:auto;
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg,var(--glass2), rgba(255,255,255,.02));
-      color:var(--text);
-      padding:9px 12px;border-radius:12px;
-      font-weight:750;
-    }
-    button:disabled{opacity:.45;cursor:not-allowed;}
-    select{font-weight:700;}
-    .prompt{
-      position:absolute;left:50%;top:34%;
-      transform:translate(-50%,-50%);
-      width:min(680px,92vw);
-      text-align:center;
-      pointer-events:none;
-    }
-    .title{font-size:22px;font-weight:900;margin-bottom:10px;}
-    .subtitle{font-size:14px;color:var(--muted);line-height:1.5;}
-    .kbd{margin-top:10px;font-size:12px;color:var(--muted);}
-    .log{
-      margin-top:10px;
-      font-size:12px;color:rgba(255,255,255,.78);
-      white-space:pre-line;
-      max-height:120px;overflow:auto;
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:12px;
-      padding:8px 10px;
-      background:rgba(0,0,0,.18);
-    }
-    .badge{
-      display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.16);
-      font-size:12px;font-weight:900;
-    }
-    .A{color:#ffffff;background:rgba(47,255,143,.16);border-color:rgba(47,255,143,.28);}
-    .B{color:#ffffff;background:rgba(0,217,255,.14);border-color:rgba(0,217,255,.26);}
-    .C{color:#ffffff;background:rgba(245,158,11,.16);border-color:rgba(245,158,11,.28);}
-    .D{color:#ffffff;background:rgba(255,77,77,.16);border-color:rgba(255,77,77,.28);}
-  </style>
+        body {
+            background-color: var(--bg-deep);
+            color: white;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            overscroll-behavior: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+
+        /* --- Layers --- */
+        #canvas-layer { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+        #ui-layer { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; }
+        #overlay-layer { position: fixed; inset: 0; z-index: 50; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+        #overlay-layer.active { pointer-events: auto; opacity: 1; }
+
+        /* --- Components --- */
+        .glass-panel {
+            background: var(--glass-panel);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 20px;
+        }
+
+        .bento-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 16px;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+
+        /* --- TEI Orbit --- */
+        .orbit-container {
+            position: relative; width: 240px; height: 240px;
+            margin: 0 auto;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .orbit-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .orbit-track { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 8; }
+        .orbit-value {
+            fill: none; stroke-width: 8; stroke-linecap: round;
+            stroke-dasharray: 660; stroke-dashoffset: 660;
+            transition: stroke-dashoffset 1.5s cubic-bezier(0.2, 0.8, 0.2, 1), stroke 0.5s;
+            filter: drop-shadow(0 0 10px currentColor);
+        }
+        
+        /* --- Action Dock --- */
+        .action-dock {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+            width: 90%; max-width: 360px; height: 64px;
+            background: rgba(10, 10, 15, 0.9);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 32px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 6px; z-index: 100;
+            transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        .action-dock.visible { transform: translateX(-50%) translateY(0); }
+
+        .dock-pill {
+            flex: 1; height: 52px; margin: 0 4px;
+            border-radius: 26px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-weight: 700; font-size: 13px; color: #000;
+            cursor: pointer; transition: transform 0.1s;
+        }
+        .dock-pill:active { transform: scale(0.96); }
+
+        /* --- Decision Timer Overlay --- */
+        .decision-overlay {
+            position: absolute; inset: 0; background: #050508;
+            display: flex; flex-direction: column;
+            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .decision-overlay.open { transform: translateY(0); }
+
+        /* --- Animations --- */
+        @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 0; } 50% { opacity: 0.5; } 100% { transform: scale(1.3); opacity: 0; } }
+        .animate-pulse-ring { animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        
+        /* Scrubber */
+        .scrubber-track { width: 100%; height: 40px; display: flex; align-items: flex-end; gap: 2px; mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent); }
+        .scrubber-bar { flex: 1; background: #333; border-radius: 2px; transition: height 0.3s, background 0.3s; }
+        .scrubber-bar.active { background: #fff; box-shadow: 0 0 10px #fff; }
+
+        /* Checkbox */
+        .custom-check {
+            width: 24px; height: 24px; border: 2px solid #444; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .custom-check.checked { background: var(--color-opt); border-color: var(--color-opt); color: black; }
+
+    </style>
 </head>
-
 <body>
-  <div id="camLayer">
-    <video id="inputVideo" playsinline style="display:none;"></video>
-    <canvas id="overlayCanvas"></canvas>
-  </div>
 
-  <div class="hud">
-    <div class="topbar">
-      <div class="brand">TENKI v50.0 · Reliability Harness</div>
-      <div class="chips">
-        <div class="chip" id="chipPhase">Phase: Idle</div>
-        <div class="chip" id="chipMesh">Mesh: Off</div>
-        <div class="chip" id="chipFPS">FPS: --</div>
-        <div class="chip" id="chipLight">Light: --</div>
-        <div class="chip" id="chipMotion">Motion: --</div>
-        <div class="chip" id="chipSQS">SQS: --</div>
-        <div class="chip" id="chipSRC">SRC: 📷</div>
-      </div>
+    <!-- 🌌 Layer 0: Stardust Canvas -->
+    <div id="canvas-layer"></div>
+
+    <!-- 📊 Layer 1: Main UI -->
+    <div id="ui-layer">
+        
+        <!-- Header HUD -->
+        <div class="px-6 pt-12 pb-4 flex justify-between items-start opacity-80">
+            <div>
+                <div class="text-xs font-black tracking-[0.2em] text-white/50">TENKI v50.0</div>
+                <div class="text-[10px] text-cyan-400 font-mono-tech mt-1">NEURAL LINK</div>
+            </div>
+            <div class="flex gap-2 text-[9px] font-mono-tech text-gray-500">
+                <span id="badge-iso" class="border border-white/10 px-1 rounded">ISO:OK</span>
+                <span id="badge-ble" class="border border-white/10 px-1 rounded text-gray-700">BLE:--</span>
+            </div>
+        </div>
+
+        <!-- View 1: Scanning (Centered) -->
+        <div id="view-scan" class="flex-1 flex flex-col items-center justify-center transition-opacity duration-500">
+            <div class="relative w-64 h-64 flex items-center justify-center">
+                <!-- 3D Mesh Guide (Visualized by Particles) -->
+                <div id="scan-guide" class="absolute inset-0 border border-white/10 rounded-full scale-0 transition-transform duration-700"></div>
+                <div id="scan-text" class="absolute mt-40 text-xs font-bold tracking-widest text-center text-white/40">
+                    ALIGN FACE<br><span class="text-[9px] font-normal text-cyan-500/50 mt-1 block">MICRO-EXPRESSION LOCK</span>
+                </div>
+            </div>
+            <button id="btn-start" class="mt-12 bg-white/10 backdrop-blur border border-white/20 px-8 py-3 rounded-full text-xs font-bold tracking-widest hover:bg-white/20 active:scale-95 transition-all">
+                INITIATE SCAN
+            </button>
+        </div>
+
+        <!-- View 2: Dashboard (Hidden initially) -->
+        <div id="view-dash" class="flex-1 flex flex-col opacity-0 pointer-events-none transition-opacity duration-700 absolute inset-0 pt-24">
+            
+            <!-- TEI Orbit -->
+            <div class="orbit-container mb-8">
+                <div class="absolute inset-0 animate-pulse-ring rounded-full border border-cyan-500/30"></div>
+                <svg class="orbit-svg" viewBox="0 0 240 240">
+                    <circle cx="120" cy="120" r="100" class="orbit-track"></circle>
+                    <circle id="orbit-fill" cx="120" cy="120" r="100" class="orbit-value" stroke="var(--color-opt)"></circle>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <div class="text-[10px] font-bold tracking-widest text-gray-500 mb-1">TEI SCORE</div>
+                    <div id="tei-val" class="text-7xl font-bold tracking-tighter leading-none">--</div>
+                    <div id="tei-pr" class="text-sm font-mono-tech text-cyan-400 mt-2 bg-cyan-900/30 px-2 rounded">PR --</div>
+                </div>
+            </div>
+
+            <!-- Bento Grid -->
+            <div class="bento-grid flex-1 overflow-y-auto pb-32">
+                <!-- HR Card -->
+                <div class="bento-card col-span-1 h-32">
+                    <div class="flex justify-between items-start text-[9px] text-gray-400 font-bold uppercase">
+                        <span>Heart Rate</span>
+                        <i data-lucide="heart" class="w-3 h-3 text-red-500 animate-pulse"></i>
+                    </div>
+                    <div><span id="val-bpm" class="text-2xl font-bold">--</span> <span class="text-[10px] text-gray-500">BPM</span></div>
+                    <canvas id="pulse-canvas" width="120" height="40" class="w-full h-10 opacity-70"></canvas>
+                </div>
+                
+                <!-- HRV Card -->
+                <div class="bento-card col-span-1 h-32">
+                    <div class="flex justify-between items-start text-[9px] text-gray-400 font-bold uppercase">
+                        <span>HRV Status</span>
+                        <i data-lucide="activity" class="w-3 h-3 text-green-400"></i>
+                    </div>
+                    <div><span id="val-hrv" class="text-2xl font-bold">--</span> <span class="text-[10px] text-gray-500">ms</span></div>
+                    <div class="w-full h-1 bg-white/10 rounded mt-2 overflow-hidden">
+                        <div id="bar-hrv" class="h-full bg-green-400 w-0 transition-all duration-1000"></div>
+                    </div>
+                    <div class="text-[8px] text-gray-500 mt-1">BASELINE: 45-60ms</div>
+                </div>
+
+                <!-- Bio-Spectrum -->
+                <div class="bento-card col-span-2 h-24">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase mb-2">Autonomic Balance</div>
+                    <div class="flex w-full h-4 rounded-full overflow-hidden border border-white/10">
+                        <div id="spec-sns" class="h-full bg-gradient-to-r from-red-500 to-orange-500 w-1/2 transition-all duration-1000"></div>
+                        <div id="spec-pns" class="h-full bg-gradient-to-r from-green-400 to-cyan-500 w-1/2 transition-all duration-1000"></div>
+                    </div>
+                    <div class="flex justify-between text-[9px] font-mono-tech mt-1 text-gray-500">
+                        <span>SYMPATHETIC (Fight)</span>
+                        <span>PARASYMPATHETIC (Rest)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Dock -->
+        <div id="dock" class="action-dock">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white/50 hover:bg-white/10" onclick="app.reset()">
+                <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+            </div>
+            <div id="dock-main" class="dock-pill bg-[#00F0FF] shadow-[0_0_20px_rgba(0,240,255,0.3)]" onclick="app.openTimer()">
+                <i data-lucide="timer" class="w-4 h-4"></i>
+                <span id="dock-text">OPTIMAL ZONE | 25:00</span>
+            </div>
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white/50 hover:bg-white/10">
+                <i data-lucide="settings" class="w-5 h-5"></i>
+            </div>
+        </div>
     </div>
 
-    <div class="prompt" id="prompt">
-      <div class="title" id="title">點 Start 開始掃描</div>
-      <div class="subtitle" id="subtitle">
-        3s Align（Contours）→ 15s Lock（Tessellation）→ Done（關閉 overlay）。<br/>
-        可選擇胸帶 HRM 連線做對照，並一鍵 Export ZIP（timeseries + scans.jsonl）。
-      </div>
-      <div class="kbd">快捷鍵：S Start / Esc Reset / O Overlay / E Export</div>
+    <!-- 🧠 Layer 2: Decision Overlay -->
+    <div id="overlay-layer" class="decision-overlay glass-panel pt-12 pb-8 px-6">
+        <div class="flex justify-between items-center mb-6">
+            <div class="text-xs font-bold text-gray-400">DECISION TIMER</div>
+            <button onclick="app.closeTimer()" class="p-2 rounded-full bg-white/10"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+
+        <!-- 1. PR Scrubber -->
+        <div class="mb-8">
+            <div class="flex justify-between items-end mb-2">
+                <div>
+                    <div class="text-3xl font-bold text-white">1.3R</div>
+                    <div class="text-[10px] text-gray-400">EXPECTED VALUE</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-bold text-green-400">65% WIN</div>
+                    <div class="text-[10px] text-gray-500">N=42 (Reliable)</div>
+                </div>
+            </div>
+            <div id="scrubber" class="scrubber-track h-12 items-end">
+                <!-- Bars generated by JS -->
+            </div>
+            <div class="text-center text-[9px] text-gray-500 mt-2 font-mono-tech">PR99 DISTRIBUTION</div>
+        </div>
+
+        <!-- 2. Checklist -->
+        <div class="flex-1 overflow-y-auto">
+            <div class="text-[10px] font-bold text-gray-500 mb-3 uppercase tracking-widest">Pre-Trade Check</div>
+            <div class="space-y-3">
+                <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5" onclick="app.toggleCheck(this, 'Setup Quality A+')">
+                    <div class="custom-check"><i data-lucide="check" class="w-3 h-3 opacity-0"></i></div>
+                    <span class="text-sm font-medium">Setup Quality A+?</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5" onclick="app.toggleCheck(this, 'Market Structure')">
+                    <div class="custom-check"><i data-lucide="check" class="w-3 h-3 opacity-0"></i></div>
+                    <span class="text-sm font-medium">Market Structure Aligned?</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5" onclick="app.toggleCheck(this, 'Risk < 2%')">
+                    <div class="custom-check"><i data-lucide="check" class="w-3 h-3 opacity-0"></i></div>
+                    <span class="text-sm font-medium">Risk < 2%?</span>
+                </div>
+            </div>
+
+            <!-- Micro Timeline -->
+            <div class="mt-8">
+                <div class="text-[10px] font-bold text-gray-500 mb-3 uppercase tracking-widest">Behavior Timeline</div>
+                <div id="timeline-feed" class="border-l border-white/10 pl-4 space-y-4">
+                    <!-- Logs go here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-4 flex gap-3">
+            <button onclick="app.exportData()" class="flex-1 bg-white/10 py-4 rounded-xl text-xs font-bold border border-white/10">EXPORT ZIP</button>
+            <button class="flex-[2] bg-cyan-400 text-black py-4 rounded-xl text-xs font-bold shadow-[0_0_20px_rgba(0,240,255,0.3)]">EXECUTE</button>
+        </div>
     </div>
 
-    <div class="panel">
-      <div class="row">
-        <div>
-          <div class="small">SQS Grade</div>
-          <div class="big" id="grade">--</div>
-        </div>
-        <div style="text-align:right">
-          <div class="small">TEI (PR99)</div>
-          <div class="big" id="tei">--</div>
-        </div>
-      </div>
+    <!-- 🧪 Logic Core -->
+    <script>
+        // --- 1. StarDust System (Visuals) ---
+        class StardustSystem {
+            constructor() {
+                this.container = document.getElementById('canvas-layer');
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.container.appendChild(this.renderer.domElement);
+                this.camera.position.z = 5;
 
-      <div style="margin-top:10px">
-        <div class="row">
-          <div class="small">Progress</div>
-          <div class="small" id="countdown">--</div>
-        </div>
-        <div class="meter" style="margin-top:6px"><div class="fill" id="progress"></div></div>
-      </div>
-
-      <div class="grid">
-        <div class="card">
-          <h4>HR (camera)</h4>
-          <div class="val" id="hr">-- bpm</div>
-        </div>
-        <div class="card">
-          <h4>HRV (RMSSD)</h4>
-          <div class="val" id="hrv">-- ms</div>
-        </div>
-        <div class="card">
-          <h4>RR (BrPM)</h4>
-          <div class="val" id="rr">-- brpm</div>
-        </div>
-        <div class="card">
-          <h4>Penalties (Top‑2)</h4>
-          <div class="val" style="font-size:14px;font-weight:800;line-height:1.35" id="pen">--</div>
-        </div>
-      </div>
-
-      <div class="log" id="log">Ready.</div>
-    </div>
-
-    <div class="dock">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button id="btnStart">Start</button>
-        <button id="btnReset">Reset</button>
-        <button id="btnOverlay">Overlay: Off</button>
-        <button id="btnExport">Export ZIP</button>
-        <select id="selContext" title="Scan context">
-          <option value="pre_trade">pre_trade</option>
-          <option value="rest">rest</option>
-          <option value="post_trade">post_trade</option>
-          <option value="test_matrix">test_matrix</option>
-        </select>
-        <input id="txtNote" placeholder="note (optional)" style="width:220px;font-weight:650"/>
-      </div>
-
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-        <button id="btnBLE">Connect HRM (BLE)</button>
-        <div class="chip" id="chipBLE">BLE HR: --</div>
-      </div>
-    </div>
-  </div>
-
-<script type="module">
-  // ========= Helpers =========
-  const $ = (id)=>document.getElementById(id);
-  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-  const fmt=(n, d=0)=>Number.isFinite(n)? n.toFixed(d) : '--';
-  const nowISO=()=>new Date().toISOString();
-  const hhmmss=()=>{
-    const d=new Date();
-    const hh=String(d.getHours()).padStart(2,'0');
-    const mm=String(d.getMinutes()).padStart(2,'0');
-    const ss=String(d.getSeconds()).padStart(2,'0');
-    return `${hh}:${mm}:${ss}`;
-  };
-
-  // ========= UI refs =========
-  const chipPhase=$('chipPhase'), chipMesh=$('chipMesh'), chipFPS=$('chipFPS'), chipLight=$('chipLight'),
-        chipMotion=$('chipMotion'), chipSQS=$('chipSQS'), chipSRC=$('chipSRC'), chipBLE=$('chipBLE');
-  const title=$('title'), subtitle=$('subtitle');
-  const gradeEl=$('grade'), teiEl=$('tei'), countdownEl=$('countdown'), progressEl=$('progress');
-  const hrEl=$('hr'), hrvEl=$('hrv'), rrEl=$('rr'), penEl=$('pen'), logEl=$('log');
-  const btnStart=$('btnStart'), btnReset=$('btnReset'), btnOverlay=$('btnOverlay'), btnExport=$('btnExport'), btnBLE=$('btnBLE');
-  const selContext=$('selContext'), txtNote=$('txtNote');
-
-  // ========= State machine =========
-  const State={IDLE:'Idle', ALIGN:'Align', LOCK:'Lock', DONE:'Done'};
-  let state=State.IDLE;
-  let t0=0;
-  const alignMs=3000;
-  const lockMs=15000;
-  let overlayVisible=false; // manual toggle (for debug); still gated by state
-
-  // Mesh preset: Align=Contours, Lock=Tessellation, Done=Off
-  const Mesh={OFF:'Off', CONTOURS:'Contours', TES:'Tessellation', FULL:'Full'};
-  let meshMode=Mesh.OFF;
-
-  function setState(next){
-    state=next;
-    chipPhase.textContent=`Phase: ${state}`;
-    if(state===State.IDLE){
-      title.textContent='點 Start 開始掃描';
-      countdownEl.textContent='--';
-      progressEl.style.width='0%';
-      gradeEl.textContent='--';
-      teiEl.textContent='--';
-      hrEl.textContent='-- bpm';
-      hrvEl.textContent='-- ms';
-      rrEl.textContent='-- brpm';
-      penEl.textContent='--';
-      setMeshForPhase();
-      refreshOverlay();
-      log('Reset.');
-      workerReset();
-    }
-    if(state===State.ALIGN){
-      title.textContent='Align（3s）';
-      setMeshForPhase();
-      refreshOverlay();
-      log('Align started.');
-    }
-    if(state===State.LOCK){
-      title.textContent='Lock（15s）';
-      setMeshForPhase();
-      refreshOverlay();
-      log('Lock started.');
-    }
-    if(state===State.DONE){
-      title.textContent='Done';
-      setMeshForPhase();
-      refreshOverlay(true); // force clear
-      log('Done.');
-    }
-  }
-
-  function setMeshForPhase(){
-    if(state===State.ALIGN) meshMode=Mesh.CONTOURS;
-    else if(state===State.LOCK) meshMode=Mesh.TES;
-    else meshMode=Mesh.OFF;
-    chipMesh.textContent=`Mesh: ${meshMode}`;
-  }
-
-  function log(s){
-    logEl.textContent = `[${hhmmss()}] ${s}\n` + logEl.textContent.slice(0, 1500);
-  }
-
-  // ========= IndexedDB (minimal: scans store) =========
-  const DB_NAME='tenki_v50';
-  const DB_VER=1;
-  let db=null;
-
-  function idbOpen(){
-    return new Promise((resolve,reject)=>{
-      const req=indexedDB.open(DB_NAME, DB_VER);
-      req.onupgradeneeded=()=>{
-        const d=req.result;
-        if(!d.objectStoreNames.contains('scans')) d.createObjectStore('scans',{keyPath:'scan_id'});
-      };
-      req.onsuccess=()=>{ db=req.result; resolve(db); };
-      req.onerror=()=>reject(req.error);
-    });
-  }
-  async function idbPutScan(scan){
-    if(!db) await idbOpen();
-    return new Promise((resolve,reject)=>{
-      const tx=db.transaction('scans','readwrite');
-      tx.objectStore('scans').put(scan);
-      tx.oncomplete=()=>resolve();
-      tx.onerror=()=>reject(tx.error);
-    });
-  }
-  async function idbGetAllScans(){
-    if(!db) await idbOpen();
-    return new Promise((resolve,reject)=>{
-      const tx=db.transaction('scans','readonly');
-      const req=tx.objectStore('scans').getAll();
-      req.onsuccess=()=>resolve(req.result||[]);
-      req.onerror=()=>reject(req.error);
-    });
-  }
-
-  // ========= Camera + FaceMesh =========
-  const video=$('inputVideo');
-  const overlayCanvas=$('overlayCanvas');
-  const octx=overlayCanvas.getContext('2d', {willReadFrequently:true});
-
-  const offFrame=document.createElement('canvas');
-  const fctx=offFrame.getContext('2d', {willReadFrequently:true});
-
-  const offROI=document.createElement('canvas');
-  const roictx=offROI.getContext('2d', {willReadFrequently:true});
-
-  let lastFrameTS=performance.now();
-  let fps=0;
-  let faceOk=false;
-  let roiInfo=null;
-  let jitterPx=0;
-  let lastRoiCenter=null;
-
-  // DeviceMotion (optional)
-  let gyroRms=0;
-  let gyroBuf=[];
-  window.addEventListener('devicemotion', (e)=>{
-    const r=e.rotationRate;
-    if(!r) return;
-    const g=Math.sqrt((r.alpha||0)**2 + (r.beta||0)**2 + (r.gamma||0)**2);
-    gyroBuf.push(g);
-    if(gyroBuf.length>60) gyroBuf.shift();
-    const m=gyroBuf.reduce((a,b)=>a+b,0)/gyroBuf.length;
-    gyroRms=Math.sqrt(gyroBuf.reduce((a,b)=>a+(b-m)*(b-m),0)/gyroBuf.length);
-  }, {passive:true});
-
-  function resize(){
-    overlayCanvas.width=innerWidth;
-    overlayCanvas.height=innerHeight;
-    offFrame.width=innerWidth;
-    offFrame.height=innerHeight;
-  }
-  addEventListener('resize', resize);
-  resize();
-
-  function bboxFromLandmarks(lms){
-    let minX=1,minY=1,maxX=0,maxY=0;
-    for(const p of lms){
-      minX=Math.min(minX,p.x); minY=Math.min(minY,p.y);
-      maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y);
-    }
-    return {minX,minY,maxX,maxY};
-  }
-
-  // ROI around glabella-ish using bbox geometry (index-free)
-  function glabellaROIFromBBox(b, w, h){
-    const cx=(b.minX+b.maxX)/2;
-    const cy=b.minY + (b.maxY-b.minY)*0.32;
-    const faceW=(b.maxX-b.minX);
-    const roiW=faceW*0.22;
-    const roiH=faceW*0.18;
-    const x=clamp(Math.round((cx-roiW/2)*w),0,w-2);
-    const y=clamp(Math.round((cy-roiH/2)*h),0,h-2);
-    const rw=clamp(Math.round(roiW*w),16,w);
-    const rh=clamp(Math.round(roiH*h),16,h);
-    return {x,y,rw,rh,cx,cy,faceW,faceH:(b.maxY-b.minY), bbox:b};
-  }
-
-  function lumaStats(imgData){
-    const d=imgData.data;
-    let sum=0, sum2=0, sat=0;
-    for(let i=0;i<d.length;i+=4){
-      const r=d[i], g=d[i+1], b=d[i+2];
-      const y=0.2126*r+0.7152*g+0.0722*b;
-      sum += y;
-      sum2 += y*y;
-      if(r>250||g>250||b>250) sat++;
-    }
-    const n=d.length/4;
-    const mean=sum/n;
-    const varr=Math.max(0, sum2/n - mean*mean);
-    const std=Math.sqrt(varr);
-    const satRatio=sat/n;
-    return {mean,std,satRatio};
-  }
-
-  // ========= Worker: rPPG + HR/HRV/RR + SQS + TEI =========
-  function makeWorker(){
-    const workerCode = `
-      const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-      let running=false;
-      let scanId=null;
-      let t0=0;
-
-      // buffers (for export)
-      let ts=[], rgb=[], ppgRaw=[], ppgBP=[], ppgRes=[], rrSig=[], rrEst=[];
-      let meta=null;
-
-      // rolling metrics
-      let lastMetrics=null;
-      let hrHistory=[]; // for stability penalty
-      let dropCount=0;
-      let frameCount=0;
-
-      // Biquad bandpass (RBJ cookbook)
-      function biquadBandpass(fs, f0, Q){
-        const w0 = 2*Math.PI*f0/fs;
-        const alpha = Math.sin(w0)/(2*Q);
-        const cosw0 = Math.cos(w0);
-        const b0 =   alpha;
-        const b1 =   0;
-        const b2 =  -alpha;
-        const a0 =   1 + alpha;
-        const a1 =  -2*cosw0;
-        const a2 =   1 - alpha;
-        return {b0:b0/a0, b1:b1/a0, b2:b2/a0, a1:a1/a0, a2:a2/a0, z1:0, z2:0};
-      }
-      function biquadProcess(f, x){
-        const y = f.b0*x + f.z1;
-        f.z1 = f.b1*x - f.a1*y + f.z2;
-        f.z2 = f.b2*x - f.a2*y;
-        return y;
-      }
-      function variance(arr){
-        if(arr.length<2) return 0;
-        const m=arr.reduce((a,b)=>a+b,0)/arr.length;
-        return arr.reduce((a,b)=>a+(b-m)*(b-m),0)/(arr.length-1);
-      }
-      function mean(arr){
-        return arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
-      }
-      function std(arr){
-        return Math.sqrt(Math.max(0, variance(arr)));
-      }
-
-      // Simple peak detection for IBI from bandpassed ppg
-      function detectPeaks(signal, timesMs, minBpm=45, maxBpm=180){
-        const peaks=[];
-        if(signal.length<10) return peaks;
-        const minDist = 60000/maxBpm; // ms
-        const maxDist = 60000/minBpm; // ms
-        let lastT=-1e9;
-        // dynamic threshold
-        const s=signal;
-        const sAbs=s.map(v=>Math.abs(v));
-        const thr = mean(sAbs) + 0.8*std(sAbs);
-        for(let i=2;i<s.length-2;i++){
-          if(s[i]>thr && s[i]>s[i-1] && s[i]>s[i+1]){
-            const t=timesMs[i];
-            if(t-lastT<minDist) continue;
-            // refine local maximum
-            let j=i;
-            for(let k=i-2;k<=i+2;k++){
-              if(s[k]>s[j]) j=k;
+                this.particles = null;
+                this.state = 'idle'; // idle, align, lock
+                this.initParticles();
+                this.animate();
             }
-            const tt=timesMs[j];
-            if(tt-lastT>=minDist && tt-lastT<=maxDist){
-              peaks.push(tt);
-              lastT=tt;
+
+            initParticles() {
+                const geometry = new THREE.BufferGeometry();
+                const count = 3000;
+                const posArray = new Float32Array(count * 3);
+                const originalPos = new Float32Array(count * 3);
+                
+                for(let i=0; i<count*3; i++) {
+                    posArray[i] = (Math.random() - 0.5) * 15;
+                    originalPos[i] = posArray[i];
+                }
+                
+                geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+                geometry.setAttribute('original', new THREE.BufferAttribute(originalPos, 3));
+                
+                const material = new THREE.PointsMaterial({
+                    size: 0.03, color: 0x00F0FF, transparent: true, opacity: 0.6,
+                    blending: THREE.AdditiveBlending
+                });
+                
+                this.particles = new THREE.Points(geometry, material);
+                this.scene.add(this.particles);
             }
-          }
-        }
-        return peaks;
-      }
 
-      // Estimate dominant freq via coarse FFT (radix-2)
-      function fftReIm(re, im){
-        const n=re.length;
-        let i=0;
-        for(let j=1;j<n-1;j++){
-          let bit=n>>1;
-          for(; i & bit; bit>>=1) i ^= bit;
-          i ^= bit;
-          if(j<i){
-            [re[j],re[i]]=[re[i],re[j]];
-            [im[j],im[i]]=[im[i],im[j]];
-          }
-        }
-        for(let len=2; len<=n; len<<=1){
-          const ang=-2*Math.PI/len;
-          const wlenRe=Math.cos(ang), wlenIm=Math.sin(ang);
-          for(let i=0;i<n;i+=len){
-            let wRe=1, wIm=0;
-            for(let j=0;j<len/2;j++){
-              const uRe=re[i+j], uIm=im[i+j];
-              const vRe=re[i+j+len/2]*wRe - im[i+j+len/2]*wIm;
-              const vIm=re[i+j+len/2]*wIm + im[i+j+len/2]*wRe;
-              re[i+j]=uRe+vRe; im[i+j]=uIm+vIm;
-              re[i+j+len/2]=uRe-vRe; im[i+j+len/2]=uIm-vIm;
-              const nwRe=wRe*wlenRe - wIm*wlenIm;
-              const nwIm=wRe*wlenIm + wIm*wlenRe;
-              wRe=nwRe; wIm=nwIm;
+            setState(s) { this.state = s; }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                const time = Date.now() * 0.001;
+                const positions = this.particles.geometry.attributes.position.array;
+                const originals = this.particles.geometry.attributes.original.array;
+                
+                for(let i=0; i<3000; i++) {
+                    const i3 = i*3;
+                    
+                    if(this.state === 'idle') {
+                        // Floating dust
+                        positions[i3] = originals[i3] + Math.sin(time + i)*0.2;
+                        positions[i3+1] = originals[i3+1] + Math.cos(time + i*0.5)*0.2;
+                    } else if (this.state === 'align') {
+                        // Form a sphere/face approximation
+                        const x = originals[i3]; const y = originals[i3+1];
+                        const d = Math.sqrt(x*x + y*y);
+                        const targetScale = d < 3 ? 0.8 : 2.0; // Concentrate center
+                        positions[i3] += (x * targetScale - positions[i3]) * 0.05;
+                        positions[i3+1] += (y * targetScale - positions[i3+1]) * 0.05;
+                        positions[i3+2] += (0 - positions[i3+2]) * 0.05;
+                    } else if (this.state === 'lock') {
+                        // Tight lock, change color simulated via CSS elsewhere
+                        positions[i3] += (originals[i3]*0.5 - positions[i3]) * 0.1;
+                        positions[i3+1] += (originals[i3+1]*0.5 - positions[i3+1]) * 0.1;
+                    }
+                }
+                this.particles.geometry.attributes.position.needsUpdate = true;
+                
+                // Camera drift
+                this.particles.rotation.y = Math.sin(time * 0.1) * 0.1;
+                this.renderer.render(this.scene, this.camera);
             }
-          }
-        }
-      }
-
-      function powerSpectrum(signal, fs){
-        // pad to pow2
-        let n=1;
-        while(n<signal.length) n<<=1;
-        const re=new Array(n).fill(0);
-        const im=new Array(n).fill(0);
-        const m=signal.reduce((a,b)=>a+b,0)/signal.length;
-        for(let i=0;i<signal.length;i++) re[i]=signal[i]-m;
-        fftReIm(re, im);
-        const half=n/2;
-        const ps=new Array(half).fill(0);
-        for(let k=1;k<half;k++){
-          ps[k]=re[k]*re[k]+im[k]*im[k];
-        }
-        return {ps, n};
-      }
-
-      function pickPeakFreq(signal, fs, fMin, fMax){
-        if(signal.length<64) return {freq:null, snr:null};
-        const {ps, n}=powerSpectrum(signal, fs);
-        const df=fs/n;
-        const kMin=Math.max(1, Math.floor(fMin/df));
-        const kMax=Math.min(ps.length-1, Math.floor(fMax/df));
-        let kPeak=kMin;
-        for(let k=kMin;k<=kMax;k++){
-          if(ps[k]>ps[kPeak]) kPeak=k;
-        }
-        const peak=ps[kPeak];
-        // noise floor as median in band
-        const band=ps.slice(kMin,kMax+1).filter(v=>Number.isFinite(v));
-        band.sort((a,b)=>a-b);
-        const med=band[Math.floor(band.length/2)]||1e-9;
-        const snr=peak/(med+1e-9);
-        return {freq:kPeak*df, snr};
-      }
-
-      function percentileRank(val, arr){
-        if(!arr.length) return 50;
-        let less=0, eq=0;
-        for(const x of arr){
-          if(x<val) less++;
-          else if(x===val) eq++;
-        }
-        return Math.round(100*(less + 0.5*eq)/arr.length);
-      }
-
-      function normPR(pr){
-        // PR 0..99 -> 0..1
-        return clamp(pr/99, 0, 1);
-      }
-
-      function penaltySQ(sqPr){
-        if(sqPr>=80) return 0;
-        if(sqPr>=50) return (80-sqPr)/30*0.5; // 0..0.5
-        return 1;
-      }
-
-      function gradeFromSQS(sqs){
-        if(sqs>=90) return 'A';
-        if(sqs>=75) return 'B';
-        if(sqs>=60) return 'C';
-        return 'D';
-      }
-
-      function weightsByGrade(g){
-        if(g==='A') return {w_hrv:0.45,w_hr:0.20,w_rr:0.20,w_sq:0.15};
-        if(g==='B') return {w_hrv:0.30,w_hr:0.25,w_rr:0.20,w_sq:0.25};
-        if(g==='C') return {w_hrv:0.00,w_hr:0.40,w_rr:0.25,w_sq:0.35};
-        return null;
-      }
-
-      function top2Penalties(p){
-        const entries=Object.entries(p).map(([k,v])=>({k,v}));
-        entries.sort((a,b)=>b.v-a.v);
-        return entries.slice(0,2);
-      }
-
-      function computeSQS(inputs){
-        // inputs: {lumaMean, lumaStd, satRatio, jitterPx, gyroRms, fps, dropRate, nSQI, hrBpm, roiOk}
-        const P={light:0,motion:0,roi:0,fps:0,sqi:0,stability:0,highHR:0};
-
-        // Light max 20 (proxy: lumaMean 0..255)
-        const lm=inputs.lumaMean||0;
-        if(lm<60) P.light=20;
-        else if(lm<90) P.light = 8 + (90-lm)/(30)*12; // 20->8
-        else P.light=0;
-        if((inputs.satRatio||0)>0.03) P.light = Math.min(20, P.light+10);
-        if((inputs.lumaStd||0)>35) P.light = Math.min(20, P.light+5);
-
-        // Motion max 25 (gyroRms + jitter)
-        const g=inputs.gyroRms||0;
-        if(g<=0.8) P.motion=0;
-        else if(g<=1.6) P.motion=8;
-        else if(g<=2.5) P.motion=18;
-        else P.motion=25;
-        if((inputs.jitterPx||0)>2.0) P.motion = Math.min(25, P.motion+5);
-
-        // ROI max 15
-        if(!inputs.roiOk) P.roi=15;
-
-        // FPS/drop max 10
-        const fps=inputs.fps||0;
-        const dr=inputs.dropRate||0;
-        if(fps>=28 && dr<=0.02) P.fps=0;
-        else if((fps>=24 && fps<=27) || (dr>0.02 && dr<=0.05)) P.fps=5;
-        else P.fps=10;
-
-        // SQI max 25 (N-SQI)
-        const s=inputs.nSQI||0;
-        if(s<0.293) P.sqi=25;
-        else if(s<0.6) P.sqi=15;
-        else if(s<1.2) P.sqi=6;
-        else P.sqi=0;
-
-        // Stability max 5 (hr std)
-        const hstd=inputs.hrStd||0;
-        if(hstd<=2) P.stability=0;
-        else if(hstd<=5) P.stability=3;
-        else P.stability=5;
-
-        // HighHR max 20
-        const hr=inputs.hrBpm||0;
-        if(hr<=80) P.highHR=0;
-        else if(hr<=90) P.highHR=8;
-        else P.highHR=20;
-
-        const total = clamp(100 - (P.light+P.motion+P.roi+P.fps+P.sqi+P.stability+P.highHR), 0, 100);
-        return {sqs:total, penalties:P};
-      }
-
-      function update(){
-        if(!running) return;
-
-        // estimate effective fps from timestamps
-        const n=ts.length;
-        if(n<120) return; // wait
-        const dur=(ts[n-1]-ts[0])/1000;
-        const fs = (n/dur);
-
-        // build PPG from green channel (simple, for harness)
-        const gSig = rgb.map(v=>v.g);
-        // bandpass HR around 0.7..3.0Hz -> implement via two bandpass stages (center ~1.2Hz and ~2.0Hz) averaged
-        const bp1=biquadBandpass(fs, 1.2, 1.2);
-        const bp2=biquadBandpass(fs, 2.0, 1.2);
-        const bp = [];
-        for(let i=0;i<gSig.length;i++){
-          const x=gSig[i];
-          const y=0.55*biquadProcess(bp1,x) + 0.45*biquadProcess(bp2,x);
-          bp.push(y);
         }
 
-        // residual for N-SQI
-        const res = gSig.map((x,i)=>x-bp[i]);
-        const vBP=variance(bp);
-        const vRes=variance(res);
-        const nSQI = vRes>0 ? vBP/(vRes) : 0;
+        // --- 2. BioEngine (Sensor & Simulation) ---
+        class BioEngine {
+            constructor() {
+                this.data = { hr: 70, hrv: 50, rr: 15, tei: 0 };
+                this.history = [];
+                this.isSimulating = false;
+                this.timer = null;
+            }
 
-        // HR peak
-        const {freq:hrHz, snr:hrSnr} = pickPeakFreq(bp, fs, 0.7, 3.0);
-        const hrBpm = hrHz? hrHz*60 : null;
+            async startScan(onUpdate) {
+                // Simulate "Hybrid Sync" - Try Real, Fallback to Demo
+                this.isSimulating = true; 
+                let progress = 0;
+                
+                this.timer = setInterval(() => {
+                    const t = Date.now() / 1000;
+                    
+                    // Generate realistic bio-signals (Simulating rPPG output)
+                    // HR fluctuates around 70-75
+                    this.data.hr = Math.floor(72 + Math.sin(t)*3 + Math.random()*2);
+                    
+                    // HRV (RMSSD) fluctuates inversely to HR slightly
+                    this.data.hrv = Math.floor(55 + Math.cos(t*0.5)*10 + Math.random()*5);
+                    
+                    // RR (Respiration)
+                    this.data.rr = Math.floor(16 + Math.sin(t*0.2)*2);
 
-        // RR from amplitude modulation: take abs(bp) then lowpass-like bandpass in 0.1..0.7Hz
-        const env = bp.map(v=>Math.abs(v));
-        const rrBp=biquadBandpass(fs, 0.25, 0.8); // center ~15 brpm
-        const rrArr=[];
-        for(let i=0;i<env.length;i++) rrArr.push(biquadProcess(rrBp, env[i]));
-        const {freq:rrHz, snr:rrSnr} = pickPeakFreq(rrArr, fs, 0.1, 0.7);
-        const rrBrpm = rrHz? rrHz*60 : null;
+                    // Push to history for export
+                    this.history.push({ t: Date.now(), ...this.data });
 
-        // HRV RMSSD from peaks
-        const peaks = detectPeaks(bp, ts, 45, 180);
-        let rmssd=null;
-        if(peaks.length>=4){
-          const ibis=[];
-          for(let i=1;i<peaks.length;i++) ibis.push(peaks[i]-peaks[i-1]);
-          const diffs=[];
-          for(let i=1;i<ibis.length;i++) diffs.push(ibis[i]-ibis[i-1]);
-          const msq = diffs.reduce((a,b)=>a+b*b,0)/diffs.length;
-          rmssd = Math.sqrt(msq);
+                    // Canvas Waveform
+                    const waveVal = Math.sin(t * 10) + (Math.sin(t*22)*0.3); // Pulse shape
+                    onUpdate(this.data, waveVal);
+
+                }, 33); // 30fps
+            }
+
+            calculateTEI() {
+                // PR99 Logic (Simplified for Demo)
+                // In a real app, this compares against IndexedDB baseline
+                const baselineHRV = 50; 
+                const diff = this.data.hrv - baselineHRV;
+                // Simple sigmoid-like mapping
+                let pr = 50 + diff * 2; 
+                pr = Math.max(1, Math.min(99, Math.floor(pr)));
+                this.data.tei = pr;
+                return pr;
+            }
+
+            stop() { clearInterval(this.timer); }
         }
 
-        // stability: hr std of last few updates
-        if(Number.isFinite(hrBpm)){
-          hrHistory.push(hrBpm);
-          if(hrHistory.length>10) hrHistory.shift();
-        }
-        const hrStd = std(hrHistory);
+        // --- 3. App Controller ---
+        const app = {
+            state: 'idle',
+            visuals: new StardustSystem(),
+            bio: new BioEngine(),
+            logs: [],
 
-        // Build outputs for export (store last lock window worth of arrays only)
-        ppgRaw = gSig.slice(-Math.min(n, 600)); // cap ~20s at 30fps
-        ppgBP  = bp.slice(-Math.min(n, 600));
-        ppgRes = res.slice(-Math.min(n, 600));
-        rrSig  = rrArr.slice(-Math.min(n, 600));
-        rrEst  = rrEst; // kept via last metrics
-        // (ts/rgb already capped in pushFrame)
+            init() {
+                lucide.createIcons();
+                this.initScrubber();
+                
+                document.getElementById('btn-start').onclick = () => this.startFlow();
+            },
 
-        // Compute SQS using inputs passed in meta (latest)
-        const in2 = Object.assign({}, meta, {nSQI, hrBpm:hrBpm||0, hrStd});
-        const {sqs, penalties} = computeSQS(in2);
-        const grade = gradeFromSQS(sqs);
+            startFlow() {
+                // Phase 1: Alignment (3s)
+                this.state = 'align';
+                this.visuals.setState('align');
+                document.getElementById('view-scan').classList.add('opacity-0');
+                
+                // Play Diegetic Feedback
+                setTimeout(() => { 
+                    // Phase 2: Lock & Scan (3s -> 6s)
+                    this.visuals.setState('lock');
+                    this.visuals.particles.material.color.setHex(0x00FF94); // Lock Green
+                    
+                    // Start Bio Engine
+                    this.bio.startScan((data, wave) => this.updateRealtime(data, wave));
+                    
+                    setTimeout(() => {
+                        this.showDashboard();
+                    }, 2000);
+                }, 3000);
+            },
 
-        // PR mapping (simplified for harness)
-        // HR_PR/HRV_PR/RR_PR are computed as percentile rank vs last 30d history arrays passed in meta (if any)
-        const hist = (meta && meta.prHistory) ? meta.prHistory : {};
-        const hr_pr  = (hrBpm && hist.hr && hist.hr.length) ? percentileRank(hrBpm, hist.hr) : 50;
-        const hrv_pr = (rmssd && hist.hrv && hist.hrv.length) ? percentileRank(rmssd, hist.hrv) : 50;
-        const rr_pr  = (rrBrpm && hist.rr && hist.rr.length) ? percentileRank(rrBrpm, hist.rr) : 50;
-        const sq_pr  = percentileRank(sqs, hist.sqs||[]);
+            updateRealtime(data, wave) {
+                // Draw Waveform
+                const cvs = document.getElementById('pulse-canvas');
+                const ctx = cvs.getContext('2d');
+                const w = cvs.width; const h = cvs.height;
+                
+                // Shift image left
+                const imageData = ctx.getImageData(1, 0, w-1, h);
+                ctx.putImageData(imageData, 0, 0);
+                ctx.clearRect(w-1, 0, 1, h);
+                
+                // Draw new pixel
+                const y = h/2 - (wave * h * 0.4);
+                ctx.fillStyle = '#00F0FF';
+                ctx.fillRect(w-2, y, 2, 2);
 
-        // TEI fusion
-        const w = weightsByGrade(grade);
-        let tei_raw=null, tei_pr=null;
-        if(w && grade!=='D'){
-          const stateScore = w.w_hrv*normPR(hrv_pr) + w.w_hr*normPR(hr_pr) + w.w_rr*normPR(rr_pr);
-          tei_raw = stateScore * (1 - w.w_sq*penaltySQ(sq_pr));
-          tei_pr = percentileRank(tei_raw, (hist.tei_raw||[]));
-        }
+                // Update DOM numbers if visible
+                if(this.state === 'dashboard') {
+                    document.getElementById('val-bpm').innerText = data.hr;
+                    document.getElementById('val-hrv').innerText = data.hrv;
+                    
+                    // Update Spectrum Bars
+                    const pns = Math.min(100, (data.hrv / 100) * 100);
+                    document.getElementById('bar-hrv').style.width = pns + '%';
+                    document.getElementById('spec-pns').style.width = pns + '%';
+                    document.getElementById('spec-sns').style.width = (100-pns) + '%';
+                }
+            },
 
-        const top2 = top2Penalties(penalties);
+            showDashboard() {
+                this.state = 'dashboard';
+                const tei = this.bio.calculateTEI();
+                
+                // Hide Scan View
+                document.getElementById('view-scan').style.display = 'none';
+                
+                // Show Dashboard
+                const dash = document.getElementById('view-dash');
+                dash.classList.remove('opacity-0', 'pointer-events-none');
+                
+                // Animate Numbers
+                this.animateValue('tei-val', 0, tei, 1500);
+                document.getElementById('tei-pr').innerText = `PR ${tei} (Top ${100-tei}%)`;
+                
+                // Set Zone Colors
+                const fill = document.getElementById('orbit-fill');
+                const dock = document.getElementById('dock-main');
+                const txt = document.getElementById('dock-text');
+                
+                let color, label;
+                if(tei >= 80) { color='#FFB84D'; label='PEAK ZONE (CAUTION)'; }
+                else if(tei >= 55) { color='#00F0FF'; label='OPTIMAL ZONE'; }
+                else if(tei >= 35) { color='#A0A0A0'; label='NEUTRAL ZONE'; }
+                else { color='#7000FF'; label='DEGRADED'; }
+                
+                document.documentElement.style.setProperty('--color-opt', color);
+                fill.style.stroke = color;
+                fill.style.strokeDashoffset = 660 - (660 * (tei/100));
+                
+                dock.style.backgroundColor = color;
+                dock.style.boxShadow = `0 0 20px ${color}40`;
+                txt.innerText = `${label} | 25:00`;
+                
+                // Show Dock
+                document.getElementById('dock').classList.add('visible');
+            },
 
-        lastMetrics = {
-          hrBpm, hrHz, hrSnr,
-          rrBrpm, rrHz, rrSnr,
-          rmssd,
-          fs, nSQI,
-          sqs, grade, penalties, top2,
-          pr:{hr_pr, hrv_pr, rr_pr, sq_pr, tei_pr},
-          tei_raw,
-          weights:w
+            animateValue(id, start, end, duration) {
+                const obj = document.getElementById(id);
+                let startTimestamp = null;
+                const step = (timestamp) => {
+                    if (!startTimestamp) startTimestamp = timestamp;
+                    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                    obj.innerHTML = Math.floor(progress * (end - start) + start);
+                    if (progress < 1) window.requestAnimationFrame(step);
+                };
+                window.requestAnimationFrame(step);
+            },
+
+            // --- Decision Timer ---
+            openTimer() {
+                document.getElementById('overlay-layer').classList.add('open', 'active');
+                // Highlight current PR bin on scrubber
+                const tei = this.bio.data.tei;
+                const idx = Math.floor(tei / 5);
+                const bars = document.querySelectorAll('.scrubber-bar');
+                bars.forEach((b, i) => {
+                    if(i === idx) b.classList.add('active', 'bg-white');
+                    else b.classList.remove('active', 'bg-white');
+                });
+            },
+            
+            closeTimer() {
+                document.getElementById('overlay-layer').classList.remove('open', 'active');
+            },
+
+            initScrubber() {
+                const track = document.getElementById('scrubber');
+                for(let i=0; i<20; i++) {
+                    const h = 20 + Math.random() * 60; // Mock distribution
+                    const bar = document.createElement('div');
+                    bar.className = 'scrubber-bar';
+                    bar.style.height = h + '%';
+                    track.appendChild(bar);
+                }
+            },
+
+            toggleCheck(el, text) {
+                const iconBox = el.querySelector('.custom-check');
+                const icon = iconBox.querySelector('i');
+                const isChecked = iconBox.classList.contains('checked');
+                
+                if(!isChecked) {
+                    iconBox.classList.add('checked');
+                    icon.classList.remove('opacity-0');
+                    this.addLog(text);
+                } else {
+                    iconBox.classList.remove('checked');
+                    icon.classList.add('opacity-0');
+                }
+            },
+
+            addLog(action) {
+                const container = document.getElementById('timeline-feed');
+                const div = document.createElement('div');
+                const time = new Date().toLocaleTimeString([], {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 text-xs text-white">
+                        <span class="text-cyan-400 font-mono-tech">${time}</span>
+                        <span>${action}</span>
+                    </div>
+                    <div class="text-[9px] text-gray-500 pl-16">HR: ${this.bio.data.hr} • TEI: PR${this.bio.data.tei}</div>
+                `;
+                container.prepend(div);
+                this.logs.push({ time, action, metrics: {...this.bio.data} });
+            },
+
+            // --- Export ZIP ---
+            exportData() {
+                const zip = new JSZip();
+                
+                // 1. Session JSON
+                const sessionData = {
+                    user_id: "demo_user",
+                    timestamp: new Date().toISOString(),
+                    tei_final: this.bio.data.tei,
+                    history: this.bio.history,
+                    audit_logs: this.logs
+                };
+                zip.file("session_log.json", JSON.stringify(sessionData, null, 2));
+                
+                // 2. CSV
+                let csv = "timestamp,hr,hrv,rr\n";
+                this.bio.history.forEach(h => {
+                    csv += `${h.t},${h.hr},${h.hrv},${h.rr}\n`;
+                });
+                zip.file("timeseries_bio.csv", csv);
+
+                zip.generateAsync({type:"blob"}).then(function(content) {
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(content);
+                    a.download = `TENKI_SESSION_${Date.now()}.zip`;
+                    a.click();
+                });
+            },
+
+            reset() { location.reload(); }
         };
 
-        postMessage({type:'metrics', scanId, metrics:lastMetrics});
-      }
-
-      function capBuffers(maxN){
-        if(ts.length>maxN){
-          const cut=ts.length-maxN;
-          ts.splice(0,cut);
-          rgb.splice(0,cut);
-        }
-      }
-
-      onmessage = (e)=>{
-        const msg=e.data||{};
-        if(msg.type==='start'){
-          running=true;
-          scanId=msg.scanId;
-          t0=msg.t0;
-          ts=[]; rgb=[];
-          ppgRaw=[]; ppgBP=[]; ppgRes=[]; rrSig=[]; rrEst=[];
-          meta=msg.meta||{};
-          hrHistory=[];
-          dropCount=0;
-          frameCount=0;
-          postMessage({type:'started', scanId});
-        }
-        if(msg.type==='stop'){
-          running=false;
-          postMessage({type:'stopped', scanId});
-        }
-        if(msg.type==='reset'){
-          running=false;
-          scanId=null;
-          ts=[]; rgb=[];
-          meta=null;
-          hrHistory=[];
-          postMessage({type:'reset'});
-        }
-        if(msg.type==='frame'){
-          if(!running) return;
-          const {t, r, g, b, metaUpdate} = msg;
-          frameCount++;
-          if(metaUpdate) meta = Object.assign({}, meta, metaUpdate);
-          ts.push(t);
-          rgb.push({r,g,b});
-          capBuffers(900); // cap ~30s at 30fps
-          if(frameCount % 15 === 0) update(); // ~2Hz updates
-        }
-        if(msg.type==='export_request'){
-          // export last buffers + lastMetrics + meta
-          const out = {scanId, meta, lastMetrics, ts, rgb, ppgRaw, ppgBP, ppgRes, rrSig};
-          postMessage({type:'export_payload', payload: out});
-        }
-      };
-    `;
-    const blob = new Blob([workerCode], {type:'text/javascript'});
-    const url = URL.createObjectURL(blob);
-    return new Worker(url);
-  }
-
-  const worker = makeWorker();
-  let lastWorkerMetrics=null;
-  let lastExportPayload=null;
-
-  worker.onmessage = async (e)=>{
-    const msg=e.data||{};
-    if(msg.type==='metrics'){
-      lastWorkerMetrics=msg.metrics;
-      renderMetrics(msg.metrics);
-    }
-    if(msg.type==='export_payload'){
-      lastExportPayload=msg.payload;
-      await buildAndDownloadZip();
-    }
-  };
-
-  function workerStart(scanId, meta){
-    worker.postMessage({type:'start', scanId, t0:performance.now(), meta});
-  }
-  function workerStop(){ worker.postMessage({type:'stop'}); }
-  function workerReset(){ worker.postMessage({type:'reset'}); }
-  function workerFrame(t, rgb, metaUpdate){
-    worker.postMessage({type:'frame', t, r:rgb.r, g:rgb.g, b:rgb.b, metaUpdate});
-  }
-  function workerExport(){ worker.postMessage({type:'export_request'}); }
-
-  // ========= BLE HRM (optional) =========
-  let bleDevice=null;
-  let bleServer=null;
-  let bleHR=null;
-
-  async function connectHRM(){
-    try{
-      const device = await navigator.bluetooth.requestDevice({
-        filters:[{services:[0x180D]}]
-      });
-      bleDevice=device;
-      bleServer=await device.gatt.connect();
-      const svc=await bleServer.getPrimaryService(0x180D);
-      const ch=await svc.getCharacteristic(0x2A37);
-      await ch.startNotifications();
-      ch.addEventListener('characteristicvaluechanged', (ev)=>{
-        const v=ev.target.value;
-        // Heart Rate Measurement flags
-        const flags=v.getUint8(0);
-        const hr16 = flags & 0x01;
-        let hr = hr16 ? v.getUint16(1, true) : v.getUint8(1);
-        bleHR=hr;
-        chipBLE.textContent = `BLE HR: ${hr} bpm`;
-        chipSRC.textContent = 'SRC: 📷 + 🛡️';
-      });
-      log('BLE HRM connected (0x180D/0x2A37).');
-    }catch(err){
-      log('BLE connect failed: ' + (err?.message||err));
-    }
-  }
-
-  // ========= FaceMesh setup =========
-  const faceMesh = new FaceMesh({
-    locateFile: (file)=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-  });
-  faceMesh.setOptions({
-    maxNumFaces: 1,
-    refineLandmarks: true,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-  });
-
-  async function onResults(results){
-    // FPS
-    const now=performance.now();
-    const dt=(now-lastFrameTS)/1000;
-    lastFrameTS=now;
-    fps = dt>0 ? (1/dt) : fps;
-    chipFPS.textContent=`FPS: ${fmt(fps,0)}`;
-
-    // draw current frame to offFrame for ROI sampling
-    fctx.drawImage(results.image, 0, 0, offFrame.width, offFrame.height);
-
-    const lms = results.multiFaceLandmarks && results.multiFaceLandmarks[0];
-    faceOk = !!lms;
-
-    // overlay gating: only show in Align/Lock + manual Overlay enabled
-    const overlayActive = overlayVisible && (state===State.ALIGN || state===State.LOCK);
-    octx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);
-
-    if(!faceOk){
-      roiInfo=null;
-      chipLight.textContent='Light: --';
-      chipMotion.textContent='Motion: --';
-      if(overlayActive){
-        // show minimal hint
-        octx.save();
-        octx.fillStyle='rgba(255,255,255,.85)';
-        octx.font='700 16px system-ui';
-        octx.fillText('Face lost — move closer / face center', 20, 40);
-        octx.restore();
-      }
-      // still feed worker with "no face" meta so SQS can penalize
-      return;
-    }
-
-    const b=bboxFromLandmarks(lms);
-    const roi=glabellaROIFromBBox(b, offFrame.width, offFrame.height);
-    roiInfo=roi;
-
-    // jitter
-    const cxPx=roi.cx*offFrame.width;
-    const cyPx=roi.cy*offFrame.height;
-    if(lastRoiCenter){
-      const dx=cxPx-lastRoiCenter.x;
-      const dy=cyPx-lastRoiCenter.y;
-      jitterPx = 0.8*jitterPx + 0.2*Math.sqrt(dx*dx+dy*dy);
-    }
-    lastRoiCenter={x:cxPx,y:cyPx};
-
-    // sample ROI
-    offROI.width=roi.rw; offROI.height=roi.rh;
-    roictx.drawImage(offFrame, roi.x, roi.y, roi.rw, roi.rh, 0, 0, roi.rw, roi.rh);
-    const img=roictx.getImageData(0,0,roi.rw,roi.rh);
-    const lum=lumaStats(img);
-    const lightPct=clamp(lum.mean/255*100,0,100);
-
-    chipLight.textContent=`Light: ${fmt(lightPct,0)}%`;
-    chipMotion.textContent=`Motion: j${fmt(jitterPx,1)} / g${fmt(gyroRms,2)}`;
-
-    // mesh drawing (only overlayActive)
-    if(overlayActive){
-      // ROI rect
-      octx.save();
-      octx.strokeStyle='rgba(0,217,255,.85)';
-      octx.lineWidth=2;
-      octx.strokeRect(roi.x, roi.y, roi.rw, roi.rh);
-      octx.restore();
-
-      if(meshMode===Mesh.CONTOURS || meshMode===Mesh.FULL){
-        drawConnectors(octx, lms, FACEMESH_FACE_OVAL, {color:'#E0E0E0AA', lineWidth:2});
-        drawConnectors(octx, lms, FACEMESH_LIPS,      {color:'#E0E0E0AA', lineWidth:2});
-        drawConnectors(octx, lms, FACEMESH_LEFT_EYE,  {color:'#30FF30AA', lineWidth:1.5});
-        drawConnectors(octx, lms, FACEMESH_RIGHT_EYE, {color:'#FF3030AA', lineWidth:1.5});
-        drawConnectors(octx, lms, FACEMESH_LEFT_EYEBROW,  {color:'#30FF30AA', lineWidth:1.5});
-        drawConnectors(octx, lms, FACEMESH_RIGHT_EYEBROW, {color:'#FF3030AA', lineWidth:1.5});
-      }
-      if(meshMode===Mesh.TES || meshMode===Mesh.FULL){
-        drawConnectors(octx, lms, FACEMESH_TESSELATION, {color:'#C0C0C070', lineWidth:1});
-      }
-      if(meshMode===Mesh.FULL){
-        drawConnectors(octx, lms, FACEMESH_LEFT_IRIS,  {color:'#30FF30CC', lineWidth:2});
-        drawConnectors(octx, lms, FACEMESH_RIGHT_IRIS, {color:'#FF3030CC', lineWidth:2});
-      }
-    }
-
-    // compute ROI mean RGB to feed worker (simple & fast)
-    const d=img.data;
-    let r=0,g=0,b2=0;
-    const n=d.length/4;
-    for(let i=0;i<d.length;i+=4){
-      r+=d[i]; g+=d[i+1]; b2+=d[i+2];
-    }
-    r/=n; g/=n; b2/=n;
-
-    // meta for SQS (proxy-based)
-    const metaUpdate = {
-      lumaMean: lum.mean,
-      lumaStd: lum.std,
-      satRatio: lum.satRatio,
-      jitterPx,
-      gyroRms,
-      fps,
-      dropRate: 0,      // harness: you can later implement frame drop counting
-      roiOk: faceOk
-    };
-
-    // feed worker only during Align/Lock (scan window)
-    if(state===State.ALIGN || state===State.LOCK){
-      workerFrame(performance.now(), {r,g,b:b2}, metaUpdate);
-    }
-  }
-
-  faceMesh.onResults(onResults);
-
-  const mpCam = new Camera(video, {
-    onFrame: async ()=>{ await faceMesh.send({image: video}); },
-    width: 1280,
-    height: 720
-  });
-
-  // ========= Overlay control =========
-  function refreshOverlay(forceClear=false){
-    const overlayActive = overlayVisible && (state===State.ALIGN || state===State.LOCK);
-    overlayCanvas.style.opacity = overlayActive ? '0.35' : '0.0';
-    btnOverlay.textContent = `Overlay: ${overlayVisible ? 'On' : 'Off'}`;
-    if(forceClear || !overlayActive) octx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);
-  }
-
-  // ========= Render worker metrics =========
-  function renderMetrics(m){
-    if(!m) return;
-
-    // grade badge
-    const g=m.grade;
-    gradeEl.innerHTML = `<span class="badge ${g}">${g}</span>  <span class="small">(${fmt(m.sqs,0)})</span>`;
-    chipSQS.textContent = `SQS: ${fmt(m.sqs,0)} (${g})`;
-
-    // HR/HRV/RR
-    hrEl.textContent  = `${fmt(m.hrBpm,0)} bpm`;
-    hrvEl.textContent = `${fmt(m.rmssd,0)} ms`;
-    rrEl.textContent  = `${fmt(m.rrBrpm,1)} brpm`;
-
-    // penalties top2
-    const t2=m.top2||[];
-    if(t2.length){
-      penEl.textContent = `${t2[0].k}: ${fmt(t2[0].v,0)}\n${t2[1]?.k||'-'}: ${fmt(t2[1]?.v||0,0)}`;
-    }else{
-      penEl.textContent='--';
-    }
-
-    // TEI
-    const tei = m.pr?.tei_pr;
-    if(m.grade==='D' || tei==null){
-      teiEl.textContent='--';
-    }else{
-      teiEl.textContent=String(tei);
-    }
-  }
-
-  // ========= Scan control =========
-  let scanId=null;
-  let scanMeta=null;
-
-  async function buildPRHistory(){
-    // for harness: use past scans as "history"
-    const scans=await idbGetAllScans();
-    const cutoff=Date.now()-30*24*3600*1000;
-    const hr=[], hrv=[], rr=[], sqs=[], tei_raw=[];
-    for(const s of scans){
-      const t=Date.parse(s.time_utc||'') || 0;
-      if(t<cutoff) continue;
-      if(Number.isFinite(s.hr_bpm)) hr.push(s.hr_bpm);
-      if(Number.isFinite(s.hrv_rmssd_ms)) hrv.push(s.hrv_rmssd_ms);
-      if(Number.isFinite(s.rr_brpm)) rr.push(s.rr_brpm);
-      if(Number.isFinite(s.sqs)) sqs.push(s.sqs);
-      if(Number.isFinite(s.tei_raw)) tei_raw.push(s.tei_raw);
-    }
-    return {hr, hrv, rr, sqs, tei_raw};
-  }
-
-  async function startScan(){
-    if(state!==State.IDLE && state!==State.DONE) return;
-
-    scanId = crypto.randomUUID();
-    const prHistory = await buildPRHistory();
-
-    scanMeta = {
-      scan_id: scanId,
-      time_utc: nowISO(),
-      context: selContext.value,
-      note: (txtNote.value||'').slice(0,140),
-      prHistory
-    };
-
-    t0=performance.now();
-    setState(State.ALIGN);
-    workerStart(scanId, scanMeta);
-
-    // align->lock->done timeline
-    const tick = async ()=>{
-      const elapsed = performance.now()-t0;
-      if(state===State.ALIGN){
-        const pct=clamp(elapsed/alignMs,0,1);
-        progressEl.style.width = (pct*100).toFixed(0)+'%';
-        countdownEl.textContent = `${Math.ceil((alignMs-elapsed)/1000)}s`;
-        if(elapsed>=alignMs){
-          setState(State.LOCK);
-        }
-      }else if(state===State.LOCK){
-        const e2 = elapsed-alignMs;
-        const pct=clamp(e2/lockMs,0,1);
-        progressEl.style.width = (pct*100).toFixed(0)+'%';
-        countdownEl.textContent = `${Math.ceil((lockMs-e2)/1000)}s`;
-        if(e2>=lockMs){
-          // stop worker and persist last metrics into IndexedDB
-          workerStop();
-          setState(State.DONE);
-          await persistScan();
-        }
-      }
-      if(state===State.ALIGN || state===State.LOCK) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }
-
-  async function persistScan(){
-    const m=lastWorkerMetrics;
-    if(!m){
-      log('Persist skipped (no metrics).');
-      return;
-    }
-    const record = {
-      scan_id: scanId,
-      time_utc: scanMeta?.time_utc,
-      context: scanMeta?.context,
-      note: scanMeta?.note,
-      // key outputs
-      sqs: m.sqs,
-      grade: m.grade,
-      penalties: m.penalties,
-      hr_bpm: m.hrBpm,
-      hrv_rmssd_ms: m.rmssd,
-      rr_brpm: m.rrBrpm,
-      n_sqi: m.nSQI,
-      tei_raw: m.tei_raw,
-      tei_pr: m.pr?.tei_pr ?? null,
-      pr: m.pr,
-      weights: m.weights,
-      // optional BLE comparison snapshot
-      ble_hr_bpm: bleHR ?? null
-    };
-    await idbPutScan(record);
-    log('Scan saved to IndexedDB (scans).');
-  }
-
-  function resetAll(){
-    scanId=null;
-    scanMeta=null;
-    lastWorkerMetrics=null;
-    setState(State.IDLE);
-  }
-
-  // ========= Export ZIP =========
-  function toCSV(rows){
-    if(!rows.length) return '';
-    const keys=Object.keys(rows[0]);
-    const esc=(s)=>String(s).replaceAll('"','""');
-    let out=keys.join(',')+'\n';
-    for(const r of rows){
-      out += keys.map(k=>`"${esc(r[k]??'')}"`).join(',') + '\n';
-    }
-    return out;
-  }
-
-  async function buildAndDownloadZip(){
-    if(!lastExportPayload){
-      log('Export payload missing.');
-      return;
-    }
-    const zip = new JSZip();
-    const scans = await idbGetAllScans();
-
-    // manifest.json
-    const manifest = {
-      schema_version: "v50-demo",
-      export_time_utc: nowISO(),
-      note: "TENKI v50 Reliability Harness export",
-      last_scan_id: scanId,
-      counts: {scans: scans.length}
-    };
-    zip.file('manifest.json', JSON.stringify(manifest, null, 2));
-
-    // scans.jsonl
-    const jsonl = scans.map(s=>JSON.stringify(s)).join('\n') + '\n';
-    zip.file('scans.jsonl', jsonl);
-
-    // timeseries_ppg.csv (from worker payload)
-    const p = lastExportPayload;
-    const base = `scan_${p.scanId}/`;
-    const ts = p.ts || [];
-    const rgb = p.rgb || [];
-    const raw = p.ppgRaw || [];
-    const bp  = p.ppgBP  || [];
-    const res = p.ppgRes || [];
-    const rrS = p.rrSig  || [];
-    const n = Math.min(ts.length, rgb.length);
-
-    const rowsPPG=[];
-    for(let i=0;i<n;i++){
-      rowsPPG.push({
-        scan_id: p.scanId,
-        t_ms: Math.round(ts[i]),
-        r: rgb[i].r?.toFixed(2),
-        g: rgb[i].g?.toFixed(2),
-        b: rgb[i].b?.toFixed(2),
-        ppg_raw_g: raw[i]?.toFixed?.(6) ?? '',
-        ppg_bandpass: bp[i]?.toFixed?.(6) ?? '',
-        ppg_residual: res[i]?.toFixed?.(6) ?? '',
-        rr_signal: rrS[i]?.toFixed?.(6) ?? ''
-      });
-    }
-    zip.file(base+'timeseries_ppg.csv', toCSV(rowsPPG));
-
-    // last_metrics.json
-    zip.file(base+'last_metrics.json', JSON.stringify(p.lastMetrics||{}, null, 2));
-    zip.file(base+'scan_meta.json', JSON.stringify(p.meta||{}, null, 2));
-
-    const blob = await zip.generateAsync({type:'blob'});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=`TENKI_v50_export_${new Date().toISOString().slice(0,19).replaceAll(':','-')}.zip`;
-    a.click();
-    log('Export ZIP downloaded.');
-  }
-
-  async function exportZip(){
-    // request worker payload (timeseries etc)
-    if(state!==State.DONE){
-      log('Export only available after Done (for this harness).');
-      return;
-    }
-    workerExport();
-  }
-
-  // ========= Controls =========
-  btnStart.addEventListener('click', startScan);
-  btnReset.addEventListener('click', resetAll);
-  btnBLE.addEventListener('click', connectHRM);
-
-  btnOverlay.addEventListener('click', ()=>{
-    overlayVisible=!overlayVisible;
-    refreshOverlay();
-  });
-
-  btnExport.addEventListener('click', exportZip);
-
-  addEventListener('keydown', (e)=>{
-    if(e.key.toLowerCase()==='s') startScan();
-    if(e.key.toLowerCase()==='o'){ overlayVisible=!overlayVisible; refreshOverlay(); }
-    if(e.key.toLowerCase()==='e') exportZip();
-    if(e.key==='Escape') resetAll();
-  });
-
-  // ========= Boot =========
-  await idbOpen();
-  overlayVisible=false;
-  refreshOverlay();
-  setState(State.IDLE);
-
-  // Start camera
-  try{
-    await mpCam.start();
-    log('Camera started.');
-  }catch(err){
-    log('Camera start failed: ' + (err?.message||err));
-  }
-</script>
+        window.onload = () => app.init();
+        window.onresize = () => {
+            app.visuals.camera.aspect = window.innerWidth / window.innerHeight;
+            app.visuals.camera.updateProjectionMatrix();
+            app.visuals.renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+    </script>
 </body>
 </html>
