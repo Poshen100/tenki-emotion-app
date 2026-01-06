@@ -3,34 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v50.0 - Neural Sync</title>
+    <title>TENKI v25.8.2 - ANS Spectrum [Solid Edition]</title>
     
+    <!-- 字體庫 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     
+    <!-- 核心引擎 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    
+    <!-- UI 庫 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <style>
         :root {
             --bg-deep: #050510;
             --plasma-cyan: #00F0FF; 
             --void-purple: #7000FF;
+            --alert-orange: #FF5500;
             --matrix-green: #00FF94;
+            
+            --state-stable: #00FF94;   
+            --state-control: #FFD600;  
+            --state-volatile: #FF8800; 
+            --state-risk: #FF0055;     
+
             --glass-bg: rgba(15, 15, 20, 0.92);
             --glass-border: rgba(255, 255, 255, 0.12);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
         body {
             background: var(--bg-deep);
             color: white;
             font-family: 'Space Mono', monospace;
             overflow: hidden;
             width: 100vw; height: 100dvh;
+            margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
         }
@@ -39,23 +51,131 @@
         .font-serif-human { font-family: 'Playfair Display', serif; }
         .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
 
-        #canvas-3d { position: absolute; inset: 0; z-index: 1; }
+        /* 隱私層 & 背景層 */
+        #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
+        #light-analysis-canvas { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
         
+        #universe {
+            position: absolute; inset: 0; z-index: 1;
+            background: radial-gradient(circle at center, #111 0%, #000 100%);
+            transition: opacity 1s ease, filter 1s ease;
+        }
+        #universe.dimmed { opacity: 0.2; filter: blur(15px); }
+
+        /* HUD 層 */
         #hud-layer {
             position: absolute; inset: 0; z-index: 10;
+            pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 24px; padding-bottom: calc(30px + env(safe-area-inset-bottom));
-            pointer-events: auto;
             transition: opacity 0.5s ease;
         }
-        #hud-layer.hidden { opacity: 0; pointer-events: none; }
+        #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
 
+        /* Env UI */
+        .env-readout {
+            font-size: 9px; letter-spacing: 1px;
+            display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+            margin-bottom: 8px;
+        }
+        .env-item { display: flex; align-items: center; gap: 6px; color: #666; transition: color 0.3s; }
+        .env-item.good { color: var(--matrix-green); }
+        .env-item.warn { color: var(--alert-orange); }
+        .env-bar { width: 30px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 1px; overflow: hidden; }
+        .env-fill { height: 100%; background: currentColor; transition: width 0.3s; }
+
+        /* Alignment Capsule */
+        #align-hint-capsule {
+            position: absolute; top: 15%; left: 50%; 
+            transform: translateX(-50%) translateY(-20px) scale(0.95);
+            background: rgba(20, 20, 25, 0.75);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            padding: 10px 20px; border-radius: 99px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex; align-items: center; gap: 12px;
+            opacity: 0; pointer-events: none; 
+            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            z-index: 100; overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+        }
+        #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
+        #align-hint-capsule.status-error { border-color: rgba(239, 68, 68, 0.5); box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
+        #align-hint-capsule.status-warn { border-color: rgba(234, 179, 8, 0.5); box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
+        #align-hint-capsule.status-good { border-color: rgba(35, 243, 212, 0.6); box-shadow: 0 0 20px rgba(35, 243, 212, 0.3); }
+
+        .shimmer-effect {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.1) 45%, transparent 60%);
+            transform: translateX(-100%); animation: shimmer-slide 2.5s infinite; pointer-events: none;
+        }
+        @keyframes shimmer-slide { 100% { transform: translateX(100%); } }
+
+        .audio-bar {
+            width: 4px; height: 20px; background: rgba(255,255,255,0.2);
+            margin: 0 1px; transition: height 0.05s ease-out; border-radius: 2px;
+        }
+
+        /* SCANNER */
+        .fingerprint-wrapper {
+            position: relative; width: 110px; height: 110px;
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: auto; cursor: pointer; border-radius: 50%;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .fingerprint-core {
+            width: 80px; height: 80px; border-radius: 50%;
+            background: rgba(10, 10, 15, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex; justify-content: center; align-items: center;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            position: relative; overflow: hidden; z-index: 20;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5), inset 0 0 10px rgba(255,255,255,0.05);
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .fingerprint-icon { position: relative; z-index: 22; color: rgba(255,255,255,0.6); transition: all 0.3s ease; }
+        .scan-beam {
+            position: absolute; top: -100%; left: 0; width: 100%; height: 50%;
+            background: linear-gradient(to bottom, transparent 0%, rgba(0, 240, 255, 0.4) 90%, rgba(255, 255, 255, 0.8) 100%);
+            opacity: 0; pointer-events: none; z-index: 21;
+        }
+        .ripple-ring {
+            position: absolute; top: 50%; left: 50%; width: 100%; height: 100%;
+            border-radius: 50%; border: 1px solid var(--plasma-cyan);
+            transform: translate(-50%, -50%) scale(0.8); opacity: 0; pointer-events: none; z-index: 1;
+        }
+        .progress-svg { position: absolute; top: -5px; left: -5px; width: 120px; height: 120px; transform: rotate(-90deg); z-index: 30; pointer-events: none; }
+        .progress-circle {
+            fill: none; stroke: var(--plasma-cyan); stroke-width: 3; stroke-linecap: round;
+            stroke-dasharray: 339; stroke-dashoffset: 339; transition: stroke-dashoffset 0.05s linear;
+            filter: drop-shadow(0 0 6px var(--plasma-cyan));
+        }
+        .fingerprint-wrapper.active { transform: scale(0.95); }
+        .fingerprint-wrapper.active .fingerprint-core {
+            border-color: rgba(0, 240, 255, 0.5); background: rgba(0, 10, 20, 0.9);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.2), inset 0 0 20px rgba(0, 240, 255, 0.1);
+        }
+        .fingerprint-wrapper.active .fingerprint-icon {
+            color: white; opacity: 1; filter: drop-shadow(0 0 8px var(--plasma-cyan));
+            animation: pulse-icon 1s infinite alternate;
+        }
+        .fingerprint-wrapper.active .scan-beam { opacity: 1; animation: beam-scan 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+        .fingerprint-wrapper.active .ripple-ring:nth-child(1) { animation: ripple-expand 1.5s linear infinite; animation-delay: 0s; }
+        .fingerprint-wrapper.active .ripple-ring:nth-child(2) { animation: ripple-expand 1.5s linear infinite; animation-delay: 0.5s; }
+
+        @keyframes beam-scan { 0% { top: -100%; opacity: 0; } 30% { opacity: 0.8; } 70% { opacity: 0.8; } 100% { top: 150%; opacity: 0; } }
+        @keyframes ripple-expand { 0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; border-width: 2px; } 100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; border-width: 0px; } }
+        @keyframes pulse-icon { 0% { opacity: 0.8; transform: scale(1); } 100% { opacity: 1; transform: scale(1.05); } }
+
+        /* ========================================= */
+        /* DASHBOARD LAYOUT */
+        /* ========================================= */
         #dashboard-layer {
             position: absolute; inset: 0; z-index: 50;
+            background: transparent;
             display: flex; flex-direction: column;
             padding: 24px 20px 140px 20px; 
-            overflow-y: auto; 
-            opacity: 0; pointer-events: none;
+            padding-top: calc(50px + env(safe-area-inset-top));
+            overflow-y: auto; opacity: 0; pointer-events: none;
             transform: translateY(20px);
             transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
@@ -64,108 +184,114 @@
         .bento-card {
             background: var(--glass-bg); border: 1px solid var(--glass-border);
             border-radius: 28px; padding: 16px;
-            backdrop-filter: blur(40px);
+            backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
             display: flex; flex-direction: column; position: relative; overflow: hidden;
+            transition: transform 0.2s;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
+        .bento-card:active { transform: scale(0.98); }
 
-        .fingerprint-wrapper {
-            position: relative; width: 110px; height: 110px;
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer; border-radius: 50%;
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        /* Top Integrity Bar */
+        .integrity-track {
+            width: 100%; height: 4px; background: rgba(255,255,255,0.1);
+            border-radius: 2px; margin-top: 8px; position: relative; overflow: hidden;
         }
-        
-        .fingerprint-core {
-            width: 80px; height: 80px; border-radius: 50%;
-            background: rgba(10, 10, 15, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            display: flex; justify-content: center; align-items: center;
-            backdrop-filter: blur(12px);
-            position: relative; overflow: hidden; z-index: 20;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5), inset 0 0 10px rgba(255,255,255,0.05);
-            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        .integrity-fill {
+            position: absolute; left: 0; top: 0; height: 100%; width: 0%;
+            background: linear-gradient(90deg, #00F0FF, #00FF94);
+            box-shadow: 0 0 15px var(--plasma-cyan);
+            transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        .fingerprint-icon { position: relative; z-index: 22; color: rgba(255,255,255,0.6); }
-        
-        .ripple-ring {
-            position: absolute; top: 50%; left: 50%; width: 100%; height: 100%;
-            border-radius: 50%; border: 1px solid var(--plasma-cyan);
-            transform: translate(-50%, -50%) scale(0.8); opacity: 0; z-index: 1;
+        /* Scanner Overlay */
+        .scanner-overlay {
+            position: absolute; inset: 0; pointer-events: none; z-index: 10;
+            background: linear-gradient(90deg, transparent 0%, rgba(0, 255, 148, 0.1) 50%, transparent 100%);
+            width: 50%; transform: skewX(-20deg) translateX(-150%);
+            animation: scan-pass 2.5s infinite linear;
         }
-        
-        .progress-circle {
-            fill: none; stroke: var(--plasma-cyan); stroke-width: 3; stroke-linecap: round;
-            stroke-dasharray: 339; stroke-dashoffset: 339; 
-            filter: drop-shadow(0 0 6px var(--plasma-cyan));
-        }
+        @keyframes scan-pass { 0% { transform: translateX(-150%) skewX(-20deg); } 100% { transform: translateX(350%) skewX(-20deg); } }
 
-        .fingerprint-wrapper.active { transform: scale(0.95); }
-        .fingerprint-wrapper.active .fingerprint-core {
-            border-color: rgba(0, 240, 255, 0.5);
-            box-shadow: 0 0 30px rgba(0, 240, 255, 0.2), inset 0 0 20px rgba(0, 240, 255, 0.1);
-        }
-        .fingerprint-wrapper.active .fingerprint-icon {
-            color: white; filter: drop-shadow(0 0 8px var(--plasma-cyan));
-            animation: pulse-icon 1s infinite alternate;
-        }
-        .fingerprint-wrapper.active .ripple-ring:nth-child(1) { animation: ripple-expand 1.5s linear infinite; }
-        .fingerprint-wrapper.active .ripple-ring:nth-child(2) { animation: ripple-expand 1.5s linear infinite; animation-delay: 0.5s; }
-
-        @keyframes ripple-expand { 
-            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; border-width: 2px; } 
-            100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; border-width: 0px; } 
-        }
-        @keyframes pulse-icon { 0% { opacity: 0.8; transform: scale(1); } 100% { opacity: 1; transform: scale(1.05); } }
-
+        /* Orbit 2050 UPGRADE */
         .orbit-container {
             width: 280px; height: 280px; position: relative;
             display: flex; justify-content: center; align-items: center;
-            margin: 10px auto; cursor: pointer;
+            margin: 10px auto; cursor: pointer; -webkit-tap-highlight-color: transparent;
         }
-
+        .orbit-container.charging { transform: scale(1.02); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .orbit-data-center {
             position: absolute; z-index: 10;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             text-align: center; pointer-events: none;
         }
-
         .metallic-text {
             background: linear-gradient(180deg, #FFFFFF 20%, #A0A0A0 100%);
             -webkit-background-clip: text; background-clip: text; color: transparent;
             filter: drop-shadow(0 4px 10px rgba(255,255,255,0.2));
             letter-spacing: -4px; line-height: 1;
         }
-
+        
+        /* 2050 RINGS CSS - REVISED FOR SOLID LINES */
         .ring-svg {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             transform: rotate(-90deg); overflow: visible;
         }
-
         .ring-track { fill: none; stroke: rgba(255, 255, 255, 0.05); stroke-linecap: round; }
         .ring-value { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .glow-outer { filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.6)); }
 
+        /* 內部 HRV 2050 改裝 */
+        .ring-inner-bg {
+            fill: none; stroke: rgba(255,255,255,0.03); 
+            stroke-width: 12; /* Increased background track thickness */
+        }
+        
+        /* 機械刻度 (保持質感) */
+        .mech-track {
+            fill: none; stroke: rgba(255, 255, 255, 0.1); stroke-width: 1;
+            stroke-dasharray: 2 10; 
+            transform-origin: 50% 50%;
+            animation: spin-cw 20s linear infinite;
+        }
+
+        /* 紫線 (Data Stream) - 改為實心全圓 */
+        .data-stream {
+            fill: none; 
+            stroke: var(--void-purple); 
+            stroke-width: 2; /* 細緻實線 */
+            stroke-dasharray: none; /* !!! 關鍵修改：移除虛線，改為實心 !!! */
+            opacity: 0.8;
+            transform-origin: 50% 50%;
+            /* 讓它稍微慢速轉動或保持靜止，這裡保留慢速轉動增加科技感，但因為是實心圈，轉動看不出來，除非有材質。
+               為了確保「不要斷」的視覺，我們保持它是實線圈即可。 */
+        }
+
+        /* 核心數值環 (HRV) - 加粗 */
         .ring-hrv-2050 {
-            fill: none; stroke-width: 12; stroke-linecap: round;
-            stroke-dasharray: 660; stroke-dashoffset: 660;
+            fill: none; 
+            stroke-width: 12; /* !!! 關鍵修改：加粗 (原為6) !!! */
+            stroke-linecap: round; /* 圓角收尾 */
+            stroke-dasharray: 660; 
+            stroke-dashoffset: 660; 
             transition: stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1);
             filter: drop-shadow(0 0 8px #D400FF);
         }
 
+        @keyframes spin-cw { 100% { transform: rotate(360deg); } }
+        @keyframes spin-ccw { 100% { transform: rotate(-360deg); } }
+
+
+        /* ANS SPECTRUM BARS */
         .ans-bar-container {
             width: 100%; height: 28px; background: rgba(0,0,0,0.4); 
             border-radius: 99px; padding: 2px;
             display: flex; position: relative; overflow: hidden;
             border: 1px solid rgba(255,255,255,0.05);
         }
-
         .ans-midpoint {
             position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; 
             background: rgba(255,255,255,0.3); z-index: 10;
         }
-
         .ans-sns-fill {
             height: 100%; border-radius: 99px 0 0 99px;
             background: linear-gradient(90deg, rgba(255,85,0,0.8), rgba(255,160,0,0.8));
@@ -173,7 +299,6 @@
             padding-left: 8px; font-size: 9px; font-weight: bold; color: black;
             transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
         }
-
         .ans-pns-fill {
             height: 100%; border-radius: 0 99px 99px 0;
             background: linear-gradient(90deg, rgba(0,255,148,0.6), rgba(0,240,255,0.8));
@@ -182,18 +307,10 @@
             transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
-        .bio-graph-container {
-            width: 100%; height: 40px; display: flex; align-items: flex-end; gap: 2px;
-            position: relative; z-index: 5;
-        }
-
-        .bio-bar { flex: 1; background: var(--matrix-green); opacity: 0.6; border-radius: 1px; }
-
         .radar-container {
             width: 100%; height: 100%; display: flex; justify-content: center; 
             align-items: center; position: relative;
         }
-
         .radar-svg { width: 100px; height: 100px; overflow: visible; }
         .radar-bg { fill: rgba(255,255,255,0.05); stroke: rgba(255,255,255,0.1); stroke-width: 1; }
         .radar-poly { 
@@ -201,6 +318,14 @@
             transition: all 0.5s ease; filter: drop-shadow(0 0 8px rgba(0,240,255,0.3));
         }
 
+        .bio-graph-container {
+            width: 100%; height: 40px; display: flex; align-items: flex-end; gap: 2px;
+            mask-image: linear-gradient(to right, transparent, black 15%);
+            position: relative; z-index: 5;
+        }
+        .bio-bar { flex: 1; background: var(--state-stable); opacity: 0.6; border-radius: 1px; transition: height 0.05s linear; }
+
+        /* Dock */
         .dock-container {
             position: fixed; 
             bottom: calc(30px + env(safe-area-inset-bottom));
@@ -209,21 +334,11 @@
             border: 1px solid rgba(255,255,255,0.15); border-radius: 35px;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            transform: translateY(150px); 
-            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: translateY(150px); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
             z-index: 100;
         }
-
         #dashboard-layer.show .dock-container { transform: translateY(0); }
-
-        .dock-btn { 
-            width: 54px; height: 54px; border-radius: 50%; 
-            display: flex; justify-content: center; align-items: center; 
-            color: white; transition: all 0.2s; 
-            background: rgba(255,255,255,0.05);
-            border: none; cursor: pointer;
-        }
-
+        .dock-btn { width: 54px; height: 54px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; transition: all 0.2s; }
         .dock-main-action {
             flex: 1; height: 54px; margin: 0 8px;
             background: white;
@@ -231,150 +346,74 @@
             font-weight: 800; letter-spacing: 1px; color: black; font-size: 12px;
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
             transition: transform 0.2s;
-            border: none; cursor: pointer;
         }
-
         .dock-main-action:active { transform: scale(0.97); }
 
-        .integrity-track {
-            width: 100%; height: 4px; background: rgba(255,255,255,0.1);
-            border-radius: 2px; position: relative; overflow: hidden;
-        }
-
-        .integrity-fill {
-            position: absolute; left: 0; top: 0; height: 100%; width: 0%;
-            background: linear-gradient(90deg, #00F0FF, #00FF94);
-            box-shadow: 0 0 15px var(--plasma-cyan);
-            transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        video { display: none; }
-        canvas#ppg-canvas { display: none; }
-
-        .env-readout {
-            font-size: 9px; letter-spacing: 1px;
-            display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
-        }
-
-        .env-item { display: flex; align-items: center; gap: 6px; color: #666; }
-        .env-item.good { color: var(--matrix-green); }
-        .env-bar { width: 30px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 1px; overflow: hidden; }
-        .env-fill { height: 100%; background: currentColor; transition: width 0.3s; }
-
-        .scanner-overlay {
-            position: absolute; inset: 0; pointer-events: none; z-index: 10;
-            background: linear-gradient(90deg, transparent 0%, rgba(0, 255, 148, 0.1) 50%, transparent 100%);
-            width: 50%; animation: scan-pass 2.5s infinite linear;
-        }
-        @keyframes scan-pass { 0% { transform: translateX(-150%); } 100% { transform: translateX(350%); } }
-
-        .grid { display: grid; }
-        .col-span-2 { grid-column: span 2; }
-        .gap-4 { gap: 1rem; }
-        .mb-6 { margin-bottom: 1.5rem; }
-        .mb-1 { margin-bottom: 0.25rem; }
-        .mb-2 { margin-bottom: 0.5rem; }
-        .mb-3 { margin-bottom: 0.75rem; }
-        .mb-4 { margin-bottom: 1rem; }
-        .mt-1 { margin-top: 0.25rem; }
-        .mt-2 { margin-top: 0.5rem; }
-        .mt-4 { margin-top: 1rem; }
-        .mt-8 { margin-top: 2rem; }
-        .text-xl { font-size: 1.25rem; }
-        .text-lg { font-size: 1.125rem; }
-        .text-base { font-size: 1rem; }
-        .text-xs { font-size: 0.75rem; }
-        .text-2xl { font-size: 1.5rem; }
-        .text-4xl { font-size: 2.25rem; }
-        .text-3xl { font-size: 1.875rem; }
-        .text-[110px] { font-size: 110px; }
-        .font-bold { font-weight: bold; }
-        .tracking-tight { letter-spacing: -0.025em; }
-        .tracking-tighter { letter-spacing: -0.05em; }
-        .tracking-widest { letter-spacing: 0.1em; }
-        .flex { display: flex; }
-        .flex-col { flex-direction: column; }
-        .items-center { align-items: center; }
-        .justify-center { justify-content: center; }
-        .justify-between { justify-content: space-between; }
-        .gap-1 { gap: 0.25rem; }
-        .gap-2 { gap: 0.5rem; }
-        .gap-8 { gap: 2rem; }
-        .h-36 { height: 9rem; }
-        .h-6 { height: 1.5rem; }
-        .h-4 { height: 1rem; }
-        .h-3 { height: 0.75rem; }
-        .h-40 { height: 10rem; }
-        .w-6 { width: 1.5rem; }
-        .w-4 { width: 1rem; }
-        .w-3 { width: 0.75rem; }
-        .w-5 { width: 1.25rem; }
-        .w-full { width: 100%; }
-        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
-        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-        .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
-        .px-4 { padding-left: 1rem; padding-right: 1rem; }
-        .text-white { color: white; }
-        .text-cyan-400 { color: #22d3ee; }
-        .text-cyan-300 { color: #06b6d4; }
-        .text-gray-500 { color: #6b7280; }
-        .text-gray-400 { color: #9ca3af; }
-        .text-orange-400 { color: #fb923c; }
-        .border { border: 1px solid; }
-        .border-white { border-color: white; }
-        .rounded { border-radius: 0.25rem; }
-        .rounded-full { border-radius: 9999px; }
-        .uppercase { text-transform: uppercase; }
-        .tabular-nums { font-variant-numeric: tabular-nums; }
     </style>
 </head>
 <body>
 
-    <canvas id="canvas-3d"></canvas>
     <video id="input-video" playsinline></video>
-    <canvas id="ppg-canvas" width="160" height="120"></canvas>
+    <canvas id="light-analysis-canvas" width="50" height="50"></canvas>
+    
+    <div id="universe"></div>
 
-    <!-- HUD LAYER -->
+    <!-- HUD Layer -->
     <div id="hud-layer">
+        <div id="align-hint-capsule">
+            <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
+                <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-white"></i>
+            </div>
+            <span id="hint-text" class="text-xs font-bold text-white tracking-wide uppercase transition-all duration-300">
+                Searching...
+            </span>
+            <div class="shimmer-effect"></div>
+        </div>
+
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-                <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">v50.0 NEURAL SYNC</div>
+                <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_25.8.2</div>
             </div>
             
-            <div class="text-right">
+            <div class="text-right flex flex-col items-end">
                 <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">
                     VISION ONLY
                 </div>
-                <div class="env-readout font-mono-tech">
-                    <div class="env-item good">
-                        <span>SYS</span>
-                        <div class="env-bar"><div class="env-fill" style="width: 100%"></div></div>
+                <div class="env-readout font-mono-tech mb-2">
+                    <div id="env-lux" class="env-item">
+                        <span>LUX</span>
+                        <div class="env-bar"><div id="env-lux-bar" class="env-fill" style="width: 0%"></div></div>
+                    </div>
+                    <div id="env-stab" class="env-item">
+                        <span>STAB</span>
+                        <div class="env-bar"><div id="env-stab-bar" class="env-fill" style="width: 100%"></div></div>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="flex flex-col items-center pb-10">
-            <div id="scan-trigger" class="fingerprint-wrapper cursor-pointer">
-                <div class="ripple-ring"></div>
-                <div class="ripple-ring"></div>
-                <svg class="progress-svg absolute" style="width:120px;height:120px;top:-5px;left:-5px;" viewBox="0 0 120 120">
+            <div id="scan-trigger-wrapper" class="fingerprint-wrapper">
+                <div class="ripple-ring"></div><div class="ripple-ring"></div>
+                <svg class="progress-svg" viewBox="0 0 120 120">
                     <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="3"></circle>
-                    <circle id="scan-progress" class="progress-circle" cx="60" cy="60" r="54"></circle>
+                    <circle id="scan-progress-bar" class="progress-circle" cx="60" cy="60" r="54"></circle>
                 </svg>
                 <div class="fingerprint-core">
+                    <div class="scan-beam"></div>
                     <i data-lucide="fingerprint" class="fingerprint-icon w-10 h-10"></i>
                 </div>
             </div>
-            <div class="mt-8 text-[10px] tracking-[3px] text-gray-400 font-mono-tech font-bold">
+            <div id="instruction" class="mt-8 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300 font-bold">
                 HOLD TO SYNC
             </div>
         </div>
     </div>
 
-    <!-- DASHBOARD LAYER -->
+    <!-- Dashboard Layer -->
     <div id="dashboard-layer">
+        <!-- Header -->
         <div class="mb-6">
             <div class="flex justify-between items-end mb-1">
                 <div>
@@ -393,17 +432,18 @@
 
         <div class="grid grid-cols-2 gap-4">
             
-            <!-- TEI ORBIT SCORE -->
+            <!-- (A) ORBIT SCORE [SOLID EDITION] -->
             <div class="col-span-2 bento-card items-center py-8 bg-black/40 border-white/20">
-                <div class="orbit-container">
-                    <svg style="width:0;height:0;position:absolute;" aria-hidden="true">
+                <div id="tei-orbit-container" class="orbit-container">
+                    <svg style="width:0;height:0;position:absolute;" aria-hidden="true" focusable="false">
                         <defs>
                             <linearGradient id="grad-score" x1="0%" y1="0%" x2="100%" y2="100%">
                                 <stop offset="0%" stop-color="#FFFFFF" />
                                 <stop offset="50%" stop-color="#00F0FF" />
                                 <stop offset="100%" stop-color="#0080FF" />
                             </linearGradient>
-                            <linearGradient id="grad-hrv" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <!-- 2050 Gradient -->
+                            <linearGradient id="grad-hrv-2050" x1="0%" y1="0%" x2="100%" y2="100%">
                                 <stop offset="0%" stop-color="#FF00CC" />
                                 <stop offset="50%" stop-color="#9900FF" />
                                 <stop offset="100%" stop-color="#00FFFF" />
@@ -412,16 +452,28 @@
                     </svg>
 
                     <svg class="ring-svg" viewBox="0 0 280 280">
+                        <!-- Score Ring (Outer) -->
                         <circle cx="140" cy="140" r="120" class="ring-track" stroke-width="8"></circle>
                         <circle id="ring-score" cx="140" cy="140" r="120" class="ring-value glow-outer" stroke="url(#grad-score)" stroke-width="8" stroke-dasharray="753" stroke-dashoffset="753"></circle>
-                        <circle cx="140" cy="140" r="105" class="ring-track" stroke-width="12"></circle>
-                        <circle id="ring-hrv" cx="140" cy="140" r="105" class="ring-hrv-2050" stroke="url(#grad-hrv)"></circle>
+                        
+                        <!-- 2050 HRV Layers (Inner) -->
+                        <!-- 1. Background Track (Thicker) -->
+                        <circle cx="140" cy="140" r="105" class="ring-inner-bg"></circle>
+                        
+                        <!-- 2. Decorative Solid Purple Line (Moved inward to avoid overlap, SOLID LINE) -->
+                        <circle cx="140" cy="140" r="95" class="data-stream"></circle>
+                        
+                        <!-- 3. Mechanical Ticks (Texture) -->
+                        <circle cx="140" cy="140" r="90" class="mech-track"></circle>
+                        
+                        <!-- 4. Actual HRV Value (Thicker, On Top) -->
+                        <circle id="ring-hrv" cx="140" cy="140" r="105" class="ring-hrv-2050" stroke="url(#grad-hrv-2050)" stroke-dasharray="660" stroke-dashoffset="660"></circle>
                     </svg>
 
                     <div class="orbit-data-center">
                         <div class="text-[10px] font-mono-tech text-gray-500 tracking-[0.3em] mb-2 font-bold">TEI SCORE</div>
                         <div class="text-[110px] font-sans-bold metallic-text tabular-nums" id="dash-score">00</div>
-                        <div class="text-[10px] font-mono-tech text-cyan-300 tracking-widest mt-2" id="dash-label">OPTIMAL ZONE</div>
+                        <div class="text-[10px] font-mono-tech text-cyan-300 tracking-widest mt-2 cursor-pointer" id="dash-label">HOLD TO RESYNC</div>
                     </div>
                 </div>
                 <div class="mt-4 text-center w-full px-4">
@@ -429,8 +481,8 @@
                 </div>
             </div>
 
-            <!-- ANS SPECTRUM -->
-            <div class="col-span-2 bento-card relative overflow-hidden">
+            <!-- (B) 🟢 ANS SPECTRUM -->
+            <div class="col-span-2 bento-card relative overflow-hidden group">
                 <div class="flex justify-between items-start mb-3">
                     <div class="flex flex-col">
                         <span class="text-[10px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1">
@@ -439,7 +491,7 @@
                         <span class="text-xs text-gray-400 mt-1">HRV / Stress Index</span>
                     </div>
                     <div class="text-right">
-                        <div id="hrv-val" class="text-xl font-bold text-white font-mono-tech tabular-nums">--</div>
+                        <div id="hrv-val" class="text-xl font-bold text-white font-mono-tech tabular-nums tracking-tighter">--</div>
                         <span class="text-[9px] text-gray-500 font-bold uppercase">RMSSD (ms)</span>
                     </div>
                 </div>
@@ -448,19 +500,19 @@
                     <div id="ans-sns-bar" class="ans-sns-fill" style="width: 50%">SNS</div>
                     <div id="ans-pns-bar" class="ans-pns-fill" style="width: 50%">PNS</div>
                 </div>
-                <div class="flex justify-between mt-2 text-[9px] font-bold font-mono-tech">
+                <div class="flex justify-between mt-2 text-[9px] font-bold font-mono-tech tracking-wide">
                     <div class="text-orange-400 flex flex-col">
                         <span>SYMPATHETIC</span>
-                        <span id="sns-val">--%</span>
+                        <span id="sns-val" class="opacity-80">--%</span>
                     </div>
                     <div class="text-cyan-400 flex flex-col items-end">
                         <span>PARASYMPATHETIC</span>
-                        <span id="pns-val">--%</span>
+                        <span id="pns-val" class="opacity-80">--%</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Heart Rate -->
+            <!-- 2. Heart Rate -->
             <div class="bento-card justify-between h-36 relative overflow-hidden">
                 <div class="scanner-overlay"></div>
                 <div class="flex justify-between items-start relative z-10">
@@ -468,13 +520,13 @@
                     <i data-lucide="heart" class="w-4 h-4 text-gray-500"></i>
                 </div>
                 <div class="relative z-10">
-                    <span id="bpm-val" class="text-4xl font-bold text-white tabular-nums">--</span>
+                    <span id="bpm-val" class="text-4xl font-bold text-white tracking-tighter tabular-nums">--</span>
                     <span class="text-xs text-gray-500 font-bold">BPM</span>
                 </div>
-                <div id="ppg-graph" class="bio-graph-container"></div>
+                <div class="bio-graph-container" id="ppg-graph"></div>
             </div>
 
-            <!-- Stability Radar -->
+            <!-- 3. Radar -->
             <div class="bento-card justify-between h-36 relative">
                 <div class="text-[10px] text-gray-400 font-bold uppercase z-10">Stability</div>
                 <div class="radar-container absolute inset-0">
@@ -492,483 +544,627 @@
             <div class="col-span-2 bento-card bg-black border-white/20 mt-2">
                 <div class="text-xs text-cyan-300 font-mono-tech mb-2 tracking-widest">SYSTEM_LOG</div>
                 <div class="text-lg text-white font-serif-human leading-tight mb-2 opacity-90" id="dash-quote">
-                    "Bio-metrics synchronized. Standing by."
+                    "Bio-metrics synchronized. Analysis ready."
                 </div>
                 <div class="flex justify-between items-end mt-4 border-t border-white/10 pt-3">
                     <div class="text-[10px] text-gray-500 font-mono-tech" id="dash-date">DATE</div>
-                    <button class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition" onclick="app.exportData()">EXPORT ZIP ↗</button>
+                    <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition">EXPORT DATA ↗</div>
                 </div>
             </div>
         </div>
 
         <!-- Action Dock -->
         <div class="dock-container">
-            <button class="dock-btn" onclick="app.shareSession()" title="Share">
+            <div class="dock-btn bg-white/5 hover:bg-white/10">
                 <i data-lucide="share-2" class="w-5 h-5"></i>
-            </button>
+            </div>
             <button id="dynamic-action-btn" class="dock-main-action" onclick="app.reset()">
-                <i data-lucide="rotate-ccw" class="w-4 h-4 text-black"></i>
-                <span>RESET SESSION</span>
+                <i id="btn-icon" data-lucide="rotate-ccw" class="w-4 h-4 text-black"></i>
+                <span id="btn-text">PROCESSING...</span>
             </button>
-            <button class="dock-btn" title="Settings">
+            <div class="dock-btn bg-white/5 hover:bg-white/10">
                 <i data-lucide="settings" class="w-5 h-5"></i>
-            </button>
+            </div>
         </div>
     </div>
 
+    <!-- ENGINE -->
+    <script>
+        class BaselineManager {
+            constructor() { this.data = this.load() || { samples_count: 0 }; }
+            load() { return localStorage.getItem('tenki_base') ? JSON.parse(localStorage.getItem('tenki_base')) : null; }
+            save() { localStorage.setItem('tenki_base', JSON.stringify(this.data)); }
+            recordSession() { this.data.samples_count++; this.save(); }
+        }
+
+        const TenkiEngine = {
+            calculatePole: function(sampleBuffer, env) {
+                if (!sampleBuffer || sampleBuffer.length === 0) return { score: 50, stability: 0, hrv: 50, alertness: 0, energy: 30 };
+
+                const count = sampleBuffer.length;
+                let sumHead = 0;
+                let sumEnergy = 0;
+                sampleBuffer.forEach(s => { 
+                    sumHead += (Math.abs(s.headRot.x) + Math.abs(s.headRot.y)); 
+                    sumEnergy += (s.audioData || 0);
+                });
+                
+                const rawStability = Math.max(0, 1 - (sumHead / count) * 3);
+                const finalStability = Math.max(0, rawStability - (env.motion || 0));
+
+                let sumEyeTens = 0;
+                sampleBuffer.forEach(s => { sumEyeTens += (s.eyeTens || 0); });
+                const avgEyeTension = sumEyeTens / count;
+                const alertness = Math.floor((1 - avgEyeTension) * 100);
+
+                let rawScore = 60 + (finalStability * 30);
+                if (env.lux > 50) rawScore += 5; else rawScore -= 5;
+                const reliability = Math.min(1, count / 30);
+                const finalScore = Math.floor(rawScore * reliability);
+                
+                // Proxy HRV (40-100 range roughly)
+                const estimatedHRV = Math.floor(40 + (finalStability * 50) + (Math.random() * 10));
+                const avgEnergy = sumEnergy / count;
+
+                return {
+                    score: Math.max(10, Math.min(99, finalScore)),
+                    stability: finalStability,
+                    alertness: alertness,
+                    hrv: estimatedHRV,
+                    energy: avgEnergy
+                };
+            }
+        };
+        const baselineMgr = new BaselineManager();
+    </script>
+
+    <!-- APP -->
     <script>
         lucide.createIcons();
 
-        const CFG = {
-            PARTICLES: 3600,
-            DEMO_SCAN_MS: 3000,
-            ALIGN_MS: 1800,
-            LOCK_MS: 1800,
-        };
-
-        /* ========== Camera rPPG Engine ========== */
-        class CameraPPG {
-            constructor(videoId, canvasId) {
-                this.video = document.getElementById(videoId);
-                this.canvas = document.getElementById(canvasId);
-                this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
-                this.samples = [];
-                this.maxSamples = 150;
-                this.running = false;
-                this._raf = 0;
-            }
-
-            async start() {
-                try {
-                    const constraints = { 
-                        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, 
-                        audio: false 
-                    };
-                    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                    this.video.srcObject = stream;
-                    await this.video.play();
-                    this.running = true;
-                    this.samples = [];
-                    this._loop();
-                } catch (e) {
-                    console.warn('Camera access denied:', e);
-                    return false;
-                }
-                return true;
-            }
-
-            stop() {
-                this.running = false;
-                cancelAnimationFrame(this._raf);
-                if (this.video.srcObject) {
-                    this.video.srcObject.getTracks().forEach(t => t.stop());
-                    this.video.srcObject = null;
-                }
-            }
-
-            _loop() {
-                if (!this.running) return;
-                this._raf = requestAnimationFrame(() => this._loop());
-
-                if (this.video.readyState < 2) return;
-
-                this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
-                const imgData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height).data;
-
-                let gSum = 0, count = 0;
-                for (let i = 0; i < imgData.length; i += 4) {
-                    gSum += imgData[i + 1];
-                    count++;
-                }
-                const gAvg = gSum / count;
-
-                this.samples.push({ t: performance.now(), g: gAvg });
-                if (this.samples.length > this.maxSamples) this.samples.shift();
-            }
-
-            estimateHR() {
-                if (this.samples.length < 60) return null;
-                
-                const arr = this.samples.map(s => s.g);
-                const mean = arr.reduce((a,b)=>a+b,0) / arr.length;
-                const detrended = arr.map(v => v - mean);
-
-                let peaks = 0;
-                for (let i = 2; i < detrended.length - 2; i++) {
-                    if (detrended[i] > detrended[i-1] && detrended[i] > detrended[i+1] && detrended[i] > 0.5) {
-                        peaks++;
-                    }
-                }
-
-                const dtSec = (this.samples[this.samples.length-1].t - this.samples[0].t) / 1000;
-                const bpm = (peaks / dtSec) * 60;
-                if (!isFinite(bpm) || bpm < 40 || bpm > 180) return null;
-                return Math.round(bpm);
-            }
-
-            estimateHRV() {
-                if (this.samples.length < 80) return 50;
-                
-                const arr = this.samples.map(s => s.g);
-                const mean = arr.reduce((a,b)=>a+b,0) / arr.length;
-                const variance = arr.reduce((sum, v) => sum + (v-mean)*(v-mean), 0) / arr.length;
-                const hrv = Math.sqrt(variance);
-                return Math.min(100, Math.floor(hrv * 2));
-            }
-        }
-
-        class StardustSoulV18 {
-            constructor(canvasId) {
-                const canvas = document.getElementById(canvasId);
-                this.scene = new THREE.Scene();
-                this.camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
-                this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-                this.renderer.setSize(innerWidth, innerHeight);
-                this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
-                this.camera.position.z = 5;
-
-                this.state = "idle";
-                this._morph = 0; this._morphTarget = 0;
-                this._lock = 0; this._lockTarget = 0;
-                this._emotional = 0.5;
-
-                this._initParticles();
-                this._alive = true;
-                this._tick = this._tick.bind(this);
-                requestAnimationFrame(this._tick);
-            }
-
-            _initParticles() {
-                const count = CFG.PARTICLES;
-                const origin = new Float32Array(count * 3);
-                const target = new Float32Array(count * 3);
-                const seed = new Float32Array(count);
-
-                for (let i = 0; i < count; i++) {
-                    const i3 = i * 3;
-                    origin[i3] = (Math.random() - 0.5) * 16;
-                    origin[i3 + 1] = (Math.random() - 0.5) * 16;
-                    origin[i3 + 2] = (Math.random() - 0.5) * 16;
-
-                    const u = Math.random();
-                    const v = Math.random();
-                    const theta = 2 * Math.PI * u;
-                    const phi = Math.acos(2 * v - 1);
-                    const coreBias = Math.pow(Math.random(), 0.28);
-                    const r = 2.2 + coreBias * 2.1;
-
-                    let x = r * Math.sin(phi) * Math.cos(theta);
-                    let y = r * Math.cos(phi);
-                    let z = r * Math.sin(phi) * Math.sin(theta);
-                    y *= 1.28; z *= 0.92;
-                    if (y < -1.25) y *= 0.72;
-                    if (y > 2.2) y *= 1.04;
-
-                    target[i3] = x; target[i3 + 1] = y; target[i3 + 2] = z;
-                    seed[i] = Math.random();
-                }
-
-                const geo = new THREE.BufferGeometry();
-                geo.setAttribute("position", new THREE.BufferAttribute(origin, 3));
-                geo.setAttribute("aOrigin", new THREE.BufferAttribute(origin, 3));
-                geo.setAttribute("aTarget", new THREE.BufferAttribute(target, 3));
-                geo.setAttribute("aSeed", new THREE.BufferAttribute(seed, 1));
-
-                const uniforms = {
-                    uTime: { value: 0 },
-                    uMorph: { value: 0 },
-                    uLock: { value: 0 },
-                    uPointSize: { value: 22 },
-                    uCyan: { value: new THREE.Color("#00F0FF") },
-                    uPurple: { value: new THREE.Color("#7000FF") },
-                    uAccent: { value: new THREE.Color("#00FF94") },
-                    uGlow: { value: 1.15 },
-                    uEmotional: { value: 0.5 },
-                };
-
-                const vs = `
-                    uniform float uTime, uMorph, uLock, uPointSize;
-                    attribute vec3 aOrigin, aTarget;
-                    attribute float aSeed;
-                    varying float vAlpha, vHeat, vSpark;
-
-                    float hash(float n){ return fract(sin(n)*43758.5453); }
-                    float noise2(vec2 p){
-                        vec2 i = floor(p); vec2 f = fract(p);
-                        f = f*f*(3.0-2.0*f);
-                        float a = hash(i.x + i.y*57.0);
-                        float b = hash(i.x+1.0 + i.y*57.0);
-                        float c = hash(i.x + (i.y+1.0)*57.0);
-                        float d = hash(i.x+1.0 + (i.y+1.0)*57.0);
-                        return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);
-                    }
-
-                    void main() {
-                        float m = smoothstep(0.0, 1.0, uMorph);
-                        float lk = smoothstep(0.0, 1.0, uLock);
-                        float s = aSeed;
-                        vec3 p = mix(aOrigin, aTarget, m);
-
-                        float t = uTime;
-                        float swirl = (1.15 - m*0.85);
-                        float ang = t*(0.55 + s)*swirl + s*6.2831;
-                        float cs = cos(ang), sn = sin(ang);
-                        p.xz = mat2(cs,-sn,sn,cs) * p.xz;
-
-                        float r = length(p.xz);
-                        float helix = sin(t*0.9 + r*2.2 + s*8.0) * 0.22 * (1.0 - m*0.55);
-                        p.y += helix;
-
-                        float n = noise2(p.xz*0.55 + vec2(t*0.25, -t*0.18));
-                        float tn = (n - 0.5) * 0.55 * (1.0 - m*0.65);
-                        vec2 tang = normalize(vec2(-p.z, p.x) + 1e-4);
-                        p.xz += tang * tn;
-
-                        float breath = (sin(t*1.15 + s*6.0) * 0.10 + 0.12) * (1.0 - m*0.70);
-                        p *= (1.0 + breath);
-                        p *= mix(1.0, 0.90, lk);
-
-                        float sparkGate = step(0.985, hash(floor(t*0.8) + s*999.0));
-                        vSpark = sparkGate * (1.0 - m*0.35);
-                        vHeat = m;
-                        vAlpha = 0.52 + 0.34*m;
-
-                        vec4 mv = modelViewMatrix * vec4(p, 1.0);
-                        gl_PointSize = uPointSize * (1.0 / -mv.z);
-                        gl_Position = projectionMatrix * mv;
-                    }
-                `;
-
-                const fs = `
-                    precision highp float;
-                    uniform vec3 uCyan, uPurple, uAccent;
-                    uniform float uGlow, uEmotional;
-                    varying float vAlpha, vHeat, vSpark;
-
-                    void main() {
-                        vec2 uv = gl_PointCoord - 0.5;
-                        float d = length(uv);
-                        float core = smoothstep(0.36, 0.0, d);
-                        float rim = smoothstep(0.5, 0.22, d) - smoothstep(0.22, 0.0, d);
-                        float a = core * vAlpha + rim * 0.42 * uGlow + vSpark * 0.35;
-                        if (a < 0.02) discard;
-
-                        vec3 col = mix(uCyan, uPurple, vHeat);
-                        if (uEmotional > 0.5) {
-                            float exciteBlend = (uEmotional - 0.5) * 2.0;
-                            col = mix(col, uAccent, vHeat * exciteBlend * 0.4);
-                        }
-                        
-                        col += rim * 0.35 * uGlow;
-                        col += vSpark * vec3(0.35, 0.25, 0.55);
-                        gl_FragColor = vec4(col, a);
-                    }
-                `;
-
-                this.mat = new THREE.ShaderMaterial({
-                    uniforms, vertexShader: vs, fragmentShader: fs,
-                    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
-                });
-
-                this.cloud = new THREE.Points(geo, this.mat);
-                this.scene.add(this.cloud);
-            }
-
-            setState(s) {
-                this.state = s;
-                if (s === "idle") {
-                    this._morphTarget = 0; this._lockTarget = 0;
-                } else if (s === "align") {
-                    this._morphTarget = 0.75; this._lockTarget = 0.25;
-                } else if (s === "lock") {
-                    this._morphTarget = 1.0; this._lockTarget = 1.0;
-                }
-            }
-
-            setEmotional(hrv) {
-                this._emotional = Math.max(0, Math.min(1, (hrv - 30) / 40));
-                this.mat.uniforms.uEmotional.value = this._emotional;
-            }
-
-            resize() {
-                this.camera.aspect = innerWidth / innerHeight;
-                this.camera.updateProjectionMatrix();
-                this.renderer.setSize(innerWidth, innerHeight);
-            }
-
-            stop() { this._alive = false; }
-
-            _tick(t) {
-                if (!this._alive) return;
-                requestAnimationFrame(this._tick);
-
-                const time = t * 0.001;
-                this._morph += (this._morphTarget - this._morph) * 0.035;
-                this._lock += (this._lockTarget - this._lock) * 0.050;
-
-                this.mat.uniforms.uTime.value = time;
-                this.mat.uniforms.uMorph.value = this._morph;
-                this.mat.uniforms.uLock.value = this._lock;
-
-                this.cloud.rotation.y = Math.sin(time * 0.12) * 0.12;
-                this.cloud.rotation.x = Math.cos(time * 0.08) * 0.06;
-
-                this.renderer.render(this.scene, this.camera);
-            }
-        }
-
         const app = {
-            visuals: new StardustSoulV18('canvas-3d'),
-            camera: new CameraPPG('input-video', 'ppg-canvas'),
-            state: "idle",
-            data: { score: 0, hrv: 50, bpm: 0, sns: 50, pns: 50, stability: 0.5 },
-            history: [],
-            logs: [],
-            useCamMode: false,
+            config: { particleCount: 8000, particleSize: 0.08 },
+            state: { 
+                isFaceDetected: false, isScanning: false, isSensorActive: false,
+                mouthOpen: 0, headRot: {x:0, y:0}, energy: 0, audioData: 0,
+                baseScore: 0, mentalBuffer: 0, 
+                engineResult: null, scanBuffer: [],
+                envLux: 0, deviceMotion: 0
+            },
+            audioCtx: null, analyser: null, dataArray: null, stream: null, lightCtx: null,
 
-            init() {
-                this.setupUI();
-                this.animatePPG();
+            init: function() {
+                this.initThree();
+                this.initEvents();
+                this.initDashboardInteractions();
+                this.initEnvironment();
+                const container = document.getElementById('ppg-graph');
+                for(let i=0; i<30; i++) {
+                    const d = document.createElement('div');
+                    d.className = 'bio-bar';
+                    d.style.height = '10%';
+                    container.appendChild(d);
+                }
                 const d = new Date();
-                document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }).toUpperCase();
+                document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}).toUpperCase();
             },
 
-            setupUI() {
-                document.getElementById('scan-trigger').addEventListener('click', () => this.startScan());
-                window.addEventListener('resize', () => this.visuals.resize());
+            initEnvironment: function() {
+                const c = document.getElementById('light-analysis-canvas');
+                if(c) this.lightCtx = c.getContext('2d', { willReadFrequently: true });
+                window.addEventListener('devicemotion', (event) => {
+                    if (event.accelerationIncludingGravity) {
+                        const { x, y, z } = event.accelerationIncludingGravity;
+                        const m = Math.sqrt(x*x + y*y + z*z);
+                        this.state.deviceMotion = Math.abs(m - 9.8) * 0.1;
+                    }
+                });
             },
 
-            async startScan() {
-                if (this.state === "scanning") return;
-                this.state = "scanning";
-
-                const trigger = document.getElementById('scan-trigger');
-                trigger.classList.add('active');
-
-                this.useCamMode = false;
-                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                    const camOk = await this.camera.start();
-                    if (camOk) {
-                        this.useCamMode = true;
-                        await new Promise(r => setTimeout(r, CFG.DEMO_SCAN_MS + 1000));
+            updateEnvironment: function() {
+                if(!this.state.isSensorActive) {
+                    this.updateEnvUI(60 + Math.sin(Date.now()*0.001)*10, 0.02);
+                    return;
+                }
+                if (this.lightCtx && document.getElementById('input-video').readyState === 4) {
+                    if (Math.random() > 0.9) { 
+                        const v = document.getElementById('input-video');
+                        this.lightCtx.drawImage(v, 0, 0, 50, 50);
+                        const frame = this.lightCtx.getImageData(0,0,50,50);
+                        const data = frame.data;
+                        let colorSum = 0;
+                        for(let x = 0; x < data.length; x+=4) colorSum += Math.floor((data[x]+data[x+1]+data[x+2])/3);
+                        this.state.envLux = Math.min(100, (Math.floor(colorSum / 2500) / 200) * 100); 
                     }
                 }
+                let instability = this.state.deviceMotion;
+                if (this.state.headRot) instability += (Math.abs(this.state.headRot.x) + Math.abs(this.state.headRot.y)) * 0.05;
+                this.updateEnvUI(this.state.envLux, instability);
+            },
 
-                if (!this.useCamMode) {
-                    await new Promise(r => setTimeout(r, CFG.DEMO_SCAN_MS));
-                    this.data.bpm = Math.floor(60 + Math.random() * 40);
-                    this.data.hrv = Math.floor(45 + Math.random() * 50);
-                } else {
-                    const hr = this.camera.estimateHR();
-                    const hrv = this.camera.estimateHRV();
-                    this.data.bpm = hr || 70;
-                    this.data.hrv = hrv || 50;
-                    this.camera.stop();
+            updateEnvUI: function(lux, shake) {
+                const luxBar = document.getElementById('env-lux-bar');
+                const luxItem = document.getElementById('env-lux');
+                const stabBar = document.getElementById('env-stab-bar');
+                const stabItem = document.getElementById('env-stab');
+                if(luxBar) {
+                    luxBar.style.width = lux + '%';
+                    if(lux < 20) { luxItem.classList.add('warn'); luxItem.classList.remove('good'); }
+                    else { luxItem.classList.add('good'); luxItem.classList.remove('warn'); }
                 }
+                if(stabBar) {
+                    const stabPct = Math.max(0, 100 - (shake * 100));
+                    stabBar.style.width = stabPct + '%';
+                    if(shake > 0.5) { stabItem.classList.add('warn'); stabItem.classList.remove('good'); }
+                    else { stabItem.classList.add('good'); stabItem.classList.remove('warn'); }
+                }
+            },
 
-                trigger.classList.remove('active');
-                this.visuals.setState('align');
-                this.visuals.setEmotional(this.data.hrv);
-                await new Promise(r => setTimeout(r, CFG.ALIGN_MS));
+            initThree: function() {
+                const container = document.getElementById('universe');
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                this.camera.position.z = 5;
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                container.appendChild(this.renderer.domElement);
 
-                this.visuals.setState('lock');
-                await new Promise(r => setTimeout(r, CFG.LOCK_MS));
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(this.config.particleCount * 3);
+                const originals = new Float32Array(this.config.particleCount * 3);
+                const colors = new Float32Array(this.config.particleCount * 3);
+                const randoms = new Float32Array(this.config.particleCount);
+                const phi = Math.PI * (3. - Math.sqrt(5.));
+                const topColor = new THREE.Color(0xFF66CC);
+                const midColor = new THREE.Color(0x9966FF);
+                const botColor = new THREE.Color(0x00CCFF);
 
-                this.state = "dashboard";
+                for (let i = 0; i < this.config.particleCount; i++) {
+                    const y = 1 - (i / (this.config.particleCount - 1)) * 2;
+                    const radius = Math.sqrt(1 - y * y);
+                    const theta = phi * i;
+                    const r = 2.5;
+                    const idx = i * 3;
+                    positions[idx] = Math.cos(theta) * radius * r; 
+                    positions[idx+1] = y*r; 
+                    positions[idx+2] = Math.sin(theta) * radius * r;
+                    originals[idx] = positions[idx]; originals[idx+1] = positions[idx+1]; originals[idx+2] = positions[idx+2];
+                    randoms[i] = Math.random();
+                    const mixed = new THREE.Color();
+                    const normalizedY = (y + 1) / 2; 
+                    if (normalizedY > 0.5) mixed.copy(midColor).lerp(topColor, (normalizedY - 0.5) * 2);
+                    else mixed.copy(botColor).lerp(midColor, normalizedY * 2);
+                    colors[idx] = mixed.r; colors[idx+1] = mixed.g; colors[idx+2] = mixed.b;
+                }
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('originalPosition', new THREE.BufferAttribute(originals, 3));
+                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                geometry.setAttribute('random', new THREE.BufferAttribute(randoms, 1));
+
+                const canvas = document.createElement('canvas'); canvas.width=32; canvas.height=32;
+                const ctx = canvas.getContext('2d');
+                const grad = ctx.createRadialGradient(16,16,0,16,16,16);
+                grad.addColorStop(0, 'rgba(255,255,255,1)');
+                grad.addColorStop(0.4, 'rgba(255,255,255,0.8)');
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grad; ctx.fillRect(0,0,32,32);
+                const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
+
+                this.material = new THREE.PointsMaterial({
+                    size: this.config.particleSize, map: tex, transparent: true, opacity: 0.9,
+                    vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false
+                });
+                this.cloud = new THREE.Points(geometry, this.material);
+                this.scene.add(this.cloud);
+                this.animate();
+            },
+
+            startSensors: async function() {
+                document.getElementById('instruction').innerText = "SENSORS ACTIVE...";
+                try {
+                    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.analyser = this.audioCtx.createAnalyser();
+                    this.analyser.fftSize = 64;
+                    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                    const source = this.audioCtx.createMediaStreamSource(this.stream);
+                    source.connect(this.analyser);
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                    this.initAI(this.stream);
+                    this.state.isSensorActive = true;
+                } catch (e) {
+                    console.error(e);
+                    document.getElementById('instruction').innerText = "USE MOUSE MODE";
+                    this.initAI(null);
+                }
+            },
+
+            stopSensors: function() {
+                if (this.stream) { this.stream.getTracks().forEach(track => track.stop()); this.stream = null; }
+                if (this.audioCtx) { this.audioCtx.close(); this.audioCtx = null; }
+                this.state.isSensorActive = false;
+                this.state.isFaceDetected = false;
+                document.getElementById('connection-status').innerText = "SIMULATION MODE";
+            },
+
+            updateAudio: function() {
+                if (!this.state.isSensorActive) {
+                    this.state.audioData = 30 + Math.sin(Date.now() * 0.001 * 0.8) * 15; 
+                    return;
+                }
+                if (!this.analyser) return;
+                this.analyser.getByteFrequencyData(this.dataArray);
+                let sum = 0;
+                for(let i = 0; i < this.dataArray.length; i++) sum += this.dataArray[i];
+                this.state.audioData = sum / this.dataArray.length;
+            },
+
+            getEyeOpenness: function(landmarks) {
+                const avgDist = (Math.abs(landmarks[159].y - landmarks[145].y) + Math.abs(landmarks[386].y - landmarks[374].y)) / 2;
+                return Math.min(1, avgDist / 0.05);
+            },
+            getEyeTension: function(landmarks) {
+                const aspect = Math.abs(landmarks[159].y - landmarks[145].y) / Math.abs(landmarks[33].x - landmarks[133].x);
+                return Math.max(0, 1 - (aspect * 2.5));
+            },
+            getEyebrowHeight: function(landmarks) {
+                const eyeY = (landmarks[159].y + landmarks[145].y) / 2;
+                return Math.min(1, ((eyeY - landmarks[105].y) + (eyeY - landmarks[334].y)) / 0.08);
+            },
+
+            initAI: function(stream) {
+                const video = document.getElementById('input-video');
+                if (stream) {
+                    video.srcObject = stream;
+                    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+                    faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6});
+                    faceMesh.onResults((res) => this.processData(res));
+                    const camera = new Camera(video, { onFrame: async () => await faceMesh.send({image: video}), width: 640, height: 480 });
+                    camera.start();
+                }
+                document.addEventListener('mousemove', (e) => {
+                    if (!this.state.isFaceDetected && !this.state.isSensorActive) {
+                        this.state.headRot.y = (e.clientX / window.innerWidth - 0.5) * 1.5;
+                        this.state.headRot.x = (e.clientY / window.innerHeight - 0.5) * 1.5;
+                    }
+                });
+            },
+
+            processData: function(results) {
+                if(!this.state.isSensorActive) return;
+                const statusEl = document.getElementById('connection-status');
+                const landmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
+                this.updateAlignment(landmarks);
+
+                if (landmarks) {
+                    this.state.isFaceDetected = true;
+                    statusEl.innerText = "VISION: ACTIVE"; statusEl.style.color = "#00F0FF";
+                    if(!this.state.isScanning) { document.getElementById('instruction').innerText = "HOLD TO SCAN"; }
+                    
+                    const nose = landmarks[1];
+                    this.state.headRot.x = (nose.y - 0.5) * 2;
+                    this.state.headRot.y = (nose.x - 0.5) * 2;
+                    const upperLip = landmarks[13], lowerLip = landmarks[14];
+                    const dist = Math.sqrt(Math.pow(upperLip.x - lowerLip.x, 2) + Math.pow(upperLip.y - lowerLip.y, 2));
+                    this.state.mouthOpen += ((dist - 0.02) * 5 - this.state.mouthOpen) * 0.2;
+                    if(this.state.mouthOpen < 0) this.state.mouthOpen = 0;
+                    
+                    if (this.state.isScanning) {
+                        this.state.scanBuffer.push({
+                            headRot: { x: this.state.headRot.x, y: this.state.headRot.y },
+                            mouthOpen: this.state.mouthOpen,
+                            audioData: this.state.audioData || 0,
+                            eyeOpen: this.getEyeOpenness(landmarks),
+                            eyeTens: this.getEyeTension(landmarks),
+                            browH: this.getEyebrowHeight(landmarks)
+                        });
+                    }
+                } else {
+                    statusEl.innerText = "SEARCHING..."; statusEl.style.color = "gray";
+                }
+            },
+
+            updateAlignment: function(landmarks) {
+                const capsule = document.getElementById('align-hint-capsule');
+                const textBox = document.getElementById('hint-text');
+                const iconBox = document.getElementById('hint-icon-box');
+                if (this.state.isScanning || document.getElementById('dashboard-layer').classList.contains('show')) {
+                    capsule.classList.remove('show'); return;
+                }
+                let state = 'searching'; let msg = "FIND FACE"; let icon = "scan-face";
+                let colorClass = "status-error"; let iconColor = "text-red-400"; let iconBg = "bg-red-500/20";
+
+                if (landmarks) {
+                    state = 'good'; msg = "READY TO SCAN"; icon = "check-circle";
+                    colorClass = "status-good"; iconColor = "text-cyan-400"; iconBg = "bg-cyan-500/20";
+                }
+                if (textBox.innerText !== msg) {
+                    textBox.innerText = msg;
+                    iconBox.className = `w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300 ${iconBg}`;
+                    iconBox.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${iconColor}"></i>`;
+                    lucide.createIcons();
+                    capsule.className = ""; capsule.classList.add(colorClass, 'show');
+                }
+                if (!capsule.classList.contains('show')) capsule.classList.add('show');
+            },
+
+            animate: function() {
+                requestAnimationFrame(() => this.animate());
+                this.updateAudio();
+                this.updateEnvironment();
+                
+                const time = Date.now() * 0.001;
+                if (!this.state.isSensorActive) {
+                    this.state.headRot.x = Math.sin(time * 0.5) * 0.15;
+                    this.state.headRot.y = Math.cos(time * 0.3) * 0.15;
+                    this.state.mouthOpen = 0.05 + Math.max(0, Math.sin(time * 1.5) * 0.05);
+                }
+                this.cloud.rotation.y += 0.002 + (this.state.headRot.y * 0.05);
+                this.cloud.rotation.x += (this.state.headRot.x * 0.05);
+                const audioForce = (this.state.audioData || 0) / 255; 
+                let targetEnergy = 0.2 + (audioForce * 0.8);
+                if (this.state.mouthOpen > 0.1) targetEnergy += this.state.mouthOpen * 1.5;
+                if (this.state.isScanning) targetEnergy = 3.0;
+                this.state.energy += (targetEnergy - this.state.energy) * 0.1;
+
+                const positions = this.cloud.geometry.attributes.position.array;
+                const originals = this.cloud.geometry.attributes.originalPosition.array;
+                const randoms = this.cloud.geometry.attributes.random.array;
+                const expansionBase = 1 + (this.state.mouthOpen * 0.3) + (audioForce * 0.2);
+                const pulse = Math.sin(time * 2) * this.state.energy * 0.1;
+                const jitter = audioForce * 0.15;
+                for (let i = 0; i < this.config.particleCount; i++) {
+                    const idx = i * 3;
+                    const ox = originals[idx], oy = originals[idx+1], oz = originals[idx+2];
+                    const expansion = expansionBase;
+                    const noise = pulse * (randoms[i] + 0.5) + (Math.random() - 0.5) * jitter;
+                    positions[idx] = ox * expansion + (ox * noise);
+                    positions[idx+1] = oy * expansion + (oy * noise);
+                    positions[idx+2] = oz * expansion + (oz * noise);
+                }
+                this.cloud.geometry.attributes.position.needsUpdate = true;
+                if (this.state.isScanning) {
+                    this.material.size = 0.12 + audioForce * 0.1; this.material.opacity = 1.0;
+                } else {
+                    this.material.size = 0.08 + (audioForce * 0.05); this.material.opacity = 0.8;
+                }
+                this.renderer.render(this.scene, this.camera);
+            },
+
+            initEvents: function() {
+                const btnWrapper = document.getElementById('scan-trigger-wrapper');
+                const ringPath = document.getElementById('scan-progress-bar');
+                const maxOffset = 339; 
+                const start = (e) => {
+                    e.preventDefault();
+                    if (!this.audioCtx) {
+                        this.startSensors(); document.getElementById('instruction').innerText = "SENSORS READY. HOLD NOW."; return;
+                    }
+                    this.state.isScanning = true; this.state.scanBuffer = []; 
+                    document.getElementById('align-hint-capsule').classList.remove('show');
+                    btnWrapper.classList.add('active');
+                    document.getElementById('instruction').innerText = "KEEP STEADY...";
+                    document.getElementById('instruction').style.color = "#00F0FF";
+                    if(navigator.vibrate) navigator.vibrate(50);
+                    
+                    ringPath.style.strokeDashoffset = maxOffset;
+                    let progress = 0;
+                    this.scanInterval = setInterval(() => {
+                        progress += 2; 
+                        ringPath.style.strokeDashoffset = maxOffset - ((progress / 100) * maxOffset);
+                        if (progress % 10 === 0 && navigator.vibrate) navigator.vibrate(10);
+                        if (progress >= 100) this.finishScan();
+                    }, 40);
+                };
+                const end = (e) => {
+                    e.preventDefault();
+                    if(!this.state.isScanning) return;
+                    this.state.isScanning = false; clearInterval(this.scanInterval);
+                    btnWrapper.classList.remove('active');
+                    ringPath.style.transition = 'none'; ringPath.style.strokeDashoffset = maxOffset;
+                    setTimeout(() => { ringPath.style.transition = 'stroke-dashoffset 0.05s linear'; }, 100);
+                    document.getElementById('instruction').innerText = "HOLD TO SYNC";
+                    document.getElementById('instruction').style.color = "#9CA3AF";
+                };
+                btnWrapper.addEventListener('mousedown', start); btnWrapper.addEventListener('touchstart', start);
+                window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
+            },
+
+            finishScan: function() {
+                clearInterval(this.scanInterval);
+                this.state.isScanning = false;
+                if(navigator.vibrate) navigator.vibrate([50, 50, 100]);
+                
+                this.state.engineResult = TenkiEngine.calculatePole(this.state.scanBuffer, { 
+                    lux: this.state.envLux, 
+                    motion: this.state.deviceMotion 
+                });
+                
+                baselineMgr.recordSession();
+                this.state.baseScore = Math.max(10, this.state.engineResult.score - 10);
+                this.state.mentalBuffer = 0;
                 this.showDashboard();
             },
 
-            showDashboard() {
-                document.getElementById('hud-layer').classList.add('hidden');
-                document.getElementById('dashboard-layer').classList.add('show');
+            initDashboardInteractions: function() {
+                const container = document.getElementById('tei-orbit-container');
+                const startCharge = (e) => {
+                    if(e) e.preventDefault();
+                    container.classList.add('charging');
+                    if(navigator.vibrate) navigator.vibrate(20);
+                    this.chargeInterval = setInterval(() => {
+                        if (this.state.mentalBuffer < 100) {
+                            this.state.mentalBuffer += 1.5;
+                            this.updateDashboardVisuals();
+                            if (Math.floor(this.state.mentalBuffer) % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
+                        } else {
+                            clearInterval(this.chargeInterval);
+                            if(navigator.vibrate) navigator.vibrate([30, 30, 30]);
+                        }
+                    }, 30);
+                };
+                const stopCharge = (e) => {
+                    if(e) e.preventDefault();
+                    container.classList.remove('charging');
+                    clearInterval(this.chargeInterval);
+                };
+                container.addEventListener('mousedown', startCharge); container.addEventListener('touchstart', startCharge);
+                window.addEventListener('mouseup', stopCharge); container.addEventListener('mouseleave', stopCharge);
+                window.addEventListener('touchend', stopCharge);
+            },
 
-                if (!this.useCamMode) {
-                    this.data.score = Math.floor(50 + Math.random() * 40);
-                    this.data.sns = Math.floor(30 + Math.random() * 40);
-                    this.data.pns = 100 - this.data.sns;
-                    this.data.stability = 0.5 + Math.random() * 0.4;
+            updateDashboardVisuals: function() {
+                const res = this.state.engineResult;
+                const safeEnergy = (res && Number.isFinite(res.energy)) ? res.energy : 30;
+                const safeHrv = (res && Number.isFinite(res.hrv)) ? res.hrv : 60;
+                const safeScore = (res && Number.isFinite(res.score)) ? res.score : 0;
+                
+                const bufferPct = Math.min(100, Math.floor(this.state.mentalBuffer));
+
+                document.getElementById('resonance-fill').style.width = bufferPct + "%";
+                document.getElementById('confidence-val').innerText = bufferPct + "%";
+                
+                const currentTargetScore = bufferPct === 100 ? safeScore : Math.floor((safeScore * (80 + bufferPct*0.2)) / 100);
+                const scoreEl = document.getElementById('dash-score');
+                const currentDisplay = parseInt(scoreEl.innerText) || 0;
+                if (currentDisplay < currentTargetScore) scoreEl.innerText = currentDisplay + 1;
+                else if (currentDisplay > currentTargetScore) scoreEl.innerText = currentDisplay - 1;
+
+                const cScore = 753; 
+                const offScore = cScore - ((currentTargetScore / 100) * cScore);
+                document.getElementById('ring-score').style.strokeDashoffset = offScore;
+                
+                const label = document.getElementById('dash-label');
+                if (bufferPct < 100) {
+                     label.innerText = "HOLD TO RESYNC"; label.style.color = "#9CA3AF";
                 } else {
-                    this.data.score = Math.floor(50 + (this.data.hrv / 100) * 40);
-                    this.data.sns = Math.floor(50 - (this.data.hrv / 100) * 20);
-                    this.data.pns = 100 - this.data.sns;
-                    this.data.stability = Math.min(1, this.data.hrv / 100);
+                     label.innerText = "SYSTEM LOCKED"; label.style.color = "#00F0FF";
                 }
 
-                if (this.data.bpm === 0) this.data.bpm = Math.floor(60 + Math.random() * 40);
-                if (this.data.hrv === 50) this.data.hrv = Math.floor(45 + Math.random() * 50);
+                const baseBpm = 60 + Math.floor(safeEnergy * 0.4);
+                const jitter = (Math.floor(Date.now() / 1000) % 2 === 0) ? 1 : -1;
+                document.getElementById('bpm-val').innerText = baseBpm + jitter;
 
-                this.history.push({ ...this.data, t: Date.now() });
+                const bars = document.querySelectorAll('.bio-bar');
+                bars.forEach((b) => { 
+                    const h = 20 + (safeEnergy * 0.4) + (Math.random() * 40);
+                    b.style.height = h + '%';
+                    b.style.opacity = h > 60 ? 1 : 0.4;
+                });
 
-                this.updateDashboard();
+                // 🟢 🟢 NEW HRV SPECTRUM LOGIC
+                // Calculate conceptual percentages for the bar
+                // High HRV = High Recovery (PNS). Low HRV = High Stress (SNS).
+                // Assuming max healthy visual HRV ~120ms for this scale.
+                const pnsPct = Math.min(90, Math.max(10, Math.floor((safeHrv / 120) * 100)));
+                const snsPct = 100 - pnsPct;
+                
+                document.getElementById('hrv-val').innerText = safeHrv;
+                
+                // Update Bar Widths
+                document.getElementById('ans-sns-bar').style.width = snsPct + '%';
+                document.getElementById('ans-pns-bar').style.width = pnsPct + '%';
+                
+                // Update Text Values
+                document.getElementById('sns-val').innerText = snsPct + '%';
+                document.getElementById('pns-val').innerText = pnsPct + '%';
+
+                const focus = Math.min(100, (res ? res.alertness : 50) + 10);
+                const pos = Math.min(100, (res ? res.stability*100 : 50));
+                
+                const p1y = 10 + ((100-focus) * 0.4); 
+                const p2x = 90 - ((100-pos) * 0.2); const p2y = 80 - ((100-pos) * 0.2);
+                const p3x = 10 + ((100-pnsPct) * 0.2); const p3y = 80 - ((100-pnsPct) * 0.2);
+                document.getElementById('radar-poly').setAttribute('points', `${50},${p1y} ${p2x},${p2y} ${p3x},${p3y}`);
+
+                if (bufferPct === 100) this.unlockAction(safeScore);
             },
 
-            updateDashboard() {
-                const score = this.data.score;
-
-                document.getElementById('dash-score').textContent = String(score).padStart(2, '0');
-                const offset = 753 - (753 * (score / 100));
-                document.getElementById('ring-score').style.strokeDashoffset = offset;
-
-                document.getElementById('hrv-val').textContent = this.data.hrv;
-                const hrvOffset = 660 - (660 * (this.data.hrv / 100));
-                document.getElementById('ring-hrv').style.strokeDashoffset = hrvOffset;
-
-                document.getElementById('ans-sns-bar').style.width = this.data.sns + '%';
-                document.getElementById('ans-pns-bar').style.width = this.data.pns + '%';
-                document.getElementById('sns-val').textContent = this.data.sns + '%';
-                document.getElementById('pns-val').textContent = this.data.pns + '%';
-
-                document.getElementById('bpm-val').textContent = this.data.bpm;
-
-                const conf = Math.floor(60 + this.data.stability * 40);
-                document.getElementById('confidence-val').textContent = conf + '%';
-                document.getElementById('resonance-fill').style.width = conf + '%';
-
-                const stab = this.data.stability;
-                const points = `${50 + stab*30},${50 - stab*30} ${50 + stab*20},${50 + stab*25} ${50 - stab*20},${50 + stab*25}`;
-                document.getElementById('radar-poly').setAttribute('points', points);
-
-                const label = score >= 70 ? "OPTIMAL ZONE" : score >= 50 ? "NEUTRAL ZONE" : "DEGRADED";
-                const state = score >= 70 ? "Status Optimal" : score >= 50 ? "Status Stable" : "Status Caution";
-                document.getElementById('dash-label').textContent = label;
-                document.getElementById('dash-state').textContent = state;
-            },
-
-            animatePPG() {
-                const container = document.getElementById('ppg-graph');
-                container.innerHTML = '';
-                for (let i = 0; i < 30; i++) {
-                    const bar = document.createElement('div');
-                    bar.className = 'bio-bar';
-                    bar.style.height = Math.floor(Math.random() * 80 + 20) + '%';
-                    container.appendChild(bar);
+            unlockAction: function(score) {
+                const phraseEl = document.getElementById('dash-state');
+                const btn = document.getElementById('dynamic-action-btn');
+                const btnText = document.getElementById('btn-text');
+                const btnIcon = document.getElementById('btn-icon');
+                
+                btn.disabled = false;
+                btnIcon.classList.remove('animate-spin');
+                
+                if (score >= 80) {
+                    phraseEl.innerText = "Status Stable"; phraseEl.style.color = "var(--state-stable)";
+                    btn.classList.add('bg-[#00FF94]', 'text-black', 'shadow-[#00FF94]/30');
+                    btnText.innerText = "DECISION FLOW READY";
+                    btnIcon.setAttribute('data-lucide', 'arrow-right-circle');
+                } else if (score >= 60) {
+                    phraseEl.innerText = "Status Controllable"; phraseEl.style.color = "var(--state-control)";
+                    btn.classList.add('bg-[#FFD600]', 'text-black', 'shadow-[#FFD600]/30');
+                    btnText.innerText = "TIMED MODE ACTIVE";
+                    btnIcon.setAttribute('data-lucide', 'timer');
+                } else if (score >= 40) {
+                    phraseEl.innerText = "Status Volatile"; phraseEl.style.color = "var(--state-volatile)";
+                    btn.classList.add('bg-[#FF8800]', 'text-black', 'shadow-[#FF8800]/30');
+                    btnText.innerText = "QUALITY REDUCED";
+                    btnIcon.setAttribute('data-lucide', 'alert-circle');
+                } else {
+                    phraseEl.innerText = "Risk Elevated"; phraseEl.style.color = "var(--state-risk)";
+                    btn.classList.add('bg-[#FF0055]', 'text-white', 'shadow-[#FF0055]/30');
+                    btnText.innerText = "FUNCTION LIMITED";
+                    btnIcon.setAttribute('data-lucide', 'shield-ban');
                 }
+                lucide.createIcons();
             },
 
-            exportData() {
-                alert('Export feature: Would create ZIP with session data, baseline, logs.');
+            showDashboard: function() {
+                document.getElementById('hud-layer').classList.add('hidden-ui');
+                document.getElementById('align-hint-capsule').classList.remove('show');
+                document.getElementById('universe').classList.add('dimmed');
+                
+                const dash = document.getElementById('dashboard-layer');
+                this.updateDashboardVisuals();
+                
+                let rollInterval = setInterval(() => {
+                    this.updateDashboardVisuals();
+                    const scoreEl = document.getElementById('dash-score');
+                    if(this.state.mentalBuffer === 0 && parseInt(scoreEl.innerText) >= Math.floor(this.state.baseScore * 0.8)) {
+                        clearInterval(rollInterval);
+                    }
+                }, 20);
+
+                setTimeout(() => { 
+                    dash.classList.add('show'); 
+                    this.stopSensors();
+                }, 500);
             },
 
-            shareSession() {
-                alert('Share feature: Would copy session link to clipboard or open share dialog.');
-            },
-
-            reset() {
-                this.state = "idle";
-                this.data = { score: 0, hrv: 50, bpm: 0, sns: 50, pns: 50, stability: 0.5 };
-                this.history = [];
-                this.logs = [];
-                this.useCamMode = false;
-                document.getElementById('hud-layer').classList.remove('hidden');
+            reset: function() {
                 document.getElementById('dashboard-layer').classList.remove('show');
-                this.visuals.setState('idle');
-                this.visuals.setEmotional(50);
-                this.camera.stop();
+                document.getElementById('hud-layer').classList.remove('hidden-ui');
+                document.getElementById('universe').classList.remove('dimmed');
+                document.getElementById('scan-trigger-wrapper').classList.remove('active');
+                document.getElementById('instruction').innerText = "CLICK TO INITIALIZE";
+                document.getElementById('instruction').style.color = "#9CA3AF";
+                document.getElementById('dash-score').innerText = "00";
+                this.state.mentalBuffer = 0;
+                document.getElementById('resonance-fill').style.width = "0%";
+                
+                const btn = document.getElementById('dynamic-action-btn');
+                btn.disabled = true;
+                btn.className = "dock-main-action"; 
+                btn.classList.remove('bg-[#00FF94]', 'bg-[#FFD600]', 'bg-[#FF8800]', 'bg-[#FF0055]', 'text-black', 'text-white');
+                document.getElementById('btn-text').innerText = "PROCESSING...";
+                document.getElementById('btn-icon').setAttribute('data-lucide', 'rotate-ccw');
+                
+                const ringPath = document.getElementById('scan-progress-bar');
+                if(ringPath) ringPath.style.strokeDashoffset = 339;
             }
         };
 
-        window.addEventListener('DOMContentLoaded', () => app.init());
+        window.onload = () => app.init();
+        window.onresize = () => {
+            app.camera.aspect = window.innerWidth / window.innerHeight;
+            app.camera.updateProjectionMatrix();
+            app.renderer.setSize(window.innerWidth, window.innerHeight);
+        };
     </script>
-
 </body>
 </html>
+
