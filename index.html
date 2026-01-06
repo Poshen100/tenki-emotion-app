@@ -1,644 +1,140 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v50.0 - Neural Link</title>
-    <meta name="theme-color" content="#000000">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    
-    <!-- Libraries -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> <!-- For Export -->
-
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-
-    <style>
-        /* --- Core Visual System --- */
-        :root {
-            --bg-deep: #050508;
-            --color-peak: #FFB84D;  /* PR 80-99 Amber */
-            --color-opt: #00F0FF;   /* PR 55-79 Cyan */
-            --color-neu: #A0A0A0;   /* PR 35-54 Gray */
-            --color-deg: #7000FF;   /* PR 01-34 Purple */
-            --glass-panel: rgba(20, 20, 25, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.08);
+/**
+ * TENKI v50.0 - Main Application Entry
+ * 
+ * Neural Link - Bio-Risk Management Platform
+ */
+import './index.css';
+import { store } from './stores/app';
+import { createScanPage } from './pages/ScanPage';
+import { createDashboardPage } from './pages/DashboardPage';
+import { createTimerPage } from './pages/TimerPage';
+import { downloadExport, copySnapshot } from './utils/export';
+import { getDerivedBins, getSessions } from './db/schema';
+// ============================================
+// App Shell
+// ============================================
+function createAppShell(): HTMLElement {
+    const app = document.createElement('div');
+    app.id = 'tenki-app';
+    app.innerHTML = `
+    <div class="stardust-bg"></div>
+    <main id="page-container"></main>
+  `;
+    return app;
+}
+// ============================================
+// Router
+// ============================================
+function renderPage(page: 'scan' | 'dashboard' | 'timer'): void {
+    const container = document.querySelector('#page-container');
+    if (!container) return;
+    // Clear existing
+    container.innerHTML = '';
+    // Render new page
+    let pageElement: HTMLElement;
+    switch (page) {
+        case 'scan':
+            pageElement = createScanPage();
+            break;
+        case 'dashboard':
+            pageElement = createDashboardPage();
+            break;
+        case 'timer':
+            pageElement = createTimerPage();
+            break;
+        default:
+            pageElement = createScanPage();
+    }
+    container.appendChild(pageElement);
+}
+// ============================================
+// Keyboard Shortcuts (Debug Mode)
+// ============================================
+function setupKeyboardShortcuts(): void {
+    document.addEventListener('keydown', async (e) => {
+        // Ctrl+Shift+D - Toggle debug mode
+        if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+            e.preventDefault();
+            store.toggleDebugMode();
+            console.log('Debug mode:', store.getState().debugMode);
         }
-
-        body {
-            background-color: var(--bg-deep);
-            color: white;
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
-            overscroll-behavior: none;
-            -webkit-font-smoothing: antialiased;
+        // Ctrl+Shift+E - Export ZIP
+        if (e.ctrlKey && e.shiftKey && e.key === 'E') {
+            e.preventDefault();
+            console.log('Exporting data...');
+            await downloadExport();
+            console.log('Export complete');
         }
-
-        .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
-
-        /* --- Layers --- */
-        #canvas-layer { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
-        #ui-layer { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; }
-        #overlay-layer { position: fixed; inset: 0; z-index: 50; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
-        #overlay-layer.active { pointer-events: auto; opacity: 1; }
-
-        /* --- Components --- */
-        .glass-panel {
-            background: var(--glass-panel);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        // Ctrl+Shift+C - Copy snapshot
+        if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+            e.preventDefault();
+            const state = store.getState();
+            await copySnapshot({
+                timestamp: new Date().toISOString(),
+                sqs: state.currentSQS,
+                metrics: state.currentMetrics,
+                prs: state.currentPRs,
+                tei: state.currentTEI
+            });
+            console.log('Snapshot copied to clipboard');
         }
-
-        .bento-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            padding: 20px;
+    });
+}
+// ============================================
+// Service Worker Registration
+// ============================================
+async function registerServiceWorker(): Promise<void> {
+    if ('serviceWorker' in navigator) {
+        try {
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('SW registered:', registration.scope);
+        } catch (error) {
+            console.log('SW registration failed:', error);
         }
-
-        .bento-card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 20px;
-            padding: 16px;
-            display: flex; flex-direction: column; justify-content: space-between;
-        }
-
-        /* --- TEI Orbit --- */
-        .orbit-container {
-            position: relative; width: 240px; height: 240px;
-            margin: 0 auto;
-            display: flex; justify-content: center; align-items: center;
-        }
-        .orbit-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-        .orbit-track { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 8; }
-        .orbit-value {
-            fill: none; stroke-width: 8; stroke-linecap: round;
-            stroke-dasharray: 660; stroke-dashoffset: 660;
-            transition: stroke-dashoffset 1.5s cubic-bezier(0.2, 0.8, 0.2, 1), stroke 0.5s;
-            filter: drop-shadow(0 0 10px currentColor);
-        }
-        
-        /* --- Action Dock --- */
-        .action-dock {
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
-            width: 90%; max-width: 360px; height: 64px;
-            background: rgba(10, 10, 15, 0.9);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 32px;
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 0 6px; z-index: 100;
-            transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-        .action-dock.visible { transform: translateX(-50%) translateY(0); }
-
-        .dock-pill {
-            flex: 1; height: 52px; margin: 0 4px;
-            border-radius: 26px;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            font-weight: 700; font-size: 13px; color: #000;
-            cursor: pointer; transition: transform 0.1s;
-        }
-        .dock-pill:active { transform: scale(0.96); }
-
-        /* --- Decision Timer Overlay --- */
-        .decision-overlay {
-            position: absolute; inset: 0; background: #050508;
-            display: flex; flex-direction: column;
-            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-        .decision-overlay.open { transform: translateY(0); }
-
-        /* --- Animations --- */
-        @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 0; } 50% { opacity: 0.5; } 100% { transform: scale(1.3); opacity: 0; } }
-        .animate-pulse-ring { animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        
-        /* Scrubber */
-        .scrubber-track { width: 100%; height: 40px; display: flex; align-items: flex-end; gap: 2px; mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent); }
-        .scrubber-bar { flex: 1; background: #333; border-radius: 2px; transition: height 0.3s, background 0.3s; }
-        .scrubber-bar.active { background: #fff; box-shadow: 0 0 10px #fff; }
-
-        /* Checkbox */
-        .custom-check {
-            width: 24px; height: 24px; border: 2px solid #444; border-radius: 6px;
-            display: flex; align-items: center; justify-content: center; transition: all 0.2s;
-        }
-        .custom-check.checked { background: var(--color-opt); border-color: var(--color-opt); color: black; }
-
-    </style>
-</head>
-<body>
-
-    <!-- 🌌 Layer 0: Stardust Canvas -->
-    <div id="canvas-layer"></div>
-
-    <!-- 📊 Layer 1: Main UI -->
-    <div id="ui-layer">
-        
-        <!-- Header HUD -->
-        <div class="px-6 pt-12 pb-4 flex justify-between items-start opacity-80">
-            <div>
-                <div class="text-xs font-black tracking-[0.2em] text-white/50">TENKI v50.0</div>
-                <div class="text-[10px] text-cyan-400 font-mono-tech mt-1">NEURAL LINK</div>
-            </div>
-            <div class="flex gap-2 text-[9px] font-mono-tech text-gray-500">
-                <span id="badge-iso" class="border border-white/10 px-1 rounded">ISO:OK</span>
-                <span id="badge-ble" class="border border-white/10 px-1 rounded text-gray-700">BLE:--</span>
-            </div>
-        </div>
-
-        <!-- View 1: Scanning (Centered) -->
-        <div id="view-scan" class="flex-1 flex flex-col items-center justify-center transition-opacity duration-500">
-            <div class="relative w-64 h-64 flex items-center justify-center">
-                <!-- 3D Mesh Guide (Visualized by Particles) -->
-                <div id="scan-guide" class="absolute inset-0 border border-white/10 rounded-full scale-0 transition-transform duration-700"></div>
-                <div id="scan-text" class="absolute mt-40 text-xs font-bold tracking-widest text-center text-white/40">
-                    ALIGN FACE<br><span class="text-[9px] font-normal text-cyan-500/50 mt-1 block">MICRO-EXPRESSION LOCK</span>
-                </div>
-            </div>
-            <button id="btn-start" class="mt-12 bg-white/10 backdrop-blur border border-white/20 px-8 py-3 rounded-full text-xs font-bold tracking-widest hover:bg-white/20 active:scale-95 transition-all">
-                INITIATE SCAN
-            </button>
-        </div>
-
-        <!-- View 2: Dashboard (Hidden initially) -->
-        <div id="view-dash" class="flex-1 flex flex-col opacity-0 pointer-events-none transition-opacity duration-700 absolute inset-0 pt-24">
-            
-            <!-- TEI Orbit -->
-            <div class="orbit-container mb-8">
-                <div class="absolute inset-0 animate-pulse-ring rounded-full border border-cyan-500/30"></div>
-                <svg class="orbit-svg" viewBox="0 0 240 240">
-                    <circle cx="120" cy="120" r="100" class="orbit-track"></circle>
-                    <circle id="orbit-fill" cx="120" cy="120" r="100" class="orbit-value" stroke="var(--color-opt)"></circle>
-                </svg>
-                <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    <div class="text-[10px] font-bold tracking-widest text-gray-500 mb-1">TEI SCORE</div>
-                    <div id="tei-val" class="text-7xl font-bold tracking-tighter leading-none">--</div>
-                    <div id="tei-pr" class="text-sm font-mono-tech text-cyan-400 mt-2 bg-cyan-900/30 px-2 rounded">PR --</div>
-                </div>
-            </div>
-
-            <!-- Bento Grid -->
-            <div class="bento-grid flex-1 overflow-y-auto pb-32">
-                <!-- HR Card -->
-                <div class="bento-card col-span-1 h-32">
-                    <div class="flex justify-between items-start text-[9px] text-gray-400 font-bold uppercase">
-                        <span>Heart Rate</span>
-                        <i data-lucide="heart" class="w-3 h-3 text-red-500 animate-pulse"></i>
-                    </div>
-                    <div><span id="val-bpm" class="text-2xl font-bold">--</span> <span class="text-[10px] text-gray-500">BPM</span></div>
-                    <canvas id="pulse-canvas" width="120" height="40" class="w-full h-10 opacity-70"></canvas>
-                </div>
-                
-                <!-- HRV Card -->
-                <div class="bento-card col-span-1 h-32">
-                    <div class="flex justify-between items-start text-[9px] text-gray-400 font-bold uppercase">
-                        <span>HRV Status</span>
-                        <i data-lucide="activity" class="w-3 h-3 text-green-400"></i>
-                    </div>
-                    <div><span id="val-hrv" class="text-2xl font-bold">--</span> <span class="text-[10px] text-gray-500">ms</span></div>
-                    <div class="w-full h-1 bg-white/10 rounded mt-2 overflow-hidden">
-                        <div id="bar-hrv" class="h-full bg-green-400 w-0 transition-all duration-1000"></div>
-                    </div>
-                    <div class="text-[8px] text-gray-500 mt-1">BASELINE: 45-60ms</div>
-                </div>
-
-                <!-- Bio-Spectrum -->
-                <div class="bento-card col-span-2 h-24">
-                    <div class="text-[9px] text-gray-400 font-bold uppercase mb-2">Autonomic Balance</div>
-                    <div class="flex w-full h-4 rounded-full overflow-hidden border border-white/10">
-                        <div id="spec-sns" class="h-full bg-gradient-to-r from-red-500 to-orange-500 w-1/2 transition-all duration-1000"></div>
-                        <div id="spec-pns" class="h-full bg-gradient-to-r from-green-400 to-cyan-500 w-1/2 transition-all duration-1000"></div>
-                    </div>
-                    <div class="flex justify-between text-[9px] font-mono-tech mt-1 text-gray-500">
-                        <span>SYMPATHETIC (Fight)</span>
-                        <span>PARASYMPATHETIC (Rest)</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Action Dock -->
-        <div id="dock" class="action-dock">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white/50 hover:bg-white/10" onclick="app.reset()">
-                <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
-            </div>
-            <div id="dock-main" class="dock-pill bg-[#00F0FF] shadow-[0_0_20px_rgba(0,240,255,0.3)]" onclick="app.openTimer()">
-                <i data-lucide="timer" class="w-4 h-4"></i>
-                <span id="dock-text">OPTIMAL ZONE | 25:00</span>
-            </div>
-            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white/50 hover:bg-white/10">
-                <i data-lucide="settings" class="w-5 h-5"></i>
-            </div>
-        </div>
-    </div>
-
-    <!-- 🧠 Layer 2: Decision Overlay -->
-    <div id="overlay-layer" class="decision-overlay glass-panel pt-12 pb-8 px-6">
-        <div class="flex justify-between items-center mb-6">
-            <div class="text-xs font-bold text-gray-400">DECISION TIMER</div>
-            <button onclick="app.closeTimer()" class="p-2 rounded-full bg-white/10"><i data-lucide="x" class="w-4 h-4"></i></button>
-        </div>
-
-        <!-- 1. PR Scrubber -->
-        <div class="mb-8">
-            <div class="flex justify-between items-end mb-2">
-                <div>
-                    <div class="text-3xl font-bold text-white">1.3R</div>
-                    <div class="text-[10px] text-gray-400">EXPECTED VALUE</div>
-                </div>
-                <div class="text-right">
-                    <div class="text-sm font-bold text-green-400">65% WIN</div>
-                    <div class="text-[10px] text-gray-500">N=42 (Reliable)</div>
-                </div>
-            </div>
-            <div id="scrubber" class="scrubber-track h-12 items-end">
-                <!-- Bars generated by JS -->
-            </div>
-            <div class="text-center text-[9px] text-gray-500 mt-2 font-mono-tech">PR99 DISTRIBUTION</div>
-        </div>
-
-        <!-- 2. Checklist -->
-        <div class="flex-1 overflow-y-auto">
-            <div class="text-[10px] font-bold text-gray-500 mb-3 uppercase tracking-widest">Pre-Trade Check</div>
-            <div class="space-y-3">
-                <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5" onclick="app.toggleCheck(this, 'Setup Quality A+')">
-                    <div class="custom-check"><i data-lucide="check" class="w-3 h-3 opacity-0"></i></div>
-                    <span class="text-sm font-medium">Setup Quality A+?</span>
-                </div>
-                <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5" onclick="app.toggleCheck(this, 'Market Structure')">
-                    <div class="custom-check"><i data-lucide="check" class="w-3 h-3 opacity-0"></i></div>
-                    <span class="text-sm font-medium">Market Structure Aligned?</span>
-                </div>
-                <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5" onclick="app.toggleCheck(this, 'Risk < 2%')">
-                    <div class="custom-check"><i data-lucide="check" class="w-3 h-3 opacity-0"></i></div>
-                    <span class="text-sm font-medium">Risk < 2%?</span>
-                </div>
-            </div>
-
-            <!-- Micro Timeline -->
-            <div class="mt-8">
-                <div class="text-[10px] font-bold text-gray-500 mb-3 uppercase tracking-widest">Behavior Timeline</div>
-                <div id="timeline-feed" class="border-l border-white/10 pl-4 space-y-4">
-                    <!-- Logs go here -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="mt-4 flex gap-3">
-            <button onclick="app.exportData()" class="flex-1 bg-white/10 py-4 rounded-xl text-xs font-bold border border-white/10">EXPORT ZIP</button>
-            <button class="flex-[2] bg-cyan-400 text-black py-4 rounded-xl text-xs font-bold shadow-[0_0_20px_rgba(0,240,255,0.3)]">EXECUTE</button>
-        </div>
-    </div>
-
-    <!-- 🧪 Logic Core -->
-    <script>
-        // --- 1. StarDust System (Visuals) ---
-        class StardustSystem {
-            constructor() {
-                this.container = document.getElementById('canvas-layer');
-                this.scene = new THREE.Scene();
-                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.container.appendChild(this.renderer.domElement);
-                this.camera.position.z = 5;
-
-                this.particles = null;
-                this.state = 'idle'; // idle, align, lock
-                this.initParticles();
-                this.animate();
-            }
-
-            initParticles() {
-                const geometry = new THREE.BufferGeometry();
-                const count = 3000;
-                const posArray = new Float32Array(count * 3);
-                const originalPos = new Float32Array(count * 3);
-                
-                for(let i=0; i<count*3; i++) {
-                    posArray[i] = (Math.random() - 0.5) * 15;
-                    originalPos[i] = posArray[i];
-                }
-                
-                geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-                geometry.setAttribute('original', new THREE.BufferAttribute(originalPos, 3));
-                
-                const material = new THREE.PointsMaterial({
-                    size: 0.03, color: 0x00F0FF, transparent: true, opacity: 0.6,
-                    blending: THREE.AdditiveBlending
-                });
-                
-                this.particles = new THREE.Points(geometry, material);
-                this.scene.add(this.particles);
-            }
-
-            setState(s) { this.state = s; }
-
-            animate() {
-                requestAnimationFrame(() => this.animate());
-                const time = Date.now() * 0.001;
-                const positions = this.particles.geometry.attributes.position.array;
-                const originals = this.particles.geometry.attributes.original.array;
-                
-                for(let i=0; i<3000; i++) {
-                    const i3 = i*3;
-                    
-                    if(this.state === 'idle') {
-                        // Floating dust
-                        positions[i3] = originals[i3] + Math.sin(time + i)*0.2;
-                        positions[i3+1] = originals[i3+1] + Math.cos(time + i*0.5)*0.2;
-                    } else if (this.state === 'align') {
-                        // Form a sphere/face approximation
-                        const x = originals[i3]; const y = originals[i3+1];
-                        const d = Math.sqrt(x*x + y*y);
-                        const targetScale = d < 3 ? 0.8 : 2.0; // Concentrate center
-                        positions[i3] += (x * targetScale - positions[i3]) * 0.05;
-                        positions[i3+1] += (y * targetScale - positions[i3+1]) * 0.05;
-                        positions[i3+2] += (0 - positions[i3+2]) * 0.05;
-                    } else if (this.state === 'lock') {
-                        // Tight lock, change color simulated via CSS elsewhere
-                        positions[i3] += (originals[i3]*0.5 - positions[i3]) * 0.1;
-                        positions[i3+1] += (originals[i3+1]*0.5 - positions[i3+1]) * 0.1;
-                    }
-                }
-                this.particles.geometry.attributes.position.needsUpdate = true;
-                
-                // Camera drift
-                this.particles.rotation.y = Math.sin(time * 0.1) * 0.1;
-                this.renderer.render(this.scene, this.camera);
-            }
-        }
-
-        // --- 2. BioEngine (Sensor & Simulation) ---
-        class BioEngine {
-            constructor() {
-                this.data = { hr: 70, hrv: 50, rr: 15, tei: 0 };
-                this.history = [];
-                this.isSimulating = false;
-                this.timer = null;
-            }
-
-            async startScan(onUpdate) {
-                // Simulate "Hybrid Sync" - Try Real, Fallback to Demo
-                this.isSimulating = true; 
-                let progress = 0;
-                
-                this.timer = setInterval(() => {
-                    const t = Date.now() / 1000;
-                    
-                    // Generate realistic bio-signals (Simulating rPPG output)
-                    // HR fluctuates around 70-75
-                    this.data.hr = Math.floor(72 + Math.sin(t)*3 + Math.random()*2);
-                    
-                    // HRV (RMSSD) fluctuates inversely to HR slightly
-                    this.data.hrv = Math.floor(55 + Math.cos(t*0.5)*10 + Math.random()*5);
-                    
-                    // RR (Respiration)
-                    this.data.rr = Math.floor(16 + Math.sin(t*0.2)*2);
-
-                    // Push to history for export
-                    this.history.push({ t: Date.now(), ...this.data });
-
-                    // Canvas Waveform
-                    const waveVal = Math.sin(t * 10) + (Math.sin(t*22)*0.3); // Pulse shape
-                    onUpdate(this.data, waveVal);
-
-                }, 33); // 30fps
-            }
-
-            calculateTEI() {
-                // PR99 Logic (Simplified for Demo)
-                // In a real app, this compares against IndexedDB baseline
-                const baselineHRV = 50; 
-                const diff = this.data.hrv - baselineHRV;
-                // Simple sigmoid-like mapping
-                let pr = 50 + diff * 2; 
-                pr = Math.max(1, Math.min(99, Math.floor(pr)));
-                this.data.tei = pr;
-                return pr;
-            }
-
-            stop() { clearInterval(this.timer); }
-        }
-
-        // --- 3. App Controller ---
-        const app = {
-            state: 'idle',
-            visuals: new StardustSystem(),
-            bio: new BioEngine(),
-            logs: [],
-
-            init() {
-                lucide.createIcons();
-                this.initScrubber();
-                
-                document.getElementById('btn-start').onclick = () => this.startFlow();
-            },
-
-            startFlow() {
-                // Phase 1: Alignment (3s)
-                this.state = 'align';
-                this.visuals.setState('align');
-                document.getElementById('view-scan').classList.add('opacity-0');
-                
-                // Play Diegetic Feedback
-                setTimeout(() => { 
-                    // Phase 2: Lock & Scan (3s -> 6s)
-                    this.visuals.setState('lock');
-                    this.visuals.particles.material.color.setHex(0x00FF94); // Lock Green
-                    
-                    // Start Bio Engine
-                    this.bio.startScan((data, wave) => this.updateRealtime(data, wave));
-                    
-                    setTimeout(() => {
-                        this.showDashboard();
-                    }, 2000);
-                }, 3000);
-            },
-
-            updateRealtime(data, wave) {
-                // Draw Waveform
-                const cvs = document.getElementById('pulse-canvas');
-                const ctx = cvs.getContext('2d');
-                const w = cvs.width; const h = cvs.height;
-                
-                // Shift image left
-                const imageData = ctx.getImageData(1, 0, w-1, h);
-                ctx.putImageData(imageData, 0, 0);
-                ctx.clearRect(w-1, 0, 1, h);
-                
-                // Draw new pixel
-                const y = h/2 - (wave * h * 0.4);
-                ctx.fillStyle = '#00F0FF';
-                ctx.fillRect(w-2, y, 2, 2);
-
-                // Update DOM numbers if visible
-                if(this.state === 'dashboard') {
-                    document.getElementById('val-bpm').innerText = data.hr;
-                    document.getElementById('val-hrv').innerText = data.hrv;
-                    
-                    // Update Spectrum Bars
-                    const pns = Math.min(100, (data.hrv / 100) * 100);
-                    document.getElementById('bar-hrv').style.width = pns + '%';
-                    document.getElementById('spec-pns').style.width = pns + '%';
-                    document.getElementById('spec-sns').style.width = (100-pns) + '%';
-                }
-            },
-
-            showDashboard() {
-                this.state = 'dashboard';
-                const tei = this.bio.calculateTEI();
-                
-                // Hide Scan View
-                document.getElementById('view-scan').style.display = 'none';
-                
-                // Show Dashboard
-                const dash = document.getElementById('view-dash');
-                dash.classList.remove('opacity-0', 'pointer-events-none');
-                
-                // Animate Numbers
-                this.animateValue('tei-val', 0, tei, 1500);
-                document.getElementById('tei-pr').innerText = `PR ${tei} (Top ${100-tei}%)`;
-                
-                // Set Zone Colors
-                const fill = document.getElementById('orbit-fill');
-                const dock = document.getElementById('dock-main');
-                const txt = document.getElementById('dock-text');
-                
-                let color, label;
-                if(tei >= 80) { color='#FFB84D'; label='PEAK ZONE (CAUTION)'; }
-                else if(tei >= 55) { color='#00F0FF'; label='OPTIMAL ZONE'; }
-                else if(tei >= 35) { color='#A0A0A0'; label='NEUTRAL ZONE'; }
-                else { color='#7000FF'; label='DEGRADED'; }
-                
-                document.documentElement.style.setProperty('--color-opt', color);
-                fill.style.stroke = color;
-                fill.style.strokeDashoffset = 660 - (660 * (tei/100));
-                
-                dock.style.backgroundColor = color;
-                dock.style.boxShadow = `0 0 20px ${color}40`;
-                txt.innerText = `${label} | 25:00`;
-                
-                // Show Dock
-                document.getElementById('dock').classList.add('visible');
-            },
-
-            animateValue(id, start, end, duration) {
-                const obj = document.getElementById(id);
-                let startTimestamp = null;
-                const step = (timestamp) => {
-                    if (!startTimestamp) startTimestamp = timestamp;
-                    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-                    obj.innerHTML = Math.floor(progress * (end - start) + start);
-                    if (progress < 1) window.requestAnimationFrame(step);
-                };
-                window.requestAnimationFrame(step);
-            },
-
-            // --- Decision Timer ---
-            openTimer() {
-                document.getElementById('overlay-layer').classList.add('open', 'active');
-                // Highlight current PR bin on scrubber
-                const tei = this.bio.data.tei;
-                const idx = Math.floor(tei / 5);
-                const bars = document.querySelectorAll('.scrubber-bar');
-                bars.forEach((b, i) => {
-                    if(i === idx) b.classList.add('active', 'bg-white');
-                    else b.classList.remove('active', 'bg-white');
-                });
-            },
-            
-            closeTimer() {
-                document.getElementById('overlay-layer').classList.remove('open', 'active');
-            },
-
-            initScrubber() {
-                const track = document.getElementById('scrubber');
-                for(let i=0; i<20; i++) {
-                    const h = 20 + Math.random() * 60; // Mock distribution
-                    const bar = document.createElement('div');
-                    bar.className = 'scrubber-bar';
-                    bar.style.height = h + '%';
-                    track.appendChild(bar);
-                }
-            },
-
-            toggleCheck(el, text) {
-                const iconBox = el.querySelector('.custom-check');
-                const icon = iconBox.querySelector('i');
-                const isChecked = iconBox.classList.contains('checked');
-                
-                if(!isChecked) {
-                    iconBox.classList.add('checked');
-                    icon.classList.remove('opacity-0');
-                    this.addLog(text);
-                } else {
-                    iconBox.classList.remove('checked');
-                    icon.classList.add('opacity-0');
-                }
-            },
-
-            addLog(action) {
-                const container = document.getElementById('timeline-feed');
-                const div = document.createElement('div');
-                const time = new Date().toLocaleTimeString([], {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
-                div.innerHTML = `
-                    <div class="flex items-center gap-2 text-xs text-white">
-                        <span class="text-cyan-400 font-mono-tech">${time}</span>
-                        <span>${action}</span>
-                    </div>
-                    <div class="text-[9px] text-gray-500 pl-16">HR: ${this.bio.data.hr} • TEI: PR${this.bio.data.tei}</div>
-                `;
-                container.prepend(div);
-                this.logs.push({ time, action, metrics: {...this.bio.data} });
-            },
-
-            // --- Export ZIP ---
-            exportData() {
-                const zip = new JSZip();
-                
-                // 1. Session JSON
-                const sessionData = {
-                    user_id: "demo_user",
-                    timestamp: new Date().toISOString(),
-                    tei_final: this.bio.data.tei,
-                    history: this.bio.history,
-                    audit_logs: this.logs
-                };
-                zip.file("session_log.json", JSON.stringify(sessionData, null, 2));
-                
-                // 2. CSV
-                let csv = "timestamp,hr,hrv,rr\n";
-                this.bio.history.forEach(h => {
-                    csv += `${h.t},${h.hr},${h.hrv},${h.rr}\n`;
-                });
-                zip.file("timeseries_bio.csv", csv);
-
-                zip.generateAsync({type:"blob"}).then(function(content) {
-                    const a = document.createElement("a");
-                    a.href = URL.createObjectURL(content);
-                    a.download = `TENKI_SESSION_${Date.now()}.zip`;
-                    a.click();
-                });
-            },
-
-            reset() { location.reload(); }
-        };
-
-        window.onload = () => app.init();
-        window.onresize = () => {
-            app.visuals.camera.aspect = window.innerWidth / window.innerHeight;
-            app.visuals.camera.updateProjectionMatrix();
-            app.visuals.renderer.setSize(window.innerWidth, window.innerHeight);
-        };
-    </script>
-</body>
-</html>
+    }
+}
+// ============================================
+// Initialize App
+// ============================================
+async function initApp(): Promise<void> {
+    // Create app shell
+    const app = createAppShell();
+    document.querySelector('#app')!.appendChild(app);
+    // Load historical data
+    try {
+        const [bins, sessions] = await Promise.all([
+            getDerivedBins(),
+            getSessions(20)
+        ]);
+        store.setDerivedBins(bins);
+        store.setRecentSessions(sessions);
+    } catch (error) {
+        console.warn('Failed to load historical data:', error);
+    }
+    // Subscribe to page changes
+    store.subscribe((state) => {
+        renderPage(state.currentPage);
+    });
+    // Initial render
+    renderPage(store.getState().currentPage);
+    // Setup shortcuts
+    setupKeyboardShortcuts();
+    // Register PWA service worker
+    registerServiceWorker();
+    // Log startup
+    console.log(`
+  ╔═══════════════════════════════════════════════╗
+  ║  TENKI v50.0 - Neural Link                    ║
+  ║  Bio-Risk Management Platform                 ║
+  ╠═══════════════════════════════════════════════╣
+  ║  Shortcuts:                                   ║
+  ║  Ctrl+Shift+D  Toggle debug mode              ║
+  ║  Ctrl+Shift+E  Export ZIP                     ║
+  ║  Ctrl+Shift+C  Copy snapshot                  ║
+  ║                                               ║
+  ║  Add ?debug=1 to URL for debug overlay        ║
+  ╚═══════════════════════════════════════════════╝
+  `);
+}
+// Start the app
+initApp().catch(console.error);
