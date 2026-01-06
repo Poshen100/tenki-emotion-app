@@ -1167,4 +1167,77 @@
     </script>
 </body>
 </html>
+<!-- Workers -->
+<script>
+  const visionWorker = new Worker('vision-worker.js');
+  const mathWorker = new Worker('math-worker.js');
+  
+  // Vision Worker 接收相機幀
+  function sendFrameToVision(imageData, faceBox, frameId) {
+    visionWorker.postMessage({
+      type: 'FRAME_DATA',
+      payload: { imageData, faceBox, frameId, timestamp: Date.now() }
+    });
+  }
+  
+  // Vision Worker 回報訊號
+  visionWorker.onmessage = function(event) {
+    if (event.data.type === 'VISION_STATUS') {
+      // 更新 UI env bar
+      const roiMetrics = event.data.payload.roiMetrics;
+      app.state.envLux = roiMetrics.luma_mean;
+    }
+  };
+  
+  // 觸發計算（每秒一次）
+  setInterval(() => {
+    visionWorker.postMessage({ type: 'GET_SIGNAL_BUFFER' });
+  }, 1000);
+  
+  visionWorker.onmessage = function(event) {
+    if (event.data.type === 'SIGNAL_BUFFER') {
+      const signalBuffer = event.data.payload.buffer;
+      
+      // 取得環境指標（從你的 state）
+      const envMetrics = {
+        roi_luma_mean: app.state.envLux,
+        roi_sat_ratio: 0.01,
+        roi_luma_std: 15,
+        gyro_rms: app.state.deviceMotion,
+        facemesh_jitter_px: 1,
+        roi_in_frame_ratio: 0.95,
+        roi_occlusion_ratio: 0,
+        fps: 30,
+        frame_drop_ratio: 0.01
+      };
+      
+      // 丟給 Math Worker
+      mathWorker.postMessage({
+        type: 'COMPUTE_METRICS',
+        payload: { signalBuffer, envMetrics }
+      });
+    }
+  };
+  
+  // Math Worker 回報結果 → 更新 UI
+  mathWorker.onmessage = function(event) {
+    if (event.data.type === 'METRICS_COMPUTED') {
+      const result = event.data.payload;
+      
+      // 更新 dashboard
+      document.getElementById('bpm-val').innerText = Math.floor(result.hr_bpm || 0);
+      document.getElementById('hrv-val').innerText = (result.hrv_rmssd_ms || 0).toFixed(0);
+      document.getElementById('confidence-val').innerText = Math.floor((result.sqs || 0)) + '%';
+      
+      if (result.tei) {
+        document.getElementById('dash-score').innerText = String(result.tei.tei_pr).padStart(2, '0');
+      }
+      
+      // 更新 SQS Grade（可在此加 UI gating 邏輯）
+      app.state.sqs_grade = result.sqs_grade;
+      
+      // 若想在未來加 Grade C 禁用 HRV UI、Grade D 鎖定 Timer，在此加條件判斷
+    }
+  };
+</script>
 
