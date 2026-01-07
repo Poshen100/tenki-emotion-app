@@ -435,7 +435,7 @@
     <div class="flex justify-between items-start">
       <div>
         <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-        <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_50.0_NEURAL_LINK</div>
+        <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_50.1_NEURAL_LINK</div>
       </div>
 
       <div class="text-right flex flex-col items-end">
@@ -575,6 +575,7 @@
         </div>
         <div class="mt-2 text-[12px] text-white/90 font-mono-tech" id="source-readout">Camera rPPG</div>
         <div class="mt-2 text-[10px] text-white/50 font-mono-tech leading-relaxed" id="baseline-readout">Baseline: Not imported</div>
+        <div class="mt-2 text-[10px] text-white/50 font-mono-tech leading-relaxed" id="fusion-readout">Fusion: —</div>
         <div class="mt-auto flex gap-2">
           <button id="btn-import" class="btn btn-primary">Import CSV</button>
           <button id="btn-clear" class="btn btn-danger">Clear</button>
@@ -585,7 +586,10 @@
       <div class="bento-card tile bg-black/50 border-white/20">
         <div class="flex justify-between items-start">
           <div class="text-xs text-cyan-300 font-mono-tech tracking-widest">SYSTEM_LOG</div>
-          <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition pointer-events-auto" id="btn-export">EXPORT ↗</div>
+          <div class="flex items-center gap-3">
+            <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition pointer-events-auto" id="btn-export">EXPORT ↗</div>
+            <div class="text-[10px] text-white/70 font-bold cursor-pointer hover:text-cyan-400 transition pointer-events-auto" id="btn-export-log">LOG ↗</div>
+          </div>
         </div>
         <div class="text-[15px] text-white font-serif-human leading-tight mt-3 opacity-90" id="dash-quote">"Hybrid Sync ready. Drag timer to avoid blocking."</div>
         <div class="mt-auto flex justify-between items-end border-t border-white/10 pt-3">
@@ -654,6 +658,36 @@
   <!-- ENGINE -->
   <script>
     lucide.createIcons();
+
+    // ----------------------------
+    // Fusion Log (Local-first)
+    // ----------------------------
+    const FusionLog = {
+      key: 'tenki_v50_fusion_log',
+      max: 500,
+      load() {
+        try { return JSON.parse(localStorage.getItem(this.key) || '[]'); } catch { return []; }
+      },
+      push(evt) {
+        const arr = this.load();
+        arr.push(evt);
+        while (arr.length > this.max) arr.shift();
+        localStorage.setItem(this.key, JSON.stringify(arr));
+      },
+      clear() { localStorage.removeItem(this.key); },
+      exportJsonl() {
+        const arr = this.load();
+        const jsonl = arr.map(x => JSON.stringify(x)).join('\n');
+        const url = URL.createObjectURL(new Blob([jsonl], { type: 'application/jsonl' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'tenki_fusion_log.jsonl';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    };
+
+    function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
 
     // ----------------------------
     // Baseline (Local-first)
@@ -930,6 +964,114 @@
     };
 
     // ----------------------------
+    // ROI Quality + Fusion Policy
+    // ----------------------------
+    const Fusion = {
+      state: {
+        primarySource: 'NONE',
+        confidence: 0,
+        reason: 'BOOT',
+        eyebrow: { quality: 0, motion: 1, lux: 0 },
+        forehead: { quality: 0, motion: 1, lux: 0 }
+      },
+      config: {
+        eyebrowThreshold: 85,
+        foreheadThreshold: 75,
+        // how hard to penalize motion vs light
+        wLux: 0.55,
+        wMotion: 0.45,
+        // avoid rapid flipping
+        minHoldMs: 1200
+      },
+      lastSwitchAt: 0,
+
+      computeMotionScore(landmarks) {
+        if (!landmarks || !landmarks[1]) return 1;
+        // Use nose tip displacement as proxy for motion (cheap + stable)
+        const nose = landmarks[1];
+        const prev = this._prevNose;
+        this._prevNose = { x: nose.x, y: nose.y };
+        if (!prev) return 0.25;
+        const dx = nose.x - prev.x;
+        const dy = nose.y - prev.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        // scale up (tune): 0.0..0.02 typical
+        return clamp(d / 0.015, 0, 1);
+      },
+
+      estimateLuxFromCanvas(lightCtx, video) {
+        if (!lightCtx || !video || video.readyState < 2) return 0;
+        const w = lightCtx.canvas.width;
+        const h = lightCtx.canvas.height;
+        try {
+          lightCtx.drawImage(video, 0, 0, w, h);
+          const img = lightCtx.getImageData(0, 0, w, h).data;
+          let sum = 0;
+          for (let i = 0; i < img.length; i += 4) {
+            // luminance approx
+            sum += (img[i] * 0.2126 + img[i+1] * 0.7152 + img[i+2] * 0.0722);
+          }
+          const mean = sum / (img.length / 4);
+          // map 0..255 -> 0..100
+          return clamp((mean / 255) * 100, 0, 100);
+        } catch {
+          return 0;
+        }
+      },
+
+      computeRoiQuality({ luxPct, motionScore, roiBias }) {
+        // roiBias: eyebrow slightly higher variance risk, so slightly penalize
+        const luxN = clamp(luxPct / 100, 0, 1);
+        const motionN = clamp(motionScore, 0, 1);
+        const q = (this.config.wLux * luxN + this.config.wMotion * (1 - motionN));
+        const biased = q * (roiBias ?? 1);
+        return Math.round(clamp(biased, 0, 1) * 100);
+      },
+
+      decide(bleConnected, eyebrowQ, foreheadQ) {
+        const now = performance.now();
+        const holdOk = (now - this.lastSwitchAt) >= this.config.minHoldMs;
+        const prev = this.state.primarySource;
+
+        let primarySource = prev;
+        let confidence = this.state.confidence;
+        let reason = this.state.reason;
+
+        if (bleConnected) {
+          primarySource = 'BLE_HRM';
+          confidence = 99;
+          reason = 'BLE_CONNECTED';
+        } else if (eyebrowQ > this.config.eyebrowThreshold) {
+          primarySource = 'rPPG_Eyebrow';
+          confidence = 92;
+          reason = 'EYEBROW_SQI_OK';
+        } else if (foreheadQ > this.config.foreheadThreshold) {
+          primarySource = 'rPPG_Forehead';
+          confidence = 85;
+          reason = 'FOREHEAD_SQI_OK';
+        } else {
+          primarySource = 'NONE';
+          confidence = 0;
+          reason = 'NO_GOOD_ROI';
+        }
+
+        if (primarySource !== prev && holdOk) this.lastSwitchAt = now;
+        // If hold not ok, keep previous unless BLE comes in (force override)
+        if (!holdOk && !bleConnected) {
+          primarySource = prev;
+          confidence = this.state.confidence;
+          reason = 'HOLD_LOCK';
+        }
+
+        this.state.primarySource = primarySource;
+        this.state.confidence = confidence;
+        this.state.reason = reason;
+
+        return { primarySource, confidence, reason };
+      }
+    };
+
+    // ----------------------------
     // UI helper
     // ----------------------------
     const UI = {
@@ -957,6 +1099,13 @@
           el.innerText = 'Tier 3 • Camera First';
           src.innerText = 'Camera rPPG';
         }
+      },
+      setFusionReadout({ primarySource, confidence, reason, eyebrowQ, foreheadQ }) {
+        const el = document.getElementById('fusion-readout');
+        if (!el) return;
+        const e = Number.isFinite(eyebrowQ) ? eyebrowQ : 0;
+        const f = Number.isFinite(foreheadQ) ? foreheadQ : 0;
+        el.innerText = `Fusion: ${primarySource} • ${Math.round(confidence)}% • ${reason} (E:${e} F:${f})`;
       },
       setBpm(bpm) {
         const el = document.getElementById('bpm-val');
@@ -1090,7 +1239,7 @@
         headRot: { x: 0, y: 0 },
         audioData: 0,
         deviceMotion: 0,
-        physio: { bpm: null, rmssd: null, source: 'camera' },
+        physio: { bpm: null, rmssd: null, source: 'camera', primarySource: 'NONE', confidence: 0 },
         tier: 3,
         timer: { running: false, endAt: 0, remainingMs: 25 * 60 * 1000 },
         breath: { active: false, endAt: 0, remainingMs: 3 * 60 * 1000, startRmssd: null, simInterval: null },
@@ -1130,22 +1279,64 @@
         this.rppgWorker.onmessage = (e) => {
           const m = e.data?.metrics;
           if (!m) return;
+
+          // Use rPPG to update Engine; fusion policy decides what is primary
           if (this.state.tier === 3) {
             if (Number.isFinite(m.hrBpm)) UI.setBpm(m.hrBpm);
             if (Number.isFinite(m.rmssd)) UI.setRmssd(m.rmssd);
             this.updatePhysio({ bpm: m.hrBpm, rmssd: m.rmssd, source: 'rppg' });
           } else if (this.state.tier === 2) {
-            // Wearable provides BPM; use rPPG as HRV proxy when RR-interval not available
             if (Number.isFinite(m.rmssd)) UI.setRmssd(m.rmssd);
             this.updatePhysio({ rmssd: m.rmssd, source: 'rppg_proxy' });
           }
-          if (Number.isFinite(m.sqs)) {
-            document.getElementById('confidence-val').innerText = Math.round(m.sqs) + '%';
-            document.getElementById('resonance-fill').style.width = Math.round(m.sqs) + '%';
-          }
+
+          // UI trust uses fusion confidence (not worker sqs)
+          const conf = this.state.physio.confidence ?? 0;
+          document.getElementById('confidence-val').innerText = Math.round(conf) + '%';
+          document.getElementById('resonance-fill').style.width = Math.round(conf) + '%';
         };
 
         document.getElementById('instruction').innerText = 'TAP TO INITIALIZE';
+
+        // log export
+        const btnLog = document.getElementById('btn-export-log');
+        if (btnLog) btnLog.addEventListener('click', () => FusionLog.exportJsonl());
+      },
+
+      applyFusionDecision(decision, telemetry) {
+        const prev = this.state.physio.primarySource;
+        this.state.physio.primarySource = decision.primarySource;
+        this.state.physio.confidence = decision.confidence;
+
+        UI.setFusionReadout({
+          primarySource: decision.primarySource,
+          confidence: decision.confidence,
+          reason: decision.reason,
+          eyebrowQ: telemetry?.eyebrowQ,
+          foreheadQ: telemetry?.foreheadQ
+        });
+
+        // log only when changed or error
+        const changed = prev !== decision.primarySource;
+        if (changed || decision.primarySource === 'NONE') {
+          FusionLog.push({
+            ts: Date.now(),
+            perf: Math.round(performance.now()),
+            primarySource: decision.primarySource,
+            confidence: decision.confidence,
+            reason: decision.reason,
+            tier: this.state.tier,
+            eyebrowQ: telemetry?.eyebrowQ,
+            foreheadQ: telemetry?.foreheadQ,
+            lux: telemetry?.lux,
+            motion: telemetry?.motion
+          });
+        }
+
+        // error guidance
+        if (decision.primarySource === 'NONE') {
+          document.getElementById('dash-quote').innerText = '⚠️ 光線不足或晃動太大：請調整光線/距離，或連接 BLE HRM。';
+        }
       },
 
       updatePhysio({ bpm, rmssd, source }) {
@@ -1155,6 +1346,16 @@
 
         this.state.tier = BLE.device ? BLE.tier : 3;
         UI.setTier(this.state.tier);
+
+        // If BLE is connected (tier 1/2), override confidence & primary source.
+        // If not, decision comes from ROI quality.
+        const decision = Fusion.decide(!!BLE.device, Fusion.state.eyebrow?.quality ?? 0, Fusion.state.forehead?.quality ?? 0);
+        this.applyFusionDecision(decision, {
+          eyebrowQ: Fusion.state.eyebrow?.quality ?? 0,
+          foreheadQ: Fusion.state.forehead?.quality ?? 0,
+          lux: Fusion._lastLux ?? 0,
+          motion: Fusion._lastMotion ?? 0
+        });
 
         const base = Baseline.load();
         if (!base || !Number.isFinite(this.state.physio.bpm)) return;
@@ -1735,6 +1936,24 @@
           const nose = landmarks[1];
           this.state.headRot.x = (nose.y - 0.5) * 2;
           this.state.headRot.y = (nose.x - 0.5) * 2;
+
+          // Compute ROI quality signals (cheap: light + motion)
+          const lux = Fusion.estimateLuxFromCanvas(this.lightCtx, document.getElementById('input-video'));
+          const motion = Fusion.computeMotionScore(landmarks);
+          Fusion._lastLux = lux;
+          Fusion._lastMotion = motion;
+
+          Fusion.state.eyebrow.lux = lux;
+          Fusion.state.eyebrow.motion = motion;
+          Fusion.state.eyebrow.quality = Fusion.computeRoiQuality({ luxPct: lux, motionScore: motion, roiBias: 0.98 });
+
+          Fusion.state.forehead.lux = lux;
+          Fusion.state.forehead.motion = motion;
+          Fusion.state.forehead.quality = Fusion.computeRoiQuality({ luxPct: lux, motionScore: motion, roiBias: 1.0 });
+
+          // apply fusion decision continuously
+          const decision = Fusion.decide(!!BLE.device, Fusion.state.eyebrow.quality, Fusion.state.forehead.quality);
+          this.applyFusionDecision(decision, { eyebrowQ: Fusion.state.eyebrow.quality, foreheadQ: Fusion.state.forehead.quality, lux, motion });
 
           if (this.state.isScanning) {
             this.rppgWorker.postMessage({
