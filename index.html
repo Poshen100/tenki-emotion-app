@@ -642,6 +642,7 @@
                 this.initEvents();
                 this.initDashboardInteractions();
                 this.initEnvironment();
+                this.initFaceMesh();
                 const container = document.getElementById('ppg-graph');
                 for(let i=0; i<30; i++) {
                     const d = document.createElement('div');
@@ -764,9 +765,81 @@
                 this.animate();
             },
 
-            // ============================================
-            // 🔥 新增：sendFrameToWorker 函數
-            // ============================================
+            initFaceMesh: async function() {
+                const video = document.getElementById('input-video');
+                if (!window.FaceMesh) {
+                    console.warn('⚠️ FaceMesh not loaded');
+                    return;
+                }
+
+                try {
+                    this.faceMesh = new FaceMesh({
+                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${file}`
+                    });
+
+                    this.faceMesh.setOptions({
+                        maxNumFaces: 1,
+                        refineLandmarks: true,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+
+                    this.faceMesh.onResults((results) => {
+                        if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                            this.state.isFaceDetected = true;
+                            const landmarks = results.multiFaceLandmarks[0];
+                            
+                            const nose = landmarks[1];
+                            const leftEye = landmarks[33];
+                            const rightEye = landmarks[263];
+                            
+                            this.state.headRot.y = (nose.x - 0.5) * 0.5;
+                            this.state.headRot.x = (nose.y - 0.5) * 0.3;
+                            
+                            const leftEyeOpen = landmarks[159].y - landmarks[145].y;
+                            const rightEyeOpen = landmarks[386].y - landmarks[372].y;
+                            this.state.eyeTens = 1 - ((leftEyeOpen + rightEyeOpen) / 2);
+                            
+                            if (this.state.isScanning) {
+                                this.state.scanBuffer.push({
+                                    headRot: { ...this.state.headRot },
+                                    eyeTens: this.state.eyeTens,
+                                    audioData: this.state.audioData
+                                });
+                                if (this.state.scanBuffer.length > 60) this.state.scanBuffer.shift();
+                                
+                                const progress = (this.state.scanBuffer.length / 30) * 100;
+                                const progressBar = document.getElementById('scan-progress-bar');
+                                if (progressBar) {
+                                    progressBar.style.strokeDashoffset = 339 - (339 * progress / 100);
+                                }
+                            }
+                        } else {
+                            this.state.isFaceDetected = false;
+                        }
+                    });
+
+                    if (window.Camera) {
+                        this.cameraInstance = new Camera(video, {
+                            onFrame: async () => {
+                                if (this.state.isSensorActive && this.faceMesh) {
+                                    try {
+                                        await this.faceMesh.send({ image: video });
+                                    } catch (e) {
+                                        console.warn('FaceMesh processing error:', e);
+                                    }
+                                }
+                            },
+                            width: 320,
+                            height: 240
+                        });
+                        this.cameraInstance.start();
+                    }
+                } catch (e) {
+                    console.warn('FaceMesh init error:', e);
+                }
+            },
+
             sendFrameToWorker: function() {
                 const videoEl = document.getElementById('input-video');
                 if (!videoEl || videoEl.readyState !== 4) {
@@ -797,9 +870,6 @@
                 requestAnimationFrame(() => app.sendFrameToWorker());
             },
 
-            // ============================================
-            // Worker 訊息監聽
-            // ============================================
             setupWorkerListeners: function() {
                 if (visionWorker) {
                     visionWorker.addEventListener('message', (event) => {
@@ -844,7 +914,6 @@
                     });
                 }
 
-                // 每秒向 visionWorker 拿一次 buffer
                 setInterval(() => {
                     if (visionWorker && app.state.isSensorActive) {
                         visionWorker.postMessage({ type: 'GET_SIGNAL_BUFFER' });
@@ -867,8 +936,35 @@
                     videoEl.play().then(() => {
                         this.state.isSensorActive = true;
                         this.setupWorkerListeners();
-                        // 🔥 開始送幀給 Worker！
                         requestAnimationFrame(() => this.sendFrameToWorker());
+                        
+                        this.dashboardUpdateInterval = setInterval(() => {
+                            if (this.state.scanBuffer.length > 0) {
+                                const result = TenkiEngine.calculatePole(this.state.scanBuffer, {
+                                    lux: this.state.envLux,
+                                    motion: this.state.deviceMotion
+                                });
+                                
+                                document.getElementById('dash-score').textContent = String(result.score).padStart(2, '0');
+                                document.getElementById('dash-state').textContent = result.stability > 0.7 ? 'Status Stable' : 'Status Active';
+                                
+                                const confidence = Math.floor(Math.min(100, (this.state.scanBuffer.length / 30) * 100));
+                                document.getElementById('confidence-val').textContent = confidence + '%';
+                                document.getElementById('resonance-fill').style.width = confidence + '%';
+                                
+                                const simBPM = 60 + Math.floor(Math.sin(Date.now() / 1000) * 15 + Math.random() * 10);
+                                document.getElementById('bpm-val').textContent = simBPM;
+                                
+                                const ppgBars = document.querySelectorAll('.bio-bar');
+                                ppgBars.forEach((bar, idx) => {
+                                    const height = 20 + Math.sin(Date.now() / 500 + idx) * 15;
+                                    bar.style.height = height + '%';
+                                });
+                                
+                                document.getElementById('radar-poly').setAttribute('points', 
+                                    `50,${50 - (result.stability * 40)} 50,50 ${50 + (result.stability * 25)},${50 + (result.stability * 25)}`);
+                            }
+                        }, 200);
                     }).catch(err => {
                         console.error('Video play failed:', err);
                     });
@@ -891,6 +987,7 @@
                 document.getElementById('scan-trigger-wrapper').addEventListener('pointerdown', () => {
                     this.state.isScanning = true;
                     document.getElementById('scan-trigger-wrapper').classList.add('active');
+                    this.startSensors();
                 });
                 document.addEventListener('pointerup', () => {
                     this.state.isScanning = false;
@@ -899,7 +996,6 @@
             },
 
             initDashboardInteractions: function() {
-                // Orbit 交互
                 document.getElementById('tei-orbit-container').addEventListener('click', () => {
                     document.getElementById('tei-orbit-container').classList.toggle('charging');
                 });
@@ -909,7 +1005,6 @@
                 requestAnimationFrame(() => this.animate());
                 this.updateEnvironment();
                 
-                // 簡單的粒子動畫
                 const positions = this.cloud.geometry.attributes.position.array;
                 for (let i = 0; i < positions.length; i += 3) {
                     positions[i] += (Math.random() - 0.5) * 0.001;
@@ -921,16 +1016,17 @@
             },
 
             reset: function() {
+                if (this.dashboardUpdateInterval) clearInterval(this.dashboardUpdateInterval);
+                if (this.cameraInstance) this.cameraInstance.stop();
+                if (this.stream) this.stream.getTracks().forEach(t => t.stop());
                 location.reload();
             }
         };
 
-        // 啟動
         window.addEventListener('DOMContentLoaded', () => {
             app.init();
         });
 
-        // 也可以直接在頁面載入時啟動掃描
         document.addEventListener('click', () => {
             if (!app.state.isSensorActive && !document.getElementById('dashboard-layer').classList.contains('show')) {
                 app.startSensors();
