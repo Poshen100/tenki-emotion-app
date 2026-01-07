@@ -1,397 +1,48 @@
-# TENKI v18.0 - Stardust Soul (星塵靈魂版)
+# TENKI v50.0 — Neural Link (Hybrid Sync)
 
-> **"形隨機能 (Form Follows Function)" 的極致體現。**
-> 這不是情緒檢測，這是靈魂的鏡像。
+> Camera First + Wearable Boost：用 **PR99 生理指紋（TEI）** 做交易行為風控。
 
-[![Vercel](https://therealsujitk-vercel-badge.vercel.app/?app=tenki-emotion-app)](https://tenki-emotion-app.vercel.app)
-
-![TENKI v18.0 Preview](https://via.placeholder.com/800x400.png?text=TENKI+v18.0+Stardust+Soul)
-*(建議之後截一張 v18 的星塵截圖替換此處)*
-
-## 🌌 願景 (Vision)
-TENKI v18.0 摒棄了傳統的「人臉描繪」，轉而追求純粹的**生物訊號具象化**。我們利用 8,000 顆互動粒子，構建出使用者的「數位靈魂」，解決了數位分身的恐怖谷效應，並提供前所未有的隱私安全感。
-
-## 🚀 核心特性 (Core Features)
-
-### 🔮 星塵靈魂引擎 (Stardust Engine)
-- **8,000 顆粒子**：基於費波那契球體 (Fibonacci Sphere) 演算法生成的完美幾何結構。
-- **形隨機能**：粒子隨頭部轉動而旋轉，隨呼吸與說話而膨脹、爆發。
-- **零載入延遲**：純數學算繪，無須下載龐大 3D 模型，極致輕量。
-
-### 🛡️ 幽靈協議 (Ghost Protocol)
-- **絕對隱私**：攝影機畫面被完全移除（`position: fixed; top: -9999px`），螢幕上永遠不會出現真實人臉。
-- **去客體化**：使用者看到的是能量場而非外貌，徹底消除「容貌焦慮」。
-- **邊緣運算**：所有特徵點分析皆在瀏覽器本地完成 (Local Edge)，數據不離身。
-
-### 👆 PPG 指紋介面 (Bio-Interface)
-- **模擬生物識別**：指紋長按互動，結合視覺與震動反饋 (Haptics)。
-- **沉浸式掃描**：模擬 2 秒 PPG 血流分析過程，建立心理儀式感。
-
-## 🛠️ 技術堆疊 (Tech Stack)
-- **Core**: Three.js (WebGL 粒子系統)
-- **AI Vision**: Google MediaPipe Face Mesh (468 點特徵追蹤)
-- **UI**: Tailwind CSS (HUD 戰術介面)
-- **Interaction**: Web Vibration API (觸覺回饋)
-
-## ⚡ 快速體驗
-👉 **[點擊啟動 TENKI v18.0](https://tenki-emotion-app.vercel.app)**
+- Live demo: https://tenki-emotion-app.vercel.app
+- MVP 入口：[`index.html`](https://github.com/Poshen100/tenki-emotion-app/blob/main/index.html)
 
 ---
 
-## 💻 本地開發 (Local Development)
+## 你現在能做什麼（MVP）
 
-1. 克隆專案
-```bash
-git clone https://github.com/Poshen100/tenki-emotion-app.git# TENKI v18.0 - Stardust Soul (星塵靈魂版)
+### 1) Real-time：連 Garmin / 胸帶（Web Bluetooth）
+1. 用 Chrome / Edge（桌機或 Android）。
+2. 打開頁面後，點右上角 **`VISION ONLY`**（可點擊）。
+3. 選擇你的裝置（Garmin HR Broadcast、Polar H10 等支援 Heart Rate Service 的 BLE 裝置）。
 
-> **"形隨機能 (Form Follows Function)" 的極致體現。**
-> 這不是情緒檢測，這是靈魂的鏡像。
+**Tier 行為（自動切換）**
+- Tier 1：若收到 RR-Interval（如部分胸帶），會顯示 `MEDICAL GRADE (RR)`，並以 RR 推 RMSSD。
+- Tier 2：若只有 BPM，會顯示 `WEARABLE LINKED`（Hybrid Sync：手錶心率 + 相機）。
+- Tier 3：未連線則是相機 rPPG（MVP 以 worker 模擬）。
 
-[![Vercel](https://therealsujitk-vercel-badge.vercel.app/?app=tenki-emotion-app)](https://tenki-emotion-app.vercel.app)
+### 2) Data：Instant Baseline（不用等 7 天）
+Dashboard 的 Source 卡片提供 **`Import Baseline (CSV)`**：
+- CSV 欄位：`timestamp,rhr,rmssd`
+- 建議：匯入 30 天（或至少 10 筆）
+- 匯入後會建立 baseline 分佈，掃描後直接輸出 PR（1–99）
 
-![TENKI v18.0 Preview](https://via.placeholder.com/800x400.png?text=TENKI+v18.0+Stardust+Soul)
-*(建議之後截一張 v18 的星塵截圖替換此處)*
-
-## 🌌 願景 (Vision)
-TENKI v18.0 摒棄了傳統的「人臉描繪」，轉而追求純粹的**生物訊號具象化**。我們利用 8,000 顆互動粒子，構建出使用者的「數位靈魂」，解決了數位分身的恐怖谷效應，並提供前所未有的隱私安全感。
-
-## 🚀 核心特性 (Core Features)
-
-### 🔮 星塵靈魂引擎 (Stardust Engine)
-- **8,000 顆粒子**：基於費波那契球體 (Fibonacci Sphere) 演算法生成的完美幾何結構。
-- **形隨機能**：粒子隨頭部轉動而旋轉，隨呼吸與說話而膨脹、爆發。
-- **零載入延遲**：純數學算繪，無須下載龐大 3D 模型，極致輕量。
-
-### 🛡️ 幽靈協議 (Ghost Protocol)
-- **絕對隱私**：攝影機畫面被完全移除（`position: fixed; top: -9999px`），螢幕上永遠不會出現真實人臉。
-- **去客體化**：使用者看到的是能量場而非外貌，徹底消除「容貌焦慮」。
-- **邊緣運算**：所有特徵點分析皆在瀏覽器本地完成 (Local Edge)，數據不離身。
-
-### 👆 PPG 指紋介面 (Bio-Interface)
-- **模擬生物識別**：指紋長按互動，結合視覺與震動反饋 (Haptics)。
-- **沉浸式掃描**：模擬 2 秒 PPG 血流分析過程，建立心理儀式感。
-
-## 🛠️ 技術堆疊 (Tech Stack)
-- **Core**: Three.js (WebGL 粒子系統)
-- **AI Vision**: Google MediaPipe Face Mesh (468 點特徵追蹤)
-- **UI**: Tailwind CSS (HUD 戰術介面)
-- **Interaction**: Web Vibration API (觸覺回饋)
-
-## ⚡ 快速體驗
-👉 **[點擊啟動 TENKI v18.0](https://tenki-emotion-app.vercel.app)**
+可用範例：[`baseline-template.csv`](https://github.com/Poshen100/tenki-emotion-app/blob/main/baseline-template.csv)
 
 ---
 
-## 💻 本地開發 (Local Development)
+## Apple Watch（重要限制）
+Apple Watch **不會原生以 BLE HR Broadcast 給瀏覽器**（Web Bluetooth 無法直接抓到 Watch）。
 
-1. 克隆專案
-```bash
-git clone https://github.com/Poshen100/tenki-emotion-app.git# TENKI v18.0 - Stardust Soul (星塵靈魂版)
-
-> **"形隨機能 (Form Follows Function)" 的極致體現。**
-> 這不是情緒檢測，這是靈魂的鏡像。
-
-[![Vercel](https://therealsujitk-vercel-badge.vercel.app/?app=tenki-emotion-app)](https://tenki-emotion-app.vercel.app)
-
-![TENKI v18.0 Preview](https://via.placeholder.com/800x400.png?text=TENKI+v18.0+Stardust+Soul)
-*(建議之後截一張 v18 的星塵截圖替換此處)*
-
-## 🌌 願景 (Vision)
-TENKI v18.0 摒棄了傳統的「人臉描繪」，轉而追求純粹的**生物訊號具象化**。我們利用 8,000 顆互動粒子，構建出使用者的「數位靈魂」，解決了數位分身的恐怖谷效應，並提供前所未有的隱私安全感。
-
-## 🚀 核心特性 (Core Features)
-
-### 🔮 星塵靈魂引擎 (Stardust Engine)
-- **8,000 顆粒子**：基於費波那契球體 (Fibonacci Sphere) 演算法生成的完美幾何結構。
-- **形隨機能**：粒子隨頭部轉動而旋轉，隨呼吸與說話而膨脹、爆發。
-- **零載入延遲**：純數學算繪，無須下載龐大 3D 模型，極致輕量。
-
-### 🛡️ 幽靈協議 (Ghost Protocol)
-- **絕對隱私**：攝影機畫面被完全移除（`position: fixed; top: -9999px`），螢幕上永遠不會出現真實人臉。
-- **去客體化**：使用者看到的是能量場而非外貌，徹底消除「容貌焦慮」。
-- **邊緣運算**：所有特徵點分析皆在瀏覽器本地完成 (Local Edge)，數據不離身。
-
-### 👆 PPG 指紋介面 (Bio-Interface)
-- **模擬生物識別**：指紋長按互動，結合視覺與震動反饋 (Haptics)。
-- **沉浸式掃描**：模擬 2 秒 PPG 血流分析過程，建立心理儀式感。
-
-## 🛠️ 技術堆疊 (Tech Stack)
-- **Core**: Three.js (WebGL 粒子系統)
-- **AI Vision**: Google MediaPipe Face Mesh (468 點特徵追蹤)
-- **UI**: Tailwind CSS (HUD 戰術介面)
-- **Interaction**: Web Vibration API (觸覺回饋)
-
-## ⚡ 快速體驗
-👉 **[點擊啟動 TENKI v18.0](https://tenki-emotion-app.vercel.app)**
+建議路線（符合 spec 的 Hybrid Sync）：
+- Real-time 層：讓使用者在 iPhone/Watch 端用轉播 App（例如 HeartCast 類型）把 HR 轉成 BLE Heart Rate Service，再由 TENKI 連線。
+- Data 層：改用 Apple Health 匯出（或先轉成 CSV 再匯入）來建立 Instant Baseline。
 
 ---
 
-## 💻 本地開發 (Local Development)
-
-1. 克隆專案
-```bash
-git clone https://github.com/Poshen100/tenki-emotion-app.git# TENKI v18.0 - Stardust Soul (星塵靈魂版)
-
-> **"形隨機能 (Form Follows Function)" 的極致體現。**
-> 這不是情緒檢測，這是靈魂的鏡像。
-
-[![Vercel](https://therealsujitk-vercel-badge.vercel.app/?app=tenki-emotion-app)](https://tenki-emotion-app.vercel.app)
-
-![TENKI v18.0 Preview](https://via.placeholder.com/800x400.png?text=TENKI+v18.0+Stardust+Soul)
-*(建議之後截一張 v18 的星塵截圖替換此處)*
-
-## 🌌 願景 (Vision)
-TENKI v18.0 摒棄了傳統的「人臉描繪」，轉而追求純粹的**生物訊號具象化**。我們利用 8,000 顆互動粒子，構建出使用者的「數位靈魂」，解決了數位分身的恐怖谷效應，並提供前所未有的隱私安全感。
-
-## 🚀 核心特性 (Core Features)
-
-### 🔮 星塵靈魂引擎 (Stardust Engine)
-- **8,000 顆粒子**：基於費波那契球體 (Fibonacci Sphere) 演算法生成的完美幾何結構。
-- **形隨機能**：粒子隨頭部轉動而旋轉，隨呼吸與說話而膨脹、爆發。
-- **零載入延遲**：純數學算繪，無須下載龐大 3D 模型，極致輕量。
-
-### 🛡️ 幽靈協議 (Ghost Protocol)
-- **絕對隱私**：攝影機畫面被完全移除（`position: fixed; top: -9999px`），螢幕上永遠不會出現真實人臉。
-- **去客體化**：使用者看到的是能量場而非外貌，徹底消除「容貌焦慮」。
-- **邊緣運算**：所有特徵點分析皆在瀏覽器本地完成 (Local Edge)，數據不離身。
-
-### 👆 PPG 指紋介面 (Bio-Interface)
-- **模擬生物識別**：指紋長按互動，結合視覺與震動反饋 (Haptics)。
-- **沉浸式掃描**：模擬 2 秒 PPG 血流分析過程，建立心理儀式感。
-
-## 🛠️ 技術堆疊 (Tech Stack)
-- **Core**: Three.js (WebGL 粒子系統)
-- **AI Vision**: Google MediaPipe Face Mesh (468 點特徵追蹤)
-- **UI**: Tailwind CSS (HUD 戰術介面)
-- **Interaction**: Web Vibration API (觸覺回饋)
-
-## ⚡ 快速體驗
-👉 **[點擊啟動 TENKI v18.0](https://tenki-emotion-app.vercel.app)**
-
----
-
-## 💻 本地開發 (Local Development)
-
-1. 克隆專案
-```bash
-git clone https://github.com/Poshen100/tenki-emotion-app.git# TENKI v18.0 - Stardust Soul (星塵靈魂版)
-
-> **"形隨機能 (Form Follows Function)" 的極致體現。**
-> 這不是情緒檢測，這是靈魂的鏡像。
-
-[![Vercel](https://therealsujitk-vercel-badge.vercel.app/?app=tenki-emotion-app)](https://tenki-emotion-app.vercel.app)
-
-![TENKI v18.0 Preview](https://via.placeholder.com/800x400.png?text=TENKI+v18.0+Stardust+Soul)
-*(建議之後截一張 v18 的星塵截圖替換此處)*
-
-## 🌌 願景 (Vision)
-TENKI v18.0 摒棄了傳統的「人臉描繪」，轉而追求純粹的**生物訊號具象化**。我們利用 8,000 顆互動粒子，構建出使用者的「數位靈魂」，解決了數位分身的恐怖谷效應，並提供前所未有的隱私安全感。
-
-## 🚀 核心特性 (Core Features)
-
-### 🔮 星塵靈魂引擎 (Stardust Engine)
-- **8,000 顆粒子**：基於費波那契球體 (Fibonacci Sphere) 演算法生成的完美幾何結構。
-- **形隨機能**：粒子隨頭部轉動而旋轉，隨呼吸與說話而膨脹、爆發。
-- **零載入延遲**：純數學算繪，無須下載龐大 3D 模型，極致輕量。
-
-### 🛡️ 幽靈協議 (Ghost Protocol)
-- **絕對隱私**：攝影機畫面被完全移除（`position: fixed; top: -9999px`），螢幕上永遠不會出現真實人臉。
-- **去客體化**：使用者看到的是能量場而非外貌，徹底消除「容貌焦慮」。
-- **邊緣運算**：所有特徵點分析皆在瀏覽器本地完成 (Local Edge)，數據不離身。
-
-### 👆 PPG 指紋介面 (Bio-Interface)
-- **模擬生物識別**：指紋長按互動，結合視覺與震動反饋 (Haptics)。
-- **沉浸式掃描**：模擬 2 秒 PPG 血流分析過程，建立心理儀式感。
-
-## 🛠️ 技術堆疊 (Tech Stack)
-- **Core**: Three.js (WebGL 粒子系統)
-- **AI Vision**: Google MediaPipe Face Mesh (468 點特徵追蹤)
-- **UI**: Tailwind CSS (HUD 戰術介面)
-- **Interaction**: Web Vibration API (觸覺回饋)
-
-## ⚡ 快速體驗
-👉 **[點擊啟動 TENKI v18.0](https://tenki-emotion-app.vercel.app)**
-
----
-
-## 💻 本地開發 (Local Development)
-
-1. 克隆專案
-```bash
-git clone https://github.com/Poshen100/tenki-emotion-app.git# TENKI v18.0 - Stardust Soul (星塵靈魂版)
-
-> **"形隨機能 (Form Follows Function)" 的極致體現。**
-> 這不是情緒檢測，這是靈魂的鏡像。
-
-[![Vercel](https://therealsujitk-vercel-badge.vercel.app/?app=tenki-emotion-app)](https://tenki-emotion-app.vercel.app)
-
-![TENKI v18.0 Preview](https://via.placeholder.com/800x400.png?text=TENKI+v18.0+Stardust+Soul)
-*(建議之後截一張 v18 的星塵截圖替換此處)*
-
-## 🌌 願景 (Vision)
-TENKI v18.0 摒棄了傳統的「人臉描繪」，轉而追求純粹的**生物訊號具象化**。我們利用 8,000 顆互動粒子，構建出使用者的「數位靈魂」，解決了數位分身的恐怖谷效應，並提供前所未有的隱私安全感。
-
-## 🚀 核心特性 (Core Features)
-
-### 🔮 星塵靈魂引擎 (Stardust Engine)
-- **8,000 顆粒子**：基於費波那契球體 (Fibonacci Sphere) 演算法生成的完美幾何結構。
-- **形隨機能**：粒子隨頭部轉動而旋轉，隨呼吸與說話而膨脹、爆發。
-- **零載入延遲**：純數學算繪，無須下載龐大 3D 模型，極致輕量。
-
-### 🛡️ 幽靈協議 (Ghost Protocol)
-- **絕對隱私**：攝影機畫面被完全移除（`position: fixed; top: -9999px`），螢幕上永遠不會出現真實人臉。
-- **去客體化**：使用者看到的是能量場而非外貌，徹底消除「容貌焦慮」。
-- **邊緣運算**：所有特徵點分析皆在瀏覽器本地完成 (Local Edge)，數據不離身。
-
-### 👆 PPG 指紋介面 (Bio-Interface)
-- **模擬生物識別**：指紋長按互動，結合視覺與震動反饋 (Haptics)。
-- **沉浸式掃描**：模擬 2 秒 PPG 血流分析過程，建立心理儀式感。
-
-## 🛠️ 技術堆疊 (Tech Stack)
-- **Core**: Three.js (WebGL 粒子系統)
-- **AI Vision**: Google MediaPipe Face Mesh (468 點特徵追蹤)
-- **UI**: Tailwind CSS (HUD 戰術介面)
-- **Interaction**: Web Vibration API (觸覺回饋)
-
-## ⚡ 快速體驗
-👉 **[點擊啟動 TENKI v18.0](https://tenki-emotion-app.vercel.app)**
-
----
-
-## 💻 本地開發 (Local Development)
-
-1. 克隆專案
-```bash
-git clone https://github.com/Poshen100/tenki-emotion-app.git# TENKI v18.0 - Stardust Soul (星塵靈魂版)
-
-> **"形隨機能 (Form Follows Function)" 的極致體現。**
-> 這不是情緒檢測，這是靈魂的鏡像。
-
-[![Vercel](https://therealsujitk-vercel-badge.vercel.app/?app=tenki-emotion-app)](https://tenki-emotion-app.vercel.app)
-
-![TENKI v18.0 Preview](https://via.placeholder.com/800x400.png?text=TENKI+v18.0+Stardust+Soul)
-*(建議之後截一張 v18 的星塵截圖替換此處)*
-
-## 🌌 願景 (Vision)
-TENKI v18.0 摒棄了傳統的「人臉描繪」，轉而追求純粹的**生物訊號具象化**。我們利用 8,000 顆互動粒子，構建出使用者的「數位靈魂」，解決了數位分身的恐怖谷效應，並提供前所未有的隱私安全感。
-
-## 🚀 核心特性 (Core Features)
-
-### 🔮 星塵靈魂引擎 (Stardust Engine)
-- **8,000 顆粒子**：基於費波那契球體 (Fibonacci Sphere) 演算法生成的完美幾何結構。
-- **形隨機能**：粒子隨頭部轉動而旋轉，隨呼吸與說話而膨脹、爆發。
-- **零載入延遲**：純數學算繪，無須下載龐大 3D 模型，極致輕量。
-
-### 🛡️ 幽靈協議 (Ghost Protocol)
-- **絕對隱私**：攝影機畫面被完全移除（`position: fixed; top: -9999px`），螢幕上永遠不會出現真實人臉。
-- **去客體化**：使用者看到的是能量場而非外貌，徹底消除「容貌焦慮」。
-- **邊緣運算**：所有特徵點分析皆在瀏覽器本地完成 (Local Edge)，數據不離身。
-
-### 👆 PPG 指紋介面 (Bio-Interface)
-- **模擬生物識別**：指紋長按互動，結合視覺與震動反饋 (Haptics)。
-- **沉浸式掃描**：模擬 2 秒 PPG 血流分析過程，建立心理儀式感。
-
-## 🛠️ 技術堆疊 (Tech Stack)
-- **Core**: Three.js (WebGL 粒子系統)
-- **AI Vision**: Google MediaPipe Face Mesh (468 點特徵追蹤)
-- **UI**: Tailwind CSS (HUD 戰術介面)
-- **Interaction**: Web Vibration API (觸覺回饋)
-
-## ⚡ 快速體驗
-👉 **[點擊啟動 TENKI v18.0](https://tenki-emotion-app.vercel.app)**
-
----
-
-## 💻 本地開發 (Local Development)
-
-1. 克隆專案
-```bash
-git clone https://github.com/Poshen100/tenki-emotion-app.git# TENKI v18.0 - Stardust Soul (星塵靈魂版)
-
-> **"形隨機能 (Form Follows Function)" 的極致體現。**
-> 這不是情緒檢測，這是靈魂的鏡像。
-
-[![Vercel](https://therealsujitk-vercel-badge.vercel.app/?app=tenki-emotion-app)](https://tenki-emotion-app.vercel.app)
-
-![TENKI v18.0 Preview](https://via.placeholder.com/800x400.png?text=TENKI+v18.0+Stardust+Soul)
-*(建議之後截一張 v18 的星塵截圖替換此處)*
-
-## 🌌 願景 (Vision)
-TENKI v18.0 摒棄了傳統的「人臉描繪」，轉而追求純粹的**生物訊號具象化**。我們利用 8,000 顆互動粒子，構建出使用者的「數位靈魂」，解決了數位分身的恐怖谷效應，並提供前所未有的隱私安全感。
-
-## 🚀 核心特性 (Core Features)
-
-### 🔮 星塵靈魂引擎 (Stardust Engine)
-- **8,000 顆粒子**：基於費波那契球體 (Fibonacci Sphere) 演算法生成的完美幾何結構。
-- **形隨機能**：粒子隨頭部轉動而旋轉，隨呼吸與說話而膨脹、爆發。
-- **零載入延遲**：純數學算繪，無須下載龐大 3D 模型，極致輕量。
-
-### 🛡️ 幽靈協議 (Ghost Protocol)
-- **絕對隱私**：攝影機畫面被完全移除（`position: fixed; top: -9999px`），螢幕上永遠不會出現真實人臉。
-- **去客體化**：使用者看到的是能量場而非外貌，徹底消除「容貌焦慮」。
-- **邊緣運算**：所有特徵點分析皆在瀏覽器本地完成 (Local Edge)，數據不離身。
-
-### 👆 PPG 指紋介面 (Bio-Interface)
-- **模擬生物識別**：指紋長按互動，結合視覺與震動反饋 (Haptics)。
-- **沉浸式掃描**：模擬 2 秒 PPG 血流分析過程，建立心理儀式感。
-
-## 🛠️ 技術堆疊 (Tech Stack)
-- **Core**: Three.js (WebGL 粒子系統)
-- **AI Vision**: Google MediaPipe Face Mesh (468 點特徵追蹤)
-- **UI**: Tailwind CSS (HUD 戰術介面)
-- **Interaction**: Web Vibration API (觸覺回饋)
-
-## ⚡ 快速體驗
-👉 **[點擊啟動 TENKI v18.0](https://tenki-emotion-app.vercel.app)**
-
----
-
-## 💻 本地開發 (Local Development)
-
-1. 克隆專案
-```bash
-git clone https://github.com/Poshen100/tenki-emotion-app.git# TENKI v18.0 - Stardust Soul (星塵靈魂版)
-
-> **"形隨機能 (Form Follows Function)" 的極致體現。**
-> 這不是情緒檢測，這是靈魂的鏡像。
-
-[![Vercel](https://therealsujitk-vercel-badge.vercel.app/?app=tenki-emotion-app)](https://tenki-emotion-app.vercel.app)
-
-![TENKI v18.0 Preview](https://via.placeholder.com/800x400.png?text=TENKI+v18.0+Stardust+Soul)
-*(建議之後截一張 v18 的星塵截圖替換此處)*
-
-## 🌌 願景 (Vision)
-TENKI v18.0 摒棄了傳統的「人臉描繪」，轉而追求純粹的**生物訊號具象化**。我們利用 8,000 顆互動粒子，構建出使用者的「數位靈魂」，解決了數位分身的恐怖谷效應，並提供前所未有的隱私安全感。
-
-## 🚀 核心特性 (Core Features)
-
-### 🔮 星塵靈魂引擎 (Stardust Engine)
-- **8,000 顆粒子**：基於費波那契球體 (Fibonacci Sphere) 演算法生成的完美幾何結構。
-- **形隨機能**：粒子隨頭部轉動而旋轉，隨呼吸與說話而膨脹、爆發。
-- **零載入延遲**：純數學算繪，無須下載龐大 3D 模型，極致輕量。
-
-### 🛡️ 幽靈協議 (Ghost Protocol)
-- **絕對隱私**：攝影機畫面被完全移除（`position: fixed; top: -9999px`），螢幕上永遠不會出現真實人臉。
-- **去客體化**：使用者看到的是能量場而非外貌，徹底消除「容貌焦慮」。
-- **邊緣運算**：所有特徵點分析皆在瀏覽器本地完成 (Local Edge)，數據不離身。
-
-### 👆 PPG 指紋介面 (Bio-Interface)
-- **模擬生物識別**：指紋長按互動，結合視覺與震動反饋 (Haptics)。
-- **沉浸式掃描**：模擬 2 秒 PPG 血流分析過程，建立心理儀式感。
-
-## 🛠️ 技術堆疊 (Tech Stack)
-- **Core**: Three.js (WebGL 粒子系統)
-- **AI Vision**: Google MediaPipe Face Mesh (468 點特徵追蹤)
-- **UI**: Tailwind CSS (HUD 戰術介面)
-- **Interaction**: Web Vibration API (觸覺回饋)
-
-## ⚡ 快速體驗
-👉 **[點擊啟動 TENKI v18.0](https://tenki-emotion-app.vercel.app)**
-
----
-
-## 💻 本地開發 (Local Development)
-
-1. 克隆專案
+## 本地開發
 ```bash
 git clone https://github.com/Poshen100/tenki-emotion-app.git
+cd tenki-emotion-app
+# 用任何 static server（避免 file:// 權限問題）
+python -m http.server 8080
+# 打開 http://localhost:8080
+```
