@@ -29,22 +29,27 @@ Dashboard 的 Source 卡片提供 **`Import CSV`**：
 
 ---
 
-## 這份程式碼的優點（為什麼很適合 v50）
+## 投資人版本（Why this wins）
 
-### Hybrid Sync 的工程優點
-- **單頁可跑**：整個 MVP 用一個 `index.html` 就能完成 demo/迭代，利於快速 A/B 與上線回圈。
-- 可漸進升級：同時支援 Tier 3（Camera rPPG 模擬）與 Tier 1/2（Web Bluetooth 心率），不會因穿戴裝置缺席就卡住產品體驗。
-- BLE 解析已到位：內建 Heart Rate Service / `heart_rate_measurement` 的 parsing，且能從 RR-Interval 推 RMSSD（當裝置提供時）。
+### 1) 明確的 wedge：把「自控力」產品化
+- TENKI 把交易前最難量化的「狀態」變成 PR99（可執行的開關），把抽象情緒管理落到 **行為風控**：何時可以下單、何時鎖單、何時呼吸重置。
+- 這不是醫療診斷；是決策流程中的 readiness gate（像飛行前 check-list），天然能嵌入高頻使用場景。
 
-### UX / 設計優點
-- 隱私感強：相機 video element 直接藏到畫面外（`top:-9999px`），畫面只呈現抽象的「星塵宇宙」與 HUD，避免「真臉上鏡」造成阻抗。
-- 新手不迷路：掃描採用「Hold to Sync」的儀式化交互 + 進度圈，並把 BLE 連線入口放在狀態膠囊（`VISION ONLY` 可點）。
-- 儀表板資訊密度高但仍可讀：TEI/PR 主數字 + Zone + HR/RMSSD + confidence bar，一眼就能決策。
+### 2) 分發成本極低：Web-first + 現有穿戴就能跑
+- 產品在瀏覽器就能完成 onboarding（無需下載 app），降低 CAC，利於社群/內容帶量與快速迭代。
+- Hybrid Sync 同時支援「相機（可用）」與「穿戴（更準）」兩條路徑，避免因設備差異導致轉換掉隊。
 
-### 架構優點（可持續演進）
-- Local-first baseline：baseline 直接存在 `localStorage`，匯入後可立刻算 PR，符合「不用等 7 天」的產品承諾。
-- 視覺/演算解耦：rPPG 目前用 worker 模擬，後續可無痛替換成真 rPPG / 更完整 HRV pipeline，而不必重做 UI。
-- 行動端友善：有 `viewport-fit=cover` 與 safe-area padding，iPhone 全螢幕下不會被劉海/底部手勢條吃掉。
+### 3) 信任感是核心護城河：隱私感 + 可解釋
+- UI 以抽象視覺呈現（星塵/HUD），相機畫面不出現在介面，讓使用者更願意在敏感情境（交易/壓力）下使用。
+- 指標鏈路清楚（HR / RMSSD / baseline → PR），比黑盒情緒判斷更容易建立「我為何被鎖單」的信任。
+
+### 4) 可累積的差異化資產：個人化 baseline
+- Instant Baseline 用本地 CSV 匯入即可立刻個人化（不用等 7 天），降低冷啟動風險並提升留存。
+- 長期可把 baseline 變成「個人狀態指紋」：同一個 PR 代表同一種可交易的生理 readiness，形成可擴展的 scoring 系統。
+
+### 5) 商業化方向（MVP → 收費）
+- B2C 訂閱：交易者（心態/風控）+ 進階報告（週/月趨勢、策略觸發回放）。
+- B2B：Prop firm / 交易社群的風控層（上線前必過 PR 門檻、團隊健康度儀表板）。
 
 ---
 
