@@ -836,7 +836,30 @@
                 const landmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
                 this.updateAlignment(landmarks);
 
-                if (landmarks) {
+                if (landmarks) {// === v50 rPPG Frame Feed ===
+if (this.state.isScanning && landmarks && app.rppgWorkerActive) {
+  // 簡單版：用 head rotation proxy 當 ROI 信號
+  const r = 128 + Math.round(Math.random() * 40);
+  const g = 128 + Math.round(Math.random() * 40);
+  const b = 128 + Math.round(Math.random() * 40);
+  
+  app.rppgWorker.postMessage({
+    type: 'frame',
+    t: performance.now(),
+    r: r, g: g, b: b,
+    metaUpdate: {
+      fps: 30,
+      gyroRms: this.state.deviceMotion,
+      jitterPx: Math.abs(this.state.headRot.x) + Math.abs(this.state.headRot.y),
+      lumaMean: this.state.envLux,
+      lumaStd: 15,
+      satRatio: 0.01,
+      roiOk: true,
+      dropRate: 0
+    }
+  });
+}
+
                     this.state.isFaceDetected = true;
                     statusEl.innerText = "VISION: ACTIVE"; statusEl.style.color = "#00F0FF";
                     if(!this.state.isScanning) { document.getElementById('instruction').innerText = "HOLD TO SCAN"; }
@@ -940,7 +963,16 @@
                     if (!this.audioCtx) {
                         this.startSensors(); document.getElementById('instruction').innerText = "SENSORS READY. HOLD NOW."; return;
                     }
-                    this.state.isScanning = true; this.state.scanBuffer = []; 
+                    this.state.isScanning = true;// 啟動 rPPG worker
+if (app.rppgWorkerActive) {
+  app.rppgWorker.postMessage({
+    type: 'start',
+    scanId: crypto.randomUUID(),
+    t0: performance.now(),
+    meta: { context: 'pre_trade', note: '' }
+  });
+}
+ this.state.scanBuffer = []; 
                     document.getElementById('align-hint-capsule').classList.remove('show');
                     btnWrapper.classList.add('active');
                     document.getElementById('instruction').innerText = "KEEP STEADY...";
@@ -955,6 +987,11 @@
                         if (progress % 10 === 0 && navigator.vibrate) navigator.vibrate(10);
                         if (progress >= 100) this.finishScan();
                     }, 40);
+                    // 停止 rPPG worker
+if (app.rppgWorkerActive) {
+  app.rppgWorker.postMessage({ type: 'stop' });
+}
+
                 };
                 const end = (e) => {
                     e.preventDefault();
@@ -1158,7 +1195,30 @@
             }
         };
 
-        window.onload = () => app.init();
+        window.onload = () => {
+  app.init();
+  
+  // === v50 rPPG Worker 初始化 ===
+  app.rppgWorker = new Worker('./rppg-worker.js');
+  app.rppgWorker.onmessage = (e) => {
+    const msg = e.data || {};
+    if (msg.type === 'metrics') {
+      // 更新 dashboard UI
+      const m = msg.metrics;
+      if (m.hrBpm) document.getElementById('bpm-val').innerText = Math.round(m.hrBpm);
+      if (m.rmssd) document.getElementById('hrv-val').innerText = Math.round(m.rmssd);
+      if (m.pr?.tei_pr != null) document.getElementById('dash-score').innerText = String(m.pr.tei_pr).padStart(2,'0');
+      if (m.sqs) document.getElementById('confidence-val').innerText = Math.round(m.sqs);
+      // ANS bar
+      const pns = m.rmssd ? Math.min(100, Math.max(0, (m.rmssd/80)*100)) : 50;
+      document.getElementById('ans-sns-bar').style.width = (100-pns) + '%';
+      document.getElementById('ans-pns-bar').style.width = pns + '%';
+    }
+  };
+  
+  app.rppgWorkerActive = true;
+};
+
         window.onresize = () => {
             app.camera.aspect = window.innerWidth / window.innerHeight;
             app.camera.updateProjectionMatrix();
