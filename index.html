@@ -623,6 +623,25 @@
           <input id="csv-file" type="file" accept=".csv,text/csv" class="pointer-events-auto text-[12px]" />
         </div>
         <div class="text-[11px] text-white/60 mt-3 whitespace-pre-line" id="import-status">No file selected.</div>
+        <div id="mapping-panel" class="mt-4 hidden pointer-events-auto">
+          <div class="text-[10px] text-cyan-300 font-bold tracking-widest">MANUAL MAPPING (LOW CONFIDENCE)</div>
+          <div class="text-[10px] text-white/60 mt-1">選擇檔案欄位對應。HR 必填；Timestamp/HRV 可選。</div>
+          <div class="mt-2 grid grid-cols-1 gap-2">
+            <div>
+              <div class="text-[10px] text-white/60">Timestamp (optional)</div>
+              <select id="map-ts" class="w-full mt-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white"></select>
+            </div>
+            <div>
+              <div class="text-[10px] text-white/60">HR / BPM (required)</div>
+              <select id="map-hr" class="w-full mt-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white"></select>
+            </div>
+            <div>
+              <div class="text-[10px] text-white/60">HRV RMSSD (optional)</div>
+              <select id="map-hrv" class="w-full mt-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white"></select>
+            </div>
+          </div>
+          <div class="text-[10px] text-white/50 mt-2" id="mapping-hint">Tip: 若 HRV 缺失，系統會建立 HR-only baseline（信任度較低）。</div>
+        </div>
       </div>
       <div class="modal-actions">
         <button id="btn-close-modal" class="btn">Close</button>
@@ -720,16 +739,38 @@
       return Number.isFinite(n) ? n : null;
     }
 
-    function parseCSVGeneric(text) {
+    function analyzeCSV(text) {
+      const linesRaw = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (linesRaw.length < 1) return { delim: ',', headerRaw: [], headerNorm: [], mapping: { ts:{idx:-1,conf:0,name:null}, hr:{idx:-1,conf:0,name:null}, rmssd:{idx:-1,conf:0,name:null}, confidence: 0 } };
+      const delim = detectDelimiter(linesRaw[0] || '');
+      const headerRaw = (linesRaw[0] || '').split(delim).map(s => s.trim());
+      const headerNorm = headerRaw.map(normalizeHeader);
+      const mapping = inferMapping(headerNorm);
+      return { delim, headerRaw, headerNorm, mapping };
+    }
+
+    function parseCSVGeneric(text, override) {
       const linesRaw = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       if (linesRaw.length < 2) return { rows: [], meta: { reason: 'empty' } };
 
-      const delim = detectDelimiter(linesRaw[0]);
-      const headerRaw = linesRaw[0].split(delim).map(s => s.trim());
-      const header = headerRaw.map(normalizeHeader);
-      const mapping = inferMapping(header);
+      const analysis = analyzeCSV(text);
+      const delim = analysis.delim;
+      const headerRaw = analysis.headerRaw;
+      const header = analysis.headerNorm;
+      let mapping = analysis.mapping;
 
-      if (mapping.hr.idx === -1) throw new Error('Could not detect HR column (try naming it hr/bpm/resting_hr)');
+      const o = override || {};
+      const hasOverride = (o.hrIdx !== undefined && o.hrIdx !== null);
+
+      // Apply override indices (if provided)
+      if (o.tsIdx !== undefined && o.tsIdx !== null && o.tsIdx !== '') mapping.ts.idx = Number(o.tsIdx);
+      if (o.hrIdx !== undefined && o.hrIdx !== null && o.hrIdx !== '') mapping.hr.idx = Number(o.hrIdx);
+      if (o.rmssdIdx !== undefined && o.rmssdIdx !== null && o.rmssdIdx !== '') mapping.rmssd.idx = Number(o.rmssdIdx);
+      if (o.rmssdIdx === -1) mapping.rmssd.idx = -1;
+
+      if (mapping.hr.idx === -1) throw new Error('Could not detect HR column (select it in Manual Mapping)');
+
+      if (hasOverride) mapping.confidence = 100;
 
       const rows = [];
       for (let i = 1; i < linesRaw.length; i++) {
@@ -764,7 +805,8 @@
           headerNorm: header,
           mapping,
           unitFix,
-          mode
+          mode,
+          manual: !!hasOverride
         }
       };
     }
@@ -1104,39 +1146,121 @@
         let pendingText = null;
         let pendingMeta = null;
 
+        const mapPanel = document.getElementById('mapping-panel');
+        const mapTs = document.getElementById('map-ts');
+        const mapHr = document.getElementById('map-hr');
+        const mapHrv = document.getElementById('map-hrv');
+        const mapHint = document.getElementById('mapping-hint');
+
+        const optionHtml = (idx, label) => {
+          const safe = (label ?? '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          return `<option value="${idx}">${safe || ('Column ' + idx)}</option>`;
+        };
+
+        function fillSelect(selectEl, headerRaw, allowNone, noneLabel) {
+          if (!selectEl) return;
+          let html = '';
+          if (allowNone) html += `<option value="">${noneLabel || '(none)'}</option>`;
+          for (let i = 0; i < headerRaw.length; i++) html += optionHtml(i, headerRaw[i]);
+          selectEl.innerHTML = html;
+        }
+
+        function setDefaultMapping(analysis) {
+          const headerRaw = analysis.headerRaw || [];
+          fillSelect(mapTs, headerRaw, true, '(auto / none)');
+          fillSelect(mapHr, headerRaw, false);
+          fillSelect(mapHrv, headerRaw, true, '(none / HR-only)');
+
+          const m = analysis.mapping || {};
+          if (mapTs && m.ts?.idx >= 0) mapTs.value = String(m.ts.idx);
+          if (mapHr && m.hr?.idx >= 0) mapHr.value = String(m.hr.idx);
+          if (mapHrv && m.rmssd?.idx >= 0) mapHrv.value = String(m.rmssd.idx);
+        }
+
+        function readOverride() {
+          const hrIdx = mapHr ? Number(mapHr.value) : null;
+          const tsIdx = (mapTs && mapTs.value !== '') ? Number(mapTs.value) : null;
+          const rmssdIdx = (mapHrv && mapHrv.value !== '') ? Number(mapHrv.value) : -1;
+          return { tsIdx, hrIdx, rmssdIdx };
+        }
+
+        function shouldShowMapping(analysis, parseErr) {
+          const conf = analysis?.mapping?.confidence ?? 0;
+          const hrOk = (analysis?.mapping?.hr?.idx ?? -1) !== -1;
+          return !!parseErr || !hrOk || conf < 70;
+        }
+
+        function renderStatusFromParsed(file, parsed) {
+          const m = parsed.meta?.mapping;
+          const mapLine = `Mapping: ts=${m?.ts?.name || '—'} | hr=${m?.hr?.name || '—'} | hrv=${m?.rmssd?.name || '—'}`;
+          const modeLine = `Mode: ${parsed.meta?.mode === 'hr_only' ? 'HR-only (lower trust)' : 'HR+HRV'}`;
+          const unitLine = parsed.meta?.unitFix ? `Unit fix: ${parsed.meta.unitFix}` : 'Unit fix: none';
+          const confLine = `Mapping confidence: ${m?.confidence ?? 0}%`;
+          const manualLine = parsed.meta?.manual ? 'Manual mapping: ON' : 'Manual mapping: OFF';
+
+          document.getElementById('import-status').innerText =
+            `Ready: ${file.name} (${Math.round(file.size / 1024)} KB)\n` +
+            `Delimiter: ${parsed.meta?.delimiter}\n` +
+            `${confLine}\n` +
+            `${manualLine}\n` +
+            `${mapLine}\n` +
+            `${modeLine}\n` +
+            `${unitLine}\n` +
+            `Rows parsed: ${parsed.rows.length}`;
+        }
+
+
         document.getElementById('csv-file').addEventListener('change', async (e) => {
           const f = e.target.files?.[0];
           if (!f) return;
           pendingText = await f.text();
           pendingMeta = null;
 
+          // Always analyze header first so manual mapping can rescue failures
+          const analysis = analyzeCSV(pendingText);
+          setDefaultMapping(analysis);
+
+          let parseErr = null;
           try {
             const parsed = parseCSVGeneric(pendingText);
             pendingMeta = parsed.meta;
-
-            const m = parsed.meta?.mapping;
-            const mapLine = `Mapping: ts=${m?.ts?.name || '—'} | hr=${m?.hr?.name || '—'} | hrv=${m?.rmssd?.name || '—'}`;
-            const modeLine = `Mode: ${parsed.meta?.mode === 'hr_only' ? 'HR-only (lower trust)' : 'HR+HRV'}`;
-            const unitLine = parsed.meta?.unitFix ? `Unit fix: ${parsed.meta.unitFix}` : 'Unit fix: none';
-            const confLine = `Mapping confidence: ${m?.confidence ?? 0}%`;
-
-            document.getElementById('import-status').innerText =
-              `Ready: ${f.name} (${Math.round(f.size / 1024)} KB)\n` +
-              `Delimiter: ${parsed.meta?.delimiter}\n` +
-              `${confLine}\n` +
-              `${mapLine}\n` +
-              `${modeLine}\n` +
-              `${unitLine}\n` +
-              `Rows parsed: ${parsed.rows.length}`;
+            renderStatusFromParsed(f, parsed);
           } catch (err) {
-            document.getElementById('import-status').innerText = `File loaded but mapping failed: ${err.message}`;
+            parseErr = err;
+            document.getElementById('import-status').innerText = `Auto mapping failed: ${err.message}\nOpen Manual Mapping to select columns.`;
           }
+
+          const show = shouldShowMapping(analysis, parseErr);
+          if (mapPanel) mapPanel.classList.toggle('hidden', !show);
+          if (mapHint) {
+            const conf = analysis?.mapping?.confidence ?? 0;
+            mapHint.innerText = show
+              ? `Manual mapping suggested (confidence ${conf}%). Select HR column and retry.`
+              : `Auto mapping looks good (confidence ${conf}%).`;
+          }
+
+          const refreshFromManual = () => {
+            if (!pendingText) return;
+            try {
+              const override = readOverride();
+              const parsed = parseCSVGeneric(pendingText, override);
+              pendingMeta = parsed.meta;
+              renderStatusFromParsed(f, parsed);
+            } catch (err) {
+              document.getElementById('import-status').innerText = `Manual mapping failed: ${err.message}`;
+            }
+          };
+
+          if (mapTs) mapTs.onchange = refreshFromManual;
+          if (mapHr) mapHr.onchange = refreshFromManual;
+          if (mapHrv) mapHrv.onchange = refreshFromManual;
         });
 
         document.getElementById('btn-do-import').addEventListener('click', () => {
           try {
             if (!pendingText) throw new Error('No CSV loaded');
-            const { rows, meta } = parseCSVGeneric(pendingText);
+            const override = (mapPanel && !mapPanel.classList.contains('hidden')) ? readOverride() : null;
+            const { rows, meta } = parseCSVGeneric(pendingText, override);
             if (!rows || rows.length < 10) throw new Error('Need at least 10 valid rows');
 
             // Build TEI distribution
@@ -1161,7 +1285,7 @@
               windowDays: 30,
               importedAt: now.toISOString(),
               mode: meta.mode,
-              mappingConfidence: meta.mapping?.confidence ?? 0,
+              mappingConfidence: meta.manual ? 100 : (meta.mapping?.confidence ?? 0),
               delimiter: meta.delimiter,
               teiSorted: teiArr
             });
