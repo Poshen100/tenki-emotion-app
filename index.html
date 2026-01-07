@@ -495,6 +495,7 @@
         <div>
           <div class="text-[10px] text-cyan-400 font-bold uppercase tracking-[0.2em] mb-1">TEI / PR99</div>
           <div class="text-2xl font-bold text-white tracking-tight">Hybrid Sync Analysis</div>
+          <div id="baseline-long-readout" class="text-[9px] text-white/40 font-mono-tech tracking-widest mt-1">BASELINE: —</div>
         </div>
         <div class="text-right">
           <span id="confidence-val" class="text-2xl font-mono-tech text-white font-bold">0%</span>
@@ -672,6 +673,28 @@
           if (sortedArr[mid] <= x) lo = mid + 1; else hi = mid;
         }
         return Math.max(1, Math.min(99, Math.round((lo / sortedArr.length) * 100)));
+      }
+
+      // Approx windowing for MVP (Option B):
+      // - Today PR uses the imported distribution (usually ~30D).
+      // - Long-term PR uses the same distribution as proxy (label reflects windowDays).
+      // - Chronic stress detection is heuristic using a recent slice proxy.
+      computePrDual(base, tei) {
+        if (!base || !Number.isFinite(tei)) return { todayPr: null, longPr: null, chronic: false, longLabel: '—' };
+        const all = base.teiSorted;
+        if (!all || all.length < 10) return { todayPr: null, longPr: null, chronic: false, longLabel: '—' };
+
+        const todayPr = this.percentile(all, tei);
+
+        const longPr = this.percentile(all, tei);
+        const longLabel = `${base.windowDays || 30}D`;
+
+        const recentN = Math.max(10, Math.round(all.length * 0.25));
+        const recent = all.slice(Math.max(0, all.length - recentN));
+        const recentPr = this.percentile(recent, tei);
+        const chronic = Number.isFinite(recentPr) && Number.isFinite(longPr) && (recentPr <= 35) && (longPr - recentPr >= 15);
+
+        return { todayPr, longPr, chronic, longLabel };
       }
     };
 
@@ -955,12 +978,30 @@
         const b = Baseline.load();
         const el = document.getElementById('baseline-readout');
         if (!el) return;
-        if (!b) el.innerText = 'Baseline: Not imported';
+        if (!b) {
+          el.innerText = 'Baseline: Not imported';
+          const longEl = document.getElementById('baseline-long-readout');
+          if (longEl) longEl.innerText = 'BASELINE: —';
+        }
         else {
           const mode = b.mode === 'hr_only' ? 'HR-only' : 'HR+HRV';
           el.innerText = `Baseline: Imported (${b.samples} samples) • ${mode}`;
+          const longEl = document.getElementById('baseline-long-readout');
+          if (longEl) longEl.innerText = `BASELINE: ${b.windowDays || 30}D • ${mode}`;
         }
       },
+      hapticZone(pr) {
+        const bucket = (pr >= 80) ? 'peak' : (pr >= 55) ? 'optimal' : (pr >= 35) ? 'neutral' : 'degraded';
+        if (Engine.state.lastZoneBucket === bucket) return;
+        Engine.state.lastZoneBucket = bucket;
+        if (!navigator.vibrate) return;
+
+        if (bucket === 'peak') navigator.vibrate(12);
+        else if (bucket === 'optimal') {/* none */}
+        else if (bucket === 'neutral') navigator.vibrate([30, 40, 30]);
+        else navigator.vibrate([60, 50, 60, 50, 60]);
+      },
+
       setZone(pr) {
         const state = document.getElementById('dash-state');
         const label = document.getElementById('dash-label');
@@ -979,8 +1020,8 @@
           state.style.color = 'var(--zone-peak)';
           label.innerText = '⚠️ Reduce size / check overconfidence';
           guidance.innerText = 'Guidance: Peak = Overheat risk. Shrink size.';
-          if (!breathActive) timerMain.style.background = 'rgba(255,176,32,0.95)';
-          if (!breathActive) timerMain.style.color = 'black';
+          if (!breathActive) timerMain.style.background = 'rgba(255,184,77,0.95)';
+          if (!breathActive) timerMain.style.color = '#1f2937';
           if (!breathActive) timerSub.innerText = 'Peak Zone';
           if (!breathActive) timerIcon.setAttribute('data-lucide', 'timer');
         } else if (pr >= 55) {
@@ -988,8 +1029,8 @@
           state.style.color = 'var(--zone-optimal)';
           label.innerText = 'A+ Setup only';
           guidance.innerText = 'Guidance: Execute A+ only.';
-          if (!breathActive) timerMain.style.background = 'rgba(0,240,255,0.95)';
-          if (!breathActive) timerMain.style.color = 'black';
+          if (!breathActive) timerMain.style.background = 'rgba(0,217,255,0.95)';
+          if (!breathActive) timerMain.style.color = 'white';
           if (!breathActive) timerSub.innerText = 'Optimal Zone';
           if (!breathActive) timerIcon.setAttribute('data-lucide', 'timer');
         } else if (pr >= 35) {
@@ -997,21 +1038,22 @@
           state.style.color = 'var(--zone-neutral)';
           label.innerText = 'Confirm-only trades + strict stop';
           guidance.innerText = 'Guidance: Confirm-only. Breath pulse recommended.';
-          if (!breathActive) timerMain.style.background = 'rgba(220,220,220,0.92)';
-          if (!breathActive) timerMain.style.color = 'black';
-          if (!breathActive) timerSub.innerText = 'Pulse';
+          if (!breathActive) timerMain.style.background = 'rgba(224,224,224,0.92)';
+          if (!breathActive) timerMain.style.color = '#1f2937';
+          if (!breathActive) timerSub.innerText = 'Neutral';
           if (!breathActive) timerIcon.setAttribute('data-lucide', 'wind');
         } else {
           state.innerText = 'Degraded Zone';
           state.style.color = 'var(--zone-degraded)';
           label.innerText = 'LOCK TRADING → Breathing reset';
           guidance.innerText = 'Guidance: Lock trading. Reset first.';
-          if (!breathActive) timerMain.style.background = 'rgba(90,0,255,0.92)';
-          if (!breathActive) timerMain.style.color = 'white';
-          if (!breathActive) timerSub.innerText = 'Reset';
+          if (!breathActive) timerMain.style.background = 'rgba(94,58,145,0.92)';
+          if (!breathActive) timerMain.style.color = '#d7bff5';
+          if (!breathActive) timerSub.innerText = 'Recovery';
           if (!breathActive) timerIcon.setAttribute('data-lucide', 'shield-ban');
         }
 
+        this.hapticZone(pr);
         lucide.createIcons();
       }
     };
@@ -1055,7 +1097,8 @@
         tier: 3,
         timer: { running: false, endAt: 0, remainingMs: 25 * 60 * 1000 },
         breath: { active: false, endAt: 0, remainingMs: 3 * 60 * 1000, startRmssd: null, simInterval: null },
-        timerWidget: { dragging: false, dx: 0, dy: 0 }
+        timerWidget: { dragging: false, dx: 0, dy: 0 },
+        lastZoneBucket: null
       },
       audioCtx: null,
       analyser: null,
@@ -1124,20 +1167,30 @@
 
         if (base.mode === 'hr_only') {
           const tei = computeTeiProxyHrOnly(bpmNow);
-          const pr = Baseline.percentile(base.teiSorted, tei);
-          if (pr != null) {
-            document.getElementById('dash-score').innerText = String(pr).padStart(2, '0');
-            UI.setZone(pr);
+          const dual = Baseline.computePrDual(base, tei);
+          if (dual.todayPr != null) {
+            document.getElementById('dash-score').innerText = String(dual.todayPr).padStart(2, '0');
+            UI.setZone(dual.todayPr);
+
+            const longEl = document.getElementById('baseline-long-readout');
+            if (longEl && dual.longPr != null) longEl.innerText = `TEI: PR ${dual.todayPr} (Today) vs Baseline: PR ${dual.longPr} (${dual.longLabel})`;
+
+            if (dual.chronic) document.getElementById('dash-quote').innerText = '⚠️ Chronic stress detected (proxy). Consider rest + baseline refresh.';
           }
           return;
         }
 
         if (Number.isFinite(rmNow)) {
           const tei = computeTeiProxy(bpmNow, rmNow);
-          const pr = Baseline.percentile(base.teiSorted, tei);
-          if (pr != null) {
-            document.getElementById('dash-score').innerText = String(pr).padStart(2, '0');
-            UI.setZone(pr);
+          const dual = Baseline.computePrDual(base, tei);
+          if (dual.todayPr != null) {
+            document.getElementById('dash-score').innerText = String(dual.todayPr).padStart(2, '0');
+            UI.setZone(dual.todayPr);
+
+            const longEl = document.getElementById('baseline-long-readout');
+            if (longEl && dual.longPr != null) longEl.innerText = `TEI: PR ${dual.todayPr} (Today) vs Baseline: PR ${dual.longPr} (${dual.longLabel})`;
+
+            if (dual.chronic) document.getElementById('dash-quote').innerText = '⚠️ Chronic stress detected (proxy). Consider rest + baseline refresh.';
           }
         }
       },
@@ -1831,9 +1884,14 @@
           const tei = (base.mode === 'hr_only' || !Number.isFinite(rmssd))
             ? computeTeiProxyHrOnly(bpm)
             : computeTeiProxy(bpm, rmssd);
-          const pr = Baseline.percentile(base.teiSorted, tei) || 50;
+          const dual = Baseline.computePrDual(base, tei);
+          const pr = dual.todayPr || 50;
           document.getElementById('dash-score').innerText = String(pr).padStart(2, '0');
           UI.setZone(pr);
+
+          const longEl = document.getElementById('baseline-long-readout');
+          if (longEl && dual.longPr != null) longEl.innerText = `TEI: PR ${dual.todayPr} (Today) vs Baseline: PR ${dual.longPr} (${dual.longLabel})`;
+          if (dual.chronic) document.getElementById('dash-quote').innerText = '⚠️ Chronic stress detected (proxy). Consider rest + baseline refresh.';
         } else {
           const pr = Math.max(1, Math.min(99, Math.round(40 + Math.random() * 40)));
           document.getElementById('dash-score').innerText = String(pr).padStart(2, '0');
