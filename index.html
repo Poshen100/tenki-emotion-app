@@ -675,24 +675,21 @@
         return Math.max(1, Math.min(99, Math.round((lo / sortedArr.length) * 100)));
       }
 
-      // Approx windowing for MVP (Option B):
-      // - Today PR uses the imported distribution (usually ~30D).
-      // - Long-term PR uses the same distribution as proxy (label reflects windowDays).
-      // - Chronic stress detection is heuristic using a recent slice proxy.
       computePrDual(base, tei) {
         if (!base || !Number.isFinite(tei)) return { todayPr: null, longPr: null, chronic: false, longLabel: '—' };
-        const all = base.teiSorted;
-        if (!all || all.length < 10) return { todayPr: null, longPr: null, chronic: false, longLabel: '—' };
 
-        const todayPr = this.percentile(all, tei);
+        const shortArr = base.tei7Sorted || base.teiSorted;
+        const longArr = base.tei90Sorted || base.teiSorted;
+        if (!shortArr || shortArr.length < 10 || !longArr || longArr.length < 10) {
+          return { todayPr: null, longPr: null, chronic: false, longLabel: '—' };
+        }
 
-        const longPr = this.percentile(all, tei);
-        const longLabel = `${base.windowDays || 30}D`;
+        const todayPr = this.percentile(shortArr, tei);
+        const longPr = this.percentile(longArr, tei);
+        const longLabel = `${base.windowDaysLong || 90}D`;
 
-        const recentN = Math.max(10, Math.round(all.length * 0.25));
-        const recent = all.slice(Math.max(0, all.length - recentN));
-        const recentPr = this.percentile(recent, tei);
-        const chronic = Number.isFinite(recentPr) && Number.isFinite(longPr) && (recentPr <= 35) && (longPr - recentPr >= 15);
+        // Chronic stress: today low + meaningfully below long-term.
+        const chronic = Number.isFinite(todayPr) && Number.isFinite(longPr) && (todayPr <= 35) && (longPr - todayPr >= 15);
 
         return { todayPr, longPr, chronic, longLabel };
       }
@@ -987,7 +984,7 @@
           const mode = b.mode === 'hr_only' ? 'HR-only' : 'HR+HRV';
           el.innerText = `Baseline: Imported (${b.samples} samples) • ${mode}`;
           const longEl = document.getElementById('baseline-long-readout');
-          if (longEl) longEl.innerText = `BASELINE: ${b.windowDays || 30}D • ${mode}`;
+          if (longEl) longEl.innerText = `BASELINE: ${b.windowDaysShort || 7}D/${b.windowDaysLong || 90}D • ${mode}`;
         }
       },
       hapticZone(pr) {
@@ -1173,7 +1170,7 @@
             UI.setZone(dual.todayPr);
 
             const longEl = document.getElementById('baseline-long-readout');
-            if (longEl && dual.longPr != null) longEl.innerText = `TEI: PR ${dual.todayPr} (Today) vs Baseline: PR ${dual.longPr} (${dual.longLabel})`;
+            if (longEl && dual.longPr != null) longEl.innerText = `TEI: PR ${dual.todayPr} (7D) vs Baseline: PR ${dual.longPr} (${dual.longLabel})`;
 
             if (dual.chronic) document.getElementById('dash-quote').innerText = '⚠️ Chronic stress detected (proxy). Consider rest + baseline refresh.';
           }
@@ -1188,7 +1185,7 @@
             UI.setZone(dual.todayPr);
 
             const longEl = document.getElementById('baseline-long-readout');
-            if (longEl && dual.longPr != null) longEl.innerText = `TEI: PR ${dual.todayPr} (Today) vs Baseline: PR ${dual.longPr} (${dual.longLabel})`;
+            if (longEl && dual.longPr != null) longEl.innerText = `TEI: PR ${dual.todayPr} (7D) vs Baseline: PR ${dual.longPr} (${dual.longLabel})`;
 
             if (dual.chronic) document.getElementById('dash-quote').innerText = '⚠️ Chronic stress detected (proxy). Consider rest + baseline refresh.';
           }
@@ -1341,11 +1338,16 @@
             const now = new Date();
             Baseline.save({
               samples: teiArr.length,
-              windowDays: 30,
+              windowDaysShort: 7,
+              windowDaysLong: 90,
               importedAt: now.toISOString(),
               mode: meta.mode,
               mappingConfidence: meta.manual ? 100 : (meta.mapping?.confidence ?? 0),
               delimiter: meta.delimiter,
+              // Distribution: long-term = full import; short-term = last slice proxy.
+              tei90Sorted: teiArr,
+              tei7Sorted: teiArr.slice(Math.max(0, teiArr.length - Math.max(10, Math.round(teiArr.length * 0.25)))),
+              // Backward compat
               teiSorted: teiArr
             });
 
@@ -1890,7 +1892,7 @@
           UI.setZone(pr);
 
           const longEl = document.getElementById('baseline-long-readout');
-          if (longEl && dual.longPr != null) longEl.innerText = `TEI: PR ${dual.todayPr} (Today) vs Baseline: PR ${dual.longPr} (${dual.longLabel})`;
+          if (longEl && dual.longPr != null) longEl.innerText = `TEI: PR ${dual.todayPr} (7D) vs Baseline: PR ${dual.longPr} (${dual.longLabel})`;
           if (dual.chronic) document.getElementById('dash-quote').innerText = '⚠️ Chronic stress detected (proxy). Consider rest + baseline refresh.';
         } else {
           const pr = Math.max(1, Math.min(99, Math.round(40 + Math.random() * 40)));
