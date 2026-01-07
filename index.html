@@ -1165,6 +1165,96 @@
             app.renderer.setSize(window.innerWidth, window.innerHeight);
         };
     </script>
+    <script>
+  // 建立 Workers（檔名要跟你剛剛建的檔案一樣）
+  const visionWorker = new Worker('vision-worker.js');
+  const mathWorker = new Worker('math-worker.js');
+
+  let frameId = 0;
+
+  // 這是你已經有的 video 元素
+  const videoEl = document.getElementById('input-video');
+  const lightCanvas = document.getElementById('light-analysis-canvas');
+  const lightCtx = lightCanvas.getContext('2d', { willReadFrequently: true });
+
+  // 每一幀，把畫面擷取成 imageData 丟給 visionWorker
+  function sendFrameToWorker() {
+    if (!videoEl || videoEl.readyState !== 4) {
+      requestAnimationFrame(sendFrameToWorker);
+      return;
+    }
+
+    const w = lightCanvas.width;
+    const h = lightCanvas.height;
+    lightCtx.drawImage(videoEl, 0, 0, w, h);
+    const imageData = lightCtx.getImageData(0, 0, w, h);
+
+    visionWorker.postMessage({
+      type: 'FRAME_DATA',
+      payload: {
+        imageData,
+        faceBox: null, // 先用 null，之後要再接 Mediapipe 臉框
+        timestamp: Date.now(),
+        frameId: frameId++
+      }
+    });
+
+    requestAnimationFrame(sendFrameToWorker);
+  }
+
+  // 啟動攝影機後，呼叫 sendFrameToWorker()
+  // 你原本 startSensors / 啟動相機的地方，最後加上：
+  // requestAnimationFrame(sendFrameToWorker);
+
+  // 每秒跟 visionWorker 拿一次 buffer，用來算 HR/HRV/RR
+  visionWorker.addEventListener('message', (event) => {
+    const { type, payload } = event.data;
+
+    if (type === 'VISION_STATUS') {
+      const lux = payload.roiMetrics.luma_mean || 80;
+      app.state.envLux = Math.min(100, (lux / 255) * 100);
+      app.updateEnvUI(app.state.envLux, app.state.deviceMotion || 0);
+    }
+
+    if (type === 'SIGNAL_BUFFER') {
+      const signalBuffer = payload.buffer;
+
+      const envMetrics = {
+        roi_luma_mean: app.state.envLux || 80,
+        motion: app.state.deviceMotion || 0
+      };
+
+      mathWorker.postMessage({
+        type: 'COMPUTE_METRICS',
+        payload: { signalBuffer, envMetrics }
+      });
+    }
+  });
+
+  // 每 1000ms 向 visionWorker 要一次 buffer
+  setInterval(() => {
+    visionWorker.postMessage({ type: 'GET_SIGNAL_BUFFER' });
+  }, 1000);
+
+  mathWorker.addEventListener('message', (event) => {
+    const { type, payload } = event.data;
+    if (type === 'METRICS_COMPUTED') {
+      const { hr_bpm, hrv_rmssd_ms, rr_brpm, sqs, sqs_grade } = payload;
+
+      // 更新你的 UI：bpm / HRV / 信心
+      const bpmEl = document.getElementById('bpm-val');
+      const hrvEl = document.getElementById('hrv-val');
+      const confEl = document.getElementById('confidence-val');
+
+      if (bpmEl && hr_bpm) bpmEl.textContent = Math.round(hr_bpm);
+      if (hrvEl && hrv_rmssd_ms) hrvEl.textContent = Math.round(hrv_rmssd_ms);
+      if (confEl && sqs != null) confEl.textContent = sqs + '%';
+
+      app.state.sqs_grade = sqs_grade;
+    }
+  });
+</script>
+
 </body>
 </html>
 <!-- Workers -->
