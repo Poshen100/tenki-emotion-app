@@ -971,44 +971,45 @@
         const timerSub = document.getElementById('timer-sub');
         const timerIcon = document.getElementById('timer-icon');
 
-        if (timerText.innerText === 'BREATH') timerText.innerText = '25:00';
+        const breathActive = document.body.dataset.breathActive === '1';
+        if (!breathActive && timerText.innerText === 'BREATH') timerText.innerText = '25:00';
 
         if (pr >= 80) {
           state.innerText = 'Peak Zone';
           state.style.color = 'var(--zone-peak)';
           label.innerText = '⚠️ Reduce size / check overconfidence';
           guidance.innerText = 'Guidance: Peak = Overheat risk. Shrink size.';
-          timerMain.style.background = 'rgba(255,176,32,0.95)';
-          timerMain.style.color = 'black';
-          timerSub.innerText = 'Peak Zone';
-          timerIcon.setAttribute('data-lucide', 'timer');
+          if (!breathActive) timerMain.style.background = 'rgba(255,176,32,0.95)';
+          if (!breathActive) timerMain.style.color = 'black';
+          if (!breathActive) timerSub.innerText = 'Peak Zone';
+          if (!breathActive) timerIcon.setAttribute('data-lucide', 'timer');
         } else if (pr >= 55) {
           state.innerText = 'Optimal Zone';
           state.style.color = 'var(--zone-optimal)';
           label.innerText = 'A+ Setup only';
           guidance.innerText = 'Guidance: Execute A+ only.';
-          timerMain.style.background = 'rgba(0,240,255,0.95)';
-          timerMain.style.color = 'black';
-          timerSub.innerText = 'Optimal Zone';
-          timerIcon.setAttribute('data-lucide', 'timer');
+          if (!breathActive) timerMain.style.background = 'rgba(0,240,255,0.95)';
+          if (!breathActive) timerMain.style.color = 'black';
+          if (!breathActive) timerSub.innerText = 'Optimal Zone';
+          if (!breathActive) timerIcon.setAttribute('data-lucide', 'timer');
         } else if (pr >= 35) {
           state.innerText = 'Neutral Zone';
           state.style.color = 'var(--zone-neutral)';
           label.innerText = 'Confirm-only trades + strict stop';
           guidance.innerText = 'Guidance: Confirm-only. Breath pulse recommended.';
-          timerMain.style.background = 'rgba(220,220,220,0.92)';
-          timerMain.style.color = 'black';
-          timerSub.innerText = 'Pulse';
-          timerIcon.setAttribute('data-lucide', 'wind');
+          if (!breathActive) timerMain.style.background = 'rgba(220,220,220,0.92)';
+          if (!breathActive) timerMain.style.color = 'black';
+          if (!breathActive) timerSub.innerText = 'Pulse';
+          if (!breathActive) timerIcon.setAttribute('data-lucide', 'wind');
         } else {
           state.innerText = 'Degraded Zone';
           state.style.color = 'var(--zone-degraded)';
           label.innerText = 'LOCK TRADING → Breathing reset';
           guidance.innerText = 'Guidance: Lock trading. Reset first.';
-          timerMain.style.background = 'rgba(90,0,255,0.92)';
-          timerMain.style.color = 'white';
-          timerSub.innerText = 'Reset';
-          timerIcon.setAttribute('data-lucide', 'shield-ban');
+          if (!breathActive) timerMain.style.background = 'rgba(90,0,255,0.92)';
+          if (!breathActive) timerMain.style.color = 'white';
+          if (!breathActive) timerSub.innerText = 'Reset';
+          if (!breathActive) timerIcon.setAttribute('data-lucide', 'shield-ban');
         }
 
         lucide.createIcons();
@@ -1053,6 +1054,7 @@
         physio: { bpm: null, rmssd: null, source: 'camera' },
         tier: 3,
         timer: { running: false, endAt: 0, remainingMs: 25 * 60 * 1000 },
+        breath: { active: false, endAt: 0, remainingMs: 3 * 60 * 1000, startRmssd: null, simInterval: null },
         timerWidget: { dragging: false, dx: 0, dy: 0 }
       },
       audioCtx: null,
@@ -1092,6 +1094,10 @@
             if (Number.isFinite(m.hrBpm)) UI.setBpm(m.hrBpm);
             if (Number.isFinite(m.rmssd)) UI.setRmssd(m.rmssd);
             this.updatePhysio({ bpm: m.hrBpm, rmssd: m.rmssd, source: 'rppg' });
+          } else if (this.state.tier === 2) {
+            // Wearable provides BPM; use rPPG as HRV proxy when RR-interval not available
+            if (Number.isFinite(m.rmssd)) UI.setRmssd(m.rmssd);
+            this.updatePhysio({ rmssd: m.rmssd, source: 'rppg_proxy' });
           }
           if (Number.isFinite(m.sqs)) {
             document.getElementById('confidence-val').innerText = Math.round(m.sqs) + '%';
@@ -1380,15 +1386,16 @@
         toggleBtn.addEventListener('click', () => {
           const pr = parseInt(document.getElementById('dash-score').innerText) || 0;
           if (pr < 55) {
-            if (navigator.vibrate) navigator.vibrate([200, 80, 200, 80, 200]);
-            document.getElementById('dash-quote').innerText = 'Breath reset: 4s inhale • 6s exhale';
-            document.getElementById('timer-text').innerText = 'BREATH';
+            // Degraded/Neutral: turn Action Dock into Breath Sync (3 min)
+            if (this.state.breath.active) this.stopBreathSync(false);
+            else this.startBreathSync(3 * 60 * 1000);
             return;
           }
           this.toggleTimer();
         });
 
         resetBtn.addEventListener('click', () => {
+          this.stopBreathSync(false);
           this.state.timer.running = false;
           this.state.timer.remainingMs = 25 * 60 * 1000;
           document.getElementById('timer-text').innerText = '25:00';
@@ -1397,6 +1404,8 @@
         });
 
         setInterval(() => {
+          if (this.state.breath.active) this.tickBreathSync();
+
           if (!this.state.timer.running) return;
           const now = Date.now();
           this.state.timer.remainingMs = Math.max(0, this.state.timer.endAt - now);
@@ -1425,6 +1434,84 @@
           if (navigator.vibrate) navigator.vibrate(10);
         }
       },
+
+      startBreathSync(durationMs) {
+        const b = this.state.breath;
+        b.active = true;
+        b.remainingMs = Number.isFinite(durationMs) ? durationMs : (3 * 60 * 1000);
+        b.endAt = Date.now() + b.remainingMs;
+        b.startRmssd = Number.isFinite(this.state.physio.rmssd) ? this.state.physio.rmssd : null;
+
+        document.body.dataset.breathActive = '1';
+        document.getElementById('dash-quote').innerText = 'Breath Sync Active • 3 min reset running';
+        document.getElementById('timer-icon').setAttribute('data-lucide', 'wind');
+        lucide.createIcons();
+        if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
+
+        // If no RR-interval RMSSD, run rPPG worker as HRV proxy (simulation for MVP)
+        if (BLE.tier !== 1 && this.rppgWorker) {
+          try { this.rppgWorker.postMessage({ type: 'start' }); } catch {}
+          if (b.simInterval) { try { clearInterval(b.simInterval); } catch {} }
+          b.simInterval = setInterval(() => {
+            try {
+              this.rppgWorker.postMessage({
+                type: 'frame',
+                t: performance.now(),
+                r: 128 + Math.round(Math.random() * 40),
+                g: 128 + Math.round(Math.random() * 40),
+                b: 128 + Math.round(Math.random() * 40)
+              });
+            } catch {}
+          }, 200);
+        }
+      },
+
+      stopBreathSync(completed) {
+        const b = this.state.breath;
+        if (b.simInterval) { try { clearInterval(b.simInterval); } catch {} }
+        b.simInterval = null;
+        if (this.rppgWorker) { try { this.rppgWorker.postMessage({ type: 'stop' }); } catch {} }
+        b.active = false;
+        b.remainingMs = 3 * 60 * 1000;
+        b.endAt = 0;
+        b.startRmssd = null;
+
+        document.body.dataset.breathActive = '0';
+
+        const pr = parseInt(document.getElementById('dash-score').innerText) || 0;
+        UI.setZone(pr);
+        if (completed) {
+          document.getElementById('dash-quote').innerText = 'Breath Sync completed. Re-check PR before trading.';
+          if (navigator.vibrate) navigator.vibrate([50, 50, 160]);
+        } else {
+          document.getElementById('dash-quote').innerText = 'Breath Sync stopped.';
+          if (navigator.vibrate) navigator.vibrate(10);
+        }
+      },
+
+      tickBreathSync() {
+        const b = this.state.breath;
+        const now = Date.now();
+        b.remainingMs = Math.max(0, b.endAt - now);
+
+        const mm = Math.floor(b.remainingMs / 60000);
+        const ss = Math.floor((b.remainingMs % 60000) / 1000);
+        document.getElementById('timer-text').innerText = String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
+
+        const cur = Number.isFinite(this.state.physio.rmssd) ? this.state.physio.rmssd : null;
+        if (b.startRmssd == null && Number.isFinite(cur)) b.startRmssd = cur;
+
+        let deltaText = '--';
+        if (Number.isFinite(cur) && Number.isFinite(b.startRmssd)) {
+          const d = cur - b.startRmssd;
+          const sign = d >= 0 ? '+' : '';
+          deltaText = sign + Math.round(d) + 'ms';
+        }
+        document.getElementById('timer-sub').innerText = 'HRV Δ ' + deltaText;
+
+        if (b.remainingMs === 0) this.stopBreathSync(true);
+      },
+
 
       initEnvironment() {
         const c = document.getElementById('light-analysis-canvas');
