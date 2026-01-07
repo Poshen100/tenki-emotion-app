@@ -617,12 +617,12 @@
     <div class="modal">
       <div class="modal-title">INSTANT BASELINE IMPORT</div>
       <div class="modal-body">
-        <div class="text-white/80 text-[12px]">支援簡化 CSV（建議 30 天）。欄位：<span class="text-cyan-300">timestamp,rhr,rmssd</span>。</div>
-        <div class="text-white/50 text-[11px] mt-2">示例：2026-01-01,58,62</div>
+        <div class="text-white/80 text-[12px]">通用 CSV 自動辨識（逗號 / 分號 / Tab）。建議 30 天、至少 10 筆。<span class="text-cyan-300">支援欄位別名</span>（timestamp/date/time、rhr/hr/bpm、rmssd/hrv）。</div>
+        <div class="text-white/50 text-[11px] mt-2">如果只有 HR 沒有 HRV，也可以建立 <span class="text-cyan-300">HR-only baseline</span>（PR99 可信度較低）。</div>
         <div class="mt-3">
           <input id="csv-file" type="file" accept=".csv,text/csv" class="pointer-events-auto text-[12px]" />
         </div>
-        <div class="text-[11px] text-white/50 mt-2" id="import-status">No file selected.</div>
+        <div class="text-[11px] text-white/60 mt-3 whitespace-pre-line" id="import-status">No file selected.</div>
       </div>
       <div class="modal-actions">
         <button id="btn-close-modal" class="btn">Close</button>
@@ -656,23 +656,117 @@
       }
     };
 
-    function parseCSV(text) {
-      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      if (lines.length < 2) return [];
-      const header = lines[0].split(',').map(s => s.trim().toLowerCase());
-      const ti = header.indexOf('timestamp');
-      const ri = header.indexOf('rhr');
-      const mi = header.indexOf('rmssd');
-      if (ti === -1 || ri === -1 || mi === -1) throw new Error('CSV header must include timestamp,rhr,rmssd');
-      const rows = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(s => s.trim());
-        const rhr = Number(cols[ri]);
-        const rmssd = Number(cols[mi]);
-        if (!Number.isFinite(rhr) || !Number.isFinite(rmssd)) continue;
-        rows.push({ ts: cols[ti], rhr, rmssd });
+    function normalizeHeader(s) {
+      return String(s || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\([^\)]*\)/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .replace(/_+/g, '_');
+    }
+
+    function detectDelimiter(firstLine) {
+      const c = (firstLine.match(/,/g) || []).length;
+      const s = (firstLine.match(/;/g) || []).length;
+      const t = (firstLine.match(/\t/g) || []).length;
+      if (t >= c && t >= s && t > 0) return '\t';
+      if (s >= c && s > 0) return ';';
+      return ',';
+    }
+
+    function scoreHeaderMatch(h, aliases) {
+      if (!h) return 0;
+      if (aliases.includes(h)) return 1.0;
+      // contains match
+      for (const a of aliases) {
+        if (h.includes(a)) return 0.7;
       }
-      return rows;
+      return 0;
+    }
+
+    function inferMapping(headersNorm) {
+      const TS = ['timestamp','time','date','datetime','start_time','recorded_time'];
+      const RHR = ['rhr','resting_hr','resting_heart_rate','restingheartrate','resting_bpm'];
+      const HR = ['hr','heart_rate','heartrate','bpm','pulse'];
+      const RMSSD = ['rmssd','hrv_rmssd','hrv'];
+
+      const findBest = (aliases) => {
+        let best = { idx: -1, conf: 0, name: null };
+        for (let i = 0; i < headersNorm.length; i++) {
+          const conf = scoreHeaderMatch(headersNorm[i], aliases);
+          if (conf > best.conf) best = { idx: i, conf, name: headersNorm[i] };
+        }
+        return best;
+      };
+
+      const ts = findBest(TS);
+      const rhr = findBest(RHR);
+      const hr = findBest(HR);
+      const rmssd = findBest(RMSSD);
+
+      // choose HR column: prefer RHR if present
+      const chosenHR = (rhr.conf >= 0.7) ? rhr : hr;
+
+      const overall = Math.round(((ts.conf + chosenHR.conf + rmssd.conf) / 3) * 100);
+      return {
+        ts, hr: chosenHR, rmssd,
+        confidence: Number.isFinite(overall) ? overall : 0
+      };
+    }
+
+    function safeNumber(x) {
+      const n = Number(String(x ?? '').replace(/[^0-9.+-]/g, ''));
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function parseCSVGeneric(text) {
+      const linesRaw = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (linesRaw.length < 2) return { rows: [], meta: { reason: 'empty' } };
+
+      const delim = detectDelimiter(linesRaw[0]);
+      const headerRaw = linesRaw[0].split(delim).map(s => s.trim());
+      const header = headerRaw.map(normalizeHeader);
+      const mapping = inferMapping(header);
+
+      if (mapping.hr.idx === -1) throw new Error('Could not detect HR column (try naming it hr/bpm/resting_hr)');
+
+      const rows = [];
+      for (let i = 1; i < linesRaw.length; i++) {
+        const cols = linesRaw[i].split(delim);
+        const hr = safeNumber(cols[mapping.hr.idx]);
+        const rm = (mapping.rmssd.idx !== -1) ? safeNumber(cols[mapping.rmssd.idx]) : null;
+        if (!Number.isFinite(hr)) continue;
+        rows.push({
+          ts: (mapping.ts.idx !== -1) ? (cols[mapping.ts.idx] || '').trim() : '',
+          rhr: hr,
+          rmssd: rm
+        });
+      }
+
+      // unit inference for rmssd: if looks like seconds, convert to ms
+      let unitFix = null;
+      const rmList = rows.map(r => r.rmssd).filter(v => Number.isFinite(v));
+      if (rmList.length > 0) {
+        const avg = rmList.reduce((a,b) => a + b, 0) / rmList.length;
+        if (avg > 0 && avg < 5) {
+          for (const r of rows) if (Number.isFinite(r.rmssd)) r.rmssd = r.rmssd * 1000;
+          unitFix = 'rmssd_seconds_to_ms';
+        }
+      }
+
+      const mode = rmList.length >= 10 ? 'hr_rmssd' : 'hr_only';
+      return {
+        rows,
+        meta: {
+          delimiter: delim === '\t' ? 'TAB' : delim,
+          headerRaw,
+          headerNorm: header,
+          mapping,
+          unitFix,
+          mode
+        }
+      };
     }
 
     function computeTeiProxy(rhr, rmssd) {
@@ -681,6 +775,12 @@
       const rmN = (rm - 5) / (140 - 5);
       const hrN = 1 - ((hr - 35) / (110 - 35));
       return Math.round((rmN * 0.7 + hrN * 0.3) * 100);
+    }
+
+    function computeTeiProxyHrOnly(rhr) {
+      const hr = Math.max(35, Math.min(110, rhr));
+      const hrN = 1 - ((hr - 35) / (110 - 35));
+      return Math.round(hrN * 100);
     }
 
     // ----------------------------
@@ -814,7 +914,10 @@
         const el = document.getElementById('baseline-readout');
         if (!el) return;
         if (!b) el.innerText = 'Baseline: Not imported';
-        else el.innerText = `Baseline: Imported (${b.samples} samples) • Window: ${b.windowDays}d`;
+        else {
+          const mode = b.mode === 'hr_only' ? 'HR-only' : 'HR+HRV';
+          el.innerText = `Baseline: Imported (${b.samples} samples) • ${mode}`;
+        }
       },
       setZone(pr) {
         const state = document.getElementById('dash-state');
@@ -826,7 +929,6 @@
         const timerSub = document.getElementById('timer-sub');
         const timerIcon = document.getElementById('timer-icon');
 
-        // Default timer text
         if (timerText.innerText === 'BREATH') timerText.innerText = '25:00';
 
         if (pr >= 80) {
@@ -967,8 +1069,23 @@
         UI.setTier(this.state.tier);
 
         const base = Baseline.load();
-        if (base && Number.isFinite(this.state.physio.bpm) && Number.isFinite(this.state.physio.rmssd)) {
-          const tei = computeTeiProxy(this.state.physio.bpm, this.state.physio.rmssd);
+        if (!base || !Number.isFinite(this.state.physio.bpm)) return;
+
+        const bpmNow = this.state.physio.bpm;
+        const rmNow = this.state.physio.rmssd;
+
+        if (base.mode === 'hr_only') {
+          const tei = computeTeiProxyHrOnly(bpmNow);
+          const pr = Baseline.percentile(base.teiSorted, tei);
+          if (pr != null) {
+            document.getElementById('dash-score').innerText = String(pr).padStart(2, '0');
+            UI.setZone(pr);
+          }
+          return;
+        }
+
+        if (Number.isFinite(rmNow)) {
+          const tei = computeTeiProxy(bpmNow, rmNow);
           const pr = Baseline.percentile(base.teiSorted, tei);
           if (pr != null) {
             document.getElementById('dash-score').innerText = String(pr).padStart(2, '0');
@@ -985,33 +1102,73 @@
         document.getElementById('modal-backdrop').addEventListener('click', (e) => { if (e.target.id === 'modal-backdrop') close(); });
 
         let pendingText = null;
+        let pendingMeta = null;
+
         document.getElementById('csv-file').addEventListener('change', async (e) => {
           const f = e.target.files?.[0];
           if (!f) return;
           pendingText = await f.text();
-          document.getElementById('import-status').innerText = `Ready: ${f.name} (${Math.round(f.size / 1024)} KB)`;
+          pendingMeta = null;
+
+          try {
+            const parsed = parseCSVGeneric(pendingText);
+            pendingMeta = parsed.meta;
+
+            const m = parsed.meta?.mapping;
+            const mapLine = `Mapping: ts=${m?.ts?.name || '—'} | hr=${m?.hr?.name || '—'} | hrv=${m?.rmssd?.name || '—'}`;
+            const modeLine = `Mode: ${parsed.meta?.mode === 'hr_only' ? 'HR-only (lower trust)' : 'HR+HRV'}`;
+            const unitLine = parsed.meta?.unitFix ? `Unit fix: ${parsed.meta.unitFix}` : 'Unit fix: none';
+            const confLine = `Mapping confidence: ${m?.confidence ?? 0}%`;
+
+            document.getElementById('import-status').innerText =
+              `Ready: ${f.name} (${Math.round(f.size / 1024)} KB)\n` +
+              `Delimiter: ${parsed.meta?.delimiter}\n` +
+              `${confLine}\n` +
+              `${mapLine}\n` +
+              `${modeLine}\n` +
+              `${unitLine}\n` +
+              `Rows parsed: ${parsed.rows.length}`;
+          } catch (err) {
+            document.getElementById('import-status').innerText = `File loaded but mapping failed: ${err.message}`;
+          }
         });
 
         document.getElementById('btn-do-import').addEventListener('click', () => {
           try {
             if (!pendingText) throw new Error('No CSV loaded');
-            const rows = parseCSV(pendingText);
-            if (rows.length < 10) throw new Error('Need at least 10 rows');
+            const { rows, meta } = parseCSVGeneric(pendingText);
+            if (!rows || rows.length < 10) throw new Error('Need at least 10 valid rows');
 
-            const teiArr = rows.map(r => computeTeiProxy(r.rhr, r.rmssd)).sort((a, b) => a - b);
+            // Build TEI distribution
+            let teiArr = [];
+            if (meta.mode === 'hr_only') {
+              teiArr = rows
+                .map(r => computeTeiProxyHrOnly(r.rhr))
+                .filter(v => Number.isFinite(v))
+                .sort((a, b) => a - b);
+            } else {
+              teiArr = rows
+                .filter(r => Number.isFinite(r.rhr) && Number.isFinite(r.rmssd))
+                .map(r => computeTeiProxy(r.rhr, r.rmssd))
+                .sort((a, b) => a - b);
+            }
+
+            if (teiArr.length < 10) throw new Error('Not enough usable samples after cleaning');
+
             const now = new Date();
-            const minTs = rows[rows.length - 1]?.ts || '';
-
             Baseline.save({
-              samples: rows.length,
+              samples: teiArr.length,
               windowDays: 30,
               importedAt: now.toISOString(),
-              minTs,
+              mode: meta.mode,
+              mappingConfidence: meta.mapping?.confidence ?? 0,
+              delimiter: meta.delimiter,
               teiSorted: teiArr
             });
 
             UI.setBaselineReadout();
-            document.getElementById('import-status').innerText = `Imported ${rows.length} rows.`;
+            document.getElementById('import-status').innerText = `Imported baseline: ${teiArr.length} samples (${meta.mode === 'hr_only' ? 'HR-only' : 'HR+HRV'}).`;
+            document.getElementById('dash-quote').innerText = 'Baseline ready. Run HOLD TO SYNC to unlock PR99.';
             if (navigator.vibrate) navigator.vibrate([20, 20, 60]);
           } catch (err) {
             document.getElementById('import-status').innerText = `Import failed: ${err.message}`;
@@ -1046,7 +1203,6 @@
         const toggleBtn = document.getElementById('timer-toggle-btn');
         const resetBtn = document.getElementById('timer-reset-btn');
 
-        // restore position
         try {
           const saved = JSON.parse(localStorage.getItem('tenki_timer_pos') || 'null');
           if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
@@ -1093,12 +1249,10 @@
           localStorage.setItem('tenki_timer_pos', JSON.stringify({ x: Math.round(rect.left), y: Math.round(rect.top) }));
         };
 
-        // Pointer events for desktop + mobile
         handle.addEventListener('pointerdown', onDown);
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', onUp);
 
-        // Click actions
         toggleBtn.addEventListener('click', () => {
           const pr = parseInt(document.getElementById('dash-score').innerText) || 0;
           if (pr < 55) {
@@ -1118,7 +1272,6 @@
           if (navigator.vibrate) navigator.vibrate(15);
         });
 
-        // tick
         setInterval(() => {
           if (!this.state.timer.running) return;
           const now = Date.now();
@@ -1435,7 +1588,6 @@
         window.addEventListener('mouseup', end);
         window.addEventListener('touchend', end);
 
-        // BLE connect
         document.getElementById('connection-status').addEventListener('click', async () => {
           try {
             if (BLE.device) { BLE.disconnect(); return; }
@@ -1463,8 +1615,11 @@
         const base = Baseline.load();
         const bpm = this.state.physio.bpm;
         const rmssd = this.state.physio.rmssd;
-        if (base && Number.isFinite(bpm) && Number.isFinite(rmssd)) {
-          const tei = computeTeiProxy(bpm, rmssd);
+
+        if (base && Number.isFinite(bpm)) {
+          const tei = (base.mode === 'hr_only' || !Number.isFinite(rmssd))
+            ? computeTeiProxyHrOnly(bpm)
+            : computeTeiProxy(bpm, rmssd);
           const pr = Baseline.percentile(base.teiSorted, tei) || 50;
           document.getElementById('dash-score').innerText = String(pr).padStart(2, '0');
           UI.setZone(pr);
