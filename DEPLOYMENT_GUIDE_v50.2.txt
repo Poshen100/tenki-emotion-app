@@ -1,0 +1,94 @@
+
+==================================================
+TENKI v50.2 STARDUST FUSION - DEPLOYMENT GUIDE
+==================================================
+
+VERSION: 50.2.0
+CODENAME: Stardust Fusion  
+BUILD: 2026-01-08
+REPO: https://github.com/Poshen100/tenki-emotion-app
+
+--------------------------------------------------
+INTEGRATION STRATEGY
+--------------------------------------------------
+
+✓ v50.1 Neural Link (Base Framework)
+  • Fusion Policy (ROI Quality Assessment)
+  • BLE Tier System (Medical/Wearable/Camera)
+  • Baseline CSV Import (Universal Parser)
+  • Decision Log (JSONL Export)
+  • Draggable Timer Widget
+
+✓ v25.8.2 Stardust (Visual System)
+  • 8000 Particle Sync Engine
+  • ANS Spectrum Visualization
+  • Phased Scanning Feedback
+  • Three.js WebGL Backend
+
+--------------------------------------------------
+DATA FLOW ARCHITECTURE
+--------------------------------------------------
+
+Face Mesh Detection
+  ↓
+Fusion Policy Engine
+  ├→ Motion Score (Nose Tip Displacement)
+  ├→ Lux Estimation (Canvas Luminance)
+  └→ ROI Quality (55% Lux + 45% Motion)
+  ↓
+Primary Source Selection
+  ├→ Tier 1: BLE RR-Interval (Medical Grade)
+  ├→ Tier 2: BLE HR (Wearable Boost)
+  └→ Tier 3: Camera rPPG (Vision Only)
+  ↓
+Parallel Processing
+  ├→ Particle System (8K Sync)
+  ├→ Physio Metrics (BPM/HRV)
+  └→ TEI PR Calculation (Baseline Percentile)
+  ↓
+User Feedback
+  ├→ Zone Classification (Peak/Optimal/Neutral/Degraded)
+  ├→ Haptic Feedback (Vibration)
+  └→ Visual Cues (Color/Animation)
+
+--------------------------------------------------
+DEPLOYMENT CHECKLIST
+--------------------------------------------------
+
+[ ] Verify 8000 particles render at 60fps
+[ ] Test BLE connection (Garmin/Polar/Generic)
+[ ] Validate Baseline CSV import (HR-only + HR+HRV)
+[ ] Check Timer widget drag functionality
+[ ] Export decision log and verify format
+[ ] Test ANS spectrum with live data
+[ ] Verify zone-based haptic feedback
+[ ] Cross-browser compatibility (Chrome/Safari/Edge)
+
+--------------------------------------------------
+BROWSER REQUIREMENTS
+--------------------------------------------------
+
+• Chrome/Edge 90+ (Web Bluetooth)
+• Safari 15+ (iOS/iPadOS)
+• MediaPipe Face Mesh (CDN)
+• Three.js r128 (CDN)
+• TailwindCSS 3.x (CDN)
+
+--------------------------------------------------
+KNOWN LIMITATIONS
+--------------------------------------------------
+
+• Web Bluetooth only works on HTTPS
+• iOS Safari needs user interaction for BLE
+• Particle count may reduce on low-end devices
+• Baseline CSV requires ≥10 valid samples
+
+--------------------------------------------------
+SUPPORT & DOCUMENTATION
+--------------------------------------------------
+
+GitHub Issues: https://github.com/Poshen100/tenki-emotion-app/issues
+Fusion Policy: See DEPLOYMENT_v50.2.txt
+BLE Guide: connection-status button → tap to pair
+
+==================================================
