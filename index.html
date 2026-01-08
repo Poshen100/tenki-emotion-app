@@ -1,956 +1,1617 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>TENKI v50.0 - Neural Link (完整版)</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TENKI v50.4 - Stardust Soul Sync Edition</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <!-- Three.js + MediaPipe -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    
+    <!-- UI Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- 字體庫 -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg-deep: #050510;
+  --plasma-cyan: #00F0FF;
+  --void-purple: #7000FF;
+  --alert-orange: #FF5500;
+  --matrix-green: #00FF94;
+  --state-stable: #00FF94;
+  --state-control: #FFD600;
+  --state-volatile: #FF8800;
+  --state-risk: #FF0055;
+  --glass-bg: rgba(15, 15, 20, 0.92);
+  --glass-border: rgba(255, 255, 255, 0.12);
+}
 
-  <!-- Core -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+body {
+  background: var(--bg-deep);
+  color: white;
+  font-family: 'Space Mono', monospace;
+  overflow: hidden;
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
 
-  <!-- UI -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+/* Typography */
+.font-sans-bold {
+  font-family: 'Inter', sans-serif;
+  font-weight: 900;
+}
 
-  <style>
-    :root {
-      --bg-deep: #050510;
-      --plasma-cyan: #00f0ff;
-      --void-purple: #7000ff;
-      --alert-orange: #ff5500;
-      --matrix-green: #00ff94;
+.font-serif-human {
+  font-family: 'Playfair Display', serif;
+}
 
-      --zone-peak: #ffb020;
-      --zone-optimal: #00f0ff;
-      --zone-neutral: #b5b5b5;
-      --zone-degraded: #5a00ff;
+.font-mono-tech {
+  font-family: 'JetBrains Mono', monospace;
+}
 
-      --glass-bg: rgba(15, 15, 20, 0.92);
-      --glass-border: rgba(255, 255, 255, 0.12);
-    }
+/* Hidden Elements */
+#input-video {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  opacity: 0;
+  pointer-events: none;
+}
 
-    body {
-      background: var(--bg-deep);
-      color: white;
-      font-family: 'Space Mono', monospace;
-      overflow: hidden;
-      width: 100vw;
-      height: 100dvh;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-    }
+#light-analysis-canvas {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  opacity: 0;
+  pointer-events: none;
+}
 
-    .font-sans-bold { font-family: 'Inter', sans-serif; font-weight: 900; }
-    .font-serif-human { font-family: 'Playfair Display', serif; }
-    .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+/* Universe Particle Layer */
+#universe {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(circle at center, #111 0%, #000 100%);
+  transition: opacity 1s ease, filter 1s ease;
+}
 
-    #input-video { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
-    #light-analysis-canvas { position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none; }
+#universe.dimmed {
+  opacity: 0.2;
+  filter: blur(15px);
+}
 
-    #universe {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      background: radial-gradient(circle at center, #111 0%, #000 100%);
-      transition: opacity 1s ease, filter 1s ease;
-    }
-    #universe.dimmed { opacity: 0.2; filter: blur(15px); }
+#universe.transition-out {
+  animation: universe-explode 0.8s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+}
 
-    #hud-layer {
-      position: absolute;
-      inset: 0;
-      z-index: 10;
-      pointer-events: none;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 24px;
-      padding-bottom: calc(30px + env(safe-area-inset-bottom));
-      transition: opacity 0.5s ease;
-    }
-    #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
+@keyframes universe-explode {
+  0% {
+    opacity: 1;
+    filter: blur(0px) brightness(1);
+    transform: scale(1);
+  }
+  60% {
+    opacity: 0.8;
+    filter: blur(20px) brightness(1.5);
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(40px) brightness(2);
+    transform: scale(1.5);
+  }
+}
 
-    /* Env UI */
-    .env-readout {
-      font-size: 9px;
-      letter-spacing: 1px;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 4px;
-      margin-bottom: 8px;
-    }
-    .env-item { display: flex; align-items: center; gap: 6px; color: #666; transition: color 0.3s; }
-    .env-item.good { color: var(--matrix-green); }
-    .env-item.warn { color: var(--alert-orange); }
-    .env-bar { width: 30px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 1px; overflow: hidden; }
-    .env-fill { height: 100%; background: currentColor; transition: width 0.3s; }
+/* HUD Layer */
+.hud-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px;
+  padding-bottom: calc(30px + env(safe-area-inset-bottom));
+  transition: opacity 0.5s ease;
+}
 
-    /* Alignment Capsule */
-    #align-hint-capsule {
-      position: absolute;
-      top: 15%;
-      left: 50%;
-      transform: translateX(-50%) translateY(-20px) scale(0.95);
-      background: rgba(20, 20, 25, 0.75);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      padding: 10px 20px;
-      border-radius: 99px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      opacity: 0;
-      pointer-events: none;
-      transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-      z-index: 100;
-      overflow: hidden;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-    }
-    #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
-    #align-hint-capsule.status-error { border-color: rgba(239, 68, 68, 0.5); box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
-    #align-hint-capsule.status-good { border-color: rgba(35, 243, 212, 0.6); box-shadow: 0 0 20px rgba(35, 243, 212, 0.3); }
+.hud-layer.hidden-ui {
+  opacity: 0;
+  pointer-events: none;
+}
 
-    .shimmer-effect {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.1) 45%, transparent 60%);
-      transform: translateX(-100%);
-      animation: shimmer-slide 2.5s infinite;
-      pointer-events: none;
-    }
-    @keyframes shimmer-slide { 100% { transform: translateX(100%); } }
+/* Environment Indicators */
+.env-readout {
+  font-size: 9px;
+  letter-spacing: 1px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-bottom: 8px;
+}
 
-    /* External sensor banner */
-    #external-sensor-banner {
-      position: absolute;
-      left: 24px;
-      right: 24px;
-      bottom: calc(30px + env(safe-area-inset-bottom));
-      z-index: 80;
-      pointer-events: none;
-      opacity: 0;
-      transform: translateY(10px);
-      transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
-    }
-    #external-sensor-banner.show { opacity: 1; transform: translateY(0); }
-    .sensor-pill {
-      background: rgba(255, 180, 32, 0.12);
-      border: 1px solid rgba(255, 180, 32, 0.35);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border-radius: 18px;
-      padding: 10px 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.55);
-    }
+.env-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #666;
+  transition: color 0.3s;
+}
 
-    /* Scanner */
-    .fingerprint-wrapper {
-      position: relative;
-      width: 110px;
-      height: 110px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      pointer-events: auto;
-      cursor: pointer;
-      border-radius: 50%;
-      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .fingerprint-core {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background: rgba(10, 10, 15, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      position: relative;
-      overflow: hidden;
-      z-index: 20;
-      box-shadow: 0 0 20px rgba(0,0,0,0.5), inset 0 0 10px rgba(255,255,255,0.05);
-      transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-    }
-    .fingerprint-icon { position: relative; z-index: 22; color: rgba(255,255,255,0.6); transition: all 0.3s ease; }
-    .scan-beam {
-      position: absolute;
-      top: -100%;
-      left: 0;
-      width: 100%;
-      height: 50%;
-      background: linear-gradient(to bottom, transparent 0%, rgba(0, 240, 255, 0.4) 90%, rgba(255, 255, 255, 0.8) 100%);
-      opacity: 0;
-      pointer-events: none;
-      z-index: 21;
-    }
-    .ripple-ring {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      border: 1px solid var(--plasma-cyan);
-      transform: translate(-50%, -50%) scale(0.8);
-      opacity: 0;
-      pointer-events: none;
-      z-index: 1;
-    }
-    .progress-svg { position: absolute; top: -5px; left: -5px; width: 120px; height: 120px; transform: rotate(-90deg); z-index: 30; pointer-events: none; }
-    .progress-circle {
-      fill: none;
-      stroke: var(--plasma-cyan);
-      stroke-width: 3;
-      stroke-linecap: round;
-      stroke-dasharray: 339;
-      stroke-dashoffset: 339;
-      transition: stroke-dashoffset 0.05s linear;
-      filter: drop-shadow(0 0 6px var(--plasma-cyan));
-    }
-    .fingerprint-wrapper.active { transform: scale(0.95); }
-    .fingerprint-wrapper.active .fingerprint-core {
-      border-color: rgba(0, 240, 255, 0.5);
-      background: rgba(0, 10, 20, 0.9);
-      box-shadow: 0 0 30px rgba(0, 240, 255, 0.2), inset 0 0 20px rgba(0, 240, 255, 0.1);
-    }
-    .fingerprint-wrapper.active .fingerprint-icon {
-      color: white;
-      opacity: 1;
-      filter: drop-shadow(0 0 8px var(--plasma-cyan));
-      animation: pulse-icon 1s infinite alternate;
-    }
-    .fingerprint-wrapper.active .scan-beam { opacity: 1; animation: beam-scan 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-    .fingerprint-wrapper.active .ripple-ring:nth-child(1) { animation: ripple-expand 1.5s linear infinite; animation-delay: 0s; }
-    .fingerprint-wrapper.active .ripple-ring:nth-child(2) { animation: ripple-expand 1.5s linear infinite; animation-delay: 0.5s; }
+.env-item.good { color: var(--matrix-green); }
+.env-item.warn { color: var(--alert-orange); }
 
-    @keyframes beam-scan { 0% { top: -100%; opacity: 0; } 30% { opacity: 0.8; } 70% { opacity: 0.8; } 100% { top: 150%; opacity: 0; } }
-    @keyframes ripple-expand { 0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; border-width: 2px; } 100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; border-width: 0px; } }
-    @keyframes pulse-icon { 0% { opacity: 0.8; transform: scale(1); } 100% { opacity: 1; transform: scale(1.05); } }
+.env-bar {
+  width: 30px;
+  height: 3px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 1px;
+  overflow: hidden;
+}
 
-    /* Dashboard */
-    #dashboard-layer {
-      position: absolute;
-      inset: 0;
-      z-index: 50;
-      background: transparent;
-      display: flex;
-      flex-direction: column;
-      padding: 24px 20px 30px 20px;
-      padding-top: calc(50px + env(safe-area-inset-top));
-      overflow-y: auto;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(20px);
-      transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-    }
-    #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.env-fill {
+  height: 100%;
+  background: currentColor;
+  transition: width 0.3s;
+}
 
-    .bento-card {
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 28px;
-      padding: 16px;
-      backdrop-filter: blur(40px);
-      -webkit-backdrop-filter: blur(40px);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.2s;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    }
-    .bento-card:active { transform: scale(0.98); }
+/* Alignment Hint Capsule */
+#align-hint-capsule {
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px) scale(0.95);
+  background: rgba(20, 20, 25, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 10px 20px;
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+  z-index: 100;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
 
-    .tile { min-height: 168px; }
+#align-hint-capsule.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  pointer-events: auto;
+}
 
-    .integrity-track { width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 8px; position: relative; overflow: hidden; }
-    .integrity-fill {
-      position: absolute;
-      left: 0;
-      top: 0;
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #00f0ff, #00ff94);
-      box-shadow: 0 0 15px var(--plasma-cyan);
-      transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
+#align-hint-capsule.status-error {
+  border-color: rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+}
 
-    .scanner-overlay {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 10;
-      background: linear-gradient(90deg, transparent 0%, rgba(0, 255, 148, 0.1) 50%, transparent 100%);
-      width: 50%;
-      transform: skewX(-20deg) translateX(-150%);
-      animation: scan-pass 2.5s infinite linear;
-    }
-    @keyframes scan-pass { 0% { transform: translateX(-150%) skewX(-20deg); } 100% { transform: translateX(350%) skewX(-20deg); } }
+#align-hint-capsule.status-warn {
+  border-color: rgba(234, 179, 8, 0.5);
+  box-shadow: 0 0 15px rgba(234, 179, 8, 0.2);
+}
 
-    /* Timer Widget */
-    #timer-widget {
-      position: fixed;
-      z-index: 140;
-      left: 18px;
-      top: calc(100dvh - 110px);
-      width: min(520px, calc(100vw - 36px));
-      height: 64px;
-      background: rgba(5, 5, 10, 0.92);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 22px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.65);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(20px);
-      transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-      touch-action: none;
-    }
-    #timer-widget.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+#align-hint-capsule.status-good {
+  border-color: rgba(35, 243, 212, 0.6);
+  box-shadow: 0 0 20px rgba(35, 243, 212, 0.3);
+}
 
-    .timer-handle {
-      width: 44px;
-      height: 44px;
-      border-radius: 16px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: grab;
-      user-select: none;
-    }
-    .timer-handle:active { cursor: grabbing; }
+.shimmer-effect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.1) 45%, transparent 60%);
+  transform: translateX(-100%);
+  animation: shimmer-slide 2.5s infinite;
+  pointer-events: none;
+}
 
-    .timer-main {
-      flex: 1;
-      height: 44px;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.06);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      font-weight: 900;
-      letter-spacing: 1px;
-      color: black;
-      pointer-events: auto;
-    }
+@keyframes shimmer-slide {
+  100% { transform: translateX(100%); }
+}
 
-    .timer-ctl {
-      width: 44px;
-      height: 44px;
-      border-radius: 16px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: auto;
-    }
+.audio-bar {
+  width: 4px;
+  height: 20px;
+  background: rgba(255,255,255,0.2);
+  margin: 0 1px;
+  transition: height 0.05s ease-out;
+  border-radius: 2px;
+}
 
-    /* Modal */
-    #modal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 18px;
-    }
-    #modal-backdrop.show { display: flex; }
-    .modal {
-      width: min(520px, 96vw);
-      background: rgba(10,10,14,0.92);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 22px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
-      padding: 16px;
-    }
-    .modal-title { font-size: 12px; letter-spacing: 0.2em; color: #7dd3fc; font-weight: 800; }
-    .modal-body { margin-top: 10px; color: rgba(255,255,255,0.85); font-size: 12px; line-height: 1.6; }
-    .modal-actions { margin-top: 14px; display: flex; gap: 10px; justify-content: flex-end; }
-    .btn {
-      pointer-events: auto;
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-size: 12px;
-      font-weight: 800;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(255,255,255,0.06);
-      color: white;
-    }
-    .btn-primary { background: rgba(0,240,255,0.16); border-color: rgba(0,240,255,0.35); }
-    .btn-danger { background: rgba(255,0,85,0.14); border-color: rgba(255,0,85,0.35); }
-  </style>
+/* Scanner Interface */
+.fingerprint-wrapper {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fingerprint-core {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(10, 10, 15, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+  z-index: 20;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5), inset 0 0 10px rgba(255,255,255,0.05);
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.fingerprint-icon {
+  position: relative;
+  z-index: 22;
+  color: rgba(255,255,255,0.6);
+  transition: all 0.3s ease;
+}
+
+.scan-beam {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  background: linear-gradient(to bottom, transparent 0%, rgba(0, 240, 255, 0.4) 90%, rgba(255, 255, 255, 0.8) 100%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 21;
+}
+
+.ripple-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1px solid var(--plasma-cyan);
+  transform: translate(-50%, -50%) scale(0.8);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.progress-svg {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 120px;
+  height: 120px;
+  transform: rotate(-90deg);
+  z-index: 30;
+  pointer-events: none;
+}
+
+.progress-circle {
+  fill: none;
+  stroke: var(--plasma-cyan);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 339;
+  stroke-dashoffset: 339;
+  transition: stroke-dashoffset 0.05s linear;
+  filter: drop-shadow(0 0 6px var(--plasma-cyan));
+}
+
+/* Active Scanning State */
+.fingerprint-wrapper.active {
+  transform: scale(0.95);
+}
+
+.fingerprint-wrapper.active .fingerprint-core {
+  border-color: rgba(0, 240, 255, 0.5);
+  background: rgba(0, 10, 20, 0.9);
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.2), inset 0 0 20px rgba(0, 240, 255, 0.1);
+}
+
+.fingerprint-wrapper.active .fingerprint-icon {
+  color: white;
+  opacity: 1;
+  filter: drop-shadow(0 0 8px var(--plasma-cyan));
+  animation: pulse-icon 1s infinite alternate;
+}
+
+.fingerprint-wrapper.active .scan-beam {
+  opacity: 1;
+  animation: beam-scan 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.fingerprint-wrapper.active .ripple-ring:nth-child(1) {
+  animation: ripple-expand 1.5s linear infinite;
+  animation-delay: 0s;
+}
+
+.fingerprint-wrapper.active .ripple-ring:nth-child(2) {
+  animation: ripple-expand 1.5s linear infinite;
+  animation-delay: 0.5s;
+}
+
+@keyframes beam-scan {
+  0% { top: -100%; opacity: 0; }
+  30% { opacity: 0.8; }
+  70% { opacity: 0.8; }
+  100% { top: 150%; opacity: 0; }
+}
+
+@keyframes ripple-expand {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.8;
+    border-width: 2px;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0;
+    border-width: 0px;
+  }
+}
+
+@keyframes pulse-icon {
+  0% { opacity: 0.8; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.05); }
+}
+
+/* Dashboard Layer */
+#dashboard-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px 140px 20px;
+  padding-top: calc(50px + env(safe-area-inset-top));
+  overflow-y: auto;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(20px);
+  transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+#dashboard-layer.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.bento-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 28px;
+  padding: 16px;
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.bento-card:active {
+  transform: scale(0.98);
+}
+
+/* Integrity Bar */
+.integrity-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  margin-top: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.integrity-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #00F0FF, #00FF94);
+  box-shadow: 0 0 15px var(--plasma-cyan);
+  transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Scanner Overlay Effect */
+.scanner-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 255, 148, 0.1) 50%, transparent 100%);
+  width: 50%;
+  transform: skewX(-20deg) translateX(-150%);
+  animation: scan-pass 2.5s infinite linear;
+}
+
+@keyframes scan-pass {
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  100% { transform: translateX(350%) skewX(-20deg); }
+}
+
+/* Orbit Container - 2050 Edition */
+.orbit-container {
+  width: 280px;
+  height: 280px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 10px auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.orbit-container.charging {
+  transform: scale(1.02);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.orbit-data-center {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.metallic-text {
+  background: linear-gradient(180deg, #FFFFFF 20%, #A0A0A0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 4px 10px rgba(255,255,255,0.2));
+  letter-spacing: -4px;
+  line-height: 1;
+}
+
+/* Ring SVG Styling */
+.ring-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.05);
+  stroke-linecap: round;
+}
+
+.ring-value {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.glow-outer {
+  filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.6));
+}
+
+/* HRV 2050 Inner Rings */
+.ring-inner-bg {
+  fill: none;
+  stroke: rgba(255,255,255,0.03);
+  stroke-width: 12;
+}
+
+.mech-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1;
+  stroke-dasharray: 2 10;
+  transform-origin: 50% 50%;
+  animation: spin-cw 20s linear infinite;
+}
+
+.data-stream {
+  fill: none;
+  stroke: var(--void-purple);
+  stroke-width: 2;
+  stroke-dasharray: none;
+  opacity: 0.8;
+  transform-origin: 50% 50%;
+}
+
+.ring-hrv-2050 {
+  fill: none;
+  stroke-width: 12;
+  stroke-linecap: round;
+  stroke-dasharray: 660;
+  stroke-dashoffset: 660;
+  transition: stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+  filter: drop-shadow(0 0 8px #D400FF);
+}
+
+@keyframes spin-cw {
+  100% { transform: rotate(360deg); }
+}
+
+/* ANS Spectrum Bars */
+.ans-bar-container {
+  width: 100%;
+  height: 28px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 99px;
+  padding: 2px;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.ans-midpoint {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255,255,255,0.3);
+  z-index: 10;
+}
+
+.ans-sns-fill {
+  height: 100%;
+  border-radius: 99px 0 0 99px;
+  background: linear-gradient(90deg, rgba(255,85,0,0.8), rgba(255,160,0,0.8));
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 8px;
+  font-size: 9px;
+  font-weight: bold;
+  color: black;
+  transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ans-pns-fill {
+  height: 100%;
+  border-radius: 0 99px 99px 0;
+  background: linear-gradient(90deg, rgba(0,255,148,0.6), rgba(0,240,255,0.8));
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  font-size: 9px;
+  font-weight: bold;
+  color: black;
+  transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Radar Chart */
+.radar-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.radar-svg {
+  width: 100px;
+  height: 100px;
+  overflow: visible;
+}
+
+.radar-bg {
+  fill: rgba(255,255,255,0.05);
+  stroke: rgba(255,255,255,0.1);
+  stroke-width: 1;
+}
+
+.radar-poly {
+  fill: rgba(0, 240, 255, 0.2);
+  stroke: #00F0FF;
+  stroke-width: 2;
+  transition: all 0.5s ease;
+  filter: drop-shadow(0 0 8px rgba(0,240,255,0.3));
+}
+
+/* Bio Graph Bars */
+.bio-graph-container {
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  mask-image: linear-gradient(to right, transparent, black 15%);
+  position: relative;
+  z-index: 5;
+}
+
+.bio-bar {
+  flex: 1;
+  background: var(--state-stable);
+  opacity: 0.6;
+  border-radius: 1px;
+  transition: height 0.05s linear;
+}
+
+/* Action Dock */
+.dock-container {
+  position: fixed;
+  bottom: calc(30px + env(safe-area-inset-bottom));
+  left: 20px;
+  right: 20px;
+  height: 70px;
+  background: rgba(5, 5, 10, 0.9);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  transform: translateY(150px);
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 100;
+}
+
+#dashboard-layer.show .dock-container {
+  transform: translateY(0);
+}
+
+.dock-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  transition: all 0.2s;
+}
+
+.dock-main-action {
+  flex: 1;
+  height: 54px;
+  margin: 0 8px;
+  background: white;
+  border-radius: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: black;
+  font-size: 12px;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+  transition: transform 0.2s;
+}
+
+.dock-main-action:active {
+  transform: scale(0.97);
+}
+</style>
 </head>
 <body>
-  <video id="input-video" playsinline></video>
-  <canvas id="light-analysis-canvas" width="50" height="50"></canvas>
 
-  <div id="universe"></div>
+<video id="input-video" playsinline></video>
+<canvas id="light-analysis-canvas" width="50" height="50"></canvas>
 
-  <!-- HUD Layer -->
-  <div id="hud-layer">
-    <div id="align-hint-capsule">
-      <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
-        <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-white"></i>
-      </div>
-      <span id="hint-text" class="text-xs font-bold text-white tracking-wide uppercase transition-all duration-300">搜尋中...</span>
-      <div class="shimmer-effect"></div>
+<div id="universe"></div>
+
+<!-- HUD Layer -->
+<div id="hud-layer">
+  <div id="align-hint-capsule">
+    <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
+      <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-white"></i>
     </div>
+    <span id="hint-text" class="text-xs font-bold text-white tracking-wide uppercase transition-all duration-300">Searching...</span>
+    <div class="shimmer-effect"></div>
+  </div>
 
-    <div class="flex justify-between items-start">
-      <div>
-        <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
-        <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM_50.0_完整版</div>
-      </div>
-
-      <div class="text-right flex flex-col items-end">
-        <button id="connection-status" class="text-[10px] text-gray-300 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech pointer-events-auto" type="button">
-          僅相機模式
-        </button>
-
-        <div class="env-readout font-mono-tech mb-2">
-          <div id="env-lux" class="env-item">
-            <span>光線</span>
-            <div class="env-bar"><div id="env-lux-bar" class="env-fill" style="width: 0%"></div></div>
-          </div>
-          <div id="env-stab" class="env-item">
-            <span>穩定</span>
-            <div class="env-bar"><div id="env-stab-bar" class="env-fill" style="width: 100%"></div></div>
-          </div>
+  <div class="flex justify-between items-start">
+    <div>
+      <div class="text-xl font-bold tracking-[-6px] text-white font-mono-tech">TENKI</div>
+      <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">SYSTEM/50.4</div>
+    </div>
+    <div class="text-right flex flex-col items-end">
+      <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">VISION ONLY</div>
+      <div class="env-readout font-mono-tech mb-2">
+        <div id="env-lux" class="env-item">
+          <span>LUX</span>
+          <div class="env-bar"><div id="env-lux-bar" class="env-fill" style="width: 0%"></div></div>
+        </div>
+        <div id="env-stab" class="env-item">
+          <span>STAB</span>
+          <div class="env-bar"><div id="env-stab-bar" class="env-fill" style="width: 100%"></div></div>
         </div>
       </div>
-    </div>
-
-    <div id="external-sensor-banner">
-      <div class="sensor-pill">
-        <div class="flex items-center gap-10">
-          <div class="flex items-center gap-2">
-            <i data-lucide="shield" class="w-4 h-4 text-amber-300"></i>
-            <div class="text-[10px] font-mono-tech tracking-widest text-amber-200">外部感測器已連接</div>
-          </div>
-          <div class="text-[10px] font-mono-tech text-white/90" id="sensor-name">—</div>
-        </div>
-        <div class="text-[10px] font-mono-tech text-white" id="sensor-hr">HR: --</div>
-      </div>
-    </div>
-
-    <div class="flex flex-col items-center pb-10">
-      <div id="scan-trigger-wrapper" class="fingerprint-wrapper">
-        <div class="ripple-ring"></div><div class="ripple-ring"></div>
-        <svg class="progress-svg" viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="3"></circle>
-          <circle id="scan-progress-bar" class="progress-circle" cx="60" cy="60" r="54"></circle>
-        </svg>
-        <div class="fingerprint-core">
-          <div class="scan-beam"></div>
-          <i data-lucide="fingerprint" class="fingerprint-icon w-10 h-10"></i>
-        </div>
-      </div>
-      <div id="instruction" class="mt-8 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300 font-bold">按住開始同步</div>
-      <div class="mt-2 text-[9px] text-white/40 font-mono-tech tracking-widest">點擊狀態 → 連接藍牙心率帶</div>
     </div>
   </div>
 
-  <!-- Dashboard Layer -->
-  <div id="dashboard-layer">
-    <div class="mb-6">
-      <div class="flex justify-between items-end mb-1">
-        <div>
-          <div class="text-[10px] text-cyan-400 font-bold uppercase tracking-[0.2em] mb-1">TEI 分數</div>
-          <div class="text-2xl font-bold text-white tracking-tight">混合同步分析</div>
-          <div id="baseline-long-readout" class="text-[9px] text-white/40 font-mono-tech tracking-widest mt-1">BASELINE: —</div>
+  <div class="flex flex-col items-center pb-10">
+    <div id="scan-trigger-wrapper" class="fingerprint-wrapper">
+      <div class="ripple-ring"></div>
+      <div class="ripple-ring"></div>
+      <svg class="progress-svg" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="3"></circle>
+        <circle id="scan-progress-bar" class="progress-circle" cx="60" cy="60" r="54"></circle>
+      </svg>
+      <div class="fingerprint-core">
+        <div class="scan-beam"></div>
+        <i data-lucide="fingerprint" class="fingerprint-icon w-10 h-10"></i>
+      </div>
+    </div>
+    <div id="instruction" class="mt-8 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300 font-bold">HOLD TO SYNC</div>
+  </div>
+</div>
+
+<!-- Dashboard Layer -->
+<div id="dashboard-layer">
+  <!-- Header -->
+  <div class="mb-6">
+    <div class="flex justify-between items-end mb-1">
+      <div>
+        <div class="text-[10px] text-cyan-400 font-bold uppercase tracking-[0.2em] mb-1">LIVE BIO-STREAM</div>
+        <div class="text-2xl font-bold text-white tracking-tight">Signal Analysis</div>
+      </div>
+      <div class="text-right">
+        <span id="confidence-val" class="text-2xl font-mono-tech text-white font-bold">0</span>%
+        <div class="text-[9px] text-gray-500 font-bold">DATA TRUST</div>
+      </div>
+    </div>
+    <div class="integrity-track">
+      <div id="resonance-fill" class="integrity-fill"></div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <!-- A. ORBIT SCORE SOLID EDITION -->
+    <div class="col-span-2 bento-card items-center py-8 bg-black/40 border-white/20">
+      <div id="tei-orbit-container" class="orbit-container">
+        <svg style="width:0;height:0;position:absolute" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="grad-score" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FFFFFF"/>
+              <stop offset="50%" stop-color="#00F0FF"/>
+              <stop offset="100%" stop-color="#0080FF"/>
+            </linearGradient>
+            <linearGradient id="grad-hrv-2050" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FF00CC"/>
+              <stop offset="50%" stop-color="#9900FF"/>
+              <stop offset="100%" stop-color="#00FFFF"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <svg class="ring-svg" viewBox="0 0 280 280">
+          <!-- Score Ring (Outer) -->
+          <circle cx="140" cy="140" r="120" class="ring-track" stroke-width="8"></circle>
+          <circle id="ring-score" cx="140" cy="140" r="120" class="ring-value glow-outer" stroke="url(#grad-score)" stroke-width="8" stroke-dasharray="753" stroke-dashoffset="753"></circle>
+          
+          <!-- HRV 2050 Layers (Inner) -->
+          <circle cx="140" cy="140" r="105" class="ring-inner-bg"></circle>
+          <circle cx="140" cy="140" r="95" class="data-stream"></circle>
+          <circle cx="140" cy="140" r="90" class="mech-track"></circle>
+          <circle id="ring-hrv" cx="140" cy="140" r="105" class="ring-hrv-2050" stroke="url(#grad-hrv-2050)" stroke-dasharray="660" stroke-dashoffset="660"></circle>
+        </svg>
+        <div class="orbit-data-center">
+          <div class="text-[10px] font-mono-tech text-gray-500 tracking-[0.3em] mb-2 font-bold">TEI SCORE</div>
+          <div class="text-[110px] font-sans-bold metallic-text tabular-nums" id="dash-score">00</div>
+          <div class="text-[10px] font-mono-tech text-cyan-300 tracking-widest mt-2 cursor-pointer" id="dash-label">HOLD TO RESYNC</div>
+        </div>
+      </div>
+      <div class="mt-4 text-center w-full px-4">
+        <div class="text-xl font-serif-human text-white" id="dash-state">Status Stable</div>
+      </div>
+    </div>
+
+    <!-- B. ANS SPECTRUM -->
+    <div class="col-span-2 bento-card relative overflow-hidden group">
+      <div class="flex justify-between items-start mb-3">
+        <div class="flex flex-col">
+          <span class="text-[10px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1">
+            <i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i>
+            Autonomic Balance
+          </span>
+          <span class="text-xs text-gray-400 mt-1">HRV Stress Index</span>
         </div>
         <div class="text-right">
-          <span id="confidence-val" class="text-2xl font-mono-tech text-white font-bold">0%</span>
-          <div class="text-[9px] text-gray-500 font-bold">信任度</div>
+          <div id="hrv-val" class="text-xl font-bold text-white font-mono-tech tabular-nums tracking-tighter">--</div>
+          <span class="text-[9px] text-gray-500 font-bold uppercase">RMSSD (ms)</span>
         </div>
       </div>
-      <div class="integrity-track"><div id="resonance-fill" class="integrity-fill"></div></div>
+      <div class="ans-bar-container">
+        <div class="ans-midpoint"></div>
+        <div id="ans-sns-bar" class="ans-sns-fill" style="width: 50%">SNS</div>
+        <div id="ans-pns-bar" class="ans-pns-fill" style="width: 50%">PNS</div>
+      </div>
+      <div class="flex justify-between mt-2 text-[9px] font-bold font-mono-tech tracking-wide">
+        <div class="text-orange-400 flex flex-col">
+          <span>SYMPATHETIC</span>
+          <span id="sns-val" class="opacity-80">--</span>
+        </div>
+        <div class="text-cyan-400 flex flex-col items-end">
+          <span>PARASYMPATHETIC</span>
+          <span id="pns-val" class="opacity-80">--</span>
+        </div>
+      </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4">
-      <!-- (1) TEI Score -->
-      <div class="bento-card tile bg-black/40 border-white/20 justify-center items-center">
-        <div class="text-[10px] font-mono-tech text-gray-500 tracking-[0.3em] mb-1 font-bold">TEI 分數 (PR)</div>
-        <div class="text-[78px] font-sans-bold leading-none" id="dash-score">00</div>
-        <div class="text-[10px] font-mono-tech text-cyan-300 tracking-widest mt-2" id="dash-label">按住重新同步</div>
+    <!-- C. Heart Rate -->
+    <div class="bento-card justify-between h-36 relative overflow-hidden">
+      <div class="scanner-overlay"></div>
+      <div class="flex justify-between items-start relative z-10">
+        <span class="text-[10px] text-gray-400 font-bold uppercase">Live Pulse</span>
+        <i data-lucide="heart" class="w-4 h-4 text-gray-500"></i>
       </div>
-
-      <!-- (2) Zone / Tier -->
-      <div class="bento-card tile justify-between">
-        <div class="flex justify-between items-start">
-          <div class="text-[10px] text-gray-400 font-bold uppercase">狀態</div>
-          <i data-lucide="sparkles" class="w-4 h-4 text-gray-500"></i>
-        </div>
-        <div class="mt-2">
-          <div class="text-2xl font-serif-human" id="dash-state">中立區</div>
-          <div class="text-[10px] text-white/45 font-mono-tech mt-2" id="dash-tier">Tier 3 • 相機優先</div>
-        </div>
-        <div class="text-[10px] text-white/50 font-mono-tech leading-relaxed" id="zone-guidance">指引：匯入baseline解鎖真實PR。</div>
+      <div class="relative z-10">
+        <span id="bpm-val" class="text-4xl font-bold text-white tracking-tighter tabular-nums">--</span>
+        <span class="text-xs text-gray-500 font-bold">BPM</span>
       </div>
+      <div class="bio-graph-container" id="ppg-graph"></div>
+    </div>
 
-      <!-- (3) ANS Spectrum -->
-      <div class="bento-card tile relative overflow-hidden group">
-        <div class="flex justify-between items-start">
-          <div class="flex flex-col">
-            <span class="text-[10px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1">
-              <i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i>
-              自律神經
-            </span>
-            <span class="text-[11px] text-gray-400 mt-1">RMSSD</span>
-          </div>
-          <div class="text-right">
-            <div id="hrv-val" class="text-xl font-bold text-white font-mono-tech tabular-nums tracking-tighter">--</div>
-            <span class="text-[9px] text-gray-500 font-bold uppercase">ms</span>
-          </div>
-        </div>
-        <div class="mt-3 w-full h-[28px] bg-black/40 rounded-full p-[2px] flex relative overflow-hidden border border-white/5">
-          <div class="absolute left-1/2 top-0 bottom-0 w-px bg-white/30 z-10"></div>
-          <div id="ans-sns-bar" class="h-full rounded-l-full bg-gradient-to-r from-orange-500/80 to-amber-400/80 flex items-center justify-start pl-2 text-[9px] font-bold text-black transition-all" style="width: 50%">交感</div>
-          <div id="ans-pns-bar" class="h-full rounded-r-full bg-gradient-to-r from-emerald-400/60 to-cyan-300/80 flex items-center justify-end pr-2 text-[9px] font-bold text-black transition-all" style="width: 50%">副交感</div>
-        </div>
-        <div class="flex justify-between mt-2 text-[9px] font-bold font-mono-tech tracking-wide">
-          <div class="text-orange-400 flex flex-col"><span>SYMP</span><span id="sns-val" class="opacity-80">--%</span></div>
-          <div class="text-cyan-400 flex flex-col items-end"><span>PARA</span><span id="pns-val" class="opacity-80">--%</span></div>
-        </div>
+    <!-- D. Radar -->
+    <div class="bento-card justify-between h-36 relative">
+      <div class="text-[10px] text-gray-400 font-bold uppercase z-10">Stability</div>
+      <div class="radar-container absolute inset-0">
+        <svg class="radar-svg" viewBox="0 0 100 100">
+          <polygon points="50,10 90,80 10,80" class="radar-bg"/>
+          <polygon id="radar-poly" points="50,50 50,50 50,50" class="radar-poly"/>
+        </svg>
+        <span class="absolute top-2 text-[8px] text-gray-500 font-bold">FOCUS</span>
+        <span class="absolute bottom-2 right-2 text-[8px] text-gray-500 font-bold">POS</span>
+        <span class="absolute bottom-2 left-2 text-[8px] text-gray-500 font-bold">VAR</span>
       </div>
+    </div>
 
-      <!-- (4) Heart Rate -->
-      <div class="bento-card tile justify-between relative overflow-hidden">
-        <div class="scanner-overlay"></div>
-        <div class="flex justify-between items-start relative z-10">
-          <span class="text-[10px] text-gray-400 font-bold uppercase">即時心率</span>
-          <i data-lucide="heart" class="w-4 h-4 text-gray-500"></i>
-        </div>
-        <div class="relative z-10 mt-2">
-          <span id="bpm-val" class="text-4xl font-bold text-white tracking-tighter tabular-nums">--</span>
-          <span class="text-xs text-gray-500 font-bold">BPM</span>
-        </div>
-        <div class="w-full h-[48px] flex items-end gap-[2px] mt-2" id="ppg-graph"></div>
+    <!-- Log -->
+    <div class="col-span-2 bento-card bg-black border-white/20 mt-2">
+      <div class="text-xs text-cyan-300 font-mono-tech mb-2 tracking-widest">SYSTEM・LOG</div>
+      <div class="text-lg text-white font-serif-human leading-tight mb-2 opacity-90" id="dash-quote">
+        Bio-metrics synchronized. Analysis ready.
       </div>
-
-      <!-- (5) Snapshot / Source -->
-      <div class="bento-card tile justify-between">
-        <div class="flex justify-between items-start">
-          <div class="text-[10px] text-gray-400 font-bold uppercase">快照</div>
-          <i data-lucide="layers" class="w-4 h-4 text-gray-500"></i>
-        </div>
-        <div class="mt-2 text-[12px] text-white/90 font-mono-tech" id="source-readout">相機 rPPG</div>
-        <div class="mt-2 text-[10px] text-white/50 font-mono-tech leading-relaxed" id="baseline-readout">Baseline: 未匯入</div>
-        <div class="mt-2 text-[10px] text-white/50 font-mono-tech leading-relaxed" id="fusion-readout">融合: —</div>
-        <div class="mt-auto flex gap-2">
-          <button id="btn-import" class="btn btn-primary">匯入CSV</button>
-          <button id="btn-clear" class="btn btn-danger">清除</button>
-        </div>
-      </div>
-
-      <!-- (6) System Log -->
-      <div class="bento-card tile bg-black/50 border-white/20">
-        <div class="flex justify-between items-start">
-          <div class="text-xs text-cyan-300 font-mono-tech tracking-widest">系統日誌</div>
-          <div class="flex items-center gap-3">
-            <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition pointer-events-auto" id="btn-export">匯出 ↗</div>
-            <div class="text-[10px] text-white/70 font-bold cursor-pointer hover:text-cyan-400 transition pointer-events-auto" id="btn-export-log">LOG ↗</div>
-          </div>
-        </div>
-        <div class="text-[15px] text-white font-serif-human leading-tight mt-3 opacity-90" id="dash-quote">"混合同步就緒。拖曳計時器避免遮擋。"</div>
-        <div class="mt-auto flex justify-between items-end border-t border-white/10 pt-3">
-          <div class="text-[10px] text-gray-500 font-mono-tech" id="dash-date">日期</div>
-          <div class="text-[10px] text-white/50 font-mono-tech">Neural Link</div>
-        </div>
+      <div class="flex justify-between items-end mt-4 border-t border-white/10 pt-3">
+        <div class="text-[10px] text-gray-500 font-mono-tech" id="dash-date">DATE</div>
+        <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition">EXPORT DATA</div>
       </div>
     </div>
   </div>
 
-  <!-- Timer Widget -->
-  <div id="timer-widget" aria-label="Action Timer">
-    <div id="timer-handle" class="timer-handle" title="拖曳">
-      <i data-lucide="grip" class="w-5 h-5 text-white/70"></i>
+  <!-- Action Dock -->
+  <div class="dock-container">
+    <div class="dock-btn bg-white/5 hover:bg-white/10">
+      <i data-lucide="share-2" class="w-5 h-5"></i>
     </div>
-
-    <button id="timer-toggle-btn" class="timer-main" type="button">
-      <i id="timer-icon" data-lucide="timer" class="w-4 h-4"></i>
-      <span id="timer-text" class="font-mono-tech">25:00</span>
-      <span id="timer-sub" class="text-[10px] font-mono-tech opacity-70">最佳區</span>
+    <button id="dynamic-action-btn" class="dock-main-action" onclick="app.reset()">
+      <i id="btn-icon" data-lucide="rotate-ccw" class="w-4 h-4 text-black"></i>
+      <span id="btn-text">PROCESSING...</span>
     </button>
-
-    <button id="timer-reset-btn" class="timer-ctl" type="button" title="重設">
-      <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-    </button>
-  </div>
-
-  <!-- Modal: Baseline import -->
-  <div id="modal-backdrop">
-    <div class="modal">
-      <div class="modal-title">即時 BASELINE 匯入</div>
-      <div class="modal-body">
-        <div class="text-white/80 text-[12px]">通用CSV自動辨識（逗號/分號/Tab）。建議30天、至少10筆。<span class="text-cyan-300">支援欄位別名</span>（timestamp/date/time、rhr/hr/bpm、rmssd/hrv）。</div>
-        <div class="text-white/50 text-[11px] mt-2">如果只有HR沒有HRV，也可以建立<span class="text-cyan-300">HR-only baseline</span>（PR99可信度較低）。</div>
-        <div class="mt-3">
-          <input id="csv-file" type="file" accept=".csv,text/csv" class="pointer-events-auto text-[12px]" />
-        </div>
-        <div class="text-[11px] text-white/60 mt-3 whitespace-pre-line" id="import-status">未選擇檔案。</div>
-        <div id="mapping-panel" class="mt-4 hidden pointer-events-auto">
-          <div class="text-[10px] text-cyan-300 font-bold tracking-widest">手動對應（低信心）</div>
-          <div class="text-[10px] text-white/60 mt-1">選擇檔案欄位對應。HR必填；Timestamp/HRV可選。</div>
-          <div class="mt-2 grid grid-cols-1 gap-2">
-            <div>
-              <div class="text-[10px] text-white/60">Timestamp (可選)</div>
-              <select id="map-ts" class="w-full mt-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white"></select>
-            </div>
-            <div>
-              <div class="text-[10px] text-white/60">HR / BPM (必填)</div>
-              <select id="map-hr" class="w-full mt-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white"></select>
-            </div>
-            <div>
-              <div class="text-[10px] text-white/60">HRV RMSSD (可選)</div>
-              <select id="map-hrv" class="w-full mt-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white"></select>
-            </div>
-          </div>
-          <div class="text-[10px] text-white/50 mt-2" id="mapping-hint">提示：若HRV缺失，系統會建立HR-only baseline（信任度較低）。</div>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button id="btn-close-modal" class="btn">關閉</button>
-        <button id="btn-do-import" class="btn btn-primary">匯入</button>
-      </div>
+    <div class="dock-btn bg-white/5 hover:bg-white/10">
+      <i data-lucide="settings" class="w-5 h-5"></i>
     </div>
   </div>
+</div>
 
-  <script>
-    lucide.createIcons();
+<script>
+// ========== ENGINE ==========
+class BaselineManager {
+  constructor() {
+    this.data = this.load();
+  }
+  load() {
+    return localStorage.getItem('tenki_base') ? JSON.parse(localStorage.getItem('tenki_base')) : { samplesCount: 0 };
+  }
+  save() {
+    localStorage.setItem('tenki_base', JSON.stringify(this.data));
+  }
+  recordSession() {
+    this.data.samplesCount++;
+    this.save();
+  }
+}
 
-    // 階段式升級引擎（保留v50.1改進）
-    const PhaseEngine = {
-      phases: [
-        { duration: 15000, confidence: 15, label: '階段1 • 基礎採樣', resultReady: true },
-        { duration: 30000, confidence: 30, label: '階段2 • 信號增強', resultReady: false },
-        { duration: 45000, confidence: 60, label: '階段3 • 深度分析', resultReady: false },
-        { duration: 60000, confidence: 90, label: '階段4 • 完整掃描', resultReady: false }
-      ],
-      state: {
-        isScanning: false,
-        startTime: 0,
-        currentPhase: 0,
-        baseScore: null,
-        baseHR: null,
-        baseHRV: null
-      },
-
-      start() {
-        this.state.isScanning = true;
-        this.state.startTime = performance.now();
-        this.state.currentPhase = 0;
-        this.state.baseScore = null;
-
-        document.getElementById('scan-trigger-wrapper').classList.add('active');
-        document.getElementById('instruction').innerText = '掃描中...';
-        document.getElementById('timer-widget').classList.add('show');
-        
-        this.tick();
-      },
-
-      stop() {
-        this.state.isScanning = false;
-        document.getElementById('scan-trigger-wrapper').classList.remove('active');
-        document.getElementById('instruction').innerText = '按住開始同步';
-        this.resetProgress();
-      },
-
-      tick() {
-        if (!this.state.isScanning) return;
-
-        const elapsed = performance.now() - this.state.startTime;
-        const currentPhase = this.phases.findIndex(p => elapsed < p.duration);
-        const phaseIdx = currentPhase === -1 ? this.phases.length - 1 : currentPhase;
-
-        const phase = this.phases[phaseIdx];
-        const progress = Math.min(1, elapsed / phase.duration);
-        this.updateProgressBar(progress);
-
-        // 模擬生理數據
-        const hr = 70 + Math.sin(elapsed * 0.002) * 8 + (Math.random() - 0.5) * 2;
-        const hrv = 55 + Math.sin(elapsed * 0.0013) * 10 + (Math.random() - 0.5) * 3;
-
-        document.getElementById('bpm-val').innerText = Math.round(hr);
-        document.getElementById('hrv-val').innerText = Math.round(hrv);
-
-        // 更新PPG圖
-        this.updatePPG();
-
-        // 15秒出基礎結果
-        if (elapsed >= 15000 && this.state.baseScore === null) {
-          this.state.baseHR = hr;
-          this.state.baseHRV = hrv;
-          this.state.baseScore = this.computeTEI(hr, hrv);
-          this.showInitialResult();
-        }
-
-        // 後續階段：微調分數 + 提升信任度
-        if (this.state.baseScore !== null) {
-          const smoothing = (Math.random() - 0.5) * 2;
-          const currentScore = Math.max(1, Math.min(99, this.state.baseScore + smoothing));
-          const currentConf = Math.round(phase.confidence);
-
-          document.getElementById('dash-score').innerText = String(Math.round(currentScore)).padStart(2, '0');
-          document.getElementById('confidence-val').innerText = currentConf + '%';
-          document.getElementById('resonance-fill').style.width = currentConf + '%';
-
-          this.updateZone(currentScore);
-          this.updateANS(hrv);
-        }
-
-        requestAnimationFrame(() => this.tick());
-      },
-
-      computeTEI(hr, hrv) {
-        const hrvN = Math.max(0, Math.min(1, (hrv - 5) / (140 - 5)));
-        const hrN = Math.max(0, Math.min(1, 1 - ((hr - 35) / (110 - 35))));
-        return Math.round((hrvN * 0.7 + hrN * 0.3) * 100);
-      },
-
-      showInitialResult() {
-        document.getElementById('dashboard-layer').classList.add('show');
-        document.getElementById('universe').classList.add('dimmed');
-        document.getElementById('dash-label').innerText = '繼續持有提升精準度';
-        document.getElementById('dash-quote').innerText = '"15秒基礎分析完成。繼續掃描以提升信任度。"';
-        
-        if (navigator.vibrate) navigator.vibrate([20, 10, 20]);
-      },
-
-      updateProgressBar(progress) {
-        const circle = document.getElementById('scan-progress-bar');
-        const circumference = 339;
-        const offset = circumference * (1 - progress);
-        circle.style.strokeDashoffset = offset;
-      },
-
-      resetProgress() {
-        document.getElementById('scan-progress-bar').style.strokeDashoffset = 339;
-      },
-
-      updatePPG() {
-        const bars = document.querySelectorAll('#ppg-graph > div');
-        bars.forEach((bar, i) => {
-          const h = 10 + Math.random() * 80;
-          bar.style.height = h + '%';
-        });
-      },
-
-      updateANS(hrv) {
-        const pns = Math.min(95, Math.max(5, (hrv / 80) * 100));
-        document.getElementById('ans-sns-bar').style.width = (100 - pns) + '%';
-        document.getElementById('ans-pns-bar').style.width = pns + '%';
-        document.getElementById('sns-val').innerText = Math.round(100 - pns) + '%';
-        document.getElementById('pns-val').innerText = Math.round(pns) + '%';
-      },
-
-      updateZone(score) {
-        const state = document.getElementById('dash-state');
-        const guidance = document.getElementById('zone-guidance');
-
-        if (score >= 80) {
-          state.innerText = '巔峰區';
-          state.style.color = 'var(--zone-peak)';
-          guidance.innerText = '⚠️ 過熱風險，建議縮小倉位';
-        } else if (score >= 55) {
-          state.innerText = '最佳區';
-          state.style.color = 'var(--zone-optimal)';
-          guidance.innerText = '✅ 執行A+設定';
-        } else if (score >= 35) {
-          state.innerText = '中立區';
-          state.style.color = 'var(--zone-neutral)';
-          guidance.innerText = '⚠️ 僅確認型交易';
-        } else {
-          state.innerText = '衰退區';
-          state.style.color = 'var(--zone-degraded)';
-          guidance.innerText = '🚫 鎖定交易，建議休息';
-        }
-      }
-    };
-
-    // Three.js星空初始化
-    function initUniverse() {
-      const container = document.getElementById('universe');
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.z = 5;
-
-      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      container.appendChild(renderer.domElement);
-
-      const particleCount = 5000;
-      const geometry = new THREE.BufferGeometry();
-      const positions = new Float32Array(particleCount * 3);
-      const colors = new Float32Array(particleCount * 3);
-
-      for (let i = 0; i < particleCount; i++) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(Math.random() * 2 - 1);
-        const r = 2.5 + Math.random() * 2;
-
-        positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-        positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-        positions[i * 3 + 2] = r * Math.cos(phi);
-
-        const color = new THREE.Color();
-        color.setHSL(0.6 + Math.random() * 0.2, 0.8, 0.6);
-        colors[i * 3] = color.r;
-        colors[i * 3 + 1] = color.g;
-        colors[i * 3 + 2] = color.b;
-      }
-
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-      const material = new THREE.PointsMaterial({
-        size: 0.05,
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending
-      });
-
-      const cloud = new THREE.Points(geometry, material);
-      scene.add(cloud);
-
-      function animate() {
-        requestAnimationFrame(animate);
-        cloud.rotation.y += 0.0002;
-        cloud.rotation.x += 0.0001;
-        renderer.render(scene, camera);
-      }
-      animate();
-
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
+const TenkiEngine = {
+  calculatePole: function(sampleBuffer, env) {
+    if (!sampleBuffer || sampleBuffer.length === 0) {
+      return { score: 50, stability: 0, hrv: 50, alertness: 0, energy: 30 };
     }
 
-    // PPG圖初始化
+    const count = sampleBuffer.length;
+    let sumHead = 0;
+    let sumEnergy = 0;
+    sampleBuffer.forEach(s => {
+      sumHead += Math.abs(s.headRot.x) + Math.abs(s.headRot.y);
+      sumEnergy += s.audioData || 0;
+    });
+
+    const rawStability = Math.max(0, 1 - (sumHead / count / 3));
+    const finalStability = Math.max(0, rawStability - (env.motion || 0));
+
+    let sumEyeTens = 0;
+    sampleBuffer.forEach(s => { sumEyeTens += (s.eyeTens || 0); });
+    const avgEyeTension = sumEyeTens / count;
+    const alertness = Math.floor((1 - avgEyeTension) * 100);
+
+    let rawScore = 60 + finalStability * 30;
+    if (env.lux > 50) rawScore += 5;
+    else rawScore -= 5;
+
+    const reliability = Math.min(1, count / 30);
+    const finalScore = Math.floor(rawScore * reliability);
+
+    const estimatedHRV = Math.floor(40 + finalStability * 50 + Math.random() * 10);
+    const avgEnergy = sumEnergy / count;
+
+    return {
+      score: Math.max(10, Math.min(99, finalScore)),
+      stability: finalStability,
+      alertness: alertness,
+      hrv: estimatedHRV,
+      energy: avgEnergy
+    };
+  }
+};
+
+const baselineMgr = new BaselineManager();
+</script>
+
+<script>
+lucide.createIcons();
+
+const app = {
+  config: {
+    particleCount: 8000,
+    particleSize: 0.08,
+    scanDuration: 2000 // 2秒快速掃描
+  },
+  state: {
+    isFaceDetected: false,
+    isScanning: false,
+    isSensorActive: false,
+    mouthOpen: 0,
+    eyesOpen: 1,
+    headRot: { x: 0, y: 0 },
+    energy: 0,
+    audioData: 0,
+    baseScore: 0,
+    mentalBuffer: [],
+    engineResult: null,
+    scanBuffer: [],
+    env: { lux: 0, deviceMotion: 0 },
+    scanStartTime: 0,
+    validHeartbeats: 0, // 有效心率計數
+    stageLevel: 0 // 階段等級 0-4
+  },
+  audioCtx: null,
+  analyser: null,
+  dataArray: null,
+  stream: null,
+  lightCtx: null,
+
+  init: function() {
+    this.initThree();
+    this.initEvents();
+    this.initDashboardInteractions();
+    this.initEnvironment();
+
+    // 創建 PPG 波形柱狀條
     const container = document.getElementById('ppg-graph');
     for (let i = 0; i < 30; i++) {
       const d = document.createElement('div');
-      d.style.flex = '1';
-      d.style.background = 'rgba(0,255,148,0.5)';
-      d.style.borderRadius = '1px';
+      d.className = 'bio-bar';
       d.style.height = '10%';
       container.appendChild(d);
     }
 
-    // 日期
+    // 設置日期
     const d = new Date();
-    document.getElementById('dash-date').innerText = d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
+    document.getElementById('dash-date').innerText = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+  },
 
-    // 事件綁定
-    const trigger = document.getElementById('scan-trigger-wrapper');
-    
-    trigger.addEventListener('mousedown', () => PhaseEngine.start());
-    trigger.addEventListener('mouseup', () => PhaseEngine.stop());
-    trigger.addEventListener('mouseleave', () => PhaseEngine.stop());
-    
-    trigger.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      PhaseEngine.start();
-    });
-    trigger.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      PhaseEngine.stop();
-    });
-    trigger.addEventListener('touchcancel', () => PhaseEngine.stop());
+  initEnvironment: function() {
+    const c = document.getElementById('light-analysis-canvas');
+    if (c) this.lightCtx = c.getContext('2d', { willReadFrequently: true });
 
-    // Timer Widget拖曳
-    const timerWidget = document.getElementById('timer-widget');
-    const timerHandle = document.getElementById('timer-handle');
-    let isDragging = false;
-    let startX = 0;
-    let startY = 0;
-    let offsetX = 0;
-    let offsetY = 0;
+    window.addEventListener('devicemotion', (event) => {
+      if (event.accelerationIncludingGravity) {
+        const { x, y, z } = event.accelerationIncludingGravity;
+        const m = Math.sqrt(x*x + y*y + z*z);
+        this.state.env.deviceMotion = Math.abs(m - 9.8) * 0.1;
+      }
+    });
+  },
 
-    timerHandle.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      startX = e.clientX - offsetX;
-      startY = e.clientY - offsetY;
+  updateEnvironment: function() {
+    if (!this.state.isSensorActive) {
+      this.updateEnvUI(60 + Math.sin(Date.now() * 0.001) * 10, 0.02);
+      return;
+    }
+
+    if (this.lightCtx && document.getElementById('input-video').readyState === 4) {
+      if (Math.random() < 0.9) {
+        const v = document.getElementById('input-video');
+        this.lightCtx.drawImage(v, 0, 0, 50, 50);
+        const frame = this.lightCtx.getImageData(0, 0, 50, 50);
+        const data = frame.data;
+        let colorSum = 0;
+        for (let x = 0; x < data.length; x += 4) {
+          colorSum += Math.floor((data[x] + data[x + 1] + data[x + 2]) / 3);
+        }
+        this.state.env.lux = Math.min(100, Math.floor((colorSum / 2500) * 200) % 100);
+      }
+    }
+
+    let instability = this.state.env.deviceMotion;
+    if (this.state.headRot) {
+      instability += (Math.abs(this.state.headRot.x) + Math.abs(this.state.headRot.y)) * 0.05;
+    }
+    this.updateEnvUI(this.state.env.lux, instability);
+  },
+
+  updateEnvUI: function(lux, shake) {
+    const luxBar = document.getElementById('env-lux-bar');
+    const luxItem = document.getElementById('env-lux');
+    const stabBar = document.getElementById('env-stab-bar');
+    const stabItem = document.getElementById('env-stab');
+
+    if (luxBar) luxBar.style.width = lux + '%';
+    if (lux < 20) {
+      luxItem.classList.add('warn');
+      luxItem.classList.remove('good');
+    } else {
+      luxItem.classList.add('good');
+      luxItem.classList.remove('warn');
+    }
+
+    if (stabBar) {
+      const stabPct = Math.max(0, 100 - shake * 100);
+      stabBar.style.width = stabPct + '%';
+    }
+    if (shake > 0.5) {
+      stabItem.classList.add('warn');
+      stabItem.classList.remove('good');
+    } else {
+      stabItem.classList.add('good');
+      stabItem.classList.remove('warn');
+    }
+  },
+
+  initThree: function() {
+    const container = document.getElementById('universe');
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    this.camera.position.z = 5;
+
+    this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(this.renderer.domElement);
+
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(this.config.particleCount * 3);
+    const originals = new Float32Array(this.config.particleCount * 3);
+    const colors = new Float32Array(this.config.particleCount * 3);
+    const randoms = new Float32Array(this.config.particleCount);
+    const scales = new Float32Array(this.config.particleCount);
+
+    const phi = Math.PI * (3. - Math.sqrt(5.));
+    const topColor = new THREE.Color(0xFF66CC);
+    const midColor = new THREE.Color(0x9966FF);
+    const botColor = new THREE.Color(0x00CCFF);
+
+    for (let i = 0; i < this.config.particleCount; i++) {
+      const y = 1 - (i / (this.config.particleCount - 1)) * 2;
+      const radius = Math.sqrt(1 - y * y);
+      const theta = phi * i;
+      const r = 2.5;
+
+      const idx = i * 3;
+      positions[idx] = Math.cos(theta) * radius * r;
+      positions[idx + 1] = y * r;
+      positions[idx + 2] = Math.sin(theta) * radius * r;
+
+      originals[idx] = positions[idx];
+      originals[idx + 1] = positions[idx + 1];
+      originals[idx + 2] = positions[idx + 2];
+
+      randoms[i] = Math.random();
+      scales[i] = 1.0;
+
+      const mixed = new THREE.Color();
+      const normalizedY = (y + 1) / 2;
+      if (normalizedY > 0.5) {
+        mixed.copy(midColor).lerp(topColor, (normalizedY - 0.5) * 2);
+      } else {
+        mixed.copy(botColor).lerp(midColor, normalizedY * 2);
+      }
+      colors[idx] = mixed.r;
+      colors[idx + 1] = mixed.g;
+      colors[idx + 2] = mixed.b;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('originalPosition', new THREE.BufferAttribute(originals, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute('random', new THREE.BufferAttribute(randoms, 1));
+    geometry.setAttribute('scale', new THREE.BufferAttribute(scales, 1));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.4, 'rgba(255,255,255,0.8)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 32, 32);
+
+    const tex = new THREE.Texture(canvas);
+    tex.needsUpdate = true;
+
+    this.material = new THREE.PointsMaterial({
+      size: this.config.particleSize,
+      map: tex,
+      transparent: true,
+      opacity: 0.9,
+      vertexColors: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
     });
 
-    timerHandle.addEventListener('touchstart', (e) => {
-      isDragging = true;
-      const touch = e.touches[0];
-      startX = touch.clientX - offsetX;
-      startY = touch.clientY - offsetY;
+    this.cloud = new THREE.Points(geometry, this.material);
+    this.scene.add(this.cloud);
+    this.animate();
+  },
+
+  // 星塵靈魂同步：粒子隨睜眼/張嘴縮放
+  updateParticleSync: function() {
+    if (!this.cloud) return;
+    const positions = this.cloud.geometry.attributes.position.array;
+    const originals = this.cloud.geometry.attributes.originalPosition.array;
+    const scales = this.cloud.geometry.attributes.scale.array;
+
+    // 眼睛影響：眨眼時粒子收縮
+    const eyeScale = 0.8 + (this.state.eyesOpen * 0.4);
+    // 嘴巴影響：張嘴時粒子擴張
+    const mouthExpansion = 1 + (this.state.mouthOpen * 0.3);
+
+    for (let i = 0; i < this.config.particleCount; i++) {
+      const idx = i * 3;
+      const baseScale = 1.0;
+      scales[i] = baseScale * eyeScale * mouthExpansion;
+
+      // 應用縮放到位置
+      positions[idx] = originals[idx] * scales[i];
+      positions[idx + 1] = originals[idx + 1] * scales[i];
+      positions[idx + 2] = originals[idx + 2] * scales[i];
+    }
+
+    this.cloud.geometry.attributes.position.needsUpdate = true;
+  },
+
+  animate: function() {
+    requestAnimationFrame(() => this.animate());
+    if (this.cloud) {
+      this.cloud.rotation.y += 0.0005;
+      this.updateParticleSync();
+    }
+    this.updateEnvironment();
+    this.renderer.render(this.scene, this.camera);
+  },
+
+  startSensors: async function() {
+    document.getElementById('instruction').innerText = 'SENSORS ACTIVE...';
+    try {
+      // 啟動相機
+      this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      const video = document.getElementById('input-video');
+      video.srcObject = this.stream;
+      await video.play();
+
+      // 初始化 FaceMesh
+      const faceMesh = new FaceMesh({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+      });
+      faceMesh.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+
+      faceMesh.onResults((results) => this.onFaceMeshResults(results));
+
+      const camera = new Camera(video, {
+        onFrame: async () => {
+          await faceMesh.send({ image: video });
+        },
+        width: 640,
+        height: 480
+      });
+      camera.start();
+
+      this.state.isSensorActive = true;
+      document.getElementById('connection-status').innerText = 'VISION ACTIVE';
+
+      setTimeout(() => {
+        this.showAlignmentHint('good', 'ALIGNED! HOLD TO SCAN', 'check-circle');
+      }, 1500);
+
+    } catch (err) {
+      console.error('Sensor init failed:', err);
+      document.getElementById('instruction').innerText = 'SENSOR ERROR';
+    }
+  },
+
+  onFaceMeshResults: function(results) {
+    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+      const face = results.multiFaceLandmarks[0];
+      this.state.isFaceDetected = true;
+
+      // 微表情極數截取
+      // 眼睛開合度 (0=閉, 1=開)
+      const leftEye = face[159];
+      const rightEye = face[386];
+      const eyeOpenness = (leftEye.y + rightEye.y) / 2;
+      this.state.eyesOpen = Math.max(0, Math.min(1, 1 - eyeOpenness * 2));
+
+      // 嘴巴開合度 (0=閉, 1=開)
+      const upperLip = face[13];
+      const lowerLip = face[14];
+      const mouthOpen = Math.abs(upperLip.y - lowerLip.y);
+      this.state.mouthOpen = Math.max(0, Math.min(1, mouthOpen * 10));
+
+      // 頭部旋轉
+      const nose = face[1];
+      this.state.headRot = {
+        x: (nose.x - 0.5) * 2,
+        y: (nose.y - 0.5) * 2
+      };
+
+      // 每200ms採樣一次
+      if (this.state.isScanning && Date.now() - this.lastSample > 200) {
+        this.lastSample = Date.now();
+        this.state.scanBuffer.push({
+          eyeTens: 1 - this.state.eyesOpen,
+          mouthOpen: this.state.mouthOpen,
+          headRot: this.state.headRot,
+          audioData: this.state.audioData
+        });
+      }
+    } else {
+      this.state.isFaceDetected = false;
+    }
+  },
+
+  showAlignmentHint: function(status, text, icon) {
+    const capsule = document.getElementById('align-hint-capsule');
+    const hintText = document.getElementById('hint-text');
+    const hintIcon = document.getElementById('hint-icon');
+
+    capsule.className = '';
+    capsule.classList.add('show', `status-${status}`);
+    hintText.innerText = text;
+    hintIcon.setAttribute('data-lucide', icon);
+    lucide.createIcons();
+
+    setTimeout(() => {
+      capsule.classList.remove('show');
+    }, 3000);
+  },
+
+  initEvents: function() {
+    const wrapper = document.getElementById('scan-trigger-wrapper');
+    const progressBar = document.getElementById('scan-progress-bar');
+    const circumference = 2 * Math.PI * 54;
+    let pressTimer = null;
+
+    const startScan = () => {
+      if (this.state.isScanning || !this.state.isSensorActive) return;
+      this.state.isScanning = true;
+      this.state.scanStartTime = Date.now();
+      this.state.scanBuffer = [];
+      this.lastSample = Date.now();
+
+      wrapper.classList.add('active');
+      document.getElementById('instruction').innerText = 'SCANNING...';
+
+      let elapsed = 0;
+      pressTimer = setInterval(() => {
+        elapsed += 50;
+        const progress = Math.min(1, elapsed / this.config.scanDuration);
+        const offset = circumference * (1 - progress);
+        progressBar.style.strokeDashoffset = offset;
+
+        if (elapsed >= this.config.scanDuration) {
+          clearInterval(pressTimer);
+          this.finishScan();
+        }
+      }, 50);
+    };
+
+    const cancelScan = () => {
+      if (pressTimer) {
+        clearInterval(pressTimer);
+        pressTimer = null;
+      }
+      wrapper.classList.remove('active');
+      progressBar.style.strokeDashoffset = circumference;
+      this.state.isScanning = false;
+      document.getElementById('instruction').innerText = 'HOLD TO SYNC';
+    };
+
+    wrapper.addEventListener('mousedown', startScan);
+    wrapper.addEventListener('touchstart', startScan);
+    wrapper.addEventListener('mouseup', cancelScan);
+    wrapper.addEventListener('mouseleave', cancelScan);
+    wrapper.addEventListener('touchend', cancelScan);
+    wrapper.addEventListener('touchcancel', cancelScan);
+
+    window.addEventListener('resize', () => {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    document.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      offsetX = e.clientX - startX;
-      offsetY = e.clientY - startY;
-      timerWidget.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
-    });
+    this.startSensors();
+  },
 
-    document.addEventListener('touchmove', (e) => {
-      if (!isDragging) return;
-      const touch = e.touches[0];
-      offsetX = touch.clientX - startX;
-      offsetY = touch.clientY - startY;
-      timerWidget.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
-    });
+  finishScan: function() {
+    this.state.isScanning = false;
+    const wrapper = document.getElementById('scan-trigger-wrapper');
+    wrapper.classList.remove('active');
 
-    document.addEventListener('mouseup', () => isDragging = false);
-    document.addEventListener('touchend', () => isDragging = false);
+    // 粒子過場動畫
+    const universe = document.getElementById('universe');
+    universe.classList.add('transition-out');
 
-    // Modal
-    document.getElementById('btn-import').addEventListener('click', () => {
-      document.getElementById('modal-backdrop').classList.add('show');
-    });
-    document.getElementById('btn-close-modal').addEventListener('click', () => {
-      document.getElementById('modal-backdrop').classList.remove('show');
-    });
-    document.getElementById('btn-clear').addEventListener('click', () => {
-      localStorage.removeItem('tenki_v50_baseline');
-      alert('Baseline已清除');
-    });
+    setTimeout(() => {
+      this.processResults();
+      this.showDashboard();
+    }, 800);
+  },
 
-    // 初始化
-    initUniverse();
-    console.log('✅ TENKI v50.0 完整版就緒');
-  </script>
+  processResults: function() {
+    const result = TenkiEngine.calculatePole(this.state.scanBuffer, this.state.env);
+    this.state.engineResult = result;
+    baselineMgr.recordSession();
+
+    // 極速運算到位
+    this.animateScore(result.score);
+    this.animateHRV(result.hrv);
+    this.updateANSSpectrum(50, 50); // 初始平衡
+    this.updateRadar([50, 50, 50]);
+    this.updateBPM(71);
+
+    // 啟動階段式提升
+    this.startProgressiveEnhancement();
+  },
+
+  animateScore: function(target) {
+    const elem = document.getElementById('dash-score');
+    const ringScore = document.getElementById('ring-score');
+    const circumference = 2 * Math.PI * 120;
+
+    let current = 0;
+    const duration = 1000;
+    const startTime = Date.now();
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      
+      // 彈跳緩動
+      const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+      current = Math.floor(target * easeOutCubic);
+
+      elem.innerText = String(current).padStart(2, '0');
+      const offset = circumference * (1 - current / 100);
+      ringScore.style.strokeDashoffset = offset;
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    animate();
+  },
+
+  animateHRV: function(target) {
+    const elem = document.getElementById('hrv-val');
+    const ringHRV = document.getElementById('ring-hrv');
+    const circumference = 2 * Math.PI * 105;
+
+    let current = 0;
+    const duration = 1000;
+    const startTime = Date.now();
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+      current = Math.floor(target * easeOutCubic);
+
+      elem.innerText = current;
+      const normalizedHRV = Math.min(100, (current - 40) / 60 * 100);
+      const offset = circumference * (1 - normalizedHRV / 100);
+      ringHRV.style.strokeDashoffset = offset;
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    animate();
+  },
+
+  startProgressiveEnhancement: function() {
+    this.state.validHeartbeats = 0;
+    this.state.stageLevel = 0;
+    document.getElementById('confidence-val').innerText = '30';
+    document.getElementById('resonance-fill').style.width = '30%';
+
+    // 階段1: 15秒
+    setTimeout(() => {
+      if (this.state.stageLevel === 0) {
+        this.state.stageLevel = 1;
+        this.enhanceStage(1, 60);
+      }
+    }, 15000);
+
+    // 階段2: 30秒
+    setTimeout(() => {
+      if (this.state.stageLevel === 1) {
+        this.state.stageLevel = 2;
+        this.enhanceStage(2, 80);
+      }
+    }, 30000);
+
+    // 階段3: 45秒
+    setTimeout(() => {
+      if (this.state.stageLevel === 2) {
+        this.state.stageLevel = 3;
+        this.enhanceStage(3, 90);
+      }
+    }, 45000);
+
+    // 階段4: 60秒
+    setTimeout(() => {
+      if (this.state.stageLevel === 3) {
+        this.state.stageLevel = 4;
+        this.enhanceStage(4, 90);
+      }
+    }, 60000);
+
+    // 啟動持續數據升級
+    this.startContinuousDataUpgrade();
+  },
+
+  enhanceStage: function(stage, trustLevel) {
+    document.getElementById('confidence-val').innerText = trustLevel;
+    document.getElementById('resonance-fill').style.width = trustLevel + '%';
+
+    const messages = [
+      'Bio-metrics synchronized. Analysis ready.',
+      '✓ Baseline data established',
+      '✓ Precision enhanced to 60%',
+      '✓ High-precision analysis complete',
+      '✓ Full analysis complete!'
+    ];
+    document.getElementById('dash-quote').innerText = messages[stage];
+
+    // 提示音效果
+    this.showAlignmentHint('good', `STAGE ${stage} COMPLETE`, 'check-circle');
+  },
+
+  startContinuousDataUpgrade: function() {
+    // 每2秒模擬心率累積
+    setInterval(() => {
+      if (this.state.validHeartbeats < 30) {
+        this.state.validHeartbeats++;
+      }
+
+      // 微調所有數據
+      const currentScore = parseInt(document.getElementById('dash-score').innerText);
+      const newScore = Math.min(99, currentScore + Math.floor(Math.random() * 2));
+      document.getElementById('dash-score').innerText = String(newScore).padStart(2, '0');
+
+      const currentHRV = parseInt(document.getElementById('hrv-val').innerText);
+      const newHRV = Math.min(100, currentHRV + Math.floor(Math.random() * 3));
+      document.getElementById('hrv-val').innerText = newHRV;
+
+      // 更新 ANS 平衡
+      const sns = 45 + Math.random() * 10;
+      const pns = 100 - sns;
+      this.updateANSSpectrum(sns, pns);
+
+      // 更新 PPG 波形
+      this.updatePPGWave();
+    }, 2000);
+  },
+
+  updateANSSpectrum: function(sns, pns) {
+    document.getElementById('ans-sns-bar').style.width = sns + '%';
+    document.getElementById('ans-pns-bar').style.width = pns + '%';
+    document.getElementById('sns-val').innerText = Math.floor(sns);
+    document.getElementById('pns-val').innerText = Math.floor(pns);
+  },
+
+  updateRadar: function(values) {
+    const [focus, pos, vari] = values;
+    const points = `50,${50 - focus * 0.4} ${50 + pos * 0.4},80 ${50 - vari * 0.4},80`;
+    document.getElementById('radar-poly').setAttribute('points', points);
+  },
+
+  updateBPM: function(bpm) {
+    document.getElementById('bpm-val').innerText = bpm;
+  },
+
+  updatePPGWave: function() {
+    const bars = document.querySelectorAll('.bio-bar');
+    bars.forEach((bar, i) => {
+      const t = Date.now() * 0.005 + i * 0.2;
+      const h = 30 + Math.sin(t) * 20 + Math.random() * 10;
+      bar.style.height = h + '%';
+    });
+  },
+
+  showDashboard: function() {
+    document.getElementById('hud-layer').classList.add('hidden-ui');
+    document.getElementById('dashboard-layer').classList.add('show');
+    document.getElementById('universe').classList.add('dimmed');
+    document.getElementById('dash-label').innerText = `${this.state.validHeartbeats}/30 VALID HR`;
+  },
+
+  initDashboardInteractions: function() {
+    const orbit = document.getElementById('tei-orbit-container');
+    orbit.addEventListener('click', () => {
+      orbit.classList.toggle('charging');
+    });
+  },
+
+  reset: function() {
+    location.reload();
+  }
+};
+
+app.init();
+</script>
+
 </body>
 </html>
