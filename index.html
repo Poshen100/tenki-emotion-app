@@ -2148,6 +2148,95 @@
         Engine.renderer.setSize(window.innerWidth, window.innerHeight);
       };
     };
+    
+  // ========================================
+  // FusionLog Event Tracking Implementation
+  // ========================================
+  
+  // Helper: Log RR Full Lock milestone
+  function logRRFullLock(rrGained, rrTarget, stage, startedAt, primarySource, confidence) {
+    FusionLog.push({
+      ts: Date.now(),
+      perf: Math.round(performance.now()),
+      event: 'RR_FULL_LOCK',
+      primarySource: primarySource || 'BLE_RR',
+      confidence: confidence || 100,
+      scan: {
+        stage: stage || 3,
+        rrGained: rrGained,
+        rrTarget: rrTarget,
+        elapsedMs: Date.now() - (startedAt || 0)
+      },
+      tier: 1,
+      roi: { eyebrowQ: 0.90, foreheadQ: 0.85 }
+    });
+    console.log('✓ RR_FULL_LOCK logged:', {
+      rrGained,
+      rrTarget,
+      elapsed: Date.now() - (startedAt || 0) + 'ms'
+    });
+  }
+  
+  // Helper: Log Scan Stage upgrade
+  function logScanStage(stage, startedAt, rrGained = 0, tier = 1) {
+    FusionLog.push({
+      ts: Date.now(),
+      perf: Math.round(performance.now()),
+      event: `SCAN_STAGE_${stage}`,
+      stage: stage,
+      elapsedMs: Date.now() - (startedAt || 0),
+      tier: tier,
+      rrGained: rrGained
+    });
+    console.log(`✓ SCAN_STAGE_${stage} logged:`, {
+      elapsed: Date.now() - (startedAt || 0) + 'ms',
+      rrGained: rrGained
+    });
+  }
+  
+  // Helper: Log RR Beat milestone (every 5 beats)
+  function logRRBeatMilestone(beatCount, stage, startedAt) {
+    FusionLog.push({
+      ts: Date.now(),
+      perf: Math.round(performance.now()),
+      event: 'RR_BEAT_MILESTONE',
+      beats: beatCount,
+      stage: stage,
+      elapsedMs: Date.now() - (startedAt || 0)
+    });
+    console.log(`✓ RR Beat #${beatCount} milestone logged`);
+  }
+  
+  // Helper: Log Chronic Stress Alert
+  function logChronicStressAlert(currentTEI, baselinePR, delta) {
+    FusionLog.push({
+      ts: Date.now(),
+      perf: Math.round(performance.now()),
+      event: 'CHRONIC_STRESS_FLAG',
+      currentTEI: currentTEI,
+      baselinePR: baselinePR,
+      delta: delta,
+      severity: delta < -30 ? 'HIGH' : delta < -15 ? 'MEDIUM' : 'LOW'
+    });
+    console.warn('⚠ Chronic stress detected:', { currentTEI, delta });
+  }
+  
+  // Export function for UI button
+  function exportFusionLog() {
+    FusionLog.exportJsonl();
+    console.log('✓ FusionLog exported as tenki_fusion_log.jsonl');
+  }
+  
+  // Batch logging: Initial scan start
+  function logScanStart(scanStartedAt, tier = 1) {
+    FusionLog.push({
+      ts: Date.now(),
+      perf: Math.round(performance.now()),
+      event: 'SCAN_START',
+      tier: tier,
+      startedAt: scanStartedAt
+    });
+  }
   </script>
 </body>
 </html>
