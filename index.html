@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TENKI v51.1 - Live Biometric Sync</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root {
+            --bg-deep: #050510;
+            --plasma-cyan: #00F0FF;
+            --void-purple: #7000FF;
+            --alert-orange: #FF5500;
+            --matrix-green: #00FF94;
+            --state-stable: #00FF94;
+            --state-control: #FFD600;
+            --state-volatile: #FF8800;
+            --state-risk: #FF0055;
+            --glass-bg: rgba(15, 15, 20, 0.92);
+            --glass-border: rgba(255, 255, 255, 0.12);
+        }
+
+        body {
+            background: var(--bg-deep);
+            color: white;
+            font-family: 'Space Mono', monospace;
+            overflow: hidden;
+            width: 100vw;
+            height: 100dvh;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        .font-sans-bold { font-family: 'Inter', sans-serif; font-weight: 900; }
+        .font-serif-human { font-family: 'Playfair Display', serif; }
+        .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+
+        #input-video, #light-analysis-canvas {
+            position: fixed; top: -9999px; left: -9999px; opacity: 0; pointer-events: none;
+        }
+
+        #universe {
+            position: absolute; inset: 0; z-index: 1;
+            background: radial-gradient(circle at center, #111 0%, #000 100%);
+            transition: opacity 1s ease, filter 1s ease;
+        }
+        #universe.dimmed { opacity: 0.2; filter: blur(15px); }
+
+        #hud-layer {
+            position: absolute; inset: 0; z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 24px; padding-bottom: calc(30px + env(safe-area-inset-bottom));
+            transition: opacity 0.5s ease;
+        }
+        #hud-layer.hidden-ui { opacity: 0; pointer-events: none; }
+
+        .env-readout { font-size: 9px; letter-spacing: 1px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-bottom: 8px; }
+        .env-item { display: flex; align-items: center; gap: 6px; color: #666; transition: color 0.3s; }
+        .env-item.good { color: var(--matrix-green); }
+        .env-item.warn { color: var(--alert-orange); }
+        .env-bar { width: 30px; height: 3px; background: rgba(255, 255, 255, 0.1); border-radius: 1px; overflow: hidden; }
+        .env-fill { height: 100%; background: currentColor; transition: width 0.3s; }
+
+        #align-hint-capsule {
+            position: absolute; top: 15%; left: 50%; transform: translateX(-50%) translateY(-20px) scale(0.95);
+            background: rgba(20, 20, 25, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            padding: 10px 20px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex; align-items: center; gap: 12px; opacity: 0; pointer-events: none;
+            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1); z-index: 100; overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        }
+        #align-hint-capsule.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
+        #align-hint-capsule.status-error { border-color: rgba(239, 68, 68, 0.5); box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
+        #align-hint-capsule.status-warn { border-color: rgba(234, 179, 8, 0.5); box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
+        #align-hint-capsule.status-good { border-color: rgba(35, 243, 212, 0.6); box-shadow: 0 0 20px rgba(35, 243, 212, 0.3); }
+
+        .shimmer-effect {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.1) 45%, transparent 60%);
+            transform: translateX(-100%); animation: shimmer-slide 2.5s infinite; pointer-events: none;
+        }
+        @keyframes shimmer-slide { 100% { transform: translateX(100%); } }
+
+        .fingerprint-wrapper {
+            position: relative; width: 110px; height: 110px; display: flex; justify-content: center; align-items: center;
+            pointer-events: auto; cursor: pointer; border-radius: 50%;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation;
+        }
+        .fingerprint-core {
+            width: 80px; height: 80px; border-radius: 50%; background: rgba(10, 10, 15, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.15); display: flex; justify-content: center; align-items: center;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); position: relative; overflow: hidden; z-index: 20;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.05);
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .fingerprint-icon { position: relative; z-index: 22; color: rgba(255, 255, 255, 0.6); transition: all 0.3s ease; }
+        .scan-beam {
+            position: absolute; top: -100%; left: 0; width: 100%; height: 50%;
+            background: linear-gradient(to bottom, transparent 0%, rgba(0, 240, 255, 0.4) 90%, rgba(255, 255, 255, 0.8) 100%);
+            opacity: 0; pointer-events: none; z-index: 21;
+        }
+        .ripple-ring {
+            position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; border-radius: 50%;
+            border: 1px solid var(--plasma-cyan); transform: translate(-50%, -50%) scale(0.8);
+            opacity: 0; pointer-events: none; z-index: 1;
+        }
+        .progress-svg { position: absolute; top: -5px; left: -5px; width: 120px; height: 120px; transform: rotate(-90deg); z-index: 30; pointer-events: none; }
+        .progress-circle {
+            fill: none; stroke: var(--plasma-cyan); stroke-width: 3; stroke-linecap: round;
+            stroke-dasharray: 339; stroke-dashoffset: 339; transition: stroke-dashoffset 0.05s linear;
+            filter: drop-shadow(0 0 6px var(--plasma-cyan));
+        }
+        .fingerprint-wrapper.active { transform: scale(0.95); }
+        .fingerprint-wrapper.active .fingerprint-core {
+            border-color: rgba(0, 240, 255, 0.5); background: rgba(0, 10, 20, 0.9);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.2), inset 0 0 20px rgba(0, 240, 255, 0.1);
+        }
+        .fingerprint-wrapper.active .fingerprint-icon { color: white; opacity: 1; filter: drop-shadow(0 0 8px var(--plasma-cyan)); animation: pulse-icon 1s infinite alternate; }
+        .fingerprint-wrapper.active .scan-beam { opacity: 1; animation: beam-scan 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+        .fingerprint-wrapper.active .ripple-ring:nth-child(1) { animation: ripple-expand 1.5s linear infinite; animation-delay: 0s; }
+        .fingerprint-wrapper.active .ripple-ring:nth-child(2) { animation: ripple-expand 1.5s linear infinite; animation-delay: 0.5s; }
+
+        @keyframes beam-scan { 0% { top: -100%; opacity: 0; } 30% { opacity: 0.8; } 70% { opacity: 0.8; } 100% { top: 150%; opacity: 0; } }
+        @keyframes ripple-expand { 0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; border-width: 2px; } 100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; border-width: 0px; } }
+        @keyframes pulse-icon { 0% { opacity: 0.8; transform: scale(1); } 100% { opacity: 1; transform: scale(1.05); } }
+
+        .precision-tab {
+            padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.06); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.75); transition: all .2s ease; cursor: pointer;
+        }
+        .precision-tab.active { color: white; border-color: rgba(0, 240, 255, 0.45); background: rgba(0, 240, 255, 0.14); box-shadow: 0 0 18px rgba(0, 240, 255, 0.12); }
+
+        #dashboard-layer {
+            position: absolute; inset: 0; z-index: 50; background: transparent;
+            display: flex; flex-direction: column; padding: 24px 20px 140px 20px;
+            padding-top: calc(50px + env(safe-area-inset-top)); overflow-y: auto;
+            opacity: 0; pointer-events: none; transform: translateY(20px);
+            transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        #dashboard-layer.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+        .bento-card {
+            background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 28px; padding: 16px;
+            backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); display: flex; flex-direction: column;
+            position: relative; overflow: hidden; transition: transform 0.2s; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        .bento-card:active { transform: scale(0.98); }
+
+        .orbit-container { width: 280px; height: 280px; position: relative; display: flex; justify-content: center; align-items: center; margin: 10px auto; cursor: pointer; }
+        .orbit-container.charging { transform: scale(1.02); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .orbit-data-center { position: absolute; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none; }
+        .metallic-text { background: linear-gradient(180deg, #FFFFFF 20%, #A0A0A0 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 10px rgba(255, 255, 255, 0.2)); letter-spacing: -4px; line-height: 1; }
+        .ring-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+        .ring-track { fill: none; stroke: rgba(255, 255, 255, 0.05); stroke-linecap: round; }
+        .ring-value { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .glow-outer { filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.6)); }
+        .ring-inner-bg { fill: none; stroke: rgba(255, 255, 255, 0.03); stroke-width: 12; }
+        .mech-track { fill: none; stroke: rgba(255, 255, 255, 0.1); stroke-width: 1; stroke-dasharray: 2 10; transform-origin: 50% 50%; animation: spin-cw 20s linear infinite; }
+        .data-stream { fill: none; stroke: var(--void-purple); stroke-width: 2; opacity: 0.8; }
+        .ring-hrv-2050 { fill: none; stroke-width: 12; stroke-linecap: round; stroke-dasharray: 660; stroke-dashoffset: 660; transition: stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1); filter: drop-shadow(0 0 8px #D400FF); }
+        @keyframes spin-cw { 100% { transform: rotate(360deg); } }
+
+        .ans-bar-container { width: 100%; height: 28px; background: rgba(0, 0, 0, 0.4); border-radius: 99px; padding: 2px; display: flex; position: relative; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .ans-midpoint { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, 0.3); z-index: 10; }
+        .ans-sns-fill { height: 100%; border-radius: 99px 0 0 99px; background: linear-gradient(90deg, rgba(255, 85, 0, 0.8), rgba(255, 160, 0, 0.8)); display: flex; align-items: center; justify-content: flex-start; padding-left: 8px; font-size: 9px; font-weight: bold; color: black; transition: width 1s cubic-bezier(0.22, 1, 0.36, 1); }
+        .ans-pns-fill { height: 100%; border-radius: 0 99px 99px 0; background: linear-gradient(90deg, rgba(0, 255, 148, 0.6), rgba(0, 240, 255, 0.8)); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 9px; font-weight: bold; color: black; transition: width 1s cubic-bezier(0.22, 1, 0.36, 1); }
+
+        .snapshot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 16px; }
+        .snapshot-card { background: rgba(10, 16, 20, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 8px 4px; text-align: center; position: relative; overflow: hidden; backdrop-filter: blur(4px); transition: border-color 0.3s ease; }
+        .snapshot-card:hover { border-color: rgba(255, 255, 255, 0.15); }
+        .snapshot-label { font-size: 8px; color: rgba(255, 255, 255, 0.5); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 2px; }
+        .snapshot-value { font-size: 16px; font-weight: 600; font-family: 'JetBrains Mono', monospace; line-height: 1.2; letter-spacing: -0.02em; }
+        .snapshot-unit { font-size: 8px; opacity: 0.6; margin-left: 1px; font-weight: normal; }
+        .mini-spark { height: 14px; margin-top: 4px; display: flex; align-items: flex-end; justify-content: center; gap: 1px; opacity: 0.8; }
+        .spark-bar { width: 3px; background: currentColor; border-radius: 1px; opacity: 0.9; transition: height 0.1s ease; }
+
+        .scanner-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 10; background: linear-gradient(90deg, transparent 0%, rgba(0, 255, 148, 0.1) 50%, transparent 100%); width: 50%; transform: skewX(-20deg) translateX(-150%); animation: scan-pass 2.5s infinite linear; }
+        @keyframes scan-pass { 0% { transform: translateX(-150%) skewX(-20deg); } 100% { transform: translateX(350%) skewX(-20deg); } }
+
+        .bio-graph-container { width: 100%; height: 40px; display: flex; align-items: flex-end; gap: 2px; mask-image: linear-gradient(to right, transparent, black 15%); position: relative; z-index: 5; }
+        .bio-bar { flex: 1; background: var(--state-stable); opacity: 0.6; border-radius: 1px; transition: height 0.05s linear; }
+
+        .dock-container {
+            position: fixed; bottom: calc(30px + env(safe-area-inset-bottom)); left: 20px; right: 20px; height: 70px;
+            background: rgba(5, 5, 10, 0.9); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 35px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6); transform: translateY(150px);
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 100;
+        }
+        #dashboard-layer.show .dock-container { transform: translateY(0); }
+        .dock-btn { width: 54px; height: 54px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; transition: all 0.2s; }
+        .dock-main-action { flex: 1; height: 54px; margin: 0 8px; background: white; border-radius: 27px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; letter-spacing: 1px; color: black; font-size: 12px; box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); transition: transform 0.2s; }
+        .dock-main-action:active { transform: scale(0.97); }
+
+        .radar-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; position: relative; }
+        .radar-svg { width: 100px; height: 100px; overflow: visible; }
+        .radar-bg { fill: rgba(255, 255, 255, 0.05); stroke: rgba(255, 255, 255, 0.1); stroke-width: 1; }
+        .radar-poly { fill: rgba(0, 240, 255, 0.2); stroke: #00F0FF; stroke-width: 2; transition: all 0.5s ease; filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.3)); }
+    </style>
+</head>
+
+<body>
+    <video id="input-video" playsinline></video>
+    <canvas id="light-analysis-canvas" width="50" height="50"></canvas>
+    <div id="universe"></div>
+
+    <div id="hud-layer">
+        <div id="align-hint-capsule">
+            <div id="hint-icon-box" class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
+                <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-white"></i>
+            </div>
+            <span id="hint-text" class="text-xs font-bold text-white tracking-wide uppercase transition-all duration-300">Searching...</span>
+            <div class="shimmer-effect"></div>
+        </div>
+
+        <div class="flex justify-between items-start">
+            <div>
+                <div class="text-xl font-bold tracking-[6px] text-white font-mono-tech">TENKI</div>
+                <div class="text-[8px] text-cyan-300 tracking-widest mt-1 font-mono-tech">v51.1 LIVE SYNC</div>
+            </div>
+            <div class="text-right flex flex-col items-end">
+                <div id="connection-status" class="text-[10px] text-gray-400 border border-white/10 px-2 py-1 rounded mb-2 font-mono-tech">VISION ONLY</div>
+                <div class="env-readout font-mono-tech mb-2">
+                    <div id="env-lux" class="env-item"><span>LUX</span><div class="env-bar"><div id="env-lux-bar" class="env-fill" style="width: 0%"></div></div></div>
+                    <div id="env-stab" class="env-item"><span>STAB</span><div class="env-bar"><div id="env-stab-bar" class="env-fill" style="width: 100%"></div></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-center pb-10">
+            <div id="scan-trigger-wrapper" class="fingerprint-wrapper">
+                <div class="ripple-ring"></div>
+                <div class="ripple-ring"></div>
+                <svg class="progress-svg" viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="3"></circle>
+                    <circle id="scan-progress-bar" class="progress-circle" cx="60" cy="60" r="54"></circle>
+                </svg>
+                <div class="fingerprint-core">
+                    <div class="scan-beam"></div>
+                    <i data-lucide="fingerprint" class="fingerprint-icon w-10 h-10"></i>
+                </div>
+            </div>
+            <div id="instruction" class="mt-8 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300 font-bold">TAP TO SCAN</div>
+            <div id="precision-tabs" class="mt-5 flex gap-2 justify-center pointer-events-auto">
+                <button data-mode="glimpse" class="precision-tab">Glimpse · 2s</button>
+                <button data-mode="default" class="precision-tab active">Default · 30s</button>
+                <button data-mode="spectrum" class="precision-tab">Spectrum · 60s</button>
+            </div>
+            <div class="mt-2 text-[9px] text-gray-500 tracking-widest text-center font-mono-tech">Live Biometric Sync · 60s</div>
+        </div>
+    </div>
+
+    <div id="dashboard-layer">
+        <div class="grid grid-cols-2 gap-4">
+            <div class="col-span-2 bento-card items-center py-8 bg-black/40 border-white/20">
+                <div id="tei-orbit-container" class="orbit-container">
+                    <svg style="width:0;height:0;position:absolute;" aria-hidden="true" focusable="false">
+                        <defs>
+                            <linearGradient id="grad-score" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#FFFFFF" />
+                                <stop offset="50%" stop-color="#00F0FF" />
+                                <stop offset="100%" stop-color="#0080FF" />
+                            </linearGradient>
+                            <linearGradient id="grad-hrv-2050" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#FF00CC" />
+                                <stop offset="50%" stop-color="#9900FF" />
+                                <stop offset="100%" stop-color="#00FFFF" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <svg class="ring-svg" viewBox="0 0 280 280">
+                        <circle cx="140" cy="140" r="120" class="ring-track" stroke-width="8"></circle>
+                        <circle id="ring-score" cx="140" cy="140" r="120" class="ring-value glow-outer" stroke="url(#grad-score)" stroke-width="8" stroke-dasharray="753" stroke-dashoffset="753"></circle>
+                        <circle cx="140" cy="140" r="105" class="ring-inner-bg"></circle>
+                        <circle cx="140" cy="140" r="95" class="data-stream"></circle>
+                        <circle cx="140" cy="140" r="90" class="mech-track"></circle>
+                        <circle id="ring-hrv" cx="140" cy="140" r="105" class="ring-hrv-2050" stroke="url(#grad-hrv-2050)" stroke-dasharray="660" stroke-dashoffset="660"></circle>
+                    </svg>
+                    <div class="orbit-data-center">
+                        <div class="text-[10px] font-mono-tech text-gray-500 tracking-[0.3em] mb-2 font-bold">TEI SCORE</div>
+                        <div class="text-[110px] font-sans-bold metallic-text tabular-nums" id="dash-score">00</div>
+                        <div class="text-[10px] font-mono-tech text-cyan-300 tracking-widest mt-2 cursor-pointer" id="dash-label">HOLD TO RESYNC</div>
+                    </div>
+                </div>
+                <div class="mt-4 text-center w-full px-4">
+                    <div class="text-xl font-serif-human text-white" id="dash-state">Status Stable</div>
+                    <div class="mt-2 mb-2 w-full px-2" style="z-index: 10;">
+                        <div class="flex justify-between items-center text-[9px] font-mono-tech tracking-widest text-gray-500 border-b border-white/10 pb-1 mb-1">
+                            <span>BIOMETRIC SYNC</span>
+                            <span id="gate-status-text" class="text-cyan-400">LIVE SYNC</span>
+                        </div>
+                    </div>
+
+                    <div class="snapshot-grid mt-1">
+                        <div class="snapshot-card">
+                            <div class="snapshot-label">HR (bpm)</div>
+                            <div class="snapshot-value text-red-500" id="snap-hr">--</div>
+                            <div class="mini-spark text-red-500/50" id="spark-hr"></div>
+                        </div>
+                        <div class="snapshot-card">
+                            <div class="snapshot-label">RR (brpm)</div>
+                            <div class="snapshot-value text-green-500" id="snap-rr">--</div>
+                            <div class="mini-spark text-green-500/50" id="spark-rr"></div>
+                        </div>
+                        <div class="snapshot-card">
+                            <div class="snapshot-label">HRV (RMSSD)</div>
+                            <div class="snapshot-value text-purple-500" id="hrv-val">--</div>
+                            <div class="mini-spark text-purple-500/50" id="spark-pns"></div>
+                        </div>
+                        <div class="snapshot-card">
+                            <div class="snapshot-label">ANS (SNS/PNS)</div>
+                            <div class="snapshot-value text-orange-400" id="ans-ratio">--</div>
+                            <div class="mini-spark text-orange-400/50" id="spark-sns"></div>
+                        </div>
+                    </div>
+
+                    <div class="hidden">
+                        <div id="phase-indicator">
+                            <div class="phase-dot" data-phase="1"></div>
+                            <div class="phase-dot" data-phase="2"></div>
+                            <div class="phase-dot" data-phase="3"></div>
+                            <div class="phase-dot" data-phase="4"></div>
+                        </div>
+                        <div id="snap-pns"></div>
+                        <div id="snap-sns"></div>
+                        <div id="live-timer"></div>
+                        <div id="hrv-count-val"></div>
+                        <div id="resonance-fill"></div>
+                        <div id="confidence-val"></div>
+                        <div id="stress-fill"></div>
+                        <div id="stress-val"></div>
+                    </div>
+                </div>
+
+                <div class="col-span-2 bento-card relative overflow-hidden group mt-4">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                <i data-lucide="activity" class="w-3 h-3 text-cyan-400"></i> Autonomic Balance
+                            </span>
+                            <span class="text-xs text-gray-400 mt-1">SNS / PNS Ratio</span>
+                        </div>
+                    </div>
+                    <div class="ans-bar-container">
+                        <div class="ans-midpoint"></div>
+                        <div id="ans-sns-bar" class="ans-sns-fill" style="width: 50%">SNS</div>
+                        <div id="ans-pns-bar" class="ans-pns-fill" style="width: 50%">PNS</div>
+                    </div>
+                    <div class="flex justify-between mt-2 text-[9px] font-bold font-mono-tech tracking-wide">
+                        <div class="text-orange-400 flex flex-col"><span>SYMPATHETIC</span><span id="sns-val" class="opacity-80">--%</span></div>
+                        <div class="text-cyan-400 flex flex-col items-end"><span>PARASYMPATHETIC</span><span id="pns-val" class="opacity-80">--%</span></div>
+                    </div>
+                </div>
+
+                <div class="bento-card justify-between h-36 relative overflow-hidden mt-4">
+                    <div class="scanner-overlay"></div>
+                    <div class="flex justify-between items-start relative z-10">
+                        <span class="text-[10px] text-gray-400 font-bold uppercase">Live Pulse</span>
+                        <i data-lucide="heart" class="w-4 h-4 text-gray-500"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <span id="bpm-val" class="text-4xl font-bold text-white tracking-tighter tabular-nums">--</span>
+                        <span class="text-xs text-gray-500 font-bold">BPM</span>
+                    </div>
+                    <div class="bio-graph-container" id="ppg-graph"></div>
+                </div>
+
+                <div class="col-span-2 bento-card bg-black border-white/20 mt-4">
+                    <div class="text-xs text-cyan-300 font-mono-tech mb-2 tracking-widest">SYSTEM_LOG</div>
+                    <div class="text-lg text-white font-serif-human leading-tight mb-2 opacity-90" id="dash-quote">"Clear mind, clean execution. 專注當下，從容決策。"</div>
+                    <div class="flex justify-between items-end mt-4 border-t border-white/10 pt-3">
+                        <div class="text-[10px] text-gray-500 font-mono-tech" id="dash-date">DATE</div>
+                        <div class="text-[10px] text-white font-bold cursor-pointer hover:text-cyan-400 transition">EXPORT DATA ↗</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dock-container">
+                <div class="dock-btn bg-white/5 hover:bg-white/10"><i data-lucide="share-2" class="w-5 h-5"></i></div>
+                <button id="dynamic-action-btn" class="dock-main-action" onclick="app.reset()">
+                    <i id="btn-icon" data-lucide="rotate-ccw" class="w-4 h-4 text-black"></i>
+                    <span id="btn-text">PROCESSING...</span>
+                </button>
+                <div class="dock-btn bg-white/5 hover:bg-white/10"><i data-lucide="settings" class="w-5 h-5"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="expression.js"></script>
+    <script src="hints.js"></script>
+    <script src="rpgg.js"></script>
+    <script src="engine.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
