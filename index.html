@@ -705,7 +705,7 @@
             z-index: 100;
         }
 
-        #dashboard-layer.show .dock-container {
+        .dock-container.show {
             transform: translateY(0);
         }
 
@@ -976,16 +976,16 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Dock moved outside grid for proper positioning -->
-        <div class="dock-container">
-            <div class="dock-btn bg-white/5 hover:bg-white/10"><i data-lucide="share-2" class="w-5 h-5"></i></div>
-            <button id="dynamic-action-btn" class="dock-main-action" onclick="app.reset()">
-                <i id="btn-icon" data-lucide="rotate-ccw" class="w-4 h-4 text-black"></i>
-                <span id="btn-text">PROCESSING...</span>
-            </button>
-            <div class="dock-btn bg-white/5 hover:bg-white/10"><i data-lucide="settings" class="w-5 h-5"></i></div>
-        </div>
+    <!-- Dock moved completely outside dashboard-layer to show during scanning -->
+    <div class="dock-container" id="processing-dock">
+        <div class="dock-btn bg-white/5 hover:bg-white/10"><i data-lucide="share-2" class="w-5 h-5"></i></div>
+        <button id="dynamic-action-btn" class="dock-main-action" onclick="app.reset()">
+            <i id="btn-icon" data-lucide="rotate-ccw" class="w-4 h-4 text-black"></i>
+            <span id="btn-text">PROCESSING...</span>
+        </button>
+        <div class="dock-btn bg-white/5 hover:bg-white/10"><i data-lucide="settings" class="w-5 h-5"></i></div>
     </div>
 
     <script src="expression.js"></script>

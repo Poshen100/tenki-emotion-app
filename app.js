@@ -839,6 +839,9 @@ const app = {
         document.getElementById('align-hint-capsule').classList.remove('show');
         this.startLiveMode();
         document.getElementById('dashboard-layer').classList.add('show');
+        // Show the dock at bottom
+        const dock = document.getElementById('processing-dock');
+        if (dock) dock.classList.add('show');
     },
 
     initDashboardInteractions: function () {
@@ -941,6 +944,10 @@ const app = {
         document.getElementById('dash-score').innerText = "00";
         this.state.mentalBuffer = 0;
         this.state.isLiveSyncActive = true;
+
+        // Hide the dock
+        const dock = document.getElementById('processing-dock');
+        if (dock) dock.classList.remove('show');
 
         const ringPath = document.getElementById('scan-progress-bar');
         if (ringPath) ringPath.style.strokeDashoffset = 339;
