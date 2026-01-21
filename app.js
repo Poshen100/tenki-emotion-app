@@ -218,6 +218,26 @@ const app = {
         const elapsed = performance.now() - this.state.scanStartTime;
         const hrvCount = this.state.validHrvCount;
 
+        // v53.2: Smart Milestones - 15s/30s/60s with heartbeat targets
+        const MILESTONES = {
+            QUICK: { ms: 15000, beats: 15, confidence: 50, label: '15秒 快速檢測' },
+            STANDARD: { ms: 30000, beats: 30, confidence: 75, label: '30秒 標準分析' },
+            DEEP: { ms: 60000, beats: 60, confidence: 95, label: '60秒 深度分析' }
+        };
+
+        // Calculate current milestone
+        let milestone = 'QUICK';
+        let milestoneInfo = MILESTONES.QUICK;
+        if (elapsed >= 30000 || hrvCount >= 30) {
+            milestone = 'STANDARD';
+            milestoneInfo = MILESTONES.STANDARD;
+        }
+        if (elapsed >= 60000 || hrvCount >= 60) {
+            milestone = 'DEEP';
+            milestoneInfo = MILESTONES.DEEP;
+        }
+
+        // Update phase based on milestone
         let newPhase = 1;
         for (let i = this.config.phases.length - 1; i >= 1; i--) {
             const p = this.config.phases[i];
@@ -230,12 +250,106 @@ const app = {
             this.onPhaseUpgrade(newPhase);
         }
 
-        this.updatePhaseUI(newPhase);
-        this.updateLiveTimer(elapsed);
+        // v53.2: Auto-lock logic - freeze score when data is most reliable
+        const canAutoLock = this._checkAutoLock(elapsed, hrvCount, milestone);
 
+        this.updatePhaseUI(newPhase);
+        this.updateMilestoneUI(elapsed, hrvCount, milestone, milestoneInfo, canAutoLock);
+
+        // Max duration is 60s
         if (elapsed >= 60000 && !this.state.scanComplete) {
             this.state.scanComplete = true;
-            this.onScanComplete();
+            this.state.scoreLocked = true;
+            this.onScanComplete('MAX_TIME');
+        }
+    },
+
+    // v53.2: Check if we should auto-lock the score
+    _checkAutoLock: function (elapsed, hrvCount, milestone) {
+        if (this.state.scoreLocked) return true;
+
+        // Conditions for auto-lock (any of these)
+        const conditions = {
+            // 60 valid beats collected = excellent data
+            excellentData: hrvCount >= 60,
+            // 30 beats + 30s elapsed = good enough
+            goodData: hrvCount >= 30 && elapsed >= 30000,
+            // Low variance in last 5 TEI readings = stable
+            stableReadings: this._isTeiStable(),
+            // Max time reached
+            maxTime: elapsed >= 60000
+        };
+
+        const shouldLock = conditions.excellentData ||
+            conditions.goodData ||
+            (conditions.stableReadings && elapsed >= 20000) ||
+            conditions.maxTime;
+
+        if (shouldLock && !this.state.scoreLocked) {
+            this.state.scoreLocked = true;
+            this.state.lockReason = conditions.excellentData ? 'EXCELLENT_DATA' :
+                conditions.stableReadings ? 'STABLE' :
+                    conditions.goodData ? 'GOOD_DATA' : 'MAX_TIME';
+            this.onScanComplete(this.state.lockReason);
+        }
+
+        return this.state.scoreLocked;
+    },
+
+    // Check if TEI readings are stable
+    _isTeiStable: function () {
+        if (!this.state.teiReadings) this.state.teiReadings = [];
+        if (this.state.teiReadings.length < 5) return false;
+
+        const last5 = this.state.teiReadings.slice(-5);
+        const mean = last5.reduce((a, b) => a + b, 0) / 5;
+        const variance = last5.reduce((a, b) => a + (b - mean) ** 2, 0) / 5;
+
+        // Variance < 4 means scores are within ±2 of mean
+        return variance < 4;
+    },
+
+    // Update milestone UI
+    updateMilestoneUI: function (elapsed, hrvCount, milestone, info, isLocked) {
+        const timerEl = document.getElementById('live-timer');
+        const seconds = Math.floor(elapsed / 1000);
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+
+        if (timerEl) {
+            if (isLocked) {
+                timerEl.innerText = '✓ LOCKED';
+                timerEl.style.color = '#00FF94';
+            } else {
+                timerEl.innerText = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+                timerEl.style.color = '';
+            }
+        }
+
+        const hrvEl = document.getElementById('hrv-count-val');
+        if (hrvEl) {
+            hrvEl.innerText = hrvCount;
+            // Color based on progress toward target
+            if (hrvCount >= 60) hrvEl.style.color = '#00FF94';
+            else if (hrvCount >= 30) hrvEl.style.color = '#00D4AA';
+            else hrvEl.style.color = '';
+        }
+
+        // Update progress indicators
+        const progressEl = document.getElementById('scan-progress-info');
+        if (progressEl) {
+            if (isLocked) {
+                progressEl.innerText = `✓ ${info.label} · 數據已鎖定`;
+            } else {
+                const beatsRemaining = milestone === 'DEEP' ? 0 :
+                    milestone === 'STANDARD' ? Math.max(0, 60 - hrvCount) :
+                        Math.max(0, 30 - hrvCount);
+                if (beatsRemaining > 0) {
+                    progressEl.innerText = `收集中 · 還需 ${beatsRemaining} 組心率`;
+                } else {
+                    progressEl.innerText = info.label;
+                }
+            }
         }
     },
 
@@ -248,19 +362,42 @@ const app = {
         if (resEl) resEl.style.width = phaseInfo.confidence + '%';
         const labels = { 1: 'GLIMPSE', 2: 'PREVIEW', 3: 'DEFAULT', 4: 'SPECTRUM' };
         const labelEl = document.getElementById('dash-label');
-        if (labelEl) {
+        if (labelEl && !this.state.scoreLocked) {
             labelEl.innerText = labels[phase] || 'ANALYZING';
             labelEl.style.color = phase >= 3 ? '#00FF94' : '#00F0FF';
         }
     },
 
-    onScanComplete: function () {
+    onScanComplete: function (reason) {
         const labelEl = document.getElementById('dash-label');
         if (labelEl) {
-            labelEl.innerText = 'SCAN COMPLETE';
+            const labels = {
+                'EXCELLENT_DATA': '✓ 完美數據',
+                'GOOD_DATA': '✓ 數據充足',
+                'STABLE': '✓ 狀態穩定',
+                'MAX_TIME': '✓ 分析完成'
+            };
+            labelEl.innerText = labels[reason] || '✓ COMPLETE';
             labelEl.style.color = '#00FF94';
         }
-        if (navigator.vibrate) navigator.vibrate([50, 30, 50, 30, 100]);
+
+        // Celebratory vibration
+        if (navigator.vibrate) {
+            if (reason === 'EXCELLENT_DATA') {
+                navigator.vibrate([100, 50, 100, 50, 200]); // Strong celebration
+            } else {
+                navigator.vibrate([50, 30, 50, 30, 100]); // Normal completion
+            }
+        }
+
+        // Log to engine for learning
+        if (typeof TenkiEngine !== 'undefined' && this.state.lastScanResult) {
+            TenkiEngine.logSession(this.state.lastScanResult, {
+                hr: this.state.liveMetrics.hr,
+                lockReason: reason,
+                hrvCount: this.state.validHrvCount
+            });
+        }
     },
 
     updatePhaseUI: function (currentPhase) {
@@ -368,16 +505,29 @@ const app = {
                     const rawTei = Math.round(scanResult.tei.tei);
                     this.state.teiSampleCount++;
 
+                    // v53.2: Record TEI readings for stability check
+                    if (!this.state.teiReadings) this.state.teiReadings = [];
+                    this.state.teiReadings.push(rawTei);
+                    if (this.state.teiReadings.length > 10) this.state.teiReadings.shift();
+
                     // v53.1: MUCH slower EWMA - alpha = 0.05 for ultra-smooth display
                     const alpha = this.state.teiSampleCount < 5 ? 0.15 : 0.05;
                     this.state.smoothedTei = alpha * rawTei + (1 - alpha) * this.state.smoothedTei;
 
-                    if (this.state.teiSampleCount >= 5) {
+                    // v53.2: If score is locked, don't update displayed TEI
+                    if (this.state.scoreLocked) {
+                        // Keep the locked score
+                        tei = this.state.lockedTei || Math.round(this.state.smoothedTei);
+                    } else if (this.state.teiSampleCount >= 5) {
                         tei = Math.round(this.state.smoothedTei);
                         zone = scanResult.zone;
                         zoneNote = scanResult.note;
                         teiResult = scanResult;
                         this.state.teiPRs = scanResult.prs;
+                        this.state.lastScanResult = scanResult;
+
+                        // Store for potential lock
+                        this.state.lockedTei = tei;
                     }
                 }
             }
@@ -1063,6 +1213,14 @@ const app = {
         this.state.lastMessageUpdate = 0;
         this.state.currentMessage = '';
         this.state.lastZone = '';
+
+        // v53.2: Reset smart scan state
+        this.state.scoreLocked = false;
+        this.state.lockReason = null;
+        this.state.teiReadings = [];
+        this.state.lockedTei = null;
+        this.state.lastScanResult = null;
+
         if (typeof TenkiEngine !== 'undefined') TenkiEngine.reset();
 
         document.getElementById('dashboard-layer').classList.remove('show');
