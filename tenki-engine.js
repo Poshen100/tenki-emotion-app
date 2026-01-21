@@ -328,46 +328,265 @@ const TenkiEngine = {
         }
     },
 
-    // ANS Health Assessment
-    assessANSHealth(nowUtc = Date.now()) {
-        const cutoff14 = nowUtc - 14 * 86400000;
-        const cutoff7 = nowUtc - 7 * 86400000;
+    // ==================== CONTINUOUS LEARNING SYSTEM ====================
 
-        const sessions = this.sessionLogs.filter(s => s.timeUtc >= cutoff14);
-        const last7 = sessions.filter(s => s.timeUtc >= cutoff7);
-
-        const teiLast7 = last7.filter(s => s.tei != null).map(s => s.tei);
-        const daysTeiLt40 = teiLast7.filter(v => v < 40).length;
-
-        const hrLast7 = last7.filter(s => s.hr > 0).map(s => s.hr);
-        const meanHrLast7 = hrLast7.length ? hrLast7.reduce((a, b) => a + b, 0) / hrLast7.length : null;
-
-        const flags = {
-            HRV_DECLINING_TREND: false,
-            HIGH_HRV_VARIABILITY: false,
-            CHRONIC_LOW_HRV: false,
-            ELEVATED_RESTING_HR: false,
-            PERSISTENT_LOW_TEI: daysTeiLt40 >= 4,
-            LOW_SLEEP_HRV: false
-        };
-
-        const penalties = {
-            HRV_DECLINING_TREND: 20, HIGH_HRV_VARIABILITY: 15, CHRONIC_LOW_HRV: 25,
-            ELEVATED_RESTING_HR: 15, PERSISTENT_LOW_TEI: 10, LOW_SLEEP_HRV: 15
-        };
-
-        let totalPen = 0;
-        for (const [k, v] of Object.entries(flags)) {
-            if (v) totalPen += penalties[k];
+    // Trigger adaptive learning every N high-quality scans
+    _checkLearningTrigger() {
+        this.learned.highQualityScansCount++;
+        if (this.learned.highQualityScansCount % 10 === 0) {
+            this._adaptiveLearningUpdate();
         }
-        const score = this.clamp(100 - totalPen, 0, 100);
+    },
 
-        let state = 'HEALTHY';
-        if (score < 80) state = 'WATCH';
-        if (score < 60) state = 'CONCERN';
-        if (score < 40) state = 'ALERT';
+    _adaptiveLearningUpdate() {
+        console.log('[TenkiEngine] Running adaptive learning update...');
+        this._learnDeviceCalibration();
+        this._learnTimeOfDayPatterns();
+        this._optimizeSqsWeights();
+        // Note: TEI weight personalization requires trade logs
+        if (this.tradeLogs.length >= 10) {
+            this._personalizeTeiWeights();
+        }
+    },
 
-        return { ok: true, ansHealthScore: score, ansState: state, flags, meanHrLast7, daysTeiLt40 };
+    // Learn device-specific calibration coefficients
+    _learnDeviceCalibration() {
+        // Compare same-day measurements across devices
+        const byDate = {};
+        for (const log of this.sessionLogs) {
+            const dateKey = new Date(log.timeUtc).toDateString();
+            if (!byDate[dateKey]) byDate[dateKey] = {};
+            if (!byDate[dateKey][log.deviceType]) byDate[dateKey][log.deviceType] = [];
+            if (log.hrvU != null) byDate[dateKey][log.deviceType].push(log.hrvU);
+        }
+
+        // Calculate device biases relative to finger_ppg anchor
+        for (const [date, devices] of Object.entries(byDate)) {
+            if (!devices.finger_ppg || devices.finger_ppg.length === 0) continue;
+            const anchorMean = devices.finger_ppg.reduce((a, b) => a + b, 0) / devices.finger_ppg.length;
+
+            for (const [device, values] of Object.entries(devices)) {
+                if (device === 'finger_ppg' || values.length === 0) continue;
+                const deviceMean = values.reduce((a, b) => a + b, 0) / values.length;
+                const bias = anchorMean - deviceMean;
+
+                // EMA update of device bias
+                const oldBias = this.learned.deviceBiasU[device] || 0;
+                this.learned.deviceBiasU[device] = this.ema(oldBias, bias, 0.2);
+            }
+        }
+    },
+
+    // Learn time-of-day HRV patterns (circadian rhythm)
+    _learnTimeOfDayPatterns() {
+        const now = Date.now();
+        const cutoff = now - 14 * 86400000; // Last 14 days
+        const recent = this.sessionLogs.filter(s => s.timeUtc >= cutoff && s.hrvU != null);
+
+        const periods = { morning: [], afternoon: [], evening: [], night: [] };
+        for (const s of recent) {
+            const hour = new Date(s.timeUtc).getHours();
+            let period;
+            if (hour >= 5 && hour < 12) period = 'morning';
+            else if (hour >= 12 && hour < 17) period = 'afternoon';
+            else if (hour >= 17 && hour < 21) period = 'evening';
+            else period = 'night';
+            periods[period].push(s.hrvU);
+        }
+
+        for (const [period, values] of Object.entries(periods)) {
+            if (values.length >= 3) {
+                const mean = values.reduce((a, b) => a + b, 0) / values.length;
+                const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length;
+                this.learned.timeOfDayProfiles[period] = {
+                    mean, std: Math.sqrt(variance), n: values.length
+                };
+            }
+        }
+    },
+
+    // Optimize SQS penalty weights based on HRV variance
+    _optimizeSqsWeights() {
+        // Analyze which SQS factors most affect HRV reliability
+        const highSq = this.sessionLogs.filter(s => s.sqTotal >= 80 && s.hrvU != null);
+        const lowSq = this.sessionLogs.filter(s => s.sqTotal < 60 && s.hrvU != null);
+
+        if (highSq.length < 5 || lowSq.length < 5) return;
+
+        const highVar = this._variance(highSq.map(s => s.hrvU));
+        const lowVar = this._variance(lowSq.map(s => s.hrvU));
+
+        // If low SQ has much higher variance, increase penalty
+        if (lowVar > highVar * 1.5) {
+            const adjustment = Math.min(1.3, lowVar / Math.max(highVar, 0.01));
+            for (const key of Object.keys(this.learned.sqsPenaltyWeights)) {
+                this.learned.sqsPenaltyWeights[key] *= this.clamp(adjustment, 0.9, 1.1);
+            }
+        }
+    },
+
+    // Personalize TEI weights based on trading outcomes
+    _personalizeTeiWeights() {
+        const goodTrades = this.tradeLogs.filter(t => t.pnlRatio > 0);
+        const badTrades = this.tradeLogs.filter(t => t.pnlRatio <= 0);
+
+        if (goodTrades.length < 5 || badTrades.length < 5) return;
+
+        // Compare PRs between good and bad trades
+        const prKeys = ['HRV_PR', 'HR_PR', 'RR_PR', 'SQ_PR'];
+        for (const key of prKeys) {
+            const goodMean = this._mean(goodTrades.map(t => t.prs?.[key]).filter(v => v != null));
+            const badMean = this._mean(badTrades.map(t => t.prs?.[key]).filter(v => v != null));
+
+            if (goodMean != null && badMean != null) {
+                // If this PR is higher in good trades, increase its weight
+                const delta = (goodMean - badMean) / 50; // Normalize to ±0.5 range
+                const weightKey = key.toLowerCase().replace('_pr', '_pr');
+                const oldWeight = this.learned.teiWeightAdjustments[weightKey] || 1.0;
+                this.learned.teiWeightAdjustments[weightKey] = this.clamp(
+                    this.ema(oldWeight, 1 + delta * 0.2, 0.3),
+                    0.8, 1.2
+                );
+            }
+        }
+    },
+
+    _variance(arr) {
+        if (arr.length < 2) return 0;
+        const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+        return arr.reduce((a, b) => a + (b - mean) ** 2, 0) / (arr.length - 1);
+    },
+
+    _mean(arr) {
+        if (!arr || arr.length === 0) return null;
+        return arr.reduce((a, b) => a + b, 0) / arr.length;
+    },
+
+    // ==================== USER CONTROL & INSIGHTS ====================
+
+    // Get learning status for UI display
+    getLearningStatus() {
+        return {
+            totalScans: this.learned.highQualityScansCount,
+            deviceCalibrations: Object.keys(this.learned.deviceCalibration).length,
+            timePatterns: Object.keys(this.learned.timeOfDayProfiles).length,
+            personalizationLevel: this._calculatePersonalizationLevel(),
+            nextLearningIn: 10 - (this.learned.highQualityScansCount % 10)
+        };
+    },
+
+    _calculatePersonalizationLevel() {
+        let score = 0;
+        // Each learned component adds to personalization
+        if (Object.keys(this.learned.deviceBiasU).length > 0) score += 20;
+        if (Object.keys(this.learned.timeOfDayProfiles).length >= 2) score += 20;
+        if (this.hrvUHistory.length >= 20) score += 20;
+        if (this.sessionLogs.length >= 10) score += 20;
+        if (this.tradeLogs.length >= 5) score += 20;
+        return Math.min(100, score);
+    },
+
+    // Get personalized insights
+    getInsights() {
+        const insights = [];
+
+        // Time-of-day insight
+        const profiles = this.learned.timeOfDayProfiles;
+        if (profiles.morning && profiles.afternoon) {
+            const diff = ((profiles.morning.mean - profiles.afternoon.mean) / profiles.morning.mean) * 100;
+            if (Math.abs(diff) > 10) {
+                insights.push({
+                    type: 'circadian',
+                    message: diff > 0
+                        ? `您的晨間 HRV 比下午高 ${Math.abs(diff).toFixed(0)}%，建議重要決策安排在早上`
+                        : `您的下午 HRV 比早上高 ${Math.abs(diff).toFixed(0)}%，下午狀態較佳`,
+                    confidence: Math.min(profiles.morning.n, profiles.afternoon.n) / 10
+                });
+            }
+        }
+
+        // Trend insight
+        if (this.hrvUHistory.length >= 14) {
+            const recent7 = this.hrvUHistory.slice(-7);
+            const prev7 = this.hrvUHistory.slice(-14, -7);
+            const recentMean = this._mean(recent7);
+            const prevMean = this._mean(prev7);
+            const change = ((recentMean - prevMean) / prevMean) * 100;
+
+            if (Math.abs(change) > 5) {
+                insights.push({
+                    type: 'trend',
+                    message: change > 0
+                        ? `過去 7 天 HRV 上升 ${change.toFixed(0)}%，恢復狀態良好`
+                        : `過去 7 天 HRV 下降 ${Math.abs(change).toFixed(0)}%，注意休息和恢復`,
+                    confidence: 0.7
+                });
+            }
+        }
+
+        return insights;
+    },
+
+    // Log a session for future learning
+    logSession(scanResult, additionalData = {}) {
+        const entry = {
+            timeUtc: Date.now(),
+            deviceType: scanResult.deviceType,
+            hrvU: scanResult.tei?.zHrv != null ? this.hrvUHistory[this.hrvUHistory.length - 1] : null,
+            hr: additionalData.hr || 0,
+            tei: scanResult.tei?.tei,
+            sqTotal: scanResult.sqs?.total,
+            prs: scanResult.prs
+        };
+        this.sessionLogs.push(entry);
+        if (this.sessionLogs.length > 500) this.sessionLogs.shift();
+
+        // Trigger learning check
+        if (scanResult.sqs?.grade === 'A' || scanResult.sqs?.grade === 'B') {
+            this._checkLearningTrigger();
+        }
+    },
+
+    // Log a trade for performance correlation
+    logTrade(tradeData) {
+        const entry = {
+            timeUtc: Date.now(),
+            pnlRatio: tradeData.pnlRatio || 0,
+            prs: { ...tradeData.priorPrs },
+            tei: tradeData.priorTei
+        };
+        this.tradeLogs.push(entry);
+        if (this.tradeLogs.length > 200) this.tradeLogs.shift();
+    },
+
+    // Export learned parameters (for persistence)
+    exportLearned() {
+        return JSON.stringify({
+            learned: this.learned,
+            baselines: this.baselines,
+            faceMappingBiasU: this.faceMappingBiasU,
+            anchorTimeUtc: this.anchorTimeUtc,
+            hrvUHistory: this.hrvUHistory.slice(-100),
+            hrHistory: this.hrHistory.slice(-100),
+            sessionLogs: this.sessionLogs.slice(-100)
+        });
+    },
+
+    // Import learned parameters (for persistence)
+    importLearned(json) {
+        try {
+            const data = JSON.parse(json);
+            if (data.learned) this.learned = { ...this.learned, ...data.learned };
+            if (data.baselines) this.baselines = data.baselines;
+            if (data.faceMappingBiasU != null) this.faceMappingBiasU = data.faceMappingBiasU;
+            if (data.anchorTimeUtc != null) this.anchorTimeUtc = data.anchorTimeUtc;
+            if (data.hrvUHistory) this.hrvUHistory = data.hrvUHistory;
+            if (data.hrHistory) this.hrHistory = data.hrHistory;
+            if (data.sessionLogs) this.sessionLogs = data.sessionLogs;
+            return { ok: true };
+        } catch (e) {
+            return { ok: false, error: e.message };
+        }
     },
 
     // Reset
@@ -379,6 +598,18 @@ const TenkiEngine = {
         this.sqHistory = []; this.teiHistory = [];
         this.sessionLogs = []; this.tradeLogs = [];
         this.garminNNights = 0;
+        // Note: We intentionally keep 'learned' to preserve personalization
+    },
+
+    // Full reset including learned parameters
+    fullReset() {
+        this.reset();
+        this.learned = {
+            deviceCalibration: {}, deviceBiasU: {},
+            sqsPenaltyWeights: { light: 1.0, motion: 1.0, roi: 1.0, fps: 1.0, high_hr: 1.0 },
+            teiWeightAdjustments: { hrv_pr: 1.0, hr_pr: 1.0, rr_pr: 1.0, sq_pr: 1.0 },
+            timeOfDayProfiles: {}, highQualityScansCount: 0
+        };
     }
 };
 
