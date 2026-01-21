@@ -320,28 +320,38 @@ const app = {
         const m = this.state.liveMetrics;
         const elapsed = this.state.scanStartTime ? (performance.now() - this.state.scanStartTime) : 0;
 
-        // v53: Warm-up period - don't calculate real TEI until we have stable signals
-        const WARMUP_MS = 5000; // 5 seconds warm-up
-        const MIN_PHASE_FOR_TEI = 2; // Need at least phase 2 (preview)
+        // v53.1: Extended warm-up for calmer experience
+        const WARMUP_MS = 8000; // 8 seconds warm-up (extended)
+        const MIN_PHASE_FOR_TEI = 2;
         const isWarmingUp = elapsed < WARMUP_MS || phase < MIN_PHASE_FOR_TEI;
 
         let tei = 50;
-        let zone = 'ANALYZING';
-        let zoneNote = '正在收集數據，請保持穩定...';
+        let zone = 'SYNCING';
+        let zoneNote = '';
         let teiResult = null;
 
-        // Initialize smoothed score if not exists
+        // Initialize state
         if (this.state.smoothedTei === undefined) {
             this.state.smoothedTei = 50;
+            this.state.displayedTei = 50;
             this.state.teiSampleCount = 0;
+            this.state.lastMessageUpdate = 0;
+            this.state.currentMessage = '';
+            this.state.lastZone = '';
         }
 
+        // v53.1: Calming messages during calibration (cycle through)
+        const calmMessages = [
+            '深呼吸，放鬆身心...',
+            '正在同步您的生理節律...',
+            '保持自然呼吸...',
+            '信號同步中，請稍候...',
+            '正在建立基線...'
+        ];
+
         if (!isWarmingUp && typeof TenkiEngine !== 'undefined' && this.state.rppg) {
-            const rppgMetrics = this.state.rppg.metrics || {};
             const sqGrade = phase >= 3 ? 'A' : 'B';
             const sqTotal = Math.min(95, 60 + phase * 10);
-
-            // Only ingest if we have reasonable HRV data
             const hrvValid = m.rmssd && m.rmssd > 10 && m.rmssd < 150;
             const hrValid = m.hr && m.hr > 40 && m.hr < 120;
 
@@ -350,11 +360,7 @@ const app = {
                     timeUtc: Date.now(),
                     deviceType: 'face_rppg',
                     sqs: { grade: sqGrade, total: sqTotal },
-                    metrics: {
-                        hrBpm: m.hr,
-                        hrvRmssdMs: m.rmssd,
-                        rrBrpm: m.rr
-                    },
+                    metrics: { hrBpm: m.hr, hrvRmssdMs: m.rmssd, rrBrpm: m.rr },
                     lotScore: this.state.expression ? this.state.expression.getConfidenceModifier() : 0.85
                 });
 
@@ -362,13 +368,11 @@ const app = {
                     const rawTei = Math.round(scanResult.tei.tei);
                     this.state.teiSampleCount++;
 
-                    // v53: EWMA smoothing - more aggressive at start, gentler later
-                    // alpha = 0.3 at first few samples, then 0.1 for stability
-                    const alpha = this.state.teiSampleCount < 5 ? 0.3 : 0.1;
+                    // v53.1: MUCH slower EWMA - alpha = 0.05 for ultra-smooth display
+                    const alpha = this.state.teiSampleCount < 5 ? 0.15 : 0.05;
                     this.state.smoothedTei = alpha * rawTei + (1 - alpha) * this.state.smoothedTei;
 
-                    // Only show zone after we have enough samples (confident reading)
-                    if (this.state.teiSampleCount >= 3) {
+                    if (this.state.teiSampleCount >= 5) {
                         tei = Math.round(this.state.smoothedTei);
                         zone = scanResult.zone;
                         zoneNote = scanResult.note;
@@ -379,64 +383,90 @@ const app = {
             }
         }
 
-        // During warm-up or insufficient data: show animated placeholder
-        if (isWarmingUp || this.state.teiSampleCount < 3) {
-            // Animated "loading" effect - gentle oscillation around 50
-            const pulse = Math.sin(elapsed * 0.003) * 5;
-            tei = Math.round(50 + pulse);
-            zone = 'CALIBRATING';
-            zoneNote = phase < 2 ? '請保持穩定，正在校準...' : '數據收集中...';
+        // During warm-up: stable display with calming rotation
+        if (isWarmingUp || this.state.teiSampleCount < 5) {
+            tei = 50; // Fixed at 50, no oscillation
+            zone = 'SYNCING';
+            const msgIndex = Math.floor(elapsed / 3000) % calmMessages.length;
+            zoneNote = calmMessages[msgIndex];
         }
 
-        this.state.liveScore = tei;
+        // v53.1: Ultra-smooth displayed TEI (separate from internal smoothedTei)
+        // Display moves max ±1 per update cycle
+        const diff = tei - this.state.displayedTei;
+        if (Math.abs(diff) > 0) {
+            this.state.displayedTei += Math.sign(diff) * Math.min(Math.abs(diff), 1);
+        }
+        const displayTei = Math.round(this.state.displayedTei);
 
-        let displayConfidence = this.state.liveConfidence;
-        let displayMessage = zoneNote || "";
-        let messageColor = "";
+        this.state.liveScore = displayTei;
 
-        // Zone-based coloring
+        // v53.1: Rate-limit message updates (every 3 seconds)
+        const MESSAGE_UPDATE_INTERVAL = 3000;
+        const shouldUpdateMessage = (elapsed - this.state.lastMessageUpdate) > MESSAGE_UPDATE_INTERVAL;
+
+        let displayMessage = this.state.currentMessage || zoneNote;
+        let messageColor = '';
+
+        // Zone colors (calmer palette)
         const zoneColors = {
             'PEAK': '#00FF94',
             'OPTIMAL': '#00D4AA',
-            'NEUTRAL': '#FFD600',
-            'DEGRADED': '#FF5500',
-            'CALIBRATING': '#00F0FF',
-            'ANALYZING': '#9CA3AF'
+            'NEUTRAL': '#A0A0A0',  // Softer grey instead of yellow
+            'DEGRADED': '#FF8855', // Softer orange
+            'SYNCING': '#00F0FF',
+            'CALIBRATING': '#00F0FF'
         };
         messageColor = zoneColors[zone] || '#9CA3AF';
 
-        if (this.state.expression && !isWarmingUp) {
-            displayConfidence = Math.round(displayConfidence * this.state.expression.getConfidenceModifier());
-            const exprOut = this.state.expression.getPhaseOutput(phase);
-            if (exprOut.risk > 0.3 && zone !== 'CALIBRATING') {
-                displayMessage = exprOut.message;
-                messageColor = '#FF8800';
+        // Only update message at intervals (reduces anxiety)
+        if (shouldUpdateMessage || !this.state.currentMessage) {
+            this.state.lastMessageUpdate = elapsed;
+
+            // Don't show warnings during early phase
+            if (this.state.expression && !isWarmingUp && zone !== 'SYNCING') {
+                const exprOut = this.state.expression.getPhaseOutput(phase);
+                if (exprOut.risk > 0.5) { // Higher threshold
+                    displayMessage = exprOut.message;
+                    messageColor = '#FF8800';
+                }
             }
+
+            if (this.state.hints && !isWarmingUp && zone !== 'SYNCING') {
+                const coachPrompt = this.state.hints.getCoachPrompt(phase);
+                if (coachPrompt && coachPrompt.intensity === 'alert') {
+                    displayMessage = coachPrompt.mainPrompt;
+                }
+            }
+
+            // Fallback to zone note or stable message
+            if (!displayMessage || displayMessage === this.state.currentMessage) {
+                displayMessage = zoneNote || '狀態穩定';
+            }
+
+            this.state.currentMessage = displayMessage;
+        } else {
+            displayMessage = this.state.currentMessage;
         }
 
-        if (this.state.hints && !isWarmingUp) {
-            displayConfidence = Math.round(displayConfidence * this.state.hints.getConfidenceModifier());
-            const coachPrompt = this.state.hints.getCoachPrompt(phase);
-            if (coachPrompt && coachPrompt.intensity === 'alert') {
-                displayMessage = coachPrompt.mainPrompt;
-                messageColor = '#FF5500';
-            }
-        }
-
+        // Update UI elements
         const scoreEl = document.getElementById('dash-score');
-        if (scoreEl) scoreEl.innerText = String(tei).padStart(2, '0');
+        if (scoreEl) scoreEl.innerText = String(displayTei).padStart(2, '0');
 
-        // Update zone label
         const labelEl = document.getElementById('dash-label');
         if (labelEl && !this.state.scanComplete) {
-            labelEl.innerText = zone;
-            labelEl.style.color = messageColor;
+            // Only update zone label when it actually changes
+            if (zone !== this.state.lastZone) {
+                labelEl.innerText = zone;
+                labelEl.style.color = messageColor;
+                this.state.lastZone = zone;
+            }
         }
 
         const confEl = document.getElementById('confidence-val');
         if (confEl) {
-            confEl.innerText = displayConfidence + '%';
-            confEl.style.color = displayConfidence < this.state.liveConfidence * 0.8 ? '#FF8800' : '';
+            const displayConf = this.state.liveConfidence;
+            confEl.innerText = displayConf + '%';
         }
 
         const quoteEl = document.getElementById('dash-quote');
@@ -445,7 +475,6 @@ const app = {
             quoteEl.style.color = messageColor;
         }
 
-        // Update state indicator
         const stateEl = document.getElementById('dash-state');
         if (stateEl) {
             const stateMap = {
@@ -453,6 +482,7 @@ const app = {
                 'OPTIMAL': 'Optimal State 最佳狀態',
                 'NEUTRAL': 'Neutral State 中性狀態',
                 'DEGRADED': 'Recovery Needed 需要恢復',
+                'SYNCING': 'Syncing 同步中',
                 'CALIBRATING': 'Calibrating 校準中',
                 'ANALYZING': 'Analyzing 分析中'
             };
@@ -1026,9 +1056,13 @@ const app = {
         if (this.state.expression) this.state.expression.reset();
         if (this.state.hints) this.state.hints.reset();
 
-        // v53: Reset TEI smoothing state
+        // v53.1: Reset all TEI and UX state
         this.state.smoothedTei = 50;
+        this.state.displayedTei = 50;
         this.state.teiSampleCount = 0;
+        this.state.lastMessageUpdate = 0;
+        this.state.currentMessage = '';
+        this.state.lastZone = '';
         if (typeof TenkiEngine !== 'undefined') TenkiEngine.reset();
 
         document.getElementById('dashboard-layer').classList.remove('show');
