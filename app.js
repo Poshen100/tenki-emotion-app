@@ -319,37 +319,91 @@ const app = {
         const phase = this.state.currentPhase;
         const m = this.state.liveMetrics;
 
+        // Use TenkiEngine for proper TEI calculation if available
         let tei = 50;
-        tei += (m.pns - 50) * 0.5;
-        tei -= (m.stress - 50) * 0.3;
-        tei += (phase - 1) * 5;
-        tei = Math.max(10, Math.min(99, Math.round(tei)));
+        let zone = 'NEUTRAL';
+        let zoneNote = '';
+        let teiResult = null;
+
+        if (typeof TenkiEngine !== 'undefined' && this.state.rppg) {
+            const rppgMetrics = this.state.rppg.metrics || {};
+            const sqGrade = phase >= 3 ? 'A' : (phase >= 2 ? 'B' : 'C');
+            const sqTotal = Math.min(95, 60 + phase * 10);
+
+            // Ingest scan data into engine
+            const scanResult = TenkiEngine.ingestDailyScan({
+                timeUtc: Date.now(),
+                deviceType: 'face_rppg',
+                sqs: { grade: sqGrade, total: sqTotal },
+                metrics: {
+                    hrBpm: m.hr,
+                    hrvRmssdMs: m.rmssd || (m.pns * 1.5),
+                    rrBrpm: m.rr
+                },
+                lotScore: this.state.expression ? this.state.expression.getConfidenceModifier() : 0.85
+            });
+
+            if (scanResult.ok && scanResult.teiAvailable) {
+                tei = Math.round(scanResult.tei.tei);
+                zone = scanResult.zone;
+                zoneNote = scanResult.note;
+                teiResult = scanResult;
+
+                // Store PRs for display
+                this.state.teiPRs = scanResult.prs;
+            }
+        }
+
+        // Fallback to simple calculation if engine not available
+        if (!teiResult) {
+            tei = 50;
+            tei += (m.pns - 50) * 0.5;
+            tei -= (m.stress - 50) * 0.3;
+            tei += (phase - 1) * 5;
+            tei = Math.max(10, Math.min(99, Math.round(tei)));
+        }
+
         this.state.liveScore = tei;
 
         let displayConfidence = this.state.liveConfidence;
-        let displayMessage = "", messageColor = "";
+        let displayMessage = zoneNote || "";
+        let messageColor = "";
+
+        // Zone-based coloring
+        if (zone === 'PEAK') messageColor = '#00FF94';
+        else if (zone === 'OPTIMAL') messageColor = '#00D4AA';
+        else if (zone === 'NEUTRAL') messageColor = '#FFD600';
+        else if (zone === 'DEGRADED') messageColor = '#FF5500';
 
         if (this.state.expression) {
             displayConfidence = Math.round(displayConfidence * this.state.expression.getConfidenceModifier());
             const exprOut = this.state.expression.getPhaseOutput(phase);
-            if (exprOut.risk > 0.3) { displayMessage = exprOut.message; messageColor = '#FF8800'; }
+            if (exprOut.risk > 0.3 && !zoneNote) {
+                displayMessage = exprOut.message;
+                messageColor = '#FF8800';
+            }
         }
 
         if (this.state.hints) {
             displayConfidence = Math.round(displayConfidence * this.state.hints.getConfidenceModifier());
             const coachPrompt = this.state.hints.getCoachPrompt(phase);
-            if (coachPrompt) {
-                if (!displayMessage || coachPrompt.category === 'quality' || coachPrompt.intensity === 'alert') {
-                    displayMessage = coachPrompt.mainPrompt;
-                    messageColor = coachPrompt.intensity === 'alert' ? '#FF5500' :
-                        coachPrompt.category === 'quality' ? '#FF8800' :
-                            coachPrompt.category === 'breathing' ? '#00D4AA' : '#9CA3AF';
-                }
+            if (coachPrompt && (!displayMessage || coachPrompt.intensity === 'alert')) {
+                displayMessage = coachPrompt.mainPrompt;
+                messageColor = coachPrompt.intensity === 'alert' ? '#FF5500' :
+                    coachPrompt.category === 'quality' ? '#FF8800' :
+                        coachPrompt.category === 'breathing' ? '#00D4AA' : messageColor;
             }
         }
 
         const scoreEl = document.getElementById('dash-score');
         if (scoreEl) scoreEl.innerText = String(tei).padStart(2, '0');
+
+        // Update zone label
+        const labelEl = document.getElementById('dash-label');
+        if (labelEl && zone && !this.state.scanComplete) {
+            labelEl.innerText = zone;
+            labelEl.style.color = messageColor || '#00F0FF';
+        }
 
         const confEl = document.getElementById('confidence-val');
         if (confEl) {
@@ -366,6 +420,18 @@ const app = {
                 quoteEl.innerHTML = '"All signals stable · 訊號正常"';
                 quoteEl.style.color = '#00D4AA';
             }
+        }
+
+        // Update state indicator
+        const stateEl = document.getElementById('dash-state');
+        if (stateEl && zone) {
+            const stateMap = {
+                'PEAK': 'Peak Performance 巔峰狀態',
+                'OPTIMAL': 'Optimal State 最佳狀態',
+                'NEUTRAL': 'Neutral State 中性狀態',
+                'DEGRADED': 'Recovery Needed 需要恢復'
+            };
+            stateEl.innerText = stateMap[zone] || 'Status Stable';
         }
 
         const cScore = 753;
