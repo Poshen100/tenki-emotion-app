@@ -318,49 +318,74 @@ const app = {
     updateLiveScore: function () {
         const phase = this.state.currentPhase;
         const m = this.state.liveMetrics;
+        const elapsed = this.state.scanStartTime ? (performance.now() - this.state.scanStartTime) : 0;
 
-        // Use TenkiEngine for proper TEI calculation if available
+        // v53: Warm-up period - don't calculate real TEI until we have stable signals
+        const WARMUP_MS = 5000; // 5 seconds warm-up
+        const MIN_PHASE_FOR_TEI = 2; // Need at least phase 2 (preview)
+        const isWarmingUp = elapsed < WARMUP_MS || phase < MIN_PHASE_FOR_TEI;
+
         let tei = 50;
-        let zone = 'NEUTRAL';
-        let zoneNote = '';
+        let zone = 'ANALYZING';
+        let zoneNote = '正在收集數據，請保持穩定...';
         let teiResult = null;
 
-        if (typeof TenkiEngine !== 'undefined' && this.state.rppg) {
+        // Initialize smoothed score if not exists
+        if (this.state.smoothedTei === undefined) {
+            this.state.smoothedTei = 50;
+            this.state.teiSampleCount = 0;
+        }
+
+        if (!isWarmingUp && typeof TenkiEngine !== 'undefined' && this.state.rppg) {
             const rppgMetrics = this.state.rppg.metrics || {};
-            const sqGrade = phase >= 3 ? 'A' : (phase >= 2 ? 'B' : 'C');
+            const sqGrade = phase >= 3 ? 'A' : 'B';
             const sqTotal = Math.min(95, 60 + phase * 10);
 
-            // Ingest scan data into engine
-            const scanResult = TenkiEngine.ingestDailyScan({
-                timeUtc: Date.now(),
-                deviceType: 'face_rppg',
-                sqs: { grade: sqGrade, total: sqTotal },
-                metrics: {
-                    hrBpm: m.hr,
-                    hrvRmssdMs: m.rmssd || (m.pns * 1.5),
-                    rrBrpm: m.rr
-                },
-                lotScore: this.state.expression ? this.state.expression.getConfidenceModifier() : 0.85
-            });
+            // Only ingest if we have reasonable HRV data
+            const hrvValid = m.rmssd && m.rmssd > 10 && m.rmssd < 150;
+            const hrValid = m.hr && m.hr > 40 && m.hr < 120;
 
-            if (scanResult.ok && scanResult.teiAvailable) {
-                tei = Math.round(scanResult.tei.tei);
-                zone = scanResult.zone;
-                zoneNote = scanResult.note;
-                teiResult = scanResult;
+            if (hrvValid && hrValid) {
+                const scanResult = TenkiEngine.ingestDailyScan({
+                    timeUtc: Date.now(),
+                    deviceType: 'face_rppg',
+                    sqs: { grade: sqGrade, total: sqTotal },
+                    metrics: {
+                        hrBpm: m.hr,
+                        hrvRmssdMs: m.rmssd,
+                        rrBrpm: m.rr
+                    },
+                    lotScore: this.state.expression ? this.state.expression.getConfidenceModifier() : 0.85
+                });
 
-                // Store PRs for display
-                this.state.teiPRs = scanResult.prs;
+                if (scanResult.ok && scanResult.teiAvailable) {
+                    const rawTei = Math.round(scanResult.tei.tei);
+                    this.state.teiSampleCount++;
+
+                    // v53: EWMA smoothing - more aggressive at start, gentler later
+                    // alpha = 0.3 at first few samples, then 0.1 for stability
+                    const alpha = this.state.teiSampleCount < 5 ? 0.3 : 0.1;
+                    this.state.smoothedTei = alpha * rawTei + (1 - alpha) * this.state.smoothedTei;
+
+                    // Only show zone after we have enough samples (confident reading)
+                    if (this.state.teiSampleCount >= 3) {
+                        tei = Math.round(this.state.smoothedTei);
+                        zone = scanResult.zone;
+                        zoneNote = scanResult.note;
+                        teiResult = scanResult;
+                        this.state.teiPRs = scanResult.prs;
+                    }
+                }
             }
         }
 
-        // Fallback to simple calculation if engine not available
-        if (!teiResult) {
-            tei = 50;
-            tei += (m.pns - 50) * 0.5;
-            tei -= (m.stress - 50) * 0.3;
-            tei += (phase - 1) * 5;
-            tei = Math.max(10, Math.min(99, Math.round(tei)));
+        // During warm-up or insufficient data: show animated placeholder
+        if (isWarmingUp || this.state.teiSampleCount < 3) {
+            // Animated "loading" effect - gentle oscillation around 50
+            const pulse = Math.sin(elapsed * 0.003) * 5;
+            tei = Math.round(50 + pulse);
+            zone = 'CALIBRATING';
+            zoneNote = phase < 2 ? '請保持穩定，正在校準...' : '數據收集中...';
         }
 
         this.state.liveScore = tei;
@@ -370,28 +395,31 @@ const app = {
         let messageColor = "";
 
         // Zone-based coloring
-        if (zone === 'PEAK') messageColor = '#00FF94';
-        else if (zone === 'OPTIMAL') messageColor = '#00D4AA';
-        else if (zone === 'NEUTRAL') messageColor = '#FFD600';
-        else if (zone === 'DEGRADED') messageColor = '#FF5500';
+        const zoneColors = {
+            'PEAK': '#00FF94',
+            'OPTIMAL': '#00D4AA',
+            'NEUTRAL': '#FFD600',
+            'DEGRADED': '#FF5500',
+            'CALIBRATING': '#00F0FF',
+            'ANALYZING': '#9CA3AF'
+        };
+        messageColor = zoneColors[zone] || '#9CA3AF';
 
-        if (this.state.expression) {
+        if (this.state.expression && !isWarmingUp) {
             displayConfidence = Math.round(displayConfidence * this.state.expression.getConfidenceModifier());
             const exprOut = this.state.expression.getPhaseOutput(phase);
-            if (exprOut.risk > 0.3 && !zoneNote) {
+            if (exprOut.risk > 0.3 && zone !== 'CALIBRATING') {
                 displayMessage = exprOut.message;
                 messageColor = '#FF8800';
             }
         }
 
-        if (this.state.hints) {
+        if (this.state.hints && !isWarmingUp) {
             displayConfidence = Math.round(displayConfidence * this.state.hints.getConfidenceModifier());
             const coachPrompt = this.state.hints.getCoachPrompt(phase);
-            if (coachPrompt && (!displayMessage || coachPrompt.intensity === 'alert')) {
+            if (coachPrompt && coachPrompt.intensity === 'alert') {
                 displayMessage = coachPrompt.mainPrompt;
-                messageColor = coachPrompt.intensity === 'alert' ? '#FF5500' :
-                    coachPrompt.category === 'quality' ? '#FF8800' :
-                        coachPrompt.category === 'breathing' ? '#00D4AA' : messageColor;
+                messageColor = '#FF5500';
             }
         }
 
@@ -400,9 +428,9 @@ const app = {
 
         // Update zone label
         const labelEl = document.getElementById('dash-label');
-        if (labelEl && zone && !this.state.scanComplete) {
+        if (labelEl && !this.state.scanComplete) {
             labelEl.innerText = zone;
-            labelEl.style.color = messageColor || '#00F0FF';
+            labelEl.style.color = messageColor;
         }
 
         const confEl = document.getElementById('confidence-val');
@@ -413,23 +441,20 @@ const app = {
 
         const quoteEl = document.getElementById('dash-quote');
         if (quoteEl) {
-            if (displayMessage) {
-                quoteEl.innerHTML = `"${displayMessage}"`;
-                quoteEl.style.color = messageColor;
-            } else {
-                quoteEl.innerHTML = '"All signals stable · 訊號正常"';
-                quoteEl.style.color = '#00D4AA';
-            }
+            quoteEl.innerHTML = `"${displayMessage}"`;
+            quoteEl.style.color = messageColor;
         }
 
         // Update state indicator
         const stateEl = document.getElementById('dash-state');
-        if (stateEl && zone) {
+        if (stateEl) {
             const stateMap = {
                 'PEAK': 'Peak Performance 巔峰狀態',
                 'OPTIMAL': 'Optimal State 最佳狀態',
                 'NEUTRAL': 'Neutral State 中性狀態',
-                'DEGRADED': 'Recovery Needed 需要恢復'
+                'DEGRADED': 'Recovery Needed 需要恢復',
+                'CALIBRATING': 'Calibrating 校準中',
+                'ANALYZING': 'Analyzing 分析中'
             };
             stateEl.innerText = stateMap[zone] || 'Status Stable';
         }
@@ -1000,6 +1025,11 @@ const app = {
         this.stopSensors();
         if (this.state.expression) this.state.expression.reset();
         if (this.state.hints) this.state.hints.reset();
+
+        // v53: Reset TEI smoothing state
+        this.state.smoothedTei = 50;
+        this.state.teiSampleCount = 0;
+        if (typeof TenkiEngine !== 'undefined') TenkiEngine.reset();
 
         document.getElementById('dashboard-layer').classList.remove('show');
         document.getElementById('hud-layer').classList.remove('hidden-ui');
