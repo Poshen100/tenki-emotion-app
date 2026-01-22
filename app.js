@@ -1198,6 +1198,247 @@ const app = {
                 bar.style.opacity = 0.3 + (h / 40);
             });
         }
+
+        // Update 6-card Bio-Decision Dashboard
+        this.updateBioCards();
+    },
+
+    // Bio-Decision Dashboard - 6 Card Update Logic
+    updateBioCards: function () {
+        const m = this.state.liveMetrics;
+        const rppgMetrics = this.state.rppg ? this.state.rppg.metrics : {};
+
+        // Card A: Live HR
+        const bioHrVal = document.getElementById('bio-hr-val');
+        if (bioHrVal) bioHrVal.innerText = Math.round(m.hr);
+
+        // Animate PPG wave in card
+        const ppgWave = document.getElementById('bio-ppg-wave');
+        if (ppgWave) {
+            const bars = Array.from(ppgWave.children);
+            const time = performance.now() / 150;
+            bars.forEach((bar, i) => {
+                const h = 30 + Math.sin(time + (i * 0.6)) * 35 + Math.random() * 10;
+                bar.style.height = Math.max(15, h) + '%';
+            });
+        }
+
+        // Card B: HRV Status (Garmin Style)
+        const bioHrvVal = document.getElementById('bio-hrv-val');
+        const rmssd = m.rmssd || 45;
+        if (bioHrvVal) bioHrvVal.innerText = Math.round(rmssd);
+
+        // Calculate HRV status based on baseline
+        const hrvStatus = this.getHrvStatus(rmssd, this.state.hrvBaseline || 50);
+        const hrvBadge = document.getElementById('hrv-status-badge');
+        const hrvIcon = document.getElementById('hrv-status-icon');
+        const hrvText = document.getElementById('hrv-status-text');
+        if (hrvBadge && hrvIcon && hrvText) {
+            hrvBadge.className = 'hrv-status-badge ' + hrvStatus.cssClass;
+            hrvIcon.innerText = hrvStatus.icon;
+            hrvText.innerText = hrvStatus.label;
+        }
+
+        // Update HRV range visualization
+        this.updateHrvRangeBar(rmssd);
+
+        // Card C: Respiratory Rate + RSA Coherence
+        const bioRrVal = document.getElementById('bio-rr-val');
+        if (bioRrVal) bioRrVal.innerText = Math.round(m.rr);
+
+        // Calculate RSA coherence (heart-breathing synchrony)
+        const rsaCoherence = this.calculateRSACoherence(m.hr, m.rr, rmssd);
+        const rsaFill = document.getElementById('rsa-fill');
+        const rsaValue = document.getElementById('rsa-value');
+        if (rsaFill) rsaFill.style.width = (rsaCoherence * 100) + '%';
+        if (rsaValue) rsaValue.innerText = rsaCoherence.toFixed(2);
+
+        // Card E: Stress Load (TEI PR)
+        const bioStressPr = document.getElementById('bio-stress-pr');
+        const stressZoneBadge = document.getElementById('stress-zone-badge');
+        const teiPr = this.state.teiPRs ? Math.round(this.state.teiPRs.tei_pr * 100) : 50;
+        if (bioStressPr) bioStressPr.innerText = teiPr;
+        if (stressZoneBadge) {
+            const stressZone = this.getStressZone(teiPr);
+            stressZoneBadge.className = 'stress-zone ' + stressZone.cssClass;
+            stressZoneBadge.innerText = stressZone.label;
+        }
+
+        // Card F: Signal Quality
+        const bioQualityVal = document.getElementById('bio-quality-val');
+        const quality = rppgMetrics.quality || 0;
+        if (bioQualityVal) bioQualityVal.innerText = Math.round(quality * 100);
+
+        // Update signal indicators
+        this.updateSignalIndicators(quality);
+
+        // Check for bio-pattern alerts
+        this.checkBioPatternAlert(m, rmssd, rsaCoherence);
+    },
+
+    // Garmin-style HRV Status
+    getHrvStatus: function (currentRmssd, baseline) {
+        const deviation = (currentRmssd - baseline) / baseline;
+        if (deviation >= -0.10 && deviation <= 0.15) {
+            return { label: 'Balanced', icon: '✅', cssClass: 'balanced', color: '#00FF94' };
+        }
+        if (deviation > 0.15 || (deviation < -0.10 && deviation >= -0.25)) {
+            return { label: 'Unbalanced', icon: '⚠️', cssClass: 'unbalanced', color: '#FF8855' };
+        }
+        if (deviation < -0.25) {
+            return { label: 'Poor', icon: '🔴', cssClass: 'poor', color: '#FF4444' };
+        }
+        return { label: 'Low', icon: '🟣', cssClass: 'low', color: '#9966FF' };
+    },
+
+    // Update HRV range bar (21-day visualization)
+    updateHrvRangeBar: function (currentRmssd) {
+        const rangeBar = document.getElementById('hrv-range-bar');
+        if (!rangeBar) return;
+
+        // Initialize HRV history if not exists
+        if (!this.state.hrvHistory) this.state.hrvHistory = [];
+        this.state.hrvHistory.push(currentRmssd);
+        if (this.state.hrvHistory.length > 5) this.state.hrvHistory.shift();
+
+        const segments = rangeBar.querySelectorAll('.hrv-range-segment');
+        const history = this.state.hrvHistory;
+        const max = Math.max(...history, 60);
+        const min = Math.min(...history, 30);
+        const range = max - min || 1;
+
+        segments.forEach((seg, i) => {
+            const val = history[i] || (min + range / 2);
+            const normalized = (val - min) / range;
+            seg.style.height = (20 + normalized * 80) + '%';
+        });
+    },
+
+    // Calculate RSA Coherence (Respiratory Sinus Arrhythmia)
+    calculateRSACoherence: function (hr, rr, rmssd) {
+        // RSA coherence: how well heart rate syncs with breathing
+        // Higher RMSSD with optimal RR (12-16) = higher coherence
+        const optimalRr = 14;
+        const rrDeviation = Math.abs(rr - optimalRr) / optimalRr;
+        const rmssdNormalized = Math.min(1, rmssd / 80);
+        
+        // Coherence formula: high RMSSD + optimal breathing = high coherence
+        let coherence = rmssdNormalized * (1 - rrDeviation * 0.5);
+        coherence = Math.max(0, Math.min(1, coherence));
+        
+        return coherence;
+    },
+
+    // Get stress zone based on TEI PR
+    getStressZone: function (teiPr) {
+        if (teiPr >= 80) return { label: 'Peak', cssClass: 'peak' };
+        if (teiPr >= 60) return { label: 'Optimal', cssClass: 'optimal' };
+        if (teiPr >= 40) return { label: 'Neutral', cssClass: 'neutral' };
+        return { label: 'Degraded', cssClass: 'degraded' };
+    },
+
+    // Update signal quality indicators
+    updateSignalIndicators: function (quality) {
+        const sigIso = document.getElementById('sig-iso');
+        const sigGyro = document.getElementById('sig-gyro');
+        
+        if (sigIso) {
+            const isoGood = this.state.envLux >= 30;
+            sigIso.className = 'signal-indicator ' + (isoGood ? 'good' : 'warn');
+        }
+        
+        if (sigGyro) {
+            const gyroGood = (this.state.deviceMotion || 0) < 0.3;
+            sigGyro.className = 'signal-indicator ' + (gyroGood ? 'good' : 'warn');
+        }
+    },
+
+    // Check and show bio-pattern alerts
+    checkBioPatternAlert: function (metrics, rmssd, rsaCoherence) {
+        // Initialize tracking
+        if (!this.state.bioPatternState) {
+            this.state.bioPatternState = {
+                lastHr: metrics.hr,
+                lastRmssd: rmssd,
+                lastRr: metrics.rr,
+                lastAlertTime: 0
+            };
+            return;
+        }
+
+        const state = this.state.bioPatternState;
+        const now = performance.now();
+        
+        // Only check every 10 seconds and not too frequently
+        if (now - state.lastAlertTime < 30000) return;
+
+        const hrChange = metrics.hr - state.lastHr;
+        const rmssdChange = rmssd - state.lastRmssd;
+        const rrChange = metrics.rr - state.lastRr;
+
+        // Detect anxiety arousal pattern: HR↑ + HRV↓ + RR↑
+        if (hrChange > 8 && rmssdChange < -5 && rrChange > 2) {
+            this.showBioPatternAlert('anxiety', {
+                hrChange: Math.round(hrChange),
+                rmssdChange: Math.round(rmssdChange),
+                rrChange: Math.round(rrChange)
+            });
+            state.lastAlertTime = now;
+        }
+        
+        // Detect overconfidence pattern: HR↑ + TEI high + RSA low
+        const teiPr = this.state.teiPRs ? this.state.teiPRs.tei_pr * 100 : 50;
+        if (hrChange > 5 && teiPr > 80 && rsaCoherence < 0.5) {
+            this.showBioPatternAlert('overconfidence', {
+                hrChange: Math.round(hrChange),
+                teiPr: Math.round(teiPr)
+            });
+            state.lastAlertTime = now;
+        }
+
+        // Update tracking state
+        state.lastHr = metrics.hr;
+        state.lastRmssd = rmssd;
+        state.lastRr = metrics.rr;
+    },
+
+    // Show bio-pattern alert modal
+    showBioPatternAlert: function (type, data) {
+        const alertEl = document.getElementById('bio-pattern-alert');
+        const contentEl = document.getElementById('bio-pattern-content');
+        if (!alertEl || !contentEl) return;
+
+        let content = '';
+        if (type === 'anxiety') {
+            content = `你的心率上升 (+${data.hrChange} bpm)<br>`;
+            content += `但 HRV 下降 (${data.rmssdChange}ms)<br>`;
+            content += `且呼吸加速 (+${data.rrChange} BrPM)<br><br>`;
+            content += `這是典型的「焦慮性喚醒」模式。`;
+        } else if (type === 'overconfidence') {
+            content = `你的心率上升 (+${data.hrChange} bpm)<br>`;
+            content += `但 TEI 處於高峰 (PR ${data.teiPr})<br>`;
+            content += `心肺協調性較低<br><br>`;
+            content += `這可能是「過度自信」狀態。`;
+        }
+
+        contentEl.innerHTML = content;
+        alertEl.classList.add('show');
+
+        // Vibrate to get attention
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    },
+
+    // Dismiss bio-pattern alert
+    dismissBioAlert: function () {
+        const alertEl = document.getElementById('bio-pattern-alert');
+        if (alertEl) alertEl.classList.remove('show');
+    },
+
+    // Start breathing exercise (placeholder for Phase 2)
+    startBreathingExercise: function () {
+        this.dismissBioAlert();
+        // TODO: Implement breathing exercise UI in Phase 2
+        alert('呼吸校準功能將在 Phase 2 實現');
     },
 
     reset: function () {
