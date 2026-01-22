@@ -1119,7 +1119,6 @@ const app = {
 
     showSeamlessDashboard: function () {
         document.getElementById('hud-layer').classList.add('hidden-ui');
-        document.getElementById('align-hint-capsule').classList.remove('show');
         this.startLiveMode();
         document.getElementById('dashboard-layer').classList.add('show');
         // Show the dock at bottom
@@ -1138,17 +1137,28 @@ const app = {
                 if (self.state.mentalBuffer < 100) {
                     self.state.mentalBuffer += 1.5;
                     self.updateDashboardVisuals();
+                    // Optional haptic
                     if (Math.floor(self.state.mentalBuffer) % 10 === 0 && navigator.vibrate) navigator.vibrate(5);
                 } else {
                     clearInterval(self.chargeInterval);
                     if (navigator.vibrate) navigator.vibrate([30, 30, 30]);
+
+                    // Trigger seamless dashboard transition
+                    self.showSeamlessDashboard();
                 }
             }, 30);
         };
         const stopCharge = (e) => {
             if (e) e.preventDefault();
-            container.classList.remove('charging');
-            clearInterval(self.chargeInterval);
+
+            // Only reset if we haven't completed the charge
+            if (self.state.mentalBuffer < 100) {
+                container.classList.remove('charging');
+                clearInterval(self.chargeInterval);
+                // Decay buffer if released early? Optional.
+                self.state.mentalBuffer = 0;
+                self.updateDashboardVisuals();
+            }
         };
         container.addEventListener('mousedown', startCharge);
         container.addEventListener('touchstart', startCharge);
@@ -1364,14 +1374,13 @@ const app = {
         const textEl = document.getElementById('precision-text');
         const ringProgress = document.getElementById('quality-ring-progress');
         const ringText = document.getElementById('quality-ring-text');
-        const guideEl = document.getElementById('position-guide');
+
 
         if (!hintEl) return;
 
         // Only show during active scanning
         if (!this.state.isScanning) {
             hintEl.classList.remove('show');
-            if (guideEl) guideEl.classList.remove('show');
             return;
         }
 

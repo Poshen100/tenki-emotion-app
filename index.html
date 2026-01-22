@@ -1065,16 +1065,132 @@
             color: #FF5500;
         }
 
-        /* ============== PRECISION GUIDANCE HINTS ============== */
+        /* ============== PRECISION GUIDANCE HINTS - APPLE PAY STYLE ============== */
 
-        /* Apple Pay Style Shimmer Effect */
+        .precision-hint-container {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(20, 20, 20, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 10px 20px 10px 12px;
+            border-radius: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .precision-hint-container.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            animation: floatHint 6s ease-in-out infinite;
+        }
+
+        /* Glossy Shimmer Overlay */
+        .precision-hint-container::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(105deg,
+                    transparent 20%,
+                    rgba(255, 255, 255, 0.15) 30%,
+                    rgba(255, 255, 255, 0.0) 40%);
+            transform: translateX(-100%);
+            animation: shimmer 3s infinite;
+            pointer-events: none;
+        }
+
+        .precision-icon {
+            font-size: 20px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.05);
+            animation: pulse3d 2s ease-in-out infinite;
+        }
+
+        .precision-text {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 15px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.95);
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .precision-text span {
+            color: #00FF94;
+            font-weight: 600;
+        }
+
+        .quality-ring-mini {
+            width: 28px;
+            height: 28px;
+            position: relative;
+            margin-left: 4px;
+            opacity: 0.9;
+        }
+
+        .quality-ring-mini svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .quality-ring-mini circle {
+            fill: none;
+            stroke-width: 3;
+        }
+
+        .ring-bg {
+            stroke: rgba(255, 255, 255, 0.15);
+        }
+
+        .ring-progress {
+            stroke: #00FF94;
+            stroke-dasharray: 62.8;
+            /* 2 * PI * 10 */
+            stroke-dashoffset: 62.8;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.5s ease;
+            filter: drop-shadow(0 0 2px rgba(0, 255, 148, 0.6));
+        }
+
+        .ring-text-mini {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 9px;
+            font-weight: 700;
+            color: #fff;
+        }
+
         @keyframes shimmer {
             0% {
-                background-position: -200% 0;
+                transform: translateX(-150%) skewX(-20deg);
             }
 
+            50%,
             100% {
-                background-position: 200% 0;
+                transform: translateX(150%) skewX(-20deg);
             }
         }
 
@@ -1082,81 +1198,38 @@
 
             0%,
             100% {
-                transform: scale(1) translateZ(0);
+                transform: scale(1);
+                filter: brightness(1);
             }
 
             50% {
-                transform: scale(1.05) translateZ(10px);
+                transform: scale(1.1);
+                filter: brightness(1.2);
             }
         }
 
-        @keyframes floatIcon {
+        @keyframes floatHint {
 
             0%,
             100% {
-                transform: translateY(0) rotateY(0deg);
-            }
-
-            25% {
-                transform: translateY(-2px) rotateY(5deg);
-            }
-
-            75% {
-                transform: translateY(2px) rotateY(-5deg);
-            }
-        }
-
-        @keyframes glowPulse {
-
-            0%,
-            100% {
-                box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+                transform: translate(-50%, -50%) translateY(0) scale(1);
             }
 
             50% {
-                box-shadow: 0 0 16px rgba(0, 240, 255, 0.6);
+                transform: translate(-50%, -50%) translateY(-4px) scale(1);
             }
         }
 
-        .precision-hint-container {
-            position: fixed;
-            bottom: calc(80px + env(safe-area-inset-bottom));
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 90;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 16px;
-            background: rgba(10, 15, 20, 0.85);
-            backdrop-filter: blur(20px);
-            border-radius: 50px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.4s ease, transform 0.4s ease;
-        }
-
-        .precision-hint-container.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        /* 3D Mini Icon with Glossy Effect */
-        .precision-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 10px;
-            background: linear-gradient(145deg, rgba(0, 240, 255, 0.3), rgba(0, 180, 220, 0.1));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            position: relative;
-            overflow: hidden;
-            animation: floatIcon 3s ease-in-out infinite, glowPulse 2s ease-in-out infinite;
-            perspective: 100px;
-            transform-style: preserve-3d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        position: relative;
+        overflow: hidden;
+        animation: floatIcon 3s ease-in-out infinite,
+        glowPulse 2s ease-in-out infinite;
+        perspective: 100px;
+        transform-style: preserve-3d;
         }
 
         .precision-icon::before {
@@ -1467,23 +1540,10 @@
         </div>
     </div>
 
-    <!-- Position Guide Overlay -->
-    <div class="position-guide" id="position-guide">
-        <div class="position-guide-label">EYEBROW OPTICAL LOCK</div>
-        <div class="position-guide-oval"></div>
-        <div class="position-guide-center"></div>
-    </div>
+
 
     <div id="hud-layer">
-        <div id="align-hint-capsule">
-            <div id="hint-icon-box"
-                class="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300">
-                <i id="hint-icon" data-lucide="scan-face" class="w-4 h-4 text-white"></i>
-            </div>
-            <span id="hint-text"
-                class="text-xs font-bold text-white tracking-wide uppercase transition-all duration-300">Searching...</span>
-            <div class="shimmer-effect"></div>
-        </div>
+
 
         <div class="flex justify-between items-start">
             <div>

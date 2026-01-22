@@ -124,9 +124,9 @@ function qualityScore({ fs, peaks, rmssd, bpm, x, amp0 }) {
     if (rmssd && rmssd >= 5 && rmssd <= 180) q += 0.20;
 
     // Amplitude scoring using PRE-NORMALIZATION value
-    // amp0 typical range: 0.002 - 0.05 for good rPPG signal
-    if (amp0 > 0.002 && amp0 < 0.05) q += 0.20;
-    else if (amp0 > 0.001) q += 0.10;
+    // Relaxed range to capture more signals
+    if (amp0 > 0.001 && amp0 < 0.2) q += 0.20;
+    else if (amp0 > 0.0005) q += 0.10;
     // Very low or very high amp0 = noise or saturation
 
     // Clamp to [0, 1]
@@ -166,7 +166,7 @@ function compute(windowMs) {
     // Pass amp0 to qualityScore for accurate quality assessment
     const quality = qualityScore({ fs, peaks, rmssd, bpm, x, amp0 });
 
-    return { bpm, rmssd, quality, nPeaks: peaks.length, nIbiUsable };
+    return { bpm, rmssd, quality, nPeaks: peaks.length, nIbiUsable, amp0 };
 }
 
 self.onmessage = (e) => {
