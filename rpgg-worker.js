@@ -106,21 +106,30 @@ function rmssdFromPeaks(tMs, peaks) {
     return { bpm, rmssd, ibi, nIbiUsable };
 }
 
-function qualityScore({ fs, peaks, rmssd, bpm, x }) {
-    // heuristics: enough peaks + plausible bpm + plausible rmssd + enough amplitude
+function qualityScore({ fs, peaks, rmssd, bpm, x, amp0 }) {
+    // Quality scoring based on real signal characteristics
+    // amp0 = amplitude BEFORE normalization (true signal strength)
     let q = 0;
     const n = peaks.length;
 
-    if (n >= 6) q += 0.35;
-    else if (n >= 4) q += 0.20;
+    // Peak count scoring (stricter thresholds)
+    if (n >= 8) q += 0.35;
+    else if (n >= 5) q += 0.20;
+    else if (n >= 3) q += 0.10;
 
+    // BPM plausibility
     if (bpm && bpm >= 45 && bpm <= 160) q += 0.25;
+
+    // RMSSD plausibility
     if (rmssd && rmssd >= 5 && rmssd <= 180) q += 0.20;
 
-    const amp = std(x);
-    if (amp > 0.003) q += 0.20; // depends on your ROI scale
+    // Amplitude scoring using PRE-NORMALIZATION value
+    // amp0 typical range: 0.002 - 0.05 for good rPPG signal
+    if (amp0 > 0.002 && amp0 < 0.05) q += 0.20;
+    else if (amp0 > 0.001) q += 0.10;
+    // Very low or very high amp0 = noise or saturation
 
-    // clamp
+    // Clamp to [0, 1]
     q = Math.max(0, Math.min(1, q));
     return q;
 }
@@ -144,13 +153,18 @@ function compute(windowMs) {
     x = applyBiquad(x, hp);
     x = applyBiquad(x, lp);
 
-    // normalize (optional)
+    // CRITICAL: Calculate amplitude BEFORE normalization
+    const amp0 = std(x);
+
+    // normalize for peak detection
     const s = std(x);
     if (s > 1e-9) x = x.map(v => v / s);
 
     const peaks = findPeaks(x, fs);
     const { bpm, rmssd, nIbiUsable } = rmssdFromPeaks(t, peaks);
-    const quality = qualityScore({ fs, peaks, rmssd, bpm, x });
+
+    // Pass amp0 to qualityScore for accurate quality assessment
+    const quality = qualityScore({ fs, peaks, rmssd, bpm, x, amp0 });
 
     return { bpm, rmssd, quality, nPeaks: peaks.length, nIbiUsable };
 }

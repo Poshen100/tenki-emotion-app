@@ -33,6 +33,18 @@ const app = {
         liveMetrics: { sns: 50, pns: 50, hr: 72, rr: 16, stress: 30, rmssd: 45 },
         sparkHistory: { sns: [], pns: [], hr: [], rr: [] },
         expression: null, hints: null, sceneQuote: "", lastRppg: null,
+        // v2.0: rPPG Accumulator for effective HR/RMSSD (quality-weighted)
+        rppgAcc: {
+            sumW: 0,           // Sum of weights
+            sumHRW: 0,         // Sum of HR × weight
+            sumRMSSDW: 0,      // Sum of RMSSD × weight
+            validMs: 0,        // Total ms with valid signal
+            totalMs: 0,        // Total elapsed ms
+            lastT: null        // Last timestamp
+        },
+        // v2.0: Derived SQS for TEI calculation
+        sqsGrade: 'D',
+        sqsTotal: 0,
         sceneQuotes: [
             "Clear mind, clean execution. 專注當下，從容決策。",
             "Quality signals, quality decisions. 優質訊號，優質決策。",
@@ -1208,6 +1220,66 @@ const app = {
         const m = this.state.liveMetrics;
         const rppgMetrics = this.state.rppg ? this.state.rppg.metrics : {};
 
+        // ============== v2.0: EFFECTIVE HR/RMSSD ACCUMULATOR ==============
+        const now = performance.now();
+        const acc = this.state.rppgAcc;
+        const dt = acc.lastT ? (now - acc.lastT) : 0;
+        acc.lastT = now;
+        acc.totalMs += dt;
+
+        const r = rppgMetrics;
+        if (r && r.bpm && r.rmssd && r.quality != null && this.state.isScanning) {
+            // Only accumulate when quality gate passes
+            const gate = this.state.rppg ? this.state.rppg.getQualityGate() : { pass: false };
+            if (gate.pass) {
+                acc.validMs += dt;
+                const isSpectrum = this.state.scanMode === 'spectrum';
+                const ibiRequired = isSpectrum ? 30 : 12;
+                const ibiFrac = Math.min(1, (r.nIbiUsable || 0) / ibiRequired);
+                const w = Math.max(0, r.quality) * ibiFrac * (dt / 1000); // weight in seconds
+
+                acc.sumW += w;
+                acc.sumHRW += r.bpm * w;
+                acc.sumRMSSDW += r.rmssd * w;
+            }
+        }
+
+        // Apply effective HR/RMSSD to liveMetrics (quality-weighted average)
+        if (acc.sumW > 0) {
+            m.hr = acc.sumHRW / acc.sumW;
+            m.rmssd = acc.sumRMSSDW / acc.sumW;
+        }
+
+        // ============== v2.0: SQS GRADE CALCULATION ==============
+        const validRatio = acc.totalMs > 0 ? (acc.validMs / acc.totalMs) : 0;
+        let sqTotal = 0;
+        let sqGrade = 'D';
+
+        if (r && r.quality != null) {
+            const q = Math.max(0, Math.min(1, r.quality));
+            // SQ total = quality × validRatio (both matter)
+            sqTotal = Math.round(100 * q * Math.max(0, Math.min(1, validRatio)));
+
+            const nIbi = r.nIbiUsable || 0;
+            const isSpectrum = this.state.scanMode === 'spectrum';
+
+            // Grade assignment based on real rPPG quality (not phase)
+            if (q >= 0.75 && nIbi >= 30 && validRatio >= 0.7 && isSpectrum) {
+                sqGrade = 'A';  // Spectrum quality
+            } else if (q >= 0.60 && nIbi >= 15 && validRatio >= 0.5) {
+                sqGrade = 'B';  // Good quality
+            } else if (q >= 0.45 && nIbi >= 5) {
+                sqGrade = 'C';  // Acceptable quality
+            } else {
+                sqGrade = 'D';  // Poor quality
+            }
+        }
+
+        // Store SQS in state for TEI engine
+        this.state.sqsGrade = sqGrade;
+        this.state.sqsTotal = sqTotal;
+        this.state.validHrvCount = r ? (r.nIbiUsable || 0) : 0;
+
         // Card A: Live HR
         const bioHrVal = document.getElementById('bio-hr-val');
         if (bioHrVal) bioHrVal.innerText = Math.round(m.hr);
@@ -1552,6 +1624,19 @@ const app = {
         this.state.teiReadings = [];
         this.state.lockedTei = null;
         this.state.lastScanResult = null;
+
+        // v2.0: Reset rPPG accumulator (prevents cross-scan pollution)
+        this.state.rppgAcc = {
+            sumW: 0,
+            sumHRW: 0,
+            sumRMSSDW: 0,
+            validMs: 0,
+            totalMs: 0,
+            lastT: null
+        };
+        this.state.sqsGrade = 'D';
+        this.state.sqsTotal = 0;
+        this.state.validHrvCount = 0;
 
         if (typeof TenkiEngine !== 'undefined') TenkiEngine.reset();
 
