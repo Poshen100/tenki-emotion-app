@@ -1350,8 +1350,119 @@ const app = {
         // Check for quality degradation
         this.updateQualityWarning();
 
+        // Update precision guidance hints
+        this.updatePrecisionHint();
+
         // Check for bio-pattern alerts
         this.checkBioPatternAlert(m, rmssd, rsaCoherence);
+    },
+
+    // Update Apple Pay style precision guidance hint
+    updatePrecisionHint: function () {
+        const hintEl = document.getElementById('precision-hint');
+        const iconEl = document.getElementById('precision-icon');
+        const textEl = document.getElementById('precision-text');
+        const ringProgress = document.getElementById('quality-ring-progress');
+        const ringText = document.getElementById('quality-ring-text');
+        const guideEl = document.getElementById('position-guide');
+
+        if (!hintEl) return;
+
+        // Only show during active scanning
+        if (!this.state.isScanning) {
+            hintEl.classList.remove('show');
+            if (guideEl) guideEl.classList.remove('show');
+            return;
+        }
+
+        hintEl.classList.add('show');
+
+        // Get current status
+        const r = this.state.rppg ? this.state.rppg.metrics : null;
+        const fusionStatus = this.state.rppg ? this.state.rppg.getFusionStatus() : null;
+        const quality = r ? r.quality || 0 : 0;
+        const acc = this.state.rppgAcc;
+        const validRatio = acc.totalMs > 0 ? (acc.validMs / acc.totalMs) : 0;
+
+        // Update quality ring
+        if (ringProgress) {
+            const circumference = 62.8; // 2 * PI * 10
+            const offset = circumference * (1 - quality);
+            ringProgress.style.strokeDashoffset = offset;
+        }
+        if (ringText) {
+            ringText.innerText = Math.round(quality * 100);
+        }
+
+        // Update status dots
+        const dotLight = document.getElementById('dot-light');
+        const dotStable = document.getElementById('dot-stable');
+        const dotSignal = document.getElementById('dot-signal');
+
+        if (dotLight) {
+            const lightGood = this.state.envLux >= 30;
+            dotLight.className = 'scan-status-dot ' + (lightGood ? 'active' : 'warning');
+        }
+        if (dotStable) {
+            const stableGood = (this.state.deviceMotion || 0) < 0.3;
+            dotStable.className = 'scan-status-dot ' + (stableGood ? 'active' : 'warning');
+        }
+        if (dotSignal) {
+            const signalGood = quality >= 0.6;
+            dotSignal.className = 'scan-status-dot ' + (signalGood ? 'active' : 'warning');
+        }
+
+        // Dynamic hint messages based on state
+        const hints = this.getPrecisionHintMessage(quality, validRatio, fusionStatus);
+        if (iconEl) iconEl.innerText = hints.icon;
+        if (textEl) textEl.innerHTML = hints.text;
+
+        // Show position guide for first 15 seconds or when quality is low
+        const elapsed = this.state.scanStartTime ? performance.now() - this.state.scanStartTime : 0;
+        if (guideEl) {
+            if (elapsed < 15000 || quality < 0.5) {
+                guideEl.classList.add('show');
+            } else {
+                guideEl.classList.remove('show');
+            }
+        }
+    },
+
+    // Get dynamic hint message based on current state
+    getPrecisionHintMessage: function (quality, validRatio, fusionStatus) {
+        const source = fusionStatus?.source;
+        const elapsed = this.state.scanStartTime ? performance.now() - this.state.scanStartTime : 0;
+
+        // BLE connected - best state
+        if (source && source.tier === 1) {
+            return { icon: '🛡️', text: '<span>BLE</span> 心率帶已連接' };
+        }
+
+        // Quality based hints
+        if (quality >= 0.75) {
+            return { icon: '✨', text: '訊號 <span>極佳</span>，保持穩定' };
+        }
+
+        if (quality >= 0.6) {
+            return { icon: '👁️', text: '<span>眉心</span> 鎖定中...' };
+        }
+
+        if (quality >= 0.4) {
+            if (this.state.envLux < 30) {
+                return { icon: '💡', text: '需要更多 <span>光線</span>' };
+            }
+            if ((this.state.deviceMotion || 0) > 0.3) {
+                return { icon: '🤚', text: '請保持 <span>靜止</span>' };
+            }
+            return { icon: '👁️', text: '對準 <span>眉心</span> 區域' };
+        }
+
+        // Low quality - urgent hints
+        if (elapsed < 5000) {
+            return { icon: '📍', text: '正在尋找 <span>眉心</span>...' };
+        }
+
+        return { icon: '⚠️', text: '調整位置以提高 <span>精度</span>' };
     },
 
     // Update floating Tier/Source indicator
