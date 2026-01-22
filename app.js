@@ -1272,8 +1272,99 @@ const app = {
         // Update signal indicators
         this.updateSignalIndicators(quality);
 
+        // Update Tier/Source indicator
+        this.updateTierIndicator();
+
+        // Check for quality degradation
+        this.updateQualityWarning();
+
         // Check for bio-pattern alerts
         this.checkBioPatternAlert(m, rmssd, rsaCoherence);
+    },
+
+    // Update floating Tier/Source indicator
+    updateTierIndicator: function () {
+        if (!this.state.rppg) return;
+
+        const fusionStatus = this.state.rppg.getFusionStatus();
+        const source = fusionStatus.source;
+
+        const tierEl = document.getElementById('tier-indicator-float');
+        const iconEl = document.getElementById('tier-icon');
+        const labelEl = document.getElementById('tier-label');
+
+        if (!tierEl || !iconEl || !labelEl) return;
+
+        // Update tier class
+        tierEl.className = 'tier-indicator tier-' + source.tier;
+        iconEl.innerText = source.icon;
+        labelEl.innerText = `T${source.tier}: ${source.label}`;
+
+        // Also update the signal quality card source display
+        const sigBle = document.getElementById('sig-ble');
+        if (sigBle) {
+            if (this.state.rppg.bleConnected) {
+                sigBle.className = 'signal-indicator good';
+                sigBle.style.opacity = '1';
+            } else {
+                sigBle.className = 'signal-indicator';
+                sigBle.style.opacity = '0.4';
+            }
+        }
+    },
+
+    // Update quality degradation warning
+    updateQualityWarning: function () {
+        if (!this.state.rppg || !this.state.isScanning) return;
+
+        const fusionStatus = this.state.rppg.getFusionStatus();
+        const source = fusionStatus.source;
+        const warningEl = document.getElementById('quality-warning');
+        const warningText = document.getElementById('quality-warning-text');
+
+        if (!warningEl) return;
+
+        // Show warning for tier 4-5 (degraded signals)
+        if (source.tier >= 4) {
+            warningEl.classList.add('show');
+            if (warningText) {
+                const messages = {
+                    4: '訊號品質較低 · 建議調整光線或姿勢',
+                    5: '訊號已降級 · 數據可能不準確'
+                };
+                warningText.innerText = messages[source.tier] || '訊號問題';
+            }
+        } else {
+            warningEl.classList.remove('show');
+        }
+    },
+
+    // Connect to BLE heart rate monitor
+    connectBLEHeartRate: async function () {
+        if (!this.state.rppg) return { success: false, error: 'rPPG not initialized' };
+
+        const result = await this.state.rppg.connectBLE();
+        if (result.success) {
+            // Update UI to show BLE connected
+            const connStatus = document.getElementById('connection-status');
+            if (connStatus) {
+                connStatus.innerText = `BLE: ${result.device}`;
+                connStatus.style.color = '#00FF94';
+            }
+        }
+        return result;
+    },
+
+    // Disconnect BLE
+    disconnectBLEHeartRate: function () {
+        if (this.state.rppg) {
+            this.state.rppg.disconnectBLE();
+            const connStatus = document.getElementById('connection-status');
+            if (connStatus) {
+                connStatus.innerText = 'VISION ONLY';
+                connStatus.style.color = '';
+            }
+        }
     },
 
     // Garmin-style HRV Status
@@ -1321,11 +1412,11 @@ const app = {
         const optimalRr = 14;
         const rrDeviation = Math.abs(rr - optimalRr) / optimalRr;
         const rmssdNormalized = Math.min(1, rmssd / 80);
-        
+
         // Coherence formula: high RMSSD + optimal breathing = high coherence
         let coherence = rmssdNormalized * (1 - rrDeviation * 0.5);
         coherence = Math.max(0, Math.min(1, coherence));
-        
+
         return coherence;
     },
 
@@ -1341,12 +1432,12 @@ const app = {
     updateSignalIndicators: function (quality) {
         const sigIso = document.getElementById('sig-iso');
         const sigGyro = document.getElementById('sig-gyro');
-        
+
         if (sigIso) {
             const isoGood = this.state.envLux >= 30;
             sigIso.className = 'signal-indicator ' + (isoGood ? 'good' : 'warn');
         }
-        
+
         if (sigGyro) {
             const gyroGood = (this.state.deviceMotion || 0) < 0.3;
             sigGyro.className = 'signal-indicator ' + (gyroGood ? 'good' : 'warn');
@@ -1368,7 +1459,7 @@ const app = {
 
         const state = this.state.bioPatternState;
         const now = performance.now();
-        
+
         // Only check every 10 seconds and not too frequently
         if (now - state.lastAlertTime < 30000) return;
 
@@ -1385,7 +1476,7 @@ const app = {
             });
             state.lastAlertTime = now;
         }
-        
+
         // Detect overconfidence pattern: HR↑ + TEI high + RSA low
         const teiPr = this.state.teiPRs ? this.state.teiPRs.tei_pr * 100 : 50;
         if (hrChange > 5 && teiPr > 80 && rsaCoherence < 0.5) {
