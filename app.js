@@ -1182,6 +1182,19 @@ const app = {
         window.addEventListener('mouseup', stopCharge);
         container.addEventListener('mouseleave', stopCharge);
         window.addEventListener('touchend', stopCharge);
+
+        // v53.3: Smart Dock Minimize on Scroll
+        const dashboard = document.getElementById('dashboard-layer');
+        const dock = document.getElementById('processing-dock');
+        if (dashboard && dock) {
+            dashboard.addEventListener('scroll', () => {
+                if (dashboard.scrollTop > 20) {
+                    dock.classList.add('minimized');
+                } else {
+                    dock.classList.remove('minimized');
+                }
+            }, { passive: true });
+        }
     },
 
     updateDashboardVisuals: function () {

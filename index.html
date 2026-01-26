@@ -712,6 +712,35 @@
             transform: translateY(0);
         }
 
+        .dock-container.minimized {
+            width: 60px;
+            left: 50%;
+            right: auto;
+            transform: translateY(0) translateX(-50%);
+            border-radius: 50px;
+            background: rgba(5, 5, 10, 0.4);
+            backdrop-filter: blur(4px);
+            padding: 0;
+            justify-content: center;
+            border-color: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .dock-container.minimized .dock-main-action {
+            width: 0;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .dock-container.minimized .dock-btn {
+            transform: scale(0.8);
+            opacity: 0.6;
+        }
+
         /* Signal Tier/Source Indicator */
         .tier-indicator {
             display: inline-flex;
