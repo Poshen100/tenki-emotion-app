@@ -1,0 +1,29 @@
+{
+  "id": "CANSILM_GROWTH",
+  "name": "Cansilm 通用成長股",
+  "description": "適用於成長股的通用決策計時模板",
+  "duration": 300,
+  "segments": [
+    {
+      "end": 90,
+      "label": "No chase",
+      "hint": "不追高",
+      "color": "#ff6b6b"
+    },
+    {
+      "end": 210,
+      "label": "Watch EMA + volume",
+      "hint": "觀察均線與成交量",
+      "color": "#ffd93d"
+    },
+    {
+      "end": 300,
+      "label": "Sweet zone",
+      "hint": "最佳進場區",
+      "color": "#6bcb77"
+    }
+  ],
+  "timeoutMessage": "No FOMO today",
+  "category": "trading",
+  "version": "1.0.0"
+}
