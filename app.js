@@ -469,9 +469,9 @@ const app = {
         const m = this.state.liveMetrics;
         const elapsed = this.state.scanStartTime ? (performance.now() - this.state.scanStartTime) : 0;
 
-        // v53.1: Extended warm-up for calmer experience
-        const WARMUP_MS = 8000; // 8 seconds warm-up (extended)
-        const MIN_PHASE_FOR_TEI = 2;
+        // v54.0: Faster warm-up for quicker response (reduced from 8s to 3s)
+        const WARMUP_MS = 3000; // 3 seconds warm-up
+        const MIN_PHASE_FOR_TEI = 1; // Allow TEI from phase 1
         const isWarmingUp = elapsed < WARMUP_MS || phase < MIN_PHASE_FOR_TEI;
 
         let tei = 50;
@@ -498,58 +498,72 @@ const app = {
             '正在建立基線...'
         ];
 
-        if (!isWarmingUp && typeof TenkiEngine !== 'undefined' && this.state.rppg) {
-            const sqGrade = phase >= 3 ? 'A' : 'B';
-            const sqTotal = Math.min(95, 60 + phase * 10);
-            const hrvValid = m.rmssd && m.rmssd > 10 && m.rmssd < 150;
-            const hrValid = m.hr && m.hr > 40 && m.hr < 120;
+        // v54.0: Early TEI estimation even during warm-up (if we have valid data)
+        const hrvValid = m.rmssd && m.rmssd > 10 && m.rmssd < 150;
+        const hrValid = m.hr && m.hr > 40 && m.hr < 120;
 
-            if (hrvValid && hrValid) {
-                const scanResult = TenkiEngine.ingestDailyScan({
-                    timeUtc: Date.now(),
-                    deviceType: 'face_rppg',
-                    sqs: { grade: sqGrade, total: sqTotal },
-                    metrics: { hrBpm: m.hr, hrvRmssdMs: m.rmssd, rrBrpm: m.rr },
-                    lotScore: this.state.expression ? this.state.expression.getConfidenceModifier() : 0.85
-                });
+        if (hrvValid && hrValid && typeof TenkiEngine !== 'undefined') {
+            const sqGrade = phase >= 3 ? 'A' : (phase >= 2 ? 'B' : 'C');
+            const sqTotal = Math.min(95, 50 + phase * 12);
 
-                if (scanResult.ok && scanResult.teiAvailable) {
-                    const rawTei = Math.round(scanResult.tei.tei);
-                    this.state.teiSampleCount++;
+            const scanResult = TenkiEngine.ingestDailyScan({
+                timeUtc: Date.now(),
+                deviceType: 'face_rppg',
+                sqs: { grade: sqGrade, total: sqTotal },
+                metrics: { hrBpm: m.hr, hrvRmssdMs: m.rmssd, rrBrpm: m.rr },
+                lotScore: this.state.expression ? this.state.expression.getConfidenceModifier() : 0.85
+            });
 
-                    // v53.2: Record TEI readings for stability check
-                    if (!this.state.teiReadings) this.state.teiReadings = [];
-                    this.state.teiReadings.push(rawTei);
-                    if (this.state.teiReadings.length > 10) this.state.teiReadings.shift();
+            if (scanResult.ok && scanResult.teiAvailable) {
+                const rawTei = Math.round(scanResult.tei.tei);
+                this.state.teiSampleCount++;
 
-                    // v53.1: MUCH slower EWMA - alpha = 0.05 for ultra-smooth display
-                    const alpha = this.state.teiSampleCount < 5 ? 0.15 : 0.05;
-                    this.state.smoothedTei = alpha * rawTei + (1 - alpha) * this.state.smoothedTei;
+                // v53.2: Record TEI readings for stability check
+                if (!this.state.teiReadings) this.state.teiReadings = [];
+                this.state.teiReadings.push(rawTei);
+                if (this.state.teiReadings.length > 10) this.state.teiReadings.shift();
 
-                    // v53.2: If score is locked, don't update displayed TEI
-                    if (this.state.scoreLocked) {
-                        // Keep the locked score
-                        tei = this.state.lockedTei || Math.round(this.state.smoothedTei);
-                    } else if (this.state.teiSampleCount >= 5) {
-                        tei = Math.round(this.state.smoothedTei);
-                        zone = scanResult.zone;
-                        zoneNote = scanResult.note;
-                        teiResult = scanResult;
-                        this.state.teiPRs = scanResult.prs;
-                        this.state.lastScanResult = scanResult;
+                // v54.0: Faster initial convergence, then smooth
+                const alpha = this.state.teiSampleCount < 3 ? 0.25 : 0.08;
+                this.state.smoothedTei = alpha * rawTei + (1 - alpha) * this.state.smoothedTei;
 
-                        // Store for potential lock
-                        this.state.lockedTei = tei;
-                    }
+                // v54.0: Show estimated TEI earlier (reduced from 5 to 2 samples)
+                if (this.state.scoreLocked) {
+                    // Keep the locked score
+                    tei = this.state.lockedTei || Math.round(this.state.smoothedTei);
+                } else if (this.state.teiSampleCount >= 2) {
+                    tei = Math.round(this.state.smoothedTei);
+                    zone = scanResult.zone;
+                    zoneNote = scanResult.note;
+                    teiResult = scanResult;
+                    this.state.teiPRs = scanResult.prs;
+                    this.state.lastScanResult = scanResult;
+
+                    // Store for potential lock
+                    this.state.lockedTei = tei;
+                } else {
+                    // First sample: show preliminary value, not fixed 50
+                    tei = Math.round(this.state.smoothedTei);
+                    zone = 'CALIBRATING';
+                    zoneNote = '初步分析中...';
                 }
             }
         }
 
-        // During warm-up: stable display with calming rotation
-        if (isWarmingUp || this.state.teiSampleCount < 5) {
-            tei = 50; // Fixed at 50, no oscillation
-            zone = 'SYNCING';
-            const msgIndex = Math.floor(elapsed / 3000) % calmMessages.length;
+        // v54.0: During warm-up with no data: estimate from real metrics if available
+        if ((isWarmingUp || this.state.teiSampleCount < 2) && zone === 'SYNCING') {
+            if (hrValid && hrvValid) {
+                // Calculate preliminary TEI from raw metrics
+                // HR contribution: 70 bpm optimal, drops off toward 50 and 100
+                const hrNorm = Math.max(0, 1 - Math.abs(m.hr - 70) / 35);
+                // HRV contribution: higher is better, saturates around 80ms
+                const hrvNorm = Math.min(1, (m.rmssd - 10) / 70);
+                // Preliminary estimate: weighted combination
+                const prelimTei = Math.round(40 + (hrNorm * 20) + (hrvNorm * 30));
+                tei = Math.max(25, Math.min(85, prelimTei));
+                zone = 'SYNCING';
+            }
+            const msgIndex = Math.floor(elapsed / 2500) % calmMessages.length;
             zoneNote = calmMessages[msgIndex];
         }
 

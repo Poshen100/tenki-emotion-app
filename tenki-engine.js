@@ -9,6 +9,17 @@ const TenkiEngine = {
         chest_strap: 1.00, garmin_sleep: 0.95, oura_sleep: 0.92,
         finger_anchor: 0.88, finger_ppg: 0.88, apple_watch: 0.75, face_rppg: 0.60
     },
+
+    // Cold-start baseline from medical literature (Shaffer & Ginsberg 2017)
+    // Used when personal history is insufficient for percentile calculation
+    COLD_START_BASELINE: {
+        hrvU: { mean: 3.74, std: 0.45 },      // ln(RMSSD), ~42ms mean
+        hr: { mean: 70, std: 12 },             // resting HR
+        rr: { mean: 15, std: 3 },              // respiratory rate
+        sq: { mean: 70, std: 15 },             // signal quality score
+        tei: { mean: 60, std: 18 }             // TEI population estimate
+    },
+
     GRADE_WEIGHTS: {
         A: { hrv: 0.45, hr: 0.20, rr: 0.20, sq: 0.15 },
         B: { hrv: 0.30, hr: 0.25, rr: 0.20, sq: 0.25 },
@@ -36,8 +47,34 @@ const TenkiEngine = {
     safeLnMs: (ms) => (ms && ms > 0) ? Math.log(ms) : null,
     ema: (old, val, alpha) => (1 - alpha) * old + alpha * val,
 
-    percentileRank(value, history) {
-        if (value == null || history.length < 5) return 50;
+    // Enhanced percentileRank with cold-start support
+    // coldStartRef: { mean, std } - population baseline for estimation when history is insufficient
+    percentileRank(value, history, coldStartRef = null) {
+        if (value == null) return 50;
+
+        // If insufficient history, use cold-start estimation
+        if (history.length < 5) {
+            if (coldStartRef && coldStartRef.mean != null && coldStartRef.std > 0) {
+                // Z-score based estimation using population baseline
+                const z = (value - coldStartRef.mean) / coldStartRef.std;
+                // Standard normal CDF approximation (Bowling et al. 2009)
+                const t = 1 / (1 + 0.2316419 * Math.abs(z));
+                const d = 0.3989423 * Math.exp(-z * z / 2);
+                const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+                const cdf = z > 0 ? 1 - p : p;
+                return Math.floor(this.clamp(cdf * 100, 1, 99));
+            }
+            // True cold start: use simple linear estimation within reasonable bounds
+            if (history.length >= 2) {
+                const lo = Math.min(...history), hi = Math.max(...history);
+                if (hi > lo) {
+                    return Math.floor(this.clamp((value - lo) / (hi - lo) * 80 + 10, 10, 90));
+                }
+            }
+            return 50; // Ultimate fallback
+        }
+
+        // Standard percentile calculation with sufficient history
         const lo = Math.min(...history), hi = Math.max(...history);
         if (lo === hi) return 50;
         let less = 0, equal = 0;
@@ -45,7 +82,7 @@ const TenkiEngine = {
             if (v < value) less++;
             else if (v === value) equal++;
         }
-        return Math.floor(this.clamp((less + 0.5 * equal) / history.length * 100, 0, 99));
+        return Math.floor(this.clamp((less + 0.5 * equal) / history.length * 100, 1, 99));
     },
 
     welfordUpdate(n, mean, m2, x) {
@@ -268,14 +305,16 @@ const TenkiEngine = {
 
         const fused = this.getFusedBaseline(t, lotScore);
 
-        // Build PRs (before appending to history)
+        // Build PRs with cold-start baseline support (before appending to history)
         let hrvPr = null;
         if (hrvU != null && hrvValidForUse) {
-            hrvPr = this.percentileRank(hrvU, this.hrvUHistory);
+            hrvPr = this.percentileRank(hrvU, this.hrvUHistory, this.COLD_START_BASELINE.hrvU);
         }
-        const hrPr = 99 - this.percentileRank(hr, this.hrHistory);
-        const rrPr = rr != null ? 99 - this.percentileRank(rr, this.rrHistory) : 50;
-        const sqPr = this.percentileRank(sqTotal, this.sqHistory);
+        // For HR: lower is better, so invert the percentile
+        const hrPr = 99 - this.percentileRank(hr, this.hrHistory, this.COLD_START_BASELINE.hr);
+        // For RR: lower is generally calmer
+        const rrPr = rr != null ? 99 - this.percentileRank(rr, this.rrHistory, this.COLD_START_BASELINE.rr) : 50;
+        const sqPr = this.percentileRank(sqTotal, this.sqHistory, this.COLD_START_BASELINE.sq);
 
         // Append histories
         this.appendHistory(this.hrHistory, hr);
