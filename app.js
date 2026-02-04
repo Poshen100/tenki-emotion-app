@@ -647,7 +647,8 @@ const app = {
 
         const quoteEl = document.getElementById('dash-quote');
         if (quoteEl) {
-            quoteEl.innerHTML = `"${displayMessage}"`;
+            // Security: Use textContent instead of innerHTML to prevent XSS
+            quoteEl.textContent = `"${displayMessage}"`;
             quoteEl.style.color = messageColor;
         }
 
@@ -974,7 +975,12 @@ const app = {
         if (textBox.innerText !== msg) {
             textBox.innerText = msg;
             iconBox.className = `w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-300 ${iconBg}`;
-            iconBox.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${iconColor}"></i>`;
+            // Security: Use DOM API instead of innerHTML to prevent XSS
+            iconBox.textContent = '';
+            const iconEl = document.createElement('i');
+            iconEl.setAttribute('data-lucide', icon);
+            iconEl.className = `w-4 h-4 ${iconColor}`;
+            iconBox.appendChild(iconEl);
             lucide.createIcons();
             capsule.className = ""; capsule.classList.add(colorClass, 'show');
         }
