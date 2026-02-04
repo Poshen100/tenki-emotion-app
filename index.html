@@ -1606,6 +1606,13 @@
         <!-- Overlay CSS (獨立樣式，overlay- 前綴) -->
         <link rel="stylesheet" href="ui/overlay.css">
 
+        <!-- Core Modules (核心邏輯模組 - 必須在 EventBridge 之前載入) -->
+        <script src="core/database.js"></script>
+        <script src="core/decision-timer.js"></script>
+        <script src="core/decision-preview.js"></script>
+        <script src="core/pr-expectancy.js"></script>
+        <script src="core/ai-behavior.js"></script>
+
         <!-- Event Bridge (事件橋接器) -->
         <script src="integration/event-bridge.js"></script>
 
