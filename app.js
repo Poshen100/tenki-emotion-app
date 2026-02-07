@@ -649,22 +649,24 @@ const app = {
             let quoteContent = '';
 
             if (phase <= 1) {
-                // Glimpse (2s): Show range + confidence
+                // Glimpse (2s): Show range + confidence + zone hint
                 const confidence = this.state.liveConfidence || 30;
                 const teiHalfRange = Math.round((100 - confidence) * 0.15);
                 const teiLow = Math.max(0, displayTei - teiHalfRange);
                 const teiHigh = Math.min(100, displayTei + teiHalfRange);
-                quoteContent = `TEI ${teiLow}–${teiHigh} (Confidence ${confidence}%)`;
+                // v55.1: Add zone interpretation for user understanding
+                const zoneHint = displayTei >= 65 ? '偏佳' : (displayTei >= 40 ? '中性' : '偏低');
+                quoteContent = `TEI ${teiLow}–${teiHigh} · ${zoneHint}區間 (${confidence}%)`;
             } else if (phase <= 3) {
                 // Preview/Default (15-30s): Show metrics + gate
                 quoteContent = `RMSSD ${rmssd}ms | BPM ${bpm} | Gate: ${gateText}`;
             } else {
-                // Spectrum (60s): Full metrics + actionable suggestion
+                // Spectrum (60s): Full metrics + actionable suggestion (unified Chinese)
                 const suggestions = {
-                    'PEAK': '最佳狀態 · 可執行重要決策',
-                    'OPTIMAL': '狀態良好 · Try box breathing',
-                    'NEUTRAL': '建議深呼吸 · 4-7-8 technique',
-                    'DEGRADED': '建議休息 · 避免重要決策'
+                    'PEAK': '巔峰狀態 · 適合重要決策',
+                    'OPTIMAL': '狀態良好 · 建議保持專注',
+                    'NEUTRAL': '建議深呼吸 · 4-7-8 呼吸法',
+                    'DEGRADED': '建議休息 · 暫緩重要決策'
                 };
                 const suggestion = suggestions[zone] || '狀態穩定';
                 quoteContent = `RMSSD ${rmssd}ms | BPM ${bpm} | Q ${quality}% | ${suggestion}`;
@@ -674,21 +676,24 @@ const app = {
             quoteEl.style.color = messageColor;
         }
 
-        // v55.0: Update dash-label to show progress during scan
+        // v55.1: Update dash-label with progress percentage
         const labelEl = document.getElementById('dash-label');
         if (labelEl) {
             const hrvCount = this.state.validHrvCount || 0;
+            const hrvTarget = 60; // Target for reliable precision
+            const hrvProgress = Math.min(100, Math.round((hrvCount / hrvTarget) * 100));
             const phaseMax = 4;
 
             if (this.state.scanComplete) {
-                labelEl.innerText = `RELIABLE · ${hrvCount}+ HRV`;
+                labelEl.innerText = `可靠精度 ✓ (${hrvCount}+ 樣本)`;
                 labelEl.style.color = '#00FF94';
             } else if (this.state.isScanning) {
                 if (hrvCount >= 60) {
-                    labelEl.innerText = `RELIABLE · ${hrvCount} HRV samples`;
+                    labelEl.innerText = `可靠精度 ✓ ${hrvCount} 樣本`;
                     labelEl.style.color = '#00FF94';
                 } else {
-                    labelEl.innerText = `PHASE ${phase}/${phaseMax} · ${hrvCount} HRV`;
+                    // v55.1: Show progress as percentage and fraction
+                    labelEl.innerText = `Phase ${phase}/${phaseMax} · ${hrvProgress}% (${hrvCount}/${hrvTarget})`;
                     labelEl.style.color = '#00F0FF';
                 }
             } else if (zone !== this.state.lastZone) {
@@ -697,6 +702,7 @@ const app = {
                 this.state.lastZone = zone;
             }
         }
+
 
         const stateEl = document.getElementById('dash-state');
         if (stateEl) {
