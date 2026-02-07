@@ -144,19 +144,19 @@ const app = {
 
         // Get real HR from rPPG if available
         if (this.state.rppg && this.state.rppg.metrics.bpm && this.state.rppg.metrics.bpm > 0) {
-            m.hr = this.state.rppg.metrics.bpm;
+            m.hr = Math.round(this.state.rppg.metrics.bpm);
             this.state.validHrvCount = this.state.rppg.metrics.nPeaks || 0;
 
             // Get real RMSSD for HRV
             if (this.state.rppg.metrics.rmssd) {
-                m.rmssd = this.state.rppg.metrics.rmssd;
+                m.rmssd = Math.round(this.state.rppg.metrics.rmssd);
                 // Derive PNS/SNS from RMSSD (higher RMSSD = more PNS dominant)
-                m.pns = Math.min(80, Math.max(20, 30 + (m.rmssd * 0.5)));
-                m.sns = 100 - m.pns;
+                m.pns = Math.round(Math.min(80, Math.max(20, 30 + (m.rmssd * 0.5))));
+                m.sns = Math.round(100 - m.pns);
             }
         } else {
             // Fallback: gentle variation based on elapsed time while waiting for signal
-            m.hr = 68 + Math.sin(elapsed * 0.002) * 5 + (Math.random() - 0.5) * 2;
+            m.hr = Math.round(68 + Math.sin(elapsed * 0.002) * 5 + (Math.random() - 0.5) * 2);
             if (elapsed > 2000) {
                 this.state.validHrvCount = Math.min(30, Math.floor((elapsed - 2000) / 1500));
             }
@@ -170,13 +170,13 @@ const app = {
             const rmssd = this.state.rppg.metrics.rmssd;
             // Typical RR range: 12-20 breaths/min
             // Lower RMSSD -> faster breathing, Higher RMSSD -> slower breathing
-            m.rr = Math.max(12, Math.min(20, 18 - (rmssd - 40) * 0.1)) + (Math.random() - 0.5) * 1;
+            m.rr = Math.round(Math.max(12, Math.min(20, 18 - (rmssd - 40) * 0.1)) + (Math.random() - 0.5) * 1);
         } else {
-            m.rr = 14 + Math.sin(elapsed * 0.0008) * 3 + (Math.random() - 0.5) * 1;
+            m.rr = Math.round(14 + Math.sin(elapsed * 0.0008) * 3 + (Math.random() - 0.5) * 1);
         }
 
         // Stress: inverse of PNS dominance
-        m.stress = Math.max(10, Math.min(90, 50 + (m.sns - 50) * 0.8));
+        m.stress = Math.round(Math.max(10, Math.min(90, 50 + (m.sns - 50) * 0.8)));
 
         this.updateLiveScore();
         this.updateHintsFromMetrics();
@@ -187,13 +187,13 @@ const app = {
         const m = this.state.liveMetrics;
         const base = this.state.lastRealMetrics;
 
-        // Gentle random walk around the last real values
-        m.hr = Math.max(55, Math.min(100, base.hr + (Math.random() - 0.5) * 1.5));
-        m.rr = Math.max(12, Math.min(22, base.rr + (Math.random() - 0.5) * 0.8));
-        m.sns = Math.max(20, Math.min(80, base.sns + (Math.random() - 0.5) * 2));
-        m.pns = 100 - m.sns;
-        m.rmssd = Math.max(15, Math.min(100, base.rmssd + (Math.random() - 0.5) * 3));
-        m.stress = Math.max(10, Math.min(90, 50 + (m.sns - 50) * 0.8));
+        // Gentle random walk around the last real values (rounded to prevent flickering)
+        m.hr = Math.round(Math.max(55, Math.min(100, base.hr + (Math.random() - 0.5) * 1.5)));
+        m.rr = Math.round(Math.max(12, Math.min(22, base.rr + (Math.random() - 0.5) * 0.8)));
+        m.sns = Math.round(Math.max(20, Math.min(80, base.sns + (Math.random() - 0.5) * 2)));
+        m.pns = Math.round(100 - m.sns);
+        m.rmssd = Math.round(Math.max(15, Math.min(100, base.rmssd + (Math.random() - 0.5) * 3)));
+        m.stress = Math.round(Math.max(10, Math.min(90, 50 + (m.sns - 50) * 0.8)));
 
         // Slowly update base for next iteration (EWMA)
         const alpha = 0.1;
