@@ -629,15 +629,6 @@ const app = {
         const scoreEl = document.getElementById('dash-score');
         if (scoreEl) scoreEl.innerText = String(displayTei).padStart(2, '0');
 
-        const labelEl = document.getElementById('dash-label');
-        if (labelEl && !this.state.scanComplete) {
-            // Only update zone label when it actually changes
-            if (zone !== this.state.lastZone) {
-                labelEl.innerText = zone;
-                labelEl.style.color = messageColor;
-                this.state.lastZone = zone;
-            }
-        }
 
         const confEl = document.getElementById('confidence-val');
         if (confEl) {
@@ -645,11 +636,66 @@ const app = {
             confEl.innerText = displayConf + '%';
         }
 
+        // v55.0: Phase-aware progressive precision display
         const quoteEl = document.getElementById('dash-quote');
         if (quoteEl) {
-            // Security: Use textContent instead of innerHTML to prevent XSS
-            quoteEl.textContent = `"${displayMessage}"`;
+            const rmssd = Math.round(m.rmssd || 45);
+            const bpm = Math.round(m.hr);
+            const gate = this.gatePass();
+            const gateText = gate.pass ? 'PASS ✓' : gate.reason;
+            const hrvCount = this.state.validHrvCount || 0;
+            const quality = Math.round((this.state.rppg?.metrics?.quality || 0) * 100);
+
+            let quoteContent = '';
+
+            if (phase <= 1) {
+                // Glimpse (2s): Show range + confidence
+                const confidence = this.state.liveConfidence || 30;
+                const teiHalfRange = Math.round((100 - confidence) * 0.15);
+                const teiLow = Math.max(0, displayTei - teiHalfRange);
+                const teiHigh = Math.min(100, displayTei + teiHalfRange);
+                quoteContent = `TEI ${teiLow}–${teiHigh} (Confidence ${confidence}%)`;
+            } else if (phase <= 3) {
+                // Preview/Default (15-30s): Show metrics + gate
+                quoteContent = `RMSSD ${rmssd}ms | BPM ${bpm} | Gate: ${gateText}`;
+            } else {
+                // Spectrum (60s): Full metrics + actionable suggestion
+                const suggestions = {
+                    'PEAK': '最佳狀態 · 可執行重要決策',
+                    'OPTIMAL': '狀態良好 · Try box breathing',
+                    'NEUTRAL': '建議深呼吸 · 4-7-8 technique',
+                    'DEGRADED': '建議休息 · 避免重要決策'
+                };
+                const suggestion = suggestions[zone] || '狀態穩定';
+                quoteContent = `RMSSD ${rmssd}ms | BPM ${bpm} | Q ${quality}% | ${suggestion}`;
+            }
+
+            quoteEl.textContent = quoteContent;
             quoteEl.style.color = messageColor;
+        }
+
+        // v55.0: Update dash-label to show progress during scan
+        const labelEl = document.getElementById('dash-label');
+        if (labelEl) {
+            const hrvCount = this.state.validHrvCount || 0;
+            const phaseMax = 4;
+
+            if (this.state.scanComplete) {
+                labelEl.innerText = `RELIABLE · ${hrvCount}+ HRV`;
+                labelEl.style.color = '#00FF94';
+            } else if (this.state.isScanning) {
+                if (hrvCount >= 60) {
+                    labelEl.innerText = `RELIABLE · ${hrvCount} HRV samples`;
+                    labelEl.style.color = '#00FF94';
+                } else {
+                    labelEl.innerText = `PHASE ${phase}/${phaseMax} · ${hrvCount} HRV`;
+                    labelEl.style.color = '#00F0FF';
+                }
+            } else if (zone !== this.state.lastZone) {
+                labelEl.innerText = zone;
+                labelEl.style.color = messageColor;
+                this.state.lastZone = zone;
+            }
         }
 
         const stateEl = document.getElementById('dash-state');
