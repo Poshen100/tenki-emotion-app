@@ -75,19 +75,55 @@
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
 }
 
-/* Prevent body/html horizontal scroll */
-html,
+/* Prevent body/html horizontal scroll - STRONG lock */
+html {
+    overflow-x: hidden !important;
+    overscroll-behavior-x: none !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+}
+
 body {
     overflow-x: hidden !important;
-    overscroll-behavior-x: none;
+    overscroll-behavior-x: none !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    position: relative !important;
 }
 
 /* Ensure bento grid doesn't overflow */
 .bento-grid {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+}
+
+/* Contain dock within viewport */
+.dock-container {
     max-width: 100vw !important;
-    overflow: hidden;
+    box-sizing: border-box !important;
+    left: 0 !important;
+    right: 0 !important;
+}
+
+/* Dock inner elements containment */
+.overlay-dock-center,
+.overlay-dock-left,
+.overlay-dock-right {
+    overflow: hidden !important;
+}
+
+/* Decision Timer button - ensure it doesn't overflow */
+.overlay-dock-main-btn {
+    max-width: calc(100vw - 160px) !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
 }
 
 /* Dock minimizes on scroll - smaller and less intrusive */
