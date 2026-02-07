@@ -23,6 +23,40 @@
 }
 
 /* =============================================================================
+   UI CLEANUP - Hide clutter for pure Stardust Soul experience
+   ============================================================================= */
+
+/* Hide T5: Degraded badge (top right) */
+#tier-indicator-float {
+    display: none !important;
+}
+
+/* Hide quality warning banner */
+.quality-warning {
+    display: none !important;
+}
+
+/* Hide "TAP TO SCAN" instruction text */
+#instruction {
+    display: none !important;
+}
+
+/* Hide precision mode tabs (2s/30s/60s) */
+#precision-tabs {
+    display: none !important;
+}
+
+/* Hide "Live Biometric Sync · 60s" text below tabs */
+#precision-tabs + div {
+    display: none !important;
+}
+
+/* Hide floating colorful dot (no functionality yet) */
+#overlay-floating-dot {
+    display: none !important;
+}
+
+/* =============================================================================
    OVERLAY PANELS
    ============================================================================= */
 
