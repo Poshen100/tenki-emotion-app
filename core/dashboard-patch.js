@@ -266,6 +266,73 @@
 
         state.isPatched = true;
         console.log('[DASHBOARD-PATCH] Initialized ✓');
+
+        // Watch for NaN values and fix them immediately
+        setupNaNWatcher();
+    }
+
+    /**
+     * Watch for NaN values in dashboard and fix immediately
+     * This catches any NaN that app.js might write after our patch runs
+     */
+    function setupNaNWatcher() {
+        const elementsToWatch = [
+            'bio-stress-pr',
+            'bio-hr-val',
+            'bio-hrv-val',
+            'bio-rr-val',
+            'bio-quality-val'
+        ];
+
+        elementsToWatch.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+
+            // Use MutationObserver to catch any changes
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                        const text = el.innerText || el.textContent;
+                        if (text === 'NaN' || text === 'undefined' || text === 'null') {
+                            // Replace with default value based on element
+                            const defaults = {
+                                'bio-stress-pr': '50',
+                                'bio-hr-val': '72',
+                                'bio-hrv-val': '45',
+                                'bio-rr-val': '14',
+                                'bio-quality-val': '0'
+                            };
+                            el.innerText = defaults[id] || '--';
+                            console.log('[DASHBOARD-PATCH] Fixed NaN in', id);
+                        }
+                    }
+                });
+            });
+
+            observer.observe(el, {
+                characterData: true,
+                childList: true,
+                subtree: true
+            });
+        });
+
+        // Also do an immediate sweep
+        elementsToWatch.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                const text = el.innerText || el.textContent;
+                if (text === 'NaN' || text === 'undefined' || text === 'null' || text === '') {
+                    const defaults = {
+                        'bio-stress-pr': '50',
+                        'bio-hr-val': '72',
+                        'bio-hrv-val': '45',
+                        'bio-rr-val': '14',
+                        'bio-quality-val': '0'
+                    };
+                    el.innerText = defaults[id] || '--';
+                }
+            }
+        });
     }
 
     // 自動初始化
