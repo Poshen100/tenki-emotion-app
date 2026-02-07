@@ -17,7 +17,8 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    pointer-events: none; /* 讓星塵可穿透點擊 */
+    pointer-events: none;
+    /* 讓星塵可穿透點擊 */
     z-index: 1000;
     font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -47,13 +48,40 @@
 }
 
 /* Hide "Live Biometric Sync · 60s" text below tabs */
-#precision-tabs + div {
+#precision-tabs+div {
     display: none !important;
 }
 
 /* Hide floating colorful dot (no functionality yet) */
 #overlay-floating-dot {
     display: none !important;
+}
+
+/* =============================================================================
+   DOCK - Always visible and fixed at bottom
+   ============================================================================= */
+
+/* Make dock always visible (not just on .show) */
+.dock-container {
+    transform: translateY(0) !important;
+    z-index: 500 !important;
+}
+
+/* Add padding to dashboard so content isn't blocked by dock */
+#dashboard-layer {
+    padding-bottom: 90px !important;
+}
+
+/* Dock minimizes on scroll - smaller and less intrusive */
+.dock-container.minimized {
+    height: 50px !important;
+    opacity: 0.8;
+}
+
+/* On scroll, dock becomes more transparent */
+.dock-container.scrolled {
+    background: rgba(5, 5, 10, 0.6) !important;
+    backdrop-filter: blur(10px) !important;
 }
 
 /* =============================================================================
@@ -68,7 +96,8 @@
     border: 1px solid rgba(255, 20, 147, 0.3);
     border-radius: 16px;
     padding: 24px;
-    pointer-events: auto; /* Panel 本身可點擊 */
+    pointer-events: auto;
+    /* Panel 本身可點擊 */
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     color: #ffffff;
 }
@@ -456,6 +485,7 @@
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -463,9 +493,12 @@
 }
 
 @keyframes overlay-pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
+
     50% {
         opacity: 0.5;
     }
