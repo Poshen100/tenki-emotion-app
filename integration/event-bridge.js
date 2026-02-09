@@ -1,821 +1,486 @@
 /**
- * TENKI PRO - Event Bridge v1.0
+ * @fileoverview Event Bridge - 連接新舊系統的橋接器
+ * @description 這是 TENKI PRO 的通訊中樞，所有新模組都必須透過這裡與星塵靈魂溝通。
  * 
- * 事件橋接器 - 連接 TENKI PRO 新功能與星塵靈魂視覺系統
- * 
- * 設計原則:
+ * 設計原則：
  * 1. 只發送事件，不修改原始碼
- * 2. 星塵靈魂選擇性監聽事件
- * 3. 雙向解耦，互不依賴
- * 4. 完全獨立，不依賴任何現有檔案
+ * 2. 星塵靈魂選擇性監聽
+ * 3. 雙向解耦
  * 
- * @author TENKI Team
  * @version 1.0.0
- * @license MIT
+ * @author TENKI PRO Team
  */
 
-const EventBridge = (function() {
-    'use strict';
+(function(global) {
+  'use strict';
 
-    // =============================================================================
-    // CONSTANTS
-    // =============================================================================
+  /**
+   * 事件類型常數
+   * @readonly
+   * @enum {string}
+   */
+  const EventTypes = {
+    TEI_UPDATED: 'tenki:tei-updated',
+    DECISION_STATE: 'tenki:decision-state',
+    TRADE_RECORDED: 'tenki:trade-recorded',
+    PREVIEW_REQUESTED: 'tenki:preview-requested',
+    SYSTEM_ERROR: 'tenki:system-error'
+  };
 
+  /**
+   * 狀態常數
+   * @readonly
+   * @enum {string}
+   */
+  const DecisionStates = {
+    IDLE: 'IDLE',
+    PREVIEW: 'PREVIEW',
+    RUNNING: 'RUNNING',
+    PROGRESS: 'PROGRESS',
+    COMPLETE: 'COMPLETE',
+    TIMEOUT: 'TIMEOUT',
+    ABORT: 'ABORT'
+  };
+
+  /**
+   * Event Bridge 類別
+   * 提供系統間事件通訊的統一介面
+   */
+  class EventBridge {
     /**
-     * 事件命名空間
-     * @constant {string}
+     * 建立 EventBridge 實例
+     * @param {Object} options - 設定選項
+     * @param {boolean} [options.debug=false] - 是否啟用除錯模式
      */
-    const NAMESPACE = 'tenki';
-
-    /**
-     * 事件類型枚舉
-     * @enum {string}
-     */
-    const EVENT_TYPES = {
-        // TEI 相關事件
-        TEI_UPDATED: `${NAMESPACE}:tei-updated`,
-        TEI_CALIBRATED: `${NAMESPACE}:tei-calibrated`,
-        
-        // 決策計時器事件
-        DECISION_STATE: `${NAMESPACE}:decision-state`,
-        DECISION_START: `${NAMESPACE}:decision-start`,
-        DECISION_PROGRESS: `${NAMESPACE}:decision-progress`,
-        DECISION_COMPLETE: `${NAMESPACE}:decision-complete`,
-        DECISION_TIMEOUT: `${NAMESPACE}:decision-timeout`,
-        DECISION_ABORT: `${NAMESPACE}:decision-abort`,
-        
-        // 統計事件
-        STATS_UPDATED: `${NAMESPACE}:stats-updated`,
-        TRADE_RECORDED: `${NAMESPACE}:trade-recorded`,
-        
-        // 模板事件
-        TEMPLATE_SELECTED: `${NAMESPACE}:template-selected`,
-        TEMPLATE_LOADED: `${NAMESPACE}:template-loaded`,
-        
-        // 預覽事件
-        PREVIEW_GENERATED: `${NAMESPACE}:preview-generated`,
-        PREVIEW_DISMISSED: `${NAMESPACE}:preview-dismissed`,
-        
-        // AI 行為事件
-        BEHAVIOR_ANALYZED: `${NAMESPACE}:behavior-analyzed`,
-        CLUSTER_UPDATED: `${NAMESPACE}:cluster-updated`,
-        
-        // 系統事件
-        SYSTEM_READY: `${NAMESPACE}:system-ready`,
-        SYSTEM_ERROR: `${NAMESPACE}:system-error`,
-        
-        // 來自星塵靈魂的事件 (監聽用)
-        STARDUST_STATE_CHANGED: 'stardust:state-changed',
-        STARDUST_HR_UPDATED: 'stardust:hr-updated'
-    };
-
-    /**
-     * 事件來源枚舉
-     * @enum {string}
-     */
-    const SOURCES = {
-        DECISION_TIMER: 'decision-timer',
-        PR_EXPECTANCY: 'pr-expectancy',
-        AI_BEHAVIOR: 'ai-behavior',
-        DATABASE: 'database',
-        UI_CONTROLLER: 'ui-controller',
-        TEMPLATE_MANAGER: 'template-manager',
-        STARDUST: 'stardust'
-    };
-
-    // =============================================================================
-    // INTERNAL STATE
-    // =============================================================================
-
-    /**
-     * 事件歷史記錄 (用於除錯)
-     * @type {Array<Object>}
-     */
-    const eventHistory = [];
-
-    /**
-     * 歷史記錄最大長度
-     * @constant {number}
-     */
-    const MAX_HISTORY = 100;
-
-    /**
-     * 是否啟用除錯模式
-     * @type {boolean}
-     */
-    let debugMode = false;
-
-    // =============================================================================
-    // UTILITY FUNCTIONS
-    // =============================================================================
+    constructor(options = {}) {
+      this.debug = options.debug || false;
+      this.listeners = new Map();
+      this._eventHistory = [];
+      this._maxHistorySize = 100;
+    }
 
     /**
      * 記錄事件到歷史
      * @private
      * @param {string} type - 事件類型
-     * @param {string} direction - 'emit' 或 'receive'
      * @param {Object} detail - 事件資料
      */
-    function logEvent(type, direction, detail) {
-        const entry = {
-            type,
-            direction,
-            detail,
-            timestamp: Date.now()
-        };
+    _logEvent(type, detail) {
+      if (this._eventHistory.length >= this._maxHistorySize) {
+        this._eventHistory.shift();
+      }
+      this._eventHistory.push({
+        type,
+        detail,
+        timestamp: Date.now()
+      });
 
-        eventHistory.push(entry);
-
-        // 限制歷史記錄大小
-        if (eventHistory.length > MAX_HISTORY) {
-            eventHistory.shift();
-        }
-
-        // 除錯輸出
-        if (debugMode) {
-            console.log(`[EventBridge] ${direction.toUpperCase()}: ${type}`, detail);
-        }
+      if (this.debug) {
+        console.log(`[EventBridge] ${type}`, detail);
+      }
     }
-
-    /**
-     * 建立自訂事件
-     * @private
-     * @param {string} type - 事件類型
-     * @param {Object} detail - 事件資料
-     * @returns {CustomEvent} 自訂事件
-     */
-    function createEvent(type, detail) {
-        return new CustomEvent(type, {
-            detail: {
-                ...detail,
-                timestamp: Date.now()
-            },
-            bubbles: true,
-            cancelable: true
-        });
-    }
-
-    // =============================================================================
-    // TEI EVENTS
-    // =============================================================================
 
     /**
      * 發送 TEI 更新事件
-     * 星塵靈魂可選擇監聽此事件來改變粒子顏色
+     * 星塵靈魂可選擇監聽來改變粒子顏色
      * 
-     * @param {number} tei - TEI 值 (1-99)
-     * @param {string} source - 事件來源
-     * @param {Object} [metadata={}] - 額外資料
+     * @param {number} tei - TEI 分數 (1-99)
+     * @param {string} source - 事件來源模組名稱
+     * @returns {boolean} 是否成功發送
      * 
      * @example
-     * EventBridge.notifyTEIUpdate(72, 'decision-timer', { phase: 'running' });
+     * // 從決策計時器發送 TEI 更新
+     * EventBridge.notifyTEIUpdate(72, 'decision-timer');
      */
-    function notifyTEIUpdate(tei, source, metadata = {}) {
+    static notifyTEIUpdate(tei, source) {
+      try {
+        // 驗證 TEI 範圍
         if (typeof tei !== 'number' || tei < 1 || tei > 99) {
-            console.warn('[EventBridge] Invalid TEI value:', tei);
-            return false;
+          console.warn('[EventBridge] TEI must be a number between 1-99');
+          return false;
         }
 
         const detail = {
-            tei: Math.round(tei),
-            source: source || SOURCES.UI_CONTROLLER,
-            ...metadata
+          tei: Math.round(tei),
+          source: source || 'unknown',
+          timestamp: Date.now()
         };
 
-        const event = createEvent(EVENT_TYPES.TEI_UPDATED, detail);
-        logEvent(EVENT_TYPES.TEI_UPDATED, 'emit', detail);
-        window.dispatchEvent(event);
-        return true;
-    }
-
-    /**
-     * 訂閱 TEI 更新事件
-     * 
-     * @param {Function} callback - 回調函數，接收 { tei, source, timestamp } 
-     * @returns {Function} 取消訂閱函數
-     * 
-     * @example
-     * const unsubscribe = EventBridge.onTEIUpdate((data) => {
-     *   console.log('TEI updated to:', data.tei);
-     * });
-     * // 之後取消訂閱
-     * unsubscribe();
-     */
-    function onTEIUpdate(callback) {
-        if (typeof callback !== 'function') {
-            console.error('[EventBridge] Callback must be a function');
-            return () => {};
+        window.dispatchEvent(new CustomEvent(EventTypes.TEI_UPDATED, { detail }));
+        
+        if (EventBridge._instance) {
+          EventBridge._instance._logEvent(EventTypes.TEI_UPDATED, detail);
         }
 
-        const handler = (e) => {
-            logEvent(EVENT_TYPES.TEI_UPDATED, 'receive', e.detail);
-            callback(e.detail);
-        };
-
-        window.addEventListener(EVENT_TYPES.TEI_UPDATED, handler);
-
-        // 返回取消訂閱函數
-        return () => {
-            window.removeEventListener(EVENT_TYPES.TEI_UPDATED, handler);
-        };
+        return true;
+      } catch (error) {
+        console.error('[EventBridge] Error in notifyTEIUpdate:', error);
+        return false;
+      }
     }
-
-    // =============================================================================
-    // DECISION STATE EVENTS
-    // =============================================================================
 
     /**
      * 發送決策狀態變化事件
      * 
-     * @param {string} state - 狀態 ('IDLE' | 'PREVIEW' | 'RUNNING' | 'COMPLETE' | 'TIMEOUT' | 'ABORT')
-     * @param {Object} data - 狀態資料
+     * @param {string} state - 決策狀態 (IDLE/PREVIEW/RUNNING/COMPLETE/TIMEOUT/ABORT)
+     * @param {Object} data - 附加資料
+     * @returns {boolean} 是否成功發送
      * 
      * @example
-     * EventBridge.notifyDecisionState('RUNNING', {
-     *   template: 'CANSILM_GROWTH',
-     *   elapsed: 45,
-     *   remaining: 255,
-     *   segment: 'No chase'
-     * });
+     * // 計時器開始
+     * EventBridge.notifyDecisionState('RUNNING', { template: 'MANCINI_FBD', duration: 180 });
+     * 
+     * // 計時器進度更新
+     * EventBridge.notifyDecisionState('PROGRESS', { elapsed: 60, remaining: 120, segment: 'Watch acceptance' });
+     * 
+     * // 計時器超時 (耐心等待成功)
+     * EventBridge.notifyDecisionState('TIMEOUT', { template: 'MANCINI_FBD' });
      */
-    function notifyDecisionState(state, data = {}) {
-        const validStates = ['IDLE', 'PREVIEW', 'RUNNING', 'PAUSED', 'COMPLETE', 'TIMEOUT', 'ABORT'];
-        
-        if (!validStates.includes(state)) {
-            console.warn('[EventBridge] Invalid decision state:', state);
-            return false;
+    static notifyDecisionState(state, data = {}) {
+      try {
+        // 驗證狀態
+        if (!Object.values(DecisionStates).includes(state)) {
+          console.warn(`[EventBridge] Invalid state: ${state}`);
+          return false;
         }
 
         const detail = {
-            state,
-            data
+          state,
+          data,
+          timestamp: Date.now()
         };
 
-        const event = createEvent(EVENT_TYPES.DECISION_STATE, detail);
-        logEvent(EVENT_TYPES.DECISION_STATE, 'emit', detail);
-        window.dispatchEvent(event);
+        window.dispatchEvent(new CustomEvent(EventTypes.DECISION_STATE, { detail }));
+
+        if (EventBridge._instance) {
+          EventBridge._instance._logEvent(EventTypes.DECISION_STATE, detail);
+        }
+
         return true;
-    }
-
-    /**
-     * 訂閱決策狀態變化事件
-     * 
-     * @param {Function} callback - 回調函數
-     * @returns {Function} 取消訂閱函數
-     */
-    function onDecisionStateChange(callback) {
-        if (typeof callback !== 'function') {
-            console.error('[EventBridge] Callback must be a function');
-            return () => {};
-        }
-
-        const handler = (e) => {
-            logEvent(EVENT_TYPES.DECISION_STATE, 'receive', e.detail);
-            callback(e.detail);
-        };
-
-        window.addEventListener(EVENT_TYPES.DECISION_STATE, handler);
-
-        return () => {
-            window.removeEventListener(EVENT_TYPES.DECISION_STATE, handler);
-        };
-    }
-
-    /**
-     * 發送決策開始事件
-     * 
-     * @param {Object} data - 模板資訊
-     */
-    function notifyDecisionStart(data) {
-        const detail = {
-            template: data.template,
-            templateId: data.templateId,
-            duration: data.duration,
-            tei: data.tei
-        };
-
-        const event = createEvent(EVENT_TYPES.DECISION_START, detail);
-        logEvent(EVENT_TYPES.DECISION_START, 'emit', detail);
-        window.dispatchEvent(event);
-    }
-
-    /**
-     * 發送決策進度事件
-     * 
-     * @param {Object} progress - 進度資訊
-     */
-    function notifyDecisionProgress(progress) {
-        const detail = {
-            elapsed: progress.elapsed,
-            remaining: progress.remaining,
-            percentage: progress.percentage,
-            segment: progress.segment,
-            segmentLabel: progress.segmentLabel
-        };
-
-        const event = createEvent(EVENT_TYPES.DECISION_PROGRESS, detail);
-        logEvent(EVENT_TYPES.DECISION_PROGRESS, 'emit', detail);
-        window.dispatchEvent(event);
-    }
-
-    /**
-     * 發送決策完成事件
-     * 
-     * @param {Object} result - 完成結果
-     */
-    function notifyDecisionComplete(result) {
-        const detail = {
-            template: result.template,
-            elapsed: result.elapsed,
-            entryType: result.entryType,
-            tei: result.tei
-        };
-
-        const event = createEvent(EVENT_TYPES.DECISION_COMPLETE, detail);
-        logEvent(EVENT_TYPES.DECISION_COMPLETE, 'emit', detail);
-        window.dispatchEvent(event);
-    }
-
-    // =============================================================================
-    // STATS EVENTS
-    // =============================================================================
-
-    /**
-     * 發送統計更新事件
-     * 
-     * @param {Object} stats - 統計資料
-     */
-    function notifyStatsUpdate(stats) {
-        const detail = { stats };
-        const event = createEvent(EVENT_TYPES.STATS_UPDATED, detail);
-        logEvent(EVENT_TYPES.STATS_UPDATED, 'emit', detail);
-        window.dispatchEvent(event);
-    }
-
-    /**
-     * 訂閱統計更新事件
-     * 
-     * @param {Function} callback - 回調函數
-     * @returns {Function} 取消訂閱函數
-     */
-    function onStatsUpdate(callback) {
-        if (typeof callback !== 'function') {
-            return () => {};
-        }
-
-        const handler = (e) => {
-            logEvent(EVENT_TYPES.STATS_UPDATED, 'receive', e.detail);
-            callback(e.detail);
-        };
-
-        window.addEventListener(EVENT_TYPES.STATS_UPDATED, handler);
-
-        return () => {
-            window.removeEventListener(EVENT_TYPES.STATS_UPDATED, handler);
-        };
+      } catch (error) {
+        console.error('[EventBridge] Error in notifyDecisionState:', error);
+        return false;
+      }
     }
 
     /**
      * 發送交易記錄事件
      * 
-     * @param {Object} trade - 交易記錄
-     */
-    function notifyTradeRecorded(trade) {
-        const detail = { trade };
-        const event = createEvent(EVENT_TYPES.TRADE_RECORDED, detail);
-        logEvent(EVENT_TYPES.TRADE_RECORDED, 'emit', detail);
-        window.dispatchEvent(event);
-    }
-
-    // =============================================================================
-    // TEMPLATE EVENTS
-    // =============================================================================
-
-    /**
-     * 發送模板選擇事件
-     * 
-     * @param {Object} template - 模板資訊
-     */
-    function notifyTemplateSelected(template) {
-        const detail = { template };
-        const event = createEvent(EVENT_TYPES.TEMPLATE_SELECTED, detail);
-        logEvent(EVENT_TYPES.TEMPLATE_SELECTED, 'emit', detail);
-        window.dispatchEvent(event);
-    }
-
-    /**
-     * 訂閱模板選擇事件
-     * 
-     * @param {Function} callback - 回調函數
-     * @returns {Function} 取消訂閱函數
-     */
-    function onTemplateSelected(callback) {
-        if (typeof callback !== 'function') {
-            return () => {};
-        }
-
-        const handler = (e) => {
-            logEvent(EVENT_TYPES.TEMPLATE_SELECTED, 'receive', e.detail);
-            callback(e.detail);
-        };
-
-        window.addEventListener(EVENT_TYPES.TEMPLATE_SELECTED, handler);
-
-        return () => {
-            window.removeEventListener(EVENT_TYPES.TEMPLATE_SELECTED, handler);
-        };
-    }
-
-    // =============================================================================
-    // PREVIEW EVENTS
-    // =============================================================================
-
-    /**
-     * 發送預覽生成事件
-     * 
-     * @param {Object} preview - 預覽資料
-     */
-    function notifyPreviewGenerated(preview) {
-        const detail = { preview };
-        const event = createEvent(EVENT_TYPES.PREVIEW_GENERATED, detail);
-        logEvent(EVENT_TYPES.PREVIEW_GENERATED, 'emit', detail);
-        window.dispatchEvent(event);
-    }
-
-    /**
-     * 訂閱預覽生成事件
-     * 
-     * @param {Function} callback - 回調函數
-     * @returns {Function} 取消訂閱函數
-     */
-    function onPreviewGenerated(callback) {
-        if (typeof callback !== 'function') {
-            return () => {};
-        }
-
-        const handler = (e) => {
-            callback(e.detail);
-        };
-
-        window.addEventListener(EVENT_TYPES.PREVIEW_GENERATED, handler);
-
-        return () => {
-            window.removeEventListener(EVENT_TYPES.PREVIEW_GENERATED, handler);
-        };
-    }
-
-    // =============================================================================
-    // AI BEHAVIOR EVENTS
-    // =============================================================================
-
-    /**
-     * 發送行為分析事件
-     * 
-     * @param {Object} analysis - 分析結果
-     */
-    function notifyBehaviorAnalyzed(analysis) {
-        const detail = { analysis };
-        const event = createEvent(EVENT_TYPES.BEHAVIOR_ANALYZED, detail);
-        logEvent(EVENT_TYPES.BEHAVIOR_ANALYZED, 'emit', detail);
-        window.dispatchEvent(event);
-    }
-
-    /**
-     * 訂閱行為分析事件
-     * 
-     * @param {Function} callback - 回調函數
-     * @returns {Function} 取消訂閱函數
-     */
-    function onBehaviorAnalyzed(callback) {
-        if (typeof callback !== 'function') {
-            return () => {};
-        }
-
-        const handler = (e) => {
-            callback(e.detail);
-        };
-
-        window.addEventListener(EVENT_TYPES.BEHAVIOR_ANALYZED, handler);
-
-        return () => {
-            window.removeEventListener(EVENT_TYPES.BEHAVIOR_ANALYZED, handler);
-        };
-    }
-
-    // =============================================================================
-    // STARDUST INTEGRATION (監聽星塵靈魂事件)
-    // =============================================================================
-
-    /**
-     * 訂閱星塵靈魂的狀態變化事件
-     * 這允許新模組對星塵的變化做出反應
-     * 
-     * @param {Function} callback - 回調函數
-     * @returns {Function} 取消訂閱函數
+     * @param {Object} record - 交易記錄
+     * @param {number} record.tei - 交易時的 TEI
+     * @param {string} record.template - 使用的模板
+     * @param {number} record.decision_time - 決策耗時 (秒)
+     * @param {string} record.result - 結果 (WIN/LOSS)
+     * @param {string} record.entry_type - 進場類型 (EARLY/TIMEOUT/ABORT)
+     * @param {number} [record.r_multiple] - R 倍數
+     * @returns {boolean} 是否成功發送
      * 
      * @example
-     * EventBridge.listenToStardust((data) => {
-     *   console.log('Stardust state changed:', data);
+     * EventBridge.notifyTradeRecorded({
+     *   tei: 57,
+     *   template: 'MANCINI_FBD',
+     *   decision_time: 132,
+     *   result: 'WIN',
+     *   entry_type: 'TIMEOUT',
+     *   r_multiple: 0.32
      * });
      */
-    function listenToStardust(callback) {
-        if (typeof callback !== 'function') {
-            return () => {};
-        }
-
-        const handler = (e) => {
-            logEvent(EVENT_TYPES.STARDUST_STATE_CHANGED, 'receive', e.detail);
-            callback(e.detail);
-        };
-
-        window.addEventListener(EVENT_TYPES.STARDUST_STATE_CHANGED, handler);
-
-        return () => {
-            window.removeEventListener(EVENT_TYPES.STARDUST_STATE_CHANGED, handler);
-        };
-    }
-
-    /**
-     * 訂閱星塵靈魂的心率更新事件
-     * 
-     * @param {Function} callback - 回調函數
-     * @returns {Function} 取消訂閱函數
-     */
-    function listenToStardustHR(callback) {
-        if (typeof callback !== 'function') {
-            return () => {};
-        }
-
-        const handler = (e) => {
-            logEvent(EVENT_TYPES.STARDUST_HR_UPDATED, 'receive', e.detail);
-            callback(e.detail);
-        };
-
-        window.addEventListener(EVENT_TYPES.STARDUST_HR_UPDATED, handler);
-
-        return () => {
-            window.removeEventListener(EVENT_TYPES.STARDUST_HR_UPDATED, handler);
-        };
-    }
-
-    // =============================================================================
-    // SYSTEM EVENTS
-    // =============================================================================
-
-    /**
-     * 發送系統就緒事件
-     * 
-     * @param {Object} info - 系統資訊
-     */
-    function notifySystemReady(info = {}) {
+    static notifyTradeRecorded(record) {
+      try {
         const detail = {
-            version: '1.0.0',
-            modules: info.modules || [],
-            ...info
+          record,
+          timestamp: Date.now()
         };
 
-        const event = createEvent(EVENT_TYPES.SYSTEM_READY, detail);
-        logEvent(EVENT_TYPES.SYSTEM_READY, 'emit', detail);
-        window.dispatchEvent(event);
+        window.dispatchEvent(new CustomEvent(EventTypes.TRADE_RECORDED, { detail }));
+
+        if (EventBridge._instance) {
+          EventBridge._instance._logEvent(EventTypes.TRADE_RECORDED, detail);
+        }
+
+        return true;
+      } catch (error) {
+        console.error('[EventBridge] Error in notifyTradeRecorded:', error);
+        return false;
+      }
+    }
+
+    /**
+     * 發送預覽請求事件
+     * 
+     * @param {Object} context - 當前情境
+     * @param {number} context.tei - 當前 TEI
+     * @param {string} context.template - 選擇的模板
+     * @param {Date} [context.time] - 當前時間
+     * @returns {boolean} 是否成功發送
+     */
+    static notifyPreviewRequested(context) {
+      try {
+        const detail = {
+          context: {
+            ...context,
+            time: context.time || new Date()
+          },
+          timestamp: Date.now()
+        };
+
+        window.dispatchEvent(new CustomEvent(EventTypes.PREVIEW_REQUESTED, { detail }));
+
+        if (EventBridge._instance) {
+          EventBridge._instance._logEvent(EventTypes.PREVIEW_REQUESTED, detail);
+        }
+
+        return true;
+      } catch (error) {
+        console.error('[EventBridge] Error in notifyPreviewRequested:', error);
+        return false;
+      }
     }
 
     /**
      * 發送系統錯誤事件
      * 
-     * @param {Error|string} error - 錯誤資訊
      * @param {string} source - 錯誤來源
+     * @param {Error|string} error - 錯誤物件或訊息
+     * @returns {boolean} 是否成功發送
      */
-    function notifySystemError(error, source) {
+    static notifyError(source, error) {
+      try {
         const detail = {
-            error: error instanceof Error ? error.message : error,
-            stack: error instanceof Error ? error.stack : null,
-            source
+          source,
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : null,
+          timestamp: Date.now()
         };
 
-        const event = createEvent(EVENT_TYPES.SYSTEM_ERROR, detail);
-        logEvent(EVENT_TYPES.SYSTEM_ERROR, 'emit', detail);
-        window.dispatchEvent(event);
-    }
+        window.dispatchEvent(new CustomEvent(EventTypes.SYSTEM_ERROR, { detail }));
 
-    /**
-     * 訂閱系統就緒事件
-     * 
-     * @param {Function} callback - 回調函數
-     * @returns {Function} 取消訂閱函數
-     */
-    function onSystemReady(callback) {
-        if (typeof callback !== 'function') {
-            return () => {};
+        if (EventBridge._instance) {
+          EventBridge._instance._logEvent(EventTypes.SYSTEM_ERROR, detail);
         }
 
-        const handler = (e) => {
-            callback(e.detail);
-        };
-
-        window.addEventListener(EVENT_TYPES.SYSTEM_READY, handler);
-
-        return () => {
-            window.removeEventListener(EVENT_TYPES.SYSTEM_READY, handler);
-        };
+        return true;
+      } catch (err) {
+        console.error('[EventBridge] Error in notifyError:', err);
+        return false;
+      }
     }
 
-    // =============================================================================
-    // GENERIC EVENT HELPERS
-    // =============================================================================
+    // ========== 訂閱方法 ==========
 
     /**
-     * 發送任意自訂事件
-     * 用於擴展或特殊需求
+     * 訂閱 TEI 更新事件
      * 
-     * @param {string} eventName - 事件名稱
-     * @param {Object} detail - 事件資料
-     */
-    function emit(eventName, detail = {}) {
-        const fullName = eventName.includes(':') ? eventName : `${NAMESPACE}:${eventName}`;
-        const event = createEvent(fullName, detail);
-        logEvent(fullName, 'emit', detail);
-        window.dispatchEvent(event);
-    }
-
-    /**
-     * 訂閱任意事件
+     * @param {Function} callback - 回呼函數，接收 { tei, source, timestamp }
+     * @returns {Function} 取消訂閱的函數
      * 
-     * @param {string} eventName - 事件名稱
-     * @param {Function} callback - 回調函數
-     * @returns {Function} 取消訂閱函數
+     * @example
+     * const unsubscribe = EventBridge.onTEIUpdate((data) => {
+     *   console.log('TEI updated to:', data.tei);
+     * });
+     * 
+     * // 稍後取消訂閱
+     * unsubscribe();
      */
-    function on(eventName, callback) {
-        if (typeof callback !== 'function') {
-            return () => {};
-        }
-
-        const fullName = eventName.includes(':') ? eventName : `${NAMESPACE}:${eventName}`;
-        
-        const handler = (e) => {
-            logEvent(fullName, 'receive', e.detail);
-            callback(e.detail);
-        };
-
-        window.addEventListener(fullName, handler);
-
-        return () => {
-            window.removeEventListener(fullName, handler);
-        };
+    static onTEIUpdate(callback) {
+      const handler = (e) => callback(e.detail);
+      window.addEventListener(EventTypes.TEI_UPDATED, handler);
+      return () => window.removeEventListener(EventTypes.TEI_UPDATED, handler);
     }
 
     /**
-     * 只訂閱一次事件
+     * 訂閱決策狀態變化事件
      * 
-     * @param {string} eventName - 事件名稱
-     * @param {Function} callback - 回調函數
+     * @param {Function} callback - 回呼函數，接收 { state, data, timestamp }
+     * @returns {Function} 取消訂閱的函數
+     * 
+     * @example
+     * const unsubscribe = EventBridge.onDecisionStateChange((data) => {
+     *   console.log('State changed to:', data.state);
+     *   if (data.state === 'TIMEOUT') {
+     *     console.log('Patience win!');
+     *   }
+     * });
      */
-    function once(eventName, callback) {
-        if (typeof callback !== 'function') {
-            return;
-        }
-
-        const fullName = eventName.includes(':') ? eventName : `${NAMESPACE}:${eventName}`;
-        
-        const handler = (e) => {
-            window.removeEventListener(fullName, handler);
-            callback(e.detail);
-        };
-
-        window.addEventListener(fullName, handler);
+    static onDecisionStateChange(callback) {
+      const handler = (e) => callback(e.detail);
+      window.addEventListener(EventTypes.DECISION_STATE, handler);
+      return () => window.removeEventListener(EventTypes.DECISION_STATE, handler);
     }
-
-    // =============================================================================
-    // DEBUG & UTILITIES
-    // =============================================================================
 
     /**
-     * 啟用/停用除錯模式
+     * 訂閱交易記錄事件
      * 
-     * @param {boolean} enabled - 是否啟用
+     * @param {Function} callback - 回呼函數
+     * @returns {Function} 取消訂閱的函數
      */
-    function setDebugMode(enabled) {
-        debugMode = Boolean(enabled);
-        console.log(`[EventBridge] Debug mode ${debugMode ? 'enabled' : 'disabled'}`);
+    static onTradeRecorded(callback) {
+      const handler = (e) => callback(e.detail);
+      window.addEventListener(EventTypes.TRADE_RECORDED, handler);
+      return () => window.removeEventListener(EventTypes.TRADE_RECORDED, handler);
     }
+
+    /**
+     * 訂閱預覽請求事件
+     * 
+     * @param {Function} callback - 回呼函數
+     * @returns {Function} 取消訂閱的函數
+     */
+    static onPreviewRequested(callback) {
+      const handler = (e) => callback(e.detail);
+      window.addEventListener(EventTypes.PREVIEW_REQUESTED, handler);
+      return () => window.removeEventListener(EventTypes.PREVIEW_REQUESTED, handler);
+    }
+
+    /**
+     * 訂閱系統錯誤事件
+     * 
+     * @param {Function} callback - 回呼函數
+     * @returns {Function} 取消訂閱的函數
+     */
+    static onError(callback) {
+      const handler = (e) => callback(e.detail);
+      window.addEventListener(EventTypes.SYSTEM_ERROR, handler);
+      return () => window.removeEventListener(EventTypes.SYSTEM_ERROR, handler);
+    }
+
+    // ========== 工具方法 ==========
 
     /**
      * 取得事件歷史記錄
-     * 
-     * @param {number} [limit=50] - 返回的最大數目
-     * @returns {Array<Object>} 事件歷史
+     * @returns {Array} 事件歷史
      */
-    function getEventHistory(limit = 50) {
-        return eventHistory.slice(-limit);
+    static getEventHistory() {
+      if (EventBridge._instance) {
+        return [...EventBridge._instance._eventHistory];
+      }
+      return [];
     }
 
     /**
      * 清除事件歷史
      */
-    function clearEventHistory() {
-        eventHistory.length = 0;
+    static clearEventHistory() {
+      if (EventBridge._instance) {
+        EventBridge._instance._eventHistory = [];
+      }
     }
 
-    // =============================================================================
-    // PUBLIC API
-    // =============================================================================
+    /**
+     * 初始化單例
+     * @param {Object} options - 設定選項
+     * @returns {EventBridge} 單例實例
+     */
+    static init(options = {}) {
+      if (!EventBridge._instance) {
+        EventBridge._instance = new EventBridge(options);
+      }
+      return EventBridge._instance;
+    }
+  }
 
-    return {
-        // Constants
-        EVENT_TYPES,
-        SOURCES,
+  // 初始化單例
+  EventBridge._instance = null;
 
-        // TEI Events
-        notifyTEIUpdate,
-        onTEIUpdate,
+  // 暴露常數
+  EventBridge.EventTypes = EventTypes;
+  EventBridge.DecisionStates = DecisionStates;
 
-        // Decision Events
-        notifyDecisionState,
-        onDecisionStateChange,
-        notifyDecisionStart,
-        notifyDecisionProgress,
-        notifyDecisionComplete,
+  // 暴露到全域
+  global.EventBridge = EventBridge;
 
-        // Stats Events
-        notifyStatsUpdate,
-        onStatsUpdate,
-        notifyTradeRecorded,
+  // 自動初始化
+  if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+      EventBridge.init({ debug: false });
+      console.log('[EventBridge] Initialized');
+    });
+  }
 
-        // Template Events
-        notifyTemplateSelected,
-        onTemplateSelected,
+})(typeof window !== 'undefined' ? window : this);
 
-        // Preview Events
-        notifyPreviewGenerated,
-        onPreviewGenerated,
 
-        // AI Behavior Events
-        notifyBehaviorAnalyzed,
-        onBehaviorAnalyzed,
+// ========== 使用範例 ==========
 
-        // Stardust Integration
-        listenToStardust,
-        listenToStardustHR,
-
-        // System Events
-        notifySystemReady,
-        notifySystemError,
-        onSystemReady,
-
-        // Generic Helpers
-        emit,
-        on,
-        once,
-
-        // Debug
-        setDebugMode,
-        getEventHistory,
-        clearEventHistory
-    };
-
-})();
-
-// =============================================================================
-// USAGE EXAMPLES (For Reference Only)
-// =============================================================================
 /*
-
-// ✅ 正確: 發送 TEI 更新 (星塵靈魂可選擇監聽)
+// 範例 1: 發送 TEI 更新
 EventBridge.notifyTEIUpdate(72, 'decision-timer');
 
-// ✅ 正確: 訂閱 TEI 更新
-const unsubscribe = EventBridge.onTEIUpdate((data) => {
-    console.log('TEI:', data.tei, 'from:', data.source);
+// 範例 2: 訂閱 TEI 更新
+const unsubscribeTEI = EventBridge.onTEIUpdate((data) => {
+  console.log(`TEI: ${data.tei} from ${data.source}`);
 });
 
-// ✅ 正確: 發送決策狀態
+// 範例 3: 發送決策狀態
 EventBridge.notifyDecisionState('RUNNING', {
-    template: 'CANSILM_GROWTH',
-    elapsed: 45,
-    remaining: 255
+  template: 'MANCINI_FBD',
+  duration: 180
 });
 
-// ✅ 正確: 監聽星塵靈魂的事件
-EventBridge.listenToStardust((data) => {
-    console.log('Stardust changed:', data);
+// 範例 4: 訂閱決策狀態變化
+const unsubscribeState = EventBridge.onDecisionStateChange((data) => {
+  switch (data.state) {
+    case 'RUNNING':
+      console.log('Timer started for template:', data.data.template);
+      break;
+    case 'TIMEOUT':
+      console.log('Patience win! 🎉');
+      break;
+    case 'COMPLETE':
+      console.log('Decision made in', data.data.elapsed, 'seconds');
+      break;
+  }
 });
 
-// ❌ 錯誤: 直接調用星塵靈魂 (絕對不要這樣做!)
-// StardustSoul.updateColor(72);  // NO!
-// app.changeParticles(72);       // NO!
+// 範例 5: 記錄交易
+EventBridge.notifyTradeRecorded({
+  tei: 57,
+  template: 'MANCINI_FBD',
+  decision_time: 132,
+  result: 'WIN',
+  entry_type: 'TIMEOUT',
+  r_multiple: 0.32
+});
 
-// 之後取消訂閱
-// unsubscribe();
-
+// 範例 6: 取消訂閱
+unsubscribeTEI();
+unsubscribeState();
 */
 
-// Export for module systems (if available)
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = EventBridge;
-}
 
-// AMD support
-if (typeof define === 'function' && define.amd) {
-    define([], function() {
-        return EventBridge;
-    });
-}
+// ========== 簡單測試 ==========
+
+/*
+(function testEventBridge() {
+  console.log('=== EventBridge Test ===');
+  
+  // 初始化
+  EventBridge.init({ debug: true });
+  
+  // 訂閱 TEI
+  const unsub1 = EventBridge.onTEIUpdate((data) => {
+    console.log('✅ TEI received:', data.tei);
+  });
+  
+  // 訂閱狀態
+  const unsub2 = EventBridge.onDecisionStateChange((data) => {
+    console.log('✅ State received:', data.state);
+  });
+  
+  // 發送測試事件
+  console.log('Sending TEI update...');
+  EventBridge.notifyTEIUpdate(65, 'test');
+  
+  console.log('Sending decision state...');
+  EventBridge.notifyDecisionState('RUNNING', { template: 'TEST' });
+  
+  // 檢查歷史
+  console.log('Event history:', EventBridge.getEventHistory());
+  
+  // 清理
+  unsub1();
+  unsub2();
+  
+  console.log('=== Test Complete ===');
+})();
+*/
