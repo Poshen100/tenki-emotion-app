@@ -1,6 +1,6 @@
 /**
  * TENKI PRO Overlay Styles
- * 固定底部導航欄設計 - 參考 Bevel Pro 風格
+ * 小浮動按鈕設計 - 只在結果頁顯示
  */
 
 /* ========== 容器 ========== */
@@ -19,91 +19,13 @@
   box-sizing: border-box;
 }
 
-/* ========== 固定底部導航欄 ========== */
-.overlay-bottom-bar {
+/* ========== 浮動按鈕 (小) ========== */
+.overlay-fab {
   position: fixed;
-  /* 移到更高位置，避免擋住原本的 GLIMPSE/DEFAULT/SPECTRUM 按鈕 */
-  bottom: 100px;
-  left: 16px;
-  right: 16px;
-  height: 60px;
-  background: rgba(18, 18, 22, 0.9);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  pointer-events: auto;
-  z-index: 999;
-  /* 初始隱藏，等待主畫面載入 */
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
-}
-
-.overlay-bottom-bar.ready {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* ========== 導航項目 ========== */
-.overlay-nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 8px 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 12px;
-  min-width: 64px;
-}
-
-.overlay-nav-item:active {
-  transform: scale(0.95);
-}
-
-.overlay-nav-item.active {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.overlay-nav-icon {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.5);
-  transition: color 0.2s;
-}
-
-.overlay-nav-item.active .overlay-nav-icon {
-  color: #00F0FF;
-}
-
-.overlay-nav-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-.overlay-nav-label {
-  font-size: 10px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.5);
-  transition: color 0.2s;
-}
-
-.overlay-nav-item.active .overlay-nav-label {
-  color: #00F0FF;
-}
-
-/* ========== 中間主按鈕 (開始決策) ========== */
-.overlay-main-btn {
-  width: 56px;
-  height: 56px;
+  bottom: 160px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   background: linear-gradient(135deg, #00F0FF 0%, #00C8FF 100%);
   border: none;
@@ -111,33 +33,39 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  pointer-events: auto;
   box-shadow: 0 4px 20px rgba(0, 240, 255, 0.4);
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  margin-top: -20px;
+  z-index: 1001;
+  /* 初始隱藏 */
+  opacity: 0;
+  transform: scale(0.8);
+  visibility: hidden;
 }
 
-.overlay-main-btn:hover {
-  transform: scale(1.08);
-  box-shadow: 0 6px 30px rgba(0, 240, 255, 0.6);
+.overlay-fab.visible {
+  opacity: 1;
+  transform: scale(1);
+  visibility: visible;
 }
 
-.overlay-main-btn:active {
-  transform: scale(0.95);
+.overlay-fab:active {
+  transform: scale(0.9);
 }
 
-.overlay-main-btn svg {
-  width: 28px;
-  height: 28px;
+.overlay-fab svg {
+  width: 24px;
+  height: 24px;
   color: #000;
 }
 
-.overlay-main-btn.running {
+.overlay-fab.running {
   background: linear-gradient(135deg, #FF5500 0%, #FF8800 100%);
   box-shadow: 0 4px 20px rgba(255, 85, 0, 0.4);
-  animation: overlay-pulse-btn 1.5s infinite;
+  animation: overlay-pulse-fab 1.5s infinite;
 }
 
-@keyframes overlay-pulse-btn {
+@keyframes overlay-pulse-fab {
 
   0%,
   100% {
@@ -145,41 +73,35 @@
   }
 
   50% {
-    transform: scale(1.05);
+    transform: scale(1.08);
   }
 }
 
 /* ========== 計時器彈出面板 ========== */
 .overlay-timer-panel {
   position: fixed;
-  bottom: 180px;
-  left: 16px;
-  right: 16px;
-  max-width: 400px;
-  margin: 0 auto;
+  bottom: 220px;
+  right: 20px;
+  width: 280px;
   background: rgba(24, 24, 28, 0.98);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  padding: 20px;
+  border-radius: 20px;
+  padding: 16px;
   pointer-events: auto;
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(10px) scale(0.95);
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 1000;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  visibility: hidden;
 }
 
 .overlay-timer-panel.show {
   opacity: 1;
-  transform: translateY(0);
-}
-
-.overlay-timer-panel.hide {
-  opacity: 0;
-  transform: translateY(20px);
-  pointer-events: none;
+  transform: translateY(0) scale(1);
+  visibility: visible;
 }
 
 /* ========== 面板標題 ========== */
@@ -187,19 +109,18 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .overlay-panel-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: white;
-  letter-spacing: 0.5px;
 }
 
 .overlay-panel-close {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
   border: none;
@@ -208,7 +129,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 14px;
   transition: all 0.2s;
 }
 
@@ -221,16 +142,16 @@
 .overlay-template-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .overlay-template-btn {
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+  border-radius: 14px;
   color: white;
-  font-size: 14px;
+  font-size: 13px;
   text-align: left;
   cursor: pointer;
   transition: all 0.2s;
@@ -239,13 +160,8 @@
   align-items: center;
 }
 
-.overlay-template-btn:hover {
-  background: rgba(0, 240, 255, 0.08);
-  border-color: rgba(0, 240, 255, 0.3);
-}
-
-.overlay-template-btn.selected {
-  background: rgba(0, 240, 255, 0.12);
+.overlay-template-btn:active {
+  background: rgba(0, 240, 255, 0.15);
   border-color: #00F0FF;
 }
 
@@ -257,71 +173,71 @@
 
 .overlay-template-name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .overlay-template-duration {
-  font-size: 11px;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.5);
 }
 
 .overlay-template-arrow {
   color: rgba(255, 255, 255, 0.3);
-  font-size: 18px;
+  font-size: 16px;
 }
 
 /* ========== 計時器顯示 (運行中) ========== */
 .overlay-timer-display {
   text-align: center;
-  padding: 24px 0;
+  padding: 16px 0;
 }
 
 .overlay-timer-time {
-  font-size: 64px;
+  font-size: 48px;
   font-weight: 800;
   background: linear-gradient(180deg, #FFFFFF 20%, #A0A0A0 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  letter-spacing: -3px;
+  letter-spacing: -2px;
   line-height: 1;
 }
 
 .overlay-timer-segment {
-  font-size: 14px;
+  font-size: 12px;
   color: #00F0FF;
-  margin-top: 12px;
+  margin-top: 8px;
   font-weight: 600;
 }
 
 .overlay-timer-progress {
   width: 100%;
-  height: 6px;
+  height: 4px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-  margin-top: 20px;
+  border-radius: 2px;
+  margin-top: 12px;
   overflow: hidden;
 }
 
 .overlay-timer-progress-bar {
   height: 100%;
   background: linear-gradient(90deg, #00F0FF, #7000FF);
-  border-radius: 3px;
+  border-radius: 2px;
   transition: width 0.3s linear;
 }
 
 /* ========== 動作按鈕 ========== */
 .overlay-action-row {
   display: flex;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .overlay-btn {
   flex: 1;
-  padding: 14px;
-  border-radius: 14px;
-  font-size: 14px;
+  padding: 10px;
+  border-radius: 12px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -333,18 +249,8 @@
   color: black;
 }
 
-.overlay-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 240, 255, 0.4);
-}
-
-.overlay-btn-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-}
-
-.overlay-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
+.overlay-btn-primary:active {
+  transform: scale(0.97);
 }
 
 .overlay-btn-danger {
@@ -352,58 +258,21 @@
   color: #FF5555;
 }
 
-.overlay-btn-danger:hover {
+.overlay-btn-danger:active {
   background: rgba(255, 85, 85, 0.3);
-}
-
-/* ========== 預覽統計 ========== */
-.overlay-preview-panel {
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 16px;
-}
-
-.overlay-preview-panel h3 {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0 0 10px 0;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.overlay-preview-stats {
-  display: flex;
-  justify-content: space-around;
-}
-
-.overlay-preview-stat {
-  text-align: center;
-}
-
-.overlay-preview-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: #00FF94;
-}
-
-.overlay-preview-label {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 2px;
 }
 
 /* ========== Toast 通知 ========== */
 .overlay-toast {
   position: fixed;
-  top: 80px;
+  top: 60px;
   left: 50%;
   transform: translateX(-50%) translateY(-20px);
   background: rgba(0, 255, 148, 0.95);
   color: black;
-  padding: 12px 24px;
+  padding: 10px 20px;
   border-radius: 99px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   opacity: 0;
   pointer-events: none;

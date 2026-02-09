@@ -1,7 +1,7 @@
 /**
- * @fileoverview Overlay Controller - 固定底部導航欄版本
- * @description Decision Timer 以固定底部導航欄形式呈現
- * @version 2.0.0
+ * @fileoverview Overlay Controller - 小浮動按鈕版本
+ * @description 只在星塵靈魂結果頁顯示的 Decision Timer FAB
+ * @version 3.0.0
  */
 
 (function (global) {
@@ -10,15 +10,13 @@
   class OverlayController {
     constructor() {
       this.container = null;
-      this.bottomBar = null;
+      this.fab = null;
       this.panel = null;
-      this.mainBtn = null;
       this.isOpen = false;
-      this.state = 'IDLE'; // IDLE, PREVIEW, RUNNING
+      this.state = 'IDLE';
       this.timer = null;
-      this.preview = null;
-      this.expectancy = null;
       this.currentTemplate = null;
+      this.isResultsPage = false;
     }
 
     /**
@@ -28,23 +26,85 @@
       // 取得模組實例
       if (global.TENKI) {
         this.timer = global.TENKI.timer;
-        this.preview = global.TENKI.preview;
-        this.expectancy = global.TENKI.expectancy;
       } else if (global.DecisionTimer) {
         this.timer = new global.DecisionTimer();
       }
 
       this.createContainer();
-      this.createBottomBar();
+      this.createFAB();
       this.createPanel();
       this.bindEvents();
+      this.watchForResultsPage();
 
-      // 延遲顯示底部導航欄，避免在星塵靈魂載入前閃現
-      setTimeout(() => {
-        this.bottomBar.classList.add('ready');
-      }, 800);
+      console.log('[OverlayController] v3.0 FAB initialized - waiting for results page');
+    }
 
-      console.log('[OverlayController] v2.0 Bottom Bar initialized');
+    /**
+     * 監聽是否進入結果頁
+     */
+    watchForResultsPage() {
+      // 方法1: 監聽 EventBridge 的 TEI 更新事件
+      window.addEventListener('tenki:tei-updated', () => {
+        this.showFAB();
+      });
+
+      // 方法2: 使用 MutationObserver 監聯 DOM 變化
+      const observer = new MutationObserver(() => {
+        this.checkResultsPage();
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style']
+      });
+
+      // 方法3: 定期檢查 (backup)
+      setInterval(() => {
+        this.checkResultsPage();
+      }, 1000);
+    }
+
+    /**
+     * 檢查是否在結果頁
+     */
+    checkResultsPage() {
+      // 檢查是否有 TEI 分數顯示 (表示在結果頁)
+      const teiScore = document.querySelector('.tei-score, .score-value, [class*="tei"], [class*="score"]');
+      const flowState = document.querySelector('[class*="flow"], [class*="state"]');
+      const systemLocked = document.body.textContent.includes('SYSTEM LOCKED') ||
+        document.body.textContent.includes('Flow State');
+
+      // 檢查 app 狀態
+      const appHasTEI = global.app?.state?.tei > 0;
+
+      if ((teiScore && flowState) || systemLocked || appHasTEI) {
+        if (!this.isResultsPage) {
+          this.isResultsPage = true;
+          this.showFAB();
+        }
+      }
+    }
+
+    /**
+     * 顯示 FAB
+     */
+    showFAB() {
+      if (this.fab && !this.fab.classList.contains('visible')) {
+        this.fab.classList.add('visible');
+        console.log('[OverlayController] FAB shown - results page detected');
+      }
+    }
+
+    /**
+     * 隱藏 FAB
+     */
+    hideFAB() {
+      if (this.fab) {
+        this.fab.classList.remove('visible');
+        this.closePanel();
+      }
     }
 
     /**
@@ -57,59 +117,18 @@
     }
 
     /**
-     * 建立底部導航欄
+     * 建立浮動按鈕
      */
-    createBottomBar() {
-      this.bottomBar = document.createElement('div');
-      this.bottomBar.className = 'overlay-bottom-bar';
-      this.bottomBar.innerHTML = `
-        <div class="overlay-nav-item" data-nav="stats">
-          <div class="overlay-nav-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 20V10M12 20V4M6 20v-6"/>
-            </svg>
-          </div>
-          <span class="overlay-nav-label">統計</span>
-        </div>
-        
-        <div class="overlay-nav-item" data-nav="history">
-          <div class="overlay-nav-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 8v4l3 3"/>
-              <circle cx="12" cy="12" r="10"/>
-            </svg>
-          </div>
-          <span class="overlay-nav-label">歷史</span>
-        </div>
-        
-        <button class="overlay-main-btn" id="overlay-main-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polygon points="5 3 19 12 5 21 5 3"/>
-          </svg>
-        </button>
-        
-        <div class="overlay-nav-item" data-nav="insights">
-          <div class="overlay-nav-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 16v-4M12 8h.01"/>
-            </svg>
-          </div>
-          <span class="overlay-nav-label">洞察</span>
-        </div>
-        
-        <div class="overlay-nav-item" data-nav="settings">
-          <div class="overlay-nav-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </div>
-          <span class="overlay-nav-label">設定</span>
-        </div>
+    createFAB() {
+      this.fab = document.createElement('button');
+      this.fab.className = 'overlay-fab';
+      this.fab.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
       `;
-      this.container.appendChild(this.bottomBar);
-      this.mainBtn = this.bottomBar.querySelector('#overlay-main-btn');
+      this.container.appendChild(this.fab);
     }
 
     /**
@@ -117,7 +136,7 @@
      */
     createPanel() {
       this.panel = document.createElement('div');
-      this.panel.className = 'overlay-timer-panel hide';
+      this.panel.className = 'overlay-timer-panel';
       this.panel.innerHTML = this.getIdleHTML();
       this.container.appendChild(this.panel);
     }
@@ -128,28 +147,28 @@
     getIdleHTML() {
       return `
         <div class="overlay-panel-header">
-          <div class="overlay-panel-title">選擇決策模板</div>
+          <div class="overlay-panel-title">決策計時器</div>
           <button class="overlay-panel-close" onclick="TENKI_OVERLAY.closePanel()">✕</button>
         </div>
         <div class="overlay-template-list">
           <button class="overlay-template-btn" data-template="MANCINI_FBD">
             <div class="overlay-template-info">
               <div class="overlay-template-name">Mancini FBD</div>
-              <div class="overlay-template-duration">3 分鐘 · 耐心等待</div>
+              <div class="overlay-template-duration">3 分鐘</div>
             </div>
             <span class="overlay-template-arrow">→</span>
           </button>
           <button class="overlay-template-btn" data-template="CANSILM_GROWTH">
             <div class="overlay-template-info">
               <div class="overlay-template-name">Cansilm 成長股</div>
-              <div class="overlay-template-duration">5 分鐘 · 不追高</div>
+              <div class="overlay-template-duration">5 分鐘</div>
             </div>
             <span class="overlay-template-arrow">→</span>
           </button>
           <button class="overlay-template-btn" data-template="CANSILM_HIGHRS">
             <div class="overlay-template-info">
               <div class="overlay-template-name">High RS Breakout</div>
-              <div class="overlay-template-duration">4 分鐘 · 突破確認</div>
+              <div class="overlay-template-duration">4 分鐘</div>
             </div>
             <span class="overlay-template-arrow">→</span>
           </button>
@@ -167,8 +186,8 @@
 
       return `
         <div class="overlay-panel-header">
-          <div class="overlay-panel-title overlay-pulse">計時中...</div>
-          <button class="overlay-panel-close" onclick="TENKI_OVERLAY.abortTimer()">✕</button>
+          <div class="overlay-panel-title overlay-pulse">計時中</div>
+          <button class="overlay-panel-close" onclick="TENKI_OVERLAY.closePanel()">✕</button>
         </div>
         <div class="overlay-timer-display">
           <div class="overlay-timer-time">${timeStr}</div>
@@ -179,7 +198,7 @@
         </div>
         <div class="overlay-action-row">
           <button class="overlay-btn overlay-btn-danger" onclick="TENKI_OVERLAY.abortTimer()">中斷</button>
-          <button class="overlay-btn overlay-btn-primary" onclick="TENKI_OVERLAY.completeTimer()">完成決策</button>
+          <button class="overlay-btn overlay-btn-primary" onclick="TENKI_OVERLAY.completeTimer()">完成</button>
         </div>
       `;
     }
@@ -188,45 +207,50 @@
      * 綁定事件
      */
     bindEvents() {
-      // 主按鈕點擊
-      this.mainBtn.addEventListener('click', () => {
-        if (this.state === 'RUNNING') {
-          // 運行中點擊打開面板
-          this.togglePanel();
-        } else {
-          // 閒置時打開模板選擇
-          this.togglePanel();
-        }
+      // FAB 點擊
+      this.fab.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.togglePanel();
       });
 
       // 模板選擇
       this.panel.addEventListener('click', (e) => {
         const btn = e.target.closest('.overlay-template-btn');
         if (btn) {
+          e.stopPropagation();
           const template = btn.dataset.template;
           this.startTimer(template);
         }
       });
 
+      // 點擊外部關閉面板
+      document.addEventListener('click', (e) => {
+        if (this.isOpen &&
+          !this.panel.contains(e.target) &&
+          !this.fab.contains(e.target)) {
+          this.closePanel();
+        }
+      });
+
       // 監聽計時器進度
       if (this.timer) {
-        this.timer.onProgress((data) => {
+        this.timer.onProgress?.((data) => {
           if (this.state === 'RUNNING') {
             this.panel.innerHTML = this.getRunningHTML(data.remaining, data.segment, data.percent);
           }
         });
 
-        this.timer.onTimeout((result) => {
+        this.timer.onTimeout?.((result) => {
           this.showToast('🎉 耐心等待成功！', 'timeout');
           this.resetToIdle();
         });
 
-        this.timer.onComplete((result) => {
+        this.timer.onComplete?.((result) => {
           this.showToast('✓ 決策完成', 'complete');
           this.resetToIdle();
         });
 
-        this.timer.onAbort(() => {
+        this.timer.onAbort?.(() => {
           this.showToast('✗ 已中斷', 'abort');
           this.resetToIdle();
         });
@@ -239,11 +263,9 @@
     togglePanel() {
       this.isOpen = !this.isOpen;
       if (this.isOpen) {
-        this.panel.classList.remove('hide');
         this.panel.classList.add('show');
       } else {
         this.panel.classList.remove('show');
-        this.panel.classList.add('hide');
       }
     }
 
@@ -253,7 +275,6 @@
     closePanel() {
       this.isOpen = false;
       this.panel.classList.remove('show');
-      this.panel.classList.add('hide');
     }
 
     /**
@@ -263,32 +284,25 @@
       this.currentTemplate = template;
       this.state = 'RUNNING';
 
-      // 取得當前 TEI
       const currentTEI = global.app?.state?.tei || 50;
 
-      // 啟動計時器
       if (this.timer) {
-        this.timer.preview(template, currentTEI);
-        this.timer.start();
+        this.timer.preview?.(template, currentTEI);
+        this.timer.start?.();
       }
 
-      // 更新 UI
-      this.mainBtn.classList.add('running');
-      this.mainBtn.innerHTML = `
+      // 更新 FAB
+      this.fab.classList.add('running');
+      this.fab.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <rect x="6" y="4" width="4" height="16"/>
-          <rect x="14" y="4" width="4" height="16"/>
+          <rect x="6" y="4" width="4" height="16" rx="1"/>
+          <rect x="14" y="4" width="4" height="16" rx="1"/>
         </svg>
       `;
 
       // 顯示計時面板
       const config = global.DecisionTimer?.Templates?.[template];
       this.panel.innerHTML = this.getRunningHTML(config?.duration || 180, { label: '開始...' }, 0);
-
-      // 保持面板開啟
-      if (!this.isOpen) {
-        this.togglePanel();
-      }
     }
 
     /**
@@ -296,7 +310,7 @@
      */
     completeTimer() {
       if (this.timer) {
-        this.timer.complete();
+        this.timer.complete?.();
       }
     }
 
@@ -305,8 +319,9 @@
      */
     abortTimer() {
       if (this.timer) {
-        this.timer.abort();
+        this.timer.abort?.();
       }
+      this.resetToIdle();
     }
 
     /**
@@ -316,23 +331,19 @@
       this.state = 'IDLE';
       this.currentTemplate = null;
 
-      // 重置主按鈕
-      this.mainBtn.classList.remove('running');
-      this.mainBtn.innerHTML = `
+      this.fab.classList.remove('running');
+      this.fab.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <polygon points="5 3 19 12 5 21 5 3"/>
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
         </svg>
       `;
 
-      // 重置面板
       this.panel.innerHTML = this.getIdleHTML();
-
-      // 關閉面板
       this.closePanel();
 
-      // 重置計時器
       if (this.timer) {
-        this.timer.reset();
+        this.timer.reset?.();
       }
     }
 
