@@ -1,44 +1,21 @@
 /**
- * TENKI PRO - 隱藏不需要的 UI 元素
- * 使用 CSS 隱藏 GLIMPSE / DEFAULT / SPECTRUM 按鈕
+ * TENKI PRO - 隱藏指定 UI 元素
+ * 只隱藏 GLIMPSE/DEFAULT/SPECTRUM 選擇器，不影響其他功能
  */
 
-/* ========== 隱藏掃描模式選擇器 (GLIMPSE/DEFAULT/SPECTRUM) ========== */
-#precision-tabs,
-.precision-tab,
-[data-mode="glimpse"],
-[data-mode="default"],
-[data-mode="spectrum"],
-.scan-mode-selector,
-.mode-selector,
-.duration-selector {
+/* ========== 只隱藏掃描模式選擇標籤 ========== */
+/* 注意：只針對 #precision-tabs 內的元素，避免影響其他按鈕 */
+#precision-tabs {
     display: none !important;
     visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    height: 0 !important;
-    overflow: hidden !important;
 }
 
-/* 確保任何包含 GLIMPSE / DEFAULT / SPECTRUM 文字的按鈕都隱藏 */
-button[class*="precision"],
-button[class*="mode"],
-div[class*="precision"],
-div[id*="precision"] {
-    display: none !important;
-}
-
-/* ========== 隱藏所有 TENKI PRO overlay 元素 ========== */
+/* ========== 隱藏 TENKI PRO overlay 元素 (如果還有殘留) ========== */
 #tenki-timer-bar,
 #tenki-pro-fab,
 #tenki-pro-panel,
 #tenki-template-popup,
 #tenki-toast,
-#tenki-pro-overlay,
-[id^="tenki-"],
-[class^="overlay-"],
-[class^="timer-"] {
+#tenki-pro-overlay {
     display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
 }
