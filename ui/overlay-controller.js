@@ -1,229 +1,183 @@
 /**
- * @fileoverview Overlay Controller - 小浮動按鈕版本
- * @description 只在星塵靈魂結果頁顯示的 Decision Timer FAB
- * @version 3.0.0
+ * @fileoverview TENKI PRO Overlay - 極簡版
+ * @description 不使用容器，直接在 body 添加元素，避免阻擋觸控
+ * @version 4.0.0
  */
 
 (function (global) {
   'use strict';
 
-  class OverlayController {
+  class TenkiProOverlay {
     constructor() {
-      this.container = null;
       this.fab = null;
       this.panel = null;
+      this.toast = null;
       this.isOpen = false;
       this.state = 'IDLE';
       this.timer = null;
-      this.currentTemplate = null;
       this.isResultsPage = false;
     }
 
-    /**
-     * 初始化 Overlay
-     */
     init() {
-      // 取得模組實例
+      // 取得計時器模組
       if (global.TENKI) {
         this.timer = global.TENKI.timer;
-      } else if (global.DecisionTimer) {
-        this.timer = new global.DecisionTimer();
       }
 
-      this.createContainer();
-      this.createFAB();
-      this.createPanel();
+      this.createElements();
       this.bindEvents();
       this.watchForResultsPage();
 
-      console.log('[OverlayController] v3.0 FAB initialized - waiting for results page');
+      console.log('[TenkiPro] v4.0 Ready - No container overlay');
     }
 
     /**
-     * 監聽是否進入結果頁
+     * 直接在 body 創建元素，不使用容器
      */
-    watchForResultsPage() {
-      // 方法1: 監聽 EventBridge 的 TEI 更新事件
-      window.addEventListener('tenki:tei-updated', () => {
-        this.showFAB();
-      });
-
-      // 方法2: 使用 MutationObserver 監聯 DOM 變化
-      const observer = new MutationObserver(() => {
-        this.checkResultsPage();
-      });
-
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['class', 'style']
-      });
-
-      // 方法3: 定期檢查 (backup)
-      setInterval(() => {
-        this.checkResultsPage();
-      }, 1000);
-    }
-
-    /**
-     * 檢查是否在結果頁
-     */
-    checkResultsPage() {
-      // 檢查是否有 TEI 分數顯示 (表示在結果頁)
-      const teiScore = document.querySelector('.tei-score, .score-value, [class*="tei"], [class*="score"]');
-      const flowState = document.querySelector('[class*="flow"], [class*="state"]');
-      const systemLocked = document.body.textContent.includes('SYSTEM LOCKED') ||
-        document.body.textContent.includes('Flow State');
-
-      // 檢查 app 狀態
-      const appHasTEI = global.app?.state?.tei > 0;
-
-      if ((teiScore && flowState) || systemLocked || appHasTEI) {
-        if (!this.isResultsPage) {
-          this.isResultsPage = true;
-          this.showFAB();
-        }
-      }
-    }
-
-    /**
-     * 顯示 FAB
-     */
-    showFAB() {
-      if (this.fab && !this.fab.classList.contains('visible')) {
-        this.fab.classList.add('visible');
-        console.log('[OverlayController] FAB shown - results page detected');
-      }
-    }
-
-    /**
-     * 隱藏 FAB
-     */
-    hideFAB() {
-      if (this.fab) {
-        this.fab.classList.remove('visible');
-        this.closePanel();
-      }
-    }
-
-    /**
-     * 建立主容器
-     */
-    createContainer() {
-      this.container = document.createElement('div');
-      this.container.id = 'tenki-pro-overlay';
-      document.body.appendChild(this.container);
-    }
-
-    /**
-     * 建立浮動按鈕
-     */
-    createFAB() {
+    createElements() {
+      // FAB 按鈕
       this.fab = document.createElement('button');
-      this.fab.className = 'overlay-fab';
+      this.fab.id = 'tenki-pro-fab';
       this.fab.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <circle cx="12" cy="12" r="10"/>
           <polyline points="12 6 12 12 16 14"/>
         </svg>
       `;
-      this.container.appendChild(this.fab);
-    }
+      document.body.appendChild(this.fab);
 
-    /**
-     * 建立面板
-     */
-    createPanel() {
+      // 面板
       this.panel = document.createElement('div');
-      this.panel.className = 'overlay-timer-panel';
+      this.panel.id = 'tenki-pro-panel';
       this.panel.innerHTML = this.getIdleHTML();
-      this.container.appendChild(this.panel);
+      document.body.appendChild(this.panel);
+
+      // Toast
+      this.toast = document.createElement('div');
+      this.toast.id = 'tenki-pro-toast';
+      document.body.appendChild(this.toast);
     }
 
     /**
-     * 取得閒置狀態 HTML
+     * 監聽結果頁
      */
+    watchForResultsPage() {
+      // 監聽 TEI 更新事件
+      window.addEventListener('tenki:tei-updated', () => {
+        this.showFAB();
+      });
+
+      // 定期檢查 (backup)
+      const checkInterval = setInterval(() => {
+        if (this.checkResultsPage()) {
+          // 找到結果頁後減少檢查頻率
+          clearInterval(checkInterval);
+          setInterval(() => this.checkResultsPage(), 2000);
+        }
+      }, 500);
+    }
+
+    /**
+     * 檢查是否在結果頁
+     */
+    checkResultsPage() {
+      // 檢查是否有 TEI 相關內容
+      const hasScore = document.body.textContent.includes('TEI SCORE') ||
+        document.body.textContent.includes('SYSTEM LOCKED') ||
+        document.body.textContent.includes('Flow State');
+
+      const appHasTEI = global.app?.state?.tei > 0;
+
+      if (hasScore || appHasTEI) {
+        if (!this.isResultsPage) {
+          this.isResultsPage = true;
+          this.showFAB();
+          return true;
+        }
+      } else {
+        if (this.isResultsPage) {
+          this.isResultsPage = false;
+          this.hideFAB();
+        }
+      }
+      return this.isResultsPage;
+    }
+
+    showFAB() {
+      this.fab.classList.add('visible');
+    }
+
+    hideFAB() {
+      this.fab.classList.remove('visible');
+      this.closePanel();
+    }
+
     getIdleHTML() {
       return `
-        <div class="overlay-panel-header">
-          <div class="overlay-panel-title">決策計時器</div>
-          <button class="overlay-panel-close" onclick="TENKI_OVERLAY.closePanel()">✕</button>
+        <div class="tp-header">
+          <div class="tp-title">決策計時器</div>
+          <button class="tp-close" onclick="TENKI_PRO.closePanel()">✕</button>
         </div>
-        <div class="overlay-template-list">
-          <button class="overlay-template-btn" data-template="MANCINI_FBD">
-            <div class="overlay-template-info">
-              <div class="overlay-template-name">Mancini FBD</div>
-              <div class="overlay-template-duration">3 分鐘</div>
-            </div>
-            <span class="overlay-template-arrow">→</span>
+        <div class="tp-templates">
+          <button class="tp-template" data-template="MANCINI_FBD">
+            <span class="tp-template-name">Mancini FBD</span>
+            <span class="tp-template-time">3 分鐘</span>
           </button>
-          <button class="overlay-template-btn" data-template="CANSILM_GROWTH">
-            <div class="overlay-template-info">
-              <div class="overlay-template-name">Cansilm 成長股</div>
-              <div class="overlay-template-duration">5 分鐘</div>
-            </div>
-            <span class="overlay-template-arrow">→</span>
+          <button class="tp-template" data-template="CANSILM_GROWTH">
+            <span class="tp-template-name">Cansilm 成長股</span>
+            <span class="tp-template-time">5 分鐘</span>
           </button>
-          <button class="overlay-template-btn" data-template="CANSILM_HIGHRS">
-            <div class="overlay-template-info">
-              <div class="overlay-template-name">High RS Breakout</div>
-              <div class="overlay-template-duration">4 分鐘</div>
-            </div>
-            <span class="overlay-template-arrow">→</span>
+          <button class="tp-template" data-template="CANSILM_HIGHRS">
+            <span class="tp-template-name">High RS Breakout</span>
+            <span class="tp-template-time">4 分鐘</span>
           </button>
         </div>
       `;
     }
 
-    /**
-     * 取得運行狀態 HTML
-     */
     getRunningHTML(remaining, segment, percent) {
       const mins = Math.floor(remaining / 60);
       const secs = remaining % 60;
       const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
 
       return `
-        <div class="overlay-panel-header">
-          <div class="overlay-panel-title overlay-pulse">計時中</div>
-          <button class="overlay-panel-close" onclick="TENKI_OVERLAY.closePanel()">✕</button>
+        <div class="tp-header">
+          <div class="tp-title">計時中</div>
+          <button class="tp-close" onclick="TENKI_PRO.closePanel()">✕</button>
         </div>
-        <div class="overlay-timer-display">
-          <div class="overlay-timer-time">${timeStr}</div>
-          <div class="overlay-timer-segment">${segment?.label || '準備中'}</div>
-          <div class="overlay-timer-progress">
-            <div class="overlay-timer-progress-bar" style="width: ${percent}%"></div>
+        <div class="tp-timer">
+          <div class="tp-time">${timeStr}</div>
+          <div class="tp-segment">${segment?.label || '準備中'}</div>
+          <div class="tp-progress">
+            <div class="tp-progress-bar" style="width: ${percent}%"></div>
           </div>
         </div>
-        <div class="overlay-action-row">
-          <button class="overlay-btn overlay-btn-danger" onclick="TENKI_OVERLAY.abortTimer()">中斷</button>
-          <button class="overlay-btn overlay-btn-primary" onclick="TENKI_OVERLAY.completeTimer()">完成</button>
+        <div class="tp-actions">
+          <button class="tp-btn tp-btn-danger" onclick="TENKI_PRO.abort()">中斷</button>
+          <button class="tp-btn tp-btn-primary" onclick="TENKI_PRO.complete()">完成</button>
         </div>
       `;
     }
 
-    /**
-     * 綁定事件
-     */
     bindEvents() {
       // FAB 點擊
       this.fab.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
         this.togglePanel();
       });
 
-      // 模板選擇
+      // 面板點擊 (模板選擇)
       this.panel.addEventListener('click', (e) => {
-        const btn = e.target.closest('.overlay-template-btn');
+        const btn = e.target.closest('.tp-template');
         if (btn) {
+          e.preventDefault();
           e.stopPropagation();
-          const template = btn.dataset.template;
-          this.startTimer(template);
+          this.startTimer(btn.dataset.template);
         }
       });
 
-      // 點擊外部關閉面板
+      // 點擊外部關閉
       document.addEventListener('click', (e) => {
         if (this.isOpen &&
           !this.panel.contains(e.target) &&
@@ -232,7 +186,7 @@
         }
       });
 
-      // 監聽計時器進度
+      // 計時器回調
       if (this.timer) {
         this.timer.onProgress?.((data) => {
           if (this.state === 'RUNNING') {
@@ -240,12 +194,12 @@
           }
         });
 
-        this.timer.onTimeout?.((result) => {
+        this.timer.onTimeout?.(() => {
           this.showToast('🎉 耐心等待成功！', 'timeout');
           this.resetToIdle();
         });
 
-        this.timer.onComplete?.((result) => {
+        this.timer.onComplete?.(() => {
           this.showToast('✓ 決策完成', 'complete');
           this.resetToIdle();
         });
@@ -257,37 +211,21 @@
       }
     }
 
-    /**
-     * 切換面板顯示
-     */
     togglePanel() {
       this.isOpen = !this.isOpen;
-      if (this.isOpen) {
-        this.panel.classList.add('show');
-      } else {
-        this.panel.classList.remove('show');
-      }
+      this.panel.classList.toggle('show', this.isOpen);
     }
 
-    /**
-     * 關閉面板
-     */
     closePanel() {
       this.isOpen = false;
       this.panel.classList.remove('show');
     }
 
-    /**
-     * 開始計時
-     */
     startTimer(template) {
-      this.currentTemplate = template;
       this.state = 'RUNNING';
 
-      const currentTEI = global.app?.state?.tei || 50;
-
       if (this.timer) {
-        this.timer.preview?.(template, currentTEI);
+        this.timer.preview?.(template, global.app?.state?.tei || 50);
         this.timer.start?.();
       }
 
@@ -300,37 +238,21 @@
         </svg>
       `;
 
-      // 顯示計時面板
-      const config = global.DecisionTimer?.Templates?.[template];
-      this.panel.innerHTML = this.getRunningHTML(config?.duration || 180, { label: '開始...' }, 0);
+      // 顯示計時
+      this.panel.innerHTML = this.getRunningHTML(180, { label: '開始...' }, 0);
     }
 
-    /**
-     * 完成計時
-     */
-    completeTimer() {
-      if (this.timer) {
-        this.timer.complete?.();
-      }
+    complete() {
+      this.timer?.complete?.();
     }
 
-    /**
-     * 中斷計時
-     */
-    abortTimer() {
-      if (this.timer) {
-        this.timer.abort?.();
-      }
+    abort() {
+      this.timer?.abort?.();
       this.resetToIdle();
     }
 
-    /**
-     * 重置為閒置狀態
-     */
     resetToIdle() {
       this.state = 'IDLE';
-      this.currentTemplate = null;
-
       this.fab.classList.remove('running');
       this.fab.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -338,43 +260,29 @@
           <polyline points="12 6 12 12 16 14"/>
         </svg>
       `;
-
       this.panel.innerHTML = this.getIdleHTML();
       this.closePanel();
-
-      if (this.timer) {
-        this.timer.reset?.();
-      }
+      this.timer?.reset?.();
     }
 
-    /**
-     * 顯示 Toast
-     */
-    showToast(message, type = 'default') {
-      const toast = document.createElement('div');
-      toast.className = `overlay-toast ${type}`;
-      toast.textContent = message;
-      this.container.appendChild(toast);
-
-      setTimeout(() => toast.classList.add('show'), 10);
+    showToast(msg, type) {
+      this.toast.textContent = msg;
+      this.toast.className = `show ${type}`;
       setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
+        this.toast.className = '';
       }, 2500);
     }
   }
 
-  // 建立全域實例
-  const controller = new OverlayController();
-  global.TENKI_OVERLAY = controller;
+  // 全域實例
+  const overlay = new TenkiProOverlay();
+  global.TENKI_PRO = overlay;
 
-  // DOM 載入後初始化
-  if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => controller.init());
-    } else {
-      controller.init();
-    }
+  // 初始化
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => overlay.init());
+  } else {
+    overlay.init();
   }
 
-})(typeof window !== 'undefined' ? window : this);
+})(window);

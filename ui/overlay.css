@@ -1,26 +1,10 @@
 /**
  * TENKI PRO Overlay Styles
- * 小浮動按鈕設計 - 只在結果頁顯示
+ * 極簡設計 - 只有小浮動按鈕，不使用全螢幕容器
  */
 
-/* ========== 容器 ========== */
-#tenki-pro-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1000;
-  pointer-events: none;
-  font-family: 'Inter', 'SF Pro Display', -apple-system, sans-serif;
-}
-
-#tenki-pro-overlay * {
-  box-sizing: border-box;
-}
-
-/* ========== 浮動按鈕 (小) ========== */
-.overlay-fab {
+/* ========== 浮動按鈕 (直接在 body 上) ========== */
+#tenki-pro-fab {
   position: fixed;
   bottom: 160px;
   right: 20px;
@@ -33,39 +17,40 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  pointer-events: auto;
   box-shadow: 0 4px 20px rgba(0, 240, 255, 0.4);
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  z-index: 1001;
-  /* 初始隱藏 */
+  z-index: 9999;
+  /* 初始完全隱藏 */
   opacity: 0;
-  transform: scale(0.8);
+  transform: scale(0);
   visibility: hidden;
+  pointer-events: none;
 }
 
-.overlay-fab.visible {
+#tenki-pro-fab.visible {
   opacity: 1;
   transform: scale(1);
   visibility: visible;
+  pointer-events: auto;
 }
 
-.overlay-fab:active {
+#tenki-pro-fab:active {
   transform: scale(0.9);
 }
 
-.overlay-fab svg {
+#tenki-pro-fab svg {
   width: 24px;
   height: 24px;
   color: #000;
 }
 
-.overlay-fab.running {
+#tenki-pro-fab.running {
   background: linear-gradient(135deg, #FF5500 0%, #FF8800 100%);
   box-shadow: 0 4px 20px rgba(255, 85, 0, 0.4);
-  animation: overlay-pulse-fab 1.5s infinite;
+  animation: tenki-pulse 1.5s infinite;
 }
 
-@keyframes overlay-pulse-fab {
+@keyframes tenki-pulse {
 
   0%,
   100% {
@@ -77,240 +62,203 @@
   }
 }
 
-/* ========== 計時器彈出面板 ========== */
-.overlay-timer-panel {
+/* ========== 計時器面板 ========== */
+#tenki-pro-panel {
   position: fixed;
   bottom: 220px;
   right: 20px;
-  width: 280px;
+  width: 260px;
   background: rgba(24, 24, 28, 0.98);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 16px;
-  pointer-events: auto;
+  border-radius: 16px;
+  padding: 14px;
+  z-index: 9998;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  font-family: 'Inter', -apple-system, sans-serif;
+  /* 初始完全隱藏 */
   opacity: 0;
   transform: translateY(10px) scale(0.95);
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  z-index: 1000;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   visibility: hidden;
+  pointer-events: none;
 }
 
-.overlay-timer-panel.show {
+#tenki-pro-panel.show {
   opacity: 1;
   transform: translateY(0) scale(1);
   visibility: visible;
+  pointer-events: auto;
 }
 
-/* ========== 面板標題 ========== */
-.overlay-panel-header {
+#tenki-pro-panel * {
+  box-sizing: border-box;
+}
+
+/* ========== 面板內容 ========== */
+.tp-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
-.overlay-panel-title {
-  font-size: 14px;
+.tp-title {
+  font-size: 13px;
   font-weight: 700;
   color: white;
 }
 
-.overlay-panel-close {
-  width: 24px;
-  height: 24px;
+.tp-close {
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
   border: none;
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  transition: all 0.2s;
 }
 
-.overlay-panel-close:hover {
+.tp-close:active {
   background: rgba(255, 85, 85, 0.3);
   color: #FF5555;
 }
 
-/* ========== 模板選擇器 ========== */
-.overlay-template-list {
+/* ========== 模板按鈕 ========== */
+.tp-templates {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.overlay-template-btn {
-  padding: 12px 14px;
+.tp-template {
+  padding: 10px 12px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
+  border-radius: 10px;
   color: white;
-  font-size: 13px;
+  font-size: 12px;
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.overlay-template-btn:active {
+.tp-template:active {
   background: rgba(0, 240, 255, 0.15);
   border-color: #00F0FF;
 }
 
-.overlay-template-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.overlay-template-name {
+.tp-template-name {
   font-weight: 600;
-  font-size: 13px;
 }
 
-.overlay-template-duration {
+.tp-template-time {
   font-size: 10px;
   color: rgba(255, 255, 255, 0.5);
 }
 
-.overlay-template-arrow {
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 16px;
-}
-
-/* ========== 計時器顯示 (運行中) ========== */
-.overlay-timer-display {
+/* ========== 計時顯示 ========== */
+.tp-timer {
   text-align: center;
-  padding: 16px 0;
+  padding: 12px 0;
 }
 
-.overlay-timer-time {
-  font-size: 48px;
+.tp-time {
+  font-size: 40px;
   font-weight: 800;
-  background: linear-gradient(180deg, #FFFFFF 20%, #A0A0A0 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: white;
   letter-spacing: -2px;
-  line-height: 1;
 }
 
-.overlay-timer-segment {
-  font-size: 12px;
+.tp-segment {
+  font-size: 11px;
   color: #00F0FF;
-  margin-top: 8px;
-  font-weight: 600;
+  margin-top: 6px;
 }
 
-.overlay-timer-progress {
+.tp-progress {
   width: 100%;
-  height: 4px;
+  height: 3px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 2px;
-  margin-top: 12px;
+  margin-top: 10px;
   overflow: hidden;
 }
 
-.overlay-timer-progress-bar {
+.tp-progress-bar {
   height: 100%;
   background: linear-gradient(90deg, #00F0FF, #7000FF);
-  border-radius: 2px;
   transition: width 0.3s linear;
 }
 
 /* ========== 動作按鈕 ========== */
-.overlay-action-row {
+.tp-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 10px;
 }
 
-.overlay-btn {
+.tp-btn {
   flex: 1;
-  padding: 10px;
-  border-radius: 12px;
-  font-size: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
   border: none;
 }
 
-.overlay-btn-primary {
+.tp-btn-primary {
   background: linear-gradient(135deg, #00F0FF 0%, #00C8FF 100%);
   color: black;
 }
 
-.overlay-btn-primary:active {
-  transform: scale(0.97);
-}
-
-.overlay-btn-danger {
+.tp-btn-danger {
   background: rgba(255, 85, 85, 0.2);
   color: #FF5555;
 }
 
-.overlay-btn-danger:active {
-  background: rgba(255, 85, 85, 0.3);
-}
-
-/* ========== Toast 通知 ========== */
-.overlay-toast {
+/* ========== Toast ========== */
+#tenki-pro-toast {
   position: fixed;
-  top: 60px;
+  top: 50px;
   left: 50%;
   transform: translateX(-50%) translateY(-20px);
   background: rgba(0, 255, 148, 0.95);
   color: black;
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: 99px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+  font-family: 'Inter', -apple-system, sans-serif;
+  z-index: 10000;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  z-index: 1100;
+  transition: all 0.3s ease;
 }
 
-.overlay-toast.show {
+#tenki-pro-toast.show {
   opacity: 1;
+  visibility: visible;
   transform: translateX(-50%) translateY(0);
 }
 
-.overlay-toast.timeout {
+#tenki-pro-toast.timeout {
   background: linear-gradient(135deg, #00FF94 0%, #00F0FF 100%);
 }
 
-.overlay-toast.complete {
+#tenki-pro-toast.complete {
   background: #FFD600;
 }
 
-.overlay-toast.abort {
+#tenki-pro-toast.abort {
   background: rgba(255, 85, 85, 0.95);
   color: white;
-}
-
-/* ========== 動畫 ========== */
-@keyframes overlay-pulse {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.6;
-  }
-}
-
-.overlay-pulse {
-  animation: overlay-pulse 1.5s infinite;
 }
