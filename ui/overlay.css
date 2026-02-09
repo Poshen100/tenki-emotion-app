@@ -36,6 +36,15 @@
   justify-content: space-around;
   pointer-events: auto;
   z-index: 1001;
+  /* 初始隱藏，等待主畫面載入 */
+  opacity: 0;
+  transform: translateY(100%);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.overlay-bottom-bar.ready {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* ========== 導航項目 ========== */

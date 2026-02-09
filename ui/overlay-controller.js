@@ -39,6 +39,11 @@
       this.createPanel();
       this.bindEvents();
 
+      // 延遲顯示底部導航欄，避免在星塵靈魂載入前閃現
+      setTimeout(() => {
+        this.bottomBar.classList.add('ready');
+      }, 800);
+
       console.log('[OverlayController] v2.0 Bottom Bar initialized');
     }
 
