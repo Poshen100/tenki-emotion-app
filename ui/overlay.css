@@ -1,596 +1,366 @@
 /**
- * TENKI PRO Overlay CSS
- * 
- * 所有樣式都使用 overlay- 前綴，避免與星塵靈魂衝突
- * 使用 position: fixed 浮在星塵之上
- * 
- * @version 1.0.0
+ * TENKI PRO Overlay Styles
+ * 所有 class 使用 .overlay- 前綴，避免與星塵靈魂衝突
  */
 
-/* =============================================================================
-   OVERLAY CONTAINER
-   ============================================================================= */
-
+/* ========== 容器 ========== */
 #tenki-pro-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    pointer-events: none;
-    /* 讓星塵可穿透點擊 */
-    z-index: 1000;
-    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  pointer-events: none;
+  font-family: 'JetBrains Mono', 'Space Mono', monospace;
 }
 
-/* =============================================================================
-   UI CLEANUP - Hide clutter for pure Stardust Soul experience
-   ============================================================================= */
-
-/* Hide T5: Degraded badge (top right) */
-#tier-indicator-float {
-    display: none !important;
+#tenki-pro-overlay * {
+  box-sizing: border-box;
 }
 
-/* Hide quality warning banner */
-.quality-warning {
-    display: none !important;
+/* ========== Decision Timer 浮動按鈕 ========== */
+.overlay-fab {
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00F0FF 0%, #7000FF 100%);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.4);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1001;
 }
 
-/* Hide "TAP TO SCAN" instruction text */
-#instruction {
-    display: none !important;
+.overlay-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 30px rgba(0, 240, 255, 0.6);
 }
 
-/* Hide precision mode tabs (2s/30s/60s) */
-#precision-tabs {
-    display: none !important;
+.overlay-fab:active {
+  transform: scale(0.95);
 }
 
-/* Hide "Live Biometric Sync · 60s" text below tabs */
-#precision-tabs+div {
-    display: none !important;
+.overlay-fab svg {
+  width: 24px;
+  height: 24px;
+  color: white;
 }
 
-/* Hide floating colorful dot (no functionality yet) */
-#overlay-floating-dot {
-    display: none !important;
+/* ========== Decision Timer 面板 ========== */
+.overlay-timer-panel {
+  position: fixed;
+  bottom: 170px;
+  right: 20px;
+  width: 280px;
+  background: rgba(15, 15, 20, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 20px;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1000;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
-/* =============================================================================
-   DOCK - Always visible and fixed at bottom
-   ============================================================================= */
-
-/* Make dock always visible (not just on .show) */
-.dock-container {
-    transform: translateY(0) !important;
-    z-index: 500 !important;
+.overlay-timer-panel.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
-/* Add padding to dashboard so content isn't blocked by dock */
-/* Also fix horizontal shaking/overflow issue */
-#dashboard-layer {
-    padding-bottom: 90px !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    max-width: 100vw !important;
-    box-sizing: border-box !important;
+.overlay-timer-panel.hide {
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  pointer-events: none;
 }
 
-/* Prevent body/html horizontal scroll - STRONG lock */
-html {
-    overflow-x: hidden !important;
-    overscroll-behavior-x: none !important;
-    width: 100% !important;
-    max-width: 100vw !important;
+/* ========== 面板標題 ========== */
+.overlay-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
 }
 
-body {
-    overflow-x: hidden !important;
-    overscroll-behavior-x: none !important;
-    width: 100% !important;
-    max-width: 100vw !important;
-    position: relative !important;
+.overlay-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #00F0FF;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
-/* Ensure bento grid doesn't overflow */
-.bento-grid {
-    max-width: 100% !important;
-    overflow: hidden !important;
-    box-sizing: border-box !important;
-    padding-left: 12px !important;
-    padding-right: 12px !important;
+.overlay-panel-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
 
-/* Contain dock within viewport */
-.dock-container {
-    max-width: 100vw !important;
-    box-sizing: border-box !important;
-    left: 0 !important;
-    right: 0 !important;
+.overlay-panel-close:hover {
+  background: rgba(255, 85, 85, 0.3);
+  color: #FF5555;
 }
 
-/* Dock inner elements containment */
-.overlay-dock-center,
-.overlay-dock-left,
-.overlay-dock-right {
-    overflow: hidden !important;
-}
-
-/* Decision Timer button - ensure it doesn't overflow */
-.overlay-dock-main-btn {
-    max-width: calc(100vw - 160px) !important;
-    overflow: hidden !important;
-    white-space: nowrap !important;
-}
-
-/* Dock minimizes on scroll - smaller and less intrusive */
-.dock-container.minimized {
-    height: 50px !important;
-    opacity: 0.8;
-}
-
-/* On scroll, dock becomes more transparent */
-.dock-container.scrolled {
-    background: rgba(5, 5, 10, 0.6) !important;
-    backdrop-filter: blur(10px) !important;
-}
-
-/* =============================================================================
-   OVERLAY PANELS
-   ============================================================================= */
-
-.overlay-panel {
-    position: absolute;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 20, 147, 0.3);
-    border-radius: 16px;
-    padding: 24px;
-    pointer-events: auto;
-    /* Panel 本身可點擊 */
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    color: #ffffff;
-}
-
-.overlay-panel.hidden {
-    display: none;
-}
-
-/* =============================================================================
-   DECISION TIMER PANEL
-   ============================================================================= */
-
-#overlay-decision-panel {
-    bottom: 100px;
-    right: 30px;
-    width: 320px;
-    min-height: 200px;
-}
-
-.overlay-timer-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-}
-
-.overlay-timer-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #ffffff;
-    margin: 0;
-}
-
-.overlay-timer-template {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.6);
-    background: rgba(255, 20, 147, 0.2);
-    padding: 4px 8px;
-    border-radius: 6px;
-}
-
-.overlay-timer-display {
-    text-align: center;
-    margin: 24px 0;
-}
-
-.overlay-timer-time {
-    font-size: 64px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    background: linear-gradient(135deg, #ff1493, #00d4ff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.overlay-timer-segment {
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.8);
-    margin-top: 8px;
-}
-
-.overlay-timer-hint {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.5);
-    margin-top: 4px;
-}
-
-.overlay-timer-progress {
-    width: 100%;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 2px;
-    overflow: hidden;
-    margin: 16px 0;
-}
-
-.overlay-timer-progress-bar {
-    height: 100%;
-    background: linear-gradient(90deg, #ff1493, #00d4ff);
-    border-radius: 2px;
-    transition: width 0.3s ease;
-}
-
-.overlay-timer-actions {
-    display: flex;
-    gap: 12px;
-}
-
-/* =============================================================================
-   BUTTONS
-   ============================================================================= */
-
-.overlay-btn {
-    flex: 1;
-    padding: 12px 16px;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.overlay-btn-primary {
-    background: linear-gradient(135deg, #ff1493, #ff69b4);
-    color: #ffffff;
-}
-
-.overlay-btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(255, 20, 147, 0.4);
-}
-
-.overlay-btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.overlay-btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.overlay-btn-danger {
-    background: rgba(255, 107, 107, 0.2);
-    color: #ff6b6b;
-    border: 1px solid rgba(255, 107, 107, 0.3);
-}
-
-.overlay-btn-danger:hover {
-    background: rgba(255, 107, 107, 0.3);
-}
-
-/* =============================================================================
-   PREVIEW PANEL
-   ============================================================================= */
-
-#overlay-preview-panel {
-    bottom: 100px;
-    right: 370px;
-    width: 300px;
-}
-
-.overlay-preview-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-}
-
-.overlay-preview-title {
-    font-size: 16px;
-    font-weight: 600;
-    margin: 0;
-}
-
-.overlay-preview-stat {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.overlay-preview-label {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.6);
-}
-
-.overlay-preview-value {
-    font-size: 16px;
-    font-weight: 600;
-    color: #ffffff;
-}
-
-.overlay-preview-value.positive {
-    color: #6bcb77;
-}
-
-.overlay-preview-value.negative {
-    color: #ff6b6b;
-}
-
-.overlay-preview-behavior {
-    margin-top: 16px;
-    padding: 12px;
-    background: rgba(255, 20, 147, 0.1);
-    border-radius: 8px;
-    border-left: 3px solid #ff1493;
-}
-
-.overlay-preview-behavior-label {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.6);
-    margin-bottom: 4px;
-}
-
-.overlay-preview-behavior-value {
-    font-size: 14px;
-    color: #ffffff;
-}
-
-.overlay-preview-footer {
-    margin-top: 16px;
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.4);
-}
-
-.overlay-preview-confidence[data-level="HIGH"],
-.overlay-preview-confidence[data-level="VERY_HIGH"] {
-    color: #6bcb77;
-}
-
-.overlay-preview-confidence[data-level="LOW"] {
-    color: #ff6b6b;
-}
-
-/* =============================================================================
-   TEMPLATE SELECTOR
-   ============================================================================= */
-
-#overlay-template-selector {
-    bottom: 100px;
-    left: 30px;
-    width: 280px;
-}
-
+/* ========== 模板選擇器 ========== */
 .overlay-template-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
-.overlay-template-item {
-    padding: 12px 16px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
+.overlay-template-btn {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: white;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.overlay-template-item:hover {
-    background: rgba(255, 20, 147, 0.1);
-    border-color: rgba(255, 20, 147, 0.3);
+.overlay-template-btn:hover {
+  background: rgba(0, 240, 255, 0.1);
+  border-color: rgba(0, 240, 255, 0.3);
 }
 
-.overlay-template-item.selected {
-    background: rgba(255, 20, 147, 0.2);
-    border-color: #ff1493;
+.overlay-template-btn.selected {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: #00F0FF;
 }
 
 .overlay-template-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: #ffffff;
+  font-weight: 600;
+  margin-bottom: 4px;
 }
 
 .overlay-template-duration {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
-    margin-top: 4px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-/* =============================================================================
-   STATS DASHBOARD
-   ============================================================================= */
-
-#overlay-stats-panel {
-    top: 30px;
-    right: 30px;
-    width: 350px;
+/* ========== 計時器顯示 ========== */
+.overlay-timer-display {
+  text-align: center;
+  padding: 20px 0;
 }
 
-.overlay-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-top: 16px;
+.overlay-timer-time {
+  font-size: 48px;
+  font-weight: 900;
+  background: linear-gradient(180deg, #FFFFFF 20%, #A0A0A0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: -2px;
 }
 
-.overlay-stats-card {
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    text-align: center;
+.overlay-timer-segment {
+  font-size: 14px;
+  color: #00F0FF;
+  margin-top: 8px;
+  font-weight: 600;
 }
 
-.overlay-stats-value {
-    font-size: 24px;
-    font-weight: 700;
-    color: #ffffff;
+.overlay-timer-progress {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  margin-top: 16px;
+  overflow: hidden;
 }
 
-.overlay-stats-label {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
-    margin-top: 4px;
+.overlay-timer-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #00F0FF, #7000FF);
+  border-radius: 2px;
+  transition: width 0.3s linear;
 }
 
-/* =============================================================================
-   TEI DISPLAY
-   ============================================================================= */
-
-.overlay-tei-display {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    margin-bottom: 16px;
+/* ========== 動作按鈕 ========== */
+.overlay-action-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
 }
 
-.overlay-tei-value {
-    font-size: 32px;
-    font-weight: 700;
-    background: linear-gradient(135deg, #ff1493, #00d4ff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+.overlay-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
 }
 
-.overlay-tei-bar {
-    flex: 1;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    overflow: hidden;
+.overlay-btn-primary {
+  background: linear-gradient(135deg, #00F0FF 0%, #00C8FF 100%);
+  color: black;
 }
 
-.overlay-tei-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #ff1493, #00d4ff);
-    border-radius: 4px;
-    transition: width 0.3s ease;
+.overlay-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 240, 255, 0.4);
 }
 
-/* =============================================================================
-   FLOATING DOT
-   ============================================================================= */
-
-#overlay-floating-dot {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #ff1493, #00d4ff);
-    cursor: pointer;
-    pointer-events: auto;
-    box-shadow: 0 4px 24px rgba(255, 20, 147, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    z-index: 1001;
+.overlay-btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-#overlay-floating-dot:hover {
-    transform: scale(1.1);
-    box-shadow: 0 6px 32px rgba(255, 20, 147, 0.6);
+.overlay-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
-#overlay-floating-dot:active {
-    transform: scale(0.95);
+.overlay-btn-danger {
+  background: rgba(255, 85, 85, 0.2);
+  color: #FF5555;
+  border: 1px solid rgba(255, 85, 85, 0.3);
 }
 
-.overlay-dot-icon {
-    width: 24px;
-    height: 24px;
-    color: #ffffff;
+.overlay-btn-danger:hover {
+  background: rgba(255, 85, 85, 0.3);
 }
 
-/* =============================================================================
-   ANIMATIONS
-   ============================================================================= */
-
-@keyframes overlay-fade-in {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+/* ========== 預覽面板 ========== */
+.overlay-preview-panel {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
 }
 
+.overlay-preview-panel h3 {
+  font-size: 12px;
+  color: #00F0FF;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.overlay-preview-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.overlay-preview-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.overlay-preview-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.overlay-preview-value {
+  color: #00FF94;
+  font-weight: 700;
+}
+
+.overlay-preview-count {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.overlay-preview-best {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.overlay-preview-best strong {
+  color: #FFD600;
+}
+
+.overlay-preview-sample {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 8px;
+}
+
+/* ========== Toast 通知 ========== */
+.overlay-toast {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: rgba(0, 255, 148, 0.9);
+  color: black;
+  padding: 12px 24px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1100;
+}
+
+.overlay-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.overlay-toast.timeout {
+  background: linear-gradient(135deg, #00FF94 0%, #00F0FF 100%);
+}
+
+.overlay-toast.complete {
+  background: #FFD600;
+}
+
+.overlay-toast.abort {
+  background: rgba(255, 85, 85, 0.9);
+  color: white;
+}
+
+/* ========== 動畫 ========== */
 @keyframes overlay-pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.5;
-    }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
-.overlay-panel {
-    animation: overlay-fade-in 0.3s ease;
+.overlay-pulse {
+  animation: overlay-pulse 1.5s infinite;
 }
 
-.overlay-timer-time.running {
-    animation: overlay-pulse 1s ease-in-out infinite;
+@keyframes overlay-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 240, 255, 0.4); }
+  50% { box-shadow: 0 0 40px rgba(0, 240, 255, 0.8); }
 }
 
-/* =============================================================================
-   RESPONSIVE
-   ============================================================================= */
-
-@media (max-width: 768px) {
-    #overlay-decision-panel {
-        bottom: 20px;
-        right: 20px;
-        left: 20px;
-        width: auto;
-    }
-
-    #overlay-preview-panel {
-        display: none;
-    }
-
-    #overlay-template-selector {
-        bottom: auto;
-        top: 20px;
-        left: 20px;
-        right: 20px;
-        width: auto;
-    }
-
-    .overlay-timer-time {
-        font-size: 48px;
-    }
+.overlay-glow {
+  animation: overlay-glow 2s infinite;
 }

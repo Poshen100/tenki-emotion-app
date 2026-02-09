@@ -1,494 +1,342 @@
 /**
- * TENKI PRO - Overlay UI Controller v1.0
- * 
- * 控制 Overlay UI 元件，透過 EventBridge 與核心模組溝通
- * 
- * @author TENKI Team
+ * @fileoverview Overlay Controller - Decision Timer UI 控制器
+ * @description 在星塵靈魂之上顯示 Decision Timer 介面
  * @version 1.0.0
  */
 
-const OverlayController = (function () {
+(function (global) {
     'use strict';
 
-    // =============================================================================
-    // STATE
-    // =============================================================================
+    class OverlayController {
+        constructor() {
+            this.container = null;
+            this.panel = null;
+            this.fab = null;
+            this.isOpen = false;
+            this.state = 'IDLE'; // IDLE, PREVIEW, RUNNING
+            this.timer = null;
+            this.preview = null;
+            this.expectancy = null;
+        }
 
-    let isInitialized = false;
-    let currentTimer = null;
-    let currentTEI = 50;
-    let elements = {};
+        /**
+         * 初始化 Overlay
+         */
+        init() {
+            // 取得模組實例
+            if (global.TENKI) {
+                this.timer = global.TENKI.timer;
+                this.preview = global.TENKI.preview;
+                this.expectancy = global.TENKI.expectancy;
+            } else if (global.DecisionTimer) {
+                this.timer = new global.DecisionTimer();
+            }
 
-    // =============================================================================
-    // DOM HELPERS
-    // =============================================================================
+            this.createContainer();
+            this.createFAB();
+            this.createPanel();
+            this.bindEvents();
 
-    function $(selector) {
-        return document.querySelector(selector);
-    }
+            console.log('[OverlayController] Initialized');
+        }
 
-    function $$(selector) {
-        return document.querySelectorAll(selector);
-    }
+        /**
+         * 建立主容器
+         */
+        createContainer() {
+            this.container = document.createElement('div');
+            this.container.id = 'tenki-pro-overlay';
+            document.body.appendChild(this.container);
+        }
 
-    function createElement(tag, attrs = {}, children = []) {
-        const el = document.createElement(tag);
-        for (const [key, value] of Object.entries(attrs)) {
-            if (key === 'className') {
-                el.className = value;
-            } else if (key === 'dataset') {
-                for (const [dataKey, dataValue] of Object.entries(value)) {
-                    el.dataset[dataKey] = dataValue;
+        /**
+         * 建立浮動按鈕
+         */
+        createFAB() {
+            this.fab = document.createElement('div');
+            this.fab.className = 'overlay-fab';
+            this.fab.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+      `;
+            this.fab.onclick = () => this.togglePanel();
+            this.container.appendChild(this.fab);
+        }
+
+        /**
+         * 建立面板
+         */
+        createPanel() {
+            this.panel = document.createElement('div');
+            this.panel.className = 'overlay-timer-panel hide';
+            this.panel.innerHTML = this.getIdleHTML();
+            this.container.appendChild(this.panel);
+        }
+
+        /**
+         * 取得閒置狀態 HTML
+         */
+        getIdleHTML() {
+            return `
+        <div class="overlay-panel-header">
+          <div class="overlay-panel-title">Decision Timer</div>
+          <button class="overlay-panel-close" onclick="TENKI_OVERLAY.closePanel()">✕</button>
+        </div>
+        <div class="overlay-template-list">
+          <button class="overlay-template-btn" data-template="MANCINI_FBD">
+            <div class="overlay-template-name">Mancini FBD</div>
+            <div class="overlay-template-duration">3 分鐘 · 耐心等待模式</div>
+          </button>
+          <button class="overlay-template-btn" data-template="CANSILM_GROWTH">
+            <div class="overlay-template-name">Cansilm 成長股</div>
+            <div class="overlay-template-duration">5 分鐘 · 不追高模式</div>
+          </button>
+          <button class="overlay-template-btn" data-template="CANSILM_HIGHRS">
+            <div class="overlay-template-name">High RS Breakout</div>
+            <div class="overlay-template-duration">4 分鐘 · 突破確認模式</div>
+          </button>
+        </div>
+      `;
+        }
+
+        /**
+         * 取得預覽狀態 HTML
+         */
+        getPreviewHTML(template, stats) {
+            const config = global.DecisionTimer?.Templates?.[template] || { name: template, duration: 180 };
+            const previewHTML = stats?.hasData ? `
+        <div class="overlay-preview-panel">
+          <h3>歷史統計</h3>
+          <div class="overlay-preview-stats">
+            <div class="overlay-preview-stat">
+              <span class="overlay-preview-label">等待勝率</span>
+              <span class="overlay-preview-value">${stats.timeoutWinRate}%</span>
+            </div>
+            <div class="overlay-preview-stat">
+              <span class="overlay-preview-label">早進勝率</span>
+              <span class="overlay-preview-value">${stats.earlyWinRate}%</span>
+            </div>
+          </div>
+          <div class="overlay-preview-best">
+            你通常的最佳做法：<strong>${stats.bestBehavior}</strong>
+          </div>
+          <div class="overlay-preview-sample">基於 ${stats.sampleSize} 筆類似交易</div>
+        </div>
+      ` : `
+        <div class="overlay-preview-panel">
+          <p style="color: rgba(255,255,255,0.5); font-size: 11px;">尚無足夠歷史資料</p>
+        </div>
+      `;
+
+            return `
+        <div class="overlay-panel-header">
+          <div class="overlay-panel-title">${config.name}</div>
+          <button class="overlay-panel-close" onclick="TENKI_OVERLAY.closePanel()">✕</button>
+        </div>
+        ${previewHTML}
+        <div class="overlay-action-row">
+          <button class="overlay-btn overlay-btn-secondary" onclick="TENKI_OVERLAY.backToIdle()">返回</button>
+          <button class="overlay-btn overlay-btn-primary" onclick="TENKI_OVERLAY.startTimer()">開始計時</button>
+        </div>
+      `;
+        }
+
+        /**
+         * 取得運行狀態 HTML
+         */
+        getRunningHTML(remaining, segment, percent) {
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+            return `
+        <div class="overlay-panel-header">
+          <div class="overlay-panel-title overlay-pulse">計時中</div>
+          <button class="overlay-panel-close" onclick="TENKI_OVERLAY.abortTimer()">✕</button>
+        </div>
+        <div class="overlay-timer-display">
+          <div class="overlay-timer-time">${timeStr}</div>
+          <div class="overlay-timer-segment">${segment?.label || ''}</div>
+          <div class="overlay-timer-progress">
+            <div class="overlay-timer-progress-bar" style="width: ${percent}%"></div>
+          </div>
+        </div>
+        <div class="overlay-action-row">
+          <button class="overlay-btn overlay-btn-danger" onclick="TENKI_OVERLAY.abortTimer()">中斷</button>
+          <button class="overlay-btn overlay-btn-primary" onclick="TENKI_OVERLAY.completeTimer()">完成決策</button>
+        </div>
+      `;
+        }
+
+        /**
+         * 綁定事件
+         */
+        bindEvents() {
+            // 模板選擇
+            this.panel.addEventListener('click', (e) => {
+                const btn = e.target.closest('.overlay-template-btn');
+                if (btn) {
+                    const template = btn.dataset.template;
+                    this.selectTemplate(template);
                 }
-            } else if (key.startsWith('on')) {
-                el.addEventListener(key.slice(2).toLowerCase(), value);
+            });
+
+            // 監聽計時器進度
+            if (this.timer) {
+                this.timer.onProgress((data) => {
+                    if (this.state === 'RUNNING') {
+                        this.panel.innerHTML = this.getRunningHTML(data.remaining, data.segment, data.percent);
+                    }
+                });
+
+                this.timer.onTimeout((result) => {
+                    this.showToast('🎉 Patience Win!', 'timeout');
+                    this.backToIdle();
+                });
+
+                this.timer.onComplete((result) => {
+                    this.showToast('✓ Decision Made', 'complete');
+                    this.backToIdle();
+                });
+
+                this.timer.onAbort(() => {
+                    this.showToast('✗ Aborted', 'abort');
+                    this.backToIdle();
+                });
+            }
+        }
+
+        /**
+         * 切換面板顯示
+         */
+        togglePanel() {
+            this.isOpen = !this.isOpen;
+            if (this.isOpen) {
+                this.panel.classList.remove('hide');
+                this.panel.classList.add('show');
             } else {
-                el.setAttribute(key, value);
+                this.panel.classList.remove('show');
+                this.panel.classList.add('hide');
             }
         }
-        for (const child of children) {
-            if (typeof child === 'string') {
-                el.appendChild(document.createTextNode(child));
-            } else if (child) {
-                el.appendChild(child);
-            }
+
+        /**
+         * 關閉面板
+         */
+        closePanel() {
+            this.isOpen = false;
+            this.panel.classList.remove('show');
+            this.panel.classList.add('hide');
         }
-        return el;
-    }
 
-    // =============================================================================
-    // INITIALIZATION
-    // =============================================================================
+        /**
+         * 選擇模板
+         */
+        selectTemplate(template) {
+            this.state = 'PREVIEW';
+            this.currentTemplate = template;
 
-    function init() {
-        if (isInitialized) return;
+            // 取得當前 TEI (從 app.js 或預設值)
+            const currentTEI = global.app?.state?.tei || 50;
 
-        createOverlayContainer();
-        createPanels();
-        setupEventListeners();
-        subscribeToEvents();
-
-        isInitialized = true;
-        console.log('[OverlayController] Initialized');
-    }
-
-    function createOverlayContainer() {
-        // 檢查是否已存在
-        if ($('#tenki-pro-overlay')) return;
-
-        const container = createElement('div', { id: 'tenki-pro-overlay' });
-        document.body.appendChild(container);
-        elements.container = container;
-    }
-
-    function createPanels() {
-        // Decision Timer Panel
-        elements.decisionPanel = createDecisionPanel();
-        elements.container.appendChild(elements.decisionPanel);
-
-        // Template Selector
-        elements.templateSelector = createTemplateSelector();
-        elements.container.appendChild(elements.templateSelector);
-
-        // Preview Panel
-        elements.previewPanel = createPreviewPanel();
-        elements.container.appendChild(elements.previewPanel);
-
-        // Floating Dot
-        elements.floatingDot = createFloatingDot();
-        elements.container.appendChild(elements.floatingDot);
-
-        // 初始隱藏 panels
-        elements.decisionPanel.classList.add('hidden');
-        elements.previewPanel.classList.add('hidden');
-    }
-
-    function createDecisionPanel() {
-        return createElement('div', {
-            id: 'overlay-decision-panel',
-            className: 'overlay-panel'
-        }, [
-            createElement('div', { className: 'overlay-timer-header' }, [
-                createElement('h3', { className: 'overlay-timer-title' }, ['Decision Timer']),
-                createElement('span', { className: 'overlay-timer-template', id: 'overlay-current-template' }, ['--'])
-            ]),
-            createElement('div', { className: 'overlay-tei-display' }, [
-                createElement('span', { className: 'overlay-tei-value', id: 'overlay-tei-value' }, ['50']),
-                createElement('div', { className: 'overlay-tei-bar' }, [
-                    createElement('div', {
-                        className: 'overlay-tei-bar-fill',
-                        id: 'overlay-tei-bar',
-                        style: 'width: 50%'
-                    })
-                ])
-            ]),
-            createElement('div', { className: 'overlay-timer-display' }, [
-                createElement('div', { className: 'overlay-timer-time', id: 'overlay-timer-time' }, ['00:00']),
-                createElement('div', { className: 'overlay-timer-segment', id: 'overlay-timer-segment' }, ['--']),
-                createElement('div', { className: 'overlay-timer-hint', id: 'overlay-timer-hint' }, [''])
-            ]),
-            createElement('div', { className: 'overlay-timer-progress' }, [
-                createElement('div', {
-                    className: 'overlay-timer-progress-bar',
-                    id: 'overlay-progress-bar',
-                    style: 'width: 0%'
-                })
-            ]),
-            createElement('div', { className: 'overlay-timer-actions' }, [
-                createElement('button', {
-                    className: 'overlay-btn overlay-btn-primary',
-                    id: 'overlay-btn-start',
-                    onClick: handleStartTimer
-                }, ['開始計時']),
-                createElement('button', {
-                    className: 'overlay-btn overlay-btn-secondary',
-                    id: 'overlay-btn-complete',
-                    onClick: handleComplete,
-                    style: 'display: none'
-                }, ['我決定了']),
-                createElement('button', {
-                    className: 'overlay-btn overlay-btn-danger',
-                    id: 'overlay-btn-abort',
-                    onClick: handleAbort,
-                    style: 'display: none'
-                }, ['取消'])
-            ])
-        ]);
-    }
-
-    function createTemplateSelector() {
-        const templates = [
-            { id: 'CANSILM_GROWTH', name: 'Cansilm 成長股', duration: '5 min' },
-            { id: 'CANSILM_HIGHRS', name: 'Cansilm High RS', duration: '4 min' },
-            { id: 'MANCINI_FBD', name: 'Mancini FBD', duration: '3 min' }
-        ];
-
-        const templateItems = templates.map(t =>
-            createElement('div', {
-                className: 'overlay-template-item',
-                dataset: { templateId: t.id },
-                onClick: () => handleSelectTemplate(t.id)
-            }, [
-                createElement('div', { className: 'overlay-template-name' }, [t.name]),
-                createElement('div', { className: 'overlay-template-duration' }, [t.duration])
-            ])
-        );
-
-        return createElement('div', {
-            id: 'overlay-template-selector',
-            className: 'overlay-panel hidden'
-        }, [
-            createElement('h3', { className: 'overlay-timer-title' }, ['選擇模板']),
-            createElement('div', { className: 'overlay-template-list' }, templateItems)
-        ]);
-    }
-
-    function createPreviewPanel() {
-        return createElement('div', {
-            id: 'overlay-preview-panel',
-            className: 'overlay-panel hidden'
-        }, [
-            createElement('div', { className: 'overlay-preview-header' }, [
-                createElement('h3', { className: 'overlay-preview-title' }, ['Decision Preview'])
-            ]),
-            createElement('div', { id: 'overlay-preview-content' }, [
-                createElement('div', { className: 'overlay-preview-stat' }, [
-                    createElement('span', { className: 'overlay-preview-label' }, ['整體勝率:']),
-                    createElement('span', { className: 'overlay-preview-value', id: 'overlay-preview-winrate' }, ['--'])
-                ]),
-                createElement('div', { className: 'overlay-preview-stat' }, [
-                    createElement('span', { className: 'overlay-preview-label' }, ['耐心等待勝率:']),
-                    createElement('span', { className: 'overlay-preview-value', id: 'overlay-preview-timeout-wr' }, ['--'])
-                ]),
-                createElement('div', { className: 'overlay-preview-stat' }, [
-                    createElement('span', { className: 'overlay-preview-label' }, ['提前進場勝率:']),
-                    createElement('span', { className: 'overlay-preview-value', id: 'overlay-preview-early-wr' }, ['--'])
-                ]),
-                createElement('div', { className: 'overlay-preview-behavior' }, [
-                    createElement('div', { className: 'overlay-preview-behavior-label' }, ['歷史最佳行為:']),
-                    createElement('div', { className: 'overlay-preview-behavior-value', id: 'overlay-preview-best' }, ['--'])
-                ]),
-                createElement('div', { className: 'overlay-preview-footer' }, [
-                    createElement('span', { id: 'overlay-preview-samples' }, ['-- 筆記錄']),
-                    createElement('span', {
-                        className: 'overlay-preview-confidence',
-                        id: 'overlay-preview-confidence'
-                    }, ['信心度: --'])
-                ])
-            ])
-        ]);
-    }
-
-    function createFloatingDot() {
-        return createElement('div', {
-            id: 'overlay-floating-dot',
-            onClick: handleFloatingDotClick
-        }, [
-            createElement('svg', {
-                className: 'overlay-dot-icon',
-                fill: 'none',
-                viewBox: '0 0 24 24',
-                stroke: 'currentColor'
-            }, [
-                createElement('path', {
-                    'stroke-linecap': 'round',
-                    'stroke-linejoin': 'round',
-                    'stroke-width': '2',
-                    d: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
-                })
-            ])
-        ]);
-    }
-
-    // =============================================================================
-    // EVENT HANDLERS
-    // =============================================================================
-
-    function handleFloatingDotClick() {
-        toggleTemplateSelector();
-    }
-
-    function handleSelectTemplate(templateId) {
-        // 隱藏模板選擇器
-        elements.templateSelector.classList.add('hidden');
-
-        // 建立計時器
-        if (typeof DecisionTimer !== 'undefined') {
-            currentTimer = DecisionTimer.create();
-            currentTimer.setTemplate(templateId);
-            currentTimer.setTEI(currentTEI);
-
-            // 更新 UI
-            $('#overlay-current-template').textContent = templateId.replace(/_/g, ' ');
-
-            // 顯示 decision panel
-            elements.decisionPanel.classList.remove('hidden');
-
-            // 更新模板時長
-            const duration = currentTimer.duration;
-            const minutes = Math.floor(duration / 60);
-            const seconds = duration % 60;
-            $('#overlay-timer-time').textContent =
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
-            $('#overlay-timer-segment').textContent = '準備開始';
-            $('#overlay-timer-hint').textContent = '點擊「開始計時」啟動';
-
-            // 嘗試顯示預覽
-            showPreview(templateId);
-        }
-    }
-
-    function handleStartTimer() {
-        if (!currentTimer) return;
-
-        currentTimer.start({ skipPreview: true });
-
-        // 更新按鈕
-        $('#overlay-btn-start').style.display = 'none';
-        $('#overlay-btn-complete').style.display = 'block';
-        $('#overlay-btn-abort').style.display = 'block';
-
-        // 設定回調
-        currentTimer.onTick(handleTimerTick);
-        currentTimer.onStateChange(handleTimerStateChange);
-    }
-
-    function handleTimerTick(data) {
-        // 更新時間顯示
-        const minutes = Math.floor(data.remaining / 60);
-        const seconds = data.remaining % 60;
-        $('#overlay-timer-time').textContent =
-            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        $('#overlay-timer-time').classList.add('running');
-
-        // 更新進度條
-        $('#overlay-progress-bar').style.width = `${data.progress}%`;
-
-        // 更新區段
-        if (data.segment) {
-            $('#overlay-timer-segment').textContent = data.segment.label || '--';
-            $('#overlay-timer-hint').textContent = data.segment.hint || '';
-        }
-    }
-
-    function handleTimerStateChange(data) {
-        console.log('[OverlayController] State changed:', data.currentState);
-
-        if (['COMPLETE', 'TIMEOUT', 'ABORT'].includes(data.currentState)) {
-            $('#overlay-timer-time').classList.remove('running');
-
-            // 更新 UI
-            let message = '';
-            if (data.currentState === 'TIMEOUT') {
-                message = currentTimer.template?.timeoutMessage || '計時完成';
-            } else if (data.currentState === 'COMPLETE') {
-                message = '決策完成';
-            } else {
-                message = '已取消';
+            // 分析歷史數據
+            let stats = null;
+            if (this.preview && this.expectancy) {
+                stats = this.preview.analyze({
+                    template,
+                    tei: currentTEI,
+                    time: new Date()
+                }, this.expectancy.trades);
             }
 
-            $('#overlay-timer-segment').textContent = message;
-            $('#overlay-timer-hint').textContent = '';
-            $('#overlay-progress-bar').style.width = '100%';
+            // 進入預覽模式
+            if (this.timer) {
+                this.timer.preview(template, currentTEI);
+            }
 
-            // 重置按鈕
+            this.panel.innerHTML = this.getPreviewHTML(template, stats);
+        }
+
+        /**
+         * 開始計時
+         */
+        startTimer() {
+            if (!this.timer) return;
+
+            this.state = 'RUNNING';
+            this.timer.start();
+
+            // 初始顯示
+            const config = global.DecisionTimer?.Templates?.[this.currentTemplate];
+            this.panel.innerHTML = this.getRunningHTML(config?.duration || 180, { label: 'Starting...' }, 0);
+
+            // FAB 發光效果
+            this.fab.classList.add('overlay-glow');
+        }
+
+        /**
+         * 完成計時
+         */
+        completeTimer() {
+            if (this.timer) {
+                this.timer.complete();
+            }
+            this.fab.classList.remove('overlay-glow');
+        }
+
+        /**
+         * 中斷計時
+         */
+        abortTimer() {
+            if (this.timer) {
+                this.timer.abort();
+            }
+            this.fab.classList.remove('overlay-glow');
+        }
+
+        /**
+         * 返回閒置狀態
+         */
+        backToIdle() {
+            this.state = 'IDLE';
+            this.currentTemplate = null;
+            this.panel.innerHTML = this.getIdleHTML();
+            this.fab.classList.remove('overlay-glow');
+            if (this.timer) {
+                this.timer.reset();
+            }
+        }
+
+        /**
+         * 顯示 Toast
+         */
+        showToast(message, type = 'default') {
+            const toast = document.createElement('div');
+            toast.className = `overlay-toast ${type}`;
+            toast.textContent = message;
+            this.container.appendChild(toast);
+
+            setTimeout(() => toast.classList.add('show'), 10);
             setTimeout(() => {
-                resetTimerUI();
-            }, 2000);
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
         }
     }
 
-    function handleComplete() {
-        if (currentTimer) {
-            currentTimer.complete();
+    // 建立全域實例
+    const controller = new OverlayController();
+    global.TENKI_OVERLAY = controller;
+
+    // DOM 載入後初始化
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => controller.init());
+        } else {
+            controller.init();
         }
     }
 
-    function handleAbort() {
-        if (currentTimer) {
-            currentTimer.abort();
-        }
-    }
-
-    function resetTimerUI() {
-        $('#overlay-btn-start').style.display = 'block';
-        $('#overlay-btn-complete').style.display = 'none';
-        $('#overlay-btn-abort').style.display = 'none';
-        $('#overlay-timer-time').textContent = '00:00';
-        $('#overlay-timer-segment').textContent = '--';
-        $('#overlay-timer-hint').textContent = '';
-        $('#overlay-progress-bar').style.width = '0%';
-
-        if (currentTimer) {
-            currentTimer.reset();
-            currentTimer = null;
-        }
-
-        elements.decisionPanel.classList.add('hidden');
-        elements.previewPanel.classList.add('hidden');
-    }
-
-    function toggleTemplateSelector() {
-        elements.templateSelector.classList.toggle('hidden');
-    }
-
-    // =============================================================================
-    // PREVIEW
-    // =============================================================================
-
-    async function showPreview(templateId) {
-        if (typeof PRExpectancy === 'undefined') return;
-        if (typeof DecisionPreview === 'undefined') return;
-
-        const engine = PRExpectancy.getInstance();
-        const trades = engine.getTrades({ template: templateId });
-
-        if (trades.length < 3) {
-            elements.previewPanel.classList.add('hidden');
-            return;
-        }
-
-        const preview = DecisionPreview.create();
-        const stats = preview.analyze({
-            tei: currentTEI,
-            template: templateId,
-            time: new Date()
-        }, trades);
-
-        if (stats.hasData) {
-            $('#overlay-preview-winrate').textContent = `${stats.overallWinRate}%`;
-            $('#overlay-preview-timeout-wr').textContent = `${stats.timeoutStats.winRate}%`;
-            $('#overlay-preview-early-wr').textContent = `${stats.earlyStats.winRate}%`;
-            $('#overlay-preview-best').textContent = `→ ${stats.bestBehavior.description}`;
-            $('#overlay-preview-samples').textContent = `${stats.sampleSize} 筆記錄`;
-            $('#overlay-preview-confidence').textContent = `信心度: ${stats.confidence.label}`;
-            $('#overlay-preview-confidence').dataset.level = stats.confidence.level;
-
-            elements.previewPanel.classList.remove('hidden');
-        }
-    }
-
-    // =============================================================================
-    // EVENT SUBSCRIPTIONS
-    // =============================================================================
-
-    function setupEventListeners() {
-        // 點擊空白處關閉模板選擇器
-        document.addEventListener('click', (e) => {
-            if (!elements.templateSelector.contains(e.target) &&
-                !elements.floatingDot.contains(e.target)) {
-                elements.templateSelector.classList.add('hidden');
-            }
-        });
-    }
-
-    function subscribeToEvents() {
-        if (typeof EventBridge === 'undefined') return;
-
-        // 訂閱 TEI 更新
-        EventBridge.onTEIUpdate((data) => {
-            currentTEI = data.tei;
-            updateTEIDisplay(data.tei);
-        });
-
-        // 訂閱決策狀態變化
-        EventBridge.onDecisionStateChange((data) => {
-            console.log('[OverlayController] External state change:', data.state);
-        });
-    }
-
-    function updateTEIDisplay(tei) {
-        const teiValueEl = $('#overlay-tei-value');
-        const teiBarEl = $('#overlay-tei-bar');
-
-        if (teiValueEl) teiValueEl.textContent = tei;
-        if (teiBarEl) teiBarEl.style.width = `${tei}%`;
-    }
-
-    // =============================================================================
-    // PUBLIC API
-    // =============================================================================
-
-    return {
-        init,
-
-        show() {
-            if (elements.container) {
-                elements.container.style.display = 'block';
-            }
-        },
-
-        hide() {
-            if (elements.container) {
-                elements.container.style.display = 'none';
-            }
-        },
-
-        updateTEI(tei) {
-            currentTEI = tei;
-            updateTEIDisplay(tei);
-        },
-
-        showTemplateSelector() {
-            elements.templateSelector.classList.remove('hidden');
-        },
-
-        hideTemplateSelector() {
-            elements.templateSelector.classList.add('hidden');
-        }
-    };
-
-})();
-
-// Auto-initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', OverlayController.init);
-} else {
-    OverlayController.init();
-}
-
-// Export
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = OverlayController;
-}
+})(typeof window !== 'undefined' ? window : this);
