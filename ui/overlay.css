@@ -1,6 +1,6 @@
 /**
  * TENKI PRO Overlay Styles
- * 所有 class 使用 .overlay- 前綴，避免與星塵靈魂衝突
+ * 固定底部導航欄設計 - 參考 Bevel Pro 風格
  */
 
 /* ========== 容器 ========== */
@@ -12,76 +12,163 @@
   bottom: 0;
   z-index: 1000;
   pointer-events: none;
-  font-family: 'JetBrains Mono', 'Space Mono', monospace;
+  font-family: 'Inter', 'SF Pro Display', -apple-system, sans-serif;
 }
 
 #tenki-pro-overlay * {
   box-sizing: border-box;
 }
 
-/* ========== Decision Timer 浮動按鈕 ========== */
-.overlay-fab {
+/* ========== 固定底部導航欄 ========== */
+.overlay-bottom-bar {
   position: fixed;
-  bottom: 100px;
-  right: 20px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  background: rgba(18, 18, 22, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  pointer-events: auto;
+  z-index: 1001;
+}
+
+/* ========== 導航項目 ========== */
+.overlay-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 12px;
+  min-width: 64px;
+}
+
+.overlay-nav-item:active {
+  transform: scale(0.95);
+}
+
+.overlay-nav-item.active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.overlay-nav-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.2s;
+}
+
+.overlay-nav-item.active .overlay-nav-icon {
+  color: #00F0FF;
+}
+
+.overlay-nav-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.overlay-nav-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.2s;
+}
+
+.overlay-nav-item.active .overlay-nav-label {
+  color: #00F0FF;
+}
+
+/* ========== 中間主按鈕 (開始決策) ========== */
+.overlay-main-btn {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #00F0FF 0%, #7000FF 100%);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, #00F0FF 0%, #00C8FF 100%);
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  pointer-events: auto;
   box-shadow: 0 4px 20px rgba(0, 240, 255, 0.4);
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  z-index: 1001;
+  margin-top: -20px;
 }
 
-.overlay-fab:hover {
-  transform: scale(1.1);
+.overlay-main-btn:hover {
+  transform: scale(1.08);
   box-shadow: 0 6px 30px rgba(0, 240, 255, 0.6);
 }
 
-.overlay-fab:active {
+.overlay-main-btn:active {
   transform: scale(0.95);
 }
 
-.overlay-fab svg {
-  width: 24px;
-  height: 24px;
-  color: white;
+.overlay-main-btn svg {
+  width: 28px;
+  height: 28px;
+  color: #000;
 }
 
-/* ========== Decision Timer 面板 ========== */
+.overlay-main-btn.running {
+  background: linear-gradient(135deg, #FF5500 0%, #FF8800 100%);
+  box-shadow: 0 4px 20px rgba(255, 85, 0, 0.4);
+  animation: overlay-pulse-btn 1.5s infinite;
+}
+
+@keyframes overlay-pulse-btn {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* ========== 計時器彈出面板 ========== */
 .overlay-timer-panel {
   position: fixed;
-  bottom: 170px;
-  right: 20px;
-  width: 280px;
-  background: rgba(15, 15, 20, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  bottom: 100px;
+  left: 16px;
+  right: 16px;
+  max-width: 400px;
+  margin: 0 auto;
+  background: rgba(24, 24, 28, 0.98);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  border-radius: 24px;
   padding: 20px;
   pointer-events: auto;
   opacity: 0;
-  transform: translateY(20px) scale(0.95);
+  transform: translateY(20px);
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 1000;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
 }
 
 .overlay-timer-panel.show {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
 }
 
 .overlay-timer-panel.hide {
   opacity: 0;
-  transform: translateY(20px) scale(0.95);
+  transform: translateY(20px);
   pointer-events: none;
 }
 
@@ -94,16 +181,15 @@
 }
 
 .overlay-panel-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
-  color: #00F0FF;
-  letter-spacing: 1px;
-  text-transform: uppercase;
+  color: white;
+  letter-spacing: 0.5px;
 }
 
 .overlay-panel-close {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
   border: none;
@@ -112,6 +198,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 16px;
   transition: all 0.2s;
 }
 
@@ -124,96 +211,108 @@
 .overlay-template-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 10px;
 }
 
 .overlay-template-btn {
-  padding: 12px 16px;
+  padding: 14px 16px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border-radius: 16px;
   color: white;
-  font-size: 12px;
+  font-size: 14px;
   text-align: left;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .overlay-template-btn:hover {
-  background: rgba(0, 240, 255, 0.1);
+  background: rgba(0, 240, 255, 0.08);
   border-color: rgba(0, 240, 255, 0.3);
 }
 
 .overlay-template-btn.selected {
-  background: rgba(0, 240, 255, 0.15);
+  background: rgba(0, 240, 255, 0.12);
   border-color: #00F0FF;
+}
+
+.overlay-template-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .overlay-template-name {
   font-weight: 600;
-  margin-bottom: 4px;
+  font-size: 14px;
 }
 
 .overlay-template-duration {
-  font-size: 10px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
 }
 
-/* ========== 計時器顯示 ========== */
+.overlay-template-arrow {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 18px;
+}
+
+/* ========== 計時器顯示 (運行中) ========== */
 .overlay-timer-display {
   text-align: center;
-  padding: 20px 0;
+  padding: 24px 0;
 }
 
 .overlay-timer-time {
-  font-size: 48px;
-  font-weight: 900;
+  font-size: 64px;
+  font-weight: 800;
   background: linear-gradient(180deg, #FFFFFF 20%, #A0A0A0 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  letter-spacing: -2px;
+  letter-spacing: -3px;
+  line-height: 1;
 }
 
 .overlay-timer-segment {
   font-size: 14px;
   color: #00F0FF;
-  margin-top: 8px;
+  margin-top: 12px;
   font-weight: 600;
 }
 
 .overlay-timer-progress {
   width: 100%;
-  height: 4px;
+  height: 6px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  margin-top: 16px;
+  border-radius: 3px;
+  margin-top: 20px;
   overflow: hidden;
 }
 
 .overlay-timer-progress-bar {
   height: 100%;
   background: linear-gradient(90deg, #00F0FF, #7000FF);
-  border-radius: 2px;
+  border-radius: 3px;
   transition: width 0.3s linear;
 }
 
 /* ========== 動作按鈕 ========== */
 .overlay-action-row {
   display: flex;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .overlay-btn {
   flex: 1;
-  padding: 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  padding: 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   border: none;
@@ -232,7 +331,6 @@
 .overlay-btn-secondary {
   background: rgba(255, 255, 255, 0.1);
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .overlay-btn-secondary:hover {
@@ -242,72 +340,47 @@
 .overlay-btn-danger {
   background: rgba(255, 85, 85, 0.2);
   color: #FF5555;
-  border: 1px solid rgba(255, 85, 85, 0.3);
 }
 
 .overlay-btn-danger:hover {
   background: rgba(255, 85, 85, 0.3);
 }
 
-/* ========== 預覽面板 ========== */
+/* ========== 預覽統計 ========== */
 .overlay-preview-panel {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 12px;
-  padding: 16px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 14px;
+  padding: 14px;
   margin-bottom: 16px;
 }
 
 .overlay-preview-panel h3 {
-  font-size: 12px;
-  color: #00F0FF;
-  margin: 0 0 12px 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 10px 0;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .overlay-preview-stats {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  justify-content: space-around;
 }
 
 .overlay-preview-stat {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-}
-
-.overlay-preview-label {
-  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
 }
 
 .overlay-preview-value {
-  color: #00FF94;
+  font-size: 20px;
   font-weight: 700;
+  color: #00FF94;
 }
 
-.overlay-preview-count {
-  color: rgba(255, 255, 255, 0.4);
+.overlay-preview-label {
   font-size: 10px;
-  margin-left: 4px;
-}
-
-.overlay-preview-best {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.overlay-preview-best strong {
-  color: #FFD600;
-}
-
-.overlay-preview-sample {
-  font-size: 9px;
-  color: rgba(255, 255, 255, 0.4);
-  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 2px;
 }
 
 /* ========== Toast 通知 ========== */
@@ -316,12 +389,12 @@
   top: 80px;
   left: 50%;
   transform: translateX(-50%) translateY(-20px);
-  background: rgba(0, 255, 148, 0.9);
+  background: rgba(0, 255, 148, 0.95);
   color: black;
   padding: 12px 24px;
   border-radius: 99px;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   opacity: 0;
   pointer-events: none;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -342,25 +415,23 @@
 }
 
 .overlay-toast.abort {
-  background: rgba(255, 85, 85, 0.9);
+  background: rgba(255, 85, 85, 0.95);
   color: white;
 }
 
 /* ========== 動畫 ========== */
 @keyframes overlay-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .overlay-pulse {
   animation: overlay-pulse 1.5s infinite;
-}
-
-@keyframes overlay-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(0, 240, 255, 0.4); }
-  50% { box-shadow: 0 0 40px rgba(0, 240, 255, 0.8); }
-}
-
-.overlay-glow {
-  animation: overlay-glow 2s infinite;
 }
