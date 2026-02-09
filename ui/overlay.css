@@ -1,6 +1,41 @@
 /**
- * TENKI PRO Overlay - 已停用
- * 此功能已被移除以避免影響星塵靈魂的觸控操作
+ * TENKI PRO - 隱藏不需要的 UI 元素
+ * 使用 CSS 隱藏，不修改原始星塵靈魂程式碼
  */
 
-/* 此檔案刻意保持空白 */
+/* 隱藏 GLIMPSE / DEFAULT / SPECTRUM 掃描模式按鈕 */
+.scan-modes,
+.scan-mode-btn,
+[class*="glimpse"],
+[class*="spectrum"],
+button:has(> span:contains("GLIMPSE")),
+button:has(> span:contains("SPECTRUM")),
+.mode-selector,
+.scan-duration-selector {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+/* 隱藏「開始決策計時」按鈕 (如果還有殘留) */
+#tenki-timer-bar,
+#tenki-pro-fab,
+#tenki-pro-panel,
+#tenki-template-popup,
+#tenki-toast,
+.timer-main-btn,
+.overlay-fab,
+.overlay-timer-panel,
+.overlay-bottom-bar,
+[id^="tenki-"],
+[class^="overlay-"],
+[class^="timer-"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+/* 確保不會有任何遮擋 */
+#tenki-pro-overlay {
+    display: none !important;
+}
