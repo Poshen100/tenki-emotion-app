@@ -1,21 +1,23 @@
 /**
- * @fileoverview TENKI PRO Overlay - 極簡版
- * @description 不使用容器，直接在 body 添加元素，避免阻擋觸控
- * @version 4.0.0
+ * TENKI PRO - 決策計時功能條控制器
+ * 只在結果頁顯示，固定在底部
+ * @version 5.0.0
  */
 
 (function (global) {
   'use strict';
 
-  class TenkiProOverlay {
+  class TimerBarController {
     constructor() {
-      this.fab = null;
-      this.panel = null;
+      this.bar = null;
+      this.popup = null;
       this.toast = null;
-      this.isOpen = false;
-      this.state = 'IDLE';
+      this.state = 'IDLE'; // IDLE, RUNNING
       this.timer = null;
-      this.isResultsPage = false;
+      this.startTime = 0;
+      this.duration = 180;
+      this.intervalId = null;
+      this.events = []; // 事件紀錄
     }
 
     init() {
@@ -28,261 +30,277 @@
       this.bindEvents();
       this.watchForResultsPage();
 
-      console.log('[TenkiPro] v4.0 Ready - No container overlay');
+      console.log('[TimerBar] v5.0 Ready');
     }
 
     /**
-     * 直接在 body 創建元素，不使用容器
+     * 創建 DOM 元素
      */
     createElements() {
-      // FAB 按鈕
-      this.fab = document.createElement('button');
-      this.fab.id = 'tenki-pro-fab';
-      this.fab.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12 6 12 12 16 14"/>
-        </svg>
-      `;
-      document.body.appendChild(this.fab);
+      // 底部功能條
+      this.bar = document.createElement('div');
+      this.bar.id = 'tenki-timer-bar';
+      this.bar.innerHTML = this.getIdleBarHTML();
+      document.body.appendChild(this.bar);
 
-      // 面板
-      this.panel = document.createElement('div');
-      this.panel.id = 'tenki-pro-panel';
-      this.panel.innerHTML = this.getIdleHTML();
-      document.body.appendChild(this.panel);
+      // 模板選擇彈窗
+      this.popup = document.createElement('div');
+      this.popup.id = 'tenki-template-popup';
+      this.popup.innerHTML = `
+        <div class="popup-title">選擇決策模板</div>
+        <div class="popup-templates">
+          <button class="popup-template" data-template="MANCINI_FBD" data-duration="180">
+            <span class="popup-template-name">Mancini FBD</span>
+            <span class="popup-template-time">3 分鐘</span>
+          </button>
+          <button class="popup-template" data-template="CANSILM_GROWTH" data-duration="300">
+            <span class="popup-template-name">Cansilm 成長股</span>
+            <span class="popup-template-time">5 分鐘</span>
+          </button>
+          <button class="popup-template" data-template="CANSILM_HIGHRS" data-duration="240">
+            <span class="popup-template-name">High RS Breakout</span>
+            <span class="popup-template-time">4 分鐘</span>
+          </button>
+        </div>
+      `;
+      document.body.appendChild(this.popup);
 
       // Toast
       this.toast = document.createElement('div');
-      this.toast.id = 'tenki-pro-toast';
+      this.toast.id = 'tenki-toast';
       document.body.appendChild(this.toast);
+    }
+
+    getIdleBarHTML() {
+      return `
+        <button class="timer-main-btn" id="timer-start-btn">
+          <span>開始決策計時</span>
+        </button>
+        <button class="timer-clock-btn" id="timer-clock-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </button>
+      `;
+    }
+
+    getRunningBarHTML(timeStr) {
+      return `
+        <button class="timer-record-btn" id="timer-record-btn" title="記錄事件">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </button>
+        <button class="timer-main-btn running" id="timer-complete-btn">
+          <span>${timeStr}</span>
+        </button>
+        <button class="timer-clock-btn" id="timer-abort-btn" title="中斷">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      `;
     }
 
     /**
      * 監聽結果頁
      */
     watchForResultsPage() {
-      // 監聽 TEI 更新事件
-      window.addEventListener('tenki:tei-updated', () => {
-        this.showFAB();
-      });
+      const check = () => {
+        const hasScore = document.body.textContent.includes('TEI SCORE') ||
+          document.body.textContent.includes('SYSTEM LOCKED') ||
+          document.body.textContent.includes('Flow State') ||
+          document.body.textContent.includes('Optimal State');
 
-      // 定期檢查 (backup)
-      const checkInterval = setInterval(() => {
-        if (this.checkResultsPage()) {
-          // 找到結果頁後減少檢查頻率
-          clearInterval(checkInterval);
-          setInterval(() => this.checkResultsPage(), 2000);
+        const appHasTEI = global.app?.state?.tei > 0;
+
+        if (hasScore || appHasTEI) {
+          this.showBar();
+        } else {
+          this.hideBar();
         }
-      }, 500);
+      };
+
+      // 初始檢查
+      setTimeout(check, 1000);
+
+      // 持續檢查
+      setInterval(check, 1500);
+
+      // 監聽事件
+      window.addEventListener('tenki:tei-updated', () => this.showBar());
+    }
+
+    showBar() {
+      this.bar.classList.add('visible');
+    }
+
+    hideBar() {
+      this.bar.classList.remove('visible');
+      this.popup.classList.remove('show');
     }
 
     /**
-     * 檢查是否在結果頁
+     * 綁定事件
      */
-    checkResultsPage() {
-      // 檢查是否有 TEI 相關內容
-      const hasScore = document.body.textContent.includes('TEI SCORE') ||
-        document.body.textContent.includes('SYSTEM LOCKED') ||
-        document.body.textContent.includes('Flow State');
-
-      const appHasTEI = global.app?.state?.tei > 0;
-
-      if (hasScore || appHasTEI) {
-        if (!this.isResultsPage) {
-          this.isResultsPage = true;
-          this.showFAB();
-          return true;
-        }
-      } else {
-        if (this.isResultsPage) {
-          this.isResultsPage = false;
-          this.hideFAB();
-        }
-      }
-      return this.isResultsPage;
-    }
-
-    showFAB() {
-      this.fab.classList.add('visible');
-    }
-
-    hideFAB() {
-      this.fab.classList.remove('visible');
-      this.closePanel();
-    }
-
-    getIdleHTML() {
-      return `
-        <div class="tp-header">
-          <div class="tp-title">決策計時器</div>
-          <button class="tp-close" onclick="TENKI_PRO.closePanel()">✕</button>
-        </div>
-        <div class="tp-templates">
-          <button class="tp-template" data-template="MANCINI_FBD">
-            <span class="tp-template-name">Mancini FBD</span>
-            <span class="tp-template-time">3 分鐘</span>
-          </button>
-          <button class="tp-template" data-template="CANSILM_GROWTH">
-            <span class="tp-template-name">Cansilm 成長股</span>
-            <span class="tp-template-time">5 分鐘</span>
-          </button>
-          <button class="tp-template" data-template="CANSILM_HIGHRS">
-            <span class="tp-template-name">High RS Breakout</span>
-            <span class="tp-template-time">4 分鐘</span>
-          </button>
-        </div>
-      `;
-    }
-
-    getRunningHTML(remaining, segment, percent) {
-      const mins = Math.floor(remaining / 60);
-      const secs = remaining % 60;
-      const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
-
-      return `
-        <div class="tp-header">
-          <div class="tp-title">計時中</div>
-          <button class="tp-close" onclick="TENKI_PRO.closePanel()">✕</button>
-        </div>
-        <div class="tp-timer">
-          <div class="tp-time">${timeStr}</div>
-          <div class="tp-segment">${segment?.label || '準備中'}</div>
-          <div class="tp-progress">
-            <div class="tp-progress-bar" style="width: ${percent}%"></div>
-          </div>
-        </div>
-        <div class="tp-actions">
-          <button class="tp-btn tp-btn-danger" onclick="TENKI_PRO.abort()">中斷</button>
-          <button class="tp-btn tp-btn-primary" onclick="TENKI_PRO.complete()">完成</button>
-        </div>
-      `;
-    }
-
     bindEvents() {
-      // FAB 點擊
-      this.fab.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.togglePanel();
+      // 事件委託
+      this.bar.addEventListener('click', (e) => {
+        const target = e.target.closest('button');
+        if (!target) return;
+
+        if (target.id === 'timer-start-btn' || target.id === 'timer-clock-btn') {
+          this.togglePopup();
+        } else if (target.id === 'timer-complete-btn') {
+          this.complete();
+        } else if (target.id === 'timer-abort-btn') {
+          this.abort();
+        } else if (target.id === 'timer-record-btn') {
+          this.recordEvent();
+        }
       });
 
-      // 面板點擊 (模板選擇)
-      this.panel.addEventListener('click', (e) => {
-        const btn = e.target.closest('.tp-template');
+      // 模板選擇
+      this.popup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.popup-template');
         if (btn) {
-          e.preventDefault();
-          e.stopPropagation();
-          this.startTimer(btn.dataset.template);
+          const template = btn.dataset.template;
+          const duration = parseInt(btn.dataset.duration) || 180;
+          this.start(template, duration);
         }
       });
 
-      // 點擊外部關閉
+      // 點擊外部關閉彈窗
       document.addEventListener('click', (e) => {
-        if (this.isOpen &&
-          !this.panel.contains(e.target) &&
-          !this.fab.contains(e.target)) {
-          this.closePanel();
+        if (!this.popup.contains(e.target) &&
+          !e.target.closest('#timer-start-btn') &&
+          !e.target.closest('#timer-clock-btn')) {
+          this.popup.classList.remove('show');
         }
       });
-
-      // 計時器回調
-      if (this.timer) {
-        this.timer.onProgress?.((data) => {
-          if (this.state === 'RUNNING') {
-            this.panel.innerHTML = this.getRunningHTML(data.remaining, data.segment, data.percent);
-          }
-        });
-
-        this.timer.onTimeout?.(() => {
-          this.showToast('🎉 耐心等待成功！', 'timeout');
-          this.resetToIdle();
-        });
-
-        this.timer.onComplete?.(() => {
-          this.showToast('✓ 決策完成', 'complete');
-          this.resetToIdle();
-        });
-
-        this.timer.onAbort?.(() => {
-          this.showToast('✗ 已中斷', 'abort');
-          this.resetToIdle();
-        });
-      }
     }
 
-    togglePanel() {
-      this.isOpen = !this.isOpen;
-      this.panel.classList.toggle('show', this.isOpen);
+    togglePopup() {
+      this.popup.classList.toggle('show');
     }
 
-    closePanel() {
-      this.isOpen = false;
-      this.panel.classList.remove('show');
-    }
-
-    startTimer(template) {
+    /**
+     * 開始計時
+     */
+    start(template, duration) {
       this.state = 'RUNNING';
+      this.startTime = Date.now();
+      this.duration = duration;
+      this.events = [];
+      this.popup.classList.remove('show');
 
+      // 更新 UI
+      this.updateTimerDisplay();
+      this.intervalId = setInterval(() => this.updateTimerDisplay(), 1000);
+
+      // 使用核心計時器模組
       if (this.timer) {
         this.timer.preview?.(template, global.app?.state?.tei || 50);
         this.timer.start?.();
       }
 
-      // 更新 FAB
-      this.fab.classList.add('running');
-      this.fab.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <rect x="6" y="4" width="4" height="16" rx="1"/>
-          <rect x="14" y="4" width="4" height="16" rx="1"/>
-        </svg>
-      `;
-
-      // 顯示計時
-      this.panel.innerHTML = this.getRunningHTML(180, { label: '開始...' }, 0);
+      this.showToast(`開始計時 ${Math.floor(duration / 60)} 分鐘`);
     }
 
-    complete() {
-      this.timer?.complete?.();
+    updateTimerDisplay() {
+      const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+      const remaining = Math.max(0, this.duration - elapsed);
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+      const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+      this.bar.innerHTML = this.getRunningBarHTML(timeStr);
+
+      if (remaining <= 0) {
+        this.timeout();
+      }
     }
 
-    abort() {
-      this.timer?.abort?.();
+    /**
+     * 記錄事件
+     */
+    recordEvent() {
+      const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+      this.events.push({
+        time: elapsed,
+        timestamp: new Date().toISOString()
+      });
+
+      // 視覺反饋
+      const btn = document.getElementById('timer-record-btn');
+      if (btn) {
+        btn.classList.add('recorded');
+        setTimeout(() => btn.classList.remove('recorded'), 500);
+      }
+
+      this.showToast(`✓ 事件已記錄 (${this.events.length})`);
+    }
+
+    /**
+     * 時間到
+     */
+    timeout() {
+      this.stopTimer();
+      this.showToast('🎉 耐心等待成功！');
       this.resetToIdle();
+    }
+
+    /**
+     * 完成
+     */
+    complete() {
+      this.stopTimer();
+      this.timer?.complete?.();
+      this.showToast('✓ 決策完成');
+      this.resetToIdle();
+    }
+
+    /**
+     * 中斷
+     */
+    abort() {
+      this.stopTimer();
+      this.timer?.abort?.();
+      this.showToast('✗ 已中斷');
+      this.resetToIdle();
+    }
+
+    stopTimer() {
+      if (this.intervalId) {
+        clearInterval(this.intervalId);
+        this.intervalId = null;
+      }
     }
 
     resetToIdle() {
       this.state = 'IDLE';
-      this.fab.classList.remove('running');
-      this.fab.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12 6 12 12 16 14"/>
-        </svg>
-      `;
-      this.panel.innerHTML = this.getIdleHTML();
-      this.closePanel();
+      this.bar.innerHTML = this.getIdleBarHTML();
       this.timer?.reset?.();
     }
 
-    showToast(msg, type) {
+    showToast(msg) {
       this.toast.textContent = msg;
-      this.toast.className = `show ${type}`;
-      setTimeout(() => {
-        this.toast.className = '';
-      }, 2500);
+      this.toast.classList.add('show');
+      setTimeout(() => this.toast.classList.remove('show'), 2500);
     }
   }
 
   // 全域實例
-  const overlay = new TenkiProOverlay();
-  global.TENKI_PRO = overlay;
+  const controller = new TimerBarController();
+  global.TENKI_TIMER = controller;
 
   // 初始化
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => overlay.init());
+    document.addEventListener('DOMContentLoaded', () => controller.init());
   } else {
-    overlay.init();
+    controller.init();
   }
 
 })(window);
