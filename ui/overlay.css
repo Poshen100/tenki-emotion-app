@@ -1,41 +1,44 @@
 /**
  * TENKI PRO - 隱藏不需要的 UI 元素
- * 使用 CSS 隱藏，不修改原始星塵靈魂程式碼
+ * 使用 CSS 隱藏 GLIMPSE / DEFAULT / SPECTRUM 按鈕
  */
 
-/* 隱藏 GLIMPSE / DEFAULT / SPECTRUM 掃描模式按鈕 */
-.scan-modes,
-.scan-mode-btn,
-[class*="glimpse"],
-[class*="spectrum"],
-button:has(> span:contains("GLIMPSE")),
-button:has(> span:contains("SPECTRUM")),
+/* ========== 隱藏掃描模式選擇器 (GLIMPSE/DEFAULT/SPECTRUM) ========== */
+#precision-tabs,
+.precision-tab,
+[data-mode="glimpse"],
+[data-mode="default"],
+[data-mode="spectrum"],
+.scan-mode-selector,
 .mode-selector,
-.scan-duration-selector {
+.duration-selector {
     display: none !important;
     visibility: hidden !important;
+    opacity: 0 !important;
     pointer-events: none !important;
+    height: 0 !important;
+    overflow: hidden !important;
 }
 
-/* 隱藏「開始決策計時」按鈕 (如果還有殘留) */
+/* 確保任何包含 GLIMPSE / DEFAULT / SPECTRUM 文字的按鈕都隱藏 */
+button[class*="precision"],
+button[class*="mode"],
+div[class*="precision"],
+div[id*="precision"] {
+    display: none !important;
+}
+
+/* ========== 隱藏所有 TENKI PRO overlay 元素 ========== */
 #tenki-timer-bar,
 #tenki-pro-fab,
 #tenki-pro-panel,
 #tenki-template-popup,
 #tenki-toast,
-.timer-main-btn,
-.overlay-fab,
-.overlay-timer-panel,
-.overlay-bottom-bar,
+#tenki-pro-overlay,
 [id^="tenki-"],
 [class^="overlay-"],
 [class^="timer-"] {
     display: none !important;
     visibility: hidden !important;
     pointer-events: none !important;
-}
-
-/* 確保不會有任何遮擋 */
-#tenki-pro-overlay {
-    display: none !important;
 }
