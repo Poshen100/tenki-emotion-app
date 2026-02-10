@@ -328,39 +328,27 @@ const app = {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
 
+        // FIXED P0: Always show elapsed time, never freeze with "✓ LOCKED"
         if (timerEl) {
-            if (isLocked) {
-                timerEl.innerText = '✓ LOCKED';
-                timerEl.style.color = '#00FF94';
-            } else {
-                timerEl.innerText = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
-                timerEl.style.color = '';
-            }
+            timerEl.innerText = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+            timerEl.style.color = isLocked ? '#00FF94' : '';
         }
 
         const hrvEl = document.getElementById('hrv-count-val');
         if (hrvEl) {
             hrvEl.innerText = hrvCount;
-            // Color based on progress toward target
             if (hrvCount >= 60) hrvEl.style.color = '#00FF94';
             else if (hrvCount >= 30) hrvEl.style.color = '#00D4AA';
             else hrvEl.style.color = '';
         }
 
-        // Update progress indicators
+        // FIXED P0: Show simple progress without "數據已鎖定" freeze text
         const progressEl = document.getElementById('scan-progress-info');
         if (progressEl) {
             if (isLocked) {
-                progressEl.innerText = `✓ ${info.label} · 數據已鎖定`;
+                progressEl.innerText = `✓ ${info.label}`;
             } else {
-                const beatsRemaining = milestone === 'DEEP' ? 0 :
-                    milestone === 'STANDARD' ? Math.max(0, 60 - hrvCount) :
-                        Math.max(0, 30 - hrvCount);
-                if (beatsRemaining > 0) {
-                    progressEl.innerText = `收集中 · 還需 ${beatsRemaining} 組心率`;
-                } else {
-                    progressEl.innerText = info.label;
-                }
+                progressEl.innerText = info.label;
             }
         }
     },
@@ -392,6 +380,9 @@ const app = {
             labelEl.innerText = labels[reason] || '✓ COMPLETE';
             labelEl.style.color = '#00FF94';
         }
+
+        // FIXED P0: Immediately trigger final dashboard update — no processing wait
+        this.updateDashboardVisuals();
 
         // Celebratory vibration
         if (navigator.vibrate) {
@@ -1314,7 +1305,7 @@ const app = {
         const snapRr = document.getElementById('snap-rr');
         if (snapRr) snapRr.innerHTML = Math.round(m.rr) + '<span class="snapshot-unit">/m</span>';
 
-        // Update ANS Balance
+        // FIXED P2: Smooth ANS Balance update with lerp animation
         const snsPct = Math.round(m.sns);
         const pnsPct = Math.round(m.pns);
 
@@ -1323,10 +1314,9 @@ const app = {
         const ansPnsBar = document.getElementById('ans-pns-bar');
         if (ansPnsBar) ansPnsBar.style.width = pnsPct + "%";
 
-        const snsVal = document.getElementById('sns-val');
-        if (snsVal) snsVal.innerText = snsPct + "%";
-        const pnsVal = document.getElementById('pns-val');
-        if (pnsVal) pnsVal.innerText = pnsPct + "%";
+        // Smooth number animation for SNS/PNS text values
+        this._animateANSText('sns-val', snsPct);
+        this._animateANSText('pns-val', pnsPct);
 
         const ratioEl = document.getElementById('ans-ratio');
         if (ratioEl) ratioEl.innerText = `${snsPct}/${pnsPct}`;
@@ -1347,8 +1337,32 @@ const app = {
             });
         }
 
-        // Update 6-card Bio-Decision Dashboard
+        // Update 4-card Bio-Decision Dashboard (Arousal & Signal removed)
         this.updateBioCards();
+    },
+
+    // FIXED P2: Smooth number lerp for ANS text values
+    _animateANSText: function (elementId, targetValue) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+
+        // Initialize tracking if needed
+        if (!this._ansDisplay) this._ansDisplay = {};
+        const key = elementId;
+        if (this._ansDisplay[key] === undefined) this._ansDisplay[key] = targetValue;
+
+        const current = this._ansDisplay[key];
+        if (current === targetValue) {
+            el.innerText = targetValue + '%';
+            return;
+        }
+
+        // Lerp toward target over ~1.5s (multiple updateDashboardVisuals calls)
+        const diff = targetValue - current;
+        const step = diff * 0.15; // 15% per frame
+        const next = Math.abs(step) < 0.5 ? targetValue : current + step;
+        this._ansDisplay[key] = Math.round(next);
+        el.innerText = Math.round(next) + '%';
     },
 
     // Bio-Decision Dashboard - 6 Card Update Logic
@@ -1472,19 +1486,10 @@ const app = {
             stressZoneBadge.innerText = stressZone.label;
         }
 
-        // Card F: Signal Quality
-        const bioQualityVal = document.getElementById('bio-quality-val');
-        const quality = rppgMetrics.quality || 0;
-        if (bioQualityVal) bioQualityVal.innerText = Math.round(quality * 100);
-
-        // Update signal indicators
-        this.updateSignalIndicators(quality);
+        // Card F: Signal Quality — REMOVED (card deleted from HTML)
 
         // Update Tier/Source indicator
         this.updateTierIndicator();
-
-        // Check for quality degradation
-        this.updateQualityWarning();
 
         // Check for bio-pattern alerts
         this.checkBioPatternAlert(m, rmssd, rsaCoherence);

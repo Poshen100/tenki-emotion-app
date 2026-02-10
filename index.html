@@ -896,12 +896,19 @@
             filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.3));
         }
 
-        /* Bio-Decision Dashboard - 6 Card Grid */
+        /* Bio-Decision Dashboard - 4 Card Grid (2x2) */
         .bio-dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             gap: 12px;
             margin-top: 16px;
+        }
+
+        /* ANS Balance Bar — smooth transitions */
+        .ans-sns-fill,
+        .ans-pns-fill {
+            transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: width;
         }
 
         .bio-card {
@@ -1393,7 +1400,7 @@
                             class="text-[10px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1">
                             <i data-lucide="layout-grid" class="w-3 h-3 text-cyan-400"></i> Bio-Decision Dashboard
                         </span>
-                        <span class="text-[8px] text-gray-600 font-mono-tech">PHASE 1 MVP</span>
+                        <span class="text-[8px] text-gray-600 font-mono-tech">LIVE</span>
                     </div>
 
                     <div class="bio-dashboard-grid">
@@ -1469,20 +1476,7 @@
                             </div>
                         </div>
 
-                        <!-- Card D: Arousal Index (Phase 3 Placeholder) -->
-                        <div class="bio-card" id="bio-card-arousal" style="opacity: 0.5;">
-                            <div class="bio-card-header">
-                                <span class="bio-card-title">Arousal</span>
-                                <span class="text-lg">👁️</span>
-                            </div>
-                            <div class="flex items-baseline gap-2">
-                                <div class="bio-card-value text-cyan-400">--</div>
-                                <span class="bio-card-unit">mm</span>
-                            </div>
-                            <div class="bio-card-footer">
-                                <span class="text-[8px] text-gray-500 italic">Phase 3 · iOS Face ID</span>
-                            </div>
-                        </div>
+                        <!-- Card D: Arousal — REMOVED (no data source) -->
 
                         <!-- Card E: Stress Load (TEI PR) -->
                         <div class="bio-card" id="bio-card-stress">
@@ -1499,31 +1493,7 @@
                             </div>
                         </div>
 
-                        <!-- Card F: Signal Quality -->
-                        <div class="bio-card" id="bio-card-quality">
-                            <div class="bio-card-header">
-                                <span class="bio-card-title">Signal Quality</span>
-                                <i data-lucide="wifi" class="bio-card-icon text-cyan-400"></i>
-                            </div>
-                            <div class="flex items-baseline gap-2">
-                                <div class="bio-card-value text-cyan-400" id="bio-quality-val">--</div>
-                                <span class="bio-card-unit">%</span>
-                            </div>
-                            <div class="signal-quality-row">
-                                <div class="signal-indicator good" id="sig-iso">
-                                    <span class="signal-dot"></span>
-                                    <span>ISO</span>
-                                </div>
-                                <div class="signal-indicator good" id="sig-gyro">
-                                    <span class="signal-dot"></span>
-                                    <span>GYRO</span>
-                                </div>
-                                <div class="signal-indicator" id="sig-ble" style="opacity: 0.4;">
-                                    <span class="signal-dot"></span>
-                                    <span>BLE</span>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Card F: Signal Quality — REMOVED (static, no value) -->
                     </div>
                 </div>
 

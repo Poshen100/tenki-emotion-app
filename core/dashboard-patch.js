@@ -39,7 +39,6 @@
             bioHrvVal: 'bio-hrv-val',
             bioRrVal: 'bio-rr-val',
             bioStressPr: 'bio-stress-pr',
-            bioQualityVal: 'bio-quality-val',
 
             // Status badges
             hrvStatusBadge: 'hrv-status-badge',
@@ -175,6 +174,8 @@
 
         if (snsBar) snsBar.style.width = sns + '%';
         if (pnsBar) pnsBar.style.width = pns + '%';
+
+        // Card F: Signal Quality — REMOVED (card deleted from HTML)
     }
 
     // =============================================================================
@@ -280,8 +281,7 @@
             'bio-stress-pr',
             'bio-hr-val',
             'bio-hrv-val',
-            'bio-rr-val',
-            'bio-quality-val'
+            'bio-rr-val'
         ];
 
         elementsToWatch.forEach(id => {
@@ -299,8 +299,7 @@
                                 'bio-stress-pr': '50',
                                 'bio-hr-val': '72',
                                 'bio-hrv-val': '45',
-                                'bio-rr-val': '14',
-                                'bio-quality-val': '0'
+                                'bio-rr-val': '14'
                             };
                             el.innerText = defaults[id] || '--';
                             console.log('[DASHBOARD-PATCH] Fixed NaN in', id);
@@ -326,8 +325,7 @@
                         'bio-stress-pr': '50',
                         'bio-hr-val': '72',
                         'bio-hrv-val': '45',
-                        'bio-rr-val': '14',
-                        'bio-quality-val': '0'
+                        'bio-rr-val': '14'
                     };
                     el.innerText = defaults[id] || '--';
                 }
