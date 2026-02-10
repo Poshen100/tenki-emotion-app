@@ -45,13 +45,49 @@ const app = {
         // v2.0: Derived SQS for TEI calculation
         sqsGrade: 'D',
         sqsTotal: 0,
-        sceneQuotes: [
-            "Clear mind, clean execution. 專注當下，從容決策。",
-            "Quality signals, quality decisions. 優質訊號，優質決策。",
-            "Stable rhythm, steady progress. 平穩節奏，穩健前進。",
-            "Trust the process. 相信過程。",
-            "Breathe deeply, think clearly. 深呼吸，清晰思考。"
-        ]
+        // Themed inspirational quotes by zone
+        sceneQuotes: {
+            PEAK: [
+                "巔峰時刻，萬事皆可為。",
+                "心如止水，劍如流星。",
+                "The mind is everything. What you think, you become.",
+                "靈感湧現的時刻，抓住它。",
+                "Flow state unlocked. 心流已開。",
+                "Stars can't shine without darkness. 黑暗中才見繁星。"
+            ],
+            OPTIMAL: [
+                "保持專注，靜水流深。",
+                "穩定是力量的基石。",
+                "In the middle of difficulty lies opportunity. — Einstein",
+                "一步一腳印，踏實前行。",
+                "Clarity comes from engagement, not thought. 清晰來自行動。",
+                "好的狀態，值得好好運用。"
+            ],
+            NEUTRAL: [
+                "深呼吸，讓心回到中心。",
+                "Be still and know. 靜下來，你就會知道。",
+                "每一次呼吸都是重新開始。",
+                "慢慢來，比較快。",
+                "Breathe in calm, breathe out tension. 吸入平靜，呼出緊張。",
+                "調整節奏，一切都來得及。"
+            ],
+            DEGRADED: [
+                "休息是為了走更長的路。",
+                "Even the sun sets to rise again. 落日是為了再次升起。",
+                "溫柔地對待自己。",
+                "閉上眼睛，感受此刻的寧靜。",
+                "Rest is not idleness. 休息不是偷懶。",
+                "此刻最好的決定，是善待自己。"
+            ],
+            SCANNING: [
+                "正在傾聽你的身體。",
+                "每一次心跳都在說話。",
+                "Listening to your rhythm. 聆聽你的節奏。",
+                "數據正在描繪你的狀態。",
+                "Trust the process. 相信過程。"
+            ]
+        },
+        _lastQuoteIdx: {}
     },
     audioCtx: null, analyser: null, dataArray: null, stream: null, lightCtx: null,
 
@@ -640,57 +676,49 @@ const app = {
             let quoteContent = '';
 
             if (phase <= 1) {
-                // Glimpse (2s): Show range + confidence + zone hint
-                const confidence = this.state.liveConfidence || 30;
-                const teiHalfRange = Math.round((100 - confidence) * 0.15);
-                const teiLow = Math.max(0, displayTei - teiHalfRange);
-                const teiHigh = Math.min(100, displayTei + teiHalfRange);
-                // v55.1: Add zone interpretation for user understanding
-                const zoneHint = displayTei >= 65 ? '偏佳' : (displayTei >= 40 ? '中性' : '偏低');
-                quoteContent = `TEI ${teiLow}–${teiHigh} · ${zoneHint}區間 (${confidence}%)`;
+                // Glimpse (2s): Short calming message
+                const scanQuotes = this.state.sceneQuotes['SCANNING'];
+                quoteContent = scanQuotes[Math.floor(Math.random() * scanQuotes.length)];
             } else if (phase <= 3) {
-                // Preview/Default (15-30s): Show metrics + gate
-                quoteContent = `RMSSD ${rmssd}ms | BPM ${bpm} | Gate: ${gateText}`;
+                // Preview/Default: Zone-themed quote
+                const quoteZone = zone || 'NEUTRAL';
+                const quotes = this.state.sceneQuotes[quoteZone] || this.state.sceneQuotes['NEUTRAL'];
+                quoteContent = quotes[Math.floor(Math.random() * quotes.length)];
             } else {
-                // Spectrum (60s): Full metrics + actionable suggestion (unified Chinese)
-                const suggestions = {
-                    'PEAK': '巔峰狀態 · 適合重要決策',
-                    'OPTIMAL': '狀態良好 · 建議保持專注',
-                    'NEUTRAL': '建議深呼吸 · 4-7-8 呼吸法',
-                    'DEGRADED': '建議休息 · 暫緩重要決策'
-                };
-                const suggestion = suggestions[zone] || '狀態穩定';
-                quoteContent = `RMSSD ${rmssd}ms | BPM ${bpm} | Q ${quality}% | ${suggestion}`;
+                // Spectrum (60s): Zone-themed quote with subtle metric
+                const quoteZone = zone || 'NEUTRAL';
+                const quotes = this.state.sceneQuotes[quoteZone] || this.state.sceneQuotes['NEUTRAL'];
+                quoteContent = quotes[Math.floor(Math.random() * quotes.length)];
             }
 
             quoteEl.textContent = quoteContent;
             quoteEl.style.color = messageColor;
         }
 
-        // v55.1: Update dash-label with progress percentage
+        // v55.1: Update dash-label with inspirational quotes (themed by zone)
         const labelEl = document.getElementById('dash-label');
         if (labelEl) {
-            const hrvCount = this.state.validHrvCount || 0;
-            const hrvTarget = 60; // Target for reliable precision
-            const hrvProgress = Math.min(100, Math.round((hrvCount / hrvTarget) * 100));
-            const phaseMax = 4;
-
             if (this.state.scanComplete) {
-                labelEl.innerText = `可靠精度 ✓ (${hrvCount}+ 樣本)`;
-                labelEl.style.color = '#00FF94';
-            } else if (this.state.isScanning) {
-                if (hrvCount >= 60) {
-                    labelEl.innerText = `可靠精度 ✓ ${hrvCount} 樣本`;
-                    labelEl.style.color = '#00FF94';
-                } else {
-                    // v55.1: Show progress as percentage and fraction
-                    labelEl.innerText = `Phase ${phase}/${phaseMax} · ${hrvProgress}% (${hrvCount}/${hrvTarget})`;
-                    labelEl.style.color = '#00F0FF';
+                // Show themed quote after scan completes
+                const quoteZone = zone || 'NEUTRAL';
+                const quotes = this.state.sceneQuotes[quoteZone] || this.state.sceneQuotes['NEUTRAL'];
+                if (!this.state._lastQuoteIdx[quoteZone]) this.state._lastQuoteIdx[quoteZone] = 0;
+                // Rotate quote every ~8 seconds (40 updateLiveScore calls at 200ms)
+                if (!this._quoteCounter) this._quoteCounter = 0;
+                this._quoteCounter++;
+                if (this._quoteCounter % 40 === 0) {
+                    this.state._lastQuoteIdx[quoteZone] = (this.state._lastQuoteIdx[quoteZone] + 1) % quotes.length;
                 }
-            } else if (zone !== this.state.lastZone) {
-                labelEl.innerText = zone;
+                labelEl.innerText = quotes[this.state._lastQuoteIdx[quoteZone]];
                 labelEl.style.color = messageColor;
-                this.state.lastZone = zone;
+            } else if (this.state.isScanning) {
+                // Show scanning quotes during scan
+                const scanQuotes = this.state.sceneQuotes['SCANNING'];
+                if (!this._scanQuoteCounter) this._scanQuoteCounter = 0;
+                this._scanQuoteCounter++;
+                const idx = Math.floor(this._scanQuoteCounter / 40) % scanQuotes.length;
+                labelEl.innerText = scanQuotes[idx];
+                labelEl.style.color = '#00F0FF';
             }
         }
 
@@ -1123,6 +1151,7 @@ const app = {
             ringPath.style.strokeDashoffset = maxOffset;
 
             let lastPhase = 0;
+            let dashboardShown = false; // Guard to show dashboard only once
             const phaseThresholds = [
                 { ms: 2000, phase: 1, name: 'GLIMPSE', confidence: 30 },
                 { ms: 15000, phase: 2, name: 'PREVIEW', confidence: 50 },
@@ -1147,6 +1176,16 @@ const app = {
                 const pct = Math.min(100, (elapsed / modeDuration) * 100);
                 ringPath.style.strokeDashoffset = maxOffset - (pct / 100) * maxOffset;
 
+                // FIXED: Show dashboard only after ring animation completes
+                if (pct >= 100 && !dashboardShown) {
+                    dashboardShown = true;
+                    self.showSeamlessDashboard();
+                    self.state.scanComplete = true;
+                    document.getElementById('instruction').innerText = "SCAN COMPLETE";
+                    document.getElementById('instruction').style.color = "#00FF94";
+                    if (navigator.vibrate) navigator.vibrate([50, 30, 50, 30, 100]);
+                }
+
                 for (let i = phaseThresholds.length - 1; i >= 0; i--) {
                     const pt = phaseThresholds[i];
                     if (elapsed >= pt.ms && lastPhase < pt.phase) {
@@ -1155,23 +1194,14 @@ const app = {
                         self.state.liveConfidence = pt.confidence;
 
                         if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
-                        if (pt.phase === 1) self.showSeamlessDashboard();
-
-                        document.getElementById('instruction').innerText = pt.name + " · " + Math.round(elapsed / 1000) + "s";
-
-                        if (pt.phase === 4) {
-                            self.state.scanComplete = true;
-                            document.getElementById('instruction').innerText = "SCAN COMPLETE";
-                            document.getElementById('instruction').style.color = "#00FF94";
-                            if (navigator.vibrate) navigator.vibrate([50, 30, 50, 30, 100]);
-                        }
                         break;
                     }
                 }
 
-                if (!self.state.gateHold && lastPhase > 0) {
+                // Show progress text on HUD while ring fills
+                if (!self.state.gateHold && !dashboardShown) {
                     const secs = Math.round(elapsed / 1000);
-                    const currentPhaseName = phaseThresholds[lastPhase - 1]?.name || 'SCANNING';
+                    const currentPhaseName = lastPhase > 0 ? (phaseThresholds[lastPhase - 1]?.name || 'SCANNING') : 'SCANNING';
                     document.getElementById('instruction').innerText = currentPhaseName + " · " + secs + "s";
                     document.getElementById('instruction').style.color = "#00F0FF";
                 }
