@@ -663,32 +663,27 @@ const app = {
             confEl.innerText = displayConf + '%';
         }
 
-        // v55.0: Phase-aware progressive precision display
+        // v55.0: Phase-aware progressive precision display (Stabilized)
         const quoteEl = document.getElementById('dash-quote');
         if (quoteEl) {
-            const rmssd = Math.round(m.rmssd || 45);
-            const bpm = Math.round(m.hr);
-            const gate = this.gatePass();
-            const gateText = gate.pass ? 'PASS ✓' : gate.reason;
-            const hrvCount = this.state.validHrvCount || 0;
-            const quality = Math.round((this.state.rppg?.metrics?.quality || 0) * 100);
-
             let quoteContent = '';
+            const quoteZone = zone || 'NEUTRAL';
+            const quotes = this.state.sceneQuotes[quoteZone] || this.state.sceneQuotes['NEUTRAL'];
+
+            // Use same rotation logic as dash-label for stability
+            if (!this._quoteIdx) this._quoteIdx = 0;
+            if (!this._quoteStep) this._quoteStep = 0;
+            this._quoteStep++;
+            if (this._quoteStep % 40 === 0) { // Rotate every ~8s
+                this._quoteIdx = (this._quoteIdx + 1) % quotes.length;
+            }
 
             if (phase <= 1) {
-                // Glimpse (2s): Short calming message
                 const scanQuotes = this.state.sceneQuotes['SCANNING'];
-                quoteContent = scanQuotes[Math.floor(Math.random() * scanQuotes.length)];
-            } else if (phase <= 3) {
-                // Preview/Default: Zone-themed quote
-                const quoteZone = zone || 'NEUTRAL';
-                const quotes = this.state.sceneQuotes[quoteZone] || this.state.sceneQuotes['NEUTRAL'];
-                quoteContent = quotes[Math.floor(Math.random() * quotes.length)];
+                const scanIdx = Math.floor(this._quoteStep / 40) % scanQuotes.length;
+                quoteContent = scanQuotes[scanIdx];
             } else {
-                // Spectrum (60s): Zone-themed quote with subtle metric
-                const quoteZone = zone || 'NEUTRAL';
-                const quotes = this.state.sceneQuotes[quoteZone] || this.state.sceneQuotes['NEUTRAL'];
-                quoteContent = quotes[Math.floor(Math.random() * quotes.length)];
+                quoteContent = quotes[this._quoteIdx % quotes.length];
             }
 
             quoteEl.textContent = quoteContent;
@@ -1171,20 +1166,12 @@ const app = {
                 }
 
                 self.state.gateHold = false;
-                // FIXED P1: Use mode-specific duration instead of hardcoded 60000
-                const modeDuration = self.config.scanDurationByMode[self.state.scanMode] || 60000;
-                const pct = Math.min(100, (elapsed / modeDuration) * 100);
-                ringPath.style.strokeDashoffset = maxOffset - (pct / 100) * maxOffset;
 
-                // FIXED: Show dashboard only after ring animation completes
-                if (pct >= 100 && !dashboardShown) {
-                    dashboardShown = true;
-                    self.showSeamlessDashboard();
-                    self.state.scanComplete = true;
-                    document.getElementById('instruction').innerText = "SCAN COMPLETE";
-                    document.getElementById('instruction').style.color = "#00FF94";
-                    if (navigator.vibrate) navigator.vibrate([50, 30, 50, 30, 100]);
-                }
+                // FIXED: Ring animation now completes in 2.5s to feel 'finished' regardless of mode
+                // while the actual scan continues on the dashboard in background.
+                const hudAnimDuration = 2500;
+                const pct = Math.min(100, (elapsed / hudAnimDuration) * 100);
+                ringPath.style.strokeDashoffset = maxOffset - (pct / 100) * maxOffset;
 
                 for (let i = phaseThresholds.length - 1; i >= 0; i--) {
                     const pt = phaseThresholds[i];
@@ -1194,6 +1181,18 @@ const app = {
                         self.state.liveConfidence = pt.confidence;
 
                         if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
+
+                        // FIXED: Restore early dashboard show at Phase 1 (2s)
+                        if (pt.phase === 1 && !dashboardShown) {
+                            dashboardShown = true;
+                            self.showSeamlessDashboard();
+                        }
+
+                        if (pt.phase === 4) {
+                            self.state.scanComplete = true;
+                            document.getElementById('instruction').innerText = "SCAN COMPLETE";
+                            document.getElementById('instruction').style.color = "#00FF94";
+                        }
                         break;
                     }
                 }
