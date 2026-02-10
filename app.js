@@ -823,6 +823,10 @@ const app = {
 
     initThree: function () {
         const container = document.getElementById('universe');
+        // FIXED P2: Fade in universe after first render to prevent black flash
+        container.style.opacity = '0';
+        container.style.transition = 'opacity 0.6s ease';
+
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         this.camera.position.z = 5;
@@ -879,6 +883,13 @@ const app = {
         this.cloud = new THREE.Points(geometry, this.material);
         this.scene.add(this.cloud);
         this.animate();
+
+        // FIXED P2: Fade in after first render frame to avoid black flash
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                container.style.opacity = '1';
+            });
+        });
     },
 
     startSensors: async function () {
@@ -1140,7 +1151,9 @@ const app = {
                 }
 
                 self.state.gateHold = false;
-                const pct = Math.min(100, (elapsed / 60000) * 100);
+                // FIXED P1: Use mode-specific duration instead of hardcoded 60000
+                const modeDuration = self.config.scanDurationByMode[self.state.scanMode] || 60000;
+                const pct = Math.min(100, (elapsed / modeDuration) * 100);
                 ringPath.style.strokeDashoffset = maxOffset - (pct / 100) * maxOffset;
 
                 for (let i = phaseThresholds.length - 1; i >= 0; i--) {
@@ -1195,12 +1208,16 @@ const app = {
                     document.getElementById('instruction').style.color = "#9CA3AF";
                     document.getElementById('dashboard-layer').classList.remove('show');
                     document.getElementById('hud-layer').classList.remove('hidden-ui');
+                    // FIXED P0: Hide floating card when dashboard dismissed
+                    if (typeof DecisionDockController !== 'undefined') DecisionDockController.hide();
                 }
             } else {
                 // If dashboard is showing (from previous scan), hide it first
                 if (document.getElementById('dashboard-layer').classList.contains('show')) {
                     document.getElementById('dashboard-layer').classList.remove('show');
                     document.getElementById('hud-layer').classList.remove('hidden-ui');
+                    // FIXED P0: Hide floating card on rescan
+                    if (typeof DecisionDockController !== 'undefined') DecisionDockController.hide();
                     // Reset state for new scan
                     this.state.currentPhase = 0;
                     this.state.scanComplete = false;
@@ -1217,13 +1234,20 @@ const app = {
     },
 
     showSeamlessDashboard: function () {
-        document.getElementById('hud-layer').classList.add('hidden-ui');
         document.getElementById('align-hint-capsule').classList.remove('show');
         this.startLiveMode();
+        // FIXED P2: Show dashboard first, then fade out HUD to avoid visual gap
         document.getElementById('dashboard-layer').classList.add('show');
+        setTimeout(() => {
+            document.getElementById('hud-layer').classList.add('hidden-ui');
+        }, 50);
         // Show the dock at bottom
         const dock = document.getElementById('processing-dock');
         if (dock) dock.classList.add('show');
+        // FIXED P0: Show decision timer floating card
+        if (typeof DecisionDockController !== 'undefined') {
+            DecisionDockController.show();
+        }
     },
 
     initDashboardInteractions: function () {

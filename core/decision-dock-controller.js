@@ -1,15 +1,17 @@
 /**
- * TENKI PRO - Decision Dock Controller v1.0
+ * TENKI PRO - Decision Dock Controller v1.1
  * 
- * 將現有 processing-dock 動態增強為決策計時器 UI
+ * FIXED: 使用獨立浮動卡片取代劫持 processing-dock
+ * 計時器現在固定在畫面底部，不遮擋生理指標內容
  * 
  * 設計原則:
  * 1. 不修改原始 dock HTML/CSS
  * 2. 透過 EventBridge 與 DecisionTimer 通訊
  * 3. 所有新樣式用 overlay-dock- 前綴
+ * 4. FIXED: 使用獨立浮動卡片，不覆蓋 dashboard 內容
  * 
  * @author TENKI Team
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 const DecisionDockController = (function () {
@@ -24,6 +26,9 @@ const DecisionDockController = (function () {
     let currentState = 'IDLE';
     let selectedTemplateId = null;
     let currentTEI = 50;
+
+    // FIXED: 浮動卡片元素
+    let floatingCard = null;
 
     // DOM 元素快取
     let elements = {
@@ -54,7 +59,7 @@ const DecisionDockController = (function () {
     function init() {
         if (isInitialized) return;
 
-        console.log('[DecisionDock] Initializing...');
+        console.log('[DecisionDock] Initializing v1.1 (floating card)...');
 
         // 等待 DOM 就緒
         if (document.readyState === 'loading') {
@@ -65,19 +70,14 @@ const DecisionDockController = (function () {
     }
 
     function setup() {
-        // 取得原始 dock 元素
+        // FIXED: 不再需要取得 dock 元素，改用獨立浮動卡片
         elements.dock = document.getElementById('processing-dock');
-        if (!elements.dock) {
-            console.warn('[DecisionDock] Dock not found, retrying in 500ms...');
-            setTimeout(setup, 500);
-            return;
-        }
 
         // 注入 CSS
         injectStyles();
 
-        // 增強 dock UI
-        enhanceDock();
+        // FIXED: 建立獨立浮動卡片（不劫持 processing-dock）
+        createFloatingCard();
 
         // 訂閱事件
         subscribeToEvents();
@@ -86,82 +86,92 @@ const DecisionDockController = (function () {
         initTimer();
 
         isInitialized = true;
-        console.log('[DecisionDock] Initialized successfully');
+        console.log('[DecisionDock] Initialized successfully (floating card mode)');
     }
 
     // =============================================================================
-    // DOCK UI ENHANCEMENT
+    // FIXED: FLOATING CARD UI (取代 enhanceDock)
     // =============================================================================
 
-    function enhanceDock() {
-        const dock = elements.dock;
+    function createFloatingCard() {
+        // FIXED: 建立獨立的浮動卡片元素，不修改原始 dock
+        floatingCard = document.createElement('div');
+        floatingCard.id = 'decision-timer-float';
+        floatingCard.className = 'decision-timer-float';
 
-        // 清除原始內容
-        dock.innerHTML = '';
-
-        // 建立新的 dock 結構
-        dock.innerHTML = `
-            <!-- 左按鈕: 模板選擇 -->
-            <div class="overlay-dock-left" id="dock-left-btn">
-                <button class="overlay-dock-btn overlay-dock-template-btn" id="dock-template-btn">
-                    <span class="overlay-dock-template-icon">📈</span>
-                    <span class="overlay-dock-template-name">選擇模板</span>
-                    <i data-lucide="chevron-down" class="w-3 h-3 opacity-60"></i>
-                </button>
-                <!-- 模板下拉選單 -->
-                <div class="overlay-dock-dropdown hidden" id="dock-template-dropdown">
-                    ${TEMPLATES.map(t => `
-                        <div class="overlay-dock-dropdown-item" data-template-id="${t.id}">
-                            <span class="overlay-dock-dropdown-icon">${t.icon}</span>
-                            <div class="overlay-dock-dropdown-info">
-                                <div class="overlay-dock-dropdown-name">${t.name}</div>
-                                <div class="overlay-dock-dropdown-duration">${formatDuration(t.duration)}</div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
+        floatingCard.innerHTML = `
+            <div class="dtf-header">
+                <span class="dtf-icon">⏱️</span>
+                <span class="dtf-title">決策計時器</span>
+                <button class="dtf-close" id="dtf-close-btn" aria-label="關閉">✕</button>
             </div>
-
-            <!-- 中間: 主要動作區 -->
-            <div class="overlay-dock-center" id="dock-center">
-                <!-- IDLE 狀態 -->
-                <button class="overlay-dock-main-btn" id="dock-main-btn">
-                    <i data-lucide="play" class="w-5 h-5"></i>
-                    <span>開始決策計時</span>
-                </button>
-                
-                <!-- RUNNING 狀態的計時器顯示 (初始隱藏) -->
-                <div class="overlay-dock-timer hidden" id="dock-timer">
-                    <div class="overlay-dock-time" id="dock-time">05:00</div>
-                    <div class="overlay-dock-segment" id="dock-segment">準備中</div>
-                    <div class="overlay-dock-progress">
-                        <div class="overlay-dock-progress-bar" id="dock-progress-bar" style="width: 0%"></div>
+            <div class="dtf-body">
+                <!-- 模板選擇 -->
+                <div class="dtf-template-area" id="dtf-template-area">
+                    <button class="dtf-template-btn" id="dtf-template-btn">
+                        <span class="dtf-template-icon">📈</span>
+                        <span class="dtf-template-name">選擇模板</span>
+                        <span class="dtf-chevron">▾</span>
+                    </button>
+                    <div class="dtf-dropdown hidden" id="dtf-dropdown">
+                        ${TEMPLATES.map(t => `
+                            <div class="dtf-dropdown-item" data-template-id="${t.id}">
+                                <span class="dtf-dropdown-icon">${t.icon}</span>
+                                <div class="dtf-dropdown-info">
+                                    <div class="dtf-dropdown-name">${t.name}</div>
+                                    <div class="dtf-dropdown-duration">${formatDuration(t.duration)}</div>
+                                </div>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
-            </div>
 
-            <!-- 右按鈕: TEI 顯示 / 動作按鈕 -->
-            <div class="overlay-dock-right" id="dock-right-btn">
-                <!-- IDLE: 顯示 TEI -->
-                <div class="overlay-dock-tei" id="dock-tei">
-                    <div class="overlay-dock-tei-value">${currentTEI}</div>
-                    <div class="overlay-dock-tei-label">TEI</div>
+                <!-- 計時器顯示 (初始隱藏) -->
+                <div class="dtf-timer hidden" id="dtf-timer">
+                    <div class="dtf-time" id="dtf-time">05:00</div>
+                    <div class="dtf-segment" id="dtf-segment">準備中</div>
+                    <div class="dtf-progress">
+                        <div class="dtf-progress-bar" id="dtf-progress-bar" style="width: 0%"></div>
+                    </div>
                 </div>
-                
-                <!-- RUNNING: 完成按鈕 (初始隱藏) -->
-                <button class="overlay-dock-btn overlay-dock-complete-btn hidden" id="dock-complete-btn">
-                    <i data-lucide="check" class="w-5 h-5"></i>
-                    <span>完成</span>
-                </button>
+
+                <!-- 控制按鈕列 -->
+                <div class="dtf-controls">
+                    <button class="dtf-action-btn dtf-primary" id="dtf-main-btn">
+                        <span class="dtf-btn-icon">▶</span>
+                        <span class="dtf-btn-text">開始</span>
+                    </button>
+                    <button class="dtf-action-btn dtf-secondary hidden" id="dtf-pause-btn">
+                        <span class="dtf-btn-icon">⏸</span>
+                        <span class="dtf-btn-text">暫停</span>
+                    </button>
+                    <button class="dtf-action-btn dtf-success hidden" id="dtf-complete-btn">
+                        <span class="dtf-btn-icon">✓</span>
+                        <span class="dtf-btn-text">完成</span>
+                    </button>
+                    <button class="dtf-action-btn dtf-ghost hidden" id="dtf-reset-btn">
+                        <span class="dtf-btn-icon">↺</span>
+                        <span class="dtf-btn-text">重設</span>
+                    </button>
+                </div>
+
+                <!-- TEI 顯示 -->
+                <div class="dtf-tei" id="dtf-tei">
+                    <span class="dtf-tei-label">TEI</span>
+                    <span class="dtf-tei-value" id="dtf-tei-value">${currentTEI}</span>
+                </div>
             </div>
         `;
 
+        // FIXED: 初始隱藏，等到 dashboard 顯示時才出現
+        floatingCard.style.display = 'none';
+
+        document.body.appendChild(floatingCard);
+
         // 快取元素
-        elements.leftBtn = document.getElementById('dock-left-btn');
-        elements.mainAction = document.getElementById('dock-main-btn');
-        elements.timerDisplay = document.getElementById('dock-timer');
-        elements.rightBtn = document.getElementById('dock-right-btn');
-        elements.templateDropdown = document.getElementById('dock-template-dropdown');
+        elements.mainAction = document.getElementById('dtf-main-btn');
+        elements.timerDisplay = document.getElementById('dtf-timer');
+        elements.templateDropdown = document.getElementById('dtf-dropdown');
 
         // 綁定事件
         bindEvents();
@@ -172,15 +182,34 @@ const DecisionDockController = (function () {
         }
     }
 
+    // FIXED: 顯示/隱藏浮動卡片
+    function showFloatingCard() {
+        if (floatingCard) {
+            floatingCard.style.display = '';
+            floatingCard.classList.add('show');
+        }
+    }
+
+    function hideFloatingCard() {
+        if (floatingCard) {
+            floatingCard.classList.remove('show');
+            setTimeout(() => {
+                if (!floatingCard.classList.contains('show')) {
+                    floatingCard.style.display = 'none';
+                }
+            }, 400);
+        }
+    }
+
     function bindEvents() {
         // 模板選擇按鈕
-        const templateBtn = document.getElementById('dock-template-btn');
+        const templateBtn = document.getElementById('dtf-template-btn');
         if (templateBtn) {
             templateBtn.addEventListener('click', toggleTemplateDropdown);
         }
 
         // 模板選項
-        const dropdownItems = document.querySelectorAll('.overlay-dock-dropdown-item');
+        const dropdownItems = document.querySelectorAll('.dtf-dropdown-item');
         dropdownItems.forEach(item => {
             item.addEventListener('click', () => {
                 const templateId = item.dataset.templateId;
@@ -188,21 +217,45 @@ const DecisionDockController = (function () {
             });
         });
 
-        // 主按鈕
-        const mainBtn = document.getElementById('dock-main-btn');
+        // 主按鈕（開始/繼續）
+        const mainBtn = document.getElementById('dtf-main-btn');
         if (mainBtn) {
             mainBtn.addEventListener('click', handleMainAction);
         }
 
+        // 暫停按鈕
+        const pauseBtn = document.getElementById('dtf-pause-btn');
+        if (pauseBtn) {
+            pauseBtn.addEventListener('click', () => {
+                if (timer && timer.getState() === 'RUNNING') {
+                    timer.pause();
+                }
+            });
+        }
+
         // 完成按鈕
-        const completeBtn = document.getElementById('dock-complete-btn');
+        const completeBtn = document.getElementById('dtf-complete-btn');
         if (completeBtn) {
             completeBtn.addEventListener('click', handleComplete);
         }
 
+        // 重設按鈕
+        const resetBtn = document.getElementById('dtf-reset-btn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (timer) timer.reset();
+            });
+        }
+
+        // 關閉按鈕
+        const closeBtn = document.getElementById('dtf-close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', hideFloatingCard);
+        }
+
         // 點擊外部關閉下拉選單
         document.addEventListener('click', (e) => {
-            if (!e.target.closest('.overlay-dock-left')) {
+            if (!e.target.closest('.dtf-template-area')) {
                 hideTemplateDropdown();
             }
         });
@@ -232,10 +285,10 @@ const DecisionDockController = (function () {
 
         if (template) {
             // 更新按鈕顯示
-            const btn = document.getElementById('dock-template-btn');
+            const btn = document.getElementById('dtf-template-btn');
             if (btn) {
-                btn.querySelector('.overlay-dock-template-icon').textContent = template.icon;
-                btn.querySelector('.overlay-dock-template-name').textContent = template.name;
+                btn.querySelector('.dtf-template-icon').textContent = template.icon;
+                btn.querySelector('.dtf-template-name').textContent = template.name;
             }
 
             // 設定計時器模板
@@ -325,102 +378,101 @@ const DecisionDockController = (function () {
 
     function handleTick(data) {
         // 更新時間顯示
-        const timeEl = document.getElementById('dock-time');
+        const timeEl = document.getElementById('dtf-time');
         if (timeEl && timer) {
             timeEl.textContent = timer.getFormattedTime();
         }
 
         // 更新進度條
-        const progressBar = document.getElementById('dock-progress-bar');
+        const progressBar = document.getElementById('dtf-progress-bar');
         if (progressBar) {
             progressBar.style.width = `${data.progress}%`;
         }
     }
 
     function handleSegmentChange(data) {
-        const segmentEl = document.getElementById('dock-segment');
+        const segmentEl = document.getElementById('dtf-segment');
         if (segmentEl && data.segment) {
             segmentEl.textContent = data.segment.label || '';
         }
     }
 
+    // FIXED: 更新 UI — 使用橫排按鈕，不遮擋內容
     function updateUI() {
-        const mainBtn = document.getElementById('dock-main-btn');
-        const timerDisplay = document.getElementById('dock-timer');
-        const teiDisplay = document.getElementById('dock-tei');
-        const completeBtn = document.getElementById('dock-complete-btn');
-        const templateBtn = document.getElementById('dock-template-btn');
+        const mainBtn = document.getElementById('dtf-main-btn');
+        const pauseBtn = document.getElementById('dtf-pause-btn');
+        const completeBtn = document.getElementById('dtf-complete-btn');
+        const resetBtn = document.getElementById('dtf-reset-btn');
+        const timerDisplay = document.getElementById('dtf-timer');
+        const teiDisplay = document.getElementById('dtf-tei');
+        const templateArea = document.getElementById('dtf-template-area');
+
+        // 全部先隱藏
+        pauseBtn?.classList.add('hidden');
+        completeBtn?.classList.add('hidden');
+        resetBtn?.classList.add('hidden');
 
         switch (currentState) {
             case 'IDLE':
-                // 顯示開始按鈕
                 mainBtn?.classList.remove('hidden');
                 timerDisplay?.classList.add('hidden');
                 teiDisplay?.classList.remove('hidden');
-                completeBtn?.classList.add('hidden');
-                templateBtn?.classList.remove('disabled');
+                templateArea?.classList.remove('hidden');
 
                 if (mainBtn) {
-                    mainBtn.innerHTML = `
-                        <i data-lucide="play" class="w-5 h-5"></i>
-                        <span>開始決策計時</span>
-                    `;
+                    mainBtn.querySelector('.dtf-btn-icon').textContent = '▶';
+                    mainBtn.querySelector('.dtf-btn-text').textContent = '開始';
+                    mainBtn.className = 'dtf-action-btn dtf-primary';
                 }
                 break;
 
             case 'RUNNING':
-                // 顯示計時器
                 mainBtn?.classList.add('hidden');
+                pauseBtn?.classList.remove('hidden');
+                completeBtn?.classList.remove('hidden');
                 timerDisplay?.classList.remove('hidden');
                 teiDisplay?.classList.add('hidden');
-                completeBtn?.classList.remove('hidden');
-                templateBtn?.classList.add('disabled');
+                templateArea?.classList.add('hidden');
                 break;
 
             case 'PAUSED':
-                // 暫停狀態
                 mainBtn?.classList.remove('hidden');
+                resetBtn?.classList.remove('hidden');
                 timerDisplay?.classList.remove('hidden');
                 teiDisplay?.classList.add('hidden');
-                completeBtn?.classList.remove('hidden');
+                templateArea?.classList.add('hidden');
 
                 if (mainBtn) {
-                    mainBtn.innerHTML = `
-                        <i data-lucide="play" class="w-5 h-5"></i>
-                        <span>繼續</span>
-                    `;
+                    mainBtn.querySelector('.dtf-btn-icon').textContent = '▶';
+                    mainBtn.querySelector('.dtf-btn-text').textContent = '繼續';
+                    mainBtn.className = 'dtf-action-btn dtf-primary';
                 }
                 break;
 
             case 'COMPLETE':
             case 'TIMEOUT':
-                // 完成狀態
                 mainBtn?.classList.remove('hidden');
                 timerDisplay?.classList.add('hidden');
                 teiDisplay?.classList.add('hidden');
-                completeBtn?.classList.add('hidden');
+                templateArea?.classList.remove('hidden');
 
                 if (mainBtn) {
-                    mainBtn.innerHTML = `
-                        <i data-lucide="check-circle" class="w-5 h-5"></i>
-                        <span>${currentState === 'TIMEOUT' ? '耐心完成！' : '🎉 已完成！'}</span>
-                    `;
-                    mainBtn.classList.add('success');
+                    mainBtn.querySelector('.dtf-btn-icon').textContent = '🎉';
+                    mainBtn.querySelector('.dtf-btn-text').textContent = currentState === 'TIMEOUT' ? '耐心完成！' : '已完成！';
+                    mainBtn.className = 'dtf-action-btn dtf-success';
                 }
                 break;
 
             case 'ABORT':
-                // 中止狀態
                 mainBtn?.classList.remove('hidden');
                 timerDisplay?.classList.add('hidden');
                 teiDisplay?.classList.remove('hidden');
-                completeBtn?.classList.add('hidden');
+                templateArea?.classList.remove('hidden');
 
                 if (mainBtn) {
-                    mainBtn.innerHTML = `
-                        <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
-                        <span>重新開始</span>
-                    `;
+                    mainBtn.querySelector('.dtf-btn-icon').textContent = '↺';
+                    mainBtn.querySelector('.dtf-btn-text').textContent = '重新開始';
+                    mainBtn.className = 'dtf-action-btn dtf-primary';
                 }
                 break;
         }
@@ -441,7 +493,7 @@ const DecisionDockController = (function () {
         // 訂閱 TEI 更新
         EventBridge.onTEIUpdate((data) => {
             currentTEI = data.tei;
-            const teiValue = document.querySelector('.overlay-dock-tei-value');
+            const teiValue = document.getElementById('dtf-tei-value');
             if (teiValue) {
                 teiValue.textContent = currentTEI;
             }
@@ -449,7 +501,7 @@ const DecisionDockController = (function () {
     }
 
     // =============================================================================
-    // STYLES
+    // STYLES — FIXED: 浮動卡片樣式（不遮擋內容）
     // =============================================================================
 
     function injectStyles() {
@@ -458,62 +510,131 @@ const DecisionDockController = (function () {
         const style = document.createElement('style');
         style.id = 'decision-dock-styles';
         style.textContent = `
-            /* Decision Dock 專用樣式 */
+            /* FIXED: Decision Timer 浮動卡片 — 固定在底部，不遮擋內容 */
             
-            .overlay-dock-left,
-            .overlay-dock-right {
+            .decision-timer-float {
+                position: fixed;
+                bottom: 80px;
+                left: 50%;
+                transform: translateX(-50%) translateY(150%);
+                
+                width: 90%;
+                max-width: 400px;
+                padding: 14px 18px;
+                
+                background: rgba(30, 30, 40, 0.85);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 24px;
+                box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+                
+                z-index: 100;
+                opacity: 0;
+                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                            opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                pointer-events: none;
+            }
+
+            .decision-timer-float.show {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            /* 標題列 */
+            .dtf-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+
+            .dtf-icon {
+                font-size: 16px;
+            }
+
+            .dtf-title {
+                flex: 1;
+                font-size: 13px;
+                font-weight: 600;
+                color: rgba(255, 255, 255, 0.9);
+                letter-spacing: 0.5px;
+            }
+
+            .dtf-close {
+                width: 24px;
+                height: 24px;
+                border: none;
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 50%;
+                color: rgba(255, 255, 255, 0.5);
+                font-size: 11px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+            }
+
+            .dtf-close:hover {
+                background: rgba(255, 255, 255, 0.15);
+                color: white;
+            }
+
+            /* 主體 */
+            .dtf-body {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+
+            /* 模板選擇 */
+            .dtf-template-area {
                 position: relative;
             }
 
-            .overlay-dock-center {
-                flex: 1;
-                display: flex;
-                justify-content: center;
-                align-items: center;
+            .dtf-template-area.hidden {
+                display: none;
             }
 
-            /* 按鈕基礎樣式 */
-            .overlay-dock-btn {
+            .dtf-template-btn {
                 display: flex;
                 align-items: center;
                 gap: 6px;
-                padding: 10px 16px;
+                padding: 8px 12px;
                 background: rgba(255, 255, 255, 0.08);
                 border: 1px solid rgba(255, 255, 255, 0.1);
                 border-radius: 12px;
                 color: #fff;
-                font-size: 13px;
-                font-weight: 500;
+                font-size: 12px;
                 cursor: pointer;
-                transition: all 0.2s ease;
+                transition: all 0.2s;
             }
 
-            .overlay-dock-btn:hover {
+            .dtf-template-btn:hover {
                 background: rgba(255, 255, 255, 0.15);
-                border-color: rgba(255, 255, 255, 0.2);
             }
 
-            .overlay-dock-btn.disabled {
+            .dtf-template-icon {
+                font-size: 14px;
+            }
+
+            .dtf-template-name {
+                max-width: 100px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .dtf-chevron {
+                font-size: 10px;
                 opacity: 0.5;
-                pointer-events: none;
-            }
-
-            /* 模板選擇按鈕 */
-            .overlay-dock-template-btn {
-                min-width: 140px;
-            }
-
-            .overlay-dock-template-icon {
-                font-size: 16px;
-            }
-
-            .overlay-dock-template-name {
-                flex: 1;
-                text-align: left;
             }
 
             /* 下拉選單 */
-            .overlay-dock-dropdown {
+            .dtf-dropdown {
                 position: absolute;
                 bottom: 100%;
                 left: 0;
@@ -528,112 +649,74 @@ const DecisionDockController = (function () {
                 z-index: 1000;
             }
 
-            .overlay-dock-dropdown.hidden {
+            .dtf-dropdown.hidden {
                 display: none;
             }
 
-            .overlay-dock-dropdown-item {
+            .dtf-dropdown-item {
                 display: flex;
                 align-items: center;
-                gap: 12px;
-                padding: 12px;
+                gap: 10px;
+                padding: 10px;
                 border-radius: 8px;
                 cursor: pointer;
-                transition: background 0.2s ease;
+                transition: background 0.2s;
             }
 
-            .overlay-dock-dropdown-item:hover {
-                background: rgba(255, 20, 147, 0.15);
+            .dtf-dropdown-item:hover {
+                background: rgba(0, 240, 255, 0.1);
             }
 
-            .overlay-dock-dropdown-icon {
-                font-size: 20px;
+            .dtf-dropdown-icon {
+                font-size: 18px;
             }
 
-            .overlay-dock-dropdown-info {
-                flex: 1;
-            }
-
-            .overlay-dock-dropdown-name {
-                font-size: 14px;
+            .dtf-dropdown-name {
+                font-size: 13px;
                 font-weight: 600;
                 color: #fff;
             }
 
-            .overlay-dock-dropdown-duration {
-                font-size: 11px;
+            .dtf-dropdown-duration {
+                font-size: 10px;
                 color: rgba(255, 255, 255, 0.5);
-                margin-top: 2px;
-            }
-
-            /* 主按鈕 */
-            .overlay-dock-main-btn {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-                padding: 14px 28px;
-                background: linear-gradient(135deg, #ff1493, #ff69b4);
-                border: none;
-                border-radius: 50px;
-                color: #fff;
-                font-size: 15px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                box-shadow: 0 4px 20px rgba(255, 20, 147, 0.4);
-            }
-
-            .overlay-dock-main-btn:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 6px 28px rgba(255, 20, 147, 0.5);
-            }
-
-            .overlay-dock-main-btn:active {
-                transform: translateY(0);
-            }
-
-            .overlay-dock-main-btn.success {
-                background: linear-gradient(135deg, #6bcb77, #4ade80);
-                box-shadow: 0 4px 20px rgba(107, 203, 119, 0.4);
-            }
-
-            .overlay-dock-main-btn.hidden {
-                display: none;
+                margin-top: 1px;
             }
 
             /* 計時器顯示 */
-            .overlay-dock-timer {
+            .dtf-timer {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                gap: 4px;
+                gap: 2px;
+                flex: 1;
             }
 
-            .overlay-dock-timer.hidden {
+            .dtf-timer.hidden {
                 display: none;
             }
 
-            .overlay-dock-time {
-                font-size: 36px;
+            .dtf-time {
+                font-size: 28px;
                 font-weight: 700;
                 font-family: 'JetBrains Mono', monospace;
                 font-variant-numeric: tabular-nums;
-                background: linear-gradient(135deg, #ff1493, #00d4ff);
+                background: linear-gradient(135deg, #00F0FF, #9966FF);
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
                 background-clip: text;
                 line-height: 1;
             }
 
-            .overlay-dock-segment {
-                font-size: 12px;
-                color: rgba(255, 255, 255, 0.7);
+            .dtf-segment {
+                font-size: 10px;
+                color: rgba(255, 255, 255, 0.6);
                 font-weight: 500;
             }
 
-            .overlay-dock-progress {
-                width: 120px;
+            .dtf-progress {
+                width: 100%;
+                max-width: 120px;
                 height: 3px;
                 background: rgba(255, 255, 255, 0.1);
                 border-radius: 2px;
@@ -641,29 +724,98 @@ const DecisionDockController = (function () {
                 margin-top: 4px;
             }
 
-            .overlay-dock-progress-bar {
+            .dtf-progress-bar {
                 height: 100%;
-                background: linear-gradient(90deg, #ff1493, #00d4ff);
+                background: linear-gradient(90deg, #00F0FF, #9966FF);
                 border-radius: 2px;
                 transition: width 0.3s ease;
             }
 
-            /* TEI 顯示 */
-            .overlay-dock-tei {
+            /* 控制按鈕 — 橫排 */
+            .dtf-controls {
                 display: flex;
-                flex-direction: column;
-                align-items: center;
-                padding: 8px 16px;
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 12px;
+                gap: 6px;
             }
 
-            .overlay-dock-tei.hidden {
+            .dtf-action-btn {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                padding: 8px 14px;
+                border: none;
+                border-radius: 12px;
+                color: #fff;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .dtf-action-btn.hidden {
                 display: none;
             }
 
-            .overlay-dock-tei-value {
-                font-size: 24px;
+            .dtf-btn-icon {
+                font-size: 12px;
+            }
+
+            .dtf-primary {
+                background: linear-gradient(135deg, #00F0FF, #0088FF);
+                box-shadow: 0 2px 12px rgba(0, 240, 255, 0.3);
+            }
+
+            .dtf-primary:hover {
+                box-shadow: 0 4px 18px rgba(0, 240, 255, 0.4);
+            }
+
+            .dtf-secondary {
+                background: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+            }
+
+            .dtf-secondary:hover {
+                background: rgba(255, 255, 255, 0.18);
+            }
+
+            .dtf-success {
+                background: linear-gradient(135deg, #6bcb77, #4ade80);
+                box-shadow: 0 2px 12px rgba(107, 203, 119, 0.3);
+            }
+
+            .dtf-ghost {
+                background: transparent;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                color: rgba(255, 255, 255, 0.7);
+            }
+
+            .dtf-ghost:hover {
+                background: rgba(255, 255, 255, 0.06);
+            }
+
+            /* TEI 顯示 */
+            .dtf-tei {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-left: auto;
+                padding: 6px 12px;
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 10px;
+            }
+
+            .dtf-tei.hidden {
+                display: none;
+            }
+
+            .dtf-tei-label {
+                font-size: 9px;
+                color: rgba(255, 255, 255, 0.5);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+
+            .dtf-tei-value {
+                font-size: 18px;
                 font-weight: 700;
                 background: linear-gradient(135deg, #00d4ff, #6bcb77);
                 -webkit-background-clip: text;
@@ -672,44 +824,41 @@ const DecisionDockController = (function () {
                 line-height: 1;
             }
 
-            .overlay-dock-tei-label {
-                font-size: 9px;
-                color: rgba(255, 255, 255, 0.5);
-                text-transform: uppercase;
-                letter-spacing: 1px;
-            }
-
-            /* 完成按鈕 */
-            .overlay-dock-complete-btn {
-                background: linear-gradient(135deg, #6bcb77, #4ade80);
-                box-shadow: 0 4px 16px rgba(107, 203, 119, 0.3);
-            }
-
-            .overlay-dock-complete-btn:hover {
-                box-shadow: 0 6px 24px rgba(107, 203, 119, 0.4);
-            }
-
-            .overlay-dock-complete-btn.hidden {
-                display: none;
-            }
-
             /* 響應式 */
-            @media (max-width: 480px) {
-                .overlay-dock-template-name {
+            @media (max-width: 380px) {
+                .decision-timer-float {
+                    width: 95%;
+                    padding: 12px 14px;
+                    bottom: 70px;
+                }
+
+                .dtf-template-name {
                     display: none;
                 }
 
-                .overlay-dock-template-btn {
-                    min-width: auto;
+                .dtf-time {
+                    font-size: 22px;
                 }
 
-                .overlay-dock-main-btn {
-                    padding: 12px 20px;
-                    font-size: 14px;
+                .dtf-btn-text {
+                    display: none;
+                }
+            }
+
+            /* 橫屏模式 */
+            @media (orientation: landscape) and (max-height: 500px) {
+                .decision-timer-float {
+                    bottom: 10px;
+                    max-width: 500px;
+                    padding: 10px 16px;
                 }
 
-                .overlay-dock-time {
-                    font-size: 28px;
+                .dtf-header {
+                    margin-bottom: 6px;
+                }
+
+                .dtf-time {
+                    font-size: 22px;
                 }
             }
         `;
@@ -738,7 +887,10 @@ const DecisionDockController = (function () {
         init,
         selectTemplate,
         getTimer: () => timer,
-        getCurrentState: () => currentState
+        getCurrentState: () => currentState,
+        // FIXED: 公開顯示/隱藏方法
+        show: showFloatingCard,
+        hide: hideFloatingCard
     };
 
 })();

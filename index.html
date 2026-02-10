@@ -81,8 +81,10 @@
             position: absolute;
             inset: 0;
             z-index: 1;
-            background: radial-gradient(circle at center, #111 0%, #000 100%);
-            transition: opacity 1s ease, filter 1s ease;
+            /* FIXED P2: transparent background — Three.js canvas handles it */
+            background: transparent;
+            transition: opacity 0.6s ease, filter 1s ease;
+            will-change: opacity;
         }
 
         #universe.dimmed {
