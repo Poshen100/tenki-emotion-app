@@ -1592,6 +1592,39 @@
         <script src="core/fusion-controller.js"></script>
         <script src="core/dashboard-patch.js"></script>
 
+        <!-- ========================================== -->
+        <!-- TENKI 2.0 MODULES START                    -->
+        <!-- ========================================== -->
+
+        <!-- v2.0: Camera Calibration CSS -->
+        <link rel="stylesheet" href="ui/camera-overlay.css">
+        <link rel="stylesheet" href="ui/performance-dashboard.css">
+
+        <!-- v2.0: Progressive TEI Engine -->
+        <script src="core/progressive-tei.js"></script>
+        <script src="core/smooth-transition.js"></script>
+
+        <!-- v2.0: PPG Camera Calibration -->
+        <script src="core/finger-detector.js"></script>
+        <script src="core/ppg-analyzer.js"></script>
+        <script src="core/camera-controller.js"></script>
+
+        <!-- v2.0: Multi-Modal Sensor Fusion -->
+        <script src="core/sensor-fusion.js"></script>
+        <script src="core/kalman-filter.js"></script>
+
+        <!-- v2.0: Expectancy Layer -->
+        <script src="core/expectancy-calculator.js"></script>
+        <script src="core/trade-logger.js"></script>
+        <script src="ui/performance-chart.js"></script>
+
+        <!-- v2.0: Storage Manager -->
+        <script src="integration/storage-manager.js"></script>
+
+        <!-- ========================================== -->
+        <!-- TENKI 2.0 MODULES END                      -->
+        <!-- ========================================== -->
+
         <!-- Event Bridge (事件橋接器) -->
         <script src="integration/event-bridge.js"></script>
 
@@ -1600,6 +1633,9 @@
 
         <!-- System Integration (主入口) -->
         <script src="core/tenki-pro-system.js"></script>
+
+        <!-- v2.0: Bootstrap (must load LAST, after all modules) -->
+        <script src="core/tenki-2-bootstrap.js"></script>
 
         <!-- ========================================== -->
         <!-- TENKI PRO SAFE ZONE END                   -->
