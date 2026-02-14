@@ -24,7 +24,9 @@
     DECISION_STATE: 'tenki:decision-state',
     TRADE_RECORDED: 'tenki:trade-recorded',
     PREVIEW_REQUESTED: 'tenki:preview-requested',
-    SYSTEM_ERROR: 'tenki:system-error'
+    SYSTEM_ERROR: 'tenki:system-error',
+    PPG_CALIBRATION: 'tenki:ppg-calibration',
+    TEI_PROGRESS_UPDATE: 'tenki:tei-progress-update'
   };
 
   /**
@@ -40,6 +42,35 @@
     COMPLETE: 'COMPLETE',
     TIMEOUT: 'TIMEOUT',
     ABORT: 'ABORT'
+  };
+
+  /**
+   * PPG 校準狀態常數
+   * @readonly
+   * @enum {string}
+   */
+  const CalibrationStates = {
+    INIT: 'INIT',
+    CAMERA_READY: 'CAMERA_READY',
+    DETECTING: 'DETECTING',
+    PARTIAL: 'PARTIAL',
+    ALIGNED: 'ALIGNED',
+    SIGNAL_LOCK: 'SIGNAL_LOCK',
+    CALIBRATING: 'CALIBRATING',
+    COMPLETE: 'COMPLETE',
+    ERROR: 'ERROR'
+  };
+
+  /**
+   * 漸進式精度等級
+   * @readonly
+   * @enum {string}
+   */
+  const PrecisionLevels = {
+    QUICK: 'quick',       // 2s
+    STANDARD: 'standard', // 15s
+    PRECISE: 'precise',   // 30s
+    ULTRA: 'ultra'        // 60s
   };
 
   /**
@@ -266,6 +297,102 @@
       }
     }
 
+    /**
+     * 發送 PPG 校準事件
+     * 校準流程中每次狀態變化都會發送
+     * 
+     * @param {Object} data - 校準資料
+     * @param {string} data.state - 校準狀態 (INIT/CAMERA_READY/DETECTING/ALIGNED/SIGNAL_LOCK/CALIBRATING/COMPLETE/ERROR)
+     * @param {number} [data.coverage] - 手指覆蓋率 0-1
+     * @param {number} [data.quality] - 信號品質 0-100
+     * @param {number} [data.bpm] - 心率
+     * @param {string} [data.hint] - 方向提示文字
+     * @param {number} [data.progress] - 校準進度 0-1
+     * @param {Object} [data.metrics] - 完成時的 metrics
+     * @param {string} [data.error] - 錯誤類型
+     * @param {string} [data.message] - 錯誤訊息
+     * @returns {boolean} 是否成功發送
+     * 
+     * @example
+     * EventBridge.notifyPPGCalibration({
+     *   state: 'ALIGNED',
+     *   coverage: 0.92,
+     *   hint: '完美！保持穩定'
+     * });
+     */
+    static notifyPPGCalibration(data) {
+      try {
+        if (!data || !data.state) {
+          console.warn('[EventBridge] PPG calibration data must include state');
+          return false;
+        }
+
+        const detail = {
+          ...data,
+          timestamp: data.timestamp || Date.now()
+        };
+
+        window.dispatchEvent(new CustomEvent(EventTypes.PPG_CALIBRATION, { detail }));
+
+        if (EventBridge._instance) {
+          EventBridge._instance._logEvent(EventTypes.PPG_CALIBRATION, detail);
+        }
+
+        return true;
+      } catch (error) {
+        console.error('[EventBridge] Error in notifyPPGCalibration:', error);
+        return false;
+      }
+    }
+
+    /**
+     * 發送漸進式 TEI 掃描更新事件
+     * 
+     * @param {Object} data - TEI 掃描資料
+     * @param {number} data.tei - TEI 分數 (1-99)
+     * @param {number} data.confidence - 信心度 (0-1)
+     * @param {string} data.precisionLevel - 精度等級 'quick'|'standard'|'precise'|'ultra'
+     * @param {number} [data.errorMargin] - 誤差範圍 (±分)
+     * @param {number} [data.dataPoints] - 已收集數據點
+     * @param {Object} [data.snapshots] - 生理快照 { hr, hrv, rr, stress, sympathetic, parasympathetic }
+     * @param {Object} [data.milestones] - 里程碑狀態
+     * @returns {boolean} 是否成功發送
+     * 
+     * @example
+     * EventBridge.notifyTEIProgressUpdate({
+     *   tei: 68,
+     *   confidence: 0.85,
+     *   precisionLevel: 'standard',
+     *   errorMargin: 4,
+     *   snapshots: { hr: 70, hrv: 52, rr: 14, stress: 45 }
+     * });
+     */
+    static notifyTEIProgressUpdate(data) {
+      try {
+        if (!data || typeof data.tei !== 'number') {
+          console.warn('[EventBridge] TEI progress update must include tei number');
+          return false;
+        }
+
+        const detail = {
+          ...data,
+          tei: Math.round(Math.max(1, Math.min(99, data.tei))),
+          timestamp: data.timestamp || Date.now()
+        };
+
+        window.dispatchEvent(new CustomEvent(EventTypes.TEI_PROGRESS_UPDATE, { detail }));
+
+        if (EventBridge._instance) {
+          EventBridge._instance._logEvent(EventTypes.TEI_PROGRESS_UPDATE, detail);
+        }
+
+        return true;
+      } catch (error) {
+        console.error('[EventBridge] Error in notifyTEIProgressUpdate:', error);
+        return false;
+      }
+    }
+
     // ========== 訂閱方法 ==========
 
     /**
@@ -344,6 +471,40 @@
       return () => window.removeEventListener(EventTypes.SYSTEM_ERROR, handler);
     }
 
+    /**
+     * 訂閱 PPG 校準事件
+     * 
+     * @param {Function} callback - 回呼函數，接收校準資料
+     * @returns {Function} 取消訂閱的函數
+     * 
+     * @example
+     * const unsubscribe = EventBridge.onPPGCalibration((data) => {
+     *   console.log('Calibration state:', data.state, 'Coverage:', data.coverage);
+     * });
+     */
+    static onPPGCalibration(callback) {
+      const handler = (e) => callback(e.detail);
+      window.addEventListener(EventTypes.PPG_CALIBRATION, handler);
+      return () => window.removeEventListener(EventTypes.PPG_CALIBRATION, handler);
+    }
+
+    /**
+     * 訂閱漸進式 TEI 掃描更新
+     * 
+     * @param {Function} callback - 回呼函數，接收 TEI 掃描資料
+     * @returns {Function} 取消訂閱的函數
+     * 
+     * @example
+     * const unsubscribe = EventBridge.onTEIProgressUpdate((data) => {
+     *   console.log('TEI:', data.tei, 'Precision:', data.precisionLevel);
+     * });
+     */
+    static onTEIProgressUpdate(callback) {
+      const handler = (e) => callback(e.detail);
+      window.addEventListener(EventTypes.TEI_PROGRESS_UPDATE, handler);
+      return () => window.removeEventListener(EventTypes.TEI_PROGRESS_UPDATE, handler);
+    }
+
     // ========== 工具方法 ==========
 
     /**
@@ -385,6 +546,8 @@
   // 暴露常數
   EventBridge.EventTypes = EventTypes;
   EventBridge.DecisionStates = DecisionStates;
+  EventBridge.CalibrationStates = CalibrationStates;
+  EventBridge.PrecisionLevels = PrecisionLevels;
 
   // 暴露到全域
   global.EventBridge = EventBridge;

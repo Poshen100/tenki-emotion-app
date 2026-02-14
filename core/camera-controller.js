@@ -295,20 +295,50 @@
         }
 
         /**
-         * @private 發送事件
+         * @private 發送事件 — 透過 EventBridge.notifyPPGCalibration 路由
          */
         _emit(event, data) {
-            // 嘗試使用全域 EventBridge
-            if (global.EventBridge) {
-                if (typeof global.EventBridge.emit === 'function') {
-                    global.EventBridge.emit(event, data);
-                } else if (typeof global.EventBridge.notifyTEIUpdate === 'function' && event === 'ppg:complete') {
-                    // Fallback: 使用現有的 notifyTEIUpdate
-                    const cal = data.calibration;
-                    if (cal && cal.bpm) {
-                        global.EventBridge.notifyTEIUpdate(cal.quality, 'camera-controller');
+            // 透過 EventBridge 發送校準事件
+            if (global.EventBridge && typeof global.EventBridge.notifyPPGCalibration === 'function') {
+                const stateMap = {
+                    'ppg:camera-ready': 'CAMERA_READY',
+                    'ppg:coverage-update': this.state,
+                    'ppg:signal-update': 'SIGNAL_LOCK',
+                    'ppg:calibration-start': 'CALIBRATING',
+                    'ppg:complete': 'COMPLETE',
+                    'ppg:error': 'ERROR'
+                };
+
+                const calibrationData = {
+                    state: stateMap[event] || this.state,
+                    coverage: data.coverage || null,
+                    quality: data.quality || (data.signal ? data.signal.quality : null),
+                    bpm: data.bpm || (data.signal ? data.signal.bpm : null),
+                    hint: data.hint || data.message || null,
+                    progress: null,
+                    source: 'camera-controller'
+                };
+
+                // 完成時附加 metrics
+                if (event === 'ppg:complete') {
+                    calibrationData.metrics = data.metrics || null;
+                    calibrationData.calibration = data.calibration || null;
+                    // 同時發送 TEI 更新
+                    if (data.calibration && data.calibration.quality) {
+                        global.EventBridge.notifyTEIUpdate(
+                            Math.round(data.calibration.quality),
+                            'camera-controller'
+                        );
                     }
                 }
+
+                // 錯誤時附加錯誤資訊
+                if (event === 'ppg:error') {
+                    calibrationData.error = data.error;
+                    calibrationData.message = data.message;
+                }
+
+                global.EventBridge.notifyPPGCalibration(calibrationData);
             }
 
             // 也發送到 CustomEvent（向下兼容）
