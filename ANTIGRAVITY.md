@@ -96,31 +96,31 @@ IDLE → PRE_CHECK → BREATHING → RUNNING → COMPLETE ✅
 
 ---
 
-## 📋 開發進度
+## 📋 開發進度（最後更新：2026-02-22）
 
 ### ✅ Phase 1: Core Timer（完成）
-- EventBridge 通訊架構
-- 決策計時器 T1 (Mancini FBD)
-- Overlay UI 系統
-- 狀態機
-- 情緒分數輸入
+- EventBridge 通訊架構、決策計時器 T1、Overlay UI、狀態機、情緒分數輸入
 
 ### ✅ Phase 2 核心 (TENKI 2.0)（完成）
-- Progressive TEI Engine (0.29ms per calc)
-- PPG Camera System
-- Multi-Modal Sensor Fusion
-- Kalman Filter (2.28ms / 1000 updates)
-- Expectancy Calculator (1.53ms / 1000 trades)
-- HRV Advanced Analysis
-- FACS 表情追蹤
+- Progressive TEI Engine (0.29ms)、PPG Camera、Sensor Fusion
+- Kalman Filter (2.28ms)、Expectancy Calculator、HRV Advanced、FACS
 
-### 🔲 尚未完成
-- T3 (CANSLIM Pullback) 模板
-- T4 (High RS Breakout) 模板
-- Health Stress Mode / Night Cooldown
-- Deep Focus Mode
-- AI Agent hooks
+### ✅ Phase 3: Results Page + Dock（今日完成）
+- `ui/results-page.css` — 深空背景、TEI 雙環 conic-gradient、11 種動畫
+- `ui/results-page.js` — EventBridge 接線、Live TEI/HR 更新、計時器
+- `index.html` SAFE ZONE — 注入 Results Page，scan:complete 觸發
+- T5 Degraded badge → 無相機時改為 🧪 Simulation
+- 按住指紋 2.5 秒 → `scan:complete` → Results Page 滑入
+- DecisionDock v1.1 浮動卡片已接線
+- AI hint：TEI ≥ 60 時顯示提示文字
+
+### 🔲 尚未完成（下次繼續）
+- T3 CANSLIM 三段邏輯（Wait/Observe/Entry Window）
+- T4 High RS 兩段邏輯（Wait/Entry）
+- Health Stress / Night Cooldown / Deep Focus Modes
 - 微型時間軸 & 模式分析
+- Results Page：接入真實 HRV 掃描數據（非 Demo）
+- 測試套件：`tests/decision-dock.test.js`
 
 ---
 
