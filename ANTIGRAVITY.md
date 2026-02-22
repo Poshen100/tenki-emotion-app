@@ -159,7 +159,39 @@ npx vitest run   # 跑所有 23 個測試
 
 ---
 
-## 📐 Coding 規範
+## � Git Commit 規範（強制執行）
+
+> **每個 Plan 裡的 Todo = 一個獨立 Git Commit**
+
+```bash
+# 完成一個 Todo → 立即 commit
+git add <changed-files>
+git commit -m "<type>(<scope>): <todo描述>"
+```
+
+| type | 場景 |
+|------|------|
+| `feat` | 新功能 |
+| `fix` | 修 Bug |
+| `test` | 加測試 |
+| `refactor` | 重構 |
+| `perf` | 效能優化 |
+
+**範例：**
+```
+feat(core): implement T3 CANSLIM template
+fix(ppg): fix camera lifecycle on reload
+test(kalman): add zero-variance edge case
+```
+
+❌ **禁止**: 累積多個 Todo 才 commit、message 寫 "update"  
+✅ **好處**: `git log` = 完整 plan 執行軌跡，Bug 可 `git bisect` 精確定位
+
+> 詳見 `.agent/workflows/git-commit-todo.md`
+
+---
+
+## �📐 Coding 規範
 
 - **模組模式**: IIFE `(function(global){ ... })(window)`
 - **命名空間**: `global.TENKI_*`

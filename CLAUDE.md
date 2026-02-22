@@ -42,6 +42,27 @@ TENKI is a biometric trading performance app. Core modules are vanilla JS IIFEs 
 - `/dev` → `npx vite --port 5173`
 - `/build` → `npx vite build`
 
+### ✅ Commit Per Todo（強制執行）
+
+> **每個 Plan 裡的 Todo = 一個 Git Commit**
+
+格式規範：
+```
+<type>(<scope>): <todo描述>
+
+例：
+feat(core): implement T3 CANSLIM template
+fix(ppg): stabilize camera lifecycle on iOS
+test(kalman): add edge case for zero variance
+refactor(overlay): extract timer segment logic
+```
+
+規則：
+1. 完成一個 Todo → 立即 `git add` + `git commit`
+2. **不要累積多個 Todo 才 commit**
+3. commit message 要對應 plan 裡的原文 Todo
+4. 這樣做的好處：翻 log 就能精確找到哪個 Todo 引入 Bug
+
 ### ✅ Sub-agents 分工
 - Agent-01: Progressive TEI Engine
 - Agent-02: PPG Camera Calibration
