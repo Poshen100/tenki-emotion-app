@@ -1641,6 +1641,64 @@
         <script src="core/tenki-2-bootstrap.js"></script>
 
         <!-- ========================================== -->
+        <!-- PHASE 3: Results Page + Decision Dock      -->
+        <!-- ========================================== -->
+
+        <!-- Results Page CSS + JS -->
+        <link rel="stylesheet" href="ui/results-page.css">
+        <script src="core/decision-dock-controller.js"></script>
+        <script src="core/ai-behavior.js"></script>
+        <script src="ui/results-page.js"></script>
+
+        <!-- Wire: scan:complete → ResultsPage + T5 fix + AI hint -->
+        <script>
+        (function() {
+            'use strict';
+            function wirePhase3() {
+                // Todo 4: T5 Degraded → Simulation badge
+                var tier5 = document.querySelector('.tier-indicator.tier-5');
+                if (tier5) {
+                    var hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+                    if (!hasCamera) {
+                        tier5.innerHTML = '🧪 Simulation';
+                        tier5.classList.remove('tier-5');
+                        tier5.classList.add('tier-3');
+                    }
+                }
+                if (typeof EventBridge === 'undefined') return;
+
+                // Todo 1: scan:complete → show Results Page
+                EventBridge.on('scan:complete', function(data) {
+                    if (typeof TenkiResultsPage !== 'undefined') TenkiResultsPage.show(data || {});
+                });
+
+                // Todo 5: TEI ≥ 60 → AI hint
+                EventBridge.on('tei:progressive', function(d) {
+                    if (d && d.score >= 60 && typeof AIBehavior !== 'undefined') {
+                        AIBehavior.showHint('情緒狀態良好，決策計時器已就緒 ✓');
+                    }
+                });
+
+                // Demo: 2.5s hold on fingerprint → emit scan:complete
+                var fp = document.querySelector('.fingerprint-wrapper');
+                if (fp) {
+                    var t = null;
+                    fp.addEventListener('pointerdown', function() {
+                        t = setTimeout(function() {
+                            EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
+                        }, 2500);
+                    });
+                    fp.addEventListener('pointerup',    function() { clearTimeout(t); });
+                    fp.addEventListener('pointerleave', function() { clearTimeout(t); });
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', wirePhase3);
+            } else { setTimeout(wirePhase3, 400); }
+        })();
+        </script>
+
+        <!-- ========================================== -->
         <!-- TENKI PRO SAFE ZONE END                   -->
         <!-- ========================================== -->
 
