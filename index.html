@@ -38,8 +38,10 @@
         }
 
         /* Prevent black flash on initial load */
+        html,
         body {
             background: linear-gradient(160deg, #050510 0%, #0a0e27 40%, #0f1729 100%) !important;
+            background-attachment: fixed !important;
         }
 
         :root {
