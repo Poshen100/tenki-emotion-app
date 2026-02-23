@@ -53,7 +53,7 @@ const TenkiResultsPage = (function () {
   function init() {
     _buildPage();
     _subscribeEvents();
-    _startClock();
+    _watchDashboard();
     console.log('[ResultsPage] v2.0 Initialized ✓');
   }
 
@@ -92,44 +92,85 @@ const TenkiResultsPage = (function () {
   function _subscribeEvents() {
     if (typeof EventBridge === 'undefined') return;
 
-    // Scan complete → show page
-    EventBridge.on('scan:complete', (d) => {
-      show(d);
-    });
+    // Scan complete → show page (desktop 2.5s hold trigger)
+    try {
+      EventBridge.on('scan:complete', (d) => { show(d); });
+    } catch (e) { /* emit/on may not exist yet */ }
 
-    // Progressive TEI updates
-    EventBridge.on('tei:progressive', (d) => {
-      if (!_visible) return;
-      if (d && d.score != null) {
-        _data.teiScore = Math.round(d.score);
-        _data.teiStatus = _scoreToBadge(d.score);
-        _setText('rp-tei-score', _data.teiScore);
-        _setText('rp-tei-status', _data.teiStatus);
-      }
-    });
+    // Progressive TEI updates (from tenki-2-bootstrap)
+    try {
+      EventBridge.on('tei:progressive', (d) => {
+        if (!_visible) return;
+        if (d && d.score != null) {
+          _data.teiScore = Math.round(d.score);
+          _data.teiStatus = _scoreToBadge(d.score);
+          _setText('rp-tei-score', _data.teiScore);
+          _setText('rp-tei-status', _data.teiStatus);
+        }
+      });
+    } catch (e) { }
 
-    // Live metrics updates
-    EventBridge.on('tei:updated', (d) => {
-      if (!_visible) return;
-      if (d.hr) { _data.hr = Math.round(d.hr); _setText('rp-hr-num', _data.hr); _setText('rp-snap-hr-val', _data.hr); }
-      if (d.hrv) { _data.rmssd = Math.round(d.hrv); }
-      if (d.stress) { _data.stress = Math.round(d.stress * 100); _setText('rp-stress-val', _data.stress); _setStyle('rp-progbar-fill', 'width', `${_data.stress}%`); }
-      if (d.rr) { _data.respiratory = Math.round(d.rr); _setText('rp-rr-val', _data.respiratory); _setText('rp-snap-rr-val', _data.respiratory); }
-      if (d.sns) { _data.ansSnsPct = Math.round(d.sns); _setText('rp-ans-sns', `${_data.ansSnsPct}%`); _setText('rp-snap-sns-val', _data.ansSnsPct); }
-      if (d.pns) { _data.ansPnsPct = Math.round(d.pns); _setText('rp-ans-pns', `${_data.ansPnsPct}%`); _setText('rp-snap-pns-val', _data.ansPnsPct); }
-    });
+    // Live metrics from app.js via typed EventBridge methods
+    if (typeof EventBridge.onTEIUpdate === 'function') {
+      EventBridge.onTEIUpdate((d) => {
+        if (!_visible) return;
+        if (d.tei) {
+          _data.teiScore = Math.round(d.tei);
+          _data.teiStatus = _scoreToBadge(d.tei);
+          _setText('rp-tei-score', _data.teiScore);
+          _setText('rp-tei-status', _data.teiStatus);
+        }
+      });
+    }
+
+    // Live metrics updates via generic on()
+    try {
+      EventBridge.on('tei:updated', (d) => {
+        if (!_visible) return;
+        if (d.hr) { _data.hr = Math.round(d.hr); _setText('rp-hr-num', _data.hr); _setText('rp-snap-hr-val', _data.hr); }
+        if (d.hrv) { _data.rmssd = Math.round(d.hrv); }
+        if (d.stress) { _data.stress = Math.round(d.stress * 100); _setText('rp-stress-val', _data.stress); _setStyle('rp-progbar-fill', 'width', `${_data.stress}%`); }
+        if (d.rr) { _data.respiratory = Math.round(d.rr); _setText('rp-rr-val', _data.respiratory); _setText('rp-snap-rr-val', _data.respiratory); }
+        if (d.sns) { _data.ansSnsPct = Math.round(d.sns); _setText('rp-ans-sns', `${_data.ansSnsPct}%`); _setText('rp-snap-sns-val', _data.ansSnsPct); }
+        if (d.pns) { _data.ansPnsPct = Math.round(d.pns); _setText('rp-ans-pns', `${_data.ansPnsPct}%`); _setText('rp-snap-pns-val', _data.ansPnsPct); }
+      });
+    } catch (e) { }
 
     // Decision timer events
-    EventBridge.on('timer:state', (d) => {
-      if (!_visible) return;
-      if (d.state === 'RUNNING') _startTimer();
-      if (d.state === 'IDLE' || d.state === 'COMPLETE' || d.state === 'ABORT') _stopTimer();
-    });
+    try {
+      EventBridge.on('timer:state', (d) => {
+        if (!_visible) return;
+        if (d.state === 'RUNNING') _startTimer();
+        if (d.state === 'IDLE' || d.state === 'COMPLETE' || d.state === 'ABORT') _stopTimer();
+      });
+      EventBridge.on('timer:tick', (d) => {
+        if (!_visible) return;
+        if (d.elapsed != null) _updateTimerDisplay(d.elapsed);
+      });
+    } catch (e) { }
+  }
 
-    EventBridge.on('timer:tick', (d) => {
-      if (!_visible) return;
-      if (d.elapsed != null) _updateTimerDisplay(d.elapsed);
+  // ─── Mobile Trigger: Watch dashboard-layer ─────────────────
+  // On mobile, app.js shows its own dashboard via dashboard-layer.show.
+  // We use MutationObserver to detect this and overlay Results Page on top.
+  function _watchDashboard() {
+    var dashLayer = document.getElementById('dashboard-layer');
+    if (!dashLayer) return;
+
+    var _triggered = false;
+    var observer = new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        if (m.target.classList.contains('show') && !_visible && !_triggered) {
+          _triggered = true;
+          // Delay 1.5s to let app.js initialize data first
+          setTimeout(function () {
+            if (!_visible) show({});
+          }, 1500);
+        }
+      });
     });
+    observer.observe(dashLayer, { attributes: true, attributeFilter: ['class'] });
+    console.log('[ResultsPage] Dashboard observer attached ✓');
   }
 
   // ─── Page Build ──────────────────────────────────────────
@@ -160,14 +201,6 @@ const TenkiResultsPage = (function () {
     const ecgPath = `M0,18 Q8,6 16,18 Q20,24 24,18 L28,18 L32,4 L36,30 L40,18 Q48,6 56,18 Q60,22 64,18 L72,18 Q80,6 88,18 Q92,24 96,18 L100,18 L104,4 L108,30 L112,18 Q120,6 128,18`;
 
     return `
-<!-- Status Bar -->
-<div class="rp-statusbar">
-  <span class="rp-time" id="rp-clock">${_getNow()}</span>
-  <div class="rp-icons">
-    <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 0 0-6 0zm-4-4 2 2a7.074 7.074 0 0 1 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
-    <svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="11" rx="2" ry="2"/><path d="M22 11v2"/></svg>
-  </div>
-</div>
 
 <!-- Top Row -->
 <div class="rp-toprow">
