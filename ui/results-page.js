@@ -51,6 +51,9 @@ const TenkiResultsPage = (function () {
         _pageEl.classList.remove('rp-closing');
         // kick animation
         void _pageEl.offsetWidth;
+        // Hide tier badge — Results Page covers it anyway, prevents bleed-through
+        var tierBadge = document.getElementById('tier-indicator-float');
+        if (tierBadge) tierBadge.style.display = 'none';
     }
 
     function hide() {
@@ -59,6 +62,9 @@ const TenkiResultsPage = (function () {
         _pageEl.classList.add('rp-closing');
         setTimeout(() => { _pageEl.style.display = 'none'; }, 380);
         _stopTimer();
+        // Restore tier badge when Results Page closes (if camera present)
+        var tierBadge = document.getElementById('tier-indicator-float');
+        if (tierBadge) tierBadge.style.display = '';
     }
 
     // ─── EventBridge Subscriptions ────────────────────────────
