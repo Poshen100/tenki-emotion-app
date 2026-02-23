@@ -53,6 +53,26 @@
   }
 }
 
+@keyframes rp-rotate-outer {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rp-rotate-inner {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
 @keyframes rp-pulse-dot {
 
   0%,
