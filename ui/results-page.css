@@ -729,6 +729,8 @@
   font-weight: 700;
   color: #ffffff;
   font-family: var(--rp-font);
+  white-space: nowrap;
+  letter-spacing: -0.5px;
 }
 
 .rp-ans-bar-row {
@@ -811,7 +813,7 @@
 .rp-wind-icon span {
   content: '';
   display: block;
-  height: 2px;
+  height: 3px;
   background-color: var(--rp-cyan);
   border-radius: 2px;
 }
