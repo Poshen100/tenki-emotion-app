@@ -717,23 +717,17 @@
   margin-bottom: 6px;
 }
 
-.rp-ans-sns {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--rp-orange);
+.rp-ans-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rp-text-secondary);
   font-family: var(--rp-font);
 }
 
-.rp-ans-sep {
-  font-size: 18px;
-  color: rgba(255, 255, 255, 0.25);
-  font-weight: 300;
-}
-
-.rp-ans-pns {
-  font-size: 22px;
+.rp-ans-nums {
+  font-size: 16px;
   font-weight: 700;
-  color: var(--rp-cyan);
+  color: #ffffff;
   font-family: var(--rp-font);
 }
 
@@ -752,11 +746,11 @@
 }
 
 .rp-ans-bar-label.sns {
-  color: var(--rp-orange);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .rp-ans-bar-label.pns {
-  color: var(--rp-cyan);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .rp-ans-specbar {

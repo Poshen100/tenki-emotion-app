@@ -62,6 +62,8 @@ const TenkiResultsPage = (function () {
       if (data.tei != null) { _data.teiScore = Math.round(data.tei); _data.teiStatus = _scoreToBadge(data.tei); }
       if (data.teiScore != null) { _data.teiScore = data.teiScore; _data.teiStatus = _scoreToBadge(data.teiScore); }
       if (data.hr != null) _data.hr = Math.round(data.hr);
+      if (data.hrDelta != null) _data.hrDelta = data.hrDelta;
+      if (data.restingHr != null) _data.restingHr = Math.round(data.restingHr);
     }
     if (_visible) return;
     _visible = true;
@@ -235,7 +237,7 @@ const TenkiResultsPage = (function () {
 <div class="rp-card rp-chart-card">
   <div class="rp-chart-header">
     <span class="rp-chart-title">Heart Rate Activity</span>
-    <span class="rp-chart-delta">+12% vs last session</span>
+    <span class="rp-chart-delta" id="rp-hr-delta">${_data.hrDelta} vs last session</span>
   </div>
   <div class="rp-chart-body">
     <div class="rp-chart-yaxis">
@@ -268,7 +270,7 @@ const TenkiResultsPage = (function () {
         <path d="${ecgPath}" transform="translate(128,0)" fill="none" stroke="rgba(91,163,245,0.8)" stroke-width="2" stroke-linecap="round"/>
       </svg>
     </div>
-    <div class="rp-hr-baseline">Resting avg: 65</div>
+    <div class="rp-hr-baseline" id="rp-hr-baseline">Resting avg: ${_data.restingHr}</div>
   </div>
 
   <!-- ANS Balance -->
@@ -278,9 +280,9 @@ const TenkiResultsPage = (function () {
       <div class="rp-card-icon rp-icon-cyan">⚖</div>
     </div>
     <div class="rp-ans-values">
-      <span class="rp-ans-sns" id="rp-ans-sns">${_data.ansSnsPct}%</span>
-      <span class="rp-ans-sep">/</span>
-      <span class="rp-ans-pns" id="rp-ans-pns">${_data.ansPnsPct}%</span>
+      <span class="rp-ans-label">SNS</span>
+      <span class="rp-ans-nums" id="rp-ans-nums">${_data.ansSnsPct}% / ${_data.ansPnsPct}%</span>
+      <span class="rp-ans-label">PNS</span>
     </div>
     <div class="rp-ans-bar-row">
       <span class="rp-ans-bar-label sns">SNS</span>
@@ -293,10 +295,10 @@ const TenkiResultsPage = (function () {
   </div>
 </div>
 
-<!-- Stress + Respiratory -->
+<!-- Bio-Sync -->
 <div class="rp-card rp-stress-card">
   <div class="rp-stress-header">
-    <div class="rp-card-icon rp-icon-purple">🌬</div>
+    <div class="rp-card-icon" style="background:transparent; font-size: 16px;">Bio-Sync</div>
   </div>
   <div class="rp-wave-canvas-wrap">
     ${_waveSVG('slow', '#9f7aea', 3, 14, 0.7)}
@@ -304,15 +306,15 @@ const TenkiResultsPage = (function () {
   </div>
   <div class="rp-stress-footer">
     <div class="rp-stress-left">
-      <span class="rp-metric-label">Stress: <span id="rp-stress-val">${_data.stress}</span></span>
-      <div class="rp-progbar-wrap">
+      <span class="rp-metric-label" style="font-size:20px;">💪 <span id="rp-stress-val" style="color:white; font-weight:700;">${_data.stress}</span></span>
+      <div class="rp-progbar-wrap" style="margin-top:4px;">
         <div class="rp-progbar-fill" id="rp-progbar-fill" style="width:${_data.stress}%"></div>
         <div class="rp-progbar-dot"></div>
       </div>
     </div>
-    <div class="rp-stress-right">
-      <span class="rp-metric-label">Respiratory: <span id="rp-rr-val">${_data.respiratory}</span> br/min</span>
-      <span><span class="rp-breath-dot"></span></span>
+    <div class="rp-stress-right" style="text-align:right;">
+      <span class="rp-metric-label" style="font-size:18px;">〰️ <span id="rp-rr-val" style="color:white; font-weight:700;">${_data.respiratory}</span></span>
+      <div style="font-size:10px; color:var(--rp-text-secondary); margin-top:2px;">Synchronized</div>
     </div>
   </div>
 </div>
@@ -672,8 +674,9 @@ const TenkiResultsPage = (function () {
     _setText('rp-tei-score', _data.teiScore);
     _updateZoneUI(_data.teiScore);
     _setText('rp-hr-num', _data.hr);
-    _setText('rp-ans-sns', `${_data.ansSnsPct}%`);
-    _setText('rp-ans-pns', `${_data.ansPnsPct}%`);
+    _setText('rp-hr-delta', `${_data.hrDelta} vs last session`);
+    _setText('rp-hr-baseline', `Resting avg: ${_data.restingHr}`);
+    _setText('rp-ans-nums', `${_data.ansSnsPct}% / ${_data.ansPnsPct}%`);
     _setText('rp-stress-val', _data.stress);
     _setText('rp-rr-val', _data.respiratory);
     _setText('rp-snap-hr-val', _data.hr);
