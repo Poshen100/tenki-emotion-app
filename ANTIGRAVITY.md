@@ -105,26 +105,22 @@ IDLE → PRE_CHECK → BREATHING → RUNNING → COMPLETE ✅
 - Progressive TEI Engine (0.29ms)、PPG Camera、Sensor Fusion
 - Kalman Filter (2.28ms)、Expectancy Calculator、HRV Advanced、FACS
 
-### ✅ Phase 3: Results Page + Dock（完成）
-- `ui/results-page.css` — 深空背景、TEI 雙環 conic-gradient、11 種動畫
-- `ui/results-page.js` — EventBridge 接線、Live TEI/HR 更新、計時器
-- `index.html` SAFE ZONE — 注入 Results Page，scan:complete 觸發
-- T5 Degraded badge → 無相機時改為 🧪 Simulation
-- 按住指紋 2.5 秒 → `scan:complete` → Results Page 滑入
-- DecisionDock v1.1 浮動卡片已接線
-- AI hint：TEI ≥ 60 時顯示提示文字
+### ✅ Phase 3 & Phase 5: Results Page UI & Bio-Risk SaaS（已完成）
+- **UI 像素級還原**: `results-page.css` 與 `results-page.js` 已完全依照設計稿翻新
+- **雙環動畫修復**: 補上 `@keyframes rp-rotate-outer` 確保 8s/12s 雙環旋轉
+- **細節打磨**: ANS Balance 漸層修復、單行文字不折行；呼吸 Icon 替換；Heart Rate Delta 真實資料綁定
+- **Phase 5**: PWA 整合、4-State 區間變色、Hybrid Sync 藍牙心跳機制 (`tei-pr99-engine.js`)
 
-### ⏭️ 下次繼續：Phase 4（進行中 → EventBridgeV2 實作）
+### ⏭️ 下次繼續：Phase 2 (Progressive TEI) & Phase 3 (Multi-Modal)
 
 > **登入後對 Antigravity 說「CONTINUE」即可從這裡接續。**
 
 **🔜 待辦 Todo（優先順序）：**
-1. **T3** — CANSLIM 三段邏輯（Wait → Observe → Entry Window）
-2. **T4** — High RS 兩段邏輯（Wait → Entry）
-3. Health Stress / Night Cooldown / Deep Focus Modes
-4. 微型時間軸 & 模式分析
-5. Results Page：接入真實 HRV 掃描數據（非 Demo）
-6. 測試套件：`tests/decision-dock.test.js`
+1. **Phase 2** — Scan Start → 2s GLIMPSE → 15s PREVIEW → 30s DEFAULT → 60s SPECTRUM 里程碑
+2. **Phase 2** — Canvas mini-waveform for ECG in HR card (real-time from rPPG data)
+3. **Phase 3** — HealthKit/Google Fit connector stub (Capacitor ready)
+4. **Phase 3** — User calibration baseline persistence (IndexedDB)
+5. **Phase 4** — `tests/results-page.test.js` 與整體測試套件完善
 
 **🧪 測試方式：**
 ```bash
