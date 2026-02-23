@@ -11,7 +11,7 @@
  * @author TENKI PRO Team
  */
 
-(function(global) {
+(function (global) {
   'use strict';
 
   /**
@@ -138,7 +138,7 @@
         };
 
         window.dispatchEvent(new CustomEvent(EventTypes.TEI_UPDATED, { detail }));
-        
+
         if (EventBridge._instance) {
           EventBridge._instance._logEvent(EventTypes.TEI_UPDATED, detail);
         }
@@ -539,6 +539,35 @@
       return EventBridge._instance;
     }
   }
+  // ========== Generic emit/on (used by SAFE ZONE, results-page, bootstrap) ==========
+
+  /**
+   * Generic event emitter — dispatches a CustomEvent on window
+   * @param {string} eventName - Event name (e.g. 'scan:complete')
+   * @param {*} data - Event payload
+   */
+  EventBridge.emit = function (eventName, data) {
+    try {
+      window.dispatchEvent(new CustomEvent('tenki:' + eventName, { detail: data || {} }));
+      if (EventBridge._instance) {
+        EventBridge._instance._logEvent('tenki:' + eventName, data);
+      }
+    } catch (e) {
+      console.error('[EventBridge] emit error:', e);
+    }
+  };
+
+  /**
+   * Generic event subscriber — listens for CustomEvent on window
+   * @param {string} eventName - Event name (e.g. 'scan:complete')
+   * @param {Function} callback - Handler receiving event detail
+   * @returns {Function} unsubscribe function
+   */
+  EventBridge.on = function (eventName, callback) {
+    const handler = (e) => callback(e.detail);
+    window.addEventListener('tenki:' + eventName, handler);
+    return () => window.removeEventListener('tenki:' + eventName, handler);
+  };
 
   // 初始化單例
   EventBridge._instance = null;
