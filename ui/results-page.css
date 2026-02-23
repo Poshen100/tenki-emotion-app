@@ -759,7 +759,7 @@
   border-radius: 3px;
   overflow: visible;
   margin-bottom: 8px;
-  background: linear-gradient(to right, var(--rp-orange) 0%, rgba(255, 255, 255, 0.08) 46%, rgba(255, 255, 255, 0.08) 54%, var(--rp-cyan) 100%);
+  background: linear-gradient(to right, #ff8c69 0%, rgba(255, 255, 255, 0.08) 46%, rgba(255, 255, 255, 0.08) 54%, #5ba3f5 100%);
 }
 
 .rp-ans-dot {
@@ -794,6 +794,40 @@
   padding: 14px 16px;
   margin-bottom: 10px;
   overflow: visible;
+}
+
+.rp-wind-icon {
+  width: 24px;
+  height: 16px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  opacity: 0.8;
+}
+
+.rp-wind-icon::before,
+.rp-wind-icon::after,
+.rp-wind-icon span {
+  content: '';
+  display: block;
+  height: 2px;
+  background-color: var(--rp-cyan);
+  border-radius: 2px;
+}
+
+.rp-wind-icon::before {
+  width: 100%;
+}
+
+.rp-wind-icon span {
+  width: 80%;
+  margin-left: auto;
+}
+
+.rp-wind-icon::after {
+  width: 60%;
+  margin-left: auto;
 }
 
 .rp-stress-header {

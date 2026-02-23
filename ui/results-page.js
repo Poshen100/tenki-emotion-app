@@ -273,23 +273,19 @@ const TenkiResultsPage = (function () {
     <div class="rp-hr-baseline" id="rp-hr-baseline">Resting avg: ${_data.restingHr}</div>
   </div>
 
-  <!-- ANS Balance -->
+<!-- ANS Balance -->
   <div class="rp-half-card">
     <div class="rp-ans-header">
       <span class="rp-ans-header-title">ANS Balance</span>
       <div class="rp-card-icon rp-icon-cyan">⚖</div>
     </div>
+    <div class="rp-ans-specbar">
+      <div class="rp-ans-dot"></div>
+    </div>
     <div class="rp-ans-values">
       <span class="rp-ans-label">SNS</span>
       <span class="rp-ans-nums" id="rp-ans-nums">${_data.ansSnsPct}% / ${_data.ansPnsPct}%</span>
       <span class="rp-ans-label">PNS</span>
-    </div>
-    <div class="rp-ans-bar-row">
-      <span class="rp-ans-bar-label sns">SNS</span>
-      <span class="rp-ans-bar-label pns">PNS</span>
-    </div>
-    <div class="rp-ans-specbar">
-      <div class="rp-ans-dot"></div>
     </div>
     <div class="rp-ans-badge">Balanced</div>
   </div>
@@ -313,7 +309,10 @@ const TenkiResultsPage = (function () {
       </div>
     </div>
     <div class="rp-stress-right" style="text-align:right;">
-      <span class="rp-metric-label" style="font-size:18px;">🌬️ <span id="rp-rr-val" style="color:white; font-weight:700;">${_data.respiratory}</span></span>
+      <div class="rp-metric-label" style="display:flex; align-items:center; gap:6px; justify-content:flex-end;">
+        <div class="rp-wind-icon"><span></span></div>
+        <span id="rp-rr-val" style="color:white; font-weight:700; font-size:18px;">${_data.respiratory}</span>
+      </div>
       <div style="font-size:10px; color:var(--rp-text-secondary); margin-top:2px;">Synchronized</div>
     </div>
   </div>
