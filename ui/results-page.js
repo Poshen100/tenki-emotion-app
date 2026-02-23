@@ -110,9 +110,8 @@ const TenkiResultsPage = (function () {
         if (!_visible) return;
         if (d && d.score != null) {
           _data.teiScore = Math.round(d.score);
-          _data.teiStatus = _scoreToBadge(d.score);
+          _updateZoneUI(_data.teiScore);
           _setText('rp-tei-score', _data.teiScore);
-          _setText('rp-tei-status', _data.teiStatus);
         }
       });
     } catch (e) { }
@@ -123,9 +122,8 @@ const TenkiResultsPage = (function () {
         if (!_visible) return;
         if (d.tei) {
           _data.teiScore = Math.round(d.tei);
-          _data.teiStatus = _scoreToBadge(d.tei);
+          _updateZoneUI(_data.teiScore);
           _setText('rp-tei-score', _data.teiScore);
-          _setText('rp-tei-status', _data.teiStatus);
         }
       });
     }
@@ -334,6 +332,20 @@ const TenkiResultsPage = (function () {
       <div class="rp-tdot"></div>
       <div class="rp-tdot"></div>
     </div>
+  </div>
+</div>
+
+<!-- Behavior Timeline -->
+<div class="rp-timeline-card">
+  <div class="rp-timeline-header">
+    <div class="rp-timeline-title">
+      <span class="rp-timeline-icon">🕒</span>
+      Behavior Timeline
+    </div>
+  </div>
+  <div class="rp-timeline-body" id="rp-timeline-body">
+    <!-- Events injected by logBehavior() -->
+    <div class="rp-timeline-empty">Waiting for decision node...</div>
   </div>
 </div>
 
@@ -611,16 +623,50 @@ const TenkiResultsPage = (function () {
   }
 
   // ─── Helpers ──────────────────────────────────────────────
-  function _scoreToBadge(score) {
-    if (score >= 80) return 'OPTIMAL';
-    if (score >= 60) return 'GOOD';
-    if (score >= 40) return 'MODERATE';
-    return 'LOW';
+  function _updateZoneUI(score) {
+    if (typeof window.TEI_PR99_Engine !== 'undefined') {
+      const zone = window.TEI_PR99_Engine.getZone(score);
+      _data.teiStatus = zone.label;
+      _setText('rp-tei-status', _data.teiStatus);
+
+      const statusEl = document.getElementById('rp-tei-status');
+      if (statusEl) {
+        statusEl.style.color = zone.color;
+        // Hex to rgba for border
+        if (zone.color.startsWith('var')) {
+          statusEl.style.borderColor = zone.color;
+        } else {
+          statusEl.style.borderColor = zone.color;
+        }
+      }
+
+      // Update TEI ring gradients
+      const ringOuter = document.getElementById('rp-ring-outer');
+      const ringInner = document.getElementById('rp-ring-inner');
+      if (ringOuter && zone.gradientOuter) ringOuter.style.background = zone.gradientOuter;
+      if (ringInner && zone.gradientInner) ringInner.style.background = zone.gradientInner;
+    } else {
+      // Fallback if engine missing
+      let status = 'LOW';
+      let color = 'var(--rp-violet)';
+      if (score >= 80) { status = 'Peak ⚠️'; color = 'var(--rp-yellow)'; }
+      else if (score >= 55) { status = 'Optimal ✅'; color = 'var(--rp-cyan)'; }
+      else if (score >= 35) { status = 'Neutral ⏸️'; color = 'var(--rp-text-secondary)'; }
+      else { status = 'Degraded 🔁'; color = 'var(--rp-violet)'; }
+
+      _data.teiStatus = status;
+      _setText('rp-tei-status', status);
+      const statusEl = document.getElementById('rp-tei-status');
+      if (statusEl) {
+        statusEl.style.color = color;
+        statusEl.style.borderColor = color;
+      }
+    }
   }
 
   function _syncData() {
     _setText('rp-tei-score', _data.teiScore);
-    _setText('rp-tei-status', _data.teiStatus);
+    _updateZoneUI(_data.teiScore);
     _setText('rp-hr-num', _data.hr);
     _setText('rp-ans-sns', `${_data.ansSnsPct}%`);
     _setText('rp-ans-pns', `${_data.ansPnsPct}%`);
@@ -648,8 +694,42 @@ const TenkiResultsPage = (function () {
     if (el) el.style[prop] = val;
   }
 
+  // ─── Timeline ───────────────────────────────────────────────
+  function logBehavior(eventStr, hr, pr, isAlert) {
+    const timelineEl = document.getElementById('rp-timeline-body');
+    if (!timelineEl) return;
+
+    // Remove empty placeholder
+    const emptyEl = timelineEl.querySelector('.rp-timeline-empty');
+    if (emptyEl) emptyEl.remove();
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const item = document.createElement('div');
+    item.className = 'rp-timeline-item';
+
+    let alertHtml = isAlert ? `<span class="rp-timeline-alert">⚠️</span>` : '';
+
+    item.innerHTML = `
+      <div class="rp-timeline-time">${timeStr}</div>
+      <div class="rp-timeline-content">
+        <div class="rp-timeline-event">${eventStr}</div>
+        <div class="rp-timeline-metrics">
+          <span>HR ${hr}</span>
+          <span>→</span>
+          <span>PR ${pr}</span>
+          ${alertHtml}
+        </div>
+      </div>
+    `;
+
+    // Add to top
+    timelineEl.insertBefore(item, timelineEl.firstChild);
+  }
+
   // ─── Export ───────────────────────────────────────────────
-  return { init, show, hide };
+  return { init, show, hide, logBehavior };
 
 }());
 

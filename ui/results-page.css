@@ -979,6 +979,108 @@
 }
 
 /* ============================================================
+   BEHAVIOR TIMELINE
+   ============================================================ */
+.rp-timeline-card {
+  width: 100%;
+  max-width: 343px;
+  background: var(--rp-card-bg);
+  backdrop-filter: var(--rp-blur);
+  -webkit-backdrop-filter: var(--rp-blur);
+  border: 1px solid var(--rp-card-border);
+  border-radius: var(--rp-card-radius);
+  padding: 16px;
+  margin-bottom: 32px;
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+.rp-timeline-header {
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+}
+
+.rp-timeline-title {
+  font-family: var(--rp-font);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rp-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rp-timeline-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.rp-timeline-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.rp-timeline-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.rp-timeline-empty {
+  font-size: 12px;
+  color: var(--rp-text-tertiary);
+  text-align: center;
+  padding: 10px 0;
+  font-family: var(--rp-font);
+}
+
+.rp-timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-family: var(--rp-font);
+  font-size: 12px;
+  animation: rp-fade-in 0.3s ease-out forwards;
+}
+
+.rp-timeline-time {
+  color: var(--rp-text-tertiary);
+  font-family: var(--rp-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.rp-timeline-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rp-timeline-event {
+  color: var(--rp-text-secondary);
+  font-weight: 500;
+}
+
+.rp-timeline-metrics {
+  color: var(--rp-text-primary);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rp-timeline-alert {
+  color: var(--rp-yellow);
+  font-weight: 700;
+}
+
+/* ============================================================
    MEDICAL-GRADE SNAPSHOT SECTION
    醫療級即時生理快照（交感/副交感 + 壓力/心率/RR）
    ============================================================ */
