@@ -74,6 +74,7 @@ const TenkiResultsPage = (function () {
     if (tierBadge) tierBadge.style.setProperty('display', 'none', 'important');
     // Start waveform rendering
     _startWaveformLoop();
+    _startTimer();
   }
 
   function hide() {
@@ -157,15 +158,13 @@ const TenkiResultsPage = (function () {
     var dashLayer = document.getElementById('dashboard-layer');
     if (!dashLayer) return;
 
-    var _triggered = false;
     var observer = new MutationObserver(function (mutations) {
       mutations.forEach(function (m) {
-        if (m.target.classList.contains('show') && !_visible && !_triggered) {
-          _triggered = true;
-          // Delay 1.5s to let app.js initialize data first
+        if (m.target.classList.contains('show') && !_visible) {
+          // Fast overlay — 300ms just enough for app.js to initialize
           setTimeout(function () {
             if (!_visible) show({});
-          }, 1500);
+          }, 300);
         }
       });
     });

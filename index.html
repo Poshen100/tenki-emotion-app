@@ -1661,18 +1661,8 @@
                     // On desktop (no camera): show 🧪 Simulation.
                     var tierFloat = document.getElementById('tier-indicator-float');
                     if (tierFloat) {
-                        var hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-                        if (!hasCamera) {
-                            // Desktop/no camera — show Simulation badge
-                            tierFloat.querySelector('#tier-icon').innerText = '🧪';
-                            tierFloat.querySelector('#tier-label').innerText = 'Simulation';
-                            tierFloat.classList.remove('tier-5');
-                            tierFloat.classList.add('tier-3');
-                        } else {
-                            // Mobile/camera available — hide permanently
-                            // (prevents T5:Degraded from bleeding into Results Page)
-                            tierFloat.style.setProperty('display', 'none', 'important');
-                        }
+                        // Always hide the badge — Results Page replaces all dashboard indicators
+                        tierFloat.style.setProperty('display', 'none', 'important');
                     }
                     if (typeof EventBridge === 'undefined') return;
 
