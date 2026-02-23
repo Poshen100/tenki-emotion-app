@@ -233,7 +233,10 @@ const TenkiResultsPage = (function () {
 
 <!-- Heart Rate Activity Chart -->
 <div class="rp-card rp-chart-card">
-  <p class="rp-chart-title">Heart Rate Activity</p>
+  <div class="rp-chart-header">
+    <span class="rp-chart-title">Heart Rate Activity</span>
+    <span class="rp-chart-delta">+12% vs last session</span>
+  </div>
   <div class="rp-chart-body">
     <div class="rp-chart-yaxis">
       <span>100</span><span>80</span><span>60</span>
@@ -265,6 +268,7 @@ const TenkiResultsPage = (function () {
         <path d="${ecgPath}" transform="translate(128,0)" fill="none" stroke="rgba(91,163,245,0.8)" stroke-width="2" stroke-linecap="round"/>
       </svg>
     </div>
+    <div class="rp-hr-baseline">Resting avg: 65</div>
   </div>
 
   <!-- ANS Balance -->
