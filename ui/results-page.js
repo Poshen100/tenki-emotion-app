@@ -298,7 +298,7 @@ const TenkiResultsPage = (function () {
 <!-- Bio-Sync -->
 <div class="rp-card rp-stress-card">
   <div class="rp-stress-header">
-    <div class="rp-card-icon" style="background:transparent; font-size: 16px;">Bio-Sync</div>
+    <span class="rp-chart-title" style="margin:0;">Bio-Sync</span>
   </div>
   <div class="rp-wave-canvas-wrap">
     ${_waveSVG('slow', '#9f7aea', 3, 14, 0.7)}
@@ -313,7 +313,7 @@ const TenkiResultsPage = (function () {
       </div>
     </div>
     <div class="rp-stress-right" style="text-align:right;">
-      <span class="rp-metric-label" style="font-size:18px;">〰️ <span id="rp-rr-val" style="color:white; font-weight:700;">${_data.respiratory}</span></span>
+      <span class="rp-metric-label" style="font-size:18px;">🌬️ <span id="rp-rr-val" style="color:white; font-weight:700;">${_data.respiratory}</span></span>
       <div style="font-size:10px; color:var(--rp-text-secondary); margin-top:2px;">Synchronized</div>
     </div>
   </div>
