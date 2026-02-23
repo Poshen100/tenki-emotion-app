@@ -1656,8 +1656,9 @@
                 'use strict';
                 function wirePhase3() {
                     // Todo 4: T5 Degraded fix
-                    // Strategy: hide the badge on load; show Simulation only if no camera API at all.
-                    // The real tier is driven dynamically by app.updateTierIndicator() after rPPG starts.
+                    // On mobile (camera API present): permanently hide the badge.
+                    // It was causing T5:Degraded to show on Results Page via MutationObserver race.
+                    // On desktop (no camera): show 🧪 Simulation.
                     var tierFloat = document.getElementById('tier-indicator-float');
                     if (tierFloat) {
                         var hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -1668,24 +1669,9 @@
                             tierFloat.classList.remove('tier-5');
                             tierFloat.classList.add('tier-3');
                         } else {
-                            // Mobile/camera available — hide badge until rPPG sets real tier
-                            tierFloat.style.display = 'none';
-                            // Re-show once scan starts (app.updateTierIndicator drives it)
-                            document.addEventListener('tenki:scan-start', function () {
-                                tierFloat.style.display = '';
-                            });
-                            // Also re-show when dashboard appears
-                            var observer = new MutationObserver(function (mutations) {
-                                mutations.forEach(function (m) {
-                                    if (m.target.classList.contains('show')) {
-                                        tierFloat.style.display = '';
-                                    }
-                                });
-                            });
-                            var dashLayer = document.getElementById('dashboard-layer');
-                            if (dashLayer) {
-                                observer.observe(dashLayer, { attributes: true, attributeFilter: ['class'] });
-                            }
+                            // Mobile/camera available — hide permanently
+                            // (prevents T5:Degraded from bleeding into Results Page)
+                            tierFloat.style.setProperty('display', 'none', 'important');
                         }
                     }
                     if (typeof EventBridge === 'undefined') return;
