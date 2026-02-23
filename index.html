@@ -5,7 +5,25 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENKI v51.1 - Live Biometric Sync</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="pwa-512x512.png">
+    <title>TENKI Core - Bio-Risk SaaS</title>
+
+    <script>
+        // iOS 15+ Check for optimal performance
+        (function () {
+            const ua = navigator.userAgent;
+            if (/iPhone/i.test(ua)) {
+                const match = ua.match(/OS (\d+)_/);
+                if (match && parseInt(match[1], 10) < 15) {
+                    console.warn("Suggest iPhone 13+ (iOS 15+) for optimal HRV/micro-expression performance.");
+                    // Optional: alert users but let them continue
+                    // alert("TENKI Core: Suggest iOS 15+ or iPhone 13+ for optimal performance.");
+                }
+            }
+        })();
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
