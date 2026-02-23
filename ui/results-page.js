@@ -282,7 +282,7 @@ const TenkiResultsPage = (function () {
     <div class="rp-ans-specbar">
       <div class="rp-ans-dot"></div>
     </div>
-    <div class="rp-ans-values">
+    <div class="rp-ans-values" style="display:flex; justify-content:space-between; align-items:center;">
       <span class="rp-ans-label">SNS</span>
       <span class="rp-ans-nums" id="rp-ans-nums">${_data.ansSnsPct}% / ${_data.ansPnsPct}%</span>
       <span class="rp-ans-label">PNS</span>

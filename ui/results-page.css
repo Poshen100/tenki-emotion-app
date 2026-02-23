@@ -759,7 +759,7 @@
   border-radius: 3px;
   overflow: visible;
   margin-bottom: 8px;
-  background: linear-gradient(to right, #ff8c69 0%, rgba(255, 255, 255, 0.08) 46%, rgba(255, 255, 255, 0.08) 54%, #5ba3f5 100%);
+  background: linear-gradient(to right, #ff8c69 0%, #ff8c69 20%, #4cc9f0 80%, #4cc9f0 100%);
 }
 
 .rp-ans-dot {
