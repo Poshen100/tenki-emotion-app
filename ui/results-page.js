@@ -75,6 +75,9 @@ const TenkiResultsPage = (function () {
     // Start waveform rendering
     _startWaveformLoop();
     _startTimer();
+    // Hide old app.js dashboard to prevent bleed-through
+    var dashLayer = document.getElementById('dashboard-layer');
+    if (dashLayer) dashLayer.style.setProperty('display', 'none', 'important');
   }
 
   function hide() {
@@ -87,6 +90,9 @@ const TenkiResultsPage = (function () {
     // Restore tier badge
     var tierBadge = document.getElementById('tier-indicator-float');
     if (tierBadge) tierBadge.style.removeProperty('display');
+    // Restore old dashboard
+    var dashLayer = document.getElementById('dashboard-layer');
+    if (dashLayer) dashLayer.style.removeProperty('display');
   }
 
   // ─── EventBridge Subscriptions ────────────────────────────
@@ -161,10 +167,8 @@ const TenkiResultsPage = (function () {
     var observer = new MutationObserver(function (mutations) {
       mutations.forEach(function (m) {
         if (m.target.classList.contains('show') && !_visible) {
-          // Fast overlay — 300ms just enough for app.js to initialize
-          setTimeout(function () {
-            if (!_visible) show({});
-          }, 300);
+          // Immediate overlay — no delay to prevent old dashboard flash
+          show({});
         }
       });
     });
@@ -189,9 +193,11 @@ const TenkiResultsPage = (function () {
   }
 
   function _html() {
-    const bars = _barHeights.map((h, i) =>
-      `<div class="rp-bar${i === _activeBar ? ' active' : ''}" style="height:${h}%"></div>`
-    ).join('');
+    const barH = 100; // container height in px
+    const bars = _barHeights.map((h, i) => {
+      const px = Math.round((h / 100) * barH);
+      return `<div class="rp-bar${i === _activeBar ? ' active' : ''}" style="height:${px}px"></div>`;
+    }).join('');
 
     const grids = [0, 33, 66].map(pct =>
       `<div class="rp-grid-line" style="bottom:${pct}%"></div>`
