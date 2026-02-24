@@ -1664,6 +1664,8 @@
 
         <!-- Event Bridge (事件橋接器) -->
         <script src="integration/event-bridge.js"></script>
+        <!-- EventBridgeV2: canonical tenki:* events, schema validation, dual-emit -->
+        <script src="core/event-bridge-v2.js"></script>
 
         <!-- UI Controller (Overlay 控制器) -->
         <script src="ui/overlay-controller.js"></script>
@@ -1723,18 +1725,53 @@
                     var fp = document.querySelector('.fingerprint-wrapper');
                     if (fp) {
                         var t = null;
-                        fp.addEventListener('pointerdown', function () {
+                        function startHold() {
                             t = setTimeout(function () {
                                 EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
                             }, 2500);
-                        });
-                        fp.addEventListener('pointerup', function () { clearTimeout(t); });
-                        fp.addEventListener('pointerleave', function () { clearTimeout(t); });
+                        }
+                        function cancelHold() { clearTimeout(t); }
+                        fp.addEventListener('pointerdown', startHold);
+                        fp.addEventListener('mousedown', startHold);
+                        fp.addEventListener('pointerup', cancelHold);
+                        fp.addEventListener('pointerleave', cancelHold);
+                        fp.addEventListener('mouseup', cancelHold);
+                        fp.addEventListener('mouseleave', cancelHold);
+                    }
+
+                    // DEBUG: 按 'D' key 直接觸發 scan:complete（測試用）
+                    document.addEventListener('keydown', function (e) {
+                        if ((e.key === 'd' || e.key === 'D') && typeof EventBridge !== 'undefined') {
+                            EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
+                        }
+                    });
+
+                    // DEBUG 按鈕（右下角，在 dev 中可見）
+                    var dbgBtn = document.getElementById('debug-scan-btn');
+                    if (!dbgBtn) {
+                        dbgBtn = document.createElement('button');
+                        dbgBtn.id = 'debug-scan-btn';
+                        dbgBtn.textContent = '🧪 TEST';
+                        dbgBtn.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:9999;padding:6px 14px;background:rgba(0,240,255,0.2);border:1px solid rgba(0,240,255,0.4);color:#00F0FF;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;font-family:monospace;';
+                        dbgBtn.onclick = function () {
+                            if (typeof EventBridge !== 'undefined') {
+                                EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
+                            }
+                        };
+                        document.body.appendChild(dbgBtn);
+                    }
+                }
+                // Retry until EventBridge is ready (handles module load race)
+                function tryWire(attempt) {
+                    if (typeof EventBridge !== 'undefined') {
+                        wirePhase3();
+                    } else if (attempt < 30) {
+                        setTimeout(function () { tryWire(attempt + 1); }, 200);
                     }
                 }
                 if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', wirePhase3);
-                } else { setTimeout(wirePhase3, 400); }
+                    document.addEventListener('DOMContentLoaded', function () { tryWire(0); });
+                } else { tryWire(0); }
             })();
         </script>
 
