@@ -149,10 +149,17 @@ const TenkiResultsPage = (function () {
         if (!_visible) return;
         if (d.state === 'RUNNING') _startTimer();
         if (d.state === 'IDLE' || d.state === 'COMPLETE' || d.state === 'ABORT') _stopTimer();
+        // T3/T4: 更新 CANSLIM badge
+        if (d.template) _updateCanslimBadge(d.template);
       });
       EventBridge.on('timer:tick', (d) => {
         if (!_visible) return;
         if (d.elapsed != null) _updateTimerDisplay(d.elapsed);
+      });
+      // T3/T4: 計時進度 → 更新段落面板
+      EventBridge.on('timer:progress', (d) => {
+        if (!_visible || !d) return;
+        _refreshCanslimPanel(d.template, d.elapsed, _data.teiScore);
       });
     } catch (e) { }
   }
@@ -338,6 +345,22 @@ const TenkiResultsPage = (function () {
       <div class="rp-tdot"></div>
     </div>
   </div>
+</div>
+
+<!-- ============================================ -->
+<!-- T3 CANSLIM / T4 High RS 策略段落面板        -->
+<!-- ============================================ -->
+<div class="rp-card rp-canslim-card" id="rp-canslim-card">
+  <div class="rp-canslim-header">
+    <span class="rp-chart-title" style="margin:0;">策略段落</span>
+    <span class="rp-canslim-badge" id="rp-canslim-badge">CANSLIM</span>
+  </div>
+  <!-- 段落面板 (由 canslim-logic.js 渲染) -->
+  <div id="rp-canslim-panel">
+    <div style="font-size:11px;color:rgba(255,255,255,0.3);padding:8px 0;">等待計時器啟動…</div>
+  </div>
+  <!-- Bio 進場條件判定 -->
+  <span class="rp-bio-check warn" id="rp-bio-check">— 尚未開始計時</span>
 </div>
 
 <!-- Behavior Timeline -->
@@ -689,6 +712,8 @@ const TenkiResultsPage = (function () {
     Object.keys(_waveHistory).forEach(k => {
       if (k !== 'maxLen') _waveHistory[k] = [];
     });
+    // T3/T4: 初始化 CANSLIM 面板（預設 CANSLIM_GROWTH）
+    _refreshCanslimPanel('CANSILM_GROWTH', 0, _data.teiScore);
   }
 
   function _setText(id, val) {
@@ -699,6 +724,76 @@ const TenkiResultsPage = (function () {
     const el = document.getElementById(id);
     if (el) el.style[prop] = val;
   }
+
+  // ─── T3/T4 CANSLIM Panel ──────────────────────────────────────
+
+  /**
+   * 刷新 CANSLIM 段落面板
+   * @param {string} templateId - 'CANSILM_GROWTH' | 'CANSILM_HIGHRS'
+   * @param {number} elapsedSec
+   * @param {number} tei
+   */
+  function _refreshCanslimPanel(templateId, elapsedSec, tei) {
+    // 依賴 CANSLIMLogic (canslim-logic.js)
+    if (typeof CANSLIMLogic === 'undefined') return;
+
+    const container = document.getElementById('rp-canslim-panel');
+    if (!container) return;
+
+    container.innerHTML = CANSLIMLogic.renderSegmentUI(templateId, elapsedSec);
+
+    // 更新生物進場條件
+    const bio = CANSLIMLogic.checkBioCriteria(templateId, elapsedSec, tei || _data.teiScore);
+    const bioEl = document.getElementById('rp-bio-check');
+    if (bioEl) {
+      bioEl.textContent = bio.reason;
+      bioEl.className = `rp-bio-check ${bio.canEnter ? 'ok' : 'warn'}`;
+    }
+
+    // badge
+    _updateCanslimBadge(templateId);
+  }
+
+  function _updateCanslimBadge(templateId) {
+    const badgeEl = document.getElementById('rp-canslim-badge');
+    if (!badgeEl) return;
+    const BADGE_MAP = {
+      'CANSILM_GROWTH': '📈 T3 · 3段',
+      'CANSILM_HIGHRS': '🚀 T4 · 2段',
+      'MANCINI_FBD': '⚡ Mancini'
+    };
+    badgeEl.textContent = BADGE_MAP[templateId] || templateId;
+  }
+
+  // CSS for the CANSLIM card
+  (function _injectCanslimCardCSS() {
+    if (document.getElementById('rp-canslim-card-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'rp-canslim-card-styles';
+    s.textContent = `
+      .rp-canslim-card {
+        padding: 16px 16px 12px;
+        margin-bottom: 0;
+      }
+      .rp-canslim-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .rp-canslim-badge {
+        font-size: 10px;
+        font-weight: 700;
+        color: rgba(0,240,255,0.9);
+        background: rgba(0,240,255,0.1);
+        border: 1px solid rgba(0,240,255,0.2);
+        border-radius: 99px;
+        padding: 2px 10px;
+        letter-spacing: 0.5px;
+      }
+    `;
+    document.head.appendChild(s);
+  })();
 
   // ─── Timeline ───────────────────────────────────────────────
   function logBehavior(eventStr, hr, pr, isAlert) {
@@ -735,7 +830,7 @@ const TenkiResultsPage = (function () {
   }
 
   // ─── Export ───────────────────────────────────────────────
-  return { init, show, hide, logBehavior };
+  return { init, show, hide, logBehavior, refreshCanslimPanel: _refreshCanslimPanel };
 
 }());
 

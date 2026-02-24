@@ -388,6 +388,18 @@ const DecisionDockController = (function () {
         if (progressBar) {
             progressBar.style.width = `${data.progress}%`;
         }
+
+        // T3/T4: 發送 timer:progress → CANSLIMLogic 更新段落面板
+        if (typeof EventBridge !== 'undefined' && selectedTemplateId) {
+            try {
+                EventBridge.emit('timer:progress', {
+                    template: selectedTemplateId,
+                    elapsed: data.elapsed || 0,
+                    remaining: data.remaining || 0,
+                    tei: currentTEI
+                });
+            } catch (e) { /* silent */ }
+        }
     }
 
     function handleSegmentChange(data) {
