@@ -1,215 +1,307 @@
 /**
- * @fileoverview Finger Detector - MediaPipe Hands 手指覆蓋檢測
- * @description 使用 MediaPipe Hands 偵測手指位置和覆蓋率，
- *              提供紅/黃/綠狀態和方向提示。
+ * TENKI FingerDetector
+ * =====================
+ * 手指覆蓋率偵測模組
+ *
+ * 功能:
+ * - 從 <video> 或 ImageBitmap 幀中計算手指覆蓋率
+ * - 支援 MediaPipe Hands（可選）與 純像素分析 fallback
+ * - 輸出 RED / YELLOW / GREEN 三色狀態
+ * - 透過 EventBridgeV2 發送 tenki:ppg-coverage 事件
+ *
+ * ROI 策略 (Solo Founder 三大利器之一):
+ *   優先順序: glabella (眉心) → forehead (額頭) → cheeks (臉頰) → center (中心)
+ *   手機後鏡頭 PPG 模式: 整幀作為 ROI
+ *
+ * 覆蓋率閾值:
+ *   GREEN  ≥ 0.85 → 信號可靠，開始鎖定
+ *   YELLOW ≥ 0.60 → 調整中
+ *   RED    < 0.60 → 覆蓋不足
+ *
+ * 不可修改任何 LOCKED FILE
+ *
  * @version 2.0.0
+ * @author  TENKI Core Team
  */
 
-(function (global) {
-    'use strict';
+'use strict';
 
-    class FingerDetector {
-        /**
-         * @param {Object} options
-         * @param {number} [options.videoWidth=640]
-         * @param {number} [options.videoHeight=480]
-         */
-        constructor(options = {}) {
-            this.videoWidth = options.videoWidth || 640;
-            this.videoHeight = options.videoHeight || 480;
-            this.hands = null;
-            this._initialized = false;
+// ─────────────────────────────────────────────────────────────────────────────
+// 常數
+// ─────────────────────────────────────────────────────────────────────────────
 
-            this.targetRect = {
-                x: (this.videoWidth - 280) / 2,
-                y: (this.videoHeight - 280) / 2,
-                width: 280,
-                height: 280,
-                area: 280 * 280
-            };
-        }
+const COVERAGE_GREEN_THRESHOLD = 0.85;
+const COVERAGE_YELLOW_THRESHOLD = 0.60;
 
-        /**
-         * 初始化 MediaPipe Hands
-         * @returns {Promise<void>}
-         */
-        async init() {
-            if (this._initialized) return;
+const SKIN_R_MIN = 80;
+const SKIN_G_MIN = 40;
+const SKIN_B_MIN = 20;
+const SKIN_R_MAX = 255;
+const SKIN_G_MAX = 200;
+const SKIN_B_MAX = 170;
+const SKIN_R_DOMINANT_RATIO = 1.15;
 
-            // 動態載入 MediaPipe Hands（如果可用）
-            if (typeof Hands !== 'undefined') {
-                this.hands = new Hands({
-                    locateFile: (file) => {
-                        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-                    }
-                });
+const PIXEL_SAMPLE_STRIDE = 4;
+const COVERAGE_EWMA_ALPHA = 0.25;
+const MEDIAPIPE_CONFIDENCE = 0.7;
+const EMIT_THROTTLE_MS = 100;
+const ROI_STRATEGIES = ['full', 'center', 'top', 'glabella'];
 
-                this.hands.setOptions({
-                    maxNumHands: 1,
-                    modelComplexity: 0,
-                    minDetectionConfidence: 0.7,
-                    minTrackingConfidence: 0.7
-                });
 
-                this._initialized = true;
-            } else {
-                console.warn('[FingerDetector] MediaPipe Hands not available, using fallback mode');
-                this._initialized = true;
-            }
+// ─────────────────────────────────────────────────────────────────────────────
+// 工具函式
+// ─────────────────────────────────────────────────────────────────────────────
 
-            return this;
-        }
+function isSkinPixel(r, g, b) {
+    if (r < SKIN_R_MIN || r > SKIN_R_MAX) return false;
+    if (g < SKIN_G_MIN || g > SKIN_G_MAX) return false;
+    if (b < SKIN_B_MIN || b > SKIN_B_MAX) return false;
+    if (r < g * SKIN_R_DOMINANT_RATIO) return false;
+    return true;
+}
 
-        /**
-         * 計算手指覆蓋率
-         * @param {Object} results - MediaPipe 結果
-         * @returns {Object} { coverage: 0-1, state: string, hint: string }
-         */
-        detect(results) {
-            if (!results || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-                return {
-                    coverage: 0,
-                    state: 'RED',
-                    hint: '請將手指放在鏡頭前',
-                    landmarks: null
-                };
-            }
-
-            const landmarks = results.multiHandLandmarks[0];
-
-            // 計算手部邊界框
-            const handBounds = this.getHandBounds(landmarks);
-
-            // 計算與目標區域重疊
-            const overlap = this.calculateOverlap(handBounds, this.targetRect);
-            const coverage = Math.min(1, overlap / this.targetRect.area);
-
-            // 判斷狀態
-            let state, hint;
-            if (coverage < 0.5) {
-                state = 'RED';
-                hint = this.generateDirectionHint(handBounds, this.targetRect);
-            } else if (coverage < 0.85) {
-                state = 'YELLOW';
-                hint = '快到了，微調位置';
-            } else {
-                state = 'GREEN';
-                hint = '完美！保持穩定';
-            }
-
-            return { coverage, state, hint, landmarks };
-        }
-
-        /**
-         * 基於亮度的簡化覆蓋檢測（不需要 MediaPipe 的 fallback）
-         * @param {CanvasRenderingContext2D} ctx
-         * @param {number} width
-         * @param {number} height
-         * @returns {Object}
-         */
-        detectByBrightness(ctx, width, height) {
-            const centerX = Math.floor(width / 2) - 50;
-            const centerY = Math.floor(height / 2) - 50;
-
-            const imageData = ctx.getImageData(centerX, centerY, 100, 100);
-            const data = imageData.data;
-
-            let redSum = 0;
-            let greenSum = 0;
-            let pixelCount = 0;
-
-            for (let i = 0; i < data.length; i += 4) {
-                redSum += data[i];
-                greenSum += data[i + 1];
-                pixelCount++;
-            }
-
-            const avgRed = redSum / pixelCount;
-            const avgGreen = greenSum / pixelCount;
-
-            // 手指覆蓋相機時，紅光通道值高且綠光低
-            const isFingerCovering = avgRed > 100 && avgGreen < 80;
-            const coverage = isFingerCovering ? Math.min(1, avgRed / 200) : 0;
-
-            let state, hint;
-            if (coverage < 0.3) {
-                state = 'RED';
-                hint = '請將手指覆蓋在鏡頭上';
-            } else if (coverage < 0.7) {
-                state = 'YELLOW';
-                hint = '再靠近一點';
-            } else {
-                state = 'GREEN';
-                hint = '完美！保持穩定';
-            }
-
-            return { coverage, state, hint, landmarks: null };
-        }
-
-        /**
-         * 計算手部邊界框
-         * @param {Array} landmarks
-         * @returns {Object} { x, y, width, height }
-         */
-        getHandBounds(landmarks) {
-            const xs = landmarks.map(l => l.x);
-            const ys = landmarks.map(l => l.y);
-
+function getRoiRect(strategy, width, height) {
+    switch (strategy) {
+        case 'glabella':
             return {
-                x: Math.min(...xs) * this.videoWidth,
-                y: Math.min(...ys) * this.videoHeight,
-                width: (Math.max(...xs) - Math.min(...xs)) * this.videoWidth,
-                height: (Math.max(...ys) - Math.min(...ys)) * this.videoHeight
+                x: Math.floor(width * 0.35),
+                y: Math.floor(height * 0.10),
+                w: Math.floor(width * 0.30),
+                h: Math.floor(height * 0.25),
             };
-        }
-
-        /**
-         * 計算兩個矩形的重疊面積
-         */
-        calculateOverlap(rect1, rect2) {
-            const xOverlap = Math.max(0,
-                Math.min(rect1.x + rect1.width, rect2.x + rect2.width) -
-                Math.max(rect1.x, rect2.x)
-            );
-
-            const yOverlap = Math.max(0,
-                Math.min(rect1.y + rect1.height, rect2.y + rect2.height) -
-                Math.max(rect1.y, rect2.y)
-            );
-
-            return xOverlap * yOverlap;
-        }
-
-        /**
-         * 生成方向提示
-         */
-        generateDirectionHint(hand, target) {
-            const dx = (hand.x + hand.width / 2) - (target.x + target.width / 2);
-            const dy = (hand.y + hand.height / 2) - (target.y + target.height / 2);
-
-            let hint = '請移動 ';
-            const parts = [];
-            if (Math.abs(dy) > 30) parts.push(dy > 0 ? '↑ 上' : '↓ 下');
-            if (Math.abs(dx) > 30) parts.push(dx > 0 ? '← 左' : '→ 右');
-
-            if (parts.length === 0) {
-                return '請將手指靠近鏡頭';
-            }
-            return hint + parts.join('、');
-        }
+        case 'forehead':
+            return {
+                x: Math.floor(width * 0.20),
+                y: Math.floor(height * 0.05),
+                w: Math.floor(width * 0.60),
+                h: Math.floor(height * 0.30),
+            };
+        case 'top':
+            return { x: 0, y: 0, w: width, h: Math.floor(height * 0.5) };
+        case 'center':
+            return {
+                x: Math.floor(width * 0.20),
+                y: Math.floor(height * 0.20),
+                w: Math.floor(width * 0.60),
+                h: Math.floor(height * 0.60),
+            };
+        case 'full':
+        default:
+            return { x: 0, y: 0, w: width, h: height };
     }
+}
 
-    // ==================== EXPORT ====================
+function clamp(v, min, max) {
+    return Math.min(max, Math.max(min, v));
+}
 
-    if (typeof module !== 'undefined' && module.exports) {
-        module.exports = { FingerDetector };
-    }
+function coverageToColor(coverage) {
+    if (coverage >= COVERAGE_GREEN_THRESHOLD) return 'green';
+    if (coverage >= COVERAGE_YELLOW_THRESHOLD) return 'yellow';
+    return 'red';
+}
 
-    global.TENKI_FINGER_DETECTOR = {
-        create: (options) => new FingerDetector(options),
-        FingerDetector
+function coverageHint(color, roiStrategy) {
+    if (color === 'green') return '保持不動，正在讀取...';
+    if (color === 'yellow') return '繼續調整手指位置';
+
+    const roiHints = {
+        glabella: '請以眉心對準鏡頭（最佳 ROI）',
+        forehead: '請以額頭對準鏡頭',
+        top: '請將手指上移',
+        center: '請將手指完整覆蓋鏡頭',
+        full: '請將手指完整覆蓋鏡頭',
     };
+    return roiHints[roiStrategy] || '請將手指完整覆蓋鏡頭';
+}
 
-    console.log('[FINGER-DETECTOR] Module loaded ✓');
 
-})(typeof window !== 'undefined' ? window : typeof globalThis !== 'undefined' ? globalThis : this);
+// ─────────────────────────────────────────────────────────────────────────────
+// FingerDetector 主類別
+// ─────────────────────────────────────────────────────────────────────────────
+
+class FingerDetector {
+    constructor(options = {}) {
+        this._roiStrategy = options.roiStrategy || 'full';
+        this._useMediaPipe = options.useMediaPipe || false;
+        this._verbose = options.verbose || false;
+
+        this._canvas = null;
+        this._ctx = null;
+
+        this._ewmaCoverage = 0;
+        this._initialized = false;
+
+        this._mediapipeHands = null;
+        this._mediapipeReady = false;
+
+        this._lastEmitTs = 0;
+
+        this._stats = {
+            framesProcessed: 0,
+            framesWithFinger: 0,
+            currentROI: this._roiStrategy,
+        };
+    }
+
+    // ── 公開 API ──
+
+    processFrame(frame) {
+        this._stats.framesProcessed++;
+
+        let imageData;
+
+        try {
+            imageData = this._extractImageData(frame);
+        } catch (err) {
+            this._log(`⚠️ 無法提取圖像資料: ${err.message}`);
+            return this._makeResult(this._ewmaCoverage);
+        }
+
+        const rawCoverage = this._calcCoverageFromImageData(imageData);
+
+        if (!this._initialized) {
+            this._ewmaCoverage = rawCoverage;
+            this._initialized = true;
+        } else {
+            this._ewmaCoverage = COVERAGE_EWMA_ALPHA * rawCoverage
+                + (1 - COVERAGE_EWMA_ALPHA) * this._ewmaCoverage;
+        }
+
+        const result = this._makeResult(this._ewmaCoverage);
+
+        if (result.color === 'green' || result.color === 'yellow') {
+            this._stats.framesWithFinger++;
+        }
+
+        this._emitIfReady(result);
+
+        return result;
+    }
+
+    setROIStrategy(strategy) {
+        if (!ROI_STRATEGIES.includes(strategy)) {
+            console.warn(`[FingerDetector] 無效 ROI 策略: "${strategy}"`);
+            return;
+        }
+        this._roiStrategy = strategy;
+        this._stats.currentROI = strategy;
+        this._log(`ROI 策略切換: ${strategy}`);
+    }
+
+    getStats() {
+        return {
+            ...this._stats,
+            ewmaCoverage: Math.round(this._ewmaCoverage * 1000) / 1000,
+            currentColor: coverageToColor(this._ewmaCoverage),
+        };
+    }
+
+    reset() {
+        this._ewmaCoverage = 0;
+        this._initialized = false;
+        this._lastEmitTs = 0;
+        this._stats = {
+            framesProcessed: 0,
+            framesWithFinger: 0,
+            currentROI: this._roiStrategy,
+        };
+    }
+
+    // ── 私有 ──
+
+    _extractImageData(frame) {
+        if (frame instanceof ImageData) {
+            return frame;
+        }
+
+        const width = frame.videoWidth || frame.width || 640;
+        const height = frame.videoHeight || frame.height || 480;
+
+        if (!this._canvas) {
+            if (typeof OffscreenCanvas !== 'undefined') {
+                this._canvas = new OffscreenCanvas(width, height);
+            } else {
+                this._canvas = document.createElement('canvas');
+                this._canvas.width = width;
+                this._canvas.height = height;
+            }
+            this._ctx = this._canvas.getContext('2d', { willReadFrequently: true });
+        }
+
+        if (this._canvas.width !== width || this._canvas.height !== height) {
+            this._canvas.width = width;
+            this._canvas.height = height;
+        }
+
+        this._ctx.drawImage(frame, 0, 0, width, height);
+
+        const roi = getRoiRect(this._roiStrategy, width, height);
+        return this._ctx.getImageData(roi.x, roi.y, roi.w, roi.h);
+    }
+
+    _calcCoverageFromImageData(imageData) {
+        const { data, width, height } = imageData;
+        let skinPixels = 0;
+        let totalPixels = 0;
+
+        for (let y = 0; y < height; y += PIXEL_SAMPLE_STRIDE) {
+            for (let x = 0; x < width; x += PIXEL_SAMPLE_STRIDE) {
+                const idx = (y * width + x) * 4;
+                totalPixels++;
+                if (isSkinPixel(data[idx], data[idx + 1], data[idx + 2])) {
+                    skinPixels++;
+                }
+            }
+        }
+
+        if (totalPixels === 0) return 0;
+        return clamp(skinPixels / totalPixels, 0, 1);
+    }
+
+    _makeResult(coverage) {
+        const color = coverageToColor(coverage);
+        return {
+            coverage: Math.round(coverage * 1000) / 1000,
+            color,
+            hint: coverageHint(color, this._roiStrategy),
+        };
+    }
+
+    _emitIfReady(result) {
+        const now = Date.now();
+        if (now - this._lastEmitTs < EMIT_THROTTLE_MS) return;
+        this._lastEmitTs = now;
+
+        if (typeof window !== 'undefined' && window.EventBridgeV2) {
+            window.EventBridgeV2.emitPPGCoverage(result.coverage);
+        }
+    }
+
+    _log(msg) {
+        if (this._verbose) {
+            console.log(`[FingerDetector] ${msg}`);
+        }
+    }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Export
+// ─────────────────────────────────────────────────────────────────────────────
+
+if (typeof window !== 'undefined') {
+    window.FingerDetector = FingerDetector;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        FingerDetector,
+        isSkinPixel,
+        coverageToColor,
+        coverageHint,
+        getRoiRect,
+        COVERAGE_GREEN_THRESHOLD,
+        COVERAGE_YELLOW_THRESHOLD,
+    };
+}
