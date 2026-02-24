@@ -649,6 +649,45 @@ const TenkiEngine = {
             teiWeightAdjustments: { hrv_pr: 1.0, hr_pr: 1.0, rr_pr: 1.0, sq_pr: 1.0 },
             timeOfDayProfiles: {}, highQualityScansCount: 0
         };
+    },
+
+    // ==================== WAVEFORM DATA STREAM ====================
+    _waveformInterval: null,
+
+    /**
+     * Start pushing 200ms waveform data for the Snapshot UI
+     * @param {Object} baseMetrics - Base metrics to simulate around { hr, hrv_ms, quality }
+     */
+    startWaveformStream(baseMetrics = { hr: 72, hrv_ms: 45, quality: 1.0 }) {
+        this.stopWaveformStream();
+        let ts = Date.now();
+
+        this._waveformInterval = setInterval(() => {
+            ts += 200;
+            // Generate minor variance around base metrics
+            const hr = baseMetrics.hr + (Math.random() * 2 - 1);
+            const hrv = baseMetrics.hrv_ms + (Math.random() * 4 - 2);
+
+            const sample = {
+                v: 1,
+                ts: ts,
+                hr_bpm: hr,
+                hrv_ms: Math.max(10, hrv),
+                quality: baseMetrics.quality
+            };
+
+            // Dispatch via EventBridgeV2 if available
+            if (typeof window !== 'undefined' && window.EventBridgeV2) {
+                window.EventBridgeV2.emit('root', 'tenki:sensor-sample', sample);
+            }
+        }, 200);
+    },
+
+    stopWaveformStream() {
+        if (this._waveformInterval) {
+            clearInterval(this._waveformInterval);
+            this._waveformInterval = null;
+        }
     }
 };
 

@@ -1255,7 +1255,12 @@
                 font-size: 24px;
             }
         }
+        }
     </style>
+    <!-- uPlot CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/uplot/dist/uPlot.min.css">
+    <!-- Phase 5: Snapshot Medical Grade Waveform -->
+    <link rel="stylesheet" href="ui/snapshot-wave.css">
 </head>
 
 <body>
@@ -1407,6 +1412,9 @@
                             <div class="mini-spark text-orange-400/50" id="spark-sns"></div>
                         </div>
                     </div>
+
+                    <!-- Medical Grade Synchronized Waveform -->
+                    <div id="snapshot-waveform-container" class="medical-waveform"></div>
 
                     <div class="hidden">
                         <div id="phase-indicator">
@@ -1669,6 +1677,10 @@
         <!-- Bootstrap V2: init sequence + dev panel + legacy bridge -->
         <script src="integration/bootstrap.js"></script>
 
+        <!-- Phase 5 Snapshot Waveform -->
+        <script src="https://unpkg.com/uplot/dist/uPlot.iife.min.js"></script>
+        <script src="ui/snapshot-wave.js"></script>
+
         <!-- SignalAnalyzer: PPG signal processing pipeline (detrend → bandpass → peaks → BPM/HRV/SNR) -->
         <script src="core/signal-analyzer.js"></script>
         <!-- PPGCalibration: State machine coordinating FingerDetector and SignalAnalyzer -->
@@ -1740,7 +1752,14 @@
                         var t = null;
                         function startHold() {
                             t = setTimeout(function () {
-                                EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
+                                if (typeof EventBridgeV2 !== 'undefined') {
+                                    EventBridgeV2.emitLegacy('scan:complete', { tei: 82, hr: 68 });
+                                } else if (typeof EventBridge !== 'undefined') {
+                                    EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
+                                }
+                                if (typeof window.TenkiEngine !== 'undefined') {
+                                    window.TenkiEngine.startWaveformStream({ hr: 68, hrv_ms: 45, quality: 1.0 });
+                                }
                             }, 2500);
                         }
                         function cancelHold() { clearTimeout(t); }
@@ -1754,8 +1773,15 @@
 
                     // DEBUG: 按 'D' key 直接觸發 scan:complete（測試用）
                     document.addEventListener('keydown', function (e) {
-                        if ((e.key === 'd' || e.key === 'D') && typeof EventBridge !== 'undefined') {
-                            EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
+                        if ((e.key === 'd' || e.key === 'D')) {
+                            if (typeof EventBridgeV2 !== 'undefined') {
+                                EventBridgeV2.emitLegacy('scan:complete', { tei: 82, hr: 68 });
+                            } else if (typeof EventBridge !== 'undefined') {
+                                EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
+                            }
+                            if (typeof window.TenkiEngine !== 'undefined') {
+                                window.TenkiEngine.startWaveformStream({ hr: 68, hrv_ms: 45, quality: 1.0 });
+                            }
                         }
                     });
 
@@ -1767,8 +1793,13 @@
                         dbgBtn.textContent = '🧪 TEST';
                         dbgBtn.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:9999;padding:6px 14px;background:rgba(0,240,255,0.2);border:1px solid rgba(0,240,255,0.4);color:#00F0FF;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;font-family:monospace;';
                         dbgBtn.onclick = function () {
-                            if (typeof EventBridge !== 'undefined') {
+                            if (typeof EventBridgeV2 !== 'undefined') {
+                                EventBridgeV2.emitLegacy('scan:complete', { tei: 82, hr: 68 });
+                            } else if (typeof EventBridge !== 'undefined') {
                                 EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
+                            }
+                            if (typeof window.TenkiEngine !== 'undefined') {
+                                window.TenkiEngine.startWaveformStream({ hr: 68, hrv_ms: 45, quality: 1.0 });
                             }
                         };
                         document.body.appendChild(dbgBtn);
