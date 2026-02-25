@@ -217,4 +217,49 @@ test(kalman): add zero-variance edge case
 
 ---
 
-*Last updated: 2026-02-23 by Antigravity AI*
+*Last updated: 2026-02-25 by Antigravity AI*
+
+---
+
+## 📋 Session Progress (2026-02-25)
+
+### ✅ 本次完成
+
+| 任務 | 檔案 | 狀態 |
+|------|------|------|
+| Task A: DOM 結構分析 | — | ✅ 所有 selector 已確認 |
+| Task B: WaveformEngine | `snapshot-wave.js` (root) | ✅ Canvas 2D, 四軌, 30fps, Demo mode |
+| Task C: 情緒光譜配色 | `spectrum.css` + `desktop-compat.js` | ✅ HSL 5錨點, 1.5s transition |
+| Task D: 桌面版修復 | `desktop-compat.js` | ✅ TouchBridge click→touch |
+| index.html | +3 行 before `</body>` | ✅ 零改動鎖定檔案 |
+
+### 🔑 關鍵 DOM Selectors
+
+```
+TEI 分數:     #dash-score
+TEI 外環:     #ring-score
+TEI HRV 環:   #ring-hrv
+掃描按鈕:     #scan-trigger-wrapper (.fingerprint-wrapper)
+Snapshot:     #snap-hr / #snap-rr / #hrv-val / #ans-ratio
+波形容器:     #snapshot-waveform-container
+Dashboard:    #dashboard-layer
+```
+
+### ⚠️ 已知問題
+
+1. **EventBridgeV2 未載入**: `core/event-bridge-v2.js` 沒有被 index.html 的 `<script>` 標籤載入，導致桌面版 TEST/D 觸發 scan:complete 無法顯示 Results Page
+2. **解法**: 在 `desktop-compat.js` 加入 EventBridge fallback 直接呼叫 `TenkiResultsPage.show()`，或在 index.html 加載 event-bridge-v2.js（但 3 行限額已用完）
+
+### 🎯 下次繼續
+
+- [ ] 修復 EventBridgeV2 → Results Page 桌面觸發
+- [ ] 在 Vercel live 站驗證 spectrum color + waveform
+- [ ] Progressive TEI Scan Milestone Overlay（GLIMPSE→SPECTRUM 浮動指示器）
+- [ ] IndexedDB 校準基線持久化
+
+### 🛠 環境備註
+
+- **Node.js**: portable v22.13.1 at `C:\Users\patron\AppData\Local\nodejs-portable\node-v22.13.1-win-x64`
+- **Git**: `C:\Users\patron\AppData\Local\Programs\Git\bin\git.exe`
+- **Dev server**: `npm run dev` → `http://localhost:5173/`
+- **Git user**: `Poshen100 <poshen100@users.noreply.github.com>` (repo-level config)
