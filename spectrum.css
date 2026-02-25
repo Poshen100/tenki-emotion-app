@@ -1,0 +1,98 @@
+/* ============================================================
+   TENKI — Emotion Spectrum Color System (spectrum.css)
+   ============================================================
+   CSS Custom Properties driven by desktop-compat.js SpectrumEngine.
+   HSL-interpolated across 5 anchor points for continuous TEI color.
+   ============================================================ */
+
+:root {
+  --tei-color: #9E9E9E;
+  --tei-color-dim: rgba(158, 158, 158, 0.125);
+  --tei-glow: rgba(158, 158, 158, 0.25);
+  --tei-h: 0;
+  --tei-s: 0%;
+  --tei-l: 62%;
+}
+
+/* ── Global Transition: smooth 1.5s on every TEI shift ── */
+body,
+#dash-score,
+#dash-label,
+#dash-state,
+.ring-value,
+.ring-hrv-2050 {
+  transition: color 1.5s ease, text-shadow 1.5s ease,
+              stroke 1.5s ease, border-color 1.5s ease,
+              box-shadow 1.5s ease, filter 1.5s ease;
+}
+
+/* ── TEI Score Number ── */
+#dash-score {
+  color: var(--tei-color) !important;
+  text-shadow: 0 0 20px var(--tei-glow), 0 0 60px var(--tei-glow);
+  /* Override the metallic gradient when spectrum is active */
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  -webkit-text-fill-color: var(--tei-color) !important;
+  filter: drop-shadow(0 4px 10px var(--tei-glow));
+}
+
+/* ── TEI Status Label ── */
+#dash-label {
+  color: var(--tei-color) !important;
+  opacity: 0.85;
+}
+
+/* ── TEI Ring SVG (outer score ring) ── */
+#ring-score {
+  stroke: var(--tei-color) !important;
+  filter: drop-shadow(0 0 10px var(--tei-glow));
+}
+
+/* ── Body Background Aura ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 60% 50% at 50% 40%,
+    var(--tei-color-dim) 0%,
+    transparent 70%
+  );
+  opacity: 0.6;
+  transition: background 1.5s ease, opacity 1.5s ease;
+}
+
+/* ── Fingerprint scan button subtle tint ── */
+.fingerprint-wrapper.active .fingerprint-core {
+  border-color: var(--tei-color) !important;
+  box-shadow: 0 0 30px var(--tei-color-dim), inset 0 0 20px var(--tei-color-dim) !important;
+}
+
+.fingerprint-wrapper.active .scan-beam {
+  background: linear-gradient(to bottom,
+    transparent 0%,
+    var(--tei-color-dim) 90%,
+    var(--tei-color) 100%) !important;
+}
+
+/* ── Precision Tab active state follows spectrum ── */
+.precision-tab.active {
+  color: var(--tei-color) !important;
+  border-color: var(--tei-color-dim) !important;
+  background: var(--tei-color-dim) !important;
+  box-shadow: 0 0 18px var(--tei-color-dim) !important;
+}
+
+/* ── Snapshot cards subtle accent ── */
+.snapshot-card {
+  transition: border-color 1.5s ease;
+}
+
+/* ── Dock action button glow ── */
+.dock-main-action {
+  transition: box-shadow 1.5s ease, transform 0.2s;
+}
