@@ -37,10 +37,15 @@
 
             // ── 2. Progressive TEI ──
             if (global.TENKI_PROGRESSIVE_TEI) {
+                let baselineHR = 72;
+                if (this.storage) {
+                    const savedHR = await this.storage.getSetting('user_baseline_hr');
+                    if (savedHR) baselineHR = savedHR;
+                }
                 this.progressiveTEI = global.TENKI_PROGRESSIVE_TEI.create({
-                    baselineHR: 72  // Will be updated from real data
+                    baselineHR: baselineHR
                 });
-                console.log('[TENKI 2.0] ✓ ProgressiveTEI');
+                console.log('[TENKI 2.0] ✓ ProgressiveTEI (baseline: ' + baselineHR + ')');
             }
 
             // ── 3. Smooth Transition ──
@@ -112,6 +117,20 @@
                     }
                 }
             });
+
+            // Listen for final TEI results to save baseline
+            if (global.EventBridgeV2) {
+                global.EventBridgeV2.addEventListener('tenki:tei-progressive', (e) => {
+                    const result = e.detail;
+                    if (result && result.baseline && result._meta && result._meta.is_final) {
+                        if (self.storage) {
+                            self.storage.setSetting('user_baseline_hr', result.baseline.hr_bpm);
+                            self.storage.setSetting('user_baseline_confidence', result.baseline.confidence);
+                            console.log('[TENKI 2.0] 💾 Saved baseline to DB:', result.baseline);
+                        }
+                    }
+                });
+            }
 
             // Listen for trade completion → log with TEI data
             bridge.on('trade:completed', (data) => {

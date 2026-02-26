@@ -593,6 +593,17 @@ class ProgressiveTEI {
 // 全域單例
 // ─────────────────────────────────────────────────────────────────────────────
 
+const _global = typeof window !== 'undefined' ? window : typeof globalThis !== 'undefined' ? globalThis : this;
+_global.TENKI_PROGRESSIVE_TEI = {
+    create: function (options) {
+        const inst = new ProgressiveTEI(options);
+        if (options && options.baselineHR) {
+            inst._baselineHR = options.baselineHR;
+        }
+        return inst;
+    }
+};
+
 if (typeof window !== 'undefined') {
     if (window.ProgressiveTEI) {
         console.warn('[ProgressiveTEI] 偵測到重複載入，跳過初始化');

@@ -515,3 +515,8 @@ const TenkiDatabase = (function () {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = TenkiDatabase;
 }
+if (typeof window !== 'undefined') {
+    window.TENKI_STORAGE = TenkiDatabase;
+} else if (typeof globalThis !== 'undefined') {
+    globalThis.TENKI_STORAGE = TenkiDatabase;
+}
