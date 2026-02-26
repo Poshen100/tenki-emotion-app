@@ -1751,8 +1751,8 @@
                         var t = null;
                         function startHold() {
                             t = setTimeout(function () {
-                                if (typeof EventBridgeV2 !== 'undefined') {
-                                    EventBridgeV2.emitLegacy('scan:complete', { tei: 82, hr: 68 });
+                                if (typeof window.EventBridgeV2 !== 'undefined') {
+                                    window.EventBridgeV2.dispatchEvent(new CustomEvent('tenki:tei-scan-stopped', { detail: { tei_pr99: 82, hr_bpm: 68 } }));
                                 } else if (typeof EventBridge !== 'undefined') {
                                     EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
                                 }
@@ -1773,8 +1773,8 @@
                     // DEBUG: 按 'D' key 直接觸發 scan:complete（測試用）
                     document.addEventListener('keydown', function (e) {
                         if ((e.key === 'd' || e.key === 'D')) {
-                            if (typeof EventBridgeV2 !== 'undefined') {
-                                EventBridgeV2.emitLegacy('scan:complete', { tei: 82, hr: 68 });
+                            if (typeof window.EventBridgeV2 !== 'undefined') {
+                                window.EventBridgeV2.dispatchEvent(new CustomEvent('tenki:tei-scan-stopped', { detail: { tei_pr99: 82, hr_bpm: 68 } }));
                             } else if (typeof EventBridge !== 'undefined') {
                                 EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
                             }
