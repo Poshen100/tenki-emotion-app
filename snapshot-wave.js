@@ -690,7 +690,12 @@
             // Retry up to 30 times
             let attempts = 0;
             const retryId = setInterval(() => {
-                if (tryV2() || ++attempts >= 30) clearInterval(retryId);
+                if (tryV2()) {
+                    clearInterval(retryId);
+                } else if (++attempts >= 30) {
+                    clearInterval(retryId);
+                    console.warn('[SnapshotWave] window.EventBridgeV2 not found after 15s.');
+                }
             }, 500);
         }
 

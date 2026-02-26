@@ -16,11 +16,11 @@
   // ============================================================
 
   const ANCHORS = [
-    { tei:  1, h: 270, s: 80, l: 25 },   // deep violet
+    { tei: 1, h: 270, s: 80, l: 25 },   // deep violet
     { tei: 35, h: 205, s: 65, l: 40 },   // steel blue
     { tei: 55, h: 195, s: 100, l: 50 },  // plasma cyan
-    { tei: 80, h:  38, s: 90, l: 55 },   // amber gold
-    { tei: 99, h:  51, s: 100, l: 60 },  // bright gold
+    { tei: 80, h: 38, s: 90, l: 55 },   // amber gold
+    { tei: 99, h: 51, s: 100, l: 60 },  // bright gold
   ];
 
   function lerpHSL(tei) {
@@ -170,11 +170,22 @@
 
   function wireSpectrum() {
     // Priority: EventBridgeV2
-    if (global.EventBridgeV2) {
-      global.EventBridgeV2.addEventListener('tenki:tei-progressive', (e) => {
-        const d = e.detail || e;
-        if (d.tei_pr99 != null) SpectrumEngine.apply(d.tei_pr99);
-      });
+    function tryWireSpectrumV2() {
+      if (global.EventBridgeV2) {
+        global.EventBridgeV2.addEventListener('tenki:tei-progressive', (e) => {
+          const d = e.detail || e;
+          if (d.tei_pr99 != null) SpectrumEngine.apply(d.tei_pr99);
+        });
+        return true;
+      }
+      return false;
+    }
+
+    if (!tryWireSpectrumV2()) {
+      let attempts = 0;
+      const retryId = setInterval(() => {
+        if (tryWireSpectrumV2() || ++attempts >= 30) clearInterval(retryId);
+      }, 500);
     }
 
     // Fallback: legacy EventBridge
@@ -213,12 +224,23 @@
     }
 
     // Fallback for ProgressiveTEI v2
-    if (global.EventBridgeV2) {
-      global.EventBridgeV2.addEventListener('tenki:tei-scan-stopped', (e) => {
-        if (global.TenkiResultsPage && typeof global.TenkiResultsPage.show === 'function') {
-          global.TenkiResultsPage.show(e.detail);
-        }
-      });
+    function tryWireV2() {
+      if (global.EventBridgeV2) {
+        global.EventBridgeV2.addEventListener('tenki:tei-scan-stopped', (e) => {
+          if (global.TenkiResultsPage && typeof global.TenkiResultsPage.show === 'function') {
+            global.TenkiResultsPage.show(e.detail);
+          }
+        });
+        return true;
+      }
+      return false;
+    }
+
+    if (!tryWireV2()) {
+      let attempts = 0;
+      const retryId = setInterval(() => {
+        if (tryWireV2() || ++attempts >= 30) clearInterval(retryId);
+      }, 500);
     }
 
     // MutationObserver: watch #dash-score text changes as ultimate fallback
