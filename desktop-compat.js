@@ -199,13 +199,26 @@
       if (d.tei != null) SpectrumEngine.apply(d.tei);
     });
 
-    // Also watch scan:complete for initial TEI value
+    // Also watch scan:complete for initial TEI value and trigger Results Page fallback on desktop
     if (typeof EventBridge !== 'undefined') {
       try {
         EventBridge.on('scan:complete', (d) => {
           if (d && d.tei != null) SpectrumEngine.apply(d.tei);
+          // Fallback to show results page on desktop
+          if (global.TenkiResultsPage && typeof global.TenkiResultsPage.show === 'function') {
+            global.TenkiResultsPage.show(d);
+          }
         });
       } catch (e) { }
+    }
+
+    // Fallback for ProgressiveTEI v2
+    if (global.EventBridgeV2) {
+      global.EventBridgeV2.addEventListener('tenki:tei-scan-stopped', (e) => {
+        if (global.TenkiResultsPage && typeof global.TenkiResultsPage.show === 'function') {
+          global.TenkiResultsPage.show(e.detail);
+        }
+      });
     }
 
     // MutationObserver: watch #dash-score text changes as ultimate fallback
