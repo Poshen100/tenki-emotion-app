@@ -1,0 +1,23 @@
+{
+    "name": "@tenki/engine",
+    "version": "1.0.0",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "test": "jest"
+    },
+    "devDependencies": {
+        "jest": "^29.0.0",
+        "ts-jest": "^29.0.0",
+        "@types/jest": "^29.0.0",
+        "typescript": "^5.0.0"
+    },
+    "jest": {
+        "preset": "ts-jest",
+        "testEnvironment": "node",
+        "testMatch": [
+            "**/__tests__/**/*.test.ts"
+        ]
+    }
+}
