@@ -1255,7 +1255,6 @@
                 font-size: 24px;
             }
         }
-        }
     </style>
     <!-- uPlot CSS -->
     <link rel="stylesheet" href="https://unpkg.com/uplot/dist/uPlot.min.css">
@@ -1785,25 +1784,7 @@
                         }
                     });
 
-                    // DEBUG 按鈕（右下角，在 dev 中可見）
-                    var dbgBtn = document.getElementById('debug-scan-btn');
-                    if (!dbgBtn) {
-                        dbgBtn = document.createElement('button');
-                        dbgBtn.id = 'debug-scan-btn';
-                        dbgBtn.textContent = '🧪 TEST';
-                        dbgBtn.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:9999;padding:6px 14px;background:rgba(0,240,255,0.2);border:1px solid rgba(0,240,255,0.4);color:#00F0FF;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;font-family:monospace;';
-                        dbgBtn.onclick = function () {
-                            if (typeof EventBridgeV2 !== 'undefined') {
-                                EventBridgeV2.emitLegacy('scan:complete', { tei: 82, hr: 68 });
-                            } else if (typeof EventBridge !== 'undefined') {
-                                EventBridge.emit('scan:complete', { tei: 82, hr: 68 });
-                            }
-                            if (typeof window.TenkiEngine !== 'undefined') {
-                                window.TenkiEngine.startWaveformStream({ hr: 68, hrv_ms: 45, quality: 1.0 });
-                            }
-                        };
-                        document.body.appendChild(dbgBtn);
-                    }
+                    // DEBUG 按鈕已依需求移除
                 }
                 // Retry until EventBridge is ready (handles module load race)
                 function tryWire(attempt) {
@@ -1824,6 +1805,7 @@
         <!-- ========================================== -->
 
         <link rel="stylesheet" href="spectrum.css">
+        <script src="core/event-bridge-v2.js"></script>
         <script src="desktop-compat.js"></script>
         <script src="snapshot-wave.js"></script>
         <script src="core/milestone-overlay.js"></script>
