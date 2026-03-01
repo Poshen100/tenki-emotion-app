@@ -1,4 +1,38 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+*.tsbuildinfo
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Source maps
 *.js.map
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Expo (Phase 1+)
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Coverage
+coverage/
+
+# Misc
+*.log
+npm-debug.log*
