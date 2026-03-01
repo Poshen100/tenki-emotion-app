@@ -22,6 +22,8 @@
 - [2026-03-01] packages/shared/ 建立 — design-tokens, subscription-tiers, zone-config（Antigravity session）
 - [2026-03-01] docs/ 補齊 — PRD.md, TEI-SPEC.md, FDCB-SPEC.md（Antigravity session）
 - [2026-03-01] 三檔治理系統（ANTIGRAVITY.md / MEMORY.md / RULES.md）正式建立
+- [2026-03-01] rr.ts 實作完成 — RSA zero-crossing 演算法 + EWMA 平滑 + 4 級 RrStatus + baseline z-score
+- [2026-03-01] **packages/engine/ 全模組完工** — types, tei, hrv, stress, baseline, fusion, sqi, rr 全部到位
 
 ## Founder 偏好（AI 應記住）
 
@@ -64,16 +66,15 @@
 
 - **日期**: 2026-03-01
 - **最後完成**: 
-  - `packages/engine/` — types ✅ tei ✅ hrv ✅ stress ✅ baseline ✅ fusion ✅ sqi ✅ (rr ⏳)
+  - `packages/engine/` — types ✅ tei ✅ hrv ✅ stress ✅ baseline ✅ fusion ✅ sqi ✅ rr ✅ **全部完工**
   - `packages/fdcb/` — types ✅ templates ✅ timer ✅ events ✅ analytics ✅ + 全測試
   - `packages/shared/` — design-tokens ✅ subscription-tiers ✅ zone-config ✅
   - `docs/` — PRD ✅ TEI-SPEC ✅ FDCB-SPEC ✅
   - 三檔治理系統 — ANTIGRAVITY.md ✅ MEMORY.md ✅ RULES.md ✅
 - **下一步**: 
-  1. `rr.ts` (呼吸率計算) → engine/ 完整收工
-  2. Claude review 所有新增代碼（fdcb/ + shared/）
-  3. 等 Mac 到手 → Phase 1: Expo init + 相機掃描 MVP
-- **Phase 0 進度**: ~85% (僅差 rr.ts + review)
+  1. Claude review 所有新增代碼（rr.ts + fdcb/ + shared/）
+  2. 等 Mac 到手 → Phase 1: Expo init + 相機掃描 MVP
+- **Phase 0 進度**: ~95% (僅差 review)
 
 ## 各 AI 工具的角色分工
 
