@@ -33,6 +33,7 @@
 - [2026-03-02] 新增 docs/CAMERA-UI-SPEC.md — 相機 UI 7 種設計模式，MVP 採用選項 1+6，v2.0 採用選項 3+5
 - [2026-03-02] 新增 docs/RESULTS-PAGE-SPEC.md v4.2 — Results Page 完整工程規格書，設計已鎖定
 - [2026-03-02] 新增 docs/assets/results-reference.png — 結果頁視覺參考圖
+- [2026-03-02] **GitHub default branch 修正** — 發現 GitHub 顯示舊的 `master`（15 commits），所有新工作在 `main` 上（396 commits）。已在 GitHub Settings 將 default branch 從 `master` 切換為 `main`，repo 首頁現在正確顯示所有內容
 
 ## Founder 偏好（AI 應記住）
 
@@ -85,20 +86,16 @@
 ## 上次 Session 結束點
 
 - **日期**: 2026-03-02
-- **最後完成**: 🎉 **Phase 0 全部完工** + docs 歸檔
-  - `packages/engine/` — 8 模組 + 7 測試套件 = 79 tests / 99.53% coverage ✅
-  - `packages/fdcb/` — 7 模組 + 5 測試套件 = 96 tests / 97.93% coverage ✅
-  - `packages/shared/` — 3 模組 + JSDoc ✅
-  - `docs/` — PRD ✅ TEI-SPEC ✅ FDCB-SPEC ✅ **CAMERA-UI-SPEC ✅** **RESULTS-PAGE-SPEC v4.2 ✅**
-  - `docs/assets/results-reference.png` ✅
-  - Monorepo — root package.json ✅ tsconfig.base.json ✅ .gitignore ✅
-  - 三檔治理系統 — ANTIGRAVITY.md ✅ MEMORY.md ✅ RULES.md ✅
+- **最後完成**: GitHub default branch 修正（`master` → `main`）
+  - 問題：GitHub 預設顯示 `master` branch（15 commits），所有 Phase 0 工作（396 commits）在 `main` 上
+  - 修正：GitHub Settings → Default branch 從 `master` 切換為 `main` ✅
+  - 結果：repo 首頁正確顯示 `packages/`, `docs/`, TypeScript 等所有新內容
+- **Phase 0 狀態**: ✅ **100% 完工**（無變更）
 - **下一步**: Phase 1（需要 Mac mini）
   1. 購買 Mac mini → 安裝 Xcode + Expo CLI
   2. Expo init + Router + 相機掃描 MVP
   3. 2 秒出粗略 TEI → 漸進精化
   4. 基礎 TEI 雙環 UI
-- **Phase 0 進度**: ✅ **100% 完工**
 
 ## 各 AI 工具的角色分工
 
@@ -110,5 +107,6 @@
 
 ---
 
-*Last updated: 2026-03-02 11:42*
-*Updated by: Antigravity (docs archival — RESULTS-PAGE-SPEC + CAMERA-UI-SPEC + reference image)*
+*Last updated: 2026-03-02 11:58*
+*Updated by: Antigravity (GitHub default branch 修正 — master → main)*
+
