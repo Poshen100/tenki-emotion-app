@@ -1,5 +1,19 @@
+/**
+ * @module templates
+ * @description 六個預設情境模板的定義。
+ * 對應 ANTIGRAVITY.md Section 5.4 — 不可修改模板規則內容。
+ */
+
 import { DecisionTemplate, TemplateId } from './types';
 
+/**
+ * 所有預設決策模板。
+ *
+ * 交易模板：CANSLIM_GS (5min), CANSLIM_HIGH_RS (4min), MANCINI_FBD (3min)
+ * 生活模板：WORK_FOCUS (25min), HEALTH_STRESS (3min), EXERCISE (10min)
+ *
+ * @see ANTIGRAVITY.md Section 5.4 — 此處的模板定義為 spec 定案，不可自行修改。
+ */
 export const TEMPLATES: Record<TemplateId, DecisionTemplate> = {
     CANSLIM_GS: {
         id: 'CANSLIM_GS',
@@ -102,3 +116,28 @@ export const TEMPLATES: Record<TemplateId, DecisionTemplate> = {
         },
     },
 };
+
+/**
+ * 依 TemplateId 取得模板定義。
+ * @param id - 模板 ID
+ * @returns 對應的 DecisionTemplate
+ */
+export function getTemplate(id: TemplateId): DecisionTemplate {
+    return TEMPLATES[id];
+}
+
+/**
+ * 取得所有交易類模板。
+ * @returns 交易類模板陣列
+ */
+export function getTradingTemplates(): DecisionTemplate[] {
+    return Object.values(TEMPLATES).filter(t => t.category === 'trading');
+}
+
+/**
+ * 取得所有生活類模板。
+ * @returns 生活類模板陣列
+ */
+export function getLifestyleTemplates(): DecisionTemplate[] {
+    return Object.values(TEMPLATES).filter(t => t.category === 'lifestyle');
+}

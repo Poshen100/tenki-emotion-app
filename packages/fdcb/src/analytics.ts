@@ -1,39 +1,78 @@
-import { DecisionSession, TemplateId } from './types';
+/**
+ * @module analytics
+ * @description TEI Bucket 統計與決策洞察。
+ * 用途："在 TEI 70-75 時，你通常在 90-150 秒內進場，勝率 62%"
+ */
 
+import { DecisionSession, TemplateId } from './types';
+import { TEI_BUCKET_BOUNDARIES } from './constants';
+
+/**
+ * 取得 TEI PR 值對應的 Bucket 標籤。
+ * Bucket 由高到低依序比對，符合第一個 min 值即回傳。
+ * @param tei - TEI PR 值 (1-99)
+ * @returns Bucket 標籤字串（如 '70-75'）
+ */
 export function getTeiBucket(tei: number): string {
-    if (tei >= 95) return '95-99';
-    if (tei >= 90) return '90-95';
-    if (tei >= 85) return '85-90';
-    if (tei >= 80) return '80-85';
-    if (tei >= 75) return '75-80';
-    if (tei >= 70) return '70-75';
-    if (tei >= 65) return '65-70';
-    if (tei >= 60) return '60-65';
-    if (tei >= 55) return '55-60';
-    if (tei >= 35) return '35-54'; // Neutral zone
-    return '01-34'; // Degraded zone
+    for (const boundary of TEI_BUCKET_BOUNDARIES) {
+        if (tei >= boundary.min) {
+            return boundary.label;
+        }
+    }
+    return '01-34'; // fallback for edge cases
 }
 
+/** 單一 Bucket + Template 組合的統計結果 */
 export interface SessionStats {
+    /** 對應的 TEI Bucket 標籤 */
+    teiBucket: string;
+    /** 對應的模板 ID */
     templateId: TemplateId;
+    /** 平均首次 ENTRY 秒數 */
     avgEntrySec: number;
+    /** 平均每 Session 事件數 */
     avgEventsPerSession: number;
+    /** 勝率 (0-1) */
     winRate: number;
+    /** 樣本數 */
     sampleCount: number;
 }
 
+/**
+ * 彙總多個已完成 Session 的統計數據。
+ * 以 TEI Bucket + TemplateId 為 key 分組，計算平均進場時間、勝率等。
+ *
+ * @param sessions - 決策 Session 陣列
+ * @returns Record，key 格式為 `{bucket}::{templateId}`，value 為 SessionStats
+ */
 export function aggregateSessions(sessions: DecisionSession[]): Record<string, SessionStats> {
-    const stats: Record<string, { entrySum: number; entries: number; events: number; wins: number; count: number }> = {};
+    const stats: Record<string, {
+        bucket: string;
+        templateId: TemplateId;
+        entrySum: number;
+        entries: number;
+        events: number;
+        wins: number;
+        count: number;
+    }> = {};
 
     for (const session of sessions) {
         if (!session.completed) continue;
 
-        // Using start TEI for bucket
         const bucket = getTeiBucket(session.teiAtStart);
-        const key = `${bucket}_${session.templateId}`;
+        // Use :: as separator to avoid ambiguity with template IDs that may contain _
+        const key = `${bucket}::${session.templateId}`;
 
         if (!stats[key]) {
-            stats[key] = { entrySum: 0, entries: 0, events: 0, wins: 0, count: 0 };
+            stats[key] = {
+                bucket,
+                templateId: session.templateId,
+                entrySum: 0,
+                entries: 0,
+                events: 0,
+                wins: 0,
+                count: 0,
+            };
         }
 
         stats[key].count += 1;
@@ -54,10 +93,10 @@ export function aggregateSessions(sessions: DecisionSession[]): Record<string, S
     const result: Record<string, SessionStats> = {};
     for (const key of Object.keys(stats)) {
         const s = stats[key];
-        const [_, templateId] = key.split('_') as [string, TemplateId]; // simple split for MVP
 
         result[key] = {
-            templateId,
+            teiBucket: s.bucket,
+            templateId: s.templateId,
             avgEntrySec: s.entries > 0 ? s.entrySum / s.entries : 0,
             avgEventsPerSession: s.events / s.count,
             winRate: s.wins / s.count,
