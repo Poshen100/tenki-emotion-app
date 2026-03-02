@@ -30,6 +30,7 @@
   - FDCB: 5 suites / 96 tests / 97.93% coverage ✅
   - Shared: JSDoc 補齊，數據與 ANTIGRAVITY.md spec 完全一致 ✅
   - Node.js v22.14.0 portable 安裝於 Windows（MSI 需 admin，改用 zip）
+- [2026-03-02] 新增 docs/CAMERA-UI-SPEC.md — 相機 UI 7 種設計模式，MVP 採用選項 1+6，v2.0 採用選項 3+5
 
 ## Founder 偏好（AI 應記住）
 
@@ -74,11 +75,11 @@
 ## 上次 Session 結束點
 
 - **日期**: 2026-03-02
-- **最後完成**: 🎉 **Phase 0 全部完工**
+- **最後完成**: 🎉 **Phase 0 全部完工** + docs/CAMERA-UI-SPEC.md
   - `packages/engine/` — 8 模組 + 7 測試套件 = 79 tests / 99.53% coverage ✅
   - `packages/fdcb/` — 7 模組 + 5 測試套件 = 96 tests / 97.93% coverage ✅
   - `packages/shared/` — 3 模組 + JSDoc ✅
-  - `docs/` — PRD ✅ TEI-SPEC ✅ FDCB-SPEC ✅
+  - `docs/` — PRD ✅ TEI-SPEC ✅ FDCB-SPEC ✅ **CAMERA-UI-SPEC ✅**
   - Monorepo — root package.json ✅ tsconfig.base.json ✅ .gitignore ✅
   - 三檔治理系統 — ANTIGRAVITY.md ✅ MEMORY.md ✅ RULES.md ✅
 - **下一步**: Phase 1（需要 Mac mini）
