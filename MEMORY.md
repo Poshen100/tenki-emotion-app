@@ -31,6 +31,8 @@
   - Shared: JSDoc 補齊，數據與 ANTIGRAVITY.md spec 完全一致 ✅
   - Node.js v22.14.0 portable 安裝於 Windows（MSI 需 admin，改用 zip）
 - [2026-03-02] 新增 docs/CAMERA-UI-SPEC.md — 相機 UI 7 種設計模式，MVP 採用選項 1+6，v2.0 採用選項 3+5
+- [2026-03-02] 新增 docs/RESULTS-PAGE-SPEC.md v4.2 — Results Page 完整工程規格書，設計已鎖定
+- [2026-03-02] 新增 docs/assets/results-reference.png — 結果頁視覺參考圖
 
 ## Founder 偏好（AI 應記住）
 
@@ -50,6 +52,10 @@
 - FDCB 模板規則（ANTIGRAVITY.md Section 5.4）已定案，6 個模板不要自行修改
 - 星塵動效的「感覺」不能改，重建時保持 v25.8.2 的視覺體驗
 - FDCB 是 OS Layer，永遠可見，不是隱藏功能
+- Results Page 設計已鎖定（RESULTS-PAGE-SPEC.md v4.2 FINAL），不可自行發揮
+- 不要用 SVG 畫環，用 Skia
+- 不要用 Animated (legacy)，只用 Reanimated 3
+- TEI 數字不從 0 爬升，首幀直接跳入附近值
 
 ## 技術偏好與標準
 
@@ -62,6 +68,10 @@
 - 每個 function 必須有 JSDoc
 - engine/ 和 fdcb/ 測試覆蓋率 ≥ 90%
 - Node.js 安裝位置：`$env:LOCALAPPDATA\Programs\nodejs\node-v22.14.0-win-x64`（portable）
+- 動畫用 Reanimated 3（不用 legacy Animated）
+- 環形圖用 Skia（不用 SVG）
+- EWMA α=0.05 極慢收斂
+- 心跳同步 pulse period = 60/HR 秒
 
 ## Review 中發現過的常見問題（AI 應避免重蹈）
 
@@ -75,11 +85,12 @@
 ## 上次 Session 結束點
 
 - **日期**: 2026-03-02
-- **最後完成**: 🎉 **Phase 0 全部完工** + docs/CAMERA-UI-SPEC.md
+- **最後完成**: 🎉 **Phase 0 全部完工** + docs 歸檔
   - `packages/engine/` — 8 模組 + 7 測試套件 = 79 tests / 99.53% coverage ✅
   - `packages/fdcb/` — 7 模組 + 5 測試套件 = 96 tests / 97.93% coverage ✅
   - `packages/shared/` — 3 模組 + JSDoc ✅
-  - `docs/` — PRD ✅ TEI-SPEC ✅ FDCB-SPEC ✅ **CAMERA-UI-SPEC ✅**
+  - `docs/` — PRD ✅ TEI-SPEC ✅ FDCB-SPEC ✅ **CAMERA-UI-SPEC ✅** **RESULTS-PAGE-SPEC v4.2 ✅**
+  - `docs/assets/results-reference.png` ✅
   - Monorepo — root package.json ✅ tsconfig.base.json ✅ .gitignore ✅
   - 三檔治理系統 — ANTIGRAVITY.md ✅ MEMORY.md ✅ RULES.md ✅
 - **下一步**: Phase 1（需要 Mac mini）
@@ -99,5 +110,5 @@
 
 ---
 
-*Last updated: 2026-03-02 10:50*
-*Updated by: Antigravity (Phase 0 complete — all tests green)*
+*Last updated: 2026-03-02 11:42*
+*Updated by: Antigravity (docs archival — RESULTS-PAGE-SPEC + CAMERA-UI-SPEC + reference image)*
