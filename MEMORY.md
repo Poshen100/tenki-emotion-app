@@ -34,6 +34,7 @@
 - [2026-03-02] 新增 docs/RESULTS-PAGE-SPEC.md v4.2 — Results Page 完整工程規格書，設計已鎖定
 - [2026-03-02] 新增 docs/assets/results-reference.png — 結果頁視覺參考圖
 - [2026-03-02] **GitHub default branch 修正** — 發現 GitHub 顯示舊的 `master`（15 commits），所有新工作在 `main` 上（396 commits）。已在 GitHub Settings 將 default branch 從 `master` 切換為 `main`，repo 首頁現在正確顯示所有內容
+- [2026-03-03] **Workspace clone 到新機器** — 從 GitHub clone 到 `C:\Users\reader\.gemini\antigravity\scratch\tenki-emotion-app`，驗證所有 packages/docs/tests 完整。Git: `C:\Users\reader\AppData\Local\Programs\Git\cmd\git.exe`（不在 PATH）
 
 ## Founder 偏好（AI 應記住）
 
@@ -85,11 +86,12 @@
 
 ## 上次 Session 結束點
 
-- **日期**: 2026-03-02
-- **最後完成**: GitHub default branch 修正（`master` → `main`）
-  - 問題：GitHub 預設顯示 `master` branch（15 commits），所有 Phase 0 工作（396 commits）在 `main` 上
-  - 修正：GitHub Settings → Default branch 從 `master` 切換為 `main` ✅
-  - 結果：repo 首頁正確顯示 `packages/`, `docs/`, TypeScript 等所有新內容
+- **日期**: 2026-03-03
+- **最後完成**: Workspace clone 到新機器 + 驗證
+  - 機器：`C:\Users\reader\`（非之前的 `C:\Users\patron\`）
+  - Clone 路徑：`C:\Users\reader\.gemini\antigravity\scratch\tenki-emotion-app`
+  - Git 路徑：`C:\Users\reader\AppData\Local\Programs\Git\cmd\git.exe`（不在 PATH）
+  - 驗證：repo main branch 完全同步，872 files，packages/engine + fdcb + shared + docs 全部到位
 - **Phase 0 狀態**: ✅ **100% 完工**（無變更）
 - **下一步**: Phase 1（需要 Mac mini）
   1. 購買 Mac mini → 安裝 Xcode + Expo CLI
@@ -107,6 +109,6 @@
 
 ---
 
-*Last updated: 2026-03-02 11:58*
-*Updated by: Antigravity (GitHub default branch 修正 — master → main)*
+*Last updated: 2026-03-03 19:30*
+*Updated by: Antigravity (Workspace clone 到新機器 + GitHub push)*
 
