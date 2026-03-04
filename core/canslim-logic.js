@@ -34,46 +34,46 @@
             {
                 index: 0,
                 startSec: 0,
-                endSec: 90,
-                label: 'No Chase',
-                hint: '不追高，等待回調',
+                endSec: 60,
+                label: '等待方向確認',
+                hint: '等待方向確認 (WAIT)',
                 color: '#ff6b6b',
                 colorAlpha: 'rgba(255,107,107,0.18)',
                 action: '❌ 等待',
                 riskLevel: 'HIGH',
                 bioCriteria: {
                     maxTEI: 100,          // 任何 TEI 都禁止進場
-                    description: '情緒仍在啟動期，觀察市場節奏'
+                    description: '等待確認'
                 }
             },
             {
                 index: 1,
-                startSec: 90,
-                endSec: 210,
-                label: 'Watch EMA + Volume',
-                hint: '觀察均線與成交量',
+                startSec: 60,
+                endSec: 240,
+                label: '觀察量能收縮',
+                hint: '觀察量能收縮 (OBSERVE)',
                 color: '#ffd93d',
                 colorAlpha: 'rgba(255,217,61,0.18)',
                 action: '👁 觀察',
                 riskLevel: 'MEDIUM',
                 bioCriteria: {
                     minTEI: 40,           // TEI ≥ 40 才考慮
-                    description: '均線對齊 + 量能確認，TEI ≥ 40'
+                    description: '保持觀察'
                 }
             },
             {
                 index: 2,
-                startSec: 210,
+                startSec: 240,
                 endSec: 300,
-                label: 'Sweet Zone',
-                hint: '最佳進場區，紀律執行',
+                label: '進場窗口',
+                hint: '進場窗口 (ENTRY)',
                 color: '#6bcb77',
                 colorAlpha: 'rgba(107,203,119,0.18)',
                 action: '✅ 執行',
                 riskLevel: 'LOW',
                 bioCriteria: {
-                    minTEI: 55,           // TEI ≥ 55 進場
-                    description: '生物信號穩定，可執行決策'
+                    minTEI: 60,           // TEI ≥ 60 進場
+                    description: '生物信號穩定，可執行決策，TEI ≥ 60'
                 }
             }
         ],
@@ -95,30 +95,30 @@
                 index: 0,
                 startSec: 0,
                 endSec: 60,
-                label: 'Hold',
-                hint: '等待，不急進場',
+                label: '等待方向確認',
+                hint: '等待，不急進場 (WAIT)',
                 color: '#ff6b6b',
                 colorAlpha: 'rgba(255,107,107,0.18)',
                 action: '🛑 Hold',
                 riskLevel: 'HIGH',
                 bioCriteria: {
                     maxTEI: 100,
-                    description: '首60秒禁止進場，評估突破強度'
+                    description: '等待確認，不要提早進場'
                 }
             },
             {
                 index: 1,
                 startSec: 60,
                 endSec: 240,
-                label: 'Breakout Ready',
-                hint: '突破位置已就緒，確認RS強度',
+                label: '進場窗口🚀',
+                hint: '突破位置已就緒，可進場',
                 color: '#6bcb77',
                 colorAlpha: 'rgba(107,203,119,0.18)',
-                action: '🚀 執行',
+                action: '🚀 執行 (ENTRY)',
                 riskLevel: 'LOW',
                 bioCriteria: {
                     minTEI: 50,
-                    description: 'RS強度確認 + 量能放大，TEI ≥ 50'
+                    description: '勝率較高，紀律執行'
                 }
             }
         ],

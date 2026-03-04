@@ -15,20 +15,19 @@
         CANSILM_GROWTH: {
             name: 'Cansilm 通用成長股', duration: 300,
             segments: [
-                { end: 90, label: 'No chase' },
-                { end: 210, label: 'Watch EMA + volume' },
-                { end: 300, label: 'Sweet zone' }
+                { end: 60, label: '等待方向確認' },
+                { end: 240, label: '觀察量能收縮' },
+                { end: 300, label: '進場窗口' }
             ],
             timeoutMessage: 'No FOMO today'
         },
         CANSILM_HIGHRS: {
             name: 'Cansilm High RS Breakout', duration: 240,
             segments: [
-                { end: 60, label: 'Hold' },
-                { end: 150, label: 'RS + Volume' },
-                { end: 240, label: 'Breakout ready' }
+                { end: 60, label: '等待確認' },
+                { end: 240, label: '進場窗口🚀' }
             ],
-            timeoutMessage: 'Patience pays'
+            timeoutMessage: 'Timeout = WIN ! Patient !'
         },
         MANCINI_FBD: {
             name: 'Mancini FBD', duration: 180,
