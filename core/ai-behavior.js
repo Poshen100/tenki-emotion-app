@@ -13,6 +13,20 @@
         }
 
         /**
+         * 顯示 AI 提示訊息 (Todo 5)
+         * @param {string} msg - 提示訊息 
+         */
+        static showHint(msg) {
+            const hintBox = document.getElementById('ai-hint-box');
+            if (hintBox) {
+                hintBox.textContent = msg;
+                hintBox.style.display = 'block';
+            }
+            // 由於這是一個重要提示，我們也確保它在 console 顯示
+            console.log('%c[AI Hint]', 'color: #00F0FF; font-weight: bold;', msg);
+        }
+
+        /**
          * K-means 分群演算法
          * @param {Array} records - 交易記錄
          * @param {number} [k=4] - 群數

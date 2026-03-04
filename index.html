@@ -1733,7 +1733,8 @@
 
                     // Todo 5: TEI ≥ 60 → AI hint
                     EventBridge.on('tei:progressive', function (d) {
-                        if (d && d.score >= 60 && typeof AIBehavior !== 'undefined') {
+                        const score = d ? (d.score !== undefined ? d.score : d.tei_pr99) : 0;
+                        if (score >= 60 && typeof AIBehavior !== 'undefined') {
                             AIBehavior.showHint('情緒狀態良好，決策計時器已就緒 ✓');
                         }
                     });
