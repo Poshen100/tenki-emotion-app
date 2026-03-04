@@ -14,6 +14,18 @@
 const fs = require('fs');
 const path = require('path');
 
+// Mock DOM for Node.js environment
+global.document = {
+    readyState: 'complete',
+    addEventListener: () => { },
+    getElementById: () => null,
+    createElement: () => ({ id: '', textContent: '', setAttribute: () => { } }),
+    head: { appendChild: () => { } },
+    querySelectorAll: () => []
+};
+global.window = global;
+global.navigator = { mediaDevices: null, vibrate: () => { } };
+
 // Mock localStorage
 global.localStorage = {
     getItem: () => null,
@@ -24,7 +36,9 @@ global.localStorage = {
 // Mock EventBridge
 global.EventBridge = {
     notifyDecisionState: () => { },
-    emit: () => { }
+    emit: () => { },
+    on: () => { },
+    onTEIUpdate: () => { }
 };
 
 // 載入被測試的模組
