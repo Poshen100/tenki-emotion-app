@@ -78,6 +78,9 @@ const DecisionDockController = (function () {
 
         // FIXED: 建立獨立浮動卡片（不劫持 processing-dock）
         createFloatingCard();
+        
+        // 建立快速入口按鈕
+        createTriggerButton();
 
         // 訂閱事件
         subscribeToEvents();
@@ -510,6 +513,48 @@ const DecisionDockController = (function () {
                 teiValue.textContent = currentTEI;
             }
         });
+
+        // 訂閱 scan:complete 自動顯示 FDCB
+        EventBridge.on('scan:complete', (data) => {
+            if (data && data.tei) currentTEI = data.tei;
+            const teiValue = document.getElementById('dtf-tei-value');
+            if (teiValue) {
+                teiValue.textContent = currentTEI;
+            }
+            showFloatingCard();
+
+            // 顯示快速入口按鈕
+            const triggerBtn = document.getElementById('decision-dock-trigger');
+            if (triggerBtn) {
+                triggerBtn.style.display = 'flex';
+                triggerBtn.style.opacity = '1';
+            }
+        });
+    }
+
+    // =============================================================================
+    // QUICK ENTRY BUTTON
+    // =============================================================================
+
+    function createTriggerButton() {
+        const triggerBtn = document.createElement('button');
+        triggerBtn.id = 'decision-dock-trigger';
+        triggerBtn.className = 'dock-trigger-btn py-2 px-4 rounded-full border border-cyan-500/50 bg-cyan-900/40 text-cyan-300 text-xs font-bold tracking-widest mt-4 mx-auto flex items-center justify-center gap-2 cursor-pointer transition-all hover:bg-cyan-800/60 shadow-[0_0_15px_rgba(0,240,255,0.2)]';
+        triggerBtn.style.display = 'none';
+        triggerBtn.style.opacity = '0';
+        triggerBtn.innerHTML = '⏱ 開啟決策計時器';
+        
+        triggerBtn.addEventListener('click', () => {
+            showFloatingCard();
+        });
+
+        // 插入到指紋按鈕下方 (hud-layer 或 scan-trigger-wrapper 周圍)
+        const hudLayer = document.getElementById('hud-layer');
+        if (hudLayer) {
+            hudLayer.appendChild(triggerBtn);
+        } else {
+            document.body.appendChild(triggerBtn);
+        }
     }
 
     // =============================================================================
