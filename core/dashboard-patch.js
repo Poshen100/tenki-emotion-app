@@ -123,6 +123,40 @@
     // =============================================================================
 
     /**
+     * 更新 T5 Badge 顯示 (Simulation Mode 邏輯)
+     */
+    function updateTierBadge() {
+        const tierFloat = document.getElementById('tier-indicator-float');
+        const tierLabel = document.getElementById('tier-label');
+        if (!tierFloat || !tierLabel) return;
+
+        // 檢查是否為模擬模式 (無相機)
+        const isSimulation = !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+        if (isSimulation) {
+            tierFloat.className = 'px-2 py-0.5 rounded-[4px] border border-[#ffd93d]/30 bg-[#ffd93d]/10 flex items-center gap-1 shadow-[0_0_10px_rgba(255,217,61,0.2)]';
+            tierLabel.innerText = '🧪 模擬模式';
+            tierLabel.className = 'text-[10px] uppercase font-600 text-[#ffd93d] tracking-wider';
+            const icon = tierFloat.querySelector('span:first-child');
+            if (icon) icon.style.display = 'none';
+            tierFloat.style.setProperty('display', 'flex', 'important');
+        } else {
+            // 實機模式，檢查品質
+            const quality = safeNumber(state.metrics.quality, 1);
+            if (quality < 0.5 && typeof app !== 'undefined' && app.state.isLiveSyncActive) {
+                tierFloat.className = 'px-2 py-0.5 rounded-[4px] border border-[#ff4e4e]/30 bg-[#ff4e4e]/10 flex items-center gap-1 shadow-[0_0_10px_rgba(255,78,78,0.2)]';
+                tierLabel.innerText = 'T5: Degraded';
+                tierLabel.className = 'text-[10px] uppercase font-600 text-[#ff4e4e] tracking-wider';
+                const icon = tierFloat.querySelector('span:first-child');
+                if (icon) icon.style.display = 'inline';
+                tierFloat.style.setProperty('display', 'flex', 'important');
+            } else {
+                tierFloat.style.setProperty('display', 'none', 'important');
+            }
+        }
+    }
+
+    /**
      * 更新 Dashboard 顯示
      */
     function updateDashboard() {
@@ -174,6 +208,9 @@
 
         if (snsBar) snsBar.style.width = sns + '%';
         if (pnsBar) pnsBar.style.width = pns + '%';
+
+        // Update T5 Badge
+        updateTierBadge();
 
         // Card F: Signal Quality — REMOVED (card deleted from HTML)
     }

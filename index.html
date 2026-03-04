@@ -1723,14 +1723,7 @@
                 'use strict';
                 function wirePhase3() {
                     // Todo 4: T5 Degraded fix
-                    // On mobile (camera API present): permanently hide the badge.
-                    // It was causing T5:Degraded to show on Results Page via MutationObserver race.
-                    // On desktop (no camera): show 🧪 Simulation.
-                    var tierFloat = document.getElementById('tier-indicator-float');
-                    if (tierFloat) {
-                        // Always hide the badge — Results Page replaces all dashboard indicators
-                        tierFloat.style.setProperty('display', 'none', 'important');
-                    }
+                    // Passed to core/dashboard-patch.js for proper simulation mode handling
                     if (typeof EventBridge === 'undefined') return;
 
                     // Todo 1: scan:complete → show Results Page
