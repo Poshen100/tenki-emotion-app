@@ -1,0 +1,514 @@
+/* 
+ * TENKI Core v4.2 Styles
+ * 
+ * DESIGN PRINCIPLES:
+ * - Ultra-minimal, edge-to-edge
+ * - iOS systemic feel (SF Pro fonts, fluid anims)
+ * - Deep dark mode with exact colors from spec
+ */
+
+:root {
+  --peak-color: #F5A623;
+  --optimal-color: #00B4D8;
+  --neutral-color: #E5E5EA;
+  --degraded-color: #5E3A87;
+
+  --bg-color: #000000;
+  --surface-color: #1C1C1E;
+  --text-primary: #FFFFFF;
+  --text-secondary: #8E8E93;
+
+  --pulse-dur: 0.88s;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg-color);
+  color: var(--text-primary);
+  font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  overflow-x: hidden;
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  /* Safe area support */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.hidden { display: none !important; }
+
+/* -------------------------------------
+   Landing Page
+------------------------------------- */
+
+#landing {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  transition: opacity 0.4s ease;
+}
+#landing.fade-out { opacity: 0; pointer-events: none; }
+
+.landing-logo {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  margin-bottom: 8px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #8E8E93 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.landing-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  letter-spacing: 2px;
+  margin-bottom: 60px;
+  text-transform: uppercase;
+}
+#start-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 30px;
+  padding: 16px 40px;
+  font-size: 16px;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+#start-btn:active {
+  transform: scale(0.96);
+  background: rgba(255, 255, 255, 0.2);
+}
+.landing-hint {
+  font-size: 12px;
+  color: #666;
+  margin-top: 24px;
+}
+#landing-particles {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(0,180,216,0.1) 0%, rgba(0,0,0,0) 70%);
+  animation: glow-breathe 4s infinite alternate ease-in-out;
+}
+@keyframes glow-breathe {
+  0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.5; }
+  100% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+}
+
+/* -------------------------------------
+   Camera/Video (Hidden)
+------------------------------------- */
+
+#camera {
+  position: absolute;
+  top: 0; left: 0; width: 1px; height: 1px;
+  opacity: 0.01;
+  pointer-events: none;
+}
+
+/* -------------------------------------
+   Results Page Layout
+------------------------------------- */
+
+#results-page {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  padding: max(20px, env(safe-area-inset-top)) 24px max(100px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  z-index: 10;
+}
+#results-page.fade-in { opacity: 1; }
+
+#stardust-bg {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 50vh;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 30%, rgba(0,180,216,0.08) 0%, rgba(0,0,0,0) 70%);
+  transition: background 2s ease;
+}
+
+/* Pulse animation for heartbeat */
+.bio-pulse {
+  animation: heartbeat var(--pulse-dur, 0.88s) ease-in-out infinite;
+}
+@keyframes heartbeat {
+  0%, 100% { opacity: 1; }
+  15% { opacity: 0.88; }
+}
+
+/* -------------------------------------
+   Top Info
+------------------------------------- */
+
+.scan-badge {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+
+.source-strip {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+.source-chip {
+  background: var(--surface-color);
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.source-chip .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--optimal-color);
+}
+
+/* -------------------------------------
+   TEI Rings
+------------------------------------- */
+
+.tei-ring-container {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  margin: 0 auto 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.tei-ring {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transform: rotate(-90deg); /* Start from top */
+}
+.tei-ring circle {
+  fill: none;
+  transition: stroke-dashoffset 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+.ring-bg { stroke: #2C2C2E; }
+
+.tei-number {
+  font-size: 72px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #D1D1D6 40%, #8E8E93 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 30px rgba(0,180,216,0.12));
+  line-height: 1;
+}
+
+.tei-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+/* -------------------------------------
+   Zone Pill & Coach
+------------------------------------- */
+
+.zone-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 32px;
+}
+.zone-pill {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.1);
+  margin-bottom: 12px;
+  transition: all 0.5s ease;
+}
+.coach-card {
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-width: 280px;
+}
+
+/* -------------------------------------
+   Bento Grid (Snapshot)
+------------------------------------- */
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.bio-card {
+  background: var(--surface-color);
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  height: 110px;
+}
+.bio-card-title {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.bio-card-value {
+  font-size: 28px;
+  font-weight: 600;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.bio-card-unit {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+.sparkline-canvas {
+  position: absolute;
+  bottom: 0px;
+  left: 0;
+  width: 100%;
+  height: 32px;
+  opacity: 0.6;
+}
+
+/* Special styling for Stress bar */
+.stress-bar-container {
+  margin-top: auto;
+  margin-bottom: 4px;
+}
+.stress-track {
+  width: 100%;
+  height: 6px;
+  background: #2C2C2E;
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+.stress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #34C759, #F5A623, #FF6B35, #FF453A);
+  border-radius: 3px;
+  transition: width 0.8s ease-out;
+  position: relative;
+}
+.stress-dot {
+  position: absolute;
+  right: 0; top: 50%;
+  transform: translate(50%, -50%);
+  width: 12px; height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(0,0,0,0.5);
+  transition: right 0.8s ease-out;
+}
+.stress-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 9px;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+/* -------------------------------------
+   Body Battery (Go Club)
+------------------------------------- */
+
+.body-battery-section {
+  background: var(--surface-color);
+  border-radius: 24px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+.section-value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.bb-chart {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 80px;
+  padding: 0 4px;
+}
+.bb-col {
+  width: 16px;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.bb-bar {
+  width: 100%;
+  border-radius: 8px 8px 3px 3px;
+  transition: height 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: bottom;
+}
+/* Stagger animation via JS inline delay */
+
+/* -------------------------------------
+   ANS Balance
+------------------------------------- */
+
+.ans-balance-section {
+  background: var(--surface-color);
+  border-radius: 24px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.ans-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 5px;
+  background: #2C2C2E;
+  display: flex;
+  overflow: hidden;
+  margin-bottom: 8px;
+  position: relative;
+}
+.ans-sns {
+  height: 100%;
+  background: linear-gradient(90deg, #FF453A, #FF6B35);
+  transition: width 0.8s ease-out;
+}
+.ans-divider {
+  width: 2px;
+  height: 100%;
+  background: #000;
+  position: absolute;
+  top: 0;
+  transition: left 0.8s ease-out;
+}
+.ans-pns {
+  height: 100%;
+  background: linear-gradient(90deg, #00B4D8, #34C759);
+  transition: width 0.8s ease-out;
+  flex-grow: 1; /* take remaining space */
+}
+
+.ans-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text-secondary);
+}
+
+/* -------------------------------------
+   Signal Quality
+------------------------------------- */
+
+.sqi-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 40px;
+}
+.sqi-score {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+/* -------------------------------------
+   FDCB (Floating Bar)
+------------------------------------- */
+
+.fdcb-bar {
+  position: fixed;
+  bottom: 0; left: 0; width: 100%;
+  height: calc(72px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: rgba(28, 28, 30, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 20px;
+  padding-right: 20px;
+  z-index: 50;
+  transform: translateY(100%);
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.fdcb-bar.visible {
+  transform: translateY(0);
+}
+
+.fdcb-left { color: var(--text-secondary); font-size: 14px; font-weight: 500; }
+.fdcb-center { color: #fff; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.fdcb-center .play-icon { font-size: 12px; color: var(--optimal-color); }
+.fdcb-right { color: var(--text-secondary); letter-spacing: 2px; }
+
+/* -------------------------------------
+   Global Controls
+------------------------------------- */
+
+.sound-btn {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: 20px;
+  width: 40px; height: 40px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  z-index: 100;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.05);
+}
