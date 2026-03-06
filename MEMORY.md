@@ -35,6 +35,10 @@
 - [2026-03-02] 新增 docs/assets/results-reference.png — 結果頁視覺參考圖
 - [2026-03-02] **GitHub default branch 修正** — 發現 GitHub 顯示舊的 `master`（15 commits），所有新工作在 `main` 上（396 commits）。已在 GitHub Settings 將 default branch 從 `master` 切換為 `main`，repo 首頁現在正確顯示所有內容
 - [2026-03-03] **Workspace clone 到新機器** — 從 GitHub clone 到 `C:\Users\reader\.gemini\antigravity\scratch\tenki-emotion-app`，驗證所有 packages/docs/tests 完整。Git: `C:\Users\reader\AppData\Local\Programs\Git\cmd\git.exe`（不在 PATH）
+- [2026-03-06] **新機器環境建置 (patron)** — 在 `C:\Users\patron\tenki-emotion-app` 安裝 portable Node.js v22.14.0 + npm 10.9.2；全環境審計通過（Git 2.53.0, TS 5.9.3, Jest 29.7.0, Claude Code 2.1.70）
+- [2026-03-06] **node_modules 從 git 移除** — 原本被意外 commit（~30MB），改為 `.gitignore` 排除
+- [2026-03-06] **cansilm → canslim 拼寫修正** — `templates/cansilm-growth.json` → `canslim-growth.json`、`cansilm-highrs.json` → `canslim-highrs.json`
+- [2026-03-06] **Stub docs 擴充** — PRD.md / TEI-SPEC.md / FDCB-SPEC.md 從 ~15 行 stub 擴充為完整規格; 新增 templates/README.md (legacy notice)
 
 ## Founder 偏好（AI 應記住）
 
@@ -86,12 +90,13 @@
 
 ## 上次 Session 結束點
 
-- **日期**: 2026-03-03
-- **最後完成**: Workspace clone 到新機器 + 驗證
-  - 機器：`C:\Users\reader\`（非之前的 `C:\Users\patron\`）
-  - Clone 路徑：`C:\Users\reader\.gemini\antigravity\scratch\tenki-emotion-app`
-  - Git 路徑：`C:\Users\reader\AppData\Local\Programs\Git\cmd\git.exe`（不在 PATH）
-  - 驗證：repo main branch 完全同步，872 files，packages/engine + fdcb + shared + docs 全部到位
+- **日期**: 2026-03-06
+- **最後完成**: 新機器環境建置 (patron) + git cleanup + docs 擴充
+  - 機器：`C:\Users\patron\tenki-emotion-app`
+  - Node.js：`$LOCALAPPDATA\Programs\nodejs\node-v22.14.0-win-x64`（portable）
+  - Git：`C:\Users\patron\AppData\Local\Programs\Git\cmd\git.exe`
+  - Claude Code：v2.1.70（global npm）
+  - 測試驗證：Engine 7 suites/79 tests ✅ | FDCB 5 suites/96 tests ✅
 - **Phase 0 狀態**: ✅ **100% 完工**（無變更）
 - **下一步**: Phase 1（需要 Mac mini）
   1. 購買 Mac mini → 安裝 Xcode + Expo CLI
