@@ -1,19 +1,10 @@
-# templates/ — Legacy Decision Templates
+# templates/ — Legacy Web Prototype Templates
 
-> **⚠️ 注意**: 此資料夾包含舊版 (v1) 決策模板的 JSON 定義。
-
-## 現況
-
-這些 JSON 模板是 Web prototype 時期建立的，已被 `packages/fdcb/src/templates.ts` 中的 TypeScript 定義取代。
-
-| 檔案 | 對應新模板 |
-|------|----------|
-| `canslim-growth.json` | `CANSLIM_GS` in `packages/fdcb/src/templates.ts` |
-| `canslim-highrs.json` | `CANSLIM_HIGH_RS` in `packages/fdcb/src/templates.ts` |
-| `mancini-fbd.json` | `MANCINI_FBD` in `packages/fdcb/src/templates.ts` |
-
-## 注意事項
-
-- **所有新功能開發應使用 `packages/fdcb/` 模組**
-- 此資料夾保留供參考，不應直接使用
-- 新增模板請更新 `packages/fdcb/src/templates.ts`
+> ⚠️ **這些 JSON 檔案是 web prototype (apps/web/) 使用的舊版模板定義。**
+> **正式定案版本在 `packages/fdcb/src/templates.ts`（對應 ANTIGRAVITY.md §5.4）。**
+>
+> 已知差異：
+> - `mancini-fbd.json` 的段落時間 (0/60/140/180) 與 FDCB spec (0/60/120/180) 不同
+> - JSON 的顏色系統 (#ff6b6b/#ffd93d/#6bcb77) 與 FDCB spec (#5E3A87/#00B4D8/#F5A623) 不同
+>
+> **如需修改模板規則，請修改 `packages/fdcb/src/templates.ts`，不要動這些 JSON。**
