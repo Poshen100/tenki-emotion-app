@@ -1,0 +1,386 @@
+/* ===================================================
+   TENKI v4.2 — Results Page Styles
+   Deep space nebula aesthetic, glass morphism, bento cards
+   =================================================== */
+
+:root {
+    --plasma-cyan: #00B4D8;
+    --void-purple: #5E3A87;
+    --matrix-green: #34C759;
+    --amber-glow: #F5A623;
+    --coral-warm: #FF6B35;
+    --danger-red: #FF453A;
+    --metal-100: #FFFFFF;
+    --metal-200: #E5E5EA;
+    --metal-300: #C7C7CC;
+    --metal-400: #8E8E93;
+    --surface-dark: rgba(44,44,46,0.55);
+    --surface-deep: rgba(10,10,12,0.92);
+    --glass-border: rgba(255,255,255,0.07);
+    --highlight-line: rgba(255,255,255,0.12);
+    --pulse-dur: 1s;
+}
+
+/* ── Results Container ── */
+.tenki-results {
+    position: relative;
+    width: 100%;
+    max-width: 430px;
+    margin: 0 auto;
+    padding: 0 16px 100px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--metal-100);
+    -webkit-font-smoothing: antialiased;
+    display: none; /* shown by scan-ux.js on scan complete */
+}
+
+.tenki-results.active {
+    display: block;
+}
+
+/* ── Stardust Nebula Canvas ── */
+#tenki-nebula-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 560px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ── TEI Ring Section ── */
+.tei-ring-section {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 0 24px;
+}
+
+.tei-ring-container {
+    position: relative;
+    width: 240px;
+    height: 240px;
+}
+
+.tei-ring-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.tei-outer-ring {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 8px rgba(0,180,216,0.15));
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.tei-inner-ring {
+    fill: none;
+    stroke-width: 4;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.tei-endpoint {
+    filter: drop-shadow(0 0 6px rgba(245,166,35,0.6));
+}
+
+/* ── TEI Number (metallic gradient) ── */
+.tei-number-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.tei-number {
+    font-size: 72px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1.5px;
+    line-height: 1;
+    background: linear-gradient(180deg, #FFFFFF 0%, #E5E5EA 35%, #C7C7CC 60%, #8E8E93 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 40px rgba(0,180,216,0.10)) drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    animation: heartbeat-pulse var(--pulse-dur) ease-in-out infinite;
+}
+
+@keyframes heartbeat-pulse {
+    0%, 100% { transform: scale(1); }
+    15% { transform: scale(1.03); }
+    30% { transform: scale(1); }
+}
+
+.tei-zone-label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+
+.tei-zone-label.peak { color: var(--amber-glow); }
+.tei-zone-label.optimal { color: var(--plasma-cyan); }
+.tei-zone-label.neutral { color: var(--metal-200); }
+.tei-zone-label.degraded { color: var(--void-purple); }
+
+.scan-badge {
+    margin-top: 12px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--metal-400);
+    opacity: 0.8;
+}
+
+/* ── Coach Hint ── */
+.coach-hint {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 0 24px 20px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--metal-300);
+}
+
+/* ── Glass Card ── */
+.glass-card {
+    position: relative;
+    z-index: 1;
+    background: var(--surface-dark);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--highlight-line), transparent);
+    pointer-events: none;
+}
+
+/* ── Bento Grid (2x2 physiology cards) ── */
+.bento-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+.bento-card {
+    position: relative;
+    background: var(--surface-dark);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 14px;
+    overflow: hidden;
+}
+
+.bento-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--highlight-line), transparent);
+    pointer-events: none;
+}
+
+.bento-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--metal-400);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.bento-value {
+    font-size: 28px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    color: var(--metal-100);
+    line-height: 1.1;
+}
+
+.bento-unit {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--metal-400);
+    margin-left: 2px;
+}
+
+.bento-sparkline {
+    margin-top: 8px;
+    width: 100%;
+    height: 28px;
+}
+
+/* ── Body Battery Go Club ── */
+.bb-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 80px;
+    gap: 4px;
+    padding: 0 4px;
+}
+
+.bb-bar {
+    flex: 1;
+    border-radius: 4px 4px 0 0;
+    min-width: 0;
+    transform: scaleY(0);
+    transform-origin: bottom;
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.bb-bar.animate {
+    transform: scaleY(1);
+}
+
+.bb-label {
+    text-align: center;
+    font-size: 11px;
+    color: var(--metal-400);
+    margin-top: 8px;
+}
+
+/* ── ANS Balance Bar ── */
+.ans-bar-container {
+    position: relative;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.05);
+    margin: 12px 0 4px;
+}
+
+.ans-sns {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--danger-red), var(--coral-warm));
+    border-radius: 4px 0 0 4px;
+    transition: width 800ms ease-out;
+}
+
+.ans-pns {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--plasma-cyan), var(--matrix-green));
+    border-radius: 0 4px 4px 0;
+    transition: width 800ms ease-out;
+}
+
+.ans-divider {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: #000;
+    z-index: 2;
+    transition: left 800ms ease-out;
+}
+
+.ans-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--metal-400);
+    margin-top: 4px;
+}
+
+/* ── FDCB Floating Dock ── */
+.fdcb-dock {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--surface-deep);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 12px 20px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.fdcb-dock.active {
+    display: flex;
+}
+
+.fdcb-template {
+    font-size: 13px;
+    color: var(--metal-400);
+}
+
+.fdcb-timer {
+    font-size: 32px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--metal-100);
+    text-align: center;
+}
+
+.fdcb-progress {
+    height: 3px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 1.5px;
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.fdcb-progress-fill {
+    height: 100%;
+    background: var(--plasma-cyan);
+    border-radius: 1.5px;
+    transition: width 1s linear;
+}
+
+.fdcb-confirm {
+    font-size: 28px;
+    color: var(--matrix-green);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 4px;
+}
+
+/* ── Stardust Breathing (loading state) ── */
+@keyframes stardust-breathe {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.02); }
+}
+
+.stardust-loading {
+    animation: stardust-breathe 3s ease-in-out infinite;
+}
