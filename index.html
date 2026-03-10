@@ -10,6 +10,10 @@
     <title>TENKI Core</title>
     <link rel="stylesheet" href="styles.css">
 
+    <!-- Three.js for stardust soul animation (v25.8.2 preserved) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"
+        crossorigin="anonymous"></script>
+
     <!-- MediaPipe FaceMesh (optional — rPPG ROI extraction with landmarks) -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"
         crossorigin="anonymous" async></script>
@@ -17,6 +21,12 @@
         crossorigin="anonymous" async></script>
 </head>
 <body>
+
+    <!-- ═══════════════════════════════════════════
+         STARDUST SOUL — Three.js 8000-particle sphere
+         Persistent background behind all pages
+         ═══════════════════════════════════════════ -->
+    <div id="universe"></div>
 
     <!-- ═══════════════════════════════════════════
          LANDING PAGE
@@ -60,6 +70,9 @@
     <script src="sparkline.js"></script>
     <script src="results-renderer.js"></script>
     <script src="scan-ux.js"></script>
+
+    <!-- Stardust soul animation (Three.js, must load after THREE) -->
+    <script src="stardust.js"></script>
 
     <!-- App flow controller (must be last) -->
     <script src="app.js"></script>
