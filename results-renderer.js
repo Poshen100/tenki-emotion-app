@@ -1,12 +1,17 @@
 /**
  * results-renderer.js — v4.2 Results Page DOM + Stardust Nebula
  *
- * Creates complete results UI:
- *   TEI dual ring, metallic number, zone pill, coach card,
- *   bento grid (HR/HRV/RR/Stress), Go Club body battery,
- *   ANS balance, signal quality, phase dots, FDCB dock.
+ * Pixel-matched to IMG_5522 design reference:
+ *   ✦ DEEP SCAN · 60s badge, Garmin Forerunner + rPPG 眉心 chips,
+ *   TEI dual ring (7-stop spectrum, inner green→cyan, amber endpoint),
+ *   72 metallic number, zone label, coach card, 2×2 bento grid
+ *   (HR/Garmin Sync pill/sparkline, HRV/Balanced pill/sparkline,
+ *    Respiratory/sparkline, Stress/4-segment bar),
+ *   Body Battery Go Club 12-bar + 78/100,
+ *   ANS Balance (SNS 38% / PNS 62% with micro-fluctuation),
+ *   FDCB dock (📊 Canslim GS ▾ | 02:18 | ✓).
  *
- * All DOM built dynamically. Integrates with scan-ux.js for live updates.
+ * Uses spectrum.css class names to avoid v51.1 inline style conflicts.
  */
 (function (global) {
     'use strict';
@@ -19,13 +24,6 @@
     var ZONE_COLORS = {
         PEAK: '#F5A623', OPTIMAL: '#00B4D8',
         NEUTRAL: '#E5E5EA', DEGRADED: '#5E3A87'
-    };
-
-    var ZONE_LABELS = {
-        PEAK:     '🔥 Peak Zone — 巔峰表現區',
-        OPTIMAL:  '✅ Optimal Zone — 理想執行區',
-        NEUTRAL:  '🔄 Neutral Zone — 一般狀態區',
-        DEGRADED: '🌙 Rest Zone — 建議休息區'
     };
 
     var COACH_MSGS = {
@@ -47,12 +45,12 @@
         ]
     };
 
-    var PHASE_NAMES = ['WARMUP', 'GLIMPSE', 'QUICK', 'STANDARD', 'DEEP'];
-
     // ─── State ───
     var nebulaFrame = null;
     var stars = [];
     var sparklines = {};
+    var ansFluctuateTimer = null;
+    var currentCoachZone = null;
 
     // ─── Nebula Canvas ───
     function initStars(count) {
@@ -196,45 +194,45 @@
         return ['#FF6B35','#7A3318'];
     }
 
-    function stressLevel(val) {
-        if (val <= 25) return 'rest';
-        if (val <= 50) return 'low';
-        if (val <= 75) return 'medium';
-        return 'high';
-    }
-
     // ─── Build DOM ───
     function buildDOM(container) {
         container.innerHTML = '';
+
+        // Content wrapper
+        var wrap = document.createElement('div');
+        wrap.className = 'results-content';
+
+        // Close button
+        var closeBtn = document.createElement('button');
+        closeBtn.className = 'results-close-btn';
+        closeBtn.id = 'results-close-btn';
+        closeBtn.textContent = '\u00D7';
+        container.appendChild(closeBtn);
 
         // Nebula canvas
         var nebula = document.createElement('canvas');
         nebula.id = 'tenki-nebula-canvas';
         nebula.width = 430; nebula.height = 560;
-        container.appendChild(nebula);
+        wrap.appendChild(nebula);
 
         // Scan badge
         var badge = document.createElement('div');
         badge.className = 'scan-badge'; badge.id = 'scan-badge';
-        badge.textContent = ''; container.appendChild(badge);
+        var badgePill = document.createElement('span');
+        badgePill.className = 'scan-badge-pill'; badgePill.id = 'scan-badge-pill';
+        badgePill.textContent = '\u2726 SCANNING';
+        badge.appendChild(badgePill);
+        wrap.appendChild(badge);
 
-        // Source strip
+        // Source strip — Garmin Forerunner (active) + rPPG 眉心 (grey)
         var srcStrip = document.createElement('div');
         srcStrip.className = 'source-strip';
         srcStrip.innerHTML =
-            '<span class="source-chip active" id="src-rppg">rPPG Face</span>' +
-            '<span class="source-chip" id="src-garmin">Garmin 265</span>';
-        container.appendChild(srcStrip);
-
-        // Phase dots
-        var dots = document.createElement('div');
-        dots.className = 'phase-dots'; dots.id = 'phase-dots';
-        for (var d = 0; d < 5; d++) {
-            var dot = document.createElement('div');
-            dot.className = 'phase-dot'; dot.dataset.phase = String(d);
-            dots.appendChild(dot);
-        }
-        container.appendChild(dots);
+            '<span class="source-chip active" id="src-garmin">' +
+            '<span class="source-chip-icon">\u{1F4CD}</span>Garmin Forerunner</span>' +
+            '<span class="source-chip" id="src-rppg">' +
+            '<span class="source-chip-icon">\u{1F4F7}</span>rPPG \u7709\u5FC3</span>';
+        wrap.appendChild(srcStrip);
 
         // TEI Ring Section
         var ringSection = document.createElement('div');
@@ -260,162 +258,120 @@
         var zoneLabel = document.createElement('div');
         zoneLabel.className = 'tei-zone-label neutral';
         zoneLabel.id = 'tei-zone-label';
-        zoneLabel.textContent = 'SCANNING';
+        zoneLabel.textContent = 'Optimal';
         numCont.appendChild(zoneLabel);
 
         ringContainer.appendChild(numCont);
         ringSection.appendChild(ringContainer);
-        container.appendChild(ringSection);
-
-        // Zone pill
-        var pill = document.createElement('div');
-        pill.className = 'zone-pill'; pill.id = 'zone-pill';
-        pill.textContent = '';
-        container.appendChild(pill);
+        wrap.appendChild(ringSection);
 
         // Coach card
         var coach = document.createElement('div');
         coach.className = 'coach-card'; coach.id = 'coach-card';
-        coach.textContent = '';
-        container.appendChild(coach);
+        coach.textContent = '\u6B63\u5728\u6821\u6E96\u611F\u6E2C\u5668...';
+        wrap.appendChild(coach);
 
-        // Bento grid
+        // Bento grid — 2×2
         var grid = document.createElement('div');
-        grid.className = 'bento-grid';
+        grid.className = 'results-bento-grid';
 
-        var metrics = [
-            { id:'hr', label:'HEART RATE', unit:'BPM', color:'#FF453A' },
-            { id:'hrv', label:'HRV RMSSD', unit:'ms', color:'#00B4D8' },
-            { id:'rr', label:'RESP RATE', unit:'BrPM', color:'#34C759' },
-            { id:'stress', label:'STRESS', unit:'', color:'#F5A623' }
-        ];
+        // Card 1: Heart Rate
+        var hrCard = document.createElement('div');
+        hrCard.className = 'results-bento-card';
+        hrCard.innerHTML =
+            '<div class="results-bento-label">Heart Rate</div>' +
+            '<div class="results-bento-row">' +
+            '  <div><span class="results-bento-value" id="bento-hr">--</span>' +
+            '  <span class="results-bento-unit">BPM</span></div>' +
+            '  <span class="results-bento-pill garmin">Garmin Sync</span>' +
+            '</div>' +
+            '<canvas class="results-bento-sparkline" id="spark-hr"></canvas>';
+        grid.appendChild(hrCard);
 
-        metrics.forEach(function(m) {
-            var card = document.createElement('div');
-            card.className = 'bento-card';
+        // Card 2: HRV
+        var hrvCard = document.createElement('div');
+        hrvCard.className = 'results-bento-card';
+        hrvCard.innerHTML =
+            '<div class="results-bento-label">HRV</div>' +
+            '<div class="results-bento-row">' +
+            '  <div><span class="results-bento-value" id="bento-hrv">--</span>' +
+            '  <span class="results-bento-unit"><sup>ms</sup> RMSSD</span></div>' +
+            '  <span class="results-bento-pill balanced">Balanced</span>' +
+            '</div>' +
+            '<canvas class="results-bento-sparkline" id="spark-hrv"></canvas>';
+        grid.appendChild(hrvCard);
 
-            var lbl = document.createElement('div');
-            lbl.className = 'bento-label'; lbl.textContent = m.label;
-            card.appendChild(lbl);
+        // Card 3: Respiratory
+        var rrCard = document.createElement('div');
+        rrCard.className = 'results-bento-card';
+        rrCard.innerHTML =
+            '<div class="results-bento-label">Respiratory</div>' +
+            '<div class="results-bento-row">' +
+            '  <div><span class="results-bento-value" id="bento-rr">--</span>' +
+            '  <span class="results-bento-unit">BrPM</span></div>' +
+            '</div>' +
+            '<canvas class="results-bento-sparkline" id="spark-rr"></canvas>';
+        grid.appendChild(rrCard);
 
-            var valRow = document.createElement('div');
-            var val = document.createElement('span');
-            val.className = 'bento-value'; val.id = 'bento-' + m.id;
-            val.textContent = '--';
-            valRow.appendChild(val);
+        // Card 4: Stress — 4-segment bar
+        var stressCard = document.createElement('div');
+        stressCard.className = 'results-bento-card';
+        stressCard.innerHTML =
+            '<div class="results-bento-label">Stress</div>' +
+            '<div class="results-bento-row">' +
+            '  <div><span class="results-bento-value" id="bento-stress">--</span>' +
+            '  <span class="results-bento-unit">/100</span></div>' +
+            '  <span class="stress-pct" id="stress-pct"></span>' +
+            '</div>' +
+            '<div class="stress-segments" id="stress-segments">' +
+            '  <div class="stress-seg" data-seg="0"><div class="stress-seg-fill"></div></div>' +
+            '  <div class="stress-seg" data-seg="1"><div class="stress-seg-fill"></div></div>' +
+            '  <div class="stress-seg" data-seg="2"><div class="stress-seg-fill"></div></div>' +
+            '  <div class="stress-seg" data-seg="3"><div class="stress-seg-fill"></div></div>' +
+            '</div>';
+        grid.appendChild(stressCard);
 
-            if (m.unit) {
-                var unit = document.createElement('span');
-                unit.className = 'bento-unit'; unit.textContent = m.unit;
-                valRow.appendChild(unit);
-            }
-            card.appendChild(valRow);
-
-            if (m.id === 'stress') {
-                // Stress bar instead of sparkline
-                var stressContainer = document.createElement('div');
-                stressContainer.className = 'stress-bar-container';
-
-                var track = document.createElement('div');
-                track.className = 'stress-track';
-
-                var fill = document.createElement('div');
-                fill.className = 'stress-fill'; fill.id = 'stress-fill';
-                fill.style.width = '0%';
-                track.appendChild(fill);
-
-                var indicator = document.createElement('div');
-                indicator.className = 'stress-indicator'; indicator.id = 'stress-indicator';
-                indicator.style.left = '0%';
-                track.appendChild(indicator);
-
-                stressContainer.appendChild(track);
-
-                var ticks = document.createElement('div');
-                ticks.className = 'stress-ticks';
-                ticks.innerHTML = '<span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>';
-                stressContainer.appendChild(ticks);
-
-                card.appendChild(stressContainer);
-            } else {
-                var spark = document.createElement('canvas');
-                spark.className = 'bento-sparkline'; spark.id = 'spark-' + m.id;
-                card.appendChild(spark);
-            }
-
-            grid.appendChild(card);
-        });
-        container.appendChild(grid);
+        wrap.appendChild(grid);
 
         // Body Battery Go Club
         var bbCard = document.createElement('div');
-        bbCard.className = 'glass-card';
-        var bbTitle = document.createElement('div');
-        bbTitle.className = 'bento-label';
-        bbTitle.textContent = 'BODY BATTERY \u00B7 24H';
-        bbCard.appendChild(bbTitle);
-
-        var bbChart = document.createElement('div');
-        bbChart.className = 'bb-chart'; bbChart.id = 'bb-chart';
-        bbCard.appendChild(bbChart);
-
-        var bbLbl = document.createElement('div');
-        bbLbl.className = 'bb-label';
-        bbLbl.textContent = '12h ago \u2192 Now';
-        bbCard.appendChild(bbLbl);
-        container.appendChild(bbCard);
+        bbCard.className = 'results-glass-card';
+        bbCard.innerHTML =
+            '<div class="results-card-title">Body Battery Card</div>' +
+            '<div class="bb-row">' +
+            '  <div class="bb-chart" id="bb-chart"></div>' +
+            '  <div class="bb-value-display">' +
+            '    <div class="bb-value-number" id="bb-value">78</div>' +
+            '    <div class="bb-value-total">/100</div>' +
+            '  </div>' +
+            '</div>';
+        wrap.appendChild(bbCard);
 
         // ANS Balance
         var ansCard = document.createElement('div');
-        ansCard.className = 'glass-card';
-        var ansTitle = document.createElement('div');
-        ansTitle.className = 'bento-label';
-        ansTitle.textContent = 'ANS BALANCE';
-        ansCard.appendChild(ansTitle);
+        ansCard.className = 'results-glass-card';
+        ansCard.innerHTML =
+            '<div class="results-card-title">ANS Balance</div>' +
+            '<div class="ans-bar-outer">' +
+            '  <div class="ans-sns-bar" id="ans-sns" style="width:38%"></div>' +
+            '  <div class="ans-divider-line" id="ans-divider" style="left:38%"></div>' +
+            '  <div class="ans-pns-bar" id="ans-pns" style="width:62%"></div>' +
+            '</div>' +
+            '<div class="ans-labels">' +
+            '  <span><span id="ans-sns-pct">38</span>%&nbsp;&nbsp;&nbsp;SNS</span>' +
+            '  <span>PNS&nbsp;&nbsp;&nbsp;<span id="ans-pns-pct">62</span>%</span>' +
+            '</div>';
+        wrap.appendChild(ansCard);
 
-        var ansBar = document.createElement('div');
-        ansBar.className = 'ans-bar-container';
+        container.appendChild(wrap);
 
-        var ansSns = document.createElement('div');
-        ansSns.className = 'ans-sns'; ansSns.id = 'ans-sns';
-        ansSns.style.width = '45%';
-        ansBar.appendChild(ansSns);
-
-        var ansDivider = document.createElement('div');
-        ansDivider.className = 'ans-divider'; ansDivider.id = 'ans-divider';
-        ansDivider.style.left = '45%';
-        ansBar.appendChild(ansDivider);
-
-        var ansPns = document.createElement('div');
-        ansPns.className = 'ans-pns'; ansPns.id = 'ans-pns';
-        ansPns.style.width = '55%';
-        ansBar.appendChild(ansPns);
-
-        ansCard.appendChild(ansBar);
-
-        var ansLabels = document.createElement('div');
-        ansLabels.className = 'ans-labels';
-        ansLabels.innerHTML =
-            '<span>SNS <span id="ans-sns-pct">45</span>% (warm)</span>' +
-            '<span>PNS <span id="ans-pns-pct">55</span>% (cool)</span>';
-        ansCard.appendChild(ansLabels);
-        container.appendChild(ansCard);
-
-        // Signal quality
-        var sqSection = document.createElement('div');
-        sqSection.className = 'signal-quality'; sqSection.id = 'signal-quality';
-        sqSection.innerHTML =
-            '<span class="sqi-chip" id="sqi-grade">SQI --</span>' +
-            '<span class="sqi-chip" id="sqi-fusion">Fusion: face</span>';
-        container.appendChild(sqSection);
-
-        // FDCB dock
+        // FDCB dock (outside wrapper, fixed to bottom)
         var dock = document.createElement('div');
         dock.className = 'fdcb-dock'; dock.id = 'fdcb-dock';
         dock.innerHTML =
             '<div class="fdcb-template" id="fdcb-template-name">\uD83D\uDCCA Canslim GS \u25BE</div>' +
             '<div style="text-align:center">' +
-            '  <div class="fdcb-timer" id="fdcb-timer">05:00</div>' +
+            '  <div class="fdcb-timer" id="fdcb-timer">02:18</div>' +
             '  <div class="fdcb-progress"><div class="fdcb-progress-fill" id="fdcb-progress-fill" style="width:0%"></div></div>' +
             '</div>' +
             '<button class="fdcb-confirm" id="fdcb-confirm">\u2713</button>';
@@ -454,7 +410,7 @@
             var colors = bbColor(val);
             bar.style.background = 'linear-gradient(180deg, ' + colors[0] + ', ' + colors[1] + ')';
 
-            var opacity = 0.2 + (i / 12) * 0.55;
+            var opacity = 0.25 + (i / 12) * 0.55;
             if (i === data.length - 1) opacity = 1;
             bar.style.opacity = String(opacity);
 
@@ -466,6 +422,51 @@
 
             setTimeout(function() { bar.classList.add('animate'); }, 1200 + i * 80);
         });
+    }
+
+    // ─── Update Stress 4-Segment Bar ───
+    function updateStressBar(stress) {
+        var segs = document.querySelectorAll('.stress-seg-fill');
+        if (!segs || segs.length < 4) return;
+        // 0-25: seg0 full, 26-50: seg0+seg1, 51-75: seg0+1+2, 76-100: all
+        for (var i = 0; i < 4; i++) {
+            var segMin = i * 25;
+            var segMax = (i + 1) * 25;
+            if (stress >= segMax) {
+                segs[i].style.width = '100%';
+            } else if (stress > segMin) {
+                segs[i].style.width = ((stress - segMin) / 25 * 100) + '%';
+            } else {
+                segs[i].style.width = '0%';
+            }
+        }
+        var pctEl = document.getElementById('stress-pct');
+        if (pctEl) pctEl.textContent = stress + '%';
+    }
+
+    // ─── ANS Micro-fluctuation ───
+    function startANSFluctuation() {
+        if (ansFluctuateTimer) return;
+        ansFluctuateTimer = setInterval(function () {
+            var snsEl = document.getElementById('ans-sns');
+            var pnsEl = document.getElementById('ans-pns');
+            var divEl = document.getElementById('ans-divider');
+            var snsPctEl = document.getElementById('ans-sns-pct');
+            var pnsPctEl = document.getElementById('ans-pns-pct');
+
+            if (!snsEl || !pnsEl) return;
+
+            var current = parseFloat(snsEl.style.width) || 38;
+            var jitter = (Math.random() - 0.5) * 4; // ±2%
+            var newSns = Math.max(15, Math.min(85, current + jitter));
+            var newPns = 100 - newSns;
+
+            snsEl.style.width = newSns + '%';
+            pnsEl.style.width = newPns + '%';
+            if (divEl) divEl.style.left = newSns + '%';
+            if (snsPctEl) snsPctEl.textContent = String(Math.round(newSns));
+            if (pnsPctEl) pnsPctEl.textContent = String(Math.round(newPns));
+        }, 350);
     }
 
     // ─── Public API ───
@@ -486,25 +487,20 @@
             initSparklines();
         },
 
-        /** Show warmup state: "--" numbers, calibrating hint */
         showWarmup: function() {
             var el = document.getElementById('tei-display');
             if (el) el.textContent = '--';
             var zone = document.getElementById('tei-zone-label');
             if (zone) { zone.textContent = 'SCANNING'; zone.className = 'tei-zone-label neutral'; }
-            var pill = document.getElementById('zone-pill');
-            if (pill) pill.textContent = '';
             var coach = document.getElementById('coach-card');
-            if (coach) coach.textContent = '正在校準感測器...';
+            if (coach) coach.textContent = '\u6B63\u5728\u6821\u6E96\u611F\u6E2C\u5668...';
 
-            // Set all bento values to --
             ['hr','hrv','rr','stress'].forEach(function(id) {
                 var v = document.getElementById('bento-' + id);
                 if (v) v.textContent = '--';
             });
         },
 
-        /** Update all metrics from scan-ux.js EWMA values */
         updateAll: function(ewma, histories, ans, phase) {
             var tei = Math.round(ewma.tei);
             var hr = Math.round(ewma.hr);
@@ -526,22 +522,18 @@
             var zoneEl = document.getElementById('tei-zone-label');
             if (zoneEl) {
                 zoneEl.className = 'tei-zone-label ' + zone.toLowerCase();
-                zoneEl.textContent = zone;
+                zoneEl.textContent = zone.charAt(0) + zone.slice(1).toLowerCase();
                 zoneEl.style.color = ZONE_COLORS[zone];
             }
 
-            // Zone pill
-            var pillEl = document.getElementById('zone-pill');
-            if (pillEl) {
-                pillEl.textContent = ZONE_LABELS[zone];
-                pillEl.style.borderColor = ZONE_COLORS[zone] + '40';
-            }
-
-            // Coach card
-            var coachEl = document.getElementById('coach-card');
-            if (coachEl) {
-                var msgs = COACH_MSGS[zone];
-                coachEl.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+            // Coach card — only update on zone change to avoid flicker
+            if (zone !== currentCoachZone) {
+                currentCoachZone = zone;
+                var coachEl = document.getElementById('coach-card');
+                if (coachEl) {
+                    var msgs = COACH_MSGS[zone];
+                    coachEl.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+                }
             }
 
             // Ring update
@@ -577,19 +569,12 @@
             if (sparklines.hrv && histories.hrv.length > 0) sparklines.hrv.push(hrv);
             if (sparklines.rr && histories.rr.length > 0) sparklines.rr.push(rr);
 
-            // Stress bar
-            var stressFill = document.getElementById('stress-fill');
-            var stressInd = document.getElementById('stress-indicator');
-            if (stressFill) {
-                stressFill.style.width = stress + '%';
-                var lvl = stressLevel(stress);
-                stressFill.setAttribute('data-level', lvl);
-            }
-            if (stressInd) stressInd.style.left = stress + '%';
+            // Stress 4-segment bar
+            updateStressBar(stress);
 
-            // ANS balance
-            var snsPct = ans ? ans.sns : 50;
-            var pnsPct = ans ? ans.pns : 50;
+            // ANS balance (from scan-ux EWMA)
+            var snsPct = ans ? ans.sns : 38;
+            var pnsPct = ans ? ans.pns : 62;
             var snsEl = document.getElementById('ans-sns');
             var pnsEl = document.getElementById('ans-pns');
             var divEl = document.getElementById('ans-divider');
@@ -601,38 +586,26 @@
             if (snsPctEl) snsPctEl.textContent = String(snsPct);
             if (pnsPctEl) pnsPctEl.textContent = String(pnsPct);
 
-            // SQI
-            var sqiEl = document.getElementById('sqi-grade');
-            if (sqiEl) {
-                var sqi = Math.round(ewma.sqi || 0);
-                var grade = sqi > 85 ? 'A' : sqi > 70 ? 'B' : sqi > 50 ? 'C' : 'D';
-                sqiEl.textContent = 'SQI ' + grade + ' (' + sqi + ')';
+            // TEI sub label
+            var subEl = document.querySelector('.tei-sub');
+            if (subEl) {
+                var pr = tei >= 80 ? 99 : tei >= 55 ? 75 : tei >= 35 ? 50 : 25;
+                subEl.textContent = 'TEI \u00B7 PR' + pr;
             }
         },
 
-        /** Update scan badge text */
         updateBadge: function(phase, elapsed) {
-            var el = document.getElementById('scan-badge');
+            var el = document.getElementById('scan-badge-pill');
             if (!el) return;
             if (phase < 5) {
                 el.textContent = '\u2726 SCANNING \u00B7 ' + elapsed + 's';
             }
         },
 
-        /** Update phase dots */
-        updatePhaseDots: function(phase) {
-            var dots = document.querySelectorAll('.phase-dot');
-            dots.forEach(function(dot) {
-                var p = parseInt(dot.dataset.phase, 10);
-                dot.className = 'phase-dot';
-                if (p < phase) dot.classList.add('done');
-                else if (p === phase) dot.classList.add('active');
-            });
-        },
+        updatePhaseDots: function() { /* phase dots removed per screenshot */ },
 
-        /** Show completion state */
         showComplete: function(ewma) {
-            var badge = document.getElementById('scan-badge');
+            var badge = document.getElementById('scan-badge-pill');
             if (badge) badge.textContent = '\u2726 DEEP SCAN \u00B7 60s';
 
             // Glow pulse on ring
@@ -652,9 +625,8 @@
                 initBBChart(baseline.generateBB24h());
             }
 
-            // All phase dots done
-            var dots = document.querySelectorAll('.phase-dot');
-            dots.forEach(function(dot) { dot.className = 'phase-dot done'; });
+            // Start ANS micro-fluctuation
+            startANSFluctuation();
         },
 
         destroy: function() {
@@ -662,7 +634,12 @@
                 cancelAnimationFrame(nebulaFrame);
                 nebulaFrame = null;
             }
+            if (ansFluctuateTimer) {
+                clearInterval(ansFluctuateTimer);
+                ansFluctuateTimer = null;
+            }
             sparklines = {};
+            currentCoachZone = null;
         }
     };
 

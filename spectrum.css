@@ -1,98 +1,635 @@
-/* ============================================================
-   TENKI — Emotion Spectrum Color System (spectrum.css)
-   ============================================================
-   CSS Custom Properties driven by desktop-compat.js SpectrumEngine.
-   HSL-interpolated across 5 anchor points for continuous TEI color.
-   ============================================================ */
+/* ===================================================
+   TENKI v4.2 RESULTS PAGE — Spectrum Overlay
+   Pixel-matched to IMG_5522 design reference
+   
+   This stylesheet is ADDITIVE — it only styles the
+   #results-page overlay. It never overrides v51.1
+   inline styles for the landing/scanning page.
+   =================================================== */
 
+/* ── CSS Variables (results page only) ── */
 :root {
-  --tei-color: #9E9E9E;
-  --tei-color-dim: rgba(158, 158, 158, 0.125);
-  --tei-glow: rgba(158, 158, 158, 0.25);
-  --tei-h: 0;
-  --tei-s: 0%;
-  --tei-l: 62%;
+    --plasma-cyan: #00B4D8;
+    --void-purple: #5E3A87;
+    --matrix-green: #34C759;
+    --amber-glow: #F5A623;
+    --coral-warm: #FF6B35;
+    --danger-red: #FF453A;
+    --metal-100: #FFFFFF;
+    --metal-200: #E5E5EA;
+    --metal-300: #C7C7CC;
+    --metal-400: #8E8E93;
+    --surface-dark: rgba(44,44,46,0.55);
+    --surface-deep: rgba(10,10,12,0.92);
+    --glass-border: rgba(255,255,255,0.07);
+    --highlight-line: rgba(255,255,255,0.12);
+    --pulse-dur: 1s;
 }
 
-/* ── Global Transition: smooth 1.5s on every TEI shift ── */
-body,
-#dash-score,
-#dash-label,
-#dash-state,
-.ring-value,
-.ring-hrv-2050 {
-  transition: color 1.5s ease, text-shadow 1.5s ease,
-              stroke 1.5s ease, border-color 1.5s ease,
-              box-shadow 1.5s ease, filter 1.5s ease;
+/* ── Results Overlay ── */
+.results-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0,0,0,0.95);
+    overflow-y: auto;
+    overflow-x: hidden;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+    -webkit-overflow-scrolling: touch;
 }
 
-/* ── TEI Score Number ── */
-#dash-score {
-  color: var(--tei-color) !important;
-  text-shadow: 0 0 20px var(--tei-glow), 0 0 60px var(--tei-glow);
-  /* Override the metallic gradient when spectrum is active */
-  background: none !important;
-  -webkit-background-clip: unset !important;
-  background-clip: unset !important;
-  -webkit-text-fill-color: var(--tei-color) !important;
-  filter: drop-shadow(0 4px 10px var(--tei-glow));
+.results-overlay.hidden {
+    display: none !important;
 }
 
-/* ── TEI Status Label ── */
-#dash-label {
-  color: var(--tei-color) !important;
-  opacity: 0.85;
+.results-overlay.fade-in {
+    opacity: 1;
 }
 
-/* ── TEI Ring SVG (outer score ring) ── */
-#ring-score {
-  stroke: var(--tei-color) !important;
-  filter: drop-shadow(0 0 10px var(--tei-glow));
+/* ── Results Content Wrapper ── */
+.results-content {
+    position: relative;
+    width: 100%;
+    max-width: 430px;
+    margin: 0 auto;
+    padding: 0 16px 120px;
+    min-height: 100vh;
 }
 
-/* ── Body Background Aura ── */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse 60% 50% at 50% 40%,
-    var(--tei-color-dim) 0%,
-    transparent 70%
-  );
-  opacity: 0.6;
-  transition: background 1.5s ease, opacity 1.5s ease;
+/* ── Close Button ── */
+.results-close-btn {
+    position: fixed;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    right: 16px;
+    z-index: 210;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+    color: var(--metal-300);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.2s;
 }
 
-/* ── Fingerprint scan button subtle tint ── */
-.fingerprint-wrapper.active .fingerprint-core {
-  border-color: var(--tei-color) !important;
-  box-shadow: 0 0 30px var(--tei-color-dim), inset 0 0 20px var(--tei-color-dim) !important;
+.results-close-btn:active {
+    background: rgba(255,255,255,0.15);
 }
 
-.fingerprint-wrapper.active .scan-beam {
-  background: linear-gradient(to bottom,
-    transparent 0%,
-    var(--tei-color-dim) 90%,
-    var(--tei-color) 100%) !important;
+/* ── Stardust Nebula Canvas ── */
+#tenki-nebula-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 560px;
+    pointer-events: none;
+    z-index: 0;
 }
 
-/* ── Precision Tab active state follows spectrum ── */
-.precision-tab.active {
-  color: var(--tei-color) !important;
-  border-color: var(--tei-color-dim) !important;
-  background: var(--tei-color-dim) !important;
-  box-shadow: 0 0 18px var(--tei-color-dim) !important;
+/* ── Scan Badge ── */
+.scan-badge {
+    text-align: center;
+    padding: 14px 0 6px;
+    position: relative;
+    z-index: 1;
 }
 
-/* ── Snapshot cards subtle accent ── */
-.snapshot-card {
-  transition: border-color 1.5s ease;
+.scan-badge-pill {
+    display: inline-block;
+    padding: 6px 16px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    letter-spacing: 1px;
+    color: var(--metal-300);
 }
 
-/* ── Dock action button glow ── */
-.dock-main-action {
-  transition: box-shadow 1.5s ease, transform 0.2s;
+/* ── Source Strip (Garmin + rPPG chips) ── */
+.source-strip {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 0 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.source-chip {
+    font-size: 11px;
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    letter-spacing: 0.5px;
+    color: var(--metal-400);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 5px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.source-chip.active {
+    color: var(--plasma-cyan);
+    border-color: rgba(0,180,216,0.25);
+    background: rgba(0,180,216,0.06);
+}
+
+.source-chip-icon {
+    font-size: 13px;
+}
+
+/* ── TEI Ring Section ── */
+.tei-ring-section {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0 12px;
+}
+
+.tei-ring-container {
+    position: relative;
+    width: 240px;
+    height: 240px;
+}
+
+.tei-ring-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.tei-outer-ring {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 8px rgba(0,180,216,0.15));
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.tei-inner-ring {
+    fill: none;
+    stroke-width: 4;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.tei-endpoint {
+    filter: drop-shadow(0 0 6px rgba(245,166,35,0.6));
+    transition: cx 1.2s cubic-bezier(0.25,0.1,0.25,1), cy 1.2s cubic-bezier(0.25,0.1,0.25,1);
+    animation: endpoint-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes endpoint-pulse {
+    0%, 100% { r: 4.5; }
+    50% { r: 5.5; }
+}
+
+/* ── TEI Number (metallic gradient — 4-stop match) ── */
+.tei-number-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.tei-number {
+    font-size: 72px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1.5px;
+    line-height: 1;
+    font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+    background: linear-gradient(180deg, #FFFFFF 0%, #E5E5EA 35%, #C7C7CC 60%, #8E8E93 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 40px rgba(0,180,216,0.10)) drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    animation: heartbeat-pulse var(--pulse-dur) ease-in-out infinite;
+}
+
+@keyframes heartbeat-pulse {
+    0%, 100% { transform: scale(1); }
+    15% { transform: scale(1.03); }
+    30% { transform: scale(1); }
+}
+
+.tei-sub {
+    font-size: 12px;
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    letter-spacing: 1px;
+    color: var(--metal-400);
+    margin-top: 4px;
+}
+
+.tei-zone-label {
+    font-size: 14px;
+    font-weight: 600;
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    letter-spacing: 1.5px;
+    margin-top: 4px;
+}
+
+.tei-zone-label.peak { color: var(--amber-glow); }
+.tei-zone-label.optimal { color: var(--plasma-cyan); }
+.tei-zone-label.neutral { color: var(--metal-200); }
+.tei-zone-label.degraded { color: var(--void-purple); }
+
+/* ── Coach Hint (glassmorphism) ── */
+.coach-card {
+    position: relative;
+    z-index: 1;
+    background: var(--surface-dark);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    text-align: center;
+    font-size: 14px;
+    font-family: -apple-system, 'SF Pro Text', 'PingFang TC', system-ui, sans-serif;
+    line-height: 1.7;
+    color: var(--metal-200);
+}
+
+.coach-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--highlight-line), transparent);
+    pointer-events: none;
+}
+
+/* ── Bento Grid (2x2 physiology cards) ── */
+.results-bento-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+.results-bento-card {
+    position: relative;
+    background: var(--surface-dark);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 14px;
+    overflow: hidden;
+}
+
+.results-bento-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--highlight-line), transparent);
+    pointer-events: none;
+}
+
+.results-bento-label {
+    font-size: 11px;
+    font-weight: 600;
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    letter-spacing: 0.5px;
+    color: var(--metal-400);
+    margin-bottom: 4px;
+}
+
+.results-bento-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.results-bento-value {
+    font-size: 28px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+    color: var(--metal-100);
+    line-height: 1.1;
+    animation: heartbeat-pulse var(--pulse-dur) ease-in-out infinite;
+}
+
+.results-bento-unit {
+    font-size: 13px;
+    font-weight: 400;
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    color: var(--metal-400);
+    margin-left: 3px;
+}
+
+.results-bento-pill {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: rgba(0,180,216,0.12);
+    color: var(--plasma-cyan);
+    border: 1px solid rgba(0,180,216,0.2);
+}
+
+.results-bento-pill.garmin {
+    background: rgba(0,180,216,0.10);
+    color: var(--plasma-cyan);
+}
+
+.results-bento-pill.balanced {
+    background: rgba(52,199,89,0.12);
+    color: var(--matrix-green);
+    border-color: rgba(52,199,89,0.2);
+}
+
+.results-bento-sparkline {
+    margin-top: 6px;
+    width: 100%;
+    height: 32px;
+    display: block;
+}
+
+/* ── Stress 4-Segment Bar ── */
+.stress-segments {
+    display: flex;
+    gap: 2px;
+    height: 6px;
+    margin-top: 8px;
+}
+
+.stress-seg {
+    flex: 1;
+    height: 100%;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.06);
+    overflow: hidden;
+    position: relative;
+}
+
+.stress-seg-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 0%;
+    border-radius: 3px;
+    transition: width 800ms ease-out;
+}
+
+.stress-seg[data-seg="0"] .stress-seg-fill { background: #34C759; }
+.stress-seg[data-seg="1"] .stress-seg-fill { background: #00B4D8; }
+.stress-seg[data-seg="2"] .stress-seg-fill { background: #F5A623; }
+.stress-seg[data-seg="3"] .stress-seg-fill { background: #FF453A; }
+
+.stress-pct {
+    font-size: 11px;
+    color: var(--metal-400);
+    text-align: right;
+    margin-top: 2px;
+}
+
+/* ── Glass Card (shared: BB, ANS) ── */
+.results-glass-card {
+    position: relative;
+    z-index: 1;
+    background: var(--surface-dark);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.results-glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--highlight-line), transparent);
+    pointer-events: none;
+}
+
+.results-card-title {
+    font-size: 11px;
+    font-weight: 600;
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    letter-spacing: 0.5px;
+    color: var(--metal-400);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+/* ── Body Battery Go Club ── */
+.bb-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+}
+
+.bb-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 80px;
+    gap: 4px;
+    padding: 0 4px;
+    flex: 1;
+}
+
+.bb-value-display {
+    text-align: right;
+    padding-left: 12px;
+    min-width: 60px;
+}
+
+.bb-value-number {
+    font-size: 36px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+    color: var(--metal-100);
+    line-height: 1;
+}
+
+.bb-value-total {
+    font-size: 13px;
+    color: var(--metal-400);
+}
+
+.bb-bar {
+    flex: 1;
+    min-width: 0;
+    border-radius: 100px 100px 3px 3px;
+    transform: scaleY(0);
+    transform-origin: bottom;
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+}
+
+.bb-bar.animate {
+    transform: scaleY(1);
+}
+
+.bb-bar.last::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #fff;
+}
+
+/* ── ANS Balance Bar ── */
+.ans-bar-outer {
+    position: relative;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.05);
+    margin: 8px 0 6px;
+}
+
+.ans-sns-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #FF453A, #FF6B35);
+    border-radius: 4px 0 0 4px;
+    transition: width 800ms ease-out;
+}
+
+.ans-pns-bar {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #00B4D8, #34C759);
+    border-radius: 0 4px 4px 0;
+    transition: width 800ms ease-out;
+}
+
+.ans-divider-line {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: #000;
+    z-index: 2;
+    transition: left 800ms ease-out;
+}
+
+.ans-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    color: var(--metal-400);
+}
+
+/* ── FDCB Floating Dock ── */
+.fdcb-dock {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 300;
+    background: var(--surface-deep);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 10px 20px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.fdcb-dock.active {
+    display: flex;
+}
+
+.fdcb-template {
+    font-size: 13px;
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    color: var(--metal-400);
+}
+
+.fdcb-timer {
+    font-size: 32px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+    color: var(--metal-100);
+    text-align: center;
+    line-height: 1;
+}
+
+.fdcb-progress {
+    height: 3px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 1.5px;
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.fdcb-progress-fill {
+    height: 100%;
+    background: var(--plasma-cyan);
+    border-radius: 1.5px;
+    transition: width 1s linear;
+}
+
+.fdcb-confirm {
+    font-size: 28px;
+    color: var(--matrix-green);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 4px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Scan Complete Glow ── */
+.ring-glow-pulse {
+    animation: glow-pulse 1.5s ease-out;
+}
+
+@keyframes glow-pulse {
+    0% { filter: drop-shadow(0 0 8px rgba(0,180,216,0.15)); }
+    50% { filter: drop-shadow(0 0 30px rgba(0,180,216,0.5)); }
+    100% { filter: drop-shadow(0 0 8px rgba(0,180,216,0.15)); }
+}
+
+/* ── Stardust breathe (used for warmup hint) ── */
+@keyframes stardust-breathe {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
 }
