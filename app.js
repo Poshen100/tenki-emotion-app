@@ -156,6 +156,13 @@
                 // Init audio on user gesture (iOS requirement)
                 if (audio) audio.init();
 
+                // Guard: mediaDevices may be undefined on HTTP or restricted contexts
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    console.warn('[TENKI] mediaDevices unavailable — simulation mode');
+                    beginScan();
+                    return;
+                }
+
                 // Request front camera
                 navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
