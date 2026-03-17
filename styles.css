@@ -751,13 +751,3 @@ body {
     position: relative;
     z-index: 1;
 }
-
-/* ── Hide legacy debug badges (tier-label, status badges from older versions) ── */
-#tier-label,
-.tier-badge,
-.hrv-status-badge,
-.wave-tier-badge,
-[id*="debug"],
-[class*="debug-badge"] {
-    display: none !important;
-}

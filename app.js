@@ -150,55 +150,67 @@
             });
         }
 
-        // ─── Start Button ───
+        // ─── Start Button (Phase 0 landing page) ───
         if (startBtn) {
             startBtn.addEventListener('click', function () {
-                // Init audio on user gesture (iOS requirement)
                 if (audio) audio.init();
+                requestCameraAndScan();
+            });
+        }
 
-                // Guard: mediaDevices may be undefined on HTTP or restricted contexts
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    console.warn('[TENKI] mediaDevices unavailable — simulation mode');
-                    beginScan();
-                    return;
-                }
+        // ─── Fingerprint Scan Trigger (v51.1 HUD) ───
+        var scanTrigger = document.getElementById('scan-trigger-wrapper');
+        if (scanTrigger) {
+            scanTrigger.addEventListener('click', function () {
+                if (audio) audio.init();
+                // Dispatch event for scan-bridge.js to intercept
+                document.dispatchEvent(new CustomEvent('scan:complete'));
+                requestCameraAndScan();
+            });
+        }
 
-                // Request front camera
-                navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-                    audio: false
-                }).then(function (stream) {
-                    camera.srcObject = stream;
-                    return camera.play();
-                }).then(function () {
-                    beginScan();
-                }).catch(function (err) {
-                    // Camera denied → run in simulation mode (no error shown to user)
-                    console.warn('[TENKI] Camera access issue:', err.message || err);
-                    beginScan();
-                });
+        function requestCameraAndScan() {
+            // Guard: mediaDevices may be undefined on HTTP or restricted contexts
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.warn('[TENKI] mediaDevices unavailable — simulation mode');
+                beginScan();
+                return;
+            }
+
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+                audio: false
+            }).then(function (stream) {
+                camera.srcObject = stream;
+                return camera.play();
+            }).then(function () {
+                beginScan();
+            }).catch(function (err) {
+                // Camera denied → run in simulation mode (no error shown to user)
+                console.warn('[TENKI] Camera access issue:', err.message || err);
+                beginScan();
             });
         }
 
         function beginScan() {
-            // Transition: landing → results
-            if (stopLandingParticles) stopLandingParticles();
-            landing.classList.add('fade-out');
+            // Phase 0 landing page flow (if landing element exists)
+            if (landing) {
+                if (stopLandingParticles) stopLandingParticles();
+                landing.classList.add('fade-out');
 
-            setTimeout(function () {
-                landing.classList.add('hidden');
-                resultsPage.classList.remove('hidden');
-
-                // Trigger reflow then fade in
-                void resultsPage.offsetHeight;
-                resultsPage.classList.add('fade-in');
-
-                // Start scan UX
-                if (scanUX) scanUX.start();
-
-                // Start rPPG pipeline
+                setTimeout(function () {
+                    landing.classList.add('hidden');
+                    resultsPage.classList.remove('hidden');
+                    void resultsPage.offsetHeight;
+                    resultsPage.classList.add('fade-in');
+                    if (scanUX) scanUX.start();
+                    startRppgPipeline();
+                }, 500);
+            } else {
+                // v51.1 flow: scan-bridge.js handles showing results page
+                // Just start the rPPG pipeline
                 startRppgPipeline();
-            }, 500);
+            }
         }
 
         function startRppgPipeline() {
