@@ -633,3 +633,10 @@
     0%, 100% { opacity: 0.4; }
     50% { opacity: 0.8; }
 }
+
+/* ── Hide legacy debug badges ── */
+#tier-indicator-float,
+#tier-label,
+.quality-warning {
+    display: none !important;
+}

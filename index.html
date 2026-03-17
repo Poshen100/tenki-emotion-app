@@ -1229,12 +1229,7 @@
         <span id="quality-warning-text">Signal Degraded</span>
     </div>
 
-    <!-- Signal Tier Indicator (floating) -->
-    <div id="tier-indicator-float" class="tier-indicator tier-5"
-        style="position: fixed; top: calc(12px + env(safe-area-inset-top)); right: 12px; z-index: 120;">
-        <span class="tier-icon" id="tier-icon">⚠️</span>
-        <span id="tier-label">T5: Degraded</span>
-    </div>
+    <!-- Signal Tier Indicator removed (v4.3 — debug badge no longer needed) -->
 
     <div id="hud-layer">
         <div id="align-hint-capsule">
@@ -1598,7 +1593,7 @@
         <script src="hints.js"></script>
         <script src="rpgg.js"></script>
         <script src="tenki-engine.js"></script>
-        <script src="engine.js"></script>
+        <!-- engine.js removed: legacy v50 TenkiEngine conflicts with tenki-engine.js v53 (const redeclaration SyntaxError) -->
         <script src="app.js"></script>
 
         <!-- ========================================== -->
