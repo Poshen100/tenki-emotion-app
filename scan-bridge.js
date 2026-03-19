@@ -1,69 +1,144 @@
 /**
- * scan-bridge.js — v4.3 Bridge between v51.1 scan system and results page
- *
- * Self-contained: directly handles fingerprint click → results page.
- * Does NOT depend on app.js for event dispatch.
+ * scan-bridge.js — v4.4 Bridge: fingerprint tap → ring spin → camera → results
  *
  * Flow:
- *   1. User taps #scan-trigger-wrapper (fingerprint button)
- *   2. This script shows #results-page overlay
- *   3. Calls TENKI_SCAN_UX.start() → builds DOM via TENKI_RESULTS.init()
- *   4. 62-second progressive scan runs with EWMA animation
+ *   1. User taps fingerprint button (#scan-trigger-wrapper)
+ *   2. Button activates: ripple rings + scan beam + progress circle spin
+ *   3. Camera permission requested in parallel (browser popup if needed)
+ *   4. After ring spin completes (~1.8s) → fade out landing → fade in results
+ *   5. TENKI_SCAN_UX.start() begins 62-second progressive scan
+ *
+ * Camera fallback: if denied or unavailable → silent simulation mode (no error)
  */
 (function (global) {
     'use strict';
 
+    var isAnimating = false;
     var isResultsOpen = false;
+    var cameraStream = null;
+    var dashboardLayer = null;
 
-    // ─── Resolve dependencies lazily (in case load order varies) ───
-    function getScanUX()  { return global.TENKI_SCAN_UX; }
-    function getAudio()   { return global.TENKI_AUDIO; }
+    function getScanUX()   { return global.TENKI_SCAN_UX; }
+    function getAudio()    { return global.TENKI_AUDIO; }
     function getStardust() { return global.TENKI_STARDUST; }
 
-    // ─── Direct fingerprint click handler ───
+    // ─── Init on DOM ready ───
     document.addEventListener('DOMContentLoaded', function () {
+        dashboardLayer = document.getElementById('dashboard-layer');
+
         var scanTrigger = document.getElementById('scan-trigger-wrapper');
-        if (scanTrigger) {
-            scanTrigger.addEventListener('click', function () {
-                console.info('[BRIDGE] Fingerprint tapped');
-                showResultsPage();
-            });
-            // Also handle touchend for immediate response on mobile
-            scanTrigger.addEventListener('touchend', function (e) {
-                e.preventDefault();
-                console.info('[BRIDGE] Fingerprint touched');
-                showResultsPage();
-            });
-        } else {
+        if (!scanTrigger) {
             console.warn('[BRIDGE] #scan-trigger-wrapper not found');
+            return;
+        }
+
+        // Single handler — prevent double-fire from click+touchend
+        var lastTap = 0;
+        function onTap(e) {
+            if (e.type === 'touchend') e.preventDefault();
+            var now = Date.now();
+            if (now - lastTap < 500) return;
+            lastTap = now;
+            if (isAnimating || isResultsOpen) return;
+            beginScanSequence(scanTrigger);
+        }
+
+        scanTrigger.addEventListener('click', onTap);
+        scanTrigger.addEventListener('touchend', onTap);
+
+        // Intercept app.js scan:complete (prevent it from doing anything else)
+        document.addEventListener('scan:complete', function (e) {
+            e.stopImmediatePropagation();
+        }, true);
+        document.addEventListener('tenki:scanDone', function (e) {
+            e.stopImmediatePropagation();
+        }, true);
+
+        // Dashboard layer → redirect to results
+        if (dashboardLayer) {
+            var observer = new MutationObserver(function (mutations) {
+                for (var i = 0; i < mutations.length; i++) {
+                    if (mutations[i].attributeName === 'class' && dashboardLayer.classList.contains('show')) {
+                        dashboardLayer.classList.remove('show');
+                        dashboardLayer.style.display = 'none';
+                        break;
+                    }
+                }
+            });
+            observer.observe(dashboardLayer, { attributes: true, attributeFilter: ['class'] });
         }
     });
 
-    // ─── Also listen for custom events (backward compat) ───
-    document.addEventListener('scan:complete', function () {
-        showResultsPage();
-    });
-    document.addEventListener('tenki:scanDone', function () {
-        showResultsPage();
-    });
+    // ─── Main Sequence ───
+    function beginScanSequence(btn) {
+        isAnimating = true;
+        console.info('[BRIDGE] Scan sequence started');
 
-    // ─── Fallback: observe dashboard-layer becoming visible ───
-    var dashboardLayer = document.getElementById('dashboard-layer');
-    if (dashboardLayer) {
-        var observer = new MutationObserver(function (mutations) {
-            for (var i = 0; i < mutations.length; i++) {
-                var m = mutations[i];
-                if (m.attributeName === 'class' && dashboardLayer.classList.contains('show')) {
-                    dashboardLayer.classList.remove('show');
-                    dashboardLayer.style.display = 'none';
-                    showResultsPage();
-                    break;
-                }
+        // 1. Init audio on user gesture (iOS Safari requirement)
+        var audio = getAudio();
+        if (audio) {
+            audio.init();
+            audio.scanStart();
+        }
+        var haptics = global.TENKI_HAPTICS;
+        if (haptics) haptics.tap();
+
+        // 2. Activate button CSS animations (ripple + beam + pulse)
+        btn.classList.add('active');
+
+        // 3. Animate progress circle — fast spin fill
+        var progressCircle = document.getElementById('scan-progress-bar');
+        if (progressCircle) {
+            var circumference = 339; // 2πr for r=54
+            progressCircle.style.transition = 'none';
+            progressCircle.setAttribute('stroke-dashoffset', String(circumference));
+            void progressCircle.offsetHeight; // force reflow
+            progressCircle.style.transition = 'stroke-dashoffset 1.6s cubic-bezier(0.22, 1, 0.36, 1)';
+            progressCircle.setAttribute('stroke-dashoffset', '0');
+        }
+
+        // 4. Request camera in parallel (shows browser permission popup if needed)
+        requestCamera();
+
+        // 5. After animation → transition to results
+        setTimeout(function () {
+            // Deactivate button
+            btn.classList.remove('active');
+            if (progressCircle) {
+                progressCircle.style.transition = 'none';
+                progressCircle.setAttribute('stroke-dashoffset', '339');
             }
-        });
-        observer.observe(dashboardLayer, { attributes: true, attributeFilter: ['class'] });
+
+            isAnimating = false;
+            showResultsPage();
+        }, 1800);
     }
 
+    // ─── Camera Permission ───
+    function requestCamera() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.warn('[BRIDGE] mediaDevices unavailable — simulation mode');
+            return;
+        }
+
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false
+        }).then(function (stream) {
+            cameraStream = stream;
+            var camera = document.getElementById('camera');
+            if (camera) {
+                camera.srcObject = stream;
+                camera.play().catch(function () {});
+            }
+            console.info('[BRIDGE] Camera authorized');
+        }).catch(function (err) {
+            console.warn('[BRIDGE] Camera denied/unavailable:', err.message || err);
+            // Silent fallback — scan-ux.js uses simulation data
+        });
+    }
+
+    // ─── Show Results Page ───
     function showResultsPage() {
         if (isResultsOpen) return;
 
@@ -74,42 +149,50 @@
         }
 
         isResultsOpen = true;
-        console.info('[BRIDGE] Showing results page');
+        console.info('[BRIDGE] Transitioning to results page');
 
-        // Dim the stardust soul
+        // Dim stardust soul
         var stardust = getStardust();
         if (stardust && stardust.dim) stardust.dim();
 
-        // Dim the universe background
+        // Dim universe
         var universe = document.getElementById('universe');
-        if (universe) universe.classList.add('dimmed');
+        if (universe) {
+            universe.style.transition = 'opacity 0.8s ease';
+            universe.style.opacity = '0.15';
+        }
 
-        // Hide v51.1 HUD
+        // Hide HUD layer
         var hudLayer = document.getElementById('hud-layer');
-        if (hudLayer) hudLayer.classList.add('hidden-ui');
+        if (hudLayer) {
+            hudLayer.style.transition = 'opacity 0.5s ease';
+            hudLayer.style.opacity = '0';
+            setTimeout(function () {
+                hudLayer.style.display = 'none';
+            }, 500);
+        }
 
-        // Hide v51.1 dashboard if it's open
+        // Hide dashboard
         if (dashboardLayer) {
             dashboardLayer.classList.remove('show');
             dashboardLayer.style.display = 'none';
         }
 
-        // Show results overlay
+        // Show results overlay with fade
         resultsPage.classList.remove('hidden');
-        void resultsPage.offsetHeight; // force reflow
+        void resultsPage.offsetHeight;
         resultsPage.classList.add('fade-in');
 
-        // Init audio on user gesture (iOS requirement)
+        // Init audio context (if not already)
         var audio = getAudio();
         if (audio) audio.init();
 
-        // Start scan UX (this calls TENKI_RESULTS.init() → buildDOM)
+        // Start 62-second progressive scan
         var scanUX = getScanUX();
         if (scanUX) {
             scanUX.start();
             console.info('[BRIDGE] Scan UX started');
         } else {
-            console.warn('[BRIDGE] TENKI_SCAN_UX not available — trying TENKI_RESULTS directly');
             var results = global.TENKI_RESULTS;
             if (results) {
                 results.init();
@@ -118,7 +201,7 @@
         }
     }
 
-    // ─── Close button handler ───
+    // ─── Close Results ───
     document.addEventListener('click', function (e) {
         if (e.target && (e.target.id === 'results-close-btn' || e.target.closest('#results-close-btn'))) {
             closeResultsPage();
@@ -132,12 +215,18 @@
         var scanUX = getScanUX();
         if (scanUX) scanUX.stop();
 
+        // Stop camera
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(function (t) { t.stop(); });
+            cameraStream = null;
+        }
+
         var resultsPage = document.getElementById('results-page');
         if (resultsPage) {
             resultsPage.classList.remove('fade-in');
             setTimeout(function () {
                 resultsPage.classList.add('hidden');
-            }, 500);
+            }, 600);
         }
 
         // Restore stardust
@@ -146,11 +235,17 @@
 
         // Restore universe
         var universe = document.getElementById('universe');
-        if (universe) universe.classList.remove('dimmed');
+        if (universe) {
+            universe.style.transition = 'opacity 0.8s ease';
+            universe.style.opacity = '1';
+        }
 
-        // Restore v51.1 HUD
+        // Restore HUD
         var hudLayer = document.getElementById('hud-layer');
-        if (hudLayer) hudLayer.classList.remove('hidden-ui');
+        if (hudLayer) {
+            hudLayer.style.display = '';
+            hudLayer.style.opacity = '';
+        }
     }
 
     global.TENKI_BRIDGE = {

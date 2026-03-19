@@ -17,7 +17,7 @@
     'use strict';
 
     // ─── Constants ───
-    var OUTER_R = 102, INNER_R = 80;
+    var OUTER_R = 120, INNER_R = 100;
     var OUTER_CIRC = 2 * Math.PI * OUTER_R;
     var INNER_CIRC = 2 * Math.PI * INNER_R;
 
@@ -66,18 +66,31 @@
         }
     }
 
+    var nebulaW = 430, nebulaH = 660;
+
     function drawNebula(canvas) {
         var ctx = canvas.getContext('2d');
-        var W = canvas.width, H = canvas.height;
+        var W = nebulaW, H = nebulaH;
         var t = Date.now() / 1000;
 
         ctx.clearRect(0, 0, W, H);
 
+        // Deep space base — multiple overlapping nebula clouds
         var layers = [
-            { cx: W/2, cy: 80, r: 200, color: [0,180,216], alpha: 0.06, period: 8 },
-            { cx: W*0.15, cy: 200, r: 140, color: [52,199,89], alpha: 0.025, period: 11 },
-            { cx: W*0.85, cy: 50, r: 100, color: [245,166,35], alpha: 0.02, period: 0 },
-            { cx: W*0.08, cy: 30, r: 120, color: [0,122,255], alpha: 0.035, period: 14 }
+            // Primary cyan-blue nebula (center-top, behind TEI ring)
+            { cx: W*0.5, cy: H*0.28, r: 280, color: [0,140,220], alpha: 0.18, period: 10 },
+            // Green-teal nebula (left of ring)
+            { cx: W*0.2, cy: H*0.35, r: 200, color: [30,180,120], alpha: 0.12, period: 13 },
+            // Purple nebula (right side)
+            { cx: W*0.82, cy: H*0.2, r: 180, color: [100,60,200], alpha: 0.10, period: 16 },
+            // Deep blue core (behind ring center)
+            { cx: W*0.48, cy: H*0.32, r: 160, color: [0,80,180], alpha: 0.15, period: 8 },
+            // Warm amber accent (lower right)
+            { cx: W*0.75, cy: H*0.5, r: 120, color: [200,140,40], alpha: 0.05, period: 0 },
+            // Cobalt blue glow (upper left)
+            { cx: W*0.1, cy: H*0.08, r: 150, color: [0,100,255], alpha: 0.08, period: 14 },
+            // Secondary green wisps
+            { cx: W*0.35, cy: H*0.55, r: 100, color: [40,200,100], alpha: 0.06, period: 18 }
         ];
 
         for (var li = 0; li < layers.length; li++) {
@@ -85,17 +98,19 @@
             var pulse = l.period > 0 ? 0.7 + 0.3 * Math.sin(t * (2*Math.PI/l.period)) : 1;
             var grad = ctx.createRadialGradient(l.cx, l.cy, 0, l.cx, l.cy, l.r);
             grad.addColorStop(0, 'rgba('+l.color.join(',')+','+(l.alpha*pulse)+')');
+            grad.addColorStop(0.5, 'rgba('+l.color.join(',')+','+(l.alpha*pulse*0.4)+')');
             grad.addColorStop(1, 'rgba('+l.color.join(',')+',0)');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, W, H);
         }
 
+        // Stars — brighter, more visible
         for (var si = 0; si < stars.length; si++) {
             var s = stars[si];
             var twinkle = 0.5 + 0.5 * Math.sin(t * (2*Math.PI/s.speed) + s.phase);
             ctx.beginPath();
             ctx.arc(s.x*W, s.y*H, s.size, 0, Math.PI*2);
-            ctx.fillStyle = 'rgba(255,255,255,'+(s.alpha*twinkle)+')';
+            ctx.fillStyle = 'rgba(255,255,255,'+(s.alpha*twinkle*1.3)+')';
             ctx.fill();
         }
 
@@ -106,16 +121,20 @@
     function createRingSVG() {
         var ns = 'http://www.w3.org/2000/svg';
         var svg = document.createElementNS(ns, 'svg');
-        svg.setAttribute('viewBox', '0 0 240 240');
+        svg.setAttribute('viewBox', '0 0 280 280');
         svg.setAttribute('class', 'tei-ring-svg');
 
         var defs = document.createElementNS(ns, 'defs');
 
-        // 7-stop spectrum gradient
+        // 7-stop spectrum gradient — rotated to match ring start (-90deg = 12 o'clock)
         var outerGrad = document.createElementNS(ns, 'linearGradient');
         outerGrad.id = 'tei-outer-grad';
-        [[0,'#5E3A87'],[15,'#00B4D8'],[30,'#34C759'],[50,'#A8D843'],
-         [65,'#F5A623'],[80,'#FF6B35'],[100,'#FF453A']].forEach(function(s) {
+        outerGrad.setAttribute('gradientUnits', 'userSpaceOnUse');
+        // Diagonal from top-left to bottom-right for better color distribution around the ring
+        outerGrad.setAttribute('x1', '0'); outerGrad.setAttribute('y1', '0');
+        outerGrad.setAttribute('x2', '280'); outerGrad.setAttribute('y2', '280');
+        [[0,'#5E3A87'],[12,'#0066FF'],[25,'#00B4D8'],[40,'#34C759'],[55,'#A8D843'],
+         [70,'#F5A623'],[85,'#FF6B35'],[100,'#FF453A']].forEach(function(s) {
             var stop = document.createElementNS(ns, 'stop');
             stop.setAttribute('offset', s[0]+'%');
             stop.setAttribute('stop-color', s[1]);
@@ -125,6 +144,9 @@
 
         var innerGrad = document.createElementNS(ns, 'linearGradient');
         innerGrad.id = 'tei-inner-grad';
+        innerGrad.setAttribute('gradientUnits', 'userSpaceOnUse');
+        innerGrad.setAttribute('x1', '0'); innerGrad.setAttribute('y1', '140');
+        innerGrad.setAttribute('x2', '280'); innerGrad.setAttribute('y2', '140');
         var is1 = document.createElementNS(ns, 'stop');
         is1.setAttribute('offset', '0%'); is1.setAttribute('stop-color', '#34C759');
         var is2 = document.createElementNS(ns, 'stop');
@@ -134,23 +156,24 @@
         svg.appendChild(defs);
 
         // Background tracks
+        var CX = '140', CY = '140';
         var obg = document.createElementNS(ns, 'circle');
-        obg.setAttribute('cx','120'); obg.setAttribute('cy','120');
+        obg.setAttribute('cx', CX); obg.setAttribute('cy', CY);
         obg.setAttribute('r', String(OUTER_R));
-        obg.setAttribute('fill','none'); obg.setAttribute('stroke','rgba(255,255,255,0.05)');
-        obg.setAttribute('stroke-width','6');
+        obg.setAttribute('fill','none'); obg.setAttribute('stroke','rgba(255,255,255,0.06)');
+        obg.setAttribute('stroke-width','16');
         svg.appendChild(obg);
 
         var ibg = document.createElementNS(ns, 'circle');
-        ibg.setAttribute('cx','120'); ibg.setAttribute('cy','120');
+        ibg.setAttribute('cx', CX); ibg.setAttribute('cy', CY);
         ibg.setAttribute('r', String(INNER_R));
-        ibg.setAttribute('fill','none'); ibg.setAttribute('stroke','rgba(255,255,255,0.03)');
-        ibg.setAttribute('stroke-width','4');
+        ibg.setAttribute('fill','none'); ibg.setAttribute('stroke','rgba(255,255,255,0.04)');
+        ibg.setAttribute('stroke-width','10');
         svg.appendChild(ibg);
 
         // Active rings
         var outer = document.createElementNS(ns, 'circle');
-        outer.setAttribute('cx','120'); outer.setAttribute('cy','120');
+        outer.setAttribute('cx', CX); outer.setAttribute('cy', CY);
         outer.setAttribute('r', String(OUTER_R));
         outer.setAttribute('class','tei-outer-ring');
         outer.setAttribute('stroke','url(#tei-outer-grad)');
@@ -160,7 +183,7 @@
         svg.appendChild(outer);
 
         var inner = document.createElementNS(ns, 'circle');
-        inner.setAttribute('cx','120'); inner.setAttribute('cy','120');
+        inner.setAttribute('cx', CX); inner.setAttribute('cy', CY);
         inner.setAttribute('r', String(INNER_R));
         inner.setAttribute('class','tei-inner-ring');
         inner.setAttribute('stroke','url(#tei-inner-grad)');
@@ -171,9 +194,9 @@
 
         // Endpoint dot
         var ep = document.createElementNS(ns, 'circle');
-        ep.setAttribute('r','5'); ep.setAttribute('fill','#F5A623');
+        ep.setAttribute('r','7'); ep.setAttribute('fill','#F5A623');
         ep.setAttribute('class','tei-endpoint'); ep.id = 'tei-endpoint';
-        ep.setAttribute('cx','120'); ep.setAttribute('cy', String(120 - OUTER_R));
+        ep.setAttribute('cx', CX); ep.setAttribute('cy', String(140 - OUTER_R));
         svg.appendChild(ep);
 
         return svg;
@@ -209,10 +232,9 @@
         closeBtn.textContent = '\u00D7';
         container.appendChild(closeBtn);
 
-        // Nebula canvas
+        // Nebula canvas — dimensions set properly in init()
         var nebula = document.createElement('canvas');
         nebula.id = 'tenki-nebula-canvas';
-        nebula.width = 430; nebula.height = 560;
         wrap.appendChild(nebula);
 
         // Scan badge
@@ -229,7 +251,7 @@
         srcStrip.className = 'source-strip';
         srcStrip.innerHTML =
             '<span class="source-chip active" id="src-garmin">' +
-            '<span class="source-chip-icon">\u{1F4CD}</span>Garmin Forerunner</span>' +
+            '<span class="source-chip-icon">\u{2316}</span>Garmin Forerunner</span>' +
             '<span class="source-chip" id="src-rppg">' +
             '<span class="source-chip-icon">\u{1F4F7}</span>rPPG \u7709\u5FC3</span>';
         wrap.appendChild(srcStrip);
@@ -477,10 +499,17 @@
 
             buildDOM(container);
 
-            initStars(60);
+            initStars(90);
             var canvas = document.getElementById('tenki-nebula-canvas');
             if (canvas) {
-                canvas.width = Math.min(window.innerWidth, 430);
+                var dpr = Math.min(window.devicePixelRatio || 1, 2);
+                nebulaW = Math.min(window.innerWidth, 430);
+                nebulaH = 660;
+                canvas.width = nebulaW * dpr;
+                canvas.height = nebulaH * dpr;
+                canvas.style.width = nebulaW + 'px';
+                canvas.style.height = nebulaH + 'px';
+                canvas.getContext('2d').scale(dpr, dpr);
                 drawNebula(canvas);
             }
 
@@ -549,8 +578,8 @@
 
                 if (endpoint) {
                     var angle = -Math.PI/2 + outerFill * 2 * Math.PI;
-                    endpoint.setAttribute('cx', String(120 + OUTER_R * Math.cos(angle)));
-                    endpoint.setAttribute('cy', String(120 + OUTER_R * Math.sin(angle)));
+                    endpoint.setAttribute('cx', String(140 + OUTER_R * Math.cos(angle)));
+                    endpoint.setAttribute('cy', String(140 + OUTER_R * Math.sin(angle)));
                 }
             }
 
