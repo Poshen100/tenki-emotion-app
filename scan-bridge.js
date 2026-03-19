@@ -1,7 +1,11 @@
 /**
- * scan-bridge.js — v4.4 Bridge: fingerprint tap → ring spin → camera → results
+ * scan-bridge.js — v4.5 Bridge: hint capsule + fingerprint tap → ring spin → camera → results
  *
- * Flow:
+ * Landing:
+ *   - Shows alignment hint capsule ("FIND FACE") on page load
+ *   - Stardust soul animation runs behind (stardust.js / expression.js untouched)
+ *
+ * Scan Flow:
  *   1. User taps fingerprint button (#scan-trigger-wrapper)
  *   2. Button activates: ripple rings + scan beam + progress circle spin
  *   3. Camera permission requested in parallel (browser popup if needed)
@@ -22,9 +26,36 @@
     function getAudio()    { return global.TENKI_AUDIO; }
     function getStardust() { return global.TENKI_STARDUST; }
 
+    // ─── Show alignment hint capsule on landing ───
+    function showHintCapsule() {
+        var capsule = document.getElementById('align-hint-capsule');
+        if (!capsule) return;
+
+        // Set "FIND FACE" state — matches v25.8.2 landing design
+        var iconBox = document.getElementById('hint-icon-box');
+        if (iconBox) iconBox.style.background = 'rgba(0,240,255,0.15)';
+        var hintText = document.getElementById('hint-text');
+        if (hintText) hintText.textContent = 'FIND FACE';
+
+        // Show with animation
+        capsule.classList.add('show');
+    }
+
+    function hideHintCapsule() {
+        var capsule = document.getElementById('align-hint-capsule');
+        if (capsule) capsule.classList.remove('show');
+    }
+
     // ─── Init on DOM ready ───
     document.addEventListener('DOMContentLoaded', function () {
         dashboardLayer = document.getElementById('dashboard-layer');
+
+        // Show hint capsule on landing page
+        showHintCapsule();
+
+        // Update connection status to match landing state
+        var connStatus = document.getElementById('connection-status');
+        if (connStatus) connStatus.textContent = 'SEARCHING \u2026';
 
         var scanTrigger = document.getElementById('scan-trigger-wrapper');
         if (!scanTrigger) {
@@ -83,7 +114,10 @@
         var haptics = global.TENKI_HAPTICS;
         if (haptics) haptics.tap();
 
-        // 2. Activate button CSS animations (ripple + beam + pulse)
+        // 2. Hide hint capsule during scan
+        hideHintCapsule();
+
+        // 3. Activate button CSS animations (ripple + beam + pulse)
         btn.classList.add('active');
 
         // 3. Animate progress circle — fast spin fill
@@ -246,6 +280,9 @@
             hudLayer.style.display = '';
             hudLayer.style.opacity = '';
         }
+
+        // Restore hint capsule on landing
+        showHintCapsule();
     }
 
     global.TENKI_BRIDGE = {
