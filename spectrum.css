@@ -640,6 +640,31 @@
     100% { filter: drop-shadow(0 0 12px rgba(0,180,216,0.2)); }
 }
 
+/* ── Fingerprint → Results transition ── */
+/* Progress circle glow when spinning */
+.fingerprint-wrapper.active .progress-circle {
+    filter: drop-shadow(0 0 10px var(--plasma-cyan)) drop-shadow(0 0 20px rgba(0,240,255,0.3));
+}
+
+/* HUD fade-out during transition */
+#hud-layer {
+    transition: opacity 0.5s ease;
+}
+
+/* Universe dim during results */
+#universe {
+    transition: opacity 0.8s ease;
+}
+
+/* Results overlay enter/exit */
+.results-overlay.hidden {
+    display: none !important;
+}
+
+.results-overlay.fade-in {
+    opacity: 1;
+}
+
 /* ── Stardust breathe (used for warmup hint) ── */
 @keyframes stardust-breathe {
     0%, 100% { opacity: 0.4; }
