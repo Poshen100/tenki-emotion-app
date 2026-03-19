@@ -307,7 +307,7 @@
             '  <span class="results-bento-unit">BPM</span></div>' +
             '  <span class="results-bento-pill garmin">Garmin Sync</span>' +
             '</div>' +
-            '<canvas class="results-bento-sparkline" id="spark-hr"></canvas>';
+            '<canvas class="results-bento-sparkline" id="results-spark-hr"></canvas>';
         grid.appendChild(hrCard);
 
         // Card 2: HRV
@@ -320,7 +320,7 @@
             '  <span class="results-bento-unit"><sup>ms</sup> RMSSD</span></div>' +
             '  <span class="results-bento-pill balanced">Balanced</span>' +
             '</div>' +
-            '<canvas class="results-bento-sparkline" id="spark-hrv"></canvas>';
+            '<canvas class="results-bento-sparkline" id="results-spark-hrv"></canvas>';
         grid.appendChild(hrvCard);
 
         // Card 3: Respiratory
@@ -332,7 +332,7 @@
             '  <div><span class="results-bento-value" id="bento-rr">--</span>' +
             '  <span class="results-bento-unit">BrPM</span></div>' +
             '</div>' +
-            '<canvas class="results-bento-sparkline" id="spark-rr"></canvas>';
+            '<canvas class="results-bento-sparkline" id="results-spark-rr"></canvas>';
         grid.appendChild(rrCard);
 
         // Card 4: Stress — 4-segment bar
@@ -405,11 +405,15 @@
         sparklines = {};
         var colors = { hr:'#FF453A', hrv:'#00B4D8', rr:'#34C759' };
         ['hr','hrv','rr'].forEach(function(id) {
-            var el = document.getElementById('spark-' + id);
+            var el = document.getElementById('results-spark-' + id);
             if (el && global.TENKI_Sparkline) {
-                sparklines[id] = new global.TENKI_Sparkline(el, {
-                    color: colors[id], maxPoints: 40
-                });
+                try {
+                    sparklines[id] = new global.TENKI_Sparkline(el, {
+                        color: colors[id], maxPoints: 40
+                    });
+                } catch (e) {
+                    console.warn('[RESULTS] Sparkline init failed for', id, e);
+                }
             }
         });
     }

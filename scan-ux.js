@@ -241,8 +241,12 @@
             if (haptics) haptics.tap();
 
             if (results) {
-                results.init();
-                results.showWarmup();
+                try {
+                    results.init();
+                    results.showWarmup();
+                } catch (e) {
+                    console.error('[SCAN-UX] Results init error:', e);
+                }
             }
 
             isRunning = true;
