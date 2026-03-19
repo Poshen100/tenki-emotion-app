@@ -31,11 +31,11 @@
     position: fixed;
     inset: 0;
     z-index: 200;
-    background: rgba(0,0,0,0.95);
+    background: linear-gradient(180deg, rgba(2,2,8,0.97) 0%, rgba(5,5,15,0.98) 40%, rgba(0,0,0,0.99) 100%);
     overflow-y: auto;
     overflow-x: hidden;
     opacity: 0;
-    transition: opacity 0.8s ease;
+    transition: opacity 0.6s ease;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -53,42 +53,47 @@
     width: 100%;
     max-width: 430px;
     margin: 0 auto;
-    padding: 0 16px 120px;
+    padding: 0 20px 120px;
     min-height: 100vh;
 }
 
 /* ── Close Button ── */
 .results-close-btn {
     position: fixed;
-    top: calc(16px + env(safe-area-inset-top, 0px));
-    right: 16px;
+    top: calc(14px + env(safe-area-inset-top, 0px));
+    right: 14px;
     z-index: 210;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border: none;
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.10);
     border-radius: 50%;
-    color: var(--metal-300);
-    font-size: 18px;
+    color: var(--metal-200);
+    font-size: 22px;
+    font-weight: 300;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: background 0.2s;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .results-close-btn:active {
-    background: rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.20);
 }
 
 /* ── Stardust Nebula Canvas ── */
 #tenki-nebula-canvas {
     position: absolute;
     top: 0;
-    left: 0;
+    left: 50%;
+    transform: translateX(-50%);
     width: 100%;
-    height: 560px;
+    max-width: 430px;
+    height: 660px;
     pointer-events: none;
     z-index: 0;
 }
@@ -96,42 +101,46 @@
 /* ── Scan Badge ── */
 .scan-badge {
     text-align: center;
-    padding: 14px 0 6px;
+    padding: 18px 0 8px;
     position: relative;
     z-index: 1;
 }
 
 .scan-badge-pill {
     display: inline-block;
-    padding: 6px 16px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
+    padding: 8px 20px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 500;
     font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
-    letter-spacing: 1px;
-    color: var(--metal-300);
+    letter-spacing: 1.2px;
+    color: var(--metal-200);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 /* ── Source Strip (Garmin + rPPG chips) ── */
 .source-strip {
     display: flex;
     justify-content: center;
-    gap: 8px;
-    padding: 6px 0 10px;
+    gap: 10px;
+    padding: 8px 0 14px;
     position: relative;
     z-index: 1;
 }
 
 .source-chip {
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 500;
     font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
     color: var(--metal-400);
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
-    padding: 5px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 20px;
+    padding: 6px 16px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -139,12 +148,12 @@
 
 .source-chip.active {
     color: var(--plasma-cyan);
-    border-color: rgba(0,180,216,0.25);
-    background: rgba(0,180,216,0.06);
+    border-color: rgba(0,180,216,0.30);
+    background: rgba(0,180,216,0.08);
 }
 
 .source-chip-icon {
-    font-size: 13px;
+    font-size: 14px;
 }
 
 /* ── TEI Ring Section ── */
@@ -154,13 +163,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 16px 0 12px;
+    padding: 10px 0 16px;
 }
 
 .tei-ring-container {
     position: relative;
-    width: 240px;
-    height: 240px;
+    width: 280px;
+    height: 280px;
 }
 
 .tei-ring-svg {
@@ -171,28 +180,29 @@
 
 .tei-outer-ring {
     fill: none;
-    stroke-width: 6;
+    stroke-width: 16;
     stroke-linecap: round;
-    filter: drop-shadow(0 0 8px rgba(0,180,216,0.15));
+    filter: drop-shadow(0 0 12px rgba(0,180,216,0.25));
     transition: stroke-dashoffset 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .tei-inner-ring {
     fill: none;
-    stroke-width: 4;
+    stroke-width: 10;
     stroke-linecap: round;
+    filter: drop-shadow(0 0 8px rgba(52,199,89,0.15));
     transition: stroke-dashoffset 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .tei-endpoint {
-    filter: drop-shadow(0 0 6px rgba(245,166,35,0.6));
+    filter: drop-shadow(0 0 10px rgba(245,166,35,0.7)) drop-shadow(0 0 20px rgba(245,166,35,0.3));
     transition: cx 1.2s cubic-bezier(0.25,0.1,0.25,1), cy 1.2s cubic-bezier(0.25,0.1,0.25,1);
     animation: endpoint-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes endpoint-pulse {
-    0%, 100% { r: 4.5; }
-    50% { r: 5.5; }
+    0%, 100% { r: 6; }
+    50% { r: 8; }
 }
 
 /* ── TEI Number (metallic gradient — 4-stop match) ── */
@@ -205,17 +215,17 @@
 }
 
 .tei-number {
-    font-size: 72px;
-    font-weight: 300;
+    font-size: 76px;
+    font-weight: 200;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -1.5px;
+    letter-spacing: -2px;
     line-height: 1;
     font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
-    background: linear-gradient(180deg, #FFFFFF 0%, #E5E5EA 35%, #C7C7CC 60%, #8E8E93 100%);
+    background: linear-gradient(180deg, #FFFFFF 0%, #F0F0F5 25%, #D1D1D6 50%, #A0A0A8 80%, #8E8E93 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    filter: drop-shadow(0 0 40px rgba(0,180,216,0.10)) drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    filter: drop-shadow(0 0 40px rgba(0,180,216,0.12)) drop-shadow(0 2px 6px rgba(0,0,0,0.4));
     animation: heartbeat-pulse var(--pulse-dur) ease-in-out infinite;
 }
 
@@ -226,19 +236,19 @@
 }
 
 .tei-sub {
-    font-size: 12px;
+    font-size: 13px;
     font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
-    letter-spacing: 1px;
-    color: var(--metal-400);
-    margin-top: 4px;
+    letter-spacing: 1.2px;
+    color: var(--metal-300);
+    margin-top: 6px;
 }
 
 .tei-zone-label {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
     letter-spacing: 1.5px;
-    margin-top: 4px;
+    margin-top: 2px;
 }
 
 .tei-zone-label.peak { color: var(--amber-glow); }
@@ -250,17 +260,17 @@
 .coach-card {
     position: relative;
     z-index: 1;
-    background: var(--surface-dark);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
+    background: rgba(44,44,46,0.60);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.09);
     border-radius: 16px;
-    padding: 16px 20px;
-    margin-bottom: 12px;
+    padding: 18px 22px;
+    margin-bottom: 14px;
     text-align: center;
-    font-size: 14px;
+    font-size: 15px;
     font-family: -apple-system, 'SF Pro Text', 'PingFang TC', system-ui, sans-serif;
-    line-height: 1.7;
+    line-height: 1.75;
     color: var(--metal-200);
 }
 
@@ -279,20 +289,20 @@
 .results-bento-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 10px;
+    margin-bottom: 10px;
     position: relative;
     z-index: 1;
 }
 
 .results-bento-card {
     position: relative;
-    background: var(--surface-dark);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
+    background: rgba(44,44,46,0.60);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 16px;
-    padding: 14px;
+    padding: 14px 14px 10px;
     overflow: hidden;
 }
 
@@ -300,10 +310,10 @@
     content: '';
     position: absolute;
     top: 0;
-    left: 10%;
-    right: 10%;
+    left: 5%;
+    right: 5%;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--highlight-line), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
     pointer-events: none;
 }
 
@@ -323,7 +333,7 @@
 }
 
 .results-bento-value {
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 300;
     font-variant-numeric: tabular-nums;
     font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
@@ -341,14 +351,15 @@
 }
 
 .results-bento-pill {
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.5px;
-    padding: 2px 8px;
-    border-radius: 8px;
+    letter-spacing: 0.3px;
+    padding: 3px 10px;
+    border-radius: 10px;
     background: rgba(0,180,216,0.12);
     color: var(--plasma-cyan);
     border: 1px solid rgba(0,180,216,0.2);
+    white-space: nowrap;
 }
 
 .results-bento-pill.garmin {
@@ -412,13 +423,13 @@
 .results-glass-card {
     position: relative;
     z-index: 1;
-    background: var(--surface-dark);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
+    background: rgba(44,44,46,0.60);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 16px;
     padding: 16px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     overflow: hidden;
 }
 
@@ -467,8 +478,8 @@
 }
 
 .bb-value-number {
-    font-size: 36px;
-    font-weight: 300;
+    font-size: 40px;
+    font-weight: 200;
     font-variant-numeric: tabular-nums;
     font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
     color: var(--metal-100);
@@ -561,12 +572,12 @@
     left: 0;
     right: 0;
     z-index: 300;
-    background: var(--surface-deep);
+    background: rgba(8,8,10,0.94);
     backdrop-filter: blur(30px);
     -webkit-backdrop-filter: blur(30px);
-    border-top: 1px solid rgba(255,255,255,0.08);
-    padding: 10px 20px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(255,255,255,0.10);
+    padding: 12px 20px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     display: none;
     align-items: center;
     justify-content: space-between;
@@ -608,24 +619,25 @@
 }
 
 .fdcb-confirm {
-    font-size: 28px;
+    font-size: 30px;
     color: var(--matrix-green);
     cursor: pointer;
     background: none;
     border: none;
-    padding: 4px;
+    padding: 6px;
     -webkit-tap-highlight-color: transparent;
+    filter: drop-shadow(0 0 4px rgba(52,199,89,0.3));
 }
 
 /* ── Scan Complete Glow ── */
 .ring-glow-pulse {
-    animation: glow-pulse 1.5s ease-out;
+    animation: glow-pulse 1.8s ease-out;
 }
 
 @keyframes glow-pulse {
-    0% { filter: drop-shadow(0 0 8px rgba(0,180,216,0.15)); }
-    50% { filter: drop-shadow(0 0 30px rgba(0,180,216,0.5)); }
-    100% { filter: drop-shadow(0 0 8px rgba(0,180,216,0.15)); }
+    0% { filter: drop-shadow(0 0 12px rgba(0,180,216,0.2)); }
+    40% { filter: drop-shadow(0 0 40px rgba(0,180,216,0.6)) drop-shadow(0 0 80px rgba(52,199,89,0.2)); }
+    100% { filter: drop-shadow(0 0 12px rgba(0,180,216,0.2)); }
 }
 
 /* ── Stardust breathe (used for warmup hint) ── */
