@@ -5,6 +5,10 @@
  * Fibonacci sphere, Pink→Purple→Cyan gradient, additive blending.
  * Persistent background behind landing + results pages.
  *
+ * v4.5: Expression sync — mouth open / eye blink / brow tension
+ *       modulate particle scale, opacity, and rotation speed.
+ *       Core visual identity (colors, particle count, distribution) unchanged.
+ *
  * Requires: THREE.js (r128+)
  */
 (function (global) {
@@ -20,6 +24,9 @@
     var scene, camera, renderer, cloud, material;
     var animFrame = null;
     var clock = new THREE.Clock();
+
+    // Expression sync state
+    var expr = { mouthOpen: 0, eyeOpen: 1, blinkFlash: 0, browTension: 0.5, active: false };
 
     function init() {
         var container = document.getElementById('universe');
@@ -121,14 +128,29 @@
 
         var t = clock.getElapsedTime();
 
+        // Auto-decay blink flash
+        expr.blinkFlash *= 0.82;
+
         if (cloud) {
-            // Slow rotation — the soul breathes
-            cloud.rotation.y = t * 0.05;
+            // Rotation — speed increases with brow tension
+            var rotSpeed = 0.05;
+            if (expr.active) rotSpeed += expr.browTension * 0.04;
+            cloud.rotation.y = t * rotSpeed;
             cloud.rotation.x = Math.sin(t * 0.03) * 0.1;
 
-            // Breathing scale
+            // Breathing scale + mouth open expansion
             var breath = 1 + Math.sin(t * 0.5) * 0.02;
+            if (expr.active) {
+                breath += expr.mouthOpen * 0.12;
+            }
             cloud.scale.set(breath, breath, breath);
+        }
+
+        // Blink flash → brief opacity dip
+        if (material) {
+            var op = 0.9;
+            if (expr.active) op -= expr.blinkFlash * 0.35;
+            material.opacity = Math.max(0.4, op);
         }
 
         renderer.render(scene, camera);
@@ -159,6 +181,24 @@
         if (renderer) renderer.dispose();
     }
 
+    /** Set expression data from FaceMesh pipeline */
+    function setExpression(data) {
+        expr.active = true;
+        if (data.mouthOpen !== undefined) expr.mouthOpen = data.mouthOpen;
+        if (data.eyeOpen !== undefined) expr.eyeOpen = data.eyeOpen;
+        if (data.browTension !== undefined) expr.browTension = data.browTension;
+        if (data.blinkDetected) expr.blinkFlash = 1;
+    }
+
+    /** Clear expression state (face lost or face sync stopped) */
+    function clearExpression() {
+        expr.active = false;
+        expr.mouthOpen = 0;
+        expr.eyeOpen = 1;
+        expr.blinkFlash = 0;
+        expr.browTension = 0.5;
+    }
+
     // Auto-init when DOM ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
@@ -166,5 +206,11 @@
         init();
     }
 
-    global.TENKI_STARDUST = { dim: dim, brighten: brighten, destroy: destroy };
+    global.TENKI_STARDUST = {
+        dim: dim,
+        brighten: brighten,
+        destroy: destroy,
+        setExpression: setExpression,
+        clearExpression: clearExpression
+    };
 })(window);

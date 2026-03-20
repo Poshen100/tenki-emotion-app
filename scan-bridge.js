@@ -1,18 +1,18 @@
 /**
- * scan-bridge.js — v4.5 Bridge: hint capsule + fingerprint tap → ring spin → camera → results
+ * scan-bridge.js — v4.6 Bridge: environment scanner + face expression sync + scan flow
  *
- * Landing:
- *   - Shows alignment hint capsule ("FIND FACE") on page load
- *   - Stardust soul animation runs behind (stardust.js / expression.js untouched)
+ * Landing Page:
+ *   - LUX/STAB environment scanner (camera brightness + device motion)
+ *   - FaceMesh → ExpressionTracker → stardust particle sync
+ *   - Alignment hint capsule ("FIND FACE" / "TRACKING")
  *
  * Scan Flow:
  *   1. User taps fingerprint button (#scan-trigger-wrapper)
- *   2. Button activates: ripple rings + scan beam + progress circle spin
- *   3. Camera permission requested in parallel (browser popup if needed)
- *   4. After ring spin completes (~1.8s) → fade out landing → fade in results
- *   5. TENKI_SCAN_UX.start() begins 62-second progressive scan
+ *   2. Ring spin animation (1.8s) + camera permission popup
+ *   3. Fade landing → show results page
+ *   4. TENKI_SCAN_UX.start() begins 62-second progressive scan
  *
- * Camera fallback: if denied or unavailable → silent simulation mode (no error)
+ * Protected files: expression.js, ui/*.js, ui/*.css — zero changes
  */
 (function (global) {
     'use strict';
@@ -22,22 +22,253 @@
     var cameraStream = null;
     var dashboardLayer = null;
 
+    // Face sync state
+    var faceSyncStream = null;
+    var faceMeshInstance = null;
+    var faceSyncLoop = null;
+    var prevEyeOpen = 1;
+
     function getScanUX()   { return global.TENKI_SCAN_UX; }
     function getAudio()    { return global.TENKI_AUDIO; }
     function getStardust() { return global.TENKI_STARDUST; }
 
-    // ─── Show alignment hint capsule on landing ───
+    // ══════════════════════════════════════════════
+    //  ENVIRONMENT SCANNER (LUX + STAB)
+    // ══════════════════════════════════════════════
+
+    function initEnvironmentScanner() {
+        var luxBar  = document.getElementById('env-lux-bar');
+        var luxItem = document.getElementById('env-lux');
+        var stabBar = document.getElementById('env-stab-bar');
+        var stabItem = document.getElementById('env-stab');
+
+        // ── LUX: try AmbientLightSensor, fallback to camera brightness ──
+        if ('AmbientLightSensor' in window) {
+            try {
+                var sensor = new AmbientLightSensor();
+                sensor.addEventListener('reading', function () {
+                    var pct = Math.min(sensor.illuminance / 400, 1);
+                    if (luxBar) luxBar.style.width = (pct * 100) + '%';
+                    if (luxItem) luxItem.className = 'env-item ' + (pct > 0.25 ? 'good' : 'warn');
+                });
+                sensor.start();
+            } catch (e) {
+                setDefaultLux(luxBar, luxItem);
+            }
+        } else {
+            // Will be updated by camera frame analysis when FaceMesh runs
+            setDefaultLux(luxBar, luxItem);
+        }
+
+        // ── STAB: DeviceMotion for stability ──
+        var stabHistory = [];
+
+        function handleMotion(e) {
+            var acc = e.accelerationIncludingGravity;
+            if (!acc) return;
+            stabHistory.push(Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z));
+            if (stabHistory.length > 30) stabHistory.shift();
+        }
+
+        if ('DeviceMotionEvent' in window) {
+            // iOS 13+ requires permission
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                // Will be requested on first user gesture (scan tap)
+                setDefaultStab(stabBar, stabItem);
+            } else {
+                window.addEventListener('devicemotion', handleMotion);
+            }
+        } else {
+            setDefaultStab(stabBar, stabItem);
+        }
+
+        // Update STAB bar periodically
+        setInterval(function () {
+            if (stabHistory.length < 5) return;
+            var mean = 0;
+            for (var i = 0; i < stabHistory.length; i++) mean += stabHistory[i];
+            mean /= stabHistory.length;
+            var variance = 0;
+            for (var j = 0; j < stabHistory.length; j++) {
+                variance += (stabHistory[j] - mean) * (stabHistory[j] - mean);
+            }
+            variance /= stabHistory.length;
+            var stability = Math.max(0, Math.min(1, 1 - variance * 0.3));
+            if (stabBar) stabBar.style.width = (stability * 100) + '%';
+            if (stabItem) stabItem.className = 'env-item ' + (stability > 0.6 ? 'good' : 'warn');
+        }, 600);
+    }
+
+    function setDefaultLux(bar, item) {
+        if (bar) bar.style.width = '70%';
+        if (item) item.className = 'env-item good';
+    }
+
+    function setDefaultStab(bar, item) {
+        if (bar) bar.style.width = '90%';
+        if (item) item.className = 'env-item good';
+    }
+
+    // ══════════════════════════════════════════════
+    //  FACEMESH → EXPRESSION → STARDUST SYNC
+    // ══════════════════════════════════════════════
+
+    function updateLuxFromCamera(videoEl) {
+        var canvas = document.getElementById('light-analysis-canvas');
+        if (!canvas || !videoEl || videoEl.readyState < 2) return;
+        try {
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(videoEl, 0, 0, 50, 50);
+            var data = ctx.getImageData(0, 0, 50, 50).data;
+            var sum = 0;
+            for (var i = 0; i < data.length; i += 4) {
+                sum += data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+            }
+            var avg = sum / (50 * 50);
+            var pct = Math.min(1, avg / 160);
+            var luxBar = document.getElementById('env-lux-bar');
+            var luxItem = document.getElementById('env-lux');
+            if (luxBar) luxBar.style.width = (pct * 100) + '%';
+            if (luxItem) luxItem.className = 'env-item ' + (pct > 0.25 ? 'good' : 'warn');
+        } catch (e) { /* CORS or security error — ignore */ }
+    }
+
+    function onFaceResults(results) {
+        var capsule = document.getElementById('align-hint-capsule');
+        var hintText = document.getElementById('hint-text');
+        var iconBox = document.getElementById('hint-icon-box');
+        var stardust = getStardust();
+
+        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+            // No face detected
+            if (hintText) hintText.textContent = 'FIND FACE';
+            if (capsule) { capsule.classList.remove('status-good'); capsule.classList.add('status-warn'); }
+            if (iconBox) iconBox.style.background = 'rgba(234,179,8,0.15)';
+            if (stardust && stardust.clearExpression) stardust.clearExpression();
+            return;
+        }
+
+        var lm = results.multiFaceLandmarks[0];
+
+        // Update capsule → tracking state
+        if (hintText) hintText.textContent = 'TRACKING';
+        if (capsule) { capsule.classList.remove('status-warn'); capsule.classList.add('status-good'); }
+        if (iconBox) iconBox.style.background = 'rgba(35,243,212,0.15)';
+
+        // ── Compute expression metrics from FaceMesh landmarks ──
+        // Eye open: vertical distance upper-lower lid (landmarks 159/145, 386/374)
+        var eyeL = Math.abs(lm[159].y - lm[145].y);
+        var eyeR = Math.abs(lm[386].y - lm[374].y);
+        var eyeOpen = Math.min(1, ((eyeL + eyeR) / 2) / 0.035);
+
+        // Mouth open: vertical distance upper-lower lip (landmarks 13/14)
+        var mouthOpen = Math.min(1, Math.abs(lm[13].y - lm[14].y) / 0.05);
+
+        // Brow tension: horizontal distance between brows (landmarks 105/334)
+        var browDist = Math.abs(lm[105].x - lm[334].x);
+        var browTension = Math.max(0, Math.min(1, 1 - browDist / 0.22));
+
+        // Blink detection
+        var blinkDetected = eyeOpen < 0.25 && prevEyeOpen > 0.55;
+        prevEyeOpen = eyeOpen;
+
+        // Push to stardust particle animation
+        if (stardust && stardust.setExpression) {
+            stardust.setExpression({
+                mouthOpen: mouthOpen,
+                eyeOpen: eyeOpen,
+                blinkDetected: blinkDetected,
+                browTension: browTension
+            });
+        }
+
+        // Push to expression tracker if available
+        var exprTracker = global.TENKI_EXPRESSION;
+        if (exprTracker && exprTracker._instance && exprTracker._instance.pushSample) {
+            exprTracker._instance.pushSample(lm, Date.now());
+        }
+
+        // Update LUX from camera brightness (~every 10th frame)
+        if (Math.random() < 0.1) {
+            var videoEl = document.getElementById('input-video');
+            updateLuxFromCamera(videoEl);
+        }
+    }
+
+    function initFaceSync() {
+        if (typeof FaceMesh === 'undefined') {
+            console.warn('[BRIDGE] MediaPipe FaceMesh not loaded — expression sync disabled');
+            return;
+        }
+
+        var videoEl = document.getElementById('input-video');
+        if (!videoEl) return;
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.warn('[BRIDGE] getUserMedia unavailable');
+            return;
+        }
+
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
+            audio: false
+        }).then(function (stream) {
+            faceSyncStream = stream;
+            videoEl.srcObject = stream;
+            return videoEl.play();
+        }).then(function () {
+            try {
+                faceMeshInstance = new FaceMesh({
+                    locateFile: function (file) {
+                        return 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/' + file;
+                    }
+                });
+                faceMeshInstance.setOptions({
+                    maxNumFaces: 1,
+                    refineLandmarks: false,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+                faceMeshInstance.onResults(onFaceResults);
+
+                // Process frames at ~10fps
+                faceSyncLoop = setInterval(function () {
+                    if (videoEl.readyState >= 2 && faceMeshInstance) {
+                        faceMeshInstance.send({ image: videoEl }).catch(function () {});
+                    }
+                }, 100);
+
+                console.info('[BRIDGE] FaceMesh expression sync active');
+            } catch (e) {
+                console.warn('[BRIDGE] FaceMesh init failed:', e);
+            }
+        }).catch(function (err) {
+            console.warn('[BRIDGE] Camera unavailable for face sync:', err.message || err);
+        });
+    }
+
+    function stopFaceSync() {
+        if (faceSyncLoop) { clearInterval(faceSyncLoop); faceSyncLoop = null; }
+        if (faceMeshInstance) { faceMeshInstance = null; }
+        if (faceSyncStream) {
+            faceSyncStream.getTracks().forEach(function (t) { t.stop(); });
+            faceSyncStream = null;
+        }
+        var stardust = getStardust();
+        if (stardust && stardust.clearExpression) stardust.clearExpression();
+    }
+
+    // ══════════════════════════════════════════════
+    //  HINT CAPSULE
+    // ══════════════════════════════════════════════
+
     function showHintCapsule() {
         var capsule = document.getElementById('align-hint-capsule');
         if (!capsule) return;
-
-        // Set "FIND FACE" state — matches v25.8.2 landing design
         var iconBox = document.getElementById('hint-icon-box');
         if (iconBox) iconBox.style.background = 'rgba(0,240,255,0.15)';
         var hintText = document.getElementById('hint-text');
         if (hintText) hintText.textContent = 'FIND FACE';
-
-        // Show with animation
         capsule.classList.add('show');
     }
 
@@ -46,24 +277,34 @@
         if (capsule) capsule.classList.remove('show');
     }
 
-    // ─── Init on DOM ready ───
+    // ══════════════════════════════════════════════
+    //  INIT ON DOM READY
+    // ══════════════════════════════════════════════
+
     document.addEventListener('DOMContentLoaded', function () {
         dashboardLayer = document.getElementById('dashboard-layer');
 
-        // Show hint capsule on landing page
+        // Show hint capsule on landing
         showHintCapsule();
 
-        // Update connection status to match landing state
+        // Update connection status
         var connStatus = document.getElementById('connection-status');
         if (connStatus) connStatus.textContent = 'SEARCHING \u2026';
 
+        // Start environment scanner (LUX + STAB bars)
+        initEnvironmentScanner();
+
+        // Start FaceMesh face sync (camera → expression → stardust)
+        // Small delay so other modules finish init
+        setTimeout(initFaceSync, 800);
+
+        // ── Scan trigger ──
         var scanTrigger = document.getElementById('scan-trigger-wrapper');
         if (!scanTrigger) {
             console.warn('[BRIDGE] #scan-trigger-wrapper not found');
             return;
         }
 
-        // Single handler — prevent double-fire from click+touchend
         var lastTap = 0;
         function onTap(e) {
             if (e.type === 'touchend') e.preventDefault();
@@ -77,7 +318,7 @@
         scanTrigger.addEventListener('click', onTap);
         scanTrigger.addEventListener('touchend', onTap);
 
-        // Intercept app.js scan:complete (prevent it from doing anything else)
+        // Intercept app.js scan events
         document.addEventListener('scan:complete', function (e) {
             e.stopImmediatePropagation();
         }, true);
@@ -85,7 +326,7 @@
             e.stopImmediatePropagation();
         }, true);
 
-        // Dashboard layer → redirect to results
+        // Dashboard layer → suppress (results page replaces it)
         if (dashboardLayer) {
             var observer = new MutationObserver(function (mutations) {
                 for (var i = 0; i < mutations.length; i++) {
@@ -100,87 +341,84 @@
         }
     });
 
-    // ─── Main Sequence ───
+    // ══════════════════════════════════════════════
+    //  SCAN SEQUENCE
+    // ══════════════════════════════════════════════
+
     function beginScanSequence(btn) {
         isAnimating = true;
         console.info('[BRIDGE] Scan sequence started');
 
-        // 1. Init audio on user gesture (iOS Safari requirement)
+        // Stop face sync (free camera for rPPG)
+        stopFaceSync();
+
+        // Audio + haptics
         var audio = getAudio();
-        if (audio) {
-            audio.init();
-            audio.scanStart();
-        }
+        if (audio) { audio.init(); audio.scanStart(); }
         var haptics = global.TENKI_HAPTICS;
         if (haptics) haptics.tap();
 
-        // 2. Hide hint capsule during scan
+        // Hide hint capsule
         hideHintCapsule();
 
-        // 3. Activate button CSS animations (ripple + beam + pulse)
+        // Activate button animations
         btn.classList.add('active');
 
-        // 3. Animate progress circle — fast spin fill
+        // Progress circle spin
         var progressCircle = document.getElementById('scan-progress-bar');
         if (progressCircle) {
-            var circumference = 339; // 2πr for r=54
+            var circumference = 339;
             progressCircle.style.transition = 'none';
             progressCircle.setAttribute('stroke-dashoffset', String(circumference));
-            void progressCircle.offsetHeight; // force reflow
+            void progressCircle.offsetHeight;
             progressCircle.style.transition = 'stroke-dashoffset 1.6s cubic-bezier(0.22, 1, 0.36, 1)';
             progressCircle.setAttribute('stroke-dashoffset', '0');
         }
 
-        // 4. Request camera in parallel (shows browser permission popup if needed)
+        // Request camera for rPPG
         requestCamera();
 
-        // 5. After animation → transition to results
+        // After animation → show results
         setTimeout(function () {
-            // Deactivate button
             btn.classList.remove('active');
             if (progressCircle) {
                 progressCircle.style.transition = 'none';
                 progressCircle.setAttribute('stroke-dashoffset', '339');
             }
-
             isAnimating = false;
             showResultsPage();
         }, 1800);
     }
 
-    // ─── Camera Permission ───
+    // ── Camera for rPPG ──
     function requestCamera() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            console.warn('[BRIDGE] mediaDevices unavailable — simulation mode');
-            return;
-        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
 
         navigator.mediaDevices.getUserMedia({
             video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
             audio: false
         }).then(function (stream) {
             cameraStream = stream;
-            var camera = document.getElementById('camera');
-            if (camera) {
-                camera.srcObject = stream;
-                camera.play().catch(function () {});
+            var cam = document.getElementById('camera') || document.getElementById('input-video');
+            if (cam) {
+                cam.srcObject = stream;
+                cam.play().catch(function () {});
             }
-            console.info('[BRIDGE] Camera authorized');
+            console.info('[BRIDGE] Camera authorized for rPPG');
         }).catch(function (err) {
-            console.warn('[BRIDGE] Camera denied/unavailable:', err.message || err);
-            // Silent fallback — scan-ux.js uses simulation data
+            console.warn('[BRIDGE] Camera denied:', err.message || err);
         });
     }
 
-    // ─── Show Results Page ───
+    // ══════════════════════════════════════════════
+    //  RESULTS PAGE
+    // ══════════════════════════════════════════════
+
     function showResultsPage() {
         if (isResultsOpen) return;
 
         var resultsPage = document.getElementById('results-page');
-        if (!resultsPage) {
-            console.error('[BRIDGE] #results-page not found');
-            return;
-        }
+        if (!resultsPage) return;
 
         isResultsOpen = true;
         console.info('[BRIDGE] Transitioning to results page');
@@ -201,9 +439,7 @@
         if (hudLayer) {
             hudLayer.style.transition = 'opacity 0.5s ease';
             hudLayer.style.opacity = '0';
-            setTimeout(function () {
-                hudLayer.style.display = 'none';
-            }, 500);
+            setTimeout(function () { hudLayer.style.display = 'none'; }, 500);
         }
 
         // Hide dashboard
@@ -217,7 +453,7 @@
         void resultsPage.offsetHeight;
         resultsPage.classList.add('fade-in');
 
-        // Init audio context (if not already)
+        // Audio
         var audio = getAudio();
         if (audio) audio.init();
 
@@ -235,7 +471,7 @@
         }
     }
 
-    // ─── Close Results ───
+    // ── Close Results ──
     document.addEventListener('click', function (e) {
         if (e.target && (e.target.id === 'results-close-btn' || e.target.closest('#results-close-btn'))) {
             closeResultsPage();
@@ -249,7 +485,7 @@
         var scanUX = getScanUX();
         if (scanUX) scanUX.stop();
 
-        // Stop camera
+        // Stop rPPG camera
         if (cameraStream) {
             cameraStream.getTracks().forEach(function (t) { t.stop(); });
             cameraStream = null;
@@ -258,9 +494,7 @@
         var resultsPage = document.getElementById('results-page');
         if (resultsPage) {
             resultsPage.classList.remove('fade-in');
-            setTimeout(function () {
-                resultsPage.classList.add('hidden');
-            }, 600);
+            setTimeout(function () { resultsPage.classList.add('hidden'); }, 600);
         }
 
         // Restore stardust
@@ -281,8 +515,9 @@
             hudLayer.style.opacity = '';
         }
 
-        // Restore hint capsule on landing
+        // Restore hint capsule + restart face sync
         showHintCapsule();
+        setTimeout(initFaceSync, 800);
     }
 
     global.TENKI_BRIDGE = {
