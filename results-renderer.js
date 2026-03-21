@@ -1,25 +1,39 @@
 /**
- * results-renderer.js — v4.2 Results Page DOM + Stardust Nebula
+ * results-renderer.js — v5.0 Results Page DOM + Canvas TEI Ring + Nebula
  *
- * Pixel-matched to IMG_5522 design reference:
- *   ✦ DEEP SCAN · 60s badge, Garmin Forerunner + rPPG 眉心 chips,
- *   TEI dual ring (7-stop spectrum, inner green→cyan, amber endpoint),
- *   72 metallic number, zone label, coach card, 2×2 bento grid
- *   (HR/Garmin Sync pill/sparkline, HRV/Balanced pill/sparkline,
- *    Respiratory/sparkline, Stress/4-segment bar),
- *   Body Battery Go Club 12-bar + 78/100,
- *   ANS Balance (SNS 38% / PNS 62% with micro-fluctuation),
- *   FDCB dock (📊 Canslim GS ▾ | 02:18 | ✓).
- *
- * Uses spectrum.css class names to avoid v51.1 inline style conflicts.
+ * Major visual upgrade:
+ *   - Canvas-based TEI ring with true multi-segment spectrum gradient
+ *   - Thicker ring strokes (24px outer, 14px inner)
+ *   - Full-viewport nebula background (fixed position)
+ *   - Endpoint amber dot with glow
+ *   - Same public API as v4.2
  */
 (function (global) {
     'use strict';
 
-    // ─── Constants ───
-    var OUTER_R = 120, INNER_R = 100;
-    var OUTER_CIRC = 2 * Math.PI * OUTER_R;
-    var INNER_CIRC = 2 * Math.PI * INNER_R;
+    // ─── Ring Constants ───
+    var RING_SIZE = 280;
+    var OUTER_R = 118, INNER_R = 92;
+    var OUTER_W = 24, INNER_W = 14;
+
+    // 15-stop spectrum for outer ring (purple → blue → cyan → green → yellow → orange → red)
+    var SPECTRUM = [
+        [94,58,135],   // #5E3A87
+        [58,32,176],   // #3A20B0
+        [0,102,255],   // #0066FF
+        [0,136,234],   // #0088EA
+        [0,180,216],   // #00B4D8
+        [26,202,107],  // #1ACA6B
+        [52,199,89],   // #34C759
+        [111,216,75],  // #6FD84B
+        [168,216,67],  // #A8D843
+        [207,192,51],  // #CFC033
+        [245,166,35],  // #F5A623
+        [250,137,44],  // #FA892C
+        [255,107,53],  // #FF6B35
+        [255,87,56],   // #FF5738
+        [255,69,58]    // #FF453A
+    ];
 
     var ZONE_COLORS = {
         PEAK: '#F5A623', OPTIMAL: '#00B4D8',
@@ -51,22 +65,26 @@
     var sparklines = {};
     var ansFluctuateTimer = null;
     var currentCoachZone = null;
+    var ringCtx = null;
+    var ringDpr = 1;
+    var currentOuterFill = 0;
+    var currentInnerFill = 0;
 
     // ─── Nebula Canvas ───
+    var nebulaW = 430, nebulaH = 900;
+
     function initStars(count) {
         stars = [];
         for (var i = 0; i < count; i++) {
             stars.push({
                 x: Math.random(), y: Math.random(),
-                size: 0.3 + Math.random() * 1.5,
-                alpha: 0.03 + Math.random() * 0.37,
+                size: 0.3 + Math.random() * 1.8,
+                alpha: 0.05 + Math.random() * 0.45,
                 phase: Math.random() * Math.PI * 2,
                 speed: 2 + Math.random() * 3
             });
         }
     }
-
-    var nebulaW = 430, nebulaH = 660;
 
     function drawNebula(canvas) {
         var ctx = canvas.getContext('2d');
@@ -75,22 +93,17 @@
 
         ctx.clearRect(0, 0, W, H);
 
-        // Deep space base — multiple overlapping nebula clouds
+        // Deep space nebula clouds — vivid and large
         var layers = [
-            // Primary cyan-blue nebula (center-top, behind TEI ring)
-            { cx: W*0.5, cy: H*0.28, r: 280, color: [0,140,220], alpha: 0.18, period: 10 },
-            // Green-teal nebula (left of ring)
-            { cx: W*0.2, cy: H*0.35, r: 200, color: [30,180,120], alpha: 0.12, period: 13 },
-            // Purple nebula (right side)
-            { cx: W*0.82, cy: H*0.2, r: 180, color: [100,60,200], alpha: 0.10, period: 16 },
-            // Deep blue core (behind ring center)
-            { cx: W*0.48, cy: H*0.32, r: 160, color: [0,80,180], alpha: 0.15, period: 8 },
-            // Warm amber accent (lower right)
-            { cx: W*0.75, cy: H*0.5, r: 120, color: [200,140,40], alpha: 0.05, period: 0 },
-            // Cobalt blue glow (upper left)
-            { cx: W*0.1, cy: H*0.08, r: 150, color: [0,100,255], alpha: 0.08, period: 14 },
-            // Secondary green wisps
-            { cx: W*0.35, cy: H*0.55, r: 100, color: [40,200,100], alpha: 0.06, period: 18 }
+            { cx: W*0.50, cy: H*0.22, r: 350, color: [0,100,220], alpha: 0.22, period: 10 },
+            { cx: W*0.15, cy: H*0.30, r: 280, color: [30,180,140], alpha: 0.14, period: 13 },
+            { cx: W*0.85, cy: H*0.15, r: 240, color: [120,60,220], alpha: 0.13, period: 16 },
+            { cx: W*0.45, cy: H*0.25, r: 200, color: [0,60,200], alpha: 0.18, period: 8 },
+            { cx: W*0.70, cy: H*0.45, r: 180, color: [200,120,40], alpha: 0.07, period: 20 },
+            { cx: W*0.08, cy: H*0.05, r: 200, color: [0,120,255], alpha: 0.10, period: 14 },
+            { cx: W*0.35, cy: H*0.50, r: 160, color: [40,200,120], alpha: 0.08, period: 18 },
+            { cx: W*0.60, cy: H*0.65, r: 220, color: [80,40,180], alpha: 0.10, period: 12 },
+            { cx: W*0.25, cy: H*0.75, r: 180, color: [0,140,200], alpha: 0.08, period: 15 }
         ];
 
         for (var li = 0; li < layers.length; li++) {
@@ -98,108 +111,146 @@
             var pulse = l.period > 0 ? 0.7 + 0.3 * Math.sin(t * (2*Math.PI/l.period)) : 1;
             var grad = ctx.createRadialGradient(l.cx, l.cy, 0, l.cx, l.cy, l.r);
             grad.addColorStop(0, 'rgba('+l.color.join(',')+','+(l.alpha*pulse)+')');
-            grad.addColorStop(0.5, 'rgba('+l.color.join(',')+','+(l.alpha*pulse*0.4)+')');
+            grad.addColorStop(0.4, 'rgba('+l.color.join(',')+','+(l.alpha*pulse*0.5)+')');
             grad.addColorStop(1, 'rgba('+l.color.join(',')+',0)');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, W, H);
         }
 
-        // Stars — brighter, more visible
+        // Stars — bright and twinkling
         for (var si = 0; si < stars.length; si++) {
             var s = stars[si];
-            var twinkle = 0.5 + 0.5 * Math.sin(t * (2*Math.PI/s.speed) + s.phase);
+            var twinkle = 0.4 + 0.6 * Math.sin(t * (2*Math.PI/s.speed) + s.phase);
             ctx.beginPath();
             ctx.arc(s.x*W, s.y*H, s.size, 0, Math.PI*2);
-            ctx.fillStyle = 'rgba(255,255,255,'+(s.alpha*twinkle*1.3)+')';
+            ctx.fillStyle = 'rgba(255,255,255,'+(s.alpha*twinkle)+')';
             ctx.fill();
         }
 
         nebulaFrame = requestAnimationFrame(function() { drawNebula(canvas); });
     }
 
-    // ─── TEI Ring SVG ───
-    function createRingSVG() {
-        var ns = 'http://www.w3.org/2000/svg';
-        var svg = document.createElementNS(ns, 'svg');
-        svg.setAttribute('viewBox', '0 0 280 280');
-        svg.setAttribute('class', 'tei-ring-svg');
+    // ─── Canvas TEI Ring ───
+    function lerpColor(c1, c2, t) {
+        return [
+            Math.round(c1[0] + (c2[0]-c1[0])*t),
+            Math.round(c1[1] + (c2[1]-c1[1])*t),
+            Math.round(c1[2] + (c2[2]-c1[2])*t)
+        ];
+    }
 
-        var defs = document.createElementNS(ns, 'defs');
+    function getSpectrumColor(pct) {
+        var idx = pct * (SPECTRUM.length - 1);
+        var lo = Math.floor(idx);
+        var hi = Math.min(lo + 1, SPECTRUM.length - 1);
+        var frac = idx - lo;
+        return lerpColor(SPECTRUM[lo], SPECTRUM[hi], frac);
+    }
 
-        // 7-stop spectrum gradient — rotated to match ring start (-90deg = 12 o'clock)
-        var outerGrad = document.createElementNS(ns, 'linearGradient');
-        outerGrad.id = 'tei-outer-grad';
-        outerGrad.setAttribute('gradientUnits', 'userSpaceOnUse');
-        // Diagonal from top-left to bottom-right for better color distribution around the ring
-        outerGrad.setAttribute('x1', '0'); outerGrad.setAttribute('y1', '0');
-        outerGrad.setAttribute('x2', '280'); outerGrad.setAttribute('y2', '280');
-        [[0,'#5E3A87'],[12,'#0066FF'],[25,'#00B4D8'],[40,'#34C759'],[55,'#A8D843'],
-         [70,'#F5A623'],[85,'#FF6B35'],[100,'#FF453A']].forEach(function(s) {
-            var stop = document.createElementNS(ns, 'stop');
-            stop.setAttribute('offset', s[0]+'%');
-            stop.setAttribute('stop-color', s[1]);
-            outerGrad.appendChild(stop);
-        });
-        defs.appendChild(outerGrad);
+    function drawTEIRing(outerFill, innerFill) {
+        if (!ringCtx) return;
+        var ctx = ringCtx;
+        var cx = RING_SIZE / 2, cy = RING_SIZE / 2;
 
-        var innerGrad = document.createElementNS(ns, 'linearGradient');
-        innerGrad.id = 'tei-inner-grad';
-        innerGrad.setAttribute('gradientUnits', 'userSpaceOnUse');
-        innerGrad.setAttribute('x1', '0'); innerGrad.setAttribute('y1', '140');
-        innerGrad.setAttribute('x2', '280'); innerGrad.setAttribute('y2', '140');
-        var is1 = document.createElementNS(ns, 'stop');
-        is1.setAttribute('offset', '0%'); is1.setAttribute('stop-color', '#34C759');
-        var is2 = document.createElementNS(ns, 'stop');
-        is2.setAttribute('offset', '100%'); is2.setAttribute('stop-color', '#00B4D8');
-        innerGrad.appendChild(is1); innerGrad.appendChild(is2);
-        defs.appendChild(innerGrad);
-        svg.appendChild(defs);
+        ctx.save();
+        ctx.setTransform(ringDpr, 0, 0, ringDpr, 0, 0);
+        ctx.clearRect(0, 0, RING_SIZE, RING_SIZE);
 
-        // Background tracks
-        var CX = '140', CY = '140';
-        var obg = document.createElementNS(ns, 'circle');
-        obg.setAttribute('cx', CX); obg.setAttribute('cy', CY);
-        obg.setAttribute('r', String(OUTER_R));
-        obg.setAttribute('fill','none'); obg.setAttribute('stroke','rgba(255,255,255,0.06)');
-        obg.setAttribute('stroke-width','16');
-        svg.appendChild(obg);
+        // ── Background tracks ──
+        ctx.lineWidth = OUTER_W;
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, OUTER_R, 0, Math.PI * 2);
+        ctx.stroke();
 
-        var ibg = document.createElementNS(ns, 'circle');
-        ibg.setAttribute('cx', CX); ibg.setAttribute('cy', CY);
-        ibg.setAttribute('r', String(INNER_R));
-        ibg.setAttribute('fill','none'); ibg.setAttribute('stroke','rgba(255,255,255,0.04)');
-        ibg.setAttribute('stroke-width','10');
-        svg.appendChild(ibg);
+        ctx.lineWidth = INNER_W;
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, INNER_R, 0, Math.PI * 2);
+        ctx.stroke();
 
-        // Active rings
-        var outer = document.createElementNS(ns, 'circle');
-        outer.setAttribute('cx', CX); outer.setAttribute('cy', CY);
-        outer.setAttribute('r', String(OUTER_R));
-        outer.setAttribute('class','tei-outer-ring');
-        outer.setAttribute('stroke','url(#tei-outer-grad)');
-        outer.setAttribute('stroke-dasharray', String(OUTER_CIRC));
-        outer.setAttribute('stroke-dashoffset', String(OUTER_CIRC));
-        outer.id = 'tei-outer-ring';
-        svg.appendChild(outer);
+        // ── Outer ring: spectrum gradient via segments ──
+        if (outerFill > 0.001) {
+            var startA = -Math.PI / 2;
+            var totalAngle = outerFill * Math.PI * 2;
+            var SEGS = 90;
+            var segAngle = totalAngle / SEGS;
 
-        var inner = document.createElementNS(ns, 'circle');
-        inner.setAttribute('cx', CX); inner.setAttribute('cy', CY);
-        inner.setAttribute('r', String(INNER_R));
-        inner.setAttribute('class','tei-inner-ring');
-        inner.setAttribute('stroke','url(#tei-inner-grad)');
-        inner.setAttribute('stroke-dasharray', String(INNER_CIRC));
-        inner.setAttribute('stroke-dashoffset', String(INNER_CIRC));
-        inner.id = 'tei-inner-ring';
-        svg.appendChild(inner);
+            ctx.lineWidth = OUTER_W;
+            ctx.lineCap = 'round';
 
-        // Endpoint dot
-        var ep = document.createElementNS(ns, 'circle');
-        ep.setAttribute('r','7'); ep.setAttribute('fill','#F5A623');
-        ep.setAttribute('class','tei-endpoint'); ep.id = 'tei-endpoint';
-        ep.setAttribute('cx', CX); ep.setAttribute('cy', String(140 - OUTER_R));
-        svg.appendChild(ep);
+            // Glow layer (subtle)
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,180,216,0.35)';
+            ctx.shadowBlur = 18;
 
-        return svg;
+            for (var i = 0; i < SEGS; i++) {
+                var t = i / SEGS;
+                var c = getSpectrumColor(t);
+                var a1 = startA + i * segAngle;
+                var a2 = startA + (i + 1) * segAngle + 0.02;
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, OUTER_R, a1, a2);
+                ctx.strokeStyle = 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // ── Endpoint amber dot ──
+            var endAngle = startA + totalAngle;
+            var epx = cx + OUTER_R * Math.cos(endAngle);
+            var epy = cy + OUTER_R * Math.sin(endAngle);
+
+            // Glow
+            ctx.save();
+            ctx.shadowColor = 'rgba(245,166,35,0.8)';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(epx, epy, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#F5A623';
+            ctx.fill();
+            ctx.restore();
+
+            // White center dot
+            ctx.beginPath();
+            ctx.arc(epx, epy, 3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.fill();
+        }
+
+        // ── Inner ring: green → cyan gradient ──
+        if (innerFill > 0.001) {
+            var iStart = -Math.PI / 2;
+            var iTotal = innerFill * Math.PI * 2;
+            var iSegs = 40;
+            var iSegAngle = iTotal / iSegs;
+
+            ctx.lineWidth = INNER_W;
+            ctx.lineCap = 'round';
+
+            ctx.save();
+            ctx.shadowColor = 'rgba(52,199,89,0.2)';
+            ctx.shadowBlur = 10;
+
+            for (var j = 0; j < iSegs; j++) {
+                var jt = j / iSegs;
+                var r = Math.round(52 + (0 - 52) * jt);
+                var g = Math.round(199 + (180 - 199) * jt);
+                var b = Math.round(89 + (216 - 89) * jt);
+
+                var ia1 = iStart + j * iSegAngle;
+                var ia2 = iStart + (j + 1) * iSegAngle + 0.02;
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, INNER_R, ia1, ia2);
+                ctx.strokeStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        ctx.restore();
     }
 
     // ─── Zone ───
@@ -221,7 +272,6 @@
     function buildDOM(container) {
         container.innerHTML = '';
 
-        // Content wrapper
         var wrap = document.createElement('div');
         wrap.className = 'results-content';
 
@@ -232,10 +282,10 @@
         closeBtn.textContent = '\u00D7';
         container.appendChild(closeBtn);
 
-        // Nebula canvas — dimensions set properly in init()
+        // Nebula canvas (fixed background)
         var nebula = document.createElement('canvas');
         nebula.id = 'tenki-nebula-canvas';
-        wrap.appendChild(nebula);
+        container.appendChild(nebula);
 
         // Scan badge
         var badge = document.createElement('div');
@@ -246,7 +296,7 @@
         badge.appendChild(badgePill);
         wrap.appendChild(badge);
 
-        // Source strip — Garmin Forerunner (active) + rPPG 眉心 (grey)
+        // Source strip
         var srcStrip = document.createElement('div');
         srcStrip.className = 'source-strip';
         srcStrip.innerHTML =
@@ -256,14 +306,18 @@
             '<span class="source-chip-icon">\u{1F4F7}</span>rPPG \u7709\u5FC3</span>';
         wrap.appendChild(srcStrip);
 
-        // TEI Ring Section
+        // TEI Ring Section — Canvas-based
         var ringSection = document.createElement('div');
         ringSection.className = 'tei-ring-section';
 
         var ringContainer = document.createElement('div');
         ringContainer.className = 'tei-ring-container';
         ringContainer.id = 'tei-ring-container';
-        ringContainer.appendChild(createRingSVG());
+
+        var ringCanvas = document.createElement('canvas');
+        ringCanvas.id = 'tei-ring-canvas';
+        ringCanvas.className = 'tei-ring-canvas';
+        ringContainer.appendChild(ringCanvas);
 
         var numCont = document.createElement('div');
         numCont.className = 'tei-number-container';
@@ -280,7 +334,7 @@
         var zoneLabel = document.createElement('div');
         zoneLabel.className = 'tei-zone-label neutral';
         zoneLabel.id = 'tei-zone-label';
-        zoneLabel.textContent = 'Optimal';
+        zoneLabel.textContent = 'Scanning';
         numCont.appendChild(zoneLabel);
 
         ringContainer.appendChild(numCont);
@@ -298,68 +352,58 @@
         grid.className = 'results-bento-grid';
 
         // Card 1: Heart Rate
-        var hrCard = document.createElement('div');
-        hrCard.className = 'results-bento-card';
-        hrCard.innerHTML =
-            '<div class="results-bento-label">Heart Rate</div>' +
-            '<div class="results-bento-row">' +
-            '  <div><span class="results-bento-value" id="bento-hr">--</span>' +
-            '  <span class="results-bento-unit">BPM</span></div>' +
-            '  <span class="results-bento-pill garmin">Garmin Sync</span>' +
+        grid.innerHTML =
+            '<div class="results-bento-card">' +
+            '  <div class="results-bento-label">Heart Rate</div>' +
+            '  <div class="results-bento-row">' +
+            '    <div><span class="results-bento-value" id="bento-hr">--</span>' +
+            '    <span class="results-bento-unit">BPM</span></div>' +
+            '    <span class="results-bento-pill garmin">Garmin Sync</span>' +
+            '  </div>' +
+            '  <canvas class="results-bento-sparkline" id="results-spark-hr"></canvas>' +
             '</div>' +
-            '<canvas class="results-bento-sparkline" id="results-spark-hr"></canvas>';
-        grid.appendChild(hrCard);
 
-        // Card 2: HRV
-        var hrvCard = document.createElement('div');
-        hrvCard.className = 'results-bento-card';
-        hrvCard.innerHTML =
-            '<div class="results-bento-label">HRV</div>' +
-            '<div class="results-bento-row">' +
-            '  <div><span class="results-bento-value" id="bento-hrv">--</span>' +
-            '  <span class="results-bento-unit"><sup>ms</sup> RMSSD</span></div>' +
-            '  <span class="results-bento-pill balanced">Balanced</span>' +
+            '<div class="results-bento-card">' +
+            '  <div class="results-bento-label">HRV</div>' +
+            '  <div class="results-bento-row">' +
+            '    <div><span class="results-bento-value" id="bento-hrv">--</span>' +
+            '    <span class="results-bento-unit"><sup>ms</sup> RMSSD</span></div>' +
+            '    <span class="results-bento-pill balanced">Balanced</span>' +
+            '  </div>' +
+            '  <canvas class="results-bento-sparkline" id="results-spark-hrv"></canvas>' +
             '</div>' +
-            '<canvas class="results-bento-sparkline" id="results-spark-hrv"></canvas>';
-        grid.appendChild(hrvCard);
 
-        // Card 3: Respiratory
-        var rrCard = document.createElement('div');
-        rrCard.className = 'results-bento-card';
-        rrCard.innerHTML =
-            '<div class="results-bento-label">Respiratory</div>' +
-            '<div class="results-bento-row">' +
-            '  <div><span class="results-bento-value" id="bento-rr">--</span>' +
-            '  <span class="results-bento-unit">BrPM</span></div>' +
+            '<div class="results-bento-card">' +
+            '  <div class="results-bento-label">Respiratory</div>' +
+            '  <div class="results-bento-row">' +
+            '    <div><span class="results-bento-value" id="bento-rr">--</span>' +
+            '    <span class="results-bento-unit">BrPM</span></div>' +
+            '  </div>' +
+            '  <canvas class="results-bento-sparkline" id="results-spark-rr"></canvas>' +
             '</div>' +
-            '<canvas class="results-bento-sparkline" id="results-spark-rr"></canvas>';
-        grid.appendChild(rrCard);
 
-        // Card 4: Stress — 4-segment bar
-        var stressCard = document.createElement('div');
-        stressCard.className = 'results-bento-card';
-        stressCard.innerHTML =
-            '<div class="results-bento-label">Stress</div>' +
-            '<div class="results-bento-row">' +
-            '  <div><span class="results-bento-value" id="bento-stress">--</span>' +
-            '  <span class="results-bento-unit">/100</span></div>' +
-            '  <span class="stress-pct" id="stress-pct"></span>' +
-            '</div>' +
-            '<div class="stress-segments" id="stress-segments">' +
-            '  <div class="stress-seg" data-seg="0"><div class="stress-seg-fill"></div></div>' +
-            '  <div class="stress-seg" data-seg="1"><div class="stress-seg-fill"></div></div>' +
-            '  <div class="stress-seg" data-seg="2"><div class="stress-seg-fill"></div></div>' +
-            '  <div class="stress-seg" data-seg="3"><div class="stress-seg-fill"></div></div>' +
+            '<div class="results-bento-card">' +
+            '  <div class="results-bento-label">Stress</div>' +
+            '  <div class="results-bento-row">' +
+            '    <div><span class="results-bento-value" id="bento-stress">--</span>' +
+            '    <span class="results-bento-unit">/100</span></div>' +
+            '    <span class="stress-pct" id="stress-pct"></span>' +
+            '  </div>' +
+            '  <div class="stress-segments" id="stress-segments">' +
+            '    <div class="stress-seg" data-seg="0"><div class="stress-seg-fill"></div></div>' +
+            '    <div class="stress-seg" data-seg="1"><div class="stress-seg-fill"></div></div>' +
+            '    <div class="stress-seg" data-seg="2"><div class="stress-seg-fill"></div></div>' +
+            '    <div class="stress-seg" data-seg="3"><div class="stress-seg-fill"></div></div>' +
+            '  </div>' +
             '</div>';
-        grid.appendChild(stressCard);
 
         wrap.appendChild(grid);
 
-        // Body Battery Go Club
+        // Body Battery
         var bbCard = document.createElement('div');
         bbCard.className = 'results-glass-card';
         bbCard.innerHTML =
-            '<div class="results-card-title">Body Battery Card</div>' +
+            '<div class="results-card-title">Body Battery</div>' +
             '<div class="bb-row">' +
             '  <div class="bb-chart" id="bb-chart"></div>' +
             '  <div class="bb-value-display">' +
@@ -387,7 +431,7 @@
 
         container.appendChild(wrap);
 
-        // FDCB dock (outside wrapper, fixed to bottom)
+        // FDCB dock
         var dock = document.createElement('div');
         dock.className = 'fdcb-dock'; dock.id = 'fdcb-dock';
         dock.innerHTML =
@@ -398,6 +442,25 @@
             '</div>' +
             '<button class="fdcb-confirm" id="fdcb-confirm">\u2713</button>';
         container.appendChild(dock);
+    }
+
+    // ─── Init Ring Canvas ───
+    function initRingCanvas() {
+        var canvas = document.getElementById('tei-ring-canvas');
+        if (!canvas) return;
+
+        ringDpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = RING_SIZE * ringDpr;
+        canvas.height = RING_SIZE * ringDpr;
+        canvas.style.width = RING_SIZE + 'px';
+        canvas.style.height = RING_SIZE + 'px';
+
+        ringCtx = canvas.getContext('2d');
+        currentOuterFill = 0;
+        currentInnerFill = 0;
+
+        // Draw empty tracks
+        drawTEIRing(0, 0);
     }
 
     // ─── Init Sparklines ───
@@ -445,7 +508,6 @@
             }
 
             chart.appendChild(bar);
-
             setTimeout(function() { bar.classList.add('animate'); }, 1200 + i * 80);
         });
     }
@@ -454,7 +516,6 @@
     function updateStressBar(stress) {
         var segs = document.querySelectorAll('.stress-seg-fill');
         if (!segs || segs.length < 4) return;
-        // 0-25: seg0 full, 26-50: seg0+seg1, 51-75: seg0+1+2, 76-100: all
         for (var i = 0; i < 4; i++) {
             var segMin = i * 25;
             var segMax = (i + 1) * 25;
@@ -483,7 +544,7 @@
             if (!snsEl || !pnsEl) return;
 
             var current = parseFloat(snsEl.style.width) || 38;
-            var jitter = (Math.random() - 0.5) * 4; // ±2%
+            var jitter = (Math.random() - 0.5) * 4;
             var newSns = Math.max(15, Math.min(85, current + jitter));
             var newPns = 100 - newSns;
 
@@ -503,20 +564,25 @@
 
             buildDOM(container);
 
-            initStars(90);
-            var canvas = document.getElementById('tenki-nebula-canvas');
-            if (canvas) {
+            // Init nebula
+            initStars(120);
+            var nebula = document.getElementById('tenki-nebula-canvas');
+            if (nebula) {
                 var dpr = Math.min(window.devicePixelRatio || 1, 2);
                 nebulaW = Math.min(window.innerWidth, 430);
-                nebulaH = 660;
-                canvas.width = nebulaW * dpr;
-                canvas.height = nebulaH * dpr;
-                canvas.style.width = nebulaW + 'px';
-                canvas.style.height = nebulaH + 'px';
-                canvas.getContext('2d').scale(dpr, dpr);
-                drawNebula(canvas);
+                nebulaH = window.innerHeight;
+                nebula.width = nebulaW * dpr;
+                nebula.height = nebulaH * dpr;
+                nebula.style.width = nebulaW + 'px';
+                nebula.style.height = nebulaH + 'px';
+                nebula.getContext('2d').scale(dpr, dpr);
+                drawNebula(nebula);
             }
 
+            // Init TEI ring canvas
+            initRingCanvas();
+
+            // Init sparklines
             initSparklines();
         },
 
@@ -532,6 +598,9 @@
                 var v = document.getElementById('bento-' + id);
                 if (v) v.textContent = '--';
             });
+
+            // Draw empty ring
+            drawTEIRing(0, 0);
         },
 
         updateAll: function(ewma, histories, ans, phase) {
@@ -559,7 +628,7 @@
                 zoneEl.style.color = ZONE_COLORS[zone];
             }
 
-            // Coach card — only update on zone change to avoid flicker
+            // Coach card
             if (zone !== currentCoachZone) {
                 currentCoachZone = zone;
                 var coachEl = document.getElementById('coach-card');
@@ -569,23 +638,10 @@
                 }
             }
 
-            // Ring update
-            var outerRing = document.getElementById('tei-outer-ring');
-            var innerRing = document.getElementById('tei-inner-ring');
-            var endpoint = document.getElementById('tei-endpoint');
-            if (outerRing) {
-                var outerFill = tei / 100;
-                outerRing.setAttribute('stroke-dashoffset', String(OUTER_CIRC * (1 - outerFill)));
-
-                var innerFill = Math.min(hrv / 80, 1);
-                if (innerRing) innerRing.setAttribute('stroke-dashoffset', String(INNER_CIRC * (1 - innerFill)));
-
-                if (endpoint) {
-                    var angle = -Math.PI/2 + outerFill * 2 * Math.PI;
-                    endpoint.setAttribute('cx', String(140 + OUTER_R * Math.cos(angle)));
-                    endpoint.setAttribute('cy', String(140 + OUTER_R * Math.sin(angle)));
-                }
-            }
+            // ── Canvas TEI Ring ──
+            currentOuterFill = tei / 100;
+            currentInnerFill = Math.min(hrv / 80, 1);
+            drawTEIRing(currentOuterFill, currentInnerFill);
 
             // Bento values
             var bentoHr = document.getElementById('bento-hr');
@@ -602,10 +658,10 @@
             if (sparklines.hrv && histories.hrv.length > 0) sparklines.hrv.push(hrv);
             if (sparklines.rr && histories.rr.length > 0) sparklines.rr.push(rr);
 
-            // Stress 4-segment bar
+            // Stress bar
             updateStressBar(stress);
 
-            // ANS balance (from scan-ux EWMA)
+            // ANS balance
             var snsPct = ans ? ans.sns : 38;
             var pnsPct = ans ? ans.pns : 62;
             var snsEl = document.getElementById('ans-sns');
@@ -619,7 +675,7 @@
             if (snsPctEl) snsPctEl.textContent = String(snsPct);
             if (pnsPctEl) pnsPctEl.textContent = String(pnsPct);
 
-            // TEI sub label
+            // TEI sub
             var subEl = document.querySelector('.tei-sub');
             if (subEl) {
                 var pr = tei >= 80 ? 99 : tei >= 55 ? 75 : tei >= 35 ? 50 : 25;
@@ -635,13 +691,13 @@
             }
         },
 
-        updatePhaseDots: function() { /* phase dots removed per screenshot */ },
+        updatePhaseDots: function() { },
 
         showComplete: function(ewma) {
             var badge = document.getElementById('scan-badge-pill');
             if (badge) badge.textContent = '\u2726 DEEP SCAN \u00B7 60s';
 
-            // Glow pulse on ring
+            // Glow pulse on ring container
             var ring = document.getElementById('tei-ring-container');
             if (ring) {
                 ring.classList.add('ring-glow-pulse');
@@ -672,6 +728,7 @@
                 ansFluctuateTimer = null;
             }
             sparklines = {};
+            ringCtx = null;
             currentCoachZone = null;
         }
     };
