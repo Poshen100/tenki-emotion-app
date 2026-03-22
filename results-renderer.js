@@ -61,7 +61,6 @@
 
     // ─── State ───
     var nebulaFrame = null;
-    var stars = [];
     var sparklines = {};
     var ansFluctuateTimer = null;
     var currentCoachZone = null;
@@ -72,19 +71,6 @@
 
     // ─── Nebula Canvas ───
     var nebulaW = 430, nebulaH = 900;
-
-    function initStars(count) {
-        stars = [];
-        for (var i = 0; i < count; i++) {
-            stars.push({
-                x: Math.random(), y: Math.random(),
-                size: 0.3 + Math.random() * 1.8,
-                alpha: 0.05 + Math.random() * 0.45,
-                phase: Math.random() * Math.PI * 2,
-                speed: 2 + Math.random() * 3
-            });
-        }
-    }
 
     function drawNebula(canvas) {
         var ctx = canvas.getContext('2d');
@@ -115,16 +101,6 @@
             grad.addColorStop(1, 'rgba('+l.color.join(',')+',0)');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, W, H);
-        }
-
-        // Stars — bright and twinkling
-        for (var si = 0; si < stars.length; si++) {
-            var s = stars[si];
-            var twinkle = 0.4 + 0.6 * Math.sin(t * (2*Math.PI/s.speed) + s.phase);
-            ctx.beginPath();
-            ctx.arc(s.x*W, s.y*H, s.size, 0, Math.PI*2);
-            ctx.fillStyle = 'rgba(255,255,255,'+(s.alpha*twinkle)+')';
-            ctx.fill();
         }
 
         nebulaFrame = requestAnimationFrame(function() { drawNebula(canvas); });
@@ -565,7 +541,7 @@
             buildDOM(container);
 
             // Init nebula
-            initStars(120);
+            // Nebula clouds only — no star particles
             var nebula = document.getElementById('tenki-nebula-canvas');
             if (nebula) {
                 var dpr = Math.min(window.devicePixelRatio || 1, 2);
