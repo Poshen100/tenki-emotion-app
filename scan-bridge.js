@@ -449,6 +449,10 @@
         isResultsOpen = true;
         console.info('[BRIDGE] Transitioning to results page');
 
+        // Hide face animation eyes (prevent bleed-through on results)
+        var faceSvg = document.getElementById('tenki-face');
+        if (faceSvg) faceSvg.classList.remove('visible');
+
         // Dim stardust soul
         var stardust = getStardust();
         if (stardust && stardust.dim) stardust.dim();
