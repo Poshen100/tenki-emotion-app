@@ -182,6 +182,17 @@
             });
         }
 
+        // Push to face animation overlay
+        var faceAnim = global.TENKI_FACE;
+        if (faceAnim && faceAnim.setExpression) {
+            faceAnim.setExpression({
+                mouthOpen: mouthOpen,
+                eyeOpen: eyeOpen,
+                blinkDetected: blinkDetected,
+                browTension: browTension
+            });
+        }
+
         // Push to expression tracker if available
         var exprTracker = global.TENKI_EXPRESSION;
         if (exprTracker && exprTracker._instance && exprTracker._instance.pushSample) {
@@ -294,6 +305,17 @@
         // Start environment scanner (LUX + STAB bars)
         initEnvironmentScanner();
 
+        // Start face animation overlay (ethereal SVG face)
+        var faceAnim = global.TENKI_FACE;
+        if (faceAnim) {
+            faceAnim.init();
+            // Make visible after short delay
+            setTimeout(function () {
+                var faceSvg = document.getElementById('tenki-face');
+                if (faceSvg) faceSvg.classList.add('visible');
+            }, 600);
+        }
+
         // Start FaceMesh face sync (camera → expression → stardust)
         // Small delay so other modules finish init
         setTimeout(initFaceSync, 800);
@@ -351,6 +373,10 @@
 
         // Stop face sync (free camera for rPPG)
         stopFaceSync();
+
+        // Hide face animation during scan
+        var faceSvg = document.getElementById('tenki-face');
+        if (faceSvg) faceSvg.classList.remove('visible');
 
         // Audio + haptics
         var audio = getAudio();
@@ -518,6 +544,12 @@
         // Restore hint capsule + restart face sync
         showHintCapsule();
         setTimeout(initFaceSync, 800);
+
+        // Restore face animation
+        var faceSvg = document.getElementById('tenki-face');
+        if (faceSvg) {
+            setTimeout(function () { faceSvg.classList.add('visible'); }, 800);
+        }
     }
 
     global.TENKI_BRIDGE = {

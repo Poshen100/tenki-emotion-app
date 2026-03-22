@@ -1604,6 +1604,7 @@
 
         <!-- Overlay CSS (獨立樣式，overlay- 前綴) -->
         <link rel="stylesheet" href="ui/overlay.css">
+        <link rel="stylesheet" href="ui/face-animation.css">
 
         <!-- Core Modules (核心邏輯模組 - 必須在 EventBridge 之前載入) -->
         <script src="core/database.js"></script>
@@ -1642,6 +1643,9 @@
 
         <!-- Stardust soul animation (Three.js, must load after THREE) -->
         <script src="stardust.js"></script>
+
+        <!-- Face animation system (ethereal SVG face driven by FaceMesh) -->
+        <script src="face-animation.js"></script>
 
         <!-- v4.2 Bridge: connects v51.1 scan events → results page -->
         <script src="scan-bridge.js"></script>
