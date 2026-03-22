@@ -1,7 +1,7 @@
 /* ===================================================
-   TENKI v4.2 RESULTS PAGE — Spectrum Overlay
-   Pixel-matched to IMG_5522 design reference
-   
+   TENKI v5.0 RESULTS PAGE — Spectrum Overlay
+   Canvas-based TEI ring + enhanced nebula + glassmorphism
+
    This stylesheet is ADDITIVE — it only styles the
    #results-page overlay. It never overrides v51.1
    inline styles for the landing/scanning page.
@@ -55,6 +55,7 @@
     margin: 0 auto;
     padding: 0 20px 120px;
     min-height: 100vh;
+    z-index: 1;
 }
 
 /* ── Close Button ── */
@@ -85,15 +86,15 @@
     background: rgba(255,255,255,0.20);
 }
 
-/* ── Stardust Nebula Canvas ── */
+/* ── Nebula Canvas — Fixed full viewport ── */
 #tenki-nebula-canvas {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 50%;
     transform: translateX(-50%);
     width: 100%;
     max-width: 430px;
-    height: 660px;
+    height: 100vh;
     pointer-events: none;
     z-index: 0;
 }
@@ -156,14 +157,14 @@
     font-size: 14px;
 }
 
-/* ── TEI Ring Section ── */
+/* ── TEI Ring Section (Canvas-based) ── */
 .tei-ring-section {
     position: relative;
     z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 10px 0 16px;
+    padding: 10px 0 20px;
 }
 
 .tei-ring-container {
@@ -172,60 +173,36 @@
     height: 280px;
 }
 
-.tei-ring-svg {
-    width: 100%;
-    height: 100%;
-    transform: rotate(-90deg);
+.tei-ring-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 280px;
 }
 
-.tei-outer-ring {
-    fill: none;
-    stroke-width: 16;
-    stroke-linecap: round;
-    filter: drop-shadow(0 0 12px rgba(0,180,216,0.25));
-    transition: stroke-dashoffset 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);
-}
-
-.tei-inner-ring {
-    fill: none;
-    stroke-width: 10;
-    stroke-linecap: round;
-    filter: drop-shadow(0 0 8px rgba(52,199,89,0.15));
-    transition: stroke-dashoffset 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);
-}
-
-.tei-endpoint {
-    filter: drop-shadow(0 0 10px rgba(245,166,35,0.7)) drop-shadow(0 0 20px rgba(245,166,35,0.3));
-    transition: cx 1.2s cubic-bezier(0.25,0.1,0.25,1), cy 1.2s cubic-bezier(0.25,0.1,0.25,1);
-    animation: endpoint-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes endpoint-pulse {
-    0%, 100% { r: 6; }
-    50% { r: 8; }
-}
-
-/* ── TEI Number (metallic gradient — 4-stop match) ── */
+/* ── TEI Number (metallic gradient) ── */
 .tei-number-container {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
+    z-index: 2;
 }
 
 .tei-number {
-    font-size: 76px;
+    font-size: 80px;
     font-weight: 200;
     font-variant-numeric: tabular-nums;
     letter-spacing: -2px;
     line-height: 1;
     font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
-    background: linear-gradient(180deg, #FFFFFF 0%, #F0F0F5 25%, #D1D1D6 50%, #A0A0A8 80%, #8E8E93 100%);
+    background: linear-gradient(180deg, #FFFFFF 0%, #F0F0F5 20%, #D8D8DD 45%, #B0B0B8 70%, #8E8E93 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    filter: drop-shadow(0 0 40px rgba(0,180,216,0.12)) drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+    filter: drop-shadow(0 0 40px rgba(0,180,216,0.15)) drop-shadow(0 2px 8px rgba(0,0,0,0.5));
     animation: heartbeat-pulse var(--pulse-dur) ease-in-out infinite;
 }
 
@@ -249,6 +226,7 @@
     font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
     letter-spacing: 1.5px;
     margin-top: 2px;
+    text-transform: uppercase;
 }
 
 .tei-zone-label.peak { color: var(--amber-glow); }
@@ -454,7 +432,7 @@
     margin-bottom: 8px;
 }
 
-/* ── Body Battery Go Club ── */
+/* ── Body Battery ── */
 .bb-row {
     display: flex;
     align-items: flex-end;
@@ -641,31 +619,19 @@
 }
 
 /* ── Fingerprint → Results transition ── */
-/* Progress circle glow when spinning */
 .fingerprint-wrapper.active .progress-circle {
     filter: drop-shadow(0 0 10px var(--plasma-cyan)) drop-shadow(0 0 20px rgba(0,240,255,0.3));
 }
 
-/* HUD fade-out during transition */
 #hud-layer {
     transition: opacity 0.5s ease;
 }
 
-/* Universe dim during results */
 #universe {
     transition: opacity 0.8s ease;
 }
 
-/* Results overlay enter/exit */
-.results-overlay.hidden {
-    display: none !important;
-}
-
-.results-overlay.fade-in {
-    opacity: 1;
-}
-
-/* ── Stardust breathe (used for warmup hint) ── */
+/* ── Stardust breathe ── */
 @keyframes stardust-breathe {
     0%, 100% { opacity: 0.4; }
     50% { opacity: 0.8; }
