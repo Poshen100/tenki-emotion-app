@@ -1,4 +1,4 @@
-# ANTIGRAVITY.md — Tenki Core Project Brief
+﻿# ANTIGRAVITY.md — Tenki Core Project Brief
 
 > **Model**: Use Claude Opus 4.6 (`claude-opus-4-6`) for all tasks.
 > **Repo**: https://github.com/Poshen100/tenki-emotion-app
@@ -16,6 +16,17 @@ When resuming a session, re-read Sections 0-3 to restore full context.
 
 **v2.0 核心升級**：TENKI 從「情緒偵測工具」升級為「決策操作系統層 (OS Layer)」。
 關鍵新增：**Floating Decision Control Bar (FDCB)** — 永遠浮動在底部的自律紀律引擎。
+
+### 0.1 續航 / 環境啟動（Antigravity 必讀）
+
+- 下次登入 Antigravity 時，重新 `git clone` 或 `git pull` 即可接續進度。
+- PowerShell 每次開啟先設定 Node.js 路徑（如下指令）。
+```powershell
+$env:Path = "C:\Users\reader\node-portable\node-v20.19.2-win-x64;$env:Path"
+```
+- Workspace 路徑：`C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`
+- Git 路徑：`C:\Users\patron\AppData\Local\Programs\Git`
+- 需要瀏覽器操作時，請使用 **Antigravity Browser Control**。
 
 ---
 
@@ -917,3 +928,4 @@ export const TENKI_THEME = {
 *Last updated: 2026-02-26*
 *Version: v2.0 — FDCB System Integration*
 *Maintained by: Poshen (Founder) + AI CTO (Claude Opus 4.6)*
+

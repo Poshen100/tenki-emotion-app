@@ -203,22 +203,22 @@
             }
 
             // ── v25.8.2 Rolling Rotation (accumulating increment = natural tumble) ──
-            // Speed increased for visible "forward rolling" feel
-            var rotSpeedY = 0.005;    // Main axis rolling (was 0.0005, now 10×)
-            var rotSpeedX = 0.001;    // Forward tilt wobble
-            var rotSpeedZ = 0.0003;   // Subtle side sway
+            // Forward roll: X-axis is the main rolling axis, with gentle Y/Z precession
+            var rotSpeedX = 0.0036;   // Forward rolling main axis
+            var rotSpeedY = 0.0016;   // Gentle spin for depth
+            var rotSpeedZ = 0.0005;   // Subtle side tumble
+            var rollPulse = Math.sin(t * 0.22) * 0.0007; // Natural acceleration/slowdown
             if (expr.active) {
                 // Emotion active: brow tension → faster rolling (agitation)
-                rotSpeedY += expr.browTension * 0.004;
+                rotSpeedX += expr.browTension * 0.003;
                 // Mouth open → slightly faster (excitement/arousal)
-                rotSpeedY += expr.mouthOpen * 0.002;
+                rotSpeedY += expr.mouthOpen * 0.0015;
                 // Add wobble on other axes for dramatic expression
-                rotSpeedX += expr.browTension * 0.001;
-                rotSpeedZ += expr.mouthOpen * 0.0008;
+                rotSpeedZ += expr.browTension * 0.0007;
             }
-            cloud.rotation.y += rotSpeedY;
-            cloud.rotation.x += rotSpeedX;
-            cloud.rotation.z += Math.sin(t * 0.2) * rotSpeedZ;
+            cloud.rotation.x += rotSpeedX + rollPulse;
+            cloud.rotation.y += rotSpeedY + Math.sin(t * 0.15) * 0.0004;
+            cloud.rotation.z += rotSpeedZ + Math.sin(t * 0.18) * 0.0003;
 
             // ── v25.8.2 Per-particle Expression Scaling (updateParticleSync) ──
             // Each particle individually scales based on expression:

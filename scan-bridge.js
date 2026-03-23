@@ -27,6 +27,25 @@
     var faceMeshInstance = null;
     var faceSyncLoop = null;
     var prevEyeOpen = 1;
+    var lastFaceCenter = null;
+    var lastFaceTime = 0;
+    var lastHintId = null;
+    var lastHintText = '';
+    var lastHintChangeAt = 0;
+    var alignEnteredAt = 0;
+    var lastAlignPulseAt = 0;
+
+    var ALIGN_GUIDE = {
+        sizeMin: 0.32,
+        sizeMax: 0.62,
+        centerXTol: 0.08,
+        centerYTol: 0.09,
+        rollDeg: 9,
+        motionSpeed: 0.35,
+        switchDelayMs: 350,
+        alignConfirmMs: 450,
+        alignPulseCooldownMs: 3000
+    };
 
     function getScanUX()   { return global.TENKI_SCAN_UX; }
     function getAudio()    { return global.TENKI_AUDIO; }
@@ -133,6 +152,133 @@
         } catch (e) { /* CORS or security error — ignore */ }
     }
 
+    function ensureAlignFlashStyles() {
+        if (document.getElementById('align-flash-style')) return;
+        var style = document.createElement('style');
+        style.id = 'align-flash-style';
+        style.textContent = [
+            '#align-hint-capsule.align-flash {',
+            '  animation: alignFlash 420ms ease;',
+            '}',
+            '#hint-icon-box.align-flash {',
+            '  animation: alignIconFlash 420ms ease;',
+            '}',
+            '@keyframes alignFlash {',
+            '  0% { filter: drop-shadow(0 0 0 rgba(35,243,212,0)); }',
+            '  55% { filter: drop-shadow(0 0 18px rgba(35,243,212,0.65)); }',
+            '  100% { filter: drop-shadow(0 0 0 rgba(35,243,212,0)); }',
+            '}',
+            '@keyframes alignIconFlash {',
+            '  0% { transform: scale(1); box-shadow: 0 0 0 rgba(35,243,212,0); }',
+            '  55% { transform: scale(1.08); box-shadow: 0 0 12px rgba(35,243,212,0.55); }',
+            '  100% { transform: scale(1); box-shadow: 0 0 0 rgba(35,243,212,0); }',
+            '}'
+        ].join('\n');
+        document.head.appendChild(style);
+    }
+
+    function triggerAlignFlash() {
+        var capsule = document.getElementById('align-hint-capsule');
+        var iconBox = document.getElementById('hint-icon-box');
+        if (!capsule) return;
+        ensureAlignFlashStyles();
+
+        capsule.classList.remove('align-flash');
+        if (iconBox) iconBox.classList.remove('align-flash');
+        void capsule.offsetWidth; // restart animation
+        capsule.classList.add('align-flash');
+        if (iconBox) iconBox.classList.add('align-flash');
+
+        setTimeout(function () {
+            if (capsule) capsule.classList.remove('align-flash');
+            if (iconBox) iconBox.classList.remove('align-flash');
+        }, 480);
+    }
+
+    function computeFaceBox(lm) {
+        var minX = 1, minY = 1, maxX = 0, maxY = 0;
+        for (var i = 0; i < lm.length; i++) {
+            var p = lm[i];
+            if (!p) continue;
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y > maxY) maxY = p.y;
+        }
+        return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+    }
+
+    function getAlignmentHint(lm) {
+        var box = computeFaceBox(lm);
+        var centerX = (box.minX + box.maxX) / 2;
+        var centerY = (box.minY + box.maxY) / 2;
+        var width = box.maxX - box.minX;
+        var height = box.maxY - box.minY;
+        var size = Math.max(width, height);
+
+        var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        var motionSpeed = 0;
+        if (lastFaceCenter && lastFaceTime) {
+            var dt = Math.max(1, now - lastFaceTime);
+            var dx = centerX - lastFaceCenter.x;
+            var dy = centerY - lastFaceCenter.y;
+            motionSpeed = Math.sqrt(dx * dx + dy * dy) / (dt / 1000);
+        }
+        lastFaceCenter = { x: centerX, y: centerY };
+        lastFaceTime = now;
+
+        var rollDeg = 0;
+        var eyeL = lm[33];
+        var eyeR = lm[263];
+        if (eyeL && eyeR) {
+            var dxEye = eyeR.x - eyeL.x;
+            var dyEye = eyeR.y - eyeL.y;
+            rollDeg = Math.atan2(dyEye, dxEye) * 180 / Math.PI;
+        }
+
+        var hint = { id: 'tracking', text: 'TRACKING' };
+
+        if (size < ALIGN_GUIDE.sizeMin) {
+            hint = { id: 'move_closer', text: 'MOVE CLOSER · 靠近一點' };
+        } else if (size > ALIGN_GUIDE.sizeMax) {
+            hint = { id: 'move_farther', text: 'MOVE FARTHER · 遠一點' };
+        } else if (centerX < 0.5 - ALIGN_GUIDE.centerXTol) {
+            hint = { id: 'move_right', text: 'MOVE RIGHT · 向右一點' };
+        } else if (centerX > 0.5 + ALIGN_GUIDE.centerXTol) {
+            hint = { id: 'move_left', text: 'MOVE LEFT · 向左一點' };
+        } else if (centerY < 0.5 - ALIGN_GUIDE.centerYTol) {
+            hint = { id: 'move_down', text: 'MOVE DOWN · 向下一點' };
+        } else if (centerY > 0.5 + ALIGN_GUIDE.centerYTol) {
+            hint = { id: 'move_up', text: 'MOVE UP · 向上一點' };
+        } else if (Math.abs(rollDeg) > ALIGN_GUIDE.rollDeg) {
+            hint = { id: 'straighten', text: 'STRAIGHTEN · 轉正' };
+        } else if (motionSpeed > ALIGN_GUIDE.motionSpeed) {
+            hint = { id: 'hold_still', text: 'HOLD STILL · 保持穩定' };
+        }
+
+        return {
+            hint: hint,
+            aligned: hint.id === 'tracking'
+        };
+    }
+
+    function stabilizeHint(candidate) {
+        var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        if (candidate.id === lastHintId) return candidate;
+
+        if (now - lastHintChangeAt < ALIGN_GUIDE.switchDelayMs) {
+            return {
+                id: lastHintId || candidate.id,
+                text: lastHintText || candidate.text
+            };
+        }
+
+        lastHintId = candidate.id;
+        lastHintText = candidate.text;
+        lastHintChangeAt = now;
+        return candidate;
+    }
+
     function onFaceResults(results) {
         var capsule = document.getElementById('align-hint-capsule');
         var hintText = document.getElementById('hint-text');
@@ -144,16 +290,46 @@
             if (hintText) hintText.textContent = 'FIND FACE';
             if (capsule) { capsule.classList.remove('status-good'); capsule.classList.add('status-warn'); }
             if (iconBox) iconBox.style.background = 'rgba(234,179,8,0.15)';
+            lastFaceCenter = null;
+            lastFaceTime = 0;
+            lastHintId = 'no_face';
+            lastHintText = 'FIND FACE';
+            lastHintChangeAt = 0;
+            alignEnteredAt = 0;
             if (stardust && stardust.clearExpression) stardust.clearExpression();
             return;
         }
 
         var lm = results.multiFaceLandmarks[0];
 
-        // Update capsule → tracking state
-        if (hintText) hintText.textContent = 'TRACKING';
-        if (capsule) { capsule.classList.remove('status-warn'); capsule.classList.add('status-good'); }
-        if (iconBox) iconBox.style.background = 'rgba(35,243,212,0.15)';
+        // Alignment guidance (Apple Pay style)
+        var align = getAlignmentHint(lm);
+        var stableHint = stabilizeHint(align.hint);
+        if (hintText) hintText.textContent = stableHint.text;
+        if (stableHint.id === 'tracking') {
+            if (capsule) { capsule.classList.remove('status-warn'); capsule.classList.add('status-good'); }
+            if (iconBox) iconBox.style.background = 'rgba(35,243,212,0.15)';
+        } else {
+            if (capsule) { capsule.classList.remove('status-good'); capsule.classList.add('status-warn'); }
+            if (iconBox) iconBox.style.background = 'rgba(234,179,8,0.15)';
+        }
+
+        // Alignment success feedback (light haptic + soft ping)
+        var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        if (stableHint.id === 'tracking') {
+            if (!alignEnteredAt) alignEnteredAt = now;
+            if (now - alignEnteredAt >= ALIGN_GUIDE.alignConfirmMs &&
+                now - lastAlignPulseAt >= ALIGN_GUIDE.alignPulseCooldownMs) {
+                lastAlignPulseAt = now;
+                var audio = getAudio();
+                if (audio && typeof audio.alignOk === 'function') audio.alignOk();
+                var haptics = global.TENKI_HAPTICS;
+                if (haptics && typeof haptics.tap === 'function') haptics.tap();
+                triggerAlignFlash();
+            }
+        } else {
+            alignEnteredAt = 0;
+        }
 
         // ── Compute expression metrics from FaceMesh landmarks ──
         // Eye open: vertical distance upper-lower lid (landmarks 159/145, 386/374)

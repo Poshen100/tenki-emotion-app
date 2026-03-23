@@ -124,6 +124,13 @@
             tone(freq, ctx.currentTime, 0.15, 0.05, 'sine');
         },
 
+        /** Alignment success — soft ping */
+        alignOk: function () {
+            if (!canPlay()) return;
+            if (!ctx) return;
+            tone(659.25, ctx.currentTime, 0.06, 0.03, 'triangle');
+        },
+
         /** C5+E5+G5 chord — scan complete */
         scanComplete: function () {
             lastPlayTime = 0; // override interval
