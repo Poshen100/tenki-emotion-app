@@ -44,12 +44,103 @@ const DecisionDockController = (function () {
     // TEMPLATES
     // =============================================================================
 
+    function buildTemplateIcon(kind) {
+        if (kind === 'pinwheel') {
+            return [
+                '<svg class="dtf-icon-svg" viewBox="0 0 24 24" focusable="false" aria-hidden="true">',
+                '  <g class="dtf-icon-back">',
+                '    <path d="M12 5 C14.8 5 17 7.2 17 10" />',
+                '    <path d="M19 12 C19 14.8 16.8 17 14 17" />',
+                '    <path d="M12 19 C9.2 19 7 16.8 7 14" />',
+                '    <path d="M5 12 C5 9.2 7.2 7 10 7" />',
+                '  </g>',
+                '  <g class="dtf-icon-front">',
+                '    <path d="M12 6 C14.2 6 16 7.8 16 10" />',
+                '    <path d="M18 12 C18 14.2 16.2 16 14 16" />',
+                '    <path d="M12 18 C9.8 18 8 16.2 8 14" />',
+                '    <path d="M6 12 C6 9.8 7.8 8 10 8" />',
+                '  </g>',
+                '  <circle class="dtf-icon-core" cx="12" cy="12" r="1.4" />',
+                '</svg>'
+            ].join('');
+        }
+        if (kind === 'circuitry') {
+            return [
+                '<svg class="dtf-icon-svg" viewBox="0 0 24 24" focusable="false" aria-hidden="true">',
+                '  <g class="dtf-icon-back">',
+                '    <path d="M12 7 V11" />',
+                '    <path d="M12 13 V17" />',
+                '    <path d="M7 12 H11" />',
+                '    <path d="M13 12 H17" />',
+                '  </g>',
+                '  <g class="dtf-icon-front">',
+                '    <path d="M12 5 V7" />',
+                '    <path d="M12 17 V19" />',
+                '    <path d="M5 12 H7" />',
+                '    <path d="M17 12 H19" />',
+                '  </g>',
+                '  <circle class="dtf-icon-node" cx="12" cy="12" r="1.2" />',
+                '  <circle class="dtf-icon-node" cx="12" cy="5" r="0.9" />',
+                '  <circle class="dtf-icon-node" cx="12" cy="19" r="0.9" />',
+                '  <circle class="dtf-icon-node" cx="5" cy="12" r="0.9" />',
+                '  <circle class="dtf-icon-node" cx="19" cy="12" r="0.9" />',
+                '</svg>'
+            ].join('');
+        }
+        if (kind === 'cube-focus') {
+            return [
+                '<svg class="dtf-icon-svg" viewBox="0 0 24 24" focusable="false" aria-hidden="true">',
+                '  <g class="dtf-icon-back">',
+                '    <path d="M8 8 H16 V16 H8 Z" />',
+                '  </g>',
+                '  <g class="dtf-icon-front">',
+                '    <path d="M7 9 V7 H9" />',
+                '    <path d="M15 7 H17 V9" />',
+                '    <path d="M17 15 V17 H15" />',
+                '    <path d="M9 17 H7 V15" />',
+                '  </g>',
+                '  <circle class="dtf-icon-core" cx="12" cy="12" r="1.1" />',
+                '</svg>'
+            ].join('');
+        }
+        if (kind === 'target') {
+            return [
+                '<svg class="dtf-icon-svg" viewBox="0 0 24 24" focusable="false" aria-hidden="true">',
+                '  <g class="dtf-icon-back">',
+                '    <circle cx="12" cy="12" r="6.5" />',
+                '  </g>',
+                '  <g class="dtf-icon-front">',
+                '    <path d="M12 5 V8" />',
+                '    <path d="M12 16 V19" />',
+                '    <path d="M5 12 H8" />',
+                '    <path d="M16 12 H19" />',
+                '  </g>',
+                '  <circle class="dtf-icon-core" cx="12" cy="12" r="1.3" />',
+                '</svg>'
+            ].join('');
+        }
+        if (kind === 'breath') {
+            return [
+                '<svg class="dtf-icon-svg" viewBox="0 0 24 24" focusable="false" aria-hidden="true">',
+                '  <g class="dtf-icon-back">',
+                '    <path d="M5 12 C7 9, 9 9, 11 12 C13 15, 15 15, 17 12" />',
+                '  </g>',
+                '  <g class="dtf-icon-front">',
+                '    <path d="M6 12 C7.5 10, 9 10, 10.5 12 C12 14, 13.5 14, 15 12" />',
+                '  </g>',
+                '  <circle class="dtf-icon-core" cx="18" cy="12" r="0.9" />',
+                '</svg>'
+            ].join('');
+        }
+        return '';
+    }
+
     const TEMPLATES = [
-        { id: 'CANSILM_GROWTH', name: 'Cansilm 成長股', duration: 300, icon: '📈' },
-        { id: 'CANSILM_HIGHRS', name: 'High RS Breakout', duration: 240, icon: '🚀' },
-        { id: 'MANCINI_FBD', name: 'Mancini FBD', duration: 180, icon: '⚡' },
-        { id: 'FOCUS_SESSION', name: '專注時段', duration: 1500, icon: '🎯' },
-        { id: 'RECOVERY_BREAK', name: '恢復休息', duration: 300, icon: '🧘' }
+        { id: 'CANSILM_GROWTH', name: 'Cansilm 成長股', duration: 300, icon: buildTemplateIcon('pinwheel') },
+        { id: 'CANSILM_HIGHRS', name: 'High RS Breakout', duration: 240, icon: buildTemplateIcon('circuitry') },
+        { id: 'MANCINI_FBD', name: 'Mancini FBD', duration: 180, icon: buildTemplateIcon('cube-focus') },
+        { id: 'FOCUS_SESSION', name: '專注時段', duration: 1500, icon: buildTemplateIcon('target') },
+        { id: 'RECOVERY_BREAK', name: '恢復休息', duration: 300, icon: buildTemplateIcon('breath') }
     ];
 
     // =============================================================================
@@ -112,7 +203,7 @@ const DecisionDockController = (function () {
                 <!-- 模板選擇 -->
                 <div class="dtf-template-area" id="dtf-template-area">
                     <button class="dtf-template-btn" id="dtf-template-btn">
-                        <span class="dtf-template-icon">📈</span>
+                        <span class="dtf-template-icon">${buildTemplateIcon('pinwheel')}</span>
                         <span class="dtf-template-name">選擇模板</span>
                         <span class="dtf-chevron">▾</span>
                     </button>
@@ -290,7 +381,8 @@ const DecisionDockController = (function () {
             // 更新按鈕顯示
             const btn = document.getElementById('dtf-template-btn');
             if (btn) {
-                btn.querySelector('.dtf-template-icon').textContent = template.icon;
+                const iconEl = btn.querySelector('.dtf-template-icon');
+                if (iconEl) iconEl.innerHTML = template.icon;
                 btn.querySelector('.dtf-template-name').textContent = template.name;
             }
 
@@ -675,7 +767,11 @@ const DecisionDockController = (function () {
             }
 
             .dtf-template-icon {
-                font-size: 14px;
+                width: 16px;
+                height: 16px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
             }
 
             .dtf-template-name {
@@ -688,6 +784,32 @@ const DecisionDockController = (function () {
             .dtf-chevron {
                 font-size: 10px;
                 opacity: 0.5;
+            }
+
+            .dtf-icon-svg {
+                width: 100%;
+                height: 100%;
+                display: block;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+                filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.35));
+            }
+
+            .dtf-icon-back {
+                stroke: rgba(0, 240, 255, 0.35);
+                stroke-width: 2.2;
+                fill: none;
+            }
+
+            .dtf-icon-front {
+                stroke: rgba(0, 240, 255, 0.9);
+                stroke-width: 1.4;
+                fill: none;
+            }
+
+            .dtf-icon-core,
+            .dtf-icon-node {
+                fill: rgba(0, 240, 255, 0.9);
             }
 
             /* 下拉選單 */
@@ -725,7 +847,11 @@ const DecisionDockController = (function () {
             }
 
             .dtf-dropdown-icon {
-                font-size: 18px;
+                width: 18px;
+                height: 18px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
             }
 
             .dtf-dropdown-name {

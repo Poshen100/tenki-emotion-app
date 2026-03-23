@@ -661,6 +661,45 @@ body {
 .fdcb-template {
     font-size: 13px;
     color: var(--metal-400);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.3px;
+}
+.fdcb-template-text {
+    display: inline-block;
+}
+.fdcb-template-caret {
+    opacity: 0.6;
+    margin-left: 2px;
+}
+.fdcb-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.fdcb-icon-svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 4px rgba(0,240,255,0.35));
+}
+.fdcb-icon-back {
+    stroke: rgba(0,240,255,0.35);
+    stroke-width: 2.2;
+    fill: none;
+}
+.fdcb-icon-front {
+    stroke: rgba(0,240,255,0.9);
+    stroke-width: 1.4;
+    fill: none;
+}
+.fdcb-icon-core {
+    fill: rgba(0,240,255,0.9);
 }
 
 .fdcb-timer {

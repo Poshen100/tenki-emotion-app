@@ -410,7 +410,27 @@
         var dock = document.createElement('div');
         dock.className = 'fdcb-dock'; dock.id = 'fdcb-dock';
         dock.innerHTML =
-            '<div class="fdcb-template" id="fdcb-template-name">\uD83D\uDCCA Canslim GS \u25BE</div>' +
+            '<div class="fdcb-template" id="fdcb-template-name">' +
+            '  <span class="fdcb-icon" aria-hidden="true">' +
+            '    <svg class="fdcb-icon-svg" viewBox="0 0 24 24" focusable="false">' +
+            '      <g class="fdcb-icon-back">' +
+            '        <path d="M12 5 C14.8 5 17 7.2 17 10" />' +
+            '        <path d="M19 12 C19 14.8 16.8 17 14 17" />' +
+            '        <path d="M12 19 C9.2 19 7 16.8 7 14" />' +
+            '        <path d="M5 12 C5 9.2 7.2 7 10 7" />' +
+            '      </g>' +
+            '      <g class="fdcb-icon-front">' +
+            '        <path d="M12 6 C14.2 6 16 7.8 16 10" />' +
+            '        <path d="M18 12 C18 14.2 16.2 16 14 16" />' +
+            '        <path d="M12 18 C9.8 18 8 16.2 8 14" />' +
+            '        <path d="M6 12 C6 9.8 7.8 8 10 8" />' +
+            '      </g>' +
+            '      <circle class="fdcb-icon-core" cx="12" cy="12" r="1.4" />' +
+            '    </svg>' +
+            '  </span>' +
+            '  <span class="fdcb-template-text">Canslim GS</span>' +
+            '  <span class="fdcb-template-caret">\u25BE</span>' +
+            '</div>' +
             '<div style="text-align:center">' +
             '  <div class="fdcb-timer" id="fdcb-timer">02:18</div>' +
             '  <div class="fdcb-progress"><div class="fdcb-progress-fill" id="fdcb-progress-fill" style="width:0%"></div></div>' +
