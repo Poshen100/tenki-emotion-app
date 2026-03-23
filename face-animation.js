@@ -225,11 +225,12 @@
     // ─── Public API ───
     var FACE = {
         init: function () {
-            if (alive) return;
-            alive = true;
-            inject();
-            scheduleBlink();
-            breathFrame = requestAnimationFrame(tick);
+            // ── DISABLED: Pure abstract stardust design ──
+            // Concrete SVG face elements (eyes, mouth, brows) are intentionally
+            // disabled per v25.8.2 design principle: all emotion expression is
+            // conveyed through particle behavior (scale, flow, color) only.
+            // The TENKI_FACE API is kept as a no-op so calling code doesn't break.
+            return;
         },
 
         /**

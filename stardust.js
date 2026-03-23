@@ -9,6 +9,10 @@
  *       modulate particle scale, opacity, and rotation speed.
  *       Core visual identity (colors, particle count, distribution) unchanged.
  *
+ * v5.0: Organic drift — per-particle random offsets create natural,
+ *       free-spirited movement. Color shimmer adds living gradient.
+ *       Breathing sync and expression API fully preserved.
+ *
  * Requires: THREE.js (r128+)
  */
 (function (global) {
@@ -24,6 +28,11 @@
     var scene, camera, renderer, cloud, material;
     var animFrame = null;
     var clock = new THREE.Clock();
+
+    // Per-particle drift data (organic movement)
+    var basePositions = null;   // Original Fibonacci positions
+    var driftSeeds = null;      // Random seeds per particle (Float32Array × 4: freqX, freqY, freqZ, amplitude)
+    var baseColors = null;      // Original color values for shimmer
 
     // Expression sync state
     var expr = { mouthOpen: 0, eyeOpen: 1, blinkFlash: 0, browTension: 0.5, active: false };
@@ -54,6 +63,11 @@
         var midColor = new THREE.Color(0x9966FF);   // Purple
         var botColor = new THREE.Color(0x00CCFF);   // Cyan
 
+        // Per-particle drift seeds: each particle gets unique freq and amplitude
+        basePositions = new Float32Array(PARTICLE_COUNT * 3);
+        driftSeeds = new Float32Array(PARTICLE_COUNT * 4);
+        baseColors = new Float32Array(PARTICLE_COUNT * 3);
+
         for (var i = 0; i < PARTICLE_COUNT; i++) {
             var y = 1 - (i / (PARTICLE_COUNT - 1)) * 2;
             var radius = Math.sqrt(1 - y * y);
@@ -64,6 +78,18 @@
             positions[idx]     = Math.cos(theta) * radius * r;
             positions[idx + 1] = y * r;
             positions[idx + 2] = Math.sin(theta) * radius * r;
+
+            // Store base positions for drift calculation
+            basePositions[idx]     = positions[idx];
+            basePositions[idx + 1] = positions[idx + 1];
+            basePositions[idx + 2] = positions[idx + 2];
+
+            // Generate unique drift seeds per particle
+            var si = i * 4;
+            driftSeeds[si]     = 0.3 + Math.random() * 0.7;   // freqX: 0.3-1.0
+            driftSeeds[si + 1] = 0.2 + Math.random() * 0.8;   // freqY: 0.2-1.0
+            driftSeeds[si + 2] = 0.4 + Math.random() * 0.6;   // freqZ: 0.4-1.0
+            driftSeeds[si + 3] = 0.03 + Math.random() * 0.07; // amplitude: 0.03-0.10
 
             // Color gradient: bot cyan → mid purple → top pink
             var normalizedY = (y + 1) / 2;
@@ -76,6 +102,11 @@
             colors[idx] = mixed.r;
             colors[idx + 1] = mixed.g;
             colors[idx + 2] = mixed.b;
+
+            // Store base colors for shimmer
+            baseColors[idx] = mixed.r;
+            baseColors[idx + 1] = mixed.g;
+            baseColors[idx + 2] = mixed.b;
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -132,6 +163,45 @@
         expr.blinkFlash *= 0.82;
 
         if (cloud) {
+            // ── Per-particle organic drift ──
+            var posAttr = cloud.geometry.getAttribute('position');
+            var colAttr = cloud.geometry.getAttribute('color');
+            var pos = posAttr.array;
+            var col = colAttr.array;
+
+            // Drift intensity scales with expression (more emotional → more particle chaos)
+            var driftMult = 1.0;
+            if (expr.active) {
+                driftMult += expr.mouthOpen * 0.5 + expr.browTension * 0.3;
+            }
+
+            // Update every 3rd frame for performance (still 20fps drift at 60fps render)
+            var frameCount = Math.round(t * 60);
+            if (frameCount % 3 === 0) {
+                for (var i = 0; i < PARTICLE_COUNT; i++) {
+                    var idx = i * 3;
+                    var si = i * 4;
+
+                    var fx = driftSeeds[si];
+                    var fy = driftSeeds[si + 1];
+                    var fz = driftSeeds[si + 2];
+                    var amp = driftSeeds[si + 3] * driftMult;
+
+                    // Each particle floats with its own unique sine pattern
+                    pos[idx]     = basePositions[idx]     + Math.sin(t * fx + i * 0.01) * amp;
+                    pos[idx + 1] = basePositions[idx + 1] + Math.cos(t * fy + i * 0.013) * amp;
+                    pos[idx + 2] = basePositions[idx + 2] + Math.sin(t * fz + i * 0.017) * amp * 0.8;
+
+                    // Subtle color shimmer: gentle hue shift over time
+                    var shimmer = 0.04 * Math.sin(t * 0.5 + i * 0.003);
+                    col[idx]     = Math.max(0, Math.min(1, baseColors[idx]     + shimmer));
+                    col[idx + 1] = Math.max(0, Math.min(1, baseColors[idx + 1] + shimmer * 0.6));
+                    col[idx + 2] = Math.max(0, Math.min(1, baseColors[idx + 2] - shimmer * 0.3));
+                }
+                posAttr.needsUpdate = true;
+                colAttr.needsUpdate = true;
+            }
+
             // Rotation — speed modulated by emotional state
             var rotSpeed = 0.05;
             if (expr.active) {

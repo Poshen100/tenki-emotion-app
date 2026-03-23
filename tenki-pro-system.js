@@ -58,7 +58,7 @@ const TenkiProSystem = (function () {
             }
 
             // 4. 初始化 AI Behavior
-            if (typeof AIBehavior !== 'undefined') {
+            if (typeof AIBehavior !== 'undefined' && typeof AIBehavior.getInstance === 'function') {
                 modules.aiBehavior = AIBehavior.getInstance();
                 console.log('[TenkiProSystem] AI Behavior initialized');
             }
@@ -74,7 +74,7 @@ const TenkiProSystem = (function () {
             setupEventSubscriptions();
 
             // 7. 發送系統就緒事件
-            if (typeof EventBridge !== 'undefined') {
+            if (typeof EventBridge !== 'undefined' && typeof EventBridge.notifySystemReady === 'function') {
                 EventBridge.notifySystemReady({
                     version: '1.0.0',
                     modules: Object.keys(modules)
@@ -89,7 +89,7 @@ const TenkiProSystem = (function () {
         } catch (error) {
             console.error('[TenkiProSystem] Initialization failed:', error);
 
-            if (typeof EventBridge !== 'undefined') {
+            if (typeof EventBridge !== 'undefined' && typeof EventBridge.notifySystemError === 'function') {
                 EventBridge.notifySystemError(error, 'system-init');
             }
 
@@ -142,11 +142,13 @@ const TenkiProSystem = (function () {
         });
 
         // 訂閱 TEI 更新，通知 Overlay
-        EventBridge.onTEIUpdate((data) => {
-            if (modules.overlay) {
-                modules.overlay.updateTEI(data.tei);
-            }
-        });
+        if (typeof EventBridge.onTEIUpdate === 'function') {
+            EventBridge.onTEIUpdate((data) => {
+                if (modules.overlay) {
+                    modules.overlay.updateTEI(data.tei);
+                }
+            });
+        }
 
         console.log('[TenkiProSystem] Event subscriptions set up');
     }
