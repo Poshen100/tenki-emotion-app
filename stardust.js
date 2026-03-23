@@ -203,17 +203,18 @@
             }
 
             // ── v25.8.2 Rolling Rotation (accumulating increment = natural tumble) ──
-            var rotSpeedY = 0.0005;
-            var rotSpeedX = 0.0001;
-            var rotSpeedZ = 0.00008;
+            // Speed increased for visible "forward rolling" feel
+            var rotSpeedY = 0.005;    // Main axis rolling (was 0.0005, now 10×)
+            var rotSpeedX = 0.001;    // Forward tilt wobble
+            var rotSpeedZ = 0.0003;   // Subtle side sway
             if (expr.active) {
                 // Emotion active: brow tension → faster rolling (agitation)
-                rotSpeedY += expr.browTension * 0.001;
+                rotSpeedY += expr.browTension * 0.004;
                 // Mouth open → slightly faster (excitement/arousal)
-                rotSpeedY += expr.mouthOpen * 0.0005;
+                rotSpeedY += expr.mouthOpen * 0.002;
                 // Add wobble on other axes for dramatic expression
-                rotSpeedX += expr.browTension * 0.0003;
-                rotSpeedZ += expr.mouthOpen * 0.0002;
+                rotSpeedX += expr.browTension * 0.001;
+                rotSpeedZ += expr.mouthOpen * 0.0008;
             }
             cloud.rotation.y += rotSpeedY;
             cloud.rotation.x += rotSpeedX;

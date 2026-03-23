@@ -303,25 +303,34 @@
         // Small delay so other modules finish init
         setTimeout(initFaceSync, 800);
 
-        // ── Scan trigger ──
+        // ── Scan trigger (v25.8.2 HOLD-TO-SCAN) ──
         var scanTrigger = document.getElementById('scan-trigger-wrapper');
         if (!scanTrigger) {
             console.warn('[BRIDGE] #scan-trigger-wrapper not found');
             return;
         }
 
-        var lastTap = 0;
-        function onTap(e) {
-            if (e.type === 'touchend') e.preventDefault();
-            var now = Date.now();
-            if (now - lastTap < 500) return;
-            lastTap = now;
+        var holdTimer = null;
+        var progressCircle = document.getElementById('scan-progress-bar');
+        var circumference = 339; // 2 * PI * 54
+
+        function startHoldScan(e) {
+            if (e.type === 'touchstart') e.preventDefault();
             if (isAnimating || isResultsOpen) return;
-            beginScanSequence(scanTrigger);
+            beginHoldScan(scanTrigger, progressCircle, circumference);
         }
 
-        scanTrigger.addEventListener('click', onTap);
-        scanTrigger.addEventListener('touchend', onTap);
+        function cancelHoldScan(e) {
+            if (!isAnimating) return;
+            cancelScan(scanTrigger, progressCircle, circumference);
+        }
+
+        scanTrigger.addEventListener('mousedown', startHoldScan);
+        scanTrigger.addEventListener('touchstart', startHoldScan, { passive: false });
+        scanTrigger.addEventListener('mouseup', cancelHoldScan);
+        scanTrigger.addEventListener('mouseleave', cancelHoldScan);
+        scanTrigger.addEventListener('touchend', cancelHoldScan);
+        scanTrigger.addEventListener('touchcancel', cancelHoldScan);
 
         // Intercept app.js scan events
         document.addEventListener('scan:complete', function (e) {
@@ -347,12 +356,17 @@
     });
 
     // ══════════════════════════════════════════════
-    //  SCAN SEQUENCE
+    //  HOLD-TO-SCAN SEQUENCE (v25.8.2 style)
     // ══════════════════════════════════════════════
 
-    function beginScanSequence(btn) {
+    var scanElapsed = 0;
+    var scanInterval = null;
+    var SCAN_DURATION = 1800; // 1.8 seconds to complete
+
+    function beginHoldScan(btn, circle, circ) {
         isAnimating = true;
-        console.info('[BRIDGE] Scan sequence started');
+        scanElapsed = 0;
+        console.info('[BRIDGE] Hold-to-scan started');
 
         // Stop face sync (free camera for rPPG)
         stopFaceSync();
@@ -366,33 +380,59 @@
         // Hide hint capsule
         hideHintCapsule();
 
-        // Activate button animations
+        // Activate button animations (ripple, beam, glow)
         btn.classList.add('active');
 
-        // Progress circle spin
-        var progressCircle = document.getElementById('scan-progress-bar');
-        if (progressCircle) {
-            var circumference = 339;
-            progressCircle.style.transition = 'none';
-            progressCircle.setAttribute('stroke-dashoffset', String(circumference));
-            void progressCircle.offsetHeight;
-            progressCircle.style.transition = 'stroke-dashoffset 1.6s cubic-bezier(0.22, 1, 0.36, 1)';
-            progressCircle.setAttribute('stroke-dashoffset', '0');
+        // Reset progress circle
+        if (circle) {
+            circle.style.transition = 'none';
+            circle.setAttribute('stroke-dashoffset', String(circ));
+            void circle.offsetHeight;
         }
+
+        // Progressive ring fill via setInterval (v25.8.2 pattern)
+        scanInterval = setInterval(function () {
+            scanElapsed += 50;
+            var progress = Math.min(1, scanElapsed / SCAN_DURATION);
+            var offset = circ * (1 - progress);
+
+            if (circle) {
+                circle.setAttribute('stroke-dashoffset', String(Math.round(offset)));
+            }
+
+            if (scanElapsed >= SCAN_DURATION) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+                finishHoldScan(btn, circle, circ);
+            }
+        }, 50);
 
         // Request camera for rPPG
         requestCamera();
+    }
 
-        // After animation → show results
-        setTimeout(function () {
-            btn.classList.remove('active');
-            if (progressCircle) {
-                progressCircle.style.transition = 'none';
-                progressCircle.setAttribute('stroke-dashoffset', '339');
-            }
-            isAnimating = false;
-            showResultsPage();
-        }, 1800);
+    function cancelScan(btn, circle, circ) {
+        if (scanInterval) {
+            clearInterval(scanInterval);
+            scanInterval = null;
+        }
+        btn.classList.remove('active');
+        if (circle) {
+            circle.style.transition = 'stroke-dashoffset 0.3s ease-out';
+            circle.setAttribute('stroke-dashoffset', String(circ));
+        }
+        isAnimating = false;
+        console.info('[BRIDGE] Hold-to-scan cancelled');
+    }
+
+    function finishHoldScan(btn, circle, circ) {
+        btn.classList.remove('active');
+        if (circle) {
+            circle.style.transition = 'none';
+            circle.setAttribute('stroke-dashoffset', String(circ));
+        }
+        isAnimating = false;
+        showResultsPage();
     }
 
     // ── Camera for rPPG ──
