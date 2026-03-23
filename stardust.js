@@ -202,27 +202,35 @@
                 colAttr.needsUpdate = true;
             }
 
-            // Rotation — speed modulated by emotional state
-            var rotSpeed = 0.05;
+            // ── v25.8.2 Rolling Rotation (accumulating increment = natural tumble) ──
+            var rotSpeedY = 0.0005;
+            var rotSpeedX = 0.0001;
+            var rotSpeedZ = 0.00008;
             if (expr.active) {
-                // Emotion active: brow tension → faster flow (agitation)
-                rotSpeed += expr.browTension * 0.06;
+                // Emotion active: brow tension → faster rolling (agitation)
+                rotSpeedY += expr.browTension * 0.001;
                 // Mouth open → slightly faster (excitement/arousal)
-                rotSpeed += expr.mouthOpen * 0.02;
+                rotSpeedY += expr.mouthOpen * 0.0005;
+                // Add wobble on other axes for dramatic expression
+                rotSpeedX += expr.browTension * 0.0003;
+                rotSpeedZ += expr.mouthOpen * 0.0002;
             }
-            cloud.rotation.y = t * rotSpeed;
-            cloud.rotation.x = Math.sin(t * 0.03) * 0.1;
+            cloud.rotation.y += rotSpeedY;
+            cloud.rotation.x += rotSpeedX;
+            cloud.rotation.z += Math.sin(t * 0.2) * rotSpeedZ;
 
-            // Breathing: scale 0.97 ↔ 1.03, period ~4s
+            // ── v25.8.2 Per-particle Expression Scaling (updateParticleSync) ──
+            // Each particle individually scales based on expression:
+            // eyeScale: eyes closed → particles contract (0.8×), eyes open → expand (1.2×)
+            // mouthExpansion: mouth open → particles spread outward (up to 1.3×)
+            var eyeScale = 0.8 + (expr.eyeOpen * 0.4);
+            var mouthExpansion = 1 + (expr.mouthOpen * 0.3);
+            var exprScale = eyeScale * mouthExpansion;
+
+            // Breathing: period ~4s, combines with expression scale
             var breath = 1 + Math.sin(t * 1.571) * 0.03;
-            if (expr.active) {
-                // Emotion expansion: mouth open → particle spacing expands
-                breath += expr.mouthOpen * 0.12;
-                // Calm state (low tension) → slight contraction
-                // Tense state → slight expansion
-                breath += (expr.browTension - 0.5) * 0.02;
-            }
-            cloud.scale.set(breath, breath, breath);
+            var totalScale = breath * exprScale;
+            cloud.scale.set(totalScale, totalScale, totalScale);
         }
 
         // Blink flash → brief opacity dip (abstract "blink" via particle opacity)

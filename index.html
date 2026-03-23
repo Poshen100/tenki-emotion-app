@@ -291,12 +291,21 @@
         .progress-circle {
             fill: none;
             stroke: var(--plasma-cyan);
-            stroke-width: 3;
+            stroke-width: 5;
             stroke-linecap: round;
             stroke-dasharray: 339;
             stroke-dashoffset: 339;
             transition: stroke-dashoffset 0.05s linear;
-            filter: drop-shadow(0 0 6px var(--plasma-cyan));
+            filter: drop-shadow(0 0 12px var(--plasma-cyan)) drop-shadow(0 0 4px rgba(0,240,255,0.8));
+        }
+
+        .fingerprint-wrapper.active .progress-circle {
+            animation: scan-ring-glow 0.8s ease-in-out infinite alternate;
+        }
+
+        @keyframes scan-ring-glow {
+            0% { filter: drop-shadow(0 0 12px var(--plasma-cyan)) drop-shadow(0 0 4px rgba(0,240,255,0.8)); }
+            100% { filter: drop-shadow(0 0 20px var(--plasma-cyan)) drop-shadow(0 0 8px rgba(0,240,255,1)); }
         }
 
         .fingerprint-wrapper.active {
