@@ -280,34 +280,31 @@
         }
 
         .progress-svg {
+            display: none; /* Replaced by CSS conic-gradient ring */
+        }
+
+        /* ── Scan Ring Overlay (CSS conic-gradient, replaces SVG) ── */
+        #scan-ring-overlay {
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 160px;
-            height: 160px;
-            transform: translate(-50%, -50%) rotate(-90deg);
-            z-index: 30;
+            width: 140px;
+            height: 140px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            z-index: 35;
             pointer-events: none;
-            overflow: visible;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            /* Ring is created via mask: show only a ring shape */
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #fff calc(100% - 7px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #fff calc(100% - 7px));
+            background: conic-gradient(#00F0FF 0%, transparent 0%);
+            filter: drop-shadow(0 0 16px rgba(0,240,255,0.9)) drop-shadow(0 0 6px rgba(0,240,255,1));
         }
 
-        .progress-circle {
-            fill: none;
-            stroke: var(--plasma-cyan);
-            stroke-width: 6;
-            stroke-linecap: round;
-            stroke-dasharray: 339;
-            stroke-dashoffset: 339;
-            filter: drop-shadow(0 0 14px var(--plasma-cyan)) drop-shadow(0 0 6px rgba(0,240,255,0.9));
-        }
-
-        .fingerprint-wrapper.active .progress-circle {
-            animation: scan-ring-glow 0.6s ease-in-out infinite alternate;
-        }
-
-        @keyframes scan-ring-glow {
-            0% { filter: drop-shadow(0 0 14px var(--plasma-cyan)) drop-shadow(0 0 6px rgba(0,240,255,0.9)); }
-            100% { filter: drop-shadow(0 0 28px var(--plasma-cyan)) drop-shadow(0 0 12px rgba(0,240,255,1)) drop-shadow(0 0 40px rgba(0,240,255,0.5)); }
+        #scan-ring-overlay.active {
+            opacity: 1;
         }
 
         .fingerprint-wrapper.active {
@@ -1281,6 +1278,7 @@
             <div id="scan-trigger-wrapper" class="fingerprint-wrapper">
                 <div class="ripple-ring"></div>
                 <div class="ripple-ring"></div>
+                <div id="scan-ring-overlay"></div>
                 <svg class="progress-svg" viewBox="0 0 120 120">
                     <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="3">
                     </circle>

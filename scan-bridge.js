@@ -310,19 +310,17 @@
             return;
         }
 
-        var holdTimer = null;
-        var progressCircle = document.getElementById('scan-progress-bar');
-        var circumference = 339; // 2 * PI * 54
+        var ringOverlay = document.getElementById('scan-ring-overlay');
 
         function startHoldScan(e) {
             if (e.type === 'touchstart') e.preventDefault();
             if (isAnimating || isResultsOpen) return;
-            beginHoldScan(scanTrigger, progressCircle, circumference);
+            beginHoldScan(scanTrigger, ringOverlay);
         }
 
         function cancelHoldScan(e) {
             if (!isAnimating) return;
-            cancelScan(scanTrigger, progressCircle, circumference);
+            cancelScan(scanTrigger, ringOverlay);
         }
 
         scanTrigger.addEventListener('mousedown', startHoldScan);
@@ -356,14 +354,14 @@
     });
 
     // ══════════════════════════════════════════════
-    //  HOLD-TO-SCAN SEQUENCE (v25.8.2 style)
+    //  HOLD-TO-SCAN with CSS Conic-Gradient Ring
     // ══════════════════════════════════════════════
 
     var scanElapsed = 0;
     var scanInterval = null;
     var SCAN_DURATION = 1800; // 1.8 seconds to complete
 
-    function beginHoldScan(btn, circle, circ) {
+    function beginHoldScan(btn, ring) {
         isAnimating = true;
         scanElapsed = 0;
         console.info('[BRIDGE] Hold-to-scan started');
@@ -383,27 +381,27 @@
         // Activate button animations (ripple, beam, glow)
         btn.classList.add('active');
 
-        // Reset progress circle
-        if (circle) {
-            circle.style.transition = 'none';
-            circle.setAttribute('stroke-dashoffset', String(circ));
-            void circle.offsetHeight;
+        // Show ring overlay and reset to 0%
+        if (ring) {
+            ring.style.background = 'conic-gradient(#00F0FF 0%, transparent 0%)';
+            ring.classList.add('active');
         }
 
-        // Progressive ring fill via setInterval (v25.8.2 pattern)
+        // Progressive ring fill via setInterval
         scanInterval = setInterval(function () {
             scanElapsed += 50;
             var progress = Math.min(1, scanElapsed / SCAN_DURATION);
-            var offset = circ * (1 - progress);
+            var degrees = progress * 360;
 
-            if (circle) {
-                circle.setAttribute('stroke-dashoffset', String(Math.round(offset)));
+            // Update conic-gradient clockwise fill
+            if (ring) {
+                ring.style.background = 'conic-gradient(from -90deg, #00F0FF ' + degrees + 'deg, transparent ' + degrees + 'deg)';
             }
 
             if (scanElapsed >= SCAN_DURATION) {
                 clearInterval(scanInterval);
                 scanInterval = null;
-                finishHoldScan(btn, circle, circ);
+                finishHoldScan(btn, ring);
             }
         }, 50);
 
@@ -411,28 +409,31 @@
         requestCamera();
     }
 
-    function cancelScan(btn, circle, circ) {
+    function cancelScan(btn, ring) {
         if (scanInterval) {
             clearInterval(scanInterval);
             scanInterval = null;
         }
         btn.classList.remove('active');
-        if (circle) {
-            circle.style.transition = 'stroke-dashoffset 0.3s ease-out';
-            circle.setAttribute('stroke-dashoffset', String(circ));
+        if (ring) {
+            ring.classList.remove('active');
+            ring.style.background = 'conic-gradient(#00F0FF 0%, transparent 0%)';
         }
         isAnimating = false;
         console.info('[BRIDGE] Hold-to-scan cancelled');
     }
 
-    function finishHoldScan(btn, circle, circ) {
+    function finishHoldScan(btn, ring) {
         btn.classList.remove('active');
-        if (circle) {
-            circle.style.transition = 'none';
-            circle.setAttribute('stroke-dashoffset', String(circ));
-        }
-        isAnimating = false;
-        showResultsPage();
+        // Brief flash at 100% before hiding
+        setTimeout(function () {
+            if (ring) {
+                ring.classList.remove('active');
+                ring.style.background = 'conic-gradient(#00F0FF 0%, transparent 0%)';
+            }
+            isAnimating = false;
+            showResultsPage();
+        }, 200);
     }
 
     // ── Camera for rPPG ──
