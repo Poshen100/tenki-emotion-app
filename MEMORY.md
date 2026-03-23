@@ -1,4 +1,4 @@
-# MEMORY.md — Tenki Core AI Memory
+﻿# MEMORY.md — Tenki Core AI Memory
 
 > 此檔案由 AI 助手在每次 session 結束時更新。
 > 人類不需要手動維護，但可以隨時修改或刪除任何條目。
@@ -86,28 +86,18 @@
 
 ## 上次 Session 結束點
 
-- **日期**: 2026-03-04
-- **最後完成**: Claude Opus 完整 repo 審計（zip 解壓 + TypeScript 編譯 + 137 項功能驗證）
-  - TypeScript 編譯：engine ✅ / fdcb ✅ / shared ✅（strict mode, 零錯誤）
-  - 功能驗證：137/137 PASSED, 0 FAILED
-  - 修正事項：
-    - `templates/cansilm-*.json` → 重命名為 `canslim-*.json`（拼寫修正）
-    - `docs/PRD.md` 從 14 行 stub 展開為完整摘要 + ANTIGRAVITY.md 交叉引用
-    - `docs/TEI-SPEC.md` 從 15 行 stub 展開為完整摘要 + 工程實作引用
-    - `docs/FDCB-SPEC.md` 從 14 行 stub 展開為完整摘要 + 6 模板表格 + tier gating
-    - `templates/README.md` 新增 legacy 標記（JSON 為舊版，正式版在 packages/fdcb/）
-  - 發現事項：
-    - core/ + integration/ + ui/ 是 Antigravity 擴充的 web prototype 2.0 模組（28+7+11 檔，~20K 行 JS），與 packages/ TypeScript 模組平行存在
-    - templates/mancini-fbd.json 段落時間與 FDCB spec 不一致（JSON: 0/60/140/180 vs FDCB: 0/60/120/180）→ 已標記 JSON 為 legacy
-    - node_modules 是 Windows 平台安裝的，含 vitest（但 Jest 配置在 package.json）
-    - shared/ 沒有獨立測試（Phase 5 前要補）
-- **Phase 0 狀態**: ✅ **100% 完工**（經 Claude Opus 獨立驗證）
-- **下一步**: Phase 1（需要 Mac mini）
-  1. 購買 Mac mini → 安裝 Xcode + Expo CLI
-  2. Expo init + Router + 相機掃描 MVP
-  3. 2 秒出粗略 TEI → 漸進精化
-  4. 基礎 TEI 雙環 UI
-
+- **日期**: 2026-03-23
+- **最後完成**:
+  - 新增 ANTIGRAVITY.md「0.1 續航 / 環境啟動」（Node 路徑、workspace/git、Browser Control 提醒）
+  - 對位膠囊 Apple Pay 式智能提示（靠近/左右/上下/轉正/穩定）；對位成功回饋：輕觸覺 + soft ping + 視覺瞬閃
+  - 星塵 8000 粒子改為前滾翻滾感（X 軸主滾 + Y/Z 預旋 + roll pulse）
+  - FDCB dock 與 Decision Dock 模板 icon 全面改為高級 glyph（pinwheel / circuitry / cube-focus / target / breath），移除 emoji
+  - 新增 audio lignOk 供對位成功提示
+  - 已推送 commits：c88ab90、875ebb6
+- **線上檢視**: https://tenki-emotion-app.vercel.app
+- **下一步**:
+  1. 手機驗收視覺（對位提示 + glyph + 星塵翻滾）
+  2. 依體感微調 icon 光暈/線寬或翻滾速度
 ## 各 AI 工具的角色分工
 
 | 工具 | 角色 | 目前使用狀態 |
@@ -118,5 +108,6 @@
 
 ---
 
-*Last updated: 2026-03-03 19:30*
-*Updated by: Antigravity (Workspace clone 到新機器 + GitHub push)*
+*Last updated: 2026-03-23 11:53*
+*Updated by: Codex (alignment + glyph icons + stardust roll)*
+
