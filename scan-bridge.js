@@ -172,7 +172,7 @@
         var blinkDetected = eyeOpen < 0.25 && prevEyeOpen > 0.55;
         prevEyeOpen = eyeOpen;
 
-        // Push to stardust particle animation
+        // Push to stardust particle animation (abstract expression only)
         if (stardust && stardust.setExpression) {
             stardust.setExpression({
                 mouthOpen: mouthOpen,
@@ -294,9 +294,12 @@
         // Start environment scanner (LUX + STAB bars)
         initEnvironmentScanner();
 
-        // Face animation disabled — stardust soul only, no SVG face overlay
+        // Face SVG disabled — pure abstract stardust, no concrete facial features
+        // Destroy any existing face SVG to ensure no eyes/mouth appear
+        var face = global.TENKI_FACE;
+        if (face && face.destroy) face.destroy();
 
-        // Start FaceMesh face sync (camera → expression → stardust)
+        // Start FaceMesh face sync (camera → expression → stardust particles only)
         // Small delay so other modules finish init
         setTimeout(initFaceSync, 800);
 

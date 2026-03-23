@@ -14,7 +14,7 @@
     // ─── Ring Constants ───
     var RING_SIZE = 280;
     var OUTER_R = 118, INNER_R = 92;
-    var OUTER_W = 24, INNER_W = 14;
+    var OUTER_W = 14, INNER_W = 10;
 
     // 15-stop spectrum for outer ring (purple → blue → cyan → green → yellow → orange → red)
     var SPECTRUM = [
@@ -132,18 +132,21 @@
         ctx.setTransform(ringDpr, 0, 0, ringDpr, 0, 0);
         ctx.clearRect(0, 0, RING_SIZE, RING_SIZE);
 
-        // ── Background tracks ──
-        ctx.lineWidth = OUTER_W;
-        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-        ctx.beginPath();
-        ctx.arc(cx, cy, OUTER_R, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.lineWidth = INNER_W;
-        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-        ctx.beginPath();
-        ctx.arc(cx, cy, INNER_R, 0, Math.PI * 2);
-        ctx.stroke();
+        // ── Decorative concentric track rings (medical-grade look) ──
+        var trackRings = [
+            { r: OUTER_R, w: OUTER_W, a: 0.06 },
+            { r: OUTER_R - 18, w: 2, a: 0.03 },
+            { r: INNER_R, w: INNER_W, a: 0.04 },
+            { r: INNER_R - 14, w: 2, a: 0.025 },
+            { r: INNER_R - 26, w: 1.5, a: 0.02 }
+        ];
+        for (var tr = 0; tr < trackRings.length; tr++) {
+            ctx.lineWidth = trackRings[tr].w;
+            ctx.strokeStyle = 'rgba(255,255,255,' + trackRings[tr].a + ')';
+            ctx.beginPath();
+            ctx.arc(cx, cy, trackRings[tr].r, 0, Math.PI * 2);
+            ctx.stroke();
+        }
 
         // ── Outer ring: spectrum gradient via segments ──
         if (outerFill > 0.001) {
@@ -277,9 +280,9 @@
         srcStrip.className = 'source-strip';
         srcStrip.innerHTML =
             '<span class="source-chip active" id="src-garmin">' +
-            '<span class="source-chip-icon">\u{2316}</span>Garmin Forerunner</span>' +
+            '<span class="source-chip-icon">\u2295</span>Garmin Forerunner</span>' +
             '<span class="source-chip" id="src-rppg">' +
-            '<span class="source-chip-icon">\u{1F4F7}</span>rPPG \u7709\u5FC3</span>';
+            '<span class="source-chip-icon">\uD83D\uDCF7</span>rPPG \u7709\u5FC3</span>';
         wrap.appendChild(srcStrip);
 
         // TEI Ring Section — Canvas-based
@@ -375,35 +378,31 @@
 
         wrap.appendChild(grid);
 
-        // Body Battery
+        // Body Battery Card (includes ANS Balance)
         var bbCard = document.createElement('div');
         bbCard.className = 'results-glass-card';
         bbCard.innerHTML =
-            '<div class="results-card-title">Body Battery</div>' +
+            '<div class="results-card-title">Body Battery Card</div>' +
             '<div class="bb-row">' +
             '  <div class="bb-chart" id="bb-chart"></div>' +
             '  <div class="bb-value-display">' +
             '    <div class="bb-value-number" id="bb-value">78</div>' +
             '    <div class="bb-value-total">/100</div>' +
             '  </div>' +
+            '</div>' +
+            '<div class="ans-section">' +
+            '  <div class="results-card-subtitle">ANS Balance</div>' +
+            '  <div class="ans-bar-outer">' +
+            '    <div class="ans-sns-bar" id="ans-sns" style="width:38%"></div>' +
+            '    <div class="ans-divider-line" id="ans-divider" style="left:38%"></div>' +
+            '    <div class="ans-pns-bar" id="ans-pns" style="width:62%"></div>' +
+            '  </div>' +
+            '  <div class="ans-labels">' +
+            '    <span><span id="ans-sns-pct">38</span>%&nbsp;&nbsp;&nbsp;SNS</span>' +
+            '    <span>PNS&nbsp;&nbsp;&nbsp;<span id="ans-pns-pct">62</span>%</span>' +
+            '  </div>' +
             '</div>';
         wrap.appendChild(bbCard);
-
-        // ANS Balance
-        var ansCard = document.createElement('div');
-        ansCard.className = 'results-glass-card';
-        ansCard.innerHTML =
-            '<div class="results-card-title">ANS Balance</div>' +
-            '<div class="ans-bar-outer">' +
-            '  <div class="ans-sns-bar" id="ans-sns" style="width:38%"></div>' +
-            '  <div class="ans-divider-line" id="ans-divider" style="left:38%"></div>' +
-            '  <div class="ans-pns-bar" id="ans-pns" style="width:62%"></div>' +
-            '</div>' +
-            '<div class="ans-labels">' +
-            '  <span><span id="ans-sns-pct">38</span>%&nbsp;&nbsp;&nbsp;SNS</span>' +
-            '  <span>PNS&nbsp;&nbsp;&nbsp;<span id="ans-pns-pct">62</span>%</span>' +
-            '</div>';
-        wrap.appendChild(ansCard);
 
         container.appendChild(wrap);
 

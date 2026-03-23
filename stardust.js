@@ -132,25 +132,38 @@
         expr.blinkFlash *= 0.82;
 
         if (cloud) {
-            // Rotation — speed increases with brow tension
+            // Rotation — speed modulated by emotional state
             var rotSpeed = 0.05;
-            if (expr.active) rotSpeed += expr.browTension * 0.04;
+            if (expr.active) {
+                // Emotion active: brow tension → faster flow (agitation)
+                rotSpeed += expr.browTension * 0.06;
+                // Mouth open → slightly faster (excitement/arousal)
+                rotSpeed += expr.mouthOpen * 0.02;
+            }
             cloud.rotation.y = t * rotSpeed;
             cloud.rotation.x = Math.sin(t * 0.03) * 0.1;
 
-            // Breathing scale + mouth open expansion
-            var breath = 1 + Math.sin(t * 0.5) * 0.02;
+            // Breathing: scale 0.97 ↔ 1.03, period ~4s
+            var breath = 1 + Math.sin(t * 1.571) * 0.03;
             if (expr.active) {
+                // Emotion expansion: mouth open → particle spacing expands
                 breath += expr.mouthOpen * 0.12;
+                // Calm state (low tension) → slight contraction
+                // Tense state → slight expansion
+                breath += (expr.browTension - 0.5) * 0.02;
             }
             cloud.scale.set(breath, breath, breath);
         }
 
-        // Blink flash → brief opacity dip
+        // Blink flash → brief opacity dip (abstract "blink" via particle opacity)
         if (material) {
             var op = 0.9;
-            if (expr.active) op -= expr.blinkFlash * 0.35;
-            material.opacity = Math.max(0.4, op);
+            if (expr.active) {
+                op -= expr.blinkFlash * 0.35;
+                // Emotional intensity subtly shifts particle brightness
+                op += (expr.browTension - 0.5) * 0.05;
+            }
+            material.opacity = Math.max(0.4, Math.min(1.0, op));
         }
 
         renderer.render(scene, camera);
