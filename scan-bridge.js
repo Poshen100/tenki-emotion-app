@@ -172,20 +172,9 @@
         var blinkDetected = eyeOpen < 0.25 && prevEyeOpen > 0.55;
         prevEyeOpen = eyeOpen;
 
-        // Push to stardust particle animation
+        // Push to stardust particle animation (abstract expression only)
         if (stardust && stardust.setExpression) {
             stardust.setExpression({
-                mouthOpen: mouthOpen,
-                eyeOpen: eyeOpen,
-                blinkDetected: blinkDetected,
-                browTension: browTension
-            });
-        }
-
-        // Push to face animation overlay
-        var faceAnim = global.TENKI_FACE;
-        if (faceAnim && faceAnim.setExpression) {
-            faceAnim.setExpression({
                 mouthOpen: mouthOpen,
                 eyeOpen: eyeOpen,
                 blinkDetected: blinkDetected,
@@ -305,18 +294,12 @@
         // Start environment scanner (LUX + STAB bars)
         initEnvironmentScanner();
 
-        // Start face animation overlay (ethereal SVG face)
-        var faceAnim = global.TENKI_FACE;
-        if (faceAnim) {
-            faceAnim.init();
-            // Make visible after short delay
-            setTimeout(function () {
-                var faceSvg = document.getElementById('tenki-face');
-                if (faceSvg) faceSvg.classList.add('visible');
-            }, 600);
-        }
+        // Face SVG disabled — pure abstract stardust, no concrete facial features
+        // Destroy any existing face SVG to ensure no eyes/mouth appear
+        var face = global.TENKI_FACE;
+        if (face && face.destroy) face.destroy();
 
-        // Start FaceMesh face sync (camera → expression → stardust)
+        // Start FaceMesh face sync (camera → expression → stardust particles only)
         // Small delay so other modules finish init
         setTimeout(initFaceSync, 800);
 
@@ -373,10 +356,6 @@
 
         // Stop face sync (free camera for rPPG)
         stopFaceSync();
-
-        // Hide face animation during scan
-        var faceSvg = document.getElementById('tenki-face');
-        if (faceSvg) faceSvg.classList.remove('visible');
 
         // Audio + haptics
         var audio = getAudio();
@@ -544,12 +523,6 @@
         // Restore hint capsule + restart face sync
         showHintCapsule();
         setTimeout(initFaceSync, 800);
-
-        // Restore face animation
-        var faceSvg = document.getElementById('tenki-face');
-        if (faceSvg) {
-            setTimeout(function () { faceSvg.classList.add('visible'); }, 800);
-        }
     }
 
     global.TENKI_BRIDGE = {
