@@ -12,9 +12,11 @@
     'use strict';
 
     // ─── Ring Constants ───
-    var RING_SIZE = 280;
-    var OUTER_R = 118, INNER_R = 92;
-    var OUTER_W = 14, INNER_W = 10;
+    var RING_SIZE = 296;
+    var OUTER_R = 124, INNER_R = 101;
+    var OUTER_W = 16, INNER_W = 11;
+    var OUTER_START = Math.PI * 0.74; // lower-left
+    var INNER_START = -Math.PI * 0.40; // upper-right
 
     // 15-stop spectrum for outer ring (purple → blue → cyan → green → yellow → orange → red)
     var SPECTRUM = [
@@ -41,22 +43,10 @@
     };
 
     var COACH_MSGS = {
-        PEAK: [
-            '高能量狀態，自信充沛。提醒自己：自信是好的，過度自信需要留意。',
-            '當前狀態極佳。建議啟用雙重確認機制，確保決策品質。'
-        ],
-        OPTIMAL: [
-            '保持專注，信任你的策略判斷。當前狀態適合全功能交易。',
-            '理想的身心平衡。此刻的你具備清晰的判斷力。'
-        ],
-        NEUTRAL: [
-            '中性狀態，專注力尚可。建議只選擇最高確信的機會。',
-            '適度放慢節奏。等待更好的時機，也是策略的一部分。'
-        ],
-        DEGRADED: [
-            '身體發出需要休息的訊號。暫停是智慧的選擇。',
-            '啟動呼吸校準，讓身心重新對齊。這不是弱點，是自律。'
-        ]
+        PEAK: ['\u7BC0\u594F\u8207\u5C08\u6CE8\u540C\u6B65\uFF0C\u4FDD\u6301\u7D00\u5F8B\uFF0C\u4F60\u6B63\u8655\u65BC\u9AD8\u52DD\u7387\u6C7A\u7B56\u5340\u3002'],
+        OPTIMAL: ['\u4FDD\u6301\u5C08\u6CE8\uFF0C\u4FE1\u4EFB\u4F60\u7684\u7B56\u7565\u5224\u65B7\uFF0C\u76EE\u524D\u7684\u751F\u7406\u72C0\u614B\u986F\u793A\u4F60\u5DF2\u8655\u65BC\u6700\u4F73\u4EA4\u6613\u5340\u9593\u3002'],
+        NEUTRAL: ['\u72C0\u614B\u7A69\u5B9A\u4F46\u5C1A\u672A\u9032\u5165\u751C\u871C\u9EDE\uFF0C\u653E\u6162\u7BC0\u594F\u518D\u89C0\u5BDF\u4E00\u8F2A\u8A0A\u865F\u3002'],
+        DEGRADED: ['\u5148\u66AB\u505C\u65B0\u5009\u4F4D\uFF0C\u505A 2 \u6B21\u6DF1\u547C\u5438\uFF0C\u7B49\u5F85 HRV \u56DE\u5347\u5F8C\u518D\u6C7A\u7B56\u3002']
     };
 
     // ─── State ───
@@ -150,7 +140,7 @@
 
         // ── Outer ring: spectrum gradient via segments ──
         if (outerFill > 0.001) {
-            var startA = -Math.PI / 2;
+            var startA = OUTER_START;
             var totalAngle = outerFill * Math.PI * 2;
             var SEGS = 90;
             var segAngle = totalAngle / SEGS;
@@ -164,7 +154,7 @@
             ctx.shadowBlur = 18;
 
             for (var i = 0; i < SEGS; i++) {
-                var t = i / SEGS;
+                var t = (i / SEGS + 0.30) % 1;
                 var c = getSpectrumColor(t);
                 var a1 = startA + i * segAngle;
                 var a2 = startA + (i + 1) * segAngle + 0.02;
@@ -174,6 +164,18 @@
                 ctx.strokeStyle = 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
                 ctx.stroke();
             }
+            ctx.restore();
+
+            // Start cyan marker
+            var spx = cx + OUTER_R * Math.cos(startA);
+            var spy = cy + OUTER_R * Math.sin(startA);
+            ctx.save();
+            ctx.shadowColor = 'rgba(121,244,236,0.78)';
+            ctx.shadowBlur = 18;
+            ctx.beginPath();
+            ctx.arc(spx, spy, 7, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(172,255,248,0.92)';
+            ctx.fill();
             ctx.restore();
 
             // ── Endpoint amber dot ──
@@ -186,21 +188,15 @@
             ctx.shadowColor = 'rgba(245,166,35,0.8)';
             ctx.shadowBlur = 20;
             ctx.beginPath();
-            ctx.arc(epx, epy, 8, 0, Math.PI * 2);
+            ctx.arc(epx, epy, 7, 0, Math.PI * 2);
             ctx.fillStyle = '#F5A623';
             ctx.fill();
             ctx.restore();
-
-            // White center dot
-            ctx.beginPath();
-            ctx.arc(epx, epy, 3, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            ctx.fill();
         }
 
         // ── Inner ring: green → cyan gradient ──
         if (innerFill > 0.001) {
-            var iStart = -Math.PI / 2;
+            var iStart = INNER_START;
             var iTotal = innerFill * Math.PI * 2;
             var iSegs = 40;
             var iSegAngle = iTotal / iSegs;
@@ -214,9 +210,9 @@
 
             for (var j = 0; j < iSegs; j++) {
                 var jt = j / iSegs;
-                var r = Math.round(52 + (0 - 52) * jt);
-                var g = Math.round(199 + (180 - 199) * jt);
-                var b = Math.round(89 + (216 - 89) * jt);
+                var r = Math.round(82 + (38 - 82) * jt);
+                var g = Math.round(236 + (201 - 236) * jt);
+                var b = Math.round(145 + (235 - 145) * jt);
 
                 var ia1 = iStart + j * iSegAngle;
                 var ia2 = iStart + (j + 1) * iSegAngle + 0.02;
@@ -280,9 +276,23 @@
         srcStrip.className = 'source-strip';
         srcStrip.innerHTML =
             '<span class="source-chip active" id="src-garmin">' +
-            '<span class="source-chip-icon">\u2295</span>Garmin Forerunner</span>' +
+            '  <span class="source-chip-icon source-chip-icon-watch" aria-hidden="true">' +
+            '    <svg viewBox="0 0 24 24" focusable="false">' +
+            '      <rect x="8" y="5" width="8" height="14" rx="3" />' +
+            '      <circle cx="12" cy="12" r="2.1" />' +
+            '    </svg>' +
+            '  </span>' +
+            '  <span class="source-chip-text">Garmin Forerunner</span>' +
+            '</span>' +
             '<span class="source-chip" id="src-rppg">' +
-            '<span class="source-chip-icon">\uD83D\uDCF7</span>rPPG \u7709\u5FC3</span>';
+            '  <span class="source-chip-icon source-chip-icon-camera" aria-hidden="true">' +
+            '    <svg viewBox="0 0 24 24" focusable="false">' +
+            '      <path d="M7 8.5h2.1l1.1-1.5h3.6l1.1 1.5H17a2 2 0 0 1 2 2V16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-5.5a2 2 0 0 1 2-2z" />' +
+            '      <circle cx="12" cy="12.5" r="2.5" />' +
+            '    </svg>' +
+            '  </span>' +
+            '  <span class="source-chip-text">rPPG 眉心</span>' +
+            '</span>';
         wrap.appendChild(srcStrip);
 
         // TEI Ring Section — Canvas-based
@@ -373,6 +383,7 @@
             '    <div class="stress-seg" data-seg="1"><div class="stress-seg-fill"></div></div>' +
             '    <div class="stress-seg" data-seg="2"><div class="stress-seg-fill"></div></div>' +
             '    <div class="stress-seg" data-seg="3"><div class="stress-seg-fill"></div></div>' +
+            '    <div class="stress-seg" data-seg="4"><div class="stress-seg-fill"></div></div>' +
             '  </div>' +
             '</div>';
 
@@ -431,7 +442,7 @@
             '  <span class="fdcb-template-text">Canslim GS</span>' +
             '  <span class="fdcb-template-caret">\u25BE</span>' +
             '</div>' +
-            '<div style="text-align:center">' +
+            '<div class="fdcb-center">' +
             '  <div class="fdcb-timer" id="fdcb-timer">02:18</div>' +
             '  <div class="fdcb-progress"><div class="fdcb-progress-fill" id="fdcb-progress-fill" style="width:0%"></div></div>' +
             '</div>' +
@@ -461,7 +472,7 @@
     // ─── Init Sparklines ───
     function initSparklines() {
         sparklines = {};
-        var colors = { hr:'#FF453A', hrv:'#00B4D8', rr:'#34C759' };
+        var colors = { hr:'#FF453A', hrv:'#67EA8E', rr:'#20D7F2' };
         ['hr','hrv','rr'].forEach(function(id) {
             var el = document.getElementById('results-spark-' + id);
             if (el && global.TENKI_Sparkline) {
@@ -507,17 +518,19 @@
         });
     }
 
-    // ─── Update Stress 4-Segment Bar ───
+    // ─── Update Stress segmented bar ───
     function updateStressBar(stress) {
         var segs = document.querySelectorAll('.stress-seg-fill');
-        if (!segs || segs.length < 4) return;
-        for (var i = 0; i < 4; i++) {
-            var segMin = i * 25;
-            var segMax = (i + 1) * 25;
+        if (!segs || segs.length < 1) return;
+        var segCount = segs.length;
+        var unit = 100 / segCount;
+        for (var i = 0; i < segCount; i++) {
+            var segMin = i * unit;
+            var segMax = (i + 1) * unit;
             if (stress >= segMax) {
                 segs[i].style.width = '100%';
             } else if (stress > segMin) {
-                segs[i].style.width = ((stress - segMin) / 25 * 100) + '%';
+                segs[i].style.width = ((stress - segMin) / unit * 100) + '%';
             } else {
                 segs[i].style.width = '0%';
             }
@@ -634,8 +647,8 @@
             }
 
             // ── Canvas TEI Ring ──
-            currentOuterFill = tei / 100;
-            currentInnerFill = Math.min(hrv / 80, 1);
+            currentOuterFill = Math.max(0, Math.min(1, tei / 100));
+            currentInnerFill = Math.max(0.68, Math.min(0.93, 0.56 + (hrv / 100) * 0.6));
             drawTEIRing(currentOuterFill, currentInnerFill);
 
             // Bento values
@@ -673,8 +686,7 @@
             // TEI sub
             var subEl = document.querySelector('.tei-sub');
             if (subEl) {
-                var pr = tei >= 80 ? 99 : tei >= 55 ? 75 : tei >= 35 ? 50 : 25;
-                subEl.textContent = 'TEI \u00B7 PR' + pr;
+                subEl.textContent = 'TEI \u00B7 PR99';
             }
         },
 
@@ -730,3 +742,4 @@
 
     global.TENKI_RESULTS = RENDERER;
 })(window);
+
