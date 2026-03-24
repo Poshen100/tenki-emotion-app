@@ -1,0 +1,505 @@
+/* ===================================================================
+   TENKI results-page.css — Design-Spec Alignment Layer
+   
+   Loads AFTER spectrum.css to apply precise mockup overrides.
+   All classes use existing DOM structure from results-renderer.js.
+   
+   Reference: Founder's Tenki Biometric Trading Dashboard mockup
+   Version: 1.0.0
+   =================================================================== */
+
+/* ── Override CSS Variables for mockup precision ── */
+:root {
+    --rp-bg-card: rgba(44, 44, 46, 0.65);
+    --rp-bg-card-solid: rgba(44, 44, 46, 0.85);
+    --rp-text-secondary: #8E8E93;
+    --rp-radius-card: 14px;
+    --rp-radius-pill: 20px;
+    --rp-spacing: 16px;
+    --rp-gap: 8px;
+    --rp-font-display: -apple-system, 'SF Pro Display', 'Inter', system-ui, sans-serif;
+    --rp-font-text: -apple-system, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+/* ── 1.1 Scan Badge — tighter to mockup ── */
+.scan-badge {
+    padding: 18px 0 8px;
+}
+
+.scan-badge-pill {
+    min-height: 34px;
+    padding: 0 18px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: var(--rp-radius-pill);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--rp-font-text);
+    letter-spacing: 0.3px;
+    color: #FFFFFF;
+    box-shadow: none;
+}
+
+/* ── 1.1 Source Strip — match mockup pill style ── */
+.source-strip {
+    gap: var(--rp-gap);
+    padding: 8px 0 14px;
+}
+
+.source-chip {
+    font-size: 12px;
+    font-weight: 500;
+    font-family: var(--rp-font-text);
+    color: var(--rp-text-secondary);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 6px 14px;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.source-chip.active {
+    color: #00B4D8;
+    background: rgba(0, 180, 216, 0.25);
+    border-color: rgba(0, 180, 216, 0.35);
+    box-shadow: none;
+}
+
+/* ── 1.2 TEI Ring Section — size to native spec ── */
+.tei-ring-section {
+    padding: 6px 0 12px;
+}
+
+.tei-ring-container {
+    width: 260px;
+    height: 260px;
+}
+
+.tei-ring-canvas {
+    width: 260px;
+    height: 260px;
+}
+
+/* ── 1.2 TEI Number — match mockup 72px ultralight ── */
+.tei-number {
+    font-size: 72px;
+    font-weight: 200;
+    letter-spacing: -1px;
+    font-family: var(--rp-font-display);
+    background: linear-gradient(180deg, #FFFFFF 0%, #F0F0F5 25%, #D1D1D6 50%, #8E8E93 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(0, 180, 216, 0.12));
+}
+
+.tei-sub {
+    font-size: 14px;
+    font-weight: 400;
+    font-family: var(--rp-font-display);
+    color: var(--rp-text-secondary);
+    letter-spacing: 1px;
+    margin-top: 4px;
+}
+
+.tei-zone-label {
+    font-size: 16px;
+    font-weight: 600;
+    font-family: var(--rp-font-display);
+    margin-top: 2px;
+}
+
+/* ── 1.3 Coach Card — mockup glassmorphism ── */
+.coach-card {
+    background: var(--rp-bg-card-solid);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 400;
+    font-family: var(--rp-font-text);
+    line-height: 1.5;
+    color: #FFFFFF;
+    box-shadow: none;
+}
+
+.coach-card::before {
+    display: none;
+}
+
+/* ── 1.4 Bento Grid — 2×2 with mockup spacing ── */
+.results-bento-grid {
+    gap: var(--rp-gap);
+    margin-bottom: 10px;
+}
+
+.results-bento-card {
+    background: var(--rp-bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--rp-radius-card);
+    padding: 14px 16px 10px;
+    min-height: 90px;
+    box-shadow: none;
+}
+
+.results-bento-card::before {
+    display: none;
+}
+
+/* Bento card header row */
+.results-bento-label {
+    font-size: 12px;
+    font-weight: 400;
+    font-family: var(--rp-font-text);
+    color: var(--rp-text-secondary);
+    margin-bottom: 6px;
+}
+
+/* Bento card badge pills */
+.results-bento-pill {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 8px;
+    border: none;
+}
+
+.results-bento-pill.garmin {
+    background: rgba(0, 180, 216, 0.15);
+    color: #00B4D8;
+}
+
+.results-bento-pill.balanced {
+    background: rgba(52, 199, 89, 0.15);
+    color: #34C759;
+    border: none;
+}
+
+/* Bento card values */
+.results-bento-value {
+    font-size: 28px;
+    font-weight: 600;
+    font-family: var(--rp-font-text);
+}
+
+.results-bento-unit {
+    font-size: 14px;
+    font-weight: 400;
+    font-family: var(--rp-font-text);
+    color: var(--rp-text-secondary);
+}
+
+/* Sparkline canvas */
+.results-bento-sparkline {
+    margin-top: 8px;
+    height: 24px;
+}
+
+/* ── 1.4 Stress segments — mockup gradient bar ── */
+.stress-segments {
+    gap: 0;
+    height: 4px;
+    margin-top: 8px;
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.stress-seg {
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.stress-seg:first-child {
+    border-radius: 2px 0 0 2px;
+}
+
+.stress-seg:last-child {
+    border-radius: 0 2px 2px 0;
+}
+
+.stress-seg-fill {
+    border-radius: 0;
+}
+
+.stress-pct {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--rp-text-secondary);
+    margin-top: 4px;
+}
+
+/* ── 1.5 Glass Card (Body Battery / ANS) — mockup style ── */
+.results-glass-card {
+    background: var(--rp-bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--rp-radius-card);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: none;
+}
+
+.results-glass-card::before {
+    display: none;
+}
+
+.results-card-title {
+    font-size: 12px;
+    font-weight: 400;
+    font-family: var(--rp-font-text);
+    color: var(--rp-text-secondary);
+    margin-bottom: 10px;
+}
+
+/* Body Battery bars — more compact, Go Club style */
+.bb-chart {
+    height: 70px;
+    gap: 3px;
+}
+
+.bb-bar {
+    border-radius: 100px 100px 3px 3px;
+}
+
+.bb-value-number {
+    font-size: 36px;
+    font-weight: 600;
+    font-family: var(--rp-font-display);
+}
+
+.bb-value-total {
+    font-size: 16px;
+    color: var(--rp-text-secondary);
+}
+
+/* ANS Balance section */
+.ans-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.results-card-subtitle {
+    font-size: 12px;
+    font-weight: 400;
+    font-family: var(--rp-font-text);
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 8px;
+}
+
+.ans-bar-outer {
+    height: 6px;
+    border-radius: 3px;
+    margin: 6px 0;
+}
+
+.ans-labels {
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--rp-font-text);
+}
+
+.ans-labels span:first-child {
+    color: #FF453A;
+}
+
+.ans-labels span:last-child {
+    color: #34C759;
+}
+
+/* ── 1.6 FDCB Dock — match mockup compact style ── */
+.fdcb-dock {
+    bottom: calc(0px + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    max-width: 100%;
+    background: rgba(28, 28, 30, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0;
+    padding: 14px 20px;
+    min-height: 72px;
+    box-shadow: none;
+}
+
+.fdcb-template {
+    font-size: 14px;
+    font-weight: 500;
+    font-family: var(--rp-font-text);
+}
+
+.fdcb-template-text {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.fdcb-timer {
+    font-size: 28px;
+    font-weight: 600;
+    font-family: var(--rp-font-display);
+    font-variant-numeric: tabular-nums;
+    color: #FFFFFF;
+    text-shadow: none;
+}
+
+.fdcb-confirm {
+    font-size: 28px;
+    color: #34C759;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter: none;
+}
+
+.fdcb-progress {
+    height: 4px;
+    border-radius: 2px;
+    margin-top: 8px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.fdcb-progress-fill {
+    border-radius: 2px;
+}
+
+/* ── Results Content — bottom spacing ── */
+.results-content {
+    padding-bottom: 88px;
+}
+
+/* ── Close Button refinement ── */
+.results-close-btn {
+    font-size: 36px;
+    font-weight: 300;
+    width: 36px;
+    height: 36px;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    right: 12px;
+}
+
+/* ── Responsive: iPhone SE → iPhone 15 Pro Max ── */
+@media (max-width: 375px) {
+    .tei-ring-container,
+    .tei-ring-canvas {
+        width: 220px;
+        height: 220px;
+    }
+    
+    .tei-number {
+        font-size: 60px;
+    }
+    
+    .results-bento-value {
+        font-size: 24px;
+    }
+    
+    .fdcb-timer {
+        font-size: 24px;
+    }
+}
+
+@media (min-width: 430px) {
+    .tei-ring-container,
+    .tei-ring-canvas {
+        width: 296px;
+        height: 296px;
+    }
+    
+    .tei-number {
+        font-size: 84px;
+    }
+}
+
+/* ── Entrance animation overrides ── */
+.results-overlay {
+    background: linear-gradient(180deg,
+        rgba(0, 0, 0, 0.97) 0%,
+        rgba(0, 0, 0, 0.98) 40%,
+        rgba(0, 0, 0, 0.99) 100%);
+}
+
+/* ── Stress gradient bar overlay style ── */
+.rp-stress-gradient {
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    margin-top: 8px;
+    position: relative;
+    background: linear-gradient(90deg, #34C759 0%, #F5A623 35%, #FF6B35 65%, #FF453A 100%);
+    opacity: 0.3;
+}
+
+.rp-stress-gradient-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #34C759 0%, #F5A623 35%, #FF6B35 65%, #FF453A 100%);
+    background-size: 400% 100%;
+    transition: width 800ms ease-out;
+}
+
+/* ── ANS labels center alignment ── */
+.rp-ans-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    font-family: var(--rp-font-text);
+    margin-top: 4px;
+}
+
+.rp-ans-pct-sns {
+    color: #FF453A;
+    font-weight: 500;
+}
+
+.rp-ans-name-sns {
+    color: #FFFFFF;
+    font-weight: 600;
+}
+
+.rp-ans-name-pns {
+    color: #FFFFFF;
+    font-weight: 600;
+}
+
+.rp-ans-pct-pns {
+    color: #34C759;
+    font-weight: 500;
+}
+
+/* ── Sparkline waveform container ── */
+.rp-sparkline-wave {
+    width: 60px;
+    height: 24px;
+    position: absolute;
+    right: 14px;
+    bottom: 10px;
+}
+
+/* ── Results page transition smoothness ── */
+.results-overlay.fade-in {
+    opacity: 1;
+    transition: opacity 0.5s ease;
+}
+
+/* ── Force all card top edges flush (remove top highlight) ── */
+.results-bento-card::after,
+.results-glass-card::after {
+    display: none;
+}
