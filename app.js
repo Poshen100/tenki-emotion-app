@@ -159,15 +159,9 @@
         }
 
         // ─── Fingerprint Scan Trigger (v51.1 HUD) ───
-        var scanTrigger = document.getElementById('scan-trigger-wrapper');
-        if (scanTrigger) {
-            scanTrigger.addEventListener('click', function () {
-                if (audio) audio.init();
-                // Dispatch event for scan-bridge.js to intercept
-                document.dispatchEvent(new CustomEvent('scan:complete'));
-                requestCameraAndScan();
-            });
-        }
+        // scan-bridge.js owns the hold-to-scan + tap flow.
+        // app.js no longer adds a competing click handler to avoid
+        // double camera requests and race conditions.
 
         function requestCameraAndScan() {
             // Guard: mediaDevices may be undefined on HTTP or restricted contexts
