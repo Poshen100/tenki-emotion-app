@@ -24,7 +24,7 @@
     }
 
     var PARTICLE_COUNT = 8000;
-    var PARTICLE_SIZE = 0.08;
+    var PARTICLE_SIZE = 0.09;
     var scene, camera, renderer, cloud, material;
     var animFrame = null;
     var clock = new THREE.Clock();
@@ -89,7 +89,7 @@
             driftSeeds[si]     = 0.3 + Math.random() * 0.7;   // freqX: 0.3-1.0
             driftSeeds[si + 1] = 0.2 + Math.random() * 0.8;   // freqY: 0.2-1.0
             driftSeeds[si + 2] = 0.4 + Math.random() * 0.6;   // freqZ: 0.4-1.0
-            driftSeeds[si + 3] = 0.03 + Math.random() * 0.07; // amplitude: 0.03-0.10
+            driftSeeds[si + 3] = 0.02 + Math.random() * 0.05; // amplitude: 0.02-0.07 (tighter sphere)
 
             // Color gradient: bot cyan → mid purple → top pink
             var normalizedY = (y + 1) / 2;
@@ -119,7 +119,7 @@
         var ctx = spriteCanvas.getContext('2d');
         var grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
         grad.addColorStop(0, 'rgba(255,255,255,1)');
-        grad.addColorStop(0.4, 'rgba(255,255,255,0.8)');
+        grad.addColorStop(0.35, 'rgba(255,255,255,0.8)');
         grad.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, 32, 32);
@@ -193,7 +193,7 @@
                     pos[idx + 2] = basePositions[idx + 2] + Math.sin(t * fz + i * 0.017) * amp * 0.8;
 
                     // Subtle color shimmer: gentle hue shift over time
-                    var shimmer = 0.04 * Math.sin(t * 0.5 + i * 0.003);
+                    var shimmer = 0.025 * Math.sin(t * 0.5 + i * 0.003);
                     col[idx]     = Math.max(0, Math.min(1, baseColors[idx]     + shimmer));
                     col[idx + 1] = Math.max(0, Math.min(1, baseColors[idx + 1] + shimmer * 0.6));
                     col[idx + 2] = Math.max(0, Math.min(1, baseColors[idx + 2] - shimmer * 0.3));
@@ -204,10 +204,10 @@
 
             // ── v25.8.2 Rolling Rotation (accumulating increment = natural tumble) ──
             // Forward roll: X-axis is the main rolling axis, with gentle Y/Z precession
-            var rotSpeedX = 0.0036;   // Forward rolling main axis
-            var rotSpeedY = 0.0016;   // Gentle spin for depth
-            var rotSpeedZ = 0.0005;   // Subtle side tumble
-            var rollPulse = Math.sin(t * 0.22) * 0.0007; // Natural acceleration/slowdown
+            var rotSpeedX = 0.0024;   // Forward rolling main axis (slower for meditative feel)
+            var rotSpeedY = 0.0012;   // Gentle spin for depth
+            var rotSpeedZ = 0.0004;   // Subtle side tumble
+            var rollPulse = Math.sin(t * 0.22) * 0.0005; // Softer natural acceleration/slowdown
             if (expr.active) {
                 // Emotion active: brow tension → faster rolling (agitation)
                 rotSpeedX += expr.browTension * 0.003;
@@ -229,7 +229,7 @@
             var exprScale = eyeScale * mouthExpansion;
 
             // Breathing: period ~4s, combines with expression scale
-            var breath = 1 + Math.sin(t * 1.571) * 0.03;
+            var breath = 1 + Math.sin(t * 1.571) * 0.02;
             var totalScale = breath * exprScale;
             cloud.scale.set(totalScale, totalScale, totalScale);
         }
