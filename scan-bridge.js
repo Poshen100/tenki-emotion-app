@@ -535,20 +535,16 @@
 
     var scanElapsed = 0;
     var scanInterval = null;
-    var scanStartedAt = 0;
-    var SCAN_DURATION = 1800; // 1.8 seconds to complete
-    var TAP_THRESHOLD = 400; // Quick tap (< 400ms) also triggers scan
+    var scanCommitted = false;
+    var SCAN_DURATION = 1800; // 1.8 seconds for full ring animation
 
     function beginHoldScan(btn, ring) {
         isAnimating = true;
         scanElapsed = 0;
-        scanStartedAt = Date.now();
-        console.info('[BRIDGE] Hold-to-scan started');
+        scanCommitted = false;
+        console.info('[BRIDGE] Scan touch started');
 
-        // Stop face sync (free camera for rPPG)
-        stopFaceSync();
-
-        // Audio + haptics
+        // Audio + haptics (immediate feedback)
         var audio = getAudio();
         if (audio) { audio.init(); audio.scanStart(); }
         var haptics = global.TENKI_HAPTICS;
@@ -566,21 +562,21 @@
             ring.classList.add('active');
         }
 
-        // Progressive ring fill via setInterval
+        // Progressive ring fill via setInterval (cosmetic only)
         scanInterval = setInterval(function () {
             scanElapsed += 50;
             var progress = Math.min(1, scanElapsed / SCAN_DURATION);
             var degrees = progress * 360;
 
-            // Update conic-gradient clockwise fill
             if (ring) {
                 ring.style.background = 'conic-gradient(from -90deg, #00F0FF ' + degrees + 'deg, transparent ' + degrees + 'deg)';
             }
 
+            // Ring filled → auto-commit (user still holding)
             if (scanElapsed >= SCAN_DURATION) {
                 clearInterval(scanInterval);
                 scanInterval = null;
-                finishHoldScan(btn, ring);
+                commitScan(btn, ring);
             }
         }, 50);
 
@@ -589,12 +585,13 @@
     }
 
     function cancelScan(btn, ring) {
-        var holdDuration = Date.now() - scanStartedAt;
-
+        // Release always commits — ring animation is cosmetic feedback,
+        // not a gate. This ensures tap, short press, and long press all work.
         if (scanInterval) {
             clearInterval(scanInterval);
             scanInterval = null;
         }
+
         btn.classList.remove('active');
         if (ring) {
             ring.classList.remove('active');
@@ -602,26 +599,27 @@
         }
         isAnimating = false;
 
-        // Quick tap → treat as instant scan trigger (skip ring animation)
-        if (holdDuration < TAP_THRESHOLD) {
-            console.info('[BRIDGE] Quick tap detected (' + holdDuration + 'ms) — triggering scan');
-            showResultsPage();
-        } else {
-            console.info('[BRIDGE] Hold-to-scan cancelled at ' + holdDuration + 'ms');
+        if (!scanCommitted) {
+            commitScan(btn, ring);
         }
     }
 
-    function finishHoldScan(btn, ring) {
+    function commitScan(btn, ring) {
+        if (scanCommitted) return;
+        scanCommitted = true;
+
+        console.info('[BRIDGE] Scan committed (' + scanElapsed + 'ms held)');
+
         btn.classList.remove('active');
-        // Brief flash at 100% before hiding
-        setTimeout(function () {
-            if (ring) {
-                ring.classList.remove('active');
-                ring.style.background = 'conic-gradient(#00F0FF 0%, transparent 0%)';
-            }
-            isAnimating = false;
-            showResultsPage();
-        }, 200);
+        if (ring) {
+            ring.classList.remove('active');
+            ring.style.background = 'conic-gradient(#00F0FF 0%, transparent 0%)';
+        }
+        isAnimating = false;
+
+        // Stop face sync before transitioning to results
+        stopFaceSync();
+        showResultsPage();
     }
 
     // ── Camera for rPPG ──
