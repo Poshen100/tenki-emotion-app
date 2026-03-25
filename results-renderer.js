@@ -340,43 +340,59 @@
         var grid = document.createElement('div');
         grid.className = 'results-bento-grid';
 
-        // Card 1: Heart Rate
+        // Card 1: Heart Rate — header (label+pill) then body (value+sparkline)
         grid.innerHTML =
             '<div class="results-bento-card">' +
-            '  <div class="results-bento-label">Heart Rate</div>' +
-            '  <div class="results-bento-row">' +
-            '    <div><span class="results-bento-value" id="bento-hr">--</span>' +
-            '    <span class="results-bento-unit">BPM</span></div>' +
+            '  <div class="results-bento-header">' +
+            '    <div class="results-bento-label">Heart Rate</div>' +
             '    <span class="results-bento-pill garmin">Garmin Sync</span>' +
             '  </div>' +
-            '  <canvas class="results-bento-sparkline" id="results-spark-hr"></canvas>' +
+            '  <div class="results-bento-body">' +
+            '    <div class="results-bento-row">' +
+            '      <span class="results-bento-value" id="bento-hr">--</span>' +
+            '      <span class="results-bento-unit">BPM</span>' +
+            '    </div>' +
+            '    <canvas class="results-bento-sparkline" id="results-spark-hr"></canvas>' +
+            '  </div>' +
             '</div>' +
 
             '<div class="results-bento-card">' +
-            '  <div class="results-bento-label">HRV</div>' +
-            '  <div class="results-bento-row">' +
-            '    <div><span class="results-bento-value" id="bento-hrv">--</span>' +
-            '    <span class="results-bento-unit"><sup>ms</sup> RMSSD</span></div>' +
+            '  <div class="results-bento-header">' +
+            '    <div class="results-bento-label">HRV</div>' +
             '    <span class="results-bento-pill balanced">Balanced</span>' +
             '  </div>' +
-            '  <canvas class="results-bento-sparkline" id="results-spark-hrv"></canvas>' +
-            '</div>' +
-
-            '<div class="results-bento-card">' +
-            '  <div class="results-bento-label">Respiratory</div>' +
-            '  <div class="results-bento-row">' +
-            '    <div><span class="results-bento-value" id="bento-rr">--</span>' +
-            '    <span class="results-bento-unit">BrPM</span></div>' +
+            '  <div class="results-bento-body">' +
+            '    <div class="results-bento-row">' +
+            '      <span class="results-bento-value" id="bento-hrv">--</span>' +
+            '      <span class="results-bento-unit"><sup>ms</sup> RMSSD</span>' +
+            '    </div>' +
+            '    <canvas class="results-bento-sparkline" id="results-spark-hrv"></canvas>' +
             '  </div>' +
-            '  <canvas class="results-bento-sparkline" id="results-spark-rr"></canvas>' +
             '</div>' +
 
             '<div class="results-bento-card">' +
-            '  <div class="results-bento-label">Stress</div>' +
-            '  <div class="results-bento-row">' +
-            '    <div><span class="results-bento-value" id="bento-stress">--</span>' +
-            '    <span class="results-bento-unit">/100</span></div>' +
+            '  <div class="results-bento-header">' +
+            '    <div class="results-bento-label">Respiratory</div>' +
+            '  </div>' +
+            '  <div class="results-bento-body">' +
+            '    <div class="results-bento-row">' +
+            '      <span class="results-bento-value" id="bento-rr">--</span>' +
+            '      <span class="results-bento-unit">BrPM</span>' +
+            '    </div>' +
+            '    <canvas class="results-bento-sparkline" id="results-spark-rr"></canvas>' +
+            '  </div>' +
+            '</div>' +
+
+            '<div class="results-bento-card">' +
+            '  <div class="results-bento-header">' +
+            '    <div class="results-bento-label">Stress</div>' +
             '    <span class="stress-pct" id="stress-pct"></span>' +
+            '  </div>' +
+            '  <div class="results-bento-body">' +
+            '    <div class="results-bento-row">' +
+            '      <span class="results-bento-value" id="bento-stress">--</span>' +
+            '      <span class="results-bento-unit">/100</span>' +
+            '    </div>' +
             '  </div>' +
             '  <div class="stress-segments" id="stress-segments">' +
             '    <div class="stress-seg" data-seg="0"><div class="stress-seg-fill"></div></div>' +

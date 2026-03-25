@@ -333,19 +333,31 @@
     pointer-events: none;
 }
 
+.results-bento-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
 .results-bento-label {
     font-size: 12px;
     font-weight: 500;
     font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
     letter-spacing: 0;
     color: rgba(222,227,234,0.74);
-    margin-bottom: 4px;
+    margin-bottom: 0;
+}
+
+.results-bento-body {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
 }
 
 .results-bento-row {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
 }
 
 .results-bento-value {
@@ -390,9 +402,9 @@
 }
 
 .results-bento-sparkline {
-    margin-top: 6px;
-    width: 100%;
-    height: 32px;
+    width: 60px;
+    height: 24px;
+    flex-shrink: 0;
     display: block;
 }
 
