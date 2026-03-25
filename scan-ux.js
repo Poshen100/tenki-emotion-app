@@ -134,7 +134,7 @@
         var noise = NOISE_LEVELS[currentPhase] || 0;
         var n = function() { return (Math.random() - 0.5) * noise; };
 
-        // Use raw rPPG data if available, otherwise simulate
+        // Use raw rPPG data if available; otherwise hold values flat with SQI=0
         var rawHR, rawHRV, rawRR, rawSQI;
         if (latestRaw) {
             rawHR = latestRaw.hr + n();
@@ -142,11 +142,11 @@
             rawRR = latestRaw.rr + n() * 0.5;
             rawSQI = latestRaw.sqi + n() * 0.3;
         } else {
-            // Simulation mode
-            rawHR = baseline.stats.hr.mean + n();
-            rawHRV = baseline.stats.hrv.mean + n() * 2;
-            rawRR = baseline.stats.rr.mean + n() * 0.3;
-            rawSQI = 75 + n() * 0.5;
+            // No face / rPPG data — hold current values, signal quality = 0
+            rawHR = ewma.hr || baseline.stats.hr.mean;
+            rawHRV = ewma.hrv || baseline.stats.hrv.mean;
+            rawRR = ewma.rr || baseline.stats.rr.mean;
+            rawSQI = 0;
         }
 
         // EWMA update

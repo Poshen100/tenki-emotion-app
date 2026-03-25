@@ -585,8 +585,7 @@
     }
 
     function cancelScan(btn, ring) {
-        // Release always commits — ring animation is cosmetic feedback,
-        // not a gate. This ensures tap, short press, and long press all work.
+        // Early release = cancel. Only a full 1.8s hold triggers commitScan.
         if (scanInterval) {
             clearInterval(scanInterval);
             scanInterval = null;
@@ -597,11 +596,10 @@
             ring.classList.remove('active');
             ring.style.background = 'conic-gradient(#00F0FF 0%, transparent 0%)';
         }
-        isAnimating = false;
 
-        if (!scanCommitted) {
-            commitScan(btn, ring);
-        }
+        scanElapsed = 0;
+        isAnimating = false;
+        console.info('[BRIDGE] Scan cancelled (released early)');
     }
 
     function commitScan(btn, ring) {
@@ -639,11 +637,13 @@
         }, 50);
     }
 
-    // ── Camera for rPPG ──
+    // ── Camera for rPPG (returns Promise) ──
     function requestCamera() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            return Promise.reject(new Error('mediaDevices unavailable'));
+        }
 
-        navigator.mediaDevices.getUserMedia({
+        return navigator.mediaDevices.getUserMedia({
             video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
             audio: false
         }).then(function (stream) {
@@ -654,8 +654,7 @@
                 cam.play().catch(function () {});
             }
             console.info('[BRIDGE] Camera authorized for rPPG');
-        }).catch(function (err) {
-            console.warn('[BRIDGE] Camera denied:', err.message || err);
+            return stream;
         });
     }
 
@@ -706,23 +705,27 @@
         var audio = getAudio();
         if (audio) audio.init();
 
-        // Start 62-second progressive scan
-        // results.init() was already called in commitScan, so scanUX.start()
-        // will skip re-init if results are already built
-        var scanUX = getScanUX();
-        if (scanUX) {
-            scanUX.start();
-            console.info('[BRIDGE] Scan UX started');
-        } else {
-            var results = global.TENKI_RESULTS;
-            if (results) {
-                results.init();
-                results.showWarmup();
-            }
-        }
-
-        // Defer camera request so it doesn't block the UI transition
-        setTimeout(requestCamera, 500);
+        // Defer camera request, then start scan only on success
+        setTimeout(function () {
+            requestCamera().then(function () {
+                // Camera authorized → start 62-second progressive scan
+                var scanUX = getScanUX();
+                if (scanUX) {
+                    scanUX.start();
+                    console.info('[BRIDGE] Scan UX started (camera authorized)');
+                } else {
+                    var results = global.TENKI_RESULTS;
+                    if (results) {
+                        results.init();
+                        results.showWarmup();
+                    }
+                }
+            }).catch(function (err) {
+                console.warn('[BRIDGE] Camera denied:', err.message || err);
+                alert('\u26A0\uFE0F \u76F8\u6A5F\u6388\u6B0A\u5931\u6557\u6216\u7121\u6CD5\u4F7F\u7528\uFF0C\u5DF2\u53D6\u6D88\u6383\u63CF\u3002');
+                closeResultsPage();
+            });
+        }, 500);
     }
 
     // ── Close Results ──
