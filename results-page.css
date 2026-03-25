@@ -207,12 +207,25 @@
     display: none !important;
 }
 
+#results-page.rp-ready .results-bento-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 6px !important;
+}
+
 #results-page.rp-ready .results-bento-label {
     font-family: var(--font-text) !important;
     font-size: 12px !important;
     font-weight: 400 !important;
     color: #8e8e93 !important;
-    margin-bottom: 6px !important;
+    margin-bottom: 0 !important;
+}
+
+#results-page.rp-ready .results-bento-body {
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: space-between !important;
 }
 
 #results-page.rp-ready .results-bento-row {
@@ -258,8 +271,7 @@
 #results-page.rp-ready .results-bento-sparkline {
     width: 60px !important;
     height: 24px !important;
-    margin-top: 8px !important;
-    margin-left: auto;
+    flex-shrink: 0 !important;
 }
 
 /* Stress custom gradient track (inserted by results-components.js) */
