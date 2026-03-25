@@ -580,8 +580,8 @@
             }
         }, 50);
 
-        // Request camera for rPPG
-        requestCamera();
+        // Camera request is deferred to showResultsPage() to avoid
+        // permission dialog blocking the UI during tap
     }
 
     function cancelScan(btn, ring) {
@@ -619,7 +619,24 @@
 
         // Stop face sync before transitioning to results
         stopFaceSync();
-        showResultsPage();
+
+        // Pre-build results DOM while still hidden, then reveal
+        var resultsPage = document.getElementById('results-page');
+        var scanUX = getScanUX();
+        var results = global.TENKI_RESULTS;
+        if (results && resultsPage) {
+            try {
+                results.init();      // build DOM while hidden
+                results.showWarmup();
+            } catch (e) {
+                console.error('[BRIDGE] Results pre-init error:', e);
+            }
+        }
+
+        // Small delay so DOM settles before transition + heavy work
+        setTimeout(function () {
+            showResultsPage();
+        }, 50);
     }
 
     // ── Camera for rPPG ──
@@ -680,7 +697,7 @@
             dashboardLayer.style.display = 'none';
         }
 
-        // Show results overlay with fade
+        // Show results overlay with fade (DOM already pre-built by commitScan)
         resultsPage.classList.remove('hidden');
         void resultsPage.offsetHeight;
         resultsPage.classList.add('fade-in');
@@ -690,6 +707,8 @@
         if (audio) audio.init();
 
         // Start 62-second progressive scan
+        // results.init() was already called in commitScan, so scanUX.start()
+        // will skip re-init if results are already built
         var scanUX = getScanUX();
         if (scanUX) {
             scanUX.start();
@@ -701,6 +720,9 @@
                 results.showWarmup();
             }
         }
+
+        // Defer camera request so it doesn't block the UI transition
+        setTimeout(requestCamera, 500);
     }
 
     // ── Close Results ──

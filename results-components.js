@@ -425,6 +425,8 @@
         }, POLL_MS);
     }
 
+    var observerDebounce = null;
+
     function observeOverlay() {
         var root = document.getElementById('results-page');
         if (!root) return;
@@ -433,8 +435,14 @@
 
         observer = new MutationObserver(function () {
             if (!isResultsVisible()) return;
-            mergeSnapshot(readSnapshotFromDom());
-            applyAll();
+            // Debounce to avoid thrashing during bulk DOM builds
+            if (observerDebounce) return;
+            observerDebounce = setTimeout(function () {
+                observerDebounce = null;
+                if (!isResultsVisible()) return;
+                mergeSnapshot(readSnapshotFromDom());
+                applyAll();
+            }, 200);
         });
 
         observer.observe(root, {
