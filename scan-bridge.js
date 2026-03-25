@@ -742,6 +742,10 @@
         var scanUX = getScanUX();
         if (scanUX) scanUX.stop();
 
+        // Cleanup results renderer (stops nebula RAF + ANS interval)
+        var results = global.TENKI_RESULTS;
+        if (results && results.destroy) results.destroy();
+
         // Stop rPPG camera
         if (cameraStream) {
             cameraStream.getTracks().forEach(function (t) { t.stop(); });
@@ -769,7 +773,7 @@
         var hudLayer = document.getElementById('hud-layer');
         if (hudLayer) {
             hudLayer.style.display = '';
-            hudLayer.style.opacity = '';
+            hudLayer.style.opacity = '1';
         }
 
         // Restore hint capsule + restart face sync
