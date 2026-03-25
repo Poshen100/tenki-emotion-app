@@ -565,11 +565,17 @@
     }
 
     // ─── Public API ───
+    var isInitialized = false;
+
     var RENDERER = {
         init: function() {
+            // Idempotent — skip if already built (commitScan pre-builds)
+            if (isInitialized && document.getElementById('tei-ring-canvas')) return;
+
             var container = document.getElementById('results-page');
             if (!container) return;
 
+            isInitialized = true;
             buildDOM(container);
 
             // Init nebula
@@ -737,6 +743,7 @@
             sparklines = {};
             ringCtx = null;
             currentCoachZone = null;
+            isInitialized = false;
         }
     };
 
