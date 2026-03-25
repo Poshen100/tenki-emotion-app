@@ -535,11 +535,14 @@
 
     var scanElapsed = 0;
     var scanInterval = null;
+    var scanStartedAt = 0;
     var SCAN_DURATION = 1800; // 1.8 seconds to complete
+    var TAP_THRESHOLD = 400; // Quick tap (< 400ms) also triggers scan
 
     function beginHoldScan(btn, ring) {
         isAnimating = true;
         scanElapsed = 0;
+        scanStartedAt = Date.now();
         console.info('[BRIDGE] Hold-to-scan started');
 
         // Stop face sync (free camera for rPPG)
@@ -586,6 +589,8 @@
     }
 
     function cancelScan(btn, ring) {
+        var holdDuration = Date.now() - scanStartedAt;
+
         if (scanInterval) {
             clearInterval(scanInterval);
             scanInterval = null;
@@ -596,7 +601,14 @@
             ring.style.background = 'conic-gradient(#00F0FF 0%, transparent 0%)';
         }
         isAnimating = false;
-        console.info('[BRIDGE] Hold-to-scan cancelled');
+
+        // Quick tap → treat as instant scan trigger (skip ring animation)
+        if (holdDuration < TAP_THRESHOLD) {
+            console.info('[BRIDGE] Quick tap detected (' + holdDuration + 'ms) — triggering scan');
+            showResultsPage();
+        } else {
+            console.info('[BRIDGE] Hold-to-scan cancelled at ' + holdDuration + 'ms');
+        }
     }
 
     function finishHoldScan(btn, ring) {
