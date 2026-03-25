@@ -585,8 +585,7 @@
     }
 
     function cancelScan(btn, ring) {
-        // Release always commits — ring animation is cosmetic feedback,
-        // not a gate. This ensures tap, short press, and long press all work.
+        // Early release = cancel. Only a full 1.8s hold triggers commitScan.
         if (scanInterval) {
             clearInterval(scanInterval);
             scanInterval = null;
@@ -597,11 +596,10 @@
             ring.classList.remove('active');
             ring.style.background = 'conic-gradient(#00F0FF 0%, transparent 0%)';
         }
-        isAnimating = false;
 
-        if (!scanCommitted) {
-            commitScan(btn, ring);
-        }
+        scanElapsed = 0;
+        isAnimating = false;
+        console.info('[BRIDGE] Scan cancelled (released early)');
     }
 
     function commitScan(btn, ring) {
