@@ -452,7 +452,7 @@
             '        <path d="M12 18 C9.8 18 8 16.2 8 14" />' +
             '        <path d="M6 12 C6 9.8 7.8 8 10 8" />' +
             '      </g>' +
-            '      <circle class="fdcb-icon-core" cx="12" cy="12" r="1.4" />' +
+            '      <circle class="fdcb-icon-core" cx="12" cy="12" r="1.6" />' +
             '    </svg>' +
             '  </span>' +
             '  <span class="fdcb-template-text">Canslim GS</span>' +
