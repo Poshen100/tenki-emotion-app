@@ -26,7 +26,7 @@
 
 /* Overlay shell */
 #results-page.rp-ready {
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.97) 0%, rgba(0, 0, 0, 0.985) 55%, rgba(0, 0, 0, 0.995) 100%) !important;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.90) 50%, rgba(0, 0, 0, 0.96) 100%) !important;
     overflow-y: auto !important;
 }
 
@@ -96,6 +96,11 @@
     background: rgba(0, 180, 216, 0.25) !important;
     border-color: rgba(0, 180, 216, 0.4) !important;
     color: #00b4d8 !important;
+    box-shadow: none !important;
+}
+
+#results-page.rp-ready .source-chip.active .source-chip-icon-watch svg {
+    stroke: #00b4d8 !important;
 }
 
 #results-page.rp-ready .source-chip-icon {
@@ -257,9 +262,9 @@
 }
 
 #results-page.rp-ready .results-bento-pill.garmin {
-    background: rgba(255, 255, 255, 0.1) !important;
-    color: #c7c7cc !important;
-    border: none !important;
+    background: rgba(0, 180, 216, 0.15) !important;
+    color: #00b4d8 !important;
+    border: 1px solid rgba(0, 180, 216, 0.2) !important;
 }
 
 #results-page.rp-ready .results-bento-pill.balanced {
@@ -463,10 +468,23 @@
     font-family: var(--font-display) !important;
     font-size: 28px !important;
     font-weight: 600 !important;
-    color: #ffffff !important;
+    color: rgba(255, 138, 101, 0.95) !important;
     font-variant-numeric: tabular-nums !important;
     letter-spacing: 0 !important;
-    text-shadow: none !important;
+    text-shadow: 0 0 10px rgba(255, 107, 53, 0.2) !important;
+}
+
+#results-page.rp-ready .fdcb-icon-svg {
+    filter: none !important;
+}
+
+#results-page.rp-ready .fdcb-icon-front,
+#results-page.rp-ready .fdcb-icon-back {
+    stroke: rgba(228, 232, 238, 0.6) !important;
+}
+
+#results-page.rp-ready .fdcb-icon-core {
+    fill: rgba(228, 232, 238, 0.6) !important;
 }
 
 #results-page.rp-ready .fdcb-confirm {
