@@ -26,7 +26,7 @@
 
 /* Overlay shell */
 #results-page.rp-ready {
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.97) 0%, rgba(0, 0, 0, 0.985) 55%, rgba(0, 0, 0, 0.995) 100%) !important;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.90) 50%, rgba(0, 0, 0, 0.96) 100%) !important;
     overflow-y: auto !important;
 }
 
