@@ -13,8 +13,8 @@
 
     // ─── Ring Constants ───
     var RING_SIZE = 296;
-    var OUTER_R = 124, INNER_R = 101;
-    var OUTER_W = 16, INNER_W = 11;
+    var OUTER_R = 126, INNER_R = 104;
+    var OUTER_W = 12, INNER_W = 6;
     var OUTER_START = Math.PI * 0.74; // lower-left
     var INNER_START = -Math.PI * 0.40; // upper-right
 
@@ -69,17 +69,17 @@
 
         ctx.clearRect(0, 0, W, H);
 
-        // Deep space nebula clouds — vivid and large
+        // Deep space nebula clouds — vivid enough for frosted-glass backdrop-filter
         var layers = [
-            { cx: W*0.50, cy: H*0.22, r: 350, color: [0,100,220], alpha: 0.22, period: 10 },
-            { cx: W*0.15, cy: H*0.30, r: 280, color: [30,180,140], alpha: 0.14, period: 13 },
-            { cx: W*0.85, cy: H*0.15, r: 240, color: [120,60,220], alpha: 0.13, period: 16 },
-            { cx: W*0.45, cy: H*0.25, r: 200, color: [0,60,200], alpha: 0.18, period: 8 },
-            { cx: W*0.70, cy: H*0.45, r: 180, color: [200,120,40], alpha: 0.07, period: 20 },
-            { cx: W*0.08, cy: H*0.05, r: 200, color: [0,120,255], alpha: 0.10, period: 14 },
-            { cx: W*0.35, cy: H*0.50, r: 160, color: [40,200,120], alpha: 0.08, period: 18 },
-            { cx: W*0.60, cy: H*0.65, r: 220, color: [80,40,180], alpha: 0.10, period: 12 },
-            { cx: W*0.25, cy: H*0.75, r: 180, color: [0,140,200], alpha: 0.08, period: 15 }
+            { cx: W*0.50, cy: H*0.22, r: 350, color: [0,100,220], alpha: 0.32, period: 10 },
+            { cx: W*0.15, cy: H*0.30, r: 280, color: [30,180,140], alpha: 0.22, period: 13 },
+            { cx: W*0.85, cy: H*0.15, r: 240, color: [120,60,220], alpha: 0.20, period: 16 },
+            { cx: W*0.45, cy: H*0.25, r: 200, color: [0,60,200], alpha: 0.26, period: 8 },
+            { cx: W*0.70, cy: H*0.45, r: 180, color: [200,120,40], alpha: 0.12, period: 20 },
+            { cx: W*0.08, cy: H*0.05, r: 200, color: [0,120,255], alpha: 0.16, period: 14 },
+            { cx: W*0.35, cy: H*0.50, r: 160, color: [40,200,120], alpha: 0.14, period: 18 },
+            { cx: W*0.60, cy: H*0.65, r: 220, color: [80,40,180], alpha: 0.16, period: 12 },
+            { cx: W*0.25, cy: H*0.75, r: 180, color: [0,140,200], alpha: 0.14, period: 15 }
         ];
 
         for (var li = 0; li < layers.length; li++) {
@@ -122,13 +122,13 @@
         ctx.setTransform(ringDpr, 0, 0, ringDpr, 0, 0);
         ctx.clearRect(0, 0, RING_SIZE, RING_SIZE);
 
-        // ── Decorative concentric track rings (medical-grade look) ──
+        // ── Decorative concentric track rings ──
         var trackRings = [
             { r: OUTER_R, w: OUTER_W, a: 0.06 },
-            { r: OUTER_R - 18, w: 2, a: 0.03 },
-            { r: INNER_R, w: INNER_W, a: 0.04 },
-            { r: INNER_R - 14, w: 2, a: 0.025 },
-            { r: INNER_R - 26, w: 1.5, a: 0.02 }
+            { r: OUTER_R - 16, w: 1.5, a: 0.03 },
+            { r: INNER_R, w: INNER_W, a: 0.05 },
+            { r: INNER_R - 16, w: 1.5, a: 0.025 },
+            { r: INNER_R - 28, w: 1, a: 0.02 }
         ];
         for (var tr = 0; tr < trackRings.length; tr++) {
             ctx.lineWidth = trackRings[tr].w;
@@ -150,8 +150,8 @@
 
             // Glow layer (subtle)
             ctx.save();
-            ctx.shadowColor = 'rgba(0,180,216,0.35)';
-            ctx.shadowBlur = 18;
+            ctx.shadowColor = 'rgba(0,180,216,0.25)';
+            ctx.shadowBlur = 14;
 
             for (var i = 0; i < SEGS; i++) {
                 var t = (i / SEGS + 0.30) % 1;
@@ -170,11 +170,11 @@
             var spx = cx + OUTER_R * Math.cos(startA);
             var spy = cy + OUTER_R * Math.sin(startA);
             ctx.save();
-            ctx.shadowColor = 'rgba(121,244,236,0.78)';
-            ctx.shadowBlur = 18;
+            ctx.shadowColor = 'rgba(121,244,236,0.6)';
+            ctx.shadowBlur = 12;
             ctx.beginPath();
-            ctx.arc(spx, spy, 7, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(172,255,248,0.92)';
+            ctx.arc(spx, spy, 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(172,255,248,0.85)';
             ctx.fill();
             ctx.restore();
 
@@ -185,10 +185,10 @@
 
             // Glow
             ctx.save();
-            ctx.shadowColor = 'rgba(245,166,35,0.8)';
-            ctx.shadowBlur = 20;
+            ctx.shadowColor = 'rgba(245,166,35,0.7)';
+            ctx.shadowBlur = 14;
             ctx.beginPath();
-            ctx.arc(epx, epy, 7, 0, Math.PI * 2);
+            ctx.arc(epx, epy, 6, 0, Math.PI * 2);
             ctx.fillStyle = '#F5A623';
             ctx.fill();
             ctx.restore();
