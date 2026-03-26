@@ -122,13 +122,13 @@
         ctx.setTransform(ringDpr, 0, 0, ringDpr, 0, 0);
         ctx.clearRect(0, 0, RING_SIZE, RING_SIZE);
 
-        // ── Decorative concentric track rings (medical-grade look) ──
+        // ── Decorative concentric track rings ──
         var trackRings = [
             { r: OUTER_R, w: OUTER_W, a: 0.06 },
-            { r: OUTER_R - 18, w: 2, a: 0.03 },
-            { r: INNER_R, w: INNER_W, a: 0.04 },
-            { r: INNER_R - 14, w: 2, a: 0.025 },
-            { r: INNER_R - 26, w: 1.5, a: 0.02 }
+            { r: OUTER_R - 16, w: 1.5, a: 0.03 },
+            { r: INNER_R, w: INNER_W, a: 0.05 },
+            { r: INNER_R - 16, w: 1.5, a: 0.025 },
+            { r: INNER_R - 28, w: 1, a: 0.02 }
         ];
         for (var tr = 0; tr < trackRings.length; tr++) {
             ctx.lineWidth = trackRings[tr].w;
@@ -150,8 +150,8 @@
 
             // Glow layer (subtle)
             ctx.save();
-            ctx.shadowColor = 'rgba(0,180,216,0.35)';
-            ctx.shadowBlur = 18;
+            ctx.shadowColor = 'rgba(0,180,216,0.25)';
+            ctx.shadowBlur = 14;
 
             for (var i = 0; i < SEGS; i++) {
                 var t = (i / SEGS + 0.30) % 1;
@@ -170,11 +170,11 @@
             var spx = cx + OUTER_R * Math.cos(startA);
             var spy = cy + OUTER_R * Math.sin(startA);
             ctx.save();
-            ctx.shadowColor = 'rgba(121,244,236,0.78)';
-            ctx.shadowBlur = 18;
+            ctx.shadowColor = 'rgba(121,244,236,0.6)';
+            ctx.shadowBlur = 12;
             ctx.beginPath();
-            ctx.arc(spx, spy, 7, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(172,255,248,0.92)';
+            ctx.arc(spx, spy, 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(172,255,248,0.85)';
             ctx.fill();
             ctx.restore();
 
@@ -185,10 +185,10 @@
 
             // Glow
             ctx.save();
-            ctx.shadowColor = 'rgba(245,166,35,0.8)';
-            ctx.shadowBlur = 20;
+            ctx.shadowColor = 'rgba(245,166,35,0.7)';
+            ctx.shadowBlur = 14;
             ctx.beginPath();
-            ctx.arc(epx, epy, 7, 0, Math.PI * 2);
+            ctx.arc(epx, epy, 6, 0, Math.PI * 2);
             ctx.fillStyle = '#F5A623';
             ctx.fill();
             ctx.restore();
