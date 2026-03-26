@@ -409,7 +409,7 @@
         var bbCard = document.createElement('div');
         bbCard.className = 'results-glass-card';
         bbCard.innerHTML =
-            '<div class="results-card-title">Body Battery Card</div>' +
+            '<div class="results-card-title">Body Battery</div>' +
             '<div class="bb-row">' +
             '  <div class="bb-chart" id="bb-chart"></div>' +
             '  <div class="bb-value-display">' +
