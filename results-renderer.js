@@ -13,8 +13,8 @@
 
     // ─── Ring Constants ───
     var RING_SIZE = 296;
-    var OUTER_R = 124, INNER_R = 101;
-    var OUTER_W = 16, INNER_W = 11;
+    var OUTER_R = 126, INNER_R = 104;
+    var OUTER_W = 12, INNER_W = 6;
     var OUTER_START = Math.PI * 0.74; // lower-left
     var INNER_START = -Math.PI * 0.40; // upper-right
 
@@ -69,17 +69,17 @@
 
         ctx.clearRect(0, 0, W, H);
 
-        // Deep space nebula clouds — vivid and large
+        // Deep space nebula clouds — vivid enough for frosted-glass backdrop-filter
         var layers = [
-            { cx: W*0.50, cy: H*0.22, r: 350, color: [0,100,220], alpha: 0.22, period: 10 },
-            { cx: W*0.15, cy: H*0.30, r: 280, color: [30,180,140], alpha: 0.14, period: 13 },
-            { cx: W*0.85, cy: H*0.15, r: 240, color: [120,60,220], alpha: 0.13, period: 16 },
-            { cx: W*0.45, cy: H*0.25, r: 200, color: [0,60,200], alpha: 0.18, period: 8 },
-            { cx: W*0.70, cy: H*0.45, r: 180, color: [200,120,40], alpha: 0.07, period: 20 },
-            { cx: W*0.08, cy: H*0.05, r: 200, color: [0,120,255], alpha: 0.10, period: 14 },
-            { cx: W*0.35, cy: H*0.50, r: 160, color: [40,200,120], alpha: 0.08, period: 18 },
-            { cx: W*0.60, cy: H*0.65, r: 220, color: [80,40,180], alpha: 0.10, period: 12 },
-            { cx: W*0.25, cy: H*0.75, r: 180, color: [0,140,200], alpha: 0.08, period: 15 }
+            { cx: W*0.50, cy: H*0.22, r: 350, color: [0,100,220], alpha: 0.32, period: 10 },
+            { cx: W*0.15, cy: H*0.30, r: 280, color: [30,180,140], alpha: 0.22, period: 13 },
+            { cx: W*0.85, cy: H*0.15, r: 240, color: [120,60,220], alpha: 0.20, period: 16 },
+            { cx: W*0.45, cy: H*0.25, r: 200, color: [0,60,200], alpha: 0.26, period: 8 },
+            { cx: W*0.70, cy: H*0.45, r: 180, color: [200,120,40], alpha: 0.12, period: 20 },
+            { cx: W*0.08, cy: H*0.05, r: 200, color: [0,120,255], alpha: 0.16, period: 14 },
+            { cx: W*0.35, cy: H*0.50, r: 160, color: [40,200,120], alpha: 0.14, period: 18 },
+            { cx: W*0.60, cy: H*0.65, r: 220, color: [80,40,180], alpha: 0.16, period: 12 },
+            { cx: W*0.25, cy: H*0.75, r: 180, color: [0,140,200], alpha: 0.14, period: 15 }
         ];
 
         for (var li = 0; li < layers.length; li++) {
