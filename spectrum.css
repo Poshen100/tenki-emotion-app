@@ -31,11 +31,14 @@
     position: fixed;
     inset: 0;
     z-index: 200;
-    background: linear-gradient(180deg, rgba(2,2,8,0.97) 0%, rgba(5,5,15,0.98) 40%, rgba(0,0,0,0.99) 100%);
+    background:
+        radial-gradient(120% 120% at 50% -8%, rgba(0,120,180,0.2) 0%, rgba(0,0,0,0) 42%),
+        linear-gradient(180deg, rgba(2,2,8,0.94) 0%, rgba(5,5,15,0.96) 38%, rgba(0,0,0,0.985) 100%);
     overflow-y: auto;
     overflow-x: hidden;
     opacity: 0;
-    transition: opacity 0.6s ease;
+    transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -232,11 +235,15 @@
     letter-spacing: -2px;
     line-height: 1;
     font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
-    background: linear-gradient(180deg, #FFFFFF 0%, #F0F0F5 20%, #D8D8DD 45%, #B0B0B8 70%, #8E8E93 100%);
+    background:
+        linear-gradient(180deg, #FFFFFF 0%, #FEFEFF 12%, #F2F3F7 26%, #DDDDE4 46%, #C0C1C9 63%, #94959D 82%, #777983 100%),
+        linear-gradient(112deg, rgba(255,255,255,0.75) 18%, rgba(255,255,255,0.05) 37%, rgba(255,255,255,0) 54%);
+    background-blend-mode: screen, normal;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    filter: drop-shadow(0 0 40px rgba(0,180,216,0.15)) drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+    filter: drop-shadow(0 0 34px rgba(0,180,216,0.14)) drop-shadow(0 2px 7px rgba(0,0,0,0.52));
+    text-shadow: 0 1px 0 rgba(255,255,255,0.12);
     animation: heartbeat-pulse var(--pulse-dur) ease-in-out infinite;
 }
 

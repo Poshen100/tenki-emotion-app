@@ -130,10 +130,15 @@
     letter-spacing: -1px !important;
     line-height: 1 !important;
     color: var(--text-primary) !important;
-    background: linear-gradient(180deg, #ffffff 0%, #f0f0f5 32%, #d5d5dc 64%, #8e8e93 100%) !important;
+    background:
+        linear-gradient(180deg, #ffffff 0%, #fefeff 12%, #f2f3f7 26%, #dddde4 46%, #c0c1c9 63%, #94959d 82%, #777983 100%),
+        linear-gradient(112deg, rgba(255,255,255,0.75) 18%, rgba(255,255,255,0.05) 37%, rgba(255,255,255,0) 54%) !important;
+    background-blend-mode: screen, normal !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    filter: drop-shadow(0 0 30px rgba(0, 180, 216, 0.12)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.52)) !important;
 }
 
 #results-page.rp-ready .tei-sub {
