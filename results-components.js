@@ -157,32 +157,11 @@
         content.appendChild(spacer);
     }
 
-    function ensureStressTrack() {
-        var segments = document.getElementById('stress-segments');
-        if (!segments || !segments.parentElement) return null;
-
-        var parent = segments.parentElement;
-        var existing = parent.querySelector('.rp-stress-track');
-        if (existing) return existing;
-
-        var track = document.createElement('div');
-        track.className = 'rp-stress-track';
-
-        var fill = document.createElement('div');
-        fill.className = 'rp-stress-fill';
-        track.appendChild(fill);
-
-        parent.insertBefore(track, segments.nextSibling);
-        return track;
-    }
-
     function updateStress(stress) {
         var safe = clamp(Math.round(stress), 0, 100);
-        var track = ensureStressTrack();
-        if (track) {
-            var fill = track.querySelector('.rp-stress-fill');
-            if (fill) fill.style.width = safe + '%';
-        }
+        
+        var fill = document.getElementById('stress-bar-fill');
+        if (fill) fill.style.width = safe + '%';
 
         var pct = document.getElementById('stress-pct');
         if (pct) pct.textContent = safe + '%';
@@ -379,6 +358,13 @@
         var bHrv = document.getElementById('bento-hrv'); if (bHrv && state.hrv !== null && state.hrv !== undefined) bHrv.textContent = String(state.hrv);
         var bRr = document.getElementById('bento-rr'); if (bRr && state.rr !== null && state.rr !== undefined) bRr.textContent = String(state.rr);
         var bStress = document.getElementById('bento-stress'); if (bStress && state.stress !== null && state.stress !== undefined) bStress.textContent = String(state.stress);
+
+        // Push values to sparklines to make them render live waves
+        if (global.TENKI_RESULTS && typeof global.TENKI_RESULTS.pushSparkline === 'function') {
+            if (state.hr !== null && state.hr !== undefined) global.TENKI_RESULTS.pushSparkline('hr', state.hr);
+            if (state.hrv !== null && state.hrv !== undefined) global.TENKI_RESULTS.pushSparkline('hrv', state.hrv);
+            if (state.rr !== null && state.rr !== undefined) global.TENKI_RESULTS.pushSparkline('rr', state.rr);
+        }
 
         updateStress(state.stress);
         updateAns(state.sns, state.pns);

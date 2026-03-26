@@ -414,12 +414,8 @@
             '      <span class="results-bento-unit">/100</span>' +
             '    </div>' +
             '  </div>' +
-            '  <div class="stress-segments" id="stress-segments">' +
-            '    <div class="stress-seg" data-seg="0"><div class="stress-seg-fill"></div></div>' +
-            '    <div class="stress-seg" data-seg="1"><div class="stress-seg-fill"></div></div>' +
-            '    <div class="stress-seg" data-seg="2"><div class="stress-seg-fill"></div></div>' +
-            '    <div class="stress-seg" data-seg="3"><div class="stress-seg-fill"></div></div>' +
-            '    <div class="stress-seg" data-seg="4"><div class="stress-seg-fill"></div></div>' +
+            '  <div class="stress-bar-track" id="stress-bar-track">' +
+            '    <div class="stress-bar-fill" id="stress-bar-fill" style="width:0%"></div>' +
             '  </div>' +
             '</div>';
 
@@ -780,6 +776,12 @@
             ringCtx = null;
             currentCoachZone = null;
             isInitialized = false;
+        },
+
+        pushSparkline: function(id, val) {
+            if (sparklines[id]) {
+                sparklines[id].push(val);
+            }
         }
     };
 
