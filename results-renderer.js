@@ -13,8 +13,8 @@
 
     // ─── Ring Constants ───
     var RING_SIZE = 296;
-    var OUTER_R = 126, INNER_R = 104;
-    var OUTER_W = 12, INNER_W = 6;
+    var OUTER_R = 126, INNER_R = 112;
+    var OUTER_W = 16, INNER_W = 6;
     var OUTER_START = Math.PI * 0.74; // lower-left
     var INNER_START = -Math.PI * 0.40; // upper-right
 
@@ -58,6 +58,26 @@
     var ringDpr = 1;
     var currentOuterFill = 0;
     var currentInnerFill = 0;
+    
+    var animatedTeiTarget = 1;
+    var animatedTeiCurrent = 1;
+    var teiAnimFrame = null;
+
+    function animateTeiLoop() {
+        var diff = animatedTeiTarget - animatedTeiCurrent;
+        var numEl = document.getElementById('tei-display');
+        
+        if (Math.abs(diff) < 0.5) {
+            animatedTeiCurrent = animatedTeiTarget;
+            if (numEl) numEl.textContent = String(Math.round(animatedTeiCurrent));
+            teiAnimFrame = null;
+            return;
+        }
+        
+        animatedTeiCurrent += diff * 0.15;
+        if (numEl) numEl.textContent = String(Math.round(animatedTeiCurrent));
+        teiAnimFrame = requestAnimationFrame(animateTeiLoop);
+    }
 
     // ─── Nebula Canvas ───
     var nebulaW = 430, nebulaH = 900;
@@ -641,14 +661,14 @@
             var stress = Math.round(ewma.stress);
             var zone = getZone(tei);
 
-            // TEI number
-            var numEl = document.getElementById('tei-display');
-            if (numEl) numEl.textContent = String(tei);
-
-            // Heartbeat pulse sync
-            if (hr > 0) {
-                document.documentElement.style.setProperty('--pulse-dur', (60/hr).toFixed(2) + 's');
+            // TEI number - fast count up animation instead of direct set
+            if (tei !== animatedTeiTarget) {
+                animatedTeiTarget = tei;
+                if (!teiAnimFrame) teiAnimFrame = requestAnimationFrame(animateTeiLoop);
             }
+
+            // Heartbeat pulse sync disabled per user request
+            // if (hr > 0) { ... }
 
             // Zone label
             var zoneEl = document.getElementById('tei-zone-label');

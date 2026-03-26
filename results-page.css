@@ -125,11 +125,12 @@
 
 #results-page.rp-ready .tei-number {
     font-family: var(--font-display) !important;
-    font-size: 72px !important;
-    font-weight: 200 !important;
-    letter-spacing: -1px !important;
+    font-size: 80px !important;
+    font-weight: 700 !important;
+    letter-spacing: -2px !important;
     line-height: 1 !important;
     color: var(--text-primary) !important;
+    animation: none !important;
     background:
         linear-gradient(180deg, #ffffff 0%, #fefeff 12%, #f2f3f7 26%, #dddde4 46%, #c0c1c9 63%, #94959d 82%, #777983 100%),
         linear-gradient(112deg, rgba(255,255,255,0.75) 18%, rgba(255,255,255,0.05) 37%, rgba(255,255,255,0) 54%) !important;
@@ -349,18 +350,20 @@
 }
 
 #results-page.rp-ready .bb-chart {
-    height: 80px !important;
-    gap: 3px !important;
+    height: 60px !important;
+    gap: 4px !important;
     align-items: flex-end !important;
     padding: 0 2px !important;
     overflow: hidden;
+    flex: 1 !important;
 }
 
 #results-page.rp-ready .bb-bar,
 #results-page.rp-ready .rp-bb-bar {
-    flex: 0 0 8px !important;
-    width: 8px !important;
-    border-radius: 100px !important;
+    flex: 1 1 8px !important;
+    max-width: 14px !important;
+    min-width: 6px !important;
+    border-radius: 4px !important;
     transform: scaleY(1) !important;
     transform-origin: bottom !important;
     transition: height 220ms ease-out, opacity 220ms ease-out !important;

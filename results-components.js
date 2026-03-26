@@ -123,14 +123,17 @@
     }
 
     function readSnapshotFromDom() {
+        var snsEl = document.getElementById('sns-val');
+        var pnsEl = document.getElementById('pns-val');
+        
         return {
-            tei: readNumericText('tei-display', state.tei),
-            hr: readNumericText('bento-hr', state.hr),
-            hrv: readNumericText('bento-hrv', state.hrv),
-            rr: readNumericText('bento-rr', state.rr),
-            stress: readNumericText('bento-stress', state.stress),
-            sns: readNumericText('ans-sns-pct', state.sns),
-            pns: readNumericText('ans-pns-pct', state.pns),
+            tei: readNumericText('dash-score', state.tei),
+            hr: readNumericText('snap-hr', state.hr),
+            hrv: readNumericText('hrv-val', state.hrv),
+            rr: readNumericText('snap-rr', state.rr),
+            stress: readNumericText('stress-val', state.stress),
+            sns: snsEl ? parsePercentText(snsEl.textContent, state.sns) : state.sns,
+            pns: pnsEl ? parsePercentText(pnsEl.textContent, state.pns) : state.pns,
             bodyBattery: readNumericText('bb-value', state.bodyBattery),
             bbSeries: readBbSeriesFromDom()
         };
@@ -371,6 +374,11 @@
     function applyAll() {
         ensureReadyClass();
         ensureBottomSpacer();
+
+        var bHr = document.getElementById('bento-hr'); if (bHr && state.hr !== null && state.hr !== undefined) bHr.textContent = String(state.hr);
+        var bHrv = document.getElementById('bento-hrv'); if (bHrv && state.hrv !== null && state.hrv !== undefined) bHrv.textContent = String(state.hrv);
+        var bRr = document.getElementById('bento-rr'); if (bRr && state.rr !== null && state.rr !== undefined) bRr.textContent = String(state.rr);
+        var bStress = document.getElementById('bento-stress'); if (bStress && state.stress !== null && state.stress !== undefined) bStress.textContent = String(state.stress);
 
         updateStress(state.stress);
         updateAns(state.sns, state.pns);
