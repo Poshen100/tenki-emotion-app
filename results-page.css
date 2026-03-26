@@ -204,6 +204,9 @@
 }
 
 #results-page.rp-ready .results-bento-card {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
     min-height: 90px !important;
     padding: 14px 16px 10px !important;
     border-radius: 14px !important;
@@ -246,6 +249,89 @@
 #results-page.rp-ready .results-bento-value {
     font-family: var(--font-text) !important;
     font-size: 28px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    letter-spacing: 0 !important;
+}
+
+#results-page.rp-ready .results-bento-unit {
+    font-family: var(--font-text) !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    color: #8e8e93 !important;
+    margin-left: 4px !important;
+}
+
+#results-page.rp-ready .results-bento-pill {
+    border-radius: 8px !important;
+    padding: 3px 8px !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0 !important;
+}
+
+#results-page.rp-ready .results-bento-pill.garmin {
+    background: rgba(0, 180, 216, 0.15) !important;
+    color: #00b4d8 !important;
+    border: 1px solid rgba(0, 180, 216, 0.2) !important;
+}
+
+#results-page.rp-ready .results-bento-pill.balanced {
+    background: rgba(52, 199, 89, 0.2) !important;
+    color: #67ea8e !important;
+    border: none !important;
+}
+
+#results-page.rp-ready .results-bento-sparkline {
+    position: absolute;
+    right: 16px;
+    bottom: 14px;
+    width: 60px !important;
+    height: 24px !important;
+}
+
+/* --- Snapshot Stress --- */
+#results-page.rp-ready .stress-pct {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+#results-page.rp-ready .stress-bar-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    margin-top: auto;
+    overflow: hidden;
+}
+
+#results-page.rp-ready .stress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #34C759, #F5A623, #FF6B35, #FF453A);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* 1.5 Body Battery card */
+#results-page.rp-ready .results-glass-card {
+    border-radius: 14px !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    background: rgba(44, 44, 46, 0.48) !important;
+    padding: 16px !important;
+    margin-bottom: 12px !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(20px) saturate(1.3) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(1.3) !important;
+}
+
+#results-page.rp-ready .results-glass-card::before {
+    display: none !important;
+}
+
+#results-page.rp-ready .results-card-title {
+    font-family: var(--font-text) !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
     color: #8e8e93 !important;
     margin-bottom: 10px !important;
 }
