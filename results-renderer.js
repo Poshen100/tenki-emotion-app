@@ -372,7 +372,7 @@
             '      <span class="results-bento-value" id="bento-hr">--</span>' +
             '      <span class="results-bento-unit">BPM</span>' +
             '    </div>' +
-            '    <canvas class="results-bento-sparkline" id="results-spark-hr" width="120" height="48"></canvas>' +
+            '    <canvas class="results-bento-sparkline" id="results-spark-hr"></canvas>' +
             '  </div>' +
             '</div>' +
 
@@ -386,7 +386,7 @@
             '      <span class="results-bento-value" id="bento-hrv">--</span>' +
             '      <span class="results-bento-unit"><sup>ms</sup> RMSSD</span>' +
             '    </div>' +
-            '    <canvas class="results-bento-sparkline" id="results-spark-hrv" width="120" height="48"></canvas>' +
+            '    <canvas class="results-bento-sparkline" id="results-spark-hrv"></canvas>' +
             '  </div>' +
             '</div>' +
 
@@ -399,7 +399,7 @@
             '      <span class="results-bento-value" id="bento-rr">--</span>' +
             '      <span class="results-bento-unit">BrPM</span>' +
             '    </div>' +
-            '    <canvas class="results-bento-sparkline" id="results-spark-rr" width="120" height="48"></canvas>' +
+            '    <canvas class="results-bento-sparkline" id="results-spark-rr"></canvas>' +
             '  </div>' +
             '</div>' +
 
@@ -509,6 +509,13 @@
             var el = document.getElementById('results-spark-' + id);
             if (el && global.TENKI_Sparkline) {
                 try {
+                    // Ensure canvas has layout dimensions before init
+                    var rect = el.getBoundingClientRect();
+                    if (rect.width < 1) {
+                        // Force explicit size matching CSS (60x24)
+                        el.style.width = '60px';
+                        el.style.height = '24px';
+                    }
                     sparklines[id] = new global.TENKI_Sparkline(el, {
                         color: colors[id], maxPoints: 40
                     });
@@ -629,7 +636,7 @@
             initRingCanvas();
 
             // Init sparklines (delay to ensure layout is settled for canvas sizing)
-            setTimeout(initSparklines, 100);
+            setTimeout(initSparklines, 300);
         },
 
         showWarmup: function() {

@@ -24,7 +24,11 @@
     --font-text: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Overlay shell */
+/* Overlay shell — override spectrum.css opaque background (94-98.5% → transparent for nebula) */
+#results-page {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.58) 45%, rgba(0, 0, 0, 0.72) 100%) !important;
+}
+
 #results-page.rp-ready {
     background: linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.58) 45%, rgba(0, 0, 0, 0.72) 100%) !important;
     overflow-y: auto !important;
@@ -92,6 +96,8 @@
     font-weight: 500 !important;
 }
 
+/* Garmin chip: transparent cyan bg + cyan text (override spectrum.css solid gradient) */
+#results-page .source-chip.active,
 #results-page.rp-ready .source-chip.active {
     background: rgba(0, 180, 216, 0.25) !important;
     border-color: rgba(0, 180, 216, 0.4) !important;
@@ -99,6 +105,13 @@
     box-shadow: none !important;
 }
 
+#results-page .source-chip.active svg,
+#results-page.rp-ready .source-chip.active svg {
+    stroke: #00b4d8 !important;
+    fill: none !important;
+}
+
+#results-page .source-chip.active .source-chip-icon-watch svg,
 #results-page.rp-ready .source-chip.active .source-chip-icon-watch svg {
     stroke: #00b4d8 !important;
 }
