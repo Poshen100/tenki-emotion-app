@@ -139,7 +139,8 @@
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) !important;
-    filter: drop-shadow(0 0 30px rgba(0, 180, 216, 0.12)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.52)) !important;
+    filter: none !important;
+    animation: none !important;
 }
 
 #results-page.rp-ready .tei-sub {
@@ -252,6 +253,7 @@
     font-weight: 600 !important;
     color: #ffffff !important;
     letter-spacing: 0 !important;
+    animation: none !important;
 }
 
 #results-page.rp-ready .results-bento-unit {
@@ -449,11 +451,11 @@
     border-left: none !important;
     border-right: none !important;
     border-bottom: none !important;
-    background: rgba(28, 28, 30, 0.92) !important;
+    background: rgba(28, 28, 30, 0.78) !important;
     padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px)) !important;
     box-shadow: none !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
+    backdrop-filter: blur(24px) saturate(1.4) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(1.4) !important;
 }
 
 #results-page.rp-ready .fdcb-template,
