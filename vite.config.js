@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-    // Static site - just serve files as-is
+    // Static site - just serve files from repo root
     root: '.',
     plugins: [
         VitePWA({

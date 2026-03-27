@@ -1,5 +1,9 @@
 {
     "buildCommand": "",
     "installCommand": "",
-    "framework": null
+    "framework": null,
+    "rewrites": [
+        { "source": "/", "destination": "/apps/web/index.html" },
+        { "source": "/(.*)", "destination": "/apps/web/$1" }
+    ]
 }
