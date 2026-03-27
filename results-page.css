@@ -26,7 +26,7 @@
 
 /* Overlay shell */
 #results-page.rp-ready {
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.68) 45%, rgba(0, 0, 0, 0.82) 100%) !important;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.58) 45%, rgba(0, 0, 0, 0.72) 100%) !important;
     overflow-y: auto !important;
 }
 
@@ -125,22 +125,17 @@
 
 #results-page.rp-ready .tei-number {
     font-family: var(--font-display) !important;
-    font-size: 80px !important;
-    font-weight: 700 !important;
-    letter-spacing: -2px !important;
+    font-size: 72px !important;
+    font-weight: 200 !important;
+    letter-spacing: -1px !important;
     line-height: 1 !important;
     color: var(--text-primary) !important;
     animation: none !important;
-    background:
-        linear-gradient(180deg, #ffffff 0%, #fefeff 12%, #f2f3f7 26%, #dddde4 46%, #c0c1c9 63%, #94959d 82%, #777983 100%),
-        linear-gradient(112deg, rgba(255,255,255,0.75) 18%, rgba(255,255,255,0.05) 37%, rgba(255,255,255,0) 54%) !important;
-    background-blend-mode: screen, normal !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f0f0f5 32%, #d5d5dc 64%, #8e8e93 100%) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) !important;
     filter: none !important;
-    animation: none !important;
 }
 
 #results-page.rp-ready .tei-sub {
@@ -181,16 +176,16 @@
     padding: 16px 20px !important;
     border-radius: 16px !important;
     border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    background: rgba(44, 44, 46, 0.52) !important;
+    background: rgba(44, 44, 46, 0.38) !important;
     color: #ffffff !important;
     font-family: var(--font-text) !important;
     font-size: 15px !important;
     font-weight: 400 !important;
     line-height: 1.5 !important;
     text-align: center !important;
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-    backdrop-filter: blur(24px) saturate(1.4) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(1.4) !important;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    backdrop-filter: blur(32px) saturate(1.6) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(1.6) !important;
 }
 
 #results-page.rp-ready .coach-card::before {
@@ -212,10 +207,10 @@
     padding: 14px 16px 10px !important;
     border-radius: 14px !important;
     border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    background: rgba(44, 44, 46, 0.48) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-    backdrop-filter: blur(20px) saturate(1.3) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(1.3) !important;
+    background: rgba(44, 44, 46, 0.35) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(28px) saturate(1.5) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(1.5) !important;
 }
 
 #results-page.rp-ready .results-bento-card::before {
@@ -318,12 +313,12 @@
 #results-page.rp-ready .results-glass-card {
     border-radius: 14px !important;
     border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    background: rgba(44, 44, 46, 0.48) !important;
+    background: rgba(44, 44, 46, 0.35) !important;
     padding: 16px !important;
     margin-bottom: 12px !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-    backdrop-filter: blur(20px) saturate(1.3) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(1.3) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(28px) saturate(1.5) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(1.5) !important;
 }
 
 #results-page.rp-ready .results-glass-card::before {
@@ -451,11 +446,11 @@
     border-left: none !important;
     border-right: none !important;
     border-bottom: none !important;
-    background: rgba(28, 28, 30, 0.78) !important;
+    background: rgba(28, 28, 30, 0.62) !important;
     padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px)) !important;
     box-shadow: none !important;
-    backdrop-filter: blur(24px) saturate(1.4) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(1.4) !important;
+    backdrop-filter: blur(32px) saturate(1.6) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(1.6) !important;
 }
 
 #results-page.rp-ready .fdcb-template,
