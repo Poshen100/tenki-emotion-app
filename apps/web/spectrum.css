@@ -796,3 +796,58 @@
 .quality-warning {
     display: none !important;
 }
+
+/* =====================================================================
+   SCANNING PAGE — UX alignment overrides
+   Fixes: tab overlap, coaching capsule contrast, action hierarchy
+   ===================================================================== */
+
+/* ── 1. Precision tabs: spacing + narrow screen fix ── */
+#precision-tabs {
+    margin-top: 12px;
+    gap: 6px;
+}
+
+#precision-tabs + div {
+    margin-top: 10px;
+    opacity: 0.45;
+    font-size: 8px;
+}
+
+@media (max-height: 700px) {
+    #precision-tabs .precision-tab {
+        padding: 6px 8px;
+        font-size: 9px;
+    }
+    #instruction {
+        margin-top: 16px !important;
+    }
+}
+
+@media (max-height: 600px) {
+    #precision-tabs .precision-tab {
+        padding: 5px 6px;
+        font-size: 8px;
+    }
+    #instruction {
+        margin-top: 10px !important;
+    }
+    #precision-tabs {
+        margin-top: 8px;
+    }
+}
+
+/* ── 2. Coaching capsule: stronger contrast on stardust ── */
+#align-hint-capsule {
+    background: rgba(30, 32, 40, 0.82) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── 3. TAP TO SYNC vs tabs: visual separation ── */
+#instruction {
+    margin-bottom: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
