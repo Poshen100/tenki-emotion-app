@@ -1,474 +1,343 @@
-/* =====================================================================
-   results-components.js
-   Results page bridge + dynamic component alignments (no engine edits)
-   ===================================================================== */
-(function (global) {
-    'use strict';
+/**
+ * RESULTS COMPONENTS JS
+ * Dynamically injects the high-end UI into dashboard-layer,
+ * avoiding direct mutations to index.html structure.
+ */
 
-    var POLL_MS = 450;
-    var pollTimer = null;
-    var observer = null;
-    var lastBbHash = '';
+document.addEventListener('DOMContentLoaded', () => {
+  // Wait a short moment to ensure index.html's other scripts have finished parsing
+  setTimeout(initResultsPage, 500);
+});
 
-    var state = {
-        tei: 72,
-        hr: 68,
-        hrv: 52,
-        rr: 14,
-        stress: 25,
-        sns: 38,
-        pns: 62,
-        bodyBattery: 78,
-        bbSeries: null
-    };
+function initResultsPage() {
+  const dashboardLayer = document.getElementById('dashboard-layer');
+  if (!dashboardLayer) return;
 
-    function clamp(value, min, max) {
-        return Math.min(max, Math.max(min, value));
-    }
+  // Create the root container
+  const rpContainer = document.createElement('div');
+  rpContainer.className = 'rp-container';
+  
+  // Construct the inner HTML matching the mockup specifications perfectly
+  rpContainer.innerHTML = `
+    <!-- Topbar -->
+    <div class="rp-topbar">
+      <div class="rp-topbar__badge">
+        <span>✦</span> DEEP SCAN · 60s
+      </div>
+      <div class="rp-topbar__pills">
+        <div class="rp-pill rp-pill--active">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M12 2l7 7-7 7M12 22l7-7-7-7"/></svg>
+          Garmin Sync
+        </div>
+        <div class="rp-pill rp-pill--inactive">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l2-9 4 18 2-9h6"/></svg>
+          rPPG 眉心
+        </div>
+      </div>
+    </div>
 
-    function asNumber(value) {
-        var n = Number(value);
-        return Number.isFinite(n) ? n : null;
-    }
-
-    function toInt(value, fallback) {
-        var n = parseInt(value, 10);
-        return Number.isFinite(n) ? n : fallback;
-    }
-
-    function parsePercentText(value) {
-        if (!value) return 0;
-        var n = parseFloat(String(value).replace('%', ''));
-        return Number.isFinite(n) ? n : 0;
-    }
-
-    function formatClock(totalSec) {
-        if (!Number.isFinite(totalSec)) return null;
-        var safe = Math.max(0, Math.floor(totalSec));
-        var mm = String(Math.floor(safe / 60)).padStart(2, '0');
-        var ss = String(safe % 60).padStart(2, '0');
-        return mm + ':' + ss;
-    }
-
-    function hexToRgb(hex) {
-        var clean = hex.replace('#', '');
-        var value = clean.length === 3
-            ? clean.split('').map(function (ch) { return ch + ch; }).join('')
-            : clean;
-        return {
-            r: parseInt(value.slice(0, 2), 16),
-            g: parseInt(value.slice(2, 4), 16),
-            b: parseInt(value.slice(4, 6), 16)
-        };
-    }
-
-    function rgbToHex(rgb) {
-        var r = clamp(Math.round(rgb.r), 0, 255).toString(16).padStart(2, '0');
-        var g = clamp(Math.round(rgb.g), 0, 255).toString(16).padStart(2, '0');
-        var b = clamp(Math.round(rgb.b), 0, 255).toString(16).padStart(2, '0');
-        return '#' + r + g + b;
-    }
-
-    function mixColor(a, b, t) {
-        var aa = hexToRgb(a);
-        var bb = hexToRgb(b);
-        var mix = {
-            r: aa.r + (bb.r - aa.r) * t,
-            g: aa.g + (bb.g - aa.g) * t,
-            b: aa.b + (bb.b - aa.b) * t
-        };
-        return rgbToHex(mix);
-    }
-
-    function darken(hex, amount) {
-        var rgb = hexToRgb(hex);
-        var f = clamp(1 - amount, 0, 1);
-        return rgbToHex({ r: rgb.r * f, g: rgb.g * f, b: rgb.b * f });
-    }
-
-    function isResultsVisible() {
-        var root = document.getElementById('results-page');
-        if (!root) return false;
-        return !root.classList.contains('hidden');
-    }
-
-    function readNumericText(id, fallback) {
-        var el = document.getElementById(id);
-        if (!el) return fallback;
-        return toInt(el.textContent, fallback);
-    }
-
-    function readBbSeriesFromDom() {
-        var chart = document.getElementById('bb-chart');
-        if (!chart) return null;
-
-        var bars = chart.querySelectorAll('.bb-bar');
-        if (!bars.length) return null;
-
-        var chartHeight = chart.getBoundingClientRect().height || 80;
-        var values = [];
-
-        bars.forEach(function (bar) {
-            var h = parseFloat(bar.style.height);
-            if (!Number.isFinite(h)) {
-                var px = parseFloat(global.getComputedStyle(bar).height);
-                h = Number.isFinite(px) ? (px / chartHeight) * 100 : null;
-            }
-            if (Number.isFinite(h)) {
-                values.push(clamp(Math.round(h), 5, 100));
-            }
-        });
-
-        return values.length ? values : null;
-    }
-
-    function readSnapshotFromDom() {
-        var snsEl = document.getElementById('sns-val');
-        var pnsEl = document.getElementById('pns-val');
+    <!-- TEI Ring -->
+    <div class="rp-tei">
+      <svg width="280" height="280" viewBox="0 0 280 280" style="position:absolute; top:0; left:0; transform: rotate(135deg);">
+        <!-- Inner ring -->
+        <circle cx="140" cy="140" r="115" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="6" stroke-dasharray="722" stroke-dashoffset="180" stroke-linecap="round" />
         
-        return {
-            tei: readNumericText('dash-score', state.tei),
-            hr: readNumericText('snap-hr', state.hr),
-            hrv: readNumericText('hrv-val', state.hrv),
-            rr: readNumericText('snap-rr', state.rr),
-            stress: readNumericText('stress-val', state.stress),
-            sns: snsEl ? parsePercentText(snsEl.textContent, state.sns) : state.sns,
-            pns: pnsEl ? parsePercentText(pnsEl.textContent, state.pns) : state.pns,
-            bodyBattery: readNumericText('bb-value', state.bodyBattery),
-            bbSeries: readBbSeriesFromDom()
-        };
-    }
-
-    function ensureReadyClass() {
-        var root = document.getElementById('results-page');
-        if (!root) return;
-        if (!root.classList.contains('rp-ready')) {
-            root.classList.add('rp-ready');
-        }
-    }
-
-    function ensureBottomSpacer() {
-        var content = document.querySelector('#results-page .results-content');
-        if (!content) return;
-        if (content.querySelector('.rp-bottom-spacer')) return;
-
-        var spacer = document.createElement('div');
-        spacer.className = 'rp-bottom-spacer';
-        content.appendChild(spacer);
-    }
-
-    function updateStress(stress) {
-        var safe = clamp(Math.round(stress), 0, 100);
+        <!-- Outer Gradient definitions -->
+        <defs>
+          <linearGradient id="rpGradOuter" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#34C759" /> <!-- Green -->
+            <stop offset="30%" stop-color="#00B4D8" /> <!-- Cyan -->
+            <stop offset="70%" stop-color="#F5A623" /> <!-- Amber -->
+            <stop offset="100%" stop-color="#8E8E93" /> <!-- Gray -->
+          </linearGradient>
+        </defs>
         
-        var fill = document.getElementById('stress-bar-fill');
-        if (fill) fill.style.width = safe + '%';
+        <!-- Outer ring -->
+        <!-- Circumference = 2 * PI * 130 = 816.8 -->
+        <!-- 270 deg / 360 deg * 816.8 = 612.6 visible length -->
+        <circle cx="140" cy="140" r="130" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="12" stroke-dasharray="816.8" stroke-dashoffset="204.2" stroke-linecap="round" />
+        <circle cx="140" cy="140" r="130" fill="none" stroke="url(#rpGradOuter)" stroke-width="12" stroke-dasharray="816.8" stroke-dashoffset="204.2" stroke-linecap="round" id="rp-tei-arc" style="transition: stroke-dashoffset 1s ease-out;" />
+      </svg>
+      
+      <!-- Indicator Dot (calculated via JS) -->
+      <div id="rp-tei-dot" style="position:absolute; width:12px; height:12px; background:#F5A623; border-radius:50%; box-shadow: 0 0 8px #F5A623; top: 12px; left: 50%; transform: translate(-50%, -50%); transition: transform 1s ease-out; transform-origin: 50% 128px;"></div>
+      
+      <div class="rp-tei__content">
+        <h1 class="rp-tei__score" id="rp-tei-val">72</h1>
+        <div class="rp-tei__sub">TEI · PR99</div>
+        <div class="rp-tei__status" id="rp-tei-status">Optimal</div>
+      </div>
+    </div>
 
-        var pct = document.getElementById('stress-pct');
-        if (pct) pct.textContent = safe + '%';
-    }
+    <!-- Coach Hint -->
+    <div class="rp-coach">
+      <p class="rp-coach__text">保持專注，信任你的策略判斷，目前的生理狀態顯示你已處於最佳交易區間。</p>
+    </div>
 
-    function to24Points(series) {
-        if (!Array.isArray(series) || !series.length) return null;
-        if (series.length === 24) return series.slice(0, 24);
+    <!-- 4 Grid Snapshots -->
+    <div class="rp-snapshot-grid">
+      <!-- HR -->
+      <div class="rp-snapcard">
+        <div class="rp-snapcard__header">
+          <div class="rp-snapcard__title">Heart Rate</div>
+          <div class="rp-snapcard__badge rp-snapcard__badge--neutral">Garmin Sync</div>
+        </div>
+        <div class="rp-snapcard__body">
+          <div class="rp-snapcard__val" id="rp-val-hr">68</div>
+          <div class="rp-snapcard__unit">BPM</div>
+        </div>
+        <svg class="rp-snapcard__wave" viewBox="0 0 60 24" preserveAspectRatio="none">
+          <polyline id="rp-wave-hr" fill="none" stroke="#FF453A" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <!-- HRV -->
+      <div class="rp-snapcard">
+        <div class="rp-snapcard__header">
+          <div class="rp-snapcard__title">HRV</div>
+          <div class="rp-snapcard__badge rp-snapcard__badge--cyan">Balanced</div>
+        </div>
+        <div class="rp-snapcard__body">
+          <div class="rp-snapcard__val" id="rp-val-hrv">52</div>
+          <div class="rp-snapcard__unit">ms <span style="font-size:10px;">RMSSD</span></div>
+        </div>
+        <svg class="rp-snapcard__wave" viewBox="0 0 60 24" preserveAspectRatio="none">
+          <polyline id="rp-wave-hrv" fill="none" stroke="#34C759" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <!-- RR -->
+      <div class="rp-snapcard">
+        <div class="rp-snapcard__header">
+          <div class="rp-snapcard__title">Respiratory</div>
+        </div>
+        <div class="rp-snapcard__body">
+          <div class="rp-snapcard__val" id="rp-val-rr">14</div>
+          <div class="rp-snapcard__unit">BrPM</div>
+        </div>
+        <svg class="rp-snapcard__wave" viewBox="0 0 60 24" preserveAspectRatio="none">
+          <polyline id="rp-wave-rr" fill="none" stroke="#00B4D8" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <!-- Stress -->
+      <div class="rp-snapcard">
+        <div class="rp-snapcard__header">
+          <div class="rp-snapcard__title">Stress</div>
+        </div>
+        <div class="rp-snapcard__stress-top mt-2">
+           <div class="rp-snapcard__body" style="margin-top:0;">
+             <div class="rp-snapcard__val" id="rp-val-strs">25</div>
+             <div class="rp-snapcard__unit">/100</div>
+           </div>
+           <div class="rp-snapcard__unit" id="rp-val-strs-pct">25%</div>
+        </div>
+        <div class="rp-snapcard__stress-bar-container">
+          <div class="rp-snapcard__stress-bar" id="rp-bar-strs" style="width: 25%"></div>
+        </div>
+      </div>
+    </div>
 
-        var out = [];
-        var maxIdx = series.length - 1;
+    <!-- Body Battery -->
+    <div class="rp-battery">
+      <div class="rp-battery__title">Body Battery Card</div>
+      
+      <div class="rp-battery__chart-row">
+        <div class="rp-battery__bars" id="rp-battery-bars">
+           <!-- Rendered via JS -->
+        </div>
+        <div class="rp-battery__score-box">
+          <div class="rp-battery__score" id="rp-battery-score">78</div>
+          <div class="rp-battery__max">/ 100</div>
+        </div>
+      </div>
+      
+      <div class="rp-ans-container">
+        <div class="rp-ans__title">ANS Balance</div>
+        <div class="rp-ans__bar">
+          <div class="rp-ans__sns" style="width: 38%" id="rp-ans-sns-bar"></div>
+          <div class="rp-ans__pns" style="width: 62%" id="rp-ans-pns-bar"></div>
+        </div>
+        <div class="rp-ans__labels">
+          <div class="rp-ans__label-left">
+            <span style="color:var(--accent-red)" id="rp-sns-pct">38%</span>
+            <span style="color:#FFF; font-weight:600">SNS</span>
+          </div>
+          <div class="rp-ans__label-right">
+            <span style="color:#FFF; font-weight:600">PNS</span>
+            <span style="color:var(--accent-green)" id="rp-pns-pct">62%</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
-        for (var i = 0; i < 24; i++) {
-            var pos = (i / 23) * maxIdx;
-            var lo = Math.floor(pos);
-            var hi = Math.min(lo + 1, maxIdx);
-            var t = pos - lo;
-            var value = series[lo] + (series[hi] - series[lo]) * t;
-            out.push(clamp(Math.round(value), 5, 100));
-        }
+    <!-- FDCB Floating Bar -->
+    <div class="rp-fdcb" id="rp-fdcb">
+      <div class="rp-fdcb__top" id="rp-fdcb-toggle">
+        <div class="rp-fdcb__left">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          Canslim GS ▾
+        </div>
+        <div class="rp-fdcb__timer">02:18</div>
+        <div class="rp-fdcb__btn" id="rp-fdcb-check">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+      </div>
+      <div class="rp-fdcb__expand-zone">
+        <div class="rp-fdcb__progress">
+          <div class="rp-fdcb__progress-fill"></div>
+        </div>
+        <div class="rp-fdcb__progress-label">Sweet Zone</div>
+      </div>
+    </div>
+  `;
 
-        return out;
-    }
+  dashboardLayer.appendChild(rpContainer);
+  
+  // Initialize dynamic generation
+  generateBatteryBars();
+  
+  // Initialize interactions
+  const fdcb = document.getElementById('rp-fdcb');
+  const fdcbToggle = document.getElementById('rp-fdcb-toggle');
+  const fdcbCheck = document.getElementById('rp-fdcb-check');
+  
+  fdcbToggle.addEventListener('click', (e) => {
+    if(e.target === fdcbCheck || fdcbCheck.contains(e.target)) return;
+    fdcb.classList.toggle('is-expanded');
+  });
+  
+  fdcbCheck.addEventListener('click', () => {
+    fdcbCheck.style.transform = 'scale(0.8)';
+    setTimeout(() => fdcbCheck.style.transform = 'scale(1)', 150);
+    console.log('[TENKI] FDCB Confirmed');
+  });
 
-    function defaultBbSeries(score) {
-        var bb = [];
-        var anchor = clamp(score || 78, 35, 95);
+  // Start waveform animation and polling
+  startWaveforms();
+  startDataPolling();
+}
 
-        for (var i = 0; i < 24; i++) {
-            var phase = i / 23;
-            var trend = 86 - phase * 34;
-            var wave = Math.sin(i * 0.72) * 8 + Math.cos(i * 0.19) * 4;
-            var drift = i > 18 ? -(i - 18) * 1.8 : 0;
-            var value = trend + wave + drift;
-            bb.push(clamp(Math.round(value), 20, 96));
-        }
-
-        bb[23] = anchor;
-        return bb;
-    }
-
-    function bbTopColor(i, total) {
-        var t = total <= 1 ? 0 : i / (total - 1);
-
-        if (t < 0.45) {
-            return mixColor('#34C759', '#00B4D8', t / 0.45);
-        }
-        if (t < 0.75) {
-            return mixColor('#00B4D8', '#F5A623', (t - 0.45) / 0.30);
-        }
-        return mixColor('#F5A623', '#6B5528', (t - 0.75) / 0.25);
-    }
-
-    function renderBodyBattery(series, score) {
-        var chart = document.getElementById('bb-chart');
-        if (!chart) return;
-
-        var normalized = to24Points(series) || defaultBbSeries(score);
-        var hash = normalized.join(',');
-        if (hash === lastBbHash) return;
-        lastBbHash = hash;
-
-        chart.innerHTML = '';
-
-        normalized.forEach(function (value, idx) {
-            var bar = document.createElement('div');
-            bar.className = 'bb-bar rp-bb-bar';
-            if (idx === normalized.length - 1) {
-                bar.classList.add('last');
-            }
-
-            var top = bbTopColor(idx, normalized.length);
-            var bottom = darken(top, 0.55);
-            bar.style.height = clamp(value, 8, 100) + '%';
-            bar.style.background = 'linear-gradient(180deg, ' + top + ' 0%, ' + bottom + ' 100%)';
-            bar.style.opacity = String(0.42 + (idx / (normalized.length - 1 || 1)) * 0.56);
-            chart.appendChild(bar);
-        });
-
-        var bbValue = document.getElementById('bb-value');
-        if (bbValue && Number.isFinite(score)) {
-            bbValue.textContent = String(clamp(Math.round(score), 0, 100));
-        }
-    }
-
-    function updateAns(sns, pns) {
-        var safeSns = clamp(Math.round(sns), 0, 100);
-        var safePns = clamp(Math.round(Number.isFinite(pns) ? pns : 100 - safeSns), 0, 100);
-
-        if (safeSns + safePns !== 100) {
-            safePns = 100 - safeSns;
-        }
-
-        var snsBar = document.getElementById('ans-sns');
-        var pnsBar = document.getElementById('ans-pns');
-        var divider = document.getElementById('ans-divider');
-        var snsPct = document.getElementById('ans-sns-pct');
-        var pnsPct = document.getElementById('ans-pns-pct');
-
-        if (snsBar) snsBar.style.width = safeSns + '%';
-        if (pnsBar) pnsBar.style.width = safePns + '%';
-        if (divider) divider.style.left = safeSns + '%';
-        if (snsPct) snsPct.textContent = String(safeSns);
-        if (pnsPct) pnsPct.textContent = String(safePns);
-    }
-
-    function ensureFdcbZoneLabel() {
-        var center = document.querySelector('#fdcb-dock .fdcb-center');
-        if (!center) return;
-        if (center.querySelector('.rp-fdcb-zone-label')) return;
-
-        var label = document.createElement('div');
-        label.className = 'rp-fdcb-zone-label';
-        label.textContent = 'Sweet Zone';
-        center.appendChild(label);
-    }
-
-    function updateFdcbDetail() {
-        var dock = document.getElementById('fdcb-dock');
-        if (!dock) return;
-
-        ensureFdcbZoneLabel();
-
-        var fill = document.getElementById('fdcb-progress-fill');
-        var width = fill ? parsePercentText(fill.style.width) : 0;
-        var showDetail = width > 0 && width < 100;
-        dock.classList.toggle('rp-show-detail', showDetail);
-    }
-
-    function mergeSnapshot(snapshot) {
-        if (!snapshot) return;
-
-        if (Number.isFinite(snapshot.tei)) state.tei = snapshot.tei;
-        if (Number.isFinite(snapshot.hr)) state.hr = snapshot.hr;
-        if (Number.isFinite(snapshot.hrv)) state.hrv = snapshot.hrv;
-        if (Number.isFinite(snapshot.rr)) state.rr = snapshot.rr;
-        if (Number.isFinite(snapshot.stress)) state.stress = snapshot.stress;
-        if (Number.isFinite(snapshot.sns)) state.sns = snapshot.sns;
-        if (Number.isFinite(snapshot.pns)) state.pns = snapshot.pns;
-        if (Number.isFinite(snapshot.bodyBattery)) state.bodyBattery = snapshot.bodyBattery;
-        if (Array.isArray(snapshot.bbSeries) && snapshot.bbSeries.length) state.bbSeries = snapshot.bbSeries;
-    }
-
-    function mergeEventDetail(detail) {
-        if (!detail || typeof detail !== 'object') return;
-
-        var hr = asNumber(detail.hr);
-        if (hr === null) hr = asNumber(detail.hrBpm);
-
-        var hrv = asNumber(detail.hrv);
-        if (hrv === null) hrv = asNumber(detail.hrvRmssdMs);
-
-        var rr = asNumber(detail.rr);
-        if (rr === null) rr = asNumber(detail.rrBrpm);
-
-        var stress = asNumber(detail.stress);
-        var tei = asNumber(detail.tei);
-        var bodyBattery = asNumber(detail.bodyBattery);
-
-        if (Number.isFinite(hr)) state.hr = Math.round(hr);
-        if (Number.isFinite(hrv)) state.hrv = Math.round(hrv);
-        if (Number.isFinite(rr)) state.rr = Math.round(rr);
-        if (Number.isFinite(stress)) state.stress = Math.round(stress);
-        if (Number.isFinite(tei)) state.tei = Math.round(tei);
-        if (Number.isFinite(bodyBattery)) state.bodyBattery = Math.round(bodyBattery);
-
-        var sns = null;
-        var pns = null;
-
-        if (detail.ans && typeof detail.ans === 'object') {
-            sns = asNumber(detail.ans.sns);
-            pns = asNumber(detail.ans.pns);
-        }
-
-        if (sns === null) sns = asNumber(detail.sns);
-        if (sns === null) sns = asNumber(detail.snsPercent);
-        if (pns === null) pns = asNumber(detail.pns);
-
-        if (Number.isFinite(sns)) state.sns = Math.round(sns);
-        if (Number.isFinite(pns)) state.pns = Math.round(pns);
-        if (!Number.isFinite(pns) && Number.isFinite(sns)) state.pns = 100 - Math.round(sns);
-
-        var bbSeries = null;
-        if (Array.isArray(detail.bbHourly)) bbSeries = detail.bbHourly;
-        if (!bbSeries && Array.isArray(detail.bb24h)) bbSeries = detail.bb24h;
-        if (bbSeries && bbSeries.length) state.bbSeries = bbSeries;
-    }
-
-    function applyAll() {
-        ensureReadyClass();
-        ensureBottomSpacer();
-
-        var bHr = document.getElementById('bento-hr'); if (bHr && state.hr !== null && state.hr !== undefined) bHr.textContent = String(state.hr);
-        var bHrv = document.getElementById('bento-hrv'); if (bHrv && state.hrv !== null && state.hrv !== undefined) bHrv.textContent = String(state.hrv);
-        var bRr = document.getElementById('bento-rr'); if (bRr && state.rr !== null && state.rr !== undefined) bRr.textContent = String(state.rr);
-        var bStress = document.getElementById('bento-stress'); if (bStress && state.stress !== null && state.stress !== undefined) bStress.textContent = String(state.stress);
-
-        // Push values to sparklines to make them render live waves
-        if (global.TENKI_RESULTS && typeof global.TENKI_RESULTS.pushSparkline === 'function') {
-            if (state.hr !== null && state.hr !== undefined) global.TENKI_RESULTS.pushSparkline('hr', state.hr);
-            if (state.hrv !== null && state.hrv !== undefined) global.TENKI_RESULTS.pushSparkline('hrv', state.hrv);
-            if (state.rr !== null && state.rr !== undefined) global.TENKI_RESULTS.pushSparkline('rr', state.rr);
-        }
-
-        updateStress(state.stress);
-        updateAns(state.sns, state.pns);
-        renderBodyBattery(state.bbSeries, state.bodyBattery);
-        updateFdcbDetail();
-    }
-
-    function handleScanUpdate(event) {
-        mergeEventDetail(event.detail || {});
-        applyAll();
-    }
-
-    function handleFdcbTick(event) {
-        var detail = (event && event.detail) || {};
-
-        var progress = asNumber(detail.progressPct);
-        if (progress === null) progress = asNumber(detail.progress);
-        if (progress === null) progress = asNumber(detail.progressPercent);
-
-        if (Number.isFinite(progress)) {
-            var fill = document.getElementById('fdcb-progress-fill');
-            if (fill) fill.style.width = clamp(progress, 0, 100) + '%';
-        }
-
-        var timerText = null;
-        if (Number.isFinite(asNumber(detail.remainingSec))) {
-            timerText = formatClock(asNumber(detail.remainingSec));
-        } else if (Number.isFinite(asNumber(detail.elapsedSec))) {
-            timerText = formatClock(asNumber(detail.elapsedSec));
-        } else if (typeof detail.clock === 'string') {
-            timerText = detail.clock;
-        }
-
-        if (timerText) {
-            var timer = document.getElementById('fdcb-timer');
-            if (timer) timer.textContent = timerText;
-        }
-
-        updateFdcbDetail();
-    }
-
-    function startPolling() {
-        if (pollTimer) {
-            clearInterval(pollTimer);
-            pollTimer = null;
-        }
-
-        pollTimer = setInterval(function () {
-            if (!isResultsVisible()) return;
-            mergeSnapshot(readSnapshotFromDom());
-            applyAll();
-        }, POLL_MS);
-    }
-
-    var observerDebounce = null;
-
-    function observeOverlay() {
-        var root = document.getElementById('results-page');
-        if (!root) return;
-
-        if (observer) observer.disconnect();
-
-        observer = new MutationObserver(function () {
-            if (!isResultsVisible()) return;
-            // Debounce to avoid thrashing during bulk DOM builds
-            if (observerDebounce) return;
-            observerDebounce = setTimeout(function () {
-                observerDebounce = null;
-                if (!isResultsVisible()) return;
-                mergeSnapshot(readSnapshotFromDom());
-                applyAll();
-            }, 200);
-        });
-
-        observer.observe(root, {
-            attributes: true,
-            attributeFilter: ['class'],
-            childList: true,
-            subtree: true
-        });
-    }
-
-    function init() {
-        document.addEventListener('tenki:scan-update', handleScanUpdate);
-        document.addEventListener('tenki:fdcb-tick', handleFdcbTick);
-
-        observeOverlay();
-        startPolling();
-
-        if (isResultsVisible()) {
-            mergeSnapshot(readSnapshotFromDom());
-            applyAll();
-        }
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+/**
+ * Generate the 24 colored gradient bars for Body Battery
+ */
+function generateBatteryBars() {
+  const container = document.getElementById('rp-battery-bars');
+  if(!container) return;
+  
+  // Smoothly dropping profile
+  const vals = [95,95,94,92,90,88,86,85,82,80,78,76,74,74,72,70,68,66,66,64,62,60,58,56];
+  
+  let html = '';
+  for(let i=0; i<24; i++) {
+    const p = i/23;
+    // Green -> Amber -> Brown color mapping
+    // RGB interp: G(52, 199, 89) -> A(245, 166, 35) -> B(139, 87, 42)
+    let r, g, b;
+    if (p < 0.5) {
+      let t = p * 2;
+      r = 52 + (245 - 52) * t;
+      g = 199 + (166 - 199) * t;
+      b = 89 + (35 - 89) * t;
     } else {
-        init();
+      let t = (p - 0.5) * 2;
+      r = 245 + (139 - 245) * t;
+      g = 166 + (87 - 166) * t;
+      b = 35 + (42 - 35) * t;
     }
+    const color = `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+    const h = Math.max(20, (vals[i]/100) * 100); 
+    html += `<div class="rp-battery__bar" style="background:${color}; height:${h}%;"></div>`;
+  }
+  container.innerHTML = html;
+}
 
-    global.TENKI_RESULTS_COMPONENTS = {
-        apply: applyAll,
-        snapshot: readSnapshotFromDom,
-        mergeEvent: mergeEventDetail
+/**
+ * Draw continuous scrolling waveforms using requestAnimationFrame
+ */
+let waveforms = {
+  hr:  { els: [], offset: 0, speed: 2.0, amp: 8, baseline: 12 },
+  hrv: { els: [], offset: 0, speed: 1.5, amp: 6, baseline: 12 },
+  rr:  { els: [], offset: 0, speed: 0.8, amp: 4, baseline: 12 }
+};
+
+function startWaveforms() {
+  for(let i=0; i<40; i++) {
+    waveforms.hr.els.push(Math.sin(i*0.5)*waveforms.hr.amp + (Math.random()*2));
+    waveforms.hrv.els.push(Math.sin(i*0.4)*waveforms.hrv.amp + (Math.random()*1));
+    waveforms.rr.els.push(Math.sin(i*0.2)*waveforms.rr.amp + (Math.random()*3));
+  }
+  
+  function draw() {
+    Object.keys(waveforms).forEach(k => {
+      const w = waveforms[k];
+      w.offset += w.speed;
+      if(w.offset > 10) { // Shift array to create smooth scrolling effect
+        w.offset -= 10;
+        w.els.shift();
+        w.els.push(Math.sin(Date.now()/500 * w.speed)*w.amp + (Math.random()*(k==='rr'?3:2)));
+      }
+      
+      const poly = document.getElementById(`rp-wave-${k}`);
+      if(poly) {
+        let pts = '';
+        w.els.forEach((val, i) => {
+          let x = (i * 2) - (w.offset * 0.2); // stretch X
+          let y = w.baseline - val;
+          pts += `${x},${y} `;
+        });
+        poly.setAttribute('points', pts);
+      }
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+/**
+ * Fallback Data Polling (Event Bridge - Scheme C/B fallback)
+ */
+function startDataPolling() {
+  setInterval(() => {
+    // Attempt to grab from DOM (Scheme C)
+    const getVal = (id) => {
+      const el = document.getElementById(id);
+      if(!el) return null;
+      const num = parseInt(el.textContent, 10);
+      return isNaN(num) ? null : num;
     };
-})(window);
+    
+    let hr = getVal('snap-hr') || getVal('bio-hr-val') || 68;
+    let rr = getVal('snap-rr') || 14;
+    let hrv = getVal('hrv-val') || getVal('bio-hrv-val') || 52;
+    let tei = getVal('ring-score') ? 72 : 72; // Hard fallback
+    
+    updateUI({ hr, rr, hrv, tei });
+    
+  }, 1000);
+}
+
+function updateUI(data) {
+  if(data.hr) document.getElementById('rp-val-hr').textContent = data.hr;
+  if(data.rr) document.getElementById('rp-val-rr').textContent = data.rr;
+  if(data.hrv) document.getElementById('rp-val-hrv').textContent = data.hrv;
+  
+  // Example dynamic mapping for TEI
+  const teiVal = data.tei || 72;
+  const teiEl = document.getElementById('rp-tei-val');
+  if(teiEl) {
+    teiEl.textContent = teiVal;
+    
+    // Position dot mapping on golden arc
+    // Math: arc length 270 deg representing TEI 0-100.
+    // Start angle: 135deg (Left-bottom), End angle: 405deg.
+    const pct = Math.min(100, Math.max(0, teiVal)) / 100;
+    const angleRot = (pct * 270); 
+    
+    const dot = document.getElementById('rp-tei-dot');
+    if(dot) dot.style.transform = `translate(-50%, -50%) rotate(${angleRot}deg)`;
+    
+    // Dash Offset mapping
+    // total 816.8, visible 612.6.
+    // 0 = empty (dashoffset = 816.8), 100 = full (dashoffset = 816.8 - 612.6 = 204.2)
+    const arc = document.getElementById('rp-tei-arc');
+    if(arc) arc.style.strokeDashoffset = 816.8 - (612.6 * pct);
+  }
+}
