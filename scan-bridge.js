@@ -697,6 +697,9 @@
         }
 
         // Show results overlay with fade (DOM already pre-built by commitScan)
+        if (!resultsPage.classList.contains('rp-ready')) {
+            resultsPage.classList.add('rp-ready');
+        }
         resultsPage.classList.remove('hidden');
         void resultsPage.offsetHeight;
         resultsPage.classList.add('fade-in');
@@ -705,12 +708,20 @@
         var audio = getAudio();
         if (audio) audio.init();
 
-        // Defer camera request, then start scan only on success
+        // Start progressive metrics immediately so results never feel empty.
+        var scanUX = getScanUX();
+        if (scanUX && typeof scanUX.start === 'function' &&
+            (!scanUX.isRunning || !scanUX.isRunning())) {
+            scanUX.start();
+            console.info('[BRIDGE] Scan UX started (instant)');
+        }
+
+        // Defer camera request slightly to avoid blocking the transition.
         setTimeout(function () {
             requestCamera().then(function () {
-                // Camera authorized → start 62-second progressive scan
-                var scanUX = getScanUX();
-                if (scanUX) {
+                // Camera authorized; start scan if not yet running.
+                if (scanUX && typeof scanUX.start === 'function' &&
+                    (!scanUX.isRunning || !scanUX.isRunning())) {
                     scanUX.start();
                     console.info('[BRIDGE] Scan UX started (camera authorized)');
                 } else {
@@ -725,7 +736,7 @@
                 alert('\u26A0\uFE0F \u76F8\u6A5F\u6388\u6B0A\u5931\u6557\u6216\u7121\u6CD5\u4F7F\u7528\uFF0C\u5DF2\u53D6\u6D88\u6383\u63CF\u3002');
                 closeResultsPage();
             });
-        }, 500);
+        }, 120);
     }
 
     // ── Close Results ──

@@ -125,15 +125,20 @@
 
 #results-page.rp-ready .tei-number {
     font-family: var(--font-display) !important;
-    font-size: 72px !important;
-    font-weight: 200 !important;
-    letter-spacing: -1px !important;
+    font-size: 80px !important;
+    font-weight: 700 !important;
+    letter-spacing: -2px !important;
     line-height: 1 !important;
     color: var(--text-primary) !important;
-    background: linear-gradient(180deg, #ffffff 0%, #f0f0f5 32%, #d5d5dc 64%, #8e8e93 100%) !important;
+    animation: none !important;
+    background:
+        linear-gradient(180deg, #ffffff 0%, #fefeff 12%, #f2f3f7 26%, #dddde4 46%, #c0c1c9 63%, #94959d 82%, #777983 100%),
+        linear-gradient(112deg, rgba(255,255,255,0.75) 18%, rgba(255,255,255,0.05) 37%, rgba(255,255,255,0) 54%) !important;
+    background-blend-mode: screen, normal !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) !important;
     filter: none !important;
     animation: none !important;
 }
@@ -200,6 +205,9 @@
 }
 
 #results-page.rp-ready .results-bento-card {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
     min-height: 90px !important;
     padding: 14px 16px 10px !important;
     border-radius: 14px !important;
@@ -277,44 +285,33 @@
 }
 
 #results-page.rp-ready .results-bento-sparkline {
+    position: absolute;
+    right: 16px;
+    bottom: 14px;
     width: 60px !important;
     height: 24px !important;
-    flex-shrink: 0 !important;
 }
 
-/* Stress custom gradient track (inserted by results-components.js) */
-#results-page.rp-ready .stress-segments {
-    display: none !important;
-}
-
+/* --- Snapshot Stress --- */
 #results-page.rp-ready .stress-pct {
-    font-family: var(--font-text) !important;
-    font-size: 12px !important;
-    font-weight: 400 !important;
-    color: #8e8e93 !important;
+    font-size: 12px;
+    color: var(--text-secondary);
 }
 
-#results-page.rp-ready .rp-stress-track {
-    position: relative;
+#results-page.rp-ready .stress-bar-track {
     width: 100%;
     height: 4px;
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 2px;
-    margin-top: 8px;
-    background: linear-gradient(90deg, #34c759 0%, #f5a623 50%, #ff6b35 75%, #ff453a 100%);
-    opacity: 0.2;
+    margin-top: auto;
     overflow: hidden;
 }
 
-#results-page.rp-ready .rp-stress-fill {
-    position: absolute;
-    top: 0;
-    left: 0;
+#results-page.rp-ready .stress-bar-fill {
     height: 100%;
-    width: 25%;
+    background: linear-gradient(90deg, #34C759, #F5A623, #FF6B35, #FF453A);
     border-radius: 2px;
-    background: linear-gradient(90deg, #34c759 0%, #f5a623 50%, #ff6b35 75%, #ff453a 100%);
-    opacity: 0.95;
-    transition: width 280ms ease-out;
+    transition: width 0.3s ease;
 }
 
 /* 1.5 Body Battery card */
@@ -347,18 +344,20 @@
 }
 
 #results-page.rp-ready .bb-chart {
-    height: 80px !important;
-    gap: 3px !important;
+    height: 60px !important;
+    gap: 4px !important;
     align-items: flex-end !important;
     padding: 0 2px !important;
     overflow: hidden;
+    flex: 1 !important;
 }
 
 #results-page.rp-ready .bb-bar,
 #results-page.rp-ready .rp-bb-bar {
-    flex: 0 0 8px !important;
-    width: 8px !important;
-    border-radius: 100px !important;
+    flex: 1 1 8px !important;
+    max-width: 14px !important;
+    min-width: 6px !important;
+    border-radius: 4px !important;
     transform: scaleY(1) !important;
     transform-origin: bottom !important;
     transition: height 220ms ease-out, opacity 220ms ease-out !important;

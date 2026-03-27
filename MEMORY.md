@@ -1,4 +1,4 @@
-﻿# MEMORY.md — Tenki Core AI Memory
+# MEMORY.md — Tenki Core AI Memory
 
 > 此檔案由 AI 助手在每次 session 結束時更新。
 > 人類不需要手動維護，但可以隨時修改或刪除任何條目。
@@ -86,18 +86,18 @@
 
 ## 上次 Session 結束點
 
-- **日期**: 2026-03-23
+- **日期**: 2026-03-24
 - **最後完成**:
-  - 新增 ANTIGRAVITY.md「0.1 續航 / 環境啟動」（Node 路徑、workspace/git、Browser Control 提醒）
-  - 對位膠囊 Apple Pay 式智能提示（靠近/左右/上下/轉正/穩定）；對位成功回饋：輕觸覺 + soft ping + 視覺瞬閃
-  - 星塵 8000 粒子改為前滾翻滾感（X 軸主滾 + Y/Z 預旋 + roll pulse）
-  - FDCB dock 與 Decision Dock 模板 icon 全面改為高級 glyph（pinwheel / circuitry / cube-focus / target / breath），移除 emoji
-  - 新增 audio lignOk 供對位成功提示
-  - 已推送 commits：c88ab90、875ebb6
+  - Browser Control 完整 UX 走查（首頁 → hold-to-scan → 結果頁原始碼分析）
+  - 設計稿差距分析：Web prototype 核心視覺元素與 founder 設計參考截圖高度一致
+  - 差距主要在 RN 遷移項目（TEI 金屬漸層、SQI 區塊、Trend Chart 等）
+  - 自我檢查：識別並修正了上次報告的 5 個問題（忽略設計稿、淺層測試、敷衍建議等）
 - **線上檢視**: https://tenki-emotion-app.vercel.app
 - **下一步**:
-  1. 手機驗收視覺（對位提示 + glyph + 星塵翻滾）
-  2. 依體感微調 icon 光暈/線寬或翻滾速度
+  1. 📱 手機驗收視覺（對位提示 + glyph + 星塵翻滾 + 結果頁）
+  2. 依 founder 體感回饋微調
+  3. Mac 到手後立即 Expo init + TEI Ring Skia component
+
 ## 各 AI 工具的角色分工
 
 | 工具 | 角色 | 目前使用狀態 |
@@ -108,6 +108,5 @@
 
 ---
 
-*Last updated: 2026-03-23 11:53*
-*Updated by: Codex (alignment + glyph icons + stardust roll)*
-
+*Last updated: 2026-03-24 10:45*
+*Updated by: Antigravity (UX walkthrough + design gap analysis)*

@@ -125,7 +125,7 @@
     }
 
     function updateMetrics() {
-        if (locked || currentPhase < 1) return;
+        if (locked || currentPhase < 0) return;
 
         var baseline = global.TENKI_BASELINE_SIM;
         var results = global.TENKI_RESULTS;
@@ -224,7 +224,7 @@
 
             ewma = { tei: 0, hr: 0, hrv: 0, rr: 0, stress: 0, sns: 50, sqi: 0 };
             histories = { hr: [], hrv: [], rr: [] };
-            currentPhase = -1;
+            currentPhase = 0;
             locked = false;
             latestRaw = null;
 
@@ -251,6 +251,10 @@
 
             isRunning = true;
             startTime = Date.now();
+
+            // Immediate first frame so results page never shows a blank/black wait.
+            tick();
+            updateMetrics();
 
             timer = setInterval(tick, 1000);
             updateTimer = setInterval(updateMetrics, UPDATE_INTERVAL);

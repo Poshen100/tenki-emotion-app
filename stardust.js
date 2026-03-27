@@ -24,10 +24,19 @@
     }
 
     var PARTICLE_COUNT = 8000;
-    var PARTICLE_SIZE = 0.09;
+    var PARTICLE_SIZE = 0.088;
     var scene, camera, renderer, cloud, material;
     var animFrame = null;
     var clock = new THREE.Clock();
+
+    // v25.8.2 feel-preserving micro-tune knobs (P1)
+    var ROLL_CFG = {
+        x: 0.0027,        // forward tumble axis
+        y: 0.00135,       // depth spin
+        z: 0.00032,       // side wobble
+        pulseFreq: 0.20,  // speed breathing
+        pulseAmp: 0.00058
+    };
 
     // Per-particle drift data (organic movement)
     var basePositions = null;   // Original Fibonacci positions
@@ -119,7 +128,8 @@
         var ctx = spriteCanvas.getContext('2d');
         var grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
         grad.addColorStop(0, 'rgba(255,255,255,1)');
-        grad.addColorStop(0.35, 'rgba(255,255,255,0.8)');
+        grad.addColorStop(0.24, 'rgba(255,255,255,0.90)');
+        grad.addColorStop(0.56, 'rgba(255,255,255,0.40)');
         grad.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, 32, 32);
@@ -131,7 +141,7 @@
             size: PARTICLE_SIZE,
             map: tex,
             transparent: true,
-            opacity: 0.9,
+            opacity: 0.92,
             vertexColors: true,
             blending: THREE.AdditiveBlending,
             depthWrite: false
@@ -170,9 +180,9 @@
             var col = colAttr.array;
 
             // Drift intensity scales with expression (more emotional → more particle chaos)
-            var driftMult = 1.0;
+            var driftMult = 0.95;
             if (expr.active) {
-                driftMult += expr.mouthOpen * 0.5 + expr.browTension * 0.3;
+                driftMult += expr.mouthOpen * 0.48 + expr.browTension * 0.28;
             }
 
             // Update every 3rd frame for performance (still 20fps drift at 60fps render)
@@ -204,21 +214,21 @@
 
             // ── v25.8.2 Rolling Rotation (accumulating increment = natural tumble) ──
             // Forward roll: X-axis is the main rolling axis, with gentle Y/Z precession
-            var rotSpeedX = 0.0024;   // Forward rolling main axis (slower for meditative feel)
-            var rotSpeedY = 0.0012;   // Gentle spin for depth
-            var rotSpeedZ = 0.0004;   // Subtle side tumble
-            var rollPulse = Math.sin(t * 0.22) * 0.0005; // Softer natural acceleration/slowdown
+            var rotSpeedX = ROLL_CFG.x;
+            var rotSpeedY = ROLL_CFG.y;
+            var rotSpeedZ = ROLL_CFG.z;
+            var rollPulse = Math.sin(t * ROLL_CFG.pulseFreq) * ROLL_CFG.pulseAmp;
             if (expr.active) {
                 // Emotion active: brow tension → faster rolling (agitation)
-                rotSpeedX += expr.browTension * 0.003;
+                rotSpeedX += expr.browTension * 0.00195;
                 // Mouth open → slightly faster (excitement/arousal)
-                rotSpeedY += expr.mouthOpen * 0.0015;
+                rotSpeedY += expr.mouthOpen * 0.00095;
                 // Add wobble on other axes for dramatic expression
-                rotSpeedZ += expr.browTension * 0.0007;
+                rotSpeedZ += expr.browTension * 0.00042;
             }
             cloud.rotation.x += rotSpeedX + rollPulse;
-            cloud.rotation.y += rotSpeedY + Math.sin(t * 0.15) * 0.0004;
-            cloud.rotation.z += rotSpeedZ + Math.sin(t * 0.18) * 0.0003;
+            cloud.rotation.y += rotSpeedY + Math.sin(t * 0.13) * 0.00037;
+            cloud.rotation.z += rotSpeedZ + Math.sin(t * 0.16) * 0.00020;
 
             // ── v25.8.2 Per-particle Expression Scaling (updateParticleSync) ──
             // Each particle individually scales based on expression:
