@@ -8,6 +8,7 @@
 
 ## 專案決策紀錄
 
+- [2026-03-27] 根目錄重整 — Web prototype 移入 apps/web/，Prompt 文件移入 docs/prompts/
 - [2026-02-25] 架構決策：選擇 React Native + Swift Hybrid，非純 Swift（原因：solo founder 效率、tenki-engine.js 零改動、雙平台）
 - [2026-02-25] 後端選擇 Supabase（Auth + Postgres + RLS + Edge Functions）
 - [2026-02-25] 訂閱計費選擇 RevenueCat（一次搞定 Apple + Google）
