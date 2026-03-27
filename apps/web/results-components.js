@@ -86,7 +86,7 @@ function initResultsPage() {
           <div class="rp-snapcard__val" id="rp-val-hr">68</div>
           <div class="rp-snapcard__unit">BPM</div>
         </div>
-        <svg class="rp-snapcard__wave" viewBox="0 0 60 24" preserveAspectRatio="none">
+        <svg xmlns="http://www.w3.org/2000/svg" class="rp-snapcard__wave" width="100%" height="100%" viewBox="0 0 60 24" preserveAspectRatio="none">
           <polyline id="rp-wave-hr" fill="none" stroke="#FF453A" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
         </svg>
       </div>
@@ -100,7 +100,7 @@ function initResultsPage() {
           <div class="rp-snapcard__val" id="rp-val-hrv">52</div>
           <div class="rp-snapcard__unit">ms <span style="font-size:10px;">RMSSD</span></div>
         </div>
-        <svg class="rp-snapcard__wave" viewBox="0 0 60 24" preserveAspectRatio="none">
+        <svg xmlns="http://www.w3.org/2000/svg" class="rp-snapcard__wave" width="100%" height="100%" viewBox="0 0 60 24" preserveAspectRatio="none">
           <polyline id="rp-wave-hrv" fill="none" stroke="#34C759" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
         </svg>
       </div>
@@ -113,7 +113,7 @@ function initResultsPage() {
           <div class="rp-snapcard__val" id="rp-val-rr">14</div>
           <div class="rp-snapcard__unit">BrPM</div>
         </div>
-        <svg class="rp-snapcard__wave" viewBox="0 0 60 24" preserveAspectRatio="none">
+        <svg xmlns="http://www.w3.org/2000/svg" class="rp-snapcard__wave" width="100%" height="100%" viewBox="0 0 60 24" preserveAspectRatio="none">
           <polyline id="rp-wave-rr" fill="none" stroke="#00B4D8" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
         </svg>
       </div>
@@ -129,8 +129,8 @@ function initResultsPage() {
            </div>
            <div class="rp-snapcard__unit" id="rp-val-strs-pct">25%</div>
         </div>
-        <div class="rp-snapcard__stress-bar-container">
-          <div class="rp-snapcard__stress-bar" id="rp-bar-strs" style="width: 25%"></div>
+        <div class="rp-snapcard__stress-bar-container" style="background: rgba(255,255,255,0.1); width: 100%; height: 4px; border-radius: 2px;">
+          <div class="rp-snapcard__stress-bar" id="rp-bar-strs" style="width: 25%; height: 100%; background: linear-gradient(90deg, #34C759, #F5A623, #FF453A); border-radius: 2px;"></div>
         </div>
       </div>
     </div>
