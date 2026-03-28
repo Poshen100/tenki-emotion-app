@@ -437,7 +437,8 @@
             '      <span class="results-bento-value" id="bento-hr">--</span>' +
             '      <span class="results-bento-unit">BPM</span>' +
             '    </div>' +
-            '    <canvas class="results-bento-sparkline" id="results-spark-hr"></canvas>' +
+            '    <span class="results-bento-sparkline-wait" id="spark-wait-hr">\u7B49\u5F85\u6578\u64DA\u4E2D\u2026</span>' +
+            '    <canvas class="results-bento-sparkline" id="results-spark-hr" style="display:none"></canvas>' +
             '  </div>' +
             '</div>' +
 
@@ -451,7 +452,8 @@
             '      <span class="results-bento-value" id="bento-hrv">--</span>' +
             '      <span class="results-bento-unit"><sup>ms</sup> RMSSD</span>' +
             '    </div>' +
-            '    <canvas class="results-bento-sparkline" id="results-spark-hrv"></canvas>' +
+            '    <span class="results-bento-sparkline-wait" id="spark-wait-hrv">\u7B49\u5F85\u6578\u64DA\u4E2D\u2026</span>' +
+            '    <canvas class="results-bento-sparkline" id="results-spark-hrv" style="display:none"></canvas>' +
             '  </div>' +
             '</div>' +
 
@@ -464,7 +466,8 @@
             '      <span class="results-bento-value" id="bento-rr">--</span>' +
             '      <span class="results-bento-unit">BrPM</span>' +
             '    </div>' +
-            '    <canvas class="results-bento-sparkline" id="results-spark-rr"></canvas>' +
+            '    <span class="results-bento-sparkline-wait" id="spark-wait-rr">\u7B49\u5F85\u6578\u64DA\u4E2D\u2026</span>' +
+            '    <canvas class="results-bento-sparkline" id="results-spark-rr" style="display:none"></canvas>' +
             '  </div>' +
             '</div>' +
 
@@ -574,21 +577,25 @@
             var el = document.getElementById('results-spark-' + id);
             if (el && global.TENKI_Sparkline) {
                 try {
-                    // Ensure canvas has layout dimensions before init
-                    var rect = el.getBoundingClientRect();
-                    if (rect.width < 1) {
-                        // Force explicit size matching CSS (60x24)
-                        el.style.width = '60px';
-                        el.style.height = '24px';
-                    }
+                    // Force explicit size (80x32) before init
+                    el.style.width = '80px';
+                    el.style.height = '32px';
                     sparklines[id] = new global.TENKI_Sparkline(el, {
-                        color: colors[id], maxPoints: 40
+                        color: colors[id], maxPoints: 40, lineWidth: 1.8
                     });
                 } catch (e) {
                     console.warn('[RESULTS] Sparkline init failed for', id, e);
                 }
             }
         });
+    }
+
+    // Show sparkline canvas and hide waiting text
+    function revealSparkline(id) {
+        var canvas = document.getElementById('results-spark-' + id);
+        var wait = document.getElementById('spark-wait-' + id);
+        if (canvas) canvas.style.display = 'block';
+        if (wait) wait.style.display = 'none';
     }
 
     // ─── Init Body Battery ───
@@ -811,10 +818,10 @@
             var bentoStress = document.getElementById('bento-stress');
             if (bentoStress) bentoStress.textContent = String(stress);
 
-            // Sparklines
-            if (sparklines.hr && histories.hr.length > 0) sparklines.hr.push(hr);
-            if (sparklines.hrv && histories.hrv.length > 0) sparklines.hrv.push(hrv);
-            if (sparklines.rr && histories.rr.length > 0) sparklines.rr.push(rr);
+            // Sparklines — push data and reveal canvas (hiding waiting text)
+            if (sparklines.hr) { revealSparkline('hr'); sparklines.hr.push(hr); }
+            if (sparklines.hrv) { revealSparkline('hrv'); sparklines.hrv.push(hrv); }
+            if (sparklines.rr) { revealSparkline('rr'); sparklines.rr.push(rr); }
 
             // Stress bar
             updateStressBar(stress);

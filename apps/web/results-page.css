@@ -342,10 +342,25 @@
 
 #results-page.rp-ready .results-bento-sparkline {
     position: absolute;
-    right: 16px;
-    bottom: 14px;
-    width: 60px !important;
-    height: 24px !important;
+    right: 12px;
+    bottom: 10px;
+    width: 80px !important;
+    height: 32px !important;
+}
+
+#results-page.rp-ready .results-bento-sparkline-wait {
+    position: absolute;
+    right: 12px;
+    bottom: 16px;
+    font-family: var(--font-text) !important;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.3);
+    animation: sparkWait 1.5s ease-in-out infinite;
+}
+
+@keyframes sparkWait {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 0.55; }
 }
 
 /* --- Snapshot Stress --- */
