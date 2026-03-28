@@ -205,6 +205,54 @@
     display: none !important;
 }
 
+/* 1.3b Trading Summary Card */
+#results-page.rp-ready .rp-summary-card {
+    margin: 0 0 12px !important;
+    padding: 18px 20px !important;
+    text-align: left !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+#results-page.rp-ready .rp-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+#results-page.rp-ready .rp-summary-zone {
+    font-family: var(--font-display) !important;
+    font-size: 18px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+#results-page.rp-ready .rp-summary-emoji {
+    font-size: 22px;
+}
+
+#results-page.rp-ready .rp-summary-label {
+    font-family: var(--font-text) !important;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+#results-page.rp-ready .rp-summary-tips {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+#results-page.rp-ready .rp-summary-tip {
+    font-family: var(--font-text) !important;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1.5;
+}
+
 /* 1.4 Snapshot 2x2 */
 #results-page.rp-ready .results-bento-grid {
     grid-template-columns: 1fr 1fr !important;
