@@ -637,10 +637,51 @@
             }
         }
 
-        // Small delay so DOM settles before transition + heavy work
-        setTimeout(function () {
+        // Show achievement toast, then transition to results
+        showScanCompleteToast(function() {
             showResultsPage();
-        }, 50);
+        });
+    }
+
+    // ── Scan Complete Achievement Toast ──
+    function showScanCompleteToast(onDone) {
+        // Read TEI from dashboard
+        var scoreEl = document.getElementById('dash-score');
+        var teiVal = scoreEl ? parseInt(scoreEl.textContent, 10) : null;
+        if (!teiVal || isNaN(teiVal)) teiVal = null;
+
+        var zone = 'NEUTRAL';
+        var emoji = '😌';
+        if (teiVal !== null) {
+            if (teiVal >= 80) { zone = 'PEAK'; emoji = '🔥'; }
+            else if (teiVal >= 55) { zone = 'OPTIMAL'; emoji = '✨'; }
+            else if (teiVal >= 35) { zone = 'NEUTRAL'; emoji = '😌'; }
+            else { zone = 'DEGRADED'; emoji = '⚠️'; }
+        }
+
+        var toast = document.createElement('div');
+        toast.className = 'tenki-scan-toast';
+        toast.innerHTML =
+            '<div class="tenki-scan-toast-title">✦ 掃描完成</div>' +
+            (teiVal !== null
+                ? '<div class="tenki-scan-toast-score">你的 TEI 指數：' + teiVal + ' ' + emoji + '</div>'
+                : '<div class="tenki-scan-toast-score">準備顯示結果 ' + emoji + '</div>');
+
+        document.body.appendChild(toast);
+
+        // Force reflow then animate in
+        toast.offsetHeight;
+        toast.classList.add('tenki-scan-toast-show');
+
+        // After 1.2s visible, fade out then callback
+        setTimeout(function() {
+            toast.classList.remove('tenki-scan-toast-show');
+            toast.classList.add('tenki-scan-toast-hide');
+            setTimeout(function() {
+                if (toast.parentNode) toast.parentNode.removeChild(toast);
+                if (onDone) onDone();
+            }, 300);
+        }, 1200);
     }
 
     // ── Camera for rPPG (returns Promise) ──
