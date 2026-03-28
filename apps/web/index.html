@@ -30,6 +30,201 @@
     <link rel="stylesheet" href="spectrum.css">
     <link rel="stylesheet" href="results-page.css">
 
+    <!-- Onboarding Modal Styles -->
+    <style>
+        .tenki-onboarding-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 500;
+            background: rgba(0, 5, 15, 0.88);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            animation: tenki-onboarding-in 0.5s ease-out forwards;
+        }
+
+        .tenki-onboarding-overlay.tenki-onboarding-exit {
+            animation: tenki-onboarding-out 0.4s ease-in forwards;
+            pointer-events: none;
+        }
+
+        .tenki-onboarding-card {
+            position: relative;
+            width: 100%;
+            max-width: 390px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            background: rgba(8, 18, 35, 0.82);
+            backdrop-filter: blur(24px) saturate(150%);
+            -webkit-backdrop-filter: blur(24px) saturate(150%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            padding: 32px 24px;
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                0 20px 60px rgba(0, 0, 0, 0.5),
+                0 0 80px rgba(0, 180, 255, 0.06);
+        }
+
+        .tenki-onboarding-tag {
+            font-family: 'JetBrains Mono', 'Space Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #00B4D8;
+            margin-bottom: 20px;
+        }
+
+        .tenki-onboarding-title {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1.35;
+            margin-bottom: 14px;
+        }
+
+        .tenki-onboarding-subtitle {
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 15px;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.55;
+            margin-bottom: 24px;
+        }
+
+        .tenki-onboarding-features {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        .tenki-onboarding-feature {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.85);
+            opacity: 0;
+            animation: tenki-onboarding-feature-in 0.4s ease-out forwards;
+        }
+
+        .tenki-onboarding-feature:nth-child(1) { animation-delay: 0.15s; }
+        .tenki-onboarding-feature:nth-child(2) { animation-delay: 0.25s; }
+        .tenki-onboarding-feature:nth-child(3) { animation-delay: 0.35s; }
+
+        .tenki-onboarding-feature-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+            width: 28px;
+            text-align: center;
+        }
+
+        .tenki-onboarding-modes {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 28px;
+        }
+
+        .tenki-onboarding-mode-box {
+            border: 1px dashed rgba(255, 255, 255, 0.18);
+            border-radius: 12px;
+            padding: 14px 12px;
+            text-align: center;
+        }
+
+        .tenki-onboarding-mode-icon {
+            font-size: 18px;
+            margin-bottom: 6px;
+        }
+
+        .tenki-onboarding-mode-name {
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .tenki-onboarding-mode-desc {
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.45);
+            line-height: 1.4;
+        }
+
+        .tenki-onboarding-cta {
+            display: block;
+            width: 100%;
+            height: 54px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #00b4ff 0%, #0066cc 100%);
+            box-shadow: 0 0 24px rgba(0, 180, 255, 0.4);
+            color: #ffffff;
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            margin-bottom: 16px;
+        }
+
+        .tenki-onboarding-cta:active {
+            transform: scale(0.97);
+            box-shadow: 0 0 16px rgba(0, 180, 255, 0.3);
+        }
+
+        .tenki-onboarding-privacy {
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.35);
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        @media (min-width: 769px) {
+            .tenki-onboarding-privacy {
+                display: none;
+            }
+        }
+
+        @keyframes tenki-onboarding-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .tenki-onboarding-card {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: tenki-onboarding-card-in 0.5s ease-out 0.05s forwards;
+        }
+
+        @keyframes tenki-onboarding-card-in {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes tenki-onboarding-out {
+            from { opacity: 1; }
+            to { opacity: 0; transform: scale(0.97); }
+        }
+
+        @keyframes tenki-onboarding-feature-in {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+
     <style>
         :root {
             --bg-deep: #050510;
@@ -1663,6 +1858,84 @@
         <script src="scan-bridge.js"></script>
 
         <script src="results-components.js"></script>
+
+        <!-- Onboarding Modal -->
+        <div id="tenki-onboarding" class="tenki-onboarding-overlay" style="display:none;">
+            <div class="tenki-onboarding-card">
+                <div class="tenki-onboarding-tag">TENKI v51.1 · LIVE BIOMETRIC SYNC</div>
+                <div class="tenki-onboarding-title">交易前，<br>先確認你的心是清明的</div>
+                <div class="tenki-onboarding-subtitle">30 秒即時掃描情緒指數 (TEI)<br>讓數據告訴你現在適不適合進場</div>
+                <div class="tenki-onboarding-features">
+                    <div class="tenki-onboarding-feature">
+                        <span class="tenki-onboarding-feature-icon">⚡</span>
+                        <span>即時 TEI 情緒指數 0–100</span>
+                    </div>
+                    <div class="tenki-onboarding-feature">
+                        <span class="tenki-onboarding-feature-icon">🧠</span>
+                        <span>偵測焦慮性喚醒模式</span>
+                    </div>
+                    <div class="tenki-onboarding-feature">
+                        <span class="tenki-onboarding-feature-icon">📊</span>
+                        <span>Garmin 心率 + rPPG 雙源融合</span>
+                    </div>
+                </div>
+                <div class="tenki-onboarding-modes">
+                    <div class="tenki-onboarding-mode-box">
+                        <div class="tenki-onboarding-mode-icon">⚡</div>
+                        <div class="tenki-onboarding-mode-name">GLIMPSE</div>
+                        <div class="tenki-onboarding-mode-desc">2 秒快速<br>看整體狀態</div>
+                    </div>
+                    <div class="tenki-onboarding-mode-box">
+                        <div class="tenki-onboarding-mode-icon">🔬</div>
+                        <div class="tenki-onboarding-mode-name">DEEP SCAN</div>
+                        <div class="tenki-onboarding-mode-desc">60 秒完整<br>精準 TEI 分析</div>
+                    </div>
+                </div>
+                <button class="tenki-onboarding-cta" id="tenki-onboarding-cta">立即開始掃描</button>
+                <div class="tenki-onboarding-privacy">⛓ 鏡頭數據本地處理，不上傳伺服器</div>
+            </div>
+        </div>
+
+        <script>
+        (function() {
+            var STORAGE_KEY = 'tenki_onboarding_shown';
+            var overlay = document.getElementById('tenki-onboarding');
+            if (!overlay) return;
+
+            // Only show on first visit
+            try {
+                if (localStorage.getItem(STORAGE_KEY)) return;
+            } catch(e) {}
+
+            // Show modal
+            overlay.style.display = 'flex';
+
+            // CTA button handler
+            var cta = document.getElementById('tenki-onboarding-cta');
+            if (cta) {
+                cta.addEventListener('click', function() {
+                    // Mark as shown
+                    try { localStorage.setItem(STORAGE_KEY, '1'); } catch(e) {}
+
+                    // Fade out
+                    overlay.classList.add('tenki-onboarding-exit');
+
+                    // Remove after animation
+                    setTimeout(function() {
+                        overlay.style.display = 'none';
+                        overlay.remove();
+                    }, 400);
+                });
+            }
+
+            // Also close on overlay background click (outside card)
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    cta && cta.click();
+                }
+            });
+        })();
+        </script>
 
 </body>
 

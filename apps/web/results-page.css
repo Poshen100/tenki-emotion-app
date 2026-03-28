@@ -1,466 +1,569 @@
+/* =====================================================================
+   results-page.css
+   Tenki results overlay alignment layer (mockup-matched)
+   ===================================================================== */
+
 :root {
-  --bg-primary: #000000;
-  --bg-card: rgba(44, 44, 46, 0.65);
-  --bg-card-solid: rgba(44, 44, 46, 0.85);
-  --bg-blur: blur(16px);
-  --text-primary: #FFFFFF;
-  --text-secondary: #8E8E93;
-  --zone-peak: #F5A623;
-  --zone-optimal: #00B4D8;
-  --zone-neutral: #E5E5EA;
-  --zone-degraded: #5E3A87;
-  --accent-green: #34C759;
-  --accent-red: #FF453A;
-  --radius-card: 14px;
-  --radius-pill: 20px;
-  --spacing-page: 16px;
-  --spacing-card: 8px;
-  --font-display: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-text: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+    --bg-primary: #000000;
+    --bg-card: rgba(44, 44, 46, 0.65);
+    --bg-card-solid: rgba(44, 44, 46, 0.85);
+    --bg-blur: blur(16px);
+    --text-primary: #ffffff;
+    --text-secondary: #8e8e93;
+    --zone-peak: #f5a623;
+    --zone-optimal: #00b4d8;
+    --zone-neutral: #e5e5ea;
+    --zone-degraded: #5e3a87;
+    --accent-green: #34c759;
+    --accent-red: #ff453a;
+    --radius-card: 14px;
+    --radius-pill: 20px;
+    --spacing-page: 16px;
+    --spacing-card: 8px;
+    --font-display: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-text: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Hide old dashboard components to make way for the new ones */
-#dashboard-layer > .grid {
-  display: none !important;
+/* Overlay shell — override spectrum.css opaque background (94-98.5% → transparent for nebula) */
+#results-page {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.58) 45%, rgba(0, 0, 0, 0.72) 100%) !important;
 }
 
-/* Base Wrapper inserted by JS */
-.rp-container {
-  font-family: var(--font-text);
-  color: var(--text-primary);
-  width: 100%;
-  padding: env(safe-area-inset-top, 20px) var(--spacing-page) 88px;
-  box-sizing: border-box;
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 30;
-  pointer-events: none; /* Let clicks pass through except on our components */
+#results-page.rp-ready {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.58) 45%, rgba(0, 0, 0, 0.72) 100%) !important;
+    overflow-y: auto !important;
 }
 
-#dashboard-layer.show .rp-container * {
-  pointer-events: auto;
+#results-page.rp-ready .results-content {
+    width: 100% !important;
+    max-width: 430px !important;
+    margin: 0 auto !important;
+    padding: 0 var(--spacing-page) 88px !important;
+    min-height: 100vh !important;
 }
 
-/* 1.1 Top Status Bar */
-.rp-topbar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 24px;
-  margin-top: 10px;
+#results-page.rp-ready .results-close-btn {
+    width: 36px !important;
+    height: 36px !important;
+    right: 12px !important;
+    top: calc(10px + env(safe-area-inset-top, 0px)) !important;
+    font-size: 36px !important;
+    font-weight: 300 !important;
+    color: rgba(255, 255, 255, 0.92) !important;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5) !important;
 }
 
-.rp-topbar__badge {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-pill);
-  padding: 6px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 12px;
-  backdrop-filter: var(--bg-blur);
-  -webkit-backdrop-filter: var(--bg-blur);
+/* 1.1 Top status */
+#results-page.rp-ready .scan-badge {
+    text-align: center;
+    padding: 18px 0 8px !important;
 }
 
-.rp-topbar__pills {
-  display: flex;
-  gap: 8px;
+#results-page.rp-ready .scan-badge-pill {
+    min-height: 34px !important;
+    padding: 0 18px !important;
+    border-radius: var(--radius-pill) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    background: rgba(255, 255, 255, 0.12) !important;
+    color: #ffffff !important;
+    font-family: var(--font-text) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.3px !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
 }
 
-.rp-pill {
-  border-radius: 16px;
-  padding: 6px 14px;
-  font-size: 12px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+#results-page.rp-ready .source-strip {
+    display: flex;
+    justify-content: center;
+    gap: 8px !important;
+    padding: 8px 0 14px !important;
 }
 
-.rp-pill--active {
-  background: rgba(0, 180, 216, 0.25);
-  color: var(--zone-optimal);
+#results-page.rp-ready .source-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: var(--text-secondary) !important;
+    font-family: var(--font-text) !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
 }
 
-.rp-pill--inactive {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-secondary);
+/* Garmin chip: transparent cyan bg + cyan text (override spectrum.css solid gradient) */
+#results-page .source-chip.active,
+#results-page.rp-ready .source-chip.active {
+    background: rgba(0, 180, 216, 0.25) !important;
+    border-color: rgba(0, 180, 216, 0.4) !important;
+    color: #00b4d8 !important;
+    box-shadow: none !important;
 }
 
-/* 1.2 TEI Ring Display */
-.rp-tei {
-  position: relative;
-  width: 280px;
-  height: 280px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+#results-page .source-chip.active svg,
+#results-page.rp-ready .source-chip.active svg {
+    stroke: #00b4d8 !important;
+    fill: none !important;
 }
 
-.rp-tei__content {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: -10px;
+#results-page .source-chip.active .source-chip-icon-watch svg,
+#results-page.rp-ready .source-chip.active .source-chip-icon-watch svg {
+    stroke: #00b4d8 !important;
 }
 
-.rp-tei__score {
-  font-family: var(--font-display);
-  font-size: 72px;
-  font-weight: 200;
-  line-height: 1;
-  color: #FFFFFF;
-  margin: 0;
+#results-page.rp-ready .source-chip-icon {
+    width: 14px !important;
+    height: 14px !important;
 }
 
-.rp-tei__sub {
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--text-secondary);
-  letter-spacing: 1px;
-  margin: 4px 0;
+/* 1.2 TEI dual ring */
+#results-page.rp-ready .tei-ring-section {
+    padding: 8px 0 14px !important;
 }
 
-.rp-tei__status {
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--zone-optimal); /* Can change dynamically */
+#results-page.rp-ready .tei-ring-container,
+#results-page.rp-ready .tei-ring-canvas {
+    width: 296px !important;
+    height: 296px !important;
 }
 
-/* 1.3 Coach Hint Card */
-.rp-coach {
-  background: rgba(10, 18, 30, 0.48);
-  backdrop-filter: blur(24px) saturate(145%);
-  -webkit-backdrop-filter: blur(24px) saturate(145%);
-  border: 1px solid rgba(255,255,255,0.18);
-  box-shadow: 
-    inset 0 1px 0 rgba(255,255,255,0.16),
-    inset 0 -10px 24px rgba(0,0,0,0.18),
-    0 8px 30px rgba(0,0,0,0.22);
-  border-radius: 16px;
-  padding: 16px 20px;
-  margin: 16px 0 24px 0;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
+#results-page.rp-ready .tei-ring-canvas {
+    filter: drop-shadow(0 0 24px rgba(52, 199, 89, 0.08)) drop-shadow(0 0 34px rgba(0, 180, 216, 0.2));
 }
 
-.rp-coach::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 100%);
-  pointer-events: none;
-  z-index: 1;
+#results-page.rp-ready .tei-number {
+    font-family: var(--font-display) !important;
+    font-size: 72px !important;
+    font-weight: 200 !important;
+    letter-spacing: -1px !important;
+    line-height: 1 !important;
+    color: var(--text-primary) !important;
+    animation: none !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f0f0f5 32%, #d5d5dc 64%, #8e8e93 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    filter: none !important;
 }
 
-.rp-coach__text {
-  position: relative;
-  z-index: 2;
-  font-size: 15px;
-  line-height: 1.5;
-  color: #FFFFFF;
-  margin: 0;
+#results-page.rp-ready .tei-sub {
+    margin-top: 6px !important;
+    font-family: var(--font-display) !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    letter-spacing: 1px !important;
+    color: #8e8e93 !important;
 }
 
-/* 1.4 Snapshot 4-Grid */
-.rp-snapshot-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-card);
-  margin-bottom: var(--spacing-card);
+#results-page.rp-ready .tei-zone-label {
+    margin-top: 2px !important;
+    font-family: var(--font-display) !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
 }
 
-.rp-snapcard {
-  background: var(--bg-card);
-  backdrop-filter: var(--bg-blur);
-  -webkit-backdrop-filter: var(--bg-blur);
-  border-radius: var(--radius-card);
-  padding: 14px 16px;
-  min-height: 90px;
-  position: relative;
-  display: flex;
-  flex-direction: column;
+#results-page.rp-ready .tei-zone-label.optimal {
+    color: #00b4d8 !important;
 }
 
-.rp-snapcard__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: auto;
+#results-page.rp-ready .tei-zone-label.peak {
+    color: #f5a623 !important;
 }
 
-.rp-snapcard__title {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-secondary);
+#results-page.rp-ready .tei-zone-label.neutral {
+    color: #e5e5ea !important;
 }
 
-.rp-snapcard__badge {
-  font-size: 10px;
-  font-weight: 500;
-  border-radius: 8px;
-  padding: 3px 8px;
+#results-page.rp-ready .tei-zone-label.degraded {
+    color: #5e3a87 !important;
 }
 
-.rp-snapcard__badge--cyan {
-  background: rgba(0, 180, 216, 0.15);
-  color: var(--zone-optimal);
+/* 1.3 Coach card */
+#results-page.rp-ready .coach-card {
+    margin: 16px 0 12px !important;
+    padding: 16px 20px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    background: rgba(44, 44, 46, 0.38) !important;
+    color: #ffffff !important;
+    font-family: var(--font-text) !important;
+    font-size: 15px !important;
+    font-weight: 400 !important;
+    line-height: 1.5 !important;
+    text-align: center !important;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    backdrop-filter: blur(32px) saturate(1.6) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(1.6) !important;
 }
 
-.rp-snapcard__badge--neutral {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+#results-page.rp-ready .coach-card::before {
+    display: none !important;
 }
 
-.rp-snapcard__body {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  margin-top: 12px;
+/* 1.4 Snapshot 2x2 */
+#results-page.rp-ready .results-bento-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
 }
 
-.rp-snapcard__val {
-  font-size: 28px;
-  font-weight: 600;
+#results-page.rp-ready .results-bento-card {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 90px !important;
+    padding: 14px 16px 10px !important;
+    border-radius: 14px !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    background: rgba(44, 44, 46, 0.35) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(28px) saturate(1.5) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(1.5) !important;
 }
 
-.rp-snapcard__unit {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--text-secondary);
+#results-page.rp-ready .results-bento-card::before {
+    display: none !important;
 }
 
-.rp-snapcard__wave {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  width: 60px;
-  height: 24px;
+#results-page.rp-ready .results-bento-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 6px !important;
 }
 
-.rp-snapcard__stress-bar-container {
-  width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  margin-top: 8px;
-  overflow: hidden;
-  position: relative;
+#results-page.rp-ready .results-bento-label {
+    font-family: var(--font-text) !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    color: #8e8e93 !important;
+    margin-bottom: 0 !important;
 }
 
-.rp-snapcard__stress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #34C759, #F5A623, #FF453A);
-  width: 0%;
-  transition: width 0.3s ease;
+#results-page.rp-ready .results-bento-body {
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: space-between !important;
 }
 
-.rp-snapcard__stress-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+#results-page.rp-ready .results-bento-row {
+    align-items: baseline !important;
 }
 
-/* 1.5 Body Battery Card */
-.rp-battery {
-  background: var(--bg-card);
-  backdrop-filter: var(--bg-blur);
-  -webkit-backdrop-filter: var(--bg-blur);
-  border-radius: var(--radius-card);
-  padding: 16px;
-  margin-bottom: 24px;
+#results-page.rp-ready .results-bento-value {
+    font-family: var(--font-text) !important;
+    font-size: 28px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    letter-spacing: 0 !important;
+    animation: none !important;
 }
 
-.rp-battery__title {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: 400;
-  margin-bottom: 12px;
+#results-page.rp-ready .results-bento-unit {
+    font-family: var(--font-text) !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    color: #8e8e93 !important;
+    margin-left: 4px !important;
 }
 
-.rp-battery__chart-row {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  height: 60px;
-  margin-bottom: 16px;
+#results-page.rp-ready .results-bento-pill {
+    border-radius: 8px !important;
+    padding: 3px 8px !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0 !important;
 }
 
-.rp-battery__bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 100%;
-  flex: 1;
+#results-page.rp-ready .results-bento-pill.garmin {
+    background: rgba(0, 180, 216, 0.15) !important;
+    color: #00b4d8 !important;
+    border: 1px solid rgba(0, 180, 216, 0.2) !important;
 }
 
-.rp-battery__bar {
-  width: 6px;
-  flex-shrink: 0;
-  border-radius: 3px;
-  background: #34C759;
-  transition: height 0.5s ease;
+#results-page.rp-ready .results-bento-pill.balanced {
+    background: rgba(52, 199, 89, 0.2) !important;
+    color: #67ea8e !important;
+    border: none !important;
 }
 
-.rp-battery__score-box {
-  display: flex;
-  align-items: baseline;
-  margin-left: 16px;
+#results-page.rp-ready .results-bento-sparkline {
+    position: absolute;
+    right: 16px;
+    bottom: 14px;
+    width: 60px !important;
+    height: 24px !important;
 }
 
-.rp-battery__score {
-  font-size: 36px;
-  font-weight: 600;
-  color: #FFFFFF;
+/* --- Snapshot Stress --- */
+#results-page.rp-ready .stress-pct {
+    font-size: 12px;
+    color: var(--text-secondary);
 }
 
-.rp-battery__max {
-  font-size: 16px;
-  color: var(--text-secondary);
-  margin-left: 4px;
+#results-page.rp-ready .stress-bar-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    margin-top: auto;
+    overflow: hidden;
 }
 
-.rp-ans-container {
-  margin-top: 8px;
+#results-page.rp-ready .stress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #34C759, #F5A623, #FF6B35, #FF453A);
+    border-radius: 2px;
+    transition: width 0.3s ease;
 }
 
-.rp-ans__title {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
+/* 1.5 Body Battery card */
+#results-page.rp-ready .results-glass-card {
+    border-radius: 14px !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    background: rgba(44, 44, 46, 0.35) !important;
+    padding: 16px !important;
+    margin-bottom: 12px !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(28px) saturate(1.5) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(1.5) !important;
 }
 
-.rp-ans__bar {
-  width: 100%;
-  height: 6px;
-  background: var(--text-secondary);
-  border-radius: 3px;
-  display: flex;
-  overflow: hidden;
+#results-page.rp-ready .results-glass-card::before {
+    display: none !important;
 }
 
-.rp-ans__sns {
-  background: var(--accent-red);
-  height: 100%;
-  transition: width 0.3s ease;
+#results-page.rp-ready .results-card-title {
+    font-family: var(--font-text) !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    color: #8e8e93 !important;
+    margin-bottom: 10px !important;
 }
 
-.rp-ans__pns {
-  background: var(--accent-green);
-  height: 100%;
-  transition: width 0.3s ease;
+#results-page.rp-ready .bb-row {
+    align-items: flex-end !important;
+    gap: 0 !important;
 }
 
-.rp-ans__labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 6px;
-  font-size: 11px;
+#results-page.rp-ready .bb-chart {
+    height: 60px !important;
+    gap: 4px !important;
+    align-items: flex-end !important;
+    padding: 0 2px !important;
+    overflow: hidden;
+    flex: 1 !important;
 }
 
-.rp-ans__label-left, .rp-ans__label-right {
-  display: flex;
-  gap: 8px;
+#results-page.rp-ready .bb-bar,
+#results-page.rp-ready .rp-bb-bar {
+    flex: 1 1 8px !important;
+    max-width: 14px !important;
+    min-width: 6px !important;
+    border-radius: 4px !important;
+    transform: scaleY(1) !important;
+    transform-origin: bottom !important;
+    transition: height 220ms ease-out, opacity 220ms ease-out !important;
 }
 
-/* 1.6 FDCB Float Control Bar */
-.rp-fdcb {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: rgba(28, 28, 30, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-  padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0px));
-  height: calc(72px + env(safe-area-inset-bottom, 0px));
-  box-sizing: border-box;
-  z-index: 100;
-  transition: height 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-  pointer-events: auto;
-  overflow: hidden;
+#results-page.rp-ready .bb-bar.last {
+    box-shadow: 0 0 10px rgba(245, 166, 35, 0.4) !important;
 }
 
-.rp-fdcb.is-expanded {
-  height: calc(130px + env(safe-area-inset-bottom, 0px));
+#results-page.rp-ready .bb-value-display {
+    min-width: 70px !important;
+    text-align: right !important;
 }
 
-.rp-fdcb__top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 40px;
-  cursor: pointer;
+#results-page.rp-ready .bb-value-number {
+    font-family: var(--font-display) !important;
+    font-size: 36px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
 }
 
-.rp-fdcb__left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary);
+#results-page.rp-ready .bb-value-total {
+    font-family: var(--font-text) !important;
+    font-size: 16px !important;
+    color: #8e8e93 !important;
 }
 
-.rp-fdcb__timer {
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-  font-size: 28px;
-  font-weight: 600;
-  color: #FFFFFF;
+#results-page.rp-ready .ans-section {
+    margin-top: 14px !important;
+    padding-top: 12px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
-.rp-fdcb__btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 18px;
-  background: var(--accent-green);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #000;
+#results-page.rp-ready .results-card-subtitle {
+    font-family: var(--font-text) !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    color: #e5e5ea !important;
+    margin-bottom: 8px !important;
 }
 
-.rp-fdcb__expand-zone {
-  margin-top: 20px;
-  opacity: 0;
-  transition: opacity 0.3s;
+#results-page.rp-ready .ans-bar-outer {
+    height: 6px !important;
+    border-radius: 3px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    overflow: hidden !important;
 }
 
-.rp-fdcb.is-expanded .rp-fdcb__expand-zone {
-  opacity: 1;
+#results-page.rp-ready .ans-sns-bar {
+    background: #ff453a !important;
 }
 
-.rp-fdcb__progress {
-  width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  overflow: hidden;
+#results-page.rp-ready .ans-pns-bar {
+    background: #34c759 !important;
 }
 
-.rp-fdcb__progress-fill {
-  background: var(--zone-peak);
-  height: 100%;
-  width: 60%;
+#results-page.rp-ready .ans-divider-line {
+    width: 0 !important;
+    background: transparent !important;
 }
 
-.rp-fdcb__progress-label {
-  font-size: 11px;
-  text-align: center;
-  color: var(--text-primary);
-  margin-top: 8px;
+#results-page.rp-ready .ans-labels {
+    margin-top: 6px;
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-text);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+#results-page.rp-ready .ans-labels span:first-child {
+    color: #ff453a !important;
+}
+
+#results-page.rp-ready .ans-labels span:last-child {
+    color: #34c759 !important;
+}
+
+/* 1.6 FDCB bottom bar */
+#results-page.rp-ready .fdcb-dock {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 72px !important;
+    border-radius: 0 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    background: rgba(28, 28, 30, 0.62) !important;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+    box-shadow: none !important;
+    backdrop-filter: blur(32px) saturate(1.6) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(1.6) !important;
+}
+
+#results-page.rp-ready .fdcb-template,
+#results-page.rp-ready .fdcb-template-text {
+    font-family: var(--font-text) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    color: #e5e5ea !important;
+}
+
+#results-page.rp-ready .fdcb-timer {
+    font-family: var(--font-display) !important;
+    font-size: 28px !important;
+    font-weight: 600 !important;
+    color: rgba(255, 138, 101, 0.95) !important;
+    font-variant-numeric: tabular-nums !important;
+    letter-spacing: 0 !important;
+    text-shadow: 0 0 10px rgba(255, 107, 53, 0.2) !important;
+}
+
+#results-page.rp-ready .fdcb-icon-svg {
+    filter: none !important;
+}
+
+#results-page.rp-ready .fdcb-icon-front,
+#results-page.rp-ready .fdcb-icon-back {
+    stroke: rgba(228, 232, 238, 0.6) !important;
+}
+
+#results-page.rp-ready .fdcb-icon-core {
+    fill: rgba(228, 232, 238, 0.6) !important;
+}
+
+#results-page.rp-ready .fdcb-confirm {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 28px !important;
+    color: #34c759 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    filter: none !important;
+}
+
+#results-page.rp-ready .fdcb-progress {
+    height: 4px !important;
+    margin-top: 8px !important;
+    border-radius: 2px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+#results-page.rp-ready .fdcb-progress-fill {
+    border-radius: 2px !important;
+    background: linear-gradient(90deg, #34c759 0%, #00b4d8 45%, #f5a623 85%) !important;
+}
+
+#results-page.rp-ready .rp-fdcb-zone-label {
+    display: none;
+    margin-top: 6px;
+    font-family: var(--font-text);
+    font-size: 11px;
+    font-weight: 500;
+    color: #8e8e93;
+    text-align: center;
+}
+
+#results-page.rp-ready .fdcb-dock.rp-show-detail .rp-fdcb-zone-label {
+    display: block;
+}
+
+/* Ensure content is not hidden behind fixed bar */
+#results-page.rp-ready .rp-bottom-spacer {
+    height: 88px;
+    flex: 0 0 auto;
+}
+
+/* Responsive */
+@media (max-width: 375px) {
+    #results-page.rp-ready .tei-ring-container,
+    #results-page.rp-ready .tei-ring-canvas {
+        width: 248px !important;
+        height: 248px !important;
+    }
+
+    #results-page.rp-ready .tei-number {
+        font-size: 62px !important;
+    }
+
+    #results-page.rp-ready .results-bento-value {
+        font-size: 24px !important;
+    }
+
+    #results-page.rp-ready .fdcb-timer {
+        font-size: 24px !important;
+    }
+}
+
+@media (min-width: 431px) {
+    #results-page.rp-ready .results-content {
+        max-width: 430px !important;
+    }
 }
