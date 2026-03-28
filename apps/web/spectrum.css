@@ -409,8 +409,8 @@
 }
 
 .results-bento-sparkline {
-    width: 60px;
-    height: 24px;
+    width: 80px;
+    height: 32px;
     flex-shrink: 0;
     display: block;
 }
