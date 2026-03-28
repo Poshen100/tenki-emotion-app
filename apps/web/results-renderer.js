@@ -89,10 +89,22 @@
         }
     };
 
+    // Breathing guidance hints shown during scanning warmup
+    var BREATHING_HINTS = [
+        '請保持臉部在畫面中央',
+        '試著平穩呼吸：4 秒吸氣，6 秒吐氣',
+        '放鬆肩膀，自然呼吸',
+        '正在分析你的生理指標...',
+        '保持穩定，讓感測器校準',
+        '深呼吸有助於提升 HRV 數值',
+        '掃描中，請勿移動裝置'
+    ];
+
     // ─── State ───
     var nebulaFrame = null;
     var sparklines = {};
     var ansFluctuateTimer = null;
+    var breathingTimer = null;
     var currentCoachZone = null;
     var ringCtx = null;
     var ringDpr = 1;
@@ -700,6 +712,20 @@
             var coach = document.getElementById('coach-card');
             if (coach) coach.textContent = '\u6B63\u5728\u6821\u6E96\u611F\u6E2C\u5668...';
 
+            // Start breathing guidance rotation on coach card
+            if (breathingTimer) clearInterval(breathingTimer);
+            var hintIdx = 0;
+            breathingTimer = setInterval(function() {
+                if (!coach) return;
+                hintIdx = (hintIdx + 1) % BREATHING_HINTS.length;
+                coach.style.transition = 'opacity 0.3s ease';
+                coach.style.opacity = '0';
+                setTimeout(function() {
+                    coach.textContent = BREATHING_HINTS[hintIdx];
+                    coach.style.opacity = '1';
+                }, 300);
+            }, 5000);
+
             ['hr','hrv','rr','stress'].forEach(function(id) {
                 var v = document.getElementById('bento-' + id);
                 if (v) v.textContent = '--';
@@ -734,11 +760,17 @@
                 zoneEl.style.color = ZONE_COLORS[zone];
             }
 
-            // Coach card
+            // Coach card — stop breathing hints when real zone data arrives
             if (zone !== currentCoachZone) {
                 currentCoachZone = zone;
+                if (breathingTimer) {
+                    clearInterval(breathingTimer);
+                    breathingTimer = null;
+                }
                 var coachEl = document.getElementById('coach-card');
                 if (coachEl) {
+                    coachEl.style.transition = '';
+                    coachEl.style.opacity = '1';
                     var msgs = COACH_MSGS[zone];
                     coachEl.textContent = msgs[Math.floor(Math.random() * msgs.length)];
                 }
@@ -851,6 +883,10 @@
             if (ansFluctuateTimer) {
                 clearInterval(ansFluctuateTimer);
                 ansFluctuateTimer = null;
+            }
+            if (breathingTimer) {
+                clearInterval(breathingTimer);
+                breathingTimer = null;
             }
             sparklines = {};
             ringCtx = null;
