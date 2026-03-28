@@ -591,11 +591,28 @@
     }
 
     // Show sparkline canvas and hide waiting text
+    var sparkRevealed = {};
     function revealSparkline(id) {
+        if (sparkRevealed[id]) return;
+        sparkRevealed[id] = true;
         var canvas = document.getElementById('results-spark-' + id);
         var wait = document.getElementById('spark-wait-' + id);
         if (canvas) canvas.style.display = 'block';
         if (wait) wait.style.display = 'none';
+    }
+
+    // Seed sparklines with simulated baseline so waveform is visible immediately
+    function seedSparklines() {
+        var seeds = { hr: 68, hrv: 45, rr: 15 };
+        ['hr', 'hrv', 'rr'].forEach(function(id) {
+            if (!sparklines[id]) return;
+            revealSparkline(id);
+            var base = seeds[id];
+            for (var i = 0; i < 8; i++) {
+                var v = base + (Math.random() - 0.5) * base * 0.08;
+                sparklines[id].push(v);
+            }
+        });
     }
 
     // ─── Init Body Battery ───
@@ -708,7 +725,10 @@
             initRingCanvas();
 
             // Init sparklines (delay to ensure layout is settled for canvas sizing)
-            setTimeout(initSparklines, 300);
+            setTimeout(function() {
+                initSparklines();
+                seedSparklines();
+            }, 300);
         },
 
         showWarmup: function() {
@@ -740,6 +760,12 @@
 
             // Draw empty ring
             drawTEIRing(0, 0);
+
+            // Init BB chart immediately with baseline data (don't wait for showComplete)
+            var baseline = global.TENKI_BASELINE_SIM;
+            if (baseline) {
+                setTimeout(function() { initBBChart(baseline.generateBB24h()); }, 400);
+            }
         },
 
         updateAll: function(ewma, histories, ans, phase) {
@@ -896,6 +922,7 @@
                 breathingTimer = null;
             }
             sparklines = {};
+            sparkRevealed = {};
             ringCtx = null;
             currentCoachZone = null;
             isInitialized = false;

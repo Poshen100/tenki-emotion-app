@@ -51,14 +51,23 @@
         ctx.clearRect(0, 0, w, h);
         if (data.length < 2) return;
 
-        // Auto-scale with padding
+        // Auto-scale with padding and minimum visual range
         var min = Infinity, max = -Infinity;
         for (var k = 0; k < data.length; k++) {
             if (data[k] < min) min = data[k];
             if (data[k] > max) max = data[k];
         }
-        min *= 0.85;
-        max *= 1.15;
+        // Enforce minimum range so small fluctuations are still visible
+        var rawRange = max - min;
+        var mid = (min + max) / 2;
+        var minRange = mid * 0.12 || 5; // at least 12% of midpoint or 5
+        if (rawRange < minRange) {
+            min = mid - minRange / 2;
+            max = mid + minRange / 2;
+        } else {
+            min -= rawRange * 0.15;
+            max += rawRange * 0.15;
+        }
         var range = max - min || 1;
 
         var pad = 2;
