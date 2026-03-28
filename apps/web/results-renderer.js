@@ -49,6 +49,46 @@
         DEGRADED: ['\u5148\u66AB\u505C\u65B0\u5009\u4F4D\uFF0C\u505A 2 \u6B21\u6DF1\u547C\u5438\uFF0C\u7B49\u5F85 HRV \u56DE\u5347\u5F8C\u518D\u6C7A\u7B56\u3002']
     };
 
+    // Trading recommendation messages per zone
+    var TRADE_ADVICE = {
+        PEAK: {
+            label: '\u9AD8\u8868\u73FE\u5340',
+            emoji: '\uD83D\uDD25',
+            tips: [
+                '\u53EF\u7A4D\u6975\u57F7\u884C\u7B56\u7565\uFF0C\u4F46\u6CE8\u610F\u904E\u5EA6\u81EA\u4FE1',
+                '\u56B4\u5B88\u98A8\u63A7\u898F\u5247\uFF0C\u907F\u514D\u52A0\u91CD\u5009',
+                '\u76EE\u524D\u72C0\u614B\u9069\u5408\u57F7\u884C\u9AD8\u52DD\u7387 setup'
+            ]
+        },
+        OPTIMAL: {
+            label: '\u6700\u4F73\u4EA4\u6613\u5340\u9593',
+            emoji: '\u2728',
+            tips: [
+                '\u9069\u5408\u7A69\u5065\u64CD\u4F5C\uFF0C\u7B56\u7565\u53EF\u6B63\u5E38\u904B\u884C',
+                '\u4FE1\u4EFB\u4F60\u7684\u5224\u65B7\uFF0C\u4FDD\u6301\u5C08\u6CE8',
+                '\u76EE\u524D\u60C5\u7DD2\u6E05\u660E\uFF0C\u6C7A\u7B56\u54C1\u8CEA\u826F\u597D'
+            ]
+        },
+        NEUTRAL: {
+            label: '\u4E2D\u6027\u5340',
+            emoji: '\uD83D\uDE0C',
+            tips: [
+                '\u9069\u5408\u57F7\u884C\u65E2\u6709\u7B56\u7565\uFF0C\u907F\u514D\u885D\u52D5\u52A0\u5009',
+                '\u5EFA\u8B70\u5148\u505A 60 \u79D2\u547C\u5438\u6821\u6E96\u518D\u4E0B\u55AE',
+                '\u58D3\u529B\u4E2D\u7B49\uFF0C\u653E\u6162\u7BC0\u594F\u89C0\u5BDF\u8A0A\u865F'
+            ]
+        },
+        DEGRADED: {
+            label: '\u5EFA\u8B70\u4F11\u606F',
+            emoji: '\u26A0\uFE0F',
+            tips: [
+                '\u5EFA\u8B70\u4E0D\u4EA4\u6613\uFF0C\u5148\u505A\u547C\u5438\u6062\u5FA9',
+                '\u7B49\u5F85 HRV \u56DE\u5347\u5F8C\u518D\u91CD\u65B0\u8A55\u4F30',
+                '\u76EE\u524D\u60C5\u7DD2\u72C0\u614B\u4E0D\u9069\u5408\u505A\u6C7A\u7B56'
+            ]
+        }
+    };
+
     // ─── State ───
     var nebulaFrame = null;
     var sparklines = {};
@@ -355,6 +395,19 @@
         coach.className = 'coach-card'; coach.id = 'coach-card';
         coach.textContent = '\u6B63\u5728\u6821\u6E96\u611F\u6E2C\u5668...';
         wrap.appendChild(coach);
+
+        // Trading Summary Card
+        var summary = document.createElement('div');
+        summary.className = 'results-glass-card rp-summary-card';
+        summary.id = 'rp-summary';
+        summary.innerHTML =
+            '<div class="rp-summary-header">' +
+            '  <span class="rp-summary-zone" id="rp-summary-zone">--</span>' +
+            '  <span class="rp-summary-emoji" id="rp-summary-emoji"></span>' +
+            '</div>' +
+            '<div class="rp-summary-label" id="rp-summary-label"></div>' +
+            '<div class="rp-summary-tips" id="rp-summary-tips"></div>';
+        wrap.appendChild(summary);
 
         // Bento grid — 2×2
         var grid = document.createElement('div');
@@ -688,6 +741,26 @@
                 if (coachEl) {
                     var msgs = COACH_MSGS[zone];
                     coachEl.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+                }
+
+                // Trading summary card
+                var advice = TRADE_ADVICE[zone];
+                if (advice) {
+                    var szEl = document.getElementById('rp-summary-zone');
+                    if (szEl) szEl.textContent = 'TEI ' + tei + ' / 100';
+                    var seEl = document.getElementById('rp-summary-emoji');
+                    if (seEl) seEl.textContent = advice.emoji;
+                    var slEl = document.getElementById('rp-summary-label');
+                    if (slEl) {
+                        slEl.textContent = advice.label;
+                        slEl.style.color = ZONE_COLORS[zone];
+                    }
+                    var stEl = document.getElementById('rp-summary-tips');
+                    if (stEl) {
+                        stEl.innerHTML = advice.tips.map(function(t) {
+                            return '<div class="rp-summary-tip">\u2022 ' + t + '</div>';
+                        }).join('');
+                    }
                 }
             }
 
