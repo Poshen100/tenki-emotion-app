@@ -210,6 +210,7 @@
     margin: 0 0 12px !important;
     padding: 18px 20px !important;
     text-align: left !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 
 #results-page.rp-ready .rp-summary-header {
