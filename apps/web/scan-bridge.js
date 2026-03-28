@@ -553,6 +553,12 @@
         // Hide hint capsule
         hideHintCapsule();
 
+        // Hide scan guide text + remove waiting dots
+        document.body.classList.add('tenki-scanning');
+        document.querySelectorAll('.tenki-waiting-dots').forEach(function(el) {
+            el.classList.remove('tenki-waiting-dots');
+        });
+
         // Activate button animations (ripple, beam, glow)
         btn.classList.add('active');
 

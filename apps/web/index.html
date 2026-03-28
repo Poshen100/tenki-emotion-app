@@ -1435,6 +1435,26 @@
         <span id="quality-warning-text">Signal Degraded</span>
     </div>
 
+    <!-- Initial state CSS: waiting dots animation + hide guide on scan -->
+    <style>
+        @keyframes tenki-waiting-fade {
+            0%, 100% { opacity: 0.15; }
+            50% { opacity: 0.45; }
+        }
+        .tenki-waiting-dots {
+            color: rgba(255,255,255,0.25) !important;
+            animation: tenki-waiting-fade 2s ease-in-out infinite;
+            letter-spacing: 2px;
+        }
+        #scan-guide-text {
+            transition: opacity 0.3s ease;
+        }
+        body.tenki-scanning #scan-guide-text {
+            opacity: 0 !important;
+            pointer-events: none;
+        }
+    </style>
+
     <!-- Signal Tier Indicator removed (v4.3 — debug badge no longer needed) -->
 
     <div id="hud-layer">
@@ -1490,6 +1510,10 @@
             <div id="instruction"
                 class="mt-8 text-[10px] tracking-[3px] text-gray-400 font-mono-tech transition-all duration-300 font-bold">
                 TAP TO SYNC</div>
+            <div id="scan-guide-text"
+                class="mt-2 text-[12px] text-center"
+                style="color: rgba(255,255,255,0.45); font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
+                點一下，開始你的情緒掃描 · 30秒見結果</div>
             <div id="precision-tabs" class="mt-5 flex gap-2 justify-center pointer-events-auto">
                 <button data-mode="glimpse" class="precision-tab">Glimpse · 2s</button>
                 <button data-mode="default" class="precision-tab active">Default · 30s</button>
@@ -1538,7 +1562,7 @@
                     </div>
                 </div>
                 <div class="mt-4 text-center w-full px-4">
-                    <div class="text-xl font-serif-human text-white" id="dash-state">Status Stable</div>
+                    <div class="text-xl font-serif-human" id="dash-state" style="color: #8899aa;">等待同步中 · Tap to begin</div>
                     <div class="mt-2 mb-2 w-full px-2" style="z-index: 10;">
                         <div
                             class="flex justify-between items-center text-[9px] font-mono-tech tracking-widest text-gray-500 border-b border-white/10 pb-1 mb-1">
@@ -1550,22 +1574,22 @@
                     <div class="snapshot-grid mt-1">
                         <div class="snapshot-card">
                             <div class="snapshot-label">HR (bpm)</div>
-                            <div class="snapshot-value text-red-500" id="snap-hr">--</div>
+                            <div class="snapshot-value text-red-500 tenki-waiting-dots" id="snap-hr">· · ·</div>
                             <div class="mini-spark text-red-500/50" id="spark-hr"></div>
                         </div>
                         <div class="snapshot-card">
                             <div class="snapshot-label">RR (brpm)</div>
-                            <div class="snapshot-value text-green-500" id="snap-rr">--</div>
+                            <div class="snapshot-value text-green-500 tenki-waiting-dots" id="snap-rr">· · ·</div>
                             <div class="mini-spark text-green-500/50" id="spark-rr"></div>
                         </div>
                         <div class="snapshot-card">
                             <div class="snapshot-label">HRV (RMSSD)</div>
-                            <div class="snapshot-value text-purple-500" id="hrv-val">--</div>
+                            <div class="snapshot-value text-purple-500 tenki-waiting-dots" id="hrv-val">· · ·</div>
                             <div class="mini-spark text-purple-500/50" id="spark-pns"></div>
                         </div>
                         <div class="snapshot-card">
                             <div class="snapshot-label">ANS (SNS/PNS)</div>
-                            <div class="snapshot-value text-orange-400" id="ans-ratio">--</div>
+                            <div class="snapshot-value text-orange-400 tenki-waiting-dots" id="ans-ratio">· · ·</div>
                             <div class="mini-spark text-orange-400/50" id="spark-sns"></div>
                         </div>
                     </div>
@@ -1606,7 +1630,7 @@
                                 <span class="bio-card-title">Live HR</span>
                                 <i data-lucide="heart-pulse" class="bio-card-icon text-red-400"></i>
                             </div>
-                            <div class="bio-card-value text-red-400" id="bio-hr-val">--</div>
+                            <div class="bio-card-value text-red-400 tenki-waiting-dots" id="bio-hr-val">· · ·</div>
                             <span class="bio-card-unit">BPM</span>
                             <div class="mini-ppg-wave" id="bio-ppg-wave">
                                 <div class="ppg-bar" style="height: 40%"></div>
@@ -1631,7 +1655,7 @@
                                 <i data-lucide="activity" class="bio-card-icon text-purple-400"></i>
                             </div>
                             <div class="flex items-baseline gap-2">
-                                <div class="bio-card-value text-purple-400" id="bio-hrv-val">--</div>
+                                <div class="bio-card-value text-purple-400 tenki-waiting-dots" id="bio-hrv-val">· · ·</div>
                                 <span class="bio-card-unit">ms</span>
                             </div>
                             <div class="bio-card-footer">
@@ -1656,7 +1680,7 @@
                                 <span class="text-lg">🫁</span>
                             </div>
                             <div class="flex items-baseline gap-2">
-                                <div class="bio-card-value text-green-400" id="bio-rr-val">--</div>
+                                <div class="bio-card-value text-green-400 tenki-waiting-dots" id="bio-rr-val">· · ·</div>
                                 <span class="bio-card-unit">BrPM</span>
                             </div>
                             <div class="rsa-coherence-container">
@@ -1679,7 +1703,7 @@
                                 <span class="text-lg">👁️</span>
                             </div>
                             <div class="flex items-baseline gap-2">
-                                <div class="bio-card-value text-cyan-400">--</div>
+                                <div class="bio-card-value text-cyan-400 tenki-waiting-dots">· · ·</div>
                                 <span class="bio-card-unit">mm</span>
                             </div>
                             <div class="bio-card-footer">
@@ -1695,7 +1719,7 @@
                             </div>
                             <div class="flex items-baseline gap-2">
                                 <span class="text-[10px] text-gray-500">PR</span>
-                                <div class="bio-card-value text-white" id="bio-stress-pr">--</div>
+                                <div class="bio-card-value text-white tenki-waiting-dots" id="bio-stress-pr">· · ·</div>
                             </div>
                             <div class="bio-card-footer">
                                 <span class="stress-zone optimal" id="stress-zone-badge">Optimal</span>
@@ -1709,7 +1733,7 @@
                                 <i data-lucide="wifi" class="bio-card-icon text-cyan-400"></i>
                             </div>
                             <div class="flex items-baseline gap-2">
-                                <div class="bio-card-value text-cyan-400" id="bio-quality-val">--</div>
+                                <div class="bio-card-value text-cyan-400 tenki-waiting-dots" id="bio-quality-val">· · ·</div>
                                 <span class="bio-card-unit">%</span>
                             </div>
                             <div class="signal-quality-row">
