@@ -297,10 +297,14 @@
     display: flex !important;
     align-items: flex-end !important;
     justify-content: space-between !important;
+    gap: 4px !important;
 }
 
 #results-page.rp-ready .results-bento-row {
+    display: flex !important;
     align-items: baseline !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
 }
 
 #results-page.rp-ready .results-bento-value {
@@ -340,21 +344,28 @@
     border: none !important;
 }
 
+#results-page.rp-ready .results-bento-spark-wrap {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: flex-end !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+}
+
 #results-page.rp-ready .results-bento-sparkline {
-    position: absolute;
-    right: 12px;
-    bottom: 10px;
-    width: 80px !important;
-    height: 32px !important;
+    display: block;
+    width: 100% !important;
+    max-width: 90px !important;
+    height: 28px !important;
+    flex-shrink: 0 !important;
 }
 
 #results-page.rp-ready .results-bento-sparkline-wait {
-    position: absolute;
-    right: 12px;
-    bottom: 16px;
     font-family: var(--font-text) !important;
     font-size: 10px;
     color: rgba(255, 255, 255, 0.3);
+    white-space: nowrap !important;
     animation: sparkWait 1.5s ease-in-out infinite;
 }
 
