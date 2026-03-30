@@ -885,11 +885,26 @@
             var bentoStress = document.getElementById('bento-stress');
             if (bentoStress) bentoStress.textContent = String(stress);
 
-            // Sparklines — push real data and stop simulator
+            // Sparklines — push EWMA + physiological micro-oscillation for visual life
+            // (Numeric displays above still show clean EWMA values)
             stopSparklineAnimator();
-            if (sparklines.hr) { revealSparkline('hr'); sparklines.hr.push(hr); }
-            if (sparklines.hrv) { revealSparkline('hrv'); sparklines.hrv.push(hrv); }
-            if (sparklines.rr) { revealSparkline('rr'); sparklines.rr.push(rr); }
+            var st = Date.now() / 1000;
+            var breathCycle = Math.sin(st * 0.4 * Math.PI * 2); // ~2.5s breathing rhythm
+            var heartVar = Math.sin(st * 1.2 * Math.PI * 2);    // faster heartbeat variation
+            var jitter = function(scale) { return (Math.random() - 0.5) * scale; };
+
+            if (sparklines.hr) {
+                revealSparkline('hr');
+                sparklines.hr.push(hr + breathCycle * 2.8 + heartVar * 1.6 + jitter(1.0));
+            }
+            if (sparklines.hrv) {
+                revealSparkline('hrv');
+                sparklines.hrv.push(hrv + breathCycle * 4.5 + heartVar * 2.2 + jitter(1.5));
+            }
+            if (sparklines.rr) {
+                revealSparkline('rr');
+                sparklines.rr.push(rr + breathCycle * 1.2 + heartVar * 0.5 + jitter(0.3));
+            }
 
             // Stress bar
             updateStressBar(stress);
