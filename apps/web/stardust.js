@@ -31,9 +31,9 @@
 
     // v25.8.2 feel-preserving micro-tune knobs (P1)
     var ROLL_CFG = {
-        x: 0.0027,        // forward tumble axis
-        y: 0.00135,       // depth spin
-        z: 0.00032,       // side wobble
+        x: 0.013,         // forward tumble axis
+        y: 0.0065,        // depth spin
+        z: 0.0015,        // side wobble
         pulseFreq: 0.20,  // speed breathing
         pulseAmp: 0.00058
     };
