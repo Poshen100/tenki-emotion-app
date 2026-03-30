@@ -230,20 +230,20 @@
 
 .tei-number {
     font-size: 108px;
-    font-weight: 200;
+    font-weight: 300;
     font-variant-numeric: tabular-nums;
     letter-spacing: -2px;
     line-height: 1;
     font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
     background:
-        linear-gradient(180deg, #FFFFFF 0%, #FEFEFF 12%, #F2F3F7 26%, #DDDDE4 46%, #C0C1C9 63%, #94959D 82%, #777983 100%),
-        linear-gradient(112deg, rgba(255,255,255,0.75) 18%, rgba(255,255,255,0.05) 37%, rgba(255,255,255,0) 54%);
+        linear-gradient(180deg, #FFFFFF 0%, #FFFFFF 15%, #F8F9FC 28%, #E8E9EE 42%, #C8C9D0 58%, #A0A1A8 75%, #848590 100%),
+        linear-gradient(115deg, rgba(255,255,255,0.85) 12%, rgba(255,255,255,0.15) 32%, rgba(255,255,255,0) 50%);
     background-blend-mode: screen, normal;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    filter: drop-shadow(0 0 34px rgba(0,180,216,0.14)) drop-shadow(0 2px 7px rgba(0,0,0,0.52));
-    text-shadow: 0 1px 0 rgba(255,255,255,0.12);
+    filter: drop-shadow(0 0 40px rgba(0,180,216,0.18)) drop-shadow(0 2px 8px rgba(0,0,0,0.55));
+    text-shadow: 0 1px 0 rgba(255,255,255,0.15);
     animation: heartbeat-pulse var(--pulse-dur) ease-in-out infinite;
 }
 
