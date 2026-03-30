@@ -15,26 +15,24 @@
     var RING_SIZE = 296;
     var OUTER_R = 126, INNER_R = 104;
     var OUTER_W = 12, INNER_W = 6;
-    var OUTER_START = Math.PI * 0.74; // lower-left
-    var INNER_START = -Math.PI * 0.40; // upper-right
+    var OUTER_START = Math.PI * 0.74; // lower-left (~8 o'clock)
+    var INNER_START = Math.PI * 0.74; // same start — both rings clockwise from lower-left
 
-    // 15-stop spectrum for outer ring (purple → blue → cyan → green → yellow → orange → red)
+    // 12-stop spectrum for outer ring (cyan → green → yellow → orange → red)
+    // Matches reference mockup warm-progression
     var SPECTRUM = [
-        [94,58,135],   // #5E3A87
-        [58,32,176],   // #3A20B0
-        [0,102,255],   // #0066FF
-        [0,136,234],   // #0088EA
-        [0,180,216],   // #00B4D8
-        [26,202,107],  // #1ACA6B
-        [52,199,89],   // #34C759
-        [111,216,75],  // #6FD84B
-        [168,216,67],  // #A8D843
-        [207,192,51],  // #CFC033
-        [245,166,35],  // #F5A623
-        [250,137,44],  // #FA892C
-        [255,107,53],  // #FF6B35
-        [255,87,56],   // #FF5738
-        [255,69,58]    // #FF453A
+        [0,180,180],   // #00B4B4  teal
+        [0,190,140],   // #00BE8C  teal-green
+        [40,200,100],  // #28C864  green
+        [80,210,60],   // #50D23C  yellow-green
+        [140,210,50],  // #8CD232  lime
+        [190,200,40],  // #BEC828  yellow-green
+        [220,180,35],  // #DCB423  golden
+        [240,155,30],  // #F09B1E  amber
+        [250,125,35],  // #FA7D23  orange
+        [255,100,45],  // #FF642D  deep orange
+        [255,80,50],   // #FF5032  red-orange
+        [255,65,55]    // #FF4137  red
     ];
 
     var ZONE_COLORS = {
@@ -43,48 +41,48 @@
     };
 
     var COACH_MSGS = {
-        PEAK: ['\u7BC0\u594F\u8207\u5C08\u6CE8\u540C\u6B65\uFF0C\u4FDD\u6301\u7D00\u5F8B\uFF0C\u4F60\u6B63\u8655\u65BC\u9AD8\u52DD\u7387\u6C7A\u7B56\u5340\u3002'],
-        OPTIMAL: ['\u4FDD\u6301\u5C08\u6CE8\uFF0C\u4FE1\u4EFB\u4F60\u7684\u7B56\u7565\u5224\u65B7\uFF0C\u76EE\u524D\u7684\u751F\u7406\u72C0\u614B\u986F\u793A\u4F60\u5DF2\u8655\u65BC\u6700\u4F73\u4EA4\u6613\u5340\u9593\u3002'],
-        NEUTRAL: ['\u72C0\u614B\u7A69\u5B9A\u4F46\u5C1A\u672A\u9032\u5165\u751C\u871C\u9EDE\uFF0C\u653E\u6162\u7BC0\u594F\u518D\u89C0\u5BDF\u4E00\u8F2A\u8A0A\u865F\u3002'],
-        DEGRADED: ['\u5148\u66AB\u505C\u65B0\u5009\u4F4D\uFF0C\u505A 2 \u6B21\u6DF1\u547C\u5438\uFF0C\u7B49\u5F85 HRV \u56DE\u5347\u5F8C\u518D\u6C7A\u7B56\u3002']
+        PEAK: ['你的專注力與身體節律高度同步，適合處理重要決策。保持穩定節奏。'],
+        OPTIMAL: ['生理狀態穩定清晰，目前是做決策的最佳時機。信任你的判斷力。'],
+        NEUTRAL: ['狀態平穩但尚未進入最佳區間，放慢節奏，觀察自己的呼吸再行動。'],
+        DEGRADED: ['身體正在發出休息訊號。暫緩任何重要判斷，先做 2 次深呼吸。']
     };
 
-    // Trading recommendation messages per zone
+    // Decision recommendation messages per zone (Health/Decision mode default)
     var TRADE_ADVICE = {
         PEAK: {
-            label: '\u9AD8\u8868\u73FE\u5340',
-            emoji: '\uD83D\uDD25',
+            label: '高能量狀態',
+            emoji: '🔥',
             tips: [
-                '\u53EF\u7A4D\u6975\u57F7\u884C\u7B56\u7565\uFF0C\u4F46\u6CE8\u610F\u904E\u5EA6\u81EA\u4FE1',
-                '\u56B4\u5B88\u98A8\u63A7\u898F\u5247\uFF0C\u907F\u514D\u52A0\u91CD\u5009',
-                '\u76EE\u524D\u72C0\u614B\u9069\u5408\u57F7\u884C\u9AD8\u52DD\u7387 setup'
+                '適合處理高複雜度的決策與挑戰',
+                '注意過度自信風險，保持紀律',
+                '可積極行動，但設定明確停損點'
             ]
         },
         OPTIMAL: {
-            label: '\u6700\u4F73\u4EA4\u6613\u5340\u9593',
-            emoji: '\u2728',
+            label: '最佳決策區間',
+            emoji: '✨',
             tips: [
-                '\u9069\u5408\u7A69\u5065\u64CD\u4F5C\uFF0C\u7B56\u7565\u53EF\u6B63\u5E38\u904B\u884C',
-                '\u4FE1\u4EFB\u4F60\u7684\u5224\u65B7\uFF0C\u4FDD\u6301\u5C08\u6CE8',
-                '\u76EE\u524D\u60C5\u7DD2\u6E05\u660E\uFF0C\u6C7A\u7B56\u54C1\u8CEA\u826F\u597D'
+                '情緒清明穩定，決策品質良好',
+                '信任你的判斷，保持專注',
+                '適合執行重要計畫與行動'
             ]
         },
         NEUTRAL: {
-            label: '\u4E2D\u6027\u5340',
-            emoji: '\uD83D\uDE0C',
+            label: '穩定觀察區',
+            emoji: '😌',
             tips: [
-                '\u9069\u5408\u57F7\u884C\u65E2\u6709\u7B56\u7565\uFF0C\u907F\u514D\u885D\u52D5\u52A0\u5009',
-                '\u5EFA\u8B70\u5148\u505A 60 \u79D2\u547C\u5438\u6821\u6E96\u518D\u4E0B\u55AE',
-                '\u58D3\u529B\u4E2D\u7B49\uFF0C\u653E\u6162\u7BC0\u594F\u89C0\u5BDF\u8A0A\u865F'
+                '適合執行既有策略，避免衝動決策',
+                '建議先做 60 秒呼吸校準再行動',
+                '壓力中等，放慢節奏觀察自身狀態'
             ]
         },
         DEGRADED: {
-            label: '\u5EFA\u8B70\u4F11\u606F',
-            emoji: '\u26A0\uFE0F',
+            label: '建議休息',
+            emoji: '⚠️',
             tips: [
-                '\u5EFA\u8B70\u4E0D\u4EA4\u6613\uFF0C\u5148\u505A\u547C\u5438\u6062\u5FA9',
-                '\u7B49\u5F85 HRV \u56DE\u5347\u5F8C\u518D\u91CD\u65B0\u8A55\u4F30',
-                '\u76EE\u524D\u60C5\u7DD2\u72C0\u614B\u4E0D\u9069\u5408\u505A\u6C7A\u7B56'
+                '暫停所有重要決策，先恢復能量',
+                '等待 HRV 回升後再重新評估',
+                '目前狀態不適合做關鍵判斷'
             ]
         }
     };
@@ -277,7 +275,7 @@
             ctx.lineCap = 'round';
 
             ctx.save();
-            ctx.shadowColor = 'rgba(52,199,89,0.2)';
+            ctx.shadowColor = 'rgba(40,200,140,0.25)';
             ctx.shadowBlur = 10;
 
             for (var j = 0; j < iSegs; j++) {
@@ -607,25 +605,63 @@
         if (wait) wait.style.display = 'none';
     }
 
-    // Seed sparklines with physiologically realistic baseline waveform
+    // Seed sparklines with realistic organic waveform so it's visible immediately
+    var sparkAnimTimer = null;
+    var sparkAnimPhase = 0;
+
     function seedSparklines() {
-        var seeds = {
-            hr:  { base: 68, amp: 3.5,  freq: 0.35, noise: 1.2 },
-            hrv: { base: 45, amp: 6.0,  freq: 0.25, noise: 2.0 },
-            rr:  { base: 15, amp: 1.5,  freq: 0.15, noise: 0.4 }
-        };
+        var seeds = { hr: 68, hrv: 45, rr: 15 };
+        var ampScale = { hr: 0.06, hrv: 0.15, rr: 0.10 };
         ['hr', 'hrv', 'rr'].forEach(function(id) {
             if (!sparklines[id]) return;
             revealSparkline(id);
-            var s = seeds[id];
-            for (var i = 0; i < 30; i++) {
-                var t = i * 0.5;
-                var v = s.base
-                      + Math.sin(t * s.freq * Math.PI * 2) * s.amp
-                      + (Math.random() - 0.5) * s.noise;
-                sparklines[id].push(v);
+            var base = seeds[id];
+            var amp = ampScale[id];
+            var batch = [];
+            // Generate 20 points of organic sinusoidal breathing curve
+            for (var i = 0; i < 20; i++) {
+                var phase = (i / 20) * Math.PI * 4; // 2 full cycles
+                var wave = Math.sin(phase) * base * amp;
+                var noise = (Math.random() - 0.5) * base * 0.05;
+                batch.push(base + wave + noise);
+            }
+            if (sparklines[id].pushBatch) {
+                sparklines[id].pushBatch(batch);
+            } else {
+                for (var j = 0; j < batch.length; j++) sparklines[id].push(batch[j]);
             }
         });
+
+        // Start continuous animation so waveforms keep moving
+        startSparklineAnimator();
+    }
+
+    function startSparklineAnimator() {
+        if (sparkAnimTimer) return;
+        sparkAnimPhase = Math.random() * 100;
+        sparkAnimTimer = setInterval(function() {
+            sparkAnimPhase += 0.35;
+            var seeds = { hr: 68, hrv: 45, rr: 15 };
+            var ampScale = { hr: 0.05, hrv: 0.12, rr: 0.08 };
+            var freqs = { hr: 0.7, hrv: 0.4, rr: 0.25 };
+            ['hr', 'hrv', 'rr'].forEach(function(id) {
+                if (!sparklines[id]) return;
+                var base = seeds[id];
+                var amp = ampScale[id];
+                var v = base
+                    + Math.sin(sparkAnimPhase * freqs[id]) * base * amp
+                    + Math.sin(sparkAnimPhase * freqs[id] * 2.3 + 1.7) * base * amp * 0.4
+                    + (Math.random() - 0.5) * base * 0.03;
+                sparklines[id].push(v);
+            });
+        }, 400);
+    }
+
+    function stopSparklineAnimator() {
+        if (sparkAnimTimer) {
+            clearInterval(sparkAnimTimer);
+            sparkAnimTimer = null;
+        }
     }
 
     // ─── Init Body Battery ───
@@ -817,7 +853,7 @@
                     coachEl.textContent = msgs[Math.floor(Math.random() * msgs.length)];
                 }
 
-                // Trading summary card
+                // Decision summary card (health mode default)
                 var advice = TRADE_ADVICE[zone];
                 if (advice) {
                     var szEl = document.getElementById('rp-summary-zone');
@@ -853,24 +889,25 @@
             var bentoStress = document.getElementById('bento-stress');
             if (bentoStress) bentoStress.textContent = String(stress);
 
-            // Sparklines — add physiological micro-variation so waveforms stay alive
-            // EWMA values are over-smoothed (α=0.05), producing near-flat lines.
-            // Real biometrics have beat-to-beat variation we simulate here.
-            var sparkT = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+            // Sparklines — push EWMA + physiological micro-oscillation for visual life
+            // (Numeric displays above still show clean EWMA values)
+            stopSparklineAnimator();
+            var st = Date.now() / 1000;
+            var breathCycle = Math.sin(st * 0.4 * Math.PI * 2); // ~2.5s breathing rhythm
+            var heartVar = Math.sin(st * 1.2 * Math.PI * 2);    // faster heartbeat variation
+            var jitter = function(scale) { return (Math.random() - 0.5) * scale; };
+
             if (sparklines.hr) {
                 revealSparkline('hr');
-                var hrWave = hr + Math.sin(sparkT * 1.2) * 2.5 + (Math.random() - 0.5) * 1.8;
-                sparklines.hr.push(hrWave);
+                sparklines.hr.push(hr + breathCycle * 2.8 + heartVar * 1.6 + jitter(1.0));
             }
             if (sparklines.hrv) {
                 revealSparkline('hrv');
-                var hrvWave = hrv + Math.sin(sparkT * 0.8) * 4.5 + (Math.random() - 0.5) * 3.0;
-                sparklines.hrv.push(hrvWave);
+                sparklines.hrv.push(hrv + breathCycle * 4.5 + heartVar * 2.2 + jitter(1.5));
             }
             if (sparklines.rr) {
                 revealSparkline('rr');
-                var rrWave = rr + Math.sin(sparkT * 0.5) * 1.2 + (Math.random() - 0.5) * 0.6;
-                sparklines.rr.push(rrWave);
+                sparklines.rr.push(rr + breathCycle * 1.2 + heartVar * 0.5 + jitter(0.3));
             }
 
             // Stress bar
@@ -945,6 +982,7 @@
                 clearInterval(breathingTimer);
                 breathingTimer = null;
             }
+            stopSparklineAnimator();
             sparklines = {};
             sparkRevealed = {};
             ringCtx = null;

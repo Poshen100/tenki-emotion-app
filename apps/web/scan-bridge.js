@@ -457,8 +457,80 @@
     //  INIT ON DOM READY
     // ══════════════════════════════════════════════
 
+    // ══════════════════════════════════════════════
+    //  ONBOARDING MODAL (first visit only)
+    // ══════════════════════════════════════════════
+
+    function showOnboardingIfNeeded() {
+        if (localStorage.getItem('tenki_onboarded') === '1') return;
+
+        var overlay = document.createElement('div');
+        overlay.className = 'tenki-onboard-overlay';
+        overlay.innerHTML =
+            '<div class="tenki-onboard-card">' +
+            '  <div class="tenki-onboard-emoji">🌤️</div>' +
+            '  <div class="tenki-onboard-title">歡迎使用 TENKI</div>' +
+            '  <div class="tenki-onboard-subtitle">用你的臉，30 秒知道「現在的決策狀態」</div>' +
+            '  <div class="tenki-onboard-divider"></div>' +
+            '  <div class="tenki-onboard-section">' +
+            '    <div class="tenki-onboard-badge">🎯 TEI 指數</div>' +
+            '    <div class="tenki-onboard-desc">你的即時決策品質分數<br>數字越高 → 越適合做重要決策</div>' +
+            '  </div>' +
+            '  <div class="tenki-onboard-steps">' +
+            '    <div class="tenki-onboard-step"><span class="tenki-onboard-step-num">1</span>長按螢幕中央按鈕</div>' +
+            '    <div class="tenki-onboard-step"><span class="tenki-onboard-step-num">2</span>允許鏡頭（僅用於臉部微表情）</div>' +
+            '    <div class="tenki-onboard-step"><span class="tenki-onboard-step-num">3</span>30 秒後查看你的 TEI 分數</div>' +
+            '  </div>' +
+            '  <button class="tenki-onboard-btn" id="tenki-onboard-start">立即開始</button>' +
+            '  <button class="tenki-onboard-link" id="tenki-onboard-learn">了解 TEI 是什麼</button>' +
+            '</div>';
+
+        document.body.appendChild(overlay);
+
+        // Animate in
+        requestAnimationFrame(function() {
+            overlay.classList.add('tenki-onboard-show');
+        });
+
+        function dismiss() {
+            localStorage.setItem('tenki_onboarded', '1');
+            overlay.classList.remove('tenki-onboard-show');
+            overlay.classList.add('tenki-onboard-hide');
+            setTimeout(function() {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            }, 400);
+        }
+
+        document.getElementById('tenki-onboard-start').addEventListener('click', dismiss);
+
+        // "了解 TEI" shows inline explanation
+        document.getElementById('tenki-onboard-learn').addEventListener('click', function() {
+            var desc = overlay.querySelector('.tenki-onboard-desc');
+            if (desc) {
+                desc.innerHTML =
+                    '<strong>TEI = Total Energy Index</strong><br>' +
+                    '結合心率、心率變異性、呼吸率三大生理指標<br>' +
+                    '轉換為 1-99 的百分位排名 (PR99)<br><br>' +
+                    '<strong>80-99</strong> 🔥 高能量 — 適合挑戰性決策<br>' +
+                    '<strong>55-79</strong> ✨ 最佳區間 — 決策品質最高<br>' +
+                    '<strong>35-54</strong> 😌 穩定觀察 — 避免衝動判斷<br>' +
+                    '<strong>01-34</strong> ⚠️ 建議休息 — 暫緩重要決策';
+                desc.style.fontSize = '12px';
+                desc.style.lineHeight = '1.6';
+            }
+        });
+
+        // Click backdrop to dismiss
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) dismiss();
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         dashboardLayer = document.getElementById('dashboard-layer');
+
+        // Show onboarding modal for first-time users
+        showOnboardingIfNeeded();
 
         // Show hint capsule on landing
         showHintCapsule();

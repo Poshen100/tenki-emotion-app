@@ -230,20 +230,20 @@
 
 .tei-number {
     font-size: 108px;
-    font-weight: 200;
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
     letter-spacing: -2px;
     line-height: 1;
     font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
     background:
-        linear-gradient(180deg, #FFFFFF 0%, #FEFEFF 12%, #F2F3F7 26%, #DDDDE4 46%, #C0C1C9 63%, #94959D 82%, #777983 100%),
-        linear-gradient(112deg, rgba(255,255,255,0.75) 18%, rgba(255,255,255,0.05) 37%, rgba(255,255,255,0) 54%);
+        linear-gradient(180deg, #FFFFFF 0%, #FFFFFF 15%, #F8F9FC 28%, #E8E9EE 42%, #C8C9D0 58%, #A0A1A8 75%, #848590 100%),
+        linear-gradient(115deg, rgba(255,255,255,0.85) 12%, rgba(255,255,255,0.15) 32%, rgba(255,255,255,0) 50%);
     background-blend-mode: screen, normal;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    filter: drop-shadow(0 0 34px rgba(0,180,216,0.14)) drop-shadow(0 2px 7px rgba(0,0,0,0.52));
-    text-shadow: 0 1px 0 rgba(255,255,255,0.12);
+    filter: drop-shadow(0 0 40px rgba(0,180,216,0.18)) drop-shadow(0 2px 8px rgba(0,0,0,0.55));
+    text-shadow: 0 1px 0 rgba(255,255,255,0.15);
     animation: heartbeat-pulse var(--pulse-dur) ease-in-out infinite;
 }
 
@@ -833,4 +833,185 @@
 #instruction {
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     padding-bottom: 8px;
+}
+
+/* =====================================================================
+   ONBOARDING MODAL — First-visit welcome
+   ===================================================================== */
+
+.tenki-onboard-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    padding: 24px;
+}
+
+.tenki-onboard-overlay.tenki-onboard-show {
+    opacity: 1;
+}
+
+.tenki-onboard-overlay.tenki-onboard-hide {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.tenki-onboard-card {
+    width: 100%;
+    max-width: 360px;
+    background: linear-gradient(165deg, rgba(58, 62, 78, 0.65) 0%, rgba(24, 26, 35, 0.88) 50%, rgba(12, 13, 20, 0.95) 100%);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 28px;
+    padding: 32px 28px 24px;
+    text-align: center;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 24px 64px rgba(0, 0, 0, 0.5),
+        0 0 80px rgba(0, 180, 216, 0.08);
+    transform: translateY(20px) scale(0.96);
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tenki-onboard-show .tenki-onboard-card {
+    transform: translateY(0) scale(1);
+}
+
+.tenki-onboard-hide .tenki-onboard-card {
+    transform: translateY(20px) scale(0.96);
+}
+
+.tenki-onboard-emoji {
+    font-size: 48px;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 4px 16px rgba(0, 180, 216, 0.3));
+}
+
+.tenki-onboard-title {
+    font-size: 24px;
+    font-weight: 600;
+    font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+    color: #FFFFFF;
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+}
+
+.tenki-onboard-subtitle {
+    font-size: 14px;
+    font-weight: 400;
+    font-family: -apple-system, 'SF Pro Text', 'PingFang TC', system-ui, sans-serif;
+    color: rgba(218, 222, 230, 0.82);
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.tenki-onboard-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+    margin: 0 -8px 16px;
+}
+
+.tenki-onboard-section {
+    margin-bottom: 20px;
+}
+
+.tenki-onboard-badge {
+    display: inline-flex;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(0, 230, 240, 0.95);
+    background: rgba(0, 180, 216, 0.12);
+    border: 1px solid rgba(0, 180, 216, 0.2);
+    border-radius: 12px;
+    padding: 4px 14px;
+    margin-bottom: 10px;
+}
+
+.tenki-onboard-desc {
+    font-size: 14px;
+    font-weight: 400;
+    font-family: -apple-system, 'SF Pro Text', 'PingFang TC', system-ui, sans-serif;
+    color: rgba(235, 238, 244, 0.88);
+    line-height: 1.6;
+}
+
+.tenki-onboard-steps {
+    text-align: left;
+    margin-bottom: 24px;
+}
+
+.tenki-onboard-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: -apple-system, 'SF Pro Text', 'PingFang TC', system-ui, sans-serif;
+    color: rgba(230, 234, 240, 0.86);
+    padding: 8px 0;
+}
+
+.tenki-onboard-step-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(0, 180, 216, 0.25), rgba(52, 199, 89, 0.2));
+    border: 1px solid rgba(0, 200, 220, 0.3);
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(0, 230, 240, 0.95);
+    flex-shrink: 0;
+}
+
+.tenki-onboard-btn {
+    display: block;
+    width: 100%;
+    padding: 14px 0;
+    background: linear-gradient(135deg, rgba(0, 200, 220, 0.88) 0%, rgba(52, 199, 89, 0.85) 100%);
+    border: none;
+    border-radius: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: -apple-system, 'SF Pro Text', 'PingFang TC', system-ui, sans-serif;
+    color: rgba(0, 20, 25, 0.92);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 4px 20px rgba(0, 200, 220, 0.25);
+    -webkit-tap-highlight-color: transparent;
+    margin-bottom: 8px;
+}
+
+.tenki-onboard-btn:active {
+    transform: scale(0.97);
+    box-shadow: 0 2px 12px rgba(0, 200, 220, 0.18);
+}
+
+.tenki-onboard-link {
+    display: block;
+    width: 100%;
+    padding: 10px 0;
+    background: none;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: -apple-system, 'SF Pro Text', 'PingFang TC', system-ui, sans-serif;
+    color: rgba(0, 200, 228, 0.72);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.15s ease;
+}
+
+.tenki-onboard-link:active {
+    color: rgba(0, 200, 228, 0.95);
 }
