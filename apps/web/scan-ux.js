@@ -15,7 +15,7 @@
     'use strict';
 
     var PHASE_BOUNDARIES = [2, 4, 17, 32, 62];
-    var NOISE_LEVELS = [0, 12, 6, 3, 1];
+    var NOISE_LEVELS = [8, 14, 6, 3, 1];
     var UPDATE_INTERVAL = 350;
     var ALPHA = 0.05;
 
@@ -32,8 +32,10 @@
     var histories = { hr: [], hrv: [], rr: [] };
 
     function ewmaSmooth(current, target, min, max) {
+        // Use higher alpha in early phases so sparklines respond quickly
+        var a = (currentPhase <= 1) ? 0.15 : ALPHA;
         if (current === 0) return Math.max(min, Math.min(max, target));
-        var v = current * (1 - ALPHA) + target * ALPHA;
+        var v = current * (1 - a) + target * a;
         return Math.max(min, Math.min(max, v));
     }
 

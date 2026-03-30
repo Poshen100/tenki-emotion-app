@@ -42,6 +42,15 @@
         this.draw();
     };
 
+    /** Push multiple values at once, only redraw after last */
+    Sparkline.prototype.pushBatch = function (values) {
+        for (var i = 0; i < values.length; i++) {
+            this.data.push(values[i]);
+            if (this.data.length > this.maxPoints) this.data.shift();
+        }
+        this.draw();
+    };
+
     Sparkline.prototype.draw = function () {
         var ctx = this.ctx;
         var w = this.w;
@@ -60,7 +69,7 @@
         // Enforce minimum range so small fluctuations are still visible
         var rawRange = max - min;
         var mid = (min + max) / 2;
-        var minRange = mid * 0.12 || 5; // at least 12% of midpoint or 5
+        var minRange = mid * 0.20 || 8; // at least 20% of midpoint or 8
         if (rawRange < minRange) {
             min = mid - minRange / 2;
             max = mid + minRange / 2;
