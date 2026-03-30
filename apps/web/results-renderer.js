@@ -601,15 +601,22 @@
         if (wait) wait.style.display = 'none';
     }
 
-    // Seed sparklines with simulated baseline so waveform is visible immediately
+    // Seed sparklines with physiologically realistic baseline waveform
     function seedSparklines() {
-        var seeds = { hr: 68, hrv: 45, rr: 15 };
+        var seeds = {
+            hr:  { base: 68, amp: 3.5,  freq: 0.35, noise: 1.2 },
+            hrv: { base: 45, amp: 6.0,  freq: 0.25, noise: 2.0 },
+            rr:  { base: 15, amp: 1.5,  freq: 0.15, noise: 0.4 }
+        };
         ['hr', 'hrv', 'rr'].forEach(function(id) {
             if (!sparklines[id]) return;
             revealSparkline(id);
-            var base = seeds[id];
-            for (var i = 0; i < 8; i++) {
-                var v = base + (Math.random() - 0.5) * base * 0.08;
+            var s = seeds[id];
+            for (var i = 0; i < 30; i++) {
+                var t = i * 0.5;
+                var v = s.base
+                      + Math.sin(t * s.freq * Math.PI * 2) * s.amp
+                      + (Math.random() - 0.5) * s.noise;
                 sparklines[id].push(v);
             }
         });
@@ -648,21 +655,9 @@
 
     // ─── Update Stress segmented bar ───
     function updateStressBar(stress) {
-        var segs = document.querySelectorAll('.stress-seg-fill');
-        if (!segs || segs.length < 1) return;
-        var segCount = segs.length;
-        var unit = 100 / segCount;
-        for (var i = 0; i < segCount; i++) {
-            var segMin = i * unit;
-            var segMax = (i + 1) * unit;
-            if (stress >= segMax) {
-                segs[i].style.width = '100%';
-            } else if (stress > segMin) {
-                segs[i].style.width = ((stress - segMin) / unit * 100) + '%';
-            } else {
-                segs[i].style.width = '0%';
-            }
-        }
+        // Single-bar stress fill
+        var fill = document.getElementById('stress-bar-fill');
+        if (fill) fill.style.width = Math.max(0, Math.min(100, stress)) + '%';
         var pctEl = document.getElementById('stress-pct');
         if (pctEl) pctEl.textContent = stress + '%';
     }
@@ -724,10 +719,21 @@
             // Init TEI ring canvas
             initRingCanvas();
 
-            // Init sparklines (delay to ensure layout is settled for canvas sizing)
+            // Init sparklines + BB + stress + FDCB (delay to ensure layout is settled)
             setTimeout(function() {
                 initSparklines();
                 seedSparklines();
+
+                // FIX #2: Seed BB chart immediately with default declining profile
+                var defaultBB = [92,90,88,86,84,82,80,79,78,77,76,75,78,80,82,84,82,80,78,76,75,74,76,78];
+                initBBChart(defaultBB);
+
+                // FIX #4: Seed stress bar with neutral default
+                updateStressBar(30);
+
+                // FIX #5: Show FDCB dock immediately (idle state)
+                var dock = document.getElementById('fdcb-dock');
+                if (dock) dock.classList.add('active');
             }, 300);
         },
 
@@ -753,19 +759,16 @@
                 }, 300);
             }, 5000);
 
-            ['hr','hrv','rr','stress'].forEach(function(id) {
+            ['hr','hrv','rr'].forEach(function(id) {
                 var v = document.getElementById('bento-' + id);
                 if (v) v.textContent = '--';
             });
+            var stressEl = document.getElementById('bento-stress');
+            if (stressEl) stressEl.textContent = '--';
+            updateStressBar(30);
 
             // Draw empty ring
             drawTEIRing(0, 0);
-
-            // Init BB chart immediately with baseline data (don't wait for showComplete)
-            var baseline = global.TENKI_BASELINE_SIM;
-            if (baseline) {
-                setTimeout(function() { initBBChart(baseline.generateBB24h()); }, 400);
-            }
         },
 
         updateAll: function(ewma, histories, ans, phase) {

@@ -28,7 +28,7 @@
     var latestRaw = null;
 
     // EWMA state
-    var ewma = { tei: 0, hr: 0, hrv: 0, rr: 0, stress: 0, sns: 50, sqi: 0 };
+    var ewma = { tei: 0, hr: 0, hrv: 0, rr: 0, stress: 0, sns: 38, sqi: 0 };
     var histories = { hr: [], hrv: [], rr: [] };
 
     function ewmaSmooth(current, target, min, max) {
@@ -222,7 +222,7 @@
         start: function () {
             if (isRunning) return;
 
-            ewma = { tei: 0, hr: 0, hrv: 0, rr: 0, stress: 0, sns: 50, sqi: 0 };
+            ewma = { tei: 0, hr: 0, hrv: 0, rr: 0, stress: 0, sns: 38, sqi: 0 };
             histories = { hr: [], hrv: [], rr: [] };
             currentPhase = 0;
             locked = false;
