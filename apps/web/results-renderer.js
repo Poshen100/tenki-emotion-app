@@ -15,26 +15,24 @@
     var RING_SIZE = 296;
     var OUTER_R = 126, INNER_R = 104;
     var OUTER_W = 12, INNER_W = 6;
-    var OUTER_START = Math.PI * 0.74; // lower-left
-    var INNER_START = -Math.PI * 0.40; // upper-right
+    var OUTER_START = Math.PI * 0.74; // lower-left (~8 o'clock)
+    var INNER_START = Math.PI * 0.74; // same start — both rings clockwise from lower-left
 
-    // 15-stop spectrum for outer ring (purple → blue → cyan → green → yellow → orange → red)
+    // 12-stop spectrum for outer ring (cyan → green → yellow → orange → red)
+    // Matches reference mockup warm-progression
     var SPECTRUM = [
-        [94,58,135],   // #5E3A87
-        [58,32,176],   // #3A20B0
-        [0,102,255],   // #0066FF
-        [0,136,234],   // #0088EA
-        [0,180,216],   // #00B4D8
-        [26,202,107],  // #1ACA6B
-        [52,199,89],   // #34C759
-        [111,216,75],  // #6FD84B
-        [168,216,67],  // #A8D843
-        [207,192,51],  // #CFC033
-        [245,166,35],  // #F5A623
-        [250,137,44],  // #FA892C
-        [255,107,53],  // #FF6B35
-        [255,87,56],   // #FF5738
-        [255,69,58]    // #FF453A
+        [0,180,180],   // #00B4B4  teal
+        [0,190,140],   // #00BE8C  teal-green
+        [40,200,100],  // #28C864  green
+        [80,210,60],   // #50D23C  yellow-green
+        [140,210,50],  // #8CD232  lime
+        [190,200,40],  // #BEC828  yellow-green
+        [220,180,35],  // #DCB423  golden
+        [240,155,30],  // #F09B1E  amber
+        [250,125,35],  // #FA7D23  orange
+        [255,100,45],  // #FF642D  deep orange
+        [255,80,50],   // #FF5032  red-orange
+        [255,65,55]    // #FF4137  red
     ];
 
     var ZONE_COLORS = {
@@ -277,7 +275,7 @@
             ctx.lineCap = 'round';
 
             ctx.save();
-            ctx.shadowColor = 'rgba(52,199,89,0.2)';
+            ctx.shadowColor = 'rgba(40,200,140,0.25)';
             ctx.shadowBlur = 10;
 
             for (var j = 0; j < iSegs; j++) {
