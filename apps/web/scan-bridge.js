@@ -470,7 +470,7 @@
             '<div class="tenki-onboard-card">' +
             '  <div class="tenki-onboard-emoji">🌤️</div>' +
             '  <div class="tenki-onboard-title">歡迎使用 TENKI</div>' +
-            '  <div class="tenki-onboard-subtitle">預設為健康壓力模式：30 秒即時情緒偵測，持續提升決策品質與控制感</div>' +
+            '  <div class="tenki-onboard-subtitle">預設為健康壓力模式：30 秒即時生理融合分析，持續提升決策品質與控制感</div>' +
             '  <div class="tenki-onboard-divider"></div>' +
             '  <div class="tenki-onboard-section">' +
             '    <div class="tenki-onboard-badge">🎯 模式定位</div>' +
@@ -478,7 +478,7 @@
             '  </div>' +
             '  <div class="tenki-onboard-steps">' +
             '    <div class="tenki-onboard-step"><span class="tenki-onboard-step-num">1</span>長按螢幕中央按鈕</div>' +
-            '    <div class="tenki-onboard-step"><span class="tenki-onboard-step-num">2</span>允許鏡頭（僅用於臉部微表情）</div>' +
+            '    <div class="tenki-onboard-step"><span class="tenki-onboard-step-num">2</span>允許鏡頭（僅用於臉部生理訊號分析，不做人臉辨識）</div>' +
             '    <div class="tenki-onboard-step"><span class="tenki-onboard-step-num">3</span>30 秒後查看你的 TEI 與決策狀態</div>' +
             '  </div>' +
             '  <button class="tenki-onboard-btn" id="tenki-onboard-start">進入預設模式開始掃描</button>' +
@@ -511,6 +511,8 @@
                     '<strong>TEI = Total Energy Index</strong><br>' +
                     '結合心率、心率變異性、呼吸率三大生理指標<br>' +
                     '轉換為 1-99 的百分位排名 (PR99)<br><br>' +
+                    '<strong>隱私設計：</strong>影像僅在本機即時運算，不上傳雲端、不保存原始影像<br>' +
+                    '<strong>辨識邊界：</strong>僅做生理訊號估計，不做人臉辨識<br><br>' +
                     '<strong>預設模式：</strong>健康壓力模式（一般決策語境）<br>' +
                     '<strong>設定切換：</strong>Trader Mode（交易語境與功能同步）<br><br>' +
                     '<strong>80-99</strong> 🔥 高能量 — 適合挑戰性決策<br>' +
