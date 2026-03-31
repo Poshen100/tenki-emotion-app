@@ -121,10 +121,28 @@
         .tenki-onboarding-feature:nth-child(3) { animation-delay: 0.35s; }
 
         .tenki-onboarding-feature-icon {
-            font-size: 18px;
+            position: relative;
             flex-shrink: 0;
-            width: 28px;
-            text-align: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(150deg, rgba(0, 180, 216, 0.2), rgba(0, 180, 216, 0.06));
+            border: 1px solid rgba(120, 220, 255, 0.3);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                0 0 0 1px rgba(0, 180, 216, 0.08),
+                0 8px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .tenki-onboarding-feature-icon svg {
+            width: 15px;
+            height: 15px;
+            stroke-width: 2.2;
+            color: rgba(200, 247, 255, 0.96);
+            filter: drop-shadow(0 0 8px rgba(0, 200, 255, 0.32));
         }
 
         .tenki-onboarding-modes {
@@ -135,15 +153,36 @@
         }
 
         .tenki-onboarding-mode-box {
-            border: 1px dashed rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(120, 220, 255, 0.24);
             border-radius: 12px;
             padding: 14px 12px;
             text-align: center;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                0 10px 22px rgba(0, 0, 0, 0.25);
         }
 
         .tenki-onboarding-mode-icon {
-            font-size: 18px;
-            margin-bottom: 6px;
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(140deg, rgba(0, 180, 216, 0.2), rgba(82, 170, 255, 0.08));
+            border: 1px solid rgba(120, 220, 255, 0.28);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28);
+        }
+
+        .tenki-onboarding-mode-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke-width: 2.1;
+            color: rgba(210, 250, 255, 0.96);
+            filter: drop-shadow(0 0 8px rgba(0, 200, 255, 0.32));
         }
 
         .tenki-onboarding-mode-name {
@@ -190,6 +229,18 @@
             color: rgba(255, 255, 255, 0.35);
             text-align: center;
             line-height: 1.5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .tenki-onboarding-privacy svg {
+            width: 12px;
+            height: 12px;
+            color: rgba(168, 240, 255, 0.74);
+            stroke-width: 2.25;
+            flex-shrink: 0;
         }
 
         @media (min-width: 769px) {
@@ -1938,32 +1989,35 @@
                 <div class="tenki-onboarding-subtitle">預設為健康壓力模式：30 秒即時生理融合分析 + 決策支持<br>持續提升你的決策品質與控制感</div>
                 <div class="tenki-onboarding-features">
                     <div class="tenki-onboarding-feature">
-                        <span class="tenki-onboarding-feature-icon">⚡</span>
+                        <span class="tenki-onboarding-feature-icon"><i data-lucide="activity"></i></span>
                         <span>即時 TEI 情緒指數 1–99（PR99）</span>
                     </div>
                     <div class="tenki-onboarding-feature">
-                        <span class="tenki-onboarding-feature-icon">🧠</span>
+                        <span class="tenki-onboarding-feature-icon"><i data-lucide="brain"></i></span>
                         <span>預設健康壓力模式：決策品質引導</span>
                     </div>
                     <div class="tenki-onboarding-feature">
-                        <span class="tenki-onboarding-feature-icon">📊</span>
+                        <span class="tenki-onboarding-feature-icon"><i data-lucide="shield-check"></i></span>
                         <span>設定切換 Trader Mode：用語與功能同步</span>
                     </div>
                 </div>
                 <div class="tenki-onboarding-modes">
                     <div class="tenki-onboarding-mode-box">
-                        <div class="tenki-onboarding-mode-icon">⚡</div>
+                        <div class="tenki-onboarding-mode-icon"><i data-lucide="heart"></i></div>
                         <div class="tenki-onboarding-mode-name">健康壓力模式（預設）</div>
                         <div class="tenki-onboarding-mode-desc">一般決策場景<br>提升穩定與控制感</div>
                     </div>
                     <div class="tenki-onboarding-mode-box">
-                        <div class="tenki-onboarding-mode-icon">🎯</div>
+                        <div class="tenki-onboarding-mode-icon"><i data-lucide="trending-up"></i></div>
                         <div class="tenki-onboarding-mode-name">Trader Mode</div>
                         <div class="tenki-onboarding-mode-desc">設定啟用後<br>交易用語與功能同步套用</div>
                     </div>
                 </div>
                 <button class="tenki-onboarding-cta" id="tenki-onboarding-cta">進入預設模式開始掃描</button>
-                <div class="tenki-onboarding-privacy">⛓ 影像僅在本機即時運算，不上傳雲端、不保存原始影像</div>
+                <div class="tenki-onboarding-privacy">
+                    <i data-lucide="lock"></i>
+                    <span>影像僅在本機即時運算，不上傳雲端、不保存原始影像</span>
+                </div>
             </div>
         </div>
 
@@ -1980,6 +2034,9 @@
 
             // Show modal
             overlay.style.display = 'flex';
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
 
             // CTA button handler
             var cta = document.getElementById('tenki-onboarding-cta');

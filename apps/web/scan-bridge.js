@@ -468,12 +468,12 @@
         overlay.className = 'tenki-onboard-overlay';
         overlay.innerHTML =
             '<div class="tenki-onboard-card">' +
-            '  <div class="tenki-onboard-emoji">🌤️</div>' +
+            '  <div class="tenki-onboard-emoji"><span class="tenki-onboard-hero-chip"><i data-lucide="activity"></i></span></div>' +
             '  <div class="tenki-onboard-title">歡迎使用 TENKI</div>' +
             '  <div class="tenki-onboard-subtitle">預設為健康壓力模式：30 秒即時生理融合分析，持續提升決策品質與控制感</div>' +
             '  <div class="tenki-onboard-divider"></div>' +
             '  <div class="tenki-onboard-section">' +
-            '    <div class="tenki-onboard-badge">🎯 模式定位</div>' +
+            '    <div class="tenki-onboard-badge"><i data-lucide="target"></i><span>模式定位</span></div>' +
             '    <div class="tenki-onboard-desc">預設：健康壓力模式（一般決策）<br>設定可切換 Trader Mode，交易用語與功能同步套用</div>' +
             '  </div>' +
             '  <div class="tenki-onboard-steps">' +
@@ -486,6 +486,9 @@
             '</div>';
 
         document.body.appendChild(overlay);
+        if (global.lucide && typeof global.lucide.createIcons === 'function') {
+            global.lucide.createIcons();
+        }
 
         // Animate in
         requestAnimationFrame(function() {
