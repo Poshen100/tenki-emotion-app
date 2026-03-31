@@ -470,19 +470,19 @@
             '<div class="tenki-onboard-card">' +
             '  <div class="tenki-onboard-emoji">🌤️</div>' +
             '  <div class="tenki-onboard-title">歡迎使用 TENKI</div>' +
-            '  <div class="tenki-onboard-subtitle">用你的臉，30 秒知道「現在的決策狀態」</div>' +
+            '  <div class="tenki-onboard-subtitle">預設為健康壓力模式：30 秒即時情緒偵測，持續提升決策品質與控制感</div>' +
             '  <div class="tenki-onboard-divider"></div>' +
             '  <div class="tenki-onboard-section">' +
-            '    <div class="tenki-onboard-badge">🎯 TEI 指數</div>' +
-            '    <div class="tenki-onboard-desc">你的即時決策品質分數<br>數字越高 → 越適合做重要決策</div>' +
+            '    <div class="tenki-onboard-badge">🎯 模式定位</div>' +
+            '    <div class="tenki-onboard-desc">預設：健康壓力模式（一般決策）<br>設定可切換 Trader Mode，交易用語與功能同步套用</div>' +
             '  </div>' +
             '  <div class="tenki-onboard-steps">' +
             '    <div class="tenki-onboard-step"><span class="tenki-onboard-step-num">1</span>長按螢幕中央按鈕</div>' +
             '    <div class="tenki-onboard-step"><span class="tenki-onboard-step-num">2</span>允許鏡頭（僅用於臉部微表情）</div>' +
-            '    <div class="tenki-onboard-step"><span class="tenki-onboard-step-num">3</span>30 秒後查看你的 TEI 分數</div>' +
+            '    <div class="tenki-onboard-step"><span class="tenki-onboard-step-num">3</span>30 秒後查看你的 TEI 與決策狀態</div>' +
             '  </div>' +
-            '  <button class="tenki-onboard-btn" id="tenki-onboard-start">立即開始</button>' +
-            '  <button class="tenki-onboard-link" id="tenki-onboard-learn">了解 TEI 是什麼</button>' +
+            '  <button class="tenki-onboard-btn" id="tenki-onboard-start">進入預設模式開始掃描</button>' +
+            '  <button class="tenki-onboard-link" id="tenki-onboard-learn">了解模式與 TEI</button>' +
             '</div>';
 
         document.body.appendChild(overlay);
@@ -511,6 +511,8 @@
                     '<strong>TEI = Total Energy Index</strong><br>' +
                     '結合心率、心率變異性、呼吸率三大生理指標<br>' +
                     '轉換為 1-99 的百分位排名 (PR99)<br><br>' +
+                    '<strong>預設模式：</strong>健康壓力模式（一般決策語境）<br>' +
+                    '<strong>設定切換：</strong>Trader Mode（交易語境與功能同步）<br><br>' +
                     '<strong>80-99</strong> 🔥 高能量 — 適合挑戰性決策<br>' +
                     '<strong>55-79</strong> ✨ 最佳區間 — 決策品質最高<br>' +
                     '<strong>35-54</strong> 😌 穩定觀察 — 避免衝動判斷<br>' +
