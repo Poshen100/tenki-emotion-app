@@ -283,6 +283,8 @@
     align-items: center !important;
     justify-content: space-between !important;
     margin-bottom: 6px !important;
+    min-height: 22px !important;
+    height: 22px !important;
 }
 
 #results-page.rp-ready .results-bento-label {
@@ -302,7 +304,7 @@
 
 #results-page.rp-ready .results-bento-row {
     display: flex !important;
-    align-items: baseline !important;
+    align-items: flex-end !important;
     flex-shrink: 0 !important;
     white-space: nowrap !important;
     line-height: 1 !important;
@@ -315,6 +317,7 @@
     color: #ffffff !important;
     letter-spacing: 0 !important;
     animation: none !important;
+    line-height: 28px !important;
 }
 
 #results-page.rp-ready .results-bento-unit {
@@ -323,7 +326,8 @@
     font-weight: 400 !important;
     color: #8e8e93 !important;
     margin-left: 4px !important;
-    vertical-align: baseline !important;
+    line-height: 14px !important;
+    padding-bottom: 2px !important;
 }
 
 #results-page.rp-ready .results-bento-pill {
