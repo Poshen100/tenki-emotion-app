@@ -901,20 +901,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(145deg, rgba(0, 208, 255, 0.24), rgba(56, 227, 160, 0.16));
-    border: 1px solid rgba(134, 234, 255, 0.42);
+    background: linear-gradient(145deg, var(--tenki-zone-chip-a), var(--tenki-zone-chip-b));
+    border: 1px solid var(--tenki-zone-chip-border);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.24),
         0 12px 28px rgba(0, 0, 0, 0.35),
-        0 0 26px rgba(0, 190, 255, 0.26);
+        0 0 26px var(--tenki-zone-glow);
 }
 
 .tenki-onboard-hero-chip svg {
     width: 24px;
     height: 24px;
-    color: rgba(224, 252, 255, 0.96);
+    color: var(--tenki-zone-icon);
     stroke-width: 2.2;
-    filter: drop-shadow(0 0 10px rgba(0, 210, 255, 0.35));
+    filter: drop-shadow(0 0 10px var(--tenki-zone-glow));
+    transition: color 260ms ease, filter 260ms ease;
 }
 
 .tenki-onboard-title {
@@ -951,9 +952,9 @@
     gap: 7px;
     font-size: 13px;
     font-weight: 600;
-    color: rgba(0, 230, 240, 0.95);
-    background: rgba(0, 180, 216, 0.12);
-    border: 1px solid rgba(0, 180, 216, 0.2);
+    color: var(--tenki-zone-icon);
+    background: linear-gradient(135deg, var(--tenki-zone-chip-a), var(--tenki-zone-chip-b));
+    border: 1px solid var(--tenki-zone-chip-border);
     border-radius: 12px;
     padding: 4px 14px;
     margin-bottom: 10px;
@@ -963,6 +964,9 @@
     width: 14px;
     height: 14px;
     stroke-width: 2.2;
+    color: var(--tenki-zone-icon);
+    filter: drop-shadow(0 0 8px var(--tenki-zone-glow));
+    transition: color 260ms ease, filter 260ms ease;
 }
 
 .tenki-onboard-desc {

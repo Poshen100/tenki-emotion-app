@@ -129,11 +129,11 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(150deg, rgba(0, 180, 216, 0.2), rgba(0, 180, 216, 0.06));
-            border: 1px solid rgba(120, 220, 255, 0.3);
+            background: linear-gradient(150deg, var(--tenki-zone-chip-a), var(--tenki-zone-chip-b));
+            border: 1px solid var(--tenki-zone-chip-border);
             box-shadow:
                 inset 0 1px 0 rgba(255, 255, 255, 0.2),
-                0 0 0 1px rgba(0, 180, 216, 0.08),
+                0 0 0 1px var(--tenki-zone-chip-outline),
                 0 8px 20px rgba(0, 0, 0, 0.25);
         }
 
@@ -141,8 +141,9 @@
             width: 15px;
             height: 15px;
             stroke-width: 2.2;
-            color: rgba(200, 247, 255, 0.96);
-            filter: drop-shadow(0 0 8px rgba(0, 200, 255, 0.32));
+            color: var(--tenki-zone-icon);
+            filter: drop-shadow(0 0 10px var(--tenki-zone-glow));
+            transition: color 260ms ease, filter 260ms ease;
         }
 
         .tenki-onboarding-modes {
@@ -172,8 +173,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(140deg, rgba(0, 180, 216, 0.2), rgba(82, 170, 255, 0.08));
-            border: 1px solid rgba(120, 220, 255, 0.28);
+            background: linear-gradient(140deg, var(--tenki-zone-chip-a), var(--tenki-zone-chip-b));
+            border: 1px solid var(--tenki-zone-chip-border);
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28);
         }
 
@@ -181,8 +182,9 @@
             width: 16px;
             height: 16px;
             stroke-width: 2.1;
-            color: rgba(210, 250, 255, 0.96);
-            filter: drop-shadow(0 0 8px rgba(0, 200, 255, 0.32));
+            color: var(--tenki-zone-icon);
+            filter: drop-shadow(0 0 10px var(--tenki-zone-glow));
+            transition: color 260ms ease, filter 260ms ease;
         }
 
         .tenki-onboarding-mode-name {
@@ -238,9 +240,11 @@
         .tenki-onboarding-privacy svg {
             width: 12px;
             height: 12px;
-            color: rgba(168, 240, 255, 0.74);
+            color: var(--tenki-zone-icon);
             stroke-width: 2.25;
             flex-shrink: 0;
+            filter: drop-shadow(0 0 8px var(--tenki-zone-glow));
+            transition: color 260ms ease, filter 260ms ease;
         }
 
         @media (min-width: 769px) {
@@ -289,6 +293,60 @@
             --state-risk: #FF0055;
             --glass-bg: rgba(15, 15, 20, 0.92);
             --glass-border: rgba(255, 255, 255, 0.12);
+        }
+
+        body {
+            --tenki-zone-icon: rgba(206, 249, 255, 0.96);
+            --tenki-zone-glow: rgba(0, 204, 255, 0.38);
+            --tenki-zone-chip-a: rgba(0, 180, 216, 0.20);
+            --tenki-zone-chip-b: rgba(0, 180, 216, 0.06);
+            --tenki-zone-chip-border: rgba(120, 220, 255, 0.30);
+            --tenki-zone-chip-outline: rgba(0, 180, 216, 0.10);
+        }
+
+        body[data-tenki-zone="peak"] {
+            --tenki-zone-icon: rgba(255, 226, 158, 0.96);
+            --tenki-zone-glow: rgba(245, 166, 35, 0.44);
+            --tenki-zone-chip-a: rgba(245, 166, 35, 0.24);
+            --tenki-zone-chip-b: rgba(245, 166, 35, 0.08);
+            --tenki-zone-chip-border: rgba(255, 210, 136, 0.44);
+            --tenki-zone-chip-outline: rgba(245, 166, 35, 0.14);
+        }
+
+        body[data-tenki-zone="optimal"] {
+            --tenki-zone-icon: rgba(194, 246, 255, 0.96);
+            --tenki-zone-glow: rgba(0, 180, 216, 0.44);
+            --tenki-zone-chip-a: rgba(0, 180, 216, 0.24);
+            --tenki-zone-chip-b: rgba(0, 180, 216, 0.08);
+            --tenki-zone-chip-border: rgba(112, 225, 255, 0.40);
+            --tenki-zone-chip-outline: rgba(0, 180, 216, 0.14);
+        }
+
+        body[data-tenki-zone="neutral"] {
+            --tenki-zone-icon: rgba(223, 227, 236, 0.94);
+            --tenki-zone-glow: rgba(196, 206, 224, 0.30);
+            --tenki-zone-chip-a: rgba(186, 194, 206, 0.18);
+            --tenki-zone-chip-b: rgba(186, 194, 206, 0.07);
+            --tenki-zone-chip-border: rgba(220, 226, 236, 0.24);
+            --tenki-zone-chip-outline: rgba(186, 194, 206, 0.12);
+        }
+
+        body[data-tenki-zone="degraded"] {
+            --tenki-zone-icon: rgba(212, 191, 244, 0.95);
+            --tenki-zone-glow: rgba(94, 58, 135, 0.46);
+            --tenki-zone-chip-a: rgba(94, 58, 135, 0.26);
+            --tenki-zone-chip-b: rgba(94, 58, 135, 0.10);
+            --tenki-zone-chip-border: rgba(177, 146, 219, 0.36);
+            --tenki-zone-chip-outline: rgba(94, 58, 135, 0.16);
+        }
+
+        #hud-layer [data-lucide],
+        #dashboard-layer [data-lucide],
+        .tenki-onboarding-card [data-lucide],
+        .tenki-onboard-card [data-lucide] {
+            color: var(--tenki-zone-icon) !important;
+            filter: drop-shadow(0 0 8px var(--tenki-zone-glow));
+            transition: color 280ms ease, filter 280ms ease;
         }
 
         body {
