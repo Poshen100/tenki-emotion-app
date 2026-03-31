@@ -108,24 +108,35 @@
     var ringDpr = 1;
     var currentOuterFill = 0;
     var currentInnerFill = 0;
-    
+
     var animatedTeiTarget = 1;
     var animatedTeiCurrent = 1;
     var teiAnimFrame = null;
 
+    /**
+     * TEI PR99 → RS-style 顯示分數 (1–99)
+     * 引擎已輸出 1-99，此函式為安全網 + 單一顯示來源
+     * @param {number} raw - 內部 PR99 值
+     * @returns {number} 1–99 整數
+     */
+    function clampTeiDisplay(raw) {
+        if (raw == null || isNaN(raw)) return 1;
+        return Math.max(1, Math.min(99, Math.round(raw)));
+    }
+
     function animateTeiLoop() {
         var diff = animatedTeiTarget - animatedTeiCurrent;
         var numEl = document.getElementById('tei-display');
-        
+
         if (Math.abs(diff) < 0.5) {
             animatedTeiCurrent = animatedTeiTarget;
-            if (numEl) numEl.textContent = String(Math.round(animatedTeiCurrent));
+            if (numEl) numEl.textContent = String(clampTeiDisplay(animatedTeiCurrent));
             teiAnimFrame = null;
             return;
         }
-        
+
         animatedTeiCurrent += diff * 0.15;
-        if (numEl) numEl.textContent = String(Math.round(animatedTeiCurrent));
+        if (numEl) numEl.textContent = String(clampTeiDisplay(animatedTeiCurrent));
         teiAnimFrame = requestAnimationFrame(animateTeiLoop);
     }
 
@@ -857,7 +868,7 @@
                 var advice = TRADE_ADVICE[zone];
                 if (advice) {
                     var szEl = document.getElementById('rp-summary-zone');
-                    if (szEl) szEl.textContent = 'TEI ' + tei + ' / 100';
+                    if (szEl) szEl.textContent = 'TEI ' + clampTeiDisplay(tei) + ' / 99';
                     var seEl = document.getElementById('rp-summary-emoji');
                     if (seEl) seEl.textContent = advice.emoji;
                     var slEl = document.getElementById('rp-summary-label');
