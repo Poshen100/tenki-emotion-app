@@ -319,24 +319,25 @@ function updateUI(data) {
   if(data.rr) document.getElementById('rp-val-rr').textContent = data.rr;
   if(data.hrv) document.getElementById('rp-val-hrv').textContent = data.hrv;
   
-  // Example dynamic mapping for TEI
-  const teiVal = data.tei || 72;
+  // RS-style TEI display: clamp to 1–99, never show 0 or 100
+  const teiRaw = data.tei || 72;
+  const teiVal = Math.max(1, Math.min(99, Math.round(teiRaw)));
   const teiEl = document.getElementById('rp-tei-val');
   if(teiEl) {
     teiEl.textContent = teiVal;
-    
+
     // Position dot mapping on golden arc
-    // Math: arc length 270 deg representing TEI 0-100.
+    // Math: arc length 270 deg representing TEI 1–99 (RS-style PR99).
     // Start angle: 135deg (Left-bottom), End angle: 405deg.
-    const pct = Math.min(100, Math.max(0, teiVal)) / 100;
-    const angleRot = (pct * 270); 
-    
+    const pct = Math.min(99, Math.max(1, teiVal)) / 99;
+    const angleRot = (pct * 270);
+
     const dot = document.getElementById('rp-tei-dot');
     if(dot) dot.style.transform = `translate(-50%, -50%) rotate(${angleRot}deg)`;
-    
+
     // Dash Offset mapping
     // total 816.8, visible 612.6.
-    // 0 = empty (dashoffset = 816.8), 100 = full (dashoffset = 816.8 - 612.6 = 204.2)
+    // 1 = near-empty, 99 = full (dashoffset = 816.8 - 612.6 = 204.2)
     const arc = document.getElementById('rp-tei-arc');
     if(arc) arc.style.strokeDashoffset = 816.8 - (612.6 * pct);
   }
