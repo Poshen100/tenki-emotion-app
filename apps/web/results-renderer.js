@@ -461,7 +461,7 @@
             '  <div class="results-bento-body">' +
             '    <div class="results-bento-row">' +
             '      <span class="results-bento-value" id="bento-hrv">--</span>' +
-            '      <span class="results-bento-unit"><sup>ms</sup> RMSSD</span>' +
+            '      <span class="results-bento-unit">ms RMSSD</span>' +
             '    </div>' +
             '    <div class="results-bento-spark-wrap">' +
             '      <span class="results-bento-sparkline-wait" id="spark-wait-hrv">\u7B49\u5F85\u6578\u64DA\u4E2D\u2026</span>' +
@@ -716,8 +716,16 @@
     }
 
     // ─── ANS Micro-fluctuation ───
+    var ansTarget = 38;
+    var ansCurrent = 38;
+    var ansLastUpdate = 0;
+
     function startANSFluctuation() {
         if (ansFluctuateTimer) return;
+        ansCurrent = 38;
+        ansTarget = 38;
+        ansLastUpdate = Date.now();
+
         ansFluctuateTimer = setInterval(function () {
             var snsEl = document.getElementById('ans-sns');
             var pnsEl = document.getElementById('ans-pns');
@@ -727,17 +735,24 @@
 
             if (!snsEl || !pnsEl) return;
 
-            var current = parseFloat(snsEl.style.width) || 38;
-            var jitter = (Math.random() - 0.5) * 4;
-            var newSns = Math.max(15, Math.min(85, current + jitter));
+            // Pick new random target every ~1.2s
+            var now = Date.now();
+            if (now - ansLastUpdate > 1200) {
+                ansTarget = Math.max(25, Math.min(75, ansTarget + (Math.random() - 0.5) * 12));
+                ansLastUpdate = now;
+            }
+
+            // Smooth lerp toward target
+            ansCurrent += (ansTarget - ansCurrent) * 0.15;
+            var newSns = ansCurrent;
             var newPns = 100 - newSns;
 
-            snsEl.style.width = newSns + '%';
-            pnsEl.style.width = newPns + '%';
-            if (divEl) divEl.style.left = newSns + '%';
+            snsEl.style.width = newSns.toFixed(1) + '%';
+            pnsEl.style.width = newPns.toFixed(1) + '%';
+            if (divEl) divEl.style.left = newSns.toFixed(1) + '%';
             if (snsPctEl) snsPctEl.textContent = String(Math.round(newSns));
             if (pnsPctEl) pnsPctEl.textContent = String(Math.round(newPns));
-        }, 350);
+        }, 80);
     }
 
     // ─── Public API ───
@@ -787,6 +802,9 @@
                 // FIX #5: Show FDCB dock immediately (idle state)
                 var dock = document.getElementById('fdcb-dock');
                 if (dock) dock.classList.add('active');
+
+                // FIX: Start ANS fluctuation immediately (don't wait for scan complete)
+                startANSFluctuation();
             }, 300);
         },
 

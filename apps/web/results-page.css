@@ -323,6 +323,7 @@
     font-weight: 400 !important;
     color: #8e8e93 !important;
     margin-left: 4px !important;
+    vertical-align: baseline !important;
 }
 
 #results-page.rp-ready .results-bento-pill {
@@ -491,15 +492,18 @@
 
 #results-page.rp-ready .ans-sns-bar {
     background: #ff453a !important;
+    transition: width 0.12s ease-out;
 }
 
 #results-page.rp-ready .ans-pns-bar {
     background: #34c759 !important;
+    transition: width 0.12s ease-out;
 }
 
 #results-page.rp-ready .ans-divider-line {
     width: 0 !important;
     background: transparent !important;
+    transition: left 0.12s ease-out;
 }
 
 #results-page.rp-ready .ans-labels {
