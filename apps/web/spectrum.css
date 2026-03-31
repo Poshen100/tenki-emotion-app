@@ -358,7 +358,7 @@
 
 .results-bento-body {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
 }
 
@@ -418,7 +418,7 @@
 .results-bento-spark-wrap {
     flex: 1 1 auto;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: flex-end;
     overflow: hidden;
 }

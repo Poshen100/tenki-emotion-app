@@ -295,9 +295,9 @@
 
 #results-page.rp-ready .results-bento-body {
     display: flex !important;
-    align-items: flex-end !important;
+    align-items: center !important;
     justify-content: space-between !important;
-    gap: 4px !important;
+    gap: 8px !important;
 }
 
 #results-page.rp-ready .results-bento-row {
@@ -305,6 +305,7 @@
     align-items: baseline !important;
     flex-shrink: 0 !important;
     white-space: nowrap !important;
+    line-height: 1 !important;
 }
 
 #results-page.rp-ready .results-bento-value {
@@ -347,7 +348,7 @@
 #results-page.rp-ready .results-bento-spark-wrap {
     flex: 1 1 auto !important;
     display: flex !important;
-    align-items: flex-end !important;
+    align-items: center !important;
     justify-content: flex-end !important;
     min-width: 0 !important;
     overflow: hidden !important;
