@@ -832,9 +832,10 @@
             var stress = Math.round(ewma.stress);
             var zone = getZone(tei);
 
-            // TEI number - fast count up animation instead of direct set
-            if (tei !== animatedTeiTarget) {
-                animatedTeiTarget = tei;
+            // TEI number - fast count up animation (RS-style 1–99)
+            var teiClamped = clampTeiDisplay(tei);
+            if (teiClamped !== animatedTeiTarget) {
+                animatedTeiTarget = teiClamped;
                 if (!teiAnimFrame) teiAnimFrame = requestAnimationFrame(animateTeiLoop);
             }
 
@@ -886,7 +887,8 @@
             }
 
             // ── Canvas TEI Ring ──
-            currentOuterFill = Math.max(0, Math.min(1, tei / 100));
+            // RS-style: PR99=99 fills ring 100%, PR99=1 fills ~1%
+            currentOuterFill = Math.max(0, Math.min(1, clampTeiDisplay(tei) / 99));
             currentInnerFill = Math.max(0.68, Math.min(0.93, 0.56 + (hrv / 100) * 0.6));
             drawTEIRing(currentOuterFill, currentInnerFill);
 
