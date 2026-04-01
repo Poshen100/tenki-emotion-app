@@ -63,7 +63,7 @@ export function validateTemplateConfig(
   for (const field of immutable) {
     if (field === 'templateId') continue;
     const key = field as keyof typeof config;
-    if (key in config && config[key] !== (defaults as Record<string, unknown>)[key]) {
+    if (key in config && config[key] !== (defaults as unknown as Record<string, unknown>)[key]) {
       errors.push(`Cannot override immutable field "${field}"`);
     }
   }
@@ -84,5 +84,5 @@ export function validateTemplateConfig(
     }
   }
 
-  return { valid: true, errors: [], sanitized: merged as TemplateConfig };
+  return { valid: true, errors: [], sanitized: merged as unknown as TemplateConfig };
 }
