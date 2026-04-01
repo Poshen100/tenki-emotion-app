@@ -121,10 +121,29 @@
         .tenki-onboarding-feature:nth-child(3) { animation-delay: 0.35s; }
 
         .tenki-onboarding-feature-icon {
-            font-size: 18px;
+            position: relative;
             flex-shrink: 0;
-            width: 28px;
-            text-align: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(150deg, var(--tenki-zone-chip-a), var(--tenki-zone-chip-b));
+            border: 1px solid var(--tenki-zone-chip-border);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                0 0 0 1px var(--tenki-zone-chip-outline),
+                0 8px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .tenki-onboarding-feature-icon svg {
+            width: 15px;
+            height: 15px;
+            stroke-width: 2.2;
+            color: var(--tenki-zone-icon);
+            filter: drop-shadow(0 0 10px var(--tenki-zone-glow));
+            transition: color 260ms ease, filter 260ms ease;
         }
 
         .tenki-onboarding-modes {
@@ -135,15 +154,37 @@
         }
 
         .tenki-onboarding-mode-box {
-            border: 1px dashed rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(120, 220, 255, 0.24);
             border-radius: 12px;
             padding: 14px 12px;
             text-align: center;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                0 10px 22px rgba(0, 0, 0, 0.25);
         }
 
         .tenki-onboarding-mode-icon {
-            font-size: 18px;
-            margin-bottom: 6px;
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(140deg, var(--tenki-zone-chip-a), var(--tenki-zone-chip-b));
+            border: 1px solid var(--tenki-zone-chip-border);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28);
+        }
+
+        .tenki-onboarding-mode-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke-width: 2.1;
+            color: var(--tenki-zone-icon);
+            filter: drop-shadow(0 0 10px var(--tenki-zone-glow));
+            transition: color 260ms ease, filter 260ms ease;
         }
 
         .tenki-onboarding-mode-name {
@@ -190,6 +231,20 @@
             color: rgba(255, 255, 255, 0.35);
             text-align: center;
             line-height: 1.5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .tenki-onboarding-privacy svg {
+            width: 12px;
+            height: 12px;
+            color: var(--tenki-zone-icon);
+            stroke-width: 2.25;
+            flex-shrink: 0;
+            filter: drop-shadow(0 0 8px var(--tenki-zone-glow));
+            transition: color 260ms ease, filter 260ms ease;
         }
 
         @media (min-width: 769px) {
@@ -238,6 +293,60 @@
             --state-risk: #FF0055;
             --glass-bg: rgba(15, 15, 20, 0.92);
             --glass-border: rgba(255, 255, 255, 0.12);
+        }
+
+        body {
+            --tenki-zone-icon: rgba(206, 249, 255, 0.96);
+            --tenki-zone-glow: rgba(0, 204, 255, 0.38);
+            --tenki-zone-chip-a: rgba(0, 180, 216, 0.20);
+            --tenki-zone-chip-b: rgba(0, 180, 216, 0.06);
+            --tenki-zone-chip-border: rgba(120, 220, 255, 0.30);
+            --tenki-zone-chip-outline: rgba(0, 180, 216, 0.10);
+        }
+
+        body[data-tenki-zone="peak"] {
+            --tenki-zone-icon: rgba(255, 226, 158, 0.96);
+            --tenki-zone-glow: rgba(245, 166, 35, 0.44);
+            --tenki-zone-chip-a: rgba(245, 166, 35, 0.24);
+            --tenki-zone-chip-b: rgba(245, 166, 35, 0.08);
+            --tenki-zone-chip-border: rgba(255, 210, 136, 0.44);
+            --tenki-zone-chip-outline: rgba(245, 166, 35, 0.14);
+        }
+
+        body[data-tenki-zone="optimal"] {
+            --tenki-zone-icon: rgba(194, 246, 255, 0.96);
+            --tenki-zone-glow: rgba(0, 180, 216, 0.44);
+            --tenki-zone-chip-a: rgba(0, 180, 216, 0.24);
+            --tenki-zone-chip-b: rgba(0, 180, 216, 0.08);
+            --tenki-zone-chip-border: rgba(112, 225, 255, 0.40);
+            --tenki-zone-chip-outline: rgba(0, 180, 216, 0.14);
+        }
+
+        body[data-tenki-zone="neutral"] {
+            --tenki-zone-icon: rgba(223, 227, 236, 0.94);
+            --tenki-zone-glow: rgba(196, 206, 224, 0.30);
+            --tenki-zone-chip-a: rgba(186, 194, 206, 0.18);
+            --tenki-zone-chip-b: rgba(186, 194, 206, 0.07);
+            --tenki-zone-chip-border: rgba(220, 226, 236, 0.24);
+            --tenki-zone-chip-outline: rgba(186, 194, 206, 0.12);
+        }
+
+        body[data-tenki-zone="degraded"] {
+            --tenki-zone-icon: rgba(212, 191, 244, 0.95);
+            --tenki-zone-glow: rgba(94, 58, 135, 0.46);
+            --tenki-zone-chip-a: rgba(94, 58, 135, 0.26);
+            --tenki-zone-chip-b: rgba(94, 58, 135, 0.10);
+            --tenki-zone-chip-border: rgba(177, 146, 219, 0.36);
+            --tenki-zone-chip-outline: rgba(94, 58, 135, 0.16);
+        }
+
+        #hud-layer [data-lucide],
+        #dashboard-layer [data-lucide],
+        .tenki-onboarding-card [data-lucide],
+        .tenki-onboard-card [data-lucide] {
+            color: var(--tenki-zone-icon) !important;
+            filter: drop-shadow(0 0 8px var(--tenki-zone-glow));
+            transition: color 280ms ease, filter 280ms ease;
         }
 
         body {
@@ -1934,36 +2043,39 @@
         <div id="tenki-onboarding" class="tenki-onboarding-overlay" style="display:none;">
             <div class="tenki-onboarding-card">
                 <div class="tenki-onboarding-tag">TENKI v51.1 · LIVE BIOMETRIC SYNC</div>
-                <div class="tenki-onboarding-title">交易前，<br>先確認你的心是清明的</div>
-                <div class="tenki-onboarding-subtitle">30 秒即時掃描情緒指數 (TEI)<br>讓數據告訴你現在適不適合進場</div>
+                <div class="tenki-onboarding-title">先確認你的決策狀態，<br>再開始行動</div>
+                <div class="tenki-onboarding-subtitle">預設為健康壓力模式：30 秒即時生理融合分析 + 決策支持<br>持續提升你的決策品質與控制感</div>
                 <div class="tenki-onboarding-features">
                     <div class="tenki-onboarding-feature">
-                        <span class="tenki-onboarding-feature-icon">⚡</span>
-                        <span>即時 TEI 情緒指數 0–100</span>
+                        <span class="tenki-onboarding-feature-icon"><i data-lucide="activity"></i></span>
+                        <span>即時 TEI 情緒指數 1–99（PR99）</span>
                     </div>
                     <div class="tenki-onboarding-feature">
-                        <span class="tenki-onboarding-feature-icon">🧠</span>
-                        <span>偵測焦慮性喚醒模式</span>
+                        <span class="tenki-onboarding-feature-icon"><i data-lucide="brain"></i></span>
+                        <span>預設健康壓力模式：決策品質引導</span>
                     </div>
                     <div class="tenki-onboarding-feature">
-                        <span class="tenki-onboarding-feature-icon">📊</span>
-                        <span>Garmin 心率 + rPPG 雙源融合</span>
+                        <span class="tenki-onboarding-feature-icon"><i data-lucide="shield-check"></i></span>
+                        <span>設定切換 Trader Mode：用語與功能同步</span>
                     </div>
                 </div>
                 <div class="tenki-onboarding-modes">
                     <div class="tenki-onboarding-mode-box">
-                        <div class="tenki-onboarding-mode-icon">⚡</div>
-                        <div class="tenki-onboarding-mode-name">GLIMPSE</div>
-                        <div class="tenki-onboarding-mode-desc">2 秒快速<br>看整體狀態</div>
+                        <div class="tenki-onboarding-mode-icon"><i data-lucide="heart"></i></div>
+                        <div class="tenki-onboarding-mode-name">健康壓力模式（預設）</div>
+                        <div class="tenki-onboarding-mode-desc">一般決策場景<br>提升穩定與控制感</div>
                     </div>
                     <div class="tenki-onboarding-mode-box">
-                        <div class="tenki-onboarding-mode-icon">🔬</div>
-                        <div class="tenki-onboarding-mode-name">DEEP SCAN</div>
-                        <div class="tenki-onboarding-mode-desc">60 秒完整<br>精準 TEI 分析</div>
+                        <div class="tenki-onboarding-mode-icon"><i data-lucide="trending-up"></i></div>
+                        <div class="tenki-onboarding-mode-name">Trader Mode</div>
+                        <div class="tenki-onboarding-mode-desc">設定啟用後<br>交易用語與功能同步套用</div>
                     </div>
                 </div>
-                <button class="tenki-onboarding-cta" id="tenki-onboarding-cta">立即開始掃描</button>
-                <div class="tenki-onboarding-privacy">⛓ 鏡頭數據本地處理，不上傳伺服器</div>
+                <button class="tenki-onboarding-cta" id="tenki-onboarding-cta">進入預設模式開始掃描</button>
+                <div class="tenki-onboarding-privacy">
+                    <i data-lucide="lock"></i>
+                    <span>影像僅在本機即時運算，不上傳雲端、不保存原始影像</span>
+                </div>
             </div>
         </div>
 
@@ -1980,6 +2092,9 @@
 
             // Show modal
             overlay.style.display = 'flex';
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
 
             // CTA button handler
             var cta = document.getElementById('tenki-onboarding-cta');

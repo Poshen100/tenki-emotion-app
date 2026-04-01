@@ -324,6 +324,18 @@
         return ['#FF6B35','#7A3318'];
     }
 
+    /**
+     * Sync current TEI zone to body dataset for zone-aware UI theming.
+     * @param {'PEAK'|'OPTIMAL'|'NEUTRAL'|'DEGRADED'} zone
+     */
+    function applyZoneTheme(zone) {
+        if (!document.body || !zone) return;
+        var zoneValue = zone.toLowerCase();
+        if (document.body.getAttribute('data-tenki-zone') !== zoneValue) {
+            document.body.setAttribute('data-tenki-zone', zoneValue);
+        }
+    }
+
     // ─── Build DOM ───
     function buildDOM(container) {
         container.innerHTML = '';
@@ -785,6 +797,7 @@
 
             isInitialized = true;
             buildDOM(container);
+            applyZoneTheme('NEUTRAL');
 
             // Init nebula
             // Nebula clouds only — no star particles
@@ -832,6 +845,7 @@
             if (zone) { zone.textContent = 'SCANNING'; zone.className = 'tei-zone-label neutral'; }
             var coach = document.getElementById('coach-card');
             if (coach) coach.textContent = '\u6B63\u5728\u6821\u6E96\u611F\u6E2C\u5668...';
+            applyZoneTheme('NEUTRAL');
 
             // Start breathing guidance rotation on coach card
             if (breathingTimer) clearInterval(breathingTimer);
@@ -866,6 +880,7 @@
             var rr = Math.round(ewma.rr);
             var stress = Math.round(ewma.stress);
             var zone = getZone(tei);
+            applyZoneTheme(zone);
 
             // TEI number - fast count up animation (RS-style 1–99)
             var teiClamped = clampTeiDisplay(tei);
@@ -1036,6 +1051,9 @@
             ringCtx = null;
             currentCoachZone = null;
             isInitialized = false;
+            if (document.body) {
+                document.body.removeAttribute('data-tenki-zone');
+            }
         },
 
         pushSparkline: function(id, val) {
