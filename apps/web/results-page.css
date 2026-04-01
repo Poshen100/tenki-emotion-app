@@ -233,6 +233,13 @@
     font-size: 22px;
 }
 
+/* Ferrari-style Material icon styling */
+.ferrari-icon {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
+    filter: drop-shadow(0 0 6px rgba(220, 38, 38, 0.3));
+}
+
 #results-page.rp-ready .rp-summary-label {
     font-family: var(--font-text) !important;
     font-size: 13px;

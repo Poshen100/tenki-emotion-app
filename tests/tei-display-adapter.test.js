@@ -38,10 +38,10 @@ function describe(name, fn) {
 function it(desc, fn) {
     try {
         fn();
-        console.log(`  ✅ ${desc}`);
+        console.log(`  [PASS] ${desc}`);
         _passed++;
     } catch (err) {
-        console.error(`  ❌ ${desc}`);
+        console.error(`  [FAIL] ${desc}`);
         console.error(`     ${err.message}`);
         _failed++;
     }
@@ -321,14 +321,14 @@ describe('format() — Consumer 模式', () => {
         expect(d.primary).toBe('99%');
     });
 
-    it('PEAK zone emoji 是 🌟', () => {
+    it('PEAK zone emoji 是 bolt (Material icon)', () => {
         const d = adapter.format(makeTEIResult({ tei_pr99: 85 }), 'consumer');
-        expect(d.emoji).toBe('🌟');
+        expect(d.emoji).toBe('bolt');
     });
 
-    it('DEGRADED zone emoji 是 🛑', () => {
+    it('DEGRADED zone emoji 是 block (Material icon)', () => {
         const d = adapter.format(makeTEIResult({ tei_pr99: 20 }), 'consumer');
-        expect(d.emoji).toBe('🛑');
+        expect(d.emoji).toBe('block');
     });
 
     it('包含 color、colorDim、haptic', () => {
@@ -350,7 +350,7 @@ describe('format() — Consumer 模式', () => {
 
     it('levelBadge 包含 icon 與時間', () => {
         const d = adapter.format(makeTEIResult({ level: 'standard' }), 'consumer');
-        expect(d.levelBadge).toContain('📊');
+        expect(d.levelBadge).toContain('monitoring');
         expect(d.levelBadge).toContain('15s');
     });
 
@@ -367,10 +367,10 @@ describe('format() — Consumer 模式', () => {
 
     it('所有精度等級的 levelBadge 正確', () => {
         const levels = {
-            quick: '⚡',
-            standard: '📊',
-            precise: '🎯',
-            ultra: '💎',
+            quick: 'electric_bolt',
+            standard: 'monitoring',
+            precise: 'track_changes',
+            ultra: 'diamond',
         };
         Object.entries(levels).forEach(([level, icon]) => {
             const d = adapter.format(makeTEIResult({ level }), 'consumer');
@@ -663,19 +663,19 @@ describe('getAllGrades / getLevelMeta', () => {
         expect(grades2[0].color).toBe('#F5A623');
     });
 
-    it('getLevelMeta quick 包含 ⚡', () => {
+    it('getLevelMeta quick 包含 electric_bolt', () => {
         const meta = adapter.getLevelMeta('quick');
-        expect(meta.icon).toBe('⚡');
+        expect(meta.icon).toBe('electric_bolt');
     });
 
-    it('getLevelMeta ultra 包含 💎', () => {
+    it('getLevelMeta ultra 包含 diamond', () => {
         const meta = adapter.getLevelMeta('ultra');
-        expect(meta.icon).toBe('💎');
+        expect(meta.icon).toBe('diamond');
     });
 
     it('getLevelMeta 未知等級 fallback 到 quick', () => {
         const meta = adapter.getLevelMeta('unknown');
-        expect(meta.icon).toBe('⚡');
+        expect(meta.icon).toBe('electric_bolt');
     });
 });
 
@@ -731,13 +731,13 @@ describe('EventBridgeV2 整合情境模擬', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 console.log('\n' + '─'.repeat(60));
-console.log(`\n📊 測試結果: ${_passed + _failed} 個測試`);
-console.log(`  ✅ 通過: ${_passed}`);
-console.log(`  ❌ 失敗: ${_failed}`);
+console.log(`\n[TEST] 測試結果: ${_passed + _failed} 個測試`);
+console.log(`  [PASS] 通過: ${_passed}`);
+console.log(`  [FAIL] 失敗: ${_failed}`);
 console.log('');
 
 if (_failed > 0) {
-    console.log('⚠️  有測試失敗，請修復後再提交 PR');
+    console.log('[WARN] 有測試失敗，請修復後再提交 PR');
     process.exit(1);
 } else {
     console.log('🎉 所有測試通過！可以提交 PR');

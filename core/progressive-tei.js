@@ -251,7 +251,7 @@ class ProgressiveTEI {
 
     start() {
         if (this._scanning) {
-            this._log('⚠️ 已在掃描中，請先 stop()');
+            this._log('[WARN] 已在掃描中，請先 stop()');
             return;
         }
 
@@ -270,7 +270,7 @@ class ProgressiveTEI {
             this._batchHandler
         );
 
-        this._log(`✅ 掃描開始 (ts: ${this._scanStartTs})`);
+        this._log(`[OK] 掃描開始 (ts: ${this._scanStartTs})`);
 
         window.EventBridgeV2.dispatchEvent(
             new CustomEvent('tenki:tei-scan-started', {
@@ -297,7 +297,7 @@ class ProgressiveTEI {
             }
         }
 
-        this._log(`🛑 掃描停止 (有效樣本: ${this._stats.samplesAccepted})`);
+        this._log(`[STOP] 掃描停止 (有效樣本: ${this._stats.samplesAccepted})`);
 
         window.EventBridgeV2?.dispatchEvent(
             new CustomEvent('tenki:tei-scan-stopped', {
@@ -451,7 +451,7 @@ class ProgressiveTEI {
             const samplesOk = validSamples >= milestone.minValidSamples;
 
             if (timeOk || samplesOk) {
-                this._log(`🎯 里程碑達成: ${milestone.level} (elapsed=${elapsed}ms, samples=${validSamples})`);
+                this._log(`[MILESTONE] 里程碑達成: ${milestone.level} (elapsed=${elapsed}ms, samples=${validSamples})`);
                 this._stats.milestonesHit.push(milestone.level);
                 this._lastMilestone = milestone;
                 this._computeAndEmit(milestone, false);
@@ -520,7 +520,7 @@ class ProgressiveTEI {
         }
 
         this._log(
-            `📊 TEI 發送: PR99=${centerPR99}, ` +
+            `[TEI] TEI 發送: PR99=${centerPR99}, ` +
             `confidence=${confidence.toFixed(2)}, ` +
             `level=${milestone.level}, ` +
             `margin=±${ci.marginPR99}, ` +

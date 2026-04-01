@@ -29,28 +29,28 @@ export interface ZoneIndicator {
 export const ZONE_CONFIG: readonly ZoneIndicator[] = [
     {
         name: 'peak',
-        label: 'Peak Zone ⚠️ 高能警戒',
+        label: 'Peak Zone [speed] 高能警戒',
         min: 80,
         max: 99,
         recommendation: '可交易，但需雙重確認（過度自信風險）',
     },
     {
         name: 'optimal',
-        label: 'Optimal Zone ✅ 最佳交易帶',
+        label: 'Optimal Zone [verified] 最佳交易帶',
         min: 55,
         max: 79,
         recommendation: '理想執行區，全功能解鎖',
     },
     {
         name: 'neutral',
-        label: 'Neutral Zone ⏸️ 中性區',
+        label: 'Neutral Zone [pause_circle] 中性區',
         min: 35,
         max: 54,
         recommendation: '僅執行 A+ Setup，倉位 50%',
     },
     {
         name: 'degraded',
-        label: 'Degraded Zone 🔁 低能區',
+        label: 'Degraded Zone [sync_problem] 低能區',
         min: 1,
         max: 34,
         recommendation: '暫停交易，啟動呼吸校準',

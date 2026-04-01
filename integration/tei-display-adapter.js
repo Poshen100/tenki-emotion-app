@@ -51,7 +51,7 @@ const GRADE_TABLE = [
         colorDim: '#F5A62320',
         action: '標準倉位，嚴守風控',
         consumerText: '巔峰狀態',
-        emoji: '🌟',
+        emoji: 'bolt',
         advice: '你的狀態超越 80% 的歷史記錄，保持節律',
         haptic: 'pulse',     // 脈衝震動 + 雙重確認
     },
@@ -63,7 +63,7 @@ const GRADE_TABLE = [
         colorDim: '#00CCFF20',
         action: '正常操作，維持紀律',
         consumerText: '良好狀態',
-        emoji: '✅',
+        emoji: 'verified',
         advice: '狀態穩定，保持當前節奏',
         haptic: 'none',      // 無震動
     },
@@ -75,7 +75,7 @@ const GRADE_TABLE = [
         colorDim: '#9E9E9E20',
         action: '降低倉位，挑高勝率',
         consumerText: '普通狀態',
-        emoji: '⚠️',
+        emoji: 'warning',
         advice: '建議稍作休息，調整呼吸',
         haptic: 'gentle',    // 輕震動
     },
@@ -87,7 +87,7 @@ const GRADE_TABLE = [
         colorDim: '#7B4FD420',
         action: '建議暫停，等待恢復',
         consumerText: '需要休息',
-        emoji: '🛑',
+        emoji: 'block',
         advice: '身心需要放鬆，嘗試深呼吸引導',
         haptic: 'breath',    // 呼吸引導震動
     },
@@ -98,10 +98,10 @@ const GRADE_TABLE = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 const LEVEL_LABELS = {
-    quick: { text: '2s', icon: '⚡', desc: '初步掃描' },
-    standard: { text: '15s', icon: '📊', desc: '標準精度' },
-    precise: { text: '30s', icon: '🎯', desc: '高精度' },
-    ultra: { text: '60s', icon: '💎', desc: '最高精度' },
+    quick: { text: '2s', icon: 'electric_bolt', desc: '初步掃描' },
+    standard: { text: '15s', icon: 'monitoring', desc: '標準精度' },
+    precise: { text: '30s', icon: 'track_changes', desc: '高精度' },
+    ultra: { text: '60s', icon: 'diamond', desc: '最高精度' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -88,10 +88,10 @@ function describe(name, fn) {
 function it(desc, fn) {
     try {
         fn();
-        console.log(`  ✅ ${desc}`);
+        console.log(`  [PASS] ${desc}`);
         _passed++;
     } catch (err) {
-        console.error(`  ❌ ${desc}`);
+        console.error(`  [FAIL] ${desc}`);
         console.error(`     ${err.message}`);
         _failed++;
     }
@@ -662,13 +662,13 @@ describe('完整掃描流程', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 console.log('\n' + '─'.repeat(60));
-console.log(`\n📊 測試結果: ${_passed + _failed} 個測試`);
-console.log(`  ✅ 通過: ${_passed}`);
-console.log(`  ❌ 失敗: ${_failed}`);
+console.log(`\n[TEST] 測試結果: ${_passed + _failed} 個測試`);
+console.log(`  [PASS] 通過: ${_passed}`);
+console.log(`  [FAIL] 失敗: ${_failed}`);
 console.log('');
 
 if (_failed > 0) {
-    console.log('⚠️  有測試失敗，請修復後再提交 PR');
+    console.log('[WARN] 有測試失敗，請修復後再提交 PR');
     process.exit(1);
 } else {
     console.log('🎉 所有測試通過！可以提交 PR');

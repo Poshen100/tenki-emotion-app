@@ -25,7 +25,7 @@
             name: 'Cansilm High RS Breakout', duration: 240,
             segments: [
                 { end: 60, label: '等待確認' },
-                { end: 240, label: '進場窗口🚀' }
+                { end: 240, label: '進場窗口' }
             ],
             timeoutMessage: 'Timeout = WIN ! Patient !'
         },

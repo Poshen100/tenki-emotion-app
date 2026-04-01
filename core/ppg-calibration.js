@@ -100,7 +100,7 @@ class PPGCalibration {
 
     start() {
         if (this._state !== PPG_STATES.INIT && this._state !== PPG_STATES.ERROR) {
-            this._log('⚠️ 校準已在進行中，請先 stop()');
+            this._log('[WARN] 校準已在進行中，請先 stop()');
             return;
         }
 
@@ -134,13 +134,13 @@ class PPGCalibration {
         }, this._timeoutMs);
 
         this._transitionTo(PPG_STATES.DETECTING, '正在偵測手指...');
-        this._log(`✅ 校準開始 (session: ${this._sessionId})`);
+        this._log(`[OK] 校準開始 (session: ${this._sessionId})`);
     }
 
     stop() {
         this._clearTimers();
         this._transitionTo(PPG_STATES.INIT, '');
-        this._log('🛑 校準已停止');
+        this._log('[STOP] 校準已停止');
     }
 
     processFrame(frame, rMean = null, extraMeta = {}) {
@@ -302,7 +302,7 @@ class PPGCalibration {
             coverage_history: this._coverageHistory.slice(),
         };
 
-        this._log(`✅ 校準完成！BPM=${bpm}, quality=${quality.toFixed(2)}`);
+        this._log(`[OK] 校準完成！BPM=${bpm}, quality=${quality.toFixed(2)}`);
 
         if (typeof window !== 'undefined' && window.EventBridgeV2) {
             window.EventBridgeV2.emitPPGComplete(metrics);
@@ -316,7 +316,7 @@ class PPGCalibration {
 
         this._roiFallbackIdx++;
         if (this._roiFallbackIdx >= ROI_FALLBACK_ORDER.length) {
-            this._log('⚠️ 所有 ROI 策略均已嘗試，進入 ERROR 狀態');
+            this._log('[WARN] 所有 ROI 策略均已嘗試，進入 ERROR 狀態');
             this._transitionTo(PPG_STATES.ERROR, '無法偵測有效信號，請確保光線充足');
             return;
         }

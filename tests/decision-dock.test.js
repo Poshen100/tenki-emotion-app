@@ -65,10 +65,10 @@ function describe(name, fn) {
 function it(desc, fn) {
     try {
         fn();
-        console.log(`  ✅ ${desc}`);
+        console.log(`  [PASS] ${desc}`);
         _passed++;
     } catch (err) {
-        console.error(`  ❌ ${desc}`);
+        console.error(`  [FAIL] ${desc}`);
         console.error(`     ${err.message}`);
         _failed++;
     }
@@ -165,7 +165,7 @@ describe('T4 High RS Breakout 邏輯', () => {
     it('T4 Segment 2 (60-240s) - ENTRY (TEI >= 50)', () => {
         const logic = global.CANSLIMLogic;
         const seg = logic.getSegment('CANSILM_HIGHRS', 120);
-        expect(seg.label).toBe('進場窗口🚀');
+        expect(seg.label).toBe('進場窗口');
         expect(seg.index).toBe(1);
 
         const bio = logic.checkBioCriteria('CANSILM_HIGHRS', 120, 55);
@@ -175,8 +175,8 @@ describe('T4 High RS Breakout 邏輯', () => {
 
 console.log('\n' + '─'.repeat(40));
 console.log(`測試結果: ${_passed + _failed} 個測試`);
-console.log(`  ✅ 通過: ${_passed}`);
-console.log(`  ❌ 失敗: ${_failed}`);
+console.log(`  [PASS] 通過: ${_passed}`);
+console.log(`  [FAIL] 失敗: ${_failed}`);
 
 if (_failed > 0) process.exit(1);
 else process.exit(0);

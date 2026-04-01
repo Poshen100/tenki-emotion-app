@@ -51,7 +51,7 @@
     var TRADE_ADVICE = {
         PEAK: {
             label: '高能量狀態',
-            emoji: '🔥',
+            emoji: 'speed',
             tips: [
                 '適合處理高複雜度的決策與挑戰',
                 '注意過度自信風險，保持紀律',
@@ -60,7 +60,7 @@
         },
         OPTIMAL: {
             label: '最佳決策區間',
-            emoji: '✨',
+            emoji: 'rocket_launch',
             tips: [
                 '情緒清明穩定，決策品質良好',
                 '信任你的判斷，保持專注',
@@ -69,7 +69,7 @@
         },
         NEUTRAL: {
             label: '穩定觀察區',
-            emoji: '😌',
+            emoji: 'airline_seat_recline_normal',
             tips: [
                 '適合執行既有策略，避免衝動決策',
                 '建議先做 60 秒呼吸校準再行動',
@@ -78,7 +78,7 @@
         },
         DEGRADED: {
             label: '建議休息',
-            emoji: '⚠️',
+            emoji: 'warning',
             tips: [
                 '暫停所有重要決策，先恢復能量',
                 '等待 HRV 回升後再重新評估',
@@ -921,7 +921,10 @@
                     var szEl = document.getElementById('rp-summary-zone');
                     if (szEl) szEl.textContent = 'TEI ' + clampTeiDisplay(tei) + ' / 99';
                     var seEl = document.getElementById('rp-summary-emoji');
-                    if (seEl) seEl.textContent = advice.emoji;
+                    if (seEl) {
+                        seEl.className = 'rp-summary-emoji material-symbols-outlined ferrari-icon';
+                        seEl.textContent = advice.emoji;
+                    }
                     var slEl = document.getElementById('rp-summary-label');
                     if (slEl) {
                         slEl.textContent = advice.label;

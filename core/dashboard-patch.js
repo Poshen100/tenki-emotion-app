@@ -97,13 +97,13 @@
         const deviation = (rmssd - baseline) / baseline;
 
         if (deviation >= -0.10 && deviation <= 0.15) {
-            return { label: 'Balanced', icon: '✅', cssClass: 'balanced' };
+            return { label: 'Balanced', icon: 'verified', cssClass: 'balanced' };
         }
         if (deviation > 0.15 || (deviation < -0.10 && deviation >= -0.25)) {
-            return { label: 'Unbalanced', icon: '⚠️', cssClass: 'unbalanced' };
+            return { label: 'Unbalanced', icon: 'warning', cssClass: 'unbalanced' };
         }
         if (deviation < -0.25) {
-            return { label: 'Poor', icon: '🔴', cssClass: 'poor' };
+            return { label: 'Poor', icon: 'error', cssClass: 'poor' };
         }
         return { label: 'Low', icon: '🟣', cssClass: 'low' };
     }

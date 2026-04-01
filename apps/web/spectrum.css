@@ -1,3 +1,6 @@
+/* Material Symbols — Ferrari-style icon font */
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
 /* ===================================================
    TENKI v5.0 RESULTS PAGE — Spectrum Overlay
    Canvas-based TEI ring + enhanced nebula + glassmorphism
@@ -24,6 +27,15 @@
     --glass-border: rgba(255,255,255,0.07);
     --highlight-line: rgba(255,255,255,0.12);
     --pulse-dur: 1s;
+    --ferrari-red: #dc2626;
+}
+
+/* ── Ferrari-style Material Icon ── */
+.ferrari-icon {
+    font-family: 'Material Symbols Outlined';
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
+    filter: drop-shadow(0 0 6px rgba(220, 38, 38, 0.3));
 }
 
 /* ── Results Overlay ── */

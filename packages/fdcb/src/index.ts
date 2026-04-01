@@ -9,3 +9,7 @@ export * from './templates';
 export * from './timer';
 export * from './events';
 export * from './analytics';
+
+// Settings subsystems
+export * from './scenario-mode';
+export * from './timeline';
