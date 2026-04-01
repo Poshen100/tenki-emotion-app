@@ -347,7 +347,7 @@
             const successEl = document.createElement('div');
             successEl.className = 'camera-overlay-success';
             successEl.innerHTML = `
-                <div class="success-icon">✅</div>
+                <div class="success-icon"><span class="material-symbols-outlined ferrari-icon" style="font-size:48px;color:#34C759">verified</span></div>
                 <h2>校準完成</h2>
                 <p>PPG 信號已鎖定</p>
                 <div class="metrics-row">

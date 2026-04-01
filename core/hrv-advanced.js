@@ -528,7 +528,7 @@
             
             if (m.rmssd < 20 && m.lfHfRatio > 2.0) {
                 message = 'Elevated stress response detected';
-                icon = '🔴';
+                icon = 'error';
             } else if (m.rmssd > 50 && m.lfHfRatio < 1.5) {
                 message = 'Good recovery / relaxation state';
                 icon = '💚';

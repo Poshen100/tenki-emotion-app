@@ -651,12 +651,12 @@ unsubscribeState();
   
   // 訂閱 TEI
   const unsub1 = EventBridge.onTEIUpdate((data) => {
-    console.log('✅ TEI received:', data.tei);
+    console.log('[OK] TEI received:', data.tei);
   });
   
   // 訂閱狀態
   const unsub2 = EventBridge.onDecisionStateChange((data) => {
-    console.log('✅ State received:', data.state);
+    console.log('[OK] State received:', data.state);
   });
   
   // 發送測試事件

@@ -3,7 +3,7 @@
  * ==========================================
  * 負責按正確順序初始化所有整合模組。
  *
- * ⚠️  此檔案是唯一允許修改的入口點。
+ * [WARNING] 此檔案是唯一允許修改的入口點。
  *     LOCKED FILES (index.html, app.js, rpgg.js, expression.js, tenki-engine.js)
  *     絕對不可修改。
  *
@@ -35,14 +35,14 @@
     function initEventBridgeV2() {
         if (!window.EventBridgeV2) {
             console.error(
-                '[Bootstrap] ❌ EventBridgeV2 未載入！' +
+                '[Bootstrap] [ERROR] EventBridgeV2 未載入！' +
                 '請確認 event-bridge-v2.js 已在 bootstrap.js 之前載入。'
             );
             return false;
         }
 
         console.log(
-            `[Bootstrap] ✅ EventBridgeV2 ready` +
+            `[Bootstrap] [OK] EventBridgeV2 ready` +
             ` (mode: ${window.EventBridgeV2.mode})`
         );
         return true;
@@ -85,7 +85,7 @@
 
         panel.innerHTML = `
             <div style="margin-bottom:6px;font-weight:bold;color:#00FF88">
-                ⚡ TENKI Dev Panel
+                <span class="material-symbols-outlined ferrari-icon" style="font-size:14px">electric_bolt</span> TENKI Dev Panel
             </div>
             <div style="margin-bottom:4px">
                 <label style="color:#aaa">Event Mode:</label>
@@ -181,6 +181,6 @@
     window.__TENKI_BOOTSTRAP_DONE__ = true;
 
     const elapsed = (performance.now() - startTs).toFixed(1);
-    console.log(`[Bootstrap] ✅ 初始化完成 (${elapsed}ms)`);
+    console.log(`[Bootstrap] [OK] 初始化完成 (${elapsed}ms)`);
 
 })();

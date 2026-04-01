@@ -178,7 +178,7 @@
                 });
             }
 
-            console.log(`[OverlayCtrl] ✅ Mounted "${overlayName}" at z-index ${config.zIndex}`);
+            console.log(`[OverlayCtrl] [OK] Mounted "${overlayName}" at z-index ${config.zIndex}`);
             return el;
         }
 
@@ -216,7 +216,7 @@
                     el.parentNode.removeChild(el);
                 }
                 this._mounted.delete(overlayName);
-                console.log(`[OverlayCtrl] ❌ Unmounted "${overlayName}"`);
+                console.log(`[OverlayCtrl] [REMOVED] Unmounted "${overlayName}"`);
             };
 
             if (animate) {

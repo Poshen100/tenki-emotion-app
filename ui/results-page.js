@@ -329,7 +329,7 @@ const TenkiResultsPage = (function () {
 <div class="rp-timer-card">
   <div class="rp-timer-header">
     <div class="rp-timer-title">
-      <span class="rp-timer-lightning">⚡</span>
+      <span class="rp-timer-lightning material-symbols-outlined ferrari-icon">electric_bolt</span>
       Decision Timer
     </div>
     <div class="rp-timer-session">
@@ -390,7 +390,7 @@ const TenkiResultsPage = (function () {
   <!-- ANS Waveform: SNS / PNS synchronized -->
   <div class="rp-snapshot-card">
     <div class="rp-snapshot-card-title">
-      <span class="rp-snapshot-card-label">⚡ Autonomic Nervous System</span>
+      <span class="rp-snapshot-card-label"><span class="material-symbols-outlined ferrari-icon" style="font-size:14px">electric_bolt</span> Autonomic Nervous System</span>
       <span class="rp-snapshot-card-live">SYNC</span>
     </div>
     <div class="rp-waveform-container">
@@ -677,10 +677,10 @@ const TenkiResultsPage = (function () {
       // Fallback if engine missing
       let status = 'LOW';
       let color = 'var(--rp-violet)';
-      if (score >= 80) { status = 'Peak ⚠️'; color = 'var(--rp-yellow)'; }
-      else if (score >= 55) { status = 'Optimal ✅'; color = 'var(--rp-cyan)'; }
-      else if (score >= 35) { status = 'Neutral ⏸️'; color = 'var(--rp-text-secondary)'; }
-      else { status = 'Degraded 🔁'; color = 'var(--rp-violet)'; }
+      if (score >= 80) { status = 'Peak'; color = 'var(--rp-yellow)'; }
+      else if (score >= 55) { status = 'Optimal'; color = 'var(--rp-cyan)'; }
+      else if (score >= 35) { status = 'Neutral'; color = 'var(--rp-text-secondary)'; }
+      else { status = 'Degraded'; color = 'var(--rp-violet)'; }
 
       _data.teiStatus = status;
       _setText('rp-tei-status', status);
@@ -758,9 +758,9 @@ const TenkiResultsPage = (function () {
     const badgeEl = document.getElementById('rp-canslim-badge');
     if (!badgeEl) return;
     const BADGE_MAP = {
-      'CANSILM_GROWTH': '📈 T3 · 3段',
-      'CANSILM_HIGHRS': '🚀 T4 · 2段',
-      'MANCINI_FBD': '⚡ Mancini'
+      'CANSILM_GROWTH': 'T3 · 3段',
+      'CANSILM_HIGHRS': 'T4 · 2段',
+      'MANCINI_FBD': 'Mancini'
     };
     badgeEl.textContent = BADGE_MAP[templateId] || templateId;
   }
@@ -810,7 +810,7 @@ const TenkiResultsPage = (function () {
     const item = document.createElement('div');
     item.className = 'rp-timeline-item';
 
-    let alertHtml = isAlert ? `<span class="rp-timeline-alert">⚠️</span>` : '';
+    let alertHtml = isAlert ? `<span class="rp-timeline-alert material-symbols-outlined ferrari-icon" style="font-size:14px;color:#dc2626">warning</span>` : '';
 
     item.innerHTML = `
       <div class="rp-timeline-time">${timeStr}</div>

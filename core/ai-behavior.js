@@ -193,7 +193,7 @@
         generateInsights(current, patterns) {
             const insights = [];
 
-            // ✅ 中性描述 (正確)
+            // [OK] 中性描述 (正確)
             if (patterns.timeoutRate !== undefined) {
                 insights.push(`在類似情況下，你有 ${patterns.timeoutRate}% 的機率等待 ≥ 2 分鐘`);
             }
@@ -204,7 +204,7 @@
                 insights.push(`TEI ${patterns.teiRange} 區間，你的勝率是 ${patterns.winRate}%`);
             }
 
-            // ❌ 避免這些 (錯誤) - 這裡不實作
+            // [AVOID] 避免這些 (錯誤) - 這裡不實作
             // "建議你等待 2 分鐘" - 太主動
             // "你應該進場" - 違反原則
             // "這次會贏" - 預測未來

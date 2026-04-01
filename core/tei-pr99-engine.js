@@ -57,7 +57,7 @@ const TEI_PR99_Engine = {
             return {
                 id: 'peak',
                 name: 'Peak',
-                label: 'Peak ⚠️',
+                label: 'Peak',
                 color: 'var(--rp-yellow)',
                 gradientOuter: 'conic-gradient(from 0deg, #ff8c69 0%, #ff5500 25%, #ffd600 50%, #ff5500 75%, #ff8c69 100%)',
                 gradientInner: 'conic-gradient(from 0deg, rgba(255,140,105,0.4) 0%, rgba(255,85,0,0.4) 50%, rgba(255,140,105,0.4) 100%)',
@@ -69,7 +69,7 @@ const TEI_PR99_Engine = {
             return {
                 id: 'optimal',
                 name: 'Optimal',
-                label: 'Optimal ✅',
+                label: 'Optimal',
                 color: 'var(--rp-cyan)',
                 gradientOuter: 'conic-gradient(from 0deg, #00ffcc 0%, #00d4ff 25%, #4cc9f0 50%, #00d4ff 75%, #00ffcc 100%)',
                 gradientInner: 'conic-gradient(from 0deg, rgba(0,255,204,0.4) 0%, rgba(76,201,240,0.4) 50%, rgba(0,255,204,0.4) 100%)',
@@ -81,7 +81,7 @@ const TEI_PR99_Engine = {
             return {
                 id: 'neutral',
                 name: 'Neutral',
-                label: 'Neutral ⏸️',
+                label: 'Neutral',
                 color: 'var(--rp-text-secondary)',
                 gradientOuter: 'conic-gradient(from 0deg, #6b7280 0%, #9ca3af 25%, #d1d5db 50%, #9ca3af 75%, #6b7280 100%)',
                 gradientInner: 'conic-gradient(from 0deg, rgba(107,114,128,0.4) 0%, rgba(209,213,219,0.4) 50%, rgba(107,114,128,0.4) 100%)',
@@ -93,7 +93,7 @@ const TEI_PR99_Engine = {
             return {
                 id: 'degraded',
                 name: 'Degraded',
-                label: 'Degraded 🔁',
+                label: 'Degraded',
                 color: 'var(--rp-violet)',
                 gradientOuter: 'conic-gradient(from 0deg, #7b68ee 0%, #9f7aea 25%, #c084fc 50%, #9f7aea 75%, #7b68ee 100%)',
                 gradientInner: 'conic-gradient(from 0deg, rgba(123,104,238,0.4) 0%, rgba(192,132,252,0.4) 50%, rgba(123,104,238,0.4) 100%)',

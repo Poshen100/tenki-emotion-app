@@ -754,7 +754,7 @@ class EventBridgeV2 extends EventTarget {
     _dispatchDeprecated(eventName, detail, replacement) {
         if (this._deprecationWarnings && !this._removedEventWarned.has(eventName)) {
             console.warn(
-                `[EventBridgeV2] ⚠️ "${eventName}" 已過時，` +
+                `[EventBridgeV2] [DEPRECATED] "${eventName}" 已過時，` +
                 `請改用 "${replacement}"。將在 v2.1.0 移除。`
             );
         }

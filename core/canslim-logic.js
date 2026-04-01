@@ -3,13 +3,13 @@
  * T3 CANSLIM 三段邏輯 + T4 High RS 兩段邏輯
  *
  * T3 CANSLIM Growth (300s):
- *   段1 [  0- 90s] No chase       🔴 — 不追高，等待回調
- *   段2 [ 90-210s] Watch EMA+Vol  🟡 — 觀察均線與成交量
- *   段3 [210-300s] Sweet zone     🟢 — 最佳進場區
+ *   段1 [  0- 90s] No chase       [STOP] — 不追高，等待回調
+ *   段2 [ 90-210s] Watch EMA+Vol  [WAIT] — 觀察均線與成交量
+ *   段3 [210-300s] Sweet zone     [GO]   — 最佳進場區
  *
  * T4 High RS Breakout (240s):
- *   段1 [  0- 60s] Hold           🔴 — 等待，不急進
- *   段2 [ 60-240s] Breakout ready 🟢 — 突破位置已就緒
+ *   段1 [  0- 60s] Hold           [STOP] — 等待，不急進
+ *   段2 [ 60-240s] Breakout ready [GO]   — 突破位置已就緒
  *
  * 通訊: EventBridge only.
  * 不直接操作 Stardust DOM.
@@ -28,7 +28,7 @@
     const T3_CANSLIM = {
         id: 'CANSILM_GROWTH',
         name: 'CANSLIM 成長股',
-        icon: '📈',
+        icon: 'trending_up',
         duration: 300,
         segments: [
             {
@@ -39,7 +39,7 @@
                 hint: '等待方向確認 (WAIT)',
                 color: '#ff6b6b',
                 colorAlpha: 'rgba(255,107,107,0.18)',
-                action: '❌ 等待',
+                action: 'HOLD',
                 riskLevel: 'HIGH',
                 bioCriteria: {
                     maxTEI: 100,          // 任何 TEI 都禁止進場
@@ -54,7 +54,7 @@
                 hint: '觀察量能收縮 (OBSERVE)',
                 color: '#ffd93d',
                 colorAlpha: 'rgba(255,217,61,0.18)',
-                action: '👁 觀察',
+                action: 'OBSERVE',
                 riskLevel: 'MEDIUM',
                 bioCriteria: {
                     minTEI: 40,           // TEI ≥ 40 才考慮
@@ -69,7 +69,7 @@
                 hint: '進場窗口 (ENTRY)',
                 color: '#6bcb77',
                 colorAlpha: 'rgba(107,203,119,0.18)',
-                action: '✅ 執行',
+                action: 'EXECUTE',
                 riskLevel: 'LOW',
                 bioCriteria: {
                     minTEI: 60,           // TEI ≥ 60 進場
@@ -77,7 +77,7 @@
                 }
             }
         ],
-        timeoutMessage: 'No FOMO today 🎯',
+        timeoutMessage: 'No FOMO today',
         timeoutHint: '已超過觀察窗口，等待下一個機會'
     };
 
@@ -88,7 +88,7 @@
     const T4_HIGHRS = {
         id: 'CANSILM_HIGHRS',
         name: 'High RS Breakout',
-        icon: '🚀',
+        icon: 'rocket_launch',
         duration: 240,
         segments: [
             {
@@ -99,7 +99,7 @@
                 hint: '等待，不急進場 (WAIT)',
                 color: '#ff6b6b',
                 colorAlpha: 'rgba(255,107,107,0.18)',
-                action: '🛑 Hold',
+                action: 'HOLD',
                 riskLevel: 'HIGH',
                 bioCriteria: {
                     maxTEI: 100,
@@ -110,11 +110,11 @@
                 index: 1,
                 startSec: 60,
                 endSec: 240,
-                label: '進場窗口🚀',
+                label: '進場窗口',
                 hint: '突破位置已就緒，可進場',
                 color: '#6bcb77',
                 colorAlpha: 'rgba(107,203,119,0.18)',
-                action: '🚀 執行 (ENTRY)',
+                action: 'EXECUTE (ENTRY)',
                 riskLevel: 'LOW',
                 bioCriteria: {
                     minTEI: 50,
@@ -122,7 +122,7 @@
                 }
             }
         ],
-        timeoutMessage: 'Patience pays 💎',
+        timeoutMessage: 'Patience pays',
         timeoutHint: '突破窗口已關閉，等待下次機會'
     };
 

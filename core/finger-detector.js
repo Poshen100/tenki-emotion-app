@@ -154,7 +154,7 @@ class FingerDetector {
         try {
             imageData = this._extractImageData(frame);
         } catch (err) {
-            this._log(`⚠️ 無法提取圖像資料: ${err.message}`);
+            this._log(`[WARN] 無法提取圖像資料: ${err.message}`);
             return this._makeResult(this._ewmaCoverage);
         }
 

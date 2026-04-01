@@ -14,11 +14,11 @@
 
     // Signal Source Tiers
     const SIGNAL_TIERS = {
-        BLE_RR: { tier: 1, label: 'BLE Heart Rate', icon: '🛡️', confidence: 1.0 },
-        EYEBROW: { tier: 2, label: 'Eyebrow Optical', icon: '👁️', confidence: 0.92 },
-        FOREHEAD: { tier: 3, label: 'Forehead Optical', icon: '📷', confidence: 0.85 },
-        CHEEK: { tier: 4, label: 'Cheek Optical', icon: '📷', confidence: 0.75 },
-        DEGRADED: { tier: 5, label: 'Degraded Signal', icon: '⚠️', confidence: 0.5 }
+        BLE_RR: { tier: 1, label: 'BLE Heart Rate', icon: 'shield', confidence: 1.0 },
+        EYEBROW: { tier: 2, label: 'Eyebrow Optical', icon: 'visibility', confidence: 0.92 },
+        FOREHEAD: { tier: 3, label: 'Forehead Optical', icon: 'photo_camera', confidence: 0.85 },
+        CHEEK: { tier: 4, label: 'Cheek Optical', icon: 'photo_camera', confidence: 0.75 },
+        DEGRADED: { tier: 5, label: 'Degraded Signal', icon: 'warning', confidence: 0.5 }
     };
 
     class RPPGController {

@@ -19,7 +19,7 @@ export const TEMPLATES: Record<TemplateId, DecisionTemplate> = {
         id: 'CANSLIM_GS',
         name: 'Canslim GS',
         nameZh: 'Canslim 一般設定',
-        icon: '📊',
+        icon: 'monitoring',
         durationSec: 300,
         category: 'trading',
         rules: {
@@ -37,7 +37,7 @@ export const TEMPLATES: Record<TemplateId, DecisionTemplate> = {
         id: 'CANSLIM_HIGH_RS',
         name: 'Canslim High RS',
         nameZh: 'Canslim 高RS',
-        icon: '🚀',
+        icon: 'rocket_launch',
         durationSec: 240,
         category: 'trading',
         rules: {
@@ -55,7 +55,7 @@ export const TEMPLATES: Record<TemplateId, DecisionTemplate> = {
         id: 'MANCINI_FBD',
         name: 'Mancini FBD',
         nameZh: 'Mancini 失敗突破',
-        icon: '🎯',
+        icon: 'track_changes',
         durationSec: 180,
         category: 'trading',
         rules: {
@@ -75,7 +75,7 @@ export const TEMPLATES: Record<TemplateId, DecisionTemplate> = {
         id: 'WORK_FOCUS',
         name: 'Work Focus',
         nameZh: '工作專注模式',
-        icon: '💼',
+        icon: 'work',
         durationSec: 1500,
         category: 'lifestyle',
         rules: {
@@ -88,7 +88,7 @@ export const TEMPLATES: Record<TemplateId, DecisionTemplate> = {
         id: 'HEALTH_STRESS',
         name: 'Health Stress',
         nameZh: '健康壓力模式',
-        icon: '🧘',
+        icon: 'self_improvement',
         durationSec: 180,
         category: 'lifestyle',
         rules: {
@@ -102,7 +102,7 @@ export const TEMPLATES: Record<TemplateId, DecisionTemplate> = {
         id: 'EXERCISE',
         name: 'Exercise',
         nameZh: '運動模式',
-        icon: '🏃',
+        icon: 'directions_run',
         durationSec: 600,
         category: 'lifestyle',
         rules: {
