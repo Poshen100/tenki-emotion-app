@@ -501,13 +501,13 @@
             '<div class="results-bento-card">' +
             '  <div class="results-bento-header">' +
             '    <div class="results-bento-label">Stress</div>' +
-            '    <span class="stress-pct" id="stress-pct"></span>' +
             '  </div>' +
             '  <div class="results-bento-body">' +
             '    <div class="results-bento-row">' +
             '      <span class="results-bento-value" id="bento-stress">--</span>' +
             '      <span class="results-bento-unit">/100</span>' +
             '    </div>' +
+            '    <span class="stress-pct" id="stress-pct"></span>' +
             '  </div>' +
             '  <div class="stress-seg-track" id="stress-bar-track">' +
             '    <div class="stress-seg" data-seg="0"><div class="stress-seg-fill"></div></div>' +
