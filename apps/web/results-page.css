@@ -313,21 +313,26 @@
 }
 
 #results-page.rp-ready .results-bento-value {
-    font-family: var(--font-text) !important;
-    font-size: 28px !important;
-    font-weight: 600 !important;
+    font-family: var(--font-display) !important;
+    font-size: 32px !important;
+    font-weight: 300 !important;
     color: #ffffff !important;
-    letter-spacing: 0 !important;
+    letter-spacing: -0.5px !important;
     animation: none !important;
 }
 
 #results-page.rp-ready .results-bento-unit {
     font-family: var(--font-text) !important;
-    font-size: 14px !important;
+    font-size: 12px !important;
     font-weight: 400 !important;
-    color: #8e8e93 !important;
-    margin-left: 4px !important;
-    vertical-align: baseline !important;
+    color: rgba(142, 142, 147, 0.8) !important;
+    margin-left: 3px !important;
+}
+
+#results-page.rp-ready .results-bento-unit sup {
+    font-size: 10px !important;
+    vertical-align: super !important;
+    line-height: 0 !important;
 }
 
 #results-page.rp-ready .results-bento-pill {
@@ -382,8 +387,12 @@
 
 /* --- Snapshot Stress --- */
 #results-page.rp-ready .stress-pct {
-    font-size: 12px;
-    color: var(--text-secondary);
+    font-family: var(--font-text) !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    color: #8e8e93 !important;
+    margin-left: auto !important;
+    align-self: flex-end !important;
 }
 
 /* 4-segment colored stress bar */
