@@ -509,8 +509,11 @@
             '      <span class="results-bento-unit">/100</span>' +
             '    </div>' +
             '  </div>' +
-            '  <div class="stress-bar-track" id="stress-bar-track">' +
-            '    <div class="stress-bar-fill" id="stress-bar-fill" style="width:0%"></div>' +
+            '  <div class="stress-seg-track" id="stress-bar-track">' +
+            '    <div class="stress-seg" data-seg="0"><div class="stress-seg-fill"></div></div>' +
+            '    <div class="stress-seg" data-seg="1"><div class="stress-seg-fill"></div></div>' +
+            '    <div class="stress-seg" data-seg="2"><div class="stress-seg-fill"></div></div>' +
+            '    <div class="stress-seg" data-seg="3"><div class="stress-seg-fill"></div></div>' +
             '  </div>' +
             '</div>';
 
@@ -720,9 +723,23 @@
 
     // ─── Update Stress segmented bar ───
     function updateStressBar(stress) {
-        // Single-bar stress fill
-        var fill = document.getElementById('stress-bar-fill');
-        if (fill) fill.style.width = Math.max(0, Math.min(100, stress)) + '%';
+        // 4-segment colored stress bar (each segment = 25%)
+        var track = document.getElementById('stress-bar-track');
+        if (track) {
+            var segs = track.querySelectorAll('.stress-seg-fill');
+            var pct = Math.max(0, Math.min(100, stress));
+            for (var i = 0; i < segs.length; i++) {
+                var segStart = i * 25;
+                var segEnd = segStart + 25;
+                if (pct >= segEnd) {
+                    segs[i].style.width = '100%';
+                } else if (pct > segStart) {
+                    segs[i].style.width = ((pct - segStart) / 25 * 100) + '%';
+                } else {
+                    segs[i].style.width = '0%';
+                }
+            }
+        }
         var pctEl = document.getElementById('stress-pct');
         if (pctEl) pctEl.textContent = stress + '%';
     }

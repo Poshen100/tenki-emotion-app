@@ -138,17 +138,19 @@
 
 #results-page.rp-ready .tei-number {
     font-family: var(--font-display) !important;
-    font-size: 72px !important;
-    font-weight: 200 !important;
-    letter-spacing: -1px !important;
+    font-size: 88px !important;
+    font-weight: 500 !important;
+    letter-spacing: -2px !important;
     line-height: 1 !important;
-    color: var(--text-primary) !important;
     animation: none !important;
-    background: linear-gradient(180deg, #ffffff 0%, #f0f0f5 32%, #d5d5dc 64%, #8e8e93 100%) !important;
+    background:
+        linear-gradient(180deg, #FFFFFF 0%, #FFFFFF 15%, #F8F9FC 28%, #E8E9EE 42%, #C8C9D0 58%, #A0A1A8 75%, #848590 100%),
+        linear-gradient(115deg, rgba(255,255,255,0.85) 12%, rgba(255,255,255,0.15) 32%, rgba(255,255,255,0) 50%) !important;
+    background-blend-mode: screen, normal !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
-    filter: none !important;
+    filter: drop-shadow(0 0 40px rgba(0,180,216,0.15)) drop-shadow(0 2px 8px rgba(0,0,0,0.5)) !important;
 }
 
 #results-page.rp-ready .tei-sub {
@@ -267,11 +269,13 @@
     min-height: 90px !important;
     padding: 14px 16px 10px !important;
     border-radius: 14px !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    background: rgba(44, 44, 46, 0.35) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-    backdrop-filter: blur(28px) saturate(1.5) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(1.5) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    background: rgba(38, 40, 48, 0.55) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 8px 32px rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(32px) saturate(1.6) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(1.6) !important;
 }
 
 #results-page.rp-ready .results-bento-card::before {
@@ -386,32 +390,54 @@
     color: var(--text-secondary);
 }
 
-#results-page.rp-ready .stress-bar-track {
-    width: 100%;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 2px;
-    margin-top: auto;
-    overflow: hidden;
+/* 4-segment colored stress bar */
+#results-page.rp-ready .stress-seg-track {
+    display: flex !important;
+    gap: 3px !important;
+    width: 100% !important;
+    height: 5px !important;
+    margin-top: auto !important;
 }
 
-#results-page.rp-ready .stress-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #34C759, #F5A623, #FF6B35, #FF453A);
-    border-radius: 2px;
-    transition: width 0.3s ease;
+#results-page.rp-ready .stress-seg {
+    flex: 1 !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 2.5px !important;
+    overflow: hidden !important;
+}
+
+#results-page.rp-ready .stress-seg-fill {
+    height: 100% !important;
+    width: 0% !important;
+    border-radius: 2.5px !important;
+    transition: width 0.3s ease !important;
+}
+
+#results-page.rp-ready .stress-seg[data-seg="0"] .stress-seg-fill {
+    background: #34C759 !important;
+}
+#results-page.rp-ready .stress-seg[data-seg="1"] .stress-seg-fill {
+    background: #00B4D8 !important;
+}
+#results-page.rp-ready .stress-seg[data-seg="2"] .stress-seg-fill {
+    background: #F5A623 !important;
+}
+#results-page.rp-ready .stress-seg[data-seg="3"] .stress-seg-fill {
+    background: #FF6B35 !important;
 }
 
 /* 1.5 Body Battery card */
 #results-page.rp-ready .results-glass-card {
     border-radius: 14px !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    background: rgba(44, 44, 46, 0.35) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    background: rgba(38, 40, 48, 0.55) !important;
     padding: 16px !important;
     margin-bottom: 12px !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-    backdrop-filter: blur(28px) saturate(1.5) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(1.5) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 8px 32px rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(32px) saturate(1.6) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(1.6) !important;
 }
 
 #results-page.rp-ready .results-glass-card::before {
