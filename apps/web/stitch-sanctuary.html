@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TENKI | ENGINEERED SANCTUARY</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;700;800&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+darkMode: "class",
+theme: {
+extend: {
+colors: {
+"inverse-surface": "#fcf8f9",
+"on-tertiary": "#00685c",
+"on-surface-variant": "#acaaae",
+"on-error-container": "#ff9993",
+"primary": "#c6c6c7",
+"outline-variant": "#48484b",
+"surface": "#0e0e0f",
+"error-dim": "#bb5551",
+"on-secondary-fixed": "#314055",
+"secondary-container": "#2d3c51",
+"on-primary": "#3f4041",
+"error-container": "#7f2927",
+"on-secondary": "#102134",
+"secondary-dim": "#8f9fb7",
+"tertiary": "#c6fff3",
+"on-primary-container": "#d0d0d0",
+"tertiary-fixed": "#65fde6",
+"on-tertiary-fixed-variant": "#00695e",
+"on-tertiary-container": "#005e54",
+"surface-dim": "#0e0e0f",
+"on-background": "#e7e5e8",
+"surface-container-highest": "#252628",
+"on-surface": "#e7e5e8",
+"secondary-fixed": "#d3e4fe",
+"primary-fixed-dim": "#d4d4d4",
+"on-primary-fixed-variant": "#5a5c5c",
+"error": "#ee7d77",
+"surface-container-low": "#131315",
+"on-primary-fixed": "#3e4040",
+"on-error": "#490106",
+"tertiary-fixed-dim": "#54eed8",
+"surface-bright": "#2b2c2f",
+"surface-variant": "#252628",
+"primary-dim": "#b8b9b9",
+"on-secondary-container": "#b0c0da",
+"inverse-primary": "#5e5f60",
+"outline": "#767578",
+"surface-container-high": "#1f1f22",
+"surface-container": "#19191b",
+"tertiary-container": "#65fde6",
+"inverse-on-surface": "#565556",
+"background": "#0e0e0f",
+"secondary": "#8f9fb7",
+"on-secondary-fixed-variant": "#4d5d73",
+"secondary-fixed-dim": "#c5d6f0",
+"primary-container": "#454747",
+"tertiary-dim": "#54eed8",
+"surface-container-lowest": "#000000",
+"surface-tint": "#c6c6c7",
+"primary-fixed": "#e2e2e2",
+"on-tertiary-fixed": "#004a41",
+"ferrari-red": "#dc2626",
+"ferrari-dark": "#1a0000"
+},
+fontFamily: {
+"headline": ["Manrope"],
+"body": ["Inter"],
+"label": ["Inter"]
+},
+borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+},
+},
+}
+</script>
+<style>
+.material-symbols-outlined {
+font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+font-size: 20px;
+}
+body {
+background-color: #0e0e0f;
+color: #e7e5e8;
+-webkit-font-smoothing: antialiased;
+}
+.bento-grid {
+display: grid;
+grid-template-columns: repeat(12, 1fr);
+gap: 1.5rem;
+}
+.glass-panel {
+background: rgba(25, 25, 27, 0.6);
+backdrop-filter: blur(20px);
+}
+.technical-line {
+height: 1px;
+background: linear-gradient(90deg, transparent, #48484b, transparent);
+}
+/* Ferrari accent glow */
+.ferrari-glow {
+filter: drop-shadow(0 0 6px rgba(220, 38, 38, 0.3));
+}
+</style>
+</head>
+<body class="font-body selection:bg-tertiary/30">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-neutral-950/80 backdrop-blur-xl flex justify-between items-center px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-red-500 ferrari-glow">speed</span>
+<h1 class="text-lg font-black tracking-tighter text-neutral-200 font-headline uppercase">ENGINEERED SANCTUARY</h1>
+</div>
+<div class="flex items-center gap-6">
+<nav class="hidden md:flex gap-8 text-neutral-500 font-manrope tracking-tighter uppercase font-bold text-sm">
+<a class="text-neutral-100 transition-colors duration-300" href="#">Overview</a>
+<a class="hover:bg-neutral-800 transition-colors duration-300 px-2 py-1" href="#">Biometrics</a>
+<a class="hover:bg-neutral-800 transition-colors duration-300 px-2 py-1" href="#">Cognitive</a>
+</nav>
+<span class="material-symbols-outlined text-neutral-300">notifications_active</span>
+</div>
+</header>
+
+<main class="pt-24 pb-32 px-6 max-w-7xl mx-auto">
+<!-- Hero Section -->
+<section class="mb-16 grid grid-cols-1 md:grid-cols-12 gap-8 items-end">
+<div class="md:col-span-7">
+<label class="text-[10px] uppercase tracking-[0.2em] text-secondary font-bold mb-4 block">System Status: Optimal</label>
+<h2 class="text-5xl md:text-7xl font-headline font-extrabold tracking-tighter leading-none text-on-background">
+RESTORED <br/> <span class="text-outline">BALANCE.</span>
+</h2>
+<p class="mt-6 text-on-surface-variant max-w-md font-light leading-relaxed">
+Your neural load has decreased by 14% since the last cycle. The environment is calibrated for deep cognitive recovery.
+</p>
+</div>
+<div class="md:col-span-5 flex flex-col items-end">
+<div class="w-full h-48 rounded-lg overflow-hidden bg-surface-container-lowest relative group">
+<img class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" data-alt="Abstract fluid wave pattern in deep charcoal and metallic silver with surgical precision lighting and soft grain texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxig-jnSl1T7SmWRLqfhagqtCXFnkyB3aYzXlNnMvRetXo_QqS3J4e6__rBtNUALYKynxAOkC6HT67Af8ndn3jT8sRq4UlpO1IKYUBtdbP457P12VGstkWY0wPbCODkPOVqf13_q35H7ZksLpJvd5bwQJxcehgXO8gRSikvyHNpmjqUOIL85h2XNl__SOYkS8Xh0N1RdbdP2sxxgN4GqNGTFt1ri8BlAbyvkGVfIIKBjebHNuop9NtNxJz7vXSDDUGAYu4XZ9aahA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent"></div>
+<div class="absolute bottom-4 left-4">
+<span class="text-[10px] font-mono text-tertiary">CORE_STABILITY_094</span>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Bento Grid Biometrics -->
+<div class="bento-grid">
+<!-- Heart Rate - Large Feature -->
+<div class="col-span-12 md:col-span-6 lg:col-span-4 bg-surface-container rounded-sm p-8 border-l border-red-600/20 relative overflow-hidden">
+<div class="flex justify-between items-start mb-12">
+<div>
+<span class="text-[10px] uppercase tracking-widest text-secondary font-bold block mb-1">Heart Rate</span>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-headline font-bold">62</span>
+<span class="text-xs text-on-surface-variant uppercase">BPM</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-red-500 ferrari-glow">monitor_heart</span>
+</div>
+<!-- Precision Gauge -->
+<div class="h-16 flex items-end gap-1">
+<div class="w-1 bg-secondary/20 h-8"></div>
+<div class="w-1 bg-secondary/20 h-10"></div>
+<div class="w-1 bg-red-500/80 h-14"></div>
+<div class="w-1 bg-red-500/80 h-16"></div>
+<div class="w-1 bg-red-500/80 h-12"></div>
+<div class="w-1 bg-secondary/20 h-9"></div>
+<div class="w-1 bg-secondary/20 h-11"></div>
+<div class="w-1 bg-secondary/20 h-7"></div>
+<div class="w-1 bg-secondary/20 h-10"></div>
+</div>
+<div class="mt-6 flex justify-between items-center">
+<span class="text-[9px] text-on-surface-variant uppercase tracking-tighter">Variability: High (84ms)</span>
+<span class="text-[9px] text-red-400 uppercase font-bold">Stable</span>
+</div>
+</div>
+
+<!-- Sleep - Bento Wide -->
+<div class="col-span-12 md:col-span-6 lg:col-span-8 bg-surface-container-high rounded-sm p-8 flex flex-col md:flex-row justify-between gap-8">
+<div class="flex-1">
+<span class="text-[10px] uppercase tracking-widest text-secondary font-bold block mb-4">Sleep Architecture</span>
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<span class="text-xs uppercase text-on-surface-variant">Deep Sleep</span>
+<div class="w-48 h-1 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="bg-tertiary h-full w-[35%]"></div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs uppercase text-on-surface-variant">REM Cycle</span>
+<div class="w-48 h-1 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="bg-secondary h-full w-[22%]"></div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs uppercase text-on-surface-variant">Total Rest</span>
+<span class="text-xl font-headline font-bold">07:42h</span>
+</div>
+</div>
+</div>
+<div class="w-px bg-outline-variant/20 hidden md:block"></div>
+<div class="flex flex-col justify-center text-right">
+<span class="material-symbols-outlined text-4xl text-primary mb-4 self-end">dark_mode</span>
+<span class="text-3xl font-headline font-bold text-on-background">88</span>
+<span class="text-[10px] uppercase text-secondary font-bold">Sleep Score</span>
+</div>
+</div>
+
+<!-- Stress - Square -->
+<div class="col-span-12 md:col-span-6 lg:col-span-3 bg-surface-container-low rounded-sm p-6 flex flex-col justify-between">
+<div class="flex justify-between items-center">
+<span class="text-[10px] uppercase tracking-widest text-secondary font-bold">Stress</span>
+<span class="material-symbols-outlined text-red-500 ferrari-glow">neurology</span>
+</div>
+<div class="mt-8">
+<span class="text-4xl font-headline font-bold text-error">Low</span>
+<p class="text-[10px] text-on-surface-variant mt-2 uppercase tracking-tight">Cortisol levels within baseline</p>
+</div>
+</div>
+
+<!-- Mood - Square -->
+<div class="col-span-12 md:col-span-6 lg:col-span-3 bg-surface-bright rounded-sm p-6 flex flex-col justify-between border border-outline-variant/10">
+<div class="flex justify-between items-center">
+<span class="text-[10px] uppercase tracking-widest text-secondary font-bold">Mood State</span>
+<span class="material-symbols-outlined text-amber-400">auto_awesome</span>
+</div>
+<div class="mt-8">
+<div class="flex gap-1 mb-2">
+<div class="w-2 h-2 rounded-full bg-red-500"></div>
+<div class="w-2 h-2 rounded-full bg-red-500"></div>
+<div class="w-2 h-2 rounded-full bg-red-500"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+</div>
+<span class="text-xl font-headline font-bold uppercase tracking-tighter">Serene</span>
+</div>
+</div>
+
+<!-- Hydration - Vertical Tall -->
+<div class="col-span-12 lg:col-span-3 bg-surface-container-highest rounded-sm p-6 flex flex-col justify-between">
+<div>
+<span class="text-[10px] uppercase tracking-widest text-secondary font-bold block mb-8">Hydration Index</span>
+<div class="flex items-center gap-4">
+<div class="h-24 w-12 bg-surface-container-lowest rounded-sm relative overflow-hidden border border-outline-variant/20">
+<div class="absolute bottom-0 left-0 w-full h-[62%] bg-red-600/30"></div>
+</div>
+<div>
+<span class="text-2xl font-headline font-bold">1.8</span>
+<span class="text-[10px] text-on-surface-variant block uppercase">Liters</span>
+</div>
+</div>
+</div>
+<button class="mt-8 w-full py-2 bg-red-700 text-white text-[10px] uppercase font-bold tracking-[0.2em] rounded-sm hover:bg-red-600 transition-colors">
+LOG INTAKE
+</button>
+</div>
+
+<!-- Technical Summary -->
+<div class="col-span-12 lg:col-span-3 bg-surface-container rounded-sm p-6 border border-red-600/15">
+<span class="text-[10px] uppercase tracking-widest text-red-400 font-bold block mb-4">Wellness Forecast</span>
+<ul class="space-y-4">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-sm text-red-400 mt-0.5">verified</span>
+<span class="text-[11px] text-on-surface leading-tight uppercase tracking-tight">Optimal recovery window at 22:30</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-sm text-secondary mt-0.5">tips_and_updates</span>
+<span class="text-[11px] text-on-surface leading-tight uppercase tracking-tight">Focus session recommended</span>
+</li>
+</ul>
+</div>
+</div>
+</main>
+
+<!-- BottomNavBar — Ferrari cockpit dock -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-neutral-950/90 backdrop-blur-2xl border-t border-red-900/20 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-red-400 bg-red-950/40 rounded-sm p-3 border-b-2 border-red-500/50 scale-90" href="#">
+<span class="material-symbols-outlined">space_dashboard</span>
+<span class="font-inter text-[10px] uppercase tracking-widest font-bold mt-1 hidden md:block">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-neutral-600 p-3 hover:text-red-400 transition-all" href="#">
+<span class="material-symbols-outlined">candlestick_chart</span>
+<span class="font-inter text-[10px] uppercase tracking-widest font-bold mt-1 hidden md:block">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-neutral-600 p-3 hover:text-red-400 transition-all" href="#">
+<span class="material-symbols-outlined">stylus_note</span>
+<span class="font-inter text-[10px] uppercase tracking-widest font-bold mt-1 hidden md:block">Journal</span>
+</a>
+<a class="flex flex-col items-center justify-center text-neutral-600 p-3 hover:text-red-400 transition-all" href="#">
+<span class="material-symbols-outlined">tune</span>
+<span class="font-inter text-[10px] uppercase tracking-widest font-bold mt-1 hidden md:block">Settings</span>
+</a>
+</nav>
+</body></html>
