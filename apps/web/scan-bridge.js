@@ -30,7 +30,8 @@
     var lastFaceCenter = null;
     var lastFaceTime = 0;
     var lastHintId = null;
-    var lastHintText = '';
+    var lastHintEn = '';
+    var lastHintZh = '';
     var lastHintChangeAt = 0;
     var alignEnteredAt = 0;
     var lastAlignPulseAt = 0;
@@ -236,24 +237,24 @@
             rollDeg = Math.atan2(dyEye, dxEye) * 180 / Math.PI;
         }
 
-        var hint = { id: 'tracking', text: 'TRACKING' };
+        var hint = { id: 'tracking', en: 'TRACKING', zh: '追蹤中' };
 
         if (size < ALIGN_GUIDE.sizeMin) {
-            hint = { id: 'move_closer', text: 'MOVE CLOSER · 靠近一點' };
+            hint = { id: 'move_closer', en: 'MOVE CLOSER', zh: '靠近一點' };
         } else if (size > ALIGN_GUIDE.sizeMax) {
-            hint = { id: 'move_farther', text: 'MOVE FARTHER · 遠一點' };
+            hint = { id: 'move_farther', en: 'MOVE FARTHER', zh: '遠一點' };
         } else if (centerX < 0.5 - ALIGN_GUIDE.centerXTol) {
-            hint = { id: 'move_right', text: 'MOVE RIGHT · 向右一點' };
+            hint = { id: 'move_right', en: 'MOVE RIGHT', zh: '向右一點' };
         } else if (centerX > 0.5 + ALIGN_GUIDE.centerXTol) {
-            hint = { id: 'move_left', text: 'MOVE LEFT · 向左一點' };
+            hint = { id: 'move_left', en: 'MOVE LEFT', zh: '向左一點' };
         } else if (centerY < 0.5 - ALIGN_GUIDE.centerYTol) {
-            hint = { id: 'move_down', text: 'MOVE DOWN · 向下一點' };
+            hint = { id: 'move_down', en: 'MOVE DOWN', zh: '向下一點' };
         } else if (centerY > 0.5 + ALIGN_GUIDE.centerYTol) {
-            hint = { id: 'move_up', text: 'MOVE UP · 向上一點' };
+            hint = { id: 'move_up', en: 'MOVE UP', zh: '向上一點' };
         } else if (Math.abs(rollDeg) > ALIGN_GUIDE.rollDeg) {
-            hint = { id: 'straighten', text: 'STRAIGHTEN · 轉正' };
+            hint = { id: 'straighten', en: 'STRAIGHTEN', zh: '轉正' };
         } else if (motionSpeed > ALIGN_GUIDE.motionSpeed) {
-            hint = { id: 'hold_still', text: 'HOLD STILL · 保持穩定' };
+            hint = { id: 'hold_still', en: 'HOLD STILL', zh: '保持穩定' };
         }
 
         return {
@@ -269,12 +270,14 @@
         if (now - lastHintChangeAt < ALIGN_GUIDE.switchDelayMs) {
             return {
                 id: lastHintId || candidate.id,
-                text: lastHintText || candidate.text
+                en: lastHintEn || candidate.en,
+                zh: lastHintZh || candidate.zh
             };
         }
 
         lastHintId = candidate.id;
-        lastHintText = candidate.text;
+        lastHintEn = candidate.en;
+        lastHintZh = candidate.zh;
         lastHintChangeAt = now;
         return candidate;
     }
@@ -287,13 +290,14 @@
 
         if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
             // No face detected
-            if (hintText) hintText.textContent = 'FIND FACE';
+            if (hintText) hintText.innerHTML = '<span class="hint-en">FIND FACE</span><span class="hint-zh">尋找臉部</span>';
             if (capsule) { capsule.classList.remove('status-good'); capsule.classList.add('status-warn'); }
             if (iconBox) iconBox.style.background = 'rgba(234,179,8,0.15)';
             lastFaceCenter = null;
             lastFaceTime = 0;
             lastHintId = 'no_face';
-            lastHintText = 'FIND FACE';
+            lastHintEn = 'FIND FACE';
+            lastHintZh = '尋找臉部';
             lastHintChangeAt = 0;
             alignEnteredAt = 0;
             if (stardust && stardust.clearExpression) stardust.clearExpression();
@@ -305,7 +309,7 @@
         // Alignment guidance (Apple Pay style)
         var align = getAlignmentHint(lm);
         var stableHint = stabilizeHint(align.hint);
-        if (hintText) hintText.textContent = stableHint.text;
+        if (hintText) hintText.innerHTML = '<span class="hint-en">' + stableHint.en + '</span><span class="hint-zh">' + stableHint.zh + '</span>';
         if (stableHint.id === 'tracking') {
             if (capsule) { capsule.classList.remove('status-warn'); capsule.classList.add('status-good'); }
             if (iconBox) iconBox.style.background = 'rgba(35,243,212,0.15)';
@@ -444,7 +448,7 @@
         var iconBox = document.getElementById('hint-icon-box');
         if (iconBox) iconBox.style.background = 'rgba(0,240,255,0.15)';
         var hintText = document.getElementById('hint-text');
-        if (hintText) hintText.textContent = 'FIND FACE';
+        if (hintText) hintText.innerHTML = '<span class="hint-en">FIND FACE</span><span class="hint-zh">尋找臉部</span>';
         capsule.classList.add('show');
     }
 
