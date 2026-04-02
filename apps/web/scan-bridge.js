@@ -520,7 +520,7 @@
                     '<strong>設定切換：</strong>Trader Mode（交易語境與功能同步）<br><br>' +
                     '<strong>80-99</strong> <span class="material-symbols-outlined ferrari-icon" style="font-size:14px">speed</span> 高能量 — 適合挑戰性決策<br>' +
                     '<strong>55-79</strong> <span class="material-symbols-outlined ferrari-icon" style="font-size:14px">rocket_launch</span> 最佳區間 — 決策品質最高<br>' +
-                    '<strong>35-54</strong> <span class="material-symbols-outlined ferrari-icon" style="font-size:14px">airline_seat_recline_normal</span> 穩定觀察 — 避免衝動判斷<br>' +
+                    '<strong>35-54</strong> <span class="material-symbols-outlined ferrari-icon" style="font-size:14px">equalizer</span> 穩定觀察 — 避免衝動判斷<br>' +
                     '<strong>01-34</strong> <span class="material-symbols-outlined ferrari-icon" style="font-size:14px">warning</span> 建議休息 — 暫緩重要決策';
                 desc.style.fontSize = '12px';
                 desc.style.lineHeight = '1.6';
@@ -730,18 +730,18 @@
         if (!teiVal || isNaN(teiVal)) teiVal = null;
 
         var zone = 'NEUTRAL';
-        var emojiIcon = 'airline_seat_recline_normal';
+        var emojiIcon = 'equalizer';
         if (teiVal !== null) {
             if (teiVal >= 80) { zone = 'PEAK'; emojiIcon = 'speed'; }
             else if (teiVal >= 55) { zone = 'OPTIMAL'; emojiIcon = 'rocket_launch'; }
-            else if (teiVal >= 35) { zone = 'NEUTRAL'; emojiIcon = 'airline_seat_recline_normal'; }
+            else if (teiVal >= 35) { zone = 'NEUTRAL'; emojiIcon = 'equalizer'; }
             else { zone = 'DEGRADED'; emojiIcon = 'warning'; }
         }
 
         var toast = document.createElement('div');
         toast.className = 'tenki-scan-toast';
         toast.innerHTML =
-            '<div class="tenki-scan-toast-title"><span class="material-symbols-outlined ferrari-icon" style="font-size:16px">flag</span> 掃描完成</div>' +
+            '<div class="tenki-scan-toast-title"><span class="material-symbols-outlined ferrari-icon" style="font-size:16px">sports_score</span> 掃描完成</div>' +
             (teiVal !== null
                 ? '<div class="tenki-scan-toast-score">你的 TEI 指數：' + teiVal + ' <span class="material-symbols-outlined ferrari-icon">' + emojiIcon + '</span></div>'
                 : '<div class="tenki-scan-toast-score">準備顯示結果 <span class="material-symbols-outlined ferrari-icon">' + emojiIcon + '</span></div>');

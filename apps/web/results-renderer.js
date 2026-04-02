@@ -69,7 +69,7 @@
         },
         NEUTRAL: {
             label: '穩定觀察區',
-            emoji: 'airline_seat_recline_normal',
+            emoji: 'equalizer',
             tips: [
                 '適合執行既有策略，避免衝動決策',
                 '建議先做 60 秒呼吸校準再行動',
