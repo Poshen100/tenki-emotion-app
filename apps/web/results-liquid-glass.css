@@ -1,0 +1,287 @@
+/* =====================================================================
+   results-liquid-glass.css
+   TENKI v51.1 — Liquid Glass / Frosted Premium Overlay
+   Layered on top of results-page.css for ultra-premium glassmorphism
+   ===================================================================== */
+
+/* ── Liquid Glass Design Tokens ── */
+:root {
+    --lg-blur: blur(40px) saturate(2.0);
+    --lg-blur-heavy: blur(56px) saturate(2.2);
+    --lg-border: 1px solid rgba(255, 255, 255, 0.18);
+    --lg-border-glow: 1px solid rgba(255, 255, 255, 0.22);
+    --lg-inner-glow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 0 20px rgba(255, 255, 255, 0.04);
+    --lg-outer-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.3);
+    --lg-refraction: inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+    --lg-radius: 28px;
+    --lg-radius-sm: 18px;
+    --lg-milky: rgba(245, 240, 255, 0.08);
+    --lg-milky-strong: rgba(245, 240, 255, 0.12);
+    --lg-purple-tint: rgba(140, 120, 200, 0.06);
+}
+
+/* ── Coach Card → Frosted Liquid Glass Dialog ── */
+#results-page.rp-ready .coach-card {
+    border-radius: var(--lg-radius) !important;
+    border: var(--lg-border-glow) !important;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(240, 235, 255, 0.08) 50%, rgba(200, 195, 230, 0.06) 100%),
+        var(--lg-milky-strong) !important;
+    box-shadow:
+        var(--lg-inner-glow),
+        var(--lg-outer-shadow),
+        var(--lg-refraction),
+        0 0 40px rgba(140, 120, 220, 0.08) !important;
+    backdrop-filter: var(--lg-blur-heavy) !important;
+    -webkit-backdrop-filter: var(--lg-blur-heavy) !important;
+    padding: 22px 24px !important;
+    margin: 18px 0 14px !important;
+    font-size: 16px !important;
+    line-height: 1.65 !important;
+    letter-spacing: 0.2px !important;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Refraction highlight strip */
+#results-page.rp-ready .coach-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.35) 30%, rgba(255, 255, 255, 0.45) 50%, rgba(255, 255, 255, 0.35) 70%, transparent 100%);
+    pointer-events: none;
+}
+
+/* ── Summary Card → Enhanced Liquid Glass ── */
+#results-page.rp-ready .rp-summary-card {
+    border-radius: var(--lg-radius) !important;
+    border: var(--lg-border) !important;
+    background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.10) 0%, rgba(180, 170, 220, 0.06) 100%),
+        var(--lg-milky) !important;
+    box-shadow:
+        var(--lg-inner-glow),
+        var(--lg-outer-shadow) !important;
+    backdrop-filter: var(--lg-blur) !important;
+    -webkit-backdrop-filter: var(--lg-blur) !important;
+    padding: 20px 22px !important;
+    position: relative;
+    overflow: hidden;
+}
+
+#results-page.rp-ready .rp-summary-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 15%;
+    right: 15%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+    pointer-events: none;
+}
+
+/* ── Bento Cards → Liquid Glass ── */
+#results-page.rp-ready .results-bento-card {
+    border-radius: var(--lg-radius-sm) !important;
+    border: var(--lg-border) !important;
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.09) 0%, rgba(200, 195, 235, 0.05) 100%),
+        rgba(38, 40, 52, 0.55) !important;
+    box-shadow:
+        var(--lg-inner-glow),
+        0 8px 36px rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: var(--lg-blur) !important;
+    -webkit-backdrop-filter: var(--lg-blur) !important;
+    position: relative;
+    overflow: hidden;
+    padding: 16px 18px 12px !important;
+}
+
+/* Subtle top edge refraction */
+#results-page.rp-ready .results-bento-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.20), transparent);
+    pointer-events: none;
+}
+
+/* ── Stress Bar → Neon Liquid Glass Progress ── */
+#results-page.rp-ready .stress-seg-track {
+    height: 8px !important;
+    gap: 3px !important;
+    margin-top: 8px !important;
+}
+
+#results-page.rp-ready .stress-seg {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-radius: 4px !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    position: relative;
+    overflow: hidden !important;
+}
+
+/* Neon glow filled segments */
+#results-page.rp-ready .stress-seg[data-seg="0"] .stress-seg-fill {
+    background: linear-gradient(90deg, #34C759, #30D98B) !important;
+    box-shadow: 0 0 8px rgba(52, 199, 89, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+#results-page.rp-ready .stress-seg[data-seg="1"] .stress-seg-fill {
+    background: linear-gradient(90deg, #30D98B, #00B4D8) !important;
+    box-shadow: 0 0 8px rgba(0, 180, 216, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+#results-page.rp-ready .stress-seg[data-seg="2"] .stress-seg-fill {
+    background: linear-gradient(90deg, #F5C842, #F5A623) !important;
+    box-shadow: 0 0 8px rgba(245, 166, 35, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+#results-page.rp-ready .stress-seg[data-seg="3"] .stress-seg-fill {
+    background: linear-gradient(90deg, #FF8A65, #FF6B35) !important;
+    box-shadow: 0 0 8px rgba(255, 107, 53, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Glass highlight on track */
+#results-page.rp-ready .stress-seg::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 100%);
+    pointer-events: none;
+    border-radius: 4px 4px 0 0;
+}
+
+/* ── Body Battery Card → Liquid Glass ── */
+#results-page.rp-ready .results-glass-card {
+    border-radius: var(--lg-radius-sm) !important;
+    border: var(--lg-border) !important;
+    background:
+        linear-gradient(155deg, rgba(255, 255, 255, 0.09) 0%, rgba(180, 170, 210, 0.05) 100%),
+        rgba(38, 40, 52, 0.55) !important;
+    box-shadow:
+        var(--lg-inner-glow),
+        0 8px 36px rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: var(--lg-blur) !important;
+    -webkit-backdrop-filter: var(--lg-blur) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+#results-page.rp-ready .results-glass-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+    pointer-events: none;
+}
+
+/* BB bars → liquid glass glow */
+#results-page.rp-ready .bb-bar {
+    border-radius: 5px !important;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    position: relative;
+}
+
+#results-page.rp-ready .bb-bar.last {
+    box-shadow: 0 0 14px rgba(52, 199, 89, 0.5), 0 0 4px rgba(0, 180, 216, 0.3) !important;
+}
+
+/* BB value → metallic text */
+#results-page.rp-ready .bb-value-number {
+    background:
+        linear-gradient(180deg, #FFFFFF 0%, #E8E9EE 45%, #C8C9D0 70%, #A0A1A8 100%),
+        linear-gradient(115deg, rgba(255,255,255,0.8) 10%, rgba(255,255,255,0) 50%) !important;
+    background-blend-mode: screen, normal !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    font-weight: 700 !important;
+    font-size: 40px !important;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4)) !important;
+}
+
+/* ── ANS Bar → Liquid Glass Glow ── */
+#results-page.rp-ready .ans-bar-outer {
+    height: 8px !important;
+    border-radius: 4px !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    position: relative;
+    overflow: hidden !important;
+}
+
+#results-page.rp-ready .ans-sns-bar {
+    background: linear-gradient(90deg, #FF6B6B, #FF453A) !important;
+    box-shadow: 0 0 8px rgba(255, 69, 58, 0.4) !important;
+    border-radius: 4px 0 0 4px !important;
+}
+
+#results-page.rp-ready .ans-pns-bar {
+    background: linear-gradient(90deg, #00B4D8, #20D7F2) !important;
+    box-shadow: 0 0 8px rgba(0, 180, 216, 0.4) !important;
+    border-radius: 0 4px 4px 0 !important;
+}
+
+/* ANS glass highlight */
+#results-page.rp-ready .ans-bar-outer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 1;
+    border-radius: 4px 4px 0 0;
+}
+
+/* ANS label colors update */
+#results-page.rp-ready .ans-labels span:last-child {
+    color: #20D7F2 !important;
+}
+
+/* ── FDCB Dock → Enhanced Frosted Glass ── */
+#results-page.rp-ready .fdcb-dock {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(28, 28, 30, 0.65) 100%) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.14) !important;
+    backdrop-filter: blur(44px) saturate(2.0) !important;
+    -webkit-backdrop-filter: blur(44px) saturate(2.0) !important;
+    box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* FDCB timer → cyan glow */
+#results-page.rp-ready .fdcb-timer {
+    color: #00E5FF !important;
+    text-shadow: 0 0 16px rgba(0, 229, 255, 0.35), 0 0 4px rgba(0, 229, 255, 0.15) !important;
+}
+
+/* ── TEI Number → Enhanced Metallic ── */
+#results-page.rp-ready .tei-number {
+    filter: drop-shadow(0 0 50px rgba(0, 200, 255, 0.18)) drop-shadow(0 3px 10px rgba(0, 0, 0, 0.6)) !important;
+}
+
+/* ── Sparkline waveform glow ── */
+#results-page.rp-ready .results-bento-sparkline {
+    filter: drop-shadow(0 0 6px rgba(100, 200, 255, 0.2));
+}
+
+/* ── Overall page nebula tint ── */
+#results-page.rp-ready {
+    background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.38) 0%, rgba(0, 0, 0, 0.50) 40%, rgba(0, 0, 0, 0.68) 100%) !important;
+}
