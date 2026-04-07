@@ -318,14 +318,7 @@
     }
 
     function getSummaryIconMarkup(zone) {
-        var iconPaths = {
-            PEAK: '<circle cx="12" cy="12" r="1.5"/><line x1="12" y1="6.5" x2="12" y2="8.4"/><line x1="12" y1="15.6" x2="12" y2="17.5"/><line x1="6.5" y1="12" x2="8.4" y2="12"/><line x1="15.6" y1="12" x2="17.5" y2="12"/>',
-            OPTIMAL: '<rect x="5.5" y="5.5" width="13" height="13" rx="3"/><path d="M8 15.3 10.8 12.5 13 14.7 16 10.4"/><circle cx="16" cy="10.4" r="1"/>',
-            NEUTRAL: '<path d="M10.2 6.5C7.7 7.4 6 9.48 6 12s1.7 4.6 4.2 5.5"/><path d="M13.8 6.5c2.5.9 4.2 2.98 4.2 5.5s-1.7 4.6-4.2 5.5"/><line x1="12" y1="8.6" x2="12" y2="15.4"/>',
-            DEGRADED: '<path d="M12 5.5 18.7 17.3a1.2 1.2 0 0 1-1.04 1.8H6.34a1.2 1.2 0 0 1-1.04-1.8L12 5.5Z"/><line x1="12" y1="10.1" x2="12" y2="13.6"/><circle cx="12" cy="16.2" r="1"/>'
-        };
-
-        var markup = iconPaths[zone] || iconPaths.NEUTRAL;
+        var markup = '<path d="M8.2 5.6A7.4 7.4 0 1 1 5.5 16"/><path d="M10.1 8.2A4.8 4.8 0 1 1 8.6 15.3"/><line x1="8.4" y1="15.7" x2="15.6" y2="15.7"/>';
         return '<svg class="rp-summary-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
             markup +
             '</svg>';

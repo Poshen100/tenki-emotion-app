@@ -2054,14 +2054,18 @@
         (function() {
             var TENKI_ICONS = {
                 'ans-balance': '<path d="M10.2 6.5C7.7 7.4 6 9.48 6 12s1.7 4.6 4.2 5.5"/><path d="M13.8 6.5c2.5.9 4.2 2.98 4.2 5.5s-1.7 4.6-4.2 5.5"/><line x1="12" y1="8.6" x2="12" y2="15.4"/>',
+                'body-battery': '<rect x="4.5" y="8" width="13.6" height="8" rx="2.4"/><rect x="18.4" y="10" width="1.8" height="4" rx="0.7"/><rect x="7" y="10.6" width="6.4" height="2.8" rx="1.2"/>',
                 'breathing': '<path d="M9 6.7C6.92 7.46 5.6 9.48 5.6 12S6.92 16.54 9 17.3"/><path d="M15 6.7c2.08.76 3.4 2.78 3.4 5.3s-1.32 4.54-3.4 5.3"/><circle cx="12" cy="12" r="1.2"/>',
                 'confirm': '<path d="M6.7 12.6 10.3 16.2 17.3 9.2"/>',
                 'deep-scan': '<path d="M8.2 5.6A7.4 7.4 0 1 1 5.5 16"/><path d="M10.1 8.2A4.8 4.8 0 1 1 8.6 15.3"/><line x1="8.4" y1="15.7" x2="15.6" y2="15.7"/>',
+                'expand-details': '<path d="M9 5.5H5.5V9"/><path d="M15 5.5h3.5V9"/><path d="M9 18.5H5.5V15"/><path d="M15 18.5h3.5V15"/>',
                 'focus': '<circle cx="12" cy="12" r="1.5"/><line x1="12" y1="6.5" x2="12" y2="8.4"/><line x1="12" y1="15.6" x2="12" y2="17.5"/><line x1="6.5" y1="12" x2="8.4" y2="12"/><line x1="15.6" y1="12" x2="17.5" y2="12"/>',
                 'heart-rate': '<path d="M12 19.25 6.2 13.65c-1.77-1.7-1.77-4.46 0-6.16 1.56-1.5 4.08-1.5 5.63 0l.17.16.17-.16c1.55-1.5 4.07-1.5 5.63 0 1.77 1.7 1.77 4.46 0 6.16L12 19.25Z"/>',
                 'hrv': '<path d="M12 18.9 6.7 13.88c-1.55-1.47-1.55-3.87 0-5.34 1.34-1.27 3.53-1.27 4.88 0L12 8.95l.42-.41c1.35-1.27 3.54-1.27 4.88 0 1.55 1.47 1.55 3.87 0 5.34L12 18.9Z"/><line x1="8.2" y1="15.1" x2="15.8" y2="15.1"/><line x1="9.2" y1="15.1" x2="9.2" y2="12.8"/><line x1="12" y1="15.1" x2="12" y2="11.9"/><line x1="14.8" y1="15.1" x2="14.8" y2="13.4"/>',
                 'insights': '<rect x="5.5" y="5.5" width="13" height="13" rx="3"/><path d="M8 15.3 10.8 12.5 13 14.7 16 10.4"/><circle cx="16" cy="10.4" r="1"/>',
+                'quick-check-in': '<path d="M7.5 7h9a2.5 2.5 0 0 1 2.5 2.5v5a2.5 2.5 0 0 1-2.5 2.5h-4.3L9.6 19v-2h-2.1A2.5 2.5 0 0 1 5 14.5v-5A2.5 2.5 0 0 1 7.5 7Z"/><circle cx="12" cy="12" r="1.2"/>',
                 'recovery': '<path d="M7 8.3a7 7 0 1 1 8.9 8.55"/><path d="M16.4 7.7A4.7 4.7 0 0 1 15.5 16"/>',
+                'rppg-source': '<rect x="5.5" y="8" width="13" height="8" rx="3"/><circle cx="12" cy="12" r="3"/><circle cx="16" cy="10" r="1"/><line x1="9" y1="16" x2="15" y2="16"/>',
                 'signal-quality': '<rect x="5.3" y="13.2" width="2.4" height="4.8" rx="1"/><rect x="8.9" y="11.1" width="2.4" height="6.9" rx="1"/><rect x="12.5" y="9" width="2.4" height="9" rx="1"/><rect x="16.1" y="6.9" width="2.4" height="11.1" rx="1"/>',
                 'stress': '<path d="M5 15.5a7 7 0 0 1 14 0"/><circle cx="12" cy="15.5" r="1.25"/><path d="M12 15.5 16.6 10.9"/>',
                 'warning': '<path d="M12 5.5 18.7 17.3a1.2 1.2 0 0 1-1.04 1.8H6.34a1.2 1.2 0 0 1-1.04-1.8L12 5.5Z"/><line x1="12" y1="10.1" x2="12" y2="13.6"/><circle cx="12" cy="16.2" r="1"/>'
@@ -2157,13 +2161,13 @@
 
             function syncOnboardingIcons() {
                 var mappings = [
-                    ['.tenki-onboarding-feature:nth-of-type(1) [data-lucide], .tenki-onboarding-feature:nth-of-type(1) svg', 'heart-rate'],
-                    ['.tenki-onboarding-feature:nth-of-type(2) [data-lucide], .tenki-onboarding-feature:nth-of-type(2) svg', 'insights'],
-                    ['.tenki-onboarding-feature:nth-of-type(3) [data-lucide], .tenki-onboarding-feature:nth-of-type(3) svg', 'confirm'],
-                    ['.tenki-onboarding-mode-box:nth-of-type(1) [data-lucide], .tenki-onboarding-mode-box:nth-of-type(1) svg', 'recovery'],
-                    ['.tenki-onboarding-mode-box:nth-of-type(2) [data-lucide], .tenki-onboarding-mode-box:nth-of-type(2) svg', 'focus'],
-                    ['.tenki-onboard-hero-chip [data-lucide], .tenki-onboard-hero-chip svg', 'insights'],
-                    ['.tenki-onboard-badge [data-lucide], .tenki-onboard-badge svg', 'focus']
+                    ['.tenki-onboarding-feature:nth-of-type(1) [data-lucide], .tenki-onboarding-feature:nth-of-type(1) svg', 'hrv'],
+                    ['.tenki-onboarding-feature:nth-of-type(2) [data-lucide], .tenki-onboarding-feature:nth-of-type(2) svg', 'deep-scan'],
+                    ['.tenki-onboarding-feature:nth-of-type(3) [data-lucide], .tenki-onboarding-feature:nth-of-type(3) svg', 'insights'],
+                    ['.tenki-onboarding-mode-box:nth-of-type(1) [data-lucide], .tenki-onboarding-mode-box:nth-of-type(1) svg', 'breathing'],
+                    ['.tenki-onboarding-mode-box:nth-of-type(2) [data-lucide], .tenki-onboarding-mode-box:nth-of-type(2) svg', 'signal-quality'],
+                    ['.tenki-onboard-hero-chip [data-lucide], .tenki-onboard-hero-chip svg', 'rppg-source'],
+                    ['.tenki-onboard-badge [data-lucide], .tenki-onboard-badge svg', 'expand-details']
                 ];
 
                 mappings.forEach(function(entry) {
