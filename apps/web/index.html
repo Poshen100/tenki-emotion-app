@@ -349,6 +349,17 @@
             transition: color 280ms ease, filter 280ms ease;
         }
 
+        .tenki-inline-icon {
+            display: block;
+            flex-shrink: 0;
+            color: inherit;
+            overflow: visible;
+        }
+
+        .tenki-inline-icon * {
+            vector-effect: non-scaling-stroke;
+        }
+
         body {
             background: var(--bg-deep);
             color: white;
@@ -2038,6 +2049,163 @@
         <script src="scan-bridge.js"></script>
 
         <script src="results-components.js"></script>
+        <script>
+        (function() {
+            var TENKI_ICONS = {
+                'ans-balance': '<path d="M10.2 6.5C7.7 7.4 6 9.48 6 12s1.7 4.6 4.2 5.5"/><path d="M13.8 6.5c2.5.9 4.2 2.98 4.2 5.5s-1.7 4.6-4.2 5.5"/><line x1="12" y1="8.6" x2="12" y2="15.4"/>',
+                'breathing': '<path d="M9 6.7C6.92 7.46 5.6 9.48 5.6 12S6.92 16.54 9 17.3"/><path d="M15 6.7c2.08.76 3.4 2.78 3.4 5.3s-1.32 4.54-3.4 5.3"/><circle cx="12" cy="12" r="1.2"/>',
+                'confirm': '<path d="M6.7 12.6 10.3 16.2 17.3 9.2"/>',
+                'deep-scan': '<path d="M8.2 5.6A7.4 7.4 0 1 1 5.5 16"/><path d="M10.1 8.2A4.8 4.8 0 1 1 8.6 15.3"/><line x1="8.4" y1="15.7" x2="15.6" y2="15.7"/>',
+                'focus': '<circle cx="12" cy="12" r="1.5"/><line x1="12" y1="6.5" x2="12" y2="8.4"/><line x1="12" y1="15.6" x2="12" y2="17.5"/><line x1="6.5" y1="12" x2="8.4" y2="12"/><line x1="15.6" y1="12" x2="17.5" y2="12"/>',
+                'heart-rate': '<path d="M12 19.25 6.2 13.65c-1.77-1.7-1.77-4.46 0-6.16 1.56-1.5 4.08-1.5 5.63 0l.17.16.17-.16c1.55-1.5 4.07-1.5 5.63 0 1.77 1.7 1.77 4.46 0 6.16L12 19.25Z"/>',
+                'hrv': '<path d="M12 18.9 6.7 13.88c-1.55-1.47-1.55-3.87 0-5.34 1.34-1.27 3.53-1.27 4.88 0L12 8.95l.42-.41c1.35-1.27 3.54-1.27 4.88 0 1.55 1.47 1.55 3.87 0 5.34L12 18.9Z"/><line x1="8.2" y1="15.1" x2="15.8" y2="15.1"/><line x1="9.2" y1="15.1" x2="9.2" y2="12.8"/><line x1="12" y1="15.1" x2="12" y2="11.9"/><line x1="14.8" y1="15.1" x2="14.8" y2="13.4"/>',
+                'insights': '<rect x="5.5" y="5.5" width="13" height="13" rx="3"/><path d="M8 15.3 10.8 12.5 13 14.7 16 10.4"/><circle cx="16" cy="10.4" r="1"/>',
+                'recovery': '<path d="M7 8.3a7 7 0 1 1 8.9 8.55"/><path d="M16.4 7.7A4.7 4.7 0 0 1 15.5 16"/>',
+                'signal-quality': '<rect x="5.3" y="13.2" width="2.4" height="4.8" rx="1"/><rect x="8.9" y="11.1" width="2.4" height="6.9" rx="1"/><rect x="12.5" y="9" width="2.4" height="9" rx="1"/><rect x="16.1" y="6.9" width="2.4" height="11.1" rx="1"/>',
+                'stress': '<path d="M5 15.5a7 7 0 0 1 14 0"/><circle cx="12" cy="15.5" r="1.25"/><path d="M12 15.5 16.6 10.9"/>',
+                'warning': '<path d="M12 5.5 18.7 17.3a1.2 1.2 0 0 1-1.04 1.8H6.34a1.2 1.2 0 0 1-1.04-1.8L12 5.5Z"/><line x1="12" y1="10.1" x2="12" y2="13.6"/><circle cx="12" cy="16.2" r="1"/>'
+            };
+
+            function escapeAttr(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            }
+
+            function buildIcon(iconName, attributes) {
+                var markup = TENKI_ICONS[iconName];
+                if (!markup) return '';
+
+                var attr = attributes || {};
+                var className = attr.className ? attr.className.trim() : '';
+                var idAttr = attr.id ? ' id="' + escapeAttr(attr.id) + '"' : '';
+                var classAttr = className ? ' class="' + escapeAttr(className + ' tenki-inline-icon') + '"' : ' class="tenki-inline-icon"';
+                var lucideAttr = attr.dataLucide ? ' data-lucide="' + escapeAttr(attr.dataLucide) + '"' : '';
+
+                return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' +
+                    idAttr + classAttr + lucideAttr + ' data-tenki-icon="' + escapeAttr(iconName) + '" aria-hidden="true">' +
+                    markup +
+                    '</svg>';
+            }
+
+            function replaceIconElement(element, iconName, fallbackClassName, fallbackDataLucide) {
+                if (!element || element.nodeType !== 1) return;
+                if (element.tagName.toLowerCase() === 'svg' && element.getAttribute('data-tenki-icon') === iconName) return;
+
+                var className = element.getAttribute('class') || '';
+                if (fallbackClassName && className.indexOf(fallbackClassName) === -1) {
+                    className = (className ? className + ' ' : '') + fallbackClassName;
+                }
+
+                element.outerHTML = buildIcon(iconName, {
+                    id: element.id,
+                    className: className,
+                    dataLucide: fallbackDataLucide || ''
+                });
+            }
+
+            function syncStaticIcons() {
+                var dashboardGrid = document.querySelector('.bio-dashboard-grid');
+                var dashboardHeaderIcon = dashboardGrid && dashboardGrid.previousElementSibling
+                    ? dashboardGrid.previousElementSibling.querySelector('i, svg')
+                    : null;
+                var ansBar = document.querySelector('.ans-bar-container');
+                var ansHeaderIcon = ansBar && ansBar.parentElement
+                    ? ansBar.parentElement.querySelector('.flex.justify-between.items-start.mb-3 i, .flex.justify-between.items-start.mb-3 svg')
+                    : null;
+
+                var warningBanner = document.getElementById('quality-warning');
+                if (warningBanner && warningBanner.firstElementChild) {
+                    replaceIconElement(warningBanner.firstElementChild, 'warning', 'w-4 h-4 shrink-0');
+                }
+
+                replaceIconElement(
+                    document.querySelector('#hint-icon-box #hint-icon, #hint-icon-box [data-lucide="scan-face"], #hint-icon-box .lucide-scan-face'),
+                    'deep-scan'
+                );
+                replaceIconElement(
+                    document.querySelector('.fingerprint-core .fingerprint-icon, .fingerprint-core [data-lucide="fingerprint"], .fingerprint-core .lucide-fingerprint'),
+                    'deep-scan',
+                    '',
+                    'fingerprint'
+                );
+                replaceIconElement(
+                    dashboardHeaderIcon,
+                    'insights',
+                    'w-3 h-3 text-cyan-400'
+                );
+                replaceIconElement(
+                    document.querySelector('#bio-card-hr .bio-card-header .bio-card-icon, #bio-card-hr .bio-card-header [data-lucide], #bio-card-hr .bio-card-header svg'),
+                    'heart-rate'
+                );
+                replaceIconElement(
+                    document.querySelector('#bio-card-hrv .bio-card-header .bio-card-icon, #bio-card-hrv .bio-card-header [data-lucide], #bio-card-hrv .bio-card-header svg'),
+                    'hrv'
+                );
+                replaceIconElement(
+                    document.querySelector('#bio-card-rr .bio-card-header .text-lg, #bio-card-rr .bio-card-header [data-lucide], #bio-card-rr .bio-card-header svg'),
+                    'breathing',
+                    'bio-card-icon text-green-400'
+                );
+                replaceIconElement(
+                    document.querySelector('#bio-card-stress .bio-card-header .bio-card-icon, #bio-card-stress .bio-card-header [data-lucide], #bio-card-stress .bio-card-header svg'),
+                    'stress'
+                );
+                replaceIconElement(
+                    document.querySelector('#bio-card-quality .bio-card-header .bio-card-icon, #bio-card-quality .bio-card-header [data-lucide], #bio-card-quality .bio-card-header svg'),
+                    'signal-quality'
+                );
+                replaceIconElement(
+                    ansHeaderIcon,
+                    'ans-balance',
+                    'w-3 h-3 text-cyan-400'
+                );
+            }
+
+            function syncOnboardingIcons() {
+                var mappings = [
+                    ['.tenki-onboarding-feature:nth-of-type(1) [data-lucide], .tenki-onboarding-feature:nth-of-type(1) svg', 'heart-rate'],
+                    ['.tenki-onboarding-feature:nth-of-type(2) [data-lucide], .tenki-onboarding-feature:nth-of-type(2) svg', 'insights'],
+                    ['.tenki-onboarding-feature:nth-of-type(3) [data-lucide], .tenki-onboarding-feature:nth-of-type(3) svg', 'confirm'],
+                    ['.tenki-onboarding-mode-box:nth-of-type(1) [data-lucide], .tenki-onboarding-mode-box:nth-of-type(1) svg', 'recovery'],
+                    ['.tenki-onboarding-mode-box:nth-of-type(2) [data-lucide], .tenki-onboarding-mode-box:nth-of-type(2) svg', 'focus'],
+                    ['.tenki-onboard-hero-chip [data-lucide], .tenki-onboard-hero-chip svg', 'insights'],
+                    ['.tenki-onboard-badge [data-lucide], .tenki-onboard-badge svg', 'focus']
+                ];
+
+                mappings.forEach(function(entry) {
+                    replaceIconElement(document.querySelector(entry[0]), entry[1]);
+                });
+            }
+
+            var syncQueued = false;
+            function queueSync() {
+                if (syncQueued) return;
+                syncQueued = true;
+                requestAnimationFrame(function() {
+                    syncQueued = false;
+                    syncStaticIcons();
+                    syncOnboardingIcons();
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', queueSync, { once: true });
+            } else {
+                queueSync();
+            }
+
+            if (document.body) {
+                new MutationObserver(queueSync).observe(document.body, { childList: true, subtree: true });
+            } else {
+                document.addEventListener('DOMContentLoaded', function() {
+                    new MutationObserver(queueSync).observe(document.body, { childList: true, subtree: true });
+                }, { once: true });
+            }
+        })();
+        </script>
 
         <!-- Onboarding Modal -->
         <div id="tenki-onboarding" class="tenki-onboarding-overlay" style="display:none;">
