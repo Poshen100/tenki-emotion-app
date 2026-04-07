@@ -92,3 +92,102 @@ export {
 } from './compliance/notification-guard';
 
 export type { NotificationTemplateId } from './compliance/notification-guard';
+
+// ─── Biometric ──────────────────────────────
+export {
+  calculateHrvBaselineRange,
+  getHrvStatus,
+  harmonizeHrv,
+  computeHrvZScore,
+} from './biometric/hrv';
+
+export type { HrvStatus, HrvBaselineRange, HrvSource } from './biometric/hrv';
+
+export {
+  clampBrpm,
+  estimateBrpmFromRRIntervals,
+  smoothBrpm,
+  getRrStatus,
+  analyzeRr,
+  RR_NORMAL_MIN,
+  RR_NORMAL_MAX,
+} from './biometric/rr';
+
+export type { RrStatus, RrResult } from './biometric/rr';
+
+export {
+  calculateStressProxy,
+  getStressLevel,
+  STRESS_WEIGHTS,
+} from './biometric/stress-proxy';
+
+export type { StressLevel, StressProxyResult } from './biometric/stress-proxy';
+
+// ─── Baseline ───────────────────────────────
+export {
+  updateMetricBaseline,
+  createEmptyMetricBaseline,
+  createEmptyBaselineProfile,
+  resolveTimeBucket,
+  assessMaturity,
+  updateBaselineProfile,
+} from './baseline/baseline';
+
+// ─── Scoring Engine ─────────────────────────
+export {
+  calculateEdgeScore,
+  classifyEdgeZone,
+  getTimeBucket,
+} from './scoring/edge-score';
+
+export type { EdgeScoreInput } from './scoring/edge-score';
+
+export {
+  createEdgeDetectorState,
+  tickDetector,
+  recordAlertFired,
+  resetDailyAlerts,
+  shouldFireAlert,
+} from './scoring/edge-detector';
+
+export type { DetectorTickInput } from './scoring/edge-detector';
+
+// ─── Session Governance ─────────────────────
+export {
+  nextSessionState,
+  canTransition,
+  getValidActions,
+  isTerminalState,
+  isActiveState,
+  needsUserAction,
+} from './session/state-machine';
+
+export {
+  evaluateGate,
+  canProceed,
+  shouldSuggestReset,
+} from './session/gate';
+
+export {
+  TRADER_TEMPLATES,
+  getTraderTemplate,
+  getAllTraderTemplates,
+} from './session/templates';
+
+// ─── Common ─────────────────────────────────
+export {
+  createEwma,
+  updateEwma,
+  getEwmaValue,
+  resetEwma,
+  EWMA_DEFAULT_ALPHA,
+} from './common/ewma';
+
+export type { EwmaState } from './common/ewma';
+
+// ─── Legacy Adapter ─────────────────────────
+export {
+  teiToEdgeScoreApprox,
+  legacyZoneToEdgeZone,
+  edgeZoneToLegacyZone,
+} from './common/legacy-tei-adapter';
