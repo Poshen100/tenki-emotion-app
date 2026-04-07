@@ -727,28 +727,33 @@
     }
 
     // ── Scan Complete Achievement Toast ──
+    function getToastIconMarkup(iconName) {
+        var iconPaths = {
+            confirm: '<path d="M6.7 12.6 10.3 16.2 17.3 9.2"/>',
+            insights: '<rect x="5.5" y="5.5" width="13" height="13" rx="3"/><path d="M8 15.3 10.8 12.5 13 14.7 16 10.4"/><circle cx="16" cy="10.4" r="1"/>'
+        };
+
+        var markup = iconPaths[iconName] || iconPaths.insights;
+        return '<span class="tenki-scan-toast-icon" aria-hidden="true">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+            markup +
+            '</svg>' +
+            '</span>';
+    }
+
     function showScanCompleteToast(onDone) {
         // Read TEI from dashboard
         var scoreEl = document.getElementById('dash-score');
         var teiVal = scoreEl ? parseInt(scoreEl.textContent, 10) : null;
         if (!teiVal || isNaN(teiVal)) teiVal = null;
 
-        var zone = 'NEUTRAL';
-        var emojiIcon = 'equalizer';
-        if (teiVal !== null) {
-            if (teiVal >= 80) { zone = 'PEAK'; emojiIcon = 'speed'; }
-            else if (teiVal >= 55) { zone = 'OPTIMAL'; emojiIcon = 'rocket_launch'; }
-            else if (teiVal >= 35) { zone = 'NEUTRAL'; emojiIcon = 'equalizer'; }
-            else { zone = 'DEGRADED'; emojiIcon = 'warning'; }
-        }
-
         var toast = document.createElement('div');
         toast.className = 'tenki-scan-toast';
         toast.innerHTML =
-            '<div class="tenki-scan-toast-title"><span class="material-symbols-outlined ferrari-icon" style="font-size:16px">sports_score</span> 掃描完成</div>' +
+            '<div class="tenki-scan-toast-title">' + getToastIconMarkup('confirm') + '<span>掃描完成</span></div>' +
             (teiVal !== null
-                ? '<div class="tenki-scan-toast-score">你的 TEI 指數：' + teiVal + ' <span class="material-symbols-outlined ferrari-icon">' + emojiIcon + '</span></div>'
-                : '<div class="tenki-scan-toast-score">準備顯示結果 <span class="material-symbols-outlined ferrari-icon">' + emojiIcon + '</span></div>');
+                ? '<div class="tenki-scan-toast-score"><span>你的 TEI 指數：' + teiVal + '</span>' + getToastIconMarkup('insights') + '</div>'
+                : '<div class="tenki-scan-toast-score"><span>準備顯示結果</span>' + getToastIconMarkup('insights') + '</div>');
 
         document.body.appendChild(toast);
 
