@@ -1,67 +1,89 @@
 /**
  * @module zone-config
- * @description TEI 狀態區間設定。
- * 對應 ANTIGRAVITY.md Section 1.2 的四級狀態。
- * PEAK (80-99) / OPTIMAL (55-79) / NEUTRAL (35-54) / DEGRADED (1-34)
+ * @description v3 Zone configuration — 3 readiness zones.
+ *
+ * Clear (70-100) / Neutral (40-69) / Strain (0-39)
+ *
+ * @version 3.0 — Replaces v2 PEAK/OPTIMAL/NEUTRAL/DEGRADED 4-zone system.
+ * @see ANTIGRAVITY.md v3.0 Section 1.2
  */
 
-/** 區間名稱 */
-export type ZoneName = 'peak' | 'optimal' | 'neutral' | 'degraded';
+import { EdgeZone, EDGE_ZONE_CONFIGS } from '../../engine/src/scoring/types';
 
-/** 單一區間指標定義 */
+export type { EdgeZone };
+
+/** Zone indicator with safe wording for UI. */
 export interface ZoneIndicator {
-    /** 區間名稱 */
-    name: ZoneName;
-    /** 區間顯示標籤（含 icon） */
-    label: string;
-    /** TEI PR 最小值（含） */
-    min: number;
-    /** TEI PR 最大值（含） */
-    max: number;
-    /** 交易建議文字 */
-    recommendation: string;
+  /** Zone identifier. */
+  zone: EdgeZone;
+  /** Display label (safe wording). */
+  label: string;
+  /** UI background color. */
+  color: string;
+  /** Text color for contrast. */
+  textColor: string;
+  /** Edge Score minimum (inclusive). */
+  min: number;
+  /** Edge Score maximum (inclusive). */
+  max: number;
+  /** Readiness guidance (safe wording — no action directives). */
+  guidance: string;
 }
 
 /**
- * 四個 TEI 狀態區間配置，由高到低排列。
- * @see ANTIGRAVITY.md Section 1.2
+ * Three readiness zone configurations (v3).
+ * Ordered from highest to lowest score.
+ *
+ * @see ANTIGRAVITY.md v3.0 Section 1.2
  */
 export const ZONE_CONFIG: readonly ZoneIndicator[] = [
-    {
-        name: 'peak',
-        label: 'Peak Zone [speed] 高能警戒',
-        min: 80,
-        max: 99,
-        recommendation: '可交易，但需雙重確認（過度自信風險）',
-    },
-    {
-        name: 'optimal',
-        label: 'Optimal Zone [verified] 最佳交易帶',
-        min: 55,
-        max: 79,
-        recommendation: '理想執行區，全功能解鎖',
-    },
-    {
-        name: 'neutral',
-        label: 'Neutral Zone [pause_circle] 中性區',
-        min: 35,
-        max: 54,
-        recommendation: '僅執行 A+ Setup，倉位 50%',
-    },
-    {
-        name: 'degraded',
-        label: 'Degraded Zone [sync_problem] 低能區',
-        min: 1,
-        max: 34,
-        recommendation: '暫停交易，啟動呼吸校準',
-    },
-];
+  {
+    zone: 'clear',
+    label: 'Clear state ✅',
+    color: '#00B4D8',
+    textColor: '#FFFFFF',
+    min: 70,
+    max: 100,
+    guidance: 'Stable, focused, recovered state. You may be in a clearer state for important decisions.',
+  },
+  {
+    zone: 'neutral',
+    label: 'Neutral / mixed ⏸️',
+    color: '#E5E5EA',
+    textColor: '#1C1C1E',
+    min: 40,
+    max: 69,
+    guidance: 'Mixed signals today. Consider a brief check-in or reset if needed.',
+  },
+  {
+    zone: 'strain',
+    label: 'Elevated strain 🔁',
+    color: '#5E3A87',
+    textColor: '#FFFFFF',
+    min: 0,
+    max: 39,
+    guidance: 'Elevated strain detected. A reset, break, or breathing exercise may help.',
+  },
+] as const;
 
 /**
- * 依 TEI PR 值取得對應的區間指標。
- * @param tei - TEI PR 值 (1-99)
- * @returns 對應的 ZoneIndicator，找不到時 fallback 為 degraded
+ * Returns the zone indicator for a given Edge Score.
+ *
+ * @param score - Edge Score (0-100).
+ * @returns The matching ZoneIndicator, defaulting to strain if none match.
  */
-export function getZoneByTei(tei: number): ZoneIndicator {
-    return ZONE_CONFIG.find(z => tei >= z.min && tei <= z.max) || ZONE_CONFIG[3];
+export function getZoneByScore(score: number): ZoneIndicator {
+  return ZONE_CONFIG.find(z => score >= z.min && score <= z.max) || ZONE_CONFIG[2];
+}
+
+/**
+ * Returns the EdgeZone enum value for a given score.
+ *
+ * @param score - Edge Score (0-100).
+ * @returns The EdgeZone classification.
+ */
+export function classifyZone(score: number): EdgeZone {
+  if (score >= 70) return 'clear';
+  if (score >= 40) return 'neutral';
+  return 'strain';
 }
