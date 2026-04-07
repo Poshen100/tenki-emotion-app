@@ -1,26 +1,34 @@
 /**
  * @module components/OptimizedParticleSphere
- * @description 星塵靈魂背景 — 8000 顆粒子自然向前翻滾效果。
- * 用於結果頁背景層，營造 premium 沉浸感。
+ * @description 星塵靈魂背景 — 8000 顆粒子自然向前翻滾 + 高潮爆發動畫。
  *
- * 效果：整體向前滾動（像能量球朝你滾來），個別粒子輕微擾動 + 球體自轉。
- * 使用 React Three Fiber + BufferAttribute 確保 60fps 效能。
+ * 兩種模式：
+ * 1. 常態翻滾：沉穩向前滾動感（rollSpeed=0.013 甜蜜點）
+ * 2. 高潮模式：掃描完成時 triggerClimax=true → 粒子瞬間爆發再收斂（靈魂覺醒）
  *
  * @usage
  * ```tsx
+ * const [climax, setClimax] = useState(false);
+ *
+ * // 掃描完成時觸發
+ * useEffect(() => {
+ *   if (scanComplete) {
+ *     setClimax(true);
+ *     setTimeout(() => setClimax(false), 1500);
+ *   }
+ * }, [scanComplete]);
+ *
  * <Canvas>
- *   <OptimizedParticleSphere
- *     count={8000}
- *     rollSpeed={0.013}    // 甜蜜點：沉穩又有未來感
- *     turbulence={0.005}
- *   />
+ *   <group position={[0, 0, -8]}>
+ *     <OptimizedParticleSphere triggerClimax={climax} />
+ *   </group>
  * </Canvas>
  * ```
  *
  * @version 3.0
  */
 
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -33,6 +41,12 @@ interface OptimizedParticleSphereProps {
   turbulence?: number;
   /** 球體半徑。 */
   radius?: number;
+  /** 掃描完成時設為 true → 觸發高潮爆發動畫。 */
+  triggerClimax?: boolean;
+  /** 高潮動畫持續時間（秒），預設 1.2。 */
+  climaxDuration?: number;
+  /** 高潮爆發強度倍數，預設 1.8。 */
+  climaxIntensity?: number;
 }
 
 export default function OptimizedParticleSphere({
@@ -40,8 +54,19 @@ export default function OptimizedParticleSphere({
   rollSpeed = 0.013,
   turbulence = 0.005,
   radius = 4.2,
+  triggerClimax = false,
+  climaxDuration = 1.2,
+  climaxIntensity = 1.8,
 }: OptimizedParticleSphereProps) {
   const pointsRef = useRef<THREE.Points>(null!);
+  const climaxStartRef = useRef<number | null>(null);
+
+  // 記錄高潮開始時間
+  useEffect(() => {
+    if (triggerClimax) {
+      climaxStartRef.current = null; // 會在下一個 useFrame 設定
+    }
+  }, [triggerClimax]);
 
   // 初始位置與顏色（球體分布）
   const [positions, colors] = useMemo(() => {
@@ -65,19 +90,22 @@ export default function OptimizedParticleSphere({
     return [pos, col];
   }, [count, radius]);
 
-  useFrame((_state, delta) => {
+  useFrame((state, delta) => {
     const points = pointsRef.current;
     if (!points) return;
 
     const posAttr = points.geometry.attributes.position as THREE.BufferAttribute;
     const array = posAttr.array as Float32Array;
+    const elapsed = state.clock.getElapsedTime();
 
-    // === 核心：自然向前翻滾感 ===
+    // ═══════════════════════════════════════════
+    // 常態：自然向前翻滾感
+    // ═══════════════════════════════════════════
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
 
       // 1. 整體向前滾動（Z 軸朝向觀眾）
-      array[i3 + 2] += rollSpeed * 55 * delta;   // 55 是讓 60fps 感覺最順的係數
+      array[i3 + 2] += rollSpeed * 55 * delta;
 
       // 2. 輕微個別擾動（讓翻滾看起來有機）
       array[i3]     += (Math.random() - 0.5) * turbulence;
@@ -98,6 +126,36 @@ export default function OptimizedParticleSphere({
 
     // 4. 整體緩慢自轉（增加翻滾立體感）
     points.rotation.y += 0.008 * delta;
+
+    // ═══════════════════════════════════════════
+    // 高潮：粒子爆發 → 收斂（靈魂覺醒）
+    // ═══════════════════════════════════════════
+    if (triggerClimax) {
+      // 第一次進入高潮：記錄開始時間
+      if (climaxStartRef.current === null) {
+        climaxStartRef.current = elapsed;
+      }
+
+      const climaxElapsed = elapsed - climaxStartRef.current;
+      const progress = Math.min(1, climaxElapsed / climaxDuration);
+
+      // sin(π·t) → 0→1→0 的爆發收斂曲線
+      const intensity = Math.sin(progress * Math.PI) * climaxIntensity;
+
+      for (let i = 0; i < count; i++) {
+        const i3 = i * 3;
+
+        // XY 方向大幅爆發
+        array[i3]     += (Math.random() - 0.5) * intensity * 0.3;
+        array[i3 + 1] += (Math.random() - 0.5) * intensity * 0.3;
+
+        // Z 方向較小幅度（深度感）
+        array[i3 + 2] += (Math.random() - 0.5) * intensity * 0.15;
+      }
+
+      // 高潮期間加速自轉（能量釋放感）
+      points.rotation.y += intensity * 0.02 * delta;
+    }
 
     posAttr.needsUpdate = true;
   });
@@ -125,7 +183,7 @@ export default function OptimizedParticleSphere({
         opacity={0.92}
         sizeAttenuation
         depthTest={false}
-        blending={THREE.AdditiveBlending}   // 讓星塵更夢幻
+        blending={THREE.AdditiveBlending}
       />
     </points>
   );
