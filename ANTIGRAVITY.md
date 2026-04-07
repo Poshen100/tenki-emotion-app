@@ -38,6 +38,24 @@ $env:Path = "C:\Users\reader\node-portable\node-v20.19.2-win-x64;$env:Path"
 
 ---
 
+### 0.2 Resume Snapshot嚗?026-04-07嚗?
+
+- Current local clone path嚗`C:\Users\patron\Documents\Tenki Core\tenki-emotion-app-git`
+- If this clone already exists嚗??`git pull` ?喳嚗?閬?敺?zip 蝥???
+- Current local PowerShell bootstrap嚗?
+```powershell
+$env:Path = "C:\Users\patron\Documents\Tenki Core\tools\node-v22.14.0-win-x64;C:\Users\patron\AppData\Local\Programs\Git\cmd;$env:Path"
+Set-Location "C:\Users\patron\Documents\Tenki Core\tenki-emotion-app-git"
+```
+- Current local Node path嚗`C:\Users\patron\Documents\Tenki Core\tools\node-v22.14.0-win-x64`
+- Current local npm cache嚗`C:\Users\patron\Documents\Tenki Core\.npm-cache`
+- 2026-04-07 撌脤?霅?`npm ci --cache "C:\Users\patron\Documents\Tenki Core\.npm-cache"` ?舀???
+- 2026-04-07 撌脤?霅?root `npm test` ?舀???摰?`@tenki/engine` + `@tenki/fdcb`
+- 皜祈岫蝯?嚗`8 suites / 89 tests`嚗ngine嚗? `7 suites / 111 tests`嚗dcb嚗?券?
+- icon handoff 撌脣遣蝡 `docs/ICON-SYSTEM-BATCH1.md` + `docs/assets/icons/batch1/`
+
+---
+
 ## 1. Product
 
 **TENKI CORE** = privacy-first cognitive wellness app.

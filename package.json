@@ -6,7 +6,8 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "npm run test --workspaces"
+    "test": "npm run test --workspaces --if-present -- --runInBand",
+    "icons:batch1": "node scripts/generate-tenki-icon-batch1.mjs"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

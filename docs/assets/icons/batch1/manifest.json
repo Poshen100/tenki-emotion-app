@@ -1,0 +1,262 @@
+[
+  {
+    "slug": "heart-rate",
+    "label": "Heart Rate",
+    "category": "Biometrics",
+    "priority": "MVP",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/heart-rate.svg",
+    "fill": "docs/assets/icons/batch1/fill/heart-rate.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "hrv",
+    "label": "HRV",
+    "category": "Biometrics",
+    "priority": "MVP",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/hrv.svg",
+    "fill": "docs/assets/icons/batch1/fill/hrv.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "stress",
+    "label": "Stress",
+    "category": "Biometrics",
+    "priority": "MVP",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/stress.svg",
+    "fill": "docs/assets/icons/batch1/fill/stress.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "breathing",
+    "label": "Breathing",
+    "category": "Biometrics",
+    "priority": "MVP",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/breathing.svg",
+    "fill": "docs/assets/icons/batch1/fill/breathing.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "body-battery",
+    "label": "Body Battery",
+    "category": "Biometrics",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/body-battery.svg",
+    "fill": "docs/assets/icons/batch1/fill/body-battery.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "ans-balance",
+    "label": "ANS Balance",
+    "category": "Biometrics",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/ans-balance.svg",
+    "fill": "docs/assets/icons/batch1/fill/ans-balance.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "deep-scan",
+    "label": "Deep Scan",
+    "category": "Scan / Analysis",
+    "priority": "MVP",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/deep-scan.svg",
+    "fill": "docs/assets/icons/batch1/fill/deep-scan.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "signal-quality",
+    "label": "Signal Quality",
+    "category": "Scan / Analysis",
+    "priority": "MVP",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/signal-quality.svg",
+    "fill": "docs/assets/icons/batch1/fill/signal-quality.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "insights",
+    "label": "Insights",
+    "category": "Scan / Analysis",
+    "priority": "MVP",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/insights.svg",
+    "fill": "docs/assets/icons/batch1/fill/insights.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "expand-details",
+    "label": "Expand Details",
+    "category": "Scan / Analysis",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/expand-details.svg",
+    "fill": "docs/assets/icons/batch1/fill/expand-details.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "quick-check-in",
+    "label": "Quick Check-in",
+    "category": "Emotional / Wellness",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/quick-check-in.svg",
+    "fill": "docs/assets/icons/batch1/fill/quick-check-in.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "mood",
+    "label": "Mood",
+    "category": "Emotional / Wellness",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/mood.svg",
+    "fill": "docs/assets/icons/batch1/fill/mood.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "sleep",
+    "label": "Sleep",
+    "category": "Emotional / Wellness",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/sleep.svg",
+    "fill": "docs/assets/icons/batch1/fill/sleep.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "recovery",
+    "label": "Recovery",
+    "category": "Emotional / Wellness",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/recovery.svg",
+    "fill": "docs/assets/icons/batch1/fill/recovery.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "focus",
+    "label": "Focus",
+    "category": "Emotional / Wellness",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/focus.svg",
+    "fill": "docs/assets/icons/batch1/fill/focus.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "garmin-source",
+    "label": "Garmin Source",
+    "category": "System / Source",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/garmin-source.svg",
+    "fill": "docs/assets/icons/batch1/fill/garmin-source.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "rppg-source",
+    "label": "rPPG Source",
+    "category": "System / Source",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/rppg-source.svg",
+    "fill": "docs/assets/icons/batch1/fill/rppg-source.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "close",
+    "label": "Close",
+    "category": "System / Source",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/close.svg",
+    "fill": "docs/assets/icons/batch1/fill/close.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "confirm",
+    "label": "Confirm",
+    "category": "System / Source",
+    "priority": "Batch 2",
+    "accent": null,
+    "outline": "docs/assets/icons/batch1/outline/confirm.svg",
+    "fill": "docs/assets/icons/batch1/fill/confirm.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  },
+  {
+    "slug": "warning",
+    "label": "Warning",
+    "category": "System / Source",
+    "priority": "MVP",
+    "accent": "#F5A623",
+    "outline": "docs/assets/icons/batch1/outline/warning.svg",
+    "fill": "docs/assets/icons/batch1/fill/warning.svg",
+    "previewBehavior": {
+      "selected": "Use fill asset for selected and high-emphasis state.",
+      "disabled": "Use outline asset with 32% opacity on dark surfaces."
+    }
+  }
+]

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TENKI Icon Batch 1 Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-0: #06080c;
+      --bg-1: #0d1218;
+      --bg-2: rgba(255,255,255,0.04);
+      --bg-3: rgba(255,255,255,0.08);
+      --line: rgba(255,255,255,0.1);
+      --text-1: rgba(255,255,255,0.92);
+      --text-2: rgba(255,255,255,0.62);
+      --mvp: #00B4D8;
+      --batch2: rgba(255,255,255,0.22);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "SF Pro Display", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(0,180,216,0.14), transparent 35%),
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,0.05), transparent 20%),
+        linear-gradient(180deg, var(--bg-1), var(--bg-0));
+      color: var(--text-1);
+    }
+
+    main {
+      width: min(1320px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 40px 0 56px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .intro {
+      margin: 0 0 32px;
+      color: var(--text-2);
+      line-height: 1.6;
+      max-width: 760px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025));
+      border-radius: 18px;
+      padding: 16px;
+      backdrop-filter: blur(18px);
+    }
+
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .card-head h2 {
+      margin: 0 0 4px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .card-head p {
+      margin: 0;
+      color: var(--text-2);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .priority {
+      flex: none;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: 1px solid var(--line);
+    }
+
+    .priority.mvp {
+      border-color: rgba(0,180,216,0.4);
+      color: var(--mvp);
+    }
+
+    .priority.batch2 {
+      color: var(--text-2);
+    }
+
+    .variant-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .tile {
+      margin: 0;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--bg-2);
+      min-height: 92px;
+      display: grid;
+      place-items: center;
+      padding: 12px 8px 10px;
+    }
+
+    .tile.selected {
+      background: var(--bg-3);
+    }
+
+    .tile.disabled img {
+      opacity: 0.34;
+    }
+
+    .tile img {
+      width: 28px;
+      height: 28px;
+      display: block;
+    }
+
+    figcaption {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--text-2);
+      text-transform: capitalize;
+      letter-spacing: 0.04em;
+    }
+
+    @media (max-width: 720px) {
+      main { width: min(100vw - 24px, 1320px); padding-top: 24px; }
+      .variant-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>TENKI Icon Batch 1</h1>
+    <p class="intro">Batch 1 preview for dark premium biometric dashboard usage. Each card shows outline, fill, selected, and disabled states using the exported SVG masters. Use the outline set as canonical construction reference and the fill set for selected / high-emphasis variants.</p>
+    <div class="grid">
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Heart Rate</h2>
+            <p>Biometrics</p>
+          </div>
+          <span class="priority mvp">MVP</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/heart-rate.svg" alt="Heart Rate outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/heart-rate.svg" alt="Heart Rate fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/heart-rate.svg" alt="Heart Rate selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/heart-rate.svg" alt="Heart Rate disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>HRV</h2>
+            <p>Biometrics</p>
+          </div>
+          <span class="priority mvp">MVP</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/hrv.svg" alt="HRV outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/hrv.svg" alt="HRV fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/hrv.svg" alt="HRV selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/hrv.svg" alt="HRV disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Stress</h2>
+            <p>Biometrics</p>
+          </div>
+          <span class="priority mvp">MVP</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/stress.svg" alt="Stress outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/stress.svg" alt="Stress fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/stress.svg" alt="Stress selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/stress.svg" alt="Stress disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Breathing</h2>
+            <p>Biometrics</p>
+          </div>
+          <span class="priority mvp">MVP</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/breathing.svg" alt="Breathing outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/breathing.svg" alt="Breathing fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/breathing.svg" alt="Breathing selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/breathing.svg" alt="Breathing disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Body Battery</h2>
+            <p>Biometrics</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/body-battery.svg" alt="Body Battery outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/body-battery.svg" alt="Body Battery fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/body-battery.svg" alt="Body Battery selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/body-battery.svg" alt="Body Battery disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>ANS Balance</h2>
+            <p>Biometrics</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/ans-balance.svg" alt="ANS Balance outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/ans-balance.svg" alt="ANS Balance fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/ans-balance.svg" alt="ANS Balance selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/ans-balance.svg" alt="ANS Balance disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Deep Scan</h2>
+            <p>Scan / Analysis</p>
+          </div>
+          <span class="priority mvp">MVP</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/deep-scan.svg" alt="Deep Scan outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/deep-scan.svg" alt="Deep Scan fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/deep-scan.svg" alt="Deep Scan selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/deep-scan.svg" alt="Deep Scan disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Signal Quality</h2>
+            <p>Scan / Analysis</p>
+          </div>
+          <span class="priority mvp">MVP</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/signal-quality.svg" alt="Signal Quality outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/signal-quality.svg" alt="Signal Quality fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/signal-quality.svg" alt="Signal Quality selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/signal-quality.svg" alt="Signal Quality disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Insights</h2>
+            <p>Scan / Analysis</p>
+          </div>
+          <span class="priority mvp">MVP</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/insights.svg" alt="Insights outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/insights.svg" alt="Insights fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/insights.svg" alt="Insights selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/insights.svg" alt="Insights disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Expand Details</h2>
+            <p>Scan / Analysis</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/expand-details.svg" alt="Expand Details outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/expand-details.svg" alt="Expand Details fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/expand-details.svg" alt="Expand Details selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/expand-details.svg" alt="Expand Details disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Quick Check-in</h2>
+            <p>Emotional / Wellness</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/quick-check-in.svg" alt="Quick Check-in outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/quick-check-in.svg" alt="Quick Check-in fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/quick-check-in.svg" alt="Quick Check-in selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/quick-check-in.svg" alt="Quick Check-in disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Mood</h2>
+            <p>Emotional / Wellness</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/mood.svg" alt="Mood outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/mood.svg" alt="Mood fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/mood.svg" alt="Mood selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/mood.svg" alt="Mood disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Sleep</h2>
+            <p>Emotional / Wellness</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/sleep.svg" alt="Sleep outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/sleep.svg" alt="Sleep fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/sleep.svg" alt="Sleep selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/sleep.svg" alt="Sleep disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Recovery</h2>
+            <p>Emotional / Wellness</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/recovery.svg" alt="Recovery outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/recovery.svg" alt="Recovery fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/recovery.svg" alt="Recovery selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/recovery.svg" alt="Recovery disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Focus</h2>
+            <p>Emotional / Wellness</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/focus.svg" alt="Focus outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/focus.svg" alt="Focus fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/focus.svg" alt="Focus selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/focus.svg" alt="Focus disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Garmin Source</h2>
+            <p>System / Source</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/garmin-source.svg" alt="Garmin Source outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/garmin-source.svg" alt="Garmin Source fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/garmin-source.svg" alt="Garmin Source selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/garmin-source.svg" alt="Garmin Source disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>rPPG Source</h2>
+            <p>System / Source</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/rppg-source.svg" alt="rPPG Source outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/rppg-source.svg" alt="rPPG Source fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/rppg-source.svg" alt="rPPG Source selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/rppg-source.svg" alt="rPPG Source disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Close</h2>
+            <p>System / Source</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/close.svg" alt="Close outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/close.svg" alt="Close fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/close.svg" alt="Close selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/close.svg" alt="Close disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Confirm</h2>
+            <p>System / Source</p>
+          </div>
+          <span class="priority batch2">Batch 2</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/confirm.svg" alt="Confirm outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/confirm.svg" alt="Confirm fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected"><img src="./fill/confirm.svg" alt="Confirm selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/confirm.svg" alt="Confirm disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Warning</h2>
+            <p>System / Source</p>
+          </div>
+          <span class="priority mvp">MVP</span>
+        </div>
+        <div class="variant-grid">
+          <figure class="tile"><img src="./outline/warning.svg" alt="Warning outline"/><figcaption>outline</figcaption></figure>
+          <figure class="tile"><img src="./fill/warning.svg" alt="Warning fill"/><figcaption>fill</figcaption></figure>
+          <figure class="tile selected" style="box-shadow: inset 0 0 0 1px #F5A623;"><img src="./fill/warning.svg" alt="Warning selected"/><figcaption>selected</figcaption></figure>
+          <figure class="tile disabled"><img src="./outline/warning.svg" alt="Warning disabled"/><figcaption>disabled</figcaption></figure>
+        </div>
+      </section>
+  
+    </div>
+  </main>
+</body>
+</html>
