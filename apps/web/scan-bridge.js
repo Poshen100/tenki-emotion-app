@@ -574,6 +574,13 @@
         function startHoldScan(e) {
             if (e.type === 'touchstart') e.preventDefault();
             if (isAnimating || isResultsOpen) return;
+
+            // FHZ gate: open Finger Heat Zone instead of direct scan
+            if (global.TENKI_FHZ && typeof global.TENKI_FHZ.open === 'function') {
+                global.TENKI_FHZ.open();
+                return;
+            }
+
             beginHoldScan(scanTrigger, ringOverlay);
         }
 
