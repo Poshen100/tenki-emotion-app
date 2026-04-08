@@ -1,0 +1,321 @@
+/**
+ * FHZ — Finger Heat Zone Styles
+ * Namespace: fhz-  (zero collision with existing styles)
+ * State colors: NOT_DETECTED=#FF453A, ALIGNING=#F5A623, STABILIZING=#00B4D8, READY=#34C759
+ */
+
+/* ═══════════ Overlay Screen ═══════════ */
+.fhz-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(180deg, #0A0A12 0%, #12121E 50%, #0A0A12 100%);
+  color: #fff;
+  font-family: 'Inter', -apple-system, sans-serif;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.fhz-screen.fhz-visible {
+  opacity: 1;
+}
+
+/* ═══════════ Header ═══════════ */
+.fhz-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  flex-shrink: 0;
+}
+.fhz-back {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.6);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+}
+.fhz-back .ferrari-icon {
+  font-size: 24px;
+}
+.fhz-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.85);
+}
+.fhz-spacer {
+  width: 40px;
+}
+
+/* ═══════════ Purpose Tabs ═══════════ */
+.fhz-purpose-bar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px 12px;
+  justify-content: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.fhz-purpose-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  min-width: 72px;
+}
+.fhz-purpose-tab .ferrari-icon {
+  font-size: 22px;
+  transition: color 0.25s ease;
+}
+.fhz-purpose-tab .fhz-purpose-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.5);
+  transition: color 0.25s ease;
+}
+.fhz-purpose-tab.fhz-purpose-active {
+  background: rgba(255,255,255,0.1);
+  border-color: currentColor;
+}
+.fhz-purpose-tab.fhz-purpose-active .fhz-purpose-label {
+  color: rgba(255,255,255,0.9);
+}
+
+/* ═══════════ Camera Panel ═══════════ */
+.fhz-camera-panel {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  margin: 16px auto 12px;
+  flex-shrink: 0;
+}
+.fhz-camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  background: #000;
+}
+.fhz-roi-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 3px solid #FF453A;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+  pointer-events: none;
+}
+.fhz-roi-ring[data-state="NOT_DETECTED"] {
+  border-color: #FF453A;
+  box-shadow: 0 0 16px rgba(255,69,58,0.3);
+}
+.fhz-roi-ring[data-state="ALIGNING"] {
+  border-color: #F5A623;
+  box-shadow: 0 0 16px rgba(245,166,35,0.3);
+}
+.fhz-roi-ring[data-state="STABILIZING"] {
+  border-color: #00B4D8;
+  box-shadow: 0 0 16px rgba(0,180,216,0.3);
+}
+.fhz-roi-ring[data-state="READY"] {
+  border-color: #34C759;
+  box-shadow: 0 0 20px rgba(52,199,89,0.4);
+}
+
+/* ═══════════ State Label ═══════════ */
+.fhz-state-label {
+  text-align: center;
+  margin: 4px 0 8px;
+  flex-shrink: 0;
+}
+.fhz-state-en {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #FF453A;
+  transition: color 0.4s ease;
+}
+.fhz-state-zh {
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  margin-top: 2px;
+}
+.fhz-state-label[data-state="NOT_DETECTED"] .fhz-state-en { color: #FF453A; }
+.fhz-state-label[data-state="ALIGNING"] .fhz-state-en { color: #F5A623; }
+.fhz-state-label[data-state="STABILIZING"] .fhz-state-en { color: #00B4D8; }
+.fhz-state-label[data-state="READY"] .fhz-state-en { color: #34C759; }
+
+/* ═══════════ Quality Meters ═══════════ */
+.fhz-meters {
+  width: 100%;
+  max-width: 320px;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px auto;
+  flex-shrink: 0;
+}
+.fhz-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fhz-meter-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  width: 68px;
+  flex-shrink: 0;
+}
+.fhz-meter-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.fhz-meter-fill {
+  height: 100%;
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+.fhz-meter-fill.fhz-fill-coverage {
+  background: linear-gradient(90deg, #FF453A, #F5A623, #34C759);
+}
+.fhz-meter-fill.fhz-fill-stability {
+  background: linear-gradient(90deg, #FF453A, #00B4D8, #34C759);
+}
+.fhz-meter-fill.fhz-fill-sqi {
+  background: linear-gradient(90deg, #FF453A, #5E3A87, #00F0FF);
+}
+.fhz-meter-value {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: rgba(255,255,255,0.7);
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ═══════════ Checklist ═══════════ */
+.fhz-checklist {
+  width: 100%;
+  max-width: 320px;
+  padding: 12px 20px;
+  margin: 4px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.fhz-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  transition: color 0.3s ease;
+}
+.fhz-check-item .ferrari-icon {
+  font-size: 16px;
+  color: rgba(255,255,255,0.2);
+  transition: color 0.3s ease;
+}
+.fhz-check-item.fhz-check-pass {
+  color: rgba(255,255,255,0.85);
+}
+.fhz-check-item.fhz-check-pass .ferrari-icon {
+  color: #34C759;
+}
+
+/* ═══════════ Bottom Action Bar ═══════════ */
+.fhz-action-bar {
+  width: 100%;
+  padding: 16px 20px 32px;
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.fhz-commit-btn {
+  width: 100%;
+  max-width: 320px;
+  padding: 16px 24px;
+  border-radius: 14px;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.fhz-commit-btn .ferrari-icon {
+  font-size: 20px;
+}
+.fhz-commit-btn:disabled {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.25);
+  cursor: not-allowed;
+}
+.fhz-commit-btn:not(:disabled) {
+  background: linear-gradient(135deg, #34C759, #28A745);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(52,199,89,0.35);
+}
+.fhz-commit-btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+/* ═══════════ Animations ═══════════ */
+@keyframes fhz-pulse {
+  0%   { box-shadow: 0 0 20px rgba(52,199,89,0.4); }
+  50%  { box-shadow: 0 0 32px rgba(52,199,89,0.65); }
+  100% { box-shadow: 0 0 20px rgba(52,199,89,0.4); }
+}
+.fhz-roi-ring[data-state="READY"] {
+  animation: fhz-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes fhz-camera-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.fhz-camera-video.fhz-camera-active {
+  animation: fhz-camera-in 0.5s ease forwards;
+}
+
+/* ═══════════ Safe area (notch) ═══════════ */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .fhz-header {
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+  .fhz-action-bar {
+    padding-bottom: calc(32px + env(safe-area-inset-bottom));
+  }
+}
