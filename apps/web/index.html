@@ -31,6 +31,7 @@
     <link rel="stylesheet" href="results-page.css">
     <link rel="stylesheet" href="results-liquid-glass.css">
     <link rel="stylesheet" href="fhz/fhz.css">
+    <link rel="stylesheet" href="baseline/baseline.css">
 
     <!-- Onboarding Modal Styles -->
     <style>
@@ -2319,6 +2320,18 @@
                 }
             });
         })();
+        </script>
+
+        <!-- Baseline Bootstrap Flow -->
+        <div id="baseline-flow-container" class="bl-flow-container" style="display:none;"></div>
+        <script type="module">
+          import { initBaselineFlow } from './baseline/baseline-flow.js';
+          var hasBaseline = localStorage.getItem('tenki_baseline_accepted');
+          if (!hasBaseline) {
+            var container = document.getElementById('baseline-flow-container');
+            container.style.display = 'flex';
+            initBaselineFlow(container);
+          }
         </script>
 
 </body>
