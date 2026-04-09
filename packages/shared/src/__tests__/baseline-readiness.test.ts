@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { evaluateReadiness } from '../baseline/readiness-rules';
 import type { ReadinessCheckItem } from '../baseline/types';
 

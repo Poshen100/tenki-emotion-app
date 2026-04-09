@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { canTransitionTo } from '../baseline/flow';
 
 describe('canTransitionTo', () => {
