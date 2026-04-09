@@ -4,7 +4,35 @@
  * @version 2.0.0
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+
+// Polyfill window for Node.js (core modules expect browser globals)
+beforeAll(() => {
+    if (typeof globalThis.window === 'undefined') {
+        globalThis.window = {
+            EventBridgeV2: {
+                addEventListener: () => {},
+                removeEventListener: () => {},
+                dispatchEvent: () => {},
+                flushSensorBuffer: () => {},
+                emitTEIUpdate: () => {},
+            },
+        };
+        globalThis.CustomEvent = class CustomEvent {
+            constructor(type, init = {}) { this.type = type; this.detail = init.detail ?? null; }
+        };
+        globalThis.localStorage = {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+            clear: () => {},
+        };
+    }
+});
+
+function makeSample(hr, hrv, quality) {
+    return { hr_bpm: hr, hrv_ms: hrv, quality, source: 'ppg', ts: Date.now(), v: 1 };
+}
 
 describe('Performance Benchmarks', () => {
 
@@ -14,41 +42,47 @@ describe('Performance Benchmarks', () => {
         let ProgressiveTEI;
 
         beforeEach(async () => {
-            await import('../../core/progressive-tei.js');
-            ProgressiveTEI = globalThis.TENKI_PROGRESSIVE_TEI.ProgressiveTEI;
+            const mod = await import('../../core/progressive-tei.js');
+            ProgressiveTEI = mod.ProgressiveTEI;
         });
 
         it('TEI calculation should complete within 5ms', () => {
-            const tei = new ProgressiveTEI({ bootstrapSamples: 100 }); // 減少 bootstrap 次數以加速
+            const tei = new ProgressiveTEI();
+            tei._scanning = true;
+            tei._scanStartTs = Date.now() - 60000; // 60s elapsed for ultra milestone
 
             // 填入 60 個數據點
+            const samples = [];
             for (let i = 0; i < 60; i++) {
-                tei.onNewData({
-                    hr: 65 + Math.random() * 10,
-                    hrv: 40 + Math.random() * 20
-                }, 0.8);
+                samples.push(makeSample(65 + Math.random() * 10, 40 + Math.random() * 20, 0.8));
             }
 
-            // 測量計算時間
             const start = performance.now();
-            const result = tei.calculateTEI('ultra');
+            tei.ingestSamples(samples);
             const elapsed = performance.now() - start;
 
-            expect(result).not.toBeNull();
-            expect(elapsed).toBeLessThan(50); // 50ms with bootstrap (generous for CI)
+            const stats = tei.getStats();
+            expect(stats.samplesReceived).toBe(60);
+            expect(elapsed).toBeLessThan(50); // 50ms generous for CI
             console.log(`  TEI calculation: ${elapsed.toFixed(2)}ms`);
         });
 
         it('should process 1000 data points in under 100ms', () => {
-            const tei = new ProgressiveTEI({ bootstrapSamples: 10 });
+            const tei = new ProgressiveTEI();
+            tei._scanning = true;
+            tei._scanStartTs = Date.now() - 100;
+
+            const samples = [];
+            for (let i = 0; i < 1000; i++) {
+                samples.push(makeSample(
+                    60 + Math.random() * 20,
+                    30 + Math.random() * 40,
+                    0.7 + Math.random() * 0.3
+                ));
+            }
 
             const start = performance.now();
-            for (let i = 0; i < 1000; i++) {
-                tei.onNewData({
-                    hr: 60 + Math.random() * 20,
-                    hrv: 30 + Math.random() * 40
-                }, 0.7 + Math.random() * 0.3);
-            }
+            tei.ingestSamples(samples);
             const elapsed = performance.now() - start;
 
             console.log(`  1000 data points: ${elapsed.toFixed(2)}ms`);
@@ -63,7 +97,8 @@ describe('Performance Benchmarks', () => {
 
         beforeEach(async () => {
             await import('../../core/kalman-filter.js');
-            KalmanFilter = globalThis.TENKI_KALMAN.KalmanFilter;
+            const g = globalThis.window || globalThis;
+            KalmanFilter = g.TENKI_KALMAN.KalmanFilter;
         });
 
         it('1000 Kalman filter updates in under 10ms', () => {
@@ -90,7 +125,8 @@ describe('Performance Benchmarks', () => {
 
         beforeEach(async () => {
             await import('../../core/expectancy-calculator.js');
-            ExpectancyCalculator = globalThis.TENKI_EXPECTANCY.ExpectancyCalculator;
+            const g = globalThis.window || globalThis;
+            ExpectancyCalculator = g.TENKI_EXPECTANCY.ExpectancyCalculator;
         });
 
         it('should analyze 1000 trades in under 50ms', () => {
@@ -127,25 +163,25 @@ describe('Performance Benchmarks', () => {
 
     describe('Memory Usage', () => {
         it('ProgressiveTEI should not leak with continuous data', async () => {
-            await import('../../core/progressive-tei.js');
-            const ProgressiveTEI = globalThis.TENKI_PROGRESSIVE_TEI.ProgressiveTEI;
+            const mod = await import('../../core/progressive-tei.js');
+            const ProgressiveTEI = mod.ProgressiveTEI;
 
             const tei = new ProgressiveTEI();
+            tei._scanning = true;
+            tei._scanStartTs = Date.now() - 100;
 
             // 持續輸入大量數據
+            const samples = [];
             for (let i = 0; i < 10000; i++) {
-                tei.onNewData({
-                    hr: 60 + Math.random() * 20,
-                    hrv: 30 + Math.random() * 40
-                }, 0.8);
+                samples.push(makeSample(60 + Math.random() * 20, 30 + Math.random() * 40, 0.8));
             }
+            tei.ingestSamples(samples);
 
             // 不應無限增長（已在內部限制）
-            // ProgressiveTEI 不 trim — 但數據量在實務中受限
-            expect(tei.validDataPoints.length).toBe(10000);
+            expect(tei._allSamples.length).toBe(10000);
 
             tei.reset();
-            expect(tei.validDataPoints.length).toBe(0);
+            expect(tei._allSamples.length).toBe(0);
         });
     });
 });

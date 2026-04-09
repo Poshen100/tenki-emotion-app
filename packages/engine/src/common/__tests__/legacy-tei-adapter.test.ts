@@ -7,7 +7,7 @@ import {
   teiToEdgeScoreApprox,
   legacyZoneToEdgeZone,
   edgeZoneToLegacyZone,
-} from '../common/legacy-tei-adapter';
+} from '../legacy-tei-adapter';
 
 describe('teiToEdgeScoreApprox', () => {
   it('should map PR 1 to approximately 1', () => {

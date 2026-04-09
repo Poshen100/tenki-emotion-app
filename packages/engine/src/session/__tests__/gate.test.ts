@@ -3,8 +3,8 @@
  * @description Unit tests for the pre-session gate evaluation.
  */
 
-import { evaluateGate, canProceed, shouldSuggestReset } from '../session/gate';
-import { ConfidenceBreakdown } from '../common/types';
+import { evaluateGate, canProceed, shouldSuggestReset } from '../gate';
+import { ConfidenceBreakdown } from '../../common/types';
 
 function createConfidence(overall: number): ConfidenceBreakdown {
   return {

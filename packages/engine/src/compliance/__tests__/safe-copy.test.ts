@@ -10,7 +10,7 @@ import {
   getDriverExplanation,
   ALLOWED_VOCABULARY,
   PROHIBITED_VOCABULARY,
-} from '../compliance/safe-copy';
+} from '../safe-copy';
 
 // ─── findProhibitedTerms ───────────────────
 

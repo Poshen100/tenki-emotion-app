@@ -11,7 +11,7 @@ import {
   assessMaturity,
   updateBaselineProfile,
   MAX_SAMPLE_COUNT,
-} from '../baseline/baseline';
+} from '../baseline';
 
 // ─── updateMetricBaseline ────────────────────
 

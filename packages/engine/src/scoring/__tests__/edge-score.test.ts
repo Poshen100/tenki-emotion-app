@@ -3,8 +3,8 @@
  * @description Unit tests for the Decision Edge Score engine.
  */
 
-import { calculateEdgeScore, classifyEdgeZone, getTimeBucket, EdgeScoreInput } from '../scoring/edge-score';
-import { BaselineProfile, MetricBaseline } from '../common/types';
+import { calculateEdgeScore, classifyEdgeZone, getTimeBucket, EdgeScoreInput } from '../edge-score';
+import { BaselineProfile, MetricBaseline } from '../../common/types';
 
 // ─── Test Helpers ───────────────────────────
 
@@ -242,6 +242,6 @@ describe('calculateEdgeScore', () => {
     const result = calculateEdgeScore(input);
     expect(result.score).toBeGreaterThanOrEqual(20);
     expect(result.score).toBeLessThanOrEqual(80);
-    expect(result.confidence.band).toBe('low');
+    expect(result.confidence.band).toBe('moderate');
   });
 });

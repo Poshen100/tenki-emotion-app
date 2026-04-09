@@ -10,8 +10,8 @@ import {
   isTerminalState,
   isActiveState,
   needsUserAction,
-} from '../session/state-machine';
-import { SessionState } from '../session/types';
+} from '../state-machine';
+import { SessionState } from '../types';
 
 // ─── Happy Path ─────────────────────────────
 

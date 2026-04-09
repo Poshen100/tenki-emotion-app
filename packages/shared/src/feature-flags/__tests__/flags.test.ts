@@ -8,7 +8,7 @@ import {
   createDefaultFlags,
   isFeatureEnabled,
   applyRemoteOverrides,
-} from '../feature-flags/flags';
+} from '../flags';
 
 describe('createDefaultFlags', () => {
   it('should create flags with all defined defaults', () => {
