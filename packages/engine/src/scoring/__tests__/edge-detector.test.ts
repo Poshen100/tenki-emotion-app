@@ -10,8 +10,8 @@ import {
   resetDailyAlerts,
   shouldFireAlert,
   DetectorTickInput,
-} from '../scoring/edge-detector';
-import { EDGE_DETECTOR_THRESHOLDS } from '../scoring/types';
+} from '../edge-detector';
+import { EDGE_DETECTOR_THRESHOLDS } from '../types';
 
 function createTick(overrides: Partial<DetectorTickInput> = {}): DetectorTickInput {
   return {

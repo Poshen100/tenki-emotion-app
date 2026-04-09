@@ -7,8 +7,8 @@ import {
   validateNotification,
   getSafeNotification,
   SAFE_NOTIFICATION_TEMPLATES,
-} from '../compliance/notification-guard';
-import { isCompliantCopy } from '../compliance/safe-copy';
+} from '../notification-guard';
+import { isCompliantCopy } from '../safe-copy';
 
 // ─── validateNotification ───────────────────
 
