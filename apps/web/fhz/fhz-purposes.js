@@ -1,46 +1,59 @@
-/**
- * FHZ Purposes — Scenario Mode Constants
- * 4 scan purposes mapped to TENKI scenario modes.
- */
+// TENKI FIX v5.2 - added canonical FHZ purpose definitions including BASELINE mode
 (function (global) {
-  'use strict';
+    'use strict';
 
-  var PURPOSES = {
-    HEALTH_RESET: {
-      id: 'HEALTH_RESET',
-      label: 'Health Reset',
-      labelZh: '健康重置',
-      icon: 'self_improvement',
-      context: '穩定副交感神經恢復',
-      color: '#34C759',
-    },
-    FOCUS: {
-      id: 'FOCUS',
-      label: 'Focus',
-      labelZh: '專注',
-      icon: 'track_changes',
-      context: '進入心流工作狀態',
-      color: '#00B4D8',
-    },
-    PERFORMANCE: {
-      id: 'PERFORMANCE',
-      label: 'Performance',
-      labelZh: '表現',
-      icon: 'speed',
-      context: '評估運動與競技就緒度',
-      color: '#F5A623',
-    },
-    TRADER: {
-      id: 'TRADER',
-      label: 'Trader',
-      labelZh: '交易員',
-      icon: 'monitoring',
-      context: '決策紀律與情緒監控',
-      color: '#5E3A87',
-    },
-  };
+    var PURPOSES = [
+        {
+            id: 'QUICK',
+            label: 'Quick',
+            subtitle: 'Fast readiness handoff',
+            commitLabel: 'Start Quick Scan',
+            guidance: 'Lock a stable finger signal and hand off to the scan flow.',
+            rppgMode: 'default',
+            countdownSec: 30,
+            usesResultsFlow: true
+        },
+        {
+            id: 'DEEP',
+            label: 'Deep',
+            subtitle: 'Full progressive scan',
+            commitLabel: 'Start Deep Scan',
+            guidance: 'Use the rear camera as the source of truth for progressive rPPG.',
+            rppgMode: 'spectrum',
+            countdownSec: 62,
+            usesResultsFlow: true
+        },
+        {
+            id: 'BASELINE',
+            label: 'Baseline',
+            subtitle: '3 minute resting build',
+            commitLabel: 'Build Baseline',
+            guidance: 'Capture a calm 3 minute finger PPG baseline before other scans.',
+            rppgMode: 'spectrum',
+            countdownSec: 180,
+            usesResultsFlow: false
+        }
+    ];
 
-  var PURPOSE_ORDER = ['HEALTH_RESET', 'FOCUS', 'PERFORMANCE', 'TRADER'];
+    function getPurposeById(purposeId) {
+        var i;
 
-  global.TENKI_FHZ_PURPOSES = { PURPOSES: PURPOSES, PURPOSE_ORDER: PURPOSE_ORDER };
+        for (i = 0; i < PURPOSES.length; i++) {
+            if (PURPOSES[i].id === purposeId) {
+                return PURPOSES[i];
+            }
+        }
+
+        return PURPOSES[0];
+    }
+
+    function getDefaultPurpose() {
+        return PURPOSES[0];
+    }
+
+    global.TENKI_FHZ_PURPOSES = {
+        PURPOSES: PURPOSES,
+        getById: getPurposeById,
+        getDefaultPurpose: getDefaultPurpose
+    };
 })(window);

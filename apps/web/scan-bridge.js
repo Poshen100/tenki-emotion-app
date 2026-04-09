@@ -377,7 +377,7 @@
 
     function initFaceSync() {
         if (typeof FaceMesh === 'undefined') {
-            console.warn('[BRIDGE] MediaPipe FaceMesh not loaded — expression sync disabled');
+            console.warn('[FHZ] MediaPipe FaceMesh not loaded — expression sync disabled');
             return;
         }
 
@@ -385,7 +385,7 @@
         if (!videoEl) return;
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            console.warn('[BRIDGE] getUserMedia unavailable');
+            console.warn('[FHZ] getUserMedia unavailable');
             return;
         }
 
@@ -418,12 +418,12 @@
                     }
                 }, 100);
 
-                console.info('[BRIDGE] FaceMesh expression sync active');
+                console.info('[FHZ] FaceMesh expression sync active');
             } catch (e) {
-                console.warn('[BRIDGE] FaceMesh init failed:', e);
+                console.warn('[FHZ] FaceMesh init failed:', e);
             }
         }).catch(function (err) {
-            console.warn('[BRIDGE] Camera unavailable for face sync:', err.message || err);
+            console.warn('[FHZ] Camera unavailable for face sync:', err.message || err);
         });
     }
 
@@ -537,6 +537,427 @@
         });
     }
 
+    var fhzModulesPromise = null;
+    var processingElements = null;
+    var rppgSession = null;
+    var scanElapsed = 0;
+    var scanInterval = null;
+    var scanCommitted = false;
+    var SCAN_DURATION = 1800;
+    var activeCameraFacingMode = 'user';
+    var motionPermissionPrimed = false;
+    var scanUxKickoffTimer = null;
+
+    var FHZ_SCRIPT_PATHS = [
+        'fhz/fhz-purposes.js',
+        'fhz/fhz-metrics.js',
+        'fhz/fhz-renderer.js',
+        'fhz/fhz-baseline.js',
+        'fhz/fhz-controller.js'
+    ];
+
+    function loadScriptOnce(src) {
+        return new Promise(function (resolve, reject) {
+            var existing = document.querySelector('script[src="' + src + '"]');
+            var script;
+
+            if (existing && existing.getAttribute('data-tenki-loaded') === '1') {
+                resolve();
+                return;
+            }
+
+            if (existing) {
+                existing.addEventListener('load', function () {
+                    existing.setAttribute('data-tenki-loaded', '1');
+                    resolve();
+                }, { once: true });
+                existing.addEventListener('error', function () {
+                    reject(new Error('Unable to load ' + src));
+                }, { once: true });
+                return;
+            }
+
+            script = document.createElement('script');
+            script.src = src;
+            script.async = false;
+            script.onload = function () {
+                script.setAttribute('data-tenki-loaded', '1');
+                resolve();
+            };
+            script.onerror = function () {
+                reject(new Error('Unable to load ' + src));
+            };
+            document.body.appendChild(script);
+        });
+    }
+
+    function ensureFhzModules() {
+        if (global.TENKI_FHZ) {
+            return Promise.resolve(global.TENKI_FHZ);
+        }
+
+        if (!fhzModulesPromise) {
+            fhzModulesPromise = FHZ_SCRIPT_PATHS.reduce(function (chain, src) {
+                return chain.then(function () {
+                    return loadScriptOnce(src);
+                });
+            }, Promise.resolve()).then(function () {
+                if (!global.TENKI_FHZ) {
+                    throw new Error('TENKI_FHZ unavailable after script load');
+                }
+                return global.TENKI_FHZ;
+            });
+        }
+
+        return fhzModulesPromise;
+    }
+
+    function persistMotionPermissionState(state) {
+        try {
+            localStorage.setItem('tenki_fhz_motion_permission', state);
+        } catch (error) {
+            console.warn('[FHZ] Unable to persist motion permission state', error);
+        }
+    }
+
+    function primeMotionPermissionOnGesture() {
+        if (motionPermissionPrimed) return;
+
+        motionPermissionPrimed = true;
+
+        if (global.TENKI_FHZ && typeof global.TENKI_FHZ.primePermissions === 'function') {
+            global.TENKI_FHZ.primePermissions().catch(function (error) {
+                console.warn('[FHZ] Motion priming via TENKI_FHZ failed', error);
+            });
+            return;
+        }
+
+        if (!('DeviceMotionEvent' in global)) {
+            persistMotionPermissionState('unsupported');
+            return;
+        }
+
+        if (typeof global.DeviceMotionEvent.requestPermission !== 'function') {
+            persistMotionPermissionState('granted');
+            return;
+        }
+
+        global.DeviceMotionEvent.requestPermission().then(function (state) {
+            persistMotionPermissionState(state === 'granted' ? 'granted' : 'denied');
+        }).catch(function (error) {
+            persistMotionPermissionState('denied');
+            console.warn('[FHZ] Motion permission request failed', error);
+        });
+    }
+
+    function ensureProcessingElements() {
+        var video;
+        var canvas;
+
+        if (processingElements) return processingElements;
+
+        video = document.getElementById('camera');
+        canvas = document.getElementById('rppg-canvas');
+
+        if (!video) {
+            video = document.createElement('video');
+            video.id = 'camera';
+            video.setAttribute('playsinline', 'true');
+            video.muted = true;
+            video.style.position = 'fixed';
+            video.style.top = '-9999px';
+            video.style.left = '-9999px';
+            video.style.opacity = '0';
+            video.style.pointerEvents = 'none';
+            document.body.appendChild(video);
+        }
+
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+            canvas.id = 'rppg-canvas';
+            canvas.width = 100;
+            canvas.height = 100;
+            canvas.style.position = 'fixed';
+            canvas.style.top = '-9999px';
+            canvas.style.left = '-9999px';
+            canvas.style.opacity = '0';
+            canvas.style.pointerEvents = 'none';
+            document.body.appendChild(canvas);
+        }
+
+        processingElements = {
+            video: video,
+            canvas: canvas
+        };
+
+        return processingElements;
+    }
+
+    function attachProcessingStream(stream) {
+        var elements = ensureProcessingElements();
+
+        elements.video.srcObject = stream;
+
+        return elements.video.play().catch(function () {
+            return Promise.resolve();
+        }).then(function () {
+            return stream;
+        });
+    }
+
+    function stopCameraStream() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(function (track) {
+                track.stop();
+            });
+            cameraStream = null;
+        }
+    }
+
+    function estimateRR(bpm) {
+        if (!bpm || bpm < 40) return 14;
+        return Math.max(8, Math.min(24, bpm / 4.5));
+    }
+
+    function extractRppgMeanG(videoEl, canvasEl, facingMode) {
+        var ctx;
+        var sw = 100;
+        var sh = 100;
+        var x0;
+        var y0;
+        var rw;
+        var rh;
+        var data;
+        var sum = 0;
+        var count = 0;
+        var i;
+
+        if (!videoEl || videoEl.readyState < 2 || !canvasEl) return null;
+
+        ctx = canvasEl.getContext('2d', { willReadFrequently: true });
+        canvasEl.width = sw;
+        canvasEl.height = sh;
+
+        try {
+            ctx.drawImage(videoEl, 0, 0, sw, sh);
+        } catch (error) {
+            return null;
+        }
+
+        if (facingMode === 'environment') {
+            x0 = 0;
+            y0 = 0;
+            rw = sw;
+            rh = sh;
+        } else {
+            x0 = Math.floor(sw * 0.3);
+            y0 = Math.floor(sh * 0.1);
+            rw = Math.floor(sw * 0.4);
+            rh = Math.floor(sh * 0.2);
+        }
+
+        try {
+            data = ctx.getImageData(x0, y0, rw, rh).data;
+        } catch (error) {
+            return null;
+        }
+
+        for (i = 1; i < data.length; i += 4) {
+            sum += data[i];
+            count += 1;
+        }
+
+        return count ? (sum / count) : null;
+    }
+
+    function stopRppgPipeline() {
+        if (!rppgSession) return;
+
+        if (rppgSession.frameLoop) {
+            clearInterval(rppgSession.frameLoop);
+        }
+
+        if (rppgSession.controller) {
+            try {
+                if (rppgSession.controller.worker && typeof rppgSession.controller.worker.terminate === 'function') {
+                    rppgSession.controller.worker.terminate();
+                } else if (typeof rppgSession.controller.reset === 'function') {
+                    rppgSession.controller.reset();
+                }
+            } catch (error) {
+                console.warn('[FHZ] Failed to stop rPPG pipeline cleanly', error);
+            }
+        }
+
+        rppgSession = null;
+    }
+
+    function startRppgPipeline(options) {
+        var settings = options || {};
+        var elements = ensureProcessingElements();
+        var controller;
+        var originalHandler;
+        var firstMetricDelivered = false;
+        var lastComputeAt = 0;
+
+        stopRppgPipeline();
+
+        if (!global.TENKI_RPPG || typeof global.TENKI_RPPG.create !== 'function') {
+            console.warn('[FHZ] TENKI_RPPG unavailable, keeping scan UX alive without live samples');
+            return Promise.resolve(false);
+        }
+
+        controller = global.TENKI_RPPG.create('rpgg-worker.js');
+        controller.setMode(settings.rppgMode || 'spectrum');
+
+        originalHandler = controller.worker.onmessage;
+        controller.worker.onmessage = function (event) {
+            var message = event.data || {};
+            var scanUX = getScanUX();
+
+            if (typeof originalHandler === 'function') {
+                originalHandler.call(controller.worker, event);
+            }
+
+            if (message.type !== 'metrics') return;
+
+            if (scanUX && typeof scanUX.onRppgData === 'function') {
+                scanUX.onRppgData({
+                    hr: message.bpm || 68,
+                    hrv: message.rmssd || 50,
+                    rr: estimateRR(message.bpm),
+                    sqi: Math.round((message.quality || 0) * 100)
+                });
+            }
+
+            if (!firstMetricDelivered) {
+                firstMetricDelivered = true;
+                if (typeof settings.onFirstMetric === 'function') {
+                    settings.onFirstMetric();
+                }
+            }
+        };
+
+        rppgSession = {
+            controller: controller,
+            frameLoop: setInterval(function () {
+                var meanG = extractRppgMeanG(elements.video, elements.canvas, activeCameraFacingMode);
+                var now = Date.now();
+
+                if (meanG === null) return;
+
+                controller.pushFrame({
+                    t: now,
+                    meanG: meanG
+                });
+
+                if (now - lastComputeAt >= 500) {
+                    controller.requestCompute();
+                    lastComputeAt = now;
+                }
+            }, 33)
+        };
+
+        console.info('[FHZ] rPPG pipeline active on ' + activeCameraFacingMode + ' camera');
+        return Promise.resolve(true);
+    }
+
+    function prepareResultsDom() {
+        var resultsPage = document.getElementById('results-page');
+        var results = global.TENKI_RESULTS;
+
+        if (!results || !resultsPage) return;
+
+        try {
+            results.init();
+            results.showWarmup();
+        } catch (error) {
+            console.error('[FHZ] Results pre-init error:', error);
+        }
+    }
+
+    function revealResultsShell(resultsPage) {
+        var stardust = getStardust();
+        var universe = document.getElementById('universe');
+        var hudLayer = document.getElementById('hud-layer');
+
+        if (stardust && stardust.dim) stardust.dim();
+
+        if (universe) {
+            universe.style.transition = 'opacity 0.8s ease';
+            universe.style.opacity = '0.15';
+        }
+
+        if (hudLayer) {
+            hudLayer.style.transition = 'opacity 0.5s ease';
+            hudLayer.style.opacity = '0';
+            setTimeout(function () {
+                hudLayer.style.display = 'none';
+            }, 500);
+        }
+
+        if (dashboardLayer) {
+            dashboardLayer.classList.remove('show');
+            dashboardLayer.style.display = 'none';
+        }
+
+        if (!resultsPage.classList.contains('rp-ready')) {
+            resultsPage.classList.add('rp-ready');
+        }
+
+        resultsPage.classList.remove('hidden');
+        void resultsPage.offsetHeight;
+        resultsPage.classList.add('fade-in');
+    }
+
+    function kickoffScanUxOnce() {
+        var scanUX = getScanUX();
+
+        if (!scanUX || typeof scanUX.start !== 'function') return;
+        if (scanUX.isRunning && scanUX.isRunning()) return;
+
+        scanUX.start();
+        console.info('[FHZ] Scan UX started');
+    }
+
+    function clearKickoffTimer() {
+        if (scanUxKickoffTimer) {
+            clearTimeout(scanUxKickoffTimer);
+            scanUxKickoffTimer = null;
+        }
+    }
+
+    function restoreLandingState() {
+        var stardust = getStardust();
+        var universe = document.getElementById('universe');
+        var hudLayer = document.getElementById('hud-layer');
+
+        document.body.classList.remove('tenki-scanning');
+
+        if (stardust && stardust.brighten) stardust.brighten();
+
+        if (universe) {
+            universe.style.transition = 'opacity 0.8s ease';
+            universe.style.opacity = '1';
+        }
+
+        if (hudLayer) {
+            hudLayer.style.display = '';
+            hudLayer.style.opacity = '1';
+        }
+
+        showHintCapsule();
+    }
+
+    function openFhzFlow() {
+        ensureFhzModules().then(function (fhz) {
+            return fhz.open();
+        }).catch(function (error) {
+            console.warn('[FHZ] Unable to open FHZ, falling back to existing results flow', error);
+            showResultsPage();
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         dashboardLayer = document.getElementById('dashboard-layer');
 
@@ -565,7 +986,7 @@
         // ── Scan trigger (v25.8.2 HOLD-TO-SCAN) ──
         var scanTrigger = document.getElementById('scan-trigger-wrapper');
         if (!scanTrigger) {
-            console.warn('[BRIDGE] #scan-trigger-wrapper not found');
+            console.warn('[FHZ] #scan-trigger-wrapper not found');
             return;
         }
 
@@ -574,13 +995,6 @@
         function startHoldScan(e) {
             if (e.type === 'touchstart') e.preventDefault();
             if (isAnimating || isResultsOpen) return;
-
-            // FHZ gate: open Finger Heat Zone instead of direct scan
-            if (global.TENKI_FHZ && typeof global.TENKI_FHZ.open === 'function') {
-                global.TENKI_FHZ.open();
-                return;
-            }
-
             beginHoldScan(scanTrigger, ringOverlay);
         }
 
@@ -604,6 +1018,24 @@
             e.stopImmediatePropagation();
         }, true);
 
+        document.addEventListener('tenki:fhz-commit', function (e) {
+            var detail = e.detail || {};
+
+            showResultsPage({
+                preferredStream: detail.stream || null,
+                purpose: detail.purpose || 'QUICK',
+                rppgMode: detail.rppgMode || 'spectrum',
+                facingMode: detail.facingMode || 'environment'
+            });
+        });
+
+        document.addEventListener('tenki:fhz-cancel', function () {
+            restoreLandingState();
+            if (!faceSyncStream) {
+                setTimeout(initFaceSync, 400);
+            }
+        });
+
         // Dashboard layer → suppress (results page replaces it)
         if (dashboardLayer) {
             var observer = new MutationObserver(function (mutations) {
@@ -623,16 +1055,16 @@
     //  HOLD-TO-SCAN with CSS Conic-Gradient Ring
     // ══════════════════════════════════════════════
 
-    var scanElapsed = 0;
-    var scanInterval = null;
-    var scanCommitted = false;
-    var SCAN_DURATION = 1800; // 1.8 seconds for full ring animation
-
     function beginHoldScan(btn, ring) {
         isAnimating = true;
         scanElapsed = 0;
         scanCommitted = false;
-        console.info('[BRIDGE] Scan touch started');
+        console.info('[FHZ] Scan touch started');
+
+        primeMotionPermissionOnGesture();
+        ensureFhzModules().catch(function (error) {
+            console.warn('[FHZ] FHZ preload failed', error);
+        });
 
         // Audio + haptics (immediate feedback)
         var audio = getAudio();
@@ -676,8 +1108,6 @@
             }
         }, 50);
 
-        // Camera request is deferred to showResultsPage() to avoid
-        // permission dialog blocking the UI during tap
     }
 
     function cancelScan(btn, ring) {
@@ -695,14 +1125,15 @@
 
         scanElapsed = 0;
         isAnimating = false;
-        console.info('[BRIDGE] Scan cancelled (released early)');
+        document.body.classList.remove('tenki-scanning');
+        console.info('[FHZ] Scan cancelled (released early)');
     }
 
     function commitScan(btn, ring) {
         if (scanCommitted) return;
         scanCommitted = true;
 
-        console.info('[BRIDGE] Scan committed (' + scanElapsed + 'ms held)');
+        console.info('[FHZ] Scan committed (' + scanElapsed + 'ms held)');
 
         btn.classList.remove('active');
         if (ring) {
@@ -711,26 +1142,8 @@
         }
         isAnimating = false;
 
-        // Stop face sync before transitioning to results
         stopFaceSync();
-
-        // Pre-build results DOM while still hidden, then reveal
-        var resultsPage = document.getElementById('results-page');
-        var scanUX = getScanUX();
-        var results = global.TENKI_RESULTS;
-        if (results && resultsPage) {
-            try {
-                results.init();      // build DOM while hidden
-                results.showWarmup();
-            } catch (e) {
-                console.error('[BRIDGE] Results pre-init error:', e);
-            }
-        }
-
-        // Show achievement toast, then transition to results
-        showScanCompleteToast(function() {
-            showResultsPage();
-        });
+        openFhzFlow();
     }
 
     // ── Scan Complete Achievement Toast ──
@@ -780,23 +1193,39 @@
     }
 
     // ── Camera for rPPG (returns Promise) ──
-    function requestCamera() {
+    function requestCamera(options) {
+        var settings = options || {};
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             return Promise.reject(new Error('mediaDevices unavailable'));
         }
+
+        if (settings.preferredStream && settings.preferredStream.active) {
+            if (cameraStream && cameraStream !== settings.preferredStream) {
+                stopCameraStream();
+            }
+
+            cameraStream = settings.preferredStream;
+            activeCameraFacingMode = settings.facingMode || 'environment';
+
+            return attachProcessingStream(cameraStream).then(function () {
+                console.info('[FHZ] Reusing FHZ rear stream for rPPG');
+                return cameraStream;
+            });
+        }
+
+        stopCameraStream();
+        activeCameraFacingMode = 'user';
 
         return navigator.mediaDevices.getUserMedia({
             video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
             audio: false
         }).then(function (stream) {
             cameraStream = stream;
-            var cam = document.getElementById('camera') || document.getElementById('input-video');
-            if (cam) {
-                cam.srcObject = stream;
-                cam.play().catch(function () {});
-            }
-            console.info('[BRIDGE] Camera authorized for rPPG');
-            return stream;
+            return attachProcessingStream(stream).then(function () {
+                console.info('[FHZ] Camera authorized for fallback face rPPG');
+                return stream;
+            });
         });
     }
 
@@ -804,81 +1233,45 @@
     //  RESULTS PAGE
     // ══════════════════════════════════════════════
 
-    function showResultsPage() {
-        if (isResultsOpen) return;
-
+    function showResultsPage(options) {
+        var settings = options || {};
         var resultsPage = document.getElementById('results-page');
+        var audio = getAudio();
+
+        if (isResultsOpen) return;
         if (!resultsPage) return;
 
         isResultsOpen = true;
-        console.info('[BRIDGE] Transitioning to results page');
+        console.info('[FHZ] Transitioning to results page');
 
-        // Dim stardust soul
-        var stardust = getStardust();
-        if (stardust && stardust.dim) stardust.dim();
+        prepareResultsDom();
+        revealResultsShell(resultsPage);
 
-        // Dim universe
-        var universe = document.getElementById('universe');
-        if (universe) {
-            universe.style.transition = 'opacity 0.8s ease';
-            universe.style.opacity = '0.15';
-        }
-
-        // Hide HUD layer
-        var hudLayer = document.getElementById('hud-layer');
-        if (hudLayer) {
-            hudLayer.style.transition = 'opacity 0.5s ease';
-            hudLayer.style.opacity = '0';
-            setTimeout(function () { hudLayer.style.display = 'none'; }, 500);
-        }
-
-        // Hide dashboard
-        if (dashboardLayer) {
-            dashboardLayer.classList.remove('show');
-            dashboardLayer.style.display = 'none';
-        }
-
-        // Show results overlay with fade (DOM already pre-built by commitScan)
-        if (!resultsPage.classList.contains('rp-ready')) {
-            resultsPage.classList.add('rp-ready');
-        }
-        resultsPage.classList.remove('hidden');
-        void resultsPage.offsetHeight;
-        resultsPage.classList.add('fade-in');
-
-        // Audio
-        var audio = getAudio();
         if (audio) audio.init();
 
-        // Start progressive metrics immediately so results never feel empty.
-        var scanUX = getScanUX();
-        if (scanUX && typeof scanUX.start === 'function' &&
-            (!scanUX.isRunning || !scanUX.isRunning())) {
-            scanUX.start();
-            console.info('[BRIDGE] Scan UX started (instant)');
-        }
+        clearKickoffTimer();
 
-        // Defer camera request slightly to avoid blocking the transition.
-        setTimeout(function () {
-            requestCamera().then(function () {
-                // Camera authorized; start scan if not yet running.
-                if (scanUX && typeof scanUX.start === 'function' &&
-                    (!scanUX.isRunning || !scanUX.isRunning())) {
-                    scanUX.start();
-                    console.info('[BRIDGE] Scan UX started (camera authorized)');
-                } else {
-                    var results = global.TENKI_RESULTS;
-                    if (results) {
-                        results.init();
-                        results.showWarmup();
-                    }
+        requestCamera({
+            preferredStream: settings.preferredStream || null,
+            facingMode: settings.facingMode || 'user'
+        }).then(function (stream) {
+            return startRppgPipeline({
+                stream: stream,
+                rppgMode: settings.rppgMode || 'spectrum',
+                onFirstMetric: function () {
+                    clearKickoffTimer();
+                    kickoffScanUxOnce();
                 }
-            }).catch(function (err) {
-                console.warn('[BRIDGE] Camera denied:', err.message || err);
-                alert('\u26A0\uFE0F \u76F8\u6A5F\u6388\u6B0A\u5931\u6557\u6216\u7121\u6CD5\u4F7F\u7528\uFF0C\u5DF2\u53D6\u6D88\u6383\u63CF\u3002');
-                closeResultsPage();
             });
-        }, 120);
+        }).then(function () {
+            scanUxKickoffTimer = setTimeout(function () {
+                kickoffScanUxOnce();
+            }, 1200);
+        }).catch(function (err) {
+            console.warn('[FHZ] Camera denied:', err.message || err);
+            alert('\u26A0\uFE0F \u76F8\u6A5F\u6388\u6B0A\u5931\u6557\u6216\u7121\u6CD5\u4F7F\u7528\uFF0C\u5DF2\u53D6\u6D88\u6383\u63CF\u3002');
+            closeResultsPage();
+        });
     }
 
     // ── Close Results ──
@@ -889,53 +1282,41 @@
     });
 
     function closeResultsPage() {
+        var scanUX = getScanUX();
+        var results = global.TENKI_RESULTS;
+        var resultsPage = document.getElementById('results-page');
+
         if (!isResultsOpen) return;
         isResultsOpen = false;
+        clearKickoffTimer();
 
-        var scanUX = getScanUX();
-        if (scanUX) scanUX.stop();
-
-        // Cleanup results renderer (stops nebula RAF + ANS interval)
-        var results = global.TENKI_RESULTS;
-        if (results && results.destroy) results.destroy();
-
-        // Stop rPPG camera
-        if (cameraStream) {
-            cameraStream.getTracks().forEach(function (t) { t.stop(); });
-            cameraStream = null;
+        if (scanUX && typeof scanUX.stop === 'function') {
+            scanUX.stop();
         }
 
-        var resultsPage = document.getElementById('results-page');
+        if (results && typeof results.destroy === 'function') {
+            results.destroy();
+        }
+
+        stopRppgPipeline();
+        stopCameraStream();
+
         if (resultsPage) {
             resultsPage.classList.remove('fade-in');
-            setTimeout(function () { resultsPage.classList.add('hidden'); }, 600);
+            setTimeout(function () {
+                resultsPage.classList.add('hidden');
+            }, 600);
         }
 
-        // Restore stardust
-        var stardust = getStardust();
-        if (stardust && stardust.brighten) stardust.brighten();
-
-        // Restore universe
-        var universe = document.getElementById('universe');
-        if (universe) {
-            universe.style.transition = 'opacity 0.8s ease';
-            universe.style.opacity = '1';
+        restoreLandingState();
+        if (!faceSyncStream) {
+            setTimeout(initFaceSync, 800);
         }
-
-        // Restore HUD
-        var hudLayer = document.getElementById('hud-layer');
-        if (hudLayer) {
-            hudLayer.style.display = '';
-            hudLayer.style.opacity = '1';
-        }
-
-        // Restore hint capsule + restart face sync
-        showHintCapsule();
-        setTimeout(initFaceSync, 800);
     }
 
     global.TENKI_BRIDGE = {
         showResults: showResultsPage,
-        closeResults: closeResultsPage
+        closeResults: closeResultsPage,
+        ensureFhzModules: ensureFhzModules
     };
 })(window);

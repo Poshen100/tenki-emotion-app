@@ -609,7 +609,7 @@ tenki-emotion-app/
 
 ### Phase B — 基礎建設
 
-- [ ] Domain layer (policies, schemas, contracts)
+- [x] Domain layer (policies, schemas, contracts)
 - [ ] Scan pipeline integration (biometric → baseline → scoring)
 - [ ] Replay Engine
 - [ ] Insight Generator

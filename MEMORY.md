@@ -113,5 +113,12 @@
 
 ---
 
-*Last updated: 2026-04-07 09:58*
-*Updated by: Antigravity (v3.0 architecture transition)*
+## 2026-04-09 Session Update
+
+- Added root `domain/` workspace for Phase B.
+- Implemented canonical scan contracts, policies, and runtime schemas.
+- Added persistence guards so raw biometric samples are rejected from persisted records.
+- Verified the new domain layer with TypeScript compile and Node smoke test.
+
+*Last updated: 2026-04-09 09:59*
+*Updated by: Codex (Phase B domain layer bootstrap)*
