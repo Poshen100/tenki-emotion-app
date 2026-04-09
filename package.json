@@ -10,6 +10,9 @@
     "icons:batch1": "node scripts/generate-tenki-icon-batch1.mjs"
   },
   "devDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vite": "^7.3.2",
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^4.1.3"
   }
 }
