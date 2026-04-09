@@ -1,0 +1,48 @@
+export const BASELINE_COPY = {
+  steps: {
+    intro: { title: '建立你的初始基準', subtitle: 'Baseline Calibration' },
+    sensor_choice: { title: '選擇感測模式', subtitle: 'Choose Capture Mode' },
+    readiness_check: { title: '確認目前條件', subtitle: 'Readiness Check' },
+    guided_scan: { title: '基準擷取中', subtitle: 'Baseline Capture' },
+    analyzing: { title: '正在分析', subtitle: 'Analyzing' },
+    result: { title: '基準建立結果', subtitle: 'Baseline Result' },
+    retry_help: { title: '本次未成功', subtitle: 'Retry Guidance' },
+  },
+  cta: {
+    startBaseline: '開始建立 Baseline',
+    doLater: '稍後再做',
+    continueWithMode: '使用此模式繼續',
+    imReady: '我已準備好',
+    cancel: '取消',
+    acceptBaseline: '採用此 Baseline',
+    retryNow: '立即重試',
+    switchMode: '改用其他模式',
+    goBack: '返回',
+  },
+  sensor: {
+    camera_guided: { name: '攝影機引導掃描', desc: '使用鏡頭進行非接觸式基準擷取', recommended: true },
+    manual_checkin: { name: '手動狀態自評', desc: '以主觀量表建立初始基準', recommended: false },
+    demo_mock: { name: 'Demo 模式', desc: '僅供內部測試使用', recommended: false },
+  },
+  readiness: {
+    lighting: '光線穩定',
+    visibility: '臉部清晰可見',
+    stability: '可保持穩定 30–60 秒',
+    environment: '非移動 / 非通勤環境',
+    emotional_settled: '無強烈情緒波動',
+  },
+  failure: {
+    permission_denied: { title: '相機權限未允許', fix: '請前往瀏覽器設定，允許本網站存取相機。' },
+    camera_unavailable: { title: '找不到相機裝置', fix: '請確認裝置有可用的相機，或改用手動自評模式。' },
+    low_light: { title: '光線不足', fix: '請移動至光線充足的環境，避免逆光或強烈陰影。' },
+    motion_too_high: { title: '動作過多', fix: '請找穩定的位置坐下或靠牆，保持上半身靜止。' },
+    face_not_detected: { title: '無法偵測臉部', fix: '請確認臉部完整清晰，並處於畫面中央。' },
+    session_interrupted: { title: '流程中斷', fix: '請確保不切換分頁或鎖定螢幕，重新嘗試。' },
+    analysis_timeout: { title: '分析逾時', fix: '請稍後再試，或改用手動模式。' },
+    signal_inconclusive: { title: '訊號不足以建立基準', fix: '請在更穩定的環境重試，確認光線與靜止度。' },
+    unknown: { title: '發生未知問題', fix: '請重新整理後再試，若問題持續，請聯絡支援。' },
+  },
+  analyzing: {
+    steps: ['檢查資料完整性', '估算訊號穩定度', '生成 baseline bootstrap'],
+  },
+} as const;
