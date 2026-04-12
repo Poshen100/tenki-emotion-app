@@ -108,6 +108,8 @@
     var ringDpr = 1;
     var currentOuterFill = 0;
     var currentInnerFill = 0;
+    var earlyExitCb = null;
+    var milestoneTimeout = null;
 
     var animatedTeiTarget = 1;
     var animatedTeiCurrent = 1;
@@ -371,6 +373,28 @@
         badge.appendChild(badgePill);
         wrap.appendChild(badge);
 
+        // Scan Progress Timer — 倒計時 + 進度條
+        var progressWrap = document.createElement('div');
+        progressWrap.className = 'scan-progress';
+        progressWrap.id = 'scan-progress';
+        progressWrap.innerHTML =
+            '<div class="scan-progress-time">' +
+            '  <span class="scan-progress-elapsed" id="scan-elapsed">0:00</span>' +
+            '  <span class="scan-progress-sep"> / </span>' +
+            '  <span class="scan-progress-total">1:02</span>' +
+            '</div>' +
+            '<div class="scan-progress-bar">' +
+            '  <div class="scan-progress-fill" id="scan-progress-fill"></div>' +
+            '</div>' +
+            '<div class="scan-progress-phase" id="scan-phase-label">\u6821\u6E96\u4E2D</div>';
+        wrap.appendChild(progressWrap);
+
+        // Milestone Toast — 階段里程碑通知
+        var milestone = document.createElement('div');
+        milestone.className = 'scan-milestone';
+        milestone.id = 'scan-milestone';
+        wrap.appendChild(milestone);
+
         // Source strip
         var srcStrip = document.createElement('div');
         srcStrip.className = 'source-strip';
@@ -426,6 +450,13 @@
         zoneLabel.textContent = 'Scanning';
         numCont.appendChild(zoneLabel);
 
+        // SQI Quality Badge — 信號品質等級
+        var sqiBadge = document.createElement('div');
+        sqiBadge.className = 'sqi-badge';
+        sqiBadge.id = 'sqi-badge';
+        sqiBadge.innerHTML = '<span class="sqi-label">SQI</span><span class="sqi-grade" id="sqi-grade">--</span>';
+        numCont.appendChild(sqiBadge);
+
         ringContainer.appendChild(numCont);
         ringSection.appendChild(ringContainer);
         wrap.appendChild(ringSection);
@@ -435,6 +466,17 @@
         coach.className = 'coach-card'; coach.id = 'coach-card';
         coach.textContent = '\u6B63\u5728\u6821\u6E96\u611F\u6E2C\u5668...';
         wrap.appendChild(coach);
+
+        // Early Exit Button — 提前結束掃描
+        var earlyExit = document.createElement('button');
+        earlyExit.className = 'scan-early-exit';
+        earlyExit.id = 'scan-early-exit';
+        earlyExit.style.display = 'none';
+        earlyExit.innerHTML = '\u7D50\u675F\u638C\u63CF\uFF08Quick \u54C1\u8CEA\uFF09';
+        earlyExit.addEventListener('click', function() {
+            if (earlyExitCb) earlyExitCb();
+        });
+        wrap.appendChild(earlyExit);
 
         // Trading Summary Card
         var summary = document.createElement('div');
@@ -854,6 +896,16 @@
             if (coach) coach.textContent = '\u6B63\u5728\u6821\u6E96\u611F\u6E2C\u5668...';
             applyZoneTheme('NEUTRAL');
 
+            // Reset progress + milestone + early exit
+            this.updateScanProgress(0, 62, 0);
+            this.hideEarlyExit();
+            var prog = document.getElementById('scan-progress');
+            if (prog) prog.classList.remove('complete');
+            var msEl = document.getElementById('scan-milestone');
+            if (msEl) msEl.classList.remove('visible');
+            var sqiGrade = document.getElementById('sqi-grade');
+            if (sqiGrade) sqiGrade.textContent = '--';
+
             // Start breathing guidance rotation on coach card
             if (breathingTimer) clearInterval(breathingTimer);
             var hintIdx = 0;
@@ -1011,16 +1063,96 @@
         updateBadge: function(phase, elapsed) {
             var el = document.getElementById('scan-badge-pill');
             if (!el) return;
+            var PHASE_NAMES = ['\u6821\u6E96\u4E2D', '\u521D\u59CB\u5075\u6E2C', 'QUICK SCAN', 'STANDARD SCAN', 'DEEP SCAN'];
             if (phase < 5) {
-                el.textContent = '\u2726 SCANNING \u00B7 ' + elapsed + 's';
+                el.textContent = '\u2726 ' + (PHASE_NAMES[phase] || 'SCANNING') + ' \u00B7 ' + elapsed + 's';
             }
         },
 
         updatePhaseDots: function() { },
 
+        /** 更新掃描進度計時器 */
+        updateScanProgress: function(elapsed, total, phase) {
+            var elapsedEl = document.getElementById('scan-elapsed');
+            if (elapsedEl) {
+                var min = Math.floor(elapsed / 60);
+                var sec = elapsed % 60;
+                elapsedEl.textContent = min + ':' + (sec < 10 ? '0' : '') + sec;
+            }
+            var fill = document.getElementById('scan-progress-fill');
+            if (fill) {
+                fill.style.width = Math.min(100, (elapsed / total) * 100) + '%';
+            }
+            var phaseLabel = document.getElementById('scan-phase-label');
+            if (phaseLabel) {
+                var PHASE_LABELS = ['\u6821\u6E96\u4E2D', '\u521D\u59CB\u5075\u6E2C', 'Quick Scan', 'Standard Scan', 'Deep Scan'];
+                phaseLabel.textContent = PHASE_LABELS[phase] || '';
+            }
+        },
+
+        /** 顯示階段里程碑通知 */
+        showMilestone: function(phase) {
+            var el = document.getElementById('scan-milestone');
+            if (!el) return;
+            var MILESTONES = {
+                2: { text: 'Quick \u638C\u63CF\u555F\u52D5', sub: '\u6578\u64DA\u958B\u59CB\u7A69\u5B9A' },
+                3: { text: 'Quick \u7D50\u679C\u5C31\u7DD2', sub: '\u53EF\u63D0\u524D\u7D50\u675F\u638C\u63CF' },
+                4: { text: 'Standard \u54C1\u8CEA\u9054\u6210', sub: '\u6301\u7E8C\u638C\u63CF\u7CBE\u5EA6\u66F4\u9AD8' }
+            };
+            var m = MILESTONES[phase];
+            if (!m) return;
+            el.innerHTML = '<div class="milestone-text">' + m.text + '</div>' +
+                           '<div class="milestone-sub">' + m.sub + '</div>';
+            el.classList.add('visible');
+            if (milestoneTimeout) clearTimeout(milestoneTimeout);
+            milestoneTimeout = setTimeout(function() { el.classList.remove('visible'); }, 3000);
+        },
+
+        /** 顯示提前結束按鈕 */
+        showEarlyExit: function(label) {
+            var btn = document.getElementById('scan-early-exit');
+            if (btn) {
+                btn.style.display = 'block';
+                if (label) btn.textContent = '\u7D50\u675F\u638C\u63CF\uFF08' + label + ' \u54C1\u8CEA\uFF09';
+            }
+        },
+
+        hideEarlyExit: function() {
+            var btn = document.getElementById('scan-early-exit');
+            if (btn) btn.style.display = 'none';
+        },
+
+        /** 設定提前結束回調 */
+        setEarlyExitCallback: function(cb) {
+            earlyExitCb = cb;
+        },
+
+        /** 更新 SQI 信號品質等級 */
+        updateSQI: function(sqi) {
+            var gradeEl = document.getElementById('sqi-grade');
+            var badgeEl = document.getElementById('sqi-badge');
+            if (!gradeEl || !badgeEl) return;
+            var rounded = Math.round(sqi);
+            var grade, cls;
+            if (rounded > 85) { grade = 'A'; cls = 'sqi-a'; }
+            else if (rounded > 70) { grade = 'B'; cls = 'sqi-b'; }
+            else if (rounded > 40) { grade = 'C'; cls = 'sqi-c'; }
+            else { grade = 'D'; cls = 'sqi-d'; }
+            gradeEl.textContent = grade;
+            badgeEl.className = 'sqi-badge ' + cls;
+        },
+
         showComplete: function(ewma) {
             var badge = document.getElementById('scan-badge-pill');
             if (badge) badge.textContent = '\u2726 DEEP SCAN \u00B7 60s';
+
+            // Hide early exit + progress
+            this.hideEarlyExit();
+            var prog = document.getElementById('scan-progress');
+            if (prog) prog.classList.add('complete');
+
+            // Final SQI
+            if (ewma && ewma.sqi != null) this.updateSQI(ewma.sqi);
 
             // Glow pulse on ring container
             var ring = document.getElementById('tei-ring-container');
@@ -1057,10 +1189,12 @@
                 breathingTimer = null;
             }
             stopSparklineAnimator();
+            if (milestoneTimeout) { clearTimeout(milestoneTimeout); milestoneTimeout = null; }
             sparklines = {};
             sparkRevealed = {};
             ringCtx = null;
             currentCoachZone = null;
+            earlyExitCb = null;
             isInitialized = false;
             if (document.body) {
                 document.body.removeAttribute('data-tenki-zone');
