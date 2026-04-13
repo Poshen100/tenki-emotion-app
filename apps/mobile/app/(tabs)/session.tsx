@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo } from '../../theme';
 import { ScanButton } from '../../components/ScanButton';
+import { useSessionStore } from '../../stores/session-store';
 
 type SessionMode = 'health_reset' | 'focus' | 'performance' | 'trader';
 type SessionState = 'draft' | 'configured' | 'precheck' | 'scanning' | 'gated' | 'active' | 'paused' | 'completed' | 'reflection_pending' | 'archived';
@@ -31,13 +32,29 @@ const STATE_LABELS: Record<SessionState, string> = {
  * Session screen — Session Governance Layer.
  * Mode selection → Pre-check → Scan → Gate → Active Session → Reflection
  */
+/** Format elapsed seconds as mm:ss. */
+function formatTimer(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 export default function SessionScreen() {
-  const [mode, setMode] = useState<SessionMode | null>(null);
-  const [state, setState] = useState<SessionState>('draft');
+  const { mode, state, elapsedSec, setMode, setState, tick, reset } = useSessionStore();
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Run a 1-second tick while the session is active
+  useEffect(() => {
+    if (state === 'active') {
+      timerRef.current = setInterval(() => tick(), 1000);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [state, tick]);
 
   const handleSelectMode = (m: SessionMode) => {
     setMode(m);
-    setState('configured');
   };
 
   const handleStartPrecheck = () => {
@@ -105,8 +122,8 @@ export default function SessionScreen() {
         {/* Active session placeholder */}
         {(state === 'active' || state === 'paused') && (
           <View style={styles.activeSection}>
-            <Text style={typo.timerDisplay}>25:00</Text>
-            <Text style={typo.caption}>Session timer — placeholder</Text>
+            <Text style={typo.timerDisplay}>{formatTimer(elapsedSec)}</Text>
+            <Text style={typo.caption}>Session elapsed</Text>
             <View style={styles.sessionActions}>
               <Pressable
                 style={styles.secondaryButton}
@@ -145,7 +162,7 @@ export default function SessionScreen() {
         {state !== 'draft' && state !== 'active' && state !== 'paused' && (
           <Pressable
             style={styles.resetButton}
-            onPress={() => { setMode(null); setState('draft'); }}
+            onPress={() => reset()}
           >
             <Text style={styles.resetText}>Start New Session</Text>
           </Pressable>
