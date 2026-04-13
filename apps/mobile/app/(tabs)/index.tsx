@@ -5,6 +5,20 @@ import { colors, spacing, radius, typography as typo, getZoneForScore, zoneLabel
 import { EdgeScoreRing } from '../../components/EdgeScoreRing';
 import { ZoneBadge } from '../../components/ZoneBadge';
 import { ScanButton } from '../../components/ScanButton';
+import { useScanStore } from '../../stores/scan-store';
+import { useUserStore } from '../../stores/user-store';
+
+/** Format a timestamp to a human-readable scan time label. */
+function formatScanTime(timestamp: number): string {
+  const now = Date.now();
+  const diffMs = now - timestamp;
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHrs = Math.floor(diffMin / 60);
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
 
 /**
  * Today screen — daily summary dashboard.
@@ -12,11 +26,14 @@ import { ScanButton } from '../../components/ScanButton';
  */
 export default function TodayScreen() {
   const router = useRouter();
+  const lastResult = useScanStore((s) => s.lastResult);
+  const hasBaseline = useUserStore((s) => s.hasBaseline);
 
-  // Placeholder data — will be replaced by Zustand store
-  const currentScore = 72;
-  const lastScanTime = 'No scans today';
-  const zone = getZoneForScore(currentScore);
+  const currentScore = lastResult?.edgeScore ?? null;
+  const lastScanTime = lastResult
+    ? `Last scan ${formatScanTime(lastResult.timestamp)}`
+    : 'No scans today';
+  const zone = currentScore !== null ? getZoneForScore(currentScore) : null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -31,18 +48,30 @@ export default function TodayScreen() {
 
         {/* Edge Score Ring */}
         <View style={styles.scoreSection}>
-          <EdgeScoreRing score={currentScore} size={220} />
-          <View style={styles.badgeRow}>
-            <ZoneBadge score={currentScore} />
-          </View>
+          {currentScore !== null ? (
+            <>
+              <EdgeScoreRing score={currentScore} size={220} />
+              <View style={styles.badgeRow}>
+                <ZoneBadge score={currentScore} />
+              </View>
+            </>
+          ) : (
+            <View style={styles.emptyRing}>
+              <Text style={styles.emptyScore}>—</Text>
+              <Text style={typo.caption}>
+                {hasBaseline ? 'Scan to see your score' : 'Complete a baseline scan to begin'}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Guidance */}
         <View style={styles.guidanceCard}>
           <Text style={typo.body}>
-            {zone.name === 'clear' && 'Stable, focused state. You may be ready for important decisions.'}
-            {zone.name === 'neutral' && 'Mixed signals today. Consider a brief check-in or reset.'}
-            {zone.name === 'strain' && 'Elevated strain detected. A breathing exercise may help.'}
+            {zone === null && 'Start a scan to check your current readiness state.'}
+            {zone?.name === 'clear' && 'Stable, focused state. You may be ready for important decisions.'}
+            {zone?.name === 'neutral' && 'Mixed signals today. Consider a brief check-in or reset.'}
+            {zone?.name === 'strain' && 'Elevated strain detected. A breathing exercise may help.'}
           </Text>
         </View>
 
@@ -111,6 +140,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.lg,
+  },
+  emptyRing: {
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 6,
+    borderColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyScore: {
+    fontSize: 72,
+    fontWeight: '200',
+    color: colors.textTertiary,
   },
   statCard: {
     flex: 1,
