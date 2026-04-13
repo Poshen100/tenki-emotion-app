@@ -93,11 +93,11 @@
   - ✅ 提出 Phase B 基礎建設 Implementation Plan
   - ✅ Phase B 基礎建設完成 (Domain Layer, Pipeline Integration, Analytics Engine)
 - **下一步**:
-  1. Wire Zustand stores into screen components (replace placeholder data)
-  2. Integrate `packages/engine` scoring into Today/Scan screens
-  3. Implement camera pipeline for FHZ (requires native build)
-  4. Add Skia-based EdgeScoreRing (replace View placeholder)
-  5. Add react-native-reanimated animations
+  1. Integrate `packages/engine` scoring into Today/Scan screens (cross-workspace imports)
+  2. Implement camera pipeline for FHZ (requires native build)
+  3. Add Skia-based EdgeScoreRing (replace View placeholder)
+  4. Add react-native-reanimated animations
+  5. Add SQLite persistence for timeline store
 
 ## 各 AI 工具的角色分工
 | 工具 | 角色 | 目前使用狀態 |
@@ -139,3 +139,20 @@
 
 *Last updated: 2026-04-13*
 *Updated by: Claude Code (Phase C Frontend initialization)*
+
+---
+
+## 2026-04-13 Session Update (Phase C Store Wiring)
+
+- Wired all 5 Zustand stores into their respective screens:
+  - **Scan screen**: `useScanStore` replaces local useState for scanType, uiState, metrics; readiness checklist derived from live metrics
+  - **Session screen**: `useSessionStore` replaces local useState for mode/state; real elapsed timer with 1s interval tick; `completeSession()` records to timeline
+  - **Today screen**: `useScanStore.lastResult` drives score display; `useUserStore.hasBaseline` guides new users; empty state when no scans exist
+  - **Timeline screen**: New `useTimelineStore` for completed session history; computed 7-day average; formatted dates/durations
+  - **Lab screen**: `useSubscriptionStore` for tier-based feature gating; "Premium" badge on locked tools; dynamic subscription label
+- Created `timeline-store.ts` — 5th Zustand store for completed session records
+- Updated `session-store.ts` with `completeSession()` action that cross-store records to timeline
+- TypeScript compiles clean (mobile), all 403 tests pass
+
+*Last updated: 2026-04-13*
+*Updated by: Claude Code (Phase C Store wiring)*
