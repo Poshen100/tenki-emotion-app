@@ -1,12 +1,14 @@
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo } from '../../theme';
+import { useSubscriptionStore } from '../../stores/subscription-store';
 
 interface LabItem {
   icon: string;
   title: string;
   description: string;
-  available: boolean;
+  requiresPremium: boolean;
+  comingSoon: boolean;
 }
 
 const LAB_ITEMS: LabItem[] = [
@@ -14,33 +16,30 @@ const LAB_ITEMS: LabItem[] = [
     icon: '🫁',
     title: 'Breathing Practice',
     description: '4-7-8 and box breathing exercises',
-    available: true,
+    requiresPremium: false,
+    comingSoon: false,
   },
   {
     icon: '📈',
     title: 'Pattern Analysis',
     description: 'Discover your readiness patterns over time',
-    available: false,
+    requiresPremium: true,
+    comingSoon: true,
   },
   {
     icon: '🧪',
     title: 'Insights',
     description: 'AI-generated observations from your data',
-    available: false,
+    requiresPremium: true,
+    comingSoon: true,
   },
   {
     icon: '🔔',
     title: 'Reminders',
     description: 'Set up scan and session reminders',
-    available: false,
+    requiresPremium: false,
+    comingSoon: true,
   },
-];
-
-const SETTINGS_ITEMS = [
-  { icon: '👤', title: 'Profile', description: 'Manage your account' },
-  { icon: '🔒', title: 'Privacy', description: 'Data controls and export' },
-  { icon: '⌚', title: 'Devices', description: 'Connect Garmin, Apple Watch' },
-  { icon: '💎', title: 'Subscription', description: 'Free plan' },
 ];
 
 /**
@@ -48,6 +47,16 @@ const SETTINGS_ITEMS = [
  * Houses features that don't fit in the main session flow.
  */
 export default function LabScreen() {
+  const tier = useSubscriptionStore((s) => s.tier);
+  const isPremium = tier === 'premium';
+
+  const settingsItems = [
+    { icon: '👤', title: 'Profile', description: 'Manage your account' },
+    { icon: '🔒', title: 'Privacy', description: 'Data controls and export' },
+    { icon: '⌚', title: 'Devices', description: 'Connect Garmin, Apple Watch' },
+    { icon: '💎', title: 'Subscription', description: isPremium ? 'Premium plan' : 'Free plan' },
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -63,12 +72,12 @@ export default function LabScreen() {
         {/* Lab Tools */}
         <Text style={[typo.label, styles.sectionLabel]}>TOOLS</Text>
         {LAB_ITEMS.map((item) => (
-          <LabCard key={item.title} item={item} />
+          <LabCard key={item.title} item={item} isPremium={isPremium} />
         ))}
 
         {/* Settings */}
         <Text style={[typo.label, styles.sectionLabel]}>SETTINGS</Text>
-        {SETTINGS_ITEMS.map((item) => (
+        {settingsItems.map((item) => (
           <Pressable key={item.title} style={styles.settingsRow}>
             <Text style={styles.settingsIcon}>{item.icon}</Text>
             <View style={styles.settingsInfo}>
@@ -86,20 +95,23 @@ export default function LabScreen() {
   );
 }
 
-function LabCard({ item }: { item: LabItem }) {
+function LabCard({ item, isPremium }: { item: LabItem; isPremium: boolean }) {
+  const locked = item.comingSoon || (item.requiresPremium && !isPremium);
+  const badgeLabel = item.comingSoon ? 'Soon' : item.requiresPremium && !isPremium ? 'Premium' : null;
+
   return (
     <Pressable
-      style={[styles.labCard, !item.available && styles.labCardDisabled]}
-      disabled={!item.available}
+      style={[styles.labCard, locked && styles.labCardDisabled]}
+      disabled={locked}
     >
       <Text style={styles.labIcon}>{item.icon}</Text>
       <View style={styles.labInfo}>
         <Text style={styles.labTitle}>{item.title}</Text>
         <Text style={typo.caption}>{item.description}</Text>
       </View>
-      {!item.available && (
+      {badgeLabel && (
         <View style={styles.comingSoonBadge}>
-          <Text style={styles.comingSoonText}>Soon</Text>
+          <Text style={styles.comingSoonText}>{badgeLabel}</Text>
         </View>
       )}
     </Pressable>
