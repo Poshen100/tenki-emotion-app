@@ -75,8 +75,8 @@
     function getStateCopy(state, purpose) {
         if (state === STATES.READY) {
             return purpose.id === 'BASELINE'
-                ? 'Ready to start your 3 minute resting baseline capture.'
-                : 'Ready. Commit now to keep the rear stream alive for rPPG.';
+                ? 'Ready. Tap Build Baseline to start a 3 minute resting PPG capture.'
+                : 'Ready. Tap Start to begin your PPG finger scan.';
         }
 
         if (state === STATES.STABILIZING) {

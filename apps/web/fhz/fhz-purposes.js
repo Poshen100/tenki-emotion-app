@@ -6,7 +6,7 @@
         {
             id: 'QUICK',
             label: 'Quick',
-            subtitle: 'Fast readiness handoff',
+            subtitle: '30 sec quick PPG read',
             commitLabel: 'Start Quick Scan',
             guidance: 'Lock a stable finger signal and hand off to the scan flow.',
             rppgMode: 'default',
@@ -16,9 +16,9 @@
         {
             id: 'DEEP',
             label: 'Deep',
-            subtitle: 'Full progressive scan',
+            subtitle: '60 sec deep PPG scan',
             commitLabel: 'Start Deep Scan',
-            guidance: 'Use the rear camera as the source of truth for progressive rPPG.',
+            guidance: 'Use the rear camera for a full progressive PPG finger scan.',
             rppgMode: 'spectrum',
             countdownSec: 62,
             usesResultsFlow: true
@@ -26,7 +26,7 @@
         {
             id: 'BASELINE',
             label: 'Baseline',
-            subtitle: '3 minute resting build',
+            subtitle: 'Hold finger on lens for 3 min',
             commitLabel: 'Build Baseline',
             guidance: 'Capture a calm 3 minute finger PPG baseline before other scans.',
             rppgMode: 'spectrum',
