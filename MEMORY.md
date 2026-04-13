@@ -93,8 +93,11 @@
   - ✅ 提出 Phase B 基礎建設 Implementation Plan
   - ✅ Phase B 基礎建設完成 (Domain Layer, Pipeline Integration, Analytics Engine)
 - **下一步**:
-  1. 開始實作 Phase C 前端介面（基於最新設計稿）
-  2. 評估是在 `apps/web/` 實作還是直接啟動 React Native/Expo 專案
+  1. Wire Zustand stores into screen components (replace placeholder data)
+  2. Integrate `packages/engine` scoring into Today/Scan screens
+  3. Implement camera pipeline for FHZ (requires native build)
+  4. Add Skia-based EdgeScoreRing (replace View placeholder)
+  5. Add react-native-reanimated animations
 
 ## 各 AI 工具的角色分工
 | 工具 | 角色 | 目前使用狀態 |
@@ -115,3 +118,24 @@
 
 *Last updated: 2026-04-09 11:32*
 *Updated by: Antigravity (Phase B Backend completion)*
+
+---
+
+## 2026-04-13 Session Update (Phase C Frontend Initialized)
+
+- Initialized Expo SDK 54 project in `apps/mobile/` with TypeScript strict mode
+- Configured Expo Router (file-based routing) with 5-tab bottom navigation
+- Created theme adapter mirroring `packages/shared/src/design-tokens.ts`
+- Built all 5 screens:
+  - **Today**: EdgeScoreRing, ZoneBadge, guidance card, stats grid
+  - **Scan**: FHZ layout with QualityMeter, StatusPill, ReadinessChecklist, ScanTypeSwitcher
+  - **Session**: 4 mode selector, 10-state lifecycle progress, self-assessment, timer
+  - **Timeline**: Session history FlatList, trend summary cards, empty state
+  - **Lab**: Tools (Breathing, Pattern, Insights, Reminders), Settings, Privacy
+- Created reusable components: EdgeScoreRing, ZoneBadge, ScanButton, QualityMeter, StatusPill, ReadinessChecklist
+- Set up 4 Zustand stores: scanStore, sessionStore, userStore, subscriptionStore
+- TypeScript compiles clean, all 403 existing tests still pass
+- Decision: React Native/Expo (not apps/web/) for Phase C mobile app
+
+*Last updated: 2026-04-13*
+*Updated by: Claude Code (Phase C Frontend initialization)*
