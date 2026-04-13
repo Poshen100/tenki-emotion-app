@@ -85,11 +85,12 @@
             onPhaseChange(phase, prevPhase);
         }
 
-        // Update badge and dots
+        // Update badge, dots, and progress timer
         var results = global.TENKI_RESULTS;
         if (results) {
             results.updateBadge(phase, elapsed);
             results.updatePhaseDots(phase);
+            results.updateScanProgress(elapsed, 62, phase);
         }
 
         // Deep scan ticks (last 7s)
@@ -105,6 +106,7 @@
     function onPhaseChange(phase, prevPhase) {
         var audio = global.TENKI_AUDIO;
         var haptics = global.TENKI_HAPTICS;
+        var results = global.TENKI_RESULTS;
 
         if (phase === 1 && prevPhase === 0) {
             // GLIMPSE: first data
@@ -118,11 +120,21 @@
             // Init BB chart at STANDARD phase
             if (phase === 3) {
                 var baseline = global.TENKI_BASELINE_SIM;
-                var results = global.TENKI_RESULTS;
                 if (baseline && results && typeof results.showComplete !== 'function') {
                     // BB will be initialized on complete
                 }
             }
+        }
+
+        // 里程碑通知
+        if (results && results.showMilestone) {
+            results.showMilestone(phase);
+        }
+
+        // 顯示提前結束按鈕（STANDARD 階段起）
+        if (phase >= 3 && results && results.showEarlyExit) {
+            var labels = { 3: 'Standard', 4: 'Deep' };
+            results.showEarlyExit(labels[phase] || 'Quick');
         }
     }
 
@@ -199,6 +211,16 @@
 
         // Render
         results.updateAll(ewma, histories, ans, currentPhase);
+
+        // 更新 SQI 信號品質等級
+        if (results.updateSQI) {
+            results.updateSQI(ewma.sqi);
+        }
+    }
+
+    function earlyComplete() {
+        if (!isRunning || currentPhase < 2) return;
+        complete();
     }
 
     function complete() {
@@ -246,6 +268,7 @@
                 try {
                     results.init();
                     results.showWarmup();
+                    results.setEarlyExitCallback(function() { earlyComplete(); });
                 } catch (e) {
                     console.error('[SCAN-UX] Results init error:', e);
                 }
@@ -281,6 +304,9 @@
             locked = false;
             latestRaw = null;
         },
+
+        /** 提前結束掃描（至少 QUICK 階段） */
+        earlyComplete: function () { earlyComplete(); },
 
         getPhase: function () { return currentPhase; },
         isRunning: function () { return isRunning; }

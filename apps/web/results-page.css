@@ -702,3 +702,204 @@
         max-width: 430px !important;
     }
 }
+
+/* =====================================================================
+   Scan Progress Timer — 掃描進度計時器
+   ===================================================================== */
+#results-page.rp-ready .scan-progress {
+    text-align: center;
+    padding: 4px 0 12px;
+    transition: opacity 0.5s ease;
+}
+
+#results-page.rp-ready .scan-progress.complete {
+    opacity: 0.4;
+}
+
+#results-page.rp-ready .scan-progress-time {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+}
+
+#results-page.rp-ready .scan-progress-elapsed {
+    font-size: 28px;
+    font-weight: 500;
+    color: #ffffff;
+}
+
+#results-page.rp-ready .scan-progress-sep {
+    font-size: 18px;
+    font-weight: 400;
+    color: rgba(142, 142, 147, 0.6);
+    margin: 0 2px;
+}
+
+#results-page.rp-ready .scan-progress-total {
+    font-size: 18px;
+    font-weight: 400;
+    color: rgba(142, 142, 147, 0.6);
+}
+
+#results-page.rp-ready .scan-progress-bar {
+    width: 60%;
+    max-width: 200px;
+    height: 3px;
+    margin: 8px auto 6px;
+    border-radius: 1.5px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+#results-page.rp-ready .scan-progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 1.5px;
+    background: linear-gradient(90deg, #00B4D8 0%, #34C759 40%, #F5A623 80%, #FF453A 100%);
+    transition: width 0.8s ease-out;
+}
+
+#results-page.rp-ready .scan-progress-phase {
+    font-family: var(--font-text);
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(142, 142, 147, 0.8);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+/* =====================================================================
+   Milestone Toast — 階段里程碑通知
+   ===================================================================== */
+#results-page.rp-ready .scan-milestone {
+    position: fixed;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    left: 50%;
+    transform: translateX(-50%) translateY(-80px);
+    z-index: 1000;
+    padding: 12px 24px;
+    border-radius: 16px;
+    border: 1px solid rgba(52, 199, 89, 0.3);
+    background: rgba(28, 28, 30, 0.88);
+    backdrop-filter: blur(24px) saturate(1.4);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    text-align: center;
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+#results-page.rp-ready .scan-milestone.visible {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+#results-page.rp-ready .milestone-text {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    color: #34C759;
+    margin-bottom: 2px;
+}
+
+#results-page.rp-ready .milestone-sub {
+    font-family: var(--font-text);
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+/* =====================================================================
+   Early Exit Button — 提前結束掃描
+   ===================================================================== */
+#results-page.rp-ready .scan-early-exit {
+    display: none;
+    width: 100%;
+    padding: 14px 20px;
+    margin: 0 0 12px;
+    border: 1px solid rgba(0, 180, 216, 0.35);
+    border-radius: 14px;
+    background: rgba(0, 180, 216, 0.12);
+    color: #00B4D8;
+    font-family: var(--font-text);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-align: center;
+    cursor: pointer;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: background 0.2s ease, transform 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#results-page.rp-ready .scan-early-exit:active {
+    background: rgba(0, 180, 216, 0.25);
+    transform: scale(0.98);
+}
+
+/* =====================================================================
+   SQI Quality Badge — 信號品質等級
+   ===================================================================== */
+#results-page.rp-ready .sqi-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 6px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(142, 142, 147, 0.2);
+    background: rgba(142, 142, 147, 0.1);
+    transition: border-color 0.3s ease, background 0.3s ease;
+}
+
+#results-page.rp-ready .sqi-label {
+    font-family: var(--font-text);
+    font-size: 10px;
+    font-weight: 500;
+    color: rgba(142, 142, 147, 0.7);
+    letter-spacing: 0.5px;
+}
+
+#results-page.rp-ready .sqi-grade {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(142, 142, 147, 0.8);
+    transition: color 0.3s ease;
+}
+
+/* SQI Grade Colors */
+#results-page.rp-ready .sqi-badge.sqi-a {
+    border-color: rgba(52, 199, 89, 0.35);
+    background: rgba(52, 199, 89, 0.1);
+}
+#results-page.rp-ready .sqi-badge.sqi-a .sqi-grade {
+    color: #34C759;
+}
+
+#results-page.rp-ready .sqi-badge.sqi-b {
+    border-color: rgba(0, 180, 216, 0.35);
+    background: rgba(0, 180, 216, 0.1);
+}
+#results-page.rp-ready .sqi-badge.sqi-b .sqi-grade {
+    color: #00B4D8;
+}
+
+#results-page.rp-ready .sqi-badge.sqi-c {
+    border-color: rgba(245, 166, 35, 0.35);
+    background: rgba(245, 166, 35, 0.1);
+}
+#results-page.rp-ready .sqi-badge.sqi-c .sqi-grade {
+    color: #F5A623;
+}
+
+#results-page.rp-ready .sqi-badge.sqi-d {
+    border-color: rgba(255, 69, 58, 0.35);
+    background: rgba(255, 69, 58, 0.1);
+}
+#results-page.rp-ready .sqi-badge.sqi-d .sqi-grade {
+    color: #FF453A;
+}
