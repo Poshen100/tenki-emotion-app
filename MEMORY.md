@@ -84,34 +84,34 @@
 - **v3 新增**：Local-first — 使用 encrypted SQLite
 
 ## 上次 Session 結束點
-- **日期**: 2026-04-07
+- **日期**: 2026-04-09
 - **最後完成**:
-  - ✅ git clone 成功到新 workspace
-  - ✅ 讀取 ANTIGRAVITY v2、MEMORY.md、RULES.md
-  - ✅ 接收 Founder 提供的 v3 完整規格書（16 sections）
-  - ✅ 完成衝擊分析（6 大衝擊面）
-  - ✅ 提出 8+2 決策問題，全部由 Founder 確認
-  - ✅ ANTIGRAVITY-v2.md 歸檔至 docs/archive/
-  - ✅ ANTIGRAVITY.md v3.0 重寫完成
-  - ✅ RULES-v3.md 建立完成
-  - ✅ MEMORY.md v3 更新完成
-  - 🔄 Phase A 型別基礎 — 進行中
+  - ✅ 解決 `packages/engine` 所有 imports 錯誤
+  - ✅ 16 個 Test Suites / 229 個 tests 全部 100% 通過
+  - ✅ `@tenki/fdcb` 更名為 `@tenki/scan`，通過所有測試
+  - ✅ Phase A (引擎核心) 完工確認
+  - ✅ 提出 Phase B 基礎建設 Implementation Plan
+  - ✅ Phase B 基礎建設完成 (Domain Layer, Pipeline Integration, Analytics Engine)
 - **下一步**:
-  1. 建立 `packages/engine/src/legacy/` 並搬入 v2 模組
-  2. 建立 v3 scoring types + session types + common types
-  3. 建立 compliance layer + safe copy library
-  4. 更新 shared/ (zone-config, subscription-tiers, design-tokens)
-  5. 建立 feature-flags
-  6. Phase A 單元測試
+  1. 開始實作 Phase C 前端介面（基於最新設計稿）
+  2. 評估是在 `apps/web/` 實作還是直接啟動 React Native/Expo 專案
 
 ## 各 AI 工具的角色分工
 | 工具 | 角色 | 目前使用狀態 |
 |------|------|-------------|
-| Antigravity (Claude Opus 4.6) | 主力代碼生成 + 架構 | ✅ 使用中 |
+| Antigravity (Claude Opus 4.6 / Gemini 3.1 Pro) | 主力代碼生成 + 架構 | ✅ 使用中 |
 | Claude (claude.ai) | 架構決策、代碼 review、文件制定 | ✅ 使用中 |
 | Claude Code | Terminal 任務、Expo init、Native Module | ❌ 等 Mac 到手 |
 
 ---
 
-*Last updated: 2026-04-07 09:58*
-*Updated by: Antigravity (v3.0 architecture transition)*
+## 2026-04-09 Session Update (Phase B Completed)
+
+- Added root `domain/` workspace for Phase B.
+- Implemented canonical scan contracts, policies, and runtime schemas.
+- Implemented unified `scan-pipeline.ts` integrating engine factors with 100% test coverage.
+- Added `analytics/` replay and insight generators per compliance rules.
+- Verified the engine workspace testing successfully.
+
+*Last updated: 2026-04-09 11:32*
+*Updated by: Antigravity (Phase B Backend completion)*
