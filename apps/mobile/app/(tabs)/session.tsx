@@ -40,7 +40,7 @@ function formatTimer(sec: number): string {
 }
 
 export default function SessionScreen() {
-  const { mode, state, elapsedSec, setMode, setState, tick, reset } = useSessionStore();
+  const { mode, state, elapsedSec, setMode, setState, tick, completeSession, reset } = useSessionStore();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Run a 1-second tick while the session is active
@@ -135,7 +135,7 @@ export default function SessionScreen() {
               </Pressable>
               <Pressable
                 style={[styles.secondaryButton, styles.dangerButton]}
-                onPress={() => setState('completed')}
+                onPress={() => completeSession()}
               >
                 <Text style={[styles.secondaryButtonText, styles.dangerText]}>End</Text>
               </Pressable>

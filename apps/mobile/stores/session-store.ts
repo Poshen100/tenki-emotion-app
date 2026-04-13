@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useTimelineStore } from './timeline-store';
 
 type SessionMode = 'health_reset' | 'focus' | 'performance' | 'trader';
 type SessionState = 'draft' | 'configured' | 'precheck' | 'scanning' | 'gated' | 'active' | 'paused' | 'completed' | 'reflection_pending' | 'archived';
@@ -17,10 +18,13 @@ interface SessionStoreState {
   setEdgeScore: (score: number) => void;
   tick: () => void;
   setReflection: (text: string) => void;
+  completeSession: () => void;
   reset: () => void;
 }
 
-export const useSessionStore = create<SessionStoreState>((set) => ({
+let nextSessionId = 1;
+
+export const useSessionStore = create<SessionStoreState>((set, get) => ({
   mode: null,
   state: 'draft',
   gateResult: null,
@@ -33,6 +37,19 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   setEdgeScore: (edgeScore) => set({ edgeScore }),
   tick: () => set((s) => ({ elapsedSec: s.elapsedSec + 1 })),
   setReflection: (reflection) => set({ reflection }),
+  completeSession: () => {
+    const { mode, edgeScore, elapsedSec } = get();
+    if (mode) {
+      useTimelineStore.getState().addSession({
+        id: String(nextSessionId++),
+        mode,
+        edgeScore: edgeScore ?? 0,
+        durationSec: elapsedSec,
+        completedAt: Date.now(),
+      });
+    }
+    set({ state: 'completed' });
+  },
   reset: () =>
     set({
       mode: null,

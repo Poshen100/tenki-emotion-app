@@ -1,7 +1,34 @@
+import { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo, getZoneForScore, zoneLabels, type ZoneName } from '../../theme';
 import { ZoneBadge } from '../../components/ZoneBadge';
+import { useTimelineStore, type CompletedSession } from '../../stores/timeline-store';
+
+const MODE_LABELS: Record<string, string> = {
+  health_reset: 'Health Reset',
+  focus: 'Focus',
+  performance: 'Performance',
+  trader: 'Trader',
+};
+
+/** Format seconds to a human-readable duration. */
+function formatDuration(sec: number): string {
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  return `${min} min`;
+}
+
+/** Format a timestamp to a relative or absolute date string. */
+function formatDate(timestamp: number): string {
+  const now = new Date();
+  const date = new Date(timestamp);
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / 86_400_000);
+  const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (diffDays === 0) return `Today, ${time}`;
+  if (diffDays === 1) return `Yesterday, ${time}`;
+  return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${time}`;
+}
 
 interface SessionEntry {
   id: string;
@@ -16,14 +43,28 @@ interface SessionEntry {
  * Shows past sessions with Edge Scores, zone badges, and trend indicators.
  */
 export default function TimelineScreen() {
-  // Placeholder data — will be replaced by Zustand + SQLite
-  const sessions: SessionEntry[] = [
-    { id: '1', date: 'Today, 9:30 AM', mode: 'Focus', score: 78, duration: '25 min' },
-    { id: '2', date: 'Yesterday, 2:15 PM', mode: 'Trader', score: 52, duration: '45 min' },
-    { id: '3', date: 'Yesterday, 8:00 AM', mode: 'Health Reset', score: 85, duration: '15 min' },
-    { id: '4', date: 'Apr 11, 10:45 AM', mode: 'Performance', score: 34, duration: '30 min' },
-    { id: '5', date: 'Apr 10, 3:00 PM', mode: 'Focus', score: 67, duration: '25 min' },
-  ];
+  const completedSessions = useTimelineStore((s) => s.sessions);
+
+  const sessions: SessionEntry[] = useMemo(
+    () =>
+      completedSessions.map((s) => ({
+        id: s.id,
+        date: formatDate(s.completedAt),
+        mode: MODE_LABELS[s.mode] ?? s.mode,
+        score: s.edgeScore,
+        duration: formatDuration(s.durationSec),
+      })),
+    [completedSessions],
+  );
+
+  // Compute 7-day average
+  const sevenDayAvg = useMemo(() => {
+    const cutoff = Date.now() - 7 * 86_400_000;
+    const recent = completedSessions.filter((s) => s.completedAt >= cutoff);
+    if (recent.length === 0) return '—';
+    const avg = Math.round(recent.reduce((sum, s) => sum + s.edgeScore, 0) / recent.length);
+    return String(avg);
+  }, [completedSessions]);
 
   const isEmpty = sessions.length === 0;
 
@@ -36,8 +77,8 @@ export default function TimelineScreen() {
 
       {/* Trend Summary Cards */}
       <View style={styles.trendRow}>
-        <TrendCard label="7-day avg" value="—" />
-        <TrendCard label="Sessions" value={`${sessions.length}`} />
+        <TrendCard label="7-day avg" value={sevenDayAvg} />
+        <TrendCard label="Sessions" value={sessions.length > 0 ? `${sessions.length}` : '—'} />
         <TrendCard label="Streak" value="—" />
       </View>
 
