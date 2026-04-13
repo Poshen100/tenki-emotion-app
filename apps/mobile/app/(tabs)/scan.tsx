@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo } from '../../theme';
@@ -6,9 +5,9 @@ import { QualityMeter } from '../../components/QualityMeter';
 import { ReadinessChecklist } from '../../components/ReadinessChecklist';
 import { StatusPill } from '../../components/StatusPill';
 import { ScanButton } from '../../components/ScanButton';
+import { useScanStore } from '../../stores/scan-store';
 
 type ScanType = 'quick' | 'deep' | 'baseline';
-type ScanUIState = 'idle' | 'searching' | 'detecting' | 'locked' | 'scanning' | 'processing' | 'results' | 'error';
 
 const SCAN_TYPES: { key: ScanType; label: string; duration: string }[] = [
   { key: 'quick', label: 'Quick', duration: '30s' },
@@ -23,16 +22,13 @@ const SCAN_TYPES: { key: ScanType; label: string; duration: string }[] = [
  * Layout: ScanTypeSwitcher → CameraFeed/FHZ → QualityMeters → ReadinessChecklist → Actions
  */
 export default function ScanScreen() {
-  const [scanType, setScanType] = useState<ScanType>('quick');
-  const [uiState, setUiState] = useState<ScanUIState>('idle');
+  const { scanType, setScanType, uiState, setUiState, metrics } = useScanStore();
 
-  // Placeholder metrics — will be driven by camera pipeline + Zustand store
-  const metrics = { coverage: 0, stability: 0, signalQuality: 0 };
   const checklist = [
-    { key: 'signal', label: 'Signal quality', ready: false },
-    { key: 'coverage', label: 'Coverage', ready: false },
-    { key: 'stability', label: 'Stability', ready: false, skippable: true },
-    { key: 'camera', label: 'Camera ready', ready: false },
+    { key: 'signal', label: 'Signal quality', ready: metrics.signalQuality >= 65 },
+    { key: 'coverage', label: 'Coverage', ready: metrics.coverage >= 65 },
+    { key: 'stability', label: 'Stability', ready: metrics.stability >= 40, skippable: true },
+    { key: 'camera', label: 'Camera ready', ready: uiState !== 'idle' && uiState !== 'error' },
   ];
 
   const canStart = uiState === 'locked';
