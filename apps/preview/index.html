@@ -132,32 +132,78 @@
       </div>
     </section>
 
-    <!-- Step 4: Calibration Scan -->
-    <section id="step-scan" class="step">
+    <!-- Step 4: Calibration Scan (Ceremony Mode) -->
+    <section id="step-scan" class="step scan-step">
+      <!-- Ceremony backdrop (dims ambient UI) -->
+      <div class="scan-backdrop" id="scan-backdrop"></div>
+
+      <!-- Particle field (converge → orbit → burst) -->
+      <canvas class="scan-particles" id="scan-particles"></canvas>
+
+      <!-- Golden flash overlay for climax -->
+      <div class="scan-flash" id="scan-flash"></div>
+
       <div class="step-content scan-content">
-        <h1 class="step-headline scan-headline">正在學習你的節奏</h1>
-        
+        <!-- Frosted glass dialog (Phase 1 gathering) -->
+        <div class="ceremony-dialog" id="ceremony-dialog">
+          <span class="ceremony-dialog-dot"></span>
+          <span class="ceremony-dialog-text" id="ceremony-dialog-text">正在凝聚你的生理基線</span>
+        </div>
+
+        <!-- Finger target: outline + pulsing halo -->
         <div class="scan-ring-container">
+          <div class="finger-halo" id="finger-halo" aria-hidden="true"></div>
+          <div class="finger-halo-outer" id="finger-halo-outer" aria-hidden="true"></div>
           <svg class="scan-ring" viewBox="0 0 200 200">
             <circle class="scan-ring-bg" cx="100" cy="100" r="88" />
-            <circle class="scan-ring-progress" id="scan-progress-ring" cx="100" cy="100" r="88" 
+            <circle class="scan-ring-progress" id="scan-progress-ring" cx="100" cy="100" r="88"
               stroke-dasharray="553" stroke-dashoffset="553" />
           </svg>
           <div class="scan-ring-center">
-            <div class="scan-timer" id="scan-timer">30</div>
+            <div class="scan-timer scan-timer-metal" id="scan-timer">45</div>
             <div class="scan-unit">秒</div>
+          </div>
+        </div>
+
+        <!-- Quality + signal telemetry (Phase 2) -->
+        <div class="scan-telemetry" id="scan-telemetry">
+          <div class="quality-badge quality-weak" id="quality-badge">
+            <span class="quality-dot"></span>
+            <span class="quality-label" id="quality-label">WEAK</span>
+          </div>
+          <div class="signal-meter">
+            <span class="signal-meter-label">有效訊號</span>
+            <div class="signal-meter-bar">
+              <div class="signal-meter-fill" id="signal-meter-fill"></div>
+            </div>
+          </div>
+          <div class="ppg-waveform" id="ppg-waveform">
+            <span class="ppg-bar"></span>
+            <span class="ppg-bar"></span>
+            <span class="ppg-bar"></span>
+            <span class="ppg-bar"></span>
+            <span class="ppg-bar"></span>
+            <span class="ppg-bar"></span>
+            <span class="ppg-bar"></span>
+            <span class="ppg-bar"></span>
           </div>
         </div>
 
         <!-- Single status message (UX Standard 2) -->
         <div class="scan-status" id="scan-status">準備中...</div>
-        <p class="scan-note">請保持不動</p>
+        <p class="scan-note" id="scan-note">請保持不動</p>
+
+        <!-- Early-complete badge (≥30s & rolling mean SQI ≥0.85) -->
+        <div class="ready-indicator" id="ready-indicator">
+          <span class="ready-indicator-check">✓</span>
+          <span>READY — 訊號品質優良，即將完成</span>
+        </div>
       </div>
     </section>
 
     <!-- Step 5: Baseline Result -->
     <section id="step-result" class="step">
-      <div class="step-content">
+      <div class="step-content summary-card" id="summary-card">
         <div class="result-icon success-bounce" id="result-icon">✓</div>
         <h1 class="step-headline" id="result-headline">基線已建立</h1>
         <p class="step-body result-body" id="result-body">
