@@ -199,29 +199,56 @@
 .onb-readiness-msg {
     font-size: 16px; font-weight: 600; color: #fff;
     padding: 8px; transition: all 0.3s ease;
+    min-height: 40px;
+    display: flex; align-items: center; justify-content: center;
 }
-.onb-grade {
-    font-size: 36px; font-weight: 200; color: #00B4D8;
-    opacity: 0; transition: opacity 0.5s ease;
-}
-.onb-grade.onb-grade-visible { opacity: 1; }
 
 /* ── Scan Ring ── */
 .onb-scan-inner { justify-content: center; }
 .onb-scan-title { font-size: 20px; }
-.onb-ring-container { position: relative; width: 200px; height: 200px; margin: 20px 0; }
+.onb-ring-container { position: relative; width: 200px; height: 200px; margin: 16px 0; }
 .onb-ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .onb-ring-bg { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 6; }
-.onb-ring-progress { fill: none; stroke: #00B4D8; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.onb-ring-progress { fill: none; stroke: #00B4D8; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 1s linear; filter: drop-shadow(0 0 12px rgba(0,180,216,0.4)); }
 .onb-ring-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
 .onb-timer {
     font-size: 56px; font-weight: 200; font-variant-numeric: tabular-nums;
     font-family: -apple-system, system-ui, sans-serif;
     color: #fff;
+    animation: onb-timer-breathe 2s ease-in-out infinite;
+}
+@keyframes onb-timer-breathe {
+    0%,100% { opacity: 0.9; }
+    50% { opacity: 1; }
 }
 .onb-timer-unit { font-size: 14px; color: rgba(255,255,255,0.45); margin-top: -4px; }
 .onb-scan-status { font-size: 18px; font-weight: 600; color: #00B4D8; min-height: 28px; transition: all 0.4s ease; }
-.onb-scan-note { font-size: 13px; color: rgba(255,255,255,0.3); }
+
+/* ── PPG Waveform (scan liveness indicator) ── */
+.onb-ppg-container {
+    width: 280px;
+    height: 50px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(0,180,216,0.1);
+    margin: 4px 0;
+}
+#onb-ppg-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.onb-scan-note {
+    font-size: 13px;
+    color: rgba(255,255,255,0.3);
+    animation: onb-breathe 3s ease-in-out infinite;
+}
+@keyframes onb-breathe {
+    0%,100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+}
 
 /* ── Result ── */
 .onb-result-icon {
