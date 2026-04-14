@@ -1,11 +1,14 @@
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, radius, typography as typo } from '../../theme';
+import { useRouter } from 'expo-router';
+import { colors, spacing, radius, typography as typo, getZoneForScore } from '../../theme';
 import { QualityMeter } from '../../components/QualityMeter';
 import { ReadinessChecklist } from '../../components/ReadinessChecklist';
 import { StatusPill } from '../../components/StatusPill';
 import { ScanButton } from '../../components/ScanButton';
+import { ZoneBadge } from '../../components/ZoneBadge';
 import { useScanStore } from '../../stores/scan-store';
+import { startMockScan, cancelMockScan } from '../../lib/mock-scan';
 
 type ScanType = 'quick' | 'deep' | 'baseline';
 
@@ -22,7 +25,8 @@ const SCAN_TYPES: { key: ScanType; label: string; duration: string }[] = [
  * Layout: ScanTypeSwitcher → CameraFeed/FHZ → QualityMeters → ReadinessChecklist → Actions
  */
 export default function ScanScreen() {
-  const { scanType, setScanType, uiState, setUiState, metrics } = useScanStore();
+  const router = useRouter();
+  const { scanType, setScanType, uiState, metrics, lastResult, reset } = useScanStore();
 
   const checklist = [
     { key: 'signal', label: 'Signal quality', ready: metrics.signalQuality >= 65 },
@@ -31,8 +35,27 @@ export default function ScanScreen() {
     { key: 'camera', label: 'Camera ready', ready: uiState !== 'idle' && uiState !== 'error' },
   ];
 
-  const canStart = uiState === 'locked';
+  const isIdle = uiState === 'idle';
+  const isBusy = !isIdle && uiState !== 'results' && uiState !== 'error';
   const activeType = SCAN_TYPES.find((t) => t.key === scanType)!;
+
+  const handlePrimaryPress = () => {
+    if (uiState === 'results') {
+      reset();
+      router.push('/');
+    } else if (isBusy) {
+      cancelMockScan();
+    } else {
+      startMockScan(scanType);
+    }
+  };
+
+  const primaryLabel =
+    uiState === 'results'
+      ? 'View on Today'
+      : isBusy
+        ? 'Cancel'
+        : `Start ${activeType.label} Scan`;
 
   const instructionText = {
     idle: 'Select a scan type and place your finger on the rear camera.',
@@ -101,13 +124,25 @@ export default function ScanScreen() {
           <ReadinessChecklist items={checklist} />
         </View>
 
+        {/* Results */}
+        {uiState === 'results' && lastResult && (
+          <View style={styles.resultCard}>
+            <Text style={[typo.label, styles.sectionLabel]}>RESULT</Text>
+            <View style={styles.resultRow}>
+              <Text style={[styles.resultScore, { color: getZoneForScore(lastResult.edgeScore).bg }]}>
+                {lastResult.edgeScore}
+              </Text>
+              <ZoneBadge score={lastResult.edgeScore} />
+            </View>
+            <Text style={typo.caption}>
+              Scan duration: {lastResult.duration}s
+            </Text>
+          </View>
+        )}
+
         {/* Action Buttons */}
         <View style={styles.actions}>
-          <ScanButton
-            label={`Start ${activeType.label} Scan`}
-            onPress={() => setUiState('scanning')}
-            disabled={!canStart}
-          />
+          <ScanButton label={primaryLabel} onPress={handlePrimaryPress} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -205,5 +240,21 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: spacing.lg,
     alignItems: 'center',
+  },
+  resultCard: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  resultScore: {
+    fontSize: 48,
+    fontWeight: '200',
   },
 });
