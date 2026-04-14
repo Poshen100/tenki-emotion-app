@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo } from '../../theme';
 import { ScanButton } from '../../components/ScanButton';
 import { useSessionStore } from '../../stores/session-store';
+import { startMockPrecheck, cancelMockSessionProgress } from '../../lib/mock-session';
 
 type SessionMode = 'health_reset' | 'focus' | 'performance' | 'trader';
 type SessionState = 'draft' | 'configured' | 'precheck' | 'scanning' | 'gated' | 'active' | 'paused' | 'completed' | 'reflection_pending' | 'archived';
@@ -58,7 +59,12 @@ export default function SessionScreen() {
   };
 
   const handleStartPrecheck = () => {
-    setState('precheck');
+    startMockPrecheck();
+  };
+
+  const handleReset = () => {
+    cancelMockSessionProgress();
+    reset();
   };
 
   return (
@@ -119,7 +125,17 @@ export default function SessionScreen() {
           </View>
         )}
 
-        {/* Active session placeholder */}
+        {/* Precheck / scanning / gated — transient pipeline states */}
+        {(state === 'precheck' || state === 'scanning' || state === 'gated') && (
+          <View style={styles.transientSection}>
+            <Text style={typo.headline}>{STATE_LABELS[state]}</Text>
+            <Text style={[typo.caption, styles.reflectionPrompt]}>
+              Hold steady while we prepare your session.
+            </Text>
+          </View>
+        )}
+
+        {/* Active session */}
         {(state === 'active' || state === 'paused') && (
           <View style={styles.activeSection}>
             <Text style={typo.timerDisplay}>{formatTimer(elapsedSec)}</Text>
@@ -162,7 +178,7 @@ export default function SessionScreen() {
         {state !== 'draft' && state !== 'active' && state !== 'paused' && (
           <Pressable
             style={styles.resetButton}
-            onPress={() => reset()}
+            onPress={handleReset}
           >
             <Text style={styles.resetText}>Start New Session</Text>
           </Pressable>
@@ -297,6 +313,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.lg,
     marginTop: spacing.xl,
+  },
+  transientSection: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xl,
+    padding: spacing.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
   },
   sessionActions: {
     flexDirection: 'row',
