@@ -4,6 +4,9 @@
     "outputDirectory": ".",
     "framework": null,
     "rewrites": [
+        { "source": "/preview", "destination": "/apps/preview/index.html" },
+        { "source": "/preview/", "destination": "/apps/preview/index.html" },
+        { "source": "/preview/(.*)", "destination": "/apps/preview/$1" },
         { "source": "/mobile", "destination": "/apps/mobile/dist-web/index.html" },
         { "source": "/mobile/", "destination": "/apps/mobile/dist-web/index.html" },
         { "source": "/mobile/(.*)", "destination": "/apps/mobile/dist-web/$1" },
