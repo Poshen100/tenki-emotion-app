@@ -2284,9 +2284,11 @@
             var overlay = document.getElementById('tenki-onboarding');
             if (!overlay) return;
 
-            // Only show on first visit
+            // Only show on first visit (AND if baseline onboarding is not active)
             try {
                 if (localStorage.getItem(STORAGE_KEY)) return;
+                // If baseline onboarding is pending, defer this modal
+                if (!localStorage.getItem('tenki_baseline_established')) return;
             } catch(e) {}
 
             // Show modal
