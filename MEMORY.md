@@ -156,3 +156,28 @@
 
 *Last updated: 2026-04-13*
 *Updated by: Claude Code (Phase C Store wiring)*
+
+---
+
+## 2026-04-14 Session Update (Phase C Mock Flow Simulators)
+
+- Added `apps/mobile/lib/mock-scan.ts` — simulates camera pipeline end-to-end:
+  - Progresses through 8 UI states (searching → detecting → locked → scanning → processing → results)
+  - Ramps metrics realistically during each phase
+  - Generates plausible edge score tied to signal quality
+  - Writes result into `useScanStore.lastResult`
+- Added `apps/mobile/lib/mock-session.ts` — simulates session pre-check flow:
+  - Auto-progresses precheck → scanning → gated → active
+  - Mock gate evaluation picks edgeScore, sets GateResult
+  - Unblocks the real 1s timer tick so elapsed time is visible
+- Wired Scan screen primary button to idle/busy/results tri-state:
+  - idle → start mock scan
+  - busy → cancel
+  - results → navigate to Today
+- Added result card showing score + zone badge when scan completes
+- Added transient state card to Session screen for precheck/scanning/gated
+- All 403 tests pass; mobile TypeScript compiles clean
+- Mobile app is now fully testable end-to-end without native camera
+
+*Last updated: 2026-04-14*
+*Updated by: Claude Code (Phase C Mock simulators)*
