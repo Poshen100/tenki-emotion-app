@@ -93,8 +93,11 @@
   - ✅ 提出 Phase B 基礎建設 Implementation Plan
   - ✅ Phase B 基礎建設完成 (Domain Layer, Pipeline Integration, Analytics Engine)
 - **下一步**:
-  1. 開始實作 Phase C 前端介面（基於最新設計稿）
-  2. 評估是在 `apps/web/` 實作還是直接啟動 React Native/Expo 專案
+  1. Integrate `packages/engine` scoring into Today/Scan screens (cross-workspace imports)
+  2. Implement camera pipeline for FHZ (requires native build)
+  3. Add Skia-based EdgeScoreRing (replace View placeholder)
+  4. Add react-native-reanimated animations
+  5. Add SQLite persistence for timeline store
 
 ## 各 AI 工具的角色分工
 | 工具 | 角色 | 目前使用狀態 |
@@ -115,3 +118,66 @@
 
 *Last updated: 2026-04-09 11:32*
 *Updated by: Antigravity (Phase B Backend completion)*
+
+---
+
+## 2026-04-13 Session Update (Phase C Frontend Initialized)
+
+- Initialized Expo SDK 54 project in `apps/mobile/` with TypeScript strict mode
+- Configured Expo Router (file-based routing) with 5-tab bottom navigation
+- Created theme adapter mirroring `packages/shared/src/design-tokens.ts`
+- Built all 5 screens:
+  - **Today**: EdgeScoreRing, ZoneBadge, guidance card, stats grid
+  - **Scan**: FHZ layout with QualityMeter, StatusPill, ReadinessChecklist, ScanTypeSwitcher
+  - **Session**: 4 mode selector, 10-state lifecycle progress, self-assessment, timer
+  - **Timeline**: Session history FlatList, trend summary cards, empty state
+  - **Lab**: Tools (Breathing, Pattern, Insights, Reminders), Settings, Privacy
+- Created reusable components: EdgeScoreRing, ZoneBadge, ScanButton, QualityMeter, StatusPill, ReadinessChecklist
+- Set up 4 Zustand stores: scanStore, sessionStore, userStore, subscriptionStore
+- TypeScript compiles clean, all 403 existing tests still pass
+- Decision: React Native/Expo (not apps/web/) for Phase C mobile app
+
+*Last updated: 2026-04-13*
+*Updated by: Claude Code (Phase C Frontend initialization)*
+
+---
+
+## 2026-04-13 Session Update (Phase C Store Wiring)
+
+- Wired all 5 Zustand stores into their respective screens:
+  - **Scan screen**: `useScanStore` replaces local useState for scanType, uiState, metrics; readiness checklist derived from live metrics
+  - **Session screen**: `useSessionStore` replaces local useState for mode/state; real elapsed timer with 1s interval tick; `completeSession()` records to timeline
+  - **Today screen**: `useScanStore.lastResult` drives score display; `useUserStore.hasBaseline` guides new users; empty state when no scans exist
+  - **Timeline screen**: New `useTimelineStore` for completed session history; computed 7-day average; formatted dates/durations
+  - **Lab screen**: `useSubscriptionStore` for tier-based feature gating; "Premium" badge on locked tools; dynamic subscription label
+- Created `timeline-store.ts` — 5th Zustand store for completed session records
+- Updated `session-store.ts` with `completeSession()` action that cross-store records to timeline
+- TypeScript compiles clean (mobile), all 403 tests pass
+
+*Last updated: 2026-04-13*
+*Updated by: Claude Code (Phase C Store wiring)*
+
+---
+
+## 2026-04-14 Session Update (Phase C Mock Flow Simulators)
+
+- Added `apps/mobile/lib/mock-scan.ts` — simulates camera pipeline end-to-end:
+  - Progresses through 8 UI states (searching → detecting → locked → scanning → processing → results)
+  - Ramps metrics realistically during each phase
+  - Generates plausible edge score tied to signal quality
+  - Writes result into `useScanStore.lastResult`
+- Added `apps/mobile/lib/mock-session.ts` — simulates session pre-check flow:
+  - Auto-progresses precheck → scanning → gated → active
+  - Mock gate evaluation picks edgeScore, sets GateResult
+  - Unblocks the real 1s timer tick so elapsed time is visible
+- Wired Scan screen primary button to idle/busy/results tri-state:
+  - idle → start mock scan
+  - busy → cancel
+  - results → navigate to Today
+- Added result card showing score + zone badge when scan completes
+- Added transient state card to Session screen for precheck/scanning/gated
+- All 403 tests pass; mobile TypeScript compiles clean
+- Mobile app is now fully testable end-to-end without native camera
+
+*Last updated: 2026-04-14*
+*Updated by: Claude Code (Phase C Mock simulators)*
