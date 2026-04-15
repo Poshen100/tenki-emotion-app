@@ -526,6 +526,13 @@ function enterClimax(reason) {
   setTimeout(() => enterTransition(), CLIMAX_MS);
 }
 
+// ─────────────────────────────────────────────
+// Cinematic hand-off (2s total)
+//   0.00–0.30s  Brightness +20%, particles radiate, card fades in
+//   0.30–1.20s  Golden flash + card slide-up / 1.05× scale
+//   1.20–2.00s  Brightness settles, particles converge on result icon
+// ─────────────────────────────────────────────
+
 function enterTransition() {
   state.scanPhase = 'transition';
   state.isScanning = false;
@@ -536,15 +543,148 @@ function enterTransition() {
     scanEl.classList.add('phase-transition');
   }
 
-  // Placeholder — Todo 3 implements the cinematic hand-off.
-  goToStep(4);
+  // Golden flash CSS keyframe fires via .phase-transition class.
+  // Now orchestrate Summary Card entrance in lockstep with particles.
+
+  // Prepare Summary Card in the background at t=0 so its slide-in
+  // synchronises with the particle burst already in flight.
+  const resultEl = document.getElementById('step-result');
+  const card = document.getElementById('summary-card');
+  if (resultEl && card) {
+    // Snap the result step to visible without its default 0.5s fade —
+    // the card runs its own cinematic entrance inline.
+    resultEl.style.transition = 'none';
+    resultEl.classList.add('active');
+    card.classList.remove('summary-card-locked-in');
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(40px) scale(0.94)';
+  }
+
+  // Digits start masked — revealed at the climax beat (~1.0s into transition).
+  showBaselineResult({ maskDigits: true });
+
+  // Beat 1 (0.30s) — card begins slide-up + scale to 1.05
+  setTimeout(() => {
+    if (card) {
+      card.style.transition =
+        'opacity 0.6s ease, transform 0.9s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(-4px) scale(1.05)';
+    }
+  }, 300);
+
+  // Beat 2 (1.00s) — reveal the metric digits with a tick animation.
+  //   Matches the spec: "TEI 數字先顯示為「–」 → 在轉場結束時瞬間變成最終數值"
+  //   NOTE: project vocabulary is "Decision Edge Score" (CLAUDE.md), so the
+  //   custom event payload uses `score` rather than the deprecated `tei` key.
+  setTimeout(() => {
+    revealBaselineDigits();
+    // Strong completion haptic
+    if (navigator.vibrate) {
+      try { navigator.vibrate([30, 60, 120]); } catch (_) {}
+    }
+    // Consumers (e.g. future result screen) listen for this hand-off.
+    const score = estimateEdgeScore();
+    document.dispatchEvent(new CustomEvent('tenki:baseline-to-result', {
+      detail: { score, zone: zoneFor(score), rollingSqi: state.rollingSqi },
+    }));
+  }, 1000);
+
+  // Beat 3 (1.20s) — card settles to 1.00×, particles decelerate + fade,
+  // and the ambient brightness returns to normal.
+  setTimeout(() => {
+    if (card) {
+      card.style.transform = 'translateY(0) scale(1)';
+    }
+    if (scanEl) scanEl.classList.add('phase-transition-settle');
+    if (state.particleSystem) state.particleSystem.converge();
+  }, 1200);
+
+  // t=2.0s — full hand-off. Tear down the scan step, stop particles,
+  // leave result step active with step indicator synced.
+  setTimeout(() => {
+    if (state.particleSystem) state.particleSystem.stop();
+    if (state.scanRAF) cancelAnimationFrame(state.scanRAF);
+
+    const scanSection = document.getElementById('step-scan');
+    if (scanSection) {
+      scanSection.classList.remove(
+        'active',
+        'phase-gather',
+        'phase-accumulate',
+        'phase-climax',
+        'phase-final',
+        'phase-transition',
+        'phase-transition-settle'
+      );
+    }
+    // Finalise navigation state (updates dots + currentStep).
+    state.currentStep = 4;
+    updateStepDots(4);
+    if (card) card.classList.add('summary-card-locked-in');
+  }, 2000);
+}
+
+// ─────────────────────────────────────────────
+// Decision Edge Score estimate from SQI + HRV stand-in
+// ─────────────────────────────────────────────
+
+function estimateEdgeScore() {
+  // Lightweight stand-in (0–100). Real engine lives in packages/engine.
+  const sqi = state.rollingSqi || 0.6;
+  const hrvNorm = Math.min(1, (state.baseline.hrv.mean || 45) / 80);
+  const score = Math.round((sqi * 0.6 + hrvNorm * 0.4) * 100);
+  return Math.max(0, Math.min(100, score));
+}
+
+function zoneFor(score) {
+  if (score >= 70) return 'clear';
+  if (score >= 40) return 'neutral';
+  return 'strain';
+}
+
+function revealBaselineDigits() {
+  const hr = state.baseline.hr;
+  const hrv = state.baseline.hrv;
+  const rr = state.baseline.rr;
+
+  const hrEl = document.getElementById('metric-hr');
+  const hrvEl = document.getElementById('metric-hrv');
+  const rrEl = document.getElementById('metric-rr');
+
+  if (hrEl) {
+    const low = Math.round(hr.mean - hr.std);
+    const high = Math.round(hr.mean + hr.std);
+    hrEl.textContent = `${low}-${high} BPM`;
+    hrEl.classList.add('digit-snap');
+  }
+  if (hrvEl) {
+    hrvEl.textContent = `${Math.round(hrv.mean)} ms`;
+    hrvEl.classList.add('digit-snap');
+  }
+  if (rrEl) {
+    rrEl.textContent = `${Math.round(rr.mean)} 次/分`;
+    rrEl.classList.add('digit-snap');
+  }
+
+  // Confidence text keyed to rolling SQI
+  const confText = document.getElementById('confidence-text');
+  if (confText) {
+    const sqi = state.rollingSqi;
+    confText.textContent =
+      sqi >= 0.85 ? '數據品質：優良' :
+      sqi >= 0.70 ? '數據品質：良好' :
+      sqi >= 0.55 ? '數據品質：普通' : '數據品質：勉強';
+  }
 }
 
 // ─────────────────────────────────────────────
 // Step 5: Baseline Result
 // ─────────────────────────────────────────────
 
-function showBaselineResult() {
+function showBaselineResult(opts) {
+  const maskDigits = !!(opts && opts.maskDigits);
+
   const hrEl = document.getElementById('metric-hr');
   const hrvEl = document.getElementById('metric-hrv');
   const rrEl = document.getElementById('metric-rr');
@@ -553,21 +693,25 @@ function showBaselineResult() {
   const hrv = state.baseline.hrv;
   const rr = state.baseline.rr;
 
-  if (hrEl) {
-    const low = Math.round(hr.mean - hr.std);
-    const high = Math.round(hr.mean + hr.std);
-    hrEl.textContent = `${low}-${high} BPM`;
-  }
-  if (hrvEl) {
-    hrvEl.textContent = `${Math.round(hrv.mean)} ms`;
-  }
-  if (rrEl) {
-    rrEl.textContent = `${Math.round(rr.mean)} 次/分`;
+  if (maskDigits) {
+    // Digits appear as "–" during the cinematic entrance and snap to
+    // their final values at the ~1.0s climax beat (see enterTransition).
+    if (hrEl) hrEl.textContent = '– BPM';
+    if (hrvEl) hrvEl.textContent = '– ms';
+    if (rrEl) rrEl.textContent = '– 次/分';
+  } else {
+    if (hrEl) {
+      const low = Math.round(hr.mean - hr.std);
+      const high = Math.round(hr.mean + hr.std);
+      hrEl.textContent = `${low}-${high} BPM`;
+    }
+    if (hrvEl) hrvEl.textContent = `${Math.round(hrv.mean)} ms`;
+    if (rrEl) rrEl.textContent = `${Math.round(rr.mean)} 次/分`;
   }
 
-  // Animate confidence badge
+  // Confidence badge (final text written again in revealBaselineDigits)
   const confText = document.getElementById('confidence-text');
-  if (confText) confText.textContent = '數據品質：良好';
+  if (confText && !maskDigits) confText.textContent = '數據品質：良好';
 
   // Animate result icon
   const icon = document.getElementById('result-icon');
@@ -577,10 +721,12 @@ function showBaselineResult() {
     icon.style.animation = 'successBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
   }
 
-  // Counter animation for metrics
-  animateCounter(hrEl, 0, Math.round(hr.mean), 'BPM', 800);
-  animateCounter(hrvEl, 0, Math.round(hrv.mean), 'ms', 800);
-  animateCounter(rrEl, 0, Math.round(rr.mean), '次/分', 800);
+  // Counter animation only for direct-entry (non-cinematic) path
+  if (!maskDigits) {
+    animateCounter(hrEl, 0, Math.round(hr.mean), 'BPM', 800);
+    animateCounter(hrvEl, 0, Math.round(hrv.mean), 'ms', 800);
+    animateCounter(rrEl, 0, Math.round(rr.mean), '次/分', 800);
+  }
 }
 
 function animateCounter(el, from, to, unit, duration) {
@@ -733,6 +879,15 @@ function startParticleSystem() {
         p.x += p.vx;
         p.y += p.vy;
         p.life -= 0.012;
+      } else if (mode === 'converge-out') {
+        // Final beat: decelerate and fade toward zero over ~800ms
+        if (!p.fadeStart) p.fadeStart = now;
+        p.vx *= 0.92;
+        p.vy *= 0.92;
+        p.x += p.vx;
+        p.y += p.vy;
+        const fadeT = (now - p.fadeStart) / 800;
+        p.life = Math.max(0, 1 - fadeT);
       }
 
       const a = Math.max(0, p.alpha * p.life);
@@ -780,6 +935,14 @@ function startParticleSystem() {
     orbit() {
       mode = 'orbit';
       modeStart = performance.now();
+    },
+    // Beat 3 of cinematic transition: particles decelerate + fade out
+    // over ~800ms so the Summary Card can own the frame.
+    converge() {
+      mode = 'converge-out';
+      modeStart = performance.now();
+      const now = performance.now();
+      for (const p of particles) p.fadeStart = now;
     },
   };
 }
