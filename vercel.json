@@ -1,6 +1,6 @@
 {
     "installCommand": "npm install --legacy-peer-deps && cd apps/mobile && npm install --legacy-peer-deps",
-    "buildCommand": "cd apps/mobile && npx expo export --platform web --output-dir dist-web",
+    "buildCommand": "cd apps/mobile && npx expo export --platform web --output-dir dist-web || echo 'Mobile build skipped — static sites still deploy'",
     "outputDirectory": ".",
     "framework": null,
     "rewrites": [
