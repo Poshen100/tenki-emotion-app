@@ -383,13 +383,13 @@ function tickCalibration() {
   // ── Status message (single-line, UX Standard 2) ──
   if (statusEl && state.scanPhase !== 'climax' && state.scanPhase !== 'final') {
     if (elapsedSec < 3) {
-      statusEl.textContent = '凝聚能量中...';
-    } else if (elapsedSec < 10) {
-      statusEl.textContent = '讀取中，保持不動';
-    } else if (elapsedSec < 20) {
-      statusEl.textContent = '很好，繼續保持';
+      statusEl.textContent = '能量凝聚中...';
+    } else if (elapsedSec < 8) {
+      statusEl.textContent = 'PPG 訊號採集中…';
+    } else if (elapsedSec < 18) {
+      statusEl.textContent = '能量正在快速凝聚...';
     } else if (elapsedSec < state.scanEarliestComplete) {
-      statusEl.textContent = '穩定累積中...';
+      statusEl.textContent = '品質越好，精準度越高';
     } else {
       statusEl.textContent = '快好了，再堅持一下';
     }
@@ -475,6 +475,19 @@ function updateSignalTelemetry(elapsedSec) {
       badge.classList.add(`quality-${tier}`);
       label.textContent = tier.toUpperCase();
     }
+
+    // Drive finger silhouette + halo glow intensity via data attribute
+    const scanEl = document.getElementById('step-scan');
+    if (scanEl) scanEl.dataset.sqi = tier;
+
+    // Update ceremony dialog sub-text to match quality level
+    const subEl = document.getElementById('ceremony-dialog-sub');
+    if (subEl) {
+      if (tier === 'excellent') subEl.textContent = '手指已完全覆蓋 ✓ — 能量正在快速凝聚';
+      else if (tier === 'good') subEl.textContent = '訊號良好 — 繼續保持不動';
+      else if (tier === 'fair') subEl.textContent = 'PPG 訊號採集中… 品質越好越精準';
+      else subEl.textContent = '請將食指完全覆蓋前鏡頭';
+    }
   }
 
   // ── Signal meter fill ──
@@ -512,7 +525,9 @@ function enterClimax(reason) {
     statusEl.style.color = '#6fe08a';
   }
   if (noteEl) noteEl.textContent = '';
-  if (dialogTextEl) dialogTextEl.textContent = '基線凝聚完成 ✨';
+  if (dialogTextEl) dialogTextEl.textContent = '基線凝聚完成！你的能量已完全覺醒 ✨';
+  const subEl = document.getElementById('ceremony-dialog-sub');
+  if (subEl) subEl.textContent = '';
 
   // Trigger particle outward burst
   if (state.particleSystem) state.particleSystem.burst();

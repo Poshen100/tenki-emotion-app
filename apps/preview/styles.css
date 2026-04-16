@@ -470,9 +470,10 @@ body {
 
 .scan-ring-container {
   position: relative;
-  width: 200px;
-  height: 200px;
-  margin: var(--sp-lg) 0;
+  width: 220px;
+  height: 220px;
+  margin: var(--sp-md) 0;
+  margin-bottom: 52px; /* Room for timer positioned below ring */
 }
 
 .scan-ring {
@@ -495,26 +496,30 @@ body {
   transition: stroke-dashoffset 1s linear;
 }
 
+/* Timer sits below the ring, not on top of the finger */
 .scan-ring-center {
   position: absolute;
-  top: 50%;
+  bottom: -44px;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   text-align: center;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
 }
 
 .scan-timer {
-  font-size: 56px;
+  font-size: 44px;
   font-weight: 200;
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
+  line-height: 1;
 }
 
 .scan-unit {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-secondary);
-  margin-top: -4px;
 }
 
 .scan-status {
@@ -807,25 +812,33 @@ body {
   z-index: 2;
 }
 
-/* ── Frosted glass ceremony dialog ── */
+/* ── Frosted glass ceremony dialog — 極致磨砂液態玻璃 ── */
 .ceremony-dialog {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 18px;
-  border-radius: var(--r-full);
-  background: rgba(28, 28, 30, 0.45);
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  gap: 12px;
+  padding: 14px 22px;
+  border-radius: 28px;
+  /* Heavy frosted glass: milky white + light purple tint */
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(180, 160, 220, 0.08) 50%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  /* Edge refraction highlight + inner glow */
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(0, 180, 216, 0.08);
   color: var(--text-primary);
   opacity: 0;
-  transform: translateY(-6px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  transform: translateY(-8px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
 }
 
 .ceremony-dialog.visible {
@@ -833,41 +846,118 @@ body {
   transform: translateY(0);
 }
 
+.ceremony-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ceremony-dialog-text {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.ceremony-dialog-sub {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
 .ceremony-dialog-dot {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--primary);
-  box-shadow: 0 0 10px var(--primary);
+  box-shadow: 0 0 12px var(--primary), 0 0 4px var(--primary);
   animation: pulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
 }
 
 .scan-step.phase-climax .ceremony-dialog-dot,
 .scan-step.phase-final .ceremony-dialog-dot {
   background: var(--success);
-  box-shadow: 0 0 12px var(--success);
+  box-shadow: 0 0 14px var(--success), 0 0 4px var(--success);
 }
 
-/* ── Finger halo (cyan pulse rings on target) ── */
+.scan-step.phase-climax .ceremony-dialog {
+  border-color: rgba(52, 199, 89, 0.20);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 0 0 1px rgba(52, 199, 89, 0.15);
+}
+
+/* ── Finger silhouette (central target) ── */
+.finger-silhouette {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 90px;
+  height: 120px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2;
+  color: var(--primary);
+  filter: drop-shadow(0 0 12px rgba(0, 180, 216, 0.55))
+          drop-shadow(0 0 30px rgba(0, 180, 216, 0.25));
+  transition: filter 1.5s ease, color 0.8s ease;
+}
+
+.finger-silhouette svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Dynamic glow: intensifies by data attribute set in JS */
+.scan-step[data-sqi="fair"] .finger-silhouette {
+  filter: drop-shadow(0 0 14px rgba(0, 180, 216, 0.65))
+          drop-shadow(0 0 35px rgba(0, 180, 216, 0.35));
+}
+
+.scan-step[data-sqi="good"] .finger-silhouette {
+  filter: drop-shadow(0 0 18px rgba(0, 180, 216, 0.80))
+          drop-shadow(0 0 45px rgba(0, 180, 216, 0.45));
+}
+
+.scan-step[data-sqi="excellent"] .finger-silhouette {
+  filter: drop-shadow(0 0 22px rgba(0, 180, 216, 0.95))
+          drop-shadow(0 0 55px rgba(0, 180, 216, 0.55))
+          drop-shadow(0 0 80px rgba(0, 180, 216, 0.20));
+}
+
+.scan-step.phase-climax .finger-silhouette {
+  color: var(--success);
+  filter: drop-shadow(0 0 24px rgba(52, 199, 89, 0.90))
+          drop-shadow(0 0 60px rgba(52, 199, 89, 0.45))
+          drop-shadow(0 0 90px rgba(52, 199, 89, 0.20));
+}
+
+/* ── Finger halo (cyan pulse rings wrapping the finger) ── */
 .finger-halo,
 .finger-halo-outer {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 140px;
-  height: 140px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  border: 1.5px solid rgba(0, 180, 216, 0.55);
+  border: 2px solid rgba(0, 180, 216, 0.55);
+  box-shadow: 0 0 18px rgba(0, 180, 216, 0.20), inset 0 0 18px rgba(0, 180, 216, 0.08);
   opacity: 0;
   transition: opacity 0.8s ease;
+  z-index: 1;
 }
 
 .finger-halo-outer {
-  width: 180px;
-  height: 180px;
+  width: 190px;
+  height: 190px;
   border-color: rgba(0, 180, 216, 0.25);
+  border-width: 1.5px;
+  box-shadow: 0 0 24px rgba(0, 180, 216, 0.12);
 }
 
 .scan-step.active .finger-halo,
@@ -880,20 +970,31 @@ body {
   animation-delay: 0.6s;
 }
 
+/* Signal quality: halo brightens with data-sqi attribute */
+.scan-step[data-sqi="good"] .finger-halo {
+  border-color: rgba(0, 180, 216, 0.75);
+  box-shadow: 0 0 28px rgba(0, 180, 216, 0.35), inset 0 0 24px rgba(0, 180, 216, 0.12);
+}
+.scan-step[data-sqi="excellent"] .finger-halo {
+  border-color: rgba(0, 180, 216, 0.90);
+  box-shadow: 0 0 36px rgba(0, 180, 216, 0.50), inset 0 0 30px rgba(0, 180, 216, 0.18);
+}
+
 .scan-step.phase-climax .finger-halo,
 .scan-step.phase-climax .finger-halo-outer {
-  border-color: rgba(52, 199, 89, 0.6);
+  border-color: rgba(52, 199, 89, 0.70);
+  box-shadow: 0 0 36px rgba(52, 199, 89, 0.40), inset 0 0 24px rgba(52, 199, 89, 0.12);
   animation: haloPulseReady 1.1s ease-in-out infinite;
 }
 
 @keyframes haloPulse {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.75; }
   50% { transform: translate(-50%, -50%) scale(1.12); opacity: 0.35; }
 }
 
 @keyframes haloPulseReady {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.85; }
-  50% { transform: translate(-50%, -50%) scale(1.18); opacity: 0.45; }
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.90; }
+  50% { transform: translate(-50%, -50%) scale(1.20); opacity: 0.50; }
 }
 
 /* ── Metallic countdown timer ── */

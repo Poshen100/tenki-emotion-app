@@ -144,16 +144,38 @@
       <div class="scan-flash" id="scan-flash"></div>
 
       <div class="step-content scan-content">
-        <!-- Frosted glass dialog (Phase 1 gathering) -->
+        <!-- Frosted glass dialog (Phase 1 gathering) — 極致磨砂液態玻璃 -->
         <div class="ceremony-dialog" id="ceremony-dialog">
           <span class="ceremony-dialog-dot"></span>
-          <span class="ceremony-dialog-text" id="ceremony-dialog-text">正在凝聚你的生理基線</span>
+          <div class="ceremony-dialog-body">
+            <span class="ceremony-dialog-text" id="ceremony-dialog-text">正在凝聚你的生理基線</span>
+            <span class="ceremony-dialog-sub" id="ceremony-dialog-sub">請將食指完全覆蓋前鏡頭</span>
+          </div>
         </div>
 
-        <!-- Finger target: outline + pulsing halo -->
+        <!-- Finger target: silhouette + pulsing halo + progress ring -->
         <div class="scan-ring-container">
           <div class="finger-halo" id="finger-halo" aria-hidden="true"></div>
           <div class="finger-halo-outer" id="finger-halo-outer" aria-hidden="true"></div>
+
+          <!-- Finger silhouette (fingertip from above) -->
+          <div class="finger-silhouette" id="finger-silhouette">
+            <svg viewBox="0 0 120 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Fingertip outline (rounded top, slightly tapered) -->
+              <path d="M60 8 C28 8, 10 36, 10 72 C10 100, 18 124, 30 142 C36 150, 44 155, 60 155 C76 155, 84 150, 90 142 C102 124, 110 100, 110 72 C110 36, 92 8, 60 8Z"
+                stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8"/>
+              <!-- Fingerprint lines (subtle inner detail) -->
+              <path d="M38 70 C38 50, 48 38, 60 38 C72 38, 82 50, 82 70"
+                stroke="currentColor" stroke-width="0.8" fill="none" opacity="0.3"/>
+              <path d="M34 82 C34 55, 46 32, 60 32 C74 32, 86 55, 86 82"
+                stroke="currentColor" stroke-width="0.8" fill="none" opacity="0.2"/>
+              <path d="M42 92 C42 68, 50 50, 60 50 C70 50, 78 68, 78 92"
+                stroke="currentColor" stroke-width="0.8" fill="none" opacity="0.25"/>
+              <!-- Center dot (placement guide) -->
+              <circle cx="60" cy="72" r="3" fill="currentColor" opacity="0.35"/>
+            </svg>
+          </div>
+
           <svg class="scan-ring" viewBox="0 0 200 200">
             <circle class="scan-ring-bg" cx="100" cy="100" r="88" />
             <circle class="scan-ring-progress" id="scan-progress-ring" cx="100" cy="100" r="88"
