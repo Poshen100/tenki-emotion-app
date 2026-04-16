@@ -1,99 +1,131 @@
-# TENKI 2.0 — Development Strategy
+# TENKI CORE — Claude Code Context
 
-## Architecture
-TENKI is a biometric trading performance app. Core modules are vanilla JS IIFEs that export globals (`TENKI_*`). Modules communicate via `EventBridge` (pub/sub). Data persists in `localStorage` → `IndexedDB` (3-layer via `StorageManager`).
+> **Auto-loaded by Claude Code every session. Keep concise.**
+> Deep context → read `ANTIGRAVITY.md` (canonical spec, 16 sections)
+> Session history → read `MEMORY.md`
 
-## Module Map
-| Global | File | Purpose |
-|--------|------|---------|
-| `TENKI_PROGRESSIVE_TEI` | `core/progressive-tei.js` | Milestone TEI (4→15→30→60) |
-| `TENKI_SMOOTH_TRANSITION` | `core/smooth-transition.js` | EWMA animation |
-| `TENKI_SENSOR_FUSION` | `core/sensor-fusion.js` | Weighted multi-source fusion |
-| `TENKI_KALMAN` | `core/kalman-filter.js` | 2D Kalman HR/HRV |
-| `TENKI_EXPECTANCY` | `core/expectancy-calculator.js` | Tiered expectancy + t-test |
-| `TENKI_TRADE_LOGGER` | `core/trade-logger.js` | TEI-enriched trade log |
-| `TENKI_STORAGE` | `integration/storage-manager.js` | 3-layer backup |
-| `TENKI_CAMERA` | `core/camera-controller.js` | PPG camera lifecycle |
-| `TENKI2` | `core/tenki-2-bootstrap.js` | System integrator |
+---
 
-## Dev Strategy
+## Product Identity
 
-### ✅ 並行開發 (Parallel Development)
-- 5-agent workstreams: TEI Engine, PPG Camera, Sensor Fusion, Expectancy, Integration
-- Each agent produces independent modules with clear interfaces
-- Bootstrap script wires everything together at the end
+**TENKI CORE** = Privacy-first cognitive wellness app
+- Core metric: **Decision Edge Score (0-100)**
+- 3 Zones: Clear (70-100) / Neutral (40-69) / Strain (0-39)
+- 2 Tiers: Free / Premium
+- Architecture: Local-first + Cloud-minimal
 
-### ✅ Opus 4.5 + Thinking
-- Use Claude Opus 4.5 with extended thinking for code generation
-- Gemini 3 Pro for testing, debugging, and verification
+---
 
-### ✅ Plan Mode 優先
-- Always start with `implementation_plan.md` before coding
-- Map changes to existing codebase — extend, don't replace
+## Hard Rules (MUST follow)
 
-### ✅ 持續更新 CLAUDE.md（最核心）
-- This file IS the source of truth for the project
-- Update after every significant change
-- Keep module map current
+| Rule | Detail |
+|------|--------|
+| No deprecated terms | TEI, PR99, PEAK, OPTIMAL are dead. Use **Edge Score**, **Zone** |
+| No `any` in TypeScript | Strict mode only |
+| No medical/financial advice | App Store compliance — wellness language only |
+| No raw biometric upload | HR/HRV/RR data never leaves device |
+| No touching `apps/web/` | Protected legacy prototype |
+| No touching `apps/preview/` | Protected preview site (read-only reference) |
+| Test before commit | `npx vitest run` must pass |
+| Type-check before commit | `npx tsc --noEmit` must pass (zero errors) |
 
-### ✅ 自動化工作流 (Slash Commands)
-- `/test` → `npx vitest run`
-- `/bench` → `npx vitest run tests/benchmark/`
-- `/dev` → `npx vite --port 5173`
-- `/build` → `npx vite build`
+---
 
-### ✅ Commit Per Todo（強制執行）
+## Monorepo Structure
 
-> **每個 Plan 裡的 Todo = 一個 Git Commit**
-
-格式規範：
 ```
-<type>(<scope>): <todo描述>
-
-例：
-feat(core): implement T3 CANSLIM template
-fix(ppg): stabilize camera lifecycle on iOS
-test(kalman): add edge case for zero variance
-refactor(overlay): extract timer segment logic
+tenki-emotion-app/
+├── packages/engine/src/     ← v3 TypeScript engine (core logic)
+│   ├── biometric/           HRV, RR, Stress Proxy
+│   ├── baseline/            Welford algorithm, time buckets, signal quality gate, bootstrap
+│   ├── scoring/             Edge Score (8 dimensions), Edge Detector
+│   ├── session/             10-state machine, gate, templates
+│   ├── compliance/          Safe copy engine, notification guard
+│   ├── analytics/           Analytics pipeline
+│   ├── pipeline/            Scan pipeline integration
+│   ├── common/              Types, EWMA, legacy adapter
+│   └── legacy/              Deprecated TEI modules
+├── packages/scan/src/       ← Finger Heat Zone scan pipeline
+│   ├── scenario-mode/       4 scenario modes
+│   ├── templates/           Trader templates (FBD, CANSLIM, Mode2)
+│   └── timeline/            Timeline data
+├── packages/shared/src/     ← Cross-platform shared
+│   ├── copy/                Disclaimers, onboarding UX copy
+│   ├── components/          ParticleSphere, ResultSummary
+│   ├── feature-flags/       Dark launch system
+│   ├── zone-config.ts       3-zone definition
+│   ├── subscription-tiers.ts 2-tier model
+│   └── design-tokens.ts     CSS tokens
+├── domain/src/              ← Domain layer
+│   ├── contracts/           Baseline contract, etc.
+│   ├── policies/            Baseline policy, etc.
+│   └── schemas/             Validation schemas
+├── apps/web/                ← Web prototype (DO NOT MODIFY)
+├── apps/preview/            ← Preview site (DO NOT MODIFY)
+├── apps/mobile/             ← Expo/React Native (Phase C)
+├── core/                    ← Legacy vanilla JS IIFEs (deprecated)
+└── tests/                   ← Vitest test suites
 ```
 
-規則：
-1. 完成一個 Todo → 立即 `git add` + `git commit`
-2. **不要累積多個 Todo 才 commit**
-3. commit message 要對應 plan 裡的原文 Todo
-4. 這樣做的好處：翻 log 就能精確找到哪個 Todo 引入 Bug
+---
 
-### ✅ Sub-agents 分工
-- Agent-01: Progressive TEI Engine
-- Agent-02: PPG Camera Calibration
-- Agent-03: Multi-Modal Sensor Fusion
-- Agent-04: Expectancy Layer
-- Agent-05: Integration + Tests
+## Dev Workflow
 
-### ✅ Feedback Loop（品質提升 2-3 倍）
-- Write tests BEFORE integration
-- Run benchmarks to validate performance targets
-- All 23 tests must pass before merge
-
-## Testing
+### Commands
 ```bash
-npx vitest run                          # All tests (23)
-npx vitest run tests/progressive-tei    # Unit tests (18)
-npx vitest run tests/benchmark          # Perf benchmarks (5)
+npx vitest run                          # All tests
+npx tsc --noEmit                        # TypeScript check (zero errors)
+npx vite --port 5173                    # Dev server
+npx vite build                          # Build
 ```
 
-## Performance Targets
-| Metric | Target | Actual |
-|--------|--------|--------|
-| TEI calc | < 5ms | 0.29ms |
-| 1000 data points | < 100ms | 0.62ms |
-| 1000 Kalman updates | < 10ms | 2.28ms |
-| 1000 trades analysis | < 50ms | 1.53ms |
+### Commit Convention (MANDATORY)
 
-## Key Conventions
-- All modules use IIFE pattern with `(function(global) { ... })(window)`
-- Export via `global.TENKI_*` namespace
-- Japanese/Chinese comments for domain logic
-- English for API docs
-- Never modify original files — use EventBridge pattern
-- CSS uses `--plasma-cyan`, `--void-purple`, `--matrix-green` tokens
+> **Every Todo = One Commit. No batching.**
+
+```
+<type>(<scope>): <description>
+
+feat(engine): add edge detector threshold tuning
+fix(scan): stabilize camera lifecycle on iOS
+test(baseline): add bootstrap edge cases
+refactor(session): extract gate evaluation logic
+```
+
+### TypeScript Standards
+- Strict mode, no `any`
+- Named exports for all constants
+- All public functions need JSDoc
+- engine/ and scan/ test coverage >= 90%
+
+### Naming
+| Category | Convention | Example |
+|----------|-----------|---------|
+| Files | kebab-case | `edge-score.ts` |
+| Types | PascalCase | `EdgeScoreResult` |
+| Functions | camelCase | `calculateEdgeScore` |
+| Constants | SCREAMING_SNAKE | `EDGE_DETECTOR_THRESHOLDS` |
+
+---
+
+## Build Progress
+
+- **Phase 0** — Governance foundation ✅
+- **Phase A** — Engine core ✅
+- **Phase B** — Infrastructure (domain layer done, scan pipeline + replay + insight TBD)
+- **Phase C** — Mobile app (not started)
+- **Phase D** — App Store release (not started)
+
+---
+
+## Founder Preferences
+
+- Show architecture overview first, then details
+- Communication: 繁體中文, code in English
+- Prefers tables + clear conclusions over long explanations
+- Values solo-founder time efficiency
+- Dual-AI workflow: Antigravity writes code, Claude reviews
+- CSS tokens: `--plasma-cyan`, `--void-purple`, `--matrix-green`
+- Animation: Reanimated 3 (not legacy Animated), rings with Skia (not SVG)
+- State management: Zustand (not Redux)
+- EWMA alpha = 0.05 (very slow convergence)
