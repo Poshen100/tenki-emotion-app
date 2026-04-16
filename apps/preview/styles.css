@@ -719,10 +719,20 @@ body {
   .scan-ring-container {
     width: 160px;
     height: 160px;
+    margin-bottom: 38px;
+  }
+
+  .scan-ring-center {
+    bottom: -32px;
   }
 
   .scan-timer {
-    font-size: 44px;
+    font-size: 32px;
+  }
+
+  .finger-silhouette {
+    width: 65px;
+    height: 90px;
   }
 }
 
@@ -1036,6 +1046,8 @@ body {
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.5s ease 0.2s, transform 0.5s ease 0.2s;
+  position: relative;
+  z-index: 3; /* Above finger (z:2), below flash (z:4) */
 }
 
 .scan-step.phase-accumulate .scan-telemetry,
