@@ -69,6 +69,19 @@ tenki-emotion-app/
 
 ---
 
+## Cross-AI Sync Protocol
+
+> **所有 AI 工具（Antigravity / Claude / Claude Code）必須遵守**
+
+1. **開始前**：讀 `CLAUDE.md`（自動）→ 讀 `MEMORY.md` Last Session 段落
+2. **做完後**：更新 `MEMORY.md` — Last Session date/completed、Next Steps、新建檔案列表
+3. **被糾正時**：把糾正內容寫入 `CLAUDE.md` 對應段落（Hard Rules / Founder Preferences）
+4. **重大決策時**：在 `MEMORY.md` Decision Log 新增一行
+
+這樣任何 AI 接手時，都能從 MEMORY.md 知道上一個 AI 做到哪、下一步是什麼。
+
+---
+
 ## Dev Workflow
 
 ### Commands
