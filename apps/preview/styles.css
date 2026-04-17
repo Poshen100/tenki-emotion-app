@@ -899,6 +899,46 @@ body {
     0 0 0 1px rgba(52, 199, 89, 0.15);
 }
 
+/* ── Live rear-camera feed (real finger scanning) ── */
+.scan-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.8s ease, filter 0.8s ease;
+  background: #000;
+  /* Dim edges so the bright PPG centre reads as a "scanning" lens */
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 180, 216, 0.25),
+    inset 0 0 40px rgba(0, 0, 0, 0.55),
+    0 0 28px rgba(0, 180, 216, 0.18);
+  filter: saturate(1.15) contrast(1.05);
+}
+
+.scan-ring-container.camera-active .scan-video {
+  opacity: 1;
+}
+
+/* When the real camera is live, the SVG silhouette becomes a thin placement
+   guide (still visible, but no longer the dominant visual). */
+.scan-ring-container.camera-active .finger-silhouette {
+  opacity: 0.35;
+  mix-blend-mode: screen;
+}
+
+/* Camera permission denied / desktop fallback: keep the silhouette as the
+   primary visual and hide the empty video tile. */
+.scan-ring-container.camera-unavailable .scan-video {
+  display: none;
+}
+
 /* ── Finger silhouette (central target) ── */
 .finger-silhouette {
   position: absolute;
