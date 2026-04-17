@@ -37,6 +37,9 @@ const state = {
   rollingSqi: 0,
   qualityTier: 'weak',
   particleSystem: null,
+  cameraSession: null,     // Active { stop } handle from TENKI_PREVIEW_CAMERA
+  cameraActive: false,     // True once a real camera frame has arrived
+  lastCameraSample: null,  // Latest { coverage, color, redMean, redStd, sqi, hint }
   baseline: {
     hr: { mean: 0, std: 0 },
     hrv: { mean: 0, std: 0 },
@@ -309,6 +312,8 @@ function startCalibrationScan() {
   state.sqiHistory = [];
   state.rollingSqi = 0;
   state.qualityTier = 'weak';
+  state.cameraActive = false;
+  state.lastCameraSample = null;
   state.scanStartTs = performance.now();
   state.baseline = {
     hr: { mean: 0, std: 0 },
@@ -339,10 +344,75 @@ function startCalibrationScan() {
   // Start particle system (converge → orbit → burst driven by phase)
   startParticleSystem();
 
+  // Attempt real rear-camera capture. Graceful fallback to simulated SQI on
+  // desktop (no camera), permission denied, or insecure contexts.
+  startFingerCameraFeed();
+
   // Cancel previous RAF loop
   if (state.scanRAF) cancelAnimationFrame(state.scanRAF);
 
   tickCalibration();
+}
+
+/**
+ * Try to attach the rear camera to the scan video element. Uses the
+ * TENKI_PREVIEW_CAMERA module bundled alongside this script.
+ */
+async function startFingerCameraFeed() {
+  const container = document.getElementById('scan-ring-container');
+  const videoEl = document.getElementById('scan-video');
+  const api = window.TENKI_PREVIEW_CAMERA;
+  if (!videoEl || !api || !api.startFingerCamera) {
+    if (container) container.classList.add('camera-unavailable');
+    return;
+  }
+
+  // Stop any lingering session (hot reload, replay scan)
+  if (state.cameraSession) {
+    try { state.cameraSession.stop(); } catch (_) {}
+    state.cameraSession = null;
+  }
+
+  try {
+    const session = await api.startFingerCamera(videoEl, (sample) => {
+      state.cameraActive = true;
+      state.lastCameraSample = sample;
+      if (container) {
+        container.classList.remove('camera-unavailable');
+        container.classList.add('camera-active');
+      }
+    });
+    state.cameraSession = session;
+  } catch (err) {
+    // NotAllowedError, NotFoundError, NotReadableError, UNSUPPORTED, etc.
+    state.cameraActive = false;
+    state.cameraSession = null;
+    if (container) {
+      container.classList.remove('camera-active');
+      container.classList.add('camera-unavailable');
+    }
+    const sub = document.getElementById('ceremony-dialog-sub');
+    if (sub) {
+      if (err && err.name === 'NotAllowedError') {
+        sub.textContent = '相機權限被拒 — 已切換為模擬訊號';
+      } else if (err && err.name === 'NotFoundError') {
+        sub.textContent = '此裝置沒有後鏡頭 — 已切換為模擬訊號';
+      } else {
+        sub.textContent = '無法開啟相機 — 已切換為模擬訊號';
+      }
+    }
+    console.warn('[baseline] camera unavailable, falling back to simulated SQI:', err && err.name);
+  }
+}
+
+function stopFingerCameraFeed() {
+  if (state.cameraSession) {
+    try { state.cameraSession.stop(); } catch (_) {}
+    state.cameraSession = null;
+  }
+  state.cameraActive = false;
+  const container = document.getElementById('scan-ring-container');
+  if (container) container.classList.remove('camera-active');
 }
 
 function tickCalibration() {
@@ -444,14 +514,19 @@ function simulateBaselineData(progress) {
 // ─────────────────────────────────────────────
 
 function updateSignalTelemetry(elapsedSec) {
-  // Instantaneous SQI ramp: slow start (coverage settling), asymptote ~0.92
-  // Adds noise so rolling-mean gate behaves realistically.
-  const rampT = Math.min(1, Math.max(0, (elapsedSec - 3) / 8)); // ramp from 3s → 11s
-  const target = 0.55 + rampT * 0.40;
-  const instant = Math.max(
-    0,
-    Math.min(1, target + (Math.random() - 0.5) * 0.06)
-  );
+  let instant;
+
+  if (state.cameraActive && state.lastCameraSample) {
+    // Real camera path: use the live SQI from skin coverage + red-channel PPG.
+    // Jitter is intrinsic to the signal — no synthetic noise added.
+    instant = Math.max(0, Math.min(1, state.lastCameraSample.sqi || 0));
+  } else {
+    // Simulated fallback (desktop / permission denied). Ramp 3s→11s to 0.95,
+    // with low-frequency noise so the early-complete gate still behaves.
+    const rampT = Math.min(1, Math.max(0, (elapsedSec - 3) / 8));
+    const target = 0.55 + rampT * 0.40;
+    instant = Math.max(0, Math.min(1, target + (Math.random() - 0.5) * 0.06));
+  }
 
   // Keep a ~10s rolling window (called every RAF ≈ 60/s → window ≈600 samples)
   state.sqiHistory.push(instant);
@@ -620,6 +695,7 @@ function enterTransition() {
   setTimeout(() => {
     if (state.particleSystem) state.particleSystem.stop();
     if (state.scanRAF) cancelAnimationFrame(state.scanRAF);
+    stopFingerCameraFeed();
 
     const scanSection = document.getElementById('step-scan');
     if (scanSection) {

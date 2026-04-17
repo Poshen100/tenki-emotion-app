@@ -153,12 +153,18 @@
           </div>
         </div>
 
-        <!-- Finger target: silhouette + pulsing halo + progress ring -->
-        <div class="scan-ring-container">
+        <!-- Finger target: live camera + silhouette + pulsing halo + progress ring -->
+        <div class="scan-ring-container" id="scan-ring-container">
+          <!-- Live rear-camera feed (shows the user's finger covering the lens).
+               When permission is granted, `.camera-active` is toggled on the
+               container to fade the feed in and dim the SVG guide. -->
+          <video class="scan-video" id="scan-video" playsinline muted autoplay
+                 aria-hidden="true"></video>
+
           <div class="finger-halo" id="finger-halo" aria-hidden="true"></div>
           <div class="finger-halo-outer" id="finger-halo-outer" aria-hidden="true"></div>
 
-          <!-- Finger silhouette (fingertip from above) -->
+          <!-- Finger silhouette (placement guide; dims once real camera is live) -->
           <div class="finger-silhouette" id="finger-silhouette">
             <svg viewBox="0 0 120 160" fill="none" xmlns="http://www.w3.org/2000/svg">
               <!-- Fingertip outline (rounded top, slightly tapered) -->
@@ -300,6 +306,7 @@
     </div>
   </div>
 
+  <script src="camera-scan.js"></script>
   <script src="baseline-onboarding.js"></script>
 </body>
 </html>
