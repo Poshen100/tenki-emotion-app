@@ -373,16 +373,32 @@ async function startFingerCameraFeed() {
     state.cameraSession = null;
   }
 
+  // Pre-mark the container as camera-active the moment we TRY to start so the
+  // <video> element is rendered (opacity > 0). Certain iOS Safari builds
+  // refuse to decode MediaStream frames into a video that was opacity:0 at
+  // srcObject assignment time, which otherwise leaves the circle black.
+  if (container) {
+    container.classList.remove('camera-unavailable');
+    container.classList.add('camera-active');
+  }
+
   try {
     const session = await api.startFingerCamera(videoEl, (sample) => {
       state.cameraActive = true;
       state.lastCameraSample = sample;
+    });
+    state.cameraSession = session;
+
+    // Belt-and-braces: also mark active on the video element's own readiness
+    // events — some devices fire `playing` well before our first analyseFrame.
+    const markActive = () => {
       if (container) {
         container.classList.remove('camera-unavailable');
         container.classList.add('camera-active');
       }
-    });
-    state.cameraSession = session;
+    };
+    videoEl.addEventListener('loadedmetadata', markActive, { once: true });
+    videoEl.addEventListener('playing', markActive, { once: true });
   } catch (err) {
     // NotAllowedError, NotFoundError, NotReadableError, UNSUPPORTED, etc.
     state.cameraActive = false;
