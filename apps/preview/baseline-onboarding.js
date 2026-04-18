@@ -175,15 +175,10 @@ function updateInstructions(type) {
 }
 
 // ─────────────────────────────────────────────
-// Step 3: Readiness Check (Simulated)
+// Step 3: Readiness Check — Real Camera Data
 // ─────────────────────────────────────────────
 
 function startReadinessCheck() {
-  state.readinessSimStep = 0;
-
-  // Clear previous interval
-  if (state.readinessInterval) clearInterval(state.readinessInterval);
-
   // Reset UI
   updateMeter('coverage', 0, '—');
   updateMeter('brightness', 0, '—');
@@ -196,7 +191,105 @@ function startReadinessCheck() {
     btn.textContent = '等待就緒...';
   }
 
-  // Simulate progressive readiness (2-4 seconds)
+  const msgEl = document.getElementById('readiness-message');
+  if (msgEl) { msgEl.textContent = '正在啟動相機…'; msgEl.style.color = ''; }
+
+  // Start camera at readiness step so meters use real data
+  startReadinessCamera();
+}
+
+async function startReadinessCamera() {
+  const videoEl = document.getElementById('readiness-video');
+  const container = document.getElementById('readiness-camera-container');
+  const labelEl = document.getElementById('readiness-camera-label');
+  const api = window.TENKI_PREVIEW_CAMERA;
+
+  if (!videoEl || !api || !api.startFingerCamera) {
+    // No camera module — fall back to simulated readiness
+    startSimulatedReadiness();
+    return;
+  }
+
+  // Stop any lingering session
+  if (state.cameraSession) {
+    try { state.cameraSession.stop(); } catch (_) {}
+    state.cameraSession = null;
+  }
+
+  try {
+    const session = await api.startFingerCamera(videoEl, (sample) => {
+      state.cameraActive = true;
+      state.lastCameraSample = sample;
+      updateReadinessFromCamera(sample);
+    });
+    state.cameraSession = session;
+    if (labelEl) labelEl.textContent = '後鏡頭已啟動';
+  } catch (err) {
+    state.cameraActive = false;
+    if (container) container.style.display = 'none';
+    if (labelEl) labelEl.textContent = '';
+    const msgEl = document.getElementById('readiness-message');
+    if (msgEl) {
+      if (err && err.name === 'NotAllowedError') {
+        msgEl.textContent = '相機權限被拒 — 使用模擬模式';
+      } else {
+        msgEl.textContent = '無法開啟相機 — 使用模擬模式';
+      }
+      msgEl.style.color = '#F5A623';
+    }
+    startSimulatedReadiness();
+  }
+}
+
+function updateReadinessFromCamera(sample) {
+  const { coverage, brightness, stability, sqi, color, bpm } = sample;
+
+  updateMeter('coverage', coverage * 100, getMeterIcon(coverage, 0.85, 0.60));
+  updateMeter('brightness', (brightness || 0) * 100, getMeterIcon(brightness || 0, 0.50, 0.30));
+  updateMeter('stability', (stability || 0) * 100, getMeterIcon(stability || 0, 0.70, 0.50));
+  updateMeter('sqi', sqi * 100, getMeterIcon(sqi, 0.55, 0.40));
+
+  // Camera preview border color
+  const container = document.getElementById('readiness-camera-container');
+  if (container) container.dataset.state = color;
+
+  const labelEl = document.getElementById('readiness-camera-label');
+  if (labelEl) {
+    if (color === 'green') labelEl.textContent = bpm > 0 ? `${bpm} BPM 偵測中` : '手指已覆蓋 ✓';
+    else if (color === 'yellow') labelEl.textContent = '調整手指位置';
+    else labelEl.textContent = '覆蓋後鏡頭';
+  }
+
+  // Overall message
+  const msgEl = document.getElementById('readiness-message');
+  const gradeEl = document.getElementById('readiness-grade');
+
+  if (coverage < 0.60) {
+    if (msgEl) {
+      msgEl.textContent = state.sensorChoice === 'finger'
+        ? '請將手指完整覆蓋鏡頭' : '請將臉部對準鏡頭範圍';
+      msgEl.style.color = '#FF3B30';
+    }
+  } else if ((stability || 0) < 0.50) {
+    if (msgEl) { msgEl.textContent = '偵測到晃動，請保持靜止'; msgEl.style.color = '#F5A623'; }
+  } else if ((brightness || 0) < 0.30) {
+    if (msgEl) { msgEl.textContent = '光線不足，請移到較亮的地方'; msgEl.style.color = '#F5A623'; }
+  } else if (coverage >= 0.85 && (stability || 0) >= 0.70 && (brightness || 0) >= 0.50 && sqi >= 0.55) {
+    if (msgEl) { msgEl.textContent = '準備就緒，可以開始'; msgEl.style.color = '#34C759'; }
+    if (gradeEl) {
+      gradeEl.textContent = sqi >= 0.85 ? 'A' : sqi >= 0.70 ? 'B' : 'C';
+      gradeEl.classList.add('visible');
+    }
+    const btn = document.getElementById('btn-start-scan');
+    if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
+  } else {
+    if (msgEl) { msgEl.textContent = '幾乎到位了...'; msgEl.style.color = '#F5A623'; }
+  }
+}
+
+function startSimulatedReadiness() {
+  state.readinessSimStep = 0;
+  if (state.readinessInterval) clearInterval(state.readinessInterval);
   state.readinessInterval = setInterval(() => {
     state.readinessSimStep++;
     simulateReadiness(state.readinessSimStep);
@@ -204,17 +297,11 @@ function startReadinessCheck() {
 }
 
 function simulateReadiness(step) {
-  // Realistic progression: coverage first, then stability, then brightness, then SQI
   const maxSteps = 10;
   const progress = Math.min(step / maxSteps, 1);
-
-  // Coverage ramps up first
   const coverage = easeOutCubic(Math.min(progress * 1.3, 1));
-  // Brightness is generally good
   const brightness = 0.3 + easeOutCubic(Math.min(progress * 1.2, 1)) * 0.5;
-  // Stability takes a bit longer
   const stability = easeOutCubic(Math.min(progress * 1.0, 1)) * 0.9;
-  // SQI depends on others
   const sqi = Math.min(100, Math.round((coverage * 40 + brightness * 20 + stability * 40)));
 
   updateMeter('coverage', coverage * 100, getMeterIcon(coverage, 0.85, 0.60));
@@ -222,40 +309,19 @@ function simulateReadiness(step) {
   updateMeter('stability', stability * 100, getMeterIcon(stability, 0.70, 0.50));
   updateMeter('sqi', sqi, getMeterIcon(sqi / 100, 0.55, 0.40));
 
-  // Overall message (single status — UX Standard 2)
   const msgEl = document.getElementById('readiness-message');
   const gradeEl = document.getElementById('readiness-grade');
 
   if (coverage < 0.60) {
-    msgEl.textContent = state.sensorChoice === 'finger'
-      ? '請將手指完整覆蓋鏡頭'
-      : '請將臉部對準鏡頭範圍';
-    msgEl.style.color = '#FF3B30';
-  } else if (stability < 0.50) {
-    msgEl.textContent = '偵測到晃動，請保持靜止';
-    msgEl.style.color = '#F5A623';
-  } else if (brightness < 0.30) {
-    msgEl.textContent = '光線不足，請移到較亮的地方';
-    msgEl.style.color = '#F5A623';
+    if (msgEl) { msgEl.textContent = '模擬模式 — 覆蓋率上升中'; msgEl.style.color = '#F5A623'; }
   } else if (coverage >= 0.85 && stability >= 0.70 && brightness >= 0.50 && sqi >= 55) {
-    msgEl.textContent = '準備就緒，可以開始';
-    msgEl.style.color = '#34C759';
-
-    // Show grade
-    gradeEl.textContent = sqi >= 85 ? 'A' : sqi >= 70 ? 'B' : 'C';
-    gradeEl.classList.add('visible');
-
-    // Enable button
+    if (msgEl) { msgEl.textContent = '準備就緒，可以開始'; msgEl.style.color = '#34C759'; }
+    if (gradeEl) { gradeEl.textContent = sqi >= 85 ? 'A' : sqi >= 70 ? 'B' : 'C'; gradeEl.classList.add('visible'); }
     const btn = document.getElementById('btn-start-scan');
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = '開始掃描';
-    }
-
+    if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
     clearInterval(state.readinessInterval);
   } else {
-    msgEl.textContent = '幾乎到位了...';
-    msgEl.style.color = '#F5A623';
+    if (msgEl) { msgEl.textContent = '模擬模式 — 幾乎到位了...'; msgEl.style.color = '#F5A623'; }
   }
 }
 
@@ -344,9 +410,9 @@ function startCalibrationScan() {
   // Start particle system (converge → orbit → burst driven by phase)
   startParticleSystem();
 
-  // Attempt real rear-camera capture. Graceful fallback to simulated SQI on
-  // desktop (no camera), permission denied, or insecure contexts.
-  startFingerCameraFeed();
+  // Camera is already running from Step 3. Transfer the stream to the scan
+  // video element so the circular preview shows inside the ceremony ring.
+  transferCameraToScanView();
 
   // Cancel previous RAF loop
   if (state.scanRAF) cancelAnimationFrame(state.scanRAF);
@@ -355,69 +421,33 @@ function startCalibrationScan() {
 }
 
 /**
- * Try to attach the rear camera to the scan video element. Uses the
- * TENKI_PREVIEW_CAMERA module bundled alongside this script.
+ * Transfer the already-running camera stream from the readiness-video to
+ * the scan-video element inside the ceremony ring. No new getUserMedia call.
  */
-async function startFingerCameraFeed() {
+function transferCameraToScanView() {
   const container = document.getElementById('scan-ring-container');
-  const videoEl = document.getElementById('scan-video');
-  const api = window.TENKI_PREVIEW_CAMERA;
-  if (!videoEl || !api || !api.startFingerCamera) {
-    if (container) container.classList.add('camera-unavailable');
-    return;
-  }
+  const scanVideoEl = document.getElementById('scan-video');
+  const readinessVideoEl = document.getElementById('readiness-video');
 
-  // Stop any lingering session (hot reload, replay scan)
-  if (state.cameraSession) {
-    try { state.cameraSession.stop(); } catch (_) {}
-    state.cameraSession = null;
-  }
+  if (!scanVideoEl) return;
 
-  // Pre-mark the container as camera-active the moment we TRY to start so the
-  // <video> element is rendered (opacity > 0). Certain iOS Safari builds
-  // refuse to decode MediaStream frames into a video that was opacity:0 at
-  // srcObject assignment time, which otherwise leaves the circle black.
-  if (container) {
-    container.classList.remove('camera-unavailable');
-    container.classList.add('camera-active');
-  }
+  if (state.cameraActive && readinessVideoEl && readinessVideoEl.srcObject) {
+    // Share the same MediaStream — no new permission prompt
+    scanVideoEl.srcObject = readinessVideoEl.srcObject;
+    scanVideoEl.muted = true;
+    scanVideoEl.playsInline = true;
+    try { scanVideoEl.play(); } catch (_) {}
 
-  try {
-    const session = await api.startFingerCamera(videoEl, (sample) => {
-      state.cameraActive = true;
-      state.lastCameraSample = sample;
-    });
-    state.cameraSession = session;
-
-    // Belt-and-braces: also mark active on the video element's own readiness
-    // events — some devices fire `playing` well before our first analyseFrame.
-    const markActive = () => {
-      if (container) {
-        container.classList.remove('camera-unavailable');
-        container.classList.add('camera-active');
-      }
-    };
-    videoEl.addEventListener('loadedmetadata', markActive, { once: true });
-    videoEl.addEventListener('playing', markActive, { once: true });
-  } catch (err) {
-    // NotAllowedError, NotFoundError, NotReadableError, UNSUPPORTED, etc.
-    state.cameraActive = false;
-    state.cameraSession = null;
+    if (container) {
+      container.classList.remove('camera-unavailable');
+      container.classList.add('camera-active');
+    }
+  } else if (!state.cameraActive) {
+    // No camera available — mark unavailable
     if (container) {
       container.classList.remove('camera-active');
       container.classList.add('camera-unavailable');
     }
-    const sub = document.getElementById('ceremony-dialog-sub');
-    if (sub) {
-      if (err && err.name === 'NotAllowedError') {
-        sub.textContent = '相機權限被拒 — 已切換為模擬訊號';
-      } else if (err && err.name === 'NotFoundError') {
-        sub.textContent = '此裝置沒有後鏡頭 — 已切換為模擬訊號';
-      } else {
-        sub.textContent = '無法開啟相機 — 已切換為模擬訊號';
-      }
-    }
-    console.warn('[baseline] camera unavailable, falling back to simulated SQI:', err && err.name);
   }
 }
 
@@ -460,9 +490,13 @@ function tickCalibration() {
   const progress = Math.min(1, elapsedSec / state.scanDuration);
   if (ringEl) ringEl.style.strokeDashoffset = SCAN_CIRCUMFERENCE * (1 - progress);
 
-  // ── Signal simulation (quality improves over first ~8s then holds) ──
+  // ── Signal + baseline data collection ──
   if (state.scanPhase === 'accumulate' || state.scanPhase === 'climax') {
-    simulateBaselineData(progress);
+    if (state.cameraActive && state.lastCameraSample) {
+      updateBaselineFromCamera(state.lastCameraSample);
+    } else {
+      simulateBaselineData(progress);
+    }
     updateSignalTelemetry(elapsedSec);
   }
 
@@ -528,6 +562,38 @@ function tickCalibration() {
   }
 
   state.scanRAF = requestAnimationFrame(tickCalibration);
+}
+
+function updateBaselineFromCamera(sample) {
+  const { bpm, hrv, rr } = sample;
+  const alpha = 0.05; // TENKI convention: EWMA α=0.05 slow convergence
+
+  if (bpm > 0) {
+    if (state.baseline.hr.mean === 0) {
+      state.baseline.hr = { mean: bpm, std: 3 };
+    } else {
+      state.baseline.hr.mean = state.baseline.hr.mean * (1 - alpha) + bpm * alpha;
+      state.baseline.hr.std = Math.max(2, Math.abs(bpm - state.baseline.hr.mean) * 0.5);
+    }
+  }
+
+  if (hrv > 0) {
+    if (state.baseline.hrv.mean === 0) {
+      state.baseline.hrv = { mean: hrv, std: 5 };
+    } else {
+      state.baseline.hrv.mean = state.baseline.hrv.mean * (1 - alpha) + hrv * alpha;
+      state.baseline.hrv.std = Math.max(3, Math.abs(hrv - state.baseline.hrv.mean) * 0.5);
+    }
+  }
+
+  if (rr > 0) {
+    if (state.baseline.rr.mean === 0) {
+      state.baseline.rr = { mean: rr, std: 1 };
+    } else {
+      state.baseline.rr.mean = state.baseline.rr.mean * (1 - alpha) + rr * alpha;
+      state.baseline.rr.std = Math.max(1, Math.abs(rr - state.baseline.rr.mean) * 0.3);
+    }
+  }
 }
 
 function simulateBaselineData(progress) {
