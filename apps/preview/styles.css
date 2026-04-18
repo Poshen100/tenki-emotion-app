@@ -1176,7 +1176,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: var(--sp-sm);
-  margin-top: var(--sp-sm);
+  margin-top: 24px;
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.5s ease 0.2s, transform 0.5s ease 0.2s;
