@@ -21,10 +21,10 @@
   const COVERAGE_GREEN = 0.85;
   const COVERAGE_YELLOW = 0.60;
 
-  const SKIN_R_MIN = 80, SKIN_R_MAX = 255;
+  const SKIN_R_MIN = 40, SKIN_R_MAX = 255;
   const SKIN_G_MIN = 0, SKIN_G_MAX = 200;
   const SKIN_B_MIN = 0, SKIN_B_MAX = 170;
-  const SKIN_R_RATIO = 1.15;
+  const SKIN_R_RATIO = 1.05;
 
   const PX_STRIDE = 4;
   const COV_EWMA = 0.25;

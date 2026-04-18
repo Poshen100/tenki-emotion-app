@@ -875,8 +875,8 @@ body {
   inset: 0;
   background: radial-gradient(
     circle at 50% 48%,
-    rgba(255, 213, 128, 0.65) 0%,
-    rgba(255, 180, 90, 0.30) 30%,
+    rgba(255, 213, 128, 0.85) 0%,
+    rgba(144, 238, 144, 0.45) 30%,
     transparent 65%
   );
   opacity: 0;
@@ -922,12 +922,12 @@ body {
   /* Heavy frosted glass: milky white + light purple tint */
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.10) 0%,
-    rgba(180, 160, 220, 0.08) 50%,
-    rgba(255, 255, 255, 0.06) 100%
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(180, 160, 220, 0.12) 50%,
+    rgba(255, 255, 255, 0.10) 100%
   );
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  backdrop-filter: blur(40px) saturate(220%);
+  -webkit-backdrop-filter: blur(40px) saturate(220%);
   /* Edge refraction highlight + inner glow */
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow:
@@ -1144,17 +1144,18 @@ body {
 .scan-timer-metal {
   background: linear-gradient(
     180deg,
-    #f4f4f4 0%,
-    #b8b8b8 45%,
-    #8a8a8a 55%,
-    #e4e4e4 100%
+    #ffffff 0%,
+    #d1d1d1 45%,
+    #a3a3a3 55%,
+    #f2f2f2 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  text-shadow: 0 0 30px rgba(0, 180, 216, 0.25);
+  text-shadow: 0 0 35px rgba(0, 180, 216, 0.4);
   font-weight: 300;
   letter-spacing: -0.03em;
+  font-size: 42px; /* Large metal font */
 }
 
 .scan-step.phase-climax .scan-timer-metal {

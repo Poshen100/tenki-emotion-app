@@ -260,30 +260,47 @@ function updateReadinessFromCamera(sample) {
     else labelEl.textContent = '覆蓋後鏡頭';
   }
 
-  // Overall message
   const msgEl = document.getElementById('readiness-message');
   const gradeEl = document.getElementById('readiness-grade');
 
-  if (coverage < 0.60) {
-    if (msgEl) {
-      msgEl.textContent = state.sensorChoice === 'finger'
-        ? '請將手指完整覆蓋鏡頭' : '請將臉部對準鏡頭範圍';
-      msgEl.style.color = '#FF3B30';
+  // Relaxed thresholds for prototype UX
+  if (coverage >= 0.70 && (stability || 0) >= 0.40 && (brightness || 0) >= 0.20) {
+    state.readyHoldFrames = (state.readyHoldFrames || 0) + 1;
+    
+    // Unlock if held stable for ~1 second (30 frames)
+    if (sqi >= 0.40 || state.readyHoldFrames > 30) {
+      if (msgEl) { msgEl.textContent = '準備就緒，可以開始'; msgEl.style.color = '#34C759'; }
+      if (gradeEl) {
+        gradeEl.textContent = sqi >= 0.70 ? 'A' : sqi >= 0.50 ? 'B' : 'C';
+        gradeEl.classList.add('visible');
+      }
+      const btn = document.getElementById('btn-start-scan');
+      if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
+      
+      // Auto-transition after unlocking
+      if (state.readyHoldFrames > 45 && btn && !btn.disabled) {
+        btn.click();
+      }
+    } else {
+      if (msgEl) { msgEl.textContent = '正在解析訊號... 保持不動'; msgEl.style.color = '#F5A623'; }
     }
-  } else if ((stability || 0) < 0.50) {
-    if (msgEl) { msgEl.textContent = '偵測到晃動，請保持靜止'; msgEl.style.color = '#F5A623'; }
-  } else if ((brightness || 0) < 0.30) {
-    if (msgEl) { msgEl.textContent = '光線不足，請移到較亮的地方'; msgEl.style.color = '#F5A623'; }
-  } else if (coverage >= 0.85 && (stability || 0) >= 0.70 && (brightness || 0) >= 0.50 && sqi >= 0.55) {
-    if (msgEl) { msgEl.textContent = '準備就緒，可以開始'; msgEl.style.color = '#34C759'; }
-    if (gradeEl) {
-      gradeEl.textContent = sqi >= 0.85 ? 'A' : sqi >= 0.70 ? 'B' : 'C';
-      gradeEl.classList.add('visible');
-    }
-    const btn = document.getElementById('btn-start-scan');
-    if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
   } else {
-    if (msgEl) { msgEl.textContent = '幾乎到位了...'; msgEl.style.color = '#F5A623'; }
+    // Only completely reset counter if finger is removed
+    if (coverage < 0.40) state.readyHoldFrames = 0;
+    
+    if (coverage < 0.60) {
+      if (msgEl) {
+        msgEl.textContent = state.sensorChoice === 'finger'
+          ? '請將手指完整覆蓋鏡頭' : '請將臉部對準鏡頭範圍';
+        msgEl.style.color = '#FF3B30';
+      }
+    } else if ((stability || 0) < 0.40) {
+      if (msgEl) { msgEl.textContent = '偵測到晃動，請保持靜止'; msgEl.style.color = '#F5A623'; }
+    } else if ((brightness || 0) < 0.20) {
+      if (msgEl) { msgEl.textContent = '光線不足，請移到較亮的地方'; msgEl.style.color = '#F5A623'; }
+    } else {
+      if (msgEl) { msgEl.textContent = '幾乎到位了...'; msgEl.style.color = '#F5A623'; }
+    }
   }
 }
 
@@ -769,7 +786,28 @@ function enterClimax(reason) {
 
   // Haptic / vibration (where supported)
   if (navigator.vibrate) {
-    try { navigator.vibrate([20, 40, 60]); } catch (_) {}
+    try { navigator.vibrate([50, 100, 150, 50, 200]); } catch (_) {}
+  }
+
+  // Deep tech finish sound via Web Audio API
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      const audioCtx = new AudioContext();
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(150, audioCtx.currentTime); // Deep pitch
+      osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.5);
+      gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.5);
+    }
+  } catch (e) {
+    // Ignore audio errors
   }
 
   // After climax window → begin transition (Todo 3 will implement)
@@ -1051,7 +1089,7 @@ function startParticleSystem() {
   // Finger target ≈ middle-ish of scan step (matches scan-ring-container)
   const target = { x: W / 2, y: H * 0.48 };
 
-  const PARTICLE_COUNT = 140;
+  const PARTICLE_COUNT = 800; // Drastically increased for climax density
   const particles = [];
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
@@ -1095,7 +1133,7 @@ function startParticleSystem() {
         const dx = target.x - p.x;
         const dy = target.y - p.y;
         const d = Math.hypot(dx, dy) || 1;
-        const pull = 0.04 + Math.min(0.12, t * 0.03);
+        const pull = 0.022 + Math.min(0.08, t * 0.02); // matched spec 0.022 gather speed
         p.vx += (dx / d) * pull;
         p.vy += (dy / d) * pull;
         p.vx *= 0.92; p.vy *= 0.92;
@@ -1120,7 +1158,7 @@ function startParticleSystem() {
           const bx = p.x - target.x;
           const by = p.y - target.y;
           const bd = Math.hypot(bx, by) || 1;
-          const speed = 4 + Math.random() * 5;
+          const speed = (4 + Math.random() * 5) * 2.2; // 2.2x explosion multiplier
           p.vx = (bx / bd) * speed;
           p.vy = (by / bd) * speed;
           p.bursted = true;
@@ -1147,7 +1185,7 @@ function startParticleSystem() {
       // Soft glow
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.r * 2.2, 0, Math.PI * 2);
-      ctx.fillStyle = `hsla(${p.hue}, 88%, 65%, ${a * 0.18})`;
+      ctx.fillStyle = `hsla(${p.hue}, 88%, 65%, ${mode === 'burst' ? a * 0.4 : a * 0.18})`; // Brighter trail in burst
       ctx.fill();
       // Core
       ctx.beginPath();
