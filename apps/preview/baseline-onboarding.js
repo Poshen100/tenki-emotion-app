@@ -220,7 +220,7 @@ async function startReadinessCamera() {
     const session = await api.startFingerCamera(videoEl, (sample) => {
       state.cameraActive = true;
       state.lastCameraSample = sample;
-      updateReadinessFromCamera(sample);
+      if (!state.isScanning) updateReadinessFromCamera(sample);
     });
     state.cameraSession = session;
     if (labelEl) labelEl.textContent = '後鏡頭已啟動';
@@ -262,7 +262,6 @@ function updateReadinessFromCamera(sample) {
 
   // Overall message
   const msgEl = document.getElementById('readiness-message');
-  const gradeEl = document.getElementById('readiness-grade');
 
   if (coverage < 0.60) {
     if (msgEl) {
@@ -276,10 +275,6 @@ function updateReadinessFromCamera(sample) {
     if (msgEl) { msgEl.textContent = '光線不足，請移到較亮的地方'; msgEl.style.color = '#F5A623'; }
   } else if (coverage >= 0.85 && (stability || 0) >= 0.70 && (brightness || 0) >= 0.50 && sqi >= 0.55) {
     if (msgEl) { msgEl.textContent = '準備就緒，可以開始'; msgEl.style.color = '#34C759'; }
-    if (gradeEl) {
-      gradeEl.textContent = sqi >= 0.85 ? 'A' : sqi >= 0.70 ? 'B' : 'C';
-      gradeEl.classList.add('visible');
-    }
     const btn = document.getElementById('btn-start-scan');
     if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
   } else {
@@ -310,13 +305,11 @@ function simulateReadiness(step) {
   updateMeter('sqi', sqi, getMeterIcon(sqi / 100, 0.55, 0.40));
 
   const msgEl = document.getElementById('readiness-message');
-  const gradeEl = document.getElementById('readiness-grade');
 
   if (coverage < 0.60) {
     if (msgEl) { msgEl.textContent = '模擬模式 — 覆蓋率上升中'; msgEl.style.color = '#F5A623'; }
   } else if (coverage >= 0.85 && stability >= 0.70 && brightness >= 0.50 && sqi >= 55) {
     if (msgEl) { msgEl.textContent = '準備就緒，可以開始'; msgEl.style.color = '#34C759'; }
-    if (gradeEl) { gradeEl.textContent = sqi >= 85 ? 'A' : sqi >= 70 ? 'B' : 'C'; gradeEl.classList.add('visible'); }
     const btn = document.getElementById('btn-start-scan');
     if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
     clearInterval(state.readinessInterval);
@@ -378,8 +371,6 @@ function startCalibrationScan() {
   state.sqiHistory = [];
   state.rollingSqi = 0;
   state.qualityTier = 'weak';
-  state.cameraActive = false;
-  state.lastCameraSample = null;
   state.scanStartTs = performance.now();
   state.baseline = {
     hr: { mean: 0, std: 0 },
@@ -431,8 +422,7 @@ function transferCameraToScanView() {
 
   if (!scanVideoEl) return;
 
-  if (state.cameraActive && readinessVideoEl && readinessVideoEl.srcObject) {
-    // Share the same MediaStream — no new permission prompt
+  if (readinessVideoEl && readinessVideoEl.srcObject) {
     scanVideoEl.srcObject = readinessVideoEl.srcObject;
     scanVideoEl.muted = true;
     scanVideoEl.playsInline = true;
@@ -442,8 +432,7 @@ function transferCameraToScanView() {
       container.classList.remove('camera-unavailable');
       container.classList.add('camera-active');
     }
-  } else if (!state.cameraActive) {
-    // No camera available — mark unavailable
+  } else {
     if (container) {
       container.classList.remove('camera-active');
       container.classList.add('camera-unavailable');
