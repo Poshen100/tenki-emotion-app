@@ -466,18 +466,43 @@ function tickCalibration() {
     updateSignalTelemetry(elapsedSec);
   }
 
+  // ── Coverage guidance (real-time finger placement feedback) ──
+  updateCoverageGuidance(elapsedSec);
+
   // ── Status message (single-line, UX Standard 2) ──
   if (statusEl && state.scanPhase !== 'climax' && state.scanPhase !== 'final') {
-    if (elapsedSec < 3) {
-      statusEl.textContent = '能量凝聚中...';
-    } else if (elapsedSec < 8) {
-      statusEl.textContent = 'PPG 訊號採集中…';
-    } else if (elapsedSec < 18) {
-      statusEl.textContent = '能量正在快速凝聚...';
-    } else if (elapsedSec < state.scanEarliestComplete) {
-      statusEl.textContent = '品質越好，精準度越高';
+    if (state.cameraActive && state.lastCameraSample) {
+      // Camera-driven: coverage state takes priority over time-based messages
+      const color = state.lastCameraSample.color;
+      if (color === 'red') {
+        statusEl.textContent = '請將手指完整覆蓋鏡頭';
+        statusEl.style.color = '#FF3B30';
+      } else if (color === 'yellow') {
+        statusEl.textContent = '繼續調整手指位置…';
+        statusEl.style.color = '#F5A623';
+      } else if (elapsedSec < 8) {
+        statusEl.textContent = 'PPG 訊號採集中…';
+        statusEl.style.color = '';
+      } else if (elapsedSec < state.scanEarliestComplete) {
+        statusEl.textContent = '能量正在快速凝聚...';
+        statusEl.style.color = '';
+      } else {
+        statusEl.textContent = '快好了，再堅持一下';
+        statusEl.style.color = '';
+      }
     } else {
-      statusEl.textContent = '快好了，再堅持一下';
+      // Simulated fallback: time-based progression
+      if (elapsedSec < 3) {
+        statusEl.textContent = '能量凝聚中...';
+      } else if (elapsedSec < 8) {
+        statusEl.textContent = 'PPG 訊號採集中…';
+      } else if (elapsedSec < 18) {
+        statusEl.textContent = '能量正在快速凝聚...';
+      } else if (elapsedSec < state.scanEarliestComplete) {
+        statusEl.textContent = '品質越好，精準度越高';
+      } else {
+        statusEl.textContent = '快好了，再堅持一下';
+      }
     }
   }
 
@@ -522,6 +547,44 @@ function simulateBaselineData(progress) {
     state.baseline.hrv.std = Math.abs(baseHRV - state.baseline.hrv.mean) * 0.5;
     state.baseline.rr.mean = state.baseline.rr.mean * (1 - alpha) + baseRR * alpha;
     state.baseline.rr.std = Math.abs(baseRR - state.baseline.rr.mean) * 0.3;
+  }
+}
+
+// ─────────────────────────────────────────────
+// Coverage guidance — real-time finger placement feedback
+// Shows RED/YELLOW/GREEN state + actionable instruction
+// ─────────────────────────────────────────────
+
+function updateCoverageGuidance(elapsedSec) {
+  const guidanceEl = document.getElementById('scan-guidance');
+  const iconEl = document.getElementById('scan-guidance-icon');
+  const textEl = document.getElementById('scan-guidance-text');
+  if (!guidanceEl || !iconEl || !textEl) return;
+
+  if (state.cameraActive && state.lastCameraSample) {
+    const { color, hint } = state.lastCameraSample;
+    guidanceEl.dataset.coverage = color;
+    if (color === 'red') {
+      iconEl.textContent = '❌';
+      textEl.textContent = '請將食指完整覆蓋後鏡頭';
+    } else if (color === 'yellow') {
+      iconEl.textContent = '⚠️';
+      textEl.textContent = '手指位置偏了，請調整覆蓋';
+    } else {
+      iconEl.textContent = '✅';
+      textEl.textContent = '手指已覆蓋 — 保持不動';
+    }
+  } else {
+    // Simulated fallback: show generic instruction
+    if (elapsedSec < 3) {
+      guidanceEl.dataset.coverage = '';
+      iconEl.textContent = '👆';
+      textEl.textContent = '請將食指完整覆蓋後鏡頭';
+    } else {
+      guidanceEl.dataset.coverage = 'green';
+      iconEl.textContent = '✅';
+      textEl.textContent = '訊號採集中 — 請保持不動';
+    }
   }
 }
 
@@ -571,13 +634,28 @@ function updateSignalTelemetry(elapsedSec) {
     const scanEl = document.getElementById('step-scan');
     if (scanEl) scanEl.dataset.sqi = tier;
 
-    // Update ceremony dialog sub-text to match quality level
+    // Update ceremony dialog sub-text — camera-driven when active
     const subEl = document.getElementById('ceremony-dialog-sub');
     if (subEl) {
-      if (tier === 'excellent') subEl.textContent = '手指已完全覆蓋 ✓ — 能量正在快速凝聚';
-      else if (tier === 'good') subEl.textContent = '訊號良好 — 繼續保持不動';
-      else if (tier === 'fair') subEl.textContent = 'PPG 訊號採集中… 品質越好越精準';
-      else subEl.textContent = '請將食指完全覆蓋前鏡頭';
+      if (state.cameraActive && state.lastCameraSample) {
+        const coverColor = state.lastCameraSample.color;
+        if (tier === 'excellent') {
+          subEl.textContent = '手指已完全覆蓋 ✓ — 能量正在快速凝聚';
+        } else if (tier === 'good') {
+          subEl.textContent = '訊號良好 — 繼續保持不動';
+        } else if (coverColor === 'red') {
+          subEl.textContent = '⚠ 請將食指完整覆蓋後鏡頭';
+        } else if (coverColor === 'yellow') {
+          subEl.textContent = '手指位置偏了 — 請微調覆蓋';
+        } else {
+          subEl.textContent = 'PPG 訊號採集中… 品質越好越精準';
+        }
+      } else {
+        if (tier === 'excellent') subEl.textContent = '手指已完全覆蓋 ✓ — 能量正在快速凝聚';
+        else if (tier === 'good') subEl.textContent = '訊號良好 — 繼續保持不動';
+        else if (tier === 'fair') subEl.textContent = 'PPG 訊號採集中… 品質越好越精準';
+        else subEl.textContent = '請將食指完全覆蓋後鏡頭';
+      }
     }
   }
 
