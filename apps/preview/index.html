@@ -76,7 +76,13 @@
       <div class="step-content">
         <h1 class="step-headline">準備檢查</h1>
         <p class="step-body">在開始之前，確認環境和位置都準備好了</p>
-        
+
+        <!-- Live camera preview for readiness check -->
+        <div class="readiness-camera-preview" id="readiness-camera-container">
+          <video class="readiness-video" id="readiness-video" playsinline muted autoplay></video>
+          <div class="readiness-camera-label" id="readiness-camera-label">等待相機…</div>
+        </div>
+
         <div class="instructions-list" id="instructions-list">
           <div class="instruction-item">
             <span class="instruction-number">1</span>

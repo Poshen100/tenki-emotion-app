@@ -1,227 +1,286 @@
 /**
- * TENKI CORE — Preview Camera Scan
- * ==================================
- * Self-contained camera + finger-detection module for the baseline onboarding
- * preview. Ports the behaviour of `core/camera-controller.js`, `core/finger-detector.js`
- * and `core/ppg-analyzer.js` into a single file so the `apps/preview/` bundle
- * stays static-deployable with zero build steps.
+ * TENKI CORE — Preview Camera Scan (Full PPG Pipeline)
+ * =====================================================
+ * Self-contained camera + finger-detection + PPG analysis module.
+ * Outputs real biometric signals: BPM, HRV (RMSSD), coverage, SQI.
  *
- * Responsibilities:
- *   - Request the rear camera via getUserMedia({ facingMode: 'environment' })
- *   - Compute skin-pixel coverage (RED/YELLOW/GREEN) with EWMA α=0.25
- *   - Track red-channel PPG variance as signal quality proxy
- *   - Emit `{ coverage, color, redMean, redStd, sqi, hint }` samples at ~30 fps
+ * Pipeline:
+ *   getUserMedia(rear) → skin-pixel coverage → red-channel ROI mean
+ *   → 3-point smoothing → peak detection (40-180 BPM band)
+ *   → IBI series → BPM + RMSSD (HRV) + respiratory rate estimate
  *
- * Desktop fallback: if the device has no rear camera or user denies permission,
- * `start()` rejects and the caller should fall back to simulated SQI.
+ * Desktop fallback: if the device has no rear camera or user denies
+ * permission, `start()` rejects and the caller should fall back.
  */
 
 'use strict';
 
 (function (global) {
 
-  // ── Thresholds (aligned with core/finger-detector.js) ────────────────────
-  const COVERAGE_GREEN_THRESHOLD = 0.85;
-  const COVERAGE_YELLOW_THRESHOLD = 0.60;
+  // ── Coverage thresholds (aligned with core/finger-detector.js) ──
+  const COVERAGE_GREEN = 0.85;
+  const COVERAGE_YELLOW = 0.60;
 
   const SKIN_R_MIN = 80, SKIN_R_MAX = 255;
   const SKIN_G_MIN = 40, SKIN_G_MAX = 200;
   const SKIN_B_MIN = 20, SKIN_B_MAX = 170;
-  const SKIN_R_DOMINANT_RATIO = 1.15;
+  const SKIN_R_RATIO = 1.15;
 
-  const PIXEL_SAMPLE_STRIDE = 4;
-  const COVERAGE_EWMA_ALPHA = 0.25;
+  const PX_STRIDE = 4;
+  const COV_EWMA = 0.25;
 
-  // PPG analysis window
-  const PPG_SAMPLE_WINDOW = 150; // ~5s at 30fps
-  const PPG_ROI_SIZE = 100;      // centre 100×100 patch
+  // ── PPG constants ──
+  const PPG_WINDOW = 300;       // ~10s at 30fps
+  const PPG_ROI = 100;          // centre 100×100 patch
+  const BPM_MIN = 40;
+  const BPM_MAX = 180;
+  const MIN_PEAK_DIST_S = 60 / BPM_MAX; // ~0.33s
+  const IBI_WINDOW = 20;        // last N inter-beat intervals for HRV
+  const STABILITY_WINDOW = 30;  // frames for coverage stability
 
-  function isSkinPixel(r, g, b) {
-    if (r < SKIN_R_MIN || r > SKIN_R_MAX) return false;
-    if (g < SKIN_G_MIN || g > SKIN_G_MAX) return false;
-    if (b < SKIN_B_MIN || b > SKIN_B_MAX) return false;
-    if (r < g * SKIN_R_DOMINANT_RATIO) return false;
-    return true;
+  function isSkin(r, g, b) {
+    return r >= SKIN_R_MIN && r <= SKIN_R_MAX &&
+           g >= SKIN_G_MIN && g <= SKIN_G_MAX &&
+           b >= SKIN_B_MIN && b <= SKIN_B_MAX &&
+           r >= g * SKIN_R_RATIO;
   }
 
-  function coverageColor(c) {
-    if (c >= COVERAGE_GREEN_THRESHOLD) return 'green';
-    if (c >= COVERAGE_YELLOW_THRESHOLD) return 'yellow';
+  function covColor(c) {
+    if (c >= COVERAGE_GREEN) return 'green';
+    if (c >= COVERAGE_YELLOW) return 'yellow';
     return 'red';
   }
 
-  function coverageHint(color) {
+  function covHint(color) {
     if (color === 'green') return '保持不動，正在讀取…';
     if (color === 'yellow') return '繼續調整手指位置';
     return '請將手指完整覆蓋鏡頭';
   }
 
   /**
-   * Start a camera-based finger scan bound to the given <video> element.
+   * Start a camera-based finger scan.
    * @param {HTMLVideoElement} videoEl
-   * @param {(sample) => void} onSample — invoked ~30×/s with detection result
+   * @param {(sample: Object) => void} onSample — ~30×/s
    * @returns {Promise<{stop: () => void}>}
    */
   async function startFingerCamera(videoEl, onSample) {
     if (!videoEl) throw new Error('videoEl required');
-
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      const err = new Error('getUserMedia unavailable');
-      err.code = 'UNSUPPORTED';
-      throw err;
+      const e = new Error('getUserMedia unavailable');
+      e.code = 'UNSUPPORTED';
+      throw e;
     }
 
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-        },
-        audio: false,
-      });
-    } catch (err) {
-      // Bubble the original DOMException so caller can classify (NotAllowed, NotFound…)
-      throw err;
-    }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false,
+    });
 
     videoEl.srcObject = stream;
     videoEl.muted = true;
     videoEl.playsInline = true;
-    try { await videoEl.play(); } catch (_) { /* some browsers need user gesture */ }
+    try { await videoEl.play(); } catch (_) {}
 
-    // Try to force the torch on — makes PPG much cleaner on phones that support it.
+    // Torch best-effort
     try {
       const track = stream.getVideoTracks()[0];
       const caps = track.getCapabilities ? track.getCapabilities() : {};
-      if (caps && caps.torch) {
-        await track.applyConstraints({ advanced: [{ torch: true }] });
-      }
-    } catch (_) { /* torch is best-effort */ }
+      if (caps && caps.torch) await track.applyConstraints({ advanced: [{ torch: true }] });
+    } catch (_) {}
 
     const canvas = document.createElement('canvas');
     canvas.width = 320;
     canvas.height = 240;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    let ewmaCoverage = 0;
-    let coverageInit = false;
-    const redBuffer = [];
-    let running = true;
-    let rafId = null;
-    let lastFrameTs = 0;
-    const frameInterval = 1000 / 30;
+    // ── State ──
+    let ewmaCov = 0, covInit = false;
+    const covHistory = [];       // recent coverage values for stability
+    const redBuf = [];           // { value, ts } timestamped red-channel means
+    const peakTimes = [];        // timestamps of detected PPG peaks
+    const ibis = [];             // inter-beat intervals (ms)
+    let lastPeakTs = 0;
+    let running = true, rafId = null, lastFrameTs = 0;
+    const dt = 1000 / 30;
 
-    function analyzeFrame(ts) {
+    function analyze(ts) {
       if (!running) return;
-      if (ts - lastFrameTs < frameInterval) {
-        rafId = requestAnimationFrame(analyzeFrame);
-        return;
-      }
+      if (ts - lastFrameTs < dt) { rafId = requestAnimationFrame(analyze); return; }
       lastFrameTs = ts;
 
       const vw = videoEl.videoWidth || 0;
-      const vh = videoEl.videoHeight || 0;
-      if (vw === 0 || vh === 0) {
-        rafId = requestAnimationFrame(analyzeFrame);
-        return;
-      }
+      if (vw === 0) { rafId = requestAnimationFrame(analyze); return; }
 
       ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
 
-      // Full-frame skin coverage
       let imgData;
-      try {
-        imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      } catch (e) {
-        // Cross-origin video can taint canvas; bail with hint.
+      try { imgData = ctx.getImageData(0, 0, canvas.width, canvas.height); }
+      catch (_) {
         running = false;
-        onSample && onSample({
-          coverage: 0, color: 'red', redMean: 0, redStd: 0, sqi: 0,
-          hint: '畫面讀取失敗，改用模擬訊號',
-          error: 'CANVAS_TAINTED',
-        });
+        onSample && onSample({ coverage: 0, color: 'red', sqi: 0, bpm: 0, hrv: 0, rr: 0,
+          redMean: 0, redStd: 0, brightness: 0, stability: 0, hint: '畫面讀取失敗', error: 'CANVAS_TAINTED' });
         return;
       }
 
-      const data = imgData.data;
-      let skin = 0, total = 0;
-      for (let y = 0; y < canvas.height; y += PIXEL_SAMPLE_STRIDE) {
-        for (let x = 0; x < canvas.width; x += PIXEL_SAMPLE_STRIDE) {
-          const idx = (y * canvas.width + x) * 4;
-          total++;
-          if (isSkinPixel(data[idx], data[idx + 1], data[idx + 2])) skin++;
+      const px = imgData.data;
+      const W = canvas.width, H = canvas.height;
+
+      // ── 1) Skin coverage ──
+      let skinCnt = 0, totalCnt = 0;
+      for (let y = 0; y < H; y += PX_STRIDE) {
+        for (let x = 0; x < W; x += PX_STRIDE) {
+          const i = (y * W + x) * 4;
+          totalCnt++;
+          if (isSkin(px[i], px[i + 1], px[i + 2])) skinCnt++;
         }
       }
-      const rawCoverage = total ? skin / total : 0;
+      const rawCov = totalCnt ? skinCnt / totalCnt : 0;
+      ewmaCov = covInit ? COV_EWMA * rawCov + (1 - COV_EWMA) * ewmaCov : rawCov;
+      covInit = true;
 
-      if (!coverageInit) {
-        ewmaCoverage = rawCoverage;
-        coverageInit = true;
-      } else {
-        ewmaCoverage = COVERAGE_EWMA_ALPHA * rawCoverage
-                     + (1 - COVERAGE_EWMA_ALPHA) * ewmaCoverage;
+      // Stability: inverse of coverage variance over recent frames
+      covHistory.push(ewmaCov);
+      if (covHistory.length > STABILITY_WINDOW) covHistory.shift();
+      let stability = 0;
+      if (covHistory.length >= 5) {
+        const avg = covHistory.reduce((a, b) => a + b, 0) / covHistory.length;
+        const variance = covHistory.reduce((s, v) => s + (v - avg) ** 2, 0) / covHistory.length;
+        stability = Math.max(0, Math.min(1, 1 - Math.sqrt(variance) * 10));
       }
 
-      // Red channel mean over centre ROI (for PPG)
-      const roiX = Math.floor((canvas.width - PPG_ROI_SIZE) / 2);
-      const roiY = Math.floor((canvas.height - PPG_ROI_SIZE) / 2);
-      let redSum = 0, redCount = 0;
-      for (let y = roiY; y < roiY + PPG_ROI_SIZE; y += 2) {
-        for (let x = roiX; x < roiX + PPG_ROI_SIZE; x += 2) {
-          const idx = (y * canvas.width + x) * 4;
-          redSum += data[idx];
-          redCount++;
+      // ── 2) Red channel mean (centre ROI) ──
+      const rx = Math.floor((W - PPG_ROI) / 2), ry = Math.floor((H - PPG_ROI) / 2);
+      let rSum = 0, rCnt = 0;
+      for (let y = ry; y < ry + PPG_ROI; y += 2) {
+        for (let x = rx; x < rx + PPG_ROI; x += 2) {
+          rSum += px[(y * W + x) * 4];
+          rCnt++;
         }
       }
-      const redMean = redCount ? redSum / redCount : 0;
+      const redMean = rCnt ? rSum / rCnt : 0;
 
-      redBuffer.push(redMean);
-      if (redBuffer.length > PPG_SAMPLE_WINDOW) redBuffer.shift();
+      redBuf.push({ value: redMean, ts });
+      if (redBuf.length > PPG_WINDOW) redBuf.shift();
 
-      // Std-dev of recent red samples — heartbeats produce oscillation
+      // ── 3) Red channel std ──
       let redStd = 0;
-      if (redBuffer.length >= 30) {
-        const n = redBuffer.length;
-        const mean = redBuffer.reduce((a, b) => a + b, 0) / n;
-        let sqSum = 0;
-        for (let i = 0; i < n; i++) sqSum += (redBuffer[i] - mean) ** 2;
-        redStd = Math.sqrt(sqSum / n);
+      if (redBuf.length >= 30) {
+        const n = redBuf.length;
+        const avg = redBuf.reduce((s, v) => s + v.value, 0) / n;
+        redStd = Math.sqrt(redBuf.reduce((s, v) => s + (v.value - avg) ** 2, 0) / n);
       }
 
-      // SQI heuristic:
-      //   - Finger must cover the lens (coverage weight 0.6)
-      //   - Red channel must be saturated (coverage amplitude weight 0.2)
-      //   - Signal must oscillate in the PPG band (std weight 0.2)
-      const coverageScore = Math.min(1, ewmaCoverage / COVERAGE_GREEN_THRESHOLD);
-      const redSatScore = Math.min(1, redMean / 180);
-      const oscillationScore = Math.min(1, redStd / 4); // empirical: clean PPG ≈ 2-6
-      const sqi = Math.max(0, Math.min(1,
-        0.6 * coverageScore + 0.2 * redSatScore + 0.2 * oscillationScore));
+      // ── 4) Peak detection (PPG heartbeat) ──
+      // Use a 3-point smoothed signal; detect when slope changes from + to -.
+      let bpm = 0;
+      if (redBuf.length >= 5 && ewmaCov >= COVERAGE_YELLOW) {
+        const len = redBuf.length;
+        const i = len - 2; // check the second-to-last sample
+        if (i >= 1) {
+          const prev = redBuf[i - 1].value;
+          const curr = redBuf[i].value;
+          const next = redBuf[i + 1].value;
+          // Smooth: 3-point average at each position
+          const sPrev = i >= 2 ? (redBuf[i - 2].value + prev + curr) / 3 : prev;
+          const sCurr = (prev + curr + next) / 3;
+          const sNext = i + 2 < len ? (curr + next + redBuf[i + 2].value) / 3 : next;
 
-      const color = coverageColor(ewmaCoverage);
+          const isPeak = sCurr > sPrev && sCurr >= sNext;
+          const peakTs = redBuf[i].ts;
+          const minDist = MIN_PEAK_DIST_S * 1000;
+
+          if (isPeak && (peakTs - lastPeakTs) > minDist) {
+            if (lastPeakTs > 0) {
+              const ibi = peakTs - lastPeakTs;
+              const instantBpm = 60000 / ibi;
+              if (instantBpm >= BPM_MIN && instantBpm <= BPM_MAX) {
+                ibis.push(ibi);
+                if (ibis.length > IBI_WINDOW) ibis.shift();
+                peakTimes.push(peakTs);
+                if (peakTimes.length > IBI_WINDOW + 1) peakTimes.shift();
+              }
+            }
+            lastPeakTs = peakTs;
+          }
+        }
+
+        // BPM from recent IBIs
+        if (ibis.length >= 3) {
+          const avgIbi = ibis.reduce((a, b) => a + b, 0) / ibis.length;
+          bpm = Math.round(60000 / avgIbi);
+          if (bpm < BPM_MIN || bpm > BPM_MAX) bpm = 0;
+        }
+      }
+
+      // ── 5) HRV (RMSSD) from IBIs ──
+      let hrv = 0;
+      if (ibis.length >= 4) {
+        let sumSqDiff = 0;
+        for (let k = 1; k < ibis.length; k++) {
+          sumSqDiff += (ibis[k] - ibis[k - 1]) ** 2;
+        }
+        hrv = Math.round(Math.sqrt(sumSqDiff / (ibis.length - 1)));
+      }
+
+      // ── 6) Respiratory rate estimate from IBI modulation ──
+      // RSA: respiratory sinus arrhythmia — IBI series oscillates at breathing freq.
+      // Rough estimate: count zero-crossings of detrended IBI over last ~15 IBIs.
+      let rr = 0;
+      if (ibis.length >= 8) {
+        const ibiMean = ibis.reduce((a, b) => a + b, 0) / ibis.length;
+        let crossings = 0;
+        let prevSign = ibis[0] > ibiMean;
+        for (let k = 1; k < ibis.length; k++) {
+          const sign = ibis[k] > ibiMean;
+          if (sign !== prevSign) crossings++;
+          prevSign = sign;
+        }
+        // Each full respiratory cycle = 2 zero-crossings.
+        // Duration spanned by the IBIs:
+        const spanMs = ibis.reduce((a, b) => a + b, 0);
+        const spanMin = spanMs / 60000;
+        if (spanMin > 0) {
+          rr = Math.round((crossings / 2) / spanMin);
+          if (rr < 6 || rr > 30) rr = 0; // physiological range
+        }
+      }
+
+      // ── 7) Brightness (normalized red saturation) ──
+      const brightness = Math.min(1, redMean / 200);
+
+      // ── 8) SQI composite ──
+      const covScore = Math.min(1, ewmaCov / COVERAGE_GREEN);
+      const satScore = Math.min(1, redMean / 180);
+      const oscScore = Math.min(1, redStd / 4);
+      const bpmBonus = bpm > 0 ? 0.15 : 0;
+      const sqi = Math.max(0, Math.min(1,
+        0.45 * covScore + 0.15 * satScore + 0.15 * oscScore + 0.10 * stability + bpmBonus));
+
+      const color = covColor(ewmaCov);
       onSample && onSample({
-        coverage: Math.round(ewmaCoverage * 1000) / 1000,
+        coverage: Math.round(ewmaCov * 1000) / 1000,
         color,
         redMean,
         redStd,
+        brightness,
+        stability,
         sqi,
-        hint: coverageHint(color),
+        bpm,
+        hrv,
+        rr,
+        hint: covHint(color),
       });
 
-      rafId = requestAnimationFrame(analyzeFrame);
+      rafId = requestAnimationFrame(analyze);
     }
 
-    rafId = requestAnimationFrame(analyzeFrame);
+    rafId = requestAnimationFrame(analyze);
 
     return {
       stop() {
         running = false;
         if (rafId) cancelAnimationFrame(rafId);
-        if (stream) {
-          stream.getTracks().forEach(t => t.stop());
-        }
+        stream.getTracks().forEach(t => t.stop());
         try { videoEl.srcObject = null; } catch (_) {}
       },
     };
