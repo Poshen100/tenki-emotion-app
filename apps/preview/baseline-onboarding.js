@@ -40,6 +40,12 @@ const state = {
   cameraSession: null,     // Active { stop } handle from TENKI_PREVIEW_CAMERA
   cameraActive: false,     // True once a real camera frame has arrived
   lastCameraSample: null,  // Latest { coverage, color, redMean, redStd, sqi, hint }
+  // Smart readiness gate state
+  readinessLatch: { coverage: 0, brightness: 0, stability: 0, sqi: 0 },
+  readySince: 0,           // timestamp when unlock conditions first met
+  yellowCoverageMs: 0,     // accumulated ms with coverage ≥ 0.60
+  lastReadinessTs: 0,      // for delta-time calculation
+  readinessUnlocked: false,
   baseline: {
     hr: { mean: 0, std: 0 },
     hrv: { mean: 0, std: 0 },
@@ -185,6 +191,13 @@ function startReadinessCheck() {
   updateMeter('stability', 0, '—');
   updateMeter('sqi', 0, '—');
 
+  // Reset smart gate state
+  state.readinessLatch = { coverage: 0, brightness: 0, stability: 0, sqi: 0 };
+  state.readySince = 0;
+  state.yellowCoverageMs = 0;
+  state.lastReadinessTs = 0;
+  state.readinessUnlocked = false;
+
   const btn = document.getElementById('btn-start-scan');
   if (btn) {
     btn.disabled = true;
@@ -241,15 +254,40 @@ async function startReadinessCamera() {
   }
 }
 
+// ── Readiness gate thresholds ──
+const READY_GREEN = { coverage: 0.85, brightness: 0.50, stability: 0.70, sqi: 0.55 };
+const READY_LATCH_MS = 3000;     // once green, stays green 3s
+const READY_HOLD_MS = 1500;      // hold steady before unlock
+const READY_PATIENCE_MS = 10000; // after 10s of yellow coverage → unlock anyway
+
+function isLatchedGreen(key, value, threshold) {
+  const now = Date.now();
+  if (value >= threshold) {
+    state.readinessLatch[key] = now + READY_LATCH_MS;
+    return true;
+  }
+  return now < state.readinessLatch[key];
+}
+
 function updateReadinessFromCamera(sample) {
   const { coverage, brightness, stability, sqi, color, bpm } = sample;
+  const now = Date.now();
+  const dt = state.lastReadinessTs ? now - state.lastReadinessTs : 33;
+  state.lastReadinessTs = now;
 
-  updateMeter('coverage', coverage * 100, getMeterIcon(coverage, 0.85, 0.60));
-  updateMeter('brightness', (brightness || 0) * 100, getMeterIcon(brightness || 0, 0.50, 0.30));
-  updateMeter('stability', (stability || 0) * 100, getMeterIcon(stability || 0, 0.70, 0.50));
-  updateMeter('sqi', sqi * 100, getMeterIcon(sqi, 0.55, 0.40));
+  // ── Latch: check each meter (latched = stays green for 3s after crossing threshold)
+  const covG = isLatchedGreen('coverage', coverage, READY_GREEN.coverage);
+  const briG = isLatchedGreen('brightness', brightness || 0, READY_GREEN.brightness);
+  const staG = isLatchedGreen('stability', stability || 0, READY_GREEN.stability);
+  const sqiG = isLatchedGreen('sqi', sqi, READY_GREEN.sqi);
 
-  // Camera preview border color
+  // ── Update meter visuals (use latched state for icons)
+  updateMeter('coverage', coverage * 100, covG ? '✅' : getMeterIcon(coverage, 0.85, 0.60));
+  updateMeter('brightness', (brightness || 0) * 100, briG ? '✅' : getMeterIcon(brightness || 0, 0.50, 0.30));
+  updateMeter('stability', (stability || 0) * 100, staG ? '✅' : getMeterIcon(stability || 0, 0.70, 0.50));
+  updateMeter('sqi', sqi * 100, sqiG ? '✅' : getMeterIcon(sqi, 0.55, 0.40));
+
+  // ── Camera preview
   const container = document.getElementById('readiness-camera-container');
   if (container) container.dataset.state = color;
 
@@ -260,25 +298,89 @@ function updateReadinessFromCamera(sample) {
     else labelEl.textContent = '覆蓋後鏡頭';
   }
 
-  // Overall message
-  const msgEl = document.getElementById('readiness-message');
-
-  if (coverage < 0.60) {
-    if (msgEl) {
-      msgEl.textContent = state.sensorChoice === 'finger'
-        ? '請將手指完整覆蓋鏡頭' : '請將臉部對準鏡頭範圍';
-      msgEl.style.color = '#FF3B30';
-    }
-  } else if ((stability || 0) < 0.50) {
-    if (msgEl) { msgEl.textContent = '偵測到晃動，請保持靜止'; msgEl.style.color = '#F5A623'; }
-  } else if ((brightness || 0) < 0.30) {
-    if (msgEl) { msgEl.textContent = '光線不足，請移到較亮的地方'; msgEl.style.color = '#F5A623'; }
-  } else if (coverage >= 0.85 && (stability || 0) >= 0.70 && (brightness || 0) >= 0.50 && sqi >= 0.55) {
-    if (msgEl) { msgEl.textContent = '準備就緒，可以開始'; msgEl.style.color = '#34C759'; }
-    const btn = document.getElementById('btn-start-scan');
-    if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
+  // ── Patience: accumulate time with yellow+ coverage
+  if (coverage >= 0.60) {
+    state.yellowCoverageMs += dt;
   } else {
-    if (msgEl) { msgEl.textContent = '幾乎到位了...'; msgEl.style.color = '#F5A623'; }
+    state.yellowCoverageMs = Math.max(0, state.yellowCoverageMs - dt * 2);
+  }
+
+  // ── 3-Layer unlock gate ──
+  // Layer 1: All 4 latched green
+  const layer1 = covG && briG && staG && sqiG;
+
+  // Layer 2: Coverage ≥ 0.70 + at least 2 of 3 others latched green
+  const covRelaxed = coverage >= 0.70 || covG;
+  const othersCount = [briG, staG, sqiG].filter(Boolean).length;
+  const layer2 = covRelaxed && othersCount >= 2;
+
+  // Layer 3: Patience — 10s of yellow+ coverage with basic conditions
+  const layer3 = state.yellowCoverageMs >= READY_PATIENCE_MS
+    && coverage >= 0.60
+    && (brightness || 0) >= 0.30
+    && (stability || 0) >= 0.40;
+
+  const shouldUnlock = layer1 || layer2 || layer3;
+
+  // ── Hold-steady timer ──
+  const msgEl = document.getElementById('readiness-message');
+  const btn = document.getElementById('btn-start-scan');
+
+  if (state.readinessUnlocked) {
+    // Already unlocked — keep it enabled (no re-locking once user sees the button)
+    return;
+  }
+
+  if (shouldUnlock) {
+    if (!state.readySince) state.readySince = now;
+    const holdNeeded = layer3 ? 0 : READY_HOLD_MS;
+    const elapsed = now - state.readySince;
+
+    if (elapsed >= holdNeeded) {
+      // ── UNLOCK ──
+      state.readinessUnlocked = true;
+      if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
+      if (msgEl) {
+        if (layer1) {
+          msgEl.textContent = '準備就緒，可以開始';
+        } else if (layer2) {
+          msgEl.textContent = '信號良好，可以開始';
+        } else {
+          msgEl.textContent = '信號足夠，可以開始';
+        }
+        msgEl.style.color = '#34C759';
+      }
+    } else {
+      // Counting down to unlock
+      const remaining = Math.ceil((holdNeeded - elapsed) / 1000);
+      if (msgEl) {
+        msgEl.textContent = `保持不動… ${remaining} 秒後就緒`;
+        msgEl.style.color = '#34C759';
+      }
+    }
+  } else {
+    state.readySince = 0;
+
+    // ── Specific blocker guidance ──
+    if (msgEl) {
+      if (coverage < 0.60) {
+        msgEl.textContent = state.sensorChoice === 'finger'
+          ? '請將手指完整覆蓋鏡頭' : '請將臉部對準鏡頭範圍';
+        msgEl.style.color = '#FF3B30';
+      } else if ((stability || 0) < 0.40) {
+        msgEl.textContent = '偵測到晃動，請保持靜止';
+        msgEl.style.color = '#F5A623';
+      } else if ((brightness || 0) < 0.30) {
+        msgEl.textContent = '光線不足，請移到較亮的地方';
+        msgEl.style.color = '#F5A623';
+      } else if (!covG && coverage < 0.85) {
+        msgEl.textContent = '手指再往鏡頭中心移一點';
+        msgEl.style.color = '#F5A623';
+      } else {
+        msgEl.textContent = '快好了，保持不動…';
+        msgEl.style.color = '#F5A623';
+      }
+    }
   }
 }
 
