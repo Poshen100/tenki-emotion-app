@@ -15,7 +15,18 @@ import {
 // Helpers
 // ─────────────────────────────────────────────
 
-const BASE_TS = new Date('2026-04-14T10:00:00Z').getTime();
+// Use a timestamp that reliably falls in the 'morning' bucket (05:00-11:59 local).
+// We construct it from local time to avoid timezone-dependent bucket resolution.
+const BASE_DATE = new Date(2026, 3, 14, 8, 0, 0); // April 14 2026, 08:00 local
+const BASE_TS = BASE_DATE.getTime();
+
+/** Resolve which bucket these tests will land in (mirrors engine logic). */
+function expectedBucket(): 'morning' | 'midday' | 'evening' {
+  const hour = new Date(BASE_TS).getHours();
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 18) return 'midday';
+  return 'evening';
+}
 
 function makeWindow(
   index: number,
@@ -62,7 +73,7 @@ describe('bootstrapBaseline', () => {
     expect(result.rejectedSamples).toBe(0);
     expect(result.profile.totalScanCount).toBe(10);
     expect(result.profile.maturity).not.toBe('new');
-    expect(result.profile.hr.morning.sampleCount).toBeGreaterThan(0);
+    expect(result.profile.hr[expectedBucket()].sampleCount).toBeGreaterThan(0);
     expect(result.confidence.overall).toBeGreaterThan(0);
     expect(result.summaryMessage).toContain('基線已建立');
   });
@@ -148,9 +159,9 @@ describe('bootstrapBaseline', () => {
 
     expect(result.success).toBe(true);
     // Mean should be very close to 72
-    expect(result.profile.hr.morning.mean).toBeCloseTo(72, 0);
+    expect(result.profile.hr[expectedBucket()].mean).toBeCloseTo(72, 0);
     // Std should be ~0 for identical values
-    expect(result.profile.hr.morning.std).toBeCloseTo(0, 1);
+    expect(result.profile.hr[expectedBucket()].std).toBeCloseTo(0, 1);
   });
 
   it('computes confidence breakdown with correct factors', () => {
