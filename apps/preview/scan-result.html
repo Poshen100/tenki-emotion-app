@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TENKI CORE — Scan Result</title>
+  <meta name="description" content="TENKI CORE scan result — your decision readiness assessment">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="scan-result.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell">
+    <!-- Nebula background -->
+    <canvas class="nebula-canvas" id="nebula-canvas"></canvas>
+
+    <!-- Scrollable content -->
+    <div class="result-content">
+
+      <!-- Scan badge -->
+      <div class="scan-badge">
+        <span class="scan-badge-pill" id="scan-badge-pill">
+          <span class="badge-star">✦</span>
+          <span id="scan-type-label">DEEP SCAN · 60s</span>
+        </span>
+      </div>
+
+      <!-- Source strip -->
+      <div class="source-strip">
+        <span class="source-chip active">
+          <span class="source-chip-icon">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="8" r="3" />
+              <path d="M7 14 C7 11.5 9.2 10 12 10 C14.8 10 17 11.5 17 14" />
+              <rect x="9" y="15" width="6" height="4" rx="1" />
+            </svg>
+          </span>
+          Finger Scan
+        </span>
+        <span class="source-chip">
+          <span class="source-chip-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M7 8.5h2.1l1.1-1.5h3.6l1.1 1.5H17a2 2 0 0 1 2 2V16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-5.5a2 2 0 0 1 2-2z" />
+              <circle cx="12" cy="12.5" r="2.5" />
+            </svg>
+          </span>
+          rPPG 眉心
+        </span>
+      </div>
+
+      <!-- Dual Ring Section -->
+      <div class="ring-section">
+        <div class="ring-container">
+          <canvas class="ring-canvas" id="ring-canvas"></canvas>
+          <div class="ring-center">
+            <div class="score-number" id="score-display">--</div>
+            <div class="score-label">Edge Score</div>
+            <div class="zone-label clear" id="zone-display">Clear</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Insight Card (v3 compliant) -->
+      <div class="insight-card" id="insight-card">
+        保持專注，信任你的判斷。目前的生理狀態顯示你處於<strong>清晰穩定的狀態</strong>，適合進行需要專注力的重要決策。
+      </div>
+
+      <!-- Bento Grid: 4 metric cards -->
+      <div class="bento-grid">
+
+        <!-- Heart Rate -->
+        <div class="bento-card">
+          <div class="bento-header">
+            <div class="bento-label">Heart Rate</div>
+            <span class="bento-pill garmin">Scan Data</span>
+          </div>
+          <div class="bento-body">
+            <div class="bento-value-row">
+              <span class="bento-value" id="value-hr">--</span>
+              <span class="bento-unit">BPM</span>
+            </div>
+            <div class="bento-sparkline-wrap">
+              <canvas class="bento-sparkline" id="spark-hr"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- HRV -->
+        <div class="bento-card">
+          <div class="bento-header">
+            <div class="bento-label">HRV</div>
+            <span class="bento-pill balanced">Balanced</span>
+          </div>
+          <div class="bento-body">
+            <div class="bento-value-row">
+              <span class="bento-value" id="value-hrv">--</span>
+              <span class="bento-unit">ms RMSSD</span>
+            </div>
+            <div class="bento-sparkline-wrap">
+              <canvas class="bento-sparkline" id="spark-hrv"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Respiratory -->
+        <div class="bento-card">
+          <div class="bento-header">
+            <div class="bento-label">Respiratory</div>
+          </div>
+          <div class="bento-body">
+            <div class="bento-value-row">
+              <span class="bento-value" id="value-rr">--</span>
+              <span class="bento-unit">BrPM</span>
+            </div>
+            <div class="bento-sparkline-wrap">
+              <canvas class="bento-sparkline" id="spark-rr"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stress -->
+        <div class="bento-card">
+          <div class="bento-header">
+            <div class="bento-label">Stress</div>
+          </div>
+          <div class="bento-body">
+            <div class="bento-value-row">
+              <span class="bento-value" id="value-stress">--</span>
+              <span class="bento-unit">/100</span>
+            </div>
+            <span class="stress-pct" id="stress-pct-label"></span>
+          </div>
+          <div class="stress-bar-track">
+            <div class="stress-seg"><div class="stress-seg-fill"></div></div>
+            <div class="stress-seg"><div class="stress-seg-fill"></div></div>
+            <div class="stress-seg"><div class="stress-seg-fill"></div></div>
+            <div class="stress-seg"><div class="stress-seg-fill"></div></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Recovery Card (replaces Body Battery — uses TENKI scan data) -->
+      <div class="recovery-card">
+        <div class="recovery-title">Recovery Score</div>
+        <div class="recovery-body">
+          <div class="bb-chart" id="bb-chart"></div>
+          <div class="recovery-value-display">
+            <div class="recovery-value-number" id="recovery-value">78</div>
+            <div class="recovery-value-total">/ 100</div>
+          </div>
+        </div>
+
+        <div class="ans-section">
+          <div class="ans-subtitle">ANS Balance</div>
+          <div class="ans-bar-outer">
+            <div class="ans-sns-bar" id="ans-sns-bar" style="width: 38%"></div>
+            <div class="ans-divider"></div>
+            <div class="ans-pns-bar"></div>
+          </div>
+          <div class="ans-labels">
+            <span><span class="ans-sns-label"><span id="ans-sns-pct">38</span>%</span>&nbsp;&nbsp;SNS</span>
+            <span>PNS&nbsp;&nbsp;<span class="ans-pns-label"><span id="ans-pns-pct">62</span>%</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Disclaimer -->
+      <div class="disclaimer">
+        TENKI 提供的所有指標僅供個人健康參考，不構成醫療診斷或金融建議。<br>
+        你的生理數據只儲存在你的裝置上。
+      </div>
+
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+      <div class="nav-items">
+        <!-- Today -->
+        <button class="nav-item active" id="nav-today">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+            </svg>
+          </span>
+          <span class="nav-label">Today</span>
+        </button>
+        <!-- Scan -->
+        <button class="nav-item" id="nav-scan">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" />
+              <line x1="7" y1="12" x2="17" y2="12" />
+            </svg>
+          </span>
+          <span class="nav-label">Scan</span>
+        </button>
+        <!-- Session -->
+        <button class="nav-item" id="nav-session">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24">
+              <polygon points="5,3 19,12 5,21" />
+            </svg>
+          </span>
+          <span class="nav-label">Session</span>
+        </button>
+        <!-- Timeline -->
+        <button class="nav-item" id="nav-timeline">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24">
+              <line x1="8" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="3.01" y2="6" stroke-width="3" stroke-linecap="round" />
+              <line x1="3" y1="12" x2="3.01" y2="12" stroke-width="3" stroke-linecap="round" />
+              <line x1="3" y1="18" x2="3.01" y2="18" stroke-width="3" stroke-linecap="round" />
+            </svg>
+          </span>
+          <span class="nav-label">Timeline</span>
+        </button>
+        <!-- Lab -->
+        <button class="nav-item" id="nav-lab">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M9 3h6M12 3v7M5.5 21h13a1 1 0 00.87-1.5l-5.37-9.5h-4l-5.37 9.5A1 1 0 005.5 21z" />
+            </svg>
+          </span>
+          <span class="nav-label">Lab</span>
+        </button>
+      </div>
+    </nav>
+
+  </div>
+
+  <script src="scan-result.js"></script>
+</body>
+</html>
