@@ -142,5 +142,18 @@
 - Baseline result displayed realistic metric values
 - No console errors
 
-*Last updated: 2026-04-14 10:55*
-*Updated by: Antigravity (Baseline Onboarding deliverables)*
+## 2026-04-21 Session Update (Library Session)
+
+### 達成進度：
+1. **環境設定與維護**：在免安裝 Node.js (v24.15.0) 環境中修復 `vitest` 到 `jest` 的兼容性錯誤，`packages/engine` 的 19 個測試套件 (259 個測試) 現已全數通過。
+2. **Phase B 基礎建設 (Step 2)**：
+   - 透過 GitHub 介面手動部署了 145KB 的 `apps/preview/v6/index.html`，成功規避了大檔案寫入造成的 Timeout 錯誤。
+   - 完成 `.tei` 到 `.tl-tei` 的 CSS Class 重新命名任務（包含 3300 多行程式碼）。
+   - 實作 **v3 語意合規**：全面替換不符合 v3 架構的專有名詞，例如將 `TEI` 替換為 `Edge Score`，將 `PR99` 替換為 `Decision Edge`。
+
+### 下一步 (Next Session)：
+1. 實作 Replay Engine 與 Insight Generator。
+2. 完成完整的整合測試 (Full Pipeline)。
+
+*Last updated: 2026-04-21 11:46*
+*Updated by: Antigravity (Library Session End)*
