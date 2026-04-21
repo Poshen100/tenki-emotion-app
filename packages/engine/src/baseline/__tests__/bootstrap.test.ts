@@ -2,7 +2,6 @@
  * @module baseline/__tests__/bootstrap.test
  * @description Tests for the Baseline Bootstrap Engine.
  */
-import { describe, it, expect } from 'vitest';
 import {
   bootstrapBaseline,
   BOOTSTRAP_MIN_SQI,

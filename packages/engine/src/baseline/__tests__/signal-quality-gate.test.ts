@@ -2,7 +2,6 @@
  * @module baseline/__tests__/signal-quality-gate.test
  * @description Tests for the Signal Quality Gate.
  */
-import { describe, it, expect } from 'vitest';
 import {
   evaluateReadinessGate,
   computeReadinessGrade,
