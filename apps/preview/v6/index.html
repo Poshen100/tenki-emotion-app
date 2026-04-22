@@ -210,14 +210,8 @@ body{
     #F5A623 360deg
   );
   border-radius:50%;
-  mask:radial-gradient(circle at 50% 50%,
-    transparent 0,transparent 41%,
-    #000 43%,#000 48.5%,
-    transparent 50.5%);
-  -webkit-mask:radial-gradient(circle at 50% 50%,
-    transparent 0,transparent 41%,
-    #000 43%,#000 48.5%,
-    transparent 50.5%);
+  mask:radial-gradient(circle at 50% 50%, transparent 0,transparent 38%, #000 40.5%,#000 49%, transparent 50.5%);
+  -webkit-mask:radial-gradient(circle at 50% 50%, transparent 0,transparent 38%, #000 40.5%,#000 49%, transparent 50.5%);
   animation:ringBreathe 6s var(--ease-breath) infinite;
 }
 @keyframes ringBreathe{
@@ -227,7 +221,7 @@ body{
 
 /* Inner ring — darker green/teal */
 .ring-inner-wrap{
-  position:absolute;inset:6.5%;
+  position:absolute;inset:9%;
   background:conic-gradient(
     from 180deg,
     #2d5f52 0deg,
@@ -237,14 +231,8 @@ body{
     #2d5f52 360deg
   );
   border-radius:50%;
-  mask:radial-gradient(circle at 50% 50%,
-    transparent 0,transparent 40%,
-    #000 42%,#000 46.5%,
-    transparent 48.5%);
-  -webkit-mask:radial-gradient(circle at 50% 50%,
-    transparent 0,transparent 40%,
-    #000 42%,#000 46.5%,
-    transparent 48.5%);
+  mask:radial-gradient(circle at 50% 50%, transparent 0,transparent 36%, #000 38.5%,#000 47%, transparent 48.5%);
+  -webkit-mask:radial-gradient(circle at 50% 50%, transparent 0,transparent 36%, #000 38.5%,#000 47%, transparent 48.5%);
   opacity:0.85;
 }
 
