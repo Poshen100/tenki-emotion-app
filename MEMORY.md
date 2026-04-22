@@ -157,3 +157,19 @@
 
 *Last updated: 2026-04-21 11:46*
 *Updated by: Antigravity (Library Session End)*
+
+## 2026-04-22 Session Update (Resume Hardening)
+
+### 達成進度：
+1. **Fresh clone 驗證完成**：重新從 GitHub clone `tenki-emotion-app`，確認目前 canonical branch 為 `main`，驗證 commit 為 `c5c1def`。
+2. **文件與實作對齊校正**：確認 `scan-pipeline.ts`、`analytics/replay.ts`、`analytics/insight-generator.ts` 都已存在，代表 Phase B 某些 checklist 已落後於實際程式碼狀態。
+3. **續接手冊補強**：已在 `ANTIGRAVITY.md` 新增 `Resume Fast (2026-04-22)` 區塊，讓下次登入後只要 clone / pull、讀該段與 `MEMORY.md`，就能立即知道目前真實進度與下一步。
+4. **環境風險註記**：確認 fresh clone 並不包含 `start_env.bat` 預期的 sibling portable Node (`../node-v24.15.0-win-x64`)；下次若沒有該資料夾，需改用系統 Node 或 Codex desktop 內建 Node。
+
+### 下一步 (Next Session)：
+1. 用可用的 Node runtime 安裝依賴並重新跑 `npm test`，把目前測試狀態在 fresh clone 條件下再驗證一次。
+2. 將 Phase B 從「實作缺口」改成「整合與品質缺口」處理：強化 full pipeline integration、Replay、Insight Generator 的測試與 compliance-safe 文案。
+3. 如果上述穩定，再進入 Phase C mobile shell / 5-tab polish。
+
+*Last updated: 2026-04-22*
+*Updated by: Codex (resume continuity pass)*

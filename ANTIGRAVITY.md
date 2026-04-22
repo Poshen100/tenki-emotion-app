@@ -7,6 +7,47 @@
 
 ---
 
+## 0A. Resume Fast (2026-04-22)
+
+如果你是下一次登入後的新 session，先看這一段，不要先重建整個 mental model。
+
+### Canonical Resume Snapshot
+
+- Canonical branch: `main`
+- Verified fresh-clone commit: `c5c1def` (`docs: record library session progress to MEMORY.md`)
+- Snapshot verified on: `2026-04-22`
+- Verification result: repo 可正常 fetch/checkout；工作樹內容與 `origin/main` 對齊
+
+### Reality Check: What Already Exists
+
+- `packages/engine/src/pipeline/scan-pipeline.ts` 已存在，且有 `packages/engine/src/pipeline/__tests__/scan-pipeline.test.ts`
+- `packages/engine/src/analytics/replay.ts` 已存在
+- `packages/engine/src/analytics/insight-generator.ts` 已存在
+- 所以 **Phase B 不是從零開始**；真正要做的是強化整合、補測試、對齊 v3 compliance copy、再決定是否進 Phase C
+
+### Fresh Clone / Pull Resume Protocol
+
+1. `git clone https://github.com/Poshen100/tenki-emotion-app.git`，或在既有 repo 內 `git pull`
+2. 先讀本段，再讀 `MEMORY.md`
+3. 切到 `main` 並確認最新 remote commit
+4. 安裝依賴後再跑測試
+   - `start_env.bat` 只在 repo 同層存在 `../node-v24.15.0-win-x64` 時可直接使用
+   - 如果 fresh clone 沒有那個 portable Node，改用系統 Node 20+/24+，或 Codex desktop 內建 Node：
+     `C:\Users\patron\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe`
+   - 接著執行 `npm install`、`npm test`
+5. 測試綠燈後，優先順序如下
+   1. harden full pipeline integration（signal quality -> scoring -> gate -> baseline mutation）
+   2. 補強 Replay / Insight Generator 的測試與 user-facing copy 合規檢查
+   3. 再進 Phase C mobile shell / 5-tab polish
+
+### Do Not Waste Time Rebuilding
+
+- 不要重做 `apps/web/`
+- 不要把 v3 語彙改回 TEI / PR99
+- 不要把 Replay / Insight / Scan Pipeline 當成不存在；先補強，再擴寫
+
+---
+
 ## 0. Executive Definition
 
 **TENKI CORE** 是一款 **privacy-first cognitive wellness** 行動應用程式。
@@ -614,6 +655,8 @@ tenki-emotion-app/
 - [ ] Replay Engine
 - [ ] Insight Generator
 - [ ] 整合測試 (full pipeline)
+
+> 2026-04-22 reality check：上述三個模組已經有初版實作檔案；這一階段的重點已經從 greenfield implementation 轉成 hardening、測試補強、與 compliance-safe UX 對齊。
 
 ### Phase C — Mobile App
 
