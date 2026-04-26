@@ -32,7 +32,9 @@ const state = {
   scanHardCap: 60,         // Safety upper bound
   readinessSimStep: 0,
   isScanning: false,
-  scanPhase: 'idle',       // idle | gather | accumulate | climax | final | transition
+  scanPhase: 'idle',       // idle | wait | gather | accumulate | climax | final | transition
+  scanWaitStartTs: 0,      // v1.2: timestamp when scan-step entered (used during 'wait')
+  signalValidSinceTs: null, // v1.2: timestamp when signal first hit GOOD/EXCELLENT
   sqiHistory: [],          // rolling SQI samples (Mean used for early-complete gate)
   rollingSqi: 0,
   qualityTier: 'weak',
@@ -354,6 +356,7 @@ function easeOutCubic(x) {
 const SCAN_CIRCUMFERENCE = 2 * Math.PI * 88; // ring r=88
 const PHASE_GATHER_MS = 3000;
 const CLIMAX_MS = 1500;
+const SIGNAL_VALID_GATE_MS = 3000; // v1.2: signal must hold GOOD/EXCELLENT this long before countdown starts
 
 function startCalibrationScan() {
   const scanEl = document.getElementById('step-scan');
@@ -367,11 +370,13 @@ function startCalibrationScan() {
 
   // Reset ceremony UI
   state.isScanning = true;
-  state.scanPhase = 'gather';
+  state.scanPhase = 'wait';                        // v1.2: enter wait phase first
   state.sqiHistory = [];
   state.rollingSqi = 0;
   state.qualityTier = 'weak';
-  state.scanStartTs = performance.now();
+  state.scanStartTs = 0;                           // v1.2: countdown start deferred until signal-valid gate passes
+  state.scanWaitStartTs = performance.now();
+  state.signalValidSinceTs = null;
   state.baseline = {
     hr: { mean: 0, std: 0 },
     hrv: { mean: 0, std: 0 },
@@ -379,12 +384,13 @@ function startCalibrationScan() {
   };
 
   if (scanEl) {
-    scanEl.classList.remove('phase-accumulate', 'phase-climax', 'phase-final', 'phase-transition');
-    scanEl.classList.add('phase-gather');
+    scanEl.classList.remove('phase-accumulate', 'phase-climax', 'phase-final', 'phase-transition', 'phase-gather');
+    scanEl.classList.add('phase-wait');
   }
   if (timerEl) {
-    timerEl.textContent = state.scanDuration;
-    timerEl.style.color = '';
+    // v1.2: paused state — countdown will start once signal-valid gate passes
+    timerEl.textContent = '--';
+    timerEl.style.color = 'rgba(255, 255, 255, 0.30)';
   }
   if (statusEl) {
     statusEl.style.color = '';
@@ -455,8 +461,73 @@ function stopFingerCameraFeed() {
   if (container) container.classList.remove('camera-active');
 }
 
+/**
+ * v1.2 — Wait phase tick.
+ * Continuously updates telemetry so the quality tier reflects the live cover,
+ * but defers the countdown until the signal has stayed GOOD/EXCELLENT for
+ * SIGNAL_VALID_GATE_MS. On gate-pass, transitions to 'gather' and starts the
+ * real countdown.
+ */
+function tickWait(now) {
+  const waitElapsedSec = (now - state.scanWaitStartTs) / 1000;
+
+  // Drive telemetry so qualityTier updates while the user finds the right cover
+  if (state.cameraActive && state.lastCameraSample) {
+    updateBaselineFromCamera(state.lastCameraSample);
+  }
+  updateSignalTelemetry(waitElapsedSec);
+  updateCoverageGuidance(waitElapsedSec);
+
+  // Track signal-valid duration
+  const validNow =
+    state.qualityTier === 'good' || state.qualityTier === 'excellent';
+
+  if (validNow) {
+    if (state.signalValidSinceTs === null) {
+      state.signalValidSinceTs = now;
+    }
+    if (now - state.signalValidSinceTs >= SIGNAL_VALID_GATE_MS) {
+      // ── Gate passed: countdown starts now ──
+      state.scanPhase = 'gather';
+      state.scanStartTs = now;
+
+      const scanEl = document.getElementById('step-scan');
+      if (scanEl) {
+        scanEl.classList.remove('phase-wait');
+        scanEl.classList.add('phase-gather');
+      }
+      const timerEl = document.getElementById('scan-timer');
+      if (timerEl) {
+        timerEl.textContent = state.scanDuration;
+        timerEl.style.color = '';
+      }
+
+      // v1.2 visual handoff: ring → covered, hide guide & banner
+      setCameraRingState('covered');
+      setScanBannerVisible(false);
+      const fingerGuideEl = document.getElementById('finger-guide-anim');
+      if (fingerGuideEl) fingerGuideEl.classList.add('is-hidden');
+
+      // Light haptic confirms successful covering (graceful no-op if unsupported)
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        try { navigator.vibrate(20); } catch (_) {}
+      }
+    }
+  } else {
+    state.signalValidSinceTs = null;
+  }
+
+  state.scanRAF = requestAnimationFrame(tickCalibration);
+}
+
 function tickCalibration() {
   const now = performance.now();
+
+  // v1.2 wait phase: hold countdown until signal stays GOOD/EXCELLENT for SIGNAL_VALID_GATE_MS
+  if (state.scanPhase === 'wait') {
+    return tickWait(now);
+  }
+
   const elapsedMs = now - state.scanStartTs;
   const elapsedSec = elapsedMs / 1000;
 
