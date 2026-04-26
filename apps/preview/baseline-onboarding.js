@@ -35,6 +35,8 @@ const state = {
   scanPhase: 'idle',       // idle | wait | gather | accumulate | climax | final | transition
   scanWaitStartTs: 0,      // v1.2: timestamp when scan-step entered (used during 'wait')
   signalValidSinceTs: null, // v1.2: timestamp when signal first hit GOOD/EXCELLENT
+  signalDegradeSinceTs: null, // v1.2: timestamp when signal first dropped below GOOD (forgetting-prevention)
+  forgetReminderActive: false, // v1.2: true while finger-guide & banner are re-shown after signal drop
   sqiHistory: [],          // rolling SQI samples (Mean used for early-complete gate)
   rollingSqi: 0,
   qualityTier: 'weak',
@@ -357,6 +359,7 @@ const SCAN_CIRCUMFERENCE = 2 * Math.PI * 88; // ring r=88
 const PHASE_GATHER_MS = 3000;
 const CLIMAX_MS = 1500;
 const SIGNAL_VALID_GATE_MS = 3000; // v1.2: signal must hold GOOD/EXCELLENT this long before countdown starts
+const SIGNAL_DEGRADE_MS = 2000;     // v1.2: signal must stay below GOOD this long before re-showing guide
 
 function startCalibrationScan() {
   const scanEl = document.getElementById('step-scan');
@@ -377,6 +380,8 @@ function startCalibrationScan() {
   state.scanStartTs = 0;                           // v1.2: countdown start deferred until signal-valid gate passes
   state.scanWaitStartTs = performance.now();
   state.signalValidSinceTs = null;
+  state.signalDegradeSinceTs = null;
+  state.forgetReminderActive = false;
   state.baseline = {
     hr: { mean: 0, std: 0 },
     hrv: { mean: 0, std: 0 },
@@ -520,6 +525,66 @@ function tickWait(now) {
   state.scanRAF = requestAnimationFrame(tickCalibration);
 }
 
+/**
+ * v1.2 — Forgetting-prevention monitor (accumulate phase only).
+ * If the signal drops below GOOD for SIGNAL_DEGRADE_MS, the finger guide,
+ * banner, and target ring are re-shown to nudge the user back to a clean
+ * cover. When the signal recovers and holds GOOD for SIGNAL_VALID_GATE_MS,
+ * the guide elements dismiss again so the ceremony continues uninterrupted.
+ */
+function monitorSignalForgetting(now) {
+  const validNow =
+    state.qualityTier === 'good' || state.qualityTier === 'excellent';
+
+  if (validNow) {
+    state.signalDegradeSinceTs = null;
+    if (state.forgetReminderActive) {
+      if (state.signalValidSinceTs === null) {
+        state.signalValidSinceTs = now;
+      }
+      if (now - state.signalValidSinceTs >= SIGNAL_VALID_GATE_MS) {
+        applySignalRecoveryHandoff();
+      }
+    }
+  } else {
+    state.signalValidSinceTs = null;
+    if (state.signalDegradeSinceTs === null) {
+      state.signalDegradeSinceTs = now;
+    }
+    if (
+      !state.forgetReminderActive &&
+      now - state.signalDegradeSinceTs >= SIGNAL_DEGRADE_MS
+    ) {
+      applySignalWeakHandoff();
+    }
+  }
+}
+
+function applySignalWeakHandoff() {
+  if (state.forgetReminderActive) return;
+  state.forgetReminderActive = true;
+
+  setCameraRingState('signal-weak');
+  setScanBannerVisible(true);
+  const fingerGuideEl = document.getElementById('finger-guide-anim');
+  if (fingerGuideEl) fingerGuideEl.classList.remove('is-hidden');
+
+  // Soft warning haptic — short triple tap, gracefully no-op when unsupported
+  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+    try { navigator.vibrate([40, 60, 40]); } catch (_) {}
+  }
+}
+
+function applySignalRecoveryHandoff() {
+  if (!state.forgetReminderActive) return;
+  state.forgetReminderActive = false;
+
+  setCameraRingState('covered');
+  setScanBannerVisible(false);
+  const fingerGuideEl = document.getElementById('finger-guide-anim');
+  if (fingerGuideEl) fingerGuideEl.classList.add('is-hidden');
+}
+
 function tickCalibration() {
   const now = performance.now();
 
@@ -563,6 +628,11 @@ function tickCalibration() {
       simulateBaselineData(progress);
     }
     updateSignalTelemetry(elapsedSec);
+  }
+
+  // ── v1.2 Forgetting-prevention (re-show guide if signal drops) ──
+  if (state.scanPhase === 'accumulate') {
+    monitorSignalForgetting(now);
   }
 
   // ── Coverage guidance (real-time finger placement feedback) ──
