@@ -400,6 +400,8 @@ function startCalibrationScan() {
 
   // v1.2: reset camera target ring to "waiting" (pulsing arrows)
   setCameraRingState('waiting');
+  // v1.2: show top guidance banner (will hide once signal reaches GOOD)
+  setScanBannerVisible(true);
 
   // Start particle system (converge → orbit → burst driven by phase)
   startParticleSystem();
@@ -1261,6 +1263,17 @@ function setCameraRingState(nextState) {
   if (!ringEl) return;
   if (ringEl.dataset.state === nextState) return;
   ringEl.dataset.state = nextState;
+}
+
+/**
+ * Show or hide the top guidance banner.
+ * Banner default-shows on .scan-step.active; .is-hidden class slides it back up.
+ * @param {boolean} visible
+ */
+function setScanBannerVisible(visible) {
+  const bannerEl = document.getElementById('scan-banner');
+  if (!bannerEl) return;
+  bannerEl.classList.toggle('is-hidden', !visible);
 }
 
 // ─────────────────────────────────────────────
