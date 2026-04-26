@@ -398,6 +398,9 @@ function startCalibrationScan() {
   }
   if (readyEl) readyEl.style.display = 'none';
 
+  // v1.2: reset camera target ring to "waiting" (pulsing arrows)
+  setCameraRingState('waiting');
+
   // Start particle system (converge → orbit → burst driven by phase)
   startParticleSystem();
 
@@ -1243,6 +1246,21 @@ function initParticles() {
   }
 
   draw();
+}
+
+// ─────────────────────────────────────────────
+// v1.2 — UI helpers (camera target ring state)
+// ─────────────────────────────────────────────
+
+/**
+ * Switch the camera target ring's visual state.
+ * @param {'waiting' | 'covered' | 'signal-weak'} nextState
+ */
+function setCameraRingState(nextState) {
+  const ringEl = document.getElementById('camera-target-ring');
+  if (!ringEl) return;
+  if (ringEl.dataset.state === nextState) return;
+  ringEl.dataset.state = nextState;
 }
 
 // ─────────────────────────────────────────────

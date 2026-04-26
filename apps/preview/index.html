@@ -193,6 +193,16 @@
             <div class="finger-guide-icon">👆</div>
           </div>
 
+          <!-- v1.2 Camera target ring: 3 states (waiting / covered / signal-weak) -->
+          <div class="camera-target-ring" id="camera-target-ring" data-state="waiting" aria-hidden="true">
+            <div class="target-ring-outline"></div>
+            <span class="target-ring-arrow target-ring-arrow-up">▲</span>
+            <span class="target-ring-arrow target-ring-arrow-down">▼</span>
+            <span class="target-ring-arrow target-ring-arrow-left">◀</span>
+            <span class="target-ring-arrow target-ring-arrow-right">▶</span>
+            <span class="target-ring-check">✓</span>
+          </div>
+
           <svg class="scan-ring" viewBox="0 0 200 200">
             <circle class="scan-ring-bg" cx="100" cy="100" r="88" />
             <circle class="scan-ring-progress" id="scan-progress-ring" cx="100" cy="100" r="88"

@@ -1211,6 +1211,127 @@ body {
   }
 }
 
+/* ── v1.2 Camera target ring (waiting / covered / signal-weak) ── */
+.camera-target-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  margin: -36px 0 0 -36px;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.scan-step.active .camera-target-ring {
+  opacity: 1;
+}
+
+.target-ring-outline {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 212, 255, 0.85);
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.40),
+              inset 0 0 10px rgba(0, 212, 255, 0.20);
+  transition: border-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease;
+}
+
+.camera-target-ring .target-ring-arrow {
+  display: none;
+  position: absolute;
+  font-size: 12px;
+  color: #00D4FF;
+  text-shadow: 0 0 6px rgba(0, 212, 255, 0.7);
+  line-height: 1;
+  animation: targetArrowPulse 0.8s ease-in-out infinite;
+}
+
+.target-ring-arrow-up    { top: -16px;    left: 50%;  transform: translateX(-50%); }
+.target-ring-arrow-down  { bottom: -16px; left: 50%;  transform: translateX(-50%); }
+.target-ring-arrow-left  { left: -16px;   top: 50%;   transform: translateY(-50%); }
+.target-ring-arrow-right { right: -16px;  top: 50%;   transform: translateY(-50%); }
+
+.camera-target-ring .target-ring-check {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: #34C759;
+  text-shadow: 0 0 8px rgba(52, 199, 89, 0.7);
+}
+
+/* Waiting state: dashed slow rotation + 4 arrows pulsing */
+.camera-target-ring[data-state="waiting"] .target-ring-outline {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.18);
+  animation: targetRingRotate 8s linear infinite;
+}
+
+.camera-target-ring[data-state="waiting"] .target-ring-arrow {
+  display: block;
+}
+
+/* Covered state: solid cyan filled + check mark, no arrows */
+.camera-target-ring[data-state="covered"] .target-ring-outline {
+  border-style: solid;
+  border-color: rgba(0, 212, 255, 0.95);
+  background: rgba(0, 212, 255, 0.18);
+  box-shadow: 0 0 18px rgba(0, 212, 255, 0.55),
+              inset 0 0 14px rgba(0, 212, 255, 0.30);
+  animation: none;
+}
+
+.camera-target-ring[data-state="covered"] .target-ring-check {
+  display: flex;
+  animation: targetCheckIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Signal-weak state: amber tint + arrows resume pulsing */
+.camera-target-ring[data-state="signal-weak"] .target-ring-outline {
+  border-style: dashed;
+  border-color: rgba(255, 215, 0, 0.75);
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
+  animation: targetRingRotate 8s linear infinite;
+}
+
+.camera-target-ring[data-state="signal-weak"] .target-ring-arrow {
+  display: block;
+  color: #FFD700;
+  text-shadow: 0 0 6px rgba(255, 215, 0, 0.7);
+}
+
+@keyframes targetArrowPulse {
+  0%, 100% { opacity: 0.40; }
+  50%      { opacity: 1.00; }
+}
+
+@keyframes targetRingRotate {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes targetCheckIn {
+  0%   { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(1.0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .camera-target-ring[data-state="waiting"] .target-ring-outline,
+  .camera-target-ring[data-state="signal-weak"] .target-ring-outline {
+    animation: none;
+  }
+  .camera-target-ring .target-ring-arrow {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
 /* ── Metallic countdown timer ── */
 .scan-timer-metal {
   background: linear-gradient(
