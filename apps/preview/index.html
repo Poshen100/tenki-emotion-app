@@ -148,6 +148,15 @@
       <!-- Golden flash overlay for climax -->
       <div class="scan-flash" id="scan-flash"></div>
 
+      <!-- v1.2 Top guidance banner: liquid glass, slides in from top -->
+      <div class="scan-banner" id="scan-banner" aria-live="polite">
+        <span class="scan-banner-icon">👆</span>
+        <div class="scan-banner-text">
+          <span class="scan-banner-title">請將食指完全蓋住後鏡頭（圓圈位置）</span>
+          <span class="scan-banner-sub">手指需完全覆蓋，不可透光</span>
+        </div>
+      </div>
+
       <div class="step-content scan-content">
         <!-- Frosted glass dialog (Phase 1 gathering) — 極致磨砂液態玻璃 -->
         <div class="ceremony-dialog" id="ceremony-dialog">
@@ -185,6 +194,22 @@
               <!-- Center dot (placement guide) -->
               <circle cx="60" cy="72" r="3" fill="currentColor" opacity="0.35"/>
             </svg>
+          </div>
+
+          <!-- v1.2 Finger guide animation: 3-frame loop hint (hover → descend → cover) -->
+          <div class="finger-guide-anim" id="finger-guide-anim" aria-hidden="true">
+            <div class="finger-guide-trail"></div>
+            <div class="finger-guide-icon">👆</div>
+          </div>
+
+          <!-- v1.2 Camera target ring: 3 states (waiting / covered / signal-weak) -->
+          <div class="camera-target-ring" id="camera-target-ring" data-state="waiting" aria-hidden="true">
+            <div class="target-ring-outline"></div>
+            <span class="target-ring-arrow target-ring-arrow-up">▲</span>
+            <span class="target-ring-arrow target-ring-arrow-down">▼</span>
+            <span class="target-ring-arrow target-ring-arrow-left">◀</span>
+            <span class="target-ring-arrow target-ring-arrow-right">▶</span>
+            <span class="target-ring-check">✓</span>
           </div>
 
           <svg class="scan-ring" viewBox="0 0 200 200">

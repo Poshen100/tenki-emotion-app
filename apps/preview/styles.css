@@ -1128,6 +1128,285 @@ body {
   50% { transform: translate(-50%, -50%) scale(1.20); opacity: 0.50; }
 }
 
+/* ── v1.2 Finger guide 3-frame animation (hover → descend → cover loop) ── */
+.finger-guide-anim {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.scan-step.active .finger-guide-anim {
+  opacity: 0.85;
+}
+
+.finger-guide-anim.is-hidden {
+  opacity: 0 !important;
+}
+
+.finger-guide-icon {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 64px;
+  height: 64px;
+  margin-left: -32px;
+  margin-top: -32px;
+  font-size: 56px;
+  line-height: 64px;
+  text-align: center;
+  filter: drop-shadow(0 4px 14px rgba(0, 212, 255, 0.55));
+  animation: fingerGuideLoop 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform, opacity;
+}
+
+.finger-guide-trail {
+  position: absolute;
+  left: 0;
+  top: -10px;
+  width: 28px;
+  height: 60px;
+  margin-left: -14px;
+  border-radius: 50% / 30%;
+  background: linear-gradient(180deg,
+    rgba(0, 212, 255, 0) 0%,
+    rgba(0, 212, 255, 0.30) 70%,
+    rgba(0, 212, 255, 0.10) 100%);
+  filter: blur(2px);
+  opacity: 0;
+  animation: fingerGuideTrail 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes fingerGuideLoop {
+  0%   { transform: translate(-2px, -44px); opacity: 0.85; }
+  20%  { transform: translate( 2px, -44px); opacity: 0.85; }
+  33%  { transform: translate( 0px, -44px); opacity: 0.85; }
+  60%  { transform: translate( 0px,   0px); opacity: 1.00; }
+  72%  { transform: translate( 0px,   0px); opacity: 0.95; }
+  85%  { transform: translate( 0px,   0px); opacity: 0.50; }
+  100% { transform: translate(-2px, -44px); opacity: 0.85; }
+}
+
+@keyframes fingerGuideTrail {
+  0%, 33% { opacity: 0; height: 0; }
+  50%     { opacity: 0.7; height: 60px; }
+  72%     { opacity: 0.4; height: 50px; }
+  85%     { opacity: 0; height: 30px; }
+  100%    { opacity: 0; height: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finger-guide-icon {
+    animation: none;
+    transform: translate(0, -44px);
+  }
+  .finger-guide-trail {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* ── v1.2 Camera target ring (waiting / covered / signal-weak) ── */
+.camera-target-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  margin: -36px 0 0 -36px;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.scan-step.active .camera-target-ring {
+  opacity: 1;
+}
+
+.target-ring-outline {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 212, 255, 0.85);
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.40),
+              inset 0 0 10px rgba(0, 212, 255, 0.20);
+  transition: border-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease;
+}
+
+.camera-target-ring .target-ring-arrow {
+  display: none;
+  position: absolute;
+  font-size: 12px;
+  color: #00D4FF;
+  text-shadow: 0 0 6px rgba(0, 212, 255, 0.7);
+  line-height: 1;
+  animation: targetArrowPulse 0.8s ease-in-out infinite;
+}
+
+.target-ring-arrow-up    { top: -16px;    left: 50%;  transform: translateX(-50%); }
+.target-ring-arrow-down  { bottom: -16px; left: 50%;  transform: translateX(-50%); }
+.target-ring-arrow-left  { left: -16px;   top: 50%;   transform: translateY(-50%); }
+.target-ring-arrow-right { right: -16px;  top: 50%;   transform: translateY(-50%); }
+
+.camera-target-ring .target-ring-check {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: #34C759;
+  text-shadow: 0 0 8px rgba(52, 199, 89, 0.7);
+}
+
+/* Waiting state: dashed slow rotation + 4 arrows pulsing */
+.camera-target-ring[data-state="waiting"] .target-ring-outline {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.18);
+  animation: targetRingRotate 8s linear infinite;
+}
+
+.camera-target-ring[data-state="waiting"] .target-ring-arrow {
+  display: block;
+}
+
+/* Covered state: solid cyan filled + check mark, no arrows */
+.camera-target-ring[data-state="covered"] .target-ring-outline {
+  border-style: solid;
+  border-color: rgba(0, 212, 255, 0.95);
+  background: rgba(0, 212, 255, 0.18);
+  box-shadow: 0 0 18px rgba(0, 212, 255, 0.55),
+              inset 0 0 14px rgba(0, 212, 255, 0.30);
+  animation: none;
+}
+
+.camera-target-ring[data-state="covered"] .target-ring-check {
+  display: flex;
+  animation: targetCheckIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Signal-weak state: amber tint + arrows resume pulsing */
+.camera-target-ring[data-state="signal-weak"] .target-ring-outline {
+  border-style: dashed;
+  border-color: rgba(255, 215, 0, 0.75);
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
+  animation: targetRingRotate 8s linear infinite;
+}
+
+.camera-target-ring[data-state="signal-weak"] .target-ring-arrow {
+  display: block;
+  color: #FFD700;
+  text-shadow: 0 0 6px rgba(255, 215, 0, 0.7);
+}
+
+@keyframes targetArrowPulse {
+  0%, 100% { opacity: 0.40; }
+  50%      { opacity: 1.00; }
+}
+
+@keyframes targetRingRotate {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes targetCheckIn {
+  0%   { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(1.0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .camera-target-ring[data-state="waiting"] .target-ring-outline,
+  .camera-target-ring[data-state="signal-weak"] .target-ring-outline {
+    animation: none;
+  }
+  .camera-target-ring .target-ring-arrow {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* ── v1.2 Top guidance banner (liquid glass, signal-gated) ── */
+.scan-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  min-height: 52px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-bottom: 1px solid rgba(0, 212, 255, 0.30);
+  color: #fff;
+  z-index: 20;
+  pointer-events: none;
+  transform: translateY(-110%);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s ease;
+}
+
+.scan-step.active .scan-banner {
+  transform: translateY(0);
+  opacity: 1;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s ease;
+}
+
+.scan-banner.is-hidden {
+  transform: translateY(-110%) !important;
+  opacity: 0 !important;
+}
+
+.scan-banner-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.65));
+}
+
+.scan-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.scan-banner-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+.scan-banner-sub {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(0, 212, 255, 0.85);
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-banner,
+  .scan-step.active .scan-banner {
+    transition: opacity 0.3s ease;
+    transform: none;
+  }
+}
+
 /* ── Metallic countdown timer ── */
 .scan-timer-metal {
   background: linear-gradient(
