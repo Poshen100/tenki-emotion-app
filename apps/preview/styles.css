@@ -1001,6 +1001,23 @@ body {
   -webkit-backdrop-filter: none !important;
 }
 
+/* ── v1.2 SAFE_FLAGS diagnostic overrides (URL ?safe / ?noblur / ?noparticles / ?noflash) ──
+   Applied via <html> classList in baseline-onboarding.js. Used to bisect
+   which effect causes iOS Safari WebContent OOM. */
+.safe-noblur .ceremony-dialog,
+.safe-noblur .scan-banner,
+.safe-noblur .disclaimer-bar {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.safe-noparticles .scan-particles {
+  display: none !important;
+}
+.safe-noflash .scan-flash {
+  display: none !important;
+  animation: none !important;
+}
+
 /* ── Live rear-camera feed (real finger scanning) ── */
 .scan-video {
   position: absolute;

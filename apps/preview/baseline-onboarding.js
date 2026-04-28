@@ -18,6 +18,35 @@
 'use strict';
 
 // ─────────────────────────────────────────────
+// v1.2 — iOS Safari diagnostic / safe-mode flags (URL query string)
+//   ?safe=1        — enable all degraded modes below
+//   ?noblur=1      — disable backdrop-filter on dialog/banner/disclaimer
+//   ?noparticles=1 — disable particle canvas + burst
+//   ?noflash=1     — disable golden flash keyframe
+//   ?nocamera=1    — skip getUserMedia, use simulated SQI ramp
+//   ?fast=1        — shorten scanDuration to 5s for quick climax repro
+// Read once, applied to <body> classes for CSS gating + JS branches.
+// ─────────────────────────────────────────────
+const URL_PARAMS = (() => {
+  try { return new URLSearchParams(window.location.search); }
+  catch (_) { return new URLSearchParams(''); }
+})();
+const SAFE_FLAGS = {
+  safe:        URL_PARAMS.has('safe'),
+  noblur:      URL_PARAMS.has('safe') || URL_PARAMS.has('noblur'),
+  noparticles: URL_PARAMS.has('safe') || URL_PARAMS.has('noparticles'),
+  noflash:     URL_PARAMS.has('safe') || URL_PARAMS.has('noflash'),
+  nocamera:    URL_PARAMS.has('safe') || URL_PARAMS.has('nocamera'),
+  fast:        URL_PARAMS.has('safe') || URL_PARAMS.has('fast'),
+};
+// Apply CSS classes early so first paint already respects degraded mode
+if (typeof document !== 'undefined') {
+  document.documentElement.classList.toggle('safe-noblur', SAFE_FLAGS.noblur);
+  document.documentElement.classList.toggle('safe-noparticles', SAFE_FLAGS.noparticles);
+  document.documentElement.classList.toggle('safe-noflash', SAFE_FLAGS.noflash);
+}
+
+// ─────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────
 
@@ -208,8 +237,8 @@ async function startReadinessCamera() {
   const labelEl = document.getElementById('readiness-camera-label');
   const api = window.TENKI_PREVIEW_CAMERA;
 
-  if (!videoEl || !api || !api.startFingerCamera) {
-    // No camera module — fall back to simulated readiness
+  if (SAFE_FLAGS.nocamera || !videoEl || !api || !api.startFingerCamera) {
+    // No camera (safe-mode or unavailable) — fall back to simulated readiness
     startSimulatedReadiness();
     return;
   }
@@ -370,6 +399,13 @@ function startCalibrationScan() {
   const dialogEl = document.getElementById('ceremony-dialog');
   const dialogTextEl = document.getElementById('ceremony-dialog-text');
   const readyEl = document.getElementById('ready-indicator');
+
+  // SAFE_FLAGS.fast: shorten scan to 5s for quick climax repro
+  if (SAFE_FLAGS.fast) {
+    state.scanDuration = 5;
+    state.scanEarliestComplete = 5;
+    state.scanHardCap = 8;
+  }
 
   // Reset ceremony UI
   state.isScanning = true;
@@ -899,8 +935,8 @@ function enterClimax(reason) {
   const subEl = document.getElementById('ceremony-dialog-sub');
   if (subEl) subEl.textContent = '';
 
-  // Trigger particle outward burst
-  if (state.particleSystem) state.particleSystem.burst();
+  // Trigger particle outward burst (skipped under noparticles flag)
+  if (!SAFE_FLAGS.noparticles && state.particleSystem) state.particleSystem.burst();
 
   // Haptic / vibration (where supported)
   if (navigator.vibrate) {
@@ -1167,6 +1203,7 @@ function selectNextAction(action) {
 // ─────────────────────────────────────────────
 
 function startParticleSystem() {
+  if (SAFE_FLAGS.noparticles) return;
   const canvas = document.getElementById('scan-particles');
   if (!canvas) return;
 
