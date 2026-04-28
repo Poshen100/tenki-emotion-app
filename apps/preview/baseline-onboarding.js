@@ -407,6 +407,23 @@ function startCalibrationScan() {
     state.scanHardCap = 8;
   }
 
+  // v1.2 reset: clear inline styles applied by the previous transition teardown
+  // so a re-entry to step-scan starts from a clean slate.
+  if (scanEl) scanEl.style.display = '';
+  const ringContainer = document.getElementById('scan-ring-container');
+  if (ringContainer) ringContainer.style.opacity = '';
+  if (dialogEl) dialogEl.style.opacity = '';
+  const telemetryEl = document.getElementById('scan-telemetry');
+  if (telemetryEl) telemetryEl.style.opacity = '';
+  const guidanceEl = document.getElementById('scan-guidance');
+  if (guidanceEl) guidanceEl.style.opacity = '';
+  const cameraRingEl2 = document.getElementById('camera-target-ring');
+  if (cameraRingEl2) cameraRingEl2.style.opacity = '';
+  const fingerGuideEl2 = document.getElementById('finger-guide-anim');
+  if (fingerGuideEl2) fingerGuideEl2.classList.remove('is-hidden');
+  const scanVideoEl2 = document.getElementById('scan-video');
+  if (scanVideoEl2) scanVideoEl2.style.display = '';
+
   // Reset ceremony UI
   state.isScanning = true;
   state.scanPhase = 'wait';                        // v1.2: enter wait phase first
@@ -921,6 +938,21 @@ function enterClimax(reason) {
   }
   if (readyEl && reason === 'early') readyEl.style.display = 'inline-flex';
 
+  // ── v1.2 aggressive climax cleanup ──
+  // iOS Safari WebContent process OOMs when blur + particles + flash + camera
+  // ROI run in parallel. Tear down everything non-essential at climax start so
+  // the burst window is GPU-cheap.
+  setScanBannerVisible(false);
+  const fingerGuideEl = document.getElementById('finger-guide-anim');
+  if (fingerGuideEl) fingerGuideEl.classList.add('is-hidden');
+  const cameraRingEl = document.getElementById('camera-target-ring');
+  if (cameraRingEl) cameraRingEl.style.opacity = '0';
+  // Stop camera ROI analysis early (was previously deferred to transition end)
+  stopFingerCameraFeed();
+  // Hide scan-video immediately so its layer is released
+  const scanVideoEl = document.getElementById('scan-video');
+  if (scanVideoEl) scanVideoEl.style.display = 'none';
+
   if (statusEl) {
     statusEl.textContent =
       reason === 'early'
@@ -962,6 +994,29 @@ function enterTransition() {
   if (scanEl) {
     scanEl.classList.remove('phase-climax');
     scanEl.classList.add('phase-transition');
+  }
+
+  // v1.2 fix overlay bug: actively fade out scan-ring + ceremony-dialog so
+  // they don't bleed through the result card during the 2s hand-off window.
+  const scanRingContainer = document.getElementById('scan-ring-container');
+  if (scanRingContainer) {
+    scanRingContainer.style.transition = 'opacity 0.3s ease';
+    scanRingContainer.style.opacity = '0';
+  }
+  const dialog = document.getElementById('ceremony-dialog');
+  if (dialog) {
+    dialog.style.transition = 'opacity 0.3s ease';
+    dialog.style.opacity = '0';
+  }
+  const telemetry = document.getElementById('scan-telemetry');
+  if (telemetry) {
+    telemetry.style.transition = 'opacity 0.3s ease';
+    telemetry.style.opacity = '0';
+  }
+  const guidance = document.getElementById('scan-guidance');
+  if (guidance) {
+    guidance.style.transition = 'opacity 0.3s ease';
+    guidance.style.opacity = '0';
   }
 
   // Golden flash CSS keyframe fires via .phase-transition class.
@@ -1026,12 +1081,14 @@ function enterTransition() {
   setTimeout(() => {
     if (state.particleSystem) state.particleSystem.stop();
     if (state.scanRAF) cancelAnimationFrame(state.scanRAF);
+    // (camera already stopped at climax start; this call is a safe no-op)
     stopFingerCameraFeed();
 
     const scanSection = document.getElementById('step-scan');
     if (scanSection) {
       scanSection.classList.remove(
         'active',
+        'phase-wait',
         'phase-gather',
         'phase-accumulate',
         'phase-climax',
@@ -1039,6 +1096,9 @@ function enterTransition() {
         'phase-transition',
         'phase-transition-settle'
       );
+      // v1.2 fix overlay bug: physically remove from layout so step-result
+      // doesn't see it bleeding through (ceremony-dialog / scan-ring residue).
+      scanSection.style.display = 'none';
     }
     // Finalise navigation state (updates dots + currentStep).
     state.currentStep = 4;
