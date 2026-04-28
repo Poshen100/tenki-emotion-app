@@ -404,11 +404,23 @@ body{
   font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;
 }
 
-.metric-spark{height:28px;width:62px;flex-shrink:0;opacity:0.9}
+.metric-spark{height:32px;width:72px;flex-shrink:0;opacity:0.9;border-radius:4px}
 .metric-spark path{fill:none;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
 .hr-spark path{stroke:#FF5C73;filter:drop-shadow(0 0 3px rgba(255,92,115,0.5))}
 .hrv-spark path{stroke:#34C759;filter:drop-shadow(0 0 3px rgba(52,199,89,0.5))}
 .rr-spark path{stroke:#2EB6C0;filter:drop-shadow(0 0 3px rgba(46,182,192,0.5))}
+/* Live waveform canvas */
+.live-wave{height:32px;width:72px;flex-shrink:0;border-radius:4px;opacity:0.9}
+/* ANS bar oscillation */
+.ans-bar .sns-fill,.ans-bar .pns-fill{transition:width 2s var(--ease-breath)}
+/* Stress bar gentle pulse */
+.stress-bar .seg.on{animation:segPulse 4s var(--ease-breath) infinite}
+.stress-bar .seg.on:nth-child(2){animation-delay:0.3s}
+.stress-bar .seg.on:nth-child(3){animation-delay:0.6s}
+@keyframes segPulse{
+  0%,100%{opacity:1;filter:brightness(1)}
+  50%{opacity:0.75;filter:brightness(1.15)}
+}
 
 /* Stress segmented bar */
 .stress-bar{
@@ -1673,9 +1685,7 @@ body{
             </div>
             <div class="metric-body">
               <div class="metric-num"><span class="val">68</span><span class="unit">BPM</span></div>
-              <svg class="metric-spark hr-spark" viewBox="0 0 62 28" preserveAspectRatio="none">
-                <path d="M0,16 L6,16 L9,10 L12,22 L15,6 L18,24 L22,14 L28,16 L32,10 L36,20 L40,8 L44,22 L48,16 L54,16 L58,12 L62,16"/>
-              </svg>
+              <canvas class="live-wave" id="hrWave" width="144" height="64"></canvas>
             </div>
           </div>
           <div class="card metric">
@@ -1685,9 +1695,7 @@ body{
             </div>
             <div class="metric-body">
               <div class="metric-num"><span class="val">52</span><span class="unit stack"><span>ms</span><span>RMSSD</span></span></div>
-              <svg class="metric-spark hrv-spark" viewBox="0 0 62 28" preserveAspectRatio="none">
-                <path d="M0,18 Q6,8 12,14 T22,10 T32,16 T42,8 T52,14 T62,12"/>
-              </svg>
+              <canvas class="live-wave" id="hrvWave" width="144" height="64"></canvas>
             </div>
           </div>
         </div>
@@ -1700,9 +1708,7 @@ body{
             </div>
             <div class="metric-body">
               <div class="metric-num"><span class="val">14</span><span class="unit">BrPM</span></div>
-              <svg class="metric-spark rr-spark" viewBox="0 0 62 28" preserveAspectRatio="none">
-                <path d="M0,14 Q10,4 20,14 T40,14 T62,14"/>
-              </svg>
+              <canvas class="live-wave" id="rrWave" width="144" height="64"></canvas>
             </div>
           </div>
           <div class="card metric">
@@ -2567,6 +2573,177 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
 })();
 
 // ═════════════════════════════════════════════════
+// Live Waveform Engine — medical-grade, non-anxious
+// 60s of pre-seeded data, then loops seamlessly
+// ═════════════════════════════════════════════════
+(function liveWaveforms(){
+  const CYCLE_MS = 60000; // 60s loop
+  const DPR = window.devicePixelRatio || 1;
+
+  // ── Seeded random for reproducible 60s data ──
+  function seededRand(seed){
+    let s = seed;
+    return function(){ s = (s * 16807 + 0) % 2147483647; return (s - 1) / 2147483646; };
+  }
+
+  // ── Pre-generate 60s of sample data ──
+  const FPS = 30;
+  const TOTAL_FRAMES = FPS * 60;
+  const rand = seededRand(42);
+
+  // HR: ECG-like waveform (68 BPM ≈ 1.13 Hz)
+  const HR_BPM = 68;
+  const hrData = [];
+  for(let i = 0; i < TOTAL_FRAMES; i++){
+    const t = i / FPS;
+    const beatPhase = (t * HR_BPM / 60) % 1;
+    let v = 0;
+    // P-wave
+    if(beatPhase > 0.05 && beatPhase < 0.15) v = 0.12 * Math.sin((beatPhase - 0.05) / 0.1 * Math.PI);
+    // QRS complex
+    else if(beatPhase > 0.18 && beatPhase < 0.22) v = -0.15;
+    else if(beatPhase > 0.22 && beatPhase < 0.26) v = 0.85 + rand() * 0.1;
+    else if(beatPhase > 0.26 && beatPhase < 0.30) v = -0.2;
+    // T-wave
+    else if(beatPhase > 0.35 && beatPhase < 0.5) v = 0.18 * Math.sin((beatPhase - 0.35) / 0.15 * Math.PI);
+    // Baseline wander
+    v += Math.sin(t * 0.3) * 0.03 + rand() * 0.015;
+    hrData.push(v);
+  }
+
+  // HRV: R-R interval variability (smooth oscillation)
+  const hrvData = [];
+  for(let i = 0; i < TOTAL_FRAMES; i++){
+    const t = i / FPS;
+    const v = Math.sin(t * 0.4) * 0.3 + Math.sin(t * 0.17) * 0.2
+            + Math.sin(t * 1.1) * 0.08 + rand() * 0.04;
+    hrvData.push(v);
+  }
+
+  // RR: Breathing sine wave (14 BrPM ≈ 0.233 Hz)
+  const RR_BPM = 14;
+  const rrData = [];
+  for(let i = 0; i < TOTAL_FRAMES; i++){
+    const t = i / FPS;
+    const v = Math.sin(t * 2 * Math.PI * RR_BPM / 60) * 0.6
+            + Math.sin(t * 2 * Math.PI * RR_BPM / 60 * 2) * 0.08
+            + rand() * 0.02;
+    rrData.push(v);
+  }
+
+  // ── Canvas drawing ──
+  function setupCanvas(id){
+    const c = document.getElementById(id);
+    if(!c) return null;
+    c.width = c.offsetWidth * DPR;
+    c.height = c.offsetHeight * DPR;
+    const ctx = c.getContext('2d');
+    ctx.scale(DPR, DPR);
+    return { canvas: c, ctx, w: c.offsetWidth, h: c.offsetHeight };
+  }
+
+  function drawWave(setup, data, color, glowColor, frameOffset, trailLen){
+    if(!setup) return;
+    const { ctx, w, h } = setup;
+    const samples = trailLen || 90;
+    ctx.clearRect(0, 0, w, h);
+    const cy = h / 2;
+    const amp = h * 0.38;
+
+    // Glow layer
+    ctx.save();
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    for(let i = 0; i < samples; i++){
+      const idx = (frameOffset - samples + i + TOTAL_FRAMES) % TOTAL_FRAMES;
+      const x = (i / (samples - 1)) * w;
+      const y = cy - data[idx] * amp;
+      if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Main line
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    for(let i = 0; i < samples; i++){
+      const idx = (frameOffset - samples + i + TOTAL_FRAMES) % TOTAL_FRAMES;
+      const x = (i / (samples - 1)) * w;
+      const y = cy - data[idx] * amp;
+      // Fade trail: older samples dimmer
+      if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Leading dot
+    const lastIdx = (frameOffset - 1 + TOTAL_FRAMES) % TOTAL_FRAMES;
+    const dotX = w;
+    const dotY = cy - data[lastIdx] * amp;
+    ctx.beginPath();
+    ctx.arc(dotX - 1, dotY, 2, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 6;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // ── ANS bar oscillation ──
+  const snsFill = document.querySelector('.sns-fill');
+  const pnsFill = document.querySelector('.pns-fill');
+  const snsPct = document.querySelector('.sns-pct');
+  const pnsPct = document.querySelector('.pns-pct');
+  const ANS_BASE_SNS = 38;
+
+  function updateANS(t){
+    // Gentle 2-3% oscillation around 38/62 split
+    const offset = Math.sin(t * 0.0008) * 2 + Math.sin(t * 0.002) * 1;
+    const sns = Math.round(ANS_BASE_SNS + offset);
+    const pns = 100 - sns;
+    if(snsFill) snsFill.style.width = sns + '%';
+    if(pnsFill) pnsFill.style.width = pns + '%';
+    if(snsPct) snsPct.textContent = sns + '%';
+    if(pnsPct) pnsPct.textContent = pns + '%';
+  }
+
+  // ── Init & animation loop ──
+  let hrSetup, hrvSetup, rrSetup;
+
+  function init(){
+    hrSetup = setupCanvas('hrWave');
+    hrvSetup = setupCanvas('hrvWave');
+    rrSetup = setupCanvas('rrWave');
+  }
+
+  let startTime = 0;
+  function animate(now){
+    if(!startTime) startTime = now;
+    const elapsed = (now - startTime) % CYCLE_MS;
+    const frame = Math.floor(elapsed / (1000 / FPS)) % TOTAL_FRAMES;
+
+    drawWave(hrSetup, hrData, '#FF5C73', 'rgba(255,92,115,0.4)', frame, 80);
+    drawWave(hrvSetup, hrvData, '#34C759', 'rgba(52,199,89,0.4)', frame, 90);
+    drawWave(rrSetup, rrData, '#2EB6C0', 'rgba(46,182,192,0.4)', frame, 70);
+
+    updateANS(elapsed);
+
+    requestAnimationFrame(animate);
+  }
+
+  // Delay start until cards are visible (after entrance animation)
+  setTimeout(() => { init(); requestAnimationFrame(animate); }, 1800);
+
+  // Handle resize
+  window.addEventListener('resize', () => { init(); });
+})();
+
+
 // Body Battery bars — 15 tall pills with spectrum
 // ═════════════════════════════════════════════════
 (function(){
