@@ -102,7 +102,7 @@ body{
 /* Top header: DEEP SCAN badge + scan source toggle */
 .scan-header{
   position:relative;z-index:5;
-  padding:2px 12px 6px;
+  padding:0 12px 4px;
   display:flex;flex-direction:column;align-items:center;gap:6px;
 }
 .scan-badge{
@@ -145,7 +145,7 @@ body{
 /* Hero area — nebula + big spectrum ring */
 .hero{
   position:relative;
-  height:336px;
+  min-height:56vh;
   flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;
@@ -174,7 +174,7 @@ body{
 
 /* Big spectrum ring — Apple Watch Activity style */
 .tl-tei{
-  position:relative;width:270px;height:270px;
+  position:relative;width:min(72vw, 300px);height:min(72vw, 300px);
   display:flex;align-items:center;justify-content:center;
   filter:drop-shadow(0 0 30px rgba(0,180,216,0.18));
 }
@@ -197,8 +197,8 @@ body{
     #F5A623 360deg
   );
   border-radius:50%;
-  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 74%, #000 76.5%, #000 98%, transparent 100%);
-  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 74%, #000 76.5%, #000 98%, transparent 100%);
+  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 38%, #000 40.5%, #000 49%, transparent 50.5%);
+  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 38%, #000 40.5%, #000 49%, transparent 50.5%);
   animation:ringBreathe 6s var(--ease-breath) infinite;
 }
 @keyframes ringBreathe{
@@ -218,8 +218,8 @@ body{
     #2d5f52 360deg
   );
   border-radius:50%;
-  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 71%, #000 73.5%, #000 93.5%, transparent 96%);
-  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 71%, #000 73.5%, #000 93.5%, transparent 96%);
+  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 36%, #000 38.5%, #000 47%, transparent 48.5%);
+  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 36%, #000 38.5%, #000 47%, transparent 48.5%);
   opacity:0.96;
 }
 
@@ -277,7 +277,7 @@ body{
 /* Content area — reserves space for FDCB + tabbar */
 .snap{
   flex:1;padding:2px 14px;
-  padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 20px);
+  padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 24px);
   display:flex;flex-direction:column;gap:10px;
   overflow-y:auto;overflow-x:hidden;
   scrollbar-width:none;
@@ -404,7 +404,7 @@ body{
 }
 
 /* Body Battery + ANS combined card */
-.bb-card{padding:16px 18px 14px}
+.bb-card{padding:16px 18px 14px;margin-bottom:8px}
 .bb-head{
   display:flex;justify-content:space-between;align-items:baseline;
   margin-bottom:12px;
@@ -1159,10 +1159,11 @@ body{
 }
 .tab.active{color:var(--primary)}
 .tab.active .ic{
-  filter:drop-shadow(0 0 6px rgba(0,180,216,0.5));
+  filter:drop-shadow(0 0 8px rgba(0,180,216,0.6))
+         drop-shadow(0 0 16px rgba(0,180,216,0.3));
 }
 .tab.active .ic svg{
-  stroke-width:2;
+  stroke-width:2.4;
 }
 .tab.active .lbl{font-weight:700}
 .tab:active{transform:scale(0.92)}
@@ -1625,8 +1626,8 @@ body{
             </svg>
             <div class="tl-tei-center">
               <div class="tl-tei-score" id="tlTlTlTeiScore">72</div>
-              <div class="tl-tei-pr">Edge Score · Decision Edge</div>
-              <div class="tl-tei-zone" id="tlTlTlTeiZone">Optimal</div>
+              <div class="tl-tei-pr">Edge Score</div>
+              <div class="tl-tei-zone" id="tlTlTlTeiZone">Decision Edge · Optimal</div>
             </div>
           </div>
         </div>
