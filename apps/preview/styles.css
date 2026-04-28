@@ -1701,3 +1701,171 @@ body {
   60%  { filter: brightness(1.35); }
   100% { filter: brightness(1.00); }
 }
+
+/* ─────────────────────────────────────────────
+   v1.2 Result page — high-after redesign (style B)
+   Visual flow:
+     0.0–0.6s  Gold halo residue echoes climax burst
+     0.6–1.7s  Halos morph gold → green
+     0.9–1.2s  3 metric cards stagger entrance
+     1.0s      Metric digits snap (existing keyframe)
+     1.7s+     Sustained green breathing pulse
+     1.4–1.8s  Confidence / subtext / CTA fade in sequentially
+   ───────────────────────────────────────────── */
+
+.result-icon-wrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--sp-md);
+}
+
+/* Override base .result-icon size + shadow to fit halo wrapper */
+.result-icon-wrap .result-icon {
+  position: relative;
+  z-index: 3;
+  width: 76px;
+  height: 76px;
+  font-size: 38px;
+  margin-bottom: 0;
+  background: linear-gradient(135deg, #34C759, #2DB84D);
+  box-shadow:
+    0 0 0 4px rgba(52, 199, 89, 0.20),
+    0 8px 32px rgba(52, 199, 89, 0.45);
+}
+
+.result-icon-halo {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1;
+  animation: resultHaloMorph 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.result-icon-halo.halo-outer {
+  inset: 0;
+  border: 2px solid rgba(245, 166, 35, 0.75);
+  box-shadow:
+    0 0 36px rgba(245, 166, 35, 0.55),
+    inset 0 0 18px rgba(245, 166, 35, 0.25);
+  animation-delay: 0.20s;
+}
+
+.result-icon-halo.halo-inner {
+  inset: 18px;
+  border: 1.5px solid rgba(245, 166, 35, 0.55);
+  box-shadow:
+    0 0 22px rgba(245, 166, 35, 0.40),
+    inset 0 0 12px rgba(245, 166, 35, 0.18);
+  animation-delay: 0.35s;
+}
+
+@keyframes resultHaloMorph {
+  0%   { opacity: 0;    transform: scale(0.85); border-color: rgba(245, 166, 35, 0.75); box-shadow: 0 0 36px rgba(245, 166, 35, 0.55), inset 0 0 18px rgba(245, 166, 35, 0.25); }
+  25%  { opacity: 1;    transform: scale(1.06); border-color: rgba(245, 166, 35, 0.75); box-shadow: 0 0 40px rgba(245, 166, 35, 0.65), inset 0 0 18px rgba(245, 166, 35, 0.25); }
+  55%  { opacity: 1;    transform: scale(1);    border-color: rgba(149, 199, 75, 0.65); box-shadow: 0 0 36px rgba(149, 199, 75, 0.50), inset 0 0 16px rgba(149, 199, 75, 0.22); }
+  100% { opacity: 0.90; transform: scale(1);    border-color: rgba(52, 199, 89, 0.55);  box-shadow: 0 0 30px rgba(52, 199, 89, 0.40), inset 0 0 14px rgba(52, 199, 89, 0.20); }
+}
+
+/* Sustained green halo breathing — kicks in after morph completes */
+.result-icon-glow {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(circle at center,
+    rgba(52, 199, 89, 0.22) 0%,
+    rgba(52, 199, 89, 0.10) 40%,
+    transparent 72%);
+  opacity: 0;
+  animation: resultGlowBreathe 3.2s ease-in-out 1.7s infinite;
+}
+
+@keyframes resultGlowBreathe {
+  0%, 100% { opacity: 0.55; transform: scale(1.00); }
+  50%      { opacity: 0.95; transform: scale(1.08); }
+}
+
+/* Metric card stagger entrance — synced after summary-card settles */
+.step.active #baseline-metrics .metric-card {
+  opacity: 0;
+  transform: translateY(16px) scale(0.96);
+  animation: metricCardIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.step.active #baseline-metrics .metric-card:nth-child(1) { animation-delay: 0.90s; }
+.step.active #baseline-metrics .metric-card:nth-child(2) { animation-delay: 1.05s; }
+.step.active #baseline-metrics .metric-card:nth-child(3) { animation-delay: 1.20s; }
+
+@keyframes metricCardIn {
+  0%   { opacity: 0; transform: translateY(16px) scale(0.96); }
+  60%  { opacity: 1; transform: translateY(-2px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Polish metric cards: subtle border + better hierarchy */
+#baseline-metrics .metric-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px 8px;
+}
+
+#baseline-metrics .metric-value {
+  background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.78) 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+#baseline-metrics .metric-label {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+/* Confidence badge / subtext / CTA — sequential reveal after metric stagger */
+.step.active #step-result .confidence-badge,
+.step.active .summary-card .confidence-badge {
+  opacity: 0;
+  animation: resultPostFadeIn 0.45s ease-out 1.40s forwards;
+}
+
+.step.active .summary-card #result-subtext {
+  opacity: 0;
+  animation: resultPostFadeIn 0.50s ease-out 1.55s forwards;
+}
+
+.step.active .summary-card .btn-primary {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: resultCtaIn 0.50s cubic-bezier(0.34, 1.56, 0.64, 1) 1.70s forwards;
+}
+
+@keyframes resultPostFadeIn {
+  to { opacity: 1; }
+}
+
+@keyframes resultCtaIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Reduced-motion: skip the dramatic stagger, just show everything */
+@media (prefers-reduced-motion: reduce) {
+  .result-icon-halo,
+  .result-icon-glow,
+  .step.active #baseline-metrics .metric-card,
+  .step.active .summary-card .confidence-badge,
+  .step.active .summary-card #result-subtext,
+  .step.active .summary-card .btn-primary {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
