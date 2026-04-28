@@ -145,7 +145,7 @@ body{
 /* Hero area — nebula + big spectrum ring */
 .hero{
   position:relative;
-  min-height:56vh;
+  min-height:46vh;
   flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;
@@ -197,9 +197,12 @@ body{
     #F5A623 360deg
   );
   border-radius:50%;
-  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 38%, #000 40.5%, #000 49%, transparent 50.5%);
-  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 38%, #000 40.5%, #000 49%, transparent 50.5%);
+  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 66%, #000 68%, #000 97%, transparent 99%);
+  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 66%, #000 68%, #000 97%, transparent 99%);
   animation:ringBreathe 6s var(--ease-breath) infinite;
+  /* Entrance animation */
+  opacity:0;transform:scale(0.7) rotate(-120deg);
+  transition:opacity 1.2s var(--ease-calm), transform 1.6s var(--ease-calm);
 }
 @keyframes ringBreathe{
   0%,100%{opacity:0.92;filter:brightness(1)}
@@ -218,9 +221,10 @@ body{
     #2d5f52 360deg
   );
   border-radius:50%;
-  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 36%, #000 38.5%, #000 47%, transparent 48.5%);
-  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 36%, #000 38.5%, #000 47%, transparent 48.5%);
-  opacity:0.96;
+  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 72%, #000 74%, #000 94%, transparent 96%);
+  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 72%, #000 74%, #000 94%, transparent 96%);
+  opacity:0;transform:scale(0.7) rotate(120deg);
+  transition:opacity 1.2s var(--ease-calm) 0.15s, transform 1.6s var(--ease-calm) 0.15s;
 }
 
 /* Indicator dots (Apple Watch style) — positioned with trig against 270px ring */
@@ -228,7 +232,13 @@ body{
   position:absolute;border-radius:50%;
   z-index:4;pointer-events:none;
   box-shadow:0 0 14px currentColor, 0 0 4px rgba(255,255,255,0.6);
+  opacity:0;transform:scale(0);
+  transition:opacity 0.5s var(--ease-calm) 1.2s, transform 0.5s var(--ease-calm) 1.2s;
 }
+/* Rings + dots revealed state */
+.ring-outer-wrap.revealed{opacity:1;transform:scale(1) rotate(0deg)}
+.ring-inner-wrap.revealed{opacity:0.96;transform:scale(1) rotate(0deg)}
+.ring-dot.revealed{opacity:1;transform:scale(1)}
 /* outer dot: ~25° from 12 o'clock (top-right), at ring circumference (radius ~127) */
 .ring-dot.outer{
   width:13px;height:13px;
@@ -251,12 +261,12 @@ body{
   box-shadow:inset 0 0 20px rgba(0,0,0,0.6);
 }
 .tl-tei-score{
-  font-size:86px;font-weight:200;line-height:0.9;letter-spacing:-0.04em;
+  font-size:86px;font-weight:700;line-height:0.9;letter-spacing:-0.04em;
   color:#fff;font-variant-numeric:tabular-nums;
-  background:linear-gradient(180deg, #fff 0%, #c8d4d6 100%);
+  background:linear-gradient(180deg, #fff 0%, #d8e0e4 40%, #a8b8c0 100%);
   -webkit-background-clip:text;background-clip:text;
   -webkit-text-fill-color:transparent;
-  text-shadow:0 0 40px rgba(255,255,255,0.2);
+  filter:drop-shadow(0 0 30px rgba(255,255,255,0.15)) drop-shadow(0 2px 4px rgba(0,0,0,0.5));
   transition:all 1.4s var(--ease-calm);
 }
 .tl-tei-pr{
@@ -281,6 +291,21 @@ body{
   display:flex;flex-direction:column;gap:10px;
   overflow-y:auto;overflow-x:hidden;
   scrollbar-width:none;
+  /* Scroll hint: top/bottom gradient fade */
+  mask-image:linear-gradient(to bottom, transparent 0, #000 8px, #000 calc(100% - 24px), transparent 100%);
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 8px, #000 calc(100% - 24px), transparent 100%);
+}
+/* Card entrance stagger animation */
+.snap > *{
+  opacity:0;transform:translateY(20px);
+  animation:cardEntrance 0.6s var(--ease-calm) forwards;
+}
+.snap > *:nth-child(1){animation-delay:1.0s}
+.snap > *:nth-child(2){animation-delay:1.15s}
+.snap > *:nth-child(3){animation-delay:1.3s}
+.snap > *:nth-child(4){animation-delay:1.45s}
+@keyframes cardEntrance{
+  to{opacity:1;transform:translateY(0)}
 }
 .snap::-webkit-scrollbar{display:none}
 
@@ -2504,6 +2529,42 @@ function drawParticles(t){
 }
 window.addEventListener('resize', () => { resizeCanvas(); initParticles(); });
 setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawParticles); }, 50);
+
+// ═════════════════════════════════════════════════
+// Hero entrance: score counter + ring reveal
+// ═════════════════════════════════════════════════
+(function heroEntrance(){
+  const TARGET_SCORE = 72;
+  const DURATION = 1600; // ms
+  const scoreEl = document.getElementById('tlTlTlTeiScore');
+  const outerRing = document.querySelector('.ring-outer-wrap');
+  const innerRing = document.querySelector('.ring-inner-wrap');
+  const dots = document.querySelectorAll('.ring-dot');
+
+  // Easing: easeOutExpo
+  function ease(t){ return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
+
+  // Start rings reveal after a tiny delay
+  setTimeout(() => {
+    if(outerRing) outerRing.classList.add('revealed');
+    if(innerRing) innerRing.classList.add('revealed');
+    dots.forEach(d => d.classList.add('revealed'));
+  }, 200);
+
+  // Score counter
+  if(!scoreEl) return;
+  scoreEl.textContent = '1';
+  const start = performance.now();
+  function tick(now){
+    const elapsed = now - start;
+    const t = Math.min(elapsed / DURATION, 1);
+    const val = Math.round(1 + (TARGET_SCORE - 1) * ease(t));
+    scoreEl.textContent = val;
+    if(t < 1) requestAnimationFrame(tick);
+  }
+  // Delay counter start slightly after rings begin
+  setTimeout(() => requestAnimationFrame(tick), 350);
+})();
 
 // ═════════════════════════════════════════════════
 // Body Battery bars — 15 tall pills with spectrum
