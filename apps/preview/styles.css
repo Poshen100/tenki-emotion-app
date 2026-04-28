@@ -1743,6 +1743,12 @@ body {
   pointer-events: none;
   opacity: 0;
   z-index: 1;
+  /* Animation does not run until .result-icon-wrap.armed is set by JS
+     (after step-scan teardown completes, ~t=2.0s) — avoids stacking
+     this GPU-heavy box-shadow morph on top of the climax burst window. */
+}
+
+.result-icon-wrap.armed .result-icon-halo {
   animation: resultHaloMorph 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
@@ -1750,28 +1756,32 @@ body {
   inset: 0;
   border: 2px solid rgba(245, 166, 35, 0.75);
   box-shadow:
-    0 0 36px rgba(245, 166, 35, 0.55),
-    inset 0 0 18px rgba(245, 166, 35, 0.25);
-  animation-delay: 0.20s;
+    0 0 20px rgba(245, 166, 35, 0.50),
+    inset 0 0 12px rgba(245, 166, 35, 0.22);
+}
+.result-icon-wrap.armed .result-icon-halo.halo-outer {
+  animation-delay: 0.10s;
 }
 
 .result-icon-halo.halo-inner {
   inset: 18px;
   border: 1.5px solid rgba(245, 166, 35, 0.55);
   box-shadow:
-    0 0 22px rgba(245, 166, 35, 0.40),
-    inset 0 0 12px rgba(245, 166, 35, 0.18);
-  animation-delay: 0.35s;
+    0 0 14px rgba(245, 166, 35, 0.36),
+    inset 0 0 10px rgba(245, 166, 35, 0.18);
+}
+.result-icon-wrap.armed .result-icon-halo.halo-inner {
+  animation-delay: 0.25s;
 }
 
 @keyframes resultHaloMorph {
-  0%   { opacity: 0;    transform: scale(0.85); border-color: rgba(245, 166, 35, 0.75); box-shadow: 0 0 36px rgba(245, 166, 35, 0.55), inset 0 0 18px rgba(245, 166, 35, 0.25); }
-  25%  { opacity: 1;    transform: scale(1.06); border-color: rgba(245, 166, 35, 0.75); box-shadow: 0 0 40px rgba(245, 166, 35, 0.65), inset 0 0 18px rgba(245, 166, 35, 0.25); }
-  55%  { opacity: 1;    transform: scale(1);    border-color: rgba(149, 199, 75, 0.65); box-shadow: 0 0 36px rgba(149, 199, 75, 0.50), inset 0 0 16px rgba(149, 199, 75, 0.22); }
-  100% { opacity: 0.90; transform: scale(1);    border-color: rgba(52, 199, 89, 0.55);  box-shadow: 0 0 30px rgba(52, 199, 89, 0.40), inset 0 0 14px rgba(52, 199, 89, 0.20); }
+  0%   { opacity: 0;    transform: scale(0.85); border-color: rgba(245, 166, 35, 0.75); box-shadow: 0 0 20px rgba(245, 166, 35, 0.50), inset 0 0 12px rgba(245, 166, 35, 0.22); }
+  25%  { opacity: 1;    transform: scale(1.04); border-color: rgba(245, 166, 35, 0.75); box-shadow: 0 0 24px rgba(245, 166, 35, 0.55), inset 0 0 12px rgba(245, 166, 35, 0.22); }
+  55%  { opacity: 1;    transform: scale(1);    border-color: rgba(149, 199, 75, 0.65); box-shadow: 0 0 20px rgba(149, 199, 75, 0.45), inset 0 0 10px rgba(149, 199, 75, 0.20); }
+  100% { opacity: 0.90; transform: scale(1);    border-color: rgba(52, 199, 89, 0.55);  box-shadow: 0 0 18px rgba(52, 199, 89, 0.36),  inset 0 0 10px rgba(52, 199, 89, 0.18); }
 }
 
-/* Sustained green halo breathing — kicks in after morph completes */
+/* Sustained green halo breathing — only after .armed is set. */
 .result-icon-glow {
   position: absolute;
   inset: -8px;
@@ -1779,11 +1789,14 @@ body {
   pointer-events: none;
   z-index: 0;
   background: radial-gradient(circle at center,
-    rgba(52, 199, 89, 0.22) 0%,
-    rgba(52, 199, 89, 0.10) 40%,
-    transparent 72%);
+    rgba(52, 199, 89, 0.18) 0%,
+    rgba(52, 199, 89, 0.08) 45%,
+    transparent 75%);
   opacity: 0;
-  animation: resultGlowBreathe 3.2s ease-in-out 1.7s infinite;
+}
+
+.result-icon-wrap.armed .result-icon-glow {
+  animation: resultGlowBreathe 3.2s ease-in-out 1.5s infinite;
 }
 
 @keyframes resultGlowBreathe {

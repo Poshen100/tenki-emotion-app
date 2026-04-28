@@ -412,7 +412,12 @@ function startCalibrationScan() {
   if (scanEl) scanEl.style.display = '';
   const ringContainer = document.getElementById('scan-ring-container');
   if (ringContainer) ringContainer.style.opacity = '';
-  if (dialogEl) dialogEl.style.opacity = '';
+  if (dialogEl) {
+    dialogEl.style.opacity = '';
+    dialogEl.style.display = '';
+  }
+  const backdropEl2 = document.getElementById('scan-backdrop');
+  if (backdropEl2) backdropEl2.style.display = '';
   const telemetryEl = document.getElementById('scan-telemetry');
   if (telemetryEl) telemetryEl.style.opacity = '';
   const guidanceEl = document.getElementById('scan-guidance');
@@ -423,6 +428,8 @@ function startCalibrationScan() {
   if (fingerGuideEl2) fingerGuideEl2.classList.remove('is-hidden');
   const scanVideoEl2 = document.getElementById('scan-video');
   if (scanVideoEl2) scanVideoEl2.style.display = '';
+  const resultIconWrapReset = document.querySelector('#step-result .result-icon-wrap');
+  if (resultIconWrapReset) resultIconWrapReset.classList.remove('armed');
 
   // Reset ceremony UI
   state.isScanning = true;
@@ -996,18 +1003,20 @@ function enterTransition() {
     scanEl.classList.add('phase-transition');
   }
 
-  // v1.2 fix overlay bug: actively fade out scan-ring + ceremony-dialog so
-  // they don't bleed through the result card during the 2s hand-off window.
+  // v1.2 fix overlay bug + iOS GPU release:
+  //   ceremony-dialog & scan-backdrop are killed with display:none so their
+  //   backdrop-filter / dim-ambient layers are removed from the compositor
+  //   immediately (not just opacity:0, which iOS Safari may keep allocated).
+  //   The other elements just fade so the visual hand-off stays smooth.
   const scanRingContainer = document.getElementById('scan-ring-container');
   if (scanRingContainer) {
     scanRingContainer.style.transition = 'opacity 0.3s ease';
     scanRingContainer.style.opacity = '0';
   }
   const dialog = document.getElementById('ceremony-dialog');
-  if (dialog) {
-    dialog.style.transition = 'opacity 0.3s ease';
-    dialog.style.opacity = '0';
-  }
+  if (dialog) dialog.style.display = 'none';
+  const backdrop = document.getElementById('scan-backdrop');
+  if (backdrop) backdrop.style.display = 'none';
   const telemetry = document.getElementById('scan-telemetry');
   if (telemetry) {
     telemetry.style.transition = 'opacity 0.3s ease';
@@ -1104,6 +1113,13 @@ function enterTransition() {
     state.currentStep = 4;
     updateStepDots(4);
     if (card) card.classList.add('summary-card-locked-in');
+
+    // v1.2 GPU-friendly: now that step-scan is gone (particles stopped, video
+    // hidden, RAF cancelled, blur layers released), arm the result-page halo
+    // morph + green breathing glow. Doing this earlier stacks them on top of
+    // the climax burst window and OOMs iOS Safari's WebContent process.
+    const resultIconWrap = document.querySelector('#step-result .result-icon-wrap');
+    if (resultIconWrap) resultIconWrap.classList.add('armed');
   }, 2000);
 }
 
