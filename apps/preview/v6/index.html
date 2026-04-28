@@ -309,28 +309,32 @@ body{
 }
 .snap::-webkit-scrollbar{display:none}
 
-/* Coach hint card — with left accent bar */
 .coach-card{
   position:relative;
-  padding:15px 16px 15px 22px;
-  border-radius:16px;
-  background:linear-gradient(90deg, rgba(40,110,95,0.18) 0%, rgba(28,28,30,0.6) 45%);
-  border:1px solid rgba(255,255,255,0.06);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  padding:16px 20px 16px 26px;
+  border-radius:20px;
+  background:linear-gradient(135deg, rgba(0, 180, 216, 0.15) 0%, rgba(255, 255, 255, 0.04) 30%, rgba(0, 0, 0, 0.25) 100%);
+  border:1px solid rgba(255, 255, 255, 0.08);
+  border-top:1px solid rgba(255, 255, 255, 0.25);
+  border-left:1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 12px 32px rgba(0,0,0,0.4),
+    inset 0 1px 2px rgba(255,255,255,0.15),
+    inset 0 0 20px rgba(0, 180, 216, 0.05);
+  backdrop-filter:blur(32px) saturate(150%);
+  -webkit-backdrop-filter:blur(32px) saturate(150%);
   overflow:hidden;
 }
 .coach-card::before{
-  content:'';position:absolute;left:6px;top:14%;bottom:14%;
-  width:3.5px;border-radius:3px;
+  content:'';position:absolute;left:0;top:0;bottom:0;
+  width:5px;
   background:linear-gradient(180deg, #34C759 0%, #00B4D8 100%);
-  box-shadow:
-    0 0 12px rgba(52,199,89,0.7),
-    0 0 24px rgba(0,180,216,0.4),
-    0 0 36px rgba(0,180,216,0.2);
+  box-shadow: 2px 0 16px rgba(0, 180, 216, 0.6);
 }
 .coach-text{
-  font-size:14px;line-height:1.7;color:rgba(255,255,255,0.92);
-  letter-spacing:0.02em;max-width:calc(100% - 4px);
+  font-size:14px;line-height:1.65;color:rgba(255,255,255,0.95);
+  letter-spacing:0.02em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
 .card{
