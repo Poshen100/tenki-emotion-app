@@ -977,6 +977,30 @@ body {
     0 0 0 1px rgba(52, 199, 89, 0.15);
 }
 
+/* ── iOS Safari WebContent OOM safeguard ──
+   The 32px backdrop-filter on .ceremony-dialog combined with 14px+ blur on
+   .scan-banner, the particle burst, and the golden-flash keyframe can spike
+   GPU memory past iOS Safari's WebContent process cap (~1GB) and trigger a
+   reload loop on physical devices (desktop Chrome has no such cap, hence
+   "works on desktop, dies on iPhone"). During climax / transition / final we
+   release every blur layer so the burst window is GPU-cheap. */
+.scan-step.phase-climax .ceremony-dialog,
+.scan-step.phase-transition .ceremony-dialog,
+.scan-step.phase-final .ceremony-dialog,
+.scan-step.phase-climax .scan-banner,
+.scan-step.phase-transition .scan-banner,
+.scan-step.phase-final .scan-banner {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* When the banner is hidden, drop its blur layer entirely so iOS Safari's
+   compositor doesn't keep the GPU surface allocated off-screen. */
+.scan-banner.is-hidden {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* ── Live rear-camera feed (real finger scanning) ── */
 .scan-video {
   position: absolute;
