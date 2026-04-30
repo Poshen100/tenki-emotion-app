@@ -463,8 +463,11 @@ function startCalibrationScan() {
   }
   if (noteEl) noteEl.textContent = '請保持不動';
   if (ringEl) ringEl.style.strokeDashoffset = SCAN_CIRCUMFERENCE;
+  // v1.2: ceremony-dialog (32px backdrop-filter blur) is hidden during wait
+  // phase to avoid stacking it on top of scan-banner (12px blur) + halo +
+  // particles + camera. Becomes visible when phase transitions to 'gather'.
   if (dialogEl && dialogTextEl) {
-    dialogEl.classList.add('visible');
+    dialogEl.classList.remove('visible');
     dialogTextEl.textContent = '正在凝聚你的生理基線';
   }
   if (readyEl) readyEl.style.display = 'none';
@@ -474,8 +477,9 @@ function startCalibrationScan() {
   // v1.2: show top guidance banner (will hide once signal reaches GOOD)
   setScanBannerVisible(true);
 
-  // Start particle system (converge → orbit → burst driven by phase)
-  startParticleSystem();
+  // v1.2: defer particle system to gather phase. During wait, the user is
+  // still finding the right cover and the canvas just adds GPU pressure.
+  // (Originally: startParticleSystem() here.)
 
   // Camera is already running from Step 3. Transfer the stream to the scan
   // video element so the circular preview shows inside the ceremony ring.
@@ -572,6 +576,12 @@ function tickWait(now) {
       setScanBannerVisible(false);
       const fingerGuideEl = document.getElementById('finger-guide-anim');
       if (fingerGuideEl) fingerGuideEl.classList.add('is-hidden');
+
+      // v1.2 GPU handoff: now safe to bring in ceremony-dialog (32px blur)
+      // and the particle system — banner blur is gone, finger-guide is gone.
+      const dialogEl = document.getElementById('ceremony-dialog');
+      if (dialogEl) dialogEl.classList.add('visible');
+      startParticleSystem();
 
       // Light haptic confirms successful covering (graceful no-op if unsupported)
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
