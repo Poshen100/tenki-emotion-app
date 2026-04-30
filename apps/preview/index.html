@@ -73,65 +73,124 @@
 
     <!-- Step 3: Readiness Check -->
     <section id="step-readiness" class="step">
-      <div class="step-content">
-        <h1 class="step-headline">準備檢查</h1>
-        <p class="step-body">在開始之前，確認環境和位置都準備好了</p>
+      <div class="step-content readiness-step">
+        <div class="step-kicker">BASELINE SETUP</div>
+        <h1 class="step-headline" id="readiness-title">先把鏡頭蓋對</h1>
+        <p class="step-body" id="readiness-body">這一步做得越準，後面的基線越穩。先看 2 秒示範，再照著 live coach 放好手指。</p>
 
-        <!-- Live camera preview for readiness check -->
-        <div class="readiness-camera-preview" id="readiness-camera-container">
-          <video class="readiness-video" id="readiness-video" playsinline muted autoplay></video>
-          <div class="readiness-camera-label" id="readiness-camera-label">等待相機…</div>
-        </div>
+        <div class="perfect-cover-card" id="perfect-cover-card">
+          <div class="perfect-cover-head">
+            <div>
+              <p class="perfect-cover-eyebrow">2 秒示範</p>
+              <h2 class="perfect-cover-title" id="cover-demo-title">用指腹，置中，蓋滿</h2>
+            </div>
+            <span class="perfect-cover-badge">Loop</span>
+          </div>
+          <p class="perfect-cover-body" id="cover-demo-body">鏡頭要整顆消失在指腹下面，邊緣不要漏光。</p>
 
-        <div class="instructions-list" id="instructions-list">
-          <div class="instruction-item">
-            <span class="instruction-number">1</span>
-            <span>將食指或中指的指腹完整覆蓋後鏡頭</span>
+          <div class="perfect-cover-demo" aria-hidden="true">
+            <div class="cover-demo-phone">
+              <div class="cover-demo-camera-bump">
+                <span class="cover-demo-lens cover-demo-lens-main"></span>
+                <span class="cover-demo-lens cover-demo-lens-small cover-demo-lens-top"></span>
+                <span class="cover-demo-lens cover-demo-lens-small cover-demo-lens-bottom"></span>
+                <span class="cover-demo-flash"></span>
+              </div>
+              <div class="cover-demo-target"></div>
+              <div class="cover-demo-guideline"></div>
+              <div class="cover-demo-finger-shadow"></div>
+              <div class="cover-demo-finger">
+                <span class="cover-demo-finger-highlight"></span>
+              </div>
+            </div>
           </div>
-          <div class="instruction-item">
-            <span class="instruction-number">2</span>
-            <span>手指要輕放，不要用力按壓</span>
-          </div>
-          <div class="instruction-item">
-            <span class="instruction-number">3</span>
-            <span>保持手機穩定，盡量不要晃動</span>
-          </div>
-        </div>
 
-        <p class="success-conditions">✅ 手指到位 + 光線充足 + 保持穩定 = 可以開始</p>
+          <div class="perfect-cover-legend">
+            <span class="cover-chip" data-stage="approach">對到鏡頭</span>
+            <span class="cover-chip" data-stage="cover">蓋滿邊緣</span>
+            <span class="cover-chip" data-stage="hold">穩住 1 秒</span>
+            <span class="cover-chip" data-stage="ready">開始基線</span>
+          </div>
 
-        <div class="readiness-meters">
-          <div class="meter-row">
-            <span class="meter-label">覆蓋率</span>
-            <div class="meter-bar">
-              <div class="meter-fill" id="meter-coverage" style="width: 0%"></div>
+          <div class="cover-bullet-list" id="instructions-list">
+            <div class="cover-bullet">
+              <span class="cover-bullet-icon">1</span>
+              <span class="cover-bullet-copy">用指腹而不是指尖，覆蓋面積更穩。</span>
             </div>
-            <span class="meter-status" id="status-coverage">—</span>
-          </div>
-          <div class="meter-row">
-            <span class="meter-label">光線</span>
-            <div class="meter-bar">
-              <div class="meter-fill" id="meter-brightness" style="width: 0%"></div>
+            <div class="cover-bullet">
+              <span class="cover-bullet-icon">2</span>
+              <span class="cover-bullet-copy">手指輕放就好，不要用力按壓鏡頭。</span>
             </div>
-            <span class="meter-status" id="status-brightness">—</span>
-          </div>
-          <div class="meter-row">
-            <span class="meter-label">穩定度</span>
-            <div class="meter-bar">
-              <div class="meter-fill" id="meter-stability" style="width: 0%"></div>
+            <div class="cover-bullet">
+              <span class="cover-bullet-icon">3</span>
+              <span class="cover-bullet-copy">握穩手機，連續靜止 1 秒讓訊號鎖定。</span>
             </div>
-            <span class="meter-status" id="status-stability">—</span>
-          </div>
-          <div class="meter-row">
-            <span class="meter-label">信號品質</span>
-            <div class="meter-bar">
-              <div class="meter-fill" id="meter-sqi" style="width: 0%"></div>
-            </div>
-            <span class="meter-status" id="status-sqi">—</span>
           </div>
         </div>
 
-        <div class="readiness-status" id="readiness-message">正在偵測...</div>
+        <div class="readiness-live-shell">
+          <div class="readiness-live-head">
+            <div>
+              <p class="readiness-live-eyebrow">LIVE CHECK</p>
+              <h2 class="readiness-live-title">照著提示把手指放到理想位置</h2>
+            </div>
+            <div class="readiness-coach" id="readiness-coach">把指腹移到後鏡頭正中央</div>
+          </div>
+
+          <div class="readiness-preview-wrap">
+            <div class="readiness-preview-target" aria-hidden="true"></div>
+            <div class="readiness-camera-preview" id="readiness-camera-container" data-state="neutral">
+              <video class="readiness-video" id="readiness-video" playsinline muted autoplay></video>
+              <div class="readiness-camera-glow" aria-hidden="true"></div>
+              <div class="readiness-camera-label" id="readiness-camera-label">等待相機…</div>
+            </div>
+          </div>
+
+          <div class="readiness-stage-rail">
+            <span class="readiness-stage-pill" data-stage="approach">對到位置</span>
+            <span class="readiness-stage-pill" data-stage="cover">蓋滿鏡頭</span>
+            <span class="readiness-stage-pill" data-stage="hold">穩住 1 秒</span>
+            <span class="readiness-stage-pill" data-stage="ready">開始基線</span>
+          </div>
+
+          <div class="readiness-meters">
+            <div class="meter-row">
+              <span class="meter-label">覆蓋</span>
+              <div class="meter-bar">
+                <div class="meter-fill" id="meter-coverage" style="width: 0%"></div>
+              </div>
+              <span class="meter-status" id="status-coverage">—</span>
+            </div>
+            <div class="meter-row">
+              <span class="meter-label">亮度</span>
+              <div class="meter-bar">
+                <div class="meter-fill" id="meter-brightness" style="width: 0%"></div>
+              </div>
+              <span class="meter-status" id="status-brightness">—</span>
+            </div>
+            <div class="meter-row">
+              <span class="meter-label">穩定</span>
+              <div class="meter-bar">
+                <div class="meter-fill" id="meter-stability" style="width: 0%"></div>
+              </div>
+              <span class="meter-status" id="status-stability">—</span>
+            </div>
+            <div class="meter-row">
+              <span class="meter-label">訊號</span>
+              <div class="meter-bar">
+                <div class="meter-fill" id="meter-sqi" style="width: 0%"></div>
+              </div>
+              <span class="meter-status" id="status-sqi">—</span>
+            </div>
+          </div>
+
+          <div class="readiness-status-block" id="readiness-status-block" data-tone="neutral">
+            <div class="readiness-status" id="readiness-message">正在啟動相機…</div>
+            <div class="readiness-detail" id="readiness-detail">當覆蓋、亮度、穩定都過線後，我們才會放行。</div>
+          </div>
+        </div>
+
+        <p class="readiness-success-note" id="readiness-success-note">我們只在理想覆蓋時建立 baseline，讓你的 reference 更穩。</p>
 
         <button class="btn-primary" id="btn-start-scan" disabled onclick="goToStep(3)">等待就緒...</button>
       </div>

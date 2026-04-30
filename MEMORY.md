@@ -1,3 +1,52 @@
+# 2026-04-28 Session Update (New Windows Machine / Continuation Handoff)
+
+## What was done
+
+1. Cloned the repo again on the new machine into `C:\Users\patron\Documents\Codex\2026-04-28\clone-https-github-com-poshen100-tenki`
+2. Installed portable Node.js at `C:\Users\patron\Documents\Codex\2026-04-28\node-v24.15.0-win-x64`
+3. Verified `start_env.bat` already targets that portable Node.js path
+4. Installed dependencies at repo root and at `apps/mobile`
+5. Rebuilt npm dependencies successfully after correcting PATH to portable Node.js
+6. Verified:
+   - Node.js `v24.15.0`
+   - npm `11.12.1`
+   - Expo CLI available in `apps/mobile`
+   - `apps/mobile` TypeScript check passes
+
+## Important machine-specific warning
+
+On this machine, the default `node.exe` may resolve to a WindowsApps / Codex stub. When npm spawns child processes through that path, commands can fail with `Access is denied`.
+
+Safe rule for future sessions:
+
+- Always open the shell with `start_env.bat`
+- Or prepend `C:\Users\patron\Documents\Codex\2026-04-28\node-v24.15.0-win-x64` to `PATH` before using npm/expo
+
+## Active app reality check
+
+- The real active mobile app is `apps/mobile`
+- `README.md` now points collaborators to `apps/mobile` and `docs/DEPLOYMENT_MAP.md`
+- The correct next-session dev path is:
+
+```powershell
+cd apps\mobile
+npm start
+```
+
+## Recommended continuation
+
+1. Launch the Expo app from `apps/mobile`
+2. Verify the existing 5-tab shell renders on this machine
+3. Continue Phase C integration/polish by wiring mobile screens to existing engine/domain/shared layers
+4. Clean up stale root-level docs after confirming runtime flow
+
+## Deployment map note
+
+- Deployment URL meaning is now documented in `docs/DEPLOYMENT_MAP.md`
+- Public Vercel root currently maps to `apps/web`
+- `/preview/` routes map to `apps/preview`
+- `apps/mobile` is the active implementation path but has no confirmed public deployment URL recorded in repo yet
+
 # MEMORY.md — TENKI CORE AI Session Memory
 
 > 此檔案由 AI 助手在每次 session 結束時更新。

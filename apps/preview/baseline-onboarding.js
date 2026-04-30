@@ -154,28 +154,311 @@ function selectSensor(type) {
 }
 
 function updateInstructions(type) {
+  const copy = type === 'finger'
+    ? {
+        title: '先把鏡頭蓋對',
+        body: '這一步做得越準，後面的基線越穩。先看 2 秒示範，再照著 live coach 放好手指。',
+        demoTitle: '用指腹，置中，蓋滿',
+        demoBody: '鏡頭要整顆消失在指腹下面，邊緣不要漏光。',
+        bullets: [
+          '用指腹而不是指尖，覆蓋面積更穩。',
+          '手指輕放就好，不要用力按壓鏡頭。',
+          '握穩手機，連續靜止 1 秒讓訊號鎖定。',
+        ],
+        note: '我們只在理想覆蓋時建立 baseline，讓你的 reference 更穩。',
+        coach: '把指腹移到後鏡頭正中央',
+        liveTitle: '照著提示把手指放到理想位置',
+      }
+    : {
+        title: '先把臉放對',
+        body: '臉部 baseline 仍在 beta。先把臉放正、補足光線，再讓系統確認穩定度。',
+        demoTitle: 'Face beta 準備中',
+        demoBody: '目前這個 step 先用 checklist 幫你對齊光線與穩定度。',
+        bullets: [
+          '讓整張臉都進入鏡頭取景範圍。',
+          '避免強烈逆光，讓五官保持清楚。',
+          '固定頭部與手機，連續穩住 1 秒。',
+        ],
+        note: 'beta 模式會先用較保守的 gate，避免把不穩定的畫面寫進 baseline。',
+        coach: '先把臉放進鏡頭正中央',
+        liveTitle: '先把臉對準，再等系統放行',
+      };
+
+  setReadinessText('readiness-title', copy.title);
+  setReadinessText('readiness-body', copy.body);
+  setReadinessText('cover-demo-title', copy.demoTitle);
+  setReadinessText('cover-demo-body', copy.demoBody);
+  setReadinessText('readiness-success-note', copy.note);
+  setReadinessText('readiness-coach', copy.coach);
+  setReadinessTextInSelector('.readiness-live-title', copy.liveTitle);
+
+  const card = document.getElementById('perfect-cover-card');
+  if (card) card.classList.toggle('is-hidden', type !== 'finger');
+
   const list = document.getElementById('instructions-list');
-  if (!list) return;
+  if (list) {
+    list.innerHTML = copy.bullets.map((text, i) =>
+      `<div class="cover-bullet">
+        <span class="cover-bullet-icon">${i + 1}</span>
+        <span class="cover-bullet-copy">${text}</span>
+      </div>`
+    ).join('');
+  }
+}
 
-  const fingerInstructions = [
-    '將食指或中指的指腹完整覆蓋後鏡頭',
-    '手指要輕放，不要用力按壓',
-    '保持手機穩定，盡量不要晃動',
-  ];
+const READINESS_THRESHOLDS = {
+  coverage: { ready: 0.88, warning: 0.72, missing: 0.58 },
+  brightness: { ready: 0.38, warning: 0.30 },
+  stability: { ready: 0.72, warning: 0.55 },
+  sqi: { ready: 0.60, warning: 0.46 },
+};
 
-  const faceInstructions = [
-    '面對前鏡頭，保持自然表情',
-    '確保臉部光線均勻，避免逆光',
-    '保持頭部穩定',
-  ];
+const READINESS_STAGE_ORDER = ['approach', 'cover', 'hold', 'ready'];
 
-  const instructions = type === 'finger' ? fingerInstructions : faceInstructions;
-  list.innerHTML = instructions.map((text, i) =>
-    `<div class="instruction-item">
-      <span class="instruction-number">${i + 1}</span>
-      <span>${text}</span>
-    </div>`
-  ).join('');
+const READINESS_TONE_COLORS = {
+  neutral: '',
+  warning: '#F5A623',
+  danger: '#FF3B30',
+  success: '#34C759',
+};
+
+function setReadinessText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+function setReadinessTextInSelector(selector, text) {
+  const el = document.querySelector(selector);
+  if (el) el.textContent = text;
+}
+
+function setReadinessStage(stage) {
+  const activeIndex = READINESS_STAGE_ORDER.indexOf(stage);
+  document.querySelectorAll('.readiness-stage-pill, .cover-chip').forEach((el) => {
+    const elStage = el.dataset.stage || '';
+    const elIndex = READINESS_STAGE_ORDER.indexOf(elStage);
+    el.classList.toggle('is-active', elIndex === activeIndex);
+    el.classList.toggle('is-complete', elIndex > -1 && elIndex < activeIndex);
+  });
+}
+
+function setReadinessFeedback(primary, secondary, tone) {
+  const msgEl = document.getElementById('readiness-message');
+  const detailEl = document.getElementById('readiness-detail');
+  const blockEl = document.getElementById('readiness-status-block');
+  const color = READINESS_TONE_COLORS[tone] || '';
+
+  if (msgEl) {
+    msgEl.textContent = primary;
+    msgEl.style.color = color;
+  }
+  if (detailEl) detailEl.textContent = secondary;
+  if (blockEl) blockEl.dataset.tone = tone;
+}
+
+function setReadinessButton(enabled) {
+  const btn = document.getElementById('btn-start-scan');
+  if (!btn) return;
+  btn.disabled = !enabled;
+  btn.textContent = enabled ? '開始建立基線' : '等待理想覆蓋';
+}
+
+function getFingerReadinessAssessment(metrics) {
+  const { coverage, brightness, stability, sqi, bpm } = metrics;
+
+  if (coverage < READINESS_THRESHOLDS.coverage.missing) {
+    return {
+      stage: 'approach',
+      tone: 'danger',
+      ready: false,
+      coach: '把指腹移到後鏡頭正中央',
+      message: '先找到鏡頭位置',
+      detail: '讓鏡頭完整消失在指腹下面，先不用急著開始掃描。',
+      label: '找到後鏡頭',
+    };
+  }
+
+  if (coverage < READINESS_THRESHOLDS.coverage.ready) {
+    return {
+      stage: 'cover',
+      tone: 'warning',
+      ready: false,
+      coach: '再蓋滿一點，邊緣不要漏光',
+      message: '覆蓋快對了',
+      detail: '鏡頭四周還有空隙。請用指腹而不是指尖，把邊緣也一起蓋滿。',
+      label: '再蓋滿一點',
+    };
+  }
+
+  if (stability < READINESS_THRESHOLDS.stability.ready) {
+    return {
+      stage: 'hold',
+      tone: 'warning',
+      ready: false,
+      coach: '位置對了，先不要滑動',
+      message: '先穩住 1 秒',
+      detail: '現在最重要的是不要晃。握住手機，讓手指和鏡頭一起穩定下來。',
+      label: '保持靜止',
+    };
+  }
+
+  if (brightness < READINESS_THRESHOLDS.brightness.ready) {
+    return {
+      stage: 'hold',
+      tone: 'warning',
+      ready: false,
+      coach: '換到更亮一點的地方',
+      message: '光線再亮一點會更穩',
+      detail: '覆蓋已經對了，但光線太弱會讓波形不穩，先移到比較亮的位置。',
+      label: '亮度偏低',
+    };
+  }
+
+  if (sqi < READINESS_THRESHOLDS.sqi.ready) {
+    return {
+      stage: 'hold',
+      tone: 'warning',
+      ready: false,
+      coach: '很好，再穩一秒讓訊號鎖定',
+      message: '幾乎到了',
+      detail: '覆蓋、亮度都已過線，系統正在確認訊號品質。',
+      label: bpm > 0 ? `${bpm} BPM 鎖定中` : '訊號鎖定中',
+    };
+  }
+
+  return {
+    stage: 'ready',
+    tone: 'success',
+    ready: true,
+    coach: '很好，這就是理想覆蓋',
+    message: '準備就緒，可以開始',
+    detail: '覆蓋、穩定、亮度都過線了。現在建立 baseline，精準度會更可靠。',
+    label: bpm > 0 ? `${bpm} BPM 已鎖定` : '理想覆蓋 ✓',
+  };
+}
+
+function getFaceReadinessAssessment(metrics) {
+  const { coverage, brightness, stability, sqi } = metrics;
+
+  if (coverage < 0.58) {
+    return {
+      stage: 'approach',
+      tone: 'danger',
+      ready: false,
+      coach: '把臉放進鏡頭正中央',
+      message: '先把臉放進取景範圍',
+      detail: '讓眼睛和鼻樑落在中央，距離鏡頭維持在舒服的閱讀距離。',
+      label: '對準臉部',
+    };
+  }
+
+  if (brightness < 0.34) {
+    return {
+      stage: 'cover',
+      tone: 'warning',
+      ready: false,
+      coach: '補一點正面光',
+      message: '光線不夠穩',
+      detail: '避免逆光，讓臉部亮度平均一點，系統才能更穩定地抓到 baseline。',
+      label: '調整光線',
+    };
+  }
+
+  if (stability < 0.68) {
+    return {
+      stage: 'hold',
+      tone: 'warning',
+      ready: false,
+      coach: '保持頭部與手機靜止',
+      message: '先穩住一下',
+      detail: '畫面已對準，但還需要一小段穩定時間，才能讓 gate 放行。',
+      label: '保持靜止',
+    };
+  }
+
+  if (sqi < 0.56) {
+    return {
+      stage: 'hold',
+      tone: 'warning',
+      ready: false,
+      coach: '很好，再穩一秒讓系統確認',
+      message: '正在確認畫面品質',
+      detail: 'beta 模式會多看一下畫面品質，避免把模糊資料寫進 baseline。',
+      label: '確認中',
+    };
+  }
+
+  return {
+    stage: 'ready',
+    tone: 'success',
+    ready: true,
+    coach: '很好，可以開始 face baseline',
+    message: '準備就緒，可以開始',
+    detail: '光線與穩定度已過線，現在可以開始建立 baseline。',
+    label: '畫面已鎖定',
+  };
+}
+
+function getReadinessAssessment(metrics) {
+  return state.sensorChoice === 'finger'
+    ? getFingerReadinessAssessment(metrics)
+    : getFaceReadinessAssessment(metrics);
+}
+
+function applyReadinessState(sample) {
+  const metrics = {
+    coverage: clamp01(sample.coverage || 0),
+    brightness: clamp01(sample.brightness || 0),
+    stability: clamp01(sample.stability || 0),
+    sqi: clamp01(sample.sqi || 0),
+    bpm: sample.bpm || 0,
+  };
+
+  updateMeter(
+    'coverage',
+    metrics.coverage * 100,
+    getMeterIcon(metrics.coverage, READINESS_THRESHOLDS.coverage.ready, READINESS_THRESHOLDS.coverage.warning),
+    { green: READINESS_THRESHOLDS.coverage.ready * 100, yellow: READINESS_THRESHOLDS.coverage.warning * 100 }
+  );
+  updateMeter(
+    'brightness',
+    metrics.brightness * 100,
+    getMeterIcon(metrics.brightness, READINESS_THRESHOLDS.brightness.ready, READINESS_THRESHOLDS.brightness.warning),
+    { green: READINESS_THRESHOLDS.brightness.ready * 100, yellow: READINESS_THRESHOLDS.brightness.warning * 100 }
+  );
+  updateMeter(
+    'stability',
+    metrics.stability * 100,
+    getMeterIcon(metrics.stability, READINESS_THRESHOLDS.stability.ready, READINESS_THRESHOLDS.stability.warning),
+    { green: READINESS_THRESHOLDS.stability.ready * 100, yellow: READINESS_THRESHOLDS.stability.warning * 100 }
+  );
+  updateMeter(
+    'sqi',
+    metrics.sqi * 100,
+    getMeterIcon(metrics.sqi, READINESS_THRESHOLDS.sqi.ready, READINESS_THRESHOLDS.sqi.warning),
+    { green: READINESS_THRESHOLDS.sqi.ready * 100, yellow: READINESS_THRESHOLDS.sqi.warning * 100 }
+  );
+
+  const assessment = getReadinessAssessment(metrics);
+
+  setReadinessStage(assessment.stage);
+  setReadinessText('readiness-coach', assessment.coach);
+  setReadinessFeedback(assessment.message, assessment.detail, assessment.tone);
+  setReadinessButton(assessment.ready);
+  setReadinessText('readiness-camera-label', assessment.label);
+
+  const container = document.getElementById('readiness-camera-container');
+  if (container) {
+    container.dataset.state = assessment.ready
+      ? 'green'
+      : assessment.stage === 'approach'
+        ? 'red'
+        : 'yellow';
+  }
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
 }
 
 // ─────────────────────────────────────────────
@@ -183,22 +466,44 @@ function updateInstructions(type) {
 // ─────────────────────────────────────────────
 
 function startReadinessCheck() {
-  // Reset UI
-  updateMeter('coverage', 0, '—');
-  updateMeter('brightness', 0, '—');
-  updateMeter('stability', 0, '—');
-  updateMeter('sqi', 0, '—');
-
-  const btn = document.getElementById('btn-start-scan');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = '等待就緒...';
+  state.isScanning = false;
+  state.cameraActive = false;
+  state.readinessSimStep = 0;
+  if (state.readinessInterval) clearInterval(state.readinessInterval);
+  state.readinessInterval = null;
+  if (state.cameraSession) {
+    try { state.cameraSession.stop(); } catch (_) {}
+    state.cameraSession = null;
   }
 
-  const msgEl = document.getElementById('readiness-message');
-  if (msgEl) { msgEl.textContent = '正在啟動相機…'; msgEl.style.color = ''; }
+  updateInstructions(state.sensorChoice);
+  setReadinessStage('approach');
+  setReadinessButton(false);
+  setReadinessFeedback(
+    state.sensorChoice === 'finger' ? '正在啟動相機…' : '正在準備 face beta…',
+    state.sensorChoice === 'finger'
+      ? '先看一下示範，再把指腹移到後鏡頭正中央。'
+      : '先把臉放進鏡頭中央，系統會用更保守的 gate 幫你確認穩定度。',
+    'neutral'
+  );
+  setReadinessText('readiness-camera-label', state.sensorChoice === 'finger' ? '等待相機…' : 'Face beta preview');
 
-  // Start camera at readiness step so meters use real data
+  const container = document.getElementById('readiness-camera-container');
+  if (container) {
+    container.style.display = '';
+    container.dataset.state = 'neutral';
+  }
+
+  updateMeter('coverage', 0, '—', { green: READINESS_THRESHOLDS.coverage.ready * 100, yellow: READINESS_THRESHOLDS.coverage.warning * 100 });
+  updateMeter('brightness', 0, '—', { green: READINESS_THRESHOLDS.brightness.ready * 100, yellow: READINESS_THRESHOLDS.brightness.warning * 100 });
+  updateMeter('stability', 0, '—', { green: READINESS_THRESHOLDS.stability.ready * 100, yellow: READINESS_THRESHOLDS.stability.warning * 100 });
+  updateMeter('sqi', 0, '—', { green: READINESS_THRESHOLDS.sqi.ready * 100, yellow: READINESS_THRESHOLDS.sqi.warning * 100 });
+
+  if (state.sensorChoice !== 'finger') {
+    startSimulatedReadiness('face');
+    return;
+  }
+
   startReadinessCamera();
 }
 
@@ -209,8 +514,12 @@ async function startReadinessCamera() {
   const api = window.TENKI_PREVIEW_CAMERA;
 
   if (!videoEl || !api || !api.startFingerCamera) {
-    // No camera module — fall back to simulated readiness
-    startSimulatedReadiness();
+    setReadinessFeedback(
+      '無法直接存取相機，改用示範模式',
+      '你還是可以先看理想覆蓋的節奏，確認 flow 和提示是否順手。',
+      'warning'
+    );
+    startSimulatedReadiness('finger');
     return;
   }
 
@@ -227,111 +536,87 @@ async function startReadinessCamera() {
       if (!state.isScanning) updateReadinessFromCamera(sample);
     });
     state.cameraSession = session;
-    if (labelEl) labelEl.textContent = '後鏡頭已啟動';
+    if (container) container.dataset.state = 'red';
+    if (labelEl) labelEl.textContent = '對準後鏡頭';
   } catch (err) {
     state.cameraActive = false;
-    if (container) container.style.display = 'none';
-    if (labelEl) labelEl.textContent = '';
-    const msgEl = document.getElementById('readiness-message');
-    if (msgEl) {
-      if (err && err.name === 'NotAllowedError') {
-        msgEl.textContent = '相機權限被拒 — 使用模擬模式';
-      } else {
-        msgEl.textContent = '無法開啟相機 — 使用模擬模式';
-      }
-      msgEl.style.color = '#F5A623';
-    }
-    startSimulatedReadiness();
+    if (container) container.dataset.state = 'yellow';
+    if (labelEl) labelEl.textContent = '模擬覆蓋教學';
+    setReadinessFeedback(
+      err && err.name === 'NotAllowedError' ? '相機權限被拒，改用示範模式' : '無法開啟相機，改用示範模式',
+      '這個 fallback 仍然能幫你檢查提示是否清楚，之後再接上真實相機 gate。',
+      'warning'
+    );
+    startSimulatedReadiness('finger');
   }
 }
 
 function updateReadinessFromCamera(sample) {
-  const { coverage, brightness, stability, sqi, color, bpm } = sample;
-
-  updateMeter('coverage', coverage * 100, getMeterIcon(coverage, 0.85, 0.60));
-  updateMeter('brightness', (brightness || 0) * 100, getMeterIcon(brightness || 0, 0.50, 0.30));
-  updateMeter('stability', (stability || 0) * 100, getMeterIcon(stability || 0, 0.70, 0.50));
-  updateMeter('sqi', sqi * 100, getMeterIcon(sqi, 0.55, 0.40));
-
-  // Camera preview border color
-  const container = document.getElementById('readiness-camera-container');
-  if (container) container.dataset.state = color;
-
-  const labelEl = document.getElementById('readiness-camera-label');
-  if (labelEl) {
-    if (color === 'green') labelEl.textContent = bpm > 0 ? `${bpm} BPM 偵測中` : '手指已覆蓋 ✓';
-    else if (color === 'yellow') labelEl.textContent = '調整手指位置';
-    else labelEl.textContent = '覆蓋後鏡頭';
-  }
-
-  // Overall message
-  const msgEl = document.getElementById('readiness-message');
-
-  if (coverage < 0.60) {
-    if (msgEl) {
-      msgEl.textContent = state.sensorChoice === 'finger'
-        ? '請將手指完整覆蓋鏡頭' : '請將臉部對準鏡頭範圍';
-      msgEl.style.color = '#FF3B30';
-    }
-  } else if ((stability || 0) < 0.50) {
-    if (msgEl) { msgEl.textContent = '偵測到晃動，請保持靜止'; msgEl.style.color = '#F5A623'; }
-  } else if ((brightness || 0) < 0.30) {
-    if (msgEl) { msgEl.textContent = '光線不足，請移到較亮的地方'; msgEl.style.color = '#F5A623'; }
-  } else if (coverage >= 0.85 && (stability || 0) >= 0.70 && (brightness || 0) >= 0.50 && sqi >= 0.55) {
-    if (msgEl) { msgEl.textContent = '準備就緒，可以開始'; msgEl.style.color = '#34C759'; }
-    const btn = document.getElementById('btn-start-scan');
-    if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
-  } else {
-    if (msgEl) { msgEl.textContent = '幾乎到位了...'; msgEl.style.color = '#F5A623'; }
-  }
+  applyReadinessState({
+    coverage: sample.coverage,
+    brightness: sample.brightness || 0,
+    stability: sample.stability || 0,
+    sqi: sample.sqi || 0,
+    bpm: sample.bpm || 0,
+  });
 }
 
-function startSimulatedReadiness() {
+function startSimulatedReadiness(mode = state.sensorChoice) {
   state.readinessSimStep = 0;
   if (state.readinessInterval) clearInterval(state.readinessInterval);
+
+  if (mode === 'face') {
+    setReadinessText('readiness-camera-label', 'Face beta preview');
+  } else {
+    setReadinessText('readiness-camera-label', '模擬覆蓋教學');
+  }
+
   state.readinessInterval = setInterval(() => {
     state.readinessSimStep++;
-    simulateReadiness(state.readinessSimStep);
-  }, 400);
+    simulateReadiness(state.readinessSimStep, mode);
+  }, 420);
 }
 
-function simulateReadiness(step) {
-  const maxSteps = 10;
+function simulateReadiness(step, mode = state.sensorChoice) {
+  const maxSteps = mode === 'finger' ? 12 : 11;
   const progress = Math.min(step / maxSteps, 1);
-  const coverage = easeOutCubic(Math.min(progress * 1.3, 1));
-  const brightness = 0.3 + easeOutCubic(Math.min(progress * 1.2, 1)) * 0.5;
-  const stability = easeOutCubic(Math.min(progress * 1.0, 1)) * 0.9;
-  const sqi = Math.min(100, Math.round((coverage * 40 + brightness * 20 + stability * 40)));
+  const eased = easeOutCubic(progress);
+  const wobble = Math.sin(progress * Math.PI * 1.2) * 0.02;
 
-  updateMeter('coverage', coverage * 100, getMeterIcon(coverage, 0.85, 0.60));
-  updateMeter('brightness', brightness * 100, getMeterIcon(brightness, 0.50, 0.30));
-  updateMeter('stability', stability * 100, getMeterIcon(stability, 0.70, 0.50));
-  updateMeter('sqi', sqi, getMeterIcon(sqi / 100, 0.55, 0.40));
+  const sample = mode === 'finger'
+    ? {
+        coverage: clamp01(easeOutCubic(Math.min(progress * 1.2, 1)) * 0.96 + wobble),
+        brightness: clamp01(0.28 + eased * 0.22),
+        stability: clamp01(Math.max(0, eased * 0.86 - (progress < 0.55 ? 0.08 : 0))),
+        sqi: clamp01(Math.max(0, eased * 0.74 - (progress < 0.7 ? 0.08 : 0))),
+        bpm: progress > 0.78 ? 68 : 0,
+      }
+    : {
+        coverage: clamp01(0.44 + eased * 0.48),
+        brightness: clamp01(0.24 + eased * 0.26),
+        stability: clamp01(Math.max(0, eased * 0.82 - (progress < 0.52 ? 0.10 : 0))),
+        sqi: clamp01(Math.max(0, eased * 0.68 - (progress < 0.66 ? 0.08 : 0))),
+        bpm: 0,
+      };
 
-  const msgEl = document.getElementById('readiness-message');
+  applyReadinessState(sample);
 
-  if (coverage < 0.60) {
-    if (msgEl) { msgEl.textContent = '模擬模式 — 覆蓋率上升中'; msgEl.style.color = '#F5A623'; }
-  } else if (coverage >= 0.85 && stability >= 0.70 && brightness >= 0.50 && sqi >= 55) {
-    if (msgEl) { msgEl.textContent = '準備就緒，可以開始'; msgEl.style.color = '#34C759'; }
-    const btn = document.getElementById('btn-start-scan');
-    if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
+  if (getReadinessAssessment(sample).ready) {
     clearInterval(state.readinessInterval);
-  } else {
-    if (msgEl) { msgEl.textContent = '模擬模式 — 幾乎到位了...'; msgEl.style.color = '#F5A623'; }
+    state.readinessInterval = null;
   }
 }
 
-function updateMeter(id, percent, icon) {
+function updateMeter(id, percent, icon, thresholds = { green: 75, yellow: 45 }) {
   const fill = document.getElementById(`meter-${id}`);
   const status = document.getElementById(`status-${id}`);
+  const { green, yellow } = thresholds;
 
   if (fill) {
     fill.style.width = `${Math.min(100, percent)}%`;
-    // Color based on thresholds
     fill.className = 'meter-fill';
-    if (percent >= 75) fill.classList.add('green');
-    else if (percent >= 45) fill.classList.add('yellow');
+    if (percent >= green) fill.classList.add('green');
+    else if (percent >= yellow) fill.classList.add('yellow');
     else if (percent > 0) fill.classList.add('red');
   }
   if (status) status.textContent = icon;
@@ -1425,4 +1710,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize step 0
   updateStepDots(0);
   initParticles();
+  updateInstructions(state.sensorChoice);
+  setReadinessStage('approach');
+  setReadinessButton(false);
 });

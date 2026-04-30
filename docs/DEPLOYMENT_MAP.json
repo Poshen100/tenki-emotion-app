@@ -1,0 +1,64 @@
+{
+  "lastUpdated": "2026-04-30",
+  "canonicalPublicHost": "https://tenki-emotion-app.vercel.app",
+  "activeImplementation": {
+    "path": "apps/mobile",
+    "type": "expo-react-native-app",
+    "publicUrl": null,
+    "identity": {
+      "name": "TENKI Core",
+      "slug": "tenki-core",
+      "scheme": "tenki",
+      "iosBundleIdentifier": "com.tenki.core",
+      "androidPackage": "com.tenki.core"
+    }
+  },
+  "deployments": [
+    {
+      "url": "https://tenki-emotion-app.vercel.app/",
+      "sourcePath": "apps/web",
+      "routeType": "public-root",
+      "purpose": "legacy web prototype",
+      "status": "confirmed"
+    },
+    {
+      "url": "https://tenki-emotion-app.vercel.app/preview/",
+      "sourcePath": "apps/preview/index.html",
+      "routeType": "preview-root",
+      "purpose": "baseline onboarding preview",
+      "status": "confirmed"
+    },
+    {
+      "url": "https://tenki-emotion-app.vercel.app/preview/scan-result.html",
+      "sourcePath": "apps/preview/scan-result.html",
+      "routeType": "preview-artifact",
+      "purpose": "scan result preview page",
+      "status": "confirmed"
+    },
+    {
+      "url": "https://tenki-emotion-app.vercel.app/preview/v6/index.html",
+      "sourcePath": "apps/preview/v6/index.html",
+      "routeType": "archived-preview-artifact",
+      "purpose": "older 5-tab HTML snapshot",
+      "status": "confirmed"
+    }
+  ],
+  "routing": {
+    "/": "apps/web/index.html",
+    "/preview/": "apps/preview/index.html",
+    "/preview/*": "apps/preview/*"
+  },
+  "notConfirmed": {
+    "expoOwner": null,
+    "expoProjectId": null,
+    "expoShareUrl": null,
+    "testFlightUrl": null,
+    "easConfigPresent": false
+  },
+  "aiRules": [
+    "If the user says deployed site, clarify whether they mean root slash or preview slash.",
+    "Do not assume apps/mobile has a public deployment URL unless one is explicitly recorded.",
+    "Do not infer an Expo or TestFlight URL from the slug alone.",
+    "When a new URL appears, register it in DEPLOYMENT_MAP.md and this JSON file."
+  ]
+}
