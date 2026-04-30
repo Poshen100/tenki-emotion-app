@@ -26,7 +26,10 @@
   const SKIN_B_MIN = 20, SKIN_B_MAX = 170;
   const SKIN_R_RATIO = 1.15;
 
-  const PX_STRIDE = 4;
+  // ── iOS detection (thermal throttle heuristic) ──
+  const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+  const PX_STRIDE = IS_IOS ? 6 : 4;      // fewer sampled pixels on iOS
   const COV_EWMA = 0.25;
 
   // ── PPG constants ──
@@ -89,8 +92,8 @@
     } catch (_) {}
 
     const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 240;
+    canvas.width = IS_IOS ? 240 : 320;
+    canvas.height = IS_IOS ? 180 : 240;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     // ── State ──
@@ -101,7 +104,7 @@
     const ibis = [];             // inter-beat intervals (ms)
     let lastPeakTs = 0;
     let running = true, rafId = null, lastFrameTs = 0;
-    const dt = 1000 / 30;
+    const dt = 1000 / (IS_IOS ? 15 : 30);  // 15fps on iOS, 30fps desktop
 
     function analyze(ts) {
       if (!running) return;
