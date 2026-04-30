@@ -1095,15 +1095,28 @@ body {
 
 .scan-step[data-sqi="excellent"] .finger-silhouette {
   filter: drop-shadow(0 0 22px rgba(0, 180, 216, 0.95))
-          drop-shadow(0 0 55px rgba(0, 180, 216, 0.55))
-          drop-shadow(0 0 80px rgba(0, 180, 216, 0.20));
+          drop-shadow(0 0 55px rgba(0, 180, 216, 0.45));
+  /* Reduced from 3 drop-shadows to 2: the 80px outer glow contributed
+     minimal visual impact but added a full shader pass on iOS GPU. */
 }
 
 .scan-step.phase-climax .finger-silhouette {
   color: var(--success);
   filter: drop-shadow(0 0 24px rgba(52, 199, 89, 0.90))
-          drop-shadow(0 0 60px rgba(52, 199, 89, 0.45))
-          drop-shadow(0 0 90px rgba(52, 199, 89, 0.20));
+          drop-shadow(0 0 60px rgba(52, 199, 89, 0.40));
+  /* Reduced from 3 to 2 drop-shadows (same as excellent-SQI above). */
+}
+
+/* Release GPU compositor layers during transition/final — finger elements
+   are hidden at this point so keeping layers allocated is pure waste. */
+.scan-step.phase-transition .finger-silhouette,
+.scan-step.phase-transition .finger-halo,
+.scan-step.phase-transition .finger-halo-outer,
+.scan-step.phase-final .finger-silhouette,
+.scan-step.phase-final .finger-halo,
+.scan-step.phase-final .finger-halo-outer {
+  will-change: auto;
+  animation: none;
 }
 
 /* ── Finger halo (cyan pulse rings wrapping the finger) ── */
@@ -1203,7 +1216,8 @@ body {
   text-align: center;
   filter: drop-shadow(0 4px 14px rgba(0, 212, 255, 0.55));
   animation: fingerGuideLoop 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  will-change: transform, opacity;
+  /* will-change removed: CSS animation already promotes to compositor layer.
+     Permanent will-change wastes GPU VRAM on iOS Safari. */
 }
 
 .finger-guide-trail {
@@ -1660,7 +1674,8 @@ body {
    default keyframe path. */
 .summary-card {
   transform-origin: center center;
-  will-change: transform, opacity;
+  /* will-change removed: inline JS transition already promotes to
+     compositor layer when needed. Permanent will-change wastes GPU VRAM. */
 }
 
 .summary-card-locked-in {
