@@ -17,6 +17,9 @@
 
 'use strict';
 
+// ── iOS detection (thermal throttle heuristic, shared with camera-scan.js) ──
+const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
 // ─────────────────────────────────────────────
 // v1.2 — iOS Safari diagnostic / safe-mode flags (URL query string)
 //   ?safe=1        — enable all degraded modes below
@@ -103,6 +106,9 @@ function goToStep(stepIndex) {
     currentEl.classList.add('exit-left');
     setTimeout(() => currentEl.classList.remove('exit-left'), 500);
   }
+
+  // Tear down step-specific resources before leaving
+  if (state.currentStep === 0) stopIntroParticles();
 
   // Enter new step
   state.currentStep = stepIndex;
@@ -878,9 +884,9 @@ function updateSignalTelemetry(elapsedSec) {
     instant = Math.max(0, Math.min(1, target + (Math.random() - 0.5) * 0.06));
   }
 
-  // Keep a ~10s rolling window (called every RAF ≈ 60/s → window ≈600 samples)
+  // Keep a ~10s rolling window (called every RAF ≈ 30/s → window ≈300 samples)
   state.sqiHistory.push(instant);
-  if (state.sqiHistory.length > 600) state.sqiHistory.shift();
+  if (state.sqiHistory.length > 300) state.sqiHistory.shift();
   const mean =
     state.sqiHistory.reduce((s, v) => s + v, 0) / state.sqiHistory.length;
   state.rollingSqi = mean;
@@ -1309,7 +1315,7 @@ function startParticleSystem() {
   // Finger target ≈ middle-ish of scan step (matches scan-ring-container)
   const target = { x: W / 2, y: H * 0.48 };
 
-  const PARTICLE_COUNT = 140;
+  const PARTICLE_COUNT = IS_IOS ? 80 : 140;
   const particles = [];
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
@@ -1319,6 +1325,8 @@ function startParticleSystem() {
   let mode = 'converge';
   let modeStart = performance.now();
   let running = true;
+  let lastParticleFrameTs = 0;
+  const particleDt = 1000 / 30;  // target 30fps for particles
 
   function spawnConvergeParticle(w, h, t) {
     // Begin far from target, fly inward
@@ -1339,8 +1347,15 @@ function startParticleSystem() {
     };
   }
 
-  function frame() {
+  function frame(ts) {
     if (!running) return;
+
+    // Throttle to 30fps — halves draw calls vs. 60fps RAF
+    if (ts - lastParticleFrameTs < particleDt) {
+      requestAnimationFrame(frame);
+      return;
+    }
+    lastParticleFrameTs = ts;
 
     const now = performance.now();
     const t = (now - modeStart) / 1000;
@@ -1487,7 +1502,10 @@ function initParticles() {
     });
   }
 
+  let introRunning = true;
+
   function draw() {
+    if (!introRunning) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     particles.forEach(p => {
@@ -1512,6 +1530,23 @@ function initParticles() {
   }
 
   draw();
+
+  // Store stop handle so we can tear down when leaving step 0
+  state._introParticleStop = () => {
+    introRunning = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+}
+
+/**
+ * Stop the intro (step 0) stardust particle canvas.
+ * Called when navigating away from step 0 to free the RAF loop.
+ */
+function stopIntroParticles() {
+  if (state._introParticleStop) {
+    state._introParticleStop();
+    state._introParticleStop = null;
+  }
 }
 
 // ─────────────────────────────────────────────
