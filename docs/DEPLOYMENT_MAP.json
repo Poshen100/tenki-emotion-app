@@ -1,64 +1,70 @@
 {
-  "lastUpdated": "2026-04-30",
-  "canonicalPublicHost": "https://tenki-emotion-app.vercel.app",
-  "activeImplementation": {
-    "path": "apps/mobile",
-    "type": "expo-react-native-app",
-    "publicUrl": null,
-    "identity": {
-      "name": "TENKI Core",
-      "slug": "tenki-core",
-      "scheme": "tenki",
-      "iosBundleIdentifier": "com.tenki.core",
-      "androidPackage": "com.tenki.core"
-    }
-  },
+  "lastUpdated": "2026-05-05",
+  "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
+      "route": "/",
       "url": "https://tenki-emotion-app.vercel.app/",
-      "sourcePath": "apps/web",
-      "routeType": "public-root",
-      "purpose": "legacy web prototype",
-      "status": "confirmed"
+      "source": "apps/web/",
+      "purpose": "Legacy web prototype v51.1",
+      "status": "frozen",
+      "editable": false
     },
     {
+      "route": "/preview/",
       "url": "https://tenki-emotion-app.vercel.app/preview/",
-      "sourcePath": "apps/preview/index.html",
-      "routeType": "preview-root",
-      "purpose": "baseline onboarding preview",
-      "status": "confirmed"
+      "source": "apps/preview/index.html",
+      "purpose": "Baseline onboarding 6-step flow",
+      "status": "active",
+      "knownIssue": "iOS Safari OOM — hotfix/oom-ios-safari branch ready",
+      "editable": true
     },
     {
+      "route": "/preview/scan-result.html",
       "url": "https://tenki-emotion-app.vercel.app/preview/scan-result.html",
-      "sourcePath": "apps/preview/scan-result.html",
-      "routeType": "preview-artifact",
-      "purpose": "scan result preview page",
-      "status": "confirmed"
+      "source": "apps/preview/scan-result.html",
+      "purpose": "Scan result page preview",
+      "status": "active",
+      "editable": true
     },
     {
-      "url": "https://tenki-emotion-app.vercel.app/preview/v6/index.html",
-      "sourcePath": "apps/preview/v6/index.html",
-      "routeType": "archived-preview-artifact",
-      "purpose": "older 5-tab HTML snapshot",
-      "status": "confirmed"
+      "route": "/preview/v6/",
+      "url": "https://tenki-emotion-app.vercel.app/preview/v6/",
+      "source": "apps/preview/v6/index.html",
+      "purpose": "v6 Today main visual + 5 Tab Nav + FDCB",
+      "status": "active-dev",
+      "editable": true
     }
   ],
+  "mobileApp": {
+    "source": "apps/mobile/",
+    "framework": "expo-react-native",
+    "name": "TENKI Core",
+    "slug": "tenki-core",
+    "iosBundleId": "com.tenki.core",
+    "androidPackage": "com.tenki.core",
+    "urlScheme": "tenki",
+    "publicUrl": null,
+    "easConfigured": false,
+    "testFlightUrl": null
+  },
   "routing": {
     "/": "apps/web/index.html",
     "/preview/": "apps/preview/index.html",
-    "/preview/*": "apps/preview/*"
+    "/preview/*": "apps/preview/*",
+    "/*": "apps/web/$1"
   },
-  "notConfirmed": {
-    "expoOwner": null,
-    "expoProjectId": null,
-    "expoShareUrl": null,
-    "testFlightUrl": null,
-    "easConfigPresent": false
+  "branches": {
+    "main": "production",
+    "hotfix/*": "preview-auto",
+    "claude/*": "preview-auto",
+    "feat/*": "preview-auto"
   },
   "aiRules": [
-    "If the user says deployed site, clarify whether they mean root slash or preview slash.",
-    "Do not assume apps/mobile has a public deployment URL unless one is explicitly recorded.",
-    "Do not infer an Expo or TestFlight URL from the slug alone.",
-    "When a new URL appears, register it in DEPLOYMENT_MAP.md and this JSON file."
+    "If user says 'deployed site', ask which route: /, /preview/, or /preview/v6/",
+    "Do not modify apps/web/ — frozen",
+    "Do not assume mobile app has a public URL",
+    "Do not invent Expo/TestFlight URLs from slug alone",
+    "When adding new URL, update both DEPLOYMENT_MAP.md and this JSON"
   ]
 }
