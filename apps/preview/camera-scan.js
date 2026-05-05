@@ -88,9 +88,13 @@
       if (caps && caps.torch) await track.applyConstraints({ advanced: [{ torch: true }] });
     } catch (_) {}
 
+    // OOM Fix #6: iOS gets smaller canvas + 15fps throttle.
+    // 320×240 @ 30fps is excessive for PPG analysis on iOS WebKit.
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 240;
+    canvas.width = isIOS ? 240 : 320;
+    canvas.height = isIOS ? 180 : 240;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     // ── State ──
@@ -101,7 +105,7 @@
     const ibis = [];             // inter-beat intervals (ms)
     let lastPeakTs = 0;
     let running = true, rafId = null, lastFrameTs = 0;
-    const dt = 1000 / 30;
+    const dt = isIOS ? (1000 / 15) : (1000 / 30); // 15fps on iOS, 30fps elsewhere
 
     function analyze(ts) {
       if (!running) return;

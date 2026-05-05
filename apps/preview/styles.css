@@ -1425,6 +1425,17 @@ body {
     0 0 0 1px rgba(52, 199, 89, 0.15);
 }
 
+/* ── OOM Fix #1: release GPU-heavy backdrop blur during ceremony phases ──
+   32px blur()+saturate() composites the entire backing layer per-frame on
+   iOS WebKit — combined with particles + camera it exceeds GPU memory.
+   Visual impact: negligible (dialog already has its own background). */
+.scan-step.phase-climax .ceremony-dialog,
+.scan-step.phase-transition .ceremony-dialog,
+.scan-step.phase-transition-settle .ceremony-dialog {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
 /* ── Live rear-camera feed (real finger scanning) ── */
 .scan-video {
   position: absolute;

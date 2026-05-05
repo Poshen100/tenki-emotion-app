@@ -699,8 +699,9 @@ function startCalibrationScan() {
   // v1.2: show top guidance banner (will hide once signal reaches GOOD)
   setScanBannerVisible(true);
 
-  // Start particle system (converge → orbit → burst driven by phase)
-  startParticleSystem();
+  // OOM Fix #3: defer particle system to gather phase (not during wait)
+  // During wait, camera + meters are already active — particles are invisible
+  // behind the wait UI and just burn GPU memory.
 
   // Camera is already running from Step 3. Transfer the stream to the scan
   // video element so the circular preview shows inside the ceremony ring.
@@ -797,6 +798,9 @@ function tickWait(now) {
       setScanBannerVisible(false);
       const fingerGuideEl = document.getElementById('finger-guide-anim');
       if (fingerGuideEl) fingerGuideEl.classList.add('is-hidden');
+
+      // OOM Fix #3: start particles NOW (gather phase) instead of wait phase
+      startParticleSystem();
 
       // Light haptic confirms successful covering (graceful no-op if unsupported)
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -1170,6 +1174,18 @@ function enterClimax(reason) {
   }
   if (readyEl && reason === 'early') readyEl.style.display = 'inline-flex';
 
+  // ── OOM Fix #2: immediately release GPU-heavy resources ──
+  // Camera feed is no longer needed (scan data collection is done).
+  // Stopping it before the particle burst prevents camera decode +
+  // particle canvas + backdrop-filter from running simultaneously.
+  stopFingerCameraFeed();
+
+  // Hide GPU-heavy elements (finger halo, scan video) during climax
+  const haloEls = scanEl ? scanEl.querySelectorAll('.finger-halo, .finger-halo-outer') : [];
+  haloEls.forEach(function(el) { el.style.opacity = '0'; });
+  const scanVideoEl = document.getElementById('scan-video');
+  if (scanVideoEl) scanVideoEl.style.opacity = '0';
+
   if (statusEl) {
     statusEl.textContent =
       reason === 'early'
@@ -1267,15 +1283,17 @@ function enterTransition() {
       card.style.transform = 'translateY(0) scale(1)';
     }
     if (scanEl) scanEl.classList.add('phase-transition-settle');
-    if (state.particleSystem) state.particleSystem.converge();
+    // OOM Fix #4: stop particles immediately instead of converge animation.
+    // converge() re-intensifies GPU load; at this point the user is looking
+    // at the result card, not the particle canvas.
+    if (state.particleSystem) state.particleSystem.stop();
   }, 1200);
 
-  // t=2.0s — full hand-off. Tear down the scan step, stop particles,
+  // t=2.0s — full hand-off. Tear down the scan step,
   // leave result step active with step indicator synced.
   setTimeout(() => {
-    if (state.particleSystem) state.particleSystem.stop();
     if (state.scanRAF) cancelAnimationFrame(state.scanRAF);
-    stopFingerCameraFeed();
+    // Camera already stopped in enterClimax (Fix #2) — no redundant call.
 
     const scanSection = document.getElementById('step-scan');
     if (scanSection) {
@@ -1471,7 +1489,12 @@ function startParticleSystem() {
   // Finger target ≈ middle-ish of scan step (matches scan-ring-container)
   const target = { x: W / 2, y: H * 0.48 };
 
-  const PARTICLE_COUNT = 140;
+  // OOM Fix #5: iOS gets fewer particles + 30fps throttle.
+  // 140 particles × DPR 3 = ~420 fill ops/frame, excessive on A-series GPU.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const PARTICLE_COUNT = isIOS ? 80 : 140;
+  const FRAME_INTERVAL = isIOS ? 33 : 0; // ~30fps on iOS, uncapped on desktop
   const particles = [];
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
@@ -1481,6 +1504,7 @@ function startParticleSystem() {
   let mode = 'converge';
   let modeStart = performance.now();
   let running = true;
+  let lastFrameTs = 0;
 
   function spawnConvergeParticle(w, h, t) {
     // Begin far from target, fly inward
@@ -1505,6 +1529,14 @@ function startParticleSystem() {
     if (!running) return;
 
     const now = performance.now();
+
+    // OOM Fix #5: throttle to ~30fps on iOS
+    if (FRAME_INTERVAL && now - lastFrameTs < FRAME_INTERVAL) {
+      requestAnimationFrame(frame);
+      return;
+    }
+    lastFrameTs = now;
+
     const t = (now - modeStart) / 1000;
 
     ctx.clearRect(0, 0, W, H);
