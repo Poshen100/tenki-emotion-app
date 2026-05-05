@@ -352,17 +352,32 @@
         <p class="step-subtext" id="result-subtext">從現在開始，每次掃描都是跟你自己比較</p>
 
         <div class="baseline-metrics" id="baseline-metrics">
-          <div class="metric-card">
-            <div class="metric-label">你的心率範圍</div>
-            <div class="metric-value" id="metric-hr">— BPM</div>
+          <div class="metric-card" onclick="this.classList.toggle('expanded')">
+            <div class="metric-header">
+              <div class="metric-label">你的心率範圍</div>
+              <div class="metric-value" id="metric-hr">— BPM</div>
+            </div>
+            <div class="metric-explain">
+              你的靜息心率在正常範圍。TENKI 會追蹤它的趨勢。
+            </div>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">你的心率變異</div>
-            <div class="metric-value" id="metric-hrv">— ms</div>
+          <div class="metric-card" onclick="this.classList.toggle('expanded')">
+            <div class="metric-header">
+              <div class="metric-label">你的心率變異</div>
+              <div class="metric-value" id="metric-hrv">— ms</div>
+            </div>
+            <div class="metric-explain">
+              心率變異反映你的自律神經彈性。越高通常代表恢復得越好。
+            </div>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">你的呼吸節奏</div>
-            <div class="metric-value" id="metric-rr">— 次/分</div>
+          <div class="metric-card" onclick="this.classList.toggle('expanded')">
+            <div class="metric-header">
+              <div class="metric-label">你的呼吸節奏</div>
+              <div class="metric-value" id="metric-rr">— 次/分</div>
+            </div>
+            <div class="metric-explain">
+              正常呼吸約 12-20 次/分。TENKI 用它來評估你的放鬆程度。
+            </div>
           </div>
         </div>
 
