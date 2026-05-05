@@ -1,6 +1,6 @@
 # TASK.md
 
-Last updated: 2026-04-28
+Last updated: 2026-05-05
 
 ## Current objective
 
@@ -16,7 +16,7 @@ Continue TENKI from the new Windows machine with the active focus on `apps/mobil
 
 ## Important startup rule
 
-Before running npm/expo commands, use `start_env.bat` from repo root or prepend the portable Node.js directory to `PATH`.
+Before running npm/expo commands, use `env.cmd` from repo root.
 
 Reason: the default system `node.exe` on this machine may resolve to a WindowsApps/Codex stub and fail with `Access is denied`.
 

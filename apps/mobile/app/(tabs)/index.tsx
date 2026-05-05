@@ -6,7 +6,7 @@ import { EdgeScoreRing } from '../../components/EdgeScoreRing';
 import { ZoneBadge } from '../../components/ZoneBadge';
 import { ScanButton } from '../../components/ScanButton';
 import { useScanStore } from '../../stores/scan-store';
-import { useUserStore } from '../../stores/user-store';
+import { useBaselineStore } from '../../stores/baseline-store';
 
 /** Format a timestamp to a human-readable scan time label. */
 function formatScanTime(timestamp: number): string {
@@ -27,7 +27,8 @@ function formatScanTime(timestamp: number): string {
 export default function TodayScreen() {
   const router = useRouter();
   const lastResult = useScanStore((s) => s.lastResult);
-  const hasBaseline = useUserStore((s) => s.hasBaseline);
+  const totalScans = useBaselineStore((s) => s.totalScans);
+  const hasBaseline = totalScans > 0;
 
   const currentScore = lastResult?.edgeScore ?? null;
   const lastScanTime = lastResult
@@ -68,11 +69,15 @@ export default function TodayScreen() {
         {/* Guidance */}
         <View style={styles.guidanceCard}>
           <Text style={typo.body}>
-            {zone === null && 'Start a scan to check your current readiness state.'}
-            {zone?.name === 'clear' && 'Stable, focused state. You may be ready for important decisions.'}
-            {zone?.name === 'neutral' && 'Mixed signals today. Consider a brief check-in or reset.'}
-            {zone?.name === 'strain' && 'Elevated strain detected. A breathing exercise may help.'}
+            {lastResult
+              ? lastResult.headline
+              : 'Start a scan to check your current readiness state.'}
           </Text>
+          {lastResult && (
+            <Text style={[typo.caption, { marginTop: spacing.xs }]}>
+              {lastResult.body}
+            </Text>
+          )}
         </View>
 
         {/* Quick Actions */}

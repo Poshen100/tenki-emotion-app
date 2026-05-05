@@ -1,16 +1,16 @@
-# 2026-04-28 CONTINUATION NOTE (READ THIS FIRST)
+# 2026-05-05 CONTINUATION NOTE (READ THIS FIRST)
 
 This note is the current handoff for the new Windows machine. If any older setup text below conflicts with this section, this section wins.
 
 ## Environment status
 
-- Repo cloned successfully on 2026-04-28 into `C:\Users\patron\Documents\Codex\2026-04-28\clone-https-github-com-poshen100-tenki`
-- Portable Node.js installed at `C:\Users\patron\Documents\Codex\2026-04-28\node-v24.15.0-win-x64`
-- `start_env.bat` in repo root is already wired to that portable Node.js path
-- Dependencies were installed at both repo root and `apps/mobile`
+- Repo cloned successfully on 2026-05-05 into `C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`
+- Portable Node.js installed at `C:\Users\patron\.gemini\antigravity\scratch\nodejs`
+- `env.cmd` in repo root is already wired to that portable Node.js path
+- Dependencies were installed at repo root (and we'll make sure `apps/mobile` is ready)
 - Verified on this machine:
-  - Node.js `v24.15.0`
-  - npm `11.12.1`
+  - Node.js `v22.14.0`
+  - npm `11.1.0` (approx)
   - Expo CLI available under `apps/mobile`
   - `apps/mobile` TypeScript check passes with `tsc --noEmit`
 

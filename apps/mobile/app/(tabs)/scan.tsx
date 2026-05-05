@@ -17,7 +17,6 @@ import { StatusPill } from '../../components/StatusPill';
 import { ScanButton } from '../../components/ScanButton';
 import { ZoneBadge } from '../../components/ZoneBadge';
 import { useScanStore } from '../../stores/scan-store';
-import { startMockScan, cancelMockScan } from '../../lib/mock-scan';
 
 type ScanType = 'quick' | 'deep' | 'baseline';
 type ScanUIState = 'idle' | 'searching' | 'detecting' | 'locked' | 'scanning' | 'processing' | 'results' | 'error';
@@ -237,7 +236,7 @@ function FingerCoverHint({ stage }: { stage: GuideStage }) {
 
 export default function ScanScreen() {
   const router = useRouter();
-  const { scanType, setScanType, uiState, metrics, lastResult, reset } = useScanStore();
+  const { scanType, setScanType, uiState, metrics, lastResult, reset, startScan, cancelScan } = useScanStore();
 
   const thresholds = getReadinessThresholds(scanType);
   const checklist = [
@@ -276,9 +275,9 @@ export default function ScanScreen() {
       reset();
       router.push('/');
     } else if (isBusy) {
-      cancelMockScan();
+      cancelScan();
     } else {
-      startMockScan(scanType);
+      startScan();
     }
   };
 
@@ -413,8 +412,14 @@ export default function ScanScreen() {
               </Text>
               <ZoneBadge score={lastResult.edgeScore} />
             </View>
+            <Text style={[typo.headline, styles.resultHeadline]}>
+              {lastResult.headline}
+            </Text>
+            <Text style={[typo.body, styles.resultBody]}>
+              {lastResult.body}
+            </Text>
             <Text style={typo.caption}>
-              Scan duration: {lastResult.duration}s
+              Confidence: {lastResult.confidenceBand} · Scan: {lastResult.duration}s
             </Text>
           </View>
         )}
@@ -761,5 +766,12 @@ const styles = StyleSheet.create({
   resultScore: {
     fontSize: 48,
     fontWeight: '200',
+  },
+  resultHeadline: {
+    marginTop: spacing.sm,
+  },
+  resultBody: {
+    marginTop: spacing.xs,
+    color: colors.textSecondary,
   },
 });
