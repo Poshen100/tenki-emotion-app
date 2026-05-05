@@ -44,6 +44,8 @@ const state = {
   introParticleRunning: false, // controls intro stardust RAF loop
   autoStartTimer: null,        // auto-start countdown timer ID
   autoStartCountdown: 0,       // current countdown value (3,2,1)
+  knowledgeCarouselTimer: null,
+  knowledgeCardIndex: 0,
   cameraSession: null,     // Active { stop } handle from TENKI_PREVIEW_CAMERA
   cameraActive: false,     // True once a real camera frame has arrived
   lastCameraSample: null,  // Latest { coverage, color, redMean, redStd, sqi, hint }
@@ -690,6 +692,9 @@ function startCalibrationScan() {
   state.signalValidSinceTs = null;
   state.signalDegradeSinceTs = null;
   state.forgetReminderActive = false;
+  
+  // Suggestion #2: Start knowledge card carousel
+  startKnowledgeCarousel();
   state.baseline = {
     hr: { mean: 0, std: 0 },
     hrv: { mean: 0, std: 0 },
@@ -1190,6 +1195,8 @@ function enterClimax(reason) {
   const noteEl = document.getElementById('scan-note');
   const dialogTextEl = document.getElementById('ceremony-dialog-text');
   const readyEl = document.getElementById('ready-indicator');
+
+  stopKnowledgeCarousel();
 
   if (scanEl) {
     scanEl.classList.remove('phase-accumulate');
@@ -1808,6 +1815,44 @@ function setScanBannerVisible(visible) {
   const bannerEl = document.getElementById('scan-banner');
   if (!bannerEl) return;
   bannerEl.classList.toggle('is-hidden', !visible);
+}
+
+// ─────────────────────────────────────────────
+// Knowledge Carousel (Suggestion #2)
+// ─────────────────────────────────────────────
+
+function startKnowledgeCarousel() {
+  const carousel = document.getElementById('scan-knowledge-carousel');
+  if (!carousel) return;
+
+  carousel.setAttribute('aria-hidden', 'false');
+  state.knowledgeCardIndex = 0;
+
+  const cards = carousel.querySelectorAll('.knowledge-card');
+  cards.forEach((c, i) => {
+    if (i === 0) c.classList.add('active');
+    else c.classList.remove('active');
+  });
+
+  if (state.knowledgeCarouselTimer) clearInterval(state.knowledgeCarouselTimer);
+
+  state.knowledgeCarouselTimer = setInterval(() => {
+    if (cards.length > 0) {
+      cards[state.knowledgeCardIndex].classList.remove('active');
+      state.knowledgeCardIndex = (state.knowledgeCardIndex + 1) % cards.length;
+      cards[state.knowledgeCardIndex].classList.add('active');
+    }
+  }, 10000); // 10 seconds per card
+}
+
+function stopKnowledgeCarousel() {
+  const carousel = document.getElementById('scan-knowledge-carousel');
+  if (carousel) carousel.setAttribute('aria-hidden', 'true');
+
+  if (state.knowledgeCarouselTimer) {
+    clearInterval(state.knowledgeCarouselTimer);
+    state.knowledgeCarouselTimer = null;
+  }
 }
 
 // ─────────────────────────────────────────────

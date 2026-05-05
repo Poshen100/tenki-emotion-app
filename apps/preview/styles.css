@@ -1059,6 +1059,54 @@ body {
 .scan-note {
   font-size: 13px;
   color: var(--text-tertiary);
+  margin-bottom: var(--sp-md);
+}
+
+/* ── Knowledge Carousel ── */
+.scan-knowledge-carousel {
+  position: relative;
+  width: 100%;
+  height: 60px;
+  margin-top: var(--sp-md);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  pointer-events: none;
+}
+
+.scan-knowledge-carousel[aria-hidden="false"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.knowledge-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+  text-align: center;
+}
+
+.knowledge-card.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.knowledge-card h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  letter-spacing: 0.02em;
+}
+
+.knowledge-card p {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
 }
 
 /* ── Result ── */
