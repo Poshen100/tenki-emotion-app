@@ -1623,18 +1623,32 @@ function startParticleSystem() {
         p.life = Math.max(0, 1 - fadeT);
       }
 
-      const a = Math.max(0, p.alpha * p.life);
+      // Suggestion #3: Sync pulsing to heartbeat
+      let bpmPulse = 0;
+      const bpm = (state.lastCameraSample && state.lastCameraSample.bpm) || state.baseline.hr.mean || 0;
+      if (bpm > 40 && mode !== 'burst' && mode !== 'converge-out') {
+        const beatPeriodMs = (60 / bpm) * 1000;
+        const phase = (now % beatPeriodMs) / beatPeriodMs;
+        // Simple heartbeat shape: sharp attack, quick decay
+        bpmPulse = Math.max(0, 1 - (phase * 3)); // peaks at start of beat, decays by 33% of beat
+      }
+
+      // Add bpmPulse to the alpha multiplier (with a baseline)
+      const pulseMultiplier = 1 + (bpmPulse * 0.6);
+      const a = Math.max(0, p.alpha * p.life * pulseMultiplier);
       if (a <= 0) continue;
+
+      const currentR = p.r * (1 + bpmPulse * 0.3);
 
       // Soft glow
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r * 2.2, 0, Math.PI * 2);
-      ctx.fillStyle = `hsla(${p.hue}, 88%, 65%, ${a * 0.18})`;
+      ctx.arc(p.x, p.y, currentR * 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue}, 88%, 65%, ${Math.min(1, a * 0.18)})`;
       ctx.fill();
       // Core
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = `hsla(${p.hue}, 92%, 72%, ${a})`;
+      ctx.arc(p.x, p.y, currentR, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue}, 92%, 72%, ${Math.min(1, a)})`;
       ctx.fill();
     }
 
