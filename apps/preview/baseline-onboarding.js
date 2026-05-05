@@ -41,6 +41,9 @@ const state = {
   rollingSqi: 0,
   qualityTier: 'weak',
   particleSystem: null,
+  introParticleRunning: false, // controls intro stardust RAF loop
+  autoStartTimer: null,        // auto-start countdown timer ID
+  autoStartCountdown: 0,       // current countdown value (3,2,1)
   cameraSession: null,     // Active { stop } handle from TENKI_PREVIEW_CAMERA
   cameraActive: false,     // True once a real camera frame has arrived
   lastCameraSample: null,  // Latest { coverage, color, redMean, redStd, sqi, hint }
@@ -67,13 +70,21 @@ const STEPS = [
 function goToStep(stepIndex) {
   if (stepIndex < 0 || stepIndex >= STEPS.length) return;
 
+  const prevStep = state.currentStep;
+
   // Exit current step
-  const currentEl = document.getElementById(STEPS[state.currentStep]);
+  const currentEl = document.getElementById(STEPS[prevStep]);
   if (currentEl) {
     currentEl.classList.remove('active');
     currentEl.classList.add('exit-left');
     setTimeout(() => currentEl.classList.remove('exit-left'), 500);
   }
+
+  // Bug #2 fix: stop intro particles when leaving Step 0
+  if (prevStep === 0) stopIntroParticles();
+
+  // Clear auto-start timer when leaving Step 2 (readiness)
+  if (prevStep === 2) cancelAutoStart();
 
   // Enter new step
   state.currentStep = stepIndex;
@@ -260,7 +271,12 @@ function setReadinessButton(enabled) {
   const btn = document.getElementById('btn-start-scan');
   if (!btn) return;
   btn.disabled = !enabled;
-  btn.textContent = enabled ? '開始建立基線' : '等待理想覆蓋';
+  // If auto-start countdown is active, show countdown; else show normal text
+  if (state.autoStartCountdown > 0 && enabled) {
+    btn.textContent = `${state.autoStartCountdown} 秒後自動開始`;
+  } else {
+    btn.textContent = enabled ? '開始建立基線' : '等待理想覆蓋';
+  }
 }
 
 function getFingerReadinessAssessment(metrics) {
@@ -454,6 +470,13 @@ function applyReadinessState(sample) {
       : assessment.stage === 'approach'
         ? 'red'
         : 'yellow';
+  }
+
+  // ── Auto-start: when all metrics pass, begin 3-2-1 countdown ──
+  if (assessment.ready && !state.autoStartTimer) {
+    startAutoStartCountdown();
+  } else if (!assessment.ready && state.autoStartTimer) {
+    cancelAutoStart();
   }
 }
 
@@ -1681,7 +1704,12 @@ function initParticles() {
     });
   }
 
+  // Bug #2 fix: use state.introParticleRunning so goToStep can stop the loop
+  state.introParticleRunning = true;
+
   function draw() {
+    if (!state.introParticleRunning) return; // stop when leaving Step 0
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     particles.forEach(p => {
@@ -1706,6 +1734,54 @@ function initParticles() {
   }
 
   draw();
+}
+
+function stopIntroParticles() {
+  state.introParticleRunning = false;
+}
+
+// ─────────────────────────────────────────────
+// Auto-start countdown (Readiness → Scan)
+// When all 4 meters hit green, begin a 3-2-1 countdown.
+// User can still tap the button manually to skip.
+// If metrics drop back, countdown cancels.
+// ─────────────────────────────────────────────
+
+function startAutoStartCountdown() {
+  if (state.autoStartTimer) return;
+  state.autoStartCountdown = 3;
+  updateAutoStartUI();
+
+  state.autoStartTimer = setInterval(() => {
+    state.autoStartCountdown--;
+    if (state.autoStartCountdown <= 0) {
+      cancelAutoStart();
+      // Auto-advance to scan
+      goToStep(3);
+      return;
+    }
+    updateAutoStartUI();
+  }, 1000);
+}
+
+function cancelAutoStart() {
+  if (state.autoStartTimer) {
+    clearInterval(state.autoStartTimer);
+    state.autoStartTimer = null;
+  }
+  state.autoStartCountdown = 0;
+  // Reset button text
+  const btn = document.getElementById('btn-start-scan');
+  if (btn && !btn.disabled) btn.textContent = '開始建立基線';
+}
+
+function updateAutoStartUI() {
+  const btn = document.getElementById('btn-start-scan');
+  if (btn) {
+    btn.textContent = `${state.autoStartCountdown} 秒後自動開始`;
+  }
+  // Update coach text to inform user
+  setReadinessText('readiness-coach', `就緒！${state.autoStartCountdown} 秒後自動進入掃描`);
 }
 
 // ─────────────────────────────────────────────
