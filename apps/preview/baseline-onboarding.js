@@ -18,6 +18,19 @@
 'use strict';
 
 // ─────────────────────────────────────────────
+// iOS Safari OOM mitigation flag
+//   detected once at script load; affects particle count + RAF throttling
+//   so iPhone WebContent process stays under its ~1GB cap during climax.
+// ─────────────────────────────────────────────
+const IS_IOS = (() => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isIOSDevice = /iPad|iPhone|iPod/.test(ua);
+  const isIPadOS = navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1;
+  return isIOSDevice || isIPadOS;
+})();
+
+// ─────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────
 
@@ -1483,7 +1496,9 @@ function startParticleSystem() {
   // Finger target ≈ middle-ish of scan step (matches scan-ring-container)
   const target = { x: W / 2, y: H * 0.48 };
 
-  const PARTICLE_COUNT = 140;
+  // iOS OOM mitigation: cut particle count by ~43% on iPhone/iPad to keep
+  // GPU compositor + canvas memory inside WebContent's ~1GB cap.
+  const PARTICLE_COUNT = IS_IOS ? 80 : 140;
   const particles = [];
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
@@ -1493,6 +1508,10 @@ function startParticleSystem() {
   let mode = 'converge';
   let modeStart = performance.now();
   let running = true;
+  // iOS OOM mitigation: throttle RAF to ~30fps (33.3ms) on iPhone/iPad. Halves
+  // canvas redraw work and pairs with the camera-scan ROI throttle.
+  let lastFrameTs = 0;
+  const FRAME_DT = IS_IOS ? 1000 / 30 : 0;
 
   function spawnConvergeParticle(w, h, t) {
     // Begin far from target, fly inward
@@ -1517,6 +1536,12 @@ function startParticleSystem() {
     if (!running) return;
 
     const now = performance.now();
+    // iOS RAF throttle — skip frames that arrive within FRAME_DT of the last
+    if (FRAME_DT > 0 && now - lastFrameTs < FRAME_DT) {
+      requestAnimationFrame(frame);
+      return;
+    }
+    lastFrameTs = now;
     const t = (now - modeStart) / 1000;
 
     ctx.clearRect(0, 0, W, H);
