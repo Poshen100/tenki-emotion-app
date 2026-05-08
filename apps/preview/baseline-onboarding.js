@@ -688,8 +688,14 @@ function startCalibrationScan() {
   }
   if (noteEl) noteEl.textContent = '請保持不動';
   if (ringEl) ringEl.style.strokeDashoffset = SCAN_CIRCUMFERENCE;
+  // OOM Fix #7: ceremony-dialog has 32px backdrop-filter blur — extremely
+  // GPU-heavy on iOS Safari. During wait phase it stacks on top of the
+  // scan-banner's 12px blur + camera + halo + video, pushing WebContent
+  // process past its memory cap. Hide it during wait; gate-pass in tickWait
+  // will add .visible when the user has actually covered the lens.
+  // (Pairs with OOM Fix #3 which defers particles to the same gate-pass.)
   if (dialogEl && dialogTextEl) {
-    dialogEl.classList.add('visible');
+    dialogEl.classList.remove('visible');
     dialogTextEl.textContent = '正在凝聚你的生理基線';
   }
   if (readyEl) readyEl.style.display = 'none';
@@ -801,6 +807,11 @@ function tickWait(now) {
 
       // OOM Fix #3: start particles NOW (gather phase) instead of wait phase
       startParticleSystem();
+      // OOM Fix #7: now safe to bring in ceremony-dialog (32px blur) — banner
+      // has just been hidden, finger-guide is hiding, so only one blur layer
+      // is in flight at a time.
+      const dialogEl = document.getElementById('ceremony-dialog');
+      if (dialogEl) dialogEl.classList.add('visible');
 
       // Light haptic confirms successful covering (graceful no-op if unsupported)
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -857,6 +868,10 @@ function applySignalWeakHandoff() {
   setScanBannerVisible(true);
   const fingerGuideEl = document.getElementById('finger-guide-anim');
   if (fingerGuideEl) fingerGuideEl.classList.remove('is-hidden');
+  // OOM Fix #7: hide ceremony-dialog (32px blur) while banner is back —
+  // mutually exclusive blur layers prevent GPU stack on signal drop.
+  const dialogElWeak = document.getElementById('ceremony-dialog');
+  if (dialogElWeak) dialogElWeak.classList.remove('visible');
 
   // Soft warning haptic — short triple tap, gracefully no-op when unsupported
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -872,6 +887,9 @@ function applySignalRecoveryHandoff() {
   setScanBannerVisible(false);
   const fingerGuideEl = document.getElementById('finger-guide-anim');
   if (fingerGuideEl) fingerGuideEl.classList.add('is-hidden');
+  // OOM Fix #7: now safe to bring ceremony-dialog (32px blur) back
+  const dialogElRec = document.getElementById('ceremony-dialog');
+  if (dialogElRec) dialogElRec.classList.add('visible');
 }
 
 function tickCalibration() {
