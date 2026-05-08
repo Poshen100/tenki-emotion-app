@@ -656,6 +656,11 @@ function startCalibrationScan() {
   const dialogTextEl = document.getElementById('ceremony-dialog-text');
   const readyEl = document.getElementById('ready-indicator');
 
+  // iOS hotfix: clear inline display:none applied by previous enterClimax
+  // teardown so a re-entry to step-scan shows the video again.
+  const scanVideoElReset = document.getElementById('scan-video');
+  if (scanVideoElReset) scanVideoElReset.style.display = '';
+
   // Reset ceremony UI
   state.isScanning = true;
   state.scanPhase = 'wait';                        // v1.2: enter wait phase first
@@ -1183,6 +1188,13 @@ function enterClimax(reason) {
   if (dialogTextEl) dialogTextEl.textContent = '基線凝聚完成！你的能量已完全覺醒 ✨';
   const subEl = document.getElementById('ceremony-dialog-sub');
   if (subEl) subEl.textContent = '';
+
+  // iOS Safari OOM mitigation: stop camera ROI analysis at climax start so the
+  // burst + flash GPU window doesn't compete with getImageData CPU + video
+  // decode. (Was previously deferred to transition end +2s — too late.)
+  stopFingerCameraFeed();
+  const scanVideoEl = document.getElementById('scan-video');
+  if (scanVideoEl) scanVideoEl.style.display = 'none';
 
   // Trigger particle outward burst
   if (state.particleSystem) state.particleSystem.burst();
