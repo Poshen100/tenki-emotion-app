@@ -88,9 +88,17 @@
       if (caps && caps.torch) await track.applyConstraints({ advanced: [{ torch: true }] });
     } catch (_) {}
 
+    // iOS Safari OOM mitigation: smaller analysis canvas + lower analyze rate
+    // on iPhone/iPad. Halves getImageData CPU cost and pairs with the particle
+    // RAF throttle in baseline-onboarding.js.
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    const isIPadOS = (typeof navigator !== 'undefined') &&
+      navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1;
+    const IS_IOS = /iPad|iPhone|iPod/.test(ua) || isIPadOS;
+
     const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 240;
+    canvas.width = IS_IOS ? 240 : 320;
+    canvas.height = IS_IOS ? 180 : 240;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     // ── State ──
@@ -101,7 +109,9 @@
     const ibis = [];             // inter-beat intervals (ms)
     let lastPeakTs = 0;
     let running = true, rafId = null, lastFrameTs = 0;
-    const dt = 1000 / 30;
+    // 15fps on iOS, 30fps elsewhere — PPG signal still sufficiently resolved
+    // (HR up to 180 BPM = 3Hz, well below Nyquist for 15Hz sampling).
+    const dt = IS_IOS ? 1000 / 15 : 1000 / 30;
 
     function analyze(ts) {
       if (!running) return;
