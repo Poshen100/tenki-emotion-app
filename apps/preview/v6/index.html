@@ -12,10 +12,9 @@
    Today / Scan / Session / Timeline / Lab
    ═════════════════════════════════════════════════ */
 :root{
-  --zone-peak:#F5A623;
-  --zone-optimal:#00B4D8;
+  --zone-clear:#00B4D8;
   --zone-neutral:#E5E5EA;
-  --zone-degraded:#5E3A87;
+  --zone-strain:#5E3A87;
   --bg:#000;
   --surface:#1C1C1E;
   --card:#2C2C2E;
@@ -692,8 +691,7 @@ body{
 }
 .tl-tei-chart svg{width:100%;height:100%;display:block}
 .tl-tei-chart .grid line{stroke:rgba(255,255,255,0.04);stroke-width:1}
-.tl-tei-chart .zone-optimal{fill:rgba(0,180,216,0.05)}
-.tl-tei-chart .zone-peak{fill:rgba(245,166,35,0.05)}
+.tl-tei-chart .zone-clear{fill:rgba(0,180,216,0.05)}
 .tl-tei-chart .line{fill:none;stroke:var(--primary);stroke-width:1.6;filter:drop-shadow(0 0 3px rgba(0,180,216,0.4))}
 .tl-tei-chart .area{fill:url(#tlTlTlTeiArea);opacity:0.6}
 .tl-tei-chart .axis{font-size:8px;fill:var(--txt-dim);font-family:inherit}
@@ -1644,7 +1642,7 @@ body{
 </div>
 
 <div class="phone">
-  <div class="state-pill" id="statePill">Edge Score · OPTIMAL</div>
+  <div class="state-pill" id="statePill">Edge Score · Clear</div>
 
   <div class="screens">
 
@@ -1914,9 +1912,8 @@ body{
                   <stop offset="100%" stop-color="#00B4D8" stop-opacity="0"/>
                 </linearGradient>
               </defs>
-              <!-- zones -->
-              <rect class="zone-peak" x="0" y="0" width="320" height="24"/>
-              <rect class="zone-optimal" x="0" y="24" width="320" height="30"/>
+              <!-- zones (v3: Clear band only — Neutral/Strain rendered as plain background) -->
+              <rect class="zone-clear" x="0" y="0" width="320" height="54"/>
               <!-- grid -->
               <g class="grid">
                 <line x1="0" y1="24" x2="320" y2="24"/>
