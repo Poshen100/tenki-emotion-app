@@ -1682,7 +1682,7 @@ body{
             <div class="tl-tei-center">
               <div class="tl-tei-score" id="tlTlTlTeiScore">72</div>
               <div class="tl-tei-pr">Edge Score</div>
-              <div class="tl-tei-zone" id="tlTlTlTeiZone">Decision Edge · Optimal</div>
+              <div class="tl-tei-zone" id="tlTlTlTeiZone">Decision Edge · Clear</div>
             </div>
           </div>
         </div>
@@ -1795,7 +1795,7 @@ body{
           <div class="score">72</div>
           <div class="meta">
             <div class="lbl">Last Scan</div>
-            <div class="time">34 min ago · Optimal</div>
+            <div class="time">34 min ago · Clear</div>
           </div>
         </div>
 
@@ -2056,7 +2056,7 @@ body{
         <div class="sd-hero-cell">
           <div class="lbl">Start Edge Score</div>
           <div class="val" id="sdTlTlTeiStart">75</div>
-          <div class="sub">Optimal Zone</div>
+          <div class="sub">Clear Zone</div>
         </div>
         <div class="sd-hero-arrow">→</div>
         <div class="sd-hero-cell">
@@ -2911,12 +2911,11 @@ setInterval(() => {
   // Update zone label based on Edge Score zone
   const zoneEl = document.getElementById('tlTlTlTeiZone');
   if(zoneEl){
-    let zone = 'Optimal';
-    let color = '#00B4D8';
-    if(display >= 80){ zone = 'Peak'; color = '#F5A623'; }
-    else if(display >= 55){ zone = 'Optimal'; color = '#00B4D8'; }
-    else if(display >= 35){ zone = 'Neutral'; color = '#E5E5EA'; }
-    else { zone = 'Degraded'; color = '#B388DB'; }
+    // v3 zones: Clear ≥70 / Neutral 40-69 / Strain <40 (packages/shared/src/zone-config.ts)
+    let zone, color;
+    if(display >= 70){ zone = 'Clear'; color = '#00B4D8'; }
+    else if(display >= 40){ zone = 'Neutral'; color = '#E5E5EA'; }
+    else { zone = 'Strain'; color = '#5E3A87'; }
     zoneEl.textContent = zone;
     zoneEl.style.color = color;
   }
@@ -3034,7 +3033,7 @@ const SESSIONS = {
       { type: 'ADD', elapsedSec: 108, tei: 76, phase: 'Execute' },
       { type: 'EXIT', elapsedSec: 155, tei: 78, phase: 'Confirm', variant: 'cancel' }
     ],
-    insight: '你在 <b>Peak Zone (Edge Score 82)</b> 進場 — 過度自信風險區間。HRV 在執行期間下跌 <b>18 ms</b> 顯示壓力升高。下次在 Peak Zone 建議 <b>倉位減半</b>',
+    insight: '<b>Edge Score 82 · Clear</b> 期間,HRV 在執行期間下跌 <b>18 ms</b>,壓力訊號上升。下次 Clear 高分時段,可考慮放慢確認節奏。',
     clarity: 2
   }
 };
