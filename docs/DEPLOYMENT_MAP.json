@@ -1,20 +1,29 @@
 {
-  "lastUpdated": "2026-05-05",
+  "lastUpdated": "2026-05-11",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
       "route": "/",
       "url": "https://tenki-emotion-app.vercel.app/",
       "source": "apps/web/",
-      "purpose": "Legacy web prototype v51.1",
+      "purpose": "Legacy web prototype v51.1 (legacy 對外門牌,待 /v3/ 試運後考慮切換)",
       "status": "frozen",
       "editable": false
+    },
+    {
+      "route": "/v3/",
+      "url": "https://tenki-emotion-app.vercel.app/v3/",
+      "source": "apps/preview/v6/index.html",
+      "purpose": "v3 主入口 — Today + 5-Tab Nav + FDCB,v3 nomenclature 已對齊 (Clear/Neutral/Strain)",
+      "status": "active-dev",
+      "note": "Shadow route — root URL / 仍指 apps/web/,試運 1-2 週後評估切根",
+      "editable": true
     },
     {
       "route": "/preview/",
       "url": "https://tenki-emotion-app.vercel.app/preview/",
       "source": "apps/preview/index.html",
-      "purpose": "Baseline onboarding 6-step flow",
+      "purpose": "Baseline onboarding 6-step flow (PPG 第一次掃描)",
       "status": "active",
       "knownIssue": "iOS Safari OOM — hotfix/oom-ios-safari branch ready",
       "editable": true
@@ -31,7 +40,7 @@
       "route": "/preview/v6/",
       "url": "https://tenki-emotion-app.vercel.app/preview/v6/",
       "source": "apps/preview/v6/index.html",
-      "purpose": "v6 Today main visual + 5 Tab Nav + FDCB",
+      "purpose": "同 /v3/,並列舊路徑保留以避免 share-link 失效",
       "status": "active-dev",
       "editable": true
     }

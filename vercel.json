@@ -2,10 +2,13 @@
     "outputDirectory": ".",
     "framework": null,
     "redirects": [
-        { "source": "/preview", "destination": "/preview/", "permanent": false }
+        { "source": "/preview", "destination": "/preview/", "permanent": false },
+        { "source": "/v3", "destination": "/v3/", "permanent": false }
     ],
     "rewrites": [
         { "source": "/brand/(.*)", "destination": "/brand/$1" },
+        { "source": "/v3/", "destination": "/apps/preview/v6/index.html" },
+        { "source": "/v3/(.*)", "destination": "/apps/preview/v6/$1" },
         { "source": "/preview/", "destination": "/apps/preview/index.html" },
         { "source": "/preview/(.*)", "destination": "/apps/preview/$1" },
         { "source": "/", "destination": "/apps/web/index.html" },
