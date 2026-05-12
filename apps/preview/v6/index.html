@@ -2508,6 +2508,14 @@ function goTab(id){
   setTimeout(() => { if(tab) tab.style.transform = ''; }, 120);
 }
 
+// Deep-link from /preview/ baseline onboarding: #lab opens Lab tab on load.
+// (Today / Scan / Session / Timeline / Lab 都可,但目前只接 #lab 給「先逛逛」)
+(function applyEntryHash(){
+  const hash = (window.location.hash || '').replace('#', '');
+  const allowedTabs = ['today', 'scan', 'session', 'timeline', 'lab'];
+  if(allowedTabs.includes(hash)) goTab(hash);
+})();
+
 // ═════════════════════════════════════════════════
 // Stardust (today screen)
 // ═════════════════════════════════════════════════

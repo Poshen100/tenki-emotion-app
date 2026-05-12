@@ -1579,12 +1579,11 @@ function selectNextAction(action) {
     el.style.background = 'rgba(52, 199, 89, 0.08)';
   }
 
-  // In production, this would route to the appropriate screen
-  setTimeout(() => {
-    alert(`🎉 Baseline 建立完成！\n\n下一步：${
-      action === 'scan' ? '第一次 Emotion Scan' : '探索 TENKI'
-    }\n\n（Production 環境會導航到對應頁面）`);
-  }, 300);
+  // Navigate to /v3/ wellness Today screen.
+  // 'scan'    → Today tab (預設,第一次掃描從這裡開始)
+  // 'explore' → Lab tab (透過 #lab hash,v3 onLoad 解析後切換)
+  const target = action === 'scan' ? '/v3/' : '/v3/#lab';
+  setTimeout(() => { window.location.href = target; }, 280);
 }
 
 // ─────────────────────────────────────────────
