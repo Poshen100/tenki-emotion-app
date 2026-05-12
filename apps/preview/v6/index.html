@@ -1,0 +1,3531 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>TENKI CORE · 5-Tab Navigation</title>
+<style>
+/* ═════════════════════════════════════════════════
+   TENKI CORE · v3 with 5-Tab Navigation
+   Today / Scan / Session / Timeline / Lab
+   ═════════════════════════════════════════════════ */
+:root{
+  --zone-peak:#F5A623;
+  --zone-optimal:#00B4D8;
+  --zone-neutral:#E5E5EA;
+  --zone-degraded:#5E3A87;
+  --bg:#000;
+  --surface:#1C1C1E;
+  --card:#2C2C2E;
+  --border:#38383A;
+  --primary:#00B4D8;
+  --txt:#FFFFFF;
+  --txt-sec:#8E8E93;
+  --txt-dim:#48484A;
+  --fdcb-bg:rgba(20,20,24,0.9);
+  --fdcb-border:rgba(255,255,255,0.08);
+  --fdcb-complete:#34C759;
+  --tabbar-bg:rgba(18,18,22,0.72);
+  --sns:#FF6B35;
+  --pns:#00B4D8;
+  --good:#34C759;
+  --warn:#F5A623;
+  --ease-calm:cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-breath:cubic-bezier(0.4, 0, 0.6, 1);
+
+  --top-safe:14px;
+  --tabbar-h:74px;
+  --fdcb-h:58px;
+  --fdcb-gap:10px; /* gap between fdcb and tabbar */
+}
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:#000;color:var(--txt);overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+body{
+  height:100vh;height:100dvh;width:100vw;
+  display:flex;align-items:center;justify-content:center;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 10%, rgba(0,180,216,0.08), transparent 60%),
+    radial-gradient(ellipse 70% 40% at 50% 90%, rgba(94,58,135,0.05), transparent 70%),
+    #000;
+}
+
+.phone{
+  position:relative;
+  width:min(100vw, 390px);
+  height:min(100vh, 100dvh, 844px);
+  background:#000;
+  border-radius:44px;
+  overflow:hidden;
+  box-shadow:0 0 0 2px #1a1a1a, 0 30px 80px rgba(0,0,0,0.6);
+}
+@media (max-width:420px){.phone{width:100%;height:100dvh;border-radius:0;box-shadow:none}}
+
+/* ═════════════════════════════════════════════════
+   SCREENS (tabs)
+   ═════════════════════════════════════════════════ */
+.screens{
+  position:absolute;inset:0;
+  padding-top:var(--top-safe);
+  padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 16px);
+}
+.screen{
+  position:absolute;inset:var(--top-safe) 0 0 0;
+  opacity:0;pointer-events:none;
+  transition:opacity 0.35s var(--ease-calm);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.screen.active{opacity:1;pointer-events:auto}
+
+.screen-header{
+  padding:8px 24px 4px;
+  display:flex;justify-content:space-between;align-items:baseline;
+}
+.screen-title{
+  font-size:28px;font-weight:400;letter-spacing:-0.02em;color:#fff;
+}
+.screen-date{
+  font-size:11px;color:var(--txt-sec);letter-spacing:0.12em;text-transform:uppercase;
+}
+
+/* ═══════════════════════════════════════════════════
+   TODAY SCREEN — v6 spectrum-ring aesthetic
+   ═══════════════════════════════════════════════════ */
+#today-screen{padding-top:0}
+
+/* Top header: DEEP SCAN badge + scan source toggle */
+.scan-header{
+  position:relative;z-index:5;
+  padding:0 12px 4px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.scan-badge{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 14px;border-radius:18px;
+  background:rgba(30,30,36,0.8);
+  border:1px solid rgba(255,255,255,0.08);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  font-size:10.5px;font-weight:700;letter-spacing:0.22em;
+  color:rgba(255,255,255,0.85);
+  text-transform:uppercase;white-space:nowrap;
+}
+.scan-badge .spark{
+  color:var(--primary);filter:drop-shadow(0 0 4px var(--primary));
+  font-size:12px;
+}
+.source-toggle{
+  display:flex;gap:4px;padding:3px;
+  background:rgba(28,28,30,0.6);
+  border:1px solid rgba(255,255,255,0.06);
+  border-radius:20px;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  max-width:100%;
+}
+.source-toggle .src{
+  display:flex;align-items:center;gap:5px;
+  padding:6px 11px;border-radius:16px;
+  font-size:11px;font-weight:600;letter-spacing:0.01em;
+  color:rgba(255,255,255,0.55);cursor:pointer;
+  transition:all 0.3s var(--ease-calm);
+  white-space:nowrap;
+}
+.source-toggle .src .ic{font-size:11px;opacity:0.75}
+.source-toggle .src.active{
+  background:var(--primary);color:#001420;
+  box-shadow:0 0 14px rgba(0,180,216,0.35);
+}
+.source-toggle .src.active .ic{opacity:1;color:#001420}
+
+/* Hero area — nebula + big spectrum ring */
+.hero{
+  position:relative;
+  min-height:46vh;
+  flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+.stardust{position:absolute;inset:0;pointer-events:none;z-index:0}
+
+/* Nebula layered background */
+.nebula{
+  position:absolute;inset:-40px 0 -20px 0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 60% 65% at 25% 55%, rgba(30,160,170,0.28) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 45% at 75% 25%, rgba(50,180,140,0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 35% 55% at 55% 85%, rgba(94,58,135,0.14) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 15% 15%, rgba(0,120,140,0.1) 0%, transparent 50%);
+  animation:nebulaBreathe 18s ease-in-out infinite;
+}
+@keyframes nebulaBreathe{
+  0%,100%{opacity:0.85;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.04)}
+}
+
+.tl-tei-wrap{
+  position:relative;z-index:3;
+  display:flex;flex-direction:column;align-items:center;
+}
+
+/* Big spectrum ring — Apple Watch Activity style */
+.tl-tei{
+  position:relative;width:min(72vw, 300px);height:min(72vw, 300px);
+  display:flex;align-items:center;justify-content:center;
+  filter:drop-shadow(0 0 30px rgba(0,180,216,0.18));
+}
+
+/* Outer ring — conic gradient */
+.ring-outer-wrap{
+  position:absolute;inset:0;
+  background:conic-gradient(
+    from -95deg,
+    #F5A623 0deg,
+    #F7B847 28deg,
+    #F5A623 62deg,
+    #D9A544 90deg,
+    #6FB37A 140deg,
+    #3FAE9E 180deg,
+    #2EB6C0 210deg,
+    #00B4D8 245deg,
+    #5ECCC5 285deg,
+    #87D9A8 320deg,
+    #F5A623 360deg
+  );
+  border-radius:50%;
+  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 66%, #000 68%, #000 97%, transparent 99%);
+  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 66%, #000 68%, #000 97%, transparent 99%);
+  animation:ringBreathe 6s var(--ease-breath) infinite;
+  /* Entrance animation */
+  opacity:0;transform:scale(0.7) rotate(-120deg);
+  transition:opacity 1.2s var(--ease-calm), transform 1.6s var(--ease-calm);
+}
+@keyframes ringBreathe{
+  0%,100%{opacity:0.92;filter:brightness(1)}
+  50%{opacity:1;filter:brightness(1.08)}
+}
+
+/* Inner ring — darker green/teal */
+.ring-inner-wrap{
+  position:absolute;inset:9%;
+  background:conic-gradient(
+    from 180deg,
+    #2d5f52 0deg,
+    #3a7c62 80deg,
+    #1f7a85 160deg,
+    #246b5a 230deg,
+    #2d5f52 360deg
+  );
+  border-radius:50%;
+  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 72%, #000 74%, #000 94%, transparent 96%);
+  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 72%, #000 74%, #000 94%, transparent 96%);
+  opacity:0;transform:scale(0.7) rotate(120deg);
+  transition:opacity 1.2s var(--ease-calm) 0.15s, transform 1.6s var(--ease-calm) 0.15s;
+}
+
+/* Indicator dots (Apple Watch style) — positioned with trig against 270px ring */
+.ring-dot{
+  position:absolute;border-radius:50%;
+  z-index:4;pointer-events:none;
+  box-shadow:0 0 14px currentColor, 0 0 4px rgba(255,255,255,0.6);
+  opacity:0;transform:scale(0);
+  transition:opacity 0.5s var(--ease-calm) 1.2s, transform 0.5s var(--ease-calm) 1.2s;
+}
+/* Rings + dots revealed state */
+.ring-outer-wrap.revealed{opacity:1;transform:scale(1) rotate(0deg)}
+.ring-inner-wrap.revealed{opacity:0.96;transform:scale(1) rotate(0deg)}
+.ring-dot.revealed{opacity:1;transform:scale(1)}
+/* outer dot: ~25° from 12 o'clock (top-right), at ring circumference (radius ~127) */
+.ring-dot.outer{
+  width:13px;height:13px;
+  top:calc(50% - 116px);left:calc(50% + 52px);
+  background:#F5A623;color:#F5A623;
+}
+/* inner dot: ~210° (bottom-left), slightly smaller */
+.ring-dot.inner{
+  width:10px;height:10px;
+  top:calc(50% + 52px);left:calc(50% - 100px);
+  background:#87D9A8;color:#87D9A8;
+}
+
+/* Center dark circle — contains text */
+.tl-tei-center{
+  position:relative;z-index:5;
+  width:62%;height:62%;border-radius:50%;
+  background:radial-gradient(circle at 50% 45%, #0c1418 0%, #000 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:inset 0 0 20px rgba(0,0,0,0.6);
+}
+.tl-tei-score{
+  font-size:86px;font-weight:700;line-height:0.9;letter-spacing:-0.04em;
+  color:#fff;font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg, #fff 0%, #d8e0e4 40%, #a8b8c0 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 30px rgba(255,255,255,0.15)) drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  transition:all 1.4s var(--ease-calm);
+}
+.tl-tei-pr{
+  font-size:12px;font-weight:500;color:rgba(255,255,255,0.85);
+  letter-spacing:0.14em;margin-top:2px;
+}
+.tl-tei-zone{
+  margin-top:2px;
+  font-size:12px;font-weight:400;
+  color:var(--primary);
+  letter-spacing:0.02em;
+  transition:color 1.2s;
+}
+
+/* Legacy SVG rings — hidden in v6 (replaced by conic-gradient wrappers) */
+.tl-tei svg{display:none}
+
+/* Content area — reserves space for FDCB + tabbar */
+.snap{
+  flex:1;padding:2px 14px;
+  padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 24px);
+  display:flex;flex-direction:column;gap:10px;
+  overflow-y:auto;overflow-x:hidden;
+  scrollbar-width:none;
+  /* Scroll hint: top/bottom gradient fade */
+  mask-image:linear-gradient(to bottom, transparent 0, #000 8px, #000 calc(100% - 24px), transparent 100%);
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 8px, #000 calc(100% - 24px), transparent 100%);
+}
+/* Card entrance stagger animation */
+.snap > *{
+  opacity:0;transform:translateY(20px);
+  animation:cardEntrance 0.6s var(--ease-calm) forwards;
+}
+.snap > *:nth-child(1){animation-delay:1.0s}
+.snap > *:nth-child(2){animation-delay:1.15s}
+.snap > *:nth-child(3){animation-delay:1.3s}
+.snap > *:nth-child(4){animation-delay:1.45s}
+@keyframes cardEntrance{
+  to{opacity:1;transform:translateY(0)}
+}
+.snap::-webkit-scrollbar{display:none}
+
+.coach-card{
+  position:relative;
+  padding:16px 20px 16px 26px;
+  border-radius:20px;
+  background:linear-gradient(135deg, rgba(0, 180, 216, 0.15) 0%, rgba(255, 255, 255, 0.04) 30%, rgba(0, 0, 0, 0.25) 100%);
+  border:1px solid rgba(255, 255, 255, 0.08);
+  border-top:1px solid rgba(255, 255, 255, 0.25);
+  border-left:1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 12px 32px rgba(0,0,0,0.4),
+    inset 0 1px 2px rgba(255,255,255,0.15),
+    inset 0 0 20px rgba(0, 180, 216, 0.05);
+  backdrop-filter:blur(32px) saturate(150%);
+  -webkit-backdrop-filter:blur(32px) saturate(150%);
+  overflow:hidden;
+}
+.coach-card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;
+  width:5px;
+  background:linear-gradient(180deg, #34C759 0%, #00B4D8 100%);
+  box-shadow: 2px 0 16px rgba(0, 180, 216, 0.6);
+}
+.coach-text{
+  font-size:14px;line-height:1.65;color:rgba(255,255,255,0.95);
+  letter-spacing:0.02em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.card{
+  background:linear-gradient(180deg, rgba(40,40,44,0.55) 0%, rgba(28,28,30,0.45) 100%);
+  border:1px solid rgba(255,255,255,0.06);
+  border-radius:18px;padding:14px 16px;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  position:relative;overflow:hidden;
+}
+.card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+}
+/* Only Today-tab cards need flex-shrink protection (in the scrollable .snap) */
+#today-screen .snap > .card,
+#today-screen .snap > .coach-card,
+#today-screen .snap > .row{flex-shrink:0}
+.card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+}
+
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* Metric cards v6 — with status badges */
+.metric{display:flex;flex-direction:column;gap:8px;padding:14px 14px 12px}
+.metric-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.metric-title{
+  font-size:13.5px;font-weight:500;color:rgba(255,255,255,0.85);
+  letter-spacing:0.01em;white-space:nowrap;
+}
+.metric-status{
+  font-size:9px;font-weight:600;letter-spacing:0.08em;
+  padding:3px 7px;border-radius:7px;
+  flex-shrink:0;
+}
+.metric-status.sync{
+  background:rgba(255,255,255,0.08);
+  color:rgba(255,255,255,0.65);
+}
+.metric-status.balanced{
+  background:rgba(52,199,89,0.15);
+  color:var(--good);
+}
+
+.metric-body{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:10px;
+}
+.metric-num{
+  display:flex;align-items:baseline;gap:4px;line-height:1;
+}
+.metric-num .val{
+  font-size:34px;font-weight:300;letter-spacing:-0.02em;
+  color:#fff;font-variant-numeric:tabular-nums;line-height:0.95;
+}
+.metric-num .unit{
+  font-size:11px;color:rgba(255,255,255,0.5);font-weight:500;
+  letter-spacing:0.02em;white-space:nowrap;
+}
+.metric-num .unit.stack{
+  display:flex;flex-direction:column;align-items:flex-start;
+  line-height:1.1;font-size:10px;
+}
+.metric-num .slash{
+  color:rgba(255,255,255,0.35);font-size:20px;font-weight:300;
+  margin:0 -1px 0 2px;
+}
+.metric-num .sub{
+  font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;
+}
+
+.metric-spark{height:32px;width:72px;flex-shrink:0;opacity:0.9;border-radius:4px}
+.metric-spark path{fill:none;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.hr-spark path{stroke:#FF5C73;filter:drop-shadow(0 0 3px rgba(255,92,115,0.5))}
+.hrv-spark path{stroke:#34C759;filter:drop-shadow(0 0 3px rgba(52,199,89,0.5))}
+.rr-spark path{stroke:#2EB6C0;filter:drop-shadow(0 0 3px rgba(46,182,192,0.5))}
+/* Live waveform canvas */
+.live-wave{height:32px;width:72px;flex-shrink:0;border-radius:4px;opacity:0.9}
+/* ANS bar oscillation */
+.ans-bar .sns-fill,.ans-bar .pns-fill{transition:width 2s var(--ease-breath)}
+/* Stress bar gentle pulse */
+.stress-bar .seg.on{animation:segPulse 4s var(--ease-breath) infinite}
+.stress-bar .seg.on:nth-child(2){animation-delay:0.3s}
+.stress-bar .seg.on:nth-child(3){animation-delay:0.6s}
+@keyframes segPulse{
+  0%,100%{opacity:1;filter:brightness(1)}
+  50%{opacity:0.75;filter:brightness(1.15)}
+}
+
+/* Stress segmented bar */
+.stress-bar{
+  display:flex;gap:3px;height:5px;margin-top:2px;
+}
+.stress-bar .seg{
+  flex:1;border-radius:2px;
+  background:rgba(255,255,255,0.05);
+  transition:background 0.8s var(--ease-calm);
+}
+.stress-bar .seg.on{
+  background:linear-gradient(90deg, #34C759, #8BD944);
+  box-shadow:0 0 6px rgba(52,199,89,0.4);
+}
+.stress-pct{
+  font-size:12px;color:var(--good);font-weight:600;
+  letter-spacing:0.02em;font-variant-numeric:tabular-nums;
+}
+
+/* Body Battery + ANS combined card */
+.bb-card{padding:16px 18px 14px;margin-bottom:8px}
+.bb-head{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin-bottom:12px;
+}
+.bb-title{
+  font-size:13px;font-weight:500;color:rgba(255,255,255,0.82);
+  letter-spacing:0.01em;
+}
+.bb-val-wrap{display:flex;align-items:baseline;gap:2px}
+.bb-val{
+  font-size:28px;font-weight:300;color:#fff;
+  font-variant-numeric:tabular-nums;letter-spacing:-0.02em;line-height:1;
+}
+.bb-slash{color:rgba(255,255,255,0.35);font-size:16px;font-weight:300;margin:0 -1px}
+.bb-unit{font-size:11px;color:rgba(255,255,255,0.45);letter-spacing:0.02em;font-weight:500}
+
+.bb-bars{
+  display:flex;gap:4px;height:54px;align-items:flex-end;
+  margin-bottom:18px;
+}
+.bb-bars .bar{
+  flex:1;border-radius:20px;
+  min-height:6px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.15);
+  transition:height 1s var(--ease-calm);
+}
+
+/* ANS Balance inside bb-card */
+.ans-section{
+  display:flex;flex-direction:column;gap:6px;
+  padding-top:4px;
+  border-top:1px solid rgba(255,255,255,0.05);
+}
+.ans-title{
+  font-size:13px;font-weight:500;color:rgba(255,255,255,0.82);
+  letter-spacing:0.01em;margin:6px 0 2px;
+}
+.ans-bar{
+  height:7px;border-radius:4px;position:relative;display:flex;overflow:hidden;
+  background:rgba(255,255,255,0.04);
+}
+.ans-bar .sns-fill{
+  height:100%;background:linear-gradient(90deg, #FF4628, #FF7A4C);
+  border-radius:4px 0 0 4px;
+  box-shadow:0 0 10px rgba(255,70,40,0.4);
+}
+.ans-bar .pns-fill{
+  height:100%;background:linear-gradient(90deg, #34C759, #87E078);
+  border-radius:0 4px 4px 0;
+  box-shadow:0 0 10px rgba(52,199,89,0.4);
+}
+
+.ans-legend{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;font-weight:600;letter-spacing:0.02em;
+  font-variant-numeric:tabular-nums;
+}
+.ans-legend .sns-pct{color:#FF5C3E}
+.ans-legend .pns-pct{color:var(--good)}
+.ans-legend .labels{
+  display:flex;gap:6px;font-size:10px;color:rgba(255,255,255,0.5);
+  font-weight:500;letter-spacing:0.08em;
+}
+.ans-legend .labels .sns-lbl{color:rgba(255,92,62,0.75)}
+.ans-legend .labels .pns-lbl{color:rgba(52,199,89,0.75)}
+
+/* ═══════════════════════════════════════════════════
+   SCAN SCREEN
+   ═══════════════════════════════════════════════════ */
+#scan-screen{padding:0 24px}
+.scan-hero{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;gap:24px;
+}
+.scan-last{
+  padding:12px 20px;border-radius:16px;
+  display:flex;align-items:center;gap:14px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.05);
+  backdrop-filter:blur(20px);
+}
+.scan-last .score{
+  font-size:32px;font-weight:200;color:var(--primary);
+  font-variant-numeric:tabular-nums;line-height:1;
+}
+.scan-last .meta{display:flex;flex-direction:column;gap:2px}
+.scan-last .lbl{font-size:9px;letter-spacing:0.2em;color:var(--txt-sec);text-transform:uppercase;font-weight:600}
+.scan-last .time{font-size:11px;color:rgba(255,255,255,0.6)}
+
+.scan-button{
+  width:200px;height:200px;border-radius:50%;
+  background:radial-gradient(circle at 30% 30%, #0dd4f7 0%, #00B4D8 45%, #006b82 100%);
+  border:none;cursor:pointer;position:relative;
+  box-shadow:
+    0 20px 60px rgba(0,180,216,0.4),
+    0 0 0 8px rgba(0,180,216,0.08),
+    inset 0 2px 20px rgba(255,255,255,0.3);
+  display:flex;align-items:center;justify-content:center;
+  transition:transform 0.2s var(--ease-calm);
+  animation:scanBreathe 4s ease-in-out infinite;
+}
+.scan-button:active{transform:scale(0.94)}
+@keyframes scanBreathe{
+  0%,100%{box-shadow:0 20px 60px rgba(0,180,216,0.3), 0 0 0 8px rgba(0,180,216,0.06), inset 0 2px 20px rgba(255,255,255,0.3)}
+  50%    {box-shadow:0 20px 60px rgba(0,180,216,0.5), 0 0 0 14px rgba(0,180,216,0.12), inset 0 2px 20px rgba(255,255,255,0.3)}
+}
+.scan-button .txt{
+  font-size:14px;font-weight:600;color:#fff;
+  letter-spacing:0.24em;text-transform:uppercase;
+  text-shadow:0 1px 4px rgba(0,0,0,0.3);
+}
+
+.scan-options{
+  display:flex;gap:8px;padding:4px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:14px;
+}
+.scan-options .opt{
+  padding:10px 18px;border-radius:10px;cursor:pointer;
+  font-size:12px;font-weight:500;color:rgba(255,255,255,0.6);
+  letter-spacing:0.06em;transition:all 0.3s;
+}
+.scan-options .opt.active{
+  background:rgba(0,180,216,0.15);color:var(--primary);
+  box-shadow:inset 0 0 0 1px rgba(0,180,216,0.2);
+}
+.scan-hint{
+  font-size:11px;color:var(--txt-sec);text-align:center;
+  letter-spacing:0.08em;max-width:240px;line-height:1.6;
+}
+
+/* ═══════════════════════════════════════════════════
+   SESSION SCREEN
+   ═══════════════════════════════════════════════════ */
+#session-screen{padding:0 20px;gap:12px}
+.session-body{
+  flex:1;display:flex;flex-direction:column;gap:10px;
+  overflow-y:auto;scrollbar-width:none;
+  padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 20px);
+}
+.session-body::-webkit-scrollbar{display:none}
+.session-body > *{flex-shrink:0}
+
+.session-stats{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;
+}
+.session-stats .cell{
+  padding:12px 10px;border-radius:14px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.05);
+  text-align:center;
+}
+.session-stats .val{font-size:22px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+.session-stats .val.good{color:var(--good)}
+.session-stats .lbl{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--txt-sec);margin-top:4px;font-weight:600}
+
+.session-section{font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;padding:8px 4px 2px}
+
+.session-item{
+  padding:12px 14px;border-radius:14px;
+  display:flex;align-items:center;gap:12px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.05);
+  position:relative;cursor:pointer;
+  transition:background 0.2s,transform 0.2s var(--ease-calm);
+}
+.session-item:active{
+  transform:scale(0.985);
+  background:rgba(255,255,255,0.05);
+}
+.session-item .chevron{
+  color:var(--txt-dim);font-size:18px;margin-left:2px;
+  transition:transform 0.3s;flex-shrink:0;
+}
+.session-item:active .chevron{transform:translateX(2px);color:var(--primary)}
+.session-item .tmpl-ic{
+  width:36px;height:36px;border-radius:10px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,180,216,0.12);color:var(--primary);
+}
+.session-item .tmpl-ic svg{width:20px;height:20px}
+.session-item.loss .tmpl-ic{background:rgba(94,58,135,0.15);color:#9678b9}
+.session-item.neut .tmpl-ic{background:rgba(142,142,147,0.15);color:#aaa}
+.session-item .info{flex:1;min-width:0}
+.session-item .nm{font-size:13px;font-weight:500;color:#fff;margin-bottom:2px}
+.session-item .meta{font-size:11px;color:var(--txt-sec);display:flex;gap:8px;font-variant-numeric:tabular-nums}
+.session-item .meta span.sep{color:var(--txt-dim)}
+.session-item .result{
+  font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+  padding:4px 9px;border-radius:8px;
+}
+.result.win{background:rgba(52,199,89,0.15);color:var(--good)}
+.result.loss{background:rgba(255,69,58,0.12);color:#ff7e76}
+.result.breakeven{background:rgba(142,142,147,0.15);color:var(--txt-sec)}
+.result.no_trade{background:rgba(245,166,35,0.12);color:var(--warn)}
+
+.insight-card{
+  padding:14px 16px;border-radius:14px;
+  background:linear-gradient(135deg, rgba(0,180,216,0.08), rgba(0,180,216,0.02));
+  border:1px solid rgba(0,180,216,0.15);
+}
+.insight-card .head{
+  font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
+  color:var(--primary);margin-bottom:8px;font-weight:600;display:flex;align-items:center;gap:6px;
+}
+.insight-card .body{font-size:13px;color:rgba(255,255,255,0.88);line-height:1.5}
+.insight-card .body b{color:var(--primary);font-weight:600;font-variant-numeric:tabular-nums}
+
+/* ═══════════════════════════════════════════════════
+   TIMELINE SCREEN
+   ═══════════════════════════════════════════════════ */
+#timeline-screen{padding:0 20px}
+.timeline-body{flex:1;display:flex;flex-direction:column;gap:12px;overflow-y:auto;scrollbar-width:none;padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 20px)}
+.timeline-body::-webkit-scrollbar{display:none}
+.timeline-body > *{flex-shrink:0}
+
+.date-switch{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-radius:14px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.05);
+  margin-bottom:4px;
+}
+.date-switch .arr{
+  width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--primary);cursor:pointer;font-size:18px;
+  background:rgba(0,180,216,0.08);
+}
+.date-switch .mid{text-align:center}
+.date-switch .day{font-size:15px;font-weight:600;color:#fff}
+.date-switch .sub{font-size:10px;color:var(--txt-sec);letter-spacing:0.15em;margin-top:2px;text-transform:uppercase}
+
+/* Edge Score hour chart */
+.tl-tei-chart-card{padding:14px}
+.tl-tei-chart-card .head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.tl-tei-chart-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
+.tl-tei-chart-card .avg{font-size:12px;color:var(--primary);letter-spacing:0.05em;font-variant-numeric:tabular-nums}
+.tl-tei-chart-card .avg b{font-size:18px;font-weight:300;color:#fff;margin-right:2px}
+.tl-tei-chart{
+  position:relative;height:120px;margin-top:4px;
+  min-height:120px;
+}
+.tl-tei-chart svg{width:100%;height:100%;display:block}
+.tl-tei-chart .grid line{stroke:rgba(255,255,255,0.04);stroke-width:1}
+.tl-tei-chart .zone-optimal{fill:rgba(0,180,216,0.05)}
+.tl-tei-chart .zone-peak{fill:rgba(245,166,35,0.05)}
+.tl-tei-chart .line{fill:none;stroke:var(--primary);stroke-width:1.6;filter:drop-shadow(0 0 3px rgba(0,180,216,0.4))}
+.tl-tei-chart .area{fill:url(#tlTlTlTeiArea);opacity:0.6}
+.tl-tei-chart .axis{font-size:8px;fill:var(--txt-dim);font-family:inherit}
+.tl-tei-chart .evt-dot{fill:var(--good);filter:drop-shadow(0 0 4px var(--good))}
+.tl-tei-chart .evt-dot.loss{fill:#ff7e76}
+
+/* Session markers */
+.timeline-events-card{padding:14px}
+.timeline-events-card .head{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:10px}
+.tl-event{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.tl-event:last-child{border-bottom:none}
+.tl-event .time{
+  font-size:11px;color:var(--txt-sec);
+  font-variant-numeric:tabular-nums;letter-spacing:0.08em;
+  width:42px;flex-shrink:0;
+}
+.tl-event .dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;
+}
+.tl-event .dot.entry{background:var(--good);box-shadow:0 0 8px var(--good)}
+.tl-event .dot.exit{background:var(--primary);box-shadow:0 0 6px var(--primary)}
+.tl-event .dot.cancel{background:#ff7e76}
+.tl-event .dot.scan{background:var(--warn)}
+.tl-event .desc{flex:1;font-size:13px;color:#fff}
+.tl-event .tl-tei{font-size:11px;color:var(--txt-sec);font-variant-numeric:tabular-nums}
+
+/* ═══════════════════════════════════════════════════
+   LAB SCREEN
+   ═══════════════════════════════════════════════════ */
+#lab-screen{padding:0 20px}
+.lab-body{flex:1;display:flex;flex-direction:column;gap:10px;overflow-y:auto;scrollbar-width:none;padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 20px)}
+.lab-body::-webkit-scrollbar{display:none}
+.lab-body > *{flex-shrink:0}
+
+.lab-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lab-item{
+  padding:16px 14px;border-radius:16px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.05);
+  display:flex;flex-direction:column;gap:8px;
+  cursor:pointer;transition:all 0.3s var(--ease-calm);
+  position:relative;overflow:hidden;
+}
+.lab-item:active{transform:scale(0.97);background:rgba(255,255,255,0.05)}
+.lab-item.featured{
+  background:linear-gradient(135deg, rgba(0,180,216,0.08), rgba(0,180,216,0.02));
+  border-color:rgba(0,180,216,0.2);
+}
+.lab-item.beta::after{
+  content:'BETA';position:absolute;top:10px;right:10px;
+  font-size:8px;letter-spacing:0.18em;font-weight:700;
+  padding:2px 6px;border-radius:5px;
+  background:rgba(245,166,35,0.18);color:var(--warn);
+}
+.lab-item .ic{
+  width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,180,216,0.12);color:var(--primary);
+  margin-bottom:4px;
+}
+.lab-item .ic svg{width:20px;height:20px}
+.lab-item .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.2}
+.lab-item .sub{font-size:10px;color:var(--txt-sec);line-height:1.4;letter-spacing:0.02em}
+
+.lab-wide{
+  grid-column:span 2;
+  padding:14px 16px;border-radius:16px;
+  display:flex;align-items:center;gap:14px;
+  background:linear-gradient(135deg, rgba(94,58,135,0.12), rgba(94,58,135,0.02));
+  border:1px solid rgba(94,58,135,0.2);
+  cursor:pointer;
+}
+.lab-wide .ic{width:40px;height:40px;border-radius:10px;background:rgba(94,58,135,0.2);color:#b78dd6;display:flex;align-items:center;justify-content:center}
+.lab-wide .ic svg{width:22px;height:22px}
+.lab-wide .info{flex:1}
+.lab-wide .nm{font-size:14px;font-weight:600;color:#fff}
+.lab-wide .sub{font-size:11px;color:var(--txt-sec);margin-top:2px}
+
+/* ═══════════════════════════════════════════════════
+   SESSION DETAIL — slide-in modal
+   ═══════════════════════════════════════════════════ */
+.session-detail{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(0,180,216,0.08), transparent 60%),
+    #000;
+  z-index:90;
+  transform:translateX(100%);
+  transition:transform 0.45s var(--ease-calm);
+  display:flex;flex-direction:column;
+  padding-top:54px;
+  overflow:hidden;
+}
+.session-detail.open{transform:translateX(0)}
+
+.sd-header{
+  padding:12px 16px 8px;
+  display:flex;align-items:center;gap:10px;
+}
+.sd-back{
+  width:36px;height:36px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.06);
+  color:#fff;font-size:20px;cursor:pointer;
+  transition:all 0.2s;flex-shrink:0;
+}
+.sd-back:active{background:rgba(0,180,216,0.15);transform:scale(0.94)}
+.sd-title-wrap{flex:1;min-width:0}
+.sd-title{font-size:17px;font-weight:600;color:#fff;letter-spacing:-0.01em}
+.sd-subtitle{font-size:11px;color:var(--txt-sec);letter-spacing:0.1em;margin-top:2px}
+.sd-result{
+  font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;
+  padding:5px 10px;border-radius:8px;flex-shrink:0;
+}
+
+/* Scrollable body */
+.sd-body{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:10px 16px 24px;
+  scrollbar-width:none;
+  display:flex;flex-direction:column;gap:12px;
+}
+.sd-body::-webkit-scrollbar{display:none}
+
+/* Hero: Edge Score arc */
+.sd-hero{
+  padding:18px 16px;
+  display:flex;align-items:center;justify-content:space-around;
+  position:relative;
+}
+.sd-hero-cell{text-align:center;flex:1}
+.sd-hero-cell .lbl{
+  font-size:9px;letter-spacing:0.22em;text-transform:uppercase;
+  color:var(--txt-sec);font-weight:600;margin-bottom:4px;
+}
+.sd-hero-cell .val{
+  font-size:36px;font-weight:200;letter-spacing:-0.03em;
+  font-variant-numeric:tabular-nums;color:#fff;line-height:1;
+}
+.sd-hero-cell .sub{
+  font-size:10px;color:var(--txt-sec);margin-top:4px;
+  letter-spacing:0.08em;
+}
+.sd-hero-arrow{
+  font-size:22px;color:var(--txt-dim);
+  padding:0 4px;align-self:flex-end;margin-bottom:8px;
+}
+.sd-hero-delta{
+  font-size:13px;font-weight:600;
+  letter-spacing:0.05em;
+  font-variant-numeric:tabular-nums;
+}
+.sd-hero-delta.up{color:var(--good)}
+.sd-hero-delta.down{color:#ff7e76}
+.sd-hero-delta.flat{color:var(--txt-sec)}
+
+/* Edge Score trace chart */
+.sd-trace-card{padding:14px}
+.sd-trace-head{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin-bottom:10px;
+}
+.sd-trace-ttl{
+  font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
+  color:var(--txt-sec);font-weight:600;
+}
+.sd-trace-dur{
+  font-size:11px;color:var(--primary);
+  letter-spacing:0.05em;font-variant-numeric:tabular-nums;
+}
+.sd-trace{
+  position:relative;height:140px;
+}
+.sd-trace svg{width:100%;height:100%;display:block}
+.sd-trace .sweet-zone{fill:rgba(0,180,216,0.06)}
+.sd-trace .lock-zone{fill:rgba(94,58,135,0.08)}
+.sd-trace .seg-line{stroke:rgba(255,255,255,0.04);stroke-width:1;stroke-dasharray:2 3}
+.sd-trace .tl-tei-line{fill:none;stroke:var(--primary);stroke-width:1.8;filter:drop-shadow(0 0 4px rgba(0,180,216,0.5))}
+.sd-trace .tl-tei-area{fill:url(#sdArea)}
+.sd-trace .axis{font-size:9px;fill:var(--txt-dim);font-family:inherit;letter-spacing:0.05em}
+.sd-trace .seg-label{
+  font-size:8px;fill:var(--txt-sec);
+  font-weight:600;letter-spacing:0.16em;text-transform:uppercase;
+}
+.sd-trace .evt{
+  fill:#fff;stroke:var(--good);stroke-width:2;
+  filter:drop-shadow(0 0 6px var(--good));
+  cursor:pointer;
+}
+.sd-trace .evt.cancel{stroke:#ff7e76;filter:drop-shadow(0 0 6px #ff7e76)}
+.sd-trace .evt-label{
+  font-size:8px;fill:#fff;font-weight:700;
+  letter-spacing:0.1em;text-transform:uppercase;
+}
+
+/* Event timeline list */
+.sd-events-card{padding:14px 16px}
+.sd-events-head{
+  font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
+  color:var(--txt-sec);font-weight:600;margin-bottom:10px;
+}
+.sd-evt{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  position:relative;
+}
+.sd-evt:last-child{border-bottom:none}
+.sd-evt .time{
+  font-size:11px;color:var(--txt-sec);
+  font-variant-numeric:tabular-nums;
+  width:52px;flex-shrink:0;font-weight:500;letter-spacing:0.04em;
+}
+.sd-evt .dot{
+  width:10px;height:10px;border-radius:50%;flex-shrink:0;position:relative;
+}
+.sd-evt .dot::after{
+  content:'';position:absolute;left:50%;top:100%;
+  width:1.5px;height:16px;background:rgba(255,255,255,0.08);
+  transform:translateX(-50%);
+}
+.sd-evt:last-child .dot::after{display:none}
+.sd-evt.entry .dot{background:var(--good);box-shadow:0 0 8px var(--good)}
+.sd-evt.add .dot{background:var(--primary);box-shadow:0 0 8px var(--primary)}
+.sd-evt.exit .dot{background:#b78dd6;box-shadow:0 0 6px #b78dd6}
+.sd-evt.cancel .dot{background:#ff7e76;box-shadow:0 0 6px #ff7e76}
+.sd-evt.reduce .dot{background:var(--warn);box-shadow:0 0 6px var(--warn)}
+.sd-evt .type{
+  font-size:13px;font-weight:500;color:#fff;flex:1;
+  display:flex;align-items:center;gap:6px;
+}
+.sd-evt .type .phase{
+  font-size:9px;color:var(--primary);
+  letter-spacing:0.1em;text-transform:uppercase;font-weight:600;
+  padding:2px 6px;border-radius:5px;
+  background:rgba(0,180,216,0.1);
+}
+.sd-evt .tl-tei-mark{
+  font-size:11px;color:var(--txt-sec);
+  font-variant-numeric:tabular-nums;letter-spacing:0.04em;
+}
+.sd-evt .tl-tei-mark b{color:#fff;font-weight:600}
+
+/* Bio comparison */
+.sd-bio-card{padding:14px}
+.sd-bio-head{
+  font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
+  color:var(--txt-sec);font-weight:600;margin-bottom:12px;
+}
+.sd-bio-grid{
+  display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;
+}
+.sd-bio-col{display:flex;flex-direction:column;gap:10px}
+.sd-bio-col.end{text-align:right}
+.sd-bio-arrows{
+  display:flex;flex-direction:column;gap:18px;
+  color:var(--txt-dim);font-size:14px;text-align:center;
+}
+.sd-bio-item{display:flex;flex-direction:column;gap:2px}
+.sd-bio-col.end .sd-bio-item{align-items:flex-end}
+.sd-bio-lbl{
+  font-size:9px;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--txt-sec);font-weight:600;
+}
+.sd-bio-val{
+  font-size:20px;font-weight:300;color:#fff;
+  font-variant-numeric:tabular-nums;letter-spacing:-0.02em;
+  display:flex;align-items:baseline;gap:3px;line-height:1;
+}
+.sd-bio-col.end .sd-bio-val{flex-direction:row-reverse}
+.sd-bio-val .u{font-size:10px;color:var(--txt-sec);font-weight:400}
+
+/* Reflection section */
+.sd-reflect-card{
+  padding:16px;
+  background:linear-gradient(135deg, rgba(0,180,216,0.08), rgba(0,180,216,0.02));
+  border:1px solid rgba(0,180,216,0.15);
+}
+.sd-reflect-head{
+  font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
+  color:var(--primary);font-weight:600;margin-bottom:10px;
+  display:flex;align-items:center;gap:6px;
+}
+.sd-reflect-prompt{
+  font-size:13px;color:rgba(255,255,255,0.85);line-height:1.5;margin-bottom:14px;
+}
+.sd-reflect-clarity{
+  display:flex;align-items:center;gap:8px;margin-bottom:12px;
+}
+.sd-reflect-clarity .lbl{
+  font-size:10px;letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--txt-sec);font-weight:600;
+}
+.sd-clarity-dots{
+  display:flex;gap:5px;margin-left:auto;
+}
+.sd-clarity-dots .d{
+  width:18px;height:18px;border-radius:50%;
+  border:1.5px solid rgba(255,255,255,0.15);
+  transition:all 0.25s var(--ease-calm);
+  cursor:pointer;
+}
+.sd-clarity-dots .d.on{
+  background:var(--primary);border-color:var(--primary);
+  box-shadow:0 0 8px rgba(0,180,216,0.5);
+}
+.sd-reflect-input{
+  width:100%;padding:10px 12px;
+  background:rgba(0,0,0,0.3);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:10px;
+  color:#fff;font-family:inherit;
+  font-size:12px;line-height:1.5;
+  resize:none;min-height:60px;
+  outline:none;
+  transition:border 0.3s;
+}
+.sd-reflect-input:focus{border-color:rgba(0,180,216,0.4)}
+.sd-reflect-input::placeholder{color:var(--txt-dim);font-style:italic}
+
+/* Learning insight */
+.sd-insight{
+  padding:14px 16px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:14px;
+  display:flex;gap:12px;align-items:flex-start;
+}
+.sd-insight .ic{
+  width:32px;height:32px;border-radius:10px;flex-shrink:0;
+  background:rgba(245,166,35,0.12);color:var(--warn);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+}
+.sd-insight .body{flex:1;font-size:12px;line-height:1.5;color:rgba(255,255,255,0.85)}
+.sd-insight .body .head{
+  font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--warn);font-weight:600;margin-bottom:4px;
+}
+.sd-insight b{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* ═══════════════════════════════════════════════════
+   FDCB — floating above tab bar
+   ═══════════════════════════════════════════════════ */
+.fdcb{
+  position:absolute;
+  left:10px;right:10px;
+  bottom:calc(var(--tabbar-h) + var(--fdcb-gap));
+  height:var(--fdcb-h);
+  background:var(--fdcb-bg);
+  border:1px solid var(--fdcb-border);
+  border-radius:18px;
+  backdrop-filter:blur(32px) saturate(140%);
+  -webkit-backdrop-filter:blur(32px) saturate(140%);
+  display:flex;align-items:center;
+  padding:0 4px;z-index:45;
+  box-shadow:
+    0 12px 40px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(255,255,255,0.02),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+  transition:all 0.5s var(--ease-calm);
+}
+.fdcb.state-running{
+  border-color:rgba(0,180,216,0.25);
+  box-shadow:0 12px 40px rgba(0,0,0,0.55), 0 0 30px rgba(0,180,216,0.12), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.fdcb.state-complete{
+  border-color:rgba(52,199,89,0.35);
+  box-shadow:0 12px 40px rgba(0,0,0,0.55), 0 0 40px rgba(52,199,89,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.fdcb::before{
+  content:'';position:absolute;top:0;left:20%;right:20%;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(0,180,216,0.3), transparent);
+  opacity:0;transition:opacity 0.6s;
+}
+.fdcb.state-running::before{opacity:1}
+
+.fdcb-tmpl{
+  flex:0 0 auto;min-width:88px;
+  padding:8px 10px;margin:4px 2px 4px 4px;
+  border-radius:12px;
+  display:flex;align-items:center;gap:7px;
+  cursor:pointer;transition:background 0.3s;
+}
+.fdcb-tmpl:active{background:rgba(255,255,255,0.04)}
+.fdcb-tmpl .ic{
+  width:20px;height:20px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--primary);
+  filter:drop-shadow(0 0 6px rgba(0,180,216,0.4));
+}
+.fdcb-tmpl .ic svg{width:18px;height:18px}
+.fdcb-tmpl-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fdcb-tmpl-name{
+  font-size:11px;font-weight:600;color:#fff;line-height:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px;
+}
+.fdcb-tmpl-dur{
+  font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.08em;
+  font-variant-numeric:tabular-nums;
+}
+
+.fdcb-core{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:6px 4px;min-width:0;cursor:pointer;
+}
+.fdcb-time{
+  font-size:20px;font-weight:600;color:var(--primary);
+  font-variant-numeric:tabular-nums;letter-spacing:-0.02em;line-height:1;
+  text-shadow:0 0 16px rgba(0,180,216,0.3);
+}
+.fdcb-seg{
+  font-size:8px;letter-spacing:0.22em;text-transform:uppercase;
+  color:var(--primary);margin-top:3px;font-weight:500;
+}
+.fdcb-prog{
+  height:2px;width:100%;max-width:120px;
+  background:rgba(255,255,255,0.06);border-radius:1px;margin-top:4px;
+  overflow:hidden;display:flex;
+}
+.fdcb-prog .seg-obs{background:var(--sns)}
+.fdcb-prog .seg-sweet{background:var(--primary)}
+.fdcb-prog .seg-ext{background:rgba(142,142,147,0.6)}
+
+.fdcb.state-idle .fdcb-time{
+  font-size:12px;font-weight:500;color:rgba(255,255,255,0.85);letter-spacing:0.14em;
+  text-transform:uppercase;text-shadow:none;
+}
+.fdcb.state-idle .fdcb-seg,
+.fdcb.state-idle .fdcb-prog{display:none}
+.fdcb.state-ready .fdcb-time{font-size:13px;letter-spacing:0.06em;color:#fff;text-shadow:none}
+.fdcb.state-ready .fdcb-time::before{content:'▶ ';color:var(--primary);margin-right:2px}
+.fdcb.state-ready .fdcb-seg{color:rgba(255,255,255,0.4)}
+.fdcb.state-ready .fdcb-prog{display:none}
+.fdcb.state-complete .fdcb-time{font-size:12px;color:var(--fdcb-complete);letter-spacing:0.08em;text-shadow:0 0 16px rgba(52,199,89,0.4)}
+.fdcb.state-complete .fdcb-time::before{content:'✓ ';font-weight:700}
+.fdcb.state-complete .fdcb-seg,
+.fdcb.state-complete .fdcb-prog{display:none}
+
+.fdcb-evts{
+  flex:0 0 auto;display:flex;align-items:center;gap:5px;
+  padding:8px 12px 8px 8px;margin:4px 4px 4px 2px;
+  border-radius:12px;cursor:pointer;transition:background 0.3s;
+}
+.fdcb-evts:active{background:rgba(255,255,255,0.04)}
+.fdcb-evts .dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--txt-dim);
+  transition:all 0.4s var(--ease-calm);
+}
+.fdcb-evts .dot.on{background:#fff;box-shadow:0 0 5px rgba(255,255,255,0.5)}
+.fdcb-evts .check{
+  width:22px;height:22px;border-radius:50%;
+  background:var(--good);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:#000;
+  box-shadow:0 0 10px rgba(52,199,89,0.45);
+}
+.fdcb-evts .check.empty{
+  background:transparent;color:rgba(255,255,255,0.35);
+  border:1.2px dashed rgba(255,255,255,0.2);box-shadow:none;
+}
+
+/* ═══════════════════════════════════════════════════
+   TAB BAR — bottom navigation
+   ═══════════════════════════════════════════════════ */
+.tabbar{
+  position:absolute;
+  left:0;right:0;bottom:0;
+  height:var(--tabbar-h);
+  background:var(--tabbar-bg);
+  backdrop-filter:blur(40px) saturate(160%);
+  -webkit-backdrop-filter:blur(40px) saturate(160%);
+  border-top:0.5px solid rgba(255,255,255,0.06);
+  display:flex;align-items:flex-start;justify-content:space-around;
+  padding:10px 4px 0;z-index:40;
+}
+.tabbar::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+}
+.tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  gap:3px;padding:4px 2px;cursor:pointer;
+  color:rgba(255,255,255,0.42);
+  transition:color 0.3s var(--ease-calm);
+  position:relative;
+  max-width:78px;
+}
+.tab .ic{
+  width:26px;height:26px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.3s var(--ease-calm);
+}
+.tab .ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tab .lbl{
+  font-size:10px;font-weight:500;letter-spacing:0.03em;
+  transition:all 0.3s;
+}
+.tab.active{color:var(--primary)}
+.tab.active .ic{
+  filter:drop-shadow(0 0 8px rgba(0,180,216,0.6))
+         drop-shadow(0 0 16px rgba(0,180,216,0.3));
+}
+.tab.active .ic svg{
+  stroke-width:2.4;
+}
+.tab.active .lbl{font-weight:700}
+.tab:active{transform:scale(0.92)}
+
+/* Active indicator — glowing dot */
+.tab::before{
+  content:'';position:absolute;top:2px;left:50%;transform:translateX(-50%);
+  width:22px;height:2px;border-radius:1px;
+  background:var(--primary);
+  opacity:0;transition:opacity 0.3s;
+  box-shadow:0 0 8px var(--primary);
+}
+.tab.active::before{opacity:1}
+
+/* Home indicator */
+.home{
+  position:absolute;bottom:6px;left:50%;transform:translateX(-50%);
+  width:134px;height:4px;border-radius:3px;
+  background:rgba(255,255,255,0.25);z-index:60;pointer-events:none;
+}
+
+/* ═══════════════════════════════════════════════════
+   TEMPLATE SHEET
+   ═══════════════════════════════════════════════════ */
+.sheet-backdrop{
+  position:absolute;inset:0;background:rgba(0,0,0,0.5);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  opacity:0;pointer-events:none;z-index:80;transition:opacity 0.4s;
+}
+.sheet-backdrop.open{opacity:1;pointer-events:auto}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;
+  background:rgba(28,28,30,0.96);
+  backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);
+  border-radius:28px 28px 0 0;
+  border-top:1px solid rgba(255,255,255,0.06);
+  padding:10px 20px 30px;z-index:81;
+  transform:translateY(100%);
+  transition:transform 0.5s var(--ease-calm);
+}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{width:42px;height:4px;border-radius:2px;background:rgba(255,255,255,0.25);margin:0 auto 18px}
+.sheet-title{font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:14px;text-align:center}
+.sheet-cat{font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin:16px 4px 8px}
+.tmpl-item{display:flex;align-items:center;gap:14px;padding:10px 12px;border-radius:14px;cursor:pointer;transition:background 0.2s}
+.tmpl-item:active{background:rgba(255,255,255,0.04)}
+.tmpl-item.selected{background:rgba(0,180,216,0.08)}
+.tmpl-item .ic{width:34px;height:34px;border-radius:10px;background:rgba(0,180,216,0.1);display:flex;align-items:center;justify-content:center;color:var(--primary)}
+.tmpl-item .ic svg{width:18px;height:18px}
+.tmpl-item .info{flex:1}
+.tmpl-item .nm{font-size:13px;font-weight:500;color:#fff;margin-bottom:2px}
+.tmpl-item .sub{font-size:11px;color:rgba(255,255,255,0.4)}
+.tmpl-item .dur{font-size:11px;color:rgba(255,255,255,0.5);font-variant-numeric:tabular-nums}
+.tmpl-item.selected .dur{color:var(--primary)}
+
+/* State pill (demo indicator) — hidden in v6 polished view */
+.state-pill{display:none}
+
+.ctrl{position:fixed;top:8px;right:8px;z-index:200;display:flex;gap:6px}
+.ctrl button{background:rgba(0,180,216,0.15);border:1px solid rgba(0,180,216,0.3);color:#fff;font-size:10px;padding:6px 10px;border-radius:8px;cursor:pointer;letter-spacing:0.08em;font-family:inherit;backdrop-filter:blur(20px)}
+.ctrl button:active{background:rgba(0,180,216,0.3)}
+/* On mobile, move ctrl below phone frame */
+@media (max-width:420px){.ctrl{display:none}}
+
+/* ═══════════════════════════════════════════════════
+   BASELINE BOOTSTRAP FLOW — full-screen takeover
+   Scoped under .baseline-flow — 8 visible states
+   ═══════════════════════════════════════════════════ */
+.baseline-flow{
+  position:absolute;inset:0;z-index:150;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 10%, rgba(0,180,216,0.05), transparent 60%),
+    radial-gradient(ellipse 70% 40% at 50% 90%, rgba(94,58,135,0.04), transparent 70%),
+    #000;
+  transform:translateY(100%);
+  transition:transform 0.5s var(--ease-calm);
+  overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.baseline-flow.open{transform:translateY(0)}
+
+.baseline-flow canvas.bf-stardust{position:absolute;inset:0;pointer-events:none;z-index:1}
+
+.baseline-flow .bf-close{
+  position:absolute;top:60px;left:16px;z-index:100;
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.08);
+  color:#fff;font-size:18px;cursor:pointer;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  transition:all 0.2s;
+}
+.baseline-flow .bf-close:active{background:rgba(255,255,255,0.12);transform:scale(0.92)}
+
+.baseline-flow .bf-state{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  padding:54px 0 0;z-index:10;
+  opacity:0;pointer-events:none;
+  transition:opacity 0.6s var(--ease-calm);
+}
+.baseline-flow .bf-state.active{opacity:1;pointer-events:auto}
+
+.baseline-flow .bf-glass{
+  background:rgba(28,28,30,0.55);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:22px;
+  backdrop-filter:blur(40px) saturate(140%);
+  -webkit-backdrop-filter:blur(40px) saturate(140%);
+  position:relative;overflow:hidden;
+}
+.baseline-flow .bf-glass::before{
+  content:'';position:absolute;top:0;left:10%;right:10%;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+}
+
+/* ─── INTRO ─── */
+.baseline-flow #bf-intro{justify-content:center;padding:54px 24px 40px}
+.baseline-flow .bf-hero-icon{
+  width:86px;height:86px;margin:0 auto 24px;border-radius:50%;
+  background:radial-gradient(circle, rgba(0,180,216,0.25) 0%, rgba(0,180,216,0.02) 70%);
+  display:flex;align-items:center;justify-content:center;position:relative;
+  animation:bfHeroBreathe 6s var(--ease-breath) infinite;
+}
+.baseline-flow .bf-hero-icon::before{
+  content:'';position:absolute;width:54px;height:54px;border-radius:50%;
+  background:radial-gradient(circle, rgba(0,180,216,0.9) 0%, rgba(0,180,216,0.3) 100%);
+  filter:blur(8px);
+}
+.baseline-flow .bf-hero-icon svg{width:36px;height:36px;color:#fff;z-index:2;position:relative}
+@keyframes bfHeroBreathe{
+  0%,100%{transform:scale(0.96);opacity:0.85}
+  50%{transform:scale(1.04);opacity:1}
+}
+.baseline-flow .bf-title-display{font-size:11px;letter-spacing:0.32em;text-transform:uppercase;color:var(--primary);text-align:center;margin-bottom:10px;font-weight:600}
+.baseline-flow .bf-title-hero{font-size:26px;font-weight:300;letter-spacing:-0.01em;text-align:center;color:#fff;margin-bottom:12px;line-height:1.2}
+.baseline-flow .bf-title-sub{font-size:13px;color:var(--txt-sec);text-align:center;line-height:1.6;max-width:300px;margin:0 auto 30px}
+
+.baseline-flow .bf-bullets{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+.baseline-flow .bf-bullet{
+  display:flex;align-items:center;gap:14px;
+  padding:12px 16px;border-radius:14px;
+  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);
+}
+.baseline-flow .bf-bullet .b-ic{
+  width:32px;height:32px;border-radius:10px;flex-shrink:0;
+  background:rgba(0,180,216,0.1);color:var(--primary);
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+}
+.baseline-flow .bf-bullet .b-txt{font-size:12px;color:rgba(255,255,255,0.82);line-height:1.4;flex:1}
+.baseline-flow .bf-bullet .b-txt b{color:#fff;font-weight:600}
+
+.baseline-flow .bf-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:14px;border-radius:14px;border:none;
+  font-size:14px;font-weight:600;letter-spacing:0.02em;
+  cursor:pointer;transition:all 0.3s var(--ease-calm);font-family:inherit;
+}
+.baseline-flow .bf-btn-primary{
+  background:linear-gradient(180deg, #00C4E8 0%, #00B4D8 100%);color:#001420;
+  box-shadow:0 10px 30px rgba(0,180,216,0.3), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+.baseline-flow .bf-btn-primary:active{transform:translateY(1px)}
+.baseline-flow .bf-btn-ghost{background:transparent;color:var(--txt-sec);margin-top:8px;padding:10px}
+.baseline-flow .bf-btn:disabled{opacity:0.4;pointer-events:none}
+
+/* ─── SENSOR_CHOICE ─── */
+.baseline-flow #bf-sensor{padding:84px 20px 32px}
+.baseline-flow .bf-head{text-align:center;margin-bottom:24px}
+.baseline-flow .bf-head h1{font-size:22px;font-weight:300;letter-spacing:-0.01em;margin-bottom:6px}
+.baseline-flow .bf-head .sub{font-size:12px;color:var(--txt-sec);line-height:1.5;max-width:280px;margin:0 auto}
+
+.baseline-flow .bf-sensor-opt{
+  padding:14px;margin-bottom:10px;
+  display:flex;align-items:center;gap:12px;
+  cursor:pointer;transition:all 0.3s var(--ease-calm);
+}
+.baseline-flow .bf-sensor-opt .ic{
+  width:42px;height:42px;border-radius:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.baseline-flow .bf-sensor-opt .info{flex:1;min-width:0}
+.baseline-flow .bf-sensor-opt .nm{font-size:14px;font-weight:600;color:#fff;margin-bottom:2px;display:flex;align-items:center;gap:8px}
+.baseline-flow .bf-sensor-opt .tag{font-size:8px;letter-spacing:0.2em;padding:2px 6px;background:rgba(0,180,216,0.15);color:var(--primary);border-radius:5px;text-transform:uppercase;font-weight:700}
+.baseline-flow .bf-sensor-opt .desc{font-size:11px;color:var(--txt-sec);line-height:1.4}
+.baseline-flow .bf-sensor-opt .arr{color:var(--txt-dim);font-size:16px;flex-shrink:0}
+.baseline-flow .bf-sensor-opt.recommended{border-color:rgba(0,180,216,0.25);background:linear-gradient(180deg, rgba(0,180,216,0.06), rgba(0,180,216,0.02))}
+.baseline-flow .bf-sensor-opt.recommended .ic{background:radial-gradient(circle, rgba(0,180,216,0.3) 0%, rgba(0,180,216,0.1) 100%);color:var(--primary);box-shadow:0 0 20px rgba(0,180,216,0.2)}
+.baseline-flow .bf-sensor-opt.standard .ic{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.7)}
+.baseline-flow .bf-sensor-opt.disabled{opacity:0.4;pointer-events:none}
+.baseline-flow .bf-sensor-opt.disabled .ic{background:rgba(142,142,147,0.08);color:var(--txt-sec)}
+.baseline-flow .bf-sensor-opt:active{transform:scale(0.98)}
+.baseline-flow .bf-sensor-opt .ic svg{width:22px;height:22px}
+
+/* ─── READINESS + READY ─── */
+.baseline-flow #bf-check,.baseline-flow #bf-ready{padding:64px 20px 28px}
+.baseline-flow .bf-cam{
+  position:relative;aspect-ratio:1/1.15;
+  width:100%;max-width:300px;margin:0 auto 14px;
+  border-radius:26px;overflow:hidden;
+  background:linear-gradient(180deg, #1a1218 0%, #0a0810 100%);
+  border:1px solid rgba(255,255,255,0.08);
+  box-shadow:inset 0 0 40px rgba(0,0,0,0.4);
+}
+.baseline-flow .bf-cam.covering::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 70% 80% at center, rgba(180,30,50,0.6) 0%, rgba(80,10,20,0.95) 70%, #0a0208 100%);
+}
+.baseline-flow .bf-finger-svg{position:absolute;inset:0;width:100%;height:100%;opacity:0.15;pointer-events:none}
+.baseline-flow .bf-finger-svg path{fill:none;stroke:rgba(255,255,255,0.25);stroke-width:1.2;stroke-dasharray:4 3}
+.baseline-flow .bf-roi{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:110px;height:110px;pointer-events:none}
+.baseline-flow .bf-roi::before,.baseline-flow .bf-roi::after{content:'';position:absolute;inset:0;border-radius:50%}
+.baseline-flow .bf-roi::before{border:1px solid rgba(0,180,216,0.5);animation:bfRoiPulse 3s ease-in-out infinite}
+.baseline-flow .bf-roi::after{border:1px solid rgba(0,180,216,0.2);animation:bfRoiPulse 3s ease-in-out infinite 1.5s}
+@keyframes bfRoiPulse{
+  0%,100%{transform:scale(0.9);opacity:0.7}
+  50%{transform:scale(1.1);opacity:0.3}
+}
+.baseline-flow .bf-pill{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  padding:5px 12px;border-radius:16px;
+  font-size:9px;letter-spacing:0.24em;text-transform:uppercase;font-weight:700;
+  backdrop-filter:blur(20px);background:rgba(0,0,0,0.5);
+  border:1px solid rgba(255,255,255,0.1);color:#fff;
+  display:flex;align-items:center;gap:6px;z-index:3;
+}
+.baseline-flow .bf-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--warn);box-shadow:0 0 8px var(--warn);animation:bfBlink 1.4s infinite}
+.baseline-flow .bf-pill.stabilizing{background:rgba(0,180,216,0.12);border-color:rgba(0,180,216,0.3)}
+.baseline-flow .bf-pill.stabilizing::before{background:var(--primary);box-shadow:0 0 8px var(--primary)}
+.baseline-flow .bf-pill.ready{background:rgba(52,199,89,0.18);border-color:rgba(52,199,89,0.45);color:var(--good)}
+.baseline-flow .bf-pill.ready::before{background:var(--good);box-shadow:0 0 10px var(--good);animation:none}
+@keyframes bfBlink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+.baseline-flow .bf-checks{padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.baseline-flow .bf-chk{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--txt-sec);transition:color 0.4s}
+.baseline-flow .bf-chk.done{color:#fff}
+.baseline-flow .bf-chk.active{color:var(--primary)}
+.baseline-flow .bf-chk .ic{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;transition:all 0.4s var(--ease-calm)}
+.baseline-flow .bf-chk.done .ic{background:var(--good);border-color:var(--good);color:#000}
+.baseline-flow .bf-chk.active .ic{border-color:var(--primary);color:var(--primary);animation:bfSpin 1.2s linear infinite}
+@keyframes bfSpin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+
+.baseline-flow .bf-meters{padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.baseline-flow .bf-meter{display:flex;align-items:center;gap:12px}
+.baseline-flow .bf-meter .lbl{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--txt-sec);width:58px;flex-shrink:0;font-weight:600}
+.baseline-flow .bf-meter .bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.05);overflow:hidden}
+.baseline-flow .bf-meter .fill{height:100%;border-radius:2px;background:linear-gradient(90deg, var(--warn), var(--good));transition:width 1.2s var(--ease-calm)}
+.baseline-flow .bf-meter .val{font-size:11px;color:#fff;font-variant-numeric:tabular-nums;width:32px;text-align:right;font-weight:600}
+
+.baseline-flow .bf-hint{text-align:center;font-size:11px;color:var(--txt-sec);line-height:1.5;margin:4px 0 12px;padding:0 12px;transition:color 0.5s}
+.baseline-flow #bf-ready .bf-hint{color:var(--good)}
+.baseline-flow .bf-auto-cd{display:flex;align-items:center;justify-content:center;gap:8px;font-size:10px;color:var(--txt-sec);margin-top:8px;letter-spacing:0.1em}
+.baseline-flow .bf-auto-cd .num{color:var(--good);font-weight:700;font-variant-numeric:tabular-nums}
+
+/* ─── SCANNING ─── */
+.baseline-flow #bf-scan{
+  padding:0;justify-content:center;align-items:center;
+  background:radial-gradient(circle at 50% 45%, rgba(20,5,30,0.3), #000 70%);
+}
+.baseline-flow .bf-scan-stage{
+  position:relative;width:100%;height:100%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:80px 24px 40px;
+}
+.baseline-flow .bf-energy{position:relative;width:260px;height:260px;display:flex;align-items:center;justify-content:center}
+.baseline-flow .bf-energy canvas{position:absolute;inset:0;width:100%;height:100%}
+.baseline-flow .bf-finger-glow{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:130px;height:160px;
+  background:radial-gradient(ellipse 50% 60% at center, rgba(180,30,50,0.8) 0%, rgba(140,20,40,0.5) 40%, transparent 70%);
+  border-radius:50%;filter:blur(18px);
+  animation:bfFingerPulse 1s ease-in-out infinite;
+}
+@keyframes bfFingerPulse{
+  0%,100%{transform:translate(-50%,-50%) scale(1);opacity:0.7}
+  50%{transform:translate(-50%,-50%) scale(1.12);opacity:1}
+}
+.baseline-flow .bf-countdown{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-size:60px;font-weight:100;color:#fff;
+  font-variant-numeric:tabular-nums;letter-spacing:-0.04em;line-height:1;
+  text-shadow:0 0 30px rgba(0,180,216,0.4);z-index:3;
+}
+.baseline-flow .bf-quality-pill{
+  position:absolute;top:76px;left:50%;transform:translateX(-50%);
+  padding:6px 14px;border-radius:18px;
+  font-size:10px;letter-spacing:0.28em;text-transform:uppercase;font-weight:700;
+  backdrop-filter:blur(24px);background:rgba(52,199,89,0.15);
+  border:1px solid rgba(52,199,89,0.4);color:var(--good);
+  display:flex;align-items:center;gap:8px;z-index:4;
+}
+.baseline-flow .bf-quality-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--good);box-shadow:0 0 10px var(--good);animation:dotPulse 1.8s infinite}
+
+.baseline-flow .bf-scan-msg{margin-top:28px;text-align:center;z-index:4}
+.baseline-flow .bf-scan-msg .headline{font-size:18px;font-weight:300;color:#fff;margin-bottom:6px;letter-spacing:-0.01em}
+.baseline-flow .bf-scan-msg .sub{font-size:12px;color:var(--txt-sec);letter-spacing:0.05em;line-height:1.5}
+
+.baseline-flow .bf-ppg{position:absolute;bottom:120px;left:24px;right:24px;height:36px;border-radius:8px;overflow:hidden;z-index:4}
+.baseline-flow .bf-ppg svg{width:100%;height:100%}
+.baseline-flow .bf-ppg path{fill:none;stroke:var(--primary);stroke-width:1.5;filter:drop-shadow(0 0 3px rgba(0,180,216,0.6))}
+
+.baseline-flow .bf-live-stats{
+  position:absolute;bottom:40px;left:24px;right:24px;
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;z-index:4;
+}
+.baseline-flow .bf-stat{
+  padding:9px 12px;border-radius:12px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.06);
+  backdrop-filter:blur(20px);text-align:center;
+}
+.baseline-flow .bf-stat .lbl{font-size:8px;letter-spacing:0.18em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:3px;font-weight:600}
+.baseline-flow .bf-stat .val{font-size:16px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+.baseline-flow .bf-stat .u{font-size:8px;color:var(--txt-sec);margin-left:2px}
+
+.baseline-flow .bf-early{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  z-index:20;opacity:0;pointer-events:none;transition:opacity 0.5s;
+}
+.baseline-flow .bf-early.show{opacity:1}
+.baseline-flow .bf-early .ring{
+  position:absolute;width:220px;height:220px;border-radius:50%;
+  border:2px solid var(--good);
+  animation:bfRingExpand 1.4s var(--ease-calm) infinite;
+  filter:drop-shadow(0 0 20px var(--good));
+}
+.baseline-flow .bf-early .ring.d{animation-delay:0.5s}
+@keyframes bfRingExpand{
+  0%{transform:scale(0.5);opacity:1}
+  100%{transform:scale(1.6);opacity:0}
+}
+.baseline-flow .bf-early .msg{text-align:center;z-index:5}
+.baseline-flow .bf-early .big{font-size:34px;font-weight:200;color:var(--good);margin-bottom:6px;text-shadow:0 0 24px rgba(52,199,89,0.5)}
+.baseline-flow .bf-early .lbl{font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:var(--good)}
+
+.baseline-flow .bf-burst{
+  position:absolute;inset:0;
+  background:radial-gradient(circle, rgba(255,220,140,0.9) 0%, rgba(255,180,100,0.4) 30%, transparent 70%);
+  opacity:0;pointer-events:none;z-index:30;
+}
+.baseline-flow .bf-burst.active{animation:bfBurst 1.6s var(--ease-calm) forwards}
+@keyframes bfBurst{
+  0%{opacity:0;transform:scale(0.4)}
+  40%{opacity:1;transform:scale(1.1)}
+  100%{opacity:0;transform:scale(1.6)}
+}
+
+/* ─── ANALYZING ─── */
+.baseline-flow #bf-analyze{padding:54px 24px 32px;justify-content:center}
+.baseline-flow .bf-analyze-card{padding:28px 22px}
+.baseline-flow .bf-analyze-title{font-size:20px;font-weight:300;color:#fff;text-align:center;margin-bottom:6px;letter-spacing:-0.01em}
+.baseline-flow .bf-analyze-sub{font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--primary);text-align:center;margin-bottom:24px;font-weight:600}
+.baseline-flow .bf-analyze-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+.baseline-flow .bf-analyze-item:last-child{border-bottom:none}
+.baseline-flow .bf-analyze-item .ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;background:rgba(255,255,255,0.04);transition:all 0.4s}
+.baseline-flow .bf-analyze-item .info{flex:1;min-width:0}
+.baseline-flow .bf-analyze-item .nm{font-size:13px;color:#fff;margin-bottom:2px;font-weight:500}
+.baseline-flow .bf-analyze-item .st{font-size:10px;color:var(--txt-sec)}
+.baseline-flow .bf-analyze-item .val{font-size:16px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;opacity:0;transform:translateX(8px);transition:all 0.5s var(--ease-calm)}
+.baseline-flow .bf-analyze-item .val .u{font-size:9px;color:var(--txt-sec);margin-left:2px}
+.baseline-flow .bf-analyze-item.processing .ic{background:rgba(0,180,216,0.15);animation:bfSpin 1.2s linear infinite}
+.baseline-flow .bf-analyze-item.done .ic{background:rgba(52,199,89,0.2);color:var(--good)}
+.baseline-flow .bf-analyze-item.done .st{color:var(--good)}
+.baseline-flow .bf-analyze-item.done .val{opacity:1;transform:translateX(0)}
+
+/* ─── COMPLETED ─── */
+.baseline-flow #bf-done{padding:54px 24px 32px;justify-content:center}
+.baseline-flow .bf-done-hero{
+  width:100px;height:100px;margin:0 auto 24px;border-radius:50%;
+  background:radial-gradient(circle, rgba(52,199,89,0.35) 0%, rgba(52,199,89,0.05) 70%, transparent 100%);
+  display:flex;align-items:center;justify-content:center;position:relative;
+  animation:bfDoneBreathe 4s ease-in-out infinite;
+}
+.baseline-flow .bf-done-hero::before{content:'';position:absolute;width:66px;height:66px;border-radius:50%;background:radial-gradient(circle, var(--good) 0%, rgba(52,199,89,0.6) 100%);filter:blur(12px)}
+.baseline-flow .bf-done-hero svg{width:38px;height:38px;color:#fff;z-index:2;position:relative}
+@keyframes bfDoneBreathe{
+  0%,100%{transform:scale(0.96)}
+  50%{transform:scale(1.04)}
+}
+.baseline-flow .bf-done-title{font-size:26px;font-weight:300;color:#fff;text-align:center;margin-bottom:6px;letter-spacing:-0.01em}
+.baseline-flow .bf-done-sub{font-size:12px;color:var(--txt-sec);text-align:center;margin-bottom:28px;line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto}
+.baseline-flow .bf-done-sub b{color:#fff}
+
+.baseline-flow .bf-summary{padding:16px 18px;margin-bottom:18px}
+.baseline-flow .bf-summary-head{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:12px;text-align:center;font-weight:600}
+.baseline-flow .bf-summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.baseline-flow .bf-summary-cell{text-align:center}
+.baseline-flow .bf-summary-cell .u{font-size:9px;color:var(--txt-sec);margin-left:2px;letter-spacing:0.1em}
+.baseline-flow .bf-summary-cell .lbl{font-size:8px;letter-spacing:0.2em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:5px;font-weight:600}
+.baseline-flow .bf-summary-cell .val{font-size:20px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+
+.baseline-flow .bf-accuracy{text-align:center;font-size:11px;color:var(--primary);margin-bottom:22px;letter-spacing:0.05em}
+.baseline-flow .bf-accuracy .ic{margin-right:6px}
+
+/* ─── Demo nav for baseline flow ─── */
+.baseline-flow .bf-demo-nav{
+  position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+  display:flex;gap:5px;flex-wrap:wrap;max-width:340px;
+  padding:7px 9px;border-radius:12px;
+  background:rgba(0,0,0,0.8);backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,0.1);
+  z-index:100;justify-content:center;
+}
+.baseline-flow .bf-demo-nav button{
+  background:rgba(0,180,216,0.15);border:1px solid rgba(0,180,216,0.3);
+  color:#fff;font-size:9px;padding:4px 8px;border-radius:6px;
+  cursor:pointer;letter-spacing:0.04em;font-family:inherit;font-weight:600;text-transform:uppercase;
+}
+.baseline-flow .bf-demo-nav button.active,
+.baseline-flow .bf-demo-nav button:active{background:rgba(0,180,216,0.4);border-color:var(--primary)}
+.baseline-flow .bf-demo-nav .auto{background:rgba(245,166,35,0.15);border-color:rgba(245,166,35,0.3)}
+.baseline-flow .bf-demo-nav .auto.active,
+.baseline-flow .bf-demo-nav .auto:active{background:rgba(245,166,35,0.4)}
+</style>
+    <!-- TENKI Core Brand v1.0 — favicon + Open Graph -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon/apple-touch-icon-180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/brand/favicon/android-chrome-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/brand/favicon/android-chrome-512.png">
+    <meta property="og:title" content="TENKI Core">
+    <meta property="og:description" content="Read your inner weather. Find your turning point.">
+    <meta property="og:image" content="https://tenki-emotion-app.vercel.app/brand/marketing/og-card-1200x630.png">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tenki-emotion-app.vercel.app">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="TENKI Core">
+    <meta name="twitter:description" content="Read your inner weather. Find your turning point.">
+    <meta name="twitter:image" content="https://tenki-emotion-app.vercel.app/brand/marketing/og-card-1200x630.png">
+    <meta name="theme-color" content="#0A1628">
+</head>
+<body>
+
+<div class="ctrl">
+  <button onclick="cycleDemo()">↻ Cycle FDCB</button>
+</div>
+
+<div class="phone">
+  <div class="state-pill" id="statePill">Edge Score · OPTIMAL</div>
+
+  <div class="screens">
+
+    <!-- ═══════ TODAY ═══════ -->
+    <div class="screen active" id="today-screen">
+      <div class="scan-header">
+        <div class="scan-badge">
+          <span class="spark">✦</span>
+          <span>DEEP SCAN · 60s</span>
+        </div>
+        <div class="source-toggle">
+          <div class="src active" onclick="selectSource(this)">
+            <span class="ic">⌚</span>
+            <span>Garmin Forerunner</span>
+          </div>
+          <div class="src" onclick="selectSource(this)">
+            <span class="ic">📷</span>
+            <span>rPPG 眉心</span>
+          </div>
+        </div>
+      </div>
+
+      <section class="hero">
+        <canvas class="stardust" id="stardust"></canvas>
+        <div class="nebula"></div>
+        <div class="tl-tei-wrap">
+          <div class="tl-tei">
+            <div class="ring-outer-wrap"></div>
+            <div class="ring-inner-wrap"></div>
+            <div class="ring-dot outer"></div>
+            <div class="ring-dot inner"></div>
+            <!-- Legacy SVG kept for drift compatibility, hidden -->
+            <svg viewBox="0 0 220 220" aria-hidden="true">
+              <circle class="ring-outer" id="ringOuter" cx="110" cy="110" r="100"/>
+              <circle class="ring-inner" id="ringInner" cx="110" cy="110" r="84"/>
+            </svg>
+            <div class="tl-tei-center">
+              <div class="tl-tei-score" id="tlTlTlTeiScore">72</div>
+              <div class="tl-tei-pr">Edge Score</div>
+              <div class="tl-tei-zone" id="tlTlTlTeiZone">Decision Edge · Optimal</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="snap">
+        <!-- Coach hint card -->
+        <div class="coach-card">
+          <div class="coach-text">保持專注，信任你的策略判斷，目前的生理狀態顯示你已處於最佳交易區間。</div>
+        </div>
+
+        <!-- Metric row 1: HR + HRV -->
+        <div class="row">
+          <div class="card metric">
+            <div class="metric-head">
+              <div class="metric-title">Heart Rate</div>
+              <div class="metric-status sync">Garmin Sync</div>
+            </div>
+            <div class="metric-body">
+              <div class="metric-num"><span class="val">68</span><span class="unit">BPM</span></div>
+              <canvas class="live-wave" id="hrWave" width="144" height="64"></canvas>
+            </div>
+          </div>
+          <div class="card metric">
+            <div class="metric-head">
+              <div class="metric-title">HRV</div>
+              <div class="metric-status balanced">Balanced</div>
+            </div>
+            <div class="metric-body">
+              <div class="metric-num"><span class="val">52</span><span class="unit stack"><span>ms</span><span>RMSSD</span></span></div>
+              <canvas class="live-wave" id="hrvWave" width="144" height="64"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric row 2: Respiratory + Stress -->
+        <div class="row">
+          <div class="card metric">
+            <div class="metric-head">
+              <div class="metric-title">Respiratory</div>
+            </div>
+            <div class="metric-body">
+              <div class="metric-num"><span class="val">14</span><span class="unit">BrPM</span></div>
+              <canvas class="live-wave" id="rrWave" width="144" height="64"></canvas>
+            </div>
+          </div>
+          <div class="card metric">
+            <div class="metric-head">
+              <div class="metric-title">Stress</div>
+              <div class="stress-pct">25%</div>
+            </div>
+            <div class="metric-body" style="flex-direction:column;align-items:stretch;gap:10px">
+              <div class="metric-num">
+                <span class="val">25</span>
+                <span class="slash">/</span>
+                <span class="sub">100</span>
+              </div>
+              <div class="stress-bar">
+                <div class="seg on"></div>
+                <div class="seg on"></div>
+                <div class="seg on" style="opacity:0.55"></div>
+                <div class="seg"></div>
+                <div class="seg"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Body Battery + ANS Balance combined -->
+        <div class="card bb-card">
+          <div class="bb-head">
+            <div class="bb-title">Body Battery</div>
+            <div class="bb-val-wrap">
+              <span class="bb-val">78</span>
+              <span class="bb-slash">/</span>
+              <span class="bb-unit">100</span>
+            </div>
+          </div>
+          <div class="bb-bars" id="bbBars"></div>
+
+          <div class="ans-section">
+            <div class="ans-title">ANS Balance</div>
+            <div class="ans-bar">
+              <div class="sns-fill" style="width:38%"></div>
+              <div class="pns-fill" style="width:62%"></div>
+            </div>
+            <div class="ans-legend">
+              <span class="sns-pct">38%</span>
+              <div class="labels">
+                <span class="sns-lbl">SNS</span>
+                <span class="pns-lbl">PNS</span>
+              </div>
+              <span class="pns-pct">62%</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:8px"></div>
+      </section>
+    </div>
+
+    <!-- ═══════ SCAN ═══════ -->
+    <div class="screen" id="scan-screen">
+      <div class="screen-header">
+        <div class="screen-title">Scan</div>
+        <div class="screen-date">Ready</div>
+      </div>
+      <div class="scan-hero">
+        <div class="scan-last">
+          <div class="score">72</div>
+          <div class="meta">
+            <div class="lbl">Last Scan</div>
+            <div class="time">34 min ago · Optimal</div>
+          </div>
+        </div>
+
+        <button class="scan-button" onclick="goTab('today')">
+          <span class="txt">Tap to Scan</span>
+        </button>
+
+        <div class="scan-options">
+          <div class="opt">15s</div>
+          <div class="opt active">30s</div>
+          <div class="opt">60s</div>
+        </div>
+        <div class="scan-hint">手指覆蓋後鏡頭<br>或面對前鏡頭保持靜止</div>
+      </div>
+    </div>
+
+    <!-- ═══════ SESSION ═══════ -->
+    <div class="screen" id="session-screen">
+      <div class="screen-header">
+        <div class="screen-title">Session</div>
+        <div class="screen-date">Today · 4 Sessions</div>
+      </div>
+      <div class="session-body">
+        <div class="session-stats">
+          <div class="cell">
+            <div class="val good">62%</div>
+            <div class="lbl">Win Rate</div>
+          </div>
+          <div class="cell">
+            <div class="val">73</div>
+            <div class="lbl">Avg Edge Score</div>
+          </div>
+          <div class="cell">
+            <div class="val">2.1<span style="font-size:11px;color:var(--txt-sec)">m</span></div>
+            <div class="lbl">Avg Entry</div>
+          </div>
+        </div>
+
+        <div class="insight-card">
+          <div class="head"><span>📊</span> Decision Insight</div>
+          <div class="body">在 <b>Edge Score 70–75</b> 時，你通常在 <b>90–150 秒</b> 內進場<br>勝率 <b>62%</b> · 採樣 47 次</div>
+        </div>
+
+        <div class="session-section">Today's Sessions</div>
+
+        <div class="session-item" onclick="openSessionDetail('s1')">
+          <div class="tmpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg></div>
+          <div class="info">
+            <div class="nm">Mancini FBD</div>
+            <div class="meta"><span>14:38</span><span class="sep">·</span><span>Edge Score 75 → 73</span><span class="sep">·</span><span>2:47</span></div>
+          </div>
+          <div class="result win">Win</div>
+          <div class="chevron">›</div>
+        </div>
+
+        <div class="session-item" onclick="openSessionDetail('s2')">
+          <div class="tmpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg></div>
+          <div class="info">
+            <div class="nm">Canslim GS</div>
+            <div class="meta"><span>11:22</span><span class="sep">·</span><span>Edge Score 68 → 71</span><span class="sep">·</span><span>4:12</span></div>
+          </div>
+          <div class="result breakeven">BE</div>
+          <div class="chevron">›</div>
+        </div>
+
+        <div class="session-item neut" onclick="openSessionDetail('s3')">
+          <div class="tmpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18L12 6L16 12L20 4"/><path d="M16 4H20V8"/></svg></div>
+          <div class="info">
+            <div class="nm">Canslim High RS</div>
+            <div class="meta"><span>10:08</span><span class="sep">·</span><span>Edge Score 62</span><span class="sep">·</span><span>1:34</span></div>
+          </div>
+          <div class="result no_trade">Skip</div>
+          <div class="chevron">›</div>
+        </div>
+
+        <div class="session-item loss" onclick="openSessionDetail('s4')">
+          <div class="tmpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg></div>
+          <div class="info">
+            <div class="nm">Mancini FBD</div>
+            <div class="meta"><span>09:41</span><span class="sep">·</span><span>Edge Score 82 → 79</span><span class="sep">·</span><span>3:01</span></div>
+          </div>
+          <div class="result loss">Loss</div>
+          <div class="chevron">›</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ TIMELINE ═══════ -->
+    <div class="screen" id="timeline-screen">
+      <div class="screen-header">
+        <div class="screen-title">Timeline</div>
+        <div class="screen-date">Edge Score · ANS · Events</div>
+      </div>
+      <div class="timeline-body">
+        <div class="date-switch">
+          <div class="arr">‹</div>
+          <div class="mid">
+            <div class="day">Apr 19, 2026</div>
+            <div class="sub">Sunday · Today</div>
+          </div>
+          <div class="arr">›</div>
+        </div>
+
+        <div class="card tl-tei-chart-card">
+          <div class="head">
+            <div class="ttl">Edge Score · 24H</div>
+            <div class="avg"><b>73</b>avg</div>
+          </div>
+          <div class="tl-tei-chart">
+            <svg viewBox="0 0 320 120" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="tlTlTlTeiArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#00B4D8" stop-opacity="0.35"/>
+                  <stop offset="100%" stop-color="#00B4D8" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <!-- zones -->
+              <rect class="zone-peak" x="0" y="0" width="320" height="24"/>
+              <rect class="zone-optimal" x="0" y="24" width="320" height="30"/>
+              <!-- grid -->
+              <g class="grid">
+                <line x1="0" y1="24" x2="320" y2="24"/>
+                <line x1="0" y1="54" x2="320" y2="54"/>
+                <line x1="0" y1="84" x2="320" y2="84"/>
+              </g>
+              <!-- y labels -->
+              <text class="axis" x="4" y="18">90</text>
+              <text class="axis" x="4" y="48">70</text>
+              <text class="axis" x="4" y="78">50</text>
+              <text class="axis" x="4" y="108">30</text>
+              <!-- Edge Score line -->
+              <path class="area" d="M0,90 L20,85 L40,70 L60,60 L80,52 L100,50 L120,45 L140,40 L160,48 L180,56 L200,42 L220,35 L240,48 L260,60 L280,55 L300,50 L320,55 L320,120 L0,120 Z"/>
+              <path class="line" d="M0,90 L20,85 L40,70 L60,60 L80,52 L100,50 L120,45 L140,40 L160,48 L180,56 L200,42 L220,35 L240,48 L260,60 L280,55 L300,50 L320,55"/>
+              <!-- event dots (session entries) -->
+              <circle class="evt-dot" cx="100" cy="50" r="3.5"/>
+              <circle class="evt-dot" cx="160" cy="48" r="3.5"/>
+              <circle class="evt-dot loss" cx="220" cy="35" r="3.5"/>
+              <circle class="evt-dot" cx="280" cy="55" r="3.5"/>
+              <!-- x labels -->
+              <text class="axis" x="30" y="116">6am</text>
+              <text class="axis" x="100" y="116">10am</text>
+              <text class="axis" x="160" y="116">2pm</text>
+              <text class="axis" x="220" y="116">6pm</text>
+              <text class="axis" x="280" y="116">10pm</text>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card timeline-events-card">
+          <div class="head">Event Log</div>
+          <div class="tl-event">
+            <div class="time">14:38</div>
+            <div class="dot entry"></div>
+            <div class="desc">Mancini FBD · Entry</div>
+            <div class="tl-tei">Edge Score 75</div>
+          </div>
+          <div class="tl-event">
+            <div class="time">11:22</div>
+            <div class="dot entry"></div>
+            <div class="desc">Canslim GS · Entry</div>
+            <div class="tl-tei">Edge Score 68</div>
+          </div>
+          <div class="tl-event">
+            <div class="time">10:08</div>
+            <div class="dot cancel"></div>
+            <div class="desc">Canslim High RS · No Trade</div>
+            <div class="tl-tei">Edge Score 62</div>
+          </div>
+          <div class="tl-event">
+            <div class="time">09:41</div>
+            <div class="dot entry"></div>
+            <div class="desc">Mancini FBD · Entry</div>
+            <div class="tl-tei">Edge Score 82</div>
+          </div>
+          <div class="tl-event">
+            <div class="time">08:15</div>
+            <div class="dot scan"></div>
+            <div class="desc">Morning Scan</div>
+            <div class="tl-tei">Edge Score 71</div>
+          </div>
+          <div class="tl-event">
+            <div class="time">07:02</div>
+            <div class="dot scan"></div>
+            <div class="desc">Baseline Refresh</div>
+            <div class="tl-tei">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ LAB ═══════ -->
+    <div class="screen" id="lab-screen">
+      <div class="screen-header">
+        <div class="screen-title">Lab</div>
+        <div class="screen-date">Advanced · Beta</div>
+      </div>
+      <div class="lab-body">
+        <div class="lab-grid">
+          <div class="lab-item featured" onclick="openBaseline()">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="14" rx="2"/><circle cx="12" cy="10" r="2"/><path d="M12 17v4M9 21h6"/></svg></div>
+            <div class="nm">Baseline</div>
+            <div class="sub">HR 68 · HRV 52 · RR 14<br>重新校準或檢視</div>
+          </div>
+          <div class="lab-item">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="5" width="10" height="16" rx="2"/><circle cx="12" cy="17" r="1"/><path d="M9 9h6"/></svg></div>
+            <div class="nm">穿戴裝置</div>
+            <div class="sub">整合 Apple Watch<br>BLE 胸帶 / Garmin</div>
+          </div>
+          <div class="lab-item beta">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 002 3h12a2 2 0 002-3l-5-9V3"/><path d="M7 3h10"/></svg></div>
+            <div class="nm">Edge Score Bucket</div>
+            <div class="sub">按區間分析<br>你的決策統計</div>
+          </div>
+          <div class="lab-item">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg></div>
+            <div class="nm">模板自訂</div>
+            <div class="sub">建立個人化<br>決策模板</div>
+          </div>
+          <div class="lab-item">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
+            <div class="nm">CSV 匯出</div>
+            <div class="sub">下載原始數據<br>供進階分析</div>
+          </div>
+          <div class="lab-item beta">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+            <div class="nm">交易行事曆</div>
+            <div class="sub">同步市場時段<br>預排 session</div>
+          </div>
+        </div>
+
+        <div class="lab-wide">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.6 7.2L22 10l-5.8 4.4L18 22l-6-4-6 4 1.8-7.6L2 10l7.4-.8z"/></svg></div>
+          <div class="info">
+            <div class="nm">升級到 Pro</div>
+            <div class="sub">解鎖完整 FDCB · 無限掃描 · 藍牙整合</div>
+          </div>
+          <div style="color:var(--txt-sec);font-size:18px">›</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════ SESSION DETAIL (slide-in modal) ═══════ -->
+  <div class="session-detail" id="sessionDetail">
+    <div class="sd-header">
+      <div class="sd-back" onclick="closeSessionDetail()">‹</div>
+      <div class="sd-title-wrap">
+        <div class="sd-title" id="sdTitle">Mancini FBD</div>
+        <div class="sd-subtitle" id="sdSubtitle">APR 19 · 14:38 · 2:47 DURATION</div>
+      </div>
+      <div class="sd-result" id="sdResult">Win</div>
+    </div>
+
+    <div class="sd-body">
+
+      <!-- Hero: Edge Score start/end/delta -->
+      <div class="card sd-hero">
+        <div class="sd-hero-cell">
+          <div class="lbl">Start Edge Score</div>
+          <div class="val" id="sdTlTlTeiStart">75</div>
+          <div class="sub">Optimal Zone</div>
+        </div>
+        <div class="sd-hero-arrow">→</div>
+        <div class="sd-hero-cell">
+          <div class="lbl">End Edge Score</div>
+          <div class="val" id="sdTlTlTeiEnd">73</div>
+          <div class="sd-hero-delta down" id="sdTlTlTeiDelta">−2 PR</div>
+        </div>
+      </div>
+
+      <!-- Edge Score trace chart -->
+      <div class="card sd-trace-card">
+        <div class="sd-trace-head">
+          <div class="sd-trace-ttl">Edge Score Trace · Events</div>
+          <div class="sd-trace-dur" id="sdTraceDur">3:00</div>
+        </div>
+        <div class="sd-trace">
+          <svg viewBox="0 0 320 140" preserveAspectRatio="none" id="sdTraceSvg">
+            <defs>
+              <linearGradient id="sdArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#00B4D8" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#00B4D8" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <g id="sdTraceContent"></g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Event timeline -->
+      <div class="card sd-events-card">
+        <div class="sd-events-head">Decision Events</div>
+        <div id="sdEvents"></div>
+      </div>
+
+      <!-- Bio comparison -->
+      <div class="card sd-bio-card">
+        <div class="sd-bio-head">Biometric Shift</div>
+        <div class="sd-bio-grid">
+          <div class="sd-bio-col">
+            <div class="sd-bio-item">
+              <div class="sd-bio-lbl">Start HR</div>
+              <div class="sd-bio-val"><span id="sdHrStart">70</span><span class="u">bpm</span></div>
+            </div>
+            <div class="sd-bio-item">
+              <div class="sd-bio-lbl">Start HRV</div>
+              <div class="sd-bio-val"><span id="sdHrvStart">52</span><span class="u">ms</span></div>
+            </div>
+            <div class="sd-bio-item">
+              <div class="sd-bio-lbl">Start RR</div>
+              <div class="sd-bio-val"><span id="sdRrStart">14</span><span class="u">bpm</span></div>
+            </div>
+          </div>
+          <div class="sd-bio-arrows"><span>→</span><span>→</span><span>→</span></div>
+          <div class="sd-bio-col end">
+            <div class="sd-bio-item">
+              <div class="sd-bio-lbl">End HR</div>
+              <div class="sd-bio-val"><span class="u">bpm</span><span id="sdHrEnd">78</span></div>
+            </div>
+            <div class="sd-bio-item">
+              <div class="sd-bio-lbl">End HRV</div>
+              <div class="sd-bio-val"><span class="u">ms</span><span id="sdHrvEnd">44</span></div>
+            </div>
+            <div class="sd-bio-item">
+              <div class="sd-bio-lbl">End RR</div>
+              <div class="sd-bio-val"><span class="u">bpm</span><span id="sdRrEnd">16</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Learning insight -->
+      <div class="sd-insight">
+        <div class="ic">📊</div>
+        <div class="body">
+          <div class="head">Pattern Insight</div>
+          <span id="sdInsight">在 <b>Edge Score 75–80</b> 的 Mancini FBD 你的勝率是 <b>58%</b> — 略高於整體平均 <b>52%</b>，但 HR 在執行期間上升 <b>+8 bpm</b> 表示交感神經已活化</span>
+        </div>
+      </div>
+
+      <!-- Reflection -->
+      <div class="sd-reflect-card">
+        <div class="sd-reflect-head"><span>✎</span> Your Reflection</div>
+        <div class="sd-reflect-prompt">這次決策的清晰度如何？當下你觀察到什麼？</div>
+        <div class="sd-reflect-clarity">
+          <span class="lbl">Decision Clarity</span>
+          <div class="sd-clarity-dots" id="sdClarity">
+            <div class="d" data-v="1" onclick="setClarity(1)"></div>
+            <div class="d" data-v="2" onclick="setClarity(2)"></div>
+            <div class="d on" data-v="3" onclick="setClarity(3)"></div>
+            <div class="d on" data-v="4" onclick="setClarity(4)"></div>
+            <div class="d" data-v="5" onclick="setClarity(5)"></div>
+          </div>
+        </div>
+        <textarea class="sd-reflect-input" placeholder="例：FBD 訊號清楚，但我在 Lock 期間有想按 Entry 的衝動⋯⋯" id="sdReflection"></textarea>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════ FDCB (floating above tab bar) ═══════ -->
+  <div class="fdcb state-idle" id="fdcb">
+    <div class="fdcb-tmpl" onclick="openSheet()">
+      <div class="ic" id="fdcbIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg>
+      </div>
+      <div class="fdcb-tmpl-txt">
+        <div class="fdcb-tmpl-name" id="fdcbName">Canslim GS</div>
+        <div class="fdcb-tmpl-dur" id="fdcbDur">5:00 ▾</div>
+      </div>
+    </div>
+    <div class="fdcb-core" onclick="nextState()">
+      <div class="fdcb-time" id="fdcbTime">Start Decision</div>
+      <div class="fdcb-seg" id="fdcbSeg">Observe</div>
+      <div class="fdcb-prog">
+        <div class="seg-obs" style="width:20%"></div>
+        <div class="seg-sweet" style="width:40%"></div>
+        <div class="seg-ext" style="width:40%"></div>
+      </div>
+    </div>
+    <div class="fdcb-evts" onclick="logEvent()">
+      <div class="dot on"></div>
+      <div class="dot on"></div>
+      <div class="check empty">+</div>
+      <div class="dot"></div>
+    </div>
+  </div>
+
+  <!-- ═══════ TAB BAR ═══════ -->
+  <nav class="tabbar" id="tabbar">
+    <div class="tab active" data-tab="today" onclick="goTab('today')">
+      <div class="ic">
+        <!-- Today: 8-point sun/brightness icon -->
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none"/><g stroke-width="2.2"><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="19" y2="19"/><line x1="5" y1="19" x2="6.8" y2="17.2"/><line x1="17.2" y1="6.8" x2="19" y2="5"/></g></svg>
+      </div>
+      <div class="lbl">Today</div>
+    </div>
+    <div class="tab" data-tab="scan" onclick="goTab('scan')">
+      <div class="ic">
+        <!-- Scan: bracket + barcode lines -->
+        <svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" stroke-width="1.9"/><g stroke-width="1.8"><line x1="8" y1="9" x2="8" y2="15"/><line x1="11" y1="9" x2="11" y2="15"/><line x1="13.5" y1="9" x2="13.5" y2="15"/><line x1="16" y1="9" x2="16" y2="15"/></g></svg>
+      </div>
+      <div class="lbl">Scan</div>
+    </div>
+    <div class="tab" data-tab="session" onclick="goTab('session')">
+      <div class="ic">
+        <!-- Session: filled circle with play triangle -->
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="1.9"/><path d="M10 8.5v7l6-3.5z" fill="currentColor" stroke="none"/></svg>
+      </div>
+      <div class="lbl">Session</div>
+    </div>
+    <div class="tab" data-tab="timeline" onclick="goTab('timeline')">
+      <div class="ic">
+        <!-- Timeline: list with bullets -->
+        <svg viewBox="0 0 24 24"><g stroke-width="1.9"><circle cx="5" cy="6.5" r="1" fill="currentColor"/><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="5" cy="17.5" r="1" fill="currentColor"/><line x1="9.5" y1="6.5" x2="20" y2="6.5"/><line x1="9.5" y1="12" x2="20" y2="12"/><line x1="9.5" y1="17.5" x2="20" y2="17.5"/></g></svg>
+      </div>
+      <div class="lbl">Timeline</div>
+    </div>
+    <div class="tab" data-tab="lab" onclick="goTab('lab')">
+      <div class="ic">
+        <!-- Lab: conical flask -->
+        <svg viewBox="0 0 24 24"><path d="M9 3v6l-5 9.5a1.8 1.8 0 001.6 2.5h12.8a1.8 1.8 0 001.6-2.5L15 9V3" stroke-width="1.9"/><line x1="7.5" y1="3" x2="16.5" y2="3" stroke-width="2.2"/><circle cx="10" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="18" r="0.8" fill="currentColor" stroke="none"/></svg>
+      </div>
+      <div class="lbl">Lab</div>
+    </div>
+  </nav>
+
+  <div class="home"></div>
+
+  <!-- Template sheet -->
+  <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Select Template</div>
+    <div class="sheet-cat">— 交易模式 —</div>
+    <div class="tmpl-item selected" data-id="CANSLIM_GS" onclick="selectTmpl(this)">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg></div>
+      <div class="info"><div class="nm">Canslim GS</div><div class="sub">一般設定 · Sweet Zone 60–180s</div></div>
+      <div class="dur">5:00</div>
+    </div>
+    <div class="tmpl-item" data-id="CANSLIM_HIGH_RS" onclick="selectTmpl(this)">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18L12 6L16 12L20 4"/><path d="M16 4H20V8"/></svg></div>
+      <div class="info"><div class="nm">Canslim High RS</div><div class="sub">高RS · Quick Read 45s</div></div>
+      <div class="dur">4:00</div>
+    </div>
+    <div class="tmpl-item" data-id="MANCINI_FBD" onclick="selectTmpl(this)">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 11.5v1M12.5 12h-1"/></svg></div>
+      <div class="info"><div class="nm">Mancini FBD</div><div class="sub">失敗突破 · Entry Lock 60s</div></div>
+      <div class="dur">3:00</div>
+    </div>
+    <div class="sheet-cat">— 生活模式 —</div>
+    <div class="tmpl-item" data-id="WORK_FOCUS" onclick="selectTmpl(this)">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4H8M16 4H20V8M20 16V20H16M8 20H4V16"/><path d="M12 9L15 12L12 15L9 12Z"/></svg></div>
+      <div class="info"><div class="nm">Work Focus</div><div class="sub">工作專注 · Deep work</div></div>
+      <div class="dur">25:00</div>
+    </div>
+    <div class="tmpl-item" data-id="HEALTH_STRESS" onclick="selectTmpl(this)">
+      <div class="ic" style="color:#34C759"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg></div>
+      <div class="info"><div class="nm">Health Stress</div><div class="sub">壓力舒緩 · Box breathing</div></div>
+      <div class="dur">3:00</div>
+    </div>
+    <div class="tmpl-item" data-id="EXERCISE" onclick="selectTmpl(this)">
+      <div class="ic" style="color:#FF6B35"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12H6L8 8L11 16L14 6L16 12H18L19.5 9.5L21 12H22"/></svg></div>
+      <div class="info"><div class="nm">Exercise</div><div class="sub">運動 · Warm/Active/Cool</div></div>
+      <div class="dur">10:00</div>
+    </div>
+  </div>
+
+  <!-- ═══════ BASELINE BOOTSTRAP FLOW (full-screen takeover) ═══════ -->
+  <div class="baseline-flow" id="baselineFlow">
+    <canvas class="bf-stardust" id="bfStardust"></canvas>
+    <div class="bf-close" onclick="closeBaseline()">✕</div>
+
+    <!-- INTRO -->
+    <div class="bf-state active" id="bf-intro">
+      <div class="bf-hero-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2l2.6 7.2L22 10l-5.8 4.4L18 22l-6-4-6 4 1.8-7.6L2 10l7.4-.8z"/>
+        </svg>
+      </div>
+      <div class="bf-title-display">BASELINE · CALIBRATION</div>
+      <div class="bf-title-hero">建立你的生理基線</div>
+      <div class="bf-title-sub">TENKI 需要認識你的身體節律，<br>才能精準判斷你的即時狀態</div>
+      <div class="bf-bullets">
+        <div class="bf-bullet"><div class="b-ic">🫀</div><div class="b-txt">用手指覆蓋鏡頭 <b>30 秒</b></div></div>
+        <div class="bf-bullet"><div class="b-ic">📊</div><div class="b-txt">立即建立 <b>HR / HRV / RR</b> 個人基線</div></div>
+        <div class="bf-bullet"><div class="b-ic">🎯</div><div class="b-txt">之後每次掃描都會 <b>越來越準</b></div></div>
+      </div>
+      <button class="bf-btn bf-btn-primary" onclick="bfGo('sensor')"><span>⚡</span> 開始校準</button>
+      <button class="bf-btn bf-btn-ghost" onclick="closeBaseline()">稍後再說</button>
+    </div>
+
+    <!-- SENSOR_CHOICE -->
+    <div class="bf-state" id="bf-sensor">
+      <div class="bf-head">
+        <div class="bf-title-display" style="margin-bottom:10px">BASELINE · SENSOR</div>
+        <h1>選擇掃描方式</h1>
+        <div class="sub">後鏡頭訊號最穩定，推薦首次校準使用</div>
+      </div>
+      <div class="bf-glass bf-sensor-opt recommended" onclick="bfGo('check')">
+        <div class="ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-2h6l2 2h3a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z"/><circle cx="12" cy="13" r="4"/><circle cx="17.5" cy="9" r="0.8" fill="currentColor"/></svg>
+        </div>
+        <div class="info">
+          <div class="nm">後鏡頭 + 閃光燈 <span class="tag">推薦</span></div>
+          <div class="desc">食指完整覆蓋後鏡頭 · 信號最穩定</div>
+        </div>
+        <div class="arr">›</div>
+      </div>
+      <div class="bf-glass bf-sensor-opt standard" onclick="bfGo('check')">
+        <div class="ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="7" r="1.2"/><rect x="10" y="18.5" width="4" height="1" rx="0.5"/></svg>
+        </div>
+        <div class="info">
+          <div class="nm">前鏡頭</div>
+          <div class="desc">螢幕亮起白光輔助 · 食指輕按鏡頭</div>
+        </div>
+        <div class="arr">›</div>
+      </div>
+      <div class="bf-glass bf-sensor-opt disabled">
+        <div class="ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="5" width="10" height="14" rx="2"/><path d="M10 5V3a1 1 0 011-1h2a1 1 0 011 1v2"/><path d="M10 19v2a1 1 0 001 1h2a1 1 0 001-1v-2"/></svg>
+        </div>
+        <div class="info">
+          <div class="nm">從穿戴裝置匯入</div>
+          <div class="desc">未偵測到 Garmin / Apple Watch</div>
+        </div>
+        <div class="arr">›</div>
+      </div>
+      <button class="bf-btn bf-btn-ghost" onclick="bfGo('intro')">← 返回</button>
+    </div>
+
+    <!-- READINESS_CHECK -->
+    <div class="bf-state" id="bf-check">
+      <div class="bf-cam covering">
+        <div class="bf-pill" id="bfPill">Aligning</div>
+        <svg class="bf-finger-svg" viewBox="0 0 240 280" preserveAspectRatio="xMidYMid meet">
+          <path d="M120 260 L120 180 Q105 170 105 150 L105 80 Q105 50 120 50 Q135 50 135 80 L135 150 Q135 170 120 180"/>
+        </svg>
+        <div class="bf-roi"></div>
+      </div>
+      <div class="bf-glass bf-checks">
+        <div class="bf-chk done" id="bfChk1"><div class="ic">✓</div><span>相機權限已取得</span></div>
+        <div class="bf-chk active" id="bfChk2"><div class="ic"></div><span>食指正對準鏡頭</span></div>
+        <div class="bf-chk" id="bfChk3"><div class="ic"></div><span>訊號穩定性檢查</span></div>
+      </div>
+      <div class="bf-glass bf-meters">
+        <div class="bf-meter"><div class="lbl">覆蓋</div><div class="bar"><div class="fill" id="bfM1" style="width:62%"></div></div><div class="val" id="bfMV1">62</div></div>
+        <div class="bf-meter"><div class="lbl">穩定</div><div class="bar"><div class="fill" id="bfM2" style="width:34%"></div></div><div class="val" id="bfMV2">34</div></div>
+        <div class="bf-meter"><div class="lbl">訊號</div><div class="bar"><div class="fill" id="bfM3" style="width:28%"></div></div><div class="val" id="bfMV3">28</div></div>
+      </div>
+      <div class="bf-hint">請輕壓食指覆蓋整個鏡頭，保持不動</div>
+      <button class="bf-btn bf-btn-primary" disabled>開始掃描</button>
+    </div>
+
+    <!-- READY -->
+    <div class="bf-state" id="bf-ready">
+      <div class="bf-cam covering">
+        <div class="bf-pill ready">Ready</div>
+        <svg class="bf-finger-svg" viewBox="0 0 240 280">
+          <path d="M120 260 L120 180 Q105 170 105 150 L105 80 Q105 50 120 50 Q135 50 135 80 L135 150 Q135 170 120 180"/>
+        </svg>
+        <div class="bf-roi"></div>
+      </div>
+      <div class="bf-glass bf-checks">
+        <div class="bf-chk done"><div class="ic">✓</div><span>相機權限已取得</span></div>
+        <div class="bf-chk done"><div class="ic">✓</div><span>食指正對準鏡頭</span></div>
+        <div class="bf-chk done"><div class="ic">✓</div><span>訊號穩定性檢查</span></div>
+      </div>
+      <div class="bf-glass bf-meters">
+        <div class="bf-meter"><div class="lbl">覆蓋</div><div class="bar"><div class="fill" style="width:94%"></div></div><div class="val">94</div></div>
+        <div class="bf-meter"><div class="lbl">穩定</div><div class="bar"><div class="fill" style="width:88%"></div></div><div class="val">88</div></div>
+        <div class="bf-meter"><div class="lbl">訊號</div><div class="bar"><div class="fill" style="width:82%"></div></div><div class="val">82</div></div>
+      </div>
+      <div class="bf-hint">✓ 訊號優良，準備開始掃描</div>
+      <button class="bf-btn bf-btn-primary" onclick="bfGo('scan')">⚡ 開始掃描</button>
+      <div class="bf-auto-cd"><span>自動開始倒數</span><span class="num" id="bfAutoNum">3</span><span>秒</span></div>
+    </div>
+
+    <!-- SCANNING -->
+    <div class="bf-state" id="bf-scan">
+      <div class="bf-scan-stage">
+        <div class="bf-quality-pill">Excellent</div>
+        <div class="bf-energy">
+          <canvas id="bfScanParticles"></canvas>
+          <div class="bf-finger-glow"></div>
+          <div class="bf-countdown" id="bfCountdown">45</div>
+        </div>
+        <div class="bf-scan-msg">
+          <div class="headline" id="bfScanHeadline">能量凝聚中</div>
+          <div class="sub" id="bfScanSub">請保持手指不動，呼吸放鬆</div>
+        </div>
+        <svg class="bf-ppg" viewBox="0 0 300 36" preserveAspectRatio="none">
+          <path id="bfPpgPath" d=""/>
+        </svg>
+        <div class="bf-live-stats">
+          <div class="bf-stat"><div class="lbl">HR</div><div class="val" id="bfLiveHR">—<span class="u">bpm</span></div></div>
+          <div class="bf-stat"><div class="lbl">Beats</div><div class="val" id="bfLiveBeats">0</div></div>
+          <div class="bf-stat"><div class="lbl">SQI</div><div class="val" id="bfLiveSQI">—</div></div>
+        </div>
+        <div class="bf-early" id="bfEarly">
+          <div class="ring"></div>
+          <div class="ring d"></div>
+          <div class="msg">
+            <div class="big">✓ READY</div>
+            <div class="lbl">訊號品質優良 · 即將完成</div>
+          </div>
+        </div>
+        <div class="bf-burst" id="bfBurst"></div>
+      </div>
+    </div>
+
+    <!-- ANALYZING -->
+    <div class="bf-state" id="bf-analyze">
+      <div class="bf-glass bf-analyze-card">
+        <div class="bf-analyze-title">正在分析你的生理指紋</div>
+        <div class="bf-analyze-sub">Computing Baseline</div>
+        <div class="bf-analyze-item processing" id="bfA1">
+          <div class="ic">❤</div>
+          <div class="info"><div class="nm">心率 HR</div><div class="st">從 38 次心跳提取平均...</div></div>
+          <div class="val">68<span class="u">bpm</span></div>
+        </div>
+        <div class="bf-analyze-item" id="bfA2">
+          <div class="ic">◈</div>
+          <div class="info"><div class="nm">心率變異 HRV</div><div class="st">RMSSD 計算中...</div></div>
+          <div class="val">52<span class="u">ms</span></div>
+        </div>
+        <div class="bf-analyze-item" id="bfA3">
+          <div class="ic">◎</div>
+          <div class="info"><div class="nm">呼吸率 RR</div><div class="st">RSA 調變分析...</div></div>
+          <div class="val">14<span class="u">brpm</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPLETED -->
+    <div class="bf-state" id="bf-done">
+      <div class="bf-done-hero">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-11"/></svg>
+      </div>
+      <div class="bf-done-title">基線凝聚完成</div>
+      <div class="bf-done-sub">你的生理指紋已建立。<br>TENKI 將達到 <b>最高精準度</b></div>
+      <div class="bf-glass bf-summary">
+        <div class="bf-summary-head">個人基線 · Baseline</div>
+        <div class="bf-summary-grid">
+          <div class="bf-summary-cell"><div class="lbl">HR</div><div class="val">68<span class="u">bpm</span></div></div>
+          <div class="bf-summary-cell"><div class="lbl">HRV</div><div class="val">52<span class="u">ms</span></div></div>
+          <div class="bf-summary-cell"><div class="lbl">RR</div><div class="val">14<span class="u">brpm</span></div></div>
+        </div>
+      </div>
+      <div class="bf-accuracy"><span class="ic">✨</span>Edge Score Decision Edge 已啟用 · 系統將持續優化</div>
+      <button class="bf-btn bf-btn-primary" onclick="bfFinish()">進入 TENKI</button>
+    </div>
+
+    <!-- demo nav inside baseline flow -->
+    <div class="bf-demo-nav">
+      <button class="auto" onclick="bfAuto()" id="bfAutoBtn">▶ AUTO</button>
+      <button onclick="bfGo('intro')">intro</button>
+      <button onclick="bfGo('sensor')">sensor</button>
+      <button onclick="bfGo('check')">check</button>
+      <button onclick="bfGo('ready')">ready</button>
+      <button onclick="bfGo('scan')">scan</button>
+      <button onclick="bfGo('analyze')">analyze</button>
+      <button onclick="bfGo('done')">done</button>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// ═════════════════════════════════════════════════
+// Templates
+// ═════════════════════════════════════════════════
+const TEMPLATES = {
+  CANSLIM_GS:      {name:'Canslim GS',      durationSec:300, color:'#00B4D8', icon:'gs',    segLabel:'Sweet Zone'},
+  CANSLIM_HIGH_RS: {name:'Canslim High RS', durationSec:240, color:'#00B4D8', icon:'rs',    segLabel:'Sweet Zone'},
+  MANCINI_FBD:     {name:'Mancini FBD',     durationSec:180, color:'#5E3A87', icon:'fbd',   segLabel:'Lock'},
+  WORK_FOCUS:      {name:'Work Focus',      durationSec:1500,color:'#00B4D8', icon:'work',  segLabel:'Focus'},
+  HEALTH_STRESS:   {name:'Health Stress',   durationSec:180, color:'#34C759', icon:'heart', segLabel:'Breathe'},
+  EXERCISE:        {name:'Exercise',        durationSec:600, color:'#FF6B35', icon:'ex',    segLabel:'Active'}
+};
+const ICON_SVG = {
+  gs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg>',
+  rs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18L12 6L16 12L20 4"/><path d="M16 4H20V8"/></svg>',
+  fbd:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg>',
+  work:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4H8M16 4H20V8M20 16V20H16M8 20H4V16"/><path d="M12 9L15 12L12 15L9 12Z"/></svg>',
+  heart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg>',
+  ex:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12H6L8 8L11 16L14 6L16 12H18L19.5 9.5L21 12H22"/></svg>'
+};
+
+// ═════════════════════════════════════════════════
+// Tab navigation
+// ═════════════════════════════════════════════════
+function goTab(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const screen = document.getElementById(id + '-screen');
+  if(screen) screen.classList.add('active');
+  const tab = document.querySelector(`.tab[data-tab="${id}"]`);
+  if(tab) tab.classList.add('active');
+  // Haptic hint (visual tap)
+  if(tab) tab.style.transform = 'scale(0.9)';
+  setTimeout(() => { if(tab) tab.style.transform = ''; }, 120);
+}
+
+// ═════════════════════════════════════════════════
+// Stardust (today screen)
+// ═════════════════════════════════════════════════
+const canvas = document.getElementById('stardust');
+const ctx = canvas.getContext('2d');
+let particles = [];
+function resizeCanvas(){
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(dpr, dpr);
+}
+function initParticles(){
+  particles = [];
+  for(let i=0;i<30;i++){
+    particles.push({
+      x: Math.random() * canvas.offsetWidth,
+      y: Math.random() * canvas.offsetHeight,
+      vx: (Math.random() - 0.5) * 0.18,
+      vy: (Math.random() - 0.5) * 0.12,
+      r: Math.random() * 1.4 + 0.3,
+      a: Math.random() * 0.4 + 0.1,
+      ph: Math.random() * Math.PI * 2
+    });
+  }
+}
+function drawParticles(t){
+  if(canvas.offsetWidth === 0) return requestAnimationFrame(drawParticles);
+  ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+  const cx = canvas.offsetWidth / 2;
+  const cy = canvas.offsetHeight / 2;
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vx += (cx - p.x) * 0.00003;
+    p.vy += (cy - p.y) * 0.00003;
+    if(p.x < 0) p.x = canvas.offsetWidth;
+    if(p.x > canvas.offsetWidth) p.x = 0;
+    if(p.y < 0) p.y = canvas.offsetHeight;
+    if(p.y > canvas.offsetHeight) p.y = 0;
+    const alpha = p.a * (0.6 + 0.4 * Math.sin(t * 0.0008 + p.ph));
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0, 180, 216, ${alpha})`;
+    ctx.fill();
+  });
+  requestAnimationFrame(drawParticles);
+}
+window.addEventListener('resize', () => { resizeCanvas(); initParticles(); });
+setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawParticles); }, 50);
+
+// ═════════════════════════════════════════════════
+// Hero entrance: score counter + ring reveal
+// ═════════════════════════════════════════════════
+(function heroEntrance(){
+  const TARGET_SCORE = 72;
+  const DURATION = 1600; // ms
+  const scoreEl = document.getElementById('tlTlTlTeiScore');
+  const outerRing = document.querySelector('.ring-outer-wrap');
+  const innerRing = document.querySelector('.ring-inner-wrap');
+  const dots = document.querySelectorAll('.ring-dot');
+
+  // Easing: easeOutExpo
+  function ease(t){ return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
+
+  // Start rings reveal after a tiny delay
+  setTimeout(() => {
+    if(outerRing) outerRing.classList.add('revealed');
+    if(innerRing) innerRing.classList.add('revealed');
+    dots.forEach(d => d.classList.add('revealed'));
+  }, 200);
+
+  // Score counter
+  if(!scoreEl) return;
+  scoreEl.textContent = '1';
+  const start = performance.now();
+  function tick(now){
+    const elapsed = now - start;
+    const t = Math.min(elapsed / DURATION, 1);
+    const val = Math.round(1 + (TARGET_SCORE - 1) * ease(t));
+    scoreEl.textContent = val;
+    if(t < 1) requestAnimationFrame(tick);
+  }
+  // Delay counter start slightly after rings begin
+  setTimeout(() => requestAnimationFrame(tick), 350);
+})();
+
+// ═════════════════════════════════════════════════
+// Live Waveform Engine — medical-grade, non-anxious
+// 60s of pre-seeded data, then loops seamlessly
+// ═════════════════════════════════════════════════
+(function liveWaveforms(){
+  const CYCLE_MS = 60000; // 60s loop
+  const DPR = window.devicePixelRatio || 1;
+
+  // ── Seeded random for reproducible 60s data ──
+  function seededRand(seed){
+    let s = seed;
+    return function(){ s = (s * 16807 + 0) % 2147483647; return (s - 1) / 2147483646; };
+  }
+
+  // ── Pre-generate 60s of sample data ──
+  const FPS = 30;
+  const TOTAL_FRAMES = FPS * 60;
+  const rand = seededRand(42);
+
+  // HR: ECG-like waveform (68 BPM ≈ 1.13 Hz)
+  const HR_BPM = 68;
+  const hrData = [];
+  for(let i = 0; i < TOTAL_FRAMES; i++){
+    const t = i / FPS;
+    const beatPhase = (t * HR_BPM / 60) % 1;
+    let v = 0;
+    // P-wave
+    if(beatPhase > 0.05 && beatPhase < 0.15) v = 0.12 * Math.sin((beatPhase - 0.05) / 0.1 * Math.PI);
+    // QRS complex
+    else if(beatPhase > 0.18 && beatPhase < 0.22) v = -0.15;
+    else if(beatPhase > 0.22 && beatPhase < 0.26) v = 0.85 + rand() * 0.1;
+    else if(beatPhase > 0.26 && beatPhase < 0.30) v = -0.2;
+    // T-wave
+    else if(beatPhase > 0.35 && beatPhase < 0.5) v = 0.18 * Math.sin((beatPhase - 0.35) / 0.15 * Math.PI);
+    // Baseline wander
+    v += Math.sin(t * 0.3) * 0.03 + rand() * 0.015;
+    hrData.push(v);
+  }
+
+  // HRV: R-R interval variability (smooth oscillation)
+  const hrvData = [];
+  for(let i = 0; i < TOTAL_FRAMES; i++){
+    const t = i / FPS;
+    const v = Math.sin(t * 0.4) * 0.3 + Math.sin(t * 0.17) * 0.2
+            + Math.sin(t * 1.1) * 0.08 + rand() * 0.04;
+    hrvData.push(v);
+  }
+
+  // RR: Breathing sine wave (14 BrPM ≈ 0.233 Hz)
+  const RR_BPM = 14;
+  const rrData = [];
+  for(let i = 0; i < TOTAL_FRAMES; i++){
+    const t = i / FPS;
+    const v = Math.sin(t * 2 * Math.PI * RR_BPM / 60) * 0.6
+            + Math.sin(t * 2 * Math.PI * RR_BPM / 60 * 2) * 0.08
+            + rand() * 0.02;
+    rrData.push(v);
+  }
+
+  // ── Canvas drawing ──
+  function setupCanvas(id){
+    const c = document.getElementById(id);
+    if(!c) return null;
+    c.width = c.offsetWidth * DPR;
+    c.height = c.offsetHeight * DPR;
+    const ctx = c.getContext('2d');
+    ctx.scale(DPR, DPR);
+    return { canvas: c, ctx, w: c.offsetWidth, h: c.offsetHeight };
+  }
+
+  function drawWave(setup, data, color, glowColor, frameOffset, trailLen){
+    if(!setup) return;
+    const { ctx, w, h } = setup;
+    const samples = trailLen || 90;
+    ctx.clearRect(0, 0, w, h);
+    const cy = h / 2;
+    const amp = h * 0.38;
+
+    // Glow layer
+    ctx.save();
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    for(let i = 0; i < samples; i++){
+      const idx = (frameOffset - samples + i + TOTAL_FRAMES) % TOTAL_FRAMES;
+      const x = (i / (samples - 1)) * w;
+      const y = cy - data[idx] * amp;
+      if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Main line
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    for(let i = 0; i < samples; i++){
+      const idx = (frameOffset - samples + i + TOTAL_FRAMES) % TOTAL_FRAMES;
+      const x = (i / (samples - 1)) * w;
+      const y = cy - data[idx] * amp;
+      // Fade trail: older samples dimmer
+      if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Leading dot
+    const lastIdx = (frameOffset - 1 + TOTAL_FRAMES) % TOTAL_FRAMES;
+    const dotX = w;
+    const dotY = cy - data[lastIdx] * amp;
+    ctx.beginPath();
+    ctx.arc(dotX - 1, dotY, 2, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 6;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // ── ANS bar oscillation ──
+  const snsFill = document.querySelector('.sns-fill');
+  const pnsFill = document.querySelector('.pns-fill');
+  const snsPct = document.querySelector('.sns-pct');
+  const pnsPct = document.querySelector('.pns-pct');
+  const ANS_BASE_SNS = 38;
+
+  function updateANS(t){
+    // Gentle 2-3% oscillation around 38/62 split
+    const offset = Math.sin(t * 0.0008) * 2 + Math.sin(t * 0.002) * 1;
+    const sns = Math.round(ANS_BASE_SNS + offset);
+    const pns = 100 - sns;
+    if(snsFill) snsFill.style.width = sns + '%';
+    if(pnsFill) pnsFill.style.width = pns + '%';
+    if(snsPct) snsPct.textContent = sns + '%';
+    if(pnsPct) pnsPct.textContent = pns + '%';
+  }
+
+  // ── Init & animation loop ──
+  let hrSetup, hrvSetup, rrSetup;
+
+  function init(){
+    hrSetup = setupCanvas('hrWave');
+    hrvSetup = setupCanvas('hrvWave');
+    rrSetup = setupCanvas('rrWave');
+  }
+
+  let startTime = 0;
+  function animate(now){
+    if(!startTime) startTime = now;
+    const elapsed = (now - startTime) % CYCLE_MS;
+    const frame = Math.floor(elapsed / (1000 / FPS)) % TOTAL_FRAMES;
+
+    drawWave(hrSetup, hrData, '#FF5C73', 'rgba(255,92,115,0.4)', frame, 80);
+    drawWave(hrvSetup, hrvData, '#34C759', 'rgba(52,199,89,0.4)', frame, 90);
+    drawWave(rrSetup, rrData, '#2EB6C0', 'rgba(46,182,192,0.4)', frame, 70);
+
+    updateANS(elapsed);
+
+    requestAnimationFrame(animate);
+  }
+
+  // Delay start until cards are visible (after entrance animation)
+  setTimeout(() => { init(); requestAnimationFrame(animate); }, 1800);
+
+  // Handle resize
+  window.addEventListener('resize', () => { init(); });
+})();
+
+
+// Body Battery bars — 15 tall pills with spectrum
+// ═════════════════════════════════════════════════
+(function(){
+  const host = document.getElementById('bbBars');
+  // Historical 24h samples, mapped to colors by value zone:
+  //   0-30  dark brown (depleted)
+  //   30-50 orange
+  //   50-70 yellow-green
+  //   70-85 cyan-green
+  //   85-100 green
+  const samples = [
+    {v:78, c:'#4FA85C'},  // morning recovery
+    {v:85, c:'#5BBA68'},
+    {v:82, c:'#63C670'},
+    {v:80, c:'#6BCF76'},
+    {v:78, c:'#5BA87B'},
+    {v:92, c:'#4CB39A'},  // peak
+    {v:88, c:'#3FAEA8'},
+    {v:86, c:'#2FB6C0'},
+    {v:84, c:'#00B4D8'},
+    {v:75, c:'#3AA8C5'},
+    {v:62, c:'#C49640'},  // decline
+    {v:52, c:'#D4A23F'},
+    {v:48, c:'#E0A73A'},
+    {v:38, c:'#7A5A2A'},
+    {v:30, c:'#4E3A20'}   // depleted
+  ];
+  samples.forEach(s => {
+    const b = document.createElement('div');
+    b.className = 'bar';
+    const h = Math.max(14, s.v * 0.52);
+    b.style.height = h + 'px';
+    b.style.background = `linear-gradient(180deg, ${s.c} 0%, ${shadeColor(s.c, -20)} 100%)`;
+    host.appendChild(b);
+  });
+  function shadeColor(hex, percent){
+    const num = parseInt(hex.slice(1), 16);
+    let r = (num >> 16) + percent;
+    let g = ((num >> 8) & 0xff) + percent;
+    let b = (num & 0xff) + percent;
+    r = Math.max(0, Math.min(255, r));
+    g = Math.max(0, Math.min(255, g));
+    b = Math.max(0, Math.min(255, b));
+    return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+  }
+})();
+
+// ═════════════════════════════════════════════════
+// FDCB state machine
+// ═════════════════════════════════════════════════
+const STATES = ['idle','ready','running','complete'];
+let stateIdx = 0;
+let currentTmpl = 'CANSLIM_GS';
+let runningInterval = null;
+let elapsed = 0;
+
+function setState(s){
+  const fdcb = document.getElementById('fdcb');
+  STATES.forEach(x => fdcb.classList.remove('state-'+x));
+  fdcb.classList.add('state-'+s);
+  stateIdx = STATES.indexOf(s);
+  renderFdcb();
+}
+function renderFdcb(){
+  const tmpl = TEMPLATES[currentTmpl];
+  const s = STATES[stateIdx];
+  const timeEl = document.getElementById('fdcbTime');
+  const segEl = document.getElementById('fdcbSeg');
+  if(s === 'idle'){
+    timeEl.textContent = 'Start Decision';
+    segEl.textContent = 'Edge Score · 72';
+    clearInterval(runningInterval);
+  }
+  if(s === 'ready'){
+    const m = Math.floor(tmpl.durationSec / 60);
+    const ss = (tmpl.durationSec % 60).toString().padStart(2,'0');
+    timeEl.textContent = `${tmpl.name} · ${m}:${ss}`;
+    segEl.textContent = 'Tap to start';
+    elapsed = 0;
+  }
+  if(s === 'running'){
+    if(runningInterval) clearInterval(runningInterval);
+    runningInterval = setInterval(() => {
+      elapsed += 1;
+      const m = Math.floor(elapsed / 60);
+      const ss = (elapsed % 60).toString().padStart(2,'0');
+      timeEl.textContent = `${m.toString().padStart(2,'0')}:${ss}`;
+      if(elapsed >= 8){
+        clearInterval(runningInterval);
+        setState('complete');
+        setTimeout(() => setState('idle'), 1400);
+      }
+    }, 1000);
+    elapsed = 0;
+    timeEl.textContent = '00:00';
+    segEl.textContent = tmpl.segLabel;
+  }
+  if(s === 'complete'){
+    timeEl.textContent = 'Decision Logged';
+    segEl.textContent = '';
+  }
+}
+function nextState(){ setState(STATES[(stateIdx + 1) % STATES.length]); }
+function cycleDemo(){ nextState(); }
+
+// ═════════════════════════════════════════════════
+// Template sheet
+// ═════════════════════════════════════════════════
+function openSheet(){
+  document.getElementById('sheet').classList.add('open');
+  document.getElementById('sheetBackdrop').classList.add('open');
+}
+function closeSheet(){
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('sheetBackdrop').classList.remove('open');
+}
+function selectTmpl(el){
+  document.querySelectorAll('.tmpl-item').forEach(x => x.classList.remove('selected'));
+  el.classList.add('selected');
+  currentTmpl = el.dataset.id;
+  const t = TEMPLATES[currentTmpl];
+  document.getElementById('fdcbName').textContent = t.name;
+  const m = Math.floor(t.durationSec / 60);
+  document.getElementById('fdcbDur').textContent = `${m}:00 ▾`;
+  document.getElementById('fdcbIcon').innerHTML = ICON_SVG[t.icon];
+  document.documentElement.style.setProperty('--primary', t.color);
+  setTimeout(() => { closeSheet(); setState('ready'); }, 260);
+}
+function logEvent(){
+  const check = document.querySelector('.fdcb-evts .check');
+  if(check.classList.contains('empty')){
+    check.classList.remove('empty');
+    check.textContent = '✔';
+  }
+}
+
+// ═════════════════════════════════════════════════
+// Edge Score score drift simulation (spectrum ring is static gradient)
+// ═════════════════════════════════════════════════
+let currentTlTei = 72;
+let targetTlTei = 72;
+setInterval(() => { targetTlTei = 70 + Math.random() * 6; }, 5000);
+setInterval(() => {
+  currentTlTei = currentTlTei * 0.95 + targetTlTei * 0.05;
+  const display = Math.round(currentTlTei);
+  const scoreEl = document.getElementById('tlTlTlTeiScore');
+  if(scoreEl) scoreEl.textContent = display;
+  // Update zone label based on Edge Score zone
+  const zoneEl = document.getElementById('tlTlTlTeiZone');
+  if(zoneEl){
+    let zone = 'Optimal';
+    let color = '#00B4D8';
+    if(display >= 80){ zone = 'Peak'; color = '#F5A623'; }
+    else if(display >= 55){ zone = 'Optimal'; color = '#00B4D8'; }
+    else if(display >= 35){ zone = 'Neutral'; color = '#E5E5EA'; }
+    else { zone = 'Degraded'; color = '#B388DB'; }
+    zoneEl.textContent = zone;
+    zoneEl.style.color = color;
+  }
+}, 350);
+
+// Scan source toggle
+function selectSource(el){
+  document.querySelectorAll('.source-toggle .src').forEach(x => x.classList.remove('active'));
+  el.classList.add('active');
+}
+
+renderFdcb();
+
+// ═════════════════════════════════════════════════
+// Session Detail — data + render
+// ═════════════════════════════════════════════════
+const SESSIONS = {
+  s1: {
+    template: 'Mancini FBD',
+    date: 'APR 19 · 14:38',
+    durationSec: 180,
+    durationStr: '3:00',
+    result: 'Win',
+    resultClass: 'win',
+    tlTlTlTeiStart: 75, tlTlTlTeiEnd: 77,
+    hrStart: 70, hrEnd: 74,
+    hrvStart: 52, hrvEnd: 48,
+    rrStart: 14, rrEnd: 15,
+    segments: [
+      { startSec: 0, endSec: 60, label: 'Lock', color: '#5E3A87' },
+      { startSec: 60, endSec: 120, label: 'Execute', color: '#00B4D8' },
+      { startSec: 120, endSec: 180, label: 'Confirm', color: '#F5A623' }
+    ],
+    lockEndSec: 60,
+    sweetStart: 60, sweetEnd: 120,
+    tlTlTlTeiPoints: [75, 74, 75, 76, 78, 79, 77, 76, 77, 78, 77, 77, 77],
+    events: [
+      { type: 'ENTRY', elapsedSec: 95, tei: 78, phase: 'Execute' },
+      { type: 'ADD', elapsedSec: 142, tei: 77, phase: 'Confirm' },
+      { type: 'EXIT', elapsedSec: 178, tei: 77, phase: 'Confirm' }
+    ],
+    insight: '在 <b>Edge Score 75–80</b> 的 Mancini FBD 你的勝率是 <b>65%</b> — 高於整體平均 <b>52%</b>。你在 <b>Lock 期間耐心等待</b>，這是正確的紀律',
+    clarity: 4
+  },
+  s2: {
+    template: 'Canslim GS',
+    date: 'APR 19 · 11:22',
+    durationSec: 252,
+    durationStr: '4:12',
+    result: 'BE',
+    resultClass: 'breakeven',
+    tlTlTlTeiStart: 68, tlTlTlTeiEnd: 71,
+    hrStart: 72, hrEnd: 70,
+    hrvStart: 48, hrvEnd: 52,
+    rrStart: 15, rrEnd: 14,
+    segments: [
+      { startSec: 0, endSec: 60, label: 'Observe', color: '#FF6B35' },
+      { startSec: 60, endSec: 180, label: 'Sweet Zone', color: '#00B4D8' },
+      { startSec: 180, endSec: 252, label: 'Extended', color: '#8E8E93' }
+    ],
+    sweetStart: 60, sweetEnd: 180,
+    tlTlTlTeiPoints: [68, 67, 69, 70, 69, 70, 71, 72, 71, 72, 71, 70, 71, 71, 70, 71, 71],
+    events: [
+      { type: 'ENTRY', elapsedSec: 118, tei: 71, phase: 'Sweet Zone' },
+      { type: 'REDUCE', elapsedSec: 210, tei: 70, phase: 'Extended' },
+      { type: 'EXIT', elapsedSec: 245, tei: 71, phase: 'Extended' }
+    ],
+    insight: '你在 Sweet Zone 內進場（118s），時機正確。BE 結果不代表決策錯誤 — 執行紀律本身就是 <b>勝利</b>',
+    clarity: 5
+  },
+  s3: {
+    template: 'Canslim High RS',
+    date: 'APR 19 · 10:08',
+    durationSec: 94,
+    durationStr: '1:34',
+    result: 'Skip',
+    resultClass: 'no_trade',
+    tlTlTlTeiStart: 62, tlTlTlTeiEnd: 63,
+    hrStart: 75, hrEnd: 74,
+    hrvStart: 42, hrvEnd: 44,
+    rrStart: 16, rrEnd: 15,
+    segments: [
+      { startSec: 0, endSec: 45, label: 'Quick Read', color: '#FF6B35' },
+      { startSec: 45, endSec: 94, label: 'Sweet Zone', color: '#00B4D8' }
+    ],
+    sweetStart: 45, sweetEnd: 150,
+    tlTlTlTeiPoints: [62, 63, 62, 63, 64, 63, 62],
+    events: [
+      { type: 'NO_TRADE', elapsedSec: 94, tei: 63, phase: 'Sweet Zone' }
+    ],
+    insight: 'Edge Score <b>62</b> 低於你的 Canslim 最佳區間 <b>(72–82)</b>。不進場是正確選擇。<b>No Trade 也是 Trade</b>',
+    clarity: 5
+  },
+  s4: {
+    template: 'Mancini FBD',
+    date: 'APR 19 · 09:41',
+    durationSec: 181,
+    durationStr: '3:01',
+    result: 'Loss',
+    resultClass: 'loss',
+    tlTlTlTeiStart: 82, tlTlTlTeiEnd: 79,
+    hrStart: 68, hrEnd: 76,
+    hrvStart: 58, hrvEnd: 40,
+    rrStart: 13, rrEnd: 17,
+    segments: [
+      { startSec: 0, endSec: 60, label: 'Lock', color: '#5E3A87' },
+      { startSec: 60, endSec: 120, label: 'Execute', color: '#00B4D8' },
+      { startSec: 120, endSec: 181, label: 'Confirm', color: '#F5A623' }
+    ],
+    lockEndSec: 60,
+    sweetStart: 60, sweetEnd: 120,
+    tlTlTlTeiPoints: [82, 84, 85, 84, 82, 81, 80, 78, 76, 75, 77, 78, 79],
+    events: [
+      { type: 'ENTRY', elapsedSec: 75, tei: 81, phase: 'Execute' },
+      { type: 'ADD', elapsedSec: 108, tei: 76, phase: 'Execute' },
+      { type: 'EXIT', elapsedSec: 155, tei: 78, phase: 'Confirm', variant: 'cancel' }
+    ],
+    insight: '你在 <b>Peak Zone (Edge Score 82)</b> 進場 — 過度自信風險區間。HRV 在執行期間下跌 <b>18 ms</b> 顯示壓力升高。下次在 Peak Zone 建議 <b>倉位減半</b>',
+    clarity: 2
+  }
+};
+let currentSessionId = null;
+
+function openSessionDetail(id){
+  const s = SESSIONS[id];
+  if(!s) return;
+  currentSessionId = id;
+
+  document.getElementById('sdTitle').textContent = s.template;
+  document.getElementById('sdSubtitle').textContent = `${s.date} · ${s.durationStr} DURATION`;
+  const resultEl = document.getElementById('sdResult');
+  resultEl.textContent = s.result;
+  resultEl.className = 'sd-result result ' + s.resultClass;
+
+  document.getElementById('sdTlTlTeiStart').textContent = s.tl-tlTlTlTeiStart;
+  document.getElementById('sdTlTlTeiEnd').textContent = s.tl-tlTlTlTeiEnd;
+  const delta = s.tl-tlTlTlTeiEnd - s.tl-tlTlTlTeiStart;
+  const deltaEl = document.getElementById('sdTlTlTeiDelta');
+  deltaEl.textContent = (delta > 0 ? '+' : '') + delta + ' PR';
+  deltaEl.className = 'sd-hero-delta ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat');
+
+  document.getElementById('sdTraceDur').textContent = s.durationStr;
+
+  document.getElementById('sdHrStart').textContent = s.hrStart;
+  document.getElementById('sdHrEnd').textContent = s.hrEnd;
+  document.getElementById('sdHrvStart').textContent = s.hrvStart;
+  document.getElementById('sdHrvEnd').textContent = s.hrvEnd;
+  document.getElementById('sdRrStart').textContent = s.rrStart;
+  document.getElementById('sdRrEnd').textContent = s.rrEnd;
+
+  document.getElementById('sdInsight').innerHTML = s.insight;
+
+  const dots = document.querySelectorAll('#sdClarity .d');
+  dots.forEach((d, i) => d.classList.toggle('on', i < s.clarity));
+
+  renderTlTlTeiTrace(s);
+  renderEventsList(s);
+
+  document.getElementById('sessionDetail').classList.add('open');
+}
+
+function closeSessionDetail(){
+  document.getElementById('sessionDetail').classList.remove('open');
+  currentSessionId = null;
+}
+
+function renderTlTlTeiTrace(s){
+  const content = document.getElementById('sdTraceContent');
+  const W = 320, H = 140;
+  const padL = 26, padR = 10, padT = 10, padB = 22;
+  const w = W - padL - padR, h = H - padT - padB;
+  const tlTlTlTeiMin = 40, tlTlTlTeiMax = 99;
+  const tlTlTlTeiToY = v => padT + h * (1 - (v - tlTlTlTeiMin) / (tlTlTlTeiMax - tlTlTlTeiMin));
+  const secToX = t => padL + w * (t / s.durationSec);
+
+  let html = '';
+  if(s.lockEndSec){
+    html += `<rect class="lock-zone" x="${secToX(0)}" y="${padT}" width="${secToX(s.lockEndSec) - secToX(0)}" height="${h}"/>`;
+  }
+  if(s.sweetStart !== undefined && s.sweetEnd !== undefined){
+    const x1 = secToX(s.sweetStart);
+    const x2 = secToX(Math.min(s.sweetEnd, s.durationSec));
+    html += `<rect class="sweet-zone" x="${x1}" y="${padT}" width="${x2 - x1}" height="${h}"/>`;
+  }
+  s.segments.forEach((seg, i) => {
+    if(i === 0) return;
+    const x = secToX(seg.startSec);
+    html += `<line class="seg-line" x1="${x}" y1="${padT}" x2="${x}" y2="${padT + h}"/>`;
+  });
+  s.segments.forEach(seg => {
+    const x = secToX((seg.startSec + Math.min(seg.endSec, s.durationSec)) / 2);
+    html += `<text class="seg-label" x="${x}" y="${padT + 10}" text-anchor="middle" fill="${seg.color}" opacity="0.7">${seg.label}</text>`;
+  });
+  [50, 70, 90].forEach(v => {
+    html += `<text class="axis" x="${padL - 4}" y="${tlTlTlTeiToY(v) + 3}" text-anchor="end">${v}</text>`;
+  });
+  const pts = s.tl-tlTlTlTeiPoints.map((v, i) => {
+    const t = (i / (s.tl-tlTlTlTeiPoints.length - 1)) * s.durationSec;
+    return `${secToX(t)},${tlTlTlTeiToY(v)}`;
+  });
+  const firstPt = pts[0].split(',');
+  const lastPt = pts[pts.length - 1].split(',');
+  const areaPath = `M${pts[0]} L${pts.slice(1).join(' L')} L${lastPt[0]},${padT + h} L${firstPt[0]},${padT + h} Z`;
+  html += `<path class="tl-tei-area" d="${areaPath}"/>`;
+  html += `<polyline class="tl-tei-line" points="${pts.join(' ')}"/>`;
+
+  s.events.forEach(ev => {
+    const x = secToX(ev.elapsedSec);
+    const y = tlTlTlTeiToY(ev.tl-tei);
+    const isCancel = ev.variant === 'cancel';
+    html += `<circle class="evt${isCancel ? ' cancel' : ''}" cx="${x}" cy="${y}" r="4.5"/>`;
+  });
+
+  const durTicks = s.durationSec >= 180 ? [0, 60, 120, s.durationSec] :
+                   s.durationSec >= 90 ? [0, 30, 60, s.durationSec] :
+                   [0, Math.floor(s.durationSec/2), s.durationSec];
+  durTicks.forEach(t => {
+    const x = secToX(t);
+    const m = Math.floor(t/60), sec = t%60;
+    const label = t === 0 ? '0:00' : `${m}:${sec.toString().padStart(2,'0')}`;
+    html += `<text class="axis" x="${x}" y="${padT + h + 14}" text-anchor="middle">${label}</text>`;
+  });
+  content.innerHTML = html;
+}
+
+function renderEventsList(s){
+  const host = document.getElementById('sdEvents');
+  const typeLabels = {
+    ENTRY: 'Entry', ADD: 'Add Position', REDUCE: 'Reduce',
+    EXIT: 'Exit', CANCEL: 'Cancel', NO_TRADE: 'No Trade'
+  };
+  host.innerHTML = s.events.map(ev => {
+    const m = Math.floor(ev.elapsedSec/60), sec = ev.elapsedSec%60;
+    const time = `${m}:${sec.toString().padStart(2,'0')}`;
+    const cls = (ev.variant === 'cancel' ? 'cancel' : ev.type.toLowerCase());
+    const label = typeLabels[ev.type] || ev.type;
+    return `
+      <div class="sd-evt ${cls}">
+        <div class="time">${time}</div>
+        <div class="dot"></div>
+        <div class="type">${label} <span class="phase">${ev.phase}</span></div>
+        <div class="tl-tei-mark">Edge Score <b>${ev.tei}</b></div>
+      </div>
+    `;
+  }).join('');
+}
+
+function setClarity(v){
+  const dots = document.querySelectorAll('#sdClarity .d');
+  dots.forEach((d, i) => d.classList.toggle('on', i < v));
+  if(currentSessionId) SESSIONS[currentSessionId].clarity = v;
+}
+
+// ═════════════════════════════════════════════════
+// Baseline Bootstrap Flow — IIFE scope
+// Exposes: openBaseline(), closeBaseline(), bfGo(), bfFinish(), bfAuto()
+// ═════════════════════════════════════════════════
+(function(){
+  const STATES = ['intro','sensor','check','ready','scan','analyze','done'];
+  let bfCurrent = 'intro';
+  let bfMeterTimer = null;
+  let bfReadyAutoTimer = null;
+  let bfScanCountdownTimer = null;
+  let bfAutoChain = null;
+
+  // --- Stardust (bf scope) ---
+  const bfCanvas = document.getElementById('bfStardust');
+  const bfCtx = bfCanvas.getContext('2d');
+  let bfDots = [];
+  let bfDustRunning = false;
+  function bfResize(){
+    const dpr = window.devicePixelRatio || 1;
+    bfCanvas.width = bfCanvas.offsetWidth * dpr;
+    bfCanvas.height = bfCanvas.offsetHeight * dpr;
+    bfCtx.setTransform(1,0,0,1,0,0);
+    bfCtx.scale(dpr, dpr);
+  }
+  function bfInit(){
+    bfDots = [];
+    for(let i=0;i<26;i++){
+      bfDots.push({
+        x: Math.random()*bfCanvas.offsetWidth,
+        y: Math.random()*bfCanvas.offsetHeight,
+        vx:(Math.random()-0.5)*0.1,vy:(Math.random()-0.5)*0.07,
+        r:Math.random()*1.2+0.3,a:Math.random()*0.3+0.08,ph:Math.random()*Math.PI*2
+      });
+    }
+  }
+  function bfAnim(t){
+    if(!bfDustRunning) return;
+    bfCtx.clearRect(0,0,bfCanvas.offsetWidth,bfCanvas.offsetHeight);
+    bfDots.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0)p.x=bfCanvas.offsetWidth;
+      if(p.x>bfCanvas.offsetWidth)p.x=0;
+      if(p.y<0)p.y=bfCanvas.offsetHeight;
+      if(p.y>bfCanvas.offsetHeight)p.y=0;
+      const a=p.a*(0.5+0.5*Math.sin(t*0.0008+p.ph));
+      bfCtx.beginPath();
+      bfCtx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      bfCtx.fillStyle=`rgba(0,180,216,${a})`;
+      bfCtx.fill();
+    });
+    requestAnimationFrame(bfAnim);
+  }
+
+  // --- Scan particles ---
+  const bfScanC = document.getElementById('bfScanParticles');
+  const bfScanCtx = bfScanC.getContext('2d');
+  let bfScanDots = [];
+  let bfScanRunning = false;
+
+  function bfResizeScan(){
+    const dpr = window.devicePixelRatio || 1;
+    bfScanC.width = bfScanC.offsetWidth * dpr;
+    bfScanC.height = bfScanC.offsetHeight * dpr;
+    bfScanCtx.setTransform(1,0,0,1,0,0);
+    bfScanCtx.scale(dpr, dpr);
+  }
+
+  function bfInitScanDots(){
+    bfResizeScan();
+    bfScanDots = [];
+    const cx = bfScanC.offsetWidth/2, cy = bfScanC.offsetHeight/2;
+    for(let i=0;i<90;i++){
+      const ang = Math.random()*Math.PI*2;
+      const dist = Math.random()*140+60;
+      bfScanDots.push({
+        x: cx + Math.cos(ang)*dist,
+        y: cy + Math.sin(ang)*dist,
+        r: Math.random()*1.5+0.4,
+        a: Math.random()*0.5+0.2,
+        vx:0, vy:0,
+        orb: Math.random()*Math.PI*2,
+        orbR: Math.random()*30+50
+      });
+    }
+  }
+
+  function bfDrawScan(){
+    if(!bfScanRunning) return;
+    bfScanCtx.clearRect(0,0,bfScanC.offsetWidth,bfScanC.offsetHeight);
+    const cx = bfScanC.offsetWidth/2, cy = bfScanC.offsetHeight/2;
+    bfScanDots.forEach(p=>{
+      p.orb += 0.006;
+      const orbX = cx + Math.cos(p.orb)*p.orbR;
+      const orbY = cy + Math.sin(p.orb)*p.orbR;
+      p.x += (orbX - p.x)*0.04;
+      p.y += (orbY - p.y)*0.04;
+      bfScanCtx.beginPath();
+      bfScanCtx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      bfScanCtx.fillStyle = `rgba(0,200,240,${p.a})`;
+      bfScanCtx.fill();
+    });
+    requestAnimationFrame(bfDrawScan);
+  }
+
+  function bfBurstDots(){
+    const cx = bfScanC.offsetWidth/2, cy = bfScanC.offsetHeight/2;
+    bfScanDots.forEach(p=>{
+      const dx = p.x - cx, dy = p.y - cy;
+      const d = Math.sqrt(dx*dx+dy*dy) || 1;
+      p.vx = (dx/d)*8; p.vy = (dy/d)*8;
+    });
+    let i = 0;
+    function step(){
+      bfScanCtx.clearRect(0,0,bfScanC.offsetWidth,bfScanC.offsetHeight);
+      bfScanDots.forEach(p=>{
+        p.x += p.vx; p.y += p.vy;
+        p.vx *= 0.95; p.vy *= 0.95;
+        p.a *= 0.94;
+        bfScanCtx.beginPath();
+        bfScanCtx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        bfScanCtx.fillStyle = `rgba(255,220,140,${p.a})`;
+        bfScanCtx.fill();
+      });
+      i++;
+      if(i<60) requestAnimationFrame(step);
+    }
+    step();
+  }
+
+  // --- State transitions ---
+  function bfGoInternal(s){
+    document.querySelectorAll('.baseline-flow .bf-state').forEach(el=>el.classList.remove('active'));
+    document.querySelectorAll('.baseline-flow .bf-demo-nav button').forEach(b=>b.classList.remove('active'));
+    const el = document.getElementById('bf-'+s);
+    if(el) el.classList.add('active');
+    bfCurrent = s;
+
+    // Cleanup
+    bfScanRunning = false;
+    if(bfScanCountdownTimer){clearInterval(bfScanCountdownTimer);bfScanCountdownTimer=null}
+    if(bfReadyAutoTimer){clearInterval(bfReadyAutoTimer);bfReadyAutoTimer=null}
+    if(bfMeterTimer){clearInterval(bfMeterTimer);bfMeterTimer=null}
+    document.getElementById('bfEarly').classList.remove('show');
+    document.getElementById('bfBurst').classList.remove('active');
+    ['bfA1','bfA2','bfA3'].forEach(id=>{
+      const e=document.getElementById(id);
+      if(e){e.classList.remove('processing','done')}
+    });
+
+    if(s==='check') bfSimulateCheck();
+    if(s==='ready') bfReadyCountdown();
+    if(s==='scan') bfSimulateScan();
+    if(s==='analyze') bfSimulateAnalyze();
+  }
+
+  function bfSimulateCheck(){
+    document.getElementById('bfChk1').className = 'bf-chk done';
+    document.getElementById('bfChk2').className = 'bf-chk active';
+    document.getElementById('bfChk3').className = 'bf-chk';
+    document.getElementById('bfPill').className = 'bf-pill';
+    document.getElementById('bfPill').textContent = 'Aligning';
+    let m1=40, m2=20, m3=15, phase=0;
+    bfMeterTimer = setInterval(()=>{
+      m1 = Math.min(96, m1 + 4 + Math.random()*3);
+      m2 = Math.min(92, m2 + 3 + Math.random()*3);
+      m3 = Math.min(88, m3 + 2 + Math.random()*4);
+      document.getElementById('bfM1').style.width = m1+'%';
+      document.getElementById('bfM2').style.width = m2+'%';
+      document.getElementById('bfM3').style.width = m3+'%';
+      document.getElementById('bfMV1').textContent = Math.round(m1);
+      document.getElementById('bfMV2').textContent = Math.round(m2);
+      document.getElementById('bfMV3').textContent = Math.round(m3);
+      if(m1 > 85 && phase < 1){
+        phase = 1;
+        document.getElementById('bfChk2').className = 'bf-chk done';
+        document.getElementById('bfChk2').querySelector('.ic').textContent = '✓';
+        document.getElementById('bfChk3').className = 'bf-chk active';
+        document.getElementById('bfPill').className = 'bf-pill stabilizing';
+        document.getElementById('bfPill').textContent = 'Stabilizing';
+      }
+      if(m3 > 78 && phase < 2){
+        phase = 2;
+        document.getElementById('bfChk3').className = 'bf-chk done';
+        document.getElementById('bfChk3').querySelector('.ic').textContent = '✓';
+        document.getElementById('bfPill').className = 'bf-pill ready';
+        document.getElementById('bfPill').textContent = 'Ready';
+        clearInterval(bfMeterTimer);
+      }
+    }, 350);
+  }
+
+  function bfReadyCountdown(){
+    let n = 3;
+    document.getElementById('bfAutoNum').textContent = n;
+    bfReadyAutoTimer = setInterval(()=>{
+      n--;
+      if(n>0){ document.getElementById('bfAutoNum').textContent = n; }
+      else{
+        clearInterval(bfReadyAutoTimer);
+        bfReadyAutoTimer = null;
+        if(bfCurrent === 'ready') bfGoInternal('scan');
+      }
+    }, 1000);
+  }
+
+  function bfSimulateScan(){
+    bfInitScanDots();
+    bfScanRunning = true;
+    requestAnimationFrame(bfDrawScan);
+
+    let remaining = 45, beats = 0, hr = 66, sqi = 78;
+    document.getElementById('bfCountdown').textContent = remaining;
+    document.getElementById('bfLiveHR').innerHTML = '—<span class="u">bpm</span>';
+    document.getElementById('bfLiveBeats').textContent = '0';
+    document.getElementById('bfLiveSQI').textContent = '—';
+    document.getElementById('bfScanHeadline').textContent = '能量凝聚中';
+    document.getElementById('bfScanSub').textContent = '請保持手指不動，呼吸放鬆';
+
+    // PPG waveform
+    const ppgPath = document.getElementById('bfPpgPath');
+    let phase = 0;
+    function ppgStep(){
+      if(!bfScanRunning) return;
+      phase += 0.12;
+      let d = 'M 0 18';
+      for(let x = 0; x <= 300; x += 3){
+        const t = phase - x*0.04;
+        const beat = Math.exp(-Math.pow((t%2)-0.2, 2)*24)*10;
+        const y = 18 - beat + Math.sin(t*3)*1.2;
+        d += ` L ${x} ${y.toFixed(1)}`;
+      }
+      ppgPath.setAttribute('d', d);
+      requestAnimationFrame(ppgStep);
+    }
+    ppgStep();
+
+    bfScanCountdownTimer = setInterval(()=>{
+      remaining--;
+      beats += 1 + (Math.random() > 0.6 ? 1 : 0);
+      hr = 66 + Math.sin(remaining*0.2)*2;
+      sqi = Math.min(96, sqi + 0.5 + Math.random()*0.8);
+      document.getElementById('bfCountdown').textContent = Math.max(0, remaining);
+      document.getElementById('bfLiveHR').innerHTML = `${Math.round(hr)}<span class="u">bpm</span>`;
+      document.getElementById('bfLiveBeats').textContent = beats;
+      document.getElementById('bfLiveSQI').textContent = Math.round(sqi);
+      if(remaining === 40) document.getElementById('bfScanHeadline').textContent = '訊號採集中';
+      if(remaining === 25){
+        document.getElementById('bfScanHeadline').textContent = '能量累積中';
+        document.getElementById('bfScanSub').textContent = '持續偵測 · 品質優良';
+      }
+      if(remaining === 30 && sqi > 85){
+        document.getElementById('bfEarly').classList.add('show');
+        document.getElementById('bfScanHeadline').textContent = '品質優良';
+        document.getElementById('bfScanSub').textContent = '即將完成掃描';
+        setTimeout(bfTriggerComplete, 1800);
+      }
+      if(remaining <= 0){
+        clearInterval(bfScanCountdownTimer);
+        bfScanCountdownTimer = null;
+        bfTriggerComplete();
+      }
+    }, 1000);
+  }
+
+  function bfTriggerComplete(){
+    if(bfScanCountdownTimer){clearInterval(bfScanCountdownTimer);bfScanCountdownTimer=null}
+    document.getElementById('bfBurst').classList.add('active');
+    bfBurstDots();
+    setTimeout(()=>{
+      bfScanRunning = false;
+      bfGoInternal('analyze');
+    }, 1000);
+  }
+
+  function bfSimulateAnalyze(){
+    ['bfA1','bfA2','bfA3'].forEach(id=>document.getElementById(id).classList.remove('processing','done'));
+    document.getElementById('bfA1').classList.add('processing');
+    setTimeout(()=>{
+      document.getElementById('bfA1').classList.remove('processing');
+      document.getElementById('bfA1').classList.add('done');
+      document.getElementById('bfA1').querySelector('.ic').textContent = '✓';
+      document.getElementById('bfA1').querySelector('.st').textContent = '基線已鎖定';
+      document.getElementById('bfA2').classList.add('processing');
+    }, 900);
+    setTimeout(()=>{
+      document.getElementById('bfA2').classList.remove('processing');
+      document.getElementById('bfA2').classList.add('done');
+      document.getElementById('bfA2').querySelector('.ic').textContent = '✓';
+      document.getElementById('bfA2').querySelector('.st').textContent = '基線已鎖定';
+      document.getElementById('bfA3').classList.add('processing');
+    }, 1800);
+    setTimeout(()=>{
+      document.getElementById('bfA3').classList.remove('processing');
+      document.getElementById('bfA3').classList.add('done');
+      document.getElementById('bfA3').querySelector('.ic').textContent = '✓';
+      document.getElementById('bfA3').querySelector('.st').textContent = '基線已鎖定';
+    }, 2700);
+    setTimeout(()=>{
+      if(bfCurrent === 'analyze') bfGoInternal('done');
+    }, 3500);
+  }
+
+  // Expose global entry points
+  window.openBaseline = function(){
+    document.getElementById('baselineFlow').classList.add('open');
+    bfResize();
+    bfInit();
+    if(!bfDustRunning){
+      bfDustRunning = true;
+      requestAnimationFrame(bfAnim);
+    }
+    bfGoInternal('intro');
+  };
+  window.closeBaseline = function(){
+    document.getElementById('baselineFlow').classList.remove('open');
+    bfDustRunning = false;
+    bfScanRunning = false;
+    if(bfScanCountdownTimer){clearInterval(bfScanCountdownTimer);bfScanCountdownTimer=null}
+    if(bfReadyAutoTimer){clearInterval(bfReadyAutoTimer);bfReadyAutoTimer=null}
+    if(bfMeterTimer){clearInterval(bfMeterTimer);bfMeterTimer=null}
+    if(bfAutoChain){bfAutoChain.forEach(t=>clearTimeout(t));bfAutoChain=null;document.getElementById('bfAutoBtn').textContent='▶ AUTO'}
+  };
+  window.bfGo = bfGoInternal;
+  window.bfFinish = function(){
+    window.closeBaseline();
+    // Land on Today to show "fresh baseline" state
+    setTimeout(() => goTab('today'), 300);
+  };
+  window.bfAuto = function(){
+    const btn = document.getElementById('bfAutoBtn');
+    if(bfAutoChain){
+      bfAutoChain.forEach(t => clearTimeout(t));
+      bfAutoChain = null;
+      btn.textContent = '▶ AUTO';
+      return;
+    }
+    btn.textContent = '■ STOP';
+    bfAutoChain = [];
+    const seq = [
+      ['intro', 0],
+      ['sensor', 2500],
+      ['check', 5000],
+      ['ready', 12500],
+      ['scan', 16500]
+    ];
+    seq.forEach(([s, d]) => bfAutoChain.push(setTimeout(()=>bfGoInternal(s), d)));
+    bfAutoChain.push(setTimeout(()=>{
+      btn.textContent = '▶ AUTO';
+      bfAutoChain = null;
+    }, 32000));
+  };
+})();
+</script>
+
+</body>
+</html>

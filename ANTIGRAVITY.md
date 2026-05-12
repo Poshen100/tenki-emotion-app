@@ -1,3 +1,82 @@
+# 2026-04-28 CONTINUATION NOTE (READ THIS FIRST)
+
+This note is the current handoff for the new Windows machine. If any older setup text below conflicts with this section, this section wins.
+
+## Environment status
+
+- Repo cloned successfully on 2026-04-28 into `C:\Users\patron\Documents\Codex\2026-04-28\clone-https-github-com-poshen100-tenki`
+- Portable Node.js installed at `C:\Users\patron\Documents\Codex\2026-04-28\node-v24.15.0-win-x64`
+- `start_env.bat` in repo root is already wired to that portable Node.js path
+- Dependencies were installed at both repo root and `apps/mobile`
+- Verified on this machine:
+  - Node.js `v24.15.0`
+  - npm `11.12.1`
+  - Expo CLI available under `apps/mobile`
+  - `apps/mobile` TypeScript check passes with `tsc --noEmit`
+
+## Important PATH warning
+
+On this machine, the default `node.exe` visible to `cmd.exe` may resolve to a WindowsApps / Codex app stub and can fail with `Access is denied`, especially during npm child-process execution.
+
+Always do one of these before running Node/npm/Expo commands:
+
+1. Launch the shell via `start_env.bat`
+2. Or prepend `C:\Users\patron\Documents\Codex\2026-04-28\node-v24.15.0-win-x64` to `PATH`
+
+Do not assume the system `node` is usable until PATH is corrected.
+
+## Active app entry point
+
+The active mobile app is `apps/mobile`, not the root package.
+
+Use this flow:
+
+```powershell
+cd apps\mobile
+npm start
+```
+
+Other valid commands:
+
+```powershell
+npm run web
+npm run android
+npm run ios
+```
+
+`README.md` has been updated to point collaborators to `apps/mobile` and `docs/DEPLOYMENT_MAP.md`. Treat the deployment map as the canonical route/source reference.
+
+## Current product/code status
+
+- The active product direction is still the v3 privacy-first, App Store-safe TENKI blueprint below
+- `apps/mobile` already contains an Expo Router 5-tab shell:
+  - `app/(tabs)/index.tsx` -> Today
+  - `app/(tabs)/scan.tsx` -> Scan
+  - `app/(tabs)/session.tsx` -> Session
+  - `app/(tabs)/timeline.tsx` -> Timeline
+  - `app/(tabs)/lab.tsx` -> Lab
+- Earlier engine/domain/shared work already exists and should be reused, not rebuilt from scratch
+- The next real execution focus is Phase C integration and polish inside `apps/mobile`
+
+## Recommended next order
+
+1. Run `apps/mobile` locally and verify the 5-tab shell renders correctly
+2. Audit mobile stores/components against `packages/engine`, `domain`, and `packages/shared`
+3. Replace mock scan/session flows with real engine/domain contracts where ready
+4. Clean up any remaining stale docs that still imply the repo root is the primary app entry point
+5. Continue to preserve compliance-safe copy and privacy-first architecture from this blueprint
+
+## Working tree note
+
+- As of 2026-04-28, `apps/mobile/package-lock.json` changed because dependencies were freshly installed on this new machine
+- Keep that file unless intentionally regenerating mobile dependencies
+
+## Companion files
+
+- `task.md` contains the immediate execution checklist for the next session
+- `MEMORY.md` contains the matching 2026-04-28 machine/setup note
+- `docs/DEPLOYMENT_MAP.md` is the URL/source-of-truth map for deployed routes, previews, and what each one actually means
+
 # TENKI CORE — ANTIGRAVITY MASTER BLUEPRINT v4.0
 
 > **最後更新**：2026-04-07  

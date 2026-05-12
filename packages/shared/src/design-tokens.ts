@@ -77,4 +77,60 @@ export const TENKI_THEME = {
     xl: 24,
     full: 9999,
   },
+  /** Scan result page tokens. */
+  scanResult: {
+    /** Dual-ring gauge dimensions. */
+    ring: {
+      size: 260,
+      outerRadius: 116,
+      innerRadius: 90,
+      outerWidth: 14,
+      innerWidth: 8,
+      /** Ring start angle (radians) — lower-left (~8 o'clock). */
+      startAngle: Math.PI * 0.74,
+    },
+    /** 12-stop spectrum gradient for outer ring (cyan → green → yellow → orange → red). */
+    spectrum: [
+      [0, 180, 180],   // teal
+      [0, 190, 140],   // teal-green
+      [40, 200, 100],  // green
+      [80, 210, 60],   // yellow-green
+      [140, 210, 50],  // lime
+      [190, 200, 40],  // yellow-green
+      [220, 180, 35],  // golden
+      [240, 155, 30],  // amber
+      [250, 125, 35],  // orange
+      [255, 100, 45],  // deep orange
+      [255, 80, 50],   // red-orange
+      [255, 65, 55],   // red
+    ] as const,
+    /** Inner ring gradient: green → cyan. */
+    innerGradient: {
+      start: [82, 236, 145] as const,  // green
+      end: [38, 201, 235] as const,    // cyan
+    },
+    /** Bento metric card colors. */
+    sparklines: {
+      hr: '#FF453A',
+      hrv: '#67EA8E',
+      rr: '#20D7F2',
+    },
+    /** Bento card dimensions. */
+    bentoCard: {
+      radius: 20,
+      padding: 16,
+      gap: 12,
+    },
+    /** Bottom navigation. */
+    bottomNav: {
+      height: 72,
+      safeBottom: 24,
+      background: 'rgba(15, 23, 42, 0.92)',
+      blur: 24,
+      activeColor: '#22D3EE',
+      inactiveColor: '#475569',
+    },
+    /** Deep space background. */
+    background: '#020617',
+  },
 } as const;

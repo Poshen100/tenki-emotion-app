@@ -1,17 +1,13 @@
 {
-    "installCommand": "npm install --legacy-peer-deps && cd apps/mobile && npm install --legacy-peer-deps",
-    "buildCommand": "cd apps/mobile && npx expo export --platform web --output-dir dist-web || echo 'Mobile build skipped — static sites still deploy'",
     "outputDirectory": ".",
     "framework": null,
     "redirects": [
-        { "source": "/preview", "destination": "/preview/", "permanent": false },
-        { "source": "/mobile", "destination": "/mobile/", "permanent": false }
+        { "source": "/preview", "destination": "/preview/", "permanent": false }
     ],
     "rewrites": [
+        { "source": "/brand/(.*)", "destination": "/brand/$1" },
         { "source": "/preview/", "destination": "/apps/preview/index.html" },
         { "source": "/preview/(.*)", "destination": "/apps/preview/$1" },
-        { "source": "/mobile/", "destination": "/apps/mobile/dist-web/index.html" },
-        { "source": "/mobile/(.*)", "destination": "/apps/mobile/dist-web/$1" },
         { "source": "/", "destination": "/apps/web/index.html" },
         { "source": "/(.*)", "destination": "/apps/web/$1" }
     ]

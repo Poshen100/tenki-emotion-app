@@ -1,3 +1,52 @@
+# 2026-04-28 Session Update (New Windows Machine / Continuation Handoff)
+
+## What was done
+
+1. Cloned the repo again on the new machine into `C:\Users\patron\Documents\Codex\2026-04-28\clone-https-github-com-poshen100-tenki`
+2. Installed portable Node.js at `C:\Users\patron\Documents\Codex\2026-04-28\node-v24.15.0-win-x64`
+3. Verified `start_env.bat` already targets that portable Node.js path
+4. Installed dependencies at repo root and at `apps/mobile`
+5. Rebuilt npm dependencies successfully after correcting PATH to portable Node.js
+6. Verified:
+   - Node.js `v24.15.0`
+   - npm `11.12.1`
+   - Expo CLI available in `apps/mobile`
+   - `apps/mobile` TypeScript check passes
+
+## Important machine-specific warning
+
+On this machine, the default `node.exe` may resolve to a WindowsApps / Codex stub. When npm spawns child processes through that path, commands can fail with `Access is denied`.
+
+Safe rule for future sessions:
+
+- Always open the shell with `start_env.bat`
+- Or prepend `C:\Users\patron\Documents\Codex\2026-04-28\node-v24.15.0-win-x64` to `PATH` before using npm/expo
+
+## Active app reality check
+
+- The real active mobile app is `apps/mobile`
+- `README.md` now points collaborators to `apps/mobile` and `docs/DEPLOYMENT_MAP.md`
+- The correct next-session dev path is:
+
+```powershell
+cd apps\mobile
+npm start
+```
+
+## Recommended continuation
+
+1. Launch the Expo app from `apps/mobile`
+2. Verify the existing 5-tab shell renders on this machine
+3. Continue Phase C integration/polish by wiring mobile screens to existing engine/domain/shared layers
+4. Clean up stale root-level docs after confirming runtime flow
+
+## Deployment map note
+
+- Deployment URL meaning is now documented in `docs/DEPLOYMENT_MAP.md`
+- Public Vercel root currently maps to `apps/web`
+- `/preview/` routes map to `apps/preview`
+- `apps/mobile` is the active implementation path but has no confirmed public deployment URL recorded in repo yet
+
 # MEMORY.md — TENKI CORE AI Session Memory
 
 > 此檔案由 AI 助手在每次 session 結束時更新。
@@ -142,5 +191,18 @@
 - Baseline result displayed realistic metric values
 - No console errors
 
-*Last updated: 2026-04-14 10:55*
-*Updated by: Antigravity (Baseline Onboarding deliverables)*
+## 2026-04-21 Session Update (Library Session)
+
+### 達成進度：
+1. **環境設定與維護**：在免安裝 Node.js (v24.15.0) 環境中修復 `vitest` 到 `jest` 的兼容性錯誤，`packages/engine` 的 19 個測試套件 (259 個測試) 現已全數通過。
+2. **Phase B 基礎建設 (Step 2)**：
+   - 透過 GitHub 介面手動部署了 145KB 的 `apps/preview/v6/index.html`，成功規避了大檔案寫入造成的 Timeout 錯誤。
+   - 完成 `.tei` 到 `.tl-tei` 的 CSS Class 重新命名任務（包含 3300 多行程式碼）。
+   - 實作 **v3 語意合規**：全面替換不符合 v3 架構的專有名詞，例如將 `TEI` 替換為 `Edge Score`，將 `PR99` 替換為 `Decision Edge`。
+
+### 下一步 (Next Session)：
+1. 實作 Replay Engine 與 Insight Generator。
+2. 完成完整的整合測試 (Full Pipeline)。
+
+*Last updated: 2026-04-21 11:46*
+*Updated by: Antigravity (Library Session End)*

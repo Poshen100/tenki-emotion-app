@@ -32,7 +32,11 @@ const state = {
   scanHardCap: 60,         // Safety upper bound
   readinessSimStep: 0,
   isScanning: false,
-  scanPhase: 'idle',       // idle | gather | accumulate | climax | final | transition
+  scanPhase: 'idle',       // idle | wait | gather | accumulate | climax | final | transition
+  scanWaitStartTs: 0,      // v1.2: timestamp when scan-step entered (used during 'wait')
+  signalValidSinceTs: null, // v1.2: timestamp when signal first hit GOOD/EXCELLENT
+  signalDegradeSinceTs: null, // v1.2: timestamp when signal first dropped below GOOD (forgetting-prevention)
+  forgetReminderActive: false, // v1.2: true while finger-guide & banner are re-shown after signal drop
   sqiHistory: [],          // rolling SQI samples (Mean used for early-complete gate)
   rollingSqi: 0,
   qualityTier: 'weak',
@@ -156,28 +160,393 @@ function selectSensor(type) {
 }
 
 function updateInstructions(type) {
+  const copy = type === 'finger'
+    ? {
+        title: '先把鏡頭蓋對',
+        body: '這一步做得越準，後面的基線越穩。先看 2 秒示範，再照著 live coach 放好手指。',
+        demoTitle: '用指腹，置中，蓋滿',
+        demoBody: '鏡頭要整顆消失在指腹下面，邊緣不要漏光。',
+        bullets: [
+          '用指腹而不是指尖，覆蓋面積更穩。',
+          '手指輕放就好，不要用力按壓鏡頭。',
+          '握穩手機，連續靜止 1 秒讓訊號鎖定。',
+        ],
+        note: '我們只在理想覆蓋時建立 baseline，讓你的 reference 更穩。',
+        coach: '把指腹移到後鏡頭正中央',
+        liveTitle: '照著提示把手指放到理想位置',
+      }
+    : {
+        title: '先把臉放對',
+        body: '臉部 baseline 仍在 beta。先把臉放正、補足光線，再讓系統確認穩定度。',
+        demoTitle: 'Face beta 準備中',
+        demoBody: '目前這個 step 先用 checklist 幫你對齊光線與穩定度。',
+        bullets: [
+          '讓整張臉都進入鏡頭取景範圍。',
+          '避免強烈逆光，讓五官保持清楚。',
+          '固定頭部與手機，連續穩住 1 秒。',
+        ],
+        note: 'beta 模式會先用較保守的 gate，避免把不穩定的畫面寫進 baseline。',
+        coach: '先把臉放進鏡頭正中央',
+        liveTitle: '先把臉對準，再等系統放行',
+      };
+
+  setReadinessText('readiness-title', copy.title);
+  setReadinessText('readiness-body', copy.body);
+  setReadinessText('cover-demo-title', copy.demoTitle);
+  setReadinessText('cover-demo-body', copy.demoBody);
+  setReadinessText('readiness-success-note', copy.note);
+  setReadinessText('readiness-coach', copy.coach);
+  setReadinessTextInSelector('.readiness-live-title', copy.liveTitle);
+
+  const card = document.getElementById('perfect-cover-card');
+  if (card) card.classList.toggle('is-hidden', type !== 'finger');
+
   const list = document.getElementById('instructions-list');
-  if (!list) return;
+  if (list) {
+    list.innerHTML = copy.bullets.map((text, i) =>
+      `<div class="cover-bullet">
+        <span class="cover-bullet-icon">${i + 1}</span>
+        <span class="cover-bullet-copy">${text}</span>
+      </div>`
+    ).join('');
+  }
+}
 
-  const fingerInstructions = [
-    '將食指或中指的指腹完整覆蓋後鏡頭',
-    '手指要輕放，不要用力按壓',
-    '保持手機穩定，盡量不要晃動',
-  ];
+const READINESS_THRESHOLDS = {
+  coverage: { ready: 0.88, warning: 0.72, missing: 0.58 },
+  brightness: { ready: 0.38, warning: 0.30 },
+  stability: { ready: 0.72, warning: 0.55 },
+  sqi: { ready: 0.60, warning: 0.46 },
+};
 
-  const faceInstructions = [
-    '面對前鏡頭，保持自然表情',
-    '確保臉部光線均勻，避免逆光',
-    '保持頭部穩定',
-  ];
+const READINESS_STAGE_ORDER = ['approach', 'cover', 'hold', 'ready'];
 
-  const instructions = type === 'finger' ? fingerInstructions : faceInstructions;
-  list.innerHTML = instructions.map((text, i) =>
-    `<div class="instruction-item">
-      <span class="instruction-number">${i + 1}</span>
-      <span>${text}</span>
-    </div>`
-  ).join('');
+const READINESS_TONE_COLORS = {
+  neutral: '',
+  warning: '#F5A623',
+  danger: '#FF3B30',
+  success: '#34C759',
+};
+
+function setReadinessText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+function setReadinessTextInSelector(selector, text) {
+  const el = document.querySelector(selector);
+  if (el) el.textContent = text;
+}
+
+function setReadinessStage(stage) {
+  const activeIndex = READINESS_STAGE_ORDER.indexOf(stage);
+  document.querySelectorAll('.readiness-stage-pill, .cover-chip').forEach((el) => {
+    const elStage = el.dataset.stage || '';
+    const elIndex = READINESS_STAGE_ORDER.indexOf(elStage);
+    el.classList.toggle('is-active', elIndex === activeIndex);
+    el.classList.toggle('is-complete', elIndex > -1 && elIndex < activeIndex);
+  });
+}
+
+function setReadinessFeedback(primary, secondary, tone) {
+  const msgEl = document.getElementById('readiness-message');
+  const detailEl = document.getElementById('readiness-detail');
+  const blockEl = document.getElementById('readiness-status-block');
+  const color = READINESS_TONE_COLORS[tone] || '';
+
+  if (msgEl) {
+    msgEl.textContent = primary;
+    msgEl.style.color = color;
+  }
+  if (detailEl) detailEl.textContent = secondary;
+  if (blockEl) blockEl.dataset.tone = tone;
+}
+
+function setReadinessButton(enabled) {
+  const btn = document.getElementById('btn-start-scan');
+  if (!btn) return;
+  btn.disabled = !enabled;
+  btn.textContent = enabled ? '開始建立基線' : '等待理想覆蓋';
+}
+
+function getFingerReadinessAssessment(metrics) {
+  const { coverage, brightness, stability, sqi, bpm } = metrics;
+
+  if (coverage < READINESS_THRESHOLDS.coverage.missing) {
+    return {
+      stage: 'approach',
+      tone: 'danger',
+      ready: false,
+      coach: '把指腹移到後鏡頭正中央',
+      message: '先找到鏡頭位置',
+      detail: '讓鏡頭完整消失在指腹下面，先不用急著開始掃描。',
+      label: '找到後鏡頭',
+    };
+  }
+
+  if (coverage < READINESS_THRESHOLDS.coverage.ready) {
+    return {
+      stage: 'cover',
+      tone: 'warning',
+      ready: false,
+      coach: '再蓋滿一點，邊緣不要漏光',
+      message: '覆蓋快對了',
+      detail: '鏡頭四周還有空隙。請用指腹而不是指尖，把邊緣也一起蓋滿。',
+      label: '再蓋滿一點',
+    };
+  }
+
+  if (stability < READINESS_THRESHOLDS.stability.ready) {
+    return {
+      stage: 'hold',
+      tone: 'warning',
+      ready: false,
+      coach: '位置對了，先不要滑動',
+      message: '先穩住 1 秒',
+      detail: '現在最重要的是不要晃。握住手機，讓手指和鏡頭一起穩定下來。',
+      label: '保持靜止',
+    };
+  }
+
+  if (brightness < READINESS_THRESHOLDS.brightness.ready) {
+    return {
+      stage: 'hold',
+      tone: 'warning',
+      ready: false,
+      coach: '換到更亮一點的地方',
+      message: '光線再亮一點會更穩',
+      detail: '覆蓋已經對了，但光線太弱會讓波形不穩，先移到比較亮的位置。',
+      label: '亮度偏低',
+    };
+  }
+
+  if (sqi < READINESS_THRESHOLDS.sqi.ready) {
+    return {
+      stage: 'hold',
+      tone: 'warning',
+      ready: false,
+      coach: '很好，再穩一秒讓訊號鎖定',
+      message: '幾乎到了',
+      detail: '覆蓋、亮度都已過線，系統正在確認訊號品質。',
+      label: bpm > 0 ? `${bpm} BPM 鎖定中` : '訊號鎖定中',
+    };
+  }
+
+  return {
+    stage: 'ready',
+    tone: 'success',
+    ready: true,
+    coach: '很好，這就是理想覆蓋',
+    message: '準備就緒，可以開始',
+    detail: '覆蓋、穩定、亮度都過線了。現在建立 baseline，精準度會更可靠。',
+    label: bpm > 0 ? `${bpm} BPM 已鎖定` : '理想覆蓋 ✓',
+  };
+}
+
+function getFaceReadinessAssessment(metrics) {
+  const { coverage, brightness, stability, sqi } = metrics;
+
+  if (coverage < 0.58) {
+    return {
+      stage: 'approach',
+      tone: 'danger',
+      ready: false,
+      coach: '把臉放進鏡頭正中央',
+      message: '先把臉放進取景範圍',
+      detail: '讓眼睛和鼻樑落在中央，距離鏡頭維持在舒服的閱讀距離。',
+      label: '對準臉部',
+    };
+  }
+
+  if (brightness < 0.34) {
+    return {
+      stage: 'cover',
+      tone: 'warning',
+      ready: false,
+      coach: '補一點正面光',
+      message: '光線不夠穩',
+      detail: '避免逆光，讓臉部亮度平均一點，系統才能更穩定地抓到 baseline。',
+      label: '調整光線',
+    };
+  }
+
+  if (stability < 0.68) {
+    return {
+      stage: 'hold',
+      tone: 'warning',
+      ready: false,
+      coach: '保持頭部與手機靜止',
+      message: '先穩住一下',
+      detail: '畫面已對準，但還需要一小段穩定時間，才能讓 gate 放行。',
+      label: '保持靜止',
+    };
+  }
+
+  if (sqi < 0.56) {
+    return {
+      stage: 'hold',
+      tone: 'warning',
+      ready: false,
+      coach: '很好，再穩一秒讓系統確認',
+      message: '正在確認畫面品質',
+      detail: 'beta 模式會多看一下畫面品質，避免把模糊資料寫進 baseline。',
+      label: '確認中',
+    };
+  }
+
+  return {
+    stage: 'ready',
+    tone: 'success',
+    ready: true,
+    coach: '很好，可以開始 face baseline',
+    message: '準備就緒，可以開始',
+    detail: '光線與穩定度已過線，現在可以開始建立 baseline。',
+    label: '畫面已鎖定',
+  };
+}
+
+function getReadinessAssessment(metrics) {
+  return state.sensorChoice === 'finger'
+    ? getFingerReadinessAssessment(metrics)
+    : getFaceReadinessAssessment(metrics);
+}
+
+function applyReadinessState(sample) {
+  const metrics = {
+    coverage: clamp01(sample.coverage || 0),
+    brightness: clamp01(sample.brightness || 0),
+    stability: clamp01(sample.stability || 0),
+    sqi: clamp01(sample.sqi || 0),
+    bpm: sample.bpm || 0,
+  };
+
+  const now = Date.now();
+  const dt = state.lastReadinessTs ? now - state.lastReadinessTs : 33;
+  state.lastReadinessTs = now;
+
+  // ── Latch: each meter stays green for 3s after crossing threshold
+  const TH = READINESS_THRESHOLDS;
+  const covG = isLatchedGreen('coverage', metrics.coverage, TH.coverage.ready);
+  const briG = isLatchedGreen('brightness', metrics.brightness, TH.brightness.ready);
+  const staG = isLatchedGreen('stability', metrics.stability, TH.stability.ready);
+  const sqiG = isLatchedGreen('sqi', metrics.sqi, TH.sqi.ready);
+
+  // ── Meter visuals (use latched state for icons)
+  const meterIcon = (latched, value, readyTh, warnTh) =>
+    latched ? '✅' : getMeterIcon(value, readyTh, warnTh);
+
+  updateMeter('coverage', metrics.coverage * 100,
+    meterIcon(covG, metrics.coverage, TH.coverage.ready, TH.coverage.warning),
+    { green: TH.coverage.ready * 100, yellow: TH.coverage.warning * 100 });
+  updateMeter('brightness', metrics.brightness * 100,
+    meterIcon(briG, metrics.brightness, TH.brightness.ready, TH.brightness.warning),
+    { green: TH.brightness.ready * 100, yellow: TH.brightness.warning * 100 });
+  updateMeter('stability', metrics.stability * 100,
+    meterIcon(staG, metrics.stability, TH.stability.ready, TH.stability.warning),
+    { green: TH.stability.ready * 100, yellow: TH.stability.warning * 100 });
+  updateMeter('sqi', metrics.sqi * 100,
+    meterIcon(sqiG, metrics.sqi, TH.sqi.ready, TH.sqi.warning),
+    { green: TH.sqi.ready * 100, yellow: TH.sqi.warning * 100 });
+
+  // ── Patience: accumulate time with yellow+ coverage
+  if (metrics.coverage >= TH.coverage.warning) {
+    state.yellowCoverageMs += dt;
+  } else {
+    state.yellowCoverageMs = Math.max(0, state.yellowCoverageMs - dt * 2);
+  }
+
+  // ── Strict assessment from the new staged system
+  const assessment = getReadinessAssessment(metrics);
+
+  // ── 3-Layer smart gate ──
+  // Layer 1: strict assessment says ready (all thresholds met)
+  const layer1 = assessment.ready;
+
+  // Layer 2: coverage ≥ warning + at least 2 of 3 others latched green
+  const covRelaxed = metrics.coverage >= TH.coverage.warning || covG;
+  const othersCount = [briG, staG, sqiG].filter(Boolean).length;
+  const layer2 = !layer1 && covRelaxed && othersCount >= 2;
+
+  // Layer 3: patience — 10s of yellow+ coverage with basic conditions
+  const layer3 = !layer1 && !layer2
+    && state.yellowCoverageMs >= READY_PATIENCE_MS
+    && metrics.coverage >= TH.coverage.missing
+    && metrics.brightness >= TH.brightness.warning
+    && metrics.stability >= TH.stability.warning;
+
+  const shouldUnlock = layer1 || layer2 || layer3;
+
+  // ── Once unlocked, stay unlocked
+  if (state.readinessUnlocked) {
+    setReadinessStage('ready');
+    setReadinessButton(true);
+    return;
+  }
+
+  // ── Hold-steady timer
+  if (shouldUnlock) {
+    if (!state.readySince) state.readySince = now;
+    const holdNeeded = layer1 ? 0 : layer3 ? 0 : READY_HOLD_MS;
+    const elapsed = now - state.readySince;
+
+    if (elapsed >= holdNeeded) {
+      state.readinessUnlocked = true;
+
+      const readyAssessment = layer1 ? assessment : {
+        stage: 'ready',
+        tone: 'success',
+        ready: true,
+        coach: layer2 ? '信號夠好了，可以開始' : '已等待足夠時間，可以開始',
+        message: layer2 ? '信號良好，可以開始' : '信號足夠，可以開始',
+        detail: '現在建立 baseline，精準度足夠可靠。',
+        label: metrics.bpm > 0 ? `${metrics.bpm} BPM` : '可以開始 ✓',
+      };
+
+      setReadinessStage(readyAssessment.stage);
+      setReadinessText('readiness-coach', readyAssessment.coach);
+      setReadinessFeedback(readyAssessment.message, readyAssessment.detail, readyAssessment.tone);
+      setReadinessButton(true);
+      setReadinessText('readiness-camera-label', readyAssessment.label);
+
+      const container = document.getElementById('readiness-camera-container');
+      if (container) container.dataset.state = 'green';
+      return;
+    }
+
+    // Hold countdown
+    const remaining = Math.ceil((holdNeeded - elapsed) / 1000);
+    setReadinessStage('hold');
+    setReadinessText('readiness-coach', '位置對了，穩住不動');
+    setReadinessFeedback(
+      `保持不動… ${remaining} 秒後就緒`,
+      '覆蓋和訊號都在線了，只差最後穩定確認。',
+      'success'
+    );
+    setReadinessButton(false);
+    setReadinessText('readiness-camera-label', `穩定確認中…`);
+
+    const container = document.getElementById('readiness-camera-container');
+    if (container) container.dataset.state = 'yellow';
+    return;
+  }
+
+  // ── Not ready: use the strict assessment's guidance
+  state.readySince = 0;
+
+  setReadinessStage(assessment.stage);
+  setReadinessText('readiness-coach', assessment.coach);
+  setReadinessFeedback(assessment.message, assessment.detail, assessment.tone);
+  setReadinessButton(false);
+  setReadinessText('readiness-camera-label', assessment.label);
+
+  const container = document.getElementById('readiness-camera-container');
+  if (container) {
+    container.dataset.state = assessment.stage === 'approach' ? 'red' : 'yellow';
+  }
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
 }
 
 // ─────────────────────────────────────────────
@@ -185,11 +554,15 @@ function updateInstructions(type) {
 // ─────────────────────────────────────────────
 
 function startReadinessCheck() {
-  // Reset UI
-  updateMeter('coverage', 0, '—');
-  updateMeter('brightness', 0, '—');
-  updateMeter('stability', 0, '—');
-  updateMeter('sqi', 0, '—');
+  state.isScanning = false;
+  state.cameraActive = false;
+  state.readinessSimStep = 0;
+  if (state.readinessInterval) clearInterval(state.readinessInterval);
+  state.readinessInterval = null;
+  if (state.cameraSession) {
+    try { state.cameraSession.stop(); } catch (_) {}
+    state.cameraSession = null;
+  }
 
   // Reset smart gate state
   state.readinessLatch = { coverage: 0, brightness: 0, stability: 0, sqi: 0 };
@@ -197,17 +570,36 @@ function startReadinessCheck() {
   state.yellowCoverageMs = 0;
   state.lastReadinessTs = 0;
   state.readinessUnlocked = false;
-
-  const btn = document.getElementById('btn-start-scan');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = '等待就緒...';
   }
 
-  const msgEl = document.getElementById('readiness-message');
-  if (msgEl) { msgEl.textContent = '正在啟動相機…'; msgEl.style.color = ''; }
+  updateInstructions(state.sensorChoice);
+  setReadinessStage('approach');
+  setReadinessButton(false);
+  setReadinessFeedback(
+    state.sensorChoice === 'finger' ? '正在啟動相機…' : '正在準備 face beta…',
+    state.sensorChoice === 'finger'
+      ? '先看一下示範，再把指腹移到後鏡頭正中央。'
+      : '先把臉放進鏡頭中央，系統會用更保守的 gate 幫你確認穩定度。',
+    'neutral'
+  );
+  setReadinessText('readiness-camera-label', state.sensorChoice === 'finger' ? '等待相機…' : 'Face beta preview');
 
-  // Start camera at readiness step so meters use real data
+  const container = document.getElementById('readiness-camera-container');
+  if (container) {
+    container.style.display = '';
+    container.dataset.state = 'neutral';
+  }
+
+  updateMeter('coverage', 0, '—', { green: READINESS_THRESHOLDS.coverage.ready * 100, yellow: READINESS_THRESHOLDS.coverage.warning * 100 });
+  updateMeter('brightness', 0, '—', { green: READINESS_THRESHOLDS.brightness.ready * 100, yellow: READINESS_THRESHOLDS.brightness.warning * 100 });
+  updateMeter('stability', 0, '—', { green: READINESS_THRESHOLDS.stability.ready * 100, yellow: READINESS_THRESHOLDS.stability.warning * 100 });
+  updateMeter('sqi', 0, '—', { green: READINESS_THRESHOLDS.sqi.ready * 100, yellow: READINESS_THRESHOLDS.sqi.warning * 100 });
+
+  if (state.sensorChoice !== 'finger') {
+    startSimulatedReadiness('face');
+    return;
+  }
+
   startReadinessCamera();
 }
 
@@ -218,8 +610,12 @@ async function startReadinessCamera() {
   const api = window.TENKI_PREVIEW_CAMERA;
 
   if (!videoEl || !api || !api.startFingerCamera) {
-    // No camera module — fall back to simulated readiness
-    startSimulatedReadiness();
+    setReadinessFeedback(
+      '無法直接存取相機，改用示範模式',
+      '你還是可以先看理想覆蓋的節奏，確認 flow 和提示是否順手。',
+      'warning'
+    );
+    startSimulatedReadiness('finger');
     return;
   }
 
@@ -236,26 +632,22 @@ async function startReadinessCamera() {
       if (!state.isScanning) updateReadinessFromCamera(sample);
     });
     state.cameraSession = session;
-    if (labelEl) labelEl.textContent = '後鏡頭已啟動';
+    if (container) container.dataset.state = 'red';
+    if (labelEl) labelEl.textContent = '對準後鏡頭';
   } catch (err) {
     state.cameraActive = false;
-    if (container) container.style.display = 'none';
-    if (labelEl) labelEl.textContent = '';
-    const msgEl = document.getElementById('readiness-message');
-    if (msgEl) {
-      if (err && err.name === 'NotAllowedError') {
-        msgEl.textContent = '相機權限被拒 — 使用模擬模式';
-      } else {
-        msgEl.textContent = '無法開啟相機 — 使用模擬模式';
-      }
-      msgEl.style.color = '#F5A623';
-    }
-    startSimulatedReadiness();
+    if (container) container.dataset.state = 'yellow';
+    if (labelEl) labelEl.textContent = '模擬覆蓋教學';
+    setReadinessFeedback(
+      err && err.name === 'NotAllowedError' ? '相機權限被拒，改用示範模式' : '無法開啟相機，改用示範模式',
+      '這個 fallback 仍然能幫你檢查提示是否清楚，之後再接上真實相機 gate。',
+      'warning'
+    );
+    startSimulatedReadiness('finger');
   }
 }
 
-// ── Readiness gate thresholds ──
-const READY_GREEN = { coverage: 0.85, brightness: 0.50, stability: 0.70, sqi: 0.55 };
+// ── Smart gate constants ──
 const READY_LATCH_MS = 3000;     // once green, stays green 3s
 const READY_HOLD_MS = 1500;      // hold steady before unlock
 const READY_PATIENCE_MS = 10000; // after 10s of yellow coverage → unlock anyway
@@ -270,166 +662,71 @@ function isLatchedGreen(key, value, threshold) {
 }
 
 function updateReadinessFromCamera(sample) {
-  const { coverage, brightness, stability, sqi, color, bpm } = sample;
-  const now = Date.now();
-  const dt = state.lastReadinessTs ? now - state.lastReadinessTs : 33;
-  state.lastReadinessTs = now;
-
-  // ── Latch: check each meter (latched = stays green for 3s after crossing threshold)
-  const covG = isLatchedGreen('coverage', coverage, READY_GREEN.coverage);
-  const briG = isLatchedGreen('brightness', brightness || 0, READY_GREEN.brightness);
-  const staG = isLatchedGreen('stability', stability || 0, READY_GREEN.stability);
-  const sqiG = isLatchedGreen('sqi', sqi, READY_GREEN.sqi);
-
-  // ── Update meter visuals (use latched state for icons)
-  updateMeter('coverage', coverage * 100, covG ? '✅' : getMeterIcon(coverage, 0.85, 0.60));
-  updateMeter('brightness', (brightness || 0) * 100, briG ? '✅' : getMeterIcon(brightness || 0, 0.50, 0.30));
-  updateMeter('stability', (stability || 0) * 100, staG ? '✅' : getMeterIcon(stability || 0, 0.70, 0.50));
-  updateMeter('sqi', sqi * 100, sqiG ? '✅' : getMeterIcon(sqi, 0.55, 0.40));
-
-  // ── Camera preview
-  const container = document.getElementById('readiness-camera-container');
-  if (container) container.dataset.state = color;
-
-  const labelEl = document.getElementById('readiness-camera-label');
-  if (labelEl) {
-    if (color === 'green') labelEl.textContent = bpm > 0 ? `${bpm} BPM 偵測中` : '手指已覆蓋 ✓';
-    else if (color === 'yellow') labelEl.textContent = '調整手指位置';
-    else labelEl.textContent = '覆蓋後鏡頭';
-  }
-
-  // ── Patience: accumulate time with yellow+ coverage
-  if (coverage >= 0.60) {
-    state.yellowCoverageMs += dt;
-  } else {
-    state.yellowCoverageMs = Math.max(0, state.yellowCoverageMs - dt * 2);
-  }
-
-  // ── 3-Layer unlock gate ──
-  // Layer 1: All 4 latched green
-  const layer1 = covG && briG && staG && sqiG;
-
-  // Layer 2: Coverage ≥ 0.70 + at least 2 of 3 others latched green
-  const covRelaxed = coverage >= 0.70 || covG;
-  const othersCount = [briG, staG, sqiG].filter(Boolean).length;
-  const layer2 = covRelaxed && othersCount >= 2;
-
-  // Layer 3: Patience — 10s of yellow+ coverage with basic conditions
-  const layer3 = state.yellowCoverageMs >= READY_PATIENCE_MS
-    && coverage >= 0.60
-    && (brightness || 0) >= 0.30
-    && (stability || 0) >= 0.40;
-
-  const shouldUnlock = layer1 || layer2 || layer3;
-
-  // ── Hold-steady timer ──
-  const msgEl = document.getElementById('readiness-message');
-  const btn = document.getElementById('btn-start-scan');
-
-  if (state.readinessUnlocked) {
-    // Already unlocked — keep it enabled (no re-locking once user sees the button)
-    return;
-  }
-
-  if (shouldUnlock) {
-    if (!state.readySince) state.readySince = now;
-    const holdNeeded = layer3 ? 0 : READY_HOLD_MS;
-    const elapsed = now - state.readySince;
-
-    if (elapsed >= holdNeeded) {
-      // ── UNLOCK ──
-      state.readinessUnlocked = true;
-      if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
-      if (msgEl) {
-        if (layer1) {
-          msgEl.textContent = '準備就緒，可以開始';
-        } else if (layer2) {
-          msgEl.textContent = '信號良好，可以開始';
-        } else {
-          msgEl.textContent = '信號足夠，可以開始';
-        }
-        msgEl.style.color = '#34C759';
-      }
-    } else {
-      // Counting down to unlock
-      const remaining = Math.ceil((holdNeeded - elapsed) / 1000);
-      if (msgEl) {
-        msgEl.textContent = `保持不動… ${remaining} 秒後就緒`;
-        msgEl.style.color = '#34C759';
-      }
-    }
-  } else {
-    state.readySince = 0;
-
-    // ── Specific blocker guidance ──
-    if (msgEl) {
-      if (coverage < 0.60) {
-        msgEl.textContent = state.sensorChoice === 'finger'
-          ? '請將手指完整覆蓋鏡頭' : '請將臉部對準鏡頭範圍';
-        msgEl.style.color = '#FF3B30';
-      } else if ((stability || 0) < 0.40) {
-        msgEl.textContent = '偵測到晃動，請保持靜止';
-        msgEl.style.color = '#F5A623';
-      } else if ((brightness || 0) < 0.30) {
-        msgEl.textContent = '光線不足，請移到較亮的地方';
-        msgEl.style.color = '#F5A623';
-      } else if (!covG && coverage < 0.85) {
-        msgEl.textContent = '手指再往鏡頭中心移一點';
-        msgEl.style.color = '#F5A623';
-      } else {
-        msgEl.textContent = '快好了，保持不動…';
-        msgEl.style.color = '#F5A623';
-      }
-    }
-  }
+  applyReadinessState({
+    coverage: sample.coverage,
+    brightness: sample.brightness || 0,
+    stability: sample.stability || 0,
+    sqi: sample.sqi || 0,
+    bpm: sample.bpm || 0,
+  });
 }
 
-function startSimulatedReadiness() {
+function startSimulatedReadiness(mode = state.sensorChoice) {
   state.readinessSimStep = 0;
   if (state.readinessInterval) clearInterval(state.readinessInterval);
+
+  if (mode === 'face') {
+    setReadinessText('readiness-camera-label', 'Face beta preview');
+  } else {
+    setReadinessText('readiness-camera-label', '模擬覆蓋教學');
+  }
+
   state.readinessInterval = setInterval(() => {
     state.readinessSimStep++;
-    simulateReadiness(state.readinessSimStep);
-  }, 400);
+    simulateReadiness(state.readinessSimStep, mode);
+  }, 420);
 }
 
-function simulateReadiness(step) {
-  const maxSteps = 10;
+function simulateReadiness(step, mode = state.sensorChoice) {
+  const maxSteps = mode === 'finger' ? 12 : 11;
   const progress = Math.min(step / maxSteps, 1);
-  const coverage = easeOutCubic(Math.min(progress * 1.3, 1));
-  const brightness = 0.3 + easeOutCubic(Math.min(progress * 1.2, 1)) * 0.5;
-  const stability = easeOutCubic(Math.min(progress * 1.0, 1)) * 0.9;
-  const sqi = Math.min(100, Math.round((coverage * 40 + brightness * 20 + stability * 40)));
+  const eased = easeOutCubic(progress);
+  const wobble = Math.sin(progress * Math.PI * 1.2) * 0.02;
 
-  updateMeter('coverage', coverage * 100, getMeterIcon(coverage, 0.85, 0.60));
-  updateMeter('brightness', brightness * 100, getMeterIcon(brightness, 0.50, 0.30));
-  updateMeter('stability', stability * 100, getMeterIcon(stability, 0.70, 0.50));
-  updateMeter('sqi', sqi, getMeterIcon(sqi / 100, 0.55, 0.40));
+  const sample = mode === 'finger'
+    ? {
+        coverage: clamp01(easeOutCubic(Math.min(progress * 1.2, 1)) * 0.96 + wobble),
+        brightness: clamp01(0.28 + eased * 0.22),
+        stability: clamp01(Math.max(0, eased * 0.86 - (progress < 0.55 ? 0.08 : 0))),
+        sqi: clamp01(Math.max(0, eased * 0.74 - (progress < 0.7 ? 0.08 : 0))),
+        bpm: progress > 0.78 ? 68 : 0,
+      }
+    : {
+        coverage: clamp01(0.44 + eased * 0.48),
+        brightness: clamp01(0.24 + eased * 0.26),
+        stability: clamp01(Math.max(0, eased * 0.82 - (progress < 0.52 ? 0.10 : 0))),
+        sqi: clamp01(Math.max(0, eased * 0.68 - (progress < 0.66 ? 0.08 : 0))),
+        bpm: 0,
+      };
 
-  const msgEl = document.getElementById('readiness-message');
+  applyReadinessState(sample);
 
-  if (coverage < 0.60) {
-    if (msgEl) { msgEl.textContent = '模擬模式 — 覆蓋率上升中'; msgEl.style.color = '#F5A623'; }
-  } else if (coverage >= 0.85 && stability >= 0.70 && brightness >= 0.50 && sqi >= 55) {
-    if (msgEl) { msgEl.textContent = '準備就緒，可以開始'; msgEl.style.color = '#34C759'; }
-    const btn = document.getElementById('btn-start-scan');
-    if (btn) { btn.disabled = false; btn.textContent = '開始掃描'; }
+  if (getReadinessAssessment(sample).ready) {
     clearInterval(state.readinessInterval);
-  } else {
-    if (msgEl) { msgEl.textContent = '模擬模式 — 幾乎到位了...'; msgEl.style.color = '#F5A623'; }
+    state.readinessInterval = null;
   }
 }
 
-function updateMeter(id, percent, icon) {
+function updateMeter(id, percent, icon, thresholds = { green: 75, yellow: 45 }) {
   const fill = document.getElementById(`meter-${id}`);
   const status = document.getElementById(`status-${id}`);
+  const { green, yellow } = thresholds;
 
   if (fill) {
     fill.style.width = `${Math.min(100, percent)}%`;
-    // Color based on thresholds
     fill.className = 'meter-fill';
-    if (percent >= 75) fill.classList.add('green');
-    else if (percent >= 45) fill.classList.add('yellow');
+    if (percent >= green) fill.classList.add('green');
+    else if (percent >= yellow) fill.classList.add('yellow');
     else if (percent > 0) fill.classList.add('red');
   }
   if (status) status.textContent = icon;
@@ -456,6 +753,8 @@ function easeOutCubic(x) {
 const SCAN_CIRCUMFERENCE = 2 * Math.PI * 88; // ring r=88
 const PHASE_GATHER_MS = 3000;
 const CLIMAX_MS = 1500;
+const SIGNAL_VALID_GATE_MS = 3000; // v1.2: signal must hold GOOD/EXCELLENT this long before countdown starts
+const SIGNAL_DEGRADE_MS = 2000;     // v1.2: signal must stay below GOOD this long before re-showing guide
 
 function startCalibrationScan() {
   const scanEl = document.getElementById('step-scan');
@@ -469,11 +768,15 @@ function startCalibrationScan() {
 
   // Reset ceremony UI
   state.isScanning = true;
-  state.scanPhase = 'gather';
+  state.scanPhase = 'wait';                        // v1.2: enter wait phase first
   state.sqiHistory = [];
   state.rollingSqi = 0;
   state.qualityTier = 'weak';
-  state.scanStartTs = performance.now();
+  state.scanStartTs = 0;                           // v1.2: countdown start deferred until signal-valid gate passes
+  state.scanWaitStartTs = performance.now();
+  state.signalValidSinceTs = null;
+  state.signalDegradeSinceTs = null;
+  state.forgetReminderActive = false;
   state.baseline = {
     hr: { mean: 0, std: 0 },
     hrv: { mean: 0, std: 0 },
@@ -481,12 +784,13 @@ function startCalibrationScan() {
   };
 
   if (scanEl) {
-    scanEl.classList.remove('phase-accumulate', 'phase-climax', 'phase-final', 'phase-transition');
-    scanEl.classList.add('phase-gather');
+    scanEl.classList.remove('phase-accumulate', 'phase-climax', 'phase-final', 'phase-transition', 'phase-gather');
+    scanEl.classList.add('phase-wait');
   }
   if (timerEl) {
-    timerEl.textContent = state.scanDuration;
-    timerEl.style.color = '';
+    // v1.2: paused state — countdown will start once signal-valid gate passes
+    timerEl.textContent = '--';
+    timerEl.style.color = 'rgba(255, 255, 255, 0.30)';
   }
   if (statusEl) {
     statusEl.style.color = '';
@@ -494,14 +798,26 @@ function startCalibrationScan() {
   }
   if (noteEl) noteEl.textContent = '請保持不動';
   if (ringEl) ringEl.style.strokeDashoffset = SCAN_CIRCUMFERENCE;
+  // OOM Fix #7: ceremony-dialog has 32px backdrop-filter blur — extremely
+  // GPU-heavy on iOS Safari. During wait phase it stacks on top of the
+  // scan-banner's 12px blur + camera + halo + video, pushing WebContent
+  // process past its memory cap. Hide it during wait; gate-pass in tickWait
+  // will add .visible when the user has actually covered the lens.
+  // (Pairs with OOM Fix #3 which defers particles to the same gate-pass.)
   if (dialogEl && dialogTextEl) {
-    dialogEl.classList.add('visible');
+    dialogEl.classList.remove('visible');
     dialogTextEl.textContent = '正在凝聚你的生理基線';
   }
   if (readyEl) readyEl.style.display = 'none';
 
-  // Start particle system (converge → orbit → burst driven by phase)
-  startParticleSystem();
+  // v1.2: reset camera target ring to "waiting" (pulsing arrows)
+  setCameraRingState('waiting');
+  // v1.2: show top guidance banner (will hide once signal reaches GOOD)
+  setScanBannerVisible(true);
+
+  // OOM Fix #3: defer particle system to gather phase (not during wait)
+  // During wait, camera + meters are already active — particles are invisible
+  // behind the wait UI and just burn GPU memory.
 
   // Camera is already running from Step 3. Transfer the stream to the scan
   // video element so the circular preview shows inside the ceremony ring.
@@ -552,8 +868,148 @@ function stopFingerCameraFeed() {
   if (container) container.classList.remove('camera-active');
 }
 
+/**
+ * v1.2 — Wait phase tick.
+ * Continuously updates telemetry so the quality tier reflects the live cover,
+ * but defers the countdown until the signal has stayed GOOD/EXCELLENT for
+ * SIGNAL_VALID_GATE_MS. On gate-pass, transitions to 'gather' and starts the
+ * real countdown.
+ */
+function tickWait(now) {
+  const waitElapsedSec = (now - state.scanWaitStartTs) / 1000;
+
+  // Drive telemetry so qualityTier updates while the user finds the right cover
+  if (state.cameraActive && state.lastCameraSample) {
+    updateBaselineFromCamera(state.lastCameraSample);
+  }
+  updateSignalTelemetry(waitElapsedSec);
+  updateCoverageGuidance(waitElapsedSec);
+
+  // Track signal-valid duration
+  const validNow =
+    state.qualityTier === 'good' || state.qualityTier === 'excellent';
+
+  if (validNow) {
+    if (state.signalValidSinceTs === null) {
+      state.signalValidSinceTs = now;
+    }
+    if (now - state.signalValidSinceTs >= SIGNAL_VALID_GATE_MS) {
+      // ── Gate passed: countdown starts now ──
+      state.scanPhase = 'gather';
+      state.scanStartTs = now;
+
+      const scanEl = document.getElementById('step-scan');
+      if (scanEl) {
+        scanEl.classList.remove('phase-wait');
+        scanEl.classList.add('phase-gather');
+      }
+      const timerEl = document.getElementById('scan-timer');
+      if (timerEl) {
+        timerEl.textContent = state.scanDuration;
+        timerEl.style.color = '';
+      }
+
+      // v1.2 visual handoff: ring → covered, hide guide & banner
+      setCameraRingState('covered');
+      setScanBannerVisible(false);
+      const fingerGuideEl = document.getElementById('finger-guide-anim');
+      if (fingerGuideEl) fingerGuideEl.classList.add('is-hidden');
+
+      // OOM Fix #3: start particles NOW (gather phase) instead of wait phase
+      startParticleSystem();
+      // OOM Fix #7: now safe to bring in ceremony-dialog (32px blur) — banner
+      // has just been hidden, finger-guide is hiding, so only one blur layer
+      // is in flight at a time.
+      const dialogEl = document.getElementById('ceremony-dialog');
+      if (dialogEl) dialogEl.classList.add('visible');
+
+      // Light haptic confirms successful covering (graceful no-op if unsupported)
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        try { navigator.vibrate(20); } catch (_) {}
+      }
+    }
+  } else {
+    state.signalValidSinceTs = null;
+  }
+
+  state.scanRAF = requestAnimationFrame(tickCalibration);
+}
+
+/**
+ * v1.2 — Forgetting-prevention monitor (accumulate phase only).
+ * If the signal drops below GOOD for SIGNAL_DEGRADE_MS, the finger guide,
+ * banner, and target ring are re-shown to nudge the user back to a clean
+ * cover. When the signal recovers and holds GOOD for SIGNAL_VALID_GATE_MS,
+ * the guide elements dismiss again so the ceremony continues uninterrupted.
+ */
+function monitorSignalForgetting(now) {
+  const validNow =
+    state.qualityTier === 'good' || state.qualityTier === 'excellent';
+
+  if (validNow) {
+    state.signalDegradeSinceTs = null;
+    if (state.forgetReminderActive) {
+      if (state.signalValidSinceTs === null) {
+        state.signalValidSinceTs = now;
+      }
+      if (now - state.signalValidSinceTs >= SIGNAL_VALID_GATE_MS) {
+        applySignalRecoveryHandoff();
+      }
+    }
+  } else {
+    state.signalValidSinceTs = null;
+    if (state.signalDegradeSinceTs === null) {
+      state.signalDegradeSinceTs = now;
+    }
+    if (
+      !state.forgetReminderActive &&
+      now - state.signalDegradeSinceTs >= SIGNAL_DEGRADE_MS
+    ) {
+      applySignalWeakHandoff();
+    }
+  }
+}
+
+function applySignalWeakHandoff() {
+  if (state.forgetReminderActive) return;
+  state.forgetReminderActive = true;
+
+  setCameraRingState('signal-weak');
+  setScanBannerVisible(true);
+  const fingerGuideEl = document.getElementById('finger-guide-anim');
+  if (fingerGuideEl) fingerGuideEl.classList.remove('is-hidden');
+  // OOM Fix #7: hide ceremony-dialog (32px blur) while banner is back —
+  // mutually exclusive blur layers prevent GPU stack on signal drop.
+  const dialogElWeak = document.getElementById('ceremony-dialog');
+  if (dialogElWeak) dialogElWeak.classList.remove('visible');
+
+  // Soft warning haptic — short triple tap, gracefully no-op when unsupported
+  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+    try { navigator.vibrate([40, 60, 40]); } catch (_) {}
+  }
+}
+
+function applySignalRecoveryHandoff() {
+  if (!state.forgetReminderActive) return;
+  state.forgetReminderActive = false;
+
+  setCameraRingState('covered');
+  setScanBannerVisible(false);
+  const fingerGuideEl = document.getElementById('finger-guide-anim');
+  if (fingerGuideEl) fingerGuideEl.classList.add('is-hidden');
+  // OOM Fix #7: now safe to bring ceremony-dialog (32px blur) back
+  const dialogElRec = document.getElementById('ceremony-dialog');
+  if (dialogElRec) dialogElRec.classList.add('visible');
+}
+
 function tickCalibration() {
   const now = performance.now();
+
+  // v1.2 wait phase: hold countdown until signal stays GOOD/EXCELLENT for SIGNAL_VALID_GATE_MS
+  if (state.scanPhase === 'wait') {
+    return tickWait(now);
+  }
+
   const elapsedMs = now - state.scanStartTs;
   const elapsedSec = elapsedMs / 1000;
 
@@ -589,6 +1045,11 @@ function tickCalibration() {
       simulateBaselineData(progress);
     }
     updateSignalTelemetry(elapsedSec);
+  }
+
+  // ── v1.2 Forgetting-prevention (re-show guide if signal drops) ──
+  if (state.scanPhase === 'accumulate') {
+    monitorSignalForgetting(now);
   }
 
   // ── Coverage guidance (real-time finger placement feedback) ──
@@ -841,6 +1302,18 @@ function enterClimax(reason) {
   }
   if (readyEl && reason === 'early') readyEl.style.display = 'inline-flex';
 
+  // ── OOM Fix #2: immediately release GPU-heavy resources ──
+  // Camera feed is no longer needed (scan data collection is done).
+  // Stopping it before the particle burst prevents camera decode +
+  // particle canvas + backdrop-filter from running simultaneously.
+  stopFingerCameraFeed();
+
+  // Hide GPU-heavy elements (finger halo, scan video) during climax
+  const haloEls = scanEl ? scanEl.querySelectorAll('.finger-halo, .finger-halo-outer') : [];
+  haloEls.forEach(function(el) { el.style.opacity = '0'; });
+  const scanVideoEl = document.getElementById('scan-video');
+  if (scanVideoEl) scanVideoEl.style.opacity = '0';
+
   if (statusEl) {
     statusEl.textContent =
       reason === 'early'
@@ -938,15 +1411,17 @@ function enterTransition() {
       card.style.transform = 'translateY(0) scale(1)';
     }
     if (scanEl) scanEl.classList.add('phase-transition-settle');
-    if (state.particleSystem) state.particleSystem.converge();
+    // OOM Fix #4: stop particles immediately instead of converge animation.
+    // converge() re-intensifies GPU load; at this point the user is looking
+    // at the result card, not the particle canvas.
+    if (state.particleSystem) state.particleSystem.stop();
   }, 1200);
 
-  // t=2.0s — full hand-off. Tear down the scan step, stop particles,
+  // t=2.0s — full hand-off. Tear down the scan step,
   // leave result step active with step indicator synced.
   setTimeout(() => {
-    if (state.particleSystem) state.particleSystem.stop();
     if (state.scanRAF) cancelAnimationFrame(state.scanRAF);
-    stopFingerCameraFeed();
+    // Camera already stopped in enterClimax (Fix #2) — no redundant call.
 
     const scanSection = document.getElementById('step-scan');
     if (scanSection) {
@@ -1142,7 +1617,12 @@ function startParticleSystem() {
   // Finger target ≈ middle-ish of scan step (matches scan-ring-container)
   const target = { x: W / 2, y: H * 0.48 };
 
-  const PARTICLE_COUNT = 140;
+  // OOM Fix #5: iOS gets fewer particles + 30fps throttle.
+  // 140 particles × DPR 3 = ~420 fill ops/frame, excessive on A-series GPU.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const PARTICLE_COUNT = isIOS ? 80 : 140;
+  const FRAME_INTERVAL = isIOS ? 33 : 0; // ~30fps on iOS, uncapped on desktop
   const particles = [];
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
@@ -1152,6 +1632,7 @@ function startParticleSystem() {
   let mode = 'converge';
   let modeStart = performance.now();
   let running = true;
+  let lastFrameTs = 0;
 
   function spawnConvergeParticle(w, h, t) {
     // Begin far from target, fly inward
@@ -1176,6 +1657,14 @@ function startParticleSystem() {
     if (!running) return;
 
     const now = performance.now();
+
+    // OOM Fix #5: throttle to ~30fps on iOS
+    if (FRAME_INTERVAL && now - lastFrameTs < FRAME_INTERVAL) {
+      requestAnimationFrame(frame);
+      return;
+    }
+    lastFrameTs = now;
+
     const t = (now - modeStart) / 1000;
 
     ctx.clearRect(0, 0, W, H);
@@ -1348,6 +1837,32 @@ function initParticles() {
 }
 
 // ─────────────────────────────────────────────
+// v1.2 — UI helpers (camera target ring state)
+// ─────────────────────────────────────────────
+
+/**
+ * Switch the camera target ring's visual state.
+ * @param {'waiting' | 'covered' | 'signal-weak'} nextState
+ */
+function setCameraRingState(nextState) {
+  const ringEl = document.getElementById('camera-target-ring');
+  if (!ringEl) return;
+  if (ringEl.dataset.state === nextState) return;
+  ringEl.dataset.state = nextState;
+}
+
+/**
+ * Show or hide the top guidance banner.
+ * Banner default-shows on .scan-step.active; .is-hidden class slides it back up.
+ * @param {boolean} visible
+ */
+function setScanBannerVisible(visible) {
+  const bannerEl = document.getElementById('scan-banner');
+  if (!bannerEl) return;
+  bannerEl.classList.toggle('is-hidden', !visible);
+}
+
+// ─────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────
 
@@ -1355,4 +1870,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize step 0
   updateStepDots(0);
   initParticles();
+  updateInstructions(state.sensorChoice);
+  setReadinessStage('approach');
+  setReadinessButton(false);
 });

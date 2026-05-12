@@ -1,0 +1,70 @@
+{
+  "lastUpdated": "2026-05-05",
+  "canonicalHost": "https://tenki-emotion-app.vercel.app",
+  "deployments": [
+    {
+      "route": "/",
+      "url": "https://tenki-emotion-app.vercel.app/",
+      "source": "apps/web/",
+      "purpose": "Legacy web prototype v51.1",
+      "status": "frozen",
+      "editable": false
+    },
+    {
+      "route": "/preview/",
+      "url": "https://tenki-emotion-app.vercel.app/preview/",
+      "source": "apps/preview/index.html",
+      "purpose": "Baseline onboarding 6-step flow",
+      "status": "active",
+      "knownIssue": "iOS Safari OOM — hotfix/oom-ios-safari branch ready",
+      "editable": true
+    },
+    {
+      "route": "/preview/scan-result.html",
+      "url": "https://tenki-emotion-app.vercel.app/preview/scan-result.html",
+      "source": "apps/preview/scan-result.html",
+      "purpose": "Scan result page preview",
+      "status": "active",
+      "editable": true
+    },
+    {
+      "route": "/preview/v6/",
+      "url": "https://tenki-emotion-app.vercel.app/preview/v6/",
+      "source": "apps/preview/v6/index.html",
+      "purpose": "v6 Today main visual + 5 Tab Nav + FDCB",
+      "status": "active-dev",
+      "editable": true
+    }
+  ],
+  "mobileApp": {
+    "source": "apps/mobile/",
+    "framework": "expo-react-native",
+    "name": "TENKI Core",
+    "slug": "tenki-core",
+    "iosBundleId": "com.tenki.core",
+    "androidPackage": "com.tenki.core",
+    "urlScheme": "tenki",
+    "publicUrl": null,
+    "easConfigured": false,
+    "testFlightUrl": null
+  },
+  "routing": {
+    "/": "apps/web/index.html",
+    "/preview/": "apps/preview/index.html",
+    "/preview/*": "apps/preview/*",
+    "/*": "apps/web/$1"
+  },
+  "branches": {
+    "main": "production",
+    "hotfix/*": "preview-auto",
+    "claude/*": "preview-auto",
+    "feat/*": "preview-auto"
+  },
+  "aiRules": [
+    "If user says 'deployed site', ask which route: /, /preview/, or /preview/v6/",
+    "Do not modify apps/web/ — frozen",
+    "Do not assume mobile app has a public URL",
+    "Do not invent Expo/TestFlight URLs from slug alone",
+    "When adding new URL, update both DEPLOYMENT_MAP.md and this JSON"
+  ]
+}
