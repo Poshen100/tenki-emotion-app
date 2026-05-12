@@ -570,7 +570,6 @@ function startReadinessCheck() {
   state.yellowCoverageMs = 0;
   state.lastReadinessTs = 0;
   state.readinessUnlocked = false;
-  }
 
   updateInstructions(state.sensorChoice);
   setReadinessStage('approach');
