@@ -1072,7 +1072,7 @@ function tickCalibration() {
         statusEl.textContent = '能量正在快速凝聚...';
         statusEl.style.color = '';
       } else {
-        statusEl.textContent = '快好了，再堅持一下';
+        statusEl.textContent = '就快完成，繼續放穩';
         statusEl.style.color = '';
       }
     } else {
@@ -1086,7 +1086,7 @@ function tickCalibration() {
       } else if (elapsedSec < state.scanEarliestComplete) {
         statusEl.textContent = '品質越好，精準度越高';
       } else {
-        statusEl.textContent = '快好了，再堅持一下';
+        statusEl.textContent = '就快完成，繼續放穩';
       }
     }
   }
