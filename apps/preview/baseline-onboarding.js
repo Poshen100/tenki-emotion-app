@@ -163,7 +163,7 @@ function updateInstructions(type) {
   const copy = type === 'finger'
     ? {
         title: '先把鏡頭蓋對',
-        body: '這一步做得越準，後面的基線越穩。先看 2 秒示範，再照著 live coach 放好手指。',
+        body: '這一步做得越準，後面的基線越穩。先看 2 秒示範，再照著動態提示放好手指。',
         demoTitle: '用指腹，置中，蓋滿',
         demoBody: '鏡頭要整顆消失在指腹下面，邊緣不要漏光。',
         bullets: [
