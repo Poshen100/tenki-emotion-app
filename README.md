@@ -43,3 +43,24 @@ npm run ios
 ## Important note
 
 Older instructions that say `npm run dev` at the repo root are no longer the primary path for current mobile work. Check `docs/DEPLOYMENT_MAP.md` first when deciding which app, route, or deployment a task refers to.
+
+---
+
+## Brand & Visual Identity
+
+TENKI Core 的完整品牌規範位於 `brand/` 目錄：
+
+- **`brand/LOGO-SPEC.md`** — Logo 系統 v1.0（287 行）
+- **`brand/TAGLINE-SYSTEM.md`** — 三層 tagline 系統（Universal / Splash / Trader Mode）
+- **`brand/logo/`** — SVG source files（pure wave / with circle / mono black）
+- **`brand/icon-ios/`** — 12 個 iOS 標準尺寸
+- **`brand/icon-android/`** — 6 個 Android density buckets
+- **`brand/favicon/`** — Web favicon set
+- **`brand/marketing/`** — Splash, OG card, App Store hero, Trader Mode unlock
+
+Tagline 鎖定詞:
+- 主標: `Read your inner weather. Find your turning point.`
+- App Store subtitle: `Sense the shift.`
+- Trader Mode: `Decision Infrastructure for Traders`
+
+詳見 `brand/LOGO-SPEC.md` 和 `brand/TAGLINE-SYSTEM.md`。
