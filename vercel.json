@@ -5,6 +5,7 @@
         { "source": "/preview", "destination": "/preview/", "permanent": false }
     ],
     "rewrites": [
+        { "source": "/brand/(.*)", "destination": "/brand/$1" },
         { "source": "/preview/", "destination": "/apps/preview/index.html" },
         { "source": "/preview/(.*)", "destination": "/apps/preview/$1" },
         { "source": "/", "destination": "/apps/web/index.html" },
