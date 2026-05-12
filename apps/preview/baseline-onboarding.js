@@ -44,6 +44,12 @@ const state = {
   cameraSession: null,     // Active { stop } handle from TENKI_PREVIEW_CAMERA
   cameraActive: false,     // True once a real camera frame has arrived
   lastCameraSample: null,  // Latest { coverage, color, redMean, redStd, sqi, hint }
+  // Smart readiness gate state
+  readinessLatch: { coverage: 0, brightness: 0, stability: 0, sqi: 0 },
+  readySince: 0,           // timestamp when unlock conditions first met
+  yellowCoverageMs: 0,     // accumulated ms with coverage ≥ 0.60
+  lastReadinessTs: 0,      // for delta-time calculation
+  readinessUnlocked: false,
   baseline: {
     hr: { mean: 0, std: 0 },
     hrv: { mean: 0, std: 0 },
@@ -414,46 +420,128 @@ function applyReadinessState(sample) {
     bpm: sample.bpm || 0,
   };
 
-  updateMeter(
-    'coverage',
-    metrics.coverage * 100,
-    getMeterIcon(metrics.coverage, READINESS_THRESHOLDS.coverage.ready, READINESS_THRESHOLDS.coverage.warning),
-    { green: READINESS_THRESHOLDS.coverage.ready * 100, yellow: READINESS_THRESHOLDS.coverage.warning * 100 }
-  );
-  updateMeter(
-    'brightness',
-    metrics.brightness * 100,
-    getMeterIcon(metrics.brightness, READINESS_THRESHOLDS.brightness.ready, READINESS_THRESHOLDS.brightness.warning),
-    { green: READINESS_THRESHOLDS.brightness.ready * 100, yellow: READINESS_THRESHOLDS.brightness.warning * 100 }
-  );
-  updateMeter(
-    'stability',
-    metrics.stability * 100,
-    getMeterIcon(metrics.stability, READINESS_THRESHOLDS.stability.ready, READINESS_THRESHOLDS.stability.warning),
-    { green: READINESS_THRESHOLDS.stability.ready * 100, yellow: READINESS_THRESHOLDS.stability.warning * 100 }
-  );
-  updateMeter(
-    'sqi',
-    metrics.sqi * 100,
-    getMeterIcon(metrics.sqi, READINESS_THRESHOLDS.sqi.ready, READINESS_THRESHOLDS.sqi.warning),
-    { green: READINESS_THRESHOLDS.sqi.ready * 100, yellow: READINESS_THRESHOLDS.sqi.warning * 100 }
-  );
+  const now = Date.now();
+  const dt = state.lastReadinessTs ? now - state.lastReadinessTs : 33;
+  state.lastReadinessTs = now;
 
+  // ── Latch: each meter stays green for 3s after crossing threshold
+  const TH = READINESS_THRESHOLDS;
+  const covG = isLatchedGreen('coverage', metrics.coverage, TH.coverage.ready);
+  const briG = isLatchedGreen('brightness', metrics.brightness, TH.brightness.ready);
+  const staG = isLatchedGreen('stability', metrics.stability, TH.stability.ready);
+  const sqiG = isLatchedGreen('sqi', metrics.sqi, TH.sqi.ready);
+
+  // ── Meter visuals (use latched state for icons)
+  const meterIcon = (latched, value, readyTh, warnTh) =>
+    latched ? '✅' : getMeterIcon(value, readyTh, warnTh);
+
+  updateMeter('coverage', metrics.coverage * 100,
+    meterIcon(covG, metrics.coverage, TH.coverage.ready, TH.coverage.warning),
+    { green: TH.coverage.ready * 100, yellow: TH.coverage.warning * 100 });
+  updateMeter('brightness', metrics.brightness * 100,
+    meterIcon(briG, metrics.brightness, TH.brightness.ready, TH.brightness.warning),
+    { green: TH.brightness.ready * 100, yellow: TH.brightness.warning * 100 });
+  updateMeter('stability', metrics.stability * 100,
+    meterIcon(staG, metrics.stability, TH.stability.ready, TH.stability.warning),
+    { green: TH.stability.ready * 100, yellow: TH.stability.warning * 100 });
+  updateMeter('sqi', metrics.sqi * 100,
+    meterIcon(sqiG, metrics.sqi, TH.sqi.ready, TH.sqi.warning),
+    { green: TH.sqi.ready * 100, yellow: TH.sqi.warning * 100 });
+
+  // ── Patience: accumulate time with yellow+ coverage
+  if (metrics.coverage >= TH.coverage.warning) {
+    state.yellowCoverageMs += dt;
+  } else {
+    state.yellowCoverageMs = Math.max(0, state.yellowCoverageMs - dt * 2);
+  }
+
+  // ── Strict assessment from the new staged system
   const assessment = getReadinessAssessment(metrics);
+
+  // ── 3-Layer smart gate ──
+  // Layer 1: strict assessment says ready (all thresholds met)
+  const layer1 = assessment.ready;
+
+  // Layer 2: coverage ≥ warning + at least 2 of 3 others latched green
+  const covRelaxed = metrics.coverage >= TH.coverage.warning || covG;
+  const othersCount = [briG, staG, sqiG].filter(Boolean).length;
+  const layer2 = !layer1 && covRelaxed && othersCount >= 2;
+
+  // Layer 3: patience — 10s of yellow+ coverage with basic conditions
+  const layer3 = !layer1 && !layer2
+    && state.yellowCoverageMs >= READY_PATIENCE_MS
+    && metrics.coverage >= TH.coverage.missing
+    && metrics.brightness >= TH.brightness.warning
+    && metrics.stability >= TH.stability.warning;
+
+  const shouldUnlock = layer1 || layer2 || layer3;
+
+  // ── Once unlocked, stay unlocked
+  if (state.readinessUnlocked) {
+    setReadinessStage('ready');
+    setReadinessButton(true);
+    return;
+  }
+
+  // ── Hold-steady timer
+  if (shouldUnlock) {
+    if (!state.readySince) state.readySince = now;
+    const holdNeeded = layer1 ? 0 : layer3 ? 0 : READY_HOLD_MS;
+    const elapsed = now - state.readySince;
+
+    if (elapsed >= holdNeeded) {
+      state.readinessUnlocked = true;
+
+      const readyAssessment = layer1 ? assessment : {
+        stage: 'ready',
+        tone: 'success',
+        ready: true,
+        coach: layer2 ? '信號夠好了，可以開始' : '已等待足夠時間，可以開始',
+        message: layer2 ? '信號良好，可以開始' : '信號足夠，可以開始',
+        detail: '現在建立 baseline，精準度足夠可靠。',
+        label: metrics.bpm > 0 ? `${metrics.bpm} BPM` : '可以開始 ✓',
+      };
+
+      setReadinessStage(readyAssessment.stage);
+      setReadinessText('readiness-coach', readyAssessment.coach);
+      setReadinessFeedback(readyAssessment.message, readyAssessment.detail, readyAssessment.tone);
+      setReadinessButton(true);
+      setReadinessText('readiness-camera-label', readyAssessment.label);
+
+      const container = document.getElementById('readiness-camera-container');
+      if (container) container.dataset.state = 'green';
+      return;
+    }
+
+    // Hold countdown
+    const remaining = Math.ceil((holdNeeded - elapsed) / 1000);
+    setReadinessStage('hold');
+    setReadinessText('readiness-coach', '位置對了，穩住不動');
+    setReadinessFeedback(
+      `保持不動… ${remaining} 秒後就緒`,
+      '覆蓋和訊號都在線了，只差最後穩定確認。',
+      'success'
+    );
+    setReadinessButton(false);
+    setReadinessText('readiness-camera-label', `穩定確認中…`);
+
+    const container = document.getElementById('readiness-camera-container');
+    if (container) container.dataset.state = 'yellow';
+    return;
+  }
+
+  // ── Not ready: use the strict assessment's guidance
+  state.readySince = 0;
 
   setReadinessStage(assessment.stage);
   setReadinessText('readiness-coach', assessment.coach);
   setReadinessFeedback(assessment.message, assessment.detail, assessment.tone);
-  setReadinessButton(assessment.ready);
+  setReadinessButton(false);
   setReadinessText('readiness-camera-label', assessment.label);
 
   const container = document.getElementById('readiness-camera-container');
   if (container) {
-    container.dataset.state = assessment.ready
-      ? 'green'
-      : assessment.stage === 'approach'
-        ? 'red'
-        : 'yellow';
+    container.dataset.state = assessment.stage === 'approach' ? 'red' : 'yellow';
   }
 }
 
@@ -474,6 +562,14 @@ function startReadinessCheck() {
   if (state.cameraSession) {
     try { state.cameraSession.stop(); } catch (_) {}
     state.cameraSession = null;
+  }
+
+  // Reset smart gate state
+  state.readinessLatch = { coverage: 0, brightness: 0, stability: 0, sqi: 0 };
+  state.readySince = 0;
+  state.yellowCoverageMs = 0;
+  state.lastReadinessTs = 0;
+  state.readinessUnlocked = false;
   }
 
   updateInstructions(state.sensorChoice);
@@ -549,6 +645,20 @@ async function startReadinessCamera() {
     );
     startSimulatedReadiness('finger');
   }
+}
+
+// ── Smart gate constants ──
+const READY_LATCH_MS = 3000;     // once green, stays green 3s
+const READY_HOLD_MS = 1500;      // hold steady before unlock
+const READY_PATIENCE_MS = 10000; // after 10s of yellow coverage → unlock anyway
+
+function isLatchedGreen(key, value, threshold) {
+  const now = Date.now();
+  if (value >= threshold) {
+    state.readinessLatch[key] = now + READY_LATCH_MS;
+    return true;
+  }
+  return now < state.readinessLatch[key];
 }
 
 function updateReadinessFromCamera(sample) {
