@@ -9,7 +9,7 @@
  *   2. Readiness Check: coverage, brightness, stability, SQI
  *   3. Calibration Scan: 30s timer with progress ring
  *   4. Baseline Result: "Not a score — your normal reference"
- *   5. Next Action: first scan / trader check / explore
+ *   5. Next Action: first scan / explore (Trader Mode 為 Settings 內 opt-in，不在 onboarding 露出)
  * 
  * All sensor data is SIMULATED for desktop preview.
  * Real camera/sensor integration will use the same interfaces.
@@ -1582,9 +1582,7 @@ function selectNextAction(action) {
   // In production, this would route to the appropriate screen
   setTimeout(() => {
     alert(`🎉 Baseline 建立完成！\n\n下一步：${
-      action === 'scan' ? '第一次 Emotion Scan' :
-      action === 'trader' ? 'Trader Mode 前檢查' :
-      '探索 TENKI'
+      action === 'scan' ? '第一次 Emotion Scan' : '探索 TENKI'
     }\n\n（Production 環境會導航到對應頁面）`);
   }, 300);
 }
