@@ -797,6 +797,23 @@ function startCalibrationScan() {
   }
   if (noteEl) noteEl.textContent = '請保持不動';
   if (ringEl) ringEl.style.strokeDashoffset = SCAN_CIRCUMFERENCE;
+  // OOM Fix #8-11 reset: enterClimax hides scan-banner / ceremony-dialog /
+  // finger-halo / scan-video via inline display:none to drop GPU backing
+  // store. On scan restart we must restore default display so the CSS
+  // .is-hidden ↔ active transitions take over again.
+  const bannerResetEl = document.getElementById('scan-banner');
+  if (bannerResetEl) bannerResetEl.style.display = '';
+  if (scanEl) {
+    scanEl.querySelectorAll('.finger-halo, .finger-halo-outer').forEach(function(el) {
+      el.style.display = '';
+      el.style.opacity = '';
+    });
+  }
+  const scanVideoResetEl = document.getElementById('scan-video');
+  if (scanVideoResetEl) {
+    scanVideoResetEl.style.display = '';
+    scanVideoResetEl.style.opacity = '';
+  }
   // OOM Fix #7: ceremony-dialog has 32px backdrop-filter blur — extremely
   // GPU-heavy on iOS Safari. During wait phase it stacks on top of the
   // scan-banner's 12px blur + camera + halo + video, pushing WebContent
@@ -804,6 +821,7 @@ function startCalibrationScan() {
   // will add .visible when the user has actually covered the lens.
   // (Pairs with OOM Fix #3 which defers particles to the same gate-pass.)
   if (dialogEl && dialogTextEl) {
+    dialogEl.style.display = '';   // Clear OOM Fix #10's inline hide on restart
     dialogEl.classList.remove('visible');
     dialogTextEl.textContent = '正在凝聚你的生理基線';
   }
@@ -1289,6 +1307,32 @@ function enterClimax(reason) {
   if (state.scanPhase === 'climax' || state.scanPhase === 'final') return;
   state.scanPhase = 'climax';
 
+  // ── OOM Fix #8: cancel scan RAF immediately ──
+  // Previously cancelled at t=1200ms in enterTransition. But tickCalibration
+  // continues to run during the climax window (CLIMAX_MS=1500ms) and through
+  // the early part of the flash, doing DOM reads + reflows that compound the
+  // GPU pressure of the flash + particle burst. Cancel now.
+  if (state.scanRAF) { cancelAnimationFrame(state.scanRAF); state.scanRAF = null; }
+
+  // ── OOM Fix #9: kill scan-banner backdrop-filter blur(12px) entirely ──
+  // CSS .is-hidden uses transform/opacity to slide off-screen, but iOS WebKit
+  // still allocates backing store for backdrop-filter elements that are NOT
+  // display:none. Direct DOM hide drops the layer.
+  const bannerEl = document.getElementById('scan-banner');
+  if (bannerEl) {
+    bannerEl.classList.add('is-hidden');
+    bannerEl.style.display = 'none';
+  }
+
+  // ── OOM Fix #10: hide ceremony-dialog (still has backdrop-filter blur(4px)
+  // per styles.css phase-climax rule). At climax time the dialog text is the
+  // last frame of the "正在凝聚" copy — replaced by the result card anyway.
+  const dialogEl = document.getElementById('ceremony-dialog');
+  if (dialogEl) {
+    dialogEl.classList.remove('visible');
+    dialogEl.style.display = 'none';
+  }
+
   const scanEl = document.getElementById('step-scan');
   const statusEl = document.getElementById('scan-status');
   const noteEl = document.getElementById('scan-note');
@@ -1307,11 +1351,19 @@ function enterClimax(reason) {
   // particle canvas + backdrop-filter from running simultaneously.
   stopFingerCameraFeed();
 
-  // Hide GPU-heavy elements (finger halo, scan video) during climax
+  // ── OOM Fix #11: display:none on halo + video (not just opacity:0) ──
+  // iOS WebKit keeps GPU backing store allocated for opacity:0 elements
+  // when ancestor has will-change. display:none drops the backing store.
   const haloEls = scanEl ? scanEl.querySelectorAll('.finger-halo, .finger-halo-outer') : [];
-  haloEls.forEach(function(el) { el.style.opacity = '0'; });
+  haloEls.forEach(function(el) {
+    el.style.opacity = '0';
+    el.style.display = 'none';
+  });
   const scanVideoEl = document.getElementById('scan-video');
-  if (scanVideoEl) scanVideoEl.style.opacity = '0';
+  if (scanVideoEl) {
+    scanVideoEl.style.opacity = '0';
+    scanVideoEl.style.display = 'none';
+  }
 
   if (statusEl) {
     statusEl.textContent =
