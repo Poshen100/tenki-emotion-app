@@ -919,11 +919,17 @@ body{
   transform:translateX(-50%);
 }
 .sd-evt:last-child .dot::after{display:none}
-.sd-evt.entry .dot{background:var(--good);box-shadow:0 0 8px var(--good)}
-.sd-evt.add .dot{background:var(--primary);box-shadow:0 0 8px var(--primary)}
-.sd-evt.exit .dot{background:#b78dd6;box-shadow:0 0 6px #b78dd6}
-.sd-evt.cancel .dot{background:#ff7e76;box-shadow:0 0 6px #ff7e76}
-.sd-evt.reduce .dot{background:var(--warn);box-shadow:0 0 6px var(--warn)}
+.sd-evt.entry .dot,
+.sd-evt.start .dot{background:var(--good);box-shadow:0 0 8px var(--good)}
+.sd-evt.add .dot,
+.sd-evt.deepen .dot{background:var(--primary);box-shadow:0 0 8px var(--primary)}
+.sd-evt.exit .dot,
+.sd-evt.finish .dot{background:#b78dd6;box-shadow:0 0 6px #b78dd6}
+.sd-evt.cancel .dot,
+.sd-evt.skip .dot{background:#ff7e76;box-shadow:0 0 6px #ff7e76}
+.sd-evt.reduce .dot,
+.sd-evt.soften .dot,
+.sd-evt.pause .dot{background:var(--warn);box-shadow:0 0 6px var(--warn)}
 .sd-evt .type{
   font-size:13px;font-weight:500;color:#fff;flex:1;
   display:flex;align-items:center;gap:6px;
@@ -1821,8 +1827,8 @@ body{
       <div class="session-body">
         <div class="session-stats">
           <div class="cell">
-            <div class="val good">62%</div>
-            <div class="lbl">Win Rate</div>
+            <div class="val good">88%</div>
+            <div class="lbl">對齊率</div>
           </div>
           <div class="cell">
             <div class="val">73</div>
@@ -1830,7 +1836,7 @@ body{
           </div>
           <div class="cell">
             <div class="val">2.1<span style="font-size:11px;color:var(--txt-sec)">m</span></div>
-            <div class="lbl">Avg Entry</div>
+            <div class="lbl">啟動時間</div>
           </div>
         </div>
 
@@ -1841,43 +1847,43 @@ body{
 
         <div class="session-section">Today's Sessions</div>
 
-        <div class="session-item" onclick="openSessionDetail('s1')">
-          <div class="tmpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg></div>
+        <div class="session-item" onclick="openSessionDetail('s_w1')">
+          <div class="tmpl-ic" style="color:#34C759"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg></div>
           <div class="info">
-            <div class="nm">Mancini FBD</div>
-            <div class="meta"><span>14:38</span><span class="sep">·</span><span>Edge Score 75 → 73</span><span class="sep">·</span><span>2:47</span></div>
+            <div class="nm">Health Stress</div>
+            <div class="meta"><span>17:15</span><span class="sep">·</span><span>Edge Score 68 → 76</span><span class="sep">·</span><span>3:00</span></div>
           </div>
-          <div class="result win">Win</div>
+          <div class="result win">Clear</div>
           <div class="chevron">›</div>
         </div>
 
-        <div class="session-item" onclick="openSessionDetail('s2')">
-          <div class="tmpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg></div>
+        <div class="session-item" onclick="openSessionDetail('s_w2')">
+          <div class="tmpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4H8M16 4H20V8M20 16V20H16M8 20H4V16"/><path d="M12 9L15 12L12 15L9 12Z"/></svg></div>
           <div class="info">
-            <div class="nm">Canslim GS</div>
-            <div class="meta"><span>11:22</span><span class="sep">·</span><span>Edge Score 68 → 71</span><span class="sep">·</span><span>4:12</span></div>
+            <div class="nm">Work Focus</div>
+            <div class="meta"><span>13:30</span><span class="sep">·</span><span>Edge Score 72 → 74</span><span class="sep">·</span><span>25:00</span></div>
           </div>
-          <div class="result breakeven">BE</div>
+          <div class="result breakeven">Steady</div>
           <div class="chevron">›</div>
         </div>
 
-        <div class="session-item neut" onclick="openSessionDetail('s3')">
-          <div class="tmpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18L12 6L16 12L20 4"/><path d="M16 4H20V8"/></svg></div>
+        <div class="session-item" onclick="openSessionDetail('s_w3')">
+          <div class="tmpl-ic" style="color:#FF6B35"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12H6L8 8L11 16L14 6L16 12H18L19.5 9.5L21 12H22"/></svg></div>
           <div class="info">
-            <div class="nm">Canslim High RS</div>
-            <div class="meta"><span>10:08</span><span class="sep">·</span><span>Edge Score 62</span><span class="sep">·</span><span>1:34</span></div>
+            <div class="nm">Exercise</div>
+            <div class="meta"><span>09:30</span><span class="sep">·</span><span>Edge Score 64 → 71</span><span class="sep">·</span><span>10:00</span></div>
           </div>
-          <div class="result no_trade">Skip</div>
+          <div class="result no_trade">Active</div>
           <div class="chevron">›</div>
         </div>
 
-        <div class="session-item loss" onclick="openSessionDetail('s4')">
-          <div class="tmpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg></div>
+        <div class="session-item" onclick="openSessionDetail('s_w4')">
+          <div class="tmpl-ic" style="color:#34C759"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg></div>
           <div class="info">
-            <div class="nm">Mancini FBD</div>
-            <div class="meta"><span>09:41</span><span class="sep">·</span><span>Edge Score 82 → 79</span><span class="sep">·</span><span>3:01</span></div>
+            <div class="nm">Health Stress</div>
+            <div class="meta"><span>07:00</span><span class="sep">·</span><span>Edge Score 58 → 70</span><span class="sep">·</span><span>3:00</span></div>
           </div>
-          <div class="result loss">Loss</div>
+          <div class="result win">Recovered</div>
           <div class="chevron">›</div>
         </div>
       </div>
@@ -1946,28 +1952,28 @@ body{
         <div class="card timeline-events-card">
           <div class="head">Event Log</div>
           <div class="tl-event">
-            <div class="time">14:38</div>
+            <div class="time">17:15</div>
             <div class="dot entry"></div>
-            <div class="desc">Mancini FBD · Entry</div>
-            <div class="tl-tei">Edge Score 75</div>
-          </div>
-          <div class="tl-event">
-            <div class="time">11:22</div>
-            <div class="dot entry"></div>
-            <div class="desc">Canslim GS · Entry</div>
+            <div class="desc">Health Stress · 開始</div>
             <div class="tl-tei">Edge Score 68</div>
           </div>
           <div class="tl-event">
-            <div class="time">10:08</div>
-            <div class="dot cancel"></div>
-            <div class="desc">Canslim High RS · No Trade</div>
-            <div class="tl-tei">Edge Score 62</div>
+            <div class="time">13:30</div>
+            <div class="dot entry"></div>
+            <div class="desc">Work Focus · 開始</div>
+            <div class="tl-tei">Edge Score 72</div>
           </div>
           <div class="tl-event">
-            <div class="time">09:41</div>
+            <div class="time">09:30</div>
             <div class="dot entry"></div>
-            <div class="desc">Mancini FBD · Entry</div>
-            <div class="tl-tei">Edge Score 82</div>
+            <div class="desc">Exercise · 開始</div>
+            <div class="tl-tei">Edge Score 64</div>
+          </div>
+          <div class="tl-event">
+            <div class="time">07:00</div>
+            <div class="dot entry"></div>
+            <div class="desc">Health Stress · 開始</div>
+            <div class="tl-tei">Edge Score 58</div>
           </div>
           <div class="tl-event">
             <div class="time">08:15</div>
@@ -2043,10 +2049,10 @@ body{
     <div class="sd-header">
       <div class="sd-back" onclick="closeSessionDetail()">‹</div>
       <div class="sd-title-wrap">
-        <div class="sd-title" id="sdTitle">Mancini FBD</div>
-        <div class="sd-subtitle" id="sdSubtitle">APR 19 · 14:38 · 2:47 DURATION</div>
+        <div class="sd-title" id="sdTitle">Health Stress</div>
+        <div class="sd-subtitle" id="sdSubtitle">APR 19 · 17:15 · 3:00 DURATION</div>
       </div>
-      <div class="sd-result" id="sdResult">Win</div>
+      <div class="sd-result" id="sdResult">Clear</div>
     </div>
 
     <div class="sd-body">
@@ -2062,7 +2068,7 @@ body{
         <div class="sd-hero-cell">
           <div class="lbl">End Edge Score</div>
           <div class="val" id="sdTlTlTeiEnd">73</div>
-          <div class="sd-hero-delta down" id="sdTlTlTeiDelta">−2 PR</div>
+          <div class="sd-hero-delta down" id="sdTlTlTeiDelta">−2</div>
         </div>
       </div>
 
@@ -2150,7 +2156,7 @@ body{
             <div class="d" data-v="5" onclick="setClarity(5)"></div>
           </div>
         </div>
-        <textarea class="sd-reflect-input" placeholder="例：FBD 訊號清楚，但我在 Lock 期間有想按 Entry 的衝動⋯⋯" id="sdReflection"></textarea>
+        <textarea class="sd-reflect-input" placeholder="例：呼吸節奏清楚，但中段有想加速結束的衝動⋯⋯" id="sdReflection"></textarea>
       </div>
 
     </div>
@@ -2159,12 +2165,12 @@ body{
   <!-- ═══════ FDCB (floating above tab bar) ═══════ -->
   <div class="fdcb state-idle" id="fdcb">
     <div class="fdcb-tmpl" onclick="openSheet()">
-      <div class="ic" id="fdcbIcon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg>
+      <div class="ic" id="fdcbIcon" style="color:#34C759">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg>
       </div>
       <div class="fdcb-tmpl-txt">
-        <div class="fdcb-tmpl-name" id="fdcbName">Canslim GS</div>
-        <div class="fdcb-tmpl-dur" id="fdcbDur">5:00 ▾</div>
+        <div class="fdcb-tmpl-name" id="fdcbName">Health Stress</div>
+        <div class="fdcb-tmpl-dur" id="fdcbDur">3:00 ▾</div>
       </div>
     </div>
     <div class="fdcb-core" onclick="nextState()">
@@ -2813,7 +2819,7 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
 // ═════════════════════════════════════════════════
 const STATES = ['idle','ready','running','complete'];
 let stateIdx = 0;
-let currentTmpl = 'CANSLIM_GS';
+let currentTmpl = 'HEALTH_STRESS';
 let runningInterval = null;
 let elapsed = 0;
 
@@ -2933,6 +2939,112 @@ renderFdcb();
 // Session Detail — data + render
 // ═════════════════════════════════════════════════
 const SESSIONS = {
+  // ───────── Wellness (預設模式) sessions ─────────
+  s_w1: {
+    template: 'Health Stress',
+    date: 'APR 19 · 17:15',
+    durationSec: 180,
+    durationStr: '3:00',
+    result: 'Clear',
+    resultClass: 'win',
+    tlTlTlTeiStart: 68, tlTlTlTeiEnd: 76,
+    hrStart: 74, hrEnd: 66,
+    hrvStart: 44, hrvEnd: 58,
+    rrStart: 15, rrEnd: 12,
+    segments: [
+      { startSec: 0, endSec: 60, label: 'Inhale', color: '#34C759' },
+      { startSec: 60, endSec: 120, label: 'Hold', color: '#00B4D8' },
+      { startSec: 120, endSec: 180, label: 'Exhale', color: '#5E3A87' }
+    ],
+    lockEndSec: 60,
+    sweetStart: 60, sweetEnd: 120,
+    tlTlTlTeiPoints: [68, 69, 70, 72, 73, 74, 75, 76, 76, 76, 76, 76, 76],
+    events: [
+      { type: 'START', elapsedSec: 5, tei: 68, phase: 'Inhale' },
+      { type: 'FINISH', elapsedSec: 178, tei: 76, phase: 'Exhale' }
+    ],
+    insight: '在 <b>Edge Score 68 → 76</b> 區段，呼吸節奏穩定。HR 下降 <b>−8 bpm</b>，HRV 上升 <b>+14 ms</b>，放鬆訊號明確。',
+    clarity: 5
+  },
+  s_w2: {
+    template: 'Work Focus',
+    date: 'APR 19 · 13:30',
+    durationSec: 1500,
+    durationStr: '25:00',
+    result: 'Steady',
+    resultClass: 'breakeven',
+    tlTlTlTeiStart: 72, tlTlTlTeiEnd: 74,
+    hrStart: 68, hrEnd: 70,
+    hrvStart: 56, hrvEnd: 54,
+    rrStart: 14, rrEnd: 14,
+    segments: [
+      { startSec: 0, endSec: 300, label: 'Engage', color: '#00B4D8' },
+      { startSec: 300, endSec: 1200, label: 'Focus', color: '#00B4D8' },
+      { startSec: 1200, endSec: 1500, label: 'Wrap', color: '#8E8E93' }
+    ],
+    lockEndSec: 300,
+    sweetStart: 300, sweetEnd: 1200,
+    tlTlTlTeiPoints: [72, 73, 73, 74, 74, 75, 74, 74, 75, 74, 74, 73, 74, 74, 73, 74, 74],
+    events: [
+      { type: 'START', elapsedSec: 30, tei: 72, phase: 'Engage' },
+      { type: 'DEEPEN', elapsedSec: 480, tei: 75, phase: 'Focus' },
+      { type: 'FINISH', elapsedSec: 1485, tei: 74, phase: 'Wrap' }
+    ],
+    insight: '在 <b>Edge Score 72–75</b> 區段，專注狀態穩定 <b>20 分鐘以上</b>。HRV 在 Focus 中段保持 <b>54–56 ms</b>，顯示節奏一致。',
+    clarity: 5
+  },
+  s_w3: {
+    template: 'Exercise',
+    date: 'APR 19 · 09:30',
+    durationSec: 600,
+    durationStr: '10:00',
+    result: 'Active',
+    resultClass: 'no_trade',
+    tlTlTlTeiStart: 64, tlTlTlTeiEnd: 71,
+    hrStart: 72, hrEnd: 78,
+    hrvStart: 42, hrvEnd: 50,
+    rrStart: 14, rrEnd: 15,
+    segments: [
+      { startSec: 0, endSec: 120, label: 'Warm-up', color: '#FF6B35' },
+      { startSec: 120, endSec: 480, label: 'Active', color: '#FF6B35' },
+      { startSec: 480, endSec: 600, label: 'Cool-down', color: '#34C759' }
+    ],
+    sweetStart: 120, sweetEnd: 480,
+    tlTlTlTeiPoints: [64, 65, 67, 70, 72, 74, 75, 74, 73, 72, 71, 71, 71],
+    events: [
+      { type: 'START', elapsedSec: 10, tei: 64, phase: 'Warm-up' },
+      { type: 'FINISH', elapsedSec: 595, tei: 71, phase: 'Cool-down' }
+    ],
+    insight: '運動結束後 <b>Edge Score 64 → 71</b>，HRV 從 <b>42 → 50 ms</b> 顯示恢復節奏良好。HR 峰值 <b>+6 bpm</b> 在合理活動範圍。',
+    clarity: 4
+  },
+  s_w4: {
+    template: 'Health Stress',
+    date: 'APR 19 · 07:00',
+    durationSec: 180,
+    durationStr: '3:00',
+    result: 'Recovered',
+    resultClass: 'win',
+    tlTlTlTeiStart: 58, tlTlTlTeiEnd: 70,
+    hrStart: 78, hrEnd: 68,
+    hrvStart: 36, hrvEnd: 52,
+    rrStart: 17, rrEnd: 13,
+    segments: [
+      { startSec: 0, endSec: 60, label: 'Inhale', color: '#34C759' },
+      { startSec: 60, endSec: 120, label: 'Hold', color: '#00B4D8' },
+      { startSec: 120, endSec: 180, label: 'Exhale', color: '#5E3A87' }
+    ],
+    lockEndSec: 60,
+    sweetStart: 60, sweetEnd: 120,
+    tlTlTlTeiPoints: [58, 60, 62, 64, 66, 67, 68, 69, 69, 70, 70, 70, 70],
+    events: [
+      { type: 'START', elapsedSec: 8, tei: 58, phase: 'Inhale' },
+      { type: 'FINISH', elapsedSec: 178, tei: 70, phase: 'Exhale' }
+    ],
+    insight: '晨間從 <b>Strain (58)</b> 恢復到 <b>Clear (70)</b>，HRV 提升 <b>+16 ms</b>，整體訊號明顯改善。',
+    clarity: 5
+  },
+  // ───────── Trader (進階模式) sessions — opt-in templates ─────────
   s1: {
     template: 'Mancini FBD',
     date: 'APR 19 · 14:38',
@@ -3006,7 +3118,7 @@ const SESSIONS = {
     events: [
       { type: 'NO_TRADE', elapsedSec: 94, tei: 63, phase: 'Sweet Zone' }
     ],
-    insight: 'Edge Score <b>62</b> 低於你的 Canslim 最佳區間 <b>(72–82)</b>。不進場是正確選擇。<b>No Trade 也是 Trade</b>',
+    insight: 'Edge Score <b>62</b> 低於 Canslim 模板的常見啟動區間 <b>(72–82)</b>。本次未啟動執行，反映你在低訊號清晰度時選擇暫緩。',
     clarity: 5
   },
   s4: {
@@ -3050,11 +3162,11 @@ function openSessionDetail(id){
   resultEl.textContent = s.result;
   resultEl.className = 'sd-result result ' + s.resultClass;
 
-  document.getElementById('sdTlTlTeiStart').textContent = s.tl-tlTlTlTeiStart;
-  document.getElementById('sdTlTlTeiEnd').textContent = s.tl-tlTlTlTeiEnd;
-  const delta = s.tl-tlTlTlTeiEnd - s.tl-tlTlTlTeiStart;
+  document.getElementById('sdTlTlTeiStart').textContent = s.tlTlTlTeiStart;
+  document.getElementById('sdTlTlTeiEnd').textContent = s.tlTlTlTeiEnd;
+  const delta = s.tlTlTlTeiEnd - s.tlTlTlTeiStart;
   const deltaEl = document.getElementById('sdTlTlTeiDelta');
-  deltaEl.textContent = (delta > 0 ? '+' : '') + delta + ' PR';
+  deltaEl.textContent = (delta > 0 ? '+' : '') + delta;
   deltaEl.className = 'sd-hero-delta ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat');
 
   document.getElementById('sdTraceDur').textContent = s.durationStr;
@@ -3112,8 +3224,8 @@ function renderTlTlTeiTrace(s){
   [50, 70, 90].forEach(v => {
     html += `<text class="axis" x="${padL - 4}" y="${tlTlTlTeiToY(v) + 3}" text-anchor="end">${v}</text>`;
   });
-  const pts = s.tl-tlTlTlTeiPoints.map((v, i) => {
-    const t = (i / (s.tl-tlTlTlTeiPoints.length - 1)) * s.durationSec;
+  const pts = s.tlTlTlTeiPoints.map((v, i) => {
+    const t = (i / (s.tlTlTlTeiPoints.length - 1)) * s.durationSec;
     return `${secToX(t)},${tlTlTlTeiToY(v)}`;
   });
   const firstPt = pts[0].split(',');
@@ -3124,7 +3236,7 @@ function renderTlTlTeiTrace(s){
 
   s.events.forEach(ev => {
     const x = secToX(ev.elapsedSec);
-    const y = tlTlTlTeiToY(ev.tl-tei);
+    const y = tlTlTlTeiToY(ev.tei);
     const isCancel = ev.variant === 'cancel';
     html += `<circle class="evt${isCancel ? ' cancel' : ''}" cx="${x}" cy="${y}" r="4.5"/>`;
   });
@@ -3144,6 +3256,10 @@ function renderTlTlTeiTrace(s){
 function renderEventsList(s){
   const host = document.getElementById('sdEvents');
   const typeLabels = {
+    // Wellness (預設模式) event types
+    START: '開始', DEEPEN: '加深', SOFTEN: '緩衝',
+    FINISH: '完成', PAUSE: '暫停', SKIP: '略過',
+    // Trader (進階模式) event types — 啟用 trader template 後使用
     ENTRY: 'Entry', ADD: 'Add Position', REDUCE: 'Reduce',
     EXIT: 'Exit', CANCEL: 'Cancel', NO_TRADE: 'No Trade'
   };
