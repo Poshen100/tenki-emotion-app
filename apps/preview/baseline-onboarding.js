@@ -564,6 +564,12 @@ function startReadinessCheck() {
     state.cameraSession = null;
   }
 
+  // OOM Fix #13 reset: transferCameraToScanView sets step-readiness to
+  // display:none to free its GPU backing store. On re-entry (back-button
+  // or retry), restore default display so the .step transitions work.
+  const readinessStepEl = document.getElementById('step-readiness');
+  if (readinessStepEl) readinessStepEl.style.display = '';
+
   // Reset smart gate state
   state.readinessLatch = { coverage: 0, brightness: 0, stability: 0, sqi: 0 };
   state.readySince = 0;
@@ -854,24 +860,64 @@ function transferCameraToScanView() {
   const container = document.getElementById('scan-ring-container');
   const scanVideoEl = document.getElementById('scan-video');
   const readinessVideoEl = document.getElementById('readiness-video');
+  const readinessStepEl = document.getElementById('step-readiness');
+  const api = window.TENKI_PREVIEW_CAMERA;
 
   if (!scanVideoEl) return;
 
-  if (readinessVideoEl && readinessVideoEl.srcObject) {
-    scanVideoEl.srcObject = readinessVideoEl.srcObject;
-    scanVideoEl.muted = true;
-    scanVideoEl.playsInline = true;
-    try { scanVideoEl.play(); } catch (_) {}
+  // ── OOM Fix #12: prevent double video decoder ──
+  // Pre-fix: scan-video.srcObject = readiness-video.srcObject left both
+  // <video> elements active simultaneously. iOS Safari kept TWO MediaStream
+  // decoders running, doubling GPU memory pressure → WebContent crash during
+  // wait phase before scan even started → page reload → user dropped back
+  // to Step 1 instead of seeing Step 5 result.
+  //
+  // Fix: stop the Step 3 session entirely (kills RAF + tracks + nulls
+  // readiness-video.srcObject), then start a fresh session targeting
+  // scan-video. iOS Safari caches getUserMedia permission for the page
+  // session so the user does NOT see a second permission dialog.
 
-    if (container) {
-      container.classList.remove('camera-unavailable');
-      container.classList.add('camera-active');
-    }
-  } else {
-    if (container) {
-      container.classList.remove('camera-active');
-      container.classList.add('camera-unavailable');
-    }
+  if (state.cameraSession) {
+    try { state.cameraSession.stop(); } catch (_) {}
+    state.cameraSession = null;
+  }
+
+  // OOM Fix #13: drop Step 3 readiness section from rendering tree.
+  // Even after we stop its camera session, the .step:not(.active) CSS may
+  // keep the readiness-camera-container, glow effects, and 4 meter bars in
+  // the GPU compositor (depending on opacity:0 vs display:none semantics).
+  // display:none forces iOS WebKit to free those backing stores.
+  if (readinessStepEl) {
+    readinessStepEl.style.display = 'none';
+  }
+
+  // Clear readiness-video srcObject just in case session.stop() raced.
+  if (readinessVideoEl) {
+    try { readinessVideoEl.srcObject = null; } catch (_) {}
+  }
+
+  if (api && api.startFingerCamera) {
+    api.startFingerCamera(scanVideoEl, (sample) => {
+      state.cameraActive = true;
+      state.lastCameraSample = sample;
+      // tickWait / tickGather / tickAccumulate read lastCameraSample directly
+      // — no readiness UI updates during scan-step
+    }).then((session) => {
+      state.cameraSession = session;
+      if (container) {
+        container.classList.remove('camera-unavailable');
+        container.classList.add('camera-active');
+      }
+    }).catch(() => {
+      state.cameraActive = false;
+      if (container) {
+        container.classList.remove('camera-active');
+        container.classList.add('camera-unavailable');
+      }
+    });
+  } else if (container) {
+    container.classList.remove('camera-active');
+    container.classList.add('camera-unavailable');
   }
 }
 
