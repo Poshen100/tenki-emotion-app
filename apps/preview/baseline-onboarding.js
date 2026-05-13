@@ -41,6 +41,7 @@ const state = {
   rollingSqi: 0,
   qualityTier: 'weak',
   particleSystem: null,
+  introParticleStop: null, // OOM Fix #19: stop handle for intro RAF loop
   cameraSession: null,     // Active { stop } handle from TENKI_PREVIEW_CAMERA
   cameraActive: false,     // True once a real camera frame has arrived
   lastCameraSample: null,  // Latest { coverage, color, redMean, redStd, sqi, hint }
@@ -564,11 +565,14 @@ function startReadinessCheck() {
     state.cameraSession = null;
   }
 
-  // OOM Fix #13 reset: transferCameraToScanView sets step-readiness to
-  // display:none to free its GPU backing store. On re-entry (back-button
-  // or retry), restore default display so the .step transitions work.
-  const readinessStepEl = document.getElementById('step-readiness');
-  if (readinessStepEl) readinessStepEl.style.display = '';
+  // OOM Fix #13 + #20 reset: transferCameraToScanView sets step-intro,
+  // step-sensor, step-readiness to display:none on scan entry. On re-entry
+  // (back-button or retry), restore default display so .step transitions
+  // work normally.
+  ['step-intro', 'step-sensor', 'step-readiness'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
 
   // Reset smart gate state
   state.readinessLatch = { coverage: 0, brightness: 0, stability: 0, sqi: 0 };
@@ -885,13 +889,23 @@ function transferCameraToScanView() {
     state.cameraSession = null;
   }
 
-  // OOM Fix #13: drop Step 3 readiness section from rendering tree.
-  // Even after we stop its camera session, the .step:not(.active) CSS may
-  // keep the readiness-camera-container, glow effects, and 4 meter bars in
-  // the GPU compositor (depending on opacity:0 vs display:none semantics).
-  // display:none forces iOS WebKit to free those backing stores.
-  if (readinessStepEl) {
-    readinessStepEl.style.display = 'none';
+  // OOM Fix #13 + #20: drop ALL inactive steps from render tree, not
+  // just Step 3. .step:not(.active) CSS uses opacity/transform so iOS
+  // WebKit may keep their GPU backing stores allocated. Includes:
+  //  - step-intro (#particle-canvas-intro 390×844 canvas backing store)
+  //  - step-sensor (Beta badge, sensor cards)
+  //  - step-readiness (camera glow + 4 meter bars + instruction list)
+  ['step-intro', 'step-sensor', 'step-readiness'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // OOM Fix #19: also stop intro particle RAF (390×844 canvas + 40
+  // particles drawing infinitely). Even after display:none, the RAF
+  // loop itself wastes a frame budget tick on iOS.
+  if (typeof state.introParticleStop === 'function') {
+    try { state.introParticleStop(); } catch (_) {}
+    state.introParticleStop = null;
   }
 
   // Clear readiness-video srcObject just in case session.stop() raced.
@@ -1920,6 +1934,18 @@ function initParticles() {
     });
   }
 
+  // OOM Fix #19: RAF kill switch — previously the intro particle loop ran
+  // forever (no `running` flag, no cancelAnimationFrame call site). After
+  // user advanced past Step 1, this canvas (390×844 backing store) +
+  // 40-particle RAF kept compositing alongside the scan particle canvas
+  // during the climax flash, contributing to GPU memory pressure on iOS.
+  let rafId = 0;
+  state.introParticleStop = () => {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    try { ctx.clearRect(0, 0, canvas.width, canvas.height); } catch (_) {}
+  };
+
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -1941,10 +1967,10 @@ function initParticles() {
       ctx.fill();
     });
 
-    requestAnimationFrame(draw);
+    rafId = requestAnimationFrame(draw);
   }
 
-  draw();
+  rafId = requestAnimationFrame(draw);
 }
 
 // ─────────────────────────────────────────────
