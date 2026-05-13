@@ -810,7 +810,10 @@ function startCalibrationScan() {
   const bannerResetEl = document.getElementById('scan-banner');
   if (bannerResetEl) bannerResetEl.style.display = '';
   if (scanEl) {
-    scanEl.querySelectorAll('.finger-halo, .finger-halo-outer').forEach(function(el) {
+    // OOM Fix #18 reset: also clear extra silhouette/guide/camera-ring drops.
+    scanEl.querySelectorAll(
+      '.finger-halo, .finger-halo-outer, .finger-silhouette, .finger-guide-anim, .camera-target-ring'
+    ).forEach(function(el) {
       el.style.display = '';
       el.style.opacity = '';
     });
@@ -1400,8 +1403,14 @@ function enterClimax(reason) {
   // ── OOM Fix #11: display:none on halo + video (not just opacity:0) ──
   // iOS WebKit keeps GPU backing store allocated for opacity:0 elements
   // when ancestor has will-change. display:none drops the backing store.
-  const haloEls = scanEl ? scanEl.querySelectorAll('.finger-halo, .finger-halo-outer') : [];
-  haloEls.forEach(function(el) {
+  // OOM Fix #18: also include .finger-silhouette (mix-blend-mode:screen
+  // when camera-active per styles.css line 1479) and .finger-guide-anim
+  // (will-change: transform,opacity per styles.css line 1630). Both
+  // remained as separate GPU layers during climax flash.
+  const dropEls = scanEl ? scanEl.querySelectorAll(
+    '.finger-halo, .finger-halo-outer, .finger-silhouette, .finger-guide-anim, .camera-target-ring'
+  ) : [];
+  dropEls.forEach(function(el) {
     el.style.opacity = '0';
     el.style.display = 'none';
   });
@@ -1699,7 +1708,14 @@ function startParticleSystem() {
   if (state.particleSystem) state.particleSystem.stop();
 
   const rect = canvas.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // OOM Fix #16: iOS DPR cap 2 → 1.
+  // iPhone retina screens have DPR 2-3. With cap 2, canvas backing store
+  // = 390×844×4 bytes×2² ≈ 2.6MB. With cap 1 it drops to ≈ 0.66MB. Free
+  // ~2MB at climax window. Particles look slightly less crisp but they're
+  // abstract glowing dots — barely perceptible.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const dpr = isIOS ? 1 : Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.max(1, Math.floor(rect.width * dpr));
   canvas.height = Math.max(1, Math.floor(rect.height * dpr));
 
@@ -1712,10 +1728,11 @@ function startParticleSystem() {
   const target = { x: W / 2, y: H * 0.48 };
 
   // OOM Fix #5: iOS gets fewer particles + 30fps throttle.
-  // 140 particles × DPR 3 = ~420 fill ops/frame, excessive on A-series GPU.
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const PARTICLE_COUNT = isIOS ? 80 : 140;
+  // OOM Fix #17: further cut iOS PARTICLE_COUNT 80 → 40.
+  // Combined with Fix #14 (no mix-blend-mode) + Fix #15 (no will-change) +
+  // Fix #16 (DPR 1), this should keep climax compositing well under
+  // iOS Safari ~1GB WebContent cap even on iPhone 4G.
+  const PARTICLE_COUNT = isIOS ? 40 : 140;
   const FRAME_INTERVAL = isIOS ? 33 : 0; // ~30fps on iOS, uncapped on desktop
   const particles = [];
 
