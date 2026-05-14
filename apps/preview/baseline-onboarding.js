@@ -793,7 +793,13 @@ function startCalibrationScan() {
   };
 
   if (scanEl) {
-    scanEl.classList.remove('phase-accumulate', 'phase-climax', 'phase-final', 'phase-transition', 'phase-gather');
+    // OOM Fix #21 reset: enterTransitionInstant sets scan-step
+    // style.display='none' + opacity transitions on iOS. Clear them on
+    // retry so .step.active CSS controls visibility again.
+    scanEl.style.display = '';
+    scanEl.style.opacity = '';
+    scanEl.style.transition = '';
+    scanEl.classList.remove('phase-accumulate', 'phase-climax', 'phase-final', 'phase-transition', 'phase-transition-settle', 'phase-gather');
     scanEl.classList.add('phase-wait');
   }
   if (timerEl) {
@@ -1448,7 +1454,30 @@ function enterClimax(reason) {
   const subEl = document.getElementById('ceremony-dialog-sub');
   if (subEl) subEl.textContent = '';
 
-  // Trigger particle outward burst
+  // ── OOM Fix #21: iOS cinematic bypass ──
+  // After 4 rounds of Fix #8-20 we still hit iOS Safari WebContent ~1GB
+  // cap on iPhone 4G at climax→transition handoff. The particle burst
+  // (40 × 30fps × 1.5s) + scan-flash animation (1.5s) + enterTransition
+  // beats (summary card slide + digit reveal) form an unavoidable GPU
+  // spike. To guarantee Step 5 result actually appears, iOS users skip
+  // the cinematic and jump to result via a tiny opacity fade.
+  // Loss on iOS: stardust burst, golden flash, card stagger, digit snap.
+  // Gain on iOS: flow completes — user sees baseline result + Step 6.
+  // Desktop / Android keep the full ceremony.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (isIOS) {
+    // Light acknowledgement haptic only (no particle burst — that's the
+    // heaviest GPU draw of the cinematic).
+    if (navigator.vibrate) {
+      try { navigator.vibrate(40); } catch (_) {}
+    }
+    enterTransitionInstant(reason);
+    return;
+  }
+
+  // Trigger particle outward burst (desktop / Android only)
   if (state.particleSystem) state.particleSystem.burst();
 
   // Haptic / vibration (where supported)
@@ -1456,8 +1485,70 @@ function enterClimax(reason) {
     try { navigator.vibrate([20, 40, 60]); } catch (_) {}
   }
 
-  // After climax window → begin transition (Todo 3 will implement)
+  // After climax window → begin transition cinematic
   setTimeout(() => enterTransition(), CLIMAX_MS);
+}
+
+/**
+ * OOM Fix #21 — iOS-only fast path that skips the climax → transition
+ * cinematic entirely. Takes ~300ms (scan-step opacity fade) before
+ * activating #step-result with the baseline metrics revealed instantly.
+ * Used in place of `setTimeout(enterTransition, CLIMAX_MS)` on iOS.
+ */
+function enterTransitionInstant(reason) {
+  state.scanPhase = 'transition';
+  state.isScanning = false;
+
+  // Stop all RAF / particle work — no need for burst, no need for tick.
+  if (state.particleSystem) state.particleSystem.stop();
+  if (state.scanRAF) { cancelAnimationFrame(state.scanRAF); state.scanRAF = null; }
+
+  // Light opacity fade-out of scan-step (~300ms), no transform / no blur.
+  const scanEl = document.getElementById('step-scan');
+  if (scanEl) {
+    scanEl.style.transition = 'opacity 300ms ease';
+    scanEl.style.opacity = '0';
+  }
+
+  setTimeout(() => {
+    // Hard-hide scan-step entirely (release any lingering GPU presence)
+    if (scanEl) {
+      scanEl.classList.remove(
+        'phase-wait', 'phase-gather', 'phase-accumulate',
+        'phase-climax', 'phase-transition', 'phase-transition-settle'
+      );
+      scanEl.style.display = 'none';
+      scanEl.style.opacity = '';
+      scanEl.style.transition = '';
+    }
+
+    // Activate #step-result with no entrance animation — summary card in
+    // its final settled state immediately (locked-in class disables the
+    // default cinematic transition in styles.css).
+    const resultEl = document.getElementById('step-result');
+    const card = document.getElementById('summary-card');
+    if (resultEl) {
+      resultEl.style.transition = 'none';
+      resultEl.classList.add('active');
+    }
+    if (card) {
+      card.classList.add('summary-card-locked-in');
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0) scale(1)';
+    }
+
+    // Reveal digits immediately (skip the masked → snap-in choreography).
+    showBaselineResult({ maskDigits: false });
+
+    // Notify any listeners that baseline is done (same payload shape as
+    // the normal enterTransition path).
+    try {
+      const score = estimateEdgeScore();
+      document.dispatchEvent(new CustomEvent('tenki:baseline-to-result', {
+        detail: { score, zone: zoneFor(score), rollingSqi: state.rollingSqi },
+      }));
+    } catch (_) {}
+  }, 300);
 }
 
 // ─────────────────────────────────────────────
