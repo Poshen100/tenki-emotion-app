@@ -1379,7 +1379,98 @@ function updateSignalTelemetry(elapsedSec) {
 function enterClimax(reason) {
   if (state.scanPhase === 'climax' || state.scanPhase === 'final') return;
   state.scanPhase = 'climax';
+  diagLog(`eC: enter, reason=${reason}`);
 
+  // ── OOM Fix #22: iOS true instant bypass (mirrors diagSkipToResult) ──
+  // Diag mode on iPhone 13 (commit f81b4e0) confirmed that the proven-working
+  // path is the diagSkipToResult sequence:
+  //   1. hide all OTHER steps display:none FIRST (no compositing pressure)
+  //   2. THEN stop camera + RAF + particles (no longer in render tree)
+  //   3. activate step-result with locked-in card (instant render)
+  //
+  // The previous enterClimax → enterTransitionInstant path did the opposite:
+  //   1. add phase-climax class → triggers .scan-flash CSS animation
+  //   2. stopFingerCameraFeed() WHILE flash is compositing → WebContent dies
+  //
+  // Theory confirmed by diag: stopping MediaStream tracks mid-flash-animation
+  // is what crashes iOS Safari WebContent. Fix: never trigger flash on iOS,
+  // stop camera before any compositing-heavy DOM mutation.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (isIOS) {
+    diagLog('eC22: iOS true instant bypass — step-scan display:none FIRST');
+    state.isScanning = false;
+    state.scanPhase = 'final';
+
+    // STEP 1: hide scan-step IMMEDIATELY — no phase-climax class, no flash
+    // CSS animation, no compositing pressure. iOS WebKit drops the entire
+    // scan-step subtree (camera video + halo + particles + ring) from
+    // render tree before we touch the camera stream.
+    const scanElEarly = document.getElementById('step-scan');
+    if (scanElEarly) {
+      scanElEarly.style.display = 'none';
+    }
+    diagLog('eC22: scan-step hidden');
+
+    // STEP 2: now safely stop camera (video element no longer composited)
+    try { stopFingerCameraFeed(); } catch (e) {
+      diagLog(`eC22: stopFingerCameraFeed THROW: ${e && e.message}`);
+    }
+    diagLog('eC22: camera stopped');
+
+    // STEP 3: cancel scan RAF + particles
+    if (state.scanRAF) {
+      try { cancelAnimationFrame(state.scanRAF); } catch (_) {}
+      state.scanRAF = null;
+    }
+    if (state.particleSystem) {
+      try { state.particleSystem.stop(); } catch (_) {}
+    }
+    diagLog('eC22: RAF + particles stopped');
+
+    // STEP 4: activate result step (proven path via diag skip button)
+    const resultEl = document.getElementById('step-result');
+    if (resultEl) {
+      resultEl.style.transition = 'none';
+      resultEl.style.display = '';
+      resultEl.classList.add('active');
+    }
+    const card = document.getElementById('summary-card');
+    if (card) {
+      card.classList.add('summary-card-locked-in');
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0) scale(1)';
+    }
+    state.currentStep = 4;
+    updateStepDots(4);
+    diagLog('eC22: step-result activated');
+
+    // STEP 5: render baseline metrics (real data from scan, not synthetic
+    // unlike diagSkipToResult)
+    try {
+      showBaselineResult({ maskDigits: false });
+      diagLog('eC22: showBaselineResult OK → DONE');
+    } catch (e) {
+      diagLog(`eC22: showBaselineResult THROW: ${e && e.message}`);
+    }
+
+    // STEP 6: dispatch event for any listeners
+    try {
+      const score = estimateEdgeScore();
+      document.dispatchEvent(new CustomEvent('tenki:baseline-to-result', {
+        detail: { score, zone: zoneFor(score), rollingSqi: state.rollingSqi },
+      }));
+    } catch (_) {}
+
+    // Light completion haptic
+    if (navigator.vibrate) {
+      try { navigator.vibrate([20, 40, 60]); } catch (_) {}
+    }
+    return;
+  }
+
+  diagLog('eC: about to cancel scanRAF (non-iOS cinematic path)');
   // ── OOM Fix #8: cancel scan RAF immediately ──
   // Previously cancelled at t=1200ms in enterTransition. But tickCalibration
   // continues to run during the climax window (CLIMAX_MS=1500ms) and through
@@ -1458,31 +1549,12 @@ function enterClimax(reason) {
   const subEl = document.getElementById('ceremony-dialog-sub');
   if (subEl) subEl.textContent = '';
 
-  // ── OOM Fix #21: iOS cinematic bypass ──
-  // After 4 rounds of Fix #8-20 we still hit iOS Safari WebContent ~1GB
-  // cap on iPhone 4G at climax→transition handoff. The particle burst
-  // (40 × 30fps × 1.5s) + scan-flash animation (1.5s) + enterTransition
-  // beats (summary card slide + digit reveal) form an unavoidable GPU
-  // spike. To guarantee Step 5 result actually appears, iOS users skip
-  // the cinematic and jump to result via a tiny opacity fade.
-  // Loss on iOS: stardust burst, golden flash, card stagger, digit snap.
-  // Gain on iOS: flow completes — user sees baseline result + Step 6.
-  // Desktop / Android keep the full ceremony.
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // Note: iOS was already handled by Fix #22 at top of enterClimax via
+  // early return. Below is desktop / Android cinematic path only.
+  // (Old Fix #21 enterTransitionInstant kept further down as a fallback —
+  // see comment near function definition.)
 
-  diagLog(`enterClimax(${reason}) cleanup OK → isIOS=${isIOS}`);
-
-  if (isIOS) {
-    // Light acknowledgement haptic only (no particle burst — that's the
-    // heaviest GPU draw of the cinematic).
-    if (navigator.vibrate) {
-      try { navigator.vibrate(40); } catch (_) {}
-    }
-    diagLog('iOS bypass → enterTransitionInstant');
-    enterTransitionInstant(reason);
-    return;
-  }
+  diagLog('eC: non-iOS, running full ceremony');
 
   // Trigger particle outward burst (desktop / Android only)
   if (state.particleSystem) state.particleSystem.burst();
