@@ -1306,19 +1306,21 @@ body {
 }
 
 /* ── Golden flash overlay (climax) ── */
+/* OOM Fix #12: removed mix-blend-mode:screen — forces per-pixel compositing
+   across entire stacking context on iOS WebKit, causing OOM crashes.
+   Slightly boosted gradient alpha to compensate for the visual difference. */
 .scan-flash {
   position: absolute;
   inset: 0;
   background: radial-gradient(
     circle at 50% 48%,
-    rgba(255, 213, 128, 0.65) 0%,
-    rgba(255, 180, 90, 0.30) 30%,
+    rgba(255, 213, 128, 0.70) 0%,
+    rgba(255, 180, 90, 0.35) 30%,
     transparent 65%
   );
   opacity: 0;
   pointer-events: none;
   z-index: 4;
-  mix-blend-mode: screen;
 }
 
 .scan-step.phase-climax .scan-flash {
@@ -1429,6 +1431,7 @@ body {
    32px blur()+saturate() composites the entire backing layer per-frame on
    iOS WebKit — combined with particles + camera it exceeds GPU memory.
    Visual impact: negligible (dialog already has its own background). */
+.scan-step.phase-gather .ceremony-dialog,
 .scan-step.phase-climax .ceremony-dialog,
 .scan-step.phase-transition .ceremony-dialog,
 .scan-step.phase-transition-settle .ceremony-dialog {
@@ -1466,11 +1469,10 @@ body {
   opacity: 1;
 }
 
-/* When the real camera is live, the SVG silhouette becomes a thin placement
-   guide (still visible, but no longer the dominant visual). */
+/* OOM Fix #13: removed mix-blend-mode:screen — even on small elements,
+   iOS WebKit composites the entire ancestor stacking context. */
 .scan-ring-container.camera-active .finger-silhouette {
-  opacity: 0.35;
-  mix-blend-mode: screen;
+  opacity: 0.25;
 }
 
 /* Camera permission denied / desktop fallback: keep the silhouette as the
