@@ -1,3 +1,50 @@
+# 2026-05-14 Session Update (iOS Safari OOM Fixes - Preview Flow)
+
+## What was done
+
+1. Conducted an end-to-end review of the `apps/preview/` Finger Baseline onboarding flow.
+2. Verified 11 existing OOM fixes previously implemented by the team.
+3. Identified and fixed the root cause of the remaining iPhone 13 Safari crashes:
+   - **OOM Fix #12 & #13**: Removed `mix-blend-mode: screen` from `.scan-flash` and `.finger-silhouette` in `styles.css`. iOS WebKit forces full stacking-context per-pixel compositing when mix-blend is active, which triggered the crash. Replaced with safe opacity/alpha fallbacks.
+   - Reduced `backdrop-filter: blur(32px)` on `ceremony-dialog` to `4px` during the `gather` phase to prevent overlapping with particles and camera layers.
+4. E2E tested the full 6-step flow in Vite dev server on desktop — successful completion, 60-second timer runs correctly, and transitions are clean.
+
+## Recommended continuation
+
+1. Start the **Delight Upgrade (爽感升級)**:
+   - `stardust.js`: Spring/damping sync, dual-layer halo particles, pointer events for ripple/attractor, score-driven palette.
+   - `haptics.js`: Breath-haptic sync during scanning.
+   - `scan-ux.js`, `audio-engine.js`: Integrate breath syncing and audio pulses.
+   - `results-renderer.js` / `results-page.css`: Atmosphere tint and ring glow.
+
+---
+
+# 2026-05-14 Session Update (New Windows Machine — 3rd Migration)
+
+1. Cloned the repo on the new machine into `C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`
+2. Initially installed portable Node.js v20.12.2, then **upgraded to v20.19.2** (LTS Iron) to satisfy React Native 0.81 / Metro 0.83 engine requirements (`>= 20.19.4`)
+3. Updated `start_env.bat` to point to the new portable Node.js path
+4. Installed dependencies at repo root, `packages/engine`, and `apps/mobile`
+5. Verified:
+   - Node.js `v20.19.2`
+   - npm `10.8.2`
+   - Engine tests: **19 suites, 259 tests — ALL PASSING**
+6. Updated `ANTIGRAVITY.md` continuation note with new machine paths
+
+## Important machine-specific notes
+
+- Repo path: `C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`
+- Portable Node.js: `C:\Users\patron\.gemini\antigravity\scratch\nodejs\node-v20.19.2-win-x64`
+- Always set PATH before running npm/expo commands (use `start_env.bat` or set `$env:PATH` in PowerShell)
+
+## Recommended continuation
+
+1. Launch the Expo app from `apps/mobile` and verify the 5-tab shell
+2. Continue Phase C integration — wire mobile screens to engine/domain/shared
+3. First slice candidates: Today screen data wiring, Scan flow engine integration, or Session gate/state integration
+
+---
+
 # 2026-04-28 Session Update (New Windows Machine / Continuation Handoff)
 
 ## What was done
@@ -8,6 +55,10 @@
 4. Installed dependencies at repo root and at `apps/mobile`
 5. Rebuilt npm dependencies successfully after correcting PATH to portable Node.js
 6. Verified:
+   - Node.js `v24.15.0`
+   - npm `11.12.1`
+   - Expo CLI available in `apps/mobile`
+   - `apps/mobile` TypeScript check passes
    - Node.js `v24.15.0`
    - npm `11.12.1`
    - Expo CLI available in `apps/mobile`

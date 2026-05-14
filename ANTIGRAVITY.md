@@ -1,27 +1,27 @@
-# 2026-04-28 CONTINUATION NOTE (READ THIS FIRST)
+# 2026-05-14 CONTINUATION NOTE (READ THIS FIRST)
 
-This note is the current handoff for the new Windows machine. If any older setup text below conflicts with this section, this section wins.
+This note is the current handoff for the new Windows machine (3rd migration). If any older setup text below conflicts with this section, this section wins.
 
 ## Environment status
 
-- Repo cloned successfully on 2026-04-28 into `C:\Users\patron\Documents\Codex\2026-04-28\clone-https-github-com-poshen100-tenki`
-- Portable Node.js installed at `C:\Users\patron\Documents\Codex\2026-04-28\node-v24.15.0-win-x64`
-- `start_env.bat` in repo root is already wired to that portable Node.js path
-- Dependencies were installed at both repo root and `apps/mobile`
+- Repo cloned on 2026-05-14 into `C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`
+- Portable Node.js (LTS v20.19.2) installed at `C:\Users\patron\.gemini\antigravity\scratch\nodejs\node-v20.19.2-win-x64`
+- `start_env.bat` in repo root is wired to that portable Node.js path
+- Dependencies installed at repo root, `packages/engine`, and `apps/mobile`
 - Verified on this machine:
-  - Node.js `v24.15.0`
-  - npm `11.12.1`
+  - Node.js `v20.19.2` (LTS Iron — satisfies React Native 0.81 / Metro 0.83 engine requirement ≥ 20.19.4)
+  - npm `10.8.2`
   - Expo CLI available under `apps/mobile`
-  - `apps/mobile` TypeScript check passes with `tsc --noEmit`
+  - Engine tests: **19 suites, 259 tests — ALL PASSING**
 
 ## Important PATH warning
 
-On this machine, the default `node.exe` visible to `cmd.exe` may resolve to a WindowsApps / Codex app stub and can fail with `Access is denied`, especially during npm child-process execution.
+On this machine, the default `node.exe` visible to `cmd.exe` may resolve to a WindowsApps stub and fail with `Access is denied`.
 
 Always do one of these before running Node/npm/Expo commands:
 
 1. Launch the shell via `start_env.bat`
-2. Or prepend `C:\Users\patron\Documents\Codex\2026-04-28\node-v24.15.0-win-x64` to `PATH`
+2. Or in PowerShell: `$env:PATH = "C:\Users\patron\.gemini\antigravity\scratch\nodejs\node-v20.19.2-win-x64;$env:PATH"`
 
 Do not assume the system `node` is usable until PATH is corrected.
 
@@ -68,13 +68,13 @@ npm run ios
 
 ## Working tree note
 
-- As of 2026-04-28, `apps/mobile/package-lock.json` changed because dependencies were freshly installed on this new machine
+- As of 2026-05-14, `apps/mobile/package-lock.json` changed because dependencies were freshly installed on this new machine
 - Keep that file unless intentionally regenerating mobile dependencies
 
 ## Companion files
 
 - `task.md` contains the immediate execution checklist for the next session
-- `MEMORY.md` contains the matching 2026-04-28 machine/setup note
+- `MEMORY.md` contains the matching 2026-05-14 machine/setup note
 - `docs/DEPLOYMENT_MAP.md` is the URL/source-of-truth map for deployed routes, previews, and what each one actually means
 
 # TENKI CORE — ANTIGRAVITY MASTER BLUEPRINT v4.0

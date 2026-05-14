@@ -1,6 +1,6 @@
 # TASK.md
 
-Last updated: 2026-04-28
+Last updated: 2026-05-14
 
 ## Current objective
 
@@ -8,17 +8,22 @@ Continue TENKI from the new Windows machine with the active focus on `apps/mobil
 
 ## Environment ready
 
-- Repo is cloned locally
-- Portable Node.js is installed and verified
-- Root dependencies are installed
-- `apps/mobile` dependencies are installed
-- `apps/mobile` TypeScript check passes
+- Repo cloned at `C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`
+- Portable Node.js v20.19.2 (LTS Iron) installed and verified
+- Root dependencies installed
+- `packages/engine` dependencies installed — **19 suites, 259 tests ALL PASSING**
+- `apps/mobile` dependencies installed
+- `start_env.bat` updated with correct portable Node.js path
 
 ## Important startup rule
 
-Before running npm/expo commands, use `start_env.bat` from repo root or prepend the portable Node.js directory to `PATH`.
+Before running npm/expo commands, use `start_env.bat` from repo root or set PATH in PowerShell:
 
-Reason: the default system `node.exe` on this machine may resolve to a WindowsApps/Codex stub and fail with `Access is denied`.
+```powershell
+$env:PATH = "C:\Users\patron\.gemini\antigravity\scratch\nodejs\node-v20.19.2-win-x64;$env:PATH"
+```
+
+Reason: the default system `node.exe` on this machine may resolve to a WindowsApps stub and fail with `Access is denied`.
 
 ## Active app path
 
@@ -49,7 +54,7 @@ npm run ios
 ## Known notes
 
 - `README.md` now points to the current mobile workflow and `docs/DEPLOYMENT_MAP.md`
-- `apps/mobile/package-lock.json` changed from fresh install on 2026-04-28
+- `apps/mobile/package-lock.json` changed from fresh install on 2026-05-14
 - Use compliance-safe copy only
 - Do not reintroduce TEI / PR99 naming; stay on Edge Score / Decision Edge / 3-zone vocabulary
 - Deployment URL meaning is tracked in `docs/DEPLOYMENT_MAP.md`

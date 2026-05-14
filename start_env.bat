@@ -1,5 +1,7 @@
 @echo off
-set "PATH=%~dp0..\node-v24.15.0-win-x64;%PATH%"
+REM --- Portable Node.js for this machine (2026-05-14) ---
+set "NODE_DIR=C:\Users\patron\.gemini\antigravity\scratch\nodejs\node-v20.19.2-win-x64"
+set "PATH=%NODE_DIR%;%PATH%"
 echo Node.js portable environment configured!
 echo Node version:
 node -v
