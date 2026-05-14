@@ -1216,6 +1216,66 @@ body {
   border-top: 1px solid var(--border);
 }
 
+/* ── Diagnostic panel (?diag=1 only) ── */
+#diag-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.92);
+  color: #d4ff7a;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  padding: 8px;
+  border-bottom: 1px solid #d4ff7a;
+}
+.diag-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.diag-tag {
+  background: #d4ff7a;
+  color: #000;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.1em;
+}
+.diag-btn {
+  background: transparent;
+  border: 1px solid #d4ff7a;
+  color: #d4ff7a;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.diag-btn:active { background: #d4ff7a; color: #000; }
+.diag-info {
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #9fd9d6;
+  margin-bottom: 4px;
+  font-size: 10px;
+}
+.diag-log {
+  margin: 0;
+  max-height: 140px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 10px;
+  color: #fff;
+}
+.diag-log:empty::before {
+  content: '(no events yet — try the flow)';
+  color: rgba(255, 255, 255, 0.4);
+}
+
 /* ── Particle Background ── */
 .particle-bg {
   position: absolute;
@@ -1318,7 +1378,13 @@ body {
   opacity: 0;
   pointer-events: none;
   z-index: 4;
-  mix-blend-mode: screen;
+  /* OOM Fix #14: mix-blend-mode:screen forced iOS WebKit to allocate a
+     full-screen secondary GPU buffer for the blend pass. Combined with
+     the particle canvas backing store + scan-backdrop radial gradient +
+     summary-card layer, this pushed WebContent past its memory cap during
+     the climax → transition handoff. Visual cost: gradient now overlays
+     additively instead of "screen-lightening" — barely noticeable on a
+     dark UI, prevents the OOM cascade. */
 }
 
 .scan-step.phase-climax .scan-flash {
@@ -2078,7 +2144,13 @@ body {
    default keyframe path. */
 .summary-card {
   transform-origin: center center;
-  will-change: transform, opacity;
+  /* OOM Fix #15: removed `will-change: transform, opacity`.
+     will-change forced iOS WebKit to permanently allocate a GPU backing
+     layer for the entire summary card subtree, even before #step-result
+     became active. During climax window this layer was already reserved,
+     reducing free GPU memory available for the flash + particle burst.
+     The 0.6s opacity + transform entrance still animates smoothly without
+     the hint on iOS Safari (well-optimized for these properties).  */
 }
 
 .summary-card-locked-in {

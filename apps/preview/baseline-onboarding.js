@@ -17,6 +17,10 @@
 
 'use strict';
 
+// Diagnostic mode flag — toggled by ?diag=1 query param at init.
+// When false, diagLog() is a no-op (no sessionStorage writes).
+let DIAG_ON = false;
+
 // ─────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────
@@ -41,6 +45,7 @@ const state = {
   rollingSqi: 0,
   qualityTier: 'weak',
   particleSystem: null,
+  introParticleStop: null, // OOM Fix #19: stop handle for intro RAF loop
   cameraSession: null,     // Active { stop } handle from TENKI_PREVIEW_CAMERA
   cameraActive: false,     // True once a real camera frame has arrived
   lastCameraSample: null,  // Latest { coverage, color, redMean, redStd, sqi, hint }
@@ -564,6 +569,15 @@ function startReadinessCheck() {
     state.cameraSession = null;
   }
 
+  // OOM Fix #13 + #20 reset: transferCameraToScanView sets step-intro,
+  // step-sensor, step-readiness to display:none on scan entry. On re-entry
+  // (back-button or retry), restore default display so .step transitions
+  // work normally.
+  ['step-intro', 'step-sensor', 'step-readiness'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
+
   // Reset smart gate state
   state.readinessLatch = { coverage: 0, brightness: 0, stability: 0, sqi: 0 };
   state.readySince = 0;
@@ -783,7 +797,13 @@ function startCalibrationScan() {
   };
 
   if (scanEl) {
-    scanEl.classList.remove('phase-accumulate', 'phase-climax', 'phase-final', 'phase-transition', 'phase-gather');
+    // OOM Fix #21 reset: enterTransitionInstant sets scan-step
+    // style.display='none' + opacity transitions on iOS. Clear them on
+    // retry so .step.active CSS controls visibility again.
+    scanEl.style.display = '';
+    scanEl.style.opacity = '';
+    scanEl.style.transition = '';
+    scanEl.classList.remove('phase-accumulate', 'phase-climax', 'phase-final', 'phase-transition', 'phase-transition-settle', 'phase-gather');
     scanEl.classList.add('phase-wait');
   }
   if (timerEl) {
@@ -804,7 +824,10 @@ function startCalibrationScan() {
   const bannerResetEl = document.getElementById('scan-banner');
   if (bannerResetEl) bannerResetEl.style.display = '';
   if (scanEl) {
-    scanEl.querySelectorAll('.finger-halo, .finger-halo-outer').forEach(function(el) {
+    // OOM Fix #18 reset: also clear extra silhouette/guide/camera-ring drops.
+    scanEl.querySelectorAll(
+      '.finger-halo, .finger-halo-outer, .finger-silhouette, .finger-guide-anim, .camera-target-ring'
+    ).forEach(function(el) {
       el.style.display = '';
       el.style.opacity = '';
     });
@@ -854,24 +877,74 @@ function transferCameraToScanView() {
   const container = document.getElementById('scan-ring-container');
   const scanVideoEl = document.getElementById('scan-video');
   const readinessVideoEl = document.getElementById('readiness-video');
+  const readinessStepEl = document.getElementById('step-readiness');
+  const api = window.TENKI_PREVIEW_CAMERA;
 
   if (!scanVideoEl) return;
 
-  if (readinessVideoEl && readinessVideoEl.srcObject) {
-    scanVideoEl.srcObject = readinessVideoEl.srcObject;
-    scanVideoEl.muted = true;
-    scanVideoEl.playsInline = true;
-    try { scanVideoEl.play(); } catch (_) {}
+  // ── OOM Fix #12: prevent double video decoder ──
+  // Pre-fix: scan-video.srcObject = readiness-video.srcObject left both
+  // <video> elements active simultaneously. iOS Safari kept TWO MediaStream
+  // decoders running, doubling GPU memory pressure → WebContent crash during
+  // wait phase before scan even started → page reload → user dropped back
+  // to Step 1 instead of seeing Step 5 result.
+  //
+  // Fix: stop the Step 3 session entirely (kills RAF + tracks + nulls
+  // readiness-video.srcObject), then start a fresh session targeting
+  // scan-video. iOS Safari caches getUserMedia permission for the page
+  // session so the user does NOT see a second permission dialog.
 
-    if (container) {
-      container.classList.remove('camera-unavailable');
-      container.classList.add('camera-active');
-    }
-  } else {
-    if (container) {
-      container.classList.remove('camera-active');
-      container.classList.add('camera-unavailable');
-    }
+  if (state.cameraSession) {
+    try { state.cameraSession.stop(); } catch (_) {}
+    state.cameraSession = null;
+  }
+
+  // OOM Fix #13 + #20: drop ALL inactive steps from render tree, not
+  // just Step 3. .step:not(.active) CSS uses opacity/transform so iOS
+  // WebKit may keep their GPU backing stores allocated. Includes:
+  //  - step-intro (#particle-canvas-intro 390×844 canvas backing store)
+  //  - step-sensor (Beta badge, sensor cards)
+  //  - step-readiness (camera glow + 4 meter bars + instruction list)
+  ['step-intro', 'step-sensor', 'step-readiness'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // OOM Fix #19: also stop intro particle RAF (390×844 canvas + 40
+  // particles drawing infinitely). Even after display:none, the RAF
+  // loop itself wastes a frame budget tick on iOS.
+  if (typeof state.introParticleStop === 'function') {
+    try { state.introParticleStop(); } catch (_) {}
+    state.introParticleStop = null;
+  }
+
+  // Clear readiness-video srcObject just in case session.stop() raced.
+  if (readinessVideoEl) {
+    try { readinessVideoEl.srcObject = null; } catch (_) {}
+  }
+
+  if (api && api.startFingerCamera) {
+    api.startFingerCamera(scanVideoEl, (sample) => {
+      state.cameraActive = true;
+      state.lastCameraSample = sample;
+      // tickWait / tickGather / tickAccumulate read lastCameraSample directly
+      // — no readiness UI updates during scan-step
+    }).then((session) => {
+      state.cameraSession = session;
+      if (container) {
+        container.classList.remove('camera-unavailable');
+        container.classList.add('camera-active');
+      }
+    }).catch(() => {
+      state.cameraActive = false;
+      if (container) {
+        container.classList.remove('camera-active');
+        container.classList.add('camera-unavailable');
+      }
+    });
+  } else if (container) {
+    container.classList.remove('camera-active');
+    container.classList.add('camera-unavailable');
   }
 }
 
@@ -1306,7 +1379,98 @@ function updateSignalTelemetry(elapsedSec) {
 function enterClimax(reason) {
   if (state.scanPhase === 'climax' || state.scanPhase === 'final') return;
   state.scanPhase = 'climax';
+  diagLog(`eC: enter, reason=${reason}`);
 
+  // ── OOM Fix #22: iOS true instant bypass (mirrors diagSkipToResult) ──
+  // Diag mode on iPhone 13 (commit f81b4e0) confirmed that the proven-working
+  // path is the diagSkipToResult sequence:
+  //   1. hide all OTHER steps display:none FIRST (no compositing pressure)
+  //   2. THEN stop camera + RAF + particles (no longer in render tree)
+  //   3. activate step-result with locked-in card (instant render)
+  //
+  // The previous enterClimax → enterTransitionInstant path did the opposite:
+  //   1. add phase-climax class → triggers .scan-flash CSS animation
+  //   2. stopFingerCameraFeed() WHILE flash is compositing → WebContent dies
+  //
+  // Theory confirmed by diag: stopping MediaStream tracks mid-flash-animation
+  // is what crashes iOS Safari WebContent. Fix: never trigger flash on iOS,
+  // stop camera before any compositing-heavy DOM mutation.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (isIOS) {
+    diagLog('eC22: iOS true instant bypass — step-scan display:none FIRST');
+    state.isScanning = false;
+    state.scanPhase = 'final';
+
+    // STEP 1: hide scan-step IMMEDIATELY — no phase-climax class, no flash
+    // CSS animation, no compositing pressure. iOS WebKit drops the entire
+    // scan-step subtree (camera video + halo + particles + ring) from
+    // render tree before we touch the camera stream.
+    const scanElEarly = document.getElementById('step-scan');
+    if (scanElEarly) {
+      scanElEarly.style.display = 'none';
+    }
+    diagLog('eC22: scan-step hidden');
+
+    // STEP 2: now safely stop camera (video element no longer composited)
+    try { stopFingerCameraFeed(); } catch (e) {
+      diagLog(`eC22: stopFingerCameraFeed THROW: ${e && e.message}`);
+    }
+    diagLog('eC22: camera stopped');
+
+    // STEP 3: cancel scan RAF + particles
+    if (state.scanRAF) {
+      try { cancelAnimationFrame(state.scanRAF); } catch (_) {}
+      state.scanRAF = null;
+    }
+    if (state.particleSystem) {
+      try { state.particleSystem.stop(); } catch (_) {}
+    }
+    diagLog('eC22: RAF + particles stopped');
+
+    // STEP 4: activate result step (proven path via diag skip button)
+    const resultEl = document.getElementById('step-result');
+    if (resultEl) {
+      resultEl.style.transition = 'none';
+      resultEl.style.display = '';
+      resultEl.classList.add('active');
+    }
+    const card = document.getElementById('summary-card');
+    if (card) {
+      card.classList.add('summary-card-locked-in');
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0) scale(1)';
+    }
+    state.currentStep = 4;
+    updateStepDots(4);
+    diagLog('eC22: step-result activated');
+
+    // STEP 5: render baseline metrics (real data from scan, not synthetic
+    // unlike diagSkipToResult)
+    try {
+      showBaselineResult({ maskDigits: false });
+      diagLog('eC22: showBaselineResult OK → DONE');
+    } catch (e) {
+      diagLog(`eC22: showBaselineResult THROW: ${e && e.message}`);
+    }
+
+    // STEP 6: dispatch event for any listeners
+    try {
+      const score = estimateEdgeScore();
+      document.dispatchEvent(new CustomEvent('tenki:baseline-to-result', {
+        detail: { score, zone: zoneFor(score), rollingSqi: state.rollingSqi },
+      }));
+    } catch (_) {}
+
+    // Light completion haptic
+    if (navigator.vibrate) {
+      try { navigator.vibrate([20, 40, 60]); } catch (_) {}
+    }
+    return;
+  }
+
+  diagLog('eC: about to cancel scanRAF (non-iOS cinematic path)');
   // ── OOM Fix #8: cancel scan RAF immediately ──
   // Previously cancelled at t=1200ms in enterTransition. But tickCalibration
   // continues to run during the climax window (CLIMAX_MS=1500ms) and through
@@ -1354,8 +1518,14 @@ function enterClimax(reason) {
   // ── OOM Fix #11: display:none on halo + video (not just opacity:0) ──
   // iOS WebKit keeps GPU backing store allocated for opacity:0 elements
   // when ancestor has will-change. display:none drops the backing store.
-  const haloEls = scanEl ? scanEl.querySelectorAll('.finger-halo, .finger-halo-outer') : [];
-  haloEls.forEach(function(el) {
+  // OOM Fix #18: also include .finger-silhouette (mix-blend-mode:screen
+  // when camera-active per styles.css line 1479) and .finger-guide-anim
+  // (will-change: transform,opacity per styles.css line 1630). Both
+  // remained as separate GPU layers during climax flash.
+  const dropEls = scanEl ? scanEl.querySelectorAll(
+    '.finger-halo, .finger-halo-outer, .finger-silhouette, .finger-guide-anim, .camera-target-ring'
+  ) : [];
+  dropEls.forEach(function(el) {
     el.style.opacity = '0';
     el.style.display = 'none';
   });
@@ -1379,7 +1549,14 @@ function enterClimax(reason) {
   const subEl = document.getElementById('ceremony-dialog-sub');
   if (subEl) subEl.textContent = '';
 
-  // Trigger particle outward burst
+  // Note: iOS was already handled by Fix #22 at top of enterClimax via
+  // early return. Below is desktop / Android cinematic path only.
+  // (Old Fix #21 enterTransitionInstant kept further down as a fallback —
+  // see comment near function definition.)
+
+  diagLog('eC: non-iOS, running full ceremony');
+
+  // Trigger particle outward burst (desktop / Android only)
   if (state.particleSystem) state.particleSystem.burst();
 
   // Haptic / vibration (where supported)
@@ -1387,8 +1564,75 @@ function enterClimax(reason) {
     try { navigator.vibrate([20, 40, 60]); } catch (_) {}
   }
 
-  // After climax window → begin transition (Todo 3 will implement)
+  // After climax window → begin transition cinematic
   setTimeout(() => enterTransition(), CLIMAX_MS);
+}
+
+/**
+ * OOM Fix #21 — iOS-only fast path that skips the climax → transition
+ * cinematic entirely. Takes ~300ms (scan-step opacity fade) before
+ * activating #step-result with the baseline metrics revealed instantly.
+ * Used in place of `setTimeout(enterTransition, CLIMAX_MS)` on iOS.
+ */
+function enterTransitionInstant(reason) {
+  diagLog('eTI: enter');
+  state.scanPhase = 'transition';
+  state.isScanning = false;
+
+  // Stop all RAF / particle work — no need for burst, no need for tick.
+  if (state.particleSystem) state.particleSystem.stop();
+  if (state.scanRAF) { cancelAnimationFrame(state.scanRAF); state.scanRAF = null; }
+  diagLog('eTI: particle/RAF stopped');
+
+  // Light opacity fade-out of scan-step (~300ms), no transform / no blur.
+  const scanEl = document.getElementById('step-scan');
+  if (scanEl) {
+    scanEl.style.transition = 'opacity 300ms ease';
+    scanEl.style.opacity = '0';
+  }
+
+  setTimeout(() => {
+    diagLog('eTI: 300ms tick → hide scan + activate result');
+    // Hard-hide scan-step entirely (release any lingering GPU presence)
+    if (scanEl) {
+      scanEl.classList.remove(
+        'phase-wait', 'phase-gather', 'phase-accumulate',
+        'phase-climax', 'phase-transition', 'phase-transition-settle'
+      );
+      scanEl.style.display = 'none';
+      scanEl.style.opacity = '';
+      scanEl.style.transition = '';
+    }
+
+    // Activate #step-result with no entrance animation — summary card in
+    // its final settled state immediately (locked-in class disables the
+    // default cinematic transition in styles.css).
+    const resultEl = document.getElementById('step-result');
+    const card = document.getElementById('summary-card');
+    if (resultEl) {
+      resultEl.style.transition = 'none';
+      resultEl.classList.add('active');
+    }
+    if (card) {
+      card.classList.add('summary-card-locked-in');
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0) scale(1)';
+    }
+    diagLog('eTI: result-step.active set, calling showBaselineResult');
+
+    // Reveal digits immediately (skip the masked → snap-in choreography).
+    showBaselineResult({ maskDigits: false });
+    diagLog('eTI: showBaselineResult returned');
+
+    // Notify any listeners that baseline is done (same payload shape as
+    // the normal enterTransition path).
+    try {
+      const score = estimateEdgeScore();
+      document.dispatchEvent(new CustomEvent('tenki:baseline-to-result', {
+        detail: { score, zone: zoneFor(score), rollingSqi: state.rollingSqi },
+      }));
+    } catch (_) {}
+  }, 300);
 }
 
 // ─────────────────────────────────────────────
@@ -1653,7 +1897,14 @@ function startParticleSystem() {
   if (state.particleSystem) state.particleSystem.stop();
 
   const rect = canvas.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // OOM Fix #16: iOS DPR cap 2 → 1.
+  // iPhone retina screens have DPR 2-3. With cap 2, canvas backing store
+  // = 390×844×4 bytes×2² ≈ 2.6MB. With cap 1 it drops to ≈ 0.66MB. Free
+  // ~2MB at climax window. Particles look slightly less crisp but they're
+  // abstract glowing dots — barely perceptible.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const dpr = isIOS ? 1 : Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.max(1, Math.floor(rect.width * dpr));
   canvas.height = Math.max(1, Math.floor(rect.height * dpr));
 
@@ -1666,10 +1917,11 @@ function startParticleSystem() {
   const target = { x: W / 2, y: H * 0.48 };
 
   // OOM Fix #5: iOS gets fewer particles + 30fps throttle.
-  // 140 particles × DPR 3 = ~420 fill ops/frame, excessive on A-series GPU.
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const PARTICLE_COUNT = isIOS ? 80 : 140;
+  // OOM Fix #17: further cut iOS PARTICLE_COUNT 80 → 40.
+  // Combined with Fix #14 (no mix-blend-mode) + Fix #15 (no will-change) +
+  // Fix #16 (DPR 1), this should keep climax compositing well under
+  // iOS Safari ~1GB WebContent cap even on iPhone 4G.
+  const PARTICLE_COUNT = isIOS ? 40 : 140;
   const FRAME_INTERVAL = isIOS ? 33 : 0; // ~30fps on iOS, uncapped on desktop
   const particles = [];
 
@@ -1857,6 +2109,18 @@ function initParticles() {
     });
   }
 
+  // OOM Fix #19: RAF kill switch — previously the intro particle loop ran
+  // forever (no `running` flag, no cancelAnimationFrame call site). After
+  // user advanced past Step 1, this canvas (390×844 backing store) +
+  // 40-particle RAF kept compositing alongside the scan particle canvas
+  // during the climax flash, contributing to GPU memory pressure on iOS.
+  let rafId = 0;
+  state.introParticleStop = () => {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    try { ctx.clearRect(0, 0, canvas.width, canvas.height); } catch (_) {}
+  };
+
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -1878,10 +2142,10 @@ function initParticles() {
       ctx.fill();
     });
 
-    requestAnimationFrame(draw);
+    rafId = requestAnimationFrame(draw);
   }
 
-  draw();
+  rafId = requestAnimationFrame(draw);
 }
 
 // ─────────────────────────────────────────────
@@ -1921,4 +2185,157 @@ document.addEventListener('DOMContentLoaded', () => {
   updateInstructions(state.sensorChoice);
   setReadinessStage('approach');
   setReadinessButton(false);
+
+  // ── Diagnostic mode (?diag=1) ─────────────────────────────────────
+  // Activates an on-screen log + skip-to-Step5 button. Lets us isolate
+  // whether the iOS Safari "重複發生問題" crash is in scan-step (climax/
+  // particles/flash) or in step-result (baseline-metrics card) by
+  // bypassing the whole scan ceremony with one tap.
+  DIAG_ON = new URLSearchParams(window.location.search).get('diag') === '1';
+  if (DIAG_ON) initDiagMode();
 });
+
+const DIAG_LOG_KEY = 'tenki_diag_log';
+function diagLog(line) {
+  if (!DIAG_ON) return;
+  const ts = new Date().toLocaleTimeString('en-US', { hour12: false }) +
+    '.' + String(performance.now() % 1000 | 0).padStart(3, '0');
+  const entry = `[${ts}] ${line}\n`;
+  // Persist to sessionStorage so log survives iOS Safari WebContent crash
+  // → page reload. After reload the diag panel re-hydrates from storage.
+  try {
+    const prev = sessionStorage.getItem(DIAG_LOG_KEY) || '';
+    const next = (prev + entry).slice(-8000); // cap ~8KB
+    sessionStorage.setItem(DIAG_LOG_KEY, next);
+  } catch (_) {}
+  const el = document.getElementById('diag-log');
+  if (el) {
+    el.textContent += entry;
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+function initDiagMode() {
+  const panel = document.getElementById('diag-panel');
+  if (!panel) return;
+  panel.hidden = false;
+
+  // Re-hydrate log from sessionStorage (survives crash → reload)
+  const persisted = (() => {
+    try { return sessionStorage.getItem(DIAG_LOG_KEY) || ''; } catch (_) { return ''; }
+  })();
+  if (persisted) {
+    const el = document.getElementById('diag-log');
+    if (el) {
+      el.textContent = persisted + '\n--- [reload, log restored from sessionStorage] ---\n';
+      el.scrollTop = el.scrollHeight;
+    }
+  }
+
+  // Device + detection info
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const info = [
+    `UA: ${navigator.userAgent.slice(0, 80)}`,
+    `platform: ${navigator.platform} · touch: ${navigator.maxTouchPoints} · isIOS: ${isIOS}`,
+    `viewport: ${window.innerWidth}×${window.innerHeight} · dpr: ${window.devicePixelRatio}`,
+    `mem: ${navigator.deviceMemory || '?'}GB · cores: ${navigator.hardwareConcurrency || '?'}`,
+  ].join('\n');
+  const infoEl = document.getElementById('diag-info');
+  if (infoEl) infoEl.textContent = info;
+
+  // Global error catcher (since iOS Safari console is unreachable without Mac)
+  window.addEventListener('error', (e) => {
+    diagLog(`ERR: ${e.message} @ ${e.filename || '?'}:${e.lineno || '?'}`);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    diagLog(`PROMISE-REJECT: ${e.reason && e.reason.message || e.reason}`);
+  });
+
+  // Skip button → jump straight to Step 5 with synthetic baseline data,
+  // bypassing ALL scan-step / climax / transition logic. If this works
+  // but the normal flow crashes, the crash is in scan-step. If THIS
+  // crashes too, the crash is in step-result (baseline-metrics / etc).
+  const skipBtn = document.getElementById('diag-skip-result');
+  if (skipBtn) skipBtn.addEventListener('click', diagSkipToResult);
+
+  const clearBtn = document.getElementById('diag-clear-log');
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    try { sessionStorage.removeItem(DIAG_LOG_KEY); } catch (_) {}
+    const el = document.getElementById('diag-log');
+    if (el) el.textContent = '';
+  });
+
+  diagLog('diag mode ON');
+}
+
+function diagSkipToResult() {
+  diagLog('skip → step-result begin');
+  try {
+    // Synthetic baseline data (matches typical resting values)
+    state.baseline = {
+      hr: { mean: 72, std: 4 },
+      hrv: { mean: 47, std: 8 },
+      rr: { mean: 15, std: 2 },
+    };
+    state.rollingSqi = 0.78;
+    state.isScanning = false;
+    state.scanPhase = 'final';
+
+    diagLog('state set OK');
+
+    // Stop all lingering work
+    if (typeof state.introParticleStop === 'function') {
+      try { state.introParticleStop(); } catch (_) {}
+    }
+    if (state.particleSystem) {
+      try { state.particleSystem.stop(); } catch (_) {}
+    }
+    if (state.cameraSession) {
+      try { state.cameraSession.stop(); } catch (_) {}
+      state.cameraSession = null;
+    }
+    if (state.scanRAF) {
+      try { cancelAnimationFrame(state.scanRAF); } catch (_) {}
+      state.scanRAF = null;
+    }
+
+    diagLog('cleanup OK');
+
+    // Hide all other steps
+    ['step-intro', 'step-sensor', 'step-readiness', 'step-scan'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.remove('active');
+        el.style.display = 'none';
+      }
+    });
+
+    diagLog('other steps hidden');
+
+    // Activate result step instantly
+    const resultEl = document.getElementById('step-result');
+    if (resultEl) {
+      resultEl.style.transition = 'none';
+      resultEl.style.display = '';
+      resultEl.classList.add('active');
+    }
+    const card = document.getElementById('summary-card');
+    if (card) {
+      card.classList.add('summary-card-locked-in');
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0) scale(1)';
+    }
+
+    diagLog('step-result activated');
+
+    state.currentStep = 4;
+    updateStepDots(4);
+
+    showBaselineResult({ maskDigits: false });
+
+    diagLog('showBaselineResult OK → DONE');
+  } catch (e) {
+    diagLog(`THROW in diagSkipToResult: ${e && e.message}`);
+  }
+}
