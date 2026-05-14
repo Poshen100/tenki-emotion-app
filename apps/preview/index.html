@@ -408,6 +408,17 @@
     <div class="disclaimer-bar">
       TENKI 提供的所有指標僅供個人健康參考，不構成醫療診斷或金融建議。你的生理數據只儲存在你的裝置上。
     </div>
+
+    <!-- Diagnostic panel (visible only with ?diag=1) -->
+    <div id="diag-panel" hidden>
+      <div class="diag-row">
+        <span class="diag-tag">DIAG</span>
+        <button class="diag-btn" id="diag-skip-result">→ Step 5 (skip all)</button>
+        <button class="diag-btn" id="diag-clear-log">clear</button>
+      </div>
+      <div id="diag-info" class="diag-info"></div>
+      <pre id="diag-log" class="diag-log"></pre>
+    </div>
   </div>
 
   <script src="camera-scan.js"></script>

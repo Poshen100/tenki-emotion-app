@@ -1216,6 +1216,66 @@ body {
   border-top: 1px solid var(--border);
 }
 
+/* ── Diagnostic panel (?diag=1 only) ── */
+#diag-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.92);
+  color: #d4ff7a;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  padding: 8px;
+  border-bottom: 1px solid #d4ff7a;
+}
+.diag-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.diag-tag {
+  background: #d4ff7a;
+  color: #000;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.1em;
+}
+.diag-btn {
+  background: transparent;
+  border: 1px solid #d4ff7a;
+  color: #d4ff7a;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.diag-btn:active { background: #d4ff7a; color: #000; }
+.diag-info {
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #9fd9d6;
+  margin-bottom: 4px;
+  font-size: 10px;
+}
+.diag-log {
+  margin: 0;
+  max-height: 140px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 10px;
+  color: #fff;
+}
+.diag-log:empty::before {
+  content: '(no events yet — try the flow)';
+  color: rgba(255, 255, 255, 0.4);
+}
+
 /* ── Particle Background ── */
 .particle-bg {
   position: absolute;

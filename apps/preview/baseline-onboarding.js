@@ -17,6 +17,10 @@
 
 'use strict';
 
+// Diagnostic mode flag — toggled by ?diag=1 query param at init.
+// When false, diagLog() is a no-op (no sessionStorage writes).
+let DIAG_ON = false;
+
 // ─────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────
@@ -1467,12 +1471,15 @@ function enterClimax(reason) {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
+  diagLog(`enterClimax(${reason}) cleanup OK → isIOS=${isIOS}`);
+
   if (isIOS) {
     // Light acknowledgement haptic only (no particle burst — that's the
     // heaviest GPU draw of the cinematic).
     if (navigator.vibrate) {
       try { navigator.vibrate(40); } catch (_) {}
     }
+    diagLog('iOS bypass → enterTransitionInstant');
     enterTransitionInstant(reason);
     return;
   }
@@ -1496,12 +1503,14 @@ function enterClimax(reason) {
  * Used in place of `setTimeout(enterTransition, CLIMAX_MS)` on iOS.
  */
 function enterTransitionInstant(reason) {
+  diagLog('eTI: enter');
   state.scanPhase = 'transition';
   state.isScanning = false;
 
   // Stop all RAF / particle work — no need for burst, no need for tick.
   if (state.particleSystem) state.particleSystem.stop();
   if (state.scanRAF) { cancelAnimationFrame(state.scanRAF); state.scanRAF = null; }
+  diagLog('eTI: particle/RAF stopped');
 
   // Light opacity fade-out of scan-step (~300ms), no transform / no blur.
   const scanEl = document.getElementById('step-scan');
@@ -1511,6 +1520,7 @@ function enterTransitionInstant(reason) {
   }
 
   setTimeout(() => {
+    diagLog('eTI: 300ms tick → hide scan + activate result');
     // Hard-hide scan-step entirely (release any lingering GPU presence)
     if (scanEl) {
       scanEl.classList.remove(
@@ -1536,9 +1546,11 @@ function enterTransitionInstant(reason) {
       card.style.opacity = '1';
       card.style.transform = 'translateY(0) scale(1)';
     }
+    diagLog('eTI: result-step.active set, calling showBaselineResult');
 
     // Reveal digits immediately (skip the masked → snap-in choreography).
     showBaselineResult({ maskDigits: false });
+    diagLog('eTI: showBaselineResult returned');
 
     // Notify any listeners that baseline is done (same payload shape as
     // the normal enterTransition path).
@@ -2101,4 +2113,157 @@ document.addEventListener('DOMContentLoaded', () => {
   updateInstructions(state.sensorChoice);
   setReadinessStage('approach');
   setReadinessButton(false);
+
+  // ── Diagnostic mode (?diag=1) ─────────────────────────────────────
+  // Activates an on-screen log + skip-to-Step5 button. Lets us isolate
+  // whether the iOS Safari "重複發生問題" crash is in scan-step (climax/
+  // particles/flash) or in step-result (baseline-metrics card) by
+  // bypassing the whole scan ceremony with one tap.
+  DIAG_ON = new URLSearchParams(window.location.search).get('diag') === '1';
+  if (DIAG_ON) initDiagMode();
 });
+
+const DIAG_LOG_KEY = 'tenki_diag_log';
+function diagLog(line) {
+  if (!DIAG_ON) return;
+  const ts = new Date().toLocaleTimeString('en-US', { hour12: false }) +
+    '.' + String(performance.now() % 1000 | 0).padStart(3, '0');
+  const entry = `[${ts}] ${line}\n`;
+  // Persist to sessionStorage so log survives iOS Safari WebContent crash
+  // → page reload. After reload the diag panel re-hydrates from storage.
+  try {
+    const prev = sessionStorage.getItem(DIAG_LOG_KEY) || '';
+    const next = (prev + entry).slice(-8000); // cap ~8KB
+    sessionStorage.setItem(DIAG_LOG_KEY, next);
+  } catch (_) {}
+  const el = document.getElementById('diag-log');
+  if (el) {
+    el.textContent += entry;
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+function initDiagMode() {
+  const panel = document.getElementById('diag-panel');
+  if (!panel) return;
+  panel.hidden = false;
+
+  // Re-hydrate log from sessionStorage (survives crash → reload)
+  const persisted = (() => {
+    try { return sessionStorage.getItem(DIAG_LOG_KEY) || ''; } catch (_) { return ''; }
+  })();
+  if (persisted) {
+    const el = document.getElementById('diag-log');
+    if (el) {
+      el.textContent = persisted + '\n--- [reload, log restored from sessionStorage] ---\n';
+      el.scrollTop = el.scrollHeight;
+    }
+  }
+
+  // Device + detection info
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const info = [
+    `UA: ${navigator.userAgent.slice(0, 80)}`,
+    `platform: ${navigator.platform} · touch: ${navigator.maxTouchPoints} · isIOS: ${isIOS}`,
+    `viewport: ${window.innerWidth}×${window.innerHeight} · dpr: ${window.devicePixelRatio}`,
+    `mem: ${navigator.deviceMemory || '?'}GB · cores: ${navigator.hardwareConcurrency || '?'}`,
+  ].join('\n');
+  const infoEl = document.getElementById('diag-info');
+  if (infoEl) infoEl.textContent = info;
+
+  // Global error catcher (since iOS Safari console is unreachable without Mac)
+  window.addEventListener('error', (e) => {
+    diagLog(`ERR: ${e.message} @ ${e.filename || '?'}:${e.lineno || '?'}`);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    diagLog(`PROMISE-REJECT: ${e.reason && e.reason.message || e.reason}`);
+  });
+
+  // Skip button → jump straight to Step 5 with synthetic baseline data,
+  // bypassing ALL scan-step / climax / transition logic. If this works
+  // but the normal flow crashes, the crash is in scan-step. If THIS
+  // crashes too, the crash is in step-result (baseline-metrics / etc).
+  const skipBtn = document.getElementById('diag-skip-result');
+  if (skipBtn) skipBtn.addEventListener('click', diagSkipToResult);
+
+  const clearBtn = document.getElementById('diag-clear-log');
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    try { sessionStorage.removeItem(DIAG_LOG_KEY); } catch (_) {}
+    const el = document.getElementById('diag-log');
+    if (el) el.textContent = '';
+  });
+
+  diagLog('diag mode ON');
+}
+
+function diagSkipToResult() {
+  diagLog('skip → step-result begin');
+  try {
+    // Synthetic baseline data (matches typical resting values)
+    state.baseline = {
+      hr: { mean: 72, std: 4 },
+      hrv: { mean: 47, std: 8 },
+      rr: { mean: 15, std: 2 },
+    };
+    state.rollingSqi = 0.78;
+    state.isScanning = false;
+    state.scanPhase = 'final';
+
+    diagLog('state set OK');
+
+    // Stop all lingering work
+    if (typeof state.introParticleStop === 'function') {
+      try { state.introParticleStop(); } catch (_) {}
+    }
+    if (state.particleSystem) {
+      try { state.particleSystem.stop(); } catch (_) {}
+    }
+    if (state.cameraSession) {
+      try { state.cameraSession.stop(); } catch (_) {}
+      state.cameraSession = null;
+    }
+    if (state.scanRAF) {
+      try { cancelAnimationFrame(state.scanRAF); } catch (_) {}
+      state.scanRAF = null;
+    }
+
+    diagLog('cleanup OK');
+
+    // Hide all other steps
+    ['step-intro', 'step-sensor', 'step-readiness', 'step-scan'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.remove('active');
+        el.style.display = 'none';
+      }
+    });
+
+    diagLog('other steps hidden');
+
+    // Activate result step instantly
+    const resultEl = document.getElementById('step-result');
+    if (resultEl) {
+      resultEl.style.transition = 'none';
+      resultEl.style.display = '';
+      resultEl.classList.add('active');
+    }
+    const card = document.getElementById('summary-card');
+    if (card) {
+      card.classList.add('summary-card-locked-in');
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0) scale(1)';
+    }
+
+    diagLog('step-result activated');
+
+    state.currentStep = 4;
+    updateStepDots(4);
+
+    showBaselineResult({ maskDigits: false });
+
+    diagLog('showBaselineResult OK → DONE');
+  } catch (e) {
+    diagLog(`THROW in diagSkipToResult: ${e && e.message}`);
+  }
+}
