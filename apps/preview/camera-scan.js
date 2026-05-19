@@ -38,11 +38,12 @@
   const IBI_WINDOW = 20;        // last N inter-beat intervals for HRV
   const STABILITY_WINDOW = 30;  // frames for coverage stability
 
-  function isSkin(r, g, b) {
-    return r >= SKIN_R_MIN && r <= SKIN_R_MAX &&
-           g >= SKIN_G_MIN && g <= SKIN_G_MAX &&
-           b >= SKIN_B_MIN && b <= SKIN_B_MAX &&
-           r >= g * SKIN_R_RATIO;
+  function isCovered(r, g, b) {
+    // Torch ON touching: extremely red (blood filtering)
+    const isRed = r >= 50 && r >= g * 1.8 && r >= b * 1.8;
+    // Torch OFF touching: very dark (ambient light blocked)
+    const isDark = r < 50 && g < 50 && b < 50;
+    return isRed || isDark;
   }
 
   function covColor(c) {
@@ -137,7 +138,7 @@
         for (let x = 0; x < W; x += PX_STRIDE) {
           const i = (y * W + x) * 4;
           totalCnt++;
-          if (isSkin(px[i], px[i + 1], px[i + 2])) skinCnt++;
+          if (isCovered(px[i], px[i + 1], px[i + 2])) skinCnt++;
         }
       }
       const rawCov = totalCnt ? skinCnt / totalCnt : 0;
