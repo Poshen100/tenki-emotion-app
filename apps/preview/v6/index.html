@@ -1623,6 +1623,158 @@ body{
 .baseline-flow .bf-demo-nav .auto{background:rgba(245,166,35,0.15);border-color:rgba(245,166,35,0.3)}
 .baseline-flow .bf-demo-nav .auto.active,
 .baseline-flow .bf-demo-nav .auto:active{background:rgba(245,166,35,0.4)}
+/* ═══════════ TENKI Brand v1.0 Splash — iPhone Responsive ═══════════ */
+.tenki-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background:
+    radial-gradient(ellipse 60% 45% at 30% 30%, rgba(0,180,216,0.08), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 70% 70%, rgba(94,204,197,0.06), transparent 60%),
+    linear-gradient(180deg, #0A1628 0%, #050A14 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 400ms ease-out;
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.tenki-splash[data-hidden="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+.tenki-splash__stardust {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.tenki-splash__star {
+  position: absolute;
+  background: #fff;
+  border-radius: 50%;
+  opacity: 0;
+  animation: tenkiStarTwinkle 4s ease-in-out infinite;
+}
+@keyframes tenkiStarTwinkle {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.6; }
+}
+.tenki-splash__brand-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -8%;
+}
+.tenki-splash__logo {
+  width: clamp(96px, 30vw, 180px);
+  aspect-ratio: 1 / 1;
+  margin-bottom: clamp(20px, 6vw, 48px);
+  opacity: 0;
+  transform: scale(0.94);
+  animation:
+    tenkiSplashLogoIn 900ms cubic-bezier(0.2, 0.7, 0.3, 1) 250ms forwards,
+    tenkiSplashLogoBreathe 6s ease-in-out 1400ms infinite;
+  will-change: transform, opacity;
+}
+.tenki-splash__logo svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+@keyframes tenkiSplashLogoIn {
+  0%   { opacity: 0; transform: scale(0.94); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes tenkiSplashLogoBreathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.015); }
+}
+.tenki-splash__wordmark {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  font-weight: 200;
+  font-size: clamp(28px, 8.5vw, 56px);
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;
+  color: #FFFFFF;
+  line-height: 1;
+  margin-bottom: clamp(8px, 2vw, 16px);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: tenkiSplashWordIn 700ms cubic-bezier(0.2, 0.7, 0.3, 1) 750ms forwards;
+}
+.tenki-splash__core {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  font-weight: 600;
+  font-size: clamp(12px, 3.6vw, 22px);
+  letter-spacing: 0.4em;
+  text-indent: 0.4em;
+  color: #00B4D8;
+  text-shadow: 0 0 16px rgba(0, 180, 216, 0.4);
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: tenkiSplashWordIn 700ms cubic-bezier(0.2, 0.7, 0.3, 1) 950ms forwards;
+}
+@keyframes tenkiSplashWordIn {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.tenki-splash__tagline {
+  position: absolute;
+  bottom: max(56px, calc(40px + env(safe-area-inset-bottom)));
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: clamp(11px, 3vw, 16px);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.05em;
+  line-height: 1.55;
+  opacity: 0;
+  animation: tenkiSplashTaglineIn 800ms ease 1200ms forwards;
+}
+.tenki-splash__tagline-line {
+  display: block;
+}
+@keyframes tenkiSplashTaglineIn {
+  0%   { opacity: 0; }
+  100% { opacity: 0.85; }
+}
+.tenki-splash__skip-hint {
+  position: absolute;
+  bottom: max(20px, calc(8px + env(safe-area-inset-bottom)));
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: clamp(9px, 2.2vw, 11px);
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.25);
+  opacity: 0;
+  animation: tenkiSplashHintIn 1000ms ease 2000ms forwards;
+}
+@keyframes tenkiSplashHintIn {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tenki-splash__logo,
+  .tenki-splash__wordmark,
+  .tenki-splash__core,
+  .tenki-splash__tagline,
+  .tenki-splash__skip-hint,
+  .tenki-splash__star {
+    animation-duration: 0.2s !important;
+    animation-delay: 0s !important;
+  }
+}
+/* ═══════════ End splash styles ═══════════ */
 </style>
     <!-- TENKI Core Brand v1.0 — favicon + Open Graph -->
     <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon/favicon-32.png">
@@ -1642,6 +1794,27 @@ body{
     <meta name="theme-color" content="#0A1628">
 </head>
 <body>
+    <!-- ═══════════ TENKI Brand v1.0 Splash Overlay ═══════════ -->
+    <div id="tenki-splash" class="tenki-splash" aria-hidden="false" role="dialog" aria-label="TENKI Core splash screen">
+      <div class="tenki-splash__stardust" id="tenki-splash-stardust" aria-hidden="true"></div>
+      <div class="tenki-splash__brand-block">
+        <div class="tenki-splash__logo">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" aria-hidden="true">
+            <g transform="translate(126.15, 66.09) scale(1.8886)">
+              <path d="M64.9,362.4 C83.1,358.0 94.3,353.5 130.5,335.5 C189.4,306.3 211.2,298.9 241.3,297.8 L250.2,297.5 242.6,290.3 C226.2,274.5 209.3,274.9 172.2,291.9 C90.7,329.4 80.5,333.3 56.7,336.7 L44.1,338.6 48.6,347.9 C53.4,358.0 56.8,364.0 57.8,364.0 C58.1,364.0 61.3,363.3 64.9,362.4 Z M366.0,305.2 C377.0,301.6 376.5,302.7 376.8,283.3 C377.8,232.6 361.4,192.3 325.1,155.9 C304.2,135.0 273.0,118.8 240.5,111.9 C223.1,108.2 185.8,108.4 167.6,112.3 C132.4,119.9 95.1,141.4 73.6,166.6 C57.1,186.0 42.4,214.2 37.1,237.0 C35.3,244.8 35.3,244.8 40.0,245.4 C59.7,248.0 81.6,239.9 125.0,214.0 C165.7,189.7 188.9,181.7 214.0,183.4 C240.9,185.1 254.6,196.3 258.7,219.6 C260.5,230.2 266.8,248.8 272.1,259.0 C290.2,293.8 334.1,315.4 366.0,305.2 Z M64.7,300.6 C82.5,294.8 90.4,291.2 132.5,269.5 C157.4,256.6 205.7,233.8 212.8,231.5 C218.7,229.6 218.6,228.8 212.3,224.9 C209.3,223.0 207.8,222.8 200.2,223.3 C184.8,224.1 161.3,233.5 106.0,261.0 C73.8,276.9 57.7,282.0 39.5,282.0 C30.8,282.0 30.8,282.0 31.4,285.8 C31.7,287.8 32.2,292.4 32.6,296.0 C32.9,299.6 33.5,302.9 33.7,303.4 C34.9,305.3 56.2,303.4 64.7,300.6 Z" fill="#FFFFFF" stroke="none"/>
+            </g>
+          </svg>
+        </div>
+        <div class="tenki-splash__wordmark">TENKI</div>
+        <div class="tenki-splash__core">CORE</div>
+      </div>
+      <div class="tenki-splash__tagline">
+        <span class="tenki-splash__tagline-line">Return to baseline.</span>
+        <span class="tenki-splash__tagline-line">Find your turning point.</span>
+      </div>
+      <div class="tenki-splash__skip-hint">TAP TO CONTINUE</div>
+    </div>
+    <!-- ═══════════ End splash overlay ═══════════ -->
 
 <div class="ctrl">
   <button onclick="cycleDemo()">↻ Cycle FDCB</button>
@@ -3646,6 +3819,66 @@ function setClarity(v){
   };
 })();
 </script>
+
+    <!-- ═══════════ TENKI Brand v1.0 Splash Controller ═══════════ -->
+    <script>
+    (function tenkiSplashController() {
+      var splash = document.getElementById('tenki-splash');
+      var stardust = document.getElementById('tenki-splash-stardust');
+      if (!splash) return;
+      // === 1. Generate 14 sparse stars (avoiding center) ===
+      try {
+        for (var i = 0; i < 14; i++) {
+          var s = document.createElement('div');
+          s.className = 'tenki-splash__star';
+          var size = (Math.random() * 1.4 + 0.6).toFixed(2);
+          s.style.width = size + 'px';
+          s.style.height = size + 'px';
+          var x, y;
+          do {
+            x = Math.random() * 100;
+            y = Math.random() * 100;
+          } while (x > 25 && x < 75 && y > 30 && y < 70);
+          s.style.left = x + '%';
+          s.style.top = y + '%';
+          s.style.animationDelay = (Math.random() * 4).toFixed(2) + 's';
+          stardust.appendChild(s);
+        }
+      } catch (e) {
+        // Non-fatal: splash still works without stardust
+      }
+      // === 2. Dismiss logic ===
+      var dismissed = false;
+      var SKIP_ALLOWED_AT = 1200;
+      var AUTO_DISMISS_AT = 2400;
+      var FADE_DURATION = 400;
+      var startTime = Date.now();
+      function dismiss(reason) {
+        if (dismissed) return;
+        dismissed = true;
+        splash.setAttribute('data-hidden', 'true');
+        splash.setAttribute('aria-hidden', 'true');
+        setTimeout(function () {
+          if (splash && splash.parentNode) {
+            splash.parentNode.removeChild(splash);
+          }
+        }, FADE_DURATION + 50);
+        try { window.__tenkiSplashDismissReason = reason; } catch (e) {}
+      }
+      setTimeout(function () { dismiss('auto'); }, AUTO_DISMISS_AT);
+      splash.addEventListener('click', function () {
+        if (Date.now() - startTime >= SKIP_ALLOWED_AT) { dismiss('tap'); }
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && Date.now() - startTime >= SKIP_ALLOWED_AT) { dismiss('esc'); }
+      });
+      try {
+        var rm = window.matchMedia('(prefers-reduced-motion: reduce)');
+        if (rm.matches) { setTimeout(function () { dismiss('reduced-motion'); }, 800); }
+      } catch (e) {}
+    })();
+    </script>
+    <!-- ═══════════ End splash controller ═══════════ -->
 
 </body>
 </html>
