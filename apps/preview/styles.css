@@ -1493,9 +1493,8 @@ body {
   pointer-events: none;
   z-index: 2;
   color: var(--primary);
-  filter: drop-shadow(0 0 12px rgba(0, 180, 216, 0.55))
-          drop-shadow(0 0 30px rgba(0, 180, 216, 0.25));
-  transition: filter 1.5s ease, color 0.8s ease;
+  transition: opacity 1.5s ease, color 0.8s ease;
+  opacity: 0.6;
 }
 
 .finger-silhouette svg {
@@ -1503,28 +1502,22 @@ body {
   height: 100%;
 }
 
-/* Dynamic glow: intensifies by data attribute set in JS */
+/* Dynamic glow: intensifies by data attribute set in JS via opacity */
 .scan-step[data-sqi="fair"] .finger-silhouette {
-  filter: drop-shadow(0 0 14px rgba(0, 180, 216, 0.65))
-          drop-shadow(0 0 35px rgba(0, 180, 216, 0.35));
+  opacity: 0.7;
 }
 
 .scan-step[data-sqi="good"] .finger-silhouette {
-  filter: drop-shadow(0 0 18px rgba(0, 180, 216, 0.80))
-          drop-shadow(0 0 45px rgba(0, 180, 216, 0.45));
+  opacity: 0.85;
 }
 
 .scan-step[data-sqi="excellent"] .finger-silhouette {
-  filter: drop-shadow(0 0 22px rgba(0, 180, 216, 0.95))
-          drop-shadow(0 0 55px rgba(0, 180, 216, 0.55))
-          drop-shadow(0 0 80px rgba(0, 180, 216, 0.20));
+  opacity: 1;
 }
 
 .scan-step.phase-climax .finger-silhouette {
   color: var(--success);
-  filter: drop-shadow(0 0 24px rgba(52, 199, 89, 0.90))
-          drop-shadow(0 0 60px rgba(52, 199, 89, 0.45))
-          drop-shadow(0 0 90px rgba(52, 199, 89, 0.20));
+  opacity: 1;
 }
 
 /* ── Finger halo (cyan pulse rings wrapping the finger) ── */

@@ -90,8 +90,8 @@
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const canvas = document.createElement('canvas');
-    canvas.width = isIOS ? 240 : 320;
-    canvas.height = isIOS ? 180 : 240;
+    canvas.width = isIOS ? 160 : 320;
+    canvas.height = isIOS ? 120 : 240;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     // ── State ──
@@ -102,10 +102,15 @@
     const ibis = [];             // inter-beat intervals (ms)
     let lastPeakTs = 0;
     let running = true, rafId = null, lastFrameTs = 0;
+    let isTransitioningTorch = false;
     const dt = isIOS ? (1000 / 15) : (1000 / 30); // 15fps on iOS, 30fps elsewhere
 
     function analyze(ts) {
       if (!running) return;
+      if (isTransitioningTorch) {
+        rafId = requestAnimationFrame(analyze);
+        return;
+      }
       if (ts - lastFrameTs < dt) { rafId = requestAnimationFrame(analyze); return; }
       lastFrameTs = ts;
 
@@ -293,9 +298,17 @@
           const track = stream.getVideoTracks()[0];
           const caps = track.getCapabilities ? track.getCapabilities() : {};
           if (caps && caps.torch) {
+            isTransitioningTorch = true;
+            // Wait 100ms for JS drawing to settle
+            await new Promise(resolve => setTimeout(resolve, 100));
             await track.applyConstraints({ advanced: [{ torch: !!enable }] });
+            // Wait 200ms for OS camera pipeline to settle before resuming Canvas
+            await new Promise(resolve => setTimeout(resolve, 200));
+            isTransitioningTorch = false;
           }
-        } catch (_) {}
+        } catch (_) {
+          isTransitioningTorch = false;
+        }
       }
     };
   }
