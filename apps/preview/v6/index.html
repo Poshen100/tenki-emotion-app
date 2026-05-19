@@ -3862,6 +3862,17 @@ function setClarity(v){
           if (splash && splash.parentNode) {
             splash.parentNode.removeChild(splash);
           }
+          // Auto-open stardust scan when arriving from baseline onboarding
+          try {
+            if (window.location.search.indexOf('from=baseline') !== -1) {
+              if (typeof window.openBaseline === 'function') {
+                window.openBaseline();
+                setTimeout(function () {
+                  if (typeof window.bfGo === 'function') { window.bfGo('scan'); }
+                }, 100);
+              }
+            }
+          } catch (e) {}
         }, FADE_DURATION + 50);
         try { window.__tenkiSplashDismissReason = reason; } catch (e) {}
       }

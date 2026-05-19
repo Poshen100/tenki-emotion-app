@@ -1642,9 +1642,9 @@ function selectNextAction(action) {
   }
 
   // Navigate to /v3/ wellness Today screen.
-  // 'scan'    → Today tab (預設,第一次掃描從這裡開始)
+  // 'scan'    → Today tab + ?from=baseline so v6 splash auto-triggers scan
   // 'explore' → Lab tab (透過 #lab hash,v3 onLoad 解析後切換)
-  const target = action === 'scan' ? '/v3/' : '/v3/#lab';
+  const target = action === 'scan' ? '/v3/?from=baseline' : '/v3/#lab';
   setTimeout(() => { window.location.href = target; }, 280);
 }
 
