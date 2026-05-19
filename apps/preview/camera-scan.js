@@ -39,10 +39,11 @@
   const STABILITY_WINDOW = 30;  // frames for coverage stability
 
   function isCovered(r, g, b) {
-    // Torch ON touching: extremely red (blood filtering)
-    const isRed = r >= 50 && r >= g * 1.8 && r >= b * 1.8;
-    // Torch OFF touching: very dark (ambient light blocked)
-    const isDark = r < 50 && g < 50 && b < 50;
+    // 1. Red flesh (Torch ON or ambient light penetrating skin)
+    // Skin tissue strongly filters out green and blue light.
+    const isRed = r >= 30 && r >= g * 1.8 && r >= b * 1.8;
+    // 2. Pitch black (Torch OFF, lens completely blocked)
+    const isDark = r <= 15 && g <= 15 && b <= 15;
     return isRed || isDark;
   }
 
