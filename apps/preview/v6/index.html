@@ -3820,5 +3820,65 @@ function setClarity(v){
 })();
 </script>
 
+    <!-- ═══════════ TENKI Brand v1.0 Splash Controller ═══════════ -->
+    <script>
+    (function tenkiSplashController() {
+      var splash = document.getElementById('tenki-splash');
+      var stardust = document.getElementById('tenki-splash-stardust');
+      if (!splash) return;
+      // === 1. Generate 14 sparse stars (avoiding center) ===
+      try {
+        for (var i = 0; i < 14; i++) {
+          var s = document.createElement('div');
+          s.className = 'tenki-splash__star';
+          var size = (Math.random() * 1.4 + 0.6).toFixed(2);
+          s.style.width = size + 'px';
+          s.style.height = size + 'px';
+          var x, y;
+          do {
+            x = Math.random() * 100;
+            y = Math.random() * 100;
+          } while (x > 25 && x < 75 && y > 30 && y < 70);
+          s.style.left = x + '%';
+          s.style.top = y + '%';
+          s.style.animationDelay = (Math.random() * 4).toFixed(2) + 's';
+          stardust.appendChild(s);
+        }
+      } catch (e) {
+        // Non-fatal: splash still works without stardust
+      }
+      // === 2. Dismiss logic ===
+      var dismissed = false;
+      var SKIP_ALLOWED_AT = 1200;
+      var AUTO_DISMISS_AT = 2400;
+      var FADE_DURATION = 400;
+      var startTime = Date.now();
+      function dismiss(reason) {
+        if (dismissed) return;
+        dismissed = true;
+        splash.setAttribute('data-hidden', 'true');
+        splash.setAttribute('aria-hidden', 'true');
+        setTimeout(function () {
+          if (splash && splash.parentNode) {
+            splash.parentNode.removeChild(splash);
+          }
+        }, FADE_DURATION + 50);
+        try { window.__tenkiSplashDismissReason = reason; } catch (e) {}
+      }
+      setTimeout(function () { dismiss('auto'); }, AUTO_DISMISS_AT);
+      splash.addEventListener('click', function () {
+        if (Date.now() - startTime >= SKIP_ALLOWED_AT) { dismiss('tap'); }
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && Date.now() - startTime >= SKIP_ALLOWED_AT) { dismiss('esc'); }
+      });
+      try {
+        var rm = window.matchMedia('(prefers-reduced-motion: reduce)');
+        if (rm.matches) { setTimeout(function () { dismiss('reduced-motion'); }, 800); }
+      } catch (e) {}
+    })();
+    </script>
+    <!-- ═══════════ End splash controller ═══════════ -->
+
 </body>
 </html>
