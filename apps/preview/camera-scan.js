@@ -81,12 +81,9 @@
     videoEl.playsInline = true;
     try { await videoEl.play(); } catch (_) {}
 
-    // Torch best-effort
-    try {
-      const track = stream.getVideoTracks()[0];
-      const caps = track.getCapabilities ? track.getCapabilities() : {};
-      if (caps && caps.torch) await track.applyConstraints({ advanced: [{ torch: true }] });
-    } catch (_) {}
+    // Torch is NOT activated automatically here.
+    // It must be triggered explicitly via the toggleTorch() method
+    // to manage iOS WebKit GPU memory pressure.
 
     // OOM Fix #6: iOS gets smaller canvas + 15fps throttle.
     // 320×240 @ 30fps is excessive for PPG analysis on iOS WebKit.
@@ -284,9 +281,22 @@
       stop() {
         running = false;
         if (rafId) cancelAnimationFrame(rafId);
+        try {
+          const track = stream.getVideoTracks()[0];
+          if (track) track.applyConstraints({ advanced: [{ torch: false }] });
+        } catch (_) {}
         stream.getTracks().forEach(t => t.stop());
         try { videoEl.srcObject = null; } catch (_) {}
       },
+      async toggleTorch(enable) {
+        try {
+          const track = stream.getVideoTracks()[0];
+          const caps = track.getCapabilities ? track.getCapabilities() : {};
+          if (caps && caps.torch) {
+            await track.applyConstraints({ advanced: [{ torch: !!enable }] });
+          }
+        } catch (_) {}
+      }
     };
   }
 

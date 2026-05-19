@@ -932,6 +932,16 @@ function tickWait(now) {
       const fingerGuideEl = document.getElementById('finger-guide-anim');
       if (fingerGuideEl) fingerGuideEl.classList.add('is-hidden');
 
+      // OOM Fix #14: Delay torch activation to let iOS WebKit GPU settle
+      // after the phase transition UI changes.
+      if (state.cameraSession && state.cameraSession.toggleTorch) {
+        setTimeout(() => {
+          if (state.scanPhase === 'gather' || state.scanPhase === 'accumulate') {
+            state.cameraSession.toggleTorch(true);
+          }
+        }, 500);
+      }
+
       // OOM Fix #3: start particles NOW (gather phase) instead of wait phase
       startParticleSystem();
       // OOM Fix #7: now safe to bring in ceremony-dialog (32px blur) — banner

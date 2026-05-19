@@ -1432,11 +1432,12 @@ body {
    iOS WebKit — combined with particles + camera it exceeds GPU memory.
    Visual impact: negligible (dialog already has its own background). */
 .scan-step.phase-gather .ceremony-dialog,
+.scan-step.phase-accumulate .ceremony-dialog,
 .scan-step.phase-climax .ceremony-dialog,
 .scan-step.phase-transition .ceremony-dialog,
 .scan-step.phase-transition-settle .ceremony-dialog {
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* ── Live rear-camera feed (real finger scanning) ── */
