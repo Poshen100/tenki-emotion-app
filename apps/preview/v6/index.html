@@ -1623,6 +1623,158 @@ body{
 .baseline-flow .bf-demo-nav .auto{background:rgba(245,166,35,0.15);border-color:rgba(245,166,35,0.3)}
 .baseline-flow .bf-demo-nav .auto.active,
 .baseline-flow .bf-demo-nav .auto:active{background:rgba(245,166,35,0.4)}
+/* ═══════════ TENKI Brand v1.0 Splash — iPhone Responsive ═══════════ */
+.tenki-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background:
+    radial-gradient(ellipse 60% 45% at 30% 30%, rgba(0,180,216,0.08), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 70% 70%, rgba(94,204,197,0.06), transparent 60%),
+    linear-gradient(180deg, #0A1628 0%, #050A14 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 400ms ease-out;
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.tenki-splash[data-hidden="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+.tenki-splash__stardust {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.tenki-splash__star {
+  position: absolute;
+  background: #fff;
+  border-radius: 50%;
+  opacity: 0;
+  animation: tenkiStarTwinkle 4s ease-in-out infinite;
+}
+@keyframes tenkiStarTwinkle {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.6; }
+}
+.tenki-splash__brand-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -8%;
+}
+.tenki-splash__logo {
+  width: clamp(96px, 30vw, 180px);
+  aspect-ratio: 1 / 1;
+  margin-bottom: clamp(20px, 6vw, 48px);
+  opacity: 0;
+  transform: scale(0.94);
+  animation:
+    tenkiSplashLogoIn 900ms cubic-bezier(0.2, 0.7, 0.3, 1) 250ms forwards,
+    tenkiSplashLogoBreathe 6s ease-in-out 1400ms infinite;
+  will-change: transform, opacity;
+}
+.tenki-splash__logo svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+@keyframes tenkiSplashLogoIn {
+  0%   { opacity: 0; transform: scale(0.94); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes tenkiSplashLogoBreathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.015); }
+}
+.tenki-splash__wordmark {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  font-weight: 200;
+  font-size: clamp(28px, 8.5vw, 56px);
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;
+  color: #FFFFFF;
+  line-height: 1;
+  margin-bottom: clamp(8px, 2vw, 16px);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: tenkiSplashWordIn 700ms cubic-bezier(0.2, 0.7, 0.3, 1) 750ms forwards;
+}
+.tenki-splash__core {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  font-weight: 600;
+  font-size: clamp(12px, 3.6vw, 22px);
+  letter-spacing: 0.4em;
+  text-indent: 0.4em;
+  color: #00B4D8;
+  text-shadow: 0 0 16px rgba(0, 180, 216, 0.4);
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: tenkiSplashWordIn 700ms cubic-bezier(0.2, 0.7, 0.3, 1) 950ms forwards;
+}
+@keyframes tenkiSplashWordIn {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.tenki-splash__tagline {
+  position: absolute;
+  bottom: max(56px, calc(40px + env(safe-area-inset-bottom)));
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: clamp(11px, 3vw, 16px);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.05em;
+  line-height: 1.55;
+  opacity: 0;
+  animation: tenkiSplashTaglineIn 800ms ease 1200ms forwards;
+}
+.tenki-splash__tagline-line {
+  display: block;
+}
+@keyframes tenkiSplashTaglineIn {
+  0%   { opacity: 0; }
+  100% { opacity: 0.85; }
+}
+.tenki-splash__skip-hint {
+  position: absolute;
+  bottom: max(20px, calc(8px + env(safe-area-inset-bottom)));
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: clamp(9px, 2.2vw, 11px);
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.25);
+  opacity: 0;
+  animation: tenkiSplashHintIn 1000ms ease 2000ms forwards;
+}
+@keyframes tenkiSplashHintIn {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tenki-splash__logo,
+  .tenki-splash__wordmark,
+  .tenki-splash__core,
+  .tenki-splash__tagline,
+  .tenki-splash__skip-hint,
+  .tenki-splash__star {
+    animation-duration: 0.2s !important;
+    animation-delay: 0s !important;
+  }
+}
+/* ═══════════ End splash styles ═══════════ */
 </style>
     <!-- TENKI Core Brand v1.0 — favicon + Open Graph -->
     <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon/favicon-32.png">
