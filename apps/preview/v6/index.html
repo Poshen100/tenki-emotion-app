@@ -3769,7 +3769,7 @@ function setClarity(v){
   }
 
   // Expose global entry points
-  window.openBaseline = function(){
+  window.openBaseline = function(startState){
     document.getElementById('baselineFlow').classList.add('open');
     bfResize();
     bfInit();
@@ -3777,7 +3777,7 @@ function setClarity(v){
       bfDustRunning = true;
       requestAnimationFrame(bfAnim);
     }
-    bfGoInternal('intro');
+    bfGoInternal(startState || 'intro');
   };
   window.closeBaseline = function(){
     document.getElementById('baselineFlow').classList.remove('open');
@@ -3862,17 +3862,6 @@ function setClarity(v){
           if (splash && splash.parentNode) {
             splash.parentNode.removeChild(splash);
           }
-          // Auto-open stardust scan when arriving from baseline onboarding
-          try {
-            if (window.location.search.indexOf('from=baseline') !== -1) {
-              if (typeof window.openBaseline === 'function') {
-                window.openBaseline();
-                setTimeout(function () {
-                  if (typeof window.bfGo === 'function') { window.bfGo('scan'); }
-                }, 100);
-              }
-            }
-          } catch (e) {}
         }, FADE_DURATION + 50);
         try { window.__tenkiSplashDismissReason = reason; } catch (e) {}
       }
@@ -3890,6 +3879,28 @@ function setClarity(v){
     })();
     </script>
     <!-- ═══════════ End splash controller ═══════════ -->
+
+    <script>
+    // from=baseline init: wait for splash to clear, then open baseline modal directly at scan state
+    // Uses a fixed timer instead of hooking into dismiss() to avoid canvas-sizing race conditions
+    // (the modal's 500ms slide-in transition must complete before bfResizeScan() runs)
+    (function fromBaselineScanInit() {
+      if (window.location.search.indexOf('from=baseline') === -1) return;
+      // Splash auto-dismisses at 2400ms, fades 400ms → cleared by ~2850ms; add 100ms buffer
+      var OPEN_AT  = 2950; // ms: open modal (starts 500ms slide-in transition)
+      var SCAN_AT  = 3550; // ms: switch to scan state (600ms after open → canvas fully laid out)
+      setTimeout(function () {
+        try {
+          if (typeof window.openBaseline === 'function') { window.openBaseline(); }
+        } catch (e) {}
+      }, OPEN_AT);
+      setTimeout(function () {
+        try {
+          if (typeof window.bfGo === 'function') { window.bfGo('scan'); }
+        } catch (e) {}
+      }, SCAN_AT);
+    })();
+    </script>
 
 </body>
 </html>
