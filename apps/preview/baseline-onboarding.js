@@ -1875,10 +1875,13 @@ function selectNextAction(action) {
     el.style.background = 'rgba(52, 199, 89, 0.08)';
   }
 
-  // Navigate to /v3/ wellness Today screen.
-  // 'scan'    → Today tab (預設,第一次掃描從這裡開始)
-  // 'explore' → Lab tab (透過 #lab hash,v3 onLoad 解析後切換)
-  const target = action === 'scan' ? '/v3/' : '/v3/#lab';
+  // 'scan'    → apps/web/ legacy stardust scan (8000-particle landing, then
+  //             tap "TAP TO SYNC" to start 30s rPPG scan → results page).
+  //             /v3/ is a wellness Today demo without real scan flow, so we
+  //             land on the proven-working apps/web/ surface instead.
+  // 'explore' → /v3/ Lab tab (demo tour, no scan needed)
+  const target = action === 'scan' ? '/' : '/v3/#lab';
+  diagLog(`selectNextAction(${action}) → ${target}`);
   setTimeout(() => { window.location.href = target; }, 280);
 }
 
