@@ -1641,10 +1641,10 @@ function selectNextAction(action) {
     el.style.background = 'rgba(52, 199, 89, 0.08)';
   }
 
-  // Navigate to /v3/ wellness Today screen.
-  // 'scan'    → Today tab + ?from=baseline so v6 splash auto-triggers scan
+  // Navigate to stardust scanning animation or Today screen.
+  // 'scan'    → Ethereal 8000-particle stardust transition scan page
   // 'explore' → Lab tab (透過 #lab hash,v3 onLoad 解析後切換)
-  const target = action === 'scan' ? '/v3/?from=baseline' : '/v3/#lab';
+  const target = action === 'scan' ? '/preview/stardust-scan.html' : '/v3/#lab';
   setTimeout(() => { window.location.href = target; }, 280);
 }
 
