@@ -1641,11 +1641,21 @@ function selectNextAction(action) {
     el.style.background = 'rgba(52, 199, 89, 0.08)';
   }
 
-  // Navigate to stardust scanning animation or Today screen.
-  // 'scan'    → Ethereal 8000-particle stardust transition scan page
-  // 'explore' → Lab tab (透過 #lab hash,v3 onLoad 解析後切換)
-  const target = action === 'scan' ? '/preview/stardust-scan.html' : '/v3/#lab';
-  setTimeout(() => { window.location.href = target; }, 280);
+  if (action === 'scan') {
+    try {
+      // Establish baseline flag so root page unlocks scanning
+      localStorage.setItem('tenki_baseline_established', '1');
+      // Clear onboarding shown flag so logo onboarding modal will display
+      localStorage.removeItem('tenki_onboarding_shown');
+    } catch (e) {
+      console.warn('[TENKI] Failed to write localStorage:', e);
+    }
+    // Redirect to root page for full FaceMesh 8000-particle scanning and results
+    setTimeout(() => { window.location.href = '/'; }, 280);
+  } else {
+    // Navigate to Today dashboard explore tab
+    setTimeout(() => { window.location.href = '/v3/#lab'; }, 280);
+  }
 }
 
 // ─────────────────────────────────────────────
