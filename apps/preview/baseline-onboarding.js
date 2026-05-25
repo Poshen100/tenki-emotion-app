@@ -1651,7 +1651,7 @@ function selectNextAction(action) {
       console.warn('[TENKI] Failed to write localStorage:', e);
     }
     // Redirect to root page for full FaceMesh 8000-particle scanning and results
-    setTimeout(() => { window.location.href = '/'; }, 280);
+    setTimeout(() => { window.location.href = '/v3/?from=baseline'; }, 280);
   } else {
     // Navigate to Today dashboard explore tab
     setTimeout(() => { window.location.href = '/v3/#lab'; }, 280);

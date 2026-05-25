@@ -1792,6 +1792,12 @@ body{
     <meta name="twitter:description" content="Read your inner weather. Find your turning point.">
     <meta name="twitter:image" content="https://tenki-emotion-app.vercel.app/brand/marketing/og-card-1200x630.png">
     <meta name="theme-color" content="#0A1628">
+    <!-- CDN dependencies for 3D stardust expression sync & face tracking -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <!-- Stardust Scan Takeover Styles -->
+    <link rel="stylesheet" href="stardust-scan-takeover.css">
 </head>
 <body>
     <!-- ═══════════ TENKI Brand v1.0 Splash Overlay ═══════════ -->
@@ -2442,6 +2448,47 @@ body{
       <div class="dur">3:00</div>
     </div>
   </div>
+
+  <!-- ═══════ 3D STARDUST SCAN TAKEOVER (full-screen phone overlay) ═══════ -->
+  <div id="stardust-scan-takeover">
+    <div id="universe"></div>
+    <div id="align-hint-capsule">
+      <div id="hint-icon-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;color:#fff;">
+          <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+      </div>
+      <span id="hint-text">FIND FACE · 尋找臉部</span>
+    </div>
+    <div class="scan-takeover-hud">
+      <div class="scan-takeover-header">
+        <div>
+          <div class="scan-takeover-title">TENKI</div>
+          <div class="scan-takeover-sub">v6.0 3D BIOMETRIC SYNC</div>
+        </div>
+        <span class="scan-takeover-status-badge" id="scan-takeover-status-badge">SYSTEM READY</span>
+      </div>
+      <div class="scan-takeover-footer">
+        <div id="scan-takeover-trigger" class="scan-takeover-fingerprint-wrapper">
+          <div class="scan-takeover-ripple"></div>
+          <div class="scan-takeover-ripple"></div>
+          <div id="scan-takeover-progress-ring"></div>
+          <div class="scan-takeover-fingerprint-core">
+            <div class="scan-takeover-beam"></div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="scan-takeover-fingerprint-icon">
+              <path d="M12 2a10 10 0 00-10 10v1a2 2 0 002 2h2a2 2 0 002-2v-1a4 4 0 018 0v1a2 2 0 002 2h2a2 2 0 002-2v-1a10 10 0 00-10-10z"></path>
+              <path d="M12 6a6 6 0 00-6 6v1a1 1 0 001 1h1a1 1 0 001-1v-1a3 3 0 016 0v1a1 1 0 001 1h1a1 1 0 001-1v-1a6 6 0 00-6-6z"></path>
+              <path d="M12 10a2 2 0 00-2 2v1a0.5 0.5 0 000.5 0.5h1a0.5 0.5 0 000.5-0.5v-1a0 0 0 010 0z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="scan-takeover-instruction">HOLD TO SYNC</div>
+        <div class="scan-takeover-tip">按住指紋感測器，啟動 8 秒 3D 生理與情緒基線同步<br>影像僅在本機即時運算，不上傳雲端</div>
+      </div>
+    </div>
+  </div>
+  <div id="stardust-scan-takeover-flash"></div>
 
   <!-- ═══════ BASELINE BOOTSTRAP FLOW (full-screen takeover) ═══════ -->
   <div class="baseline-flow" id="baselineFlow">
@@ -3880,27 +3927,9 @@ function setClarity(v){
     </script>
     <!-- ═══════════ End splash controller ═══════════ -->
 
-    <script>
-    // from=baseline init: wait for splash to clear, then open baseline modal directly at scan state
-    // Uses a fixed timer instead of hooking into dismiss() to avoid canvas-sizing race conditions
-    // (the modal's 500ms slide-in transition must complete before bfResizeScan() runs)
-    (function fromBaselineScanInit() {
-      if (window.location.search.indexOf('from=baseline') === -1) return;
-      // Splash auto-dismisses at 2400ms, fades 400ms → cleared by ~2850ms; add 100ms buffer
-      var OPEN_AT  = 2950; // ms: open modal (starts 500ms slide-in transition)
-      var SCAN_AT  = 3550; // ms: switch to scan state (600ms after open → canvas fully laid out)
-      setTimeout(function () {
-        try {
-          if (typeof window.openBaseline === 'function') { window.openBaseline(); }
-        } catch (e) {}
-      }, OPEN_AT);
-      setTimeout(function () {
-        try {
-          if (typeof window.bfGo === 'function') { window.bfGo('scan'); }
-        } catch (e) {}
-      }, SCAN_AT);
-    })();
-    </script>
-
+    <!-- 3D stardust animation script -->
+    <script src="/apps/web/stardust.js"></script>
+    <!-- Stardust Scan Takeover logic script -->
+    <script src="stardust-scan-takeover.js"></script>
 </body>
 </html>
