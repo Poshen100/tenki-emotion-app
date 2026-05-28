@@ -459,8 +459,9 @@
     }
 
     function revealTodayRings() {
-        // Remove the takeover active class on body so Today dashboard fades in premium-style
+        // Remove the takeover active class on body and html so Today dashboard fades in premium-style
         document.body.classList.remove('baseline-takeover-active');
+        document.documentElement.classList.remove('baseline-takeover-active');
 
         // Reveal the Today screen Apple-style spectrum rings
         var outerRing = document.querySelector('.ring-outer-wrap');
