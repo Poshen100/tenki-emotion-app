@@ -88,6 +88,16 @@ function goToStep(stepIndex) {
     setTimeout(() => nextEl.classList.add('active'), 50);
   }
 
+  // Dynamic calibration-ceremony class on #app to orchestrate step dots fade-out
+  const appContainer = document.getElementById('app');
+  if (appContainer) {
+    if (stepIndex === 3) {
+      appContainer.classList.add('calibration-ceremony');
+    } else {
+      appContainer.classList.remove('calibration-ceremony');
+    }
+  }
+
   // Update step indicator dots
   updateStepDots(stepIndex);
 
@@ -1496,6 +1506,13 @@ function enterTransition() {
         'phase-transition-settle'
       );
     }
+
+    // Clean up dynamic calibration-ceremony class to restore step dots
+    const appContainer = document.getElementById('app');
+    if (appContainer) {
+      appContainer.classList.remove('calibration-ceremony');
+    }
+
     // Finalise navigation state (updates dots + currentStep).
     state.currentStep = 4;
     updateStepDots(4);

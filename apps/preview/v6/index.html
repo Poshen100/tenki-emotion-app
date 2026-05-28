@@ -2,11 +2,27 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
+<script>
+  if (window.location.search.indexOf('from=baseline') !== -1) {
+    document.documentElement.classList.add('baseline-takeover-active');
+    document.addEventListener('DOMContentLoaded', function() {
+      document.body.classList.add('baseline-takeover-active');
+    });
+    window.isDriftBlocked = true;
+  }
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>TENKI CORE · 5-Tab Navigation</title>
 <style>
+.baseline-takeover-active .screens {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.screens {
+  transition: opacity 1.2s ease !important;
+}
 /* ═════════════════════════════════════════════════
    TENKI CORE · v3 with 5-Tab Navigation
    Today / Scan / Session / Timeline / Lab
@@ -3136,9 +3152,18 @@ function logEvent(){
 // ═════════════════════════════════════════════════
 let currentTlTei = 72;
 let targetTlTei = 72;
-setInterval(() => { targetTlTei = 70 + Math.random() * 6; }, 5000);
+window.currentTlTei = currentTlTei;
+window.targetTlTei = targetTlTei;
+
 setInterval(() => {
+  if (window.isDriftBlocked) return;
+  // Sync with global window variables which might be updated by takeover
+  currentTlTei = window.currentTlTei;
+  targetTlTei = window.targetTlTei;
+
   currentTlTei = currentTlTei * 0.95 + targetTlTei * 0.05;
+  window.currentTlTei = currentTlTei; // Write back
+  
   const display = Math.round(currentTlTei);
   const scoreEl = document.getElementById('tlTlTlTeiScore');
   if(scoreEl) scoreEl.textContent = display;
@@ -3154,6 +3179,11 @@ setInterval(() => {
     zoneEl.style.color = color;
   }
 }, 350);
+
+setInterval(() => {
+  if (window.isDriftBlocked) return;
+  window.targetTlTei = 70 + Math.random() * 6;
+}, 5000);
 
 // Scan source toggle
 function selectSource(el){

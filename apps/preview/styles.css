@@ -1358,6 +1358,7 @@ body {
   gap: 12px;
   padding: 14px 22px;
   border-radius: 28px;
+  margin-top: 32px; /* Push down to avoid overlap with step indicators / top-clipping */
   /* Heavy frosted glass: milky white + light purple tint */
   background: linear-gradient(
     135deg,
@@ -2116,4 +2117,52 @@ body {
   15%  { filter: brightness(1.20); }
   60%  { filter: brightness(1.35); }
   100% { filter: brightness(1.00); }
+}
+
+/* ═════════════════════════════════════════════════
+   PREMIUM MOTION CHOREOGRAPHY: TENSION ➔ RELEASE
+   ═════════════════════════════════════════════════ */
+
+/* Default scan ring container smooth transition base */
+.scan-ring-container {
+  transition: transform 1.2s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.8s ease;
+}
+
+/* 1. Tension: Implode scan ring during climax */
+.scan-step.phase-climax .scan-ring-container {
+  transform: scale(0.85);
+  opacity: 0.9;
+  transition: transform 1.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 1.5s ease;
+}
+
+/* 2. Release: Supernova burst scan ring during transition */
+.scan-step.phase-transition .scan-ring-container {
+  transform: scale(2.8);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.8s cubic-bezier(0.1, 0.8, 0.1, 1), opacity 0.6s ease;
+}
+
+/* 3. Instantly fade out telemetry, status, guidance & other HUD clutter during ceremony to release visual pressure */
+.scan-step.phase-climax .scan-telemetry,
+.scan-step.phase-transition .scan-telemetry,
+.scan-step.phase-climax .scan-guidance,
+.scan-step.phase-transition .scan-guidance,
+.scan-step.phase-climax .scan-status,
+.scan-step.phase-transition .scan-status,
+.scan-step.phase-climax .scan-note,
+.scan-step.phase-transition .scan-note,
+.scan-step.phase-climax .ready-indicator,
+.scan-step.phase-transition .ready-indicator {
+  opacity: 0 !important;
+  transform: translateY(12px) !important;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.25, 1, 0.5, 1), transform 0.3s ease !important;
+}
+
+/* 4. Dynamic Step Dot Indicator hide during active calibration scan */
+.calibration-ceremony #step-indicator {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.4s ease !important;
 }

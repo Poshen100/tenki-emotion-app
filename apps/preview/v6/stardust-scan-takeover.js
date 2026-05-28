@@ -459,6 +459,9 @@
     }
 
     function revealTodayRings() {
+        // Remove the takeover active class on body so Today dashboard fades in premium-style
+        document.body.classList.remove('baseline-takeover-active');
+
         // Reveal the Today screen Apple-style spectrum rings
         var outerRing = document.querySelector('.ring-outer-wrap');
         var innerRing = document.querySelector('.ring-inner-wrap');
@@ -469,6 +472,38 @@
         dots.forEach(function (dot) {
             dot.classList.add('revealed');
         });
+
+        // High-frequency random flicker score calculation (極速運算到位的數字)
+        var scoreEl = document.getElementById('tlTlTlTeiScore');
+        if (scoreEl && window.location.search.indexOf('from=baseline') !== -1) {
+            var startTime = performance.now();
+            var duration = 1200; // 1.2s high-speed calculation
+            var interval = setInterval(function() {
+                var elapsed = performance.now() - startTime;
+                if (elapsed >= duration) {
+                    clearInterval(interval);
+                    scoreEl.textContent = '84';
+                    scoreEl.style.transform = 'scale(1.08)';
+                    setTimeout(function() {
+                        scoreEl.style.transform = 'scale(1)';
+                    }, 200);
+                    // Haptic snap on completion
+                    if (navigator.vibrate) {
+                        try { navigator.vibrate([15, 30]); } catch (_) {}
+                    }
+                    // Unblock drift and set global values to 84
+                    window.currentTlTei = 84;
+                    window.targetTlTei = 84;
+                    window.isDriftBlocked = false;
+                } else {
+                    // Random number flicker between 40 and 99
+                    var randomNum = Math.floor(Math.random() * 59) + 40;
+                    scoreEl.textContent = randomNum;
+                    // Keep it centered and scaling slightly during calculation
+                    scoreEl.style.transform = 'scale(' + (1.0 + Math.random() * 0.05).toFixed(3) + ')';
+                }
+            }, 40); // 40ms interval (25fps)
+        }
     }
 
     // Auto-init when DOM is ready
