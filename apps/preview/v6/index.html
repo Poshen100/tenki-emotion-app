@@ -117,50 +117,54 @@ body{
 /* Top header: DEEP SCAN badge + scan source toggle */
 .scan-header{
   position:relative;z-index:5;
-  padding:0 12px 4px;
-  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:8px 16px 4px;
+  display:flex;flex-direction:row;justify-content:space-between;align-items:center;
+  width:100%;
 }
 .scan-badge{
-  display:inline-flex;align-items:center;gap:7px;
-  padding:5px 14px;border-radius:18px;
-  background:rgba(30,30,36,0.8);
-  border:1px solid rgba(255,255,255,0.08);
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:12px;
+  background:rgba(30,30,36,0.6);
+  border:1px solid rgba(255,255,255,0.06);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  font-size:10.5px;font-weight:700;letter-spacing:0.22em;
-  color:rgba(255,255,255,0.85);
+  font-size:9px;font-weight:700;letter-spacing:0.18em;
+  color:rgba(255,255,255,0.75);
   text-transform:uppercase;white-space:nowrap;
 }
 .scan-badge .spark{
   color:var(--primary);filter:drop-shadow(0 0 4px var(--primary));
-  font-size:12px;
+  font-size:10px;
 }
 .source-toggle{
-  display:flex;gap:4px;padding:3px;
-  background:rgba(28,28,30,0.6);
-  border:1px solid rgba(255,255,255,0.06);
-  border-radius:20px;
+  display:flex;gap:3px;padding:2px;
+  background:rgba(28,28,30,0.5);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:14px;
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  max-width:100%;
 }
 .source-toggle .src{
-  display:flex;align-items:center;gap:5px;
-  padding:6px 11px;border-radius:16px;
-  font-size:11px;font-weight:600;letter-spacing:0.01em;
-  color:rgba(255,255,255,0.55);cursor:pointer;
+  display:flex;align-items:center;gap:4px;
+  padding:4px 8px;border-radius:12px;
+  font-size:9.5px;font-weight:600;letter-spacing:0.01em;
+  color:rgba(255,255,255,0.45);cursor:pointer;
   transition:all 0.3s var(--ease-calm);
   white-space:nowrap;
 }
-.source-toggle .src .ic{font-size:11px;opacity:0.75}
-.source-toggle .src.active{
-  background:var(--primary);color:#001420;
-  box-shadow:0 0 14px rgba(0,180,216,0.35);
+.source-toggle .src svg.src-svg{
+  width:10px;height:10px;stroke:currentColor;fill:none;
+  transition:stroke 0.3s;
 }
-.source-toggle .src.active .ic{opacity:1;color:#001420}
-
+.source-toggle .src.active{
+  background:rgba(0,180,216,0.12);color:var(--primary);
+  box-shadow:inset 0 0 0 1px rgba(0,180,216,0.15);
+}
+.source-toggle .src.active svg.src-svg{
+  stroke:var(--primary);
+}
 /* Hero area — nebula + big spectrum ring */
 .hero{
   position:relative;
-  min-height:46vh;
+  min-height:38vh;
   flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;
@@ -1856,12 +1860,12 @@ body{
         </div>
         <div class="source-toggle">
           <div class="src active" onclick="selectSource(this)">
-            <span class="ic">⌚</span>
-            <span>Garmin Forerunner</span>
+            <svg class="src-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2" fill="none"/><path d="M9 7V2h6v5M9 17v5h6v-5" stroke="currentColor" stroke-width="2"/></svg>
+            <span>Garmin</span>
           </div>
           <div class="src" onclick="selectSource(this)">
-            <span class="ic">📷</span>
-            <span>rPPG 眉心</span>
+            <svg class="src-svg" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M7 8V5h10v3" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="14" r="3" stroke="currentColor" stroke-width="2"/></svg>
+            <span>rPPG</span>
           </div>
         </div>
       </div>
