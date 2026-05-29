@@ -1,0 +1,54 @@
+/**
+ * TENKI Core — Design Tokens v1
+ * ---------------------------------------------------------------
+ * 全站共用設計 token（single source of truth），作為後續 UI 升級的基礎。
+ * 沿用本專案既有慣例：CSS custom properties 定義在 :root
+ * （參見 apps/preview/styles.css、ui/*.css）。
+ *
+ * 用法：在 app 進入點 import 一次，之後任何元件即可用 var(--token)。
+ *   import "@/styles/tokens.css";          // React / Vite entry
+ *   color: var(--ink);
+ *   background: var(--panel);
+ *   border: 1px solid var(--line);
+ *   border-radius: var(--radius-md);
+ *
+ * 命名規則：
+ *   • 顏色用語意名（navy / panel / ink / teal …），不綁定用途，方便換膚。
+ *   • 線條用 alpha 疊色，確保在 navy 背景上有層次但不刺眼。
+ *   • 圓角採 px 數值；--radius-pill 為全圓角（chips / pills / 圓鈕）。
+ * ---------------------------------------------------------------
+ */
+
+:root {
+  /* ── 背景 Background ───────────────────────────────────────── */
+  --navy: #0A1628;        /* 主背景 */
+  --navy-deep: #060E1C;   /* 最深層 / scrim / 卡片後方 */
+  --panel: #0E1E34;       /* 面板 / 卡片 */
+  --panel-2: #102444;     /* 次級面板 / hover / raised surface */
+
+  /* ── 文字 Text ─────────────────────────────────────────────── */
+  --ink: #E9F0F8;         /* 主要文字 */
+  --dim: #9DB2CC;         /* 次要文字 */
+  --faint: #5E7596;       /* 弱化文字 / 占位 / disabled */
+
+  /* ── 強調 Accent ───────────────────────────────────────────── */
+  --teal: #5FE9D0;        /* 極光 teal — 主強調 / 達標 */
+  --teal-deep: #1CB8C9;   /* 深 teal — gradient 終點 / 漸層 */
+  --amber: #FFC68A;       /* 破曉 amber — 提醒 / 待調整 */
+  --red: #FF6B6B;         /* 錯誤 — 僅真正錯誤狀態使用 */
+
+  /* ── 線條 Lines ───────────────────────────────────────────── */
+  --line: rgba(132, 164, 206, 0.16);         /* 一般分隔線 / 邊框 */
+  --line-strong: rgba(132, 164, 206, 0.30);  /* 強調分隔線 / focus 邊框 */
+
+  /* ── 圓角 Radius ───────────────────────────────────────────── */
+  --radius-sm: 11px;      /* 小元件 / tag */
+  --radius-md: 15px;      /* 卡片 / 輸入框 */
+  --radius-lg: 20px;      /* 大面板 / sheet */
+  --radius-pill: 999px;   /* 全圓角 — pill / chip / 圓鈕 */
+
+  /* ── Icon System 橋接 ─────────────────────────────────────── */
+  /* TenkiIcons.tsx 讀取 --tenki-accent；預設對映到設計系統 teal，
+     確保圖示強調色與全站 token 一致。局部換破曉色時於父層覆寫即可。 */
+  --tenki-accent: var(--teal);
+}
