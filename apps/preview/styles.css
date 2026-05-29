@@ -116,8 +116,12 @@ body {
   width: 100%;
   height: 100%;
   display: flex;
-  align-items: center;
-  /* justify-content removed to prevent flexbox clipping on small screens */
+  /* `safe center` keeps short steps vertically centered, but falls back to
+     start-alignment once content is taller than the available height — so the
+     top of a tall step (e.g. the live-check shell after the demo card is
+     hidden) can never be pushed up under the floating step dots and clipped.
+     justify-content stays removed to avoid the same clipping on small screens. */
+  align-items: safe center;
   opacity: 0;
   transform: translateX(40px);
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -141,7 +145,10 @@ body {
 .step-content {
   width: 100%;
   max-width: 340px;
-  margin: auto;
+  /* Horizontal centering only. A full `margin: auto` centers vertically too,
+     which clips the top of overflowing content (unscrollable); vertical
+     centering is handled by `.step`'s `align-items: safe center` instead. */
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1054,7 +1061,10 @@ body {
   font-weight: 600;
   color: var(--primary);
   min-height: 28px;
-  transition: all 0.4s ease;
+  /* Only transition colour. `transition: all` restarted a transition on every
+     per-frame textContent/color write from the scan loop, forcing WebKit to
+     repaint the text box continuously and tearing/garbling the CJK glyphs. */
+  transition: color 0.4s ease;
 }
 
 .scan-note {
@@ -1240,7 +1250,10 @@ body {
 
 @media (max-height: 700px) {
   .step {
-    padding-top: 70px;
+    /* Step dots sit at top:60px (≈68px tall incl. the active pill). 70px left
+       only ~2px clearance, so titles collided with the dots on 375×667.
+       80px keeps a safe ≥12px gap while still reclaiming vertical space. */
+    padding-top: 80px;
   }
 
   .scan-ring-container {
@@ -1799,7 +1812,11 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 18px;
+  /* On fullscreen mobile (≤420px the frame loses its radius and fills the
+     screen) top:0 puts the first text line under the status bar / notch, so
+     it showed only half a line. Offset the top padding by the safe-area inset
+     (falls back to 12px on browsers/desktop where the inset is 0). */
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 18px 12px;
   min-height: 52px;
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(12px) saturate(160%);

@@ -1093,40 +1093,44 @@ function tickCalibration() {
   updateCoverageGuidance(elapsedSec);
 
   // ── Status message (single-line, UX Standard 2) ──
+  // Compute the desired message + colour first, then write to the DOM only
+  // when it actually changes. Rewriting textContent/color on every animation
+  // frame is what made WebKit continuously repaint and garble the CJK glyphs.
   if (statusEl && state.scanPhase !== 'climax' && state.scanPhase !== 'final') {
+    let nextText;
+    let nextColor = '';
     if (state.cameraActive && state.lastCameraSample) {
       // Camera-driven: coverage state takes priority over time-based messages
       const color = state.lastCameraSample.color;
       if (color === 'red') {
-        statusEl.textContent = '請將手指完整覆蓋鏡頭';
-        statusEl.style.color = '#FF3B30';
+        nextText = '請將手指完整覆蓋鏡頭';
+        nextColor = '#FF3B30';
       } else if (color === 'yellow') {
-        statusEl.textContent = '繼續調整手指位置…';
-        statusEl.style.color = '#F5A623';
+        nextText = '繼續調整手指位置…';
+        nextColor = '#F5A623';
       } else if (elapsedSec < 8) {
-        statusEl.textContent = 'PPG 訊號採集中…';
-        statusEl.style.color = '';
+        nextText = 'PPG 訊號採集中…';
       } else if (elapsedSec < state.scanEarliestComplete) {
-        statusEl.textContent = '能量正在快速凝聚...';
-        statusEl.style.color = '';
+        nextText = '能量正在快速凝聚...';
       } else {
-        statusEl.textContent = '就快完成，繼續放穩';
-        statusEl.style.color = '';
+        nextText = '就快完成，繼續放穩';
       }
     } else {
       // Simulated fallback: time-based progression
       if (elapsedSec < 3) {
-        statusEl.textContent = '能量凝聚中...';
+        nextText = '能量凝聚中...';
       } else if (elapsedSec < 8) {
-        statusEl.textContent = 'PPG 訊號採集中…';
+        nextText = 'PPG 訊號採集中…';
       } else if (elapsedSec < 18) {
-        statusEl.textContent = '能量正在快速凝聚...';
+        nextText = '能量正在快速凝聚...';
       } else if (elapsedSec < state.scanEarliestComplete) {
-        statusEl.textContent = '品質越好，精準度越高';
+        nextText = '品質越好，精準度越高';
       } else {
-        statusEl.textContent = '就快完成，繼續放穩';
+        nextText = '就快完成，繼續放穩';
       }
     }
+    if (statusEl.textContent !== nextText) statusEl.textContent = nextText;
+    if (statusEl.style.color !== nextColor) statusEl.style.color = nextColor;
   }
 
   // ── Early-complete gate: ≥earliest window AND rolling mean SQI ≥ 0.85 ──
