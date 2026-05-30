@@ -2075,11 +2075,8 @@ body {
   justify-content: center;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
-  background: rgba(52, 199, 89, 0.9);
-  color: #000;
-  font-size: 11px;
-  font-weight: 800;
+  /* Holds the unified StatusOk icon (teal circle-check), so no filled badge
+     background here — the SVG provides its own circle. */
 }
 
 @keyframes readyIn {
