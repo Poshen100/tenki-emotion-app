@@ -42,7 +42,7 @@
     <section id="step-intro" class="step active">
       <div class="step-content">
         <div class="particle-bg" id="particle-canvas-intro"></div>
-        <div class="step-icon pulse">🧠</div>
+        <div class="step-icon pulse" data-tenki-icon="sense" data-size="48"></div>
         <h1 class="step-headline">TENKI 先學你，再評估你</h1>
         <p class="step-body">
           接下來約 60 秒，TENKI 會學習你目前的心率、心率變異和呼吸節奏。<br>
@@ -65,22 +65,22 @@
         <p class="step-body">兩種方式都會建立同樣的基線</p>
         <div class="sensor-cards">
           <div class="sensor-card selected" id="sensor-finger" onclick="selectSensor('finger')">
-            <div class="sensor-icon">👆</div>
+            <div class="sensor-icon" data-tenki-icon="fingerprint" data-size="48"></div>
             <div class="sensor-info">
               <h3>手指快速建立</h3>
               <p>將手指輕放在後鏡頭上</p>
               <span class="sensor-time">約 30 秒</span>
             </div>
-            <div class="sensor-check">✓</div>
+            <div class="sensor-check" data-tenki-icon="statusOk" data-size="20"></div>
           </div>
           <div class="sensor-card" id="sensor-face" onclick="selectSensor('face')">
-            <div class="sensor-icon">🙂</div>
+            <div class="sensor-icon" data-tenki-icon="soulFace" data-size="48"></div>
             <div class="sensor-info">
               <h3>臉部自然建立 <span class="beta-badge">Beta</span></h3>
               <p>面對前鏡頭，自然呼吸</p>
               <span class="sensor-time">約 60 秒</span>
             </div>
-            <div class="sensor-check">✓</div>
+            <div class="sensor-check" data-tenki-icon="statusOk" data-size="20"></div>
           </div>
         </div>
         <button class="btn-primary" onclick="goToStep(2)">下一步</button>
@@ -225,7 +225,7 @@
 
       <!-- v1.2 Top guidance banner: liquid glass, slides in from top -->
       <div class="scan-banner" id="scan-banner" aria-live="polite">
-        <span class="scan-banner-icon">👆</span>
+        <span class="scan-banner-icon" data-tenki-icon="fingerprint" data-size="22"></span>
         <div class="scan-banner-text">
           <span class="scan-banner-title">請將食指完全蓋住後鏡頭（圓圈位置）</span>
           <span class="scan-banner-sub">手指需完全覆蓋，不可透光</span>
@@ -274,17 +274,14 @@
           <!-- v1.2 Finger guide animation: 3-frame loop hint (hover → descend → cover) -->
           <div class="finger-guide-anim" id="finger-guide-anim" aria-hidden="true">
             <div class="finger-guide-trail"></div>
-            <div class="finger-guide-icon">👆</div>
+            <div class="finger-guide-icon" data-tenki-icon="fingerprint" data-size="28"></div>
           </div>
 
           <!-- v1.2 Camera target ring: 3 states (waiting / covered / signal-weak) -->
           <div class="camera-target-ring" id="camera-target-ring" data-state="waiting" aria-hidden="true">
             <div class="target-ring-outline"></div>
-            <span class="target-ring-arrow target-ring-arrow-up">▲</span>
-            <span class="target-ring-arrow target-ring-arrow-down">▼</span>
-            <span class="target-ring-arrow target-ring-arrow-left">◀</span>
-            <span class="target-ring-arrow target-ring-arrow-right">▶</span>
-            <span class="target-ring-check">✓</span>
+            <span class="target-ring-arrow target-ring-arrow-center" data-tenki-icon="align" data-size="28"></span>
+            <span class="target-ring-check" data-tenki-icon="statusOk" data-size="40"></span>
           </div>
 
           <svg class="scan-ring" viewBox="0 0 200 200">
@@ -324,7 +321,7 @@
 
         <!-- Coverage guidance (prominent finger-placement instruction) -->
         <div class="scan-guidance" id="scan-guidance">
-          <span class="scan-guidance-icon" id="scan-guidance-icon">👆</span>
+          <span class="scan-guidance-icon" id="scan-guidance-icon" data-tenki-icon="fingerprint" data-size="18"></span>
           <span class="scan-guidance-text" id="scan-guidance-text">請將食指完整覆蓋後鏡頭</span>
         </div>
 
@@ -334,7 +331,7 @@
 
         <!-- Early-complete badge (≥30s & rolling mean SQI ≥0.85) -->
         <div class="ready-indicator" id="ready-indicator">
-          <span class="ready-indicator-check">✓</span>
+          <span class="ready-indicator-check" data-tenki-icon="statusOk" data-size="18"></span>
           <span>READY — 訊號品質優良，即將完成</span>
         </div>
       </div>
@@ -387,14 +384,14 @@
 
         <div class="next-actions">
           <button class="action-card primary-action" onclick="selectNextAction('scan')">
-            <span class="action-icon">🔍</span>
+            <span class="action-icon" data-tenki-icon="scan" data-size="24"></span>
             <div class="action-info">
               <h3>開始第一次掃描</h3>
               <p>對照基線，比較此刻的訊號</p>
             </div>
           </button>
           <button class="action-card" onclick="selectNextAction('explore')">
-            <span class="action-icon">🧭</span>
+            <span class="action-icon" data-tenki-icon="explore" data-size="24"></span>
             <div class="action-info">
               <h3>先逛逛</h3>
               <p>探索 TENKI 的各項功能</p>
@@ -410,6 +407,7 @@
     </div>
   </div>
 
+  <script src="tenki-icons.js?v=icons-v1"></script>
   <script src="camera-scan.js"></script>
   <script src="baseline-onboarding.js?v=stardust_restore_v2"></script>
 </body>

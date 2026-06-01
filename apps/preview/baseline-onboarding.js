@@ -443,7 +443,7 @@ function applyReadinessState(sample) {
 
   // ── Meter visuals (use latched state for icons)
   const meterIcon = (latched, value, readyTh, warnTh) =>
-    latched ? '✅' : getMeterIcon(value, readyTh, warnTh);
+    latched ? 'statusOk' : getMeterIcon(value, readyTh, warnTh);
 
   updateMeter('coverage', metrics.coverage * 100,
     meterIcon(covG, metrics.coverage, TH.coverage.ready, TH.coverage.warning),
@@ -738,13 +738,18 @@ function updateMeter(id, percent, icon, thresholds = { green: 75, yellow: 45 }) 
     else if (percent >= yellow) fill.classList.add('yellow');
     else if (percent > 0) fill.classList.add('red');
   }
-  if (status) status.textContent = icon;
+  if (status) {
+    var svg = window.tenkiIcon ? window.tenkiIcon(icon, { size: 18 }) : icon;
+    if (svg) {
+      status.innerHTML = svg;
+    }
+  }
 }
 
 function getMeterIcon(value, greenTh, yellowTh) {
-  if (value >= greenTh) return '✅';
-  if (value >= yellowTh) return '⚠️';
-  return '❌';
+  if (value >= greenTh) return 'statusOk';
+  if (value >= yellowTh) return 'statusWarn';
+  return 'statusFail';
 }
 
 function easeOutCubic(x) {
@@ -1220,28 +1225,36 @@ function updateCoverageGuidance(elapsedSec) {
   const textEl = document.getElementById('scan-guidance-text');
   if (!guidanceEl || !iconEl || !textEl) return;
 
+  function setGuidanceIcon(name, size) {
+    var prev = iconEl.getAttribute('data-icon-name');
+    if (prev !== name) {
+      iconEl.setAttribute('data-icon-name', name);
+      iconEl.innerHTML = window.tenkiIcon ? window.tenkiIcon(name, { size: size || 18 }) : '';
+    }
+  }
+
   if (state.cameraActive && state.lastCameraSample) {
     const { color, hint } = state.lastCameraSample;
     guidanceEl.dataset.coverage = color;
     if (color === 'red') {
-      iconEl.textContent = '❌';
+      setGuidanceIcon('statusFail', 18);
       textEl.textContent = '請將食指完整覆蓋後鏡頭';
     } else if (color === 'yellow') {
-      iconEl.textContent = '⚠️';
+      setGuidanceIcon('statusWarn', 18);
       textEl.textContent = '手指位置偏了，請調整覆蓋';
     } else {
-      iconEl.textContent = '✅';
+      setGuidanceIcon('statusOk', 18);
       textEl.textContent = '手指已覆蓋 — 保持不動';
     }
   } else {
     // Simulated fallback: show generic instruction
     if (elapsedSec < 3) {
       guidanceEl.dataset.coverage = '';
-      iconEl.textContent = '👆';
+      setGuidanceIcon('fingerprint', 18);
       textEl.textContent = '請將食指完整覆蓋後鏡頭';
     } else {
       guidanceEl.dataset.coverage = 'green';
-      iconEl.textContent = '✅';
+      setGuidanceIcon('statusOk', 18);
       textEl.textContent = '訊號採集中 — 請保持不動';
     }
   }
@@ -1303,7 +1316,7 @@ function updateSignalTelemetry(elapsedSec) {
         } else if (tier === 'good') {
           subEl.textContent = '訊號良好 — 繼續保持不動';
         } else if (coverColor === 'red') {
-          subEl.textContent = '⚠ 請將食指完整覆蓋後鏡頭';
+          subEl.innerHTML = (window.tenkiIcon ? window.tenkiIcon('statusWarn', { size: 16 }) : '') + ' 請將食指完整覆蓋後鏡頭';
         } else if (coverColor === 'yellow') {
           subEl.textContent = '手指位置偏了 — 請微調覆蓋';
         } else {
