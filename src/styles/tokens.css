@@ -51,4 +51,8 @@
   /* TenkiIcons.tsx 讀取 --tenki-accent；預設對映到設計系統 teal，
      確保圖示強調色與全站 token 一致。局部換破曉色時於父層覆寫即可。 */
   --tenki-accent: var(--teal);
+  /* v1.1 漸層圖示（Fingerprint 徑向 / SoulFace 線性）的亮邊與暗邊，
+     供 --tenki-accent 的明暗兩端使用；未定義時圖示自帶 fallback。 */
+  --tenki-accent-lit: #9CFFEF;
+  --tenki-accent-dim: #1C6F73;
 }
