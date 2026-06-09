@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo } from '../../theme';
 import { ScanButton } from '../../components/ScanButton';
 import { useSessionStore } from '../../stores/session-store';
+import { BackgroundContainer } from '../../components/onboarding-components';
 import { startMockPrecheck, cancelMockSessionProgress } from '../../lib/mock-session';
 
 type SessionMode = 'health_reset' | 'focus' | 'performance' | 'trader';
@@ -68,7 +69,8 @@ export default function SessionScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <BackgroundContainer>
+      <SafeAreaView style={styles.safeArea}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -183,8 +185,8 @@ export default function SessionScreen() {
             <Text style={styles.resetText}>Start New Session</Text>
           </Pressable>
         )}
-      </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </BackgroundContainer>
   );
 }
 
@@ -236,7 +238,7 @@ const progressStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   scroll: {
     flex: 1,

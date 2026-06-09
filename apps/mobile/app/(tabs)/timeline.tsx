@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo, getZoneForScore, zoneLabels, type ZoneName } from '../../theme';
 import { ZoneBadge } from '../../components/ZoneBadge';
 import { useTimelineStore, type CompletedSession } from '../../stores/timeline-store';
+import { BackgroundContainer } from '../../components/onboarding-components';
 
 const MODE_LABELS: Record<string, string> = {
   health_reset: 'Health Reset',
@@ -69,7 +70,8 @@ export default function TimelineScreen() {
   const isEmpty = sessions.length === 0;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <BackgroundContainer>
+      <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={typo.headline}>Timeline</Text>
         <Text style={typo.caption}>{sessions.length} sessions</Text>
@@ -100,6 +102,7 @@ export default function TimelineScreen() {
         />
       )}
     </SafeAreaView>
+    </BackgroundContainer>
   );
 }
 
@@ -138,7 +141,7 @@ function SessionCard({ entry }: { entry: SessionEntry }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   header: {
     paddingHorizontal: spacing.lg,

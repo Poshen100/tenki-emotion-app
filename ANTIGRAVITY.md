@@ -1,29 +1,28 @@
-# 2026-05-14 CONTINUATION NOTE (READ THIS FIRST)
+# 2026-06-09 CONTINUATION NOTE (READ THIS FIRST)
 
-This note is the current handoff for the new Windows machine (3rd migration). If any older setup text below conflicts with this section, this section wins.
+This note is the current handoff for the new Windows machine (4th migration). If any older setup text below conflicts with this section, this section wins.
 
 ## Environment status
 
-- Repo cloned on 2026-05-14 into `C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`
-- Portable Node.js (LTS v20.19.2) installed at `C:\Users\patron\.gemini\antigravity\scratch\nodejs\node-v20.19.2-win-x64`
-- `start_env.bat` in repo root is wired to that portable Node.js path
-- Dependencies installed at repo root, `packages/engine`, and `apps/mobile`
+- Repo cloned on 2026-06-09 into `C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`
+- Portable Node.js (LTS v22.22.3) installed at `C:\Users\patron\.gemini\antigravity\scratch\tools\node`
+- Portable Git (MinGit v2.45.1) installed at `C:\Users\patron\.gemini\antigravity\scratch\tools\git`
+- `start_env.bat` and env scripts in repo root are wired to these portable paths.
+- User PATH environment variables have been persistently configured to include these tool paths.
+- Dependencies installed at repo root.
 - Verified on this machine:
-  - Node.js `v20.19.2` (LTS Iron — satisfies React Native 0.81 / Metro 0.83 engine requirement ≥ 20.19.4)
-  - npm `10.8.2`
-  - Expo CLI available under `apps/mobile`
-  - Engine tests: **19 suites, 259 tests — ALL PASSING**
+  - Node.js `v22.22.3` (LTS Jod — satisfies Vite 7 and React Native requirements)
+  - npm `10.9.8`
+  - Git `2.45.1.windows.1`
 
-## Important PATH warning
+## PATH configurations
 
-On this machine, the default `node.exe` visible to `cmd.exe` may resolve to a WindowsApps stub and fail with `Access is denied`.
+On this machine, Node.js and Git paths are persistently added to the User `PATH` environment variable. 
 
-Always do one of these before running Node/npm/Expo commands:
-
+You can also run one of these to double check or force path initialization:
 1. Launch the shell via `start_env.bat`
-2. Or in PowerShell: `$env:PATH = "C:\Users\patron\.gemini\antigravity\scratch\nodejs\node-v20.19.2-win-x64;$env:PATH"`
+2. Or in PowerShell: `$env:PATH = "C:\Users\patron\.gemini\antigravity\scratch\tools\node;C:\Users\patron\.gemini\antigravity\scratch\tools\git\cmd;$env:PATH"`
 
-Do not assume the system `node` is usable until PATH is corrected.
 
 ## Active app entry point
 

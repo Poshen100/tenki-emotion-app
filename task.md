@@ -1,60 +1,42 @@
 # TASK.md
 
-Last updated: 2026-05-14
+Last updated: 2026-06-09
 
-## Current objective
+## Current Objective
 
-Continue TENKI from the new Windows machine with the active focus on `apps/mobile` Phase C integration and polish.
+Implement and polish the premium TENKI Core onboarding and daily scan/result experience in `apps/mobile`.
 
-## Environment ready
+## Completed Tasks
 
-- Repo cloned at `C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`
-- Portable Node.js v20.19.2 (LTS Iron) installed and verified
-- Root dependencies installed
-- `packages/engine` dependencies installed — **19 suites, 259 tests ALL PASSING**
-- `apps/mobile` dependencies installed
-- `start_env.bat` updated with correct portable Node.js path
+- [x] **Premium Onboarding Flow**: Implemented and refactored the 5 onboarding steps:
+  - Welcome screen: Emotional entry with abstract ECG waveform glass medallion (No medical/face icons).
+  - Baseline Explainer: Explains "normal state" concept with a 60s face scan kicker.
+  - Get Ready screen: Provides 3 tip cards (sun, face camera, breath wave) and camera permission note.
+  - Face Baseline Scanning: Stardust soul centerpiece, countdown (00:60), pulse wave, and orbiting specks.
+  - Baseline Complete: Shows rest HR, HRV, respiratory metrics, and optional finger scan calibration info card.
+- [x] **Finger Smart Reminder**: Verified the optional and non-nagging smart bottom sheet reminder for fingers scans, shown after onboarding.
+- [x] **Smart Trigger Logic**:
+  - Implemented the three smart triggers defined in the architectural blueprint:
+    1. **Low Baseline**: `faceBaselineCount < 3` (onboarding initializes this to 1; increments on successful face scans).
+    2. **High Stress**: `stressScore > 75` (calculated as `100 - stability`).
+    3. **Elapsed Cooldown**: `daysSinceCalibration > 14` (calculated from `lastFingerCalibrationTime`).
+  - Automatically updates `lastFingerCalibrationTime = Date.now()` and sets `faceBaselineCount = 3` upon completing a finger calibration scan.
+- [x] **Daily Scan Result**: Improved Traditional Chinese copy for clarity drivers:
+  - Translated "壓力度" -> "壓力"
+  - Translated "恢復力" -> "恢復"
+  - Wording conforms to safe readiness/wellness language (Clear, Neutral, Strain zones).
+- [x] **Background Visual Polish**:
+  - Wrapped all core tab screens (Today, Scan, Session, Timeline, Lab) in `BackgroundContainer` to render the premium deep navy gradient (`#0A1628` to `#060E1C`), subtle teal/amber glows, and stardust specks.
+  - Set `safeArea` backgrounds to `transparent` for overlay visual consistency.
+- [x] **Bug Fix**:
+  - Fixed a syntax bug in `apps/mobile/app/(tabs)/scan.tsx` styles where `justify('center') as any` was used, preventing runtime `ReferenceError`.
+- [x] **Verification**:
+  - Ran `npx tsc --noEmit` inside `apps/mobile` and verified zero TypeScript compilation errors.
 
-## Important startup rule
+## Next Steps
 
-Before running npm/expo commands, use `start_env.bat` from repo root or set PATH in PowerShell:
-
-```powershell
-$env:PATH = "C:\Users\patron\.gemini\antigravity\scratch\nodejs\node-v20.19.2-win-x64;$env:PATH"
-```
-
-Reason: the default system `node.exe` on this machine may resolve to a WindowsApps stub and fail with `Access is denied`.
-
-## Active app path
-
-```powershell
-cd apps\mobile
-npm start
-```
-
-Optional:
-
-```powershell
-npm run web
-npm run android
-npm run ios
-```
-
-## Immediate next tasks
-
-1. Launch Expo from `apps/mobile` and verify the 5-tab shell on this machine
-2. Review current mobile routes, stores, and components against `packages/engine`, `domain`, and `packages/shared`
-3. Decide the first concrete Phase C slice:
-   - Today screen real data wiring
-   - Scan flow real engine integration
-   - Session flow real gate/state integration
-   - Timeline/Lab polish
-4. Update any remaining stale docs that still imply the repo root is the main app entry point
-
-## Known notes
-
-- `README.md` now points to the current mobile workflow and `docs/DEPLOYMENT_MAP.md`
-- `apps/mobile/package-lock.json` changed from fresh install on 2026-05-14
-- Use compliance-safe copy only
-- Do not reintroduce TEI / PR99 naming; stay on Edge Score / Decision Edge / 3-zone vocabulary
-- Deployment URL meaning is tracked in `docs/DEPLOYMENT_MAP.md`
+1. **Native Integration**:
+   - Transition simulated biometric scanning in `apps/mobile/lib/mock-scan.ts` to real camera-rPPG frameworks when native wrappers are available.
+   - Migrate basic View borders (e.g., `EdgeScoreRing`) to React Native Canvas or `@shopify/react-native-skia` for premium gradient drawing.
+2. **Device Connectors**:
+   - Implement real Garmin and Apple Watch integrations inside Lab settings to calibrate and enrich personal baselines.

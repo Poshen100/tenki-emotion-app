@@ -1,3 +1,23 @@
+# 2026-06-09 Session Update (New Computer Setup - 4th Migration)
+
+## What was done
+
+1. **New Machine Clone**: Cloned the repository into `C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`.
+2. **Tools Configuration**: Set up Portable Node.js v22.22.3 (LTS Jod) and MinGit v2.45.1 (Portable Git) under `C:\Users\patron\.gemini\antigravity\scratch\tools\node` and `C:\Users\patron\.gemini\antigravity\scratch\tools\git` respectively.
+3. **Environment Integration**:
+   - Added paths persistently to the User `PATH` environment variable.
+   - Updated and wired all environment wrapper scripts in the repo root: `env.bat`, `env.cmd`, `env.ps1`, and `start_env.bat` to refer to the new `tools/node` and `tools/git/cmd` locations.
+4. **Dependencies Resolved**: Completed `npm install` successfully without engine conflicts (Node v22.22.3 fully satisfies Vite 7 requirements).
+5. **Handoff Documentation**: Updated `ANTIGRAVITY.md` and `MEMORY.md` with the new machine environment status for seamless future handoffs.
+
+## Recommended continuation
+
+1. Run `npm test` inside the project to verify that all 19 suites and 259 tests pass under Node v22.22.3.
+2. Launch the dev servers or Expo shell under `apps/mobile` or `apps/preview` to check runtime environments.
+3. Resume the Phase B/C implementation (Replay Engine, Insight Generator, and mobile view integrations).
+
+---
+
 # 2026-05-14 Session Update (iOS Safari OOM Fixes - Preview Flow)
 
 ## What was done

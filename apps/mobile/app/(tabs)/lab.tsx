@@ -2,6 +2,10 @@ import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo } from '../../theme';
 import { useSubscriptionStore } from '../../stores/subscription-store';
+import { useUserStore } from '../../stores/user-store';
+import { useScanStore } from '../../stores/scan-store';
+import { BackgroundContainer } from '../../components/onboarding-components';
+
 
 interface LabItem {
   icon: string;
@@ -51,14 +55,22 @@ export default function LabScreen() {
   const isPremium = tier === 'premium';
 
   const settingsItems = [
-    { icon: '👤', title: 'Profile', description: 'Manage your account' },
-    { icon: '🔒', title: 'Privacy', description: 'Data controls and export' },
-    { icon: '⌚', title: 'Devices', description: 'Connect Garmin, Apple Watch' },
-    { icon: '💎', title: 'Subscription', description: isPremium ? 'Premium plan' : 'Free plan' },
+    { icon: '👤', title: 'Profile', description: 'Manage your account', onPress: undefined },
+    { icon: '🔒', title: 'Privacy', description: 'Data controls and export', onPress: undefined },
+    { icon: '⌚', title: 'Devices', description: 'Connect Garmin, Apple Watch', onPress: undefined },
+    { icon: '💎', title: 'Subscription', description: isPremium ? 'Premium plan' : 'Free plan', onPress: undefined },
+    { icon: '🔄', title: 'Reset Baseline', description: '重設你的生理基線與狀態 (測試用)', onPress: () => {
+        useUserStore.getState().setHasBaseline(false);
+        // Reset baselineScore back to null
+        useUserStore.setState({ baselineScore: null });
+        useScanStore.getState().reset();
+      }
+    },
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <BackgroundContainer>
+      <SafeAreaView style={styles.safeArea}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -78,7 +90,11 @@ export default function LabScreen() {
         {/* Settings */}
         <Text style={[typo.label, styles.sectionLabel]}>SETTINGS</Text>
         {settingsItems.map((item) => (
-          <Pressable key={item.title} style={styles.settingsRow}>
+          <Pressable
+            key={item.title}
+            style={styles.settingsRow}
+            onPress={item.onPress}
+          >
             <Text style={styles.settingsIcon}>{item.icon}</Text>
             <View style={styles.settingsInfo}>
               <Text style={styles.settingsTitle}>{item.title}</Text>
@@ -92,6 +108,7 @@ export default function LabScreen() {
         <Text style={styles.version}>TENKI Core v3.0.0</Text>
       </ScrollView>
     </SafeAreaView>
+    </BackgroundContainer>
   );
 }
 
@@ -121,7 +138,7 @@ function LabCard({ item, isPremium }: { item: LabItem; isPremium: boolean }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   scroll: {
     flex: 1,
