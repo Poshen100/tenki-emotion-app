@@ -23,13 +23,13 @@
 
 const state = {
   currentStep: 0,
-  sensorChoice: 'finger',
+  sensorChoice: 'face',
   readinessInterval: null,
   scanRAF: null,
   scanStartTs: 0,
-  scanDuration: 45,        // Phase 2 default (finger); 60 for face
-  scanEarliestComplete: 30, // Earliest auto-complete window
-  scanHardCap: 60,         // Safety upper bound
+  scanDuration: 60,        // Phase 2 default (finger); 60 for face
+  scanEarliestComplete: 45, // Earliest auto-complete window
+  scanHardCap: 75,         // Safety upper bound
   readinessSimStep: 0,
   isScanning: false,
   scanPhase: 'idle',       // idle | wait | gather | accumulate | climax | final | transition
@@ -59,7 +59,6 @@ const state = {
 
 const STEPS = [
   'step-intro',
-  'step-sensor',
   'step-readiness',
   'step-scan',
   'step-result',
@@ -91,7 +90,7 @@ function goToStep(stepIndex) {
   // Dynamic calibration-ceremony class on #app to orchestrate step dots fade-out
   const appContainer = document.getElementById('app');
   if (appContainer) {
-    if (stepIndex === 3) {
+    if (stepIndex === 2) {
       appContainer.classList.add('calibration-ceremony');
     } else {
       appContainer.classList.remove('calibration-ceremony');
@@ -122,13 +121,13 @@ function onStepEnter(stepIndex) {
     case 0:
       initParticles();
       break;
-    case 2:
+    case 1:
       startReadinessCheck();
       break;
-    case 3:
+    case 2:
       startCalibrationScan();
       break;
-    case 4:
+    case 3:
       showBaselineResult();
       break;
   }
@@ -143,31 +142,7 @@ function toggleLearnMore() {
   if (el) el.classList.toggle('hidden');
 }
 
-// ─────────────────────────────────────────────
-// Step 2: Sensor Selection
-// ─────────────────────────────────────────────
-
-function selectSensor(type) {
-  state.sensorChoice = type;
-  // Finger: 45s ceremony with early-complete at ≥30s; face: 60s fixed
-  state.scanDuration = type === 'finger' ? 45 : 60;
-  state.scanEarliestComplete = type === 'finger' ? 30 : 45;
-  state.scanHardCap = type === 'finger' ? 60 : 75;
-
-  const finger = document.getElementById('sensor-finger');
-  const face = document.getElementById('sensor-face');
-
-  if (type === 'finger') {
-    finger.classList.add('selected');
-    face.classList.remove('selected');
-  } else {
-    face.classList.add('selected');
-    finger.classList.remove('selected');
-  }
-
-  // Update instructions for step 3
-  updateInstructions(type);
-}
+// Step 2: Sensor Selection removed for Model B face-only onboarding.
 
 function updateInstructions(type) {
   const copy = type === 'finger'
@@ -838,7 +813,7 @@ function startCalibrationScan() {
   if (dialogEl && dialogTextEl) {
     dialogEl.style.display = '';   // Clear OOM Fix #10's inline hide on restart
     dialogEl.classList.remove('visible');
-    dialogTextEl.textContent = '正在凝聚你的生理基線';
+    dialogTextEl.textContent = state.sensorChoice === 'face' ? '正在採集你的臉部基線' : '正在凝聚你的生理基線';
   }
   if (readyEl) readyEl.style.display = 'none';
 
@@ -1106,15 +1081,16 @@ function tickCalibration() {
     let nextColor = '';
     if (state.cameraActive && state.lastCameraSample) {
       // Camera-driven: coverage state takes priority over time-based messages
+      const isFace = state.sensorChoice === 'face';
       const color = state.lastCameraSample.color;
       if (color === 'red') {
-        nextText = '請將手指完整覆蓋鏡頭';
+        nextText = isFace ? '請將臉部移到畫面中央' : '請將手指完整覆蓋鏡頭';
         nextColor = '#FF3B30';
       } else if (color === 'yellow') {
-        nextText = '繼續調整手指位置…';
+        nextText = isFace ? '臉部位置偏了，請對準鏡頭' : '繼續調整手指位置…';
         nextColor = '#F5A623';
       } else if (elapsedSec < 8) {
-        nextText = 'PPG 訊號採集中…';
+        nextText = isFace ? '臉部訊號採集中…' : 'PPG 訊號採集中…';
       } else if (elapsedSec < state.scanEarliestComplete) {
         nextText = '能量正在快速凝聚...';
       } else {
@@ -1122,10 +1098,11 @@ function tickCalibration() {
       }
     } else {
       // Simulated fallback: time-based progression
+      const isFace = state.sensorChoice === 'face';
       if (elapsedSec < 3) {
         nextText = '能量凝聚中...';
       } else if (elapsedSec < 8) {
-        nextText = 'PPG 訊號採集中…';
+        nextText = isFace ? '臉部訊號採集中…' : 'PPG 訊號採集中…';
       } else if (elapsedSec < 18) {
         nextText = '能量正在快速凝聚...';
       } else if (elapsedSec < state.scanEarliestComplete) {
@@ -1233,25 +1210,27 @@ function updateCoverageGuidance(elapsedSec) {
     }
   }
 
+  const isFace = state.sensorChoice === 'face';
+
   if (state.cameraActive && state.lastCameraSample) {
     const { color, hint } = state.lastCameraSample;
     guidanceEl.dataset.coverage = color;
     if (color === 'red') {
       setGuidanceIcon('statusFail', 18);
-      textEl.textContent = '請將食指完整覆蓋後鏡頭';
+      textEl.textContent = isFace ? '請將臉部移到畫面中央' : '請將食指完整覆蓋後鏡頭';
     } else if (color === 'yellow') {
       setGuidanceIcon('statusWarn', 18);
-      textEl.textContent = '手指位置偏了，請調整覆蓋';
+      textEl.textContent = isFace ? '臉部位置偏了，請對準鏡頭' : '手指位置偏了，請調整覆蓋';
     } else {
       setGuidanceIcon('statusOk', 18);
-      textEl.textContent = '手指已覆蓋 — 保持不動';
+      textEl.textContent = isFace ? '臉部已對準 — 保持平穩' : '手指已覆蓋 — 保持不動';
     }
   } else {
     // Simulated fallback: show generic instruction
     if (elapsedSec < 3) {
       guidanceEl.dataset.coverage = '';
-      setGuidanceIcon('fingerprint', 18);
-      textEl.textContent = '請將食指完整覆蓋後鏡頭';
+      setGuidanceIcon(isFace ? 'soulFace' : 'fingerprint', 18);
+      textEl.textContent = isFace ? '請將臉部對準前鏡頭並保持正對' : '請將食指完整覆蓋後鏡頭';
     } else {
       guidanceEl.dataset.coverage = 'green';
       setGuidanceIcon('statusOk', 18);
@@ -1309,24 +1288,25 @@ function updateSignalTelemetry(elapsedSec) {
     // Update ceremony dialog sub-text — camera-driven when active
     const subEl = document.getElementById('ceremony-dialog-sub');
     if (subEl) {
+      const isFace = state.sensorChoice === 'face';
       if (state.cameraActive && state.lastCameraSample) {
         const coverColor = state.lastCameraSample.color;
         if (tier === 'excellent') {
-          subEl.textContent = '手指已完全覆蓋 ✓ — 能量正在快速凝聚';
+          subEl.textContent = isFace ? '臉部已對準 ✓ — 能量正在快速凝聚' : '手指已完全覆蓋 ✓ — 能量正在快速凝聚';
         } else if (tier === 'good') {
           subEl.textContent = '訊號良好 — 繼續保持不動';
         } else if (coverColor === 'red') {
-          subEl.innerHTML = (window.tenkiIcon ? window.tenkiIcon('statusWarn', { size: 16 }) : '') + ' 請將食指完整覆蓋後鏡頭';
+          subEl.innerHTML = (window.tenkiIcon ? window.tenkiIcon('statusWarn', { size: 16 }) : '') + (isFace ? ' 請將臉部移到畫面中央' : ' 請將食指完整覆蓋後鏡頭');
         } else if (coverColor === 'yellow') {
-          subEl.textContent = '手指位置偏了 — 請微調覆蓋';
+          subEl.textContent = isFace ? '臉部位置偏了 — 請對準鏡頭' : '手指位置偏了 — 請微調覆蓋';
         } else {
-          subEl.textContent = 'PPG 訊號採集中… 品質越好越精準';
+          subEl.textContent = isFace ? '臉部訊號採集中…' : 'PPG 訊號採集中… 品質越好越精準';
         }
       } else {
-        if (tier === 'excellent') subEl.textContent = '手指已完全覆蓋 ✓ — 能量正在快速凝聚';
+        if (tier === 'excellent') subEl.textContent = isFace ? '臉部已對準 ✓ — 能量正在快速凝聚' : '手指已完全覆蓋 ✓ — 能量正在快速凝聚';
         else if (tier === 'good') subEl.textContent = '訊號良好 — 繼續保持不動';
-        else if (tier === 'fair') subEl.textContent = 'PPG 訊號採集中… 品質越好越精準';
-        else subEl.textContent = '請將食指完全覆蓋後鏡頭';
+        else if (tier === 'fair') subEl.textContent = isFace ? '臉部訊號採集中…' : 'PPG 訊號採集中… 品質越好越精準';
+        else subEl.textContent = isFace ? '請將臉部對準前鏡頭並保持正對' : '請將食指完全覆蓋後鏡頭';
       }
     }
   }
@@ -1531,8 +1511,8 @@ function enterTransition() {
     }
 
     // Finalise navigation state (updates dots + currentStep).
-    state.currentStep = 4;
-    updateStepDots(4);
+    state.currentStep = 3;
+    updateStepDots(3);
     if (card) card.classList.add('summary-card-locked-in');
   }, 2000);
 }
@@ -1972,6 +1952,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize step 0
   updateStepDots(0);
   initParticles();
+
+  // Toggle face/finger silhouettes based on sensorChoice
+  const fingerSil = document.getElementById('finger-silhouette');
+  const faceSil = document.getElementById('face-silhouette');
+  const fingerAnim = document.getElementById('finger-guide-anim');
+  if (state.sensorChoice === 'face') {
+    if (fingerSil) fingerSil.style.display = 'none';
+    if (faceSil) faceSil.style.display = 'block';
+    if (fingerAnim) fingerAnim.style.display = 'none';
+  } else {
+    if (fingerSil) fingerSil.style.display = 'block';
+    if (faceSil) faceSil.style.display = 'none';
+    if (fingerAnim) fingerAnim.style.display = 'block';
+  }
+
   updateInstructions(state.sensorChoice);
   setReadinessStage('approach');
   setReadinessButton(false);

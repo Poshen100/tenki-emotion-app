@@ -266,85 +266,7 @@ body {
   margin-bottom: var(--sp-sm);
 }
 
-/* ── Sensor Cards ── */
-.sensor-cards {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-md);
-  width: 100%;
-  margin-top: var(--sp-md);
-}
-
-.sensor-card {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-md);
-  padding: var(--sp-md) var(--sp-lg);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  border: 2px solid var(--border);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.sensor-card:hover {
-  border-color: var(--primary);
-  background: rgba(0, 180, 216, 0.05);
-}
-
-.sensor-card.selected {
-  border-color: var(--primary);
-  background: rgba(0, 180, 216, 0.08);
-}
-
-.sensor-icon {
-  font-size: 32px;
-  flex-shrink: 0;
-}
-
-.sensor-info {
-  text-align: left;
-  flex: 1;
-}
-
-.sensor-info h3 {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.sensor-info p {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.sensor-time {
-  font-size: 12px;
-  color: var(--primary);
-  font-weight: 500;
-}
-
-.sensor-check {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--primary);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
-  opacity: 0;
-  transform: scale(0.5);
-  transition: all 0.3s ease;
-}
-
-.sensor-card.selected .sensor-check {
-  opacity: 1;
-  transform: scale(1);
-}
+/* ── Sensor Selection removed for Model B face-only onboarding ── */
 
 .beta-badge {
   font-size: 10px;
@@ -1142,6 +1064,31 @@ body {
   color: var(--primary);
 }
 
+/* ── Precision Tip Card ── */
+.precision-tip-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(95, 233, 208, 0.04);
+  border: 1px dashed rgba(95, 233, 208, 0.15);
+  margin-top: 14px;
+  max-width: 320px;
+  text-align: left;
+}
+
+.precision-tip-icon {
+  color: var(--tenki-accent, #5FE9D0);
+  flex-shrink: 0;
+}
+
+.precision-tip-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 .confidence-dot {
   width: 8px;
   height: 8px;
@@ -1270,7 +1217,8 @@ body {
     font-size: 32px;
   }
 
-  .finger-silhouette {
+  .finger-silhouette,
+  .face-silhouette {
     width: 65px;
     height: 90px;
   }
@@ -1498,8 +1446,9 @@ body {
   display: none;
 }
 
-/* ── Finger silhouette (central target) ── */
-.finger-silhouette {
+/* ── Finger & Face silhouettes (central targets) ── */
+.finger-silhouette,
+.face-silhouette {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1513,7 +1462,8 @@ body {
   opacity: 0.6;
 }
 
-.finger-silhouette svg {
+.finger-silhouette svg,
+.face-silhouette svg {
   width: 100%;
   height: 100%;
 }

@@ -35,7 +35,6 @@
       <div class="step-dot" data-step="2"></div>
       <div class="step-dot" data-step="3"></div>
       <div class="step-dot" data-step="4"></div>
-      <div class="step-dot" data-step="5"></div>
     </div>
 
     <!-- Step 1: Intro -->
@@ -58,34 +57,7 @@
       </div>
     </section>
 
-    <!-- Step 2: Sensor Choice -->
-    <section id="step-sensor" class="step">
-      <div class="step-content">
-        <h1 class="step-headline">選擇你的建立方式</h1>
-        <p class="step-body">兩種方式都會建立同樣的基線</p>
-        <div class="sensor-cards">
-          <div class="sensor-card selected" id="sensor-finger" onclick="selectSensor('finger')">
-            <div class="sensor-icon" data-tenki-icon="fingerprint" data-size="48"></div>
-            <div class="sensor-info">
-              <h3>手指快速建立</h3>
-              <p>將手指輕放在後鏡頭上</p>
-              <span class="sensor-time">約 30 秒</span>
-            </div>
-            <div class="sensor-check" data-tenki-icon="statusOk" data-size="20"></div>
-          </div>
-          <div class="sensor-card" id="sensor-face" onclick="selectSensor('face')">
-            <div class="sensor-icon" data-tenki-icon="soulFace" data-size="48"></div>
-            <div class="sensor-info">
-              <h3>臉部自然建立 <span class="beta-badge">Beta</span></h3>
-              <p>面對前鏡頭，自然呼吸</p>
-              <span class="sensor-time">約 60 秒</span>
-            </div>
-            <div class="sensor-check" data-tenki-icon="statusOk" data-size="20"></div>
-          </div>
-        </div>
-        <button class="btn-primary" onclick="goToStep(2)">下一步</button>
-      </div>
-    </section>
+
 
     <!-- Step 3: Readiness Check -->
     <section id="step-readiness" class="step">
@@ -208,7 +180,7 @@
 
         <p class="readiness-success-note" id="readiness-success-note">我們只在理想覆蓋時建立 baseline，讓你的 reference 更穩。</p>
 
-        <button class="btn-primary" id="btn-start-scan" disabled onclick="goToStep(3)">等待就緒...</button>
+        <button class="btn-primary" id="btn-start-scan" disabled onclick="goToStep(2)">等待就緒...</button>
       </div>
     </section>
 
@@ -225,10 +197,10 @@
 
       <!-- v1.2 Top guidance banner: liquid glass, slides in from top -->
       <div class="scan-banner" id="scan-banner" aria-live="polite">
-        <span class="scan-banner-icon" data-tenki-icon="fingerprint" data-size="22"></span>
+        <span class="scan-banner-icon" data-tenki-icon="soulFace" data-size="22"></span>
         <div class="scan-banner-text">
-          <span class="scan-banner-title">請將食指完全蓋住後鏡頭（圓圈位置）</span>
-          <span class="scan-banner-sub">手指需完全覆蓋，不可透光</span>
+          <span class="scan-banner-title">請將臉部對準前鏡頭並保持正對</span>
+          <span class="scan-banner-sub">臉部需完全進入取景框，並保持光線平均</span>
         </div>
       </div>
 
@@ -237,8 +209,8 @@
         <div class="ceremony-dialog" id="ceremony-dialog">
           <span class="ceremony-dialog-dot"></span>
           <div class="ceremony-dialog-body">
-            <span class="ceremony-dialog-text" id="ceremony-dialog-text">正在凝聚你的生理基線</span>
-            <span class="ceremony-dialog-sub" id="ceremony-dialog-sub">請將食指完全覆蓋後鏡頭</span>
+            <span class="ceremony-dialog-text" id="ceremony-dialog-text">正在採集你的臉部基線</span>
+            <span class="ceremony-dialog-sub" id="ceremony-dialog-sub">請直視鏡頭，保持平穩呼吸</span>
           </div>
         </div>
 
@@ -268,6 +240,18 @@
                 stroke="currentColor" stroke-width="0.8" fill="none" opacity="0.25"/>
               <!-- Center dot (placement guide) -->
               <circle cx="60" cy="72" r="3" fill="currentColor" opacity="0.35"/>
+            </svg>
+          </div>
+
+          <!-- Face silhouette (placement guide; dims once real camera is live) -->
+          <div class="face-silhouette" id="face-silhouette" style="display: none;">
+            <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="60" cy="55" rx="32" ry="42" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4, 4" opacity="0.7" />
+              <path d="M28 40 Q28 28 40 28" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+              <path d="M80 28 Q92 28 92 40" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+              <path d="M92 70 Q92 82 80 82" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+              <path d="M40 82 Q28 82 28 70" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+              <circle cx="60" cy="55" r="2.5" fill="currentColor" opacity="0.4"/>
             </svg>
           </div>
 
@@ -319,10 +303,10 @@
           </div>
         </div>
 
-        <!-- Coverage guidance (prominent finger-placement instruction) -->
+        <!-- Coverage guidance (prominent face alignment instruction) -->
         <div class="scan-guidance" id="scan-guidance">
-          <span class="scan-guidance-icon" id="scan-guidance-icon" data-tenki-icon="fingerprint" data-size="18"></span>
-          <span class="scan-guidance-text" id="scan-guidance-text">請將食指完整覆蓋後鏡頭</span>
+          <span class="scan-guidance-icon" id="scan-guidance-icon" data-tenki-icon="soulFace" data-size="18"></span>
+          <span class="scan-guidance-text" id="scan-guidance-text">請正對前鏡頭，保持靜止</span>
         </div>
 
         <!-- Single status message (UX Standard 2) -->
@@ -368,7 +352,12 @@
           <span id="confidence-text">數據品質：良好</span>
         </div>
 
-        <button class="btn-primary" onclick="goToStep(5)">繼續</button>
+        <div class="precision-tip-card">
+          <span class="precision-tip-icon" data-tenki-icon="fingerprint" data-size="16"></span>
+          <span class="precision-tip-text">想更準？之後有空時用手指掃一次，能提升 HRV 精度。</span>
+        </div>
+
+        <button class="btn-primary" onclick="goToStep(4)">繼續</button>
       </div>
     </section>
 
