@@ -71,3 +71,23 @@ export {
 export type { MachineState, FaceBaselineEvent } from './machine/faceBaselineMachine';
 export { RESUME_TARGET, partialRetryPhase } from './machine/transitions';
 export type { RetryablePhase } from './machine/transitions';
+
+export {
+  setCameraPermissionProvider,
+  setEnvironmentSignalSource,
+  setQualitySignalSource,
+  setFaceDetectorProvider,
+  getCameraPermissionProvider,
+  getEnvironmentSignalSource,
+  getQualitySignalSource,
+  getFaceDetectorProvider,
+  resetSignalProviders,
+} from './signals/registry';
+export type {
+  CameraPermissionProvider,
+  EnvironmentSignalSource,
+  QualitySignalSource,
+  FaceDetectorProvider,
+} from './signals/types';
+export { deriveEnvironmentChecks, ENV_THRESHOLDS } from './utils/environment';
+export type { RawEnvironmentSignal } from './utils/environment';
