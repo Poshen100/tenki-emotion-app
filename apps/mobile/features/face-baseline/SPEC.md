@@ -1,465 +1,275 @@
-# TENKI — Face Baseline Onboarding · Production Design & Implementation Spec
+# TENKI — Face Baseline System · Production Design & Implementation Spec (v2)
 
-> Source of truth: 4 reference frames (Intro / Environment / Capture / Processing).
-> Goal: first-time **Face Baseline** calibration for daily users.
-> Feel: Face ID precision · premium futuristic wellness · dark-first · cosmic stardust soul · high trust.
-> Compliance: no medical / no "emotion recognition" / no dopamine claims. Public language = **baseline, privacy, precision, calibration, readiness, return to baseline**.
-
----
-
-## 0. The one unifying decision (read this first)
-
-The references live in **two color worlds**. We do not erase one — we assign each a *meaning* so the inconsistency becomes a system:
-
-| World | Color | Means | Appears on |
-|-------|-------|-------|-----------|
-| **Cool** | electric blue → violet (`#4DA6FF → #7B61FF`) | "the system is preparing / aligning / confirming **you**" | Intro, Environment, Face-Lock, all CTAs, progress halos, success |
-| **Warm** | aurora gold (`#FFB347 → #FFD27A`) | "**your living signal** is being read" | Capture mesh + Processing orb **only** |
-
-Narrative: cool = the machine getting ready; the brief warm gold moment = your own essence being captured; then it resolves back to cool calm. This is the emotional spine — protect it.
-
-**Fixes applied to the references:**
-1. Environment screen (ref #2) is flat/light → pulled back into the **dark cosmic frame** with the same nebula, keeping its square corner-bracket reticle + status pills.
-2. Two scan-frame shapes get distinct jobs: **square reticle = aligning/framing**, **circular halo = locked/capturing**.
-3. One radius language, one glow language, one type ramp across all 8 screens.
+> Source of truth: **9 reference frames** — Intro · Processing · Environment · Capture · Maturity · Why-Baseline · Secure-Access · Recovery · Success.
+> Scope: the **full** Face Baseline product — onboarding **and** ongoing baseline-maturity growth.
+> Feel: Face ID precision · premium futuristic wellness · dark-first · cosmic stardust soul · high trust · Apple-calm but uniquely TENKI.
+> Compliance: no medical/diagnosis · no "emotion recognition" · no dopamine claims. Public language = **baseline, calibration, privacy, precision, readiness, resonance, return to baseline, model refinement**.
 
 ---
 
-## TASK 1 — Reverse-engineered visual grammar
+## 0. The unifying law (read first)
 
-### Color system
-- **Background:** near-black deep space `#05060A`–`#0A0B12` with a violet/indigo nebula wash (`#1A1140` → `#0A0B12` radial) and fine star noise. Capture/Processing dim the nebula and add a warm vignette.
-- **Cool accent ramp:** `#4DA6FF` (electric blue) → `#6E8BFF` → `#7B61FF` (violet). Used for CTA fills, focus strokes, locked reticle, halo sweep.
-- **Warm accent ramp (capture only):** `#FFB347` → `#FFCB6B` → `#FFD27A`, glow `#FF9D2F`.
-- **Status:** pass mint `#46E0B0`, caution amber `#FFC24B`, fail coral `#FF6B6B`.
-- **Text:** primary `#F4F6FF` (near-white), secondary `#A6ADC8`, tertiary `#5A6178`.
-- **Trust/lock cue:** desaturated cyan-white pill `rgba(180,210,255,0.14)` bg + `#BFD8FF` text + lock glyph.
+The 9 references show **two adjacent visual sub-systems**. They are **one product**, governed by a single rule:
 
-### Typography hierarchy
-- **Hero** — 34/40, weight 700, centered, tight tracking (`SF Pro Display`). ("Establish Your Baseline", "Hold steady for neutral capture")
-- **Screen title** — 17, weight 600, centered in nav bar.
-- **Body** — 15/22, weight 400, secondary color, max ~2–3 lines, centered.
-- **Metric numeral** — 48–56, weight 300 (thin), tabular, accent-tinted ("67%").
-- **Pill / label** — 13, weight 600.
-- **Caption / disclaimer** — 11/15, tertiary, centered.
+| Accent | Meaning | Used for |
+|--------|---------|----------|
+| **Cyan / electric blue** `#3DE0FF → #4DA6FF → #7B61FF` | **ACTIVE** — aligning, guiding, calibrating *right now* | scan reticle, environment checks, guidance, educational glyphs, **pre-baseline action CTAs** (Begin Calibration, Enable Camera, Try Again, Start Scan) |
+| **Aurora gold** `#E8B45A → #FFD27A → #FFE9B0` | **SECURED** — your resonance formed, owned, trusted, maturing | capture mesh, processing/securing orb, trust shield, success card, maturity orb, insight cards, **post-secured CTAs** (Enter TENKI, Start Daily Scan) |
 
-### Spacing rhythm
-4-pt base. Screen gutter **24**. Section gaps **16 / 24 / 32**. Hero block sits on upper-third; CTA pinned to bottom safe-area with **24** inset and **16** above the disclaimer.
+**The narrative:** cyan is the machine *helping you align*; gold is *your resonance being formed, secured, and grown*. The CTA's color tells the user which world they're acting from — **before** a baseline exists you act in cyan (you're calibrating); **after** it's secured you act in gold (you own it). This is the spine — protect it.
 
-### Corner radius language
-- CTA / pills: **full** (capsule).
-- Cards / checklist rows / status pills: **16**.
-- Scan reticle (square): **28** outer with **L-shaped corner brackets** (not full border).
-- Capture halo: circle.
+**Both worlds share one frame:** deep-space `#05060A` + violet nebula, one type ramp, one radius set, one glass language, one glow language.
 
-### Glow behavior
-Glow = layered soft shadow + faint inner stroke, never a hard neon line.
-- CTA: outer drop glow (accent @ 35% opacity, blur ~24, y+8) + 1px inner top highlight.
-- Locked reticle / halo: outer bloom (blur 32–48) that **breathes** (opacity 0.5→0.9).
-- Particle mesh + orb: additive-blend bloom only on the warm screens.
+### What is non-negotiable to preserve
+Dark cosmic atmosphere + stardust · resonance-waveform brand glyph · the cyan↔gold meaning split · glass cards (cyan-edge educational / gold-edge trust) · glowing capsule CTAs · Face-ID-precision scan frame · relentless privacy/local-only cues · the gold resonance orb (processing & maturity).
 
-### Scan-frame treatment
-- **Square reticle** (Environment, Face-detecting): 4 corner brackets, animated tracking, color = state (scanning blue → locked mint).
-- **Circular halo** (Capture): concentric ring + rotating gradient arc + privacy pill anchored at bottom of ring.
+### What must be normalized into one system
+Environment screen (was light in early refs) → dark cosmic · one type ramp/radius/glow/glass token set across onboarding **and** post-baseline · ProcessingOrb vs ResonanceOrb share one geometry family · two CTA accents follow the active/secured law (not arbitrary) · consistent card padding/border/blur.
 
-### Button treatment
-- **Primary** = capsule, blue→violet gradient fill, soft outer glow, 56 tall, label 17/600, subtle press-scale 0.97 + glow intensify. Disabled = 30% opacity, glow off (see ref #2 "Start Scan").
-- **Secondary** = ghost capsule, 1px `rgba(255,255,255,0.18)` border, no fill.
-- **Tertiary / text** = accent text only ("Cancel", "Learn more").
-
-### Privacy / trust signaling
-Three recurring devices: (1) **time-cost chip** `⏱ 60 Seconds` (sets expectation = trust), (2) **lock pill** `PRIVACY SECURED`, (3) **local-only footnote** under processing. Always cool/neutral, never salesy.
-
-### Progress indicator style
-- Linear **segmented bar** under the capture halo (thin, accent fill, faint track).
-- Numeric **%** on processing.
-- **ProgressHalo** sweep around the orb/face = the hero progress feel.
-
-### Composition patterns
-Vertical, centered, single-column. Upper third = subject (frame/orb), lower third = copy + CTA. Nav (back/cancel) top row. Everything breathes; one focal element per screen.
-
-### Dark vs light
-Dark-first everywhere. Ref #2's light look is rejected. The only "lightness" is the luminous subject and glow.
-
-### Where cosmic/stardust appears
-- Full nebula + stars: Intro, Confirmed, Retry.
-- Dimmed nebula + **warm soul particles on the face**: Capture.
-- Dimmed nebula + **gold orbital orb**: Processing.
-- Restrained (nebula faint, UI-forward): Environment, Face-Lock prep.
-
-### Where UI stays flat/restrained
-Checklist rows, status pills, nav bar, disclaimers, secondary buttons — flat, no glow, high legibility. Glow is reserved for the focal subject + primary CTA only.
-
-### Core to preserve
-Dark cosmic atmosphere · bold centered hero type · glowing blue→violet capsule CTA · precision scan frame · privacy/lock cues · the gold capture+processing ritual.
-
-### Inconsistent across refs (to unify)
-Environment screen light vs dark · two frame shapes · gold vs blue accent with no rule · varying title placement/casing · two different progress idioms.
-
-### Unify into one product system
-One dark cosmic frame · cool-vs-warm meaning rule · square-vs-circle frame rule · single type ramp, radius set, glow set, token system (below).
+### What to improve for production
+Single-instruction capture (one status at a time) · progress that pauses never resets · partial recapture (motion-only) · reduced-motion fallbacks · compliance-routed copy · maturity that reads as a living ritual, not a dashboard.
 
 ---
 
-## TASK 2 — Canonical flow (8 screens)
+## TASK 1 — Reverse-engineered grammar (all 9)
 
-Shared chrome: `CosmicBackground` (mode per screen) · top nav (back left, Cancel right) · bottom safe-area CTA dock · inline disclaimer where scan-related.
-
-### 1. EstablishBaselineIntroScreen
-- **Purpose:** set intent + expectation + trust before any camera permission.
-- **Layout:** nebula full · hero block upper-third ("Establish Your Baseline") · body (privacy + encrypted-local) · `⏱ 60 Seconds` chip · `PrivacyAssuranceRow` · primary CTA `Begin Calibration` · `Learn more` text link.
-- **Hierarchy:** Hero > body > time chip > CTA.
-- **Components:** CosmicBackground(`deepNebula`), BaselineHeroCopy, TimeCostChip, PrivacyAssuranceRow, GlowPrimaryButton.
-- **Tone:** calm, awe, cool violet.
-- **CTA:** glow primary, idle breathing pulse.
-- **Transition:** fade+rise in (400ms); CTA → camera-permission sheet → Environment.
-- **States:** loading=skeleton hero; blocked=if permission permanently denied, CTA becomes `Open Settings`.
-
-### 2. EnvironmentCalibrationScreen
-- **Purpose:** ensure lighting / distance / stability before committing.
-- **Layout:** dimmed nebula · **square reticle** with live front-camera preview (or silhouette mock) · `EnvironmentChecklist` (3 rows: Lighting / Distance / Stability, each mint✓ or coral✗) · guidance line ("Find a quiet spot with good lighting") · primary CTA `Start Scan` (enabled only when all pass).
-- **Hierarchy:** reticle+preview > checklist > guidance > CTA.
-- **Components:** CosmicBackground(`dim`), FaceScanFrame(`square`), EnvironmentChecklist, ChecklistRow, GlowPrimaryButton(disabled-aware).
-- **Tone:** clinical-calm, cool; restrained UI.
-- **CTA:** disabled (30%, no glow) until all checks pass, then snaps to glow.
-- **Transition:** rows flip pass/fail with micro-bounce; pass-all → CTA glow-in.
-- **States:** permission denied → blocked panel; camera error → retry; any check failing keeps CTA disabled with the specific fix hint.
-
-### 3. FaceLockPreparationScreen
-- **Purpose:** acquire and **lock** the face — the Face-ID precision beat.
-- **Layout:** dim nebula · live preview · **square reticle that tracks then snaps to a `FaceLockBadge`** · single instruction ("Center your face") · no CTA (auto-advances on lock).
-- **Hierarchy:** reticle/face > instruction.
-- **Components:** FaceScanFrame(`tracking→locked`), FaceLockBadge, CaptureInstruction.
-- **Tone:** precise, anticipatory; reticle blue→mint on lock.
-- **CTA:** none; auto-advance ~600ms after stable lock.
-- **Transition:** lock = snap-in scale + haptic + bloom.
-- **States:** no face / multiple faces / lost lock → instruction swaps, reticle returns to blue; timeout 15s → soft nudge.
-
-### 4. BaselineCaptureNeutralScreen
-- **Purpose:** capture the neutral/at-rest baseline — the gold soul moment.
-- **Layout:** dim nebula + warm vignette · **circular halo** around face · `SoulParticleMesh` (gold stardust on face) · `ProgressHalo` sweeping the ring · segmented progress bar · `PRIVACY SECURED` pill · hero instruction ("Hold steady for neutral capture").
-- **Hierarchy:** halo+mesh face > instruction > progress > privacy pill.
-- **Components:** CosmicBackground(`captureWarm`), FaceScanFrame(`halo`), SoulParticleMesh, ProgressHalo, CaptureInstruction, QualityStatusPills, PrivacyLockPill, SegmentedProgress.
-- **Tone:** intimate, warm gold over cool space, reverent.
-- **CTA:** none; progress-driven.
-- **Transition:** particles stabilize as quality holds; progress fills.
-- **States:** quality drop (motion/lighting) → particles scatter, single status pill ("Hold still"), progress **pauses** (never resets); lock lost → fall back to Face-Lock without losing captured fraction.
-
-### 5. BaselineCaptureMotionScreen
-- **Purpose:** brief guided micro-motion sample (gentle head turn / blink) to enrich baseline robustness — framed as **calibration**, never "emotion."
-- **Layout:** same warm capture frame · animated **guidance cue** (subtle arc/arrow) · instruction ("Slowly turn your head") · second segment of the same progress bar.
-- **Hierarchy:** face+cue > instruction > progress.
-- **Components:** reuse capture stack + MotionGuideCue.
-- **Tone:** warm, playful-calm, still precise.
-- **CTA:** none.
-- **Transition:** continues the single progress bar from neutral (segment 2 of 2).
-- **States:** too much/too little motion → cue re-hints; quality drop → pause; can retry **this phase only**.
-
-### 6. ProcessingBaselineScreen
-- **Purpose:** the ritual — "securing your unique baseline."
-- **Layout:** dim nebula · centered **gold `ProcessingOrb`** (orbiting light rings) · status line ("Securing your unique baseline…") · large `%` numeral · local-only privacy footnote.
-- **Hierarchy:** orb > status > % > footnote.
-- **Components:** CosmicBackground(`processing`), ProcessingOrb, PercentCounter, PrivacyFootnote.
-- **Tone:** warm, ceremonial, slow.
-- **CTA:** none (cannot cancel mid-write; or `Cancel` returns to intro discarding partial).
-- **Transition:** orb swirl accelerates near 100% → cross-fade to Confirmed.
-- **States:** compute error → cross-fade to Retry with reason; min-display 1.8s even if fast (preserve ritual).
-
-### 7. BaselineConfirmedScreen
-- **Purpose:** confirm success, communicate maturity + future-value, hand off.
-- **Layout:** nebula returns full · `BaselineSuccessPanel` (cool checkmark bloom) · headline ("Baseline established") · reassurance ("This is your reference, not a score") · `BaselineMaturityMeter` (confidence/"gets more precise over time") · primary CTA `Start your first scan` · secondary `Explore first`.
-- **Hierarchy:** success bloom > headline > maturity > CTA.
-- **Components:** BaselineSuccessPanel, BaselineMaturityMeter, GlowPrimaryButton, GhostButton.
-- **Tone:** resolved calm, cool blue, quietly triumphant.
-- **CTA:** glow primary + ghost secondary.
-- **Transition:** checkmark pulse + haptic success; CTA → first scan.
-- **States:** low-confidence baseline → maturity meter shows "initial — improves with use," still success.
-
-### 8. RetryOrAdjustmentScreen
-- **Purpose:** explain *why* it didn't complete and offer the **smallest** path back.
-- **Layout:** nebula faint · diagnostic icon · headline ("Let's adjust one thing") · single human-readable reason (lighting / movement / face not detected) · primary `Try again` (resumes the failed phase) · secondary `Restart calibration`.
-- **Hierarchy:** reason > primary fix > restart.
-- **Components:** RetryReasonCard, GlowPrimaryButton, GhostButton.
-- **Tone:** supportive, non-blaming, cool.
-- **CTA:** primary resumes nearest phase; restart only if needed.
-- **States:** maps each `RetryReason` to one sentence + one targeted action. Never dumps technical errors.
+- **Color:** bg `#05060A`–`#0A0B12` deep space + violet nebula `#1A1140` + starfield; circuit-trace overlay on Maturity. Cyan ramp for active, gold ramp for secured. Status: mint `#46E0B0`, amber `#FFC24B`, coral `#FF6B6B`. Text `#F4F6FF` / `#A6ADC8` / `#5A6178`.
+- **Glow logic:** layered soft bloom + faint inner stroke, never hard neon. Reserved for the focal subject (glyph / orb / frame / shield) + the primary CTA. Chrome stays flat.
+- **Typography:** wordmark `TENKI` (letterspaced, 13/600, top-center). Hero 28–34/700 centered. Card title 20/600. Body 15/22/400 secondary. Metric 48–52/300 tabular. Pill/label 13/600. Caption 11/15.
+- **Card treatment (GlassInfoCard):** frosted dark glass, radius 24, 1px border (cyan `rgba(120,200,255,.35)` educational / gold `rgba(232,180,90,.45)` trust), inner top highlight, soft drop shadow, 20–24 padding.
+- **Buttons:** primary = capsule 56h, gradient fill (**cyan→violet** active / **gold** secured), soft outer glow, press-scale 0.97; disabled 30% no glow; secondary = ghost/text (cyan link).
+- **Scan frame:** cyan corner-bracket reticle + face outline over (blurred) preview = aligning; circular halo = capturing.
+- **Processing viz:** gold sphere with orbiting light rings (Processing) and a geometric-core resonance sphere (Maturity) — same orb family, different core.
+- **Trust/privacy signaling:** gold shield emblem · numbered privacy list (On-Device / Calibration-only / No photos saved) · `PRIVACY SECURED` pill · "processed & stored locally" footnote · "Learn more about our privacy" link.
+- **Educational page:** wordmark + title + glass card holding a glyph + heading + paragraph + page dots + `Next`. Calm, one idea per page.
+- **Success page:** gold-edge glass card + checkmark + reassurance + gold `Enter TENKI`, full gold vignette.
+- **Maturity page:** circuit bg + ResonanceOrb + 4-stage bar (New/Building/Ready/Mature) + `x/5 scans` + gold Technical-Insight card + Daily Scan History rows + gold `Start Daily Scan`.
+- **Error/retry page:** NOT an error wall — cyan scan frame + supportive "Finding your rhythm" + fix checklist + cyan `Try Again` + `Need help?`.
+- **Gold appears:** shield, success, maturity orb/bar, insight cards, secured CTAs, capture mesh, processing orb. **Cyan appears:** reticle, env checks, resonance glyph, recovery frame, pre-baseline CTAs, privacy links.
+- **Consistent:** centered single-column · glass cards · capsule CTAs · wordmark · privacy cues · glow-on-subject. **Inconsistent (to unify):** light vs dark env · gold vs cyan with no rule · two orb styles · title placement/casing · two progress idioms.
 
 ---
 
-## TASK 3 — React Native screen tree
+## TASK 2 — Canonical system (11 screens)
+
+Shared chrome: `CosmicBackground(mode)` · optional `TENKI` wordmark · top nav (Back left / Cancel right) · bottom safe-area CTA dock · inline disclaimer on scan screens.
+
+1. **EstablishBaselineIntroScreen** — *entry.* Nebula, hero "Establish Your Baseline", privacy body, `⏱ 60 Seconds` chip, **cyan** CTA `Begin Calibration`, `Why does this matter?` link → Why carousel. Blocked-permission → CTA `Open Settings`.
+2. **WhyBaselineMattersCarouselScreen** — *education, optional/skippable.* Wordmark + "Why Baseline Matters" + `GlassInfoCard` (cyan resonance glyph + "Personal Resonance" + paragraph) + page dots (3) + ghost `Next`/`Get started`. Swipe or Next. One idea/page; never crowd.
+3. **SecureAccessRequiredScreen** — *permission rationale, before OS prompt.* Wordmark + **gold shield** + "Secure Access Required" + `PrivacyAssuranceList` (1 On-Device · 2 Calibration-only · 3 No photos saved) + **cyan** CTA `Enable Camera` + cyan `Learn more about our privacy`. Denied → rationale persists w/ `Open Settings`.
+4. **EnvironmentCalibrationScreen** — *readiness.* Dim nebula + **square cyan reticle** + preview + `EnvironmentChecklist` (Lighting/Distance/Stability mint✓/coral✗) + guidance + **cyan** `Start Scan` (disabled until all pass).
+5. **FaceLockPreparationScreen** — *acquire & lock.* Tracking reticle → `FaceLockBadge` snap; single instruction; no CTA, auto-advance on stable lock. Handles no/multiple/lost face + 15s timeout → Recovery.
+6. **BaselineCaptureNeutralScreen** — *neutral capture (gold).* Circular halo + `SoulParticleMesh` (gold) + `ProgressHalo` + segmented bar + `PRIVACY SECURED` pill + "Hold steady for neutral capture". Quality drop → scatter + one status pill + progress **pauses**.
+7. **BaselineCaptureMotionScreen** — *micro-motion calibration (gold).* Same warm frame + `MotionGuideCue` (gentle head-turn) + segment 2/2. Framed as calibration, never emotion. Retry **this phase only**.
+8. **ProcessingBaselineScreen** — *securing ritual (gold).* `ProcessingOrb` swirl + "Securing your unique baseline…" + large `%` + local-only footnote. Min 1.8s ritual; error → Recovery/Retry.
+9. **FaceDetectionRecoveryScreen** — *graceful recovery (cyan).* Cyan scan frame over preview + "Finding your rhythm" + fix checklist (lighting / glasses-masks / centered) + **cyan** `Try Again` (resumes nearest phase) + `Need help?`. Supportive, never blaming.
+10. **BaselineEstablishedScreen** — *success (gold).* Gold vignette + gold-edge `BaselineSuccessCard` (checkmark + "Baseline Established" + secured/encrypted/resonance copy) + **gold** `Enter TENKI`. Success haptic + checkmark bloom.
+11. **BaselineMaturityProgressScreen** — *ongoing growth (cyan+gold).* Circuit bg + `ResonanceOrb` + `MaturityProgressBar` (New/Building/Ready/Mature) + `x/5 scans` + gold `TechnicalInsightCard` + `ScanHistoryRow` list + **gold** `Start Daily Scan`. The reusable post-baseline home for the feature.
+
+Each screen's empty/loading/error states are tabulated in the state machine (Task 6).
+
+---
+
+## TASK 3 — User journey
+
+| Step | User goal | System goal | Trust mechanism | Friction risk | Emotional state |
+|------|-----------|-------------|-----------------|---------------|-----------------|
+| Intro | Understand what's about to happen | Set expectation, get buy-in | 60s time-cost chip, "encrypted, on-device" | "another setup" fatigue | curious, cautious |
+| Why-Baseline | Understand *why* it matters | Justify the ask | resonance metaphor, privacy line | too much reading | reassured, intrigued |
+| Secure-Access | Decide to grant camera | Earn permission *before* OS prompt | gold shield, 3 privacy guarantees | permission anxiety | guarded → willing |
+| Environment | Get conditions right | Maximize capture quality | live checks = transparency | failing a check feels like blame | focused |
+| Face-Lock | Be recognized | Acquire stable lock | Face-ID-style snap + haptic | lock not catching | anticipation |
+| Capture (neutral/motion) | Hold still / follow cue | Collect clean signal | one calm instruction, privacy pill | boredom, motion anxiety | calm, immersed |
+| Processing | Wait, trust it's safe | Compute + write locally | "securing… stored locally" | impatience | reverent wait |
+| Recovery | Fix and continue | Re-acquire without restart | supportive copy, partial retry | feeling of failure | recover, not defeated |
+| Success | Feel it worked | Confirm + hand off | gold secured card, encrypted copy | anticlimax | accomplished, proud |
+| Maturity | See it improving | Drive daily return | resonance orb growth, insights | dashboard fatigue | invested, returning |
+
+Trust arc: **expectation → rationale → guarantee → transparency → precision → care → celebration → growth.**
+
+---
+
+## TASK 4 — React Native / Expo screen tree
 
 ```
 apps/mobile/features/face-baseline/
-├─ index.ts                              # public barrel (screens + navigator)
-├─ FaceBaselineNavigator.tsx             # stack wiring + transitions + guards
-├─ SPEC.md                               # this document
+├─ FaceBaselineNavigator.tsx          # stack + transitions + guards
+├─ index.ts · SPEC.md
 ├─ screens/
-│  ├─ EstablishBaselineIntroScreen.tsx
-│  ├─ EnvironmentCalibrationScreen.tsx
-│  ├─ FaceLockPreparationScreen.tsx
-│  ├─ BaselineCaptureNeutralScreen.tsx
-│  ├─ BaselineCaptureMotionScreen.tsx
-│  ├─ ProcessingBaselineScreen.tsx
-│  ├─ BaselineConfirmedScreen.tsx
-│  └─ RetryOrAdjustmentScreen.tsx
+│  ├─ onboarding/                     # one-time
+│  │  ├─ EstablishBaselineIntroScreen.tsx
+│  │  ├─ WhyBaselineMattersCarouselScreen.tsx
+│  │  ├─ SecureAccessRequiredScreen.tsx
+│  │  ├─ EnvironmentCalibrationScreen.tsx
+│  │  ├─ FaceLockPreparationScreen.tsx
+│  │  ├─ BaselineCaptureNeutralScreen.tsx
+│  │  ├─ BaselineCaptureMotionScreen.tsx
+│  │  ├─ ProcessingBaselineScreen.tsx
+│  │  ├─ FaceDetectionRecoveryScreen.tsx
+│  │  └─ BaselineEstablishedScreen.tsx
+│  └─ ongoing/                        # reusable post-baseline
+│     └─ BaselineMaturityProgressScreen.tsx
 ├─ components/
-│  ├─ background/
-│  │  ├─ CosmicBackground.tsx            # Skia nebula + stars, mode-driven
-│  │  └─ StarfieldLayer.tsx
-│  ├─ frame/
-│  │  ├─ FaceScanFrame.tsx               # square | tracking | locked | halo
-│  │  ├─ CornerBrackets.tsx
-│  │  ├─ FaceLockBadge.tsx
-│  │  └─ ProgressHalo.tsx                # Skia sweeping arc
-│  ├─ capture/
-│  │  ├─ SoulParticleMesh.tsx            # Skia gold stardust over face
-│  │  ├─ MotionGuideCue.tsx
-│  │  ├─ CaptureInstruction.tsx
-│  │  ├─ QualityStatusPills.tsx
-│  │  └─ SegmentedProgress.tsx
-│  ├─ processing/
-│  │  ├─ ProcessingOrb.tsx               # Skia orbiting gold rings
-│  │  └─ PercentCounter.tsx              # Reanimated tabular counter
-│  ├─ confirm/
-│  │  ├─ BaselineSuccessPanel.tsx
-│  │  └─ BaselineMaturityMeter.tsx
-│  ├─ env/
-│  │  ├─ EnvironmentChecklist.tsx
-│  │  └─ ChecklistRow.tsx
-│  ├─ retry/
-│  │  └─ RetryReasonCard.tsx
-│  └─ shared/
-│     ├─ GlowPrimaryButton.tsx
-│     ├─ GhostButton.tsx
-│     ├─ BaselineHeroCopy.tsx
-│     ├─ PrivacyAssuranceRow.tsx
-│     ├─ PrivacyLockPill.tsx
-│     ├─ TimeCostChip.tsx
-│     ├─ PrivacyFootnote.tsx
-│     └─ NavBar.tsx
-├─ hooks/
-│  ├─ useFaceBaselineMachine.ts          # XState/typed-FSM bridge → store
-│  ├─ useCameraPermission.ts
-│  ├─ useFaceDetector.ts                 # vision-camera frame processor wrapper
-│  ├─ useEnvironmentChecks.ts            # lighting/distance/stability derivation
-│  ├─ useQualityMetrics.ts               # SQI / motion / coverage stream
-│  ├─ useReducedMotion.ts
-│  └─ useBaselineHaptics.ts
-├─ store/
-│  ├─ faceBaselineStore.ts               # Zustand (Task 5)
-│  └─ selectors.ts                       # derived selectors
-├─ machine/
-│  ├─ faceBaselineMachine.ts             # state machine (Task 6)
-│  └─ transitions.ts                     # guards/conditions
-├─ utils/
-│  ├─ qualityThresholds.ts
-│  ├─ retryReason.ts                     # metrics → RetryReason mapping
-│  ├─ progress.ts                        # phase-weighted progress math
-│  └─ confidence.ts                      # baseline confidence + maturity calc
-├─ tokens/
-│  └─ faceBaseline.tokens.ts             # Task 7 tokens (extends TENKI_THEME)
-└─ types/
-   ├─ faceBaseline.types.ts
-   └─ index.ts
+│  ├─ background/  CosmicBackground · StarfieldLayer · CircuitTraceLayer
+│  ├─ glass/       GlassInfoCard · GlassCardBorder
+│  ├─ frame/       FaceScanFrame · CornerBrackets · FaceLockBadge · ProgressHalo
+│  ├─ capture/     SoulParticleMesh · MotionGuideCue · CaptureInstruction · QualityStatusPills · SegmentedProgress
+│  ├─ processing/  ProcessingOrb · PercentCounter
+│  ├─ resonance/   ResonanceWaveGlyph · ResonanceOrb
+│  ├─ education/   WhyBaselineCarousel · CarouselDots
+│  ├─ permission/  TrustShield · PrivacyAssuranceList
+│  ├─ env/         EnvironmentChecklist · ChecklistRow
+│  ├─ recovery/    RecoveryHelpPanel · RecoveryChecklist
+│  ├─ success/     BaselineSuccessCard
+│  ├─ maturity/    MaturityProgressBar · ScanHistoryRow · TechnicalInsightCard
+│  └─ shared/      GlowPrimaryButton · GhostButton · BaselineHeroCopy · BrandWordmark · PrivacyLockPill · TimeCostChip · PrivacyFootnote · NavBar
+├─ hooks/   useFaceBaselineMachine · useCameraPermission · useFaceDetector · useEnvironmentChecks · useQualityMetrics · useBaselineMaturity · useReducedMotion · useBaselineHaptics
+├─ store/   faceBaselineStore.ts · maturityStore.ts · selectors.ts
+├─ machine/ faceBaselineMachine.ts · transitions.ts
+├─ animations/ glowPulse.ts · lockSnap.ts · particleStabilize.ts · orbSwirl.ts · haloSweep.ts · carouselSpring.ts · maturityFill.ts
+├─ tokens/  faceBaseline.tokens.ts
+├─ utils/   qualityThresholds · retryReason · progress · confidence · maturityStage
+└─ types/   faceBaseline.types.ts · index.ts
+```
+`screens/onboarding/` runs once; `screens/ongoing/` + `components/maturity` + `components/resonance` are the durable post-baseline surface reused by daily scan.
+
+---
+
+## TASK 5 — Component architecture
+
+> TS strict, no `any`. Skia (nebula, glyphs, orbs, particles, halos). Reanimated 3. Tokens from `faceBaseline.tokens.ts`. All animated comps honor `useReducedMotion()`.
+
+| Component | Responsibility | Key props | Variants/States | Animation | Reuse |
+|-----------|----------------|-----------|-----------------|-----------|-------|
+| **CosmicBackground** | world mood per screen | `mode: deepNebula\|dim\|captureWarm\|processing\|circuit\|success\|faint` | per mode | slow star drift, 600ms cross-fade | ✅ app-wide |
+| **CircuitTraceLayer** | maturity-page tech traces | `intensity` | static/animated | faint trace shimmer | ✅ tech surfaces |
+| **GlassInfoCard** | frosted content card | `edge: cyan\|gold`, `title`, `children` | educational / trust / insight | mount fade+rise | ✅ everywhere |
+| **GlowPrimaryButton** | signature capsule CTA | `label`, `accent: cyan\|gold`, `disabled`, `loading`, `glow` | idle/pressed/disabled/loading | breathing glow, press 0.97 | ✅ all CTAs |
+| **GhostButton** | secondary/text | `variant: ghost\|text`, `tone` | — | opacity press | ✅ |
+| **BrandWordmark** | `TENKI` top wordmark | `align` | — | fade-in | ✅ |
+| **BaselineHeroCopy** | hero title + body | `title`, `body`, `emphasis` | title-only/with-body | staggered rise | ✅ |
+| **ResonanceWaveGlyph** | cyan interlaced-wave brand motif | `size`, `animated` | static/animated | slow phase oscillation | ✅ brand |
+| **WhyBaselineCarousel** + **CarouselDots** | swipeable educational pages | `pages[]`, `index` | per page | spring page slide, dot morph | ⚠️ onboarding |
+| **TrustShield** | gold permission emblem | `state: idle\|granted` | idle/granted | glow breath, grant pulse | ✅ trust moments |
+| **PrivacyAssuranceList** | numbered privacy guarantees | `items[]` | — | stagger in | ✅ paywall/settings |
+| **EnvironmentChecklist** + **ChecklistRow** | live pass/fail checks | `checks[]` / `status` | pass/fail/pending | flip micro-bounce, fail shake | ✅ daily readiness |
+| **FaceScanFrame** + **CornerBrackets** + **FaceLockBadge** | precision frame morph | `shape: square\|halo`, `state: idle\|tracking\|locked\|capturing` | 4 states | bracket track, lock snap+bloom | ✅ daily scan |
+| **SoulParticleMesh** | gold stardust on face | `landmarks`, `stability`, `phase`, `paused` | scattered↔crystallized | converge/scatter, additive bloom | ✅ daily scan signature |
+| **MotionGuideCue** | head-turn cue | `direction`, `progress` | left/right/blink | arc sweep loop | ⚠️ flow |
+| **CaptureInstruction** | single dominant instruction | `text`, `tone` | — | cross-fade on change | ✅ |
+| **QualityStatusPills** | exactly ONE active nudge | `status`, `visible` | good/movement/lowLight/reframe | slide-fade | ✅ |
+| **SegmentedProgress** | 2-segment capture bar | `progress`, `segments`, `paused` | filling/paused | spring fill | ✅ |
+| **ProgressHalo** | sweeping arc around subject | `progress`, `accent`, `breathing` | cyan/gold | arc sweep + bloom | ✅ |
+| **ProcessingOrb** + **PercentCounter** | securing ritual | `progress`, `intensity` | swirl→accelerate | 3-axis orbit, count-up | ✅ |
+| **RecoveryHelpPanel** + **RecoveryChecklist** | supportive retry | `reason`, `onTryAgain`, `onHelp` | per reason | gentle rise, emphasis pulse | ⚠️ flow |
+| **BaselineSuccessCard** | gold secured confirmation | `title`, `body`, `onEnter` | — | checkmark draw + bloom | ✅ completion |
+| **ResonanceOrb** | maturity living-orb | `stage`, `progress` | New/Building/Ready/Mature | core spin, gold accrual per stage | ✅ daily home |
+| **MaturityProgressBar** | 4-stage segmented | `stage`, `scansCompleted`, `scansRequired` | per stage | stage-fill spring | ✅ |
+| **ScanHistoryRow** | history line | `time`, `label`, `type: updated\|refined` | — | row fade-in | ✅ |
+| **TechnicalInsightCard** | gold insight card | `text` | — | mount rise | ✅ |
+| **PrivacyLockPill / PrivacyFootnote / TimeCostChip** | trust cues | text/seconds | — | fade | ✅ |
+
+---
+
+## TASK 6 — State machine
+
+States: `intro · why_baseline · permission_rationale · permission_prompt · permission_denied · environment_check · face_detecting · face_locked · neutral_capture · motion_capture · processing · success · retry_needed · maturity_progress · exit`.
+
+```ts
+// machine/faceBaselineMachine.ts (XState v5 shape, abbreviated)
+createMachine({
+  id: 'faceBaseline', initial: 'intro',
+  states: {
+    intro:               { on: { BEGIN: 'permission_rationale', WHY: 'why_baseline', EXIT: 'exit' } },
+    why_baseline:        { on: { DONE: 'permission_rationale', BACK: 'intro' } },
+    permission_rationale:{ on: { ENABLE: 'permission_prompt', LEARN: 'why_baseline', BACK: 'intro' } },
+    permission_prompt:   { on: { GRANTED: 'environment_check', DENIED: 'permission_denied' } },
+    permission_denied:   { on: { RETRY: 'permission_prompt', SETTINGS: 'permission_denied', EXIT: 'exit' } },
+    environment_check:   { on: { ALL_PASS: 'face_detecting', CANCEL: 'exit' } },
+    face_detecting:      { on: { LOCKED: 'face_locked', TIMEOUT: 'retry_needed', CANCEL: 'exit' } },
+    face_locked:         { on: { STABLE: 'neutral_capture', LOST: 'face_detecting' } },
+    neutral_capture:     { on: { NEUTRAL_DONE: 'motion_capture', QUALITY_FAIL: 'retry_needed', LOST: 'face_detecting', CANCEL: 'exit' } },
+    motion_capture:      { on: { MOTION_DONE: 'processing', QUALITY_FAIL: 'retry_needed', LOST: 'face_detecting', CANCEL: 'exit' } },
+    processing:          { on: { COMPUTED: 'success', COMPUTE_ERROR: 'retry_needed' } },
+    success:             { on: { ENTER: 'maturity_progress' } },
+    retry_needed:        { on: { RESUME: 'face_detecting', RESTART: 'intro', HELP: 'retry_needed', EXIT: 'exit' } },
+    maturity_progress:   { on: { START_SCAN: 'face_detecting', LEAVE: 'exit' } }, // re-entrant daily home
+    exit:                { type: 'final' },
+  },
+});
 ```
 
-Reusable-UI (`components/shared`, `frame/ProgressHalo`, `capture/SoulParticleMesh`, `processing/ProcessingOrb`) is flow-agnostic and promoted to daily-scan later. Flow logic stays in `screens/`, `machine/`, `store/`, `hooks/`.
+| State | Entry | UI mode | Success → | Failure → | Retry | Timeout | Back |
+|-------|-------|---------|-----------|-----------|-------|---------|------|
+| intro | flow opened | Intro | BEGIN | — | — | — | exit |
+| why_baseline | Why tapped | Carousel | last page DONE | — | — | — | intro |
+| permission_rationale | BEGIN/ENABLE | Secure-Access | ENABLE | — | — | — | intro |
+| permission_prompt | Enable | OS sheet | GRANTED | DENIED | re-prompt | — | rationale |
+| permission_denied | denied | rationale + Settings | re-grant | — | RETRY/SETTINGS | — | exit |
+| environment_check | granted | Environment | all pass | hold until pass | recheck failing only | — | exit (Cancel) |
+| face_detecting | env ready | Face-Lock prep | LOCKED | re-hint | re-detect | 15s → retry(noFace) | environment |
+| face_locked | locked | lock badge | STABLE ~600ms | LOST → detecting | re-lock | — | environment |
+| neutral_capture | stable | Capture-Neutral | progress=1 | quality fail → retry | resume **keep %** | pause (no reset) | discard sheet |
+| motion_capture | neutral done | Capture-Motion | progress=1 | quality fail → retry | resume **motion only** | pause | discard sheet |
+| processing | motion done | Processing orb | COMPUTED | error → retry | restart processing | min 1.8s ritual | block (or discard) |
+| success | baseline written | Success card | ENTER | — | — | — | done |
+| retry_needed | any failure | Recovery | RESUME nearest | — | partial recapture | — | RESTART → intro |
+| maturity_progress | success/daily | Maturity | START_SCAN | — | — | — | leave |
+| exit | cancel/deny | — | — | — | — | — | — |
+
+**Partial recapture:** neutral data held in store until processing succeeds → motion retries never re-capture neutral; Recovery `Try Again` resumes the **nearest failed phase**, not the whole flow.
+**After failed lock:** → `face_detecting` (re-hint), or after timeout → `retry_needed` with supportive Recovery (never a hard error).
+**After success:** baseline written locally → `maturity_progress` becomes the re-entrant home.
+**Maturity evolution:** `scansCompleted` increments per daily scan → `maturityStage` advances New→Building→Ready→Mature via thresholds (Task 7 `maturityStage()`), `baselineConfidence` rises asymptotically (Welford in `packages/engine`).
 
 ---
 
-## TASK 4 — Component architecture
-
-> Conventions: TS strict, no `any`. Skia for rings/particles/nebula. Reanimated 3 for motion. Tokens from `faceBaseline.tokens.ts`. All glow/particle components honor `useReducedMotion()`.
-
-### CosmicBackground
-- **Responsibility:** full-bleed Skia nebula + starfield; sets the world mood per screen.
-- **Props:** `mode: 'deepNebula' | 'dim' | 'captureWarm' | 'processing' | 'faint'`, `intensity?: number`, `children?`.
-- **Variants:** cool nebula / dimmed / warm-vignette / processing / faint.
-- **Animation:** ultra-slow star drift + nebula parallax (EWMA-slow). Mode change cross-fades 600ms.
-- **Reusable:** ✅ app-wide background primitive.
-
-### BaselineHeroCopy
-- **Responsibility:** centered hero title + body block.
-- **Props:** `title: string`, `body?: string`, `align?: 'center'`, `emphasis?: 'cool' | 'warm'`.
-- **Variants:** title-only / title+body.
-- **Animation:** staggered fade+rise (title then body, 80ms offset).
-- **Reusable:** ✅ any onboarding/empty state.
-
-### GlowPrimaryButton
-- **Responsibility:** the signature glowing capsule CTA.
-- **Props:** `label`, `onPress`, `disabled?`, `loading?`, `glow?: boolean`, `accent?: 'cool' | 'warm'`, `testID?`.
-- **Variants:** idle / pressed / disabled (30%, glow off) / loading (inline spinner).
-- **Animation:** idle breathing glow (2.4s loop); press scale 0.97 + glow intensify; disabled→enabled glow-in 240ms.
-- **Reusable:** ✅ primary CTA everywhere.
-
-### GhostButton / TextLink
-- **Responsibility:** secondary/tertiary actions.
-- **Props:** `label`, `onPress`, `variant: 'ghost' | 'text'`, `tone?`.
-- **Animation:** opacity press feedback only.
-- **Reusable:** ✅.
-
-### PrivacyAssuranceRow
-- **Responsibility:** inline lock + "encrypted, stored only on your device" trust line.
-- **Props:** `text?`, `icon?: 'lock' | 'shield'`.
-- **Variants:** row / compact.
-- **Animation:** none (restrained).
-- **Reusable:** ✅ paywall, settings, scan.
-
-### TimeCostChip
-- **Responsibility:** `⏱ 60 Seconds` expectation chip.
-- **Props:** `seconds: number`, `label?`.
-- **Animation:** fade-in only.
-- **Reusable:** ✅ any timed flow.
-
-### EnvironmentChecklist + ChecklistRow
-- **Responsibility:** live pass/fail of Lighting / Distance / Stability.
-- **Props (list):** `checks: EnvCheck[]`. **(row):** `icon`, `label`, `status: 'pass' | 'fail' | 'pending'`, `hint?`.
-- **Variants:** pass (mint✓) / fail (coral✗) / pending (spinner).
-- **Animation:** status flip micro-bounce + color tween; fail = subtle shake once.
-- **Reusable:** ✅ daily-scan readiness check.
-
-### FaceScanFrame
-- **Responsibility:** the precision frame; morphs across phases.
-- **Props:** `shape: 'square' | 'halo'`, `state: 'idle' | 'tracking' | 'locked' | 'capturing'`, `quality?: number`, `children?` (camera preview).
-- **Variants:** square-idle, square-tracking (blue), square-locked (mint), halo-capturing (gold).
-- **Animation:** corner-bracket tracking follow; lock snap-in (scale 1.06→1.0 + bloom); halo ring rotate.
-- **Reusable:** ✅ central to daily face scan.
-
-### CornerBrackets / FaceLockBadge
-- **CornerBrackets:** 4 L-brackets, color/length react to `state`. Reusable ✅.
-- **FaceLockBadge:** the "locked" confirmation glyph (Face-ID-style). Snap-in + haptic. Reusable ✅.
-
-### SoulParticleMesh
-- **Responsibility:** gold stardust mesh mapped to face landmarks — "your living signal."
-- **Props:** `landmarks?: FaceLandmarks`, `stability: number` (0–1), `phase: 'neutral' | 'motion'`, `paused?`.
-- **Variants:** scattered (low stability) ↔ crystallized (high stability).
-- **Animation:** particles converge to mesh as stability rises; scatter on drop; additive bloom. **Reduced-motion:** static low-density mesh, no churn.
-- **Reusable:** ✅ premium daily-scan signature (keep the "feel" per CLAUDE.md v25.8.2).
-
-### MotionGuideCue
-- **Responsibility:** subtle directional cue for the micro-motion phase.
-- **Props:** `direction: 'left' | 'right' | 'blink'`, `progress`.
-- **Animation:** gentle arc sweep; loops until satisfied.
-- **Reusable:** ⚠️ flow-specific.
-
-### CaptureInstruction
-- **Responsibility:** single dominant instruction line (one message at a time — UX rule).
-- **Props:** `text`, `tone?: 'cool' | 'warm'`, `emphasis?`.
-- **Animation:** cross-fade on text change (no stacking).
-- **Reusable:** ✅.
-
-### QualityStatusPills
-- **Responsibility:** at most ONE active quality nudge ("Hold still", "More light").
-- **Props:** `status: QualityStatus`, `visible`.
-- **Variants:** good (hidden) / single-issue pill.
-- **Animation:** slide-fade; never show multiple.
-- **Reusable:** ✅.
-
-### SegmentedProgress
-- **Responsibility:** thin 2-segment bar (neutral → motion).
-- **Props:** `progress: number` (0–1), `segments: number`, `paused?`.
-- **Animation:** spring fill; pause = dim, no reset.
-- **Reusable:** ✅.
-
-### ProgressHalo
-- **Responsibility:** Skia sweeping arc around frame/orb — hero progress.
-- **Props:** `progress`, `radius`, `accent: 'cool' | 'warm'`, `breathing?`.
-- **Animation:** arc sweep + breathing bloom.
-- **Reusable:** ✅.
-
-### ProcessingOrb
-- **Responsibility:** gold orbiting-rings sphere — the ritual.
-- **Props:** `progress`, `intensity?`.
-- **Variants:** swirl-slow → swirl-accelerate (near 100%).
-- **Animation:** continuous 3-axis ring orbit; accelerate + brighten at completion. **Reduced-motion:** slow single pulse.
-- **Reusable:** ✅ any "computing locally" moment.
-
-### PercentCounter
-- **Responsibility:** large tabular animated `%`.
-- **Props:** `value`, `accent`.
-- **Animation:** count-up eased to value; tabular nums.
-- **Reusable:** ✅.
-
-### PrivacyLockPill / PrivacyFootnote
-- Lock pill (`PRIVACY SECURED`) and processing footnote (`processed & stored locally`). Restrained, no glow. Reusable ✅.
-
-### BaselineSuccessPanel
-- **Responsibility:** cool checkmark bloom + confirmation.
-- **Props:** `title`, `subtitle`, `onContinue`.
-- **Animation:** checkmark draw + bloom pulse + success haptic.
-- **Reusable:** ✅ any completion.
-
-### BaselineMaturityMeter
-- **Responsibility:** show baseline confidence + "improves with use" (maturity), no score framing.
-- **Props:** `confidence: number` (0–1), `maturity: 'initial' | 'developing' | 'established'`.
-- **Variants:** by maturity stage.
-- **Animation:** fill-in once.
-- **Reusable:** ✅ profile/baseline status.
-
-### RetryReasonCard
-- **Responsibility:** one human reason + the smallest corrective action.
-- **Props:** `reason: RetryReason`, `onTryAgain`, `onRestart`.
-- **Variants:** per reason (lighting / movement / no-face / lost-lock / timeout).
-- **Reusable:** ⚠️ flow-specific.
-
----
-
-## TASK 5 — Zustand store
+## TASK 7 — Zustand store
 
 ```ts
 // store/faceBaselineStore.ts
 import { create } from 'zustand';
 
 export type FlowStep =
-  | 'intro' | 'environment' | 'faceLock'
-  | 'captureNeutral' | 'captureMotion'
-  | 'processing' | 'confirmed' | 'retry';
+  | 'intro' | 'why_baseline' | 'permission_rationale' | 'permission_prompt' | 'permission_denied'
+  | 'environment_check' | 'face_detecting' | 'face_locked'
+  | 'neutral_capture' | 'motion_capture' | 'processing'
+  | 'success' | 'retry_needed' | 'maturity_progress' | 'exit';
 
 export type PermissionState = 'unknown' | 'prompt' | 'granted' | 'denied' | 'blocked';
-
-export interface EnvironmentChecks {
-  lighting: boolean;
-  distance: boolean;
-  stability: boolean;
-}
-
 export type FaceLockState = 'searching' | 'tracking' | 'locked' | 'lost';
 export type CapturePhase = 'idle' | 'neutral' | 'motion' | 'done';
 export type ProcessingStatus = 'idle' | 'running' | 'success' | 'error';
-export type BaselineMaturity = 'none' | 'initial' | 'developing' | 'established';
-
+export type MaturityStage = 'new' | 'building' | 'ready' | 'mature';
 export type RetryReason =
   | 'lowLight' | 'tooClose' | 'tooFar' | 'movement'
-  | 'noFace' | 'multipleFaces' | 'lostLock' | 'timeout' | 'computeError';
+  | 'noFace' | 'multipleFaces' | 'glasses' | 'lostLock' | 'timeout' | 'computeError';
 
-export interface QualityMetrics {
-  sqi: number;        // 0–1 signal quality index
-  motion: number;     // 0–1 (lower better)
-  coverage: number;   // 0–1 face-in-frame
-  brightness: number; // 0–1
-}
+export interface EnvironmentChecks { lighting: boolean; distance: boolean; stability: boolean; }
+export interface QualityMetrics { sqi: number; motion: number; coverage: number; brightness: number; }
+export interface RefinementEntry { at: number; label: string; type: 'updated' | 'refined'; }
 
 export interface FaceBaselineState {
   step: FlowStep;
   permission: PermissionState;
-  env: EnvironmentChecks;
-  envReady: boolean;
+  env: EnvironmentChecks; envReady: boolean;
   faceLock: FaceLockState;
   capturePhase: CapturePhase;
   quality: QualityMetrics;
-  neutralProgress: number;   // 0–1
-  motionProgress: number;    // 0–1
-  processingStatus: ProcessingStatus;
-  processingProgress: number; // 0–1
+  neutralProgress: number; motionProgress: number;
+  processingStatus: ProcessingStatus; processingProgress: number;
   retryReason: RetryReason | null;
-  baselineConfidence: number; // 0–1
-  baselineMaturity: BaselineMaturity;
-  completed: boolean;
+  baselineConfidence: number;          // 0–1
+  baselineEstablished: boolean;
+  baselineMaturity: MaturityStage;
+  scanCount: number;                   // scans completed toward maturity
+  scansRequired: number;               // per current stage (e.g. 5)
+  refinementHistory: RefinementEntry[];
   startedAt: number | null;
   reducedMotion: boolean;
 
   // actions
-  goTo: (step: FlowStep) => void;
+  goTo: (s: FlowStep) => void;
   setPermission: (p: PermissionState) => void;
   updateEnv: (patch: Partial<EnvironmentChecks>) => void;
   setFaceLock: (s: FaceLockState) => void;
@@ -468,32 +278,32 @@ export interface FaceBaselineState {
   setNeutralProgress: (v: number) => void;
   setMotionProgress: (v: number) => void;
   setProcessing: (status: ProcessingStatus, progress?: number) => void;
-  setRetry: (reason: RetryReason) => void;
-  clearRetry: () => void;
-  completeBaseline: (confidence: number, maturity: BaselineMaturity) => void;
+  setRetry: (r: RetryReason) => void; clearRetry: () => void;
+  establishBaseline: (confidence: number) => void;
+  recordScan: (entry: RefinementEntry) => void;
   reset: () => void;
 }
 
 const QUALITY_OK = { sqi: 0.7, motion: 0.35, coverage: 0.8, brightness: 0.45 } as const;
+const STAGE_THRESHOLDS = { new: 0, building: 1, ready: 5, mature: 15 } as const;
+
+export const maturityStage = (scans: number): MaturityStage =>
+  scans >= STAGE_THRESHOLDS.mature ? 'mature'
+  : scans >= STAGE_THRESHOLDS.ready ? 'ready'
+  : scans >= STAGE_THRESHOLDS.building ? 'building' : 'new';
 
 const initialState = {
-  step: 'intro' as FlowStep,
-  permission: 'unknown' as PermissionState,
-  env: { lighting: false, distance: false, stability: false },
-  envReady: false,
-  faceLock: 'searching' as FaceLockState,
-  capturePhase: 'idle' as CapturePhase,
+  step: 'intro' as FlowStep, permission: 'unknown' as PermissionState,
+  env: { lighting: false, distance: false, stability: false }, envReady: false,
+  faceLock: 'searching' as FaceLockState, capturePhase: 'idle' as CapturePhase,
   quality: { sqi: 0, motion: 1, coverage: 0, brightness: 0 },
-  neutralProgress: 0,
-  motionProgress: 0,
-  processingStatus: 'idle' as ProcessingStatus,
-  processingProgress: 0,
+  neutralProgress: 0, motionProgress: 0,
+  processingStatus: 'idle' as ProcessingStatus, processingProgress: 0,
   retryReason: null as RetryReason | null,
-  baselineConfidence: 0,
-  baselineMaturity: 'none' as BaselineMaturity,
-  completed: false,
-  startedAt: null as number | null,
-  reducedMotion: false,
+  baselineConfidence: 0, baselineEstablished: false,
+  baselineMaturity: 'new' as MaturityStage, scanCount: 0, scansRequired: 5,
+  refinementHistory: [] as RefinementEntry[],
+  startedAt: null as number | null, reducedMotion: false,
 };
 
 export const useFaceBaselineStore = create<FaceBaselineState>((set) => ({
@@ -511,300 +321,231 @@ export const useFaceBaselineStore = create<FaceBaselineState>((set) => ({
   setMotionProgress: (motionProgress) => set({ motionProgress }),
   setProcessing: (processingStatus, processingProgress) =>
     set((s) => ({ processingStatus, processingProgress: processingProgress ?? s.processingProgress })),
-  setRetry: (retryReason) => set({ retryReason, step: 'retry' }),
+  setRetry: (retryReason) => set({ retryReason, step: 'retry_needed' }),
   clearRetry: () => set({ retryReason: null }),
-  completeBaseline: (baselineConfidence, baselineMaturity) =>
-    set({ baselineConfidence, baselineMaturity, completed: true, step: 'confirmed', processingStatus: 'success' }),
+  establishBaseline: (baselineConfidence) =>
+    set({ baselineConfidence, baselineEstablished: true, processingStatus: 'success', step: 'success' }),
+  recordScan: (entry) => set((s) => {
+    const scanCount = s.scanCount + 1;
+    return { scanCount, baselineMaturity: maturityStage(scanCount),
+      refinementHistory: [entry, ...s.refinementHistory].slice(0, 20) };
+  }),
   reset: () => set({ ...initialState }),
 }));
 
-// store/selectors.ts — derived
-export const selectQualityOk = (s: FaceBaselineState): boolean =>
-  s.quality.sqi >= QUALITY_OK.sqi &&
-  s.quality.motion <= QUALITY_OK.motion &&
-  s.quality.coverage >= QUALITY_OK.coverage &&
-  s.quality.brightness >= QUALITY_OK.brightness;
-
-export const selectTotalProgress = (s: FaceBaselineState): number =>
-  s.step === 'processing' ? s.processingProgress
-  : (s.neutralProgress * 0.6 + s.motionProgress * 0.4);
-
-export const selectCanStartScan = (s: FaceBaselineState): boolean =>
-  s.permission === 'granted' && s.envReady;
-
+// selectors.ts
+export const selectQualityOk = (s: FaceBaselineState) =>
+  s.quality.sqi >= QUALITY_OK.sqi && s.quality.motion <= QUALITY_OK.motion &&
+  s.quality.coverage >= QUALITY_OK.coverage && s.quality.brightness >= QUALITY_OK.brightness;
+export const selectTotalProgress = (s: FaceBaselineState) =>
+  s.step === 'processing' ? s.processingProgress : s.neutralProgress * 0.6 + s.motionProgress * 0.4;
+export const selectCanStartScan = (s: FaceBaselineState) => s.permission === 'granted' && s.envReady;
 export const selectActiveQualityStatus = (s: FaceBaselineState):
-  'good' | 'movement' | 'lowLight' | 'reframe' => {
-  if (s.quality.motion > QUALITY_OK.motion) return 'movement';
-  if (s.quality.brightness < QUALITY_OK.brightness) return 'lowLight';
-  if (s.quality.coverage < QUALITY_OK.coverage) return 'reframe';
-  return 'good';
-};
+  'good' | 'movement' | 'lowLight' | 'reframe' =>
+  s.quality.motion > QUALITY_OK.motion ? 'movement'
+  : s.quality.brightness < QUALITY_OK.brightness ? 'lowLight'
+  : s.quality.coverage < QUALITY_OK.coverage ? 'reframe' : 'good';
+export const selectMaturityRatio = (s: FaceBaselineState) =>
+  Math.min(1, s.scanCount / Math.max(1, s.scansRequired));
 ```
 
 ---
 
-## TASK 6 — State machine
-
-States: `intro → permission_check → environment_check → face_detecting → face_locked → neutral_capture → motion_capture → processing → confirmed`, plus `retry_needed` and `exit`. Retry resumes the **nearest** phase, not a full restart.
-
-```ts
-// machine/faceBaselineMachine.ts (XState v5 shape, abbreviated)
-export const faceBaselineMachine = createMachine({
-  id: 'faceBaseline',
-  initial: 'intro',
-  states: {
-    intro:            { on: { BEGIN: 'permission_check', EXIT: 'exit' } },
-    permission_check: { on: { GRANTED: 'environment_check', DENIED: 'exit', BLOCKED: 'exit' } },
-    environment_check:{ on: { ALL_PASS: 'face_detecting', CANCEL: 'exit' } },
-    face_detecting:   { on: { LOCKED: 'face_locked', TIMEOUT: 'retry_needed', LOST: 'face_detecting', CANCEL: 'exit' } },
-    face_locked:      { on: { STABLE: 'neutral_capture', LOST: 'face_detecting' } },
-    neutral_capture:  { on: { NEUTRAL_DONE: 'motion_capture', QUALITY_FAIL: 'retry_needed', LOST: 'face_detecting', CANCEL: 'exit' } },
-    motion_capture:   { on: { MOTION_DONE: 'processing', QUALITY_FAIL: 'retry_needed', LOST: 'face_detecting', CANCEL: 'exit' } },
-    processing:       { on: { COMPUTED: 'confirmed', COMPUTE_ERROR: 'retry_needed' } },
-    confirmed:        { type: 'final' },
-    retry_needed:     { on: { RESUME: 'face_detecting', RESTART: 'intro', EXIT: 'exit' } },
-    exit:             { type: 'final' },
-  },
-});
-```
-
-| State | Entry condition | Visible UI | Success | Failure | Timeout | Back-out | Partial retry |
-|-------|-----------------|-----------|---------|---------|---------|----------|---------------|
-| **intro** | flow opened | Intro screen | tap Begin | — | — | leave flow | — |
-| **permission_check** | Begin tapped | OS prompt / sheet | granted | denied/blocked → exit w/ Settings | — | dismiss → intro | — |
-| **environment_check** | permission granted | Environment screen | all 3 pass | stays until pass | — | Cancel → exit | re-check only failing item |
-| **face_detecting** | env ready | Face-Lock prep (square reticle) | stable face → locked | no/many faces re-hint | 15s → retry(noFace/timeout) | back → environment | re-detect |
-| **face_locked** | face locked | locked badge | hold ~600ms stable | lock lost → face_detecting | — | back → environment | re-lock |
-| **neutral_capture** | lock stable | Capture-Neutral (gold) | progress=1 | quality fail → retry(movement/light) | progress pauses, not reset | back → confirm-discard sheet | resume neutral, **keep captured %** |
-| **motion_capture** | neutral done | Capture-Motion | progress=1 | quality fail → retry | pause | back → discard sheet | resume **motion only**, neutral kept |
-| **processing** | motion done | Processing orb | compute ok → confirmed | error → retry(computeError) | min 1.8s ritual | block back (or discard) | restart processing |
-| **confirmed** | baseline written | Confirmed | hand-off to scan | — | — | done | — |
-| **retry_needed** | any failure | Retry screen | Try again → resume nearest | — | — | Restart → intro | **resumes failed phase** |
-| **exit** | cancel/deny | — | — | — | — | — | — |
-
-Back-out rule: leaving mid-capture shows a **discard-confirmation sheet** ("Stop calibration? Your progress won't be saved."). Captured neutral data is held in store until processing succeeds, so motion-phase retries never re-capture neutral.
-
----
-
-## TASK 7 — Design tokens
+## TASK 8 — Design tokens
 
 ```ts
 // tokens/faceBaseline.tokens.ts — extends packages/shared TENKI_THEME
 export const faceBaselineTokens = {
   color: {
-    bg: {
-      deepSpace: '#05060A',
-      nebulaTop: '#1A1140',
-      nebulaBottom: '#0A0B12',
-      dim: '#070811',
-      processing: '#08060B',
-    },
-    glow: {
-      electricBlue: '#4DA6FF',
-      indigo: '#6E8BFF',
-      violet: '#7B61FF',
-      auroraGold: '#FFB347',
-      auroraGoldSoft: '#FFD27A',
-      goldBloom: '#FF9D2F',
-    },
+    bg: { deepSpace: '#05060A', nebulaTop: '#1A1140', nebulaBottom: '#0A0B12',
+          dim: '#070811', processing: '#08060B', successVignette: '#100A04' },
+    surface: { glass: 'rgba(16,20,34,0.62)', glassBlue: 'rgba(20,40,70,0.55)',
+               glassGold: 'rgba(40,30,10,0.5)' },
+    accent: { cyanGlow: '#3DE0FF', electricBlue: '#4DA6FF', indigo: '#6E8BFF', violet: '#7B61FF',
+              goldResonance: '#E8B45A', goldSoft: '#FFD27A', goldHi: '#FFE9B0', goldBloom: '#FF9D2F' },
     status: { pass: '#46E0B0', caution: '#FFC24B', fail: '#FF6B6B' },
-    text: { primary: '#F4F6FF', secondary: '#A6ADC8', tertiary: '#5A6178', onGlow: '#FFFFFF' },
+    text: { primary: '#F4F6FF', secondary: '#A6ADC8', tertiary: '#5A6178', onGlow: '#0A0B12' },
     trust: { pillBg: 'rgba(180,210,255,0.14)', pillText: '#BFD8FF' },
-    frame: { idle: 'rgba(180,200,255,0.35)', tracking: '#4DA6FF', locked: '#46E0B0', capture: '#FFCB6B' },
+    frame: { idle: 'rgba(180,200,255,0.35)', tracking: '#3DE0FF', locked: '#46E0B0', capture: '#FFD27A' },
+    border: { glassCyan: 'rgba(120,200,255,0.35)', glassGold: 'rgba(232,180,90,0.45)',
+              hairline: 'rgba(255,255,255,0.08)' },
   },
   text: {
-    hero:        { size: 34, lineHeight: 40, weight: '700', tracking: -0.4 },
-    title:       { size: 17, lineHeight: 22, weight: '600' },
-    body:        { size: 15, lineHeight: 22, weight: '400' },
-    metric:      { size: 52, lineHeight: 56, weight: '300', variant: 'tabular-nums' },
-    pill:        { size: 13, lineHeight: 16, weight: '600' },
-    caption:     { size: 11, lineHeight: 15, weight: '400' },
+    wordmark: { size: 13, weight: '600', tracking: 3 },
+    hero:     { size: 30, lineHeight: 36, weight: '700', tracking: -0.4 },
+    cardTitle:{ size: 20, lineHeight: 26, weight: '600' },
+    title:    { size: 17, lineHeight: 22, weight: '600' },
+    body:     { size: 15, lineHeight: 22, weight: '400' },
+    metric:   { size: 50, lineHeight: 54, weight: '300', variant: 'tabular-nums' },
+    pill:     { size: 13, lineHeight: 16, weight: '600' },
+    caption:  { size: 11, lineHeight: 15, weight: '400' },
   },
-  spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48, gutter: 24, ctaDock: 24 },
-  radius: {
-    pill: 9999, card: 16, scanFrame: { lg: 28 }, halo: 9999, badge: 14,
-  },
+  spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48, gutter: 24, cardPad: 22, ctaDock: 24 },
+  radius: { pill: 9999, card: { md: 16, xl: 24 }, scanFrame: { lg: 28 }, halo: 9999, badge: 14 },
+  stroke: { hairline: 1, reticle: 2, halo: 4, progressBar: 3, ringArc: 6, glassBorder: 1 },
   shadow: {
-    cardElevation: { color: '#000000', opacity: 0.4, radius: 16, y: 8 },
-    ctaRest:       { color: '#5A7CFF', opacity: 0.35, radius: 24, y: 8 },
-    ctaPressed:    { color: '#5A7CFF', opacity: 0.55, radius: 32, y: 10 },
+    card:       { color: '#000000', opacity: 0.45, radius: 18, y: 10 },
+    ctaCyan:    { color: '#3DE0FF', opacity: 0.32, radius: 24, y: 8 },
+    ctaGold:    { color: '#E8B45A', opacity: 0.34, radius: 24, y: 8 },
   },
   glow: {
-    ctaBlue:   { color: '#5A7CFF', blur: 24, spread: 0.35 },
+    cta: { primaryCyan: { color: '#4DA6FF', blur: 24, spread: 0.35 },
+           primaryGold: { color: '#E8B45A', blur: 24, spread: 0.35 } },
+    glassCyan: { color: '#3DE0FF', blur: 18, spread: 0.25 },
+    glassGold: { color: '#E8B45A', blur: 18, spread: 0.28 },
     lockMint:  { color: '#46E0B0', blur: 28, spread: 0.5 },
-    haloBlue:  { color: '#4DA6FF', blur: 40, spread: 0.6 },
-    soulGold:  { color: '#FFB347', blur: 36, spread: 0.7 },
+    haloCyan:  { color: '#3DE0FF', blur: 40, spread: 0.6 },
+    soulGold:  { color: '#FFD27A', blur: 36, spread: 0.7 },
     orbGold:   { color: '#FF9D2F', blur: 48, spread: 0.8 },
+    shieldGold:{ color: '#E8B45A', blur: 32, spread: 0.6 },
+    resonance: { color: '#7FE9D0', blur: 44, spread: 0.7 }, // cyan+gold blend orb
   },
+  glass: { blur: 24, bgOpacity: 0.62, borderOpacity: 0.35, innerHighlight: 0.06 },
+  progress: { trackOpacity: 0.18, barHeight: 6, segmentGap: 4,
+              stageColors: { new: '#5A6178', building: '#3DE0FF', ready: '#7FE9D0', mature: '#E8B45A' } },
   motion: {
-    duration: {
-      introFade: 400, ctaGlowIn: 240, lockPulse: 360, lockSnap: 320,
-      haloSweep: 1200, particleStabilize: 900, orbSwirl: 2400,
-      successPulse: 520, screenCrossfade: 600, percentTick: 800,
-      ctaBreath: 2400, processingMin: 1800,
-    },
-    easing: {
-      standard: 'cubic-bezier(0.4, 0.0, 0.2, 1)',
-      decelerate: 'cubic-bezier(0.0, 0.0, 0.2, 1)',
-      snap: 'cubic-bezier(0.2, 0.9, 0.1, 1.0)',
-      breath: 'cubic-bezier(0.45, 0, 0.55, 1)',
-      gentle: 'cubic-bezier(0.33, 0, 0.2, 1)',
-    },
+    duration: { introFade: 400, ctaGlowIn: 240, ctaBreath: 2400, lockSnap: 320, lockPulse: 360,
+                haloSweep: 1200, particleStabilize: 900, processingOrb: 2400, processingMin: 1800,
+                carouselPage: 380, percentTick: 800, successPulse: 520, maturityFill: 700,
+                screenCrossfade: 600 },
+    easing: { standard: 'cubic-bezier(0.4,0,0.2,1)', decelerate: 'cubic-bezier(0,0,0.2,1)',
+              snap: 'cubic-bezier(0.2,0.9,0.1,1)', breath: 'cubic-bezier(0.45,0,0.55,1)',
+              gentle: 'cubic-bezier(0.33,0,0.2,1)' },
   },
-  stroke: { hairline: 1, reticle: 2, halo: 4, progressBar: 3, ringArc: 6 },
-  overlay: {
-    nebulaDim: 0.55, captureVignette: 0.7, scrim: 0.4,
-    disabledCta: 0.3, particleAdditive: 0.85,
-  },
+  overlay: { nebulaDim: 0.55, captureVignette: 0.7, scrim: 0.4, disabledCta: 0.3, particleAdditive: 0.85 },
 } as const;
 ```
 
 ---
 
-## TASK 8 — Animation + haptics plan
+## TASK 9 — Animation + haptics
 
-| Moment | Trigger | Visual | Duration | Easing | Haptic | Reduced-motion |
-|--------|---------|--------|----------|--------|--------|----------------|
-| Intro fade-in | mount | nebula settle + hero rise + star drift | 400ms (stagger 80) | decelerate | none | instant fade, no drift |
-| CTA glow pulse | CTA idle | breathing outer glow 0.35↔0.5 | 2400ms loop | breath | none | static glow |
-| CTA press | press in/out | scale 1→0.97, glow intensify | 120ms | snap | `selection` | scale only |
-| Env check pass | check true | row tween + mint✓ micro-bounce | 240ms | snap | `success`(light) | color change only |
-| Env check fail | check false | coral✗ + one shake | 200ms | standard | `warning` | color change only |
-| Start-scan enable | all pass | disabled→glow capsule | 240ms | decelerate | `impact-light` | opacity only |
-| Face lock snap-in | stable face | reticle→badge scale 1.06→1.0 + mint bloom | 320ms | snap | `impact-medium` | badge appears, no scale |
-| Lock lost | lock drop | reticle blue, badge fade | 200ms | standard | `selection` | fade only |
-| Progress halo sweep | capturing | arc fills + breathing bloom | 1200ms/loop | gentle | none | static arc fill |
-| Particle stabilization | quality high | gold particles converge to mesh | 900ms | decelerate | subtle `selection` at full | static mesh |
-| Particle scatter | quality drop | particles disperse + status pill | 300ms | standard | `warning`(soft) | pill only |
-| Motion cue | motion phase | directional arc sweep loop | 1000ms/loop | gentle | none | static arrow |
-| Processing orb swirl | processing | 3-axis gold rings orbit | 2400ms/loop | linear | none | slow single pulse |
-| Percent tick | progress update | count-up tabular | 800ms ease | decelerate | none | snap value |
-| Orb completion | progress→1 | swirl accelerate + brighten | 600ms | snap | `impact-soft` ramp | brighten only |
-| Success confirmation | baseline written | checkmark draw + bloom pulse | 520ms | snap | `notificationSuccess` | checkmark fade-in |
-| Screen transitions | step change | cross-fade + 12px rise | 600ms | standard | none | cross-fade only |
-| Retry appear | failure | reason card rise | 300ms | decelerate | `warning` | fade |
+| Moment | Trigger | Duration | Easing | Haptic | Reduced-motion |
+|--------|---------|----------|--------|--------|----------------|
+| Hero intro fade | mount | 400 (stagger 80) | decelerate | none | instant fade |
+| CTA glow pulse | idle | 2400 loop | breath | none | static glow |
+| CTA press | press | 120 | snap | `selection` | scale only |
+| Carousel page | swipe/Next | 380 | standard | `selection` on settle | cross-fade, no slide |
+| Carousel dot morph | page change | 240 | standard | none | instant |
+| Permission accept | granted | 360 | snap | `notificationSuccess` | shield brighten |
+| Checklist pass | check true | 240 | snap | `impact-light` | color only |
+| Checklist fail | check false | 200 | standard | `warning` | color + one shake |
+| Start-scan enable | all pass | 240 | decelerate | `impact-light` | opacity only |
+| Face lock snap | stable face | 320 | snap | `impact-medium` | badge appears |
+| Scan halo sweep | capturing | 1200 loop | gentle | none | static arc |
+| Particle stabilize | quality high | 900 | decelerate | `selection` at full | static mesh |
+| Particle scatter | quality drop | 300 | standard | `warning`(soft) | pill only |
+| Processing orb swirl | processing | 2400 loop | linear | none | slow pulse |
+| Percent tick | progress | 800 | decelerate | none | snap value |
+| Orb completion | →100% | 600 | snap | `impact-soft` ramp | brighten |
+| Success card reveal | written | 520 | snap | `notificationSuccess` | fade-in |
+| Maturity progress fill | scan recorded | 700 | decelerate | `impact-light` | snap fill |
+| Resonance orb grow | stage advance | 700 | gentle | `notificationSuccess` | static stage |
+| Retry guidance emphasis | recovery shown | 300 | decelerate | `warning` | fade |
+| Screen transitions | step change | 600 | standard | none | cross-fade |
 
-Haptics centralized in `useBaselineHaptics()` (expo-haptics), gated by a user setting + reduced-motion. Honor `AccessibilityInfo.isReduceMotionEnabled`.
-
----
-
-## TASK 9 — Figma-ready structure
-
-**Pages**
-1. `00 · Cover & Index`
-2. `01 · Tokens` (Colors, Type, Spacing, Radius, Shadow/Glow, Motion specs)
-3. `02 · Components` (component sets below)
-4. `03 · Face Baseline — Flow` (the 8 frames)
-5. `04 · States & Edge Cases`
-6. `05 · Prototype`
-7. `06 · Annotations / Redlines`
-
-**Flow frames (390×844, iPhone 14/15):**
-`FB-01 Intro` · `FB-02 Environment` · `FB-03 FaceLock` · `FB-04 Capture-Neutral` · `FB-05 Capture-Motion` · `FB-06 Processing` · `FB-07 Confirmed` · `FB-08 Retry`
-
-**Component sets + variants**
-- `Button/Primary` — variants: `state={idle,pressed,disabled,loading}`, `accent={cool,warm}`
-- `Button/Secondary` — `variant={ghost,text}`
-- `Frame/FaceScan` — `shape={square,halo}` × `state={idle,tracking,locked,capturing}`
-- `Pill/Status` — `status={pass,fail,pending}`
-- `Pill/Privacy` — `type={secured,footnote}`
-- `Checklist/Row` — `status={pass,fail,pending}`
-- `Progress/Segmented` — `segments={1,2}` × `progress={0,25,50,75,100}`
-- `Progress/Halo` — `accent={cool,warm}`
-- `Orb/Processing` — `phase={swirl,accelerate}`
-- `Mesh/SoulParticle` — `stability={scattered,partial,crystallized}`
-- `Panel/Success` · `Meter/Maturity` (`stage={initial,developing,established}`)
-- `Background/Cosmic` — `mode={deepNebula,dim,captureWarm,processing,faint}`
-- `Card/RetryReason` — `reason={lowLight,movement,noFace,lostLock,timeout}`
-
-**Token pages:** styles for every `color.*`, text style per `text.*`, effect styles per `glow.*`/`shadow.*`, plus a Motion spec board (duration/easing chips).
-
-**Prototype links:** Intro→Permission(overlay)→Environment→FaceLock(auto)→Capture-Neutral(auto)→Capture-Motion(auto)→Processing(auto, delay)→Confirmed; failure branches → Retry → (Try again→FaceLock) / (Restart→Intro); Cancel → discard sheet → exit.
-
-**Annotation layers:** redline spacing, token names per element, motion callouts (trigger/duration/easing), state notes, compliance-copy notes.
+Centralized in `useBaselineHaptics()` (expo-haptics), gated by setting + `AccessibilityInfo.isReduceMotionEnabled`.
 
 ---
 
-## TASK 10 — Implementation checklist
+## TASK 10 — Copy system (English, compliance-safe)
 
-**Build order**
-1. Tokens + `types/` + `CosmicBackground` + `NavBar`.
-2. Shared UI: `GlowPrimaryButton`, `GhostButton`, `BaselineHeroCopy`, privacy/trust cues, `TimeCostChip`.
-3. Zustand store + selectors + state machine + `useFaceBaselineMachine`.
-4. Intro + Environment (mock checks) + Confirmed + Retry (no camera yet).
-5. `FaceScanFrame` (all shapes/states) + `ProgressHalo`.
-6. Capture screens with **mocked** quality/landmark streams.
-7. `ProcessingOrb` + `PercentCounter` + processing screen (mock compute).
-8. Wire real `useCameraPermission`, `useFaceDetector`, `useEnvironmentChecks`, `useQualityMetrics`.
-9. `SoulParticleMesh` real landmark mapping; haptics; reduced-motion; analytics.
+**Intro** — Title `Establish Your Baseline` · Sub `A 60-second calibration so TENKI can read you against you — not anyone else.` · Body `Your facial signal is processed on-device and never leaves your phone.` · CTA `Begin Calibration` · Link `Why does this matter?`
 
-**Dependencies:** `react-native-vision-camera` + frame processor / MLKit face detection, `@shopify/react-native-skia`, `react-native-reanimated@3`, `expo-haptics`, `zustand`, `xstate`(optional), existing `packages/shared` tokens + `packages/engine` baseline (Welford bootstrap) + `compliance` copy layer.
+**Why Baseline Matters (carousel)**
+1. *Personal Resonance* — `Your baseline is a personal reference point. It lets TENKI notice subtle shifts in your patterns over time — accurately, and privately.`
+2. *Calibrated to You* — `Every reading is compared to your own baseline, not a population average. That's what makes it meaningful.`
+3. *Yours Alone* — `Your baseline lives on this device, encrypted. You can reset or delete it anytime.` · CTA `Get started`
 
-**Mock first:** quality metrics stream, face landmarks, env checks, processing compute, baseline confidence.
-**Must be real before ship:** camera permission, on-device face detection, baseline write to local store, local-only data handling, compliance copy, haptics, reduced-motion.
+**Secure Access Required** — Title `Secure Access Required` · List: `1. On-Device Processing — Your face data never leaves this phone.` · `2. Baseline Calibration — Used only to calculate your personal resonance.` · `3. Privacy First — No photos or videos are ever saved.` · CTA `Enable Camera` · Link `Learn more about our privacy`
 
-**QA**
-- [ ] Every state's success/failure/timeout/back-out reachable.
-- [ ] Progress pauses (never resets) on quality drop.
-- [ ] Motion retry keeps neutral capture.
-- [ ] Permission denied/blocked → Settings path.
-- [ ] Processing honors min-ritual 1.8s.
-- [ ] No crash on lost-lock mid-capture.
+**Permission denied** — `Camera access is off` · `TENKI needs the camera only to calibrate your baseline on-device. You can enable it in Settings.` · CTA `Open Settings` · Link `Not now`
 
-**Visual QA vs references**
-- [ ] Intro matches nebula + hero + blue→violet capsule + 60s chip.
-- [ ] Environment uses dark cosmic frame (not light), square brackets, 3 status pills, disabled→enabled Start Scan.
-- [ ] Capture shows gold soul mesh inside circular halo + PRIVACY SECURED pill + segmented progress.
-- [ ] Processing shows gold orbital orb + status + large % + local footnote.
-- [ ] Glow reserved for focal subject + primary CTA only; UI chrome flat.
+**Environment Calibration** — Title `Let's set the scene` · Body `Find a quiet spot with even lighting.` · Checks `Lighting` / `Distance` / `Stability` · CTA `Start Scan` (disabled hint: `Adjust the items above to continue`)
 
-**Accessibility**
-- [ ] Reduced-motion fallbacks for all animated components.
-- [ ] All text ≥ WCAG AA on dark bg.
-- [ ] VoiceOver labels for frame state, checks, progress %, CTA.
-- [ ] Haptics toggleable; not sole feedback channel.
-- [ ] Dynamic Type tolerant hero/body.
+**Face Lock Preparation** — `Center your face` · `Hold still — aligning…` (→ on lock) `Locked`
 
-**Compliance**
-- [ ] No medical/diagnosis wording; no "emotion recognition"; no dopamine/measurement claims.
-- [ ] Copy = baseline / privacy / precision / calibration / readiness / return to baseline.
-- [ ] Camera purpose string + on-device + local-only messaging.
-- [ ] All user-facing strings routed through `packages/engine` compliance layer.
-- [ ] Raw biometric never leaves device (CLAUDE.md hard rule).
+**Baseline Capture · Neutral** — `Hold steady for neutral capture` · pill `PRIVACY SECURED` · nudges `Hold still` / `A little more light` / `Center your face`
+
+**Baseline Capture · Motion** — `Slowly turn your head` · sub `Keep it gentle — this sharpens your calibration.`
+
+**Processing** — `Securing your unique baseline…` · footnote `All data is processed and stored locally for maximum privacy.`
+
+**Face Detection Recovery** — Title `Finding your rhythm` · Sub `Make sure your face is clearly visible and centered in the frame.` · Checklist `Check your lighting` / `Remove glasses or masks` / `Stay centered` · CTA `Try Again` · Link `Need help?`
+
+**Baseline Established** — Title `Baseline Established` · Body `Your personal reference is secured and encrypted on-device. Future scans will now be calibrated to your unique resonance.` · CTA `Enter TENKI`
+
+**Baseline Maturity Progress** — Title `Baseline Maturity` · Orb label `Resonance Orb` · Stages `New · Building · Ready · Mature` · Counter `{n}/{required} scans completed` · Insight `Each scan refines your precision model. More data means a more personalized, high-fidelity baseline.` · History `Baseline updated` / `Model refined` · CTA `Start Daily Scan`
+
+Compliance: no diagnosis, no certainty, no emotion-recognition, no dopamine; lexicon = baseline · calibration · privacy · precision · readiness · resonance · return to baseline · model refinement. Route all strings through `packages/engine` compliance layer.
 
 ---
 
-## TASK 11 — Guardrails (must NOT happen)
+## TASK 11 — Figma-ready structure
 
-- ❌ Flatten the cosmic look into generic dark UI — nebula + stardust are the brand.
-- ❌ Replace the glowing blue→violet capsule CTA with a stock button.
-- ❌ Remove or bury privacy/lock reassurance copy.
-- ❌ Turn capture into a cluttered dashboard — one focal subject, one instruction.
-- ❌ Show multiple quality nudges at once — exactly one active status.
-- ❌ Over-explain — hero + ≤2 lines body, never paragraphs on capture screens.
+**Pages:** `00 Cover & Index` · `01 Tokens` · `02 Components` · `03 Onboarding Flow` · `04 Ongoing / Maturity` · `05 States & Edge Cases` · `06 Prototype` · `07 Annotations / Redlines`.
+
+**Frames (390×844):** `FB-01 Intro` · `FB-02 Why-Carousel (×3 pages)` · `FB-03 Secure-Access` · `FB-04 Environment` · `FB-05 FaceLock` · `FB-06 Capture-Neutral` · `FB-07 Capture-Motion` · `FB-08 Processing` · `FB-09 Recovery` · `FB-10 Established` · `FB-11 Maturity`. State variants: `*/denied`, `*/loading`, `*/quality-fail`, `*/disabled-cta`.
+
+**Component sets + variants:** `Button/Primary state×{idle,pressed,disabled,loading} × accent×{cyan,gold}` · `Button/Secondary variant×{ghost,text}` · `Card/Glass edge×{cyan,gold}` · `Frame/FaceScan shape×{square,halo} × state×{idle,tracking,locked,capturing}` · `Glyph/Resonance` · `Orb/Processing phase×{swirl,accelerate}` · `Orb/Resonance stage×{new,building,ready,mature}` · `Mesh/SoulParticle stability×{scattered,partial,crystallized}` · `Checklist/Row status×{pass,fail,pending}` · `Progress/Segmented` · `Progress/Maturity stage×{...}` · `Pill/{Privacy,Status}` · `Shield/Trust state×{idle,granted}` · `Row/ScanHistory type×{updated,refined}` · `Card/Insight` · `Background/Cosmic mode×{deepNebula,dim,captureWarm,processing,circuit,success,faint}`.
+
+**Token pages:** color styles (`color.*`), text styles (`text.*`), effect styles (`glow.*`,`shadow.*`,`glass.*`), motion spec board (duration/easing chips).
+
+**Prototype links:** Intro→(Why→)Secure-Access→OS-prompt(overlay)→Environment→FaceLock(auto)→Capture-Neutral(auto)→Capture-Motion(auto)→Processing(auto delay)→Established→Maturity; failure branches → Recovery → (Try Again→FaceLock)/(Restart→Intro); denied → permission_denied overlay; Cancel → discard sheet.
+
+**Annotation layers:** spacing redlines · token-name callouts · motion notes (trigger/duration/easing) · state notes · compliance-copy notes.
+
+---
+
+## TASK 12 — Implementation checklist
+
+**Build order:** tokens+`CosmicBackground`+`BrandWordmark`+`NavBar` → shared UI (`GlowPrimaryButton` cyan/gold, `GlassInfoCard`, hero, privacy cues) → store+maturityStore+machine → static screens (Intro/Why/Secure/Established/Maturity, mocked) → `FaceScanFrame`+`ProgressHalo`+`ResonanceWaveGlyph` → Environment+Recovery (mock checks) → capture screens (mock streams) → `ProcessingOrb`/`ResonanceOrb`/`PercentCounter` → wire real permission/detector/quality/env → `SoulParticleMesh` real landmarks → haptics/reduced-motion/analytics → maturity persistence.
+
+**Dependencies:** `react-native-vision-camera` (+ MLKit/frame-processor face detection), `@shopify/react-native-skia`, `react-native-reanimated@3`, `expo-haptics`, `expo-blur` (glass), `zustand`, `xstate`(optional), `packages/shared` tokens, `packages/engine` baseline (Welford) + compliance copy, local secure storage (MMKV/Keychain) for baseline + maturity.
+
+**Mock first:** quality stream, landmarks, env checks, processing compute, confidence, maturity history. **Must be real before ship:** camera permission, on-device detection, local baseline + maturity persistence, local-only data handling, compliance copy, haptics, reduced-motion.
+
+**QA:** every state's success/failure/timeout/back reachable · progress pauses never resets · motion retry keeps neutral · denied→Settings path · processing min-ritual 1.8s · maturity stage advances correctly · no crash on lost-lock.
+**Visual QA vs refs:** Intro nebula+cyan CTA+60s chip · Why glass card+cyan resonance glyph+dots · Secure gold shield+numbered list+cyan CTA · Environment dark cosmic+square reticle · Capture gold mesh+halo+privacy pill · Processing gold orb+%+footnote · Recovery cyan frame+supportive copy (not error wall) · Established gold card+gold CTA · Maturity circuit bg+resonance orb+4-stage bar+gold insight+history+gold CTA · glow only on subject+CTA · cyan=active / gold=secured everywhere.
+**Accessibility:** reduced-motion fallbacks all · text ≥ WCAG AA on dark · VoiceOver labels (frame state, checks, %, stage, CTAs) · haptics toggleable, not sole channel · Dynamic Type tolerant.
+**Compliance:** no medical/diagnosis/emotion/dopamine · lexicon enforced · camera purpose string + on-device + local-only · all strings via compliance layer · raw biometric never leaves device.
+
+---
+
+## TASK 13 — Non-negotiable guardrails
+
+- ❌ Flatten the cosmic look into generic dark UI.
+- ❌ Split cyan and gold into two products — they are **one** system (cyan=active, gold=secured).
+- ❌ Use the wrong CTA accent (action CTA must be cyan; secured CTA must be gold).
+- ❌ Replace glow capsule CTAs with default buttons.
+- ❌ Remove/bury privacy, trust shield, or local-only signals.
+- ❌ Make the Maturity page a generic dashboard — it's a living resonance ritual.
+- ❌ Overcrowd educational pages — one idea per carousel card.
+- ❌ Let Recovery feel like an error wall — supportive, partial-retry, never blame.
+- ❌ Show multiple quality nudges at once — exactly one.
 - ❌ Reset progress on a transient quality dip — pause only.
-- ❌ Use gold as a general accent — gold = capture + processing only.
-- ❌ Keep the Environment screen light/flat — it joins the dark frame.
-- ❌ Use SVG rings or legacy `Animated` — Skia + Reanimated 3 only.
-- ❌ Use `any`, Redux, or batch multiple todos into one commit.
-- ❌ Any medical/financial/emotion-recognition framing.
-- ❌ Upload raw biometric data to cloud.
-- ❌ Skip reduced-motion fallbacks.
-- ❌ Break the Apple-like calm with bouncy/loud motion or hard neon.
+- ❌ Create visual drift between onboarding and post-baseline (same tokens/cards/orbs).
+- ❌ Keep Environment light/flat — dark cosmic frame.
+- ❌ Use SVG rings or legacy `Animated` — Skia + Reanimated 3.
+- ❌ Use `any`, Redux, or batch multiple todos per commit.
+- ❌ Any medical/financial/emotion-recognition/dopamine framing.
+- ❌ Upload raw biometric to cloud.
+- ❌ Skip reduced-motion fallbacks or break the Apple-like calm.
 
 ---
 
-## TASK 12 — Delivery summary
-
-1. **Design language:** dark-first cosmic wellness; cool blue→violet = system/readiness, aurora gold = the brief living-capture ritual; bold centered hero type; glowing capsule CTA; precision Face-ID frame (square=align, circle=capture); restrained flat chrome; glow only on subject + CTA; relentless privacy/local trust cues.
-2. **Canonical flow:** Intro → Environment → FaceLock → Capture-Neutral → Capture-Motion → Processing → Confirmed (+ Retry), each fully specified above.
-3. **Folder structure:** `apps/mobile/features/face-baseline/` (screens/components/hooks/store/machine/utils/tokens/types) — Task 3.
-4. **Component list:** 30+ components, reusable UI separated from flow logic — Task 4.
-5. **Zustand store:** typed state + actions + selectors — Task 5.
-6. **State machine:** 11 states with entry/success/failure/timeout/back-out/partial-retry — Task 6.
-7. **Token system:** `faceBaseline.tokens.ts` (color/text/spacing/radius/shadow/glow/motion/stroke/overlay) — Task 7.
-8. **Animation/haptics:** 19 motion+haptic moments with reduced-motion fallbacks — Task 8.
-9. **Figma structure:** 7 pages, 8 flow frames, 14 component sets w/ variants — Task 9.
-10. **Implementation checklist:** build order, deps, mock-vs-real, QA/visual/a11y/compliance — Task 10.
-11. **Guardrails:** non-negotiables — Task 11.
+## TASK 14 — Delivery summary
+1. **Design language:** one dark cosmic system; **cyan=active (scan/setup/guidance) · gold=secured (resonance/success/trust/maturity)**, CTA accent encodes the world; glass cards (cyan-edge educational/gold-edge trust); resonance-wave brand glyph; glow only on subject+CTA; relentless local-privacy trust.
+2. **Screen flow:** 11 screens (Intro→Why→Secure→Environment→FaceLock→Capture-Neutral→Capture-Motion→Processing→Recovery↺→Established→Maturity).
+3. **User journey:** expectation→rationale→guarantee→transparency→precision→care→celebration→growth (Task 3 table).
+4. **Folder structure:** `apps/mobile/features/face-baseline/` split into `screens/onboarding` (one-time) + `screens/ongoing` (durable) + components/hooks/store/machine/animations/tokens/utils/types.
+5. **Component list:** ~35 components with props/variants/animation/reuse (Task 5).
+6. **Zustand store:** typed state + maturity + actions + selectors (Task 7).
+7. **State machine:** 15 states incl. permission_denied, recovery, re-entrant maturity, partial recapture (Task 6).
+8. **Token system:** `faceBaseline.tokens.ts` — color/surface/accent(cyan+gold)/text/spacing/radius/stroke/shadow/glow/glass/progress/motion/overlay (Task 8).
+9. **Animation/haptics:** 21 moments + reduced-motion (Task 9).
+10. **Copy system:** full English copy for all 11 screens, compliance-safe (Task 10).
+11. **Figma structure:** 8 pages, 11 frames (+variants), 18 component sets (Task 11).
+12. **Implementation checklist:** build order/deps/mock-vs-real/QA/visual/a11y/compliance (Task 12).
+13. **Guardrails:** non-negotiables (Task 13).
 ```
