@@ -15,3 +15,5 @@ export { classifyRetryReason, RETRY_COPY_KEY } from './retryReason';
 export type { RetryContext } from './retryReason';
 export { estimateConfidence, confidenceBand } from './confidence';
 export type { ConfidenceBand } from './confidence';
+export { deriveEnvironmentChecks, ENV_THRESHOLDS } from './environment';
+export type { RawEnvironmentSignal } from './environment';
