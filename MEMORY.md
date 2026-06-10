@@ -1,3 +1,27 @@
+# 2026-06-10 — Face Baseline Phase 1 MERGED (PR #76)
+
+**Status:** Phase 1 merged into `main` via PR #76 (merge commit `4b94169`, merged by Poshen100).
+Branch `claude/tenki-face-baseline-flow-khx4cd` is fast-forwarded to that merge.
+
+**Phase 1 delivered (now on `main`):** SPEC, design tokens (cyan=active / gold=secured),
+typed state machine, Zustand store + selectors, pure utils, hooks
+(`useFaceBaselineMachine` / `useReducedMotion` / dependency-free `useBaselineHaptics`),
+canonical English copy, core-RN component library, 11 onboarding-quality screens, and a
+**dedicated expo-router stack at route `/face-baseline`** (separate from `(tabs)/scan.tsx`).
+Verified by `tsc --strict` (clean) + jest (**40 tests green**). NOT device/visually verified.
+
+**How to view (chosen): local expo web** — `cd apps/mobile && npm install && npm run web`,
+then open `/face-baseline`. The flow only uses web-safe deps (expo-router/react/react-native/
+safe-area-context/zustand), so it renders in-browser. Vercel does NOT serve this (it serves the
+frozen `apps/web` + `apps/preview`), so the flow is not at the public URL by design.
+
+**Phase 2 (NOT started — gated):** device-verified visual upgrades. BLOCKING DECISION before any
+native work = camera/detection library (vision-camera+MLKit vs expo-camera vs other). Then install
+`@shopify/react-native-skia`, `react-native-reanimated@3`, the camera lib, `expo-haptics`,
+`expo-blur` and swap each `INTEGRATION (...)`-marked spot. Cannot be verified headless — needs a Mac/device.
+
+---
+
 # 2026-06-10 Session Update (Face Baseline System — Spec + Logic Foundation)
 
 ## What was done
