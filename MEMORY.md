@@ -1,3 +1,32 @@
+# 2026-06-10 Session Update (Face Baseline System — Spec + Logic Foundation)
+
+## What was done
+
+1. **9-reference design unification**: Reverse-engineered all 9 Face Baseline reference frames into one production spec at `apps/mobile/features/face-baseline/SPEC.md`.
+   - **Unifying law**: `cyan/blue = ACTIVE` (scan, setup, guidance, pre-baseline CTAs) · `gold = SECURED` (resonance, success, trust, maturity CTAs). CTA accent encodes which world the user acts from. Do NOT split these into two products.
+   - 11 screens, full state machine, copy system, tokens, animation/haptics, Figma structure, guardrails.
+2. **Camera-free logic foundation built + verified** (4 feat commits, Commit-Per-Todo):
+   - `tokens/faceBaseline.tokens.ts` — design tokens
+   - `types/` + `utils/` — domain types + pure logic (quality gate, maturity stages, capture progress weighting 0.6/0.4, retry-reason classification, confidence bands)
+   - `store/` — Zustand store + selectors (maturity-aware)
+   - `machine/` — typed dependency-free state machine + partial-retry/resume helpers
+   - `index.ts` barrel.
+   - Verified: `tsc --strict` clean on all `.ts`; runtime sanity checks pass (happy path + recovery + denied + maturity + retry classification).
+
+## Recommended continuation
+
+1. **Decide native dependency stack** before building components: `@shopify/react-native-skia`, `react-native-reanimated@3`, `react-native-vision-camera` (+ face detection), `expo-haptics`, `expo-blur`. None are installed yet; the app can't be run headlessly here, so this needs a deliberate install + a Mac/device to verify rendering.
+2. Then build components in SPEC Task 5 order: `CosmicBackground` → `GlassInfoCard` → `GlowPrimaryButton` (cyan/gold) → `FaceScanFrame` → orbs/mesh.
+3. Wire screens via `FaceBaselineNavigator` (expo-router) consuming the store + machine.
+
+### Notes / gotchas
+- `apps/mobile` is NOT in the root npm `workspaces` (only `packages/*` + `domain`) and has no vitest config — foundation was verified via standalone `tsc` + a throwaway compiled node script, not committed tests. If/when `apps/mobile` gets a test runner, port the sanity checks into real specs.
+- No `node_modules` present on fresh container; installed `typescript` + `zustand` `--no-save` only for typechecking.
+
+*Last updated: 2026-06-10 (Claude Code — Face Baseline foundation)*
+
+---
+
 # 2026-06-09 Session Update (New Computer Setup - 4th Migration)
 
 ## What was done
