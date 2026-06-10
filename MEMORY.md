@@ -1,3 +1,53 @@
+# 2026-06-10 Session Update (Face Baseline System — Spec + Logic Foundation)
+
+## What was done
+
+1. **9-reference design unification**: Reverse-engineered all 9 Face Baseline reference frames into one production spec at `apps/mobile/features/face-baseline/SPEC.md`.
+   - **Unifying law**: `cyan/blue = ACTIVE` (scan, setup, guidance, pre-baseline CTAs) · `gold = SECURED` (resonance, success, trust, maturity CTAs). CTA accent encodes which world the user acts from. Do NOT split these into two products.
+   - 11 screens, full state machine, copy system, tokens, animation/haptics, Figma structure, guardrails.
+2. **Camera-free logic foundation built + verified** (4 feat commits, Commit-Per-Todo):
+   - `tokens/faceBaseline.tokens.ts` — design tokens
+   - `types/` + `utils/` — domain types + pure logic (quality gate, maturity stages, capture progress weighting 0.6/0.4, retry-reason classification, confidence bands)
+   - `store/` — Zustand store + selectors (maturity-aware)
+   - `machine/` — typed dependency-free state machine + partial-retry/resume helpers
+   - `index.ts` barrel.
+   - Verified: `tsc --strict` clean on all `.ts`; runtime sanity checks pass (happy path + recovery + denied + maturity + retry classification).
+
+## Recommended continuation
+
+1. **Decide native dependency stack** before building components: `@shopify/react-native-skia`, `react-native-reanimated@3`, `react-native-vision-camera` (+ face detection), `expo-haptics`, `expo-blur`. None are installed yet; the app can't be run headlessly here, so this needs a deliberate install + a Mac/device to verify rendering.
+2. Then build components in SPEC Task 5 order: `CosmicBackground` → `GlassInfoCard` → `GlowPrimaryButton` (cyan/gold) → `FaceScanFrame` → orbs/mesh.
+3. Wire screens via `FaceBaselineNavigator` (expo-router) consuming the store + machine.
+
+### Notes / gotchas
+- `apps/mobile` is NOT in the root npm `workspaces` (only `packages/*` + `domain`) and has no vitest config — foundation was verified via standalone `tsc` + a throwaway compiled node script, not committed tests. If/when `apps/mobile` gets a test runner, port the sanity checks into real specs.
+- No `node_modules` present on fresh container; installed `typescript` + `zustand` `--no-save` only for typechecking.
+
+### Update — Static screens layer (same session)
+Built the **onboarding-quality UI flow** on top of the verified logic foundation, using **core RN only** (no Skia/Reanimated/camera yet); every richer-visual point is marked `INTEGRATION (...)` in-file.
+- `copy/face-baseline.copy.ts` — canonical English copy, all 11 screens, compliance-safe lexicon.
+- `components/` — core-RN library faithful to the references: `CosmicBackground` (mode-driven), `GlowPrimaryButton` (cyan/gold accent law), glass card, resonance glyph, trust shield, privacy list, env checklist, `FaceScanFrame` (square/halo), soul mesh placeholder, processing orb, resonance orb, maturity bar, scan-history, insight card, recovery checklist, success card.
+- `screens/` — 11 screens wired to the store + flow with **mocked** signals (env auto-readies, face auto-locks, capture/processing auto-progress with the 1.8s processing ritual honored).
+- `app/face-baseline/` — **dedicated expo-router Stack** (`_layout.tsx` + 11 route files re-exporting feature screens). Reachable at route **`/face-baseline`**. Deliberately separate from `(tabs)/scan.tsx` — the generic scan tab was NOT touched.
+- Verified: `tsc --strict` clean across all `.ts`/`.tsx` (RN+expo+zustand types installed `--no-save` for checking only; lockfile/package.json untouched). No runtime/device verification possible in this headless container.
+
+### Next session continuation
+1. Install the native stack (`@shopify/react-native-skia`, `react-native-reanimated@3`, `react-native-vision-camera` + face detection, `expo-haptics`, `expo-blur`) and upgrade each `INTEGRATION`-marked spot.
+2. Replace mocked hooks with real `useCameraPermission` / `useFaceDetector` / `useEnvironmentChecks` / `useQualityMetrics`.
+3. Wire a real entry point into `/face-baseline` (e.g. from first-run onboarding) and persist baseline + maturity to secure local storage.
+4. Visual QA on device against the 9 references.
+
+### Update — Logic tests (same session)
+Converted the earlier throwaway sanity-checks into a committed **jest + ts-jest** harness (mirrors `packages/engine`; project uses jest, not vitest despite CLAUDE.md wording).
+- `apps/mobile/package.json` — added `test` script, jest devDeps, and a jest block that transforms via a standalone `features/face-baseline/jest.tsconfig.json` (no expo extend, so tests don't need the RN/expo type tree).
+- `features/face-baseline/__tests__/` — `machine.test.ts`, `utils.test.ts`, `store.test.ts` → **33 tests, all green** (state-machine happy path/recovery/denied/invariants, quality+maturity+progress+retry+confidence utils, store actions + selectors).
+- Run with `cd apps/mobile && npm test`. apps/mobile is NOT a root workspace member, so root `npm test` won't pick these up — run them from the app dir.
+- Verified green in-container; lockfile/`package-lock.json` untouched (test deps installed `--no-save` for the run only, but ARE declared in apps/mobile devDependencies for real installs).
+
+*Last updated: 2026-06-10 (Claude Code — Face Baseline foundation + static screens + logic tests)*
+
+---
+
 # 2026-06-09 Session Update (New Computer Setup - 4th Migration)
 
 ## What was done

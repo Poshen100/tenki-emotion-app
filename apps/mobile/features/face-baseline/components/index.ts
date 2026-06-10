@@ -1,0 +1,38 @@
+/**
+ * @module face-baseline/components
+ * @description Barrel for Face Baseline UI components.
+ * Core-RN implementations faithful to the reference frames; Skia/Reanimated/
+ * camera upgrades are marked `INTEGRATION` in each file.
+ */
+export { CosmicBackground } from './shared/CosmicBackground';
+export type { CosmicMode } from './shared/CosmicBackground';
+export { GlowPrimaryButton } from './shared/GlowPrimaryButton';
+export { GhostButton, TextLink } from './shared/Buttons';
+export {
+  BrandWordmark,
+  BaselineHeroCopy,
+  TimeCostChip,
+  PrivacyLockPill,
+  PrivacyFootnote,
+  NavBar,
+} from './shared/Primitives';
+
+export { GlassInfoCard } from './glass/GlassInfoCard';
+export { ResonanceWaveGlyph } from './education/ResonanceWaveGlyph';
+export { CarouselDots } from './education/CarouselDots';
+export { TrustShield } from './permission/TrustShield';
+export { PrivacyAssuranceList } from './permission/PrivacyAssuranceList';
+export type { AssuranceItem } from './permission/PrivacyAssuranceList';
+export { EnvironmentChecklist, ChecklistRow } from './env/EnvironmentChecklist';
+export type { CheckStatus, ChecklistItem } from './env/EnvironmentChecklist';
+export { FaceScanFrame } from './frame/FaceScanFrame';
+export type { ScanShape, ScanState } from './frame/FaceScanFrame';
+export { SegmentedProgress } from './capture/SegmentedProgress';
+export { SoulParticleMesh } from './capture/SoulParticleMesh';
+export { ProcessingOrb, PercentReadout } from './processing/ProcessingOrb';
+export { ResonanceOrb } from './resonance/ResonanceOrb';
+export { MaturityProgressBar } from './maturity/MaturityProgressBar';
+export { ScanHistoryRow } from './maturity/ScanHistoryRow';
+export { TechnicalInsightCard } from './maturity/TechnicalInsightCard';
+export { RecoveryChecklist } from './recovery/RecoveryChecklist';
+export { BaselineSuccessCard } from './success/BaselineSuccessCard';
