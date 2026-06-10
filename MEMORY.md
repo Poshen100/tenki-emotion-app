@@ -37,7 +37,14 @@ Built the **onboarding-quality UI flow** on top of the verified logic foundation
 3. Wire a real entry point into `/face-baseline` (e.g. from first-run onboarding) and persist baseline + maturity to secure local storage.
 4. Visual QA on device against the 9 references.
 
-*Last updated: 2026-06-10 (Claude Code — Face Baseline foundation + static screens)*
+### Update — Logic tests (same session)
+Converted the earlier throwaway sanity-checks into a committed **jest + ts-jest** harness (mirrors `packages/engine`; project uses jest, not vitest despite CLAUDE.md wording).
+- `apps/mobile/package.json` — added `test` script, jest devDeps, and a jest block that transforms via a standalone `features/face-baseline/jest.tsconfig.json` (no expo extend, so tests don't need the RN/expo type tree).
+- `features/face-baseline/__tests__/` — `machine.test.ts`, `utils.test.ts`, `store.test.ts` → **33 tests, all green** (state-machine happy path/recovery/denied/invariants, quality+maturity+progress+retry+confidence utils, store actions + selectors).
+- Run with `cd apps/mobile && npm test`. apps/mobile is NOT a root workspace member, so root `npm test` won't pick these up — run them from the app dir.
+- Verified green in-container; lockfile/`package-lock.json` untouched (test deps installed `--no-save` for the run only, but ARE declared in apps/mobile devDependencies for real installs).
+
+*Last updated: 2026-06-10 (Claude Code — Face Baseline foundation + static screens + logic tests)*
 
 ---
 
