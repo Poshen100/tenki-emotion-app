@@ -1,3 +1,37 @@
+# 2026-06-11 Session Update #2 (main CI 紅燈修復 + 9 屏視覺對齊 pass)
+
+## What was done（同分支續用，PR #79）
+
+1. **修復 main CI 紅燈**：Antigravity 桌機把 Phase 1 視覺、Phase 2A（Skia+haptics）、2B（live camera）直推 main，8 個 commits CI 全紅。修復內容：
+   - `BlurMask` 沒有 `sigma` prop → `blur`（兩個 `*Skia.native.tsx` 共 12 處）
+   - 平台分檔 `*Skia.native/.web.tsx` 缺 tsc 解析目標 → 補 `.d.ts` shim（Metro 選平台檔、tsc 讀宣告）
+   - vision-camera **v5** 沒有 `Camera.requestCameraPermission()` → `VisionCamera.requestCameraPermission()`（回傳 boolean）
+   - hooks barrel 還在 export 已刪除的 `setHapticsImplementation`/`HapticsImpl`
+   - hook 改為直接 import react-native 後破壞「無 RN 的 jest harness」→ `shouldFireHaptic` 純邏輯移回 `utils/haptics.ts`，hook re-export
+   - 11 個 lint errors（forEach return + index keys）
+   - `BrandWordmark` 的 favicon require 多一層 `../` → **web bundling 直接失敗**（dist 被 expo export 清空才發現）
+2. **9 屏視覺對齊 pass**（founder 給 9 張 canonical 參考圖 + 嚴格任務書「收斂不創新」）：
+   - 安裝 `expo-linear-gradient@~15.0.7` + `expo-blur@~15.0.7`（Expo Go + Web 相容）
+   - 真 LinearGradient / BlurView 全面取代硬切色塊假漸層假毛玻璃；14 個 style commits（tokens → shared 元件 → 逐屏）
+   - 逐屏自評 7.5–8.5/10，誠實差距與被原生卡住項目都寫在 PR #79 描述裡
+3. Expo Web bundle 重建（`dist/` 是 gitignored，要 `git add -f`，沿用 Antigravity 的 force-add 慣例）。
+
+## 結果
+- **PR #79 已 merge**（founder 審過 preview）→ main CI 回綠，`/face-baseline/` 固定網址已是視覺對齊版。
+
+### Notes / gotchas（給下個 session）
+- **不要直推 main**：CI 只能擋 PR，直推會把紅燈帶進 main。Antigravity 桌機請改走 `feat/*` → PR。
+- vision-camera v5 的 permission API 在 `VisionCamera` factory 上，不在 `Camera` 元件上。
+- `expo export` 失敗時會先清空 output dir — dist 消失即 build 失敗的訊號。
+- jest contract harness 依賴「`utils/` 永遠不 import react-native」這個約定，動 hooks 時要保持純邏輯在 utils。
+
+## Next session
+1. PR #79 merge 後：視覺第二輪（吃 founder 看 preview 的回饋）。
+2. 原生 session（需 Mac）：Skia orb shader（消除同心圓色帶）、相機實拍、實機 haptics、Reanimated 轉場。
+3. P2 backlog 不變：encrypted SQLite 持久化、Today tab 接 engine、domain policies 測試、Maestro E2E。
+
+---
+
 # 2026-06-11 Session Update (P0 基礎建設：CI + Biome + 文件糾正)
 
 ## What was done（branch `claude/fable5-opus48-specs-xaoghq`，Commit-Per-Todo 共 9 commits）
