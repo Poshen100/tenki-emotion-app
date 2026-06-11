@@ -3,10 +3,14 @@
  * @description Live pass/fail rows for Lighting / Distance / Stability,
  * styled as the reference's floating status pills.
  *
- * INTEGRATION (Reanimated): add the status-flip micro-bounce + fail shake.
+ * Uses Animated to drive status-flip micro-bounce for passing state and
+ * horizontal shake for failing state.
+ *
+ * @version 3.1
+ * @see apps/mobile/features/face-baseline/SPEC.md
  */
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Animated, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 
 export type CheckStatus = 'pass' | 'fail' | 'pending';
@@ -31,12 +35,57 @@ function statusGlyph(status: CheckStatus): string {
 
 export function ChecklistRow({ item }: { item: ChecklistItem }): React.JSX.Element {
   const color = statusColor(item.status);
+
+  // Animated values for badge feedback
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  // Track status changes to fire micro-interactions
+  const prevStatus = useRef<CheckStatus>(item.status);
+
+  useEffect(() => {
+    if (prevStatus.current !== item.status) {
+      if (item.status === 'pass') {
+        // Bounce effect
+        scaleAnim.setValue(0.5);
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 4,
+          tension: 40,
+          useNativeDriver: true,
+        }).start();
+      } else if (item.status === 'fail') {
+        // Shake sequence
+        shakeAnim.setValue(0);
+        Animated.sequence([
+          Animated.timing(shakeAnim, { toValue: -6, duration: 60, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: 6, duration: 60, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: -4, duration: 60, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: 4, duration: 60, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
+        ]).start();
+      }
+      prevStatus.current = item.status;
+    }
+  }, [item.status, scaleAnim, shakeAnim]);
+
   return (
     <View style={styles.row}>
       <Text style={styles.label}>{item.label}</Text>
-      <View style={[styles.badge, { borderColor: color }]}>
+      <Animated.View
+        style={[
+          styles.badge,
+          {
+            borderColor: color,
+            transform: [
+              { scale: scaleAnim },
+              { translateX: shakeAnim },
+            ],
+          },
+        ]}
+      >
         <Text style={[styles.badgeGlyph, { color }]}>{statusGlyph(item.status)}</Text>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -57,7 +106,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minWidth: 200,
+    minWidth: 220,
     paddingVertical: t.spacing.sm,
     paddingHorizontal: t.spacing.md,
     borderRadius: t.radius.card.md,

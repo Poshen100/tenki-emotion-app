@@ -4,12 +4,14 @@
  * `halo` = capturing (circular ring). Color tracks state:
  * idle/tracking = cyan, locked = mint, capturing = gold.
  *
- * INTEGRATION (Skia + vision-camera): render the live camera preview behind the
- * frame, animate bracket tracking + lock snap, and draw the halo arc in Skia.
- * This core-RN version draws the static frame chrome over a placeholder.
+ * Uses Animated to transition between square brackets and halo ring,
+ * and handles the lock snap animation (320ms snap) and color interpolation.
+ *
+ * @version 3.1
+ * @see apps/mobile/features/face-baseline/SPEC.md
  */
-import React from 'react';
-import { View, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Animated, type ViewStyle, type StyleProp } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 
 export type ScanShape = 'square' | 'halo';
@@ -23,15 +25,10 @@ interface FaceScanFrameProps {
 }
 
 function frameColor(state: ScanState): string {
-  if (state === 'locked') return t.color.frame.locked;
-  if (state === 'capturing') return t.color.frame.capture;
-  if (state === 'tracking') return t.color.frame.tracking;
-  return t.color.frame.idle;
-}
-
-/** L-shaped corner bracket. */
-function Corner({ color, style }: { color: string; style: StyleProp<ViewStyle> }): React.JSX.Element {
-  return <View style={[styles.corner, { borderColor: color }, style]} />;
+  if (state === 'locked') return t.color.frame.locked; // mint
+  if (state === 'capturing') return t.color.frame.capture; // gold
+  if (state === 'tracking') return t.color.frame.tracking; // cyan
+  return t.color.frame.idle; // dimmed blue-gray
 }
 
 export function FaceScanFrame({
@@ -40,49 +37,239 @@ export function FaceScanFrame({
   size = 240,
   children,
 }: FaceScanFrameProps): React.JSX.Element {
+  const isHalo = shape === 'halo';
   const color = frameColor(state);
 
-  if (shape === 'halo') {
-    return (
-      <View style={[styles.haloWrap, { width: size, height: size }]}>
-        <View
-          style={[
-            styles.halo,
-            { width: size, height: size, borderRadius: size / 2, borderColor: color, shadowColor: color },
-          ]}
-        />
-        <View style={styles.subject}>{children}</View>
-      </View>
-    );
-  }
+  // Animated values for visual state transitions
+  const shapeAnim = useRef(new Animated.Value(isHalo ? 1 : 0)).current;
+  const colorAnim = useRef(new Animated.Value(state === 'idle' ? 0 : state === 'tracking' ? 0.33 : state === 'locked' ? 0.66 : 1)).current;
+  const snapScale = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  // Track state change
+  useEffect(() => {
+    // Animate shape transition (0 = square, 1 = halo)
+    Animated.timing(shapeAnim, {
+      toValue: isHalo ? 1 : 0,
+      duration: t.motion.duration.lockSnap,
+      useNativeDriver: false,
+    }).start();
+
+    // Color target index
+    const targetColorVal = state === 'idle' ? 0 : state === 'tracking' ? 0.33 : state === 'locked' ? 0.66 : 1;
+    Animated.timing(colorAnim, {
+      toValue: targetColorVal,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+
+    // Trigger lock/snap animation
+    if (state === 'locked') {
+      snapScale.setValue(1.15);
+      Animated.spring(snapScale, {
+        toValue: 1.0,
+        friction: 6,
+        tension: 40,
+        useNativeDriver: true,
+      }).start();
+    }
+
+    // Capture breathing animation loop
+    if (state === 'capturing') {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 0,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      pulseAnim.setValue(0);
+    }
+  }, [shape, state, isHalo, shapeAnim, colorAnim, snapScale, pulseAnim]);
+
+  // Color interpolation
+  const interpolatedColor = colorAnim.interpolate({
+    inputRange: [0, 0.33, 0.66, 1],
+    outputRange: [
+      t.color.frame.idle,
+      t.color.frame.tracking,
+      t.color.frame.locked,
+      t.color.frame.capture,
+    ],
+  });
+
+  // Corner bracket spacing/displacement animations
+  // When tracking, brackets slightly wobble. When locked, they contract inward.
+  const bracketOffset = shapeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 12], // offset bracket displacement to collapse into halo shape
+  });
+
+  const bracketOpacity = shapeAnim.interpolate({
+    inputRange: [0, 0.8, 1],
+    outputRange: [1, 0.3, 0],
+  });
+
+  const haloOpacity = shapeAnim.interpolate({
+    inputRange: [0, 0.2, 1],
+    outputRange: [0, 0.3, 1],
+  });
+
+  const haloScale = shapeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.8, 1.0],
+  });
+
+  // Combined scale (includes spring snap and capture breathing)
+  const pulseScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.025],
+  });
+
+  const combinedScale = Animated.multiply(snapScale, pulseScale);
 
   return (
-    <View style={[styles.squareWrap, { width: size, height: size }]}>
+    <Animated.View style={[styles.outerContainer, { width: size, height: size, transform: [{ scale: combinedScale }] }]}>
       <View style={styles.subject}>{children}</View>
-      <Corner color={color} style={styles.tl} />
-      <Corner color={color} style={styles.tr} />
-      <Corner color={color} style={styles.bl} />
-      <Corner color={color} style={styles.br} />
-    </View>
+
+      {/* Square corner reticle */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: bracketOpacity }]}>
+        <Animated.View
+          style={[
+            styles.corner,
+            styles.tl,
+            {
+              borderColor: interpolatedColor,
+              transform: [{ translateX: Animated.multiply(bracketOffset, -1) }, { translateY: Animated.multiply(bracketOffset, -1) }],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.corner,
+            styles.tr,
+            {
+              borderColor: interpolatedColor,
+              transform: [{ translateX: bracketOffset }, { translateY: Animated.multiply(bracketOffset, -1) }],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.corner,
+            styles.bl,
+            {
+              borderColor: interpolatedColor,
+              transform: [{ translateX: Animated.multiply(bracketOffset, -1) }, { translateY: bracketOffset }],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.corner,
+            styles.br,
+            {
+              borderColor: interpolatedColor,
+              transform: [{ translateX: bracketOffset }, { translateY: bracketOffset }],
+            },
+          ]}
+        />
+      </Animated.View>
+
+      {/* Circular halo ring */}
+      <Animated.View
+        style={[
+          styles.haloContainer,
+          {
+            opacity: haloOpacity,
+            transform: [{ scale: haloScale }],
+          },
+        ]}
+      >
+        <Animated.View
+          style={[
+            styles.halo,
+            {
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              borderColor: interpolatedColor,
+              shadowColor: interpolatedColor,
+            },
+          ]}
+        />
+      </Animated.View>
+    </Animated.View>
   );
 }
 
 const BRACKET = 34;
 
 const styles = StyleSheet.create({
-  squareWrap: { alignItems: 'center', justifyContent: 'center' },
-  haloWrap: { alignItems: 'center', justifyContent: 'center' },
-  subject: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  outerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  subject: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: t.radius.scanFrame.lg,
+  },
+  haloContainer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   halo: {
-    position: 'absolute',
     borderWidth: t.stroke.halo,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 40,
   },
-  corner: { position: 'absolute', width: BRACKET, height: BRACKET },
-  tl: { top: 0, left: 0, borderTopWidth: t.stroke.reticle, borderLeftWidth: t.stroke.reticle, borderTopLeftRadius: t.radius.scanFrame.lg },
-  tr: { top: 0, right: 0, borderTopWidth: t.stroke.reticle, borderRightWidth: t.stroke.reticle, borderTopRightRadius: t.radius.scanFrame.lg },
-  bl: { bottom: 0, left: 0, borderBottomWidth: t.stroke.reticle, borderLeftWidth: t.stroke.reticle, borderBottomLeftRadius: t.radius.scanFrame.lg },
-  br: { bottom: 0, right: 0, borderBottomWidth: t.stroke.reticle, borderRightWidth: t.stroke.reticle, borderBottomRightRadius: t.radius.scanFrame.lg },
+  corner: {
+    position: 'absolute',
+    width: BRACKET,
+    height: BRACKET,
+  },
+  tl: {
+    top: 0,
+    left: 0,
+    borderTopWidth: t.stroke.reticle,
+    borderLeftWidth: t.stroke.reticle,
+    borderTopLeftRadius: t.radius.scanFrame.lg,
+  },
+  tr: {
+    top: 0,
+    right: 0,
+    borderTopWidth: t.stroke.reticle,
+    borderRightWidth: t.stroke.reticle,
+    borderTopRightRadius: t.radius.scanFrame.lg,
+  },
+  bl: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: t.stroke.reticle,
+    borderLeftWidth: t.stroke.reticle,
+    borderBottomLeftRadius: t.radius.scanFrame.lg,
+  },
+  br: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: t.stroke.reticle,
+    borderRightWidth: t.stroke.reticle,
+    borderBottomRightRadius: t.radius.scanFrame.lg,
+  },
 });

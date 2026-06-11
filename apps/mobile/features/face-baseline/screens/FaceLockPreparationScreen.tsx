@@ -45,7 +45,9 @@ export default function FaceLockPreparationScreen(): React.JSX.Element {
       <SafeAreaView style={styles.safe}>
         <NavBar onBack={() => router.back()} onCancel={() => router.back()} />
         <View style={styles.frameWrap}>
-          <FaceScanFrame shape="square" state={state} size={260} />
+          <FaceScanFrame shape="square" state={state} size={260}>
+            <View style={styles.mockFaceGuide} />
+          </FaceScanFrame>
         </View>
         <View style={styles.footer}>
           <Text style={styles.instruction}>{label}</Text>
@@ -58,6 +60,15 @@ export default function FaceLockPreparationScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: t.spacing.gutter },
   frameWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  mockFaceGuide: {
+    width: 140,
+    height: 190,
+    borderRadius: 70,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderStyle: 'dashed',
+  },
   footer: { paddingBottom: t.spacing.xxl, alignItems: 'center' },
   instruction: { fontSize: t.text.cardTitle.size, fontWeight: '600', color: t.color.text.primary },
 });

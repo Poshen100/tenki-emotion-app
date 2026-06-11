@@ -16,6 +16,7 @@ import {
   SoulParticleMesh,
   SegmentedProgress,
   PrivacyLockPill,
+  QualityStatusPills,
   NavBar,
 } from '../components';
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
@@ -23,6 +24,7 @@ import { useFaceBaselineStore } from '../store/faceBaselineStore';
 import { captureProgress } from '../utils/progress';
 import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
 import { FB_ROUTES } from './routes';
+import type { QualityStatus } from '../types/faceBaseline.types';
 
 export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
   const router = useRouter();
@@ -49,6 +51,10 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
     return () => clearInterval(interval);
   }, [goTo, setCapturePhase, setNeutralProgress, router]);
 
+  // Mock transient quality warning between 30% and 60% progress
+  const qualityStatus: QualityStatus = (progress > 0.3 && progress < 0.6) ? 'movement' : 'good';
+  const nudgeText = qualityStatus === 'movement' ? C.captureNeutral.nudges.movement : '';
+
   return (
     <CosmicBackground mode="captureWarm">
       <SafeAreaView style={styles.safe}>
@@ -59,6 +65,9 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
           </FaceScanFrame>
           <View style={styles.pill}>
             <PrivacyLockPill label={C.captureNeutral.privacyPill} />
+          </View>
+          <View style={styles.nudgeContainer}>
+            <QualityStatusPills status={qualityStatus} label={nudgeText} />
           </View>
         </View>
         <View style={styles.footer}>
@@ -74,6 +83,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: t.spacing.gutter },
   frameWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   pill: { marginTop: t.spacing.xl },
+  nudgeContainer: { height: 40, marginTop: t.spacing.sm, justifyContent: 'center' },
   footer: { paddingBottom: t.spacing.xxl, gap: t.spacing.lg, alignItems: 'center' },
   instruction: { fontSize: t.text.hero.size, fontWeight: '700', color: t.color.text.primary, textAlign: 'center' },
 });

@@ -36,7 +36,7 @@ export function BaselineHeroCopy({ title, subtitle, body, align = 'center' }: He
 export function TimeCostChip({ seconds }: { seconds: number }): React.JSX.Element {
   return (
     <View style={styles.chip}>
-      <Text style={styles.chipDot}>◷</Text>
+      <Text style={styles.chipDot}>⏱</Text>
       <Text style={styles.chipText}>{seconds} Seconds</Text>
     </View>
   );
@@ -46,7 +46,7 @@ export function TimeCostChip({ seconds }: { seconds: number }): React.JSX.Elemen
 export function PrivacyLockPill({ label }: { label: string }): React.JSX.Element {
   return (
     <View style={styles.pill}>
-      <Text style={styles.pillLock}>⌾</Text>
+      <Text style={styles.pillLock}>🔒</Text>
       <Text style={styles.pillText}>{label}</Text>
     </View>
   );

@@ -29,6 +29,8 @@ export { FaceScanFrame } from './frame/FaceScanFrame';
 export type { ScanShape, ScanState } from './frame/FaceScanFrame';
 export { SegmentedProgress } from './capture/SegmentedProgress';
 export { SoulParticleMesh } from './capture/SoulParticleMesh';
+export { QualityStatusPills } from './capture/QualityStatusPills';
+export { MotionGuideCue } from './capture/MotionGuideCue';
 export { ProcessingOrb, PercentReadout } from './processing/ProcessingOrb';
 export { ResonanceOrb } from './resonance/ResonanceOrb';
 export { MaturityProgressBar } from './maturity/MaturityProgressBar';

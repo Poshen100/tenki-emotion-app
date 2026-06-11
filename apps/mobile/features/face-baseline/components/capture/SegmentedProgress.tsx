@@ -3,10 +3,10 @@
  * @description Thin 2-segment capture bar (neutral → motion). Pause dims the
  * fill; progress never visually resets on a transient quality dip.
  *
- * INTEGRATION (Reanimated): spring the fill width on progress change.
+ * Uses Animated to transition width smoothly.
  */
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Animated, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import { clamp01 } from '../../utils/progress';
 
@@ -17,6 +17,62 @@ interface SegmentedProgressProps {
   accent?: 'cyan' | 'gold';
   paused?: boolean;
   width?: number;
+}
+
+function ProgressSegment({
+  index,
+  totalSegments,
+  progress,
+  fillColor,
+  paused,
+}: {
+  index: number;
+  totalSegments: number;
+  progress: number;
+  fillColor: string;
+  paused: boolean;
+}): React.JSX.Element {
+  const segStart = index / totalSegments;
+  const targetFill = clamp01((progress - segStart) * totalSegments);
+
+  const fillAnim = useRef(new Animated.Value(targetFill)).current;
+  const opacityAnim = useRef(new Animated.Value(paused ? 0.5 : 1)).current;
+
+  useEffect(() => {
+    Animated.timing(fillAnim, {
+      toValue: targetFill,
+      duration: 350,
+      useNativeDriver: false,
+    }).start();
+  }, [targetFill, fillAnim]);
+
+  useEffect(() => {
+    Animated.timing(opacityAnim, {
+      toValue: paused ? 0.5 : 1,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [paused, opacityAnim]);
+
+  const widthStyle = fillAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
+  return (
+    <View style={styles.track}>
+      <Animated.View
+        style={[
+          styles.fill,
+          {
+            width: widthStyle,
+            backgroundColor: fillColor,
+            opacity: opacityAnim,
+          },
+        ]}
+      />
+    </View>
+  );
 }
 
 export function SegmentedProgress({
@@ -31,20 +87,16 @@ export function SegmentedProgress({
 
   return (
     <View style={[styles.row, { width }]} accessibilityRole="progressbar" accessibilityValue={{ now: Math.round(p * 100), min: 0, max: 100 }}>
-      {Array.from({ length: segments }).map((_, i) => {
-        const segStart = i / segments;
-        const segFill = clamp01((p - segStart) * segments);
-        return (
-          <View key={i} style={styles.track}>
-            <View
-              style={[
-                styles.fill,
-                { width: `${segFill * 100}%`, backgroundColor: fillColor, opacity: paused ? 0.5 : 1 },
-              ]}
-            />
-          </View>
-        );
-      })}
+      {Array.from({ length: segments }).map((_, i) => (
+        <ProgressSegment
+          key={i}
+          index={i}
+          totalSegments={segments}
+          progress={p}
+          fillColor={fillColor}
+          paused={paused}
+        />
+      ))}
     </View>
   );
 }

@@ -51,11 +51,15 @@ export default function EnvironmentCalibrationScreen(): React.JSX.Element {
         <NavBar title={C.environment.title} onBack={() => router.back()} onCancel={() => router.back()} />
         <View style={styles.frameWrap}>
           <FaceScanFrame shape="square" state={envReady ? 'locked' : 'tracking'} size={240}>
-            <EnvironmentChecklist items={items} />
+            {/* Mock facial guide silhouette inside frame */}
+            <View style={styles.mockFaceGuide} />
           </FaceScanFrame>
         </View>
         <View style={styles.body}>
           <Text style={styles.guide}>{C.environment.body}</Text>
+          <View style={styles.checklistWrap}>
+            <EnvironmentChecklist items={items} />
+          </View>
         </View>
         <View style={styles.footer}>
           <GlowPrimaryButton
@@ -75,7 +79,17 @@ const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: t.spacing.gutter },
   frameWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { alignItems: 'center', marginBottom: t.spacing.lg },
-  guide: { fontSize: t.text.body.size, color: t.color.text.secondary, textAlign: 'center' },
+  guide: { fontSize: t.text.body.size, color: t.color.text.secondary, textAlign: 'center', marginBottom: t.spacing.md },
+  checklistWrap: { width: '100%', alignItems: 'center' },
+  mockFaceGuide: {
+    width: 130,
+    height: 180,
+    borderRadius: 65,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderStyle: 'dashed',
+  },
   footer: { paddingBottom: t.spacing.ctaDock, gap: t.spacing.sm, alignItems: 'center' },
   hint: { fontSize: t.text.caption.size, color: t.color.text.tertiary },
 });

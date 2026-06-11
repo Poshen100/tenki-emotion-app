@@ -1,10 +1,10 @@
 @echo off
 set "PATH=%~dp0..\tools\node;%~dp0..\tools\git\cmd;%PATH%"
-echo Portable Node.js & Git Environment Initialized!
+echo Portable Node.js and Git Environment Initialized!
 echo Node version:
 node -v
 echo NPM version:
-npm -v
+call npm -v
 echo Git version:
 git --version
 echo.

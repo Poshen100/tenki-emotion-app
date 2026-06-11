@@ -185,6 +185,7 @@ export default function SessionScreen() {
             <Text style={styles.resetText}>Start New Session</Text>
           </Pressable>
         )}
+      </ScrollView>
       </SafeAreaView>
     </BackgroundContainer>
   );
