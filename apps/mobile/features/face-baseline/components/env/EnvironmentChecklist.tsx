@@ -22,9 +22,9 @@ export interface ChecklistItem {
 }
 
 function statusColor(status: CheckStatus): string {
-  if (status === 'pass') return '#00E699';
-  if (status === 'fail') return '#FF4A4A';
-  return '#A6B0D3';
+  if (status === 'pass') return '#4CD964'; // iOS green
+  if (status === 'fail') return '#FF3B30'; // iOS red
+  return 'rgba(255, 255, 255, 0.2)';
 }
 
 function statusGlyph(status: CheckStatus): string {
@@ -75,12 +75,9 @@ export function ChecklistRow({ item }: { item: ChecklistItem }): React.JSX.Eleme
     }
   }, [item.status, scaleAnim, shakeAnim]);
 
-  const isPass = item.status === 'pass';
-
   return (
     <Animated.View style={[
       styles.row,
-      isPass ? styles.rowPass : styles.rowFail,
       { transform: [{ translateX: shakeAnim }] }
     ]}>
       <View style={styles.left}>
@@ -114,35 +111,26 @@ export function EnvironmentChecklist({ items }: { items: readonly ChecklistItem[
 }
 
 const styles = StyleSheet.create({
-  list: { gap: 10, alignSelf: 'center', width: '100%', paddingHorizontal: 16 },
+  list: { gap: 10, alignSelf: 'center', alignItems: 'center' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    width: 154,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 99,
-    borderWidth: 1.5,
+    backgroundColor: 'rgba(38, 30, 24, 0.65)',
   },
-  rowPass: {
-    backgroundColor: 'rgba(12, 28, 20, 0.75)',
-    borderColor: 'rgba(0, 230, 153, 0.35)',
-  },
-  rowFail: {
-    backgroundColor: 'rgba(28, 14, 12, 0.75)',
-    borderColor: 'rgba(255, 74, 74, 0.35)',
-  },
-  left: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  icon: { fontSize: 16 },
-  label: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
+  left: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  icon: { fontSize: 15 },
+  label: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
   badge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeGlyph: { fontSize: 11, fontWeight: '900', color: '#030407' },
+  badgeGlyph: { fontSize: 11, fontWeight: '800', color: '#FFFFFF', lineHeight: 13 },
 });

@@ -21,11 +21,9 @@ export function PrivacyAssuranceList({ items }: PrivacyAssuranceListProps): Reac
     <View style={styles.list}>
       {items.map((item, i) => (
         <View key={item.label} style={styles.row}>
-          <View style={styles.bullet}>
-            <Text style={styles.bulletNum}>{i + 1}</Text>
-          </View>
+          <View style={styles.bullet} />
           <Text style={styles.text}>
-            <Text style={styles.label}>{item.label}: </Text>
+            <Text style={styles.label}>{i + 1}. {item.label}: </Text>
             <Text style={styles.detail}>{item.detail}</Text>
           </Text>
         </View>
@@ -35,21 +33,16 @@ export function PrivacyAssuranceList({ items }: PrivacyAssuranceListProps): Reac
 }
 
 const styles = StyleSheet.create({
-  list: { gap: t.spacing.lg },
+  list: { gap: t.spacing.lg, paddingHorizontal: t.spacing.md },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: t.spacing.md },
   bullet: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: t.color.surface.glassBlue,
-    borderWidth: 1,
-    borderColor: t.color.border.glassCyan,
-    marginTop: 1,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#FFFFFF',
+    marginTop: 3,
   },
-  bulletNum: { color: t.color.accent.cyanGlow, fontSize: 12, fontWeight: '700' },
   text: { flex: 1, fontSize: t.text.body.size, lineHeight: t.text.body.lineHeight },
-  label: { color: t.color.text.primary, fontWeight: '600' },
+  label: { color: '#FFFFFF', fontWeight: '700' },
   detail: { color: t.color.text.secondary },
 });
