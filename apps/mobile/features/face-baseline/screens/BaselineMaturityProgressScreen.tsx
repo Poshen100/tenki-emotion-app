@@ -48,14 +48,17 @@ export default function BaselineMaturityProgressScreen(): React.JSX.Element {
         <NavBar title={C.maturity.title} showLogo={true} titleColor="#FFC85E" />
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.orbWrap}>
-            <ResonanceOrb stage={stage} size={150} />
+            <ResonanceOrb stage={stage} size={190} />
             <Text style={styles.orbLabel}>{C.maturity.orbLabel}</Text>
           </View>
 
           <MaturityProgressBar stage={stage} labels={C.maturity.stages} />
-          
+
           <View style={styles.counterContainer}>
-            <Text style={styles.counterNum}>{scanCount}/{scansRequired}</Text>
+            <Text style={styles.counterNum}>
+              {scanCount}
+              <Text style={styles.counterDenom}>/{scansRequired}</Text>
+            </Text>
             <Text style={styles.counterLabel}>scans completed</Text>
           </View>
 
@@ -88,9 +91,10 @@ const styles = StyleSheet.create({
   orbWrap: { alignItems: 'center', gap: t.spacing.sm, marginTop: t.spacing.sm },
   orbLabel: { fontSize: t.text.body.size, fontWeight: '600', color: t.color.text.primary },
   counterContainer: { alignItems: 'center', marginVertical: -t.spacing.xs },
-  counterNum: { fontSize: 36, fontWeight: '800', color: '#FFC85E', letterSpacing: 1 },
+  counterNum: { fontSize: 42, lineHeight: 48, fontWeight: '700', color: '#FFC85E', letterSpacing: 0.5 },
+  counterDenom: { fontSize: 24, fontWeight: '600', color: 'rgba(255, 255, 255, 0.85)' },
   counterLabel: { fontSize: 13, color: 'rgba(255, 255, 255, 0.45)', fontWeight: '600', marginTop: 2 },
-  historyTitle: { fontSize: t.text.title.size, fontWeight: '600', color: t.color.text.primary },
+  historyTitle: { fontSize: t.text.title.size, fontWeight: '700', color: t.color.text.primary },
   history: { marginTop: -t.spacing.sm },
   footer: { paddingBottom: t.spacing.ctaDock, paddingTop: t.spacing.sm },
 });
