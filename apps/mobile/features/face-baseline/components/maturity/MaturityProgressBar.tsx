@@ -22,6 +22,25 @@ export function MaturityProgressBar({ stage, labels }: MaturityProgressBarProps)
   
   return (
     <View style={styles.wrap}>
+      <View style={styles.labels}>
+        {STAGE_ORDER.map((s, i) => {
+          const isCurrent = i === activeIndex;
+          const isFilled = i <= activeIndex;
+          
+          return (
+            <Text
+              key={s}
+              style={[
+                styles.label, 
+                isCurrent ? styles.labelActive : null,
+                isFilled && !isCurrent ? { color: 'rgba(255, 255, 255, 0.6)' } : null
+              ]}
+            >
+              {labels[s]}
+            </Text>
+          );
+        })}
+      </View>
       <View style={styles.track}>
         {STAGE_ORDER.map((s, i) => {
           const filled = i <= activeIndex;
@@ -44,34 +63,15 @@ export function MaturityProgressBar({ stage, labels }: MaturityProgressBarProps)
           );
         })}
       </View>
-      <View style={styles.labels}>
-        {STAGE_ORDER.map((s, i) => {
-          const isCurrent = i === activeIndex;
-          const isFilled = i <= activeIndex;
-          
-          return (
-            <Text
-              key={s}
-              style={[
-                styles.label, 
-                isCurrent ? styles.labelActive : null,
-                isFilled ? { color: activeColor } : null
-              ]}
-            >
-              {labels[s]}
-            </Text>
-          );
-        })}
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { width: '100%', gap: 12 },
+  wrap: { width: '100%', gap: 8 },
   track: { flexDirection: 'row', gap: 6 },
   segment: { flex: 1, height: 8, borderRadius: 4, shadowOffset: { width: 0, height: 0 } },
   labels: { flexDirection: 'row', justifyContent: 'space-between' },
-  label: { flex: 1, textAlign: 'center', fontSize: 12, color: 'rgba(255, 255, 255, 0.35)', fontWeight: '500' },
-  labelActive: { color: '#FFFFFF', fontWeight: '800' },
+  label: { flex: 1, textAlign: 'center', fontSize: 13, color: 'rgba(255, 255, 255, 0.35)', fontWeight: '600' },
+  labelActive: { color: '#FFC85E', fontWeight: '800' },
 });

@@ -52,7 +52,11 @@ export default function BaselineMaturityProgressScreen(): React.JSX.Element {
           </View>
 
           <MaturityProgressBar stage={stage} labels={C.maturity.stages} />
-          <Text style={styles.counter}>{C.maturity.counter(scanCount, scansRequired)}</Text>
+          
+          <View style={styles.counterContainer}>
+            <Text style={styles.counterNum}>{scanCount}/{scansRequired}</Text>
+            <Text style={styles.counterLabel}>scans completed</Text>
+          </View>
 
           <TechnicalInsightCard text={C.maturity.insight} />
 
@@ -82,7 +86,9 @@ const styles = StyleSheet.create({
   scroll: { gap: t.spacing.xl, paddingBottom: t.spacing.lg },
   orbWrap: { alignItems: 'center', gap: t.spacing.sm, marginTop: t.spacing.sm },
   orbLabel: { fontSize: t.text.body.size, fontWeight: '600', color: t.color.text.primary },
-  counter: { fontSize: t.text.body.size, color: t.color.text.secondary, textAlign: 'center' },
+  counterContainer: { alignItems: 'center', marginVertical: -t.spacing.xs },
+  counterNum: { fontSize: 36, fontWeight: '800', color: '#FFC85E', letterSpacing: 1 },
+  counterLabel: { fontSize: 13, color: 'rgba(255, 255, 255, 0.45)', fontWeight: '600', marginTop: 2 },
   historyTitle: { fontSize: t.text.title.size, fontWeight: '600', color: t.color.text.primary },
   history: { marginTop: -t.spacing.sm },
   footer: { paddingBottom: t.spacing.ctaDock, paddingTop: t.spacing.sm },

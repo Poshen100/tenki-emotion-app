@@ -5,6 +5,7 @@
  * INTEGRATION (Reanimated): checkmark draw + bloom pulse on reveal.
  */
 import { useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { useBaselineHaptics } from '../../hooks/useBaselineHaptics';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import { GlassInfoCard } from '../glass/GlassInfoCard';
@@ -23,7 +24,7 @@ export function BaselineSuccessCard({ title, body }: BaselineSuccessCardProps): 
 
   return (
     <GlassInfoCard edge="gold" style={styles.card}>
-      {/* Supercharged golden success seal with concentric pulsing halos */}
+      {/* Golden success seal with concentric pulsing halos - matches reference exactly */}
       <View style={styles.sealContainer}>
         <View style={styles.sealOuterHalo} />
         <View style={styles.sealInnerHalo} />
@@ -34,36 +35,19 @@ export function BaselineSuccessCard({ title, body }: BaselineSuccessCardProps): 
 
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.body}>{body}</Text>
-
-      {/* Trust credentials checklist badge to make it feel premium and rewarding */}
-      <View style={styles.divider} />
-      <View style={styles.metricsContainer}>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricBullet}>✦</Text>
-          <Text style={styles.metricText}>Face Baseline 100% Calibrated</Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricBullet}>✦</Text>
-          <Text style={styles.metricText}>Secure Local Enclave Isolation</Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricBullet}>✦</Text>
-          <Text style={styles.metricText}>Resonance Tracking Activated</Text>
-        </View>
-      </View>
     </GlassInfoCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { alignItems: 'center', paddingVertical: 32 },
+  card: { alignItems: 'center', paddingVertical: 44, paddingHorizontal: 24 },
   sealContainer: {
     width: 120,
     height: 120,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    marginBottom: t.spacing.lg,
+    marginBottom: t.spacing.xl,
   },
   sealOuterHalo: {
     position: 'absolute',
@@ -86,19 +70,21 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
+    borderWidth: 2.5,
+    borderColor: '#FFC85E',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFC85E',
-    shadowColor: '#FF8800',
+    backgroundColor: 'transparent',
+    shadowColor: '#FFC85E',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 28,
-    elevation: 8,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  check: { color: '#030407', fontSize: 36, fontWeight: '900' },
+  check: { color: '#FFC85E', fontSize: 32, fontWeight: '800', lineHeight: 36 },
   title: {
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: t.spacing.md,
@@ -109,33 +95,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#A6B0D3',
     textAlign: 'center',
-    paddingHorizontal: 16,
-  },
-  divider: {
-    width: '80%',
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginVertical: 24,
-  },
-  metricsContainer: {
-    width: '100%',
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  metricBullet: {
-    color: '#FFC85E',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  metricText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    paddingHorizontal: 8,
   },
 });

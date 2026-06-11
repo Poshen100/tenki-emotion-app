@@ -43,7 +43,12 @@ export default function FaceDetectionRecoveryScreen(): React.JSX.Element {
       <SafeAreaView style={styles.safe}>
         <NavBar title="Face Detection Recovery" onBack={() => router.back()} />
         <View style={styles.frameWrap}>
-          <FaceScanFrame shape="square" state="tracking" size={200} />
+          <FaceScanFrame shape="square" state="tracking" size={200}>
+            <View style={styles.avatarOutline}>
+              <View style={styles.avatarHead} />
+              <View style={styles.avatarShoulders} />
+            </View>
+          </FaceScanFrame>
         </View>
         <View style={styles.body}>
           <Text style={styles.title}>{C.recovery.title}</Text>
@@ -64,6 +69,34 @@ export default function FaceDetectionRecoveryScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: t.spacing.gutter },
   frameWrap: { alignItems: 'center', justifyContent: 'center', marginTop: t.spacing.lg },
+  avatarOutline: {
+    width: 100,
+    height: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  avatarHead: {
+    width: 62,
+    height: 84,
+    borderRadius: 31,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    position: 'absolute',
+    top: 10,
+  },
+  avatarShoulders: {
+    width: 96,
+    height: 44,
+    borderTopWidth: 1.5,
+    borderLeftWidth: 1.5,
+    borderRightWidth: 1.5,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    position: 'absolute',
+    bottom: 0,
+  },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: t.spacing.md },
   title: { fontSize: t.text.hero.size, fontWeight: '700', color: t.color.text.primary, textAlign: 'center' },
   subtitle: { fontSize: t.text.body.size, color: t.color.text.secondary, textAlign: 'center', paddingHorizontal: t.spacing.lg },
