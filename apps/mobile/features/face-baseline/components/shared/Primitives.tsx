@@ -13,7 +13,7 @@ export function BrandWordmark(): React.JSX.Element {
   return (
     <View style={styles.wordmarkContainer}>
       <Image
-        source={require('../../../../../assets/favicon.png')}
+        source={require('../../../../assets/favicon.png')}
         style={styles.logoImage}
         resizeMode="contain"
       />
@@ -81,7 +81,7 @@ export function NavBar({ title, onBack, onCancel, showLogo, titleColor }: NavBar
         {showLogo ? (
           <View style={styles.navLogoWrap}>
             <Image
-              source={require('../../../../../assets/favicon.png')}
+              source={require('../../../../assets/favicon.png')}
               style={styles.navLogoImage}
               resizeMode="contain"
             />
