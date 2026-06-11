@@ -9,7 +9,7 @@ import {
   recordAlertFired,
   resetDailyAlerts,
   shouldFireAlert,
-  DetectorTickInput,
+  type DetectorTickInput,
 } from '../edge-detector';
 import { EDGE_DETECTOR_THRESHOLDS } from '../types';
 

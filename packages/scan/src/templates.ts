@@ -4,7 +4,7 @@
  * 對應 ANTIGRAVITY.md Section 5.4 — 不可修改模板規則內容。
  */
 
-import { DecisionTemplate, TemplateId } from './types';
+import type { DecisionTemplate, TemplateId } from './types';
 
 /**
  * 所有預設決策模板。

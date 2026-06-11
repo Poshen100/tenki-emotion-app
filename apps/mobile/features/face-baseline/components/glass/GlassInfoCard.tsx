@@ -6,7 +6,7 @@
  * INTEGRATION (expo-blur): wrap content in a BlurView for true frosted glass.
  * This core-RN version uses a translucent fill + bordered highlight.
  */
-import React from 'react';
+import type React from 'react';
 import { View, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import type { AccentWorld } from '../../tokens/faceBaseline.tokens';

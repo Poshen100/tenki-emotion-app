@@ -5,7 +5,7 @@
  *
  * INTEGRATION (Reanimated): spring the active-segment fill on stage advance.
  */
-import React from 'react';
+import type React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import type { MaturityStage } from '../../types/faceBaseline.types';

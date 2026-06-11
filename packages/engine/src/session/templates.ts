@@ -7,7 +7,7 @@
  * @see ANTIGRAVITY.md v3.0 Section 5
  */
 
-import { TraderTemplate, TraderTemplateId } from './types';
+import type { TraderTemplate, TraderTemplateId } from './types';
 
 /**
  * Three trader discipline templates.

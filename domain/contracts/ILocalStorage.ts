@@ -6,8 +6,8 @@
  * @version 3.0
  */
 
-import { BaselineProfile, BiometricReading } from '@tenki/engine';
-import { EvaluationSession, ScanRecord } from '../schemas';
+import { type BaselineProfile, } from '@tenki/engine';
+import type { EvaluationSession, ScanRecord } from '../schemas';
 
 /**
  * Storage adapter ensuring Local-First constraints for Biometric events and sessions.

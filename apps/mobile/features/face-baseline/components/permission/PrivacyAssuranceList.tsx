@@ -3,7 +3,7 @@
  * @description Numbered privacy guarantees (On-Device / Calibration-only /
  * No photos saved). Restrained, flat, high legibility.
  */
-import React from 'react';
+import type React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 

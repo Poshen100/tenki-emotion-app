@@ -8,8 +8,8 @@
  * @see ANTIGRAVITY.md v3.0 Section 2
  */
 
-import { EdgeZone } from '../scoring/types';
-import { ConfidenceBand } from '../common/types';
+import type { EdgeZone } from '../scoring/types';
+import type { ConfidenceBand } from '../common/types';
 
 // ─────────────────────────────────────────────
 // Vocabulary Rules
@@ -127,7 +127,7 @@ export function generateSafeCopy(
 // Score Driver Explanations
 // ─────────────────────────────────────────────
 
-import { ScoreDriverKey, DriverDirection } from '../scoring/types';
+import type { ScoreDriverKey, DriverDirection } from '../scoring/types';
 
 /** Safe explanation fragments for score drivers. */
 const DRIVER_EXPLANATIONS: Record<ScoreDriverKey, Record<DriverDirection, string>> = {

@@ -7,7 +7,7 @@
  * @see ANTIGRAVITY.md v3.0 Section 5
  */
 
-import { SessionState, SessionAction } from './types';
+import type { SessionState, SessionAction } from './types';
 
 /** Valid state transition map. */
 const TRANSITION_MAP: Record<SessionState, Partial<Record<SessionAction, SessionState>>> = {

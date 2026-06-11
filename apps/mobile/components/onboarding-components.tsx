@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet, Text, Pressable, Dimensions } from 'react-native';
+import type React from 'react';
+import { View, StyleSheet, Text, Pressable, Dimensions, type StyleProp, type ViewStyle } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -55,7 +55,7 @@ export function ProgressIndicator({ activeStep }: { activeStep: number }) {
 /**
  * Premium glass medallion wrapper.
  */
-export function GlassMedallion({ children, style }: { children: React.ReactNode; style?: any }) {
+export function GlassMedallion({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
     <View style={[styles.medallion, style]}>
       <View style={styles.innerHighlight} />

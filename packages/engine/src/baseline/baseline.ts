@@ -7,11 +7,11 @@
  */
 
 import {
-  MetricBaseline,
-  BaselineProfile,
-  BaselineMaturity,
-  TimeBucket,
-  BiometricReading,
+  type MetricBaseline,
+  type BaselineProfile,
+  type BaselineMaturity,
+  type TimeBucket,
+  type BiometricReading,
   BASELINE_THRESHOLDS,
 } from '../common/types';
 

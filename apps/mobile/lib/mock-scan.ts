@@ -42,29 +42,31 @@ export function startMockScan(scanType: ScanType): void {
   store.setUiState('searching');
   store.updateMetrics({ coverage: 0, stability: 0, signalQuality: 0 });
 
-  const schedule = (delay: number, fn: () => void) => {
-    TIMEOUT_HANDLES.current.push(setTimeout(fn, delay));
+  // Cumulative timeline: each call schedules `fn` `delta` ms after the
+  // previously scheduled step.
+  let t = 0;
+  const schedule = (delta: number, fn: () => void) => {
+    t += delta;
+    TIMEOUT_HANDLES.current.push(setTimeout(fn, t));
   };
 
-  let t = 0;
-
   // Phase 1: searching — coverage climbs
-  schedule((t += 400), () => useScanStore.getState().updateMetrics({ coverage: 35 }));
-  schedule((t += 400), () => useScanStore.getState().updateMetrics({ coverage: 62 }));
-  schedule((t += durations.searching - 800), () => {
+  schedule(400, () => useScanStore.getState().updateMetrics({ coverage: 35 }));
+  schedule(400, () => useScanStore.getState().updateMetrics({ coverage: 62 }));
+  schedule(durations.searching - 800, () => {
     useScanStore.getState().setUiState('detecting');
     useScanStore.getState().updateMetrics({ coverage: 78, signalQuality: 45 });
   });
 
   // Phase 2: detecting — signal quality stabilizes
-  schedule((t += 500), () => useScanStore.getState().updateMetrics({ signalQuality: 62, stability: 30 }));
-  schedule((t += durations.detecting - 500), () => {
+  schedule(500, () => useScanStore.getState().updateMetrics({ signalQuality: 62, stability: 30 }));
+  schedule(durations.detecting - 500, () => {
     useScanStore.getState().setUiState('locked');
     useScanStore.getState().updateMetrics({ coverage: 88, signalQuality: 78, stability: 55 });
   });
 
   // Phase 3: locked — brief pause then auto-start scanning
-  schedule((t += 600), () => {
+  schedule(600, () => {
     useScanStore.getState().setUiState('scanning');
   });
 
@@ -73,7 +75,7 @@ export function startMockScan(scanType: ScanType): void {
   const stepDelay = durations.scanning / scanSteps;
   for (let i = 1; i <= scanSteps; i++) {
     const progress = i / scanSteps;
-    schedule((t += stepDelay), () => {
+    schedule(stepDelay, () => {
       useScanStore.getState().updateMetrics({
         coverage: Math.round(88 + 10 * progress),
         signalQuality: Math.round(78 + 18 * progress),
@@ -83,16 +85,16 @@ export function startMockScan(scanType: ScanType): void {
   }
 
   // Phase 5: processing
-  schedule(t + 100, () => useScanStore.getState().setUiState('processing'));
+  schedule(100, () => useScanStore.getState().setUiState('processing'));
 
   // Phase 6: results — compute a mock edge score
-  schedule(t + 100 + durations.processing, () => {
+  schedule(durations.processing, () => {
     const finalMetrics = useScanStore.getState().metrics;
     const edgeScore = generateMockEdgeScore(finalMetrics.signalQuality);
     useScanStore.getState().setResult({
       edgeScore,
       scanType,
-      duration: Math.round((t + 100 + durations.processing) / 1000),
+      duration: Math.round(t / 1000),
       timestamp: Date.now(),
       metrics: finalMetrics,
     });

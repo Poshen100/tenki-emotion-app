@@ -2,7 +2,7 @@
  * @module face-baseline/components/CarouselDots
  * @description Page indicator for the Why-Baseline carousel. Active dot widens.
  */
-import React from 'react';
+import type React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 
@@ -15,6 +15,7 @@ export function CarouselDots({ count, active }: CarouselDotsProps): React.JSX.El
   return (
     <View style={styles.row}>
       {Array.from({ length: count }).map((_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count dots; index is the dot's identity
         <View key={i} style={[styles.dot, i === active ? styles.active : styles.inactive]} />
       ))}
     </View>

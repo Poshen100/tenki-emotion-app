@@ -1,9 +1,9 @@
-import React from 'react';
+
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScanStore } from '../../stores/scan-store';
-import { colors, spacing, radius, getZoneForScore, zoneLabels } from '../../theme';
+import { getZoneForScore, } from '../../theme';
 import { BackgroundContainer, GlassMedallion, PrimaryButton, SecondaryButton } from '../../components/onboarding-components';
 import { EdgeScoreRing } from '../../components/EdgeScoreRing';
 import { ZoneBadge } from '../../components/ZoneBadge';

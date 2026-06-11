@@ -1,6 +1,6 @@
-import React from 'react';
+
 import { View, Text, StyleSheet, Modal, Pressable, Dimensions } from 'react-native';
-import { colors, radius, spacing } from '../theme';
+import { radius, } from '../theme';
 import { PrimaryButton, SecondaryButton } from './onboarding-components';
 
 const { height } = Dimensions.get('window');

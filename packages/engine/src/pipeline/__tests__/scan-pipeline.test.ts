@@ -3,9 +3,8 @@
  * @description Unit tests for the end-to-end Scan Pipeline.
  */
 
-import { runScanPipeline, PipelineDependencies } from '../scan-pipeline';
-import { BiometricReading, SignalQuality, BaselineProfile } from '../../common/types';
-import { BASELINE_THRESHOLDS } from '../../common/types';
+import { runScanPipeline, type PipelineDependencies } from '../scan-pipeline';
+import type { BiometricReading, SignalQuality, BaselineProfile } from '../../common/types';
 
 function createMockBaseline(): BaselineProfile {
   const defaultMetric = {

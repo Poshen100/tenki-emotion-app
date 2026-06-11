@@ -7,7 +7,7 @@
  * @see ANTIGRAVITY.md v3.0 Section 1.1
  */
 
-import { ConfidenceBreakdown, BiometricSource } from '../common/types';
+import type { ConfidenceBreakdown, BiometricSource } from '../common/types';
 
 // ─────────────────────────────────────────────
 // Edge Score Weights

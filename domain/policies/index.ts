@@ -6,8 +6,7 @@
  * @version 3.0
  */
 
-import { BaselineProfile, SessionState } from '@tenki/engine';
-import { ScanRecord, EvaluationSession } from '../schemas';
+import { type BaselineProfile, } from '@tenki/engine';
 
 const POLICY_LIMITS = {
   MAX_DAILY_SCANS_FREE: 2,

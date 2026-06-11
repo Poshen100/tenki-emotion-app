@@ -6,7 +6,7 @@
  * INTEGRATION (Skia): geometric core + orbiting particles; brighten/accrue gold
  * per maturity stage. Reduced-motion = static stage render.
  */
-import React from 'react';
+import type React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import type { MaturityStage } from '../../types/faceBaseline.types';

@@ -3,7 +3,7 @@
  * @description Secondary (ghost) and tertiary (text-link) actions. Restrained,
  * no glow — glow is reserved for the focal subject + primary CTA.
  */
-import React from 'react';
+import type React from 'react';
 import { Pressable, Text, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 

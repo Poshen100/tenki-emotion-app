@@ -6,8 +6,8 @@
  * @version 3.0
  */
 
-import { BiometricReading, BaselineProfile, SignalQuality, SleepRecoveryInput } from '../common/types';
-import { calculateEdgeScore, EdgeScoreInput, getTimeBucket } from '../scoring/edge-score';
+import type { BiometricReading, BaselineProfile, SignalQuality, SleepRecoveryInput } from '../common/types';
+import { calculateEdgeScore, type EdgeScoreInput, } from '../scoring/edge-score';
 import { evaluateGate, canProceed } from '../session/gate';
 import { updateBaselineProfile } from '../baseline/baseline';
 
@@ -21,7 +21,7 @@ export interface PipelineDependencies {
   /** Consecutive red gates count */
   consecutiveRedGates?: number;
   /** Optional overrides for gate thresholds. */
-  configOverrides?: Record<string, any>;
+  configOverrides?: Record<string, unknown>;
 }
 
 export interface PipelineResult {
@@ -51,7 +51,7 @@ export function runScanPipeline(
     return {
       success: false,
       updatedBaseline: deps.currentBaseline,
-      gateFeedback: { result: 'force_hold' as any, scoreAtGate: 0, confidenceAtGate: 0, message: 'Poor signal', consecutiveRedGates: 0 },
+      gateFeedback: { result: 'force_hold', scoreAtGate: 0, confidenceAtGate: 0, message: 'Poor signal', consecutiveRedGates: 0 },
       rejectReason: 'POOR_SIGNAL',
     };
   }

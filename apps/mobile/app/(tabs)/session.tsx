@@ -115,8 +115,8 @@ export default function SessionScreen() {
             {/* Self-Assessment Checklist */}
             <View style={styles.checklistCard}>
               <Text style={[typo.label, styles.sectionLabel]}>SELF-ASSESSMENT</Text>
-              {['Slept well last night', 'Feeling focused', 'No acute stressors', 'Hydrated today', 'Clear intention set'].map((item, i) => (
-                <View key={i} style={styles.checkItem}>
+              {['Slept well last night', 'Feeling focused', 'No acute stressors', 'Hydrated today', 'Clear intention set'].map((item) => (
+                <View key={item} style={styles.checkItem}>
                   <Text style={styles.checkBox}>☐</Text>
                   <Text style={typo.body}>{item}</Text>
                 </View>

@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { spacing, radius, getZoneForScore, zoneLabels, type ZoneName } from '../theme';
+import { spacing, radius, getZoneForScore, zoneLabels, } from '../theme';
 
 interface ZoneBadgeProps {
   score: number;

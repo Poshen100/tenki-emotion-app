@@ -6,7 +6,7 @@
  * @version 3.0 — Migrated from legacy/hrv.ts with v3 type alignment.
  */
 
-import { MetricBaseline } from '../common/types';
+import type { MetricBaseline } from '../common/types';
 
 // ─────────────────────────────────────────────
 // HRV Status
@@ -44,7 +44,7 @@ export function calculateHrvBaselineRange(samples: number[]): HrvBaselineRange {
     return { low: mean, high: mean, mean };
   }
 
-  const sqDiffs = samples.map(value => Math.pow(value - mean, 2));
+  const sqDiffs = samples.map(value => (value - mean) ** 2);
   const variance = sqDiffs.reduce((a, b) => a + b, 0) / samples.length;
   const std = Math.sqrt(variance);
 

@@ -8,8 +8,8 @@
  */
 
 import {
-  EdgeDetectorState,
-  DetectedState,
+  type EdgeDetectorState,
+  type DetectedState,
   EDGE_DETECTOR_THRESHOLDS,
 } from './types';
 

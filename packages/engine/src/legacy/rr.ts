@@ -1,4 +1,4 @@
-import { BaselineData } from './types';
+import type { BaselineData } from './types';
 
 /** Normal adult resting respiratory rate range (BrPM). */
 export const RR_NORMAL_MIN = 12;

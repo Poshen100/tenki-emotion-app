@@ -6,7 +6,6 @@ import {
   evaluateReadinessGate,
   computeReadinessGrade,
   GREEN_THRESHOLDS,
-  YELLOW_THRESHOLDS,
   type ReadinessCheckInput,
 } from '../signal-quality-gate';
 

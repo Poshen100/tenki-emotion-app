@@ -7,7 +7,8 @@
  * INTEGRATION (useBaselineMaturity + persistence): hydrate stage/scanCount/
  * history from the local store; "Start Daily Scan" re-enters the scan flow.
  */
-import React, { useEffect } from 'react';
+import type React from 'react';
+import { useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
