@@ -33,7 +33,7 @@
       "expo-router"
     ],
     "experiments": {
-      "baseUrl": "/mobile"
+      "baseUrl": "/face-baseline"
     }
   }
 }

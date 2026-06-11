@@ -14,7 +14,7 @@ tenki-emotion-app.vercel.app
 ├── /preview/                 → apps/preview/      ⚠️ Baseline onboarding
 ├── /preview/v6/              → apps/preview/v6/   🔧 v6 Today (= /v3/, twin path)
 ├── /preview/scan-result.html → apps/preview/      ✅ Result page preview
-└── /mobile/                  → apps/mobile/       ❌ Not built yet
+└── /face-baseline/           → apps/mobile/dist/  📱 Real Face Baseline (Expo Web)
 ```
 
 ## Canonical URL Map
@@ -26,12 +26,14 @@ tenki-emotion-app.vercel.app
 | `https://tenki-emotion-app.vercel.app/preview/` | `apps/preview/index.html` | Baseline onboarding 6-step flow (PPG 第一次掃描) | ⚠️ iOS OOM — hotfix branch ready |
 | `https://tenki-emotion-app.vercel.app/preview/scan-result.html` | `apps/preview/scan-result.html` | Scan result page preview | ✅ Active |
 | `https://tenki-emotion-app.vercel.app/preview/v6/` | `apps/preview/v6/index.html` | 同 `/v3/`,並列舊路徑保留以避免 share-link 失效 | 🔧 Active dev |
-| (none) | `apps/mobile/` | Expo/RN mobile app (iOS + Android) | 🚧 No public URL |
+| `https://tenki-emotion-app.vercel.app/face-baseline/` | `apps/mobile/dist/index.html` | Real Face Baseline flow (Expo Web build) | 📱 Active (Phase 1 phone review) |
 
 ## Routing (vercel.json)
 
 ```json
 {
+  "/face-baseline/":     "apps/mobile/dist/index.html",
+  "/face-baseline/(.*)": "apps/mobile/dist/$1",
   "/v3/":          "apps/preview/v6/index.html",
   "/v3/(.*)":      "apps/preview/v6/$1",
   "/preview/":     "apps/preview/index.html",
@@ -59,7 +61,7 @@ The catch-all `/*` → `apps/web/$1` handles legacy asset loading.
 | iOS Bundle ID | com.tenki.core |
 | Android Package | com.tenki.core |
 | URL Scheme | tenki:// |
-| Public URL | **None confirmed** |
+| Public URL | `https://tenki-emotion-app.vercel.app/face-baseline/` |
 | EAS / TestFlight | **Not configured** |
 
 ## Branch → Deploy Strategy
