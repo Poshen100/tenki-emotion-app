@@ -60,9 +60,9 @@ export function PrivacyLockPill({ label }: { label: string }): React.JSX.Element
   );
 }
 
-/** Local-only privacy footnote. */
+/** Local-only privacy footnote: 🔒-prefixed, grey tertiary, centered two-liner. */
 export function PrivacyFootnote({ text }: { text: string }): React.JSX.Element {
-  return <Text style={styles.footnote}>{text}</Text>;
+  return <Text style={styles.footnote}>🔒 {text}</Text>;
 }
 
 interface NavBarProps {
@@ -166,10 +166,12 @@ const styles = StyleSheet.create({
   pillText: { color: 'rgba(255, 200, 94, 0.8)', fontSize: 10, fontWeight: '700', letterSpacing: 2.4, textTransform: 'uppercase' },
   footnote: {
     fontSize: 11,
-    lineHeight: 16,
+    lineHeight: 17,
     color: '#656D8A',
     textAlign: 'center',
     fontWeight: '500',
+    maxWidth: 250,
+    alignSelf: 'center',
   },
   nav: {
     flexDirection: 'row',

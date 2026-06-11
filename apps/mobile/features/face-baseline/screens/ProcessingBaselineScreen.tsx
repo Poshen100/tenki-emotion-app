@@ -51,7 +51,7 @@ export default function ProcessingBaselineScreen(): React.JSX.Element {
     <CosmicBackground mode="processing">
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
-          <ProcessingOrb progress={progress} size={200} />
+          <ProcessingOrb progress={progress} size={230} />
           <Text style={styles.title}>{C.processing.title}</Text>
           <PercentReadout progress={progress} />
         </View>
@@ -66,6 +66,6 @@ export default function ProcessingBaselineScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: t.spacing.gutter },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: t.spacing.xl },
-  title: { fontSize: t.text.cardTitle.size, fontWeight: '600', color: t.color.text.primary, textAlign: 'center' },
+  title: { fontSize: 18, lineHeight: 24, fontWeight: '600', color: t.color.text.primary, textAlign: 'center' },
   footer: { paddingBottom: t.spacing.xxl, paddingHorizontal: t.spacing.lg },
 });

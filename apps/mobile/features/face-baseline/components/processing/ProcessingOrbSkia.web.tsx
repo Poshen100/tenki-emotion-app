@@ -11,6 +11,7 @@ interface ProcessingOrbSkiaProps {
 function GlassSpecularShine({ size }: { size: number }): React.JSX.Element {
   return (
     <>
+      {/* soft diffuse highlight */}
       <View
         style={{
           position: 'absolute',
@@ -19,8 +20,24 @@ function GlassSpecularShine({ size }: { size: number }): React.JSX.Element {
           width: size * 0.72,
           height: size * 0.28,
           borderRadius: size * 0.36,
-          backgroundColor: 'rgba(255, 255, 255, 0.12)',
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
           transform: [{ rotate: '-28deg' }],
+        }}
+      />
+      {/* glass rim highlight: thin top-left white arc */}
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.02,
+          left: size * 0.02,
+          width: size * 0.96,
+          height: size * 0.96,
+          borderRadius: size * 0.48,
+          borderWidth: 1.5,
+          borderColor: 'transparent',
+          borderTopColor: 'rgba(255, 255, 255, 0.55)',
+          borderLeftColor: 'rgba(255, 255, 255, 0.2)',
+          transform: [{ rotate: '-18deg' }],
         }}
       />
       <View
@@ -163,17 +180,12 @@ export function ProcessingOrbSkia({ progress, size = 220 }: ProcessingOrbSkiaPro
 
   return (
     <View style={[styles.container, { width: size * 1.5, height: size * 1.5 }]}>
-      <Animated.View
-        style={[
-          styles.glow,
-          {
-            width: size * 1.45,
-            height: size * 1.45,
-            borderRadius: size,
-            opacity: glowOp,
-          },
-        ]}
-      />
+      {/* concentric translucent gold glow (radial falloff illusion) */}
+      <Animated.View style={[StyleSheet.absoluteFill, styles.glowStack, { opacity: glowOp }]}>
+        <View style={[styles.glowRing, { width: size * 1.5, height: size * 1.5, borderRadius: size * 0.75, backgroundColor: 'rgba(255, 157, 47, 0.05)' }]} />
+        <View style={[styles.glowRing, { width: size * 1.3, height: size * 1.3, borderRadius: size * 0.65, backgroundColor: 'rgba(255, 157, 47, 0.07)' }]} />
+        <View style={[styles.glow, { width: size * 1.12, height: size * 1.12, borderRadius: size * 0.56 }]} />
+      </Animated.View>
       <View
         style={[
           styles.orb,
@@ -291,10 +303,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  glowStack: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  glowRing: {
+    position: 'absolute',
+  },
   glow: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 136, 0, 0.08)',
-    shadowColor: '#FF8800',
+    backgroundColor: 'rgba(255, 157, 47, 0.1)',
+    shadowColor: '#FF9D2F',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9,
     shadowRadius: 54,
@@ -321,26 +340,27 @@ const styles = StyleSheet.create({
   },
   ring: {
     position: 'absolute',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: 'transparent',
-    borderTopColor: '#FFC85E',
-    borderRightColor: 'rgba(255, 200, 94, 0.3)',
-    borderLeftColor: 'rgba(255, 200, 94, 0.1)',
+    borderTopColor: '#FFD27A',
+    borderRightColor: 'rgba(255, 210, 122, 0.4)',
+    borderLeftColor: 'rgba(255, 210, 122, 0.12)',
   },
   ring2: {
-    borderTopColor: '#FFFFFF',
-    borderRightColor: 'rgba(255, 255, 255, 0.3)',
+    borderTopColor: '#FFE9B0',
+    borderRightColor: 'rgba(255, 233, 176, 0.35)',
     borderWidth: 1.5,
   },
   ring3: {
-    borderTopColor: '#FF8800',
-    borderRightColor: 'rgba(255, 136, 0, 0.35)',
-    borderWidth: 2.5,
+    borderTopColor: '#FF9D2F',
+    borderRightColor: 'rgba(255, 157, 47, 0.45)',
+    borderLeftColor: 'rgba(255, 157, 47, 0.15)',
+    borderWidth: 3,
   },
   ring4: {
-    borderTopColor: '#FFF0D0',
-    borderRightColor: 'rgba(255, 240, 208, 0.25)',
-    borderWidth: 1,
+    borderTopColor: '#FFD27A',
+    borderRightColor: 'rgba(255, 210, 122, 0.3)',
+    borderWidth: 1.5,
   },
   core: {
     backgroundColor: '#FFC85E',

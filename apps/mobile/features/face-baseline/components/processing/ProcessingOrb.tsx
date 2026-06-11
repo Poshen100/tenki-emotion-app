@@ -34,8 +34,8 @@ const styles = StyleSheet.create({
   percent: {
     fontSize: t.text.metric.size,
     lineHeight: t.text.metric.lineHeight,
-    fontWeight: '800', // extra bold for premium impact
-    color: '#FFC85E',
+    fontWeight: t.text.metric.weight,
+    color: t.color.accent.goldWarm,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
     letterSpacing: -1,
