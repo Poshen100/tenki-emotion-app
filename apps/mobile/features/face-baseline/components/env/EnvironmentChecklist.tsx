@@ -12,7 +12,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 
 export type CheckStatus = 'pass' | 'fail' | 'pending';
 
