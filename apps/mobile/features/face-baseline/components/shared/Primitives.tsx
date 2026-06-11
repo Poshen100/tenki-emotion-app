@@ -121,9 +121,9 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     fontSize: 16,
-    fontWeight: '200',
-    letterSpacing: 6,
-    color: '#FFFFFF',
+    fontWeight: '300',
+    letterSpacing: t.text.wordmark.tracking,
+    color: 'rgba(255,255,255,0.72)',
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-light',
   },

@@ -18,19 +18,22 @@ import type { AccentWorld } from '../../tokens/faceBaseline.tokens';
 
 interface GlassInfoCardProps {
   edge?: AccentWorld;
+  /** Stretch the card to fill its flex parent (large hero cards). */
+  fill?: boolean;
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
-export function GlassInfoCard({ edge = 'cyan', children, style }: GlassInfoCardProps): React.JSX.Element {
+export function GlassInfoCard({ edge = 'cyan', fill = false, children, style }: GlassInfoCardProps): React.JSX.Element {
   const isGold = edge === 'gold';
   const borderColor = isGold ? 'rgba(243, 169, 42, 0.38)' : 'rgba(120, 200, 255, 0.22)';
   const edgeTint = isGold ? 'rgba(255, 200, 94, 0.35)' : 'rgba(86, 232, 255, 0.35)';
   const shadowColor = isGold ? t.color.accent.goldBloom : t.color.accent.cyanGlow;
+  const flexFill = fill ? styles.fill : null;
 
   return (
-    <View style={[styles.shadowWrap, { shadowColor }]}>
-      <View style={[styles.clip, { borderColor }]}>
+    <View style={[styles.shadowWrap, flexFill, { shadowColor }]}>
+      <View style={[styles.clip, flexFill, { borderColor }]}>
         <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
         {/* translucent glass fill above the blur */}
         <View style={styles.glassFill} pointerEvents="none" />
@@ -40,13 +43,14 @@ export function GlassInfoCard({ edge = 'cyan', children, style }: GlassInfoCardP
         <View style={styles.sheenReflection} pointerEvents="none" />
         {/* accent edge tint along the top */}
         <View style={[styles.edgeAccent, { backgroundColor: edgeTint }]} pointerEvents="none" />
-        <View style={[styles.content, style]}>{children}</View>
+        <View style={[styles.content, flexFill, style]}>{children}</View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   shadowWrap: {
     borderRadius: t.radius.card.xl,
     shadowOffset: { width: 0, height: 16 },
