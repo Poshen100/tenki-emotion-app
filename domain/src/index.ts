@@ -55,3 +55,32 @@ export type {
   ValidationResult,
   ValidationSuccess,
 } from './schemas/scan-schema';
+
+export {
+  NEXT_ACTIONS,
+  ONBOARDING_STEP_ORDER,
+  SENSOR_CHOICES,
+  createInitialOnboardingState,
+} from './contracts/baseline-contract';
+
+export type {
+  BaselineFailureReason,
+  BaselineOnboardingState,
+  BaselineOnboardingStep,
+  NextActionConfig,
+  NextActionType,
+  SensorChoice,
+  SensorChoiceConfig,
+} from './contracts/baseline-contract';
+
+export {
+  MAX_CALIBRATION_ATTEMPTS,
+  MAX_ONBOARDING_SEC,
+  TARGET_COMPLETION_SEC,
+  canTransitionTo,
+  evaluateRetryStrategy,
+  getNextStep,
+  getPreviousStep,
+  isWithinTargetTime,
+  shouldShowBaselineOnboarding,
+} from './policies/baseline-policy';
