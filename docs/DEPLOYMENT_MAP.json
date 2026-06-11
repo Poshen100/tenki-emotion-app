@@ -45,6 +45,14 @@
       "editable": true
     },
     {
+      "route": "/preview/brand/",
+      "url": "https://tenki-emotion-app.vercel.app/preview/brand/",
+      "source": "apps/preview/brand/index.html",
+      "purpose": "TENKI brand mark (Resonance Ensō) preview — variants, lockups, usage rules",
+      "status": "active",
+      "editable": true
+    },
+    {
       "route": "/face-baseline/",
       "url": "https://tenki-emotion-app.vercel.app/face-baseline/",
       "source": "apps/mobile/dist/index.html",

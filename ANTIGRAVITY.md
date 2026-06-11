@@ -779,42 +779,70 @@ TENKI CORE 的完成標準：
 
 ---
 
-## 18. Brand Canonical Source
+## 18. TENKI Brand & Logo System（canonical，2026-06-12 確立）
 
 TENKI brand visuals are not open-ended.
 
-### Canonical source
-The canonical brand / icon source lives in:
-- `docs/ICON-SYSTEM-BATCH1.md`
-- `docs/assets/icons/`
-- `scripts/generate-tenki-icon-batch1.mjs`
-- `apps/mobile/assets/icon.png`
-- `apps/mobile/assets/adaptive-icon.png`
-- `apps/mobile/assets/favicon.png`
-- `apps/mobile/assets/splash-icon.png`
+> 歷史註記：2026-06-12 之前 `apps/mobile/assets/` 的四個 PNG 是 **Expo 範本佔位符**
+> （預設同心圓 icon、stock 方塊 favicon），並非真正的品牌資產。
+> 本節記錄的 **Resonance Ensō mark** 是第一個正式 TENKI 標誌，
+> 由 founder 於 2026-06-12 要求完整整合後確立。
 
-These files together define the current accepted TENKI icon system and mobile app visual identity.
+### 18.1 The Mark — Resonance Ensō
 
-### Rule
-Do not redesign, replace, or reinterpret the TENKI logo, app icon, wordmark, favicon, or icon system unless the user explicitly asks for a brand refresh.
+**一個圓 — 自我 — 被一道平靜的共振波穿過而敞開。**
 
-Brand continuity is more important than novelty.
-Preserve TENKI’s existing visual identity unless explicitly instructed otherwise.
+| 元素 | 意義 |
+|------|------|
+| 圓 | 自我；也是 privacy 邊界 — 數據留在圓之內（local-first） |
+| 波 | 生理訊號；內在天氣（天気）的氣象線 |
+| 開口 | 覺察 — 自我不封閉，訊號穿過你、被你讀懂 |
 
-### What AI agents must do
-- Reuse existing brand assets whenever possible.
-- Treat the current icon system as the default visual source of truth.
-- Keep visual continuity across `apps/mobile`, `apps/web`, `apps/preview`, and future exports.
-- If a new asset is required, extend from the existing TENKI visual language instead of inventing a new one.
+幾何完全繼承 icon system DNA（`docs/ICON-SYSTEM-BATCH1.md`）：
+24×24 grid、正圓 r=9（solid 版 r=10）、stroke 2px、round caps、
+圓心 (12,12)、波峰 y=10.2（視覺中心略上移）、波基線 y=13.6。
 
-### What AI agents must not do
-- Do not generate a completely new logo concept on their own.
-- Do not swap in generic AI-style gradients, random symbols, or unrelated geometric marks.
-- Do not replace the app icon with a temporary placeholder if an approved asset already exists.
-- Do not create a second competing “official” logo system.
+### 18.2 Canonical source（master → 衍生）
 
-### Escalation rule
-If an agent is unsure whether to use an existing asset or make a new one, default to the existing repo assets and ask before changing brand identity.
+| 檔案 | 角色 |
+|------|------|
+| `docs/assets/brand/tenki-mark.svg` | **Outline master**（currentColor，≥32px 用） |
+| `docs/assets/brand/tenki-mark-solid.svg` | **Solid master**（wave knockout，≤24px / icon 用） |
+| `apps/mobile/assets/icon.png` | App icon：gold solid mark on deep-space `#0B0E1E`（1024²） |
+| `apps/mobile/assets/adaptive-icon.png` | Android adaptive：gold solid mark on transparent |
+| `apps/mobile/assets/favicon.png` | White solid mark on transparent（48²） |
+| `apps/mobile/assets/splash-icon.png` | Gold outline mark on transparent（開場安靜版） |
+| `apps/preview/brand/index.html` | 視覺預覽頁 → `/preview/brand/` |
+| `docs/ICON-SYSTEM-BATCH1.md` + `docs/assets/icons/` | UI icon 系統（20 顆功能 icon，與 logo 同 DNA） |
+
+衍生資產一律從 SVG master 重新輸出，不要手改 PNG。
+
+### 18.3 Variants 與雙世界規則
+
+- **Mono `rgba(255,255,255,0.92)` = 預設**（與 icon system 一致，monochrome-first）。
+- **Cyan `#3DE0FF`** 只用於 ACTIVE 語境（掃描、設定、引導）。
+- **Gold `#FFD27A`** 只用於 SECURED 語境（成功、信任、成熟度）與 app icon。
+- Solid 版用於 ≤24px 與 app icon；outline 版最小 32px。
+- Stroke 內不放漸層（小尺寸會糊）；不旋轉、不變形、不加 3D / 內陰影 / 外發光。
+
+### 18.4 Wordmark 與 Lockups
+
+- Wordmark：`TENKI` 全大寫、geometric sans（SF Pro Display / 系統字）、weight 600、
+  字距 display 尺寸 0.4em（app 內 14px 對應 tracking 6 — 即 `BrandWordmark` 現值）。
+- Lockups：mark+wordmark 橫式（行銷/文件）、直式（splash/開場）、wordmark 單獨（app 內頂欄）、
+  mark 單獨（icon/favicon/avatar）。
+- Clear space：mark 高度的 25%（四周）。
+
+### 18.5 Rules（不變）
+
+- Do not redesign, replace, or reinterpret the mark, app icon, wordmark, favicon,
+  or icon system unless the user explicitly asks for a brand refresh.
+- Brand continuity is more important than novelty.
+- Reuse existing brand assets whenever possible; extend from the existing visual
+  language instead of inventing a new one.
+- Do not swap in generic AI-style gradients, random symbols, or unrelated marks.
+- Do not create a second competing "official" logo system.
+- 若不確定該用現有資產還是做新的 → 先用現有資產，並先問 founder。
 
 ---
 

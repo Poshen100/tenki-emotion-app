@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TENKI — Brand Mark Preview</title>
+<style>
+  :root {
+    --navy: #0B0E1E;
+    --deep: #05060A;
+    --gold: #FFD27A;
+    --gold-hi: #FFE9B0;
+    --gold-deep: #E8A23E;
+    --cyan: #3DE0FF;
+    --text: #F4F6FF;
+    --text2: #A6ADC8;
+    --text3: #5A6178;
+    --hairline: rgba(255,255,255,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: linear-gradient(180deg, var(--navy) 0%, var(--deep) 100%);
+    color: var(--text);
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+    min-height: 100vh;
+    padding: 48px 24px 96px;
+  }
+  .page { max-width: 720px; margin: 0 auto; }
+  .kicker { font-size: 12px; letter-spacing: 4px; color: var(--text3); text-transform: uppercase; }
+  h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin: 8px 0 4px; }
+  .sub { color: var(--text2); font-size: 15px; line-height: 1.55; }
+  section { margin-top: 56px; }
+  h2 { font-size: 13px; font-weight: 700; letter-spacing: 2.5px; color: var(--text3); text-transform: uppercase; margin-bottom: 20px; }
+
+  .hero {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 56px 0 40px; text-align: center;
+  }
+  .hero .mark { width: 132px; height: 132px; color: var(--gold); filter: drop-shadow(0 0 36px rgba(255,210,122,0.35)); }
+  .hero .wordmark { margin-top: 28px; font-size: 22px; font-weight: 600; letter-spacing: 10px; padding-left: 10px; }
+  .hero .line { margin-top: 10px; font-size: 13px; color: var(--text2); letter-spacing: 0.4px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  .cell {
+    border: 1px solid var(--hairline); border-radius: 18px;
+    padding: 26px 12px 16px; text-align: center;
+    background: rgba(255,255,255,0.02);
+  }
+  .cell svg { width: 64px; height: 64px; }
+  .cell .label { margin-top: 14px; font-size: 11px; letter-spacing: 1px; color: var(--text3); text-transform: uppercase; }
+  .mono { color: rgba(255,255,255,0.92); }
+  .cyan { color: var(--cyan); }
+  .gold { color: var(--gold); }
+
+  .iconrow { display: flex; gap: 18px; align-items: flex-end; flex-wrap: wrap; }
+  .appicon {
+    width: 96px; height: 96px; border-radius: 22px;
+    background: var(--navy); border: 1px solid var(--hairline);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .appicon svg { width: 60px; height: 60px; color: var(--gold); }
+  .sizes { display: flex; gap: 22px; align-items: flex-end; }
+  .sizes .s { text-align: center; }
+  .sizes .s .label { font-size: 10px; color: var(--text3); margin-top: 8px; }
+
+  .story p { color: var(--text2); font-size: 15px; line-height: 1.7; margin-bottom: 14px; }
+  .story b { color: var(--text); font-weight: 600; }
+
+  .rule { display: flex; gap: 12px; margin-bottom: 12px; font-size: 14px; line-height: 1.6; color: var(--text2); }
+  .rule .ok { color: #46E0B0; } .rule .no { color: #FF6B6B; }
+
+  .lockup { display: flex; align-items: center; gap: 16px; padding: 22px 0; border-bottom: 1px solid var(--hairline); }
+  .lockup svg { width: 40px; height: 40px; color: rgba(255,255,255,0.92); flex-shrink: 0; }
+  .lockup .wm { font-size: 17px; font-weight: 600; letter-spacing: 7px; padding-left: 7px; }
+  .lockup .note { margin-left: auto; font-size: 11px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; text-align: right; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker">TENKI CORE · Brand</div>
+  <h1>Resonance Ensō</h1>
+  <p class="sub">TENKI 的正式品牌標誌。一個圓 — 自我 — 被一道平靜的共振波穿過而敞開。</p>
+
+  <!-- Inline SVG defs reused via <use> -->
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <g id="tenki-outline" fill="none">
+        <path d="M 3.01 10.93 A 9 9 0 0 1 20.99 10.93" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 20.00 16.11 A 9 9 0 0 1 4.00 16.11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 2 13.6 C 6.8 13.6 8 10.2 12 10.2 C 16 10.2 17.2 13.6 22 13.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      <mask id="wave-ko">
+        <rect width="24" height="24" fill="white"/>
+        <path d="M 2 13.6 C 6.8 13.6 8 10.2 12 10.2 C 16 10.2 17.2 13.6 22 13.6" stroke="black" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+      </mask>
+      <g id="tenki-solid">
+        <circle cx="12" cy="12" r="10" fill="currentColor" mask="url(#wave-ko)"/>
+      </g>
+    </defs>
+  </svg>
+
+  <div class="hero">
+    <svg class="mark" viewBox="0 0 24 24"><use href="#tenki-outline"/></svg>
+    <div class="wordmark">TENKI</div>
+    <div class="line">Know yourself before you decide.</div>
+  </div>
+
+  <section class="story">
+    <h2>概念</h2>
+    <p><b>圓</b>是自我，也是隱私的邊界 — 你的數據留在圓之內。<b>波</b>是生理訊號，也是內在天氣（天気）的氣象線。<b>開口</b>是覺察 — 自我不是封閉的，訊號穿過你、被你讀懂。</p>
+    <p>幾何完全繼承既有 icon system：正圓、2px round stroke、round caps、24×24 grid。它不是新的視覺方向，是把 app 裡已經存在的語言（Resonance 波形、同心 halo、圓形幾何）收斂成一個可以代表全部的記號。</p>
+  </section>
+
+  <section>
+    <h2>Variants — 雙世界規則</h2>
+    <div class="grid">
+      <div class="cell"><svg viewBox="0 0 24 24" class="mono"><use href="#tenki-outline"/></svg><div class="label">Mono · 預設</div></div>
+      <div class="cell"><svg viewBox="0 0 24 24" class="cyan"><use href="#tenki-outline"/></svg><div class="label">Cyan · Active</div></div>
+      <div class="cell"><svg viewBox="0 0 24 24" class="gold"><use href="#tenki-outline"/></svg><div class="label">Gold · Secured</div></div>
+      <div class="cell"><svg viewBox="0 0 24 24" class="gold"><use href="#tenki-solid"/></svg><div class="label">Solid · Icon 用</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Lockups</h2>
+    <div class="lockup">
+      <svg viewBox="0 0 24 24"><use href="#tenki-outline"/></svg>
+      <span class="wm">TENKI</span>
+      <span class="note">Horizontal · 行銷 / 文件</span>
+    </div>
+    <div class="lockup" style="flex-direction:column; gap:14px; align-items:center;">
+      <svg viewBox="0 0 24 24" style="width:52px;height:52px"><use href="#tenki-outline"/></svg>
+      <span class="wm">TENKI</span>
+      <span class="note" style="margin-left:0">Vertical · Splash / 開場</span>
+    </div>
+    <div class="lockup">
+      <span class="wm" style="font-size:14px">TENKI</span>
+      <span class="note">Wordmark only · App 內頂欄</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>App Icon 與最小尺寸</h2>
+    <div class="iconrow">
+      <div class="appicon"><svg viewBox="0 0 24 24"><use href="#tenki-solid"/></svg></div>
+      <div class="sizes">
+        <div class="s"><svg viewBox="0 0 24 24" width="48" height="48" class="mono"><use href="#tenki-solid"/></svg><div class="label">48</div></div>
+        <div class="s"><svg viewBox="0 0 24 24" width="32" height="32" class="mono"><use href="#tenki-solid"/></svg><div class="label">32</div></div>
+        <div class="s"><svg viewBox="0 0 24 24" width="24" height="24" class="mono"><use href="#tenki-solid"/></svg><div class="label">24</div></div>
+        <div class="s"><svg viewBox="0 0 24 24" width="16" height="16" class="mono"><use href="#tenki-solid"/></svg><div class="label">16</div></div>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:16px">≤24px 一律使用 Solid 版；Outline 版最小 32px。</p>
+  </section>
+
+  <section>
+    <h2>使用規則</h2>
+    <div class="rule"><span class="ok">✓</span><span>Mono（rgba 255/0.92）為預設；cyan 只用於 ACTIVE 語境、gold 只用於 SECURED 語境。</span></div>
+    <div class="rule"><span class="ok">✓</span><span>Clear space = mark 高度的 25%（四周）。Wordmark 字距：display 尺寸 0.4em。</span></div>
+    <div class="rule"><span class="no">✗</span><span>不旋轉、不變形、不在 stroke 內塞漸層（小尺寸會糊）、不加 3D / 內陰影。</span></div>
+    <div class="rule"><span class="no">✗</span><span>不與舊佔位資產（Expo 同心圓、方塊 favicon）混用。</span></div>
+  </section>
+
+</div>
+</body>
+</html>
