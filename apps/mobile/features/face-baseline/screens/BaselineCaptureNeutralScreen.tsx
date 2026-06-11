@@ -19,6 +19,7 @@ import {
   PrivacyLockPill,
   QualityStatusPills,
   NavBar,
+  CameraFeedView,
 } from '../components';
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
@@ -27,6 +28,8 @@ import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
 import { FB_ROUTES } from './routes';
 import type { QualityStatus } from '../types/faceBaseline.types';
 
+import { useBaselineHaptics } from '../hooks/useBaselineHaptics';
+
 export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
   const router = useRouter();
   const goTo = useFaceBaselineStore((s) => s.goTo);
@@ -34,6 +37,7 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
   const setNeutralProgress = useFaceBaselineStore((s) => s.setNeutralProgress);
   const [progress, setProgress] = useState(0);
   const done = useRef(false);
+  const haptics = useBaselineHaptics();
 
   useEffect(() => {
     goTo('neutral_capture');
@@ -52,6 +56,16 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
     return () => clearInterval(interval);
   }, [goTo, setCapturePhase, setNeutralProgress, router]);
 
+  // Trigger soft haptic ticks every 15% progress increment
+  const lastTick = useRef(0);
+  useEffect(() => {
+    const currentTickIndex = Math.floor(progress / 0.15);
+    if (currentTickIndex > lastTick.current) {
+      lastTick.current = currentTickIndex;
+      haptics.trigger('impactSoft');
+    }
+  }, [progress, haptics]);
+
   // Mock transient quality warning between 30% and 60% progress
   const qualityStatus: QualityStatus = (progress > 0.3 && progress < 0.6) ? 'movement' : 'good';
   const nudgeText = qualityStatus === 'movement' ? C.captureNeutral.nudges.movement : '';
@@ -62,6 +76,11 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
         <NavBar title="Baseline Capture" onCancel={() => router.back()} />
         <View style={styles.frameWrap}>
           <FaceScanFrame shape="halo" state="capturing" size={250}>
+            {/* Live camera stream feed behind the particle mesh */}
+            <View style={StyleSheet.absoluteFill}>
+              <CameraFeedView size={250} active={true} />
+            </View>
+
             <SoulParticleMesh stability={progress} size={210} />
           </FaceScanFrame>
           <View style={styles.pill}>

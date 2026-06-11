@@ -12,20 +12,52 @@ interface ScanHistoryRowProps {
   type: 'updated' | 'refined';
 }
 
+function StardustWave(): React.JSX.Element {
+  return (
+    <View style={styles.waveContainer}>
+      <View style={[styles.waveDot, { transform: [{ translateY: 2 }] }]} />
+      <View style={[styles.waveDot, { transform: [{ translateY: -1 }] }]} />
+      <View style={[styles.waveDot, { transform: [{ translateY: -3 }] }]} />
+      <View style={[styles.waveDot, { transform: [{ translateY: 0 }] }]} />
+      <View style={[styles.waveDot, { transform: [{ translateY: 2 }] }]} />
+      <View style={[styles.waveDot, { transform: [{ translateY: -1 }] }]} />
+      <View style={[styles.waveDot, { transform: [{ translateY: 1 }] }]} />
+    </View>
+  );
+}
+
 export function ScanHistoryRow({ time, label, type }: ScanHistoryRowProps): React.JSX.Element {
-  const dot = type === 'updated' ? t.color.accent.cyanGlow : t.color.accent.goldSoft;
   return (
     <View style={styles.row}>
-      <View style={[styles.dot, { backgroundColor: dot }]} />
       <Text style={styles.time}>{time}</Text>
+      <StardustWave />
       <Text style={styles.label}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: t.spacing.sm, gap: t.spacing.md },
-  dot: { width: 7, height: 7, borderRadius: 3.5 },
-  time: { color: t.color.text.secondary, fontSize: t.text.body.size, width: 96 },
-  label: { color: t.color.text.tertiary, fontSize: t.text.body.size, flex: 1 },
+  row: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 14, 
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  time: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', width: 140 },
+  waveContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  waveDot: {
+    width: 2.5,
+    height: 2.5,
+    borderRadius: 1.25,
+    backgroundColor: '#FFC85E',
+    opacity: 0.6,
+  },
+  label: { color: '#A6B0D3', fontSize: 14, fontWeight: '500', width: 120, textAlign: 'right' },
 });

@@ -31,6 +31,43 @@ function frameColor(state: ScanState): string {
   return t.color.frame.idle; // dimmed blue-gray
 }
 
+// Precision alignment grid lines inside the scanner
+function GridOverlay({ size }: { size: number }): React.JSX.Element {
+  const lineCount = 12;
+  const spacing = size / lineCount;
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.gridWrap]} pointerEvents="none">
+      {/* Vertical Lines */}
+      {Array.from({ length: lineCount - 1 }).map((_, i) => (
+        <View
+          key={`v-${i}`}
+          style={[
+            styles.gridLine,
+            styles.gridV,
+            { left: (i + 1) * spacing },
+          ]}
+        />
+      ))}
+      {/* Horizontal Lines */}
+      {Array.from({ length: lineCount - 1 }).map((_, i) => (
+        <View
+          key={`h-${i}`}
+          style={[
+            styles.gridLine,
+            styles.gridH,
+            { top: (i + 1) * spacing },
+          ]}
+        />
+      ))}
+      {/* Center Reticle crosshair notches */}
+      <View style={[styles.crosshair, { width: 12, height: 1.5, top: size / 2 - 0.75, left: size / 2 - 6 }]} />
+      <View style={[styles.crosshair, { width: 1.5, height: 12, top: size / 2 - 6, left: size / 2 - 0.75 }]} />
+    </View>
+  );
+}
+
+import { useBaselineHaptics } from '../../hooks/useBaselineHaptics';
+
 export function FaceScanFrame({
   shape = 'square',
   state = 'idle',
@@ -39,6 +76,7 @@ export function FaceScanFrame({
 }: FaceScanFrameProps): React.JSX.Element {
   const isHalo = shape === 'halo';
   const color = frameColor(state);
+  const haptics = useBaselineHaptics();
 
   // Animated values for visual state transitions
   const shapeAnim = useRef(new Animated.Value(isHalo ? 1 : 0)).current;
@@ -63,8 +101,9 @@ export function FaceScanFrame({
       useNativeDriver: false,
     }).start();
 
-    // Trigger lock/snap animation
+    // Trigger lock/snap animation & haptics
     if (state === 'locked') {
+      haptics.trigger('impactMedium');
       snapScale.setValue(1.15);
       Animated.spring(snapScale, {
         toValue: 1.0,
@@ -109,10 +148,9 @@ export function FaceScanFrame({
   });
 
   // Corner bracket spacing/displacement animations
-  // When tracking, brackets slightly wobble. When locked, they contract inward.
   const bracketOffset = shapeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 12], // offset bracket displacement to collapse into halo shape
+    outputRange: [0, 12],
   });
 
   const bracketOpacity = shapeAnim.interpolate({
@@ -127,7 +165,7 @@ export function FaceScanFrame({
 
   const haloScale = shapeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.8, 1.0],
+    outputRange: [0.85, 1.0],
   });
 
   // Combined scale (includes spring snap and capture breathing)
@@ -140,7 +178,12 @@ export function FaceScanFrame({
 
   return (
     <Animated.View style={[styles.outerContainer, { width: size, height: size, transform: [{ scale: combinedScale }] }]}>
-      <View style={styles.subject}>{children}</View>
+      {/* Background Face Subject Feed / Image */}
+      <View style={styles.subject}>
+        {children}
+        {/* Precision scan grid overlay */}
+        <GridOverlay size={size} />
+      </View>
 
       {/* Square corner reticle */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: bracketOpacity }]}>
@@ -196,15 +239,42 @@ export function FaceScanFrame({
           },
         ]}
       >
+        {/* Outer orbital guide ring */}
+        <Animated.View
+          style={[
+            styles.haloOuterGuide,
+            {
+              width: size + 20,
+              height: size + 20,
+              borderRadius: (size + 20) / 2,
+              borderColor: interpolatedColor,
+            },
+          ]}
+        />
+
+        {/* Primary capturing halo ring (styled as a premium squircle) */}
         <Animated.View
           style={[
             styles.halo,
             {
               width: size,
               height: size,
-              borderRadius: size / 2,
+              borderRadius: 48,
               borderColor: interpolatedColor,
               shadowColor: interpolatedColor,
+            },
+          ]}
+        />
+
+        {/* Inner concentric accuracy ring */}
+        <Animated.View
+          style={[
+            styles.haloInnerGuide,
+            {
+              width: size - 30,
+              height: size - 30,
+              borderRadius: (size - 30) / 2,
+              borderColor: interpolatedColor,
             },
           ]}
         />
@@ -227,6 +297,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     borderRadius: t.radius.scanFrame.lg,
+    backgroundColor: 'rgba(5, 8, 16, 0.6)',
+  },
+  gridWrap: {
+    zIndex: 1,
+    opacity: 0.85,
+  },
+  gridLine: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  gridV: {
+    top: 0,
+    bottom: 0,
+    width: 0.7,
+  },
+  gridH: {
+    left: 0,
+    right: 0,
+    height: 0.7,
+  },
+  crosshair: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
   },
   haloContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -236,40 +329,53 @@ const styles = StyleSheet.create({
   halo: {
     borderWidth: t.stroke.halo,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 40,
+    shadowOpacity: 0.75,
+    shadowRadius: 32,
+  },
+  haloOuterGuide: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    opacity: 0.28,
+  },
+  haloInnerGuide: {
+    position: 'absolute',
+    borderWidth: 0.8,
+    borderStyle: 'solid',
+    opacity: 0.35,
   },
   corner: {
     position: 'absolute',
     width: BRACKET,
     height: BRACKET,
+    zIndex: 2,
   },
   tl: {
     top: 0,
     left: 0,
     borderTopWidth: t.stroke.reticle,
     borderLeftWidth: t.stroke.reticle,
-    borderTopLeftRadius: t.radius.scanFrame.lg,
+    borderTopLeftRadius: 16,
   },
   tr: {
     top: 0,
     right: 0,
     borderTopWidth: t.stroke.reticle,
     borderRightWidth: t.stroke.reticle,
-    borderTopRightRadius: t.radius.scanFrame.lg,
+    borderTopRightRadius: 16,
   },
   bl: {
     bottom: 0,
     left: 0,
     borderBottomWidth: t.stroke.reticle,
     borderLeftWidth: t.stroke.reticle,
-    borderBottomLeftRadius: t.radius.scanFrame.lg,
+    borderBottomLeftRadius: 16,
   },
   br: {
     bottom: 0,
     right: 0,
     borderBottomWidth: t.stroke.reticle,
     borderRightWidth: t.stroke.reticle,
-    borderBottomRightRadius: t.radius.scanFrame.lg,
+    borderBottomRightRadius: 16,
   },
 });

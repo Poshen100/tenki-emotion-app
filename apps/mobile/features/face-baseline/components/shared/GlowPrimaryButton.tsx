@@ -86,22 +86,29 @@ export function GlowPrimaryButton({
   // Interpolate glow opacity
   const glowOpacity = glowAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.25, 0.55],
+    outputRange: [0.3, 0.75],
   });
 
-  // Colors
-  const shadow = isGold ? t.shadow.ctaGold : t.shadow.ctaCyan;
+  const shadowColor = isGold ? t.color.accent.goldBloom : t.color.accent.cyanGlow;
 
   return (
     <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, style]}>
-      {/* Glow layer behind the button */}
+      {/* Intense breathing glow drop shadow behind the button */}
       {!inactive && (
         <Animated.View
           style={[
             styles.glowLayer,
             {
-              backgroundColor: shadow.color,
+              backgroundColor: shadowColor,
               opacity: glowOpacity,
+              transform: [
+                {
+                  scale: glowAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.96, 1.05],
+                  }),
+                },
+              ],
             },
           ]}
         />
@@ -116,30 +123,39 @@ export function GlowPrimaryButton({
         onPressOut={handlePressOut}
         style={[
           styles.btn,
-          isGold ? styles.btnGold : styles.btnCyan,
           inactive && styles.disabled,
         ]}
       >
-        {/* Gradient simulation layers */}
+        {/* Gradient Border Base Layer */}
         {isGold ? (
           <>
             <View style={[styles.gradientLayer, styles.goldLeft]} />
             <View style={[styles.gradientLayer, styles.goldRight]} />
-            <View style={styles.innerHighlight} />
           </>
         ) : (
           <>
             <View style={[styles.gradientLayer, styles.cyanLeft]} />
             <View style={[styles.gradientLayer, styles.cyanCenter]} />
             <View style={[styles.gradientLayer, styles.cyanRight]} />
-            <View style={styles.innerHighlight} />
           </>
         )}
-        <View style={styles.inner}>
-          {loading && (
-            <ActivityIndicator color={isGold ? t.color.text.onGlow : '#FFFFFF'} style={styles.spinner} />
-          )}
-          <Text style={[styles.label, isGold && styles.labelGold]}>{label}</Text>
+
+        {/* Inner Dark Mask Container creating the border stroke */}
+        <View style={[
+          styles.innerMask,
+          isGold ? styles.innerMaskGold : styles.innerMaskCyan,
+        ]}>
+          <View style={styles.inner}>
+            {loading && (
+              <ActivityIndicator color={isGold ? t.color.accent.goldResonance : t.color.accent.cyanGlow} style={styles.spinner} />
+            )}
+            <Text style={[
+              styles.label,
+              isGold ? styles.labelGold : styles.labelCyan
+            ]}>
+              {label}
+            </Text>
+          </View>
         </View>
       </Pressable>
     </Animated.View>
@@ -148,28 +164,11 @@ export function GlowPrimaryButton({
 
 const styles = StyleSheet.create({
   btn: {
-    height: 56,
+    height: 58,
     borderRadius: t.radius.pill,
     width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
     overflow: 'hidden',
-  },
-  btnCyan: {
-    backgroundColor: t.color.accent.electricBlue,
-    shadowColor: t.shadow.ctaCyan.color,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  btnGold: {
-    backgroundColor: t.color.accent.goldResonance,
-    shadowColor: t.shadow.ctaGold.color,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.38,
-    shadowRadius: 24,
-    elevation: 8,
+    position: 'relative',
   },
 
   // ─── Gradient simulation layers (positioned absolute inside the btn) ───
@@ -178,56 +177,61 @@ const styles = StyleSheet.create({
   },
   cyanLeft: {
     right: '40%',
-    backgroundColor: t.color.accent.cyanGlow,
-    opacity: 0.3,
+    backgroundColor: '#00F0FF',
   },
   cyanCenter: {
     left: '25%',
     right: '25%',
-    backgroundColor: t.color.accent.indigo,
-    opacity: 0.4,
+    backgroundColor: '#5A7DFF',
   },
   cyanRight: {
     left: '55%',
-    backgroundColor: t.color.accent.violet,
-    opacity: 0.5,
+    backgroundColor: '#704BFF',
   },
   goldLeft: {
     right: '50%',
-    backgroundColor: t.color.accent.goldSoft,
-    opacity: 0.35,
+    backgroundColor: '#FFF0D0',
   },
   goldRight: {
-    left: '50%',
-    backgroundColor: t.color.accent.goldResonance,
-    opacity: 0.25,
+    left: '40%',
+    backgroundColor: '#FF8800',
   },
-  innerHighlight: {
+
+  // ─── Inner Mask creating content container ───
+  innerMask: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    bottom: 0,
+    borderRadius: t.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
+  innerMaskCyan: {},
+  innerMaskGold: {},
 
   // ─── Content ────────────────────────
-  inner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  inner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
   spinner: { marginRight: 8 },
-  label: { fontSize: 17, fontWeight: '600', letterSpacing: 0.3, color: '#FFFFFF' },
-  labelGold: { color: t.color.text.onGlow },
+  label: { fontSize: 18, fontWeight: '800', letterSpacing: 0.8, textTransform: 'none' },
+  labelCyan: { color: '#FFFFFF' },
+  labelGold: { color: '#030407' },
 
   // ─── States ─────────────────────────
-  disabled: { opacity: t.overlay.disabledCta, shadowOpacity: 0 },
+  disabled: { opacity: t.overlay.disabledCta },
 
   // ─── Outer glow layer ───────────────
   glowLayer: {
     position: 'absolute',
-    top: 8,
-    left: 12,
-    right: 12,
-    bottom: -4,
+    top: 4,
+    left: 4,
+    right: 4,
+    bottom: 4,
     borderRadius: t.radius.pill,
-    // blur-like spread is simulated by the size being slightly larger
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.95,
+    shadowRadius: 28,
   },
 });

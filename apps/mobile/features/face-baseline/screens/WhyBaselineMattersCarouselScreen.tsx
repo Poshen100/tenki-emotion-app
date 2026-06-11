@@ -60,11 +60,11 @@ export default function WhyBaselineMattersCarouselScreen(): React.JSX.Element {
         </View>
         <View style={styles.footer}>
           <CarouselDots count={pages.length} active={index} />
-          {isLast ? (
-            <GlowPrimaryButton accent="cyan" label={C.why.finish} onPress={onNext} />
-          ) : (
-            <GhostButton label={C.why.next} onPress={onNext} />
-          )}
+          <GlowPrimaryButton
+            accent="cyan"
+            label={isLast ? C.why.finish : C.why.next}
+            onPress={onNext}
+          />
         </View>
       </SafeAreaView>
     </CosmicBackground>

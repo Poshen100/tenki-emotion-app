@@ -779,6 +779,45 @@ TENKI CORE 的完成標準：
 
 ---
 
+## 18. Brand Canonical Source
+
+TENKI brand visuals are not open-ended.
+
+### Canonical source
+The canonical brand / icon source lives in:
+- `docs/ICON-SYSTEM-BATCH1.md`
+- `docs/assets/icons/`
+- `scripts/generate-tenki-icon-batch1.mjs`
+- `apps/mobile/assets/icon.png`
+- `apps/mobile/assets/adaptive-icon.png`
+- `apps/mobile/assets/favicon.png`
+- `apps/mobile/assets/splash-icon.png`
+
+These files together define the current accepted TENKI icon system and mobile app visual identity.
+
+### Rule
+Do not redesign, replace, or reinterpret the TENKI logo, app icon, wordmark, favicon, or icon system unless the user explicitly asks for a brand refresh.
+
+Brand continuity is more important than novelty.
+Preserve TENKI’s existing visual identity unless explicitly instructed otherwise.
+
+### What AI agents must do
+- Reuse existing brand assets whenever possible.
+- Treat the current icon system as the default visual source of truth.
+- Keep visual continuity across `apps/mobile`, `apps/web`, `apps/preview`, and future exports.
+- If a new asset is required, extend from the existing TENKI visual language instead of inventing a new one.
+
+### What AI agents must not do
+- Do not generate a completely new logo concept on their own.
+- Do not swap in generic AI-style gradients, random symbols, or unrelated geometric marks.
+- Do not replace the app icon with a temporary placeholder if an approved asset already exists.
+- Do not create a second competing “official” logo system.
+
+### Escalation rule
+If an agent is unsure whether to use an existing asset or make a new one, default to the existing repo assets and ask before changing brand identity.
+
+---
+
 ## Appendix A — Safe Copy Examples
 
 ### A.1 Zone 文案

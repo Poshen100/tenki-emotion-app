@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.0",
+    "@shopify/react-native-skia": "2.2.12",
     "expo": "~54.0.33",
     "expo-blur": "~15.0.7",
     "expo-constants": "^55.0.13",
+    "expo-haptics": "~15.0.8",
     "expo-linear-gradient": "~15.0.7",
     "expo-linking": "^55.0.12",
     "expo-router": "^55.0.12",
@@ -25,6 +27,7 @@
     "react-native-gesture-handler": "^2.31.1",
     "react-native-safe-area-context": "^5.7.0",
     "react-native-screens": "^4.24.0",
+    "react-native-vision-camera": "^5.0.11",
     "react-native-web": "^0.21.2",
     "zustand": "^5.0.12"
   },

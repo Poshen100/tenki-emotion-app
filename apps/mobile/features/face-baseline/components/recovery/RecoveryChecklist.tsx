@@ -12,7 +12,9 @@ export function RecoveryChecklist({ items }: { items: readonly string[] }): Reac
     <View style={styles.list}>
       {items.map((item) => (
         <View key={item} style={styles.row}>
-          <Text style={styles.check}>✓</Text>
+          <View style={styles.checkCircle}>
+            <Text style={styles.checkMark}>✓</Text>
+          </View>
           <Text style={styles.text}>{item}</Text>
         </View>
       ))}
@@ -23,6 +25,20 @@ export function RecoveryChecklist({ items }: { items: readonly string[] }): Reac
 const styles = StyleSheet.create({
   list: { gap: t.spacing.md, alignSelf: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: t.spacing.md },
-  check: { color: t.color.status.pass, fontSize: 15, fontWeight: '700' },
+  checkCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#FFC85E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkMark: {
+    color: '#FFC85E',
+    fontSize: 11,
+    fontWeight: '800',
+    lineHeight: 12,
+  },
   text: { color: t.color.text.secondary, fontSize: t.text.body.size },
 });
