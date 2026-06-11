@@ -51,16 +51,20 @@ export default function EnvironmentCalibrationScreen(): React.JSX.Element {
       <SafeAreaView style={styles.safe}>
         <NavBar title={C.environment.title} onBack={() => router.back()} onCancel={() => router.back()} />
         <View style={styles.frameWrap}>
-          <FaceScanFrame shape="square" state={envReady ? 'locked' : 'tracking'} size={240}>
-            {/* Mock facial guide silhouette inside frame */}
-            <View style={styles.mockFaceGuide} />
+          <FaceScanFrame shape="square" state={envReady ? 'locked' : 'tracking'} size={280}>
+            {/* Simulated camera feed with face silhouette + floating checklist pills */}
+            <View style={styles.cameraPreview}>
+              <View style={styles.mockFaceGuide} />
+              
+              {/* Floating checklist pills matching Image 2 */}
+              <View style={styles.floatingChecklist}>
+                <EnvironmentChecklist items={items} />
+              </View>
+            </View>
           </FaceScanFrame>
         </View>
         <View style={styles.body}>
           <Text style={styles.guide}>{C.environment.body}</Text>
-          <View style={styles.checklistWrap}>
-            <EnvironmentChecklist items={items} />
-          </View>
         </View>
         <View style={styles.footer}>
           <GlowPrimaryButton
@@ -78,19 +82,34 @@ export default function EnvironmentCalibrationScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: t.spacing.gutter },
-  frameWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  body: { alignItems: 'center', marginBottom: t.spacing.lg },
-  guide: { fontSize: t.text.body.size, color: t.color.text.secondary, textAlign: 'center', marginBottom: t.spacing.md },
-  checklistWrap: { width: '100%', alignItems: 'center' },
-  mockFaceGuide: {
-    width: 130,
-    height: 180,
-    borderRadius: 65,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderStyle: 'dashed',
+  frameWrap: { flex: 1.2, alignItems: 'center', justifyContent: 'center' },
+  cameraPreview: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
+  mockFaceGuide: {
+    width: 140,
+    height: 190,
+    borderRadius: 70,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.015)',
+    borderStyle: 'dashed',
+    position: 'absolute',
+    top: 25,
+  },
+  floatingChecklist: {
+    position: 'absolute',
+    bottom: 18,
+    width: 230,
+    alignSelf: 'center',
+    zIndex: 3,
+  },
+  body: { alignItems: 'center', marginVertical: t.spacing.md },
+  guide: { fontSize: 16, fontWeight: '700', color: t.color.text.secondary, textAlign: 'center' },
   footer: { paddingBottom: t.spacing.ctaDock, gap: t.spacing.sm, alignItems: 'center' },
   hint: { fontSize: t.text.caption.size, color: t.color.text.tertiary },
 });

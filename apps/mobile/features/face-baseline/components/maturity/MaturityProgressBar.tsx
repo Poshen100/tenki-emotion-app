@@ -18,41 +18,60 @@ interface MaturityProgressBarProps {
 
 export function MaturityProgressBar({ stage, labels }: MaturityProgressBarProps): React.JSX.Element {
   const activeIndex = STAGE_ORDER.indexOf(stage);
+  const activeColor = t.progress.stageColors[stage];
+  
   return (
     <View style={styles.wrap}>
       <View style={styles.track}>
         {STAGE_ORDER.map((s, i) => {
           const filled = i <= activeIndex;
+          const isCurrent = i === activeIndex;
+          
           return (
             <View
               key={s}
               style={[
                 styles.segment,
-                { backgroundColor: filled ? t.progress.stageColors[stage] : `rgba(255,255,255,${t.progress.trackOpacity})` },
+                { 
+                  backgroundColor: filled ? activeColor : 'rgba(255, 255, 255, 0.1)',
+                  shadowColor: activeColor,
+                  shadowOpacity: isCurrent ? 0.8 : 0,
+                  shadowRadius: isCurrent ? 8 : 0,
+                  elevation: isCurrent ? 4 : 0,
+                },
               ]}
             />
           );
         })}
       </View>
       <View style={styles.labels}>
-        {STAGE_ORDER.map((s, i) => (
-          <Text
-            key={s}
-            style={[styles.label, i === activeIndex ? styles.labelActive : null]}
-          >
-            {labels[s]}
-          </Text>
-        ))}
+        {STAGE_ORDER.map((s, i) => {
+          const isCurrent = i === activeIndex;
+          const isFilled = i <= activeIndex;
+          
+          return (
+            <Text
+              key={s}
+              style={[
+                styles.label, 
+                isCurrent ? styles.labelActive : null,
+                isFilled ? { color: activeColor } : null
+              ]}
+            >
+              {labels[s]}
+            </Text>
+          );
+        })}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { width: '100%', gap: t.spacing.sm },
-  track: { flexDirection: 'row', gap: t.progress.segmentGap },
-  segment: { flex: 1, height: t.progress.barHeight, borderRadius: t.progress.barHeight / 2 },
+  wrap: { width: '100%', gap: 12 },
+  track: { flexDirection: 'row', gap: 6 },
+  segment: { flex: 1, height: 8, borderRadius: 4, shadowOffset: { width: 0, height: 0 } },
   labels: { flexDirection: 'row', justifyContent: 'space-between' },
-  label: { flex: 1, textAlign: 'center', fontSize: t.text.caption.size, color: t.color.text.tertiary },
-  labelActive: { color: t.color.text.primary, fontWeight: '600' },
+  label: { flex: 1, textAlign: 'center', fontSize: 12, color: 'rgba(255, 255, 255, 0.35)', fontWeight: '500' },
+  labelActive: { color: '#FFFFFF', fontWeight: '800' },
 });

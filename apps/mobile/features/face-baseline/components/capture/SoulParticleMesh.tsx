@@ -26,28 +26,74 @@ interface SpeckDef {
   offsetY: number;
   pulseDuration: number;
   pulseDelay: number;
+  color: 'cyan' | 'gold';
+  size: number;
 }
 
-// Deterministic particle set matching general face contours
+// Mapped face landmarks for a dense, high-fidelity stardust projection
 const SPECKS: SpeckDef[] = [
-  // Eyebrows/Forehead area
-  { topPercent: 20, leftPercent: 32, offsetX: -10, offsetY: -5, pulseDuration: 1800, pulseDelay: 100 },
-  { topPercent: 18, leftPercent: 50, offsetX: 0, offsetY: -12, pulseDuration: 2200, pulseDelay: 400 },
-  { topPercent: 20, leftPercent: 68, offsetX: 10, offsetY: -5, pulseDuration: 1900, pulseDelay: 200 },
-  // Eyes/Cheeks area
-  { topPercent: 35, leftPercent: 24, offsetX: -15, offsetY: 0, pulseDuration: 2500, pulseDelay: 600 },
-  { topPercent: 38, leftPercent: 44, offsetX: -5, offsetY: 2, pulseDuration: 1700, pulseDelay: 0 },
-  { topPercent: 38, leftPercent: 56, offsetX: 5, offsetY: 2, pulseDuration: 2100, pulseDelay: 300 },
-  { topPercent: 35, leftPercent: 76, offsetX: 15, offsetY: 0, pulseDuration: 2400, pulseDelay: 700 },
-  // Nose ridge
-  { topPercent: 48, leftPercent: 50, offsetX: 0, offsetY: -5, pulseDuration: 2000, pulseDelay: 150 },
-  // Mouth/Jaw area
-  { topPercent: 62, leftPercent: 32, offsetX: -12, offsetY: 8, pulseDuration: 2300, pulseDelay: 500 },
-  { topPercent: 68, leftPercent: 50, offsetX: 0, offsetY: 15, pulseDuration: 2600, pulseDelay: 850 },
-  { topPercent: 62, leftPercent: 68, offsetX: 12, offsetY: 8, pulseDuration: 2000, pulseDelay: 100 },
-  // Outer perimeter cheeks
-  { topPercent: 50, leftPercent: 20, offsetX: -20, offsetY: 5, pulseDuration: 2800, pulseDelay: 900 },
-  { topPercent: 50, leftPercent: 80, offsetX: 20, offsetY: 5, pulseDuration: 2700, pulseDelay: 1000 },
+  // Eyebrows (Left Arc)
+  { topPercent: 18, leftPercent: 26, offsetX: -8, offsetY: -6, pulseDuration: 1500, pulseDelay: 100, color: 'cyan', size: 3 },
+  { topPercent: 16, leftPercent: 33, offsetX: -4, offsetY: -8, pulseDuration: 1800, pulseDelay: 300, color: 'cyan', size: 2 },
+  { topPercent: 17, leftPercent: 41, offsetX: 0, offsetY: -7, pulseDuration: 1600, pulseDelay: 200, color: 'gold', size: 3.5 },
+
+  // Eyebrows (Right Arc)
+  { topPercent: 17, leftPercent: 59, offsetX: 0, offsetY: -7, pulseDuration: 1700, pulseDelay: 150, color: 'gold', size: 3.5 },
+  { topPercent: 16, leftPercent: 67, offsetX: 4, offsetY: -8, pulseDuration: 1900, pulseDelay: 400, color: 'cyan', size: 2 },
+  { topPercent: 18, leftPercent: 74, offsetX: 8, offsetY: -6, pulseDuration: 1500, pulseDelay: 50, color: 'cyan', size: 3 },
+
+  // Forehead Center
+  { topPercent: 10, leftPercent: 50, offsetX: 0, offsetY: -12, pulseDuration: 2200, pulseDelay: 500, color: 'cyan', size: 2 },
+  { topPercent: 12, leftPercent: 43, offsetX: -6, offsetY: -10, pulseDuration: 2400, pulseDelay: 700, color: 'gold', size: 1.5 },
+  { topPercent: 12, leftPercent: 57, offsetX: 6, offsetY: -10, pulseDuration: 2000, pulseDelay: 600, color: 'gold', size: 1.5 },
+
+  // Left Eye Ring
+  { topPercent: 28, leftPercent: 28, offsetX: -10, offsetY: -2, pulseDuration: 2100, pulseDelay: 100, color: 'cyan', size: 2.5 },
+  { topPercent: 26, leftPercent: 35, offsetX: -5, offsetY: -4, pulseDuration: 1900, pulseDelay: 250, color: 'cyan', size: 1.5 },
+  { topPercent: 28, leftPercent: 42, offsetX: 0, offsetY: -2, pulseDuration: 2300, pulseDelay: 400, color: 'gold', size: 2.5 },
+  { topPercent: 32, leftPercent: 35, offsetX: -5, offsetY: 3, pulseDuration: 2500, pulseDelay: 150, color: 'cyan', size: 2 },
+
+  // Right Eye Ring
+  { topPercent: 28, leftPercent: 58, offsetX: 0, offsetY: -2, pulseDuration: 2400, pulseDelay: 350, color: 'gold', size: 2.5 },
+  { topPercent: 26, leftPercent: 65, offsetX: 5, offsetY: -4, pulseDuration: 2000, pulseDelay: 200, color: 'cyan', size: 1.5 },
+  { topPercent: 28, leftPercent: 72, offsetX: 10, offsetY: -2, pulseDuration: 2200, pulseDelay: 50, color: 'cyan', size: 2.5 },
+  { topPercent: 32, leftPercent: 65, offsetX: 5, offsetY: 3, pulseDuration: 2600, pulseDelay: 300, color: 'cyan', size: 2 },
+
+  // Nose Bridge & Tip
+  { topPercent: 27, leftPercent: 50, offsetX: 0, offsetY: -5, pulseDuration: 1800, pulseDelay: 500, color: 'cyan', size: 2 },
+  { topPercent: 36, leftPercent: 50, offsetX: 0, offsetY: -3, pulseDuration: 1900, pulseDelay: 600, color: 'gold', size: 3 },
+  { topPercent: 44, leftPercent: 50, offsetX: 0, offsetY: 0, pulseDuration: 2100, pulseDelay: 400, color: 'gold', size: 4 },
+  { topPercent: 48, leftPercent: 46, offsetX: -4, offsetY: 2, pulseDuration: 2000, pulseDelay: 200, color: 'cyan', size: 2.5 },
+  { topPercent: 48, leftPercent: 54, offsetX: 4, offsetY: 2, pulseDuration: 2200, pulseDelay: 350, color: 'cyan', size: 2.5 },
+
+  // Left Cheek Contour
+  { topPercent: 42, leftPercent: 20, offsetX: -16, offsetY: 4, pulseDuration: 2700, pulseDelay: 800, color: 'cyan', size: 3.5 },
+  { topPercent: 46, leftPercent: 28, offsetX: -12, offsetY: 6, pulseDuration: 2500, pulseDelay: 600, color: 'gold', size: 2.5 },
+  { topPercent: 54, leftPercent: 24, offsetX: -14, offsetY: 8, pulseDuration: 2900, pulseDelay: 700, color: 'cyan', size: 3 },
+
+  // Right Cheek Contour
+  { topPercent: 42, leftPercent: 80, offsetX: 16, offsetY: 4, pulseDuration: 2800, pulseDelay: 850, color: 'cyan', size: 3.5 },
+  { topPercent: 46, leftPercent: 72, offsetX: 12, offsetY: 6, pulseDuration: 2600, pulseDelay: 650, color: 'gold', size: 2.5 },
+  { topPercent: 54, leftPercent: 76, offsetX: 14, offsetY: 8, pulseDuration: 3000, pulseDelay: 750, color: 'cyan', size: 3 },
+
+  // Mouth & Lips Outline
+  { topPercent: 60, leftPercent: 40, offsetX: -6, offsetY: 4, pulseDuration: 1800, pulseDelay: 100, color: 'cyan', size: 2 },
+  { topPercent: 58, leftPercent: 50, offsetX: 0, offsetY: 2, pulseDuration: 1900, pulseDelay: 200, color: 'gold', size: 3.5 },
+  { topPercent: 60, leftPercent: 60, offsetX: 6, offsetY: 4, pulseDuration: 1700, pulseDelay: 150, color: 'cyan', size: 2 },
+  { topPercent: 66, leftPercent: 42, offsetX: -5, offsetY: 8, pulseDuration: 2300, pulseDelay: 450, color: 'cyan', size: 2.5 },
+  { topPercent: 68, leftPercent: 50, offsetX: 0, offsetY: 10, pulseDuration: 2500, pulseDelay: 500, color: 'gold', size: 3.5 },
+  { topPercent: 66, leftPercent: 58, offsetX: 5, offsetY: 8, pulseDuration: 2200, pulseDelay: 400, color: 'cyan', size: 2.5 },
+
+  // Jawline & Chin base
+  { topPercent: 74, leftPercent: 30, offsetX: -12, offsetY: 12, pulseDuration: 2600, pulseDelay: 900, color: 'cyan', size: 3 },
+  { topPercent: 80, leftPercent: 40, offsetX: -6, offsetY: 16, pulseDuration: 2800, pulseDelay: 1000, color: 'gold', size: 2.5 },
+  { topPercent: 83, leftPercent: 50, offsetX: 0, offsetY: 20, pulseDuration: 3000, pulseDelay: 1100, color: 'gold', size: 4 },
+  { topPercent: 80, leftPercent: 60, offsetX: 6, offsetY: 16, pulseDuration: 2700, pulseDelay: 950, color: 'gold', size: 2.5 },
+  { topPercent: 74, leftPercent: 70, offsetX: 12, offsetY: 12, pulseDuration: 2500, pulseDelay: 850, color: 'cyan', size: 3 },
+
+  // Face outer temples
+  { topPercent: 22, leftPercent: 16, offsetX: -15, offsetY: -4, pulseDuration: 2900, pulseDelay: 900, color: 'cyan', size: 2 },
+  { topPercent: 22, leftPercent: 84, offsetX: 15, offsetY: -4, pulseDuration: 2800, pulseDelay: 950, color: 'cyan', size: 2 },
 ];
 
 function AnimatedSpeck({
@@ -132,11 +178,15 @@ function AnimatedSpeck({
   // Opacity derived from overall stability + internal breathing pulse
   const opacity = pulse.interpolate({
     inputRange: [0.3, 1],
-    outputRange: [0.2 + stability * 0.2, 0.5 + stability * 0.45],
+    outputRange: [0.3 + stability * 0.2, 0.65 + stability * 0.35],
   });
 
   const posX = (speck.leftPercent / 100) * containerSize;
   const posY = (speck.topPercent / 100) * containerSize;
+
+  const isGold = speck.color === 'gold';
+  const dotColor = isGold ? '#FFC85E' : '#00F0FF';
+  const glowColor = isGold ? '#FF8800' : '#00F0FF';
 
   return (
     <Animated.View
@@ -146,6 +196,11 @@ function AnimatedSpeck({
           left: posX,
           top: posY,
           opacity,
+          width: speck.size,
+          height: speck.size,
+          borderRadius: speck.size / 2,
+          backgroundColor: dotColor,
+          shadowColor: glowColor,
           transform: [
             { translateX: Animated.add(driftX, transitionX) },
             { translateY: Animated.add(driftY, transitionY) },
@@ -175,13 +230,9 @@ const styles = StyleSheet.create({
   wrap: { position: 'relative', overflow: 'visible' },
   speck: {
     position: 'absolute',
-    width: 3.5,
-    height: 3.5,
-    borderRadius: 1.75,
-    backgroundColor: t.color.accent.goldSoft,
-    shadowColor: t.color.accent.goldBloom,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 5,
+    shadowOpacity: 0.95,
+    shadowRadius: 6,
+    elevation: 4,
   },
 });

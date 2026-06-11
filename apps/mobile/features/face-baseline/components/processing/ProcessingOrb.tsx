@@ -20,43 +20,127 @@ interface ProcessingOrbProps {
   size?: number;
 }
 
-export function ProcessingOrb({ progress, size = 200 }: ProcessingOrbProps): React.JSX.Element {
+// Specular shine layer to make the sphere look 3D glass
+function GlassSpecularShine({ size }: { size: number }): React.JSX.Element {
+  return (
+    <>
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.04,
+          left: size * 0.1,
+          width: size * 0.72,
+          height: size * 0.28,
+          borderRadius: size * 0.36,
+          backgroundColor: 'rgba(255, 255, 255, 0.12)',
+          transform: [{ rotate: '-28deg' }],
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          bottom: size * 0.08,
+          right: size * 0.14,
+          width: size * 0.3,
+          height: size * 0.1,
+          borderRadius: size * 0.05,
+          backgroundColor: 'rgba(255, 255, 255, 0.04)',
+          transform: [{ rotate: '45deg' }],
+        }}
+      />
+    </>
+  );
+}
+
+// Swirling golden dust particle inside the glass orb
+function SwirlingSparkle({
+  angle,
+  radius,
+  duration,
+  size,
+}: {
+  angle: number;
+  radius: number;
+  duration: number;
+  size: number;
+}): React.JSX.Element {
+  const rotAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(rotAnim, {
+        toValue: 1,
+        duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    ).start();
+  }, [rotAnim, duration]);
+
+  const rotate = rotAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [`${angle}deg`, `${angle + 360}deg`],
+  });
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: '#FFF0D0',
+        shadowColor: '#FF8800',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.9,
+        shadowRadius: 4,
+        transform: [
+          { rotate },
+          { translateY: radius },
+        ],
+      }}
+    />
+  );
+}
+
+export function ProcessingOrb({ progress, size = 220 }: ProcessingOrbProps): React.JSX.Element {
   const clampedProgress = clamp01(progress);
 
-  // Ring rotations — 3 rings at different speeds
+  // Concentric ring animations
   const ring1Rot = useRef(new Animated.Value(0)).current;
   const ring2Rot = useRef(new Animated.Value(0)).current;
   const ring3Rot = useRef(new Animated.Value(0)).current;
+  const ring4Rot = useRef(new Animated.Value(0)).current;
 
   // Outer glow pulse
   const glowPulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const makeRing = (anim: Animated.Value, dur: number) =>
+    const makeRing = (anim: Animated.Value, dur: number, reverse = false) =>
       Animated.loop(
         Animated.timing(anim, {
-          toValue: 1,
+          toValue: reverse ? -1 : 1,
           duration: dur,
           easing: Easing.linear,
           useNativeDriver: true,
         }),
       );
 
-    const r1 = makeRing(ring1Rot, 4000);
-    const r2 = makeRing(ring2Rot, 5500);
-    const r3 = makeRing(ring3Rot, 7000);
+    const r1 = makeRing(ring1Rot, 5000);
+    const r2 = makeRing(ring2Rot, 7500, true);
+    const r3 = makeRing(ring3Rot, 9000);
+    const r4 = makeRing(ring4Rot, 12000, true);
 
     const glow = Animated.loop(
       Animated.sequence([
         Animated.timing(glowPulse, {
           toValue: 1,
-          duration: 1800,
+          duration: 2000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(glowPulse, {
           toValue: 0,
-          duration: 1800,
+          duration: 2000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -66,43 +150,52 @@ export function ProcessingOrb({ progress, size = 200 }: ProcessingOrbProps): Rea
     r1.start();
     r2.start();
     r3.start();
+    r4.start();
     glow.start();
 
-    return () => { r1.stop(); r2.stop(); r3.stop(); glow.stop(); };
-  }, [ring1Rot, ring2Rot, ring3Rot, glowPulse]);
+    return () => {
+      r1.stop();
+      r2.stop();
+      r3.stop();
+      r4.stop();
+      glow.stop();
+    };
+  }, [ring1Rot, ring2Rot, ring3Rot, ring4Rot, glowPulse]);
 
-  // Interpolations
-  const spin1 = ring1Rot.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const spin2 = ring2Rot.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] });
-  const spin3 = ring3Rot.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  // Rotations
+  const spin1 = ring1Rot.interpolate({ inputRange: [-1, 1], outputRange: ['-360deg', '360deg'] });
+  const spin2 = ring2Rot.interpolate({ inputRange: [-1, 1], outputRange: ['-360deg', '360deg'] });
+  const spin3 = ring3Rot.interpolate({ inputRange: [-1, 1], outputRange: ['-360deg', '360deg'] });
+  const spin4 = ring4Rot.interpolate({ inputRange: [-1, 1], outputRange: ['-360deg', '360deg'] });
 
   const glowOp = glowPulse.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.4 + clampedProgress * 0.2, 0.7 + clampedProgress * 0.15],
+    outputRange: [0.3, 0.65],
   });
 
-  // Size-derived measurements
+  // Derived sizes
   const orbSize = size;
-  const ringOuterSize = size * 0.88;
-  const ringMidSize = size * 0.68;
-  const ringInnerSize = size * 0.48;
+  const r1Size = size * 0.94;
+  const r2Size = size * 0.82;
+  const r3Size = size * 0.66;
+  const r4Size = size * 0.48;
 
   return (
     <View style={[styles.container, { width: size * 1.5, height: size * 1.5 }]}>
-      {/* Outer glow */}
+      {/* Intense golden ambient nebula glow */}
       <Animated.View
         style={[
           styles.glow,
           {
-            width: size * 1.4,
-            height: size * 1.4,
+            width: size * 1.45,
+            height: size * 1.45,
             borderRadius: size,
             opacity: glowOp,
           },
         ]}
       />
 
-      {/* Main sphere */}
+      {/* Main glass marble container */}
       <View
         style={[
           styles.orb,
@@ -113,56 +206,92 @@ export function ProcessingOrb({ progress, size = 200 }: ProcessingOrbProps): Rea
           },
         ]}
       >
-        {/* Orbiting ring 1 — outermost, tilted */}
+        {/* Glass base shading layers */}
+        <View style={styles.glassBaseGradient} />
+
+        {/* Orbiting ring 1 — Outer ring */}
         <Animated.View
           style={[
             styles.ring,
             {
-              width: ringOuterSize,
-              height: ringOuterSize,
-              borderRadius: ringOuterSize / 2,
-              transform: [{ rotate: spin1 }, { rotateX: '65deg' }],
+              width: r1Size,
+              height: r1Size,
+              borderRadius: r1Size / 2,
+              transform: [{ rotate: spin1 }, { rotateX: '55deg' }, { rotateY: '10deg' }],
             },
           ]}
         />
 
-        {/* Orbiting ring 2 — mid, different tilt */}
+        {/* Orbiting ring 2 — Mid ring */}
         <Animated.View
           style={[
             styles.ring,
             styles.ring2,
             {
-              width: ringMidSize,
-              height: ringMidSize,
-              borderRadius: ringMidSize / 2,
-              transform: [{ rotate: spin2 }, { rotateX: '45deg' }, { rotateY: '30deg' }],
+              width: r2Size,
+              height: r2Size,
+              borderRadius: r2Size / 2,
+              transform: [{ rotate: spin2 }, { rotateX: '65deg' }, { rotateY: '-25deg' }],
             },
           ]}
         />
 
-        {/* Orbiting ring 3 — innermost */}
+        {/* Orbiting ring 3 — Inner ring */}
         <Animated.View
           style={[
             styles.ring,
             styles.ring3,
             {
-              width: ringInnerSize,
-              height: ringInnerSize,
-              borderRadius: ringInnerSize / 2,
-              transform: [{ rotate: spin3 }, { rotateX: '75deg' }, { rotateZ: '20deg' }],
+              width: r3Size,
+              height: r3Size,
+              borderRadius: r3Size / 2,
+              transform: [{ rotate: spin3 }, { rotateX: '40deg' }, { rotateY: '35deg' }],
             },
           ]}
         />
 
-        {/* Bright core — intensifies with progress */}
+        {/* Orbiting ring 4 — Tiny core ring */}
+        <Animated.View
+          style={[
+            styles.ring,
+            styles.ring4,
+            {
+              width: r4Size,
+              height: r4Size,
+              borderRadius: r4Size / 2,
+              transform: [{ rotate: spin4 }, { rotateX: '70deg' }, { rotateZ: '-15deg' }],
+            },
+          ]}
+        />
+
+        {/* Dense gold stardust sparkles floating inside the marble */}
+        <SwirlingSparkle angle={0} radius={size * 0.35} duration={3800} size={5} />
+        <SwirlingSparkle angle={120} radius={size * 0.28} duration={4600} size={4} />
+        <SwirlingSparkle angle={240} radius={size * 0.42} duration={5200} size={3.5} />
+        <SwirlingSparkle angle={60} radius={size * 0.22} duration={3100} size={4.5} />
+        <SwirlingSparkle angle={180} radius={size * 0.31} duration={4900} size={3} />
+        <SwirlingSparkle angle={300} radius={size * 0.16} duration={4100} size={5} />
+
+        {/* Specs of white highlight light */}
+        <GlassSpecularShine size={size} />
+
+        {/* Supercharged golden particle core */}
         <View
           style={[
             styles.core,
             {
-              width: size * 0.22,
-              height: size * 0.22,
-              borderRadius: size * 0.11,
-              opacity: 0.3 + clampedProgress * 0.5,
+              width: size * 0.28,
+              height: size * 0.28,
+              borderRadius: size * 0.14,
+              opacity: 0.45 + clampedProgress * 0.55,
+              transform: [
+                {
+                  scale: glowPulse.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.95, 1.15],
+                  }),
+                },
+              ],
             },
           ]}
         />
@@ -184,53 +313,69 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    backgroundColor: 'rgba(255,157,47,0.08)',
-    shadowColor: t.color.accent.goldBloom,
+    backgroundColor: 'rgba(255, 136, 0, 0.08)',
+    shadowColor: '#FF8800',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 48,
+    shadowOpacity: 0.9,
+    shadowRadius: 54,
   },
   orb: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: t.color.border.glassGold,
-    backgroundColor: 'rgba(40,30,10,0.45)',
-    shadowColor: t.color.accent.goldResonance,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 200, 100, 0.35)',
+    backgroundColor: 'rgba(28, 16, 6, 0.45)', // gold warm base tint
+    shadowColor: '#FF8800',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 32,
+    shadowOpacity: 0.65,
+    shadowRadius: 40,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  glassBaseGradient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 9999,
   },
   ring: {
     position: 'absolute',
-    borderWidth: t.stroke.ringArc,
+    borderWidth: 2,
     borderColor: 'transparent',
-    borderTopColor: t.color.accent.goldSoft,
-    borderRightColor: 'rgba(232,180,90,0.4)',
+    borderTopColor: '#FFC85E',
+    borderRightColor: 'rgba(255, 200, 94, 0.3)',
+    borderLeftColor: 'rgba(255, 200, 94, 0.1)',
   },
   ring2: {
-    borderTopColor: t.color.accent.goldHi,
-    borderRightColor: 'rgba(255,210,122,0.3)',
-    borderWidth: t.stroke.ringArc - 1,
+    borderTopColor: '#FFFFFF',
+    borderRightColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 1.5,
   },
   ring3: {
-    borderTopColor: t.color.accent.goldBloom,
-    borderRightColor: 'rgba(255,157,47,0.35)',
-    borderWidth: t.stroke.ringArc - 2,
+    borderTopColor: '#FF8800',
+    borderRightColor: 'rgba(255, 136, 0, 0.35)',
+    borderWidth: 2.5,
+  },
+  ring4: {
+    borderTopColor: '#FFF0D0',
+    borderRightColor: 'rgba(255, 240, 208, 0.25)',
+    borderWidth: 1,
   },
   core: {
-    backgroundColor: t.color.accent.goldSoft,
-    shadowColor: t.color.accent.goldSoft,
+    backgroundColor: '#FFC85E',
+    shadowColor: '#FF8800',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 16,
+    shadowOpacity: 0.9,
+    shadowRadius: 28,
   },
   percent: {
     fontSize: t.text.metric.size,
     lineHeight: t.text.metric.lineHeight,
-    fontWeight: '300',
-    color: t.color.accent.goldSoft,
+    fontWeight: '800', // extra bold for premium impact
+    color: '#FFC85E',
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
+    letterSpacing: -1,
   },
 });

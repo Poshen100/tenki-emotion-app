@@ -40,7 +40,39 @@ function goldRatio(stage: MaturityStage): number {
   return [0, 0.15, 0.45, 1][idx];
 }
 
-export function ResonanceOrb({ stage, size = 160 }: ResonanceOrbProps): React.JSX.Element {
+// Specular shine layer to make the maturity sphere look 3D glass
+function GlassSpecularShine({ size }: { size: number }): React.JSX.Element {
+  return (
+    <>
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.05,
+          left: size * 0.12,
+          width: size * 0.65,
+          height: size * 0.24,
+          borderRadius: size * 0.3,
+          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+          transform: [{ rotate: '-30deg' }],
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          bottom: size * 0.1,
+          right: size * 0.12,
+          width: size * 0.25,
+          height: size * 0.08,
+          borderRadius: size * 0.04,
+          backgroundColor: 'rgba(255, 255, 255, 0.03)',
+          transform: [{ rotate: '45deg' }],
+        }}
+      />
+    </>
+  );
+}
+
+export function ResonanceOrb({ stage, size = 180 }: ResonanceOrbProps): React.JSX.Element {
   const tint = stageTint(stage);
   const gold = goldRatio(stage);
   const idx = stageIndex(stage);
@@ -54,7 +86,7 @@ export function ResonanceOrb({ stage, size = 160 }: ResonanceOrbProps): React.JS
     const r1 = Animated.loop(
       Animated.timing(rotAnim, {
         toValue: 1,
-        duration: 12000,
+        duration: 14000,
         easing: Easing.linear,
         useNativeDriver: true,
       }),
@@ -62,7 +94,7 @@ export function ResonanceOrb({ stage, size = 160 }: ResonanceOrbProps): React.JS
     const r2 = Animated.loop(
       Animated.timing(rot2Anim, {
         toValue: 1,
-        duration: 16000,
+        duration: 18000,
         easing: Easing.linear,
         useNativeDriver: true,
       }),
@@ -71,13 +103,13 @@ export function ResonanceOrb({ stage, size = 160 }: ResonanceOrbProps): React.JS
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 3000,
+          duration: 3200,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 0,
-          duration: 3000,
+          duration: 3200,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -94,24 +126,26 @@ export function ResonanceOrb({ stage, size = 160 }: ResonanceOrbProps): React.JS
   const spin2 = rot2Anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] });
   const coreScale = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.06],
+    outputRange: [1, 1.08],
   });
   const glowOp = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.4, 0.65],
+    outputRange: [0.4, 0.75],
   });
 
   // Measurements
   const orbSize = size;
-  const ring1Size = size * 0.92;
-  const ring2Size = size * 0.75;
-  const coreSize = size * 0.36;
-  const innerDotSize = size * 0.08;
+  const ring1Size = size * 0.94;
+  const ring2Size = size * 0.78;
+  const ring3Size = size * 0.62;
+  const coreSize = size * 0.38;
+  const innerDotSize = size * 0.09;
 
   // Colors: blend from tint (stage) toward gold as maturity increases
   const ringColor = gold > 0.5 ? t.color.accent.goldSoft : tint;
   const coreColor = gold > 0.5 ? t.color.accent.goldResonance : tint;
-  const orbBorder = gold > 0.3 ? t.color.border.glassGold : t.color.border.hairline;
+  const orbBorder = gold > 0.3 ? 'rgba(243, 169, 42, 0.35)' : 'rgba(0, 240, 255, 0.25)';
+  const orbBg = gold > 0.3 ? 'rgba(28, 18, 10, 0.75)' : 'rgba(8, 12, 28, 0.72)';
 
   return (
     <View style={[styles.container, { width: size * 1.5, height: size * 1.5 }]}>
@@ -120,8 +154,8 @@ export function ResonanceOrb({ stage, size = 160 }: ResonanceOrbProps): React.JS
         style={[
           styles.glow,
           {
-            width: size * 1.35,
-            height: size * 1.35,
+            width: size * 1.4,
+            height: size * 1.4,
             borderRadius: size,
             opacity: glowOp,
             shadowColor: ringColor,
@@ -138,10 +172,14 @@ export function ResonanceOrb({ stage, size = 160 }: ResonanceOrbProps): React.JS
             height: orbSize,
             borderRadius: orbSize / 2,
             borderColor: orbBorder,
-            shadowColor: tint,
+            backgroundColor: orbBg,
+            shadowColor: ringColor,
           },
         ]}
       >
+        {/* Specular highlights */}
+        <GlassSpecularShine size={size} />
+
         {/* Ring 1 — outermost orbital */}
         <Animated.View
           style={[
@@ -168,6 +206,23 @@ export function ResonanceOrb({ stage, size = 160 }: ResonanceOrbProps): React.JS
                 borderRadius: ring2Size / 2,
                 borderColor: ringColor,
                 transform: [{ rotate: spin2 }, { rotateX: '55deg' }, { rotateZ: '35deg' }],
+              },
+            ]}
+          />
+        )}
+
+        {/* Ring 3 — nested deep */}
+        {idx >= 2 && (
+          <Animated.View
+            style={[
+              styles.ring,
+              styles.ring3,
+              {
+                width: ring3Size,
+                height: ring3Size,
+                borderRadius: ring3Size / 2,
+                borderColor: ringColor,
+                transform: [{ rotate: spin1 }, { rotateY: '60deg' }, { rotateZ: '-20deg' }],
               },
             ]}
           />
@@ -219,9 +274,10 @@ export function ResonanceOrb({ stage, size = 160 }: ResonanceOrbProps): React.JS
         {/* Sparkle dots — small particles around the sphere (ready+) */}
         {idx >= 2 && (
           <>
-            <View style={[styles.sparkle, { top: '8%', right: '15%', backgroundColor: ringColor }]} />
-            <View style={[styles.sparkle, { bottom: '12%', left: '18%', backgroundColor: ringColor }]} />
-            <View style={[styles.sparkle, { top: '45%', right: '5%', backgroundColor: ringColor, opacity: 0.4 }]} />
+            <View style={[styles.sparkle, { top: '12%', right: '18%', backgroundColor: ringColor }]} />
+            <View style={[styles.sparkle, { bottom: '15%', left: '20%', backgroundColor: ringColor }]} />
+            <View style={[styles.sparkle, { top: '45%', right: '8%', backgroundColor: ringColor, opacity: 0.5 }]} />
+            <View style={[styles.sparkle, { bottom: '38%', left: '10%', backgroundColor: ringColor, opacity: 0.4 }]} />
           </>
         )}
       </View>
@@ -236,53 +292,57 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    backgroundColor: 'rgba(127,233,208,0.04)',
+    backgroundColor: 'rgba(127,233,208,0.06)',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 44,
+    shadowOpacity: 0.75,
+    shadowRadius: 50,
   },
   orb: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(16,20,34,0.55)',
-    borderWidth: 1,
+    borderWidth: 1.5,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 32,
+    shadowOpacity: 0.6,
+    shadowRadius: 40,
     overflow: 'visible',
+    position: 'relative',
   },
   ring: {
     position: 'absolute',
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: 'transparent',
     borderTopColor: undefined, // overridden via style prop
-    opacity: 0.7,
+    opacity: 0.8,
   },
   ring2: {
+    opacity: 0.6,
+    borderWidth: 1.5,
+  },
+  ring3: {
     opacity: 0.5,
     borderWidth: 1,
   },
   coreDiamond: {
-    borderWidth: 1.5,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   coreInner: {
-    borderWidth: 1,
-    opacity: 0.6,
+    borderWidth: 1.5,
+    opacity: 0.7,
   },
   centerDot: {
     position: 'absolute',
     shadowColor: '#FFD27A',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 8,
+    shadowOpacity: 0.85,
+    shadowRadius: 10,
   },
   sparkle: {
     position: 'absolute',
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    opacity: 0.6,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    opacity: 0.75,
   },
 });
