@@ -4,8 +4,8 @@
  *
  * INTEGRATION (Reanimated): checkmark draw + bloom pulse on reveal.
  */
-import type React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { useBaselineHaptics } from '../../hooks/useBaselineHaptics';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import { GlassInfoCard } from '../glass/GlassInfoCard';
 
@@ -15,6 +15,12 @@ interface BaselineSuccessCardProps {
 }
 
 export function BaselineSuccessCard({ title, body }: BaselineSuccessCardProps): React.JSX.Element {
+  const haptics = useBaselineHaptics();
+
+  useEffect(() => {
+    haptics.trigger('success');
+  }, [haptics]);
+
   return (
     <GlassInfoCard edge="gold" style={styles.card}>
       {/* Supercharged golden success seal with concentric pulsing halos */}

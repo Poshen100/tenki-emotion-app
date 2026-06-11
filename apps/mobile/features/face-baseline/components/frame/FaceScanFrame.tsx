@@ -66,6 +66,8 @@ function GridOverlay({ size }: { size: number }): React.JSX.Element {
   );
 }
 
+import { useBaselineHaptics } from '../../hooks/useBaselineHaptics';
+
 export function FaceScanFrame({
   shape = 'square',
   state = 'idle',
@@ -74,6 +76,7 @@ export function FaceScanFrame({
 }: FaceScanFrameProps): React.JSX.Element {
   const isHalo = shape === 'halo';
   const color = frameColor(state);
+  const haptics = useBaselineHaptics();
 
   // Animated values for visual state transitions
   const shapeAnim = useRef(new Animated.Value(isHalo ? 1 : 0)).current;
@@ -98,8 +101,9 @@ export function FaceScanFrame({
       useNativeDriver: false,
     }).start();
 
-    // Trigger lock/snap animation
+    // Trigger lock/snap animation & haptics
     if (state === 'locked') {
+      haptics.trigger('impactMedium');
       snapScale.setValue(1.15);
       Animated.spring(snapScale, {
         toValue: 1.0,

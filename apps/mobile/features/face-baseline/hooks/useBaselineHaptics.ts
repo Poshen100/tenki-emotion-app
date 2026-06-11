@@ -9,6 +9,8 @@
  *   setHapticsImplementation({ trigger: (k) => Haptics.<map>(k) })
  */
 import { useMemo } from 'react';
+import { Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
 
 /** Semantic haptic moments used across the flow (see SPEC Task 8). */
@@ -20,26 +22,6 @@ export type HapticKind =
   | 'success'
   | 'warning';
 
-/** Platform haptics adapter, injected by the native layer. */
-export interface HapticsImpl {
-  trigger: (kind: HapticKind) => void;
-}
-
-let activeImpl: HapticsImpl | null = null;
-
-/** Register (or clear) the platform haptics implementation. */
-export function setHapticsImplementation(impl: HapticsImpl | null): void {
-  activeImpl = impl;
-}
-
-/**
- * Pure gating rule: fire only when motion is allowed and an impl is present.
- * Exported for unit testing without a React renderer.
- */
-export function shouldFireHaptic(reducedMotion: boolean, hasImpl: boolean): boolean {
-  return !reducedMotion && hasImpl;
-}
-
 export interface BaselineHapticsApi {
   trigger: (kind: HapticKind) => void;
 }
@@ -50,8 +32,60 @@ export function useBaselineHaptics(): BaselineHapticsApi {
   return useMemo<BaselineHapticsApi>(
     () => ({
       trigger: (kind: HapticKind): void => {
-        if (shouldFireHaptic(reducedMotion, activeImpl !== null)) {
-          activeImpl?.trigger(kind);
+        if (reducedMotion) return;
+
+        if (Platform.OS === 'web') {
+          // Safe HTML5 web vibration fallback
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try {
+              switch (kind) {
+                case 'selection':
+                case 'impactSoft':
+                  navigator.vibrate(10);
+                  break;
+                case 'impactLight':
+                  navigator.vibrate(15);
+                  break;
+                case 'impactMedium':
+                  navigator.vibrate(30);
+                  break;
+                case 'success':
+                  navigator.vibrate([40, 40, 40]);
+                  break;
+                case 'warning':
+                  navigator.vibrate([80, 50, 80]);
+                  break;
+              }
+            } catch (e) {
+              // Ignore silent permission or state errors on web
+            }
+          }
+        } else {
+          // Native expo-haptics triggers
+          try {
+            switch (kind) {
+              case 'selection':
+                Haptics.selectionAsync();
+                break;
+              case 'impactSoft':
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+                break;
+              case 'impactLight':
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                break;
+              case 'impactMedium':
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                break;
+              case 'success':
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                break;
+              case 'warning':
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                break;
+            }
+          } catch (e) {
+            // Ignore native runtime errors safely
+          }
         }
       },
     }),
