@@ -11,6 +11,7 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 
 export type CheckStatus = 'pass' | 'fail' | 'pending';
@@ -80,6 +81,9 @@ export function ChecklistRow({ item }: { item: ChecklistItem }): React.JSX.Eleme
       styles.row,
       { transform: [{ translateX: shakeAnim }] }
     ]}>
+      {/* frosted capsule backdrop */}
+      <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
+      <View style={styles.frostFill} pointerEvents="none" />
       <View style={styles.left}>
         <Text style={styles.icon}>{icon}</Text>
         <Text style={styles.label}>{item.label}</Text>
@@ -116,11 +120,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: 154,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    width: 168,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
     borderRadius: 99,
-    backgroundColor: 'rgba(38, 30, 24, 0.65)',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  frostFill: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(8, 11, 20, 0.45)',
   },
   left: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   icon: { fontSize: 15 },

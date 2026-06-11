@@ -50,7 +50,8 @@ export default function EnvironmentCalibrationScreen(): React.JSX.Element {
   return (
     <CosmicBackground mode="dim">
       <SafeAreaView style={styles.safe}>
-        <NavBar title={C.environment.title} onBack={() => router.back()} onCancel={() => router.back()} />
+        <NavBar onBack={() => router.back()} onCancel={() => router.back()} />
+        <Text style={styles.heading}>{C.environment.title}</Text>
         <View style={styles.frameWrap}>
           <FaceScanFrame shape="square" state={envReady ? 'locked' : 'tracking'} size={280}>
             {/* Camera feed overlayed with face silhouette + floating checklist pills */}
@@ -60,9 +61,9 @@ export default function EnvironmentCalibrationScreen(): React.JSX.Element {
               </View>
 
               <View style={styles.mockFaceGuide} />
-              
-              {/* Floating checklist pills matching Image 2 */}
-              <View style={styles.floatingChecklist}>
+
+              {/* Status pills float centered inside the viewport */}
+              <View style={styles.floatingChecklist} pointerEvents="none">
                 <EnvironmentChecklist items={items} />
               </View>
             </View>
@@ -106,15 +107,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 25,
   },
+  heading: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    color: t.color.text.primary,
+    textAlign: 'center',
+    marginTop: t.spacing.xs,
+  },
   floatingChecklist: {
-    position: 'absolute',
-    bottom: 18,
-    width: 230,
-    alignSelf: 'center',
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 3,
   },
   body: { alignItems: 'center', marginVertical: t.spacing.md },
-  guide: { fontSize: 16, fontWeight: '700', color: t.color.text.secondary, textAlign: 'center' },
+  guide: { fontSize: 15, fontWeight: '500', color: t.color.text.secondary, textAlign: 'center' },
   footer: { paddingBottom: t.spacing.ctaDock, gap: t.spacing.sm, alignItems: 'center' },
   hint: { fontSize: t.text.caption.size, color: t.color.text.tertiary },
 });
