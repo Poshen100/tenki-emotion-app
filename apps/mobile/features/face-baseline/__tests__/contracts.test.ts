@@ -1,4 +1,4 @@
-import { shouldFireHaptic } from '../hooks/useBaselineHaptics';
+import { shouldFireHaptic } from '../utils/haptics';
 import { RETRY_COPY_KEY } from '../utils/retryReason';
 import { PHASE_WEIGHTS } from '../utils/progress';
 import { STAGE_ORDER } from '../utils/maturityStage';

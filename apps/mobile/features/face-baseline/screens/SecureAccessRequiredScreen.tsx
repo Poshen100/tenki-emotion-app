@@ -26,7 +26,7 @@ import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
 import { FB_ROUTES } from './routes';
 
 import { Platform } from 'react-native';
-import { Camera } from 'react-native-vision-camera';
+import { VisionCamera } from 'react-native-vision-camera';
 
 export default function SecureAccessRequiredScreen(): React.JSX.Element {
   const router = useRouter();
@@ -59,8 +59,8 @@ export default function SecureAccessRequiredScreen(): React.JSX.Element {
     } else {
       // Native Camera Permission
       try {
-        const status = await Camera.requestCameraPermission();
-        setPermission(status);
+        const granted = await VisionCamera.requestCameraPermission();
+        setPermission(granted ? 'granted' : 'denied');
         router.push(FB_ROUTES.environment);
       } catch (err) {
         console.warn('Native camera permission request failed:', err);

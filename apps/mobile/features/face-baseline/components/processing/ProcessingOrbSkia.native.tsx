@@ -37,7 +37,7 @@ export function ProcessingOrbSkia({ progress, size = 220 }: ProcessingOrbSkiaPro
       <Canvas style={StyleSheet.absoluteFill}>
         {/* 1. Ambient Gold Nebula Glow */}
         <Circle cx={center} cy={center} r={orbRadius * 1.25} color="rgba(255, 136, 0, 0.15)">
-          <BlurMask sigma={36} style="normal" />
+          <BlurMask blur={36} style="normal" />
         </Circle>
 
         {/* 2. Glass Orb Base Shading */}
@@ -52,21 +52,21 @@ export function ProcessingOrbSkia({ progress, size = 220 }: ProcessingOrbSkiaPro
         {/* 3. Orbiting ring 1 (Outer) */}
         <Group transform={[{ rotateX: 0.96 }, { rotateY: 0.17 }, { rotateZ: angle }]} origin={vec(center, center)}>
           <Circle cx={center} cy={center} r={r1} style="stroke" strokeWidth={2.0} color="#FFC85E">
-            <BlurMask sigma={1.5} style="normal" />
+            <BlurMask blur={1.5} style="normal" />
           </Circle>
         </Group>
 
         {/* 4. Orbiting ring 2 (Mid) */}
         <Group transform={[{ rotateX: 1.13 }, { rotateY: -0.44 }, { rotateZ: -angle * 1.3 }]} origin={vec(center, center)}>
           <Circle cx={center} cy={center} r={r2} style="stroke" strokeWidth={1.5} color="#FFFFFF">
-            <BlurMask sigma={1} style="normal" />
+            <BlurMask blur={1} style="normal" />
           </Circle>
         </Group>
 
         {/* 5. Orbiting ring 3 (Inner) */}
         <Group transform={[{ rotateX: 0.7 }, { rotateY: 0.61 }, { rotateZ: angle * 1.6 }]} origin={vec(center, center)}>
           <Circle cx={center} cy={center} r={r3} style="stroke" strokeWidth={2.5} color="#FF8800">
-            <BlurMask sigma={2} style="normal" />
+            <BlurMask blur={2} style="normal" />
           </Circle>
         </Group>
 
@@ -77,12 +77,12 @@ export function ProcessingOrbSkia({ progress, size = 220 }: ProcessingOrbSkiaPro
 
         {/* 7. Supercharged Glowing Gold Core */}
         <Circle cx={center} cy={center} r={orbRadius * (0.22 + clampedProgress * 0.12)} color="#FFC85E">
-          <BlurMask sigma={8 + clampedProgress * 12} style="normal" />
+          <BlurMask blur={8 + clampedProgress * 12} style="normal" />
         </Circle>
 
         {/* 8. Extra glass specular highlight gloss */}
         <Circle cx={center - orbRadius * 0.4} cy={center - orbRadius * 0.4} r={orbRadius * 0.3} color="rgba(255, 255, 255, 0.08)">
-          <BlurMask sigma={4} style="normal" />
+          <BlurMask blur={4} style="normal" />
         </Circle>
       </Canvas>
     </View>

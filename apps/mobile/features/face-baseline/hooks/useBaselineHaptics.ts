@@ -12,6 +12,7 @@ import { useMemo } from 'react';
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
+import { shouldFireHaptic } from '../utils/haptics';
 
 /** Semantic haptic moments used across the flow (see SPEC Task 8). */
 export type HapticKind =
@@ -26,13 +27,15 @@ export interface BaselineHapticsApi {
   trigger: (kind: HapticKind) => void;
 }
 
+export { shouldFireHaptic } from '../utils/haptics';
+
 export function useBaselineHaptics(): BaselineHapticsApi {
   const reducedMotion = useFaceBaselineStore((s) => s.reducedMotion);
 
   return useMemo<BaselineHapticsApi>(
     () => ({
       trigger: (kind: HapticKind): void => {
-        if (reducedMotion) return;
+        if (!shouldFireHaptic(reducedMotion, true)) return;
 
         if (Platform.OS === 'web') {
           // Safe HTML5 web vibration fallback
