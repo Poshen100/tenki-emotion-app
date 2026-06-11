@@ -100,10 +100,15 @@ refactor(session): extract timer segment logic
 
 | 指令 | 作用 |
 |------|------|
-| `npx vitest run` | 跑所有測試（必須全綠才 merge） |
-| `npx tsc --noEmit` | TypeScript 零錯誤檢查 |
-| `npx vitest run tests/benchmark` | 效能 benchmark |
+| `npm test` | 跑 packages + domain 所有測試（Jest，必須全綠才 merge） |
+| `cd apps/mobile && npm test` | 跑 mobile 測試（apps/mobile 不在 root workspaces，要分開跑） |
+| `npm run lint` | Biome lint（0 errors 才 merge；formatter 未啟用） |
+| `npx tsc --noEmit -p <pkg>` | TypeScript 零錯誤檢查（engine / scan / shared / domain 各自跑） |
+| `cd apps/mobile && npx tsc --noEmit` | Mobile TypeScript 檢查 |
 | `cd apps/mobile && npm start` | 啟動 Expo dev server |
+
+> ⚠️ 測試框架是 **Jest + ts-jest**，不是 vitest（舊文件寫錯已糾正，root 的 vitest 設定已移除）。
+> CI：`.github/workflows/ci.yml` 會在 PR 與 push main 時自動跑 lint + typecheck + 全部測試。
 
 ## TypeScript 標準
 - `strict: true`，禁用 `any`
@@ -128,7 +133,7 @@ refactor(session): extract timer segment logic
 |------|------|
 | Antigravity (Opus 4.6 / Gemini 3.1 Pro) | 主力代碼生成 + 架構 |
 | Claude (claude.ai) | 架構決策、code review、文件 |
-| Claude Code | Terminal 任務、Expo init、Native Module（待 Mac 到手） |
+| Claude Code | Terminal / 雲端 session 任務、CI & tooling、測試與重構（Native Module 待 Mac 到手） |
 
 ## Session 結束時
 更新 `MEMORY.md` 記錄：本次做了什麼、遇到的坑、下次接手點。
