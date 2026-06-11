@@ -25,6 +25,9 @@ import { useFaceBaselineStore } from '../store/faceBaselineStore';
 import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
 import { FB_ROUTES } from './routes';
 
+import { Platform } from 'react-native';
+import { Camera } from 'react-native-vision-camera';
+
 export default function SecureAccessRequiredScreen(): React.JSX.Element {
   const router = useRouter();
   const goTo = useFaceBaselineStore((s) => s.goTo);
@@ -34,10 +37,37 @@ export default function SecureAccessRequiredScreen(): React.JSX.Element {
     goTo('permission_rationale');
   }, [goTo]);
 
-  const onEnable = (): void => {
-    // INTEGRATION: request real camera permission here.
-    setPermission('granted');
-    router.push(FB_ROUTES.environment);
+  const onEnable = async (): Promise<void> => {
+    if (Platform.OS === 'web') {
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          // Explicit user-triggered browser camera request on button click
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+          // Stop stream tracks immediately since we only checked permission
+          stream.getTracks().forEach((track) => track.stop());
+          setPermission('granted');
+          router.push(FB_ROUTES.environment);
+        } catch (err) {
+          console.warn('Browser camera permission denied:', err);
+          setPermission('denied');
+          router.push(FB_ROUTES.environment);
+        }
+      } else {
+        setPermission('granted');
+        router.push(FB_ROUTES.environment);
+      }
+    } else {
+      // Native Camera Permission
+      try {
+        const status = await Camera.requestCameraPermission();
+        setPermission(status);
+        router.push(FB_ROUTES.environment);
+      } catch (err) {
+        console.warn('Native camera permission request failed:', err);
+        setPermission('denied');
+        router.push(FB_ROUTES.environment);
+      }
+    }
   };
 
   return (

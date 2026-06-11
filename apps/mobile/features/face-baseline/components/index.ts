@@ -27,6 +27,7 @@ export { EnvironmentChecklist, ChecklistRow } from './env/EnvironmentChecklist';
 export type { CheckStatus, ChecklistItem } from './env/EnvironmentChecklist';
 export { FaceScanFrame } from './frame/FaceScanFrame';
 export type { ScanShape, ScanState } from './frame/FaceScanFrame';
+export { CameraFeedView } from './frame/CameraFeedView';
 export { SegmentedProgress } from './capture/SegmentedProgress';
 export { SoulParticleMesh } from './capture/SoulParticleMesh';
 export { QualityStatusPills } from './capture/QualityStatusPills';

@@ -19,6 +19,7 @@ import {
   PrivacyLockPill,
   QualityStatusPills,
   NavBar,
+  CameraFeedView,
 } from '../components';
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
@@ -75,6 +76,11 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
         <NavBar title="Baseline Capture" onCancel={() => router.back()} />
         <View style={styles.frameWrap}>
           <FaceScanFrame shape="halo" state="capturing" size={250}>
+            {/* Live camera stream feed behind the particle mesh */}
+            <View style={StyleSheet.absoluteFill}>
+              <CameraFeedView size={250} active={true} />
+            </View>
+
             <SoulParticleMesh stability={progress} size={210} />
           </FaceScanFrame>
           <View style={styles.pill}>

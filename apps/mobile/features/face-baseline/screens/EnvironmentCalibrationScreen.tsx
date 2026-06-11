@@ -18,6 +18,7 @@ import {
   EnvironmentChecklist,
   GlowPrimaryButton,
   NavBar,
+  CameraFeedView,
 } from '../components';
 import type { ChecklistItem } from '../components';
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
@@ -52,8 +53,12 @@ export default function EnvironmentCalibrationScreen(): React.JSX.Element {
         <NavBar title={C.environment.title} onBack={() => router.back()} onCancel={() => router.back()} />
         <View style={styles.frameWrap}>
           <FaceScanFrame shape="square" state={envReady ? 'locked' : 'tracking'} size={280}>
-            {/* Simulated camera feed with face silhouette + floating checklist pills */}
+            {/* Camera feed overlayed with face silhouette + floating checklist pills */}
             <View style={styles.cameraPreview}>
+              <View style={StyleSheet.absoluteFill}>
+                <CameraFeedView size={280} active={true} />
+              </View>
+
               <View style={styles.mockFaceGuide} />
               
               {/* Floating checklist pills matching Image 2 */}
