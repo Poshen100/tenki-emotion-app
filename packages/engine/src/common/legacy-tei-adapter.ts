@@ -8,7 +8,7 @@
  * @version 3.0
  */
 
-import { EdgeZone } from '../scoring/types';
+import type { EdgeZone } from '../scoring/types';
 
 // Legacy types (inline, not re-exported)
 type LegacyTeiZone = 'PEAK' | 'OPTIMAL' | 'NEUTRAL' | 'DEGRADED';

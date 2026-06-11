@@ -8,9 +8,9 @@
  */
 
 import {
-  BaselineOnboardingStep,
-  BaselineOnboardingState,
-  BaselineFailureReason,
+  type BaselineOnboardingStep,
+  type BaselineOnboardingState,
+  type BaselineFailureReason,
   ONBOARDING_STEP_ORDER,
 } from '../contracts/baseline-contract';
 

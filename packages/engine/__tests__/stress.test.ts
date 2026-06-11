@@ -1,5 +1,5 @@
-import { calculateStress, getStressLevel, STRESS_WEIGHTS } from '../src/stress';
-import { BaselineData, ScanMetrics } from '../src/types';
+import { calculateStress, getStressLevel, } from '../src/stress';
+import type { BaselineData, ScanMetrics } from '../src/types';
 
 describe('Stress Engine Logic', () => {
     const mockBaseline: BaselineData = {

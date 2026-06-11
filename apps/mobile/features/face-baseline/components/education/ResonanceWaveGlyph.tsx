@@ -6,7 +6,7 @@
  * INTEGRATION (Skia): replace with two phase-shifted sine paths + glow and a
  * slow phase oscillation. Keep the cyan ramp.
  */
-import React from 'react';
+import type React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 
@@ -22,6 +22,7 @@ export function ResonanceWaveGlyph({ size = 120 }: ResonanceWaveGlyphProps): Rea
       <View style={styles.row}>
         {BAR_HEIGHTS.map((h, i) => (
           <View
+            // biome-ignore lint/suspicious/noArrayIndexKey: static glyph bars never reorder
             key={i}
             style={[
               styles.bar,

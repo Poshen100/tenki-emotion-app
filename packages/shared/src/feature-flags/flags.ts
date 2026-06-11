@@ -8,7 +8,7 @@
  * @see ANTIGRAVITY.md v3.0 Section 13
  */
 
-import { FeatureFlagId } from '../../engine/src/common/types';
+import type { FeatureFlagId } from '../../../engine/src/common/types';
 
 /** Feature flag definition. */
 export interface FeatureFlagDef {

@@ -1,5 +1,5 @@
-import { calculateTeiRaw, calculateTeiPr, getZone, TEI_WEIGHTS } from '../src/tei';
-import { BaselineData, ScanMetrics } from '../src/types';
+import { calculateTeiRaw, calculateTeiPr, getZone, } from '../src/tei';
+import type { BaselineData, ScanMetrics } from '../src/types';
 
 describe('TEI Engine Logic', () => {
     const mockBaseline: BaselineData = {
@@ -41,7 +41,7 @@ describe('TEI Engine Logic', () => {
         });
 
         it('returns a fallback 50 if baseline has 0 sampleCount or any 0 std', () => {
-            let metrics: ScanMetrics = { hrBpm: 60, hrvRmssdMs: 70, rrBrpm: 12 };
+            const metrics: ScanMetrics = { hrBpm: 60, hrvRmssdMs: 70, rrBrpm: 12 };
             expect(calculateTeiRaw(metrics, { ...mockBaseline, sampleCount: 0 })).toBe(50);
             expect(calculateTeiRaw(metrics, { ...mockBaseline, hrStd: 0 })).toBe(50);
             expect(calculateTeiRaw(metrics, { ...mockBaseline, hrvStd: 0 })).toBe(50);

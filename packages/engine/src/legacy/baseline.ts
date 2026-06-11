@@ -1,4 +1,4 @@
-import { BaselineData, ScanMetrics } from './types';
+import type { BaselineData, ScanMetrics } from './types';
 
 /**
  * Creates an empty baseline data structure.

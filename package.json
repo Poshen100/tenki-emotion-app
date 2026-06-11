@@ -8,9 +8,12 @@
   ],
   "scripts": {
     "test": "npm run test --workspaces --if-present -- --runInBand",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
     "icons:batch1": "node scripts/generate-tenki-icon-batch1.mjs"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "typescript": "^5.0.0",
     "vite": "^7.3.2",
     "vite-plugin-pwa": "^1.2.0"

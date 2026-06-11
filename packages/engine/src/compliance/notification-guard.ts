@@ -7,7 +7,7 @@
  * @see ANTIGRAVITY.md v3.0 Section 2
  */
 
-import { isCompliantCopy, findProhibitedTerms } from './safe-copy';
+import { findProhibitedTerms } from './safe-copy';
 
 // ─────────────────────────────────────────────
 // Safe Notification Templates

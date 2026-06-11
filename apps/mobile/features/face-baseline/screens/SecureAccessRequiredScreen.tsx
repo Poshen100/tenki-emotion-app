@@ -6,7 +6,8 @@
  * INTEGRATION (useCameraPermission): replace the mocked grant with a real
  * permission request; route to permission_denied on denial.
  */
-import React, { useEffect } from 'react';
+import type React from 'react';
+import { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';

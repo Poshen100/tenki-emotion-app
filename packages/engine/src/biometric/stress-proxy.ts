@@ -6,7 +6,7 @@
  * @version 3.0 — Migrated from legacy/stress.ts with v3 type alignment.
  */
 
-import { BiometricReading, MetricBaseline, TimeBucket } from '../common/types';
+import { type BiometricReading, type MetricBaseline, } from '../common/types';
 
 // ─────────────────────────────────────────────
 // Types

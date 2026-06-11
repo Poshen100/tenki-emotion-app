@@ -12,17 +12,16 @@
  */
 
 import {
-  BiometricReading,
-  BaselineProfile,
-  SignalQuality,
-  ConfidenceBreakdown,
-  ConfidenceBand,
+  type BiometricReading,
+  type BaselineProfile,
+  type SignalQuality,
+  type ConfidenceBreakdown,
+  type ConfidenceBand,
   CONFIDENCE_BANDS,
 } from '../common/types';
 import {
   createEmptyBaselineProfile,
   updateBaselineProfile,
-  assessMaturity,
 } from './baseline';
 import { calculateStressProxy } from '../biometric/stress-proxy';
 

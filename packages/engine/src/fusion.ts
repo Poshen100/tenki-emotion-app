@@ -1,4 +1,4 @@
-import { FusionSource, FusionLog } from './types';
+import type { FusionSource, FusionLog } from './types';
 
 /**
  * Priority mapping for fusion sources from highest confidence (chest) to lowest (rppg).

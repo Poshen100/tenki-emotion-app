@@ -5,8 +5,6 @@
 import {
   bootstrapBaseline,
   BOOTSTRAP_MIN_SQI,
-  BOOTSTRAP_MIN_ACCEPTED,
-  BOOTSTRAP_MIN_DURATION_SEC,
   type WindowedReading,
 } from '../bootstrap';
 
@@ -85,8 +83,7 @@ describe('bootstrapBaseline', () => {
   });
 
   it('returns NO_READINGS error for null-ish input', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = bootstrapBaseline(null as any);
+    const result = bootstrapBaseline(null as unknown as WindowedReading[]);
     expect(result.success).toBe(false);
     expect(result.errorCode).toBe('NO_READINGS');
   });

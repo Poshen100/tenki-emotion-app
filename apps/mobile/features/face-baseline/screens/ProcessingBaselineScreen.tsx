@@ -6,7 +6,8 @@
  * INTEGRATION (packages/engine baseline + secure local store): replace the
  * mocked progress with real on-device computation; write baseline locally.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';

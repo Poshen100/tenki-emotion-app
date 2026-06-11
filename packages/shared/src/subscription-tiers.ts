@@ -7,7 +7,7 @@
  * @see ANTIGRAVITY.md v3.0 Section 1.3
  */
 
-import { SubscriptionTier, BillingCadence } from '../../engine/src/common/types';
+import type { SubscriptionTier, BillingCadence } from '../../engine/src/common/types';
 
 export type { SubscriptionTier, BillingCadence };
 

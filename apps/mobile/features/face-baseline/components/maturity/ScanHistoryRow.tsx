@@ -2,7 +2,7 @@
  * @module face-baseline/components/ScanHistoryRow
  * @description One Daily Scan History entry: time + outcome label.
  */
-import React from 'react';
+import type React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 

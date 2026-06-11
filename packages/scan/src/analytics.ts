@@ -4,7 +4,7 @@
  * 用途："在 TEI 70-75 時，你通常在 90-150 秒內進場，勝率 62%"
  */
 
-import { DecisionSession, TemplateId } from './types';
+import type { DecisionSession, TemplateId } from './types';
 import { TEI_BUCKET_BOUNDARIES } from './constants';
 
 /**

@@ -45,13 +45,13 @@ describe('Baseline Engine Logic', () => {
 
     describe('isBaselineReady', () => {
         it('returns false when sampleCount < windowDays', () => {
-            let b = createEmptyBaseline(7);
+            const b = createEmptyBaseline(7);
             b.sampleCount = 6;
             expect(isBaselineReady(b)).toBe(false);
         });
 
         it('returns true when sampleCount >= windowDays', () => {
-            let b = createEmptyBaseline(7);
+            const b = createEmptyBaseline(7);
             b.sampleCount = 7;
             expect(isBaselineReady(b)).toBe(true);
 

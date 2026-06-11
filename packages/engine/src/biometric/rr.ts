@@ -6,7 +6,7 @@
  * @version 3.0 — Migrated from legacy/rr.ts with v3 type alignment.
  */
 
-import { MetricBaseline } from '../common/types';
+import type { MetricBaseline } from '../common/types';
 
 // ─────────────────────────────────────────────
 // Constants

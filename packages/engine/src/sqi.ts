@@ -18,7 +18,7 @@ export function calculateSqi(rawSignal: number[], sampleRate: number): number {
         return 0; // Prevent divide by zero if completely flat line at 0
     }
 
-    const sqDiffs = rawSignal.map(v => Math.pow(v - mean, 2));
+    const sqDiffs = rawSignal.map(v => (v - mean) ** 2);
     const variance = sqDiffs.reduce((a, b) => a + b, 0) / rawSignal.length;
     const std = Math.sqrt(variance);
 
