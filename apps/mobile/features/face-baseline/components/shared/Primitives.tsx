@@ -5,12 +5,21 @@
  * All faithful to the reference frames; restrained and flat (no glow).
  */
 import type React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Image, Platform } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 
-/** `TENKI` letterspaced wordmark, top-center. */
+/** `TENKI` letterspaced wordmark with pure wave symbol, top-center. */
 export function BrandWordmark(): React.JSX.Element {
-  return <Text style={styles.wordmark}>TENKI</Text>;
+  return (
+    <View style={styles.wordmarkContainer}>
+      <Image
+        source={require('../../../../../assets/favicon.png')}
+        style={styles.logoImage}
+        resizeMode="contain"
+      />
+      <Text style={styles.wordmark}>TENKI</Text>
+    </View>
+  );
 }
 
 interface HeroCopyProps {
@@ -36,8 +45,7 @@ export function BaselineHeroCopy({ title, subtitle, body, align = 'center' }: He
 export function TimeCostChip({ seconds }: { seconds: number }): React.JSX.Element {
   return (
     <View style={styles.chip}>
-      <Text style={styles.chipDot}>⏱</Text>
-      <Text style={styles.chipText}>{seconds} Seconds</Text>
+      <Text style={styles.chipText}>⏱ {seconds} Seconds</Text>
     </View>
   );
 }
@@ -61,20 +69,31 @@ interface NavBarProps {
   title?: string;
   onBack?: () => void;
   onCancel?: () => void;
+  showLogo?: boolean;
+  titleColor?: string;
 }
 
-/** Top nav row: optional back (left), title (center), cancel (right). */
-export function NavBar({ title, onBack, onCancel }: NavBarProps): React.JSX.Element {
+/** Top nav row: optional back (left), title (center), cancel (right), optional logo. */
+export function NavBar({ title, onBack, onCancel, showLogo, titleColor }: NavBarProps): React.JSX.Element {
   return (
     <View style={styles.nav}>
       <View style={styles.navSide}>
-        {onBack ? (
+        {showLogo ? (
+          <View style={styles.navLogoWrap}>
+            <Image
+              source={require('../../../../../assets/favicon.png')}
+              style={styles.navLogoImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.navLogoText}>TENKI</Text>
+          </View>
+        ) : onBack ? (
           <Pressable accessibilityRole="button" onPress={onBack} hitSlop={12}>
             <Text style={styles.navBack}>‹</Text>
           </Pressable>
         ) : null}
       </View>
-      <Text style={styles.navTitle} numberOfLines={1}>
+      <Text style={[styles.navTitle, titleColor ? { color: titleColor } : null]} numberOfLines={1}>
         {title ?? ''}
       </Text>
       <View style={[styles.navSide, styles.navRight]}>
@@ -89,28 +108,40 @@ export function NavBar({ title, onBack, onCancel }: NavBarProps): React.JSX.Elem
 }
 
 const styles = StyleSheet.create({
-  wordmark: {
-    fontSize: t.text.wordmark.size,
-    fontWeight: '800',
-    letterSpacing: t.text.wordmark.tracking,
-    color: t.color.text.primary,
-    textAlign: 'center',
+  wordmarkContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 4,
   },
-  heroCenter: { alignItems: 'center', paddingHorizontal: 16 },
-  heroLeft: { alignItems: 'flex-start', paddingHorizontal: 16 },
+  logoImage: {
+    width: 36,
+    height: 36,
+    tintColor: '#FFFFFF',
+  },
+  wordmark: {
+    fontSize: 16,
+    fontWeight: '200',
+    letterSpacing: 6,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-light',
+  },
+  heroCenter: { alignItems: 'center', paddingHorizontal: 20 },
+  heroLeft: { alignItems: 'flex-start', paddingHorizontal: 20 },
   heroTitle: {
-    fontSize: 32,
-    lineHeight: 38,
+    fontSize: 36,
+    lineHeight: 44,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
     color: '#FFFFFF',
   },
   heroSubtitle: {
-    marginTop: t.spacing.md,
+    marginTop: t.spacing.lg,
     fontSize: 16,
-    lineHeight: 24,
-    color: '#E0E4F3',
-    fontWeight: '600',
+    lineHeight: 25,
+    color: '#BEC7E6',
+    fontWeight: '500',
   },
   heroBody: {
     marginTop: t.spacing.sm,
@@ -123,15 +154,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 99,
-    backgroundColor: 'rgba(0, 240, 255, 0.08)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(0, 240, 255, 0.3)',
   },
-  chipDot: { color: '#00F0FF', fontSize: 13, marginRight: 6 },
-  chipText: { color: '#00F0FF', fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
+  chipText: { color: 'rgba(255, 255, 255, 0.6)', fontSize: 15, fontWeight: '500' },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -163,4 +187,22 @@ const styles = StyleSheet.create({
   navBack: { color: '#FFFFFF', fontSize: 32, fontWeight: '300', lineHeight: 34 },
   navTitle: { flex: 1, textAlign: 'center', color: '#FFFFFF', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
   navCancel: { color: '#00F0FF', fontSize: 14, fontWeight: '700' },
+  navLogoWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  navLogoImage: {
+    width: 20,
+    height: 20,
+    tintColor: '#00B4D8',
+  },
+  navLogoText: {
+    fontSize: 8,
+    fontWeight: '600',
+    letterSpacing: 1.5,
+    color: '#FFC85E',
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
 });

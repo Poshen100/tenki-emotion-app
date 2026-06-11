@@ -15,8 +15,8 @@
 export const FACE_BASELINE_COPY = {
   intro: {
     title: 'Establish Your Baseline',
-    subtitle: 'A 60-second calibration so TENKI can read you against you — not anyone else.',
-    body: 'Your facial signal is processed on-device and never leaves your phone.',
+    subtitle: 'To ensure precision in your health insights, TENKI needs to calibrate to your unique facial features. Your data is encrypted and stored only on your device.',
+    body: '',
     timeSeconds: 60,
     cta: 'Begin Calibration',
     whyLink: 'Why does this matter?',

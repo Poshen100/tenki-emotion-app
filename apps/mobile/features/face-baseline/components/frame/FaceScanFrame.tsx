@@ -252,14 +252,14 @@ export function FaceScanFrame({
           ]}
         />
 
-        {/* Primary capturing halo ring */}
+        {/* Primary capturing halo ring (styled as a premium squircle) */}
         <Animated.View
           style={[
             styles.halo,
             {
               width: size,
               height: size,
-              borderRadius: size / 2,
+              borderRadius: 48,
               borderColor: interpolatedColor,
               shadowColor: interpolatedColor,
             },
@@ -301,11 +301,11 @@ const styles = StyleSheet.create({
   },
   gridWrap: {
     zIndex: 1,
-    opacity: 0.8,
+    opacity: 0.85,
   },
   gridLine: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
   },
   gridV: {
     top: 0,
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   },
   crosshair: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
   },
   haloContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -329,8 +329,8 @@ const styles = StyleSheet.create({
   halo: {
     borderWidth: t.stroke.halo,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 44,
+    shadowOpacity: 0.75,
+    shadowRadius: 32,
   },
   haloOuterGuide: {
     position: 'absolute',
@@ -355,27 +355,27 @@ const styles = StyleSheet.create({
     left: 0,
     borderTopWidth: t.stroke.reticle,
     borderLeftWidth: t.stroke.reticle,
-    borderTopLeftRadius: t.radius.scanFrame.lg,
+    borderTopLeftRadius: 16,
   },
   tr: {
     top: 0,
     right: 0,
     borderTopWidth: t.stroke.reticle,
     borderRightWidth: t.stroke.reticle,
-    borderTopRightRadius: t.radius.scanFrame.lg,
+    borderTopRightRadius: 16,
   },
   bl: {
     bottom: 0,
     left: 0,
     borderBottomWidth: t.stroke.reticle,
     borderLeftWidth: t.stroke.reticle,
-    borderBottomLeftRadius: t.radius.scanFrame.lg,
+    borderBottomLeftRadius: 16,
   },
   br: {
     bottom: 0,
     right: 0,
     borderBottomWidth: t.stroke.reticle,
     borderRightWidth: t.stroke.reticle,
-    borderBottomRightRadius: t.radius.scanFrame.lg,
+    borderBottomRightRadius: 16,
   },
 });

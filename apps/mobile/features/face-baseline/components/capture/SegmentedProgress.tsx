@@ -86,22 +86,68 @@ export function SegmentedProgress({
   const p = clamp01(progress);
 
   return (
-    <View style={[styles.row, { width }]} accessibilityRole="progressbar" accessibilityValue={{ now: Math.round(p * 100), min: 0, max: 100 }}>
-      {Array.from({ length: segments }).map((_, i) => (
-        <ProgressSegment
-          key={i}
-          index={i}
-          totalSegments={segments}
-          progress={p}
-          fillColor={fillColor}
-          paused={paused}
-        />
-      ))}
+    <View style={{ width, alignItems: 'center', gap: 6 }}>
+      {/* Ruler Notch Guide matching precise calibration references */}
+      <View style={[styles.ruler, { width }]}>
+        {Array.from({ length: 33 }).map((_, i) => {
+          const isCenter = i === 16;
+          const isFifth = i % 4 === 0;
+          return (
+            <View
+              key={i}
+              style={[
+                styles.tick,
+                isCenter
+                  ? styles.tickCenter
+                  : isFifth
+                  ? styles.tickFifth
+                  : styles.tickNormal,
+              ]}
+            />
+          );
+        })}
+      </View>
+
+      <View style={[styles.row, { width }]} accessibilityRole="progressbar" accessibilityValue={{ now: Math.round(p * 100), min: 0, max: 100 }}>
+        {Array.from({ length: segments }).map((_, i) => (
+          <ProgressSegment
+            key={i}
+            index={i}
+            totalSegments={segments}
+            progress={p}
+            fillColor={fillColor}
+            paused={paused}
+          />
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  ruler: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    height: 10,
+    paddingHorizontal: 2,
+  },
+  tick: {
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  tickNormal: {
+    height: 3,
+  },
+  tickFifth: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  tickCenter: {
+    height: 10,
+    backgroundColor: '#FFC85E',
+    width: 1.5,
+  },
   row: { flexDirection: 'row', gap: t.progress.segmentGap, alignSelf: 'center' },
   track: {
     flex: 1,

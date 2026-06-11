@@ -237,12 +237,28 @@ export function ProcessingOrbSkia({ progress, size = 220 }: ProcessingOrbSkiaPro
           ]}
         />
 
-        <SwirlingSparkle angle={0} radius={size * 0.35} duration={3800} size={5} />
-        <SwirlingSparkle angle={120} radius={size * 0.28} duration={4600} size={4} />
-        <SwirlingSparkle angle={240} radius={size * 0.42} duration={5200} size={3.5} />
-        <SwirlingSparkle angle={60} radius={size * 0.22} duration={3100} size={4.5} />
-        <SwirlingSparkle angle={180} radius={size * 0.31} duration={4900} size={3} />
-        <SwirlingSparkle angle={300} radius={size * 0.16} duration={4100} size={5} />
+        <SwirlingSparkle angle={0} radius={size * 0.36} duration={3200} size={5} />
+        <SwirlingSparkle angle={20} radius={size * 0.34} duration={3400} size={3.5} />
+        <SwirlingSparkle angle={40} radius={size * 0.32} duration={3600} size={4.5} />
+        <SwirlingSparkle angle={60} radius={size * 0.30} duration={3800} size={3} />
+        <SwirlingSparkle angle={80} radius={size * 0.28} duration={4000} size={4} />
+
+        <SwirlingSparkle angle={120} radius={size * 0.38} duration={4500} size={6} />
+        <SwirlingSparkle angle={140} radius={size * 0.36} duration={4700} size={4} />
+        <SwirlingSparkle angle={160} radius={size * 0.34} duration={4900} size={5} />
+        <SwirlingSparkle angle={180} radius={size * 0.32} duration={5100} size={3.5} />
+        <SwirlingSparkle angle={200} radius={size * 0.30} duration={5300} size={4.5} />
+
+        <SwirlingSparkle angle={240} radius={size * 0.42} duration={5500} size={4} />
+        <SwirlingSparkle angle={260} radius={size * 0.40} duration={5700} size={5.5} />
+        <SwirlingSparkle angle={280} radius={size * 0.38} duration={5900} size={3} />
+        <SwirlingSparkle angle={300} radius={size * 0.36} duration={6100} size={4.5} />
+        <SwirlingSparkle angle={320} radius={size * 0.34} duration={6300} size={5} />
+
+        {/* Inner high-speed stardust core */}
+        <SwirlingSparkle angle={15} radius={size * 0.18} duration={2200} size={4} />
+        <SwirlingSparkle angle={135} radius={size * 0.15} duration={2600} size={3.5} />
+        <SwirlingSparkle angle={255} radius={size * 0.12} duration={2800} size={4.5} />
 
         <GlassSpecularShine size={size} />
 

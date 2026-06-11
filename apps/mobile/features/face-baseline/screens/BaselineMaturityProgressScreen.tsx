@@ -19,6 +19,7 @@ import {
   TechnicalInsightCard,
   ScanHistoryRow,
   GlowPrimaryButton,
+  NavBar,
 } from '../components';
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
@@ -44,7 +45,7 @@ export default function BaselineMaturityProgressScreen(): React.JSX.Element {
   return (
     <CosmicBackground mode="circuit">
       <SafeAreaView style={styles.safe}>
-        <Text style={styles.title}>{C.maturity.title}</Text>
+        <NavBar title={C.maturity.title} showLogo={true} titleColor="#FFC85E" />
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.orbWrap}>
             <ResonanceOrb stage={stage} size={150} />

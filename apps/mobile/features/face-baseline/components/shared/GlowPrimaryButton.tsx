@@ -197,30 +197,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF8800',
   },
 
-  // ─── Inner Mask creating the 2px stroke border ───
+  // ─── Inner Mask creating content container ───
   innerMask: {
     position: 'absolute',
-    top: 2,
-    left: 2,
-    right: 2,
-    bottom: 2,
-    borderRadius: t.radius.pill - 2,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: t.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  innerMaskCyan: {
-    backgroundColor: '#080C20', // deep space blue
-  },
-  innerMaskGold: {
-    backgroundColor: '#160F05', // deep warm gold-tinted brown
-  },
+  innerMaskCyan: {},
+  innerMaskGold: {},
 
   // ─── Content ────────────────────────
   inner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
   spinner: { marginRight: 8 },
   label: { fontSize: 18, fontWeight: '800', letterSpacing: 0.8, textTransform: 'none' },
   labelCyan: { color: '#FFFFFF' },
-  labelGold: { color: '#FFD27A' },
+  labelGold: { color: '#030407' },
 
   // ─── States ─────────────────────────
   disabled: { opacity: t.overlay.disabledCta },

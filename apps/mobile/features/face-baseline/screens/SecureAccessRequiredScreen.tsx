@@ -102,9 +102,10 @@ const styles = StyleSheet.create({
   body: { flex: 1, justifyContent: 'center' },
   title: {
     fontSize: t.text.hero.size,
-    fontWeight: '700',
+    fontWeight: '800',
     color: t.color.text.primary,
     marginBottom: t.spacing.xl,
+    textAlign: 'center',
   },
   list: { marginTop: t.spacing.sm },
   footer: { paddingBottom: t.spacing.ctaDock, gap: t.spacing.sm, alignItems: 'center' },
