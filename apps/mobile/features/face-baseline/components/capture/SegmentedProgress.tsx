@@ -5,7 +5,7 @@
  *
  * INTEGRATION (Reanimated): spring the fill width on progress change.
  */
-import React from 'react';
+import type React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import { clamp01 } from '../../utils/progress';
@@ -35,6 +35,7 @@ export function SegmentedProgress({
         const segStart = i / segments;
         const segFill = clamp01((p - segStart) * segments);
         return (
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count segments; index is the segment's identity
           <View key={i} style={styles.track}>
             <View
               style={[

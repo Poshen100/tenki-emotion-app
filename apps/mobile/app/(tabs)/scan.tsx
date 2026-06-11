@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   Animated,
   Easing,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, radius, typography as typo, getZoneForScore } from '../../theme';
+import { colors, spacing, radius, typography as typo, } from '../../theme';
 import { QualityMeter } from '../../components/QualityMeter';
 import { ReadinessChecklist } from '../../components/ReadinessChecklist';
 import { StatusPill } from '../../components/StatusPill';
@@ -253,8 +253,8 @@ export default function ScanScreen() {
 
   // Run face stardust animations when scanning
   useEffect(() => {
-    let breatheLoop: any;
-    let rotateLoop: any;
+    let breatheLoop: Animated.CompositeAnimation | undefined;
+    let rotateLoop: Animated.CompositeAnimation | undefined;
 
     if (uiState === 'scanning' && scanMode === 'face') {
       breatheLoop = Animated.loop(
@@ -297,7 +297,7 @@ export default function ScanScreen() {
 
   // Handle countdown animation synchronized with mock scan duration
   useEffect(() => {
-    let timer: any;
+    let timer: ReturnType<typeof setInterval> | undefined;
     if (uiState === 'scanning') {
       const targetDuration = scanMode === 'face' ? 30 : 60;
       setCountdown(targetDuration);

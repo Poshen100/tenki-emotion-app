@@ -6,7 +6,7 @@
  * @version 3.0
  */
 
-import { EdgeScoreResult } from '../scoring/types';
+import type { EdgeScoreResult } from '../scoring/types';
 
 export interface TimelineDataPoint {
   timestamp: number;

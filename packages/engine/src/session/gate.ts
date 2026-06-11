@@ -7,10 +7,8 @@
  * @see ANTIGRAVITY.md v3.0 Section 5
  */
 
-import { GateResult, GateEvaluation, GATE_THRESHOLDS } from './types';
-import { generateSafeCopy } from '../compliance/safe-copy';
-import { ConfidenceBreakdown } from '../common/types';
-import { EdgeZone } from '../scoring/types';
+import { type GateResult, type GateEvaluation, GATE_THRESHOLDS } from './types';
+import type { ConfidenceBreakdown } from '../common/types';
 
 // ─────────────────────────────────────────────
 // Gate Messages (compliance-safe)

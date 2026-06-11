@@ -8,7 +8,7 @@
  * INTEGRATION (Skia): replace the gradient/aurora Views with a Skia shader for
  * true nebula depth + parallax star drift. Preserve `mode` semantics.
  */
-import React from 'react';
+import type React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 
@@ -61,8 +61,8 @@ export function CosmicBackground({ mode = 'deepNebula', children }: CosmicBackgr
       {/* circuit traces for the maturity surface */}
       {mode === 'circuit' && <View style={styles.circuit} />}
       {/* stardust */}
-      {STAR_POSITIONS.map((s, i) => (
-        <View key={i} style={[styles.star, { top: s.top as never, left: s.left as never, opacity: s.opacity }]} />
+      {STAR_POSITIONS.map((s) => (
+        <View key={`${s.top}-${s.left}`} style={[styles.star, { top: s.top as never, left: s.left as never, opacity: s.opacity }]} />
       ))}
       {children}
     </View>

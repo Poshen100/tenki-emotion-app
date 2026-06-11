@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, typography as typo, getZoneForScore } from '../theme';
+import { spacing, typography as typo, getZoneForScore } from '../theme';
 
 interface EdgeScoreRingProps {
   score: number;

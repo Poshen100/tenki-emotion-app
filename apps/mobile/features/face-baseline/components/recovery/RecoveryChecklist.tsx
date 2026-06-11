@@ -3,7 +3,7 @@
  * @description Supportive fix-list on the Face Detection Recovery screen.
  * Tone is encouraging — this is recovery, never an error wall.
  */
-import React from 'react';
+import type React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 

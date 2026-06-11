@@ -8,7 +8,7 @@
  * frame, animate bracket tracking + lock snap, and draw the halo arc in Skia.
  * This core-RN version draws the static frame chrome over a placeholder.
  */
-import React from 'react';
+import type React from 'react';
 import { View, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 

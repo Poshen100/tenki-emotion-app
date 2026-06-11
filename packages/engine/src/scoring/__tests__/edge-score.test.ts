@@ -3,8 +3,8 @@
  * @description Unit tests for the Decision Edge Score engine.
  */
 
-import { calculateEdgeScore, classifyEdgeZone, getTimeBucket, EdgeScoreInput } from '../edge-score';
-import { BaselineProfile, MetricBaseline } from '../../common/types';
+import { calculateEdgeScore, classifyEdgeZone, getTimeBucket, type EdgeScoreInput } from '../edge-score';
+import type { BaselineProfile, MetricBaseline } from '../../common/types';
 
 // ─── Test Helpers ───────────────────────────
 

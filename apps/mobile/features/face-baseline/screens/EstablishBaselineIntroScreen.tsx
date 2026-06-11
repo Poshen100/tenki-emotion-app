@@ -3,7 +3,8 @@
  * @description Screen 1 — flow entry. Sets expectation + trust before any
  * camera permission. Reference: "Establish Your Baseline".
  */
-import React, { useEffect } from 'react';
+import type React from 'react';
+import { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';

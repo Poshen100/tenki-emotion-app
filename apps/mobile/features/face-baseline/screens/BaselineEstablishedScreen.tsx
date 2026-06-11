@@ -5,7 +5,8 @@
  *
  * INTEGRATION (Reanimated + haptics): checkmark bloom + success haptic on mount.
  */
-import React, { useEffect } from 'react';
+import type React from 'react';
+import { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';

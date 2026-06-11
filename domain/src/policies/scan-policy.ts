@@ -3,7 +3,7 @@
  * @description Domain policies for validating scan intent before the pipeline runs.
  */
 
-import {
+import type {
   DomainScanType,
   DomainSessionMode,
   DomainTraderTemplateId,

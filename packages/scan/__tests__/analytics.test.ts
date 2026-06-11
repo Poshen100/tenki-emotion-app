@@ -1,5 +1,5 @@
-import { getTeiBucket, aggregateSessions, SessionStats } from '../src/analytics';
-import { DecisionSession, DecisionEvent } from '../src/types';
+import { getTeiBucket, aggregateSessions, } from '../src/analytics';
+import type { DecisionSession, DecisionEvent } from '../src/types';
 
 /**
  * Helper to create a mock completed session.

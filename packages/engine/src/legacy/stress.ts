@@ -1,4 +1,4 @@
-import { ScanMetrics, BaselineData, StressResult, StressLevel, STRESS_LEVELS } from './types';
+import { type ScanMetrics, type BaselineData, type StressResult, type StressLevel, STRESS_LEVELS } from './types';
 
 export const STRESS_WEIGHTS = { hrv: 0.60, hr: 0.40 } as const;
 

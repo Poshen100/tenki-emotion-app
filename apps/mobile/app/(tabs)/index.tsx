@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, spacing, radius, typography as typo, getZoneForScore, zoneLabels } from '../../theme';
+import { colors, spacing, radius, typography as typo, getZoneForScore, } from '../../theme';
 import { EdgeScoreRing } from '../../components/EdgeScoreRing';
 import { ZoneBadge } from '../../components/ZoneBadge';
 import { ScanButton } from '../../components/ScanButton';

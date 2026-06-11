@@ -11,7 +11,7 @@ import {
   isActiveState,
   needsUserAction,
 } from '../state-machine';
-import { SessionState } from '../types';
+import type { SessionState } from '../types';
 
 // ─── Happy Path ─────────────────────────────
 

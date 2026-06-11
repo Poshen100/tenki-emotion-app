@@ -6,7 +6,7 @@
  * @version 3.0
  */
 
-import { EdgeScoreResult, TimeBucket, BiometricSource } from '@tenki/engine';
+import type { EdgeScoreResult, TimeBucket, BiometricSource } from '@tenki/engine';
 
 /**
  * Represents a single raw biometric scan event.

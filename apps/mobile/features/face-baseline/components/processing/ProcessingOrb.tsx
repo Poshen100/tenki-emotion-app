@@ -6,7 +6,7 @@
  * light rings; accelerate + brighten near 100%. Reduced-motion = slow pulse.
  * This core-RN version is a static glowing orb holding the percent.
  */
-import React from 'react';
+import type React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import { clamp01 } from '../../utils/progress';

@@ -1,4 +1,4 @@
-import { ScanMetrics, BaselineData, TeiZone, TENKI_ZONES } from './types';
+import { type ScanMetrics, type BaselineData, type TeiZone, TENKI_ZONES } from './types';
 
 export const TEI_WEIGHTS = { hr: 0.30, hrv: 0.50, rr: 0.20 } as const;
 

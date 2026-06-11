@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, radius, typography as typo, getZoneForScore, zoneLabels, type ZoneName } from '../../theme';
+import { colors, spacing, radius, typography as typo, getZoneForScore, zoneLabels, } from '../../theme';
 import { ZoneBadge } from '../../components/ZoneBadge';
-import { useTimelineStore, type CompletedSession } from '../../stores/timeline-store';
+import { useTimelineStore, } from '../../stores/timeline-store';
 import { BackgroundContainer } from '../../components/onboarding-components';
 
 const MODE_LABELS: Record<string, string> = {

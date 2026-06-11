@@ -4,7 +4,7 @@
  * 狀態路徑：IDLE → READY → RUNNING → COMPLETE → IDLE
  */
 
-import { DecisionTemplate, FdcbState, TemplateSegment } from './types';
+import type { DecisionTemplate, FdcbState, TemplateSegment } from './types';
 
 /**
  * 判斷是否可以從當前狀態啟動計時器。

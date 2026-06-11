@@ -9,7 +9,7 @@
  * Honor reduced-motion with a static low-density mesh. This core-RN placeholder
  * renders a faint static gold speckle to hold layout only.
  */
-import React from 'react';
+import type React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 
@@ -29,9 +29,9 @@ export function SoulParticleMesh({ stability = 0.6, size = 200 }: SoulParticleMe
   const opacity = 0.4 + 0.5 * Math.max(0, Math.min(1, stability));
   return (
     <View style={[styles.wrap, { width: size, height: size }]} pointerEvents="none">
-      {SPECKS.map((s, i) => (
+      {SPECKS.map((s) => (
         <View
-          key={i}
+          key={`${s.top}-${s.left}`}
           style={[styles.speck, { top: s.top as never, left: s.left as never, opacity }]}
         />
       ))}

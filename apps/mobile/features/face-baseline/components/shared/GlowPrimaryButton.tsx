@@ -6,7 +6,7 @@
  * INTEGRATION (Reanimated): add the idle breathing-glow loop + press glow
  * intensify. This core-RN version uses static shadow + press-scale only.
  */
-import React from 'react';
+import type React from 'react';
 import { Pressable, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
 import { faceBaselineTokens as t, type AccentWorld } from '../../tokens/faceBaseline.tokens';
 

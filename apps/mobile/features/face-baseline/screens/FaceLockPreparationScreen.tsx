@@ -6,7 +6,8 @@
  * INTEGRATION (useFaceDetector): drive `state` from real detection; on stable
  * lock advance; on timeout route to recovery.
  */
-import React, { useEffect, useState } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';

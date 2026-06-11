@@ -30,7 +30,7 @@ describe('FDCB Events', () => {
 
     describe('addEvent — normal flow', () => {
         it('should add ENTRY event correctly', () => {
-            let session = createSession('CANSLIM_GS', 75);
+            const session = createSession('CANSLIM_GS', 75);
             const result = addEvent(session, 'ENTRY', 90, 78, canslimTemplate);
 
             expect(result.accepted).toBe(true);
@@ -41,7 +41,7 @@ describe('FDCB Events', () => {
         });
 
         it('should add multiple events sequentially', () => {
-            let session = createSession('CANSLIM_GS', 75);
+            const session = createSession('CANSLIM_GS', 75);
             const r1 = addEvent(session, 'ENTRY', 90, 78, canslimTemplate);
             expect(r1.accepted).toBe(true);
 
@@ -53,7 +53,7 @@ describe('FDCB Events', () => {
         });
 
         it('should snapshot TEI at each event', () => {
-            let session = createSession('CANSLIM_GS', 75);
+            const session = createSession('CANSLIM_GS', 75);
             const r1 = addEvent(session, 'ENTRY', 60, 78, canslimTemplate);
             const r2 = addEvent(r1.session, 'EXIT', 200, 65, canslimTemplate);
 
@@ -62,7 +62,7 @@ describe('FDCB Events', () => {
         });
 
         it('should allow all event types for templates without lock', () => {
-            let session = createSession('CANSLIM_GS', 75);
+            const session = createSession('CANSLIM_GS', 75);
 
             const types: Array<'ENTRY' | 'ADD' | 'REDUCE' | 'EXIT' | 'CANCEL' | 'NO_TRADE'> = [
                 'ENTRY', 'ADD', 'REDUCE', 'EXIT', 'CANCEL', 'NO_TRADE',
@@ -148,7 +148,7 @@ describe('FDCB Events', () => {
 
     describe('completeSession', () => {
         it('should complete session with all fields', () => {
-            let session = createSession('MANCINI_FBD', 60);
+            const session = createSession('MANCINI_FBD', 60);
             const r = addEvent(session, 'ENTRY', 70, 62, manciniTemplate);
 
             const completed = completeSession(r.session, 65, 180, 'WIN');
@@ -186,7 +186,7 @@ describe('FDCB Events', () => {
         });
 
         it('should preserve existing events on completion', () => {
-            let session = createSession('CANSLIM_GS', 75);
+            const session = createSession('CANSLIM_GS', 75);
             const r1 = addEvent(session, 'ENTRY', 90, 78, canslimTemplate);
             const r2 = addEvent(r1.session, 'ADD', 150, 80, canslimTemplate);
             const completed = completeSession(r2.session, 70, 300, 'WIN');

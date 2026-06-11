@@ -3,7 +3,8 @@
  * @description Screen 2 — education. One idea per page; never crowded.
  * Reference: "Why Baseline Matters" with the cyan resonance glyph.
  */
-import React, { useEffect, useState } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';

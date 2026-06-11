@@ -8,7 +8,7 @@
  * @see ANTIGRAVITY.md v3.0 Section 1.2
  */
 
-import { EdgeZone, EDGE_ZONE_CONFIGS } from '../../engine/src/scoring/types';
+import { type EdgeZone, } from '../../engine/src/scoring/types';
 
 export type { EdgeZone };
 

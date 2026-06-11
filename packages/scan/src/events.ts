@@ -4,7 +4,7 @@
  * 負責 Session 建立、事件新增（含 entry lock 攔截）、Session 完成。
  */
 
-import { AddEventResult, DecisionEvent, DecisionSession, DecisionTemplate, EventType, TemplateId } from './types';
+import type { AddEventResult, DecisionEvent, DecisionSession, DecisionTemplate, EventType, TemplateId } from './types';
 
 /**
  * 建立新的決策 Session。

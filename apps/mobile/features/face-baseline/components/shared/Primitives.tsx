@@ -4,7 +4,7 @@
  * time-cost chip, privacy lock pill, privacy footnote, nav bar.
  * All faithful to the reference frames; restrained and flat (no glow).
  */
-import React from 'react';
+import type React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 

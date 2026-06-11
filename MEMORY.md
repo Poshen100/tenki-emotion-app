@@ -1,3 +1,35 @@
+# 2026-06-11 Session Update (P0 基礎建設：CI + Biome + 文件糾正)
+
+## What was done（branch `claude/fable5-opus48-specs-xaoghq`，Commit-Per-Todo 共 9 commits）
+
+1. **CI 上線**：`.github/workflows/ci.yml` — 兩個 job（workspaces：lint + 4 套件 tsc + root npm test；mobile：tsc + jest）。在此之前 repo 完全沒有自動化檢查。
+2. **Biome linter 上線**：root `biome.json` 只掃 packages/domain/apps-mobile（apps/web、core/、apps/preview 排除）；formatter 關閉避免大 diff。`npm run lint` / `npm run lint:fix`。`noExplicitAny` = error；`noNonNullAssertion`、`useExhaustiveDependencies` 降為 warn（hook deps 修正需實機 QA，留給 native 整合階段）。
+3. **修了 4 個被掩蓋的真 bug**：
+   - `packages/shared` 沒有 test script → 3 個測試套件（56 tests）從未被 root `npm test` 跑過；補上後曝露 `flags.ts` 的 import 路徑少一層 `../`（已修）。
+   - `tsconfig.base.json` 的 `ignoreDeprecations: "6.0"` 在 TS 5.9 是非法值 → 所有 `tsc -p` 都跑不起來（已移除）。
+   - `app/(tabs)/session.tsx` 的 `<ScrollView>` 沒關閉 → 該檔無法編譯（已修）。
+   - `apps/mobile/package-lock.json` 與 package.json 不同步 → `npm ci` 失敗（已同步）。
+4. **Lint 清理（104 檔）**：import type 轉換、移除 unused imports、7 個 `any` 換成正確型別、list key 改用內容 key（純計數渲染用 biome-ignore 註明）、`mock-scan.ts` 排程 helper 改為內部累加 timeline。
+5. **文件糾正**：CLAUDE.md 工作流指令改為 Jest 實況（vitest 是寫錯的）+ 加 lint/CI 說明；root `vite.config.js` 移除從未生效的 vitest test 區塊。
+
+## 驗證狀態
+- root `npm test`：engine 259 + scan 111 + shared 56 + domain 9 = **435 tests 全綠**
+- `cd apps/mobile && npm test`：**40 tests 全綠**；`tsc --noEmit` 零錯誤（4 個 packages 也零錯誤）
+- `npm run lint`：**0 errors**（51 warnings 是刻意保留的已知項目）
+
+### Notes / gotchas
+- `biome.json` **不能寫註解**（會整份設定失效、退回全 repo 預設掃描）；要註解得改用 `biome.jsonc`。
+- biome-ignore 註解只覆蓋「下一行」；JSX 多行屬性時要把註解放在 `key={i}` 的正上方（開標籤內可以放 `//` 註解）。
+- `apps/mobile` 的 `(tabs)/scan.tsx` 仍在用 legacy `Animated`（違反 Reanimated 3 規範）— 是 mock 階段的權宜，P1 裝 Reanimated 時要一併改掉。
+
+## Next session（P1 — Face Baseline 原生整合，原 plan 不變）
+1. `apps/mobile` 安裝 `@shopify/react-native-skia`、`react-native-reanimated@3`、`react-native-vision-camera`(+face detection)、`expo-haptics`、`expo-blur`。
+2. 按 SPEC Task 5 順序升級 14 個 Skia / 8 個 Reanimated `INTEGRATION` 標記點。
+3. 實機 QA（需要 Mac / 裝置）。
+4. P2 候選：encrypted SQLite 持久化（privacy-first 核心承諾，目前 0%）、Today tab 接 engine 真資料、domain policies 補測試、Maestro E2E。
+
+---
+
 # 2026-06-10 Session Update (Face Baseline System — Spec + Logic Foundation)
 
 ## What was done

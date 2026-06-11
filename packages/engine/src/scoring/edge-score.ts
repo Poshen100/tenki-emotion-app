@@ -8,27 +8,27 @@
  */
 
 import {
-  BiometricReading,
-  BaselineProfile,
-  SignalQuality,
-  SleepRecoveryInput,
-  TimeBucket,
-  MetricBaseline,
-  ConfidenceBreakdown,
-  ConfidenceBand,
+  type BiometricReading,
+  type BaselineProfile,
+  type SignalQuality,
+  type SleepRecoveryInput,
+  type TimeBucket,
+  type MetricBaseline,
+  type ConfidenceBreakdown,
+  type ConfidenceBand,
   CONFIDENCE_BANDS,
 } from '../common/types';
 
 import {
   EDGE_WEIGHTS,
-  EdgeZone,
-  EdgeScoreResult,
-  ScoreDriver,
-  ScoreDriverKey,
-  DriverDirection,
+  type EdgeZone,
+  type EdgeScoreResult,
+  type ScoreDriver,
+  type ScoreDriverKey,
+  type DriverDirection,
 } from './types';
 
-import { generateSafeCopy, getDriverExplanation } from '../compliance/safe-copy';
+import { generateSafeCopy, } from '../compliance/safe-copy';
 
 // ─────────────────────────────────────────────
 // Helper: clamp

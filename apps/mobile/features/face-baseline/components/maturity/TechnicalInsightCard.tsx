@@ -2,7 +2,7 @@
  * @module face-baseline/components/TechnicalInsightCard
  * @description Gold-edge insight card on the maturity surface.
  */
-import React from 'react';
+import type React from 'react';
 import { Text, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import { GlassInfoCard } from '../glass/GlassInfoCard';

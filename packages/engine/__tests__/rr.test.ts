@@ -4,12 +4,10 @@ import {
     smoothBrpm,
     getRrStatus,
     analyzeRr,
-    RR_NORMAL_MIN,
-    RR_NORMAL_MAX,
     RR_ABS_MIN,
     RR_ABS_MAX,
 } from '../src/rr';
-import { BaselineData } from '../src/types';
+import type { BaselineData } from '../src/types';
 
 // --- Helper ---
 function makeBaseline(overrides: Partial<BaselineData> = {}): BaselineData {

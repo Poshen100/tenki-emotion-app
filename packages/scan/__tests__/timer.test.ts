@@ -3,7 +3,7 @@ import {
     isEntryLocked, isTimeout, shouldTriggerBreath, nextState,
 } from '../src/timer';
 import { TEMPLATES } from '../src/templates';
-import { FdcbState } from '../src/types';
+import type { FdcbState } from '../src/types';
 
 describe('FDCB Timer Logic', () => {
     const canslimTemplate = TEMPLATES['CANSLIM_GS'];

@@ -11,10 +11,10 @@ import {
   DOMAIN_SCAN_TYPES,
   DOMAIN_SESSION_MODES,
   DOMAIN_TRADER_TEMPLATE_IDS,
-  PersistedScanRecordContract,
-  ScanHandoffContract,
-  ScanReadinessChecklistContract,
-  ScanRequestContract,
+  type PersistedScanRecordContract,
+  type ScanHandoffContract,
+  type ScanReadinessChecklistContract,
+  type ScanRequestContract,
   SIGNAL_GRADES,
 } from '../contracts/scan-contract';
 import { validateScanRequestPolicy } from '../policies/scan-policy';

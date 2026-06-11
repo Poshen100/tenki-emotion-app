@@ -4,7 +4,7 @@
  */
 
 import { evaluateGate, canProceed, shouldSuggestReset } from '../gate';
-import { ConfidenceBreakdown } from '../../common/types';
+import type { ConfidenceBreakdown } from '../../common/types';
 
 function createConfidence(overall: number): ConfidenceBreakdown {
   return {
