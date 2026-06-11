@@ -40,6 +40,7 @@ function GridOverlay({ size }: { size: number }): React.JSX.Element {
       {/* Vertical Lines */}
       {Array.from({ length: lineCount - 1 }).map((_, i) => (
         <View
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
           key={`v-${i}`}
           style={[
             styles.gridLine,
@@ -51,6 +52,7 @@ function GridOverlay({ size }: { size: number }): React.JSX.Element {
       {/* Horizontal Lines */}
       {Array.from({ length: lineCount - 1 }).map((_, i) => (
         <View
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
           key={`h-${i}`}
           style={[
             styles.gridLine,

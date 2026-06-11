@@ -53,6 +53,7 @@ export function CarouselDots({ count, active }: CarouselDotsProps): React.JSX.El
   return (
     <View style={styles.row}>
       {Array.from({ length: count }).map((_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
         <AnimatedDot key={i} active={i === active} />
       ))}
     </View>

@@ -16,7 +16,9 @@ export function CameraFeedView({ size = 240, active = false }: CameraFeedViewPro
     // Only attempt to start video if active and permission has been granted
     if (!active || permission !== 'granted') {
       if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+        stream.getTracks().forEach((track) => {
+          track.stop();
+        });
         setStream(null);
       }
       return;
@@ -48,7 +50,9 @@ export function CameraFeedView({ size = 240, active = false }: CameraFeedViewPro
 
     return () => {
       if (activeStream) {
-        activeStream.getTracks().forEach((track) => track.stop());
+        activeStream.getTracks().forEach((track) => {
+          track.stop();
+        });
       }
     };
   }, [active, permission]);

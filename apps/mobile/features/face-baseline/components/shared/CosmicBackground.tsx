@@ -267,11 +267,13 @@ export function CosmicBackground({ mode = 'deepNebula', children }: CosmicBackgr
 
       {/* animated starfield */}
       {STARS.map((star, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
         <AnimatedStar key={i} star={star} />
       ))}
 
       {/* gold particles drifting upward (warm modes) */}
       {warm && GOLD_PARTICLES.map((p, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
         <GoldParticle key={i} p={p} />
       ))}
 

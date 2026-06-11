@@ -44,7 +44,9 @@ export default function SecureAccessRequiredScreen(): React.JSX.Element {
           // Explicit user-triggered browser camera request on button click
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
           // Stop stream tracks immediately since we only checked permission
-          stream.getTracks().forEach((track) => track.stop());
+          stream.getTracks().forEach((track) => {
+          track.stop();
+        });
           setPermission('granted');
           router.push(FB_ROUTES.environment);
         } catch (err) {
