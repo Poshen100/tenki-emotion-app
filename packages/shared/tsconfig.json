@@ -1,10 +1,14 @@
 {
     "extends": "../../tsconfig.base.json",
     "compilerOptions": {
-        "outDir": "./dist",
-        "rootDir": "./src"
+        "outDir": "./dist"
     },
     "include": [
         "src/**/*"
+    ],
+    "exclude": [
+        // Reference-only React/three.js components (stardust v25.8.2 visual
+        // spec); not exported from the barrel and their deps are not installed.
+        "src/components"
     ]
 }
