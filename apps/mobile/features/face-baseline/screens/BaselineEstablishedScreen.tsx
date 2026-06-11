@@ -28,6 +28,12 @@ export default function BaselineEstablishedScreen(): React.JSX.Element {
     <CosmicBackground mode="success">
       <SafeAreaView style={styles.safe}>
         <View style={styles.body}>
+          {/* huge soft gold radial halo behind the card */}
+          <View style={styles.haloWrap} pointerEvents="none">
+            <View style={[styles.haloRing, styles.haloOuter]} />
+            <View style={[styles.haloRing, styles.haloMid]} />
+            <View style={[styles.haloRing, styles.haloInner]} />
+          </View>
           <BaselineSuccessCard title={C.established.title} body={C.established.body} />
         </View>
         <View style={styles.footer}>
@@ -38,8 +44,19 @@ export default function BaselineEstablishedScreen(): React.JSX.Element {
   );
 }
 
+const HALO = 560;
+
 const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: t.spacing.gutter },
   body: { flex: 1, justifyContent: 'center' },
+  haloWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  haloRing: { position: 'absolute', borderRadius: HALO },
+  haloOuter: { width: HALO, height: HALO, backgroundColor: 'rgba(243, 169, 42, 0.04)' },
+  haloMid: { width: HALO * 0.74, height: HALO * 0.74, backgroundColor: 'rgba(243, 169, 42, 0.06)' },
+  haloInner: { width: HALO * 0.5, height: HALO * 0.5, backgroundColor: 'rgba(255, 200, 94, 0.08)' },
   footer: { paddingBottom: t.spacing.ctaDock },
 });

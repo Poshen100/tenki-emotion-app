@@ -1,6 +1,8 @@
 /**
  * @module face-baseline/components/BaselineSuccessCard
- * @description Gold-edge secured confirmation card with a checkmark seal.
+ * @description Secured confirmation card: deep navy-black fill, thin gold
+ * border, gold outlined checkmark seal, champagne-gold title. Pure SECURED
+ * world — zero cyan.
  *
  * INTEGRATION (Reanimated): checkmark draw + bloom pulse on reveal.
  */
@@ -8,7 +10,6 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useBaselineHaptics } from '../../hooks/useBaselineHaptics';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
-import { GlassInfoCard } from '../glass/GlassInfoCard';
 
 interface BaselineSuccessCardProps {
   title: string;
@@ -60,7 +61,7 @@ export function BaselineSuccessCard({ title, body }: BaselineSuccessCardProps): 
   }, [haptics, scaleAnim, opacityAnim, particlePulse]);
 
   return (
-    <GlassInfoCard edge="gold" style={styles.card}>
+    <View style={styles.card}>
       {/* Golden success seal with concentric pulsing halos - matches reference exactly */}
       <Animated.View style={[styles.sealContainer, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>
         <View style={styles.sealOuterHalo} />
@@ -79,15 +80,28 @@ export function BaselineSuccessCard({ title, body }: BaselineSuccessCardProps): 
 
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.body}>{body}</Text>
-    </GlassInfoCard>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { alignItems: 'center', paddingVertical: 44, paddingHorizontal: 24 },
+  card: {
+    alignItems: 'center',
+    paddingVertical: 46,
+    paddingHorizontal: 28,
+    borderRadius: 24,
+    borderWidth: 1.2,
+    borderColor: 'rgba(232, 180, 90, 0.6)',
+    backgroundColor: 'rgba(5, 7, 14, 0.92)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.55,
+    shadowRadius: 38,
+    elevation: 12,
+  },
   sealContainer: {
-    width: 120,
-    height: 120,
+    width: 112,
+    height: 112,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -95,27 +109,27 @@ const styles = StyleSheet.create({
   },
   sealOuterHalo: {
     position: 'absolute',
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
     borderWidth: 1,
     borderColor: 'rgba(255, 200, 94, 0.15)',
     borderStyle: 'dashed',
   },
   sealInnerHalo: {
     position: 'absolute',
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 200, 94, 0.25)',
   },
   seal: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 2.5,
-    borderColor: '#FFC85E',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: '#E8B45A',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
@@ -125,7 +139,7 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
   },
-  check: { color: '#FFC85E', fontSize: 32, fontWeight: '800', lineHeight: 36 },
+  check: { color: '#FFC85E', fontSize: 28, fontWeight: '700', lineHeight: 32 },
   successParticle: {
     position: 'absolute',
     width: 4,
@@ -138,17 +152,17 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontSize: 27,
+    fontWeight: '600',
+    color: t.color.accent.goldChampagne,
     textAlign: 'center',
     marginBottom: t.spacing.md,
-    letterSpacing: -0.5,
+    letterSpacing: 1.1,
   },
   body: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#A6B0D3',
+    fontSize: 15,
+    lineHeight: 23,
+    color: '#B5AC9E',
     textAlign: 'center',
     paddingHorizontal: 8,
   },
