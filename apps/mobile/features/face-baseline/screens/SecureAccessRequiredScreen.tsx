@@ -79,7 +79,7 @@ export default function SecureAccessRequiredScreen(): React.JSX.Element {
         <View style={styles.head}>
           <BrandWordmark />
           <View style={styles.shield}>
-            <TrustShield size={88} />
+            <TrustShield size={102} />
           </View>
         </View>
         <View style={styles.body}>
