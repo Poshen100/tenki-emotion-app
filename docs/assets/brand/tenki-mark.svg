@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!--
+    TENKI Resonance Enso mark - outline master (24x24 grid).
+    A circle (the self) opened where a calm resonance wave passes through.
+    Stroke 2, round caps - same geometry DNA as the TENKI icon system.
+    Color via currentColor so the mark adapts to mono / cyan / gold worlds.
+  -->
+  <path d="M 3.01 10.93 A 9 9 0 0 1 20.99 10.93" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 20.00 16.11 A 9 9 0 0 1 4.00 16.11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 2 13.6 C 6.8 13.6 8 10.2 12 10.2 C 16 10.2 17.2 13.6 22 13.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+</svg>
