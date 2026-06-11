@@ -26,7 +26,7 @@ import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
 import { FB_ROUTES } from './routes';
 
 import { Platform } from 'react-native';
-import { Camera } from 'react-native-vision-camera';
+import { VisionCamera } from 'react-native-vision-camera';
 
 export default function SecureAccessRequiredScreen(): React.JSX.Element {
   const router = useRouter();
@@ -44,7 +44,9 @@ export default function SecureAccessRequiredScreen(): React.JSX.Element {
           // Explicit user-triggered browser camera request on button click
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
           // Stop stream tracks immediately since we only checked permission
-          stream.getTracks().forEach((track) => track.stop());
+          stream.getTracks().forEach((track) => {
+          track.stop();
+        });
           setPermission('granted');
           router.push(FB_ROUTES.environment);
         } catch (err) {
@@ -59,8 +61,8 @@ export default function SecureAccessRequiredScreen(): React.JSX.Element {
     } else {
       // Native Camera Permission
       try {
-        const status = await Camera.requestCameraPermission();
-        setPermission(status);
+        const granted = await VisionCamera.requestCameraPermission();
+        setPermission(granted ? 'granted' : 'denied');
         router.push(FB_ROUTES.environment);
       } catch (err) {
         console.warn('Native camera permission request failed:', err);
@@ -77,7 +79,7 @@ export default function SecureAccessRequiredScreen(): React.JSX.Element {
         <View style={styles.head}>
           <BrandWordmark />
           <View style={styles.shield}>
-            <TrustShield size={88} />
+            <TrustShield size={102} />
           </View>
         </View>
         <View style={styles.body}>

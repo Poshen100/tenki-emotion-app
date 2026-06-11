@@ -41,9 +41,11 @@ export function TrustShield({ size = 96 }: { size?: number }): React.JSX.Element
   }, [pulse1, pulse2, pulse3]);
 
   return (
-    <View style={[styles.container, { width: size * 1.5, height: size * 1.5 }]}>
-      {/* Background Gold Nebula Glow */}
-      <View style={[styles.goldGlow, { width: size * 1.2, height: size * 1.2, borderRadius: size }]} />
+    <View style={[styles.container, { width: size * 1.6, height: size * 1.6 }]}>
+      {/* Soft gold radial halo — layered concentric translucent circles */}
+      <View style={[styles.haloRing, { width: size * 1.6, height: size * 1.6, borderRadius: size * 0.8, backgroundColor: 'rgba(243, 169, 42, 0.05)' }]} />
+      <View style={[styles.haloRing, { width: size * 1.3, height: size * 1.3, borderRadius: size * 0.65, backgroundColor: 'rgba(243, 169, 42, 0.08)' }]} />
+      <View style={[styles.goldGlow, { width: size * 1.05, height: size * 1.05, borderRadius: size }]} />
 
       {/* Floating Stardust Particles */}
       <Animated.View style={[styles.particle, { top: '15%', left: '15%', opacity: pulse1, transform: [{ scale: pulse1 }] }]} />
@@ -70,11 +72,14 @@ const styles = StyleSheet.create({
   },
   goldGlow: {
     position: 'absolute',
-    backgroundColor: 'rgba(243, 169, 42, 0.12)',
+    backgroundColor: 'rgba(243, 169, 42, 0.13)',
     shadowColor: '#FFB81C',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.65,
     shadowRadius: 28,
+  },
+  haloRing: {
+    position: 'absolute',
   },
   shield: {
     borderWidth: 1.5,

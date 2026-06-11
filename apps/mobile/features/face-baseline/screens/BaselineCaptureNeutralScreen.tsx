@@ -73,9 +73,10 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
   return (
     <CosmicBackground mode="captureWarm">
       <SafeAreaView style={styles.safe}>
-        <NavBar title="Baseline Capture" onCancel={() => router.back()} />
+        <NavBar title="Baseline Capture Phase" onCancel={() => router.back()} />
         <View style={styles.frameWrap}>
-          <FaceScanFrame shape="halo" state="capturing" size={250}>
+          {/* Gold square scan zone with outer cyan ring (dual accent) */}
+          <FaceScanFrame shape="square" state="capturing" size={250}>
             {/* Live camera stream feed behind the particle mesh */}
             <View style={StyleSheet.absoluteFill}>
               <CameraFeedView size={250} active={true} />
@@ -83,7 +84,9 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
 
             <SoulParticleMesh stability={progress} size={210} />
           </FaceScanFrame>
-          <View style={styles.pill}>
+          {/* Tick-mark ruler progress + privacy caption directly below the frame */}
+          <View style={styles.progressBlock}>
+            <SegmentedProgress progress={captureProgress(progress, 0)} accent="gold" />
             <PrivacyLockPill label={C.captureNeutral.privacyPill} />
           </View>
           <View style={styles.nudgeContainer}>
@@ -91,8 +94,8 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
           </View>
         </View>
         <View style={styles.footer}>
+          {/* The emotional anchor: huge bold statement */}
           <Text style={styles.instruction}>{C.captureNeutral.instruction}</Text>
-          <SegmentedProgress progress={captureProgress(progress, 0)} accent="gold" />
         </View>
       </SafeAreaView>
     </CosmicBackground>
@@ -102,8 +105,16 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: t.spacing.gutter },
   frameWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  pill: { marginTop: t.spacing.xl },
+  progressBlock: { marginTop: t.spacing.xl + 10, gap: t.spacing.md, alignItems: 'center' },
   nudgeContainer: { height: 40, marginTop: t.spacing.sm, justifyContent: 'center' },
-  footer: { paddingBottom: t.spacing.xxl, gap: t.spacing.lg, alignItems: 'center' },
-  instruction: { fontSize: t.text.hero.size, fontWeight: '700', color: t.color.text.primary, textAlign: 'center' },
+  footer: { paddingBottom: t.spacing.xxl + 12, gap: t.spacing.lg, alignItems: 'center' },
+  instruction: {
+    fontSize: 38,
+    lineHeight: 46,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+    color: t.color.text.primary,
+    textAlign: 'center',
+    maxWidth: 320,
+  },
 });

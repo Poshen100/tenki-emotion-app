@@ -40,6 +40,7 @@ function GridOverlay({ size }: { size: number }): React.JSX.Element {
       {/* Vertical Lines */}
       {Array.from({ length: lineCount - 1 }).map((_, i) => (
         <View
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
           key={`v-${i}`}
           style={[
             styles.gridLine,
@@ -51,6 +52,7 @@ function GridOverlay({ size }: { size: number }): React.JSX.Element {
       {/* Horizontal Lines */}
       {Array.from({ length: lineCount - 1 }).map((_, i) => (
         <View
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
           key={`h-${i}`}
           style={[
             styles.gridLine,
@@ -184,6 +186,29 @@ export function FaceScanFrame({
         {/* Precision scan grid overlay */}
         <GridOverlay size={size} />
       </View>
+
+      {/* Capturing dual accent (square shape): gold glowing square stroke + outer thin cyan ring */}
+      {state === 'capturing' && !isHalo && (
+        <>
+          <View
+            style={[styles.captureSquare, { width: size, height: size }]}
+            pointerEvents="none"
+          />
+          <View
+            style={[
+              styles.outerCyanRing,
+              {
+                width: size + 56,
+                height: size + 56,
+                borderRadius: (size + 56) / 2,
+                top: -28,
+                left: -28,
+              },
+            ]}
+            pointerEvents="none"
+          />
+        </>
+      )}
 
       {/* Square corner reticle */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: bracketOpacity }]}>
@@ -325,6 +350,25 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  captureSquare: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    borderRadius: t.radius.scanFrame.lg,
+    borderWidth: 2,
+    borderColor: t.color.frame.capture,
+    shadowColor: t.color.frame.capture,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.85,
+    shadowRadius: 22,
+    zIndex: 3,
+  },
+  outerCyanRing: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 240, 255, 0.4)',
+    zIndex: 3,
   },
   halo: {
     borderWidth: t.stroke.halo,

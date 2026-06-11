@@ -39,6 +39,9 @@ export const faceBaselineTokens = {
       goldSoft: '#FFC85E',
       goldHi: '#FFF0D0',
       goldBloom: '#FF8800',
+      goldChampagne: '#FFE9B0',
+      goldWarm: '#FFD27A',
+      goldDeep: '#E8A23E',
     },
     status: {
       pass: '#00E699',
@@ -68,14 +71,28 @@ export const faceBaselineTokens = {
     },
   },
   text: {
-    wordmark: { size: 14, weight: '700', tracking: 4 },
-    hero: { size: 35, lineHeight: 44, weight: '800', tracking: -0.6 },
-    cardTitle: { size: 24, lineHeight: 30, weight: '700' },
+    wordmark: { size: 14, weight: '700', tracking: 6 },
+    hero: { size: 34, lineHeight: 40, weight: '800', tracking: -0.6 },
+    cardTitle: { size: 22, lineHeight: 28, weight: '700' },
     title: { size: 19, lineHeight: 25, weight: '700' },
     body: { size: 16, lineHeight: 24, weight: '400' },
-    metric: { size: 56, lineHeight: 60, weight: '300', variant: 'tabular-nums' },
+    metric: { size: 66, lineHeight: 72, weight: '700', variant: 'tabular-nums' },
     pill: { size: 14, lineHeight: 18, weight: '700' },
     caption: { size: 12, lineHeight: 16, weight: '400' },
+  },
+  /**
+   * Linear-gradient stop arrays (expo-linear-gradient `colors` prop).
+   * `ctaCyan` / `ctaGold` are the two CTA worlds; `ctaPale` is the inverted
+   * light-on-dark CTA unique to the Why-Baseline carousel card.
+   */
+  gradient: {
+    ctaCyan: ['#56E8FF', '#4DA6FF', '#7B61FF'],
+    ctaGold: ['#FFE9B0', '#FFD27A', '#E8A23E'],
+    ctaPale: ['#CFF6FF', '#A8E9FF'],
+    bgSpace: ['#0B0E1E', '#05060A'],
+    vignette: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.5)'],
+    maturityFill: ['#3DE0FF', '#7FE9D0', '#E8B45A'],
+    orbGold: ['#FFD27A', '#FF9D2F'],
   },
   spacing: { xs: 6, sm: 10, md: 18, lg: 28, xl: 36, xxl: 54, gutter: 26, cardPad: 24, ctaDock: 28 },
   radius: {

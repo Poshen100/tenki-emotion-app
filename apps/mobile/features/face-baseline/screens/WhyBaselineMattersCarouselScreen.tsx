@@ -15,7 +15,6 @@ import {
   ResonanceWaveGlyph,
   CarouselDots,
   GlowPrimaryButton,
-  GhostButton,
   NavBar,
 } from '../components';
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
@@ -50,21 +49,27 @@ export default function WhyBaselineMattersCarouselScreen(): React.JSX.Element {
           <Text style={styles.title}>{C.why.title}</Text>
         </View>
         <View style={styles.body}>
-          <GlassInfoCard edge="cyan" style={styles.card}>
-            <View style={styles.glyph}>
-              <ResonanceWaveGlyph size={140} />
+          {/* one large frosted card filling most of the screen */}
+          <GlassInfoCard edge="cyan" fill style={styles.card}>
+            <View style={styles.cardTop}>
+              <View style={styles.glyph}>
+                <ResonanceWaveGlyph size={140} />
+              </View>
+              <Text style={styles.heading}>{page.heading}</Text>
+              <Text style={styles.copy}>{page.body}</Text>
             </View>
-            <Text style={styles.heading}>{page.heading}</Text>
-            <Text style={styles.copy}>{page.body}</Text>
+            <View style={styles.cardBottom}>
+              <CarouselDots count={pages.length} active={index} />
+              {/* pale-cyan inverted CTA — unique to this screen */}
+              <GlowPrimaryButton
+                accent="cyan"
+                variant="pale"
+                label={isLast ? C.why.finish : C.why.next}
+                onPress={onNext}
+                style={styles.cta}
+              />
+            </View>
           </GlassInfoCard>
-        </View>
-        <View style={styles.footer}>
-          <CarouselDots count={pages.length} active={index} />
-          <GlowPrimaryButton
-            accent="cyan"
-            label={isLast ? C.why.finish : C.why.next}
-            onPress={onNext}
-          />
         </View>
       </SafeAreaView>
     </CosmicBackground>
@@ -75,8 +80,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: t.spacing.gutter },
   head: { alignItems: 'center', gap: t.spacing.md, marginTop: t.spacing.sm },
   title: { fontSize: t.text.cardTitle.size, fontWeight: '700', color: t.color.text.primary },
-  body: { flex: 1, justifyContent: 'center' },
-  card: { alignItems: 'center' },
+  body: { flex: 1, marginTop: t.spacing.md, marginBottom: t.spacing.ctaDock },
+  card: { alignItems: 'center', justifyContent: 'space-between' },
+  cardTop: { flex: 1, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' },
+  cardBottom: { alignSelf: 'stretch', alignItems: 'center', gap: t.spacing.lg },
+  cta: { alignSelf: 'stretch' },
   glyph: { marginBottom: t.spacing.lg },
   heading: {
     fontSize: t.text.cardTitle.size,
@@ -90,6 +98,6 @@ const styles = StyleSheet.create({
     lineHeight: t.text.body.lineHeight,
     color: t.color.text.secondary,
     textAlign: 'center',
+    maxWidth: '92%',
   },
-  footer: { paddingBottom: t.spacing.ctaDock, gap: t.spacing.lg },
 });

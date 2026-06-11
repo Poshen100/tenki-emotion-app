@@ -94,6 +94,7 @@ export function SegmentedProgress({
           const isFifth = i % 4 === 0;
           return (
             <View
+              // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
               key={i}
               style={[
                 styles.tick,
@@ -111,6 +112,7 @@ export function SegmentedProgress({
       <View style={[styles.row, { width }]} accessibilityRole="progressbar" accessibilityValue={{ now: Math.round(p * 100), min: 0, max: 100 }}>
         {Array.from({ length: segments }).map((_, i) => (
           <ProgressSegment
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
             key={i}
             index={i}
             totalSegments={segments}

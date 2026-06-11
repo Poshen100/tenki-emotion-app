@@ -1,19 +1,22 @@
 /**
  * @module face-baseline/components/CosmicBackground
  * @description Full-bleed dark cosmic backdrop with animated starfield,
- * layered nebula glows, and mode-driven accent layers.
+ * layered nebula glows (concentric soft-falloff circles), a vertical
+ * space gradient base, and a bottom vignette.
  *
  * 7 modes: deepNebula | dim | captureWarm | processing | circuit | success | faint
  *
- * Pure RN Animated — no Skia. The stars twinkle, the nebula breathes softly,
- * and warm modes get rising gold particles. All honor reduced-motion by
- * snapping to a static frame.
+ * Pure RN Animated + expo-linear-gradient — no Skia. The stars twinkle, the
+ * nebula breathes softly, and warm modes get rising gold particles.
+ * `processing` is nearly starless and heavily vignetted; `success` is warm
+ * gold-tinted; `circuit` adds cyan traces flanking the center orb area.
  *
- * @version 3.1
+ * @version 3.2
  * @see apps/mobile/features/face-baseline/SPEC.md
  */
-import React, { useEffect, useRef, useMemo } from 'react';
-import { View, Animated, StyleSheet, Dimensions, type ViewStyle } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Animated, StyleSheet, Dimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -61,6 +64,8 @@ function generateStars(count: number): StarDef[] {
 }
 
 const STARS = generateStars(35);
+/** Sparse subset for the nearly-starless processing mode. */
+const SPARSE_STARS = STARS.filter((_, i) => i % 4 === 0);
 
 // ─── Gold particle positions for warm modes ──────────────────
 interface GoldParticleDef {
@@ -94,12 +99,56 @@ function isWarm(mode: CosmicMode): boolean {
 
 function nebulaOpacity(mode: CosmicMode): number {
   switch (mode) {
-    case 'faint': return 0.2;
-    case 'dim': return 0.35;
-    case 'processing': return 0.3;
-    case 'success': return 0.25;
-    default: return 0.65;
+    case 'faint': return 0.25;
+    case 'dim': return 0.4;
+    case 'processing': return 0.18;
+    case 'success': return 0.45;
+    default: return 0.8;
   }
+}
+
+// ─── Soft-falloff nebula glow (3 stacked concentric circles) ──
+interface NebulaGlowProps {
+  /** Center position of the glow, absolute in window units. */
+  cx: number;
+  cy: number;
+  /** Radius of the brightest inner circle. */
+  r: number;
+  color: string;
+  /** Peak (inner circle) opacity; outer rings fade from this. */
+  peak: number;
+}
+
+/** Layered translucent circles approximating a radial gradient glow. */
+function NebulaGlow({ cx, cy, r, color, peak }: NebulaGlowProps): React.JSX.Element {
+  const rings = [
+    { scale: 1, opacity: peak },
+    { scale: 1.55, opacity: peak * 0.5 },
+    { scale: 2.2, opacity: peak * 0.22 },
+  ];
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {rings.map((ring, i) => {
+        const size = r * 2 * ring.scale;
+        return (
+          <View
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
+            key={i}
+            style={{
+              position: 'absolute',
+              left: cx - size / 2,
+              top: cy - size / 2,
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              backgroundColor: color,
+              opacity: ring.opacity,
+            }}
+          />
+        );
+      })}
+    </View>
+  );
 }
 
 // ─── Animated star ───────────────────────────────────────────
@@ -201,23 +250,54 @@ function GoldParticle({ p }: { p: GoldParticleDef }): React.JSX.Element {
   );
 }
 
+// ─── Circuit traces (maturity surface) ───────────────────────
+/** Cyan traces with nodes entering from both edges toward the orb area. */
+function CircuitTraces(): React.JSX.Element {
+  // The resonance orb sits roughly at 28% of screen height, centered.
+  const orbY = H * 0.28;
+  const reach = W * 0.26; // how far each trace extends inward
+  const rows = [
+    { y: orbY - 36, inset: 0 },
+    { y: orbY, inset: 18 },
+    { y: orbY + 36, inset: 0 },
+  ];
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {rows.map((row, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
+        <React.Fragment key={i}>
+          {/* left trace + node */}
+          <View style={[styles.circuitTrace, { top: row.y, left: 0, width: reach - row.inset }]} />
+          <View style={[styles.circuitNode, { top: row.y - 2.5, left: reach - row.inset - 2.5 }]} />
+          {/* right trace + node */}
+          <View style={[styles.circuitTrace, { top: row.y, right: 0, width: reach - row.inset }]} />
+          <View style={[styles.circuitNode, { top: row.y - 2.5, right: reach - row.inset - 2.5 }]} />
+        </React.Fragment>
+      ))}
+      {/* short vertical stubs joining the outer traces */}
+      <View style={[styles.circuitStub, { top: orbY - 36, left: W * 0.07 }]} />
+      <View style={[styles.circuitStub, { top: orbY, right: W * 0.07 }]} />
+    </View>
+  );
+}
+
 // ─── Main component ──────────────────────────────────────────
 export function CosmicBackground({ mode = 'deepNebula', children }: CosmicBackgroundProps): React.JSX.Element {
   const warm = isWarm(mode);
   const nebOp = nebulaOpacity(mode);
 
-  // Nebula breathing animation
-  const nebulaPulse = useRef(new Animated.Value(nebOp)).current;
+  // Nebula breathing animation (wraps all glow layers)
+  const nebulaPulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(nebulaPulse, {
-          toValue: nebOp * 0.8,
+          toValue: 0.8,
           duration: 6000,
           useNativeDriver: true,
         }),
         Animated.timing(nebulaPulse, {
-          toValue: nebOp,
+          toValue: 1,
           duration: 6000,
           useNativeDriver: true,
         }),
@@ -225,55 +305,66 @@ export function CosmicBackground({ mode = 'deepNebula', children }: CosmicBackgr
     );
     anim.start();
     return () => anim.stop();
-  }, [nebulaPulse, nebOp]);
+  }, [nebulaPulse]);
+
+  const stars = mode === 'processing' ? SPARSE_STARS : STARS;
 
   return (
     <View style={styles.root}>
-      {/* deep space base */}
-      <View style={styles.base} />
-
-      {/* violet nebula wash (top-left) */}
-      <Animated.View style={[styles.nebula, { opacity: nebulaPulse }]} />
-
-      {/* secondary nebula wash (right, slightly lower) */}
-      <Animated.View
-        style={[
-          styles.nebulaSecondary,
-          { opacity: Animated.multiply(nebulaPulse, 0.5) },
-        ]}
+      {/* deep space vertical gradient base */}
+      <LinearGradient
+        colors={[...t.gradient.bgSpace] as [string, string]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
       />
 
-      {/* cyan aurora — the ACTIVE accent */}
-      {!warm && <View style={styles.cyanAurora} />}
-
-      {/* gold vignette — the SECURED accent */}
-      {warm && <View style={styles.goldVignette} />}
-
-      {/* additional gold top glow for success */}
-      {mode === 'success' && <View style={styles.goldTopGlow} />}
+      {/* layered nebula glows — soft falloff via concentric circles */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: nebulaPulse }]} pointerEvents="none">
+        {warm ? (
+          <>
+            {/* warm gold ambiance (capture / processing / success) */}
+            <NebulaGlow cx={W * 0.5} cy={H * 0.42} r={W * 0.3} color="#3A2408" peak={nebOp * 0.5} />
+            <NebulaGlow cx={W * 0.85} cy={H * 0.12} r={W * 0.22} color="#2A1A06" peak={nebOp * 0.4} />
+            {mode === 'success' && (
+              <NebulaGlow cx={W * 0.5} cy={H * 0.34} r={W * 0.34} color="#553308" peak={0.3} />
+            )}
+          </>
+        ) : (
+          <>
+            {/* violet/magenta nebula wisps: top-right + bottom-left */}
+            <NebulaGlow cx={W * 0.88} cy={H * 0.14} r={W * 0.3} color="#2B1A66" peak={nebOp * 0.55} />
+            <NebulaGlow cx={W * 0.78} cy={H * 0.06} r={W * 0.18} color="#4A1E66" peak={nebOp * 0.4} />
+            <NebulaGlow cx={W * 0.08} cy={H * 0.86} r={W * 0.28} color="#1E1450" peak={nebOp * 0.5} />
+            {/* faint cyan aurora — ACTIVE world accent */}
+            <NebulaGlow cx={W * 0.2} cy={H * 0.3} r={W * 0.24} color="#06303A" peak={nebOp * 0.3} />
+          </>
+        )}
+      </Animated.View>
 
       {/* circuit traces for the maturity surface */}
-      {mode === 'circuit' && (
-        <View style={styles.circuitContainer}>
-          <View style={styles.circuitHLine1} />
-          <View style={styles.circuitHLine2} />
-          <View style={styles.circuitVLine1} />
-          <View style={styles.circuitVLine2} />
-          <View style={styles.circuitNode1} />
-          <View style={styles.circuitNode2} />
-          <View style={styles.circuitNode3} />
-        </View>
-      )}
+      {mode === 'circuit' && <CircuitTraces />}
 
       {/* animated starfield */}
-      {STARS.map((star, i) => (
+      {stars.map((star, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
         <AnimatedStar key={i} star={star} />
       ))}
 
       {/* gold particles drifting upward (warm modes) */}
       {warm && GOLD_PARTICLES.map((p, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
         <GoldParticle key={i} p={p} />
       ))}
+
+      {/* bottom vignette */}
+      <LinearGradient
+        colors={[...t.gradient.vignette] as [string, string]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={[styles.vignette, mode === 'processing' && styles.vignetteDeep]}
+        pointerEvents="none"
+      />
 
       {children}
     </View>
@@ -282,100 +373,38 @@ export function CosmicBackground({ mode = 'deepNebula', children }: CosmicBackgr
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: t.color.bg.deepSpace, overflow: 'hidden' },
-  base: { ...StyleSheet.absoluteFillObject, backgroundColor: t.color.bg.deepSpace },
 
-  // ─── Nebula layers ──────────────────
-  nebula: {
+  // ─── Vignette ───────────────────────
+  vignette: {
     position: 'absolute',
-    top: -H * 0.15,
-    left: -W * 0.2,
-    width: W * 1.5,
-    height: H * 0.55,
-    borderRadius: 9999,
-    backgroundColor: t.color.bg.nebulaTop, // violet
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: H * 0.38,
   },
-  nebulaSecondary: {
-    position: 'absolute',
-    top: H * 0.15,
-    right: -W * 0.3,
-    width: W * 0.9,
-    height: W * 0.9,
-    borderRadius: 9999,
-    backgroundColor: '#150A2E', // deep violet
-  },
-
-  // ─── Accent layers ─────────────────
-  cyanAurora: {
-    position: 'absolute',
-    top: -H * 0.06,
-    right: -W * 0.15,
-    width: W * 0.75,
-    height: W * 0.75,
-    borderRadius: 9999,
-    backgroundColor: t.color.accent.cyanGlow,
-    opacity: 0.05,
-  },
-  goldVignette: {
-    position: 'absolute',
-    bottom: -H * 0.08,
-    left: -W * 0.1,
-    width: W * 1.2,
-    height: W * 0.8,
-    borderRadius: 9999,
-    backgroundColor: t.color.accent.goldResonance,
-    opacity: 0.06,
-  },
-  goldTopGlow: {
-    position: 'absolute',
-    top: H * 0.15,
-    left: W * 0.15,
-    width: W * 0.7,
-    height: W * 0.7,
-    borderRadius: 9999,
-    backgroundColor: t.color.accent.goldBloom,
-    opacity: 0.04,
-  },
+  vignetteDeep: { height: H * 0.6, opacity: 1.0 },
 
   // ─── Circuit traces (maturity) ──────
-  circuitContainer: { ...StyleSheet.absoluteFillObject },
-  circuitHLine1: {
-    position: 'absolute', top: H * 0.12, left: 0, right: 0,
-    height: StyleSheet.hairlineWidth,
+  circuitTrace: {
+    position: 'absolute',
+    height: 1,
     backgroundColor: t.color.accent.cyanGlow,
-    opacity: 0.08,
+    opacity: 0.22,
   },
-  circuitHLine2: {
-    position: 'absolute', top: H * 0.88, left: 0, right: 0,
-    height: StyleSheet.hairlineWidth,
+  circuitNode: {
+    position: 'absolute',
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: t.color.accent.cyanGlow,
-    opacity: 0.06,
+    opacity: 0.45,
   },
-  circuitVLine1: {
-    position: 'absolute', top: 0, bottom: 0, left: W * 0.08,
-    width: StyleSheet.hairlineWidth,
+  circuitStub: {
+    position: 'absolute',
+    width: 1,
+    height: 36,
     backgroundColor: t.color.accent.cyanGlow,
-    opacity: 0.05,
-  },
-  circuitVLine2: {
-    position: 'absolute', top: 0, bottom: 0, right: W * 0.08,
-    width: StyleSheet.hairlineWidth,
-    backgroundColor: t.color.accent.cyanGlow,
-    opacity: 0.05,
-  },
-  circuitNode1: {
-    position: 'absolute', top: H * 0.12 - 3, left: W * 0.08 - 3,
-    width: 6, height: 6, borderRadius: 3,
-    backgroundColor: t.color.accent.cyanGlow, opacity: 0.15,
-  },
-  circuitNode2: {
-    position: 'absolute', top: H * 0.12 - 3, right: W * 0.08 - 3,
-    width: 6, height: 6, borderRadius: 3,
-    backgroundColor: t.color.accent.cyanGlow, opacity: 0.12,
-  },
-  circuitNode3: {
-    position: 'absolute', top: H * 0.88 - 3, left: W * 0.5 - 3,
-    width: 6, height: 6, borderRadius: 3,
-    backgroundColor: t.color.accent.cyanGlow, opacity: 0.1,
+    opacity: 0.14,
   },
 
   // ─── Stars ──────────────────────────

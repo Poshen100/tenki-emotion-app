@@ -82,7 +82,7 @@ export function ResonanceOrbSkia({ stage, size = 180 }: ResonanceOrbSkiaProps): 
       <Canvas style={StyleSheet.absoluteFill}>
         {/* 1. Outer ambient glow */}
         <Circle cx={center} cy={center} r={orbRadius * 1.2} color={ringColor}>
-          <BlurMask sigma={28} style="normal" />
+          <BlurMask blur={28} style="normal" />
         </Circle>
 
         {/* 2. Main sphere body */}
@@ -97,7 +97,7 @@ export function ResonanceOrbSkia({ stage, size = 180 }: ResonanceOrbSkiaProps): 
         {/* 3. Ring 1 — Outermost orbital (always visible) */}
         <Group transform={[{ rotateX: 1.22 }, { rotateZ: angle }]} origin={vec(center, center)}>
           <Circle cx={center} cy={center} r={r1} style="stroke" strokeWidth={2.0} color={ringColor}>
-            <BlurMask sigma={1} style="normal" />
+            <BlurMask blur={1} style="normal" />
           </Circle>
         </Group>
 
@@ -105,7 +105,7 @@ export function ResonanceOrbSkia({ stage, size = 180 }: ResonanceOrbSkiaProps): 
         {idx >= 1 && (
           <Group transform={[{ rotateX: 0.96 }, { rotateZ: -angle * 0.8 }, { rotateY: 0.6 }]} origin={vec(center, center)}>
             <Circle cx={center} cy={center} r={r2} style="stroke" strokeWidth={1.5} color={ringColor}>
-              <BlurMask sigma={0.8} style="normal" />
+              <BlurMask blur={0.8} style="normal" />
             </Circle>
           </Group>
         )}
@@ -120,7 +120,7 @@ export function ResonanceOrbSkia({ stage, size = 180 }: ResonanceOrbSkiaProps): 
         {/* 6. Geometric diamond core */}
         <Group transform={[{ scale: coreScale }]} origin={vec(center, center)}>
           <Path path={diamondPath} style="stroke" strokeWidth={2.0} color={coreColor}>
-            <BlurMask sigma={1.5} style="normal" />
+            <BlurMask blur={1.5} style="normal" />
           </Path>
         </Group>
 
@@ -134,13 +134,13 @@ export function ResonanceOrbSkia({ stage, size = 180 }: ResonanceOrbSkiaProps): 
         {/* 8. Center dot (Mature only) */}
         {idx >= 3 && (
           <Circle cx={center} cy={center} r={orbRadius * 0.09} color={t.color.accent.goldSoft}>
-            <BlurMask sigma={4} style="normal" />
+            <BlurMask blur={4} style="normal" />
           </Circle>
         )}
 
         {/* 9. Extra glass specular highlight gloss */}
         <Circle cx={center - orbRadius * 0.38} cy={center - orbRadius * 0.38} r={orbRadius * 0.28} color="rgba(255, 255, 255, 0.06)">
-          <BlurMask sigma={3} style="normal" />
+          <BlurMask blur={3} style="normal" />
         </Circle>
       </Canvas>
     </View>

@@ -7,9 +7,5 @@
 export { useFaceBaselineMachine } from './useFaceBaselineMachine';
 export type { FaceBaselineMachineApi } from './useFaceBaselineMachine';
 export { useReducedMotion } from './useReducedMotion';
-export {
-  useBaselineHaptics,
-  setHapticsImplementation,
-  shouldFireHaptic,
-} from './useBaselineHaptics';
-export type { HapticKind, HapticsImpl, BaselineHapticsApi } from './useBaselineHaptics';
+export { useBaselineHaptics, shouldFireHaptic } from './useBaselineHaptics';
+export type { HapticKind, BaselineHapticsApi } from './useBaselineHaptics';

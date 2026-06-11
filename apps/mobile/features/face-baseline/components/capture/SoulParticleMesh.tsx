@@ -216,6 +216,7 @@ export function SoulParticleMesh({ stability = 0.6, size = 200 }: SoulParticleMe
     <View style={[styles.wrap, { width: size, height: size }]} pointerEvents="none">
       {SPECKS.map((speck, i) => (
         <AnimatedSpeck
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
           key={i}
           speck={speck}
           stability={stability}

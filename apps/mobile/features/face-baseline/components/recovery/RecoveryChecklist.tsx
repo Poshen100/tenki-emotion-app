@@ -40,5 +40,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 12,
   },
-  text: { color: t.color.text.secondary, fontSize: t.text.body.size },
+  text: { color: t.color.text.primary, fontSize: 15, fontWeight: '500' },
 });

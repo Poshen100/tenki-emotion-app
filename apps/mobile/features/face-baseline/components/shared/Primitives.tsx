@@ -13,7 +13,7 @@ export function BrandWordmark(): React.JSX.Element {
   return (
     <View style={styles.wordmarkContainer}>
       <Image
-        source={require('../../../../../assets/favicon.png')}
+        source={require('../../../../assets/favicon.png')}
         style={styles.logoImage}
         resizeMode="contain"
       />
@@ -60,9 +60,9 @@ export function PrivacyLockPill({ label }: { label: string }): React.JSX.Element
   );
 }
 
-/** Local-only privacy footnote. */
+/** Local-only privacy footnote: 🔒-prefixed, grey tertiary, centered two-liner. */
 export function PrivacyFootnote({ text }: { text: string }): React.JSX.Element {
-  return <Text style={styles.footnote}>{text}</Text>;
+  return <Text style={styles.footnote}>🔒 {text}</Text>;
 }
 
 interface NavBarProps {
@@ -81,7 +81,7 @@ export function NavBar({ title, onBack, onCancel, showLogo, titleColor }: NavBar
         {showLogo ? (
           <View style={styles.navLogoWrap}>
             <Image
-              source={require('../../../../../assets/favicon.png')}
+              source={require('../../../../assets/favicon.png')}
               style={styles.navLogoImage}
               resizeMode="contain"
             />
@@ -121,27 +121,28 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     fontSize: 16,
-    fontWeight: '200',
-    letterSpacing: 6,
-    color: '#FFFFFF',
+    fontWeight: '300',
+    letterSpacing: t.text.wordmark.tracking,
+    color: 'rgba(255,255,255,0.72)',
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-light',
   },
   heroCenter: { alignItems: 'center', paddingHorizontal: 20 },
   heroLeft: { alignItems: 'flex-start', paddingHorizontal: 20 },
   heroTitle: {
-    fontSize: 36,
-    lineHeight: 44,
-    fontWeight: '800',
-    letterSpacing: -0.8,
+    fontSize: t.text.hero.size,
+    lineHeight: t.text.hero.lineHeight,
+    fontWeight: t.text.hero.weight,
+    letterSpacing: t.text.hero.tracking,
     color: '#FFFFFF',
   },
   heroSubtitle: {
     marginTop: t.spacing.lg,
     fontSize: 16,
-    lineHeight: 25,
-    color: '#BEC7E6',
+    lineHeight: 24,
+    color: '#A6B0D3',
     fontWeight: '500',
+    maxWidth: '92%',
   },
   heroBody: {
     marginTop: t.spacing.sm,
@@ -160,21 +161,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 99,
-    backgroundColor: 'rgba(243, 169, 42, 0.08)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(243, 169, 42, 0.3)',
   },
-  pillLock: { color: '#FFC85E', fontSize: 12, marginRight: 6 },
-  pillText: { color: '#FFC85E', fontSize: 11, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase' },
+  pillLock: { color: 'rgba(255, 200, 94, 0.8)', fontSize: 10, marginRight: 6 },
+  pillText: { color: 'rgba(255, 200, 94, 0.8)', fontSize: 10, fontWeight: '700', letterSpacing: 2.4, textTransform: 'uppercase' },
   footnote: {
     fontSize: 11,
-    lineHeight: 16,
+    lineHeight: 17,
     color: '#656D8A',
     textAlign: 'center',
     fontWeight: '500',
+    maxWidth: 250,
+    alignSelf: 'center',
   },
   nav: {
     flexDirection: 'row',
