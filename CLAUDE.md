@@ -131,9 +131,16 @@ refactor(session): extract timer segment logic
 
 | 工具 | 角色 |
 |------|------|
-| Antigravity (Opus 4.6 / Gemini 3.1 Pro) | 主力代碼生成 + 架構 |
+| Antigravity (Opus 4.6 / Gemini 3.1 Pro) | 桌機主力：功能與畫面實作（`feat/*` 分支） |
 | Claude (claude.ai) | 架構決策、code review、文件 |
-| Claude Code | Terminal / 雲端 session 任務、CI & tooling、測試與重構（Native Module 待 Mac 到手） |
+| Claude Code | 雲端/手機：repo 改進、補邏輯、開 PR、CI & 驗證收尾（Native Module 待 Mac 到手） |
+
+## 部署與手機檢視（詳見 docs/DEPLOYMENT_MAP.md 白話版）
+
+- **固定網址只反映 `main`**：`/v3/` 看最新 v3 UI、`/preview/` 看 onboarding；根網址 `/` 是凍結舊版不會更新。
+- 想在手機瀏覽器看到的東西做在 `apps/preview/`；`apps/mobile` 沒有公開網址，不要編造 Expo/TestFlight 連結。
+- merge 前預覽：GitHub PR 頁的 Vercel bot 留言有分支 preview 連結。
+- 新增 route 時要同步更新 `docs/DEPLOYMENT_MAP.md` + `.json`。
 
 ## Session 結束時
 更新 `MEMORY.md` 記錄：本次做了什麼、遇到的坑、下次接手點。

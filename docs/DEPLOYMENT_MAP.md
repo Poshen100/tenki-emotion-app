@@ -1,7 +1,20 @@
 # DEPLOYMENT_MAP.md
 
-> Last updated: 2026-05-11
+> Last updated: 2026-06-11
 > Machine-readable companion: `docs/DEPLOYMENT_MAP.json`
+
+## 🚀 白話版（founder 日常只要記這段）
+
+**主規則：手機上的固定網址，只顯示已 merge 進 `main` 的東西。**
+
+1. 手機看效果開這兩個：
+   - `https://tenki-emotion-app.vercel.app/v3/` → 最新 v3 UI（Today + 5-Tab）
+   - `https://tenki-emotion-app.vercel.app/preview/` → baseline onboarding 流程
+2. 根網址 `/` 永遠是凍結舊版（apps/web），不會更新 — 別用它判斷進度。
+3. `apps/mobile` 在任何網址都看不到（RN app，要等實機/TestFlight）。想在手機瀏覽器看到的東西，做在 `apps/preview/`。
+4. 分工：**Antigravity（桌機）** 在 `feat/*` 分支做功能畫面 → **Claude Code（手機/雲端）** 開 PR、跑驗證、merge → merge 後 1-2 分鐘固定網址更新。
+5. merge 前想先看：手機打開 GitHub PR 頁，Vercel bot 留言裡就有該分支的 preview 連結，點了即看。
+6. CI（lint + typecheck + 全部測試）紅燈就不要 merge。
 
 ## TL;DR
 
