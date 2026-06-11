@@ -32,11 +32,14 @@ export default function EstablishBaselineIntroScreen(): React.JSX.Element {
     <CosmicBackground mode="deepNebula">
       <SafeAreaView style={styles.safe}>
         <View style={styles.body}>
+          {/* headline block sits at ~1/3 height; generous emptiness below */}
+          <View style={styles.topSpacer} />
           <View style={styles.hero}>
             <BaselineHeroCopy title={C.intro.title} subtitle={C.intro.subtitle} body={C.intro.body} />
-            <View style={styles.chip}>
-              <TimeCostChip seconds={C.intro.timeSeconds} />
-            </View>
+          </View>
+          <View style={styles.bottomSpacer} />
+          <View style={styles.chip}>
+            <TimeCostChip seconds={C.intro.timeSeconds} />
           </View>
         </View>
         <View style={styles.footer}>
@@ -50,8 +53,10 @@ export default function EstablishBaselineIntroScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: t.spacing.gutter },
-  body: { flex: 1, justifyContent: 'center' },
+  body: { flex: 1 },
+  topSpacer: { flex: 0.9 },
+  bottomSpacer: { flex: 1.6 },
   hero: { alignItems: 'center' },
-  chip: { marginTop: t.spacing.xl },
+  chip: { alignItems: 'center', marginBottom: t.spacing.lg },
   footer: { paddingBottom: t.spacing.ctaDock, gap: t.spacing.sm, alignItems: 'center' },
 });
