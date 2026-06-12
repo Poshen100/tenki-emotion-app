@@ -74,10 +74,10 @@ Three reference screenshots define the accepted TENKI visual language. Do not de
 
 ### Priority 3 — Copy alignment
 
-- [ ] "Environment Calibration" → keep English as-is (matches App Store screenshot language)
-- [ ] "Establish Your Baseline" → keep English as-is
-- [ ] "Baseline Capture Phase" → keep English as-is
-- [ ] All instruction text must use compliance-safe language (see ANTIGRAVITY.md Section 2)
+- [x] "Environment Calibration" → keep English as-is (matches App Store screenshot language)
+- [x] "Establish Your Baseline" → keep English as-is
+- [x] "Baseline Capture Phase" → keep English as-is
+- [x] All instruction text must use compliance-safe language (see ANTIGRAVITY.md Section 2)
 
 ---
 
