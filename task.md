@@ -67,10 +67,10 @@ Three reference screenshots define the accepted TENKI visual language. Do not de
 
 ### Priority 2 — Global visual consistency
 
-- [ ] All scan-flow screens must use `--tenki-bg-deep` / `--tenki-bg-mid` gradient background (not white or gray).
-- [ ] Stardust particle field (`stardust.js`) must be active on all deep-bg screens.
-- [ ] All CTA primary buttons must use `--tenki-btn-gradient` + `--tenki-btn-glow`.
-- [ ] Replace any flat gray disabled buttons with the correct dimmed pill style (opacity 0.4, same shape).
+- [x] All scan-flow screens must use `--tenki-bg-deep` / `--tenki-bg-mid` gradient background (not white or gray).
+- [x] Stardust particle field (`stardust.js`) must be active on all deep-bg screens.
+- [x] All CTA primary buttons must use `--tenki-btn-gradient` + `--tenki-btn-glow`.
+- [x] Replace any flat gray disabled buttons with the correct dimmed pill style (opacity 0.4, same shape).
 
 ### Priority 3 — Copy alignment
 
