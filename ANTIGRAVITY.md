@@ -1,6 +1,6 @@
-# 2026-06-09 CONTINUATION NOTE (READ THIS FIRST)
+# 2026-06-12 CONTINUATION NOTE (READ THIS FIRST)
 
-This note is the current handoff for the new Windows machine (4th migration). If any older setup text below conflicts with this section, this section wins.
+This note is the current handoff. If any older setup text below conflicts with this section, this section wins.
 
 ## Environment status
 
@@ -17,7 +17,7 @@ This note is the current handoff for the new Windows machine (4th migration). If
 
 ## PATH configurations
 
-On this machine, Node.js and Git paths are persistently added to the User `PATH` environment variable. 
+On this machine, Node.js and Git paths are persistently added to the User `PATH` environment variable.
 
 You can also run one of these to double check or force path initialization:
 1. Launch the shell via `start_env.bat`
@@ -76,11 +76,13 @@ npm run ios
 - `MEMORY.md` contains the matching 2026-05-14 machine/setup note
 - `docs/DEPLOYMENT_MAP.md` is the URL/source-of-truth map for deployed routes, previews, and what each one actually means
 
-# TENKI CORE — ANTIGRAVITY MASTER BLUEPRINT v4.0
+---
 
-> **最後更新**：2026-04-07  
-> **版本**：v4.0  
-> **狀態**：Active — Canonical Source of Truth  
+# TENKI CORE — ANTIGRAVITY MASTER BLUEPRINT v4.1
+
+> **最後更新**：2026-06-12
+> **版本**：v4.1
+> **狀態**：Active — Canonical Source of Truth
 > **維護者**：Founder + Autonomous Agents
 
 ---
@@ -93,7 +95,7 @@ npm run ios
 
 | 維度 | 定義 |
 |------|------|
-| 產品定位 | 幫助使用者理解自己在高壓情境下的**生理與情緒準備度** |
+| 產品定位 | 幫助使用者理解自己在高壓情境下的**生理與情緒準備度**，並協助回到多巴胺基準線 |
 | App Store 分類 | Health & Fitness |
 | 核心指標 | Decision Edge Score (0–100) |
 | 隱私模型 | Local-first + Cloud-minimal |
@@ -119,6 +121,99 @@ TENKI 幫助你在做重要決策前，先了解自己的身心準備度。
 
 ---
 
+## 0.1 Brand Taglines (Canonical — 2026-06-12)
+
+這是 TENKI 的品牌語言定義。所有 AI agent、文案撰寫、行銷素材都應優先參考此節。
+
+### Hero Line
+
+```
+Turn volatility into turning points.
+```
+
+### Subtitle (Preferred)
+
+```
+Return to baseline. Find your turning point.
+```
+
+這兩句合起來完整描述 TENKI 的價值：
+
+| 層面 | 意涵 |
+|------|------|
+| 外在（市場 / 情緒波動） | Turn volatility |
+| 內在（多巴胺 / 呼吸 / HRV） | Return to baseline |
+| 結果（人生 / 情緒轉機） | Find your turning point |
+
+### 品牌語調方向
+
+TENKI 的視覺與文字語調必須符合：
+
+- 冷靜（Calm）
+- 科學感（Scientific）
+- 具有轉折力量（Grounded, pivotal）
+
+**避免**：過度療癒系（Too gentle / spa-like）  
+**避免**：過度交易宅（Too niche / trader-only）
+
+### 中文品牌句
+
+```
+在你做決定之前，先了解你自己。
+```
+
+副句：
+
+```
+回到基準線。找到你的轉機。
+```
+
+---
+
+## 0.2 Dopamine Baseline Model (v1.0 — 2026-06-12)
+
+TENKI 的核心洞察之一：**把「轉機」變成可訓練、可量化的能力。**
+
+這不只是交易工具，也不只是冥想工具。TENKI 是一個幫助使用者觀察、調節、並記錄自己多巴胺狀態的系統。
+
+### 多巴胺三狀態模型
+
+| 狀態 | 描述 | 對應行為 | TENKI 介入方式 |
+|------|------|----------|----------------|
+| **Above Baseline（過高）** | 過度興奮、FOMO、衝動、獎勵追逐、多巴胺過載 | 衝動交易、過度滑手機、過度消費 | 呼吸引導、暫停提醒、雙耳節拍 |
+| **At Baseline（基準線）** | 穩定、清晰、可覺察、適合做決策 | 理性決策、深度專注、清醒判斷 | 確認狀態、記錄身體訊號、保持流程 |
+| **Below Baseline（過低）** | 戒斷反應、空虛、疲勞、衝動反撲 | 癮頭發作、FOMO 壓力、無力感 | 忍耐衝動引導、戒斷支持、漸進回穩 |
+
+### 技術可行性背景
+
+> 以下為技術方向說明，供 AI agent 理解產品邏輯背景。不構成醫療聲明。
+
+目前尚無任何 App 或裝置能給出精確的「多巴胺 mg/dL 數值」，但透過多模態數據融合，TENKI 可以實現對多巴胺狀態的**間接、相對性監測**：
+
+| 感測來源 | 指標 | 與多巴胺狀態的關聯 |
+|----------|------|-------------------|
+| Apple Watch（腕部 PPG + 加速規） | HRV | 醫學研究證實 HRV 與大腦紋狀體多巴胺耗損量高度相關 |
+| 手機主鏡頭（指尖 PPG / rPPG） | 血壓波形模擬 (APW) | 高採樣率信號，可分析血管彈性與壓力指數 |
+| Apple Watch 長期趨勢 | HRV + 活動量 | 建立個人多巴胺「基準線」，評估倦怠或多巴胺耐受期 |
+| rPPG + 行為模式 | 心率突增 + 反應速度 | 反映大腦面對「獎勵刺激」時的即時多巴胺噴發強度 |
+
+**可行性定位：**
+
+- 醫學診斷級別：不行，無法取代 PET 掃描或專業血液檢查。
+- 生活型態管理：高度可行。透過多維度數據融合 + AI 模型，可實現相對性的多巴胺狀態觀察。
+
+### 回到基準線的功能工具
+
+| 工具 | 說明 | 狀態 |
+|------|------|------|
+| 4-7-8 呼吸法 | 激活副交感神經，降低過度興奮狀態 | Lab 已有 |
+| 方框呼吸 (Box Breathing) | 穩定 HRV，適合 Trader Mode | Lab 已有 |
+| 雙耳節拍（Binaural Beats） | 腦波引導，協助進入 Alpha/Theta 狀態 | 待開發 |
+| 多巴胺狀態日誌 | 使用者自評當下狀態（過高 / 基準 / 過低） | 待開發 |
+| 身體訊號記錄 | 記錄呼吸、心率、HRV、壓力感 + 主觀感受 | 部分完成 |
+
+---
+
 ## 1. Product Positioning
 
 ### 1.1 一句話定位
@@ -133,25 +228,29 @@ TENKI 幫助你在做重要決策前，先了解自己的身心準備度。
 | **Self-awareness** | 透過生理數據理解自己的壓力、恢復、專注模式 |
 | **Process Discipline** | 建立可重複的決策前準備流程 |
 | **Privacy-first** | 所有敏感數據留在裝置端，零遙測原始生理數據 |
+| **Baseline Return** | 提供工具幫助使用者回到多巴胺基準線 |
 
 ### 1.3 允許討論的主題
 
-✅ 專注 (Focus)  
-✅ 壓力 (Stress)  
-✅ 恢復 (Recovery)  
-✅ 情緒平衡 (Emotional Balance)  
-✅ 清晰度 (Clarity)  
-✅ 決策準備度 (Decision Readiness)  
-✅ 自我覺察 (Self-awareness)  
+✅ 專注 (Focus)
+✅ 壓力 (Stress)
+✅ 恢復 (Recovery)
+✅ 情緒平衡 (Emotional Balance)
+✅ 清晰度 (Clarity)
+✅ 決策準備度 (Decision Readiness)
+✅ 自我覺察 (Self-awareness)
 ✅ 呼吸與身體節律 (Breathing & Body Rhythm)
+✅ 多巴胺狀態覺察（Dopamine State Awareness）— 相對性、非診斷性
+✅ 基準線回歸（Baseline Return）
+✅ 衝動控制 / 戒斷支持（Impulse Regulation）
 
 ### 1.4 絕對禁止的主題
 
-🚫 金融建議 / 投資建議  
-🚫 交易信號 / 買賣建議  
-🚫 市場時機指引  
-🚫 醫療診斷 / 治療建議  
-🚫 臨床確定性語言  
+🚫 金融建議 / 投資建議
+🚫 交易信號 / 買賣建議
+🚫 市場時機指引
+🚫 醫療診斷 / 治療建議
+🚫 臨床確定性語言
 🚫 績效預測 / 結果保證
 
 ### 1.5 Trader Mode 的安全框架
@@ -184,6 +283,7 @@ TENKI 幫助你在做重要決策前，先了解自己的身心準備度。
 | 確定性 | 保證、一定、必然、肯定 | 建議、可能、傾向、參考 |
 | 預測 | 預測、預報、保證獲利 | 觀察、趨勢、模式 |
 | TEI 遺留 | TEI、PR99、Trading Edge | Edge Score、Decision Edge |
+| 多巴胺醫療聲稱 | 多巴胺濃度、多巴胺診斷、多巴胺治療 | 多巴胺狀態覺察、身體訊號模式 |
 
 #### 安全文案規則
 
@@ -192,6 +292,7 @@ TENKI 幫助你在做重要決策前，先了解自己的身心準備度。
 3. 永遠使用「**你的身體顯示**」而非「你應該」
 4. 永遠使用「**決策準備度**」而非「交易準備度」
 5. 永遠使用「**Edge Score**」而非「TEI」或「PR99」
+6. 多巴胺相關語言：永遠使用「**相對性觀察**」，絕不聲稱「精確測量多巴胺」
 
 ### 2.2 推播通知合規
 
@@ -207,6 +308,7 @@ TENKI 幫助你在做重要決策前，先了解自己的身心準備度。
 - `你的身體準備好了 — 現在是保持專注的好時機`
 - `建議暫停一下 — 做幾次深呼吸再繼續`
 - `今天的恢復表現不錯 — 來看看你的進展`
+- `你的身體訊號顯示有回到基準線的跡象 — 記錄一下這個狀態`
 
 ### 2.3 App Store Review Guardrails
 
@@ -242,6 +344,7 @@ TENKI 幫助你在做重要決策前，先了解自己的身心準備度。
 | Baseline profile | 裝置端 | ✅ | ❌ |
 | 反思 / 日誌內容 | 裝置端 | ✅ | ❌ |
 | 掃描歷史 | 裝置端 | ✅ | ❌ |
+| 多巴胺狀態日誌 | 裝置端 | ✅ | ❌ |
 | 訂閱狀態 | 雲端 | ✅ | ✅ |
 | 匿名 benchmark | 雲端 | ✅ | ✅ (opt-in) |
 | Feature flags | 雲端 | — | ✅ |
@@ -385,7 +488,7 @@ TENKI 支援 4 種情境模式，每種模式調整 UI 語氣與焦點，但**�
 
 | Mode | 目標使用者 | 焦點 | 預設 |
 |------|-----------|------|------|
-| Health Reset | 所有人 | 壓力管理、恢復追蹤 | ✅ |
+| Health Reset | 所有人 | 壓力管理、恢復追蹤、基準線回歸 | ✅ |
 | Focus | 知識工作者 | 專注力、深度工作準備 | — |
 | Performance | 運動員 | 身體準備度、訓練就緒 | — |
 | Trader | 交易者 | 決策紀律、情緒調節 | — (需手動啟用) |
@@ -506,7 +609,7 @@ draft → configured → precheck → scanning → gated
 ### 9.2 閘門邏輯
 
 | 結果 | 條件 | 允許進入 Session |
-|------|------|-----------------|
+|------|------|----|
 | `clear_pass` | Score ≥ 70 & Confidence ≥ 0.70 | ✅ |
 | `soft_caution` | Score 40–69 或 Confidence < 0.70 | ✅ (附提醒) |
 | `red_gate` | Score < 40 | ❌ |
@@ -532,8 +635,10 @@ draft → configured → precheck → scanning → gated
 ### 10.2 Lab
 
 | 功能 | 說明 | Premium |
-|------|------|---------|
+|------|------|----|
 | 呼吸練習 | 4-7-8、方框呼吸 | — |
+| 雙耳節拍 (Binaural Beats) | 腦波引導，Alpha/Theta 狀態 | ✅ |
+| 多巴胺狀態日誌 | 記錄身體狀態 + 自評多巴胺感受 | — |
 | 個人 Pattern 分析 | 時段/星期 pattern | ✅ |
 | 基線趨勢 | 基線成長追蹤 | ✅ |
 | 匿名 Benchmark | 與匿名族群比較 (opt-in) | ✅ |
@@ -564,15 +669,15 @@ draft → configured → precheck → scanning → gated
 | **Scan** | 掃描入口、Finger Heat Zone、準備度檢核 | 核心互動 |
 | **Session** | Session 控制、計時器、閘門、反思 | 流程治理 |
 | **Timeline** | 歷史紀錄、趨勢圖、Session 回顧 | 回顧分析 |
-| **Lab** | 呼吸練習、Pattern 分析、進階功能 | 成長工具 |
+| **Lab** | 呼吸練習、雙耳節拍、Pattern 分析、進階功能 | 成長工具 |
 
 ### 11.2 拒絕的 IA 方案
 
 以下 IA 方案被明確拒絕：
 
-❌ `Today / Metrics / Profile / More` — 過於通用，無法傳達 TENKI 的互動核心  
-❌ `Home / Dashboard / Settings` — 被動展示型，不符合主動掃描互動  
-❌ `Insights / Charts / Analytics` — 過度強調數據，偏離 wellness 體驗  
+❌ `Today / Metrics / Profile / More` — 過於通用，無法傳達 TENKI 的互動核心
+❌ `Home / Dashboard / Settings` — 被動展示型，不符合主動掃描互動
+❌ `Insights / Charts / Analytics` — 過度強調數據，偏離 wellness 體驗
 
 ### 11.3 為什麼 Scan 在底部導航
 
@@ -587,7 +692,7 @@ Scan 是 TENKI 的**核心互動動詞**。使用者每次使用 TENKI 的起點
 | Tier | 價格 | 功能 |
 |------|------|------|
 | **Free** | $0 | 每日 3 次掃描, 基本 Edge Score, 7 天歷史, Health Reset mode |
-| **Premium** | TBD / 月 | 無限掃描, 全部 Modes, 全部 Templates, 完整歷史, Lab 進階, Pattern 分析, Benchmark |
+| **Premium** | TBD / 月 | 無限掃描, 全部 Modes, 全部 Templates, 完整歷史, Lab 進階, Pattern 分析, Benchmark, 雙耳節拍 |
 
 ### 12.2 不得付費牆的功能
 
@@ -597,6 +702,7 @@ Scan 是 TENKI 的**核心互動動詞**。使用者每次使用 TENKI 的起點
 | Edge Score 計算 | 基本價值必須免費體驗 |
 | 數據刪除 / 匯出 | 隱私權利永不付費 |
 | 基本歷史 (7 天) | 最低限度的自我追蹤 |
+| 多巴胺狀態日誌 | 自我覺察是基本功能 |
 
 ---
 
@@ -618,6 +724,7 @@ Scan 是 TENKI 的**核心互動動詞**。使用者每次使用 TENKI 的起點
 | Baseline 成長 | 隨時間累積的個人基線讓使用者不想放棄 |
 | Session 紀錄 | 決策品質追蹤產生回顧價值 |
 | Pattern 洞察 | Premium 提供的個人模式分析 |
+| 多巴胺日誌 | 記錄自己的情緒狀態轉折點 |
 
 ---
 
@@ -629,7 +736,7 @@ tenki-emotion-app/
 ├── RULES.md                  ← 開發規則
 ├── apps/
 │   ├── web/                  ← 現有 web prototype (v51.1)
-│   └── mobile/               ← 未來 Expo/RN app
+│   └── mobile/               ← 主動開發 Expo/RN app
 ├── packages/
 │   ├── engine/               ← v3 引擎 (TypeScript)
 │   │   └── src/
@@ -663,7 +770,7 @@ tenki-emotion-app/
 
 ### Phase 0 — 治理基礎 ✅
 
-- [x] ANTIGRAVITY.md v4.0
+- [x] ANTIGRAVITY.md v4.1
 - [x] RULES.md / RULES-v3.md
 - [x] 型別系統 (common/types.ts)
 - [x] 合規引擎 (safe-copy, notification-guard)
@@ -692,16 +799,17 @@ tenki-emotion-app/
 - [ ] Replay Engine
 - [ ] Insight Generator
 - [ ] 整合測試 (full pipeline)
+- [ ] Dopamine State Journal schema + storage
 
 ### Phase C — Mobile App
 
-- [ ] Expo / React Native 初始化
-- [ ] 底部導航 (5 tabs)
+- [ ] Expo / React Native 初始化 (shell 已建立，需驗證)
+- [ ] 底部導航 (5 tabs) — shell 已有
 - [ ] Today 頁面
 - [ ] Scan 頁面 + Finger Heat Zone
 - [ ] Session 頁面
 - [ ] Timeline 頁面
-- [ ] Lab 頁面
+- [ ] Lab 頁面（含雙耳節拍 + 多巴胺日誌）
 - [ ] 設定 / Profile
 
 ### Phase D — 發布準備
@@ -742,6 +850,7 @@ TENKI CORE 的完成標準：
 5. **不上傳原始數據**：任何新功能都不得將原始生理數據上傳雲端。
 6. **先測試後 commit**：所有新模組必須附帶測試。
 7. **遵循 v3 語意**：使用 Edge Score (非 TEI)、Zone (非 PR99)、Session (非 Trading)。
+8. **品牌語言**：Hero line = "Turn volatility into turning points." / Subtitle = "Return to baseline. Find your turning point." — 不得修改。
 
 ### 17.2 工作流程
 
@@ -776,6 +885,8 @@ TENKI CORE 的完成標準：
 | 使用 `any` 型別 | 型別安全是核心品質 |
 | 產生金融建議文案 | App Store 合規風險 |
 | 跳過測試 | 所有模組必須有覆蓋 |
+| 聲稱「精確測量多巴胺」 | 違反合規，無科學依據 |
+| 修改 Hero / Subtitle 品牌句 | 品牌一致性，需 Founder 明確指示 |
 
 ---
 
@@ -783,6 +894,8 @@ TENKI CORE 的完成標準：
 
 TENKI brand visuals are not open-ended. **The logo is FINALIZED by the founder — do not redesign it.**
 
+> 品牌「語言」（taglines / voice / 文案規則）的 canonical 在 `docs/BRAND.md`；本節管「視覺」（mark / lockup / 資產）。
+>
 > 歷史註記：2026-06-12 之前 `apps/mobile/assets/` 的 PNG 是 Expo 範本佔位符；
 > 同日曾有一個「Resonance Ensō」圓形 mark 探索版，已被 founder 的定案 logo 取代並移除。
 > 定案 mark 的原始出處是 production v6 splash（`apps/preview/v6/index.html`，`/v3/` 路由）。
@@ -852,31 +965,45 @@ TENKI brand visuals are not open-ended. **The logo is FINALIZED by the founder �
 | 「你的身體準備好了 — 現在是保持專注的好時機」 | 「市場開盤了，你的 TEI 很高！」 |
 | 「建議暫停一下 — 做幾次深呼吸再繼續」 | 「你的壓力太高了，不要交易！」 |
 | 「今天的恢復表現不錯 — 來看看你的進展」 | 「你的 PR99 是 85，趕快加倉！」 |
+| 「你的身體訊號顯示有回到基準線的跡象」 | 「你的多巴胺恢復正常了」 |
 
 ### A.3 Disclaimer
 
 ```
 TENKI 提供的所有指標和建議僅供個人健康參考，不構成醫療診斷或金融建議。
+TENKI 對多巴胺狀態的觀察為間接性、相對性指標，不代表精確的生化數值。
 如有健康疑慮，請諮詢專業醫療人員。
 你的生理數據只儲存在你的裝置上，TENKI 絕不會讀取或上傳你的原始數據。
 ```
 
 ---
 
-## Appendix B — Core Brand Line
+## Appendix B — Core Brand Lines
 
-### 英文
+### 英文 Hero
 
 ```
-Know yourself before you decide.
+Turn volatility into turning points.
 ```
 
-### 中文
+### 英文 Subtitle
+
+```
+Return to baseline. Find your turning point.
+```
+
+### 中文品牌句
 
 ```
 在你做決定之前，先了解你自己。
 ```
 
+### 中文副句
+
+```
+回到基準線。找到你的轉機。
+```
+
 ---
 
-*— END OF ANTIGRAVITY MASTER BLUEPRINT v4.0 —*
+*— END OF ANTIGRAVITY MASTER BLUEPRINT v4.1 —*
