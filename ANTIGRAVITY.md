@@ -779,72 +779,61 @@ TENKI CORE 的完成標準：
 
 ---
 
-## 18. TENKI Brand & Logo System（canonical，2026-06-12 確立）
+## 18. TENKI Brand & Logo System（定案 canonical，2026-06-12）
 
-TENKI brand visuals are not open-ended.
+TENKI brand visuals are not open-ended. **The logo is FINALIZED by the founder — do not redesign it.**
 
-> 歷史註記：2026-06-12 之前 `apps/mobile/assets/` 的四個 PNG 是 **Expo 範本佔位符**
-> （預設同心圓 icon、stock 方塊 favicon），並非真正的品牌資產。
-> 本節記錄的 **Resonance Ensō mark** 是第一個正式 TENKI 標誌，
-> 由 founder 於 2026-06-12 要求完整整合後確立。
+> 歷史註記：2026-06-12 之前 `apps/mobile/assets/` 的 PNG 是 Expo 範本佔位符；
+> 同日曾有一個「Resonance Ensō」圓形 mark 探索版，已被 founder 的定案 logo 取代並移除。
+> 定案 mark 的原始出處是 production v6 splash（`apps/preview/v6/index.html`，`/v3/` 路由）。
 
-### 18.1 The Mark — Resonance Ensō
+### 18.1 The Mark — 風掃過的浪（Wind-Swept Wave）
 
-**一個圓 — 自我 — 被一道平靜的共振波穿過而敞開。**
-
-| 元素 | 意義 |
-|------|------|
-| 圓 | 自我；也是 privacy 邊界 — 數據留在圓之內（local-first） |
-| 波 | 生理訊號；內在天氣（天気）的氣象線 |
-| 開口 | 覺察 — 自我不封閉，訊號穿過你、被你讀懂 |
-
-幾何完全繼承 icon system DNA（`docs/ICON-SYSTEM-BATCH1.md`）：
-24×24 grid、正圓 r=9（solid 版 r=10）、stroke 2px、round caps、
-圓心 (12,12)、波峰 y=10.2（視覺中心略上移）、波基線 y=13.6。
+一道被風掃過的浪：實心浪頭 + 向後流動的訊號線。TENKI（天気）= 內在天氣，浪就是內在天氣的形狀。
+單一 path 實心 glyph（1024×1024 viewBox），**白色 on 深海軍藍為 canonical**。
 
 ### 18.2 Canonical source（master → 衍生）
 
 | 檔案 | 角色 |
 |------|------|
-| `docs/assets/brand/tenki-mark.svg` | **Outline master**（currentColor，≥32px 用） |
-| `docs/assets/brand/tenki-mark-solid.svg` | **Solid master**（wave knockout，≤24px / icon 用） |
-| `apps/mobile/assets/icon.png` | App icon：gold solid mark on deep-space `#0B0E1E`（1024²） |
-| `apps/mobile/assets/adaptive-icon.png` | Android adaptive：gold solid mark on transparent |
-| `apps/mobile/assets/favicon.png` | White solid mark on transparent（48²） |
-| `apps/mobile/assets/splash-icon.png` | Gold outline mark on transparent（開場安靜版） |
-| `apps/preview/brand/index.html` | 視覺預覽頁 → `/preview/brand/` |
-| `docs/ICON-SYSTEM-BATCH1.md` + `docs/assets/icons/` | UI icon 系統（20 顆功能 icon，與 logo 同 DNA） |
+| `apps/preview/v6/index.html`（splash 區塊） | **原始定案出處**（含動畫規格） |
+| `docs/assets/brand/tenki-mark.svg` | SVG master（currentColor，從 v6 splash 抽出） |
+| `apps/mobile/assets/icon.png` | App icon：白 mark on 海軍藍漸層 `#0A1628→#050A14`（1024²） |
+| `apps/mobile/assets/adaptive-icon.png` | Android adaptive：白 mark on transparent |
+| `apps/mobile/assets/favicon.png` | 白 mark on transparent（48²） |
+| `apps/mobile/assets/splash-icon.png` | 白 mark on transparent（開場用） |
+| `apps/preview/brand/index.html` | 品牌預覽頁 → `/preview/brand/` |
+| `docs/ICON-SYSTEM-BATCH1.md` + `docs/assets/icons/` | UI icon 系統（20 顆功能 icon，獨立於 logo） |
 
 衍生資產一律從 SVG master 重新輸出，不要手改 PNG。
 
-### 18.3 Variants 與雙世界規則
+### 18.3 Lockup（三段式，規格不可改）
 
-- **Mono `rgba(255,255,255,0.92)` = 預設**（與 icon system 一致，monochrome-first）。
-- **Cyan `#3DE0FF`** 只用於 ACTIVE 語境（掃描、設定、引導）。
-- **Gold `#FFD27A`** 只用於 SECURED 語境（成功、信任、成熟度）與 app icon。
-- Solid 版用於 ≤24px 與 app icon；outline 版最小 32px。
-- Stroke 內不放漸層（小尺寸會糊）；不旋轉、不變形、不加 3D / 內陰影 / 外發光。
+```
+        [mark]                ← 白，breathing 動畫
+        TENKI                 ← SF Pro Display・weight 200・letter-spacing 0.32em・#FFFFFF
+        CORE                  ← weight 600・letter-spacing 0.4em・#00B4D8 + cyan glow
+                                 text-shadow: 0 0 16px rgba(0,180,216,0.4)
+  Return to baseline.
+  Find your turning point.    ← tagline・rgba(255,255,255,0.65)・letter-spacing 0.05em
+```
 
-### 18.4 Wordmark 與 Lockups
+### 18.4 色彩與動態
 
-- Wordmark：`TENKI` 全大寫、geometric sans（SF Pro Display / 系統字）、weight 600、
-  字距 display 尺寸 0.4em（app 內 14px 對應 tracking 6 — 即 `BrandWordmark` 現值）。
-- Lockups：mark+wordmark 橫式（行銷/文件）、直式（splash/開場）、wordmark 單獨（app 內頂欄）、
-  mark 單獨（icon/favicon/avatar）。
-- Clear space：mark 高度的 25%（四周）。
+- Canonical：白 mark on `linear-gradient(180deg, #0A1628, #050A14)`（v6 splash 背景）。
+- Cyan `#00B4D8` 僅用於 CORE 字與 ACTIVE 語境點綴；gold 僅用於 SECURED 語境點綴。
+- 動態（v6 splash 既定）：入場 900ms `cubic-bezier(0.2,0.7,0.3,1)` scale 0.94→1；
+  待機 6s 呼吸 scale 1↔1.015；wordmark 750ms 延遲入場、CORE 950ms。
+- Clear space = mark 高度 25%；淺底用 Navy `#0A1628` 單色版。
 
-### 18.5 Rules（不變）
+### 18.5 Rules（給所有 AI 協作者）
 
-- Do not redesign, replace, or reinterpret the mark, app icon, wordmark, favicon,
-  or icon system unless the user explicitly asks for a brand refresh.
-- Brand continuity is more important than novelty.
-- Reuse existing brand assets whenever possible; extend from the existing visual
-  language instead of inventing a new one.
-- Do not swap in generic AI-style gradients, random symbols, or unrelated marks.
-- Do not create a second competing "official" logo system.
-- 若不確定該用現有資產還是做新的 → 先用現有資產，並先問 founder。
-
----
+- **Logo 已定案** — do not redesign, redraw, restyle, outline-ify, or reinterpret the mark,
+  wordmark, CORE sub-brand, or tagline unless the founder explicitly asks for a brand refresh.
+- 衍生新資產（行銷圖、icon、splash）一律從 `docs/assets/brand/tenki-mark.svg` 出發。
+- 不加 3D、漸層填色、外發光（CORE 字的既定 glow 除外）、不改浪形。
+- Do not create a second competing logo system; 探索版/佔位符不得復用。
+- 若不確定 → 先用現有資產，並先問 founder。
 
 ## Appendix A — Safe Copy Examples
 
