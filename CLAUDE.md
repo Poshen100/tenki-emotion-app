@@ -7,6 +7,7 @@
 **TENKI CORE 是 privacy-first cognitive wellness app**，不是 trading app。輸出是 readiness/clarity 訊號，不是交易建議。
 
 - **核心指標**：Decision Edge Score (0-100)
+- **掃描主入口**：Soul Scan（臉部基線）— 方向定調見 `docs/SOUL-SCAN-NORTH-STAR.md`（必讀）；finger PPG 退為校準/補強層，不要把臉部流程塞進 `(tabs)/scan.tsx`
 - **3 Zone**：Clear (70-100) / Neutral (40-69) / Strain (0-39)
 - **2 Tier**：Free / Premium
 - **資料策略**：Local-first + Cloud-minimal（raw biometric 不上雲）

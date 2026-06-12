@@ -266,7 +266,8 @@ All physiological data remains on your device.
 
 ## 11. 視覺品牌語言方向
 
-詳細圖標與視覺資產見 `docs/ICON-SYSTEM-BATCH1.md`。  
+**定案 logo / lockup / app icon 規格見 `ANTIGRAVITY.md` §18（SVG master：`docs/assets/brand/tenki-mark.svg`，預覽：`/preview/brand/`）。**
+詳細 UI 圖標系統見 `docs/ICON-SYSTEM-BATCH1.md`。  
 以下為文字方向原則，供 AI agent 和設計師參考。
 
 ### 視覺語調

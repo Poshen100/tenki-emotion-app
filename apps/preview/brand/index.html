@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TENKI — Brand System</title>
+<style>
+  :root {
+    --navy-top: #0A1628;
+    --navy-bot: #050A14;
+    --core-cyan: #00B4D8;
+    --gold: #FFD27A;
+    --text: #FFFFFF;
+    --text2: rgba(255,255,255,0.65);
+    --text3: #5A6178;
+    --hairline: rgba(255,255,255,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background:
+      radial-gradient(ellipse 60% 45% at 30% 30%, rgba(0,180,216,0.08), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 70% 70%, rgba(94,204,197,0.06), transparent 60%),
+      linear-gradient(180deg, var(--navy-top) 0%, var(--navy-bot) 100%);
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+    min-height: 100vh;
+    padding: 48px 24px 96px;
+  }
+  .page { max-width: 720px; margin: 0 auto; }
+  .kicker { font-size: 12px; letter-spacing: 4px; color: var(--text3); text-transform: uppercase; }
+  h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin: 8px 0 4px; }
+  .sub { color: var(--text2); font-size: 15px; line-height: 1.55; }
+  section { margin-top: 56px; }
+  h2 { font-size: 13px; font-weight: 700; letter-spacing: 2.5px; color: var(--text3); text-transform: uppercase; margin-bottom: 20px; }
+
+  .hero { display: flex; flex-direction: column; align-items: center; padding: 64px 0 48px; text-align: center; }
+  .hero .mark { width: 148px; height: 148px; color: #FFFFFF; }
+  .hero .wordmark { margin-top: 40px; font-weight: 200; font-size: 44px; letter-spacing: 0.32em; text-indent: 0.32em; line-height: 1; }
+  .hero .corex { margin-top: 12px; font-weight: 600; font-size: 17px; letter-spacing: 0.4em; text-indent: 0.4em; color: var(--core-cyan); text-shadow: 0 0 16px rgba(0,180,216,0.4); }
+  .hero .line { margin-top: 28px; font-size: 14px; color: var(--text2); letter-spacing: 0.05em; line-height: 1.55; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  .cell { border: 1px solid var(--hairline); border-radius: 18px; padding: 26px 12px 16px; text-align: center; background: rgba(255,255,255,0.02); }
+  .cell svg { width: 64px; height: 64px; }
+  .cell .label { margin-top: 14px; font-size: 11px; letter-spacing: 1px; color: var(--text3); text-transform: uppercase; }
+
+  .story p { color: var(--text2); font-size: 15px; line-height: 1.7; margin-bottom: 14px; }
+  .story b { color: var(--text); font-weight: 600; }
+
+  .iconrow { display: flex; gap: 18px; align-items: flex-end; flex-wrap: wrap; }
+  .appicon { width: 96px; height: 96px; border-radius: 22px; background: linear-gradient(180deg, var(--navy-top), var(--navy-bot)); border: 1px solid var(--hairline); display: flex; align-items: center; justify-content: center; }
+  .appicon svg { width: 62px; height: 62px; color: #FFFFFF; }
+  .sizes { display: flex; gap: 22px; align-items: flex-end; }
+  .sizes .s { text-align: center; }
+  .sizes .s .label { font-size: 10px; color: var(--text3); margin-top: 8px; }
+
+  .rule { display: flex; gap: 12px; margin-bottom: 12px; font-size: 14px; line-height: 1.6; color: var(--text2); }
+  .rule .ok { color: #46E0B0; } .rule .no { color: #FF6B6B; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker">TENKI CORE · Brand — 定案版</div>
+  <h1>TENKI 風浪 Mark</h1>
+  <p class="sub">Founder 定案的正式品牌標誌（canonical source：v6 splash）。一道被風掃過的浪 — 內在天氣的形狀。</p>
+
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <g id="tenki-mark">
+        <g transform="translate(126.15, 66.09) scale(1.8886)">
+          <path d="M64.9,362.4 C83.1,358.0 94.3,353.5 130.5,335.5 C189.4,306.3 211.2,298.9 241.3,297.8 L250.2,297.5 242.6,290.3 C226.2,274.5 209.3,274.9 172.2,291.9 C90.7,329.4 80.5,333.3 56.7,336.7 L44.1,338.6 48.6,347.9 C53.4,358.0 56.8,364.0 57.8,364.0 C58.1,364.0 61.3,363.3 64.9,362.4 Z M366.0,305.2 C377.0,301.6 376.5,302.7 376.8,283.3 C377.8,232.6 361.4,192.3 325.1,155.9 C304.2,135.0 273.0,118.8 240.5,111.9 C223.1,108.2 185.8,108.4 167.6,112.3 C132.4,119.9 95.1,141.4 73.6,166.6 C57.1,186.0 42.4,214.2 37.1,237.0 C35.3,244.8 35.3,244.8 40.0,245.4 C59.7,248.0 81.6,239.9 125.0,214.0 C165.7,189.7 188.9,181.7 214.0,183.4 C240.9,185.1 254.6,196.3 258.7,219.6 C260.5,230.2 266.8,248.8 272.1,259.0 C290.2,293.8 334.1,315.4 366.0,305.2 Z M64.7,300.6 C82.5,294.8 90.4,291.2 132.5,269.5 C157.4,256.6 205.7,233.8 212.8,231.5 C218.7,229.6 218.6,228.8 212.3,224.9 C209.3,223.0 207.8,222.8 200.2,223.3 C184.8,224.1 161.3,233.5 106.0,261.0 C73.8,276.9 57.7,282.0 39.5,282.0 C30.8,282.0 30.8,282.0 31.4,285.8 C31.7,287.8 32.2,292.4 32.6,296.0 C32.9,299.6 33.5,302.9 33.7,303.4 C34.9,305.3 56.2,303.4 64.7,300.6 Z" fill="currentColor" stroke="none"/>
+        </g>
+      </g>
+    </defs>
+  </svg>
+
+  <div class="hero">
+    <svg class="mark" viewBox="0 0 1024 1024"><use href="#tenki-mark"/></svg>
+    <div class="wordmark">TENKI</div>
+    <div class="corex">CORE</div>
+    <div class="line">Return to baseline.<br>Find your turning point.</div>
+  </div>
+
+  <section class="story">
+    <h2>概念</h2>
+    <p><b>風掃過的浪</b> — TENKI（天気）讀的是你的內在天氣。實心的浪頭是當下的狀態，向後流動的線是訊號的軌跡與節律。白色 on 深海軍藍是 canonical 配色。</p>
+    <p>三段式 lockup：mark → <b>TENKI</b>（SF Pro Display・weight 200・字距 0.32em・白）→ <b>CORE</b>（weight 600・字距 0.4em・<span style="color:var(--core-cyan)">#00B4D8</span> + cyan glow）。</p>
+  </section>
+
+  <section>
+    <h2>Variants</h2>
+    <div class="grid">
+      <div class="cell"><svg viewBox="0 0 1024 1024" style="color:#FFFFFF"><use href="#tenki-mark"/></svg><div class="label">White · Canonical</div></div>
+      <div class="cell"><svg viewBox="0 0 1024 1024" style="color:var(--core-cyan)"><use href="#tenki-mark"/></svg><div class="label">Cyan · Active 點綴</div></div>
+      <div class="cell"><svg viewBox="0 0 1024 1024" style="color:var(--gold)"><use href="#tenki-mark"/></svg><div class="label">Gold · Secured 點綴</div></div>
+      <div class="cell" style="background:#F4F6FF"><svg viewBox="0 0 1024 1024" style="color:#0A1628"><use href="#tenki-mark"/></svg><div class="label" style="color:#5A6178">Navy on Light</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>App Icon 與最小尺寸</h2>
+    <div class="iconrow">
+      <div class="appicon"><svg viewBox="0 0 1024 1024"><use href="#tenki-mark"/></svg></div>
+      <div class="sizes">
+        <div class="s"><svg viewBox="0 0 1024 1024" width="48" height="48" style="color:#fff"><use href="#tenki-mark"/></svg><div class="label">48</div></div>
+        <div class="s"><svg viewBox="0 0 1024 1024" width="32" height="32" style="color:#fff"><use href="#tenki-mark"/></svg><div class="label">32</div></div>
+        <div class="s"><svg viewBox="0 0 1024 1024" width="24" height="24" style="color:#fff"><use href="#tenki-mark"/></svg><div class="label">24</div></div>
+        <div class="s"><svg viewBox="0 0 1024 1024" width="16" height="16" style="color:#fff"><use href="#tenki-mark"/></svg><div class="label">16</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>使用規則</h2>
+    <div class="rule"><span class="ok">✓</span><span>白色 on 深海軍藍（#0A1628→#050A14）為 canonical；cyan / gold 僅作語境點綴。</span></div>
+    <div class="rule"><span class="ok">✓</span><span>動態：入場 900ms cubic-bezier(0.2,0.7,0.3,1)、待機 6s 呼吸 scale 1.015 — 與 v6 splash 一致。</span></div>
+    <div class="rule"><span class="ok">✓</span><span>Clear space = mark 高度的 25%；wordmark 與 CORE 的字距規格不可改。</span></div>
+    <div class="rule"><span class="no">✗</span><span>不重繪、不描邊化、不改浪的形狀、不加 3D / 漸層填色 / 外發光（CORE 字的 glow 除外）。</span></div>
+    <div class="rule"><span class="no">✗</span><span>不與任何舊資產（Expo 佔位符、探索版圓形 mark）混用。</span></div>
+  </section>
+
+</div>
+</body>
+</html>
