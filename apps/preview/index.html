@@ -64,7 +64,7 @@
     <section id="step-readiness" class="step">
       <div class="step-content readiness-step">
         <div class="step-kicker">BASELINE SETUP</div>
-        <h1 class="step-headline" id="readiness-title">先把鏡頭蓋對</h1>
+        <h1 class="step-headline" id="readiness-title">Environment Calibration</h1>
         <p class="step-body" id="readiness-body">這一步做得越準，後面的基線越穩。先看 2 秒示範，再照著動態提示放好手指。</p>
 
         <div class="perfect-cover-card" id="perfect-cover-card">
@@ -128,6 +128,11 @@
 
           <div class="readiness-preview-wrap">
             <div class="readiness-preview-target" aria-hidden="true"></div>
+            <div class="env-pills" id="env-pills">
+              <span class="env-pill" id="pill-lighting"><span class="env-pill-ic">&#9728;&#65039;</span><span class="env-pill-label">Lighting</span><span class="env-pill-dot" data-ok="0">&#10005;</span></span>
+              <span class="env-pill" id="pill-distance"><span class="env-pill-ic">&#128207;</span><span class="env-pill-label">Distance</span><span class="env-pill-dot" data-ok="0">&#10005;</span></span>
+              <span class="env-pill" id="pill-stability"><span class="env-pill-ic">&#9995;</span><span class="env-pill-label">Stability</span><span class="env-pill-dot" data-ok="0">&#10005;</span></span>
+            </div>
             <div class="readiness-camera-preview" id="readiness-camera-container" data-state="neutral">
               <video class="readiness-video" id="readiness-video" playsinline muted autoplay></video>
               <div class="readiness-camera-glow" aria-hidden="true"></div>
@@ -179,6 +184,7 @@
           </div>
         </div>
 
+        <p class="env-instruction">Find a quiet spot with good lighting.</p>
         <p class="readiness-success-note" id="readiness-success-note">我們只在理想覆蓋時建立 baseline，讓你的 reference 更穩。</p>
 
         <button class="btn-primary" id="btn-start-scan" disabled onclick="goToStep(2)">等待就緒...</button>

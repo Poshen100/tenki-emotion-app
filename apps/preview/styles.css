@@ -2213,3 +2213,49 @@ body,
   letter-spacing: 0.4px;
   color: var(--tenki-text-secondary);
 }
+
+/* ── Screen A: Environment Calibration (readiness) ── */
+.readiness-preview-wrap { position: relative; }
+.env-pills {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.env-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  background: var(--tenki-badge-bg);
+  color: var(--tenki-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.env-pill-ic { font-size: 14px; }
+.env-pill-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: #e5484d;
+}
+.env-pill-dot[data-ok="1"] { background: #2fbf71; }
+.env-instruction {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--tenki-text-secondary);
+}
