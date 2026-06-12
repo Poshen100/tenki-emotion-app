@@ -2191,3 +2191,25 @@ body,
   color: rgba(255, 255, 255, 0.85);
   transform: none;
 }
+
+/* ── Screen B: Establish Your Baseline (intro) ── */
+.intro-headline {
+  color: var(--tenki-text-primary);
+  font-size: 34px;
+  line-height: 1.18;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+#step-intro .step-body,
+#step-intro .step-subtext {
+  color: var(--tenki-text-secondary);
+}
+.time-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 28px;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  color: var(--tenki-text-secondary);
+}
