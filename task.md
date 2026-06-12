@@ -63,7 +63,7 @@ Three reference screenshots define the accepted TENKI visual language. Do not de
 
 - [x] **Environment Calibration screen**: Implement 3-badge status pills (Lighting / Distance / Stability) with pass/fail states. Badge style per Screen A above. CTA unlocks only when all 3 pass.
 - [x] **Baseline intro screen**: Match Screen B — deep navy+purple starfield bg, bold white headline, subtitle, `⏱ 60 Seconds` + gradient glow CTA button.
-- [ ] **Baseline capture screen**: Match Screen C — circular progress ring (blue), gold rounded-square frame with corner accents, stardust particle overlay, progress bar + `🔒 PRIVACY SECURED`, large instruction text at bottom.
+- [x] **Baseline capture screen**: Match Screen C — circular progress ring (blue), gold rounded-square frame with corner accents, stardust particle overlay, progress bar + `🔒 PRIVACY SECURED`, large instruction text at bottom.
 
 ### Priority 2 — Global visual consistency
 

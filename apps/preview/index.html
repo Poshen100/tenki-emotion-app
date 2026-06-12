@@ -212,6 +212,7 @@
       </div>
 
       <div class="step-content scan-content">
+        <div class="capture-kicker">Baseline Capture Phase</div>
         <!-- Frosted glass dialog (Phase 1 gathering) — 極致磨砂液態玻璃 -->
         <div class="ceremony-dialog" id="ceremony-dialog">
           <span class="ceremony-dialog-dot"></span>
@@ -222,6 +223,8 @@
         </div>
 
         <!-- Finger target: live camera + silhouette + pulsing halo + progress ring -->
+        <div class="capture-frame" id="capture-frame">
+          <span class="cf-corner cf-tl"></span><span class="cf-corner cf-tr"></span><span class="cf-corner cf-bl"></span><span class="cf-corner cf-br"></span>
         <div class="scan-ring-container" id="scan-ring-container">
           <!-- Live rear-camera feed (shows the user's finger covering the lens).
                When permission is granted, `.camera-active` is toggled on the
@@ -286,6 +289,8 @@
           </div>
         </div>
 
+        </div>
+
         <!-- Quality + signal telemetry (Phase 2) -->
         <div class="scan-telemetry" id="scan-telemetry">
           <div class="quality-badge quality-weak" id="quality-badge">
@@ -309,6 +314,9 @@
             <span class="ppg-bar"></span>
           </div>
         </div>
+
+        <div class="capture-ruler" aria-hidden="true"></div>
+        <div class="privacy-secured">&#128274; PRIVACY SECURED</div>
 
         <!-- Coverage guidance (prominent face alignment instruction) -->
         <div class="scan-guidance" id="scan-guidance">

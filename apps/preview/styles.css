@@ -2259,3 +2259,66 @@ body,
   font-size: 14px;
   color: var(--tenki-text-secondary);
 }
+
+/* ── Screen C: Baseline Capture Phase (scan) ── */
+.capture-kicker {
+  position: relative;
+  z-index: 3;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--tenki-text-primary);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.capture-frame {
+  position: relative;
+  display: inline-block;
+  padding: 18px;
+  border-radius: 36px;
+  border: 1.5px solid var(--tenki-accent-gold);
+  box-shadow:
+    0 0 18px rgba(201, 123, 47, 0.35),
+    inset 0 0 14px rgba(201, 123, 47, 0.12);
+}
+.cf-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--tenki-accent-gold);
+  filter: drop-shadow(0 0 6px rgba(201, 123, 47, 0.6));
+}
+.cf-tl { top: -2px; left: -2px; border-right: 0; border-bottom: 0; border-top-left-radius: 36px; }
+.cf-tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; border-top-right-radius: 36px; }
+.cf-bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; border-bottom-left-radius: 36px; }
+.cf-br { bottom: -2px; right: -2px; border-left: 0; border-top: 0; border-bottom-right-radius: 36px; }
+
+.scan-ring-progress { stroke: var(--tenki-accent-blue); }
+
+.capture-ruler {
+  width: min(280px, 70vw);
+  height: 10px;
+  margin: 14px auto 0;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.35) 0 1px,
+    transparent 1px 10px
+  );
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+.privacy-secured {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--tenki-text-secondary);
+}
+.scan-status {
+  font-size: 26px;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--tenki-text-primary);
+}
