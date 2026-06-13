@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TENKI CORE — Soul Scan Enrollment</title>
+  <meta name="description" content="TENKI CORE Face Baseline enrollment — Face ID-grade precision, stardust soul.">
+  <meta name="theme-color" content="#030407">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* ── TENKI face-baseline tokens (mirrors faceBaseline.tokens.ts) ── */
+    :root {
+      --deep-space: #030407;
+      --nebula-top: #1E124D;
+      --cyan-glow: #00F0FF;
+      --electric-blue: #3399FF;
+      --gold-resonance: #F3A92A;
+      --gold-soft: #FFC85E;
+      --gold-champagne: #FFE9B0;
+      --lock-mint: #00E699;
+      --text-primary: #FFFFFF;
+      --text-secondary: #9BA4C4;
+      --text-tertiary: #5C6485;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      background: var(--deep-space);
+      font-family: 'Inter', -apple-system, system-ui, sans-serif;
+      color: var(--text-primary);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    #stage {
+      position: relative;
+      width: 100vw; height: 100vh;
+      max-width: 460px; margin: 0 auto;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: space-between;
+      background:
+        radial-gradient(120% 80% at 50% -10%, rgba(30,18,77,0.55), transparent 60%),
+        radial-gradient(90% 60% at 50% 110%, rgba(243,169,42,0.06), transparent 55%),
+        var(--deep-space);
+    }
+    /* ── starfield ── */
+    #starfield { position: absolute; inset: 0; pointer-events: none; }
+
+    /* ── top precision indicators ── */
+    #indicators {
+      position: relative; z-index: 3;
+      display: flex; gap: 10px;
+      margin-top: 64px;
+      opacity: 0; transition: opacity .5s ease;
+    }
+    .pindicator {
+      display: flex; align-items: center; gap: 7px;
+      padding: 7px 13px 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      font-size: 11px; letter-spacing: 0.4px;
+      color: var(--text-secondary);
+      transition: all .4s ease;
+    }
+    .pindot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--text-tertiary);
+      box-shadow: 0 0 0 rgba(0,0,0,0);
+      transition: all .4s ease;
+    }
+    .pindot.on {
+      background: var(--lock-mint);
+      box-shadow: 0 0 10px rgba(0,230,153,0.8);
+    }
+    .pindot.on + span { color: var(--text-primary); }
+
+    /* ── center scan area ── */
+    #scan-area {
+      position: relative; z-index: 2;
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      width: 100%;
+    }
+    #scan-canvas { position: relative; z-index: 2; }
+
+    /* ── bottom copy ── */
+    #copy {
+      position: relative; z-index: 3;
+      text-align: center; padding: 0 32px 58px;
+      width: 100%;
+    }
+    #instruction {
+      font-size: 30px; font-weight: 800; letter-spacing: -0.5px;
+      line-height: 1.15; min-height: 38px;
+      transition: opacity .3s ease;
+    }
+    #subtitle {
+      margin-top: 12px; font-size: 14px; font-weight: 400;
+      color: var(--text-secondary); line-height: 1.45; min-height: 20px;
+      transition: opacity .3s ease;
+    }
+    /* progress meter */
+    #meter {
+      margin: 22px auto 0; width: 220px; height: 4px;
+      border-radius: 999px; background: rgba(255,255,255,0.08);
+      overflow: hidden; opacity: 0; transition: opacity .4s ease;
+    }
+    #meter-fill {
+      height: 100%; width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--cyan-glow), var(--gold-soft));
+      transition: width .12s linear;
+    }
+    /* CTA */
+    #cta {
+      margin-top: 30px;
+      display: inline-block;
+      padding: 16px 40px; border: none; border-radius: 999px;
+      font-family: inherit; font-size: 16px; font-weight: 700; color: #021018;
+      background: linear-gradient(120deg, #56E8FF, #4DA6FF 55%, #7B61FF);
+      box-shadow: 0 8px 30px rgba(0,200,255,0.32);
+      cursor: pointer; transition: transform .15s ease, opacity .3s ease;
+    }
+    #cta:active { transform: scale(0.97); }
+    #cta.hidden { display: none; }
+    .pill-secured {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-bottom: 18px; padding: 6px 12px; border-radius: 999px;
+      background: rgba(243,169,42,0.10); border: 1px solid rgba(243,169,42,0.25);
+      font-size: 10.5px; letter-spacing: 1.4px; font-weight: 600;
+      color: var(--gold-champagne); opacity: 0; transition: opacity .4s ease;
+    }
+    .pill-secured.on { opacity: 1; }
+    #restart {
+      position: absolute; top: 22px; right: 22px; z-index: 5;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text-secondary); border-radius: 999px;
+      padding: 7px 14px; font-size: 12px; font-family: inherit; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="starfield"></canvas>
+    <button id="restart" onclick="TENKI_ENROLL.restart()">Restart</button>
+
+    <div id="indicators">
+      <div class="pindot-wrap pindot-light pindot-row"></div>
+    </div>
+
+    <div id="scan-area">
+      <canvas id="scan-canvas" width="640" height="640"></canvas>
+    </div>
+
+    <div id="copy">
+      <div class="pill-secured" id="securedPill">&#128274; PRIVACY SECURED · ON-DEVICE</div>
+      <h1 id="instruction">Create your Face Baseline.</h1>
+      <p id="subtitle">This helps TENKI recognize your natural steady state with higher precision.</p>
+      <div id="meter"><div id="meter-fill"></div></div>
+      <button id="cta" onclick="TENKI_ENROLL.begin()">Begin</button>
+    </div>
+  </div>
+
+  <script src="soul-enroll.js"></script>
+</body>
+</html>
