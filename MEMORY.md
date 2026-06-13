@@ -1,3 +1,24 @@
+# 2026-06-13 Session Update (上線 + 手持卡頓 hotfix：#89/#90 已 merge 進 main)
+
+> Branch `claude/face-baseline-enrollment-9cacp6`。這次把前面兩段（門面 + Model B 旅程）開 PR、收 founder 手機回饋、修 bug、上線。
+
+## What was done
+1. **PR #89** = 門面（真鏡頭 live gates）+ Model B 全程旅程 + 金色 processing 頁 + mobile parity → squash-merge 進 `main`（CI 全綠）。
+2. **Founder iPhone 回饋**：`/preview/` 卡在第二頁（環境檢查）— Lighting✓ Centering✓ 但 **Stillness 永遠灰**，三燈無法同時亮 → 流程不前進（「只有兩頁」）。
+3. **手持 hotfix（PR #90，已 merge `a2441a7`）**：`soul-enroll.js` 的 motion 門檻對手持太嚴（`motion = 每像素平均亮度差 / 40`，Stillness 要 ≤0.16 = 平均差 ≤6.4，手機微震永遠超過）。放寬 `motionStill 0.16→0.40`、`motionNeutral 0.15→0.36`、`motionStability 0.13→0.30`、`motionArc 0.36→0.62`；`ENV_HOLD_MS 1500→1100`；新增 `ENV_FALLBACK_MS=6000`（Lighting 過且停留 >6s 就自動前進 → ceremony **永不 dead-end**）。門檻仍有反應（遮鏡頭 Lighting 紅、大動作 Stillness 跳）。
+
+### ⚠️ LESSONS（寫進來避免重犯）
+- **CI 不涵蓋 `apps/preview/**`**：`ci.yml` 只測 `packages/** + domain + apps/mobile`；`biome.json` 的 `files.includes` 也只有那三個。所以 preview 壞掉 CI 不會抓到 → **preview 改動一律手機實走驗證**，別靠 CI 綠燈當保證。
+- **GOTCHA：#89 在我推 hotfix 之前就被 squash-merge** → 修正落在已關閉的分支、不在 main、CI 不會跑（PR 已 closed）→ 只好開 catch-up PR #90。教訓：preview 類改動最好在 founder merge 前就 push 完整；或預期會有補丁 PR。
+- **Vercel deployment protection**：分支 preview 與正式站 `vercel.app/preview/` 匿名抓都 403，無法用 WebFetch 驗證部署內容；founder 是登入狀態才看得到。要程式化驗證得用 Vercel MCP（需授權）。
+
+## Next session（接手點）
+1. 收 founder 在 iPhone 確認 `/preview/` 整條（環境 → lock → neutral/arc/stability → processing 金球 → Baseline locked → 基線數據 → v6）順走。
+2. 若手持門檻還是太鬆/太緊，微調 `T.motion*`（檔案 `apps/preview/soul-enroll.js`）。
+3. （選做）v6 揭曉分數依即時品質浮動 + 清 `tlTlTlTeiScore` 命名；原生 vision-camera（需 Mac）。
+
+---
+
 # 2026-06-13 Session Update (Model B 全程串接：基線 → 掃描 → 結果，導入 v6)
 
 > Branch `claude/face-baseline-enrollment-9cacp6`。承上：soul-enroll 之前停在「Baseline locked.」就沒了。本次把第一次的完整 Model B 旅程串起來。
