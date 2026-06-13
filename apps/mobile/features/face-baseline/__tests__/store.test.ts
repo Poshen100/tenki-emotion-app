@@ -84,8 +84,12 @@ describe('selectors', () => {
   it('selectTotalProgress uses processing progress while processing, else weighted capture', () => {
     const s = useFaceBaselineStore.getState();
     s.setNeutralProgress(1);
-    s.setMotionProgress(0);
-    expect(selectTotalProgress(useFaceBaselineStore.getState())).toBeCloseTo(0.6);
+    s.setArcProgress(0);
+    s.setStabilityProgress(0);
+    expect(selectTotalProgress(useFaceBaselineStore.getState())).toBeCloseTo(0.5);
+    s.setArcProgress(1);
+    s.setStabilityProgress(1);
+    expect(selectTotalProgress(useFaceBaselineStore.getState())).toBeCloseTo(1);
     s.setProcessing('running', 0.42);
     s.goTo('processing');
     expect(selectTotalProgress(useFaceBaselineStore.getState())).toBeCloseTo(0.42);

@@ -1,3 +1,28 @@
+# 2026-06-13 Session Update (Face Baseline Enrollment — FSM 拆分 + 品質閘 + preview ceremony)
+
+> Branch `claude/face-baseline-enrollment-7bmdmp`，7 commits（commit-per-todo）。落地 SOUL-SCAN-NORTH-STAR §6 step 2 的「雲端可做」邏輯層。
+
+## What was done
+1. **FSM 拆分（North Star §5 缺口）**：`motion_capture` → `arc_left` / `arc_right`，新增 `stability_pass`。
+   流程 `neutral → arc_left → arc_right → stability_pass → processing`。新事件 `ARC_LEFT_DONE / ARC_RIGHT_DONE / STABILITY_DONE`（刪 `MOTION_DONE`）。`RESUME_TARGET` + `partialRetryPhase` 擴充：arc 失敗保留 neutral，stability 失敗保留 neutral+arc（局部重掃不整套重來）。
+2. **QualityMetrics 擴充**：加 6 個臉部信號 `landmarkConfidence / headPoseRange / lightingUniformity / eyeVisibility / neutralExpressionConfidence / totalBaselineConfidence`。
+3. **Per-phase 品質閘**：`neutralGate / arcGate / stabilityGate`，每個有 `{ strict }` —**第一次基線比日常嚴格**（`STRICT_DELTA=0.08`，North Star 鐵律 2）。`deriveQualityStatus` 加 arc `poseRange` nudge（arc 容忍轉頭、ceiling 0.6）。`totalBaselineConfidence` 聚合 6 信號（權重和=1）。`captureProgress` 重新加權 neutral .5 / arc .3 / stability .2。
+4. **Screens/routes**：`BaselineCaptureMotionScreen` → `BaselineCaptureArcScreen`（arc_left→arc_right 單條閉合光弧 + 單一指令 turn left/right/return to center）；新增 `BaselineCaptureStabilityScreen`（一次自然呼吸）。route `capture-arc` / `capture-stability`。copy 走 compliance（不用「emotion」字眼）。
+5. **測試**：mobile 4 suites 49 tests 全綠；`npx tsc --noEmit` exit 0；改動檔 biome 0 warning。
+6. **Preview ceremony（給 founder 手機看）**：`/preview/soul-enroll.html`（+`.js`）獨立頁，自包含 canvas 星塵 mesh + 閉合金弧 + 3 個 precision indicators，cyan ACTIVE → gold SECURED，完成時粒子收束成核心 + `Baseline locked.`。對應 mobile FSM。DEPLOYMENT_MAP(.md/.json) 已登錄。
+
+### Notes / gotchas
+- 既有 finger ceremony `apps/preview/baseline-onboarding.js`（2000 行、iOS OOM 調校）**沒有**臉部 arc 流程，且改它風險高 → 改開獨立 `soul-enroll.html`，較安全也更貼合「感受 Face ID arc」的目標。
+- 容器是乾淨 clone，root 與 apps/mobile 的 `node_modules` 都要各自 `npm ci`（mobile 不在 root workspaces）。`npx biome` 會誤抓到無關的 `biome@0.3.3`；要用 root 的 `./node_modules/.bin/biome`（@biomejs/biome 2.4.16）。biome 設定忽略 `apps/preview`。
+- 仍未做（需 Mac，North Star §6 step 4）：vision-camera 真臉部偵測餵 6 信號、Skia halo gradient path、Reanimated 3。screens 目前用 timer mock 驅動（與既有 capture screen 同模式），契約不變、之後可換真信號。
+
+## Next session（接手點）
+1. 原生 session（Mac）：`useFaceDetector` frame processor → 真 landmarks → 真 6 信號餵 per-phase gate；Skia 化 halo。
+2. 產品定位：把 `/face-baseline` 接成 onboarding 主入口；Scan tab 重定位為日常 Soul Scan（讀已建立 baseline），finger PPG 移校準層（North Star §6 step 3）。
+3. 收 founder 看 `/preview/soul-enroll.html` 的回饋再迭代節奏/文案。
+
+---
+
 # 2026-06-13 Session Update (準星重設計 + 視覺迭代收口)
 
 ## What was done（PR #84、#85 均由 founder merge）

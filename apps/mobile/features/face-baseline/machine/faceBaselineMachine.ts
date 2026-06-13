@@ -35,7 +35,9 @@ export type FaceBaselineEvent =
   | 'STABLE'
   | 'LOST'
   | 'NEUTRAL_DONE'
-  | 'MOTION_DONE'
+  | 'ARC_LEFT_DONE'
+  | 'ARC_RIGHT_DONE'
+  | 'STABILITY_DONE'
   | 'QUALITY_FAIL'
   | 'COMPUTED'
   | 'COMPUTE_ERROR'
@@ -66,13 +68,25 @@ export const FACE_BASELINE_TRANSITIONS: Record<MachineState, TransitionMap> = {
   face_detecting: { LOCKED: 'face_locked', TIMEOUT: 'retry_needed', CANCEL: 'exit' },
   face_locked: { STABLE: 'neutral_capture', LOST: 'face_detecting' },
   neutral_capture: {
-    NEUTRAL_DONE: 'motion_capture',
+    NEUTRAL_DONE: 'arc_left',
     QUALITY_FAIL: 'retry_needed',
     LOST: 'face_detecting',
     CANCEL: 'exit',
   },
-  motion_capture: {
-    MOTION_DONE: 'processing',
+  arc_left: {
+    ARC_LEFT_DONE: 'arc_right',
+    QUALITY_FAIL: 'retry_needed',
+    LOST: 'face_detecting',
+    CANCEL: 'exit',
+  },
+  arc_right: {
+    ARC_RIGHT_DONE: 'stability_pass',
+    QUALITY_FAIL: 'retry_needed',
+    LOST: 'face_detecting',
+    CANCEL: 'exit',
+  },
+  stability_pass: {
+    STABILITY_DONE: 'processing',
     QUALITY_FAIL: 'retry_needed',
     LOST: 'face_detecting',
     CANCEL: 'exit',

@@ -26,8 +26,12 @@ describe('faceBaselineMachine — happy path', () => {
     s = transition(s, 'STABLE');
     expect(s).toBe('neutral_capture');
     s = transition(s, 'NEUTRAL_DONE');
-    expect(s).toBe('motion_capture');
-    s = transition(s, 'MOTION_DONE');
+    expect(s).toBe('arc_left');
+    s = transition(s, 'ARC_LEFT_DONE');
+    expect(s).toBe('arc_right');
+    s = transition(s, 'ARC_RIGHT_DONE');
+    expect(s).toBe('stability_pass');
+    s = transition(s, 'STABILITY_DONE');
     expect(s).toBe('processing');
     s = transition(s, 'COMPUTED');
     expect(s).toBe('success');
@@ -43,8 +47,16 @@ describe('faceBaselineMachine — happy path', () => {
 describe('faceBaselineMachine — branches & recovery', () => {
   it('routes capture quality failures to recovery', () => {
     expect(transition('neutral_capture', 'QUALITY_FAIL')).toBe('retry_needed');
-    expect(transition('motion_capture', 'QUALITY_FAIL')).toBe('retry_needed');
+    expect(transition('arc_left', 'QUALITY_FAIL')).toBe('retry_needed');
+    expect(transition('arc_right', 'QUALITY_FAIL')).toBe('retry_needed');
+    expect(transition('stability_pass', 'QUALITY_FAIL')).toBe('retry_needed');
     expect(transition('processing', 'COMPUTE_ERROR')).toBe('retry_needed');
+  });
+
+  it('a lost lock during any capture sub-state returns to detection', () => {
+    expect(transition('arc_left', 'LOST')).toBe('face_detecting');
+    expect(transition('arc_right', 'LOST')).toBe('face_detecting');
+    expect(transition('stability_pass', 'LOST')).toBe('face_detecting');
   });
 
   it('recovery resumes the nearest phase, restart returns to intro', () => {
@@ -89,9 +101,13 @@ describe('faceBaselineMachine — invariants', () => {
 });
 
 describe('transitions — resume targets & partial retry', () => {
-  it('motion-phase failure resumes detection but keeps motion as the retry phase', () => {
-    expect(RESUME_TARGET.motion_capture).toBe('face_detecting');
-    expect(partialRetryPhase('motion_capture')).toBe('motion');
+  it('arc/stability failures resume detection but keep their own retry phase', () => {
+    expect(RESUME_TARGET.arc_left).toBe('face_detecting');
+    expect(RESUME_TARGET.arc_right).toBe('face_detecting');
+    expect(RESUME_TARGET.stability_pass).toBe('face_detecting');
+    expect(partialRetryPhase('arc_left')).toBe('arc');
+    expect(partialRetryPhase('arc_right')).toBe('arc');
+    expect(partialRetryPhase('stability_pass')).toBe('stability');
   });
 
   it('neutral/lock/detect failures retry the neutral phase', () => {

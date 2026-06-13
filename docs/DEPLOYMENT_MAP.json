@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-05-11",
+  "lastUpdated": "2026-06-13",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -26,6 +26,14 @@
       "purpose": "Baseline onboarding 6-step flow (PPG 第一次掃描)",
       "status": "active",
       "knownIssue": "iOS Safari OOM — hotfix/oom-ios-safari branch ready",
+      "editable": true
+    },
+    {
+      "route": "/preview/soul-enroll.html",
+      "url": "https://tenki-emotion-app.vercel.app/preview/soul-enroll.html",
+      "source": "apps/preview/soul-enroll.html",
+      "purpose": "Soul Scan face-baseline enrollment ceremony (Face ID-grade arc + stability, simulated). Mirrors apps/mobile/features/face-baseline FSM.",
+      "status": "active-dev",
       "editable": true
     },
     {

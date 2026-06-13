@@ -42,6 +42,7 @@ export const RETRY_COPY_KEY: Record<RetryReason, string> = {
   multipleFaces: 'recovery.multipleFaces',
   glasses: 'recovery.glasses',
   lostLock: 'recovery.lostLock',
+  poseOutOfRange: 'recovery.poseOutOfRange',
   timeout: 'recovery.timeout',
   computeError: 'recovery.computeError',
 } as const;
