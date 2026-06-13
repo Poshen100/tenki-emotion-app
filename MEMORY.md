@@ -1,3 +1,22 @@
+# 2026-06-13 Session Update (準星重設計 + 視覺迭代收口)
+
+## What was done（PR #84、#85 均由 founder merge）
+
+1. **Soul Lock 準星重設計（PR #84）**：founder 嫌舊準星難看 — 它是「虛線旋轉圈 + 十字箭頭 + `--` 殘影」的軍用 HUD 混合體。重設計為 Face-ID 級安靜 locus：96px 細環 + 四方位微點，等待白色呼吸（3.2s）、鎖定青色 bloom、訊號弱琥珀。十字箭頭全刪；計時改 300 字重、倒數前隱藏。
+2. **同輪精準化（PR #84）**：face 模式 JS 蓋掉英文標題的 bug 修正（`Environment Calibration` 保住）；就緒頁降噪（藏 finger 時代 stage chips 與重複標題，coach 氣泡 = 唯一即時指令）；全 cosmos 畫面補紫/粉/藍三層 CSS 星雲；intro 去圓章 icon。
+3. **黑屏遮擋修復（PR #85）**：掃描頁可捲動，但 `.scan-backdrop` 是 absolute — 跟著捲，95% 黑的 vignette 邊緣橫切畫面蓋住 banner/狀態列。改 `position: fixed` 釘 viewport + 黑度放軟 0.95→0.52。
+
+### Notes / gotchas
+- **scrollable step 裡的 `absolute inset:0` 覆蓋層都有同樣風險**（只蓋第一個視窗高、邊緣會滑進內容）— `.step::before/::after` 的星塵/星雲因為漸層淡出所以無感，但任何高對比 overlay 要用 fixed。
+- 準星等互動狀態的視覺現在集中在 styles.css 尾部的 override 區塊，調整大小/顏色/呼吸速度都是單行改動。
+
+## Next session
+1. 視覺回饋隨時繼續（founder 連續快速 merge，迭代節奏很順）。
+2. FSM 補缺口（雲端可做）：`arc_left/right`、`stability_pass`、QualityMetrics 擴充 + 測試。
+3. 原生 session（等 Mac）：vision-camera 真信號、Skia orb、實機 QA。
+
+---
+
 # 2026-06-12 Session Update (品牌定案入庫 + Soul Scan 定調 + /preview/ 視覺對齊)
 
 ## What was done（PR #81、#82 均已 merge）
