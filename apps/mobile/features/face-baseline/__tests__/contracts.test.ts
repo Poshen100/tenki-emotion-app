@@ -18,7 +18,7 @@ describe('haptics gating', () => {
 describe('retry copy keys', () => {
   const ALL_REASONS: RetryReason[] = [
     'lowLight', 'tooClose', 'tooFar', 'movement', 'noFace',
-    'multipleFaces', 'glasses', 'lostLock', 'timeout', 'computeError',
+    'multipleFaces', 'glasses', 'lostLock', 'poseOutOfRange', 'timeout', 'computeError',
   ];
 
   it('provides a non-empty copy key for every retry reason', () => {
@@ -32,7 +32,7 @@ describe('retry copy keys', () => {
 
 describe('token & copy invariants', () => {
   it('capture phase weights sum to 1', () => {
-    expect(PHASE_WEIGHTS.neutral + PHASE_WEIGHTS.motion).toBeCloseTo(1);
+    expect(PHASE_WEIGHTS.neutral + PHASE_WEIGHTS.arc + PHASE_WEIGHTS.stability).toBeCloseTo(1);
   });
 
   it('every maturity stage has a progress color', () => {
