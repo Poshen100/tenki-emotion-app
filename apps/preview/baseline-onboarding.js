@@ -161,7 +161,7 @@ function updateInstructions(type) {
         liveTitle: '照著提示把手指放到理想位置',
       }
     : {
-        title: '先把臉放對',
+        title: 'Environment Calibration',
         body: '臉部 baseline 仍在 beta。先把臉放正、補足光線，再讓系統確認穩定度。',
         demoTitle: 'Face beta 準備中',
         demoBody: '目前這個 step 先用 checklist 幫你對齊光線與穩定度。',
@@ -797,7 +797,7 @@ function startCalibrationScan() {
   }
   if (timerEl) {
     // v1.2: paused state — countdown will start once signal-valid gate passes
-    timerEl.textContent = '--';
+    timerEl.textContent = '';
     timerEl.style.color = 'rgba(255, 255, 255, 0.30)';
   }
   if (statusEl) {
