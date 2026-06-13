@@ -35,7 +35,8 @@ export interface FaceBaselineState {
   capturePhase: CapturePhase;
   quality: QualityMetrics;
   neutralProgress: number;
-  motionProgress: number;
+  arcProgress: number;
+  stabilityProgress: number;
   processingStatus: ProcessingStatus;
   processingProgress: number;
   retryReason: RetryReason | null;
@@ -56,7 +57,8 @@ export interface FaceBaselineState {
   setCapturePhase: (capturePhase: CapturePhase) => void;
   updateQuality: (patch: Partial<QualityMetrics>) => void;
   setNeutralProgress: (value: number) => void;
-  setMotionProgress: (value: number) => void;
+  setArcProgress: (value: number) => void;
+  setStabilityProgress: (value: number) => void;
   setProcessing: (status: ProcessingStatus, progress?: number) => void;
   setRetry: (reason: RetryReason) => void;
   clearRetry: () => void;
@@ -79,9 +81,21 @@ const initialState = {
   envReady: false,
   faceLock: 'searching' as FaceLockState,
   capturePhase: 'idle' as CapturePhase,
-  quality: { sqi: 0, motion: 1, coverage: 0, brightness: 0 } as QualityMetrics,
+  quality: {
+    sqi: 0,
+    motion: 1,
+    coverage: 0,
+    brightness: 0,
+    landmarkConfidence: 0,
+    headPoseRange: 0,
+    lightingUniformity: 0,
+    eyeVisibility: 0,
+    neutralExpressionConfidence: 0,
+    totalBaselineConfidence: 0,
+  } as QualityMetrics,
   neutralProgress: 0,
-  motionProgress: 0,
+  arcProgress: 0,
+  stabilityProgress: 0,
   processingStatus: 'idle' as ProcessingStatus,
   processingProgress: 0,
   retryReason: null as RetryReason | null,
@@ -116,7 +130,9 @@ export const useFaceBaselineStore = create<FaceBaselineState>((set) => ({
 
   setNeutralProgress: (neutralProgress) => set({ neutralProgress }),
 
-  setMotionProgress: (motionProgress) => set({ motionProgress }),
+  setArcProgress: (arcProgress) => set({ arcProgress }),
+
+  setStabilityProgress: (stabilityProgress) => set({ stabilityProgress }),
 
   setProcessing: (processingStatus, processingProgress) =>
     set((state) => ({
