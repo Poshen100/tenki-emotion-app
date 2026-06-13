@@ -14,8 +14,8 @@
 
 export const FACE_BASELINE_COPY = {
   intro: {
-    title: 'Establish Your Baseline',
-    subtitle: 'To ensure precision in your health insights, TENKI needs to calibrate to your unique facial features. Your data is encrypted and stored only on your device.',
+    title: 'Create your Face Baseline.',
+    subtitle: 'This helps TENKI recognize your natural steady state with higher precision. Your data is encrypted and stored only on your device.',
     body: '',
     timeSeconds: 60,
     cta: 'Begin Calibration',
@@ -59,7 +59,7 @@ export const FACE_BASELINE_COPY = {
   environment: {
     title: 'Let’s set the scene',
     body: 'Find a quiet spot with even lighting.',
-    checks: { lighting: 'Lighting', distance: 'Distance', stability: 'Stability' },
+    checks: { lighting: 'Lighting', distance: 'Centering', stability: 'Stillness' },
     cta: 'Start Scan',
     disabledHint: 'Adjust the items above to continue',
   },

@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-06-13",
+  "lastUpdated": "2026-06-13T11:00:00Z",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -22,8 +22,16 @@
     {
       "route": "/preview/",
       "url": "https://tenki-emotion-app.vercel.app/preview/",
+      "source": "apps/preview/soul-enroll.html",
+      "purpose": "Soul Scan face-baseline enrollment FRONT DOOR (Face ID-grade, real front camera + live quality gates). Mirrors apps/mobile/features/face-baseline FSM.",
+      "status": "active-dev",
+      "editable": true
+    },
+    {
+      "route": "/preview/finger/",
+      "url": "https://tenki-emotion-app.vercel.app/preview/finger/",
       "source": "apps/preview/index.html",
-      "purpose": "Baseline onboarding 6-step flow (PPG 第一次掃描)",
+      "purpose": "Finger PPG baseline onboarding 6-step flow (demoted to calibration layer; was the /preview/ root)",
       "status": "active",
       "knownIssue": "iOS Safari OOM — hotfix/oom-ios-safari branch ready",
       "editable": true
@@ -32,7 +40,7 @@
       "route": "/preview/soul-enroll.html",
       "url": "https://tenki-emotion-app.vercel.app/preview/soul-enroll.html",
       "source": "apps/preview/soul-enroll.html",
-      "purpose": "Soul Scan face-baseline enrollment ceremony (Face ID-grade arc + stability, simulated). Mirrors apps/mobile/features/face-baseline FSM.",
+      "purpose": "Soul Scan direct path (same content as the /preview/ front door).",
       "status": "active-dev",
       "editable": true
     },
@@ -85,7 +93,8 @@
     "/face-baseline/": "apps/mobile/dist/index.html",
     "/face-baseline/*": "apps/mobile/dist/*",
     "/": "apps/web/index.html",
-    "/preview/": "apps/preview/index.html",
+    "/preview/": "apps/preview/soul-enroll.html",
+    "/preview/finger": "apps/preview/index.html",
     "/preview/*": "apps/preview/*",
     "/*": "apps/web/$1"
   },

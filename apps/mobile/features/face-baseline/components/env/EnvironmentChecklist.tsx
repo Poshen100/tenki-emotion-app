@@ -1,6 +1,6 @@
 /**
  * @module face-baseline/components/EnvironmentChecklist
- * @description Live pass/fail rows for Lighting / Distance / Stability,
+ * @description Live pass/fail rows for Lighting / Centering / Stillness,
  * styled as the reference's floating status pills.
  *
  * Uses Animated to drive status-flip micro-bounce for passing state and
@@ -35,8 +35,8 @@ function statusGlyph(status: CheckStatus): string {
 
 function getIcon(key: string): string {
   if (key === 'lighting') return '☀️';
-  if (key === 'distance') return '📐';
-  if (key === 'stability') return '✋';
+  if (key === 'distance') return '🎯'; // centering
+  if (key === 'stability') return '✋'; // stillness
   return '•';
 }
 

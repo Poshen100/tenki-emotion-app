@@ -12,7 +12,9 @@
         { "source": "/brand/(.*)", "destination": "/brand/$1" },
         { "source": "/v3/", "destination": "/apps/preview/v6/index.html" },
         { "source": "/v3/(.*)", "destination": "/apps/preview/v6/$1" },
-        { "source": "/preview/", "destination": "/apps/preview/index.html" },
+        { "source": "/preview/", "destination": "/apps/preview/soul-enroll.html" },
+        { "source": "/preview/finger", "destination": "/apps/preview/index.html" },
+        { "source": "/preview/finger/", "destination": "/apps/preview/index.html" },
         { "source": "/preview/(.*)", "destination": "/apps/preview/$1" },
         { "source": "/", "destination": "/apps/web/index.html" },
         { "source": "/(.*)", "destination": "/apps/web/$1" }

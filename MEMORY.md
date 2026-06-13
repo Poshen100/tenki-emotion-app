@@ -1,3 +1,31 @@
+# 2026-06-13 Session Update (Soul Scan 升級成 /preview/ 門面 + 真鏡頭 live gates)
+
+> Branch `claude/face-baseline-enrollment-9cacp6`。目標：讓「第一次臉部掃描」像 iPhone Face ID — 精準、安靜、會對真臉反應。以已部署的 `/preview/` 為基底（founder 認可的最高完成度）。
+
+## What was done（commit-per-todo）
+1. **soul-enroll 真鏡頭重寫**：`apps/preview/soul-enroll.js` 從「純計時腳本」改成 **事件驅動 FSM**（鏡像 `faceBaselineMachine.ts`）。
+   - 真前鏡頭 `getUserMedia`；每幀抽樣到 80×80 offscreen canvas 算 **brightness / lighting uniformity / motion**（真量測，全瀏覽器有效）。
+   - **分層偵測**：Tier A 有 `window.FaceDetector`（Chrome/Edge）→ 真 centering / coverage / face-lock / arc；Tier B（**iOS Safari 沒有 FaceDetector**）退到誠實啟發式（中央細節 + 光線），lock/arc 導引式。
+   - 3 個 precision indicators（Lighting/Centering/Stillness）反映**真實 gate 狀態**；environment 三燈同時過 1.5s 才放行。
+   - 擷取階段進度**只在 gate 過時累積、掉時暫停不歸零**；持續掉 → `retry_needed` 局部重掃（neutral 重來、arc/stability 保留）。第一次基線用 strict 門檻。
+   - 隱私：所有分析在 canvas/on-device，**沒有任何 frame 或衍生資料上網**。
+2. **HTML camera layer**：`soul-enroll.html` 加 `<video id="cam-video">`（鏡像、cover、貼合掃描框圓角方形），+ favicon/OG meta 達門面水準。
+3. **/preview/ 門面切換**：`vercel.json` 把 `/preview/` → `soul-enroll.html`，finger onboarding 移到 `/preview/finger/`（North Star §1：臉是主入口、finger 是校準層）。DEPLOYMENT_MAP(.md/.json) 同步。
+4. **Mobile parity**：env 燈號標籤 `Distance/Stability` → `Centering/Stillness`（key 不變、僅顯示字 + icon🎯），intro 文案對齊 `Create your Face Baseline.`。mobile `npx tsc --noEmit` exit 0、face-baseline 49 tests 全綠。
+
+### Notes / gotchas
+- **iOS Safari 無 FaceDetector**（founder 多半用 iPhone）→ 臉部 centering/lock 在 iOS 是啟發式 + 導引；但 lighting/stillness gate 在所有瀏覽器都是真的，所以仍有「會對你反應」的感受。誠實設計，別宣稱 iOS 有真 3D 臉偵測。
+- `apps/preview` 是 vanilla JS、沒有 Jest，且 biome 設定忽略它 → preview 驗證靠手機實走（grant 鏡頭、遮鏡頭看 Lighting 變紅擋進度、動一下看 Stillness 暫停進度）。
+- 容器乾淨 clone：跑 mobile 驗證要先 `cd apps/mobile && npm install`（不在 root workspaces）。
+- `/preview/` 直接路徑 `/preview/soul-enroll.html` 仍可用（內容相同）；finger 舊頁 `/preview/finger/`。
+
+## Next session（接手點）
+1. 收 founder 在 iPhone 上實走 `/preview/` 的回饋（節奏、文案、gate 鬆緊）。
+2. 原生（需 Mac）：vision-camera frame processor 餵真 landmarks → 真 6 信號 → Skia halo（North Star §6 step 4）。
+3. 把 mobile `/face-baseline` 接成 onboarding 主入口（North Star §6 step 3 未做部分）。
+
+---
+
 # 2026-06-13 Session Update (Face Baseline Enrollment — FSM 拆分 + 品質閘 + preview ceremony)
 
 > Branch `claude/face-baseline-enrollment-7bmdmp`，7 commits（commit-per-todo）。落地 SOUL-SCAN-NORTH-STAR §6 step 2 的「雲端可做」邏輯層。
