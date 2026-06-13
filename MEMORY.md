@@ -1,3 +1,29 @@
+# 2026-06-12 Session Update (品牌定案入庫 + Soul Scan 定調 + /preview/ 視覺對齊)
+
+## What was done（PR #81、#82 均已 merge）
+
+1. **品牌 Logo 定案入庫（PR #81）**：founder 的定案 mark（風掃過的浪）一直只存在 v6 splash 的 HTML 裡。已正式化：
+   - `docs/assets/brand/tenki-mark.svg`（從 v6 splash 抽出的 master，currentColor）
+   - `apps/mobile/assets/` 四個 PNG 全部從 master 重新輸出（之前是 Expo 佔位符！）
+   - ANTIGRAVITY.md §18 = FINALIZED 規格（三段式 lockup：mark / TENKI 200·0.32em / CORE 600·0.4em `#00B4D8`+glow；動態 900ms 入場 + 6s 呼吸）
+   - `/preview/brand/` 品牌預覽頁；中途的 Resonance Ensō 探索版已移除
+   - 分工：`docs/BRAND.md` 管品牌語言、§18 管視覺，互相引用
+2. **Soul Scan North Star（PR #81）**：`docs/SOUL-SCAN-NORTH-STAR.md` — 臉部基線 = 主掃描入口、finger 退為校準層、Face-ID 級首次建立、與現有 FSM 對照（缺口僅 `arc_left/right` 拆分 + `stability_pass` + 6 個原生品質信號）。CLAUDE.md 已加必讀指標。
+3. **Visual Alignment Sprint（PR #82）**：`apps/preview/` 三畫面對齊參考圖（task.md P1–P3 全勾，5 commits）— tokens 進 `:root`、深空漸層 + CSS 星塵、漸層+光暈 CTA、Env Calibration 三顆狀態 pills（接 latched 訊號）、金框+藍弧+刻度尺+PRIVACY SECURED 的 capture 畫面。**task.md 寫的 "apps/web" 是筆誤，實際目標是 apps/preview**（apps/web 仍凍結未動）。
+4. **持續擦屁股**：main 直推又兩次破壞（async-storage 沒裝、§18 衝突），均已修復。domain 測試 9 → 45。
+
+### Notes / gotchas
+- **Antigravity 仍在直推 main** — 已三度把紅燈/缺依賴帶進 main。請改走 feat/* → PR。
+- npm 指令的 shell cwd 會在工具呼叫間被重置 — 在 apps/mobile 裝依賴務必用單一命令 `cd /abs/path && npm install ...`，否則會污染 root package.json。
+- 背景 agent 可能撞 session 用量上限被砍 — 重要工作檢查 `git log` 確認實際 commits，別信 agent 的完成宣稱。
+
+## Next session
+1. 視覺二輪：吃 founder 看 `/preview/`、`/face-baseline/`、`/preview/brand/` 的回饋。
+2. FSM 補缺口（可雲端做）：`arc_left/right`、`stability_pass`、QualityMetrics 擴充 + 測試（見 SOUL-SCAN-NORTH-STAR §5/§6）。
+3. 原生 session（需 Mac）：vision-camera 真信號、Skia orb、實機 QA。
+
+---
+
 # 2026-06-11 Session Update #2 (main CI 紅燈修復 + 9 屏視覺對齊 pass)
 
 ## What was done（同分支續用，PR #79）
