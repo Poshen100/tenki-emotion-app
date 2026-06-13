@@ -127,6 +127,14 @@
       color: var(--text-secondary); line-height: 1.45; min-height: 20px;
       transition: opacity .3s ease;
     }
+    /* processing percentage (Securing your unique baseline…) */
+    #proc-pct {
+      display: none; margin-top: 12px;
+      font-size: 48px; font-weight: 800; letter-spacing: -1px; line-height: 1;
+      background: linear-gradient(180deg, var(--gold-champagne), var(--gold-soft));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    #proc-pct.on { display: block; }
     /* progress meter */
     #meter {
       margin: 22px auto 0; width: 220px; height: 4px;
@@ -159,6 +167,34 @@
       color: var(--gold-champagne); opacity: 0; transition: opacity .4s ease;
     }
     .pill-secured.on { opacity: 1; }
+    /* ── baseline data snapshot (qualitative, shown after Baseline locked.) ── */
+    #baseline-extra {
+      display: none;
+      margin: 20px auto 0; width: 100%; max-width: 320px;
+    }
+    #baseline-extra.on { display: block; }
+    .bx-band {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 7px 14px; border-radius: 999px;
+      background: rgba(243,169,42,0.10); border: 1px solid rgba(243,169,42,0.28);
+      color: var(--gold-champagne); font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+    }
+    .bx-band .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold-soft); box-shadow: 0 0 8px rgba(255,200,94,0.8); }
+    .bx-list {
+      list-style: none; margin: 16px 0 0; padding: 0;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 9px 14px;
+    }
+    .bx-list li {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text-secondary);
+    }
+    .bx-list li::before {
+      content: '✓'; flex: none;
+      width: 18px; height: 18px; border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 11px; font-weight: 800; color: #06210f;
+      background: var(--lock-mint); box-shadow: 0 0 10px rgba(0,230,153,0.6);
+    }
     #restart {
       position: absolute; top: 22px; right: 22px; z-index: 5;
       background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
@@ -187,6 +223,16 @@
       <div class="pill-secured" id="securedPill">&#128274; PRIVACY SECURED · ON-DEVICE</div>
       <h1 id="instruction">Create your Face Baseline.</h1>
       <p id="subtitle">This helps TENKI recognize your natural steady state with higher precision.</p>
+      <div id="proc-pct"><span id="proc-pct-num">0</span>%</div>
+      <div id="baseline-extra">
+        <span class="bx-band"><span class="dot"></span><span id="bx-band-text">New baseline · signal steady</span></span>
+        <ul class="bx-list">
+          <li>Steadiness</li>
+          <li>Centering</li>
+          <li>Lighting</li>
+          <li>Eye openness</li>
+        </ul>
+      </div>
       <div id="meter"><div id="meter-fill"></div></div>
       <button id="cta" data-action="begin">Begin</button>
     </div>

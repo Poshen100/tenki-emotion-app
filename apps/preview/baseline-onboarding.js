@@ -1683,11 +1683,12 @@ function selectNextAction(action) {
     } catch (e) {
       console.warn('[TENKI] Failed to write localStorage:', e);
     }
-    // Redirect to root page for full FaceMesh 8000-particle scanning and results
-    setTimeout(() => { window.location.href = '/v3/?from=baseline'; }, 280);
+    // Model B: finger PPG is the calibration layer → hand off to the v6 Today
+    // dashboard (full FaceMesh stardust scan + score reveal via ?from=baseline).
+    setTimeout(() => { window.location.href = '/preview/v6/?from=baseline'; }, 280);
   } else {
     // Navigate to Today dashboard explore tab
-    setTimeout(() => { window.location.href = '/v3/#lab'; }, 280);
+    setTimeout(() => { window.location.href = '/preview/v6/#lab'; }, 280);
   }
 }
 

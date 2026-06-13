@@ -60,7 +60,7 @@
   const NEUTRAL_MS = 3600; // full neutral progress at continuous pass
   const ARC_MS = 4200; // full arc (left+right) progress
   const STABILITY_MS = 3200;
-  const PROCESSING_MS = 1900;
+  const PROCESSING_MS = 2800;
   const LOSS_MS = 2600; // sustained gate loss in a capture → retry
   const DETECT_LOSS_MS = 7000;
 
@@ -114,14 +114,19 @@
       accent: 'gold', secured: true, meter: true, settle: true,
     },
     processing: {
-      instr: 'Securing your baseline…',
-      sub: 'Processed and stored on-device.',
-      accent: 'gold', secured: true, meter: true, processing: true,
+      instr: 'Securing your unique baseline…',
+      sub: 'All data is processed and stored locally for maximum privacy.',
+      accent: 'gold', secured: true, processing: true,
     },
     baseline_confirmed: {
       instr: 'Baseline locked.',
       sub: 'Your future scans will compare against this personal reference.',
       accent: 'gold', secured: true, confirmed: true,
+    },
+    baseline_data: {
+      instr: 'Baseline established',
+      sub: 'This is your personal reference — not a score. Your daily scans compare against it.',
+      accent: 'gold', secured: true, keepCore: true,
     },
     retry_needed: {
       instr: 'Let’s realign',
@@ -367,6 +372,42 @@
     }
   }
 
+  // gold orbital sphere for the "Securing your unique baseline…" processing screen
+  function drawProcessingOrb(c, cx, cy, t) {
+    c.save();
+    const R = 74;
+    // glass sphere body
+    const sphere = c.createRadialGradient(cx - 18, cy - 22, 6, cx, cy, R);
+    sphere.addColorStop(0, 'rgba(60,46,20,0.38)');
+    sphere.addColorStop(0.7, 'rgba(20,14,6,0.22)');
+    sphere.addColorStop(1, 'rgba(0,0,0,0)');
+    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fillStyle = sphere; c.fill();
+    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2);
+    c.strokeStyle = 'rgba(255,200,94,0.18)'; c.lineWidth = 1.5; c.stroke();
+    // 3 tilted orbiting gold rings, each with a travelling bright bead
+    for (let k = 0; k < 3; k++) {
+      const rot = t * 0.0006 * (k + 1) + k * 2.1;
+      const rx = 66 - k * 6;
+      const ry = 22 + k * 9;
+      c.save();
+      c.translate(cx, cy); c.rotate(rot);
+      c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+      c.strokeStyle = `rgba(255,200,94,${0.5 - k * 0.1})`;
+      c.lineWidth = 2; c.shadowColor = COLORS.gold; c.shadowBlur = 12; c.stroke();
+      const a = t * 0.002 * (k + 1.5);
+      c.beginPath(); c.arc(Math.cos(a) * rx, Math.sin(a) * ry, 2.8, 0, Math.PI * 2);
+      c.fillStyle = '#FFF0D0'; c.shadowBlur = 14; c.shadowColor = COLORS.gold; c.fill();
+      c.restore();
+    }
+    // bright core
+    const core = c.createRadialGradient(cx, cy, 0, cx, cy, 26);
+    core.addColorStop(0, 'rgba(255,240,208,0.95)');
+    core.addColorStop(0.5, 'rgba(255,200,94,0.6)');
+    core.addColorStop(1, 'rgba(255,200,94,0)');
+    c.beginPath(); c.arc(cx, cy, 26, 0, Math.PI * 2); c.fillStyle = core; c.fill();
+    c.restore();
+  }
+
   function drawGuide(c, cx, cy, dir, color) {
     c.save();
     c.translate(cx + dir * 120, cy);
@@ -394,6 +435,7 @@
       ctx.restore();
 
       drawParticles(ctx, cx, cy, t);
+      if (ph.processing) drawProcessingOrb(ctx, cx, cy, t);
       drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5);
       drawHalo(ctx, cx, cy, half + 26, state.halo, accent);
       if (ph.guide !== undefined && state.halo < 0.82) drawGuide(ctx, cx, cy, ph.guide, accent);
@@ -546,6 +588,14 @@
     setText(ph.instr, ph.sub);
     document.getElementById('meter').style.opacity = ph.meter ? '1' : '0';
     document.getElementById('securedPill').classList.toggle('on', !!ph.secured);
+    // baseline data snapshot panel (qualitative reference, Model B-honest)
+    document.getElementById('proc-pct').classList.toggle('on', step === 'processing');
+    const showBx = step === 'baseline_data';
+    document.getElementById('baseline-extra').classList.toggle('on', showBx);
+    if (showBx) {
+      document.getElementById('bx-band-text').textContent = 'New baseline · signal ' + confidenceBand();
+      document.getElementById('securedPill').textContent = '🔒 SECURED · NEW BASELINE';
+    }
     setCta(ctaForStep(step));
     if (ph.confirmed) haptic([18, 40, 90]);
     else if (step === 'face_locked') haptic(28);
@@ -555,6 +605,8 @@
   function ctaForStep(step) {
     if (step === 'permission_denied') return { label: 'Enable Camera', action: 'permission' };
     if (step === 'retry_needed') return { label: 'Resume', action: 'resume' };
+    if (step === 'baseline_confirmed') return { label: 'See your baseline', action: 'baselineData' };
+    if (step === 'baseline_data') return { label: 'Start your first scan', action: 'firstScan' };
     return null; // hidden — the camera drives progress
   }
 
@@ -589,15 +641,16 @@
 
     // visual easing toward step targets (always runs)
     const ph = STEP[state.step] || STEP.intro;
-    const isCapture = ph.secured && !ph.confirmed;
-    const haloTarget = ph.confirmed ? 1
+    const coreHeld = ph.confirmed || ph.keepCore;
+    const isCapture = ph.secured && !coreHeld;
+    const haloTarget = coreHeld ? 1
       : isCapture || ph.processing ? captureProgress()
       : state.step === 'face_locked' ? 0.04 : 0;
     state.halo += (haloTarget - state.halo) * 0.12;
     document.getElementById('meter-fill').style.width = (state.halo * 100).toFixed(1) + '%';
     state.secured += ((ph.secured ? 1 : 0) - state.secured) * 0.06;
-    state.settle += ((ph.settle || ph.processing || ph.confirmed ? 1 : 0) - state.settle) * 0.05;
-    state.bloom += ((ph.confirmed ? 1 : 0) - state.bloom) * 0.08;
+    state.settle += ((ph.settle || ph.processing || coreHeld ? 1 : 0) - state.settle) * 0.05;
+    state.bloom += ((coreHeld ? 1 : 0) - state.bloom) * 0.08;
 
     if (!state.started || !state.stream) return;
 
@@ -670,7 +723,10 @@
         break;
       }
       case 'processing': {
-        if (t - state.stepStart >= PROCESSING_MS) {
+        const pp = clamp01((t - state.stepStart) / PROCESSING_MS);
+        const numEl = document.getElementById('proc-pct-num');
+        if (numEl) numEl.textContent = String(Math.round(pp * 100));
+        if (pp >= 1) {
           stopCamera();
           updateConfidenceCopy();
           go('baseline_confirmed');
@@ -732,6 +788,12 @@
     const action = document.getElementById('cta').dataset.action;
     if (action === 'permission') { state.started = false; begin(); }
     else if (action === 'resume') { resume(); }
+    else if (action === 'baselineData') { go('baseline_data'); }
+    else if (action === 'firstScan') {
+      // Model B: face baseline done → hand off to the v6 stardust Soul Scan + Today reveal
+      stopCamera();
+      window.location.href = '/preview/v6/?from=baseline';
+    }
     else { begin(); }
   }
 
@@ -756,6 +818,8 @@
     const pill = document.getElementById('securedPill');
     pill.classList.remove('on');
     pill.textContent = '🔒 PRIVACY SECURED · ON-DEVICE';
+    document.getElementById('baseline-extra').classList.remove('on');
+    document.getElementById('proc-pct').classList.remove('on');
     setText(STEP.intro.instr, STEP.intro.sub);
     setCta({ label: 'Begin', action: 'begin' });
     makeParticles();
