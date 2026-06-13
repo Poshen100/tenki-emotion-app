@@ -44,17 +44,18 @@
     brightnessMin: 0.34,
     brightnessMax: 0.97,
     uniformityMin: 0.50,
-    motionStill: 0.16, // env / detect / neutral stillness ceiling
-    motionNeutral: 0.15,
-    motionArc: 0.36, // arc tolerates a gentle head turn
-    motionStability: 0.13,
+    motionStill: 0.40, // env / detect stillness ceiling (handheld-realistic)
+    motionNeutral: 0.36,
+    motionArc: 0.62, // arc tolerates a gentle head turn
+    motionStability: 0.30,
     centerOffsetMax: 0.30, // Tier A: normalized box-center offset
     coverageMin: 0.14, // Tier A: face box area fraction
     detailMin: 0.20, // Tier B: central-detail heuristic floor
   };
 
   // ── timing ──
-  const ENV_HOLD_MS = 1500; // all three indicators must hold this long
+  const ENV_HOLD_MS = 1100; // all three indicators must hold this long
+  const ENV_FALLBACK_MS = 6000; // safety: with Lighting OK, proceed even if a gate stays noisy
   const DETECT_HOLD_MS = 900; // stable face/stillness before lock
   const LOCK_DWELL_MS = 700; // "Locked" beat before capture
   const NEUTRAL_MS = 3600; // full neutral progress at continuous pass
@@ -667,10 +668,14 @@
         const allPass = g.lighting && g.centering && g.stillness;
         if (allPass) {
           if (!state.envHoldStart) state.envHoldStart = t;
-          if (t - state.envHoldStart >= ENV_HOLD_MS) { state.detectHoldStart = 0; go('face_detecting'); }
         } else {
           state.envHoldStart = 0;
         }
+        const held = state.envHoldStart && (t - state.envHoldStart >= ENV_HOLD_MS);
+        // safety net: never dead-end — once Lighting is OK, proceed after a grace window
+        // even if Stillness/Centering stay noisy on a handheld device.
+        const fallback = g.lighting && (t - state.stepStart >= ENV_FALLBACK_MS);
+        if (held || fallback) { state.detectHoldStart = 0; go('face_detecting'); }
         break;
       }
       case 'face_detecting': {
