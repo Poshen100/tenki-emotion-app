@@ -1,3 +1,24 @@
+# 2026-06-13 Session Update (Model B 全程串接：基線 → 掃描 → 結果，導入 v6)
+
+> Branch `claude/face-baseline-enrollment-9cacp6`。承上：soul-enroll 之前停在「Baseline locked.」就沒了。本次把第一次的完整 Model B 旅程串起來。
+
+## What was done（commit-per-todo）
+1. **soul-enroll 旅程延伸**（`soul-enroll.js`/`.html`）：「Baseline locked.」→ 新增**質化「基線數據」快照**（maturity New、signal quality band、捕捉到的參考訊號清單 Steadiness/Centering/Lighting/Eye openness、文案「This is your personal reference — not a score」）→ CTA `Start your first scan` **導入 `/preview/v6/?from=baseline`**（重用既有星塵臉部掃描 + Today 揭曉 Edge Score）。決策：重用 v6（不另做掃描/結果頁）；分數維持固定 84（不動 v6 邏輯）。
+2. **Processing 頁不漏掉**（founder 指定附圖）：把 `processing` 從一閃而過改成顯眼的**金色軌道球體**畫面 — canvas 畫 3 條傾斜旋轉金環 + 亮核 + glass sphere，搭配大字 `%` 倒數（PROCESSING_MS 1900→2800），文案「Securing your unique baseline…」+「All data is processed and stored locally for maximum privacy.」對齊附圖。
+3. **手指流程收尾導入 v6**（`baseline-onboarding.js`）：`selectNextAction` 由 `/v3/…` 改為 founder 指定的 `/preview/v6/…`（scan→`?from=baseline`、explore→`#lab`）。Model B：finger PPG = 校準層，完成後進 Today 首頁。
+
+### Notes / gotchas
+- 完整 Model B 第一次旅程：`/preview/`（臉部基線 ceremony）→ 基線數據 → `/preview/v6/?from=baseline`（星塵臉部掃描 + 結果）；finger PPG 走 `/preview/finger/` → `/preview/v6/`。`/v3/` 與 `/preview/v6/` 是同一頁（vercel rewrite 雙路徑）。
+- v6 揭曉分數元素 id 仍叫 `tlTlTlTeiScore`（v2 TEI 殘留命名），但對外呈現是 v3（Clear/Neutral/Strain）；本次未動 v6，固定 84。
+- soul-enroll 仍是 vanilla canvas，無 Jest；驗證靠手機實走。
+
+## Next session（接手點）
+1. 收 founder 在 iPhone 實走整條 `/preview/ → v6` 的回饋。
+2. （選做）讓 v6 揭曉分數依即時掃描品質浮動、並清掉 `tlTlTlTeiScore` 的 TEI 殘留命名。
+3. 原生（需 Mac）：vision-camera 真 landmarks → 真 6 信號 → Skia。
+
+---
+
 # 2026-06-13 Session Update (Soul Scan 升級成 /preview/ 門面 + 真鏡頭 live gates)
 
 > Branch `claude/face-baseline-enrollment-9cacp6`。目標：讓「第一次臉部掃描」像 iPhone Face ID — 精準、安靜、會對真臉反應。以已部署的 `/preview/` 為基底（founder 認可的最高完成度）。
