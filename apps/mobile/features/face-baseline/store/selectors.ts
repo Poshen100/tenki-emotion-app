@@ -14,10 +14,12 @@ export const selectQualityOk = (s: FaceBaselineState): boolean => isQualityOk(s.
 
 /**
  * Overall progress (0–1) for the active phase: processing progress while
- * processing, otherwise weighted neutral+motion capture progress.
+ * processing, otherwise weighted neutral + arc + stability capture progress.
  */
 export const selectTotalProgress = (s: FaceBaselineState): number =>
-  s.step === 'processing' ? s.processingProgress : captureProgress(s.neutralProgress, s.motionProgress);
+  s.step === 'processing'
+    ? s.processingProgress
+    : captureProgress(s.neutralProgress, s.arcProgress, s.stabilityProgress);
 
 /** Whether the user may start the scan (permission granted + environment ready). */
 export const selectCanStartScan = (s: FaceBaselineState): boolean =>
