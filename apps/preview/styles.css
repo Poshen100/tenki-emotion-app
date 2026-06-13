@@ -2395,3 +2395,18 @@ body,
 .readiness-live-title { display: none; }
 .readiness-live-head { justify-content: center; }
 .readiness-coach { margin: 0 auto; }
+
+/* ── Nebula atmosphere: soft violet/magenta clouds (reference Screen B) ──
+   Pure CSS radial washes — no blur filters, no blend modes (iOS-OOM safe). */
+.step::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 38% at 82% 14%, rgba(139, 92, 246, 0.16), transparent 70%),
+    radial-gradient(ellipse 48% 34% at 12% 86%, rgba(190, 90, 200, 0.10), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 30% 30%, rgba(79, 110, 240, 0.07), transparent 70%);
+}
+/* Reference B has no icon above the headline — pure cosmos + type */
+#step-intro .step-icon { display: none; }
