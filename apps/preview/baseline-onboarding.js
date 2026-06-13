@@ -797,7 +797,7 @@ function startCalibrationScan() {
   }
   if (timerEl) {
     // v1.2: paused state — countdown will start once signal-valid gate passes
-    timerEl.textContent = '--';
+    timerEl.textContent = '';
     timerEl.style.color = 'rgba(255, 255, 255, 0.30)';
   }
   if (statusEl) {

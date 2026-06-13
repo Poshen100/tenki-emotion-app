@@ -2322,3 +2322,67 @@ body,
   font-weight: 700;
   color: var(--tenki-text-primary);
 }
+
+/* ── Soul Lock reticle (2026-06-13 redesign) ──
+   No crosshairs, no dashed gun-sight: a calm hairline ring with four
+   cardinal micro-dots that brightens and blooms on face lock. */
+.camera-target-ring {
+  width: 96px;
+  height: 96px;
+  margin: -48px 0 0 -48px;
+}
+.camera-target-ring .target-ring-arrow { display: none !important; }
+.target-ring-outline,
+.camera-target-ring[data-state="waiting"] .target-ring-outline,
+.camera-target-ring[data-state="signal-weak"] .target-ring-outline {
+  border-style: solid;
+  border-width: 1.5px;
+  animation: none;
+}
+.camera-target-ring[data-state="waiting"] .target-ring-outline {
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 12px rgba(79, 158, 240, 0.12);
+  animation: soulLockBreathe 3.2s ease-in-out infinite;
+}
+.camera-target-ring[data-state="covered"] .target-ring-outline {
+  border-color: rgba(79, 158, 240, 0.95);
+  background: radial-gradient(circle, rgba(79, 158, 240, 0.10) 0%, transparent 70%);
+  box-shadow: 0 0 22px rgba(79, 158, 240, 0.45);
+}
+.camera-target-ring[data-state="signal-weak"] .target-ring-outline {
+  border-color: rgba(255, 196, 75, 0.7);
+  box-shadow: 0 0 12px rgba(255, 196, 75, 0.25);
+}
+.tr-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+.tr-n { top: -2px; left: 50%; margin-left: -2px; }
+.tr-s { bottom: -2px; left: 50%; margin-left: -2px; }
+.tr-w { left: -2px; top: 50%; margin-top: -2px; }
+.tr-e { right: -2px; top: 50%; margin-top: -2px; }
+.camera-target-ring[data-state="covered"] .tr-dot {
+  background: var(--tenki-accent-blue);
+  box-shadow: 0 0 6px rgba(79, 158, 240, 0.8);
+}
+@keyframes soulLockBreathe {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.04); opacity: 1; }
+}
+/* Face placement guide: quiet solid hairline, no dashes */
+.face-silhouette svg ellipse { stroke-dasharray: none; opacity: 0.32; }
+/* Center timer: calm ultralight numeral, unit as letterspaced micro-caption */
+.scan-timer {
+  font-weight: 300;
+  letter-spacing: 1px;
+}
+.scan-unit {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--tenki-text-secondary);
+  text-transform: uppercase;
+}
