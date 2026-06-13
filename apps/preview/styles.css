@@ -2386,3 +2386,12 @@ body,
   color: var(--tenki-text-secondary);
   text-transform: uppercase;
 }
+
+/* ── Readiness declutter: one primary instruction at a time ──
+   The coach bubble is the single live instruction; the finger-era stage
+   chips and the duplicated live-shell title step back. */
+.readiness-stage-rail { display: none; }
+.readiness-live-eyebrow,
+.readiness-live-title { display: none; }
+.readiness-live-head { justify-content: center; }
+.readiness-coach { margin: 0 auto; }
