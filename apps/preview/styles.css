@@ -2410,3 +2410,26 @@ body,
 }
 /* Reference B has no icon above the headline — pure cosmos + type */
 #step-intro .step-icon { display: none; }
+
+/* ── Fix: ceremony backdrop scroll-banding (founder IMG_8618) ──
+   The dimming layer was absolute inside a scrollable step, so its heavy
+   black vignette edge slid across content while scrolling. Pin it to the
+   viewport and soften the dim so it never reads as a black blocker. */
+.scan-backdrop {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgba(0, 180, 216, 0.08) 0%,
+    rgba(0, 0, 0, 0.30) 60%,
+    rgba(0, 0, 0, 0.52) 100%
+  );
+}
+.scan-step.phase-climax .scan-backdrop {
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgba(52, 199, 89, 0.14) 0%,
+    rgba(0, 0, 0, 0.28) 60%,
+    rgba(0, 0, 0, 0.50) 100%
+  );
+}
