@@ -48,7 +48,7 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
         setNeutralProgress(next);
         if (next >= 1 && !done.current) {
           done.current = true;
-          setTimeout(() => router.push(FB_ROUTES.captureMotion), 250);
+          setTimeout(() => router.push(FB_ROUTES.captureArc), 250);
         }
         return next;
       });
@@ -86,7 +86,7 @@ export default function BaselineCaptureNeutralScreen(): React.JSX.Element {
           </FaceScanFrame>
           {/* Tick-mark ruler progress + privacy caption directly below the frame */}
           <View style={styles.progressBlock}>
-            <SegmentedProgress progress={captureProgress(progress, 0)} accent="gold" />
+            <SegmentedProgress progress={captureProgress(progress, 0, 0)} accent="gold" />
             <PrivacyLockPill label={C.captureNeutral.privacyPill} />
           </View>
           <View style={styles.nudgeContainer}>

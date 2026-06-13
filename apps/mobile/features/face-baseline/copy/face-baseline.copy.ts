@@ -78,9 +78,15 @@ export const FACE_BASELINE_COPY = {
       reframe: 'Center your face',
     },
   },
-  captureMotion: {
-    instruction: 'Slowly turn your head',
-    subtitle: 'Keep it gentle — this sharpens your calibration.',
+  captureArc: {
+    left: 'Turn slightly left',
+    right: 'Turn slightly right',
+    recenter: 'Return to center',
+    subtitle: 'Slow and gentle — small angles sharpen your calibration.',
+  },
+  captureStability: {
+    instruction: 'Breathe naturally',
+    subtitle: 'Relax your jaw and let your eyes settle.',
   },
   processing: {
     title: 'Securing your unique baseline…',
