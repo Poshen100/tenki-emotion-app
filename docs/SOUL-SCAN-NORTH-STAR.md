@@ -42,7 +42,7 @@
 - Scan Frame：圓角方形 / 柔和超橢圓（呼應 Face ID）
 - Soul Mesh：星塵粒子 + 流線，不做寫實骨架
 - Progress Halo：沿臉框逐段閉合的光弧，不用一般圓形 loading
-- Precision Indicators：頂部只放 3 個微型狀態點（Light / Still / Centered）
+- Precision Indicators：頂部只放 3 個微型狀態點（Lighting / Centering / Stillness）
 - Copy：一次只顯示 1 個主指令（`Hold still` / `Turn slightly left` / `Return to center`）
 - 視覺世界規則沿用：cyan = ACTIVE、gold = SECURED（見 face-baseline/SPEC.md）
 
@@ -70,11 +70,15 @@ total baseline confidence。每個 state 要有自己的 quality gate，不靠�
 
 ## 6. 落地順序
 
-1. ✅ 已存在：Intro / Environment / Capture / Confirmed 等 11 屏 + FSM + 測試（40 tests）
-2. 下一步（邏輯，可雲端做）：FSM 拆 `arc_left/arc_right`、新增 `stability_pass`、
+1. ✅ 已存在：Intro / Environment / Capture / Confirmed 等 11 屏 + FSM + 測試（49 tests）
+2. ✅ 已做（邏輯，雲端）：FSM 拆 `arc_left/arc_right`、新增 `stability_pass`、
    擴充 QualityMetrics 型別與 gate 函式 + 測試
-3. 下一步（產品定位）：把 `/face-baseline` 接成 onboarding 主流程入口；
-   Scan tab 重新定位為日常 Soul Scan（讀取已建立的 baseline），finger PPG 移到校準層
+3. 🔶 進行中（產品定位）：
+   - ✅ Preview 門面：`/preview/` 已切到 Soul Scan 臉部基線 ceremony（finger onboarding 降到 `/preview/finger/`）。
+     `soul-enroll.js` 已從 time-script 改為 **真實前鏡頭 + live quality gates** 的事件驅動 FSM
+     （brightness/uniformity/motion 真量測；FaceDetector 有就用、iOS Safari 退到誠實啟發式；
+     pause-not-reset 進度 + retry 局部重掃）。這是原生到位前，founder 手機上能感受 Face ID 精準度的 proxy。
+   - ⬜ 待做：mobile `/face-baseline` 接成 onboarding 主入口；Scan tab 重定位為日常 Soul Scan，finger PPG 移校準層。
 4. 原生 session（需 Mac）：vision-camera face detection 餵真信號、Skia halo、實機 QA
 
 ## 7. 文件鏈
