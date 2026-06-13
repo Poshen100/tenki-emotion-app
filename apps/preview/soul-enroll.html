@@ -98,8 +98,8 @@
     /* ── live front-camera layer (sits inside the scan frame, behind the canvas) ── */
     #cam-wrap {
       position: absolute; z-index: 1;
-      width: 190px; height: 190px;
-      border-radius: 40px; overflow: hidden;
+      width: 172px; height: 172px;
+      border-radius: 38px; overflow: hidden;
       opacity: 0; transition: opacity .6s ease;
       background: #05070f;
       box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
@@ -188,7 +188,7 @@
       <h1 id="instruction">Create your Face Baseline.</h1>
       <p id="subtitle">This helps TENKI recognize your natural steady state with higher precision.</p>
       <div id="meter"><div id="meter-fill"></div></div>
-      <button id="cta" onclick="TENKI_ENROLL.begin()">Begin</button>
+      <button id="cta" data-action="begin">Begin</button>
     </div>
   </div>
 
