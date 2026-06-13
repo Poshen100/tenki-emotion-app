@@ -42,12 +42,13 @@
       <div class="step-content">
         <div class="particle-bg" id="particle-canvas-intro"></div>
         <div class="step-icon pulse" data-tenki-icon="sense" data-size="48"></div>
-        <h1 class="step-headline">TENKI 先學你，再評估你</h1>
+        <h1 class="step-headline intro-headline">Establish Your Baseline</h1>
         <p class="step-body">
           接下來約 60 秒，TENKI 會學習你目前的心率、心率變異和呼吸節奏。<br>
           這不是測驗，只是建立屬於你的「正常狀態」參考。
         </p>
         <p class="step-subtext">完成之後，每次掃描都會用你自己的基線來理解你</p>
+        <div class="time-chip" aria-label="approx 60 seconds">&#9201; 60 Seconds</div>
         <button id="btn-start" class="btn-primary" onclick="goToStep(1)">開始建立基線</button>
         <button class="btn-ghost" onclick="toggleLearnMore()">為什麼需要基線？</button>
         <div id="learn-more" class="learn-more hidden">
@@ -63,7 +64,7 @@
     <section id="step-readiness" class="step">
       <div class="step-content readiness-step">
         <div class="step-kicker">BASELINE SETUP</div>
-        <h1 class="step-headline" id="readiness-title">先把鏡頭蓋對</h1>
+        <h1 class="step-headline" id="readiness-title">Environment Calibration</h1>
         <p class="step-body" id="readiness-body">這一步做得越準，後面的基線越穩。先看 2 秒示範，再照著動態提示放好手指。</p>
 
         <div class="perfect-cover-card" id="perfect-cover-card">
@@ -127,6 +128,11 @@
 
           <div class="readiness-preview-wrap">
             <div class="readiness-preview-target" aria-hidden="true"></div>
+            <div class="env-pills" id="env-pills">
+              <span class="env-pill" id="pill-lighting"><span class="env-pill-ic">&#9728;&#65039;</span><span class="env-pill-label">Lighting</span><span class="env-pill-dot" data-ok="0">&#10005;</span></span>
+              <span class="env-pill" id="pill-distance"><span class="env-pill-ic">&#128207;</span><span class="env-pill-label">Distance</span><span class="env-pill-dot" data-ok="0">&#10005;</span></span>
+              <span class="env-pill" id="pill-stability"><span class="env-pill-ic">&#9995;</span><span class="env-pill-label">Stability</span><span class="env-pill-dot" data-ok="0">&#10005;</span></span>
+            </div>
             <div class="readiness-camera-preview" id="readiness-camera-container" data-state="neutral">
               <video class="readiness-video" id="readiness-video" playsinline muted autoplay></video>
               <div class="readiness-camera-glow" aria-hidden="true"></div>
@@ -178,6 +184,7 @@
           </div>
         </div>
 
+        <p class="env-instruction">Find a quiet spot with good lighting.</p>
         <p class="readiness-success-note" id="readiness-success-note">我們只在理想覆蓋時建立 baseline，讓你的 reference 更穩。</p>
 
         <button class="btn-primary" id="btn-start-scan" disabled onclick="goToStep(2)">等待就緒...</button>
@@ -205,6 +212,7 @@
       </div>
 
       <div class="step-content scan-content">
+        <div class="capture-kicker">Baseline Capture Phase</div>
         <!-- Frosted glass dialog (Phase 1 gathering) — 極致磨砂液態玻璃 -->
         <div class="ceremony-dialog" id="ceremony-dialog">
           <span class="ceremony-dialog-dot"></span>
@@ -215,6 +223,8 @@
         </div>
 
         <!-- Finger target: live camera + silhouette + pulsing halo + progress ring -->
+        <div class="capture-frame" id="capture-frame">
+          <span class="cf-corner cf-tl"></span><span class="cf-corner cf-tr"></span><span class="cf-corner cf-bl"></span><span class="cf-corner cf-br"></span>
         <div class="scan-ring-container" id="scan-ring-container">
           <!-- Live rear-camera feed (shows the user's finger covering the lens).
                When permission is granted, `.camera-active` is toggled on the
@@ -279,6 +289,8 @@
           </div>
         </div>
 
+        </div>
+
         <!-- Quality + signal telemetry (Phase 2) -->
         <div class="scan-telemetry" id="scan-telemetry">
           <div class="quality-badge quality-weak" id="quality-badge">
@@ -302,6 +314,9 @@
             <span class="ppg-bar"></span>
           </div>
         </div>
+
+        <div class="capture-ruler" aria-hidden="true"></div>
+        <div class="privacy-secured">&#128274; PRIVACY SECURED</div>
 
         <!-- Coverage guidance (prominent face alignment instruction) -->
         <div class="scan-guidance" id="scan-guidance">

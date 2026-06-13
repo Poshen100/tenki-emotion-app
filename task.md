@@ -61,23 +61,23 @@ Three reference screenshots define the accepted TENKI visual language. Do not de
 
 ### Priority 1 — Calibration / Scan screens in `apps/web`
 
-- [ ] **Environment Calibration screen**: Implement 3-badge status pills (Lighting / Distance / Stability) with pass/fail states. Badge style per Screen A above. CTA unlocks only when all 3 pass.
-- [ ] **Baseline intro screen**: Match Screen B — deep navy+purple starfield bg, bold white headline, subtitle, `⏱ 60 Seconds` + gradient glow CTA button.
-- [ ] **Baseline capture screen**: Match Screen C — circular progress ring (blue), gold rounded-square frame with corner accents, stardust particle overlay, progress bar + `🔒 PRIVACY SECURED`, large instruction text at bottom.
+- [x] **Environment Calibration screen**: Implement 3-badge status pills (Lighting / Distance / Stability) with pass/fail states. Badge style per Screen A above. CTA unlocks only when all 3 pass.
+- [x] **Baseline intro screen**: Match Screen B — deep navy+purple starfield bg, bold white headline, subtitle, `⏱ 60 Seconds` + gradient glow CTA button.
+- [x] **Baseline capture screen**: Match Screen C — circular progress ring (blue), gold rounded-square frame with corner accents, stardust particle overlay, progress bar + `🔒 PRIVACY SECURED`, large instruction text at bottom.
 
 ### Priority 2 — Global visual consistency
 
-- [ ] All scan-flow screens must use `--tenki-bg-deep` / `--tenki-bg-mid` gradient background (not white or gray).
-- [ ] Stardust particle field (`stardust.js`) must be active on all deep-bg screens.
-- [ ] All CTA primary buttons must use `--tenki-btn-gradient` + `--tenki-btn-glow`.
-- [ ] Replace any flat gray disabled buttons with the correct dimmed pill style (opacity 0.4, same shape).
+- [x] All scan-flow screens must use `--tenki-bg-deep` / `--tenki-bg-mid` gradient background (not white or gray).
+- [x] Stardust particle field (`stardust.js`) must be active on all deep-bg screens.
+- [x] All CTA primary buttons must use `--tenki-btn-gradient` + `--tenki-btn-glow`.
+- [x] Replace any flat gray disabled buttons with the correct dimmed pill style (opacity 0.4, same shape).
 
 ### Priority 3 — Copy alignment
 
-- [ ] "Environment Calibration" → keep English as-is (matches App Store screenshot language)
-- [ ] "Establish Your Baseline" → keep English as-is
-- [ ] "Baseline Capture Phase" → keep English as-is
-- [ ] All instruction text must use compliance-safe language (see ANTIGRAVITY.md Section 2)
+- [x] "Environment Calibration" → keep English as-is (matches App Store screenshot language)
+- [x] "Establish Your Baseline" → keep English as-is
+- [x] "Baseline Capture Phase" → keep English as-is
+- [x] All instruction text must use compliance-safe language (see ANTIGRAVITY.md Section 2)
 
 ---
 

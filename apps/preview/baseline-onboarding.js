@@ -254,6 +254,20 @@ function setReadinessButton(enabled) {
   btn.textContent = enabled ? '開始建立基線' : '等待理想覆蓋';
 }
 
+/**
+ * Updates one Environment Calibration status pill (Screen A).
+ * @param {string} name - 'lighting' | 'distance' | 'stability'
+ * @param {boolean} ok - latched pass state
+ */
+function setEnvPill(name, ok) {
+  const pill = document.getElementById('pill-' + name);
+  if (!pill) return;
+  const dot = pill.querySelector('.env-pill-dot');
+  if (!dot) return;
+  dot.dataset.ok = ok ? '1' : '0';
+  dot.textContent = ok ? '\u2713' : '\u2715';
+}
+
 function getFingerReadinessAssessment(metrics) {
   const { coverage, brightness, stability, sqi, bpm } = metrics;
 
@@ -415,6 +429,11 @@ function applyReadinessState(sample) {
   const briG = isLatchedGreen('brightness', metrics.brightness, TH.brightness.ready);
   const staG = isLatchedGreen('stability', metrics.stability, TH.stability.ready);
   const sqiG = isLatchedGreen('sqi', metrics.sqi, TH.sqi.ready);
+
+  // ── Screen A status pills (Lighting / Distance / Stability)
+  setEnvPill('lighting', briG);
+  setEnvPill('distance', covG);
+  setEnvPill('stability', staG);
 
   // ── Meter visuals (use latched state for icons)
   const meterIcon = (latched, value, readyTh, warnTh) =>

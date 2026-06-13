@@ -2130,3 +2130,195 @@ body {
   pointer-events: none !important;
   transition: opacity 0.4s ease !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Visual Alignment Sprint (2026-06-12) — canonical tokens + global
+   Reference: task.md "Visual Design Reference" (IMG_8434/35/36)
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --tenki-bg-deep: #080b1a;
+  --tenki-bg-mid: #1a1035;
+  --tenki-accent-blue: #4f9ef0;
+  --tenki-accent-gold: #c97b2f;
+  --tenki-accent-purple: #8b5cf6;
+  --tenki-badge-bg: rgba(40, 30, 20, 0.75);
+  --tenki-text-primary: #ffffff;
+  --tenki-text-secondary: rgba(255, 255, 255, 0.6);
+  --tenki-btn-gradient: linear-gradient(135deg, #4f6ef0, #8b5cf6);
+  --tenki-btn-glow: 0 0 24px rgba(139, 92, 246, 0.5);
+}
+
+/* P2: all scan-flow screens share the deep navy→purple cosmos */
+body,
+.app-container {
+  background: linear-gradient(180deg, var(--tenki-bg-deep) 0%, var(--tenki-bg-mid) 100%);
+}
+
+/* P2: static stardust on every deep screen — pure CSS, zero iOS-OOM risk */
+.step::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,0.55) 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 12%, rgba(255,255,255,0.4) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 64% 32%, rgba(160,200,255,0.35) 50%, transparent 51%),
+    radial-gradient(1px 1px at 28% 52%, rgba(255,255,255,0.3) 50%, transparent 51%),
+    radial-gradient(2px 2px at 88% 58%, rgba(255,220,160,0.3) 50%, transparent 51%),
+    radial-gradient(1px 1px at 42% 78%, rgba(255,255,255,0.35) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 8% 84%, rgba(160,200,255,0.28) 50%, transparent 51%),
+    radial-gradient(1px 1px at 94% 88%, rgba(255,255,255,0.32) 50%, transparent 51%);
+  background-repeat: no-repeat;
+}
+
+/* P2: primary CTA — gradient pill + purple glow */
+.btn-primary {
+  background: var(--tenki-btn-gradient);
+  border-radius: 9999px;
+  box-shadow: var(--tenki-btn-glow);
+  color: var(--tenki-text-primary);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--tenki-btn-gradient);
+  box-shadow: 0 0 32px rgba(139, 92, 246, 0.65);
+}
+/* P2: disabled = same pill, dimmed — never flat gray */
+.btn-primary:disabled {
+  background: var(--tenki-btn-gradient);
+  opacity: 0.4;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.85);
+  transform: none;
+}
+
+/* ── Screen B: Establish Your Baseline (intro) ── */
+.intro-headline {
+  color: var(--tenki-text-primary);
+  font-size: 34px;
+  line-height: 1.18;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+#step-intro .step-body,
+#step-intro .step-subtext {
+  color: var(--tenki-text-secondary);
+}
+.time-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 28px;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  color: var(--tenki-text-secondary);
+}
+
+/* ── Screen A: Environment Calibration (readiness) ── */
+.readiness-preview-wrap { position: relative; }
+.env-pills {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.env-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  background: var(--tenki-badge-bg);
+  color: var(--tenki-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.env-pill-ic { font-size: 14px; }
+.env-pill-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: #e5484d;
+}
+.env-pill-dot[data-ok="1"] { background: #2fbf71; }
+.env-instruction {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--tenki-text-secondary);
+}
+
+/* ── Screen C: Baseline Capture Phase (scan) ── */
+.capture-kicker {
+  position: relative;
+  z-index: 3;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--tenki-text-primary);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.capture-frame {
+  position: relative;
+  display: inline-block;
+  padding: 18px;
+  border-radius: 36px;
+  border: 1.5px solid var(--tenki-accent-gold);
+  box-shadow:
+    0 0 18px rgba(201, 123, 47, 0.35),
+    inset 0 0 14px rgba(201, 123, 47, 0.12);
+}
+.cf-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--tenki-accent-gold);
+  filter: drop-shadow(0 0 6px rgba(201, 123, 47, 0.6));
+}
+.cf-tl { top: -2px; left: -2px; border-right: 0; border-bottom: 0; border-top-left-radius: 36px; }
+.cf-tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; border-top-right-radius: 36px; }
+.cf-bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; border-bottom-left-radius: 36px; }
+.cf-br { bottom: -2px; right: -2px; border-left: 0; border-top: 0; border-bottom-right-radius: 36px; }
+
+.scan-ring-progress { stroke: var(--tenki-accent-blue); }
+
+.capture-ruler {
+  width: min(280px, 70vw);
+  height: 10px;
+  margin: 14px auto 0;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.35) 0 1px,
+    transparent 1px 10px
+  );
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+.privacy-secured {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--tenki-text-secondary);
+}
+.scan-status {
+  font-size: 26px;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--tenki-text-primary);
+}
