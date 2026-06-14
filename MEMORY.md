@@ -8,11 +8,15 @@
 3. **接進真正流程 PR #92**(`apps/preview/soul-enroll.{html,js}`):把 capture 段(`face_detecting→stability`)的 2D 星塵換成 3D 模型。真 landmark 置中取代啟發式;capture 時隱藏鏡頭預覽。**保留**環境檢查(3 燈)、金球 processing、基線數據、v6 銜接。
    - 接法:HTML 加 import map(`three`)+ module bootstrap 把 `window.THREE`/`window.TENKI_MP` 掛上;加 `#model3d` WebGL 層。soul-enroll.js 維持 classic IIFE,新增 `m3d` 場景 + `detectLandmarks`/`ingestLandmarks`;`state.mpActive` 時用 landmark 的 centerOffset/coverage 餵進 `evalGates`,gating 放寬成 `(state.mpActive || state.tierA)`。
    - **漸進增強/零回歸**:3D 是加強層,`m3d.ready` 為 false(CDN 載不到)→ 自動回退既有 2D 星塵流程。
+4. **CTA 卡關 hotfix PR #93**(`soul-enroll.html` CSS):founder 回報跑到「Baseline established」頁就過不去——金色「Start your first scan」按鈕被 **iOS Safari 底部工具列蓋住**(`100vh` 比可視高度高,底部對齊內容被推到螢幕外)。改 `html/body/#stage` 用 **`100dvh`**(留 `100vh`/`100%` fallback)、`#stage overflow-y:auto` 保險、縮 `#copy` 底 padding(`58→max(20px,safe-area)`)/`#indicators`/`#baseline-extra`/`.bx-list` 間距。流程現在能一路接到 `/preview/v6/` 星塵靈魂掃描。
 
 ### 關鍵突破 / 注意
 - **MediaPipe 自帶模型 → iOS Safari 也能拿到真 478 landmark**,一舉解掉之前「iOS 無 `FaceDetector` 只能啟發式」的痛點。
+- **iOS Safari `100vh` 陷阱**:底部對齊的 CTA 會被工具列蓋住 → 一律用 `100dvh`(+ fallback)。preview 全屏儀式頁都要注意。
 - CDN(runtime,founder 瀏覽器):`three@0.160.0`(jsdelivr)、`@mediapipe/tasks-vision@0.10.12`(jsdelivr,含 `/wasm`)、model `face_landmarker.task`(storage.googleapis.com)。容器無法 headless 驗證,靠手機實走。
 - arc「轉頭」目前是**視覺旋轉**(模型即時跟著轉),進度仍走既有 handheld 計時 —— 沒硬卡 yaw,避免 dead-end。
+
+> 上線狀態:#91/#92/#93 全 merge 進 `main`(最後 `adbf696`),Vercel 自動部署。完整流程 `/preview/` 基線(3D capture)→ processing → Baseline locked → 基線數據 →「Start your first scan」→ `/preview/v6/` 星塵靈魂掃描 + Today 84。
 
 ## Next session（接手點）
 1. 收 founder 手機回饋,微調 `M3D.SCALE`/`DEPTH`/`SMOOTH`、點大小、網格 opacity(都在 `soul-enroll.js` 的 `M3D` 與 `m3d.points/lines` material)。
