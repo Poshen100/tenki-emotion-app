@@ -159,6 +159,8 @@
     // live quality signals (0–1)
     q: { brightness: 0, uniformity: 0, motion: 1, detail: 0, coverage: 0, centerOffset: 1 },
     gates: { lighting: false, centering: false, stillness: false },
+    mpActive: false, // MediaPipe landmarks driving centering this frame
+    lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0 },
     envHoldStart: 0,
     detectHoldStart: 0,
     lossStart: 0,
@@ -173,6 +175,24 @@
   let ctx, scanCanvas;
   let particles = [];
   const VIEW = 320;
+
+  // ── 3D landmark model (MediaPipe FaceLandmarker + Three.js) ──────────────
+  // Progressive enhancement of the capture phases: when the depth engine is
+  // ready we render the user as an abstract glowing 3D point cloud + mesh
+  // (never the real face) and drive centering from real landmarks. If it can't
+  // load (e.g. CDN blocked), the proven 2D stardust flow remains unchanged.
+  const M3D_PHASES = new Set([
+    'face_detecting', 'face_locked', 'neutral_capture', 'arc_left', 'arc_right', 'stability_pass',
+  ]);
+  const M3D = { SCALE: 2.4, DEPTH: 1.5, SMOOTH: 0.4 };
+  const MP_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/wasm';
+  const MP_MODEL =
+    'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+  const m3d = {
+    ready: false, booting: false, landmarker: null, lastVideoTime: -1, seen: false, N: 478,
+    renderer: null, scene: null, camera: null, group: null, points: null, lines: null,
+    cur: null, target: null, colors: null, lineIdx: null,
+  };
 
   // offscreen sampler for frame analysis
   const SAMP = 80;
@@ -419,9 +439,168 @@
     c.restore();
   }
 
+  // round glow sprite for the 3D points / core
+  function m3dSprite() {
+    const THREE = window.THREE;
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grd.addColorStop(0, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.35, 'rgba(255,255,255,0.9)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(c);
+  }
+
+  // lazily boot the WebGL scene + load the landmarker once the ESM bundles are on window
+  function ensureModel3D() {
+    if (m3d.ready || m3d.booting) return;
+    if (!(window.THREE && window.TENKI_MP)) { setTimeout(ensureModel3D, 200); return; }
+    m3d.booting = true;
+    try {
+      initModel3D();
+      loadLandmarker();
+    } catch (_) { m3d.booting = false; }
+  }
+
+  function initModel3D() {
+    const THREE = window.THREE;
+    const host = document.getElementById('model3d');
+    const w = host.clientWidth || 300;
+    const h = host.clientHeight || 300;
+    m3d.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    m3d.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    m3d.renderer.setSize(w, h);
+    host.appendChild(m3d.renderer.domElement);
+
+    m3d.scene = new THREE.Scene();
+    m3d.camera = new THREE.PerspectiveCamera(46, w / h, 0.1, 100);
+    m3d.camera.position.set(0, 0, 3);
+    m3d.group = new THREE.Group();
+    m3d.scene.add(m3d.group);
+
+    m3d.cur = new Float32Array(m3d.N * 3);
+    m3d.target = new Float32Array(m3d.N * 3);
+    m3d.colors = new Float32Array(m3d.N * 3);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(m3d.cur, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(m3d.colors, 3));
+    m3d.points = new THREE.Points(
+      geo,
+      new THREE.PointsMaterial({
+        size: 0.05, map: m3dSprite(), vertexColors: true, transparent: true,
+        depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
+      }),
+    );
+    m3d.group.add(m3d.points);
+
+    m3d.lineIdx = [];
+    const tess = window.TENKI_MP.FaceLandmarker.FACE_LANDMARKS_TESSELATION || [];
+    for (const c of tess) m3d.lineIdx.push(c.start, c.end);
+    const lgeo = new THREE.BufferGeometry();
+    lgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(m3d.lineIdx.length * 3), 3));
+    m3d.lines = new THREE.LineSegments(
+      lgeo,
+      new THREE.LineBasicMaterial({ transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    m3d.group.add(m3d.lines);
+    m3d.ready = true;
+  }
+
+  async function loadLandmarker() {
+    const { FaceLandmarker, FilesetResolver } = window.TENKI_MP;
+    const fileset = await FilesetResolver.forVisionTasks(MP_WASM);
+    const mk = (delegate) =>
+      FaceLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: MP_MODEL, delegate },
+        runningMode: 'VIDEO', numFaces: 1,
+      });
+    try { m3d.landmarker = await mk('GPU'); } catch (_) { m3d.landmarker = await mk('CPU'); }
+  }
+
+  // run inference + derive centering/yaw signals (called during capture phases)
+  function detectLandmarks(video, t) {
+    if (!m3d.landmarker || !video || video.readyState < 2) return;
+    if (video.currentTime === m3d.lastVideoTime) return;
+    m3d.lastVideoTime = video.currentTime;
+    let res;
+    try { res = m3d.landmarker.detectForVideo(video, t); } catch (_) { return; }
+    if (res && res.faceLandmarks && res.faceLandmarks.length) {
+      ingestLandmarks(res.faceLandmarks[0]);
+      state.lm.present = true;
+    } else {
+      state.lm.present = false;
+    }
+  }
+
+  function ingestLandmarks(L) {
+    const N = L.length;
+    m3d.N = N;
+    let cx = 0, cy = 0, cz = 0, minx = 1, maxx = 0, miny = 1, maxy = 0;
+    for (let i = 0; i < N; i++) {
+      cx += L[i].x; cy += L[i].y; cz += L[i].z;
+      if (L[i].x < minx) minx = L[i].x; if (L[i].x > maxx) maxx = L[i].x;
+      if (L[i].y < miny) miny = L[i].y; if (L[i].y > maxy) maxy = L[i].y;
+    }
+    cx /= N; cy /= N; cz /= N;
+    const tgt = m3d.target;
+    for (let i = 0; i < N; i++) {
+      const j = i * 3;
+      tgt[j] = -(L[i].x - cx) * M3D.SCALE; // mirror X (selfie)
+      tgt[j + 1] = -(L[i].y - cy) * M3D.SCALE;
+      tgt[j + 2] = -(L[i].z - cz) * M3D.SCALE * M3D.DEPTH;
+    }
+    if (!m3d.seen) { for (let i = 0; i < N * 3; i++) m3d.cur[i] = tgt[i]; m3d.seen = true; }
+    const nose = L[1], le = L[33], re = L[263];
+    const span = Math.abs(re.x - le.x) || 1e-3;
+    state.lm.yaw = (nose.x - (le.x + re.x) / 2) / span;
+    state.lm.centerOffset = clamp01(Math.hypot(cx - 0.5, cy - 0.5) * 2);
+    state.lm.coverage = clamp01((maxx - minx) * (maxy - miny) * 4);
+  }
+
+  function m3dActivePhase() { return m3d.ready && m3d.seen && M3D_PHASES.has(state.step); }
+
+  function renderModel3D(t) {
+    const host = document.getElementById('model3d');
+    if (!m3d.ready) { if (host) host.classList.remove('on'); return; }
+    const show = m3dActivePhase();
+    host.classList.toggle('on', show);
+    // hide the real-camera preview while the abstract model is shown (privacy + focus);
+    // when not showing 3D, let the .live class control it (2D fallback keeps the preview)
+    const cam = document.getElementById('cam-wrap');
+    if (cam) cam.style.opacity = show ? '0' : '';
+    if (!show) return;
+    const THREE = window.THREE;
+    const col = new THREE.Color(COLORS.cyan).lerp(new THREE.Color(COLORS.gold), state.secured);
+    const cur = m3d.cur, tgt = m3d.target, cols = m3d.colors, N = m3d.N;
+    for (let i = 0; i < N; i++) {
+      const j = i * 3;
+      cur[j] += (tgt[j] - cur[j]) * M3D.SMOOTH;
+      cur[j + 1] += (tgt[j + 1] - cur[j + 1]) * M3D.SMOOTH;
+      cur[j + 2] += (tgt[j + 2] - cur[j + 2]) * M3D.SMOOTH;
+      const lit = 0.6 + 0.4 * THREE.MathUtils.clamp(cur[j + 2] * 0.5 + 0.5, 0, 1);
+      cols[j] = col.r * lit; cols[j + 1] = col.g * lit; cols[j + 2] = col.b * lit;
+    }
+    m3d.points.geometry.attributes.position.needsUpdate = true;
+    m3d.points.geometry.attributes.color.needsUpdate = true;
+    const lp = m3d.lines.geometry.attributes.position.array;
+    for (let k = 0; k < m3d.lineIdx.length; k++) {
+      const s = m3d.lineIdx[k] * 3;
+      lp[k * 3] = cur[s]; lp[k * 3 + 1] = cur[s + 1]; lp[k * 3 + 2] = cur[s + 2];
+    }
+    m3d.lines.geometry.attributes.position.needsUpdate = true;
+    m3d.lines.material.color.copy(col);
+    m3d.lines.material.opacity += (0.14 - m3d.lines.material.opacity) * 0.1;
+    m3d.group.rotation.y = Math.sin(t * 0.0004) * 0.1; // gentle idle sway
+    m3d.renderer.render(m3d.scene, m3d.camera);
+  }
+
   // ── render loop (visual only; logic lives in update()) ──
   function render(t) {
     drawStarfield(t);
+    const show3d = m3dActivePhase();
     if (ctx) {
       ctx.clearRect(0, 0, VIEW, VIEW);
       const cx = VIEW / 2, cy = VIEW / 2;
@@ -435,12 +614,13 @@
       ctx.fill();
       ctx.restore();
 
-      drawParticles(ctx, cx, cy, t);
+      if (!show3d) drawParticles(ctx, cx, cy, t); // 3D model replaces the 2D mesh during capture
       if (ph.processing) drawProcessingOrb(ctx, cx, cy, t);
       drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5);
       drawHalo(ctx, cx, cy, half + 26, state.halo, accent);
       if (ph.guide !== undefined && state.halo < 0.82) drawGuide(ctx, cx, cy, ph.guide, accent);
     }
+    renderModel3D(t);
     state.raf = requestAnimationFrame(render);
   }
 
@@ -455,6 +635,7 @@
     video.srcObject = stream;
     await video.play().catch(() => {});
     document.getElementById('cam-wrap').classList.add('live');
+    ensureModel3D(); // boot the 3D depth engine in the background (capture phases)
 
     // Tier detection (FaceDetector is Chrome/Edge-only; iOS Safari falls to Tier B)
     if ('FaceDetector' in window) {
@@ -560,7 +741,7 @@
       && q.uniformity >= T.uniformityMin;
     const stillness = q.motion <= T.motionStill;
     let centering;
-    if (state.tierA) {
+    if (state.mpActive || state.tierA) {
       centering = q.centerOffset <= T.centerOffsetMax && q.coverage >= T.coverageMin;
     } else {
       // Tier B honest heuristic: something with facial structure sits in the center,
@@ -656,6 +837,19 @@
     if (!state.started || !state.stream) return;
 
     sampleFrame();
+    // MediaPipe 3D landmarks supersede the heuristic for centering during capture
+    if (m3d.landmarker && M3D_PHASES.has(state.step)) {
+      detectLandmarks(document.getElementById('cam-video'), t);
+      if (state.lm.present) {
+        state.mpActive = true;
+        state.q.centerOffset = state.lm.centerOffset;
+        state.q.coverage = state.lm.coverage;
+      } else {
+        state.mpActive = false;
+      }
+    } else {
+      state.mpActive = false;
+    }
     const g = evalGates();
     // live precision indicators reflect REAL gate state every frame
     INDICATORS.forEach((ind) => {
@@ -679,8 +873,8 @@
         break;
       }
       case 'face_detecting': {
-        // Tier A: need a centered face; Tier B: stable, well-lit, still pose.
-        const ok = state.tierA
+        // MediaPipe/Tier A: need a centered face; else stable, well-lit, still pose.
+        const ok = (state.mpActive || state.tierA)
           ? (g.centering && g.lighting)
           : (g.lighting && g.stillness && g.centering);
         if (ok) {
@@ -700,20 +894,20 @@
       }
       case 'neutral_capture': {
         lastCaptureStep = 'neutral_capture';
-        const pass = g.lighting && g.stillness && (state.tierA ? g.centering : true) && state.q.motion <= T.motionNeutral;
+        const pass = g.lighting && g.stillness && ((state.mpActive || state.tierA) ? g.centering : true) && state.q.motion <= T.motionNeutral;
         captureTick(pass, 'neutral', NEUTRAL_MS, dt, T.motionNeutral, () => { go('arc_left'); });
         break;
       }
       case 'arc_left': {
         lastCaptureStep = 'arc_left';
-        const pass = g.lighting && state.q.motion <= T.motionArc && (state.tierA ? state.q.coverage >= T.coverageMin : g.centering);
+        const pass = g.lighting && state.q.motion <= T.motionArc && ((state.mpActive || state.tierA) ? state.q.coverage >= T.coverageMin : g.centering);
         // arc_left fills the first half of arcProgress
         captureTick(pass, 'arc', ARC_MS, dt, T.motionArc, () => { go('arc_right'); }, 0.5);
         break;
       }
       case 'arc_right': {
         lastCaptureStep = 'arc_right';
-        const pass = g.lighting && state.q.motion <= T.motionArc && (state.tierA ? state.q.coverage >= T.coverageMin : g.centering);
+        const pass = g.lighting && state.q.motion <= T.motionArc && ((state.mpActive || state.tierA) ? state.q.coverage >= T.coverageMin : g.centering);
         if (STEP.arc_right.recenter && state.arc > 0.9) {
           const el = document.getElementById('instruction');
           if (el.textContent !== STEP.arc_right.recenter) el.textContent = STEP.arc_right.recenter;
@@ -723,7 +917,7 @@
       }
       case 'stability_pass': {
         lastCaptureStep = 'stability_pass';
-        const pass = g.lighting && g.stillness && state.q.motion <= T.motionStability && (state.tierA ? g.centering : true);
+        const pass = g.lighting && g.stillness && state.q.motion <= T.motionStability && ((state.mpActive || state.tierA) ? g.centering : true);
         captureTick(pass, 'stability', STABILITY_MS, dt, T.motionStability, () => { go('processing'); });
         break;
       }
@@ -808,6 +1002,7 @@
       step: 'intro', stepStart: 0, started: false, tierA: false, detector: null, face: null,
       q: { brightness: 0, uniformity: 0, motion: 1, detail: 0, coverage: 0, centerOffset: 1 },
       gates: { lighting: false, centering: false, stillness: false },
+      mpActive: false, lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0 },
       envHoldStart: 0, detectHoldStart: 0, lossStart: 0,
       neutral: 0, arc: 0, stability: 0, confSum: 0, confN: 0,
       halo: 0, secured: 0, settle: 0, bloom: 0, lastT: 0,
@@ -825,6 +1020,9 @@
     pill.textContent = '🔒 PRIVACY SECURED · ON-DEVICE';
     document.getElementById('baseline-extra').classList.remove('on');
     document.getElementById('proc-pct').classList.remove('on');
+    m3d.seen = false; // re-seed the 3D model on the next run
+    const m3dHost = document.getElementById('model3d');
+    if (m3dHost) m3dHost.classList.remove('on');
     setText(STEP.intro.instr, STEP.intro.sub);
     setCta({ label: 'Begin', action: 'begin' });
     makeParticles();
