@@ -21,6 +21,17 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="TENKI Core — Soul Scan">
   <meta name="twitter:image" content="https://tenki-emotion-app.vercel.app/brand/marketing/og-card-1200x630.png">
+  <!-- 3D baseline model: Three.js (import map) + MediaPipe FaceLandmarker, exposed to soul-enroll.js -->
+  <script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/vision_bundle.mjs';
+    window.THREE = THREE;
+    window.TENKI_MP = { FaceLandmarker, FilesetResolver };
+    window.__tenki3dReady = true;
+  </script>
   <style>
     /* ── TENKI face-baseline tokens (mirrors faceBaseline.tokens.ts) ── */
     :root {
@@ -94,7 +105,15 @@
       flex: 1; display: flex; align-items: center; justify-content: center;
       width: 100%;
     }
-    #scan-canvas { position: relative; z-index: 2; }
+    #scan-canvas { position: relative; z-index: 3; }
+    /* ── 3D landmark model (MediaPipe + Three.js) — shown during capture phases ── */
+    #model3d {
+      position: absolute; top: 50%; left: 50%;
+      width: 300px; height: 300px; transform: translate(-50%, -50%);
+      z-index: 2; opacity: 0; transition: opacity .6s ease; pointer-events: none;
+    }
+    #model3d.on { opacity: 1; }
+    #model3d canvas { display: block; }
     /* ── live front-camera layer (sits inside the scan frame, behind the canvas) ── */
     #cam-wrap {
       position: absolute; z-index: 1;
@@ -216,6 +235,7 @@
       <div id="cam-wrap" aria-hidden="true">
         <video id="cam-video" playsinline muted autoplay></video>
       </div>
+      <div id="model3d" aria-hidden="true"></div>
       <canvas id="scan-canvas" width="640" height="640"></canvas>
     </div>
 
