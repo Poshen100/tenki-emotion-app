@@ -185,6 +185,19 @@ export {
 
 export type { EwmaState } from './common/ewma';
 
+// ─── Haptics (TENKI Pulse) ──────────────────
+export {
+  createPulseProfile,
+  evolvePulseProfile,
+  maturityForSessions,
+  scanEventPulse,
+  zonePulse,
+  toWebVibration,
+  PULSE_LIMITS,
+} from './haptics/haptics';
+
+export type { HapticStep, HapticPattern, PulseEvent, PulseProfile } from './haptics/haptics';
+
 // ─── Legacy Adapter ─────────────────────────
 export {
   teiToEdgeScoreApprox,
