@@ -1,3 +1,26 @@
+# 2026-06-14 Session Update (3D 視覺「飛躍」：Soul Lattice 發光粒子晶格 #94 已 merge)
+
+> Founder 要 3D 不露臉建模有「飛躍的大升級」(看了 Fable 5 vs Opus 行銷影片受啟發 —— 那些 4M token/GTA VI 宣稱是未證實行銷,不採信,但「要大躍進」的需求照做)。
+
+## What was done
+1. **Soul Lattice 升級 PR #94**(只動獨立原型 `apps/preview/baseline-3d.{html,js}`,**不碰正式 soul-enroll**):
+   - **478 點 → ~5–6k 粒子**:沿 `FACE_LANDMARKS_TESSELATION` 每條邊插值取樣(`K_PER_EDGE=2`),每幀 = 兩端 landmark 的 lerp。
+   - **真 Bloom**:`EffectComposer + UnrealBloomPass`(import map 加 `three/addons/`),composer pixelRatio 降到 1.5 給手機。
+   - **自訂 ShaderMaterial**(Points):depth 打光 + 移動掃描光帶 `uScanY` + 每粒子 twinkle + `uMix` cyan→gold,additive。
+   - **編排**:forming 粒子**從散開球面飛入**(staggered, smoothstep);locking 收束成金核 + **擴散衝擊波環**(RingGeometry)。
+   - 仍 privacy-first(無真實臉部像素)、鎖定釋放相機。先 prototype 驗收,**OK 後再移植進 soul-enroll capture 段**。
+
+### ⚠️ LESSON(這次踩到)
+- **Squash-merge 同一條分支不 rebase → 會撞合併衝突**:#94 一開 PR 就 `mergeable_state: dirty`(`MEMORY.md` 三方合併打架),因為 merge-base 還停在舊 commit、main 是 squash 出來的新樹。**解法 + 往後習慣**:每次 squash-merge 後 `git fetch origin main && git reset --hard origin/main`(force-with-lease push)把分支同步回 main,下個 PR 才乾淨。本次已用 `git reset --soft origin/main` 收成單一 commit 解掉。
+
+## Next session（接手點）
+1. **收 founder 對 Soul Lattice 的回饋**(`/preview/baseline-3d.html`):夠不夠飛躍 / 效能順不順。
+2. 滿意 → **把 Soul Lattice renderer 移植進 `soul-enroll.js` 的 `m3d` 層**(取代目前正式流程的 478 點版);注意保留漸進增強 fallback。
+3. 想更猛:afterimage 拖尾、虹彩漸層、真實法線受光、blendshapes 眨眼 liveness。
+4. 原生(需 Mac):ARKit TrueDepth / vision-camera + MediaPipe RN。
+
+---
+
 # 2026-06-14 Session Update (3D 互動式臉部基線建模：MediaPipe + Three.js，#91/#92 已 merge)
 
 > Branch `claude/face-baseline-enrollment-9cacp6`。Founder 要「第一次臉部掃描」像 Face ID 一樣超酷超專業、且**不一定要露臉**。決策:**只用在基線建立**(日常 Soul Scan 維持 v6 星塵)。
