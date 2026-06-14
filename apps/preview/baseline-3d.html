@@ -3,12 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#05070d" />
+  <meta name="theme-color" content="#03040a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>TENKI CORE — 3D Baseline (prototype)</title>
+  <title>TENKI CORE — Neural Lattice (Ghost Protocol)</title>
 
-  <!-- Three.js resolved via import map; MediaPipe imported by URL in the module -->
   <script type="importmap">
   {
     "imports": {
@@ -20,118 +19,139 @@
 
   <style>
     :root {
-      --bg: #05070d;
-      --gold: #ffc85e;
-      --gold-soft: #ffe9b0;
-      --cyan: #36e6ff;
-      --text: #f3f5fa;
-      --text-dim: #8a93a6;
-      --lock-mint: #00e699;
+      --bg: #03040a;
+      --cyan: #00f5ff;
+      --orange: #ff6a00;
+      --magenta: #ff2bd6;
+      --gold: #ffc04d;
+      --red: #ff2a4d;
+      --mint: #00ff9c;
+      --hud-dim: #4d6a78;
+      --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, "Roboto Mono", monospace;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       height: 100%; width: 100%;
-      background: radial-gradient(120% 90% at 50% 18%, #0b1020 0%, #05070d 60%, #020306 100%);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
-      overflow: hidden;
-      -webkit-font-smoothing: antialiased;
+      background:
+        radial-gradient(120% 90% at 50% 12%, #07101c 0%, #03040a 58%, #010104 100%);
+      color: #cfe9f2; font-family: var(--mono);
+      overflow: hidden; -webkit-font-smoothing: antialiased;
     }
-    /* hidden source video — its pixels are never shown, only landmarks are derived */
-    #cam-video {
-      position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none;
-      top: -10px; left: -10px;
-    }
+    #cam-video { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; top: -10px; left: -10px; }
     #scene { position: fixed; inset: 0; z-index: 1; }
     #scene canvas { display: block; }
 
-    /* top status */
-    #topbar {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 3;
-      display: flex; align-items: center; gap: 9px;
-      padding: calc(env(safe-area-inset-top) + 14px) 18px 14px;
-      font-size: 13px; font-weight: 600; letter-spacing: 0.2px; color: var(--text-dim);
+    /* ── agent HUD overlay (glows over the dark scene) ── */
+    #hud {
+      position: fixed; inset: 0; z-index: 3; pointer-events: none;
+      mix-blend-mode: screen;
+      font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase;
     }
-    #dot {
-      width: 9px; height: 9px; border-radius: 50%;
-      background: var(--cyan); box-shadow: 0 0 10px var(--cyan);
-      transition: background .4s, box-shadow .4s;
-    }
-    #dot.gold { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+    /* corner frame brackets */
+    .bracket { position: absolute; width: 34px; height: 34px; border: 1.5px solid rgba(0,245,255,0.5); }
+    .bracket.tl { top: calc(env(safe-area-inset-top) + 16px); left: 16px; border-right: 0; border-bottom: 0; }
+    .bracket.tr { top: calc(env(safe-area-inset-top) + 16px); right: 16px; border-left: 0; border-bottom: 0; }
+    .bracket.bl { bottom: calc(env(safe-area-inset-bottom) + 96px); left: 16px; border-right: 0; border-top: 0; }
+    .bracket.br { bottom: calc(env(safe-area-inset-bottom) + 96px); right: 16px; border-left: 0; border-top: 0; }
 
-    /* bottom copy + progress */
+    .hud-row { position: absolute; display: flex; align-items: center; gap: 8px; color: var(--cyan); text-shadow: 0 0 8px rgba(0,245,255,0.6); }
+    #hud-brand { top: calc(env(safe-area-inset-top) + 24px); left: 30px; flex-direction: column; align-items: flex-start; gap: 3px; }
+    #hud-brand b { font-size: 13px; letter-spacing: 2px; color: #eafdff; }
+    #hud-brand span { color: var(--hud-dim); font-size: 10px; }
+    #hud-status { top: calc(env(safe-area-inset-top) + 24px); right: 30px; }
+    #statusChip { color: var(--orange); text-shadow: 0 0 8px rgba(255,106,0,0.6); }
+    #statusChip.online { color: var(--mint); text-shadow: 0 0 8px rgba(0,255,156,0.7); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 10px var(--mint); }
+
+    #hud-bl { bottom: calc(env(safe-area-inset-bottom) + 104px); left: 30px; flex-direction: column; align-items: flex-start; gap: 5px; }
+    #hud-br { bottom: calc(env(safe-area-inset-bottom) + 104px); right: 30px; flex-direction: column; align-items: flex-end; gap: 5px; }
+    .kv { color: var(--hud-dim); }
+    .kv b { color: var(--cyan); font-weight: 600; }
+    #threat b { color: var(--mint); }
+    #binary { color: rgba(0,245,255,0.35); font-size: 9px; letter-spacing: 2px; max-width: 120px; overflow: hidden; white-space: nowrap; }
+
+    /* center targeting reticle */
+    #reticle {
+      position: absolute; top: 44%; left: 50%; width: 210px; height: 210px;
+      transform: translate(-50%, -50%); opacity: 0; transition: opacity .5s;
+    }
+    #reticle.on { opacity: 0.85; }
+    #reticle .ring { position: absolute; inset: 0; border: 1px solid rgba(0,245,255,0.4); border-radius: 50%; animation: spin 9s linear infinite; }
+    #reticle .ring::before, #reticle .ring::after {
+      content: ''; position: absolute; background: var(--cyan); box-shadow: 0 0 6px var(--cyan);
+    }
+    #reticle .ring::before { top: -1px; left: 50%; width: 1px; height: 14px; transform: translateX(-50%); }
+    #reticle .ring::after { bottom: -1px; left: 50%; width: 1px; height: 14px; transform: translateX(-50%); }
+    #reticle .tick { position: absolute; top: 50%; width: 12px; height: 1px; background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+    #reticle .tick.l { left: -2px; } #reticle .tick.r { right: -2px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* bottom copy */
     #ui {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 3;
-      padding: 26px 26px calc(env(safe-area-inset-bottom) + 30px);
-      text-align: center;
-      background: linear-gradient(to top, rgba(3,5,10,0.88) 0%, rgba(3,5,10,0.55) 55%, rgba(3,5,10,0) 100%);
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
+      padding: 20px 24px calc(env(safe-area-inset-bottom) + 26px); text-align: center;
+      background: linear-gradient(to top, rgba(3,4,10,0.9) 0%, rgba(3,4,10,0.5) 55%, rgba(3,4,10,0) 100%);
     }
-    #instruction {
-      font-size: 27px; font-weight: 700; line-height: 1.2; letter-spacing: -0.4px;
-      margin-bottom: 8px; transition: color .5s;
-    }
-    #subtitle { font-size: 14.5px; color: var(--text-dim); line-height: 1.45; min-height: 21px; }
-
-    #meter {
-      height: 4px; width: 100%; max-width: 280px; margin: 18px auto 0;
-      background: rgba(255,255,255,0.10); border-radius: 999px; overflow: hidden;
-      opacity: 0; transition: opacity .4s;
-    }
+    #status-line { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--orange); text-shadow: 0 0 8px rgba(255,106,0,0.5); margin-bottom: 10px; min-height: 14px; }
+    #instruction { font-family: -apple-system, system-ui, sans-serif; font-size: 25px; font-weight: 700; letter-spacing: -0.3px; color: #f2fbff; }
+    #subtitle { font-family: -apple-system, system-ui, sans-serif; font-size: 13.5px; color: #7f93a0; margin-top: 7px; min-height: 19px; }
+    #meter { height: 3px; width: 100%; max-width: 280px; margin: 16px auto 0; background: rgba(0,245,255,0.12); overflow: hidden; opacity: 0; transition: opacity .4s; }
     #meter.on { opacity: 1; }
-    #meter-fill {
-      height: 100%; width: 0%;
-      background: linear-gradient(90deg, var(--cyan), var(--gold-soft));
-      border-radius: 999px; transition: width .12s linear;
-    }
-
+    #meter-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--orange)); box-shadow: 0 0 10px var(--cyan); transition: width .12s linear; }
     #cta {
-      display: none; margin: 22px auto 0; padding: 16px 30px;
-      background: linear-gradient(180deg, var(--gold-soft), var(--gold));
-      color: #2a1d00; font-size: 16px; font-weight: 700; letter-spacing: 0.2px;
-      border: none; border-radius: 16px; cursor: pointer;
-      box-shadow: 0 8px 30px rgba(243,169,42,0.35);
+      display: none; margin: 20px auto 0; padding: 15px 30px;
+      background: transparent; color: var(--gold); font-family: var(--mono);
+      font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+      border: 1.5px solid var(--gold); border-radius: 4px; cursor: pointer;
+      box-shadow: 0 0 24px rgba(255,192,77,0.3), inset 0 0 18px rgba(255,192,77,0.12);
     }
     #cta.on { display: inline-block; }
 
-    #pill {
-      position: fixed; left: 50%; transform: translateX(-50%);
-      top: calc(env(safe-area-inset-top) + 46px); z-index: 3;
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 6px 13px; border-radius: 999px;
-      background: rgba(0,230,153,0.10); border: 1px solid rgba(0,230,153,0.28);
-      color: var(--lock-mint); font-size: 11px; font-weight: 600; letter-spacing: 0.4px;
-    }
+    #pill { display: none; }
 
-    /* fatal / permission message */
     #fatal {
-      display: none; position: fixed; inset: 0; z-index: 5;
-      flex-direction: column; align-items: center; justify-content: center;
-      padding: 40px; text-align: center; gap: 14px;
-      background: rgba(3,5,10,0.92);
+      display: none; position: fixed; inset: 0; z-index: 6; flex-direction: column;
+      align-items: center; justify-content: center; padding: 40px; text-align: center; gap: 14px;
+      background: rgba(3,4,10,0.94);
     }
     #fatal.on { display: flex; }
-    #fatal h2 { font-size: 20px; font-weight: 700; }
-    #fatal p { font-size: 14px; color: var(--text-dim); line-height: 1.5; max-width: 300px; }
+    #fatal h2 { font-family: -apple-system, system-ui, sans-serif; font-size: 20px; color: #f2fbff; }
+    #fatal p { font-family: -apple-system, system-ui, sans-serif; font-size: 14px; color: #7f93a0; line-height: 1.5; max-width: 300px; }
   </style>
 </head>
 <body>
   <video id="cam-video" playsinline autoplay muted></video>
   <div id="scene"></div>
 
-  <div id="topbar"><span id="dot"></span><span id="status">Initializing depth engine…</span></div>
-  <div id="pill">🔒 ON-DEVICE · NO FACE STORED</div>
+  <div id="hud">
+    <div class="bracket tl"></div><div class="bracket tr"></div>
+    <div class="bracket bl"></div><div class="bracket br"></div>
+
+    <div class="hud-row" id="hud-brand"><b>TENKI CORE</b><span>Neural Lattice · v0.8</span></div>
+    <div class="hud-row" id="hud-status"><span id="statusChip">Calibrating</span><span class="dot"></span><span style="color:var(--hud-dim)">On-device</span></div>
+
+    <div id="reticle"><div class="ring"></div><div class="tick l"></div><div class="tick r"></div></div>
+
+    <div class="hud-row" id="hud-bl">
+      <span class="kv">Lattice nodes&nbsp;<b id="nodes">0</b></span>
+      <span class="kv">Sync&nbsp;<b id="sync">0.0%</b></span>
+      <span id="binary">0100101110</span>
+    </div>
+    <div class="hud-row" id="hud-br">
+      <span class="kv" id="threat">Threat&nbsp;<b>Low</b></span>
+      <span class="kv">Mode&nbsp;<b style="color:var(--magenta)">Ghost</b></span>
+    </div>
+  </div>
 
   <div id="ui">
-    <h1 id="instruction">Building your 3D baseline</h1>
-    <p id="subtitle">Setting up — this happens once.</p>
+    <div id="status-line"></div>
+    <h1 id="instruction">Neural Lattice</h1>
+    <p id="subtitle">Initialising on-device engine…</p>
     <div id="meter"><div id="meter-fill"></div></div>
-    <button id="cta" data-href="/preview/v6/?from=baseline">Start your first scan</button>
+    <button id="cta" data-href="/preview/v6/?from=baseline">◢ Start your first scan ◣</button>
   </div>
 
-  <div id="fatal">
-    <h2 id="fatal-title">Camera needed</h2>
-    <p id="fatal-msg">We build your baseline on-device using the front camera. No image ever leaves your phone.</p>
-  </div>
+  <div id="fatal"><h2 id="fatal-title">Camera needed</h2><p id="fatal-msg">We build your baseline on-device using the front camera. No image ever leaves your phone.</p></div>
 
   <script type="module" src="baseline-3d.js"></script>
 </body>
