@@ -13,6 +13,8 @@ import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
 import { shouldFireHaptic } from '../utils/haptics';
+import { toWebVibration, type HapticPattern } from '../utils/pulse';
+import { playPattern as schedulePattern, type ImpactStyle } from '../utils/pulsePlayer';
 
 /** Semantic haptic moments used across the flow (see SPEC Task 8). */
 export type HapticKind =
@@ -25,7 +27,22 @@ export type HapticKind =
 
 export interface BaselineHapticsApi {
   trigger: (kind: HapticKind) => void;
+  /**
+   * Play a TENKI Pulse {@link HapticPattern} (native: sequenced impacts;
+   * web: navigator.vibrate, Android only). Returns a cancel fn.
+   */
+  playPattern: (pattern: HapticPattern) => () => void;
 }
+
+const NOOP = (): void => {};
+
+/** Map a pulse-player impact style to the expo-haptics feedback style. */
+const IMPACT_STYLE: Record<ImpactStyle, Haptics.ImpactFeedbackStyle> = {
+  Soft: Haptics.ImpactFeedbackStyle.Soft,
+  Light: Haptics.ImpactFeedbackStyle.Light,
+  Medium: Haptics.ImpactFeedbackStyle.Medium,
+  Heavy: Haptics.ImpactFeedbackStyle.Heavy,
+};
 
 export { shouldFireHaptic } from '../utils/haptics';
 
@@ -90,6 +107,30 @@ export function useBaselineHaptics(): BaselineHapticsApi {
             // Ignore native runtime errors safely
           }
         }
+      },
+
+      playPattern: (pattern: HapticPattern): (() => void) => {
+        if (!shouldFireHaptic(reducedMotion, true)) return NOOP;
+
+        if (Platform.OS === 'web') {
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try {
+              navigator.vibrate(toWebVibration(pattern));
+            } catch (_e) {
+              // Ignore silent permission or state errors on web
+            }
+          }
+          return NOOP;
+        }
+
+        // Native: render the pattern as sequenced expo-haptics impacts.
+        return schedulePattern(pattern, (style: ImpactStyle): void => {
+          try {
+            Haptics.impactAsync(IMPACT_STYLE[style]);
+          } catch (_e) {
+            // Ignore native runtime errors safely
+          }
+        });
       },
     }),
     [reducedMotion],
