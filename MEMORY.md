@@ -1,3 +1,26 @@
+# 2026-06-14 Session Update (3D 互動式臉部基線建模：MediaPipe + Three.js，#91/#92 已 merge)
+
+> Branch `claude/face-baseline-enrollment-9cacp6`。Founder 要「第一次臉部掃描」像 Face ID 一樣超酷超專業、且**不一定要露臉**。決策:**只用在基線建立**(日常 Soul Scan 維持 v6 星塵)。
+
+## What was done
+1. **方向(model B-honest + privacy)**:不顯示鏡頭畫面,只渲染從臉推導的**抽象 3D 點雲/網格**(Face-ID 點陣投影器美學)→ 同時超專業 + 超隱私。
+2. **獨立原型 PR #91**(`apps/preview/baseline-3d.html` + `.js`):MediaPipe FaceLandmarker(478 個 on-device 3D landmark)+ Three.js 點雲 + tessellation 網格。儀式 `loading→await_face→forming(掃描成型)→scanning(轉頭旋轉)→locking(青→金收束金核)→locked`。獨立網址 `/preview/baseline-3d.html`,純展示驗證手感。
+3. **接進真正流程 PR #92**(`apps/preview/soul-enroll.{html,js}`):把 capture 段(`face_detecting→stability`)的 2D 星塵換成 3D 模型。真 landmark 置中取代啟發式;capture 時隱藏鏡頭預覽。**保留**環境檢查(3 燈)、金球 processing、基線數據、v6 銜接。
+   - 接法:HTML 加 import map(`three`)+ module bootstrap 把 `window.THREE`/`window.TENKI_MP` 掛上;加 `#model3d` WebGL 層。soul-enroll.js 維持 classic IIFE,新增 `m3d` 場景 + `detectLandmarks`/`ingestLandmarks`;`state.mpActive` 時用 landmark 的 centerOffset/coverage 餵進 `evalGates`,gating 放寬成 `(state.mpActive || state.tierA)`。
+   - **漸進增強/零回歸**:3D 是加強層,`m3d.ready` 為 false(CDN 載不到)→ 自動回退既有 2D 星塵流程。
+
+### 關鍵突破 / 注意
+- **MediaPipe 自帶模型 → iOS Safari 也能拿到真 478 landmark**,一舉解掉之前「iOS 無 `FaceDetector` 只能啟發式」的痛點。
+- CDN(runtime,founder 瀏覽器):`three@0.160.0`(jsdelivr)、`@mediapipe/tasks-vision@0.10.12`(jsdelivr,含 `/wasm`)、model `face_landmarker.task`(storage.googleapis.com)。容器無法 headless 驗證,靠手機實走。
+- arc「轉頭」目前是**視覺旋轉**(模型即時跟著轉),進度仍走既有 handheld 計時 —— 沒硬卡 yaw,避免 dead-end。
+
+## Next session（接手點）
+1. 收 founder 手機回饋,微調 `M3D.SCALE`/`DEPTH`/`SMOOTH`、點大小、網格 opacity(都在 `soul-enroll.js` 的 `M3D` 與 `m3d.points/lines` material)。
+2. (選做進階)把 arc 改成**真 yaw 覆蓋進度**(轉頭補完背面)+ blendshapes 眨眼 liveness(MediaPipe `outputFaceBlendshapes`)。
+3. 原生(需 Mac):iOS ARKit TrueDepth 真深度版當旗艦;或 vision-camera + MediaPipe RN plugin 移植進 `apps/mobile`。
+
+---
+
 # 2026-06-13 Session Update (上線 + 手持卡頓 hotfix：#89/#90 已 merge 進 main)
 
 > Branch `claude/face-baseline-enrollment-9cacp6`。這次把前面兩段（門面 + Model B 旅程）開 PR、收 founder 手機回饋、修 bug、上線。
