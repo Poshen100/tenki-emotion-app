@@ -23,13 +23,27 @@
   <meta name="twitter:image" content="https://tenki-emotion-app.vercel.app/brand/marketing/og-card-1200x630.png">
   <!-- 3D baseline model: Three.js (import map) + MediaPipe FaceLandmarker, exposed to soul-enroll.js -->
   <script type="importmap">
-  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
   </script>
   <script type="module">
     import * as THREE from 'three';
     import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/vision_bundle.mjs';
     window.THREE = THREE;
     window.TENKI_MP = { FaceLandmarker, FilesetResolver };
+    // Bloom postprocessing (optional — capture renderer degrades gracefully without it)
+    try {
+      const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }] = await Promise.all([
+        import('three/addons/postprocessing/EffectComposer.js'),
+        import('three/addons/postprocessing/RenderPass.js'),
+        import('three/addons/postprocessing/UnrealBloomPass.js'),
+      ]);
+      window.TENKI_POST = { EffectComposer, RenderPass, UnrealBloomPass };
+    } catch (_) { window.TENKI_POST = null; }
     window.__tenki3dReady = true;
   </script>
   <style>

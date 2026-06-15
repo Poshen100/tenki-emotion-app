@@ -184,14 +184,17 @@
   const M3D_PHASES = new Set([
     'face_detecting', 'face_locked', 'neutral_capture', 'arc_left', 'arc_right', 'stability_pass',
   ]);
-  const M3D = { SCALE: 2.4, DEPTH: 1.5, SMOOTH: 0.4 };
+  const M3D = { SCALE: 2.4, DEPTH: 1.5, SMOOTH: 0.4, K: 2 };
   const MP_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/wasm';
   const MP_MODEL =
     'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+  // "Ghost Protocol" particle lattice: ~6k bloom-lit diamond data-nodes densified
+  // along the face tessellation, with a cyberpunk shader (rim + scanlines + glitch).
   const m3d = {
     ready: false, booting: false, landmarker: null, lastVideoTime: -1, seen: false, N: 478,
-    renderer: null, scene: null, camera: null, group: null, points: null, lines: null,
-    cur: null, target: null, colors: null, lineIdx: null,
+    renderer: null, scene: null, camera: null, group: null, points: null, pmat: null, composer: null,
+    P: 0, pPos: null, pScatter: null, pRnd: null, aIdx: null, bIdx: null, tArr: null,
+    lmCur: null, lmTarget: null, glitch: 0, prevYaw: 0,
   };
 
   // offscreen sampler for frame analysis
@@ -440,20 +443,6 @@
   }
 
   // round glow sprite for the 3D points / core
-  function m3dSprite() {
-    const THREE = window.THREE;
-    const c = document.createElement('canvas');
-    c.width = c.height = 64;
-    const g = c.getContext('2d');
-    const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grd.addColorStop(0, 'rgba(255,255,255,1)');
-    grd.addColorStop(0.35, 'rgba(255,255,255,0.9)');
-    grd.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = grd;
-    g.fillRect(0, 0, 64, 64);
-    return new THREE.CanvasTexture(c);
-  }
-
   // lazily boot the WebGL scene + load the landmarker once the ESM bundles are on window
   function ensureModel3D() {
     if (m3d.ready || m3d.booting) return;
@@ -465,14 +454,79 @@
     } catch (_) { m3d.booting = false; }
   }
 
+  // densify the face tessellation into ~6k particles (edge-interpolated data nodes)
+  function buildM3DParticles() {
+    const tess = window.TENKI_MP.FaceLandmarker.FACE_LANDMARKS_TESSELATION || [];
+    const a = [], b = [], tt = [];
+    for (let i = 0; i < m3d.N; i++) { a.push(i); b.push(i); tt.push(0); }
+    for (const e of tess) for (let k = 0; k < M3D.K; k++) { a.push(e.start); b.push(e.end); tt.push((k + 1) / (M3D.K + 1)); }
+    m3d.P = a.length;
+    m3d.aIdx = new Uint16Array(a); m3d.bIdx = new Uint16Array(b); m3d.tArr = new Float32Array(tt);
+    m3d.pPos = new Float32Array(m3d.P * 3); m3d.pRnd = new Float32Array(m3d.P);
+    for (let i = 0; i < m3d.P; i++) m3d.pRnd[i] = Math.random();
+  }
+
+  // cyberpunk particle shader: diamond nodes + edge rim + sweeping scanlines + glitch.
+  // Honors the visual law (cyan = ACTIVE → gold = SECURED via uMix = state.secured).
+  function m3dMaterial(THREE, pr) {
+    return new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: {
+        uTime: { value: 0 }, uSize: { value: 8.5 * pr }, uScanY: { value: 0 }, uMix: { value: 0 }, uGlitch: { value: 0 },
+        uColorA: { value: new THREE.Color(COLORS.cyan) }, uColorB: { value: new THREE.Color(COLORS.gold) },
+        uScanCol: { value: new THREE.Color('#FF6A00') }, uRim: { value: new THREE.Color('#9bf6ff') },
+      },
+      vertexShader: `
+        attribute float aRnd;
+        uniform float uTime, uSize, uScanY, uMix, uGlitch;
+        uniform vec3 uColorA, uColorB, uScanCol, uRim;
+        varying vec3 vColor; varying float vA;
+        float hash(float n){ return fract(sin(n) * 43758.5453); }
+        void main() {
+          vec3 p = position;
+          if (uGlitch > 0.001) {
+            float h = hash(dot(p.xy, vec2(12.9898, 78.233)) + floor(uTime * 28.0));
+            p.x += (h - 0.5) * uGlitch * 0.26;
+            p.y += (hash(h * 7.0) - 0.5) * uGlitch * 0.18;
+          }
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          float depth = clamp(p.z * 0.6 + 0.5, 0.0, 1.0);
+          float lit = 0.45 + 0.55 * depth;
+          float twk = 0.8 + 0.2 * sin(uTime * 3.0 + aRnd * 6.283);
+          float rim = smoothstep(0.55, 1.05, length(p.xy));
+          float band = 0.0;
+          for (int i = 0; i < 3; i++) {
+            float yk = -1.4 + fract(uScanY + float(i) * 0.34) * 2.8;
+            band = max(band, smoothstep(0.05, 0.0, abs(p.y - yk)));
+          }
+          vec3 base = mix(uColorA, uColorB, uMix) * lit * twk + uRim * rim * 0.55;
+          vColor = mix(base, uScanCol, band * 0.9);
+          vA = (0.4 + 0.6 * depth) * (1.0 + band * 0.8);
+          gl_PointSize = uSize * (1.0 / -mv.z) * (0.6 + 0.7 * depth) * (1.0 + band * 1.6 + rim * 0.4);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        varying vec3 vColor; varying float vA;
+        void main() {
+          vec2 q = abs(gl_PointCoord - 0.5);
+          float dd = q.x + q.y;
+          float edge = smoothstep(0.5, 0.12, dd);
+          float core = smoothstep(0.16, 0.0, dd);
+          gl_FragColor = vec4(vColor + core * 0.7, max(edge * 0.7, core) * vA);
+        }`,
+    });
+  }
+
   function initModel3D() {
     const THREE = window.THREE;
     const host = document.getElementById('model3d');
     const w = host.clientWidth || 300;
     const h = host.clientHeight || 300;
+    const pr = Math.min(window.devicePixelRatio || 1, 2);
     m3d.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    m3d.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    m3d.renderer.setPixelRatio(pr);
     m3d.renderer.setSize(w, h);
+    m3d.renderer.setClearColor(0x000000, 0);
     host.appendChild(m3d.renderer.domElement);
 
     m3d.scene = new THREE.Scene();
@@ -481,31 +535,28 @@
     m3d.group = new THREE.Group();
     m3d.scene.add(m3d.group);
 
-    m3d.cur = new Float32Array(m3d.N * 3);
-    m3d.target = new Float32Array(m3d.N * 3);
-    m3d.colors = new Float32Array(m3d.N * 3);
+    m3d.lmCur = new Float32Array(m3d.N * 3);
+    m3d.lmTarget = new Float32Array(m3d.N * 3);
+    buildM3DParticles();
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(m3d.cur, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(m3d.colors, 3));
-    m3d.points = new THREE.Points(
-      geo,
-      new THREE.PointsMaterial({
-        size: 0.05, map: m3dSprite(), vertexColors: true, transparent: true,
-        depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
-      }),
-    );
+    geo.setAttribute('position', new THREE.BufferAttribute(m3d.pPos, 3));
+    geo.setAttribute('aRnd', new THREE.BufferAttribute(m3d.pRnd, 1));
+    m3d.pmat = m3dMaterial(THREE, pr);
+    m3d.points = new THREE.Points(geo, m3d.pmat);
+    m3d.points.frustumCulled = false;
     m3d.group.add(m3d.points);
 
-    m3d.lineIdx = [];
-    const tess = window.TENKI_MP.FaceLandmarker.FACE_LANDMARKS_TESSELATION || [];
-    for (const c of tess) m3d.lineIdx.push(c.start, c.end);
-    const lgeo = new THREE.BufferGeometry();
-    lgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(m3d.lineIdx.length * 3), 3));
-    m3d.lines = new THREE.LineSegments(
-      lgeo,
-      new THREE.LineBasicMaterial({ transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }),
-    );
-    m3d.group.add(m3d.lines);
+    // bloom postprocessing if the addons loaded; otherwise plain render (still upgraded)
+    const POST = window.TENKI_POST;
+    if (POST && POST.EffectComposer) {
+      try {
+        m3d.composer = new POST.EffectComposer(m3d.renderer);
+        m3d.composer.setPixelRatio(Math.min(pr, 1.5));
+        m3d.composer.setSize(w, h);
+        m3d.composer.addPass(new POST.RenderPass(m3d.scene, m3d.camera));
+        m3d.composer.addPass(new POST.UnrealBloomPass(new THREE.Vector2(w, h), 0.95, 0.3, 0.2));
+      } catch (_) { m3d.composer = null; }
+    }
     m3d.ready = true;
   }
 
@@ -545,17 +596,20 @@
       if (L[i].y < miny) miny = L[i].y; if (L[i].y > maxy) maxy = L[i].y;
     }
     cx /= N; cy /= N; cz /= N;
-    const tgt = m3d.target;
+    const tgt = m3d.lmTarget;
     for (let i = 0; i < N; i++) {
       const j = i * 3;
       tgt[j] = -(L[i].x - cx) * M3D.SCALE; // mirror X (selfie)
       tgt[j + 1] = -(L[i].y - cy) * M3D.SCALE;
       tgt[j + 2] = -(L[i].z - cz) * M3D.SCALE * M3D.DEPTH;
     }
-    if (!m3d.seen) { for (let i = 0; i < N * 3; i++) m3d.cur[i] = tgt[i]; m3d.seen = true; }
+    if (!m3d.seen) { for (let i = 0; i < N * 3; i++) m3d.lmCur[i] = tgt[i]; m3d.seen = true; }
     const nose = L[1], le = L[33], re = L[263];
     const span = Math.abs(re.x - le.x) || 1e-3;
-    state.lm.yaw = (nose.x - (le.x + re.x) / 2) / span;
+    const yaw = (nose.x - (le.x + re.x) / 2) / span;
+    m3d.glitch = Math.min(1, m3d.glitch + Math.abs(yaw - m3d.prevYaw) * 9); // head-turn → glitch pulse
+    m3d.prevYaw = yaw;
+    state.lm.yaw = yaw;
     state.lm.centerOffset = clamp01(Math.hypot(cx - 0.5, cy - 0.5) * 2);
     state.lm.coverage = clamp01((maxx - minx) * (maxy - miny) * 4);
   }
@@ -572,29 +626,28 @@
     const cam = document.getElementById('cam-wrap');
     if (cam) cam.style.opacity = show ? '0' : '';
     if (!show) return;
-    const THREE = window.THREE;
-    const col = new THREE.Color(COLORS.cyan).lerp(new THREE.Color(COLORS.gold), state.secured);
-    const cur = m3d.cur, tgt = m3d.target, cols = m3d.colors, N = m3d.N;
-    for (let i = 0; i < N; i++) {
-      const j = i * 3;
-      cur[j] += (tgt[j] - cur[j]) * M3D.SMOOTH;
-      cur[j + 1] += (tgt[j + 1] - cur[j + 1]) * M3D.SMOOTH;
-      cur[j + 2] += (tgt[j + 2] - cur[j + 2]) * M3D.SMOOTH;
-      const lit = 0.6 + 0.4 * THREE.MathUtils.clamp(cur[j + 2] * 0.5 + 0.5, 0, 1);
-      cols[j] = col.r * lit; cols[j + 1] = col.g * lit; cols[j + 2] = col.b * lit;
+    // smooth landmarks, then place each particle by lerping along its tessellation edge
+    const lc = m3d.lmCur, lt = m3d.lmTarget;
+    for (let i = 0; i < m3d.N * 3; i++) lc[i] += (lt[i] - lc[i]) * M3D.SMOOTH;
+    const pos = m3d.pPos;
+    for (let i = 0; i < m3d.P; i++) {
+      const a = m3d.aIdx[i] * 3, b = m3d.bIdx[i] * 3, tt = m3d.tArr[i], j = i * 3;
+      pos[j] = lc[a] + (lc[b] - lc[a]) * tt;
+      pos[j + 1] = lc[a + 1] + (lc[b + 1] - lc[a + 1]) * tt;
+      pos[j + 2] = lc[a + 2] + (lc[b + 2] - lc[a + 2]) * tt;
     }
     m3d.points.geometry.attributes.position.needsUpdate = true;
-    m3d.points.geometry.attributes.color.needsUpdate = true;
-    const lp = m3d.lines.geometry.attributes.position.array;
-    for (let k = 0; k < m3d.lineIdx.length; k++) {
-      const s = m3d.lineIdx[k] * 3;
-      lp[k * 3] = cur[s]; lp[k * 3 + 1] = cur[s + 1]; lp[k * 3 + 2] = cur[s + 2];
-    }
-    m3d.lines.geometry.attributes.position.needsUpdate = true;
-    m3d.lines.material.color.copy(col);
-    m3d.lines.material.opacity += (0.14 - m3d.lines.material.opacity) * 0.1;
+
+    m3d.glitch *= 0.88;
+    const u = m3d.pmat.uniforms;
+    u.uTime.value = t * 0.001;
+    u.uMix.value = state.secured; // cyan (ACTIVE) → gold (SECURED)
+    u.uGlitch.value = m3d.glitch;
+    u.uScanY.value = t * 0.00035;
     m3d.group.rotation.y = Math.sin(t * 0.0004) * 0.1; // gentle idle sway
-    m3d.renderer.render(m3d.scene, m3d.camera);
+
+    if (m3d.composer) m3d.composer.render();
+    else m3d.renderer.render(m3d.scene, m3d.camera);
   }
 
   // ── render loop (visual only; logic lives in update()) ──
