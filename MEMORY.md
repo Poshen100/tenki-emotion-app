@@ -1,3 +1,24 @@
+# 2026-06-14 Session Update (TENKI Pulse：會學習迭代的觸覺 — #95 cyberpunk / #96 引擎 / #97 原生 adapter)
+
+> Founder:「適時的震動反應,讓 TENKI 感覺有生命、而且震動會學習迭代。」
+
+## What was done
+1. **Ghost Protocol cyberpunk restyle #95**(`apps/preview/baseline-3d.{html,js}`):把 Soul Lattice 改成特務 HUD —— 菱形資料節點 shader + 多重掃描線 + 轉頭 glitch + 更銳利 bloom + 鎖定二十面體核心/資料環/六邊形衝擊波 + DOM HUD(準星/NODES/SYNC/THREAT)。**合規:拿掉 founder 提的「HR 87 bpm」假心率讀數**(privacy-first,不暗示量測生理/醫療),改用 SYNC/NODES/THREAT。
+2. **TENKI Pulse 引擎 #96**(`packages/engine/src/haptics/`,275 測試全綠):純函式、platform-neutral。`scanEventPulse`(臉鎖/tick/里程碑/鎖定)、`zonePulse`(Clear 呼吸/Neutral 穩/Strain 較銳)、`evolvePulseProfile`(依基線成熟度 new→building→ready→mature + zone EWMA 學習迭代,強度/節奏/refinement 有安全上下限)、`toWebVibration`。
+3. **原生 adapter #97**(`apps/mobile`,61 測試全綠):`utils/pulse.ts`(engine 的 mobile mirror,重用 `maturityStage`)、`utils/pulsePlayer.ts`(把 HapticPattern 播成連續 expo-haptics impacts:intensity→ImpactFeedbackStyle、gap→節奏)、`stores/pulse-profile-store.ts`(persist/AsyncStorage 的學習 profile)、`useBaselineHaptics.playPattern()`。
+
+### ⚠️ 關鍵限制 / 注意
+- **iOS Safari 網頁完全不能震**(`navigator.vibrate` 無效)→ 真震動只能原生 app;founder 要 **Mac/build** 才感受得到。這也是為何先做「引擎 + adapter」(純 TS 可測),不靠裝置驗證。
+- **mobile 不在 root workspaces、不 import `packages/engine`** → 沿用既有慣例「mobile 自帶 util mirror engine」(如 `maturityStage`/`qualityThresholds`)。`apps/mobile/.../utils/pulse.ts` 是 engine TENKI Pulse 的 mirror,**改其一要兩邊同步**。
+- 合規:profile 全裝置端、無生理原始資料、不上雲;震動是「感受」非醫療宣稱;`reducedMotion` 時不震。
+
+## Next session（接手點 — 待 founder 有 Mac/build）
+1. **最後一哩(會動到掃描畫面,要實機測才做)**:把 3 接線點接進實際 screens —— 臉鎖/掃描/鎖定→`playPattern(scanEventPulse(...))`、分數揭曉→`playPattern(zonePulse(zone,profile))`、掃描完成→`usePulseProfileStore.getState().recordScan(zone,score)`。
+2. Ghost Protocol 手感微調(配色/glitch/掃描線);或加音效 + 「Activate Ghost Protocol」切換。
+3. 把 Soul Lattice / Ghost Protocol renderer 移植進正式 soul-enroll capture 段(目前正式流程仍是 #94 發光點雲版)。
+
+---
+
 # 2026-06-14 Session Update (3D 視覺「飛躍」：Soul Lattice 發光粒子晶格 #94 已 merge)
 
 > Founder 要 3D 不露臉建模有「飛躍的大升級」(看了 Fable 5 vs Opus 行銷影片受啟發 —— 那些 4M token/GTA VI 宣稱是未證實行銷,不採信,但「要大躍進」的需求照做)。
