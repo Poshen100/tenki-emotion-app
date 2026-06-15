@@ -39,7 +39,68 @@ const el = {
   fatal: document.getElementById('fatal'),
   fatalTitle: document.getElementById('fatal-title'),
   fatalMsg: document.getElementById('fatal-msg'),
+  ghostToggle: document.getElementById('ghost-toggle'),
 };
+
+// ── Ghost Protocol sound (Web Audio; opt-in, iOS-safe) ──────────────────────
+// A low breathing hum during scanning + ticks on phase changes + a lock whoosh.
+const Sfx = (() => {
+  let ctx = null, master = null, enabled = false, humGain = null, humOscs = [], lfo = null;
+  function ensure() {
+    if (ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ctx = new AC();
+    master = ctx.createGain(); master.gain.value = 0.16; master.connect(ctx.destination);
+  }
+  function setEnabled(on) {
+    enabled = on;
+    if (on) { ensure(); if (ctx && ctx.state === 'suspended') ctx.resume(); }
+    else { stopHum(); }
+  }
+  function startHum() {
+    if (!enabled || !ctx || humGain) return;
+    humGain = ctx.createGain(); humGain.gain.value = 0.0001; humGain.connect(master);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.connect(humGain);
+    [55, 55.4, 110].forEach((f, i) => {
+      const o = ctx.createOscillator(); o.type = i === 2 ? 'sine' : 'sawtooth'; o.frequency.value = f;
+      const g = ctx.createGain(); g.gain.value = i === 2 ? 0.25 : 0.5; o.connect(g); g.connect(lp); o.start(); humOscs.push(o);
+    });
+    lfo = ctx.createOscillator(); lfo.frequency.value = 0.18; // slow breathing
+    const la = ctx.createGain(); la.gain.value = 0.05; lfo.connect(la); la.connect(humGain.gain); lfo.start();
+    humGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.8);
+  }
+  function stopHum() {
+    if (!ctx || !humGain) return;
+    humGain.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3);
+    const oscs = humOscs, g = humGain, l = lfo;
+    setTimeout(() => { try { oscs.forEach((o) => o.stop()); if (l) l.stop(); g.disconnect(); } catch (_) {} }, 800);
+    humOscs = []; humGain = null; lfo = null;
+  }
+  function blip(freq, dur, type, vol) {
+    if (!enabled || !ctx) return;
+    const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq;
+    const g = ctx.createGain(); o.connect(g); g.connect(master);
+    const t = ctx.currentTime;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  function tick() { blip(1180, 0.06, 'square', 0.1); }
+  function whoosh() {
+    if (!enabled || !ctx) return;
+    const dur = 0.7, buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.2;
+    const t = ctx.currentTime;
+    bp.frequency.setValueAtTime(300, t); bp.frequency.exponentialRampToValueAtTime(2400, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.2, t + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(bp); bp.connect(g); g.connect(master); src.start(t); src.stop(t + dur);
+    blip(70, 0.5, 'sine', 0.3);
+  }
+  function confirm() { blip(660, 0.12, 'sine', 0.22); setTimeout(() => blip(990, 0.18, 'sine', 0.2), 120); }
+  return { setEnabled, startHum, stopHum, tick, whoosh, confirm, isOn: () => enabled };
+})();
 
 const SCALE = 2.7, DEPTH = 1.6, SMOOTH = 0.4, K_PER_EDGE = 2;
 const FORM_MS = 2600, LOCK_MS = 1800, TURN_TARGET = 0.46, SCAN_MAX_MS = 11000;
@@ -203,7 +264,13 @@ function ingest(L) {
 
 // ── phase machine ───────────────────────────────────────────────────────────
 function setCopy(line, instr, sub) { el.statusLine.textContent = line; el.instruction.textContent = instr; el.subtitle.textContent = sub; }
-function go(p) { S.phase = p; S.phaseT = performance.now(); }
+function go(p) {
+  S.phase = p; S.phaseT = performance.now();
+  if (p === 'forming') Sfx.tick();
+  else if (p === 'scanning') { Sfx.startHum(); Sfx.tick(); }
+  else if (p === 'locking') { Sfx.stopHum(); Sfx.whoosh(); }
+  else if (p === 'locked') Sfx.confirm();
+}
 
 function updatePhase(now, dt) {
   switch (S.phase) {
@@ -320,6 +387,14 @@ function loop() {
 // ── boot ───────────────────────────────────────────────────────────────────
 function fatal(title, msg) { el.fatalTitle.textContent = title; el.fatalMsg.textContent = msg; el.fatal.classList.add('on'); }
 el.cta.addEventListener('click', () => { const h = el.cta.dataset.href; if (h) window.location.href = h; });
+
+el.ghostToggle.addEventListener('click', () => {
+  const on = !Sfx.isOn();
+  Sfx.setEnabled(on); // the tap also unlocks AudioContext on iOS
+  el.ghostToggle.textContent = on ? '◼ Ghost Protocol · Sound ON' : '▶ Ghost Protocol · Sound';
+  el.ghostToggle.classList.toggle('on', on);
+  if (on && S.phase === 'scanning') Sfx.startHum();
+});
 
 async function boot() {
   lmTarget = new Float32Array(478 * 3); lmCur = new Float32Array(478 * 3);
