@@ -5,6 +5,8 @@
 ## What was done
 1. **Ghost Protocol cyberpunk restyle #95**(`apps/preview/baseline-3d.{html,js}`):把 Soul Lattice 改成特務 HUD —— 菱形資料節點 shader + 多重掃描線 + 轉頭 glitch + 更銳利 bloom + 鎖定二十面體核心/資料環/六邊形衝擊波 + DOM HUD(準星/NODES/SYNC/THREAT)。**合規:拿掉 founder 提的「HR 87 bpm」假心率讀數**(privacy-first,不暗示量測生理/醫療),改用 SYNC/NODES/THREAT。
 2. **TENKI Pulse 引擎 #96**(`packages/engine/src/haptics/`,275 測試全綠):純函式、platform-neutral。`scanEventPulse`(臉鎖/tick/里程碑/鎖定)、`zonePulse`(Clear 呼吸/Neutral 穩/Strain 較銳)、`evolvePulseProfile`(依基線成熟度 new→building→ready→mature + zone EWMA 學習迭代,強度/節奏/refinement 有安全上下限)、`toWebVibration`。
+3b. **Ghost Protocol 移植進正式流程 #98**(`apps/preview/soul-enroll.{html,js}`):正式 `/preview/` capture 段從 478 點雲升級成 ~6k 資料節點粒子晶格(菱形 shader + rim + 掃描線 + 轉頭 glitch + UnrealBloom);守 cyan(ACTIVE)→gold(SECURED) 法則(橙當掃描 accent);保留 FSM/chrome/processing/v6 + 2D 星塵 fallback。
+3c. **Agent HUD 進正式流程 #99**(soul-enroll,founder 選 option 2):capture 段顯示特務 HUD —— 中央準星 + brand/binary + NODES(粒子數)/SYNC(captureProgress%)/THREAT:LOW/MODE:GHOST。用 cyan/gold + mono(不套原型橙重配色),只在 `M3D_PHASES` 步驟顯示,純 DOM overlay 零功能風險。ON-DEVICE 沿用既有 securedPill 不重複。
 3. **原生 adapter #97**(`apps/mobile`,61 測試全綠):`utils/pulse.ts`(engine 的 mobile mirror,重用 `maturityStage`)、`utils/pulsePlayer.ts`(把 HapticPattern 播成連續 expo-haptics impacts:intensity→ImpactFeedbackStyle、gap→節奏)、`stores/pulse-profile-store.ts`(persist/AsyncStorage 的學習 profile)、`useBaselineHaptics.playPattern()`。
 
 ### ⚠️ 關鍵限制 / 注意
