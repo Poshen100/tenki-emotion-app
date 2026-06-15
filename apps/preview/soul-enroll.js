@@ -616,6 +616,19 @@
 
   function m3dActivePhase() { return m3d.ready && m3d.seen && M3D_PHASES.has(state.step); }
 
+  // agent HUD readouts (cyberpunk flavor) — NODES = particle count, SYNC = capture progress
+  let hudBin = 0;
+  function updateHud() {
+    const nodesEl = document.getElementById('hud-nodes');
+    if (nodesEl) nodesEl.textContent = (m3d.ready && m3d.P ? m3d.P : 5842).toLocaleString('en-US');
+    const syncEl = document.getElementById('hud-sync');
+    if (syncEl) syncEl.textContent = (captureProgress() * 100).toFixed(1) + '%';
+    if ((hudBin = (hudBin + 1) % 6) === 0) {
+      const b = document.getElementById('hud-binary');
+      if (b) { let s = ''; for (let i = 0; i < 10; i++) s += Math.random() > 0.5 ? '1' : '0'; b.textContent = s; }
+    }
+  }
+
   function renderModel3D(t) {
     const host = document.getElementById('model3d');
     if (!m3d.ready) { if (host) host.classList.remove('on'); return; }
@@ -825,6 +838,7 @@
     document.getElementById('securedPill').classList.toggle('on', !!ph.secured);
     // baseline data snapshot panel (qualitative reference, Model B-honest)
     document.getElementById('proc-pct').classList.toggle('on', step === 'processing');
+    document.getElementById('hud').classList.toggle('on', M3D_PHASES.has(step)); // agent HUD during capture
     const showBx = step === 'baseline_data';
     document.getElementById('baseline-extra').classList.toggle('on', showBx);
     if (showBx) {
@@ -909,6 +923,7 @@
       const dot = document.querySelector('#pin-' + ind.key + ' .pindot');
       if (dot) dot.classList.toggle('on', !!g[ind.key]);
     });
+    if (M3D_PHASES.has(state.step)) updateHud();
 
     switch (state.step) {
       case 'environment_check': {
@@ -1076,6 +1091,7 @@
     m3d.seen = false; // re-seed the 3D model on the next run
     const m3dHost = document.getElementById('model3d');
     if (m3dHost) m3dHost.classList.remove('on');
+    document.getElementById('hud').classList.remove('on');
     setText(STEP.intro.instr, STEP.intro.sub);
     setCta({ label: 'Begin', action: 'begin' });
     makeParticles();

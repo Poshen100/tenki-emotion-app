@@ -236,6 +236,33 @@
       color: var(--text-secondary); border-radius: 999px;
       padding: 7px 14px; font-size: 12px; font-family: inherit; cursor: pointer;
     }
+    /* ── agent HUD (Ghost Protocol) — shown only during capture phases ── */
+    #hud {
+      position: absolute; inset: 0; z-index: 4; pointer-events: none;
+      mix-blend-mode: screen; opacity: 0; transition: opacity .5s ease;
+      font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+      font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--cyan-glow);
+    }
+    #hud.on { opacity: 0.82; }
+    .hud-tag { position: absolute; text-shadow: 0 0 8px rgba(0,240,255,0.5); }
+    #hud-brand { top: 26px; left: 22px; display: flex; flex-direction: column; gap: 4px; }
+    #hud-brand b { font-size: 12px; letter-spacing: 2px; color: #d8fbff; font-weight: 700; }
+    #hud-brand span { color: var(--text-tertiary); }
+    #hud-binary { color: rgba(0,240,255,0.3); font-size: 8.5px; letter-spacing: 2px; }
+    #hud-left { left: 18px; top: 46%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 9px; }
+    #hud-right { right: 18px; top: 46%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 9px; align-items: flex-end; }
+    .hud-kv { color: var(--text-tertiary); }
+    .hud-kv b { color: var(--cyan-glow); font-weight: 600; }
+    .hud-kv.gold b { color: var(--gold-soft); }
+    #hud-reticle { position: absolute; top: 44%; left: 50%; width: 216px; height: 216px; transform: translate(-50%, -50%); }
+    #hud-reticle .r-ring { position: absolute; inset: 0; border: 1px solid rgba(0,240,255,0.32); border-radius: 50%; animation: hud-spin 9s linear infinite; }
+    #hud-reticle .r-ring::before, #hud-reticle .r-ring::after { content: ''; position: absolute; left: 50%; width: 1px; height: 13px; background: var(--cyan-glow); box-shadow: 0 0 6px var(--cyan-glow); transform: translateX(-50%); }
+    #hud-reticle .r-ring::before { top: -1px; }
+    #hud-reticle .r-ring::after { bottom: -1px; }
+    #hud-reticle .r-tick { position: absolute; top: 50%; width: 11px; height: 1px; background: var(--cyan-glow); box-shadow: 0 0 6px var(--cyan-glow); }
+    #hud-reticle .r-tick.l { left: -2px; } #hud-reticle .r-tick.r { right: -2px; }
+    @keyframes hud-spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -271,6 +298,19 @@
       </div>
       <div id="meter"><div id="meter-fill"></div></div>
       <button id="cta" data-action="begin">Begin</button>
+    </div>
+
+    <div id="hud" aria-hidden="true">
+      <div class="hud-tag" id="hud-brand"><b>TENKI CORE</b><span>Neural Lattice</span><span id="hud-binary">0101101001</span></div>
+      <div id="hud-reticle"><div class="r-ring"></div><div class="r-tick l"></div><div class="r-tick r"></div></div>
+      <div class="hud-tag" id="hud-left">
+        <span class="hud-kv">Nodes&nbsp;<b id="hud-nodes">0</b></span>
+        <span class="hud-kv gold">Sync&nbsp;<b id="hud-sync">0.0%</b></span>
+      </div>
+      <div class="hud-tag" id="hud-right">
+        <span class="hud-kv">Threat&nbsp;<b>Low</b></span>
+        <span class="hud-kv">Mode&nbsp;<b>Ghost</b></span>
+      </div>
     </div>
   </div>
 
