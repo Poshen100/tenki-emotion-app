@@ -65,6 +65,16 @@
   const LOSS_MS = 2600; // sustained gate loss in a capture → retry
   const DETECT_LOSS_MS = 7000;
 
+  // ── Guided Lock-On alignment (face_detecting): generous, magnetic, never dead-ends ──
+  const ALIGN = {
+    distMin: 0.085, distMax: 0.22, // inter-ocular dist (frame frac): closer/back band
+    centerMax: 0.26, // centroid offset tolerance
+    rollMax: 9, yawMax: 0.18, // head level (deg) + frontal yaw
+    eyeOpenMin: 0.45, holdMs: 350, // eyes open; each target must hold this long to lock
+  };
+  const ALIGN_KEYS = ['distance', 'center', 'level', 'eyes'];
+  const ALIGN_FALLBACK_MS = 9000; // safety: proceed if present+centered this long
+
   // ── phase copy + visual flags (keyed by FSM step) ──
   const STEP = {
     intro: {
@@ -160,7 +170,9 @@
     q: { brightness: 0, uniformity: 0, motion: 1, detail: 0, coverage: 0, centerOffset: 1 },
     gates: { lighting: false, centering: false, stillness: false },
     mpActive: false, // MediaPipe landmarks driving centering this frame
-    lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0 },
+    lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0, cx: 0.5, cy: 0.5, dist: 0, roll: 0, eyeOpen: 1 },
+    // Guided Lock-On alignment: per-target hold/lock, progress, nudge debounce, reward flash
+    alignHold: {}, alignLocked: {}, alignProg: 0, shownNudge: '', candNudge: '', candSince: 0, alignFlash: 0,
     envHoldStart: 0,
     detectHoldStart: 0,
     lossStart: 0,
@@ -567,6 +579,7 @@
       FaceLandmarker.createFromOptions(fileset, {
         baseOptions: { modelAssetPath: MP_MODEL, delegate },
         runningMode: 'VIDEO', numFaces: 1,
+        outputFaceBlendshapes: true, // eye-openness / blink → alignment + liveness
       });
     try { m3d.landmarker = await mk('GPU'); } catch (_) { m3d.landmarker = await mk('CPU'); }
   }
@@ -579,14 +592,14 @@
     let res;
     try { res = m3d.landmarker.detectForVideo(video, t); } catch (_) { return; }
     if (res && res.faceLandmarks && res.faceLandmarks.length) {
-      ingestLandmarks(res.faceLandmarks[0]);
+      ingestLandmarks(res.faceLandmarks[0], res);
       state.lm.present = true;
     } else {
       state.lm.present = false;
     }
   }
 
-  function ingestLandmarks(L) {
+  function ingestLandmarks(L, res) {
     const N = L.length;
     m3d.N = N;
     let cx = 0, cy = 0, cz = 0, minx = 1, maxx = 0, miny = 1, maxy = 0;
@@ -612,6 +625,22 @@
     state.lm.yaw = yaw;
     state.lm.centerOffset = clamp01(Math.hypot(cx - 0.5, cy - 0.5) * 2);
     state.lm.coverage = clamp01((maxx - minx) * (maxy - miny) * 4);
+    // ── alignment signals (Guided Lock-On) ──
+    state.lm.cx = cx; state.lm.cy = cy;
+    state.lm.dist = Math.hypot(re.x - le.x, re.y - le.y); // inter-ocular dist (frame frac) → distance
+    state.lm.roll = (Math.atan2(re.y - le.y, re.x - le.x) * 180) / Math.PI; // head tilt, 0 = level
+    // eye-openness from blendshapes (1 = open) — eyes-open gate + liveness
+    let eyeOpen = 1;
+    const bs = res && res.faceBlendshapes && res.faceBlendshapes[0];
+    if (bs && bs.categories) {
+      let bl = 0, br = 0;
+      for (const c of bs.categories) {
+        if (c.categoryName === 'eyeBlinkLeft') bl = c.score;
+        else if (c.categoryName === 'eyeBlinkRight') br = c.score;
+      }
+      eyeOpen = 1 - Math.max(bl, br);
+    }
+    state.lm.eyeOpen = eyeOpen;
   }
 
   function m3dActivePhase() { return m3d.ready && m3d.seen && M3D_PHASES.has(state.step); }
@@ -655,12 +684,110 @@
     const u = m3d.pmat.uniforms;
     u.uTime.value = t * 0.001;
     u.uMix.value = state.secured; // cyan (ACTIVE) → gold (SECURED)
-    u.uGlitch.value = m3d.glitch;
+    // lattice "comes into focus": scattered/glitchy when misaligned, crisp as you lock on
+    const misalign = state.step === 'face_detecting' ? (1 - state.alignProg) * 0.5 : 0;
+    u.uGlitch.value = Math.max(m3d.glitch, misalign);
     u.uScanY.value = t * 0.00035;
     m3d.group.rotation.y = Math.sin(t * 0.0004) * 0.1; // gentle idle sway
 
     if (m3d.composer) m3d.composer.render();
     else m3d.renderer.render(m3d.scene, m3d.camera);
+  }
+
+  // ── Guided Lock-On helpers ────────────────────────────────────────────────
+  // which alignment targets currently pass (instantaneous)
+  function alignChecks(g) {
+    const lm = state.lm;
+    const present = !!(state.mpActive && lm.present);
+    return {
+      present,
+      light: g.lighting,
+      distance: present && lm.dist >= ALIGN.distMin && lm.dist <= ALIGN.distMax,
+      center: present && lm.centerOffset <= ALIGN.centerMax,
+      level: present && Math.abs(lm.roll) <= ALIGN.rollMax && Math.abs(lm.yaw) <= ALIGN.yawMax,
+      eyes: present && lm.eyeOpen >= ALIGN.eyeOpenMin && g.stillness,
+    };
+  }
+
+  // the single most-important correction (priority order), warm + child-readable copy
+  function pickAlignNudge(c) {
+    const lm = state.lm;
+    if (!c.present) return { key: 'find', instr: 'Bring your face into view', sub: 'Hold the phone at eye level.' };
+    if (!c.light) return { key: 'light', instr: 'Find brighter, even light', sub: 'Face a window or a lamp.' };
+    if (!c.distance) return lm.dist < ALIGN.distMin
+      ? { key: 'closer', instr: 'Come a little closer', sub: 'Fill the circle with your face.' }
+      : { key: 'back', instr: 'Move back a little', sub: 'Give your face some room.' };
+    if (!c.center) return { key: 'center', instr: 'Move into the circle', sub: 'Line the dot up with the centre.' };
+    if (!c.level) return { key: 'level', instr: 'Look straight, keep level', sub: 'Eyes to the camera, head upright.' };
+    if (!c.eyes) return lm.eyeOpen < ALIGN.eyeOpenMin
+      ? { key: 'eyes', instr: 'Keep your eyes open', sub: 'Relax and look ahead.' }
+      : { key: 'hold', instr: 'Hold still', sub: 'Almost there — steady.' };
+    return { key: 'good', instr: 'Perfect — hold it', sub: 'Locking on…' };
+  }
+
+  // per-frame alignment driver: lock targets (hysteresis + reward), debounced single nudge, gate proceed
+  function runAlign(t, g) {
+    const c = alignChecks(g);
+    let locked = 0;
+    for (const k of ALIGN_KEYS) {
+      if (c[k]) {
+        if (!state.alignHold[k]) state.alignHold[k] = t;
+        if (t - state.alignHold[k] >= ALIGN.holdMs && !state.alignLocked[k]) {
+          state.alignLocked[k] = true; state.alignFlash = t; haptic(18); // sub-lock reward
+        }
+      } else {
+        state.alignHold[k] = 0; state.alignLocked[k] = false;
+      }
+      if (state.alignLocked[k]) locked++;
+    }
+    state.alignProg = locked / ALIGN_KEYS.length;
+
+    // single nudge, debounced so copy doesn't flicker between corrections
+    const n = pickAlignNudge(c);
+    if (n.key !== state.shownNudge) {
+      if (state.candNudge !== n.key) { state.candNudge = n.key; state.candSince = t; }
+      if (t - state.candSince >= 220) { state.shownNudge = n.key; setText(n.instr, n.sub); }
+    }
+
+    if ((locked >= ALIGN_KEYS.length && c.light) ||
+        (c.present && t - state.stepStart >= ALIGN_FALLBACK_MS)) {
+      haptic([18, 40, 90]); // full lock-on reward
+      go('face_locked');
+    }
+  }
+
+  // alignment overlay: lock pips + "move the dot into the circle" + reward flash
+  function drawAlignOverlay(c, cx, cy, half, t) {
+    const r = half + 30;
+    ALIGN_KEYS.forEach((k, i) => {
+      const a = -Math.PI / 2 + (i / ALIGN_KEYS.length) * Math.PI * 2;
+      const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r;
+      const on = !!state.alignLocked[k];
+      c.save();
+      c.beginPath(); c.arc(px, py, 4.5, 0, Math.PI * 2);
+      c.fillStyle = on ? COLORS.mint : 'rgba(255,255,255,0.16)';
+      if (on) { c.shadowColor = COLORS.mint; c.shadowBlur = 10; }
+      c.fill(); c.restore();
+    });
+    if (state.mpActive && state.lm.present) {
+      c.save();
+      c.beginPath(); c.arc(cx, cy, 22, 0, Math.PI * 2);
+      c.strokeStyle = state.alignLocked.center ? COLORS.mint : 'rgba(0,240,255,0.6)';
+      c.lineWidth = 2; c.stroke();
+      const dx = (1 - state.lm.cx) - 0.5, dy = state.lm.cy - 0.5; // mirror x (selfie)
+      const dotx = cx + dx * half * 2.2, doty = cy + dy * half * 2.2;
+      c.beginPath(); c.arc(dotx, doty, 6, 0, Math.PI * 2);
+      c.fillStyle = state.alignLocked.center ? COLORS.mint : COLORS.cyan;
+      c.shadowColor = c.fillStyle; c.shadowBlur = 12; c.fill();
+      c.restore();
+    }
+    if (t - state.alignFlash < 360) {
+      const k = 1 - (t - state.alignFlash) / 360;
+      c.save();
+      c.beginPath(); c.arc(cx, cy, half * (1.12 - k * 0.3), 0, Math.PI * 2);
+      c.strokeStyle = `rgba(0,230,153,${0.5 * k})`; c.lineWidth = 3; c.stroke();
+      c.restore();
+    }
   }
 
   // ── render loop (visual only; logic lives in update()) ──
@@ -685,6 +812,7 @@
       drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5);
       drawHalo(ctx, cx, cy, half + 26, state.halo, accent);
       if (ph.guide !== undefined && state.halo < 0.82) drawGuide(ctx, cx, cy, ph.guide, accent);
+      if (state.step === 'face_detecting' && state.mpActive) drawAlignOverlay(ctx, cx, cy, half, t);
     }
     renderModel3D(t);
     state.raf = requestAnimationFrame(render);
@@ -832,6 +960,9 @@
   function go(step) {
     state.step = step;
     state.stepStart = now();
+    if (step === 'face_detecting') { // fresh Guided Lock-On each entry
+      state.alignHold = {}; state.alignLocked = {}; state.alignProg = 0; state.shownNudge = ''; state.candNudge = '';
+    }
     const ph = STEP[step];
     setText(ph.instr, ph.sub);
     document.getElementById('meter').style.opacity = ph.meter ? '1' : '0';
@@ -941,18 +1072,21 @@
         break;
       }
       case 'face_detecting': {
-        // MediaPipe/Tier A: need a centered face; else stable, well-lit, still pose.
-        const ok = (state.mpActive || state.tierA)
-          ? (g.centering && g.lighting)
-          : (g.lighting && g.stillness && g.centering);
-        if (ok) {
-          if (!state.detectHoldStart) state.detectHoldStart = t;
-          state.lossStart = 0;
-          if (t - state.detectHoldStart >= DETECT_HOLD_MS) go('face_locked');
+        if (state.mpActive) {
+          // Guided Lock-On: coach distance → centre → level → eyes, one nudge at a time
+          runAlign(t, g);
         } else {
-          state.detectHoldStart = 0;
-          if (!state.lossStart) state.lossStart = t;
-          if (t - state.lossStart >= DETECT_LOSS_MS) { state.lossStart = 0; go('environment_check'); state.envHoldStart = 0; }
+          // 2D fallback (no MediaPipe): original detect behavior
+          const ok = state.tierA ? (g.centering && g.lighting) : (g.lighting && g.stillness && g.centering);
+          if (ok) {
+            if (!state.detectHoldStart) state.detectHoldStart = t;
+            state.lossStart = 0;
+            if (t - state.detectHoldStart >= DETECT_HOLD_MS) go('face_locked');
+          } else {
+            state.detectHoldStart = 0;
+            if (!state.lossStart) state.lossStart = t;
+            if (t - state.lossStart >= DETECT_LOSS_MS) { state.lossStart = 0; go('environment_check'); state.envHoldStart = 0; }
+          }
         }
         break;
       }
@@ -1070,7 +1204,8 @@
       step: 'intro', stepStart: 0, started: false, tierA: false, detector: null, face: null,
       q: { brightness: 0, uniformity: 0, motion: 1, detail: 0, coverage: 0, centerOffset: 1 },
       gates: { lighting: false, centering: false, stillness: false },
-      mpActive: false, lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0 },
+      mpActive: false, lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0, cx: 0.5, cy: 0.5, dist: 0, roll: 0, eyeOpen: 1 },
+      alignHold: {}, alignLocked: {}, alignProg: 0, shownNudge: '', candNudge: '', candSince: 0, alignFlash: 0,
       envHoldStart: 0, detectHoldStart: 0, lossStart: 0,
       neutral: 0, arc: 0, stability: 0, confSum: 0, confN: 0,
       halo: 0, secured: 0, settle: 0, bloom: 0, lastT: 0,

@@ -1,3 +1,20 @@
+# 2026-06-16 Session Update (Guided Lock-On：一步步精準對位 — #101)
+
+> Founder:「一步步協助精準對位(智能提醒)、對位完成有超棒反饋、且實際提高掃描精準度/可靠性;連 10 歲小孩都會操作。」核心真理:baseline 只有在**一致、受控的條件**下量測才有意義 → 引導精準對位 = 強制**可重複性** = 真精準(非裝飾)。
+
+## What was done — `apps/preview/soul-enroll.{html,js}`(正式流程 face_detecting 段)
+- **解鎖量測**:MediaPipe 開 `outputFaceBlendshapes` → 眼開度/眨眼;從 landmark 算 **inter-ocular 距離**(遠近)、**roll**(頭歪)、cx/cy(置中)。原本只有 brightness/uniformity/motion/centerOffset/coverage/yaw。
+- **Guided Lock-On**:`face_detecting` 改成一次一個目標的引導對位 —— 單一最重要提醒(優先序 present>light>distance>center>level>eyes,debounce 不閃爍)、每個子目標 hold 350ms 才鎖定(磁吸 hysteresis)、4 個 pip(Distance/Center/Level/Eyes)鎖定變綠、**「把點移進圈圈」**中央 dot+target(小孩友善,鏡像 x)、子鎖定有 haptic + flash 反饋、全鎖定→大 haptic→face_locked。
+- **晶格「對焦」**:`uGlitch = max(headTurnGlitch, (1-alignProg)*0.5)` → 沒對準時粒子散亂/glitch,鎖定時收斂清晰(誠實訊號 + 美學)。
+- **永不卡死**:present 達 9s 直接放行;MediaPipe 沒 active → 回退原本 2D detect 行為(零回歸)。
+- 常數 `ALIGN`(distMin/Max、centerMax、rollMax、yawMax、eyeOpenMin、holdMs)集中可調。
+
+### 注意 / 待辦
+- **可調**:距離帶 distMin 0.085/distMax 0.22 等是估值,要 founder 手機實測微調(iОS Safari 無法 headless 驗證)。
+- **下一步(plan 內)**:錄下 locked 對位 signature(距離/姿態/框/光)存基線 → 日後每日掃描引導對位「對齊基線」= apples-to-apples;把 alignment quality 餵進 `sampleConfidence()`/engine `ConfidenceBreakdown`;之後 mirror 進 `apps/mobile`(複用 FaceScanFrame/MotionGuideCue/QualityStatusPills + deriveQualityStatus + 測試)。
+
+---
+
 # 2026-06-14 Session Update (TENKI Pulse：會學習迭代的觸覺 — #95 cyberpunk / #96 引擎 / #97 原生 adapter)
 
 > Founder:「適時的震動反應,讓 TENKI 感覺有生命、而且震動會學習迭代。」
