@@ -1,3 +1,18 @@
+# 2026-06-16 Session Update (結果頁 Snapshot：磁吸滑動 carousel + 同步活訊號 — #102)
+
+> Founder:結果頁(`apps/preview/v6/`)雙環數字下方 Snapshot 要更好讀、醫療級、會動;滑動像磁鐵鎖定(HR/HVR → RR/壓力),含交感/副交感同步波動;上下空間變大。
+
+## What was done — `apps/preview/v6/index.html`(`.snap` 區)
+- **磁吸滑動 carousel**:`#snapTrack`(`scroll-snap-type:x mandatory`,iOS 原生磁吸)3 頁 —— 1) Heart Rate + HVR、2) Respiratory + Stress、3) **ANS 交感/副交感**;下方 page-dots 鎖定指示(scroll 監聽算 index → active page 放大/鄰頁淡縮)。
+- **同步活訊號**:一個共享 breath phase 驅動所有數字一起微浮動(HR 66–70、HVR、RR、Stress)+ **交感/副交感反相波動**(SNS 升↔PNS 降,canvas 畫 anti-phase 正弦 + bar 寬度/百分比同步)→ 醫療監視器的「活著」感。數字 ~1Hz tick、波形每幀。
+- **版面放大**:每頁 `.card.metric` min-height 172、數字 46px、波形 height 74、column 排版 → 更好讀。Body Battery 保留(carousel 下方),bbBars JS 不動。
+- 純前端(synthetic demo 值,合規:非醫療宣稱;raw biometric 不上雲——本來就全合成)。reveal/score(#tlTlTlTeiScore=84)未動。
+
+### 注意
+- 全合成假值;CI 不涵蓋 `apps/preview/**` → 手機實走驗。波形/浮動幅度可再依回饋微調(script 內 `ph` 係數 + 各 `Math.sin(...)` 振幅)。
+
+---
+
 # 2026-06-16 Session Update (Guided Lock-On：一步步精準對位 — #101)
 
 > Founder:「一步步協助精準對位(智能提醒)、對位完成有超棒反饋、且實際提高掃描精準度/可靠性;連 10 歲小孩都會操作。」核心真理:baseline 只有在**一致、受控的條件**下量測才有意義 → 引導精準對位 = 強制**可重複性** = 真精準(非裝飾)。
