@@ -3965,6 +3965,8 @@ function setClarity(v){
       .ans-lbl.sns{color:var(--warn);}
       .ans-lbl.pns{color:var(--good);}
       .ans-wave{flex:1;height:40px;}
+      /* faint clinical monitor grid behind every waveform (medical-grade feel) */
+      .live-wave,.ans-wave{background-image:repeating-linear-gradient(0deg,rgba(120,200,255,0.05) 0 1px,transparent 1px 13px),repeating-linear-gradient(90deg,rgba(120,200,255,0.05) 0 1px,transparent 1px 13px);border-radius:8px;}
       .ans-v{font-size:17px;font-weight:600;width:46px;text-align:right;font-variant-numeric:tabular-nums;}
       .ans-v.sns{color:var(--warn);}
       .ans-v.pns{color:var(--good);}
@@ -3997,13 +3999,16 @@ function setClarity(v){
       var sc=sns&&sns.getContext('2d'), pc=pns&&pns.getContext('2d');
       function drawAns(ctx,cv,ph,color,sign){
         if(!ctx) return; var w=cv.width,h=cv.height; ctx.clearRect(0,0,w,h);
+        ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1;          // baseline
+        ctx.beginPath(); ctx.moveTo(0,h/2); ctx.lineTo(w,h/2); ctx.stroke();
         ctx.beginPath();
-        for(var x=0;x<=w;x+=2){
+        for(var x=0;x<=w;x+=1){
           var u=x/w;
-          var y=h/2 + sign*Math.sin(u*Math.PI*3 - ph*2)*(h*0.3)*(0.72+0.28*Math.sin(ph));
+          var amp=(h*0.3)*(0.7+0.3*Math.sin(ph));                            // breathing amplitude
+          var y=h/2 + sign*Math.sin(u*Math.PI*4 - ph*2.2)*amp;              // denser, anti-correlated
           if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
         }
-        ctx.strokeStyle=color; ctx.lineWidth=1.6; ctx.shadowColor=color; ctx.shadowBlur=6; ctx.stroke();
+        ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.shadowColor=color; ctx.shadowBlur=7; ctx.stroke();
       }
       function setN(el,v){ if(el) el.textContent=v; }
       var lastNum=0;
