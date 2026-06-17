@@ -1894,75 +1894,54 @@ body{
       </section>
 
       <section class="snap">
-        <!-- Coach hint card -->
-        <div class="coach-card">
-          <div class="coach-text">目前生理訊號穩定，決策狀態清晰。保持當下節奏。</div>
-        </div>
+        <!-- Coach hint -->
+        <div class="coach-card"><div class="coach-text">目前生理訊號穩定，決策狀態清晰。保持當下節奏。</div></div>
 
-        <!-- Snapshot — magnetic swipe carousel (HR/HRV · RR/Stress · ANS) -->
+        <!-- Snapshot — peeking magnetic carousel: one group per swipe -->
         <div class="snap-track" id="snapTrack">
-          <!-- Page 1: Heart Rate + HRV -->
+          <!-- Page 1: Cardiac (HR + HVR) -->
           <div class="snap-page active" data-page="0">
-            <div class="row">
-              <div class="card metric">
-                <div class="metric-head"><div class="metric-title">Heart Rate · 心率</div><div class="metric-status sync">Live</div></div>
-                <div class="metric-body">
-                  <div class="metric-num"><span class="val" id="hrVal">68</span><span class="unit">BPM</span></div>
-                  <canvas class="live-wave" id="hrWave" width="144" height="64"></canvas>
-                </div>
-              </div>
-              <div class="card metric">
-                <div class="metric-head"><div class="metric-title">HRV</div><div class="metric-status balanced">Balanced</div></div>
-                <div class="metric-body">
-                  <div class="metric-num"><span class="val" id="hrvVal">52</span><span class="unit stack"><span>ms</span><span>RMSSD</span></span></div>
-                  <canvas class="live-wave" id="hrvWave" width="144" height="64"></canvas>
-                </div>
+            <div class="card vcard">
+              <div class="vhead"><span class="vtitle">Cardiac · 心臟</span><span class="metric-status sync">Live</span></div>
+              <div class="vpair">
+                <div class="vmetric"><div class="vlabel">Heart Rate · 心率</div><div class="metric-num"><span class="val" id="hrVal">68</span><span class="unit">BPM</span></div><canvas class="live-wave vwave" id="hrWave" width="160" height="56"></canvas></div>
+                <div class="vmetric"><div class="vlabel">HRV · RMSSD</div><div class="metric-num"><span class="val" id="hrvVal">52</span><span class="unit">ms</span></div><canvas class="live-wave vwave" id="hrvWave" width="160" height="56"></canvas></div>
               </div>
             </div>
           </div>
-          <!-- Page 2: Respiratory + Stress -->
+          <!-- Page 2: Respiration (RR + Stress) -->
           <div class="snap-page" data-page="1">
-            <div class="row">
-              <div class="card metric">
-                <div class="metric-head"><div class="metric-title">Respiratory · 呼吸</div></div>
-                <div class="metric-body">
-                  <div class="metric-num"><span class="val" id="rrVal">14</span><span class="unit">BrPM</span></div>
-                  <canvas class="live-wave" id="rrWave" width="144" height="64"></canvas>
-                </div>
-              </div>
-              <div class="card metric">
-                <div class="metric-head"><div class="metric-title">Stress · 壓力</div><div class="stress-pct" id="stressPct">25%</div></div>
-                <div class="metric-body" style="flex-direction:column;align-items:stretch;gap:10px">
-                  <div class="metric-num"><span class="val" id="stressVal">25</span><span class="slash">/</span><span class="sub">100</span></div>
-                  <div class="stress-bar"><div class="seg on"></div><div class="seg on"></div><div class="seg on" style="opacity:0.55"></div><div class="seg"></div><div class="seg"></div></div>
-                </div>
+            <div class="card vcard">
+              <div class="vhead"><span class="vtitle">Respiration · 呼吸</span><span class="metric-status balanced">Stress&nbsp;<b id="stressPct">25%</b></span></div>
+              <div class="vpair">
+                <div class="vmetric"><div class="vlabel">Respiratory · 呼吸</div><div class="metric-num"><span class="val" id="rrVal">14</span><span class="unit">BrPM</span></div><canvas class="live-wave vwave" id="rrWave" width="160" height="56"></canvas></div>
+                <div class="vmetric"><div class="vlabel">Stress · 壓力</div><div class="metric-num"><span class="val" id="stressVal">25</span><span class="unit">/100</span></div><div class="stress-bar vstress"><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg"></div><div class="seg"></div></div></div>
               </div>
             </div>
           </div>
-          <!-- Page 3: ANS 交感 / 副交感 -->
+          <!-- Page 3: Autonomic (交感 / 副交感) -->
           <div class="snap-page" data-page="2">
-            <div class="card ans-card">
-              <div class="metric-head"><div class="metric-title">Autonomic Balance · 自律平衡</div><div class="metric-status balanced">Synced</div></div>
+            <div class="card vcard ans-card">
+              <div class="vhead"><span class="vtitle">Autonomic · 自律平衡</span><span class="metric-status balanced">Synced</span></div>
               <div class="ans-waves">
-                <div class="ans-wave-row"><span class="ans-lbl sns">交感 SNS</span><canvas class="ans-wave" id="snsWave" width="220" height="40"></canvas><span class="ans-v sns" id="snsPct">38%</span></div>
-                <div class="ans-wave-row"><span class="ans-lbl pns">副交感 PNS</span><canvas class="ans-wave" id="pnsWave" width="220" height="40"></canvas><span class="ans-v pns" id="pnsPct">62%</span></div>
+                <div class="ans-wave-row"><span class="ans-lbl sns">交感 SNS</span><canvas class="ans-wave" id="snsWave" width="220" height="44"></canvas><span class="ans-v sns" id="snsPct">38%</span></div>
+                <div class="ans-wave-row"><span class="ans-lbl pns">副交感 PNS</span><canvas class="ans-wave" id="pnsWave" width="220" height="44"></canvas><span class="ans-v pns" id="pnsPct">62%</span></div>
               </div>
               <div class="ans-bar"><div class="sns-fill" id="snsFill" style="width:38%"></div><div class="pns-fill" id="pnsFill" style="width:62%"></div></div>
             </div>
           </div>
-        </div>
-        <div class="snap-dots" id="snapDots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span></div>
-
-        <!-- Body Battery -->
-        <div class="card bb-card">
-          <div class="bb-head">
-            <div class="bb-title">Body Battery</div>
-            <div class="bb-val-wrap"><span class="bb-val">78</span><span class="bb-slash">/</span><span class="bb-unit">100</span></div>
+          <!-- Page 4: Energy (Body Battery, animated) -->
+          <div class="snap-page" data-page="3">
+            <div class="card vcard bb-page">
+              <div class="vhead"><span class="vtitle">Energy · 體能</span><span class="metric-status balanced">Body Battery</span></div>
+              <div class="bb-big"><span class="val" id="bbVal">78</span><span class="unit">/ 100</span></div>
+              <div class="bb-bars" id="bbBars"></div>
+            </div>
           </div>
-          <div class="bb-bars" id="bbBars"></div>
         </div>
+        <div class="snap-dots" id="snapDots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
 
-        <div style="height:8px"></div>
+        <div style="height:6px"></div>
       </section>
     </div>
 
@@ -3945,31 +3924,49 @@ function setClarity(v){
 
     <!-- ═══════ Snapshot: magnetic swipe carousel + synchronized vitals ═══════ -->
     <style>
-      /* flex:none + min-height so the scroll-container flex-item never collapses to 0 (its min-height:auto→0) */
-      .snap-track{display:flex;flex:none;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;min-height:206px;}
+      /* peeking, magnetic, one-group-per-swipe carousel. flex:none stops the
+         scroll-container flex-item from collapsing (its min-height:auto→0). */
+      .snap-track{display:flex;flex:none;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:4px 8vw;min-height:184px;}
       .snap-track::-webkit-scrollbar{display:none;}
-      .snap-page{flex:0 0 100%;min-width:0;box-sizing:border-box;scroll-snap-align:center;padding:6px 2px;transition:opacity .45s var(--ease-calm),transform .45s var(--ease-calm);}
-      .snap-page:not(.active){opacity:.45;transform:scale(.96);}
-      /* bigger vertical space + readability on each page */
-      .snap-page .card.metric{min-height:172px;display:flex;flex-direction:column;justify-content:space-between;}
-      .snap-page .metric-body{flex-direction:column;align-items:flex-start;gap:14px;}
-      .snap-page .metric-num .val{font-size:46px;}
-      .snap-page .live-wave{width:100%;height:74px;}
-      .snap-dots{display:flex;justify-content:center;gap:8px;margin:12px 0 4px;}
+      .snap-page{flex:0 0 84vw;min-width:0;box-sizing:border-box;scroll-snap-align:center;scroll-snap-stop:always;transition:transform .42s var(--ease-calm),opacity .42s var(--ease-calm);}
+      .snap-page:not(.active){opacity:.5;transform:scale(.9);}      /* neighbours dim+shrink → the centred card visibly LOCKS */
+      .snap-page.pulse{animation:snapPulse .5s var(--ease-calm);}
+      @keyframes snapPulse{0%{transform:scale(.985)}45%{transform:scale(1.025)}100%{transform:scale(1)}}
+      /* one card per page — number AND chart both fully visible */
+      .vcard{min-height:168px;height:100%;display:flex;flex-direction:column;gap:8px;padding:14px 16px;}
+      .vhead{display:flex;align-items:center;justify-content:space-between;}
+      .vtitle{font-size:13px;font-weight:600;color:rgba(255,255,255,0.92);letter-spacing:.02em;}
+      .vhead .metric-status b{font-weight:700;}
+      .vpair{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;}
+      .vmetric{display:flex;flex-direction:column;gap:5px;min-width:0;}
+      .vlabel{font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+      .vmetric .metric-num{display:flex;align-items:baseline;gap:4px;}
+      .vmetric .metric-num .val{font-size:40px;font-weight:300;line-height:.95;color:#fff;font-variant-numeric:tabular-nums;}
+      .vmetric .metric-num .unit{font-size:11px;color:rgba(255,255,255,0.5);}
+      .vwave{width:100%;height:54px;display:block;margin-top:auto;}
+      .vstress{margin-top:10px;}
+      .snap-dots{display:flex;justify-content:center;gap:8px;margin:14px 0 2px;}
       .snap-dots .dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.22);transition:all .3s var(--ease-calm);}
       .snap-dots .dot.active{width:22px;border-radius:4px;background:var(--primary);box-shadow:0 0 10px rgba(0,180,216,.6);}
-      .ans-card{padding:18px 18px 20px;}
-      .ans-waves{display:flex;flex-direction:column;gap:16px;margin:18px 0 16px;}
+      /* Autonomic page */
+      .ans-card .ans-waves{display:flex;flex-direction:column;gap:14px;margin:4px 0 12px;flex:1;justify-content:center;}
       .ans-wave-row{display:flex;align-items:center;gap:10px;}
       .ans-lbl{font-size:12px;font-weight:600;width:84px;flex:none;letter-spacing:.02em;}
       .ans-lbl.sns{color:var(--warn);}
       .ans-lbl.pns{color:var(--good);}
-      .ans-wave{flex:1;height:40px;}
-      /* faint clinical monitor grid behind every waveform (medical-grade feel) */
-      .live-wave,.ans-wave{background-image:repeating-linear-gradient(0deg,rgba(120,200,255,0.05) 0 1px,transparent 1px 13px),repeating-linear-gradient(90deg,rgba(120,200,255,0.05) 0 1px,transparent 1px 13px);border-radius:8px;}
+      .ans-wave{flex:1;height:44px;}
       .ans-v{font-size:17px;font-weight:600;width:46px;text-align:right;font-variant-numeric:tabular-nums;}
       .ans-v.sns{color:var(--warn);}
       .ans-v.pns{color:var(--good);}
+      /* Energy / Body Battery page — alive with a travelling charge-flow sheen */
+      .bb-page .bb-big{display:flex;align-items:baseline;gap:6px;}
+      .bb-page .bb-big .val{font-size:46px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;line-height:.95;}
+      .bb-page .bb-big .unit{font-size:13px;color:rgba(255,255,255,0.5);}
+      .bb-page .bb-bars{position:relative;overflow:hidden;margin-top:auto;}
+      .bb-page .bb-bars::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 32%,rgba(120,220,255,0.22) 50%,transparent 68%);transform:translateX(-110%);animation:bbFlow 3.4s var(--ease-breath) infinite;pointer-events:none;}
+      @keyframes bbFlow{to{transform:translateX(110%)}}
+      /* faint clinical monitor grid behind every waveform (medical-grade feel) */
+      .live-wave,.ans-wave{background-image:repeating-linear-gradient(0deg,rgba(120,200,255,0.05) 0 1px,transparent 1px 13px),repeating-linear-gradient(90deg,rgba(120,200,255,0.05) 0 1px,transparent 1px 13px);border-radius:8px;}
     </style>
     <script>
     (function(){
@@ -3978,23 +3975,35 @@ function setClarity(v){
       if(!track) return;
       var pages=[].slice.call(track.querySelectorAll('.snap-page'));
       var dotEls=[].slice.call((byId('snapDots')||document.createElement('div')).querySelectorAll('.dot'));
+      var cur=0;
+      function centeredIndex(){                 // robust for a peeking carousel: page whose centre is nearest the scrollport centre
+        var c=track.scrollLeft+track.clientWidth/2, best=0, bd=1e9;
+        for(var i=0;i<pages.length;i++){ var pc=pages[i].offsetLeft+pages[i].offsetWidth/2, d=Math.abs(pc-c); if(d<bd){bd=d;best=i;} }
+        return best;
+      }
       function setActive(i){
         for(var k=0;k<pages.length;k++) pages[k].classList.toggle('active',k===i);
         for(var d=0;d<dotEls.length;d++) dotEls[d].classList.toggle('active',d===i);
+      }
+      function lock(i){                          // satisfying snap-lock feedback
+        var p=pages[i]; p.classList.remove('pulse'); void p.offsetWidth; p.classList.add('pulse');
+        if(navigator.vibrate){ try{ navigator.vibrate(10); }catch(e){} }
       }
       var raf;
       track.addEventListener('scroll',function(){
         cancelAnimationFrame(raf);
         raf=requestAnimationFrame(function(){
-          var i=Math.round(track.scrollLeft/Math.max(1,track.clientWidth));
-          setActive(Math.max(0,Math.min(pages.length-1,i)));
+          var i=centeredIndex();
+          setActive(i);
+          if(i!==cur){ cur=i; lock(i); }
         });
       },{passive:true});
-      dotEls.forEach(function(d,idx){ d.addEventListener('click',function(){ track.scrollTo({left:idx*track.clientWidth,behavior:'smooth'}); }); });
+      function scrollToPage(i){ var p=pages[i]; track.scrollTo({left:p.offsetLeft-(track.clientWidth-p.offsetWidth)/2,behavior:'smooth'}); }
+      dotEls.forEach(function(d,idx){ d.addEventListener('click',function(){ scrollToPage(idx); }); });
 
-      // ── synchronized "living" vitals: one shared breath clock drives all numbers + ANS ──
+      // ── synchronized "living" vitals + animated Body Battery (one shared breath clock) ──
       var hr=byId('hrVal'),hrv=byId('hrvVal'),rr=byId('rrVal'),st=byId('stressVal'),stP=byId('stressPct'),
-          snsP=byId('snsPct'),pnsP=byId('pnsPct'),snsF=byId('snsFill'),pnsF=byId('pnsFill');
+          snsP=byId('snsPct'),pnsP=byId('pnsPct'),snsF=byId('snsFill'),pnsF=byId('pnsFill'),bbVal=byId('bbVal');
       var sns=byId('snsWave'),pns=byId('pnsWave');
       var sc=sns&&sns.getContext('2d'), pc=pns&&pns.getContext('2d');
       function drawAns(ctx,cv,ph,color,sign){
@@ -4029,6 +4038,7 @@ function setClarity(v){
         if(pnsP) pnsP.textContent=(100-s)+'%';
         if(snsF) snsF.style.width=s+'%';
         if(pnsF) pnsF.style.width=(100-s)+'%';
+        if(bbVal) setN(bbVal, 78+Math.round(Math.sin(ph*0.5)*2));   // Body Battery breathes (charge sheen via CSS ::after)
       }
       requestAnimationFrame(loop);
     })();

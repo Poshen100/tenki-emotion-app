@@ -1,3 +1,20 @@
+# 2026-06-17 Session Update (Snapshot 重設計：peeking 磁吸 carousel + 一頁一組 + Body Battery 動起來)
+
+> Founder(IMG_8824):HR/HVR 數字變大了(好)**但圖表要滑才看的到**、**沒有磁鐵感定位反饋**、想要「滑動就清楚看到 數字+圖表 → 再滑就下一組」、目前點小點切換不爽、**Body Battery 能不能動起來**。「像 Fable5 一樣思考,幫我規劃。」
+
+## What was done — `apps/preview/v6/index.html`(`.snap` 區整段重建)
+- **一頁一組(數字+圖表同時看得到,不用滑)**:從「兩指標並排、波形被擠到要滑」改成 **4 頁、每頁一張 `.vcard`** —— ① Cardiac(HR+HVR)② Respiration(RR+Stress)③ Autonomic(交感/副交感)④ **Energy(Body Battery)**。每頁高度 fit 進垂直預算(`.vcard` min-height 168),數字(40–46px)+波形(54px)在同一張卡內全可見。
+- **peeking 磁吸 carousel(切換爽感)**:頁 `flex:0 0 84vw`、track `padding:4px 8vw`、`scroll-snap-align:center` + **`scroll-snap-stop:always`**(一次只走一頁)→ 露出鄰頁邊緣暗示可滑;**鎖定反饋** = 中央頁 full opacity/scale、鄰頁 `opacity:.5 scale(.9)` 變暗縮小 + 落定瞬間 `.pulse` 彈一下 + `navigator.vibrate(10)` 震動。`centeredIndex()`(中心最近的頁)比 `scrollLeft/clientWidth` 在 peeking 版面更穩。dots 仍可點(`scrollToPage` 置中)但主要靠滑。
+- **Body Battery 動起來**:① 數字 `bbVal` 跟著共享 breath phase 78±2 微浮動;② `.bb-bars::after` 一條斜向 charge-flow 光澤 `bbFlow` 3.4s 來回掃(充電感)。原本 15 根 bar 的 JS(L2977)不動。
+- **沿用**:#102 的同步活訊號(共享 `ph=t*0.0011`,HR/HVR/RR/Stress 一起 tick、交感↔副交感反相 canvas 波 + bar)、#104 的監視器格線(`.live-wave/.ans-wave` repeating-linear-gradient)。score reveal 未動。
+
+### 教訓 / 注意
+- **垂直預算很緊**:hero ~38vh + `.snap` 底部保留 `calc(tabbar74+fdcb58+gap10+24)≈166px` → 只剩 ~240–293px 帶寬。舊版(carousel 206 + coach + dots + 獨立 bb-card)會 overflow → 把 Body Battery 收成第 4 頁(移除垂直競爭者)就 fit。**單卡一頁** 是讓「數字+圖表同時可見」的關鍵。
+- 沿用 #103 的 collapse 修法:`.snap-track` 仍 `flex:none` + 明確 `min-height` + `overflow-y:hidden`(flex 容器內橫向 scroll carousel 必備,否則塌成 0)。
+- 全合成 demo 值;CI 不涵蓋 `apps/preview/**` → **手機實走驗**(滑動磁吸感、4 頁是否都完整顯示、Body Battery 是否在動)。振幅/速度可在 script `ph` 係數調。
+
+---
+
 # 2026-06-16 Session Update (結果頁 Snapshot：磁吸滑動 carousel + 同步活訊號 — #102)
 
 > Founder:結果頁(`apps/preview/v6/`)雙環數字下方 Snapshot 要更好讀、醫療級、會動;滑動像磁鐵鎖定(HR/HVR → RR/壓力),含交感/副交感同步波動;上下空間變大。
