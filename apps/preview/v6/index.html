@@ -1899,90 +1899,67 @@ body{
           <div class="coach-text">目前生理訊號穩定，決策狀態清晰。保持當下節奏。</div>
         </div>
 
-        <!-- Metric row 1: HR + HRV -->
-        <div class="row">
-          <div class="card metric">
-            <div class="metric-head">
-              <div class="metric-title">Heart Rate</div>
-              <div class="metric-status sync">Garmin Sync</div>
-            </div>
-            <div class="metric-body">
-              <div class="metric-num"><span class="val">68</span><span class="unit">BPM</span></div>
-              <canvas class="live-wave" id="hrWave" width="144" height="64"></canvas>
-            </div>
-          </div>
-          <div class="card metric">
-            <div class="metric-head">
-              <div class="metric-title">HRV</div>
-              <div class="metric-status balanced">Balanced</div>
-            </div>
-            <div class="metric-body">
-              <div class="metric-num"><span class="val">52</span><span class="unit stack"><span>ms</span><span>RMSSD</span></span></div>
-              <canvas class="live-wave" id="hrvWave" width="144" height="64"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <!-- Metric row 2: Respiratory + Stress -->
-        <div class="row">
-          <div class="card metric">
-            <div class="metric-head">
-              <div class="metric-title">Respiratory</div>
-            </div>
-            <div class="metric-body">
-              <div class="metric-num"><span class="val">14</span><span class="unit">BrPM</span></div>
-              <canvas class="live-wave" id="rrWave" width="144" height="64"></canvas>
-            </div>
-          </div>
-          <div class="card metric">
-            <div class="metric-head">
-              <div class="metric-title">Stress</div>
-              <div class="stress-pct">25%</div>
-            </div>
-            <div class="metric-body" style="flex-direction:column;align-items:stretch;gap:10px">
-              <div class="metric-num">
-                <span class="val">25</span>
-                <span class="slash">/</span>
-                <span class="sub">100</span>
+        <!-- Snapshot — magnetic swipe carousel (HR/HRV · RR/Stress · ANS) -->
+        <div class="snap-track" id="snapTrack">
+          <!-- Page 1: Heart Rate + HRV -->
+          <div class="snap-page active" data-page="0">
+            <div class="row">
+              <div class="card metric">
+                <div class="metric-head"><div class="metric-title">Heart Rate · 心率</div><div class="metric-status sync">Live</div></div>
+                <div class="metric-body">
+                  <div class="metric-num"><span class="val" id="hrVal">68</span><span class="unit">BPM</span></div>
+                  <canvas class="live-wave" id="hrWave" width="144" height="64"></canvas>
+                </div>
               </div>
-              <div class="stress-bar">
-                <div class="seg on"></div>
-                <div class="seg on"></div>
-                <div class="seg on" style="opacity:0.55"></div>
-                <div class="seg"></div>
-                <div class="seg"></div>
+              <div class="card metric">
+                <div class="metric-head"><div class="metric-title">HRV</div><div class="metric-status balanced">Balanced</div></div>
+                <div class="metric-body">
+                  <div class="metric-num"><span class="val" id="hrvVal">52</span><span class="unit stack"><span>ms</span><span>RMSSD</span></span></div>
+                  <canvas class="live-wave" id="hrvWave" width="144" height="64"></canvas>
+                </div>
               </div>
             </div>
           </div>
+          <!-- Page 2: Respiratory + Stress -->
+          <div class="snap-page" data-page="1">
+            <div class="row">
+              <div class="card metric">
+                <div class="metric-head"><div class="metric-title">Respiratory · 呼吸</div></div>
+                <div class="metric-body">
+                  <div class="metric-num"><span class="val" id="rrVal">14</span><span class="unit">BrPM</span></div>
+                  <canvas class="live-wave" id="rrWave" width="144" height="64"></canvas>
+                </div>
+              </div>
+              <div class="card metric">
+                <div class="metric-head"><div class="metric-title">Stress · 壓力</div><div class="stress-pct" id="stressPct">25%</div></div>
+                <div class="metric-body" style="flex-direction:column;align-items:stretch;gap:10px">
+                  <div class="metric-num"><span class="val" id="stressVal">25</span><span class="slash">/</span><span class="sub">100</span></div>
+                  <div class="stress-bar"><div class="seg on"></div><div class="seg on"></div><div class="seg on" style="opacity:0.55"></div><div class="seg"></div><div class="seg"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Page 3: ANS 交感 / 副交感 -->
+          <div class="snap-page" data-page="2">
+            <div class="card ans-card">
+              <div class="metric-head"><div class="metric-title">Autonomic Balance · 自律平衡</div><div class="metric-status balanced">Synced</div></div>
+              <div class="ans-waves">
+                <div class="ans-wave-row"><span class="ans-lbl sns">交感 SNS</span><canvas class="ans-wave" id="snsWave" width="220" height="40"></canvas><span class="ans-v sns" id="snsPct">38%</span></div>
+                <div class="ans-wave-row"><span class="ans-lbl pns">副交感 PNS</span><canvas class="ans-wave" id="pnsWave" width="220" height="40"></canvas><span class="ans-v pns" id="pnsPct">62%</span></div>
+              </div>
+              <div class="ans-bar"><div class="sns-fill" id="snsFill" style="width:38%"></div><div class="pns-fill" id="pnsFill" style="width:62%"></div></div>
+            </div>
+          </div>
         </div>
+        <div class="snap-dots" id="snapDots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span></div>
 
-        <!-- Body Battery + ANS Balance combined -->
+        <!-- Body Battery -->
         <div class="card bb-card">
           <div class="bb-head">
             <div class="bb-title">Body Battery</div>
-            <div class="bb-val-wrap">
-              <span class="bb-val">78</span>
-              <span class="bb-slash">/</span>
-              <span class="bb-unit">100</span>
-            </div>
+            <div class="bb-val-wrap"><span class="bb-val">78</span><span class="bb-slash">/</span><span class="bb-unit">100</span></div>
           </div>
           <div class="bb-bars" id="bbBars"></div>
-
-          <div class="ans-section">
-            <div class="ans-title">ANS Balance</div>
-            <div class="ans-bar">
-              <div class="sns-fill" style="width:38%"></div>
-              <div class="pns-fill" style="width:62%"></div>
-            </div>
-            <div class="ans-legend">
-              <span class="sns-pct">38%</span>
-              <div class="labels">
-                <span class="sns-lbl">SNS</span>
-                <span class="pns-lbl">PNS</span>
-              </div>
-              <span class="pns-pct">62%</span>
-            </div>
-          </div>
         </div>
 
         <div style="height:8px"></div>
@@ -3965,5 +3942,90 @@ function setClarity(v){
     <script src="/apps/web/stardust.js"></script>
     <!-- Stardust Scan Takeover logic script -->
     <script src="stardust-scan-takeover.js"></script>
+
+    <!-- ═══════ Snapshot: magnetic swipe carousel + synchronized vitals ═══════ -->
+    <style>
+      .snap-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+      .snap-track::-webkit-scrollbar{display:none;}
+      .snap-page{flex:0 0 100%;scroll-snap-align:center;padding:6px 2px;transition:opacity .45s var(--ease-calm),transform .45s var(--ease-calm);}
+      .snap-page:not(.active){opacity:.45;transform:scale(.96);}
+      /* bigger vertical space + readability on each page */
+      .snap-page .card.metric{min-height:172px;display:flex;flex-direction:column;justify-content:space-between;}
+      .snap-page .metric-body{flex-direction:column;align-items:flex-start;gap:14px;}
+      .snap-page .metric-num .val{font-size:46px;}
+      .snap-page .live-wave{width:100%;height:74px;}
+      .snap-dots{display:flex;justify-content:center;gap:8px;margin:12px 0 4px;}
+      .snap-dots .dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.22);transition:all .3s var(--ease-calm);}
+      .snap-dots .dot.active{width:22px;border-radius:4px;background:var(--primary);box-shadow:0 0 10px rgba(0,180,216,.6);}
+      .ans-card{padding:18px 18px 20px;}
+      .ans-waves{display:flex;flex-direction:column;gap:16px;margin:18px 0 16px;}
+      .ans-wave-row{display:flex;align-items:center;gap:10px;}
+      .ans-lbl{font-size:12px;font-weight:600;width:84px;flex:none;letter-spacing:.02em;}
+      .ans-lbl.sns{color:var(--warn);}
+      .ans-lbl.pns{color:var(--good);}
+      .ans-wave{flex:1;height:40px;}
+      .ans-v{font-size:17px;font-weight:600;width:46px;text-align:right;font-variant-numeric:tabular-nums;}
+      .ans-v.sns{color:var(--warn);}
+      .ans-v.pns{color:var(--good);}
+    </style>
+    <script>
+    (function(){
+      function byId(x){return document.getElementById(x);}
+      var track=byId('snapTrack');
+      if(!track) return;
+      var pages=[].slice.call(track.querySelectorAll('.snap-page'));
+      var dotEls=[].slice.call((byId('snapDots')||document.createElement('div')).querySelectorAll('.dot'));
+      function setActive(i){
+        for(var k=0;k<pages.length;k++) pages[k].classList.toggle('active',k===i);
+        for(var d=0;d<dotEls.length;d++) dotEls[d].classList.toggle('active',d===i);
+      }
+      var raf;
+      track.addEventListener('scroll',function(){
+        cancelAnimationFrame(raf);
+        raf=requestAnimationFrame(function(){
+          var i=Math.round(track.scrollLeft/Math.max(1,track.clientWidth));
+          setActive(Math.max(0,Math.min(pages.length-1,i)));
+        });
+      },{passive:true});
+      dotEls.forEach(function(d,idx){ d.addEventListener('click',function(){ track.scrollTo({left:idx*track.clientWidth,behavior:'smooth'}); }); });
+
+      // ── synchronized "living" vitals: one shared breath clock drives all numbers + ANS ──
+      var hr=byId('hrVal'),hrv=byId('hrvVal'),rr=byId('rrVal'),st=byId('stressVal'),stP=byId('stressPct'),
+          snsP=byId('snsPct'),pnsP=byId('pnsPct'),snsF=byId('snsFill'),pnsF=byId('pnsFill');
+      var sns=byId('snsWave'),pns=byId('pnsWave');
+      var sc=sns&&sns.getContext('2d'), pc=pns&&pns.getContext('2d');
+      function drawAns(ctx,cv,ph,color,sign){
+        if(!ctx) return; var w=cv.width,h=cv.height; ctx.clearRect(0,0,w,h);
+        ctx.beginPath();
+        for(var x=0;x<=w;x+=2){
+          var u=x/w;
+          var y=h/2 + sign*Math.sin(u*Math.PI*3 - ph*2)*(h*0.3)*(0.72+0.28*Math.sin(ph));
+          if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.strokeStyle=color; ctx.lineWidth=1.6; ctx.shadowColor=color; ctx.shadowBlur=6; ctx.stroke();
+      }
+      function setN(el,v){ if(el) el.textContent=v; }
+      var lastNum=0;
+      function loop(t){
+        requestAnimationFrame(loop);
+        var ph=t*0.0011;                 // shared breath phase → everything moves together
+        drawAns(sc,sns,ph,'#F5A623',1);  // 交感 rises
+        drawAns(pc,pns,ph,'#34C759',-1); // 副交感 falls (anti-correlated)
+        if(t-lastNum<700) return;        // numbers tick ~1Hz, in sync (monitor feel)
+        lastNum=t;
+        setN(hr, 68+Math.round(Math.sin(ph)*2));
+        setN(hrv, 52+Math.round(Math.sin(ph+1)*3));
+        setN(rr, 14+Math.round(Math.sin(ph*0.8)));
+        var stress=25+Math.round(Math.sin(ph+2)*2);
+        setN(st, stress); if(stP) stP.textContent=stress+'%';
+        var s=38+Math.round(Math.sin(ph)*7);
+        if(snsP) snsP.textContent=s+'%';
+        if(pnsP) pnsP.textContent=(100-s)+'%';
+        if(snsF) snsF.style.width=s+'%';
+        if(pnsF) pnsF.style.width=(100-s)+'%';
+      }
+      requestAnimationFrame(loop);
+    })();
+    </script>
 </body>
 </html>
