@@ -3945,9 +3945,10 @@ function setClarity(v){
 
     <!-- ═══════ Snapshot: magnetic swipe carousel + synchronized vitals ═══════ -->
     <style>
-      .snap-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+      /* flex:none + min-height so the scroll-container flex-item never collapses to 0 (its min-height:auto→0) */
+      .snap-track{display:flex;flex:none;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;min-height:206px;}
       .snap-track::-webkit-scrollbar{display:none;}
-      .snap-page{flex:0 0 100%;scroll-snap-align:center;padding:6px 2px;transition:opacity .45s var(--ease-calm),transform .45s var(--ease-calm);}
+      .snap-page{flex:0 0 100%;min-width:0;box-sizing:border-box;scroll-snap-align:center;padding:6px 2px;transition:opacity .45s var(--ease-calm),transform .45s var(--ease-calm);}
       .snap-page:not(.active){opacity:.45;transform:scale(.96);}
       /* bigger vertical space + readability on each page */
       .snap-page .card.metric{min-height:172px;display:flex;flex-direction:column;justify-content:space-between;}
