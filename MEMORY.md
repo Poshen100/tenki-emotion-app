@@ -10,6 +10,7 @@
 
 ### 注意
 - 全合成假值;CI 不涵蓋 `apps/preview/**` → 手機實走驗。波形/浮動幅度可再依回饋微調(script 內 `ph` 係數 + 各 `Math.sin(...)` 振幅)。
+- **#103 修 collapse(教訓)**:carousel 一開始整個 0 高度看不到卡片。根因 = `.snap-track` 是 `.snap`(flex column)的 flex item,給了 `overflow-x:auto` → 另一軸 `overflow-y:visible` 自動升級成 `auto` → 變成雙軸 scroll container → flex item 的 `min-height:auto` 變 0 → 被壓成 0 高並裁掉內容。**修法**:`flex:none` + 明確 `min-height` + 明確 `overflow-y:hidden`(避免自動升級)。**通則**:flex 容器裡的橫向 scroll-snap carousel,容器要 `flex:none`/明確高度,否則會塌。
 
 ---
 
