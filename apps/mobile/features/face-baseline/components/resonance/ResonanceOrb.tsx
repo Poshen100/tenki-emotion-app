@@ -15,7 +15,7 @@
  * @version 3.1
  * @see apps/mobile/features/face-baseline/SPEC.md
  */
-import React from 'react';
+import type React from 'react';
 import type { MaturityStage } from '../../types/faceBaseline.types';
 import { ResonanceOrbSkia } from './ResonanceOrbSkia';
 

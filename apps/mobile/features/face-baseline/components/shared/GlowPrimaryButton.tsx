@@ -15,7 +15,8 @@
  * @version 3.2
  * @see apps/mobile/features/face-baseline/SPEC.md
  */
-import React, { useEffect, useRef } from 'react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 import {
   Pressable, Text, View, Animated, StyleSheet,
   ActivityIndicator, type ViewStyle, type StyleProp,

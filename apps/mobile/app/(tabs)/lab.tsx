@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { colors, spacing, radius, typography as typo } from '../../theme';
 import { useSubscriptionStore } from '../../stores/subscription-store';
 import { useUserStore } from '../../stores/user-store';
@@ -26,6 +27,7 @@ interface LabItem {
  * Includes Dopamine Journal and Binaural Beats.
  */
 export default function LabScreen() {
+  const router = useRouter();
   const tier = useSubscriptionStore((s) => s.tier);
   const isPremium = tier === 'premium';
   const [journalVisible, setJournalVisible] = useState(false);
@@ -77,6 +79,12 @@ export default function LabScreen() {
     { icon: '👤', title: 'Profile', description: '管理你的帳號', onPress: undefined },
     { icon: '🔒', title: 'Privacy', description: '數據控制與匹出', onPress: undefined },
     { icon: '⌚', title: 'Devices', description: '連接 Garmin、Apple Watch', onPress: undefined },
+    {
+      icon: '🎯',
+      title: 'Precision Calibration',
+      description: '新增手指精準掃描以優化基線',
+      onPress: () => router.push('/finger-precision'),
+    },
     {
       icon: '💎',
       title: 'Subscription',

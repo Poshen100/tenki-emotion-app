@@ -123,6 +123,16 @@ export {
 
 export type { StressLevel, StressProxyResult } from './biometric/stress-proxy';
 
+export {
+  detectPeaks,
+  computeIBI,
+  estimateHrvFromIBI,
+  assessBeatRegularity,
+  processFingerPpgWindow,
+} from './biometric/finger-ppg';
+
+export type { FingerPpgSample, FingerPpgResult, Peak } from './biometric/finger-ppg';
+
 // ─── Baseline ───────────────────────────────
 export {
   updateMetricBaseline,
@@ -132,6 +142,12 @@ export {
   assessMaturity,
   updateBaselineProfile,
 } from './baseline/baseline';
+
+export {
+  blendFingerWithFaceBaseline,
+} from './baseline/multi-modal-blend';
+
+export type { BlendInput, BlendResult } from './baseline/multi-modal-blend';
 
 // ─── Scoring Engine ─────────────────────────
 export {

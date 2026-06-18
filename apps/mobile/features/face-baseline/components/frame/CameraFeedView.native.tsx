@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { useFaceBaselineStore } from '../../store/faceBaselineStore';

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Canvas, Circle, Group, Paint, RadialGradient, BlurMask, Path, Skia, vec } from '@shopify/react-native-skia';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';

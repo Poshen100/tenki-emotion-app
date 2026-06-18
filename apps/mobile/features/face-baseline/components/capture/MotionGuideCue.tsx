@@ -2,7 +2,8 @@
  * @module face-baseline/components/MotionGuideCue
  * @description Gentle head-turn indicator (arc sweep) shown during motion capture.
  */
-import React, { useEffect, useRef } from 'react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { View, Animated, Text, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 

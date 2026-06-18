@@ -9,7 +9,8 @@
  * INTEGRATION (retryReason): show reason-specific copy from classifyRetryReason
  * and resume via RESUME_TARGET for the failed state.
  */
-import React, { useEffect, useRef } from 'react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { View, Text, Animated, Easing, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';

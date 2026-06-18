@@ -6,7 +6,8 @@
  * INTEGRATION (Skia): replace with a gradient shield + inner sheen and a
  * gentle breathing glow; add a grant pulse on permission accept.
  */
-import React, { useEffect, useRef } from 'react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 

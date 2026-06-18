@@ -10,7 +10,8 @@
  * @version 3.1
  * @see apps/mobile/features/face-baseline/SPEC.md
  */
-import React, { useEffect, useRef } from 'react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, type ViewStyle, type StyleProp } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 

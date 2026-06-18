@@ -5,7 +5,8 @@
  *
  * Uses Animated to transition width smoothly.
  */
-import React, { useEffect, useRef } from 'react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import { clamp01 } from '../../utils/progress';

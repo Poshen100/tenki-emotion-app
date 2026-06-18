@@ -6,7 +6,8 @@
  *
  * INTEGRATION (Reanimated): checkmark draw + bloom pulse on reveal.
  */
-import React, { useEffect, useRef } from 'react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useBaselineHaptics } from '../../hooks/useBaselineHaptics';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';

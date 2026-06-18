@@ -22,6 +22,10 @@ export interface PipelineDependencies {
   consecutiveRedGates?: number;
   /** Optional overrides for gate thresholds. */
   configOverrides?: Record<string, unknown>;
+  /** Has the user calibrated finger PPG? */
+  fingerCalibrated?: boolean;
+  /** Finger scan quality confidence if calibrated. */
+  fingerConfidence?: number;
 }
 
 export interface PipelineResult {
@@ -35,6 +39,10 @@ export interface PipelineResult {
   gateFeedback: ReturnType<typeof evaluateGate>;
   /** Pipeline error code if failed */
   rejectReason?: 'POOR_SIGNAL' | 'TOO_SHORT' | 'GATE_REJECTED';
+  /** Optional blended confidence when finger scan is calibrated */
+  blendedConfidence?: number;
+  /** Optional blend mode applied */
+  blendMode?: 'high_confidence_blend' | 'signal_added' | 'face_only';
 }
 
 /**
@@ -94,10 +102,34 @@ export function runScanPipeline(
     stressScore
   );
 
+  // 5. Multi-modal confidence blend
+  let blendedConfidence: number | undefined ;
+  let blendMode: PipelineResult['blendMode'] ;
+
+  if (deps.fingerCalibrated && deps.fingerConfidence !== undefined) {
+    const fingerConf = deps.fingerConfidence;
+    const faceConf = edgeScoreResult.confidence.overall;
+
+    if (fingerConf >= 0.80) {
+      blendMode = 'high_confidence_blend';
+      blendedConfidence = faceConf * 0.55 + fingerConf * 0.45;
+    } else if (fingerConf >= 0.55) {
+      blendMode = 'signal_added';
+      blendedConfidence = faceConf * 0.70 + fingerConf * 0.30;
+    } else {
+      blendMode = 'face_only';
+      blendedConfidence = faceConf * 0.85 + fingerConf * 0.15;
+    }
+    blendedConfidence = Math.min(1, Math.max(0, blendedConfidence));
+    blendedConfidence = Math.round(blendedConfidence * 100) / 100;
+  }
+
   return {
     success: true,
     edgeScoreResult,
     updatedBaseline,
     gateFeedback: gateResult,
+    blendedConfidence,
+    blendMode,
   };
 }

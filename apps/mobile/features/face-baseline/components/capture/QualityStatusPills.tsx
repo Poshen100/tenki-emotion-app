@@ -3,7 +3,8 @@
  * @description Slide-fade active quality nudge pill (Hold still / Reframe / Light).
  * Ensures exactly ONE nudge is shown at a time.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Text, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import type { QualityStatus } from '../../types/faceBaseline.types';

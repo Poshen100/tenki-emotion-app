@@ -136,7 +136,7 @@ export default function TodayScreen() {
         visible={showReminder}
         onScanFinger={() => {
           setShowReminder(false);
-          router.push('/scan?mode=finger');
+          router.push('/finger-precision');
         }}
         onDismiss={() => setShowReminder(false)}
         onNeverRemind={() => {

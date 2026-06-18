@@ -1,23 +1,29 @@
-# 2026-06-12 CONTINUATION NOTE (READ THIS FIRST)
+# 2026-06-18 CONTINUATION NOTE (READ THIS FIRST)
 
 This note is the current handoff. If any older setup text below conflicts with this section, this section wins.
 
+## Product & Developer Persona Context
+- **Role**: World-class Silicon Valley product architect, privacy-first AI systems designer, App Store compliance strategist, and senior full-stack mobile engineer.
+- **Mission**: Develop **Tenki Core** (iOS/Android subscription app) with our partner (Founder).
+- **Core Principles**: Privacy-first (local biometric processing), compliance-safe messaging (no financial/medical claims), premium UX.
+
 ## Environment status
 
-- Repo cloned on 2026-06-09 into `C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`
+- Repo freshly cloned on 2026-06-18 into `C:\Users\patron\.gemini\antigravity\scratch\tenki-emotion-app`
 - Portable Node.js (LTS v22.22.3) installed at `C:\Users\patron\.gemini\antigravity\scratch\tools\node`
 - Portable Git (MinGit v2.45.1) installed at `C:\Users\patron\.gemini\antigravity\scratch\tools\git`
 - `start_env.bat` and env scripts in repo root are wired to these portable paths.
 - User PATH environment variables have been persistently configured to include these tool paths.
-- Dependencies installed at repo root.
+- Workspace root dependencies installed (`npm install` completed).
+- Mobile app (`apps/mobile`) dependencies installed (`npm install` completed).
 - Verified on this machine:
-  - Node.js `v22.22.3` (LTS Jod — satisfies Vite 7 and React Native requirements)
+  - Node.js `v22.22.3` (satisfies Vite 7 and React Native requirements)
   - npm `10.9.8`
   - Git `2.45.1.windows.1`
 
 ## PATH configurations
 
-On this machine, Node.js and Git paths are persistently added to the User `PATH` environment variable.
+On this machine, Node.js and Git/MinGit paths are persistently added to the User `PATH` environment variable.
 
 You can also run one of these to double check or force path initialization:
 1. Launch the shell via `start_env.bat`

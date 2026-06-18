@@ -9,7 +9,7 @@
  * @version 3.1
  * @see apps/mobile/features/face-baseline/SPEC.md
  */
-import React from 'react';
+import type React from 'react';
 import { Text, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import { clamp01 } from '../../utils/progress';

@@ -6,7 +6,7 @@
  * @version 3.0
  */
 
-import { type BaselineProfile, } from '@tenki/engine';
+import type { BaselineProfile, } from '@tenki/engine';
 
 const POLICY_LIMITS = {
   MAX_DAILY_SCANS_FREE: 2,
