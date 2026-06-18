@@ -1,3 +1,18 @@
+# 2026-06-18 Session Update (Baseline-established 畫面壓縮：first-scan CTA 不用滑就看得到 — #110)
+
+> Founder(IMG_8851):基線建立完成那頁要**往下滑**才看得到「Start your first scan」按鈕,想讓流程更順、按鈕直接看得到(「像 Fable 5 一樣思考」)。
+
+## What was done — `apps/preview/soul-enroll.{html,js}`
+- **根因**:結尾頁堆了 300px 核心光球 + 環境圓點 + 進度 meter + **6 項快照**(#107 加了 Head position/Distance),在 iOS Safari 工具列下 overflow,CTA 掉到摺線下。
+- **修法(scope 到結尾頁)**:`#stage` 加 `data-step` 屬性(在 `go()`/`restart()`/`boot()` 設定)→ 可按 FSM step scope 排版。`baseline_confirmed`+`baseline_data`:核心光球縮到 **200px**(兩頁同尺寸 → 轉場不跳)、隱藏環境圓點。`baseline_data`:隱藏進度 meter、收緊 pill margin/標題/CTA 間距。CTA 仍**錨底**(拇指友善),約省 200px → 不用滑。順手補 `restart()` 的 `state.lm` 加 `pitch:0`(對齊 #107)。
+- 用 `#stage[data-step="…"]` scope,intro/權限/擷取頁不受影響。
+
+### 教訓 / 注意
+- **「Fable 5 思路」= 階段性元素取捨**:基線建立後,環境檢測點/進度條任務已完成 → 收起;光球縮成「成果徽章」;版面留給 CTA + 個人化快照。功能加東西(#107 多 2 個 checklist 項)會吃掉垂直預算,結尾頁尤其緊 → 加項目時要回頭看 end screen 是否還 fit。
+- CI 不涵蓋 `apps/preview/**` → 待 founder 手機驗(結尾頁 CTA 不用滑就看得到;confirmed→data 光球大小一致)。
+
+---
+
 # 2026-06-18 Session Update (波形自我修復 #109 + 合併「圖書館 session」WIP 衝突 + 修 CI)
 
 > Founder(IMG_8862):#108 後卡片有上來了,但 **Cardiac/Respiration 波形還是空的**(數字會動)。Soul Scan **點頭測試 OK**(#107 pitch 軸正確,不用換 d[9])。
