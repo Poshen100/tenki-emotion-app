@@ -305,14 +305,9 @@ body{
 
 /* Content area — reserves space for FDCB + tabbar */
 .snap{
-  flex:1;padding:2px 14px;
-  padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 24px);
+  flex:1;min-height:0;padding:2px 14px 6px;
   display:flex;flex-direction:column;gap:10px;
-  overflow-y:auto;overflow-x:hidden;
-  scrollbar-width:none;
-  /* Scroll hint: top/bottom gradient fade */
-  mask-image:linear-gradient(to bottom, transparent 0, #000 8px, #000 calc(100% - 24px), transparent 100%);
-  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 8px, #000 calc(100% - 24px), transparent 100%);
+  overflow:hidden;
 }
 /* Card entrance stagger animation */
 .snap > *{
@@ -3924,16 +3919,18 @@ function setClarity(v){
 
     <!-- ═══════ Snapshot: magnetic swipe carousel + synchronized vitals ═══════ -->
     <style>
-      /* peeking, magnetic, one-group-per-swipe carousel. flex:none stops the
-         scroll-container flex-item from collapsing (its min-height:auto→0). */
-      .snap-track{display:flex;flex:none;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:4px 8vw;min-height:184px;}
+      /* peeking, magnetic, one-group-per-swipe carousel. flex:1 fills the (now
+         non-scrolling) .snap; min-height:150px floors it so it never collapses
+         (the #103 0-height bug); touch-action:pan-x keeps the horizontal swipe
+         from being hijacked by any ancestor scroll. */
+      .snap-track{display:flex;flex:1;min-height:150px;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x;padding:4px 8vw;}
       .snap-track::-webkit-scrollbar{display:none;}
       .snap-page{flex:0 0 84vw;min-width:0;box-sizing:border-box;scroll-snap-align:center;scroll-snap-stop:always;transition:transform .42s var(--ease-calm),opacity .42s var(--ease-calm);}
       .snap-page:not(.active){opacity:.5;transform:scale(.9);}      /* neighbours dim+shrink → the centred card visibly LOCKS */
       .snap-page.pulse{animation:snapPulse .5s var(--ease-calm);}
       @keyframes snapPulse{0%{transform:scale(.985)}45%{transform:scale(1.025)}100%{transform:scale(1)}}
       /* one card per page — number AND chart both fully visible */
-      .vcard{min-height:168px;height:100%;display:flex;flex-direction:column;gap:8px;padding:14px 16px;}
+      .vcard{min-height:0;height:100%;display:flex;flex-direction:column;gap:8px;padding:14px 16px;}
       .vhead{display:flex;align-items:center;justify-content:space-between;}
       .vtitle{font-size:13px;font-weight:600;color:rgba(255,255,255,0.92);letter-spacing:.02em;}
       .vhead .metric-status b{font-weight:700;}
@@ -3967,6 +3964,12 @@ function setClarity(v){
       @keyframes bbFlow{to{transform:translateX(110%)}}
       /* faint clinical monitor grid behind every waveform (medical-grade feel) */
       .live-wave,.ans-wave{background-image:repeating-linear-gradient(0deg,rgba(120,200,255,0.05) 0 1px,transparent 1px 13px),repeating-linear-gradient(90deg,rgba(120,200,255,0.05) 0 1px,transparent 1px 13px);border-radius:8px;}
+      /* short phones (iPhone SE / older): reclaim vertical budget so the full card + dots fit —
+         trim the hero and drop the coach hint (taller phones keep both). */
+      @media (max-height:680px){
+        #today-screen .hero{min-height:32vh;}
+        #today-screen .snap > .coach-card{display:none;}
+      }
     </style>
     <script>
     (function(){
