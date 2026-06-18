@@ -408,39 +408,96 @@
     }
   }
 
-  // gold orbital sphere for the "Securing your unique baseline…" processing screen
+  // gold orbital sphere for the "Securing your unique baseline…" processing screen.
+  // Volumetric glass look: single virtual light (upper-left) drives a lit body, a
+  // lower-right inner shadow, a fresnel rim, a specular hotspot + glass crescent;
+  // the three orbit rings are depth-sorted (far arcs dim & behind the core, near
+  // arcs bright & over it) with depth-scaled travelling beads.
   function drawProcessingOrb(c, cx, cy, t) {
     c.save();
-    const R = 74;
-    // glass sphere body
-    const sphere = c.createRadialGradient(cx - 18, cy - 22, 6, cx, cy, R);
-    sphere.addColorStop(0, 'rgba(60,46,20,0.38)');
-    sphere.addColorStop(0.7, 'rgba(20,14,6,0.22)');
-    sphere.addColorStop(1, 'rgba(0,0,0,0)');
-    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fillStyle = sphere; c.fill();
-    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2);
-    c.strokeStyle = 'rgba(255,200,94,0.18)'; c.lineWidth = 1.5; c.stroke();
-    // 3 tilted orbiting gold rings, each with a travelling bright bead
+    const R = 76;
+    const lx = cx - R * 0.4, ly = cy - R * 0.45; // virtual light source (upper-left)
+    const rings = [[70, 24], [61, 32], [52, 17]];
+    const ringRot = (k) => t * 0.00055 * (k + 1) + k * 2.1;
+    const drawArc = (k, front) => {
+      const [rx, ry] = rings[k];
+      c.save(); c.translate(cx, cy); c.rotate(ringRot(k));
+      c.beginPath();
+      if (front) c.ellipse(0, 0, rx, ry, 0, 0, Math.PI);
+      else c.ellipse(0, 0, rx, ry, 0, Math.PI, Math.PI * 2);
+      c.strokeStyle = front ? `rgba(255,212,128,${0.62 - k * 0.08})` : `rgba(255,190,90,${0.18 - k * 0.03})`;
+      c.lineWidth = front ? 2.4 : 1.3;
+      c.lineCap = 'round'; c.shadowColor = COLORS.gold; c.shadowBlur = front ? 14 : 6;
+      c.stroke();
+      c.restore();
+    };
+
+    // outer bloom behind the glass
+    const glow = c.createRadialGradient(cx, cy, R * 0.35, cx, cy, R * 1.7);
+    glow.addColorStop(0, 'rgba(255,200,94,0.22)');
+    glow.addColorStop(1, 'rgba(255,200,94,0)');
+    c.fillStyle = glow; c.beginPath(); c.arc(cx, cy, R * 1.7, 0, Math.PI * 2); c.fill();
+
+    // volumetric glass body — lit upper-left, falling to transparent at the rim
+    const body = c.createRadialGradient(lx, ly, R * 0.1, cx, cy, R * 1.04);
+    body.addColorStop(0, 'rgba(92,70,32,0.44)');
+    body.addColorStop(0.55, 'rgba(34,24,10,0.30)');
+    body.addColorStop(0.9, 'rgba(10,7,3,0.16)');
+    body.addColorStop(1, 'rgba(0,0,0,0)');
+    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fillStyle = body; c.fill();
+
+    // contain the interior (orbits, core, highlights) inside the glass
+    c.save();
+    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.clip();
+
+    // lower-right inner shadow → spherical volume
+    const shade = c.createRadialGradient(cx + R * 0.4, cy + R * 0.45, R * 0.1, cx, cy, R);
+    shade.addColorStop(0, 'rgba(0,0,0,0.32)');
+    shade.addColorStop(0.7, 'rgba(0,0,0,0)');
+    c.fillStyle = shade; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
+
+    for (let k = 0; k < 3; k++) drawArc(k, false); // far arcs (behind core)
+
+    // hot core
+    const core = c.createRadialGradient(cx, cy, 0, cx, cy, 30);
+    core.addColorStop(0, 'rgba(255,255,246,0.98)');
+    core.addColorStop(0.35, 'rgba(255,236,180,0.85)');
+    core.addColorStop(0.7, 'rgba(255,196,90,0.42)');
+    core.addColorStop(1, 'rgba(255,196,90,0)');
+    c.beginPath(); c.arc(cx, cy, 30, 0, Math.PI * 2); c.fillStyle = core; c.fill();
+
+    for (let k = 0; k < 3; k++) drawArc(k, true); // near arcs (over core)
+
+    // travelling beads, scaled/faded by orbit depth (front brighter & larger)
     for (let k = 0; k < 3; k++) {
-      const rot = t * 0.0006 * (k + 1) + k * 2.1;
-      const rx = 66 - k * 6;
-      const ry = 22 + k * 9;
-      c.save();
-      c.translate(cx, cy); c.rotate(rot);
-      c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-      c.strokeStyle = `rgba(255,200,94,${0.5 - k * 0.1})`;
-      c.lineWidth = 2; c.shadowColor = COLORS.gold; c.shadowBlur = 12; c.stroke();
-      const a = t * 0.002 * (k + 1.5);
-      c.beginPath(); c.arc(Math.cos(a) * rx, Math.sin(a) * ry, 2.8, 0, Math.PI * 2);
-      c.fillStyle = '#FFF0D0'; c.shadowBlur = 14; c.shadowColor = COLORS.gold; c.fill();
+      const [rx, ry] = rings[k];
+      const a = t * 0.0019 * (k + 1.4);
+      c.save(); c.translate(cx, cy); c.rotate(ringRot(k));
+      const bx = Math.cos(a) * rx, by = Math.sin(a) * ry;
+      const depth = (by / ry) * 0.5 + 0.5; // 0 = far, 1 = near
+      c.globalAlpha = 0.45 + depth * 0.55;
+      c.beginPath(); c.arc(bx, by, 2.2 + depth * 1.6, 0, Math.PI * 2);
+      c.fillStyle = '#FFF6E2'; c.shadowBlur = 12; c.shadowColor = COLORS.gold; c.fill();
       c.restore();
     }
-    // bright core
-    const core = c.createRadialGradient(cx, cy, 0, cx, cy, 26);
-    core.addColorStop(0, 'rgba(255,240,208,0.95)');
-    core.addColorStop(0.5, 'rgba(255,200,94,0.6)');
-    core.addColorStop(1, 'rgba(255,200,94,0)');
-    c.beginPath(); c.arc(cx, cy, 26, 0, Math.PI * 2); c.fillStyle = core; c.fill();
+
+    // specular hotspot (glossy reflection of the light)
+    const spec = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.5);
+    spec.addColorStop(0, 'rgba(255,255,255,0.5)');
+    spec.addColorStop(0.5, 'rgba(255,245,220,0.1)');
+    spec.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = spec; c.beginPath(); c.arc(lx, ly, R * 0.5, 0, Math.PI * 2); c.fill();
+
+    // thin glass crescent along the upper-left edge
+    c.beginPath(); c.arc(cx, cy, R * 0.84, Math.PI * 1.04, Math.PI * 1.52);
+    c.strokeStyle = 'rgba(255,255,255,0.42)'; c.lineWidth = 2.2; c.lineCap = 'round';
+    c.shadowColor = 'rgba(255,255,255,0.6)'; c.shadowBlur = 6; c.stroke();
+    c.restore(); // end clip
+
+    // fresnel rim (bright glass edge), drawn over the clip boundary
+    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2);
+    c.strokeStyle = 'rgba(255,224,152,0.32)'; c.lineWidth = 1.4;
+    c.shadowColor = COLORS.gold; c.shadowBlur = 8; c.stroke();
     c.restore();
   }
 
