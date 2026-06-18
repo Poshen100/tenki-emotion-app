@@ -341,8 +341,8 @@ export default function FingerPrecisionScreen(): React.JSX.Element {
               />
               <CoachCopy text={C.placement.instruction} />
               <View style={styles.tipsList}>
-                {C.placement.tips.map((tip, idx) => (
-                  <Text key={idx} style={styles.tipText}>• {tip}</Text>
+                {C.placement.tips.map((tip) => (
+                  <Text key={tip} style={styles.tipText}>• {tip}</Text>
                 ))}
               </View>
             </View>

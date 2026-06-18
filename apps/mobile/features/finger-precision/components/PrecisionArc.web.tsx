@@ -35,7 +35,8 @@ export function PrecisionArc({
 
   return (
     <View style={{ width: size, height: size, position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Precision progress">
+        <title>Precision progress</title>
         <circle
           cx={center}
           cy={center}

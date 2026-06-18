@@ -69,7 +69,7 @@
   const ALIGN = {
     distMin: 0.085, distMax: 0.22, // inter-ocular dist (frame frac): closer/back band
     centerMax: 0.26, // centroid offset tolerance
-    rollMax: 9, yawMax: 0.18, // head level (deg) + frontal yaw
+    rollMax: 9, yawMax: 0.18, pitchMax: 12, // head level: tilt (deg) + frontal yaw + nod (deg)
     eyeOpenMin: 0.45, holdMs: 350, // eyes open; each target must hold this long to lock
   };
   const ALIGN_KEYS = ['distance', 'center', 'level', 'eyes'];
@@ -170,7 +170,7 @@
     q: { brightness: 0, uniformity: 0, motion: 1, detail: 0, coverage: 0, centerOffset: 1 },
     gates: { lighting: false, centering: false, stillness: false },
     mpActive: false, // MediaPipe landmarks driving centering this frame
-    lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0, cx: 0.5, cy: 0.5, dist: 0, roll: 0, eyeOpen: 1 },
+    lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0, cx: 0.5, cy: 0.5, dist: 0, roll: 0, pitch: 0, eyeOpen: 1 },
     // Guided Lock-On alignment: per-target hold/lock, progress, nudge debounce, reward flash
     alignHold: {}, alignLocked: {}, alignProg: 0, shownNudge: '', candNudge: '', candSince: 0, alignFlash: 0,
     envHoldStart: 0,
@@ -580,6 +580,7 @@
         baseOptions: { modelAssetPath: MP_MODEL, delegate },
         runningMode: 'VIDEO', numFaces: 1,
         outputFaceBlendshapes: true, // eye-openness / blink → alignment + liveness
+        outputFacialTransformationMatrixes: true, // 4×4 head pose → true pitch (chin up/down)
       });
     try { m3d.landmarker = await mk('GPU'); } catch (_) { m3d.landmarker = await mk('CPU'); }
   }
@@ -641,6 +642,17 @@
       eyeOpen = 1 - Math.max(bl, br);
     }
     state.lm.eyeOpen = eyeOpen;
+    // ── true head pitch (nod, chin up/down) from the 4×4 facial transform matrix ──
+    // Column-major (the layout Three.js Matrix4.fromArray consumes); element (row r,col c)=d[c*4+r].
+    // pitch≈atan2(-r21,r22): ~0 frontal, grows with a nod. The gate uses |pitch|, so the
+    // decomposition sign/convention is moot — only the deviation magnitude matters near frontal.
+    let pitch = 0;
+    const mx = res && res.facialTransformationMatrixes && res.facialTransformationMatrixes[0];
+    const d = mx && mx.data;
+    if (d && d.length >= 11) {
+      pitch = (Math.atan2(-d[6], d[10]) * 180) / Math.PI;
+    }
+    state.lm.pitch = pitch;
   }
 
   function m3dActivePhase() { return m3d.ready && m3d.seen && M3D_PHASES.has(state.step); }
@@ -704,7 +716,8 @@
       light: g.lighting,
       distance: present && lm.dist >= ALIGN.distMin && lm.dist <= ALIGN.distMax,
       center: present && lm.centerOffset <= ALIGN.centerMax,
-      level: present && Math.abs(lm.roll) <= ALIGN.rollMax && Math.abs(lm.yaw) <= ALIGN.yawMax,
+      level: present && Math.abs(lm.roll) <= ALIGN.rollMax && Math.abs(lm.yaw) <= ALIGN.yawMax
+        && Math.abs(lm.pitch) <= ALIGN.pitchMax,
       eyes: present && lm.eyeOpen >= ALIGN.eyeOpenMin && g.stillness,
     };
   }
@@ -718,7 +731,16 @@
       ? { key: 'closer', instr: 'Come a little closer', sub: 'Fill the circle with your face.' }
       : { key: 'back', instr: 'Move back a little', sub: 'Give your face some room.' };
     if (!c.center) return { key: 'center', instr: 'Move into the circle', sub: 'Line the dot up with the centre.' };
-    if (!c.level) return { key: 'level', instr: 'Look straight, keep level', sub: 'Eyes to the camera, head upright.' };
+    if (!c.level) {
+      // dominant off-axis → sign-safe sub-copy (no "raise vs lower" guess)
+      const eRoll = Math.abs(lm.roll) / ALIGN.rollMax;
+      const eYaw = Math.abs(lm.yaw) / ALIGN.yawMax;
+      const ePitch = Math.abs(lm.pitch) / ALIGN.pitchMax;
+      const sub = ePitch >= eRoll && ePitch >= eYaw ? 'Keep your chin level — not up or down.'
+        : eYaw >= eRoll ? 'Face the camera straight on.'
+        : 'Keep your head upright.';
+      return { key: 'level', instr: 'Look straight, keep level', sub };
+    }
     if (!c.eyes) return lm.eyeOpen < ALIGN.eyeOpenMin
       ? { key: 'eyes', instr: 'Keep your eyes open', sub: 'Relax and look ahead.' }
       : { key: 'hold', instr: 'Hold still', sub: 'Almost there — steady.' };
@@ -946,12 +968,27 @@
     return state.gates;
   }
 
-  // accumulate a coarse aggregate for the qualitative confidence band
+  // accumulate a coarse aggregate for the qualitative confidence band.
+  // Mirrors the spirit of mobile confidence.ts totalBaselineConfidence (pose / eye / lighting):
+  // when MediaPipe is live we EARN the band with real alignment quality, not just stillness+light.
   function sampleConfidence(motionCeil) {
-    const q = state.q;
+    const q = state.q, lm = state.lm;
     const still = 1 - clamp01(q.motion / Math.max(0.01, motionCeil));
-    const agg = 0.35 * still + 0.25 * q.brightness + 0.2 * q.uniformity
-      + 0.2 * (state.tierA ? clamp01(1 - q.centerOffset) : q.detail);
+    let agg;
+    if (state.mpActive && lm.present) {
+      // frontality excludes YAW on purpose → the intentional head-turn during arc_left/right
+      // isn't penalised (roll+pitch should stay ~0 throughout the whole capture).
+      const frontality = clamp01(1 - Math.max(Math.abs(lm.roll) / ALIGN.rollMax, Math.abs(lm.pitch) / ALIGN.pitchMax));
+      const eyeOpen = clamp01(lm.eyeOpen);
+      const distIn = lm.dist >= ALIGN.distMin && lm.dist <= ALIGN.distMax ? 1 : 0.4;
+      const center = clamp01(1 - lm.centerOffset);
+      agg = 0.25 * still + 0.18 * q.brightness + 0.15 * q.uniformity + 0.12 * center
+        + 0.15 * frontality + 0.08 * eyeOpen + 0.07 * distIn;
+    } else {
+      // Tier B / no landmarks: original stillness+light+centering mix (weights sum to 1).
+      agg = 0.35 * still + 0.25 * q.brightness + 0.2 * q.uniformity
+        + 0.2 * (state.tierA ? clamp01(1 - q.centerOffset) : q.detail);
+    }
     state.confSum += clamp01(agg);
     state.confN += 1;
   }

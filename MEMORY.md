@@ -1,4 +1,55 @@
-# 2026-06-17 Session Update (Snapshot 重設計：peeking 磁吸 carousel + 一頁一組 + Body Battery 動起來)
+# 2026-06-18 Session Update (波形自我修復 #109 + 合併「圖書館 session」WIP 衝突 + 修 CI)
+
+> Founder(IMG_8862):#108 後卡片有上來了,但 **Cardiac/Respiration 波形還是空的**(數字會動)。Soul Scan **點頭測試 OK**(#107 pitch 軸正確,不用換 d[9])。
+
+## What was done
+- **波形空白根因 + 修法(`apps/preview/v6/index.html`)**:hr/hrv/rr 三個 live-wave canvas 用 `offsetWidth/offsetHeight` 在 **blind `setTimeout(1800ms)`** 抓一次尺寸,之後只在 window `resize` 重抓 —— 手機不會觸發 resize → 若 1800ms 時 layout 還沒穩(splash/`?from=baseline` takeover 蓋著),bitmap = 0×0 永遠空白。**ANS canvas(page 3)用固定 `width/height` 屬性(220×44)所以一直有畫** → 正是只有 Cardiac 頁壞的鐵證。**修法**:改用 **ResizeObserver**,canvas 一拿到/改變真實尺寸就重跑 `setupCanvas`(自我修復,跟 takeover/timing 無關);loop 照跑,0-size 時 drawWave no-op。`.vwave` 加 `flex:none`(flex column 不擠壓)、`margin-top:6px`(緊貼數字下方,不再被推到會被裁的卡底);格線 alpha 0.05→0.09。
+- **合併衝突(重要教訓)**:另一個「圖書館 session」用 Antigravity 把一個 WIP commit(`20c130c`,新增 `finger-precision` 功能 ~3780 行)**直接推到 main**。它是 **stale checkout**,把 #107(soul-enroll pitch)+ #108(v6 carousel)的 preview 檔案**整個還原掉了**(經 diff 證實是 byte-identical 的純還原,無真實編輯),而且它的 **CI 是紅的**。處理:把 branch reset 到 main,從 `d187788` checkout 回 3 個 preview 檔(soul-enroll.js/html + v6/index.html)恢復 #107+#108+#109,MEMORY.md 取我的超集(founder 沒加新條目),finger-precision 等功能保留不動。
+- **修 CI(founder 要求一起修)**:main 紅的原因是 biome lint **2 個 error**(都在新 finger-precision):`PrecisionArc.web.tsx` 空 `<svg>` 無 title → 加 `role="img"+aria-label`+`<title>`;`FingerPrecisionScreen.tsx` `key={idx}` → 改 `key={tip}`。修完本機全綠:lint 0 error、engine/scan/shared/domain tsc 0、root 281 測試、mobile tsc 0 + 93 測試。
+
+### 教訓 / 注意
+- **平行開發 clobber**:Antigravity/桌機 session 若從舊 checkout 直接 commit 到 main,會把雲端 session 已 merge 的檔案默默還原。**通則**:跨 session 動同一檔案前先 `git pull`;發現 main 被 stale 覆蓋時,用 `git diff <pre-feature> <wip>` 確認是否純還原,再從正確 commit checkout 回檔案,別動對方真正的新功能。
+- **canvas 尺寸**:依賴某個時間點的 `offsetWidth` 很脆(splash/takeover/分頁未 layout 都會 0)。用 **ResizeObserver** 自我修復才穩;固定 `width/height` 屬性的 canvas(ANS)則天生免疫。
+- CI 不涵蓋 `apps/preview/**` → 波形要 founder 手機實走驗(Cardiac 頁出現 ECG+HRV 線、leading dot;滑去 Respiration/ANS/Energy 都動)。
+
+---
+
+# 2026-06-18 Session Update (結果頁 Snapshot 修好：圖表躲在底部 bar 後面 + 不能換組 — #108)
+
+> Founder(IMG_8852,tall iPhone):結果頁 `/preview/v6/` Snapshot **還是**看不到圖表、也沒辦法選另外一組(同 #103/#106 那個 carousel,在高螢幕手機從沒真的修好)。
+
+## 根因(一個,解釋兩個症狀)
+- `.screen` 是 `position:absolute; inset:var(--top-safe) 0 0 0` → containing block 是 `.screens` 的 **padding box**,`bottom:0` 直接貼視窗底 → `.screens` 用來預留 FDCB+tabbar 的 `padding-bottom` **對 `.screen` 無效**。Timeline/Lab 沒事是因為 `.timeline-body/.lab-body` 各自帶 `padding-bottom`(L676/744);Today 的 `.snap` 只留 `6px` → `.snap` + `flex:1` 的 `.snap-track` 整個伸到 FDCB bar + tabbar 後面。
+  - `.vwave{margin-top:auto}` 把圖表釘在卡片底 → 躲到兩條 bar 後 → **看不到**;`.snap-dots` 同樣被蓋(截圖無點)。
+  - 螢幕上只剩數字那條細帶可摸,其餘 track 在 FDCB(它本身也是會滑的 carousel,有自己的點)+ tabbar 底下 → **橫滑被吃掉** → 換不了組。
+
+## What was done — `apps/preview/v6/index.html`(純 CSS)
+- **`.snap`**:底部 padding 改成 `calc(var(--tabbar-h)+var(--fdcb-h)+var(--fdcb-gap)+10px)` 預留(跟 Timeline/Lab 同款)→ carousel + 點移到兩條 bar 上方。
+- **`.snap-track`**:`flex:1` → `flex:none; height:190px` 固定高。固定高**不會塌**(#103)也**不會撐到 bar 後**(#106),整張卡(數字+54px 圖表)在畫面內、可滑。
+- JS 沒動 —— canvas 一直有畫(offsetWidth/Height 非 0),只是被擋住。
+
+### 教訓
+- **#103/#106 都白調了**:之前只動 `flex:1`/`min-height` 盲調,從沒處理**遮擋**這個真因 —— `.screen` 絕對定位讓 `.screens` 的底部預留對 Today 失效。**通則**:Today 的 `.snap` 要自己帶 FDCB+tabbar 底部預留(別指望 `.screens` padding),且彈性容器內的橫向 carousel 用**固定高**比 `flex:1` 穩(`flex:1` 會吃掉延伸到 bar 後的空間)。
+- CI 不涵蓋 `apps/preview/**` → 連 #105→#106→#108 三輪都「綠了卻在 iOS 壞」。**手機實走才算數**;待 founder 回報(圖表/點/滑動;短螢幕圓點是否被切)。另 #107 點頭測試結論也待回報。
+
+---
+
+# 2026-06-18 Session Update (Guided Lock-On 誠實精準升級：真 pitch + 掙來的 confidence — #107)
+
+> Founder 選「honest precision boost」:讓對位**真的**更嚴、讓 confidence band 是**掙來的**(非裝飾)。兩個真缺口 —— ① `level` 只看 roll(歪)+yaw(轉),**低頭/抬頭(pitch)沒抓** → pitch 歪的 neutral 也能鎖成基線;② `sampleConfidence()` 只看穩定/亮度/置中,忽略已量到的對位品質。
+
+## What was done — `apps/preview/soul-enroll.{js,html}`
+- **真 head pitch**:`loadLandmarker` 開 `outputFacialTransformationMatrixes`(只是 metadata,GPU→CPU fallback 不變);`ingestLandmarks` 從 column-major 4×4 算 `pitch(deg)=atan2(-d[6],d[10])`(正面≈0,點頭變大),矩陣缺失→0 不卡關。新 `state.lm.pitch` + `ALIGN.pitchMax=12°`;`level` gate 多要求 `|pitch|≤pitchMax`。gate 用 `|pitch|` → 分解的正負號/慣例無關緊要,只看偏離量。
+- **方向化 nudge**:`pickAlignNudge` level 分支按主導偏軸給 sign-safe 子句 —— pitch 主導「Keep your chin level — not up or down.」/ yaw「Face the camera straight on.」/ roll「Keep your head upright.」(不猜上下,避免講錯方向)。
+- **掙來的 confidence**(mirror 手機 `confidence.ts` 精神):MediaPipe 在跑時 `0.25 still + 0.18 brightness + 0.15 uniformity + 0.12 centering + 0.15 frontality + 0.08 eyeOpen + 0.07 distIn`(和=1)。**frontality 刻意排除 yaw** → arc 轉頭階段不被扣分(roll+pitch 全程該≈0)。Tier B/無 landmark → 回退原本 4 項(優雅退化)。baseline-data 清單誠實列出 **Head position + Distance**。
+
+### 注意 / 待辦
+- **唯一 headless 無法驗的點**:若手機上「用力點頭」`level` pip 完全沒反應,代表矩陣 layout 要換另一個 off-diagonal(`d[9]` 取代 `d[6]`)—— 一行的事。請 founder 在 iPhone Safari 特別試「下巴上抬/下壓」這個動作回報。
+- 沿用 #101 Guided Lock-On 管線(`state.lm`/`alignChecks`/`pickAlignNudge`/`runAlign`),無新 FSM/overlay/pip(`level` 吸收 pitch,`ALIGN_KEYS` 仍 4)。`node --check` 過;CI 不涵蓋 `apps/preview/**` → 手機實走驗(low-light/距離/睜眼/正面 → band 高低是否合理)。
+
+---
+
+
 
 > Founder(IMG_8824):HR/HVR 數字變大了(好)**但圖表要滑才看的到**、**沒有磁鐵感定位反饋**、想要「滑動就清楚看到 數字+圖表 → 再滑就下一組」、目前點小點切換不爽、**Body Battery 能不能動起來**。「像 Fable5 一樣思考,幫我規劃。」
 
