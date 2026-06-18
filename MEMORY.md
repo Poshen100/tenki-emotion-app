@@ -1,3 +1,19 @@
+# 2026-06-18 Session Update (波形自我修復 #109 + 合併「圖書館 session」WIP 衝突 + 修 CI)
+
+> Founder(IMG_8862):#108 後卡片有上來了,但 **Cardiac/Respiration 波形還是空的**(數字會動)。Soul Scan **點頭測試 OK**(#107 pitch 軸正確,不用換 d[9])。
+
+## What was done
+- **波形空白根因 + 修法(`apps/preview/v6/index.html`)**:hr/hrv/rr 三個 live-wave canvas 用 `offsetWidth/offsetHeight` 在 **blind `setTimeout(1800ms)`** 抓一次尺寸,之後只在 window `resize` 重抓 —— 手機不會觸發 resize → 若 1800ms 時 layout 還沒穩(splash/`?from=baseline` takeover 蓋著),bitmap = 0×0 永遠空白。**ANS canvas(page 3)用固定 `width/height` 屬性(220×44)所以一直有畫** → 正是只有 Cardiac 頁壞的鐵證。**修法**:改用 **ResizeObserver**,canvas 一拿到/改變真實尺寸就重跑 `setupCanvas`(自我修復,跟 takeover/timing 無關);loop 照跑,0-size 時 drawWave no-op。`.vwave` 加 `flex:none`(flex column 不擠壓)、`margin-top:6px`(緊貼數字下方,不再被推到會被裁的卡底);格線 alpha 0.05→0.09。
+- **合併衝突(重要教訓)**:另一個「圖書館 session」用 Antigravity 把一個 WIP commit(`20c130c`,新增 `finger-precision` 功能 ~3780 行)**直接推到 main**。它是 **stale checkout**,把 #107(soul-enroll pitch)+ #108(v6 carousel)的 preview 檔案**整個還原掉了**(經 diff 證實是 byte-identical 的純還原,無真實編輯),而且它的 **CI 是紅的**。處理:把 branch reset 到 main,從 `d187788` checkout 回 3 個 preview 檔(soul-enroll.js/html + v6/index.html)恢復 #107+#108+#109,MEMORY.md 取我的超集(founder 沒加新條目),finger-precision 等功能保留不動。
+- **修 CI(founder 要求一起修)**:main 紅的原因是 biome lint **2 個 error**(都在新 finger-precision):`PrecisionArc.web.tsx` 空 `<svg>` 無 title → 加 `role="img"+aria-label`+`<title>`;`FingerPrecisionScreen.tsx` `key={idx}` → 改 `key={tip}`。修完本機全綠:lint 0 error、engine/scan/shared/domain tsc 0、root 281 測試、mobile tsc 0 + 93 測試。
+
+### 教訓 / 注意
+- **平行開發 clobber**:Antigravity/桌機 session 若從舊 checkout 直接 commit 到 main,會把雲端 session 已 merge 的檔案默默還原。**通則**:跨 session 動同一檔案前先 `git pull`;發現 main 被 stale 覆蓋時,用 `git diff <pre-feature> <wip>` 確認是否純還原,再從正確 commit checkout 回檔案,別動對方真正的新功能。
+- **canvas 尺寸**:依賴某個時間點的 `offsetWidth` 很脆(splash/takeover/分頁未 layout 都會 0)。用 **ResizeObserver** 自我修復才穩;固定 `width/height` 屬性的 canvas(ANS)則天生免疫。
+- CI 不涵蓋 `apps/preview/**` → 波形要 founder 手機實走驗(Cardiac 頁出現 ECG+HRV 線、leading dot;滑去 Respiration/ANS/Energy 都動)。
+
+---
+
 # 2026-06-18 Session Update (結果頁 Snapshot 修好：圖表躲在底部 bar 後面 + 不能換組 — #108)
 
 > Founder(IMG_8852,tall iPhone):結果頁 `/preview/v6/` Snapshot **還是**看不到圖表、也沒辦法選另外一組(同 #103/#106 那個 carousel,在高螢幕手機從沒真的修好)。
