@@ -230,6 +230,19 @@
       font-size: 11px; font-weight: 800; color: #06210f;
       background: var(--lock-mint); box-shadow: 0 0 10px rgba(0,230,153,0.6);
     }
+    /* ── Baseline-established end screens (confirmed → data): compact so the
+       "Start your first scan" CTA is always visible without scrolling. The env
+       dots + progress meter are irrelevant once secured; a smaller core frees the
+       room the 6-item snapshot needs. Core size is held constant across both end
+       screens so the confirmed→data transition doesn't jump. ── */
+    #stage[data-step="baseline_confirmed"] #scan-canvas,
+    #stage[data-step="baseline_data"] #scan-canvas { width: 200px !important; height: 200px !important; }
+    #stage[data-step="baseline_confirmed"] #indicators,
+    #stage[data-step="baseline_data"] #indicators { display: none; }
+    #stage[data-step="baseline_data"] #meter { display: none; }
+    #stage[data-step="baseline_data"] .pill-secured { margin-bottom: 10px; }
+    #stage[data-step="baseline_data"] #instruction { font-size: 27px; }
+    #stage[data-step="baseline_data"] #cta { margin-top: 22px; }
     #restart {
       position: absolute; top: 22px; right: 22px; z-index: 5;
       background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
