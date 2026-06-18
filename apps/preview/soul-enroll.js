@@ -997,6 +997,7 @@
   function go(step) {
     state.step = step;
     state.stepStart = now();
+    document.getElementById('stage').dataset.step = step; // scopes per-step layout (e.g. compact end screen)
     if (step === 'face_detecting') { // fresh Guided Lock-On each entry
       state.alignHold = {}; state.alignLocked = {}; state.alignProg = 0; state.shownNudge = ''; state.candNudge = '';
     }
@@ -1237,11 +1238,12 @@
 
   function restart() {
     stopCamera();
+    document.getElementById('stage').dataset.step = 'intro';
     Object.assign(state, {
       step: 'intro', stepStart: 0, started: false, tierA: false, detector: null, face: null,
       q: { brightness: 0, uniformity: 0, motion: 1, detail: 0, coverage: 0, centerOffset: 1 },
       gates: { lighting: false, centering: false, stillness: false },
-      mpActive: false, lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0, cx: 0.5, cy: 0.5, dist: 0, roll: 0, eyeOpen: 1 },
+      mpActive: false, lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0, cx: 0.5, cy: 0.5, dist: 0, roll: 0, pitch: 0, eyeOpen: 1 },
       alignHold: {}, alignLocked: {}, alignProg: 0, shownNudge: '', candNudge: '', candSince: 0, alignFlash: 0,
       envHoldStart: 0, detectHoldStart: 0, lossStart: 0,
       neutral: 0, arc: 0, stability: 0, confSum: 0, confN: 0,
@@ -1276,6 +1278,7 @@
   }
 
   function boot() {
+    document.getElementById('stage').dataset.step = 'intro';
     buildIndicators();
     initStarfield();
     initScanCanvas();
