@@ -968,12 +968,27 @@
     return state.gates;
   }
 
-  // accumulate a coarse aggregate for the qualitative confidence band
+  // accumulate a coarse aggregate for the qualitative confidence band.
+  // Mirrors the spirit of mobile confidence.ts totalBaselineConfidence (pose / eye / lighting):
+  // when MediaPipe is live we EARN the band with real alignment quality, not just stillness+light.
   function sampleConfidence(motionCeil) {
-    const q = state.q;
+    const q = state.q, lm = state.lm;
     const still = 1 - clamp01(q.motion / Math.max(0.01, motionCeil));
-    const agg = 0.35 * still + 0.25 * q.brightness + 0.2 * q.uniformity
-      + 0.2 * (state.tierA ? clamp01(1 - q.centerOffset) : q.detail);
+    let agg;
+    if (state.mpActive && lm.present) {
+      // frontality excludes YAW on purpose → the intentional head-turn during arc_left/right
+      // isn't penalised (roll+pitch should stay ~0 throughout the whole capture).
+      const frontality = clamp01(1 - Math.max(Math.abs(lm.roll) / ALIGN.rollMax, Math.abs(lm.pitch) / ALIGN.pitchMax));
+      const eyeOpen = clamp01(lm.eyeOpen);
+      const distIn = lm.dist >= ALIGN.distMin && lm.dist <= ALIGN.distMax ? 1 : 0.4;
+      const center = clamp01(1 - lm.centerOffset);
+      agg = 0.25 * still + 0.18 * q.brightness + 0.15 * q.uniformity + 0.12 * center
+        + 0.15 * frontality + 0.08 * eyeOpen + 0.07 * distIn;
+    } else {
+      // Tier B / no landmarks: original stillness+light+centering mix (weights sum to 1).
+      agg = 0.35 * still + 0.25 * q.brightness + 0.2 * q.uniformity
+        + 0.2 * (state.tierA ? clamp01(1 - q.centerOffset) : q.detail);
+    }
     state.confSum += clamp01(agg);
     state.confN += 1;
   }
