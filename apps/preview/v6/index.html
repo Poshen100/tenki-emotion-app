@@ -305,7 +305,11 @@ body{
 
 /* Content area — reserves space for FDCB + tabbar */
 .snap{
-  flex:1;min-height:0;padding:2px 14px 6px;
+  flex:1;min-height:0;
+  /* reserve FDCB + tabbar space (like .timeline-body/.lab-body) — .screen is
+     absolutely positioned so .screens' padding-bottom does NOT apply to it; without
+     this the carousel + dots fall behind the bottom bars (charts hidden, swipe eaten). */
+  padding:2px 14px calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 10px);
   display:flex;flex-direction:column;gap:10px;
   overflow:hidden;
 }
@@ -3919,11 +3923,11 @@ function setClarity(v){
 
     <!-- ═══════ Snapshot: magnetic swipe carousel + synchronized vitals ═══════ -->
     <style>
-      /* peeking, magnetic, one-group-per-swipe carousel. flex:1 fills the (now
-         non-scrolling) .snap; min-height:150px floors it so it never collapses
-         (the #103 0-height bug); touch-action:pan-x keeps the horizontal swipe
-         from being hijacked by any ancestor scroll. */
-      .snap-track{display:flex;flex:1;min-height:150px;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x;padding:4px 8vw;}
+      /* peeking, magnetic, one-group-per-swipe carousel. FIXED height (not flex:1) so the
+         whole card — number AND its 54px chart — sits in a compact band above the FDCB/tabbar
+         (.snap now reserves that space). Fixed height can't collapse (#103) and can't stretch
+         behind the bars (#106). touch-action:pan-x keeps the swipe from any ancestor scroll. */
+      .snap-track{display:flex;flex:none;height:190px;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x;padding:4px 8vw;}
       .snap-track::-webkit-scrollbar{display:none;}
       .snap-page{flex:0 0 84vw;min-width:0;box-sizing:border-box;scroll-snap-align:center;scroll-snap-stop:always;transition:transform .42s var(--ease-calm),opacity .42s var(--ease-calm);}
       .snap-page:not(.active){opacity:.5;transform:scale(.9);}      /* neighbours dim+shrink → the centred card visibly LOCKS */
