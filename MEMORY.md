@@ -1,4 +1,19 @@
-# 2026-06-17 Session Update (Snapshot 重設計：peeking 磁吸 carousel + 一頁一組 + Body Battery 動起來)
+# 2026-06-18 Session Update (Guided Lock-On 誠實精準升級：真 pitch + 掙來的 confidence — #107)
+
+> Founder 選「honest precision boost」:讓對位**真的**更嚴、讓 confidence band 是**掙來的**(非裝飾)。兩個真缺口 —— ① `level` 只看 roll(歪)+yaw(轉),**低頭/抬頭(pitch)沒抓** → pitch 歪的 neutral 也能鎖成基線;② `sampleConfidence()` 只看穩定/亮度/置中,忽略已量到的對位品質。
+
+## What was done — `apps/preview/soul-enroll.{js,html}`
+- **真 head pitch**:`loadLandmarker` 開 `outputFacialTransformationMatrixes`(只是 metadata,GPU→CPU fallback 不變);`ingestLandmarks` 從 column-major 4×4 算 `pitch(deg)=atan2(-d[6],d[10])`(正面≈0,點頭變大),矩陣缺失→0 不卡關。新 `state.lm.pitch` + `ALIGN.pitchMax=12°`;`level` gate 多要求 `|pitch|≤pitchMax`。gate 用 `|pitch|` → 分解的正負號/慣例無關緊要,只看偏離量。
+- **方向化 nudge**:`pickAlignNudge` level 分支按主導偏軸給 sign-safe 子句 —— pitch 主導「Keep your chin level — not up or down.」/ yaw「Face the camera straight on.」/ roll「Keep your head upright.」(不猜上下,避免講錯方向)。
+- **掙來的 confidence**(mirror 手機 `confidence.ts` 精神):MediaPipe 在跑時 `0.25 still + 0.18 brightness + 0.15 uniformity + 0.12 centering + 0.15 frontality + 0.08 eyeOpen + 0.07 distIn`(和=1)。**frontality 刻意排除 yaw** → arc 轉頭階段不被扣分(roll+pitch 全程該≈0)。Tier B/無 landmark → 回退原本 4 項(優雅退化)。baseline-data 清單誠實列出 **Head position + Distance**。
+
+### 注意 / 待辦
+- **唯一 headless 無法驗的點**:若手機上「用力點頭」`level` pip 完全沒反應,代表矩陣 layout 要換另一個 off-diagonal(`d[9]` 取代 `d[6]`)—— 一行的事。請 founder 在 iPhone Safari 特別試「下巴上抬/下壓」這個動作回報。
+- 沿用 #101 Guided Lock-On 管線(`state.lm`/`alignChecks`/`pickAlignNudge`/`runAlign`),無新 FSM/overlay/pip(`level` 吸收 pitch,`ALIGN_KEYS` 仍 4)。`node --check` 過;CI 不涵蓋 `apps/preview/**` → 手機實走驗(low-light/距離/睜眼/正面 → band 高低是否合理)。
+
+---
+
+
 
 > Founder(IMG_8824):HR/HVR 數字變大了(好)**但圖表要滑才看的到**、**沒有磁鐵感定位反饋**、想要「滑動就清楚看到 數字+圖表 → 再滑就下一組」、目前點小點切換不爽、**Body Battery 能不能動起來**。「像 Fable5 一樣思考,幫我規劃。」
 
