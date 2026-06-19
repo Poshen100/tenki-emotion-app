@@ -1,3 +1,19 @@
+# 2026-06-19 Session Update (結果頁首訪「滑動提示」coach hint — #112 + #113 修被裁切)
+
+> Founder:第一次進結果頁 `/preview/v6/` 要提示 Snapshot 區可左右滑(像 Fable 5 一樣思考)。
+
+## What was done — `apps/preview/v6/index.html`(沿用既有 snapshot 控制 IIFE)
+- **首訪滑動提示(#112)**:① **磁吸 tug** —— 卡片往第 2 頁輕推 ~28px 再彈回(再一次更小的),用「動作」教學會滑;② **玻璃膠囊**「滑動看更多 · Swipe」+ 兩側 chevron 往外飄。**出手時機對兩條入口都穩**:輪詢直到頁面真的揭曉(computed `.screens` opacity > 0.9,`?from=baseline` 星塵 takeover 會壓到 ~2.9s)且 track 在畫面內,再 settle 才顯示(直接進站另保證 ≥1.95s 等卡片入場)。一碰就消失(track pointerdown/touch、點 dot、換頁);否則 ~4.8s 自動收。一次性 `localStorage`。reduced-motion → 只靜態膠囊。tug 用程式 scrollTo 觸發、消失走 pointer/互動,所以 **tug 不會自己關掉提示**。
+- **#113 修「沒看到」**:膠囊原本放在 dots 下方、在 `.snap` 裡(`overflow:hidden` + #108 底部預留)→ 高螢幕手機(有 coach-card)垂直預算卡邊 → **被裁切**。改成**浮層**:`.snap` 設 `position:relative`,膠囊 `position:absolute`,JS 依 `track.offsetTop+offsetHeight` 算 `top` 浮在卡片下緣;脫離 flex 流 → 不佔高度、不被裁;`pointer-events:none` 讓滑動穿透。並補 `animation:none`(否則 `.snap > *` 的 cardEntrance 會強制顯示/打架置中)。**localStorage key 升成 `tenki.snapHintSeen2`** —— 因為被裁切的 v1 會在看不見的情況下把舊旗標設掉、壓住修正版。
+
+### 教訓 / 注意
+- **`.snap` 內的暫時性 UI 會被裁**(`overflow:hidden` + FDCB/tabbar 預留)→ 短暫 overlay 一律用 `position:absolute` 脫離 flex 流(容器 `position:relative`,`top` 由 track 幾何算),`pointer-events:none` 不擋手勢。
+- **會自動關閉的提示可能在看不見時就把 seen 旗標設掉** → 修 hint 時**升 storage key**,讓先前(壞掉的)曝光不會壓住修正。
+- `.snap > *` 的 cardEntrance 會套到任何新加的直接子元素 → 不想被它控的元素要 `animation:none`。
+- CI 不涵蓋 `apps/preview/**`;以 `new Function()` 解析 4 段 inline script 當語法檢。待 founder 手機確認膠囊現身。
+
+---
+
 # 2026-06-18 Session Update (金球 3D 升級：processing 金球變有體積的玻璃球 — #111)
 
 > Founder(IMG_8437,9:41 mockup):基線建立成功,「再幫我把金球改得更有3D感更好看一點」(像 Claude Fable 5 思考)。金球 = soul-enroll **processing**「Securing your unique baseline…」那顆。

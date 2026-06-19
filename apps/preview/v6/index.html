@@ -489,7 +489,11 @@ body{
   flex:1;border-radius:20px;
   min-height:6px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.15);
-  transition:height 1s var(--ease-calm);
+  transform-origin:bottom;will-change:transform;
+}
+/* newest sample = current Body Battery ("now") — gently charges + glows */
+.bb-bars .bar.now{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.28), 0 0 12px rgba(70,200,170,0.55);
 }
 
 /* ANS Balance inside bb-card */
@@ -2989,41 +2993,76 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
 })();
 
 
-// Body Battery bars — 15 tall pills with spectrum
+// Body Battery — Garmin-shaped 24h curve, honest "alive" motion
 // ═════════════════════════════════════════════════
+// Body Battery is a SLOW metric (energy reserve over hours), so we don't fake an
+// equalizer dance. Instead: a one-time "soundwave rise" the first time the Energy
+// page is seen, a faint idle breathing on the history bars, and the newest ("now")
+// bar gently charging — the only genuinely live beat. prefers-reduced-motion → static.
 (function(){
   const host = document.getElementById('bbBars');
-  // Historical 24h samples, mapped to colors by value zone:
-  //   0-30  dark brown (depleted)
-  //   30-50 orange
-  //   50-70 yellow-green
-  //   70-85 cyan-green
-  //   85-100 green
-  const samples = [
-    {v:78, c:'#4FA85C'},  // morning recovery
-    {v:85, c:'#5BBA68'},
-    {v:82, c:'#63C670'},
-    {v:80, c:'#6BCF76'},
-    {v:78, c:'#5BA87B'},
-    {v:92, c:'#4CB39A'},  // peak
-    {v:88, c:'#3FAEA8'},
-    {v:86, c:'#2FB6C0'},
-    {v:84, c:'#00B4D8'},
-    {v:75, c:'#3AA8C5'},
-    {v:62, c:'#C49640'},  // decline
-    {v:52, c:'#D4A23F'},
-    {v:48, c:'#E0A73A'},
-    {v:38, c:'#7A5A2A'},
-    {v:30, c:'#4E3A20'}   // depleted
-  ];
-  samples.forEach(s => {
+  if(!host) return;
+  const track = document.getElementById('snapTrack');
+  let reduce = false; try{ reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+  // realistic Garmin Body Battery day (oldest → newest), ending at the current value (~78,
+  // matching #bbVal): overnight recharge → morning peak → daytime drain + stress dip → recovery → now.
+  const vals = [56,62,70,80,88,93,89,80,69,57,46,41,52,66,78];
+  function zoneColor(v){
+    if(v>=85) return '#46C56B';   // green (high)
+    if(v>=70) return '#2FB6C0';   // cyan-green
+    if(v>=55) return '#7FC368';   // yellow-green
+    if(v>=40) return '#E0A73A';   // amber
+    if(v>=25) return '#9A6B2E';   // brown
+    return '#5E3A20';             // depleted
+  }
+  const bars = vals.map((v,i) => {
     const b = document.createElement('div');
-    b.className = 'bar';
-    const h = Math.max(14, s.v * 0.52);
-    b.style.height = h + 'px';
-    b.style.background = `linear-gradient(180deg, ${s.c} 0%, ${shadeColor(s.c, -20)} 100%)`;
+    b.className = 'bar' + (i===vals.length-1 ? ' now' : '');
+    b.style.height = Math.max(14, v*0.52) + 'px';
+    b.style.background = `linear-gradient(180deg, ${zoneColor(v)} 0%, ${shadeColor(zoneColor(v), -22)} 100%)`;
+    b.style.transformOrigin = 'bottom';
+    b.style.transform = reduce ? 'scaleY(1)' : 'scaleY(0.06)';
     host.appendChild(b);
+    return b;
   });
+
+  let entered = reduce;
+  function enter(){
+    if(entered) return; entered = true;
+    bars.forEach((b,i) => {
+      b.style.transition = 'transform .7s var(--ease-calm)';
+      b.style.transitionDelay = (i*45) + 'ms';                 // left→right soundwave rise
+      requestAnimationFrame(() => { b.style.transform = 'scaleY(1)'; });
+    });
+    setTimeout(startIdle, 700 + (bars.length-1)*45 + 80);
+  }
+  // play the rise the first time the Energy page scrolls into view
+  if(!reduce && 'IntersectionObserver' in window && track){
+    const io = new IntersectionObserver((es) => {
+      es.forEach(e => { if(e.isIntersecting && e.intersectionRatio > 0.5){ io.disconnect(); enter(); } });
+    }, {root:track, threshold:0.55});
+    io.observe(host);
+    setTimeout(() => { if(!entered){ try{ io.disconnect(); }catch(e){} enter(); } }, 9000); // safety: never stuck collapsed
+  } else if(!reduce){
+    setTimeout(enter, 1200);
+  }
+
+  // idle: faint breathing on the past (it barely moves), the "now" bar gently charges + glows
+  function startIdle(){
+    if(reduce) return;
+    bars.forEach(b => { b.style.transition = 'none'; });
+    const now = bars[bars.length-1];
+    requestAnimationFrame(function tick(t){
+      requestAnimationFrame(tick);
+      const ph = t * 0.001;
+      for(let i=0;i<bars.length-1;i++){
+        bars[i].style.transform = 'scaleY(' + (1 + Math.sin(ph + i*0.5) * 0.02) + ')';
+      }
+      now.style.transform = 'scaleY(' + (1 + Math.sin(ph*1.6) * 0.05) + ')';
+      now.style.filter = 'brightness(' + (1.05 + Math.sin(ph*1.6) * 0.12) + ')';
+    });
+  }
+
   function shadeColor(hex, percent){
     const num = parseInt(hex.slice(1), 16);
     let r = (num >> 16) + percent;
