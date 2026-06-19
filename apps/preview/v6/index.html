@@ -1931,7 +1931,15 @@ body{
                 <div class="ans-wave-row"><span class="ans-lbl sns">交感 SNS</span><canvas class="ans-wave" id="snsWave" width="220" height="44"></canvas><span class="ans-v sns" id="snsPct">38%</span></div>
                 <div class="ans-wave-row"><span class="ans-lbl pns">副交感 PNS</span><canvas class="ans-wave" id="pnsWave" width="220" height="44"></canvas><span class="ans-v pns" id="pnsPct">62%</span></div>
               </div>
-              <div class="ans-bar"><div class="sns-fill" id="snsFill" style="width:38%"></div><div class="pns-fill" id="pnsFill" style="width:62%"></div></div>
+              <!-- Nervous-system state map (The Yes Brain: Blue shutdown · Green regulated · Red hyperarousal) -->
+              <div class="ns-map" aria-label="Nervous system state map">
+                <div class="ns-track"><div class="ns-marker green" id="nsMarker"><span class="ns-dot"></span></div></div>
+                <div class="ns-labels">
+                  <span class="ns-lbl blue" title="副交感過強 · Shutdown">低能量<i>Blue</i></span>
+                  <span class="ns-lbl green" title="平衡 · Regulated">穩定<i>Green</i></span>
+                  <span class="ns-lbl red" title="交感過強 · Hyperarousal">過載<i>Red</i></span>
+                </div>
+              </div>
             </div>
           </div>
           <!-- Page 4: Energy (Body Battery, animated) -->
@@ -3047,21 +3055,29 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
     setTimeout(enter, 1200);
   }
 
-  // idle: a calm wave travels across the row "like notes" (visible but slow — Body Battery is a
-  // slow metric, so it sways, it doesn't bounce); the "now" bar charges more + glows.
+  // idle: a calm breathing wave (Body Battery is slow — it sways, doesn't bounce) PLUS a soft charge
+  // highlight that glides THROUGH the bars (each lights as it passes), with a gentle rest between
+  // passes. Replaces the old flat ::after band that wiped across the gaps (felt unnatural).
   function startIdle(){
     if(reduce) return;
+    const N = bars.length;
     bars.forEach(b => { b.style.transition = 'none'; });
-    const now = bars[bars.length-1];
+    const now = bars[N-1];
+    const GLIDE = 3000, REST = 1300, CYCLE = GLIDE + REST;   // ms: glide through, then pause
     requestAnimationFrame(function tick(t){
       requestAnimationFrame(tick);
-      const ph = t * 0.0015;
-      for(let i=0;i<bars.length-1;i++){
-        // ±10% travelling wave (≤1.10 so the tallest ~48px bar never clips the 54px row)
-        bars[i].style.transform = 'scaleY(' + (1 + Math.sin(ph + i*0.55) * 0.10) + ')';
+      const ph = t * 0.0015;                                  // breathing
+      const u = (t % CYCLE) / GLIDE;                          // 0..1 during glide, >1 during rest
+      const head = u <= 1 ? u * (N + 3) - 1.5 : -99;          // highlight centre in bar-index space
+      for(let i=0;i<N;i++){
+        const d = i - head;
+        const glow = Math.exp(-(d*d) / 3.1);                  // soft Gaussian, σ≈1.25 bars (0 during rest)
+        const breathe = 1 + Math.sin(ph + i*0.55) * 0.10;     // ±10% (≤1.10 → tallest ~48px bar won't clip 54px)
+        const isNow = i === N-1;
+        const base = isNow ? 1 + Math.sin(ph*1.5) * 0.13 : breathe;
+        bars[i].style.transform = 'scaleY(' + (base + glow*0.03) + ')';        // tiny lift as light passes (≤~1.13, no clip)
+        bars[i].style.filter = 'brightness(' + (1 + glow*0.5 + (isNow?0.06:0)) + ')';
       }
-      now.style.transform = 'scaleY(' + (1 + Math.sin(ph*1.5) * 0.13) + ')';   // current bar charges
-      now.style.filter = 'brightness(' + (1.06 + Math.sin(ph*1.5) * 0.16) + ')';
     });
   }
 
@@ -4049,13 +4065,47 @@ function setClarity(v){
       .ans-v{font-size:17px;font-weight:600;width:46px;text-align:right;font-variant-numeric:tabular-nums;}
       .ans-v.sns{color:var(--warn);}
       .ans-v.pns{color:var(--good);}
+      /* ── Nervous-system state map (The Yes Brain three-zone model) ──
+         a continuous spectrum (NOT a score/progress bar): Blue shutdown · Green regulated · Red
+         hyperarousal. Green is widest (the ideal dwell zone). Soft, low-sat colours; the marker
+         shows "where am I" and can move — never graded. */
+      .ns-map{margin-top:4px;}
+      .ns-track{
+        position:relative;height:13px;border-radius:7px;
+        /* zones 0–30 blue · 30–70 green (widest) · 70–100 red, soft-blended at the seams */
+        background:linear-gradient(90deg,
+          #5B8DEF 0%, #5B8DEF 20%, #58A9C9 30%,
+          #5CC8A1 38%, #5CC8A1 62%, #9DB683 70%,
+          #F26D6D 80%, #F26D6D 100%);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.14), inset 0 0 0 1px rgba(255,255,255,.05);
+      }
+      .ns-marker{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);will-change:left;}
+      .ns-marker .ns-dot{
+        display:block;width:13px;height:21px;border-radius:6px;background:rgba(255,255,255,.96);
+        box-shadow:0 0 0 2px rgba(10,14,20,.45), 0 2px 7px rgba(0,0,0,.45), 0 0 11px var(--ns-glow,rgba(92,200,161,.7));
+        transition:box-shadow .6s var(--ease-calm), opacity .6s var(--ease-calm), filter .6s var(--ease-calm);
+      }
+      .ns-marker.green{--ns-glow:rgba(92,200,161,.75);}                              /* clear, steady */
+      .ns-marker.blue{--ns-glow:rgba(91,141,239,.55);opacity:.82;filter:blur(.4px);} /* dimmer / foggy */
+      .ns-marker.red{--ns-glow:rgba(242,109,109,.9);animation:nsPulse 1.7s var(--ease-breath) infinite;} /* faint pulse */
+      @keyframes nsPulse{
+        0%,100%{box-shadow:0 0 0 2px rgba(10,14,20,.45),0 2px 7px rgba(0,0,0,.45),0 0 9px rgba(242,109,109,.6);}
+        50%{box-shadow:0 0 0 2px rgba(10,14,20,.45),0 2px 7px rgba(0,0,0,.45),0 0 18px rgba(242,109,109,.95);}
+      }
+      .ns-labels{display:flex;justify-content:space-between;margin-top:7px;font-size:10.5px;font-weight:600;letter-spacing:.02em;}
+      .ns-labels .ns-lbl{display:flex;flex-direction:column;line-height:1.2;}
+      .ns-labels .ns-lbl i{font-style:normal;font-size:8px;letter-spacing:.1em;text-transform:uppercase;opacity:.55;font-weight:500;}
+      .ns-labels .ns-lbl.blue{color:#7FA6F2;align-items:flex-start;}
+      .ns-labels .ns-lbl.green{color:#6FD3AE;align-items:center;}
+      .ns-labels .ns-lbl.red{color:#F58A8A;align-items:flex-end;}
+      @media (prefers-reduced-motion: reduce){ .ns-marker.red{animation:none;} }
       /* Energy / Body Battery page — alive with a travelling charge-flow sheen */
       .bb-page .bb-big{display:flex;align-items:baseline;gap:6px;}
       .bb-page .bb-big .val{font-size:46px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;line-height:.95;}
       .bb-page .bb-big .unit{font-size:13px;color:rgba(255,255,255,0.5);}
       .bb-page .bb-bars{position:relative;overflow:hidden;margin-top:auto;}
-      .bb-page .bb-bars::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 32%,rgba(120,220,255,0.22) 50%,transparent 68%);transform:translateX(-110%);animation:bbFlow 3.4s var(--ease-breath) infinite;pointer-events:none;}
-      @keyframes bbFlow{to{transform:translateX(110%)}}
+      /* charge highlight is now a per-bar travelling glow driven in the idle rAF loop (light flows
+         THROUGH the bars, not a flat band wiping the gaps) — see startIdle(). */
       /* faint clinical monitor grid behind every waveform (medical-grade feel) */
       .live-wave,.ans-wave{background-image:repeating-linear-gradient(0deg,rgba(120,200,255,0.09) 0 1px,transparent 1px 13px),repeating-linear-gradient(90deg,rgba(120,200,255,0.09) 0 1px,transparent 1px 13px);border-radius:8px;}
       /* short phones (iPhone SE / older): reclaim vertical budget so the full card + dots fit —
@@ -4151,7 +4201,7 @@ function setClarity(v){
 
       // ── synchronized "living" vitals + animated Body Battery (one shared breath clock) ──
       var hr=byId('hrVal'),hrv=byId('hrvVal'),rr=byId('rrVal'),st=byId('stressVal'),stP=byId('stressPct'),
-          snsP=byId('snsPct'),pnsP=byId('pnsPct'),snsF=byId('snsFill'),pnsF=byId('pnsFill'),bbVal=byId('bbVal');
+          snsP=byId('snsPct'),pnsP=byId('pnsPct'),snsF=byId('snsFill'),pnsF=byId('pnsFill'),bbVal=byId('bbVal'),nsMarker=byId('nsMarker');
       var sns=byId('snsWave'),pns=byId('pnsWave');
       var sc=sns&&sns.getContext('2d'), pc=pns&&pns.getContext('2d');
       function drawAns(ctx,cv,ph,color,sign){
@@ -4174,6 +4224,13 @@ function setClarity(v){
         var ph=t*0.0011;                 // shared breath phase → everything moves together
         drawAns(sc,sns,ph,'#F5A623',1);  // 交感 rises
         drawAns(pc,pns,ph,'#34C759',-1); // 副交感 falls (anti-correlated)
+        if(nsMarker){                    // nervous-system marker: regulated, gently moving within the green zone
+          var nv=50+Math.sin(ph*0.7)*9+Math.sin(ph*0.23)*5;   // 0–100 spectrum (demo: stays in the stable band)
+          nv=Math.max(2,Math.min(98,nv));
+          nsMarker.style.left=nv.toFixed(1)+'%';
+          var zone=nv<30?'blue':(nv>70?'red':'green');        // 0–30 blue · 30–70 green · 70–100 red
+          var cn='ns-marker '+zone; if(nsMarker.className!==cn) nsMarker.className=cn;
+        }
         if(t-lastNum<700) return;        // numbers tick ~1Hz, in sync (monitor feel)
         lastNum=t;
         setN(hr, 68+Math.round(Math.sin(ph)*2));

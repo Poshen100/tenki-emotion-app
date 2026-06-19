@@ -103,7 +103,7 @@ export function useProgressiveScan({
   const wearableHrvRmssdMs = useFingerPrecisionStore((s) => s.currentHrvRmssd) ?? undefined;
   const fingerCalibrated = useFingerPrecisionStore((s) => s.result !== null);
   const fingerConfidence = useFingerPrecisionStore(
-    (s) => s.result?.confidence ?? 0
+    (s) => s.result?.signalQualityScore ?? 0
   );
 
   const feedFrame = useCallback((
