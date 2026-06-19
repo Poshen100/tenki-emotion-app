@@ -2,16 +2,24 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, spacing, radius, typography as typo, getZoneForScore, } from '../../theme';
+import {
+  colors,
+  spacing,
+  radius,
+  typography as typo,
+  getZoneForScore,
+} from '../../theme';
 import { EdgeScoreRing } from '../../components/EdgeScoreRing';
 import { ZoneBadge } from '../../components/ZoneBadge';
 import { ScanButton } from '../../components/ScanButton';
+import { AutonomicCard } from '../../components/AutonomicCard';
+import { DecisionBar } from '../../components/DecisionBar';
 import { useScanStore } from '../../stores/scan-store';
 import { useUserStore } from '../../stores/user-store';
+import { useAutonomicStore } from '../../stores/autonomic-store';
 import { FingerSmartReminder } from '../../components/FingerSmartReminder';
 import { BackgroundContainer } from '../../components/onboarding-components';
 
-/** Format a timestamp to a human-readable scan time label. */
 function formatScanTime(timestamp: number): string {
   const now = Date.now();
   const diffMs = now - timestamp;
@@ -23,20 +31,20 @@ function formatScanTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
-/**
- * Today screen — daily summary dashboard.
- * Shows current Edge Score, zone, last scan time, and quick actions.
- */
 export default function TodayScreen() {
   const router = useRouter();
   const lastResult = useScanStore((s) => s.lastResult);
   const hasBaseline = useUserStore((s) => s.hasBaseline);
   const faceBaselineCount = useUserStore((s) => s.faceBaselineCount);
   const lastFingerCalibrationTime = useUserStore((s) => s.lastFingerCalibrationTime);
+  const autonomicSource = useAutonomicStore((s) => s.source);
+  const wearableHrvApplied = useAutonomicStore((s) => s.wearableHrvApplied);
 
   const [showReminder, setShowReminder] = useState(false);
   const fingerReminderDismissed = useUserStore((s) => s.fingerReminderDismissed);
-  const setFingerReminderDismissed = useUserStore((s) => s.setFingerReminderDismissed);
+  const setFingerReminderDismissed = useUserStore(
+    (s) => s.setFingerReminderDismissed
+  );
 
   useEffect(() => {
     if (!hasBaseline) {
@@ -46,14 +54,11 @@ export default function TodayScreen() {
 
   useEffect(() => {
     if (hasBaseline && !fingerReminderDismissed) {
-      // Trigger 1: Low baseline sample count (< 3)
       const triggerLowBaseline = faceBaselineCount < 3;
-
-      // Trigger 2: High stress detection (> 75)
-      const stressScore = lastResult ? Math.max(10, 100 - lastResult.metrics.stability) : 0;
+      const stressScore = lastResult
+        ? Math.max(10, 100 - lastResult.metrics.stability)
+        : 0;
       const triggerHighStress = stressScore > 75;
-
-      // Trigger 3: Cooldown expired (> 14 days)
       let daysSinceCalibration = 999;
       if (lastFingerCalibrationTime !== null) {
         const elapsedMs = Date.now() - lastFingerCalibrationTime;
@@ -62,13 +67,17 @@ export default function TodayScreen() {
       const triggerOldCalibration = daysSinceCalibration > 14;
 
       if (triggerLowBaseline || triggerHighStress || triggerOldCalibration) {
-        const timer = setTimeout(() => {
-          setShowReminder(true);
-        }, 1500);
+        const timer = setTimeout(() => setShowReminder(true), 1500);
         return () => clearTimeout(timer);
       }
     }
-  }, [hasBaseline, fingerReminderDismissed, faceBaselineCount, lastFingerCalibrationTime, lastResult]);
+  }, [
+    hasBaseline,
+    fingerReminderDismissed,
+    faceBaselineCount,
+    lastFingerCalibrationTime,
+    lastResult,
+  ]);
 
   const currentScore = lastResult?.edgeScore ?? null;
   const lastScanTime = lastResult
@@ -76,74 +85,114 @@ export default function TodayScreen() {
     : 'No scans today';
   const zone = currentScore !== null ? getZoneForScore(currentScore) : null;
 
+  // Derive source badge labels for header
+  const garminActive = wearableHrvApplied || autonomicSource === 'watch_healthkit';
+
   return (
     <BackgroundContainer>
       <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <Text style={typo.headline}>Today</Text>
-        <Text style={[typo.caption, styles.subtitle]}>{lastScanTime}</Text>
-
-        {/* Edge Score Ring */}
-        <View style={styles.scoreSection}>
-          {currentScore !== null ? (
-            <>
-              <EdgeScoreRing score={currentScore} size={220} />
-              <View style={styles.badgeRow}>
-                <ZoneBadge score={currentScore} />
-              </View>
-            </>
-          ) : (
-            <View style={styles.emptyRing}>
-              <Text style={styles.emptyScore}>—</Text>
-              <Text style={typo.caption}>
-                {hasBaseline ? 'Scan to see your score' : 'Complete a baseline scan to begin'}
-              </Text>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Header ── */}
+          <View style={styles.headerRow}>
+            <View style={styles.deepScanBtn}>
+              <Text style={styles.deepScanText}>+ DEEP SCAN</Text>
             </View>
-          )}
-        </View>
+            <View style={styles.badges}>
+              <View
+                style={[
+                  styles.sourceBadge,
+                  garminActive && styles.sourceBadgeActive,
+                ]}
+              >
+                <Text style={styles.sourceBadgeText}>
+                  🎧 {garminActive ? 'Garmin' : 'Watch'}
+                </Text>
+              </View>
+              <View style={styles.sourceBadge}>
+                <Text style={styles.sourceBadgeText}>📷 rPPG</Text>
+              </View>
+            </View>
+          </View>
 
-        {/* Guidance */}
-        <View style={styles.guidanceCard}>
-          <Text style={typo.body}>
-            {zone === null && 'Start a scan to check your current readiness state.'}
-            {zone?.name === 'clear' && 'Stable, focused state. You may be ready for important decisions.'}
-            {zone?.name === 'neutral' && 'Mixed signals today. Consider a brief check-in or reset.'}
-            {zone?.name === 'strain' && 'Elevated strain detected. A breathing exercise may help.'}
-          </Text>
-        </View>
+          <Text style={[typo.caption, styles.subtitle]}>{lastScanTime}</Text>
 
-        {/* Quick Actions */}
-        <View style={styles.actions}>
-          <ScanButton
-            label="開始今日掃描"
-            onPress={() => router.push('/scan')}
+          {/* ── Edge Score Ring ── */}
+          <View style={styles.scoreSection}>
+            {currentScore !== null ? (
+              <>
+                <EdgeScoreRing score={currentScore} size={220} />
+                <View style={styles.badgeRow}>
+                  <ZoneBadge score={currentScore} />
+                </View>
+              </>
+            ) : (
+              <View style={styles.emptyRing}>
+                <Text style={styles.emptyScore}>—</Text>
+                <Text style={typo.caption}>
+                  {hasBaseline
+                    ? 'Scan to see your score'
+                    : 'Complete a baseline scan to begin'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* ── Autonomic Card ── */}
+          <AutonomicCard />
+
+          {/* ── Decision Bar ── */}
+          <DecisionBar
+            label="Health Stress"
+            duration="3:00"
+            onPress={() => router.push('/session')}
           />
-        </View>
 
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <StatCard label="Sessions" value="—" />
-          <StatCard label="Avg Score" value="—" />
-          <StatCard label="Streak" value="—" />
-        </View>
-      </ScrollView>
-      <FingerSmartReminder
-        visible={showReminder}
-        onScanFinger={() => {
-          setShowReminder(false);
-          router.push('/finger-precision');
-        }}
-        onDismiss={() => setShowReminder(false)}
-        onNeverRemind={() => {
-          setShowReminder(false);
-          setFingerReminderDismissed(true);
-        }}
-      />
+          {/* ── Guidance ── */}
+          <View style={styles.guidanceCard}>
+            <Text style={typo.body}>
+              {zone === null &&
+                'Start a scan to check your current readiness state.'}
+              {zone?.name === 'clear' &&
+                'Stable, focused state. You may be ready for important decisions.'}
+              {zone?.name === 'neutral' &&
+                'Mixed signals today. Consider a brief check-in or reset.'}
+              {zone?.name === 'strain' &&
+                'Elevated strain detected. A breathing exercise may help.'}
+            </Text>
+          </View>
+
+          {/* ── Quick Actions ── */}
+          <View style={styles.actions}>
+            <ScanButton
+              label="開始今日掃描"
+              onPress={() => router.push('/scan')}
+            />
+          </View>
+
+          {/* ── Stats Grid ── */}
+          <View style={styles.statsGrid}>
+            <StatCard label="Sessions" value="—" />
+            <StatCard label="Avg Score" value="—" />
+            <StatCard label="Streak" value="—" />
+          </View>
+        </ScrollView>
+
+        <FingerSmartReminder
+          visible={showReminder}
+          onScanFinger={() => {
+            setShowReminder(false);
+            router.push('/finger-precision');
+          }}
+          onDismiss={() => setShowReminder(false)}
+          onNeverRemind={() => {
+            setShowReminder(false);
+            setFingerReminderDismissed(true);
+          }}
+        />
       </SafeAreaView>
     </BackgroundContainer>
   );
@@ -159,38 +208,61 @@ function StatCard({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  scroll: {
-    flex: 1,
-  },
+  safeArea: { flex: 1, backgroundColor: 'transparent' },
+  scroll: { flex: 1 },
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
   },
-  subtitle: {
-    marginTop: spacing.xs,
-  },
-  scoreSection: {
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.xl,
   },
-  badgeRow: {
-    marginTop: spacing.md,
+  deepScanBtn: {
+    borderWidth: 1,
+    borderColor: colors.textTertiary,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
+  deepScanText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    letterSpacing: 0.5,
+  },
+  badges: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  sourceBadge: {
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.textTertiary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  sourceBadgeActive: {
+    borderColor: '#4CAF50',
+    backgroundColor: 'rgba(76,175,80,0.12)',
+  },
+  sourceBadgeText: {
+    fontSize: 12,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  subtitle: { marginTop: spacing.xs },
+  scoreSection: { alignItems: 'center', marginTop: spacing.xl },
+  badgeRow: { marginTop: spacing.md },
   guidanceCard: {
     backgroundColor: colors.card,
     borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.lg,
   },
-  actions: {
-    marginTop: spacing.lg,
-    alignItems: 'center',
-  },
+  actions: { marginTop: spacing.lg, alignItems: 'center' },
   statsGrid: {
     flexDirection: 'row',
     gap: spacing.sm,
