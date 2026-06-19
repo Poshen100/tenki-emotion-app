@@ -1,3 +1,19 @@
+# 2026-06-19 Session Update (Body Battery 動畫修可見 + Garmin 真串接藍圖 — #115)
+
+> Founder(IMG_8895):能量條「還是不會動」,要我確認;另要規劃 Garmin Body Battery 真串接。
+
+## What was done
+- **#115 動畫修(`apps/preview/v6/index.html` bb IIFE)**:真因 = 我把待機呼吸做成 `scaleY(1±0.02)`(<1px,看不見),只有一次性升起會動;且若開「減少動態」整個凍結。改:idle 波動 **±2%→±10% 橫掃波**(每根相位差 `sin(ph + i*0.55)`,上限 1.10 不裁 54px row)、「當下」根 ±13% + 亮度脈動;**entrance fallback 9s→2.5s**(IO 沒觸發也準時動);reduce-motion 仍尊重(靜止)。
+- **Garmin 真串接藍圖 `docs/garmin-integration.md`**(經 3 個 Explore agent 查證):**Body Battery 是 Garmin 專有指標、Apple HealthKit / Health Connect 拿不到** → 唯一來源是 **Garmin Health API**(B2B 需審核、server push 到你的後端 webhook)。repo **無後端**(靜態 Vercel + 本機 Expo,全合成)。分階段:**P0**(founder 申請 Garmin Health API + 選後端 Vercel Functions+Supabase,卡時程)/**P1 免審核**(HealthKit/Health Connect 接 HR/HRV/睡眠 → 引擎現成 `SleepRecoveryInput`+`harmonizeHrv`;Lab→Devices `lab.tsx:81` 佔位變真)/**P2 審核後**(後端 OAuth + Ping/Push webhook,只存衍生 0-100,raw 被 `scan-schema.ts` 擋)/**P3**(引擎 `BiometricSource`+`WearableReadinessInput`/9th factor;能量條綁真值)。
+
+### 教訓 / 注意
+- **動效幅度要以裝置實看為準**:「誠實細微」可能細到看不見(±2% < 1px);調動畫後要設「肉眼明顯」的下限。且**使用者開「減少動態」會凍結所有動效** → 回報時主動請對方確認該設定。
+- **Garmin 關鍵現實**:Body Battery ≠ HealthKit,別誤以為接 Apple Health 就有;真值一定要 Garmin Health API + 後端,且要先過 B2B 審核(長線)。隱私:只存衍生 0-100,raw 一律不落地(domain schema 已擋)。
+- 引擎落點已確認:8 因子在 `scoring/edge-score.ts`、`BiometricSource`/`SleepRecoveryInput` 在 `engine/common/types.ts`、HRV 轉換 `biometric/hrv.ts`。
+- **待 founder**:① 動畫現在會動了嗎(否→確認減少動態);② 是否現在開工 Garmin **Phase 1**(HealthKit,免審核、馬上有真資料),同時他去辦 P0 申請。
+
+---
+
 # 2026-06-19 Session Update (Body Battery 能量條：Garmin 形狀對齊 + 誠實「活著」動效 — #114)
 
 > Founder(IMG_8880):Energy·體能 的能量條想像音符一樣上下動、要對應 Garmin 手錶 Body Battery。問適不適合。
