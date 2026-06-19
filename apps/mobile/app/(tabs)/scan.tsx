@@ -20,6 +20,8 @@ import { useScanStore } from '../../stores/scan-store';
 import { useUserStore } from '../../stores/user-store';
 import { startMockScan, cancelMockScan } from '../../lib/mock-scan';
 import { BackgroundContainer } from '../../components/onboarding-components';
+import { useAutonomicStore } from '../../stores/autonomic-store';
+import { useFingerPrecisionStore } from '../../features/finger-precision/store/fingerPrecisionStore';
 
 const { width } = Dimensions.get('window');
 
@@ -323,8 +325,29 @@ export default function ScanScreen() {
   }, [uiState, scanMode]);
 
   // Auto redirect to Daily Scan Result screen on complete
+  // Also writes autonomic state to store for Today snapshot map
   useEffect(() => {
     if (uiState === 'results') {
+      const scanResult = useScanStore.getState().lastResult;
+      const fingerHrv = useFingerPrecisionStore.getState().currentHrvRmssd;
+
+      if (scanResult) {
+        useAutonomicStore.getState().deriveAndSetFromScan({
+          edgeScore: scanResult.edgeScore,
+          stability: scanResult.metrics.stability,
+          signalQuality: scanResult.metrics.signalQuality,
+          coverage: scanResult.metrics.coverage,
+          hrvRmssdMs: fingerHrv ?? undefined,
+          source: scanMode === 'finger'
+            ? 'finger_ppg'
+            : fingerHrv && fingerHrv > 0
+              ? 'fusion'
+              : 'face_estimate',
+          confidence: scanMode === 'finger' ? 0.84 : 0.68,
+          wearableHrvApplied: scanMode === 'finger',
+        });
+      }
+
       if (scanMode === 'finger') {
         // Record last finger calibration time and set face baseline count to 3
         useUserStore.getState().setLastFingerCalibrationTime(Date.now());
