@@ -8,6 +8,7 @@
  */
 
 import type { ConfidenceBreakdown, BiometricSource } from '../common/types';
+import type { FusionSource } from '../types';
 
 // ─────────────────────────────────────────────
 // Edge Score Weights
@@ -156,8 +157,8 @@ export interface EdgeScoreMetadata {
   scanQuality: number;
   /** Data completeness ratio 0-1. */
   dataCompleteness: number;
-  /** Sources used for this score. */
-  sourceMix: BiometricSource[];
+  /** Sources used for this score (BiometricSource, or a FusionSource when stamped by the fusion pipeline). */
+  sourceMix: (BiometricSource | FusionSource)[];
   /** Timestamp of computation (Unix ms). */
   computedAt: number;
 }
