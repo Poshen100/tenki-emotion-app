@@ -3042,24 +3042,26 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
       es.forEach(e => { if(e.isIntersecting && e.intersectionRatio > 0.5){ io.disconnect(); enter(); } });
     }, {root:track, threshold:0.55});
     io.observe(host);
-    setTimeout(() => { if(!entered){ try{ io.disconnect(); }catch(e){} enter(); } }, 9000); // safety: never stuck collapsed
+    setTimeout(() => { if(!entered){ try{ io.disconnect(); }catch(e){} enter(); } }, 2500); // start promptly even if IO never fires
   } else if(!reduce){
     setTimeout(enter, 1200);
   }
 
-  // idle: faint breathing on the past (it barely moves), the "now" bar gently charges + glows
+  // idle: a calm wave travels across the row "like notes" (visible but slow — Body Battery is a
+  // slow metric, so it sways, it doesn't bounce); the "now" bar charges more + glows.
   function startIdle(){
     if(reduce) return;
     bars.forEach(b => { b.style.transition = 'none'; });
     const now = bars[bars.length-1];
     requestAnimationFrame(function tick(t){
       requestAnimationFrame(tick);
-      const ph = t * 0.001;
+      const ph = t * 0.0015;
       for(let i=0;i<bars.length-1;i++){
-        bars[i].style.transform = 'scaleY(' + (1 + Math.sin(ph + i*0.5) * 0.02) + ')';
+        // ±10% travelling wave (≤1.10 so the tallest ~48px bar never clips the 54px row)
+        bars[i].style.transform = 'scaleY(' + (1 + Math.sin(ph + i*0.55) * 0.10) + ')';
       }
-      now.style.transform = 'scaleY(' + (1 + Math.sin(ph*1.6) * 0.05) + ')';
-      now.style.filter = 'brightness(' + (1.05 + Math.sin(ph*1.6) * 0.12) + ')';
+      now.style.transform = 'scaleY(' + (1 + Math.sin(ph*1.5) * 0.13) + ')';   // current bar charges
+      now.style.filter = 'brightness(' + (1.06 + Math.sin(ph*1.5) * 0.16) + ')';
     });
   }
 
