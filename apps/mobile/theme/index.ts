@@ -19,6 +19,7 @@ export const colors = {
   surface: '#1C1C1E',
   card: '#2C2C2E',
   border: '#38383A',
+  cardBorder: '#38383A',
   primary: '#00B4D8',
   success: '#34C759',
   warning: '#F5A623',
