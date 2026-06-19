@@ -1,3 +1,18 @@
+# 2026-06-18 Session Update (金球 3D 升級：processing 金球變有體積的玻璃球 — #111)
+
+> Founder(IMG_8437,9:41 mockup):基線建立成功,「再幫我把金球改得更有3D感更好看一點」(像 Claude Fable 5 思考)。金球 = soul-enroll **processing**「Securing your unique baseline…」那顆。
+
+## What was done — `apps/preview/soul-enroll.js`(`drawProcessingOrb`)
+- 從「扁平玻璃片」升級成**有體積的玻璃球**,用單一虛擬光源(左上)驅動所有立體線索:受光 body 漸層 + 右下內陰影(球面體積)、左上 specular 反光點 + 細玻璃高光弧(光澤)、fresnel rim(邊緣透亮)+ 外圈 bloom。
+- **三條傾斜金色軌道做深度排序**:遠端那半較暗、畫在核心**後面**;近端那半較亮、畫在核心**前面**;跑動光點依深度(by/ry)變大變亮 → 軌道真的繞著球轉。內部用球體 `clip` 包住 → 像封在玻璃球裡。
+- 純 2D canvas(無 WebGL);`processing` 不在 `M3D_PHASES` → 這就是使用者實際看到的金球,所有裝置都吃得到。
+
+### 教訓 / 注意
+- **2D canvas 立體感**:單一虛擬光源 + specular + rim + 內陰影 + 深度排序(near/far arc 用 ellipse 半圈分前後 + 在 core 前後分兩趟畫)就能做出 3D 球感,不需 WebGL。
+- CI 不涵蓋 `apps/preview/**` → 已請 founder 手機驗(processing 那頁金球像打了光的玻璃球、軌道繞前繞後)。可再依回饋微調亮度/金色/光點密度。
+
+---
+
 # 2026-06-18 Session Update (Baseline-established 畫面壓縮：first-scan CTA 不用滑就看得到 — #110)
 
 > Founder(IMG_8851):基線建立完成那頁要**往下滑**才看得到「Start your first scan」按鈕,想讓流程更順、按鈕直接看得到(「像 Fable 5 一樣思考」)。
