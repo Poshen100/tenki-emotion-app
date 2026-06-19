@@ -1940,6 +1940,13 @@ body{
         </div>
         <div class="snap-dots" id="snapDots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
 
+        <!-- first-visit swipe coach hint (one-time, self-dismissing) -->
+        <div class="snap-hint" id="snapHint" aria-hidden="true">
+          <span class="sh-chev sh-l">‹</span>
+          <span class="sh-txt">滑動看更多 · Swipe</span>
+          <span class="sh-chev sh-r">›</span>
+        </div>
+
         <div style="height:6px"></div>
       </section>
     </div>
@@ -3963,6 +3970,30 @@ function setClarity(v){
       .snap-dots{display:flex;justify-content:center;gap:8px;margin:14px 0 2px;}
       .snap-dots .dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.22);transition:all .3s var(--ease-calm);}
       .snap-dots .dot.active{width:22px;border-radius:4px;background:var(--primary);box-shadow:0 0 10px rgba(0,180,216,.6);}
+      /* first-visit swipe coach hint — glass chip + outward-drifting chevrons, shown once.
+         animation:none cancels the .snap > * cardEntrance so visibility is driven only by .on (JS). */
+      .snap-hint{
+        animation:none;
+        display:flex;align-items:center;justify-content:center;gap:9px;
+        margin:9px auto 0;width:max-content;max-width:86%;padding:7px 15px;border-radius:999px;
+        background:linear-gradient(135deg, rgba(0,180,216,0.18) 0%, rgba(255,255,255,0.05) 45%, rgba(0,0,0,0.22) 100%);
+        border:1px solid rgba(255,255,255,0.10);border-top:1px solid rgba(255,255,255,0.22);
+        box-shadow:0 4px 18px rgba(0,180,216,0.18);
+        backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
+        color:rgba(255,255,255,0.92);font-size:12px;font-weight:600;letter-spacing:.02em;
+        opacity:0;transform:translateY(6px);pointer-events:none;
+        transition:opacity .45s var(--ease-calm), transform .45s var(--ease-calm);
+      }
+      .snap-hint.on{opacity:1;transform:translateY(0);}
+      .snap-hint .sh-chev{color:var(--primary);font-size:16px;font-weight:700;line-height:1;text-shadow:0 0 8px rgba(0,180,216,.7);}
+      .snap-hint .sh-l{animation:shDriftL 1.4s var(--ease-breath) infinite;}
+      .snap-hint .sh-r{animation:shDriftR 1.4s var(--ease-breath) infinite;}
+      @keyframes shDriftL{0%,100%{transform:translateX(0);opacity:.5}50%{transform:translateX(-4px);opacity:1}}
+      @keyframes shDriftR{0%,100%{transform:translateX(0);opacity:.5}50%{transform:translateX(4px);opacity:1}}
+      @media (prefers-reduced-motion: reduce){
+        .snap-hint{transition:opacity .2s linear;transform:none;}
+        .snap-hint .sh-l,.snap-hint .sh-r{animation:none;opacity:.85;}
+      }
       /* Autonomic page */
       .ans-card .ans-waves{display:flex;flex-direction:column;gap:14px;margin:4px 0 12px;flex:1;justify-content:center;}
       .ans-wave-row{display:flex;align-items:center;gap:10px;}
@@ -4021,6 +4052,54 @@ function setClarity(v){
       },{passive:true});
       function scrollToPage(i){ var p=pages[i]; track.scrollTo({left:p.offsetLeft-(track.clientWidth-p.offsetWidth)/2,behavior:'smooth'}); }
       dotEls.forEach(function(d,idx){ d.addEventListener('click',function(){ scrollToPage(idx); }); });
+
+      // ── first-visit "swipe" coach hint: teach the gesture once, then never again ──
+      (function(){
+        var hint=byId('snapHint'); if(!hint) return;
+        var SEEN='tenki.snapHintSeen';
+        try{ if(localStorage.getItem(SEEN)==='1') return; }catch(e){}
+        var reduce=false; try{ reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+        var t0=Date.now(), shown=false, done=false, hideTimer=0;
+        function markSeen(){ try{ localStorage.setItem(SEEN,'1'); }catch(e){} }
+        function dismiss(){
+          if(done) return; done=true; clearTimeout(hideTimer);
+          hint.classList.remove('on'); markSeen();
+          track.removeEventListener('pointerdown',dismiss);
+          track.removeEventListener('touchstart',dismiss);
+        }
+        function tug(px,after){               // nudge toward page 2 and ease back → cards visibly slide
+          var x0=track.scrollLeft;
+          track.scrollTo({left:x0+px,behavior:'smooth'});
+          setTimeout(function(){ track.scrollTo({left:x0,behavior:'smooth'}); if(after) after(); },360);
+        }
+        function show(){
+          if(shown||done) return;
+          if(cur!==0){ markSeen(); done=true; return; }   // already explored during the wait → don't nag
+          shown=true; hint.classList.add('on');
+          track.addEventListener('pointerdown',dismiss,{passive:true});
+          track.addEventListener('touchstart',dismiss,{passive:true});
+          dotEls.forEach(function(d){ d.addEventListener('click',dismiss,{once:true}); });
+          if(!reduce){ tug(28,function(){ setTimeout(function(){ if(!done) tug(18); },520); }); }
+          hideTimer=setTimeout(dismiss,4800);
+        }
+        // Arm only when the result page is actually revealed AND the snapshot is on-screen.
+        // ?from=baseline keeps .screens at opacity:0 behind the stardust takeover (~2.9s) — so we
+        // gate on computed opacity (reveal-agnostic), not a fixed timer; then settle before showing.
+        var screensEl=document.querySelector('.screens'), tries=0;
+        (function arm(){
+          if(done||shown) return;
+          if(cur!==0){ markSeen(); done=true; return; }   // user already swiped → never show
+          if(++tries>140) return;                          // ~28s safety cap
+          var revealed=true; try{ revealed=parseFloat(getComputedStyle(screensEl).opacity)>0.9; }catch(e){}
+          var r=track.getBoundingClientRect();
+          var onScreen=r.width>0 && r.top<(window.innerHeight||800) && r.bottom>0;
+          if(revealed && onScreen){
+            setTimeout(show, Math.max(650, 1950-(Date.now()-t0)));  // also clears the reveal/entrance on direct load
+            return;
+          }
+          setTimeout(arm,200);
+        })();
+      })();
 
       // ── synchronized "living" vitals + animated Body Battery (one shared breath clock) ──
       var hr=byId('hrVal'),hrv=byId('hrvVal'),rr=byId('rrVal'),st=byId('stressVal'),stP=byId('stressPct'),
