@@ -305,6 +305,7 @@ body{
 
 /* Content area — reserves space for FDCB + tabbar */
 .snap{
+  position:relative; /* positioning context for the floating swipe hint overlay */
   flex:1;min-height:0;
   /* reserve FDCB + tabbar space (like .timeline-body/.lab-body) — .screen is
      absolutely positioned so .screens' padding-bottom does NOT apply to it; without
@@ -3971,27 +3972,30 @@ function setClarity(v){
       .snap-dots .dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.22);transition:all .3s var(--ease-calm);}
       .snap-dots .dot.active{width:22px;border-radius:4px;background:var(--primary);box-shadow:0 0 10px rgba(0,180,216,.6);}
       /* first-visit swipe coach hint — glass chip + outward-drifting chevrons, shown once.
-         animation:none cancels the .snap > * cardEntrance so visibility is driven only by .on (JS). */
+         FLOATING OVERLAY (position:absolute, JS sets top from the track geometry): out of the
+         .snap flex flow so it adds no height and can't be clipped by .snap's overflow:hidden +
+         FDCB/tabbar reservation. pointer-events:none → swipes pass through to the track beneath. */
       .snap-hint{
-        animation:none;
+        animation:none; /* cancel the .snap > * cardEntrance — visibility is driven only by .on (JS) */
+        position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:6;
         display:flex;align-items:center;justify-content:center;gap:9px;
-        margin:9px auto 0;width:max-content;max-width:86%;padding:7px 15px;border-radius:999px;
-        background:linear-gradient(135deg, rgba(0,180,216,0.18) 0%, rgba(255,255,255,0.05) 45%, rgba(0,0,0,0.22) 100%);
-        border:1px solid rgba(255,255,255,0.10);border-top:1px solid rgba(255,255,255,0.22);
-        box-shadow:0 4px 18px rgba(0,180,216,0.18);
-        backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
-        color:rgba(255,255,255,0.92);font-size:12px;font-weight:600;letter-spacing:.02em;
-        opacity:0;transform:translateY(6px);pointer-events:none;
-        transition:opacity .45s var(--ease-calm), transform .45s var(--ease-calm);
+        width:max-content;max-width:86%;padding:7px 15px;border-radius:999px;
+        background:linear-gradient(135deg, rgba(0,180,216,0.22) 0%, rgba(255,255,255,0.06) 45%, rgba(8,12,20,0.55) 100%);
+        border:1px solid rgba(255,255,255,0.12);border-top:1px solid rgba(255,255,255,0.24);
+        box-shadow:0 6px 22px rgba(0,0,0,0.35), 0 0 18px rgba(0,180,216,0.22);
+        backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);
+        color:rgba(255,255,255,0.94);font-size:12px;font-weight:600;letter-spacing:.02em;white-space:nowrap;
+        opacity:0;pointer-events:none;
+        transition:opacity .45s var(--ease-calm);
       }
-      .snap-hint.on{opacity:1;transform:translateY(0);}
+      .snap-hint.on{opacity:1;}
       .snap-hint .sh-chev{color:var(--primary);font-size:16px;font-weight:700;line-height:1;text-shadow:0 0 8px rgba(0,180,216,.7);}
       .snap-hint .sh-l{animation:shDriftL 1.4s var(--ease-breath) infinite;}
       .snap-hint .sh-r{animation:shDriftR 1.4s var(--ease-breath) infinite;}
       @keyframes shDriftL{0%,100%{transform:translateX(0);opacity:.5}50%{transform:translateX(-4px);opacity:1}}
       @keyframes shDriftR{0%,100%{transform:translateX(0);opacity:.5}50%{transform:translateX(4px);opacity:1}}
       @media (prefers-reduced-motion: reduce){
-        .snap-hint{transition:opacity .2s linear;transform:none;}
+        .snap-hint{transition:opacity .2s linear;}
         .snap-hint .sh-l,.snap-hint .sh-r{animation:none;opacity:.85;}
       }
       /* Autonomic page */
@@ -4056,7 +4060,7 @@ function setClarity(v){
       // ── first-visit "swipe" coach hint: teach the gesture once, then never again ──
       (function(){
         var hint=byId('snapHint'); if(!hint) return;
-        var SEEN='tenki.snapHintSeen';
+        var SEEN='tenki.snapHintSeen2'; // bumped: v1 could set the flag while clipped/invisible
         try{ if(localStorage.getItem(SEEN)==='1') return; }catch(e){}
         var reduce=false; try{ reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
         var t0=Date.now(), shown=false, done=false, hideTimer=0;
@@ -4075,7 +4079,10 @@ function setClarity(v){
         function show(){
           if(shown||done) return;
           if(cur!==0){ markSeen(); done=true; return; }   // already explored during the wait → don't nag
-          shown=true; hint.classList.add('on');
+          shown=true;
+          // float over the lower area of the cards — the track is always visible; .snap clips below it
+          hint.style.top=(track.offsetTop+track.offsetHeight-22)+'px';
+          hint.classList.add('on');
           track.addEventListener('pointerdown',dismiss,{passive:true});
           track.addEventListener('touchstart',dismiss,{passive:true});
           dotEls.forEach(function(d){ d.addEventListener('click',dismiss,{once:true}); });
