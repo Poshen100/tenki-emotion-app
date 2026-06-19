@@ -3047,21 +3047,29 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
     setTimeout(enter, 1200);
   }
 
-  // idle: a calm wave travels across the row "like notes" (visible but slow — Body Battery is a
-  // slow metric, so it sways, it doesn't bounce); the "now" bar charges more + glows.
+  // idle: a calm breathing wave (Body Battery is slow — it sways, doesn't bounce) PLUS a soft charge
+  // highlight that glides THROUGH the bars (each lights as it passes), with a gentle rest between
+  // passes. Replaces the old flat ::after band that wiped across the gaps (felt unnatural).
   function startIdle(){
     if(reduce) return;
+    const N = bars.length;
     bars.forEach(b => { b.style.transition = 'none'; });
-    const now = bars[bars.length-1];
+    const now = bars[N-1];
+    const GLIDE = 3000, REST = 1300, CYCLE = GLIDE + REST;   // ms: glide through, then pause
     requestAnimationFrame(function tick(t){
       requestAnimationFrame(tick);
-      const ph = t * 0.0015;
-      for(let i=0;i<bars.length-1;i++){
-        // ±10% travelling wave (≤1.10 so the tallest ~48px bar never clips the 54px row)
-        bars[i].style.transform = 'scaleY(' + (1 + Math.sin(ph + i*0.55) * 0.10) + ')';
+      const ph = t * 0.0015;                                  // breathing
+      const u = (t % CYCLE) / GLIDE;                          // 0..1 during glide, >1 during rest
+      const head = u <= 1 ? u * (N + 3) - 1.5 : -99;          // highlight centre in bar-index space
+      for(let i=0;i<N;i++){
+        const d = i - head;
+        const glow = Math.exp(-(d*d) / 3.1);                  // soft Gaussian, σ≈1.25 bars (0 during rest)
+        const breathe = 1 + Math.sin(ph + i*0.55) * 0.10;     // ±10% (≤1.10 → tallest ~48px bar won't clip 54px)
+        const isNow = i === N-1;
+        const base = isNow ? 1 + Math.sin(ph*1.5) * 0.13 : breathe;
+        bars[i].style.transform = 'scaleY(' + (base + glow*0.03) + ')';        // tiny lift as light passes (≤~1.13, no clip)
+        bars[i].style.filter = 'brightness(' + (1 + glow*0.5 + (isNow?0.06:0)) + ')';
       }
-      now.style.transform = 'scaleY(' + (1 + Math.sin(ph*1.5) * 0.13) + ')';   // current bar charges
-      now.style.filter = 'brightness(' + (1.06 + Math.sin(ph*1.5) * 0.16) + ')';
     });
   }
 
@@ -4054,8 +4062,8 @@ function setClarity(v){
       .bb-page .bb-big .val{font-size:46px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;line-height:.95;}
       .bb-page .bb-big .unit{font-size:13px;color:rgba(255,255,255,0.5);}
       .bb-page .bb-bars{position:relative;overflow:hidden;margin-top:auto;}
-      .bb-page .bb-bars::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 32%,rgba(120,220,255,0.22) 50%,transparent 68%);transform:translateX(-110%);animation:bbFlow 3.4s var(--ease-breath) infinite;pointer-events:none;}
-      @keyframes bbFlow{to{transform:translateX(110%)}}
+      /* charge highlight is now a per-bar travelling glow driven in the idle rAF loop (light flows
+         THROUGH the bars, not a flat band wiping the gaps) — see startIdle(). */
       /* faint clinical monitor grid behind every waveform (medical-grade feel) */
       .live-wave,.ans-wave{background-image:repeating-linear-gradient(0deg,rgba(120,200,255,0.09) 0 1px,transparent 1px 13px),repeating-linear-gradient(90deg,rgba(120,200,255,0.09) 0 1px,transparent 1px 13px);border-radius:8px;}
       /* short phones (iPhone SE / older): reclaim vertical budget so the full card + dots fit —
