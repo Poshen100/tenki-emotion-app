@@ -1,3 +1,24 @@
+# 2026-06-19 Session Update (Body Battery 能量條：Garmin 形狀對齊 + 誠實「活著」動效 — #114)
+
+> Founder(IMG_8880):Energy·體能 的能量條想像音符一樣上下動、要對應 Garmin 手錶 Body Battery。問適不適合。
+
+## 決策(AskUserQuestion)
+- **動法 = 誠實版「活著」**(非跳動均衡器):Body Battery 是慢速指標、長條代表 24h 歷史 → 全跳會謊報即時波動。
+- **Garmin = 預覽先做形狀對齊**(真串接 = Garmin Connect/Health API + OAuth + 後端,raw 守 local-first,屬 mobile 大功能,之後再做)。
+
+## What was done — `apps/preview/v6/index.html`(Body Battery IIFE + `.bb-bars .bar` CSS)
+- **曲線對齊 Garmin 一天**:15 根重塑成 `[56,62,70,80,88,93,89,80,69,57,46,41,52,66,78]`(夜間回充→晨峰 93→白天下滑+壓力凹→回升→**當下 78**)。**最後一根 = 當下值 = `#bbVal`**(舊版結尾 30、數字卻 78,不一致 → 修)。顏色改用 `zoneColor(v)` spectrum。
+- **一次性「聲波升起」**:第一次滑到 Energy 頁時長條由左到右 staggered scaleY 進場(IntersectionObserver,root=`#snapTrack`,threshold .55;9s 安全 fallback 不卡收合)。
+- **待機微動**:歷史長條 `transform:scaleY(1±0.02)` 極微呼吸(過去幾乎不動、不謊報);只有 `.bar.now`(最右=當下)較明顯充電(scaleY±0.05 + brightness 脈動 + glow)。沿用 `.bb-bars::after` 充電光澤。
+- **`prefers-reduced-motion`** → 靜態長條、無進場/待機。
+
+### 教訓 / 注意
+- **慢速指標別做即時跳動**:24h 歷史長條若像均衡器全跳 = 謊報。誠實做法 = 一次性進場 + 極微呼吸 + 只有「當下」那根真的動。先用 AskUserQuestion 把「誠實 vs 好玩」「demo vs 真串接」兩個叉路跟 founder 對齊再動工。
+- **效能**:每幀只寫 `transform`(GPU 友善、不觸發 layout)、`transition:none` 待機避免 smear;進場用 transition+delay,進場完才開待機 rAF。
+- CI 不涵蓋 `apps/preview/**`;`new Function()` 驗 4 段 inline script。待 founder 手機驗(進場聲波、當下充電、呼吸幅度)。
+
+---
+
 # 2026-06-19 Session Update (結果頁首訪「滑動提示」coach hint — #112 + #113 修被裁切)
 
 > Founder:第一次進結果頁 `/preview/v6/` 要提示 Snapshot 區可左右滑(像 Fable 5 一樣思考)。
