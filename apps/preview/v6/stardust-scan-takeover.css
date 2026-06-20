@@ -66,8 +66,8 @@
 }
 
 #stardust-scan-takeover #align-hint-capsule.status-good {
-    border-color: rgba(35, 243, 212, 0.6);
-    box-shadow: 0 0 20px rgba(35, 243, 212, 0.3);
+    border-color: rgba(var(--cyan-active-rgb), 0.6);
+    box-shadow: 0 0 20px rgba(var(--cyan-active-rgb), 0.3);
 }
 
 #stardust-scan-takeover #hint-icon-box {
@@ -94,7 +94,7 @@
     position: absolute;
     inset: 0;
     z-index: 9500;
-    background: radial-gradient(circle, rgba(255, 220, 100, 1) 0%, rgba(255, 180, 0, 0.8) 50%, rgba(0,0,0,0) 100%), #ffffff;
+    background: radial-gradient(circle, rgba(var(--gold-secured-rgb), 1) 0%, rgba(var(--gold-secured-rgb), 0.8) 50%, rgba(0,0,0,0) 100%), #ffffff;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
@@ -134,7 +134,7 @@
 
 .scan-takeover-sub {
     font-size: 8px;
-    color: rgba(0, 240, 255, 0.85);
+    color: rgba(var(--cyan-active-rgb), 0.85);
     letter-spacing: 2px;
     margin-top: 4px;
 }
@@ -204,7 +204,7 @@
     left: 0;
     width: 100%;
     height: 40%;
-    background: linear-gradient(to bottom, transparent 0%, rgba(0, 240, 255, 0.3) 80%, rgba(255, 255, 255, 0.6) 100%);
+    background: linear-gradient(to bottom, transparent 0%, rgba(var(--cyan-active-rgb), 0.3) 80%, rgba(255, 255, 255, 0.6) 100%);
     opacity: 0;
     pointer-events: none;
     z-index: 21;
@@ -217,7 +217,7 @@
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    border: 1px solid #00F0FF;
+    border: 1px solid var(--cyan-active);
     transform: translate(-50%, -50%) scale(0.8);
     opacity: 0;
     pointer-events: none;
@@ -239,8 +239,8 @@
     transition: opacity 0.2s ease;
     -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px));
     mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 5px));
-    background: conic-gradient(#00F0FF 0%, transparent 0%);
-    filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.8)) drop-shadow(0 0 4px rgba(0, 240, 255, 1));
+    background: conic-gradient(var(--cyan-active) 0%, transparent 0%);
+    filter: drop-shadow(0 0 12px rgba(var(--cyan-active-rgb), 0.8)) drop-shadow(0 0 4px rgba(var(--cyan-active-rgb), 1));
 }
 
 #scan-takeover-progress-ring.active {
@@ -253,15 +253,15 @@
 }
 
 .scan-takeover-fingerprint-wrapper.active .scan-takeover-fingerprint-core {
-    border-color: rgba(0, 240, 255, 0.4);
+    border-color: rgba(var(--cyan-active-rgb), 0.4);
     background: rgba(5, 12, 22, 0.8);
-    box-shadow: 0 0 24px rgba(0, 240, 255, 0.2), inset 0 0 15px rgba(0, 240, 255, 0.1);
+    box-shadow: 0 0 24px rgba(var(--cyan-active-rgb), 0.2), inset 0 0 15px rgba(var(--cyan-active-rgb), 0.1);
 }
 
 .scan-takeover-fingerprint-wrapper.active .scan-takeover-fingerprint-icon {
     color: #ffffff;
     opacity: 1;
-    filter: drop-shadow(0 0 6px #00F0FF);
+    filter: drop-shadow(0 0 6px var(--cyan-active));
     animation: scan-pulse-icon 0.8s infinite alternate;
 }
 

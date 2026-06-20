@@ -14,6 +14,10 @@
   --cyan-active:  #22D3EE; /* interactive / scanning / live */
   --gold-secured: #FFD46E; /* baseline locked / calibrated / complete */
 
+  /* rgb triples for translucent glows: rgba(var(--cyan-active-rgb), 0.3) */
+  --cyan-active-rgb:  34, 211, 238;
+  --gold-secured-rgb: 255, 212, 110;
+
   /* ── Canonical surfaces ── */
   --bg-space:  #020617;    /* deep-space background (replaces #000/#070e17/#020408) */
   --surface:   #1C1C1E;
