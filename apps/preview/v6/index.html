@@ -4183,11 +4183,12 @@ function setClarity(v){
       // ── first-visit "swipe" coach hint: teach the gesture once, then never again ──
       (function(){
         var hint=byId('snapHint'); if(!hint) return;
-        var SEEN='tenki.snapHintSeen2'; // bumped: v1 could set the flag while clipped/invisible
-        try{ if(localStorage.getItem(SEEN)==='1') return; }catch(e){}
+        var SEEN='tenki.snapHintSeen3'; // bumped per redesign (#121 fingertip hint) so returning users see it once more
+        var force=/[?&]hint=1\b/.test(location.search); // ?hint=1 / &hint=1 → force-show for re-testing; never persists
+        if(!force){ try{ if(localStorage.getItem(SEEN)==='1') return; }catch(e){} }
         var reduce=false; try{ reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
         var t0=Date.now(), shown=false, done=false, hideTimer=0;
-        function markSeen(){ try{ localStorage.setItem(SEEN,'1'); }catch(e){} }
+        function markSeen(){ if(force) return; try{ localStorage.setItem(SEEN,'1'); }catch(e){} }
         function dismiss(){
           if(done) return; done=true; clearTimeout(hideTimer);
           hint.classList.remove('on'); markSeen();
