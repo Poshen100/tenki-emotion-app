@@ -34,10 +34,10 @@
   --warning: #F5A623;
   --error:   #FF3B30;
 
-  /* ── Zones (semantics deferred — see direction book Layer 1 ②③) ── */
+  /* ── Zones — Neutral recedes (slate), Strain warm-caution (ember); see docs/VISUAL-DIRECTION.md ── */
   --zone-clear:   #00B4D8;
-  --zone-neutral: #E5E5EA;
-  --zone-strain:  #5E3A87;
+  --zone-neutral: #64748B;
+  --zone-strain:  #C2703D;
 
   /* ── Easing ── */
   --ease-calm:   cubic-bezier(0.22, 1, 0.36, 1);

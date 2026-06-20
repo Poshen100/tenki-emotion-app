@@ -31,8 +31,8 @@
    ═════════════════════════════════════════════════ */
 :root{
   --zone-clear:#00B4D8;
-  --zone-neutral:#E5E5EA;
-  --zone-strain:#5E3A87;
+  --zone-neutral:#64748B;
+  --zone-strain:#C2703D;
   --bg:#000;
   --surface:#1C1C1E;
   --card:#2C2C2E;
@@ -3231,8 +3231,8 @@ setInterval(() => {
     // v3 zones: Clear ≥70 / Neutral 40-69 / Strain <40 (packages/shared/src/zone-config.ts)
     let zone, color;
     if(display >= 70){ zone = 'Clear'; color = '#00B4D8'; }
-    else if(display >= 40){ zone = 'Neutral'; color = '#E5E5EA'; }
-    else { zone = 'Strain'; color = '#5E3A87'; }
+    else if(display >= 40){ zone = 'Neutral'; color = '#64748B'; }
+    else { zone = 'Strain'; color = '#C2703D'; }
     zoneEl.textContent = zone;
     zoneEl.style.color = color;
   }
