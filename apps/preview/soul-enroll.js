@@ -450,6 +450,8 @@
       const alpha = (0.25 + 0.55 * pulse + bloom * 0.2) * depth + tw * 0.5 * idle;
       pts.push({ px, py, size, alpha, base, z: (p.z || 0.5), tw });
     }
+    // depth order: far/dim nodes behind, near/bright nodes on top
+    pts.sort((a, b) => a.z - b.z);
 
     // 2) breathing core glow — the soul has a heart (idle only)
     if (idle > 0.01) {
@@ -464,17 +466,28 @@
       c.restore();
     }
 
-    // 3) constellation links — the neural lattice (fades as the soul converges)
+    // 3) constellation links — nearest-neighbour lattice (≤K links/node so the
+    //    centre reads as a clean star map, not a cobweb; fades as it converges)
     if (idle > 0.02) {
       c.save();
       c.lineWidth = 1;
-      const maxD = 46, maxD2 = maxD * maxD;
+      const maxD = 46, maxD2 = maxD * maxD, K = 3;
+      const seen = new Set();
       for (let i = 0; i < pts.length; i++) {
-        for (let j = i + 1; j < pts.length; j++) {
+        const near = [];
+        for (let j = 0; j < pts.length; j++) {
+          if (j === i) continue;
           const ddx = pts[i].px - pts[j].px, ddy = pts[i].py - pts[j].py;
           const d2 = ddx * ddx + ddy * ddy;
-          if (d2 > maxD2) continue;
-          const a = (1 - Math.sqrt(d2) / maxD) * 0.26 * idle;
+          if (d2 <= maxD2) near.push([d2, j]);
+        }
+        near.sort((m, n) => m[0] - n[0]);
+        for (let n = 0; n < Math.min(K, near.length); n++) {
+          const j = near[n][1];
+          const key = i < j ? i * 1000 + j : j * 1000 + i;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const a = (1 - Math.sqrt(near[n][0]) / maxD) * 0.22 * idle;
           if (a < 0.015) continue;
           c.strokeStyle = `rgba(90,225,255,${a.toFixed(3)})`;
           c.beginPath(); c.moveTo(pts[i].px, pts[i].py); c.lineTo(pts[j].px, pts[j].py); c.stroke();
