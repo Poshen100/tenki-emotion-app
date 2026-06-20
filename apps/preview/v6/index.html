@@ -1931,14 +1931,16 @@ body{
                 <div class="ans-wave-row"><span class="ans-lbl sns">交感 SNS</span><canvas class="ans-wave" id="snsWave" width="220" height="44"></canvas><span class="ans-v sns" id="snsPct">38%</span></div>
                 <div class="ans-wave-row"><span class="ans-lbl pns">副交感 PNS</span><canvas class="ans-wave" id="pnsWave" width="220" height="44"></canvas><span class="ans-v pns" id="pnsPct">62%</span></div>
               </div>
-              <!-- Nervous-system state map (The Yes Brain: Blue shutdown · Green regulated · Red hyperarousal) -->
+              <!-- Nervous-system state map — The Yes Brain window of tolerance:
+                   藍色陷落 Shutdown · 綠色安全 Regulated (home) · 紅色警戒 Hyperarousal -->
               <div class="ns-map" aria-label="Nervous system state map">
                 <div class="ns-track"><div class="ns-marker green" id="nsMarker"><span class="ns-dot"></span></div></div>
                 <div class="ns-labels">
-                  <span class="ns-lbl blue" title="副交感過強 · Shutdown">低能量<i>Blue</i></span>
-                  <span class="ns-lbl green" title="平衡 · Regulated">穩定<i>Green</i></span>
-                  <span class="ns-lbl red" title="交感過強 · Hyperarousal">過載<i>Red</i></span>
+                  <span class="ns-lbl blue" title="藍色陷落區 · Shutdown">低能量<i>Blue</i></span>
+                  <span class="ns-lbl green" title="綠色安全區 · Regulated">安全區<i>Green</i></span>
+                  <span class="ns-lbl red" title="紅色警戒區 · Hyperarousal">過載<i>Red</i></span>
                 </div>
+                <div class="ns-status green" id="nsStatus">在綠色安全區 · Regulated</div>
               </div>
             </div>
           </div>
@@ -4071,13 +4073,21 @@ function setClarity(v){
          shows "where am I" and can move — never graded. */
       .ns-map{margin-top:4px;}
       .ns-track{
-        position:relative;height:13px;border-radius:7px;
-        /* zones 0–30 blue · 30–70 green (widest) · 70–100 red, soft-blended at the seams */
+        position:relative;height:14px;border-radius:7px;
+        /* The Yes Brain window of tolerance: green 安全區 is the dominant HOME (22–78%),
+           blue 陷落 (0–22%) + red 警戒 (78–100%) are narrow, desaturated, recessive edges. */
         background:linear-gradient(90deg,
-          #5B8DEF 0%, #5B8DEF 20%, #58A9C9 30%,
-          #5CC8A1 38%, #5CC8A1 62%, #9DB683 70%,
-          #F26D6D 80%, #F26D6D 100%);
+          #3F5C8C 0%, #45689B 14%, #4E83A8 21%,            /* blue: dim, recessive edge */
+          #5CC8A1 25%, #66D7AD 50%, #5CC8A1 75%,           /* green: bright, saturated HOME */
+          #B07A6A 79%, #C26A66 86%, #B85356 100%);         /* red: dim, recessive edge */
         box-shadow:inset 0 1px 0 rgba(255,255,255,.14), inset 0 0 0 1px rgba(255,255,255,.05);
+      }
+      /* green safe-zone "home" frame — a contained band you live in, not a stripe on a scale */
+      .ns-track::before{
+        content:'';position:absolute;left:22%;right:22%;top:0;bottom:0;border-radius:5px;
+        box-shadow:inset 0 0 0 1px rgba(255,255,255,.24), inset 0 2px 5px rgba(255,255,255,.20);
+        background:linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 62%);
+        pointer-events:none;
       }
       .ns-marker{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);will-change:left;}
       .ns-marker .ns-dot{
@@ -4092,12 +4102,18 @@ function setClarity(v){
         0%,100%{box-shadow:0 0 0 2px rgba(10,14,20,.45),0 2px 7px rgba(0,0,0,.45),0 0 9px rgba(242,109,109,.6);}
         50%{box-shadow:0 0 0 2px rgba(10,14,20,.45),0 2px 7px rgba(0,0,0,.45),0 0 18px rgba(242,109,109,.95);}
       }
-      .ns-labels{display:flex;justify-content:space-between;margin-top:7px;font-size:10.5px;font-weight:600;letter-spacing:.02em;}
+      .ns-labels{display:flex;justify-content:space-between;align-items:flex-start;margin-top:7px;font-size:10px;font-weight:600;letter-spacing:.02em;}
       .ns-labels .ns-lbl{display:flex;flex-direction:column;line-height:1.2;}
-      .ns-labels .ns-lbl i{font-style:normal;font-size:8px;letter-spacing:.1em;text-transform:uppercase;opacity:.55;font-weight:500;}
-      .ns-labels .ns-lbl.blue{color:#7FA6F2;align-items:flex-start;}
-      .ns-labels .ns-lbl.green{color:#6FD3AE;align-items:center;}
-      .ns-labels .ns-lbl.red{color:#F58A8A;align-items:flex-end;}
+      .ns-labels .ns-lbl i{font-style:normal;font-size:8px;letter-spacing:.1em;text-transform:uppercase;opacity:.5;font-weight:500;}
+      /* green 安全 leads — larger & brighter (the home); blue/red recede like the band weights */
+      .ns-labels .ns-lbl.blue{color:#7FA6F2;align-items:flex-start;opacity:.62;}
+      .ns-labels .ns-lbl.green{color:#7BE0BC;align-items:center;font-size:11.5px;font-weight:700;}
+      .ns-labels .ns-lbl.green i{opacity:.7;}
+      .ns-labels .ns-lbl.red{color:#F58A8A;align-items:flex-end;opacity:.62;}
+      /* one-line status caption — names the current zone so "home" is explicit, not a grade */
+      .ns-status{margin-top:6px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.03em;color:#7BE0BC;transition:color .6s var(--ease-calm);}
+      .ns-status.blue{color:#7FA6F2;}
+      .ns-status.red{color:#F58A8A;}
       @media (prefers-reduced-motion: reduce){ .ns-marker.red{animation:none;} }
       /* Energy / Body Battery page — alive with a travelling charge-flow sheen */
       .bb-page .bb-big{display:flex;align-items:baseline;gap:6px;}
@@ -4201,7 +4217,7 @@ function setClarity(v){
 
       // ── synchronized "living" vitals + animated Body Battery (one shared breath clock) ──
       var hr=byId('hrVal'),hrv=byId('hrvVal'),rr=byId('rrVal'),st=byId('stressVal'),stP=byId('stressPct'),
-          snsP=byId('snsPct'),pnsP=byId('pnsPct'),snsF=byId('snsFill'),pnsF=byId('pnsFill'),bbVal=byId('bbVal'),nsMarker=byId('nsMarker');
+          snsP=byId('snsPct'),pnsP=byId('pnsPct'),snsF=byId('snsFill'),pnsF=byId('pnsFill'),bbVal=byId('bbVal'),nsMarker=byId('nsMarker'),nsStatus=byId('nsStatus');
       var sns=byId('snsWave'),pns=byId('pnsWave');
       var sc=sns&&sns.getContext('2d'), pc=pns&&pns.getContext('2d');
       function drawAns(ctx,cv,ph,color,sign){
@@ -4224,12 +4240,17 @@ function setClarity(v){
         var ph=t*0.0011;                 // shared breath phase → everything moves together
         drawAns(sc,sns,ph,'#F5A623',1);  // 交感 rises
         drawAns(pc,pns,ph,'#34C759',-1); // 副交感 falls (anti-correlated)
-        if(nsMarker){                    // nervous-system marker: regulated, gently moving within the green zone
-          var nv=50+Math.sin(ph*0.7)*9+Math.sin(ph*0.23)*5;   // 0–100 spectrum (demo: stays in the stable band)
+        if(nsMarker){                    // nervous-system marker: regulated, living within the green safe zone (home)
+          var nv=50+Math.sin(ph*0.7)*12+Math.sin(ph*0.23)*5; // demo: drifts inside green (~33–67), eases toward edges but stays home
           nv=Math.max(2,Math.min(98,nv));
           nsMarker.style.left=nv.toFixed(1)+'%';
-          var zone=nv<30?'blue':(nv>70?'red':'green');        // 0–30 blue · 30–70 green · 70–100 red
+          var zone=nv<22?'blue':(nv>78?'red':'green');        // window of tolerance: blue <22 · green 22–78 (home) · red >78
           var cn='ns-marker '+zone; if(nsMarker.className!==cn) nsMarker.className=cn;
+          if(nsStatus){
+            var sc2='ns-status '+zone; if(nsStatus.className!==sc2) nsStatus.className=sc2;
+            var txt=zone==='blue'?'在藍色陷落區 · Low energy':(zone==='red'?'在紅色警戒區 · Activated':'在綠色安全區 · Regulated');
+            if(nsStatus.textContent!==txt) nsStatus.textContent=txt;
+          }
         }
         if(t-lastNum<700) return;        // numbers tick ~1Hz, in sync (monitor feel)
         lastNum=t;
