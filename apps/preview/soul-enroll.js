@@ -699,12 +699,14 @@
       uniforms: {
         uTime: { value: 0 }, uSize: { value: 8.5 * pr }, uScanY: { value: 0 }, uMix: { value: 0 }, uGlitch: { value: 0 },
         uColorA: { value: new THREE.Color(COLORS.cyan) }, uColorB: { value: new THREE.Color(COLORS.gold) },
-        uScanCol: { value: new THREE.Color('#FF6A00') }, uRim: { value: new THREE.Color('#9bf6ff') },
+        // Scan-band tint stays on-palette: bright cyan-white (ACTIVE) → champagne (SECURED via uMix).
+        uScanCol: { value: new THREE.Color('#CFFBFF') }, uScanColB: { value: new THREE.Color(COLORS.goldChampagne) },
+        uRim: { value: new THREE.Color('#9bf6ff') },
       },
       vertexShader: `
         attribute float aRnd;
         uniform float uTime, uSize, uScanY, uMix, uGlitch;
-        uniform vec3 uColorA, uColorB, uScanCol, uRim;
+        uniform vec3 uColorA, uColorB, uScanCol, uScanColB, uRim;
         varying vec3 vColor; varying float vA;
         float hash(float n){ return fract(sin(n) * 43758.5453); }
         void main() {
@@ -725,7 +727,8 @@
             band = max(band, smoothstep(0.05, 0.0, abs(p.y - yk)));
           }
           vec3 base = mix(uColorA, uColorB, uMix) * lit * twk + uRim * rim * 0.55;
-          vColor = mix(base, uScanCol, band * 0.9);
+          vec3 scan = mix(uScanCol, uScanColB, uMix);
+          vColor = mix(base, scan, band * 0.9);
           vA = (0.4 + 0.6 * depth) * (1.0 + band * 0.8);
           gl_PointSize = uSize * (1.0 / -mv.z) * (0.6 + 0.7 * depth) * (1.0 + band * 1.6 + rim * 0.4);
           gl_Position = projectionMatrix * mv;
