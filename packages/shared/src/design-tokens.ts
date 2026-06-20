@@ -13,14 +13,18 @@ const CYAN_CORE = '#00B4D8' as const;
 const CYAN_ACTIVE = '#22D3EE' as const;
 const GOLD_SECURED = '#FFD46E' as const;
 const SPACE_BG = '#020617' as const;
+/** Zone tones (see docs/VISUAL-DIRECTION.md): Neutral recedes as a low-chroma
+ * slate, Strain reads as a warm ember caution (was near-white / purple). */
+const ZONE_NEUTRAL = '#64748B' as const;
+const ZONE_STRAIN = '#C2703D' as const;
 
 /** TENKI CORE v3 design tokens — colors, typography, animation, spacing. */
 export const TENKI_THEME = {
   /** Readiness zone colors (v3: 3 zones). */
   zones: {
-    clear:   { bg: '#00B4D8', text: '#FFFFFF', range: [70, 100] as const },
-    neutral: { bg: '#E5E5EA', text: '#1C1C1E', range: [40, 69] as const },
-    strain:  { bg: '#5E3A87', text: '#FFFFFF', range: [0, 39] as const },
+    clear:   { bg: CYAN_CORE, text: '#FFFFFF', range: [70, 100] as const },
+    neutral: { bg: ZONE_NEUTRAL, text: '#FFFFFF', range: [40, 69] as const },
+    strain:  { bg: ZONE_STRAIN, text: '#FFFFFF', range: [0, 39] as const },
   },
   /** Session governance bar UI. */
   sessionBar: {
