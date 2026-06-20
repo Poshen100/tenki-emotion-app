@@ -894,3 +894,28 @@ Founder 要一份創意總監級的視覺優化方向書,並提到 Stitch → Cl
 
 *Last updated: 2026-06-20*
 *Updated by: Claude Code (Visual Direction Session)*
+
+## 2026-06-20 Session Update #2 (Claude Code — Zone 重定 + Soul Scan glow-up)
+
+### 做了什麼
+1. **Zone 語義重定（✅ 全鏈落地）** — founder 拍板 Neutral→slate、Strain→ember：
+   - `packages/shared/design-tokens.ts`：抽 `ZONE_NEUTRAL=#64748B` / `ZONE_STRAIN=#C2703D` consts；`zones.*.text` 統一白。
+   - `zone-config.ts` 指向 `TENKI_THEME.zones`（兩處 shared 定義收斂成一源）。
+   - 鏡像同步：`apps/mobile/theme/index.ts`（加 keep-in-sync 註解，不硬接跨套件 import）、`apps/preview/tokens.css` / `styles.css` / `v6/index.html`(vars + Today zone 對映)。
+   - **範圍界線**：v6 的 `#5E3A87` 還有 session/呼吸段語義（Exhale/Lock/MANCINI_FBD，5 處）→ 全保留，只改 zone。compliance copy 不動。
+2. **Soul Scan 首屏 glow-up（✅，`apps/preview/soul-enroll.js`）** — founder：「把框框和靈魂設計超酷，像 fable5」：
+   - 靈魂：neural-lattice 星座（nearest-neighbour ≤3 連線 + depth sort）+ 呼吸核心 + 視差/公轉 + twinkle。
+   - 框框：精密 reticle（雙層發光 + 轉角節點 + 邊刻度 + 呼吸）+ idle 掃描光線。
+   - 全用 `idle = 1 - k` 收尾，capture/3D 不受影響。
+3. docs：`VISUAL-DIRECTION.md` 破口 #3/#4 → ✅、加 §4.1；本檔記錄。
+
+### 坑 / 工具
+- 這 container 無 ffmpeg/headless browser → 用 `pip imageio-ffmpeg` 抽影片幀看 founder 錄影；`npm i puppeteer`（自帶 Chromium）+ `python3 -m http.server` 做 soul-enroll idle 真截圖驗證（loop：`/tmp/shot.js` `/tmp/crop.js`）。idle 首屏不需相機，可直接截。
+- 第一版 lattice 全連 → 3× 放大像蜘蛛網；改 nearest-neighbour ≤3 + depth sort 後變乾淨星座。
+
+### 下次接手點
+- 待拍板：soul-enroll/finger-demo 招牌電光藍 #00F0FF 是否併 token；字體雙頭 source（SF Pro vs Inter）。
+- soul-enroll capture/3D 階段尚未動（需相機才能測）。
+
+*Last updated: 2026-06-20 (session #2)*
+*Updated by: Claude Code (Zone retone + Soul Scan glow-up)*

@@ -23,8 +23,8 @@
 |---|------|------|------|
 | 1 | **五種 cyan 漂移** | `#00F0FF` / `#22D3EE` / `#20D7F2` / `#23F3D4` / `#00B4D8` 散落各處，同一表面互打架 | ✅ 已收斂 |
 | 2 | **gold = SECURED 沒進 token** | 「鎖定/校準完成」的金色是埋在 takeover 裡的 magic number | ✅ 已 token 化 |
-| 3 | **Neutral 近白搶光** | `zones.neutral.bg = #E5E5EA` 近純白，在深空背景裡比 Clear/Strain 還搶眼，違反「中性 = 不需注意」 | 🟡 待拍板 |
-| 4 | **Strain 紫語義打架** | `zones.strain.bg = #5E3A87` 是紫；紫在多數產品語彙 = premium/神秘，不是「警示/該休息」 | 🟡 待拍板 |
+| 3 | **Neutral 近白搶光** | `#E5E5EA` 近純白搶光 → 改 `#64748B` 低彩度 slate，退進深空 | ✅ 已重定 |
+| 4 | **Strain 紫語義打架** | `#5E3A87` 紫 → 改 `#C2703D` 暖琥珀/餘燼，符合「該休息」警示語義；紫留給 session/Premium | ✅ 已重定 |
 | 5 | **字體雙頭 source** | tokens 寫 `SF Pro Display/Text`，preview 端混用 Inter；缺單一 type source | 🟡 待拍板 |
 
 ---
@@ -59,23 +59,28 @@
 
 原則：**GSAP 只驅動「儀式生命感」，不接管已被調好的輸入驅動物理。**
 
+### 4.1 Soul Scan 首屏 glow-up（✅ 已落地，`apps/preview/soul-enroll.js`）
+第一個映入眼簾的畫面 = 「一台活在深空的精密儀器，正掃描一個有生命的靈魂」。
+- **靈魂**（`drawParticles`）：cyan 點 → neural-lattice 星座（nearest-neighbour ≤3 連線 + depth sort，乾淨不蜘蛛網）+ 呼吸核心光暈 + 視差/緩慢公轉 + 偶發 twinkle。
+- **框框**（`drawCorners`）：平角括號 → 精密 reticle（雙層發光 + 轉角發光節點 + 邊中測量刻度 + 呼吸）+ idle 掃描光線掃框。
+- 全部以 `idle = 1 - 收束量` 收尾，capture/3D 階段照舊；headless Chromium 截圖驗證。
+
 ---
 
-## 5. 兩個待拍板的設計決策 🟡
+## 5. Zone 語義重定（✅ 已落地）+ 待拍板項
 
-兩者都是會動到「產品可見語義」或「合規 copy」的決策，需 founder 拍板，不由 AI 擅自代決。
+### 5.1 Zone 語義重定（✅ 已落地，founder 拍板：Neutral→slate、Strain→ember）
+| Zone | 舊 | 新 | 語義 |
+|------|----|----|------|
+| Clear | `#00B4D8` | `#00B4D8`（= `cyanCore`） | 主角，不變 |
+| Neutral | `#E5E5EA` 近白搶光 | **`#64748B`** 低彩度 slate | 退進深空，「不需注意」 |
+| Strain | `#5E3A87` 紫 | **`#C2703D`** 暖琥珀/餘燼 | 暖警示，「該休息/降速」 |
 
-### 5.1 Zone 語義重定
-現值：`clear #00B4D8` · `neutral #E5E5EA`（近白搶光）· `strain #5E3A87`（紫語義打架）。
+- 單一真相源：`design-tokens.ts` 抽 `ZONE_NEUTRAL/ZONE_STRAIN` consts；`zone-config.ts` 指向 `TENKI_THEME.zones`；`apps/mobile/theme` 與 preview（tokens.css / styles.css / v6）為同步鏡像。text 統一白色。
+- **不動 compliance copy**（`label`/`guidance` 與 `color` 是分開欄位）。
+- **紫色保留**：`#5E3A87` 在 v6 還是 session/呼吸段語義（Exhale / Lock / MANCINI_FBD），不是 zone-strain，全部留著；紫之後可正式收給 Premium。
 
-建議方向（提案，未實作）：
-- **Neutral 降亮**：改成深空裡的低彩度灰藍，傳達「中性 = 不需注意」，把注意力讓給 Clear 與 Strain。
-- **Strain 改暖警示**：從紫換成低飽和暖橙/琥珀系，符合「該休息/降速」的直覺語義。
-- **紫色保留給 Premium**：讓紫回到它在產品語彙裡的位置（付費/進階），避免與 zone 警示混淆。
-
-阻擋點：zone 顏色牽動 Compliance Layer 的 user-facing copy 與既有畫面，需先做一次 compliance + 畫面盤點再動。
-
-### 5.2 soul-enroll / finger-demo 招牌電光藍
+### 5.2 soul-enroll / finger-demo 招牌電光藍 🟡（待拍板）
 `apps/preview/soul-enroll.*` 與 `finger-demo.html` 各自用局部 `--cyan / --cyan-glow = #00F0FF`，內部自洽。
 是否併入 cyan token 系統（改 `cyanActive`）屬「改招牌色」的設計決策，非單純收斂 → 留給 founder 決定是否動。
 
@@ -87,4 +92,4 @@
 - 新增 cyan/gold 用途 → 先回到本檔的「世界規則」判斷該用哪一階，再加 token。
 - 被糾正一次 → 更新本檔 + `CLAUDE.md`（compound learning）。
 
-*最後更新：2026-06-20 · Claude Code（視覺方向 session）*
+*最後更新：2026-06-20 · Claude Code（視覺方向 session — 含 zone 重定 + Soul Scan glow-up）*
