@@ -1957,9 +1957,8 @@ body{
 
         <!-- first-visit swipe coach hint (one-time, self-dismissing) -->
         <div class="snap-hint" id="snapHint" aria-hidden="true">
-          <span class="sh-chev sh-l">‹</span>
+          <span class="sh-gesture"><span class="sh-dot"></span></span>
           <span class="sh-txt">滑動看更多 · Swipe</span>
-          <span class="sh-chev sh-r">›</span>
         </div>
 
         <div style="height:6px"></div>
@@ -4036,26 +4035,44 @@ function setClarity(v){
          FDCB/tabbar reservation. pointer-events:none → swipes pass through to the track beneath. */
       .snap-hint{
         animation:none; /* cancel the .snap > * cardEntrance — visibility is driven only by .on (JS) */
-        position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:6;
+        position:absolute;left:50%;top:0;transform:translateX(-50%) translateY(8px) scale(.94);z-index:6;
         display:flex;align-items:center;justify-content:center;gap:9px;
-        width:max-content;max-width:86%;padding:7px 15px;border-radius:999px;
+        width:max-content;max-width:86%;padding:7px 15px;border-radius:999px;overflow:hidden;
         background:linear-gradient(135deg, rgba(0,180,216,0.22) 0%, rgba(255,255,255,0.06) 45%, rgba(8,12,20,0.55) 100%);
         border:1px solid rgba(255,255,255,0.12);border-top:1px solid rgba(255,255,255,0.24);
         box-shadow:0 6px 22px rgba(0,0,0,0.35), 0 0 18px rgba(0,180,216,0.22);
         backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);
         color:rgba(255,255,255,0.94);font-size:12px;font-weight:600;letter-spacing:.02em;white-space:nowrap;
         opacity:0;pointer-events:none;
-        transition:opacity .45s var(--ease-calm);
+        transition:opacity .5s var(--ease-calm), transform .5s var(--ease-calm);
       }
-      .snap-hint.on{opacity:1;}
-      .snap-hint .sh-chev{color:var(--primary);font-size:16px;font-weight:700;line-height:1;text-shadow:0 0 8px rgba(0,180,216,.7);}
-      .snap-hint .sh-l{animation:shDriftL 1.4s var(--ease-breath) infinite;}
-      .snap-hint .sh-r{animation:shDriftR 1.4s var(--ease-breath) infinite;}
-      @keyframes shDriftL{0%,100%{transform:translateX(0);opacity:.5}50%{transform:translateX(-4px);opacity:1}}
-      @keyframes shDriftR{0%,100%{transform:translateX(0);opacity:.5}50%{transform:translateX(4px);opacity:1}}
+      .snap-hint.on{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}
+      /* one-pass light sheen gliding across the glass as it arrives */
+      .snap-hint::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+        background:linear-gradient(115deg, transparent 36%, rgba(255,255,255,0.20) 50%, transparent 64%);
+        transform:translateX(-130%);}
+      .snap-hint.on::after{animation:shSheen 1.5s var(--ease-calm) .28s 1;}
+      @keyframes shSheen{to{transform:translateX(130%);}}
+      /* fingertip swipe gesture: a glowing touch-dot glides across a short lane, comet trailing behind it */
+      .snap-hint .sh-gesture{position:relative;width:34px;height:12px;flex:none;}
+      .snap-hint .sh-dot{position:absolute;top:50%;left:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;
+        border-radius:50%;background:radial-gradient(circle at 38% 35%, #d8f7ff, var(--primary) 72%);
+        box-shadow:0 0 8px rgba(0,180,216,.85), 0 0 2px rgba(255,255,255,.9);
+        animation:shSwipe 2s var(--ease-breath) infinite;}
+      .snap-hint .sh-dot::before{content:'';position:absolute;top:50%;left:100%;width:16px;height:5px;margin-top:-2.5px;
+        border-radius:3px;background:linear-gradient(90deg, rgba(0,180,216,.5), rgba(0,180,216,0));}
+      @keyframes shSwipe{
+        0%   {transform:translateX(11px);opacity:0;}
+        16%  {opacity:1;}
+        55%  {transform:translateX(-11px);opacity:1;}   /* intentional drag-left — the swipe */
+        72%  {transform:translateX(-11px);opacity:0;}    /* lift */
+        100% {transform:translateX(11px);opacity:0;}     /* reset, dim */
+      }
       @media (prefers-reduced-motion: reduce){
-        .snap-hint{transition:opacity .2s linear;}
-        .snap-hint .sh-l,.snap-hint .sh-r{animation:none;opacity:.85;}
+        .snap-hint{transition:opacity .2s linear;transform:translateX(-50%);}
+        .snap-hint.on{transform:translateX(-50%);}
+        .snap-hint.on::after{animation:none;}
+        .snap-hint .sh-dot{animation:none;left:42%;opacity:.9;}
       }
       /* Autonomic page — the window-of-tolerance MAP is the hero; SNS/PNS waves are compact context */
       .ans-card{gap:6px;}
@@ -4177,10 +4194,10 @@ function setClarity(v){
           track.removeEventListener('pointerdown',dismiss);
           track.removeEventListener('touchstart',dismiss);
         }
-        function tug(px,after){               // nudge toward page 2 and ease back → cards visibly slide
+        function tug(px,hold,after){           // magnetic peek toward page 2, then ease home → cards visibly slide
           var x0=track.scrollLeft;
           track.scrollTo({left:x0+px,behavior:'smooth'});
-          setTimeout(function(){ track.scrollTo({left:x0,behavior:'smooth'}); if(after) after(); },360);
+          setTimeout(function(){ track.scrollTo({left:x0,behavior:'smooth'}); if(after) after(); },hold||420);
         }
         function show(){
           if(shown||done) return;
@@ -4192,7 +4209,7 @@ function setClarity(v){
           track.addEventListener('pointerdown',dismiss,{passive:true});
           track.addEventListener('touchstart',dismiss,{passive:true});
           dotEls.forEach(function(d){ d.addEventListener('click',dismiss,{once:true}); });
-          if(!reduce){ tug(28,function(){ setTimeout(function(){ if(!done) tug(18); },520); }); }
+          if(!reduce){ tug(30,440,function(){ setTimeout(function(){ if(!done) tug(16,360); },560); }); }
           hideTimer=setTimeout(dismiss,4800);
         }
         // Arm only when the result page is actually revealed AND the snapshot is on-screen.
