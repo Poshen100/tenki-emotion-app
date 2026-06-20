@@ -17,6 +17,7 @@
     var progress = 0; // 0 to 1
     var scanDuration = 8000; // 8 seconds
     var lastFrameTime = 0;
+    var idleBreath = null; // GSAP idle breathing tween on the scan trigger
 
     // Camera & FaceMesh state
     var cameraStream = null;
@@ -81,6 +82,9 @@
         // Start progress update loop
         lastFrameTime = performance.now();
         requestAnimationFrame(updateLoop);
+
+        // Idle breath — alive and waiting
+        startIdleBreath();
     }
 
     // ─── Camera & FaceMesh expression tracking ───
@@ -347,10 +351,27 @@
         if (stardust && stardust.clearExpression) stardust.clearExpression();
     }
 
+    // ─── Idle breath: the instrument is alive, waiting for your finger ───
+    // EWMA-slow pulse on the scan trigger core. Pauses on hold and resumes on
+    // release (pause-not-reset), killed at the climax. No-op without GSAP.
+    function startIdleBreath() {
+        if (!window.gsap || idleBreath) return;
+        var core = document.querySelector('#scan-takeover-trigger .scan-takeover-fingerprint-core');
+        if (!core) return;
+        idleBreath = gsap.to(core, {
+            scale: 1.04, duration: 2.6, ease: 'sine.inOut',
+            repeat: -1, yoyo: true, transformOrigin: '50% 50%',
+        });
+    }
+    function stopIdleBreath() {
+        if (idleBreath) { idleBreath.kill(); idleBreath = null; }
+    }
+
     // ─── Fingerprint holding & progress conic ring ───
     function startHold() {
         if (!isTakeoverActive) return;
         isHolding = true;
+        if (idleBreath) idleBreath.pause();
 
         var wrapper = document.getElementById('scan-takeover-trigger');
         var ring = document.getElementById('scan-takeover-progress-ring');
@@ -366,6 +387,7 @@
     function endHold() {
         if (!isHolding) return;
         isHolding = false;
+        if (idleBreath) idleBreath.resume();
 
         var wrapper = document.getElementById('scan-takeover-trigger');
         var ring = document.getElementById('scan-takeover-progress-ring');
@@ -423,6 +445,7 @@
     function triggerClimaxSuccess() {
         isTakeoverActive = false;
         endHold();
+        stopIdleBreath();
 
         // 1. Trigger Golden Climax Flash
         var flash = document.getElementById('stardust-scan-takeover-flash');
