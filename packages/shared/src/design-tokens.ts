@@ -46,6 +46,27 @@ export const TENKI_THEME = {
     /** Session complete flash duration (ms). */
     sessionComplete: 800,
   },
+  /**
+   * Canonical brand color spine — single source of truth for cyan + secured states.
+   *
+   * Collapses the five divergent cyans that drifted across the codebase
+   * (`#00F0FF`, `#22D3EE`, `#20D7F2`, `#23F3D4`, `#00B4D8`) into a two-tier
+   * system, and promotes the North Star "gold = SECURED" world rule
+   * (`docs/SOUL-SCAN-NORTH-STAR.md` §4) into a real token instead of a magic
+   * number buried in the scan takeover.
+   *
+   * World rule: cyan = ACTIVE / live, gold = SECURED / locked.
+   */
+  brand: {
+    /** Static brand cyan — Clear zone, resting state. Alias of `colors.primary`. */
+    cyanCore: '#00B4D8',
+    /** Interactive cyan — scanning / live / in-progress. Replaces #00F0FF, #20D7F2, #23F3D4. */
+    cyanActive: '#22D3EE',
+    /** Secured gold — baseline locked / calibrated / complete (North Star §4). */
+    goldSecured: '#FFD46E',
+    /** Canonical deep-space background. Replaces mixed #000 / #070e17 / #020408. */
+    spaceBg: '#020617',
+  },
   /** Base color palette. */
   colors: {
     background: '#000000',
