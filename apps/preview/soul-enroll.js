@@ -227,6 +227,10 @@
     const a = hexToRgb(c1); const b = hexToRgb(c2);
     return `rgb(${Math.round(lerp(a[0], b[0], t))},${Math.round(lerp(a[1], b[1], t))},${Math.round(lerp(a[2], b[2], t))})`;
   }
+  function withAlpha(hex, a) {
+    const [r, g, b] = hexToRgb(hex);
+    return `rgba(${r},${g},${b},${a})`;
+  }
   function accentColor(name) {
     return name === 'cyan' ? COLORS.cyan
       : name === 'mint' ? COLORS.mint
@@ -399,19 +403,53 @@
     c.restore();
   }
 
-  function drawHalo(c, cx, cy, radius, progress, color) {
+  function drawHalo(c, cx, cy, radius, progress, color, t) {
     if (progress <= 0.001) return;
-    c.save();
-    c.beginPath(); c.arc(cx, cy, radius, 0, Math.PI * 2);
-    c.strokeStyle = 'rgba(255,255,255,0.06)'; c.lineWidth = 4; c.stroke();
+    const p = clamp01(progress);
     const start = -Math.PI / 2;
-    const end = start + Math.PI * 2 * clamp01(progress);
+    const end = start + Math.PI * 2 * p;
+    const breath = 0.5 + 0.5 * Math.sin((t || 0) * 0.0018);
+    c.save();
+    c.lineCap = 'round';
+
+    // 1) instrument tick ring — filled ticks bright, unfilled dim
+    const TICKS = 60;
+    for (let i = 0; i < TICKS; i++) {
+      const ang = start + (i / TICKS) * Math.PI * 2;
+      const filled = (ang - start) <= (end - start) + 1e-3;
+      const major = i % 5 === 0;
+      const tlen = major ? 5 : 2.6;
+      const r0 = radius - tlen, r1 = radius + (major ? 2 : 0);
+      c.globalAlpha = filled ? 0.55 + 0.25 * breath : 0.10;
+      c.strokeStyle = color; c.lineWidth = major ? 1.4 : 1;
+      c.shadowColor = color; c.shadowBlur = filled ? 6 : 0;
+      c.beginPath();
+      c.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0);
+      c.lineTo(cx + Math.cos(ang) * r1, cy + Math.sin(ang) * r1);
+      c.stroke();
+    }
+
+    // 2) faint full track
+    c.globalAlpha = 1; c.shadowBlur = 0;
+    c.beginPath(); c.arc(cx, cy, radius, 0, Math.PI * 2);
+    c.strokeStyle = 'rgba(255,255,255,0.05)'; c.lineWidth = 3.5; c.stroke();
+
+    // 3) gradient progress arc — dim tail → bright leading edge
+    const grad = c.createLinearGradient(cx - radius, cy, cx + radius, cy);
+    grad.addColorStop(0, withAlpha(color, 0.25));
+    grad.addColorStop(1, color);
     c.beginPath(); c.arc(cx, cy, radius, start, end);
-    c.strokeStyle = color; c.lineWidth = 4.5; c.lineCap = 'round';
-    c.shadowColor = color; c.shadowBlur = 18; c.stroke();
-    c.beginPath();
-    c.arc(cx + Math.cos(end) * radius, cy + Math.sin(end) * radius, 3.6, 0, Math.PI * 2);
-    c.fillStyle = '#FFFFFF'; c.shadowBlur = 14; c.shadowColor = color; c.fill();
+    c.strokeStyle = grad; c.lineWidth = 4.5;
+    c.shadowColor = color; c.shadowBlur = 16 + breath * 6; c.stroke();
+
+    // 4) comet head — trailing fade + glowing core
+    const hx = cx + Math.cos(end) * radius, hy = cy + Math.sin(end) * radius;
+    const tailA = end - 0.32 * p; // short trailing wedge behind the head
+    c.beginPath(); c.arc(cx, cy, radius, tailA, end);
+    c.strokeStyle = withAlpha('#FFFFFF', 0.5); c.lineWidth = 5.5;
+    c.shadowColor = color; c.shadowBlur = 20; c.stroke();
+    c.beginPath(); c.arc(hx, hy, 4 + breath * 0.8, 0, Math.PI * 2);
+    c.fillStyle = '#FFFFFF'; c.shadowColor = color; c.shadowBlur = 16; c.fill();
     c.restore();
   }
 
@@ -1008,7 +1046,7 @@
       if (!state.started && !ph.processing) drawScanLine(ctx, cx, cy, half, accent, t);
       if (ph.processing) drawProcessingOrb(ctx, cx, cy, t);
       drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5, t);
-      drawHalo(ctx, cx, cy, half + 26, state.halo, accent);
+      drawHalo(ctx, cx, cy, half + 26, state.halo, accent, t);
       if (ph.guide !== undefined && state.halo < 0.82) drawGuide(ctx, cx, cy, ph.guide, accent);
       if (state.step === 'face_detecting' && state.mpActive) drawAlignOverlay(ctx, cx, cy, half, t);
     }
