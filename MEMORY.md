@@ -1,3 +1,21 @@
+# 2026-06-20 Session Update (首訪滑動提示質感升級 — 指尖手勢 + chip 進場/光澤/磁吸 tug — #121)
+
+> Founder:把首次進結果頁的 Snapshot「滑動看更多」提示**質感再提升**(像 Fable 5);選了「指尖滑動手勢」。
+
+## What was done
+- **`apps/preview/v6/index.html`(只動這檔,沿用 #112/#113 既有 controller)**:
+  - **手勢提示**:把兩個對稱彈跳 chevron(‹ ›)換成**發光指尖光點**沿短軌道滑過 + 後方柔和拖尾彗星;keyframes **不對稱**(快速往左拖=滑動,再較暗抬起/重置)→ 讀作「刻意滑一下」而非彈跳。移除 `.sh-chev/.sh-l/.sh-r/shDriftL/shDriftR`。
+  - **chip 進場/玻璃**:`.on` 從只切 opacity → 加 `translateY(8→0)+scale(.94→1)` 優雅升起;新增 `::after` **單次光澤橫掃**(`shSheen`);chip 加 `overflow:hidden` 夾住光澤。
+  - **tug 更磁吸**:`tug(px,hold,after)` 簽名加 hold;show 內 `tug(30,440,…)+ 16px 柔和回響`,與 chip 登場同節拍。
+  - **reduce-motion**:靜止光點、無光澤/位移,chip 僅淡入;不 tug。
+- PR #121 CI 全綠 → squash merge(`d73b59d`)→ branch 同步。
+
+### 教訓 / 注意
+- 「質感升級」類任務:先把現有元件結構摸清(controller 的 arm-on-reveal/一次性/dismiss 邏輯別動),只換**感官層**(glyph/進場/光澤/節奏)= Surgical。
+- CI 不涵蓋 `apps/preview/**` → 待 founder 手機首訪驗(指尖光點滑動、chip 升起+光澤、磁吸 peek;第二次不再出現;Reduce-Motion 靜止)。可微調方向/速度/peek 量。
+
+---
+
 # 2026-06-20 Session Update (神經狀態地圖解遮擋 — 波形退讓、容納之窗呼吸 — #120)
 
 > Founder（螢幕錄影）:Autonomic snapshot「有點遮擋感」,要我像 Fable 5 一樣思考。
