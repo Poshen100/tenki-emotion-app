@@ -1936,9 +1936,9 @@ body{
               <div class="ns-map" aria-label="Nervous system state map">
                 <div class="ns-track"><div class="ns-marker green" id="nsMarker"><span class="ns-dot"></span></div></div>
                 <div class="ns-labels">
-                  <span class="ns-lbl blue" title="藍色陷落區 · Shutdown">低能量<i>Blue</i></span>
-                  <span class="ns-lbl green" title="綠色安全區 · Regulated">安全區<i>Green</i></span>
-                  <span class="ns-lbl red" title="紅色警戒區 · Hyperarousal">過載<i>Red</i></span>
+                  <span class="ns-lbl blue" title="藍色陷落區 · Shutdown">低能量</span>
+                  <span class="ns-lbl green" title="綠色安全區 · Regulated">安全區</span>
+                  <span class="ns-lbl red" title="紅色警戒區 · Hyperarousal">過載</span>
                 </div>
                 <div class="ns-status green" id="nsStatus">在綠色安全區 · Regulated</div>
               </div>
@@ -4057,13 +4057,14 @@ function setClarity(v){
         .snap-hint{transition:opacity .2s linear;}
         .snap-hint .sh-l,.snap-hint .sh-r{animation:none;opacity:.85;}
       }
-      /* Autonomic page */
-      .ans-card .ans-waves{display:flex;flex-direction:column;gap:14px;margin:4px 0 12px;flex:1;justify-content:center;}
+      /* Autonomic page — the window-of-tolerance MAP is the hero; SNS/PNS waves are compact context */
+      .ans-card{gap:6px;}
+      .ans-card .ans-waves{display:flex;flex-direction:column;gap:8px;margin:2px 0 6px;flex:none;}
       .ans-wave-row{display:flex;align-items:center;gap:10px;}
       .ans-lbl{font-size:12px;font-weight:600;width:84px;flex:none;letter-spacing:.02em;}
       .ans-lbl.sns{color:var(--warn);}
       .ans-lbl.pns{color:var(--good);}
-      .ans-wave{flex:1;height:44px;}
+      .ans-wave{flex:1;height:26px;}
       .ans-v{font-size:17px;font-weight:600;width:46px;text-align:right;font-variant-numeric:tabular-nums;}
       .ans-v.sns{color:var(--warn);}
       .ans-v.pns{color:var(--good);}
@@ -4071,7 +4072,7 @@ function setClarity(v){
          a continuous spectrum (NOT a score/progress bar): Blue shutdown · Green regulated · Red
          hyperarousal. Green is widest (the ideal dwell zone). Soft, low-sat colours; the marker
          shows "where am I" and can move — never graded. */
-      .ns-map{margin-top:4px;}
+      .ns-map{margin-top:3px;}
       .ns-track{
         position:relative;height:14px;border-radius:7px;
         /* The Yes Brain window of tolerance: green 安全區 is the dominant HOME (22–78%),
@@ -4102,16 +4103,14 @@ function setClarity(v){
         0%,100%{box-shadow:0 0 0 2px rgba(10,14,20,.45),0 2px 7px rgba(0,0,0,.45),0 0 9px rgba(242,109,109,.6);}
         50%{box-shadow:0 0 0 2px rgba(10,14,20,.45),0 2px 7px rgba(0,0,0,.45),0 0 18px rgba(242,109,109,.95);}
       }
-      .ns-labels{display:flex;justify-content:space-between;align-items:flex-start;margin-top:7px;font-size:10px;font-weight:600;letter-spacing:.02em;}
-      .ns-labels .ns-lbl{display:flex;flex-direction:column;line-height:1.2;}
-      .ns-labels .ns-lbl i{font-style:normal;font-size:8px;letter-spacing:.1em;text-transform:uppercase;opacity:.5;font-weight:500;}
-      /* green 安全 leads — larger & brighter (the home); blue/red recede like the band weights */
-      .ns-labels .ns-lbl.blue{color:#7FA6F2;align-items:flex-start;opacity:.62;}
-      .ns-labels .ns-lbl.green{color:#7BE0BC;align-items:center;font-size:11.5px;font-weight:700;}
-      .ns-labels .ns-lbl.green i{opacity:.7;}
-      .ns-labels .ns-lbl.red{color:#F58A8A;align-items:flex-end;opacity:.62;}
+      .ns-labels{display:flex;justify-content:space-between;align-items:baseline;margin-top:5px;font-size:10px;font-weight:600;letter-spacing:.02em;}
+      .ns-labels .ns-lbl{line-height:1.2;}
+      /* green 安全區 leads — larger & brighter (the home); blue/red recede like the band weights */
+      .ns-labels .ns-lbl.blue{color:#7FA6F2;opacity:.62;}
+      .ns-labels .ns-lbl.green{color:#7BE0BC;font-size:11.5px;font-weight:700;}
+      .ns-labels .ns-lbl.red{color:#F58A8A;opacity:.62;}
       /* one-line status caption — names the current zone so "home" is explicit, not a grade */
-      .ns-status{margin-top:6px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.03em;color:#7BE0BC;transition:color .6s var(--ease-calm);}
+      .ns-status{margin-top:4px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.03em;color:#7BE0BC;transition:color .6s var(--ease-calm);}
       .ns-status.blue{color:#7FA6F2;}
       .ns-status.red{color:#F58A8A;}
       @media (prefers-reduced-motion: reduce){ .ns-marker.red{animation:none;} }
