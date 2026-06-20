@@ -16,7 +16,7 @@
   --text-secondary: #94A3B8;
   --text-tertiary: #64748B;
   --text-dim: #475569;
-  --accent-cyan: #22D3EE;
+  --accent-cyan: var(--cyan-active, #22D3EE);
   --accent-green: #4ADE80;
   --accent-amber: #F5A623;
   --accent-red: #F87171;

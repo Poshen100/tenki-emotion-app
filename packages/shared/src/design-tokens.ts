@@ -7,6 +7,13 @@
  * @see ANTIGRAVITY.md v3.0 Section 1.2
  */
 
+/** Canonical brand color spine — referenced below so cyan/gold/space resolve
+ * from one literal instead of drifting across nested token groups. */
+const CYAN_CORE = '#00B4D8' as const;
+const CYAN_ACTIVE = '#22D3EE' as const;
+const GOLD_SECURED = '#FFD46E' as const;
+const SPACE_BG = '#020617' as const;
+
 /** TENKI CORE v3 design tokens — colors, typography, animation, spacing. */
 export const TENKI_THEME = {
   /** Readiness zone colors (v3: 3 zones). */
@@ -59,13 +66,13 @@ export const TENKI_THEME = {
    */
   brand: {
     /** Static brand cyan — Clear zone, resting state. Alias of `colors.primary`. */
-    cyanCore: '#00B4D8',
+    cyanCore: CYAN_CORE,
     /** Interactive cyan — scanning / live / in-progress. Replaces #00F0FF, #20D7F2, #23F3D4. */
-    cyanActive: '#22D3EE',
+    cyanActive: CYAN_ACTIVE,
     /** Secured gold — baseline locked / calibrated / complete (North Star §4). */
-    goldSecured: '#FFD46E',
+    goldSecured: GOLD_SECURED,
     /** Canonical deep-space background. Replaces mixed #000 / #070e17 / #020408. */
-    spaceBg: '#020617',
+    spaceBg: SPACE_BG,
   },
   /** Base color palette. */
   colors: {
@@ -73,7 +80,7 @@ export const TENKI_THEME = {
     surface: '#1C1C1E',
     card: '#2C2C2E',
     border: '#38383A',
-    primary: '#00B4D8',
+    primary: CYAN_CORE,
     success: '#34C759',
     warning: '#F5A623',
     error: '#FF3B30',
@@ -134,7 +141,7 @@ export const TENKI_THEME = {
     sparklines: {
       hr: '#FF453A',
       hrv: '#67EA8E',
-      rr: '#20D7F2',
+      rr: CYAN_ACTIVE,
     },
     /** Bento card dimensions. */
     bentoCard: {
@@ -148,7 +155,7 @@ export const TENKI_THEME = {
       safeBottom: 24,
       background: 'rgba(15, 23, 42, 0.92)',
       blur: 24,
-      activeColor: '#22D3EE',
+      activeColor: CYAN_ACTIVE,
       inactiveColor: '#475569',
     },
     /** Deep space background. */
