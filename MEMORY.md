@@ -873,13 +873,13 @@ Founder 要一份創意總監級的視覺優化方向書,並提到 Stitch → Cl
    - `design-tokens.ts` 新增 canonical `brand`（cyanCore/cyanActive/goldSecured/spaceBg）+ 抽 `CYAN_CORE/CYAN_ACTIVE/GOLD_SECURED/SPACE_BG` consts,DRY 到 colors.primary / sparklines.rr / bottomNav.activeColor。
    - 新建 `apps/preview/tokens.css` 單一真相源(含 rgb 三元組),first-link 進 v6 / onboarding / scan-result。
    - 把 takeover、scan-result 殘留裸 cyan（#00F0FF/#23F3D4/#20D7F2）全指回 `--cyan-active`;rr sparkline canvas 透過 `getComputedStyle` 解析 token。
-3. **GSAP 儀式三時刻**（做了 2 個,CDN 引入 gsap 3.12.5,全程 `if(window.gsap)` 漸進增強 + 保留原 fallback）：
+3. **GSAP 儀式三時刻**（3/3 完成,CDN 引入 gsap 3.12.5,全程 `if(window.gsap)` 漸進增強 + 保留原 fallback）：
    - Edge Score 揭曉（Today）：rAF → GSAP timeline,`expo.out` 收斂 + lock 呼吸。
    - 星塵 climax 鎖定（baseline）：保留 founder 的「极速运算」flicker,只把落地升級成 `back.out` snap-settle + **gold SECURED 輝光**（`.tei-secured` class 吃 `--gold-secured`）。
+   - 進度弧/掃描觸點呼吸（takeover）：**沒動**既有 rAF fill/drain 物理（它本就是 pause-not-reset 平滑回抽）;只在掃描觸點 core 加 EWMA-slow idle breath（`sine.inOut` infinite yoyo）,hold 時 pause、放開 resume、climax 時 kill。
 
 ### 刻意沒做（留給 founder 拍板,風險/設計決策）
 - **Zone 語義重定**（Neutral 降亮、Strain 改暖警示、紫留 Premium）— 牽動 compliance copy + 既有畫面,要先一起對齊。
-- **GSAP 第三刀「進度弧呼吸」** — 現有 rAF loop 綁 finger-hold,GSAP 淨增益最低,評估性價比不足暫緩。
 - **soul-enroll / finger-demo 的電光藍 #00F0FF** — 各自內部自洽的獨立儀式頁,改招牌色屬設計決策非收斂。
 - **status-warn 琥珀 #EAB308 vs token warning #F5A623 雙頭** — 屬另一條 warning 收斂線。
 
@@ -890,7 +890,7 @@ Founder 要一份創意總監級的視覺優化方向書,並提到 Stitch → Cl
 ### 下次接手點
 - 若 founder 要把方向書落檔 → 寫進 `docs/`。
 - Zone 語義重定需先做 compliance/畫面盤點再動。
-- GSAP 第三刀（進度弧呼吸）等實機看過前兩個再評估。
+- GSAP 三時刻已全做完;實機看過後若要微調 ease/時長再說。
 
 *Last updated: 2026-06-20*
 *Updated by: Claude Code (Visual Direction Session)*
