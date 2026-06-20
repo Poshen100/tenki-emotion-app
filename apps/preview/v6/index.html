@@ -15,6 +15,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>TENKI CORE · 5-Tab Navigation</title>
+<link rel="stylesheet" href="../tokens.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
 .baseline-takeover-active .screens {
   opacity: 0 !important;
@@ -2794,17 +2796,38 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
   const innerRing = document.querySelector('.ring-inner-wrap');
   const dots = document.querySelectorAll('.ring-dot');
 
-  // Easing: easeOutExpo
-  function ease(t){ return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
-
-  // Start rings reveal after a tiny delay
-  setTimeout(() => {
+  function revealRings(){
     if(outerRing) outerRing.classList.add('revealed');
     if(innerRing) innerRing.classList.add('revealed');
     dots.forEach(d => d.classList.add('revealed'));
-  }, 200);
+  }
 
-  // Score counter
+  // ── GSAP ceremony: Edge Score reveal ──
+  // An instrument confirming a reading — expo settle on the count-up, then a
+  // single calm "lock" breath. Progressive enhancement: falls back to the
+  // original rAF counter when GSAP is unavailable, so the feel never breaks.
+  if(window.gsap && scoreEl){
+    const counter = { val: 1 };
+    scoreEl.textContent = '1';
+    const tl = gsap.timeline({ delay: 0.2 });
+    tl.add(revealRings, 0);
+    tl.to(counter, {
+      val: TARGET_SCORE,
+      duration: 1.8,
+      ease: 'expo.out',
+      roundProps: 'val',
+      onUpdate(){ scoreEl.textContent = counter.val; },
+    }, 0.15);
+    tl.fromTo(scoreEl, { scale: 1 }, {
+      scale: 1.035, duration: 0.32, yoyo: true, repeat: 1,
+      ease: 'sine.inOut', transformOrigin: '50% 50%',
+    }, '>-0.1');
+    return;
+  }
+
+  // ── Fallback: original rAF counter (easeOutExpo) ──
+  function ease(t){ return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
+  setTimeout(revealRings, 200);
   if(!scoreEl) return;
   scoreEl.textContent = '1';
   const start = performance.now();
@@ -2815,7 +2838,6 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
     scoreEl.textContent = val;
     if(t < 1) requestAnimationFrame(tick);
   }
-  // Delay counter start slightly after rings begin
   setTimeout(() => requestAnimationFrame(tick), 350);
 })();
 

@@ -1,0 +1,46 @@
+/* ═══════════════════════════════════════════════════════════
+   TENKI CORE — Canonical CSS Token Spine
+   Single source of truth for the preview surface, mirrored from
+   packages/shared/src/design-tokens.ts (TENKI_THEME.brand).
+
+   World rule: cyan = ACTIVE / live, gold = SECURED / locked.
+   Link this FIRST, before any page-level <style>, so every preview
+   screen resolves the same brand color instead of re-declaring hex.
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Brand spine (collapses the five drifted cyans) ── */
+  --cyan-core:    #00B4D8; /* static brand cyan — Clear zone, resting */
+  --cyan-active:  #22D3EE; /* interactive / scanning / live */
+  --gold-secured: #FFD46E; /* baseline locked / calibrated / complete */
+
+  /* rgb triples for translucent glows: rgba(var(--cyan-active-rgb), 0.3) */
+  --cyan-active-rgb:  34, 211, 238;
+  --gold-secured-rgb: 255, 212, 110;
+
+  /* ── Canonical surfaces ── */
+  --bg-space:  #020617;    /* deep-space background (replaces #000/#070e17/#020408) */
+  --surface:   #1C1C1E;
+  --card:      #2C2C2E;
+  --border:    #38383A;
+
+  /* ── Glass (one recipe, everywhere) ── */
+  --glass-bg:     rgba(20, 20, 24, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur:   20px;
+
+  /* ── Semantic status ── */
+  --success: #34C759;
+  --warning: #F5A623;
+  --error:   #FF3B30;
+
+  /* ── Zones (semantics deferred — see direction book Layer 1 ②③) ── */
+  --zone-clear:   #00B4D8;
+  --zone-neutral: #E5E5EA;
+  --zone-strain:  #5E3A87;
+
+  /* ── Easing ── */
+  --ease-calm:   cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-breath: cubic-bezier(0.4, 0, 0.6, 1);
+  --ease-secure: cubic-bezier(0.19, 1, 0.22, 1);
+}

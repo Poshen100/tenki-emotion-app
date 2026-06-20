@@ -17,6 +17,7 @@
     var progress = 0; // 0 to 1
     var scanDuration = 8000; // 8 seconds
     var lastFrameTime = 0;
+    var idleBreath = null; // GSAP idle breathing tween on the scan trigger
 
     // Camera & FaceMesh state
     var cameraStream = null;
@@ -81,6 +82,9 @@
         // Start progress update loop
         lastFrameTime = performance.now();
         requestAnimationFrame(updateLoop);
+
+        // Idle breath — alive and waiting
+        startIdleBreath();
     }
 
     // ─── Camera & FaceMesh expression tracking ───
@@ -180,7 +184,7 @@
             capsule.className = 'status-good show';
         }
         if (iconBox) {
-            iconBox.style.background = 'rgba(0, 240, 255, 0.15)';
+            iconBox.style.background = 'rgba(var(--cyan-active-rgb), 0.15)';
         }
     }
 
@@ -347,10 +351,27 @@
         if (stardust && stardust.clearExpression) stardust.clearExpression();
     }
 
+    // ─── Idle breath: the instrument is alive, waiting for your finger ───
+    // EWMA-slow pulse on the scan trigger core. Pauses on hold and resumes on
+    // release (pause-not-reset), killed at the climax. No-op without GSAP.
+    function startIdleBreath() {
+        if (!window.gsap || idleBreath) return;
+        var core = document.querySelector('#scan-takeover-trigger .scan-takeover-fingerprint-core');
+        if (!core) return;
+        idleBreath = gsap.to(core, {
+            scale: 1.04, duration: 2.6, ease: 'sine.inOut',
+            repeat: -1, yoyo: true, transformOrigin: '50% 50%',
+        });
+    }
+    function stopIdleBreath() {
+        if (idleBreath) { idleBreath.kill(); idleBreath = null; }
+    }
+
     // ─── Fingerprint holding & progress conic ring ───
     function startHold() {
         if (!isTakeoverActive) return;
         isHolding = true;
+        if (idleBreath) idleBreath.pause();
 
         var wrapper = document.getElementById('scan-takeover-trigger');
         var ring = document.getElementById('scan-takeover-progress-ring');
@@ -366,6 +387,7 @@
     function endHold() {
         if (!isHolding) return;
         isHolding = false;
+        if (idleBreath) idleBreath.resume();
 
         var wrapper = document.getElementById('scan-takeover-trigger');
         var ring = document.getElementById('scan-takeover-progress-ring');
@@ -403,7 +425,7 @@
         var ring = document.getElementById('scan-takeover-progress-ring');
         if (ring) {
             var pct = progress * 100;
-            ring.style.background = 'conic-gradient(#00F0FF ' + pct + '%, transparent 0%)';
+            ring.style.background = 'conic-gradient(var(--cyan-active) ' + pct + '%, transparent 0%)';
         }
 
         // Update scanning status badge
@@ -423,6 +445,7 @@
     function triggerClimaxSuccess() {
         isTakeoverActive = false;
         endHold();
+        stopIdleBreath();
 
         // 1. Trigger Golden Climax Flash
         var flash = document.getElementById('stardust-scan-takeover-flash');
@@ -484,10 +507,20 @@
                 if (elapsed >= duration) {
                     clearInterval(interval);
                     scoreEl.textContent = '84';
-                    scoreEl.style.transform = 'scale(1.08)';
-                    setTimeout(function() {
-                        scoreEl.style.transform = 'scale(1)';
-                    }, 200);
+                    // Lock: instrument snap-settle + gold SECURED glow (gold = secured).
+                    scoreEl.classList.add('tei-secured');
+                    setTimeout(function() { scoreEl.classList.remove('tei-secured'); }, 1100);
+                    if (window.gsap) {
+                        gsap.fromTo(scoreEl, { scale: 1 }, {
+                            scale: 1.08, duration: 0.26, ease: 'back.out(1.8)',
+                            yoyo: true, repeat: 1, transformOrigin: '50% 50%',
+                        });
+                    } else {
+                        scoreEl.style.transform = 'scale(1.08)';
+                        setTimeout(function() {
+                            scoreEl.style.transform = 'scale(1)';
+                        }, 200);
+                    }
                     // Haptic snap on completion
                     if (navigator.vibrate) {
                         try { navigator.vibrate([15, 30]); } catch (_) {}

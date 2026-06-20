@@ -14,6 +14,16 @@
 (function () {
   'use strict';
 
+  // Resolve a canonical CSS token (from tokens.css) for canvas drawing,
+  // which needs a concrete color string. Single-source for the rr cyan.
+  function cssVar(name, fallback) {
+    try {
+      var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v || fallback;
+    } catch (_) { return fallback; }
+  }
+  var CYAN_ACTIVE = cssVar('--cyan-active', '#22D3EE');
+
   // ═══════════════════════════════════════════
   // Ring Constants (matches design mockup)
   // ═══════════════════════════════════════════
@@ -391,7 +401,7 @@
     setTimeout(function () {
       drawSparkline('spark-hr', SCAN_DATA.hr.history, '#FF453A');
       drawSparkline('spark-hrv', SCAN_DATA.hrv.history, '#67EA8E');
-      drawSparkline('spark-rr', SCAN_DATA.rr.history, '#20D7F2');
+      drawSparkline('spark-rr', SCAN_DATA.rr.history, CYAN_ACTIVE);
     }, 800);
   }
 
@@ -502,7 +512,7 @@
       var metrics = {
         hr: { base: 68, amp: 0.05, freq: 0.7, color: '#FF453A', canvas: 'spark-hr' },
         hrv: { base: 52, amp: 0.12, freq: 0.4, color: '#67EA8E', canvas: 'spark-hrv' },
-        rr: { base: 14, amp: 0.08, freq: 0.25, color: '#20D7F2', canvas: 'spark-rr' }
+        rr: { base: 14, amp: 0.08, freq: 0.25, color: CYAN_ACTIVE, canvas: 'spark-rr' }
       };
 
       Object.keys(metrics).forEach(function (key) {
