@@ -180,7 +180,7 @@
             capsule.className = 'status-good show';
         }
         if (iconBox) {
-            iconBox.style.background = 'rgba(0, 240, 255, 0.15)';
+            iconBox.style.background = 'rgba(var(--cyan-active-rgb), 0.15)';
         }
     }
 
@@ -403,7 +403,7 @@
         var ring = document.getElementById('scan-takeover-progress-ring');
         if (ring) {
             var pct = progress * 100;
-            ring.style.background = 'conic-gradient(#00F0FF ' + pct + '%, transparent 0%)';
+            ring.style.background = 'conic-gradient(var(--cyan-active) ' + pct + '%, transparent 0%)';
         }
 
         // Update scanning status badge
@@ -484,10 +484,20 @@
                 if (elapsed >= duration) {
                     clearInterval(interval);
                     scoreEl.textContent = '84';
-                    scoreEl.style.transform = 'scale(1.08)';
-                    setTimeout(function() {
-                        scoreEl.style.transform = 'scale(1)';
-                    }, 200);
+                    // Lock: instrument snap-settle + gold SECURED glow (gold = secured).
+                    scoreEl.classList.add('tei-secured');
+                    setTimeout(function() { scoreEl.classList.remove('tei-secured'); }, 1100);
+                    if (window.gsap) {
+                        gsap.fromTo(scoreEl, { scale: 1 }, {
+                            scale: 1.08, duration: 0.26, ease: 'back.out(1.8)',
+                            yoyo: true, repeat: 1, transformOrigin: '50% 50%',
+                        });
+                    } else {
+                        scoreEl.style.transform = 'scale(1.08)';
+                        setTimeout(function() {
+                            scoreEl.style.transform = 'scale(1)';
+                        }, 200);
+                    }
                     // Haptic snap on completion
                     if (navigator.vibrate) {
                         try { navigator.vibrate([15, 30]); } catch (_) {}
