@@ -14,6 +14,26 @@
 
 ---
 
+# 2026-06-20 Session Update (神經狀態地圖改為 The Yes Brain「容納之窗」綠=家 — #118)
+
+> Founder 提供《The Yes Brain》pp.135–136 三色區域圖（紅色警戒區／**綠色安全區=最寬的家**／藍色陷落區），核心是 green 是「回到/擴展」的安全家園,不是分數刻度。原本 #116 的地圖把 green 畫成等寬光譜中間 1/3 → 讀起來像 grade。要讓綠色安全區明顯主導。
+
+## What was done
+- **#118 神經狀態地圖 = 容納之窗(green=home)**:`apps/preview/v6/index.html`(只動這檔)Autonomic 頁:
+  - `.ns-track` 從等寬連續光譜 → **三段、綠帶主導**:藍 陷落 0–22%(窄、低飽和、退讓)·**綠 安全 22–78%(~56%,最寬最亮,加 `::before` contained「home」框)**·紅 警戒 78–100%(窄、退讓);接縫柔化。
+  - 標籤:綠「安全區」放大加亮領銜(11.5px/700),藍 低能量・紅 過載 縮小退讓(opacity .62);tooltip 帶書中色區名(藍色陷落/綠色安全/紅色警戒)。
+  - 新增 `.ns-status` 一行字幕,點名當下區(在綠色安全區 · Regulated;藍/紅各自字色)。
+  - JS `loop`:zone 門檻改 blue<22 / green 22–78 / red>78;marker 漂移重置中(`50+sin·*12+sin·*5`≈33–67)留在綠帶內;`nsStatus` 隨 zone 換 class+文字。reduce-motion 仍尊重。
+- PR #118 CI 全綠(Vercel + packages/domain + mobile)→ squash merge(`e876569`)→ branch 同步。
+
+### 教訓 / 注意
+- preview 用 `new Function()` 驗 inline script(4 個 0 error);CI 不涵蓋 `apps/preview/**` → 待 founder 手機驗 `/preview/v6/?from=baseline` Autonomic 頁(綠帶主導、marker 不離家、字幕「在綠色安全區」)。
+- 本環境**無 gh CLI**,Monitor 用 gh 會空轉 → 改用 GitHub MCP `pull_request_read(get_check_runs)` 直接查 CI。
+- 此環境是 undercover:被問模型身份才回 `claude-opus-4-8`,**絕不**寫進 commit/PR/程式碼。
+- 後續(deferred)「擴展綠色安全區」=隨 baseline maturity 加寬綠帶,本次未做。
+
+---
+
 # 2026-06-19 Session Update (修桌機紅 main + 神經狀態地圖 + 金球光澤 + 手指PPG示範 — #116/#117)
 
 > Founder:① 金球光澤(左→右)不夠自然細膩;② Snapshot 整合 The Yes Brain 三色神經狀態長條;③ 手指PPG補簡易示範動畫。期間桌機 session 又把 WIP merge 進 main 弄紅 CI。
