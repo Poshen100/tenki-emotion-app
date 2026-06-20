@@ -206,6 +206,27 @@ body{
   display:flex;align-items:center;justify-content:center;
   filter:drop-shadow(0 0 30px rgba(0,180,216,0.18));
 }
+/* Cinematic bloom halo behind the ring — pulses with the breath */
+.tl-tei::before{
+  content:'';position:absolute;inset:-13%;border-radius:50%;z-index:0;pointer-events:none;
+  background:radial-gradient(circle closest-side,
+    rgba(0,180,216,0.20), rgba(0,180,216,0.05) 62%, transparent 76%);
+  filter:blur(16px);
+  animation:ringBloom 6s var(--ease-breath) infinite;
+}
+@keyframes ringBloom{0%,100%{opacity:0.55;transform:scale(0.97)}50%{opacity:1;transform:scale(1.04)}}
+/* Slow highlight sweep travelling around the ring band — a living instrument */
+.tl-tei::after{
+  content:'';position:absolute;inset:0;border-radius:50%;z-index:2;pointer-events:none;
+  background:conic-gradient(from 0deg,
+    transparent 0deg, transparent 56deg,
+    rgba(255,255,255,0.55) 86deg, transparent 124deg, transparent 360deg);
+  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 66%, #000 68%, #000 97%, transparent 99%);
+  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 66%, #000 68%, #000 97%, transparent 99%);
+  mix-blend-mode:screen;opacity:0.42;
+  animation:ringSweep 9s linear infinite;
+}
+@keyframes ringSweep{to{transform:rotate(360deg)}}
 
 /* Outer ring — conic gradient */
 .ring-outer-wrap{
