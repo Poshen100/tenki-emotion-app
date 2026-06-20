@@ -1,3 +1,20 @@
+# 2026-06-20 Session Update (神經狀態地圖解遮擋 — 波形退讓、容納之窗呼吸 — #120)
+
+> Founder（螢幕錄影）:Autonomic snapshot「有點遮擋感」,要我像 Fable 5 一樣思考。
+
+## What was done
+- **真因**:Autonomic 卡片內容溢出 190px carousel 格(~220px 塞進 ~154px)—— 兩條 44px SNS/PNS 波形被 `flex:1` 撐高 + 完整容納之窗地圖 + #118 的「在綠色安全區」caption。底部 ~60px(區間標籤 + caption)被擠出圓角卡片、壓到下方 FDCB「START DECISION」bar 底 → 就是遮擋感。
+- **修法(`apps/preview/v6/index.html` 只動這檔,地圖=主角、波形退為 context)**:SNS/PNS 波形 `height:44→26px`、`flex:1→none`(不再被撐高)、gap/margin 收緊(`.ans-card{gap:6px}`、waves `gap:8` `margin:2px 0 6px`);**拿掉純裝飾英文 Blue/Green/Red 子標籤**(顏色從色帶就看得出)→ 區間標籤改單行中文;保留動態「在綠色安全區」home caption。內容降到 ~150px,完整放進卡片留呼吸、不再裁切。
+- PR #120 CI 全綠 → squash merge(`1951148`)→ branch 同步。
+
+### 教訓 / 注意
+- **carousel 卡片高度固定(snap-track 190px),塞太多會無聲溢出到 FDCB 底下** → 卡片內容要算高度預算(vhead + waves + map ≤ ~154px inner);過去 #106/#108/#113 同源於 `.snap` 高度/裁切。
+- 桌機 session 又在 main 推了 #119(karpathy skills)→ 我的 PR 撞 merge conflict;`git rebase origin/main` 解 `MEMORY.md` 重疊(兩篇 #119/#118 都保留),index.html 無重疊自動併。
+- 本環境**無 gh CLI**,Monitor 用 gh / 未設 token 的 curl 都會空轉 → 直接用 GitHub MCP `pull_request_read(get_check_runs)` 查 CI。
+- 待 founder 手機驗 `/preview/v6/?from=baseline` Autonomic 頁:地圖 + 三標籤 + 字幕完整可見、不再被卡片底/FDCB 遮住。
+
+---
+
 # 2026-06-20 Session Update (套用 andrej-karpathy-skills 四大黃金原則)
 
 > Founder:問現有專案有沒有套 andrej-karpathy-skills,沒有就裝,讓協作 AI 都讀得到。
