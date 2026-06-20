@@ -276,6 +276,9 @@
         speed: 0.6 + Math.random() * 0.8,
         size: 1.1 + Math.random() * 1.9,
         gold: Math.random() > 0.45,
+        z: Math.random(), // depth → size/brightness/parallax (volumetric soul)
+        twSpeed: 0.5 + Math.random() * 1.6, // twinkle spark cadence
+        twPhase: Math.random() * Math.PI * 2,
       });
     }
   }
@@ -336,20 +339,63 @@
     c.closePath();
   }
 
-  function drawCorners(c, cx, cy, half, color, alpha) {
-    const len = 26; const off = half;
+  // Precision-instrument reticle: breathing double-layer brackets with glowing
+  // elbow nodes + edge measurement ticks. `t` drives a slow idle breath.
+  function drawCorners(c, cx, cy, half, color, alpha, t) {
+    const breath = 0.5 + 0.5 * Math.sin((t || 0) * 0.0016);
+    const off = half + breath * 2;
+    const len = 26;
+    const a = alpha * (0.82 + breath * 0.18);
     c.save();
-    c.strokeStyle = color; c.globalAlpha = alpha; c.lineWidth = 2.5;
-    c.lineCap = 'round'; c.shadowColor = color; c.shadowBlur = 10;
+    c.lineCap = 'round';
     const corners = [
       [cx - off, cy - off, 1, 1], [cx + off, cy - off, -1, 1],
       [cx - off, cy + off, 1, -1], [cx + off, cy + off, -1, -1],
     ];
     for (const [x, y, sx, sy] of corners) {
-      c.beginPath();
-      c.moveTo(x, y + sy * len); c.lineTo(x, y); c.lineTo(x + sx * len, y);
-      c.stroke();
+      c.shadowColor = color; c.shadowBlur = 16;
+      // outer soft glow
+      c.strokeStyle = color; c.globalAlpha = a * 0.45; c.lineWidth = 5;
+      c.beginPath(); c.moveTo(x, y + sy * len); c.lineTo(x, y); c.lineTo(x + sx * len, y); c.stroke();
+      // bright inner edge
+      c.globalAlpha = a; c.lineWidth = 2; c.shadowBlur = 6;
+      c.beginPath(); c.moveTo(x, y + sy * len); c.lineTo(x, y); c.lineTo(x + sx * len, y); c.stroke();
+      // glowing elbow node
+      c.shadowBlur = 12; c.globalAlpha = a;
+      c.fillStyle = '#EAFEFF';
+      c.beginPath(); c.arc(x, y, 2.6, 0, Math.PI * 2); c.fill();
     }
+    // edge midpoint measurement ticks
+    c.globalAlpha = a * 0.6; c.lineWidth = 1.5; c.shadowBlur = 6; c.strokeStyle = color;
+    const tick = 7;
+    const mids = [
+      [cx, cy - off, 0, 1], [cx, cy + off, 0, -1],
+      [cx - off, cy, 1, 0], [cx + off, cy, -1, 0],
+    ];
+    for (const [x, y, nx, ny] of mids) {
+      c.beginPath(); c.moveTo(x, y); c.lineTo(x + nx * tick, y + ny * tick); c.stroke();
+    }
+    c.restore();
+  }
+
+  // Soft scan-line sweeping the frame (idle only) — reads as live biometric scan.
+  function drawScanLine(c, cx, cy, half, color, t) {
+    const period = 3600;
+    const ph = (t % period) / period;
+    const y = cy - half + ph * (half * 2);
+    const ease = Math.sin(ph * Math.PI); // bright mid-sweep, fades at the edges
+    c.save();
+    roundedRect(c, cx - half, cy - half, half * 2, half * 2, 40);
+    c.clip();
+    const g = c.createLinearGradient(0, y - 16, 0, y + 16);
+    g.addColorStop(0, 'rgba(0,240,255,0)');
+    g.addColorStop(0.5, `rgba(120,245,255,${(0.45 * ease).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(0,240,255,0)');
+    c.fillStyle = g;
+    c.fillRect(cx - half, y - 16, half * 2, 32);
+    c.globalAlpha = 0.55 * ease;
+    c.strokeStyle = color; c.shadowColor = color; c.shadowBlur = 10; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(cx - half, y); c.lineTo(cx + half, y); c.stroke();
     c.restore();
   }
 
@@ -379,21 +425,80 @@
       ax = (state.face.cx - 0.5) * 120;
       ay = (state.face.cy - 0.5) * 150;
     }
+    const k = clamp01(settle * 0.5 + bloom);
+    const idle = 1 - k; // 1 at rest, → 0 as the soul converges into the core
+    // slow global rotation → a bound system, not a random scatter
+    const rot = t * 0.00006;
+    const cosR = Math.cos(rot), sinR = Math.sin(rot);
+
+    // 1) resolve every node's screen position + look (links need positions first)
+    const pts = [];
     for (const p of particles) {
       const drift = state.started ? 1 : 0.4;
       const dx = Math.sin(t * 0.001 * p.speed + p.phase) * 4 * drift;
       const dy = Math.cos(t * 0.0011 * p.speed + p.phase) * 4 * drift;
-      const k = clamp01(settle * 0.5 + bloom);
-      const px = cx + lerp(p.bx + dx + ax, 0, k);
-      const py = cy + lerp(p.by + dy + ay, 0, k);
+      const par = 0.62 + (p.z || 0.5) * 0.76; // depth parallax
+      const bxr = (p.bx * cosR - p.by * sinR) * par;
+      const byr = (p.bx * sinR + p.by * cosR) * par;
+      const px = cx + lerp(bxr + dx + ax, 0, k);
+      const py = cy + lerp(byr + dy + ay, 0, k);
       const pulse = 0.6 + 0.4 * Math.sin(t * 0.004 * p.speed + p.phase);
+      const tw = Math.max(0, Math.sin(t * 0.001 * p.twSpeed + p.twPhase) - 0.86) / 0.14; // rare spark
+      const depth = 0.55 + (p.z || 0.5) * 0.45;
       const base = p.gold ? mix(COLORS.cyan, COLORS.gold, secured) : mix(COLORS.cyan, COLORS.goldChampagne, secured * 0.7);
-      const size = p.size * (0.8 + pulse * 0.5) * (1 + bloom * 0.6);
+      const size = p.size * (0.8 + pulse * 0.5) * (1 + bloom * 0.6) * depth;
+      const alpha = (0.25 + 0.55 * pulse + bloom * 0.2) * depth + tw * 0.5 * idle;
+      pts.push({ px, py, size, alpha, base, z: (p.z || 0.5), tw });
+    }
+
+    // 2) breathing core glow — the soul has a heart (idle only)
+    if (idle > 0.01) {
+      const breath = 0.5 + 0.5 * Math.sin(t * 0.0016);
+      const cr = 30 + breath * 10;
+      const g = c.createRadialGradient(cx, cy, 0, cx, cy, cr);
+      g.addColorStop(0, `rgba(130,246,255,${((0.20 + breath * 0.10) * idle).toFixed(3)})`);
+      g.addColorStop(0.5, `rgba(0,240,255,${(0.09 * idle).toFixed(3)})`);
+      g.addColorStop(1, 'rgba(0,240,255,0)');
+      c.save(); c.fillStyle = g;
+      c.beginPath(); c.arc(cx, cy, cr, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
+
+    // 3) constellation links — the neural lattice (fades as the soul converges)
+    if (idle > 0.02) {
       c.save();
-      c.globalAlpha = 0.25 + 0.55 * pulse + bloom * 0.2;
-      c.beginPath(); c.arc(px, py, size, 0, Math.PI * 2);
-      c.fillStyle = base; c.shadowColor = base; c.shadowBlur = 6 + bloom * 14;
+      c.lineWidth = 1;
+      const maxD = 46, maxD2 = maxD * maxD;
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const ddx = pts[i].px - pts[j].px, ddy = pts[i].py - pts[j].py;
+          const d2 = ddx * ddx + ddy * ddy;
+          if (d2 > maxD2) continue;
+          const a = (1 - Math.sqrt(d2) / maxD) * 0.26 * idle;
+          if (a < 0.015) continue;
+          c.strokeStyle = `rgba(90,225,255,${a.toFixed(3)})`;
+          c.beginPath(); c.moveTo(pts[i].px, pts[i].py); c.lineTo(pts[j].px, pts[j].py); c.stroke();
+        }
+      }
+      c.restore();
+    }
+
+    // 4) the nodes themselves (+ twinkle cross-spark)
+    for (const pt of pts) {
+      c.save();
+      c.globalAlpha = clamp01(pt.alpha);
+      c.beginPath(); c.arc(pt.px, pt.py, pt.size, 0, Math.PI * 2);
+      c.fillStyle = pt.base; c.shadowColor = pt.base; c.shadowBlur = 6 + bloom * 14 + pt.tw * 8;
       c.fill();
+      if (pt.tw > 0.2 && idle > 0.2) {
+        c.globalAlpha = pt.tw * 0.6 * idle;
+        c.strokeStyle = '#CFFBFF'; c.lineWidth = 0.8;
+        const s = pt.size * (2 + pt.tw * 2);
+        c.beginPath();
+        c.moveTo(pt.px - s, pt.py); c.lineTo(pt.px + s, pt.py);
+        c.moveTo(pt.px, pt.py - s); c.lineTo(pt.px, pt.py + s);
+        c.stroke();
+      }
       c.restore();
     }
     if (bloom > 0.01) {
@@ -887,8 +992,9 @@
       ctx.restore();
 
       if (!show3d) drawParticles(ctx, cx, cy, t); // 3D model replaces the 2D mesh during capture
+      if (!state.started && !ph.processing) drawScanLine(ctx, cx, cy, half, accent, t);
       if (ph.processing) drawProcessingOrb(ctx, cx, cy, t);
-      drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5);
+      drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5, t);
       drawHalo(ctx, cx, cy, half + 26, state.halo, accent);
       if (ph.guide !== undefined && state.halo < 0.82) drawGuide(ctx, cx, cy, ph.guide, accent);
       if (state.step === 'face_detecting' && state.mpActive) drawAlignOverlay(ctx, cx, cy, half, t);
