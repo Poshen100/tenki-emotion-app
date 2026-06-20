@@ -392,19 +392,17 @@ body{
   border-radius:18px;padding:14px 16px;
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   position:relative;overflow:hidden;
+  /* instrument panel floating over deep space */
+  box-shadow:0 10px 26px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 .card::before{
   content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.11), transparent);
 }
 /* Only Today-tab cards need flex-shrink protection (in the scrollable .snap) */
 #today-screen .snap > .card,
 #today-screen .snap > .coach-card,
 #today-screen .snap > .row{flex-shrink:0}
-.card::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
-}
 
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
