@@ -1,3 +1,20 @@
+# 2026-06-19 Session Update (修桌機紅 main + 神經狀態地圖 + 金球光澤 + 手指PPG示範 — #116/#117)
+
+> Founder:① 金球光澤(左→右)不夠自然細膩;② Snapshot 整合 The Yes Brain 三色神經狀態長條;③ 手指PPG補簡易示範動畫。期間桌機 session 又把 WIP merge 進 main 弄紅 CI。
+
+## What was done
+- **#116 修紅 main(桌機 session 的 progressive-scan/fusion WIP 沒編譯過)**:`apps/mobile` 首次出現 `@tenki/engine` **子路徑** import 卻無解析 → `apps/mobile/tsconfig.json` 加 `baseUrl`+`paths` 映射 `@tenki/engine[/ *]`→`packages/engine/src`;`AutonomicCard` 用了不存在的 `colors.cardBorder` → theme 補 `cardBorder`(= border);`useProgressiveScan` 讀 `FingerPrecisionResult.confidence`(無此欄)→ 改用既有 `signalQualityScore`;引擎 `EdgeScoreMetadata.sourceMix`(`BiometricSource[]`)被塞 `FusionSource` → 放寬為 `(BiometricSource|FusionSource)[]`(純 analytics、無消費者)。本機全綠:lint 0、tsc 全過、root 281 + mobile 93 測試。
+- **#116 神經狀態地圖(The Yes Brain 三色)**:`apps/preview/v6/index.html` Autonomic 頁把舊 SNS/PNS 分隔條換成**連續光譜**(非評分條):藍(陷落)·綠(調節,最寬=理想)·紅(過載),柔色 `#5B8DEF/#5CC8A1/#F26D6D`、接縫柔化;marker 在 0–100(0–30/30–70/70–100)連續移動,綠=清晰穩定、藍=起霧、紅=微弱脈動(尊重 reduce-motion);標籤 低能量/穩定/過載 + tooltip;demo marker 在綠區內輕移(「可移動、非評價」)。保留 SNS/PNS 活波。
+- **#116 金球光澤改自然**:移除 `.bb-bars::after` 扁平掃帶 + `@keyframes bbFlow` → 改在 idle rAF 用**逐根高斯行進光暈**(σ≈1.25,~3s 滑過 + ~1.3s 休息),光「穿過」長條而非掃過縫隙。
+- **#117 手指PPG示範**:`apps/preview/finger-demo.html`(`/preview/finger-demo.html`)—— 指尖滑上鏡頭→輕壓→鏡頭心跳般 PPG 發光+漣漪+Cover/Still/Pressure 依序亮。純 CSS+少量 JS;當 mobile RN placement_guide 的 web 原型。
+
+### 教訓 / 注意
+- **桌機(Antigravity)session 持續把 WIP merge 進 main 弄紅 CI**:遇到時本機 tsc/lint/test 重現、做**最小**修正(別重設計他們的功能)、轉綠即可。**mobile→engine 的 runtime(Metro)alias 可能還要他們在 metro.config 補**(我只修了 tsc/CI gate)。
+- **桌機已在做 fusion↔wearable HRV blend**(engine 端 progressive scan/fusion)= Garmin Phase 1 引擎方向,之後接上。
+- preview 用 `new Function()` 驗 inline script;CI 不涵蓋 `apps/preview/**` → 待 founder 手機驗(Autonomic 三色地圖、Energy 光澤、`/preview/finger-demo.html`)。
+
+---
+
 # 2026-06-19 Session Update (Body Battery 動畫修可見 + Garmin 真串接藍圖 — #115)
 
 > Founder(IMG_8895):能量條「還是不會動」,要我確認;另要規劃 Garmin Body Battery 真串接。
