@@ -861,3 +861,36 @@ npm start
 
 *Last updated: 2026-04-21 11:46*
 *Updated by: Antigravity (Library Session End)*
+
+## 2026-06-20 Session Update (Claude Code — Visual Direction + Color Spine + GSAP)
+
+### 背景
+Founder 要一份創意總監級的視覺優化方向書,並提到 Stitch → Claude Design → GSAP 的 AI 設計工作流。分支 `claude/ai-design-workflow-gyprba`。
+
+### 做了什麼（6 commits, Commit-Per-Todo）
+1. **視覺方向書**（對話交付,未落檔）：定調「會冷靜讀你的精密儀器,活在深空裡」;抓出五大系統破口（五種 cyan、Neutral 近白搶光、Strain 紫語義打架、gold=SECURED 沒進 token、SF Pro/Inter 雙頭 source）。
+2. **色彩脊椎收斂**（已落地,零產品風險）：
+   - `design-tokens.ts` 新增 canonical `brand`（cyanCore/cyanActive/goldSecured/spaceBg）+ 抽 `CYAN_CORE/CYAN_ACTIVE/GOLD_SECURED/SPACE_BG` consts,DRY 到 colors.primary / sparklines.rr / bottomNav.activeColor。
+   - 新建 `apps/preview/tokens.css` 單一真相源(含 rgb 三元組),first-link 進 v6 / onboarding / scan-result。
+   - 把 takeover、scan-result 殘留裸 cyan（#00F0FF/#23F3D4/#20D7F2）全指回 `--cyan-active`;rr sparkline canvas 透過 `getComputedStyle` 解析 token。
+3. **GSAP 儀式三時刻**（做了 2 個,CDN 引入 gsap 3.12.5,全程 `if(window.gsap)` 漸進增強 + 保留原 fallback）：
+   - Edge Score 揭曉（Today）：rAF → GSAP timeline,`expo.out` 收斂 + lock 呼吸。
+   - 星塵 climax 鎖定（baseline）：保留 founder 的「极速运算」flicker,只把落地升級成 `back.out` snap-settle + **gold SECURED 輝光**（`.tei-secured` class 吃 `--gold-secured`）。
+
+### 刻意沒做（留給 founder 拍板,風險/設計決策）
+- **Zone 語義重定**（Neutral 降亮、Strain 改暖警示、紫留 Premium）— 牽動 compliance copy + 既有畫面,要先一起對齊。
+- **GSAP 第三刀「進度弧呼吸」** — 現有 rAF loop 綁 finger-hold,GSAP 淨增益最低,評估性價比不足暫緩。
+- **soul-enroll / finger-demo 的電光藍 #00F0FF** — 各自內部自洽的獨立儀式頁,改招牌色屬設計決策非收斂。
+- **status-warn 琥珀 #EAB308 vs token warning #F5A623 雙頭** — 屬另一條 warning 收斂線。
+
+### 坑
+- 官方 GSAP AI Skills（`greensock/gsap-skills`）被沙箱 auto-mode 分類器擋下(外部 skill 安裝需 founder 授權)→ 改用核心 GSAP best practices 手寫,只用免費 core API（timeline/expo.out/back.out/roundProps/fromTo yoyo），無 plugin。
+- 這 container 沒裝 deps（`jest: not found`）→ 無法跑全測;改用 `tsc --noEmit -p packages/shared`（零錯,只剩 pre-existing moduleResolution deprecation）+ `node --check` + grep 確認無測試 assert 到改動值。
+
+### 下次接手點
+- 若 founder 要把方向書落檔 → 寫進 `docs/`。
+- Zone 語義重定需先做 compliance/畫面盤點再動。
+- GSAP 第三刀（進度弧呼吸）等實機看過前兩個再評估。
+
+*Last updated: 2026-06-20*
+*Updated by: Claude Code (Visual Direction Session)*
