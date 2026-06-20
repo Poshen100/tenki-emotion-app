@@ -1,3 +1,19 @@
+# 2026-06-20 Session Update (套用 andrej-karpathy-skills 四大黃金原則)
+
+> Founder:問現有專案有沒有套 andrej-karpathy-skills,沒有就裝,讓協作 AI 都讀得到。
+
+## What was done
+- **確認原本沒裝**:全 repo 無 `*karpathy*` 檔、無 `.claude/skills/`、無對應 plugin。原本只靠 CLAUDE.md/AGENTS.md/ANTIGRAVITY.md 手寫文件,四原則精神散落未正式落地。
+- **新增 skill** `.claude/skills/karpathy-engineering/SKILL.md`:四大黃金原則(Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution)完整版,帶 frontmatter(name+description)讓 **Claude Code 自動發現並套用**。刻意把每條原則接上既有硬規則(Simplicity↔禁 SVG/Redux/legacy Animated、Surgical↔不動 apps/web 與 core、Goal-Driven↔先寫複現測試再改綠),並標明**衝突時 CLAUDE.md 優先**。
+- **接進 source of truth**:`CLAUDE.md` Dev Strategy 開頭加四原則摘要 section;`AGENTS.md` Must Do 第 2 條 + Key Files 表加參照 → Antigravity / Cursor 等非 Claude Code 的協作 AI 也讀得到。
+- 2 commits(Commit-Per-Todo):`feat(skills): add karpathy-engineering skill`、`docs: wire karpathy four principles into CLAUDE.md + AGENTS.md`。已推 `claude/karpathy-skills-setup-bsyg2p`。
+
+### 教訓 / 注意
+- 安裝走「專案級設定」(copy 進 repo)而非外部 plugin/marketplace,符合 Simplicity First 且零外部依賴、零網路需求。
+- 純文件變更,CI lint/typecheck/test 不受影響。
+
+---
+
 # 2026-06-19 Session Update (修桌機紅 main + 神經狀態地圖 + 金球光澤 + 手指PPG示範 — #116/#117)
 
 > Founder:① 金球光澤(左→右)不夠自然細膩;② Snapshot 整合 The Yes Brain 三色神經狀態長條;③ 手指PPG補簡易示範動畫。期間桌機 session 又把 WIP merge 進 main 弄紅 CI。
