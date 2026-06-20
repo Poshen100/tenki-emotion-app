@@ -29,10 +29,11 @@ export const colors = {
   textTertiary: '#48484A',
 } as const;
 
+// keep in sync with @tenki/shared design-tokens brand spine (zone tones)
 export const zones = {
   clear:   { bg: '#00B4D8', text: '#FFFFFF', range: [70, 100] as const },
-  neutral: { bg: '#E5E5EA', text: '#1C1C1E', range: [40, 69] as const },
-  strain:  { bg: '#5E3A87', text: '#FFFFFF', range: [0, 39] as const },
+  neutral: { bg: '#64748B', text: '#FFFFFF', range: [40, 69] as const },
+  strain:  { bg: '#C2703D', text: '#FFFFFF', range: [0, 39] as const },
 } as const;
 
 export type ZoneName = keyof typeof zones;

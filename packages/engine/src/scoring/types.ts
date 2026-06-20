@@ -88,10 +88,12 @@ export interface EdgeZoneConfig {
 }
 
 /** Zone configurations for UI rendering. */
+// Zone tones kept in sync with @tenki/shared design-tokens brand spine
+// (Neutral slate / Strain ember); engine can't import shared (would be circular).
 export const EDGE_ZONE_CONFIGS: readonly EdgeZoneConfig[] = [
   { zone: 'clear', label: 'Clear state', color: '#00B4D8', min: 70, max: 100 },
-  { zone: 'neutral', label: 'Neutral / mixed state', color: '#E5E5EA', min: 40, max: 69 },
-  { zone: 'strain', label: 'Elevated strain', color: '#5E3A87', min: 0, max: 39 },
+  { zone: 'neutral', label: 'Neutral / mixed state', color: '#64748B', min: 40, max: 69 },
+  { zone: 'strain', label: 'Elevated strain', color: '#C2703D', min: 0, max: 39 },
 ] as const;
 
 // ─────────────────────────────────────────────

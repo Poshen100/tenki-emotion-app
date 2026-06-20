@@ -9,6 +9,7 @@
  */
 
 import type { EdgeZone, } from '../../engine/src/scoring/types';
+import { TENKI_THEME } from './design-tokens';
 
 export type { EdgeZone };
 
@@ -40,8 +41,8 @@ export const ZONE_CONFIG: readonly ZoneIndicator[] = [
   {
     zone: 'clear',
     label: 'Clear state ✅',
-    color: '#00B4D8',
-    textColor: '#FFFFFF',
+    color: TENKI_THEME.zones.clear.bg,
+    textColor: TENKI_THEME.zones.clear.text,
     min: 70,
     max: 100,
     guidance: 'Stable, focused, recovered state. You may be in a clearer state for important decisions.',
@@ -49,8 +50,8 @@ export const ZONE_CONFIG: readonly ZoneIndicator[] = [
   {
     zone: 'neutral',
     label: 'Neutral / mixed ⏸️',
-    color: '#E5E5EA',
-    textColor: '#1C1C1E',
+    color: TENKI_THEME.zones.neutral.bg,
+    textColor: TENKI_THEME.zones.neutral.text,
     min: 40,
     max: 69,
     guidance: 'Mixed signals today. Consider a brief check-in or reset if needed.',
@@ -58,8 +59,8 @@ export const ZONE_CONFIG: readonly ZoneIndicator[] = [
   {
     zone: 'strain',
     label: 'Elevated strain 🔁',
-    color: '#5E3A87',
-    textColor: '#FFFFFF',
+    color: TENKI_THEME.zones.strain.bg,
+    textColor: TENKI_THEME.zones.strain.text,
     min: 0,
     max: 39,
     guidance: 'Elevated strain detected. A reset, break, or breathing exercise may help.',
