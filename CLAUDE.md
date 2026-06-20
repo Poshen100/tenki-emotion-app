@@ -63,6 +63,16 @@ tenki-emotion-app/
 
 ## Dev Strategy
 
+### ✅ Karpathy 四大黃金原則（所有寫 code 任務的底層心法）
+> 完整版見 `.claude/skills/karpathy-engineering/SKILL.md`（Claude Code 會自動套用；其他 AI 請手動閱讀）。
+
+1. **Think Before Coding** — 動手前先講清楚假設；需求模糊就問用戶，不盲猜。
+2. **Simplicity First** — 只寫解當前問題的最少 code；不過度抽象、不亂加依賴。
+3. **Surgical Changes** — 只動該改的地方，修 bug 不順手重構/改格式。
+4. **Goal-Driven Execution** — 把任務轉成可驗證目標；修 bug 先寫複現測試再改到綠。
+
+衝突時本檔（CLAUDE.md）的硬規則優先。
+
 ### ✅ Plan Mode 優先
 任何超過單檔修改的任務先寫 plan，再開工。Plan 對應到 Todo list，Todo 對應到 commit。
 

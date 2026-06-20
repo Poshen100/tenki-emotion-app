@@ -59,13 +59,14 @@ Never claim precise dopamine measurement. Never make clinical or diagnostic stat
 ### Must Do
 
 1. Read `ANTIGRAVITY.md` before starting any work
-2. Read `task.md` for the current execution checklist
-3. Follow the v3 semantic system: use `Edge Score` (not TEI), `Zone` (not PR99), `Session` (not Trading)
-4. All user-facing copy must pass `packages/engine/src/compliance/safe-copy.ts`
-5. All new modules must include tests
-6. All sensitive data must stay on-device — never upload raw HR/HRV/RR to the cloud
-7. Use Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`
-8. Update `task.md` after completing each work item
+2. Apply the **Karpathy four golden principles** to every code change — Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution (full text: `.claude/skills/karpathy-engineering/SKILL.md`)
+3. Read `task.md` for the current execution checklist
+4. Follow the v3 semantic system: use `Edge Score` (not TEI), `Zone` (not PR99), `Session` (not Trading)
+5. All user-facing copy must pass `packages/engine/src/compliance/safe-copy.ts`
+6. All new modules must include tests
+7. All sensitive data must stay on-device — never upload raw HR/HRV/RR to the cloud
+8. Use Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`
+9. Update `task.md` after completing each work item
 
 ### Must Not Do
 
@@ -138,6 +139,7 @@ Shell: 5-tab Expo Router structure is in place and needs integration with engine
 |------|---------|
 | `ANTIGRAVITY.md` | Master blueprint — read first |
 | `AGENTS.md` | This file — AI agent context |
+| `.claude/skills/karpathy-engineering/SKILL.md` | Senior-engineer discipline (4 golden principles) |
 | `BRAND.md` | Brand lines, tone, visual identity |
 | `task.md` | Current execution checklist |
 | `MEMORY.md` | Setup and machine notes |
