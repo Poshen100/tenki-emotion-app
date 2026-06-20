@@ -1,3 +1,18 @@
+# 2026-06-20 Session Update (滑動提示回訪者看不到 — bump seen-key + ?hint=1 強制顯示 — #122)
+
+> Founder:「我沒有看到提示左右滑動」—— #121 重做的指尖提示 founder 看不到。
+
+## What was done
+- **真因(同 #113 一族)**:提示是一次性,卡在 `localStorage['tenki.snapHintSeen2']`(hint IIFE `if(getItem(SEEN)==='1') return;`)。founder 這 session 進結果頁很多次 → flag 早 = `'1'` → IIFE 在 arm 前就 early-return,新提示永不顯示。#121 改了視覺卻**沿用同一把 key** → 回訪者被永久壓制。
+- **修法(`apps/preview/v6/index.html` hint IIFE 3 行)**:① **bump seen-key** `snapHintSeen2→snapHintSeen3`(看過舊 chevron 版的人再看新指尖版一次);② 加 **`?hint=1`/`&hint=1` 強制顯示**(`force=/[?&]hint=1\b/.test(location.search)`;有參數就跳過 seen-check 且 `markSeen()` no-op,不寫入)→ 永久重測網址 `/preview/v6/?from=baseline&hint=1`,免清資料反覆驗。
+- PR #122 CI 全綠 → squash merge(`204a479`)→ branch 同步。
+
+### 教訓 / 注意
+- **一次性 UI 提示改版,務必同時 bump localStorage key**,否則回訪者(尤其反覆測試的 founder)永遠看不到新版 → 三次迭代(#112/#113/#121)都踩過。**並加 `?hint=1` 之類 force-show 參數**,讓提示類元件日後免清資料即可重測。
+- CI 不涵蓋 `apps/preview/**` → 待 founder 開 `/preview/v6/?from=baseline&hint=1` 手機驗(每次都顯示指尖提示)。
+
+---
+
 # 2026-06-20 Session Update (首訪滑動提示質感升級 — 指尖手勢 + chip 進場/光澤/磁吸 tug — #121)
 
 > Founder:把首次進結果頁的 Snapshot「滑動看更多」提示**質感再提升**(像 Fable 5);選了「指尖滑動手勢」。
