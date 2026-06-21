@@ -778,16 +778,16 @@
           float depth = clamp(p.z * 0.6 + 0.5, 0.0, 1.0);
           float lit = 0.45 + 0.55 * depth;
           float twk = 0.8 + 0.2 * sin(uTime * 3.0 + aRnd * 6.283);
-          float rim = smoothstep(0.55, 1.05, length(p.xy));
+          float rim = smoothstep(0.50, 1.05, length(p.xy));
           float band = 0.0;
           for (int i = 0; i < 3; i++) {
             float yk = -1.4 + fract(uScanY + float(i) * 0.34) * 2.8;
             band = max(band, smoothstep(0.05, 0.0, abs(p.y - yk)));
           }
-          vec3 base = mix(uColorA, uColorB, uMix) * lit * twk + uRim * rim * 0.55;
+          vec3 base = mix(uColorA, uColorB, uMix) * lit * twk + uRim * rim * 0.72;
           vec3 scan = mix(uScanCol, uScanColB, uMix);
           vColor = mix(base, scan, band * 0.9);
-          vA = (0.4 + 0.6 * depth) * (1.0 + band * 0.8);
+          vA = (0.4 + 0.6 * depth) * (1.0 + band * 0.8 + rim * 0.5);
           gl_PointSize = uSize * (1.0 / -mv.z) * (0.6 + 0.7 * depth) * (1.0 + band * 1.6 + rim * 0.4);
           gl_Position = projectionMatrix * mv;
         }`,
@@ -798,7 +798,10 @@
           float dd = q.x + q.y;
           float edge = smoothstep(0.5, 0.12, dd);
           float core = smoothstep(0.16, 0.0, dd);
-          gl_FragColor = vec4(vColor + core * 0.7, max(edge * 0.7, core) * vA);
+          float halo = smoothstep(0.5, 0.0, dd); // wide soft falloff → in-shader bloom
+          vec3 col = vColor + core * 0.7 + vColor * halo * 0.28;
+          float a = max(max(edge * 0.7, core), halo * 0.22) * vA;
+          gl_FragColor = vec4(col, a);
         }`,
     });
   }
