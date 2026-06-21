@@ -227,6 +227,10 @@
     const a = hexToRgb(c1); const b = hexToRgb(c2);
     return `rgb(${Math.round(lerp(a[0], b[0], t))},${Math.round(lerp(a[1], b[1], t))},${Math.round(lerp(a[2], b[2], t))})`;
   }
+  function withAlpha(hex, a) {
+    const [r, g, b] = hexToRgb(hex);
+    return `rgba(${r},${g},${b},${a})`;
+  }
   function accentColor(name) {
     return name === 'cyan' ? COLORS.cyan
       : name === 'mint' ? COLORS.mint
@@ -399,19 +403,53 @@
     c.restore();
   }
 
-  function drawHalo(c, cx, cy, radius, progress, color) {
+  function drawHalo(c, cx, cy, radius, progress, color, t) {
     if (progress <= 0.001) return;
-    c.save();
-    c.beginPath(); c.arc(cx, cy, radius, 0, Math.PI * 2);
-    c.strokeStyle = 'rgba(255,255,255,0.06)'; c.lineWidth = 4; c.stroke();
+    const p = clamp01(progress);
     const start = -Math.PI / 2;
-    const end = start + Math.PI * 2 * clamp01(progress);
+    const end = start + Math.PI * 2 * p;
+    const breath = 0.5 + 0.5 * Math.sin((t || 0) * 0.0018);
+    c.save();
+    c.lineCap = 'round';
+
+    // 1) instrument tick ring — filled ticks bright, unfilled dim
+    const TICKS = 60;
+    for (let i = 0; i < TICKS; i++) {
+      const ang = start + (i / TICKS) * Math.PI * 2;
+      const filled = (ang - start) <= (end - start) + 1e-3;
+      const major = i % 5 === 0;
+      const tlen = major ? 5 : 2.6;
+      const r0 = radius - tlen, r1 = radius + (major ? 2 : 0);
+      c.globalAlpha = filled ? 0.55 + 0.25 * breath : 0.10;
+      c.strokeStyle = color; c.lineWidth = major ? 1.4 : 1;
+      c.shadowColor = color; c.shadowBlur = filled ? 6 : 0;
+      c.beginPath();
+      c.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0);
+      c.lineTo(cx + Math.cos(ang) * r1, cy + Math.sin(ang) * r1);
+      c.stroke();
+    }
+
+    // 2) faint full track
+    c.globalAlpha = 1; c.shadowBlur = 0;
+    c.beginPath(); c.arc(cx, cy, radius, 0, Math.PI * 2);
+    c.strokeStyle = 'rgba(255,255,255,0.05)'; c.lineWidth = 3.5; c.stroke();
+
+    // 3) gradient progress arc — dim tail → bright leading edge
+    const grad = c.createLinearGradient(cx - radius, cy, cx + radius, cy);
+    grad.addColorStop(0, withAlpha(color, 0.25));
+    grad.addColorStop(1, color);
     c.beginPath(); c.arc(cx, cy, radius, start, end);
-    c.strokeStyle = color; c.lineWidth = 4.5; c.lineCap = 'round';
-    c.shadowColor = color; c.shadowBlur = 18; c.stroke();
-    c.beginPath();
-    c.arc(cx + Math.cos(end) * radius, cy + Math.sin(end) * radius, 3.6, 0, Math.PI * 2);
-    c.fillStyle = '#FFFFFF'; c.shadowBlur = 14; c.shadowColor = color; c.fill();
+    c.strokeStyle = grad; c.lineWidth = 4.5;
+    c.shadowColor = color; c.shadowBlur = 16 + breath * 6; c.stroke();
+
+    // 4) comet head — trailing fade + glowing core
+    const hx = cx + Math.cos(end) * radius, hy = cy + Math.sin(end) * radius;
+    const tailA = end - 0.32 * p; // short trailing wedge behind the head
+    c.beginPath(); c.arc(cx, cy, radius, tailA, end);
+    c.strokeStyle = withAlpha('#FFFFFF', 0.5); c.lineWidth = 5.5;
+    c.shadowColor = color; c.shadowBlur = 20; c.stroke();
+    c.beginPath(); c.arc(hx, hy, 4 + breath * 0.8, 0, Math.PI * 2);
+    c.fillStyle = '#FFFFFF'; c.shadowColor = color; c.shadowBlur = 16; c.fill();
     c.restore();
   }
 
@@ -453,18 +491,40 @@
     // depth order: far/dim nodes behind, near/bright nodes on top
     pts.sort((a, b) => a.z - b.z);
 
-    // 2) breathing core glow — the soul has a heart (idle only)
+    // 2) breathing core — a small volumetric sphere of light (the soul's heart).
+    //    soft glow + dense upper-left specular + lower-right inner shadow read as
+    //    a lit 3D core, not a flat disc. (idle only)
     if (idle > 0.01) {
       const breath = 0.5 + 0.5 * Math.sin(t * 0.0016);
       const cr = 30 + breath * 10;
+      c.save();
+      // soft outer glow
       const g = c.createRadialGradient(cx, cy, 0, cx, cy, cr);
       g.addColorStop(0, `rgba(130,246,255,${((0.20 + breath * 0.10) * idle).toFixed(3)})`);
       g.addColorStop(0.5, `rgba(0,240,255,${(0.09 * idle).toFixed(3)})`);
       g.addColorStop(1, 'rgba(0,240,255,0)');
-      c.save(); c.fillStyle = g;
+      c.fillStyle = g;
       c.beginPath(); c.arc(cx, cy, cr, 0, Math.PI * 2); c.fill();
+      // lower-right inner shadow → spherical roundness
+      const sx = cx + cr * 0.34, sy2 = cy + cr * 0.38;
+      const sh = c.createRadialGradient(sx, sy2, 0, sx, sy2, cr);
+      sh.addColorStop(0, `rgba(2,10,24,${(0.28 * idle).toFixed(3)})`);
+      sh.addColorStop(0.7, 'rgba(2,10,24,0)');
+      c.fillStyle = sh;
+      c.beginPath(); c.arc(cx, cy, cr, 0, Math.PI * 2); c.fill();
+      // dense specular highlight, offset upper-left → lit volume
+      const hx = cx - cr * 0.26, hy = cy - cr * 0.30;
+      const hl = c.createRadialGradient(hx, hy, 0, hx, hy, cr * 0.8);
+      hl.addColorStop(0, `rgba(212,252,255,${(0.55 * idle).toFixed(3)})`);
+      hl.addColorStop(0.5, `rgba(150,244,255,${(0.15 * idle).toFixed(3)})`);
+      hl.addColorStop(1, 'rgba(150,244,255,0)');
+      c.fillStyle = hl;
+      c.beginPath(); c.arc(hx, hy, cr * 0.8, 0, Math.PI * 2); c.fill();
       c.restore();
     }
+
+    // 2c) orbital containment ring — back half (behind the lattice)
+    if (idle > 0.02) drawSoulOrbit(c, cx, cy, t, idle, secured, false);
 
     // 3) constellation links — nearest-neighbour lattice (≤K links/node so the
     //    centre reads as a clean star map, not a cobweb; fades as it converges)
@@ -514,6 +574,10 @@
       }
       c.restore();
     }
+
+    // 4b) orbital containment ring — front half (over the lattice) + bead
+    if (idle > 0.02) drawSoulOrbit(c, cx, cy, t, idle, secured, true);
+
     if (bloom > 0.01) {
       c.save();
       const g = c.createRadialGradient(cx, cy, 0, cx, cy, 60 * bloom + 8);
@@ -619,6 +683,38 @@
     c.restore();
   }
 
+  // Faint orbital containment ring around the idle soul — signals a *bound
+  // system*, not a scatter. One fixed-tilt ellipse, depth-split (back half dim &
+  // behind the lattice, front half brighter & over it) with a single travelling
+  // bead drawn in whichever pass owns its current half. Fades with `idle`, so it
+  // dissolves as the soul converges into the core during capture.
+  function drawSoulOrbit(c, cx, cy, t, idle, secured, front) {
+    const rx = 84, ry = 30, tilt = -0.30;
+    c.save();
+    c.translate(cx, cy); c.rotate(tilt);
+    c.beginPath();
+    if (front) c.ellipse(0, 0, rx, ry, 0, 0, Math.PI);
+    else       c.ellipse(0, 0, rx, ry, 0, Math.PI, Math.PI * 2);
+    c.strokeStyle = front
+      ? `rgba(125,232,255,${(0.30 * idle).toFixed(3)})`
+      : `rgba(90,200,235,${(0.11 * idle).toFixed(3)})`;
+    c.lineWidth = front ? 1.5 : 1.0; c.lineCap = 'round';
+    c.shadowColor = mix(COLORS.cyan, COLORS.goldChampagne, secured * 0.7);
+    c.shadowBlur = front ? 8 : 3;
+    c.stroke();
+    // travelling bead — depth-scaled, owned by the half it currently sits on
+    const a = t * 0.0009;
+    const sy = Math.sin(a);
+    if ((sy >= 0) === front) {
+      const bx = Math.cos(a) * rx, byp = sy * ry;
+      const depth = sy * 0.5 + 0.5; // 0 far .. 1 near
+      c.globalAlpha = (0.4 + depth * 0.6) * idle;
+      c.beginPath(); c.arc(bx, byp, 1.6 + depth * 1.4, 0, Math.PI * 2);
+      c.fillStyle = '#CFF6FF'; c.shadowColor = COLORS.cyan; c.shadowBlur = 10; c.fill();
+    }
+    c.restore();
+  }
+
   function drawGuide(c, cx, cy, dir, color) {
     c.save();
     c.translate(cx + dir * 120, cy);
@@ -661,12 +757,14 @@
       uniforms: {
         uTime: { value: 0 }, uSize: { value: 8.5 * pr }, uScanY: { value: 0 }, uMix: { value: 0 }, uGlitch: { value: 0 },
         uColorA: { value: new THREE.Color(COLORS.cyan) }, uColorB: { value: new THREE.Color(COLORS.gold) },
-        uScanCol: { value: new THREE.Color('#FF6A00') }, uRim: { value: new THREE.Color('#9bf6ff') },
+        // Scan-band tint stays on-palette: bright cyan-white (ACTIVE) → champagne (SECURED via uMix).
+        uScanCol: { value: new THREE.Color('#CFFBFF') }, uScanColB: { value: new THREE.Color(COLORS.goldChampagne) },
+        uRim: { value: new THREE.Color('#9bf6ff') },
       },
       vertexShader: `
         attribute float aRnd;
         uniform float uTime, uSize, uScanY, uMix, uGlitch;
-        uniform vec3 uColorA, uColorB, uScanCol, uRim;
+        uniform vec3 uColorA, uColorB, uScanCol, uScanColB, uRim;
         varying vec3 vColor; varying float vA;
         float hash(float n){ return fract(sin(n) * 43758.5453); }
         void main() {
@@ -687,7 +785,8 @@
             band = max(band, smoothstep(0.05, 0.0, abs(p.y - yk)));
           }
           vec3 base = mix(uColorA, uColorB, uMix) * lit * twk + uRim * rim * 0.55;
-          vColor = mix(base, uScanCol, band * 0.9);
+          vec3 scan = mix(uScanCol, uScanColB, uMix);
+          vColor = mix(base, scan, band * 0.9);
           vA = (0.4 + 0.6 * depth) * (1.0 + band * 0.8);
           gl_PointSize = uSize * (1.0 / -mv.z) * (0.6 + 0.7 * depth) * (1.0 + band * 1.6 + rim * 0.4);
           gl_Position = projectionMatrix * mv;
@@ -1008,7 +1107,7 @@
       if (!state.started && !ph.processing) drawScanLine(ctx, cx, cy, half, accent, t);
       if (ph.processing) drawProcessingOrb(ctx, cx, cy, t);
       drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5, t);
-      drawHalo(ctx, cx, cy, half + 26, state.halo, accent);
+      drawHalo(ctx, cx, cy, half + 26, state.halo, accent, t);
       if (ph.guide !== undefined && state.halo < 0.82) drawGuide(ctx, cx, cy, ph.guide, accent);
       if (state.step === 'face_detecting' && state.mpActive) drawAlignOverlay(ctx, cx, cy, half, t);
     }

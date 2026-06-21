@@ -76,11 +76,18 @@ body{
   position:relative;
   width:min(100vw, 390px);
   height:min(100vh, 100dvh, 844px);
-  background:#000;
+  /* deep-space console backdrop — faint nebula over brand spaceBg */
+  background:
+    radial-gradient(ellipse 95% 55% at 50% 6%, rgba(0,180,216,0.10), transparent 60%),
+    radial-gradient(ellipse 85% 50% at 50% 96%, rgba(94,58,135,0.08), transparent 72%),
+    radial-gradient(ellipse 60% 45% at 82% 38%, rgba(0,150,170,0.05), transparent 60%),
+    #020617;
   border-radius:44px;
   overflow:hidden;
   box-shadow:0 0 0 2px #1a1a1a, 0 30px 80px rgba(0,0,0,0.6);
 }
+/* full-app deep-space starfield, behind every screen */
+#cosmos{position:absolute;inset:0;z-index:0;pointer-events:none}
 @media (max-width:420px){.phone{width:100%;height:100dvh;border-radius:0;box-shadow:none}}
 
 /* ═════════════════════════════════════════════════
@@ -199,6 +206,27 @@ body{
   display:flex;align-items:center;justify-content:center;
   filter:drop-shadow(0 0 30px rgba(0,180,216,0.18));
 }
+/* Cinematic bloom halo behind the ring — pulses with the breath */
+.tl-tei::before{
+  content:'';position:absolute;inset:-13%;border-radius:50%;z-index:0;pointer-events:none;
+  background:radial-gradient(circle closest-side,
+    rgba(0,180,216,0.20), rgba(0,180,216,0.05) 62%, transparent 76%);
+  filter:blur(16px);
+  animation:ringBloom 6s var(--ease-breath) infinite;
+}
+@keyframes ringBloom{0%,100%{opacity:0.55;transform:scale(0.97)}50%{opacity:1;transform:scale(1.04)}}
+/* Slow highlight sweep travelling around the ring band — a living instrument */
+.tl-tei::after{
+  content:'';position:absolute;inset:0;border-radius:50%;z-index:2;pointer-events:none;
+  background:conic-gradient(from 0deg,
+    transparent 0deg, transparent 56deg,
+    rgba(255,255,255,0.55) 86deg, transparent 124deg, transparent 360deg);
+  mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 66%, #000 68%, #000 97%, transparent 99%);
+  -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0, transparent 66%, #000 68%, #000 97%, transparent 99%);
+  mix-blend-mode:screen;opacity:0.42;
+  animation:ringSweep 9s linear infinite;
+}
+@keyframes ringSweep{to{transform:rotate(360deg)}}
 
 /* Outer ring — conic gradient */
 .ring-outer-wrap{
@@ -364,19 +392,17 @@ body{
   border-radius:18px;padding:14px 16px;
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   position:relative;overflow:hidden;
+  /* instrument panel floating over deep space */
+  box-shadow:0 10px 26px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 .card::before{
   content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.11), transparent);
 }
 /* Only Today-tab cards need flex-shrink protection (in the scrollable .snap) */
 #today-screen .snap > .card,
 #today-screen .snap > .coach-card,
 #today-screen .snap > .row{flex-shrink:0}
-.card::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
-}
 
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
@@ -1853,6 +1879,7 @@ body{
 </div>
 
 <div class="phone">
+  <canvas id="cosmos"></canvas>
   <div class="state-pill" id="statePill">Edge Score · Clear</div>
 
   <div class="screens">
@@ -2784,6 +2811,54 @@ function drawParticles(t){
 }
 window.addEventListener('resize', () => { resizeCanvas(); initParticles(); });
 setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawParticles); }, 50);
+
+// ─── Cosmos: full-app deep-space starfield (behind every screen) ───
+(function(){
+  const cv = document.getElementById('cosmos');
+  if(!cv) return;
+  const cc = cv.getContext('2d');
+  let stars = [], W = 0, H = 0;
+  function resize(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = cv.offsetWidth; H = cv.offsetHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    cc.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function init(){
+    stars = [];
+    const n = Math.round(W * H / 4200); // calm density, scales with area
+    for(let i = 0; i < n; i++){
+      const z = Math.random(); // depth: 0 far → 1 near
+      stars.push({
+        x: Math.random() * W, y: Math.random() * H, z,
+        r: 0.3 + z * 1.2,
+        base: 0.05 + z * 0.33,
+        tw: Math.random() * Math.PI * 2,
+        tws: 0.3 + Math.random() * 0.8,
+        vx: (Math.random() - 0.5) * 0.02 * (0.4 + z),
+        vy: 0.008 + z * 0.04, // gentle downward drift — floating through space
+        gold: Math.random() > 0.93, // rare warm star
+      });
+    }
+  }
+  function draw(t){
+    if(W === 0){ resize(); init(); return requestAnimationFrame(draw); }
+    cc.clearRect(0, 0, W, H);
+    for(const s of stars){
+      s.x += s.vx; s.y += s.vy;
+      if(s.y > H + 2){ s.y = -2; s.x = Math.random() * W; }
+      if(s.x < -2) s.x = W + 2; else if(s.x > W + 2) s.x = -2;
+      const a = s.base * (0.55 + 0.45 * Math.sin(t * 0.001 * s.tws + s.tw));
+      cc.beginPath();
+      cc.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      cc.fillStyle = s.gold ? `rgba(255,210,130,${a})` : `rgba(150,200,255,${a})`;
+      cc.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize', () => { resize(); init(); });
+  setTimeout(() => { resize(); init(); requestAnimationFrame(draw); }, 50);
+})();
 
 // ═════════════════════════════════════════════════
 // Hero entrance: score counter + ring reveal
