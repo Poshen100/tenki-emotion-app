@@ -504,6 +504,9 @@
       c.restore();
     }
 
+    // 2c) orbital containment ring — back half (behind the lattice)
+    if (idle > 0.02) drawSoulOrbit(c, cx, cy, t, idle, secured, false);
+
     // 3) constellation links — nearest-neighbour lattice (≤K links/node so the
     //    centre reads as a clean star map, not a cobweb; fades as it converges)
     if (idle > 0.02) {
@@ -552,6 +555,10 @@
       }
       c.restore();
     }
+
+    // 4b) orbital containment ring — front half (over the lattice) + bead
+    if (idle > 0.02) drawSoulOrbit(c, cx, cy, t, idle, secured, true);
+
     if (bloom > 0.01) {
       c.save();
       const g = c.createRadialGradient(cx, cy, 0, cx, cy, 60 * bloom + 8);
@@ -654,6 +661,38 @@
     c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2);
     c.strokeStyle = 'rgba(255,224,152,0.32)'; c.lineWidth = 1.4;
     c.shadowColor = COLORS.gold; c.shadowBlur = 8; c.stroke();
+    c.restore();
+  }
+
+  // Faint orbital containment ring around the idle soul — signals a *bound
+  // system*, not a scatter. One fixed-tilt ellipse, depth-split (back half dim &
+  // behind the lattice, front half brighter & over it) with a single travelling
+  // bead drawn in whichever pass owns its current half. Fades with `idle`, so it
+  // dissolves as the soul converges into the core during capture.
+  function drawSoulOrbit(c, cx, cy, t, idle, secured, front) {
+    const rx = 84, ry = 30, tilt = -0.30;
+    c.save();
+    c.translate(cx, cy); c.rotate(tilt);
+    c.beginPath();
+    if (front) c.ellipse(0, 0, rx, ry, 0, 0, Math.PI);
+    else       c.ellipse(0, 0, rx, ry, 0, Math.PI, Math.PI * 2);
+    c.strokeStyle = front
+      ? `rgba(125,232,255,${(0.30 * idle).toFixed(3)})`
+      : `rgba(90,200,235,${(0.11 * idle).toFixed(3)})`;
+    c.lineWidth = front ? 1.5 : 1.0; c.lineCap = 'round';
+    c.shadowColor = mix(COLORS.cyan, COLORS.goldChampagne, secured * 0.7);
+    c.shadowBlur = front ? 8 : 3;
+    c.stroke();
+    // travelling bead — depth-scaled, owned by the half it currently sits on
+    const a = t * 0.0009;
+    const sy = Math.sin(a);
+    if ((sy >= 0) === front) {
+      const bx = Math.cos(a) * rx, byp = sy * ry;
+      const depth = sy * 0.5 + 0.5; // 0 far .. 1 near
+      c.globalAlpha = (0.4 + depth * 0.6) * idle;
+      c.beginPath(); c.arc(bx, byp, 1.6 + depth * 1.4, 0, Math.PI * 2);
+      c.fillStyle = '#CFF6FF'; c.shadowColor = COLORS.cyan; c.shadowBlur = 10; c.fill();
+    }
     c.restore();
   }
 
