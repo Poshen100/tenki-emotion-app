@@ -706,21 +706,22 @@
     glow.addColorStop(1, 'rgba(255,200,94,0)');
     c.fillStyle = glow; c.beginPath(); c.arc(cx, cy, R * 1.7, 0, Math.PI * 2); c.fill();
 
-    // volumetric glass body — lit upper-left, falling to transparent at the rim
-    const body = c.createRadialGradient(lx, ly, R * 0.1, cx, cy, R * 1.04);
-    body.addColorStop(0, 'rgba(92,70,32,0.44)');
-    body.addColorStop(0.55, 'rgba(34,24,10,0.30)');
-    body.addColorStop(0.9, 'rgba(10,7,3,0.16)');
-    body.addColorStop(1, 'rgba(0,0,0,0)');
+    // volumetric glass body — strong lit upper-left → dark shadow side, edge
+    // darkened toward the rim so the sphere has a defined volume & terminator
+    const body = c.createRadialGradient(lx, ly, R * 0.05, cx, cy, R * 1.06);
+    body.addColorStop(0, 'rgba(124,94,46,0.54)');
+    body.addColorStop(0.42, 'rgba(50,36,15,0.36)');
+    body.addColorStop(0.82, 'rgba(12,8,4,0.34)');
+    body.addColorStop(1, 'rgba(0,0,0,0.10)');
     c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fillStyle = body; c.fill();
 
     // contain the interior (orbits, core, highlights) inside the glass
     c.save();
     c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.clip();
 
-    // lower-right inner shadow → spherical volume
-    const shade = c.createRadialGradient(cx + R * 0.4, cy + R * 0.45, R * 0.1, cx, cy, R);
-    shade.addColorStop(0, 'rgba(0,0,0,0.32)');
+    // lower-right inner shadow → spherical volume (deeper for stronger relief)
+    const shade = c.createRadialGradient(cx + R * 0.42, cy + R * 0.47, R * 0.1, cx, cy, R);
+    shade.addColorStop(0, 'rgba(0,0,0,0.46)');
     shade.addColorStop(0.7, 'rgba(0,0,0,0)');
     c.fillStyle = shade; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
 
@@ -737,23 +738,53 @@
 
     drawRibbons(true); drawSand(true); // near streams (in front of the core)
 
-    // specular hotspot (glossy reflection of the light)
-    const spec = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.5);
-    spec.addColorStop(0, 'rgba(255,255,255,0.5)');
-    spec.addColorStop(0.5, 'rgba(255,245,220,0.1)');
-    spec.addColorStop(1, 'rgba(255,255,255,0)');
-    c.fillStyle = spec; c.beginPath(); c.arc(lx, ly, R * 0.5, 0, Math.PI * 2); c.fill();
+    // inner ambient-occlusion ring → reads as glass thickness at the edge
+    c.save();
+    c.beginPath(); c.arc(cx, cy, R * 0.985, 0, TAU);
+    c.strokeStyle = 'rgba(0,0,0,0.30)'; c.lineWidth = R * 0.06;
+    c.stroke();
+    c.restore();
 
-    // thin glass crescent along the upper-left edge
-    c.beginPath(); c.arc(cx, cy, R * 0.84, Math.PI * 1.04, Math.PI * 1.52);
-    c.strokeStyle = 'rgba(255,255,255,0.42)'; c.lineWidth = 2.2; c.lineCap = 'round';
-    c.shadowColor = 'rgba(255,255,255,0.6)'; c.shadowBlur = 6; c.stroke();
+    // refraction glow pooling along the lower glass rim — light bent through the
+    // sphere collects at the bottom; the single strongest "this is a 3D orb" cue
+    c.save();
+    c.lineCap = 'round';
+    c.beginPath(); c.arc(cx, cy, R * 0.9, Math.PI * 0.12, Math.PI * 0.88);
+    c.strokeStyle = 'rgba(255,228,158,0.5)'; c.lineWidth = R * 0.085;
+    c.shadowColor = COLORS.gold; c.shadowBlur = R * 0.28; c.stroke();
+    // a brighter, tighter inner line of that bottom bloom
+    c.beginPath(); c.arc(cx, cy, R * 0.94, Math.PI * 0.2, Math.PI * 0.8);
+    c.strokeStyle = 'rgba(255,248,224,0.45)'; c.lineWidth = R * 0.03;
+    c.shadowBlur = R * 0.12; c.stroke();
+    c.restore();
+
+    // crisp specular hotspot (glossy reflection) — tight & bright = glassy sphere
+    const spec = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.34);
+    spec.addColorStop(0, 'rgba(255,255,255,0.85)');
+    spec.addColorStop(0.4, 'rgba(255,248,228,0.22)');
+    spec.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = spec; c.beginPath(); c.arc(lx, ly, R * 0.34, 0, Math.PI * 2); c.fill();
+    // tiny sharp catch-light dot for extra gloss
+    c.beginPath(); c.arc(lx - R * 0.04, ly - R * 0.04, R * 0.05, 0, TAU);
+    c.fillStyle = 'rgba(255,255,255,0.95)'; c.fill();
+
+    // bright glass crescent along the upper-left edge
+    c.beginPath(); c.arc(cx, cy, R * 0.86, Math.PI * 1.02, Math.PI * 1.54);
+    c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 2.4 * (R / 76); c.lineCap = 'round';
+    c.shadowColor = 'rgba(255,255,255,0.7)'; c.shadowBlur = 7; c.stroke();
     c.restore(); // end clip
 
-    // fresnel rim (bright glass edge), drawn over the clip boundary
+    // fresnel rim (bright glass edge), drawn over the clip boundary — defines
+    // the spherical silhouette against the dark background
+    c.save();
     c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2);
-    c.strokeStyle = 'rgba(255,224,152,0.32)'; c.lineWidth = 1.4;
-    c.shadowColor = COLORS.gold; c.shadowBlur = 8; c.stroke();
+    c.strokeStyle = 'rgba(255,224,152,0.42)'; c.lineWidth = 1.6 * (R / 76);
+    c.shadowColor = COLORS.gold; c.shadowBlur = 9; c.stroke();
+    // brighter rim along the lit/bottom edge (Fresnel is strongest where light grazes)
+    c.beginPath(); c.arc(cx, cy, R, Math.PI * 0.10, Math.PI * 0.92);
+    c.strokeStyle = 'rgba(255,240,200,0.6)'; c.lineWidth = 2.0 * (R / 76); c.lineCap = 'round';
+    c.shadowBlur = 12; c.stroke();
+    c.restore();
     c.restore();
   }
 
