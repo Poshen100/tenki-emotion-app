@@ -76,6 +76,11 @@
         isTakeoverActive = true;
         takeover.classList.add('active');
 
+        // Smooth big→small scale-in as the stardust ball becomes visible
+        if (window.TENKI_STARDUST && window.TENKI_STARDUST.playEntrance) {
+            window.TENKI_STARDUST.playEntrance();
+        }
+
         // Start camera and FaceMesh tracking
         startCameraAndFaceSync();
 
