@@ -276,6 +276,165 @@
     #hud-reticle .r-tick { position: absolute; top: 50%; width: 11px; height: 1px; background: var(--cyan-glow); box-shadow: 0 0 6px var(--cyan-glow); }
     #hud-reticle .r-tick.l { left: -2px; } #hud-reticle .r-tick.r { right: -2px; }
     @keyframes hud-spin { to { transform: rotate(360deg); } }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       ONBOARDING — pre-camera intro (Establish · Why · Secure)
+       Sits above #stage; hands off to the scan FSM via TENKI_ENROLL.begin().
+       ═══════════════════════════════════════════════════════════════════ */
+    #onboarding {
+      position: absolute; inset: 0; z-index: 10;
+      display: flex; flex-direction: column;
+      max-width: 460px; margin: 0 auto;
+      overflow: hidden;
+      background:
+        radial-gradient(135% 95% at 50% -18%, rgba(46,28,104,.92), transparent 58%),
+        radial-gradient(95% 65% at 50% 116%, rgba(18,30,72,.7), transparent 55%),
+        #05060c;
+      transition: opacity .55s cubic-bezier(.22,.61,.36,1);
+    }
+    #onboarding.gone { opacity: 0; pointer-events: none; }
+    /* faint starfield baked into the overlay base (covers the scan layer behind) */
+    #onboarding::before {
+      content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: .8;
+      background-image:
+        radial-gradient(1.4px 1.4px at 16% 22%, rgba(255,255,255,.85), transparent),
+        radial-gradient(1.2px 1.2px at 72% 14%, rgba(200,225,255,.7), transparent),
+        radial-gradient(1px 1px at 44% 38%, rgba(255,255,255,.6), transparent),
+        radial-gradient(1.3px 1.3px at 86% 54%, rgba(180,220,255,.7), transparent),
+        radial-gradient(1px 1px at 28% 64%, rgba(255,255,255,.55), transparent),
+        radial-gradient(1.5px 1.5px at 62% 78%, rgba(220,235,255,.7), transparent),
+        radial-gradient(1px 1px at 12% 86%, rgba(255,255,255,.5), transparent),
+        radial-gradient(1.1px 1.1px at 92% 88%, rgba(200,225,255,.6), transparent);
+    }
+    /* soft drifting nebula behind the panels (starfield twinkles through) */
+    .ob-nebula { position: absolute; border-radius: 50%; filter: blur(48px); pointer-events: none; opacity: .55; }
+    .ob-neb-1 { width: 340px; height: 340px; top: -60px; left: -80px;
+      background: radial-gradient(circle, rgba(123,97,255,.50), transparent 70%);
+      animation: ob-drift-a 22s ease-in-out infinite; }
+    .ob-neb-2 { width: 300px; height: 300px; bottom: 40px; right: -90px;
+      background: radial-gradient(circle, rgba(51,153,255,.34), transparent 70%);
+      animation: ob-drift-b 26s ease-in-out infinite; }
+    .ob-neb-3 { width: 260px; height: 260px; top: 38%; left: 40%;
+      background: radial-gradient(circle, rgba(0,240,255,.16), transparent 70%);
+      animation: ob-drift-a 30s ease-in-out infinite reverse; }
+    @keyframes ob-drift-a { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(26px,34px) scale(1.08);} }
+    @keyframes ob-drift-b { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(-30px,-22px) scale(1.1);} }
+
+    /* panels stack; one active at a time, cross-fade + slide */
+    .ob-panel {
+      position: absolute; inset: 0; z-index: 2;
+      display: flex; flex-direction: column;
+      padding: max(54px, env(safe-area-inset-top)) 30px max(30px, env(safe-area-inset-bottom));
+      opacity: 0; transform: translateY(22px);
+      pointer-events: none; visibility: hidden;
+      transition: opacity .5s cubic-bezier(.22,.61,.36,1), transform .5s cubic-bezier(.22,.61,.36,1), visibility 0s linear .5s;
+    }
+    .ob-panel.active {
+      opacity: 1; transform: translateY(0);
+      pointer-events: auto; visibility: visible;
+      transition: opacity .55s cubic-bezier(.22,.61,.36,1) .05s, transform .55s cubic-bezier(.22,.61,.36,1) .05s, visibility 0s;
+    }
+    /* staggered entrance for the active panel's rows */
+    .ob-panel.active [data-rise] { animation: ob-rise .6s cubic-bezier(.22,.61,.36,1) both; }
+    .ob-panel.active [data-rise="1"] { animation-delay: .08s; }
+    .ob-panel.active [data-rise="2"] { animation-delay: .16s; }
+    .ob-panel.active [data-rise="3"] { animation-delay: .24s; }
+    .ob-panel.active [data-rise="4"] { animation-delay: .32s; }
+    @keyframes ob-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+    .ob-spacer { flex: 1; }
+    .ob-title {
+      font-size: 32px; font-weight: 800; letter-spacing: -.6px; line-height: 1.12;
+    }
+    .ob-body {
+      margin-top: 16px; font-size: 14.5px; font-weight: 400; line-height: 1.55;
+      color: var(--text-secondary); max-width: 340px;
+    }
+    /* primary gradient CTA (shared) */
+    .ob-cta {
+      width: 100%; padding: 17px 24px; border: none; border-radius: 18px;
+      font-family: inherit; font-size: 16.5px; font-weight: 700; color: #021018;
+      background: linear-gradient(120deg, #56E8FF, #4DA6FF 55%, #7B61FF);
+      box-shadow: 0 10px 34px rgba(0,170,255,.34), inset 0 1px 0 rgba(255,255,255,.35);
+      cursor: pointer; transition: transform .15s ease, box-shadow .3s ease;
+    }
+    .ob-cta:active { transform: scale(.975); box-shadow: 0 6px 20px rgba(0,170,255,.28); }
+    .ob-link {
+      display: block; margin-top: 18px; text-align: center;
+      font-size: 13.5px; font-weight: 500; color: var(--electric-blue);
+      background: none; border: none; cursor: pointer; font-family: inherit;
+    }
+
+    /* ── Panel 1: Establish ── */
+    #ob-establish { text-align: left; }
+    #ob-establish .ob-title { margin-top: 4px; }
+    .ob-chip {
+      display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+      margin-top: 22px; padding: 9px 16px; border-radius: 999px;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.10);
+      font-size: 13px; font-weight: 600; letter-spacing: .3px; color: var(--text-primary);
+    }
+    .ob-chip svg { width: 15px; height: 15px; color: var(--cyan-glow); }
+
+    /* ── Panel 2: Why Baseline Matters ── */
+    #ob-why { align-items: center; text-align: center; }
+    .ob-wordmark {
+      font-size: 22px; font-weight: 300; letter-spacing: 8px; padding-left: 8px;
+      color: var(--text-primary);
+    }
+    .ob-kicker {
+      margin-top: 14px; font-size: 17px; font-weight: 600; letter-spacing: .2px;
+      color: var(--text-primary);
+    }
+    .ob-card {
+      position: relative; margin-top: 26px; width: 100%; max-width: 340px;
+      border-radius: 26px; padding: 8px 24px 28px;
+      background: linear-gradient(180deg, rgba(20,26,52,.66), rgba(8,11,24,.72));
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 24px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
+      overflow: hidden;
+    }
+    #resonance { display: block; width: 240px; height: 130px; margin: 6px auto 4px; }
+    .ob-card-title { font-size: 19px; font-weight: 700; letter-spacing: -.2px; }
+    .ob-card-body {
+      margin-top: 12px; font-size: 13.5px; line-height: 1.55; color: var(--text-secondary);
+      min-height: 126px; transition: opacity .3s ease;
+    }
+    .ob-dots { display: flex; gap: 9px; justify-content: center; margin-top: 22px; }
+    .ob-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: rgba(255,255,255,.22); transition: all .35s ease;
+    }
+    .ob-dot.on { width: 22px; border-radius: 999px;
+      background: linear-gradient(90deg, var(--cyan-glow), var(--electric-blue));
+      box-shadow: 0 0 12px rgba(0,200,255,.6); }
+
+    /* ── Panel 3: Secure Access ── */
+    #ob-secure { align-items: center; text-align: center; }
+    .ob-shield {
+      position: relative; margin: 8px auto 6px; width: 116px; height: 132px;
+      animation: ob-shield-breathe 4.2s ease-in-out infinite;
+    }
+    .ob-shield svg { width: 100%; height: 100%; overflow: visible; }
+    @keyframes ob-shield-breathe {
+      0%,100% { filter: drop-shadow(0 0 14px rgba(243,169,42,.34)); transform: translateY(0); }
+      50%     { filter: drop-shadow(0 0 26px rgba(243,169,42,.6)); transform: translateY(-3px); }
+    }
+    #ob-secure .ob-title { margin-top: 14px; font-size: 27px; }
+    .ob-points { list-style: none; margin: 26px 0 0; padding: 0; width: 100%; max-width: 330px; text-align: left; }
+    .ob-points li {
+      display: flex; align-items: flex-start; gap: 13px;
+      padding: 13px 0; border-top: 1px solid rgba(255,255,255,.06);
+    }
+    .ob-points li:first-child { border-top: none; }
+    .ob-num {
+      flex: none; width: 26px; height: 26px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #1a1205;
+      background: linear-gradient(140deg, var(--gold-champagne), var(--gold-resonance));
+      box-shadow: 0 0 12px rgba(243,169,42,.4);
+    }
+    .ob-pt-text { font-size: 14px; line-height: 1.45; color: var(--text-secondary); }
+    .ob-pt-text b { color: var(--text-primary); font-weight: 600; }
   </style>
 </head>
 <body>
@@ -327,8 +486,76 @@
         <span class="hud-kv">Mode&nbsp;<b>Ghost</b></span>
       </div>
     </div>
+
+    <!-- ── Pre-camera onboarding: Establish · Why · Secure ── -->
+    <div id="onboarding">
+      <div class="ob-nebula ob-neb-1"></div>
+      <div class="ob-nebula ob-neb-2"></div>
+      <div class="ob-nebula ob-neb-3"></div>
+
+      <!-- Panel 1 -->
+      <section class="ob-panel active" id="ob-establish" data-ob="establish">
+        <div class="ob-spacer"></div>
+        <h1 class="ob-title" data-rise="1">Establish Your<br>Baseline</h1>
+        <p class="ob-body" data-rise="2">To calibrate precisely to you, TENKI learns your unique facial features. Your data is encrypted and stored only on this device.</p>
+        <div class="ob-chip" data-rise="3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>
+          60 Seconds
+        </div>
+        <div class="ob-spacer"></div>
+        <button class="ob-cta" data-rise="4" id="ob-begin-cal">Begin Calibration</button>
+      </section>
+
+      <!-- Panel 2 -->
+      <section class="ob-panel" id="ob-why" data-ob="why">
+        <div class="ob-wordmark" data-rise="1">TENKI</div>
+        <div class="ob-kicker" data-rise="2">Why Baseline Matters</div>
+        <div class="ob-card" data-rise="3">
+          <canvas id="resonance" width="480" height="260" aria-hidden="true"></canvas>
+          <h2 class="ob-card-title" id="ob-card-title">Personal Resonance</h2>
+          <p class="ob-card-body" id="ob-card-body">Your unique baseline acts as a reference point, letting TENKI detect even subtle shifts in your patterns over time — for a clearer, more personal read on where you stand, while keeping your privacy first.</p>
+        </div>
+        <div class="ob-dots" data-rise="4">
+          <span class="ob-dot on"></span><span class="ob-dot"></span><span class="ob-dot"></span>
+        </div>
+        <div class="ob-spacer"></div>
+        <button class="ob-cta" id="ob-next">Next</button>
+      </section>
+
+      <!-- Panel 3 -->
+      <section class="ob-panel" id="ob-secure" data-ob="secure">
+        <div class="ob-spacer"></div>
+        <div class="ob-shield" data-rise="1">
+          <svg viewBox="0 0 116 132" fill="none">
+            <defs>
+              <linearGradient id="shieldStroke" x1="0" y1="0" x2="116" y2="132" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#FFE9B0"/>
+                <stop offset="1" stop-color="#F3A92A"/>
+              </linearGradient>
+            </defs>
+            <!-- faceted two-tone interior (light from the left) -->
+            <path d="M58 4 L10 22 V64 C10 96 30 118 58 128 Z" fill="rgba(243,169,42,.20)"/>
+            <path d="M58 4 L106 22 V64 C106 96 86 118 58 128 Z" fill="rgba(243,169,42,.07)"/>
+            <!-- outline + center divide -->
+            <path d="M58 4 L106 22 V64 C106 96 86 118 58 128 C30 118 10 96 10 64 V22 Z"
+                  fill="none" stroke="url(#shieldStroke)" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M58 4 V128" stroke="url(#shieldStroke)" stroke-width="1.4" stroke-opacity=".5"/>
+          </svg>
+        </div>
+        <h1 class="ob-title" data-rise="2">Secure Access Required</h1>
+        <ul class="ob-points" data-rise="3">
+          <li><span class="ob-num">1</span><span class="ob-pt-text"><b>On-Device Processing.</b> Your face data never leaves this phone.</span></li>
+          <li><span class="ob-num">2</span><span class="ob-pt-text"><b>Baseline Calibration.</b> Used only to calculate your personal resonance.</span></li>
+          <li><span class="ob-num">3</span><span class="ob-pt-text"><b>Privacy First.</b> No photos or videos are ever saved.</span></li>
+        </ul>
+        <div class="ob-spacer"></div>
+        <button class="ob-cta" data-rise="4" id="ob-enable-cam">Enable Camera</button>
+        <button class="ob-link" id="ob-privacy">Learn more about our privacy</button>
+      </section>
+    </div>
   </div>
 
   <script src="soul-enroll.js"></script>
+  <script src="soul-onboarding.js"></script>
 </body>
 </html>
