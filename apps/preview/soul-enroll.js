@@ -595,9 +595,9 @@
   // lower-right inner shadow, a fresnel rim, a specular hotspot + glass crescent;
   // the three orbit rings are depth-sorted (far arcs dim & behind the core, near
   // arcs bright & over it) with depth-scaled travelling beads.
-  function drawProcessingOrb(c, cx, cy, t) {
+  function drawProcessingOrb(c, cx, cy, t, opts = {}) {
     c.save();
-    const R = 76;
+    const R = opts.R || 76;
     const lx = cx - R * 0.4, ly = cy - R * 0.45; // virtual light source (upper-left)
     const rings = [[70, 24], [61, 32], [52, 17]];
     const ringRot = (k) => t * 0.00055 * (k + 1) + k * 2.1;
@@ -1108,13 +1108,20 @@
       ctx.fill();
       ctx.restore();
 
-      if (!show3d) drawParticles(ctx, cx, cy, t); // 3D model replaces the 2D mesh during capture
-      if (!state.started && !ph.processing) drawScanLine(ctx, cx, cy, half, accent, t);
-      if (ph.processing) drawProcessingOrb(ctx, cx, cy, t);
-      drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5, t);
-      drawHalo(ctx, cx, cy, half + 26, state.halo, accent, t);
-      if (ph.guide !== undefined && state.halo < 0.82) drawGuide(ctx, cx, cy, ph.guide, accent);
-      if (state.step === 'face_detecting' && state.mpActive) drawAlignOverlay(ctx, cx, cy, half, t);
+      const coreHeld = ph.confirmed || ph.keepCore;
+      if (coreHeld) {
+        // result screens ("Baseline locked." / "established"): a single enlarged
+        // 3D gold-sand sphere — no scale ring, corner brackets or stardust lattice.
+        drawProcessingOrb(ctx, cx, cy, t, { R: 98 });
+      } else {
+        if (!show3d) drawParticles(ctx, cx, cy, t); // 3D model replaces the 2D mesh during capture
+        if (!state.started && !ph.processing) drawScanLine(ctx, cx, cy, half, accent, t);
+        if (ph.processing) drawProcessingOrb(ctx, cx, cy, t);
+        drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5, t);
+        drawHalo(ctx, cx, cy, half + 26, state.halo, accent, t);
+        if (ph.guide !== undefined && state.halo < 0.82) drawGuide(ctx, cx, cy, ph.guide, accent);
+        if (state.step === 'face_detecting' && state.mpActive) drawAlignOverlay(ctx, cx, cy, half, t);
+      }
     }
     renderModel3D(t);
     state.raf = requestAnimationFrame(render);
