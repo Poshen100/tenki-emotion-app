@@ -130,11 +130,12 @@
     }
     #model3d.on { opacity: 1; }
     #model3d canvas { display: block; }
-    /* ── live front-camera layer (sits inside the scan frame, behind the canvas) ── */
+    /* ── live front-camera layer (circular lens, inscribed in the gold scan ring) ── */
     #cam-wrap {
       position: absolute; z-index: 1;
-      width: 172px; height: 172px;
-      border-radius: 38px; overflow: hidden;
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 214px; height: 214px;
+      border-radius: 50%; overflow: hidden;
       opacity: 0; transition: opacity .6s ease;
       background: #05070f;
       box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
