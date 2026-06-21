@@ -528,19 +528,18 @@
         <div class="ob-shield" data-rise="1">
           <svg viewBox="0 0 116 132" fill="none">
             <defs>
-              <linearGradient id="shieldFill" x1="0" y1="0" x2="116" y2="132" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="rgba(243,169,42,.20)"/>
-                <stop offset="1" stop-color="rgba(243,169,42,.04)"/>
-              </linearGradient>
               <linearGradient id="shieldStroke" x1="0" y1="0" x2="116" y2="132" gradientUnits="userSpaceOnUse">
                 <stop offset="0" stop-color="#FFE9B0"/>
                 <stop offset="1" stop-color="#F3A92A"/>
               </linearGradient>
             </defs>
+            <!-- faceted two-tone interior (light from the left) -->
+            <path d="M58 4 L10 22 V64 C10 96 30 118 58 128 Z" fill="rgba(243,169,42,.20)"/>
+            <path d="M58 4 L106 22 V64 C106 96 86 118 58 128 Z" fill="rgba(243,169,42,.07)"/>
+            <!-- outline + center divide -->
             <path d="M58 4 L106 22 V64 C106 96 86 118 58 128 C30 118 10 96 10 64 V22 Z"
-                  fill="url(#shieldFill)" stroke="url(#shieldStroke)" stroke-width="2.5" stroke-linejoin="round"/>
-            <path d="M58 4 V128" stroke="url(#shieldStroke)" stroke-width="1.4" stroke-opacity=".55"/>
-            <path d="M40 64 l13 13 24 -26" stroke="#FFE9B0" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  fill="none" stroke="url(#shieldStroke)" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M58 4 V128" stroke="url(#shieldStroke)" stroke-width="1.4" stroke-opacity=".5"/>
           </svg>
         </div>
         <h1 class="ob-title" data-rise="2">Secure Access Required</h1>
