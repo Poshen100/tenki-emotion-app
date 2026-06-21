@@ -608,9 +608,9 @@
     // — a "dragon" with a bright sweeping head + long fading tail — heavily dusted
     // with fine sand sparkles, so the interior reads as flowing sand, not dots.
     const ORBITS = [
-      { rr: R * 0.94, tilt: 1.15, prec: 0.00038, spin: 0.00085, head: 0.00150, grit: 200 },
-      { rr: R * 0.82, tilt: -0.78, prec: 0.00052, spin: -0.00070, head: 0.00205, grit: 170 },
-      { rr: R * 0.66, tilt: 0.42, prec: 0.00070, spin: 0.00110, head: -0.00255, grit: 140 },
+      { rr: R * 0.94, tilt: 1.15, prec: 0.00038, spin: 0.00085, head: 0.00400, grit: 200 },
+      { rr: R * 0.82, tilt: -0.78, prec: 0.00052, spin: -0.00070, head: 0.00560, grit: 170 },
+      { rr: R * 0.66, tilt: 0.42, prec: 0.00070, spin: 0.00110, head: -0.00700, grit: 140 },
     ];
     const SEG = 112; // samples per ribbon → a continuous stream, not discrete beads
     // project every orbit once: screen polyline + depth + the sweeping head angle.
