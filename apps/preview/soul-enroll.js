@@ -604,46 +604,85 @@
     // ── flowing gold sand: 3 true-3D grain rings that tumble like a gyroscope ──
     const TAU = Math.PI * 2;
     const hash = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
+    // Three intertwined 3D orbits. Each is a dense, continuous luminous gold ribbon
+    // — a "dragon" with a bright sweeping head + long fading tail — heavily dusted
+    // with fine sand sparkles, so the interior reads as flowing sand, not dots.
     const ORBITS = [
-      { rr: R * 0.92, tilt: 1.15, prec: 0.00040, spin: 0.00090, drift: 0.00120, grains: 70 },
-      { rr: R * 0.78, tilt: -0.70, prec: 0.00055, spin: -0.00075, drift: 0.00150, grains: 58 },
-      { rr: R * 0.64, tilt: 0.45, prec: 0.00070, spin: 0.00110, drift: -0.00180, grains: 46 },
+      { rr: R * 0.94, tilt: 1.15, prec: 0.00038, spin: 0.00085, head: 0.00150, grit: 150 },
+      { rr: R * 0.82, tilt: -0.78, prec: 0.00052, spin: -0.00070, head: 0.00205, grit: 128 },
+      { rr: R * 0.66, tilt: 0.42, prec: 0.00070, spin: 0.00110, head: -0.00255, grit: 104 },
     ];
-    // build every grain once per frame, projecting its 3D orbit point to screen.
-    // depth d (0 far → 1 near) drives size/brightness/blur so the ball reads volumetric.
-    const sand = [];
-    for (let k = 0; k < ORBITS.length; k++) {
-      const o = ORBITS[k];
-      const ax = o.tilt + Math.sin(t * o.prec + k * 2.1) * 0.55; // tumbling tilt (precession)
-      const ay = t * o.spin + k * 1.7;                            // spin about the vertical
+    const SEG = 112; // samples per ribbon → a continuous stream, not discrete beads
+    // project every orbit once: screen polyline + depth + the sweeping head angle.
+    const O = ORBITS.map((o, k) => {
+      const ax = o.tilt + Math.sin(t * o.prec + k * 2.1) * 0.6; // tumbling tilt (precession)
+      const ay = t * o.spin + k * 1.7;                          // spin about the vertical
       const ca = Math.cos(ax), sa = Math.sin(ax), cb = Math.cos(ay), sb = Math.sin(ay);
-      for (let i = 0; i < o.grains; i++) {
-        const h = hash(k * 91.7 + i * 13.3);
-        const phi = (i / o.grains) * TAU + t * o.drift + h * 0.25;
-        const x0 = Math.cos(phi) * o.rr, y0 = Math.sin(phi) * o.rr; // circle in its own plane
-        const y1 = y0 * ca, z1 = y0 * sa;                           // rotate about X (tilt)
-        const x2 = x0 * cb + z1 * sb, z2 = -x0 * sb + z1 * cb;      // rotate about Y (spin)
-        const d = (z2 / o.rr) * 0.5 + 0.5;
-        const jr = (h - 0.5) * R * 0.05;                            // radial granularity (sand)
-        const ang = Math.atan2(y1, x2);
-        sand.push({
-          x: cx + x2 + Math.cos(ang) * jr, y: cy + y1 + Math.sin(ang) * jr, z: z2, d,
-          size: (0.4 + d * 1.6) * (R / 76),
-          alpha: 0.16 + d * 0.74,
-          tw: 0.7 + 0.3 * Math.sin(t * 0.006 + h * 6.28),
-        });
+      const project = (phi) => {
+        const x0 = Math.cos(phi) * o.rr, y0 = Math.sin(phi) * o.rr;
+        const y1 = y0 * ca, z1 = y0 * sa;                       // rotate about X (tilt)
+        const x2 = x0 * cb + z1 * sb, z2 = -x0 * sb + z1 * cb;  // rotate about Y (spin)
+        return { x: cx + x2, y: cy + y1, z: z2 };
+      };
+      const pts = [];
+      for (let i = 0; i <= SEG; i++) { const phi = (i / SEG) * TAU; const p = project(phi); p.phi = phi; pts.push(p); }
+      const dir = Math.sign(o.head) || 1;
+      const head = ((t * o.head) % TAU + TAU) % TAU;
+      // comet brightness: 1 at the head, fading along the tail behind the motion
+      const comet = (phi) => Math.exp(-(((dir * (head - phi)) % TAU + TAU) % TAU) * 0.8);
+      return { o, pts, project, comet };
+    });
+
+    // continuous ribbon body for one depth side (back = behind the core)
+    const drawRibbons = (front) => {
+      c.save();
+      c.lineCap = 'round'; c.lineJoin = 'round';
+      c.shadowColor = COLORS.gold; c.shadowBlur = front ? 12 : 4;
+      for (const { o, pts, comet } of O) {
+        for (let i = 0; i < SEG; i++) {
+          const p = pts[i];
+          if ((p.z >= 0) !== front) continue;
+          const q = pts[i + 1];
+          const d = (p.z / o.rr) * 0.5 + 0.5;
+          const ci = comet(p.phi);
+          const a = (0.16 + ci * 0.85) * (front ? 0.55 + 0.45 * d : 0.20 + 0.18 * d);
+          if (a < 0.012) continue;
+          c.globalAlpha = clamp01(a);
+          c.lineWidth = (1.0 + d * 2.2 + ci * 2.6) * (R / 76);
+          // white-hot at the dragon head, gold along the body, deep amber in the tail
+          c.strokeStyle = ci > 0.6 ? '#FFFBEF' : ci > 0.25 ? '#FFE6A6' : COLORS.gold;
+          c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); c.stroke();
+        }
       }
-    }
-    const drawGrains = (front) => {
-      for (const g of sand) {
-        if (front ? g.z < 0 : g.z >= 0) continue;
-        c.globalAlpha = clamp01(g.alpha * g.tw);
-        // whiter & hotter toward the viewer, deep gold at the back
-        c.fillStyle = g.d > 0.6 ? '#FFF4D8' : g.d > 0.35 ? COLORS.gold : '#E0962E';
-        c.shadowColor = COLORS.gold; c.shadowBlur = (front ? 6 : 3) + g.d * 9;
-        c.beginPath(); c.arc(g.x, g.y, g.size, 0, TAU); c.fill();
+      c.restore();
+    };
+
+    // dense fine sand sparkles riding each ribbon → granular flowing texture
+    const drawDust = (front) => {
+      c.save();
+      c.shadowColor = COLORS.gold;
+      for (const { o, project, comet } of O) {
+        for (let i = 0; i < o.grit; i++) {
+          const h = hash(o.rr * 7.3 + i * 13.3);
+          const phi = h * TAU + t * (o.head * (0.7 + h * 0.7)); // ride the stream at varied speed
+          const p = project(phi);
+          if ((p.z >= 0) !== front) continue;
+          const d = (p.z / o.rr) * 0.5 + 0.5;
+          const ci = comet(phi);
+          const tw = 0.6 + 0.4 * Math.sin(t * 0.008 + h * 6.28);
+          const a = (0.12 + ci * 0.8) * (front ? 0.6 + 0.4 * d : 0.24) * tw;
+          if (a < 0.02) continue;
+          const jr = (hash(i * 3.1 + o.rr) - 0.5) * R * 0.08; // radial granularity
+          const ang = Math.atan2(p.y - cy, p.x - cx);
+          c.globalAlpha = clamp01(a);
+          c.fillStyle = ci > 0.5 ? '#FFF8E6' : COLORS.gold;
+          c.shadowBlur = 3 + d * 7;
+          c.beginPath();
+          c.arc(p.x + Math.cos(ang) * jr, p.y + Math.sin(ang) * jr, (0.5 + d * 1.25) * (R / 76), 0, TAU);
+          c.fill();
+        }
       }
-      c.globalAlpha = 1;
+      c.globalAlpha = 1; c.restore();
     };
 
     // outer bloom behind the glass
@@ -670,7 +709,7 @@
     shade.addColorStop(0.7, 'rgba(0,0,0,0)');
     c.fillStyle = shade; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
 
-    drawGrains(false); // far sand (behind the core)
+    drawRibbons(false); drawDust(false); // far streams (behind the core)
 
     // hot core
     const coreR = R * 0.42;
@@ -681,7 +720,7 @@
     core.addColorStop(1, 'rgba(255,196,90,0)');
     c.beginPath(); c.arc(cx, cy, coreR, 0, Math.PI * 2); c.fillStyle = core; c.fill();
 
-    drawGrains(true); // near sand (in front of the core)
+    drawRibbons(true); drawDust(true); // near streams (in front of the core)
 
     // specular hotspot (glossy reflection of the light)
     const spec = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.5);
