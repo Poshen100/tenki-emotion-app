@@ -608,9 +608,9 @@
     // — a "dragon" with a bright sweeping head + long fading tail — heavily dusted
     // with fine sand sparkles, so the interior reads as flowing sand, not dots.
     const ORBITS = [
-      { rr: R * 0.94, tilt: 1.15, prec: 0.00038, spin: 0.00085, head: 0.00150, grit: 150 },
-      { rr: R * 0.82, tilt: -0.78, prec: 0.00052, spin: -0.00070, head: 0.00205, grit: 128 },
-      { rr: R * 0.66, tilt: 0.42, prec: 0.00070, spin: 0.00110, head: -0.00255, grit: 104 },
+      { rr: R * 0.94, tilt: 1.15, prec: 0.00038, spin: 0.00085, head: 0.00150, grit: 200 },
+      { rr: R * 0.82, tilt: -0.78, prec: 0.00052, spin: -0.00070, head: 0.00205, grit: 170 },
+      { rr: R * 0.66, tilt: 0.42, prec: 0.00070, spin: 0.00110, head: -0.00255, grit: 140 },
     ];
     const SEG = 112; // samples per ribbon → a continuous stream, not discrete beads
     // project every orbit once: screen polyline + depth + the sweeping head angle.
@@ -645,7 +645,7 @@
           const q = pts[i + 1];
           const d = (p.z / o.rr) * 0.5 + 0.5;
           const ci = comet(p.phi);
-          const a = (0.16 + ci * 0.85) * (front ? 0.55 + 0.45 * d : 0.20 + 0.18 * d);
+          const a = (0.11 + ci * 0.70) * (front ? 0.55 + 0.45 * d : 0.20 + 0.18 * d);
           if (a < 0.012) continue;
           c.globalAlpha = clamp01(a);
           c.lineWidth = (1.0 + d * 2.2 + ci * 2.6) * (R / 76);
@@ -657,29 +657,44 @@
       c.restore();
     };
 
-    // dense fine sand sparkles riding each ribbon → granular flowing texture
-    const drawDust = (front) => {
+    // dense sand streaming along each ribbon → a flowing river of gold, not dots.
+    // Each grain is a tangential motion-streak inside a centre-bright "sand tube",
+    // with per-grain speed turbulence so the stream visibly flows.
+    const EPS = 0.06; // small Δφ → local tangent (flow direction)
+    const drawSand = (front) => {
       c.save();
+      c.lineCap = 'round';
       c.shadowColor = COLORS.gold;
       for (const { o, project, comet } of O) {
         for (let i = 0; i < o.grit; i++) {
           const h = hash(o.rr * 7.3 + i * 13.3);
-          const phi = h * TAU + t * (o.head * (0.7 + h * 0.7)); // ride the stream at varied speed
+          const h2 = hash(i * 3.1 + o.rr * 2.7);
+          const spd = 0.5 + h * 1.2;                 // wider turbulence: 0.5–1.7×
+          const phi = h * TAU + t * (o.head * spd);
           const p = project(phi);
           if ((p.z >= 0) !== front) continue;
+          const q = project(phi + EPS);
+          let tx = q.x - p.x, ty = q.y - p.y;
+          const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl; // unit tangent
+          const nx = -ty, ny = tx;                                // screen normal
           const d = (p.z / o.rr) * 0.5 + 0.5;
           const ci = comet(phi);
           const tw = 0.6 + 0.4 * Math.sin(t * 0.008 + h * 6.28);
-          const a = (0.12 + ci * 0.8) * (front ? 0.6 + 0.4 * d : 0.24) * tw;
+          const a = (0.14 + ci * 0.82) * (front ? 0.6 + 0.4 * d : 0.26) * tw;
           if (a < 0.02) continue;
-          const jr = (hash(i * 3.1 + o.rr) - 0.5) * R * 0.08; // radial granularity
-          const ang = Math.atan2(p.y - cy, p.x - cx);
-          c.globalAlpha = clamp01(a);
-          c.fillStyle = ci > 0.5 ? '#FFF8E6' : COLORS.gold;
-          c.shadowBlur = 3 + d * 7;
+          // cross-section spread → a tube of sand: bright centre, faint edges
+          const off = (h2 - 0.5) * 2;                             // -1..1
+          const spread = off * R * 0.12 * (1 - 0.4 * Math.abs(off));
+          const gx = p.x + nx * spread, gy = p.y + ny * spread;
+          const len = (1.4 + d * 3.4 + spd * 1.6) * (R / 76);     // streak = flow
+          c.globalAlpha = clamp01(a * (1 - 0.45 * Math.abs(off)));
+          c.lineWidth = (0.4 + d * 0.9) * (R / 76);
+          c.strokeStyle = ci > 0.5 ? '#FFF8E6' : COLORS.gold;
+          c.shadowBlur = 2.5 + d * 6;
           c.beginPath();
-          c.arc(p.x + Math.cos(ang) * jr, p.y + Math.sin(ang) * jr, (0.5 + d * 1.25) * (R / 76), 0, TAU);
-          c.fill();
+          c.moveTo(gx - tx * len * 0.5, gy - ty * len * 0.5);
+          c.lineTo(gx + tx * len * 0.5, gy + ty * len * 0.5);
+          c.stroke();
         }
       }
       c.globalAlpha = 1; c.restore();
@@ -709,7 +724,7 @@
     shade.addColorStop(0.7, 'rgba(0,0,0,0)');
     c.fillStyle = shade; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
 
-    drawRibbons(false); drawDust(false); // far streams (behind the core)
+    drawRibbons(false); drawSand(false); // far streams (behind the core)
 
     // hot core
     const coreR = R * 0.42;
@@ -720,7 +735,7 @@
     core.addColorStop(1, 'rgba(255,196,90,0)');
     c.beginPath(); c.arc(cx, cy, coreR, 0, Math.PI * 2); c.fillStyle = core; c.fill();
 
-    drawRibbons(true); drawDust(true); // near streams (in front of the core)
+    drawRibbons(true); drawSand(true); // near streams (in front of the core)
 
     // specular hotspot (glossy reflection of the light)
     const spec = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.5);
