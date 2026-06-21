@@ -1101,7 +1101,9 @@
       const half = 92;
 
       ctx.save();
-      roundedRect(ctx, cx - half, cy - half, half * 2, half * 2, 40);
+      // circular dark backing — matches the round camera lens + gold ring (118)
+      ctx.beginPath();
+      ctx.arc(cx, cy, 114, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(10,16,30,0.30)';
       ctx.fill();
       ctx.restore();
