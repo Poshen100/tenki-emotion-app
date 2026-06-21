@@ -491,16 +491,35 @@
     // depth order: far/dim nodes behind, near/bright nodes on top
     pts.sort((a, b) => a.z - b.z);
 
-    // 2) breathing core glow — the soul has a heart (idle only)
+    // 2) breathing core — a small volumetric sphere of light (the soul's heart).
+    //    soft glow + dense upper-left specular + lower-right inner shadow read as
+    //    a lit 3D core, not a flat disc. (idle only)
     if (idle > 0.01) {
       const breath = 0.5 + 0.5 * Math.sin(t * 0.0016);
       const cr = 30 + breath * 10;
+      c.save();
+      // soft outer glow
       const g = c.createRadialGradient(cx, cy, 0, cx, cy, cr);
       g.addColorStop(0, `rgba(130,246,255,${((0.20 + breath * 0.10) * idle).toFixed(3)})`);
       g.addColorStop(0.5, `rgba(0,240,255,${(0.09 * idle).toFixed(3)})`);
       g.addColorStop(1, 'rgba(0,240,255,0)');
-      c.save(); c.fillStyle = g;
+      c.fillStyle = g;
       c.beginPath(); c.arc(cx, cy, cr, 0, Math.PI * 2); c.fill();
+      // lower-right inner shadow → spherical roundness
+      const sx = cx + cr * 0.34, sy2 = cy + cr * 0.38;
+      const sh = c.createRadialGradient(sx, sy2, 0, sx, sy2, cr);
+      sh.addColorStop(0, `rgba(2,10,24,${(0.28 * idle).toFixed(3)})`);
+      sh.addColorStop(0.7, 'rgba(2,10,24,0)');
+      c.fillStyle = sh;
+      c.beginPath(); c.arc(cx, cy, cr, 0, Math.PI * 2); c.fill();
+      // dense specular highlight, offset upper-left → lit volume
+      const hx = cx - cr * 0.26, hy = cy - cr * 0.30;
+      const hl = c.createRadialGradient(hx, hy, 0, hx, hy, cr * 0.8);
+      hl.addColorStop(0, `rgba(212,252,255,${(0.55 * idle).toFixed(3)})`);
+      hl.addColorStop(0.5, `rgba(150,244,255,${(0.15 * idle).toFixed(3)})`);
+      hl.addColorStop(1, 'rgba(150,244,255,0)');
+      c.fillStyle = hl;
+      c.beginPath(); c.arc(hx, hy, cr * 0.8, 0, Math.PI * 2); c.fill();
       c.restore();
     }
 
