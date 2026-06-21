@@ -590,28 +590,60 @@
     }
   }
 
-  // gold orbital sphere for the "Securing your unique baseline…" processing screen.
-  // Volumetric glass look: single virtual light (upper-left) drives a lit body, a
-  // lower-right inner shadow, a fresnel rim, a specular hotspot + glass crescent;
-  // the three orbit rings are depth-sorted (far arcs dim & behind the core, near
-  // arcs bright & over it) with depth-scaled travelling beads.
-  function drawProcessingOrb(c, cx, cy, t) {
+  // gold orbital sphere — the processing "Securing…" screen and the baseline
+  // result screens (enlarged via opts.R). Volumetric glass look: single virtual
+  // light (upper-left) drives a lit body, a lower-right inner shadow, a fresnel
+  // rim, a specular hotspot + glass crescent. The interior is three true-3D rings
+  // of gold "sand" grains that precess like a gyroscope; grains are depth-split
+  // around the hot core (far grains dim & behind it, near grains hot & in front).
+  function drawProcessingOrb(c, cx, cy, t, opts = {}) {
     c.save();
-    const R = 76;
+    const R = opts.R || 76;
     const lx = cx - R * 0.4, ly = cy - R * 0.45; // virtual light source (upper-left)
-    const rings = [[70, 24], [61, 32], [52, 17]];
-    const ringRot = (k) => t * 0.00055 * (k + 1) + k * 2.1;
-    const drawArc = (k, front) => {
-      const [rx, ry] = rings[k];
-      c.save(); c.translate(cx, cy); c.rotate(ringRot(k));
-      c.beginPath();
-      if (front) c.ellipse(0, 0, rx, ry, 0, 0, Math.PI);
-      else c.ellipse(0, 0, rx, ry, 0, Math.PI, Math.PI * 2);
-      c.strokeStyle = front ? `rgba(255,212,128,${0.62 - k * 0.08})` : `rgba(255,190,90,${0.18 - k * 0.03})`;
-      c.lineWidth = front ? 2.4 : 1.3;
-      c.lineCap = 'round'; c.shadowColor = COLORS.gold; c.shadowBlur = front ? 14 : 6;
-      c.stroke();
-      c.restore();
+
+    // ── flowing gold sand: 3 true-3D grain rings that tumble like a gyroscope ──
+    const TAU = Math.PI * 2;
+    const hash = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
+    const ORBITS = [
+      { rr: R * 0.92, tilt: 1.15, prec: 0.00040, spin: 0.00090, drift: 0.00120, grains: 70 },
+      { rr: R * 0.78, tilt: -0.70, prec: 0.00055, spin: -0.00075, drift: 0.00150, grains: 58 },
+      { rr: R * 0.64, tilt: 0.45, prec: 0.00070, spin: 0.00110, drift: -0.00180, grains: 46 },
+    ];
+    // build every grain once per frame, projecting its 3D orbit point to screen.
+    // depth d (0 far → 1 near) drives size/brightness/blur so the ball reads volumetric.
+    const sand = [];
+    for (let k = 0; k < ORBITS.length; k++) {
+      const o = ORBITS[k];
+      const ax = o.tilt + Math.sin(t * o.prec + k * 2.1) * 0.55; // tumbling tilt (precession)
+      const ay = t * o.spin + k * 1.7;                            // spin about the vertical
+      const ca = Math.cos(ax), sa = Math.sin(ax), cb = Math.cos(ay), sb = Math.sin(ay);
+      for (let i = 0; i < o.grains; i++) {
+        const h = hash(k * 91.7 + i * 13.3);
+        const phi = (i / o.grains) * TAU + t * o.drift + h * 0.25;
+        const x0 = Math.cos(phi) * o.rr, y0 = Math.sin(phi) * o.rr; // circle in its own plane
+        const y1 = y0 * ca, z1 = y0 * sa;                           // rotate about X (tilt)
+        const x2 = x0 * cb + z1 * sb, z2 = -x0 * sb + z1 * cb;      // rotate about Y (spin)
+        const d = (z2 / o.rr) * 0.5 + 0.5;
+        const jr = (h - 0.5) * R * 0.05;                            // radial granularity (sand)
+        const ang = Math.atan2(y1, x2);
+        sand.push({
+          x: cx + x2 + Math.cos(ang) * jr, y: cy + y1 + Math.sin(ang) * jr, z: z2, d,
+          size: (0.4 + d * 1.6) * (R / 76),
+          alpha: 0.16 + d * 0.74,
+          tw: 0.7 + 0.3 * Math.sin(t * 0.006 + h * 6.28),
+        });
+      }
+    }
+    const drawGrains = (front) => {
+      for (const g of sand) {
+        if (front ? g.z < 0 : g.z >= 0) continue;
+        c.globalAlpha = clamp01(g.alpha * g.tw);
+        // whiter & hotter toward the viewer, deep gold at the back
+        c.fillStyle = g.d > 0.6 ? '#FFF4D8' : g.d > 0.35 ? COLORS.gold : '#E0962E';
+        c.shadowColor = COLORS.gold; c.shadowBlur = (front ? 6 : 3) + g.d * 9;
+        c.beginPath(); c.arc(g.x, g.y, g.size, 0, TAU); c.fill();
+      }
+      c.globalAlpha = 1;
     };
 
     // outer bloom behind the glass
@@ -638,30 +670,18 @@
     shade.addColorStop(0.7, 'rgba(0,0,0,0)');
     c.fillStyle = shade; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
 
-    for (let k = 0; k < 3; k++) drawArc(k, false); // far arcs (behind core)
+    drawGrains(false); // far sand (behind the core)
 
     // hot core
-    const core = c.createRadialGradient(cx, cy, 0, cx, cy, 30);
+    const coreR = R * 0.42;
+    const core = c.createRadialGradient(cx, cy, 0, cx, cy, coreR);
     core.addColorStop(0, 'rgba(255,255,246,0.98)');
     core.addColorStop(0.35, 'rgba(255,236,180,0.85)');
     core.addColorStop(0.7, 'rgba(255,196,90,0.42)');
     core.addColorStop(1, 'rgba(255,196,90,0)');
-    c.beginPath(); c.arc(cx, cy, 30, 0, Math.PI * 2); c.fillStyle = core; c.fill();
+    c.beginPath(); c.arc(cx, cy, coreR, 0, Math.PI * 2); c.fillStyle = core; c.fill();
 
-    for (let k = 0; k < 3; k++) drawArc(k, true); // near arcs (over core)
-
-    // travelling beads, scaled/faded by orbit depth (front brighter & larger)
-    for (let k = 0; k < 3; k++) {
-      const [rx, ry] = rings[k];
-      const a = t * 0.0019 * (k + 1.4);
-      c.save(); c.translate(cx, cy); c.rotate(ringRot(k));
-      const bx = Math.cos(a) * rx, by = Math.sin(a) * ry;
-      const depth = (by / ry) * 0.5 + 0.5; // 0 = far, 1 = near
-      c.globalAlpha = 0.45 + depth * 0.55;
-      c.beginPath(); c.arc(bx, by, 2.2 + depth * 1.6, 0, Math.PI * 2);
-      c.fillStyle = '#FFF6E2'; c.shadowBlur = 12; c.shadowColor = COLORS.gold; c.fill();
-      c.restore();
-    }
+    drawGrains(true); // near sand (in front of the core)
 
     // specular hotspot (glossy reflection of the light)
     const spec = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.5);
@@ -1108,13 +1128,20 @@
       ctx.fill();
       ctx.restore();
 
-      if (!show3d) drawParticles(ctx, cx, cy, t); // 3D model replaces the 2D mesh during capture
-      if (!state.started && !ph.processing) drawScanLine(ctx, cx, cy, half, accent, t);
-      if (ph.processing) drawProcessingOrb(ctx, cx, cy, t);
-      drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5, t);
-      drawHalo(ctx, cx, cy, half + 26, state.halo, accent, t);
-      if (ph.guide !== undefined && state.halo < 0.82) drawGuide(ctx, cx, cy, ph.guide, accent);
-      if (state.step === 'face_detecting' && state.mpActive) drawAlignOverlay(ctx, cx, cy, half, t);
+      const coreHeld = ph.confirmed || ph.keepCore;
+      if (coreHeld) {
+        // result screens ("Baseline locked." / "established"): a single enlarged
+        // 3D gold-sand sphere — no scale ring, corner brackets or stardust lattice.
+        drawProcessingOrb(ctx, cx, cy, t, { R: 98 });
+      } else {
+        if (!show3d) drawParticles(ctx, cx, cy, t); // 3D model replaces the 2D mesh during capture
+        if (!state.started && !ph.processing) drawScanLine(ctx, cx, cy, half, accent, t);
+        if (ph.processing) drawProcessingOrb(ctx, cx, cy, t);
+        drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5, t);
+        drawHalo(ctx, cx, cy, half + 26, state.halo, accent, t);
+        if (ph.guide !== undefined && state.halo < 0.82) drawGuide(ctx, cx, cy, ph.guide, accent);
+        if (state.step === 'face_detecting' && state.mpActive) drawAlignOverlay(ctx, cx, cy, half, t);
+      }
     }
     renderModel3D(t);
     state.raf = requestAnimationFrame(render);
