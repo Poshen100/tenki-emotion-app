@@ -617,9 +617,9 @@
     // — a "dragon" with a bright sweeping head + long fading tail — heavily dusted
     // with fine sand sparkles, so the interior reads as flowing sand, not dots.
     const ORBITS = [
-      { rr: R * 0.94, tilt: 1.15, prec: 0.00038, spin: 0.00085, head: 0.00400, grit: 200 },
-      { rr: R * 0.82, tilt: -0.78, prec: 0.00052, spin: -0.00070, head: 0.00560, grit: 170 },
-      { rr: R * 0.66, tilt: 0.42, prec: 0.00070, spin: 0.00110, head: -0.00700, grit: 140 },
+      { rr: R * 0.94, tilt: 1.15, prec: 0.00038, spin: 0.00085, head: 0.00400, grit: 260 },
+      { rr: R * 0.82, tilt: -0.78, prec: 0.00052, spin: -0.00070, head: 0.00560, grit: 220 },
+      { rr: R * 0.66, tilt: 0.42, prec: 0.00070, spin: 0.00110, head: -0.00700, grit: 180 },
     ];
     const SEG = 112; // samples per ribbon → a continuous stream, not discrete beads
     // project every orbit once: screen polyline + depth + the sweeping head angle.
@@ -638,7 +638,7 @@
       const dir = Math.sign(o.head) || 1;
       const head = ((t * o.head) % TAU + TAU) % TAU;
       // comet brightness: 1 at the head, fading along the tail behind the motion
-      const comet = (phi) => Math.exp(-(((dir * (head - phi)) % TAU + TAU) % TAU) * 0.8);
+      const comet = (phi) => Math.exp(-(((dir * (head - phi)) % TAU + TAU) % TAU) * 0.5);
       return { o, pts, project, comet };
     });
 
@@ -654,10 +654,10 @@
           const q = pts[i + 1];
           const d = (p.z / o.rr) * 0.5 + 0.5;
           const ci = comet(p.phi);
-          const a = (0.11 + ci * 0.70) * (front ? 0.55 + 0.45 * d : 0.20 + 0.18 * d);
+          const a = (0.16 + ci * 0.85) * (front ? 0.55 + 0.45 * d : 0.20 + 0.18 * d);
           if (a < 0.012) continue;
           c.globalAlpha = clamp01(a);
-          c.lineWidth = (1.0 + d * 2.2 + ci * 2.6) * (R / 76);
+          c.lineWidth = (1.3 + d * 2.6 + ci * 3.0) * (R / 76);
           // white-hot at the dragon head, gold along the body, deep amber in the tail
           c.strokeStyle = ci > 0.6 ? '#FFFBEF' : ci > 0.25 ? '#FFE6A6' : COLORS.gold;
           c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); c.stroke();
@@ -689,13 +689,13 @@
           const d = (p.z / o.rr) * 0.5 + 0.5;
           const ci = comet(phi);
           const tw = 0.6 + 0.4 * Math.sin(t * 0.008 + h * 6.28);
-          const a = (0.14 + ci * 0.82) * (front ? 0.6 + 0.4 * d : 0.26) * tw;
+          const a = (0.16 + ci * 0.88) * (front ? 0.6 + 0.4 * d : 0.26) * tw;
           if (a < 0.02) continue;
           // cross-section spread → a tube of sand: bright centre, faint edges
           const off = (h2 - 0.5) * 2;                             // -1..1
           const spread = off * R * 0.12 * (1 - 0.4 * Math.abs(off));
           const gx = p.x + nx * spread, gy = p.y + ny * spread;
-          const len = (1.4 + d * 3.4 + spd * 1.6) * (R / 76);     // streak = flow
+          const len = (2.4 + d * 5.2 + spd * 2.6) * (R / 76);     // long streak = flowing ribbon
           c.globalAlpha = clamp01(a * (1 - 0.45 * Math.abs(off)));
           c.lineWidth = (0.4 + d * 0.9) * (R / 76);
           c.strokeStyle = ci > 0.5 ? '#FFF8E6' : COLORS.gold;
