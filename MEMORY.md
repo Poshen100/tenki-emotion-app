@@ -1,3 +1,25 @@
+# 2026-06-22 Session Update (金沙球對齊 IMG_8437 + 建 headless orb-tuner 回饋迴圈 — #142)
+
+> Founder:把 Soul Scan「Securing your unique baseline…」金沙球**調到跟目標圖 IMG_8437 一致**;確認 IMG_8437 是目標(實機還沒到位),要動三塊:①金沙軌道/拖尾 ②輝光/色調 ③玻璃殼/反光。
+
+## What was done
+- **釐清渲染來源(關鍵)**:這顆球**不是** three.js / 不是 v6 `stardust.js`,而是 `apps/preview/soul-enroll.js` 的 **`drawProcessingOrb()`**(Canvas 2D,純程式),掛在 enrollment `processing` 步驟 + 兩個結束畫面(`R:98`)。IMG_8437 一直是它的對標圖(`afcd160/5338e02/18b3635` commit 皆寫 align IMG_8437)。
+- **建 headless 回饋迴圈(`scripts/orb-tuner/`)** 解決「盲調」:`harness.html`(設 `__ORB_HARNESS__` 旗標→載 soul-enroll.js→只取 `window.TENKI_ORB`、不啟動 app/相機)+ `shoot.mjs`(Playwright headless 多幀 R=76/98/150 截圖)+ `reference.png`(=IMG_8437)。`soul-enroll.js` 底部加極小 guard hook(僅旗標下生效,生產 no-op)。
+- **三塊調參(只動 `drawProcessingOrb`)**:
+  - 金沙/拖尾:每條軌道加螢幕旋轉 `roll` 讓環交錯成團(原本三條共面 → 扁平土星環)+ 加第 4 條軌道 + grit 加密 + comet 衰減 0.5→0.38(拖尾更長更連續)+ ribbon/sand 加亮加粗。
+  - 輝光/色調:外暈 alpha 0.22→0.34、半徑 1.7R→1.85R;核 R*0.42→0.46 更熱更白金。
+  - 玻璃/反光:柔化 fresnel 邊緣(0.42→0.26)+ 柔化高光(R*0.34→0.40, 0.9→0.72)讓沙主導。
+- 4 commits(Commit-Per-Todo):`chore(preview): rebuild headless orb-tuner feedback loop` / `feat(preview): match gold-sand trails…` / `…bloom & tone…` / `…glass shell & reflection…`。PR #142 CI 全綠 → merge `main`(`f6be96a`)→ Vercel 部署。
+
+### 教訓 / 注意
+- **下次改「金沙球/Securing 幕」直接找 `apps/preview/soul-enroll.js` 的 `drawProcessingOrb()`**(599 起);別誤觸 v6 `stardust.js`(那是另一顆 three.js 星塵球)。
+- **headless orb-tuner 可重用**:`node scripts/orb-tuner/shoot.mjs` → `scripts/orb-tuner/out/*.png`(已 gitignore)。Playwright 全域裝在 `/opt/node22/...`,chromium 本體需 `npx playwright install chromium`(本環境網路可開);ESM 用絕對路徑 import playwright。
+- **扁平土星環 vs 纏繞金結** 的差別在軌道平面:只繞 X 傾斜+Y 自旋 → 投影都成水平橢圓;加 per-orbit 螢幕 `roll` 才會交錯成團。
+- 渲染是 **Chromium proxy**,iOS Safari Canvas 2D 漸層/shadowBlur 可能微差 → 最終仍以 founder 實機為準(`…/preview/soul-enroll.html` 走到 processing 幕)。
+- `apps/preview/**` 與 `scripts/**` 都不在 `biome.json` includes(只含 packages/domain/apps/mobile)→ 本次改動不進 CI lint/typecheck/test,靠 `node --check` 把關。
+
+---
+
 # 2026-06-20 Session Update (首訪滑動提示質感升級 — 指尖手勢 + chip 進場/光澤/磁吸 tug — #121)
 
 > Founder:把首次進結果頁的 Snapshot「滑動看更多」提示**質感再提升**(像 Fable 5);選了「指尖滑動手勢」。
