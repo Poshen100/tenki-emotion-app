@@ -824,11 +824,11 @@
 
     // crisp specular hotspot (glossy reflection of the key light) — tight & bright,
     // rides the light spot and brightens with the shimmer = a live glassy sphere
-    const spec = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.34);
-    spec.addColorStop(0, 'rgba(255,255,255,' + (0.9 * shimmer).toFixed(3) + ')');
-    spec.addColorStop(0.4, 'rgba(255,248,228,0.22)');
+    const spec = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.40);
+    spec.addColorStop(0, 'rgba(255,255,255,' + (0.72 * shimmer).toFixed(3) + ')');
+    spec.addColorStop(0.4, 'rgba(255,248,228,0.20)');
     spec.addColorStop(1, 'rgba(255,255,255,0)');
-    c.fillStyle = spec; c.beginPath(); c.arc(lx, ly, R * 0.34, 0, Math.PI * 2); c.fill();
+    c.fillStyle = spec; c.beginPath(); c.arc(lx, ly, R * 0.40, 0, Math.PI * 2); c.fill();
     // tiny sharp catch-light dot, just rim-ward of the hotspot, for extra gloss
     c.beginPath(); c.arc(lx + ux * R * 0.05, ly + uy * R * 0.05, R * 0.05, 0, TAU);
     c.fillStyle = 'rgba(255,255,255,0.95)'; c.fill();
@@ -843,12 +843,12 @@
     // the spherical silhouette against the dark background
     c.save();
     c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2);
-    c.strokeStyle = 'rgba(255,224,152,0.42)'; c.lineWidth = 1.6 * (R / 76);
-    c.shadowColor = COLORS.gold; c.shadowBlur = 9; c.stroke();
+    c.strokeStyle = 'rgba(255,224,152,0.26)'; c.lineWidth = 1.2 * (R / 76);
+    c.shadowColor = COLORS.gold; c.shadowBlur = 8; c.stroke();
     // brighter rim where the moving light grazes the edge (Fresnel follows the light)
     c.beginPath(); c.arc(cx, cy, R, lang - 0.42 * Math.PI, lang + 0.42 * Math.PI);
-    c.strokeStyle = 'rgba(255,240,200,0.6)'; c.lineWidth = 2.0 * (R / 76); c.lineCap = 'round';
-    c.shadowBlur = 12; c.stroke();
+    c.strokeStyle = 'rgba(255,240,200,0.42)'; c.lineWidth = 1.6 * (R / 76); c.lineCap = 'round';
+    c.shadowBlur = 11; c.stroke();
     c.restore();
     c.restore();
   }
