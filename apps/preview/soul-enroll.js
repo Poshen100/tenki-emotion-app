@@ -599,7 +599,17 @@
   function drawProcessingOrb(c, cx, cy, t, opts = {}) {
     c.save();
     const R = opts.R || 76;
-    const lx = cx - R * 0.4, ly = cy - R * 0.45; // virtual light source (upper-left)
+    // ── dynamic key light: orbits slowly so the travelling highlight + terminator
+    // sculpt the crystal sphere's volume in motion. Upper-biased so the light never
+    // sits straight below (which reads unnatural for glass). ──
+    const lightT = t * 0.00072;                  // ~8.7s per orbit
+    const Lx = Math.cos(lightT), Ly = Math.sin(lightT);
+    const lx = cx + Lx * R * 0.5;
+    const ly = cy + (Ly * 0.7 - 0.28) * R * 0.5; // biased to the upper hemisphere
+    const ldx = lx - cx, ldy = ly - cy, llen = Math.hypot(ldx, ldy) || 1;
+    const ux = ldx / llen, uy = ldy / llen;      // unit light direction (centre→light)
+    const lang = Math.atan2(uy, ux);
+    const shimmer = 0.85 + 0.15 * Math.sin(lightT * 2.0); // reflections breathe
 
     // ── flowing gold sand: 3 true-3D grain rings that tumble like a gyroscope ──
     const TAU = Math.PI * 2;
@@ -719,8 +729,8 @@
     c.save();
     c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.clip();
 
-    // lower-right inner shadow → spherical volume (deeper for stronger relief)
-    const shade = c.createRadialGradient(cx + R * 0.42, cy + R * 0.47, R * 0.1, cx, cy, R);
+    // inner shadow opposite the key light → a terminator that sweeps with the light
+    const shade = c.createRadialGradient(cx - ux * R * 0.44, cy - uy * R * 0.44, R * 0.1, cx, cy, R);
     shade.addColorStop(0, 'rgba(0,0,0,0.46)');
     shade.addColorStop(0.7, 'rgba(0,0,0,0)');
     c.fillStyle = shade; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
@@ -745,31 +755,45 @@
     c.stroke();
     c.restore();
 
-    // refraction glow pooling along the lower glass rim — light bent through the
-    // sphere collects at the bottom; the single strongest "this is a 3D orb" cue
+    // refraction caustic — light bent through the sphere emerges on the side
+    // OPPOSITE the key light, so this bright pool sweeps round as the light moves;
+    // the single strongest "this is a 3D crystal orb" cue. Brightness breathes.
+    const rca = lang + Math.PI;
     c.save();
     c.lineCap = 'round';
-    c.beginPath(); c.arc(cx, cy, R * 0.9, Math.PI * 0.12, Math.PI * 0.88);
+    c.globalAlpha = shimmer;
+    c.beginPath(); c.arc(cx, cy, R * 0.9, rca - 0.38 * Math.PI, rca + 0.38 * Math.PI);
     c.strokeStyle = 'rgba(255,228,158,0.5)'; c.lineWidth = R * 0.085;
     c.shadowColor = COLORS.gold; c.shadowBlur = R * 0.28; c.stroke();
-    // a brighter, tighter inner line of that bottom bloom
-    c.beginPath(); c.arc(cx, cy, R * 0.94, Math.PI * 0.2, Math.PI * 0.8);
+    // a brighter, tighter inner line of that caustic
+    c.beginPath(); c.arc(cx, cy, R * 0.94, rca - 0.30 * Math.PI, rca + 0.30 * Math.PI);
     c.strokeStyle = 'rgba(255,248,224,0.45)'; c.lineWidth = R * 0.03;
     c.shadowBlur = R * 0.12; c.stroke();
+    c.globalAlpha = 1;
     c.restore();
 
-    // crisp specular hotspot (glossy reflection) — tight & bright = glassy sphere
+    // secondary fill reflection — softer, from a slowly COUNTER-moving direction;
+    // its interplay with the key light reads as a turning crystal (主光 + 反光)
+    const fa = -lightT * 0.6 + 2.1;
+    const fxs = cx + Math.cos(fa) * R * 0.52, fys = cy + Math.sin(fa) * R * 0.52;
+    const fill = c.createRadialGradient(fxs, fys, 0, fxs, fys, R * 0.42);
+    fill.addColorStop(0, 'rgba(255,243,214,' + (0.18 * shimmer).toFixed(3) + ')');
+    fill.addColorStop(1, 'rgba(255,243,214,0)');
+    c.fillStyle = fill; c.beginPath(); c.arc(fxs, fys, R * 0.42, 0, TAU); c.fill();
+
+    // crisp specular hotspot (glossy reflection of the key light) — tight & bright,
+    // rides the light spot and brightens with the shimmer = a live glassy sphere
     const spec = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.34);
-    spec.addColorStop(0, 'rgba(255,255,255,0.85)');
+    spec.addColorStop(0, 'rgba(255,255,255,' + (0.9 * shimmer).toFixed(3) + ')');
     spec.addColorStop(0.4, 'rgba(255,248,228,0.22)');
     spec.addColorStop(1, 'rgba(255,255,255,0)');
     c.fillStyle = spec; c.beginPath(); c.arc(lx, ly, R * 0.34, 0, Math.PI * 2); c.fill();
-    // tiny sharp catch-light dot for extra gloss
-    c.beginPath(); c.arc(lx - R * 0.04, ly - R * 0.04, R * 0.05, 0, TAU);
+    // tiny sharp catch-light dot, just rim-ward of the hotspot, for extra gloss
+    c.beginPath(); c.arc(lx + ux * R * 0.05, ly + uy * R * 0.05, R * 0.05, 0, TAU);
     c.fillStyle = 'rgba(255,255,255,0.95)'; c.fill();
 
-    // bright glass crescent along the upper-left edge
-    c.beginPath(); c.arc(cx, cy, R * 0.86, Math.PI * 1.02, Math.PI * 1.54);
+    // bright glass crescent on the lit rim — follows the key light around
+    c.beginPath(); c.arc(cx, cy, R * 0.86, lang - 0.30, lang + 0.30);
     c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 2.4 * (R / 76); c.lineCap = 'round';
     c.shadowColor = 'rgba(255,255,255,0.7)'; c.shadowBlur = 7; c.stroke();
     c.restore(); // end clip
@@ -780,8 +804,8 @@
     c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2);
     c.strokeStyle = 'rgba(255,224,152,0.42)'; c.lineWidth = 1.6 * (R / 76);
     c.shadowColor = COLORS.gold; c.shadowBlur = 9; c.stroke();
-    // brighter rim along the lit/bottom edge (Fresnel is strongest where light grazes)
-    c.beginPath(); c.arc(cx, cy, R, Math.PI * 0.10, Math.PI * 0.92);
+    // brighter rim where the moving light grazes the edge (Fresnel follows the light)
+    c.beginPath(); c.arc(cx, cy, R, lang - 0.42 * Math.PI, lang + 0.42 * Math.PI);
     c.strokeStyle = 'rgba(255,240,200,0.6)'; c.lineWidth = 2.0 * (R / 76); c.lineCap = 'round';
     c.shadowBlur = 12; c.stroke();
     c.restore();
