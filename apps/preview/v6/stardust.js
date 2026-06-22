@@ -31,6 +31,7 @@
     var animFrame = null;
     var running = false;
     var contextLost = false;
+    var lostTimer = null;     // watchdog: rebuild if a lost context never restores
     var lastDriftT = -1;      // time-based drift throttle (seconds)
     var entranceStart = -1;   // big→small scale-in start time (seconds); <0 = idle
     var clock = new THREE.Clock();
@@ -201,19 +202,52 @@
         e.preventDefault();
         contextLost = true;
         stop();
-        console.warn('[TENKI stardust] WebGL context lost — awaiting restore');
+        // Watchdog: some mobile browsers never fire 'restored' after an OOM loss,
+        // which would leave the ball frozen forever — rebuild ourselves if so.
+        if (lostTimer) clearTimeout(lostTimer);
+        lostTimer = setTimeout(function () { if (contextLost) rebuild(); }, 2500);
+        console.warn('[TENKI stardust] WebGL context lost — awaiting restore/rebuild');
     }
 
     function onContextRestored() {
-        contextLost = false;
-        // Force GPU-side resources to re-upload from retained CPU data on next render.
-        if (cloud && cloud.geometry) {
-            cloud.geometry.getAttribute('position').needsUpdate = true;
-            cloud.geometry.getAttribute('color').needsUpdate = true;
+        if (lostTimer) { clearTimeout(lostTimer); lostTimer = null; }
+        // Full rebuild (fresh renderer + scene) — guarantees recovery regardless of
+        // whether the GL driver kept our resources. Same scene, so visually identical.
+        rebuild();
+        console.warn('[TENKI stardust] WebGL context restored — rebuilt');
+    }
+
+    // Tear down the dead renderer/canvas and recreate everything from retained CPU
+    // data, then resume. Visual identity is unchanged (same geometry/colours/material).
+    function rebuild() {
+        if (lostTimer) { clearTimeout(lostTimer); lostTimer = null; }
+        try {
+            if (renderer) {
+                var old = renderer.domElement;
+                try { renderer.dispose(); } catch (_) {}
+                if (old) {
+                    old.removeEventListener('webglcontextlost', onContextLost, false);
+                    old.removeEventListener('webglcontextrestored', onContextRestored, false);
+                    if (old.parentNode) old.parentNode.removeChild(old);
+                }
+            }
+        } catch (_) {}
+        renderer = null;
+        running = false;
+        try {
+            contextLost = false;
+            createRenderer();
+            buildScene();
+            start();
+            playEntrance();
+            console.warn('[TENKI stardust] rebuilt after context loss');
+        } catch (e) {
+            // GPU still unavailable — back off and retry.
+            contextLost = true;
+            if (lostTimer) clearTimeout(lostTimer);
+            lostTimer = setTimeout(rebuild, 2500);
+            console.warn('[TENKI stardust] rebuild failed, retrying:', e && e.message);
         }
-        if (material) { if (material.map) material.map.needsUpdate = true; material.needsUpdate = true; }
-        start();
-        console.warn('[TENKI stardust] WebGL context restored — resuming');
     }
 
     function onVisibility() {
@@ -361,6 +395,7 @@
 
     function destroy() {
         stop();
+        if (lostTimer) { clearTimeout(lostTimer); lostTimer = null; }
         window.removeEventListener('resize', onResize);
         document.removeEventListener('visibilitychange', onVisibility);
         if (renderer) {
