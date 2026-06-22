@@ -716,11 +716,12 @@
       c.globalAlpha = 1; c.restore();
     };
 
-    // outer bloom behind the glass
-    const glow = c.createRadialGradient(cx, cy, R * 0.35, cx, cy, R * 1.7);
-    glow.addColorStop(0, 'rgba(255,200,94,0.22)');
-    glow.addColorStop(1, 'rgba(255,200,94,0)');
-    c.fillStyle = glow; c.beginPath(); c.arc(cx, cy, R * 1.7, 0, Math.PI * 2); c.fill();
+    // outer bloom behind the glass — warm golden halo bleeding out (matches IMG_8437)
+    const glow = c.createRadialGradient(cx, cy, R * 0.30, cx, cy, R * 1.85);
+    glow.addColorStop(0, 'rgba(255,206,110,0.34)');
+    glow.addColorStop(0.5, 'rgba(255,190,80,0.12)');
+    glow.addColorStop(1, 'rgba(255,196,90,0)');
+    c.fillStyle = glow; c.beginPath(); c.arc(cx, cy, R * 1.85, 0, Math.PI * 2); c.fill();
 
     // volumetric glass body — strong lit upper-left → dark shadow side, edge
     // darkened toward the rim so the sphere has a defined volume & terminator
@@ -744,12 +745,12 @@
     drawRibbons(false); drawSand(false); // far streams (behind the core)
 
     // hot core
-    const coreR = R * 0.42;
+    const coreR = R * 0.46;
     const core = c.createRadialGradient(cx, cy, 0, cx, cy, coreR);
-    core.addColorStop(0, 'rgba(255,255,246,0.98)');
-    core.addColorStop(0.35, 'rgba(255,236,180,0.85)');
-    core.addColorStop(0.7, 'rgba(255,196,90,0.42)');
-    core.addColorStop(1, 'rgba(255,196,90,0)');
+    core.addColorStop(0, 'rgba(255,255,250,1.0)');
+    core.addColorStop(0.30, 'rgba(255,240,190,0.92)');
+    core.addColorStop(0.62, 'rgba(255,200,96,0.50)');
+    core.addColorStop(1, 'rgba(255,200,96,0)');
     c.beginPath(); c.arc(cx, cy, coreR, 0, Math.PI * 2); c.fillStyle = core; c.fill();
 
     drawRibbons(true); drawSand(true); // near streams (in front of the core)
