@@ -620,10 +620,10 @@
     // they CROSS at large angles into a tangled luminous knot — not coplanar Saturn
     // bands. tilt = rotate about X, spin = about Y, roll = in-screen rotation.
     const ORBITS = [
-      { rr: R * 0.96, tilt: 1.18, roll: 0.00, prec: 0.00038, spin: 0.00085, head: 0.00400, grit: 300 },
-      { rr: R * 0.86, tilt: -0.82, roll: 1.15, prec: 0.00052, spin: -0.00070, head: 0.00560, grit: 280 },
-      { rr: R * 0.74, tilt: 0.50, roll: -1.05, prec: 0.00070, spin: 0.00110, head: -0.00700, grit: 240 },
-      { rr: R * 0.60, tilt: -1.30, roll: 0.55, prec: 0.00061, spin: 0.00150, head: 0.00900, grit: 200 },
+      { rr: R * 0.96, tilt: 1.18, roll: 0.00, prec: 0.00065, spin: 0.00145, head: 0.00400, grit: 300 },
+      { rr: R * 0.86, tilt: -0.82, roll: 1.15, prec: 0.00088, spin: -0.00120, head: 0.00560, grit: 280 },
+      { rr: R * 0.74, tilt: 0.50, roll: -1.05, prec: 0.00119, spin: 0.00187, head: -0.00700, grit: 240 },
+      { rr: R * 0.60, tilt: -1.30, roll: 0.55, prec: 0.00104, spin: 0.00255, head: 0.00900, grit: 200 },
     ];
     const SEG = 112; // samples per ribbon → a continuous stream, not discrete beads
     // project every orbit once: screen polyline + depth + the sweeping head angle.
