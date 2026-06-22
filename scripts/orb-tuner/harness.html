@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>orb-tuner harness</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #05070d; }
+    #orb { display: block; }
+  </style>
+</head>
+<body>
+  <!-- Set the headless flag BEFORE loading soul-enroll.js so its IIFE exposes
+       window.TENKI_ORB and skips the full app boot (no camera / no FSM). -->
+  <script>window.__ORB_HARNESS__ = true;</script>
+  <script src="../../apps/preview/soul-enroll.js"></script>
+  <canvas id="orb" width="420" height="420"></canvas>
+  <script>
+    const cv = document.getElementById('orb');
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+
+    // dark app-like backdrop so the orb's additive glow reads correctly
+    function backdrop() {
+      ctx.clearRect(0, 0, W, H);
+      const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.7);
+      g.addColorStop(0, '#0a1020');
+      g.addColorStop(1, '#05070d');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Render the processing orb at time t with a given radius R.
+    window.__renderAt = (t, R) => {
+      backdrop();
+      window.TENKI_ORB.drawProcessingOrb(ctx, W / 2, H / 2, t, { R: R || 150 });
+      return true;
+    };
+    window.__ready = !!(window.TENKI_ORB && window.TENKI_ORB.drawProcessingOrb);
+  </script>
+</body>
+</html>
