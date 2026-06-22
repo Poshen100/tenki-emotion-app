@@ -760,20 +760,21 @@
     // drifting haze lobes → a living, pondering crystal. Centre stays clear so the
     // gold sand shows through; cool tint reads as frosted glass against the gold.
     c.save();
-    const breathe = 0.5 + 0.5 * Math.sin(t * 0.0011); // slow in/out (~9.5s)
-    const ringHaze = c.createRadialGradient(cx, cy, R * 0.55, cx, cy, R);
+    const breathe = 0.5 + 0.5 * Math.sin(t * 0.0019); // breathing in/out (~5.5s)
+    const ringHaze = c.createRadialGradient(cx, cy, R * 0.5, cx, cy, R);
     ringHaze.addColorStop(0, 'rgba(238,246,255,0)');
-    ringHaze.addColorStop(0.68, 'rgba(238,246,255,0)');
-    ringHaze.addColorStop(0.90, 'rgba(242,248,255,' + (0.15 + 0.09 * breathe).toFixed(3) + ')');
-    ringHaze.addColorStop(1, 'rgba(242,248,255,0.03)');
+    ringHaze.addColorStop(0.62, 'rgba(238,246,255,0)');
+    ringHaze.addColorStop(0.90, 'rgba(242,248,255,' + (0.24 + 0.12 * breathe).toFixed(3) + ')');
+    ringHaze.addColorStop(1, 'rgba(242,248,255,0.06)');
     c.fillStyle = ringHaze; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.fill();
-    // drifting thinking-lobes: soft white blooms gliding around the inner rim
+    // drifting thinking-lobes: soft white blooms gliding & bobbing around the inner rim
     for (let i = 0; i < 3; i++) {
-      const ha = t * (0.00032 + i * 0.00013) + i * 2.27;     // slow, varied orbit
-      const hx = cx + Math.cos(ha) * R * 0.9, hy = cy + Math.sin(ha) * R * 0.9;
-      const lb = 0.45 + 0.55 * Math.sin(t * 0.0017 + i * 2.1); // each lobe pulses
+      const ha = t * (0.00058 + i * 0.00024) + i * 2.27;       // livelier varied orbit
+      const hr = R * (0.9 + 0.06 * Math.sin(t * 0.0013 + i * 1.7)); // radial in/out bob
+      const hx = cx + Math.cos(ha) * hr, hy = cy + Math.sin(ha) * hr;
+      const lb = 0.4 + 0.6 * Math.sin(t * 0.0027 + i * 2.1);   // each lobe pulses
       const lobe = c.createRadialGradient(hx, hy, 0, hx, hy, R * 0.42);
-      lobe.addColorStop(0, 'rgba(244,249,255,' + (0.14 * lb).toFixed(3) + ')');
+      lobe.addColorStop(0, 'rgba(244,249,255,' + (0.20 * lb).toFixed(3) + ')');
       lobe.addColorStop(1, 'rgba(244,249,255,0)');
       c.fillStyle = lobe; c.beginPath(); c.arc(hx, hy, R * 0.42, 0, TAU); c.fill();
     }
