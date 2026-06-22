@@ -762,9 +762,9 @@
     const breathe = 0.5 + 0.5 * Math.sin(t * 0.0019); // breathing in/out (~5.5s)
     const ringHaze = c.createRadialGradient(cx, cy, R * 0.5, cx, cy, R);
     ringHaze.addColorStop(0, 'rgba(238,246,255,0)');
-    ringHaze.addColorStop(0.62, 'rgba(238,246,255,0)');
-    ringHaze.addColorStop(0.90, 'rgba(242,248,255,' + (0.24 + 0.12 * breathe).toFixed(3) + ')');
-    ringHaze.addColorStop(1, 'rgba(242,248,255,0.06)');
+    ringHaze.addColorStop(0.60, 'rgba(238,246,255,0)');
+    ringHaze.addColorStop(0.88, 'rgba(242,248,255,' + (0.32 + 0.14 * breathe).toFixed(3) + ')');
+    ringHaze.addColorStop(1, 'rgba(242,248,255,0.13)');
     c.fillStyle = ringHaze; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.fill();
     // drifting thinking-lobes: soft white blooms gliding & bobbing around the inner rim
     for (let i = 0; i < 3; i++) {
