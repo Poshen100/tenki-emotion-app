@@ -23,6 +23,7 @@
     var cameraStream = null;
     var faceMeshInstance = null;
     var faceSyncLoop = null;
+    var faceBusy = false; // overlap guard: don't queue inferences (avoids OOM pile-up)
     var prevEyeOpen = 1;
     var lastFaceCenter = null;
     var lastFaceTime = 0;
@@ -136,7 +137,7 @@
         }
 
         navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
+            video: { facingMode: 'user', width: { ideal: 240 }, height: { ideal: 180 } },
             audio: false
         }).then(function (stream) {
             cameraStream = stream;
@@ -160,12 +161,16 @@
                 // Show dynamic capsule
                 showCapsule();
 
-                // Process frames at ~10fps (CPU/OOM safe)
+                // Process frames at ~5.5fps WITH an overlap guard (CPU/OOM safe):
+                // never start a new inference while the previous is still running, so
+                // MediaPipe image tensors can't pile up and spike memory → crash.
                 faceSyncLoop = setInterval(function () {
-                    if (videoEl.readyState >= 2 && faceMeshInstance) {
-                        faceMeshInstance.send({ image: videoEl }).catch(function () {});
-                    }
-                }, 100);
+                    if (faceBusy || videoEl.readyState < 2 || !faceMeshInstance) return;
+                    faceBusy = true;
+                    faceMeshInstance.send({ image: videoEl })
+                        .then(function () { faceBusy = false; })
+                        .catch(function () { faceBusy = false; });
+                }, 180);
 
                 console.log('[FHZ] FaceMesh expression sync active inside takeover');
             } catch (e) {
@@ -347,6 +352,7 @@
 
     function stopFaceSync() {
         if (faceSyncLoop) { clearInterval(faceSyncLoop); faceSyncLoop = null; }
+        faceBusy = false;
         if (faceMeshInstance) { faceMeshInstance = null; }
         if (cameraStream) {
             cameraStream.getTracks().forEach(function (t) { t.stop(); });
