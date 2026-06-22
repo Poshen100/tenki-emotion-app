@@ -599,17 +599,16 @@
   function drawProcessingOrb(c, cx, cy, t, opts = {}) {
     c.save();
     const R = opts.R || 76;
-    // ── dynamic key light: orbits slowly so the travelling highlight + terminator
-    // sculpt the crystal sphere's volume in motion. Upper-biased so the light never
-    // sits straight below (which reads unnatural for glass). ──
-    const lightT = t * 0.00072;                  // ~8.7s per orbit
-    const Lx = Math.cos(lightT), Ly = Math.sin(lightT);
-    const lx = cx + Lx * R * 0.5;
-    const ly = cy + (Ly * 0.7 - 0.28) * R * 0.5; // biased to the upper hemisphere
-    const ldx = lx - cx, ldy = ly - cy, llen = Math.hypot(ldx, ldy) || 1;
-    const ux = ldx / llen, uy = ldy / llen;      // unit light direction (centre→light)
-    const lang = Math.atan2(uy, ux);
-    const shimmer = 0.85 + 0.15 * Math.sin(lightT * 2.0); // reflections breathe
+    // ── lighting (matches IMG_8437): a MAIN key light anchored at the TOP with a
+    // gentle sway + breathing so it stays alive, and a softer REFLECTION/fill at the
+    // LOWER-RIGHT. The lit body + highlight sit up top; the bottom stays in shadow
+    // with a bright refraction rim; the lower-right fill lifts the shadow side. ──
+    const sway = Math.sin(t * 0.00045) * 0.16;       // gentle ±9° drift of the key light
+    const lang = -Math.PI / 2 + sway;                // TOP (12 o'clock)
+    const lx = cx + Math.cos(lang) * R * 0.5;
+    const ly = cy + Math.sin(lang) * R * 0.5;        // above centre
+    const ux = Math.cos(lang), uy = Math.sin(lang);  // unit light direction (centre→light)
+    const shimmer = 0.85 + 0.15 * Math.sin(t * 0.0016); // reflections breathe
 
     // ── flowing gold sand: 3 true-3D grain rings that tumble like a gyroscope ──
     const TAU = Math.PI * 2;
@@ -760,20 +759,21 @@
     // drifting haze lobes → a living, pondering crystal. Centre stays clear so the
     // gold sand shows through; cool tint reads as frosted glass against the gold.
     c.save();
-    const breathe = 0.5 + 0.5 * Math.sin(t * 0.0011); // slow in/out (~9.5s)
-    const ringHaze = c.createRadialGradient(cx, cy, R * 0.55, cx, cy, R);
+    const breathe = 0.5 + 0.5 * Math.sin(t * 0.0019); // breathing in/out (~5.5s)
+    const ringHaze = c.createRadialGradient(cx, cy, R * 0.5, cx, cy, R);
     ringHaze.addColorStop(0, 'rgba(238,246,255,0)');
-    ringHaze.addColorStop(0.68, 'rgba(238,246,255,0)');
-    ringHaze.addColorStop(0.90, 'rgba(242,248,255,' + (0.15 + 0.09 * breathe).toFixed(3) + ')');
-    ringHaze.addColorStop(1, 'rgba(242,248,255,0.03)');
+    ringHaze.addColorStop(0.62, 'rgba(238,246,255,0)');
+    ringHaze.addColorStop(0.90, 'rgba(242,248,255,' + (0.24 + 0.12 * breathe).toFixed(3) + ')');
+    ringHaze.addColorStop(1, 'rgba(242,248,255,0.06)');
     c.fillStyle = ringHaze; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.fill();
-    // drifting thinking-lobes: soft white blooms gliding around the inner rim
+    // drifting thinking-lobes: soft white blooms gliding & bobbing around the inner rim
     for (let i = 0; i < 3; i++) {
-      const ha = t * (0.00032 + i * 0.00013) + i * 2.27;     // slow, varied orbit
-      const hx = cx + Math.cos(ha) * R * 0.9, hy = cy + Math.sin(ha) * R * 0.9;
-      const lb = 0.45 + 0.55 * Math.sin(t * 0.0017 + i * 2.1); // each lobe pulses
+      const ha = t * (0.00058 + i * 0.00024) + i * 2.27;       // livelier varied orbit
+      const hr = R * (0.9 + 0.06 * Math.sin(t * 0.0013 + i * 1.7)); // radial in/out bob
+      const hx = cx + Math.cos(ha) * hr, hy = cy + Math.sin(ha) * hr;
+      const lb = 0.4 + 0.6 * Math.sin(t * 0.0027 + i * 2.1);   // each lobe pulses
       const lobe = c.createRadialGradient(hx, hy, 0, hx, hy, R * 0.42);
-      lobe.addColorStop(0, 'rgba(244,249,255,' + (0.14 * lb).toFixed(3) + ')');
+      lobe.addColorStop(0, 'rgba(244,249,255,' + (0.20 * lb).toFixed(3) + ')');
       lobe.addColorStop(1, 'rgba(244,249,255,0)');
       c.fillStyle = lobe; c.beginPath(); c.arc(hx, hy, R * 0.42, 0, TAU); c.fill();
     }
@@ -796,14 +796,14 @@
     c.globalAlpha = 1;
     c.restore();
 
-    // secondary fill reflection — softer, from a slowly COUNTER-moving direction;
-    // its interplay with the key light reads as a turning crystal (主光 + 反光)
-    const fa = -lightT * 0.6 + 2.1;
-    const fxs = cx + Math.cos(fa) * R * 0.52, fys = cy + Math.sin(fa) * R * 0.52;
-    const fill = c.createRadialGradient(fxs, fys, 0, fxs, fys, R * 0.42);
-    fill.addColorStop(0, 'rgba(255,243,214,' + (0.18 * shimmer).toFixed(3) + ')');
-    fill.addColorStop(1, 'rgba(255,243,214,0)');
-    c.fillStyle = fill; c.beginPath(); c.arc(fxs, fys, R * 0.42, 0, TAU); c.fill();
+    // secondary fill reflection — a softer warm bounce anchored at the LOWER-RIGHT
+    // (主光在上、反光在右下); gently sways so the crystal still feels alive
+    const fa = Math.PI * 0.25 + Math.sin(t * 0.0005) * 0.12; // lower-right (~45° down-right)
+    const fxs = cx + Math.cos(fa) * R * 0.62, fys = cy + Math.sin(fa) * R * 0.62;
+    const fill = c.createRadialGradient(fxs, fys, 0, fxs, fys, R * 0.44);
+    fill.addColorStop(0, 'rgba(255,244,218,' + (0.2 * shimmer).toFixed(3) + ')');
+    fill.addColorStop(1, 'rgba(255,244,218,0)');
+    c.fillStyle = fill; c.beginPath(); c.arc(fxs, fys, R * 0.44, 0, TAU); c.fill();
 
     // crisp specular hotspot (glossy reflection of the key light) — tight & bright,
     // rides the light spot and brightens with the shimmer = a live glassy sphere
