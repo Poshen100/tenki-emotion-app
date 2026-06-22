@@ -1745,6 +1745,16 @@
   }
 
   window.TENKI_ENROLL = { begin, restart };
+
+  // Dev-only headless hook: when the orb-tuner harness sets this flag BEFORE this
+  // script loads, expose just the orb renderer and skip the app boot (no camera,
+  // no FSM) so scripts/orb-tuner can render drawProcessingOrb in isolation against
+  // the IMG_8437 reference. Production never sets the flag, so this is a no-op there.
+  if (window.__ORB_HARNESS__) {
+    window.TENKI_ORB = { drawProcessingOrb, COLORS };
+    return;
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {
