@@ -34,6 +34,9 @@ export type FlowStep =
   | 'maturity_progress'
   | 'exit';
 
+/** Context in which the face-baseline ceremony was entered. */
+export type EntryContext = 'onboarding' | 'standalone';
+
 /** Camera permission lifecycle state. */
 export type PermissionState = 'unknown' | 'prompt' | 'granted' | 'denied' | 'blocked';
 

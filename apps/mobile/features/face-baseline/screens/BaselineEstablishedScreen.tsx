@@ -18,6 +18,7 @@ import { FB_ROUTES } from './routes';
 
 export default function BaselineEstablishedScreen(): React.JSX.Element {
   const router = useRouter();
+  const entryContext = useFaceBaselineStore((s) => s.entryContext);
   const goTo = useFaceBaselineStore((s) => s.goTo);
 
   useEffect(() => {
@@ -37,7 +38,17 @@ export default function BaselineEstablishedScreen(): React.JSX.Element {
           <BaselineSuccessCard title={C.established.title} body={C.established.body} />
         </View>
         <View style={styles.footer}>
-          <GlowPrimaryButton accent="gold" label={C.established.cta} onPress={() => router.replace(FB_ROUTES.maturity)} />
+          <GlowPrimaryButton
+            accent="gold"
+            label={C.established.cta}
+            onPress={() => {
+              if (entryContext === 'onboarding') {
+                router.replace('/onboarding/complete');
+              } else {
+                router.replace(FB_ROUTES.maturity);
+              }
+            }}
+          />
         </View>
       </SafeAreaView>
     </CosmicBackground>

@@ -13,6 +13,7 @@
 import { create } from 'zustand';
 import type {
   CapturePhase,
+  EntryContext,
   EnvironmentChecks,
   FaceLockState,
   FlowStep,
@@ -48,6 +49,7 @@ export interface FaceBaselineState {
   refinementHistory: RefinementEntry[];
   startedAt: number | null;
   reducedMotion: boolean;
+  entryContext: EntryContext;
 
   // actions
   goTo: (step: FlowStep) => void;
@@ -65,6 +67,7 @@ export interface FaceBaselineState {
   establishBaseline: (confidence: number) => void;
   recordScan: (entry: RefinementEntry) => void;
   setReducedMotion: (value: boolean) => void;
+  setEntryContext: (entryContext: EntryContext) => void;
   reset: () => void;
 }
 
@@ -107,6 +110,7 @@ const initialState = {
   refinementHistory: [] as RefinementEntry[],
   startedAt: null as number | null,
   reducedMotion: false,
+  entryContext: 'standalone' as EntryContext,
 };
 
 export const useFaceBaselineStore = create<FaceBaselineState>((set) => ({
@@ -163,6 +167,8 @@ export const useFaceBaselineStore = create<FaceBaselineState>((set) => ({
     }),
 
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),
+
+  setEntryContext: (entryContext) => set({ entryContext }),
 
   reset: () => set({ ...initialState }),
 }));

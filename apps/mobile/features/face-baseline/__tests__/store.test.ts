@@ -76,6 +76,13 @@ describe('faceBaselineStore — actions', () => {
     expect(useFaceBaselineStore.getState().step).toBe('intro');
     expect(useFaceBaselineStore.getState().baselineEstablished).toBe(false);
   });
+
+  it('entryContext defaults to standalone and setEntryContext updates it', () => {
+    const s = useFaceBaselineStore.getState();
+    expect(s.entryContext).toBe('standalone');
+    s.setEntryContext('onboarding');
+    expect(useFaceBaselineStore.getState().entryContext).toBe('onboarding');
+  });
 });
 
 describe('selectors', () => {
