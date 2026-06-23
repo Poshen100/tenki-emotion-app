@@ -14,7 +14,7 @@ import { CosmicBackground, BaselineSuccessCard, GlowPrimaryButton } from '../com
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
 import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
-import { FB_ROUTES } from './routes';
+import { establishedExitRoute } from './routes';
 
 export default function BaselineEstablishedScreen(): React.JSX.Element {
   const router = useRouter();
@@ -41,13 +41,7 @@ export default function BaselineEstablishedScreen(): React.JSX.Element {
           <GlowPrimaryButton
             accent="gold"
             label={C.established.cta}
-            onPress={() => {
-              if (entryContext === 'onboarding') {
-                router.replace('/onboarding/complete');
-              } else {
-                router.replace(FB_ROUTES.maturity);
-              }
-            }}
+            onPress={() => router.replace(establishedExitRoute(entryContext))}
           />
         </View>
       </SafeAreaView>
