@@ -3,15 +3,21 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUserStore } from '../../stores/user-store';
+import { useFaceBaselineStore } from '../../features/face-baseline/store/faceBaselineStore';
 import { BackgroundContainer, ProgressIndicator, PrimaryButton } from '../../components/onboarding-components';
 
 export default function OnboardingComplete() {
   const router = useRouter();
   const setBaselineScore = useUserStore((s) => s.setBaselineScore);
+  const baselineConfidence = useFaceBaselineStore((s) => s.baselineConfidence);
+  const setEntryContext = useFaceBaselineStore((s) => s.setEntryContext);
 
   const handleComplete = () => {
-    // Write state flags to store
-    setBaselineScore(68);
+    // Reset entryContext to standalone so later daily scans are not misrouted
+    setEntryContext('standalone');
+    // Write state flags to store using confidence score, fallback to 68 if 0
+    const confidenceScore = Math.round(baselineConfidence * 100);
+    setBaselineScore(confidenceScore || 68);
     // Redirect to Today dashboard
     router.replace('/');
   };
@@ -46,6 +52,7 @@ export default function OnboardingComplete() {
           </View>
 
           {/* Secondary Metrics Grid */}
+          {/* Note: face scan does not produce heart rate / HRV metrics yet. These are placeholders until finger calibration provides real values. */}
           <View style={styles.metricsGrid}>
             <View style={styles.metricCard}>
               <Text style={styles.metricValue}>66 <Text style={styles.metricUnit}>bpm</Text></Text>

@@ -2,10 +2,12 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFaceBaselineStore } from '../../features/face-baseline/store/faceBaselineStore';
 import { BackgroundContainer, ProgressIndicator, PrimaryButton } from '../../components/onboarding-components';
 
 export default function OnboardingReady() {
   const router = useRouter();
+  const setEntryContext = useFaceBaselineStore((s) => s.setEntryContext);
 
   return (
     <BackgroundContainer>
@@ -69,7 +71,10 @@ export default function OnboardingReady() {
           <View style={styles.footer}>
             <PrimaryButton
               label="允許並開始"
-              onPress={() => router.push('/onboarding/scan')}
+              onPress={() => {
+                setEntryContext('onboarding');
+                router.push('/face-baseline');
+              }}
             />
           </View>
         </View>

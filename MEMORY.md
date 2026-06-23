@@ -1,3 +1,22 @@
+# 2026-06-23 Session Update (face-baseline 接成 onboarding 主入口 + Antigravity 協作 relay — feat/wire-face-baseline-onboarding)
+
+> Founder 在圖書館電腦裝好 Antigravity(Opus 4.6),要分配現階段任務。雲端這邊負責出任務 prompt + 把關 review。
+
+## What was done
+- **任務分配**:挑 North Star 落地順序 step 3 的 ⬜ 待做「mobile /face-baseline 接成 onboarding 主入口」給 Antigravity(純 TS/Expo、CI 涵蓋、可在 Windows 跑、且**不碰雲端正在打磨的 apps/preview 金沙球**,零撞車)。給了帶確切檔案/行號的 prompt。
+- **接線內容(branch `feat/wire-face-baseline-onboarding`)**:onboarding `ready` CTA 從假掃描 `/onboarding/scan` 改進真 ceremony `/face-baseline`;ceremony 終點 `BaselineEstablishedScreen` 依情境退場;`complete.tsx` 讀真 `baselineConfidence`(fallback 68);刪孤兒 `onboarding/scan.tsx`(317 行)。
+- **關鍵 bug 攔截**:Antigravity 初版出口用 query param `?from=onboarding` 判斷,但 ceremony 是一屏 `router.push` 下一屏、**param 活不過 8 屏鏈** → 到 established 時讀不到 → 永遠 loop maturity、到不了 complete。改用 **store 旗標 `entryContext: 'onboarding' | 'standalone'`**(入口 set、出口讀、complete reset)解決。
+- **出口判斷抽 pure helper**:`establishedExitRoute(entryContext)` 進 `screens/routes.ts` + 兩分支測試(不渲染 screen)。
+- **驗證(雲端實跑)**:`tsc --noEmit` 0 error、jest 12 suites/96 tests 全綠、Biome 改動檔 clean。
+
+### 教訓 / 注意
+- **Antigravity push 一直上不了 GitHub**:圖書館那台 remote URL 內嵌的是 Google Stitch token(非 GitHub PAT)、GCM 無互動 → push 卡認證。**最後走 patch relay**:Antigravity 出 `git diff origin/main..HEAD`、founder 貼給雲端,雲端**從 main 重建+實跑驗證後用雲端的寫入權限推上 GitHub**。(relay 來的 diff 上下文可能不一致,別盲 `git apply`,改用 Edit 對真實檔案精準重建更穩,且順帶就是逐行 review。)
+- relay 沒帶到 Antigravity commit 5 的 `ANTIGRAVITY.md` 路徑修改 → 本分支是純功能,未含該文件變更。
+- **edge case(已知、暫不修)**:`entryContext` 只在 `complete.handleComplete` reset;若使用者在 established→complete 中離,旗標會停在 onboarding。現無妨(store 非持久化、重開即回 standalone);**若日後給此 store 加 persist,要把 reset 移到更早(如進 Today)**。
+- 下次接手:`npm run web` 實走驗 onboarding→ceremony→complete→Today;之後做 follow-up「Scan tab 重定位為日常 Soul Scan」(North Star step 3 第二半,本次刻意未做)。
+
+---
+
 # 2026-06-22 Session Update (金沙球對齊 IMG_8437 + 建 headless orb-tuner 回饋迴圈 — #142)
 
 > Founder:把 Soul Scan「Securing your unique baseline…」金沙球**調到跟目標圖 IMG_8437 一致**;確認 IMG_8437 是目標(實機還沒到位),要動三塊:①金沙軌道/拖尾 ②輝光/色調 ③玻璃殼/反光。
