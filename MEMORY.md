@@ -1,3 +1,20 @@
+# 2026-06-23 Session Update (Scan tab 重定位為日常 Soul Scan 路由儀表板 — feat/scan-tab-daily-soul-scan)
+
+> 承接上一條:onboarding 接好後,做 North Star step 3 後半「Scan tab 重定位為日常 Soul Scan」。Antigravity 實作、雲端 relay 重建+驗證+推送+review。
+
+## What was done(先收純路由 MVP 版,Edge Score 揭曉留下一輪)
+- **`app/(tabs)/scan.tsx` 從 ~1020 行 mock 手指擷取頁 → ~162 行路由儀表板**:主 gold「今日星塵臉部掃描」卡 + 次 cyan「手指接觸校準」卡;沿用 face-baseline 既有元件(CosmicBackground/NavBar/GlassInfoCard/GlowPrimaryButton/PrivacyFootnote)+ tokens。
+- **路由**:臉掃卡先 `setEntryContext('standalone')` 再導 —— `hasBaseline` true → `/face-baseline/maturity`(日常家)、false → `/face-baseline`(先建基線);手指卡 → `/finger-precision`。守 North Star 鐵律 1(capture 不進 scan.tsx,tab 只路由)。
+- 移除 camera preview/checklist/timers/mock-scan 的「使用」,但**共享元件/store 檔案保留**(QualityMeter/scan-store/mock-scan 等只是不再被 scan.tsx 引用,沒刪檔→無 orphan-delete)。
+- 驗證(雲端實跑):tsc 0 error、jest 12 suites/96 tests、Biome clean。base 乾淨(只動 scan.tsx + MEMORY,無 stale 帶入 #144 檔案)。
+
+### 教訓 / 注意 / 待辦
+- **Antigravity push 又沒上 GitHub**(同上條:圖書館那台 remote 內嵌 Google Stitch token 非 PAT)→ 再走 patch relay,但這次先要 `git log/--stat` 驗 base 乾淨,再貼 `git show HEAD:scan.tsx` 全文(比 966 行刪除 diff 可靠),雲端重建後推送。
+- **A 叉路(今日 Edge Score 揭曉)本輪刻意未做** = founder 決定先收純路由版。**下一輪 follow-up**:日常臉掃走完產出今日 Edge Score/Zone 揭曉(現階段 mock,沿用既有 result/Today 揭曉;原生相機到位再接真 packages/engine scoring)+ recordScan 更新 maturity。fold-in 定稿 prompt 已備。
+- **次要偏差(暫不修)**:C 原想「手指卡用 smart-trigger(faceBaselineCount<3/stress>75/daysSinceCalibration>14)才凸顯」,Antigravity 版兩卡恆顯。屬 polish,非 bug。
+
+---
+
 # 2026-06-23 Session Update (face-baseline 接成 onboarding 主入口 + Antigravity 協作 relay — feat/wire-face-baseline-onboarding)
 
 > Founder 在圖書館電腦裝好 Antigravity(Opus 4.6),要分配現階段任務。雲端這邊負責出任務 prompt + 把關 review。
