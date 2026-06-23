@@ -613,23 +613,26 @@
     // ── flowing gold sand: 3 true-3D grain rings that tumble like a gyroscope ──
     const TAU = Math.PI * 2;
     const hash = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
-    // Three intertwined 3D orbits. Each is a dense, continuous luminous gold ribbon
-    // — a "dragon" with a bright sweeping head + long fading tail — heavily dusted
-    // with fine sand sparkles, so the interior reads as flowing sand, not dots.
-    // Four intertwined orbits at genuinely different screen orientations (`roll`) so
-    // they CROSS at large angles into a tangled luminous knot — not coplanar Saturn
-    // bands. tilt = rotate about X, spin = about Y, roll = in-screen rotation.
+    // Four intertwined 3D orbits, each a dense luminous gold ribbon (bright sweeping
+    // head + fading tail) dusted with fine sand. Each has a FIXED orientation
+    // (tilt about X, yaw about Y, roll in-screen) that defines the tangled knot;
+    // they CROSS at large angles, not coplanar Saturn bands.
     const ORBITS = [
-      { rr: R * 0.96, tilt: 1.18, roll: 0.00, prec: 0.00195, spin: 0.00435, head: 0.00400, grit: 420 },
-      { rr: R * 0.86, tilt: -0.82, roll: 1.15, prec: 0.00264, spin: -0.00360, head: 0.00560, grit: 390 },
-      { rr: R * 0.74, tilt: 0.50, roll: -1.05, prec: 0.00357, spin: 0.00561, head: -0.00700, grit: 340 },
-      { rr: R * 0.60, tilt: -1.30, roll: 0.55, prec: 0.00312, spin: 0.00765, head: 0.00900, grit: 280 },
+      { rr: R * 0.96, tilt: 1.18, roll: 0.00, yaw: 0.0, head: 0.00400, grit: 420 },
+      { rr: R * 0.86, tilt: -0.82, roll: 1.15, yaw: 1.7, head: 0.00560, grit: 390 },
+      { rr: R * 0.74, tilt: 0.50, roll: -1.05, yaw: 3.4, head: -0.00700, grit: 340 },
+      { rr: R * 0.60, tilt: -1.30, roll: 0.55, yaw: 5.1, head: 0.00900, grit: 280 },
     ];
+    // ONE shared rolling rotation applied to every orbit → the whole knot turns as a
+    // single rigid crystal ball (not independent rings spinning at different rates).
+    // Two incommensurate rates make the roll axis slowly drift → a natural, continuous,
+    // never-repeating roll. (Tune these for roll speed.)
+    const GROT = { pitch: 0.00080, yaw: 0.00031 };
     const SEG = 112; // samples per ribbon → a continuous stream, not discrete beads
     // project every orbit once: screen polyline + depth + the sweeping head angle.
     const O = ORBITS.map((o, k) => {
-      const ax = o.tilt + Math.sin(t * o.prec + k * 2.1) * 0.6; // tumbling tilt (precession)
-      const ay = t * o.spin + k * 1.7;                          // spin about the vertical
+      const ax = o.tilt + t * GROT.pitch;  // fixed tilt + shared rolling pitch (about X)
+      const ay = o.yaw + t * GROT.yaw;     // fixed yaw  + shared slow axis drift (about Y)
       const ca = Math.cos(ax), sa = Math.sin(ax), cb = Math.cos(ay), sb = Math.sin(ay);
       const cr = Math.cos(o.roll || 0), sr = Math.sin(o.roll || 0); // in-screen roll
       const project = (phi) => {
