@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#030407" />
+  <title>TENKI — Finger PPG 測試頁</title>
+  <style>
+    :root { --bg:#030407; --cyan:#00F0FF; --gold:#FFC85E; --mint:#00E699; --red:#FF5566; --txt:#FFFFFF; --txt2:#9BA4C4; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body { height:100%; background:var(--bg); color:var(--txt);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+    #stage { max-width:460px; margin:0 auto; min-height:100dvh; display:flex; flex-direction:column;
+      padding:max(16px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom)); gap:14px; }
+    .kicker { font-size:11px; letter-spacing:2px; color:var(--mint); font-weight:700; }
+    h1 { font-size:22px; font-weight:800; }
+    .note { font-size:13px; color:var(--txt2); line-height:1.5; }
+    .bpm-wrap { text-align:center; padding:18px 0 6px; }
+    .bpm { font-size:72px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+    .bpm .unit { font-size:18px; font-weight:600; color:var(--txt2); margin-left:6px; }
+    .sub { font-size:13px; color:var(--txt2); margin-top:6px; }
+    .cover { font-size:15px; font-weight:600; margin-top:8px; min-height:22px; }
+    .cover.ok { color:var(--mint); } .cover.bad { color:var(--gold); }
+    video { width:84px; height:84px; border-radius:16px; object-fit:cover; align-self:center;
+      background:#0a0f1e; border:1px solid rgba(255,255,255,.08); }
+    .row { display:flex; gap:10px; }
+    button { flex:1; height:52px; border:none; border-radius:14px; font-size:16px; font-weight:700;
+      color:#031018; background:var(--cyan); }
+    button.ghost { background:rgba(255,255,255,.08); color:var(--txt); }
+    button:disabled { opacity:.4; }
+    .panel { margin-top:6px; background:rgba(28,44,76,.25); border:1px solid rgba(255,255,255,.06);
+      border-radius:16px; padding:16px; }
+    .panel h2 { font-size:12px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:10px; }
+    .stat { display:flex; justify-content:space-between; font-size:14px; padding:4px 0; color:var(--txt2); }
+    .stat b { color:var(--txt); font-variant-numeric:tabular-nums; }
+    .err { color:var(--red); font-size:13px; min-height:18px; }
+    .spacer { flex:1; }
+    .foot { font-size:11px; color:#425570; text-align:center; line-height:1.5; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <div class="kicker">MODEL B · 真實手指 PPG 測試</div>
+    <h1>用指尖量真實心率</h1>
+    <p class="note">把<b>食指指尖蓋住「後鏡頭」</b>（有閃光燈那顆），輕輕貼住不要壓太用力，保持不動約 15 秒。
+      iOS 若沒自動亮燈，請靠檯燈／手電筒補光。</p>
+
+    <video id="cam" playsinline muted></video>
+
+    <div class="bpm-wrap">
+      <div class="bpm"><span id="bpm">--</span><span class="unit">bpm</span></div>
+      <div class="sub" id="status">按「開始量測」並允許相機</div>
+      <div class="cover" id="cover"></div>
+    </div>
+
+    <div class="row">
+      <button id="start">開始量測</button>
+      <button id="finish" class="ghost" disabled>完成並記錄</button>
+    </div>
+    <div class="err" id="err"></div>
+
+    <div class="panel">
+      <h2>你的手指 HR 基線（localStorage）</h2>
+      <div class="stat">已累積掃描 <b id="b-count">0</b></div>
+      <div class="stat">靜息 HR 平均 <b id="b-mean">--</b></div>
+      <div class="stat">變異 (std) <b id="b-std">--</b></div>
+      <div class="stat">成熟度 <b id="b-mat">new</b></div>
+      <button id="reset" class="ghost" style="margin-top:12px;height:42px;font-size:14px;">重置基線</button>
+    </div>
+
+    <div class="spacer"></div>
+    <p class="foot">測試頁 · 影像只在本機處理、絕不上傳；localStorage 只存衍生 HR。<br />
+      演算法核心 finger-ppg.js 已通過 14 項 headless 測試。</p>
+  </div>
+
+  <script src="finger-ppg.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var ppg = window.TENKIFingerPPG;
+      var cam = document.getElementById('cam');
+      var bpmEl = document.getElementById('bpm');
+      var statusEl = document.getElementById('status');
+      var coverEl = document.getElementById('cover');
+      var errEl = document.getElementById('err');
+      var startBtn = document.getElementById('start');
+      var finishBtn = document.getElementById('finish');
+      var resetBtn = document.getElementById('reset');
+      var cap = null;
+      var tick = null;
+      var t0 = 0;
+      var lastBpm = null;
+
+      function renderBaseline(b) {
+        document.getElementById('b-count').textContent = b.count;
+        document.getElementById('b-mean').textContent = b.count ? Math.round(b.mean) + ' bpm' : '--';
+        document.getElementById('b-std').textContent = b.count > 1 ? ('±' + b.std.toFixed(1)) : '--';
+        document.getElementById('b-mat').textContent = b.maturity;
+      }
+
+      renderBaseline(ppg.loadBaseline());
+
+      startBtn.onclick = async function () {
+        errEl.textContent = '';
+        if (!ppg) { errEl.textContent = 'finger-ppg.js 未載入'; return; }
+        startBtn.disabled = true;
+        cap = ppg.createPpgCapture({
+          onBpm: function (bpm) { lastBpm = bpm; bpmEl.textContent = bpm; },
+          onQuality: function (covered) {
+            coverEl.textContent = covered ? '✅ 指尖覆蓋良好' : '⚠️ 請用指尖蓋住後鏡頭';
+            coverEl.className = 'cover ' + (covered ? 'ok' : 'bad');
+          },
+          onComplete: function (baseline, bpm) {
+            if (baseline) { renderBaseline(baseline); statusEl.textContent = '已記錄本次：' + bpm + ' bpm'; }
+            else { statusEl.textContent = '訊號不足，請再試一次（指尖貼穩、補光）'; }
+          }
+        });
+        try {
+          await cap.start(cam);
+          t0 = Date.now();
+          finishBtn.disabled = false;
+          statusEl.textContent = '收集訊號中… 0s';
+          tick = setInterval(function () {
+            var s = Math.round((Date.now() - t0) / 1000);
+            statusEl.textContent = (lastBpm ? '量測中（穩定後可完成）· ' : '收集訊號中… ') + s + 's';
+          }, 1000);
+        } catch (e) {
+          startBtn.disabled = false;
+          errEl.textContent = '相機啟動失敗：' + (e && e.message ? e.message : e) + '（需 HTTPS + 允許相機；iOS 用 Safari）';
+        }
+      };
+
+      finishBtn.onclick = function () {
+        if (tick) { clearInterval(tick); tick = null; }
+        if (cap) cap.finish();
+        finishBtn.disabled = true;
+        startBtn.disabled = false;
+        startBtn.textContent = '再量一次';
+      };
+
+      resetBtn.onclick = function () {
+        ppg.saveBaseline(ppg.createFingerBaseline());
+        renderBaseline(ppg.loadBaseline());
+      };
+
+      window.addEventListener('pagehide', function () { if (cap) cap.stop(); });
+    })();
+  </script>
+</body>
+</html>
