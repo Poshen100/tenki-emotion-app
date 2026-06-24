@@ -37,6 +37,32 @@
     .spacer { flex:1; }
     .diag { font-family:ui-monospace,Menlo,monospace; font-size:11px; color:#5E7596; margin-top:8px; min-height:16px; }
     .foot { font-size:11px; color:#425570; text-align:center; line-height:1.5; }
+    /* ── Edge Score reveal ── */
+    #edge-panel { display:none; }
+    #edge-panel.show { display:block; }
+    .edge-head { text-align:center; padding:4px 0 2px; }
+    .edge-score { font-size:64px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+    .zone-pill { display:inline-block; margin-top:10px; padding:4px 14px; border-radius:999px;
+      font-size:13px; font-weight:700; letter-spacing:.5px; }
+    .zone-clear { color:#031018; background:var(--mint); }
+    .zone-neutral { color:#1a1405; background:var(--gold); }
+    .zone-strain { color:#fff; background:var(--red); }
+    .conf-badge { display:inline-block; margin-left:8px; padding:4px 12px; border-radius:999px;
+      font-size:12px; font-weight:700; letter-spacing:.5px; color:var(--gold);
+      background:rgba(255,200,94,.12); border:1px solid rgba(255,200,94,.3); }
+    .edge-copy { font-size:13px; color:var(--txt2); line-height:1.5; margin-top:14px; text-align:center; }
+    .edge-copy b { color:var(--txt); font-weight:700; }
+    .drivers { margin-top:14px; }
+    .drv { display:flex; align-items:center; justify-content:space-between; font-size:13px; padding:5px 0;
+      border-top:1px solid rgba(255,255,255,.05); }
+    .drv .dname { color:var(--txt2); }
+    .drv .dval { display:flex; align-items:center; gap:8px; }
+    .drv .dval b { color:var(--txt); font-variant-numeric:tabular-nums; min-width:30px; text-align:right; }
+    .drv .tag { font-size:10px; font-weight:700; letter-spacing:.5px; padding:2px 7px; border-radius:6px; }
+    .tag-measured { color:var(--mint); background:rgba(0,230,153,.12); }
+    .tag-partial { color:var(--cyan); background:rgba(0,240,255,.1); }
+    .tag-unmeasured { color:#6b7794; background:rgba(255,255,255,.05); }
+    .edge-disclaimer { font-size:11px; color:#5E7596; line-height:1.5; margin-top:12px; }
   </style>
 </head>
 <body>
@@ -70,16 +96,34 @@
       <button id="reset" class="ghost" style="margin-top:12px;height:42px;font-size:14px;">重置基線</button>
     </div>
 
+    <div class="panel" id="edge-panel">
+      <h2>你的 Decision Edge Score（真實引擎）</h2>
+      <div class="edge-head">
+        <div class="edge-score" id="edge-score">--</div>
+        <div>
+          <span class="zone-pill" id="edge-zone">--</span>
+          <span class="conf-badge" id="edge-conf">信心 低</span>
+        </div>
+      </div>
+      <p class="edge-copy" id="edge-copy"></p>
+      <div class="drivers" id="edge-drivers"></div>
+      <p class="edge-disclaimer" id="edge-disclaimer"></p>
+    </div>
+
     <div class="spacer"></div>
     <p class="foot">測試頁 · 影像只在本機處理、絕不上傳；localStorage 只存衍生 HR。<br />
       演算法核心 finger-ppg.js 已通過 14 項 headless 測試。</p>
   </div>
 
   <script src="finger-ppg.js?v=2"></script>
+  <script src="engine-bundle.js?v=1"></script>
+  <script src="finger-edge.js?v=1"></script>
   <script>
     (function () {
       'use strict';
       var ppg = window.TENKIFingerPPG;
+      var engine = window.TENKIEngine;
+      var fedge = window.TENKIFingerEdge;
       var cam = document.getElementById('cam');
       var bpmEl = document.getElementById('bpm');
       var statusEl = document.getElementById('status');
@@ -92,6 +136,53 @@
       var tick = null;
       var t0 = 0;
       var lastBpm = null;
+      var lastConfidence = 0;
+      var lastCovered = false;
+
+      // Human-readable driver names for the honest breakdown.
+      var DRIVER_NAMES = {
+        hr_stability: '心率穩定度',
+        stress_proxy_vs_baseline: '壓力指標',
+        hrv_vs_baseline: '心率變異 (HRV)',
+        respiration_stability: '呼吸穩定度',
+        sleep_recovery: '睡眠恢復',
+        recent_trend: '近期趨勢',
+        baseline_freshness: '基線新鮮度',
+        signal_quality: '訊號品質'
+      };
+      var STATUS_LABEL = { measured: '已量測', partial: '部分', unmeasured: '未量測' };
+
+      /**
+       * Compute the real Edge Score from the just-recorded baseline + final BPM,
+       * then render an honest reveal (LOW confidence + per-driver measured tags).
+       */
+      function revealEdgeScore(baseline, bpm) {
+        if (!engine || !fedge) return; // engine bundle missing → skip silently
+        var sq = fedge.buildSignalQuality(lastConfidence, lastCovered);
+        var input = fedge.buildEdgeInput(baseline, bpm, sq, fedge.loadEdgeHistory(), Date.now(), engine);
+        var result = engine.calculateEdgeScore(input);
+        var honest = fedge.computeHonestConfidence(result);
+        fedge.recordEdgeScore(result.score);
+
+        document.getElementById('edge-score').textContent = result.score;
+        var zoneEl = document.getElementById('edge-zone');
+        zoneEl.textContent = result.zone.toUpperCase();
+        zoneEl.className = 'zone-pill zone-' + result.zone;
+        document.getElementById('edge-conf').textContent = '信心 低 (' + Math.round(honest.measuredWeight) + '% 已量測)';
+        document.getElementById('edge-copy').innerHTML =
+          '<b>' + result.copy.headline + '</b><br />' + result.copy.body;
+
+        var rows = result.drivers.map(function (d) {
+          var st = fedge.DRIVER_STATUS[d.key] || 'unmeasured';
+          return '<div class="drv"><span class="dname">' + (DRIVER_NAMES[d.key] || d.key) +
+            '</span><span class="dval"><b>' + d.rawSubScore +
+            '</b><span class="tag tag-' + st + '">' + STATUS_LABEL[st] + '</span></span></div>';
+        }).join('');
+        document.getElementById('edge-drivers').innerHTML = rows;
+        document.getElementById('edge-disclaimer').textContent =
+          '瀏覽器只直接量測靜息心率；HRV／呼吸／睡眠／趨勢尚未量測，故信心為「低」。分數由 packages/engine 真實引擎計算。';
+        document.getElementById('edge-panel').classList.add('show');
+      }
 
       function renderBaseline(b) {
         document.getElementById('b-count').textContent = b.count;
@@ -107,8 +198,9 @@
         if (!ppg) { errEl.textContent = 'finger-ppg.js 未載入'; return; }
         startBtn.disabled = true;
         cap = ppg.createPpgCapture({
-          onBpm: function (bpm) { lastBpm = bpm; bpmEl.textContent = bpm; },
+          onBpm: function (bpm, confidence) { lastBpm = bpm; lastConfidence = confidence || 0; bpmEl.textContent = bpm; },
           onQuality: function (covered) {
+            lastCovered = covered;
             coverEl.textContent = covered ? '✅ 指尖覆蓋良好' : '⚠️ 請用指尖蓋住後鏡頭';
             coverEl.className = 'cover ' + (covered ? 'ok' : 'bad');
           },
@@ -120,8 +212,14 @@
               ' · conf ' + d.confidence + ' · ' + d.reason;
           },
           onComplete: function (baseline, bpm) {
-            if (baseline) { renderBaseline(baseline); statusEl.textContent = '已記錄本次：' + bpm + ' bpm'; }
-            else { statusEl.textContent = '訊號不足，請再試一次（指尖貼穩、補光）'; }
+            if (baseline) {
+              renderBaseline(baseline);
+              statusEl.textContent = '已記錄本次：' + bpm + ' bpm';
+              try { revealEdgeScore(baseline, bpm); }
+              catch (e) { document.getElementById('err').textContent = 'Edge Score 計算失敗：' + (e && e.message ? e.message : e); }
+            } else {
+              statusEl.textContent = '訊號不足，請再試一次（指尖貼穩、補光）';
+            }
           }
         });
         try {
