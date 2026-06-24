@@ -50,7 +50,8 @@
   const STABILITY_WINDOW_MS = 4000; // lookback window for the lock decision
   const STABILITY_MIN_SPAN_MS = 3000; // samples must cover >= this much of the window
   const STABILITY_MIN_SAMPLES = 4; // and there must be at least this many
-  const STABILITY_MAX_SPREAD_BPM = 5; // max (maxBpm - minBpm) to count as locked
+  const STABILITY_MAX_SPREAD_BPM = 5; // inlier tolerance: within +-this of the median
+  const STABILITY_MIN_INLIER_FRACTION = 0.6; // and the tight cluster must be the majority
   const STABILITY_SAMPLE_INTERVAL_MS = 450; // throttle: keep <= ~1 estimate / 0.45s
 
   // ── pure DSP ────────────────────────────────────────────────
@@ -166,50 +167,66 @@
 
   /**
    * Decide whether a stream of recent per-window BPM estimates has settled into a
-   * stable, repeatable reading. A real pulse produces a tight cluster across
-   * consecutive analysis windows; broadband noise jumps around. This temporal
-   * consistency check is the real acceptance gate (estimateBpm's confidence floor
-   * only drops obvious junk) — far more robust than an absolute single-window
-   * threshold, which real phone-camera PPG barely clears.
+   * stable, repeatable reading. A real pulse forms a tight cluster across
+   * consecutive analysis windows; broadband noise scatters — and on real hardware
+   * the occasional noise window (e.g. a short-lag autocorrelation peak at the
+   * MAX_BPM boundary → ~253 bpm) can even out-score the real pulse on confidence.
+   * So this temporal-consistency check is the real acceptance gate, and it must be
+   * OUTLIER-ROBUST: lock on the tight cluster around the MEDIAN, ignoring the odd
+   * garbage window, instead of demanding every recent sample agree (a single
+   * outlier would otherwise blow a max−min spread past tolerance forever).
    *
    * Pure + headless-testable (no DOM/camera), mirroring the file's DSP layer.
    *
    * @param {{bpm:number,t:number}[]} history - recent (bpm, ms-timestamp) samples, oldest→newest.
    * @param {object} [opts]
-   * @param {number} [opts.windowMs]    lookback window (default STABILITY_WINDOW_MS).
-   * @param {number} [opts.minSpanMs]   required time coverage (default STABILITY_MIN_SPAN_MS).
-   * @param {number} [opts.minSamples]  required sample count (default STABILITY_MIN_SAMPLES).
-   * @param {number} [opts.maxSpreadBpm] max bpm spread to lock (default STABILITY_MAX_SPREAD_BPM).
-   * @returns {{locked:boolean, bpm:number|null, spread:number, span:number, count:number}}
+   * @param {number} [opts.windowMs]       lookback window (default STABILITY_WINDOW_MS).
+   * @param {number} [opts.minSpanMs]      required inlier time coverage (default STABILITY_MIN_SPAN_MS).
+   * @param {number} [opts.minSamples]     required inlier count (default STABILITY_MIN_SAMPLES).
+   * @param {number} [opts.maxSpreadBpm]   inlier tolerance ± median (default STABILITY_MAX_SPREAD_BPM).
+   * @param {number} [opts.minInlierFraction] inliers must be this fraction of recent (default STABILITY_MIN_INLIER_FRACTION).
+   * @returns {{locked:boolean, bpm:number|null, spread:number, span:number, count:number, inliers:number}}
    */
   function assessStability(history, opts) {
     opts = opts || {};
     const windowMs = opts.windowMs || STABILITY_WINDOW_MS;
     const minSpanMs = opts.minSpanMs || STABILITY_MIN_SPAN_MS;
     const minSamples = opts.minSamples || STABILITY_MIN_SAMPLES;
-    const maxSpread = opts.maxSpreadBpm || STABILITY_MAX_SPREAD_BPM;
+    const tol = opts.maxSpreadBpm || STABILITY_MAX_SPREAD_BPM;
+    const minFraction = opts.minInlierFraction || STABILITY_MIN_INLIER_FRACTION;
 
+    const empty = { locked: false, bpm: null, spread: 0, span: 0, count: 0, inliers: 0 };
     const valid = (history || []).filter(function (h) {
       return h && typeof h.bpm === 'number' && h.bpm > 0 && typeof h.t === 'number';
     });
-    if (valid.length === 0) return { locked: false, bpm: null, spread: 0, span: 0, count: 0 };
+    if (valid.length === 0) return empty;
 
     // consider only the most recent `windowMs` of estimates
     const newestT = valid[valid.length - 1].t;
     const recent = valid.filter(function (h) { return newestT - h.t <= windowMs; });
-    const bpms = recent.map(function (h) { return h.bpm; });
-    const span = recent.length > 1 ? newestT - recent[0].t : 0;
-    const spread = Math.max.apply(null, bpms) - Math.min.apply(null, bpms);
 
-    // median is robust to the occasional outlier window
-    const sorted = bpms.slice().sort(function (a, b) { return a - b; });
+    const med = median(recent.map(function (h) { return h.bpm; }));
+    // the tight cluster around the median — outlier windows fall outside `tol`
+    const inliers = recent.filter(function (h) { return Math.abs(h.bpm - med) <= tol; });
+    if (inliers.length === 0) return { locked: false, bpm: med, spread: 0, span: 0, count: recent.length, inliers: 0 };
+
+    const inlierBpms = inliers.map(function (h) { return h.bpm; });
+    const span = inliers.length > 1 ? inliers[inliers.length - 1].t - inliers[0].t : 0;
+    const spread = Math.max.apply(null, inlierBpms) - Math.min.apply(null, inlierBpms);
+
+    const locked = inliers.length >= minSamples &&
+      span >= minSpanMs &&
+      inliers.length >= Math.ceil(recent.length * minFraction);
+
+    // record the median of the clean cluster (robust to the garbage windows)
+    return { locked: locked, bpm: median(inlierBpms), spread: spread, span: span, count: recent.length, inliers: inliers.length };
+  }
+
+  /** Median of a numeric array (rounded for even counts). @param {number[]} arr */
+  function median(arr) {
+    const sorted = arr.slice().sort(function (a, b) { return a - b; });
     const mid = Math.floor(sorted.length / 2);
-    const median = sorted.length % 2
-      ? sorted[mid]
-      : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
-
-    const locked = recent.length >= minSamples && span >= minSpanMs && spread <= maxSpread;
-    return { locked: locked, bpm: median, spread: spread, span: span, count: recent.length };
+    return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
   }
 
   // ── personal HR baseline (Welford + maturity, localStorage) ──

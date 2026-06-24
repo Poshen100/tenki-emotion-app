@@ -106,9 +106,10 @@ check('insufficient samples not locked', s.locked === false);
 s = ppg.assessStability(hist([60, 61, 60, 62, 61], 300));
 check('too-short time span not locked', s.locked === false);
 
-// a single wild outlier inflates the spread → no lock (strict on purpose)
+// a single wild outlier must NOT block the lock — the median cluster wins
+// (this is the on-device fix: occasional 253-bpm noise windows used to poison it)
 s = ppg.assessStability(hist([58, 59, 58, 120, 59, 58]));
-check('single wild outlier blocks lock', s.locked === false);
+check('single wild outlier still locks (robust)', s.locked === true && Math.abs(s.bpm - 59) <= 2);
 
 // median (not mean) is used for the recorded value → robust within a locked window
 s = ppg.assessStability(hist([58, 59, 60, 61, 62]));
