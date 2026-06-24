@@ -115,7 +115,7 @@
       演算法核心 finger-ppg.js 已通過 14 項 headless 測試。</p>
   </div>
 
-  <script src="finger-ppg.js?v=3"></script>
+  <script src="finger-ppg.js?v=4"></script>
   <script src="engine-bundle.js?v=1"></script>
   <script src="finger-edge.js?v=1"></script>
   <script>
@@ -138,6 +138,8 @@
       var lastBpm = null;
       var lastConfidence = 0;
       var lastCovered = false;
+      var lastLocked = false;
+      var lastSpread = 0;
 
       // Human-readable driver names for the honest breakdown.
       var DRIVER_NAMES = {
@@ -205,11 +207,16 @@
             coverEl.className = 'cover ' + (covered ? 'ok' : 'bad');
           },
           onDiag: function (d) {
+            lastLocked = !!d.locked;
+            lastSpread = d.spread;
+            // unlock the "complete" button only once the reading is stable
+            finishBtn.disabled = !lastLocked;
             document.getElementById('diag').textContent =
               'fps ' + d.fps + ' · ch ' + d.channel +
               ' · R' + d.rMean + ' G' + d.gMean +
               ' · amp R' + d.rAmp + ' G' + d.gAmp +
-              ' · conf ' + d.confidence + ' · ' + d.reason;
+              ' · conf ' + d.confidence + ' · ' + d.reason +
+              (d.stableBpm ? ' · spread ±' + d.spread : '');
           },
           onComplete: function (baseline, bpm) {
             if (baseline) {
@@ -225,11 +232,15 @@
         try {
           await cap.start(cam);
           t0 = Date.now();
-          finishBtn.disabled = false;
+          finishBtn.disabled = true; // stays disabled until the reading locks
           statusEl.textContent = '收集訊號中… 0s';
           tick = setInterval(function () {
             var s = Math.round((Date.now() - t0) / 1000);
-            statusEl.textContent = (lastBpm ? '量測中（穩定後可完成）· ' : '收集訊號中… ') + s + 's';
+            if (lastLocked) {
+              statusEl.textContent = '✅ 穩定 · 可完成（spread ±' + lastSpread + '）· ' + s + 's';
+            } else {
+              statusEl.textContent = (lastBpm ? '量測中（穩定後可完成）· ' : '收集訊號中… ') + s + 's';
+            }
           }, 1000);
         } catch (e) {
           startBtn.disabled = false;
