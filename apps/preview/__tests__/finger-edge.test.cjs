@@ -90,6 +90,35 @@ check('stress_proxy partial', fedge.DRIVER_STATUS.stress_proxy_vs_baseline === '
 check('hrv unmeasured', fedge.DRIVER_STATUS.hrv_vs_baseline === 'unmeasured');
 check('respiration unmeasured', fedge.DRIVER_STATUS.respiration_stability === 'unmeasured');
 
+console.log('buildEdgeInputFromVitals — full real vitals (HR+HRV+RR)');
+const vitals = {
+  hr: { mean: 62, std: 3 },
+  hrv: { mean: 55, std: 8 },
+  rr: { mean: 15, std: 1.5 },
+  count: 4,
+  maturity: 'building',
+};
+const vIn = fedge.buildEdgeInputFromVitals(vitals, fedge.buildSignalQuality(0.8, true), [], MORNING, engine);
+check('hr baseline populated', vIn.baseline.hr.morning.mean === 62 && vIn.baseline.hr.morning.sampleCount === 4);
+check('hrv baseline populated (NOT empty)', vIn.baseline.hrv.morning.mean === 55 && vIn.baseline.hrv.morning.sampleCount === 4);
+check('rr baseline populated (NOT empty)', vIn.baseline.rr.morning.mean === 15 && vIn.baseline.rr.morning.sampleCount === 4);
+check('reading carries all three vitals', vIn.reading.hrBpm === 62 && vIn.reading.hrvRmssdMs === 55 && vIn.reading.rrBrpm === 15);
+check('maturity from vitals', vIn.baseline.maturity === 'building');
+const vResult = engine.calculateEdgeScore(vIn);
+check('full-vitals score is 0-100', vResult.score >= 0 && vResult.score <= 100);
+// With all vitals measured, engine confidence is its NATIVE value (not forced low).
+check('engine native confidence band present', ['low', 'moderate', 'high'].indexOf(vResult.confidence.band) >= 0);
+check('respiration driver is NOT the empty-baseline 100 anymore',
+  vResult.drivers.find((d) => d.key === 'respiration_stability').rawSubScore <= 100); // real RR baseline → real z
+check('throws without engine (vitals)', (() => { try { fedge.buildEdgeInputFromVitals(vitals, {}, [], MORNING, null); return false; } catch (_) { return true; } })());
+
+console.log('Today snapshot — persist/load round-trip');
+const snap = fedge.persistTodaySnapshot({ score: 71, zone: 'clear', hr: 62, hrv: 55, rr: 15, confidenceBand: 'moderate', count: 4 });
+check('persisted snapshot carries a ts', typeof snap.ts === 'number');
+check('persisted snapshot carries score/zone', snap.score === 71 && snap.zone === 'clear');
+// localStorage is undefined in node → loadTodaySnapshot returns null (graceful).
+check('loadTodaySnapshot is graceful without localStorage', fedge.loadTodaySnapshot() === null);
+
 console.log('recordEdgeScore — rolling history (newest first, cap 10)');
 // localStorage is undefined in node → recordEdgeScore degrades but still returns the capped array.
 let hist = [];

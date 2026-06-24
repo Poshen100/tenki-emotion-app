@@ -25,6 +25,7 @@
   'use strict';
 
   const EDGE_HISTORY_KEY = 'tenki.edgeHistory.v1';
+  const TODAY_SNAPSHOT_KEY = 'tenki.todaySnapshot.v1';
 
   /**
    * Per-driver honesty label for the preview breakdown. The browser preview
@@ -157,13 +158,97 @@
     return capped;
   }
 
+  /** @param {{mean:number,std:number}} v @param {number} count @param {number} ts */
+  function metricBaselineFrom(v, count, ts) {
+    const mean = (v && v.mean) || 0;
+    return {
+      mean,
+      std: (v && v.std) || 0,
+      sampleCount: mean > 0 ? Math.max(1, count || 1) : 0,
+      lastUpdatedAt: ts,
+    };
+  }
+
+  /**
+   * Builds the engine EdgeScoreInput from a FULL vitals baseline (HR + HRV + RR
+   * all really measured — e.g. the onboarding ceremony via camera-scan.js).
+   * Unlike buildEdgeInput (HR-only), every baseline is populated, so the
+   * engine's NATIVE confidence is honest and is NOT downgraded.
+   *
+   * @param {object} vitals - { hr:{mean,std}, hrv:{mean,std}, rr:{mean,std}, count, maturity }.
+   * @param {object} signalQuality - from buildSignalQuality.
+   * @param {number[]} recentScores - past Edge Scores, newest first.
+   * @param {number} [now] - timestamp (ms).
+   * @param {object} [engine] - TENKIEngine (defaults to window.TENKIEngine); injectable for tests.
+   * @returns {object} EdgeScoreInput.
+   */
+  function buildEdgeInputFromVitals(vitals, signalQuality, recentScores, now, engine) {
+    engine = engine || (typeof window !== 'undefined' ? window.TENKIEngine : null);
+    if (!engine || typeof engine.createEmptyBaselineProfile !== 'function') {
+      throw new Error('TENKIEngine not loaded (engine-bundle.js)');
+    }
+    const ts = now || (typeof Date !== 'undefined' ? Date.now() : 0);
+    const count = vitals.count || 1;
+    const baseline = engine.createEmptyBaselineProfile();
+    const bucket = engine.resolveTimeBucket(ts);
+    baseline.hr[bucket] = metricBaselineFrom(vitals.hr, count, ts);
+    baseline.hrv[bucket] = metricBaselineFrom(vitals.hrv, count, ts);
+    baseline.rr[bucket] = metricBaselineFrom(vitals.rr, count, ts);
+    baseline.maturity = vitals.maturity || 'building';
+    baseline.totalScanCount = count;
+
+    return {
+      reading: {
+        hrBpm: (vitals.hr && vitals.hr.mean) || 0,
+        hrvRmssdMs: (vitals.hrv && vitals.hrv.mean) || 0,
+        rrBrpm: (vitals.rr && vitals.rr.mean) || 0,
+        timestamp: ts,
+      },
+      baseline,
+      signalQuality,
+      sleepRecovery: { source: 'none', durationHours: null, qualityScore: null, stalenessHours: 0 },
+      recentScores: recentScores || [],
+    };
+  }
+
+  /** @returns {object|null} the persisted Today snapshot, or null. */
+  function loadTodaySnapshot() {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      const raw = localStorage.getItem(TODAY_SNAPSHOT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * Persists the latest Today snapshot so other views (v6 Today) can show the
+   * real engine score across navigation. Only derived numbers — privacy-safe.
+   * @param {object} snap - { score, zone, hr, hrv, rr, confidenceBand, count, ts }.
+   * @returns {object} the snapshot written.
+   */
+  function persistTodaySnapshot(snap) {
+    const out = Object.assign({ ts: (typeof Date !== 'undefined' ? Date.now() : 0) }, snap);
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(TODAY_SNAPSHOT_KEY, JSON.stringify(out));
+    } catch (_) {
+      /* private mode / quota — degrade silently */
+    }
+    return out;
+  }
+
   return {
     DRIVER_STATUS,
     EDGE_HISTORY_KEY,
+    TODAY_SNAPSHOT_KEY,
     buildSignalQuality,
     buildEdgeInput,
+    buildEdgeInputFromVitals,
     computeHonestConfidence,
     loadEdgeHistory,
     recordEdgeScore,
+    loadTodaySnapshot,
+    persistTodaySnapshot,
   };
 });
