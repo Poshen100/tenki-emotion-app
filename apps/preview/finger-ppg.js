@@ -27,8 +27,15 @@
 
   // ── tunables ────────────────────────────────────────────────
   const MIN_BPM = 42;
-  const MAX_BPM = 240;
+  const MAX_BPM = 180; // resting-HR tool: 240 let a short-lag noise peak (lag 14)
+  // masquerade as ~257 bpm and lock with spread ±0; 180 keeps the autocorrelation
+  // search inside a sane range (shortest detectable period ~ fps/3).
   const MIN_SECONDS = 4; // need >= 4s of signal before estimating
+  // A lockable reading must also be physiologically plausible. On weak/near-noise
+  // contact the estimator can produce a *stable* garbage cluster (e.g. 257 bpm);
+  // a resting-HR baseline must never record that — clamp the lock to a sane band.
+  const PLAUSIBLE_MIN_BPM = 40;
+  const PLAUSIBLE_MAX_BPM = 150;
   // Single-window junk floor, NOT the acceptance bar. Real phone-camera fingertip
   // PPG only marginally clears ~0.3–0.5 normalized autocorrelation; a 0.5 hard gate
   // (calibrated on clean synthetic sines) rejects genuine pulses on-device. So we
@@ -185,6 +192,8 @@
    * @param {number} [opts.minSamples]     required inlier count (default STABILITY_MIN_SAMPLES).
    * @param {number} [opts.maxSpreadBpm]   inlier tolerance ± median (default STABILITY_MAX_SPREAD_BPM).
    * @param {number} [opts.minInlierFraction] inliers must be this fraction of recent (default STABILITY_MIN_INLIER_FRACTION).
+   * @param {number} [opts.plausibleMin] lock only if the cluster median >= this (default PLAUSIBLE_MIN_BPM).
+   * @param {number} [opts.plausibleMax] lock only if the cluster median <= this (default PLAUSIBLE_MAX_BPM).
    * @returns {{locked:boolean, bpm:number|null, spread:number, span:number, count:number, inliers:number}}
    */
   function assessStability(history, opts) {
@@ -194,6 +203,8 @@
     const minSamples = opts.minSamples || STABILITY_MIN_SAMPLES;
     const tol = opts.maxSpreadBpm || STABILITY_MAX_SPREAD_BPM;
     const minFraction = opts.minInlierFraction || STABILITY_MIN_INLIER_FRACTION;
+    const plausibleMin = opts.plausibleMin || PLAUSIBLE_MIN_BPM;
+    const plausibleMax = opts.plausibleMax || PLAUSIBLE_MAX_BPM;
 
     const empty = { locked: false, bpm: null, spread: 0, span: 0, count: 0, inliers: 0 };
     const valid = (history || []).filter(function (h) {
@@ -214,12 +225,16 @@
     const span = inliers.length > 1 ? inliers[inliers.length - 1].t - inliers[0].t : 0;
     const spread = Math.max.apply(null, inlierBpms) - Math.min.apply(null, inlierBpms);
 
+    // record the median of the clean cluster (robust to the garbage windows)
+    const recordedBpm = median(inlierBpms);
+    const plausible = recordedBpm >= plausibleMin && recordedBpm <= plausibleMax;
+
     const locked = inliers.length >= minSamples &&
       span >= minSpanMs &&
-      inliers.length >= Math.ceil(recent.length * minFraction);
+      inliers.length >= Math.ceil(recent.length * minFraction) &&
+      plausible; // never lock onto a stable-but-impossible noise cluster (e.g. 257 bpm)
 
-    // record the median of the clean cluster (robust to the garbage windows)
-    return { locked: locked, bpm: median(inlierBpms), spread: spread, span: span, count: recent.length, inliers: inliers.length };
+    return { locked: locked, bpm: recordedBpm, spread: spread, span: span, count: recent.length, inliers: inliers.length };
   }
 
   /** Median of a numeric array (rounded for even counts). @param {number[]} arr */
