@@ -134,5 +134,19 @@ check('half-noise does NOT lock', s.locked === false);
 s = ppg.assessStability(hist([114, 50, 253, 56, 14, 253, 57, 200, 253], 500));
 check('pure noise does NOT lock', s.locked === false);
 
+console.log('assessStability — physiological plausibility bound');
+// on-device weak-contact failure: a PERFECTLY stable garbage cluster at the
+// MAX_BPM boundary (257 bpm, spread ±0). A resting-HR tool must never record it.
+s = ppg.assessStability(hist([257, 257, 257, 257, 257, 257]));
+check('stable but impossible 257 does NOT lock', s.locked === false);
+
+// a stable mid-high noise cluster (e.g. 181) is still implausible for resting HR
+s = ppg.assessStability(hist([181, 181, 180, 182, 181, 181]));
+check('stable implausible 181 does NOT lock', s.locked === false);
+
+// a plausible resting pulse at the same stability still locks (band is the only diff)
+s = ppg.assessStability(hist([70, 71, 69, 70, 72, 70]));
+check('stable plausible 70 locks', s.locked === true && Math.abs(s.bpm - 70) <= 2);
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
