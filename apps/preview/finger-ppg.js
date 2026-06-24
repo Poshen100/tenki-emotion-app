@@ -30,7 +30,9 @@
   const MAX_BPM = 240;
   const MIN_SECONDS = 4; // need >= 4s of signal before estimating
   const QUALITY_MIN_CONFIDENCE = 0.5; // normalized autocorr peak [0..1]
-  const QUALITY_MIN_AMPLITUDE = 0.6; // detrended green std floor (8-bit units)
+  const QUALITY_MIN_AMPLITUDE = 0.12; // detrended std floor (8-bit) — real
+  // fingertip PPG AC is tiny when the lens is red-saturated, so keep this low
+  // and lean on the periodicity (confidence) gate to reject junk.
 
   // maturity thresholds mirror the engine baseline (new/building/ready/mature)
   const MATURITY = { BUILDING: 1, READY: 5, MATURE: 15 };
@@ -81,7 +83,9 @@
    */
   function estimateBpm(green, fps) {
     const n = green.length;
-    if (!fps || n < Math.ceil(MIN_SECONDS * fps)) return { bpm: null, confidence: 0 };
+    if (!fps || n < Math.ceil(MIN_SECONDS * fps)) {
+      return { bpm: null, confidence: 0, amp: 0, reason: 'short' };
+    }
 
     // High-pass: detrend with a ~1.5s window (preserves the fundamental down to
     // MIN_BPM), then a light 3-tap smooth to suppress high-frequency noise that
@@ -95,12 +99,12 @@
     let varSum = 0;
     for (let i = 0; i < n; i++) varSum += (d[i] - mean) * (d[i] - mean);
     const std = Math.sqrt(varSum / n);
-    if (std < QUALITY_MIN_AMPLITUDE) return { bpm: null, confidence: 0 };
+    if (std < QUALITY_MIN_AMPLITUDE) return { bpm: null, confidence: 0, amp: std, reason: 'flat' };
 
     // zero-lag energy
     let c0 = 0;
     for (let i = 0; i < n; i++) c0 += d[i] * d[i];
-    if (c0 <= 0) return { bpm: null, confidence: 0 };
+    if (c0 <= 0) return { bpm: null, confidence: 0, amp: std, reason: 'flat' };
     const energyPerSample = c0 / n;
 
     const lagMin = Math.floor((60 * fps) / MAX_BPM);
@@ -117,14 +121,16 @@
         bestLag = lag;
       }
     }
-    if (bestLag < 0) return { bpm: null, confidence: 0 };
+    if (bestLag < 0) return { bpm: null, confidence: 0, amp: std, reason: 'weak' };
 
     // confidence = normalized autocorrelation peak vs average energy (~[0..1])
     const confidence = Math.max(0, Math.min(1, bestCorr / energyPerSample));
-    if (confidence < QUALITY_MIN_CONFIDENCE) return { bpm: null, confidence };
+    if (confidence < QUALITY_MIN_CONFIDENCE) {
+      return { bpm: null, confidence, amp: std, reason: 'weak' };
+    }
 
     const bpm = Math.round((60 * fps) / bestLag);
-    return { bpm, confidence };
+    return { bpm, confidence, amp: std, reason: 'ok' };
   }
 
   // ── personal HR baseline (Welford + maturity, localStorage) ──
@@ -196,6 +202,8 @@
    * @param {(bpm:number, confidence:number)=>void} [opts.onBpm] live BPM updates.
    * @param {(covered:boolean, brightness:number)=>void} [opts.onQuality] contact feedback.
    * @param {(baseline:object, bpm:number)=>void} [opts.onComplete] final + baseline.
+   * @param {(d:object)=>void} [opts.onDiag] per-frame diagnostics:
+   *   { fps, channel, rMean, gMean, rAmp, gAmp, confidence, reason, bpm }.
    * @param {number} [opts.roi] ROI canvas size (px). Small = OOM-safe.
    * @param {number} [opts.windowSeconds] rolling analysis window.
    */
@@ -204,6 +212,7 @@
     const onBpm = opts.onBpm || function () {};
     const onQuality = opts.onQuality || function () {};
     const onComplete = opts.onComplete || function () {};
+    const onDiag = opts.onDiag || function () {};
     const ROI = opts.roi || 24; // tiny ROI → cheap getImageData, OOM-safe
     const WINDOW_S = opts.windowSeconds || 10;
 
@@ -214,8 +223,13 @@
     let ctx = null;
     let raf = 0;
     let running = false;
-    const samples = []; // ring buffer of green means
-    const times = []; // matching timestamps (ms)
+    // parallel ring buffers — fingertip PPG lives in red OR green depending on the
+    // device/exposure (red often saturates under torch); we auto-pick the best.
+    const samplesR = [];
+    const samplesG = [];
+    const times = [];
+    let lastR = 0;
+    let lastG = 0;
 
     async function start(videoEl) {
       video = videoEl;
@@ -268,45 +282,80 @@
           g += px[i + 1];
         }
         const nPx = px.length / 4;
-        const greenMean = g / nPx;
-        const redMean = r / nPx;
+        lastG = g / nPx;
+        lastR = r / nPx;
         // finger-over-lens + torch ≈ bright + red-dominant
-        const covered = redMean > 90 && redMean > greenMean;
-        onQuality(covered, redMean);
+        const covered = lastR > 90 && lastR > lastG;
+        onQuality(covered, lastR);
 
         const t = (typeof performance !== 'undefined') ? performance.now() : Date.now();
-        samples.push(greenMean);
+        samplesR.push(lastR);
+        samplesG.push(lastG);
         times.push(t);
-        // fixed-length ring buffer (OOM-safe): keep only the last WINDOW_S worth
+        // fixed-length ring buffers (OOM-safe): keep only the last WINDOW_S worth
         while (times.length > 1 && t - times[0] > WINDOW_S * 1000) {
           times.shift();
-          samples.shift();
+          samplesR.shift();
+          samplesG.shift();
         }
 
-        if (samples.length >= 2) {
-          const spanS = (times[times.length - 1] - times[0]) / 1000;
-          const fps = spanS > 0 ? (samples.length - 1) / spanS : 0;
-          const r2 = estimateBpm(samples, fps);
-          if (r2.bpm) onBpm(r2.bpm, r2.confidence);
-        }
+        if (times.length >= 2) analyse();
       } catch (_) {
         /* transient frame error — skip */
       }
     }
 
+    /**
+     * Run the tested estimator on both channels and pick the better one. Red
+     * carries the strongest pulse but saturates under torch (→ flat); green is
+     * weaker but rarely clips. Choosing per-frame by confidence handles both.
+     */
+    function analyse() {
+      const spanS = (times[times.length - 1] - times[0]) / 1000;
+      const fps = spanS > 0 ? (samplesR.length - 1) / spanS : 0;
+      const rRes = estimateBpm(samplesR, fps);
+      const gRes = estimateBpm(samplesG, fps);
+
+      let chosen;
+      let channel;
+      if (rRes.bpm && gRes.bpm) {
+        chosen = rRes.confidence >= gRes.confidence ? rRes : gRes;
+        channel = rRes.confidence >= gRes.confidence ? 'R' : 'G';
+      } else if (rRes.bpm) {
+        chosen = rRes; channel = 'R';
+      } else if (gRes.bpm) {
+        chosen = gRes; channel = 'G';
+      } else {
+        chosen = gRes.amp >= rRes.amp ? gRes : rRes;
+        channel = gRes.amp >= rRes.amp ? 'G' : 'R';
+      }
+
+      if (chosen.bpm) onBpm(chosen.bpm, chosen.confidence);
+      onDiag({
+        fps: Math.round(fps),
+        channel: channel,
+        rMean: Math.round(lastR),
+        gMean: Math.round(lastG),
+        rAmp: Math.round(rRes.amp * 100) / 100,
+        gAmp: Math.round(gRes.amp * 100) / 100,
+        confidence: Math.round(chosen.confidence * 100) / 100,
+        reason: chosen.reason,
+        bpm: chosen.bpm,
+      });
+      return chosen;
+    }
+
     /** Commit the current estimate to the persisted baseline and stop. */
     function finish() {
-      const spanS = times.length > 1 ? (times[times.length - 1] - times[0]) / 1000 : 0;
-      const fps = spanS > 0 ? (samples.length - 1) / spanS : 0;
-      const r2 = estimateBpm(samples, fps);
+      const chosen = times.length >= 2 ? analyse() : { bpm: null };
       stop();
-      if (r2.bpm) {
-        const baseline = recordFingerScan(r2.bpm);
-        onComplete(baseline, r2.bpm);
+      if (chosen.bpm) {
+        const baseline = recordFingerScan(chosen.bpm);
+        onComplete(baseline, chosen.bpm);
       } else {
         onComplete(null, null);
       }
-      return r2;
+      return chosen;
     }
 
     function stop() {

@@ -56,16 +56,17 @@ check('90 bpm with drift+ripple within ±5', r.bpm !== null && Math.abs(r.bpm - 
 
 console.log('estimateBpm — quality gate rejects junk');
 r = ppg.estimateBpm(new Array(240).fill(128), 30);
-check('flat signal rejected (bpm null)', r.bpm === null);
+check('flat signal rejected (bpm null)', r.bpm === null && r.reason === 'flat');
 
-// sub-threshold amplitude (clean but tiny) → rejected by the amplitude gate
-const tiny = [];
-for (let i = 0; i < 300; i++) tiny.push(128 + 0.4 * Math.sin(2 * Math.PI * 1.2 * (i / 30)));
-r = ppg.estimateBpm(tiny, 30);
-check('sub-threshold amplitude rejected', r.bpm === null);
+// real fingertip PPG AC is tiny (esp. when red-saturated): a small but clean,
+// periodic signal must be ACCEPTED — the periodicity gate, not amplitude, is king.
+const small = [];
+for (let i = 0; i < 300; i++) small.push(128 + 0.3 * Math.sin(2 * Math.PI * (66 / 60) * (i / 30)));
+r = ppg.estimateBpm(small, 30);
+check('small-amplitude clean PPG accepted ~66', r.bpm !== null && Math.abs(r.bpm - 66) <= 3);
 
 r = ppg.estimateBpm(synth(72, 30, 2, 5, 0), 30);
-check('too-short signal rejected', r.bpm === null);
+check('too-short signal rejected', r.bpm === null && r.reason === 'short');
 
 console.log('baseline — Welford + maturity');
 let b = ppg.createFingerBaseline();

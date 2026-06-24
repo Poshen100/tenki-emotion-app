@@ -35,6 +35,7 @@
     .stat b { color:var(--txt); font-variant-numeric:tabular-nums; }
     .err { color:var(--red); font-size:13px; min-height:18px; }
     .spacer { flex:1; }
+    .diag { font-family:ui-monospace,Menlo,monospace; font-size:11px; color:#5E7596; margin-top:8px; min-height:16px; }
     .foot { font-size:11px; color:#425570; text-align:center; line-height:1.5; }
   </style>
 </head>
@@ -51,6 +52,7 @@
       <div class="bpm"><span id="bpm">--</span><span class="unit">bpm</span></div>
       <div class="sub" id="status">按「開始量測」並允許相機</div>
       <div class="cover" id="cover"></div>
+      <div class="diag" id="diag"></div>
     </div>
 
     <div class="row">
@@ -109,6 +111,13 @@
           onQuality: function (covered) {
             coverEl.textContent = covered ? '✅ 指尖覆蓋良好' : '⚠️ 請用指尖蓋住後鏡頭';
             coverEl.className = 'cover ' + (covered ? 'ok' : 'bad');
+          },
+          onDiag: function (d) {
+            document.getElementById('diag').textContent =
+              'fps ' + d.fps + ' · ch ' + d.channel +
+              ' · R' + d.rMean + ' G' + d.gMean +
+              ' · amp R' + d.rAmp + ' G' + d.gAmp +
+              ' · conf ' + d.confidence + ' · ' + d.reason;
           },
           onComplete: function (baseline, bpm) {
             if (baseline) { renderBaseline(baseline); statusEl.textContent = '已記錄本次：' + bpm + ' bpm'; }
