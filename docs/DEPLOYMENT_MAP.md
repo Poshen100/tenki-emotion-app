@@ -41,7 +41,7 @@ tenki-emotion-app.vercel.app
 | `https://tenki-emotion-app.vercel.app/` | `apps/web/` | Legacy web prototype v51.1 | 🔒 Frozen (legacy 對外門牌) |
 | `https://tenki-emotion-app.vercel.app/v3/` | `apps/preview/v6/index.html` | **v3 主入口** — Today + 5-Tab Nav + FDCB,v3 nomenclature 已對齊 (Clear/Neutral/Strain) | ✨ Founder 認可,active dev |
 | `https://tenki-emotion-app.vercel.app/preview/` | `apps/preview/soul-enroll.html` | **Soul Scan 臉部基線建立門面**（Face ID 式，真實前鏡頭 + live gates，對應 mobile FSM） | ✨ Front door, active dev |
-| `https://tenki-emotion-app.vercel.app/preview/finger/` | `apps/preview/index.html` | Finger PPG baseline onboarding 6-step flow（降為校準層，原 `/preview/` 根） | ⚠️ iOS OOM — hotfix branch ready |
+| `https://tenki-emotion-app.vercel.app/preview/finger/` | `apps/preview/index.html` | Finger PPG baseline onboarding 6-step flow（降為校準層）。Step 5 結果卡現以 `packages/engine` 真引擎（`engine-bundle.js`+`finger-edge.js`）從真 HR/HRV/RR（camera-scan.js）算真 Edge Score，並寫 `tenki.todaySnapshot.v1` 給 v6 Today。 | ⚠️ iOS OOM — hotfix branch ready |
 | `https://tenki-emotion-app.vercel.app/preview/finger-ppg-test.html` | `apps/preview/finger-ppg-test.html` | **真實指尖 PPG → 真 Edge Score 揭曉**：後鏡頭量真 HR → `packages/engine` 真引擎算分（score/zone/safe copy）+ 誠實 LOW 信心 + driver 透明標籤。引擎經 `engine-bundle.js`（esbuild UMD）載入；adapter = `finger-edge.js`。 | ✨ Active dev（手機驗） |
 | `https://tenki-emotion-app.vercel.app/preview/scan-result.html` | `apps/preview/scan-result.html` | Scan result page preview | ✅ Active |
 | `https://tenki-emotion-app.vercel.app/preview/soul-enroll.html` | `apps/preview/soul-enroll.html` | Soul Scan 直接路徑（內容同 `/preview/` 門面） | ✨ Active dev |

@@ -1,3 +1,41 @@
+# 2026-06-24 Session Update (模型B 第2+3輪：真引擎 Edge Score 接進 preview — feat/preview-finger-real-ppg / PR #148)
+
+> 承接 PR #148 真 PPG。本 session 兩個方向都做了：先在真 PPG 捕取頁接真引擎（誠實低信心），再把真引擎接進主 onboarding ceremony + v6 Today。全在 `apps/preview/`，引擎源碼零改動（仍是 source of truth）。
+
+## 決策鏈（多輪 AskUserQuestion）
+- 引擎交付 = **Bundle 真引擎成 UMD**（esbuild → `apps/preview/engine-bundle.js`，IIFE `window.TENKIEngine`）。preview 是純 vanilla、不能 import TS → bundle 是唯一零-drift 解。重建：`cd apps/preview && npm run build:engine-bundle`。
+- 缺失維度處理 = **誠實低信心**（finger-ppg-test 路徑只有 HR；HRV/RR/sleep/trend 未測 → `computeHonestConfidence` 強制 band='low' + driver 透明標籤）。
+- 範圍先做「真捕取→引擎→揭曉」（Round 2），再做「真 PPG 進主 ceremony」（Round 3）。
+
+## What was done（Claude Code 雲端 + node headless 驗，founder 手機驗 UI）
+- **`apps/preview/engine-bundle.js` + `engine-entry.ts` + `package.json`**（Round2）：esbuild 把 `calculateEdgeScore` 等打包成 12.4kb UMD。引擎零 runtime 依賴 → bundle 乾淨。
+- **`apps/preview/finger-edge.js`**（adapter，UMD `window.TENKIFingerEdge`）：
+  - `buildEdgeInput`（HR-only，HRV/RR 留空＝引擎中性）+ `computeHonestConfidence`（強制 low）→ 給 finger-ppg-test。
+  - `buildEdgeInputFromVitals`（HR+HRV+RR 全真 → 引擎**原生誠實信心**，不降）+ `persistTodaySnapshot`/`loadTodaySnapshot`（`tenki.todaySnapshot.v1`）→ 給 ceremony。
+  - **42 項 node 測試全綠**（`__tests__/finger-edge.test.cjs`，用 vm 載入真 bundle 驗：真 HR z-score 有反應、honest band、全維度填值）。
+- **`finger-ppg-test.html`**（Round2）：捕取完成 → 真 Edge Score 揭曉（分數/zone/LOW 徽章/safe copy/driver 標籤）。
+- **主 ceremony 接真引擎**（Round3，**關鍵發現**：`camera-scan.js` 早就算了真 bpm/hrv/rr，`updateBaselineFromCamera` 在相機 active 時就用真值，`simulateBaselineData` 只是桌機 fallback）：
+  - `baseline-onboarding.js`：`estimateEdgeScore()` stub → 改用真引擎（`ensureEdgeComputed` 從 `state.baseline` 真 vitals 算分，bump `tenki.ceremonyScanCount` 成熟度）；Step 5 結果卡揭曉真分（`renderEdgeResult`）；寫 todaySnapshot。bundle 缺席則退回 stub。
+  - `index.html`：載入 engine-bundle.js + finger-edge.js + 結果卡加 `#edge-result` 區塊。
+  - **無新相機/canvas → 不增 iOS OOM 風險**。
+- **v6 Today 顯真分**：`stardust-scan-takeover.js` 原本 takeover 結尾把分數寫死 84；改成讀 `tenki.todaySnapshot.v1` → settle 到真分+真 zone，有真值時凍結 drift（demo 路徑不變仍 84+漂移）。
+- commits：`58eb01a`/`e89bb88`/`12abd90`/`0b46be6`（Round2）+ `f151f81`/`0a903ff`/`9ad579f`（Round3）。
+
+## 重要語義（別誤判為 bug）
+- **基線首掃 Edge Score ≈ 67 neutral 是對的**：建立基線的那次掃描，current reading == baseline mean → 無偏差 → 各維中性。分數要在**往後**掃描跟已建基線比才有意義。信心 band（moderate/low）才是首掃的差異訊號。HTML 已加白話說明。
+
+## 待做（留給 Antigravity，需真機 + 設計手感）
+- **揭曉 UI 視覺打磨**：`#edge-result`（ceremony 結果卡）目前是 inline-style 簡版；v6 Today 真分目前只換數字/zone 文字。請 Antigravity 把這兩處做成符合設計系統 + stardust 手感（環形動效、zone 配色、進場節奏）。**邏輯/資料已就緒（讀 `tenki.todaySnapshot.v1`），只剩視覺。**
+- **direct-visit v6 顯真分**：目前只在 `?from=baseline` takeover 路徑顯真分；直接開 `/preview/v6/` 仍是 demo 漂移。要不要讓 Today 一直反映最後一次真掃描（含 UX：何時算「過期」）= 設計決策，留給 Antigravity + founder。
+- **camera-scan.js DSP 品質**：ceremony 用的是 camera-scan.js 簡易即時峰值偵測；finger-ppg.js 的自相關更穩。要不要統一 DSP = 後續。
+- 真機驗：Vercel preview `/preview/finger/` 跑完 ceremony → Step5 看真分 → 接著 v6 Today 是否顯同一真分；連掃不 crash。
+
+## 教訓 / 注意
+- **先查證再下結論**：Round2 的探勘以為「主 ceremony 全合成」，Round3 逐行讀才發現 camera-scan.js 早有真 bpm/hrv/rr。動工前讀清楚省一輪。
+- 引擎信心陷阱：`calcConfidence` 的 `inputCompleteness` 把 HR/HRV/RR 當永遠存在 → HR-only 路徑會高估信心 → 故 finger-ppg-test 用 `computeHonestConfidence` 強制 low；ceremony 因三者全真，用引擎原生信心即誠實。
+
+---
+
 # 2026-06-23 Session Update (模型B：/preview/ 瀏覽器真實手指 PPG 基線 — feat/preview-finger-real-ppg / PR #148 draft)
 
 > Founder 只有手機,要推進「看到真實生理數據」。最完成、唯一部署且手機可見的是 /preview/(瀏覽器原型)。決定在 /preview/ 做模型B「建立手指 PPG 基線」,因為瀏覽器可用 getUserMedia 取相機、**免 Mac**(apps/mobile 真 PPG 需原生 build=Mac,沒有)。
