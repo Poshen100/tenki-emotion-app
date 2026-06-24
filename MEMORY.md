@@ -1,3 +1,37 @@
+# 2026-06-23 Session Update (模型B：/preview/ 瀏覽器真實手指 PPG 基線 — feat/preview-finger-real-ppg / PR #148 draft)
+
+> Founder 只有手機,要推進「看到真實生理數據」。最完成、唯一部署且手機可見的是 /preview/(瀏覽器原型)。決定在 /preview/ 做模型B「建立手指 PPG 基線」,因為瀏覽器可用 getUserMedia 取相機、**免 Mac**(apps/mobile 真 PPG 需原生 build=Mac,沒有)。
+
+## 決策鏈(兩輪 AskUserQuestion)
+- 模型B = **基線累積/持久化**路線(非只接引擎分數);**手指訊號 = 瀏覽器真 PPG**(真 HR 為主;HVR 瀏覽器取樣率不穩,本輪不追)。
+- 目標從 apps/mobile 轉到 **apps/preview**(founder 明示用部署版);入口最終選 **A**(臉部基線數據頁之後掛可選校準)。
+
+## What was done(雲端寫 + headless 驗證,Antigravity 不在、founder 手機)
+- **`apps/preview/finger-ppg.js`**(新增):
+  - `estimateBpm(green,fps)`:綠通道序列 → 去趨勢(1.5s 高通)→ 3-tap 平滑 → 頻帶內自相關 → 真實 BPM + 品質閘門(擋 flat/太小聲/太短/無脈搏)。
+  - Welford HR 基線 + maturity(new→building→ready→mature,沿用引擎門檻)→ localStorage(只存衍生 HR,raw 像素不上雲)。
+  - `createPpgCapture()`:OOM-safe 瀏覽器擷取殼(單一極小 reused canvas、固定長度環形 buffer、像素逐幀丟、結束 stop)。標 DEVICE-VERIFY。
+  - **14 項 headless 測試全綠**(`apps/preview/__tests__/finger-ppg.test.cjs`,UMD guard 讓瀏覽器 + Node 都能用)。
+- **`apps/preview/finger-ppg-test.html`**(新增):最小可測頁,讓 founder 手機現在就能驗真 PPG。
+- **PR #148(draft)**;Vercel 預覽 `https://tenki-emotion-app-git-feat-preview-344798-chenposhens-projects.vercel.app/preview/finger-ppg-test.html`。
+
+## 待 founder 手機回報(這就是 de-risk 情報)
+- BPM 是否收斂合理(60–90)?torch 在 iOS 有沒有亮(常不支援→要退化)?覆蓋綠字切換?連掃 2–3 次會不會 crash(OOM)?有無相機啟動失敗紅字?
+- **已知最可能的失敗點**:接觸式手指 PPG + torch 時,**紅通道脈動常比綠通道強、但也可能飽和(pin 255)** → 現用綠通道。若 BPM 不收斂,修法 = 在 `createPpgCapture` 改成「自動選紅/綠中去趨勢變異較大、未飽和的通道」餵 `estimateBpm`(純 DSP 不動,只改擷取層)。**等真機數據再改,別盲改**。
+
+## 待做(留給 Antigravity,需真機)
+- 把 `createPpgCapture()` 接進 `apps/preview/index.html` Step4/5(正式 UI)+ 真機調參 + iOS OOM 實測(**`hotfix/oom-ios-safari` 6 fixes 尚未 merge 進 main**,要納入)+ 更新 DEPLOYMENT_MAP。接力 prompt 已備(本 session 對話)。
+
+## 眼動偵測提案 — 已擱置(founder 決定先顧 Model B)
+- Founder 給了一份「加眼動/眨眼 readiness」深研。**事實更正**:`soul-enroll.js` **已載入 MediaPipe FaceLandmarker(478 點)且已算眨眼**(`outputFaceBlendshapes`→`eyeBlinkLeft/Right`→`eyeOpen`,L1022/1080-1091),拿來做睜眼 gate + confidence。所以「Level 1 眨眼」約 80% 已就緒(只缺累積成眨眼率 + surface),不需寫 EAR、不需加模型。
+- **合規硬煞車(撿回來做時必守)**:① 禁用「TEI」→ 是 Edge Score 第 9 維、權重重正規化;② 禁「情緒辨識/微表情/情緒 App」定位(App Store 4.2/GDPR 特殊類別)→ 框成裝置端 readiness/clarity 訊號;③ Trader 價值講 readiness gating 不講績效。瞳孔/虹膜(Level 2)延後(受光/藥物干擾+生物特徵風險)。
+
+## 教訓 / 注意
+- Antigravity push 持續上不了 GitHub(圖書館機 remote 內嵌 Google Stitch token 非 PAT)→ 沿用 patch relay(先 git log/--stat 驗 base,再貼全檔,雲端重建+驗證+推)。
+- /preview/ 真/假:相機框架/光線/對位是真;一切生理數字目前合成 —— 模型B 是第一個讓「真實 HR」進來的地方。
+
+---
+
 # 2026-06-23 Session Update (Scan tab 重定位為日常 Soul Scan 路由儀表板 — feat/scan-tab-daily-soul-scan)
 
 > 承接上一條:onboarding 接好後,做 North Star step 3 後半「Scan tab 重定位為日常 Soul Scan」。Antigravity 實作、雲端 relay 重建+驗證+推送+review。
