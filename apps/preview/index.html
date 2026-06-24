@@ -368,6 +368,14 @@
           <span id="confidence-text">數據品質：良好</span>
         </div>
 
+        <div class="edge-result" id="edge-result" style="display:none;margin-top:16px;padding:16px;border-radius:16px;background:rgba(0,240,255,.06);border:1px solid rgba(0,240,255,.16);text-align:center;">
+          <div style="font-size:11px;letter-spacing:1px;color:#9BA4C4;font-weight:700;">DECISION EDGE SCORE</div>
+          <div id="edge-result-score" style="font-size:52px;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums;color:#00F0FF;">--</div>
+          <span id="edge-result-zone" style="display:inline-block;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(255,255,255,.08);">--</span>
+          <p id="edge-result-copy" style="font-size:12px;color:#9BA4C4;line-height:1.5;margin-top:10px;"></p>
+          <p style="font-size:10px;color:#5E7596;line-height:1.5;margin-top:8px;">由 packages/engine 真實引擎計算 · 基線首掃多為中性，往後每次掃描會跟你自己比較</p>
+        </div>
+
         <div class="precision-tip-card">
           <span class="precision-tip-icon" data-tenki-icon="fingerprint" data-size="16"></span>
           <span class="precision-tip-text">想更準？之後有空時用手指掃一次，能提升 HRV 精度。</span>
@@ -414,6 +422,8 @@
 
   <script src="tenki-icons.js?v=icons-v1"></script>
   <script src="camera-scan.js"></script>
+  <script src="engine-bundle.js?v=1"></script>
+  <script src="finger-edge.js?v=1"></script>
   <script src="baseline-onboarding.js?v=stardust_restore_v2"></script>
 </body>
 </html>
