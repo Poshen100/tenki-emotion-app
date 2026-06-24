@@ -119,5 +119,20 @@ check('locked value is the median', s.locked === true && s.bpm === 60);
 s = ppg.assessStability([]);
 check('empty history not locked', s.locked === false && s.bpm === null);
 
+console.log('assessStability — noise-contaminated streams (on-device cases)');
+// the exact on-device failure: persistent real ~50 bpm with occasional 253 bpm
+// noise windows. round-3 max−min spread never locked; the robust cluster does.
+s = ppg.assessStability(hist([50, 52, 48, 253, 51, 50, 49, 253, 52], 500));
+check('real pulse + occasional 253 noise locks ~50', s.locked === true && Math.abs(s.bpm - 50) <= 3);
+check('locked spread is the tight inlier spread', s.spread <= 5);
+
+// half the windows are garbage → no confident majority cluster → no lock
+s = ppg.assessStability(hist([50, 253, 49, 14, 52, 253, 48, 200, 51], 500));
+check('half-noise does NOT lock', s.locked === false);
+
+// nothing periodic → scattered best-lags → no lock
+s = ppg.assessStability(hist([114, 50, 253, 56, 14, 253, 57, 200, 253], 500));
+check('pure noise does NOT lock', s.locked === false);
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
