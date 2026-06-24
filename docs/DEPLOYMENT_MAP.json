@@ -40,7 +40,7 @@
       "route": "/preview/finger-ppg-test.html",
       "url": "https://tenki-emotion-app.vercel.app/preview/finger-ppg-test.html",
       "source": "apps/preview/finger-ppg-test.html",
-      "purpose": "Real fingertip PPG -> real Edge Score reveal: back-camera measures real resting HR, then packages/engine computes the real score (score/zone/safe copy) with an honest LOW confidence + transparent per-driver labels. Engine loaded via engine-bundle.js (esbuild UMD); adapter = finger-edge.js. Rebuild bundle with `npm run build:engine-bundle` in apps/preview.",
+      "purpose": "Real fingertip PPG -> real Edge Score reveal: back-camera measures real resting HR; the baseline is recorded only after a cross-window stability lock (median BPM; the complete button enables only when stable), then packages/engine computes the real score (score/zone/safe copy) with an honest LOW confidence + transparent per-driver labels. Engine loaded via engine-bundle.js (esbuild UMD); adapter = finger-edge.js. Rebuild bundle with `npm run build:engine-bundle` in apps/preview.",
       "status": "active-dev",
       "editable": true
     },

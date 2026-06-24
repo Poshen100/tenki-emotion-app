@@ -81,5 +81,42 @@ check('maturity ready at 5', b.maturity === 'ready');
 check('building at 1 scan', ppg.fingerMaturity(1) === 'building');
 check('mature at 15 scans', ppg.fingerMaturity(15) === 'mature');
 
+console.log('assessStability — cross-window lock');
+// build a (bpm,t) history from an array, one sample per `step` ms
+function hist(bpms, step) {
+  step = step || 1000;
+  return bpms.map(function (b, i) { return { bpm: b, t: i * step }; });
+}
+
+// real pulse (from on-device sim): tight spread → locks, median ~ true rate
+let s = ppg.assessStability(hist([54, 54, 60, 62, 49, 52, 56, 53, 57, 55]));
+check('stable real pulse locks', s.locked === true);
+check('locked median is plausible HR ~55', Math.abs(s.bpm - 55) <= 4);
+check('locked spread within tolerance', s.spread <= 5);
+
+// broadband noise: best-lag jumps around → never locks
+s = ppg.assessStability(hist([114, 50, 53, 56, 51, 62, 57, 253, 253, 253]));
+check('jumpy noise does NOT lock', s.locked === false);
+
+// too few samples → not locked even if tight
+s = ppg.assessStability(hist([60, 61]));
+check('insufficient samples not locked', s.locked === false);
+
+// enough samples but crammed into < min span → not locked
+s = ppg.assessStability(hist([60, 61, 60, 62, 61], 300));
+check('too-short time span not locked', s.locked === false);
+
+// a single wild outlier inflates the spread → no lock (strict on purpose)
+s = ppg.assessStability(hist([58, 59, 58, 120, 59, 58]));
+check('single wild outlier blocks lock', s.locked === false);
+
+// median (not mean) is used for the recorded value → robust within a locked window
+s = ppg.assessStability(hist([58, 59, 60, 61, 62]));
+check('locked value is the median', s.locked === true && s.bpm === 60);
+
+// empty / missing history degrades gracefully
+s = ppg.assessStability([]);
+check('empty history not locked', s.locked === false && s.bpm === null);
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
