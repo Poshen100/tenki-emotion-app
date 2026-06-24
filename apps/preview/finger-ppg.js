@@ -59,15 +59,26 @@
     return out;
   }
 
-  /** Light 3-tap [1,2,1]/4 smoothing — low-pass to suppress high-freq noise. */
-  function smooth3(series) {
+  /**
+   * Centered moving-average low-pass. Window `win` samples → first null at
+   * fps/win Hz. Used to band-limit to the cardiac band and kill the 4–30 Hz
+   * broadband camera/sensor noise that otherwise inflates the variance and
+   * crushes autocorrelation confidence on a real (but small) fingertip pulse.
+   * @param {number[]} series
+   * @param {number} win - window length in samples.
+   * @returns {number[]} low-passed series.
+   */
+  function lowpass(series, win) {
     const n = series.length;
-    if (n < 3) return series.slice();
+    if (win < 2 || n < win) return series.slice();
     const out = new Array(n);
-    out[0] = series[0];
-    out[n - 1] = series[n - 1];
-    for (let i = 1; i < n - 1; i++) {
-      out[i] = (series[i - 1] + 2 * series[i] + series[i + 1]) / 4;
+    const half = Math.floor(win / 2);
+    for (let i = 0; i < n; i++) {
+      const lo = Math.max(0, i - half);
+      const hi = Math.min(n - 1, i + half);
+      let s = 0;
+      for (let j = lo; j <= hi; j++) s += series[j];
+      out[i] = s / (hi - lo + 1);
     }
     return out;
   }
@@ -87,10 +98,14 @@
       return { bpm: null, confidence: 0, amp: 0, reason: 'short' };
     }
 
-    // High-pass: detrend with a ~1.5s window (preserves the fundamental down to
-    // MIN_BPM), then a light 3-tap smooth to suppress high-frequency noise that
-    // would otherwise create spurious short-lag autocorrelation peaks.
-    const d = smooth3(detrend(green, Math.round(fps * 1.5)));
+    // Band-pass into the cardiac band:
+    //   high-pass — subtract a ~1.5s moving average (removes DC + drift below MIN_BPM)
+    //   low-pass  — centered moving average (~fps/8 ≈ 3–4 Hz cutoff) removes the
+    //               4–30 Hz broadband noise that crushes confidence on a real pulse.
+    // Real fingertip PPG is small vs camera noise; without the low-pass the
+    // variance denominator is noise-dominated and confidence stays ~0.15 (weak).
+    const hp = detrend(green, Math.round(fps * 1.5));
+    const d = lowpass(hp, Math.max(2, Math.round(fps / 8)));
 
     // amplitude gate — reject flat / no-contact frames
     let mean = 0;
