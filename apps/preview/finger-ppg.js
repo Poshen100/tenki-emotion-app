@@ -29,13 +29,29 @@
   const MIN_BPM = 42;
   const MAX_BPM = 240;
   const MIN_SECONDS = 4; // need >= 4s of signal before estimating
-  const QUALITY_MIN_CONFIDENCE = 0.5; // normalized autocorr peak [0..1]
+  // Single-window junk floor, NOT the acceptance bar. Real phone-camera fingertip
+  // PPG only marginally clears ~0.3–0.5 normalized autocorrelation; a 0.5 hard gate
+  // (calibrated on clean synthetic sines) rejects genuine pulses on-device. So we
+  // keep a low floor here just to drop obviously-incoherent windows, and gate
+  // *acceptance/recording* on cross-window stability (assessStability) instead.
+  const QUALITY_MIN_CONFIDENCE = 0.25; // normalized autocorr peak [0..1]
   const QUALITY_MIN_AMPLITUDE = 0.12; // detrended std floor (8-bit) — real
   // fingertip PPG AC is tiny when the lens is red-saturated, so keep this low
   // and lean on the periodicity (confidence) gate to reject junk.
 
   // maturity thresholds mirror the engine baseline (new/building/ready/mature)
   const MATURITY = { BUILDING: 1, READY: 5, MATURE: 15 };
+
+  // stability gate — a real pulse settles into a tight, repeatable BPM across
+  // consecutive analysis windows; broadband camera noise jumps around (sim: real
+  // spread ±4 bpm vs noise ±89). We lock — and only then record — on this temporal
+  // consistency, which is far more robust on real hardware than any single-window
+  // absolute-confidence threshold. Mirrors the UI promise "穩定後可完成".
+  const STABILITY_WINDOW_MS = 4000; // lookback window for the lock decision
+  const STABILITY_MIN_SPAN_MS = 3000; // samples must cover >= this much of the window
+  const STABILITY_MIN_SAMPLES = 4; // and there must be at least this many
+  const STABILITY_MAX_SPREAD_BPM = 5; // max (maxBpm - minBpm) to count as locked
+  const STABILITY_SAMPLE_INTERVAL_MS = 450; // throttle: keep <= ~1 estimate / 0.45s
 
   // ── pure DSP ────────────────────────────────────────────────
 
@@ -148,6 +164,54 @@
     return { bpm, confidence, amp: std, reason: 'ok' };
   }
 
+  /**
+   * Decide whether a stream of recent per-window BPM estimates has settled into a
+   * stable, repeatable reading. A real pulse produces a tight cluster across
+   * consecutive analysis windows; broadband noise jumps around. This temporal
+   * consistency check is the real acceptance gate (estimateBpm's confidence floor
+   * only drops obvious junk) — far more robust than an absolute single-window
+   * threshold, which real phone-camera PPG barely clears.
+   *
+   * Pure + headless-testable (no DOM/camera), mirroring the file's DSP layer.
+   *
+   * @param {{bpm:number,t:number}[]} history - recent (bpm, ms-timestamp) samples, oldest→newest.
+   * @param {object} [opts]
+   * @param {number} [opts.windowMs]    lookback window (default STABILITY_WINDOW_MS).
+   * @param {number} [opts.minSpanMs]   required time coverage (default STABILITY_MIN_SPAN_MS).
+   * @param {number} [opts.minSamples]  required sample count (default STABILITY_MIN_SAMPLES).
+   * @param {number} [opts.maxSpreadBpm] max bpm spread to lock (default STABILITY_MAX_SPREAD_BPM).
+   * @returns {{locked:boolean, bpm:number|null, spread:number, span:number, count:number}}
+   */
+  function assessStability(history, opts) {
+    opts = opts || {};
+    const windowMs = opts.windowMs || STABILITY_WINDOW_MS;
+    const minSpanMs = opts.minSpanMs || STABILITY_MIN_SPAN_MS;
+    const minSamples = opts.minSamples || STABILITY_MIN_SAMPLES;
+    const maxSpread = opts.maxSpreadBpm || STABILITY_MAX_SPREAD_BPM;
+
+    const valid = (history || []).filter(function (h) {
+      return h && typeof h.bpm === 'number' && h.bpm > 0 && typeof h.t === 'number';
+    });
+    if (valid.length === 0) return { locked: false, bpm: null, spread: 0, span: 0, count: 0 };
+
+    // consider only the most recent `windowMs` of estimates
+    const newestT = valid[valid.length - 1].t;
+    const recent = valid.filter(function (h) { return newestT - h.t <= windowMs; });
+    const bpms = recent.map(function (h) { return h.bpm; });
+    const span = recent.length > 1 ? newestT - recent[0].t : 0;
+    const spread = Math.max.apply(null, bpms) - Math.min.apply(null, bpms);
+
+    // median is robust to the occasional outlier window
+    const sorted = bpms.slice().sort(function (a, b) { return a - b; });
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2
+      ? sorted[mid]
+      : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+
+    const locked = recent.length >= minSamples && span >= minSpanMs && spread <= maxSpread;
+    return { locked: locked, bpm: median, spread: spread, span: span, count: recent.length };
+  }
+
   // ── personal HR baseline (Welford + maturity, localStorage) ──
 
   const STORAGE_KEY = 'tenki.fingerBaseline.v1';
@@ -243,6 +307,9 @@
     const samplesR = [];
     const samplesG = [];
     const times = [];
+    // throttled history of per-window BPM estimates → cross-window stability lock
+    // (fixed-length, OOM-safe like the sample rings).
+    const bpmHistory = [];
     let lastR = 0;
     let lastG = 0;
 
@@ -345,7 +412,20 @@
         channel = gRes.amp >= rRes.amp ? 'G' : 'R';
       }
 
-      if (chosen.bpm) onBpm(chosen.bpm, chosen.confidence);
+      // feed the stability ring (throttled) — only coherent candidate windows
+      const tNow = times[times.length - 1];
+      if (chosen.bpm) {
+        onBpm(chosen.bpm, chosen.confidence);
+        const last = bpmHistory[bpmHistory.length - 1];
+        if (!last || tNow - last.t >= STABILITY_SAMPLE_INTERVAL_MS) {
+          bpmHistory.push({ bpm: chosen.bpm, t: tNow });
+          while (bpmHistory.length > 1 && tNow - bpmHistory[0].t > STABILITY_WINDOW_MS) {
+            bpmHistory.shift();
+          }
+        }
+      }
+      const stab = assessStability(bpmHistory);
+
       onDiag({
         fps: Math.round(fps),
         channel: channel,
@@ -356,21 +436,31 @@
         confidence: Math.round(chosen.confidence * 100) / 100,
         reason: chosen.reason,
         bpm: chosen.bpm,
+        locked: stab.locked,
+        spread: stab.spread,
+        stableBpm: stab.bpm,
       });
+      chosen.locked = stab.locked;
+      chosen.stableBpm = stab.bpm;
       return chosen;
     }
 
-    /** Commit the current estimate to the persisted baseline and stop. */
+    /**
+     * Commit to the persisted baseline and stop — but only if the reading has
+     * locked (stable across windows). Records the median BPM (outlier-robust);
+     * an unstable capture records nothing and reports onComplete(null, null).
+     */
     function finish() {
-      const chosen = times.length >= 2 ? analyse() : { bpm: null };
+      if (times.length >= 2) analyse();
+      const stab = assessStability(bpmHistory);
       stop();
-      if (chosen.bpm) {
-        const baseline = recordFingerScan(chosen.bpm);
-        onComplete(baseline, chosen.bpm);
+      if (stab.locked && stab.bpm) {
+        const baseline = recordFingerScan(stab.bpm);
+        onComplete(baseline, stab.bpm);
       } else {
         onComplete(null, null);
       }
-      return chosen;
+      return { bpm: stab.bpm, locked: stab.locked, stableBpm: stab.bpm };
     }
 
     function stop() {
@@ -397,6 +487,7 @@
     // pure DSP + baseline (tested)
     detrend,
     estimateBpm,
+    assessStability,
     createFingerBaseline,
     fingerMaturity,
     updateFingerBaseline,
