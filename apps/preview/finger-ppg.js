@@ -60,6 +60,13 @@
   const STABILITY_MAX_SPREAD_BPM = 5; // inlier tolerance: within +-this of the median
   const STABILITY_MIN_INLIER_FRACTION = 0.6; // and the tight cluster must be the majority
   const STABILITY_SAMPLE_INTERVAL_MS = 450; // throttle: keep <= ~1 estimate / 0.45s
+  // A window may only FORM a lock if its amplitude is real-pulse strength. Good
+  // fingertip contact gives detrended amp ~2-5; near-noise contact sits at
+  // ~0.3-0.5, and on such a weak signal the autocorrelation defaults to a
+  // band-edge lag (MIN_BPM 42 / MAX_BPM 180) → a stable-but-fake lock that the
+  // plausibility band can't catch (42 is "plausible"). Amplitude is the clean
+  // discriminator here — a 5-10x gap — so gate the stability ring on it.
+  const LOCK_MIN_AMPLITUDE = 1.2;
 
   // ── pure DSP ────────────────────────────────────────────────
 
@@ -444,15 +451,18 @@
         channel = gRes.amp >= rRes.amp ? 'G' : 'R';
       }
 
-      // feed the stability ring (throttled) — only coherent candidate windows
+      // feed the stability ring (throttled) — only coherent, strong-amplitude windows
       const tNow = times[times.length - 1];
+      const ampOk = chosen.amp >= LOCK_MIN_AMPLITUDE;
       if (chosen.bpm) {
         onBpm(chosen.bpm, chosen.confidence);
-        const last = bpmHistory[bpmHistory.length - 1];
-        if (!last || tNow - last.t >= STABILITY_SAMPLE_INTERVAL_MS) {
-          bpmHistory.push({ bpm: chosen.bpm, t: tNow });
-          while (bpmHistory.length > 1 && tNow - bpmHistory[0].t > STABILITY_WINDOW_MS) {
-            bpmHistory.shift();
+        if (ampOk) {
+          const last = bpmHistory[bpmHistory.length - 1];
+          if (!last || tNow - last.t >= STABILITY_SAMPLE_INTERVAL_MS) {
+            bpmHistory.push({ bpm: chosen.bpm, t: tNow });
+            while (bpmHistory.length > 1 && tNow - bpmHistory[0].t > STABILITY_WINDOW_MS) {
+              bpmHistory.shift();
+            }
           }
         }
       }
@@ -471,6 +481,7 @@
         locked: stab.locked,
         spread: stab.spread,
         stableBpm: stab.bpm,
+        ampOk: ampOk, // false → signal too weak to form a lock (hint user to press firmer)
       });
       chosen.locked = stab.locked;
       chosen.stableBpm = stab.bpm;
