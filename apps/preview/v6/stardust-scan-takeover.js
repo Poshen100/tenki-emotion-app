@@ -517,7 +517,24 @@
                 var elapsed = performance.now() - startTime;
                 if (elapsed >= duration) {
                     clearInterval(interval);
-                    scoreEl.textContent = '84';
+                    // Real ceremony Edge Score (persisted by the onboarding via
+                    // tenki.todaySnapshot.v1) overrides the demo 84 when present.
+                    var realSnap = null;
+                    try {
+                        var raw = localStorage.getItem('tenki.todaySnapshot.v1');
+                        realSnap = raw ? JSON.parse(raw) : null;
+                    } catch (e) {}
+                    var hasReal = realSnap && typeof realSnap.score === 'number';
+                    var finalScore = hasReal ? realSnap.score : 84;
+                    scoreEl.textContent = finalScore;
+                    if (hasReal) {
+                        var zmap = { clear: ['Clear', '#00B4D8'], neutral: ['Neutral', '#64748B'], strain: ['Strain', '#C2703D'] };
+                        var zc = zmap[realSnap.zone] || zmap.neutral;
+                        var zEl = document.getElementById('tlTlTlTeiZone');
+                        if (zEl) { zEl.textContent = zc[0]; zEl.style.color = zc[1]; }
+                        var pill = document.getElementById('statePill');
+                        if (pill) pill.textContent = 'Edge Score · ' + zc[0];
+                    }
                     // Lock: instrument snap-settle + gold SECURED glow (gold = secured).
                     scoreEl.classList.add('tei-secured');
                     setTimeout(function() { scoreEl.classList.remove('tei-secured'); }, 1100);
@@ -536,10 +553,11 @@
                     if (navigator.vibrate) {
                         try { navigator.vibrate([15, 30]); } catch (_) {}
                     }
-                    // Unblock drift and set global values to 84
-                    window.currentTlTei = 84;
-                    window.targetTlTei = 84;
-                    window.isDriftBlocked = false;
+                    // Set global values; freeze drift on a real score so the demo
+                    // random walk can't overwrite it (demo path still drifts).
+                    window.currentTlTei = finalScore;
+                    window.targetTlTei = finalScore;
+                    window.isDriftBlocked = hasReal ? true : false;
                 } else {
                     // Random number flicker between 40 and 99
                     var randomNum = Math.floor(Math.random() * 59) + 40;

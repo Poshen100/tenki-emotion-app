@@ -1541,17 +1541,112 @@ function enterTransition() {
 // ─────────────────────────────────────────────
 
 function estimateEdgeScore() {
-  // Lightweight stand-in (0–100). Real engine lives in packages/engine.
-  const sqi = state.rollingSqi || 0.6;
-  const hrvNorm = Math.min(1, (state.baseline.hrv.mean || 45) / 80);
-  const score = Math.round((sqi * 0.6 + hrvNorm * 0.4) * 100);
-  return Math.max(0, Math.min(100, score));
+  // Now backed by the REAL engine (engine-bundle.js) fed by the ceremony's real
+  // HR/HRV/RR. Falls back to a lightweight stand-in only if the bundle is absent.
+  return ensureEdgeComputed().score;
 }
 
 function zoneFor(score) {
   if (score >= 70) return 'clear';
   if (score >= 40) return 'neutral';
   return 'strain';
+}
+
+// ── Real Edge Score (packages/engine via engine-bundle.js) ──────────────────
+
+const CEREMONY_COUNT_KEY = 'tenki.ceremonyScanCount';
+
+function ceremonyScanCount() {
+  try { return parseInt(localStorage.getItem(CEREMONY_COUNT_KEY) || '0', 10) || 0; }
+  catch (_) { return 0; }
+}
+
+function bumpCeremonyScanCount() {
+  const n = ceremonyScanCount() + 1;
+  try { localStorage.setItem(CEREMONY_COUNT_KEY, String(n)); } catch (_) {}
+  return n;
+}
+
+/** Maturity by accepted-scan count (mirrors engine: new→building→ready→mature). */
+function maturityForCount(n) {
+  if (n >= 15) return 'mature';
+  if (n >= 5) return 'ready';
+  if (n >= 1) return 'building';
+  return 'new';
+}
+
+function zoneLabel(zone) {
+  if (zone === 'clear') return '清晰 Clear';
+  if (zone === 'strain') return '緊繃 Strain';
+  return '中性 Neutral';
+}
+
+/**
+ * Compute the real Edge Score from the ceremony's real vitals exactly once per
+ * result. Result is cached on state.lastEdge. Bumps the persisted scan count
+ * (maturity) on first compute. Degrades to a stand-in if the engine is absent.
+ * @returns {{score:number, zone:string, result:object|null}}
+ */
+function ensureEdgeComputed() {
+  if (state.lastEdge != null) return state.lastEdge;
+
+  const engine = window.TENKIEngine;
+  const fe = window.TENKIFingerEdge;
+  if (!engine || !fe) {
+    // Engine bundle missing → lightweight stand-in (legacy behaviour).
+    const sqi = state.rollingSqi || 0.6;
+    const hrvNorm = Math.min(1, (state.baseline.hrv.mean || 45) / 80);
+    const score = Math.max(0, Math.min(100, Math.round((sqi * 0.6 + hrvNorm * 0.4) * 100)));
+    state.lastEdge = { score, zone: zoneFor(score), result: null };
+    return state.lastEdge;
+  }
+
+  const count = bumpCeremonyScanCount();
+  const vitals = {
+    hr: state.baseline.hr,
+    hrv: state.baseline.hrv,
+    rr: state.baseline.rr,
+    count,
+    maturity: maturityForCount(count),
+  };
+  const sq = fe.buildSignalQuality(state.rollingSqi || 0.6, true);
+  const input = fe.buildEdgeInputFromVitals(vitals, sq, fe.loadEdgeHistory(), Date.now(), engine);
+  const result = engine.calculateEdgeScore(input);
+  fe.recordEdgeScore(result.score);
+  state.lastEdge = { score: result.score, zone: result.zone, result };
+  return state.lastEdge;
+}
+
+/**
+ * Render the real Edge Score reveal in the Step 5 result card and persist a
+ * Today snapshot so /preview/v6 can show the same real score. Idempotent.
+ */
+function renderEdgeResult() {
+  const edge = ensureEdgeComputed();
+  const panel = document.getElementById('edge-result');
+  if (!panel) return;
+  const r = edge.result;
+  if (!r) { panel.style.display = 'none'; return; } // engine absent → hide
+
+  const scoreEl = document.getElementById('edge-result-score');
+  const zoneEl = document.getElementById('edge-result-zone');
+  const copyEl = document.getElementById('edge-result-copy');
+  if (scoreEl) scoreEl.textContent = r.score;
+  if (zoneEl) { zoneEl.textContent = zoneLabel(r.zone); zoneEl.dataset.zone = r.zone; }
+  if (copyEl) copyEl.textContent = r.copy.headline;
+  panel.style.display = 'block';
+
+  try {
+    window.TENKIFingerEdge.persistTodaySnapshot({
+      score: r.score,
+      zone: r.zone,
+      hr: Math.round(state.baseline.hr.mean || 0),
+      hrv: Math.round(state.baseline.hrv.mean || 0),
+      rr: Math.round(state.baseline.rr.mean || 0),
+      confidenceBand: r.confidence.band,
+      count: ceremonyScanCount(),
+    });
+  } catch (_) { /* persistence is best-effort */ }
 }
 
 function revealBaselineDigits() {
@@ -1587,6 +1682,9 @@ function revealBaselineDigits() {
       sqi >= 0.70 ? '數據品質：良好' :
       sqi >= 0.55 ? '數據品質：普通' : '數據品質：勉強';
   }
+
+  // Cinematic path: reveal the real Edge Score together with the digit snap.
+  renderEdgeResult();
 }
 
 // ─────────────────────────────────────────────
@@ -1595,6 +1693,8 @@ function revealBaselineDigits() {
 
 function showBaselineResult(opts) {
   const maskDigits = !!(opts && opts.maskDigits);
+  // Reset cached Edge Score so each scan recomputes from its fresh baseline.
+  state.lastEdge = null;
 
   const hrEl = document.getElementById('metric-hr');
   const hrvEl = document.getElementById('metric-hrv');
@@ -1637,6 +1737,8 @@ function showBaselineResult(opts) {
     animateCounter(hrEl, 0, Math.round(hr.mean), 'BPM', 800);
     animateCounter(hrvEl, 0, Math.round(hrv.mean), 'ms', 800);
     animateCounter(rrEl, 0, Math.round(rr.mean), '次/分', 800);
+    // Direct-entry path: reveal the real Edge Score now (no cinematic mask).
+    renderEdgeResult();
   }
 }
 

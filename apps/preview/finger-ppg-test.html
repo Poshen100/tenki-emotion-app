@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#030407" />
+  <!-- never serve a stale build: iOS Safari was caching this page and ignoring the
+       ?v= bump on finger-ppg.js, so on-device kept running old DSP. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>TENKI — Finger PPG 測試頁</title>
+  <style>
+    :root { --bg:#030407; --cyan:#00F0FF; --gold:#FFC85E; --mint:#00E699; --red:#FF5566; --txt:#FFFFFF; --txt2:#9BA4C4; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body { height:100%; background:var(--bg); color:var(--txt);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+    #stage { max-width:460px; margin:0 auto; min-height:100dvh; display:flex; flex-direction:column;
+      padding:max(16px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom)); gap:14px; }
+    .kicker { font-size:11px; letter-spacing:2px; color:var(--mint); font-weight:700; }
+    h1 { font-size:22px; font-weight:800; }
+    .note { font-size:13px; color:var(--txt2); line-height:1.5; }
+    .bpm-wrap { text-align:center; padding:18px 0 6px; }
+    .bpm { font-size:72px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+    .bpm .unit { font-size:18px; font-weight:600; color:var(--txt2); margin-left:6px; }
+    .sub { font-size:13px; color:var(--txt2); margin-top:6px; }
+    .cover { font-size:15px; font-weight:600; margin-top:8px; min-height:22px; }
+    .cover.ok { color:var(--mint); } .cover.bad { color:var(--gold); }
+    video { width:84px; height:84px; border-radius:16px; object-fit:cover; align-self:center;
+      background:#0a0f1e; border:1px solid rgba(255,255,255,.08); }
+    .row { display:flex; gap:10px; }
+    button { flex:1; height:52px; border:none; border-radius:14px; font-size:16px; font-weight:700;
+      color:#031018; background:var(--cyan); }
+    button.ghost { background:rgba(255,255,255,.08); color:var(--txt); }
+    button:disabled { opacity:.4; }
+    .panel { margin-top:6px; background:rgba(28,44,76,.25); border:1px solid rgba(255,255,255,.06);
+      border-radius:16px; padding:16px; }
+    .panel h2 { font-size:12px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:10px; }
+    .stat { display:flex; justify-content:space-between; font-size:14px; padding:4px 0; color:var(--txt2); }
+    .stat b { color:var(--txt); font-variant-numeric:tabular-nums; }
+    .err { color:var(--red); font-size:13px; min-height:18px; }
+    .spacer { flex:1; }
+    .diag { font-family:ui-monospace,Menlo,monospace; font-size:11px; color:#5E7596; margin-top:8px; min-height:16px; }
+    .foot { font-size:11px; color:#425570; text-align:center; line-height:1.5; }
+    /* ── Edge Score reveal ── */
+    #edge-panel { display:none; }
+    #edge-panel.show { display:block; }
+    .edge-head { text-align:center; padding:4px 0 2px; }
+    .edge-score { font-size:64px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+    .zone-pill { display:inline-block; margin-top:10px; padding:4px 14px; border-radius:999px;
+      font-size:13px; font-weight:700; letter-spacing:.5px; }
+    .zone-clear { color:#031018; background:var(--mint); }
+    .zone-neutral { color:#1a1405; background:var(--gold); }
+    .zone-strain { color:#fff; background:var(--red); }
+    .conf-badge { display:inline-block; margin-left:8px; padding:4px 12px; border-radius:999px;
+      font-size:12px; font-weight:700; letter-spacing:.5px; color:var(--gold);
+      background:rgba(255,200,94,.12); border:1px solid rgba(255,200,94,.3); }
+    .edge-copy { font-size:13px; color:var(--txt2); line-height:1.5; margin-top:14px; text-align:center; }
+    .edge-copy b { color:var(--txt); font-weight:700; }
+    .drivers { margin-top:14px; }
+    .drv { display:flex; align-items:center; justify-content:space-between; font-size:13px; padding:5px 0;
+      border-top:1px solid rgba(255,255,255,.05); }
+    .drv .dname { color:var(--txt2); }
+    .drv .dval { display:flex; align-items:center; gap:8px; }
+    .drv .dval b { color:var(--txt); font-variant-numeric:tabular-nums; min-width:30px; text-align:right; }
+    .drv .tag { font-size:10px; font-weight:700; letter-spacing:.5px; padding:2px 7px; border-radius:6px; }
+    .tag-measured { color:var(--mint); background:rgba(0,230,153,.12); }
+    .tag-partial { color:var(--cyan); background:rgba(0,240,255,.1); }
+    .tag-unmeasured { color:#6b7794; background:rgba(255,255,255,.05); }
+    .edge-disclaimer { font-size:11px; color:#5E7596; line-height:1.5; margin-top:12px; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <div class="kicker">MODEL B · 真實手指 PPG 測試</div>
+    <h1>用指尖量真實心率</h1>
+    <p class="note">把<b>食指指尖蓋住「後鏡頭」</b>（有閃光燈那顆），輕輕貼住不要壓太用力，保持不動約 15 秒。
+      iOS 若沒自動亮燈，請靠檯燈／手電筒補光。</p>
+
+    <video id="cam" playsinline muted></video>
+
+    <div class="bpm-wrap">
+      <div class="bpm"><span id="bpm">--</span><span class="unit">bpm</span></div>
+      <div class="sub" id="status">按「開始量測」並允許相機</div>
+      <div class="cover" id="cover"></div>
+      <div class="diag" id="diag"></div>
+    </div>
+
+    <div class="row">
+      <button id="start">開始量測</button>
+      <button id="finish" class="ghost" disabled>完成並記錄</button>
+    </div>
+    <div class="err" id="err"></div>
+
+    <div class="panel">
+      <h2>你的手指 HR 基線（localStorage）</h2>
+      <div class="stat">已累積掃描 <b id="b-count">0</b></div>
+      <div class="stat">靜息 HR 平均 <b id="b-mean">--</b></div>
+      <div class="stat">變異 (std) <b id="b-std">--</b></div>
+      <div class="stat">成熟度 <b id="b-mat">new</b></div>
+      <button id="reset" class="ghost" style="margin-top:12px;height:42px;font-size:14px;">重置基線</button>
+    </div>
+
+    <div class="panel" id="edge-panel">
+      <h2>你的 Decision Edge Score（真實引擎）</h2>
+      <div class="edge-head">
+        <div class="edge-score" id="edge-score">--</div>
+        <div>
+          <span class="zone-pill" id="edge-zone">--</span>
+          <span class="conf-badge" id="edge-conf">信心 低</span>
+        </div>
+      </div>
+      <p class="edge-copy" id="edge-copy"></p>
+      <div class="drivers" id="edge-drivers"></div>
+      <p class="edge-disclaimer" id="edge-disclaimer"></p>
+    </div>
+
+    <div class="spacer"></div>
+    <p class="foot">測試頁 · 影像只在本機處理、絕不上傳；localStorage 只存衍生 HR。<br />
+      演算法核心 finger-ppg.js 已通過 30 項 headless 測試。</p>
+  </div>
+
+  <script src="finger-ppg.js?v=7"></script>
+  <script src="engine-bundle.js?v=2"></script>
+  <script src="finger-edge.js?v=2"></script>
+  <script>
+    (function () {
+      'use strict';
+      var ppg = window.TENKIFingerPPG;
+      var engine = window.TENKIEngine;
+      var fedge = window.TENKIFingerEdge;
+      var cam = document.getElementById('cam');
+      var bpmEl = document.getElementById('bpm');
+      var statusEl = document.getElementById('status');
+      var coverEl = document.getElementById('cover');
+      var errEl = document.getElementById('err');
+      var startBtn = document.getElementById('start');
+      var finishBtn = document.getElementById('finish');
+      var resetBtn = document.getElementById('reset');
+      var cap = null;
+      var tick = null;
+      var t0 = 0;
+      var lastBpm = null;
+      var lastConfidence = 0;
+      var lastCovered = false;
+      var lastLocked = false;
+      var lastSpread = 0;
+      var lastAmpOk = true;
+
+      // Human-readable driver names for the honest breakdown.
+      var DRIVER_NAMES = {
+        hr_stability: '心率穩定度',
+        stress_proxy_vs_baseline: '壓力指標',
+        hrv_vs_baseline: '心率變異 (HRV)',
+        respiration_stability: '呼吸穩定度',
+        sleep_recovery: '睡眠恢復',
+        recent_trend: '近期趨勢',
+        baseline_freshness: '基線新鮮度',
+        signal_quality: '訊號品質'
+      };
+      var STATUS_LABEL = { measured: '已量測', partial: '部分', unmeasured: '未量測' };
+
+      /**
+       * Compute the real Edge Score from the just-recorded baseline + final BPM,
+       * then render an honest reveal (LOW confidence + per-driver measured tags).
+       */
+      function revealEdgeScore(baseline, bpm) {
+        if (!engine || !fedge) return; // engine bundle missing → skip silently
+        var sq = fedge.buildSignalQuality(lastConfidence, lastCovered);
+        var input = fedge.buildEdgeInput(baseline, bpm, sq, fedge.loadEdgeHistory(), Date.now(), engine);
+        var result = engine.calculateEdgeScore(input);
+        var honest = fedge.computeHonestConfidence(result);
+        // Honest headline: neutralise unmeasured dims so the respiration phantom
+        // 100 doesn't inflate the score (see finger-edge.computeHonestScore).
+        var honestScore = fedge.computeHonestScore(result);
+        var honestZone = engine.classifyEdgeZone(honestScore);
+        fedge.recordEdgeScore(honestScore);
+
+        document.getElementById('edge-score').textContent = honestScore;
+        var zoneEl = document.getElementById('edge-zone');
+        zoneEl.textContent = honestZone.toUpperCase();
+        zoneEl.className = 'zone-pill zone-' + honestZone;
+        document.getElementById('edge-conf').textContent = '信心 低 (' + Math.round(honest.measuredWeight) + '% 已量測)';
+        document.getElementById('edge-copy').innerHTML =
+          '<b>' + result.copy.headline + '</b><br />' + result.copy.body;
+
+        var rows = result.drivers.map(function (d) {
+          var st = fedge.DRIVER_STATUS[d.key] || 'unmeasured';
+          return '<div class="drv"><span class="dname">' + (DRIVER_NAMES[d.key] || d.key) +
+            '</span><span class="dval"><b>' + d.rawSubScore +
+            '</b><span class="tag tag-' + st + '">' + STATUS_LABEL[st] + '</span></span></div>';
+        }).join('');
+        document.getElementById('edge-drivers').innerHTML = rows;
+        document.getElementById('edge-disclaimer').textContent =
+          '瀏覽器只直接量測靜息心率；HRV／呼吸／睡眠／趨勢尚未量測，故信心為「低」。分數由 packages/engine 真實引擎計算，未量測維度以中性值計分（不灌水）。';
+        document.getElementById('edge-panel').classList.add('show');
+      }
+
+      function renderBaseline(b) {
+        document.getElementById('b-count').textContent = b.count;
+        document.getElementById('b-mean').textContent = b.count ? Math.round(b.mean) + ' bpm' : '--';
+        document.getElementById('b-std').textContent = b.count > 1 ? ('±' + b.std.toFixed(1)) : '--';
+        document.getElementById('b-mat').textContent = b.maturity;
+      }
+
+      renderBaseline(ppg.loadBaseline());
+
+      startBtn.onclick = async function () {
+        errEl.textContent = '';
+        if (!ppg) { errEl.textContent = 'finger-ppg.js 未載入'; return; }
+        startBtn.disabled = true;
+        cap = ppg.createPpgCapture({
+          onBpm: function (bpm, confidence) { lastBpm = bpm; lastConfidence = confidence || 0; bpmEl.textContent = bpm; },
+          onQuality: function (covered) {
+            lastCovered = covered;
+            coverEl.textContent = covered ? '✅ 指尖覆蓋良好' : '⚠️ 請用指尖蓋住後鏡頭';
+            coverEl.className = 'cover ' + (covered ? 'ok' : 'bad');
+          },
+          onDiag: function (d) {
+            lastLocked = !!d.locked;
+            lastSpread = d.spread;
+            lastAmpOk = d.ampOk !== false;
+            // unlock the "complete" button only once the reading is stable
+            finishBtn.disabled = !lastLocked;
+            document.getElementById('diag').textContent =
+              'fps ' + d.fps + ' · ch ' + d.channel +
+              ' · R' + d.rMean + ' G' + d.gMean +
+              ' · amp R' + d.rAmp + ' G' + d.gAmp +
+              ' · conf ' + d.confidence + ' · ' + d.reason +
+              (d.stableBpm ? ' · spread ±' + d.spread : '');
+          },
+          onComplete: function (baseline, bpm) {
+            if (baseline) {
+              renderBaseline(baseline);
+              statusEl.textContent = '已記錄本次：' + bpm + ' bpm';
+              try { revealEdgeScore(baseline, bpm); }
+              catch (e) { document.getElementById('err').textContent = 'Edge Score 計算失敗：' + (e && e.message ? e.message : e); }
+            } else {
+              statusEl.textContent = '訊號不足，請再試一次（指尖貼穩、補光）';
+            }
+          }
+        });
+        try {
+          await cap.start(cam);
+          t0 = Date.now();
+          finishBtn.disabled = true; // stays disabled until the reading locks
+          statusEl.textContent = '收集訊號中… 0s';
+          tick = setInterval(function () {
+            var s = Math.round((Date.now() - t0) / 1000);
+            if (lastLocked) {
+              statusEl.textContent = '✅ 穩定 · 可完成（spread ±' + lastSpread + '）· ' + s + 's';
+            } else if (lastCovered && !lastAmpOk) {
+              statusEl.textContent = '訊號太弱，指尖壓緊一點＋補光 · ' + s + 's';
+            } else {
+              statusEl.textContent = (lastBpm ? '量測中（穩定後可完成）· ' : '收集訊號中… ') + s + 's';
+            }
+          }, 1000);
+        } catch (e) {
+          startBtn.disabled = false;
+          errEl.textContent = '相機啟動失敗：' + (e && e.message ? e.message : e) + '（需 HTTPS + 允許相機；iOS 用 Safari）';
+        }
+      };
+
+      finishBtn.onclick = function () {
+        if (tick) { clearInterval(tick); tick = null; }
+        if (cap) cap.finish();
+        finishBtn.disabled = true;
+        startBtn.disabled = false;
+        startBtn.textContent = '再量一次';
+      };
+
+      resetBtn.onclick = function () {
+        ppg.saveBaseline(ppg.createFingerBaseline());
+        renderBaseline(ppg.loadBaseline());
+      };
+
+      window.addEventListener('pagehide', function () { if (cap) cap.stop(); });
+    })();
+  </script>
+</body>
+</html>

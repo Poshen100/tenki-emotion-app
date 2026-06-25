@@ -1,3 +1,120 @@
+# 2026-06-25 Session Update (模型B 第4–7輪：finger PPG 真機 lock 收斂 + 誠實分數 — feat/preview-finger-real-ppg / PR #148)
+
+> 接續第2+3輪。本 session 全靠 founder **手機實測影片/截圖** 一輪輪逼出真實世界問題，把 finger-ppg-test 從「鎖不上 / 鎖到垃圾」修到**真實 62 bpm → 真引擎 Edge Score 揭曉**。全在 `apps/preview/`，引擎源碼零改動。**核心教訓：headless 合成測試全綠 ≠ 真機可用；瀏覽器相機 PPG 訊號弱又雜，魔鬼全在邊界與快取。**
+
+## 問題 → 修正鏈（每輪都靠真機影片診斷，sim 驗證後才動手）
+1. **信心門檻過嚴**（`cb17fcd` band-pass 後仍卡）：單窗 normalized autocorr 真機只到 0.3–0.5，0.5 硬門檻是對乾淨正弦校準的 → 真脈搏過不了。**改用跨窗穩定度 lock**（`ded4b3f`：`assessStability`，conf 樓地板降 0.25，locked 才記 median）。
+2. **穩定度被離群毒死**（`spread ±207↔±3` 亂跳）：偶發噪音窗在 lag 14（=MAX_BPM 240 邊界）→ **253 bpm**，`spread=max−min` 一個離群就爆 → 永不 lock。**改抗離群 cluster lock**（`095b99b`：median + inlier 容差 + inlier 佔多數）。
+3. **抗離群反而鎖到穩定噪音**（弱訊號時 257 spread ±0 → 記了 mean 181 垃圾基線）：信心**完全無法分辨**（噪音 conf 0.33 > 真脈搏 0.26）。**加生理合理帶 [40,150] + MAX_BPM 240→180**（`285828e`）→ 257 拒鎖。
+4. **低邊界鏡像 + 弱訊號假鎖**（鎖在 42=MIN_BPM，`amp 0.3`）：42「合理」所以合理帶擋不住。**加振幅關卡 `LOCK_MIN_AMPLITUDE=1.2`**（`b384116`：真脈搏 amp 2–5 vs 噪音 0.3，5–10x gap 是最乾淨的判別器）只有強訊號才准形成 lock。
+5. **🔑 快取地獄**（最大時間殺手）：診斷列出現 **200/257 bpm**＝v6 不可能（上限 180）→ founder 一直跑**被 Safari 快取的舊頁面**，前幾輪修正根本沒下載到手機。`?v=` query 沒用，因為**HTML 本身被快取**。**修法：vercel.json `Cache-Control: no-cache` + meta 標籤**（`aea06c0`）；第7輪再擴及三支 dependency JS（`1876510`：engine-bundle/finger-edge 也曾 `?v=1` 從沒 bump）。
+6. **✅ 成功**：硬刷新 + 指尖壓實（amp R6.66）→ 鎖在真實 **62 bpm** → 記入基線 → **Decision Edge Score 揭曉**（neutral、信心低 33%、合規文案、driver 透明標籤）。
+
+## 第7輪：誠實分數（移除 RR 假性滿分）— `b3f2197`
+- **發現**：呼吸穩定度在空基線回 phantom **100**（z=0），灌高 headline。
+- **關鍵反直覺**（先算才知）：plan 原本寫「只用已量測維度重正規化」(Option A) → 實算 **73 → clear**！因為 count=1 時 hr_stability/freshness 本身就是單樣本 100，丟掉中性 placeholder 反而**衝高、更不誠實**。
+- **採 Option B**：`computeHonestScore` 把**未量測維度中性化成 50** 再用引擎權重重算 → 64→**59（仍 neutral）**，保守且誠實。引擎仍是 sub-score/權重的 source of truth。disclaimer 加「未量測維度以中性值計分（不灌水）」。
+
+## 關鍵數據錨點（真機 diag，調參時參考）
+- 好接觸：`R~180–207, amp R 2.4–6.6, ch R`；弱/雜：`R~70–90, amp 0.2–0.5`，且常 fps 掉到 30（錄影+低電）。
+- 邊界噪音假峰：高 = 253/257（lag 14 @MAX 240）、200（lag 9）；低 = 42（lag=lagMax @MIN 42）。皆 spread ±0 會騙過純穩定度 → 靠合理帶 + 振幅關卡擋。
+
+## 現況 / 驗證
+- finger-ppg headless **30/30**、finger-edge **46/46**、`node --check` 三支產物過、tree 乾淨、全推 PR #148。
+- 真機已驗端到端成功（62 bpm → 真分）。最新版：`finger-ppg.js?v=7`、`finger-edge.js?v=2`、`engine-bundle.js?v=2`。
+- commits：`cb17fcd ded4b3f 44a1835 f65c76b 095b99b 617970c 285828e 9507573 b384116 aea06c0 b3f2197 1876510`。
+
+## 教訓
+- **真機影片是唯一真相**：合成測試擋不住邊界假峰、弱訊號假鎖、快取。每輪先看 diag 數據再動手。
+- **先模擬/先算再改**：濾波器調整非單調易反效果（放寬高通→鎖 253）；Option A 重正規化反而灌高分。sim.cjs/sim2.cjs + node 一次次救我沒亂改。
+- **快取要從伺服器端根治**：純靠 `?v=` query 不夠，HTML 本身會被 iOS Safari 快取 → 必須 no-cache header。dependency JS 也要納管。
+- **振幅是 PPG 最乾淨的訊號品質判別器**（real 2–5 vs noise 0.3，gap 5–10x），遠勝 confidence（噪音 conf 可 > 真脈搏）。
+
+## 🫳 交辦 Antigravity（canonical 任務清單在 `ANTIGRAVITY.md` 最上方 2026-06-25 HANDOFF）
+> 邏輯/資料層全部就緒且測試綠，剩「視覺」。Antigravity 一接手先讀 `ANTIGRAVITY.md` 頂部 handoff。
+- **Task 1（P1）純視覺打磨**——三個揭曉介面資料對、但陽春：
+  - `apps/preview/finger-ppg-test.html` 的 `#edge-panel`（59 分卡）。
+  - ceremony Step5：`baseline-onboarding.js` `renderEdgeResult()`（L1624）→ `index.html` `#edge-result`（inline 簡版）。
+  - v6 Today：`v6/stardust-scan-takeover.js`（L521–524 讀 `tenki.todaySnapshot.v1`）只換文字、無動效。
+  - **不可改**：`finger-edge.js` 的 `computeHonestScore`/`computeHonestConfidence`（誠實分數/低信心）、driver 透明標籤、「不灌水」disclaimer、引擎 `result.copy`。
+- **Task 2（P2）統一 finger DSP**——ceremony 的 `camera-scan.js`（簡易峰值）換成 `finger-ppg.js`（自相關+穩定度鎖+合理帶+振幅關卡）；但 ceremony OOM 敏感、且 camera-scan 另產 hrv/rr → **動大手術前先問 founder**。
+- **Task 3（P3）mobile 原生**（待 Mac）：把守門邏輯移植進 `apps/mobile`。
+- 硬規則：不動 engine 數學/`apps/web/`；隱私 local-only；改 JS 內容要 bump `?v=`（HTML），引擎改動重跑 `npm run build:engine-bundle`。
+
+---
+
+# 2026-06-24 Session Update (模型B 第2+3輪：真引擎 Edge Score 接進 preview — feat/preview-finger-real-ppg / PR #148)
+
+> 承接 PR #148 真 PPG。本 session 兩個方向都做了：先在真 PPG 捕取頁接真引擎（誠實低信心），再把真引擎接進主 onboarding ceremony + v6 Today。全在 `apps/preview/`，引擎源碼零改動（仍是 source of truth）。
+
+## 決策鏈（多輪 AskUserQuestion）
+- 引擎交付 = **Bundle 真引擎成 UMD**（esbuild → `apps/preview/engine-bundle.js`，IIFE `window.TENKIEngine`）。preview 是純 vanilla、不能 import TS → bundle 是唯一零-drift 解。重建：`cd apps/preview && npm run build:engine-bundle`。
+- 缺失維度處理 = **誠實低信心**（finger-ppg-test 路徑只有 HR；HRV/RR/sleep/trend 未測 → `computeHonestConfidence` 強制 band='low' + driver 透明標籤）。
+- 範圍先做「真捕取→引擎→揭曉」（Round 2），再做「真 PPG 進主 ceremony」（Round 3）。
+
+## What was done（Claude Code 雲端 + node headless 驗，founder 手機驗 UI）
+- **`apps/preview/engine-bundle.js` + `engine-entry.ts` + `package.json`**（Round2）：esbuild 把 `calculateEdgeScore` 等打包成 12.4kb UMD。引擎零 runtime 依賴 → bundle 乾淨。
+- **`apps/preview/finger-edge.js`**（adapter，UMD `window.TENKIFingerEdge`）：
+  - `buildEdgeInput`（HR-only，HRV/RR 留空＝引擎中性）+ `computeHonestConfidence`（強制 low）→ 給 finger-ppg-test。
+  - `buildEdgeInputFromVitals`（HR+HRV+RR 全真 → 引擎**原生誠實信心**，不降）+ `persistTodaySnapshot`/`loadTodaySnapshot`（`tenki.todaySnapshot.v1`）→ 給 ceremony。
+  - **42 項 node 測試全綠**（`__tests__/finger-edge.test.cjs`，用 vm 載入真 bundle 驗：真 HR z-score 有反應、honest band、全維度填值）。
+- **`finger-ppg-test.html`**（Round2）：捕取完成 → 真 Edge Score 揭曉（分數/zone/LOW 徽章/safe copy/driver 標籤）。
+- **主 ceremony 接真引擎**（Round3，**關鍵發現**：`camera-scan.js` 早就算了真 bpm/hrv/rr，`updateBaselineFromCamera` 在相機 active 時就用真值，`simulateBaselineData` 只是桌機 fallback）：
+  - `baseline-onboarding.js`：`estimateEdgeScore()` stub → 改用真引擎（`ensureEdgeComputed` 從 `state.baseline` 真 vitals 算分，bump `tenki.ceremonyScanCount` 成熟度）；Step 5 結果卡揭曉真分（`renderEdgeResult`）；寫 todaySnapshot。bundle 缺席則退回 stub。
+  - `index.html`：載入 engine-bundle.js + finger-edge.js + 結果卡加 `#edge-result` 區塊。
+  - **無新相機/canvas → 不增 iOS OOM 風險**。
+- **v6 Today 顯真分**：`stardust-scan-takeover.js` 原本 takeover 結尾把分數寫死 84；改成讀 `tenki.todaySnapshot.v1` → settle 到真分+真 zone，有真值時凍結 drift（demo 路徑不變仍 84+漂移）。
+- commits：`58eb01a`/`e89bb88`/`12abd90`/`0b46be6`（Round2）+ `f151f81`/`0a903ff`/`9ad579f`（Round3）。
+
+## 重要語義（別誤判為 bug）
+- **基線首掃 Edge Score ≈ 67 neutral 是對的**：建立基線的那次掃描，current reading == baseline mean → 無偏差 → 各維中性。分數要在**往後**掃描跟已建基線比才有意義。信心 band（moderate/low）才是首掃的差異訊號。HTML 已加白話說明。
+
+## 待做（留給 Antigravity，需真機 + 設計手感）
+- **揭曉 UI 視覺打磨**：`#edge-result`（ceremony 結果卡）目前是 inline-style 簡版；v6 Today 真分目前只換數字/zone 文字。請 Antigravity 把這兩處做成符合設計系統 + stardust 手感（環形動效、zone 配色、進場節奏）。**邏輯/資料已就緒（讀 `tenki.todaySnapshot.v1`），只剩視覺。**
+- **direct-visit v6 顯真分**：目前只在 `?from=baseline` takeover 路徑顯真分；直接開 `/preview/v6/` 仍是 demo 漂移。要不要讓 Today 一直反映最後一次真掃描（含 UX：何時算「過期」）= 設計決策，留給 Antigravity + founder。
+- **camera-scan.js DSP 品質**：ceremony 用的是 camera-scan.js 簡易即時峰值偵測；finger-ppg.js 的自相關更穩。要不要統一 DSP = 後續。
+- 真機驗：Vercel preview `/preview/finger/` 跑完 ceremony → Step5 看真分 → 接著 v6 Today 是否顯同一真分；連掃不 crash。
+
+## 教訓 / 注意
+- **先查證再下結論**：Round2 的探勘以為「主 ceremony 全合成」，Round3 逐行讀才發現 camera-scan.js 早有真 bpm/hrv/rr。動工前讀清楚省一輪。
+- 引擎信心陷阱：`calcConfidence` 的 `inputCompleteness` 把 HR/HRV/RR 當永遠存在 → HR-only 路徑會高估信心 → 故 finger-ppg-test 用 `computeHonestConfidence` 強制 low；ceremony 因三者全真，用引擎原生信心即誠實。
+
+---
+
+# 2026-06-23 Session Update (模型B：/preview/ 瀏覽器真實手指 PPG 基線 — feat/preview-finger-real-ppg / PR #148 draft)
+
+> Founder 只有手機,要推進「看到真實生理數據」。最完成、唯一部署且手機可見的是 /preview/(瀏覽器原型)。決定在 /preview/ 做模型B「建立手指 PPG 基線」,因為瀏覽器可用 getUserMedia 取相機、**免 Mac**(apps/mobile 真 PPG 需原生 build=Mac,沒有)。
+
+## 決策鏈(兩輪 AskUserQuestion)
+- 模型B = **基線累積/持久化**路線(非只接引擎分數);**手指訊號 = 瀏覽器真 PPG**(真 HR 為主;HVR 瀏覽器取樣率不穩,本輪不追)。
+- 目標從 apps/mobile 轉到 **apps/preview**(founder 明示用部署版);入口最終選 **A**(臉部基線數據頁之後掛可選校準)。
+
+## What was done(雲端寫 + headless 驗證,Antigravity 不在、founder 手機)
+- **`apps/preview/finger-ppg.js`**(新增):
+  - `estimateBpm(green,fps)`:綠通道序列 → 去趨勢(1.5s 高通)→ 3-tap 平滑 → 頻帶內自相關 → 真實 BPM + 品質閘門(擋 flat/太小聲/太短/無脈搏)。
+  - Welford HR 基線 + maturity(new→building→ready→mature,沿用引擎門檻)→ localStorage(只存衍生 HR,raw 像素不上雲)。
+  - `createPpgCapture()`:OOM-safe 瀏覽器擷取殼(單一極小 reused canvas、固定長度環形 buffer、像素逐幀丟、結束 stop)。標 DEVICE-VERIFY。
+  - **14 項 headless 測試全綠**(`apps/preview/__tests__/finger-ppg.test.cjs`,UMD guard 讓瀏覽器 + Node 都能用)。
+- **`apps/preview/finger-ppg-test.html`**(新增):最小可測頁,讓 founder 手機現在就能驗真 PPG。
+- **PR #148(draft)**;Vercel 預覽 `https://tenki-emotion-app-git-feat-preview-344798-chenposhens-projects.vercel.app/preview/finger-ppg-test.html`。
+
+## 待 founder 手機回報(這就是 de-risk 情報)
+- BPM 是否收斂合理(60–90)?torch 在 iOS 有沒有亮(常不支援→要退化)?覆蓋綠字切換?連掃 2–3 次會不會 crash(OOM)?有無相機啟動失敗紅字?
+- **已知最可能的失敗點**:接觸式手指 PPG + torch 時,**紅通道脈動常比綠通道強、但也可能飽和(pin 255)** → 現用綠通道。若 BPM 不收斂,修法 = 在 `createPpgCapture` 改成「自動選紅/綠中去趨勢變異較大、未飽和的通道」餵 `estimateBpm`(純 DSP 不動,只改擷取層)。**等真機數據再改,別盲改**。
+
+## 待做(留給 Antigravity,需真機)
+- 把 `createPpgCapture()` 接進 `apps/preview/index.html` Step4/5(正式 UI)+ 真機調參 + iOS OOM 實測(**`hotfix/oom-ios-safari` 6 fixes 尚未 merge 進 main**,要納入)+ 更新 DEPLOYMENT_MAP。接力 prompt 已備(本 session 對話)。
+
+## 眼動偵測提案 — 已擱置(founder 決定先顧 Model B)
+- Founder 給了一份「加眼動/眨眼 readiness」深研。**事實更正**:`soul-enroll.js` **已載入 MediaPipe FaceLandmarker(478 點)且已算眨眼**(`outputFaceBlendshapes`→`eyeBlinkLeft/Right`→`eyeOpen`,L1022/1080-1091),拿來做睜眼 gate + confidence。所以「Level 1 眨眼」約 80% 已就緒(只缺累積成眨眼率 + surface),不需寫 EAR、不需加模型。
+- **合規硬煞車(撿回來做時必守)**:① 禁用「TEI」→ 是 Edge Score 第 9 維、權重重正規化;② 禁「情緒辨識/微表情/情緒 App」定位(App Store 4.2/GDPR 特殊類別)→ 框成裝置端 readiness/clarity 訊號;③ Trader 價值講 readiness gating 不講績效。瞳孔/虹膜(Level 2)延後(受光/藥物干擾+生物特徵風險)。
+
+## 教訓 / 注意
+- Antigravity push 持續上不了 GitHub(圖書館機 remote 內嵌 Google Stitch token 非 PAT)→ 沿用 patch relay(先 git log/--stat 驗 base,再貼全檔,雲端重建+驗證+推)。
+- /preview/ 真/假:相機框架/光線/對位是真;一切生理數字目前合成 —— 模型B 是第一個讓「真實 HR」進來的地方。
+
+---
+
 # 2026-06-23 Session Update (Scan tab 重定位為日常 Soul Scan 路由儀表板 — feat/scan-tab-daily-soul-scan)
 
 > 承接上一條:onboarding 接好後,做 North Star step 3 後半「Scan tab 重定位為日常 Soul Scan」。Antigravity 實作、雲端 relay 重建+驗證+推送+review。

@@ -1,0 +1,12 @@
+{
+  "name": "@tenki/preview",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TENKI CORE browser preview prototype (vanilla JS, device-verified).",
+  "scripts": {
+    "build:engine-bundle": "npx --yes esbuild@0.24.0 engine-entry.ts --bundle --format=iife --global-name=TENKIEngine --outfile=engine-bundle.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.0"
+  }
+}

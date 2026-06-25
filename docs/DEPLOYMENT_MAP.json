@@ -37,6 +37,14 @@
       "editable": true
     },
     {
+      "route": "/preview/finger-ppg-test.html",
+      "url": "https://tenki-emotion-app.vercel.app/preview/finger-ppg-test.html",
+      "source": "apps/preview/finger-ppg-test.html",
+      "purpose": "Real fingertip PPG -> real Edge Score reveal: back-camera measures real resting HR; the baseline is recorded only after an outlier-robust cross-window stability cluster lock (median BPM; occasional noise windows do not poison the lock; the locked value must fall in a plausible resting band 40-150 bpm so a stable-but-impossible noise cluster like 257 is rejected; the complete button enables only when stable), then packages/engine computes the real score (score/zone/safe copy) with an honest LOW confidence + transparent per-driver labels. Engine loaded via engine-bundle.js (esbuild UMD); adapter = finger-edge.js. Rebuild bundle with `npm run build:engine-bundle` in apps/preview.",
+      "status": "active-dev",
+      "editable": true
+    },
+    {
       "route": "/preview/soul-enroll.html",
       "url": "https://tenki-emotion-app.vercel.app/preview/soul-enroll.html",
       "source": "apps/preview/soul-enroll.html",
