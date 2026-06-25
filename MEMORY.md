@@ -30,10 +30,16 @@
 - **快取要從伺服器端根治**：純靠 `?v=` query 不夠，HTML 本身會被 iOS Safari 快取 → 必須 no-cache header。dependency JS 也要納管。
 - **振幅是 PPG 最乾淨的訊號品質判別器**（real 2–5 vs noise 0.3，gap 5–10x），遠勝 confidence（噪音 conf 可 > 真脈搏）。
 
-## 待做（下一輪 / Antigravity）
-- 揭曉 UI 視覺打磨（同前輪：`#edge-result` + v6 Today 仍簡版）。
-- 真 HRV/RR（瀏覽器取樣不穩）；統一 DSP（ceremony 的 camera-scan.js vs finger-ppg.js 自相關）。
-- mobile 原生（待 Mac）。
+## 🫳 交辦 Antigravity（canonical 任務清單在 `ANTIGRAVITY.md` 最上方 2026-06-25 HANDOFF）
+> 邏輯/資料層全部就緒且測試綠，剩「視覺」。Antigravity 一接手先讀 `ANTIGRAVITY.md` 頂部 handoff。
+- **Task 1（P1）純視覺打磨**——三個揭曉介面資料對、但陽春：
+  - `apps/preview/finger-ppg-test.html` 的 `#edge-panel`（59 分卡）。
+  - ceremony Step5：`baseline-onboarding.js` `renderEdgeResult()`（L1624）→ `index.html` `#edge-result`（inline 簡版）。
+  - v6 Today：`v6/stardust-scan-takeover.js`（L521–524 讀 `tenki.todaySnapshot.v1`）只換文字、無動效。
+  - **不可改**：`finger-edge.js` 的 `computeHonestScore`/`computeHonestConfidence`（誠實分數/低信心）、driver 透明標籤、「不灌水」disclaimer、引擎 `result.copy`。
+- **Task 2（P2）統一 finger DSP**——ceremony 的 `camera-scan.js`（簡易峰值）換成 `finger-ppg.js`（自相關+穩定度鎖+合理帶+振幅關卡）；但 ceremony OOM 敏感、且 camera-scan 另產 hrv/rr → **動大手術前先問 founder**。
+- **Task 3（P3）mobile 原生**（待 Mac）：把守門邏輯移植進 `apps/mobile`。
+- 硬規則：不動 engine 數學/`apps/web/`；隱私 local-only；改 JS 內容要 bump `?v=`（HTML），引擎改動重跑 `npm run build:engine-bundle`。
 
 ---
 

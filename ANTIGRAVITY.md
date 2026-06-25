@@ -1,3 +1,45 @@
+# 2026-06-25 ANTIGRAVITY HANDOFF — finger PPG 真分已上線，輪到視覺打磨 (READ THIS FIRST)
+
+> 這是**最新**交辦。與下方任何舊 note 衝突時，以本節為準。分支 `feat/preview-finger-real-ppg`（PR #148）。
+> 完整來龍去脈見 `MEMORY.md` 最上方 2026-06-25 條目。
+
+## 背景（Claude Code 已完成、已真機驗證）
+`apps/preview/` 的**真實指尖 PPG → 真 `packages/engine` Edge Score** 已端到端打通並經 founder 手機驗證：
+真實 ~49–62 bpm 鎖定 → 記入基線 → 揭曉**誠實分數 59 · NEUTRAL · 信心低(33%) · 合規文案 · driver 透明標籤**。
+DSP 經 7 輪真機收斂（穩定度鎖 → 抗離群 cluster → 合理帶[40,150] → 振幅關卡 → 修 iOS 快取 → 誠實分數）。
+**邏輯/資料層全部就緒且測試綠（finger-ppg 30/30、finger-edge 46/46）。剩下的是「視覺」。**
+
+## 你的任務（優先序）
+
+### ⭐ Task 1（P1）— 揭曉 UI 視覺打磨（純視覺，邏輯別動）
+三個揭曉介面**資料都對、只是長得陽春**，請做成符合 design system（`packages/shared/src/design-tokens.ts`）+ stardust/環形手感：
+1. **finger-ppg-test 揭曉卡** — `apps/preview/finger-ppg-test.html` 的 `#edge-panel`（founder 剛看到的 59 分卡）。目前是基本 CSS。
+2. **Onboarding ceremony Step 5 結果卡** — `apps/preview/baseline-onboarding.js` 的 `renderEdgeResult()`（L1624）寫進 `index.html` 的 `#edge-result`，目前是 inline-style 簡版。
+3. **v6 Today 真分** — `apps/preview/v6/stardust-scan-takeover.js`（L521–524 讀 `tenki.todaySnapshot.v1`）目前只換數字/zone 文字，沒有進場/環形動效。
+
+**驗收**：環形 Edge Score（Skia 感的視覺，但這是 web preview → 用 Canvas/SVG 皆可）、zone 配色（Clear/Neutral/Strain 見 `packages/shared/src/zone-config.ts`）、進場節奏符合 stardust 手感。
+**不可改**：① 分數值與信心邏輯（`finger-edge.js` 的 `computeHonestScore`/`computeHonestConfidence` — 未量測維度中性化、信心強制 low）；② driver 透明標籤（已量測/未量測/部分）；③「未量測維度以中性值計分（不灌水）」disclaimer；④ 文案一律用引擎 `result.copy`（已過 compliance），不自寫醫療/金融字眼。
+
+### Task 2（P2）— 統一 finger DSP（需先和 founder 確認範圍）
+ceremony 的相機走 `apps/preview/camera-scan.js`（簡易 3-point smoothing + peak detection），但 `apps/preview/finger-ppg.js` 才是經 7 輪真機硬化的版本：自相關 + 跨窗抗離群穩定度鎖 + 合理帶 + `LOCK_MIN_AMPLITUDE` 振幅關卡。建議把 ceremony 的 HR 路徑換成 finger-ppg.js 的 pipeline/守門。
+**注意**：① ceremony 是 **iOS OOM 敏感**路徑 → 必須沿用 finger-ppg.js 既有的 OOM-safe 擷取（單一 tiny canvas、固定長度 ring、每幀丟像素）。② camera-scan.js 另外產 hrv/rr（ceremony 用全 vitals → 引擎原生信心），finger-ppg.js 是 HR-only → **別弄丟 hrv/rr 路徑**，或保留 hrv/rr 但把 HR 換成穩健鎖。這是架構決策，**動大手術前先問 founder**。
+
+### Task 3（P3）— mobile 原生（待 Mac）
+把驗證過的 DSP + 守門（穩定度鎖/合理帶/振幅關卡）移植進 `apps/mobile` 原生掃描。Mac 到手再做。
+
+## 硬規則（沿用，違反就壞鏈）
+- **不動 `packages/engine` 數學**（source of truth；改了會影響 mobile 語義 + 破壞 ≥90% 測試）。
+- **不動 `apps/web/`**。
+- **隱私**：raw 像素只在本機，localStorage 只存衍生數值（HR 基線、edge 歷史）。絕不上雲。
+- **快取**：`apps/preview/finger-ppg-test.html` 及其三支 JS 已上 `Cache-Control: no-cache`（`vercel.json`）。**改了 `finger-ppg.js`/`finger-edge.js`/`engine-bundle.js` 內容要 bump `?v=`**（HTML 裡）。引擎改動要重跑 `cd apps/preview && npm run build:engine-bundle`。
+- 文案合規（Section 2）、TypeScript 禁 `any`、Commit-Per-Todo。
+
+## 怎麼驗
+- **真機為準**（headless 塞不了真脈搏）：手機開 PR 的 Vercel preview `/preview/finger-ppg-test.html?fresh=N`，指尖**壓實**後鏡頭（diag `amp R` 要 > 1.2）→ 出現「✅ 穩定 · 可完成」→ 揭曉真分。參考基準：好接觸 `R~180–207, amp 2.4–6.6`；弱訊號 `amp 0.2–0.5` 會（正確地）拒鎖。
+- Node：`node --check` 三支產物 + `node apps/preview/__tests__/finger-ppg.test.cjs`（30）/`finger-edge.test.cjs`（46）。`apps/preview/**` 不在 CI lint/test 範圍 → 靠 node --check + 純函式測 + 手機實驗。
+
+---
+
 # 2026-06-18 CONTINUATION NOTE (READ THIS FIRST)
 
 This note is the current handoff. If any older setup text below conflicts with this section, this section wins.
