@@ -1,3 +1,42 @@
+# 2026-06-25 Session Update (模型B 第4–7輪：finger PPG 真機 lock 收斂 + 誠實分數 — feat/preview-finger-real-ppg / PR #148)
+
+> 接續第2+3輪。本 session 全靠 founder **手機實測影片/截圖** 一輪輪逼出真實世界問題，把 finger-ppg-test 從「鎖不上 / 鎖到垃圾」修到**真實 62 bpm → 真引擎 Edge Score 揭曉**。全在 `apps/preview/`，引擎源碼零改動。**核心教訓：headless 合成測試全綠 ≠ 真機可用；瀏覽器相機 PPG 訊號弱又雜，魔鬼全在邊界與快取。**
+
+## 問題 → 修正鏈（每輪都靠真機影片診斷，sim 驗證後才動手）
+1. **信心門檻過嚴**（`cb17fcd` band-pass 後仍卡）：單窗 normalized autocorr 真機只到 0.3–0.5，0.5 硬門檻是對乾淨正弦校準的 → 真脈搏過不了。**改用跨窗穩定度 lock**（`ded4b3f`：`assessStability`，conf 樓地板降 0.25，locked 才記 median）。
+2. **穩定度被離群毒死**（`spread ±207↔±3` 亂跳）：偶發噪音窗在 lag 14（=MAX_BPM 240 邊界）→ **253 bpm**，`spread=max−min` 一個離群就爆 → 永不 lock。**改抗離群 cluster lock**（`095b99b`：median + inlier 容差 + inlier 佔多數）。
+3. **抗離群反而鎖到穩定噪音**（弱訊號時 257 spread ±0 → 記了 mean 181 垃圾基線）：信心**完全無法分辨**（噪音 conf 0.33 > 真脈搏 0.26）。**加生理合理帶 [40,150] + MAX_BPM 240→180**（`285828e`）→ 257 拒鎖。
+4. **低邊界鏡像 + 弱訊號假鎖**（鎖在 42=MIN_BPM，`amp 0.3`）：42「合理」所以合理帶擋不住。**加振幅關卡 `LOCK_MIN_AMPLITUDE=1.2`**（`b384116`：真脈搏 amp 2–5 vs 噪音 0.3，5–10x gap 是最乾淨的判別器）只有強訊號才准形成 lock。
+5. **🔑 快取地獄**（最大時間殺手）：診斷列出現 **200/257 bpm**＝v6 不可能（上限 180）→ founder 一直跑**被 Safari 快取的舊頁面**，前幾輪修正根本沒下載到手機。`?v=` query 沒用，因為**HTML 本身被快取**。**修法：vercel.json `Cache-Control: no-cache` + meta 標籤**（`aea06c0`）；第7輪再擴及三支 dependency JS（`1876510`：engine-bundle/finger-edge 也曾 `?v=1` 從沒 bump）。
+6. **✅ 成功**：硬刷新 + 指尖壓實（amp R6.66）→ 鎖在真實 **62 bpm** → 記入基線 → **Decision Edge Score 揭曉**（neutral、信心低 33%、合規文案、driver 透明標籤）。
+
+## 第7輪：誠實分數（移除 RR 假性滿分）— `b3f2197`
+- **發現**：呼吸穩定度在空基線回 phantom **100**（z=0），灌高 headline。
+- **關鍵反直覺**（先算才知）：plan 原本寫「只用已量測維度重正規化」(Option A) → 實算 **73 → clear**！因為 count=1 時 hr_stability/freshness 本身就是單樣本 100，丟掉中性 placeholder 反而**衝高、更不誠實**。
+- **採 Option B**：`computeHonestScore` 把**未量測維度中性化成 50** 再用引擎權重重算 → 64→**59（仍 neutral）**，保守且誠實。引擎仍是 sub-score/權重的 source of truth。disclaimer 加「未量測維度以中性值計分（不灌水）」。
+
+## 關鍵數據錨點（真機 diag，調參時參考）
+- 好接觸：`R~180–207, amp R 2.4–6.6, ch R`；弱/雜：`R~70–90, amp 0.2–0.5`，且常 fps 掉到 30（錄影+低電）。
+- 邊界噪音假峰：高 = 253/257（lag 14 @MAX 240）、200（lag 9）；低 = 42（lag=lagMax @MIN 42）。皆 spread ±0 會騙過純穩定度 → 靠合理帶 + 振幅關卡擋。
+
+## 現況 / 驗證
+- finger-ppg headless **30/30**、finger-edge **46/46**、`node --check` 三支產物過、tree 乾淨、全推 PR #148。
+- 真機已驗端到端成功（62 bpm → 真分）。最新版：`finger-ppg.js?v=7`、`finger-edge.js?v=2`、`engine-bundle.js?v=2`。
+- commits：`cb17fcd ded4b3f 44a1835 f65c76b 095b99b 617970c 285828e 9507573 b384116 aea06c0 b3f2197 1876510`。
+
+## 教訓
+- **真機影片是唯一真相**：合成測試擋不住邊界假峰、弱訊號假鎖、快取。每輪先看 diag 數據再動手。
+- **先模擬/先算再改**：濾波器調整非單調易反效果（放寬高通→鎖 253）；Option A 重正規化反而灌高分。sim.cjs/sim2.cjs + node 一次次救我沒亂改。
+- **快取要從伺服器端根治**：純靠 `?v=` query 不夠，HTML 本身會被 iOS Safari 快取 → 必須 no-cache header。dependency JS 也要納管。
+- **振幅是 PPG 最乾淨的訊號品質判別器**（real 2–5 vs noise 0.3，gap 5–10x），遠勝 confidence（噪音 conf 可 > 真脈搏）。
+
+## 待做（下一輪 / Antigravity）
+- 揭曉 UI 視覺打磨（同前輪：`#edge-result` + v6 Today 仍簡版）。
+- 真 HRV/RR（瀏覽器取樣不穩）；統一 DSP（ceremony 的 camera-scan.js vs finger-ppg.js 自相關）。
+- mobile 原生（待 Mac）。
+
+---
+
 # 2026-06-24 Session Update (模型B 第2+3輪：真引擎 Edge Score 接進 preview — feat/preview-finger-real-ppg / PR #148)
 
 > 承接 PR #148 真 PPG。本 session 兩個方向都做了：先在真 PPG 捕取頁接真引擎（誠實低信心），再把真引擎接進主 onboarding ceremony + v6 Today。全在 `apps/preview/`，引擎源碼零改動（仍是 source of truth）。
