@@ -1,6 +1,14 @@
 {
     "outputDirectory": ".",
     "framework": null,
+    "headers": [
+        {
+            "source": "/preview/finger-ppg-test.html",
+            "headers": [
+                { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+            ]
+        }
+    ],
     "redirects": [
         { "source": "/preview", "destination": "/preview/", "permanent": false },
         { "source": "/v3", "destination": "/v3/", "permanent": false },

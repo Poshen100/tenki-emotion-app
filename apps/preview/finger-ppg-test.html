@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#030407" />
+  <!-- never serve a stale build: iOS Safari was caching this page and ignoring the
+       ?v= bump on finger-ppg.js, so on-device kept running old DSP. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>TENKI — Finger PPG 測試頁</title>
   <style>
     :root { --bg:#030407; --cyan:#00F0FF; --gold:#FFC85E; --mint:#00E699; --red:#FF5566; --txt:#FFFFFF; --txt2:#9BA4C4; }
@@ -115,7 +120,7 @@
       演算法核心 finger-ppg.js 已通過 30 項 headless 測試。</p>
   </div>
 
-  <script src="finger-ppg.js?v=6"></script>
+  <script src="finger-ppg.js?v=7"></script>
   <script src="engine-bundle.js?v=1"></script>
   <script src="finger-edge.js?v=1"></script>
   <script>
@@ -140,6 +145,7 @@
       var lastCovered = false;
       var lastLocked = false;
       var lastSpread = 0;
+      var lastAmpOk = true;
 
       // Human-readable driver names for the honest breakdown.
       var DRIVER_NAMES = {
@@ -209,6 +215,7 @@
           onDiag: function (d) {
             lastLocked = !!d.locked;
             lastSpread = d.spread;
+            lastAmpOk = d.ampOk !== false;
             // unlock the "complete" button only once the reading is stable
             finishBtn.disabled = !lastLocked;
             document.getElementById('diag').textContent =
@@ -238,6 +245,8 @@
             var s = Math.round((Date.now() - t0) / 1000);
             if (lastLocked) {
               statusEl.textContent = '✅ 穩定 · 可完成（spread ±' + lastSpread + '）· ' + s + 's';
+            } else if (lastCovered && !lastAmpOk) {
+              statusEl.textContent = '訊號太弱，指尖壓緊一點＋補光 · ' + s + 's';
             } else {
               statusEl.textContent = (lastBpm ? '量測中（穩定後可完成）· ' : '收集訊號中… ') + s + 's';
             }
