@@ -3,7 +3,7 @@
     "framework": null,
     "headers": [
         {
-            "source": "/preview/finger-ppg-test.html",
+            "source": "/preview/(finger-ppg-test.html|finger-ppg.js|finger-edge.js|engine-bundle.js)",
             "headers": [
                 { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
             ]
