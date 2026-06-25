@@ -90,6 +90,31 @@ check('stress_proxy partial', fedge.DRIVER_STATUS.stress_proxy_vs_baseline === '
 check('hrv unmeasured', fedge.DRIVER_STATUS.hrv_vs_baseline === 'unmeasured');
 check('respiration unmeasured', fedge.DRIVER_STATUS.respiration_stability === 'unmeasured');
 
+console.log('computeHonestScore — neutralise unmeasured dims (kill RR phantom 100)');
+// synthetic drivers: respiration carries the empty-baseline phantom 100
+const synthDrivers = {
+  drivers: [
+    { key: 'hrv_vs_baseline', rawSubScore: 50 },        // unmeasured → 50 (unchanged)
+    { key: 'hr_stability', rawSubScore: 100 },          // measured → 100
+    { key: 'respiration_stability', rawSubScore: 100 }, // unmeasured PHANTOM → 50
+    { key: 'stress_proxy_vs_baseline', rawSubScore: 50 }, // partial → kept
+    { key: 'sleep_recovery', rawSubScore: 50 },         // unmeasured → 50
+    { key: 'recent_trend', rawSubScore: 50 },           // unmeasured → 50
+    { key: 'baseline_freshness', rawSubScore: 100 },    // measured → 100
+    { key: 'signal_quality', rawSubScore: 30 },         // measured → 30
+  ],
+};
+const hs = fedge.computeHonestScore(synthDrivers);
+// expected = (50*25+100*15+50*10+50*15+50*15+50*10+100*5+30*5)/100 = 59 (RR neutralised)
+check('honest score neutralises the RR phantom (= 59)', hs === 59);
+// raw engine aggregate of the same drivers would be 64 (RR at 100)
+const rawAgg = Math.round(synthDrivers.drivers.reduce(function (s, d) {
+  return s + d.rawSubScore * (fedge.DRIVER_WEIGHTS[d.key] / 100);
+}, 0));
+check('honest score is below the phantom-inflated raw (59 < 64)', hs < rawAgg && rawAgg === 64);
+check('honest score stays in neutral band', engine.classifyEdgeZone(hs) === 'neutral');
+check('empty/malformed result degrades to 0', fedge.computeHonestScore({}) === 0);
+
 console.log('buildEdgeInputFromVitals — full real vitals (HR+HRV+RR)');
 const vitals = {
   hr: { mean: 62, std: 3 },

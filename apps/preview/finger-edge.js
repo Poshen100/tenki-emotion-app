@@ -44,6 +44,50 @@
   };
 
   /**
+   * Engine factor weights — mirror packages/engine EDGE_WEIGHTS (sum 100). Kept
+   * here only to re-aggregate an honest score in the preview; the engine stays
+   * the source of truth for the sub-scores and these weights.
+   * @type {Record<string, number>}
+   */
+  const DRIVER_WEIGHTS = {
+    hrv_vs_baseline: 25,
+    hr_stability: 15,
+    respiration_stability: 10,
+    stress_proxy_vs_baseline: 15,
+    sleep_recovery: 15,
+    recent_trend: 10,
+    baseline_freshness: 5,
+    signal_quality: 5,
+  };
+
+  const NEUTRAL_SUBSCORE = 50;
+
+  /**
+   * Honest re-aggregation of the engine Edge Score: dimensions we did NOT
+   * actually measure are neutralised to 50 before re-weighting. This cancels the
+   * inflation from placeholder artifacts — most importantly the respiration
+   * "stability" dimension, which scores a phantom 100 on an empty baseline (z=0)
+   * and falsely lifts the headline. We deliberately do NOT renormalise to the
+   * measured dimensions only: with a fresh baseline (count 1) hr_stability and
+   * baseline_freshness are themselves single-sample 100s, so dropping the
+   * neutral placeholders would push the score UP into "clear" (~73) — the
+   * opposite of honest. Neutralising keeps it conservative (e.g. 64 → 59).
+   *
+   * @param {{drivers:{key:string,rawSubScore:number}[]}} result - engine result.
+   * @returns {number} honest 0-100 score (weights sum to 100).
+   */
+  function computeHonestScore(result) {
+    let weighted = 0;
+    (result && result.drivers ? result.drivers : []).forEach(function (d) {
+      const weight = DRIVER_WEIGHTS[d.key] || 0;
+      const status = DRIVER_STATUS[d.key] || 'unmeasured';
+      const sub = status === 'unmeasured' ? NEUTRAL_SUBSCORE : d.rawSubScore;
+      weighted += sub * (weight / 100);
+    });
+    return Math.round(weighted);
+  }
+
+  /**
    * Builds an engine SignalQuality from the capture's last confidence + coverage.
    * @param {number} confidence - normalized autocorrelation peak [0..1].
    * @param {boolean} covered - finger-over-lens flag from onQuality.
@@ -240,12 +284,14 @@
 
   return {
     DRIVER_STATUS,
+    DRIVER_WEIGHTS,
     EDGE_HISTORY_KEY,
     TODAY_SNAPSHOT_KEY,
     buildSignalQuality,
     buildEdgeInput,
     buildEdgeInputFromVitals,
     computeHonestConfidence,
+    computeHonestScore,
     loadEdgeHistory,
     recordEdgeScore,
     loadTodaySnapshot,

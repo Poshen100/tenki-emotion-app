@@ -122,7 +122,7 @@
 
   <script src="finger-ppg.js?v=7"></script>
   <script src="engine-bundle.js?v=1"></script>
-  <script src="finger-edge.js?v=1"></script>
+  <script src="finger-edge.js?v=2"></script>
   <script>
     (function () {
       'use strict';
@@ -170,12 +170,16 @@
         var input = fedge.buildEdgeInput(baseline, bpm, sq, fedge.loadEdgeHistory(), Date.now(), engine);
         var result = engine.calculateEdgeScore(input);
         var honest = fedge.computeHonestConfidence(result);
-        fedge.recordEdgeScore(result.score);
+        // Honest headline: neutralise unmeasured dims so the respiration phantom
+        // 100 doesn't inflate the score (see finger-edge.computeHonestScore).
+        var honestScore = fedge.computeHonestScore(result);
+        var honestZone = engine.classifyEdgeZone(honestScore);
+        fedge.recordEdgeScore(honestScore);
 
-        document.getElementById('edge-score').textContent = result.score;
+        document.getElementById('edge-score').textContent = honestScore;
         var zoneEl = document.getElementById('edge-zone');
-        zoneEl.textContent = result.zone.toUpperCase();
-        zoneEl.className = 'zone-pill zone-' + result.zone;
+        zoneEl.textContent = honestZone.toUpperCase();
+        zoneEl.className = 'zone-pill zone-' + honestZone;
         document.getElementById('edge-conf').textContent = '信心 低 (' + Math.round(honest.measuredWeight) + '% 已量測)';
         document.getElementById('edge-copy').innerHTML =
           '<b>' + result.copy.headline + '</b><br />' + result.copy.body;
@@ -188,7 +192,7 @@
         }).join('');
         document.getElementById('edge-drivers').innerHTML = rows;
         document.getElementById('edge-disclaimer').textContent =
-          '瀏覽器只直接量測靜息心率；HRV／呼吸／睡眠／趨勢尚未量測，故信心為「低」。分數由 packages/engine 真實引擎計算。';
+          '瀏覽器只直接量測靜息心率；HRV／呼吸／睡眠／趨勢尚未量測，故信心為「低」。分數由 packages/engine 真實引擎計算，未量測維度以中性值計分（不灌水）。';
         document.getElementById('edge-panel').classList.add('show');
       }
 
