@@ -5,13 +5,13 @@ import { useRouter } from 'expo-router';
 import { useUserStore } from '../../stores/user-store';
 import { useFaceBaselineStore } from '../../features/face-baseline/store/faceBaselineStore';
 import {
-  CosmicBackground,
   NavBar,
   GlassInfoCard,
   GlowPrimaryButton,
   PrivacyFootnote,
 } from '../../features/face-baseline/components';
 import { faceBaselineTokens as t } from '../../features/face-baseline/tokens/faceBaseline.tokens';
+import { OceanBackground } from '../../components/OceanBackground';
 
 export default function ScanScreen(): React.JSX.Element {
   const router = useRouter();
@@ -33,7 +33,7 @@ export default function ScanScreen(): React.JSX.Element {
   };
 
   return (
-    <CosmicBackground mode="deepNebula">
+    <OceanBackground mode="warm">
       <SafeAreaView style={styles.safe}>
         <NavBar title="Soul Scan" showLogo={true} titleColor="#FFFFFF" />
         <ScrollView
@@ -86,7 +86,7 @@ export default function ScanScreen(): React.JSX.Element {
           </View>
         </ScrollView>
       </SafeAreaView>
-    </CosmicBackground>
+    </OceanBackground>
   );
 }
 
