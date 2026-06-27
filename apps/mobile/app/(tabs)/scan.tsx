@@ -12,6 +12,7 @@ import {
 } from '../../features/face-baseline/components';
 import { faceBaselineTokens as t } from '../../features/face-baseline/tokens/faceBaseline.tokens';
 import { OceanBackground } from '../../components/OceanBackground';
+import { ScanTapRing } from '../../components/ScanTapRing';
 
 export default function ScanScreen(): React.JSX.Element {
   const router = useRouter();
@@ -47,6 +48,7 @@ export default function ScanScreen(): React.JSX.Element {
               <View style={styles.badgeGold}>
                 <Text style={styles.badgeTextGold}>DAILY RITUAL</Text>
               </View>
+              <ScanTapRing onPress={handleDailyScanPress} accent="gold" />
             </View>
             <Text style={styles.cardTitle}>今日星塵臉部掃描</Text>
             <Text style={styles.cardDesc}>
@@ -68,6 +70,7 @@ export default function ScanScreen(): React.JSX.Element {
               <View style={styles.badgeCyan}>
                 <Text style={styles.badgeTextCyan}>HIGH PRECISION</Text>
               </View>
+              <ScanTapRing onPress={handleFingerCalibratePress} accent="cyan" size={56} />
             </View>
             <Text style={styles.cardTitle}>手指接觸校準</Text>
             <Text style={styles.cardDesc}>
@@ -109,6 +112,8 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: t.spacing.sm,
   },
   badgeGold: {
