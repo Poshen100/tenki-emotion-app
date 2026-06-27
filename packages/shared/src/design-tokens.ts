@@ -11,6 +11,10 @@
  * from one literal instead of drifting across nested token groups. */
 const CYAN_CORE = '#00B4D8' as const;
 const CYAN_ACTIVE = '#22D3EE' as const;
+/** Cross-app status gold — baseline locked / calibration complete (North Star §4).
+ * Distinct from features/face-baseline/tokens/faceBaseline.tokens.ts's
+ * accent.goldResonance (#F3A92A), which is that ceremony's in-scene gold accent.
+ * Intentionally separate tokens for separate purposes — do not merge. */
 const GOLD_SECURED = '#FFD46E' as const;
 const SPACE_BG = '#020617' as const;
 /** Zone tones (see docs/VISUAL-DIRECTION.md): Neutral recedes as a low-chroma

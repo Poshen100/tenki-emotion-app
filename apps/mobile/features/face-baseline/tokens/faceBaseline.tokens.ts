@@ -35,6 +35,10 @@ export const faceBaselineTokens = {
       electricBlue: '#3399FF',
       indigo: '#5A7DFF',
       violet: '#704BFF',
+      /** In-scene gold for the face-baseline ceremony. Distinct from
+       * packages/shared/src/design-tokens.ts's brand.goldSecured (#FFD46E),
+       * the cross-app baseline-locked status color — intentionally separate,
+       * do not merge. */
       goldResonance: '#F3A92A',
       goldSoft: '#FFC85E',
       goldHi: '#FFF0D0',
