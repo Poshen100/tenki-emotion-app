@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo } from '../../theme';
 import { ScanButton } from '../../components/ScanButton';
 import { useSessionStore } from '../../stores/session-store';
-import { BackgroundContainer } from '../../components/onboarding-components';
+import { OceanBackground, type OceanMode } from '../../components/OceanBackground';
 import { startMockPrecheck, cancelMockSessionProgress } from '../../lib/mock-session';
 
 type SessionMode = 'health_reset' | 'focus' | 'performance' | 'trader';
@@ -41,6 +41,13 @@ function formatTimer(sec: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+/** Derives the OceanBackground mode from the current session lifecycle state. */
+function oceanModeForState(state: SessionState): OceanMode {
+  if (state === 'completed') return 'success';
+  if (state === 'scanning' || state === 'active' || state === 'paused') return 'active';
+  return 'default';
+}
+
 export default function SessionScreen() {
   const { mode, state, elapsedSec, setMode, setState, tick, completeSession, reset } = useSessionStore();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -69,7 +76,7 @@ export default function SessionScreen() {
   };
 
   return (
-    <BackgroundContainer>
+    <OceanBackground mode={oceanModeForState(state)}>
       <SafeAreaView style={styles.safeArea}>
       <ScrollView
         style={styles.scroll}
@@ -187,7 +194,7 @@ export default function SessionScreen() {
         )}
       </ScrollView>
       </SafeAreaView>
-    </BackgroundContainer>
+    </OceanBackground>
   );
 }
 
