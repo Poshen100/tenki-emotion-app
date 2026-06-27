@@ -18,7 +18,7 @@ import { useScanStore } from '../../stores/scan-store';
 import { useUserStore } from '../../stores/user-store';
 import { useAutonomicStore } from '../../stores/autonomic-store';
 import { FingerSmartReminder } from '../../components/FingerSmartReminder';
-import { BackgroundContainer } from '../../components/onboarding-components';
+import { OceanBackground } from '../../components/OceanBackground';
 
 function formatScanTime(timestamp: number): string {
   const now = Date.now();
@@ -89,7 +89,7 @@ export default function TodayScreen() {
   const garminActive = wearableHrvApplied || autonomicSource === 'watch_healthkit';
 
   return (
-    <BackgroundContainer>
+    <OceanBackground mode="default">
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
           style={styles.scroll}
@@ -194,7 +194,7 @@ export default function TodayScreen() {
           }}
         />
       </SafeAreaView>
-    </BackgroundContainer>
+    </OceanBackground>
   );
 }
 
