@@ -5,6 +5,7 @@ import { colors, spacing, radius, typography as typo } from '../../theme';
 import { ScanButton } from '../../components/ScanButton';
 import { useSessionStore } from '../../stores/session-store';
 import { OceanBackground, type OceanMode } from '../../components/OceanBackground';
+import { BreathingRing } from '../../components/BreathingRing';
 import { startMockPrecheck, cancelMockSessionProgress } from '../../lib/mock-session';
 
 type SessionMode = 'health_reset' | 'focus' | 'performance' | 'trader';
@@ -34,13 +35,6 @@ const STATE_LABELS: Record<SessionState, string> = {
  * Session screen — Session Governance Layer.
  * Mode selection → Pre-check → Scan → Gate → Active Session → Reflection
  */
-/** Format elapsed seconds as mm:ss. */
-function formatTimer(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
 /** Derives the OceanBackground mode from the current session lifecycle state. */
 function oceanModeForState(state: SessionState): OceanMode {
   if (state === 'completed') return 'success';
@@ -147,8 +141,7 @@ export default function SessionScreen() {
         {/* Active session */}
         {(state === 'active' || state === 'paused') && (
           <View style={styles.activeSection}>
-            <Text style={typo.timerDisplay}>{formatTimer(elapsedSec)}</Text>
-            <Text style={typo.caption}>Session elapsed</Text>
+            <BreathingRing elapsedSec={elapsedSec} active={state === 'active'} />
             <View style={styles.sessionActions}>
               <Pressable
                 style={styles.secondaryButton}
