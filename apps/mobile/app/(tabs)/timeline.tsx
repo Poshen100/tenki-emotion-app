@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo, getZoneForScore, zoneLabels, } from '../../theme';
 import { ZoneBadge } from '../../components/ZoneBadge';
 import { useTimelineStore, } from '../../stores/timeline-store';
-import { BackgroundContainer } from '../../components/onboarding-components';
+import { OceanBackground } from '../../components/OceanBackground';
 
 const MODE_LABELS: Record<string, string> = {
   health_reset: 'Health Reset',
@@ -70,7 +70,7 @@ export default function TimelineScreen() {
   const isEmpty = sessions.length === 0;
 
   return (
-    <BackgroundContainer>
+    <OceanBackground mode="default">
       <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={typo.headline}>Timeline</Text>
@@ -102,7 +102,7 @@ export default function TimelineScreen() {
         />
       )}
     </SafeAreaView>
-    </BackgroundContainer>
+    </OceanBackground>
   );
 }
 
