@@ -11,6 +11,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     initHero();
+    initStoryPanels();
   });
 
   function initHero() {
@@ -51,6 +52,58 @@
 
         return function () {
           tl.kill();
+        };
+      }
+    );
+  }
+
+  function initStoryPanels() {
+    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+
+    gsap.matchMedia().add(
+      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
+      function (context) {
+        var reduced = context.conditions.reduced;
+        var panels = gsap.utils.toArray('.story-panel');
+
+        if (reduced) {
+          gsap.set(panels, { clearProps: 'all' });
+          return;
+        }
+
+        var scrollTriggers = panels.map(function (panel, i) {
+          var text = panel.querySelectorAll('.story-index, .story-title, .story-body');
+          var visual = panel.querySelector('.story-visual');
+
+          gsap.set(text, { autoAlpha: 0, y: 36 });
+          gsap.set(visual, { autoAlpha: 0, scale: 0.92 });
+
+          var tl = gsap.timeline({
+            scrollTrigger: {
+              trigger: panel,
+              start: 'top top',
+              end: '+=100%',
+              pin: true,
+              scrub: 1,
+              anticipatePin: 1
+            }
+          });
+
+          tl.to(text, { autoAlpha: 1, y: 0, duration: 0.3, stagger: 0.05 }, 0)
+            .to(visual, { autoAlpha: 1, scale: 1, duration: 0.35 }, 0.05);
+
+          if (i < panels.length - 1) {
+            tl.to(text, { autoAlpha: 0, y: -24, duration: 0.25, stagger: 0.04 }, 0.72)
+              .to(visual, { autoAlpha: 0, scale: 0.96, duration: 0.25 }, 0.72);
+          }
+
+          return tl.scrollTrigger;
+        });
+
+        return function () {
+          scrollTriggers.forEach(function (st) {
+            if (st) st.kill();
+          });
         };
       }
     );
