@@ -4,7 +4,9 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUserStore } from '../../stores/user-store';
 import { useFaceBaselineStore } from '../../features/face-baseline/store/faceBaselineStore';
-import { BackgroundContainer, ProgressIndicator, PrimaryButton } from '../../components/onboarding-components';
+import { ProgressIndicator, PrimaryButton } from '../../components/onboarding-components';
+import { OceanBackground } from '../../components/OceanBackground';
+import { ocean } from '../../theme';
 
 export default function OnboardingComplete() {
   const router = useRouter();
@@ -23,7 +25,7 @@ export default function OnboardingComplete() {
   };
 
   return (
-    <BackgroundContainer>
+    <OceanBackground mode="default">
       <SafeAreaView style={styles.safeArea}>
         {/* Progress indicator (Step 6/Complete active) */}
         <ProgressIndicator activeStep={5} />
@@ -91,7 +93,7 @@ export default function OnboardingComplete() {
           </View>
         </ScrollView>
       </SafeAreaView>
-    </BackgroundContainer>
+    </OceanBackground>
   );
 }
 
@@ -120,7 +122,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(95, 233, 208, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#5FE9D0',
+    shadowColor: ocean.auroraTeal,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 20,
@@ -136,7 +138,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   checkText: {
-    color: '#5FE9D0',
+    color: ocean.auroraTeal,
     fontSize: 26,
     fontWeight: '700',
   },
@@ -148,7 +150,7 @@ const styles = StyleSheet.create({
   kicker: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#5FE9D0',
+    color: ocean.auroraTeal,
     letterSpacing: 2,
     marginBottom: 8,
   },
@@ -214,7 +216,7 @@ const styles = StyleSheet.create({
   },
   infoIcon: {
     fontSize: 16,
-    color: '#5FE9D0',
+    color: ocean.auroraTeal,
     fontWeight: '600',
   },
   infoTextWrap: {

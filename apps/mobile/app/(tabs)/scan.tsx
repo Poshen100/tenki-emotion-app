@@ -1,17 +1,25 @@
 import type React from 'react';
+import { lazy, Suspense } from 'react';
 import { StyleSheet, Text, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUserStore } from '../../stores/user-store';
 import { useFaceBaselineStore } from '../../features/face-baseline/store/faceBaselineStore';
-import {
-  CosmicBackground,
-  NavBar,
-  GlassInfoCard,
-  GlowPrimaryButton,
-  PrivacyFootnote,
-} from '../../features/face-baseline/components';
+// Importing from the barrel (features/face-baseline/components/index.ts) would eagerly
+// evaluate every re-export in that file — including TrustShield.tsx, which statically
+// imports @shopify/react-native-skia with no web override. That import runs before
+// LoadSkiaWeb (app/_layout.tsx) resolves CanvasKit, permanently wedging the shared web
+// Skia singleton on `undefined` (it closes over CanvasKit at construction time). Importing
+// these four components from their own files instead avoids pulling in that barrel.
+import { NavBar, PrivacyFootnote } from '../../features/face-baseline/components/shared/Primitives';
+import { GlowPrimaryButton } from '../../features/face-baseline/components/shared/GlowPrimaryButton';
+import { GlassInfoCard } from '../../features/face-baseline/components/glass/GlassInfoCard';
 import { faceBaselineTokens as t } from '../../features/face-baseline/tokens/faceBaseline.tokens';
+import { OceanBackground } from '../../components/OceanBackground';
+
+const ScanTapRing = lazy(() =>
+  import('../../components/ScanTapRing').then((m) => ({ default: m.ScanTapRing }))
+);
 
 export default function ScanScreen(): React.JSX.Element {
   const router = useRouter();
@@ -33,7 +41,7 @@ export default function ScanScreen(): React.JSX.Element {
   };
 
   return (
-    <CosmicBackground mode="deepNebula">
+    <OceanBackground mode="warm">
       <SafeAreaView style={styles.safe}>
         <NavBar title="Soul Scan" showLogo={true} titleColor="#FFFFFF" />
         <ScrollView
@@ -47,6 +55,9 @@ export default function ScanScreen(): React.JSX.Element {
               <View style={styles.badgeGold}>
                 <Text style={styles.badgeTextGold}>DAILY RITUAL</Text>
               </View>
+              <Suspense fallback={null}>
+                <ScanTapRing onPress={handleDailyScanPress} accent="gold" />
+              </Suspense>
             </View>
             <Text style={styles.cardTitle}>今日星塵臉部掃描</Text>
             <Text style={styles.cardDesc}>
@@ -68,6 +79,9 @@ export default function ScanScreen(): React.JSX.Element {
               <View style={styles.badgeCyan}>
                 <Text style={styles.badgeTextCyan}>HIGH PRECISION</Text>
               </View>
+              <Suspense fallback={null}>
+                <ScanTapRing onPress={handleFingerCalibratePress} accent="cyan" size={56} />
+              </Suspense>
             </View>
             <Text style={styles.cardTitle}>手指接觸校準</Text>
             <Text style={styles.cardDesc}>
@@ -86,7 +100,7 @@ export default function ScanScreen(): React.JSX.Element {
           </View>
         </ScrollView>
       </SafeAreaView>
-    </CosmicBackground>
+    </OceanBackground>
   );
 }
 
@@ -109,6 +123,8 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: t.spacing.sm,
   },
   badgeGold: {

@@ -11,12 +11,21 @@
  * from one literal instead of drifting across nested token groups. */
 const CYAN_CORE = '#00B4D8' as const;
 const CYAN_ACTIVE = '#22D3EE' as const;
+/** Cross-app status gold — baseline locked / calibration complete (North Star §4).
+ * Distinct from features/face-baseline/tokens/faceBaseline.tokens.ts's
+ * accent.goldResonance (#F3A92A), which is that ceremony's in-scene gold accent.
+ * Intentionally separate tokens for separate purposes — do not merge. */
 const GOLD_SECURED = '#FFD46E' as const;
 const SPACE_BG = '#020617' as const;
 /** Zone tones (see docs/VISUAL-DIRECTION.md): Neutral recedes as a low-chroma
  * slate, Strain reads as a warm ember caution (was near-white / purple). */
 const ZONE_NEUTRAL = '#64748B' as const;
 const ZONE_STRAIN = '#C2703D' as const;
+/** Midnight-ocean background spine shared by all 5 main tabs + onboarding. */
+const OCEAN_GRADIENT_TOP = '#0A1628' as const;
+const OCEAN_GRADIENT_BOTTOM = '#050A14' as const;
+const OCEAN_AURORA_TEAL = '#5FE9D0' as const;
+const OCEAN_AURORA_AMBER = '#FFC68A' as const;
 
 /** TENKI CORE v3 design tokens — colors, typography, animation, spacing. */
 export const TENKI_THEME = {
@@ -77,6 +86,14 @@ export const TENKI_THEME = {
     goldSecured: GOLD_SECURED,
     /** Canonical deep-space background. Replaces mixed #000 / #070e17 / #020408. */
     spaceBg: SPACE_BG,
+  },
+  /** Shared "midnight ocean" background — Today/Scan/Session/Timeline/Lab tabs
+   * and onboarding screens all render through this single gradient + aurora
+   * treatment instead of each maintaining its own background look. */
+  ocean: {
+    gradient: { top: OCEAN_GRADIENT_TOP, bottom: OCEAN_GRADIENT_BOTTOM },
+    auroraTeal: OCEAN_AURORA_TEAL,
+    auroraAmber: OCEAN_AURORA_AMBER,
   },
   /** Base color palette. */
   colors: {

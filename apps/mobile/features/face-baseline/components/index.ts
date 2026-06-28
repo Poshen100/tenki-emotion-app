@@ -20,7 +20,12 @@ export {
 export { GlassInfoCard } from './glass/GlassInfoCard';
 export { ResonanceWaveGlyph } from './education/ResonanceWaveGlyph';
 export { CarouselDots } from './education/CarouselDots';
-export { TrustShield } from './permission/TrustShield';
+// TrustShield is intentionally NOT re-exported here: it statically imports
+// @shopify/react-native-skia, and this barrel is imported (eagerly, on web) by many
+// face-baseline screens that Expo Router requires up front to build its route table.
+// Re-exporting it would evaluate Skia.web.js before LoadSkiaWeb (app/_layout.tsx) resolves
+// CanvasKit, permanently wedging the shared Skia singleton. Its one consumer
+// (SecureAccessRequiredScreen) imports it directly via a lazy dynamic import instead.
 export { PrivacyAssuranceList } from './permission/PrivacyAssuranceList';
 export type { AssuranceItem } from './permission/PrivacyAssuranceList';
 export { EnvironmentChecklist, ChecklistRow } from './env/EnvironmentChecklist';

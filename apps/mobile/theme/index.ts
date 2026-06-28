@@ -38,6 +38,13 @@ export const zones = {
 
 export type ZoneName = keyof typeof zones;
 
+// keep in sync with @tenki/shared design-tokens TENKI_THEME.ocean
+export const ocean = {
+  gradient: { top: '#0A1628', bottom: '#050A14' },
+  auroraTeal: '#5FE9D0',
+  auroraAmber: '#FFC68A',
+} as const;
+
 export const spacing = {
   xs: 4,
   sm: 8,

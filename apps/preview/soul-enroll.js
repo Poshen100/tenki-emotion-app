@@ -688,6 +688,7 @@
         for (let i = 0; i < o.grit; i++) {
           const h = hash(o.rr * 7.3 + i * 13.3);
           const h2 = hash(i * 3.1 + o.rr * 2.7);
+          const h3 = hash(i * 9.7 + o.rr * 4.1 + 51.3); // independent per-grain size variance
           const spd = 0.5 + h * 1.2;                 // wider turbulence: 0.5–1.7×
           const phi = h * TAU + t * (o.head * spd);
           const p = project(phi);
@@ -703,17 +704,56 @@
           if (a < 0.02) continue;
           // cross-section spread → a tube of sand: bright centre, faint edges
           const off = (h2 - 0.5) * 2;                             // -1..1
-          const spread = off * R * 0.14 * (1 - 0.4 * Math.abs(off));
+          const spread = off * R * 0.16 * (1 - 0.4 * Math.abs(off));
           const gx = p.x + nx * spread, gy = p.y + ny * spread;
-          const len = (2.6 + d * 5.6 + spd * 2.8) * (R / 76);     // long streak = flowing ribbon
+          const grain = 0.4 + 0.9 * h3;                           // per-grain size variance → gritty, not uniform
+          const len = (1.1 + d * 3.2 + spd * 1.6) * grain * (R / 76); // shorter, varied streaks read as sand grains
           c.globalAlpha = clamp01(a * (1 - 0.45 * Math.abs(off)));
-          c.lineWidth = (0.5 + d * 1.0) * (R / 76);
+          c.lineWidth = (0.45 + d * 0.85) * grain * (R / 76);
           c.strokeStyle = ci > 0.5 ? '#FFF8E6' : COLORS.gold;
-          c.shadowBlur = 2.5 + d * 6;
+          c.shadowBlur = (0.6 + d * 1.8) * (R / 76);              // crisper grain edges, less glow-smear
           c.beginPath();
           c.moveTo(gx - tx * len * 0.5, gy - ty * len * 0.5);
           c.lineTo(gx + tx * len * 0.5, gy + ty * len * 0.5);
           c.stroke();
+        }
+      }
+      c.globalAlpha = 1; c.restore();
+    };
+
+    // sparse glitter: a thin layer of discrete bright pinpoints riding the same
+    // orbits, each flashing on/off independently → distinct catching-light sand
+    // grains on top of the smooth streaming ribbon, instead of one continuous glow.
+    const drawGlitter = (front) => {
+      c.save();
+      c.shadowColor = COLORS.gold;
+      for (const { o, project, comet } of O) {
+        const sparks = Math.round(o.grit * 0.22);
+        for (let i = 0; i < sparks; i++) {
+          const h = hash(o.rr * 11.7 + i * 17.9 + 23.1);
+          const h2 = hash(i * 5.3 + o.rr * 1.9 + 7.7);
+          const phi = h * TAU + t * (o.head * (0.6 + h2 * 0.8));
+          const p = project(phi);
+          if ((p.z >= 0) !== front) continue;
+          const q = project(phi + EPS);
+          let tx = q.x - p.x, ty = q.y - p.y;
+          const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+          const nx = -ty, ny = tx;
+          const d = (p.z / o.rr) * 0.5 + 0.5;
+          const ci = comet(phi);
+          // threshold flicker → mostly off, occasionally a sharp flash: discrete sparkle
+          const flick = Math.max(0, Math.sin(t * 0.006 + h * 41.7)) ** 7;
+          if (flick < 0.04) continue;
+          const off = (h2 - 0.5) * 2;
+          const spread = off * R * 0.24;
+          const gx = p.x + nx * spread, gy = p.y + ny * spread;
+          const a = (0.55 + ci * 0.45) * (front ? 0.75 + 0.25 * d : 0.22) * flick;
+          if (a < 0.03) continue;
+          const r = (0.55 + d * 0.85) * (R / 76);
+          c.globalAlpha = clamp01(a);
+          c.fillStyle = '#FFFCF2';
+          c.shadowBlur = (1.0 + d * 1.4) * (R / 76);
+          c.beginPath(); c.arc(gx, gy, r, 0, TAU); c.fill();
         }
       }
       c.globalAlpha = 1; c.restore();
@@ -745,7 +785,7 @@
     shade.addColorStop(0.7, 'rgba(0,0,0,0)');
     c.fillStyle = shade; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
 
-    drawRibbons(false); drawSand(false); // far streams (behind the core)
+    drawRibbons(false); drawSand(false); drawGlitter(false); // far streams (behind the core)
 
     // hot core
     const coreR = R * 0.46;
@@ -756,7 +796,7 @@
     core.addColorStop(1, 'rgba(255,200,96,0)');
     c.beginPath(); c.arc(cx, cy, coreR, 0, Math.PI * 2); c.fillStyle = core; c.fill();
 
-    drawRibbons(true); drawSand(true); // near streams (in front of the core)
+    drawRibbons(true); drawSand(true); drawGlitter(true); // near streams (in front of the core)
 
     // inner ambient-occlusion ring → reads as glass thickness at the edge
     c.save();

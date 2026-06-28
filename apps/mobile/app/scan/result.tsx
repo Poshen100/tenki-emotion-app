@@ -1,12 +1,18 @@
 
+import { lazy, Suspense } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScanStore } from '../../stores/scan-store';
 import { getZoneForScore, } from '../../theme';
 import { BackgroundContainer, GlassMedallion, PrimaryButton, SecondaryButton } from '../../components/onboarding-components';
-import { EdgeScoreRing } from '../../components/EdgeScoreRing';
 import { ZoneBadge } from '../../components/ZoneBadge';
+
+// Lazy: see app/(tabs)/scan.tsx for why @shopify/react-native-skia consumers must be
+// dynamically imported rather than statically, on web.
+const EdgeScoreRing = lazy(() =>
+  import('../../components/EdgeScoreRing').then((m) => ({ default: m.EdgeScoreRing }))
+);
 
 export default function DailyScanResult() {
   const router = useRouter();
@@ -65,7 +71,9 @@ export default function DailyScanResult() {
 
           {/* Central Edge Score Visual */}
           <View style={styles.scoreContainer}>
-            <EdgeScoreRing score={score} size={220} />
+            <Suspense fallback={null}>
+              <EdgeScoreRing score={score} size={220} />
+            </Suspense>
             <View style={styles.badgeWrapper}>
               <ZoneBadge score={score} />
             </View>

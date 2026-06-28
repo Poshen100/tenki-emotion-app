@@ -7,26 +7,27 @@
  * permission request; route to permission_denied on denial.
  */
 import type React from 'react';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import {
-  CosmicBackground,
-  BrandWordmark,
-  TrustShield,
-  PrivacyAssuranceList,
-  GlowPrimaryButton,
-  TextLink,
-  NavBar,
-} from '../components';
+import { CosmicBackground } from '../components/shared/CosmicBackground';
+import { BrandWordmark, NavBar } from '../components/shared/Primitives';
+import { PrivacyAssuranceList } from '../components/permission/PrivacyAssuranceList';
+import { GlowPrimaryButton } from '../components/shared/GlowPrimaryButton';
+import { TextLink } from '../components/shared/Buttons';
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
 import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
 import { FB_ROUTES } from './routes';
 
 import { Platform } from 'react-native';
-import { VisionCamera } from 'react-native-vision-camera';
+
+// Lazy: see app/(tabs)/scan.tsx for why @shopify/react-native-skia consumers must be
+// dynamically imported rather than statically, on web.
+const TrustShield = lazy(() =>
+  import('../components/permission/TrustShield').then((m) => ({ default: m.TrustShield }))
+);
 
 export default function SecureAccessRequiredScreen(): React.JSX.Element {
   const router = useRouter();
@@ -61,6 +62,10 @@ export default function SecureAccessRequiredScreen(): React.JSX.Element {
     } else {
       // Native Camera Permission
       try {
+        // Lazy require (not a static import): react-native-vision-camera's native
+        // module deep-imports react-native/Libraries/... directly, which Expo's
+        // web bundle rejects if pulled in at module-load time on web.
+        const { VisionCamera } = require('react-native-vision-camera') as typeof import('react-native-vision-camera');
         const granted = await VisionCamera.requestCameraPermission();
         setPermission(granted ? 'granted' : 'denied');
         router.push(FB_ROUTES.environment);
@@ -79,7 +84,9 @@ export default function SecureAccessRequiredScreen(): React.JSX.Element {
         <View style={styles.head}>
           <BrandWordmark />
           <View style={styles.shield}>
-            <TrustShield size={102} />
+            <Suspense fallback={null}>
+              <TrustShield size={102} />
+            </Suspense>
           </View>
         </View>
         <View style={styles.body}>

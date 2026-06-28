@@ -6,7 +6,7 @@ import { colors, spacing, radius, typography as typo } from '../../theme';
 import { useSubscriptionStore } from '../../stores/subscription-store';
 import { useUserStore } from '../../stores/user-store';
 import { useScanStore } from '../../stores/scan-store';
-import { BackgroundContainer } from '../../components/onboarding-components';
+import { OceanBackground } from '../../components/OceanBackground';
 import { DopamineJournalSheet } from '../../components/DopamineJournalSheet';
 import {
   useDopamineJournalStore,
@@ -104,7 +104,7 @@ export default function LabScreen() {
   ];
 
   return (
-    <BackgroundContainer>
+    <OceanBackground mode="default">
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
           style={styles.scroll}
@@ -169,7 +169,7 @@ export default function LabScreen() {
         visible={journalVisible}
         onClose={() => setJournalVisible(false)}
       />
-    </BackgroundContainer>
+    </OceanBackground>
   );
 }
 

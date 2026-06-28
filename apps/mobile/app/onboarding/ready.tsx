@@ -3,14 +3,16 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFaceBaselineStore } from '../../features/face-baseline/store/faceBaselineStore';
-import { BackgroundContainer, ProgressIndicator, PrimaryButton } from '../../components/onboarding-components';
+import { ProgressIndicator, PrimaryButton } from '../../components/onboarding-components';
+import { OceanBackground } from '../../components/OceanBackground';
+import { ocean } from '../../theme';
 
 export default function OnboardingReady() {
   const router = useRouter();
   const setEntryContext = useFaceBaselineStore((s) => s.setEntryContext);
 
   return (
-    <BackgroundContainer>
+    <OceanBackground mode="default">
       <SafeAreaView style={styles.safeArea}>
         {/* Progress indicator */}
         <ProgressIndicator activeStep={1} />
@@ -79,7 +81,7 @@ export default function OnboardingReady() {
           </View>
         </View>
       </SafeAreaView>
-    </BackgroundContainer>
+    </OceanBackground>
   );
 }
 
@@ -99,7 +101,7 @@ const styles = StyleSheet.create({
   kicker: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#5FE9D0',
+    color: ocean.auroraTeal,
     letterSpacing: 2,
     marginBottom: 8,
   },
@@ -134,7 +136,7 @@ const styles = StyleSheet.create({
   },
   iconText: {
     fontSize: 20,
-    color: '#5FE9D0',
+    color: ocean.auroraTeal,
     fontWeight: '600',
     lineHeight: 22,
   },
@@ -168,7 +170,7 @@ const styles = StyleSheet.create({
   },
   noteIconText: {
     fontSize: 18,
-    color: '#5FE9D0',
+    color: ocean.auroraTeal,
     fontWeight: '600',
   },
   noteTextWrap: {

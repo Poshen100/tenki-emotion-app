@@ -1,11 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo } from '../../theme';
 import { ScanButton } from '../../components/ScanButton';
 import { useSessionStore } from '../../stores/session-store';
-import { BackgroundContainer } from '../../components/onboarding-components';
+import { OceanBackground, type OceanMode } from '../../components/OceanBackground';
 import { startMockPrecheck, cancelMockSessionProgress } from '../../lib/mock-session';
+
+// Lazy: see app/(tabs)/scan.tsx for why @shopify/react-native-skia consumers must be
+// dynamically imported rather than statically, on web.
+const BreathingRing = lazy(() =>
+  import('../../components/BreathingRing').then((m) => ({ default: m.BreathingRing }))
+);
 
 type SessionMode = 'health_reset' | 'focus' | 'performance' | 'trader';
 type SessionState = 'draft' | 'configured' | 'precheck' | 'scanning' | 'gated' | 'active' | 'paused' | 'completed' | 'reflection_pending' | 'archived';
@@ -34,11 +40,11 @@ const STATE_LABELS: Record<SessionState, string> = {
  * Session screen — Session Governance Layer.
  * Mode selection → Pre-check → Scan → Gate → Active Session → Reflection
  */
-/** Format elapsed seconds as mm:ss. */
-function formatTimer(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+/** Derives the OceanBackground mode from the current session lifecycle state. */
+function oceanModeForState(state: SessionState): OceanMode {
+  if (state === 'completed') return 'success';
+  if (state === 'scanning' || state === 'active' || state === 'paused') return 'active';
+  return 'default';
 }
 
 export default function SessionScreen() {
@@ -69,7 +75,7 @@ export default function SessionScreen() {
   };
 
   return (
-    <BackgroundContainer>
+    <OceanBackground mode={oceanModeForState(state)}>
       <SafeAreaView style={styles.safeArea}>
       <ScrollView
         style={styles.scroll}
@@ -140,8 +146,9 @@ export default function SessionScreen() {
         {/* Active session */}
         {(state === 'active' || state === 'paused') && (
           <View style={styles.activeSection}>
-            <Text style={typo.timerDisplay}>{formatTimer(elapsedSec)}</Text>
-            <Text style={typo.caption}>Session elapsed</Text>
+            <Suspense fallback={null}>
+              <BreathingRing elapsedSec={elapsedSec} active={state === 'active'} />
+            </Suspense>
             <View style={styles.sessionActions}>
               <Pressable
                 style={styles.secondaryButton}
@@ -187,7 +194,7 @@ export default function SessionScreen() {
         )}
       </ScrollView>
       </SafeAreaView>
-    </BackgroundContainer>
+    </OceanBackground>
   );
 }
 
