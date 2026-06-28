@@ -2,7 +2,9 @@
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BackgroundContainer, GlassMedallion, PrimaryButton } from '../../components/onboarding-components';
+import { GlassMedallion, PrimaryButton } from '../../components/onboarding-components';
+import { OceanBackground } from '../../components/OceanBackground';
+import { ocean } from '../../theme';
 
 const { width } = Dimensions.get('window');
 
@@ -10,7 +12,7 @@ export default function OnboardingWelcome() {
   const router = useRouter();
 
   return (
-    <BackgroundContainer>
+    <OceanBackground mode="default">
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           {/* Header section */}
@@ -59,7 +61,7 @@ export default function OnboardingWelcome() {
           </View>
         </View>
       </SafeAreaView>
-    </BackgroundContainer>
+    </OceanBackground>
   );
 }
 
@@ -80,7 +82,7 @@ const styles = StyleSheet.create({
   kicker: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#5FE9D0', // Teal accent
+    color: ocean.auroraTeal, // Teal accent
     letterSpacing: 3,
     marginBottom: 12,
   },
@@ -119,7 +121,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(95, 233, 208, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#5FE9D0',
+    shadowColor: ocean.auroraTeal,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.15,
     shadowRadius: 24,
@@ -134,13 +136,13 @@ const styles = StyleSheet.create({
   waveLineShort: {
     width: 20,
     height: 2,
-    backgroundColor: '#5FE9D0',
+    backgroundColor: ocean.auroraTeal,
     borderRadius: 1,
   },
   waveDown: {
     width: 2,
     height: 8,
-    backgroundColor: '#5FE9D0',
+    backgroundColor: ocean.auroraTeal,
     marginTop: 6,
     borderRadius: 1,
   },
@@ -154,21 +156,21 @@ const styles = StyleSheet.create({
   waveDownDeep: {
     width: 2,
     height: 36,
-    backgroundColor: '#5FE9D0',
+    backgroundColor: ocean.auroraTeal,
     marginTop: 18,
     borderRadius: 1,
   },
   waveUpRecover: {
     width: 2,
     height: 14,
-    backgroundColor: '#5FE9D0',
+    backgroundColor: ocean.auroraTeal,
     marginTop: -8,
     borderRadius: 1,
   },
   waveLineLong: {
     width: 30,
     height: 2,
-    backgroundColor: '#5FE9D0',
+    backgroundColor: ocean.auroraTeal,
     borderRadius: 1,
     marginLeft: 1,
   },

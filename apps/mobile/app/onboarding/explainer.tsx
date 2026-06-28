@@ -2,13 +2,15 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BackgroundContainer, ProgressIndicator, PrimaryButton } from '../../components/onboarding-components';
+import { ProgressIndicator, PrimaryButton } from '../../components/onboarding-components';
+import { OceanBackground } from '../../components/OceanBackground';
+import { ocean } from '../../theme';
 
 export default function OnboardingExplainer() {
   const router = useRouter();
 
   return (
-    <BackgroundContainer>
+    <OceanBackground mode="default">
       <SafeAreaView style={styles.safeArea}>
         {/* Progress indicator */}
         <ProgressIndicator activeStep={0} />
@@ -61,7 +63,7 @@ export default function OnboardingExplainer() {
           </View>
         </View>
       </SafeAreaView>
-    </BackgroundContainer>
+    </OceanBackground>
   );
 }
 
@@ -81,7 +83,7 @@ const styles = StyleSheet.create({
   kicker: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#5FE9D0',
+    color: ocean.auroraTeal,
     letterSpacing: 2,
     marginBottom: 8,
   },
@@ -131,7 +133,7 @@ const styles = StyleSheet.create({
   metaValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#5FE9D0',
+    color: ocean.auroraTeal,
     marginBottom: 4,
   },
   metaLabel: {
