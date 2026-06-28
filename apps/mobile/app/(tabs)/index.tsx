@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -9,7 +9,6 @@ import {
   typography as typo,
   getZoneForScore,
 } from '../../theme';
-import { EdgeScoreRing } from '../../components/EdgeScoreRing';
 import { ZoneBadge } from '../../components/ZoneBadge';
 import { ScanButton } from '../../components/ScanButton';
 import { AutonomicCard } from '../../components/AutonomicCard';
@@ -19,6 +18,12 @@ import { useUserStore } from '../../stores/user-store';
 import { useAutonomicStore } from '../../stores/autonomic-store';
 import { FingerSmartReminder } from '../../components/FingerSmartReminder';
 import { OceanBackground } from '../../components/OceanBackground';
+
+// Lazy: see app/(tabs)/scan.tsx for why @shopify/react-native-skia consumers must be
+// dynamically imported rather than statically, on web.
+const EdgeScoreRing = lazy(() =>
+  import('../../components/EdgeScoreRing').then((m) => ({ default: m.EdgeScoreRing }))
+);
 
 function formatScanTime(timestamp: number): string {
   const now = Date.now();
@@ -124,7 +129,9 @@ export default function TodayScreen() {
           <View style={styles.scoreSection}>
             {currentScore !== null ? (
               <>
-                <EdgeScoreRing score={currentScore} size={220} />
+                <Suspense fallback={null}>
+                  <EdgeScoreRing score={currentScore} size={220} />
+                </Suspense>
                 <View style={styles.badgeRow}>
                   <ZoneBadge score={currentScore} />
                 </View>

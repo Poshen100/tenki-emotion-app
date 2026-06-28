@@ -14,7 +14,12 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     import('@shopify/react-native-skia/lib/module/web/LoadSkiaWeb').then(({ LoadSkiaWeb }) =>
-      LoadSkiaWeb().then(() => setSkiaReady(true))
+      // canvaskit.wasm is served from apps/mobile/public/ (copied there by
+      // `npx setup-skia-web`); Metro inlines the loader JS, so it can't infer
+      // the wasm's URL from its own location like a normal <script> would.
+      LoadSkiaWeb({ locateFile: (file: string) => `/${file}` }).then(() => {
+        setSkiaReady(true);
+      })
     );
   }, []);
 
