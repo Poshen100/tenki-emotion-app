@@ -8,7 +8,7 @@
  * @see ANTIGRAVITY.md v3.0 Section 2
  */
 
-import type { EdgeZone } from '../scoring/types';
+import type { EdgeZone, StrainSubtype } from '../scoring/types';
 import type { ConfidenceBand } from '../common/types';
 
 // ─────────────────────────────────────────────
@@ -107,16 +107,50 @@ const ZONE_BODIES: Record<EdgeZone, Record<ConfidenceBand, string>> = {
 };
 
 /**
+ * v0 — unvalidated. Safe headline/body overrides for the `strain` zone when a
+ * directional subtype is available (see `StrainSubtype` in `scoring/types`).
+ * Only covers the two directional subtypes; `unknown` falls back to the
+ * generic ZONE_HEADLINES/ZONE_BODIES strain copy above.
+ */
+const STRAIN_SUBTYPE_HEADLINES: Record<Exclude<StrainSubtype, 'unknown'>, string> = {
+  overstimulated: 'Elevated activation detected',
+  depleted: 'Lower energy signals detected',
+};
+
+const STRAIN_SUBTYPE_BODIES: Record<Exclude<StrainSubtype, 'unknown'>, string> = {
+  overstimulated: 'Your signals suggest heightened activation compared to your baseline — elevated heart rate paired with lower variability. A brief pause or breathing exercise may help you settle.',
+  depleted: 'Your signals suggest reduced energy and variability compared to your baseline. Rest or a recovery break may help.',
+};
+
+/** Optional context for safe-copy generation. */
+export interface SafeCopyContext {
+  /** v0 directional subtype, only meaningful when zone is `strain`. */
+  strainSubtype?: StrainSubtype;
+}
+
+/**
  * Generates compliance-safe copy for a given zone and confidence band.
+ * When `zone` is `strain` and `context.strainSubtype` is a resolved
+ * direction (not `unknown`), returns subtype-specific copy instead of the
+ * generic strain copy.
  *
  * @param zone - The Edge Score zone.
  * @param band - The confidence band.
+ * @param context - Optional v0 strain-subtype context.
  * @returns Object with headline and body text, guaranteed compliant.
  */
 export function generateSafeCopy(
   zone: EdgeZone,
-  band: ConfidenceBand
+  band: ConfidenceBand,
+  context?: SafeCopyContext
 ): { headline: string; body: string } {
+  if (zone === 'strain' && context?.strainSubtype && context.strainSubtype !== 'unknown') {
+    return {
+      headline: STRAIN_SUBTYPE_HEADLINES[context.strainSubtype],
+      body: STRAIN_SUBTYPE_BODIES[context.strainSubtype],
+    };
+  }
+
   return {
     headline: ZONE_HEADLINES[zone][band],
     body: ZONE_BODIES[zone][band],

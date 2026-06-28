@@ -74,6 +74,16 @@ export const EDGE_ZONE_BOUNDARIES = {
   STRAIN: { min: 0, max: 39 },
 } as const;
 
+/**
+ * v0 — unvalidated heuristic. Directional subtype within the `strain` zone,
+ * distinguishing overstimulation (HR up, HRV not elevated) from depletion
+ * (HR flat/low, HRV down) relative to the user's personal baseline.
+ * Resolves the open "which direction is strain?" question flagged in
+ * docs/brand.md § 7 (Naming Migration) — not yet validated against real
+ * user outcomes, treat as exploratory.
+ */
+export type StrainSubtype = 'overstimulated' | 'depleted' | 'unknown';
+
 /** Zone display configuration. */
 export interface EdgeZoneConfig {
   /** Zone identifier. */

@@ -115,6 +115,44 @@ describe('generateSafeCopy', () => {
       }
     }
   });
+
+  it('should return generic strain copy when no strainSubtype context is given', () => {
+    const withoutContext = generateSafeCopy('strain', 'high');
+    const withUnknownContext = generateSafeCopy('strain', 'high', { strainSubtype: 'unknown' });
+    expect(withoutContext).toEqual(withUnknownContext);
+  });
+
+  it('should return overstimulated-specific copy for strain + overstimulated subtype', () => {
+    const copy = generateSafeCopy('strain', 'high', { strainSubtype: 'overstimulated' });
+    expect(copy.headline).not.toBe(generateSafeCopy('strain', 'high').headline);
+    expect(isCompliantCopy(copy.headline)).toBe(true);
+    expect(isCompliantCopy(copy.body)).toBe(true);
+  });
+
+  it('should return depleted-specific copy for strain + depleted subtype', () => {
+    const copy = generateSafeCopy('strain', 'high', { strainSubtype: 'depleted' });
+    expect(copy.headline).not.toBe(generateSafeCopy('strain', 'high').headline);
+    expect(isCompliantCopy(copy.headline)).toBe(true);
+    expect(isCompliantCopy(copy.body)).toBe(true);
+  });
+
+  it('should not apply strainSubtype context to non-strain zones', () => {
+    const copy = generateSafeCopy('clear', 'high', { strainSubtype: 'overstimulated' });
+    expect(copy).toEqual(generateSafeCopy('clear', 'high'));
+  });
+
+  it('should generate compliant copy for all strain subtype × confidence band combinations', () => {
+    const subtypes = ['overstimulated', 'depleted', 'unknown'] as const;
+    const bands = ['high', 'moderate', 'low'] as const;
+
+    for (const strainSubtype of subtypes) {
+      for (const band of bands) {
+        const copy = generateSafeCopy('strain', band, { strainSubtype });
+        expect(isCompliantCopy(copy.headline)).toBe(true);
+        expect(isCompliantCopy(copy.body)).toBe(true);
+      }
+    }
+  });
 });
 
 // ─── getDriverExplanation ───────────────────
