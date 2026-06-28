@@ -32,6 +32,7 @@ export {
 export type {
   EdgeWeights,
   EdgeZone,
+  StrainSubtype,
   EdgeZoneConfig,
   ScoreDriverKey,
   DriverDirection,
@@ -154,6 +155,7 @@ export {
   calculateEdgeScore,
   classifyEdgeZone,
   getTimeBucket,
+  inferStrainSubtype,
 } from './scoring/edge-score';
 
 export type { EdgeScoreInput } from './scoring/edge-score';
