@@ -1,3 +1,61 @@
+# 2026-06-28 CONTINUATION NOTE (READ THIS FIRST — supersedes 2026-06-18 note below)
+
+This note is the current handoff. If any older setup text below conflicts with this section, this section wins.
+
+## What was just built
+
+A new cinematic scroll-narrative landing page at `apps/preview/story.html` + `apps/preview/story.js`
+(branch `claude/gsap-ai-skills-install-p55uh0`, commits `55e8800..8ff9d04`, will route to `/story/` once merged to `main`).
+
+It replaces the "generic AI SaaS template" feel with: creative-developer-portfolio × AI-dashboard × digital-magazine
+pacing — Hero entrance (TENKI_STARDUST orb), 3 ScrollTrigger-pinned product-story panels, a stylized
+Login→Dashboard "unlock" transition, a Dashboard preview section (animated phone frame embedding the real `/v3/`
+dashboard via iframe), and a footer CTA reveal. All animation is GSAP 3.12.5 + ScrollTrigger, transform/opacity-only,
+wrapped in `gsap.matchMedia()` for `prefers-reduced-motion`, following the `.claude/skills/gsap-*` conventions.
+
+## Why this needs your hands, not just mine
+
+Claude Code's cloud sandbox blocks outbound CDN traffic (`cdnjs.cloudflare.com`, etc.) at the network-policy level —
+confirmed via the proxy status check, this is a hard sandbox restriction, not a code bug. That means I could write
+and syntax-check every animation timeline, but I could never actually load the page in a real browser and watch
+GSAP/ScrollTrigger/Three.js execute. All my verification was static (layout, no-console-error, no-horizontal-overflow)
+via Playwright against a local server with CDN scripts failing to load.
+
+You have a real desktop browser with full internet access. This is exactly the missing step: open the page for real,
+watch each beat actually play, and tune timing/easing until it has genuine Mobbin/Dribbble-grade cinematic feel —
+the thing that can't be verified from static code review.
+
+## What to do
+
+1. `git fetch origin claude/gsap-ai-skills-install-p55uh0 && git checkout claude/gsap-ai-skills-install-p55uh0`
+   (or pull if already checked out)
+2. Serve the repo root locally (e.g. `npx serve .` or `python -m http.server`) and open
+   `apps/preview/story.html` directly in Chrome/Edge.
+3. Scroll through the whole page and visually check each of the 5 `story.js` sections:
+   - `initHero` — stardust orb entrance + headline word-stagger
+   - `initStoryPanels` — 3 pinned scroll-scrubbed story panels
+   - `initTransition` — unlock-ring/core "breathing" + dissolve into dashboard
+   - `initDashboard` — phone-frame tilt-in entrance + scroll parallax, confirm the `/v3/` iframe loads inside it
+   - `initFooter` — CTA reveal
+4. Tune durations/eases/stagger values directly in `apps/preview/story.js` for pacing/feel — do not restructure the
+   HTML or rewrite the page; this is a polish pass, not a rebuild.
+5. Test `prefers-reduced-motion: reduce` (DevTools → Rendering → emulate CSS media) — every section should
+   snap to its final state with no animation.
+6. Test mobile width (~390px) for no horizontal overflow and graceful stacking.
+7. Commit any tuning changes on the same branch, one commit per meaningful change, and push. Take screenshots
+   of the key beats (hero, a story panel mid-scroll, the unlock transition, the dashboard reveal) and report back —
+   founder wants to see screenshots before this gets merged to `main`.
+
+## Constraints (same hard rules as always)
+
+- Do not touch `apps/web/` (frozen).
+- Do not restructure `apps/preview/soul-enroll.html` or `apps/preview/v6/` — `story.html` only embeds `/v3/` via
+  iframe, it doesn't modify it.
+- No `any` in any TypeScript you touch elsewhere in the repo; no medical/financial copy; no raw biometric upload.
+- Keep Commit-Per-Todo discipline per `CLAUDE.md`.
+
+---
+
 # 2026-06-18 CONTINUATION NOTE (READ THIS FIRST)
 
 This note is the current handoff. If any older setup text below conflicts with this section, this section wins.

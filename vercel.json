@@ -4,7 +4,8 @@
     "redirects": [
         { "source": "/preview", "destination": "/preview/", "permanent": false },
         { "source": "/v3", "destination": "/v3/", "permanent": false },
-        { "source": "/face-baseline", "destination": "/face-baseline/", "permanent": false }
+        { "source": "/face-baseline", "destination": "/face-baseline/", "permanent": false },
+        { "source": "/story", "destination": "/story/", "permanent": false }
     ],
     "rewrites": [
         { "source": "/face-baseline/", "destination": "/apps/mobile/dist/index.html" },
@@ -12,6 +13,8 @@
         { "source": "/brand/(.*)", "destination": "/brand/$1" },
         { "source": "/v3/", "destination": "/apps/preview/v6/index.html" },
         { "source": "/v3/(.*)", "destination": "/apps/preview/v6/$1" },
+        { "source": "/story/", "destination": "/apps/preview/story.html" },
+        { "source": "/story/(.*)", "destination": "/apps/preview/$1" },
         { "source": "/preview/", "destination": "/apps/preview/soul-enroll.html" },
         { "source": "/preview/finger", "destination": "/apps/preview/index.html" },
         { "source": "/preview/finger/", "destination": "/apps/preview/index.html" },

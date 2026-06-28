@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-06-13T11:00:00Z",
+  "lastUpdated": "2026-06-28T00:00:00Z",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -69,6 +69,14 @@
       "editable": true
     },
     {
+      "route": "/story/",
+      "url": "https://tenki-emotion-app.vercel.app/story/",
+      "source": "apps/preview/story.html",
+      "purpose": "Cinematic scroll-narrative landing page — Hero entrance, ScrollTrigger product story panels, stylized login-to-dashboard transition demo, embedded /v3/ dashboard preview, CTAs back to /preview/ and /v3/",
+      "status": "active-dev",
+      "editable": true
+    },
+    {
       "route": "/face-baseline/",
       "url": "https://tenki-emotion-app.vercel.app/face-baseline/",
       "source": "apps/mobile/dist/index.html",
@@ -93,6 +101,8 @@
     "/face-baseline/": "apps/mobile/dist/index.html",
     "/face-baseline/*": "apps/mobile/dist/*",
     "/": "apps/web/index.html",
+    "/story/": "apps/preview/story.html",
+    "/story/*": "apps/preview/*",
     "/preview/": "apps/preview/soul-enroll.html",
     "/preview/finger": "apps/preview/index.html",
     "/preview/*": "apps/preview/*",
