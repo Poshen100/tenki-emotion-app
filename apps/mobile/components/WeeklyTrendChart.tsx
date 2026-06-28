@@ -67,8 +67,8 @@ export function WeeklyTrendChart({
         </Path>
       </Canvas>
       <View style={styles.labelRow}>
-        {labels.map((label, i) => (
-          <Text key={`${label}-${i}`} style={styles.label}>
+        {labels.map((label) => (
+          <Text key={label} style={styles.label}>
             {label}
           </Text>
         ))}

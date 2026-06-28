@@ -109,10 +109,9 @@ export function OceanBackground({
       />
 
       {showStardust &&
-        STARDUST.map((star, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
+        STARDUST.map((star) => (
           <View
-            key={i}
+            key={`${star.top}-${star.left}`}
             style={[styles.star, { top: star.top, left: star.left, opacity: star.opacity }]}
           />
         ))}
