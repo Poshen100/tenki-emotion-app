@@ -1,6 +1,6 @@
 # DEPLOYMENT_MAP.md
 
-> Last updated: 2026-06-13
+> Last updated: 2026-06-28
 > Machine-readable companion: `docs/DEPLOYMENT_MAP.json`
 
 ## 🚀 白話版（founder 日常只要記這段）
@@ -11,6 +11,7 @@
    - `https://tenki-emotion-app.vercel.app/v3/` → 最新 v3 UI（Today + 5-Tab）
    - `https://tenki-emotion-app.vercel.app/preview/` → Soul Scan 臉部基線建立（Face ID 式，真實前鏡頭）
    - `https://tenki-emotion-app.vercel.app/preview/finger/` → 舊的 finger PPG baseline onboarding（降為校準層）
+   - `https://tenki-emotion-app.vercel.app/story/` → 高質感滾動式敘事 landing page（Hero/Story/Dashboard 預覽，CTA 連回 /preview/ 與 /v3/）
 2. 根網址 `/` 永遠是凍結舊版（apps/web），不會更新 — 別用它判斷進度。
 3. `apps/mobile` 在任何網址都看不到（RN app，要等實機/TestFlight）。想在手機瀏覽器看到的東西，做在 `apps/preview/`。
 4. 分工：**Antigravity（桌機）** 在 `feat/*` 分支做功能畫面 → **Claude Code（手機/雲端）** 開 PR、跑驗證、merge → merge 後 1-2 分鐘固定網址更新。
@@ -30,6 +31,7 @@ tenki-emotion-app.vercel.app
 ├── /preview/v6/              → apps/preview/v6/       🔧 v6 Today (= /v3/, twin path)
 ├── /preview/scan-result.html → apps/preview/          ✅ Result page preview
 ├── /preview/soul-enroll.html → apps/preview/          ✨ Soul Scan (direct path, = /preview/)
+├── /story/                   → apps/preview/story.html ✨ Cinematic scroll-narrative landing page
 └── /face-baseline/           → apps/mobile/dist/      📱 Real Face Baseline (Expo Web)
 ```
 
@@ -45,6 +47,7 @@ tenki-emotion-app.vercel.app
 | `https://tenki-emotion-app.vercel.app/preview/soul-enroll.html` | `apps/preview/soul-enroll.html` | Soul Scan 直接路徑（內容同 `/preview/` 門面） | ✨ Active dev |
 | `https://tenki-emotion-app.vercel.app/preview/v6/` | `apps/preview/v6/index.html` | 同 `/v3/`,並列舊路徑保留以避免 share-link 失效 | 🔧 Active dev |
 | `https://tenki-emotion-app.vercel.app/preview/brand/` | `apps/preview/brand/index.html` | TENKI 品牌標誌（Resonance Ensō）預覽 — variants / lockups / 使用規則 | ✅ Active |
+| `https://tenki-emotion-app.vercel.app/story/` | `apps/preview/story.html` | 高質感滾動式敘事 landing page — Hero 進場、ScrollTrigger 產品故事、Login→Dashboard 轉場、嵌入 `/v3/` 的 Dashboard 預覽,CTA 連回 `/preview/` 與 `/v3/` | ✨ Active dev |
 | `https://tenki-emotion-app.vercel.app/face-baseline/` | `apps/mobile/dist/index.html` | Real Face Baseline flow (Expo Web build) | 📱 Active (Phase 1 phone review) |
 
 ## Routing (vercel.json)
@@ -55,6 +58,8 @@ tenki-emotion-app.vercel.app
   "/face-baseline/(.*)": "apps/mobile/dist/$1",
   "/v3/":          "apps/preview/v6/index.html",
   "/v3/(.*)":      "apps/preview/v6/$1",
+  "/story/":        "apps/preview/story.html",
+  "/story/(.*)":    "apps/preview/$1",
   "/preview/":      "apps/preview/soul-enroll.html",
   "/preview/finger": "apps/preview/index.html",
   "/preview/(.*)":  "apps/preview/$1",
