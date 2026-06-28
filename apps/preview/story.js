@@ -12,6 +12,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     initHero();
     initStoryPanels();
+    initTransition();
   });
 
   function initHero() {
@@ -104,6 +105,67 @@
           scrollTriggers.forEach(function (st) {
             if (st) st.kill();
           });
+        };
+      }
+    );
+  }
+
+  function initTransition() {
+    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+
+    gsap.matchMedia().add(
+      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
+      function (context) {
+        var reduced = context.conditions.reduced;
+        var section = document.querySelector('#transition');
+        var ring = document.querySelector('#unlock-ring');
+        var core = document.querySelector('#unlock-core');
+        var label = document.querySelector('#unlock-label');
+
+        if (!section || reduced) {
+          gsap.set([ring, label], { clearProps: 'all' });
+          return;
+        }
+
+        gsap.set(ring, { autoAlpha: 0, scale: 0.7 });
+        gsap.set(label, { autoAlpha: 0, y: 12 });
+
+        // Continuous "breathing" pulse on the core while the section is pinned —
+        // independent of scroll position so the unlock cue feels alive, not scrubbed.
+        var breathe = gsap.to(core, {
+          scale: 1.08,
+          duration: 1.6,
+          ease: 'sine.inOut',
+          repeat: -1,
+          yoyo: true,
+          paused: true
+        });
+
+        var tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: section,
+            start: 'top top',
+            end: '+=120%',
+            pin: true,
+            scrub: 1,
+            anticipatePin: 1,
+            onEnter: function () { breathe.play(); },
+            onEnterBack: function () { breathe.play(); },
+            onLeave: function () { breathe.pause(); },
+            onLeaveBack: function () { breathe.pause(); }
+          }
+        });
+
+        tl.to(ring, { autoAlpha: 1, scale: 1, duration: 0.25 }, 0)
+          .to(label, { autoAlpha: 1, y: 0, duration: 0.2 }, 0.1)
+          .to(ring, { autoAlpha: 0, scale: 1.6, duration: 0.25, ease: 'power2.in' }, 0.72)
+          .to(core, { autoAlpha: 0, scale: 1.6, duration: 0.25, ease: 'power2.in' }, 0.72)
+          .to(label, { autoAlpha: 0, y: -12, duration: 0.2 }, 0.72);
+
+        return function () {
+          breathe.kill();
+          if (tl.scrollTrigger) tl.scrollTrigger.kill();
+          tl.kill();
         };
       }
     );
