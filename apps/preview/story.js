@@ -14,6 +14,15 @@
     initStoryPanels();
     initTransition();
     initDashboard();
+    initFooter();
+
+    // Web font swap (Inter) can reflow text after ScrollTrigger has already
+    // measured pin start/end positions — refresh once fonts settle.
+    if (typeof ScrollTrigger !== 'undefined' && document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function () {
+        ScrollTrigger.refresh();
+      });
+    }
   });
 
   function initHero() {
@@ -226,6 +235,43 @@
           entrance.kill();
           if (parallax.scrollTrigger) parallax.scrollTrigger.kill();
           parallax.kill();
+        };
+      }
+    );
+  }
+
+  function initFooter() {
+    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+
+    gsap.matchMedia().add(
+      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
+      function (context) {
+        var reduced = context.conditions.reduced;
+        var footer = document.querySelector('#site-footer');
+        if (!footer) return;
+
+        var targets = footer.querySelectorAll('.footer-title, .footer-actions .btn, .footer-mark');
+
+        if (reduced) {
+          gsap.set(targets, { clearProps: 'all' });
+          return;
+        }
+
+        gsap.set(targets, { autoAlpha: 0, y: 24 });
+
+        var tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: footer,
+            start: 'top 80%',
+            toggleActions: 'play none none reverse'
+          }
+        });
+
+        tl.to(targets, { autoAlpha: 1, y: 0, duration: 0.7, stagger: 0.1, ease: 'power3.out' });
+
+        return function () {
+          if (tl.scrollTrigger) tl.scrollTrigger.kill();
+          tl.kill();
         };
       }
     );
