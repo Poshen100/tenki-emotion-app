@@ -13,6 +13,7 @@
     initHero();
     initStoryPanels();
     initTransition();
+    initDashboard();
   });
 
   function initHero() {
@@ -166,6 +167,65 @@
           breathe.kill();
           if (tl.scrollTrigger) tl.scrollTrigger.kill();
           tl.kill();
+        };
+      }
+    );
+  }
+
+  function initDashboard() {
+    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+
+    gsap.matchMedia().add(
+      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
+      function (context) {
+        var reduced = context.conditions.reduced;
+        var section = document.querySelector('#dashboard');
+        var frame = document.querySelector('#phone-frame');
+        if (!section || !frame) return;
+
+        var copy = section.querySelectorAll(
+          '.dash-copy > .story-index, .dash-copy > .story-title, .dash-copy > .story-body, .dash-annotation'
+        );
+
+        if (reduced) {
+          gsap.set([copy, frame], { clearProps: 'all' });
+          return;
+        }
+
+        gsap.set(copy, { autoAlpha: 0, y: 28 });
+        gsap.set(frame, {
+          autoAlpha: 0, y: 60, scale: 0.88,
+          rotateX: 8, rotateY: -6, transformPerspective: 1000
+        });
+
+        var entrance = gsap.timeline({
+          scrollTrigger: {
+            trigger: section,
+            start: 'top 70%',
+            toggleActions: 'play none none reverse'
+          }
+        });
+
+        entrance
+          .to(copy, { autoAlpha: 1, y: 0, duration: 0.7, stagger: 0.08, ease: 'power3.out' }, 0)
+          .to(frame, { autoAlpha: 1, y: 0, scale: 1, rotateX: 0, rotateY: 0, duration: 1, ease: 'power3.out' }, 0.1);
+
+        var parallax = gsap.to(frame, {
+          y: -30,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: section,
+            start: 'top bottom',
+            end: 'bottom top',
+            scrub: true
+          }
+        });
+
+        return function () {
+          if (entrance.scrollTrigger) entrance.scrollTrigger.kill();
+          entrance.kill();
+          if (parallax.scrollTrigger) parallax.scrollTrigger.kill();
+          parallax.kill();
         };
       }
     );
