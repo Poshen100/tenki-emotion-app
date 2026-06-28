@@ -1,4 +1,17 @@
-# TENKI Emotion App
+# Tenki Core
+
+**Decision Infrastructure. A human state calibration system.**
+
+Tenki Core helps people — traders and non-traders — detect, regulate, and recalibrate their internal state
+using emotional awareness, physiological signals (HRV, heart rate, breathing), and behavioral timing.
+
+It is **not** a trading signal app, a prediction engine, a meditation-only app, or a passive mood tracker.
+It detects your current state (**Radar**), identifies deviation from your optimal regulation state
+(**Baseline**), guides you back to it (**Calibration**), and helps you reach a **Turning Point** — the
+moment behavior shifts from reactive to intentional.
+
+> For the full language system and product-framing rules (required reading for any AI collaborator —
+> Claude, GPT, Copilot, or otherwise), see [`SYSTEM.md`](./SYSTEM.md) and [`docs/brand.md`](./docs/brand.md).
 
 Current collaboration note:
 

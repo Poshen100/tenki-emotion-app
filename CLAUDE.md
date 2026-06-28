@@ -6,9 +6,16 @@
 ## 產品定位
 **TENKI CORE 是 privacy-first cognitive wellness app**，不是 trading app。輸出是 readiness/clarity 訊號，不是交易建議。
 
+也可定義為：**Decision Infrastructure / Human State Calibration System**。對外溝通與 AI 協作的完整語言系統
+（Emotional Radar / Baseline / Calibration / Turning Point）定義在 `SYSTEM.md`（所有 AI 必讀）與
+`docs/brand.md`（內部語言系統，含 dopamine state 內部模型，禁止外流到 user-facing copy）。任何 AI 描述本產品時，
+**不要**用 "trading tool" / "signal system" / "meditation app"。
+
 - **核心指標**：Decision Edge Score (0-100)
 - **掃描主入口**：Soul Scan（臉部基線）— 方向定調見 `docs/SOUL-SCAN-NORTH-STAR.md`（必讀）；finger PPG 退為校準/補強層，不要把臉部流程塞進 `(tabs)/scan.tsx`
 - **3 Zone**：Clear (70-100) / Neutral (40-69) / Strain (0-39)
+  - ⚠️ 長期方向是改用 Baseline 語言（Above/At/Below Baseline），但 mapping 尚未定案（Strain 對應「過度刺激」還是
+    「耗竭」不明確），**不要**自行猜測重新命名 `zone-config.ts` / `EdgeZone`。詳見 `docs/brand.md` § 7 Naming Migration。
 - **2 Tier**：Free / Premium
 - **資料策略**：Local-first + Cloud-minimal（raw biometric 不上雲）
 
@@ -26,6 +33,8 @@
 | 用 legacy `Animated` | 用 Reanimated 3 |
 | 用 Redux | 用 Zustand |
 | 累積多個 Todo 才 commit | 違反 Commit-Per-Todo |
+| 把產品框定為 "trading tool" / "signal system" / "meditation app" | 違反 `SYSTEM.md` 核心定位（Decision Infrastructure / Human State Calibration System） |
+| 把 `docs/brand.md` 內部 dopamine/withdrawal/craving 措辭用在 user-facing copy | 違反 compliance 規則，見 `docs/brand.md` § 5 |
 
 ## Monorepo 架構
 
@@ -39,7 +48,9 @@ tenki-emotion-app/
 ├── apps/preview/         瀏覽器驗證 UI（給 founder 看流程）
 ├── apps/web/             🔒 Web prototype（凍結，不可修改）
 ├── core/                 Legacy vanilla JS IIFE 模組（v2，僅作參考）
-├── CLAUDE.md             📌 AI 開發策略（本檔）
+├── CLAUDE.md             📌 AI 開發策略（本檔，Claude Code 硬規則）
+├── SYSTEM.md             📌 跨 AI 產品定位與語言系統（所有 AI 協作者必讀）
+├── docs/brand.md         📌 內部品牌語言系統全文（含 dopamine 內部模型）
 ├── MEMORY.md             📌 Session 記憶與決策紀錄
 └── ANTIGRAVITY.md        📌 Antigravity AI workflow rules
 ```
