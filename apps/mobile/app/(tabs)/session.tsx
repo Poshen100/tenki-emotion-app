@@ -1,12 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo } from '../../theme';
 import { ScanButton } from '../../components/ScanButton';
 import { useSessionStore } from '../../stores/session-store';
 import { OceanBackground, type OceanMode } from '../../components/OceanBackground';
-import { BreathingRing } from '../../components/BreathingRing';
 import { startMockPrecheck, cancelMockSessionProgress } from '../../lib/mock-session';
+
+// Lazy: see app/(tabs)/scan.tsx for why @shopify/react-native-skia consumers must be
+// dynamically imported rather than statically, on web.
+const BreathingRing = lazy(() =>
+  import('../../components/BreathingRing').then((m) => ({ default: m.BreathingRing }))
+);
 
 type SessionMode = 'health_reset' | 'focus' | 'performance' | 'trader';
 type SessionState = 'draft' | 'configured' | 'precheck' | 'scanning' | 'gated' | 'active' | 'paused' | 'completed' | 'reflection_pending' | 'archived';
@@ -141,7 +146,9 @@ export default function SessionScreen() {
         {/* Active session */}
         {(state === 'active' || state === 'paused') && (
           <View style={styles.activeSection}>
-            <BreathingRing elapsedSec={elapsedSec} active={state === 'active'} />
+            <Suspense fallback={null}>
+              <BreathingRing elapsedSec={elapsedSec} active={state === 'active'} />
+            </Suspense>
             <View style={styles.sessionActions}>
               <Pressable
                 style={styles.secondaryButton}

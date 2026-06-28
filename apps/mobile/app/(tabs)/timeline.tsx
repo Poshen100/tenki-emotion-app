@@ -1,11 +1,16 @@
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, typography as typo, getZoneForScore, zoneLabels, } from '../../theme';
 import { ZoneBadge } from '../../components/ZoneBadge';
 import { useTimelineStore, } from '../../stores/timeline-store';
 import { OceanBackground } from '../../components/OceanBackground';
-import { WeeklyTrendChart } from '../../components/WeeklyTrendChart';
+
+// Lazy: see app/(tabs)/scan.tsx for why @shopify/react-native-skia consumers must be
+// dynamically imported rather than statically, on web.
+const WeeklyTrendChart = lazy(() =>
+  import('../../components/WeeklyTrendChart').then((m) => ({ default: m.WeeklyTrendChart }))
+);
 
 const MODE_LABELS: Record<string, string> = {
   health_reset: 'Health Reset',
@@ -107,10 +112,12 @@ export default function TimelineScreen() {
       </View>
 
       <View style={styles.chartContainer}>
-        <WeeklyTrendChart
-          data={weeklyTrend.map((d) => d.score)}
-          labels={weeklyTrend.map((d) => d.label)}
-        />
+        <Suspense fallback={null}>
+          <WeeklyTrendChart
+            data={weeklyTrend.map((d) => d.score)}
+            labels={weeklyTrend.map((d) => d.label)}
+          />
+        </Suspense>
       </View>
 
       {isEmpty ? (
