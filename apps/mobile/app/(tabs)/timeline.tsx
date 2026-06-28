@@ -5,6 +5,7 @@ import { colors, spacing, radius, typography as typo, getZoneForScore, zoneLabel
 import { ZoneBadge } from '../../components/ZoneBadge';
 import { useTimelineStore, } from '../../stores/timeline-store';
 import { OceanBackground } from '../../components/OceanBackground';
+import { WeeklyTrendChart } from '../../components/WeeklyTrendChart';
 
 const MODE_LABELS: Record<string, string> = {
   health_reset: 'Health Reset',
@@ -67,6 +68,27 @@ export default function TimelineScreen() {
     return String(avg);
   }, [completedSessions]);
 
+  // Bucket the last 7 days (oldest first) into per-day average Edge Scores for the trend chart.
+  const weeklyTrend = useMemo(() => {
+    const days: { label: string; score: number | null }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = new Date();
+      dayStart.setHours(0, 0, 0, 0);
+      dayStart.setDate(dayStart.getDate() - i);
+      const dayEnd = dayStart.getTime() + 86_400_000;
+      const dayScores = completedSessions
+        .filter((s) => s.completedAt >= dayStart.getTime() && s.completedAt < dayEnd)
+        .map((s) => s.edgeScore);
+      const score =
+        dayScores.length > 0
+          ? Math.round(dayScores.reduce((sum, v) => sum + v, 0) / dayScores.length)
+          : null;
+      const label = i === 0 ? 'Today' : dayStart.toLocaleDateString([], { weekday: 'short' });
+      days.push({ label, score });
+    }
+    return days;
+  }, [completedSessions]);
+
   const isEmpty = sessions.length === 0;
 
   return (
@@ -82,6 +104,13 @@ export default function TimelineScreen() {
         <TrendCard label="7-day avg" value={sevenDayAvg} />
         <TrendCard label="Sessions" value={sessions.length > 0 ? `${sessions.length}` : '—'} />
         <TrendCard label="Streak" value="—" />
+      </View>
+
+      <View style={styles.chartContainer}>
+        <WeeklyTrendChart
+          data={weeklyTrend.map((d) => d.score)}
+          labels={weeklyTrend.map((d) => d.label)}
+        />
       </View>
 
       {isEmpty ? (
@@ -153,6 +182,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
+  },
+  chartContainer: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
   },
   trendCard: {
     flex: 1,
