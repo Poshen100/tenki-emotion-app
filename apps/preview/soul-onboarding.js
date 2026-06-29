@@ -1,10 +1,17 @@
 /**
- * TENKI CORE — Soul Scan pre-camera onboarding.
+ * TENKI CORE — Soul Scan pre-camera onboarding (cinematic 5-step arc).
  *
- * Three panels (Establish → Why Baseline Matters → Secure Access) layered above
- * the scan #stage. On "Enable Camera" it fades out and hands off to the existing
- * capture FSM via window.TENKI_ENROLL.begin(), so the camera request still fires
- * inside the user gesture. Fully self-contained — the scan FSM is untouched.
+ * A single living orb + dashed baseline travels through five narrative beats:
+ *   1 Welcome      — "Calibrate Your Emotional Radar"
+ *   2 Radar        — see where you are relative to your baseline (Expansion/Contraction)
+ *   3 Reframe      — "You're not the problem. Your state is." (turning-point mark)
+ *   4 Calibration  — hold-to-calibrate pulls the orb back up to baseline (felt, not told)
+ *   5 Secure       — privacy guarantees → Enable Camera → hands off to the scan FSM
+ *
+ * On "Enable Camera" it fades out and hands off to the existing capture FSM via
+ * window.TENKI_ENROLL.begin(), so the camera request still fires inside the user
+ * gesture. The scan FSM is untouched. GSAP drives the orb choreography; the page
+ * degrades gracefully (instant positioning) when GSAP or reduced-motion applies.
  */
 (() => {
   'use strict';
@@ -12,132 +19,157 @@
   const ob = document.getElementById('onboarding');
   if (!ob) return;
 
-  const panels = {
-    establish: document.getElementById('ob-establish'),
-    why: document.getElementById('ob-why'),
-    secure: document.getElementById('ob-secure'),
-  };
   const restartBtn = document.getElementById('restart');
-
   // hide the scan's Restart affordance until the camera flow actually begins
   if (restartBtn) restartBtn.style.display = 'none';
 
-  /** Cross-fade to a named panel. */
-  function show(name) {
-    Object.entries(panels).forEach(([key, el]) => {
-      if (!el) return;
-      el.classList.toggle('active', key === name);
-    });
-    if (name === 'why') startResonance();
-  }
+  const HAS_GSAP = typeof window.gsap !== 'undefined';
+  const REDUCE = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TOTAL = 5;
 
-  // ── Panel 2 carousel ──────────────────────────────────────────────────────
-  const CARDS = [
-    {
-      title: 'Personal Resonance',
-      body: 'Your unique baseline acts as a reference point, letting TENKI detect even subtle shifts in your patterns over time — for a clearer, more personal read on where you stand, while keeping your privacy first.',
-    },
-    {
-      title: 'Private by Design',
-      body: 'Every calculation runs on-device. Your facial data and signals never leave this phone — no cloud, no account, no exceptions.',
-    },
-    {
-      title: 'Clarity Over Time',
-      body: 'As TENKI learns your steady state, your daily readiness signal sharpens — turning small day-to-day shifts into an at-a-glance sense of clarity.',
-    },
-  ];
-  let card = 0;
-  const titleEl = document.getElementById('ob-card-title');
-  const bodyEl = document.getElementById('ob-card-body');
-  const dots = Array.from(document.querySelectorAll('#ob-why .ob-dot'));
+  // ── Elements ────────────────────────────────────────────────────────────
+  const panels = Array.from(ob.querySelectorAll('.ob-panel'));
+  const orb = document.getElementById('ob-orb');
+  const beam = document.getElementById('ob-beam');
+  const baseline = document.getElementById('ob-baseline');
+  const axisTop = document.getElementById('ob-axis-top');
+  const axisBot = document.getElementById('ob-axis-bot');
+  const progress = document.getElementById('ob-progress');
+  const dots = Array.from(document.getElementById('ob-dots').children);
+  const progressLbl = document.getElementById('ob-progress-lbl');
 
-  function renderCard(i) {
-    titleEl.style.opacity = '0';
-    bodyEl.style.opacity = '0';
-    setTimeout(() => {
-      titleEl.textContent = CARDS[i].title;
-      bodyEl.textContent = CARDS[i].body;
-      titleEl.style.opacity = '1';
-      bodyEl.style.opacity = '1';
-    }, 200);
-    dots.forEach((d, k) => d.classList.toggle('on', k === i));
-  }
+  // Orb vertical offset (px) from the baseline, per step.
+  const ORB_REST = 0;        // at baseline
+  const ORB_RADAR = 128;     // below baseline (Contraction side), clear of the axis label
+  const ORB_CAL_START = 150; // well below — waiting to be pulled back
 
-  // ── Resonance graphic — mirrored standing-wave interference lattice ────────
-  const rc = document.getElementById('resonance');
-  const rctx = rc ? rc.getContext('2d') : null;
-  let resonRAF = null;
-  const STRANDS = [
-    { amp: 30, freq: 2.4, speed: 0.9, hue: '0,240,255' },
-    { amp: 46, freq: 1.6, speed: 0.6, hue: '51,153,255' },
-    { amp: 18, freq: 3.4, speed: 1.3, hue: '120,220,255' },
-  ];
+  let current = 0;
+  let busy = false;
 
-  function drawResonance(t) {
-    if (!rctx) return;
-    const W = rc.width, H = rc.height, cy = H / 2;
-    rctx.clearRect(0, 0, W, H);
-    rctx.globalCompositeOperation = 'lighter';
+  // ── Low-level motion helpers (GSAP or instant fallback) ──────────────────
 
-    // central bright band (the calm steady-state axis)
-    const band = rctx.createLinearGradient(0, 0, W, 0);
-    band.addColorStop(0, 'rgba(0,240,255,0)');
-    band.addColorStop(0.5, 'rgba(180,250,255,0.9)');
-    band.addColorStop(1, 'rgba(0,240,255,0)');
-    rctx.fillStyle = band;
-    rctx.fillRect(0, cy - 1.1, W, 2.2);
-
-    const ph = t / 1000;
-    for (const s of STRANDS) {
-      for (const dir of [1, -1]) { // top + mirrored bottom
-        rctx.beginPath();
-        for (let x = 0; x <= W; x += 4) {
-          const env = Math.sin((x / W) * Math.PI); // taper to zero at both ends
-          const y = cy + dir * env * s.amp *
-            Math.sin((x / W) * Math.PI * 2 * s.freq + ph * s.speed);
-          if (x === 0) rctx.moveTo(x, y); else rctx.lineTo(x, y);
-        }
-        rctx.strokeStyle = `rgba(${s.hue},0.5)`;
-        rctx.lineWidth = 1.6;
-        rctx.shadowColor = `rgba(${s.hue},0.9)`;
-        rctx.shadowBlur = 10;
-        rctx.stroke();
-      }
+  /** Moves the orb (and beam) to a vertical offset from baseline. */
+  function orbTo(y, animate) {
+    if (HAS_GSAP && animate && !REDUCE) {
+      window.gsap.to([orb, beam], { y: y, duration: 0.9, ease: 'power3.out', overwrite: 'auto' });
+    } else {
+      const t = 'translateY(' + y + 'px)';
+      orb.style.transform = t;
+      beam.style.transform = t;
     }
-    rctx.shadowBlur = 0;
+  }
 
-    // resonance nodes — glowing dots gliding along the brightest strand
-    const lead = STRANDS[1];
-    for (let i = 0; i < 7; i++) {
-      const fx = ((i / 6) + (ph * 0.05)) % 1;
-      const x = fx * W;
-      const env = Math.sin(fx * Math.PI);
-      const y = cy + env * lead.amp * Math.sin(fx * Math.PI * 2 * lead.freq + ph * lead.speed);
-      const r = 2 + env * 2.4;
-      const g = rctx.createRadialGradient(x, y, 0, x, y, r * 4);
-      g.addColorStop(0, 'rgba(220,250,255,0.95)');
-      g.addColorStop(1, 'rgba(51,153,255,0)');
-      rctx.fillStyle = g;
-      rctx.beginPath();
-      rctx.arc(x, y, r * 4, 0, Math.PI * 2);
-      rctx.fill();
+  function fade(el, on) {
+    if (el) el.style.opacity = on ? '1' : '0';
+  }
+
+  // ── Scene state per step ─────────────────────────────────────────────────
+  // Each step decides which scene elements are visible and where the orb sits.
+  const SCENES = {
+    1: { baseline: true, axis: false, orb: true, beam: false, warm: false, orbY: ORB_REST },
+    2: { baseline: true, axis: true, orb: true, beam: false, warm: false, orbY: ORB_RADAR },
+    3: { baseline: false, axis: false, orb: false, beam: false, warm: false, orbY: ORB_REST },
+    4: { baseline: true, axis: false, orb: true, beam: true, warm: true, orbY: ORB_CAL_START },
+    5: { baseline: false, axis: false, orb: false, beam: false, warm: false, orbY: ORB_REST },
+  };
+
+  function applyScene(n) {
+    const s = SCENES[n];
+    ob.classList.toggle('warm', s.warm);
+    fade(baseline, s.baseline);
+    fade(axisTop, s.axis);
+    fade(axisBot, s.axis);
+    fade(beam, s.beam);
+    fade(orb, s.orb);
+    // Animate the orb only when it stays on-screen between steps; otherwise jump
+    // while hidden so the next reveal starts from the right place.
+    const wasVisible = SCENES[current] && SCENES[current].orb;
+    orbTo(s.orbY, s.orb && wasVisible);
+  }
+
+  // ── Step navigation ──────────────────────────────────────────────────────
+  function showStep(n) {
+    if (busy || n < 1 || n > TOTAL) return;
+    busy = true;
+
+    panels.forEach((p) => p.classList.toggle('active', Number(p.dataset.step) === n));
+
+    progress.classList.add('show');
+    dots.forEach((d, i) => d.classList.toggle('on', i === n - 1));
+    progressLbl.textContent = 'Step ' + n + ' of ' + TOTAL;
+
+    applyScene(n);
+    current = n;
+
+    if (n === 4) armCalibration();
+
+    setTimeout(() => { busy = false; }, 520);
+  }
+
+  // ── Step 4: hold-to-calibrate ────────────────────────────────────────────
+  const holdBtn = document.getElementById('ob-hold-cta');
+  const holdFill = document.getElementById('ob-hold-fill');
+  const holdLabel = document.getElementById('ob-hold-label');
+  const HOLD_MS = 1700;
+  let holdTween = null;
+  let holdTimer = null;
+  let calibrated = false;
+
+  function completeCalibration() {
+    if (calibrated) return;
+    calibrated = true;
+    holdLabel.textContent = 'Calibrated';
+    // brief settle at baseline, then advance to Secure Access
+    setTimeout(() => showStep(5), 460);
+  }
+
+  /** Builds (or rebuilds) the hold interaction for the Calibration step. */
+  function armCalibration() {
+    calibrated = false;
+    holdLabel.textContent = 'Hold to calibrate';
+    if (HAS_GSAP && !REDUCE) {
+      if (holdTween) holdTween.kill();
+      window.gsap.set(holdFill, { scaleX: 0 });
+      holdTween = window.gsap.timeline({ paused: true, onComplete: completeCalibration })
+        .to(holdFill, { scaleX: 1, duration: HOLD_MS / 1000, ease: 'none' }, 0)
+        .to([orb, beam], { y: ORB_REST, duration: HOLD_MS / 1000, ease: 'power2.out' }, 0);
+    } else {
+      holdFill.style.transition = 'none';
+      holdFill.style.transform = 'scaleX(0)';
     }
-    rctx.globalCompositeOperation = 'source-over';
   }
 
-  function startResonance() {
-    if (resonRAF || !rctx) return;
-    const tick = (t) => { drawResonance(t); resonRAF = requestAnimationFrame(tick); };
-    resonRAF = requestAnimationFrame(tick);
-  }
-  function stopResonance() {
-    if (resonRAF) { cancelAnimationFrame(resonRAF); resonRAF = null; }
+  function holdStart(e) {
+    if (current !== 4 || calibrated) return;
+    if (e && e.cancelable) e.preventDefault();
+    holdLabel.textContent = 'Calibrating…';
+    if (HAS_GSAP && !REDUCE && holdTween) {
+      holdTween.play();
+    } else {
+      // Fallback: CSS-driven fill + timed completion.
+      holdFill.style.transition = 'transform ' + HOLD_MS + 'ms linear';
+      holdFill.style.transform = 'scaleX(1)';
+      if (!REDUCE) orbTo(ORB_REST, true);
+      holdTimer = setTimeout(completeCalibration, HOLD_MS);
+    }
   }
 
-  // ── Handoff to the camera capture FSM ──────────────────────────────────────
+  function holdCancel() {
+    if (current !== 4 || calibrated) return;
+    holdLabel.textContent = 'Hold to calibrate';
+    if (HAS_GSAP && !REDUCE && holdTween) {
+      holdTween.reverse();
+    } else {
+      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+      holdFill.style.transition = 'transform 320ms ease';
+      holdFill.style.transform = 'scaleX(0)';
+      orbTo(ORB_CAL_START, true);
+    }
+  }
+
+  // ── Handoff to the camera capture FSM ────────────────────────────────────
   function handoff() {
     ob.classList.add('gone');
-    stopResonance();
     if (restartBtn) restartBtn.style.display = '';
     setTimeout(() => { ob.style.display = 'none'; }, 600);
     if (window.TENKI_ENROLL && typeof window.TENKI_ENROLL.begin === 'function') {
@@ -145,23 +177,33 @@
     }
   }
 
-  // ── Wiring ─────────────────────────────────────────────────────────────────
-  document.getElementById('ob-begin-cal').addEventListener('click', () => show('why'));
-  document.getElementById('ob-next').addEventListener('click', () => {
-    if (card < CARDS.length - 1) { card += 1; renderCard(card); }
-    else { show('secure'); }
-  });
+  // ── Wiring ───────────────────────────────────────────────────────────────
+  document.getElementById('ob-welcome-cta').addEventListener('click', () => showStep(2));
+  document.getElementById('ob-radar-cta').addEventListener('click', () => showStep(3));
+  document.getElementById('ob-reframe-cta').addEventListener('click', () => showStep(4));
   document.getElementById('ob-enable-cam').addEventListener('click', handoff);
-  document.getElementById('ob-privacy').addEventListener('click', () => {
-    // gentle acknowledgement — re-emphasise the three guarantees
-    const pts = document.querySelectorAll('#ob-secure .ob-num');
-    pts.forEach((n, i) => {
-      setTimeout(() => {
-        n.animate(
-          [{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }],
-          { duration: 420, easing: 'cubic-bezier(.22,.61,.36,1)' },
-        );
-      }, i * 90);
+
+  holdBtn.addEventListener('pointerdown', holdStart);
+  holdBtn.addEventListener('pointerup', holdCancel);
+  holdBtn.addEventListener('pointerleave', holdCancel);
+  holdBtn.addEventListener('pointercancel', holdCancel);
+
+  const privacy = document.getElementById('ob-privacy');
+  if (privacy) {
+    privacy.addEventListener('click', () => {
+      const pts = document.querySelectorAll('#ob-secure .ob-num');
+      pts.forEach((nEl, i) => {
+        setTimeout(() => {
+          nEl.animate(
+            [{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }],
+            { duration: 420, easing: 'cubic-bezier(.22,.61,.36,1)' },
+          );
+        }, i * 90);
+      });
     });
-  });
+  }
+
+  // ── Init: reveal step 1's scene on a tick so transitions play ────────────
+  orbTo(ORB_REST, false);
+  requestAnimationFrame(() => requestAnimationFrame(() => showStep(1)));
 })();
