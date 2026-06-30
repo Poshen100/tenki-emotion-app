@@ -1,6 +1,71 @@
-# 2026-06-28 CONTINUATION NOTE (READ THIS FIRST — supersedes 2026-06-18 note below)
+# 2026-06-30 CONTINUATION NOTE (READ THIS FIRST — supersedes 2026-06-28 note below)
 
 This note is the current handoff. If any older setup text below conflicts with this section, this section wins.
+
+## What was just built
+
+A cinematic **5-step pre-camera onboarding** that plays *on top of* the Soul Scan at `/preview/`.
+Files: `apps/preview/soul-enroll.html` (the `#onboarding` overlay + its inline CSS) and
+`apps/preview/soul-onboarding.js` (the step engine). Branch `claude/gsap-ai-skills-install-p55uh0`,
+commits `1bd01e8..b8b278b`. The scan FSM in `soul-enroll.js` is untouched — the overlay hands off via
+`window.TENKI_ENROLL.begin()`.
+
+The five beats (one living orb + dashed baseline travel through the scene, cool→warm):
+
+1. **Welcome** — "Calibrate Your Emotional Radar" + "Return to baseline. Find your turning point." → `Begin` tap.
+2. **Emotional Radar** *(auto-advance ~3.6s)* — Expansion/Contraction axis, orb sits below the dashed baseline.
+3. **Reframe** *(auto-advance ~4.2s)* — "You're not the problem. / Your state is." + a full-bleed bent-line
+   turning-point mark (sharp narrow peak, left of centre).
+4. **Calibration** — warm wash; **hold-to-calibrate** pulls the orb back up to baseline, then advances.
+5. **Secure Access** — privacy points → `Enable Camera` (real user-gesture) → hands off to the scan.
+
+Steps 2 & 3 are buttonless "waiting transitions": auto-advance on a timer, tap-anywhere to skip, the active
+progress dot fills like a timer, and `prefers-reduced-motion` disables the timer (tap to advance).
+
+## Why this needs your hands, not just mine
+
+Same hard sandbox limit as the `/story/` handoff: my cloud sandbox blocks outbound CDN traffic, so I cannot
+load **GSAP / Three.js / MediaPipe / the Inter web font** in a real browser. Every screenshot I took uses a
+system-font fallback and the GSAP orb choreography was only verified structurally (Playwright: step state,
+no-console-error, no-overflow), never *watched*. Pixel-level alignment to the founder's mockups, real type
+metrics/wrapping, the orb's feel, the hold interaction, and real mobile Safari (`dvh`, safe-area, the camera
+permission gesture) all need a real desktop/phone — your lane.
+
+## What to do (polish pass, not a rebuild)
+
+1. `git fetch origin claude/gsap-ai-skills-install-p55uh0 && git checkout claude/gsap-ai-skills-install-p55uh0`
+2. Serve repo root (`python -m http.server` / `npx serve .`) and open `apps/preview/soul-enroll.html`
+   (this is what `/preview/` serves). It requests the camera at step 5 — allow it to see the full handoff.
+3. Walk all 5 steps with **real Inter** loaded and pixel-align to the founder's three mockups
+   (Radar, Reframe, Calibration). Founder will hand you the mockups; my committed screenshots are
+   system-font approximations, not the target.
+4. Tune feel directly (this is polish — do not restructure the HTML/FSM):
+   - Auto-advance dwell: `AUTO = { 2: 3600, 3: 4200 }` in `soul-onboarding.js`.
+   - Orb travel + eases: `orbTo()`, `ORB_REST/ORB_RADAR/ORB_CAL_START`, `HOLD_MS = 1700`, `armCalibration()`.
+   - Scene CSS in `soul-enroll.html`: `#ob-warm` (warm gradient), `.ob-orb`, `.ob-baseline`/`.ob-axis`,
+     `.ob-turning svg path` (the bent-line mark), `#ob-progress`/`#ob-hint`.
+   - **Optional upgrade (high value):** swap the CSS placeholder `.ob-orb` for the real brand
+     `TENKI_STARDUST` orb (`apps/preview/v6/stardust.js`) so onboarding and the rest of the app share the
+     same signature orb — worth doing with live GPU preview.
+5. Verify `prefers-reduced-motion: reduce` (DevTools → Rendering): no auto-advance, tap advances, scene snaps.
+6. Verify ~390px mobile width: no horizontal overflow, the full-bleed turning line still reaches both edges.
+7. Commit on the same branch, one commit per meaningful change; screenshot each beat and report back — founder
+   wants to see screenshots before merge to `main`.
+
+## Constraints (same hard rules)
+
+- Do **not** restructure the scan FSM in `apps/preview/soul-enroll.js`, and keep `Enable Camera` (step 5) as a
+  real user tap that calls `window.TENKI_ENROLL.begin()` inside the gesture — camera permission depends on it.
+- Do not touch `apps/web/` (frozen). No `any` in any TS you touch; no medical/financial copy; no raw biometric upload.
+- New user-facing copy must stay compliance-safe (it currently passes `packages/engine/src/compliance/safe-copy`'s
+  vocabulary) — keep the Radar / Baseline / Calibration / Turning Point language per `SYSTEM.md` / `docs/brand.md`.
+- Commit-Per-Todo per `CLAUDE.md`; stay on `claude/gsap-ai-skills-install-p55uh0`.
+
+---
+
+# 2026-06-28 CONTINUATION NOTE (supersedes 2026-06-18 note below)
+
+This note is a prior handoff (the `/story/` landing page). If any older setup text below conflicts with this section, this section wins.
 
 ## What was just built
 
