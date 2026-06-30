@@ -37,6 +37,13 @@
   const progress = document.getElementById('ob-progress');
   const dots = Array.from(document.getElementById('ob-dots').children);
   const progressLbl = document.getElementById('ob-progress-lbl');
+  const hint = document.getElementById('ob-hint');
+
+  // Steps 2 (Radar) and 3 (Reframe) are pure narration — they auto-advance as
+  // timed transitions (ms) rather than gating on a button. Reframe gets a longer
+  // beat so the line lands. Timers respect prefers-reduced-motion (tap to advance).
+  const AUTO = { 2: 3600, 3: 4200 };
+  let autoTimer = null;
 
   // Orb vertical offset (px) from the baseline, per step.
   const ORB_REST = 0;        // at baseline
@@ -87,10 +94,31 @@
     orbTo(s.orbY, s.orb && wasVisible);
   }
 
+  // ── Auto-advance (waiting transition) for narration steps ────────────────
+  function clearAuto() {
+    if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+    dots.forEach((d) => d.classList.remove('counting', 'run'));
+  }
+
+  function armAutoAdvance(n) {
+    clearAuto();
+    hint.classList.add('show');
+    if (REDUCE || !AUTO[n]) return; // a11y: no timed motion — the hint + tap advances
+    const dot = dots[n - 1];
+    if (dot) {
+      dot.style.setProperty('--dwell', AUTO[n] + 'ms');
+      dot.classList.add('counting');
+      // double rAF so the fill transition runs from scaleX(0)
+      requestAnimationFrame(() => requestAnimationFrame(() => dot.classList.add('run')));
+    }
+    autoTimer = setTimeout(() => { if (current === n) showStep(n + 1); }, AUTO[n]);
+  }
+
   // ── Step navigation ──────────────────────────────────────────────────────
   function showStep(n) {
     if (busy || n < 1 || n > TOTAL) return;
     busy = true;
+    clearAuto();
 
     panels.forEach((p) => p.classList.toggle('active', Number(p.dataset.step) === n));
 
@@ -102,6 +130,9 @@
     current = n;
 
     if (n === 4) armCalibration();
+
+    if (n === 2 || n === 3) armAutoAdvance(n);
+    else hint.classList.remove('show');
 
     setTimeout(() => { busy = false; }, 520);
   }
@@ -169,6 +200,7 @@
 
   // ── Handoff to the camera capture FSM ────────────────────────────────────
   function handoff() {
+    clearAuto();
     ob.classList.add('gone');
     if (restartBtn) restartBtn.style.display = '';
     setTimeout(() => { ob.style.display = 'none'; }, 600);
@@ -179,9 +211,12 @@
 
   // ── Wiring ───────────────────────────────────────────────────────────────
   document.getElementById('ob-welcome-cta').addEventListener('click', () => showStep(2));
-  document.getElementById('ob-radar-cta').addEventListener('click', () => showStep(3));
-  document.getElementById('ob-reframe-cta').addEventListener('click', () => showStep(4));
   document.getElementById('ob-enable-cam').addEventListener('click', handoff);
+
+  // Radar (2) and Reframe (3) have no button — tapping anywhere on the panel skips
+  // ahead immediately (and is the way forward under prefers-reduced-motion).
+  document.getElementById('ob-radar').addEventListener('click', () => { if (current === 2) showStep(3); });
+  document.getElementById('ob-reframe').addEventListener('click', () => { if (current === 3) showStep(4); });
 
   holdBtn.addEventListener('pointerdown', holdStart);
   holdBtn.addEventListener('pointerup', holdCancel);

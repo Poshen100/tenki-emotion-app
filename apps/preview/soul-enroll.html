@@ -384,7 +384,7 @@
 
     #ob-welcome .ob-h { font-size: 31px; }
     #ob-radar .ob-h { font-size: 40px; }
-    #ob-radar .ob-caption { margin-bottom: 58px; }
+    #ob-radar .ob-caption { margin-bottom: 118px; }
     #ob-calibrate .ob-h { font-size: 32px; }
     #ob-calibrate .ob-eyebrow { color: var(--gold-soft); }
     #ob-reframe .ob-h { font-size: 54px; }
@@ -430,11 +430,29 @@
       opacity: 0; transition: opacity .5s ease; pointer-events: none;
     }
     #ob-progress.show { opacity: 1; }
-    .ob-dots { display: flex; gap: 8px; }
+    .ob-dots { display: flex; align-items: center; gap: 8px; }
     .ob-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.22); transition: all .35s ease; }
     .ob-dot.on { background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.6); transform: scale(1.08); }
     #onboarding.warm .ob-dot.on { background: var(--gold-soft); box-shadow: 0 0 10px rgba(243,169,42,.75); }
+    /* auto-advance read-out: the active dot becomes a pill whose fill sweeps over the dwell */
+    .ob-dot.on.counting { width: 26px; border-radius: 999px; transform: none; background: rgba(255,255,255,.25); position: relative; overflow: hidden; box-shadow: none; }
+    .ob-dot.on.counting::after {
+      content: ''; position: absolute; inset: 0; transform-origin: left center; transform: scaleX(0);
+      background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.55);
+    }
+    .ob-dot.on.counting.run::after { transform: scaleX(1); transition: transform var(--dwell, 3.6s) linear; }
     #ob-progress .lbl { font-size: 12px; color: var(--text-tertiary); letter-spacing: .3px; }
+
+    /* auto-advance steps are tappable (skip ahead); subtle hint sits in the old CTA zone */
+    #ob-radar.active, #ob-reframe.active { cursor: pointer; }
+    #ob-hint {
+      position: absolute; left: 0; right: 0; z-index: 4;
+      bottom: calc(max(28px, env(safe-area-inset-bottom)) + 22px);
+      text-align: center; font-size: 13px; letter-spacing: .4px; color: var(--text-tertiary);
+      opacity: 0; transition: opacity .4s ease; pointer-events: none;
+    }
+    #ob-hint.show { opacity: .7; animation: ob-hint-pulse 2.6s ease-in-out infinite .4s; }
+    @keyframes ob-hint-pulse { 0%,100% { opacity: .45; } 50% { opacity: .8; } }
 
     /* ── Step 5: Secure Access (handoff) ── */
     .ob-shield { position: relative; margin: 8px auto 6px; width: 112px; height: 128px; animation: ob-shield-breathe 4.2s ease-in-out infinite; }
@@ -454,6 +472,8 @@
     @media (prefers-reduced-motion: reduce) {
       .ob-panel.active [data-rise] { animation: none; }
       .ob-orb::after, .ob-nebula, .ob-shield { animation: none; }
+      #ob-hint.show { animation: none; }
+      .ob-dot.on.counting.run::after { transition: none; }
     }
   </style>
   <!-- GSAP (CDN, no bundler in this folder — same pattern as v6/index.html & story.html) -->
@@ -531,6 +551,7 @@
         </div>
         <div class="lbl" id="ob-progress-lbl">Step 1 of 5</div>
       </div>
+      <div id="ob-hint">Tap to continue</div>
 
       <!-- Step 1 — Welcome -->
       <section class="ob-panel active" id="ob-welcome" data-step="1">
@@ -547,7 +568,6 @@
         <h1 class="ob-h" data-rise="2" style="margin-top:12px">Emotional Radar</h1>
         <div class="ob-spacer"></div>
         <p class="ob-caption" data-rise="3">The Radar: seeing where you are relative to your baseline.</p>
-        <button class="ob-cta" id="ob-radar-cta">Continue</button>
       </section>
 
       <!-- Step 3 — Reframe -->
@@ -557,7 +577,6 @@
         <div class="sub" data-rise="2">Your state is.</div>
         <div class="ob-turning" data-rise="3"><div class="line"></div><div class="peak"></div></div>
         <div class="ob-spacer"></div>
-        <button class="ob-cta--ghost" id="ob-reframe-cta">Next</button>
       </section>
 
       <!-- Step 4 — Calibration Experience -->
