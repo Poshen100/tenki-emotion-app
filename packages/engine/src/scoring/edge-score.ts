@@ -26,6 +26,7 @@ import {
   type ScoreDriver,
   type ScoreDriverKey,
   type DriverDirection,
+  type StrainSubtype,
 } from './types';
 
 import { generateSafeCopy, } from '../compliance/safe-copy';
@@ -191,6 +192,58 @@ function calcStressProxy(
   // Higher HR + Lower HRV = more stress
   const stressIndicator = hrZ - hrvZ; // positive = more stress
   return zScoreToSubScore(stressIndicator, true); // Invert: less stress = better
+}
+
+// ─────────────────────────────────────────────
+// v0 Strain Subtype Heuristic (unvalidated)
+// ─────────────────────────────────────────────
+
+/** Z-score magnitude below which a signal is treated as inconclusive. */
+const STRAIN_SUBTYPE_NOISE_THRESHOLD = 0.5;
+
+/**
+ * v0 — unvalidated heuristic. Infers a directional subtype for the `strain`
+ * zone by comparing the current reading's HR/HRV z-scores against the
+ * user's personalized baseline (same hrZ/hrvZ signal `calcStressProxy`
+ * already computes — no hardcoded baseline defaults are introduced).
+ *
+ * Resolves the open question in docs/brand.md § 7 (Naming Migration):
+ * whether `strain` means overstimulation or depletion depends on which
+ * direction HR/HRV moved, not just the Edge Score magnitude.
+ *
+ * Not validated against real user outcomes yet — treat as exploratory.
+ * Intended to be called only when the caller has already classified the
+ * zone as `strain`; calling it for other zones is harmless but meaningless.
+ *
+ * @param reading - Current biometric reading.
+ * @param baseline - User's baseline profile.
+ * @param timeBucket - Current time bucket.
+ * @returns The inferred StrainSubtype, or `unknown` when signals are too
+ *   weak or contradictory to call a direction.
+ */
+export function inferStrainSubtype(
+  reading: BiometricReading,
+  baseline: BaselineProfile,
+  timeBucket: TimeBucket
+): StrainSubtype {
+  const hrZ = computeZScore(reading.hrBpm, baseline.hr[timeBucket]);
+  const hrvZ = computeZScore(reading.hrvRmssdMs, baseline.hrv[timeBucket]);
+
+  if (Math.abs(hrZ) < STRAIN_SUBTYPE_NOISE_THRESHOLD && Math.abs(hrvZ) < STRAIN_SUBTYPE_NOISE_THRESHOLD) {
+    return 'unknown';
+  }
+
+  // Overstimulated: HR elevated above baseline while HRV is not also elevated.
+  if (hrZ > 0 && hrvZ <= 0) {
+    return 'overstimulated';
+  }
+
+  // Depleted: HR at/below baseline while HRV is also depressed (low arousal, low variability).
+  if (hrZ <= 0 && hrvZ < 0) {
+    return 'depleted';
+  }
+
+  return 'unknown';
 }
 
 /**
@@ -461,8 +514,12 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
     now
   );
 
-  // Generate safe copy
-  const copy = generateSafeCopy(zone, confidence.band);
+  // Generate safe copy (v0: strain zone gets a directional subtype context)
+  const copy = zone === 'strain'
+    ? generateSafeCopy(zone, confidence.band, {
+        strainSubtype: inferStrainSubtype(input.reading, input.baseline, timeBucket),
+      })
+    : generateSafeCopy(zone, confidence.band);
 
   return {
     score: finalScore,

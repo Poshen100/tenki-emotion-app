@@ -279,12 +279,13 @@
     @keyframes hud-spin { to { transform: rotate(360deg); } }
 
     /* ═══════════════════════════════════════════════════════════════════
-       ONBOARDING — pre-camera intro (Establish · Why · Secure)
-       Sits above #stage; hands off to the scan FSM via TENKI_ENROLL.begin().
+       ONBOARDING — cinematic 5-step arc (Radar → Reframe → Calibration)
+       One living orb + dashed baseline travels through the scene steps, then
+       hands off to the scan FSM via TENKI_ENROLL.begin(). The scan FSM is
+       untouched. Language system: Radar / Baseline / Calibration / Turning Point.
        ═══════════════════════════════════════════════════════════════════ */
     #onboarding {
       position: absolute; inset: 0; z-index: 10;
-      display: flex; flex-direction: column;
       max-width: 460px; margin: 0 auto;
       overflow: hidden;
       background:
@@ -294,7 +295,6 @@
       transition: opacity .55s cubic-bezier(.22,.61,.36,1);
     }
     #onboarding.gone { opacity: 0; pointer-events: none; }
-    /* faint starfield baked into the overlay base (covers the scan layer behind) */
     #onboarding::before {
       content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: .8;
       background-image:
@@ -307,136 +307,185 @@
         radial-gradient(1px 1px at 12% 86%, rgba(255,255,255,.5), transparent),
         radial-gradient(1.1px 1.1px at 92% 88%, rgba(200,225,255,.6), transparent);
     }
-    /* soft drifting nebula behind the panels (starfield twinkles through) */
-    .ob-nebula { position: absolute; border-radius: 50%; filter: blur(48px); pointer-events: none; opacity: .55; }
-    .ob-neb-1 { width: 340px; height: 340px; top: -60px; left: -80px;
-      background: radial-gradient(circle, rgba(123,97,255,.50), transparent 70%);
-      animation: ob-drift-a 22s ease-in-out infinite; }
-    .ob-neb-2 { width: 300px; height: 300px; bottom: 40px; right: -90px;
-      background: radial-gradient(circle, rgba(51,153,255,.34), transparent 70%);
-      animation: ob-drift-b 26s ease-in-out infinite; }
-    .ob-neb-3 { width: 260px; height: 260px; top: 38%; left: 40%;
-      background: radial-gradient(circle, rgba(0,240,255,.16), transparent 70%);
-      animation: ob-drift-a 30s ease-in-out infinite reverse; }
+    /* warm calibration wash — fades in only on the Calibration step */
+    #ob-warm {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0;
+      background:
+        radial-gradient(120% 80% at 50% 72%, rgba(243,169,42,.46), transparent 62%),
+        radial-gradient(110% 72% at 50% 16%, rgba(108,99,255,.30), transparent 60%),
+        radial-gradient(95% 60% at 50% 42%, rgba(255,176,92,.18), transparent 58%);
+      transition: opacity 1.15s cubic-bezier(.4,0,.6,1);
+    }
+    #onboarding.warm #ob-warm { opacity: 1; }
+    /* drifting nebula (cool base) — recedes when warm */
+    .ob-nebula { position: absolute; z-index: 1; border-radius: 50%; filter: blur(48px); pointer-events: none; opacity: .5; transition: opacity 1s ease; }
+    #onboarding.warm .ob-nebula { opacity: .12; }
+    .ob-neb-1 { width: 340px; height: 340px; top: -60px; left: -80px; background: radial-gradient(circle, rgba(123,97,255,.5), transparent 70%); animation: ob-drift-a 22s ease-in-out infinite; }
+    .ob-neb-2 { width: 300px; height: 300px; bottom: 40px; right: -90px; background: radial-gradient(circle, rgba(51,153,255,.34), transparent 70%); animation: ob-drift-b 26s ease-in-out infinite; }
     @keyframes ob-drift-a { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(26px,34px) scale(1.08);} }
     @keyframes ob-drift-b { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(-30px,-22px) scale(1.1);} }
 
-    /* panels stack; one active at a time, cross-fade + slide */
+    /* ── Shared scene field: dashed baseline + living orb ── */
+    #ob-field { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+    .ob-baseline {
+      position: absolute; left: 18px; right: 18px; top: 47%;
+      border-top: 1.5px dashed rgba(255,255,255,.36);
+      opacity: 0; transition: opacity .7s cubic-bezier(.22,.61,.36,1), border-color 1s ease, box-shadow 1s ease;
+    }
+    #onboarding.warm .ob-baseline { border-top-color: rgba(255,236,200,.6); box-shadow: 0 0 26px 2px rgba(243,169,42,.32); }
+    .ob-axis {
+      position: absolute; left: 0; right: 0; text-align: center;
+      font-size: 14px; font-weight: 500; letter-spacing: .4px; color: var(--text-secondary);
+      opacity: 0; transition: opacity .55s ease;
+    }
+    .ob-axis-top { top: calc(47% - 58px); }
+    .ob-axis-bot { top: calc(47% + 26px); }
+    .ob-beam {
+      position: absolute; left: 50%; top: 47%; width: 2px; height: 200px; margin-left: -1px;
+      background: linear-gradient(180deg, rgba(150,230,255,.85), rgba(51,153,255,0));
+      opacity: 0; transition: opacity .5s ease, background .9s ease; will-change: transform;
+    }
+    /* Calibration step: beam warms to match the gold orb halo */
+    #onboarding.warm .ob-beam { background: linear-gradient(180deg, rgba(255,212,135,.85), rgba(243,169,42,0)); }
+    .ob-orb {
+      position: absolute; left: 50%; top: 47%; width: 60px; height: 60px; margin: -30px 0 0 -30px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 42%, #EAFBFF 0%, #6FD3FF 38%, #3399FF 60%, rgba(51,153,255,0) 76%);
+      box-shadow: 0 0 40px 8px rgba(51,153,255,.5), 0 0 16px 3px rgba(150,230,255,.6);
+      opacity: 0; transition: opacity .6s ease, box-shadow .9s ease; will-change: transform;
+    }
+    /* Calibration step: keep the cyan core but wrap it in a warm gold halo (mockup ③) */
+    #onboarding.warm .ob-orb {
+      box-shadow: 0 0 34px 6px rgba(51,153,255,.36), 0 0 22px 5px rgba(243,169,42,.55), 0 0 66px 16px rgba(243,169,42,.30);
+    }
+    .ob-orb::after {
+      content: ''; position: absolute; inset: 13px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,.95), rgba(180,240,255,.2) 70%, transparent);
+      animation: ob-orb-breathe 3.6s ease-in-out infinite;
+    }
+    @keyframes ob-orb-breathe { 0%,100%{ transform: scale(.9); opacity:.85;} 50%{ transform: scale(1.08); opacity:1;} }
+
+    /* ── Panels (text + CTA only; scene lives behind in #ob-field) ── */
     .ob-panel {
-      position: absolute; inset: 0; z-index: 2;
-      display: flex; flex-direction: column;
-      padding: max(54px, env(safe-area-inset-top)) 30px max(30px, env(safe-area-inset-bottom));
-      opacity: 0; transform: translateY(22px);
-      pointer-events: none; visibility: hidden;
+      position: absolute; inset: 0; z-index: 3;
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+      padding: max(56px, env(safe-area-inset-top)) 30px max(28px, env(safe-area-inset-bottom));
+      opacity: 0; transform: translateY(20px); pointer-events: none; visibility: hidden;
       transition: opacity .5s cubic-bezier(.22,.61,.36,1), transform .5s cubic-bezier(.22,.61,.36,1), visibility 0s linear .5s;
     }
     .ob-panel.active {
-      opacity: 1; transform: translateY(0);
-      pointer-events: auto; visibility: visible;
-      transition: opacity .55s cubic-bezier(.22,.61,.36,1) .05s, transform .55s cubic-bezier(.22,.61,.36,1) .05s, visibility 0s;
+      opacity: 1; transform: translateY(0); pointer-events: auto; visibility: visible;
+      transition: opacity .55s cubic-bezier(.22,.61,.36,1) .04s, transform .55s cubic-bezier(.22,.61,.36,1) .04s, visibility 0s;
     }
-    /* staggered entrance for the active panel's rows */
-    .ob-panel.active [data-rise] { animation: ob-rise .6s cubic-bezier(.22,.61,.36,1) both; }
-    .ob-panel.active [data-rise="1"] { animation-delay: .08s; }
-    .ob-panel.active [data-rise="2"] { animation-delay: .16s; }
-    .ob-panel.active [data-rise="3"] { animation-delay: .24s; }
-    .ob-panel.active [data-rise="4"] { animation-delay: .32s; }
+    .ob-panel.active [data-rise] { animation: ob-rise .62s cubic-bezier(.22,.61,.36,1) both; }
+    .ob-panel.active [data-rise="1"] { animation-delay: .06s; }
+    .ob-panel.active [data-rise="2"] { animation-delay: .14s; }
+    .ob-panel.active [data-rise="3"] { animation-delay: .22s; }
+    .ob-panel.active [data-rise="4"] { animation-delay: .30s; }
     @keyframes ob-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 
+    .ob-eyebrow { font-size: 13px; font-weight: 600; letter-spacing: 2.6px; color: var(--text-tertiary); text-transform: uppercase; }
+    .ob-h { font-weight: 800; letter-spacing: -.6px; line-height: 1.1; color: var(--text-primary); }
+    .ob-caption { font-size: 15px; line-height: 1.5; color: var(--text-secondary); max-width: 330px; }
     .ob-spacer { flex: 1; }
-    .ob-title {
-      font-size: 32px; font-weight: 800; letter-spacing: -.6px; line-height: 1.12;
+
+    #ob-welcome .ob-h { font-size: 31px; }
+    #ob-radar .ob-h { font-size: 40px; }
+    #ob-radar .ob-caption { margin-bottom: 124px; }
+    #ob-calibrate .ob-h { font-size: 32px; }
+    #ob-calibrate .ob-eyebrow { color: var(--gold-soft); }
+    #ob-reframe .ob-h { font-size: 54px; }
+    #ob-reframe .sub { margin-top: 8px; font-size: 26px; font-weight: 600; color: var(--text-secondary); }
+
+    /* turning-point mark (Reframe) — ONE full-bleed bent line (折線) with a sharp,
+       narrow peak sitting left of centre; the flat baseline (edge to edge) rises into
+       the spike. Breaks out of the panel's 30px padding to reach both screen edges. */
+    .ob-turning { align-self: stretch; margin: 30px -30px 0; }
+    .ob-turning svg { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 0 12px rgba(255,255,255,.55)); }
+
+    /* CTAs */
+    .ob-cta, .ob-cta--ghost {
+      width: 100%; max-width: 360px; padding: 17px 24px; border-radius: 18px;
+      font-family: inherit; font-size: 16.5px; font-weight: 700; cursor: pointer;
+      transition: transform .15s ease, box-shadow .3s ease;
     }
-    .ob-body {
-      margin-top: 16px; font-size: 14.5px; font-weight: 400; line-height: 1.55;
-      color: var(--text-secondary); max-width: 340px;
-    }
-    /* primary gradient CTA (shared) */
-    .ob-cta {
-      width: 100%; padding: 17px 24px; border: none; border-radius: 18px;
-      font-family: inherit; font-size: 16.5px; font-weight: 700; color: #021018;
+    .ob-cta { border: none; color: #021018;
       background: linear-gradient(120deg, #56E8FF, #4DA6FF 55%, #7B61FF);
-      box-shadow: 0 10px 34px rgba(0,170,255,.34), inset 0 1px 0 rgba(255,255,255,.35);
-      cursor: pointer; transition: transform .15s ease, box-shadow .3s ease;
-    }
-    .ob-cta:active { transform: scale(.975); box-shadow: 0 6px 20px rgba(0,170,255,.28); }
+      box-shadow: 0 10px 34px rgba(0,170,255,.34), inset 0 1px 0 rgba(255,255,255,.35); }
+    .ob-cta:active { transform: scale(.975); }
+    .ob-cta--ghost { color: var(--text-primary); background: rgba(255,255,255,.02);
+      border: 1.5px solid rgba(255,255,255,.5);
+      box-shadow: 0 0 26px rgba(255,255,255,.14), inset 0 0 18px rgba(255,255,255,.05); }
+    .ob-cta--ghost:active { transform: scale(.975); }
+
+    /* hold-to-calibrate */
+    .ob-hold { position: relative; overflow: hidden; }
+    .ob-hold-fill { position: absolute; inset: 0; transform-origin: left center; transform: scaleX(0);
+      background: linear-gradient(120deg, rgba(86,232,255,.55), rgba(255,200,94,.6)); opacity: .9; }
+    .ob-hold-label { position: relative; z-index: 1; }
+
     .ob-link {
       display: block; margin-top: 18px; text-align: center;
       font-size: 13.5px; font-weight: 500; color: var(--electric-blue);
       background: none; border: none; cursor: pointer; font-family: inherit;
     }
 
-    /* ── Panel 1: Establish ── */
-    #ob-establish { text-align: left; }
-    #ob-establish .ob-title { margin-top: 4px; }
-    .ob-chip {
-      display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
-      margin-top: 22px; padding: 9px 16px; border-radius: 999px;
-      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.10);
-      font-size: 13px; font-weight: 600; letter-spacing: .3px; color: var(--text-primary);
+    /* shared progress ('· of 5') — sits between the caption band and the CTA */
+    #ob-progress {
+      position: absolute; left: 0; right: 0; z-index: 4;
+      bottom: calc(max(28px, env(safe-area-inset-bottom)) + 86px);
+      display: flex; flex-direction: column; align-items: center; gap: 9px;
+      opacity: 0; transition: opacity .5s ease; pointer-events: none;
     }
-    .ob-chip svg { width: 15px; height: 15px; color: var(--cyan-glow); }
+    #ob-progress.show { opacity: 1; }
+    .ob-dots { display: flex; align-items: center; gap: 8px; }
+    .ob-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.22); transition: all .35s ease; }
+    .ob-dot.on { background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.6); transform: scale(1.08); }
+    #onboarding.warm .ob-dot.on { background: var(--gold-soft); box-shadow: 0 0 10px rgba(243,169,42,.75); }
+    /* auto-advance read-out: the active dot becomes a pill whose fill sweeps over the dwell */
+    .ob-dot.on.counting { width: 26px; border-radius: 999px; transform: none; background: rgba(255,255,255,.25); position: relative; overflow: hidden; box-shadow: none; }
+    .ob-dot.on.counting::after {
+      content: ''; position: absolute; inset: 0; transform-origin: left center; transform: scaleX(0);
+      background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.55);
+    }
+    .ob-dot.on.counting.run::after { transform: scaleX(1); transition: transform var(--dwell, 3.6s) linear; }
+    #ob-progress .lbl { font-size: 12px; color: var(--text-tertiary); letter-spacing: .3px; }
 
-    /* ── Panel 2: Why Baseline Matters ── */
-    #ob-why { align-items: center; text-align: center; }
-    .ob-wordmark {
-      font-size: 22px; font-weight: 300; letter-spacing: 8px; padding-left: 8px;
-      color: var(--text-primary);
+    /* auto-advance steps are tappable (skip ahead); subtle hint sits in the old CTA zone */
+    #ob-radar.active, #ob-reframe.active { cursor: pointer; }
+    #ob-hint {
+      position: absolute; left: 0; right: 0; z-index: 4;
+      bottom: calc(max(28px, env(safe-area-inset-bottom)) + 22px);
+      text-align: center; font-size: 13px; letter-spacing: .4px; color: var(--text-tertiary);
+      opacity: 0; transition: opacity .4s ease; pointer-events: none;
     }
-    .ob-kicker {
-      margin-top: 14px; font-size: 17px; font-weight: 600; letter-spacing: .2px;
-      color: var(--text-primary);
-    }
-    .ob-card {
-      position: relative; margin-top: 26px; width: 100%; max-width: 340px;
-      border-radius: 26px; padding: 8px 24px 28px;
-      background: linear-gradient(180deg, rgba(20,26,52,.66), rgba(8,11,24,.72));
-      border: 1px solid rgba(255,255,255,.08);
-      box-shadow: 0 24px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
-      overflow: hidden;
-    }
-    #resonance { display: block; width: 240px; height: 130px; margin: 6px auto 4px; }
-    .ob-card-title { font-size: 19px; font-weight: 700; letter-spacing: -.2px; }
-    .ob-card-body {
-      margin-top: 12px; font-size: 13.5px; line-height: 1.55; color: var(--text-secondary);
-      min-height: 126px; transition: opacity .3s ease;
-    }
-    .ob-dots { display: flex; gap: 9px; justify-content: center; margin-top: 22px; }
-    .ob-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: rgba(255,255,255,.22); transition: all .35s ease;
-    }
-    .ob-dot.on { width: 22px; border-radius: 999px;
-      background: linear-gradient(90deg, var(--cyan-glow), var(--electric-blue));
-      box-shadow: 0 0 12px rgba(0,200,255,.6); }
+    #ob-hint.show { opacity: .7; animation: ob-hint-pulse 2.6s ease-in-out infinite .4s; }
+    @keyframes ob-hint-pulse { 0%,100% { opacity: .45; } 50% { opacity: .8; } }
 
-    /* ── Panel 3: Secure Access ── */
-    #ob-secure { align-items: center; text-align: center; }
-    .ob-shield {
-      position: relative; margin: 8px auto 6px; width: 116px; height: 132px;
-      animation: ob-shield-breathe 4.2s ease-in-out infinite;
-    }
+    /* ── Step 5: Secure Access (handoff) ── */
+    .ob-shield { position: relative; margin: 8px auto 6px; width: 112px; height: 128px; animation: ob-shield-breathe 4.2s ease-in-out infinite; }
     .ob-shield svg { width: 100%; height: 100%; overflow: visible; }
     @keyframes ob-shield-breathe {
       0%,100% { filter: drop-shadow(0 0 14px rgba(243,169,42,.34)); transform: translateY(0); }
       50%     { filter: drop-shadow(0 0 26px rgba(243,169,42,.6)); transform: translateY(-3px); }
     }
-    #ob-secure .ob-title { margin-top: 14px; font-size: 27px; }
-    .ob-points { list-style: none; margin: 26px 0 0; padding: 0; width: 100%; max-width: 330px; text-align: left; }
-    .ob-points li {
-      display: flex; align-items: flex-start; gap: 13px;
-      padding: 13px 0; border-top: 1px solid rgba(255,255,255,.06);
-    }
+    .ob-points { list-style: none; margin: 24px 0 0; padding: 0; width: 100%; max-width: 330px; text-align: left; }
+    .ob-points li { display: flex; align-items: flex-start; gap: 13px; padding: 13px 0; border-top: 1px solid rgba(255,255,255,.06); }
     .ob-points li:first-child { border-top: none; }
-    .ob-num {
-      flex: none; width: 26px; height: 26px; border-radius: 50%;
-      display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #1a1205;
-      background: linear-gradient(140deg, var(--gold-champagne), var(--gold-resonance));
-      box-shadow: 0 0 12px rgba(243,169,42,.4);
-    }
+    .ob-num { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #1a1205;
+      background: linear-gradient(140deg, var(--gold-champagne), var(--gold-resonance)); box-shadow: 0 0 12px rgba(243,169,42,.4); }
     .ob-pt-text { font-size: 14px; line-height: 1.45; color: var(--text-secondary); }
     .ob-pt-text b { color: var(--text-primary); font-weight: 600; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ob-panel.active [data-rise] { animation: none; }
+      .ob-orb::after, .ob-nebula, .ob-shield { animation: none; }
+      #ob-hint.show { animation: none; }
+      .ob-dot.on.counting.run::after { transition: none; }
+    }
   </style>
+  <!-- GSAP (CDN, no bundler in this folder — same pattern as v6/index.html & story.html) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
   <div id="stage">
@@ -488,43 +537,73 @@
       </div>
     </div>
 
-    <!-- ── Pre-camera onboarding: Establish · Why · Secure ── -->
+    <!-- ── Pre-camera onboarding: cinematic 5-step Radar → Reframe → Calibration ── -->
     <div id="onboarding">
+      <div id="ob-warm"></div>
       <div class="ob-nebula ob-neb-1"></div>
       <div class="ob-nebula ob-neb-2"></div>
-      <div class="ob-nebula ob-neb-3"></div>
 
-      <!-- Panel 1 -->
-      <section class="ob-panel active" id="ob-establish" data-ob="establish">
-        <div class="ob-spacer"></div>
-        <h1 class="ob-title" data-rise="1">Establish Your<br>Baseline</h1>
-        <p class="ob-body" data-rise="2">To calibrate precisely to you, TENKI learns your unique facial features. Your data is encrypted and stored only on this device.</p>
-        <div class="ob-chip" data-rise="3">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>
-          60 Seconds
+      <!-- shared scene: dashed baseline + living orb (travels through steps 1, 2, 4) -->
+      <div id="ob-field" aria-hidden="true">
+        <div class="ob-axis ob-axis-top" id="ob-axis-top">Expansion</div>
+        <div class="ob-baseline" id="ob-baseline"></div>
+        <div class="ob-axis ob-axis-bot" id="ob-axis-bot">Contraction</div>
+        <div class="ob-beam" id="ob-beam"></div>
+        <div class="ob-orb" id="ob-orb"></div>
+      </div>
+
+      <!-- shared progress -->
+      <div id="ob-progress">
+        <div class="ob-dots" id="ob-dots">
+          <span class="ob-dot"></span><span class="ob-dot"></span><span class="ob-dot"></span><span class="ob-dot"></span><span class="ob-dot"></span>
         </div>
+        <div class="lbl" id="ob-progress-lbl">Step 1 of 5</div>
+      </div>
+      <div id="ob-hint">Tap to continue</div>
+
+      <!-- Step 1 — Welcome -->
+      <section class="ob-panel active" id="ob-welcome" data-step="1">
+        <div class="ob-eyebrow" data-rise="1">TENKI CORE</div>
+        <h1 class="ob-h" data-rise="2" style="margin-top:14px">Calibrate Your<br>Emotional Radar</h1>
+        <p class="ob-caption" data-rise="3" style="margin-top:16px">Return to baseline. Find your turning point.</p>
         <div class="ob-spacer"></div>
-        <button class="ob-cta" data-rise="4" id="ob-begin-cal">Begin Calibration</button>
+        <button class="ob-cta" data-rise="4" id="ob-welcome-cta">Begin</button>
       </section>
 
-      <!-- Panel 2 -->
-      <section class="ob-panel" id="ob-why" data-ob="why">
-        <div class="ob-wordmark" data-rise="1">TENKI</div>
-        <div class="ob-kicker" data-rise="2">Why Baseline Matters</div>
-        <div class="ob-card" data-rise="3">
-          <canvas id="resonance" width="480" height="260" aria-hidden="true"></canvas>
-          <h2 class="ob-card-title" id="ob-card-title">Personal Resonance</h2>
-          <p class="ob-card-body" id="ob-card-body">Your unique baseline acts as a reference point, letting TENKI detect even subtle shifts in your patterns over time — for a clearer, more personal read on where you stand, while keeping your privacy first.</p>
-        </div>
-        <div class="ob-dots" data-rise="4">
-          <span class="ob-dot on"></span><span class="ob-dot"></span><span class="ob-dot"></span>
-        </div>
+      <!-- Step 2 — Emotional Radar -->
+      <section class="ob-panel" id="ob-radar" data-step="2">
+        <div class="ob-eyebrow" data-rise="1">TENKI CORE</div>
+        <h1 class="ob-h" data-rise="2" style="margin-top:12px">Emotional Radar</h1>
         <div class="ob-spacer"></div>
-        <button class="ob-cta" id="ob-next">Next</button>
+        <p class="ob-caption" data-rise="3">The Radar: seeing where you are relative to your baseline.</p>
       </section>
 
-      <!-- Panel 3 -->
-      <section class="ob-panel" id="ob-secure" data-ob="secure">
+      <!-- Step 3 — Reframe -->
+      <section class="ob-panel" id="ob-reframe" data-step="3">
+        <div class="ob-spacer"></div>
+        <h1 class="ob-h" data-rise="1">You're not<br>the problem.</h1>
+        <div class="sub" data-rise="2">Your state is.</div>
+        <div class="ob-turning" data-rise="3">
+          <svg viewBox="0 0 460 44" fill="none" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <path d="M0 34 H91 L107 7 L123 34 H460" stroke="#fff" stroke-width="2.5" stroke-linecap="butt" stroke-linejoin="miter"/>
+          </svg>
+        </div>
+        <div class="ob-spacer"></div>
+      </section>
+
+      <!-- Step 4 — Calibration Experience -->
+      <section class="ob-panel" id="ob-calibrate" data-step="4">
+        <div class="ob-eyebrow" data-rise="1">Calibration Experience</div>
+        <h1 class="ob-h" data-rise="2" style="margin-top:12px">Guided<br>Emotional Shift</h1>
+        <div class="ob-spacer"></div>
+        <button class="ob-cta--ghost ob-hold" id="ob-hold-cta" aria-label="Press and hold to calibrate">
+          <span class="ob-hold-fill" id="ob-hold-fill"></span>
+          <span class="ob-hold-label" id="ob-hold-label">Hold to calibrate</span>
+        </button>
+      </section>
+
+      <!-- Step 5 — Secure Access (hands off to the scan FSM) -->
+      <section class="ob-panel" id="ob-secure" data-step="5">
         <div class="ob-spacer"></div>
         <div class="ob-shield" data-rise="1">
           <svg viewBox="0 0 116 132" fill="none">
@@ -534,19 +613,17 @@
                 <stop offset="1" stop-color="#F3A92A"/>
               </linearGradient>
             </defs>
-            <!-- faceted two-tone interior (light from the left) -->
             <path d="M58 4 L10 22 V64 C10 96 30 118 58 128 Z" fill="rgba(243,169,42,.20)"/>
             <path d="M58 4 L106 22 V64 C106 96 86 118 58 128 Z" fill="rgba(243,169,42,.07)"/>
-            <!-- outline + center divide -->
             <path d="M58 4 L106 22 V64 C106 96 86 118 58 128 C30 118 10 96 10 64 V22 Z"
                   fill="none" stroke="url(#shieldStroke)" stroke-width="2.5" stroke-linejoin="round"/>
             <path d="M58 4 V128" stroke="url(#shieldStroke)" stroke-width="1.4" stroke-opacity=".5"/>
           </svg>
         </div>
-        <h1 class="ob-title" data-rise="2">Secure Access Required</h1>
+        <h1 class="ob-h" data-rise="2" style="font-size:27px;margin-top:14px">Secure Access</h1>
         <ul class="ob-points" data-rise="3">
           <li><span class="ob-num">1</span><span class="ob-pt-text"><b>On-Device Processing.</b> Your face data never leaves this phone.</span></li>
-          <li><span class="ob-num">2</span><span class="ob-pt-text"><b>Baseline Calibration.</b> Used only to calculate your personal resonance.</span></li>
+          <li><span class="ob-num">2</span><span class="ob-pt-text"><b>Baseline Calibration.</b> Used only to calculate your personal baseline.</span></li>
           <li><span class="ob-num">3</span><span class="ob-pt-text"><b>Privacy First.</b> No photos or videos are ever saved.</span></li>
         </ul>
         <div class="ob-spacer"></div>

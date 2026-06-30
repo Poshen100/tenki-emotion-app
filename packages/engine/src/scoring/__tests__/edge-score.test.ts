@@ -3,8 +3,8 @@
  * @description Unit tests for the Decision Edge Score engine.
  */
 
-import { calculateEdgeScore, classifyEdgeZone, getTimeBucket, type EdgeScoreInput } from '../edge-score';
-import type { BaselineProfile, MetricBaseline } from '../../common/types';
+import { calculateEdgeScore, classifyEdgeZone, getTimeBucket, inferStrainSubtype, type EdgeScoreInput } from '../edge-score';
+import type { BaselineProfile, BiometricReading, MetricBaseline, TimeBucket } from '../../common/types';
 
 // ─── Test Helpers ───────────────────────────
 
@@ -112,6 +112,62 @@ describe('getTimeBucket', () => {
   });
 });
 
+// ─── inferStrainSubtype (v0, unvalidated) ───
+
+describe('inferStrainSubtype', () => {
+  const timeBucket: TimeBucket = 'morning';
+
+  function createBaselineWith(hr: MetricBaseline, hrv: MetricBaseline): BaselineProfile {
+    return {
+      hr: { morning: hr, midday: hr, evening: hr },
+      hrv: { morning: hrv, midday: hrv, evening: hrv },
+      rr: {
+        morning: createMetricBaseline(16, 2),
+        midday: createMetricBaseline(16, 2),
+        evening: createMetricBaseline(16, 2),
+      },
+      stressProxy: createMetricBaseline(50, 10),
+      maturity: 'mature',
+      totalScanCount: 30,
+      version: '3.0.0',
+    };
+  }
+
+  function createReading(hrBpm: number, hrvRmssdMs: number): BiometricReading {
+    return { hrBpm, hrvRmssdMs, rrBrpm: 16, timestamp: Date.now() };
+  }
+
+  it('should return overstimulated for elevated HR with non-elevated HRV', () => {
+    const baseline = createBaselineWith(createMetricBaseline(68, 5), createMetricBaseline(45, 10));
+    const subtype = inferStrainSubtype(createReading(90, 20), baseline, timeBucket);
+    expect(subtype).toBe('overstimulated');
+  });
+
+  it('should return depleted for flat/low HR with depressed HRV', () => {
+    const baseline = createBaselineWith(createMetricBaseline(68, 5), createMetricBaseline(45, 10));
+    const subtype = inferStrainSubtype(createReading(60, 20), baseline, timeBucket);
+    expect(subtype).toBe('depleted');
+  });
+
+  it('should return unknown when signals are within the noise threshold', () => {
+    const baseline = createBaselineWith(createMetricBaseline(68, 5), createMetricBaseline(45, 10));
+    const subtype = inferStrainSubtype(createReading(69, 44), baseline, timeBucket);
+    expect(subtype).toBe('unknown');
+  });
+
+  it('should return unknown for contradictory signals (HR up, HRV also up)', () => {
+    const baseline = createBaselineWith(createMetricBaseline(68, 5), createMetricBaseline(45, 10));
+    const subtype = inferStrainSubtype(createReading(90, 60), baseline, timeBucket);
+    expect(subtype).toBe('unknown');
+  });
+
+  it('should return unknown when baseline has zero samples (computeZScore yields 0)', () => {
+    const baseline = createBaselineWith(createMetricBaseline(0, 0, 0), createMetricBaseline(0, 0, 0));
+    const subtype = inferStrainSubtype(createReading(90, 20), baseline, timeBucket);
+    expect(subtype).toBe('unknown');
+  });
+});
+
 // ─── calculateEdgeScore ─────────────────────
 
 describe('calculateEdgeScore', () => {
@@ -194,6 +250,40 @@ describe('calculateEdgeScore', () => {
     });
     const result = calculateEdgeScore(input);
     expect(result.score).toBeLessThan(50);
+  });
+
+  it('strain zone with overstimulated-direction reading should use subtype-specific copy', () => {
+    const input = createDefaultInput({
+      reading: {
+        hrBpm: 95,        // Much higher than baseline (HR up)
+        hrvRmssdMs: 20,   // Much lower than baseline, not elevated (HRV not up)
+        rrBrpm: 25,
+        timestamp: new Date(2026, 3, 7, 10, 0).getTime(),
+      },
+      sleepRecovery: {
+        durationHours: 4,
+        qualityScore: 30,
+        source: 'healthkit' as const,
+        stalenessHours: 2,
+      },
+    });
+    const result = calculateEdgeScore(input);
+    expect(result.zone).toBe('strain');
+    expect(result.copy.headline).toBe('Elevated activation detected');
+  });
+
+  it('non-strain zones should be unaffected by strain-subtype wiring', () => {
+    const input = createDefaultInput({
+      reading: {
+        hrBpm: 68,
+        hrvRmssdMs: 55,
+        rrBrpm: 16,
+        timestamp: new Date(2026, 3, 7, 10, 0).getTime(),
+      },
+    });
+    const result = calculateEdgeScore(input);
+    expect(result.zone).toBe('clear');
+    expect(result.copy.headline).toBe('Clearer state detected');
   });
 
   it('missing sleep data should not crash', () => {
