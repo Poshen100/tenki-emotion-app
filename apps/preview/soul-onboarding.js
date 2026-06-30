@@ -58,7 +58,7 @@
   /** Moves the orb (and beam) to a vertical offset from baseline. */
   function orbTo(y, animate) {
     if (HAS_GSAP && animate && !REDUCE) {
-      window.gsap.to([orb, beam], { y: y, duration: 0.9, ease: 'power3.out', overwrite: 'auto' });
+      window.gsap.to([orb, beam], { y: y, duration: 0.9, ease: 'power2.out', overwrite: 'auto' });
     } else {
       const t = 'translateY(' + y + 'px)';
       orb.style.transform = t;
