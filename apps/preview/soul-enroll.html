@@ -390,10 +390,11 @@
     #ob-reframe .ob-h { font-size: 54px; }
     #ob-reframe .sub { margin-top: 8px; font-size: 26px; font-weight: 600; color: var(--text-secondary); }
 
-    /* turning-point mark (Reframe) — ONE continuous bent line (折線) that turns
-       upward at the centre; the flat baseline rises into the peak, no floating caret */
-    .ob-turning { width: 100%; max-width: 320px; margin-top: 30px; }
-    .ob-turning svg { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 0 9px rgba(255,255,255,.45)); }
+    /* turning-point mark (Reframe) — ONE full-bleed bent line (折線) with a sharp,
+       narrow peak sitting left of centre; the flat baseline (edge to edge) rises into
+       the spike. Breaks out of the panel's 30px padding to reach both screen edges. */
+    .ob-turning { align-self: stretch; margin: 30px -30px 0; }
+    .ob-turning svg { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 0 9px rgba(255,255,255,.4)); }
 
     /* CTAs */
     .ob-cta, .ob-cta--ghost {
@@ -576,8 +577,8 @@
         <h1 class="ob-h" data-rise="1">You're not<br>the problem.</h1>
         <div class="sub" data-rise="2">Your state is.</div>
         <div class="ob-turning" data-rise="3">
-          <svg viewBox="0 0 320 40" fill="none" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-            <path d="M2 32 H126 L160 6 L194 32 H318" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg viewBox="0 0 460 44" fill="none" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <path d="M0 34 H91 L107 7 L123 34 H460" stroke="#fff" stroke-width="2.5" stroke-linecap="butt" stroke-linejoin="miter"/>
           </svg>
         </div>
         <div class="ob-spacer"></div>
