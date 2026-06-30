@@ -10,6 +10,26 @@ Files: `apps/preview/soul-enroll.html` (the `#onboarding` overlay + its inline C
 commits `1bd01e8..b8b278b`. The scan FSM in `soul-enroll.js` is untouched — the overlay hands off via
 `window.TENKI_ENROLL.begin()`.
 
+## Deployment anchor — extend THIS surface, integrate into `main`
+
+The final target is the live front door **https://tenki-emotion-app.vercel.app/preview/**, which serves
+`apps/preview/soul-enroll.html` (see `docs/DEPLOYMENT_MAP.md`). Perfect the onboarding→Soul-Scan experience
+*on this exact surface* — do **not** fork it to `/story/` or a new route. The overlay and the real scan are
+one continuous flow; the end state is a flawless `/preview/`.
+
+Reality right now: that fixed URL **only reflects `main`**, and `main` does **not** yet contain this work — the
+5-step overlay lives only on branch `claude/gsap-ai-skills-install-p55uh0` (8 commits ahead). So the public
+`/preview/` URL still shows the OLD 3-panel onboarding until this branch merges. Don't be confused if the live
+site doesn't match these notes yet — you are working ahead of `main`.
+
+How to see / ship it:
+- **Locally:** serve repo root on the branch and open `apps/preview/soul-enroll.html` (allow the camera at step 5).
+- **Branch preview:** once a PR exists, the Vercel bot comment on the PR has a branch-preview link reflecting the
+  branch's `/preview/`.
+- **"Perfectly integrated" = merged to `main`.** Per `docs/DEPLOYMENT_MAP.md` the flow is: Antigravity (desktop)
+  polishes on the branch → Claude Code opens the PR, runs verification, merges → ~1–2 min later the fixed
+  `/preview/` URL updates. Push your polish to the same branch; Claude Code handles the PR + merge.
+
 The five beats (one living orb + dashed baseline travel through the scene, cool→warm):
 
 1. **Welcome** — "Calibrate Your Emotional Radar" + "Return to baseline. Find your turning point." → `Begin` tap.
