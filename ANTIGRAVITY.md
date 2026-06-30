@@ -77,6 +77,9 @@ permission gesture) all need a real desktop/phone — your lane.
 - Do **not** restructure the scan FSM in `apps/preview/soul-enroll.js`, and keep `Enable Camera` (step 5) as a
   real user tap that calls `window.TENKI_ENROLL.begin()` inside the gesture — camera permission depends on it.
 - Do not touch `apps/web/` (frozen). No `any` in any TS you touch; no medical/financial copy; no raw biometric upload.
+- **Locked — do not redesign:** the `/story/` Hero (`apps/preview/story.html` `#hero` + the scrolling stardust orb).
+  Founder-loved; headline "Read your edge before it reads you." and the orb stay. Polish/perf OK, redesign is not.
+  See `SYSTEM.md` § 8 "Preserved design assets". (This `/preview/` onboarding task is separate from `/story/`.)
 - New user-facing copy must stay compliance-safe (it currently passes `packages/engine/src/compliance/safe-copy`'s
   vocabulary) — keep the Radar / Baseline / Calibration / Turning Point language per `SYSTEM.md` / `docs/brand.md`.
 - Commit-Per-Todo per `CLAUDE.md`; stay on `claude/gsap-ai-skills-install-p55uh0`.

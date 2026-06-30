@@ -96,3 +96,19 @@ This is a system for:
 → enabling better decisions
 
 **NOT predicting the market.**
+
+## 8. Preserved design assets (locked — do not redesign without founder request)
+
+Some surfaces are founder-approved and **locked**. Any AI (Claude, Antigravity, Copilot,
+Gemini, or otherwise) may *polish* them (timing, easing, performance, font loading,
+reduced-motion fallbacks) but must **not** redesign, replace, or restructure them without an
+explicit founder request — same spirit as the locked brand assets in `ANTIGRAVITY.md` § 18
+and `brand/TAGLINE-SYSTEM.md`.
+
+| Asset | Where | What is locked |
+|-------|-------|----------------|
+| **`/story/` Hero** | `apps/preview/story.html` `#hero` + `apps/preview/story.js` `initHero()` + `apps/preview/v6/stardust.js` | Headline **"Read your edge before it reads you."** (accent on "it reads you."), the scrolling **stardust orb** (`#universe` + `TENKI_STARDUST.playEntrance`), the kicker, the sub ("…a single, honest number — your Decision Edge Score… Everything stays on-device."), and the two CTAs. The orb is the signature brand visual — keep it. |
+
+Note: this `/story/` page headline is a *landing-page* hero and is distinct from the locked
+App-Store **Tier-1** tagline in `brand/TAGLINE-SYSTEM.md` ("Read your inner weather. Find your
+turning point." / "Sense the shift."). Both are locked; do not cross-replace them.
