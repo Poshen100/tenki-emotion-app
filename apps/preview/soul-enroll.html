@@ -327,11 +327,11 @@
     /* ── Shared scene field: dashed baseline + living orb ── */
     #ob-field { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
     .ob-baseline {
-      position: absolute; left: 34px; right: 34px; top: 47%;
+      position: absolute; left: 18px; right: 18px; top: 47%;
       border-top: 1.5px dashed rgba(255,255,255,.36);
-      opacity: 0; transition: opacity .7s cubic-bezier(.22,.61,.36,1), border-color 1s ease;
+      opacity: 0; transition: opacity .7s cubic-bezier(.22,.61,.36,1), border-color 1s ease, box-shadow 1s ease;
     }
-    #onboarding.warm .ob-baseline { border-top-color: rgba(255,236,200,.5); }
+    #onboarding.warm .ob-baseline { border-top-color: rgba(255,236,200,.6); box-shadow: 0 0 26px 2px rgba(243,169,42,.32); }
     .ob-axis {
       position: absolute; left: 0; right: 0; text-align: center;
       font-size: 14px; font-weight: 500; letter-spacing: .4px; color: var(--text-secondary);
@@ -349,7 +349,11 @@
       border-radius: 50%;
       background: radial-gradient(circle at 50% 42%, #EAFBFF 0%, #6FD3FF 38%, #3399FF 60%, rgba(51,153,255,0) 76%);
       box-shadow: 0 0 40px 8px rgba(51,153,255,.5), 0 0 16px 3px rgba(150,230,255,.6);
-      opacity: 0; transition: opacity .6s ease; will-change: transform;
+      opacity: 0; transition: opacity .6s ease, box-shadow .9s ease; will-change: transform;
+    }
+    /* Calibration step: keep the cyan core but wrap it in a warm gold halo (mockup ③) */
+    #onboarding.warm .ob-orb {
+      box-shadow: 0 0 34px 6px rgba(51,153,255,.36), 0 0 22px 5px rgba(243,169,42,.55), 0 0 66px 16px rgba(243,169,42,.30);
     }
     .ob-orb::after {
       content: ''; position: absolute; inset: 13px; border-radius: 50%;
