@@ -311,8 +311,9 @@
     #ob-warm {
       position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0;
       background:
-        radial-gradient(120% 78% at 50% 66%, rgba(243,169,42,.46), transparent 62%),
-        radial-gradient(95% 60% at 50% 28%, rgba(255,176,92,.20), transparent 56%);
+        radial-gradient(120% 80% at 50% 72%, rgba(243,169,42,.46), transparent 62%),
+        radial-gradient(110% 72% at 50% 16%, rgba(108,99,255,.30), transparent 60%),
+        radial-gradient(95% 60% at 50% 42%, rgba(255,176,92,.18), transparent 58%);
       transition: opacity 1.15s cubic-bezier(.4,0,.6,1);
     }
     #onboarding.warm #ob-warm { opacity: 1; }
@@ -342,8 +343,10 @@
     .ob-beam {
       position: absolute; left: 50%; top: 47%; width: 2px; height: 200px; margin-left: -1px;
       background: linear-gradient(180deg, rgba(150,230,255,.85), rgba(51,153,255,0));
-      opacity: 0; transition: opacity .5s ease; will-change: transform;
+      opacity: 0; transition: opacity .5s ease, background .9s ease; will-change: transform;
     }
+    /* Calibration step: beam warms to match the gold orb halo */
+    #onboarding.warm .ob-beam { background: linear-gradient(180deg, rgba(255,212,135,.85), rgba(243,169,42,0)); }
     .ob-orb {
       position: absolute; left: 50%; top: 47%; width: 60px; height: 60px; margin: -30px 0 0 -30px;
       border-radius: 50%;
