@@ -5,7 +5,8 @@
         { "source": "/preview", "destination": "/preview/", "permanent": false },
         { "source": "/v3", "destination": "/v3/", "permanent": false },
         { "source": "/face-baseline", "destination": "/face-baseline/", "permanent": false },
-        { "source": "/story", "destination": "/story/", "permanent": false }
+        { "source": "/story", "destination": "/story/", "permanent": false },
+        { "source": "/", "destination": "/story/", "permanent": false }
     ],
     "rewrites": [
         { "source": "/face-baseline/", "destination": "/apps/mobile/dist/index.html" },
