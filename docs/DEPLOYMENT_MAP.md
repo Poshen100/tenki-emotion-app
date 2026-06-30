@@ -12,7 +12,7 @@
    - `https://tenki-emotion-app.vercel.app/preview/` → Soul Scan 臉部基線建立（Face ID 式，真實前鏡頭）
    - `https://tenki-emotion-app.vercel.app/preview/finger/` → 舊的 finger PPG baseline onboarding（降為校準層）
    - `https://tenki-emotion-app.vercel.app/story/` → 高質感滾動式敘事 landing page（Hero/Story/Dashboard 預覽，CTA 連回 /preview/ 與 /v3/）🔒 Hero locked（見 SYSTEM.md §8）
-2. 根網址 `/` 永遠是凍結舊版（apps/web），不會更新 — 別用它判斷進度。
+2. 根網址 `/` 會 307 redirect 到 `/story/`（Hero 正式門面，隨 `main` 更新）。舊版 apps/web 已退居門面，深層路徑仍由 catch-all `/(.*)` 服務。
 3. `apps/mobile` 在任何網址都看不到（RN app，要等實機/TestFlight）。想在手機瀏覽器看到的東西，做在 `apps/preview/`。
 4. 分工：**Antigravity（桌機）** 在 `feat/*` 分支做功能畫面 → **Claude Code（手機/雲端）** 開 PR、跑驗證、merge → merge 後 1-2 分鐘固定網址更新。
 5. merge 前想先看：手機打開 GitHub PR 頁，Vercel bot 留言裡就有該分支的 preview 連結，點了即看。
@@ -24,7 +24,7 @@ One domain, multiple routes. The mobile app has no public URL yet.
 
 ```
 tenki-emotion-app.vercel.app
-├── /                         → apps/web/              🔒 Legacy (frozen)
+├── /                         → 307 redirect → /story/  ⭐ Hero front door (apps/web demoted)
 ├── /v3/                      → apps/preview/v6/       ✨ v3 entry (founder's pick)
 ├── /preview/                 → apps/preview/soul-enroll.html  ✨ Soul Scan front door (live camera)
 ├── /preview/finger/          → apps/preview/index.html        ⚠️ Finger PPG onboarding (calibration layer)
@@ -39,7 +39,8 @@ tenki-emotion-app.vercel.app
 
 | URL | Source | Purpose | Status |
 |-----|--------|---------|--------|
-| `https://tenki-emotion-app.vercel.app/` | `apps/web/` | Legacy web prototype v51.1 | 🔒 Frozen (legacy 對外門牌) |
+| `https://tenki-emotion-app.vercel.app/` | 307 → `/story/` | **Hero 正式門面** — root 導向 `/story/` 的 Hero（Read your edge…）。apps/web 已退居，深層路徑仍由 catch-all 服務 | ⭐ Front door |
+| `https://tenki-emotion-app.vercel.app/` (legacy) | `apps/web/` | 舊 web prototype v51.1，現僅由 `/(.*)` catch-all 服務深層路徑（root 已導向 Hero） | 🔒 Frozen |
 | `https://tenki-emotion-app.vercel.app/v3/` | `apps/preview/v6/index.html` | **v3 主入口** — Today + 5-Tab Nav + FDCB,v3 nomenclature 已對齊 (Clear/Neutral/Strain) | ✨ Founder 認可,active dev |
 | `https://tenki-emotion-app.vercel.app/preview/` | `apps/preview/soul-enroll.html` | **Soul Scan 臉部基線建立門面**（Face ID 式，真實前鏡頭 + live gates，對應 mobile FSM） | ✨ Front door, active dev |
 | `https://tenki-emotion-app.vercel.app/preview/finger/` | `apps/preview/index.html` | Finger PPG baseline onboarding 6-step flow（降為校準層，原 `/preview/` 根） | ⚠️ iOS OOM — hotfix branch ready |
@@ -73,7 +74,7 @@ The catch-all `/*` → `apps/web/$1` handles legacy asset loading.
 ### Why `/v3/` is a shadow route (not root yet)
 
 2026-05-11:Founder review 確認 `apps/preview/v6/` 是 v3 設計方向的最佳載體,
-但根 URL `/` 仍指 `apps/web/`(v51.1 legacy)以避免既有 share link 失效。
+根 URL `/` 現在 307 redirect 到 `/story/`(Hero 門面);apps/web 深層 share link 仍由 catch-all `/(.*)` 服務,不會失效。
 `/v3/` 作為**影子入口**並列存在 1-2 週,確認 v6 沒有遺漏功能後,再獨立 commit
 把 `/` 切到 v6。不切根路由是最小不可逆操作策略。
 
