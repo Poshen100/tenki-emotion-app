@@ -390,10 +390,10 @@
     #ob-reframe .ob-h { font-size: 54px; }
     #ob-reframe .sub { margin-top: 8px; font-size: 26px; font-weight: 600; color: var(--text-secondary); }
 
-    /* turning-point mark (Reframe) — a peak rising from the baseline */
-    .ob-turning { position: relative; width: 100%; max-width: 360px; height: 42px; margin-top: 30px; }
-    .ob-turning .line { position: absolute; top: 30px; left: 0; right: 0; height: 2px; background: rgba(255,255,255,.92); box-shadow: 0 0 14px rgba(255,255,255,.4); }
-    .ob-turning .peak { position: absolute; top: 11px; left: 50%; width: 26px; height: 26px; margin-left: -13px; border-left: 2px solid #fff; border-top: 2px solid #fff; transform: rotate(45deg); }
+    /* turning-point mark (Reframe) — ONE continuous bent line (折線) that turns
+       upward at the centre; the flat baseline rises into the peak, no floating caret */
+    .ob-turning { width: 100%; max-width: 320px; margin-top: 30px; }
+    .ob-turning svg { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 0 9px rgba(255,255,255,.45)); }
 
     /* CTAs */
     .ob-cta, .ob-cta--ghost {
@@ -575,7 +575,11 @@
         <div class="ob-spacer"></div>
         <h1 class="ob-h" data-rise="1">You're not<br>the problem.</h1>
         <div class="sub" data-rise="2">Your state is.</div>
-        <div class="ob-turning" data-rise="3"><div class="line"></div><div class="peak"></div></div>
+        <div class="ob-turning" data-rise="3">
+          <svg viewBox="0 0 320 40" fill="none" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <path d="M2 32 H126 L160 6 L194 32 H318" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
         <div class="ob-spacer"></div>
       </section>
 
