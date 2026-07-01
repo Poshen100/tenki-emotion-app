@@ -1,6 +1,53 @@
-# 2026-06-30 CONTINUATION NOTE (READ THIS FIRST — supersedes 2026-06-28 note below)
+# 2026-07-01 CONTINUATION NOTE (READ THIS FIRST — supersedes 2026-06-30 note below)
 
 This note is the current handoff. If any older setup text below conflicts with this section, this section wins.
+
+## Two visual tasks on the `/preview/` Soul Scan (both need your desktop GPU + live preview)
+
+Context: the 5-step onboarding + front-door work is done and merged to `main` (fixed
+`https://tenki-emotion-app.vercel.app/preview/` is live; `/` now redirects to the `/story/` Hero).
+Two visual pieces on the Soul Scan surface are **not good enough yet** and the founder wants them
+brought to a premium finish. Both are heavy visual work best judged on a real screen — your lane.
+
+### Task A — Crystal ball ("水晶球") must match the target and move smoothly
+- **Target reference (committed):** `docs/refs/crystal-ball-target-IMG_8437.png` — a photoreal clear
+  glass sphere with **fine, luminous gold stardust** forming elegant intertwined orbital ribbons
+  (galaxy/gyroscope of gold sand), realistic refraction, rim light, depth.
+- **Current state (committed):** `docs/refs/crystal-ball-current-baseline-locked.png` — the gold reads
+  as **thick clumpy brush-strokes**, not fine particulate sand; motion/transitions feel not-smooth.
+- **Where:** `apps/preview/soul-enroll.js` → `drawProcessingOrb(c, cx, cy, t, opts)` (~line 599), a
+  hand-crafted **canvas-2D** volumetric-glass renderer (glass body, fresnel rim, specular hotspot,
+  3 true-3D gyroscope "gold sand" orbits, refraction caustic). It's used on the "Securing…" processing
+  screen and the "Baseline locked" result screen.
+- **Do:** push it to match IMG_8437 — much finer, denser gold **particles** (not fat ribbons), elegant
+  intertwined orbits, believable glass, and above all **smooth, natural, continuous motion + entry/exit
+  transitions** (processing → baseline-locked). If canvas-2D can't reach the target cleanly, upgrading
+  this specific orb to WebGL/Three.js is acceptable **as long as** it stays inside the existing scan FSM
+  render loop and doesn't change the FSM/state contract. Watch perf on mobile (target 60fps; particle
+  count vs. cost).
+
+### Task B — Secure Access shield ("盾牌") should feel super-3D
+- **Where:** `apps/preview/soul-enroll.html` → the `.ob-shield` SVG in the step-5 `#ob-secure` panel
+  (currently a flat two-tone gold-outline shield). Founder wants a **super three-dimensional** feel.
+- **Do:** give it real dimensional depth — bevelled/faceted metal, layered gold gradients, specular
+  highlight, ambient occlusion, a soft floor/contact shadow, subtle parallax/tilt or a gentle
+  breathing rotate on entrance. CSS/SVG 3D is fine; a small Three.js shield is also fine if you prefer.
+  Keep it the same gold-secured brand language; don't change the copy or the 3 privacy points.
+
+## Guardrails (unchanged)
+- **Do not restructure the scan FSM** in `soul-enroll.js`; keep `Enable Camera` (step 5) a real user tap
+  that calls `window.TENKI_ENROLL.begin()` inside the gesture (camera permission depends on it).
+- **`/story/` Hero is LOCKED** (`SYSTEM.md` §8) — do not touch it.
+- Do not touch `apps/web/` (frozen). No `any` in TS. No medical/financial copy; keep Radar / Baseline /
+  Calibration / Turning Point language. Raw biometric never leaves the device.
+- Branch `claude/gsap-ai-skills-install-p55uh0`; Commit-Per-Todo; screenshot each result — founder wants
+  to see screenshots before merge. Claude Code opens the PR + merges (per `docs/DEPLOYMENT_MAP.md`).
+
+---
+
+# 2026-06-30 CONTINUATION NOTE (supersedes 2026-06-28 note below)
+
+This note is a prior handoff (the /preview/ onboarding polish, now merged). If any older setup text below conflicts with this section, this section wins.
 
 ## What was just built
 
