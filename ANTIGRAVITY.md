@@ -1,15 +1,31 @@
-# 2026-07-01 CONTINUATION NOTE (READ THIS FIRST — supersedes 2026-06-30 note below)
+# 2026-07-02 WORK ORDER (READ THIS FIRST — supersedes all notes below)
 
-This note is the current handoff. If any older setup text below conflicts with this section, this section wins.
+This note is the current handoff: a full, prioritized work order for your desktop session.
+If any older setup text below conflicts with this section, this section wins.
 
-## Two visual tasks on the `/preview/` Soul Scan (both need your desktop GPU + live preview)
+## Session bootstrap (do this first)
 
-Context: the 5-step onboarding + front-door work is done and merged to `main` (fixed
-`https://tenki-emotion-app.vercel.app/preview/` is live; `/` now redirects to the `/story/` Hero).
-Two visual pieces on the Soul Scan surface are **not good enough yet** and the founder wants them
-brought to a premium finish. Both are heavy visual work best judged on a real screen — your lane.
+1. Read `CLAUDE.md` → `SYSTEM.md` → `docs/DEPLOYMENT_MAP.md` (framing + hard rules + route map).
+2. `git fetch origin claude/gsap-ai-skills-install-p55uh0 && git checkout claude/gsap-ai-skills-install-p55uh0`
+   — all tasks below live on this branch. Do not branch off `main` yourself.
+3. Serve the repo root (`python -m http.server` or `npx serve .`) and open
+   `apps/preview/soul-enroll.html` (= live `/preview/`). Step 5 asks for the camera — allow it, walk
+   the full flow once (onboarding → scan → "Securing…" → "Baseline locked") so you've *seen* every
+   surface you're about to touch.
+4. Work through the tasks **in priority order (A → D)**. One task = one or more Commit-Per-Todo
+   commits, pushed to this same branch. Screenshot every visual result — the founder reviews
+   screenshots before anything merges. Claude Code (cloud) handles PR + verification + merge.
 
-### Task A — Crystal ball ("水晶球") must match the target and move smoothly
+## Why these four tasks are yours
+
+They all need what only your side has: a real GPU browser with live preview, real Inter, real
+camera, and a human eye on motion. Claude Code's cloud sandbox cannot load CDN assets
+(GSAP/Three/MediaPipe/fonts) and can only verify structurally — it has already done that part.
+
+Context: the 5-step onboarding, its polish pass, and the front-door routing are merged and live
+(`https://tenki-emotion-app.vercel.app/preview/`; `/` now redirects to the `/story/` Hero).
+
+### Task A (P1) — Crystal ball ("水晶球") must match the target and move smoothly
 - **Target reference (committed):** `docs/refs/crystal-ball-target-IMG_8437.png` — a photoreal clear
   glass sphere with **fine, luminous gold stardust** forming elegant intertwined orbital ribbons
   (galaxy/gyroscope of gold sand), realistic refraction, rim light, depth.
@@ -25,14 +41,62 @@ brought to a premium finish. Both are heavy visual work best judged on a real sc
   this specific orb to WebGL/Three.js is acceptable **as long as** it stays inside the existing scan FSM
   render loop and doesn't change the FSM/state contract. Watch perf on mobile (target 60fps; particle
   count vs. cost).
+- **Done when:** side-by-side with `docs/refs/crystal-ball-target-IMG_8437.png` the founder can't call
+  out a gap in particle fineness, glass realism, or orbit elegance; motion is continuous with no visible
+  stepping/jank at 60fps; the processing→baseline-locked transition flows (no hard cut); screenshots +
+  a short screen recording posted for review.
 
-### Task B — Secure Access shield ("盾牌") should feel super-3D
+### Task B (P2) — Secure Access shield ("盾牌") should feel super-3D
 - **Where:** `apps/preview/soul-enroll.html` → the `.ob-shield` SVG in the step-5 `#ob-secure` panel
   (currently a flat two-tone gold-outline shield). Founder wants a **super three-dimensional** feel.
 - **Do:** give it real dimensional depth — bevelled/faceted metal, layered gold gradients, specular
   highlight, ambient occlusion, a soft floor/contact shadow, subtle parallax/tilt or a gentle
   breathing rotate on entrance. CSS/SVG 3D is fine; a small Three.js shield is also fine if you prefer.
   Keep it the same gold-secured brand language; don't change the copy or the 3 privacy points.
+- **Done when:** the shield reads as a dimensional object (not a line icon) at both 390px and desktop
+  width, entrance animation is subtle (no spinning-logo cheese), reduced-motion shows a static but
+  still-dimensional shield, and a screenshot is posted for review.
+
+### Task C (P3) — Replace the onboarding placeholder orb with the real TENKI_STARDUST orb
+- **Where:** `apps/preview/soul-enroll.html` `.ob-orb` (a CSS radial-gradient placeholder) +
+  `apps/preview/soul-onboarding.js` (`orbTo()`, `armCalibration()` move it via GSAP `y` transforms).
+  The real brand orb lives in `apps/preview/v6/stardust.js` (`TENKI_STARDUST.init/playEntrance/dim/
+  brighten/destroy`, ~8k Three.js particles, auto-inits against a `#universe` element) and is already
+  the signature visual on the `/story/` Hero.
+- **Why:** onboarding currently uses a lookalike CSS ball; sharing the one real orb makes the brand
+  visual continuous from Hero → onboarding → scan. This was flagged as an optional-high-value upgrade
+  in the 06-30 note; it's now scheduled.
+- **Do:** mount stardust (or a lighter-particle variant) as the onboarding scene orb, keep the existing
+  choreography contract (rest at baseline / drop below on Radar / pulled back up during hold-to-calibrate),
+  keep the CSS orb as an automatic fallback when WebGL/Three fails, and keep `prefers-reduced-motion`
+  behaviour (static positioning, no particle storm). Watch load cost — Three.js is already on the page
+  for the scan's 3D layer, so reuse, don't double-load.
+- **Done when:** the same recognizable stardust orb appears in onboarding steps 1/2/4 with the existing
+  motion contract intact, camera handoff still works, mobile stays smooth, fallback verified by blocking
+  Three.js once, and screenshots/recording posted.
+
+### Task D (P4) — `/story/` motion polish, everything EXCEPT the locked Hero
+- **Where:** `apps/preview/story.html` + `apps/preview/story.js` sections after the Hero:
+  `initStoryPanels` (3 pinned ScrollTrigger panels), `initTransition` (unlock → dashboard dissolve),
+  `initDashboard` (phone-frame + `/v3/` iframe entrance/parallax), `initFooter` (CTA reveal).
+- **Why:** this is the unfinished 06-28 handoff — the pacing/easing tune pass on a real browser never
+  happened (quota ran out). The structure is done and verified; only the *feel* needs your eye.
+- **Do:** scroll the page end-to-end and tune durations/eases/stagger/scrub values in `story.js` for
+  cinematic rhythm (Mobbin/Dribbble grade). Confirm the `/v3/` iframe loads in the phone frame, test
+  `prefers-reduced-motion` (everything snaps to final state) and ~390px width (no horizontal overflow).
+- **Hard boundary:** the Hero section (`#hero`, its headline, stardust orb, kicker, sub, CTAs) is
+  **LOCKED** (`SYSTEM.md` §8) — tune nothing above the first story panel.
+- **Done when:** a full-page scroll recording is posted and each non-Hero section's motion feels
+  deliberate (no dead zones, no rushed reveals), with reduced-motion + mobile checks confirmed.
+
+## Reporting back / handoff to Claude Code
+
+- Push commits to `claude/gsap-ai-skills-install-p55uh0` as you complete each Todo — Claude Code picks
+  them up, runs its Playwright/structural verification, opens the PR, and merges after founder review.
+- Post screenshots (and recordings for A/C/D) per task. The founder approves visuals before merge.
+- If you run out of quota mid-task: **commit and push whatever is coherent first** (even WIP behind its
+  own commit), and append a short "where I stopped" line under this note so the next session (you or
+  Claude Code) can resume without re-deriving context.
 
 ## Guardrails (unchanged)
 - **Do not restructure the scan FSM** in `soul-enroll.js`; keep `Enable Camera` (step 5) a real user tap
