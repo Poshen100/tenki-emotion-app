@@ -1,3 +1,42 @@
+# 📋 MEMORY.md 協議（永久置頂，勿刪、勿在其上方加條目）
+
+> 1. **新條目一律加在本協議正下方**（最新在上，越下方越舊）。⚠️ 檔尾殘留少數 2026-04~06 的舊條目是歷史遺留，別學它們 append 在檔尾。
+> 2. 條目格式：`# YYYY-MM-DD Session Update (一句話主題)` → What was done → 教訓/注意 → 下次接手點。
+> 3. **本檔是日誌，不是法典**：記「這次發生什麼」。可長期沿用的規則要出去 —— 工程硬規則 → `CLAUDE.md`、操作陷阱/流程 → `docs/PLAYBOOK.md`。
+> 4. **同類教訓第二次出現 → 必須提煉成 PLAYBOOK 一條「情境 → 規則」**（compound learning 制度）。
+> 5. 讀者（AI）只需讀最上面 1~2 條當交接，其餘用 grep；不要全文讀 —— 蒸餾版在 `docs/PLAYBOOK.md`。
+
+---
+
+# 2026-07-02 Session Update (Fable 5 制度建設：PLAYBOOK + verify.sh + 護欄修矛盾 — claude/fable5-system-setup-xuqbkg)
+
+> Founder：把 Fable 5（一次性最強模型 session）的判斷力轉成可長期沿用的制度與檔案，讓之後較弱模型的 session 都因此變強。不做日常任務，只立制度。
+
+## What was done（commit-per-todo，共 7 commits）
+1. **`docs/PLAYBOOK.md`（新，本次核心交付）**：把 MEMORY.md 998 行日誌裡的 40+ 條教訓蒸餾成「情境 → 規則」查表手冊 —— §0 文件優先序（矛盾裁決）、§1 任務路由表、§3 CI 盲區、§4 git/多 AI 協作、§5 工具鏈、§6 preview 地雷（最厚）、§7 mobile/engine、§8 合規紅線、§9 定位表、§10 維護制度（糾正即入檔、二次即提煉）。
+2. **`scripts/verify.sh` + `npm run verify`**：一鍵 merge gate（lint + 4 套件 tsc + root/mobile 測試 + preview `node --check` + 禁用詞彙），已在容器實測全綠（root 281 + mobile 96 測試）；缺依賴時給明確指令；`--quick` 跳過 mobile。
+3. **`scripts/check-vocab.sh`**：diff-based 擋新增行出現 `TEI`/`PR99`（大小寫敏感，`tlTlTlTeiScore` 等既有殘留不誤報；legacy adapter 檔以 pathspec 排除）。已測正負兩向。
+4. **CI `guards` job**：banned vocab + `apps/preview/*.js` 語法檢查（preview 從此至少有語法防線，免裝依賴數秒跑完）。
+5. **修活矛盾（弱模型最大陷阱）**：session/compact hooks 還在教 `npx vitest run` → 改指 verify.sh + PLAYBOOK；`AI_INSTRUCTIONS.md`（v1 trading 語言）、`RULES.md`（v2 保護 PEAK/OPTIMAL）、`task.md`（停更）加 ⛔ SUPERSEDED 橫幅；RULES-v3 最終依據改指 PLAYBOOK §0。
+6. **hooks 強化**：`protect-files.sh` 新增 `core/` 寫入封鎖（排除 node_modules）。
+7. **入口對齊**：CLAUDE.md 加「文件優先序與陷阱手冊」節 + verify 指令 + MEMORY 協議；AGENTS.md（Antigravity 等的入口）閱讀順序/工作流/Key Files 全部對齊。
+
+## 制度設計原則（為什麼這樣立）
+- **弱模型服從短規則與機械護欄，不服從長文與判斷** → 能用 hook/CI/腳本擋的就不靠自覺；能查表的就不寫散文。
+- **活矛盾比缺文件更毒**：hook 每 session 注入錯誤指令 = 系統性帶偏每個未來 session，優先修。
+- **日誌（MEMORY）與法典（PLAYBOOK/CLAUDE.md）分離**：日誌可以無限長，法典必須短且無矛盾。
+
+### 教訓 / 注意
+- 本分支 `claude/fable5-system-setup-xuqbkg` 純文件+腳本+CI，無產品代碼改動；`verify.sh` 全綠實測過。
+- CI `guards` job 第一次在 PR 上跑時留意 `fetch-depth: 0` 是否讓 check-vocab 正確拿到 origin/main（本地已驗，CI 理論等價）。
+
+## 下次接手點
+1. Founder review 後 merge 本分支 → 之後所有 session 自動吃到新 hooks/CI/PLAYBOOK。
+2. 已知債（不急）：v6 `tlTlTlTeiScore` id 改名、`packages/engine/src/tei.ts` 等 18 檔 legacy 殘留的退場計畫、MEMORY.md 檔尾亂序舊條目擇期歸檔到 `docs/archive/`。
+3. 日常開發照舊；差別只在：開工看 PLAYBOOK §1、完工跑 `npm run verify`。
+
+---
+
 # 2026-06-23 Session Update (Scan tab 重定位為日常 Soul Scan 路由儀表板 — feat/scan-tab-daily-soul-scan)
 
 > 承接上一條:onboarding 接好後,做 North Star step 3 後半「Scan tab 重定位為日常 Soul Scan」。Antigravity 實作、雲端 relay 重建+驗證+推送+review。
