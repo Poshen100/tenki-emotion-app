@@ -27,8 +27,11 @@ cat << 'CONTEXT'
 【Commit 規範】每個 Todo = 一個 commit
  格式: <type>(<scope>): <description>
 
-【測試】npx vitest run (所有測試必須通過)
-【驗證】TypeScript: npx tsc --noEmit (零錯誤)
+【驗證】bash scripts/verify.sh 一鍵跑完 merge gate
+ (Jest + ts-jest,不是 vitest;apps/mobile 不在 root
+  workspaces,verify.sh 會自動分開跑)
+【盲區】CI/Biome 不涵蓋 apps/preview/** → 改 preview
+ 需 founder 手機實走;細節見 docs/PLAYBOOK.md §3/§6
 ══════════════════════════════════════════════════════
 CONTEXT
 
@@ -55,12 +58,15 @@ cat << 'STRUCTURE'
  ├── domain/             — Domain models, contracts, policies, analytics
  ├── apps/web/           — Web prototype (🔒 不可修改)
  ├── apps/mobile/        — Expo/React Native app (Phase C)
- ├── core/               — Legacy vanilla JS modules (IIFE pattern)
+ ├── apps/preview/       — 瀏覽器驗證 UI (CI 盲區!)
+ ├── core/               — Legacy vanilla JS (🔒 僅參考)
  ├── CLAUDE.md           — 📌 AI 開發策略 (必讀)
- └── MEMORY.md           — 📌 Session 記憶 (必讀)
+ ├── docs/PLAYBOOK.md    — 📌 已知陷阱手冊 (動工前查)
+ └── MEMORY.md           — 📌 Session 記憶 (讀最上條)
 STRUCTURE
 
 echo ""
 echo "══════════════════════════════════════════════════════"
-echo " 📌 開始前請先讀: CLAUDE.md → MEMORY.md → ANTIGRAVITY.md"
+echo " 📌 開始前請先讀: CLAUDE.md → MEMORY.md 最上面一條"
+echo "    → docs/PLAYBOOK.md 對應段落 (文件衝突時看其 §0)"
 echo "══════════════════════════════════════════════════════"

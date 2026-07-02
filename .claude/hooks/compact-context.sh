@@ -9,6 +9,6 @@ cat << 'COMPACT'
 【v3 架構】Edge Score (0-100) / 3 Zone (Clear/Neutral/Strain) / 2 Tier (Free/Premium)
 【禁止】TEI, PR99, PEAK/OPTIMAL, 醫療建議, 金融建議, apps/web/ 修改
 【Commit】每個 Todo = 一個 commit, 格式: <type>(<scope>): <desc>
-【測試】npx vitest run (必須全過), npx tsc --noEmit (零錯誤)
-【必讀】CLAUDE.md → MEMORY.md (session 記憶)
+【驗證】bash scripts/verify.sh (Jest 不是 vitest; mobile 分開跑)
+【必讀】CLAUDE.md → docs/PLAYBOOK.md (陷阱手冊) → MEMORY.md 最上條
 COMPACT

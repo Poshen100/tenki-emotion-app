@@ -15,6 +15,12 @@ if echo "$FILE_PATH" | grep -q "apps/web/"; then
   exit 2
 fi
 
+# Block: core/ (legacy v2 vanilla JS — reference only, per CLAUDE.md)
+if echo "$FILE_PATH" | grep -qE '(^|/)core/' && ! echo "$FILE_PATH" | grep -q "node_modules"; then
+  echo "🚫 core/ 是 v2 legacy 模組，僅供參考不可修改。新代碼進 packages/ 或 apps/mobile/。" >&2
+  exit 2
+fi
+
 # Block: sensitive files
 if echo "$FILE_PATH" | grep -qE '\.(env|env\.local|env\.production)$'; then
   echo "🚫 不可修改 .env 檔案 — 可能包含 secrets。" >&2
