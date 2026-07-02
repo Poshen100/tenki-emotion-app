@@ -19,6 +19,11 @@
 - **2 Tier**：Free / Premium
 - **資料策略**：Local-first + Cloud-minimal（raw biometric 不上雲）
 
+## 文件優先序與陷阱手冊
+
+- **文件互相矛盾時的裁決順序**定義在 `docs/PLAYBOOK.md` §0（本檔 > SYSTEM.md > PLAYBOOK > MEMORY.md 最上條 > 領域文件 > ANTIGRAVITY.md 本文）。`AI_INSTRUCTIONS.md`、`RULES.md`、`task.md` 已過時，不得遵循。
+- **`docs/PLAYBOOK.md` 是已知陷阱手冊**（歷次 session 教訓的蒸餾版）：動工前按其 §1 路由表找到任務類型；遇到怪症狀先 grep 它再 debug。MEMORY.md 是日誌、PLAYBOOK 是法典。
+
 ## 🚫 禁止事項（v3 hard rules）
 
 | ✗ 不要做 | 為什麼 |
@@ -50,6 +55,8 @@ tenki-emotion-app/
 ├── core/                 Legacy vanilla JS IIFE 模組（v2，僅作參考）
 ├── CLAUDE.md             📌 AI 開發策略（本檔，Claude Code 硬規則）
 ├── SYSTEM.md             📌 跨 AI 產品定位與語言系統（所有 AI 協作者必讀）
+├── docs/PLAYBOOK.md      📌 已知陷阱手冊 + 文件優先序（動工前查）
+├── scripts/verify.sh     📌 一鍵 merge gate（npm run verify）
 ├── docs/brand.md         📌 內部品牌語言系統全文（含 dopamine 內部模型）
 ├── MEMORY.md             📌 Session 記憶與決策紀錄
 └── ANTIGRAVITY.md        📌 Antigravity AI workflow rules
@@ -122,6 +129,7 @@ refactor(session): extract timer segment logic
 
 | 指令 | 作用 |
 |------|------|
+| `npm run verify` | **一鍵跑完整個 merge gate**（lint + 4 套件 tsc + root/mobile 測試 + preview 語法 + 禁用詞彙）。沒有它的綠燈不算完成；`--quick` 可跳過 mobile |
 | `npm test` | 跑 packages + domain 所有測試（Jest，必須全綠才 merge） |
 | `cd apps/mobile && npm test` | 跑 mobile 測試（apps/mobile 不在 root workspaces，要分開跑） |
 | `npm run lint` | Biome lint（0 errors 才 merge；formatter 未啟用） |
@@ -166,4 +174,5 @@ refactor(session): extract timer segment logic
 
 ## Session 結束時
 更新 `MEMORY.md` 記錄：本次做了什麼、遇到的坑、下次接手點。
+規則（見 MEMORY.md 頂部協議）：**新條目一律加在檔案最上方**；同類教訓第二次出現 → 提煉成 `docs/PLAYBOOK.md` 一條「情境 → 規則」。
 若有任何「我這次糾正了 AI，但 CLAUDE.md 沒寫」的情況 → 補進本檔。
