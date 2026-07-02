@@ -1,3 +1,8 @@
+> ⛔ **SUPERSEDED (2026-07-02) — DO NOT FOLLOW THIS FILE.**
+> 本檔是 v1 時代的指令（還在講 TEI score 與 trading risk management，兩者皆為 v3 禁用概念）。
+> 現行規則：`CLAUDE.md`（工程）+ `SYSTEM.md`（產品定位）+ `docs/PLAYBOOK.md`（操作與優先序）。
+> 保留此檔僅供考古。
+
 # AI Instructions - TENKI Emotion App
 
 ## Project Overview

@@ -1,3 +1,8 @@
+> ⛔ **SUPERSEDED (2026-07-02) — DO NOT FOLLOW THIS FILE.**
+> 本檔是 v2 規則（保護 TEI/PEAK/OPTIMAL/舊 FDCB — 全部是 v3 已廢棄並禁用的概念）。
+> 現行規則：`CLAUDE.md` + `SYSTEM.md` + `docs/PLAYBOOK.md`（優先序見其 §0）；v3 版行為規則見 `RULES-v3.md`。
+> 保留此檔僅供考古。
+
 # RULES.md — Tenki Core Development Rules
 
 > 所有 AI 工具（Antigravity / Claude / Claude Code）必須遵守此檔案。

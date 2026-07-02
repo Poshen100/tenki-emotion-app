@@ -58,15 +58,16 @@ Never claim precise dopamine measurement. Never make clinical or diagnostic stat
 
 ### Must Do
 
-1. Read `ANTIGRAVITY.md` before starting any work
+1. Read `CLAUDE.md` (engineering hard rules) + `SYSTEM.md` (product language) first; `docs/PLAYBOOK.md` §0 is the tie-breaker when documents conflict. `ANTIGRAVITY.md` is the product blueprint (its §14 repo tree is outdated — trust `CLAUDE.md`'s)
 2. Apply the **Karpathy four golden principles** to every code change — Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution (full text: `.claude/skills/karpathy-engineering/SKILL.md`)
-3. Read `task.md` for the current execution checklist
+3. Read the **top entry of `MEMORY.md`** for the current hand-off point (`task.md` is stale — do not use it)
 4. Follow the v3 semantic system: use `Edge Score` (not TEI), `Zone` (not PR99), `Session` (not Trading)
 5. All user-facing copy must pass `packages/engine/src/compliance/safe-copy.ts`
 6. All new modules must include tests
 7. All sensitive data must stay on-device — never upload raw HR/HRV/RR to the cloud
 8. Use Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`
-9. Update `task.md` after completing each work item
+9. Verify before claiming done: `bash scripts/verify.sh` (lint + typecheck + all tests + preview syntax + banned vocab)
+10. At session end, add a new entry **at the top** of `MEMORY.md` (what was done / lessons / hand-off point)
 
 ### Must Not Do
 
@@ -96,14 +97,14 @@ Shell: 5-tab Expo Router structure is in place and needs integration with engine
 ## Recommended Workflow
 
 ```
-1. Read ANTIGRAVITY.md
-2. Read task.md
-3. Confirm current Phase and next unchecked item
-4. Execute the task
+1. Read CLAUDE.md + SYSTEM.md (rules), docs/PLAYBOOK.md §1 (task routing)
+2. Read MEMORY.md top entry (hand-off point)
+3. Confirm the task with the founder if ambiguous
+4. Execute the task (never push directly to main — feat/* branch → PR)
 5. Write tests
-6. Update task.md
-7. Commit with Conventional Commit format
-8. Push
+6. Run: bash scripts/verify.sh  (must be green)
+7. Commit with Conventional Commit format (one commit per todo)
+8. Push; update MEMORY.md top entry at session end
 ```
 
 ---
@@ -137,12 +138,15 @@ Shell: 5-tab Expo Router structure is in place and needs integration with engine
 
 | File | Purpose |
 |------|---------|
-| `ANTIGRAVITY.md` | Master blueprint — read first |
+| `CLAUDE.md` | Engineering hard rules — read first |
+| `SYSTEM.md` | Product framing + language system — read second |
+| `docs/PLAYBOOK.md` | Known traps + doc precedence + task routing |
+| `scripts/verify.sh` | One-command merge gate (`npm run verify`) |
+| `ANTIGRAVITY.md` | Master product blueprint |
 | `AGENTS.md` | This file — AI agent context |
 | `.claude/skills/karpathy-engineering/SKILL.md` | Senior-engineer discipline (4 golden principles) |
 | `BRAND.md` | Brand lines, tone, visual identity |
-| `task.md` | Current execution checklist |
-| `MEMORY.md` | Setup and machine notes |
+| `MEMORY.md` | Session log — top entry = current hand-off point |
 | `docs/DEPLOYMENT_MAP.md` | Deployed routes and preview URLs |
 | `docs/APP_STORE_COMPLIANCE.md` | App Store review guidelines |
 | `docs/PRIVACY_ARCHITECTURE.md` | Privacy model details |

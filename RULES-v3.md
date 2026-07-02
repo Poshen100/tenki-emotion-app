@@ -2,7 +2,8 @@
 
 > 所有 AI 工具（Antigravity / Claude / Claude Code）必須遵守此檔案。
 > 這些規則由 Founder (Poshen) 制定，AI 不可自行修改或覆蓋。
-> 如果規則之間有衝突，以 ANTIGRAVITY.md v3.0 為最終依據。
+> ~~如果規則之間有衝突，以 ANTIGRAVITY.md v3.0 為最終依據。~~
+> **（2026-07-02 更新）衝突裁決順序改為 `docs/PLAYBOOK.md` §0：CLAUDE.md > SYSTEM.md > PLAYBOOK > MEMORY.md 最上條 > 領域文件 > ANTIGRAVITY.md 本文。**
 
 > **v3.0 重大變更**：本文件取代 RULES.md v2 所有互斥規則。
 > 已廢棄概念：TEI PR99、舊 FDCB (Floating Decision Control Bar)、4 zone、3 tier 訂閱。
