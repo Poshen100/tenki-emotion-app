@@ -10,6 +10,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  guards:
+    name: guards (banned vocab + preview syntax)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Banned vocabulary (no new TEI/PR99)
+        run: bash scripts/check-vocab.sh
+
+      - name: Preview JS syntax (apps/preview is outside lint/test coverage)
+        run: |
+          status=0
+          while IFS= read -r f; do
+            node --check "$f" || status=1
+          done < <(find apps/preview -name '*.js' -not -path '*/node_modules/*')
+          exit $status
+
   workspaces:
     name: packages + domain (test & typecheck)
     runs-on: ubuntu-latest
