@@ -1,3 +1,6 @@
+> ⛔ **SUPERSEDED (2026-07-03) — 品牌語言的現行 canonical 是 `docs/brand.md` + `SYSTEM.md`；視覺規格見 `ANTIGRAVITY.md` §18。**
+> 本檔自訂的「本文件 > ANTIGRAVITY.md」優先序已失效 — 現行裁決順序見 `docs/PLAYBOOK.md` §0。保留僅供考古。
+
 # TENKI BRAND — Canonical Source v1.0
 
 > **最後更新**：2026-06-12

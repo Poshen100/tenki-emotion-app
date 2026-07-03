@@ -1,3 +1,6 @@
+> ⚠️ **HISTORICAL (2026-07-03) — 本檔無現行對應系統，不在任何文件路由表上。**
+> 「Ultra Decision Timer」規格未進入 v3 架構;現行 session/timer 邏輯見 `packages/engine/src/session/`。保留僅供考古。
+
 # 🌟 TENKI Ultra Decision Timer Engine
 
 ## Complete System Specification v5.1
