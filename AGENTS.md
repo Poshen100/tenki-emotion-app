@@ -145,6 +145,8 @@ Shell: 5-tab Expo Router structure is in place and needs integration with engine
 | `ANTIGRAVITY.md` | Master product blueprint |
 | `AGENTS.md` | This file — AI agent context |
 | `.claude/skills/karpathy-engineering/SKILL.md` | Senior-engineer discipline (4 golden principles) |
+| `docs/MOTION-DIRECTION.md` | Motion language canonical — read before ANY animation work |
+| `.claude/skills/gsap-*/SKILL.md` | 8 official GSAP AI Skill packs (plain folders — open and read; routing table in MOTION-DIRECTION §6) |
 | `BRAND.md` | Brand lines, tone, visual identity |
 | `MEMORY.md` | Session log — top entry = current hand-off point |
 | `docs/DEPLOYMENT_MAP.md` | Deployed routes and preview URLs |

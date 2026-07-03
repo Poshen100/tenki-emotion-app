@@ -147,6 +147,7 @@ refactor(session): extract timer segment logic
 - 用 Zustand 管狀態
 
 ## 動畫 / 視覺
+- **任何動效先讀 `docs/MOTION-DIRECTION.md`**（動效語言 canonical：tokens、四大語彙、每 surface 引擎、GSAP skill 包路由）
 - Reanimated 3 是目標態（新動畫不得用 legacy Animated；既有 core-RN Animated 屬過渡債，原生階段遷移）
 - Skia 畫環形圖（禁用 SVG ring）
 - EWMA α=0.05 極慢收斂
