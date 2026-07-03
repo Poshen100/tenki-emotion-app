@@ -4,13 +4,10 @@
     "redirects": [
         { "source": "/preview", "destination": "/preview/", "permanent": false },
         { "source": "/v3", "destination": "/v3/", "permanent": false },
-        { "source": "/face-baseline", "destination": "/face-baseline/", "permanent": false },
         { "source": "/story", "destination": "/story/", "permanent": false },
         { "source": "/", "destination": "/story/", "permanent": false }
     ],
     "rewrites": [
-        { "source": "/face-baseline/", "destination": "/apps/mobile/dist/index.html" },
-        { "source": "/face-baseline/(.*)", "destination": "/apps/mobile/dist/$1" },
         { "source": "/brand/(.*)", "destination": "/brand/$1" },
         { "source": "/v3/", "destination": "/apps/preview/v6/index.html" },
         { "source": "/v3/(.*)", "destination": "/apps/preview/v6/$1" },

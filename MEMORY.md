@@ -8,6 +8,20 @@
 
 ---
 
+# 2026-07-03 Session Update #7 (/face-baseline/ 公開網址退場 + v3 短視窗遮擋修復 #155)
+
+> Founder 兩個裁決：① `/v3/` snapshot 在 in-app browser 被 FDCB 蓋住 → 已修（#155，環自適應視窗高度 + 兩級降級，390×660/844 headless 截圖驗證）；② `/face-baseline/`（Expo Web 審查載具）看過後拍板退場。
+
+## What was done
+- **#155 已 merge**：`.tl-edge` 尺寸加高度項 `max(150px, min(72vw,300px,calc(100dvh-520px)))`；≤760px 高縮分數字、≤680px 高 coach 卡讓位。media tiers 要放在基礎規則之後（同權重晚者勝 — 第一版放前面被蓋掉，教訓）。
+- **`/face-baseline/` 退場**：vercel.json 三條路由刪除、`apps/mobile/dist` 出庫（23 檔，gitignore 本來就擋）、app.json `experiments.baseUrl` 移除、部署地圖 .md/.json 同步、PLAYBOOK 截圖管線條目更新。⚠️ **app 內部 expo-router 的 `/face-baseline` 路由（手機畫面）完全不受影響** — 退場的只是公開網頁版。
+- 目前公開路由只剩：`/`→`/story/`、`/v3/`（=`/preview/v6/`）、`/preview/`、`/preview/finger/`、`/preview/brand/`、`/brand/*`。
+
+### 注意
+- mobile 畫面截圖驗證照舊可用（PLAYBOOK §7）：本地 expo export → serve → Playwright；dist 不再入庫。
+
+---
+
 # 2026-07-03 Session Update #6 (RN 結果頁也退場 — 揭曉出口改 Today ring)
 
 > Founder 看截圖後：「這個版本也是我不要的」— 繼 web scan-result.html 之後，RN `app/scan/result.tsx` 也否決。**結果頁體驗一律以 `/preview/v6/` 為準**。

@@ -32,7 +32,6 @@ tenki-emotion-app.vercel.app
 ├── /preview/v6/              → apps/preview/v6/       🔧 v6 Today (= /v3/, twin path)
 ├── /preview/soul-enroll.html → apps/preview/          ✨ Soul Scan (direct path, = /preview/)
 ├── /story/                   → apps/preview/story.html ✨ Cinematic scroll-narrative landing page 🔒 Hero locked
-└── /face-baseline/           → apps/mobile/dist/      📱 Real Face Baseline (Expo Web)
 ```
 
 ## Canonical URL Map
@@ -49,14 +48,11 @@ tenki-emotion-app.vercel.app
 | `https://tenki-emotion-app.vercel.app/preview/brand/` | `apps/preview/brand/index.html` | TENKI 品牌標誌（Resonance Ensō）預覽 — variants / lockups / 使用規則 | ✅ Active |
 | `https://tenki-emotion-app.vercel.app/brand/*` | `brand/`（repo 根目錄） | 品牌靜態資產直達（logo/icon/favicon/marketing，vercel.json rewrites） | ✅ Active |
 | `https://tenki-emotion-app.vercel.app/story/` | `apps/preview/story.html` | 高質感滾動式敘事 landing page — Hero 進場（🔒 Hero locked，見 SYSTEM.md §8）、ScrollTrigger 產品故事、Login→Dashboard 轉場、嵌入 `/v3/` 的 Dashboard 預覽,CTA 連回 `/preview/` 與 `/v3/` | ✨ Active dev · 🔒 Hero locked |
-| `https://tenki-emotion-app.vercel.app/face-baseline/` | `apps/mobile/dist/index.html` | Real Face Baseline flow (Expo Web build) | 📱 Active (Phase 1 phone review) |
 
 ## Routing (vercel.json)
 
 ```json
 {
-  "/face-baseline/":     "apps/mobile/dist/index.html",
-  "/face-baseline/(.*)": "apps/mobile/dist/$1",
   "/v3/":          "apps/preview/v6/index.html",
   "/v3/(.*)":      "apps/preview/v6/$1",
   "/story/":        "apps/preview/story.html",
@@ -87,7 +83,7 @@ The catch-all `/*` → `apps/web/$1` handles legacy asset loading.
 | iOS Bundle ID | com.tenki.core |
 | Android Package | com.tenki.core |
 | URL Scheme | tenki:// |
-| Public URL | `https://tenki-emotion-app.vercel.app/face-baseline/` |
+| Public URL | (retired 2026-07-03 — Expo Web 審查載具退場，無公開網址) |
 | EAS / TestFlight | **Not configured** |
 
 ## Branch → Deploy Strategy
