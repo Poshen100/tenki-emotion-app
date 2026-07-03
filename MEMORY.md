@@ -8,6 +8,27 @@
 
 ---
 
+# 2026-07-03 Session Update #5 (RN 揭曉頁截圖驗證 + 修好 Expo Web bundling + dist 更新)
+
+> Founder：「日常掃描揭曉頁也截圖給我」→ 起 Expo Web 才發現它從 fusion 工作(#116)起就 bundle 不過。順藤摸瓜修好三層問題，截到圖，dist 一併更新。
+
+## What was done
+- **修好 Expo Web（三層疊加 bug，`a87e2b2`）**：① `metro.config.js` 新增（watchFolders 涵蓋 packages/ — MEMORY 2026-06-19 預告的缺）；② zustand v5 ESM 的 `import.meta` 使 web 全白 → resolver 釘到 CJS（不能全域關 package exports，會壞 RN→RNW alias）；③ `SecureAccessRequiredScreen` 頂層 import vision-camera 拉 nitro/RN internals 進 web → 改 native 分支內 `await import()`。
+- **RN 揭曉頁截圖成功**：生產 export（dev server 的 LogBox 在 web 會拉 RN internals，必須用 export）+ 本地 serve（處理 `baseUrl:/face-baseline` 前綴）+ Playwright → 「今日內在天氣」72/Clear 完整渲染，已交 founder。
+- **dist 更新（`1d46944`）**：risks.md 未解#1（dist 過期）順帶解決 — merge 後 `/face-baseline/` 反映日常揭曉鏈 + web 修復。
+- **另**：founder 拍板結果頁只留 `/preview/v6/`，獨立 scan-result 頁已退場（`6ff4016`）；PLAYBOOK §6/§7 新增截圖驗證界線與 web bundling 陷阱五條。
+
+### 教訓（已入 PLAYBOOK §7）
+- mobile↔packages import：tsc 與 Metro 是兩套解析，都要配。
+- Expo Web 驗證用生產 export、別用 dev server。
+- `pkill -f` pattern 含在自己命令列會自殺（exit 144）。
+
+## 下次接手點
+- merge 後 founder 手機驗：`/v3/` 揭曉流程（TEI→Edge 改名後）、`/face-baseline/`（新 dist）。
+- Expo Web 現在可截圖 = mobile 畫面類改動的「截圖驗證」管線開通（PLAYBOOK §6）。
+
+---
+
 # 2026-07-03 Session Update #4 (健檢修復計畫全數執行完畢 — 10/10 步驟)
 
 > 承 #3：founder「繼續執行 plan」→ 剩餘 2.1–2.4、Phase 3 全部、4.1、4.3 一次做完。每步一 commit，進度已標回 docs/healthcheck/plan.md。
