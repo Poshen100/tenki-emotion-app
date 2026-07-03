@@ -167,7 +167,7 @@ refactor(session): extract timer segment logic
 
 ## 部署與手機檢視（詳見 docs/DEPLOYMENT_MAP.md 白話版）
 
-- **固定網址只反映 `main`**：`/v3/` 看最新 v3 UI、`/preview/` 看 onboarding；根網址 `/` 是凍結舊版不會更新。
+- **固定網址只反映 `main`**：`/v3/` 看最新 v3 UI、`/preview/` 看 onboarding；根網址 `/` 會 307 redirect 到 `/story/`（#152 起，Hero 正式門面）。
 - 想在手機瀏覽器看到的東西做在 `apps/preview/`；`apps/mobile` 沒有公開網址，不要編造 Expo/TestFlight 連結。
 - merge 前預覽：GitHub PR 頁的 Vercel bot 留言有分支 preview 連結。
 - 新增 route 時要同步更新 `docs/DEPLOYMENT_MAP.md` + `.json`。

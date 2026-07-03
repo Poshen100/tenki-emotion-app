@@ -1,7 +1,8 @@
 # DEPLOYMENT_MAP.md
 
-> Last updated: 2026-06-28
+> Last updated: 2026-07-03
 > Machine-readable companion: `docs/DEPLOYMENT_MAP.json`
+> ⚠️ **改本檔必須同步 `DEPLOYMENT_MAP.json`（反之亦然）** — f21bcd2 曾只改 .md 漏改 .json，漂移了三天才被健檢抓到。
 
 ## 🚀 白話版（founder 日常只要記這段）
 
@@ -48,6 +49,7 @@ tenki-emotion-app.vercel.app
 | `https://tenki-emotion-app.vercel.app/preview/soul-enroll.html` | `apps/preview/soul-enroll.html` | Soul Scan 直接路徑（內容同 `/preview/` 門面） | ✨ Active dev |
 | `https://tenki-emotion-app.vercel.app/preview/v6/` | `apps/preview/v6/index.html` | 同 `/v3/`,並列舊路徑保留以避免 share-link 失效 | 🔧 Active dev |
 | `https://tenki-emotion-app.vercel.app/preview/brand/` | `apps/preview/brand/index.html` | TENKI 品牌標誌（Resonance Ensō）預覽 — variants / lockups / 使用規則 | ✅ Active |
+| `https://tenki-emotion-app.vercel.app/brand/*` | `brand/`（repo 根目錄） | 品牌靜態資產直達（logo/icon/favicon/marketing，vercel.json rewrites） | ✅ Active |
 | `https://tenki-emotion-app.vercel.app/story/` | `apps/preview/story.html` | 高質感滾動式敘事 landing page — Hero 進場（🔒 Hero locked，見 SYSTEM.md §8）、ScrollTrigger 產品故事、Login→Dashboard 轉場、嵌入 `/v3/` 的 Dashboard 預覽,CTA 連回 `/preview/` 與 `/v3/` | ✨ Active dev · 🔒 Hero locked |
 | `https://tenki-emotion-app.vercel.app/face-baseline/` | `apps/mobile/dist/index.html` | Real Face Baseline flow (Expo Web build) | 📱 Active (Phase 1 phone review) |
 
