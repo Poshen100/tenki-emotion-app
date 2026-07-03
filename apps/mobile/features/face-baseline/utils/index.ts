@@ -35,4 +35,5 @@ export {
   deriveDailyEdgeScore,
   buildRefinementEntry,
   toScanMetrics,
+  formatHistoryTime,
 } from './dailyScan';

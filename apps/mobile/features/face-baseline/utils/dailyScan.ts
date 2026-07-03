@@ -63,6 +63,27 @@ export function buildRefinementEntry(at: number): RefinementEntry {
 }
 
 /**
+ * Formats a history timestamp for the maturity screen rows — "Today, 9:45 AM" /
+ * "Yesterday, 10:12 AM" / "Jun 12, 9:03 AM". Manual formatting (no locale API)
+ * so output is deterministic across runtimes.
+ */
+export function formatHistoryTime(at: number, now: number): string {
+  const d = new Date(at);
+  const hours24 = d.getHours();
+  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const clock = `${hours12}:${minutes} ${hours24 < 12 ? 'AM' : 'PM'}`;
+
+  const startOfDay = (t: number): number => new Date(t).setHours(0, 0, 0, 0);
+  const dayDiff = Math.round((startOfDay(now) - startOfDay(at)) / 86_400_000);
+  if (dayDiff === 0) return `Today, ${clock}`;
+  if (dayDiff === 1) return `Yesterday, ${clock}`;
+
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${clock}`;
+}
+
+/**
  * Maps ceremony quality metrics (0–1) onto the scan-store metrics shape
  * (0–100 integers) consumed by the existing result screen.
  */

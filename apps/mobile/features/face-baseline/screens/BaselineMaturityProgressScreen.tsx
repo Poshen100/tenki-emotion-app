@@ -23,9 +23,11 @@ import {
 } from '../components';
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
+import { formatHistoryTime } from '../utils/dailyScan';
 import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
 import { FB_ROUTES } from './routes';
 
+/** Placeholder rows shown until the first real daily scan is recorded. */
 const DEMO_HISTORY = [
   { time: 'Today, 9:45 AM', type: 'updated' as const },
   { time: 'Yesterday, 10:12 AM', type: 'refined' as const },
@@ -37,6 +39,15 @@ export default function BaselineMaturityProgressScreen(): React.JSX.Element {
   const stage = useFaceBaselineStore((s) => s.baselineMaturity);
   const scanCount = useFaceBaselineStore((s) => s.scanCount);
   const scansRequired = useFaceBaselineStore((s) => s.scansRequired);
+  const refinementHistory = useFaceBaselineStore((s) => s.refinementHistory);
+
+  const history =
+    refinementHistory.length > 0
+      ? refinementHistory.map((h) => ({
+          time: formatHistoryTime(h.at, Date.now()),
+          type: h.type,
+        }))
+      : DEMO_HISTORY;
 
   useEffect(() => {
     goTo('maturity_progress');
@@ -66,7 +77,7 @@ export default function BaselineMaturityProgressScreen(): React.JSX.Element {
 
           <Text style={styles.historyTitle}>{C.maturity.historyTitle}</Text>
           <View style={styles.history}>
-            {DEMO_HISTORY.map((h) => (
+            {history.map((h) => (
               <ScanHistoryRow
                 key={h.time}
                 time={h.time}

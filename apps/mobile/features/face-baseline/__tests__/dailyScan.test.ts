@@ -13,6 +13,7 @@ import {
   deriveDailyEdgeScore,
   buildRefinementEntry,
   toScanMetrics,
+  formatHistoryTime,
 } from '../utils/dailyScan';
 
 const NOW = 1_780_000_000_000;
@@ -62,6 +63,29 @@ describe('deriveDailyEdgeScore', () => {
       scores.add(deriveDailyEdgeScore(0, NOW + day * 86_400_000));
     }
     expect(scores.size).toBeGreaterThan(1);
+  });
+});
+
+describe('formatHistoryTime', () => {
+  const base = new Date(2026, 5, 14, 9, 45).getTime(); // local Jun 14 2026, 9:45
+
+  it('formats a same-day timestamp as Today', () => {
+    expect(formatHistoryTime(base, base + 3 * 3_600_000)).toBe('Today, 9:45 AM');
+  });
+
+  it('formats the previous day as Yesterday', () => {
+    expect(formatHistoryTime(base, base + 86_400_000)).toBe('Yesterday, 9:45 AM');
+  });
+
+  it('formats older timestamps as a short date', () => {
+    expect(formatHistoryTime(base, base + 3 * 86_400_000)).toBe('Jun 14, 9:45 AM');
+  });
+
+  it('handles PM and midnight hours', () => {
+    const pm = new Date(2026, 5, 14, 22, 5).getTime();
+    expect(formatHistoryTime(pm, pm)).toBe('Today, 10:05 PM');
+    const midnight = new Date(2026, 5, 14, 0, 30).getTime();
+    expect(formatHistoryTime(midnight, midnight)).toBe('Today, 12:30 AM');
   });
 });
 
