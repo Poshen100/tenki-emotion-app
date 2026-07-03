@@ -116,6 +116,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | 動 onboarding overlay | 不可重構 `soul-enroll.js` 的掃描 FSM；`Enable Camera` 必須是真 user tap 內呼叫 `window.TENKI_ENROLL.begin()`（相機權限依賴手勢） |
 | CDN 資源（GSAP/Three/MediaPipe/Inter） | 雲端沙箱擋 CDN → 容器內只能結構性驗證；動效手感一律留給 founder 實機 |
 | 任何 UI 顯示生理數值 | **不得放假的生理讀數**（曾移除假 "HR 87 bpm"）；demo 值要明顯是合成示意 |
+| 看到 `styles.css` 的 `--tenki-accent-*` 調色盤（#c97b2f 金）想併入 tokens.css | **不要** — founder 2026-07-03 拍板保留：出自參考截圖的刻意掃描流視覺，不是漏收斂的 bug |
 
 ## 7. apps/mobile / engine 陷阱
 
