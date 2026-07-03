@@ -9,15 +9,15 @@ import type { AddEventResult, DecisionEvent, DecisionSession, DecisionTemplate, 
 /**
  * 建立新的決策 Session。
  * @param templateId - 使用的模板 ID
- * @param teiAtStart - 開始時的 TEI PR 值
+ * @param edgeScoreAtStart - 開始時的 Edge Score 值
  * @returns 新建的 DecisionSession（狀態為未完成、事件為空）
  */
-export function createSession(templateId: TemplateId, teiAtStart: number): DecisionSession {
+export function createSession(templateId: TemplateId, edgeScoreAtStart: number): DecisionSession {
     return {
         id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
         templateId,
-        teiAtStart,
-        teiAtEnd: null,
+        edgeScoreAtStart,
+        edgeScoreAtEnd: null,
         events: [],
         startedAt: Date.now(),
         endedAt: null,
@@ -38,7 +38,7 @@ export function createSession(templateId: TemplateId, teiAtStart: number): Decis
  * @param session - 當前的 DecisionSession
  * @param type - 事件類型
  * @param elapsedSec - 事件發生時的已過秒數
- * @param teiAtEvent - 事件發生時的 TEI PR 值（snapshot）
+ * @param edgeScoreAtEvent - 事件發生時的 Edge Score 值（snapshot）
  * @param template - 當前使用的模板（用於 entry lock 判斷）
  * @returns AddEventResult — 包含更新後的 session 和是否被接受
  */
@@ -46,7 +46,7 @@ export function addEvent(
     session: DecisionSession,
     type: EventType,
     elapsedSec: number,
-    teiAtEvent: number,
+    edgeScoreAtEvent: number,
     template: DecisionTemplate
 ): AddEventResult {
     // Entry Lock 檢查：ENTRY 事件在 lockEntrySec 內被拒絕
@@ -60,7 +60,7 @@ export function addEvent(
         id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
         type,
         elapsedSec,
-        teiAtEvent,
+        edgeScoreAtEvent,
         timestamp: Date.now(),
     };
 
@@ -76,20 +76,20 @@ export function addEvent(
 /**
  * 完成（關閉）一個 Session。
  * @param session - 當前的 DecisionSession
- * @param teiAtEnd - 結束時的 TEI PR 值
+ * @param edgeScoreAtEnd - 結束時的 Edge Score 值
  * @param elapsedSec - 總計過秒數
  * @param result - 決策結果（可選，預設 null）
  * @returns 已完成的 DecisionSession
  */
 export function completeSession(
     session: DecisionSession,
-    teiAtEnd: number,
+    edgeScoreAtEnd: number,
     elapsedSec: number,
     result: DecisionSession['result'] = null
 ): DecisionSession {
     return {
         ...session,
-        teiAtEnd,
+        edgeScoreAtEnd,
         endedAt: Date.now(),
         durationSec: elapsedSec,
         result,

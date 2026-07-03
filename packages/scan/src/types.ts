@@ -82,8 +82,8 @@ export interface DecisionEvent {
   type: EventType;
   /** 事件發生時的已過秒數 */
   elapsedSec: number;
-  /** 事件發生時的 TEI PR 值 */
-  teiAtEvent: number;
+  /** 事件發生時的 Edge Score 值 */
+  edgeScoreAtEvent: number;
   /** 事件發生的時間戳 (Unix ms) */
   timestamp: number;
 }
@@ -94,10 +94,10 @@ export interface DecisionSession {
   id: string;
   /** 使用的模板 ID */
   templateId: TemplateId;
-  /** 開始時的 TEI PR 值 */
-  teiAtStart: number;
-  /** 結束時的 TEI PR 值（未結束為 null） */
-  teiAtEnd: number | null;
+  /** 開始時的 Edge Score 值 */
+  edgeScoreAtStart: number;
+  /** 結束時的 Edge Score 值（未結束為 null） */
+  edgeScoreAtEnd: number | null;
   /** Session 中的所有事件 */
   events: DecisionEvent[];
   /** Session 開始時間戳 (Unix ms) */
