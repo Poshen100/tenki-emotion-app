@@ -17,7 +17,7 @@ This note is the current desktop hand-off. Older notes below are historical.
 ## 桌機 Antigravity 的工作清單（需要真瀏覽器/實機/Mac，雲端做不了）
 
 1. **`/preview/` onboarding→Soul Scan polish pass**（沿用 2026-06-30 note 的調參地圖，現在直接在 main 上開 `feat/*` 分支做）：真 CDN（GSAP/Three/MediaPipe/Inter）下逐 beat 走一遍、對齊 founder mockups、調 `AUTO` dwell / `orbTo()` eases / `HOLD_MS`、驗 `prefers-reduced-motion` 與 ~390px、真 iPhone Safari 相機 handoff。Optional high-value：把 CSS `.ob-orb` 換成真 `TENKI_STARDUST` 品牌球（需 GPU live preview）。改 preview 前**必讀 `docs/PLAYBOOK.md` §6**（iOS 陷阱全集）。
-2. **Mobile 日常掃描揭曉的實機手感**：Expo 實走 Scan tab → 日常 ceremony → `/scan/result` 揭曉 → Today；揭曉動效/節奏 polish（Reanimated 3；環形圖 Skia，禁 SVG）。注意：established 畫面文案是「首次基線」導向，日常掃描已繞過它 — 若 founder 想要日常專屬的揭曉儀式畫面，屬設計決策，先和 founder 對齊再動。
+2. **Mobile 日常掃描揭曉 — 設計任務（2026-07-03 更新）**：founder 已否決兩個獨立結果頁（web `scan-result.html` 與 RN `app/scan/result.tsx`，均已刪）— **結果頁體驗一律以 `/preview/v6/` 星塵揭曉為準**。現況：日常 ceremony → processing → 直接回 Today，分數環即揭曉（過渡態）。桌機任務：與 founder 對齊後，把 v6 的揭曉儀式（星塵 takeover → 分數收斂 → zone 揭示）移植成 RN 版（Reanimated 3 + Skia，禁 SVG；mock 分數已由 `dailyScan.ts` 供給 scan-store）。先出 mockup 或以 `/preview/v6/?from=baseline` 實走對齊節奏，別自行發明新視覺。
 3. **原生 lane（需 Mac）**：vision-camera 真臉部信號 → 餵 `updateQuality`（目前 mock 流程 quality 全 0）→ `estimateConfidence` 就會有真值 → `deriveDailyEdgeScore` 自動走真 confidence 分支；最終把 mock 換成 `packages/engine` scoring（screens 內有 `INTEGRATION (...)` 標記點）。
 4. 動任何 preview/品牌資產前查 locked 清單：`SYSTEM.md` §8（/story/ Hero + 星塵球）、本檔 §18（logo）、`brand/TAGLINE-SYSTEM.md`。
 

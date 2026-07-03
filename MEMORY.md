@@ -8,6 +8,21 @@
 
 ---
 
+# 2026-07-03 Session Update #6 (RN 結果頁也退場 — 揭曉出口改 Today ring)
+
+> Founder 看截圖後：「這個版本也是我不要的」— 繼 web scan-result.html 之後，RN `app/scan/result.tsx` 也否決。**結果頁體驗一律以 `/preview/v6/` 為準**。
+
+## What was done（`ab15c3e`）
+- 刪 `app/scan/result.tsx`（引用盤點：只有本次日常鏈的接線）。
+- `DAILY_RESULT_ROUTE` `/scan/result` → `/`（Today）：日常掃描完成 → Today 分數環即揭曉（過渡態）；routes pin 測試同步；dist 重出。
+- ANTIGRAVITY.md 桌機清單第 2 條改寫成明確設計任務：把 v6 星塵揭曉移植成 RN 版（Reanimated 3 + Skia），先對齊 founder、別自行發明視覺。
+
+### 注意
+- scan-store 的 `lastResult` 管線不變（Today/lab 消費中）；`dailyScan.ts` mock 分數照供。
+- **產品裁決記錄**：founder 對「結果頁」的標準 = v6 星塵揭曉那種儀式感，不是靜態卡片頁 — 未來任何結果頁提案先過這關。
+
+---
+
 # 2026-07-03 Session Update #5 (RN 揭曉頁截圖驗證 + 修好 Expo Web bundling + dist 更新)
 
 > Founder：「日常掃描揭曉頁也截圖給我」→ 起 Expo Web 才發現它從 fusion 工作(#116)起就 bundle 不過。順藤摸瓜修好三層問題，截到圖，dist 一併更新。
