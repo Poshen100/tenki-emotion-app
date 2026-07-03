@@ -2,6 +2,14 @@
  * @module face-baseline/utils/maturityStage
  * @description Maps completed-scan counts to baseline maturity stages and the
  * per-stage scan targets shown on the Maturity Progress screen.
+ *
+ * Mirror of engine `BASELINE_THRESHOLDS` (1/5/15) — keep in sync with
+ * `packages/engine/src/common/types.ts`.
+ * ⚠️ Simplification: the engine canonical additionally requires ≥3 distinct
+ * days for 'mature' (`BASELINE_THRESHOLDS.MATURE_DAYS`); this mirror gates on
+ * scan count only, so 15 same-day scans read as mature here but not in the
+ * engine. Wire the distinct-days condition when scan history is persisted
+ * (native phase). See docs/healthcheck/REPORT.md P2-4.
  */
 
 import type { MaturityStage } from '../types/faceBaseline.types';
