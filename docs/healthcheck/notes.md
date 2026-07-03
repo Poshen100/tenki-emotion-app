@@ -19,10 +19,20 @@
    - barrel `index.ts` 宣稱 v3-only，但 export `teiToEdgeScoreApprox`（轉換 adapter，屬刻意過渡 API）。
    - 結論：TEI 退場要分兩級 — 先搬「legacy-only」五檔進 `legacy/`，再對 Tier 2 做「抽出 v3 仍在用的型別/函式 → 收殘殼」。
 
+### Agent C（覆蓋率量測，haiku）— 已回
+- **engine 89.02% stmts，差 0.98% 沒達 ≥90% 規則**；元兇 `src/biometric/rr.ts` 只有 25%（293 tests / 22 suites 全綠）。
+- scan 93.91% ✓、shared 93.61、domain 84.56（無規則要求）、mobile 93.59（最低 `fingerPrecisionStore.ts` 70.73%）。
+- ⚠️ agent 回報「verify lint 紅」→ 本體查證：是它自己跑 `jest --coverage` 產生的 `coverage/` 目錄被 Biome 掃到（20 個 errors 全來自 coverage/lcov-report/*.html）。**coverage/ 在 .gitignore:34，但 biome.json 未開 vcs 整合、includes 也沒排除** → 任何人跑 coverage 就弄破 lint gate。已 `rm -rf` 還原，lint 回 0 errors（71 warnings 非阻斷）。→ 修法一行：biome includes 加 `"!**/coverage"`。
+- 教訓（agent 使用）：便宜模型的異常回報要本體覆核 — 它把自己污染環境的結果當成 repo 現況回報了。
+
 ## 死路 / 意外發現
 
 - （隨做補）
 
 ## sub-agent 結果摘要
 
-- （回來後補）
+### Agent A（合規掃描，sonnet）— 已回
+- **Rule 3 Animated：最大發現** — `react-native-reanimated` 完全不在 apps/mobile 依賴裡；20 檔 / 244 處 `Animated.*` 全是 legacy RN Animated；`GlowPrimaryButton.tsx` JSDoc 自書「Pure RN Animated — no Skia/Reanimated」。對照 MEMORY 2026-06-10：這是 mock 階段刻意決策（INTEGRATION 標記等原生階段升級）→ 屬「規則寫的是目標態、現實是過渡態」的規則-現實脫節，不是偷懶違規。需要裁決（見 decisions.md）。
+- **Rule 1 TEI：packages/scan/src 有活的違規** — 匯出常數 `TEI_BUCKET_BOUNDARIES`、公開函式 `getTeiBucket()`、session 欄位 `teiAtStart/End/Event`（types/events/constants/analytics + 3 個測試檔）；`packages/engine/__tests__/tei.test.ts` 在 src 白名單外；`apps/preview/v6/` 整套 `.tl-tei` / `tlTlTlTeiScore` 原型殘留（~90 行）+ stardust-scan-takeover.{js,css} 5 處。domain/ 與 apps/mobile 乾淨。
+- **Rule 4 SVG**：一處 — `PrecisionArc.web.tsx:38` 用 raw `<svg>` 畫環（web 平台 fallback）。
+- **Rule 2 any / Rule 5 Redux / Rule 6 隱私網路呼叫：全乾淨**（engine/scan/mobile 零網路 primitive — local-first 承諾成立）。
