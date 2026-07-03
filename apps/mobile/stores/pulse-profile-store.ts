@@ -1,3 +1,5 @@
+// DORMANT: awaiting native wiring — TENKI Pulse last-mile (scan screens -> playPattern/recordScan),
+// see MEMORY.md 2026-06-14 entry. Not an orphan; do not delete.
 /**
  * Pulse Profile Store (TENKI Pulse)
  *
