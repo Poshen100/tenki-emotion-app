@@ -11,6 +11,13 @@ const BASE = '/face-baseline' as const;
 /** Onboarding completion route — lives outside the face-baseline stack. */
 export const ONBOARDING_COMPLETE_ROUTE = '/onboarding/complete' as const;
 
+/**
+ * Daily-scan reveal route — the existing result screen (今日內在天氣) that
+ * renders the Edge Score / Zone from the scan store. Lives outside the
+ * face-baseline stack; daily refinement scans exit processing directly here.
+ */
+export const DAILY_RESULT_ROUTE = '/scan/result' as const;
+
 export const FB_ROUTES = {
   intro: BASE,
   why: `${BASE}/why`,
