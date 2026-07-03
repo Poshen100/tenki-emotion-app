@@ -26,3 +26,13 @@ export { classifyRetryReason, RETRY_COPY_KEY } from './retryReason';
 export type { RetryContext } from './retryReason';
 export { estimateConfidence, totalBaselineConfidence, confidenceBand } from './confidence';
 export type { ConfidenceBand } from './confidence';
+export {
+  DAILY_SCORE_MIN,
+  DAILY_SCORE_MAX,
+  FALLBACK_SCORE_BASE,
+  FALLBACK_SCORE_SPREAD,
+  isDailyRefinement,
+  deriveDailyEdgeScore,
+  buildRefinementEntry,
+  toScanMetrics,
+} from './dailyScan';
