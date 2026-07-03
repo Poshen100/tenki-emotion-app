@@ -8,6 +8,133 @@
 
 ---
 
+# 2026-07-03 Session Update #6 (RN 結果頁也退場 — 揭曉出口改 Today ring)
+
+> Founder 看截圖後：「這個版本也是我不要的」— 繼 web scan-result.html 之後，RN `app/scan/result.tsx` 也否決。**結果頁體驗一律以 `/preview/v6/` 為準**。
+
+## What was done（`ab15c3e`）
+- 刪 `app/scan/result.tsx`（引用盤點：只有本次日常鏈的接線）。
+- `DAILY_RESULT_ROUTE` `/scan/result` → `/`（Today）：日常掃描完成 → Today 分數環即揭曉（過渡態）；routes pin 測試同步；dist 重出。
+- ANTIGRAVITY.md 桌機清單第 2 條改寫成明確設計任務：把 v6 星塵揭曉移植成 RN 版（Reanimated 3 + Skia），先對齊 founder、別自行發明視覺。
+
+### 注意
+- scan-store 的 `lastResult` 管線不變（Today/lab 消費中）；`dailyScan.ts` mock 分數照供。
+- **產品裁決記錄**：founder 對「結果頁」的標準 = v6 星塵揭曉那種儀式感，不是靜態卡片頁 — 未來任何結果頁提案先過這關。
+
+---
+
+# 2026-07-03 Session Update #5 (RN 揭曉頁截圖驗證 + 修好 Expo Web bundling + dist 更新)
+
+> Founder：「日常掃描揭曉頁也截圖給我」→ 起 Expo Web 才發現它從 fusion 工作(#116)起就 bundle 不過。順藤摸瓜修好三層問題，截到圖，dist 一併更新。
+
+## What was done
+- **修好 Expo Web（三層疊加 bug，`a87e2b2`）**：① `metro.config.js` 新增（watchFolders 涵蓋 packages/ — MEMORY 2026-06-19 預告的缺）；② zustand v5 ESM 的 `import.meta` 使 web 全白 → resolver 釘到 CJS（不能全域關 package exports，會壞 RN→RNW alias）；③ `SecureAccessRequiredScreen` 頂層 import vision-camera 拉 nitro/RN internals 進 web → 改 native 分支內 `await import()`。
+- **RN 揭曉頁截圖成功**：生產 export（dev server 的 LogBox 在 web 會拉 RN internals，必須用 export）+ 本地 serve（處理 `baseUrl:/face-baseline` 前綴）+ Playwright → 「今日內在天氣」72/Clear 完整渲染，已交 founder。
+- **dist 更新（`1d46944`）**：risks.md 未解#1（dist 過期）順帶解決 — merge 後 `/face-baseline/` 反映日常揭曉鏈 + web 修復。
+- **另**：founder 拍板結果頁只留 `/preview/v6/`，獨立 scan-result 頁已退場（`6ff4016`）；PLAYBOOK §6/§7 新增截圖驗證界線與 web bundling 陷阱五條。
+
+### 教訓（已入 PLAYBOOK §7）
+- mobile↔packages import：tsc 與 Metro 是兩套解析，都要配。
+- Expo Web 驗證用生產 export、別用 dev server。
+- `pkill -f` pattern 含在自己命令列會自殺（exit 144）。
+
+## 下次接手點
+- merge 後 founder 手機驗：`/v3/` 揭曉流程（TEI→Edge 改名後）、`/face-baseline/`（新 dist）。
+- Expo Web 現在可截圖 = mobile 畫面類改動的「截圖驗證」管線開通（PLAYBOOK §6）。
+
+---
+
+# 2026-07-03 Session Update #4 (健檢修復計畫全數執行完畢 — 10/10 步驟)
+
+> 承 #3：founder「繼續執行 plan」→ 剩餘 2.1–2.4、Phase 3 全部、4.1、4.3 一次做完。每步一 commit，進度已標回 docs/healthcheck/plan.md。
+
+## What was done（8 commits）
+- **2.1**：biome includes 加 `!**/coverage`（跑 coverage 不再弄破 lint gate，實測驗證）。
+- **2.2**：v3 `biometric/rr.ts` 25%→100% 覆蓋（新 biometric-rr.test.ts）；engine 總覆蓋 89.02%→**92.78%** 重新達標 ≥90%。
+- **2.3**：DEPLOYMENT_MAP.json 補 `/`→`/story/` redirect（f21bcd2 漏改）+ `/brand/*`；.md 加雙檔同步警告；CLAUDE.md 部署節過時句修正。
+- **2.4**：根 BRAND.md / docs/BRAND.md / DEPLOYMENTS.md / TENKI-ULTRA-SPEC.md 加 ⛔/⚠️ 橫幅；PLAYBOOK §0 過時清單同步九檔。
+- **3.1**：刪 `engine/src/tei.ts` + 其測試（檢疫區外死代碼）。
+- **3.2（實況與 plan 不同，已記回 plan）**：ewma/hrv/sqi/stress/rr 頂層檔與 legacy/ 副本 **byte-identical**（diff 驗證）→ 不是「搬進去」（會撞名）而是**刪頂層副本 + 測試 import 重指向 legacy/**（覆蓋率保留，92.57%）。
+- **3.3**：scan 套件 TEI 全清（EDGE_BUCKET_BOUNDARIES/getEdgeBucket/edgeScoreAt*/edgeBucket + JSDoc/測試描述含 Peak/Optimal/Degraded 字樣）；agent 盤點漏了 timeline/types.ts 與 templates/selector.ts 的 JSDoc，執行時抓到。
+- **3.4**：v6 揭曉 tei 命名債全清 — 識別字族比 plan 估的多（`tlTlTlTei{Points,Start,End,Min,Max,Area,Zone,ToY}`、`renderTlTlTeiTrace`、`sdTlTlTei*`、`current/targetTlTei`、data 欄位 `tei:`）→ 全改 edgeTrace*/edgeScore* 家族；三檔（index.html + takeover.js/css）同步；node --check + 4 段 inline script 語法全過。
+- **4.1**：刪 QualityMeter/ReadinessChecklist/StatusPill/mock-scan（刪前逐檔再驗證）；6 個預留件掛 DORMANT 牌。
+- **4.3**：maturityStage 加 mirror 標記 + distinct-days 缺口 caveat。
+
+### 教訓 / 注意
+- **plan 假設 vs 現場實況**：3.2 的「搬進 legacy」假設錯（legacy 已有副本）— 執行者遇到 plan 與現場矛盾時，回到決策意圖（D2：v2 退出 active tree、legacy 故事保留）選等效動作，並把實況記回 plan。
+- grep 字面盤點會漏 JSDoc/測試描述字串 — 改名類任務收尾要用 case-insensitive 全檔掃殘餘再收工（`stateIdx` 這種誤中除外）。
+
+## 待 founder 手機驗（merge 後）
+1. ~~`/preview/scan-result.html` — 三 zone 色~~ → **已裁決退場**：founder 看過截圖後拍板「結果頁只留 `/preview/v6/` 版本」（2026-07-03）。scan-result.{html,css,js} 已刪、部署地圖兩檔同步移除。結果頁 canonical = `/preview/v6/`（=`/v3/`）；mobile 端對應 `app/scan/result.tsx` 不受影響（那是 RN 頁非 web preview）。
+2. `/v3/` — 完整揭曉流程（3.4 id/class 改名後功能不變）。
+
+---
+
+# 2026-07-03 Session Update #3 (健檢三件拍板全過 + Phase 1 P0 執行完畢)
+
+> Founder：「先拍板那三件待決事項 全依建議」→ 三件裁決落地 + Phase 1（P0 紅線）全部執行。
+
+## What was done（6 commits）
+1. **拍板①（D3/plan 4.2 + 1.1）**：刪根目錄考古層 — `vite.config.js`（含 "Bio-Risk SaaS for Pro Traders" 違規文案）、`dev-dist/`、`src/`、`ui/`、`tests/`、`integration/`、`templates/`（38 檔，零外部引用已驗證，git 可復原）；package.json 移除 vite/vite-plugin-pwa（-282 packages）。
+2. **拍板②（D1/plan 2.5）**：CLAUDE.md Reanimated 規則改寫 —「目標 Reanimated 3；既有 20 檔 core-RN Animated 是已知過渡債原生階段遷移；不得新增」。
+3. **拍板③（D5）**：preview 第二調色盤（#c97b2f 金）保留 — styles.css 掛 FOUNDER-APPROVED 註解 + PLAYBOOK §6 防守條目（防未來 AI 誤「修正」）。
+4. **plan 1.2**：scan-result.css zone 色改 canonical slate/ember（**待 founder 手機看 `/preview/scan-result.html` 驗色**）。
+5. **plan 1.3**：TEI-SPEC.md + progressive-tei-api.md 加 ⛔ SUPERSEDED 橫幅。
+6. plan.md / decisions.md 進度標記同步更新。
+
+## 下次接手點
+- **剩餘步驟（照 docs/healthcheck/plan.md，全部無阻擋）**：2.1 biome 排除 coverage、2.2 rr.ts 補測試到 ≥90%、2.3 部署文件三處同步、2.4 品牌文件橫幅、Phase 3 TEI 退場四級、4.1 mobile 孤兒清理、4.3 maturityStage 掛牌。
+- founder 手機驗：`/preview/scan-result.html` 三 zone 色（slate/ember）。
+
+---
+
+# 2026-07-03 Session Update #2 (全專案健檢完成 — 交接包在 docs/healthcheck/)
+
+> Founder：對專案做完整健檢（audit-only），輸出可驗證報告 + 讓非 Fable 模型能無縫接手的交接包。4 個便宜模型 sub-agent 跑機械掃描，本體只做裁決。
+
+## What was done
+- **交接包（docs/healthcheck/，5 檔）**：`REPORT.md`（P0×3 / P1×6 / P2×7，每條附證據與驗證方式）、`decisions.md`（8 裁決含捨棄方案）、`plan.md`（4 phase 修復步驟，Sonnet/Opus 照做粒度、每步附驗收、破壞性步驟掛 [待 founder 拍板]）、`risks.md`（風險 + 未解 + 方法侷限，誠實版）、`notes.md`（過程紀錄）。
+- **頭三個發現**：① vite.config.js 死設定裡藏 "Bio-Risk SaaS for Pro Traders" 違規文案；② `/preview/scan-result.html` 活頁面還在用遷移前 zone 色（近白/紫）；③ Reanimated 3 規則 vs 現實全面脫節（20 檔 244 處 legacy Animated、依賴根本沒裝 — 屬 mock 階段刻意債，規則措辭需 founder 拍板修正）。
+- **好消息**：`any` 0、Redux 0、**生理數據網路呼叫 0（local-first 代碼層成立）**；haptics 鏡像與 zone 六檔色全 IN-SYNC。
+- **PLAYBOOK 新增 §9.5**：sub-agent 使用紀律（副作用清理、異常回報必覆核、矛盾本體裁決）— 本次兩個實戰教訓的提煉。
+
+### 教訓 / 注意
+- haiku agent 跑 `jest --coverage` 污染工作區把 lint gate 弄假紅、且把它當 repo 現況回報 → 本體覆核抓到，coverage/ 未進 biome 排除是真發現（plan 2.1）。
+- 兩個 agent 對 engine/src/tei.ts 引用狀態矛盾 → 本體親跑 grep 裁決（它是檢疫區外死代碼，legacy/ 用自己的副本）。
+
+## 下次接手點（按 plan.md 執行，任何模型可接）
+1. Phase 1（P0 三項，半天，雲端可做）→ Phase 2 起各步獨立。
+2. [待 founder 拍板] 三件：根目錄考古層刪除（4.2）、Reanimated 規則措辭（2.5）、preview 第二調色盤歸屬（D5）。
+3. 未解清單見 risks.md（dist 新鮮度、demo 頁是否進部署地圖等）。
+
+---
+
+# 2026-07-03 Session Update (日常 Soul Scan 揭曉鏈落地(mock) + Antigravity 桌機交接 — claude/fable5-system-setup-xuqbkg)
+
+> Founder（只有手機）：「你先幫我工作，適合 Antigravity 的留給它，確保接手 AI 都懂。」接 2026-06-23 條目的 A 叉路 follow-up。
+
+## What was done（4 commits，commit-per-todo）
+1. **`utils/dailyScan.ts`（純函式 + 15 測試）**：`isDailyRefinement`（standalone + baselineEstablished 才算日常掃描）、`deriveDailyEdgeScore`（有 confidence → 線性映射 32–96；mock 流程 quality 全 0 → 走每日確定性合成分數 62±14，JSDoc 標明 MOCK STAGE）、`buildRefinementEntry`、`toScanMetrics`、`formatHistoryTime`（手動格式化不依賴 locale API）。
+2. **processing 完成分流（`ProcessingBaselineScreen`）**：日常 refinement → `recordScan`（maturity/history）+ mock Edge Score 寫入 scan-store + `incrementFaceBaselineCount` → **直接 `router.replace('/scan/result')` 揭曉**（既有「今日內在天氣」頁，Today ring 同步反映）；首次基線 → established 儀式照舊。**順手修缺口**：standalone 首次基線補 `setBaselineScore`（鏡像 onboarding complete），否則站內建基線後 `hasBaseline` 永遠 false、Scan tab 一直導回 intro。
+3. **maturity 畫面接真歷史**：`refinementHistory` 有條目就取代 DEMO_HISTORY（空時保留 demo）。
+4. **ANTIGRAVITY.md 置頂 note 換新（2026-07-03）**：舊 note 已過時（onboarding 實際已 merge #151、/story/ 已是 front door #152）。新 note = 制度必讀 + 現況 + 桌機專屬清單（preview 真 CDN polish / mobile 揭曉實機手感 / Mac 原生 lane）。
+
+## 分工原則（本次確立）
+- **雲端（Claude Code）**：TS 邏輯、測試、CI 涵蓋的接線、文件 — 不需實機的全包。
+- **桌機（Antigravity）**：真 CDN 瀏覽器的動效手感、pixel 對齊 mockups、實機 Safari/Expo 驗證、需 Mac 的原生模組。
+
+### 教訓 / 注意
+- **mock 流程從不呼叫 `updateQuality`**（quality 全 0 → `estimateConfidence` = 0）— 這就是 complete.tsx `|| 68` fallback 的根因。任何「拿 confidence 當輸入」的新功能都要處理無訊號情境；原生相機接上 `updateQuality` 後，mock fallback 自動退位。
+- established 畫面文案是首次基線導向；日常掃描現在繞過它直接揭曉。若要日常專屬揭曉儀式畫面 = 設計決策，先問 founder。
+- 驗證：mobile 13 suites / 112 tests 全綠、tsc 0 error、改動檔 biome clean、`npm run verify` 全綠。
+
+## 下次接手點
+1. Founder 手機看不到 mobile（無公開網址）— 揭曉鏈的實機驗證屬 Antigravity lane（見 ANTIGRAVITY.md 置頂 note）。
+2. 雲端可續做：Timeline 讀 refinementHistory/lastResult 真資料、Today Stats Grid（Sessions/Avg/Streak 還是 —）、established 日常變體文案（待 founder 拍板）。
+3. 真 engine scoring 待原生相機（Mac lane）。
+
+---
+
 # 2026-07-02 Session Update (Fable 5 制度建設：PLAYBOOK + verify.sh + 護欄修矛盾 — claude/fable5-system-setup-xuqbkg)
 
 > Founder：把 Fable 5（一次性最強模型 session）的判斷力轉成可長期沿用的制度與檔案，讓之後較弱模型的 session 都因此變強。不做日常任務，只立制度。

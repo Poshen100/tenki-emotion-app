@@ -1,21 +1,21 @@
 /**
  * @module analytics
- * @description TEI Bucket 統計與決策洞察。
- * 用途："在 TEI 70-75 時，你通常在 90-150 秒內進場，勝率 62%"
+ * @description Edge Bucket 統計與決策洞察。
+ * 用途："在 Edge Score 70-75 時，你通常在 90-150 秒內進場，勝率 62%"
  */
 
 import type { DecisionSession, TemplateId } from './types';
-import { TEI_BUCKET_BOUNDARIES } from './constants';
+import { EDGE_BUCKET_BOUNDARIES } from './constants';
 
 /**
- * 取得 TEI PR 值對應的 Bucket 標籤。
+ * 取得 Edge Score 值對應的 Bucket 標籤。
  * Bucket 由高到低依序比對，符合第一個 min 值即回傳。
- * @param tei - TEI PR 值 (1-99)
+ * @param edgeScore - Edge Score 值 (0-100)
  * @returns Bucket 標籤字串（如 '70-75'）
  */
-export function getTeiBucket(tei: number): string {
-    for (const boundary of TEI_BUCKET_BOUNDARIES) {
-        if (tei >= boundary.min) {
+export function getEdgeBucket(edgeScore: number): string {
+    for (const boundary of EDGE_BUCKET_BOUNDARIES) {
+        if (edgeScore >= boundary.min) {
             return boundary.label;
         }
     }
@@ -24,8 +24,8 @@ export function getTeiBucket(tei: number): string {
 
 /** 單一 Bucket + Template 組合的統計結果 */
 export interface SessionStats {
-    /** 對應的 TEI Bucket 標籤 */
-    teiBucket: string;
+    /** 對應的 Edge Bucket 標籤 */
+    edgeBucket: string;
     /** 對應的模板 ID */
     templateId: TemplateId;
     /** 平均首次 ENTRY 秒數 */
@@ -40,7 +40,7 @@ export interface SessionStats {
 
 /**
  * 彙總多個已完成 Session 的統計數據。
- * 以 TEI Bucket + TemplateId 為 key 分組，計算平均進場時間、勝率等。
+ * 以 Edge Bucket + TemplateId 為 key 分組，計算平均進場時間、勝率等。
  *
  * @param sessions - 決策 Session 陣列
  * @returns Record，key 格式為 `{bucket}::{templateId}`，value 為 SessionStats
@@ -59,7 +59,7 @@ export function aggregateSessions(sessions: DecisionSession[]): Record<string, S
     for (const session of sessions) {
         if (!session.completed) continue;
 
-        const bucket = getTeiBucket(session.teiAtStart);
+        const bucket = getEdgeBucket(session.edgeScoreAtStart);
         // Use :: as separator to avoid ambiguity with template IDs that may contain _
         const key = `${bucket}::${session.templateId}`;
 
@@ -95,7 +95,7 @@ export function aggregateSessions(sessions: DecisionSession[]): Record<string, S
         const s = stats[key];
 
         result[key] = {
-            teiBucket: s.bucket,
+            edgeBucket: s.bucket,
             templateId: s.templateId,
             avgEntrySec: s.entries > 0 ? s.entrySum / s.entries : 0,
             avgEventsPerSession: s.events / s.count,

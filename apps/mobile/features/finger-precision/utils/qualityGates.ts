@@ -1,3 +1,4 @@
+// DORMANT: awaiting multi-modal-blend wiring (feature barrel not yet consumed). Not an orphan; do not delete.
 /**
  * @module finger-precision/utils/qualityGates
  * @description Quality gate evaluation and readiness score calculation.

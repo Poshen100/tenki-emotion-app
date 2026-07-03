@@ -35,7 +35,7 @@
 | 把 raw biometric data 上傳雲端 | Privacy-first 核心承諾 |
 | 把隱私控制放在付費牆後 | v3 規範 |
 | 用 SVG 畫環形圖 | 用 Skia |
-| 用 legacy `Animated` | 用 Reanimated 3 |
+| **新增** legacy `Animated` 用法 | 動畫目標是 Reanimated 3。現有 core-RN Animated（20 檔）是 mock 階段已知過渡債（`INTEGRATION` 標記，原生整合階段一併遷移，2026-07-03 拍板）— 舊的先不動，但不得再寫新的 |
 | 用 Redux | 用 Zustand |
 | 累積多個 Todo 才 commit | 違反 Commit-Per-Todo |
 | 把產品框定為 "trading tool" / "signal system" / "meditation app" | 違反 `SYSTEM.md` 核心定位（Decision Infrastructure / Human State Calibration System） |
@@ -147,7 +147,7 @@ refactor(session): extract timer segment logic
 - 用 Zustand 管狀態
 
 ## 動畫 / 視覺
-- Reanimated 3（禁用 legacy Animated）
+- Reanimated 3 是目標態（新動畫不得用 legacy Animated；既有 core-RN Animated 屬過渡債，原生階段遷移）
 - Skia 畫環形圖（禁用 SVG ring）
 - EWMA α=0.05 極慢收斂
 - 星塵動效「感覺」不能改，保持 v25.8.2 視覺體驗
@@ -167,7 +167,7 @@ refactor(session): extract timer segment logic
 
 ## 部署與手機檢視（詳見 docs/DEPLOYMENT_MAP.md 白話版）
 
-- **固定網址只反映 `main`**：`/v3/` 看最新 v3 UI、`/preview/` 看 onboarding；根網址 `/` 是凍結舊版不會更新。
+- **固定網址只反映 `main`**：`/v3/` 看最新 v3 UI、`/preview/` 看 onboarding；根網址 `/` 會 307 redirect 到 `/story/`（#152 起，Hero 正式門面）。
 - 想在手機瀏覽器看到的東西做在 `apps/preview/`；`apps/mobile` 沒有公開網址，不要編造 Expo/TestFlight 連結。
 - merge 前預覽：GitHub PR 頁的 Vercel bot 留言有分支 preview 連結。
 - 新增 route 時要同步更新 `docs/DEPLOYMENT_MAP.md` + `.json`。

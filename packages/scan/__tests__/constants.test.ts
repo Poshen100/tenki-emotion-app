@@ -2,7 +2,7 @@ import {
     FDCB_HEIGHT, FDCB_EXPANDED_HEIGHT, FDCB_BLUR_RADIUS, FDCB_BACKGROUND,
     COMPLETE_FLASH_COLOR, COMPLETE_AUTO_RESET_MS,
     DOT_ACTIVE_COLOR, DOT_INACTIVE_COLOR, DOT_CHECKMARK_COLOR,
-    TEMPLATE_IDS, TEI_BUCKET_BOUNDARIES,
+    TEMPLATE_IDS, EDGE_BUCKET_BOUNDARIES,
     FDCB_TIMER_TYPOGRAPHY, FDCB_LABEL_TYPOGRAPHY,
 } from '../src/constants';
 
@@ -49,23 +49,23 @@ describe('FDCB Constants', () => {
         });
     });
 
-    describe('TEI_BUCKET_BOUNDARIES', () => {
+    describe('EDGE_BUCKET_BOUNDARIES', () => {
         it('should have 11 boundaries', () => {
-            expect(TEI_BUCKET_BOUNDARIES).toHaveLength(11);
+            expect(EDGE_BUCKET_BOUNDARIES).toHaveLength(11);
         });
 
         it('should be sorted from highest to lowest min', () => {
-            for (let i = 1; i < TEI_BUCKET_BOUNDARIES.length; i++) {
-                expect(TEI_BUCKET_BOUNDARIES[i].min).toBeLessThan(TEI_BUCKET_BOUNDARIES[i - 1].min);
+            for (let i = 1; i < EDGE_BUCKET_BOUNDARIES.length; i++) {
+                expect(EDGE_BUCKET_BOUNDARIES[i].min).toBeLessThan(EDGE_BUCKET_BOUNDARIES[i - 1].min);
             }
         });
 
         it('first boundary should start at 95', () => {
-            expect(TEI_BUCKET_BOUNDARIES[0].min).toBe(95);
+            expect(EDGE_BUCKET_BOUNDARIES[0].min).toBe(95);
         });
 
         it('last boundary should start at 1', () => {
-            expect(TEI_BUCKET_BOUNDARIES[TEI_BUCKET_BOUNDARIES.length - 1].min).toBe(1);
+            expect(EDGE_BUCKET_BOUNDARIES[EDGE_BUCKET_BOUNDARIES.length - 1].min).toBe(1);
         });
     });
 

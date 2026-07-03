@@ -1,4 +1,4 @@
-import { calculateSqi, getSqiGrade, SQI_THRESHOLD } from '../src/sqi';
+import { calculateSqi, getSqiGrade, SQI_THRESHOLD } from '../src/legacy/sqi';
 
 describe('SQI Engine Logic', () => {
     describe('calculateSqi', () => {

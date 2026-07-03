@@ -4,7 +4,7 @@ import {
     updateEwma,
     getEwmaValue,
     resetEwma,
-} from '../src/ewma';
+} from '../src/legacy/ewma';
 
 describe('EWMA Smoother', () => {
     describe('createEwma', () => {

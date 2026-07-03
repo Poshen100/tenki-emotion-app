@@ -1,3 +1,6 @@
+> ⛔ **SUPERSEDED (2026-07-03) — 部署路由的現行 canonical 是 `docs/DEPLOYMENT_MAP.md`(+ 同步的 `.json`)。**
+> 本檔停留在 2026-05-05 的路由狀態。保留僅供考古。
+
 # TENKI CORE — 部署網址總整理
 
 > **最後更新**：2026-05-05

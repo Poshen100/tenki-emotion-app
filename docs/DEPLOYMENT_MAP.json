@@ -1,13 +1,13 @@
 {
-  "lastUpdated": "2026-06-28T00:00:00Z",
+  "lastUpdated": "2026-07-03T12:00:00Z",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
       "route": "/",
       "url": "https://tenki-emotion-app.vercel.app/",
-      "source": "apps/web/",
-      "purpose": "Legacy web prototype v51.1 (legacy 對外門牌,待 /v3/ 試運後考慮切換)",
-      "status": "frozen",
+      "source": "redirect → /story/",
+      "purpose": "307 redirect 到 /story/(#152 起,Hero 正式門面)。apps/web 退居深層路徑 catch-all。",
+      "status": "redirect",
       "editable": false
     },
     {
@@ -45,14 +45,6 @@
       "editable": true
     },
     {
-      "route": "/preview/scan-result.html",
-      "url": "https://tenki-emotion-app.vercel.app/preview/scan-result.html",
-      "source": "apps/preview/scan-result.html",
-      "purpose": "Scan result page preview",
-      "status": "active",
-      "editable": true
-    },
-    {
       "route": "/preview/v6/",
       "url": "https://tenki-emotion-app.vercel.app/preview/v6/",
       "source": "apps/preview/v6/index.html",
@@ -83,6 +75,14 @@
       "purpose": "Real Face Baseline flow (Expo Web build)",
       "status": "active",
       "editable": true
+    },
+    {
+      "route": "/brand/*",
+      "url": "https://tenki-emotion-app.vercel.app/brand/",
+      "source": "brand/(repo 根目錄靜態資產:logo/icon/favicon/marketing)",
+      "purpose": "品牌靜態資產直達路由(vercel.json rewrites)",
+      "status": "active",
+      "editable": false
     }
   ],
   "mobileApp": {
@@ -100,13 +100,14 @@
   "routing": {
     "/face-baseline/": "apps/mobile/dist/index.html",
     "/face-baseline/*": "apps/mobile/dist/*",
-    "/": "apps/web/index.html",
+    "/": "307 redirect → /story/ (redirects 先於 rewrites; /* catch-all 仍服務 apps/web 深層路徑)",
     "/story/": "apps/preview/story.html",
     "/story/*": "apps/preview/*",
     "/preview/": "apps/preview/soul-enroll.html",
     "/preview/finger": "apps/preview/index.html",
     "/preview/*": "apps/preview/*",
-    "/*": "apps/web/$1"
+    "/*": "apps/web/$1",
+    "/brand/*": "brand/$1 (repo 根目錄靜態資產)"
   },
   "branches": {
     "main": "production",
@@ -120,5 +121,6 @@
     "Do not assume mobile app has a public URL",
     "Do not invent Expo/TestFlight URLs from slug alone",
     "When adding new URL, update both DEPLOYMENT_MAP.md and this JSON"
-  ]
+  ],
+  "syncRule": "⚠️ 改 docs/DEPLOYMENT_MAP.md 必須同步本檔(反之亦然)— f21bcd2 曾漏改本檔造成漂移"
 }

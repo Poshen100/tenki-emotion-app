@@ -11,6 +11,16 @@ const BASE = '/face-baseline' as const;
 /** Onboarding completion route — lives outside the face-baseline stack. */
 export const ONBOARDING_COMPLETE_ROUTE = '/onboarding/complete' as const;
 
+/**
+ * Daily-scan reveal route — the Today tab, whose Edge Score ring renders the
+ * fresh result from the scan store. (The standalone result screens — web
+ * scan-result.html and RN app/scan/result.tsx — were both retired by founder
+ * decision 2026-07-03: the reveal experience follows /preview/v6/. A v6-style
+ * cinematic RN reveal is an Antigravity design task; until then Today IS the
+ * reveal.)
+ */
+export const DAILY_RESULT_ROUTE = '/' as const;
+
 export const FB_ROUTES = {
   intro: BASE,
   why: `${BASE}/why`,

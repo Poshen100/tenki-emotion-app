@@ -509,7 +509,7 @@
         });
 
         // High-frequency random flicker score calculation (極速運算到位的數字)
-        var scoreEl = document.getElementById('tlTlTlTeiScore');
+        var scoreEl = document.getElementById('edgeScoreReveal');
         if (scoreEl && window.location.search.indexOf('from=baseline') !== -1) {
             var startTime = performance.now();
             var duration = 1200; // 1.2s high-speed calculation
@@ -519,8 +519,8 @@
                     clearInterval(interval);
                     scoreEl.textContent = '84';
                     // Lock: instrument snap-settle + gold SECURED glow (gold = secured).
-                    scoreEl.classList.add('tei-secured');
-                    setTimeout(function() { scoreEl.classList.remove('tei-secured'); }, 1100);
+                    scoreEl.classList.add('edge-secured');
+                    setTimeout(function() { scoreEl.classList.remove('edge-secured'); }, 1100);
                     if (window.gsap) {
                         gsap.fromTo(scoreEl, { scale: 1 }, {
                             scale: 1.08, duration: 0.26, ease: 'back.out(1.8)',
@@ -537,8 +537,8 @@
                         try { navigator.vibrate([15, 30]); } catch (_) {}
                     }
                     // Unblock drift and set global values to 84
-                    window.currentTlTei = 84;
-                    window.targetTlTei = 84;
+                    window.currentEdgeScore = 84;
+                    window.targetEdgeScore = 84;
                     window.isDriftBlocked = false;
                 } else {
                     // Random number flicker between 40 and 99

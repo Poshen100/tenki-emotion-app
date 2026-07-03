@@ -43,7 +43,7 @@ export interface TimelineNode {
   timestampMs: number;
   /** Seconds elapsed since session start */
   relativeTimeSec: number;
-  /** TEI PR99 emotion score at this moment (1–99) */
+  /** Edge Score at this moment (0–100) */
   emotionScore: number;
   /** Emotional valence (-1 to 1) */
   valence: number;

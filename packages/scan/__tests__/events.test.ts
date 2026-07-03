@@ -10,11 +10,11 @@ describe('FDCB Events', () => {
         it('should create a valid session with correct fields', () => {
             const session = createSession('CANSLIM_GS', 75);
             expect(session.templateId).toBe('CANSLIM_GS');
-            expect(session.teiAtStart).toBe(75);
+            expect(session.edgeScoreAtStart).toBe(75);
             expect(session.events).toHaveLength(0);
             expect(session.completed).toBe(false);
             expect(session.result).toBeNull();
-            expect(session.teiAtEnd).toBeNull();
+            expect(session.edgeScoreAtEnd).toBeNull();
             expect(session.endedAt).toBeNull();
             expect(session.durationSec).toBe(0);
             expect(session.id).toBeDefined();
@@ -37,7 +37,7 @@ describe('FDCB Events', () => {
             expect(result.session.events).toHaveLength(1);
             expect(result.session.events[0].type).toBe('ENTRY');
             expect(result.session.events[0].elapsedSec).toBe(90);
-            expect(result.session.events[0].teiAtEvent).toBe(78);
+            expect(result.session.events[0].edgeScoreAtEvent).toBe(78);
         });
 
         it('should add multiple events sequentially', () => {
@@ -52,13 +52,13 @@ describe('FDCB Events', () => {
             expect(r2.session.events[1].type).toBe('ADD');
         });
 
-        it('should snapshot TEI at each event', () => {
+        it('should snapshot Edge Score at each event', () => {
             const session = createSession('CANSLIM_GS', 75);
             const r1 = addEvent(session, 'ENTRY', 60, 78, canslimTemplate);
             const r2 = addEvent(r1.session, 'EXIT', 200, 65, canslimTemplate);
 
-            expect(r2.session.events[0].teiAtEvent).toBe(78);
-            expect(r2.session.events[1].teiAtEvent).toBe(65);
+            expect(r2.session.events[0].edgeScoreAtEvent).toBe(78);
+            expect(r2.session.events[1].edgeScoreAtEvent).toBe(65);
         });
 
         it('should allow all event types for templates without lock', () => {
@@ -154,7 +154,7 @@ describe('FDCB Events', () => {
             const completed = completeSession(r.session, 65, 180, 'WIN');
 
             expect(completed.completed).toBe(true);
-            expect(completed.teiAtEnd).toBe(65);
+            expect(completed.edgeScoreAtEnd).toBe(65);
             expect(completed.durationSec).toBe(180);
             expect(completed.result).toBe('WIN');
             expect(completed.endedAt).toBeDefined();

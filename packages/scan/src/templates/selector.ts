@@ -14,7 +14,7 @@ import type { TraderTemplate, MarketCondition } from './types';
  * - Breakout + emotion score >= 60 → CANSLIM (growth breakout)
  * - All other conditions → FBD (default focused decision)
  *
- * @param emotionScore - Current TEI PR99 score (1–99)
+ * @param emotionScore - Current Edge Score (0–100)
  * @param marketCondition - Current market regime classification
  * @returns The recommended trader template
  */

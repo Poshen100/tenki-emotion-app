@@ -26,7 +26,8 @@ import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
 import { FB_ROUTES } from './routes';
 
 import { Platform } from 'react-native';
-import { VisionCamera } from 'react-native-vision-camera';
+// react-native-vision-camera pulls native-only modules (nitro → RN internals)
+// that crash the web bundle — load it lazily inside the native branch only.
 
 export default function SecureAccessRequiredScreen(): React.JSX.Element {
   const router = useRouter();
@@ -61,6 +62,7 @@ export default function SecureAccessRequiredScreen(): React.JSX.Element {
     } else {
       // Native Camera Permission
       try {
+        const { VisionCamera } = await import('react-native-vision-camera');
         const granted = await VisionCamera.requestCameraPermission();
         setPermission(granted ? 'granted' : 'denied');
         router.push(FB_ROUTES.environment);

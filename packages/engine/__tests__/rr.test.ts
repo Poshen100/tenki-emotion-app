@@ -6,8 +6,8 @@ import {
     analyzeRr,
     RR_ABS_MIN,
     RR_ABS_MAX,
-} from '../src/rr';
-import type { BaselineData } from '../src/types';
+} from '../src/legacy/rr';
+import type { BaselineData } from '../src/legacy/types';
 
 // --- Helper ---
 function makeBaseline(overrides: Partial<BaselineData> = {}): BaselineData {

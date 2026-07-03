@@ -1,3 +1,6 @@
+> ⛔ **SUPERSEDED (2026-07-03) — 品牌語言的現行 canonical 是 `docs/brand.md` + `SYSTEM.md`。**
+> 本檔自稱 canonical 已失效(文件優先序見 `docs/PLAYBOOK.md` §0)。保留僅供考古。
+
 # TENKI CORE — Brand Identity
 
 > **Last updated**: 2026-06-12  

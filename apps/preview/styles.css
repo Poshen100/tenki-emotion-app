@@ -2134,6 +2134,9 @@ body {
 /* ═══════════════════════════════════════════════════════════════
    Visual Alignment Sprint (2026-06-12) — canonical tokens + global
    Reference: task.md "Visual Design Reference" (IMG_8434/35/36)
+   FOUNDER-APPROVED (2026-07-03 拍板): 這套 --tenki-accent-* 調色盤出自
+   founder 參考截圖(#c97b2f 金 / #4f9ef0 藍),是掃描流程的刻意視覺。
+   請勿「修正」成 tokens.css 的 --gold-secured/--cyan-active。
    ═══════════════════════════════════════════════════════════════ */
 :root {
   --tenki-bg-deep: #080b1a;

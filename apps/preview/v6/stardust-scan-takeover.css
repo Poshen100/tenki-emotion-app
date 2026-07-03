@@ -90,10 +90,10 @@
 }
 
 /* ── Edge Score "secured" lock glow (gold = SECURED, North Star §4) ── */
-#tlTlTlTeiScore {
+#edgeScoreReveal {
     transition: text-shadow 0.5s ease;
 }
-#tlTlTlTeiScore.tei-secured {
+#edgeScoreReveal.edge-secured {
     text-shadow: 0 0 28px rgba(var(--gold-secured-rgb), 0.55),
                  0 0 8px rgba(var(--gold-secured-rgb), 0.40);
 }

@@ -1,7 +1,7 @@
 /**
  * @module constants
  * @description FDCB 模組所有常數定義。
- * 包含 UI 尺寸、動畫時間、TEI Bucket 邊界等。
+ * 包含 UI 尺寸、動畫時間、Edge Bucket 邊界等。
  */
 
 /** FDCB 收合狀態高度 (px) */
@@ -42,10 +42,10 @@ export const TEMPLATE_IDS = [
 ] as const;
 
 /**
- * TEI Bucket 邊界定義，由高到低排列。
+ * Edge Bucket 邊界定義，由高到低排列。
  * 用於 analytics 中的 bucket 分類。
  */
-export const TEI_BUCKET_BOUNDARIES: ReadonlyArray<{ min: number; label: string }> = [
+export const EDGE_BUCKET_BOUNDARIES: ReadonlyArray<{ min: number; label: string }> = [
   { min: 95, label: '95-99' },
   { min: 90, label: '90-95' },
   { min: 85, label: '85-90' },
