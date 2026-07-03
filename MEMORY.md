@@ -8,6 +8,32 @@
 
 ---
 
+# 2026-07-03 Session Update #4 (健檢修復計畫全數執行完畢 — 10/10 步驟)
+
+> 承 #3：founder「繼續執行 plan」→ 剩餘 2.1–2.4、Phase 3 全部、4.1、4.3 一次做完。每步一 commit，進度已標回 docs/healthcheck/plan.md。
+
+## What was done（8 commits）
+- **2.1**：biome includes 加 `!**/coverage`（跑 coverage 不再弄破 lint gate，實測驗證）。
+- **2.2**：v3 `biometric/rr.ts` 25%→100% 覆蓋（新 biometric-rr.test.ts）；engine 總覆蓋 89.02%→**92.78%** 重新達標 ≥90%。
+- **2.3**：DEPLOYMENT_MAP.json 補 `/`→`/story/` redirect（f21bcd2 漏改）+ `/brand/*`；.md 加雙檔同步警告；CLAUDE.md 部署節過時句修正。
+- **2.4**：根 BRAND.md / docs/BRAND.md / DEPLOYMENTS.md / TENKI-ULTRA-SPEC.md 加 ⛔/⚠️ 橫幅；PLAYBOOK §0 過時清單同步九檔。
+- **3.1**：刪 `engine/src/tei.ts` + 其測試（檢疫區外死代碼）。
+- **3.2（實況與 plan 不同，已記回 plan）**：ewma/hrv/sqi/stress/rr 頂層檔與 legacy/ 副本 **byte-identical**（diff 驗證）→ 不是「搬進去」（會撞名）而是**刪頂層副本 + 測試 import 重指向 legacy/**（覆蓋率保留，92.57%）。
+- **3.3**：scan 套件 TEI 全清（EDGE_BUCKET_BOUNDARIES/getEdgeBucket/edgeScoreAt*/edgeBucket + JSDoc/測試描述含 Peak/Optimal/Degraded 字樣）；agent 盤點漏了 timeline/types.ts 與 templates/selector.ts 的 JSDoc，執行時抓到。
+- **3.4**：v6 揭曉 tei 命名債全清 — 識別字族比 plan 估的多（`tlTlTlTei{Points,Start,End,Min,Max,Area,Zone,ToY}`、`renderTlTlTeiTrace`、`sdTlTlTei*`、`current/targetTlTei`、data 欄位 `tei:`）→ 全改 edgeTrace*/edgeScore* 家族；三檔（index.html + takeover.js/css）同步；node --check + 4 段 inline script 語法全過。
+- **4.1**：刪 QualityMeter/ReadinessChecklist/StatusPill/mock-scan（刪前逐檔再驗證）；6 個預留件掛 DORMANT 牌。
+- **4.3**：maturityStage 加 mirror 標記 + distinct-days 缺口 caveat。
+
+### 教訓 / 注意
+- **plan 假設 vs 現場實況**：3.2 的「搬進 legacy」假設錯（legacy 已有副本）— 執行者遇到 plan 與現場矛盾時，回到決策意圖（D2：v2 退出 active tree、legacy 故事保留）選等效動作，並把實況記回 plan。
+- grep 字面盤點會漏 JSDoc/測試描述字串 — 改名類任務收尾要用 case-insensitive 全檔掃殘餘再收工（`stateIdx` 這種誤中除外）。
+
+## 待 founder 手機驗（merge 後）
+1. `/preview/scan-result.html` — 三 zone 色（slate/ember）。
+2. `/v3/` — 完整揭曉流程（3.4 id/class 改名後功能不變）。
+
+---
+
 # 2026-07-03 Session Update #3 (健檢三件拍板全過 + Phase 1 P0 執行完畢)
 
 > Founder：「先拍板那三件待決事項 全依建議」→ 三件裁決落地 + Phase 1（P0 紅線）全部執行。
