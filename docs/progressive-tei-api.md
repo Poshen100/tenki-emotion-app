@@ -1,3 +1,8 @@
+> ⛔ **SUPERSEDED (2026-07-03) — DO NOT FOLLOW THIS FILE.**
+> TEI / PR99 是 v2 已廢棄並禁用的概念(見 CLAUDE.md 禁止事項)。
+> 現行指標是 Decision Edge Score(0-100),spec 見 `packages/engine/src/scoring/`。
+> 保留此檔僅供考古。
+
 # TENKI 2.0 API Reference
 
 ## Core Modules
