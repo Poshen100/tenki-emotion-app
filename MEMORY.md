@@ -8,6 +8,24 @@
 
 ---
 
+# 2026-07-03 Session Update #3 (健檢三件拍板全過 + Phase 1 P0 執行完畢)
+
+> Founder：「先拍板那三件待決事項 全依建議」→ 三件裁決落地 + Phase 1（P0 紅線）全部執行。
+
+## What was done（6 commits）
+1. **拍板①（D3/plan 4.2 + 1.1）**：刪根目錄考古層 — `vite.config.js`（含 "Bio-Risk SaaS for Pro Traders" 違規文案）、`dev-dist/`、`src/`、`ui/`、`tests/`、`integration/`、`templates/`（38 檔，零外部引用已驗證，git 可復原）；package.json 移除 vite/vite-plugin-pwa（-282 packages）。
+2. **拍板②（D1/plan 2.5）**：CLAUDE.md Reanimated 規則改寫 —「目標 Reanimated 3；既有 20 檔 core-RN Animated 是已知過渡債原生階段遷移；不得新增」。
+3. **拍板③（D5）**：preview 第二調色盤（#c97b2f 金）保留 — styles.css 掛 FOUNDER-APPROVED 註解 + PLAYBOOK §6 防守條目（防未來 AI 誤「修正」）。
+4. **plan 1.2**：scan-result.css zone 色改 canonical slate/ember（**待 founder 手機看 `/preview/scan-result.html` 驗色**）。
+5. **plan 1.3**：TEI-SPEC.md + progressive-tei-api.md 加 ⛔ SUPERSEDED 橫幅。
+6. plan.md / decisions.md 進度標記同步更新。
+
+## 下次接手點
+- **剩餘步驟（照 docs/healthcheck/plan.md，全部無阻擋）**：2.1 biome 排除 coverage、2.2 rr.ts 補測試到 ≥90%、2.3 部署文件三處同步、2.4 品牌文件橫幅、Phase 3 TEI 退場四級、4.1 mobile 孤兒清理、4.3 maturityStage 掛牌。
+- founder 手機驗：`/preview/scan-result.html` 三 zone 色（slate/ember）。
+
+---
+
 # 2026-07-03 Session Update #2 (全專案健檢完成 — 交接包在 docs/healthcheck/)
 
 > Founder：對專案做完整健檢（audit-only），輸出可驗證報告 + 讓非 Fable 模型能無縫接手的交接包。4 個便宜模型 sub-agent 跑機械掃描，本體只做裁決。

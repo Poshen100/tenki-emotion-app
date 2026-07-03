@@ -1,20 +1,21 @@
 # plan.md — 健檢修復執行計畫（2026-07-03）
 
 > **給執行者（任何模型）**：每步 = 一個 commit（`<type>(<scope>): <描述>`）。步與步獨立，可跨 session 分批做；標 **[待 founder 拍板]** 的沒有同意不准動。每步做完跑該步「驗收」，全部完成跑 `npm run verify`。改 `apps/preview/**` 的步驟 CI 驗不到 — 一律請 founder 手機實走。
+> **進度（2026-07-03）**：Phase 1 全部完成；2.5、4.2 已拍板完成；D5 已裁決（保留+掛牌）。剩：2.1–2.4、Phase 3 全部、4.1、4.3。
 > 執行前重讀：`CLAUDE.md`、`docs/PLAYBOOK.md` §1/§6、本目錄 `decisions.md`（每步的 why 在那裡）。
 
 ## Phase 1 — P0 紅線（半天內可完成，全部雲端可做）
 
-### 1.1 刪 vite 死設定與違規文案（decisions.md D3 前半）
+### 1.1 ✅ 完成（b451f81）— 刪 vite 死設定與違規文案（decisions.md D3 前半）
 - 刪檔：`vite.config.js`、`dev-dist/`（整目錄）。
 - `package.json` devDependencies 移除 `vite`、`vite-plugin-pwa`；跑 `npm install` 更新 lockfile。
 - **驗收**：`grep -ri "bio-risk\|pro traders" . --exclude-dir=node_modules --exclude-dir=.git` 零命中；`npm run verify` 綠。
 
-### 1.2 修 scan-result.css 廢棄 zone 色（REPORT P0-2）
+### 1.2 ✅ 完成（da00d0c，待 founder 手機驗色）— 修 scan-result.css 廢棄 zone 色（REPORT P0-2）
 - `apps/preview/scan-result.css:25-27`：`--zone-neutral: #E5E5EA` → `#64748B`；`--zone-strain: #5E3A87` → `#C2703D`（clear 已正確）。只改這兩值，不動其他。
 - **驗收**：`node --check` 無關（純 CSS）；grep 該檔無 `#E5E5EA`/`#5E3A87`；**founder 手機看 `/preview/scan-result.html`** 三 zone 色正確。
 
-### 1.3 給兩份 TEI 文件加橫幅（REPORT P0-3）
+### 1.3 ✅ 完成（10fa4ef）— 給兩份 TEI 文件加橫幅（REPORT P0-3）
 - `docs/TEI-SPEC.md`、`docs/progressive-tei-api.md` 檔案最頂加（沿用 RULES.md 的格式）：
   ```markdown
   > ⛔ **SUPERSEDED — DO NOT FOLLOW THIS FILE.**
@@ -42,7 +43,7 @@
 - 給根 `BRAND.md`、`docs/BRAND.md`、`DEPLOYMENTS.md`、`TENKI-ULTRA-SPEC.md` 加 SUPERSEDED/HISTORICAL 橫幅，指向現行 canonical（品牌語言 → `docs/brand.md` + `SYSTEM.md`；部署 → `docs/DEPLOYMENT_MAP.md`；Ultra spec → 標 HISTORICAL 無現行對應）。內容全保留。
 - **驗收**：`grep -l "Canonical" BRAND.md docs/BRAND.md` 兩檔第一屏都有 ⛔/⚠️ 橫幅；PLAYBOOK §0 的過時清單同步加上這幾檔。
 
-### 2.5 CLAUDE.md Reanimated 規則措辭修正（decisions.md D1）**[待 founder 拍板]**
+### 2.5 ✅ 完成（a20d0da，founder 已拍板）— CLAUDE.md Reanimated 規則措辭修正（decisions.md D1）
 - 禁止事項表「用 legacy Animated」一列的說明改為：「目標 Reanimated 3；現有 core-RN Animated 是 mock 階段已知過渡債（等原生整合一併遷移），**不得新增**新的 legacy Animated 元件」。
 - **驗收**：founder 看過措辭 OK；`npm run verify` 綠。
 
@@ -72,7 +73,7 @@
 - 掛牌（檔頭 JSDoc 加一行 `DORMANT: awaiting native wiring — see MEMORY.md <日期條目>，勿當孤兒刪`）：`stores/pulse-profile-store.ts`、`features/finger-precision/utils/{qualityGates,precisionProgress,recoveryClassifier,confidence}.ts`、`app/face-baseline/recovery.tsx`。
 - **驗收**：`cd apps/mobile && npx tsc --noEmit && npm test` 全綠。
 
-### 4.2 根目錄考古層刪除 **[待 founder 拍板]**（decisions.md D3 後半）
+### 4.2 ✅ 完成（b451f81，founder 已拍板，與 1.1 同 commit）— 根目錄考古層刪除（decisions.md D3 後半）
 - 拍板後刪：`src/`、`ui/`、`tests/`、`integration/`、`templates/` 五目錄（git 可復原）。
 - **驗收**：`npm run verify` 綠；`vercel.json`/`package.json` 無殘留引用（本來就沒有，再確認一次）。
 
