@@ -16,7 +16,7 @@ describe('establishedExitRoute', () => {
 });
 
 describe('DAILY_RESULT_ROUTE', () => {
-  it('pins the daily reveal to the existing scan result screen (app/scan/result.tsx)', () => {
-    expect(DAILY_RESULT_ROUTE).toBe('/scan/result');
+  it('pins the daily reveal to the Today tab (standalone result screens retired 2026-07-03)', () => {
+    expect(DAILY_RESULT_ROUTE).toBe('/');
   });
 });

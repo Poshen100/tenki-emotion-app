@@ -55,7 +55,8 @@ export default function ProcessingBaselineScreen(): React.JSX.Element {
           const confidence = estimateConfidence(quality);
           if (isDailyRefinement(fb.entryContext, fb.baselineEstablished)) {
             // Daily refinement: record the scan (maturity + history), publish
-            // the mock Edge Score to the scan store, and exit to the reveal.
+            // the mock Edge Score to the scan store, and exit to Today, whose
+            // score ring is the reveal (standalone result screens retired).
             const now = Date.now();
             fb.recordScan(buildRefinementEntry(now));
             setProcessing('success', 1);
