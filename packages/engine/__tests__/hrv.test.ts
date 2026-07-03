@@ -1,4 +1,4 @@
-import { calculateHrvBaselineRange, getHrvStatus, harmonizeHrv } from '../src/hrv';
+import { calculateHrvBaselineRange, getHrvStatus, harmonizeHrv } from '../src/legacy/hrv';
 
 describe('HRV Engine Logic', () => {
 
