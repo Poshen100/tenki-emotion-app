@@ -35,7 +35,7 @@
 | 把 raw biometric data 上傳雲端 | Privacy-first 核心承諾 |
 | 把隱私控制放在付費牆後 | v3 規範 |
 | 用 SVG 畫環形圖 | 用 Skia |
-| 用 legacy `Animated` | 用 Reanimated 3 |
+| **新增** legacy `Animated` 用法 | 動畫目標是 Reanimated 3。現有 core-RN Animated（20 檔）是 mock 階段已知過渡債（`INTEGRATION` 標記，原生整合階段一併遷移，2026-07-03 拍板）— 舊的先不動，但不得再寫新的 |
 | 用 Redux | 用 Zustand |
 | 累積多個 Todo 才 commit | 違反 Commit-Per-Todo |
 | 把產品框定為 "trading tool" / "signal system" / "meditation app" | 違反 `SYSTEM.md` 核心定位（Decision Infrastructure / Human State Calibration System） |
@@ -147,7 +147,7 @@ refactor(session): extract timer segment logic
 - 用 Zustand 管狀態
 
 ## 動畫 / 視覺
-- Reanimated 3（禁用 legacy Animated）
+- Reanimated 3 是目標態（新動畫不得用 legacy Animated；既有 core-RN Animated 屬過渡債，原生階段遷移）
 - Skia 畫環形圖（禁用 SVG ring）
 - EWMA α=0.05 極慢收斂
 - 星塵動效「感覺」不能改，保持 v25.8.2 視覺體驗
