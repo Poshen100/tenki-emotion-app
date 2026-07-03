@@ -5,6 +5,7 @@ This note is the current desktop hand-off. Older notes below are historical.
 ## 先讀制度（2026-07-02 新立，all AI collaborators）
 
 1. 規則入口：`CLAUDE.md`（工程硬規則）→ `docs/PLAYBOOK.md`（任務路由 §1、已知陷阱、文件矛盾裁決 §0）→ `MEMORY.md` 最上條（最新斷點）。
+   **動效任務加讀**：`docs/MOTION-DIRECTION.md`（動效語言 canonical + 驗收清單）＋ `.claude/skills/gsap-*/SKILL.md`（8 包官方 GSAP AI Skills 已入庫 — 這是一般資料夾，**手動打開對應包讀全文**，選包路由表在 MOTION-DIRECTION §6）。
 2. 完成的定義 = `npm run verify` 綠燈（一鍵 merge gate；root 與 apps/mobile 都要 `npm ci` 過才跑得動）。
 3. **絕不直推 main** — 一律 `feat/*` 分支 → PR。CI 有新 `guards` job：新增 `TEI`/`PR99` 或 preview JS 語法錯誤會直接紅燈。
 4. squash-merge 後：`git fetch origin main && git reset --hard origin/main` 同步分支再開下一個 PR（PLAYBOOK §4）。

@@ -8,6 +8,18 @@
 
 ---
 
+# 2026-07-03 Session Update #8 (動效方向書 MOTION-DIRECTION.md — GSAP skills 確認入庫 + Antigravity 調用手冊)
+
+> Founder：確認 GSAP AI Skills 有沒有在 GitHub、把視覺動向做到國際品牌等級、確保 Antigravity 接手能完美調用（實作歸它）。
+
+## What was done
+- **確認**：8 包官方 GSAP AI Skills（core/timeline/scrolltrigger/performance/utils/plugins/react/frameworks，~1850 行）+ karpathy 均已 committed 在 main 的 `.claude/skills/`。
+- **新增 `docs/MOTION-DIRECTION.md`（動效語言 canonical）**：North Star（儀器的生命跡象非裝飾）、三鐵律（誠實動效/GPU-only/reduced-motion 一級公民）、motion tokens（--ease-calm/breath/secure + duration 音階，全部取自既有落地值）、四大儀式語彙（Reveal/Breath/Lock/Travel，含鎖定資產清單）、每 surface 引擎表（**GSAP 只進 web preview；RN 走 Reanimated 3 同語彙翻譯**）、GSAP skill 包路由表、**Antigravity 調用手冊**（skills 是一般資料夾要手動讀全文 + 動效 PR 驗收清單）。
+- **四入口接線**：ANTIGRAVITY.md 先讀制度、AGENTS.md Key Files、PLAYBOOK §1 路由表、CLAUDE.md 動畫節 — 任何 AI 做動效都會撞到這份文件。
+- **分工不變**：動向書/規格/制度 = 雲端；手感/pixel/實機 60fps 調參 = Antigravity（真瀏覽器 + GPU）。
+
+---
+
 # 2026-07-03 Session Update #7 (/face-baseline/ 公開網址退場 + v3 短視窗遮擋修復 #155)
 
 > Founder 兩個裁決：① `/v3/` snapshot 在 in-app browser 被 FDCB 蓋住 → 已修（#155，環自適應視窗高度 + 兩級降級，390×660/844 headless 截圖驗證）；② `/face-baseline/`（Expo Web 審查載具）看過後拍板退場。
