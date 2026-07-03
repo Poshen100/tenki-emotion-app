@@ -154,6 +154,15 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | orb 截圖回饋迴圈 | `scripts/orb-tuner/`（`node shoot.mjs` → `out/*.png`） |
 | logo master | `docs/assets/brand/tenki-mark.svg`（衍生資產一律由此輸出） |
 
+## 9.5 Sub-agent（便宜模型）使用紀律
+
+| 情境 | 規則 |
+|------|------|
+| 讓 sub-agent 跑會產生副作用的指令（`jest --coverage`、任何 build） | prompt 裡明定清理義務，或本體事後清理（2026-07-03 實例：coverage/ 產物被 Biome 掃到，lint gate 假紅） |
+| 便宜模型回報異常（「lint 紅了」「測試壞了」） | **本體必須覆核再採信** — 它可能把自己污染環境的結果當成 repo 現況回報 |
+| 兩個 agent 結論矛盾 | 本體親自跑一次關鍵指令裁決，別選邊猜（2026-07-03 實例：tei.ts 引用狀態，grep pattern 歧義） |
+| agent 宣稱「零引用/可刪」 | 抽查其證據指令；刪除動作永遠由本體執行 |
+
 ## 10. 本檔維護規則（compound learning 制度）
 
 1. **糾正即入檔**：AI 被糾正一次 → 當個 session 就把教訓寫進本檔對應段落（工程規則歸 CLAUDE.md，操作陷阱歸本檔）。

@@ -8,6 +8,27 @@
 
 ---
 
+# 2026-07-03 Session Update #2 (全專案健檢完成 — 交接包在 docs/healthcheck/)
+
+> Founder：對專案做完整健檢（audit-only），輸出可驗證報告 + 讓非 Fable 模型能無縫接手的交接包。4 個便宜模型 sub-agent 跑機械掃描，本體只做裁決。
+
+## What was done
+- **交接包（docs/healthcheck/，5 檔）**：`REPORT.md`（P0×3 / P1×6 / P2×7，每條附證據與驗證方式）、`decisions.md`（8 裁決含捨棄方案）、`plan.md`（4 phase 修復步驟，Sonnet/Opus 照做粒度、每步附驗收、破壞性步驟掛 [待 founder 拍板]）、`risks.md`（風險 + 未解 + 方法侷限，誠實版）、`notes.md`（過程紀錄）。
+- **頭三個發現**：① vite.config.js 死設定裡藏 "Bio-Risk SaaS for Pro Traders" 違規文案；② `/preview/scan-result.html` 活頁面還在用遷移前 zone 色（近白/紫）；③ Reanimated 3 規則 vs 現實全面脫節（20 檔 244 處 legacy Animated、依賴根本沒裝 — 屬 mock 階段刻意債，規則措辭需 founder 拍板修正）。
+- **好消息**：`any` 0、Redux 0、**生理數據網路呼叫 0（local-first 代碼層成立）**；haptics 鏡像與 zone 六檔色全 IN-SYNC。
+- **PLAYBOOK 新增 §9.5**：sub-agent 使用紀律（副作用清理、異常回報必覆核、矛盾本體裁決）— 本次兩個實戰教訓的提煉。
+
+### 教訓 / 注意
+- haiku agent 跑 `jest --coverage` 污染工作區把 lint gate 弄假紅、且把它當 repo 現況回報 → 本體覆核抓到，coverage/ 未進 biome 排除是真發現（plan 2.1）。
+- 兩個 agent 對 engine/src/tei.ts 引用狀態矛盾 → 本體親跑 grep 裁決（它是檢疫區外死代碼，legacy/ 用自己的副本）。
+
+## 下次接手點（按 plan.md 執行，任何模型可接）
+1. Phase 1（P0 三項，半天，雲端可做）→ Phase 2 起各步獨立。
+2. [待 founder 拍板] 三件：根目錄考古層刪除（4.2）、Reanimated 規則措辭（2.5）、preview 第二調色盤歸屬（D5）。
+3. 未解清單見 risks.md（dist 新鮮度、demo 頁是否進部署地圖等）。
+
+---
+
 # 2026-07-03 Session Update (日常 Soul Scan 揭曉鏈落地(mock) + Antigravity 桌機交接 — claude/fable5-system-setup-xuqbkg)
 
 > Founder（只有手機）：「你先幫我工作，適合 Antigravity 的留給它，確保接手 AI 都懂。」接 2026-06-23 條目的 A 叉路 follow-up。
