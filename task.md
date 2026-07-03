@@ -1,3 +1,7 @@
+> ⚠️ **STALE (2026-06-12 停更) — 不是現行任務清單。**
+> 「當前任務與斷點」的唯一來源是 `MEMORY.md` 最上面一條 + founder 的當次指示。
+> （本檔內文的 "apps/web" 是筆誤，實際指 apps/preview；apps/web 凍結不可動。）
+
 # TASK.md
 
 Last updated: 2026-06-12

@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "test": "npm run test --workspaces --if-present -- --runInBand",
+    "verify": "bash scripts/verify.sh",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "icons:batch1": "node scripts/generate-tenki-icon-batch1.mjs"
