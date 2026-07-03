@@ -138,7 +138,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | mobile 要 import `packages/*` | tsc 靠 tsconfig paths、**Metro 靠 `metro.config.js` 的 `watchFolders`** — 兩邊都要有，否則 tsc 綠但 runtime/web bundle 掛 |
 | Expo Web 全白 + `import.meta` SyntaxError | zustand v5 ESM 被 web 'import' 條件選中 → metro.config 已把 zustand 釘到 CJS；新增類似 ESM-only 套件時比照處理。**不要**全域關 `unstable_enablePackageExports`（會弄壞 react-native→react-native-web alias） |
 | Expo Web 報 "importing a module from 'react-native' instead of 'react-native-web'" | 有 native-only 套件（vision-camera/nitro 等）被頂層 import 進了 web 可達的模組 → 改 platform-split（`.native.tsx`）或 native 分支內 `await import()` |
-| 想截 RN 畫面給 founder | `cd apps/mobile && npx expo export --platform web`（offline 模式）→ 本地 serve dist（注意 `baseUrl:/face-baseline` 前綴）→ Playwright 截圖。dev server（`expo start`）的 LogBox 在 web 會拉 RN internals，**用生產 export 別用 dev** |
+| 想截 RN 畫面給 founder | `cd apps/mobile && npx expo export --platform web`（offline 模式）→ 本地 serve dist → Playwright 截圖。dev server（`expo start`）的 LogBox 在 web 會拉 RN internals，**用生產 export 別用 dev**。（`/face-baseline/` 公開網址與 app.json baseUrl 已於 2026-07-03 退場 — dist 不再入庫，僅本地截圖用） |
 | 跑 `pkill -f <pattern>` | pattern 若出現在自己這條命令字串裡會自殺（exit 144）→ 用 `[x]` 技巧如 `pkill -f 'cli/build/[b]in'` |
 
 ## 8. 合規與文案（紅線）
