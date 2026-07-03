@@ -30,7 +30,6 @@ tenki-emotion-app.vercel.app
 ├── /preview/                 → apps/preview/soul-enroll.html  ✨ Soul Scan front door (live camera)
 ├── /preview/finger/          → apps/preview/index.html        ⚠️ Finger PPG onboarding (calibration layer)
 ├── /preview/v6/              → apps/preview/v6/       🔧 v6 Today (= /v3/, twin path)
-├── /preview/scan-result.html → apps/preview/          ✅ Result page preview
 ├── /preview/soul-enroll.html → apps/preview/          ✨ Soul Scan (direct path, = /preview/)
 ├── /story/                   → apps/preview/story.html ✨ Cinematic scroll-narrative landing page 🔒 Hero locked
 └── /face-baseline/           → apps/mobile/dist/      📱 Real Face Baseline (Expo Web)
@@ -45,7 +44,6 @@ tenki-emotion-app.vercel.app
 | `https://tenki-emotion-app.vercel.app/v3/` | `apps/preview/v6/index.html` | **v3 主入口** — Today + 5-Tab Nav + FDCB,v3 nomenclature 已對齊 (Clear/Neutral/Strain) | ✨ Founder 認可,active dev |
 | `https://tenki-emotion-app.vercel.app/preview/` | `apps/preview/soul-enroll.html` | **Soul Scan 臉部基線建立門面**（Face ID 式，真實前鏡頭 + live gates，對應 mobile FSM） | ✨ Front door, active dev |
 | `https://tenki-emotion-app.vercel.app/preview/finger/` | `apps/preview/index.html` | Finger PPG baseline onboarding 6-step flow（降為校準層，原 `/preview/` 根） | ⚠️ iOS OOM — hotfix branch ready |
-| `https://tenki-emotion-app.vercel.app/preview/scan-result.html` | `apps/preview/scan-result.html` | Scan result page preview | ✅ Active |
 | `https://tenki-emotion-app.vercel.app/preview/soul-enroll.html` | `apps/preview/soul-enroll.html` | Soul Scan 直接路徑（內容同 `/preview/` 門面） | ✨ Active dev |
 | `https://tenki-emotion-app.vercel.app/preview/v6/` | `apps/preview/v6/index.html` | 同 `/v3/`,並列舊路徑保留以避免 share-link 失效 | 🔧 Active dev |
 | `https://tenki-emotion-app.vercel.app/preview/brand/` | `apps/preview/brand/index.html` | TENKI 品牌標誌（Resonance Ensō）預覽 — variants / lockups / 使用規則 | ✅ Active |

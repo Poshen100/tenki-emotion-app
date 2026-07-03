@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-07-03T00:00:00Z",
+  "lastUpdated": "2026-07-03T12:00:00Z",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -42,14 +42,6 @@
       "source": "apps/preview/soul-enroll.html",
       "purpose": "Soul Scan direct path (same content as the /preview/ front door).",
       "status": "active-dev",
-      "editable": true
-    },
-    {
-      "route": "/preview/scan-result.html",
-      "url": "https://tenki-emotion-app.vercel.app/preview/scan-result.html",
-      "source": "apps/preview/scan-result.html",
-      "purpose": "Scan result page preview",
-      "status": "active",
       "editable": true
     },
     {

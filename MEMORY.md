@@ -29,7 +29,7 @@
 - grep 字面盤點會漏 JSDoc/測試描述字串 — 改名類任務收尾要用 case-insensitive 全檔掃殘餘再收工（`stateIdx` 這種誤中除外）。
 
 ## 待 founder 手機驗（merge 後）
-1. `/preview/scan-result.html` — 三 zone 色（slate/ember）。
+1. ~~`/preview/scan-result.html` — 三 zone 色~~ → **已裁決退場**：founder 看過截圖後拍板「結果頁只留 `/preview/v6/` 版本」（2026-07-03）。scan-result.{html,css,js} 已刪、部署地圖兩檔同步移除。結果頁 canonical = `/preview/v6/`（=`/v3/`）；mobile 端對應 `app/scan/result.tsx` 不受影響（那是 RN 頁非 web preview）。
 2. `/v3/` — 完整揭曉流程（3.4 id/class 改名後功能不變）。
 
 ---
