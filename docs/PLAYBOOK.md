@@ -69,6 +69,11 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 - 測試框架是 **Jest + ts-jest**，不是 vitest（舊文件寫錯已糾正）。
 - 動效／視覺類改動：容器內截圖僅供參考，**以 founder 實機為準**；回報時主動請對方確認「減少動態」設定
   （該設定會凍結所有動效，曾造成「動畫壞了」的誤報）。
+- **preview 截圖驗證（`node scripts/preview-shot.mjs <path> [out.png]`）**：改 preview 後主動截圖傳給 founder，
+  能省一輪「merge 後手機看」。**截圖夠力的**：純 CSS 色彩/版面/字級、靜態狀態、iPhone 視窗溢出檢查；
+  多狀態頁面用 `page.evaluate` 切態各截一張（如 zone 三態）。**仍必須實機的**：動效手感、CDN 資源頁
+  （GSAP/Three/字型被沙箱擋，只能看 fallback）、iOS Safari 特有行為（100vh/dvh、mix-blend OOM、震動）、
+  相機/手勢流程。
 
 ## 4. Git 與多 AI 協作陷阱
 
