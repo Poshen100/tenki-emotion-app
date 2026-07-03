@@ -8,6 +8,32 @@
 
 ---
 
+# 2026-07-03 Session Update (日常 Soul Scan 揭曉鏈落地(mock) + Antigravity 桌機交接 — claude/fable5-system-setup-xuqbkg)
+
+> Founder（只有手機）：「你先幫我工作，適合 Antigravity 的留給它，確保接手 AI 都懂。」接 2026-06-23 條目的 A 叉路 follow-up。
+
+## What was done（4 commits，commit-per-todo）
+1. **`utils/dailyScan.ts`（純函式 + 15 測試）**：`isDailyRefinement`（standalone + baselineEstablished 才算日常掃描）、`deriveDailyEdgeScore`（有 confidence → 線性映射 32–96；mock 流程 quality 全 0 → 走每日確定性合成分數 62±14，JSDoc 標明 MOCK STAGE）、`buildRefinementEntry`、`toScanMetrics`、`formatHistoryTime`（手動格式化不依賴 locale API）。
+2. **processing 完成分流（`ProcessingBaselineScreen`）**：日常 refinement → `recordScan`（maturity/history）+ mock Edge Score 寫入 scan-store + `incrementFaceBaselineCount` → **直接 `router.replace('/scan/result')` 揭曉**（既有「今日內在天氣」頁，Today ring 同步反映）；首次基線 → established 儀式照舊。**順手修缺口**：standalone 首次基線補 `setBaselineScore`（鏡像 onboarding complete），否則站內建基線後 `hasBaseline` 永遠 false、Scan tab 一直導回 intro。
+3. **maturity 畫面接真歷史**：`refinementHistory` 有條目就取代 DEMO_HISTORY（空時保留 demo）。
+4. **ANTIGRAVITY.md 置頂 note 換新（2026-07-03）**：舊 note 已過時（onboarding 實際已 merge #151、/story/ 已是 front door #152）。新 note = 制度必讀 + 現況 + 桌機專屬清單（preview 真 CDN polish / mobile 揭曉實機手感 / Mac 原生 lane）。
+
+## 分工原則（本次確立）
+- **雲端（Claude Code）**：TS 邏輯、測試、CI 涵蓋的接線、文件 — 不需實機的全包。
+- **桌機（Antigravity）**：真 CDN 瀏覽器的動效手感、pixel 對齊 mockups、實機 Safari/Expo 驗證、需 Mac 的原生模組。
+
+### 教訓 / 注意
+- **mock 流程從不呼叫 `updateQuality`**（quality 全 0 → `estimateConfidence` = 0）— 這就是 complete.tsx `|| 68` fallback 的根因。任何「拿 confidence 當輸入」的新功能都要處理無訊號情境；原生相機接上 `updateQuality` 後，mock fallback 自動退位。
+- established 畫面文案是首次基線導向；日常掃描現在繞過它直接揭曉。若要日常專屬揭曉儀式畫面 = 設計決策，先問 founder。
+- 驗證：mobile 13 suites / 112 tests 全綠、tsc 0 error、改動檔 biome clean、`npm run verify` 全綠。
+
+## 下次接手點
+1. Founder 手機看不到 mobile（無公開網址）— 揭曉鏈的實機驗證屬 Antigravity lane（見 ANTIGRAVITY.md 置頂 note）。
+2. 雲端可續做：Timeline 讀 refinementHistory/lastResult 真資料、Today Stats Grid（Sessions/Avg/Streak 還是 —）、established 日常變體文案（待 founder 拍板）。
+3. 真 engine scoring 待原生相機（Mac lane）。
+
+---
+
 # 2026-07-02 Session Update (Fable 5 制度建設：PLAYBOOK + verify.sh + 護欄修矛盾 — claude/fable5-system-setup-xuqbkg)
 
 > Founder：把 Fable 5（一次性最強模型 session）的判斷力轉成可長期沿用的制度與檔案，讓之後較弱模型的 session 都因此變強。不做日常任務，只立制度。
