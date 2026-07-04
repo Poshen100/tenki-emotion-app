@@ -146,6 +146,8 @@ Shell: 5-tab Expo Router structure is in place and needs integration with engine
 | `AGENTS.md` | This file — AI agent context |
 | `.claude/skills/karpathy-engineering/SKILL.md` | Senior-engineer discipline (4 golden principles) |
 | `docs/MOTION-DIRECTION.md` | Motion language canonical — read before ANY animation work |
+| `.cursor/harness/05_maintenance.md` | Self-update permission tiers — read before editing ANY rule file |
+| `.cursor/harness/06_manifesto.md` | Fable 5 hand-off judgment: verification ladder, degradation warnings |
 | `.claude/skills/gsap-*/SKILL.md` | 8 official GSAP AI Skill packs (plain folders — open and read; routing table in MOTION-DIRECTION §6) |
 | `BRAND.md` | Brand lines, tone, visual identity |
 | `MEMORY.md` | Session log — top entry = current hand-off point |
