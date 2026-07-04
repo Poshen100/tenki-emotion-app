@@ -115,6 +115,9 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | 修好 hint 但使用者還是看不到 | 壞掉版可能已在不可見狀態把 localStorage seen-flag 燒掉 → **修 hint 時升 storage key** |
 | 新加的子元素被莫名動畫控制 | `.snap > *` 等萬用 entrance 動畫會套到新子元素 → 該元素補 `animation:none` |
 | 可捲動頁面的高對比 overlay 邊緣滑進內容 | `absolute inset:0` 只蓋第一個視窗高 → 高對比 overlay 用 `position:fixed` |
+| v6/index.html 加 CSS override 沒生效 | 同權重「早寫的必輸」— override 要嘛放對應基礎規則**之後**、要嘛提高權重（如 `.screens .screen`）；改完一律 headless 截圖驗過才算數（2026-07-03 同 session 踩兩次） |
+| 想讓 `.screen` 在短視窗捲動 | 光開 `overflow-y:auto` 沒用：`.snap` 是 `flex:1`（高度=剩餘空間，永不撐開容器），內容在它體內溢出到 bar 底下 → 同時要 `.snap{flex:0 0 auto}`（取自然高度）+ 子元素 `flex-shrink:0`；驗收看 `scrollHeight > clientHeight` |
+| 雙環/hero 尺寸 | **founder 拍板（2026-07-03）：V6 原比例 `min(72vw,300px)` 鎖定，任何視窗都不縮** — 短視窗用捲動解，不准再上「自適應縮環」方案 |
 | iPhone Safari 直接 crash（OOM） | 禁 `mix-blend-mode: screen`；`backdrop-filter` blur 值收斂（32px→4px 曾是修法） |
 | 想用震動回饋 | **iOS Safari 網頁完全不能震**（`navigator.vibrate` 無效）→ 真震動只能原生 app |
 | 慢速指標（如 Body Battery）要「動起來」 | 別做即時跳動 = 謊報；誠實做法 = 一次性進場 + 極微呼吸 + 只有「當下」那格真的動 |
