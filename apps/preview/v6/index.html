@@ -200,22 +200,13 @@ body{
   display:flex;flex-direction:column;align-items:center;
 }
 
-/* Big spectrum ring — Apple Watch Activity style.
-   Width also yields to viewport HEIGHT so short viewports (in-app browsers,
-   small phones) never push the Snapshot carousel under the FDCB/tab bars
-   (vertical-budget family, PLAYBOOK §6). */
+/* Big spectrum ring — Apple Watch Activity style. Proportion is LOCKED to
+   the original V6 look (founder 2026-07-03): do NOT shrink the ring for short
+   viewports — the screen scrolls instead (see short-viewport rule below). */
 .tl-edge{
-  position:relative;
-  width:max(150px, min(72vw, 300px, calc(100vh - 520px)));
-  height:max(150px, min(72vw, 300px, calc(100vh - 520px)));
+  position:relative;width:min(72vw, 300px);height:min(72vw, 300px);
   display:flex;align-items:center;justify-content:center;
   filter:drop-shadow(0 0 30px rgba(0,180,216,0.18));
-}
-@supports (height: 100dvh){
-  .tl-edge{
-    width:max(150px, min(72vw, 300px, calc(100dvh - 520px)));
-    height:max(150px, min(72vw, 300px, calc(100dvh - 520px)));
-  }
 }
 /* Cinematic bloom halo behind the ring — pulses with the breath */
 .tl-edge::before{
@@ -344,17 +335,18 @@ body{
 /* Legacy SVG rings — hidden in v6 (replaced by conic-gradient wrappers) */
 .tl-edge svg{display:none}
 
-/* Short-viewport tiers — shrink type first, then retire the coach line so the
-   Snapshot cards always stay whole above the bars. */
+/* Short viewports (in-app browsers, small phones): keep the V6 proportions —
+   founder's call (2026-07-03) — and let the screen scroll instead. flex-shrink:0
+   stops children being crushed (the old failure mode: coach card vanished,
+   cards slid under the FDCB bar). */
 @media (max-height: 760px){
-  .tl-edge-score{font-size:56px}
-  .screen{gap:6px}
-  .coach-card{padding:10px 14px 10px 20px}
-  .coach-text{font-size:13px;line-height:1.45}
-}
-@media (max-height: 680px){
-  .tl-edge-score{font-size:44px}
-  .coach-card{display:none}
+  .screens .screen{overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .screens .screen > *{flex-shrink:0}
+  /* .snap is flex:1 (fills leftover space) on tall screens; on short screens
+     that pins it to the leftover 300-ish px and its content spills under the
+     FDCB bar with nothing to scroll. Natural height restores scrollability
+     and keeps its own bar-reserve padding meaningful. */
+  .screens .screen > .snap{flex:0 0 auto}
 }
 
 

@@ -8,6 +8,23 @@
 
 ---
 
+# 2026-07-03 Session Update #9 (雙環比例拍板恢復 — 短視窗改捲動方案)
+
+> Founder 看 #155 上線後回報「雙環變得太小，我喜歡原本 V6 的比例」→ 縮環方案否決。改為：**環比例完全恢復 `min(72vw,300px)` 並鎖定；短視窗（≤760px 高）讓 `.screen` 捲動**。
+
+## What was done
+- 撤掉 #155 的環自適應公式 + 縮字/藏 coach tiers；環規則加 founder 鎖定註解。
+- 短視窗 tier：`.screens .screen{overflow-y:auto}` + 子元素 `flex-shrink:0` + **關鍵一擊 `.snap{flex:0 0 auto}`**（`.snap` 原是 `flex:1`＝高度永遠等於剩餘空間，內容在它體內溢出到 FDCB 底下且 scrollHeight 不會長 — 用頁內 computed-style 診斷抓到）。
+- headless 驗證：390×660 頂部（環全尺寸）/捲底（卡片+Swipe+圓點完整在 bar 上方，scrollH 711 > clientH 646）；390×844 與原設計一致。三張截圖已交 founder。
+- coach 卡在 ≤680px 消失是**既有規則**（index.html:4259，早於本次），founder 未反對，不動。
+
+### 教訓（已入 PLAYBOOK §6）
+- v6 CSS override 同權重早寫必輸（同 session 踩兩次）→ 位置或權重擇一，headless 截圖驗過才算。
+- `.screen` 捲動三件套：overflow-y:auto + 子 flex-shrink:0 + `.snap` flex:0 0 auto；驗 scrollHeight>clientHeight。
+- **產品裁決：V6 雙環比例鎖定，永不縮**（PLAYBOOK §6 已記，防止未來 AI 重演縮環）。
+
+---
+
 # 2026-07-03 Session Update #8 (動效方向書 MOTION-DIRECTION.md — GSAP skills 確認入庫 + Antigravity 調用手冊)
 
 > Founder：確認 GSAP AI Skills 有沒有在 GitHub、把視覺動向做到國際品牌等級、確保 Antigravity 接手能完美調用（實作歸它）。
