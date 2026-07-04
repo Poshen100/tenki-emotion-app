@@ -13,4 +13,4 @@
 | 06 交接信 | Fable 5 的關鍵判斷、退化模式預警、能力極限 | `.cursor/harness/06_manifesto.md`（本資料夾） |
 
 **啟動順序（每個新 session）**：`CLAUDE.md` → `MEMORY.md` 最上條 → `docs/PLAYBOOK.md` 對應段落 →（要改規則文件時）`05_maintenance.md`。
-文件互相矛盾時的裁決順序在 `docs/PLAYBOOK.md` §0 — 本資料夾的檔案排在 PLAYBOOK 之後、領域文件之前。
+文件互相矛盾時的裁決順序**只認 `docs/PLAYBOOK.md` §0**（其領域文件級已列入本資料夾）— 本檔不另行宣告排位。

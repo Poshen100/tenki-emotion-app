@@ -1,6 +1,6 @@
 # PLAYBOOK.md — TENKI 已知陷阱與標準流程手冊
 
-> **目的**：把歷次 session 的教訓（MEMORY.md 全文 998 行）蒸餾成一份可查表的規則手冊，
+> **目的**：把歷次 session 的教訓（MEMORY.md 日誌）蒸餾成一份可查表的規則手冊，
 > 讓任何 AI —— 不論模型強弱 —— 都不重犯已付過學費的錯。
 > **使用方式**：動工前先看 §1 路由表找到你的任務類型；工作中遇到怪症狀，先 grep 本檔再 debug。
 > **設計原則**：每條規則都寫成「情境 → 動作」，不需要判斷力也能執行。
@@ -15,7 +15,7 @@
 2. **`SYSTEM.md`** — 產品定位與語言系統（Radar/Baseline/Calibration/Turning Point）
 3. **本檔 `docs/PLAYBOOK.md`** — 操作規則與已知陷阱
 4. **`MEMORY.md` 最上方的條目** — 最新 session 狀態（越下方越舊）
-5. **領域方向文件** — `docs/SOUL-SCAN-NORTH-STAR.md`（掃描）、`docs/brand.md`（品牌語言）、`ANTIGRAVITY.md` §18（logo 視覺）
+5. **領域方向文件** — `docs/SOUL-SCAN-NORTH-STAR.md`（掃描）、`docs/brand.md`（品牌語言）、`docs/MOTION-DIRECTION.md`（動效）、`ANTIGRAVITY.md` §18（logo 視覺）、`.cursor/harness/05_maintenance.md`（規則文件自我更新權限）、`.cursor/harness/06_manifesto.md`（交接判斷）
 6. **`ANTIGRAVITY.md` 本文** — 產品藍圖（頂部 continuation note 比下方本文新；§14 repo 結構已過時，以 `CLAUDE.md` 的 Monorepo 表為準）
 
 ⚠️ **已過時、不得遵循的文件**（僅供考古，內容與上述矛盾時一律忽略；均已加 ⛔/⚠️ 橫幅）：

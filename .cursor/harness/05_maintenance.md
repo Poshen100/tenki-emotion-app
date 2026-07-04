@@ -8,20 +8,24 @@
 ### 🟢 綠區 — 可自行更新並 commit（不必問）
 只限「**新增**教訓與紀錄」，不得刪改既有內容：
 - `MEMORY.md`：置頂新增 session 條目（遵守置頂協議格式）。
-- `docs/PLAYBOOK.md` §4–§7、§9、§9.5：**表格新增一列**「情境→規則」教訓（見 §3 格式）。
-- 工作紀錄類：`docs/healthcheck/notes.md` 等過程檔。
+- `docs/PLAYBOOK.md` §4–§7、§9.5：**表格新增一列**「情境→規則」教訓（見 §3 格式）。
+- `docs/PLAYBOOK.md` §9 定位表：新增「東西｜位置」**索引列**（兩欄索引格式，不套 §3 格式）。
+- `docs/PLAYBOOK.md` §0「已過時文件」清單：**新增**一檔（必須同時給該檔掛 ⛔ 橫幅）；移除或改寫既有項屬 🔴。
+- 工作紀錄類：**僅**檔名含 notes 的過程筆記（如 `docs/healthcheck/notes.md`）；同目錄 REPORT/decisions/plan/risks 是交接證據，該輪完成後再改屬 🟡。
 - 代碼註解掛牌：`DORMANT` / `keep-in-sync` / caveat 註解。
 
 ### 🟡 黃區 — 可以做，但必須走 PR 且描述第一行標 `[制度變更]`，等 founder merge
-- `docs/PLAYBOOK.md` 的**結構**（新 section、路由表改欄、§0 過時清單增刪）。
+- `docs/PLAYBOOK.md` 的**結構**（新 section、路由表改欄）。
 - `scripts/verify.sh`、`check-vocab.sh`、`preview-shot.mjs`、`.claude/hooks/*`、CI workflow 的內容修改。
-- `docs/DEPLOYMENT_MAP.md`/`.json`（雙檔必須同一 commit 同步）。
+- `docs/DEPLOYMENT_MAP.md`/`.json` 的**格式或用途**變更（雙檔必須同一 commit 同步）。
+  例外：配合新路由上線的**例行條目新增**是 CLAUDE.md 既有的日常義務，隨功能 PR 走即可，不標 [制度變更]。
 - 新增 `.claude/skills/`、`docs/prompts/` 開工單。
 - 精簡/歸檔動作（§4）— 因為會刪東西。
 
 ### 🔴 紅區 — 先問 founder（AskUserQuestion 或停下等指示），沒有同意不准動
+> 等待期間只暫停該紅區項目本身，其餘不相關任務照常進行。
 - `CLAUDE.md` 硬規則、`SYSTEM.md` 產品定位與語言系統。
-- 任何標了「**拍板**」「**FOUNDER-APPROVED**」「**locked**」的條目與資產
+- 任何標了「**拍板**」「**鎖定**」「**locked**」「**FOUNDER-APPROVED**」其一的條目與資產
   （鎖定資產清單：`SYSTEM.md` §8、`ANTIGRAVITY.md` §18、`docs/MOTION-DIRECTION.md` §4）。
 - `docs/PLAYBOOK.md` §0 文件優先序。
 - `docs/MOTION-DIRECTION.md` 的 tokens 值與四大語彙定義。
@@ -30,12 +34,13 @@
 
 ## 2. 防鑽漏洞條款（寫給會找捷徑的模型）
 
-1. 綠區的「新增」是字面意義：diff 裡對既有行只能有 context，不能有刪改。改一個字也算改。
-2. **每條規則的意圖高於字面**。例：「不得新增 legacy Animated」的意圖是「債不再長大」，
+### 2.1 綠區的「新增」是字面意義
+diff 裡對既有行只能有 context，不能有刪改。改一個字也算改。
+### 2.2 每條規則的**意圖高於字面**。例：「不得新增 legacy Animated」的意圖是「債不再長大」，
    把既有檔案大改寫再宣稱「不是新增」違反意圖；`check-vocab.sh` 是 diff-based，
    「先刪含 TEI 的行再用別的拼法加回」是繞過，不是合規。吃不準意圖 → 問。
-3. 「verify.sh 綠」是**必要條件不是完成證明** — 綠燈之後仍要按該任務的驗收方式驗（見 06 §3 驗證階梯）。
-4. 宣稱「已驗證」的最低標準：驗證指令的**輸出**已貼進回報，或截圖已用 Read 工具實際看過。
+### 2.3 「verify.sh 綠」是**必要條件不是完成證明** — 綠燈之後仍要按該任務的驗收方式驗（見 06 §3 驗證階梯）。
+### 2.4 宣稱「已驗證」的最低標準：驗證指令的**輸出**已貼進回報，或截圖已用 Read 工具實際看過。
    沒有這兩者之一，只能寫「未驗證」。
 
 ## 3. 踩坑紀錄格式（Context / Error / Solution）
