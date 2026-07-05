@@ -20,7 +20,8 @@ This note is the current desktop hand-off. Older notes below are historical.
 1. **`/preview/` onboarding→Soul Scan polish pass**（沿用 2026-06-30 note 的調參地圖，現在直接在 main 上開 `feat/*` 分支做）：真 CDN（GSAP/Three/MediaPipe/Inter）下逐 beat 走一遍、對齊 founder mockups、調 `AUTO` dwell / `orbTo()` eases / `HOLD_MS`、驗 `prefers-reduced-motion` 與 ~390px、真 iPhone Safari 相機 handoff。Optional high-value：把 CSS `.ob-orb` 換成真 `TENKI_STARDUST` 品牌球（需 GPU live preview）。改 preview 前**必讀 `docs/PLAYBOOK.md` §6**（iOS 陷阱全集）。
 2. **Mobile 日常掃描揭曉 — 設計任務（2026-07-03 更新）**：founder 已否決兩個獨立結果頁（web `scan-result.html` 與 RN `app/scan/result.tsx`，均已刪）— **結果頁體驗一律以 `/preview/v6/` 星塵揭曉為準**。現況：日常 ceremony → processing → 直接回 Today，分數環即揭曉（過渡態）。桌機任務：與 founder 對齊後，把 v6 的揭曉儀式（星塵 takeover → 分數收斂 → zone 揭示）移植成 RN 版（Reanimated 3 + Skia，禁 SVG；mock 分數已由 `dailyScan.ts` 供給 scan-store）。先出 mockup 或以 `/preview/v6/?from=baseline` 實走對齊節奏，別自行發明新視覺。
 3. **原生 lane（需 Mac）**：vision-camera 真臉部信號 → 餵 `updateQuality`（目前 mock 流程 quality 全 0）→ `estimateConfidence` 就會有真值 → `deriveDailyEdgeScore` 自動走真 confidence 分支；最終把 mock 換成 `packages/engine` scoring（screens 內有 `INTEGRATION (...)` 標記點）。
-4. 動任何 preview/品牌資產前查 locked 清單：`SYSTEM.md` §8（/story/ Hero + 星塵球）、本檔 §18（logo）、`brand/TAGLINE-SYSTEM.md`。
+4. **手指 PPG「可選補強層」真訊號 lane（需真機）**：把 PR #148（`feat/preview-finger-real-ppg` @ `7c2a253`，`apps/preview/finger-ppg.js` 真後鏡頭 PPG + 14 headless 測試）的真訊號接進 `apps/preview/v6/index.html` 既有 `.baseline-flow` 的 `'scan'` 狀態（取代寫死的 68 BPM mock，:2956 附近 / `bfLiveHR` :2663），並做真 iPhone Safari 相機 / iOS OOM / ROI・torch・fps 調參。**完整接線契約見 `docs/FINGER-PRECISION-WIRING.md`（動前必讀）**；雲端已備獨立入口 `openPrecisionBaseline()` 與 localStorage 旗標骨架。手指是**可選補強層**、非主流程；入口分離、勿碰臉掃星塵 takeover。
+5. 動任何 preview/品牌資產前查 locked 清單：`SYSTEM.md` §8（/story/ Hero + 星塵球）、本檔 §18（logo）、`brand/TAGLINE-SYSTEM.md`。
 
 ---
 
@@ -736,7 +737,7 @@ Trader Mode 提供 3 種**決策紀律模板**。
 
 ### 8.3 Finger Heat Zone
 
-> ⛔ **已退場（2026-07-05，face-only 收斂）** — 產品收斂成純臉部掃描（rPPG）。手指接觸式 PPG 掃描 UI 不再是產品的一部分，本節僅作歷史規格保留，**不要再實作**。方向見 `MEMORY.md` #11。註：`packages/scan/`（FHZ 訊號 pipeline）是底層基礎建設，與此 UI 段落無關，保留。
+> ♻️ **重新定位（2026-07-05）** — 臉部掃描是唯一主流程；手指 PPG **退為「可選補強層」**（看到臉掃結果後才出現的 opt-in「提升精度」），**不是**獨立主入口。本節的舊「準備閘門」框架已過時，現行接法（重用 `/preview/v6/` `.baseline-flow` + PR #148 真訊號）以 **`docs/FINGER-PRECISION-WIRING.md`** 為準，方向錨見 `MEMORY.md` #12。下方表格僅作 UI 元件歷史參考。註：`packages/scan/`（FHZ 訊號 pipeline）是底層基礎建設，保留。
 
 Finger Heat Zone 是**功能性準備閘門**，不是裝飾 UI。
 

@@ -9,6 +9,28 @@
 
 ---
 
+# 2026-07-05 Session Update #12 (手指 PPG 回歸為「可選補強層」— 接線契約落地)
+
+> 承 #11。Founder 補一層方向：手指**不是**回收，而是**重新定位為可選補強層** —— 臉掃永遠是唯一主流程，看到結果後才出現 opt-in「提升精度」入口。與 CLAUDE.md「finger PPG 退為校準/補強層」一致。
+
+## What was done（本條 = 規劃 + 委派落地，雲端無相機部分）
+- **接線契約 canonical**：`docs/FINGER-PRECISION-WIRING.md`（`5e17786`）—— 目標架構、既有可重用零件真實座標（v6 `.baseline-flow` API :3999/:4010/:3827/:4019、結果錨 `#edgeScoreReveal` :1938、PR #148 `finger-ppg.js`）、獨立入口 `openPrecisionBaseline()`、localStorage schema（只存衍生 HR）、注入錨點、cloud/Antigravity/Mac 分工、驗證。
+- **Antigravity 任務 + §8.3 重定位**（`d71aa5f`）：桌機工作清單加「手指 PPG 真訊號 lane（需真機）」指向契約檔；§8.3 ⛔「已退場」改 ♻️「重新定位為可選補強層」。
+- 本條記錄方向。
+- **關鍵設計約束**：手指補強層走**獨立入口**，不碰臉掃星塵 takeover（`stardust-scan-takeover.js`:51-52 已把 `openBaseline` 覆寫成 no-op 擋 mock）；只存衍生 HR、raw 不上雲。
+
+## 教訓/注意
+- 大部分零件已存在（v6 `.baseline-flow` 儀式、`openBaseline` API、PR #148 真 PPG 引擎）→ **重用不重寫**。
+- 真相機/真機/iOS OOM → Antigravity lane（PR #148 是 draft，未併主因就是等真機驗證）；雲端只做無相機、手機可驗的骨架。
+
+## 下次接手點
+- **雲端可續（我）**：步驟 2 骨架 —— v6 加獨立 `openPrecisionBaseline()` + `bfFinish()` 寫 localStorage 旗標 + 結果頁「已提升精度」徽章（純 JS、headless 截圖可驗）。做前讀 `docs/FINGER-PRECISION-WIRING.md` §6 + `docs/PLAYBOOK.md` §6。
+- **Antigravity**：ANTIGRAVITY.md 工作清單 #4（真 PPG 進 `bf 'scan'`）。
+- **入口 B 卡（結果頁「提升精度」）**：founder 說日後再補，等真訊號可用後再建。
+- 本 branch `claude/fable5-system-setup-xuqbkg` 已從 merged main（`b06ad90`, #161）重啟；本條工作在其上。
+
+---
+
 # 2026-07-05 Session Update #11 (產品轉向定調：收斂成「只有臉」的 app + 刪手指基線)
 
 > 這一條是**產品方向的錨**。任何未來 session（含較弱模型）接手前**先讀這條**，別再把產品想成多模態/交易工具。Founder 原話：「我沒有辦法重啟對話 因為我怕你會忘記 這邊的一切」→ 所以把「這邊的一切」刻進這裡，恐懼從此不成立。
