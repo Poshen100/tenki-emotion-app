@@ -28,10 +28,6 @@ export default function ScanScreen(): React.JSX.Element {
     }
   };
 
-  const handleFingerCalibratePress = (): void => {
-    router.push('/finger-precision');
-  };
-
   return (
     <CosmicBackground mode="deepNebula">
       <SafeAreaView style={styles.safe}>
@@ -58,25 +54,6 @@ export default function ScanScreen(): React.JSX.Element {
               accent="gold"
               label={hasBaseline ? '開始今日 Soul Scan' : '建立 Face Baseline'}
               onPress={handleDailyScanPress}
-              style={styles.cardButton}
-            />
-          </GlassInfoCard>
-
-          {/* Finger Calibration Card (Cyan accent) */}
-          <GlassInfoCard edge="cyan" style={styles.cardContent}>
-            <View style={styles.cardHeader}>
-              <View style={styles.badgeCyan}>
-                <Text style={styles.badgeTextCyan}>HIGH PRECISION</Text>
-              </View>
-            </View>
-            <Text style={styles.cardTitle}>手指接觸校準</Text>
-            <Text style={styles.cardDesc}>
-              藉由接觸式光學 PPG，重新量取 face↔finger 偏差，讓日常臉掃結果更為精準。
-            </Text>
-            <GlowPrimaryButton
-              accent="cyan"
-              label="開始手指校準"
-              onPress={handleFingerCalibratePress}
               style={styles.cardButton}
             />
           </GlassInfoCard>
@@ -123,20 +100,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#FFE9B0',
-    letterSpacing: 1,
-  },
-  badgeCyan: {
-    backgroundColor: 'rgba(61, 224, 255, 0.15)',
-    borderColor: 'rgba(61, 224, 255, 0.3)',
-    borderWidth: 1,
-    borderRadius: t.radius.badge,
-    paddingHorizontal: t.spacing.sm,
-    paddingVertical: t.spacing.xs,
-  },
-  badgeTextCyan: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#A8E9FF',
     letterSpacing: 1,
   },
   cardTitle: {

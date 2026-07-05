@@ -80,12 +80,6 @@ export default function LabScreen() {
     { icon: '🔒', title: 'Privacy', description: '數據控制與匹出', onPress: undefined },
     { icon: '⌚', title: 'Devices', description: '連接 Garmin、Apple Watch', onPress: undefined },
     {
-      icon: '🎯',
-      title: 'Precision Calibration',
-      description: '新增手指精準掃描以優化基線',
-      onPress: () => router.push('/finger-precision'),
-    },
-    {
       icon: '💎',
       title: 'Subscription',
       description: isPremium ? 'Premium plan' : 'Free plan',
