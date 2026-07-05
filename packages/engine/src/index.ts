@@ -144,12 +144,6 @@ export {
   updateBaselineProfile,
 } from './baseline/baseline';
 
-export {
-  blendFingerWithFaceBaseline,
-} from './baseline/multi-modal-blend';
-
-export type { BlendInput, BlendResult } from './baseline/multi-modal-blend';
-
 // ─── Scoring Engine ─────────────────────────
 export {
   calculateEdgeScore,
