@@ -124,6 +124,7 @@ refactor(session): extract timer segment logic
 - 被糾正一次 → 寫進這裡 → 下次不再犯
 - 架構變動 → 立刻更新 Module 表
 - 廢棄詞彙 → 加進「禁止事項」
+- ⚠️ 更新規則文件的權限分級（誰可自行改、什麼要先問 founder）與精簡協議見 `.cursor/harness/05_maintenance.md`；本檔硬規則屬 🔴 級 — AI 不得未經 founder 同意修改
 
 ## 工作流指令
 

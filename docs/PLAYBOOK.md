@@ -1,6 +1,6 @@
 # PLAYBOOK.md — TENKI 已知陷阱與標準流程手冊
 
-> **目的**：把歷次 session 的教訓（MEMORY.md 全文 998 行）蒸餾成一份可查表的規則手冊，
+> **目的**：把歷次 session 的教訓（MEMORY.md 日誌）蒸餾成一份可查表的規則手冊，
 > 讓任何 AI —— 不論模型強弱 —— 都不重犯已付過學費的錯。
 > **使用方式**：動工前先看 §1 路由表找到你的任務類型；工作中遇到怪症狀，先 grep 本檔再 debug。
 > **設計原則**：每條規則都寫成「情境 → 動作」，不需要判斷力也能執行。
@@ -15,7 +15,7 @@
 2. **`SYSTEM.md`** — 產品定位與語言系統（Radar/Baseline/Calibration/Turning Point）
 3. **本檔 `docs/PLAYBOOK.md`** — 操作規則與已知陷阱
 4. **`MEMORY.md` 最上方的條目** — 最新 session 狀態（越下方越舊）
-5. **領域方向文件** — `docs/SOUL-SCAN-NORTH-STAR.md`（掃描）、`docs/brand.md`（品牌語言）、`ANTIGRAVITY.md` §18（logo 視覺）
+5. **領域方向文件** — `docs/SOUL-SCAN-NORTH-STAR.md`（掃描）、`docs/brand.md`（品牌語言）、`docs/MOTION-DIRECTION.md`（動效）、`ANTIGRAVITY.md` §18（logo 視覺）、`.cursor/harness/05_maintenance.md`（規則文件自我更新權限）、`.cursor/harness/06_manifesto.md`（交接判斷）
 6. **`ANTIGRAVITY.md` 本文** — 產品藍圖（頂部 continuation note 比下方本文新；§14 repo 結構已過時，以 `CLAUDE.md` 的 Monorepo 表為準）
 
 ⚠️ **已過時、不得遵循的文件**（僅供考古，內容與上述矛盾時一律忽略；均已加 ⛔/⚠️ 橫幅）：
@@ -182,7 +182,9 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 
 ## 10. 本檔維護規則（compound learning 制度）
 
+> **改任何規則文件（含本檔）前，先讀 `.cursor/harness/05_maintenance.md`** — 三級權限（🟢自行新增教訓 / 🟡走PR標[制度變更] / 🔴先問founder）、踩坑紀錄格式、行數觸發的精簡協議、能力極限應對標準都在那裡。Fable 5 的交接判斷（驗證階梯、退化模式預警）見 `.cursor/harness/06_manifesto.md`。
+
 1. **糾正即入檔**：AI 被糾正一次 → 當個 session 就把教訓寫進本檔對應段落（工程規則歸 CLAUDE.md，操作陷阱歸本檔）。
 2. **二次即提煉**：同類教訓在 MEMORY.md 出現第二次 → 必須提煉成本檔一條「情境 → 規則」。
-3. **MEMORY.md 是日誌、本檔是法典**：MEMORY.md 記「這次發生什麼」，本檔記「以後怎麼做」。日誌可以長，法典必須短。
-4. 規則失效或被推翻 → 直接刪改本檔，不留屍體（歷史在 git log 裡）。
+3. **MEMORY.md 是日誌、本檔是法典**：MEMORY.md 記「這次發生什麼」，本檔記「以後怎麼做」。日誌可以長，法典必須短（新增前先找同類條目合併）。
+4. 規則失效或被推翻 → 刪改屬 🟡/🔴 級（見 05 協議），不留屍體（歷史在 git log 裡）。
