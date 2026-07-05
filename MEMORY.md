@@ -9,6 +9,38 @@
 
 ---
 
+# 2026-07-05 Session Update #11 (產品轉向定調：收斂成「只有臉」的 app + 刪手指基線)
+
+> 這一條是**產品方向的錨**。任何未來 session（含較弱模型）接手前**先讀這條**，別再把產品想成多模態/交易工具。Founder 原話：「我沒有辦法重啟對話 因為我怕你會忘記 這邊的一切」→ 所以把「這邊的一切」刻進這裡，恐懼從此不成立。
+
+## 產品定位（founder 本人一句話版本，這才是真正要做的東西）
+**臉部掃描 → 從臉部血流讀生理訊號（rPPG）→ 跑 founder 設定好的邏輯 → 算出一個分數（Edge Score, 0-100）→ 顯示給使用者 → 給對應回饋。**
+功能刻意**極簡**（founder：「我要的功能其實很簡單」「不要太多功能」）。不是多模態、不是交易工具、不是冥想 app（定位語言仍以 SYSTEM.md 為準）。
+
+## Founder 決策與處境（接手前必懂）
+- **「直接下場做」**：不再花時間找需求／驗證需求，直接把 app 生出來。
+- **授權刪掉手指基線功能**，只留臉部（本 session 已執行，見下方 Todo 2-4）。
+- Founder 一個人、**大部分時間只有手機、不看 code**；不缺錢，缺「一個可用的人或 AI 幫他把 app 生出來」。
+- 朋友有 Mac + 一個工程師，但太忙、沒空幫 → 所以他一直自己用手機研究到現在。
+
+## 真正的瓶頸（不是「他不會 coding」）
+1. **rPPG 是真的難的核心技術**（從臉部微色變推 HR/HRV）。→ 建議 **用買的商用 rPPG SDK，不要自己從零寫**。
+2. **缺 Mac / 真機**做 real scan（native camera → 真訊號 → 真分數）。目前 app 分數仍是 mock。
+   → 建議：買 Mac + 找一個 React Native 工程師做「原生整合／上機／App Store」那一哩，**AI 出量、人把關落地**。
+
+## What was done（本 session）
+- 產品轉向寫入本條（🟢 green-zone add-only）。
+- App 收斂成 face-only：刪 `apps/mobile/features/finger-precision/` + `app/finger-precision/` 路由 + `FingerSmartReminder`；清 `(tabs)/scan|index|lab.tsx` 與 `user-store` 的 finger 引用。
+- Engine 刪孤兒融合 `baseline/multi-modal-blend.ts`（+test+匯出）。保留 `biometric/finger-ppg.ts`（低階 PPG 基元，rPPG 可重用）與 `packages/scan/`（FHZ infra）。
+- Preview/部署清理：刪 `finger-demo.html`、`vercel.json` 的 `/preview/finger`、`DEPLOYMENT_MAP.md/.json` 條目。
+
+## 下次接手點
+- 產品是 **face-only**。要往前推的是「臉掃 → 真 rPPG 訊號 → Edge Score → 回饋」這條主線，核心卡在 rPPG SDK 選型 + Mac/真機。
+- rPPG socket 已在 `apps/mobile/features/face-baseline/utils/dailyScan.ts`（`deriveDailyEdgeScore`：confidence>0 走 real 分支）— 真相機接上 `updateQuality` 後會自動切真分數。
+- 本 branch（`claude/fable5-system-setup-xuqbkg`）另含前面 5 個 harness commit，尚未 merge 進 main。
+
+---
+
 # 2026-07-04 Session Update #10 (Harness 收官：05 維護協議 + 06 交接信 + 對抗審查 + 首次記憶精簡)
 
 > Founder 給 Harness 最後兩件（F 知識迭代協議、G 交接信）+ 強制收尾（對抗審查、唯讀驗證、執行摘要）。
