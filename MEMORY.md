@@ -9,6 +9,24 @@
 
 ---
 
+# 2026-07-04 Session Update #10 (Harness 收官：05 維護協議 + 06 交接信 + 對抗審查 + 首次記憶精簡)
+
+> Founder 給 Harness 最後兩件（F 知識迭代協議、G 交接信）+ 強制收尾（對抗審查、唯讀驗證、執行摘要）。
+
+## What was done
+- **`.cursor/harness/`（新，`32e1719`）**：`README.md`（01–04 映射既有檔案的索引，不複製內容）、`05_maintenance.md`（🟢🟡🔴 三級自我更新權限、防鑽漏洞 §2.1–2.4、Context/Error/Solution 踩坑格式、行數觸發精簡、品味類任務標準動作＝誠實條款）、`06_manifesto.md`（Fable 5 三件關鍵判斷：多 AI 狀態漂移是最大風險／驗證階梯／founder 溝通模式即 spec；七種退化模式與預防；一頁心法）。
+- **對抗審查（fresh-context sonnet，`0360c23`）**：10 條發現全數覆核處置 — 含兩 HIGH：紅區觸發詞漏「鎖定」一詞（已補，實測 repo 多用此詞）、規則檔零機械護欄。PLAYBOOK §0 收編 harness 排位形成裁決閉環。
+- **規則檔警示 hook（`391c40c`）**：`protect-files.sh` 對 CLAUDE/SYSTEM/PLAYBOOK/MOTION/harness 編輯注入 05 分級提醒（硬 block 不可行 — 🟢 新增教訓是合法編輯）；block/warn/silent 三向實測。
+- **首次記憶精簡（05 §4 實戰，`8a8d0ab`）**：MEMORY.md 1206→246 行，2026-06-22 前條目原文歸檔 `docs/archive/MEMORY-2026H1.md`，協議加索引行。
+- **唯讀驗證**：三個 harness 檔 Read 全文回讀無截斷；引用的 13 個路徑 `ls` 逐一存在。
+- 接線：PLAYBOOK §10、CLAUDE.md 持續更新節、AGENTS.md Key Files。
+
+## 下次接手點
+- Harness 六層完整（01 CLAUDE / 02 PLAYBOOK / 03 MEMORY / 04 機械護欄 / 05 維護協議 / 06 交接信）。改任何規則文件前先讀 `.cursor/harness/05_maintenance.md`。
+- 在外的球：Antigravity 動效開工單（`docs/prompts/antigravity-motion-kickoff.md`，founder 桌機貼上即開工）；founder 手機驗 `/v3/` 揭曉流程（TEI→Edge 改名後）。
+
+---
+
 # 2026-07-03 Session Update #9 (雙環比例拍板恢復 — 短視窗改捲動方案)
 
 > Founder 看 #155 上線後回報「雙環變得太小，我喜歡原本 V6 的比例」→ 縮環方案否決。改為：**環比例完全恢復 `min(72vw,300px)` 並鎖定；短視窗（≤760px 高）讓 `.screen` 捲動**。
