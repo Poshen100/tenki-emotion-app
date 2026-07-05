@@ -14,8 +14,6 @@
         { "source": "/story/", "destination": "/apps/preview/story.html" },
         { "source": "/story/(.*)", "destination": "/apps/preview/$1" },
         { "source": "/preview/", "destination": "/apps/preview/soul-enroll.html" },
-        { "source": "/preview/finger", "destination": "/apps/preview/index.html" },
-        { "source": "/preview/finger/", "destination": "/apps/preview/index.html" },
         { "source": "/preview/(.*)", "destination": "/apps/preview/$1" },
         { "source": "/", "destination": "/apps/web/index.html" },
         { "source": "/(.*)", "destination": "/apps/web/$1" }
