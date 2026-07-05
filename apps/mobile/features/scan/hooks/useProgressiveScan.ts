@@ -5,7 +5,11 @@
  * Wires together:
  *  - progressive-pipeline (runProgressiveScan) for interim Level 1-4 scores
  *  - scan-pipeline (runScanPipeline) for the final gate + baseline update
- *  - fingerPrecisionStore for wearable HRV + blendMode input
+ *
+ * Face-only: the product converged to a single face-scan flow, so the finger
+ * calibration source is absent. Wearable HRV / finger-calibration inputs are
+ * left at their neutral defaults; the multi-source pipeline simply runs with
+ * the face signal alone.
  *
  * Usage:
  *   const { partialResult, finalResult, isScanning, startScan, stopScan } =
@@ -36,7 +40,6 @@ import type {
   SignalQuality,
   SleepRecoveryInput,
 } from '@tenki/engine/common/types';
-import { useFingerPrecisionStore } from '../../finger-precision/store/fingerPrecisionStore';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -98,13 +101,11 @@ export function useProgressiveScan({
   const latestSourcesRef = useRef<SourceQuality[] | undefined>(undefined);
   const isScanningRef = useRef(false);
 
-  // Pull wearable data from fingerPrecisionStore
-  // currentHrvRmssd is set by the finger PPG flow when a calibrated reading is available
-  const wearableHrvRmssdMs = useFingerPrecisionStore((s) => s.currentHrvRmssd) ?? undefined;
-  const fingerCalibrated = useFingerPrecisionStore((s) => s.result !== null);
-  const fingerConfidence = useFingerPrecisionStore(
-    (s) => s.result?.signalQualityScore ?? 0
-  );
+  // Face-only flow: no finger calibration source. Neutral defaults keep the
+  // multi-source pipeline running on the face signal alone.
+  const wearableHrvRmssdMs: number | undefined = undefined;
+  const fingerCalibrated = false;
+  const fingerConfidence = 0;
 
   const feedFrame = useCallback((
     reading: BiometricReading,

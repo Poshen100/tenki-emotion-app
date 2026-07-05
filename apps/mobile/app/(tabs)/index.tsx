@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -17,7 +17,6 @@ import { DecisionBar } from '../../components/DecisionBar';
 import { useScanStore } from '../../stores/scan-store';
 import { useUserStore } from '../../stores/user-store';
 import { useAutonomicStore } from '../../stores/autonomic-store';
-import { FingerSmartReminder } from '../../components/FingerSmartReminder';
 import { BackgroundContainer } from '../../components/onboarding-components';
 
 function formatScanTime(timestamp: number): string {
@@ -35,49 +34,14 @@ export default function TodayScreen() {
   const router = useRouter();
   const lastResult = useScanStore((s) => s.lastResult);
   const hasBaseline = useUserStore((s) => s.hasBaseline);
-  const faceBaselineCount = useUserStore((s) => s.faceBaselineCount);
-  const lastFingerCalibrationTime = useUserStore((s) => s.lastFingerCalibrationTime);
   const autonomicSource = useAutonomicStore((s) => s.source);
   const wearableHrvApplied = useAutonomicStore((s) => s.wearableHrvApplied);
-
-  const [showReminder, setShowReminder] = useState(false);
-  const fingerReminderDismissed = useUserStore((s) => s.fingerReminderDismissed);
-  const setFingerReminderDismissed = useUserStore(
-    (s) => s.setFingerReminderDismissed
-  );
 
   useEffect(() => {
     if (!hasBaseline) {
       router.replace('/onboarding/welcome');
     }
   }, [hasBaseline]);
-
-  useEffect(() => {
-    if (hasBaseline && !fingerReminderDismissed) {
-      const triggerLowBaseline = faceBaselineCount < 3;
-      const stressScore = lastResult
-        ? Math.max(10, 100 - lastResult.metrics.stability)
-        : 0;
-      const triggerHighStress = stressScore > 75;
-      let daysSinceCalibration = 999;
-      if (lastFingerCalibrationTime !== null) {
-        const elapsedMs = Date.now() - lastFingerCalibrationTime;
-        daysSinceCalibration = elapsedMs / (1000 * 60 * 60 * 24);
-      }
-      const triggerOldCalibration = daysSinceCalibration > 14;
-
-      if (triggerLowBaseline || triggerHighStress || triggerOldCalibration) {
-        const timer = setTimeout(() => setShowReminder(true), 1500);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [
-    hasBaseline,
-    fingerReminderDismissed,
-    faceBaselineCount,
-    lastFingerCalibrationTime,
-    lastResult,
-  ]);
 
   const currentScore = lastResult?.edgeScore ?? null;
   const lastScanTime = lastResult
@@ -180,19 +144,6 @@ export default function TodayScreen() {
             <StatCard label="Streak" value="—" />
           </View>
         </ScrollView>
-
-        <FingerSmartReminder
-          visible={showReminder}
-          onScanFinger={() => {
-            setShowReminder(false);
-            router.push('/finger-precision');
-          }}
-          onDismiss={() => setShowReminder(false)}
-          onNeverRemind={() => {
-            setShowReminder(false);
-            setFingerReminderDismissed(true);
-          }}
-        />
       </SafeAreaView>
     </BackgroundContainer>
   );

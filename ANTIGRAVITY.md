@@ -736,6 +736,8 @@ Trader Mode 提供 3 種**決策紀律模板**。
 
 ### 8.3 Finger Heat Zone
 
+> ⛔ **已退場（2026-07-05，face-only 收斂）** — 產品收斂成純臉部掃描（rPPG）。手指接觸式 PPG 掃描 UI 不再是產品的一部分，本節僅作歷史規格保留，**不要再實作**。方向見 `MEMORY.md` #11。註：`packages/scan/`（FHZ 訊號 pipeline）是底層基礎建設，與此 UI 段落無關，保留。
+
 Finger Heat Zone 是**功能性準備閘門**，不是裝飾 UI。
 
 | 功能 | 說明 |
@@ -984,7 +986,7 @@ tenki-emotion-app/
 - [ ] Expo / React Native 初始化 (shell 已建立，需驗證)
 - [ ] 底部導航 (5 tabs) — shell 已有
 - [ ] Today 頁面
-- [ ] Scan 頁面 + Finger Heat Zone
+- [ ] Scan 頁面（臉部 Soul Scan）
 - [ ] Session 頁面
 - [ ] Timeline 頁面
 - [ ] Lab 頁面（含雙耳節拍 + 多巴胺日誌）
@@ -1007,7 +1009,7 @@ TENKI CORE 的完成標準：
 | 項目 | 標準 |
 |------|------|
 | Edge Score | 8 維度正確計算，3 Zone 正確分類 |
-| Scan | Finger Heat Zone 可正常擷取信號並產生 Score |
+| Scan | 臉部 Soul Scan 可正常擷取信號並產生 Score |
 | Session | 10 狀態完整流轉，閘門正確運作 |
 | Privacy | 所有敏感數據留在裝置端，加密儲存 |
 | Compliance | 所有面向使用者文案通過 safe-copy 驗證 |
