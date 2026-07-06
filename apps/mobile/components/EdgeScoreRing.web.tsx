@@ -7,9 +7,9 @@ interface EdgeScoreRingProps {
 }
 
 /**
- * Circular Edge Score display.
- * Uses View-based ring as placeholder — will migrate to @shopify/react-native-skia
- * for smooth gradient rendering once native build is available.
+ * Circular Edge Score display — web fallback.
+ * View-based ring for Expo Web; the native implementation
+ * (EdgeScoreRing.native.tsx) renders the ring with Skia.
  */
 export function EdgeScoreRing({ score, size = 200 }: EdgeScoreRingProps) {
   const zone = getZoneForScore(score);
