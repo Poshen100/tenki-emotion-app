@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # TENKI Core — 一鍵 merge gate（Definition of Done）
 #
-# 跑完整套驗證: lint + 4 套件 tsc + root 測試 + mobile tsc/測試 + preview 語法 + 禁用詞彙。
+# 跑完整套驗證: lint + 4 套件 tsc + root 測試 + 覆蓋率 gate (engine/scan) + mobile tsc/測試 + preview 語法 + 禁用詞彙。
 # 沒有這裡的綠燈，任何改動都不算「完成」。（CI = .github/workflows/ci.yml 跑同一套。）
 #
 # ⚠️ 本腳本涵蓋不到的事（見 docs/PLAYBOOK.md §3）:
@@ -50,6 +50,9 @@ run_step "tsc domain" npx tsc --noEmit -p domain
 
 # ── 3. Root 測試（Jest；不含 apps/mobile）────────────────
 run_step "root tests (jest)" npm test --silent
+
+# ── 3b. 覆蓋率 gate（engine/scan 有 coverageThreshold，低於底線即紅）──
+run_step "coverage gate (engine+scan)" npm run test:coverage --workspaces --if-present --silent
 
 # ── 4. Mobile（不在 root workspaces，必須分開跑）─────────
 if [ "$QUICK" = "1" ]; then
