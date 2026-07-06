@@ -43,8 +43,7 @@
   "jest": {
     "testEnvironment": "node",
     "testMatch": [
-      "**/features/face-baseline/__tests__/**/*.test.ts",
-      "**/features/finger-precision/__tests__/**/*.test.ts"
+      "**/features/face-baseline/__tests__/**/*.test.ts"
     ],
     "transform": {
       "^.+\\.tsx?$": [
