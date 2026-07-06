@@ -1,6 +1,7 @@
+import type { DomainScanType } from '@tenki/domain';
 import { create } from 'zustand';
 
-type ScanType = 'quick' | 'deep' | 'baseline';
+type ScanType = DomainScanType;
 type ScanUIState = 'idle' | 'searching' | 'detecting' | 'locked' | 'scanning' | 'processing' | 'results' | 'error';
 
 interface ScanMetrics {
