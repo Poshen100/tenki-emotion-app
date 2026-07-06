@@ -9,6 +9,26 @@
 
 ---
 
+# 2026-07-06 Session Update #13 (買 Mac 前三優化：merge gate 修真 + 型別收斂 + 原生接點預備)
+
+> Founder 問「買 Mac 之前給我三個優化建議」。全 repo 掃描後結論：真正卡 Mac 的只有四件（vision-camera 真臉部訊號、真 PPG 上機、動效實機調參、TestFlight）。本 session 把三類會在 Mac 階段放大的問題先修掉。Branch `claude/mac-purchase-advice-kwcyq4`。
+
+## What was done（三建議，逐 todo commit）
+- **建議 1 — merge gate 修真**：修 mobile jest testMatch 的 finger-precision 死路徑（#161 遺留，靜默無效）；engine/scan 加 `coverageThreshold` + `test:coverage`（**實測 engine 70.8%/71.4%、scan 89.6%/90.0%，門檻設實測底線防下滑，不造假 90**）；coverage gate 接進 verify.sh + ci.yml；補 session/timeline/scan store 測試 13 例並擴 testMatch。
+- **建議 2 — 型別收斂**：GateResult（曾手打 3 份）與 ScanType（mobile 少 `trader_check`）改 type-only import `@tenki/domain`（mobile tsconfig 新增 alias）；engine↔domain 用 `domain/src/__tests__/contract-sync.test.ts` 編譯期鎖同步；mobile zone mirror 抽 RN-free 的 `theme/zones.ts`，`getZoneForScore` 由 range 推導，`theme/__tests__/zone-sync.test.ts` 鎖住與 shared `ZONE_CONFIG` 一致。PLAYBOOK §7 已記 type-only import 邊界。**未動 zone 命名/EdgeZone**（brand.md §7 未定案）。
+- **建議 3 — 原生接點**：EdgeScoreRing 從 View placeholder 遷 Skia（比照 ProcessingOrbSkia 三檔 platform-split；靜態、無新 legacy Animated；web export 驗過 Metro 解析）。FSM `arc_left/arc_right/stability_pass` 與 QualityMetrics 6 信號**驗證後發現早已完成**（North Star §6 步驟 2 ✅；§5 表是 2026-06-12 舊快照），未重工。
+
+## 教訓/注意
+- North Star §5 的「缺 2 state / 6 信號」盤點表已過時 — **§6 落地順序的 ✅ 才是現況**；動工前先驗 code 再信文件快照。
+- `packages/scan`（1,427 LOC / 111 tests）+ `useProgressiveScan` + `ScanSourceBadge` **全 repo 零消費者** — face-only 轉向後定位需 founder 拍板（接線/park/刪），本次未動。
+- engine 覆蓋率缺口集中：`pipeline/progressive-pipeline.ts` 0%、`session/templates.ts` 0%、`scan-pipeline.ts` 63% — 補到 90% 是獨立後續任務，補完把 engine 門檻升回 90。
+
+## 下次接手點
+- **雲端可續**：(1) engine 覆蓋率 70→90（先決定 progressive-pipeline 去留，見上）；(2) MEMORY #12 的手指補強層步驟 2 骨架；(3) North Star §6 ⬜：mobile `/face-baseline` 接 onboarding 主入口、Scan tab 重定位。
+- **等 Mac**：vision-camera 餵 `updateQuality` → `deriveDailyEdgeScore` 自動切真分數（socket 已備好）；Skia ring 視覺手感實機確認。
+
+---
+
 # 2026-07-05 Session Update #12 (手指 PPG 回歸為「可選補強層」— 接線契約落地)
 
 > 承 #11。Founder 補一層方向：手指**不是**回收，而是**重新定位為可選補強層** —— 臉掃永遠是唯一主流程，看到結果後才出現 opt-in「提升精度」入口。與 CLAUDE.md「finger PPG 退為校準/補強層」一致。
