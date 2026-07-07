@@ -50,12 +50,15 @@ finger-ppg.js 真後鏡頭 PPG            ← 真 BPM + 品質閘門（取代 68
 - `tenki.precision.boosted` — `'1'` 一旦完成過一次有效手指校準（結果頁徽章依此顯示）。
 - `tenki.precision.lastTs` — 上次校準時間（給入口 B 卡的 smart-trigger 判斷「多久沒校準」）。
 
-## 6. 注入錨點（實作時對準這些點）
-- **獨立入口**：新增 `window.openPrecisionBaseline = function(){ /* open .baseline-flow, start 'intro', 不經 stardust override */ }`；供入口 B 卡與 Lab 卡呼叫。
-- **真訊號接點**：`bf 'scan'` 狀態內，把寫死的 `HR_BPM=68`（:2956 附近）與 `bfLiveHR`（:2663）換成 `finger-ppg.js` 的即時 `estimateBpm` 輸出 + 品質閘門。
-- **完成寫入**：`bfFinish()`（:4019）內，寫 §5 的 localStorage 旗標。
-- **結果頁徽章**：`#edgeScoreReveal` 區塊（:1938）旁，依 `tenki.precision.boosted` 顯示「已提升精度」信心徽章。
-- **入口 B 卡（日後）**：臉掃 ceremony 完成後（:2897 收尾）安靜插入卡片，樣式沿用 §3 提醒來源，`onclick=openPrecisionBaseline()`；可略過、記 `dismiss`。
+## 6. 注入錨點 — ✅ 骨架已落地（`c743bb4`，2026-07-06；本節由「計畫」轉「現況」）
+- **入口（已上）**：`#edgeConfidence` pill 在 `#edgeTraceZone` 正下方（環中心內）。未校準＝`信心 · 中　·　提升精度 ›`（金）→ `onclick=openPrecisionBaseline()`；當日已校準＝`信心 · 高　·　✓ 已校準`（mint、disabled）。
+- **獨立入口（已上）**：`window.openPrecisionBaseline()` 定義在 bf IIFE 閉包內，不受 `stardust-scan-takeover.js` 對 `openBaseline` 的 no-op 影響。
+- **完成寫入（已上）**：`bfFinish()` 寫 `tenki.precision.{boosted,lastTs}` → `applyPrecision()`。
+- **狀態應用（已上）**：`window.applyPrecision()` 開機即跑：pill 狀態、`#srcFinger`「手指 ✓」chip（指紋線 icon）、`html.precision-calibrated`（**Antigravity 視覺 hook**：環 mint 發光、Autonomic 精修掛這裡）。
+- **真訊號接點（Antigravity）**：`bf 'scan'` 內把寫死 `HR_BPM=68` / `bfLiveHR` 換成 `finger-ppg.js`（#148）真 `estimateBpm` + 品質閘門；閘門驅動 良好/歪掉/放開 三態。開工單：`docs/prompts/antigravity-finger-precision-kickoff.md`。
+
+### 命名（founder 拍板 2026-07-05）
+User-facing 一律「**手指**」＋指紋線 icon（來源 chip=「手指 ✓」）；PPG/rPPG 只作技術脈絡；掃描指示句可精準用「食指」；**禁「補強」**。
 
 ## 7. 分工（誰做哪段）
 | 誰 | 範圍 |
