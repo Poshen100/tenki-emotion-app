@@ -332,6 +332,28 @@ body{
   transition:color 1.2s;
 }
 
+/* Precision-layer confidence affordance (entry to finger calibration).
+   Skeleton styling only — 2050 visual pass belongs to Antigravity
+   (docs/FINGER-PRECISION-WIRING.md §6, docs/prompts/antigravity-finger-precision-kickoff.md) */
+.tl-edge-conf{
+  margin-top:10px;
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11.5px;font-weight:500;letter-spacing:0.02em;
+  font-family:inherit;
+  color:#E8B45A;background:rgba(232,180,90,0.08);
+  border:1px solid rgba(232,180,90,0.38);border-radius:999px;
+  padding:6px 14px;cursor:pointer;
+  transition:all 0.6s var(--ease-calm);
+}
+.tl-edge-conf:active{transform:scale(0.97)}
+.tl-edge-conf[hidden]{display:none}
+.tl-edge-conf.calibrated{
+  color:#37E0A8;background:rgba(55,224,168,0.09);
+  border-color:rgba(55,224,168,0.38);cursor:default;
+}
+.source-toggle .src.src-finger{color:#37E0A8}
+.source-toggle .src.src-finger[hidden]{display:none}
+
 /* Legacy SVG rings — hidden in v6 (replaced by conic-gradient wrappers) */
 .tl-edge svg{display:none}
 
@@ -1917,6 +1939,10 @@ body{
             <svg class="src-svg" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M7 8V5h10v3" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="14" r="3" stroke="currentColor" stroke-width="2"/></svg>
             <span>rPPG</span>
           </div>
+          <div class="src src-finger" id="srcFinger" hidden>
+            <svg class="src-svg" viewBox="0 0 24 24" fill="none"><path d="M5 11.6a7 7 0 0114 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 12.1a4 4 0 018 0c0 2.1-.4 4-1.1 5.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M11 12.1a1 1 0 012 0c0 2.3-.3 4.4-1 6.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <span>手指 ✓</span>
+          </div>
         </div>
       </div>
 
@@ -1938,6 +1964,7 @@ body{
               <div class="tl-edge-score" id="edgeScoreReveal">72</div>
               <div class="tl-edge-pr">Edge Score</div>
               <div class="tl-edge-zone" id="edgeTraceZone">Decision Edge · Clear</div>
+              <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
             </div>
           </div>
         </div>
@@ -4016,11 +4043,54 @@ function setClarity(v){
     if(bfAutoChain){bfAutoChain.forEach(t=>clearTimeout(t));bfAutoChain=null;document.getElementById('bfAutoBtn').textContent='▶ AUTO'}
   };
   window.bfGo = bfGoInternal;
+
+  // ── Precision layer (finger calibration) wiring ──
+  // Independent entry: stardust-scan-takeover.js no-ops window.openBaseline to
+  // keep the mock finger flow out of the FACE scan path; the optional precision
+  // layer enters here instead. Contract: docs/FINGER-PRECISION-WIRING.md §6.
+  window.openPrecisionBaseline = function(){
+    document.getElementById('baselineFlow').classList.add('open');
+    bfResize();
+    bfInit();
+    if(!bfDustRunning){
+      bfDustRunning = true;
+      requestAnimationFrame(bfAnim);
+    }
+    bfGoInternal('intro');
+  };
+  // Derived flags only (privacy: raw signal never stored). Real HR baseline
+  // lands with finger-ppg.js (PR #148) in the Antigravity real-signal pass.
+  function precisionCalibratedToday(){
+    try{
+      const ts = Number(localStorage.getItem('tenki.precision.lastTs'));
+      return !!ts && new Date(ts).toDateString() === new Date().toDateString();
+    }catch(_e){ return false; }
+  }
+  window.applyPrecision = function(){
+    const conf = document.getElementById('edgeConfidence');
+    const chip = document.getElementById('srcFinger');
+    if(!conf) return;
+    const done = precisionCalibratedToday();
+    conf.hidden = false;
+    conf.disabled = done;
+    conf.classList.toggle('calibrated', done);
+    conf.textContent = done ? '信心 · 高　·　✓ 已校準' : '信心 · 中　·　提升精度 ›';
+    if(chip) chip.hidden = !done;
+    // Root hook for the Antigravity visual pass (ring glow, autonomic refine)
+    document.documentElement.classList.toggle('precision-calibrated', done);
+  };
+
   window.bfFinish = function(){
+    try{
+      localStorage.setItem('tenki.precision.boosted', '1');
+      localStorage.setItem('tenki.precision.lastTs', String(Date.now()));
+    }catch(_e){ /* private mode: state simply won't persist */ }
+    window.applyPrecision();
     window.closeBaseline();
     // Land on Today to show "fresh baseline" state
     setTimeout(() => goTab('today'), 300);
   };
+  window.applyPrecision();
   window.bfAuto = function(){
     const btn = document.getElementById('bfAutoBtn');
     if(bfAutoChain){
