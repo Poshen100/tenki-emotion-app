@@ -9,23 +9,25 @@
 
 ---
 
-# 2026-07-07 Session Update #15 (「都幫我完成」— 接手點全清 + 開 PR)
+# 2026-07-07 Session Update #15 (「都幫我完成」— 接手點全清 + 開 PR #164)
 
-> 承 #14。Founder「都幫我完成」→ 把 MEMORY #14 下次接手點全部收掉。Branch 同 `claude/mac-purchase-advice-kwcyq4`，本條後開 PR。
+> 承 #14。Founder「都幫我完成」→ 把 MEMORY #14 下次接手點全部收掉。Branch 同 `claude/mac-purchase-advice-kwcyq4`，開 PR #164。
 
 ## What was done
 - **engine branch 覆蓋率 87.7% → 90.8%，門檻四維全 90**：edge-score 補 sleep 檔位/staleness/freshness 五階/low confidence band；bootstrap 補 SQI→grade 四檔/摘要文案分支/時段分桶。373 tests 全綠。
-- **手指補強層 step 2 骨架落地**（MEMORY #12 接手點，依 FINGER-PRECISION-WIRING.md §5/§6）：`openPrecisionBaseline()` 獨立入口（直呼閉包內部，stardust no-op 覆寫擋不到）、`bfFinish()` 寫 `tenki.precision.boosted`+`lastTs`（僅 UI 旗標，不造假生理值）、結果頁「已提升精度」徽章。headless Playwright 全流程驗證通過 + 截圖已交 founder。**入口 B 卡未做**（founder 明示日後）。**手感待 founder 手機實走**（CI 盲區）。
-- **North Star §6 第 3 項 ⬜→✅**：驗證後發現 mobile onboarding 主入口 + Scan tab 重定位**早已接好**（`(tabs)/index.tsx`:40 導 onboarding、`ready.tsx`:76 進真 FSM、`scan.tsx`:24 分流 maturity/首掃）— 又一次「文件快照過時、code 已領先」（同 #14 教訓，PLAYBOOK 已有此條）。
+- ~~手指補強層 step 2 骨架~~ → **與 main #163 平行重工**：本分支 `bf90bbe0` 做了 badge 版骨架，開 PR 後發現 main 的 #163（平行 session）已落地 founder 逐輪拍板的完整版（`#edgeConfidence` pill、`applyPrecision()`、`srcFinger` chip、同組 `tenki.precision.*` 旗標）。**merge 採 #163 版、badge 版捨棄**。#163 帶入命名決策：user-facing 一律「手指」、**禁「補強」**。
+- **North Star §6 第 3 項 ⬜→✅**：驗證後發現 mobile onboarding 主入口 + Scan tab 重定位**早已接好**（`(tabs)/index.tsx`:40 導 onboarding、`ready.tsx`:76 進真 FSM、`scan.tsx`:24 分流 maturity/首掃）— 又一次「文件快照過時、code 已領先」（同 #14 教訓）。
+- 解 PR #164 merge conflict（v6 採 main、MEMORY 雙條目保留）；本次與下方「#13 (提升精度接進 v6)」是**平行 session 撞號**，各自為政。
 
 ## 教訓/注意
+- **平行 session 撞車**：開工前沒 `git fetch origin main` 看 main 是否前進 → 重做了 #163 已做的事。「過時情報直接動工」第三次出現 → 已提煉進 PLAYBOOK §1（開工前情報同步）。
 - **測時間相關邏輯要錨定輸入的 timestamp**：freshness 測試最初用 `Date.now()` 算偏移、但引擎是對 `reading.timestamp`（helper 釘在當天 10:00）算 → 依 wall-clock 時段最多飄一天、CI 隨機紅。改為從 `createDefaultInput().reading.timestamp` 反推。
 - headless 驗 preview 的路徑已打通：scratchpad 裝 `playwright-core` + `/opt/pw-browsers/chromium-*/chrome-linux/chrome`，`http-server apps/preview` 即可驅動 v6 全流程。
 
 ## 下次接手點
-- **等 founder**：手機實走 `/preview/v6/` 骨架（Lab 卡 → 儀式 → done → Today 徽章）；PR review。
-- **等真訊號（Antigravity/Mac lane）**：PR #148 真 PPG 進 `bf 'scan'`、寫 `tenki.precision.hrBaseline`/`maturity`；之後補入口 B 卡。
-- **等 Mac**：vision-camera 餵 `updateQuality`（socket 已備好）。
+- **等 founder**：手機驗 `/preview/v6/`（pill → 儀式 → bfFinish → 回 Today 狀態翻轉）；PR #164 review。
+- **等真訊號（Antigravity/Mac lane）**：照 #163 開工單做 2050 儀式視覺 + PR #148 真 PPG。
+- **等 Mac**：vision-camera 餵 `updateQuality`（socket 已備好）。**掃描分數目前仍是 mock** — 真實生理數據要等真機相機接上。
 
 ---
 
@@ -69,6 +71,26 @@
 ## 下次接手點
 - **雲端可續**：(1) engine 覆蓋率 70→90（先決定 progressive-pipeline 去留，見上）；(2) MEMORY #12 的手指補強層步驟 2 骨架；(3) North Star §6 ⬜：mobile `/face-baseline` 接 onboarding 主入口、Scan tab 重定位。
 - **等 Mac**：vision-camera 餵 `updateQuality` → `deriveDailyEdgeScore` 自動切真分數（socket 已備好）；Skia ring 視覺手感實機確認。
+
+---
+
+# 2026-07-06 Session Update #13 (提升精度接進 v6：骨架上線 + 2050 視覺交棒 Antigravity)
+
+> 承 #12。Founder 逐輪打磨後定案接法與視覺，雲端骨架落地，視覺動效+真訊號指派 Antigravity。
+
+## 定案（founder 拍板）
+- **接法＝強化 v6 結果頁本身**（非另開頁）：①環中心信心 pill 入口 ②完成後 Autonomic/環升級 ③header 第三來源。
+- **命名**：user-facing 一律「**手指**」＋指紋線 icon；PPG 只作技術脈絡；指示句可用「食指」；**禁「補強」**。
+- **視覺基準＝2050 生物儀器**（founder 五張參考定調）：熱感應手指熱場＋良好/歪掉/放開三態、生理正確 PPG 波形（核心隨拍脹縮+HRV 抖動、BPM 置中堆疊）、金色星塵只在完成爆一次、色語一色一義（紅=血流only讀取/金=完成/青=資料/mint=掌控）。**去 AI 感**：禁 emoji icon、禁假折線、克制。
+
+## What was done
+- **v6 骨架（`c743bb4`）**：`#edgeConfidence` pill（中→邀請/高→✓）、閉包內獨立 `openPrecisionBaseline()`（不受 stardust no-op 影響）、`applyPrecision()`＋`html.precision-calibrated` 視覺 hook、`#srcFinger`「手指 ✓」chip、`bfFinish()` 寫 `tenki.precision.*`。Playwright 實測：三段斷言全過、零 pageerror、鎖定環比例不變。
+- **Antigravity 開工單（`1ea9872`）**：`docs/prompts/antigravity-finger-precision-kickoff.md`（2050 規格全文入 repo）；ANTIGRAVITY.md lane 4 更新；契約 §6 轉 as-built＋命名決策。
+
+## 下次接手點
+- Founder 手機驗 `/preview/v6/`（merge 後）：pill → 儀式 → bfFinish → 回 Today 狀態翻轉。
+- Antigravity：照開工單做 A（2050 儀式視覺）+ B（#148 真訊號，需真機）。
+- 雲端後續：Antigravity 交付後，環 mint 發光/Autonomic 精修已有 `precision-calibrated` hook 可掛。
 
 ---
 

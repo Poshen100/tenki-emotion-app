@@ -51,6 +51,7 @@
 2. 確認自己在正確分支（**絕不直推 main** — Antigravity 直推 main 已三度弄紅 CI、一次 clobber 掉已 merge 的檔案）。
 3. 跨 session 改同一檔案前先 `git fetch origin main` 比對，避免 stale checkout 覆蓋別人已 merge 的工作。
 4. 需求模糊 → 先問 founder，不盲猜（Karpathy 原則 1）。任務超過單檔 → 先寫 plan，Todo 對應 commit。
+5. **別把 MEMORY/文件快照當現況**（已三度中招：North Star §5 FSM 盤點、覆蓋率缺口清單、#163 與分支平行重做同一骨架）。接手任何「待辦」前：`git fetch origin main` 看 main 是否前進 + 實測現況（grep code、跑 coverage）確認缺口還在，再動工。長分支開 PR 前也先 fetch 比對，避免與已 merge 的平行工作撞車。
 
 ## 3. 驗證與 Definition of Done
 
