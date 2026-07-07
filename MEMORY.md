@@ -9,6 +9,26 @@
 
 ---
 
+# 2026-07-06 Session Update #13 (提升精度接進 v6：骨架上線 + 2050 視覺交棒 Antigravity)
+
+> 承 #12。Founder 逐輪打磨後定案接法與視覺，雲端骨架落地，視覺動效+真訊號指派 Antigravity。
+
+## 定案（founder 拍板）
+- **接法＝強化 v6 結果頁本身**（非另開頁）：①環中心信心 pill 入口 ②完成後 Autonomic/環升級 ③header 第三來源。
+- **命名**：user-facing 一律「**手指**」＋指紋線 icon；PPG 只作技術脈絡；指示句可用「食指」；**禁「補強」**。
+- **視覺基準＝2050 生物儀器**（founder 五張參考定調）：熱感應手指熱場＋良好/歪掉/放開三態、生理正確 PPG 波形（核心隨拍脹縮+HRV 抖動、BPM 置中堆疊）、金色星塵只在完成爆一次、色語一色一義（紅=血流only讀取/金=完成/青=資料/mint=掌控）。**去 AI 感**：禁 emoji icon、禁假折線、克制。
+
+## What was done
+- **v6 骨架（`c743bb4`）**：`#edgeConfidence` pill（中→邀請/高→✓）、閉包內獨立 `openPrecisionBaseline()`（不受 stardust no-op 影響）、`applyPrecision()`＋`html.precision-calibrated` 視覺 hook、`#srcFinger`「手指 ✓」chip、`bfFinish()` 寫 `tenki.precision.*`。Playwright 實測：三段斷言全過、零 pageerror、鎖定環比例不變。
+- **Antigravity 開工單（`1ea9872`）**：`docs/prompts/antigravity-finger-precision-kickoff.md`（2050 規格全文入 repo）；ANTIGRAVITY.md lane 4 更新；契約 §6 轉 as-built＋命名決策。
+
+## 下次接手點
+- Founder 手機驗 `/preview/v6/`（merge 後）：pill → 儀式 → bfFinish → 回 Today 狀態翻轉。
+- Antigravity：照開工單做 A（2050 儀式視覺）+ B（#148 真訊號，需真機）。
+- 雲端後續：Antigravity 交付後，環 mint 發光/Autonomic 精修已有 `precision-calibrated` hook 可掛。
+
+---
+
 # 2026-07-05 Session Update #12 (手指 PPG 回歸為「可選補強層」— 接線契約落地)
 
 > 承 #11。Founder 補一層方向：手指**不是**回收，而是**重新定位為可選補強層** —— 臉掃永遠是唯一主流程，看到結果後才出現 opt-in「提升精度」入口。與 CLAUDE.md「finger PPG 退為校準/補強層」一致。
