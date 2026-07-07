@@ -193,4 +193,51 @@ describe('bootstrapBaseline', () => {
     const result = bootstrapBaseline(windows);
     expect(result.success).toBe(false);
   });
+
+  // ─── Branch coverage: grade tiers / summary messages / time buckets ───
+
+  it.each<[number, string]>([
+    [90, 'A'],
+    [75, 'B'],
+    [60, 'C'],
+    [45, 'D'],
+  ])('aggregate SQI %i maps to grade %s', (sqiScore, grade) => {
+    const windows = Array.from({ length: 6 }, (_, i) => makeWindow(i, { sqiScore }));
+    const result = bootstrapBaseline(windows);
+    expect(result.success).toBe(true);
+    expect(result.aggregateSignalQuality.grade).toBe(grade);
+  });
+
+  it('summary message reflects a moderate/low confidence bootstrap', () => {
+    // Threshold-quality series → confidence drops out of the high band and
+    // the softer summary copy is used instead of the "優秀" variant.
+    const windows = Array.from({ length: 4 }, (_, i) => makeWindow(i, { sqiScore: 42 }));
+    const result = bootstrapBaseline(windows);
+    expect(result.success).toBe(true);
+    expect(['moderate', 'low']).toContain(result.confidence.band);
+    expect(result.summaryMessage.length).toBeGreaterThan(0);
+    expect(result.summaryMessage).not.toContain('優秀');
+  });
+
+  it('buckets readings by time of day (morning/midday/evening)', () => {
+    const morning = new Date();
+    morning.setHours(8, 0, 0, 0);
+    const midday = new Date();
+    midday.setHours(14, 0, 0, 0);
+    const evening = new Date();
+    evening.setHours(21, 0, 0, 0);
+
+    for (const anchor of [morning, midday, evening]) {
+      const windows = Array.from({ length: 4 }, (_, i) => {
+        const w = makeWindow(i);
+        return { ...w, reading: { ...w.reading, timestamp: anchor.getTime() + i * 5000 } };
+      });
+      const result = bootstrapBaseline(windows);
+      expect(result.success).toBe(true);
+      // Exactly one bucket should have received the samples.
+      const buckets = ['morning', 'midday', 'evening'] as const;
+      const populated = buckets.filter(b => result.profile.hr[b].sampleCount > 0);
+      expect(populated).toHaveLength(1);
+    }
+  });
 });

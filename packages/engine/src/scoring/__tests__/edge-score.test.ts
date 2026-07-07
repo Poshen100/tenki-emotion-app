@@ -335,3 +335,83 @@ describe('calculateEdgeScore', () => {
     expect(result.confidence.band).toBe('moderate');
   });
 });
+
+// ─── Branch coverage: sleep tiers / recency tiers ───
+
+describe('sleep recovery sub-score branches', () => {
+  function sleepDriver(input: EdgeScoreInput): number {
+    const driver = calculateEdgeScore(input).drivers.find(d => d.key === 'sleep_recovery');
+    return driver ? driver.rawSubScore : -1;
+  }
+
+  it('short-but-adequate sleep (6-7h) scores below the optimal 7-9h band', () => {
+    const optimal = sleepDriver(createDefaultInput());
+    const adequate = sleepDriver(createDefaultInput({
+      sleepRecovery: { durationHours: 6.5, qualityScore: 75, source: 'healthkit', stalenessHours: 4 },
+    }));
+    expect(adequate).toBeLessThan(optimal);
+  });
+
+  it('stale sleep data (>24h) is penalised against fresh data', () => {
+    const fresh = sleepDriver(createDefaultInput());
+    const stale = sleepDriver(createDefaultInput({
+      sleepRecovery: { durationHours: 7.5, qualityScore: 75, source: 'healthkit', stalenessHours: 30 },
+    }));
+    expect(stale).toBeLessThan(fresh);
+  });
+});
+
+describe('baseline freshness (recency) tiers', () => {
+  function freshnessDriver(hoursAgo: number): number {
+    const baseline = createMatureBaseline();
+    // Anchor to the reading timestamp — freshness is measured against the
+    // scan time, not the wall clock at test runtime.
+    const readingTs = createDefaultInput().reading.timestamp;
+    const ts = readingTs - hoursAgo * 3600000;
+    for (const bucket of ['morning', 'midday', 'evening'] as const) {
+      baseline.hr[bucket].lastUpdatedAt = ts;
+      baseline.hrv[bucket].lastUpdatedAt = ts;
+      baseline.rr[bucket].lastUpdatedAt = ts;
+    }
+    baseline.stressProxy.lastUpdatedAt = ts;
+    const result = calculateEdgeScore(createDefaultInput({ baseline }));
+    const driver = result.drivers.find(d => d.key === 'baseline_freshness');
+    return driver ? driver.rawSubScore : -1;
+  }
+
+  it('degrades monotonically across the 24h/48h/72h/1-week tiers', () => {
+    const day1 = freshnessDriver(12);   // ≤24h → 100
+    const day2 = freshnessDriver(36);   // ≤48h → 80
+    const day3 = freshnessDriver(60);   // ≤72h → 60
+    const week = freshnessDriver(100);  // ≤168h → 40
+    const old = freshnessDriver(200);   // >168h → 20
+    expect(day1).toBe(100);
+    expect(day2).toBe(80);
+    expect(day3).toBe(60);
+    expect(week).toBe(40);
+    expect(old).toBe(20);
+  });
+});
+
+describe('confidence band: low', () => {
+  it('classifies as low when baseline is new and every signal is weak', () => {
+    const zero: MetricBaseline = { mean: 0, std: 0, sampleCount: 0, lastUpdatedAt: 0 };
+    const baseline: BaselineProfile = {
+      hr: { morning: { ...zero }, midday: { ...zero }, evening: { ...zero } },
+      hrv: { morning: { ...zero }, midday: { ...zero }, evening: { ...zero } },
+      rr: { morning: { ...zero }, midday: { ...zero }, evening: { ...zero } },
+      stressProxy: { ...zero },
+      maturity: 'new',
+      totalScanCount: 0,
+      version: '3.0.0',
+    };
+    const result = calculateEdgeScore(createDefaultInput({
+      baseline,
+      signalQuality: { score: 25, grade: 'F', coverage: 0.3, stability: 0.2, acceptable: true },
+      sleepRecovery: { durationHours: null, qualityScore: null, source: 'none', stalenessHours: 0 },
+      recentScores: [],
+    }));
+    expect(result.confidence.band).toBe('low');
+    expect(result.confidence.overall).toBeLessThan(0.55);
+  });
+});
