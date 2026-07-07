@@ -9,6 +9,26 @@
 
 ---
 
+# 2026-07-07 Session Update #15 (「都幫我完成」— 接手點全清 + 開 PR)
+
+> 承 #14。Founder「都幫我完成」→ 把 MEMORY #14 下次接手點全部收掉。Branch 同 `claude/mac-purchase-advice-kwcyq4`，本條後開 PR。
+
+## What was done
+- **engine branch 覆蓋率 87.7% → 90.8%，門檻四維全 90**：edge-score 補 sleep 檔位/staleness/freshness 五階/low confidence band；bootstrap 補 SQI→grade 四檔/摘要文案分支/時段分桶。373 tests 全綠。
+- **手指補強層 step 2 骨架落地**（MEMORY #12 接手點，依 FINGER-PRECISION-WIRING.md §5/§6）：`openPrecisionBaseline()` 獨立入口（直呼閉包內部，stardust no-op 覆寫擋不到）、`bfFinish()` 寫 `tenki.precision.boosted`+`lastTs`（僅 UI 旗標，不造假生理值）、結果頁「已提升精度」徽章。headless Playwright 全流程驗證通過 + 截圖已交 founder。**入口 B 卡未做**（founder 明示日後）。**手感待 founder 手機實走**（CI 盲區）。
+- **North Star §6 第 3 項 ⬜→✅**：驗證後發現 mobile onboarding 主入口 + Scan tab 重定位**早已接好**（`(tabs)/index.tsx`:40 導 onboarding、`ready.tsx`:76 進真 FSM、`scan.tsx`:24 分流 maturity/首掃）— 又一次「文件快照過時、code 已領先」（同 #14 教訓，PLAYBOOK 已有此條）。
+
+## 教訓/注意
+- **測時間相關邏輯要錨定輸入的 timestamp**：freshness 測試最初用 `Date.now()` 算偏移、但引擎是對 `reading.timestamp`（helper 釘在當天 10:00）算 → 依 wall-clock 時段最多飄一天、CI 隨機紅。改為從 `createDefaultInput().reading.timestamp` 反推。
+- headless 驗 preview 的路徑已打通：scratchpad 裝 `playwright-core` + `/opt/pw-browsers/chromium-*/chrome-linux/chrome`，`http-server apps/preview` 即可驅動 v6 全流程。
+
+## 下次接手點
+- **等 founder**：手機實走 `/preview/v6/` 骨架（Lab 卡 → 儀式 → done → Today 徽章）；PR review。
+- **等真訊號（Antigravity/Mac lane）**：PR #148 真 PPG 進 `bf 'scan'`、寫 `tenki.precision.hrBaseline`/`maturity`；之後補入口 B 卡。
+- **等 Mac**：vision-camera 餵 `updateQuality`（socket 已備好）。
+
+---
+
 # 2026-07-07 Session Update #14 (engine 覆蓋率 70.8% → 94.2%，門檻升回 90)
 
 > 承 #13。Founder「幫我完成」→ 收尾建議 1 留下的 gap：把 engine 覆蓋率補到 90%，讓「≥90%」規則名副其實。Founder 拍板：只補測試、`packages/scan` 先不動（不 park、不刪，留作未來 rPPG 漸進掃描地基）。Branch 同 `claude/mac-purchase-advice-kwcyq4`。

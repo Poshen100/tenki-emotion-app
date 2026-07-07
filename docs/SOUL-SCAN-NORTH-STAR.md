@@ -79,7 +79,7 @@ total baseline confidence。每個 state 要有自己的 quality gate，不靠�
      （brightness/uniformity/motion 真量測；FaceDetector 有就用、iOS Safari 退到誠實啟發式；
      pause-not-reset 進度 + retry 局部重掃）。這是原生到位前，founder 手機上能感受 Face ID 精準度的 proxy。
    - ✅ Preview 全程串接（Model B）：`/preview/` 臉部基線 → 質化「基線數據」快照 → `/preview/v6/?from=baseline`（星塵臉部掃描 + Today 揭曉 Edge Score）。finger PPG 走 `/preview/finger/` → 完成導入 `/preview/v6/`（校準層）。
-   - ⬜ 待做：mobile `/face-baseline` 接成 onboarding 主入口；Scan tab 重定位為日常 Soul Scan。
+   - ✅ 已接好（2026-07-07 驗證）：mobile 首次啟動 `(tabs)/index.tsx`:40-44 以 `!hasBaseline` 自動導向 `/onboarding/welcome` → `onboarding/ready.tsx`:76 進真 `/face-baseline` FSM → `established` → `onboarding/complete` 寫 `hasBaseline` 回 Today；Scan tab（`(tabs)/scan.tsx`:24-28）已重定位為日常 Soul Scan 儀表板（有基線走 `/face-baseline/maturity`、無基線走 `/face-baseline`）。
 4. 原生 session（需 Mac）：vision-camera face detection 餵真信號、Skia halo、實機 QA
 
 ## 7. 文件鏈
