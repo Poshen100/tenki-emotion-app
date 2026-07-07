@@ -9,6 +9,29 @@
 
 ---
 
+# 2026-07-07 Session Update #14 (engine 覆蓋率 70.8% → 94.2%，門檻升回 90)
+
+> 承 #13。Founder「幫我完成」→ 收尾建議 1 留下的 gap：把 engine 覆蓋率補到 90%，讓「≥90%」規則名副其實。Founder 拍板：只補測試、`packages/scan` 先不動（不 park、不刪，留作未來 rPPG 漸進掃描地基）。Branch 同 `claude/mac-purchase-advice-kwcyq4`。
+
+## What was done（純測試，逐 todo commit，無 Mac）
+- 補測試把三個已知 0%/低覆蓋檔拉滿：`pipeline/progressive-pipeline.ts`(0→100)、`session/templates.ts`(0→100)、`pipeline/scan-pipeline.ts`(63→100 stmts；補 gate rejected/wearable override/finger blend 三模式)。
+- **動工後發現缺口比 #13 記的多**：`common/ewma.ts`、`biometric/hrv.ts` 的 **v3 版一直沒測**（根 `__tests__/` 測的是 `src/legacy/` 舊版，不是 v3）；`analytics/insight-generator.ts`+`replay.ts` 是零消費者孤兒（like packages/scan）但純邏輯。全部補到 100%（analytics 用型別安全 EdgeScoreResult factory，無 any）。
+- 門檻 stmts/lines/funcs=90、branch=85（實測 branch 87.7%，設略低防偽底線）；`collectCoverageFrom` 排除純 re-export barrel `src/index.ts`。反向驗證門檻設 99 會 exit 1。
+- 最終：engine **stmts 94.2% / lines 96.2% / funcs 100% / branch 87.7%**，363 tests 全綠；`npm run verify` 全綠。
+
+## 教訓/注意
+- **覆蓋率缺口別只信 MEMORY 快照**：#13 只記了 3 個 0% 檔，實際還有 ewma/hrv(v3)/analytics 沒測 + index barrel 稀釋分母。動工前先自己跑一次 `npm run test:coverage` 看完整 per-file 表。
+- **v3 與 legacy 同名檔並存陷阱**：`__tests__/hrv.test.ts`、`ewma.test.ts` 測的是 `src/legacy/`，不是 `src/biometric/`、`src/common/` 的 v3 版；看到「有測試」別假設 v3 被覆蓋。
+- `src/types.ts` 仍有 v2 死碼 `TENKI_ZONES`(PEAK/OPTIMAL/PR99 四區) 在 60-77 行，0% 覆蓋 — 屬 v2 參考債，未動（改廢棄詞彙要另開 PR + 先問 founder）。
+- `packages/scan` 依 founder 決定**保留未動**（零消費者現況不變，仍待未來接線）。
+
+## 下次接手點
+- **雲端可續**：(1) MEMORY #12 手指補強層步驟 2 骨架；(2) North Star §6 ⬜：mobile `/face-baseline` 接 onboarding 主入口、Scan tab 重定位；(3) 若要更嚴可把 engine branch 也拉到 90（補 edge-score.ts 267/279/338-341/368、bootstrap.ts 分支）。
+- **branch/PR**：本 branch 累積 #13+#14 共 15 commits，尚未開 PR（founder 未要求）。
+- **等 Mac**：vision-camera 餵 `updateQuality` → `deriveDailyEdgeScore` 自動切真分數（socket 已備好）。
+
+---
+
 # 2026-07-06 Session Update #13 (買 Mac 前三優化：merge gate 修真 + 型別收斂 + 原生接點預備)
 
 > Founder 問「買 Mac 之前給我三個優化建議」。全 repo 掃描後結論：真正卡 Mac 的只有四件（vision-camera 真臉部訊號、真 PPG 上機、動效實機調參、TestFlight）。本 session 把三類會在 Mac 階段放大的問題先修掉。Branch `claude/mac-purchase-advice-kwcyq4`。
