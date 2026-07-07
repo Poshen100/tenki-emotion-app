@@ -29,14 +29,8 @@ export const colors = {
   textTertiary: '#48484A',
 } as const;
 
-// keep in sync with @tenki/shared design-tokens brand spine (zone tones)
-export const zones = {
-  clear:   { bg: '#00B4D8', text: '#FFFFFF', range: [70, 100] as const },
-  neutral: { bg: '#64748B', text: '#FFFFFF', range: [40, 69] as const },
-  strain:  { bg: '#C2703D', text: '#FFFFFF', range: [0, 39] as const },
-} as const;
-
-export type ZoneName = keyof typeof zones;
+export { zones, getZoneForScore, zoneLabels } from './zones';
+export type { ZoneName } from './zones';
 
 export const spacing = {
   xs: 4,
@@ -89,16 +83,3 @@ export const typography = StyleSheet.create({
   },
 });
 
-/** Returns zone config for a given Edge Score (0-100). */
-export function getZoneForScore(score: number): { name: ZoneName; bg: string; text: string } {
-  if (score >= 70) return { name: 'clear', bg: zones.clear.bg, text: zones.clear.text };
-  if (score >= 40) return { name: 'neutral', bg: zones.neutral.bg, text: zones.neutral.text };
-  return { name: 'strain', bg: zones.strain.bg, text: zones.strain.text };
-}
-
-/** Zone display labels (safe, compliance-checked wording). */
-export const zoneLabels: Record<ZoneName, string> = {
-  clear: 'Clear',
-  neutral: 'Neutral',
-  strain: 'Strain',
-} as const;

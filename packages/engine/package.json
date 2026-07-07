@@ -5,7 +5,8 @@
     "types": "dist/index.d.ts",
     "scripts": {
         "build": "tsc",
-        "test": "jest"
+        "test": "jest",
+        "test:coverage": "jest --coverage"
     },
     "devDependencies": {
         "jest": "^29.0.0",
@@ -18,6 +19,19 @@
         "testEnvironment": "node",
         "testMatch": [
             "**/__tests__/**/*.test.ts"
-        ]
+        ],
+        "collectCoverageFrom": [
+            "src/**/*.ts",
+            "!src/legacy/**",
+            "!src/index.ts"
+        ],
+        "coverageThreshold": {
+            "global": {
+                "statements": 90,
+                "branches": 90,
+                "functions": 90,
+                "lines": 90
+            }
+        }
     }
 }

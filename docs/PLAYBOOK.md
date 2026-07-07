@@ -51,6 +51,7 @@
 2. 確認自己在正確分支（**絕不直推 main** — Antigravity 直推 main 已三度弄紅 CI、一次 clobber 掉已 merge 的檔案）。
 3. 跨 session 改同一檔案前先 `git fetch origin main` 比對，避免 stale checkout 覆蓋別人已 merge 的工作。
 4. 需求模糊 → 先問 founder，不盲猜（Karpathy 原則 1）。任務超過單檔 → 先寫 plan，Todo 對應 commit。
+5. **別把 MEMORY/文件快照當現況**（已三度中招：North Star §5 FSM 盤點、覆蓋率缺口清單、#163 與分支平行重做同一骨架）。接手任何「待辦」前：`git fetch origin main` 看 main 是否前進 + 實測現況（grep code、跑 coverage）確認缺口還在，再動工。長分支開 PR 前也先 fetch 比對，避免與已 merge 的平行工作撞車。
 
 ## 3. 驗證與 Definition of Done
 
@@ -134,6 +135,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | 情境 | 規則 |
 |------|------|
 | mobile 需要 engine 邏輯 | mobile **不 import** `packages/engine`（runtime 無 alias）→ 慣例是 `utils/` 自帶 mirror（如 `pulse.ts`、`maturityStage`）；**改其一必須兩邊同步** |
+| mobile 需要跨層「型別」 | **`import type` 允許且應優先**（編譯後擦除，Metro 看不到，不算 runtime import）→ union/contract 型別一律 type-only import `@tenki/domain` / `@tenki/engine`（tsconfig 已有 alias），**別手抄 union**（GateResult 曾漂移 3 份）。mirror 的**值**（zone range、顏色等）改不了 import 就用 sync 測試鎖住：`apps/mobile/theme/__tests__/zone-sync.test.ts`、`domain/src/__tests__/contract-sync.test.ts` 是範本 |
 | 跨屏傳遞流程狀態 | 用 store 旗標（如 `entryContext: 'onboarding' \| 'standalone'`），**別用 query param**（param 活不過多屏 `router.push` 鏈） |
 | `utils/` 目錄 | **永遠不 import react-native** — jest contract harness 依賴這個約定；純邏輯放 utils、hook 只 re-export |
 | vision-camera v5 | permission API 在 `VisionCamera` factory 上，不在 `Camera` 元件上 |

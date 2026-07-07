@@ -9,6 +9,71 @@
 
 ---
 
+# 2026-07-07 Session Update #15 (「都幫我完成」— 接手點全清 + 開 PR #164)
+
+> 承 #14。Founder「都幫我完成」→ 把 MEMORY #14 下次接手點全部收掉。Branch 同 `claude/mac-purchase-advice-kwcyq4`，開 PR #164。
+
+## What was done
+- **engine branch 覆蓋率 87.7% → 90.8%，門檻四維全 90**：edge-score 補 sleep 檔位/staleness/freshness 五階/low confidence band；bootstrap 補 SQI→grade 四檔/摘要文案分支/時段分桶。373 tests 全綠。
+- ~~手指補強層 step 2 骨架~~ → **與 main #163 平行重工**：本分支 `bf90bbe0` 做了 badge 版骨架，開 PR 後發現 main 的 #163（平行 session）已落地 founder 逐輪拍板的完整版（`#edgeConfidence` pill、`applyPrecision()`、`srcFinger` chip、同組 `tenki.precision.*` 旗標）。**merge 採 #163 版、badge 版捨棄**。#163 帶入命名決策：user-facing 一律「手指」、**禁「補強」**。
+- **North Star §6 第 3 項 ⬜→✅**：驗證後發現 mobile onboarding 主入口 + Scan tab 重定位**早已接好**（`(tabs)/index.tsx`:40 導 onboarding、`ready.tsx`:76 進真 FSM、`scan.tsx`:24 分流 maturity/首掃）— 又一次「文件快照過時、code 已領先」（同 #14 教訓）。
+- 解 PR #164 merge conflict（v6 採 main、MEMORY 雙條目保留）；本次與下方「#13 (提升精度接進 v6)」是**平行 session 撞號**，各自為政。
+
+## 教訓/注意
+- **平行 session 撞車**：開工前沒 `git fetch origin main` 看 main 是否前進 → 重做了 #163 已做的事。「過時情報直接動工」第三次出現 → 已提煉進 PLAYBOOK §1（開工前情報同步）。
+- **測時間相關邏輯要錨定輸入的 timestamp**：freshness 測試最初用 `Date.now()` 算偏移、但引擎是對 `reading.timestamp`（helper 釘在當天 10:00）算 → 依 wall-clock 時段最多飄一天、CI 隨機紅。改為從 `createDefaultInput().reading.timestamp` 反推。
+- headless 驗 preview 的路徑已打通：scratchpad 裝 `playwright-core` + `/opt/pw-browsers/chromium-*/chrome-linux/chrome`，`http-server apps/preview` 即可驅動 v6 全流程。
+
+## 下次接手點
+- **等 founder**：手機驗 `/preview/v6/`（pill → 儀式 → bfFinish → 回 Today 狀態翻轉）；PR #164 review。
+- **等真訊號（Antigravity/Mac lane）**：照 #163 開工單做 2050 儀式視覺 + PR #148 真 PPG。
+- **等 Mac**：vision-camera 餵 `updateQuality`（socket 已備好）。**掃描分數目前仍是 mock** — 真實生理數據要等真機相機接上。
+
+---
+
+# 2026-07-07 Session Update #14 (engine 覆蓋率 70.8% → 94.2%，門檻升回 90)
+
+> 承 #13。Founder「幫我完成」→ 收尾建議 1 留下的 gap：把 engine 覆蓋率補到 90%，讓「≥90%」規則名副其實。Founder 拍板：只補測試、`packages/scan` 先不動（不 park、不刪，留作未來 rPPG 漸進掃描地基）。Branch 同 `claude/mac-purchase-advice-kwcyq4`。
+
+## What was done（純測試，逐 todo commit，無 Mac）
+- 補測試把三個已知 0%/低覆蓋檔拉滿：`pipeline/progressive-pipeline.ts`(0→100)、`session/templates.ts`(0→100)、`pipeline/scan-pipeline.ts`(63→100 stmts；補 gate rejected/wearable override/finger blend 三模式)。
+- **動工後發現缺口比 #13 記的多**：`common/ewma.ts`、`biometric/hrv.ts` 的 **v3 版一直沒測**（根 `__tests__/` 測的是 `src/legacy/` 舊版，不是 v3）；`analytics/insight-generator.ts`+`replay.ts` 是零消費者孤兒（like packages/scan）但純邏輯。全部補到 100%（analytics 用型別安全 EdgeScoreResult factory，無 any）。
+- 門檻 stmts/lines/funcs=90、branch=85（實測 branch 87.7%，設略低防偽底線）；`collectCoverageFrom` 排除純 re-export barrel `src/index.ts`。反向驗證門檻設 99 會 exit 1。
+- 最終：engine **stmts 94.2% / lines 96.2% / funcs 100% / branch 87.7%**，363 tests 全綠；`npm run verify` 全綠。
+
+## 教訓/注意
+- **覆蓋率缺口別只信 MEMORY 快照**：#13 只記了 3 個 0% 檔，實際還有 ewma/hrv(v3)/analytics 沒測 + index barrel 稀釋分母。動工前先自己跑一次 `npm run test:coverage` 看完整 per-file 表。
+- **v3 與 legacy 同名檔並存陷阱**：`__tests__/hrv.test.ts`、`ewma.test.ts` 測的是 `src/legacy/`，不是 `src/biometric/`、`src/common/` 的 v3 版；看到「有測試」別假設 v3 被覆蓋。
+- `src/types.ts` 仍有 v2 死碼 `TENKI_ZONES`(PEAK/OPTIMAL/PR99 四區) 在 60-77 行，0% 覆蓋 — 屬 v2 參考債，未動（改廢棄詞彙要另開 PR + 先問 founder）。
+- `packages/scan` 依 founder 決定**保留未動**（零消費者現況不變，仍待未來接線）。
+
+## 下次接手點
+- **雲端可續**：(1) MEMORY #12 手指補強層步驟 2 骨架；(2) North Star §6 ⬜：mobile `/face-baseline` 接 onboarding 主入口、Scan tab 重定位；(3) 若要更嚴可把 engine branch 也拉到 90（補 edge-score.ts 267/279/338-341/368、bootstrap.ts 分支）。
+- **branch/PR**：本 branch 累積 #13+#14 共 15 commits，尚未開 PR（founder 未要求）。
+- **等 Mac**：vision-camera 餵 `updateQuality` → `deriveDailyEdgeScore` 自動切真分數（socket 已備好）。
+
+---
+
+# 2026-07-06 Session Update #13 (買 Mac 前三優化：merge gate 修真 + 型別收斂 + 原生接點預備)
+
+> Founder 問「買 Mac 之前給我三個優化建議」。全 repo 掃描後結論：真正卡 Mac 的只有四件（vision-camera 真臉部訊號、真 PPG 上機、動效實機調參、TestFlight）。本 session 把三類會在 Mac 階段放大的問題先修掉。Branch `claude/mac-purchase-advice-kwcyq4`。
+
+## What was done（三建議，逐 todo commit）
+- **建議 1 — merge gate 修真**：修 mobile jest testMatch 的 finger-precision 死路徑（#161 遺留，靜默無效）；engine/scan 加 `coverageThreshold` + `test:coverage`（**實測 engine 70.8%/71.4%、scan 89.6%/90.0%，門檻設實測底線防下滑，不造假 90**）；coverage gate 接進 verify.sh + ci.yml；補 session/timeline/scan store 測試 13 例並擴 testMatch。
+- **建議 2 — 型別收斂**：GateResult（曾手打 3 份）與 ScanType（mobile 少 `trader_check`）改 type-only import `@tenki/domain`（mobile tsconfig 新增 alias）；engine↔domain 用 `domain/src/__tests__/contract-sync.test.ts` 編譯期鎖同步；mobile zone mirror 抽 RN-free 的 `theme/zones.ts`，`getZoneForScore` 由 range 推導，`theme/__tests__/zone-sync.test.ts` 鎖住與 shared `ZONE_CONFIG` 一致。PLAYBOOK §7 已記 type-only import 邊界。**未動 zone 命名/EdgeZone**（brand.md §7 未定案）。
+- **建議 3 — 原生接點**：EdgeScoreRing 從 View placeholder 遷 Skia（比照 ProcessingOrbSkia 三檔 platform-split；靜態、無新 legacy Animated；web export 驗過 Metro 解析）。FSM `arc_left/arc_right/stability_pass` 與 QualityMetrics 6 信號**驗證後發現早已完成**（North Star §6 步驟 2 ✅；§5 表是 2026-06-12 舊快照），未重工。
+
+## 教訓/注意
+- North Star §5 的「缺 2 state / 6 信號」盤點表已過時 — **§6 落地順序的 ✅ 才是現況**；動工前先驗 code 再信文件快照。
+- `packages/scan`（1,427 LOC / 111 tests）+ `useProgressiveScan` + `ScanSourceBadge` **全 repo 零消費者** — face-only 轉向後定位需 founder 拍板（接線/park/刪），本次未動。
+- engine 覆蓋率缺口集中：`pipeline/progressive-pipeline.ts` 0%、`session/templates.ts` 0%、`scan-pipeline.ts` 63% — 補到 90% 是獨立後續任務，補完把 engine 門檻升回 90。
+
+## 下次接手點
+- **雲端可續**：(1) engine 覆蓋率 70→90（先決定 progressive-pipeline 去留，見上）；(2) MEMORY #12 的手指補強層步驟 2 骨架；(3) North Star §6 ⬜：mobile `/face-baseline` 接 onboarding 主入口、Scan tab 重定位。
+- **等 Mac**：vision-camera 餵 `updateQuality` → `deriveDailyEdgeScore` 自動切真分數（socket 已備好）；Skia ring 視覺手感實機確認。
+
+---
+
 # 2026-07-06 Session Update #13 (提升精度接進 v6：骨架上線 + 2050 視覺交棒 Antigravity)
 
 > 承 #12。Founder 逐輪打磨後定案接法與視覺，雲端骨架落地，視覺動效+真訊號指派 Antigravity。

@@ -1,9 +1,10 @@
+import type { DomainGateResult } from '@tenki/domain';
 import { create } from 'zustand';
 import { useTimelineStore } from './timeline-store';
 
 type SessionMode = 'health_reset' | 'focus' | 'performance' | 'trader';
 type SessionState = 'draft' | 'configured' | 'precheck' | 'scanning' | 'gated' | 'active' | 'paused' | 'completed' | 'reflection_pending' | 'archived';
-type GateResult = 'clear_pass' | 'soft_caution' | 'red_gate' | 'force_hold';
+type GateResult = DomainGateResult;
 
 interface SessionStoreState {
   mode: SessionMode | null;

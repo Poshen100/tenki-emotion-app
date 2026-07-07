@@ -61,6 +61,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Coverage gate (engine, scan)
+        run: npm run test:coverage --workspaces --if-present
+
   mobile:
     name: apps/mobile (test & typecheck)
     runs-on: ubuntu-latest

@@ -5,7 +5,9 @@
     "baseUrl": ".",
     "paths": {
       "@tenki/engine": ["../../packages/engine/src/index.ts"],
-      "@tenki/engine/*": ["../../packages/engine/src/*"]
+      "@tenki/engine/*": ["../../packages/engine/src/*"],
+      "@tenki/domain": ["../../domain/src/index.ts"],
+      "@tenki/domain/*": ["../../domain/src/*"]
     }
   }
 }
