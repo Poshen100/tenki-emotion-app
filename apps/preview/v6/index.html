@@ -331,6 +331,19 @@ body{
   letter-spacing:0.02em;
   transition:color 1.2s;
 }
+/* Precision-boosted confidence badge — quiet, shown only after a completed
+   finger calibration (tenki.precision.boosted). Not a biometric readout. */
+.tl-edge-precision{
+  display:none;
+  margin-top:6px;
+  padding:2px 10px;
+  font-size:10px;font-weight:500;
+  letter-spacing:0.06em;
+  color:rgba(240,200,120,0.92);
+  border:1px solid rgba(240,200,120,0.35);
+  border-radius:999px;
+}
+.tl-edge-precision.on{display:inline-block}
 
 /* Legacy SVG rings — hidden in v6 (replaced by conic-gradient wrappers) */
 .tl-edge svg{display:none}
@@ -1938,6 +1951,7 @@ body{
               <div class="tl-edge-score" id="edgeScoreReveal">72</div>
               <div class="tl-edge-pr">Edge Score</div>
               <div class="tl-edge-zone" id="edgeTraceZone">Decision Edge · Clear</div>
+              <div class="tl-edge-precision" id="precisionBadge">已提升精度</div>
             </div>
           </div>
         </div>
@@ -4006,6 +4020,30 @@ function setClarity(v){
     }
     bfGoInternal(startState || 'intro');
   };
+  // Precision layer entry (FINGER-PRECISION-WIRING.md §6) — calls the closure
+  // internals directly so the stardust takeover's openBaseline no-op override
+  // (stardust-scan-takeover.js :51-52) cannot block it. Independent by design:
+  // the face scan stays the only primary flow, this is the opt-in booster.
+  window.openPrecisionBaseline = function(){
+    document.getElementById('baselineFlow').classList.add('open');
+    bfResize();
+    bfInit();
+    if(!bfDustRunning){
+      bfDustRunning = true;
+      requestAnimationFrame(bfAnim);
+    }
+    bfGoInternal('intro');
+  };
+  // Shows the "已提升精度" confidence badge once a finger calibration has
+  // completed. Reads only the derived local flag — no biometric values.
+  function updatePrecisionBadge(){
+    var badge = document.getElementById('precisionBadge');
+    if(!badge) return;
+    var boosted = false;
+    try{ boosted = localStorage.getItem('tenki.precision.boosted') === '1'; }catch(e){}
+    badge.classList.toggle('on', boosted);
+  }
+  updatePrecisionBadge();
   window.closeBaseline = function(){
     document.getElementById('baselineFlow').classList.remove('open');
     bfDustRunning = false;
@@ -4017,6 +4055,14 @@ function setClarity(v){
   };
   window.bfGo = bfGoInternal;
   window.bfFinish = function(){
+    // Precision layer flags (FINGER-PRECISION-WIRING.md §5) — UI-state flags
+    // only. Derived HR baseline + maturity are written by finger-ppg.js (real
+    // signal lane, PR #148); this skeleton never fabricates biometric values.
+    try{
+      localStorage.setItem('tenki.precision.boosted', '1');
+      localStorage.setItem('tenki.precision.lastTs', String(Date.now()));
+    }catch(e){}
+    updatePrecisionBadge();
     window.closeBaseline();
     // Land on Today to show "fresh baseline" state
     setTimeout(() => goTab('today'), 300);
