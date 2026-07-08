@@ -10,6 +10,49 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Precision-mode intro hero (?from=precision, entered from the v6 提升精度
+       pill). Target composition: founder ref "Build Your Baseline" — rear lens
+       under a breathing blood-red glow + on-device privacy pill. CSS-built per
+       the 2050 system; photoreal finger asset belongs to the Antigravity lane
+       (docs/prompts/antigravity-finger-precision-kickoff.md). */
+    body.precision-mode #step-intro .step-icon{display:none}
+    .precision-privacy{
+      display:inline-flex;align-items:center;gap:7px;margin:0 auto 18px;
+      font-size:12px;font-weight:600;letter-spacing:0.02em;color:#54E6A6;
+      background:rgba(84,230,166,0.10);border:1px solid rgba(84,230,166,0.30);
+      border-radius:999px;padding:7px 14px;
+    }
+    .precision-privacy[hidden],.precision-lens[hidden]{display:none}
+    .precision-lens{
+      position:relative;width:150px;height:150px;margin:6px auto 20px;
+      display:grid;place-items:center;
+    }
+    .precision-lens .pl-glow{
+      position:absolute;width:140%;height:140%;border-radius:50%;
+      background:radial-gradient(circle, rgba(255,60,86,0.55) 0%, rgba(255,60,86,0.24) 38%, rgba(255,60,86,0) 68%);
+      filter:blur(3px);animation:plBreathe 2.4s ease-in-out infinite;
+    }
+    @keyframes plBreathe{0%,100%{transform:scale(0.86);opacity:0.6}50%{transform:scale(1.1);opacity:1}}
+    .precision-lens .pl-body{
+      position:relative;width:100%;height:100%;border-radius:50%;
+      background:radial-gradient(circle at 38% 34%, #2b3550 0%, #10131f 46%, #05060c 100%);
+      box-shadow:0 0 0 9px rgba(255,255,255,0.02),0 0 0 10px rgba(255,255,255,0.05),
+        inset 0 2px 10px rgba(255,255,255,0.14),inset 0 -9px 24px rgba(0,0,0,0.7);
+      display:grid;place-items:center;
+    }
+    .precision-lens .pl-inner{
+      width:44%;height:44%;border-radius:50%;
+      background:radial-gradient(circle at 40% 36%, #38507a, #0a0e18 70%);
+      box-shadow:inset 0 0 14px rgba(0,0,0,0.8);
+    }
+    .precision-lens .pl-spec{
+      position:absolute;width:15%;height:15%;border-radius:50%;top:23%;left:30%;
+      background:radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%);
+      filter:blur(1px);
+    }
+    @media (prefers-reduced-motion: reduce){.precision-lens .pl-glow{animation:none}}
+  </style>
     <!-- TENKI Core Brand v1.0 — favicon + Open Graph -->
     <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon/favicon-16.png">
@@ -42,8 +85,10 @@
     <section id="step-intro" class="step active">
       <div class="step-content">
         <div class="particle-bg" id="particle-canvas-intro"></div>
+        <div class="precision-privacy" id="precision-privacy" hidden>🔒 所有運算只在這支手機上</div>
         <div class="step-icon pulse" data-tenki-icon="sense" data-size="48"></div>
         <h1 class="step-headline intro-headline">Establish Your Baseline</h1>
+        <div class="precision-lens" id="precision-lens" hidden aria-hidden="true"><span class="pl-glow"></span><span class="pl-body"><span class="pl-inner"></span><span class="pl-spec"></span></span></div>
         <p class="step-body">
           接下來約 60 秒，TENKI 會學習你目前的心率、心率變異和呼吸節奏。<br>
           這不是測驗，只是建立屬於你的「正常狀態」參考。
