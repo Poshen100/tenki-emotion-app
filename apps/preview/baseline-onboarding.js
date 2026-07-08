@@ -1987,6 +1987,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // "sharpen today's readings", per the naming rules in
   // docs/FINGER-PRECISION-WIRING.md §6 (user-facing 手指/提升精度; never 補強).
   if (new URLSearchParams(location.search).get('from') === 'precision') {
+    // Force FINGER mode (rear camera, blood-lit finger view) — the default is
+    // 'face', which founder flagged on-device (2026-07-07): precision entry
+    // must never land on the face path. Set before the silhouette toggle and
+    // updateInstructions() below so the whole readiness/scan chain follows.
+    state.sensorChoice = 'finger';
+    document.body.classList.add('precision-mode');
+    const privacy = document.getElementById('precision-privacy');
+    const lens = document.getElementById('precision-lens');
+    if (privacy) privacy.hidden = false;
+    if (lens) lens.hidden = false;
     const headline = document.querySelector('#step-intro .step-headline');
     const body = document.querySelector('#step-intro .step-body');
     const subtext = document.querySelector('#step-intro .step-subtext');

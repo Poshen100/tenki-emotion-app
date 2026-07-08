@@ -9,6 +9,24 @@
 
 ---
 
+# 2026-07-08 Session Update #14 (提升精度接旗艦手指儀式 + merge 撞車救回)
+
+> 承 #13。Founder 逐輪實機打磨（4 輪截圖回饋），「提升精度」現在開**旗艦手指儀式**；途中遭遇多 session merge 撞車，兩 commit 遺失已 cherry-pick 救回（教訓已入 PLAYBOOK §4）。
+
+## 定案與落地
+- **旗艦＝`apps/preview/index.html`+`baseline-onboarding.js`**（真相機、紅色血流手指視圈、金色 climax、iOS-OOM 打磨過；founder 目標圖 IMG_8188 即其實機畫面）。v6 pill → `/preview/index.html?from=precision`；完成寫 `tenki.precision.*` → 星塵回場 v6 翻 `信心·高 ✓`＋「手指 ✓」chip。
+- **`from=precision` 三件事**：①強制 `state.sensorChoice='finger'`（預設是 face！founder 實機抓到誤入臉掃）②intro 換「用手指，讀得更準／開始校準」框＋mint 隱私 pill＋CSS 後鏡頭紅光 hero（對齊 Build Your Baseline 構圖）③已校準 pill **保持可點**（曾設 disabled → founder「不能點」→ 改隨時可重校準）。
+- 對應 commits：`17a09bb`（#165 merge 進 main）＋ 救回的兩刀（cherry-pick 自 `3038e59`/`7599493`）。
+
+## 事故：merge 撞車（PLAYBOOK §4 已加規則）
+#165 merge 時 PR head 停在三刀中的**第一刀**（repo 另有「圖書館session」並行動同一 branch），後兩 fix 靜默遺失。本地 reflog cherry-pick 救回、全流程 Playwright 重驗綠。**規則：merge 前核實 PR head == 剛推的 tip；merge 後 log origin/main 確認自己的 commit 在裡面；一條 branch 不要給兩個 session 用。**
+
+## 下次接手點
+- 本 branch 帶救回兩刀等 founder merge（新 PR）。手機驗收：`/v3/` 點 pill → 紅光 hero →「把指腹移到後鏡頭正中央」→ 真紅色手指視圈 → 金色儀式 → 星塵回 Today。
+- Antigravity lane 不變（開工單 `docs/prompts/antigravity-finger-precision-kickoff.md`：2050 儀式視覺 + #148 真 PPG）。
+
+---
+
 # 2026-07-06 Session Update #13 (提升精度接進 v6：骨架上線 + 2050 視覺交棒 Antigravity)
 
 > 承 #12。Founder 逐輪打磨後定案接法與視覺，雲端骨架落地，視覺動效+真訊號指派 Antigravity。

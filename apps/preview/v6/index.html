@@ -349,7 +349,7 @@ body{
 .tl-edge-conf[hidden]{display:none}
 .tl-edge-conf.calibrated{
   color:#37E0A8;background:rgba(55,224,168,0.09);
-  border-color:rgba(55,224,168,0.38);cursor:default;
+  border-color:rgba(55,224,168,0.38);
 }
 .source-toggle .src.src-finger{color:#37E0A8}
 .source-toggle .src.src-finger[hidden]{display:none}
@@ -4071,7 +4071,9 @@ function setClarity(v){
     if(!conf) return;
     const done = precisionCalibratedToday();
     conf.hidden = false;
-    conf.disabled = done;
+    // Calibrated state stays tappable — founder on-device feedback (2026-07-07
+    // 「不能點」): the pill must always re-open the finger flow (recalibrate
+    // anytime; completion refreshes lastTs).
     conf.classList.toggle('calibrated', done);
     conf.textContent = done ? '信心 · 高　·　✓ 已校準' : '信心 · 中　·　提升精度 ›';
     if(chip) chip.hidden = !done;
