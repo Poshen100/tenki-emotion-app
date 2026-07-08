@@ -4082,15 +4082,22 @@ function setClarity(v){
   };
 
   window.bfFinish = function(){
-    try{
-      localStorage.setItem('tenki.precision.boosted', '1');
-      localStorage.setItem('tenki.precision.lastTs', String(Date.now()));
-    }catch(_e){ /* private mode: state simply won't persist */ }
-    window.applyPrecision();
+    // Mock ceremony only (demo nav) — it must NOT grant 已校準. The precision
+    // flags are written solely by the flagship finger ceremony's completion
+    // (baseline-onboarding.js selectNextAction). Founder hit a false 已校準
+    // from this leftover skeleton write (2026-07-08).
     window.closeBaseline();
     // Land on Today to show "fresh baseline" state
     setTimeout(() => goTab('today'), 300);
   };
+  // QA/reset escape: /v3/?precision=clear wipes the calibration flags so the
+  // uncalibrated 信心·中 state can be re-tested on device.
+  try{
+    if (new URLSearchParams(location.search).get('precision') === 'clear') {
+      localStorage.removeItem('tenki.precision.boosted');
+      localStorage.removeItem('tenki.precision.lastTs');
+    }
+  }catch(_e){ /* ignore */ }
   window.applyPrecision();
   window.bfAuto = function(){
     const btn = document.getElementById('bfAutoBtn');
