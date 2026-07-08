@@ -2005,6 +2005,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (body) body.innerHTML = '接下來約 60 秒，手指直接量到脈搏，<br>把心率、心率變異和呼吸節奏讀得更準。';
     if (subtext) subtext.textContent = '完成之後，今天的分數會更可信';
     if (cta) cta.textContent = '開始校準';
+    // The scan-step top banner (#scan-banner) is static face copy in the HTML;
+    // the JS writers only touch the bottom #scan-guidance pill. Founder hit the
+    // face banner mid-scan on device (2026-07-08) — rewrite it once here
+    // (sensorChoice can no longer change after this block).
+    const bannerTitle = document.querySelector('#scan-banner .scan-banner-title');
+    const bannerSub = document.querySelector('#scan-banner .scan-banner-sub');
+    const bannerIcon = document.querySelector('#scan-banner .scan-banner-icon');
+    if (bannerTitle) bannerTitle.textContent = '請將食指完整覆蓋後鏡頭';
+    if (bannerSub) bannerSub.textContent = '指腹輕放、蓋滿鏡頭，過程保持不動';
+    if (bannerIcon) {
+      bannerIcon.setAttribute('data-tenki-icon', 'fingerprint');
+      if (window.tenkiIcon) bannerIcon.innerHTML = window.tenkiIcon('fingerprint', { size: 22 });
+    }
   }
 
   // Toggle face/finger silhouettes based on sensorChoice
