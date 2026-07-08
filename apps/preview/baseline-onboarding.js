@@ -1674,6 +1674,15 @@ function selectNextAction(action) {
     el.style.background = 'rgba(52, 199, 89, 0.08)';
   }
 
+  try {
+    // Precision layer: a completed finger calibration counts for today —
+    // v6's applyPrecision() flips 信心·中 → 信心·高 + the 手指 ✓ source chip.
+    localStorage.setItem('tenki.precision.boosted', '1');
+    localStorage.setItem('tenki.precision.lastTs', String(Date.now()));
+  } catch (e) {
+    console.warn('[TENKI] Failed to write precision flags:', e);
+  }
+
   if (action === 'scan') {
     try {
       // Establish baseline flag so root page unlocks scanning
@@ -1972,6 +1981,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize step 0
   updateStepDots(0);
   initParticles();
+
+  // Precision framing (?from=precision): entered from the v6 Today confidence
+  // pill, so the user already has a face baseline — reframe the intro copy as
+  // "sharpen today's readings", per the naming rules in
+  // docs/FINGER-PRECISION-WIRING.md §6 (user-facing 手指/提升精度; never 補強).
+  if (new URLSearchParams(location.search).get('from') === 'precision') {
+    const headline = document.querySelector('#step-intro .step-headline');
+    const body = document.querySelector('#step-intro .step-body');
+    const subtext = document.querySelector('#step-intro .step-subtext');
+    const cta = document.getElementById('btn-start');
+    if (headline) headline.textContent = '用手指，讀得更準';
+    if (body) body.innerHTML = '接下來約 60 秒，手指直接量到脈搏，<br>把心率、心率變異和呼吸節奏讀得更準。';
+    if (subtext) subtext.textContent = '完成之後，今天的分數會更可信';
+    if (cta) cta.textContent = '開始校準';
+  }
 
   // Toggle face/finger silhouettes based on sensorChoice
   const fingerSil = document.getElementById('finger-silhouette');

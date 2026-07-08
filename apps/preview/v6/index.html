@@ -4049,14 +4049,13 @@ function setClarity(v){
   // keep the mock finger flow out of the FACE scan path; the optional precision
   // layer enters here instead. Contract: docs/FINGER-PRECISION-WIRING.md §6.
   window.openPrecisionBaseline = function(){
-    document.getElementById('baselineFlow').classList.add('open');
-    bfResize();
-    bfInit();
-    if(!bfDustRunning){
-      bfDustRunning = true;
-      requestAnimationFrame(bfAnim);
-    }
-    bfGoInternal('intro');
+    // Founder call (2026-07-07): open the flagship finger ceremony
+    // (apps/preview/index.html — real camera, golden climax, iOS-OOM-hardened)
+    // instead of the local mock flow. It hands back to v6 via ?from=baseline
+    // (stardust reveal) and writes tenki.precision.* on completion.
+    // file: protocol = headless/local checkout; production serves /preview/*.
+    const base = location.protocol === 'file:' ? '../index.html' : '/preview/index.html';
+    location.href = base + '?from=precision';
   };
   // Derived flags only (privacy: raw signal never stored). Real HR baseline
   // lands with finger-ppg.js (PR #148) in the Antigravity real-signal pass.
