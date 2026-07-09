@@ -84,6 +84,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | 發現 main 上的檔案被「默默還原」 | 是別台機器的 stale checkout 直推。用 `git diff <pre-feature> <wip>` 確認是否純還原，從正確 commit checkout 回檔案；**別動對方真正的新功能** |
 | merge PR 之前（尤其多 session 並行時） | 先 `pull_request_read(get)` 核實 **PR head sha == 你剛推的 tip**。2026-07-08 實例：#165 merge 時 head 停在三刀中的第一刀，後兩個 fix 靜默遺失，靠本地 cherry-pick 救回。merge 後也要 `git log origin/main --oneline -3` 確認你的 commit 真的在裡面 |
 | stop-hook 警告 main 頂端 commit「Unverified（noreply@github.com）」並建議 amend | **誤報，絕不可照做**——那是 GitHub 自己產生的 merge/squash commit，amend＝改寫 main 歷史。只有「未推的本地 commit」才適用 reset-author 修簽名 |
+| clone 異常肥大 / 大型 merge 之後 | `.gitignore` **擋不住已被 add 的檔案**。抽查 `git ls-files \| grep -c node_modules`——#154 曾把 38,641 個 `apps/mobile/node_modules` 檔案（Skia 44MB .a 等）commit 進 main，clone 肥到 350MB 才被發現。修法 `git rm -r --cached <dir>`（磁碟保留）；歷史 blob 清洗（filter-repo）屬 🔴 需 founder 拍板＋全 session 重 clone |
 | 收到 Antigravity 的 patch relay（貼 diff） | 先 `git log --stat` 驗 base 乾淨；**不要盲 `git apply`**，用 Edit 對真實檔案逐段重建（順帶就是 review）；大檔改貼 `git show HEAD:<file>` 全文更可靠 |
 | 背景 agent 宣稱完成 | 不可信，用 `git log` 驗實際 commits（agent 可能中途被用量上限砍掉） |
 | 雲端環境查 CI | **無 `gh` CLI**。用 GitHub MCP `pull_request_read(get_check_runs)`；用 gh 或未帶 token 的 curl 會空轉 |
