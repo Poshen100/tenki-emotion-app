@@ -9,6 +9,26 @@
 
 ---
 
+# 2026-07-09 Session Update #16 (Repo 減肥：untrack node_modules，clone 350MB→13MB)
+
+> 承 #15。Founder 圖書館電腦 clone ~350MB 跑超久 → 診斷 + 修 + merge（#171）。
+
+## What was done
+- 根因：`b358489`（#154 健檢 merge）把整包 `apps/mobile/node_modules` commit 進 main，HEAD track 38,641 檔（Skia .a 44MB×N、hermes dll…）。`.gitignore` 兩層都有規則但**擋不住已 add 的檔**。
+- 修：`git rm -r --cached apps/mobile/node_modules`（只解除追蹤、磁碟檔沒動、mobile 測試不受影響）→ `git ls-files | grep -c node_modules` = 0 → PR #171 → merge `25bb186`。
+- 實測 depth-1 clone：**13MB**（.git 4MB），從 ~350MB 降下來。
+
+## 教訓（已入 PLAYBOOK §4）
+- `.gitignore` 不會 untrack 已入庫檔；大型 merge 後抽查 `git ls-files | grep node_modules`。
+- stop-hook 對 GitHub squash-merge commit（`noreply@github.com`）的 Unverified 是**誤報**，絕不可 amend main。
+
+## 下次接手點
+- 圖書館電腦三招：①repo 頁按 `.` 開 github.dev（零下載，首選）②`git clone --depth 1 --single-branch -b main`（13MB）③sparse checkout `apps/preview docs`。
+- 歷史 blob 仍在（完整 clone 仍肥）→ 根治=`git filter-repo` 洗歷史，屬 🔴 破壞性，需 founder 另拍板 + 全 session 重 clone，暫不做。
+- 手指流程 Antigravity lane 不變（`docs/prompts/antigravity-finger-precision-kickoff.md`）。
+
+---
+
 # 2026-07-09 Session Update #15 (實機打磨四連修：#166–#169 — 手指流程真機可用)
 
 > 承 #14。Founder 實機逐輪回饋（截圖/錄影），四輪修完「提升精度」手指流程在真機的完整可用性。全部已 merge。
