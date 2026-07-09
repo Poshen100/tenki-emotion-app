@@ -9,6 +9,26 @@
 
 ---
 
+# 2026-07-09 Session Update #15 (實機打磨四連修：#166–#169 — 手指流程真機可用)
+
+> 承 #14。Founder 實機逐輪回饋（截圖/錄影），四輪修完「提升精度」手指流程在真機的完整可用性。全部已 merge。
+
+## 四輪修正（每輪都是 founder 實機抓的）
+1. **#166**（救回 #165 撞掉的兩刀）：`from=precision` 強制 `sensorChoice='finger'`（預設是 face，曾誤入臉掃）＋ intro 紅光鏡頭 hero；已校準 pill 拿掉 disabled（可重新校準）。
+2. **#167 掃描橫幅**：`#scan-banner` 是**寫死在 HTML 的臉部文案**（JS 只更新底部 pill）→ precision 時一次改寫成手指版；**發現快取炸彈**：`?v=` 固定字串＝裝置永遠舊 JS → bump。
+3. **#168 誤發已校準**：mock `bfFinish()` 骨架殘留還在寫旗標 → 拔掉；**唯一發放點＝旗艦儀式完成**；新增 `/v3/?precision=clear` QA 重置開關。
+4. **#169 滑動黑屏**：旗艦頁早於 PLAYBOOK §6 100vh 規則 → `body`/`.app-container` 補 `100dvh`＋`overscroll-behavior:none`＋`html` 上主題色＋`.step` 內部捲動；`styles.css` 也補 `?v=` bump。
+
+## 教訓（全部已入 PLAYBOOK）
+§6：文案兩層陷阱（靜態 HTML＋JS writer 要兩層掃）／固定 `?v=`＝舊 JS 永駐裝置／100vh 陷阱再現。§4：merge 前核實 PR head sha；stop-hook 對 merge commit 的 Unverified 是誤報。
+
+## 下次接手點
+- 手指流程真機可用（founder 驗收中）。狀態機：`tenki.precision.*` 只由旗艦完成寫入；`?precision=clear` 可重置。
+- Antigravity lane 未動：`docs/prompts/antigravity-finger-precision-kickoff.md`（2050 儀式視覺 + #148 真 PPG + iOS 調參）。
+- 品味/真機終裁一律 founder；改 preview 前讀 PLAYBOOK §6。
+
+---
+
 # 2026-07-08 Session Update #14 (提升精度接旗艦手指儀式 + merge 撞車救回)
 
 > 承 #13。Founder 逐輪實機打磨（4 輪截圖回饋），「提升精度」現在開**旗艦手指儀式**；途中遭遇多 session merge 撞車，兩 commit 遺失已 cherry-pick 救回（教訓已入 PLAYBOOK §4）。
