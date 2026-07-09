@@ -54,6 +54,9 @@ html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Paint the iOS rubber-band/bounce area — otherwise scroll reveals black
+     (founder screen recording 2026-07-08; PLAYBOOK §6 100vh trap). */
+  background: var(--bg);
 }
 
 body {
@@ -62,9 +65,11 @@ body {
   color: var(--text-primary);
   overflow: hidden;
   height: 100vh;
+  height: 100dvh; /* match the in-app webview's visual viewport (PLAYBOOK §6) */
   display: flex;
   align-items: center;
   justify-content: center;
+  overscroll-behavior: none;
 }
 
 /* ── App Container (mobile frame) ── */
@@ -129,6 +134,10 @@ body {
   padding: var(--sp-lg);
   padding-top: 90px;
   padding-bottom: 80px;
+  /* Tall steps (e.g. the precision intro hero) scroll INSIDE the container
+     instead of clipping / triggering iOS page-pan black gaps (PLAYBOOK §6). */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .step.active {
@@ -1190,6 +1199,7 @@ body {
   .app-container {
     width: 100vw;
     height: 100vh;
+    height: 100dvh; /* PLAYBOOK §6: track the visual viewport, no page pan */
     border-radius: 0;
     box-shadow: none;
   }
