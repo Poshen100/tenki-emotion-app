@@ -1,3 +1,45 @@
+# 2026-07-09 ADDENDUM — two explicit deliverables under item #1 (does NOT supersede the 2026-07-03 note)
+
+Read the **2026-07-03 note below first** for the full protocol (先讀制度, `feat/*`→PR, `npm run verify`
+green = done) and the 5-item work list — it all stands. This addendum only makes item #1 (`/preview/`
+onboarding→Soul Scan polish) concrete with two pieces the founder called out on 2026-07-09. Reference
+images are committed in `docs/refs/`. Open a `feat/*` branch from `main`; Claude Code opens the PR + merges
+after `npm run verify` is green. Before touching `/preview/` read `docs/PLAYBOOK.md` §6 (iOS traps) +
+`docs/MOTION-DIRECTION.md`.
+
+### #1-A — Crystal ball ("水晶球") must match the target and move smoothly
+- **Target (in repo):** `docs/refs/crystal-ball-target-IMG_8437.png` — a photoreal clear glass sphere with
+  **fine, luminous gold stardust particles** in elegant intertwined orbits; real refraction, rim, depth.
+- **Current (in repo):** `docs/refs/crystal-ball-current-baseline-locked.png` — the gold reads as **thick
+  clumpy brush-strokes**, and motion/transitions feel not-smooth.
+- **Where:** `apps/preview/soul-enroll.js` → `drawProcessingOrb(c, cx, cy, t, opts)` (~line 599), a
+  hand-crafted **canvas-2D** volumetric-glass renderer (glass body, fresnel rim, specular hotspot, 3
+  gyroscope "gold sand" orbits, refraction caustic). Used on the "Securing…" processing screen and the
+  "Baseline locked" result screen.
+- **Do:** far finer/denser gold **particles** (not fat ribbons), elegant intertwined orbits, believable
+  glass, and above all **smooth continuous motion + a smooth processing→baseline-locked transition** (no
+  hard cut). Canvas-2D is fine; upgrading *this one orb* to WebGL/Three.js is acceptable **iff** it stays
+  inside the existing scan FSM render loop and doesn't change the FSM/state contract. Hold 60fps on mobile.
+- **Done when:** side-by-side with IMG_8437 there's no gap in particle fineness / glass realism / orbit
+  elegance; no visible stepping at 60fps; the transition flows; screenshots + a short recording posted.
+
+### #1-B — Secure Access shield ("盾牌") should feel super-3D
+- **Where:** `apps/preview/soul-enroll.html` → the `.ob-shield` SVG in the step-5 `#ob-secure` panel
+  (currently a flat two-tone gold-outline shield).
+- **Do:** give it real dimensional depth — bevelled/faceted metal, layered gold gradients, specular
+  highlight, ambient occlusion, a soft contact shadow, and a subtle parallax/tilt or gentle breathing on
+  entrance. CSS/SVG 3D or a small Three.js shield are both fine. Keep the gold-secured brand language;
+  do not change the copy or the 3 privacy points.
+- **Done when:** it reads as a dimensional object (not a line icon) at 390px and desktop; entrance is
+  subtle (no spinning-logo cheese); `prefers-reduced-motion` shows a static-but-still-dimensional shield;
+  screenshot posted.
+
+**Scope note:** this crystal ball is the **scan-result / "Securing…" orb** (`drawProcessingOrb`), NOT the
+locked `/story/` Hero stardust orb and NOT the active face-scan stardust takeover (item 4's "勿碰" warning) —
+so it IS in scope to change. `/story/` Hero + the face-scan takeover stay LOCKED (`SYSTEM.md` §8).
+
+---
+
 # 2026-07-03 CONTINUATION NOTE (READ THIS FIRST — supersedes 2026-06-30 note below)
 
 This note is the current desktop hand-off. Older notes below are historical.
