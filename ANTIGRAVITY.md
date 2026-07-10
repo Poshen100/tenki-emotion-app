@@ -1,3 +1,15 @@
+# 2026-07-10 ADDENDUM — TOP PRIORITY: /story/ 全頁 GSAP 動效重現（開工單制）
+
+**下次桌機 session 先做這個**（founder 2026-07-10 拍板，排在下方 07-09 的水晶球/盾牌之前）：
+照 **`docs/prompts/antigravity-story-motion-kickoff.md`** 開工 — 把先前做出過、founder 極喜歡、
+但**沒 push 而遺失**的 Hero 進場 + 全頁動效，照開工單裡的 beat 譜重現並永久入庫。
+重點：Hero motion-only 強化已獲 founder 明確授權（文案/球/版面不變）；GSAP 升 3.13.x，
+白名單 SplitText / CustomEase / DrawSVG；**Rule #0 防丟失** — 開工第一分鐘建分支並 push，
+每完成一個 beat 就 commit+push，quota 見底先 push 再收工。完整規格、授權紀錄、驗收
+清單都在開工單內。水晶球（#1-A）與盾牌（#1-B）順延其後。
+
+---
+
 # 2026-07-09 ADDENDUM — two explicit deliverables under item #1 (does NOT supersede the 2026-07-03 note)
 
 Read the **2026-07-03 note below first** for the full protocol (先讀制度, `feat/*`→PR, `npm run verify`

@@ -38,12 +38,14 @@
 | **Travel 旅程** | 單一主體（orb）連續移動貫穿多幕，色溫 cool→warm 敘事 | onboarding 5-step 金球、story.js 星塵球 |
 
 **鎖定不可改的手感**：星塵動效 v25.8.2、`/story/` Hero 進場（SYSTEM.md §8）、splash 900ms 入場 + 6s 呼吸（ANTIGRAVITY §18.4）。polish 可以，重編排不行。
+（例外授權：founder 2026-07-10 明確授權 `/story/` Hero 進場做 **motion-only 強化** — 文案/球/版面不變，
+編排可升級；範圍與 beat 譜見 `docs/prompts/antigravity-story-motion-kickoff.md`。星塵內部手感仍鎖定。）
 
 ## 5. 每個 surface 用什麼引擎
 
 | Surface | 引擎 | 備註 |
 |---------|------|------|
-| `apps/preview/**`（web） | **GSAP 3.12.5**（CDN，免費 core + ScrollTrigger） | 一律 `if(window.gsap)` 漸進增強，保留無 GSAP fallback（沙箱/斷網不能白屏） |
+| `apps/preview/**`（web） | **GSAP 3.13.x**（CDN；3.13 起全 plugin 免費） | 一律 `if(window.gsap)` 漸進增強，保留無 GSAP fallback（沙箱/斷網不能白屏）；plugin 白名單見 §6 |
 | `apps/preview/story.html` | GSAP + ScrollTrigger | 讀 `gsap-scrolltrigger` skill；pin/scrub 已建立 |
 | canvas 類（soul-enroll 星塵/金球） | 原生 rAF | 不套 GSAP；調參走 `scripts/orb-tuner/` 截圖迴圈 |
 | `apps/mobile`（RN） | **Reanimated 3 + Skia（目標態）** — **GSAP 不進 RN** | 用本檔同一套 tokens/語彙翻譯成 Reanimated（ease 曲線值直接複用）；現有 core-RN Animated 是過渡債 |
@@ -57,7 +59,7 @@
 | 滾動敘事（story.html 類） | `gsap-scrolltrigger` |
 | 卡頓/掉幀/效能 | `gsap-performance` |
 | 數值映射、clamp、snap、隨機 | `gsap-utils` |
-| Flip/Draggable/SplitText 等 plugin | `gsap-plugins`（⚠️ 目前只用免費 core，引 plugin 前先確認授權與 CDN） |
+| Flip/Draggable/SplitText 等 plugin | `gsap-plugins`（GSAP 3.13 起全 plugin 免費；story.html 白名單＝**SplitText / CustomEase / DrawSVG** 三個，founder 2026-07-10 核可 — 要加第四個先過 founder；**ScrollSmoother 明確不用**，理由見 story-motion kickoff） |
 | React/RN web 內用 GSAP | `gsap-react`（目前 repo 無此場景） |
 | Vue/Svelte | `gsap-frameworks`（目前 repo 無此場景） |
 
