@@ -186,6 +186,8 @@ export {
   getAllTraderTemplates,
 } from './session/templates';
 
+export { suggestTemplateForStrategyHint } from './session/template-suggestion';
+
 // ─── Common ─────────────────────────────────
 export {
   createEwma,
