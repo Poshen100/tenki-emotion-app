@@ -57,6 +57,11 @@ export type {
 } from './schemas/scan-schema';
 
 export {
+  assertAlertPayloadContract,
+  validateAlertPayloadContract,
+} from './schemas/alert-schema';
+
+export {
   ALERT_PAYLOAD_MAX_STRING_LENGTH,
   DOMAIN_ALERT_DELIVERY_DECISIONS,
   DOMAIN_ALERT_LIFECYCLE_STATES,
