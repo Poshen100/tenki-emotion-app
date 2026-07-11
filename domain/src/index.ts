@@ -62,6 +62,23 @@ export {
 } from './schemas/alert-schema';
 
 export {
+  ALERT_AGGREGATION_WINDOW_SEC,
+  ALERT_COOLDOWN_SEC,
+  ALERT_DAILY_SURFACE_CAP,
+  createEmptyAlertThrottleState,
+  evaluateAlertDelivery,
+  groupSimultaneousAlerts,
+  recordAlertSurfaced,
+  resolveAlertDayKey,
+} from './policies/alert-policy';
+
+export type {
+  AlertDeliveryEvaluation,
+  AlertDeliveryInput,
+  AlertThrottleState,
+} from './policies/alert-policy';
+
+export {
   ALERT_PAYLOAD_MAX_STRING_LENGTH,
   DOMAIN_ALERT_DELIVERY_DECISIONS,
   DOMAIN_ALERT_LIFECYCLE_STATES,
