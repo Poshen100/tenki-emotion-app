@@ -9,6 +9,33 @@
 
 ---
 
+# 2026-07-11 Session Update #18 (TradingView 快訊整合 v1：規格書 + 邏輯層 + /decision-alert/ demo)
+
+> Founder 提出 TradingView Premium Webhook 整合 spec（原文含 TEI/勝率等 v2 語彙）。經 AskUserQuestion 四題全採建議案後落地 v1。
+
+## Founder 四決策（2026-07-11 拍板）
+1. **v1 範圍**＝規格書＋domain/engine 邏輯層＋preview demo；mobile UI 留 phase 2。
+2. **零後端維持**：payload contract/schema 純函式先行；`tenki.app/api/alert` 是 phase 2（repo 純靜態部署）。
+3. **勝率呈現否決** → 流程統計語言（「此狀態下的紀律完成率」）；同時 `PROHIBITED_VOCABULARY_ZH` 堵住 compliance 只掃英文的漏洞（「勝率」原本會漏網）。
+4. **`docs/TRADINGVIEW-ALERT-SPEC.md` 成為 canonical**；舊 LOCKED `TRADER-MODE-SPEC.md` 加「部分被取代」橫幅（founder 核可僅限橫幅）＋ PLAYBOOK §0 同步。
+
+## What was done（11 commits，verify.sh 綠）
+- **domain**：`alert-contract.ts`（DOMAIN_ALERT_* enums + `buildAlertContract`）、`alert-schema.ts`（手寫驗證）、`alert-policy.ts`（`evaluateAlertDelivery`：flag→tier→session中→strain→冷卻300s→日上限；`recordAlertSurfaced` 跨日重置；`groupSimultaneousAlerts` 60s 聚合窗）。
+- **engine**：`session/template-suggestion.ts`（strategyHint 關鍵字→TraderTemplateId，建議不強制）；`SessionRecord.originAlertId?`（alert 先於 session 存在，故不動 `SessionEventType`，事件鏈=alert 紀錄 join session 紀錄）；compliance 中文禁用詞＋canonical panel 文案鎖測試。
+- **shared**：`tradingview_alerts_v1` flag（default off/remote 可控）＋ `TierFeatures.externalAlertBridge`（Premium）。既有 flags 測試的「6 個 flag」計數斷言更新為 7。
+- **preview**：`/decision-alert/` demo 頁（模擬快訊→Entry Panel→模板⭐→浮動計時條 segments/readiness→事件鏈 log；strain 靜默膠囊；冷卻 demo 縮時 30s）。Playwright 21 斷言全過＋六態截圖已交 founder。vercel.json + 兩份 DEPLOYMENT_MAP 同步。
+
+## 教訓/注意
+- compliance `findProhibitedTerms` 原為英文 lowercase substring only — 中文金融語永遠漏網；已加 ZH 清單（多字詞防誤殺：單字「買」會誤傷「購買 Premium」）。
+- 新增 feature flag 要動兩處（engine `common/types.ts` union + shared `flags.ts`），且 flags 測試有 flag 總數斷言會紅。
+
+## 下次接手點
+- Founder 手機實走 `/decision-alert/`（merge 後固定網址；merge 前用 PR Vercel bot preview 連結）。
+- Phase 2：HTTP 接收薄層（收→validate→轉發）＋ mobile UI（`DopamineJournalSheet` 是 entry panel 的元件範本、`DecisionBar` 是浮動條範本；mobile 不 import engine，要照 §7 mirror）。
+- Open question 留 founder：模板顯示名（舊 spec「Canslim GS 5min」等）與 engine `TRADER_TEMPLATES` 現值的收斂，v1 未擅改。
+
+---
+
 # 2026-07-11 Session Update #17 (Hero 接進 /preview/ 開場 + 兩個實機小修，全數 merge)
 
 > 承 #16 同一 session。Founder 手機實走回饋三連修，全部走 PR → CI 綠 → squash merge 慣例。
