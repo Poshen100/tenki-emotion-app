@@ -25,6 +25,10 @@
     var faceSyncLoop = null;
     var faceBusy = false; // overlap guard: don't queue inferences (avoids OOM pile-up)
     var prevEyeOpen = 1;
+    // Daily blink-cadence sample (shared helper blink-cadence.js; EAR-normalized
+    // eyeOpen hysteresis: closed <0.25, re-arm >0.55 — matches blinkDetected below).
+    var blinkCounter = null;
+    var lastBlinkFeedAt = 0;
     var lastFaceCenter = null;
     var lastFaceTime = 0;
     var lastHintChangeAt = 0;
@@ -76,6 +80,12 @@
 
         isTakeoverActive = true;
         takeover.classList.add('active');
+
+        // fresh daily blink-cadence sample for this scan
+        if (window.TENKI_BLINK) {
+            blinkCounter = window.TENKI_BLINK.createCounter({ closeBelow: 0.25, openAbove: 0.55 });
+            lastBlinkFeedAt = 0;
+        }
 
         // Smooth big→small scale-in as the stardust ball becomes visible
         if (window.TENKI_STARDUST && window.TENKI_STARDUST.playEntrance) {
@@ -218,6 +228,7 @@
             if (iconBox) iconBox.style.background = 'rgba(234,179,8,0.15)';
             lastFaceCenter = null;
             lastFaceTime = 0;
+            lastBlinkFeedAt = 0; // face lost — the gap must not count toward the blink window
             if (stardust && stardust.clearExpression) stardust.clearExpression();
             return;
         }
@@ -254,6 +265,14 @@
 
         var blinkDetected = eyeOpen < 0.25 && prevEyeOpen > 0.55;
         prevEyeOpen = eyeOpen;
+
+        // daily blink-cadence sample: face-present frames only, dt capped so
+        // inference stalls / dropped frames can't inflate the measured window
+        if (blinkCounter) {
+            var nowMs = performance.now();
+            if (lastBlinkFeedAt) blinkCounter.feed(eyeOpen, Math.min(nowMs - lastBlinkFeedAt, 200));
+            lastBlinkFeedAt = nowMs;
+        }
 
         // Push to 3D stardust particle system
         if (stardust && stardust.setExpression) {
@@ -508,6 +527,9 @@
             dot.classList.add('revealed');
         });
 
+        // Daily blink-cadence vs personal baseline → coach-card sub-line
+        if (window.location.search.indexOf('from=baseline') !== -1) applyBlinkInsight();
+
         // High-frequency random flicker score calculation (極速運算到位的數字)
         var scoreEl = document.getElementById('edgeScoreReveal');
         if (scoreEl && window.location.search.indexOf('from=baseline') !== -1) {
@@ -551,6 +573,24 @@
         }
     }
 
+    // ─── Daily blink-cadence vs baseline → qualitative coach sub-line ───
+    // Honest gating: needs BOTH a stored enrollment baseline (soul-enroll) AND a
+    // long-enough face-tracked sample from THIS scan; anything less keeps the
+    // line hidden — never a fake comparison. Qualitative only, no numbers.
+    function applyBlinkInsight() {
+        var B = window.TENKI_BLINK;
+        var el = document.getElementById('blinkInsight');
+        if (!B || !el || !blinkCounter) return;
+        var baseline = B.load();
+        var dailyCpm = B.cadencePerMin(blinkCounter.blinks, blinkCounter.windowMs);
+        if (!baseline || dailyCpm == null) return;
+        var band = B.band(dailyCpm, baseline.cpm);
+        el.textContent = band === 'below' ? '眨眼節奏 · 比你的基線收斂'
+            : band === 'above' ? '眨眼節奏 · 比你的基線活躍'
+            : '眨眼節奏 · 與你的基線一致';
+        el.hidden = false;
+    }
+
     // Auto-init when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
@@ -559,6 +599,12 @@
     }
 
     global.STARDUST_SCAN_TAKEOVER = {
-        init: init
+        init: init,
+        // headless-verification hooks (mirrors soul-enroll's __ORB_HARNESS__ precedent;
+        // no production caller — real flows only ever reach applyBlinkInsight via reveal)
+        _seedBlinkSample: function (blinks, windowMs) {
+            blinkCounter = { blinks: blinks, windowMs: windowMs, feed: function () {} };
+        },
+        _applyBlinkInsight: applyBlinkInsight
     };
 })(window);

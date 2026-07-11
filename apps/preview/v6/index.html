@@ -424,6 +424,9 @@ body{
   letter-spacing:0.02em;
   text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
+/* blink-cadence baseline comparison sub-line (only shown when a real daily
+   sample AND an enrollment baseline both exist — see stardust-scan-takeover.js) */
+.coach-text.coach-sub{margin-top:6px;font-size:12.5px;color:rgba(255,255,255,0.62)}
 
 .card{
   background:linear-gradient(180deg, rgba(40,40,44,0.55) 0%, rgba(28,28,30,0.45) 100%);
@@ -1972,7 +1975,7 @@ body{
 
       <section class="snap">
         <!-- Coach hint -->
-        <div class="coach-card"><div class="coach-text">目前生理訊號穩定，決策狀態清晰。保持當下節奏。</div></div>
+        <div class="coach-card"><div class="coach-text">目前生理訊號穩定，決策狀態清晰。保持當下節奏。</div><div class="coach-text coach-sub" id="blinkInsight" hidden></div></div>
 
         <!-- Snapshot — peeking magnetic carousel: one group per swipe -->
         <div class="snap-track" id="snapTrack">
@@ -4192,7 +4195,7 @@ function setClarity(v){
          (vercel.json rewrites), so a ../ relative ref would 404 under /v3/. -->
     <script src="/preview/blink-cadence.js?v=blink1"></script>
     <!-- Stardust Scan Takeover logic script -->
-    <script src="stardust-scan-takeover.js"></script>
+    <script src="stardust-scan-takeover.js?v=blink1"></script>
 
     <!-- ═══════ Snapshot: magnetic swipe carousel + synchronized vitals ═══════ -->
     <style>
