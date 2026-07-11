@@ -1934,11 +1934,13 @@ body{
           <span>DEEP SCAN</span>
         </div>
         <div class="source-toggle">
-          <div class="src active" onclick="selectSource(this)">
+          <div class="src" onclick="selectSource(this)">
             <svg class="src-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2" fill="none"/><path d="M9 7V2h6v5M9 17v5h6v-5" stroke="currentColor" stroke-width="2"/></svg>
             <span>Garmin</span>
           </div>
-          <div class="src" onclick="selectSource(this)">
+          <!-- rPPG is the default source: face rPPG is the product's primary signal;
+               Garmin is an optional wearable, finger the calibration layer -->
+          <div class="src active" onclick="selectSource(this)">
             <svg class="src-svg" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M7 8V5h10v3" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="14" r="3" stroke="currentColor" stroke-width="2"/></svg>
             <span>rPPG</span>
           </div>
