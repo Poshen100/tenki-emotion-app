@@ -9,6 +9,30 @@
 
 ---
 
+# 2026-07-11 Session Update #16 (眨眼節奏 Blink Cadence Phase 1：眼動從品質閘門升級為第一個 baseline 信號)
+
+> Founder 拍板方向後落地。完整方向文件（現況盤點 + 對外部研究的糾正 + 三階段藍圖）在本 session 的 claude.ai artifact；本條記 as-built。
+
+## 方向（founder 已拍板的兩個決策）
+- **Phase 1 排進 preview lane：是**（本條即交付）。核心哲學：不加新雷達，讓 Baseline 學會眨眼節奏 — 註冊量個人基線、日常只講相對偏差、質化不給數字。
+- **眨眼偏差進不進 Edge Score 權重：先不進**，停留在 insight 層等真資料；8 維是規格，動它需 founder 再拍板。瞳孔/saccade 明確不做（光線混淆/醫療感/與靜態掃描不相容）。
+- 外部研究報告兩個框架已糾正勿再引用：TEI 融合公式（v2 廢棄詞）、交易員 tunnel-vision 敘事（違反 face-only 定位錨 #11）。
+
+## What was done（3 commits，全部 preview 層）
+1. **`apps/preview/blink-cadence.js`（新，兩頁共用）**：`window.TENKI_BLINK` = 遲滯眨眼計數器 + `cadencePerMin`（<8s 量測窗回 null）+ `band()`（寬中性帶 0.55×–1.7×，小樣本 Poisson 誠實）+ `tenki.baseline.blink` 衍生純量儲存 + `?blink=clear` QA 重置。**v6 用 `/preview/` 絕對路徑載入 — 該頁同時掛 /v3/ 與 /preview/v6/，相對路徑在 /v3/ 下會 404（部署陷阱）。**
+2. **soul-enroll 註冊端**：capture 四階段、`state.mpActive` 真 landmarks 才餵（blendshape eyeOpen，閾值 0.35/0.6，dt cap 200ms）；processing 完成才 save；`#bx-blink`「Blink cadence」列走 earned 哲學（Tier B / CDN 擋 → 保持 hidden，不假裝）。FSM 轉移零改動。
+3. **v6 日常端**：FaceMesh 有臉幀餵計數器（EAR 閾值 0.25/0.55，臉丟失斷窗）；`from=baseline` 揭曉時「有註冊基線 + 本次窗 ≥8s」才在 coach card 顯示質化副行（`#blinkInsight`：一致/收斂/活躍），缺任一條件隱藏。測試 hooks：`STARDUST_SCAN_TAKEOVER._seedBlinkSample/_applyBlinkInsight`（無 production caller）。
+
+## 驗證
+- Playwright 全綠：helper 20 項單元斷言（遲滯/band 邊界/roundtrip/QA 開關）、soul-enroll 假鏡頭降級走行零 pageerror、v6 三態文案 + 三個誠實閘門 + coach card 截圖。`check-vocab` 綠。
+- **真機（founder 手機）待走**：`/preview/` 完整註冊（MediaPipe 可達）→ 完成清單見「Blink cadence ✓」→ v6 掃描 → coach card 見眨眼副行。改了 JS 都已 bump `?v=blink1`，記得硬重載。
+
+## 下次接手點
+- Phase 2（engine 收編）方向已定於 artifact 藍圖：`packages/engine/src/biometric/blink.ts`（同款遲滯 + Welford 重用）→ 餵 `StrainSubtype` overstimulated 第二證據；等 founder 真機驗收 Phase 1 後再開。
+- band 閾值（0.55/1.7）是小樣本下的保守初值，原生階段（Phase 3）用長窗真資料再調。
+
+---
+
 # 2026-07-09 Session Update #15 (實機打磨四連修：#166–#169 — 手指流程真機可用)
 
 > 承 #14。Founder 實機逐輪回饋（截圖/錄影），四輪修完「提升精度」手指流程在真機的完整可用性。全部已 merge。
