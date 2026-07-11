@@ -57,6 +57,25 @@ export type {
 } from './schemas/scan-schema';
 
 export {
+  ALERT_PAYLOAD_MAX_STRING_LENGTH,
+  DOMAIN_ALERT_DELIVERY_DECISIONS,
+  DOMAIN_ALERT_LIFECYCLE_STATES,
+  DOMAIN_ALERT_PRIORITIES,
+  DOMAIN_ALERT_SOURCES,
+  buildAlertContract,
+} from './contracts/alert-contract';
+
+export type {
+  AlertContract,
+  AlertContractMeta,
+  AlertPayloadContract,
+  DomainAlertDeliveryDecision,
+  DomainAlertLifecycleState,
+  DomainAlertPriority,
+  DomainAlertSource,
+} from './contracts/alert-contract';
+
+export {
   NEXT_ACTIONS,
   ONBOARDING_STEP_ORDER,
   SENSOR_CHOICES,
