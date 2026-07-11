@@ -22,6 +22,7 @@
 `AI_INSTRUCTIONS.md`（v1 時代，還在講 trading）、`RULES.md`（v2，還在講 PEAK/OPTIMAL/FDCB 模板）、
 `task.md`（2026-06-12 停更）、`TENKI-ULTRA-SPEC.md`、根 `BRAND.md` 與 `docs/BRAND.md`（品牌 canonical 是 `docs/brand.md`）、
 `DEPLOYMENTS.md`（部署 canonical 是 `docs/DEPLOYMENT_MAP.md`）、`docs/TEI-SPEC.md`、`docs/progressive-tei-api.md`、
+`docs/TRADER-MODE-SPEC.md` 的快訊相關段落（TradingView 快訊 canonical 是 `docs/TRADINGVIEW-ALERT-SPEC.md`；該檔其餘部分見其頂部橫幅）、
 `RULES-v3.md` 中「以 ANTIGRAVITY.md 為最終依據」一句（實際以本節排序為準）。
 
 ---
