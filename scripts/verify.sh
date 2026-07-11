@@ -42,11 +42,12 @@ fi
 # ── 1. Lint（Biome，只涵蓋 packages/domain/apps/mobile）──
 run_step "lint (biome)" npm run lint --silent
 
-# ── 2. TypeScript 零錯誤（4 套件各自跑）─────────────────
+# ── 2. TypeScript 零錯誤（5 套件各自跑）─────────────────
 run_step "tsc packages/engine" npx tsc --noEmit -p packages/engine
 run_step "tsc packages/scan" npx tsc --noEmit -p packages/scan
 run_step "tsc packages/shared" npx tsc --noEmit -p packages/shared
 run_step "tsc domain" npx tsc --noEmit -p domain
+run_step "tsc api" npx tsc --noEmit -p api
 
 # ── 3. Root 測試（Jest；不含 apps/mobile）────────────────
 run_step "root tests (jest)" npm test --silent
