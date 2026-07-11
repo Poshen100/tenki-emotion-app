@@ -43,6 +43,10 @@ describe('FREE_TIER', () => {
     expect(FREE_TIER.features.detectorAlerts).toBe(false);
   });
 
+  it('should NOT provide the external alert bridge', () => {
+    expect(FREE_TIER.features.externalAlertBridge).toBe(false);
+  });
+
   it('should always allow export (privacy never paywalled)', () => {
     expect(FREE_TIER.features.exportEnabled).toBe(true);
   });
@@ -67,6 +71,10 @@ describe('PREMIUM_TIER', () => {
 
   it('should provide Detector alerts', () => {
     expect(PREMIUM_TIER.features.detectorAlerts).toBe(true);
+  });
+
+  it('should provide the external alert bridge', () => {
+    expect(PREMIUM_TIER.features.externalAlertBridge).toBe(true);
   });
 
   it('should provide advanced insights', () => {

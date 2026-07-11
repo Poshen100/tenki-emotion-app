@@ -31,6 +31,8 @@ export interface TierFeatures {
   replayInsights: 'basic' | 'advanced';
   /** Edge Detector alerts. */
   detectorAlerts: boolean;
+  /** External alert bridge (TradingView webhook → decision flow). */
+  externalAlertBridge: boolean;
   /** Anonymous benchmarks. */
   benchmarks: boolean;
   /** Advanced AI insights. */
@@ -68,6 +70,7 @@ export const FREE_TIER: TierConfig = {
     edgeTimeline: 'limited',
     replayInsights: 'basic',
     detectorAlerts: false,
+    externalAlertBridge: false,
     benchmarks: false,
     advancedInsights: false,
     sessionArchive: 'limited',
@@ -92,6 +95,7 @@ export const PREMIUM_TIER: TierConfig = {
     edgeTimeline: 'full',
     replayInsights: 'advanced',
     detectorAlerts: true,
+    externalAlertBridge: true,
     benchmarks: true,
     advancedInsights: true,
     sessionArchive: 'full',

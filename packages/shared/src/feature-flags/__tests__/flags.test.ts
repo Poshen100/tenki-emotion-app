@@ -19,11 +19,12 @@ describe('createDefaultFlags', () => {
     expect(flags.lab_prediction).toBe(false);
     expect(flags.benchmark_opt_in).toBe(false);
     expect(flags.reviewer_demo_mode).toBe(false);
+    expect(flags.tradingview_alerts_v1).toBe(false);
   });
 
-  it('should include all 6 flag IDs', () => {
+  it('should include all 7 flag IDs', () => {
     const flags = createDefaultFlags();
-    expect(Object.keys(flags).length).toBe(6);
+    expect(Object.keys(flags).length).toBe(7);
   });
 });
 
@@ -77,8 +78,13 @@ describe('applyRemoteOverrides', () => {
 });
 
 describe('FEATURE_FLAGS definitions', () => {
-  it('should have 6 flag definitions', () => {
-    expect(Object.keys(FEATURE_FLAGS).length).toBe(6);
+  it('should have 7 flag definitions', () => {
+    expect(Object.keys(FEATURE_FLAGS).length).toBe(7);
+  });
+
+  it('tradingview_alerts_v1 should be a dark-launch flag (off by default, remote-configurable)', () => {
+    expect(FEATURE_FLAGS.tradingview_alerts_v1.defaultValue).toBe(false);
+    expect(FEATURE_FLAGS.tradingview_alerts_v1.remoteConfigurable).toBe(true);
   });
 
   it('each flag should have required fields', () => {

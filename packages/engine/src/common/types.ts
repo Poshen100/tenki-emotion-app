@@ -150,7 +150,8 @@ export type FeatureFlagId =
   | 'scan_pipeline_v1'
   | 'lab_prediction'
   | 'benchmark_opt_in'
-  | 'reviewer_demo_mode';
+  | 'reviewer_demo_mode'
+  | 'tradingview_alerts_v1';
 
 // ─────────────────────────────────────────────
 // Subscription Types
