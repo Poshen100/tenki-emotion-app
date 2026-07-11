@@ -70,6 +70,12 @@
       color: var(--text-primary);
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
+      /* ceremony UI with press-and-hold interactions: suppress iOS long-press
+         text selection + magnifier loupe + callout (no copyable text, no inputs) */
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
     }
     #stage {
       position: relative;
