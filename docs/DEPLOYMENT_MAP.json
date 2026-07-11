@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-07-05T00:00:00Z",
+  "lastUpdated": "2026-07-11T00:00:00Z",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -60,6 +60,14 @@
       "editable": true
     },
     {
+      "route": "/decision-alert/",
+      "url": "https://tenki-emotion-app.vercel.app/decision-alert/",
+      "source": "apps/preview/decision-alert.html",
+      "purpose": "外部快訊 → 決策入口 demo — 模擬 TradingView 快訊走 delivery policy(zone 閘門/冷卻/聚合) → Decision Entry Panel → 模板建議 → 浮動決策計時條 → 事件鏈 log。規格: docs/TRADINGVIEW-ALERT-SPEC.md",
+      "status": "active-dev",
+      "editable": true
+    },
+    {
       "route": "/brand/*",
       "url": "https://tenki-emotion-app.vercel.app/brand/",
       "source": "brand/(repo 根目錄靜態資產:logo/icon/favicon/marketing)",
@@ -86,6 +94,8 @@
     "/story/*": "apps/preview/*",
     "/preview/": "apps/preview/soul-enroll.html",
     "/preview/*": "apps/preview/*",
+    "/decision-alert/": "apps/preview/decision-alert.html",
+    "/decision-alert/*": "apps/preview/*",
     "/*": "apps/web/$1",
     "/brand/*": "brand/$1 (repo 根目錄靜態資產)"
   },
