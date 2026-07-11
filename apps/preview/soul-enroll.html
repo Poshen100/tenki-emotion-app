@@ -489,6 +489,81 @@
       #ob-hint.show { animation: none; }
       .ob-dot.on.counting.run::after { transition: none; }
     }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       HERO GATE — the /story/ Hero as the /preview/ opening screen.
+       Faithful copy of the LOCKED Hero (story.html #hero, SYSTEM.md §8):
+       headline / #universe stardust orb / kicker / sub / CTAs — do not
+       redesign. Styles are scoped under #hero-gate; the color tokens are
+       pinned to the same hexes as apps/preview/tokens.css.
+       ═══════════════════════════════════════════════════════════════════ */
+    #hero-gate {
+      --hg-cyan: #22D3EE;         /* tokens.css --cyan-active */
+      --hg-gold: #FFD46E;         /* tokens.css --gold-secured */
+      --hg-ink: #F5F7FA;
+      --hg-ink-dim: rgba(245,247,250,0.62);
+      --hg-hairline: rgba(255,255,255,0.08);
+      --hg-ease: cubic-bezier(0.22, 1, 0.36, 1);
+      position: fixed; inset: 0; z-index: 20;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 80px 24px;
+      overflow: hidden;
+      background: #020617; /* tokens.css --bg-space (story hero ground) */
+      color: var(--hg-ink);
+      transition: opacity .7s var(--hg-ease);
+    }
+    #hero-gate.leaving { opacity: 0; pointer-events: none; }
+    #hero-gate #universe { position: absolute; inset: 0; z-index: 0; opacity: 0; transition: opacity 1.6s ease; }
+    #hero-gate #universe.lit { opacity: 1; }
+    #hero-gate .hero-inner { position: relative; z-index: 2; max-width: 880px; }
+    #hero-gate .hero-kicker {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase;
+      color: var(--hg-ink-dim);
+      padding: 7px 16px; border-radius: 999px;
+      border: 1px solid var(--hg-hairline);
+      background: rgba(255,255,255,0.03);
+      margin-bottom: 32px;
+    }
+    #hero-gate .hero-kicker .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--hg-cyan); box-shadow: 0 0 8px var(--hg-cyan); }
+    #hero-gate .hero-title {
+      font-size: clamp(40px, 7vw, 84px);
+      font-weight: 700; letter-spacing: -0.03em; line-height: 1.04;
+      margin-bottom: 28px;
+    }
+    #hero-gate .hero-title .word { display: inline-block; will-change: transform, opacity; }
+    #hero-gate .hero-title .accent {
+      background: linear-gradient(135deg, var(--hg-cyan) 0%, var(--hg-gold) 100%);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    #hero-gate .hero-sub {
+      font-size: clamp(16px, 2vw, 19px);
+      color: var(--hg-ink-dim);
+      line-height: 1.6;
+      max-width: 560px; margin: 0 auto 40px;
+    }
+    #hero-gate .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    #hero-gate .btn {
+      font-size: 13px; font-weight: 600; letter-spacing: 0.05em;
+      padding: 14px 28px; border-radius: 999px;
+      border: none; cursor: pointer; color: inherit; text-decoration: none;
+      font-family: inherit;
+      transition: transform 0.25s var(--hg-ease), background 0.3s, border-color 0.3s;
+    }
+    #hero-gate .btn:active { transform: scale(0.96); }
+    #hero-gate .btn-primary {
+      background: linear-gradient(135deg, var(--hg-cyan), #0e9bb8);
+      color: #021018;
+      box-shadow: 0 12px 32px rgba(34,211,238,0.25);
+    }
+    #hero-gate .btn-secondary {
+      border: 1px solid var(--hg-hairline);
+      background: rgba(255,255,255,0.03);
+    }
+    #hero-gate .btn-secondary:hover { background: rgba(255,255,255,0.06); }
+    @media (prefers-reduced-motion: reduce) {
+      #hero-gate, #hero-gate #universe { transition: none; }
+    }
   </style>
   <!-- GSAP (CDN, no bundler in this folder — same pattern as v6/index.html & story.html) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -640,8 +715,58 @@
     </div>
   </div>
 
+  <!-- ═══ HERO GATE — the locked /story/ Hero as the opening screen ═══
+       Markup mirrors story.html #hero (headline verbatim, orb, kicker, sub).
+       Adaptations only: primary CTA is a button that dismisses the gate into
+       the existing onboarding; secondary links out to the full /story/;
+       scroll-cue omitted (this screen doesn't scroll). -->
+  <div id="hero-gate">
+    <div id="universe"></div>
+    <div class="hero-inner">
+      <div class="hero-kicker"><span class="dot"></span> Privacy-first cognitive wellness</div>
+      <h1 class="hero-title" id="hg-title">
+        <span class="word">Read</span> <span class="word">your</span> <span class="word">edge</span> <span class="word">before</span> <span class="word accent">it</span> <span class="word accent">reads</span> <span class="word accent">you.</span>
+      </h1>
+      <p class="hero-sub">TENKI CORE turns a 60-second face baseline into a single, honest number — your Decision Edge Score. Everything stays on-device.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="hg-start">Start Soul Scan</button>
+        <a class="btn btn-secondary" href="/story/">See how it works</a>
+      </div>
+    </div>
+  </div>
+
   <script src="blink-cadence.js?v=blink1"></script>
   <script src="soul-enroll.js?v=blink1"></script>
   <script src="soul-onboarding.js"></script>
+  <!-- Stardust orb for the hero gate (same engine as /story/ and /v3/; auto-binds #universe.
+       Consumes the module THREE this page already exposes on window — r160 satisfies its r128+ floor.
+       CDN-blocked / THREE-missing environments degrade to the static hero, orb simply absent. -->
+  <script src="v6/stardust.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      // orb fade-in + entrance once the stardust engine is live (poll: module THREE lands async)
+      var tries = 0;
+      (function lightUniverse() {
+        var el = document.getElementById('universe');
+        if (el && el.querySelector('canvas')) {
+          el.classList.add('lit');
+          if (window.TENKI_STARDUST && window.TENKI_STARDUST.playEntrance) window.TENKI_STARDUST.playEntrance();
+          return;
+        }
+        if (++tries < 50) setTimeout(lightUniverse, 200); // give the CDN ~10s, then stay static
+      })();
+      // gentle word-rise (polish only — the full hero motion pass is the story-motion lane)
+      if (window.gsap && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        window.gsap.from('#hg-title .word', { y: 26, opacity: 0, duration: 0.8, stagger: 0.07, ease: 'power3.out', delay: 0.15 });
+      }
+      document.getElementById('hg-start').addEventListener('click', function () {
+        var gate = document.getElementById('hero-gate');
+        try { if (window.TENKI_STARDUST) window.TENKI_STARDUST.destroy(); } catch (_) {} // free the WebGL context before the scan's own 3D/camera work (iOS OOM)
+        gate.classList.add('leaving');
+        setTimeout(function () { gate.remove(); }, 720);
+      });
+    })();
+  </script>
 </body>
 </html>
