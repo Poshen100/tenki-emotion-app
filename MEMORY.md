@@ -9,6 +9,27 @@
 
 ---
 
+# 2026-07-11 Session Update #17 (Hero 接進 /preview/ 開場 + 兩個實機小修，全數 merge)
+
+> 承 #16 同一 session。Founder 手機實走回饋三連修，全部走 PR → CI 綠 → squash merge 慣例。
+
+## What was done
+1. **#175 rPPG 預設**：v6 Today 右上來源 pill 的 `active` 寫死在 Garmin 靜態 HTML → 移到 rPPG（face-only 產品，rPPG 是唯一主來源）。
+2. **#176 iOS 放大鏡**：soul-enroll 長按（onboarding 第 4 步 Calibrating）觸發 iOS 文字選取＋放大鏡 → `html,body` 補 `-webkit-user-select:none` + `-webkit-touch-callout:none` + tap-highlight 透明（儀式頁無可複製文字/輸入框，頁面級關閉安全）。
+3. **Hero 接進 /preview/**（founder 選「開場第一屏」）：`#hero-gate` overlay（z:20 > onboarding 的 10）原封搬入鎖定 Hero（headline verbatim/#universe 星塵球/kicker/sub/CTA，樣式 scope `#hero-gate`、色票釘 tokens.css hex）。Start Soul Scan → **先 `TENKI_STARDUST.destroy()` 釋放 WebGL context（iOS OOM 防護）** → 淡出進既有 onboarding；See how it works → `/story/`。scroll-cue 不搬（無捲動，搬了是謊報）。
+
+## 關鍵技術點（下次接手要知道）
+- **stardust.js 可跨頁共用 THREE**：它要求 r128+，soul-enroll 的 importmap module three@0.160 在 DOMContentLoaded 前設好 `window.THREE`，auto-init 吃得到；CDN 擋 → warn+skip 靜態降級。不需要第二份 three。
+- **本地測試 server 的 /preview/ rewrite 陷阱**：vercel 是「精確 `/preview/` → soul-enroll.html」＋「`/preview/(.*)` → 檔案」兩條；簡化成一條會把 `/preview/` 對到目錄 index.html（手指旗艦頁）測錯頁。
+- 眨眼 Phase 1 端到端驗證手法已建：假鏡頭均勻亮幀 Y4M ＋合成 MediaPipe stub（478 點、週期眨眼）可讓真 FSM 全程走完（腳本在 session scratchpad，`e2e-blink.mjs` 模式可重建）。
+
+## 下次接手點
+- Founder 真機驗收清單：/preview/ 開場見 Hero（星塵球需 CDN）→ Start 進 onboarding → 完整註冊見「Blink cadence ✓」→ v6 掃描見眨眼副行；長按不再有放大鏡。
+- Hero 動效精修仍屬 Antigravity story-motion lane（#173 beat-spec），本次只做輕量 word-rise。
+- Phase 2（engine blink.ts + StrainSubtype 第二證據）待 founder 驗收 Phase 1 後開。
+
+---
+
 # 2026-07-11 Session Update #16 (眨眼節奏 Blink Cadence Phase 1：眼動從品質閘門升級為第一個 baseline 信號)
 
 > Founder 拍板方向後落地。完整方向文件（現況盤點 + 對外部研究的糾正 + 三階段藍圖）在本 session 的 claude.ai artifact；本條記 as-built。
