@@ -75,6 +75,12 @@
   const ALIGN_KEYS = ['distance', 'center', 'level', 'eyes'];
   const ALIGN_FALLBACK_MS = 9000; // safety: proceed if present+centered this long
 
+  // ── blink-cadence baseline (shared helper: blink-cadence.js) ──
+  // Sampled across the four capture phases, real landmarks only. Blendshape
+  // eyeOpen (1 - max blink score) hysteresis: closed <0.35, re-arm >0.6.
+  const BLINK_PHASES = new Set(['neutral_capture', 'arc_left', 'arc_right', 'stability_pass']);
+  const BLINK_CLOSE = 0.35, BLINK_OPEN = 0.6;
+
   // ── phase copy + visual flags (keyed by FSM step) ──
   const STEP = {
     intro: {
@@ -179,6 +185,7 @@
     // capture progress (0–1 each)
     neutral: 0, arc: 0, stability: 0,
     confSum: 0, confN: 0, // running aggregate for qualitative confidence band
+    blink: null, blinkEarned: false, // blink-cadence counter (TENKI_BLINK) + saved-this-run flag
     // visuals
     halo: 0, secured: 0, settle: 0, bloom: 0,
     raf: null, lastT: 0,
@@ -1473,6 +1480,9 @@
     if (showBx) {
       document.getElementById('bx-band-text').textContent = 'New baseline · signal ' + confidenceBand();
       document.getElementById('securedPill').textContent = '🔒 SECURED · NEW BASELINE';
+      // earned row: only shown when a real blink-cadence baseline was measured + saved
+      const bxBlink = document.getElementById('bx-blink');
+      if (bxBlink) bxBlink.hidden = !state.blinkEarned;
     }
     setCta(ctaForStep(step));
     if (ph.confirmed) haptic([18, 40, 90]);
@@ -1545,6 +1555,11 @@
       }
     } else {
       state.mpActive = false;
+    }
+    // blink-cadence sampling: capture phases only, real landmarks only (never heuristic).
+    // dt capped so tracking gaps / tab-away frames can't inflate the measured window.
+    if (state.blink && state.mpActive && BLINK_PHASES.has(state.step)) {
+      state.blink.feed(state.lm.eyeOpen, Math.min(dt, 200));
     }
     const g = evalGates();
     // live precision indicators reflect REAL gate state every frame
@@ -1627,6 +1642,7 @@
         if (numEl) numEl.textContent = String(Math.round(pp * 100));
         if (pp >= 1) {
           stopCamera();
+          saveBlinkBaseline();
           updateConfidenceCopy();
           go('baseline_confirmed');
         }
@@ -1667,10 +1683,26 @@
     if (pill) pill.textContent = '🔒 SECURED · SIGNAL ' + confidenceBand().toUpperCase();
   }
 
+  // Persist the earned blink-cadence baseline (derived scalars only — no frames,
+  // no timelines). Honest degradation: a short or absent measurement (Tier B,
+  // MediaPipe CDN blocked) saves nothing and the baseline_data row stays hidden.
+  function saveBlinkBaseline() {
+    const B = window.TENKI_BLINK;
+    const c = state.blink;
+    if (!B || !c) return;
+    const cpm = B.cadencePerMin(c.blinks, c.windowMs);
+    if (cpm == null) return;
+    state.blinkEarned = B.save({ cpm, blinks: c.blinks, windowSec: c.windowMs / 1000 });
+  }
+
   // ── public controls ──
   async function begin() {
     if (state.started) return;
     state.started = true;
+    state.blink = window.TENKI_BLINK
+      ? window.TENKI_BLINK.createCounter({ closeBelow: BLINK_CLOSE, openAbove: BLINK_OPEN })
+      : null;
+    state.blinkEarned = false;
     document.getElementById('cta').classList.add('hidden');
     document.getElementById('indicators').style.opacity = '1';
     go('permission_check');
@@ -1707,8 +1739,11 @@
       alignHold: {}, alignLocked: {}, alignProg: 0, shownNudge: '', candNudge: '', candSince: 0, alignFlash: 0,
       envHoldStart: 0, detectHoldStart: 0, lossStart: 0,
       neutral: 0, arc: 0, stability: 0, confSum: 0, confN: 0,
+      blink: null, blinkEarned: false,
       halo: 0, secured: 0, settle: 0, bloom: 0, lastT: 0,
     });
+    const bxBlink = document.getElementById('bx-blink');
+    if (bxBlink) bxBlink.hidden = true;
     prevLuma = null;
     INDICATORS.forEach((ind) => {
       const dot = document.querySelector('#pin-' + ind.key + ' .pindot');
