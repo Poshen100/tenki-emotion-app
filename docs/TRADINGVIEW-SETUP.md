@@ -37,6 +37,13 @@
    **不是 JSON，TENKI 會回 400 擋掉、不會入鏈**。把訊息欄整段換成上面的 JSON 模板才會通。
 4. 儲存。觸發後 1–10 秒內手機頁浮出 Decision Entry Panel。
 
+**兩個實戰註記（founder 實測 2026-07-13）**：
+- **通知設定會自動沿用**：建新 alert 時，Webhook URL 勾選與網址會沿用上一條 — 存檔前掃一眼即可。
+  ⚠️ 但如果你在 TENKI 點過「重設連結」，**所有舊 alert 的 webhook 都還指向已失效的舊頻道**，要逐條更新。
+- **觸發頻率建議「僅觸發一次」**：level 類 alert 用重複觸發模式，價格在關鍵位附近震盪時會對
+  原生推播與頻道灌重複資料（實測幾分鐘內 9+ 筆同價位）。TENKI 端有 5 分鐘冷卻擋浮出，但沒必要製造噪音；
+  「僅觸發一次」觸發後手動重啟即可。
+
 ### Level 類 alert（如 ES1! 的關鍵價位下穿/上穿）建議填法
 
 - `condition` 填 `Level Break`（或 `Level Cross`）— 語意是「價格進入計畫區域」，不是 setup 成形
@@ -74,6 +81,9 @@
     -d '{"symbol":"NVDA","price":128.5,"condition":"Breakout","timeframe":"5m","strategy":"CANSLIM"}'
   ```
   回 `{"ok":true,"id":"..."}` 即通；手機頁 10 秒內浮出面板。打不存在的頻道會回 404。
+- **肉眼檢查頻道內容**：瀏覽器直接開 `https://tenki-emotion-app.vercel.app/api/alerts?ch=你的頻道id&since=0`
+  （把專屬連結的 `alert?` 改成 `alerts?` 加 `&since=0`），會回 JSON 列出頻道內所有快訊 — 驗證 webhook
+  是否真的進來最快的方法。
 
 ## 6. 界線與模型（避免誤解）
 
