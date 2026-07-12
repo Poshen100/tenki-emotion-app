@@ -20,17 +20,28 @@
 3. 點「**複製連結**」。⚠️ 連結本身就是你的通道憑證，**勿公開分享**；外洩時點「重設連結」換新的。
 4. 頁面開著就會自動接收（每 10 秒輪詢），不用再按任何東西。
 
-## 3. 在 TradingView 建 alert（每條約 1 分鐘）
+## 3. 在 TradingView 建 alert（每條約 1 分鐘，純手機可完成）
 
-⚠️ Webhook URL 欄位在 **web/桌面版** alert 對話框才有。
+> 勘誤（founder 截圖實證 2026-07-12）：**手機 app 也有 Webhook URL** — alert 編輯 →「通知」分頁
+> → 勾「Webhook URL」。web/桌面版位置相同。全流程（產生連結 → 貼 webhook → 貼 message）
+> 不需要開電腦。
 
-1. 圖表開 **Alert** 對話框，Condition 照你的策略設。
-2. **Notifications 分頁 → 勾 Webhook URL**，貼上剛複製的專屬連結（形如 `https://tenki-emotion-app.vercel.app/api/alert?ch=一長串英數`）。
-3. **Message 欄位**貼 JSON 模板（`{{...}}` 是 TradingView 變數，送出時自動代入）：
+1. 圖表開 **Alert** 對話框（手機：編輯 alert →「通知」分頁），Condition 照你的策略設。
+2. **勾 Webhook URL**，貼上剛複製的專屬連結（形如 `https://tenki-emotion-app.vercel.app/api/alert?ch=一長串英數`）。
+3. **「訊息」欄位**貼 JSON 模板（`{{...}}` 是 TradingView 變數，送出時自動代入）：
    ```json
    {"symbol":"{{ticker}}","price":{{close}},"condition":"Breakout","timeframe":"{{interval}}","strategy":"CANSLIM","note":"{{exchange}}:{{ticker}} {{time}}"}
    ```
+
+   ⚠️ **既有 alert 一定要改 message**：預設訊息是純文字（例：「ES1! 下穿 6,851.00」）—
+   **不是 JSON，TENKI 會回 400 擋掉、不會入鏈**。把訊息欄整段換成上面的 JSON 模板才會通。
 4. 儲存。觸發後 1–10 秒內手機頁浮出 Decision Entry Panel。
+
+### Level 類 alert（如 ES1! 的關鍵價位下穿/上穿）建議填法
+
+- `condition` 填 `Level Break`（或 `Level Cross`）— 語意是「價格進入計畫區域」，不是 setup 成形
+  （見 `docs/TRADING-METHODOLOGY.md` §7：快訊 = step 2 的鈴聲，結構確認在 step 3）。
+- `strategy` 填 `Mancini` → TENKI 會 ⭐ 建議「Mancini 假跌破流程」模板。
 
 ### `condition` / `strategy` 怎麼填（手填語意標籤）
 
@@ -48,6 +59,8 @@
 
 - Premium：**400 價格 + 400 技術 alert、永不過期、秒級間隔** — 夠把整個自選清單鋪滿。
 - **每標的一條、觸發設 Once Per Bar Close**：K 棒內反覆穿越不轟炸；TENKI 端另有同標的 5 分鐘冷卻與每日上限雙保險。
+  （現實對照：原生推播沒有這層 — founder 實測同一 level 反覆穿越，8 分鐘內連發 4 則相同推播。
+  走 TENKI 通道的差異就在這：同標的冷卻、Strain 靜默、聚合，訊號被節流成決策節奏。）
 - 快訊條件寫「值得進入決策流程」的等級 — TENKI 的定位是把訊號轉成有節奏的決策，不是更快的行情推播。
 
 ## 5. 測試
