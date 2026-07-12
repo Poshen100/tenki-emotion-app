@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-07-11T00:00:00Z",
+  "lastUpdated": "2026-07-12T00:00:00Z",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -68,10 +68,18 @@
       "editable": true
     },
     {
+      "route": "/api/channel",
+      "url": "https://tenki-emotion-app.vercel.app/api/channel",
+      "source": "api/channel.ts (serverless function)",
+      "purpose": "頻道配對端點(POST) — 生成專屬 webhook 連結(capability URL, 30 天滑動 TTL)。未來 Premium entitlement 驗證掛載點",
+      "status": "active",
+      "editable": true
+    },
+    {
       "route": "/api/alert",
       "url": "https://tenki-emotion-app.vercel.app/api/alert",
       "source": "api/alert.ts (serverless function)",
-      "purpose": "TradingView webhook 接收端(POST, ?token= 驗證, Upstash 暫存 50 筆/24h)。設定: docs/TRADINGVIEW-SETUP.md; 需 env ALERT_INGEST_TOKEN + Upstash",
+      "purpose": "TradingView webhook 接收端(POST, ?ch= 頻道驗證, per-channel 暫存 50 筆/24h)。設定: docs/TRADINGVIEW-SETUP.md; 需 Upstash",
       "status": "active",
       "editable": true
     },
@@ -79,7 +87,7 @@
       "route": "/api/alerts",
       "url": "https://tenki-emotion-app.vercel.app/api/alerts",
       "source": "api/alerts.ts (serverless function)",
-      "purpose": "裝置輪詢端點(GET, ?token=&since=), 遞送判定留在裝置端",
+      "purpose": "裝置輪詢端點(GET, ?ch=&since=), 遞送判定留在裝置端",
       "status": "active",
       "editable": true
     },
