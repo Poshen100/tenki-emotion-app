@@ -208,13 +208,19 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
 
 ```
 1. 定義關鍵 levels
-2. 等待價格接近
+2. 等待價格接近          ← TradingView level alert 屬於這一步（見下註）
 3. 判斷是否出現：Failed Breakdown / Level Reclaim / Non-Acceptance
 4. 若觸發 → 進場          ← TENKI 的 Turning Point 插入點（見 §9）
 5. Level-to-level 管理
 6. 保留 runner
 7. 無觸發 → 不交易
 ```
+
+> **Level alert 的語意定位（founder 實例 2026-07-12）**：founder 實際使用的是 ES1! 關鍵價位
+> alert（如「下穿 6,851.00」）— 這種快訊 = **step 2「價格進入計畫好的區域」的鈴聲**，
+> **不是 setup 本身**。FBD 是否成形要等 step 3 的結構確認。這正是 TENKI
+> 「Alert ≠ 進場訊號，Alert = 決策環境的觸發器」定位的方法論根據 —
+> 快訊到達時系統開的是「等待結構」的環境，不是「該進場了」的指令。
 
 ## 8. 核心優勢（Edge）
 
@@ -234,6 +240,7 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
 | 執行者內在狀態（系統外的最後變數） | Decision Edge Score / zone 閘門（strain → 快訊靜默） | `domain/src/policies/alert-policy.ts` |
 | 「不因情緒改變策略」（§6） | 決策計時模板的 readinessWindow / preventEarlyComplete / 事件鏈 | Session Governance |
 | 日常節奏「每天 1–2 筆」（§6.1） | 快訊 `ALERT_DAILY_SURFACE_CAP` + 同標的 5 分鐘冷卻（現值為保守通用值，可依 §6.1 收斂） | `domain/src/policies/alert-policy.ts` |
+| 原生推播轟炸（founder 實測：同一 level 8 分鐘連發 4 則相同推播） | delivery policy 冷卻/靜默/聚合的現實依據 — TradingView 原生通知沒有這層 | 同上 |
 | 迴避時段 11:00–14:00（§6.1） | **未接線**（quiet-window 候選），見 §10 | — |
 | 贏停 / 雙輸熔斷（§6.1） | **未接線**（session 事件鏈已能算出當日 close/cancel 次數），見 §10 | — |
 | Mode 1/2 市況分類 | **未接線**（候選：alert `condition` 語意標籤、模板情境提示、insight 層），見 §10 | — |
