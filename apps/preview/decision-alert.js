@@ -1,0 +1,527 @@
+/*
+ * TENKI — 外部快訊 → 決策入口 Demo（/decision-alert/）
+ * 模擬 TradingView 快訊走完 delivery policy → Decision Entry Panel →
+ * 模板建議 → 浮動決策計時條 → 事件鏈。全部合成資料，無真實訊號源。
+ *
+ * Keep-in-sync（hand mirror，preview 無法 import TS）：
+ * - delivery 判定順序 / 冷卻邏輯 → domain/src/policies/alert-policy.ts
+ * - TEMPLATES 常數                → packages/engine/src/session/templates.ts
+ * - 模板建議映射                  → packages/engine/src/session/template-suggestion.ts
+ * Canonical 行為規格：docs/TRADINGVIEW-ALERT-SPEC.md
+ */
+(function () {
+  'use strict';
+
+  // Demo 縮時冷卻：正式值 ALERT_COOLDOWN_SEC = 300（5 分鐘）
+  var COOLDOWN_MS = 30 * 1000;
+  var AGGREGATION_WINDOW_MS = 60 * 1000;
+
+  // Mirror of packages/engine/src/session/templates.ts TRADER_TEMPLATES
+  var TEMPLATES = {
+    FBD: {
+      id: 'FBD', nameZh: '紀律跟隨模式', icon: '🎯', durationSec: 180,
+      segments: [
+        { startSec: 0, endSec: 60, color: '#5E3A87', label: 'Ground' },
+        { startSec: 60, endSec: 120, color: '#00B4D8', label: 'Execute' },
+        { startSec: 120, endSec: 180, color: '#F5A623', label: 'Confirm' },
+      ],
+      readinessWindow: { startSec: 60, endSec: 120 },
+    },
+    CANSLIM: {
+      id: 'CANSLIM', nameZh: 'CANSLIM 流程', icon: '📋', durationSec: 300,
+      segments: [
+        { startSec: 0, endSec: 60, color: '#FF6B35', label: 'Observe' },
+        { startSec: 60, endSec: 180, color: '#00B4D8', label: 'Readiness' },
+        { startSec: 180, endSec: 300, color: '#8E8E93', label: 'Extended' },
+      ],
+      readinessWindow: { startSec: 60, endSec: 180 },
+    },
+    MODE_2: {
+      id: 'MODE_2', nameZh: '高靈敏控制', icon: '⚡', durationSec: 240,
+      segments: [
+        { startSec: 0, endSec: 45, color: '#FF6B35', label: 'Quick Read' },
+        { startSec: 45, endSec: 150, color: '#00B4D8', label: 'Readiness' },
+        { startSec: 150, endSec: 240, color: '#8E8E93', label: 'Control' },
+      ],
+      readinessWindow: { startSec: 45, endSec: 150 },
+    },
+  };
+
+  // Mirror of suggestTemplateForStrategyHint（先匹配者優先）
+  var STRATEGY_KEYWORDS = [
+    { keyword: 'canslim', templateId: 'CANSLIM' },
+    { keyword: 'fbd', templateId: 'FBD' },
+    { keyword: 'mancini', templateId: 'FBD' },
+    { keyword: 'high rs', templateId: 'MODE_2' },
+    { keyword: 'mode 2', templateId: 'MODE_2' },
+    { keyword: 'sensitivity', templateId: 'MODE_2' },
+  ];
+
+  function suggestTemplate(hint) {
+    if (!hint) return null;
+    var normalized = hint.trim().toLowerCase();
+    if (!normalized) return null;
+    for (var i = 0; i < STRATEGY_KEYWORDS.length; i++) {
+      if (normalized.indexOf(STRATEGY_KEYWORDS[i].keyword) !== -1) {
+        return STRATEGY_KEYWORDS[i].templateId;
+      }
+    }
+    return null;
+  }
+
+  // ── 示意狀態（點擊循環；合成值，非真實讀數）──
+  var ZONE_STATES = [
+    { zone: 'clear', label: 'Clear', score: 78, cssVar: '--zone-clear' },
+    { zone: 'neutral', label: 'Neutral', score: 58, cssVar: '--zone-neutral' },
+    { zone: 'strain', label: 'Strain', score: 32, cssVar: '--zone-strain' },
+  ];
+
+  var state = {
+    zoneIdx: 1, // Neutral 起手
+    lastSurfacedAtBySymbol: {},
+    sessionActive: false,
+    pendingAlert: null,
+    pendingGroup: null,
+    alertSeq: 0,
+    timer: null,
+  };
+
+  var el = {};
+  [
+    'stateCard', 'stateDot', 'stateLine', 'btnSingle', 'btnMulti', 'btnRepeat',
+    'silentArea', 'logList', 'backdrop', 'entrySheet', 'entryHead', 'entryNote',
+    'entryStateLine', 'btnDismiss', 'btnEngage', 'tplSheet', 'tplList',
+    'aggSheet', 'aggHead', 'aggList', 'timerBar', 'timerLabel', 'timerClock',
+    'btnComplete', 'btnCancel', 'segTrack', 'segLabels',
+    'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody', 'liveToken', 'liveConnect',
+  ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+  // ── 狀態卡 ──
+  function currentZone() { return ZONE_STATES[state.zoneIdx]; }
+
+  function renderState() {
+    var z = currentZone();
+    el.stateDot.style.background = 'var(' + z.cssVar + ')';
+    el.stateLine.textContent = z.label + ' · Decision Edge Score ' + z.score;
+  }
+
+  el.stateCard.addEventListener('click', function () {
+    state.zoneIdx = (state.zoneIdx + 1) % ZONE_STATES.length;
+    renderState();
+  });
+
+  // ── 事件鏈 log ──
+  var TYPE_LABELS = {
+    received: { text: '已接收', cls: 'received' },
+    surfaced: { text: '已呈現', cls: 'surfaced' },
+    engaged: { text: '進入決策', cls: 'engaged' },
+    dismissed: { text: '已略過', cls: 'dismissed' },
+    suppressed: { text: '冷卻抑制', cls: 'suppressed' },
+    silent: { text: '靜默接收', cls: 'received' },
+    aggregated: { text: '聚合呈現', cls: 'surfaced' },
+    mark: { text: '過程標記', cls: 'engaged' },
+    close: { text: '完成', cls: 'outcome' },
+    cancel: { text: '取消', cls: 'dismissed' },
+    timeout: { text: '時間到', cls: 'outcome' },
+  };
+
+  function nowLabel() {
+    var d = new Date();
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+
+  function log(type, detail) {
+    var empty = el.logList.querySelector('.log-empty');
+    if (empty) empty.remove();
+
+    var meta = TYPE_LABELS[type] || { text: type, cls: 'received' };
+    var item = document.createElement('div');
+    item.className = 'log-item';
+
+    var time = document.createElement('span');
+    time.className = 'log-time';
+    time.textContent = nowLabel();
+
+    var typeEl = document.createElement('span');
+    typeEl.className = 'log-type ' + meta.cls;
+    typeEl.textContent = meta.text;
+
+    var detailEl = document.createElement('span');
+    detailEl.className = 'log-detail';
+    detailEl.textContent = detail;
+
+    item.appendChild(time);
+    item.appendChild(typeEl);
+    item.appendChild(detailEl);
+    el.logList.insertBefore(item, el.logList.firstChild);
+  }
+
+  function silentChip(text) {
+    var chip = document.createElement('div');
+    chip.className = 'silent-chip';
+    chip.textContent = text;
+    el.silentArea.appendChild(chip);
+    while (el.silentArea.children.length > 3) {
+      el.silentArea.removeChild(el.silentArea.firstChild);
+    }
+  }
+
+  // ── Delivery policy（mirror of domain alert-policy 判定順序）──
+  function evaluateDelivery(alert, nowMs) {
+    if (state.sessionActive) return { decision: 'silent', reason: '決策進行中' };
+    if (currentZone().zone === 'strain') return { decision: 'silent', reason: 'Strain 狀態' };
+    var last = state.lastSurfacedAtBySymbol[alert.symbol];
+    if (last !== undefined && nowMs - last < COOLDOWN_MS) {
+      return { decision: 'suppressed', reason: '同標的冷卻中' };
+    }
+    return { decision: 'surfaced', reason: '' };
+  }
+
+  function makeAlert(symbol, condition, timeframe, strategy, note) {
+    state.alertSeq += 1;
+    return {
+      id: 'demo-' + state.alertSeq,
+      symbol: symbol, condition: condition, timeframe: timeframe,
+      strategyHint: strategy, note: note, receivedAt: Date.now(),
+    };
+  }
+
+  function ingest(alert) {
+    log('received', alert.symbol + ' · ' + alert.condition + ' (' + alert.timeframe + ')');
+    var result = evaluateDelivery(alert, Date.now());
+
+    if (result.decision === 'silent') {
+      log('silent', alert.symbol + ' — ' + result.reason + '，不打擾');
+      silentChip(alert.symbol + ' 快訊（已接收）');
+      return;
+    }
+    if (result.decision === 'suppressed') {
+      log('suppressed', alert.symbol + ' — ' + result.reason);
+      return;
+    }
+    surfaceAlert(alert);
+  }
+
+  function surfaceAlert(alert) {
+    state.lastSurfacedAtBySymbol[alert.symbol] = Date.now();
+    state.pendingAlert = alert;
+    log('surfaced', alert.symbol + ' — 決策入口開啟');
+
+    el.entryHead.textContent = alert.symbol + ' · ' + alert.condition + ' · ' + alert.timeframe;
+    el.entryNote.textContent = alert.note || '';
+    var z = currentZone();
+    el.entryStateLine.textContent = '你目前的狀態：' + z.label + '（Decision Edge Score ' + z.score + '）';
+    openSheet(el.entrySheet);
+  }
+
+  // ── 聚合（多快訊同窗）──
+  function ingestGroup(alerts) {
+    alerts.forEach(function (alert) {
+      log('received', alert.symbol + ' · ' + alert.condition + ' (' + alert.timeframe + ')');
+    });
+
+    var spreadMs = alerts[alerts.length - 1].receivedAt - alerts[0].receivedAt;
+    if (alerts.length < 2 || spreadMs > AGGREGATION_WINDOW_MS) {
+      alerts.forEach(ingest);
+      return;
+    }
+
+    var first = evaluateDelivery(alerts[0], Date.now());
+    if (first.decision !== 'surfaced') {
+      alerts.forEach(function (alert) {
+        log('silent', alert.symbol + ' — ' + (first.reason || '靜默接收'));
+        silentChip(alert.symbol + ' 快訊（已接收）');
+      });
+      return;
+    }
+
+    state.pendingGroup = alerts;
+    var symbols = alerts.map(function (a) { return a.symbol; }).join(' / ');
+    log('aggregated', alerts.length + ' 個訊號：' + symbols);
+    el.aggHead.textContent = alerts.length + ' 個決策機會：' + symbols;
+    el.aggList.textContent = '';
+    alerts.forEach(function (alert) {
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-ghost agg-item';
+      btn.type = 'button';
+      btn.style.width = '100%';
+      btn.textContent = alert.symbol + ' · ' + alert.condition + '（查看）';
+      btn.addEventListener('click', function () {
+        closeSheets();
+        state.pendingGroup = null;
+        surfaceAlert(alert);
+      });
+      el.aggList.appendChild(btn);
+    });
+    openSheet(el.aggSheet);
+  }
+
+  // ── Sheets ──
+  var sheets = [];
+
+  function openSheet(sheet) {
+    closeSheets();
+    el.backdrop.classList.add('show');
+    sheet.classList.add('show');
+    sheets.push(sheet);
+  }
+
+  function closeSheets() {
+    el.backdrop.classList.remove('show');
+    [el.entrySheet, el.tplSheet, el.aggSheet].forEach(function (s) { s.classList.remove('show'); });
+    sheets = [];
+  }
+
+  el.backdrop.addEventListener('click', function () {
+    if (state.pendingAlert) {
+      log('dismissed', state.pendingAlert.symbol);
+      state.pendingAlert = null;
+    }
+    state.pendingGroup = null;
+    closeSheets();
+  });
+
+  el.btnDismiss.addEventListener('click', function () {
+    if (state.pendingAlert) log('dismissed', state.pendingAlert.symbol);
+    state.pendingAlert = null;
+    closeSheets();
+  });
+
+  el.btnEngage.addEventListener('click', function () {
+    if (!state.pendingAlert) return;
+    log('engaged', state.pendingAlert.symbol + ' — 選擇流程模板');
+    renderTemplatePicker(state.pendingAlert);
+    openSheet(el.tplSheet);
+  });
+
+  // ── 模板選擇 ──
+  function renderTemplatePicker(alert) {
+    var suggested = suggestTemplate(alert.strategyHint);
+    el.tplList.textContent = '';
+
+    Object.keys(TEMPLATES).forEach(function (id) {
+      var tpl = TEMPLATES[id];
+      var card = document.createElement('div');
+      card.className = 'tpl-card' + (id === suggested ? ' suggested' : '');
+
+      var icon = document.createElement('div');
+      icon.className = 'tpl-icon';
+      icon.textContent = tpl.icon;
+
+      var main = document.createElement('div');
+      main.className = 'tpl-main';
+      var name = document.createElement('div');
+      name.className = 'tpl-name';
+      name.textContent = tpl.nameZh + '（' + tpl.id + '）';
+      var sub = document.createElement('div');
+      sub.className = 'tpl-sub';
+      sub.textContent = Math.round(tpl.durationSec / 60) + ' 分鐘 · ' +
+        tpl.segments.map(function (s) { return s.label; }).join(' → ');
+      main.appendChild(name);
+      main.appendChild(sub);
+
+      card.appendChild(icon);
+      card.appendChild(main);
+
+      if (id === suggested) {
+        var star = document.createElement('div');
+        star.className = 'tpl-star';
+        star.textContent = '⭐ 建議';
+        card.appendChild(star);
+      }
+
+      card.addEventListener('click', function () {
+        closeSheets();
+        startSession(alert, tpl);
+      });
+      el.tplList.appendChild(card);
+    });
+  }
+
+  // ── 浮動決策計時條 ──
+  function formatClock(sec) {
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function startSession(alert, tpl) {
+    state.pendingAlert = null;
+    state.sessionActive = true;
+
+    el.timerLabel.textContent = alert.symbol + ' · ' + tpl.nameZh;
+    el.timerClock.textContent = formatClock(0);
+    el.timerClock.classList.remove('in-window');
+
+    el.segTrack.textContent = '';
+    el.segLabels.textContent = '';
+    var fills = [];
+    tpl.segments.forEach(function (segment) {
+      var span = segment.endSec - segment.startSec;
+      var seg = document.createElement('div');
+      seg.className = 'seg';
+      seg.style.flexGrow = String(span);
+      var fill = document.createElement('div');
+      fill.className = 'seg-fill';
+      fill.style.background = segment.color;
+      seg.appendChild(fill);
+      el.segTrack.appendChild(seg);
+      fills.push({ el: fill, startSec: segment.startSec, endSec: segment.endSec });
+
+      var label = document.createElement('div');
+      label.className = 'seg-label';
+      label.style.flexGrow = String(span);
+      label.style.flexBasis = '0';
+      label.textContent = segment.label;
+      el.segLabels.appendChild(label);
+    });
+
+    el.timerBar.classList.add('show');
+    log('mark', alert.symbol + ' — ' + tpl.nameZh + ' 計時開始');
+
+    var elapsed = 0;
+    state.timer = setInterval(function () {
+      elapsed += 1;
+      el.timerClock.textContent = formatClock(elapsed);
+
+      var w = tpl.readinessWindow;
+      el.timerClock.classList.toggle('in-window', elapsed >= w.startSec && elapsed < w.endSec);
+
+      fills.forEach(function (f) {
+        var span = f.endSec - f.startSec;
+        var ratio = Math.min(Math.max((elapsed - f.startSec) / span, 0), 1);
+        f.el.style.transform = 'scaleX(' + ratio + ')';
+      });
+
+      if (elapsed >= tpl.durationSec) {
+        endSession('timeout', alert.symbol + ' — 完整走完 ' + tpl.nameZh);
+      }
+    }, 1000);
+  }
+
+  function endSession(type, detail) {
+    if (state.timer) { clearInterval(state.timer); state.timer = null; }
+    state.sessionActive = false;
+    el.timerBar.classList.remove('show');
+    log(type, detail);
+  }
+
+  el.btnComplete.addEventListener('click', function () {
+    endSession('close', el.timerLabel.textContent + ' — 流程完成');
+  });
+
+  el.btnCancel.addEventListener('click', function () {
+    endSession('cancel', el.timerLabel.textContent);
+  });
+
+  // ── 連接真實快訊（輪詢 /api/alerts，真訊號與模擬走同一條 ingest 管線）──
+  var POLL_INTERVAL_MS = 10 * 1000;
+  var TOKEN_KEY = 'tenki.alert.token';
+
+  var live = {
+    pollTimer: null,
+    sinceMs: 0,
+    seenIds: {},
+  };
+
+  function setLiveStatus(text, dotState) {
+    el.liveStatus.textContent = text;
+    el.liveDot.classList.remove('on', 'err');
+    if (dotState) el.liveDot.classList.add(dotState);
+  }
+
+  function stopLive(statusText, dotState) {
+    if (live.pollTimer) { clearInterval(live.pollTimer); live.pollTimer = null; }
+    el.liveConnect.textContent = '連線';
+    setLiveStatus(statusText || '離線', dotState || '');
+  }
+
+  function normalizeLiveAlert(raw) {
+    return {
+      id: raw.id,
+      symbol: raw.symbol,
+      condition: raw.condition || 'Signal',
+      timeframe: raw.timeframe || '—',
+      strategyHint: raw.strategyHint,
+      note: raw.note || '',
+      receivedAt: raw.receivedAt,
+    };
+  }
+
+  function pollOnce(token) {
+    fetch('/api/alerts?token=' + encodeURIComponent(token) + '&since=' + live.sinceMs)
+      .then(function (response) {
+        if (response.status === 401) {
+          stopLive('token 未授權', 'err');
+          return null;
+        }
+        if (!response.ok) {
+          setLiveStatus('伺服器回應 ' + response.status, 'err');
+          return null;
+        }
+        return response.json();
+      })
+      .then(function (payload) {
+        if (!payload || !Array.isArray(payload.alerts)) return;
+        setLiveStatus('連線中 · ' + nowLabel(), 'on');
+
+        // API 回新→舊；反轉成舊→新逐筆餵，同毫秒邊界用 id 去重
+        var incoming = payload.alerts.slice().reverse();
+        incoming.forEach(function (raw) {
+          if (!raw || !raw.id || live.seenIds[raw.id]) return;
+          live.seenIds[raw.id] = true;
+          if (raw.receivedAt > live.sinceMs) live.sinceMs = raw.receivedAt;
+          ingest(normalizeLiveAlert(raw));
+        });
+      })
+      .catch(function () {
+        setLiveStatus('連線失敗，將重試', 'err');
+      });
+  }
+
+  function startLive() {
+    var token = el.liveToken.value.trim();
+    if (!token) { setLiveStatus('請先輸入 token', 'err'); return; }
+    localStorage.setItem(TOKEN_KEY, token);
+    live.sinceMs = Date.now(); // 只收連線後的新快訊，不回放歷史
+    setLiveStatus('連線中…', 'on');
+    el.liveConnect.textContent = '中斷';
+    pollOnce(token);
+    live.pollTimer = setInterval(function () { pollOnce(token); }, POLL_INTERVAL_MS);
+  }
+
+  el.liveConnect.addEventListener('click', function () {
+    if (live.pollTimer) { stopLive(); return; }
+    startLive();
+  });
+
+  el.liveToggle.addEventListener('click', function () {
+    var hidden = el.liveBody.hasAttribute('hidden');
+    if (hidden) { el.liveBody.removeAttribute('hidden'); el.liveChevron.textContent = '▴'; }
+    else { el.liveBody.setAttribute('hidden', ''); el.liveChevron.textContent = '▾'; }
+  });
+
+  var savedToken = localStorage.getItem(TOKEN_KEY);
+  if (savedToken) el.liveToken.value = savedToken;
+
+  // ── 模擬按鈕 ──
+  el.btnSingle.addEventListener('click', function () {
+    ingest(makeAlert('NVDA', 'Breakout', '5m', 'CANSLIM', 'RS High + Volume Spike'));
+  });
+
+  el.btnMulti.addEventListener('click', function () {
+    var now = Date.now();
+    var a = makeAlert('NVDA', 'Breakout', '5m', 'CANSLIM', 'RS High + Volume Spike');
+    var b = makeAlert('TSLA', 'Reclaim', '15m', 'Mancini FBD', 'Level reclaim');
+    a.receivedAt = now;
+    b.receivedAt = now + 5000; // 模擬 5 秒內先後到達
+    ingestGroup([a, b]);
+  });
+
+  el.btnRepeat.addEventListener('click', function () {
+    ingest(makeAlert('NVDA', 'Breakout', '5m', 'CANSLIM', '同標的重複觸發'));
+  });
+
+  renderState();
+})();

@@ -80,6 +80,7 @@ export {
 export {
   ALLOWED_VOCABULARY,
   PROHIBITED_VOCABULARY,
+  PROHIBITED_VOCABULARY_ZH,
   findProhibitedTerms,
   isCompliantCopy,
   generateSafeCopy,
@@ -185,6 +186,8 @@ export {
   getTraderTemplate,
   getAllTraderTemplates,
 } from './session/templates';
+
+export { suggestTemplateForStrategyHint } from './session/template-suggestion';
 
 // ─── Common ─────────────────────────────────
 export {

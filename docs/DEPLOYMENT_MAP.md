@@ -1,6 +1,6 @@
 # DEPLOYMENT_MAP.md
 
-> Last updated: 2026-07-05
+> Last updated: 2026-07-11
 > Machine-readable companion: `docs/DEPLOYMENT_MAP.json`
 > ⚠️ **改本檔必須同步 `DEPLOYMENT_MAP.json`（反之亦然）** — f21bcd2 曾只改 .md 漏改 .json，漂移了三天才被健檢抓到。
 
@@ -30,6 +30,7 @@ tenki-emotion-app.vercel.app
 ├── /preview/v6/              → apps/preview/v6/       🔧 v6 Today (= /v3/, twin path)
 ├── /preview/soul-enroll.html → apps/preview/          ✨ Soul Scan (direct path, = /preview/)
 ├── /story/                   → apps/preview/story.html ✨ Cinematic scroll-narrative landing page 🔒 Hero locked
+├── /decision-alert/          → apps/preview/decision-alert.html 🔧 外部快訊 → 決策入口 demo（模擬 TradingView 快訊）
 ```
 
 ## Canonical URL Map
@@ -45,6 +46,9 @@ tenki-emotion-app.vercel.app
 | `https://tenki-emotion-app.vercel.app/preview/brand/` | `apps/preview/brand/index.html` | TENKI 品牌標誌（Resonance Ensō）預覽 — variants / lockups / 使用規則 | ✅ Active |
 | `https://tenki-emotion-app.vercel.app/brand/*` | `brand/`（repo 根目錄） | 品牌靜態資產直達（logo/icon/favicon/marketing，vercel.json rewrites） | ✅ Active |
 | `https://tenki-emotion-app.vercel.app/story/` | `apps/preview/story.html` | 高質感滾動式敘事 landing page — Hero 進場（🔒 Hero locked，見 SYSTEM.md §8）、ScrollTrigger 產品故事、Login→Dashboard 轉場、嵌入 `/v3/` 的 Dashboard 預覽,CTA 連回 `/preview/` 與 `/v3/` | ✨ Active dev · 🔒 Hero locked |
+| `https://tenki-emotion-app.vercel.app/decision-alert/` | `apps/preview/decision-alert.html` | 外部快訊 → 決策入口 demo — 模擬 TradingView 快訊走 delivery policy（zone 閘門/冷卻/聚合）→ Decision Entry Panel → 模板建議 → 浮動決策計時條 → 事件鏈 log；「連接真實快訊」模式輪詢 `/api/alerts`。規格：`docs/TRADINGVIEW-ALERT-SPEC.md` | 🔧 Founder demo |
+| `https://tenki-emotion-app.vercel.app/api/alert` | `api/alert.ts`（serverless function） | TradingView webhook 接收端（POST，`?token=` 驗證，Upstash 暫存 50 筆/24h）。設定：`docs/TRADINGVIEW-SETUP.md`；需 env `ALERT_INGEST_TOKEN` + Upstash | ✅ Active（需 founder 開通 env） |
+| `https://tenki-emotion-app.vercel.app/api/alerts` | `api/alerts.ts`（serverless function） | 裝置輪詢端點（GET，`?token=&since=`），遞送判定留在裝置端 | ✅ Active（同上） |
 
 ## Routing (vercel.json)
 
@@ -56,6 +60,8 @@ tenki-emotion-app.vercel.app
   "/story/(.*)":    "apps/preview/$1",
   "/preview/":      "apps/preview/soul-enroll.html",
   "/preview/(.*)":  "apps/preview/$1",
+  "/decision-alert/":     "apps/preview/decision-alert.html",
+  "/decision-alert/(.*)": "apps/preview/$1",
   "/":             "apps/web/index.html",
   "/(.*)":         "apps/web/$1"
 }

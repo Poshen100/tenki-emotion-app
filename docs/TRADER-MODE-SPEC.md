@@ -1,3 +1,8 @@
+> ⚠️ **部分被取代（2026-07-11，founder 核可）**：本檔為 v2 時代規格，使用已廢棄詞彙（TEI、Retail/Pro 分級、
+> 舊模板名）。**TradingView 快訊行為一律以 `docs/TRADINGVIEW-ALERT-SPEC.md` 為準**。本檔仍有效的部分
+> （模板預覽卡、session 進行中靜音快訊、Decision Complete / Cancel / Timeout 區分、模板脈衝色）已收編進新檔。
+> 除本橫幅外，本檔內文維持 LOCKED 不動。
+
 # TENKI PRO App｜交易者模式（Trader Mode）— 情境模板超完整最終規格書
 
 > **Version**: v1.0 FINAL

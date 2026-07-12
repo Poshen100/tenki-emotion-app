@@ -57,6 +57,47 @@ export type {
 } from './schemas/scan-schema';
 
 export {
+  assertAlertPayloadContract,
+  validateAlertPayloadContract,
+} from './schemas/alert-schema';
+
+export {
+  ALERT_AGGREGATION_WINDOW_SEC,
+  ALERT_COOLDOWN_SEC,
+  ALERT_DAILY_SURFACE_CAP,
+  createEmptyAlertThrottleState,
+  evaluateAlertDelivery,
+  groupSimultaneousAlerts,
+  recordAlertSurfaced,
+  resolveAlertDayKey,
+} from './policies/alert-policy';
+
+export type {
+  AlertDeliveryEvaluation,
+  AlertDeliveryInput,
+  AlertThrottleState,
+} from './policies/alert-policy';
+
+export {
+  ALERT_PAYLOAD_MAX_STRING_LENGTH,
+  DOMAIN_ALERT_DELIVERY_DECISIONS,
+  DOMAIN_ALERT_LIFECYCLE_STATES,
+  DOMAIN_ALERT_PRIORITIES,
+  DOMAIN_ALERT_SOURCES,
+  buildAlertContract,
+} from './contracts/alert-contract';
+
+export type {
+  AlertContract,
+  AlertContractMeta,
+  AlertPayloadContract,
+  DomainAlertDeliveryDecision,
+  DomainAlertLifecycleState,
+  DomainAlertPriority,
+  DomainAlertSource,
+} from './contracts/alert-contract';
+
+export {
   NEXT_ACTIONS,
   ONBOARDING_STEP_ORDER,
   SENSOR_CHOICES,

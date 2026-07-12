@@ -303,4 +303,11 @@ export interface SessionRecord {
   durationSec: number;
   /** Outcome tag. */
   outcomeTag: OutcomeTag;
+  /**
+   * ID of the external alert record that opened this session, when the
+   * session was entered from an alert (docs/TRADINGVIEW-ALERT-SPEC.md §9).
+   * The full chain alert → decision → events → outcome is reconstructed by
+   * joining the alert record with this session record.
+   */
+  originAlertId?: string | null;
 }

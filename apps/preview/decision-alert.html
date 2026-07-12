@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#020617" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>TENKI — 外部快訊 → 決策入口（Demo）</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      height: 100vh; height: 100dvh;
+      background: var(--bg-space);
+      color: #E5E7EB;
+      font-family: -apple-system, "SF Pro Text", "PingFang TC", "Noto Sans TC", sans-serif;
+      overscroll-behavior: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    .app {
+      height: 100vh; height: 100dvh;
+      display: flex; flex-direction: column;
+      max-width: 480px; margin: 0 auto;
+      padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 0;
+    }
+
+    /* ── Header ── */
+    header { flex: none; padding-bottom: 12px; }
+    .kicker { font-size: 11px; letter-spacing: 0.14em; color: #64748B; text-transform: uppercase; }
+    h1 { font-size: 20px; font-weight: 700; margin-top: 4px; }
+    .demo-note { margin-top: 6px; font-size: 11px; color: #64748B; }
+
+    /* ── State card ── */
+    .state-card {
+      flex: none; display: flex; align-items: center; gap: 12px;
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: 14px; padding: 12px 14px; margin-bottom: 12px;
+      cursor: pointer;
+    }
+    .state-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; transition: opacity 0.3s var(--ease-calm); }
+    .state-main { flex: 1; min-width: 0; }
+    .state-line { font-size: 14px; font-weight: 600; }
+    .state-sub { font-size: 11px; color: #64748B; margin-top: 2px; }
+    .state-tap { font-size: 11px; color: #64748B; flex: none; }
+
+    /* ── Sim controls ── */
+    .sim-row { flex: none; display: flex; gap: 8px; margin-bottom: 12px; }
+    .sim-btn {
+      flex: 1; border: 1px solid var(--border); border-radius: 12px;
+      background: var(--surface); color: #E5E7EB;
+      font-size: 12px; line-height: 1.35; padding: 10px 6px;
+      font-family: inherit; cursor: pointer;
+      transition: transform 0.15s var(--ease-calm), opacity 0.15s;
+    }
+    .sim-btn:active { transform: scale(0.97); opacity: 0.85; }
+    .sim-btn small { display: block; color: #64748B; font-size: 10px; margin-top: 3px; }
+
+    /* ── 連接真實快訊 ── */
+    .live-card {
+      flex: none; background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: 14px; margin-bottom: 12px; overflow: hidden;
+    }
+    .live-toggle {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      background: transparent; border: none; color: #E5E7EB;
+      font-family: inherit; font-size: 13px; padding: 11px 14px; cursor: pointer;
+    }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #475569; flex: none; transition: opacity 0.3s; }
+    .live-dot.on { background: var(--cyan-active); }
+    .live-dot.err { background: var(--error); }
+    .live-title { font-weight: 600; }
+    .live-status { flex: 1; text-align: right; color: #64748B; font-size: 11px; }
+    .live-chevron { color: #64748B; font-size: 11px; }
+    .live-body { padding: 0 14px 12px; }
+    .live-hint { font-size: 11px; color: #64748B; line-height: 1.5; margin-bottom: 8px; }
+    .live-row { display: flex; gap: 8px; }
+    .live-input {
+      flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--surface); color: #E5E7EB; font-family: inherit;
+      font-size: 13px; padding: 10px 12px; -webkit-user-select: auto; user-select: auto;
+    }
+    .live-input:focus { outline: none; border-color: var(--cyan-core); }
+    .live-connect { flex: none; padding: 10px 18px; font-size: 13px; }
+
+    /* ── Silent chips ── */
+    .silent-area { flex: none; display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; margin-bottom: 10px; }
+    .silent-chip {
+      font-size: 11px; color: #94A3B8; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px;
+      opacity: 0; transform: translateY(4px);
+      animation: chip-in 0.35s var(--ease-calm) forwards;
+    }
+    @keyframes chip-in { to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Event chain log ── */
+    .log-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .log-title { flex: none; font-size: 11px; letter-spacing: 0.12em; color: #64748B; text-transform: uppercase; margin-bottom: 6px; }
+    .log-list {
+      flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--glass-border); border-radius: 14px;
+      background: rgba(20, 20, 24, 0.5); padding: 8px 12px;
+      /* 底部預留：浮動計時條 + safe area */
+      margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 76px);
+    }
+    .log-empty { font-size: 12px; color: #475569; padding: 10px 0; }
+    .log-item {
+      display: flex; gap: 8px; align-items: baseline;
+      font-size: 12px; padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      opacity: 0; animation: chip-in 0.3s var(--ease-calm) forwards;
+    }
+    .log-item:last-child { border-bottom: none; }
+    .log-time { flex: none; font-variant-numeric: tabular-nums; color: #475569; font-size: 11px; }
+    .log-type { flex: none; font-weight: 600; }
+    .log-type.received   { color: #94A3B8; }
+    .log-type.surfaced   { color: var(--cyan-active); }
+    .log-type.engaged    { color: var(--gold-secured); }
+    .log-type.dismissed  { color: #64748B; }
+    .log-type.suppressed { color: var(--zone-strain); }
+    .log-type.outcome    { color: var(--success); }
+    .log-detail { color: #94A3B8; min-width: 0; }
+
+    /* ── Bottom sheet（entry panel / 模板 / 聚合）── */
+    .sheet-backdrop {
+      position: fixed; inset: 0; background: rgba(2, 6, 23, 0.7);
+      opacity: 0; pointer-events: none; transition: opacity 0.25s var(--ease-calm);
+      z-index: 30;
+    }
+    .sheet-backdrop.show { opacity: 1; pointer-events: auto; }
+    .sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 31;
+      max-width: 480px; margin: 0 auto;
+      background: var(--card); border-radius: 20px 20px 0 0;
+      border: 1px solid var(--glass-border); border-bottom: none;
+      padding: 14px 18px calc(env(safe-area-inset-bottom, 0px) + 18px);
+      transform: translateY(105%); transition: transform 0.3s var(--ease-calm);
+    }
+    .sheet.show { transform: translateY(0); }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 14px; }
+    .alert-head { font-size: 17px; font-weight: 700; }
+    .alert-note { font-size: 13px; color: #94A3B8; margin-top: 4px; }
+    .alert-state {
+      margin-top: 12px; padding: 10px 12px; border-radius: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      font-size: 13px; line-height: 1.5;
+    }
+    .alert-state .stat-sub { color: #64748B; font-size: 12px; }
+    .alert-q { margin-top: 14px; font-size: 14px; font-weight: 600; }
+    .sheet-actions { display: flex; gap: 10px; margin-top: 12px; }
+    .btn {
+      flex: 1; border-radius: 12px; padding: 13px 0; font-size: 15px; font-weight: 600;
+      font-family: inherit; border: 1px solid var(--border); cursor: pointer;
+      transition: transform 0.15s var(--ease-calm), opacity 0.15s;
+    }
+    .btn:active { transform: scale(0.97); opacity: 0.85; }
+    .btn-primary { background: var(--cyan-core); border-color: var(--cyan-core); color: #02131a; }
+    .btn-ghost { background: transparent; color: #94A3B8; }
+
+    /* ── 模板選擇 ── */
+    .tpl-card {
+      display: flex; align-items: center; gap: 10px;
+      border: 1px solid var(--border); border-radius: 12px;
+      background: var(--surface); padding: 12px; margin-top: 10px; cursor: pointer;
+      transition: transform 0.15s var(--ease-calm);
+    }
+    .tpl-card:active { transform: scale(0.98); }
+    .tpl-card.suggested { border-color: var(--gold-secured); }
+    .tpl-icon { font-size: 20px; flex: none; }
+    .tpl-main { flex: 1; min-width: 0; }
+    .tpl-name { font-size: 14px; font-weight: 600; }
+    .tpl-sub { font-size: 11px; color: #64748B; margin-top: 2px; }
+    .tpl-star { flex: none; font-size: 12px; color: var(--gold-secured); }
+
+    /* ── 聚合卡 ── */
+    .agg-symbols { font-size: 15px; font-weight: 600; margin-top: 8px; }
+    .agg-item { margin-top: 10px; }
+
+    /* ── 浮動決策計時條 ── */
+    .timer-bar {
+      position: fixed; left: 12px; right: 12px; z-index: 20;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      max-width: 456px; margin: 0 auto;
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+      border-radius: 16px; padding: 10px 14px;
+      transform: translateY(140%); transition: transform 0.3s var(--ease-calm);
+    }
+    .timer-bar.show { transform: translateY(0); }
+    .timer-row { display: flex; align-items: center; gap: 10px; }
+    .timer-label { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .timer-clock { flex: none; font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 700; }
+    .timer-clock.in-window { color: var(--cyan-active); }
+    .timer-btn {
+      flex: none; width: 34px; height: 34px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--surface); color: #E5E7EB;
+      font-size: 14px; cursor: pointer; font-family: inherit;
+    }
+    .timer-btn.done { border-color: var(--success); color: var(--success); }
+    .seg-track { display: flex; gap: 2px; margin-top: 8px; height: 5px; border-radius: 3px; overflow: hidden; }
+    .seg { position: relative; height: 100%; background: var(--border); overflow: hidden; }
+    .seg .seg-fill {
+      position: absolute; inset: 0; transform: scaleX(0); transform-origin: left;
+      /* 每秒 tick 線性推進 */
+      transition: transform 1s linear;
+    }
+    .seg-labels { display: flex; gap: 2px; margin-top: 4px; }
+    .seg-label { font-size: 9px; color: #64748B; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="kicker">TENKI · Turning Point</div>
+      <h1>外部快訊 → 決策入口</h1>
+      <div class="demo-note">Demo：快訊與分數皆為合成示意。快訊不是行動指示 — 它只開啟一段有節奏的決策過程。</div>
+    </header>
+
+    <div class="state-card" id="stateCard">
+      <div class="state-dot" id="stateDot"></div>
+      <div class="state-main">
+        <div class="state-line" id="stateLine"></div>
+        <div class="state-sub">最近一次掃描的狀態（示意值）</div>
+      </div>
+      <div class="state-tap">點擊切換 ▸</div>
+    </div>
+
+    <div class="sim-row">
+      <button class="sim-btn" id="btnSingle" type="button">模擬 NVDA 快訊<small>單一訊號</small></button>
+      <button class="sim-btn" id="btnMulti" type="button">雙快訊 NVDA+TSLA<small>60s 窗內聚合</small></button>
+      <button class="sim-btn" id="btnRepeat" type="button">同標的再觸發<small>冷卻 demo 30s（正式 5 分鐘）</small></button>
+    </div>
+
+    <div class="live-card">
+      <button class="live-toggle" id="liveToggle" type="button">
+        <span class="live-dot" id="liveDot"></span>
+        <span class="live-title">連接真實快訊</span>
+        <span class="live-status" id="liveStatus">離線</span>
+        <span class="live-chevron" id="liveChevron">▾</span>
+      </button>
+      <div class="live-body" id="liveBody" hidden>
+        <div class="live-hint">輸入部署端設定的 token 後開始輪詢（10 秒一次）。TradingView 端設定見 docs/TRADINGVIEW-SETUP.md。</div>
+        <div class="live-row">
+          <input class="live-input" id="liveToken" type="password" placeholder="token" autocomplete="off" autocapitalize="off" />
+          <button class="btn btn-primary live-connect" id="liveConnect" type="button">連線</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="silent-area" id="silentArea"></div>
+
+    <div class="log-panel">
+      <div class="log-title">事件鏈（Alert → 決策 → 結果）</div>
+      <div class="log-list" id="logList">
+        <div class="log-empty">還沒有事件。按上方按鈕模擬一則快訊。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom sheets -->
+  <div class="sheet-backdrop" id="backdrop"></div>
+
+  <div class="sheet" id="entrySheet">
+    <div class="sheet-handle"></div>
+    <div class="alert-head" id="entryHead"></div>
+    <div class="alert-note" id="entryNote"></div>
+    <div class="alert-state">
+      <div id="entryStateLine"></div>
+      <div class="stat-sub">在此狀態下，你過去的紀律完成率：—（資料累積中）</div>
+    </div>
+    <div class="alert-q">你要進入決策流程嗎？</div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="btnDismiss" type="button">略過</button>
+      <button class="btn btn-primary" id="btnEngage" type="button">進入決策</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="tplSheet">
+    <div class="sheet-handle"></div>
+    <div class="alert-head">選擇流程模板</div>
+    <div class="alert-note">建議只是高亮，不是指示 — 你永遠可以自由選。</div>
+    <div id="tplList"></div>
+  </div>
+
+  <div class="sheet" id="aggSheet">
+    <div class="sheet-handle"></div>
+    <div class="alert-head" id="aggHead"></div>
+    <div class="alert-note">同一時間窗內的多個訊號合併為一張卡，不逐一打擾。</div>
+    <div id="aggList"></div>
+  </div>
+
+  <!-- 浮動決策計時條 -->
+  <div class="timer-bar" id="timerBar">
+    <div class="timer-row">
+      <div class="timer-label" id="timerLabel"></div>
+      <div class="timer-clock" id="timerClock">00:00</div>
+      <button class="timer-btn done" id="btnComplete" type="button" aria-label="完成">✔</button>
+      <button class="timer-btn" id="btnCancel" type="button" aria-label="取消">✘</button>
+    </div>
+    <div class="seg-track" id="segTrack"></div>
+    <div class="seg-labels" id="segLabels"></div>
+  </div>
+
+  <script src="decision-alert.js?v=alert2"></script>
+</body>
+</html>

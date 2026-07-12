@@ -36,7 +36,21 @@ export const PROHIBITED_VOCABULARY = [
 ] as const;
 
 /**
- * Checks whether a string contains any prohibited vocabulary.
+ * Traditional Chinese financial/action-directive terms prohibited in
+ * user-facing copy. Multi-character terms only, to avoid false positives
+ * on single characters (e.g. 買 alone would flag 購買 Premium).
+ * Added 2026-07-11: the English list is substring-matched on lowercased
+ * text and never catches Chinese, so 「勝率」-style copy slipped through.
+ */
+export const PROHIBITED_VOCABULARY_ZH = [
+  '勝率', '買入', '賣出', '買進', '賣壓', '獲利', '虧損',
+  '停損', '停利', '追價', '進場訊號', '出場訊號', '交易建議',
+  '投資建議', '保證報酬', '保證獲利', '快進快出', '現在進場', '立即下單',
+] as const;
+
+/**
+ * Checks whether a string contains any prohibited vocabulary
+ * (English list matched case-insensitively, Chinese list matched as-is).
  *
  * @param text - The text to check.
  * @returns Array of found prohibited terms, empty if clean.
@@ -47,6 +61,12 @@ export function findProhibitedTerms(text: string): string[] {
 
   for (const term of PROHIBITED_VOCABULARY) {
     if (lowerText.includes(term.toLowerCase())) {
+      found.push(term);
+    }
+  }
+
+  for (const term of PROHIBITED_VOCABULARY_ZH) {
+    if (text.includes(term)) {
       found.push(term);
     }
   }

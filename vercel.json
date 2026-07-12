@@ -3,6 +3,7 @@
     "framework": null,
     "redirects": [
         { "source": "/preview", "destination": "/preview/", "permanent": false },
+        { "source": "/decision-alert", "destination": "/decision-alert/", "permanent": false },
         { "source": "/v3", "destination": "/v3/", "permanent": false },
         { "source": "/story", "destination": "/story/", "permanent": false },
         { "source": "/", "destination": "/story/", "permanent": false }
@@ -15,6 +16,8 @@
         { "source": "/story/(.*)", "destination": "/apps/preview/$1" },
         { "source": "/preview/", "destination": "/apps/preview/soul-enroll.html" },
         { "source": "/preview/(.*)", "destination": "/apps/preview/$1" },
+        { "source": "/decision-alert/", "destination": "/apps/preview/decision-alert.html" },
+        { "source": "/decision-alert/(.*)", "destination": "/apps/preview/$1" },
         { "source": "/", "destination": "/apps/web/index.html" },
         { "source": "/(.*)", "destination": "/apps/web/$1" }
     ]

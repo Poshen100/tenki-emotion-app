@@ -68,6 +68,13 @@ export const FEATURE_FLAGS: Record<FeatureFlagId, FeatureFlagDef> = {
     defaultValue: false,
     remoteConfigurable: false,
   },
+  tradingview_alerts_v1: {
+    id: 'tradingview_alerts_v1',
+    name: 'TradingView Alert Bridge v1',
+    description: 'Enable external alert ingestion into the decision flow.',
+    defaultValue: false,
+    remoteConfigurable: true,
+  },
 } as const;
 
 /** Runtime feature flag state. */
