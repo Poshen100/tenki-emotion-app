@@ -9,6 +9,24 @@
 
 ---
 
+# 2026-07-12 Session Update #22 (手機端真實快訊樣貌 — 三個截圖事實入檔)
+
+> 承 #21。Founder 三張實機截圖補充，全部是文件級勘誤/依據，無程式碼改動。
+
+## 三個事實（截圖實證）
+1. **TradingView 手機 app 有 Webhook URL**（alert 編輯 →「通知」分頁）— SETUP.md 原寫「web/桌面版才有」是錯的，已勘誤。**全流程純手機可完成**。
+2. **既有 alert 的預設 message 是純文字**（「ES1! 下穿 6,851.00」）→ 非 JSON，TENKI schema 會 400 擋掉 — SETUP §3 已加醒目遷移提醒（訊息欄要整段換 JSON 模板）。
+3. **原生推播轟炸實例**：同一 level 8 分鐘連發 4 則相同推播 — delivery policy（冷卻/靜默/聚合）的現實依據，已入方法論 §9 映射表。
+
+## 語意澄清（入方法論 §7）
+Founder 的 ES1! level alert =「價格進入計畫區域」的鈴聲（step 2），**不是 setup 成形**（step 3 才確認 FBD）— 這是「Alert ≠ 進場訊號」定位的方法論根據。Level 類 alert 建議 `condition: Level Break` / `strategy: Mancini`（SETUP §3 新段）。
+
+## 下次接手點
+- Founder 端不變：Vercel 開通 Upstash → 手機全程配對（現在確認連 TradingView 端也不用開電腦）→ 把既有 ES1! alert 的訊息欄換成 JSON 模板 + 勾 Webhook URL。
+- §10 接線候選（Mode 標籤/quiet window/節奏熔斷）仍待 founder 拍板。
+
+---
+
 # 2026-07-12 Session Update #21 (Trader 模板命名勘誤：FBD = Mancini Failed Breakdown)
 
 > 承 #20。PR #179 已 merge；founder 實機走模板選擇抓到兩個顯示名錯誤，並補上關鍵 domain 背景。
