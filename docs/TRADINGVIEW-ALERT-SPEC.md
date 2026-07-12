@@ -51,8 +51,13 @@ TENKI 整合後：快訊到 → 狀態閘門 → 決策入口 → 有節奏的�
 
 ## 3. Webhook Payload（TradingView 端設定）
 
-TradingView Alert 勾選 Webhook URL，指向 TENKI 接收端（**已交付 v1.1**）：
-`POST https://tenki-emotion-app.vercel.app/api/alert?token=***`（`api/alert.ts`；token 走查詢參數，因 TradingView 無法帶自訂 header）。裝置端由 `GET /api/alerts` 輪詢拉取（`api/alerts.ts`），遞送判定（§5）留在裝置端。**設定步驟見 `docs/TRADINGVIEW-SETUP.md`。**
+TradingView Alert 勾選 Webhook URL，指向使用者的**專屬頻道連結**（**v1.2 channel 模型**，取代 v1.1 的共用 token）：
+
+1. 裝置 `POST /api/channel`（`api/channel.ts`）→ 伺服器生成不可猜測的 channelId（SETNX 註冊，未使用 30 天過期、輪詢滑動續期）→ 回專屬 webhook URL。
+2. TradingView → `POST /api/alert?ch=<channelId>`（`api/alert.ts`；憑證走查詢參數 = capability URL，因 TradingView 無法帶自訂 header；未註冊頻道一律 404，防隨機灌爆）。
+3. 裝置 `GET /api/alerts?ch=<channelId>&since=`（`api/alerts.ts`）輪詢拉取；遞送判定（§5）留在裝置端。
+
+使用者體驗零輸入：頁面自動產生連結 → 複製貼進 TradingView 即完成配對。**設定步驟見 `docs/TRADINGVIEW-SETUP.md`。**
 
 建議 payload 格式（TradingView alert message 欄位填 JSON）：
 
@@ -156,8 +161,9 @@ UI：三模板卡全列，建議者加 ⭐ 高亮；使用者永遠可自由選�
 
 ## 11. 分級與 Dark Launch
 
-- **Premium 功能**：`packages/shared/src/subscription-tiers.ts` `TierFeatures.externalAlertBridge`（free: false / premium: true）。
+- **Premium 功能**：`packages/shared/src/subscription-tiers.ts` `TierFeatures.externalAlertBridge`（free: false / premium: true）。「Pro 訂閱」對外命名對應現有 **Premium** 層 — v3 維持 2-tier，不開第三級。
 - **Feature flag**：`tradingview_alerts_v1`（default off、remote-configurable）— dark launch 控制。
+- **Entitlement 掛載點（founder 決策 2026-07-12）**：repo 目前無帳號/金流系統，伺服器端驗證不了訂閱狀態 → 現階段 Premium 屬 **client 側標示**（UI badge + tier 旗標）。帳號＋金流（IAP/Stripe）基建上線後，**在 `POST /api/channel` 加一步訂閱資格驗證**即完成伺服器端付費牆 — 頻道是唯一入口，擋住發頻道就擋住整個功能；既有頻道到期自然收斂。
 - 隱私控制永不放付費牆後（CLAUDE.md 硬規則）；付費牆只鎖「外部快訊橋接」功能本身。
 
 ## 12. Phase Roadmap
@@ -165,7 +171,8 @@ UI：三模板卡全列，建議者加 ⭐ 高亮；使用者永遠可自由選�
 | Phase | 內容 | 狀態 / 前置 |
 |-------|------|------|
 | **v1** | 規格書 + domain contract/schema/policy + engine 模板建議/compliance/連結欄位 + shared flag/tier + `/decision-alert/` preview demo（模擬快訊） | ✅ 已交付 |
-| **v1.1（Phase 2 ingestion）** | HTTP 接收薄層（`api/alert.ts`：收 → validate → Upstash 暫存）+ `api/alerts.ts` 裝置輪詢 + `/decision-alert/` 連接真實快訊模式 + `docs/TRADINGVIEW-SETUP.md` | ✅ 已交付（founder 需開通 Upstash + 設 `ALERT_INGEST_TOKEN`） |
+| **v1.1（Phase 2 ingestion）** | HTTP 接收薄層（`api/alert.ts`：收 → validate → Upstash 暫存）+ `api/alerts.ts` 裝置輪詢 + `/decision-alert/` 連接真實快訊模式 + `docs/TRADINGVIEW-SETUP.md` | ✅ 已交付 |
+| **v1.2（channel 模型）** | 專屬 webhook 連結取代共用 token：`api/channel.ts` 配對端點、per-channel 佇列隔離、零輸入配對 UX、Premium 標示 + entitlement 掛載點（§11） | ✅ 已交付（founder 僅需開通 Upstash） |
 | Phase 2 後段 | mobile UI（Decision Entry Panel / 浮動條，用 preview 驗證過的互動移植 apps/mobile） | 待排 |
 | Phase 3 | 真推播到手機（expo-notifications + `tenki://` deep link）+ Watchlist 綁定 + 快訊自動分類 | Phase 2 後段 |
 

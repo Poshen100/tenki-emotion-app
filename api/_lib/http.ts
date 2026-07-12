@@ -12,6 +12,19 @@ export interface VercelRequestLike {
   query: Record<string, string | string[] | undefined>;
   /** Parsed body: object for JSON content-type, string for text/plain. */
   body?: unknown;
+  /** Incoming headers (used to derive the public host for webhook URLs). */
+  headers?: Record<string, string | string[] | undefined>;
+}
+
+/**
+ * Resolves the public host of the deployment from forwarded headers.
+ *
+ * @param req - Incoming request.
+ * @returns Host name, or null when unavailable.
+ */
+export function getRequestHost(req: VercelRequestLike): string | null {
+  const forwarded = req.headers?.['x-forwarded-host'] ?? req.headers?.host;
+  return typeof forwarded === 'string' && forwarded.length > 0 ? forwarded : null;
 }
 
 /** Minimal shape of the Vercel Node function response we rely on. */
@@ -63,17 +76,19 @@ export function getQueryParam(req: VercelRequestLike, name: string): string | nu
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+/** Server-generated channel IDs are 32–64 lowercase hex chars. */
+const CHANNEL_ID_PATTERN = /^[a-f0-9]{32,64}$/;
+
 /**
- * Checks the ingest token. TradingView webhooks cannot send custom headers,
- * so the shared secret travels as a `?token=` query parameter.
+ * Reads and format-validates the channel ID. The channel travels as a
+ * `?ch=` query parameter because TradingView webhooks cannot send custom
+ * headers — the unguessable channel URL is the credential (capability URL),
+ * same model as TradingView's own webhook conventions.
  *
  * @param req - Incoming request.
- * @returns True when the token matches `ALERT_INGEST_TOKEN`.
+ * @returns The channel ID, or null when absent/malformed.
  */
-export function isAuthorized(req: VercelRequestLike): boolean {
-  const expected = process.env.ALERT_INGEST_TOKEN;
-  if (expected === undefined || expected.length === 0) {
-    return false;
-  }
-  return getQueryParam(req, 'token') === expected;
+export function getChannelId(req: VercelRequestLike): string | null {
+  const value = getQueryParam(req, 'ch');
+  return value !== null && CHANNEL_ID_PATTERN.test(value) ? value : null;
 }

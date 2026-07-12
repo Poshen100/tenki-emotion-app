@@ -9,6 +9,25 @@
 
 ---
 
+# 2026-07-12 Session Update #20 (TradingView 快訊 v1.2：channel 模型 — 零輸入配對取代共用 token)
+
+> 承 #19。PR #178（v1+v1.1）已 squash merge。Founder 三個回饋：①誤以為 token 是 Claude 計費 token（已澄清：只是自訂密碼）②功能應限付費客戶 ③想去掉輸入 token。兩決策拍板：channel 模型全面取代 token；付費門檻先 client 側標示、伺服器端驗證等金流基建。
+
+## What was done（6 commits，分支從 origin/main 重起同名）
+- **channel 模型**：`api/channel.ts`（POST 配對 → 伺服器生成 64-hex channelId，SETNX + 30 天滑動 TTL）；`api/alert.ts`/`api/alerts.ts` 改 `?ch=` 驗證（未註冊 404，防隨機灌爆）；per-channel 佇列 `tenki:alerts:v1:<id>`；`ALERT_INGEST_TOKEN` 全數移除 — **founder 一次性動作只剩 Upstash 開通**。
+- **零輸入配對 UX**：`/decision-alert/` token 輸入整組拿掉 → 「產生我的專屬連結」→ 顯示 webhook URL + 複製/重設 → 自動輪詢（載入即接收）；404 顯示連結失效引導重設。Premium badge 掛在區塊標題。`?v=alert3`。
+- smoke harness 15 斷言（含頻道隔離）、Playwright 16 斷言全過；SETUP/SPEC/DEPLOYMENT_MAP 同步。
+
+## 教訓/注意
+- capability URL 模型：連結即憑證（與 TradingView webhook secret 慣例同級）；「重設連結」=換新頻道，舊的 30 天自然過期。
+- **Premium entitlement 掛載點在 `/api/channel`**（SPEC §11）：金流上線後在發頻道時驗訂閱資格即完成付費牆；「Pro」對外名對應現有 Premium 層（2-tier 硬規則，不開第三級）。
+
+## 下次接手點
+- 新 PR 待 founder merge；merge 後：Upstash 開通（唯一前置）→ 手機開 /decision-alert/ → 產生連結 → 貼 TradingView → 觸發驗收。
+- 帳號＋金流基建（伺服器端付費牆）是獨立大工程，需另開規劃輪。
+
+---
+
 # 2026-07-11 Session Update #19 (TradingView 快訊 v1.1：真實 Premium webhook 接線 — repo 第一個後端)
 
 > 承 #18 同一 session。Founder 出示 TradingView Premium 帳號要求真整合；三決策拍板（Upstash Redis 儲存 / 升級既有 demo 頁 / 同分支開 PR）後落地。

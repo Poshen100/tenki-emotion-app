@@ -1,22 +1,31 @@
 /**
  * @module api/_lib/store
- * @description Tiny fetch-based Upstash Redis REST client for the alert
- * queue. Deliberately dependency-free (no @upstash/redis package) — the
- * REST API is a plain HTTPS call. Alerts are small market-signal records
- * (symbol/price/condition only, never biometric data), capped at 50 with a
- * 24h TTL, in line with the cloud-minimal policy.
+ * @description Tiny fetch-based Upstash Redis REST client for per-channel
+ * alert queues. Deliberately dependency-free (no @upstash/redis package) —
+ * the REST API is a plain HTTPS call. Alerts are small market-signal records
+ * (symbol/price/condition only, never biometric data), capped at 50 per
+ * channel with a 24h TTL, in line with the cloud-minimal policy. Channels
+ * are unguessable server-generated IDs claimed via SETNX with a sliding
+ * 30-day TTL.
  */
 
+import { randomUUID } from 'node:crypto';
 import type { AlertContract } from '../../domain/src/contracts/alert-contract';
 
-/** Redis key holding the recent-alert list (newest first). */
-export const ALERTS_KEY = 'tenki:alerts:v1';
+/** Prefix for per-channel alert lists (newest first). */
+export const ALERTS_KEY_PREFIX = 'tenki:alerts:v1:';
 
-/** Maximum retained alerts. */
+/** Prefix for registered-channel marker keys. */
+export const CHANNEL_KEY_PREFIX = 'tenki:ch:';
+
+/** Maximum retained alerts per channel. */
 export const ALERTS_MAX = 50;
 
-/** Queue TTL in seconds (refreshed on every push). */
+/** Alert queue TTL in seconds (refreshed on every push). */
 export const ALERTS_TTL_SEC = 86_400;
+
+/** Channel TTL in seconds (30 days, sliding — refreshed on poll). */
+export const CHANNEL_TTL_SEC = 2_592_000;
 
 interface UpstashConfig {
   url: string;
@@ -54,26 +63,82 @@ async function command(config: UpstashConfig, parts: string[]): Promise<unknown>
 }
 
 /**
- * Pushes an alert to the head of the queue, trims to ALERTS_MAX, and
- * refreshes the TTL.
+ * Registers a fresh channel: generates an unguessable ID server-side and
+ * claims it with SETNX (one collision retry) + 30-day TTL.
  *
  * @param config - Upstash credentials.
- * @param alert - Canonical alert record.
+ * @returns The new channel ID.
  */
-export async function pushAlert(config: UpstashConfig, alert: AlertContract): Promise<void> {
-  await command(config, ['lpush', ALERTS_KEY, JSON.stringify(alert)]);
-  await command(config, ['ltrim', ALERTS_KEY, '0', String(ALERTS_MAX - 1)]);
-  await command(config, ['expire', ALERTS_KEY, String(ALERTS_TTL_SEC)]);
+export async function registerChannel(config: UpstashConfig): Promise<string> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const channelId = (randomUUID() + randomUUID()).replace(/-/g, '');
+    const claimed = await command(config, ['setnx', CHANNEL_KEY_PREFIX + channelId, String(Date.now())]);
+    if (claimed === 1) {
+      await command(config, ['expire', CHANNEL_KEY_PREFIX + channelId, String(CHANNEL_TTL_SEC)]);
+      return channelId;
+    }
+  }
+  throw new Error('channel id collision — retry');
 }
 
 /**
- * Lists retained alerts, newest first. Malformed entries are skipped.
+ * Checks whether a channel is registered and unexpired.
  *
  * @param config - Upstash credentials.
+ * @param channelId - Format-validated channel ID.
+ * @returns True when the channel exists.
+ */
+export async function channelExists(config: UpstashConfig, channelId: string): Promise<boolean> {
+  return (await command(config, ['exists', CHANNEL_KEY_PREFIX + channelId])) === 1;
+}
+
+/**
+ * Slides the channel TTL forward (an actively polling channel never expires).
+ *
+ * @param config - Upstash credentials.
+ * @param channelId - Registered channel ID.
+ */
+export async function touchChannel(config: UpstashConfig, channelId: string): Promise<void> {
+  await command(config, ['expire', CHANNEL_KEY_PREFIX + channelId, String(CHANNEL_TTL_SEC)]);
+}
+
+/**
+ * Pushes an alert to the head of the channel's queue, trims to ALERTS_MAX,
+ * and refreshes the queue TTL.
+ *
+ * @param config - Upstash credentials.
+ * @param channelId - Registered channel ID.
+ * @param alert - Canonical alert record.
+ */
+export async function pushAlert(
+  config: UpstashConfig,
+  channelId: string,
+  alert: AlertContract,
+): Promise<void> {
+  const key = ALERTS_KEY_PREFIX + channelId;
+  await command(config, ['lpush', key, JSON.stringify(alert)]);
+  await command(config, ['ltrim', key, '0', String(ALERTS_MAX - 1)]);
+  await command(config, ['expire', key, String(ALERTS_TTL_SEC)]);
+}
+
+/**
+ * Lists the channel's retained alerts, newest first. Malformed entries are
+ * skipped.
+ *
+ * @param config - Upstash credentials.
+ * @param channelId - Registered channel ID.
  * @returns Parsed alert records.
  */
-export async function listAlerts(config: UpstashConfig): Promise<AlertContract[]> {
-  const result = await command(config, ['lrange', ALERTS_KEY, '0', String(ALERTS_MAX - 1)]);
+export async function listAlerts(
+  config: UpstashConfig,
+  channelId: string,
+): Promise<AlertContract[]> {
+  const result = await command(config, [
+    'lrange',
+    ALERTS_KEY_PREFIX + channelId,
+    '0',
+    String(ALERTS_MAX - 1),
+  ]);
   if (!Array.isArray(result)) {
     return [];
   }
