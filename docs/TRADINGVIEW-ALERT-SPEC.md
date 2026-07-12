@@ -51,7 +51,8 @@ TENKI 整合後：快訊到 → 狀態閘門 → 決策入口 → 有節奏的�
 
 ## 3. Webhook Payload（TradingView 端設定）
 
-TradingView Alert 勾選 Webhook URL，指向 TENKI 接收端（**Phase 2**，見 §12；v1 僅定契約與純函式解析，repo 目前無後端）。
+TradingView Alert 勾選 Webhook URL，指向 TENKI 接收端（**已交付 v1.1**）：
+`POST https://tenki-emotion-app.vercel.app/api/alert?token=***`（`api/alert.ts`；token 走查詢參數，因 TradingView 無法帶自訂 header）。裝置端由 `GET /api/alerts` 輪詢拉取（`api/alerts.ts`），遞送判定（§5）留在裝置端。**設定步驟見 `docs/TRADINGVIEW-SETUP.md`。**
 
 建議 payload 格式（TradingView alert message 欄位填 JSON）：
 
@@ -161,11 +162,12 @@ UI：三模板卡全列，建議者加 ⭐ 高亮；使用者永遠可自由選�
 
 ## 12. Phase Roadmap
 
-| Phase | 內容 | 前置 |
+| Phase | 內容 | 狀態 / 前置 |
 |-------|------|------|
-| **v1（本次）** | 規格書 + domain contract/schema/policy + engine 模板建議/compliance/連結欄位 + shared flag/tier + `/decision-alert/` preview demo（模擬快訊） | 無 |
-| Phase 2 | HTTP 接收端（薄層：收 → validate → 轉發 device）+ mobile UI（Decision Entry Panel / 浮動條，用 preview 驗證過的互動） | 後端基建選型（repo 目前純靜態部署） |
-| Phase 3 | 真推播到手機（expo-notifications + `tenki://` deep link）+ Watchlist 綁定 + 快訊自動分類 | Phase 2 |
+| **v1** | 規格書 + domain contract/schema/policy + engine 模板建議/compliance/連結欄位 + shared flag/tier + `/decision-alert/` preview demo（模擬快訊） | ✅ 已交付 |
+| **v1.1（Phase 2 ingestion）** | HTTP 接收薄層（`api/alert.ts`：收 → validate → Upstash 暫存）+ `api/alerts.ts` 裝置輪詢 + `/decision-alert/` 連接真實快訊模式 + `docs/TRADINGVIEW-SETUP.md` | ✅ 已交付（founder 需開通 Upstash + 設 `ALERT_INGEST_TOKEN`） |
+| Phase 2 後段 | mobile UI（Decision Entry Panel / 浮動條，用 preview 驗證過的互動移植 apps/mobile） | 待排 |
+| Phase 3 | 真推播到手機（expo-notifications + `tenki://` deep link）+ Watchlist 綁定 + 快訊自動分類 | Phase 2 後段 |
 
 ## 13. 驗收
 
