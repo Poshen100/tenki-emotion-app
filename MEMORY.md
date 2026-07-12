@@ -9,6 +9,29 @@
 
 ---
 
+# 2026-07-12 Session Update #21 (Trader 模板命名勘誤：FBD = Mancini Failed Breakdown)
+
+> 承 #20。PR #179 已 merge；founder 實機走模板選擇抓到兩個顯示名錯誤，並補上關鍵 domain 背景。
+
+## Founder 提供的 domain 事實（重要，之後 AI 必知）
+- **FBD = Adam Mancini 的 Failed Breakdown**（假跌破：跌破支撐→收復→acceptance 確認）— engine 舊名「Follow-By-Discipline」是 v2 期發明的錯誤 backronym。
+- **MODE_2 =「Canslim High RS Breakout」**（舊 LOCKED spec 的 4min 模板，時長 240s 完全對應）—「高靈敏控制」是誤譯。Mancini 語境的 Mode 2 另指區間震盪市況（不猜突破、區間內操作），與此模板無關。
+- **TENKI 訂閱制的起源**：founder 每次做 FBD 交易時情緒非常緊張/急躁 → 決策紀律系統的原點。
+- 方法論全文（substack: tradecompanion「My Trade Methodology - Fundamentals」）擋爬蟲讀不到，**founder 決策：等他貼全文再寫 `docs/TRADING-METHODOLOGY.md`**（給後續 AI 的 domain 背景文件）。
+
+## What was done（4 commits）
+templates.ts 三模板 name/nameZh + JSDoc 勘誤（ID/時長/segments 不動 — ID 是持久化契約）；preview 鏡像同步（`?v=alert4`）；SETUP §3 對照表 + SPEC §7 定案（open question 關閉）；Playwright 18 斷言全過（含新名驗證）。
+
+## 教訓
+- **專有名詞縮寫不確定就問 founder，不要發明 backronym** — FBD 錯名從 v2 活到實機才被抓。
+- 模板顯示名散在三處要一起改：engine templates.ts、preview demo 鏡像、SETUP/SPEC 文件表格。
+
+## 下次接手點
+- **founder 貼 substack 全文 → 寫 docs/TRADING-METHODOLOGY.md**（Mancini FBD/acceptance/level-to-level/Mode 1-2 + Canslim GS/High RS + TENKI 起源敘事 + 模板映射）。
+- Founder 端待辦不變：Vercel 開通 Upstash → 實走 /decision-alert/ 配對。
+
+---
+
 # 2026-07-12 Session Update #20 (TradingView 快訊 v1.2：channel 模型 — 零輸入配對取代共用 token)
 
 > 承 #19。PR #178（v1+v1.1）已 squash merge。Founder 三個回饋：①誤以為 token 是 Claude 計費 token（已澄清：只是自訂密碼）②功能應限付費客戶 ③想去掉輸入 token。兩決策拍板：channel 模型全面取代 token；付費門檻先 client 側標示、伺服器端驗證等金流基建。
