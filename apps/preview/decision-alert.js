@@ -93,7 +93,8 @@
     'entryStateLine', 'btnDismiss', 'btnEngage', 'tplSheet', 'tplList',
     'aggSheet', 'aggHead', 'aggList', 'timerBar', 'timerLabel', 'timerClock',
     'btnComplete', 'btnCancel', 'segTrack', 'segLabels',
-    'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody', 'liveToken', 'liveConnect',
+    'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
+    'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveCopy', 'liveReset',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ── 狀態卡 ──
@@ -415,9 +416,9 @@
     endSession('cancel', el.timerLabel.textContent);
   });
 
-  // ── 連接真實快訊（輪詢 /api/alerts，真訊號與模擬走同一條 ingest 管線）──
+  // ── 連接 TradingView（專屬頻道，零輸入配對；真訊號與模擬走同一條 ingest 管線）──
   var POLL_INTERVAL_MS = 10 * 1000;
-  var TOKEN_KEY = 'tenki.alert.token';
+  var CHANNEL_KEY = 'tenki.alert.channel';
 
   var live = {
     pollTimer: null,
@@ -425,16 +426,20 @@
     seenIds: {},
   };
 
+  function getChannel() { return localStorage.getItem(CHANNEL_KEY) || ''; }
+
+  function webhookUrlFor(channelId) {
+    return location.origin + '/api/alert?ch=' + channelId;
+  }
+
   function setLiveStatus(text, dotState) {
     el.liveStatus.textContent = text;
     el.liveDot.classList.remove('on', 'err');
     if (dotState) el.liveDot.classList.add(dotState);
   }
 
-  function stopLive(statusText, dotState) {
+  function stopPolling() {
     if (live.pollTimer) { clearInterval(live.pollTimer); live.pollTimer = null; }
-    el.liveConnect.textContent = '連線';
-    setLiveStatus(statusText || '離線', dotState || '');
   }
 
   function normalizeLiveAlert(raw) {
@@ -449,11 +454,12 @@
     };
   }
 
-  function pollOnce(token) {
-    fetch('/api/alerts?token=' + encodeURIComponent(token) + '&since=' + live.sinceMs)
+  function pollOnce(channelId) {
+    fetch('/api/alerts?ch=' + encodeURIComponent(channelId) + '&since=' + live.sinceMs)
       .then(function (response) {
-        if (response.status === 401) {
-          stopLive('token 未授權', 'err');
+        if (response.status === 404) {
+          stopPolling();
+          setLiveStatus('連結已失效，請重設', 'err');
           return null;
         }
         if (!response.ok) {
@@ -464,7 +470,7 @@
       })
       .then(function (payload) {
         if (!payload || !Array.isArray(payload.alerts)) return;
-        setLiveStatus('連線中 · ' + nowLabel(), 'on');
+        setLiveStatus('接收中 · ' + nowLabel(), 'on');
 
         // API 回新→舊；反轉成舊→新逐筆餵，同毫秒邊界用 id 去重
         var incoming = payload.alerts.slice().reverse();
@@ -480,20 +486,70 @@
       });
   }
 
-  function startLive() {
-    var token = el.liveToken.value.trim();
-    if (!token) { setLiveStatus('請先輸入 token', 'err'); return; }
-    localStorage.setItem(TOKEN_KEY, token);
-    live.sinceMs = Date.now(); // 只收連線後的新快訊，不回放歷史
-    setLiveStatus('連線中…', 'on');
-    el.liveConnect.textContent = '中斷';
-    pollOnce(token);
-    live.pollTimer = setInterval(function () { pollOnce(token); }, POLL_INTERVAL_MS);
+  function startPolling(channelId) {
+    stopPolling();
+    live.sinceMs = Date.now(); // 只收現在之後的新快訊，不回放歷史
+    setLiveStatus('接收中…', 'on');
+    pollOnce(channelId);
+    live.pollTimer = setInterval(function () { pollOnce(channelId); }, POLL_INTERVAL_MS);
   }
 
-  el.liveConnect.addEventListener('click', function () {
-    if (live.pollTimer) { stopLive(); return; }
-    startLive();
+  function renderLive() {
+    var channelId = getChannel();
+    if (channelId) {
+      el.liveSetup.setAttribute('hidden', '');
+      el.liveReady.removeAttribute('hidden');
+      el.liveUrl.textContent = webhookUrlFor(channelId);
+      startPolling(channelId); // 有連結就自動接收，零動作
+    } else {
+      el.liveReady.setAttribute('hidden', '');
+      el.liveSetup.removeAttribute('hidden');
+      stopPolling();
+      setLiveStatus('尚未配對', '');
+    }
+  }
+
+  function generateChannel() {
+    setLiveStatus('產生連結中…', 'on');
+    fetch('/api/channel', { method: 'POST' })
+      .then(function (response) {
+        if (!response.ok) {
+          return response.json().then(function (payload) {
+            throw new Error((payload && payload.error) || ('伺服器回應 ' + response.status));
+          });
+        }
+        return response.json();
+      })
+      .then(function (payload) {
+        if (!payload || !payload.channelId) throw new Error('回應缺 channelId');
+        localStorage.setItem(CHANNEL_KEY, payload.channelId);
+        live.seenIds = {};
+        renderLive();
+      })
+      .catch(function (error) {
+        setLiveStatus(String(error.message || error), 'err');
+      });
+  }
+
+  el.liveGenerate.addEventListener('click', generateChannel);
+
+  el.liveReset.addEventListener('click', function () {
+    localStorage.removeItem(CHANNEL_KEY);
+    live.seenIds = {};
+    generateChannel(); // 直接換一條新頻道（舊頻道 30 天自然過期）
+  });
+
+  el.liveCopy.addEventListener('click', function () {
+    var url = el.liveUrl.textContent;
+    var done = function () {
+      el.liveCopy.textContent = '已複製 ✓';
+      setTimeout(function () { el.liveCopy.textContent = '複製連結'; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, done);
+    } else {
+      done();
+    }
   });
 
   el.liveToggle.addEventListener('click', function () {
@@ -502,8 +558,7 @@
     else { el.liveBody.setAttribute('hidden', ''); el.liveChevron.textContent = '▾'; }
   });
 
-  var savedToken = localStorage.getItem(TOKEN_KEY);
-  if (savedToken) el.liveToken.value = savedToken;
+  renderLive();
 
   // ── 模擬按鈕 ──
   el.btnSingle.addEventListener('click', function () {
