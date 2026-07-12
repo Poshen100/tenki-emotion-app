@@ -19,7 +19,7 @@
   // Mirror of packages/engine/src/session/templates.ts TRADER_TEMPLATES
   var TEMPLATES = {
     FBD: {
-      id: 'FBD', nameZh: '紀律跟隨模式', icon: '🎯', durationSec: 180,
+      id: 'FBD', nameZh: 'Mancini 假跌破流程', icon: '🎯', durationSec: 180,
       segments: [
         { startSec: 0, endSec: 60, color: '#5E3A87', label: 'Ground' },
         { startSec: 60, endSec: 120, color: '#00B4D8', label: 'Execute' },
@@ -28,7 +28,7 @@
       readinessWindow: { startSec: 60, endSec: 120 },
     },
     CANSLIM: {
-      id: 'CANSLIM', nameZh: 'CANSLIM 流程', icon: '📋', durationSec: 300,
+      id: 'CANSLIM', nameZh: 'Canslim GS 流程', icon: '📋', durationSec: 300,
       segments: [
         { startSec: 0, endSec: 60, color: '#FF6B35', label: 'Observe' },
         { startSec: 60, endSec: 180, color: '#00B4D8', label: 'Readiness' },
@@ -37,7 +37,7 @@
       readinessWindow: { startSec: 60, endSec: 180 },
     },
     MODE_2: {
-      id: 'MODE_2', nameZh: '高靈敏控制', icon: '⚡', durationSec: 240,
+      id: 'MODE_2', nameZh: '高 RS 突破流程', icon: '⚡', durationSec: 240,
       segments: [
         { startSec: 0, endSec: 45, color: '#FF6B35', label: 'Quick Read' },
         { startSec: 45, endSec: 150, color: '#00B4D8', label: 'Readiness' },
