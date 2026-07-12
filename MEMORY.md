@@ -27,7 +27,7 @@ templates.ts 三模板 name/nameZh + JSDoc 勘誤（ID/時長/segments 不動 �
 - 模板顯示名散在三處要一起改：engine templates.ts、preview demo 鏡像、SETUP/SPEC 文件表格。
 
 ## 下次接手點
-- **founder 貼 substack 全文 → 寫 docs/TRADING-METHODOLOGY.md**（Mancini FBD/acceptance/level-to-level/Mode 1-2 + Canslim GS/High RS + TENKI 起源敘事 + 模板映射）。
+- ~~founder 貼全文 → 寫 TRADING-METHODOLOGY.md~~ **已完成（同 session）**：founder 貼了完整方法論（含 Mode 1/2 市況分類器 + AI 可執行版）→ `docs/TRADING-METHODOLOGY.md` 落地（核心哲學/結構模型/三執行模組/level-to-level/Mode 判斷規則/TENKI 映射表/未來接線候選 §10 待 founder 拍板）。**這是 trader 功能的 domain 底座，接手 AI 必讀。**
 - Founder 端待辦不變：Vercel 開通 Upstash → 實走 /decision-alert/ 配對。
 
 ---
