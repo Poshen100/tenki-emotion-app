@@ -9,6 +9,30 @@
 
 ---
 
+# 2026-07-13 Session Update #23 (🏁 TradingView 整合端到端正式上線 — 第一則真實快訊全鏈路貫通)
+
+> 承 #18–#22。CME 週一開盤一小時內，founder 的真實 Premium 快訊走完全鏈路，整合專案（#178/#179/#180/#181 四 PR + Upstash 開通）正式上線。
+
+## 上線實證（2026-07-13 台灣 06:29 起）
+- **觸發**：ES1! 下穿 7596 → TradingView webhook POST → `/api/alert` schema 驗證 → `buildAlertContract` → Upstash 專屬頻道。
+- **founder 瀏覽器 GET `/api/alerts?ch=...&since=0` 實證**：頻道內完整 AlertContract（`price:7595.75`、`condition:"Watch Only"`、`strategyHint:"Mancini"`、`note` 為 founder 前晚寫的計畫原句、`receivedAt`、UUID）。
+- **「note = 冷靜時的你對緊張時的你說話」**設計首次實戰：第一響就是 Watch Only（計畫說不參與的位置）— 系統開場即紀律提醒。
+- Upstash 開通過程：founder 三下點擊（Marketplace 計費同意無法代辦，平台設計）；redeploy 用 empty commit `6c4a53ed` 觸發。**Vercel MCP 工具組無 storage/env 管理能力**，且 web_fetch/docs-search 工具需即時授權（本 session 未接通）— 驗證改走 founder 手機 + 瀏覽器 GET，反而更直接。
+
+## 兩個實戰觀察（已入 SETUP §3/§5）
+1. **通知設定自動沿用**（founder 糾正我的錯誤說法）：新 alert 沿用上一條的 webhook 設定；但「重設連結」後舊 alert 全部指向失效頻道要逐條換。
+2. **重複觸發轟炸實證**：同 alert 重複模式幾分鐘灌 9+ 筆同價位 → 冷卻設計實戰正確；建議 level alert 用「僅觸發一次」。
+
+## Founder 目前的 alert 階梯（9 條，全 ES1，來自其付費訂閱的 Mancini 週一計畫 — ⚠️ 付費內容不入 repo，此處僅記結構）
+7596（Watch Only 預警）→ **7553 ⭐ Key Low（核心決策位）** → 7547（Flush Zone）→ 7533 → 7521 → 7482 → 7467 → 7454 → 7408。每條 note 帶計畫原句，condition 帶語意標籤（Watch Only / Key Low / Flush Zone / SR Flip / Major Support）。
+
+## 下次接手點
+- 等 **7553 觸發時的 Entry Panel 實戰截圖**（頁面開著才會浮出 — 不回放歷史）。
+- §10 接線候選**新增第 6 條**（2026-07-13 提出，待 founder 拍板）：active session 中同標的後續觸發（如 7553 後 2 分鐘 7547 到達）在浮動計時條顯示安靜一行事實更新，不彈新面板 — 源自 7553/7547 僅距 6 點的實戰情境。
+- 其餘候選不變：Mode 標籤、quiet window、節奏熔斷、每日上限收斂。
+
+---
+
 # 2026-07-12 Session Update #22 (手機端真實快訊樣貌 — 三個截圖事實入檔)
 
 > 承 #21。Founder 三張實機截圖補充，全部是文件級勘誤/依據，無程式碼改動。
