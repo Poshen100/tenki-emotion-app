@@ -9,6 +9,29 @@
 
 ---
 
+# 2026-07-11 Session Update #19 (TradingView 快訊 v1.1：真實 Premium webhook 接線 — repo 第一個後端)
+
+> 承 #18 同一 session。Founder 出示 TradingView Premium 帳號要求真整合；三決策拍板（Upstash Redis 儲存 / 升級既有 demo 頁 / 同分支開 PR）後落地。
+
+## What was done（6 commits）
+- **repo 第一個後端**：根目錄 `api/`（Vercel 零設定 serverless functions；filesystem 優先於 rewrites，vercel.json 不用改）。`api/alert.ts` POST webhook（`?token=` 驗證因 TradingView 不能帶 header；重用 domain schema/contract；Upstash LPUSH 50 筆/24h TTL）＋ `api/alerts.ts` GET 輪詢（since 過濾，**遞送判定留在裝置端**）。零新依賴 — fetch 直打 Upstash REST，env 兼容 `UPSTASH_*`/`KV_*` 兩種命名。
+- `api/tsconfig.json` + verify.sh 加 `tsc api` step（現在是 5 個 tsc）。
+- `scripts/smoke-alert-api.mjs`：stub fetch 記憶體 Upstash + 假 req/res，11 斷言（401/405/400/text-plain body/輪詢/since/去重語意）。
+- `/decision-alert/` 加「連接真實快訊」collapsible（token 存 `tenki.alert.token`、10s 輪詢、id 去重、401 停止顯示未授權）；真訊號與模擬走**同一條 ingest 管線**。`?v=alert2`。Playwright 13 斷言全過。
+- `docs/TRADINGVIEW-SETUP.md`（founder 操作手冊：Upstash 開通、`ALERT_INGEST_TOKEN`、alert JSON 模板含 `{{ticker}}` 變數、strategy 標籤對應模板、Premium 額度建議、curl 乾測）；SPEC §3/§12 更新 v1.1 已交付。
+
+## 教訓/注意
+- TradingView webhook：不能自訂 header（token 只能走 query）、body 是 text/plain（handler 要 string→JSON.parse）、preview 部署 protection 會擋（端到端只能 production 或 bypass 查詢參數）。
+- `api/tsconfig.json` include 不能掃 `../domain/src/**`（會拉進 jest 測試檔報型別錯）— 只 include `**/*.ts`，讓 tsc 順 import 跟進 domain 原始檔即可。
+- since 過濾用 strictly-greater，同毫秒兩筆會漏 — 客戶端一律再用 id 去重（smoke 曾假紅）。
+
+## 下次接手點（founder 兩個一次性動作後才通）
+1. Vercel → Storage → 開通 Upstash Redis；2. env 加 `ALERT_INGEST_TOKEN` → redeploy。
+- 然後照 `docs/TRADINGVIEW-SETUP.md` 建第一條真 alert → 手機 `/decision-alert/` 連線驗收。
+- Phase 2 後段（mobile UI）與 Phase 3（推播）方向見 SPEC §12。
+
+---
+
 # 2026-07-11 Session Update #18 (TradingView 快訊整合 v1：規格書 + 邏輯層 + /decision-alert/ demo)
 
 > Founder 提出 TradingView Premium Webhook 整合 spec（原文含 TEI/勝率等 v2 語彙）。經 AskUserQuestion 四題全採建議案後落地 v1。
