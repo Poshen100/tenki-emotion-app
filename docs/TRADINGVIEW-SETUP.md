@@ -39,9 +39,9 @@
 
 | `strategy` 填入 | TENKI 建議模板 |
 |----------------|---------------|
-| `CANSLIM`（含 `Canslim GS`） | CANSLIM 流程（5 分鐘） |
-| `FBD` 或 `Mancini` | 紀律跟隨模式（3 分鐘） |
-| `High RS` 或 `Mode 2` | 高靈敏控制（4 分鐘） |
+| `CANSLIM`（含 `Canslim GS`） | Canslim GS 流程（5 分鐘） |
+| `FBD` 或 `Mancini` | Mancini 假跌破流程（3 分鐘） |
+| `High RS` 或 `Mode 2` | 高 RS 突破流程（4 分鐘） |
 | 其他 / 留空 | 不建議，自由選 |
 
 ## 4. Premium 額度的建議用法

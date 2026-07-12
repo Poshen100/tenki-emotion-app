@@ -10,19 +10,23 @@
 import type { TraderTemplate, TraderTemplateId } from './types';
 
 /**
- * Three trader discipline templates.
+ * Three trader discipline templates. Display names corrected 2026-07-12
+ * (founder): earlier names were invented backronyms.
  *
- * FBD: Follow-By-Discipline — emphasis on checklist, calmness, discipline.
- * CANSLIM: Personal process template with user-defined checklist + reflection.
- * MODE_2: High-sensitivity control template for volatile scenarios.
+ * FBD: Adam Mancini's Failed Breakdown setup — flush below a support level,
+ *   reclaim, acceptance confirms. NOT "Follow-By-Discipline" (misnomer).
+ * CANSLIM: Canslim GS — growth-stock pullback/breakout process.
+ * MODE_2: Canslim High RS Breakout (the 4-minute template of the original
+ *   trader-mode spec). Unrelated to Mancini's "Mode 2" range-day market
+ *   regime — the ID is a historical artifact and stays (persisted contract).
  *
- * @see ANTIGRAVITY.md v3.0 Section 5
+ * @see docs/TRADINGVIEW-ALERT-SPEC.md §7
  */
 export const TRADER_TEMPLATES: Record<TraderTemplateId, TraderTemplate> = {
   FBD: {
     id: 'FBD',
-    name: 'Follow-By-Discipline',
-    nameZh: '紀律跟隨模式',
+    name: 'Mancini FBD (Failed Breakdown)',
+    nameZh: 'Mancini 假跌破流程',
     icon: '🎯',
     durationSec: 180,
     rules: {
@@ -39,8 +43,8 @@ export const TRADER_TEMPLATES: Record<TraderTemplateId, TraderTemplate> = {
   },
   CANSLIM: {
     id: 'CANSLIM',
-    name: 'CANSLIM Process',
-    nameZh: 'CANSLIM 流程',
+    name: 'Canslim GS',
+    nameZh: 'Canslim GS 流程',
     icon: '📋',
     durationSec: 300,
     rules: {
@@ -56,8 +60,8 @@ export const TRADER_TEMPLATES: Record<TraderTemplateId, TraderTemplate> = {
   },
   MODE_2: {
     id: 'MODE_2',
-    name: 'High-Sensitivity Control',
-    nameZh: '高靈敏控制',
+    name: 'Canslim High RS Breakout',
+    nameZh: '高 RS 突破流程',
     icon: '⚡',
     durationSec: 240,
     rules: {

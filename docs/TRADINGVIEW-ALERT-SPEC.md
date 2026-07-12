@@ -123,16 +123,16 @@ RS High + Volume Spike
 
 `packages/engine/src/session/template-suggestion.ts` `suggestTemplateForStrategyHint`：
 
-| `strategyHint` 關鍵字（正規化小寫） | 建議模板（engine `TraderTemplateId`） |
-|--------------------------------|-----------------------------------|
-| `canslim` | `CANSLIM`（300s） |
-| `fbd`、`mancini` | `FBD`（180s） |
-| `high rs`、`mode 2`、`sensitivity` | `MODE_2`（240s） |
-| 無匹配 | `null`（不建議，使用者自選） |
+| `strategyHint` 關鍵字（正規化小寫） | 建議模板（engine `TraderTemplateId`） | 顯示名 |
+|--------------------------------|-----------------------------------|--------|
+| `canslim` | `CANSLIM`（300s） | Canslim GS 流程 |
+| `fbd`、`mancini` | `FBD`（180s） | Mancini 假跌破流程（Failed Breakdown） |
+| `high rs`、`mode 2`、`sensitivity` | `MODE_2`（240s） | 高 RS 突破流程（Canslim High RS Breakout） |
+| 無匹配 | `null`（不建議，使用者自選） | — |
 
 UI：三模板卡全列，建議者加 ⭐ 高亮；使用者永遠可自由選擇。
 
-> **Open question（留 founder 拍板）**：舊 spec 的顯示名「Canslim GS 5min / Canslim High RS Breakout 4min / Mancini FBD 3min」與 engine `TRADER_TEMPLATES` 現值（CANSLIM 300s / MODE_2 240s / FBD 180s）在名稱與定位上不完全對齊。v1 沿用 engine 既有 ID 與時長，不擅改 `TRADER_TEMPLATES`；顯示名收斂另開任務。
+> **已定案（founder 2026-07-12）**：顯示名對齊舊 spec 三模板 — Canslim GS 5min / Canslim High RS Breakout 4min / Mancini FBD 3min（時長與 engine 現值完全對應）。命名勘誤：**FBD = Failed Breakdown**（Mancini 招牌 setup：跌破→收復→acceptance），舊名「Follow-By-Discipline」為誤植；**MODE_2 = Canslim High RS Breakout**，舊名「高靈敏控制」為誤譯（Mancini 語境的 Mode 2 另指區間震盪市況，與此模板無關）。ID 為持久化契約維持不動。方法論背景文件（Mancini FBD / level-to-level / Mode 1-2 市況 + Canslim）待 founder 提供 substack 全文後撰於 `docs/TRADING-METHODOLOGY.md`。
 
 ## 8. 與決策 session / 浮動計時條整合
 
