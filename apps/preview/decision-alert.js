@@ -93,6 +93,7 @@
     'entryStateLine', 'btnDismiss', 'btnEngage', 'tplSheet', 'tplList',
     'aggSheet', 'aggHead', 'aggList', 'timerBar', 'timerLabel', 'timerClock',
     'btnComplete', 'btnCancel', 'segTrack', 'segLabels',
+    'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody', 'liveToken', 'liveConnect',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ── 狀態卡 ──
@@ -413,6 +414,96 @@
   el.btnCancel.addEventListener('click', function () {
     endSession('cancel', el.timerLabel.textContent);
   });
+
+  // ── 連接真實快訊（輪詢 /api/alerts，真訊號與模擬走同一條 ingest 管線）──
+  var POLL_INTERVAL_MS = 10 * 1000;
+  var TOKEN_KEY = 'tenki.alert.token';
+
+  var live = {
+    pollTimer: null,
+    sinceMs: 0,
+    seenIds: {},
+  };
+
+  function setLiveStatus(text, dotState) {
+    el.liveStatus.textContent = text;
+    el.liveDot.classList.remove('on', 'err');
+    if (dotState) el.liveDot.classList.add(dotState);
+  }
+
+  function stopLive(statusText, dotState) {
+    if (live.pollTimer) { clearInterval(live.pollTimer); live.pollTimer = null; }
+    el.liveConnect.textContent = '連線';
+    setLiveStatus(statusText || '離線', dotState || '');
+  }
+
+  function normalizeLiveAlert(raw) {
+    return {
+      id: raw.id,
+      symbol: raw.symbol,
+      condition: raw.condition || 'Signal',
+      timeframe: raw.timeframe || '—',
+      strategyHint: raw.strategyHint,
+      note: raw.note || '',
+      receivedAt: raw.receivedAt,
+    };
+  }
+
+  function pollOnce(token) {
+    fetch('/api/alerts?token=' + encodeURIComponent(token) + '&since=' + live.sinceMs)
+      .then(function (response) {
+        if (response.status === 401) {
+          stopLive('token 未授權', 'err');
+          return null;
+        }
+        if (!response.ok) {
+          setLiveStatus('伺服器回應 ' + response.status, 'err');
+          return null;
+        }
+        return response.json();
+      })
+      .then(function (payload) {
+        if (!payload || !Array.isArray(payload.alerts)) return;
+        setLiveStatus('連線中 · ' + nowLabel(), 'on');
+
+        // API 回新→舊；反轉成舊→新逐筆餵，同毫秒邊界用 id 去重
+        var incoming = payload.alerts.slice().reverse();
+        incoming.forEach(function (raw) {
+          if (!raw || !raw.id || live.seenIds[raw.id]) return;
+          live.seenIds[raw.id] = true;
+          if (raw.receivedAt > live.sinceMs) live.sinceMs = raw.receivedAt;
+          ingest(normalizeLiveAlert(raw));
+        });
+      })
+      .catch(function () {
+        setLiveStatus('連線失敗，將重試', 'err');
+      });
+  }
+
+  function startLive() {
+    var token = el.liveToken.value.trim();
+    if (!token) { setLiveStatus('請先輸入 token', 'err'); return; }
+    localStorage.setItem(TOKEN_KEY, token);
+    live.sinceMs = Date.now(); // 只收連線後的新快訊，不回放歷史
+    setLiveStatus('連線中…', 'on');
+    el.liveConnect.textContent = '中斷';
+    pollOnce(token);
+    live.pollTimer = setInterval(function () { pollOnce(token); }, POLL_INTERVAL_MS);
+  }
+
+  el.liveConnect.addEventListener('click', function () {
+    if (live.pollTimer) { stopLive(); return; }
+    startLive();
+  });
+
+  el.liveToggle.addEventListener('click', function () {
+    var hidden = el.liveBody.hasAttribute('hidden');
+    if (hidden) { el.liveBody.removeAttribute('hidden'); el.liveChevron.textContent = '▴'; }
+    else { el.liveBody.setAttribute('hidden', ''); el.liveChevron.textContent = '▾'; }
+  });
+
+  var savedToken = localStorage.getItem(TOKEN_KEY);
+  if (savedToken) el.liveToken.value = savedToken;
 
   // ── 模擬按鈕 ──
   el.btnSingle.addEventListener('click', function () {

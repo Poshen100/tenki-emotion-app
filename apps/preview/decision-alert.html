@@ -56,6 +56,33 @@
     .sim-btn:active { transform: scale(0.97); opacity: 0.85; }
     .sim-btn small { display: block; color: #64748B; font-size: 10px; margin-top: 3px; }
 
+    /* ── 連接真實快訊 ── */
+    .live-card {
+      flex: none; background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: 14px; margin-bottom: 12px; overflow: hidden;
+    }
+    .live-toggle {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      background: transparent; border: none; color: #E5E7EB;
+      font-family: inherit; font-size: 13px; padding: 11px 14px; cursor: pointer;
+    }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #475569; flex: none; transition: opacity 0.3s; }
+    .live-dot.on { background: var(--cyan-active); }
+    .live-dot.err { background: var(--error); }
+    .live-title { font-weight: 600; }
+    .live-status { flex: 1; text-align: right; color: #64748B; font-size: 11px; }
+    .live-chevron { color: #64748B; font-size: 11px; }
+    .live-body { padding: 0 14px 12px; }
+    .live-hint { font-size: 11px; color: #64748B; line-height: 1.5; margin-bottom: 8px; }
+    .live-row { display: flex; gap: 8px; }
+    .live-input {
+      flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--surface); color: #E5E7EB; font-family: inherit;
+      font-size: 13px; padding: 10px 12px; -webkit-user-select: auto; user-select: auto;
+    }
+    .live-input:focus { outline: none; border-color: var(--cyan-core); }
+    .live-connect { flex: none; padding: 10px 18px; font-size: 13px; }
+
     /* ── Silent chips ── */
     .silent-area { flex: none; display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; margin-bottom: 10px; }
     .silent-chip {
@@ -204,6 +231,22 @@
       <button class="sim-btn" id="btnRepeat" type="button">同標的再觸發<small>冷卻 demo 30s（正式 5 分鐘）</small></button>
     </div>
 
+    <div class="live-card">
+      <button class="live-toggle" id="liveToggle" type="button">
+        <span class="live-dot" id="liveDot"></span>
+        <span class="live-title">連接真實快訊</span>
+        <span class="live-status" id="liveStatus">離線</span>
+        <span class="live-chevron" id="liveChevron">▾</span>
+      </button>
+      <div class="live-body" id="liveBody" hidden>
+        <div class="live-hint">輸入部署端設定的 token 後開始輪詢（10 秒一次）。TradingView 端設定見 docs/TRADINGVIEW-SETUP.md。</div>
+        <div class="live-row">
+          <input class="live-input" id="liveToken" type="password" placeholder="token" autocomplete="off" autocapitalize="off" />
+          <button class="btn btn-primary live-connect" id="liveConnect" type="button">連線</button>
+        </div>
+      </div>
+    </div>
+
     <div class="silent-area" id="silentArea"></div>
 
     <div class="log-panel">
@@ -258,6 +301,6 @@
     <div class="seg-labels" id="segLabels"></div>
   </div>
 
-  <script src="decision-alert.js?v=alert1"></script>
+  <script src="decision-alert.js?v=alert2"></script>
 </body>
 </html>
