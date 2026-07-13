@@ -138,6 +138,25 @@ try {
   await alertsHandler({ method: 'GET', query: { ch: ch2 } }, res);
   assert(res.statusCode === 200 && res.payload.alerts.length === 0, '頻道間隔離');
 
+  // 13. Hybrid parser：人話前綴 + 換行 + JSON → 200 且 symbol 正確
+  res = fakeRes();
+  const hybridBody = '離高點太近，不參與。等誘空+收回\n' + VALID_BODY;
+  await alertHandler({ method: 'POST', query: { ch: ch2 }, body: hybridBody }, res);
+  assert(res.statusCode === 200 && res.payload.ok === true, 'hybrid（人話前綴+JSON）→ 200');
+  res = fakeRes();
+  await alertsHandler({ method: 'GET', query: { ch: ch2 } }, res);
+  assert(res.payload.alerts[0].symbol === 'NVDA', 'hybrid body 欄位正確解析');
+
+  // 14. Hybrid parser：JSON + 尾隨文字 → 200
+  res = fakeRes();
+  await alertHandler({ method: 'POST', query: { ch: ch2 }, body: VALID_BODY + '  -- footer' }, res);
+  assert(res.statusCode === 200, 'JSON + 尾隨文字 → 200');
+
+  // 15. 完全無 JSON 物件 → 400
+  res = fakeRes();
+  await alertHandler({ method: 'POST', query: { ch: ch2 }, body: 'just plain text' }, res);
+  assert(res.statusCode === 400, '無 JSON 物件 → 400');
+
   console.log(`\nSMOKE PASS — ${passed} assertions`);
 } finally {
   rmSync(outDir, { recursive: true, force: true });
