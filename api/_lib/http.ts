@@ -43,6 +43,13 @@ export type JsonBodyResult =
  * a text/plain content type, so a string body is parsed here; a JSON
  * content type arrives pre-parsed as an object.
  *
+ * For string bodies the JSON object is extracted from the first `{` to the
+ * last `}`, so the alert message may carry a plain-text prefix (or suffix)
+ * around the JSON. This keeps TradingView's own push notification readable
+ * — a human sentence can lead the message and show verbatim on the lock
+ * screen, while only the JSON is parsed here. Pure-JSON bodies (brace at
+ * index 0) are unaffected.
+ *
  * @param req - Incoming request.
  * @returns Parsed value or an error message.
  */
@@ -50,8 +57,13 @@ export function readJsonBody(req: VercelRequestLike): JsonBodyResult {
   const body = req.body;
 
   if (typeof body === 'string') {
+    const start = body.indexOf('{');
+    const end = body.lastIndexOf('}');
+    if (start === -1 || end < start) {
+      return { ok: false, error: 'body contains no JSON object' };
+    }
     try {
-      return { ok: true, value: JSON.parse(body) };
+      return { ok: true, value: JSON.parse(body.slice(start, end + 1)) };
     } catch {
       return { ok: false, error: 'body is not valid JSON' };
     }

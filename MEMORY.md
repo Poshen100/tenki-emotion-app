@@ -9,6 +9,29 @@
 
 ---
 
+# 2026-07-13 Session Update #24 (Hybrid message parser — 消除 TradingView 原生推播的代碼感)
+
+> 承 #23。Founder 上線後提出 UX 顧慮：使用者看到 alert 推播裡的 JSON 純代碼可能以為「壞掉了」。
+
+## 代碼感的三層（產品 UX 決策，已定案）
+1. **TENKI 面板永遠人話**：Entry Panel / 事件鏈 log 從第一天就把 JSON 拆成欄位 + 人話句子（condition→標題、note→句子）。使用者在 TENKI 內**永遠看不到代碼**。
+2. **TradingView 原生推播 = hybrid 緩解（本次）**：TradingView 自家推播原樣顯示 message，無法改它的渲染。`readJsonBody`（`api/_lib/http.ts`）改為取「第一個 `{` 到最後一個 `}`」，容許 message 前後帶純文字 → 推薦寫法「人話換行 + JSON」，推播第一行純句子零大括號。向後相容（純 JSON 不受影響），founder 現有 9 條不必重貼。
+3. **終局 = Phase 3 TENKI 原生推播**：mobile app 自發推播，鎖屏看到 TENKI 漂亮通知，代碼感徹底歸零。
+
+## What was done（3 commits）
+- `api/_lib/http.ts` hybrid parser + smoke 4 條新斷言（純 JSON 向後相容/人話前綴/尾隨文字/無 JSON→400，共 19 斷言全過）。
+- SETUP §3 加「人話前綴+換行+JSON」推薦寫法（限制：前綴勿含 `{`、JSON 在最後）；SPEC §3 端點說明補 hybrid 註記。
+
+## 注意
+- 解析寬容度只在接收端；contract/schema/policy 不動（schema 仍收乾淨 JSON 物件）。
+- note-first 欄位順序（founder 已套用）讓純 JSON 寫法的推播也先顯示 note；hybrid 是更進一步的零大括號版。
+
+## 下次接手點
+- Founder merge 後可選：把一條 alert 改「人話換行+JSON」實機驗推播第一行純句子。
+- 仍等 7553 觸發的 Entry Panel 實戰截圖；§10 六條接線候選待拍板不變。
+
+---
+
 # 2026-07-13 Session Update #23 (🏁 TradingView 整合端到端正式上線 — 第一則真實快訊全鏈路貫通)
 
 > 承 #18–#22。CME 週一開盤一小時內，founder 的真實 Premium 快訊走完全鏈路，整合專案（#178/#179/#180/#181 四 PR + Upstash 開通）正式上線。
