@@ -37,6 +37,20 @@
    **不是 JSON，TENKI 會回 400 擋掉、不會入鏈**。把訊息欄整段換成上面的 JSON 模板才會通。
 4. 儲存。觸發後 1–10 秒內手機頁浮出 Decision Entry Panel。
 
+#### 推薦寫法：純人話前綴 + 換行 + JSON（讓 TradingView 原生推播好看）
+
+TradingView 自家的鎖屏推播會**原樣顯示整段 message**。若把一句人話放在最前面、JSON 換行接在後面，
+推播第一行就是純句子、零大括號（TENKI 接收端只取 JSON 部分，前後純文字自動忽略）：
+
+```
+離高點太近，不參與。等誘空+收回
+{"symbol":"{{ticker}}","price":{{close}},"condition":"Watch Only","timeframe":"{{interval}}","strategy":"Mancini"}
+```
+
+- 前綴那句**不要含 `{`**；JSON 要放在最後（接收端取「第一個 `{` 到最後一個 `}`」）。
+- 純 JSON 寫法永遠有效 — 既有 alert 不必重貼，想要更漂亮的推播再換即可。
+- 徹底無代碼感的終局是 TENKI 原生推播（Phase 3）；在那之前這是最乾淨的過渡寫法。
+
 **兩個實戰註記（founder 實測 2026-07-13）**：
 - **通知設定會自動沿用**：建新 alert 時，Webhook URL 勾選與網址會沿用上一條 — 存檔前掃一眼即可。
   ⚠️ 但如果你在 TENKI 點過「重設連結」，**所有舊 alert 的 webhook 都還指向已失效的舊頻道**，要逐條更新。

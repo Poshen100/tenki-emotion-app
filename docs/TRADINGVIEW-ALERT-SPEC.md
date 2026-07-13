@@ -54,7 +54,7 @@ TENKI 整合後：快訊到 → 狀態閘門 → 決策入口 → 有節奏的�
 TradingView Alert 勾選 Webhook URL，指向使用者的**專屬頻道連結**（**v1.2 channel 模型**，取代 v1.1 的共用 token）：
 
 1. 裝置 `POST /api/channel`（`api/channel.ts`）→ 伺服器生成不可猜測的 channelId（SETNX 註冊，未使用 30 天過期、輪詢滑動續期）→ 回專屬 webhook URL。
-2. TradingView → `POST /api/alert?ch=<channelId>`（`api/alert.ts`；憑證走查詢參數 = capability URL，因 TradingView 無法帶自訂 header；未註冊頻道一律 404，防隨機灌爆）。
+2. TradingView → `POST /api/alert?ch=<channelId>`（`api/alert.ts`；憑證走查詢參數 = capability URL，因 TradingView 無法帶自訂 header；未註冊頻道一律 404，防隨機灌爆）。接收端容許 message 的 JSON 前後帶純文字（hybrid parser，取「第一個 `{` 到最後一個 `}`」），使 TradingView 原生推播可用純人話開頭 — 見 SETUP §3。
 3. 裝置 `GET /api/alerts?ch=<channelId>&since=`（`api/alerts.ts`）輪詢拉取；遞送判定（§5）留在裝置端。
 
 使用者體驗零輸入：頁面自動產生連結 → 複製貼進 TradingView 即完成配對。**設定步驟見 `docs/TRADINGVIEW-SETUP.md`。**
