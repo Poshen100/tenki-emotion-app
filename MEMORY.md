@@ -9,6 +9,31 @@
 
 ---
 
+# 2026-07-13 Session Update #25 (Query-param 模式 — 鎖屏推播零代碼的終極解，保留 TradingView 通知)
+
+> 承 #24。Founder 實機發現 hybrid 只讓推播「第一行」乾淨，整則展開仍有 JSON。要「保留 TradingView 鎖屏通知＋零代碼」。
+
+## 根因與解法
+- **根因**：TradingView 一則 alert 只有一個 message 欄，同餵 webhook body + 鎖屏推播；message 含 JSON → 推播顯示 JSON。無法讓 JSON 從推播消失（除非換通知來源）。
+- **唯一單-alert 解**：結構化欄位（symbol/condition/strategy，靜態、一標的一 alert）搬到 **webhook URL 查詢參數**（推播看不到 URL）；message 只留純人話 → 鎖屏推播零代碼、又保留通知。
+- **Founder 決策**：price（動態、只能在 message）不單獨拆欄，整句 message 存成 note 顯示即可。
+
+## What was done（3 commits）
+- `api/_lib/http.ts` `assembleAlertPayload`：body（JSON/hybrid → 物件；純文字 → note）為 base + query overlay（symbol/condition/timeframe/strategy/note/price）。`api/alert.ts` 改用之。**domain 完全不動**（組裝後仍是 AlertPayloadContract → 同一套 validate/build）。
+- smoke +5 斷言（純人話 body+query→200、query 覆蓋 body、向後相容），共 24 全過。
+- SETUP §3「⭐乾淨模式（推薦）」：URL 帶參數 + 純人話 message；JSON/hybrid 降為進階/相容。SPEC §3 記組裝順序。
+
+## 代碼感三層（最終定論）
+1. TENKI 面板永遠人話（第一天起）。
+2. TradingView 推播：**乾淨模式 = 零代碼**（本次，query-param）；hybrid（#24）為相容純文字 body 的鋪墊仍保留。
+3. Phase 3 TENKI 原生推播 = 終局。
+
+## 下次接手點
+- Founder merge 後實機：改一條 alert 成乾淨模式（URL 帶 `&symbol=ES1!&condition=Level Break&strategy=Mancini` + 純人話 message）→ 觸發 → 鎖屏推播應純句子零代碼。
+- 仍等 7553 Entry Panel 實戰截圖；§10 六候選待拍板不變。
+
+---
+
 # 2026-07-13 Session Update #24 (Hybrid message parser — 消除 TradingView 原生推播的代碼感)
 
 > 承 #23。Founder 上線後提出 UX 顧慮：使用者看到 alert 推播裡的 JSON 純代碼可能以為「壞掉了」。
