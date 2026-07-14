@@ -76,6 +76,12 @@ TradingView Alert 勾選 Webhook URL，指向使用者的**專屬頻道連結**�
 - 其餘欄位選填；字串有長度上限（防 payload 濫用）。
 - 驗證實作：`domain/src/schemas/alert-schema.ts` `validateAlertPayloadContract`（手寫 type guard，無外部依賴，可 on-device 執行）。
 
+**欄位來源（API adapter 組裝，`api/_lib/http.ts` `assembleAlertPayload`）**：欄位可來自 message body
+（JSON / hybrid）**或** webhook URL 查詢參數（`?symbol=&condition=&strategy=&timeframe=&note=&price=`）。
+組裝順序：①JSON body 為 base（純文字 body → 當 `note`）②query 參數 overlay（present 才蓋）。
+用途 = 讓 TradingView message 可只留純人話（鎖屏推播零代碼），結構化欄位走 URL（見 SETUP §3 乾淨模式）。
+**domain 只收組裝後的 `AlertPayloadContract` 物件 — contract/schema/policy 皆不動。**
+
 ## 4. 內部 Alert 物件
 
 `domain/src/contracts/alert-contract.ts` `AlertContract`：
