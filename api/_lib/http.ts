@@ -88,6 +88,56 @@ export function getQueryParam(req: VercelRequestLike, name: string): string | nu
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+/** Structured alert fields that may be supplied as `?key=` query params. */
+const ALERT_QUERY_TEXT_KEYS = ['symbol', 'condition', 'timeframe', 'strategy', 'note'] as const;
+
+/**
+ * Assembles the alert payload from the request body and query params so the
+ * TradingView alert message can stay pure human text (which shows verbatim
+ * on the lock-screen push) while the structured fields travel in the webhook
+ * URL's query string. A TradingView alert is inherently per-symbol, so
+ * `symbol`/`condition`/`strategy` are known when the alert is created and can
+ * be hard-coded in the URL.
+ *
+ * Precedence: JSON body fields (backward compatible) form the base; a
+ * plain-text body becomes `note`; query params then overlay any field they
+ * provide. The result is an `AlertPayloadContract`-shaped object passed
+ * unchanged to the domain validator — the domain layer is untouched.
+ *
+ * @param req - Incoming request.
+ * @returns Assembled payload for `validateAlertPayloadContract`.
+ */
+export function assembleAlertPayload(req: VercelRequestLike): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+
+  const parsed = readJsonBody(req);
+  if (parsed.ok && parsed.value !== null && typeof parsed.value === 'object') {
+    Object.assign(payload, parsed.value);
+  } else if (typeof req.body === 'string') {
+    const text = req.body.trim();
+    if (text.length > 0) {
+      payload.note = text;
+    }
+  }
+
+  for (const key of ALERT_QUERY_TEXT_KEYS) {
+    const value = getQueryParam(req, key);
+    if (value !== null) {
+      payload[key] = value;
+    }
+  }
+
+  const priceParam = getQueryParam(req, 'price');
+  if (priceParam !== null) {
+    const price = Number(priceParam);
+    if (Number.isFinite(price)) {
+      payload.price = price;
+    }
+  }
+
+  return payload;
+}
+
 /** Server-generated channel IDs are 32–64 lowercase hex chars. */
 const CHANNEL_ID_PATTERN = /^[a-f0-9]{32,64}$/;
 

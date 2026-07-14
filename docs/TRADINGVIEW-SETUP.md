@@ -37,19 +37,39 @@
    **不是 JSON，TENKI 會回 400 擋掉、不會入鏈**。把訊息欄整段換成上面的 JSON 模板才會通。
 4. 儲存。觸發後 1–10 秒內手機頁浮出 Decision Entry Panel。
 
-#### 推薦寫法：純人話前綴 + 換行 + JSON（讓 TradingView 原生推播好看）
+#### ⭐ 乾淨模式（推薦）：結構化欄位走 URL、訊息只留純人話
 
-TradingView 自家的鎖屏推播會**原樣顯示整段 message**。若把一句人話放在最前面、JSON 換行接在後面，
-推播第一行就是純句子、零大括號（TENKI 接收端只取 JSON 部分，前後純文字自動忽略）：
+**問題**：TradingView 自家鎖屏推播會**原樣顯示整段 message**。只要 message 含 JSON，推播就有代碼感
+（hybrid/note-first 只能讓第一行乾淨，整則展開仍看得到 JSON）。
+
+**解法**：把 `symbol`/`condition`/`strategy` 這些**靜態**欄位（一標的一 alert，建立時就知道）搬進
+**Webhook URL 的查詢參數**（推播看不到 URL），訊息欄則**只留純人話**。這樣鎖屏推播零代碼、
+又保留了 TradingView 的通知。
+
+1. **Webhook URL** 在專屬連結後面接參數（`symbol` 填實際代碼 — TradingView 不會展開 URL 裡的 `{{}}`）：
+   ```
+   https://tenki-emotion-app.vercel.app/api/alert?ch=你的頻道id&symbol=ES1!&condition=Level Break&strategy=Mancini
+   ```
+2. **「訊息」欄位**只寫純人話（可含 `{{close}}` 顯示價格）：
+   ```
+   ES1! 下穿 {{close}} · 離高點太近，不參與。等誘空+收回
+   ```
+   → 鎖屏推播顯示：`ES1! 下穿 7553.00 · 離高點太近，不參與。等誘空+收回`（**零大括號、零代碼**）。
+   → TENKI：`symbol`/`condition`/`strategy` 取自 URL、整句訊息當 `note` 顯示在面板。
+
+- 結構化欄位以 URL 為準，訊息文字自動成為 note（本身就是你的計畫句子）。
+- 徹底無代碼的終局仍是 TENKI 原生推播（Phase 3）；乾淨模式是在那之前最接近的體驗。
+
+#### 進階/相容：JSON 或 hybrid 寫法
+
+純 JSON（§3 步驟 3）與「人話前綴 + 換行 + JSON」永遠有效 —— 既有 alert 不必重貼。差別只在
+TradingView 原生推播的觀感：JSON 模式推播含代碼，乾淨模式零代碼。TENKI 面板兩者都是人話。
 
 ```
 離高點太近，不參與。等誘空+收回
 {"symbol":"{{ticker}}","price":{{close}},"condition":"Watch Only","timeframe":"{{interval}}","strategy":"Mancini"}
 ```
-
-- 前綴那句**不要含 `{`**；JSON 要放在最後（接收端取「第一個 `{` 到最後一個 `}`」）。
-- 純 JSON 寫法永遠有效 — 既有 alert 不必重貼，想要更漂亮的推播再換即可。
-- 徹底無代碼感的終局是 TENKI 原生推播（Phase 3）；在那之前這是最乾淨的過渡寫法。
+（hybrid：前綴勿含 `{`、JSON 放最後；接收端取「第一個 `{` 到最後一個 `}`」。）
 
 **兩個實戰註記（founder 實測 2026-07-13）**：
 - **通知設定會自動沿用**：建新 alert 時，Webhook URL 勾選與網址會沿用上一條 — 存檔前掃一眼即可。

@@ -13,7 +13,7 @@
 import { randomUUID } from 'node:crypto';
 import { buildAlertContract } from '../domain/src/contracts/alert-contract';
 import { validateAlertPayloadContract } from '../domain/src/schemas/alert-schema';
-import { getChannelId, readJsonBody } from './_lib/http';
+import { assembleAlertPayload, getChannelId } from './_lib/http';
 import type { VercelRequestLike, VercelResponseLike } from './_lib/http';
 import { channelExists, pushAlert, resolveUpstashConfig } from './_lib/store';
 
@@ -41,13 +41,7 @@ export default async function handler(
     return;
   }
 
-  const body = readJsonBody(req);
-  if (!body.ok) {
-    res.status(400).json({ ok: false, error: body.error });
-    return;
-  }
-
-  const validation = validateAlertPayloadContract(body.value);
+  const validation = validateAlertPayloadContract(assembleAlertPayload(req));
   if (!validation.success) {
     res.status(400).json({ ok: false, errors: validation.errors });
     return;
