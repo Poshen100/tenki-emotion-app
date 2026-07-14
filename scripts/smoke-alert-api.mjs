@@ -152,10 +152,38 @@ try {
   await alertHandler({ method: 'POST', query: { ch: ch2 }, body: VALID_BODY + '  -- footer' }, res);
   assert(res.statusCode === 200, 'JSON + 尾隨文字 → 200');
 
-  // 15. 完全無 JSON 物件 → 400
+  // 15. 純文字 body 但無 symbol（body 與 query 都沒）→ 400
   res = fakeRes();
   await alertHandler({ method: 'POST', query: { ch: ch2 }, body: 'just plain text' }, res);
-  assert(res.statusCode === 400, '無 JSON 物件 → 400');
+  assert(res.statusCode === 400, '純文字 body 缺 symbol → 400');
+
+  // 16. Query-param 模式：純人話 body + query（symbol/condition/strategy）→ 200
+  res = fakeRes();
+  await alertHandler({
+    method: 'POST',
+    query: { ch: ch2, symbol: 'ES1!', condition: 'Level Break', strategy: 'Mancini' },
+    body: 'ES1! 下穿 7553.00 · 離高點太近，不參與。等誘空+收回',
+  }, res);
+  assert(res.statusCode === 200 && res.payload.ok === true, 'query-param 模式（純人話 body）→ 200');
+  res = fakeRes();
+  await alertsHandler({ method: 'GET', query: { ch: ch2 } }, res);
+  const qp = res.payload.alerts[0];
+  assert(qp.symbol === 'ES1!' && qp.condition === 'Level Break' && qp.strategyHint === 'Mancini',
+    'query 結構化欄位正確');
+  assert(qp.note === 'ES1! 下穿 7553.00 · 離高點太近，不參與。等誘空+收回', 'note = 純人話 body');
+
+  // 17. Query 覆蓋 body JSON 的同名欄位
+  res = fakeRes();
+  await alertHandler({
+    method: 'POST',
+    query: { ch: ch2, symbol: 'TSLA' },
+    body: '{"symbol":"NVDA","condition":"Breakout"}',
+  }, res);
+  assert(res.statusCode === 200, 'query+JSON body → 200');
+  res = fakeRes();
+  await alertsHandler({ method: 'GET', query: { ch: ch2 } }, res);
+  assert(res.payload.alerts[0].symbol === 'TSLA' && res.payload.alerts[0].condition === 'Breakout',
+    'query symbol 覆蓋、body condition 保留');
 
   console.log(`\nSMOKE PASS — ${passed} assertions`);
 } finally {
