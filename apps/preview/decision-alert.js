@@ -418,12 +418,15 @@
 
   // ── 連接 TradingView（專屬頻道，零輸入配對；真訊號與模擬走同一條 ingest 管線）──
   var POLL_INTERVAL_MS = 10 * 1000;
+  // 開頁回看窗：接得到「開頁前剛觸發」的快訊（真實流程 = 推播叫醒 → 才開 TENKI）
+  var CONNECT_LOOKBACK_MS = 60 * 60 * 1000;
   var CHANNEL_KEY = 'tenki.alert.channel';
 
   var live = {
     pollTimer: null,
     sinceMs: 0,
     seenIds: {},
+    catchUp: false,
   };
 
   function getChannel() { return localStorage.getItem(CHANNEL_KEY) || ''; }
@@ -472,10 +475,28 @@
         if (!payload || !Array.isArray(payload.alerts)) return;
         setLiveStatus('接收中 · ' + nowLabel(), 'on');
 
-        // API 回新→舊；反轉成舊→新逐筆餵，同毫秒邊界用 id 去重
-        var incoming = payload.alerts.slice().reverse();
-        incoming.forEach(function (raw) {
-          if (!raw || !raw.id || live.seenIds[raw.id]) return;
+        // API 回新→舊；反轉成舊→新，同毫秒邊界用 id 去重
+        var unseen = payload.alerts.slice().reverse().filter(function (raw) {
+          return raw && raw.id && !live.seenIds[raw.id];
+        });
+
+        if (live.catchUp) {
+          // 開頁回看窗首輪：把窗內歷史標記已讀，只讓「最新一則」浮出決策面板，
+          // 較舊者靜默記錄（避免開頁被一串舊快訊轟炸，同時不漏掉剛觸發那則）。
+          live.catchUp = false;
+          if (unseen.length === 0) { live.sinceMs = Date.now(); return; }
+          unseen.forEach(function (raw) {
+            live.seenIds[raw.id] = true;
+            if (raw.receivedAt > live.sinceMs) live.sinceMs = raw.receivedAt;
+          });
+          unseen.slice(0, -1).forEach(function (raw) {
+            log('received', raw.symbol + ' · ' + (raw.condition || 'Signal') + '（開頁前）');
+          });
+          ingest(normalizeLiveAlert(unseen[unseen.length - 1]));
+          return;
+        }
+
+        unseen.forEach(function (raw) {
           live.seenIds[raw.id] = true;
           if (raw.receivedAt > live.sinceMs) live.sinceMs = raw.receivedAt;
           ingest(normalizeLiveAlert(raw));
@@ -488,7 +509,9 @@
 
   function startPolling(channelId) {
     stopPolling();
-    live.sinceMs = Date.now(); // 只收現在之後的新快訊，不回放歷史
+    // 回看一個窗，讓「開頁前剛觸發」的快訊也接得到（catch-up 首輪只浮出最新一則）
+    live.sinceMs = Date.now() - CONNECT_LOOKBACK_MS;
+    live.catchUp = true;
     setLiveStatus('接收中…', 'on');
     pollOnce(channelId);
     live.pollTimer = setInterval(function () { pollOnce(channelId); }, POLL_INTERVAL_MS);
