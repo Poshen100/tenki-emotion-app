@@ -9,6 +9,28 @@
 
 ---
 
+# 2026-07-14 Session Update #26 (開頁回看窗 catch-up — 修「快訊觸發但 TENKI 什麼都沒發生」)
+
+> Founder 回報：價格跌進計畫價位、TradingView 推播也來了，但開 /decision-alert/ 面板零反應。
+
+## 根因與修法
+- **根因**（`apps/preview/decision-alert.js`）：`startPolling` 把 `sinceMs = Date.now()`，只收「開頁之後」的快訊。真實流程 = 推播叫醒 → 才開 TENKI，那則「開頁前幾分鐘剛觸發」的快訊 `receivedAt < now` 被濾掉。**快訊其實已存進頻道**（webhook 正常），只是頁面沒回放。
+- **修法**：`CONNECT_LOOKBACK_MS = 60min`；開頁 `sinceMs = now - 回看窗` + `catchUp` 旗標；首輪只把窗內**最新一則**走完整決策管線浮出面板，較舊者標記已讀 + 靜默記錄（`log('…（開頁前）')`）—— 避免開頁被舊快訊轟炸，又不漏掉剛觸發那則。`?v=alert5`。
+- Playwright +2 斷言（catch-up 開頁浮出過去 2 分鐘觸發的快訊），共 20 全過。
+
+## 殘留界線（誠實）
+仍須在 60 分鐘窗內開頁；徹底「不看也收到」是 Phase 3 TENKI 原生推播。TradingView 推播（founder 已保留）＝叫醒鈴，catch-up 補完「開頁即見」。
+
+## 支線（聊天，未入 repo）
+- Founder 貼今日交易計畫（付費內容，**不入 repo**）；已以聊天給更新後 alert 階梯設定（7573/7570 pivot、7547 cluster、7533 日低、7482/7467/7454/7408）。
+- 反覆確認的 UX：TradingView 推播「訊息」欄 = 鎖屏顯示內容；乾淨模式要把訊息欄清成純人話（結構化欄位走 URL query）。founder 曾誤把佔位文字/JSON 留在訊息欄。
+
+## 下次接手點
+- Founder merge 後實機：觸發一則 → 隔幾分鐘才開 /decision-alert/ → 應浮出該則面板。
+- §10 六候選待拍板不變；Phase 3 native push 是「什麼都沒發生」的終極解。
+
+---
+
 # 2026-07-13 Session Update #25 (Query-param 模式 — 鎖屏推播零代碼的終極解，保留 TradingView 通知)
 
 > 承 #24。Founder 實機發現 hybrid 只讓推播「第一行」乾淨，整則展開仍有 JSON。要「保留 TradingView 鎖屏通知＋零代碼」。
