@@ -418,18 +418,31 @@
 
   // ── 連接 TradingView（專屬頻道，零輸入配對；真訊號與模擬走同一條 ingest 管線）──
   var POLL_INTERVAL_MS = 10 * 1000;
-  // 開頁回看窗：接得到「開頁前剛觸發」的快訊（真實流程 = 推播叫醒 → 才開 TENKI）
-  var CONNECT_LOOKBACK_MS = 60 * 60 * 1000;
   var CHANNEL_KEY = 'tenki.alert.channel';
+  // 每頻道記「上次看過的最新一則時間戳」：開頁一律補上你還沒看過的（不論多久前觸發），
+  // 看過的不再重複跳。取代舊的固定時間回看窗（60 分鐘太短，隔天開就漏）。
+  var LASTSEEN_PREFIX = 'tenki.alert.lastseen.';
 
   var live = {
     pollTimer: null,
+    channelId: '',
     sinceMs: 0,
     seenIds: {},
     catchUp: false,
   };
 
   function getChannel() { return localStorage.getItem(CHANNEL_KEY) || ''; }
+
+  function loadLastSeen(channelId) {
+    return Number(localStorage.getItem(LASTSEEN_PREFIX + channelId)) || 0;
+  }
+
+  function advanceSince(receivedAt) {
+    if (receivedAt > live.sinceMs) {
+      live.sinceMs = receivedAt;
+      if (live.channelId) localStorage.setItem(LASTSEEN_PREFIX + live.channelId, String(receivedAt));
+    }
+  }
 
   function webhookUrlFor(channelId) {
     return location.origin + '/api/alert?ch=' + channelId;
@@ -481,16 +494,16 @@
         });
 
         if (live.catchUp) {
-          // 開頁回看窗首輪：把窗內歷史標記已讀，只讓「最新一則」浮出決策面板，
-          // 較舊者靜默記錄（避免開頁被一串舊快訊轟炸，同時不漏掉剛觸發那則）。
+          // 開頁首輪：把「還沒看過的」全部標記已讀，只讓最新一則浮出決策面板，
+          // 較舊者靜默記錄（避免開頁被一串舊快訊轟炸，同時不漏掉任何未讀的）。
           live.catchUp = false;
-          if (unseen.length === 0) { live.sinceMs = Date.now(); return; }
+          if (unseen.length === 0) return;
           unseen.forEach(function (raw) {
             live.seenIds[raw.id] = true;
-            if (raw.receivedAt > live.sinceMs) live.sinceMs = raw.receivedAt;
+            advanceSince(raw.receivedAt);
           });
           unseen.slice(0, -1).forEach(function (raw) {
-            log('received', raw.symbol + ' · ' + (raw.condition || 'Signal') + '（開頁前）');
+            log('received', raw.symbol + ' · ' + (raw.condition || 'Signal') + '（稍早）');
           });
           ingest(normalizeLiveAlert(unseen[unseen.length - 1]));
           return;
@@ -498,7 +511,7 @@
 
         unseen.forEach(function (raw) {
           live.seenIds[raw.id] = true;
-          if (raw.receivedAt > live.sinceMs) live.sinceMs = raw.receivedAt;
+          advanceSince(raw.receivedAt);
           ingest(normalizeLiveAlert(raw));
         });
       })
@@ -509,8 +522,10 @@
 
   function startPolling(channelId) {
     stopPolling();
-    // 回看一個窗，讓「開頁前剛觸發」的快訊也接得到（catch-up 首輪只浮出最新一則）
-    live.sinceMs = Date.now() - CONNECT_LOOKBACK_MS;
+    // 從「上次看過的最新一則」之後開始收 → 開頁補上所有未讀的（不論多久前觸發），
+    // 看過的不再重複跳。首輪只浮出最新一則面板（catch-up）。
+    live.channelId = channelId;
+    live.sinceMs = loadLastSeen(channelId);
     live.catchUp = true;
     setLiveStatus('接收中…', 'on');
     pollOnce(channelId);
