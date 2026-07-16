@@ -9,6 +9,27 @@
 
 ---
 
+# 2026-07-16 Session Update #27 (lastSeen 未讀模型 — #26 的 60min 窗太短，隔天開頁仍漏)
+
+> Founder 二度回報「快訊有到但 TENKI 沒出現」。這次**先查證頻道內容**才動手（PLAYBOOK 教訓：不猜）。
+
+## 診斷（關鍵）
+- 用 `GET /api/alerts?ch=<founder ch>&since=0`（founder Safari 開、貼 JSON 回來）確認：**快訊全都在頻道裡**（webhook + 乾淨模式 query-param 都正常運作：`condition:"Key Low"` 從 URL、`note` 是計畫句子、price:null 如設計）。→ 不是 webhook/頻道問題，是**頁面沒顯示**。
+- 根因：#26 的 catch-up 用固定 60 分鐘回看窗；founder 昨天觸發、今天才開 TENKI，全部超窗被濾掉。「昨天」這種真實節奏 60min 遠遠不夠。
+- **自查工具無法用**：Vercel MCP web_fetch 需即時授權（本 session 沒跳成）；改請 founder 手機開 inspect URL 貼 JSON —— 最快的確定性診斷，已寫進 SETUP §5。
+
+## 修法（`apps/preview/decision-alert.js`，`?v=alert6`）
+用「**看過沒**」取代「**時間窗**」：per-channel `localStorage['tenki.alert.lastseen.<ch>']` 記上次看過的最新 receivedAt；開頁 `sinceMs = loadLastSeen(ch)`（預設 0）；catch-up 首輪浮出最新未讀一則、其餘靜默記錄；`advanceSince()` 每次前進都持久化。→ **不論多久前觸發，開頁一律補上未讀的最新一則；看過的不再重跳**。Playwright +3 斷言（20 小時前仍浮出 / lastSeen 持久化 / 看過不重跳），共 22 全過。stub 已對齊 production 的 `since` 過濾。
+
+## 殘留界線
+仍須開頁才看得到（web 版本質）；「不看也自動彈」＝ Phase 3 TENKI 原生推播。但 lastSeen 讓「隔多久開都不漏未讀」成立，web 版可用性到位。
+
+## 下次接手點
+- Founder merge 後**務必硬重載**（`?v=alert6`；快取是累犯陷阱 PLAYBOOK §6）→ 開頁應立刻補浮昨天最新那則（7572.75 Key Low）。
+- §10 六候選待拍板不變；Phase 3 native push 仍是「不看也收到」終解。
+
+---
+
 # 2026-07-14 Session Update #26 (開頁回看窗 catch-up — 修「快訊觸發但 TENKI 什麼都沒發生」)
 
 > Founder 回報：價格跌進計畫價位、TradingView 推播也來了，但開 /decision-alert/ 面板零反應。
