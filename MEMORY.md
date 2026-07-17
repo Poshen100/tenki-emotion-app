@@ -9,6 +9,29 @@
 
 ---
 
+# 2026-07-16 Session Update #28 (🎉 端到端全鏈路實機首度完整貫通 — 開頁即見決策面板)
+
+> #27 merge + founder 硬重載後，實機首度完整成功。整條 TradingView 整合線（#178–#186，9 個 PR）畫下句點。
+
+## 實機證據（founder 截圖 10:28）
+開 `/decision-alert/` → **零操作自動補浮出 Entry Panel**：
+- 標題 `ES1! · SR Flip · 1`（condition 從 URL query-param）
+- **founder 計畫原句登場**：「三日S/R轉換。緩跌可掛多；更安全=等7527/29低點群被掃再收回」（觸發瞬間顯示早上冷靜寫的計畫 = 產品靈魂）
+- 狀態行事實陳述「Neutral · Decision Edge Score 58 · 紀律完成率 —」（零金融建議、零代碼）
+- 事件鏈 `已呈現／已接收（含「稍早」靜默記錄）`、[略過]/[進入決策]
+
+lastSeen 未讀模型 + 硬重載（`?v=alert6`）後，「隔多久開都補上未讀最新一則」在真機成立。
+
+## 整條線完成清單（歷史索引）
+規格書/邏輯層/demo(#178) → webhook 後端(#178) → 零輸入頻道配對(#179) → 命名勘誤+方法論(#180) → 手機實況(#181) → 里程碑(#182) → hybrid parser(#183) → query-param 乾淨模式(#184) → catch-up(#185) → lastSeen(#186)。Upstash 由 founder 開通。乾淨模式（URL 帶結構化欄位、message 純人話）＝零代碼推播。
+
+## 下次接手點（此線已收尾，以下為 backlog）
+- Phase 3 TENKI 原生推播（「不看也收到」終解，需 mobile app）。
+- §10 六接線候選待 founder 拍板：Mode 標籤進快訊、quiet window(11-14 盤整)、贏停/雙輸熔斷、每日上限依節奏收斂、session 中同標的安靜更新。
+- 每日 alert 階梯是 founder 手動維護（付費計畫內容不入 repo）。
+
+---
+
 # 2026-07-16 Session Update #27 (lastSeen 未讀模型 — #26 的 60min 窗太短，隔天開頁仍漏)
 
 > Founder 二度回報「快訊有到但 TENKI 沒出現」。這次**先查證頻道內容**才動手（PLAYBOOK 教訓：不猜）。
