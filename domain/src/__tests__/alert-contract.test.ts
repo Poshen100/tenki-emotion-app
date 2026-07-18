@@ -100,6 +100,7 @@ describe('alert lifecycle vocabulary', () => {
       'surfaced',
       'silent_received',
       'suppressed_cooldown',
+      'session_quiet_update',
       'aggregated',
     ]);
     expect(DOMAIN_ALERT_LIFECYCLE_STATES).toEqual([

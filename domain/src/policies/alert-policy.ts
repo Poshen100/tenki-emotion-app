@@ -45,6 +45,12 @@ export interface AlertDeliveryInput {
   tierAllowsAlerts: boolean;
   /** True while a decision session is active — alerts never interrupt it. */
   sessionActive: boolean;
+  /**
+   * Symbol of the in-progress decision session, or null when none.
+   * A same-symbol alert arriving during that session becomes a quiet
+   * context update instead of a silent chip (the 7553/7547 scenario).
+   */
+  activeSessionSymbol: string | null;
 }
 
 /** Result of a delivery evaluation. */
@@ -101,6 +107,12 @@ export function evaluateAlertDelivery(input: AlertDeliveryInput): AlertDeliveryE
   }
 
   if (input.sessionActive) {
+    if (input.activeSessionSymbol !== null && input.activeSessionSymbol === alert.symbol) {
+      return {
+        decision: 'session_quiet_update',
+        reason: 'same-symbol update during active session',
+      };
+    }
     return { decision: 'silent_received', reason: 'decision session in progress' };
   }
 

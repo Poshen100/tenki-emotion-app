@@ -241,14 +241,18 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
 | 「不因情緒改變策略」（§6） | 決策計時模板的 readinessWindow / preventEarlyComplete / 事件鏈 | Session Governance |
 | 日常節奏「每天 1–2 筆」（§6.1） | 快訊 `ALERT_DAILY_SURFACE_CAP` + 同標的 5 分鐘冷卻（現值為保守通用值，可依 §6.1 收斂） | `domain/src/policies/alert-policy.ts` |
 | 原生推播轟炸（founder 實測：同一 level 8 分鐘連發 4 則相同推播） | delivery policy 冷卻/靜默/聚合的現實依據 — TradingView 原生通知沒有這層 | 同上 |
-| 迴避時段 11:00–14:00（§6.1） | **未接線**（quiet-window 候選），見 §10 | — |
-| 贏停 / 雙輸熔斷（§6.1） | **未接線**（session 事件鏈已能算出當日 close/cancel 次數），見 §10 | — |
-| Mode 1/2 市況分類 | **未接線**（候選：alert `condition` 語意標籤、模板情境提示、insight 層），見 §10 | — |
+| 迴避時段 11:00–14:00（§6.1） | **未接線**（quiet-window 候選，時區已定 = 美東 ET、呈現 = 軟性事實提示），見 §10 | — |
+| 贏停 / 雙輸熔斷（§6.1） | **未接線**（session 事件鏈已能算出當日 close/cancel 次數；呈現 = 軟性事實提示），見 §10 | — |
+| Mode 1/2 市況分類 | **✅ 已接線**（alert `condition`/`note` 帶 `Mode 1`/`Mode 2` → Entry Panel 脈絡行，事實非建議） | `domain/src/policies/market-mode.ts` |
+| session 中同標的後續觸發 | **✅ 已接線**（計時條下安靜更新一行、不彈新面板） | `domain/src/policies/alert-policy.ts`（`session_quiet_update`） |
 
-## 10. 未來接線候選（尚未拍板，動工前問 founder）
+## 10. 接線候選
 
-1. **Mode 標籤進快訊**：TradingView alert payload 的 `condition`/`note` 帶 `Mode 1`/`Mode 2` 標籤 → Entry Panel 顯示市況脈絡（事實陳述，不是建議）。
-2. **Mode-aware 模板提示**：Mode 1 日對 FBD 類快訊降權提示（本檔 §5 整合表的機器化）。
-3. **行為統計分層**：事件鏈統計依 Mode 分組（「Mode 2 日的紀律完成率」），仍走流程統計語言（勝率語言已禁）。
-4. **時段感知（quiet window）**：§6.1 迴避時段（11:00–14:00 盤整帶）→ 快訊 delivery policy 的靜默時窗；engine `edge-detector.ts` 已有 quiet-hours 抑制模式可仿。
-5. **節奏熔斷**：§6.1 贏停/雙輸熔斷 → 以當日事件鏈（close/cancel 計數）驅動「今天到此為止」的溫和提示（呈現事實，不下指令 — compliance 語言照 §10 前提）。
+> 進度標記：✅ 已實作 / ⏳ 待做（動工前的關鍵決策若已拍板，記在該條，避免下個 session 重問）。
+
+1. ✅ **Mode 標籤進快訊**（2026-07-18 完成）：alert `condition`/`note` 帶 `Mode 1`/`Mode 2` → Entry Panel 脈絡行（事實陳述，非建議）。`domain/src/policies/market-mode.ts` + preview `?v=alert7`。
+2. ⏳ **Mode-aware 模板提示**：Mode 1 日對 FBD 類快訊降權提示（本檔 §5 整合表的機器化）。
+3. ⏳ **行為統計分層**：事件鏈統計依 Mode 分組（「Mode 2 日的紀律完成率」），仍走流程統計語言（勝率語言已禁）。
+4. ⏳ **時段感知（quiet window）**：§6.1 迴避時段（11:00–14:00 盤整帶）→ 快訊 delivery policy 的靜默時窗；engine `edge-detector.ts` 已有 quiet-hours 抑制模式可仿。**決策已拍板（2026-07-18）：時區 = 美東 ET（America/New_York，Adam Mancini ES 盤）；呈現 = 軟性事實提示（面板仍浮出、加一行「盤整迴避時段」脈絡，不硬靜音）。**
+5. ⏳ **節奏熔斷**：§6.1 贏停/雙輸熔斷 → 以當日事件鏈（close/cancel 計數）驅動「今天到此為止」的溫和提示。**決策已拍板（2026-07-18）：呈現 = 軟性事實提示（呈現事實不下指令；勝負須映射到 session close/cancel，語言照 compliance 前提，動工前再對齊語意）。**
+6. ✅ **session 中同標的安靜更新**（2026-07-18 完成，源自 7553/7547 實戰）：active session 中同標的後續觸發 → 計時條下浮一行事實更新、不彈新面板；異標的維持 silent。`domain/src/policies/alert-policy.ts` 的 `session_quiet_update` 決策 + preview 鏡像。

@@ -69,6 +69,25 @@
     return null;
   }
 
+  // Mirror of domain extractMarketMode + MARKET_MODE_CONTEXT_ZH（事實脈絡，非建議）
+  var MODE_PATTERN = /mode\s*([12])\b/i;
+  var MARKET_MODE_CONTEXT_ZH = {
+    mode_1: 'Mode 1 · 趨勢延續傾向',
+    mode_2: 'Mode 2 · 區間／陷阱傾向',
+  };
+
+  function matchMode(text) {
+    if (!text) return null;
+    var m = MODE_PATTERN.exec(text);
+    if (!m) return null;
+    return m[1] === '1' ? 'mode_1' : 'mode_2';
+  }
+
+  function marketModeContext(alert) {
+    var mode = matchMode(alert.condition) || matchMode(alert.note);
+    return mode ? MARKET_MODE_CONTEXT_ZH[mode] : null;
+  }
+
   // ── 示意狀態（點擊循環；合成值，非真實讀數）──
   var ZONE_STATES = [
     { zone: 'clear', label: 'Clear', score: 78, cssVar: '--zone-clear' },
@@ -80,6 +99,7 @@
     zoneIdx: 1, // Neutral 起手
     lastSurfacedAtBySymbol: {},
     sessionActive: false,
+    activeSessionSymbol: null,
     pendingAlert: null,
     pendingGroup: null,
     alertSeq: 0,
@@ -89,10 +109,10 @@
   var el = {};
   [
     'stateCard', 'stateDot', 'stateLine', 'btnSingle', 'btnMulti', 'btnRepeat',
-    'silentArea', 'logList', 'backdrop', 'entrySheet', 'entryHead', 'entryNote',
-    'entryStateLine', 'btnDismiss', 'btnEngage', 'tplSheet', 'tplList',
+    'silentArea', 'logList', 'backdrop', 'entrySheet', 'entryHead', 'entryMode',
+    'entryNote', 'entryStateLine', 'btnDismiss', 'btnEngage', 'tplSheet', 'tplList',
     'aggSheet', 'aggHead', 'aggList', 'timerBar', 'timerLabel', 'timerClock',
-    'btnComplete', 'btnCancel', 'segTrack', 'segLabels',
+    'btnComplete', 'btnCancel', 'segTrack', 'segLabels', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveCopy', 'liveReset',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
@@ -170,7 +190,12 @@
 
   // ── Delivery policy（mirror of domain alert-policy 判定順序）──
   function evaluateDelivery(alert, nowMs) {
-    if (state.sessionActive) return { decision: 'silent', reason: '決策進行中' };
+    if (state.sessionActive) {
+      if (state.activeSessionSymbol !== null && state.activeSessionSymbol === alert.symbol) {
+        return { decision: 'session_update', reason: '同標的後續觸發' };
+      }
+      return { decision: 'silent', reason: '決策進行中' };
+    }
     if (currentZone().zone === 'strain') return { decision: 'silent', reason: 'Strain 狀態' };
     var last = state.lastSurfacedAtBySymbol[alert.symbol];
     if (last !== undefined && nowMs - last < COOLDOWN_MS) {
@@ -192,6 +217,10 @@
     log('received', alert.symbol + ' · ' + alert.condition + ' (' + alert.timeframe + ')');
     var result = evaluateDelivery(alert, Date.now());
 
+    if (result.decision === 'session_update') {
+      sessionQuietUpdate(alert);
+      return;
+    }
     if (result.decision === 'silent') {
       log('silent', alert.symbol + ' — ' + result.reason + '，不打擾');
       silentChip(alert.symbol + ' 快訊（已接收）');
@@ -210,10 +239,23 @@
     log('surfaced', alert.symbol + ' — 決策入口開啟');
 
     el.entryHead.textContent = alert.symbol + ' · ' + alert.condition + ' · ' + alert.timeframe;
+    var modeCtx = marketModeContext(alert);
+    el.entryMode.textContent = modeCtx || '';
+    el.entryMode.classList.toggle('show', modeCtx !== null);
     el.entryNote.textContent = alert.note || '';
     var z = currentZone();
     el.entryStateLine.textContent = '你目前的狀態：' + z.label + '（Decision Edge Score ' + z.score + '）';
     openSheet(el.entrySheet);
+  }
+
+  // ── session 中同標的：計時條下浮一行事實更新，不彈新面板 ──
+  function sessionQuietUpdate(alert) {
+    var parts = [alert.symbol];
+    if (alert.condition) parts.push(alert.condition);
+    if (alert.note) parts.push(alert.note);
+    el.timerUpdate.textContent = '↳ ' + parts.join(' · ');
+    el.timerUpdate.classList.add('show');
+    log('mark', alert.symbol + ' — 同標的後續觸發（決策進行中，安靜更新）');
   }
 
   // ── 聚合（多快訊同窗）──
@@ -350,6 +392,9 @@
   function startSession(alert, tpl) {
     state.pendingAlert = null;
     state.sessionActive = true;
+    state.activeSessionSymbol = alert.symbol;
+    el.timerUpdate.textContent = '';
+    el.timerUpdate.classList.remove('show');
 
     el.timerLabel.textContent = alert.symbol + ' · ' + tpl.nameZh;
     el.timerClock.textContent = formatClock(0);
@@ -404,7 +449,9 @@
   function endSession(type, detail) {
     if (state.timer) { clearInterval(state.timer); state.timer = null; }
     state.sessionActive = false;
+    state.activeSessionSymbol = null;
     el.timerBar.classList.remove('show');
+    el.timerUpdate.classList.remove('show');
     log(type, detail);
   }
 

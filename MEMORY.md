@@ -9,6 +9,26 @@
 
 ---
 
+# 2026-07-18 Session Update #29 (§10 接線候選：Mode 標籤 + session 同標的安靜更新)
+
+> 主線收尾後 founder：「不需 Mac 就實作」六接線候選。先問清楚（AskUserQuestion）再動：**低風險先上**。
+
+## 做了什麼
+- **§10 #1 Mode 標籤**：`domain/src/policies/market-mode.ts` — `extractMarketMode` 掃 `condition`→`note` 比對 `/mode\s*([12])\b/i` → Entry Panel 脈絡行「Mode 1 · 趨勢延續傾向」「Mode 2 · 區間／陷阱傾向」（事實非建議，過 compliance 詞庫）。
+- **§10 #6 session 同標的安靜更新**：契約加 `session_quiet_update` 決策 + `AlertDeliveryInput.activeSessionSymbol`；active session 中同標的 → 計時條下浮一行、不彈新面板；異標的維持 `silent_received`。源自 7553/7547 僅距 6 點實戰。
+- preview 鏡像（`?v=alert7`）兩者；Playwright headless 12 斷言全綠（scratchpad/shoot-wiring.mjs），既有 channel-mode 回歸也全綠。
+
+## 決策紀錄（founder 拍板，寫進 METHODOLOGY §10 避免下個 session 重問）
+- 未來 quiet window：時區 = **美東 ET**（Adam Mancini ES 盤）；抑制型呈現 = **軟性事實提示**（不硬靜音）。
+- 未來節奏熔斷：同採軟性事實提示；勝負須映射到 session close/cancel，動工前再對齊語意。
+
+## 教訓 / 下次接手點
+- **兩層要同步**：canonical 邏輯進 `domain/`（Jest），preview 是 vanilla JS 鏡像（CI 盲區）→ 改 delivery 邏輯必同時改兩邊 + Playwright + founder 手機走。
+- domain 測試**不要**跨 package import `packages/engine`（依賴方向不存在、ts-jest 脆）；本次已移除。
+- backlog 未做：§10 #2 Mode-aware 模板提示、#3 行為統計分層、#4 quiet window、#5 節奏熔斷；Phase 3 原生推播（需 Mac）。
+
+---
+
 # 2026-07-16 Session Update #28 (🎉 端到端全鏈路實機首度完整貫通 — 開頁即見決策面板)
 
 > #27 merge + founder 硬重載後，實機首度完整成功。整條 TradingView 整合線（#178–#186，9 個 PR）畫下句點。

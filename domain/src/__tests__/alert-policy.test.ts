@@ -33,6 +33,7 @@ function createInput(overrides: Partial<AlertDeliveryInput> = {}): AlertDelivery
     featureFlagEnabled: true,
     tierAllowsAlerts: true,
     sessionActive: false,
+    activeSessionSymbol: null,
     ...overrides,
   };
 }
@@ -69,6 +70,29 @@ describe('evaluateAlertDelivery', () => {
     const result = evaluateAlertDelivery(createInput({ sessionActive: true }));
     expect(result.decision).toBe('silent_received');
     expect(result.reason).toContain('session');
+  });
+
+  it('turns a same-symbol alert during an active session into a quiet update', () => {
+    const result = evaluateAlertDelivery(
+      createInput({
+        alert: createAlert({ symbol: 'ES1!' }),
+        sessionActive: true,
+        activeSessionSymbol: 'ES1!',
+      }),
+    );
+    expect(result.decision).toBe('session_quiet_update');
+    expect(result.reason).toContain('same-symbol');
+  });
+
+  it('keeps a different-symbol alert silent during an active session', () => {
+    const result = evaluateAlertDelivery(
+      createInput({
+        alert: createAlert({ symbol: 'NVDA' }),
+        sessionActive: true,
+        activeSessionSymbol: 'ES1!',
+      }),
+    );
+    expect(result.decision).toBe('silent_received');
   });
 
   describe('same-symbol cooldown boundaries', () => {
