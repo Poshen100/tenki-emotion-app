@@ -17,6 +17,7 @@ export const DOMAIN_ALERT_DELIVERY_DECISIONS = [
   'surfaced',
   'silent_received',
   'suppressed_cooldown',
+  'session_quiet_update',
   'aggregated',
 ] as const;
 export type DomainAlertDeliveryDecision = typeof DOMAIN_ALERT_DELIVERY_DECISIONS[number];
