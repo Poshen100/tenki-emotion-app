@@ -79,6 +79,15 @@ export type {
 } from './policies/alert-policy';
 
 export {
+  DOMAIN_MARKET_MODES,
+  MARKET_MODE_CONTEXT_ZH,
+  extractMarketMode,
+  resolveMarketModeContext,
+} from './policies/market-mode';
+
+export type { DomainMarketMode } from './policies/market-mode';
+
+export {
   ALERT_PAYLOAD_MAX_STRING_LENGTH,
   DOMAIN_ALERT_DELIVERY_DECISIONS,
   DOMAIN_ALERT_LIFECYCLE_STATES,
