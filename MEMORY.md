@@ -9,6 +9,21 @@
 
 ---
 
+# 2026-07-19 Session Update #31 (計時器優化 · Phase B)
+
+> 四階段規劃續作。Phase B 純 preview 呈現（early-complete 偵測已在 A 接好）。
+
+## 做了什麼（`?v=alert9`）
+- 浮動計時條隨 elapsed **高亮當前段落標籤**（`.seg-label.active`）。
+- 進入 readiness 窗 → 事實行 `#timerPhase`「Readiness 窗開啟」（強調色，流程語言、**非「可進場」**）；離開恢復「目前：<段落>」；結束清空。
+- Playwright `shoot-timer.mjs` 11 斷言（Observe→Readiness→Extended 三段標籤高亮 + phase 行 + 時鐘 in-window + 結束清空）；result/wiring 回歸全綠。
+
+## 下次接手點（四階段剩 C、D）
+- Phase C 設定調整面板（冷卻/上限/quiet window ET/偏好，使用者可調+持久；domain 常數改可注入 `AlertDeliverySettings`）。
+- Phase D setup 頁內引導 + 快訊 inbox + 連線健康度。
+
+---
+
 # 2026-07-19 Session Update #30 (決策收束頁 — 補上決策迴圈斷掉的尾端 · Phase A)
 
 > Founder：「完整思考延伸優化結果頁、決策計時器、快訊完整功能」。深度盤點 → 四階段規劃（plan 檔），本次交付 **Phase A 決策收束頁**。
