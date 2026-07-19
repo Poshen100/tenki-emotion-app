@@ -12,9 +12,39 @@
 (function () {
   'use strict';
 
-  // Demo 縮時冷卻：正式值 ALERT_COOLDOWN_SEC = 300（5 分鐘）
-  var COOLDOWN_MS = 30 * 1000;
-  var AGGREGATION_WINDOW_MS = 60 * 1000;
+  // 使用者可調決策節奏設定（mirror of domain AlertDeliverySettings；
+  // preview 預設用 demo 縮時值：冷卻 30s / 聚合 60s，正式 domain 預設冷卻 300s）
+  var SETTINGS_KEY = 'tenki.alert.settings.v1';
+  var DEFAULT_SETTINGS = {
+    cooldownSec: 30,
+    aggregationSec: 60,
+    strainSilent: true,
+    sessionQuietUpdate: true,
+    quietWindow: false,
+  };
+
+  function loadSettings() {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch (e) { s = null; }
+    if (!s || typeof s !== 'object') return Object.assign({}, DEFAULT_SETTINGS);
+    return {
+      cooldownSec: (typeof s.cooldownSec === 'number' && s.cooldownSec >= 0) ? s.cooldownSec : DEFAULT_SETTINGS.cooldownSec,
+      aggregationSec: (typeof s.aggregationSec === 'number' && s.aggregationSec >= 0) ? s.aggregationSec : DEFAULT_SETTINGS.aggregationSec,
+      strainSilent: typeof s.strainSilent === 'boolean' ? s.strainSilent : DEFAULT_SETTINGS.strainSilent,
+      sessionQuietUpdate: typeof s.sessionQuietUpdate === 'boolean' ? s.sessionQuietUpdate : DEFAULT_SETTINGS.sessionQuietUpdate,
+      quietWindow: typeof s.quietWindow === 'boolean' ? s.quietWindow : DEFAULT_SETTINGS.quietWindow,
+    };
+  }
+
+  // Mirror of domain isWithinQuietWindowET（美東 11:00–14:00，DST-aware）
+  function isWithinQuietWindowET(nowMs) {
+    var formatted = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', hour: 'numeric', hour12: false,
+    }).format(new Date(nowMs));
+    var h = Number(formatted);
+    if (h === 24) h = 0;
+    return h >= 11 && h < 14;
+  }
 
   // Mirror of packages/engine/src/session/templates.ts TRADER_TEMPLATES
   var TEMPLATES = {
@@ -141,6 +171,7 @@
 
   var state = {
     zoneIdx: 1, // Neutral 起手
+    settings: loadSettings(),
     lastSurfacedAtBySymbol: {},
     sessionActive: false,
     activeSessionSymbol: null,
@@ -164,6 +195,8 @@
     'btnComplete', 'btnCancel', 'segTrack', 'segLabels', 'timerPhase', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveCopy', 'liveReset',
+    'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
+    'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ── 狀態卡 ──
@@ -240,14 +273,16 @@
   // ── Delivery policy（mirror of domain alert-policy 判定順序）──
   function evaluateDelivery(alert, nowMs) {
     if (state.sessionActive) {
-      if (state.activeSessionSymbol !== null && state.activeSessionSymbol === alert.symbol) {
+      if (state.settings.sessionQuietUpdate && state.activeSessionSymbol !== null && state.activeSessionSymbol === alert.symbol) {
         return { decision: 'session_update', reason: '同標的後續觸發' };
       }
       return { decision: 'silent', reason: '決策進行中' };
     }
-    if (currentZone().zone === 'strain') return { decision: 'silent', reason: 'Strain 狀態' };
+    if (state.settings.strainSilent && currentZone().zone === 'strain') {
+      return { decision: 'silent', reason: 'Strain 狀態' };
+    }
     var last = state.lastSurfacedAtBySymbol[alert.symbol];
-    if (last !== undefined && nowMs - last < COOLDOWN_MS) {
+    if (last !== undefined && nowMs - last < state.settings.cooldownSec * 1000) {
       return { decision: 'suppressed', reason: '同標的冷卻中' };
     }
     return { decision: 'surfaced', reason: '' };
@@ -288,9 +323,12 @@
     log('surfaced', alert.symbol + ' — 決策入口開啟');
 
     el.entryHead.textContent = alert.symbol + ' · ' + alert.condition + ' · ' + alert.timeframe;
+    var ctxParts = [];
     var modeCtx = marketModeContext(alert);
-    el.entryMode.textContent = modeCtx || '';
-    el.entryMode.classList.toggle('show', modeCtx !== null);
+    if (modeCtx) ctxParts.push(modeCtx);
+    if (state.settings.quietWindow && isWithinQuietWindowET(Date.now())) ctxParts.push('盤整迴避時段');
+    el.entryMode.textContent = ctxParts.join(' · ');
+    el.entryMode.classList.toggle('show', ctxParts.length > 0);
     el.entryNote.textContent = alert.note || '';
     var z = currentZone();
     el.entryStateLine.textContent = '你目前的狀態：' + z.label + '（Decision Edge Score ' + z.score + '）';
@@ -316,7 +354,7 @@
     });
 
     var spreadMs = alerts[alerts.length - 1].receivedAt - alerts[0].receivedAt;
-    if (alerts.length < 2 || spreadMs > AGGREGATION_WINDOW_MS) {
+    if (alerts.length < 2 || spreadMs > state.settings.aggregationSec * 1000) {
       alerts.forEach(ingest);
       return;
     }
@@ -812,6 +850,58 @@
     ingest(makeAlert('NVDA', 'Breakout', '5m', 'CANSLIM', '同標的重複觸發'));
   });
 
+  // ── 決策節奏設定面板 ──
+  function settingsIsDefault() {
+    var d = DEFAULT_SETTINGS, s = state.settings;
+    return s.cooldownSec === d.cooldownSec && s.aggregationSec === d.aggregationSec &&
+      s.strainSilent === d.strainSilent && s.sessionQuietUpdate === d.sessionQuietUpdate &&
+      s.quietWindow === d.quietWindow;
+  }
+  function updateSettingsStatus() {
+    el.setStatus.textContent = settingsIsDefault() ? '預設' : '已自訂';
+  }
+  function renderSettingsInputs() {
+    el.setCooldown.value = state.settings.cooldownSec;
+    el.setAggregation.value = state.settings.aggregationSec;
+    el.setStrainSilent.checked = state.settings.strainSilent;
+    el.setSessionQuiet.checked = state.settings.sessionQuietUpdate;
+    el.setQuietWindow.checked = state.settings.quietWindow;
+    updateSettingsStatus();
+  }
+  function persistSettings() {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+    updateSettingsStatus();
+  }
+  function readNumberInput(inputEl, fallback) {
+    var v = parseInt(inputEl.value, 10);
+    return (Number.isFinite(v) && v >= 0) ? v : fallback;
+  }
+
+  el.setCooldown.addEventListener('change', function () {
+    state.settings.cooldownSec = readNumberInput(el.setCooldown, DEFAULT_SETTINGS.cooldownSec);
+    el.setCooldown.value = state.settings.cooldownSec;
+    persistSettings();
+  });
+  el.setAggregation.addEventListener('change', function () {
+    state.settings.aggregationSec = readNumberInput(el.setAggregation, DEFAULT_SETTINGS.aggregationSec);
+    el.setAggregation.value = state.settings.aggregationSec;
+    persistSettings();
+  });
+  el.setStrainSilent.addEventListener('change', function () { state.settings.strainSilent = el.setStrainSilent.checked; persistSettings(); });
+  el.setSessionQuiet.addEventListener('change', function () { state.settings.sessionQuietUpdate = el.setSessionQuiet.checked; persistSettings(); });
+  el.setQuietWindow.addEventListener('change', function () { state.settings.quietWindow = el.setQuietWindow.checked; persistSettings(); });
+  el.setReset.addEventListener('click', function () {
+    state.settings = Object.assign({}, DEFAULT_SETTINGS);
+    persistSettings();
+    renderSettingsInputs();
+  });
+  el.setToggle.addEventListener('click', function () {
+    var hidden = el.setBody.hasAttribute('hidden');
+    if (hidden) { el.setBody.removeAttribute('hidden'); el.setChevron.textContent = '▴'; }
+    else { el.setBody.setAttribute('hidden', ''); el.setChevron.textContent = '▾'; }
+  });
+
+  renderSettingsInputs();
   renderState();
   refreshDiscipline();
 })();
