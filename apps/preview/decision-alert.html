@@ -227,7 +227,10 @@
       transition: transform 1s linear;
     }
     .seg-labels { display: flex; gap: 2px; margin-top: 4px; }
-    .seg-label { font-size: 9px; color: #64748B; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .seg-label { font-size: 9px; color: #64748B; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; transition: color .3s; }
+    .seg-label.active { color: #fff; font-weight: 600; }
+    .timer-phase { font-size: 11px; color: #94A3B8; margin-top: 6px; }
+    .timer-phase.readiness { color: var(--cyan-active); font-weight: 600; }
     .timer-update { font-size: 11px; color: #94A3B8; margin-top: 6px; display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .timer-update.show { display: block; }
   </style>
@@ -348,9 +351,10 @@
     </div>
     <div class="seg-track" id="segTrack"></div>
     <div class="seg-labels" id="segLabels"></div>
+    <div class="timer-phase" id="timerPhase"></div>
     <div class="timer-update" id="timerUpdate"></div>
   </div>
 
-  <script src="decision-alert.js?v=alert8"></script>
+  <script src="decision-alert.js?v=alert9"></script>
 </body>
 </html>

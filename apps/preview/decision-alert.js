@@ -161,7 +161,7 @@
     'resultSheet', 'resultHead', 'resultOutcome', 'resultSummary', 'resultRate',
     'resultReflect', 'btnResultSave',
     'timerBar', 'timerLabel', 'timerClock',
-    'btnComplete', 'btnCancel', 'segTrack', 'segLabels', 'timerUpdate',
+    'btnComplete', 'btnCancel', 'segTrack', 'segLabels', 'timerPhase', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveCopy', 'liveReset',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
@@ -464,7 +464,10 @@
 
     el.segTrack.textContent = '';
     el.segLabels.textContent = '';
+    el.timerPhase.textContent = '';
+    el.timerPhase.classList.remove('readiness');
     var fills = [];
+    var labelSpans = [];
     tpl.segments.forEach(function (segment) {
       var span = segment.endSec - segment.startSec;
       var seg = document.createElement('div');
@@ -483,6 +486,7 @@
       label.style.flexBasis = '0';
       label.textContent = segment.label;
       el.segLabels.appendChild(label);
+      labelSpans.push({ el: label, name: segment.label, startSec: segment.startSec, endSec: segment.endSec });
     });
 
     el.timerBar.classList.add('show');
@@ -498,7 +502,23 @@
       }
 
       var w = tpl.readinessWindow;
-      el.timerClock.classList.toggle('in-window', elapsed >= w.startSec && elapsed < w.endSec);
+      var inReadiness = elapsed >= w.startSec && elapsed < w.endSec;
+      el.timerClock.classList.toggle('in-window', inReadiness);
+
+      // 當前段落標籤高亮 + 事實脈絡行（Readiness 窗更明確）
+      var current = null;
+      labelSpans.forEach(function (ls) {
+        var active = elapsed >= ls.startSec && elapsed < ls.endSec;
+        ls.el.classList.toggle('active', active);
+        if (active) current = ls;
+      });
+      if (inReadiness) {
+        el.timerPhase.textContent = 'Readiness 窗開啟';
+        el.timerPhase.classList.add('readiness');
+      } else {
+        el.timerPhase.textContent = current ? '目前：' + current.name : '';
+        el.timerPhase.classList.remove('readiness');
+      }
 
       fills.forEach(function (f) {
         var span = f.endSec - f.startSec;
@@ -520,6 +540,8 @@
     state.session = null;
     el.timerBar.classList.remove('show');
     el.timerUpdate.classList.remove('show');
+    el.timerPhase.textContent = '';
+    el.timerPhase.classList.remove('readiness');
     log(type, detail);
     if (s) openResult(type, s);
   }

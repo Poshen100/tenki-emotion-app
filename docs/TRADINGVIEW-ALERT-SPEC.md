@@ -145,6 +145,7 @@ UI：三模板卡全列，建議者加 ⭐ 高亮；使用者永遠可自由選�
 
 - 點「進入決策」→ 走既有 Session Governance 流程（`packages/engine/src/session/`）：state machine `gated → active`，Edge Score 閘門 `evaluateGate` 照常適用（red_gate / force_hold 規則不因快訊來源而豁免）。
 - 浮動計時條自動帶入：symbol、建議模板、時間戳；segments 分色與 readiness window 來自 `TRADER_TEMPLATES` 資料。
+- **✅ Phase B（2026-07-19）**：計時條隨 elapsed **高亮當前段落標籤**；進入 readiness 窗 → 事實行「Readiness 窗開啟」（強調色，流程語言、非「可進場」建議），離開恢復「目前：<段落>」。early-complete（窗前收束）偵測見 §9。
 - **Session 進行中收到新快訊 → 一律靜默接收**（沿用舊 spec「僅觸發，不顯示」的正確直覺）：決策過程不被下一個訊號打斷。
 - 未點擊前的最小呈現：底部 bar 顯示 `[ NVDA 快訊 ● ]`；點擊後轉為 `[ CANSLIM ▾  00:00 ● ]`。
 
