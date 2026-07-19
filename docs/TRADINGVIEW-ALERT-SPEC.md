@@ -122,6 +122,7 @@ RS High + Volume Spike
 ```
 
 - 狀態行只呈現事實（zone + 分數 + 流程統計），**不給行動建議**（無「適合/不適合進場」措辭）。
+- 「你過去的紀律完成率」原為 `—（資料累積中）`，**Phase A 起有值**：由決策收束頁累積的 `localStorage` 歷史算出（見 §9 Result 階段）。
 - 統計框架一律流程語言：「紀律完成率」「完成/中斷比」。**禁止**勝率、獲利等結果語言（中文禁用詞已入 compliance 詞庫，見 §10）。
 - 「略過」記為 `dismissed`，同樣入紀錄（Ignore 也是資料）。
 
@@ -157,6 +158,14 @@ UI：三模板卡全列，建議者加 ⭐ 高亮；使用者永遠可自由選�
   `received → surfaced → engaged(originAlertId) → session events(mark/close/…) → outcomeTag`。
 
 這條鏈餵給：狀態歷史統計（紀律完成率）、模板優化、行為分析 — 全部 local-first，僅衍生統計，不含 raw biometric。
+
+**✅ Result 階段已落地（Phase A，2026-07-19）**：計時器結束（close/cancel/timeout）→ **決策收束頁**。
+- outcome tag 用 engine process-neutral `OutcomeTag`（`domain/src/policies/decision-outcome.ts` `resolveOutcomeTag`）：
+  close+已達 readiness → `stayed_disciplined`；close 但 readiness 窗前 → `broke_discipline`（提前收束）；
+  cancel → `broke_discipline`；timeout → `timed_out`。
+- 反思微輸入：三選 chip（跟計畫／有點急／偏離計畫）→ `contextTag`，流程語言、**禁 PnL/勝率**。
+- 紀律完成率 `summarizeDisciplineRate`＝（`stayed_disciplined`＋`timed_out`）÷ 已收束數，local-first 存 `localStorage`（`tenki.alert.outcomes.v1`）。
+- 背景關閉仍記錄（不漏資料，呼應 §6「Ignore 也是資料」）。preview `?v=alert8`；Playwright `shoot-result.mjs` 13 斷言。
 
 ## 10. Compliance（紅線）
 
