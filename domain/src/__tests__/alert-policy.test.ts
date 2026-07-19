@@ -1,11 +1,14 @@
 import { buildAlertContract } from '../contracts/alert-contract';
 import type { AlertContract } from '../contracts/alert-contract';
 import {
+  ALERT_AGGREGATION_WINDOW_SEC,
   ALERT_COOLDOWN_SEC,
   ALERT_DAILY_SURFACE_CAP,
+  createDefaultAlertSettings,
   createEmptyAlertThrottleState,
   evaluateAlertDelivery,
   groupSimultaneousAlerts,
+  isWithinQuietWindowET,
   recordAlertSurfaced,
   resolveAlertDayKey,
 } from '../policies/alert-policy';
@@ -143,6 +146,53 @@ describe('evaluateAlertDelivery', () => {
     });
   });
 
+  describe('user-adjustable settings', () => {
+    it('uses a custom cooldown boundary', () => {
+      const settings = { ...createDefaultAlertSettings(), cooldownSec: 60 };
+      const surfaced = recordAlertSurfaced(createEmptyAlertThrottleState(NOON_UTC), 'NVDA', NOON_UTC);
+      const at59 = evaluateAlertDelivery(
+        createInput({ settings, throttleState: surfaced, nowMs: NOON_UTC + 59_000 }),
+      );
+      const at60 = evaluateAlertDelivery(
+        createInput({ settings, throttleState: surfaced, nowMs: NOON_UTC + 60_000 }),
+      );
+      expect(at59.decision).toBe('suppressed_cooldown');
+      expect(at60.decision).toBe('surfaced');
+    });
+
+    it('uses a custom daily cap', () => {
+      const settings = { ...createDefaultAlertSettings(), dailySurfaceCap: 2 };
+      const capped: AlertThrottleState = {
+        lastSurfacedAtMsBySymbol: {},
+        surfacedTodayCount: 2,
+        dayKey: resolveAlertDayKey(NOON_UTC),
+      };
+      expect(evaluateAlertDelivery(createInput({ settings, throttleState: capped })).decision).toBe(
+        'silent_received',
+      );
+    });
+
+    it('lets a user turn off strain silencing so strain surfaces', () => {
+      const settings = { ...createDefaultAlertSettings(), strainSilent: false };
+      expect(evaluateAlertDelivery(createInput({ settings, zone: 'strain' })).decision).toBe(
+        'surfaced',
+      );
+    });
+
+    it('lets a user turn off same-symbol quiet updates (falls back to silent)', () => {
+      const settings = { ...createDefaultAlertSettings(), sessionQuietUpdate: false };
+      const result = evaluateAlertDelivery(
+        createInput({
+          settings,
+          alert: createAlert({ symbol: 'ES1!' }),
+          sessionActive: true,
+          activeSessionSymbol: 'ES1!',
+        }),
+      );
+      expect(result.decision).toBe('silent_received');
+    });
+  });
+
   describe('daily surface cap', () => {
     it('receives silently once the cap is reached', () => {
       const capped: AlertThrottleState = {
@@ -219,5 +269,35 @@ describe('groupSimultaneousAlerts', () => {
 
   it('returns no groups for no alerts', () => {
     expect(groupSimultaneousAlerts([])).toEqual([]);
+  });
+});
+
+describe('createDefaultAlertSettings', () => {
+  it('mirrors the canonical constants and protective defaults', () => {
+    expect(createDefaultAlertSettings()).toEqual({
+      cooldownSec: ALERT_COOLDOWN_SEC,
+      dailySurfaceCap: ALERT_DAILY_SURFACE_CAP,
+      aggregationWindowSec: ALERT_AGGREGATION_WINDOW_SEC,
+      strainSilent: true,
+      sessionQuietUpdate: true,
+    });
+  });
+});
+
+describe('isWithinQuietWindowET', () => {
+  it('is true at 12:00 ET in summer (EDT, UTC-4)', () => {
+    expect(isWithinQuietWindowET(Date.UTC(2026, 6, 15, 16, 0, 0))).toBe(true);
+  });
+
+  it('is true at 12:00 ET in winter (EST, UTC-5) — DST-aware', () => {
+    expect(isWithinQuietWindowET(Date.UTC(2026, 0, 15, 17, 0, 0))).toBe(true);
+  });
+
+  it('is false before the window (06:00 ET)', () => {
+    expect(isWithinQuietWindowET(Date.UTC(2026, 6, 15, 10, 0, 0))).toBe(false);
+  });
+
+  it('is false at the exclusive end (14:00 ET)', () => {
+    expect(isWithinQuietWindowET(Date.UTC(2026, 6, 15, 18, 0, 0))).toBe(false);
   });
 });

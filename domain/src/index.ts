@@ -65,9 +65,15 @@ export {
   ALERT_AGGREGATION_WINDOW_SEC,
   ALERT_COOLDOWN_SEC,
   ALERT_DAILY_SURFACE_CAP,
+  QUIET_WINDOW_CONTEXT_ZH,
+  QUIET_WINDOW_END_HOUR,
+  QUIET_WINDOW_START_HOUR,
+  QUIET_WINDOW_TZ,
+  createDefaultAlertSettings,
   createEmptyAlertThrottleState,
   evaluateAlertDelivery,
   groupSimultaneousAlerts,
+  isWithinQuietWindowET,
   recordAlertSurfaced,
   resolveAlertDayKey,
 } from './policies/alert-policy';
@@ -75,6 +81,7 @@ export {
 export type {
   AlertDeliveryEvaluation,
   AlertDeliveryInput,
+  AlertDeliverySettings,
   AlertThrottleState,
 } from './policies/alert-policy';
 
