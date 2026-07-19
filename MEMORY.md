@@ -9,6 +9,24 @@
 
 ---
 
+# 2026-07-19 Session Update #32 (決策節奏設定面板 — 使用者可調 · Phase C)
+
+> 四階段規劃續作。冷卻/上限/聚合/偏好從寫死常數 → 使用者可調+持久。
+
+## 做了什麼
+- **domain**：`AlertDeliverySettings` + `createDefaultAlertSettings`（＝現值，向後相容）；`evaluateAlertDelivery` 收 optional settings（cooldownSec/dailySurfaceCap/strainSilent/sessionQuietUpdate）。`isWithinQuietWindowET`（美東 ET，DST-aware，用 Intl）+ `QUIET_WINDOW_CONTEXT_ZH`「盤整迴避時段」。Jest 29（+9）。
+- **preview（`?v=alert10`）**：可收合「決策節奏設定」面板 — 同標的冷卻/聚合窗（秒）、Strain 靜默、同標的安靜更新、盤整迴避時段（美東 11–14）開關；localStorage `tenki.alert.settings.v1` 持久；evaluateDelivery 鏡像讀。quiet window 開且在 ET 窗內 → 面板加「盤整迴避時段」事實行（與 Mode 脈絡同一行 join）。
+- Playwright `shoot-settings.mjs` 19 斷言（冷卻影響抑制、strain 靜默開關、quiet 提示、持久化、reset）；A/B/wiring 回歸全綠。
+
+## 教訓
+- preview 冷卻預設仍 30s（demo 縮時），domain 預設 300s — 兩者刻意不同；設定面板預設走 preview demo 值。
+- Playwright `page.clock.install({ time })` 可把時鐘釘在特定 ET 時刻 → quiet-window 這種 time-of-day 行為才能 deterministic 測。
+
+## 下次接手點（四階段剩 D）
+- Phase D：setup 頁內引導（可複製 URL/範本）+ 快訊 inbox（拉 /api/alerts 歷史）+ 連線健康度。
+
+---
+
 # 2026-07-19 Session Update #31 (計時器優化 · Phase B)
 
 > 四階段規劃續作。Phase B 純 preview 呈現（early-complete 偵測已在 A 接好）。
