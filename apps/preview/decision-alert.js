@@ -88,6 +88,50 @@
     return mode ? MARKET_MODE_CONTEXT_ZH[mode] : null;
   }
 
+  // Mirror of domain decision-outcome（流程語言，非勝負；禁 PnL/勝率）
+  var OUTCOME_STORE_KEY = 'tenki.alert.outcomes.v1';
+  var REFLECT_TAGS = ['跟計畫', '有點急', '偏離計畫'];
+
+  function resolveOutcomeTag(endType, reachedReadiness) {
+    if (endType === 'timeout') return 'timed_out';
+    if (endType === 'cancel') return 'broke_discipline';
+    return reachedReadiness ? 'stayed_disciplined' : 'broke_discipline';
+  }
+
+  function isDisciplined(tag) {
+    return tag === 'stayed_disciplined' || tag === 'timed_out';
+  }
+
+  // 收束頁顯示文字：由 endType + 是否進入 readiness 窗決定（比 tag 更細）
+  function outcomeDisplay(endType, reachedReadiness) {
+    if (endType === 'timeout') return { text: '完整走完', cls: 'disciplined' };
+    if (endType === 'cancel') return { text: '中途退出', cls: 'broke' };
+    if (reachedReadiness) return { text: '跟著流程完成', cls: 'disciplined' };
+    return { text: '提前收束（Readiness 窗前）', cls: 'broke' };
+  }
+
+  function loadOutcomes() {
+    try { return JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY)) || []; } catch (e) { return []; }
+  }
+
+  function saveOutcome(record) {
+    var all = loadOutcomes();
+    all.push(record);
+    if (all.length > 200) all = all.slice(all.length - 200);
+    localStorage.setItem(OUTCOME_STORE_KEY, JSON.stringify(all));
+  }
+
+  function rateText(records) {
+    if (records.length === 0) return '紀律完成率：—（資料累積中）';
+    var d = 0;
+    records.forEach(function (r) { if (isDisciplined(r.outcomeTag)) d += 1; });
+    return '紀律完成率：' + Math.round((d / records.length) * 100) + '%（' + d + '/' + records.length + '）';
+  }
+
+  function refreshDiscipline() {
+    if (el.entryDiscipline) el.entryDiscipline.textContent = '你過去的' + rateText(loadOutcomes());
+  }
+
   // ── 示意狀態（點擊循環；合成值，非真實讀數）──
   var ZONE_STATES = [
     { zone: 'clear', label: 'Clear', score: 78, cssVar: '--zone-clear' },
@@ -100,6 +144,8 @@
     lastSurfacedAtBySymbol: {},
     sessionActive: false,
     activeSessionSymbol: null,
+    session: null,
+    pendingOutcome: null,
     pendingAlert: null,
     pendingGroup: null,
     alertSeq: 0,
@@ -110,8 +156,11 @@
   [
     'stateCard', 'stateDot', 'stateLine', 'btnSingle', 'btnMulti', 'btnRepeat',
     'silentArea', 'logList', 'backdrop', 'entrySheet', 'entryHead', 'entryMode',
-    'entryNote', 'entryStateLine', 'btnDismiss', 'btnEngage', 'tplSheet', 'tplList',
-    'aggSheet', 'aggHead', 'aggList', 'timerBar', 'timerLabel', 'timerClock',
+    'entryNote', 'entryStateLine', 'entryDiscipline', 'btnDismiss', 'btnEngage',
+    'tplSheet', 'tplList', 'aggSheet', 'aggHead', 'aggList',
+    'resultSheet', 'resultHead', 'resultOutcome', 'resultSummary', 'resultRate',
+    'resultReflect', 'btnResultSave',
+    'timerBar', 'timerLabel', 'timerClock',
     'btnComplete', 'btnCancel', 'segTrack', 'segLabels', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveCopy', 'liveReset',
@@ -245,11 +294,13 @@
     el.entryNote.textContent = alert.note || '';
     var z = currentZone();
     el.entryStateLine.textContent = '你目前的狀態：' + z.label + '（Decision Edge Score ' + z.score + '）';
+    refreshDiscipline();
     openSheet(el.entrySheet);
   }
 
   // ── session 中同標的：計時條下浮一行事實更新，不彈新面板 ──
   function sessionQuietUpdate(alert) {
+    if (state.session) state.session.sameSymbolUpdates += 1;
     var parts = [alert.symbol];
     if (alert.condition) parts.push(alert.condition);
     if (alert.note) parts.push(alert.note);
@@ -312,11 +363,12 @@
 
   function closeSheets() {
     el.backdrop.classList.remove('show');
-    [el.entrySheet, el.tplSheet, el.aggSheet].forEach(function (s) { s.classList.remove('show'); });
+    [el.entrySheet, el.tplSheet, el.aggSheet, el.resultSheet].forEach(function (s) { s.classList.remove('show'); });
     sheets = [];
   }
 
   el.backdrop.addEventListener('click', function () {
+    if (state.pendingOutcome) finalizeResult(); // 收束頁點背景 = 仍記錄
     if (state.pendingAlert) {
       log('dismissed', state.pendingAlert.symbol);
       state.pendingAlert = null;
@@ -393,6 +445,16 @@
     state.pendingAlert = null;
     state.sessionActive = true;
     state.activeSessionSymbol = alert.symbol;
+    state.session = {
+      symbol: alert.symbol,
+      templateId: tpl.id,
+      tplName: tpl.nameZh,
+      durationSec: tpl.durationSec,
+      readinessStartSec: tpl.readinessWindow.startSec,
+      reachedReadiness: false,
+      sameSymbolUpdates: 0,
+      elapsedSec: 0,
+    };
     el.timerUpdate.textContent = '';
     el.timerUpdate.classList.remove('show');
 
@@ -430,6 +492,10 @@
     state.timer = setInterval(function () {
       elapsed += 1;
       el.timerClock.textContent = formatClock(elapsed);
+      if (state.session) {
+        state.session.elapsedSec = elapsed;
+        if (elapsed >= state.session.readinessStartSec) state.session.reachedReadiness = true;
+      }
 
       var w = tpl.readinessWindow;
       el.timerClock.classList.toggle('in-window', elapsed >= w.startSec && elapsed < w.endSec);
@@ -448,12 +514,73 @@
 
   function endSession(type, detail) {
     if (state.timer) { clearInterval(state.timer); state.timer = null; }
+    var s = state.session;
     state.sessionActive = false;
     state.activeSessionSymbol = null;
+    state.session = null;
     el.timerBar.classList.remove('show');
     el.timerUpdate.classList.remove('show');
     log(type, detail);
+    if (s) openResult(type, s);
   }
+
+  // ── 決策收束頁（計時器結束後，事件鏈的 Result 階段）──
+  function openResult(endType, s) {
+    var disp = outcomeDisplay(endType, s.reachedReadiness);
+    state.pendingOutcome = {
+      symbol: s.symbol,
+      templateId: s.templateId,
+      outcomeTag: resolveOutcomeTag(endType, s.reachedReadiness),
+      contextTag: null,
+      reachedReadiness: s.reachedReadiness,
+      durationSec: s.elapsedSec,
+      ts: Date.now(),
+    };
+
+    el.resultHead.textContent = s.symbol + ' · ' + s.tplName + ' · 用時 ' +
+      formatClock(s.elapsedSec) + ' / ' + formatClock(s.durationSec);
+    el.resultOutcome.textContent = disp.text;
+    el.resultOutcome.className = 'result-outcome ' + disp.cls;
+    el.resultSummary.textContent = 'Readiness 窗：' + (s.reachedReadiness ? '已進入' : '未進入') +
+      '　·　同標的更新：' + s.sameSymbolUpdates + ' 次';
+    // 顯示「含本次」的累計完成率
+    el.resultRate.textContent = rateText(loadOutcomes().concat([state.pendingOutcome]));
+
+    el.resultReflect.textContent = '';
+    REFLECT_TAGS.forEach(function (tag) {
+      var chip = document.createElement('button');
+      chip.className = 'result-chip';
+      chip.type = 'button';
+      chip.textContent = tag;
+      chip.addEventListener('click', function () {
+        var picked = state.pendingOutcome && state.pendingOutcome.contextTag === tag;
+        Array.prototype.forEach.call(el.resultReflect.children, function (c) { c.classList.remove('sel'); });
+        if (!picked) {
+          chip.classList.add('sel');
+          if (state.pendingOutcome) state.pendingOutcome.contextTag = tag;
+        } else if (state.pendingOutcome) {
+          state.pendingOutcome.contextTag = null;
+        }
+      });
+      el.resultReflect.appendChild(chip);
+    });
+
+    openSheet(el.resultSheet);
+  }
+
+  // 收束頁離開（存檔或關閉皆持久化，避免漏記）
+  function finalizeResult() {
+    if (!state.pendingOutcome) return;
+    saveOutcome(state.pendingOutcome);
+    refreshDiscipline();
+    log('mark', state.pendingOutcome.symbol + ' — 決策已收束並記錄');
+    state.pendingOutcome = null;
+  }
+
+  el.btnResultSave.addEventListener('click', function () {
+    finalizeResult();
+    closeSheets();
+  });
 
   el.btnComplete.addEventListener('click', function () {
     endSession('close', el.timerLabel.textContent + ' — 流程完成');
@@ -664,4 +791,5 @@
   });
 
   renderState();
+  refreshDiscipline();
 })();
