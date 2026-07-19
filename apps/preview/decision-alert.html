@@ -156,6 +156,18 @@
       font-size: 13px; line-height: 1.5;
     }
     .alert-state .stat-sub { color: #64748B; font-size: 12px; }
+    .result-outcome { font-size: 14px; font-weight: 600; margin-top: 6px; }
+    .result-outcome.disciplined { color: var(--zone-clear); }
+    .result-outcome.broke { color: var(--zone-strain); }
+    .result-outcome.neutral { color: #94A3B8; }
+    .result-reflect-q { margin-top: 14px; font-size: 13px; color: #CBD5E1; }
+    .result-reflect { display: flex; gap: 8px; margin-top: 8px; }
+    .result-chip {
+      flex: 1; padding: 9px 6px; border-radius: 10px; font-size: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: #CBD5E1; cursor: pointer; text-align: center;
+    }
+    .result-chip.sel { border-color: var(--zone-neutral); color: #fff; background: rgba(148,163,184,0.12); }
     .alert-q { margin-top: 14px; font-size: 14px; font-weight: 600; }
     .sheet-actions { display: flex; gap: 10px; margin-top: 12px; }
     .btn {
@@ -287,7 +299,7 @@
     <div class="alert-note" id="entryNote"></div>
     <div class="alert-state">
       <div id="entryStateLine"></div>
-      <div class="stat-sub">在此狀態下，你過去的紀律完成率：—（資料累積中）</div>
+      <div class="stat-sub" id="entryDiscipline">在此狀態下，你過去的紀律完成率：—（資料累積中）</div>
     </div>
     <div class="alert-q">你要進入決策流程嗎？</div>
     <div class="sheet-actions">
@@ -310,6 +322,22 @@
     <div id="aggList"></div>
   </div>
 
+  <!-- 決策收束頁（計時器結束後） -->
+  <div class="sheet" id="resultSheet">
+    <div class="sheet-handle"></div>
+    <div class="alert-head" id="resultHead"></div>
+    <div class="result-outcome" id="resultOutcome"></div>
+    <div class="alert-state">
+      <div id="resultSummary"></div>
+      <div class="stat-sub" id="resultRate"></div>
+    </div>
+    <div class="result-reflect-q">這次的決策過程，你給自己：</div>
+    <div class="result-reflect" id="resultReflect"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-primary" id="btnResultSave" type="button">記錄並關閉</button>
+    </div>
+  </div>
+
   <!-- 浮動決策計時條 -->
   <div class="timer-bar" id="timerBar">
     <div class="timer-row">
@@ -323,6 +351,6 @@
     <div class="timer-update" id="timerUpdate"></div>
   </div>
 
-  <script src="decision-alert.js?v=alert7"></script>
+  <script src="decision-alert.js?v=alert8"></script>
 </body>
 </html>

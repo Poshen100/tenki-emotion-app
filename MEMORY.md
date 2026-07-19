@@ -9,6 +9,30 @@
 
 ---
 
+# 2026-07-19 Session Update #30 (決策收束頁 — 補上決策迴圈斷掉的尾端 · Phase A)
+
+> Founder：「完整思考延伸優化結果頁、決策計時器、快訊完整功能」。深度盤點 → 四階段規劃（plan 檔），本次交付 **Phase A 決策收束頁**。
+
+## 關鍵發現
+- 決策迴圈**尾端是斷的**：計時器結束只 log 一行，無結果頁、outcome 未捕捉，連 Entry Panel「紀律完成率：—」永遠空。
+- engine **早已定義** canonical 模型沒接上：`packages/engine/src/session/types.ts` 的 `OutcomeTag`（流程語言）+ `ReflectionRecord`。收束頁直接複用，不自創。
+
+## 做了什麼（Phase A）
+- `domain/src/policies/decision-outcome.ts`：`resolveOutcomeTag(endType,reachedReadiness)`（timeout→timed_out；cancel→broke；close+readiness→stayed_disciplined；close 窗前→broke）+ `summarizeDisciplineRate`（disciplined＝stayed+timed_out ÷ 全部）。Jest 9。
+- preview 決策收束頁（`?v=alert8`）：outcome 顯示、Readiness 是否進入、同標的更新次數、反思三選 chip、紀律完成率回填 Entry Panel、early-complete 偵測、背景關閉仍記錄。localStorage `tenki.alert.outcomes.v1`。
+- Playwright `shoot-result.mjs` 13 斷言（三 outcome 分支 + 反思存檔 + 持久化 + 完成率累計 33%）。
+
+## 教訓
+- **Playwright 時間控制**：`page.clock.fastForward` 每個 timer 只觸發**一次**（跳躍）；要逐 tick 推進 setInterval（計時器 elapsed）得用 **`page.clock.runFor(ms)`**。冷卻清除等「只需 Date.now 前進」才用 fastForward。
+- domain 不依賴 engine → `OutcomeTag` union 在 domain 本地鏡射並註明 source of truth，勿跨 package import。
+
+## 下次接手點（四階段規劃剩餘，plan 檔有全文）
+- Phase B 計時器優化（當前段落標籤、readiness 窗更明確、early-complete 已在 A 接好）。
+- Phase C 設定調整面板（冷卻/上限/quiet window ET/偏好，使用者可調+持久；domain 常數改可注入 `AlertDeliverySettings`）。
+- Phase D setup 頁內引導 + 快訊 inbox + 連線健康度。
+
+---
+
 # 2026-07-18 Session Update #29 (§10 接線候選：Mode 標籤 + session 同標的安靜更新)
 
 > 主線收尾後 founder：「不需 Mac 就實作」六接線候選。先問清楚（AskUserQuestion）再動：**低風險先上**。

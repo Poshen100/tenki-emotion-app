@@ -88,6 +88,20 @@ export {
 export type { DomainMarketMode } from './policies/market-mode';
 
 export {
+  isDisciplinedOutcome,
+  resolveOutcomeTag,
+  summarizeDisciplineRate,
+} from './policies/decision-outcome';
+
+export type {
+  DecisionEndInput,
+  DecisionEndType,
+  DecisionOutcomeRecord,
+  DecisionOutcomeTag,
+  DisciplineSummary,
+} from './policies/decision-outcome';
+
+export {
   ALERT_PAYLOAD_MAX_STRING_LENGTH,
   DOMAIN_ALERT_DELIVERY_DECISIONS,
   DOMAIN_ALERT_LIFECYCLE_STATES,
