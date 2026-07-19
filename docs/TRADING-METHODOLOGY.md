@@ -253,6 +253,6 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
 1. ✅ **Mode 標籤進快訊**（2026-07-18 完成）：alert `condition`/`note` 帶 `Mode 1`/`Mode 2` → Entry Panel 脈絡行（事實陳述，非建議）。`domain/src/policies/market-mode.ts` + preview `?v=alert7`。
 2. ⏳ **Mode-aware 模板提示**：Mode 1 日對 FBD 類快訊降權提示（本檔 §5 整合表的機器化）。
 3. ⏳ **行為統計分層**：事件鏈統計依 Mode 分組（「Mode 2 日的紀律完成率」），仍走流程統計語言（勝率語言已禁）。
-4. ⏳ **時段感知（quiet window）**：§6.1 迴避時段（11:00–14:00 盤整帶）→ 快訊 delivery policy 的靜默時窗；engine `edge-detector.ts` 已有 quiet-hours 抑制模式可仿。**決策已拍板（2026-07-18）：時區 = 美東 ET（America/New_York，Adam Mancini ES 盤）；呈現 = 軟性事實提示（面板仍浮出、加一行「盤整迴避時段」脈絡，不硬靜音）。**
+4. ✅ **時段感知（quiet window）**（2026-07-19 完成）：§6.1 迴避時段（11:00–14:00 盤整帶）→ **軟性事實提示**。`domain/src/policies/alert-policy.ts` `isWithinQuietWindowET`（美東 ET，DST-aware）+ `QUIET_WINDOW_CONTEXT_ZH`「盤整迴避時段」；preview 設定面板開關（`?v=alert10`）。面板仍浮出、加一行脈絡，不硬靜音。
 5. ⏳ **節奏熔斷**：§6.1 贏停/雙輸熔斷 → 以當日事件鏈（close/cancel 計數）驅動「今天到此為止」的溫和提示。**決策已拍板（2026-07-18）：呈現 = 軟性事實提示（呈現事實不下指令；勝負須映射到 session close/cancel，語言照 compliance 前提，動工前再對齊語意）。**
 6. ✅ **session 中同標的安靜更新**（2026-07-18 完成，源自 7553/7547 實戰）：active session 中同標的後續觸發 → 計時條下浮一行事實更新、不彈新面板；異標的維持 silent。`domain/src/policies/alert-policy.ts` 的 `session_quiet_update` 決策 + preview 鏡像。

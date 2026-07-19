@@ -79,6 +79,10 @@
     }
     .live-body { padding: 0 14px 12px; }
     .live-hint { font-size: 11px; color: #64748B; line-height: 1.5; margin-bottom: 8px; }
+    .set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: #CBD5E1; padding: 7px 0; }
+    .set-row input[type="number"] { width: 72px; text-align: right; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #E5E7EB; font-family: inherit; font-size: 12px; padding: 5px 8px; }
+    .set-row.set-check { cursor: pointer; }
+    .set-row.set-check input { width: 16px; height: 16px; flex: none; accent-color: var(--cyan-active); }
     .live-row { display: flex; gap: 8px; }
     .live-generate { width: 100%; padding: 11px 0; font-size: 13px; }
     .live-url {
@@ -282,6 +286,25 @@
       </div>
     </div>
 
+    <div class="live-card">
+      <button class="live-toggle" id="setToggle" type="button">
+        <span class="live-title">決策節奏設定</span>
+        <span class="live-status" id="setStatus">預設</span>
+        <span class="live-chevron" id="setChevron">▾</span>
+      </button>
+      <div class="live-body" id="setBody" hidden>
+        <div class="live-hint">調整你自己的決策節奏 — 存在此瀏覽器，隨時可改。</div>
+        <label class="set-row">同標的冷卻（秒）<input type="number" id="setCooldown" min="0" step="5" inputmode="numeric" /></label>
+        <label class="set-row">聚合窗（秒）<input type="number" id="setAggregation" min="0" step="5" inputmode="numeric" /></label>
+        <label class="set-row set-check"><span>Strain 狀態靜默接收</span><input type="checkbox" id="setStrainSilent" /></label>
+        <label class="set-row set-check"><span>決策中同標的安靜更新</span><input type="checkbox" id="setSessionQuiet" /></label>
+        <label class="set-row set-check"><span>盤整迴避時段提示（美東 11–14）</span><input type="checkbox" id="setQuietWindow" /></label>
+        <div class="live-row">
+          <button class="btn btn-ghost" id="setReset" type="button">回到預設</button>
+        </div>
+      </div>
+    </div>
+
     <div class="silent-area" id="silentArea"></div>
 
     <div class="log-panel">
@@ -355,6 +378,6 @@
     <div class="timer-update" id="timerUpdate"></div>
   </div>
 
-  <script src="decision-alert.js?v=alert9"></script>
+  <script src="decision-alert.js?v=alert10"></script>
 </body>
 </html>
