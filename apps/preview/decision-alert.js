@@ -369,9 +369,14 @@
     }
 
     state.pendingGroup = alerts;
-    var symbols = alerts.map(function (a) { return a.symbol; }).join(' / ');
-    log('aggregated', alerts.length + ' 個訊號：' + symbols);
-    el.aggHead.textContent = alerts.length + ' 個決策機會：' + symbols;
+    var symbolList = alerts.map(function (a) { return a.symbol; });
+    var uniqSymbols = symbolList.filter(function (s, i) { return symbolList.indexOf(s) === i; });
+    // 同一標的多個價位 → 「ES1! · N 個價位」；多檔 → 逐檔列
+    var headText = uniqSymbols.length === 1
+      ? uniqSymbols[0] + ' · ' + alerts.length + ' 個價位同時觸發'
+      : alerts.length + ' 個決策機會：' + symbolList.join(' / ');
+    log('aggregated', alerts.length + ' 個訊號：' + symbolList.join(' / '));
+    el.aggHead.textContent = headText;
     el.aggList.textContent = '';
     alerts.forEach(function (alert) {
       var btn = document.createElement('button');
@@ -833,21 +838,24 @@
   renderLive();
 
   // ── 模擬按鈕 ──
+  // ES1! 單一標的 · Mancini 假跌破（FBD）— 對齊 founder 實際交易型態（示意值）
   el.btnSingle.addEventListener('click', function () {
-    ingest(makeAlert('NVDA', 'Breakout', '5m', 'CANSLIM', 'RS High + Volume Spike'));
+    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '關鍵價位掃低後收回（示意）'));
   });
 
+  // 同一檔快速下殺，一波內連踩兩個關鍵價位 → 60s 窗聚合（不是多檔同時）
   el.btnMulti.addEventListener('click', function () {
     var now = Date.now();
-    var a = makeAlert('NVDA', 'Breakout', '5m', 'CANSLIM', 'RS High + Volume Spike');
-    var b = makeAlert('TSLA', 'Reclaim', '15m', 'Mancini FBD', 'Level reclaim');
+    var a = makeAlert('ES1!', '掃下緣', '1m', 'Mancini', '快速下殺掃到下緣（示意）');
+    var b = makeAlert('ES1!', '續破下一級', '1m', 'Mancini', '同一波再破下一個關鍵價位（示意）');
     a.receivedAt = now;
-    b.receivedAt = now + 5000; // 模擬 5 秒內先後到達
+    b.receivedAt = now + 3000; // 同一波 3 秒內連踩兩級
     ingestGroup([a, b]);
   });
 
+  // 同一價位 K 棒內反覆穿越 → 冷卻抑制（不轟炸）
   el.btnRepeat.addEventListener('click', function () {
-    ingest(makeAlert('NVDA', 'Breakout', '5m', 'CANSLIM', '同標的重複觸發'));
+    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '同一價位 K 棒內反覆穿越（示意）'));
   });
 
   // ── 決策節奏設定面板 ──
