@@ -9,6 +9,30 @@
 
 ---
 
+# 2026-07-19 Session Update #33 (demo 對齊 ES/Mancini — 修 NVDA 成長股框架不符)
+
+> Founder 實機截圖:「我目前是 ES,不是 NVDA;也不是雙快訊(NVDA+TSLA)」。demo 三顆按鈕用成長股框架,與 founder 單一標的關卡交易不符。
+
+## 交易型態差異（重新設計依據）
+- 成長股(NVDA/CANSLIM):多檔、Breakout 突破買。
+- founder(ES1!/Mancini):**單一標的、關鍵價位 → 假跌破 FBD**（掃低收回）。單檔沒有「多檔同時」;真正的叢集是**同一檔多個價位**（快速 flush 連踩兩級）。
+
+## 做了什麼（preview `?v=alert11`）
+- 單一快訊 → `ES1! · 假跌破 FBD · 1m · Mancini`（建議模板 = Mancini 假跌破流程 FBD ⭐）。
+- 「雙快訊 NVDA+TSLA」→「連續價位」＝同一檔 ES1! 一波連踩兩級（60s 聚合）。
+- 「同標的再觸發」→「同一價位再觸發」＝ K 棒內反覆穿越 → 冷卻。
+- 聚合卡同標的顯示「ES1! · N 個價位同時觸發」（不再 `ES1! / ES1!` 冗餘）。
+- Playwright `shoot-es-demo.mjs`（7 斷言）+ timer(改 FBD 段落 Ground/Execute/Confirm)/result/settings/wiring 全綠。
+
+## 教訓
+- **付費計劃內容不入 repo**:demo 用**合成示意價位/描述**（假跌破/掃下緣/續破），不寫 founder 實際 plan 的 7473/7408 等 Mancini 付費數字。
+- 改 btnSingle 的 strategy（CANSLIM→Mancini）會連動建議模板（FBD 段落/時長不同）→ 相關 Playwright 段落斷言要同步改。
+
+## 下次接手點
+- 四階段規劃 Phase D（setup 頁內引導 + 快訊 inbox + 連線健康度）仍未做。
+
+---
+
 # 2026-07-19 Session Update #32 (決策節奏設定面板 — 使用者可調 · Phase C)
 
 > 四階段規劃續作。冷卻/上限/聚合/偏好從寫死常數 → 使用者可調+持久。
