@@ -27,6 +27,18 @@ export const ALERTS_TTL_SEC = 86_400;
 /** Channel TTL in seconds (30 days, sliding — refreshed on poll). */
 export const CHANNEL_TTL_SEC = 2_592_000;
 
+/** Prefix for per-channel Web Push subscription lists. */
+export const PUSH_KEY_PREFIX = 'tenki:push:v1:';
+
+/** Maximum retained push subscriptions per channel (a channel is one user's devices). */
+export const PUSH_SUBS_MAX = 5;
+
+/** A stored Web Push subscription (the browser's PushSubscription JSON shape). */
+export interface StoredPushSubscription {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
 interface UpstashConfig {
   url: string;
   token: string;
@@ -155,4 +167,85 @@ export async function listAlerts(
     }
   }
   return alerts;
+}
+
+/**
+ * Lists a channel's stored Web Push subscriptions (malformed entries skipped).
+ *
+ * @param config - Upstash credentials.
+ * @param channelId - Registered channel ID.
+ * @returns Parsed subscriptions.
+ */
+export async function listPushSubscriptions(
+  config: UpstashConfig,
+  channelId: string,
+): Promise<StoredPushSubscription[]> {
+  const result = await command(config, [
+    'lrange',
+    PUSH_KEY_PREFIX + channelId,
+    '0',
+    String(PUSH_SUBS_MAX - 1),
+  ]);
+  if (!Array.isArray(result)) {
+    return [];
+  }
+  const subs: StoredPushSubscription[] = [];
+  for (const entry of result) {
+    if (typeof entry !== 'string') {
+      continue;
+    }
+    try {
+      subs.push(JSON.parse(entry) as StoredPushSubscription);
+    } catch {
+      // Skip malformed entries.
+    }
+  }
+  return subs;
+}
+
+/**
+ * Saves a Web Push subscription for a channel, de-duplicated by endpoint,
+ * capped at PUSH_SUBS_MAX, with the channel TTL. Storing a subscription that
+ * already exists is a no-op (endpoint match).
+ *
+ * @param config - Upstash credentials.
+ * @param channelId - Registered channel ID.
+ * @param subscription - Browser PushSubscription JSON.
+ */
+export async function savePushSubscription(
+  config: UpstashConfig,
+  channelId: string,
+  subscription: StoredPushSubscription,
+): Promise<void> {
+  const key = PUSH_KEY_PREFIX + channelId;
+  const existing = await listPushSubscriptions(config, channelId);
+  if (existing.some((sub) => sub.endpoint === subscription.endpoint)) {
+    await command(config, ['expire', key, String(CHANNEL_TTL_SEC)]);
+    return;
+  }
+  await command(config, ['lpush', key, JSON.stringify(subscription)]);
+  await command(config, ['ltrim', key, '0', String(PUSH_SUBS_MAX - 1)]);
+  await command(config, ['expire', key, String(CHANNEL_TTL_SEC)]);
+}
+
+/**
+ * Removes any stored subscription matching the given endpoint (used to prune
+ * a dead endpoint or on explicit unsubscribe).
+ *
+ * @param config - Upstash credentials.
+ * @param channelId - Registered channel ID.
+ * @param endpoint - Subscription endpoint to remove.
+ */
+export async function removePushSubscription(
+  config: UpstashConfig,
+  channelId: string,
+  endpoint: string,
+): Promise<void> {
+  const existing = await listPushSubscriptions(config, channelId);
+  const key = PUSH_KEY_PREFIX + channelId;
+  for (const sub of existing) {
+    if (sub.endpoint === endpoint) {
+      await command(config, ['lrem', key, '0', JSON.stringify(sub)]);
+    }
+  }
 }
