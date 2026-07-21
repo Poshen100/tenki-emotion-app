@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#020617" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TENKI" />
+  <link rel="manifest" href="/decision-alert/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/brand/favicon/apple-touch-icon-180.png" />
   <title>TENKI — 外部快訊 → 決策入口（Demo）</title>
   <link rel="stylesheet" href="tokens.css" />
   <style>
@@ -79,6 +82,10 @@
     }
     .live-body { padding: 0 14px 12px; }
     .live-hint { font-size: 11px; color: #64748B; line-height: 1.5; margin-bottom: 8px; }
+    .live-push { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .live-push-btn { width: 100%; }
+    .live-push-btn.on { color: var(--cyan-active); border-color: var(--cyan-active); }
+    .live-push-hint { font-size: 11px; color: #64748B; line-height: 1.5; margin-top: 6px; }
     .set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: #CBD5E1; padding: 7px 0; }
     .set-row input[type="number"] { width: 72px; text-align: right; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #E5E7EB; font-family: inherit; font-size: 12px; padding: 5px 8px; }
     .set-row.set-check { cursor: pointer; }
@@ -282,6 +289,10 @@
             <button class="btn btn-primary live-copy" id="liveCopy" type="button">複製連結</button>
             <button class="btn btn-ghost live-reset" id="liveReset" type="button">重設連結</button>
           </div>
+          <div class="live-push" id="livePushRow" hidden>
+            <button class="btn btn-ghost live-push-btn" id="livePushBtn" type="button">🔔 開啟手機推播</button>
+            <div class="live-push-hint" id="livePushStatus">關掉網頁也能收到快訊 — 先用分享鈕「加入主畫面」，再回來開啟（iOS 16.4+）。</div>
+          </div>
         </div>
       </div>
     </div>
@@ -378,6 +389,6 @@
     <div class="timer-update" id="timerUpdate"></div>
   </div>
 
-  <script src="decision-alert.js?v=alert11"></script>
+  <script src="decision-alert.js?v=alert12"></script>
 </body>
 </html>

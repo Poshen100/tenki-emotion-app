@@ -195,6 +195,7 @@
     'btnComplete', 'btnCancel', 'segTrack', 'segLabels', 'timerPhase', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveCopy', 'liveReset',
+    'livePushRow', 'livePushBtn', 'livePushStatus',
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
     'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
@@ -784,7 +785,83 @@
       stopPolling();
       setLiveStatus('尚未配對', '');
     }
+    refreshPushRow();
   }
+
+  // ── Web Push（關掉網頁也收得到；需 VAPID env + iOS 加入主畫面）──
+  var VAPID_PUBLIC_KEY = 'BE5Hjv2X1RFsHr7xNGK1Cs0A3biRzZm5nIaN3CnEXHzyU4Pp271e04liOJSfwD0RwjhSukZQvpyHOse_37Nz9es';
+  var PUSH_FLAG_KEY = 'tenki.alert.push.on';
+
+  function pushSupported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  }
+
+  function urlB64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(base64);
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  function setPushStatus(text, on) {
+    if (el.livePushStatus) el.livePushStatus.textContent = text;
+    if (el.livePushBtn) el.livePushBtn.classList.toggle('on', !!on);
+  }
+
+  function refreshPushRow() {
+    if (!el.livePushRow) return;
+    if (!pushSupported() || !getChannel()) {
+      el.livePushRow.setAttribute('hidden', '');
+      return;
+    }
+    el.livePushRow.removeAttribute('hidden');
+    navigator.serviceWorker.getRegistration('/decision-alert/').then(function (reg) {
+      if (!reg || !reg.pushManager) return;
+      reg.pushManager.getSubscription().then(function (sub) {
+        if (sub) {
+          el.livePushBtn.textContent = '🔔 手機推播已開啟';
+          setPushStatus('關掉網頁也會收到快訊。', true);
+        }
+      });
+    }).catch(function () {});
+  }
+
+  function enablePush() {
+    var ch = getChannel();
+    if (!ch) { setPushStatus('請先產生連結（配對頻道）。', false); return; }
+    if (!pushSupported()) { setPushStatus('此瀏覽器不支援推播（iOS 請先用分享鈕加入主畫面）。', false); return; }
+    setPushStatus('請求通知權限中…', false);
+    navigator.serviceWorker.register('/decision-alert/sw.js')
+      .then(function (reg) {
+        return Notification.requestPermission().then(function (perm) {
+          if (perm !== 'granted') { setPushStatus('通知權限被拒 — 到系統設定開啟後再試。', false); return null; }
+          return reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY),
+          });
+        });
+      })
+      .then(function (sub) {
+        if (!sub) return null;
+        return fetch('/api/subscribe?ch=' + ch, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(sub),
+        }).then(function (r) {
+          if (!r.ok) throw new Error('伺服器 ' + r.status);
+          localStorage.setItem(PUSH_FLAG_KEY, '1');
+          el.livePushBtn.textContent = '🔔 手機推播已開啟';
+          setPushStatus('搞定 — 關掉網頁、ES1! 觸發也會跳通知。', true);
+        });
+      })
+      .catch(function (err) {
+        setPushStatus('開啟失敗：' + (err && err.message ? err.message : err), false);
+      });
+  }
+
+  if (el.livePushBtn) el.livePushBtn.addEventListener('click', enablePush);
 
   function generateChannel() {
     setLiveStatus('產生連結中…', 'on');

@@ -1,0 +1,14 @@
+{
+  "name": "TENKI 決策快訊",
+  "short_name": "TENKI",
+  "description": "外部快訊 → 決策入口",
+  "start_url": "/decision-alert/",
+  "scope": "/decision-alert/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    { "src": "/brand/favicon/android-chrome-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/favicon/android-chrome-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
