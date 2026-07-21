@@ -9,6 +9,34 @@
 
 ---
 
+# 2026-07-20 Session Update #34 (Web Push — 關掉網頁也收得到，不用 Mac · Phase D)
+
+> 實機 debug：ES1! webhook 光禿 URL 缺 symbol → 400 沒進頻道（修：URL 尾接 `&symbol=ES1!`，founder 貼時還踩了空格）。修好後真實 ES1! 下穿 7519 首次完整浮出面板 🎉。接著 founder 要「不用一直開網頁」→ 做 Web Push。
+
+## 重要更正
+- 之前口誤「Web 推播需要 Mac」是**錯的**。**iPhone 網頁推播（Web Push, iOS 16.4+）不需要 Mac** —— service worker + VAPID + PWA 即可，Safari 關著也跳通知。需 Mac 的是**原生 App** 推播（Phase 3）。
+
+## 做了什麼（repo 首個 runtime dependency: web-push）
+- `api/subscribe.ts`（POST 存 / DELETE 移除訂閱，ch 把關）+ `store.ts` per-channel 訂閱（`tenki:push:v1:<ch>`，endpoint 去重、cap 5、頻道 TTL、死 endpoint 修剪）。
+- `api/_lib/push.ts`：`resolveVapidConfig`（env）+ `buildPushPayload`（事實語言，無買賣）+ `sendAlertPush`（web-push 送、回死 endpoint）。`api/alert.ts` pushAlert 後 best-effort 送，try/catch **絕不因推播失敗而讓 webhook 失敗**；無 VAPID env 優雅跳過。
+- preview（`?v=alert12`）：`sw.js` + `manifest.webmanifest`（PWA，brand icons）+ 連接面板「🔔 開啟手機推播」（register SW → 權限 → pushManager.subscribe → POST /api/subscribe）。
+- smoke +8（共 32；NODE_PATH 修正讓 temp 編譯 resolve web-push）；Playwright `shoot-push.mjs` 9（mock SW/Push 鏈）。
+
+## founder 前置（跟 Upstash 一樣一次性）
+- Vercel env：`VAPID_PUBLIC_KEY`（＝前端內建那把）、`VAPID_PRIVATE_KEY`（機密，不入 repo，私訊給）、`VAPID_SUBJECT`（mailto）。VAPID 公鑰已內建 `decision-alert.js`；私鑰只進 Vercel env。
+- 手機：Safari 開 `/decision-alert/` → 分享 → **加入主畫面** → 從 App 開 → 開啟推播。iOS Web Push 只在主畫面 App 生效。
+
+## 教訓（→ PLAYBOOK 候選）
+- **光禿 webhook URL（只有 ch）+ 純文字訊息 → 缺 symbol → 400**。頁面「複製連結」給的是光禿 URL,人話訊息又不帶 symbol,這組合必壞。解法：URL 尾接 `&symbol=`。**下個 session 若做「網址產生器」把 symbol 烤進 URL 可根治**（本次未做）。
+- webhook 推播 ≠ TradingView 的 App 推播（兩個獨立勾）；沙箱代理擋 `*.vercel.app`,正式頻道只能靠 founder 開 `/api/alerts?ch=&since=0` 查證。
+- Playwright 測 Web Push:真訂閱 headless 起不來 → mock `navigator.serviceWorker`/`PushManager`/`Notification`,只驗客戶端 wiring（POST /api/subscribe）。真送達靠 founder 實機。
+
+## 下次接手點
+- 「快訊網址產生器」（輸入 symbol → 產完整 URL,免手接 & 免踩空格）根治光禿 URL 陷阱。
+- Web Push 真機驗收（founder 設 VAPID env + 加入主畫面 + 觸發）。
+
+---
+
 # 2026-07-19 Session Update #33 (demo 對齊 ES/Mancini — 修 NVDA 成長股框架不符)
 
 > Founder 實機截圖:「我目前是 ES,不是 NVDA;也不是雙快訊(NVDA+TSLA)」。demo 三顆按鈕用成長股框架,與 founder 單一標的關卡交易不符。

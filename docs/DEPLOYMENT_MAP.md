@@ -50,6 +50,7 @@ tenki-emotion-app.vercel.app
 | `https://tenki-emotion-app.vercel.app/api/channel` | `api/channel.ts`（serverless function） | 頻道配對端點（POST）— 生成專屬 webhook 連結（capability URL，30 天滑動 TTL）。未來 Premium entitlement 驗證掛載點 | ✅ Active（需 Upstash） |
 | `https://tenki-emotion-app.vercel.app/api/alert` | `api/alert.ts`（serverless function） | TradingView webhook 接收端（POST，`?ch=` 頻道驗證，per-channel 暫存 50 筆/24h）。設定：`docs/TRADINGVIEW-SETUP.md` | ✅ Active（需 Upstash） |
 | `https://tenki-emotion-app.vercel.app/api/alerts` | `api/alerts.ts`（serverless function） | 裝置輪詢端點（GET，`?ch=&since=`），遞送判定留在裝置端 | ✅ Active（需 Upstash） |
+| `https://tenki-emotion-app.vercel.app/api/subscribe` | `api/subscribe.ts`（serverless function） | Web Push 訂閱端點（POST 存、DELETE 移除，`?ch=`）。新快訊時 `api/alert.ts` 主動推播到已訂閱裝置。設定：`docs/TRADINGVIEW-SETUP.md §7`（需 VAPID env） | ✅ Active（需 Upstash + VAPID） |
 
 ## Routing (vercel.json)
 
