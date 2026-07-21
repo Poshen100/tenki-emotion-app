@@ -47,6 +47,11 @@ try {
     return { ok: true, status: 200, json: async () => ({ result }) };
   };
 
+  // Compiled handlers live in a temp dir; let their `require('web-push')`
+  // resolve against the repo's node_modules.
+  process.env.NODE_PATH = join(repoRoot, 'node_modules');
+  require('node:module').Module._initPaths();
+
   const channelHandler = require(join(outDir, 'api/channel.js')).default;
   const alertHandler = require(join(outDir, 'api/alert.js')).default;
   const alertsHandler = require(join(outDir, 'api/alerts.js')).default;
