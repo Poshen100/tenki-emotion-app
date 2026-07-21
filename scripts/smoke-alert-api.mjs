@@ -40,11 +40,17 @@ try {
     else if (cmd === 'ltrim') { lists.set(key, list.slice(Number(args[0]), Number(args[1]) + 1)); result = 'OK'; }
     else if (cmd === 'expire') { result = 1; }
     else if (cmd === 'lrange') { result = list.slice(Number(args[0]), Number(args[1]) + 1); }
+    else if (cmd === 'lrem') { const before = list.length; const kept = list.filter((v) => v !== args[1]); lists.set(key, kept); result = before - kept.length; }
     else if (cmd === 'setnx') { result = keys.has(key) ? 0 : (keys.set(key, args[0]), 1); }
     else if (cmd === 'exists') { result = keys.has(key) ? 1 : 0; }
     else throw new Error('unexpected command: ' + cmd);
     return { ok: true, status: 200, json: async () => ({ result }) };
   };
+
+  // Compiled handlers live in a temp dir; let their `require('web-push')`
+  // resolve against the repo's node_modules.
+  process.env.NODE_PATH = join(repoRoot, 'node_modules');
+  require('node:module').Module._initPaths();
 
   const channelHandler = require(join(outDir, 'api/channel.js')).default;
   const alertHandler = require(join(outDir, 'api/alert.js')).default;
@@ -184,6 +190,46 @@ try {
   await alertsHandler({ method: 'GET', query: { ch: ch2 } }, res);
   assert(res.payload.alerts[0].symbol === 'TSLA' && res.payload.alerts[0].condition === 'Breakout',
     'query symbol 覆蓋、body condition 保留');
+
+  // ── Web Push 訂閱端點（/api/subscribe）──
+  const subscribeHandler = require(join(outDir, 'api/subscribe.js')).default;
+  const SUB = { endpoint: 'https://push.example.com/abc', keys: { p256dh: 'k1', auth: 'k2' } };
+
+  // 18. 非 POST/DELETE → 405
+  res = fakeRes();
+  await subscribeHandler({ method: 'GET', query: { ch }, body: JSON.stringify(SUB) }, res);
+  assert(res.statusCode === 405, 'subscribe GET → 405');
+
+  // 19. 缺 ch → 400
+  res = fakeRes();
+  await subscribeHandler({ method: 'POST', query: {}, body: JSON.stringify(SUB) }, res);
+  assert(res.statusCode === 400, 'subscribe 缺 ch → 400');
+
+  // 20. 未註冊頻道 → 404
+  res = fakeRes();
+  await subscribeHandler({ method: 'POST', query: { ch: 'c'.repeat(64) }, body: JSON.stringify(SUB) }, res);
+  assert(res.statusCode === 404, 'subscribe 未註冊頻道 → 404');
+
+  // 21. 壞訂閱（缺 keys）→ 400
+  res = fakeRes();
+  await subscribeHandler({ method: 'POST', query: { ch }, body: '{"endpoint":"https://x/y"}' }, res);
+  assert(res.statusCode === 400, 'subscribe 壞訂閱 → 400');
+
+  // 22. 合法訂閱 → 200，且存進頻道
+  res = fakeRes();
+  await subscribeHandler({ method: 'POST', query: { ch }, body: JSON.stringify(SUB) }, res);
+  assert(res.statusCode === 200 && res.payload.ok === true, 'subscribe 合法 → 200');
+  assert((lists.get('tenki:push:v1:' + ch) ?? []).length === 1, '訂閱存進頻道（1 筆）');
+
+  // 23. 同 endpoint 再訂閱 → 去重（仍 1 筆）
+  res = fakeRes();
+  await subscribeHandler({ method: 'POST', query: { ch }, body: JSON.stringify(SUB) }, res);
+  assert((lists.get('tenki:push:v1:' + ch) ?? []).length === 1, '同 endpoint 去重');
+
+  // 24. DELETE 移除
+  res = fakeRes();
+  await subscribeHandler({ method: 'DELETE', query: { ch }, body: JSON.stringify({ endpoint: SUB.endpoint }) }, res);
+  assert(res.statusCode === 200 && (lists.get('tenki:push:v1:' + ch) ?? []).length === 0, 'DELETE 移除訂閱');
 
   console.log(`\nSMOKE PASS — ${passed} assertions`);
 } finally {

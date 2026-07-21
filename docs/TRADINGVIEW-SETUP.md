@@ -124,4 +124,23 @@ TradingView 原生推播的觀感：JSON 模式推播含代碼，乾淨模式零
 - **這功能定位為 Premium**（`externalAlertBridge`，Free 層無）。目前無帳號/金流系統，屬 client 側標示；帳號＋金流上線後在 `/api/channel` 加訂閱資格驗證即完成付費牆（SPEC §11）。
 - TradingView **沒有**公開使用者資料 API：watchlist、圖表版面拉不進來；webhook alert 是唯一官方通道。
 - 頻道未使用 30 天自動過期（有在輪詢就不會）；快訊暫存每頻道 50 筆、24 小時過期；內容只有市場符號/價格/條件文字，與生理資料完全隔離（cloud-minimal 不受影響）。
-- 推播到手機（不開網頁也收到）是 Phase 3，需要 mobile app 原生基建。
+
+## 7. 手機推播（Web Push，關掉網頁也收得到）
+
+不用原生 App、不用 Mac —— iOS 16.4+ 的「網頁推播」即可做到 Safari 關著也跳通知。前置兩步（一次性）：
+
+**A. Vercel 環境變數（founder，只做一次）**
+在 Vercel → Project → Settings → Environment Variables 加三個，然後 Redeploy：
+- `VAPID_PUBLIC_KEY` — 公鑰（已內建於前端 `decision-alert.js`；env 需填同一把，供伺服器簽章）。
+- `VAPID_PRIVATE_KEY` — 私鑰（**機密，不入 repo**；由 Claude 私訊提供，只貼進 Vercel env）。
+- `VAPID_SUBJECT` — `mailto:你的信箱`（省略則用預設）。
+> 沒設這三個也不會壞：webhook 照常存快訊，只是不送推播（best-effort，優雅降級）。
+
+**B. 手機端（使用者，一次性）**
+1. Safari 開 `/decision-alert/` → 分享鈕 → **加入主畫面**（iOS Web Push 只在主畫面 App 生效）。
+2. 從主畫面打開該 App → 連接面板 → **🔔 開啟手機推播** → 允許通知。
+3. 之後即使關掉，ES1! 觸發 → webhook → 存頻道 → **伺服器主動推播** → 手機跳通知；點通知開回決策面板。
+
+- 推播內容只有事實（symbol · condition · 你的備註），**無買賣指令**，過 `notification-guard` 精神。
+- 訂閱存每頻道最多 5 個裝置、隨頻道 30 天 TTL；死掉的 endpoint（404/410）自動修剪。
+- 端點：`POST /api/subscribe?ch=`（存訂閱）、`DELETE`（移除）。

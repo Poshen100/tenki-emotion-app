@@ -195,6 +195,7 @@
     'btnComplete', 'btnCancel', 'segTrack', 'segLabels', 'timerPhase', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveCopy', 'liveReset',
+    'livePushRow', 'livePushBtn', 'livePushStatus',
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
     'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
@@ -369,9 +370,14 @@
     }
 
     state.pendingGroup = alerts;
-    var symbols = alerts.map(function (a) { return a.symbol; }).join(' / ');
-    log('aggregated', alerts.length + ' 個訊號：' + symbols);
-    el.aggHead.textContent = alerts.length + ' 個決策機會：' + symbols;
+    var symbolList = alerts.map(function (a) { return a.symbol; });
+    var uniqSymbols = symbolList.filter(function (s, i) { return symbolList.indexOf(s) === i; });
+    // 同一標的多個價位 → 「ES1! · N 個價位」；多檔 → 逐檔列
+    var headText = uniqSymbols.length === 1
+      ? uniqSymbols[0] + ' · ' + alerts.length + ' 個價位同時觸發'
+      : alerts.length + ' 個決策機會：' + symbolList.join(' / ');
+    log('aggregated', alerts.length + ' 個訊號：' + symbolList.join(' / '));
+    el.aggHead.textContent = headText;
     el.aggList.textContent = '';
     alerts.forEach(function (alert) {
       var btn = document.createElement('button');
@@ -779,7 +785,83 @@
       stopPolling();
       setLiveStatus('尚未配對', '');
     }
+    refreshPushRow();
   }
+
+  // ── Web Push（關掉網頁也收得到；需 VAPID env + iOS 加入主畫面）──
+  var VAPID_PUBLIC_KEY = 'BE5Hjv2X1RFsHr7xNGK1Cs0A3biRzZm5nIaN3CnEXHzyU4Pp271e04liOJSfwD0RwjhSukZQvpyHOse_37Nz9es';
+  var PUSH_FLAG_KEY = 'tenki.alert.push.on';
+
+  function pushSupported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  }
+
+  function urlB64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(base64);
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  function setPushStatus(text, on) {
+    if (el.livePushStatus) el.livePushStatus.textContent = text;
+    if (el.livePushBtn) el.livePushBtn.classList.toggle('on', !!on);
+  }
+
+  function refreshPushRow() {
+    if (!el.livePushRow) return;
+    if (!pushSupported() || !getChannel()) {
+      el.livePushRow.setAttribute('hidden', '');
+      return;
+    }
+    el.livePushRow.removeAttribute('hidden');
+    navigator.serviceWorker.getRegistration('/decision-alert/').then(function (reg) {
+      if (!reg || !reg.pushManager) return;
+      reg.pushManager.getSubscription().then(function (sub) {
+        if (sub) {
+          el.livePushBtn.textContent = '🔔 手機推播已開啟';
+          setPushStatus('關掉網頁也會收到快訊。', true);
+        }
+      });
+    }).catch(function () {});
+  }
+
+  function enablePush() {
+    var ch = getChannel();
+    if (!ch) { setPushStatus('請先產生連結（配對頻道）。', false); return; }
+    if (!pushSupported()) { setPushStatus('此瀏覽器不支援推播（iOS 請先用分享鈕加入主畫面）。', false); return; }
+    setPushStatus('請求通知權限中…', false);
+    navigator.serviceWorker.register('/decision-alert/sw.js')
+      .then(function (reg) {
+        return Notification.requestPermission().then(function (perm) {
+          if (perm !== 'granted') { setPushStatus('通知權限被拒 — 到系統設定開啟後再試。', false); return null; }
+          return reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY),
+          });
+        });
+      })
+      .then(function (sub) {
+        if (!sub) return null;
+        return fetch('/api/subscribe?ch=' + ch, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(sub),
+        }).then(function (r) {
+          if (!r.ok) throw new Error('伺服器 ' + r.status);
+          localStorage.setItem(PUSH_FLAG_KEY, '1');
+          el.livePushBtn.textContent = '🔔 手機推播已開啟';
+          setPushStatus('搞定 — 關掉網頁、ES1! 觸發也會跳通知。', true);
+        });
+      })
+      .catch(function (err) {
+        setPushStatus('開啟失敗：' + (err && err.message ? err.message : err), false);
+      });
+  }
+
+  if (el.livePushBtn) el.livePushBtn.addEventListener('click', enablePush);
 
   function generateChannel() {
     setLiveStatus('產生連結中…', 'on');
@@ -833,21 +915,24 @@
   renderLive();
 
   // ── 模擬按鈕 ──
+  // ES1! 單一標的 · Mancini 假跌破（FBD）— 對齊 founder 實際交易型態（示意值）
   el.btnSingle.addEventListener('click', function () {
-    ingest(makeAlert('NVDA', 'Breakout', '5m', 'CANSLIM', 'RS High + Volume Spike'));
+    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '關鍵價位掃低後收回（示意）'));
   });
 
+  // 同一檔快速下殺，一波內連踩兩個關鍵價位 → 60s 窗聚合（不是多檔同時）
   el.btnMulti.addEventListener('click', function () {
     var now = Date.now();
-    var a = makeAlert('NVDA', 'Breakout', '5m', 'CANSLIM', 'RS High + Volume Spike');
-    var b = makeAlert('TSLA', 'Reclaim', '15m', 'Mancini FBD', 'Level reclaim');
+    var a = makeAlert('ES1!', '掃下緣', '1m', 'Mancini', '快速下殺掃到下緣（示意）');
+    var b = makeAlert('ES1!', '續破下一級', '1m', 'Mancini', '同一波再破下一個關鍵價位（示意）');
     a.receivedAt = now;
-    b.receivedAt = now + 5000; // 模擬 5 秒內先後到達
+    b.receivedAt = now + 3000; // 同一波 3 秒內連踩兩級
     ingestGroup([a, b]);
   });
 
+  // 同一價位 K 棒內反覆穿越 → 冷卻抑制（不轟炸）
   el.btnRepeat.addEventListener('click', function () {
-    ingest(makeAlert('NVDA', 'Breakout', '5m', 'CANSLIM', '同標的重複觸發'));
+    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '同一價位 K 棒內反覆穿越（示意）'));
   });
 
   // ── 決策節奏設定面板 ──

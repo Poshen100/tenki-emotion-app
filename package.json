@@ -13,8 +13,12 @@
     "lint:fix": "biome lint --write .",
     "icons:batch1": "node scripts/generate-tenki-icon-batch1.mjs"
   },
+  "dependencies": {
+    "web-push": "^3.6.7"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
+    "@types/web-push": "^3.6.4",
     "typescript": "^5.0.0"
   }
 }
