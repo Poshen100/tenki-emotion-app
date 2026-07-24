@@ -80,13 +80,17 @@ export async function sendAlertPush(
   webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
   const payload = JSON.stringify(buildPushPayload(alert));
   const dead: string[] = [];
+  let sent = 0;
 
   await Promise.all(
     subscriptions.map(async (subscription) => {
       try {
         await webpush.sendNotification(subscription, payload);
+        sent += 1;
       } catch (error) {
         const statusCode = (error as { statusCode?: number }).statusCode;
+        const body = (error as { body?: string }).body;
+        console.error(`[push] send failed status=${statusCode ?? '?'} body=${(body ?? '').slice(0, 120)}`);
         if (statusCode === 404 || statusCode === 410) {
           dead.push(subscription.endpoint);
         }
@@ -94,5 +98,6 @@ export async function sendAlertPush(
     }),
   );
 
+  console.log(`[push] sent=${sent} failed=${subscriptions.length - sent} dead=${dead.length}`);
   return dead;
 }

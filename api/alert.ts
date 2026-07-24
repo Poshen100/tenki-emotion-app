@@ -70,17 +70,20 @@ export default async function handler(
 
     // Best-effort Web Push to the paired device — never fails the webhook.
     const vapid = resolveVapidConfig();
+    console.log(`[push] ch=${channelId.slice(0, 8)} vapid=${vapid !== null ? 'yes' : 'no'}`);
     if (vapid !== null) {
       try {
         const subscriptions = await listPushSubscriptions(storage, channelId);
+        console.log(`[push] subscriptions=${subscriptions.length}`);
         if (subscriptions.length > 0) {
           const dead = await sendAlertPush(vapid, subscriptions, alert);
           for (const endpoint of dead) {
             await removePushSubscription(storage, channelId, endpoint);
           }
         }
-      } catch {
+      } catch (pushError) {
         // Push is a best-effort layer on top of the stored alert.
+        console.error('[push] send threw:', pushError instanceof Error ? pushError.message : pushError);
       }
     }
 
