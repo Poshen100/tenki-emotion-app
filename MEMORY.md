@@ -9,6 +9,34 @@
 
 ---
 
+# 2026-07-24 Session Update #35 (Web Push 實機 debug 通關 — 診斷 log 揪出 VAPID env 髒值)
+
+> #34 上線後實機「推播沒跳」。靠伺服器 log 逐環查證,最後由**診斷 log** 直接指出根因。
+
+## 逐環查證(Vercel MCP get_runtime_logs 是這次的英雄)
+1. `/api/alert` 一開始 400 → **光禿 webhook URL 缺 symbol**（修：URL 尾接 `&symbol=ES1!`；founder 還踩過 URL 中間空格 → TradingView「該網址無效」）。
+2. 改對後 200,但推播沒跳 → log 顯示 `/api/subscribe` **從沒被呼叫** → 沒訂閱可推。
+3. founder「加入主畫面」開推播成功,但 **PWA 的 localStorage 跟 Safari 分開 → 產生新頻道 `f655…`**,而 TradingView webhook 還指著舊頻道 `9a94…` → **訂閱在新頻道、快訊在舊頻道,對不上**（修：webhook 換成新頻道連結）。
+4. 對上後仍沒跳,且推播送出被 try/catch **吞掉、無 log** → 加診斷 log（`chore(api)`, #193）→ 下一則觸發即現形：
+   ```
+   [push] ch=f655f937 vapid=yes
+   [push] subscriptions=1
+   [push] send threw: Vapid public key must be a URL safe Base 64 (without "=")
+   ```
+   → **env `VAPID_PUBLIC_KEY` 值髒了**（手機貼 env 時夾到多餘字元）。重存乾淨 + redeploy 解決。
+
+## 教訓（→ PLAYBOOK 候選，多條）
+- **付費/機密以外的 debug 要靠伺服器 log**：sandbox 代理擋 `*.vercel.app`,我測不到正式站；**Vercel MCP `get_runtime_logs` / `list_deployments`** 是唯一窗口,善用。
+- **推播/webhook 這種 best-effort 靜默失敗一定要留 log**：原本 try/catch 全吞 → 查了好幾輪才加 log。凡是「失敗不影響主流程」的分支,至少 `console.error` 狀態碼。
+- **PWA 與 Safari 的 localStorage 是兩套** → 加入主畫面會產生**新頻道**,webhook 要跟著換。這是「網址產生器 / 把 symbol 烤進連結」還沒做前的必踩坑。
+- 手機貼長字串到 env/URL 極易夾到空格/換行/`=`；**值錯 web-push 會丟明確訊息**（"URL safe Base 64 (without =)"）。
+
+## 下次接手點
+- 「快訊網址產生器」（symbol 烤進 URL + 綁定當前頻道）根治光禿 URL + PWA 換頻道兩個坑。
+- Web Push 真機最終驗收（env 修好 + redeploy 後 log 應見 `sent=1`）。
+
+---
+
 # 2026-07-20 Session Update #34 (Web Push — 關掉網頁也收得到，不用 Mac · Phase D)
 
 > 實機 debug：ES1! webhook 光禿 URL 缺 symbol → 400 沒進頻道（修：URL 尾接 `&symbol=ES1!`，founder 貼時還踩了空格）。修好後真實 ES1! 下穿 7519 首次完整浮出面板 🎉。接著 founder 要「不用一直開網頁」→ 做 Web Push。
