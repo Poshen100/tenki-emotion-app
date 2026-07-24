@@ -20,18 +20,33 @@ export interface VapidConfig {
 }
 
 /**
- * Resolves VAPID credentials from the environment.
+ * Normalizes a VAPID key pasted into an env var. Mobile paste often picks up
+ * surrounding whitespace/newlines, a trailing '=', or standard-base64 '+' / '/'
+ * — none of which belong in a base64url VAPID key. Cleaning them here makes the
+ * setup forgiving instead of failing with a cryptic web-push error.
+ *
+ * @param value - Raw env value.
+ * @returns base64url-normalized key.
+ */
+export function sanitizeVapidKey(value: string): string {
+  return value.replace(/\s+/g, '').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * Resolves VAPID credentials from the environment (keys sanitized).
  *
  * @returns Config, or null when Web Push is not configured.
  */
 export function resolveVapidConfig(): VapidConfig | null {
-  const subject = process.env.VAPID_SUBJECT ?? 'mailto:alerts@tenki.app';
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (
-    publicKey === undefined || publicKey.length === 0 ||
-    privateKey === undefined || privateKey.length === 0
-  ) {
+  const subject = (process.env.VAPID_SUBJECT ?? 'mailto:alerts@tenki.app').trim();
+  const publicKeyRaw = process.env.VAPID_PUBLIC_KEY;
+  const privateKeyRaw = process.env.VAPID_PRIVATE_KEY;
+  if (publicKeyRaw === undefined || privateKeyRaw === undefined) {
+    return null;
+  }
+  const publicKey = sanitizeVapidKey(publicKeyRaw);
+  const privateKey = sanitizeVapidKey(privateKeyRaw);
+  if (publicKey.length === 0 || privateKey.length === 0) {
     return null;
   }
   return { subject, publicKey, privateKey };
