@@ -70,7 +70,7 @@ export default async function handler(
 
     // Best-effort Web Push to the paired device — never fails the webhook.
     const vapid = resolveVapidConfig();
-    console.log(`[push] ch=${channelId.slice(0, 8)} vapid=${vapid !== null ? 'yes' : 'no'}`);
+    console.log(`[push] ch=${channelId.slice(0, 8)} vapid=${vapid !== null ? `yes pubLen=${vapid.publicKey.length}` : 'no'}`);
     if (vapid !== null) {
       try {
         const subscriptions = await listPushSubscriptions(storage, channelId);
