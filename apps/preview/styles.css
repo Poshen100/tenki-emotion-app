@@ -31,6 +31,11 @@
   --sp-xl: 32px;
   --sp-xxl: 48px;
 
+  /* Vertical room every scrolling step must leave for the fixed .disclaimer-bar
+     that overlays the bottom of the frame (45px at its usual two lines, plus a
+     gap so content never rests against it). */
+  --disclaimer-clear: 56px;
+
   /* Radius */
   --r-sm: 8px;
   --r-md: 12px;
@@ -121,23 +126,20 @@ body {
   width: 100%;
   height: 100%;
   display: flex;
-  /* `safe center` keeps short steps vertically centered, but falls back to
-     start-alignment once content is taller than the available height — so the
-     top of a tall step (e.g. the live-check shell after the demo card is
-     hidden) can never be pushed up under the floating step dots and clipped.
-     justify-content stays removed to avoid the same clipping on small screens. */
-  align-items: safe center;
+  /* The scrolling column is `.step-content`, which spans the FULL container
+     height. `.step` keeps only horizontal padding and never scrolls itself:
+     vertical padding here would inset the scroller and turn the reserved
+     strips into unreachable dead zones (the top/bottom black bands founder
+     hit on 2026-07-11), and a scrolling `.step` would drag its pinned
+     absolute layers — scan banner / backdrop / particles / flash and the
+     ::before stardust + ::after nebula — along with the content. */
+  align-items: stretch;
   opacity: 0;
   transform: translateX(40px);
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
-  padding: var(--sp-lg);
-  padding-top: 90px;
-  padding-bottom: 80px;
-  /* Tall steps (e.g. the precision intro hero) scroll INSIDE the container
-     instead of clipping / triggering iOS page-pan black gaps (PLAYBOOK §6). */
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  padding: 0 var(--sp-lg);
+  overflow: hidden;
 }
 
 .step.active {
@@ -154,18 +156,32 @@ body {
 .step-content {
   width: 100%;
   max-width: 340px;
-  /* Horizontal centering only. A full `margin: auto` centers vertically too,
-     which clips the top of overflowing content (unscrollable); vertical
-     centering is handled by `.step`'s `align-items: safe center` instead. */
+  /* Horizontal centering only — vertical centering is `justify-content` below. */
   margin-inline: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* `safe center` keeps short steps vertically centered but falls back to
+     start-alignment once content is taller than the available height, so the
+     top of a tall step can never become unreachable. */
+  justify-content: safe center;
   text-align: center;
   gap: var(--sp-md);
+  /* THE scroll container, spanning the container's full height so content
+     travels edge to edge — it passes under the floating step dots and under
+     the disclaimer bar instead of being clipped short of them. The clearance
+     for both lives in this element's own padding, so it scrolls with the
+     content rather than carving out dead strips. */
+  height: 100%;
   overflow-y: auto;
-  max-height: 100%;
-  padding-bottom: var(--sp-lg);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; /* no scroll chaining → no iOS page-pan black gap (PLAYBOOK §6) */
+  padding-top: 90px; /* clears the floating step dots (top:60px, ~68px tall) */
+  /* Composed so a per-step variant can tune its own breathing room via
+     --content-pad-b without ever dropping the disclaimer-bar clearance
+     (which is exactly how .readiness-step used to lose it). */
+  --content-pad-b: var(--sp-lg);
+  padding-bottom: calc(var(--content-pad-b) + var(--disclaimer-clear) + env(safe-area-inset-bottom, 0px));
 }
 
 .step-content::-webkit-scrollbar {
@@ -290,7 +306,7 @@ body {
 /* ── Readiness setup flow ── */
 .readiness-step {
   gap: 14px;
-  padding-bottom: var(--sp-xl);
+  --content-pad-b: var(--sp-xl);
 }
 
 .step-kicker {
@@ -1206,7 +1222,7 @@ body {
 }
 
 @media (max-height: 700px) {
-  .step {
+  .step-content {
     /* Step dots sit at top:60px (≈68px tall incl. the active pill). 70px left
        only ~2px clearance, so titles collided with the dots on 375×667.
        80px keeps a safe ≥12px gap while still reclaiming vertical space. */
