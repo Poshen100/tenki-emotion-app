@@ -359,3 +359,23 @@
     line-height: 1.4;
     padding: 0 16px;
 }
+
+/* ── Reduced motion: snap to the end state, never look broken ──
+   MOTION-DIRECTION §2 rule 3. Holding still reads as "being read": the ridges
+   sit fully lit, the ring keeps filling (it is progress, not decoration), and
+   only the looping ripple/beam/ignite motion is dropped. */
+@media (prefers-reduced-motion: reduce) {
+    .scan-takeover-ripple,
+    .scan-takeover-beam,
+    .scan-takeover-fingerprint-wrapper.active .scan-takeover-ripple:nth-child(1),
+    .scan-takeover-fingerprint-wrapper.active .scan-takeover-ripple:nth-child(2),
+    .scan-takeover-fingerprint-wrapper.active .scan-takeover-beam {
+        animation: none;
+        opacity: 0;
+    }
+
+    .scan-takeover-fingerprint-wrapper.active .fp-ridge {
+        animation: none;
+        opacity: 1; /* the lit end state of the ignite wave */
+    }
+}
