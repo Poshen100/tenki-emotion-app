@@ -207,14 +207,16 @@
     transition: all 0.3s ease;
 }
 
-/* Engraved depth: the core reads brightest, ridges recede outward. Also the
-   idle resting state the press choreography ignites from. */
-.fp-r1 { opacity: 0.95; }
-.fp-r2 { opacity: 0.88; }
-.fp-r3 { opacity: 0.78; }
-.fp-r4 { opacity: 0.66; }
-.fp-r5 { opacity: 0.50; }
-.fp-delta { opacity: 0.55; }
+/* Engraved depth: the core reads brightest, ridges recede outward. The resting
+   value lives in a custom property so the ignite keyframe can return each ridge
+   to its OWN depth instead of flattening them all to one opacity. */
+.fp-ridge { opacity: var(--fp-rest, 0.8); }
+.fp-r1 { --fp-rest: 0.95; }
+.fp-r2 { --fp-rest: 0.88; }
+.fp-r3 { --fp-rest: 0.78; }
+.fp-r4 { --fp-rest: 0.66; }
+.fp-r5 { --fp-rest: 0.50; }
+.fp-delta { --fp-rest: 0.55; }
 
 .scan-takeover-beam {
     position: absolute;
@@ -280,8 +282,21 @@
     color: #ffffff;
     opacity: 1;
     filter: drop-shadow(0 0 6px var(--cyan-active));
-    animation: scan-pulse-icon 0.8s infinite alternate;
 }
+
+/* Press choreography (Lock verb, MOTION-DIRECTION §4): the read travels outward
+   from the core rather than the whole glyph blinking — a pulse on everything at
+   once carries no information. opacity only, so it stays GPU-cheap. Delays fan
+   out across 300ms, the canonical state-change step of the duration scale. */
+.scan-takeover-fingerprint-wrapper.active .fp-ridge {
+    animation: fp-ridge-ignite 1.6s var(--ease-breath, cubic-bezier(0.4, 0, 0.6, 1)) infinite;
+}
+.scan-takeover-fingerprint-wrapper.active .fp-r1 { animation-delay: 0ms; }
+.scan-takeover-fingerprint-wrapper.active .fp-r2 { animation-delay: 60ms; }
+.scan-takeover-fingerprint-wrapper.active .fp-r3 { animation-delay: 120ms; }
+.scan-takeover-fingerprint-wrapper.active .fp-r4 { animation-delay: 180ms; }
+.scan-takeover-fingerprint-wrapper.active .fp-r5 { animation-delay: 240ms; }
+.scan-takeover-fingerprint-wrapper.active .fp-delta { animation-delay: 300ms; }
 
 .scan-takeover-fingerprint-wrapper.active .scan-takeover-beam {
     opacity: 1;
@@ -298,11 +313,13 @@
     animation-delay: 0.5s;
 }
 
+/* translateY, not `top`: animating `top` relayouts the core every frame
+   (MOTION-DIRECTION §2 is GPU-only). Same sweep, no layout thrash. */
 @keyframes scan-beam-pass {
-    0% { top: -100%; opacity: 0; }
+    0% { transform: translateY(0); opacity: 0; }
     30% { opacity: 0.7; }
     70% { opacity: 0.7; }
-    100% { top: 120%; opacity: 0; }
+    100% { transform: translateY(550%); opacity: 0; }
 }
 
 @keyframes scan-ripple-expand {
@@ -318,9 +335,11 @@
     }
 }
 
-@keyframes scan-pulse-icon {
-    0% { opacity: 0.85; transform: scale(1); }
-    100% { opacity: 1; transform: scale(1.04); }
+/* Each ridge lifts to full and settles back to its own engraved depth; the
+   per-ridge delays turn that into a read travelling core → edge. */
+@keyframes fp-ridge-ignite {
+    0%, 100% { opacity: var(--fp-rest, 0.8); }
+    40% { opacity: 1; }
 }
 
 .scan-takeover-instruction {
