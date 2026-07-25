@@ -9,6 +9,28 @@
 
 ---
 
+# 2026-07-25 Session Update #36 (手指旗艦頁上下黑條 — 內層 scroller 架空外層的死區)
+
+> Founder 實機四張截圖（IMG_0138–0141）：`/preview/index.html` 手指流程捲動時上下各一條黑色長條遮住內容。這是 #169「滑動黑屏」的**未竟殘留**，症狀不同、根因不同。
+
+## 真因（headless 390×673 量到，非推測）
+`.step-content` 有 `overflow-y:auto` + `max-height:100%` → 它才是真正在捲的容器，而它坐在 `.step` 的 padding 內縮框裡，內容被硬裁在 y=80 / y=593。於是 `.step` 的上下 padding 各 80px 變成「進不去、只有底色」的死區＝那兩條黑帶；而 #169 想讓 `.step` 內部捲動的設計實測 `溢出 = 0`，**從未生效**（被內層 scroller 架空）。底部 45px 的 `.disclaimer-bar`（幾乎不透明、DOM 在後所以蓋在上層）再吃一截 → 「繼續」鈕 rect 598–653 落在裁切線 593 外被切半。
+
+## 修法（1 commit，只動 `styles.css` + `index.html` 的 `?v=`）
+- 捲動容器改為**貫穿全高**的 `.step-content`（`height:100%`），clearance 移進它自己的 padding；`.step` 只留橫向 padding、`overflow:hidden` **不捲**。
+- **為什麼不是讓 `.step` 捲**：掃描儀式的 `.scan-banner`／`.scan-backdrop`／`.scan-particles`／`.scan-flash` 與 `.step::before` 星塵、`.step::after` 星雲都是 `.step` 的 absolute 子層 —— `.step` 一捲，它們會整組跟著滑走。維持 `.step` 不捲＝疊層自動釘住（已斷言 banner 捲動前後 top 皆 0）。
+- 加 `overscroll-behavior:contain`（阻斷捲動鏈到 body，正是 §6 iOS page-pan 黑屏成因）、`justify-content: safe center`（短步驟仍置中、長步驟自動起點對齊）。
+- 底部 clearance 拆成 `--content-pad-b`（變體自調留白）＋ `--disclaimer-clear: 56px`（免責條清空高度，不可被覆蓋）。**踩到的坑**：`.readiness-step` 原本直接覆寫 `padding-bottom: 32px`，改動後就把免責條的清空高度一併蓋掉、鈕又被壓住 —— 變體改覆寫變數即可。
+
+## 教訓（同類第二次出現就提煉進 PLAYBOOK §6）
+**巢狀 scroller 陷阱**：外層設 `overflow:auto` + 內層又設 `overflow:auto`+`max-height:100%` → 外層永遠 `溢出 0`、內層在外層 padding 內縮處硬裁，padding 區變成死區黑帶。判定法：量 `scrollHeight - clientHeight`，等於 0 的那層就是被架空的假 scroller。
+
+## 驗證
+- headless 三種高度（390×673 in-app webview／844／667）× 5 個 step 共 15 項全綠：內容框 = `[0, 視窗高]`（死區歸零）、捲到底時最後按鈕 bottom ≤ 免責條 top、掃描疊層釘住、零 pageerror。`check-vocab` 綠。
+- **真機仍待 founder 實走**（iOS 慣性、`safe` 關鍵字、backdrop-filter）；`styles.css?v=` 已 bump 成 `scroll_bands_v1`，記得硬重載。
+
+---
+
 # 2026-07-24 Session Update #35 (Web Push 實機 debug 通關 — 診斷 log 揪出 VAPID env 髒值)
 
 > #34 上線後實機「推播沒跳」。靠伺服器 log 逐環查證,最後由**診斷 log** 直接指出根因。
