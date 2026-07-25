@@ -201,11 +201,20 @@
 .scan-takeover-fingerprint-icon {
     position: relative;
     z-index: 22;
-    width: 32px;
-    height: 32px;
+    width: 42px;
+    height: 42px;
     color: rgba(255, 255, 255, 0.5);
     transition: all 0.3s ease;
 }
+
+/* Engraved depth: the core reads brightest, ridges recede outward. Also the
+   idle resting state the press choreography ignites from. */
+.fp-r1 { opacity: 0.95; }
+.fp-r2 { opacity: 0.88; }
+.fp-r3 { opacity: 0.78; }
+.fp-r4 { opacity: 0.66; }
+.fp-r5 { opacity: 0.50; }
+.fp-delta { opacity: 0.55; }
 
 .scan-takeover-beam {
     position: absolute;
