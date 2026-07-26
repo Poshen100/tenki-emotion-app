@@ -219,6 +219,19 @@
 .fp-r3 { --fp-rest: 0.88; }
 .fp-r4 { --fp-rest: 0.78; }
 
+/* Broken-ridge texture. The geometry underneath stays a whole, continuous
+   contour — only the drawing is interrupted — which is what keeps the print
+   cohesive while reading as scanned texture rather than clean rings.
+   Values are in pathLength units (each ring is normalised to 100 in the markup),
+   so the same dash rhythm holds across rings whose real circumferences differ
+   by 3x — without that, the outer ring would shatter into beads while the inner
+   one kept two or three long segments. Offsets differ per ring so the breaks
+   never line up into a seam, and the outer contour keeps the longest dashes
+   because it carries the thumb-pad silhouette. */
+.fp-r2 { stroke-dasharray: 19 4.6; stroke-dashoffset: 5; }
+.fp-r3 { stroke-dasharray: 23 4;   stroke-dashoffset: 12; }
+.fp-r4 { stroke-dasharray: 27 3.4; stroke-dashoffset: 0; }
+
 .scan-takeover-beam {
     position: absolute;
     top: -100%;
