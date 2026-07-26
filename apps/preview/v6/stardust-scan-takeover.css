@@ -207,16 +207,19 @@
     transition: all 0.3s ease;
 }
 
-/* Engraved depth: the core reads brightest, ridges recede outward. The resting
-   value lives in a custom property so the ignite keyframe can return each ridge
-   to its OWN depth instead of flattening them all to one opacity. */
-.fp-ridge { opacity: var(--fp-rest, 0.8); }
-.fp-r1 { --fp-rest: 0.95; }
-.fp-r2 { --fp-rest: 0.88; }
-.fp-r3 { --fp-rest: 0.78; }
-.fp-r4 { --fp-rest: 0.66; }
-.fp-r5 { --fp-rest: 0.50; }
-.fp-delta { --fp-rest: 0.55; }
+/* Depth now comes mostly from the stroke gradient, which dims the print
+   spatially toward its outer terminations. These resting opacities only add a
+   light extra recession — pushed up from the pre-gradient values so the two
+   falloffs don't compound and wash the outer ridges out. The value lives in a
+   custom property so the ignite keyframe can return each ridge to its OWN
+   depth instead of flattening them all to one opacity. */
+.fp-ridge { opacity: var(--fp-rest, 0.9); }
+.fp-r1 { --fp-rest: 1; }
+.fp-r2 { --fp-rest: 0.96; }
+.fp-r3 { --fp-rest: 0.90; }
+.fp-r4 { --fp-rest: 0.83; }
+.fp-r5 { --fp-rest: 0.74; }
+.fp-delta { --fp-rest: 0.78; }
 
 .scan-takeover-beam {
     position: absolute;
