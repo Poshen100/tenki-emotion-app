@@ -1891,7 +1891,7 @@ body{
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <!-- Stardust Scan Takeover Styles -->
-    <link rel="stylesheet" href="stardust-scan-takeover.css?v=fingerprint_v1">
+    <link rel="stylesheet" href="stardust-scan-takeover.css?v=fingerprint_v2">
 </head>
 <body>
     <!-- ═══════════ TENKI Brand v1.0 Splash Overlay ═══════════ -->
@@ -2554,14 +2554,33 @@ body{
                  with a delta on the lower left — the detail that stops it reading as a
                  plain arch. Ridges are ordered core→outer so the press choreography can
                  ignite them outward via nth-child delays (see the .fp-r* rules). -->
-            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="scan-takeover-fingerprint-icon">
-              <g transform="rotate(-7 24 24) translate(0 1.5)">
-                <path class="fp-ridge fp-r1" d="M25.9 34.2C25.9 31.4 27.2 30.4 27.2 28.2C27.2 25.0 20.8 25.0 20.8 29.0C20.8 30.2 21.2 31.0 21.7 31.8"></path>
-                <path class="fp-ridge fp-r2" d="M17.0 33.0C18.2 27.0 21.6 22.2 24.0 22.2C26.6 22.2 29.6 27.0 30.8 34.2"></path>
-                <path class="fp-ridge fp-r3" d="M13.4 35.6C15.0 26.2 18.6 18.4 24.0 18.4C29.4 18.4 33.0 26.2 34.6 37.0"></path>
-                <path class="fp-ridge fp-r4" d="M9.9 37.8C12.0 25.0 16.9 14.6 24.0 14.6C31.2 14.6 36.1 25.0 38.1 38.8"></path>
-                <path class="fp-ridge fp-r5" d="M6.6 39.6C9.0 24.0 15.1 11.2 24.0 11.2C33.0 11.2 39.1 24.0 41.4 40.4"></path>
-                <path class="fp-ridge fp-delta" d="M10.8 41.8C12.8 38.4 14.6 36.0 16.2 34.4"></path>
+            <svg viewBox="0 0 48 48" fill="none" stroke="url(#fpGrad) currentColor" stroke-linecap="round" stroke-linejoin="round" class="scan-takeover-fingerprint-icon">
+              <defs>
+                <!-- userSpaceOnUse is required: the default objectBoundingBox would give
+                     EVERY ridge its own full gradient sweep. Anchoring it to the icon's
+                     own coordinate space instead lets one falloff span the whole print,
+                     so ridges fade toward their outer terminations like a real one.
+                     currentColor stops keep the CSS state machine (idle grey → pressed
+                     white) driving the mid-tone. -->
+                <radialGradient id="fpGrad" gradientUnits="userSpaceOnUse" cx="24" cy="29" r="21">
+                  <stop offset="0%" stop-color="#22D3EE"></stop>
+                  <stop offset="30%" stop-color="#FFFFFF"></stop>
+                  <stop offset="72%" stop-color="currentColor"></stop>
+                  <stop offset="100%" stop-color="#1E4C6B" stop-opacity="0.55"></stop>
+                </radialGradient>
+              </defs>
+              <!-- Each ridge is a semi-ellipse crown (kappa 0.5523) with legs whose
+                   control points sit directly below the crown ends — vertical tangents
+                   on both sides of the join, so the shoulders are genuinely round rather
+                   than the gothic peak two spliced arcs produce. Radii, leg lengths and
+                   stroke widths are all deliberately uneven: no two ridges alike. -->
+              <g transform="rotate(-7 24 24)">
+                <path class="fp-ridge fp-r1" stroke-width="2.1" d="M21 32.2C20.6 31 21.1 30.4 21.1 29.6C21.1 27.4 22.7 25.7 24.6 25.7C26.5 25.7 28.1 27.4 28.1 29.6C28.1 31.5 27.8 32.7 27.3 34"></path>
+                <path class="fp-ridge fp-r2" stroke-width="2.05" d="M17 31.5C17.8 29.3 18.2 28 18.2 26.5C18.2 23.1 20.8 20.3 24 20.3C27.2 20.3 29.8 23.1 29.8 26.5C29.8 28.5 30.3 30.3 31.3 33.3"></path>
+                <path class="fp-ridge fp-r3" stroke-width="1.95" d="M13.9 33.9C14.7 30.6 15.1 28.6 15.1 26.3C15.1 21 19.1 16.7 24 16.7C28.9 16.7 32.9 21 32.9 26.3C32.9 29.2 33.4 31.8 34.4 36.1"></path>
+                <path class="fp-ridge fp-r4" stroke-width="1.85" d="M10.4 36.3C11.2 31.8 11.6 29.2 11.6 26.1C11.6 18.9 17.2 13 24 13C30.8 13 36.4 18.9 36.4 26.1C36.4 29.9 36.9 33.2 37.9 38.7"></path>
+                <path class="fp-ridge fp-r5" stroke-width="1.72" d="M7.7 38.5C8.5 33 8.9 29.7 8.9 25.9C8.9 17.1 15.7 10 24 10C32.3 10 39.1 17.1 39.1 25.9C39.1 30.4 39.6 34.3 40.6 40.9"></path>
+                <path class="fp-ridge fp-delta" stroke-width="1.8" d="M11.2 41.4C13.1 38.2 14.8 35.9 16.4 34.3"></path>
               </g>
             </svg>
           </div>
