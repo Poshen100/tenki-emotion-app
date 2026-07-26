@@ -201,8 +201,8 @@
 .scan-takeover-fingerprint-icon {
     position: relative;
     z-index: 22;
-    width: 42px;
-    height: 42px;
+    width: 46px;
+    height: 46px;
     color: rgba(255, 255, 255, 0.5);
     transition: all 0.3s ease;
 }
@@ -216,10 +216,21 @@
 .fp-ridge { opacity: var(--fp-rest, 0.9); }
 .fp-r1 { --fp-rest: 1; }
 .fp-r2 { --fp-rest: 0.96; }
-.fp-r3 { --fp-rest: 0.90; }
-.fp-r4 { --fp-rest: 0.83; }
-.fp-r5 { --fp-rest: 0.74; }
-.fp-delta { --fp-rest: 0.78; }
+.fp-r3 { --fp-rest: 0.88; }
+.fp-r4 { --fp-rest: 0.78; }
+
+/* Broken-ridge texture. The geometry underneath stays a whole, continuous
+   contour — only the drawing is interrupted — which is what keeps the print
+   cohesive while reading as scanned texture rather than clean rings.
+   Values are in pathLength units (each ring is normalised to 100 in the markup),
+   so the same dash rhythm holds across rings whose real circumferences differ
+   by 3x — without that, the outer ring would shatter into beads while the inner
+   one kept two or three long segments. Offsets differ per ring so the breaks
+   never line up into a seam, and the outer contour keeps the longest dashes
+   because it carries the thumb-pad silhouette. */
+.fp-r2 { stroke-dasharray: 19 4.6; stroke-dashoffset: 5; }
+.fp-r3 { stroke-dasharray: 23 4;   stroke-dashoffset: 12; }
+.fp-r4 { stroke-dasharray: 27 3.4; stroke-dashoffset: 0; }
 
 .scan-takeover-beam {
     position: absolute;
@@ -295,11 +306,9 @@
     animation: fp-ridge-ignite 1.6s var(--ease-breath, cubic-bezier(0.4, 0, 0.6, 1)) infinite;
 }
 .scan-takeover-fingerprint-wrapper.active .fp-r1 { animation-delay: 0ms; }
-.scan-takeover-fingerprint-wrapper.active .fp-r2 { animation-delay: 60ms; }
-.scan-takeover-fingerprint-wrapper.active .fp-r3 { animation-delay: 120ms; }
-.scan-takeover-fingerprint-wrapper.active .fp-r4 { animation-delay: 180ms; }
-.scan-takeover-fingerprint-wrapper.active .fp-r5 { animation-delay: 240ms; }
-.scan-takeover-fingerprint-wrapper.active .fp-delta { animation-delay: 300ms; }
+.scan-takeover-fingerprint-wrapper.active .fp-r2 { animation-delay: 80ms; }
+.scan-takeover-fingerprint-wrapper.active .fp-r3 { animation-delay: 160ms; }
+.scan-takeover-fingerprint-wrapper.active .fp-r4 { animation-delay: 240ms; }
 
 .scan-takeover-fingerprint-wrapper.active .scan-takeover-beam {
     opacity: 1;

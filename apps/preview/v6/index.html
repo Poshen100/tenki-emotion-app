@@ -1891,7 +1891,7 @@ body{
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <!-- Stardust Scan Takeover Styles -->
-    <link rel="stylesheet" href="stardust-scan-takeover.css?v=fingerprint_v2">
+    <link rel="stylesheet" href="stardust-scan-takeover.css?v=fingerprint_v3">
 </head>
 <body>
     <!-- ═══════════ TENKI Brand v1.0 Splash Overlay ═══════════ -->
@@ -2550,10 +2550,10 @@ body{
           <div id="scan-takeover-progress-ring"></div>
           <div class="scan-takeover-fingerprint-core">
             <div class="scan-takeover-beam"></div>
-            <!-- Loop-pattern fingerprint: an asymmetric ridge flow around a spiral core,
-                 with a delta on the lower left — the detail that stops it reading as a
-                 plain arch. Ridges are ordered core→outer so the press choreography can
-                 ignite them outward via nth-child delays (see the .fp-r* rules). -->
+            <!-- A whole thumb pad, not the top half of one: the ridges are CLOSED
+                 egg-shaped contours, so the print terminates inside the button
+                 instead of running off the bottom edge. Ordered core→outer so the
+                 press choreography can ignite them outward (see the .fp-r* rules). -->
             <svg viewBox="0 0 48 48" fill="none" stroke="url(#fpGrad) currentColor" stroke-linecap="round" stroke-linejoin="round" class="scan-takeover-fingerprint-icon">
               <defs>
                 <!-- userSpaceOnUse is required: the default objectBoundingBox would give
@@ -2561,26 +2561,29 @@ body{
                      own coordinate space instead lets one falloff span the whole print,
                      so ridges fade toward their outer terminations like a real one.
                      currentColor stops keep the CSS state machine (idle grey → pressed
-                     white) driving the mid-tone. -->
-                <radialGradient id="fpGrad" gradientUnits="userSpaceOnUse" cx="24" cy="29" r="21">
-                  <stop offset="0%" stop-color="#22D3EE"></stop>
-                  <stop offset="30%" stop-color="#FFFFFF"></stop>
-                  <stop offset="72%" stop-color="currentColor"></stop>
+                     white) driving the mid-tone. Centre follows the eccentric core, and
+                     the white band sits at 55% — pulled outward because a bright centre
+                     blows the tightly-spaced core and inner ring into one glowing mass. -->
+                <radialGradient id="fpGrad" gradientUnits="userSpaceOnUse" cx="25.4" cy="22.6" r="18">
+                  <stop offset="0%" stop-color="#6DE8F7"></stop>
+                  <stop offset="26%" stop-color="#BFF2FA"></stop>
+                  <stop offset="55%" stop-color="#FFFFFF"></stop>
+                  <stop offset="80%" stop-color="currentColor"></stop>
                   <stop offset="100%" stop-color="#1E4C6B" stop-opacity="0.55"></stop>
                 </radialGradient>
               </defs>
-              <!-- Each ridge is a semi-ellipse crown (kappa 0.5523) with legs whose
-                   control points sit directly below the crown ends — vertical tangents
-                   on both sides of the join, so the shoulders are genuinely round rather
-                   than the gothic peak two spliced arcs produce. Radii, leg lengths and
-                   stroke widths are all deliberately uneven: no two ridges alike. -->
+              <!-- Each ring is four kappa (0.5523) quarters, but ryTop != ryBot so the
+                   pad tapers like a thumb rather than reading as a plain ellipse, and it
+                   is clearly taller than wide — an equal-axis version reads as a target.
+                   Centres drift up-right as the rings nest: a truly concentric set reads
+                   as an onion, eccentricity is what gives it ridge flow. pathLength=100
+                   normalises every ring so the dash texture (CSS) keeps one density
+                   across circumferences that differ by 3x. -->
               <g transform="rotate(-7 24 24)">
-                <path class="fp-ridge fp-r1" stroke-width="2.1" d="M21 32.2C20.6 31 21.1 30.4 21.1 29.6C21.1 27.4 22.7 25.7 24.6 25.7C26.5 25.7 28.1 27.4 28.1 29.6C28.1 31.5 27.8 32.7 27.3 34"></path>
-                <path class="fp-ridge fp-r2" stroke-width="2.05" d="M17 31.5C17.8 29.3 18.2 28 18.2 26.5C18.2 23.1 20.8 20.3 24 20.3C27.2 20.3 29.8 23.1 29.8 26.5C29.8 28.5 30.3 30.3 31.3 33.3"></path>
-                <path class="fp-ridge fp-r3" stroke-width="1.95" d="M13.9 33.9C14.7 30.6 15.1 28.6 15.1 26.3C15.1 21 19.1 16.7 24 16.7C28.9 16.7 32.9 21 32.9 26.3C32.9 29.2 33.4 31.8 34.4 36.1"></path>
-                <path class="fp-ridge fp-r4" stroke-width="1.85" d="M10.4 36.3C11.2 31.8 11.6 29.2 11.6 26.1C11.6 18.9 17.2 13 24 13C30.8 13 36.4 18.9 36.4 26.1C36.4 29.9 36.9 33.2 37.9 38.7"></path>
-                <path class="fp-ridge fp-r5" stroke-width="1.72" d="M7.7 38.5C8.5 33 8.9 29.7 8.9 25.9C8.9 17.1 15.7 10 24 10C32.3 10 39.1 17.1 39.1 25.9C39.1 30.4 39.6 34.3 40.6 40.9"></path>
-                <path class="fp-ridge fp-delta" stroke-width="1.8" d="M11.2 41.4C13.1 38.2 14.8 35.9 16.4 34.3"></path>
+                <path class="fp-ridge fp-r1" stroke-width="2.1" pathLength="100" d="M28.4 24C28.4 22.5 28.4 20.1 26.7 20.1C25 20.1 25 22.5 26.2 23.2"></path>
+                <path class="fp-ridge fp-r2" stroke-width="2" pathLength="100" d="M26 14.8C29.1 14.8 31.7 18.2 31.7 22.5C31.7 26.2 29.1 29.2 26 29.2C22.9 29.2 20.3 26.2 20.3 22.5C20.3 18.2 22.9 14.8 26 14.8Z"></path>
+                <path class="fp-ridge fp-r3" stroke-width="1.9" pathLength="100" d="M25.1 11.7C30 11.7 34 17.1 34 23.7C34 29.6 30 34.3 25.1 34.3C20.2 34.3 16.2 29.6 16.2 23.7C16.2 17.1 20.2 11.7 25.1 11.7Z"></path>
+                <path class="fp-ridge fp-r4" stroke-width="1.75" pathLength="100" d="M24 7.8C31.2 7.8 37 15.5 37 25C37 33.5 31.2 40.4 24 40.4C16.8 40.4 11 33.5 11 25C11 15.5 16.8 7.8 24 7.8Z"></path>
               </g>
             </svg>
           </div>
