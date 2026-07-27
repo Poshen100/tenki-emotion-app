@@ -278,6 +278,22 @@
     z-index: 1;
 }
 
+/* Idle invitation: one faint sonar ping every 4s so the sensor reads as live
+   and waiting rather than inert. Reuses the existing ripple element and its
+   keyframe — no new DOM, no new motion vocabulary — and stays inside the
+   Breath verb (MOTION-DIRECTION §4). Only the first ripple pings; the second
+   is held back for the press, where both run tight and bright. */
+.scan-takeover-fingerprint-wrapper:not(.active) .scan-takeover-ripple:nth-child(1) {
+    animation: scan-ripple-idle 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes scan-ripple-idle {
+    0%   { transform: translate(-50%, -50%) scale(0.78); opacity: 0; border-width: 1px; }
+    12%  { opacity: 0.34; }
+    55%  { transform: translate(-50%, -50%) scale(1.16); opacity: 0; border-width: 1px; }
+    100% { transform: translate(-50%, -50%) scale(1.16); opacity: 0; border-width: 1px; }
+}
+
 /* ── Progress Conic Gradient Ring ── */
 #scan-takeover-progress-ring {
     position: absolute;
@@ -407,6 +423,7 @@
 @media (prefers-reduced-motion: reduce) {
     .scan-takeover-ripple,
     .scan-takeover-beam,
+    .scan-takeover-fingerprint-wrapper:not(.active) .scan-takeover-ripple:nth-child(1),
     .scan-takeover-fingerprint-wrapper.active .scan-takeover-ripple:nth-child(1),
     .scan-takeover-fingerprint-wrapper.active .scan-takeover-ripple:nth-child(2),
     .scan-takeover-fingerprint-wrapper.active .scan-takeover-beam {
