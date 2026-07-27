@@ -168,8 +168,8 @@
 /* ── Fingerprint Scanning Button ── */
 .scan-takeover-fingerprint-wrapper {
     position: relative;
-    width: 100px;
-    height: 100px;
+    width: 124px;
+    height: 124px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -180,9 +180,12 @@
     overflow: visible;
 }
 
+/* 96px: this is the screen's one ceremonial action and it has to hold an
+   8-second press, so it sits well above CTA scale (~25% of a 390px viewport)
+   rather than the 76px that made it recede into the stardust field. */
 .scan-takeover-fingerprint-core {
-    width: 76px;
-    height: 76px;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
     background: rgba(8, 12, 20, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.12);
@@ -201,8 +204,10 @@
 .scan-takeover-fingerprint-icon {
     position: relative;
     z-index: 22;
-    width: 46px;
-    height: 46px;
+    /* 64 of 96 = 67% fill. At 46/76 (60%) the print looked shrunken inside its
+       own disc, with more margin than glyph. */
+    width: 64px;
+    height: 64px;
     color: rgba(255, 255, 255, 0.5);
     transition: all 0.3s ease;
 }
@@ -263,8 +268,8 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 124px;
-    height: 124px;
+    width: 148px;
+    height: 148px;
     transform: translate(-50%, -50%);
     border-radius: 50%;
     z-index: 35;
