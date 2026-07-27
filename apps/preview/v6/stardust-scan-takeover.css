@@ -187,8 +187,13 @@
     width: 96px;
     height: 96px;
     border-radius: 50%;
-    background: rgba(8, 12, 20, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    /* Reads as an OBJECT, not a hole. The old fill was rgba(8,12,20,.7) —
+       essentially the page colour — so the disc dissolved into the stardust
+       field behind it. This one sits slightly ABOVE the background and carries
+       a top-left key light, the way a real sensor plate would. */
+    background:
+        radial-gradient(120% 120% at 38% 24%, rgba(86, 116, 156, 0.30) 0%, rgba(20, 30, 48, 0.72) 46%, rgba(9, 14, 24, 0.86) 100%);
+    border: none;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -197,7 +202,17 @@
     position: relative;
     overflow: hidden;
     z-index: 20;
-    box-shadow: 0 0 24px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.05);
+    /* Two-layer bezel + directional drop, all in box-shadow so no extra DOM:
+       1) bright hairline biased to the top (single light source)
+       2) dark hairline underneath it → plate thickness
+       3) cast shadow with direction, so the disc sits ON the field         */
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+        inset 0 8px 20px rgba(140, 190, 255, 0.06),
+        0 10px 26px rgba(0, 0, 0, 0.62),
+        0 0 22px rgba(0, 0, 0, 0.4);
     transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
@@ -291,10 +306,18 @@
     transform: scale(0.96);
 }
 
+/* Pressed = the plate physically depresses: the key light flips to the bottom
+   edge, the shadow moves inside the top, and the cast shadow collapses — the
+   same read as a real button going down. Cyan rim marks it as live. */
 .scan-takeover-fingerprint-wrapper.active .scan-takeover-fingerprint-core {
-    border-color: rgba(var(--cyan-active-rgb), 0.4);
-    background: rgba(5, 12, 22, 0.8);
-    box-shadow: 0 0 24px rgba(var(--cyan-active-rgb), 0.2), inset 0 0 15px rgba(var(--cyan-active-rgb), 0.1);
+    background:
+        radial-gradient(120% 120% at 38% 24%, rgba(28, 70, 104, 0.34) 0%, rgba(10, 22, 38, 0.80) 46%, rgba(4, 10, 20, 0.92) 100%);
+    box-shadow:
+        inset 0 -1px 0 rgba(255, 255, 255, 0.20),
+        inset 0 0 0 1px rgba(var(--cyan-active-rgb), 0.42),
+        inset 0 6px 16px rgba(0, 0, 0, 0.55),
+        0 2px 8px rgba(0, 0, 0, 0.5),
+        0 0 26px rgba(var(--cyan-active-rgb), 0.26);
 }
 
 .scan-takeover-fingerprint-wrapper.active .scan-takeover-fingerprint-icon {
