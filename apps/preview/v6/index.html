@@ -1891,7 +1891,7 @@ body{
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <!-- Stardust Scan Takeover Styles -->
-    <link rel="stylesheet" href="stardust-scan-takeover.css?v=fingerprint_v4">
+    <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v5">
 </head>
 <body>
     <!-- ═══════════ TENKI Brand v1.0 Splash Overlay ═══════════ -->
@@ -2544,6 +2544,12 @@ body{
         <span class="scan-takeover-status-badge" id="scan-takeover-status-badge">SYSTEM READY</span>
       </div>
       <div class="scan-takeover-footer">
+        <!-- iOS 17.4+ plays a system haptic when a `switch` checkbox toggles
+             inside a user gesture; stardust-scan-takeover.js flips it on press.
+             Clipped rather than display:none — a hidden control would not fire.
+             Purely progressive enhancement; inert everywhere else. -->
+        <input type="checkbox" switch id="haptic-switch" tabindex="-1" aria-hidden="true"
+               style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;clip:rect(0 0 0 0);">
         <div id="scan-takeover-trigger" class="scan-takeover-fingerprint-wrapper">
           <div class="scan-takeover-ripple"></div>
           <div class="scan-takeover-ripple"></div>
@@ -4228,7 +4234,7 @@ function setClarity(v){
          (vercel.json rewrites), so a ../ relative ref would 404 under /v3/. -->
     <script src="/preview/blink-cadence.js?v=blink1"></script>
     <!-- Stardust Scan Takeover logic script -->
-    <script src="stardust-scan-takeover.js?v=blink1"></script>
+    <script src="stardust-scan-takeover.js?v=gyro_v5"></script>
 
     <!-- ═══════ Snapshot: magnetic swipe carousel + synchronized vitals ═══════ -->
     <style>
