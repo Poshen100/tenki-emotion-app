@@ -209,10 +209,14 @@
     tCtx.shadowColor = 'rgba(' + RED[0] + ',' + RED[1] + ',' + RED[2] + ',0.55)';
     tCtx.shadowBlur = 6;
     tCtx.beginPath();
+    // Anchored to the right edge, like any bedside monitor: the newest sample
+    // is always under the cursor and history runs off to the left, so a
+    // partially filled buffer grows leftwards instead of leaving a dead gap.
     var n = trace.length, px = 0, py = mid;
+    var step = d.w / (TRACE_LEN - 1);
     for (var i = 0; i < n; i++) {
       var norm = (trace[i].v - range.lo) / (range.hi - range.lo); // 0..1
-      var x = (i / (TRACE_LEN - 1)) * d.w;
+      var x = d.w - (n - 1 - i) * step;
       var y = mid + (0.5 - norm) * 2 * amp;
       if (i === 0) tCtx.moveTo(x, y); else tCtx.lineTo(x, y);
       px = x; py = y;

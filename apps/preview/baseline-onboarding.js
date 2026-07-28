@@ -632,6 +632,9 @@ async function startReadinessCamera() {
     const session = await api.startFingerCamera(videoEl, (sample) => {
       state.cameraActive = true;
       state.lastCameraSample = sample;
+      // The instrument draws from the sample stream directly, not from the RAF
+      // loop, so its glow and trace stay tied to the actual measurement rate.
+      if (window.TENKI_TISSUE) window.TENKI_TISSUE.feed(sample);
       if (!state.isScanning) updateReadinessFromCamera(sample);
     });
     state.cameraSession = session;
@@ -971,6 +974,9 @@ function tickWait(now) {
   }
   updateSignalTelemetry(waitElapsedSec);
   updateCoverageGuidance(waitElapsedSec);
+  // Countdown has not started yet, so there is no progress and no time left to
+  // report — the instrument is purely showing what the lens can see right now.
+  setTissueReadout(state.cameraActive ? state.lastCameraSample : null, 0);
 
   // Track signal-valid duration
   const validNow =
@@ -1133,6 +1139,8 @@ function tickCalibration() {
   // ── Progress ring ──
   const progress = Math.min(1, elapsedSec / state.scanDuration);
   if (ringEl) ringEl.style.strokeDashoffset = SCAN_CIRCUMFERENCE * (1 - progress);
+  if (window.TENKI_TISSUE) window.TENKI_TISSUE.setProgress(progress);
+  setTissueReadout(state.cameraActive ? state.lastCameraSample : null, countdown);
 
   // ── Signal + baseline data collection ──
   if (state.scanPhase === 'accumulate' || state.scanPhase === 'climax') {

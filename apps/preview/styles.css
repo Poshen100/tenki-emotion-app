@@ -2477,8 +2477,8 @@ body,
 .tissue-instrument { display: none; }
 .ti-telemetry { display: none; }
 
-#step-scan[data-sensor="finger"] .tissue-instrument,
-#step-scan[data-sensor="finger"] .ti-telemetry { display: block; }
+#step-scan[data-sensor="finger"] .tissue-instrument { display: block; }
+#step-scan[data-sensor="finger"] .ti-telemetry { display: flex; }
 
 /* Hide the viewfinder stack (and the decorative bar "waveform", which was
    never fed by any data — the trace below the aperture is the real one). */
@@ -2553,10 +2553,11 @@ body,
   color: #F5B041;
 }
 
+/* No `display` here — the data-sensor gate above owns it, and re-declaring it
+   would leak this row into the face stage. */
 .ti-telemetry {
   margin: 14px auto 0;
   width: min(268px, 68vw);
-  display: flex;
   justify-content: center;
   gap: 34px;
 }
