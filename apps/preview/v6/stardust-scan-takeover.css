@@ -322,6 +322,38 @@
     transform: scale(0.96);
 }
 
+/* Impact beat — the substitute for haptics that iOS Safari cannot give us.
+   140ms: the disc drops hard past its resting depth and snaps back, the rim
+   flashes once, and the glyph takes a single tick. Games sell contact this way
+   when no vibration is available, and it is the only layer of the three that
+   works on every platform. Sits on the 150ms micro-feedback step. */
+.scan-takeover-fingerprint-wrapper.impact {
+    animation: fp-impact 140ms var(--ease-secure, cubic-bezier(0.19, 1, 0.22, 1)) 1;
+}
+.scan-takeover-fingerprint-wrapper.impact .scan-takeover-fingerprint-core {
+    animation: fp-impact-rim 140ms var(--ease-secure, cubic-bezier(0.19, 1, 0.22, 1)) 1;
+}
+.scan-takeover-fingerprint-wrapper.impact .scan-takeover-fingerprint-icon {
+    animation: fp-impact-tick 140ms var(--ease-secure, cubic-bezier(0.19, 1, 0.22, 1)) 1;
+}
+
+@keyframes fp-impact {
+    0%   { transform: scale(1); }
+    32%  { transform: scale(0.905); } /* overshoot past the 0.96 resting press */
+    100% { transform: scale(0.96); }
+}
+@keyframes fp-impact-rim {
+    0%   { box-shadow: inset 0 0 0 1px rgba(var(--cyan-active-rgb), 0.42); }
+    28%  { box-shadow: inset 0 0 0 2px rgba(190, 246, 255, 0.92),
+                       0 0 30px rgba(var(--cyan-active-rgb), 0.5); }
+    100% { box-shadow: inset 0 0 0 1px rgba(var(--cyan-active-rgb), 0.42); }
+}
+@keyframes fp-impact-tick {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(1.11); }
+    100% { transform: scale(1); }
+}
+
 /* Pressed = the plate physically depresses: the key light flips to the bottom
    edge, the shadow moves inside the top, and the cast shadow collapses — the
    same read as a real button going down. Cyan rim marks it as live. */
@@ -493,6 +525,13 @@
     .scan-takeover-fingerprint-wrapper.active .scan-takeover-beam {
         animation: none;
         opacity: 0;
+    }
+
+    /* The impact beat is motion too — snap straight to the pressed depth. */
+    .scan-takeover-fingerprint-wrapper.impact,
+    .scan-takeover-fingerprint-wrapper.impact .scan-takeover-fingerprint-core,
+    .scan-takeover-fingerprint-wrapper.impact .scan-takeover-fingerprint-icon {
+        animation: none;
     }
 
     /* Covers the gimbal too: no spin, no ignite wave — the ridges simply sit

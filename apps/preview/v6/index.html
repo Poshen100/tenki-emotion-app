@@ -2544,6 +2544,12 @@ body{
         <span class="scan-takeover-status-badge" id="scan-takeover-status-badge">SYSTEM READY</span>
       </div>
       <div class="scan-takeover-footer">
+        <!-- iOS 17.4+ plays a system haptic when a `switch` checkbox toggles
+             inside a user gesture; stardust-scan-takeover.js flips it on press.
+             Clipped rather than display:none — a hidden control would not fire.
+             Purely progressive enhancement; inert everywhere else. -->
+        <input type="checkbox" switch id="haptic-switch" tabindex="-1" aria-hidden="true"
+               style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;clip:rect(0 0 0 0);">
         <div id="scan-takeover-trigger" class="scan-takeover-fingerprint-wrapper">
           <div class="scan-takeover-ripple"></div>
           <div class="scan-takeover-ripple"></div>

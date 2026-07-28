@@ -405,13 +405,42 @@
 
         var wrapper = document.getElementById('scan-takeover-trigger');
         var ring = document.getElementById('scan-takeover-progress-ring');
-        if (wrapper) wrapper.classList.add('active');
+        if (wrapper) {
+            wrapper.classList.add('active');
+            // Retrigger the impact beat on every press: removing and forcing a
+            // reflow before re-adding is what restarts a CSS animation.
+            wrapper.classList.remove('impact');
+            void wrapper.offsetWidth;
+            wrapper.classList.add('impact');
+        }
         if (ring) ring.classList.add('active');
 
-        // Play biometric sync start micro-haptics / vibration
+        fireContactHaptic();
+    }
+
+    /**
+     * Contact feedback at press onset, best-effort across platforms.
+     *
+     * Reality check (PLAYBOOK §6): iOS Safari cannot vibrate at all —
+     * navigator.vibrate is a silent no-op there, so on the founder's iPhone the
+     * calls this file already made were always blanks. Real haptics on iOS need
+     * the native app. Two things are attempted anyway, and the CSS impact beat
+     * is what actually carries the moment on every platform.
+     */
+    function fireContactHaptic() {
+        // Android / Chrome: a single short tick reads as contact. A pattern
+        // ([15,30]) buzzes; one crisp pulse is the press landing.
         if (navigator.vibrate) {
-            try { navigator.vibrate([15, 30]); } catch (_) {}
+            try { navigator.vibrate(12); } catch (_) {}
         }
+        // iOS 17.4+: toggling a `switch` checkbox inside a user gesture makes
+        // Safari play the system haptic. Undocumented as an API and unverifiable
+        // in a headless sandbox, so it is strictly progressive enhancement —
+        // feature-detected, wrapped, and silent when it does nothing.
+        try {
+            var sw = document.getElementById('haptic-switch');
+            if (sw && sw.hasAttribute('switch')) sw.checked = !sw.checked;
+        } catch (_) {}
     }
 
     function endHold() {
@@ -421,7 +450,7 @@
 
         var wrapper = document.getElementById('scan-takeover-trigger');
         var ring = document.getElementById('scan-takeover-progress-ring');
-        if (wrapper) wrapper.classList.remove('active');
+        if (wrapper) wrapper.classList.remove('active', 'impact');
         if (ring) ring.classList.remove('active');
     }
 
