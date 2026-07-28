@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="styles.css?v=scroll_bands_v1">
+  <link rel="stylesheet" href="styles.css?v=tissue_v1">
   <style>
     /* Precision-mode intro hero (?from=precision, entered from the v6 提升精度
        pill). Target composition: founder ref "Build Your Baseline" — rear lens
@@ -337,6 +337,24 @@
 
         </div>
 
+        <!-- Finger path: tissue instrument. The viewfinder above is inherited
+             from FACE scanning, where framing matters — a finger covering the
+             lens has nothing to frame, so the finger flow hides it (via
+             #step-scan[data-sensor="finger"]) and shows this instead. The red
+             glow is the light measured through the fingertip, not a decoration
+             of it; the trace is that same series plotted. -->
+        <div class="tissue-instrument" id="tissue-host" data-ti-state="waiting">
+          <div class="ti-readout">
+            <div class="ti-bpm" id="ti-bpm">—</div>
+            <div class="ti-bpm-unit">BPM</div>
+            <div class="ti-caption" id="ti-caption">請將食指完整覆蓋後鏡頭</div>
+          </div>
+        </div>
+        <div class="ti-telemetry" id="ti-telemetry">
+          <span class="ti-tm"><b id="ti-hrv">—</b><i>HRV ms</i></span>
+          <span class="ti-tm"><b id="ti-remain">—</b><i>剩餘秒</i></span>
+        </div>
+
         <!-- Quality + signal telemetry (Phase 2) -->
         <div class="scan-telemetry" id="scan-telemetry">
           <div class="quality-badge quality-weak" id="quality-badge">
@@ -459,6 +477,7 @@
 
   <script src="tenki-icons.js?v=icons-v1"></script>
   <script src="camera-scan.js"></script>
-  <script src="baseline-onboarding.js?v=precision_finger_v3"></script>
+  <script src="tissue-instrument.js?v=tissue_v1"></script>
+  <script src="baseline-onboarding.js?v=tissue_v1"></script>
 </body>
 </html>

@@ -632,6 +632,9 @@ async function startReadinessCamera() {
     const session = await api.startFingerCamera(videoEl, (sample) => {
       state.cameraActive = true;
       state.lastCameraSample = sample;
+      // The instrument draws from the sample stream directly, not from the RAF
+      // loop, so its glow and trace stay tied to the actual measurement rate.
+      if (window.TENKI_TISSUE) window.TENKI_TISSUE.feed(sample);
       if (!state.isScanning) updateReadinessFromCamera(sample);
     });
     state.cameraSession = session;
@@ -794,7 +797,11 @@ function startCalibrationScan() {
   if (scanEl) {
     scanEl.classList.remove('phase-accumulate', 'phase-climax', 'phase-final', 'phase-transition', 'phase-gather');
     scanEl.classList.add('phase-wait');
+    // Selects the stage: 'face' keeps the viewfinder (framing matters when the
+    // camera sees a face), 'finger' swaps in the tissue instrument.
+    scanEl.dataset.sensor = state.sensorChoice === 'face' ? 'face' : 'finger';
   }
+  mountTissueInstrument();
   if (timerEl) {
     // v1.2: paused state — countdown will start once signal-valid gate passes
     timerEl.textContent = '';
@@ -856,6 +863,63 @@ function startCalibrationScan() {
 }
 
 /**
+ * Attach the tissue instrument for the finger flow. Face scanning keeps the
+ * viewfinder stage, so nothing is mounted there — and an unmounted instrument
+ * costs no RAF loop and no canvas backing store.
+ */
+function mountTissueInstrument() {
+  const host = document.getElementById('tissue-host');
+  if (!host || !window.TENKI_TISSUE) return;
+  if (state.sensorChoice === 'face') {
+    window.TENKI_TISSUE.destroy();
+    return;
+  }
+  window.TENKI_TISSUE.mount(host);
+  setTissueReadout(null, 0);
+}
+
+/**
+ * Write the numbers around the instrument. Only measured values are shown:
+ * camera-scan.js reports a BPM/HRV only after it has detected peaks, so before
+ * that there is no heart rate to report and the readout stays em-dashed.
+ *
+ * @param {Object|null} sample — latest camera-scan sample, or null when no camera
+ * @param {number} remainSec — seconds left in the capture
+ */
+function setTissueReadout(sample, remainSec) {
+  const host = document.getElementById('tissue-host');
+  if (!host || !window.TENKI_TISSUE) return;
+
+  const tiState = window.TENKI_TISSUE.state();
+  host.dataset.tiState = tiState;
+
+  const bpmEl = document.getElementById('ti-bpm');
+  const hrvEl = document.getElementById('ti-hrv');
+  const remainEl = document.getElementById('ti-remain');
+  const capEl = document.getElementById('ti-caption');
+
+  const bpm = sample && sample.bpm > 0 ? Math.round(sample.bpm) : 0;
+  const hrv = sample && sample.hrv > 0 ? Math.round(sample.hrv) : 0;
+  if (bpmEl) bpmEl.textContent = bpm ? String(bpm) : '—';
+  if (hrvEl) hrvEl.textContent = hrv ? String(hrv) : '—';
+  if (remainEl) remainEl.textContent = remainSec > 0 ? String(Math.ceil(remainSec)) : '—';
+
+  if (!capEl) return;
+  let text;
+  if (!state.cameraActive) {
+    // No camera means no signal — say so rather than animating a fake reading.
+    text = '示範模式 — 沒有真實訊號';
+  } else if (tiState === 'waiting') {
+    text = '請將食指完整覆蓋後鏡頭';
+  } else if (tiState === 'adjust') {
+    text = '手指沒蓋滿，往中間移一點';
+  } else {
+    text = bpm ? 'LIVE PULSE' : '訊號穩定中…';
+  }
+  if (capEl.textContent !== text) capEl.textContent = text;
+}
+
+/**
  * Transfer the already-running camera stream from the readiness-video to
  * the scan-video element inside the ceremony ring. No new getUserMedia call.
  */
@@ -910,6 +974,9 @@ function tickWait(now) {
   }
   updateSignalTelemetry(waitElapsedSec);
   updateCoverageGuidance(waitElapsedSec);
+  // Countdown has not started yet, so there is no progress and no time left to
+  // report — the instrument is purely showing what the lens can see right now.
+  setTissueReadout(state.cameraActive ? state.lastCameraSample : null, 0);
 
   // Track signal-valid duration
   const validNow =
@@ -1072,6 +1139,8 @@ function tickCalibration() {
   // ── Progress ring ──
   const progress = Math.min(1, elapsedSec / state.scanDuration);
   if (ringEl) ringEl.style.strokeDashoffset = SCAN_CIRCUMFERENCE * (1 - progress);
+  if (window.TENKI_TISSUE) window.TENKI_TISSUE.setProgress(progress);
+  setTissueReadout(state.cameraActive ? state.lastCameraSample : null, countdown);
 
   // ── Signal + baseline data collection ──
   if (state.scanPhase === 'accumulate' || state.scanPhase === 'climax') {
@@ -1400,6 +1469,9 @@ function enterClimax(reason) {
     scanVideoEl.style.opacity = '0';
     scanVideoEl.style.display = 'none';
   }
+  // Same reasoning for the instrument: the capture is over, so stop its RAF
+  // loop and release the canvases before the climax adds its own GPU load.
+  if (window.TENKI_TISSUE) window.TENKI_TISSUE.destroy();
 
   if (statusEl) {
     statusEl.textContent =

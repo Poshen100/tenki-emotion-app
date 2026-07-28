@@ -9,6 +9,31 @@
 
 ---
 
+# 2026-07-28 Session Update #37 (手指掃描頁換成 tissue instrument — 讓量測值本身變成畫面)
+
+> Founder：「長方框加圓再加橢圓手指，設計上有點奇怪」，附三張 Google Stitch mock（reading / adjust / waiting）＋「像 Fable 5 一樣思考，提高爽感」。同一 session 前半還做了 v6 圓片按鈕的陀螺儀化（#201）。
+
+## 真因
+`#step-scan` 疊了四種互相打架的形狀語言：金色圓角取景框＋四角標、圓形 ring container、細長指腹橢圓、方位點環。**那個取景框是從臉部掃描繼承來的** —— 臉需要對框，手指蓋住鏡頭時根本沒有東西需要取景。旁邊 `.ppg-waveform` 的 8 根長條是純 CSS 動畫、沒有任何 JS 餵它 → PLAYBOOK §6 明令禁止的假折線。
+
+## 做法（3 commits，PR #202）
+把三張 mock 照描成 CSS 只會得到一張好看的貼圖。真正的作法是**讓光球由真實訊號驅動**：`camera-scan.js` 的 `redMean` 就是穿過指腹的光量，所以紅色輝光**本身就是量測值**，波形是同一條序列畫出來的。新元件 `apps/preview/tissue-instrument.js`（`window.TENKI_TISSUE`），三態只由 `coverage` 決定 —— 那是使用者唯一能行動的訊號。
+- adjust 時把發亮區域推離圓心 + 疊暗月牙，缺口就是沒被蓋滿的那一側；係數 `R*0.42` 太弱（實測只位移 0.13R ≈ 15px），提到 `R*0.72` 才在手機尺寸讀得出來。
+- 波形以**視窗自身 min/max** 正規化 —— PPG 是大 DC 上的小 AC 漣漪，固定尺標會畫成直線。右緣對齊（床邊監視器邏輯），緩衝區沒填滿時向左生長，而不是右邊留一塊空白。
+- 沒有相機 → 不餵任何樣本 → 停在 waiting、不畫波形、文案「示範模式 — 沒有真實訊號」。桌機比較安靜是對的。
+
+## 教訓
+- **臉/指共用畫面，改一邊要先確認另一邊**：不刪既有 markup，改用 `#step-scan[data-sensor]` 做 CSS gate。臉部零改動。
+- **CSS gate 被自己的樣式區塊破功**：`.ti-telemetry { display:none }` 之後又在樣式區塊寫 `display:flex` → 那排數字漏進臉部畫面。**gate 擁有 `display` 時，樣式區塊就不准再宣告它**。是臉部回歸測試抓到的，不是眼睛看到的 → 每次改共用畫面都要跑另一條路徑。
+- **canvas 裝飾畫在半徑外會被畫布邊緣切掉**：graduations 在 `R+11`、進度弧在 `R+14`＋10px shadow，而 `R = 半邊長 - 2` → 弧在左右被切成兩段。留 `RIM_ROOM = 22`。
+- **合成感測器比 stub 好**：產一段 72 BPM 的 Y4M（收縮峰＋dicrotic notch，10s = 12 拍無縫循環）餵 `--use-file-for-fake-video-capture`，**真的** camera-scan pipeline 端到端跑出 72 BPM。比 mock 掉 `getUserMedia` 更能證明整條鏈是通的。
+
+## 驗證 / 下次接手點
+- 390×673 headless 四路徑（手指＋合成相機 / 臉部 / 拒絕權限 / reduced-motion）pageerror 皆 0；`verify.sh --quick` 全綠。`?v=` 已 bump 成 `tissue_v1`。
+- **仍欠 founder 手機實走**：光球是否隨手指真的亮起來、月牙讀不讀得懂、波形有沒有跟著心跳走。另外 #201 的 **iOS switch 觸感到底有沒有觸發**（沙箱零可能驗證）也還沒回報。
+
+---
+
 # 2026-07-25 Session Update #36 (手指旗艦頁上下黑條 — 內層 scroller 架空外層的死區)
 
 > Founder 實機四張截圖（IMG_0138–0141）：`/preview/index.html` 手指流程捲動時上下各一條黑色長條遮住內容。這是 #169「滑動黑屏」的**未竟殘留**，症狀不同、根因不同。

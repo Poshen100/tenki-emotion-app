@@ -2462,3 +2462,115 @@ body,
     rgba(0, 0, 0, 0.50) 100%
   );
 }
+
+/* ─────────────────────────────────────────────
+   Tissue instrument — the finger-scan readout
+   ─────────────────────────────────────────────
+   The old finger stage stacked four competing shape families: a gold rounded
+   rectangle with corner brackets (inherited from FACE scanning, where framing
+   matters), a circular ring container, an elongated fingertip silhouette and
+   the target ring's compass dots. A finger covering the lens has nothing to
+   frame, so the finger path drops all of it and derives everything radially
+   from one aperture. The face path is untouched — the switch is the
+   data-sensor attribute set in startCalibrationScan(). */
+
+.tissue-instrument { display: none; }
+.ti-telemetry { display: none; }
+
+#step-scan[data-sensor="finger"] .tissue-instrument { display: block; }
+#step-scan[data-sensor="finger"] .ti-telemetry { display: flex; }
+
+/* Hide the viewfinder stack (and the decorative bar "waveform", which was
+   never fed by any data — the trace below the aperture is the real one). */
+#step-scan[data-sensor="finger"] .capture-frame,
+#step-scan[data-sensor="finger"] .capture-ruler,
+#step-scan[data-sensor="finger"] .ppg-waveform { display: none !important; }
+
+.tissue-instrument {
+  position: relative;
+  width: min(268px, 68vw);
+  margin: 0 auto;
+}
+.tissue-instrument .ti-aperture,
+.tissue-instrument .ti-trace {
+  display: block;
+  width: 100%;
+}
+.tissue-instrument .ti-aperture { aspect-ratio: 1; }
+.tissue-instrument .ti-trace { height: 54px; margin-top: 12px; }
+
+/* Absolute box with left/right pinned + aspect-ratio 1 = exactly the aperture
+   square, so the readout centres on the glow without hard-coded heights. */
+.ti-readout {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.ti-bpm {
+  font-size: 54px;
+  font-weight: 200;
+  line-height: 1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+}
+.ti-bpm-unit {
+  margin-top: 4px;
+  font-size: 17px;
+  font-weight: 300;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.86);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+.ti-caption {
+  margin-top: 12px;
+  max-width: 78%;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.94);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.75);
+}
+
+/* Waiting: nothing is being measured, so no number is claimed. */
+.tissue-instrument[data-ti-state="waiting"] .ti-bpm,
+.tissue-instrument[data-ti-state="waiting"] .ti-bpm-unit { opacity: 0.35; }
+.tissue-instrument[data-ti-state="waiting"] .ti-caption {
+  letter-spacing: 0.04em;
+  font-size: 13px;
+  color: rgba(206, 222, 244, 0.82);
+}
+.tissue-instrument[data-ti-state="adjust"] .ti-caption {
+  letter-spacing: 0.04em;
+  font-size: 13px;
+  color: #F5B041;
+}
+
+/* No `display` here — the data-sensor gate above owns it, and re-declaring it
+   would leak this row into the face stage. */
+.ti-telemetry {
+  margin: 14px auto 0;
+  width: min(268px, 68vw);
+  justify-content: center;
+  gap: 34px;
+}
+.ti-tm { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.ti-tm b {
+  font-size: 17px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.9);
+  font-variant-numeric: tabular-nums;
+}
+.ti-tm i {
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: rgba(160, 182, 210, 0.7);
+}
