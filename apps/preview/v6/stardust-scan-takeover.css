@@ -450,6 +450,25 @@
     100% { transform: rotate(360deg); }
 }
 
+/* Gyroscope lock (Lock verb, MOTION-DIRECTION §4). Past ~92% the gimbals stop
+   hunting and settle flat, so the gold climax lands on an instrument that has
+   FOUND its orientation instead of one still searching. The transition — not a
+   keyframe — is what gives the settle its snap: --ease-secure lands it. */
+.scan-takeover-fingerprint-wrapper.gyro-lock .fp-ridge {
+    /* Kill the gimbal but keep the ignite wave. `animation-play-state: paused`
+       is NOT enough: a paused animation still holds its computed transform and
+       outranks the declaration below, so the rings freeze mid-swing — a stall,
+       not a lock. Dropping the second animation-name releases transform back to
+       the cascade, and the transition lands it flat. Every ring declares
+       ignite first and gimbal/rotor second, so one pair covers all four. */
+    animation-name: fp-ridge-ignite, none;
+    transform: none;
+    transition: transform 420ms var(--ease-secure, cubic-bezier(0.19, 1, 0.22, 1));
+}
+.scan-takeover-fingerprint-wrapper.gyro-lock .scan-takeover-fingerprint-icon {
+    filter: drop-shadow(0 0 12px var(--cyan-active)) drop-shadow(0 0 3px #fff);
+}
+
 .scan-takeover-fingerprint-wrapper.active .scan-takeover-beam {
     opacity: 1;
     animation: scan-beam-pass 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;

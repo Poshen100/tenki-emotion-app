@@ -427,6 +427,16 @@
      * the native app. Two things are attempted anyway, and the CSS impact beat
      * is what actually carries the moment on every platform.
      */
+    /** Progress at which the gimbals stop hunting and settle flat. */
+    var GYRO_LOCK_AT = 0.92;
+
+    /** Toggle the settled state; cheap enough to call every frame. */
+    function setGyroLock(on) {
+        var wrapper = document.getElementById('scan-takeover-trigger');
+        if (!wrapper) return;
+        wrapper.classList.toggle('gyro-lock', !!on);
+    }
+
     function fireContactHaptic() {
         // Android / Chrome: a single short tick reads as contact. A pattern
         // ([15,30]) buzzes; one crisp pulse is the press landing.
@@ -450,7 +460,7 @@
 
         var wrapper = document.getElementById('scan-takeover-trigger');
         var ring = document.getElementById('scan-takeover-progress-ring');
-        if (wrapper) wrapper.classList.remove('active', 'impact');
+        if (wrapper) wrapper.classList.remove('active', 'impact', 'gyro-lock');
         if (ring) ring.classList.remove('active');
     }
 
@@ -474,6 +484,11 @@
                     try { navigator.vibrate(10); } catch (_) {}
                 }
             }
+
+            // Gyroscope locks just before the measurement completes: the gimbals
+            // stop swinging and settle flat, so the climax lands on an instrument
+            // that has found its orientation rather than one still hunting.
+            setGyroLock(progress >= GYRO_LOCK_AT);
         } else {
             // Drain progress back smoothly
             progress -= dt / 1500; // drains in 1.5s
