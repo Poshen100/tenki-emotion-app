@@ -9,6 +9,30 @@
 
 ---
 
+# 2026-07-29 Session Update #38 (快訊網址產生器 — 根治「裸連結漏 symbol → 400」)
+
+> #35 之後隔幾天 founder 又踩同一坑：TradingView alert 觸發、TV 自家通知有跳，但 TENKI 沒進。
+
+## 診斷（又是 Vercel MCP get_runtime_logs 破案）
+- log 顯示 `POST /api/alert` 一連串 **400**（不是 404 → 與頻道無關，是 payload 本身不合格）。
+- 對照 founder 截圖：頁面「複製連結」按鈕吐的是 `?ch=…` **裸連結、沒有 `&symbol=`**；而 `symbol` 是 schema 必填（`domain/src/schemas/alert-schema.ts:45`）→ 缺 symbol → 400。
+- 附帶再次確認 **PWA/Safari/重設連結會換頻道**（這次頻道從 `f655`→`f82b`→`1dbd` 連換），更凸顯手拼 URL 不可靠。
+
+## What was done（一個 Todo = 一個 commit）
+- **`apps/preview/decision-alert.{html,js}`（`?v=alert13`）**：「連接 TradingView」區塊加**標的/週期/策略**輸入框（標的預設 `ES1!`）→ 即時把 `&symbol=`/`&timeframe=`/`&strategy=` 烤進 webhook URL，存 `localStorage['tenki.alert.fields.v1']`。「複製連結」拿到的即含 symbol 的完整連結。標的留空顯示黃色警示。
+- Playwright headless（`scratchpad/shoot-urlgen.mjs`）13 條斷言全綠：預設 ES1!、即時更新、重載持久、清空顯示警示、無 pageerror。
+- 純 preview + docs，**不動 domain/api**（schema 維持 symbol 必填，是產生器去迎合它，不是放寬驗證）。
+
+## 教訓
+- **這是「裸連結漏 symbol」第二次出現 → 已提煉成 PLAYBOOK 一條**（見協議 §4 compound learning）。
+- 治坑要治源頭：與其每次口頭提醒 founder「尾巴補 `&symbol=`」，不如讓 UI 根本吐不出裸連結。
+
+## 下次接手點
+- 產生器已上 `main` 後，founder 端要**重新複製一次連結**（新版才含 symbol）貼回 TradingView。
+- Phase D 其餘打磨（頁內 setup step 卡、最近快訊 inbox、連線健康度）仍未做，非必要。
+
+---
+
 # 2026-07-28 Session Update #37 (手指掃描頁換成 tissue instrument — 讓量測值本身變成畫面)
 
 > Founder：「長方框加圓再加橢圓手指，設計上有點奇怪」，附三張 Google Stitch mock（reading / adjust / waiting）＋「像 Fable 5 一樣思考，提高爽感」。同一 session 前半還做了 v6 圓片按鈕的陀螺儀化（#201）。
