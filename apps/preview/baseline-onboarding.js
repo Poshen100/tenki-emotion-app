@@ -819,6 +819,12 @@ function startCalibrationScan() {
   // .is-hidden ↔ active transitions take over again.
   const bannerResetEl = document.getElementById('scan-banner');
   if (bannerResetEl) bannerResetEl.style.display = '';
+  // enterTransition hides these outright so they cannot paint over the result
+  // card during the 2s hand-off; a restarted scan needs them back.
+  if (scanEl) {
+    scanEl.querySelectorAll('.privacy-secured, .capture-frame, .capture-ruler')
+      .forEach(function (el) { el.style.display = ''; });
+  }
   if (scanEl) {
     scanEl.querySelectorAll('.finger-halo, .finger-halo-outer').forEach(function(el) {
       el.style.display = '';
@@ -1514,6 +1520,14 @@ function enterTransition() {
   if (scanEl) {
     scanEl.classList.remove('phase-climax');
     scanEl.classList.add('phase-transition');
+    // The scan step stays .active for another 2s so its particles and flash can
+    // finish, but both steps are position:absolute over the same box — so its
+    // NON-ceremonial furniture paints on top of the result card the whole time.
+    // Founder saw exactly this: "PRIVACY SECURED" struck through the confidence
+    // line and a gold bracket frame cropping the body copy (IMG_0207). The
+    // ceremony layers (particles / flash / backdrop) are left alone.
+    scanEl.querySelectorAll('.privacy-secured, .capture-frame, .capture-ruler')
+      .forEach((el) => { el.style.display = 'none'; });
   }
 
   // Golden flash CSS keyframe fires via .phase-transition class.
