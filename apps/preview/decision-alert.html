@@ -101,6 +101,10 @@
       -webkit-user-select: all; user-select: all;
     }
     .live-copy, .live-reset { padding: 10px 0; font-size: 13px; }
+    .live-fields { display: flex; gap: 8px; margin-bottom: 8px; }
+    .live-field { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #94A3B8; }
+    .live-field input { width: 100%; box-sizing: border-box; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #E5E7EB; font-family: inherit; font-size: 13px; padding: 7px 8px; }
+    .live-warn { font-size: 11px; color: #F59E0B; line-height: 1.5; margin-bottom: 8px; }
 
     /* ── Silent chips ── */
     .silent-area { flex: none; display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; margin-bottom: 10px; }
@@ -283,8 +287,14 @@
           <button class="btn btn-primary live-generate" id="liveGenerate" type="button">產生我的專屬連結</button>
         </div>
         <div class="live-ready" id="liveReady" hidden>
-          <div class="live-hint">把這個連結貼進 TradingView alert 的 Webhook URL 欄位（勿公開分享 — 連結即通道）。頁面開著就會自動接收。</div>
+          <div class="live-hint">填標的 → 自動產生完整 Webhook 連結（欄位已寫進網址，複製整條貼進 TradingView 即可，勿公開分享）。頁面開著就自動接收。</div>
+          <div class="live-fields">
+            <label class="live-field">標的<input type="text" id="liveSymbol" placeholder="ES1!" autocapitalize="characters" autocorrect="off" spellcheck="false" /></label>
+            <label class="live-field">週期<input type="text" id="liveTimeframe" placeholder="15（可選）" autocorrect="off" spellcheck="false" /></label>
+            <label class="live-field">策略<input type="text" id="liveStrategy" placeholder="Mancini（可選）" autocorrect="off" spellcheck="false" /></label>
+          </div>
           <div class="live-url" id="liveUrl"></div>
+          <div class="live-warn" id="liveUrlWarn" hidden>⚠️ 先填「標的」才會產生有效連結 — 否則 TradingView 送來的快訊會被擋下（缺 symbol）。</div>
           <div class="live-row">
             <button class="btn btn-primary live-copy" id="liveCopy" type="button">複製連結</button>
             <button class="btn btn-ghost live-reset" id="liveReset" type="button">重設連結</button>
@@ -389,6 +399,6 @@
     <div class="timer-update" id="timerUpdate"></div>
   </div>
 
-  <script src="decision-alert.js?v=alert12"></script>
+  <script src="decision-alert.js?v=alert13"></script>
 </body>
 </html>

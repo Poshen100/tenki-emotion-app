@@ -194,7 +194,8 @@
     'timerBar', 'timerLabel', 'timerClock',
     'btnComplete', 'btnCancel', 'segTrack', 'segLabels', 'timerPhase', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
-    'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveCopy', 'liveReset',
+    'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveUrlWarn', 'liveCopy', 'liveReset',
+    'liveSymbol', 'liveTimeframe', 'liveStrategy',
     'livePushRow', 'livePushBtn', 'livePushStatus',
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
     'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
@@ -684,8 +685,47 @@
     }
   }
 
+  // 快訊網址產生器：把使用者填的欄位（標的必填，週期/策略可選）烤進 webhook URL，
+  // 存在此瀏覽器。複製到的就是完整可用連結 — 根治「裸連結漏 symbol → 400」的坑。
+  var FIELDS_KEY = 'tenki.alert.fields.v1';
+
+  function loadFields() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(FIELDS_KEY) || '{}');
+      return {
+        symbol: typeof raw.symbol === 'string' ? raw.symbol : 'ES1!',
+        timeframe: typeof raw.timeframe === 'string' ? raw.timeframe : '',
+        strategy: typeof raw.strategy === 'string' ? raw.strategy : '',
+      };
+    } catch (e) {
+      return { symbol: 'ES1!', timeframe: '', strategy: '' };
+    }
+  }
+
+  function currentFields() {
+    return {
+      symbol: (el.liveSymbol.value || '').trim(),
+      timeframe: (el.liveTimeframe.value || '').trim(),
+      strategy: (el.liveStrategy.value || '').trim(),
+    };
+  }
+
   function webhookUrlFor(channelId) {
-    return location.origin + '/api/alert?ch=' + channelId;
+    var url = location.origin + '/api/alert?ch=' + channelId;
+    var f = currentFields();
+    if (f.symbol) url += '&symbol=' + encodeURIComponent(f.symbol);
+    if (f.timeframe) url += '&timeframe=' + encodeURIComponent(f.timeframe);
+    if (f.strategy) url += '&strategy=' + encodeURIComponent(f.strategy);
+    return url;
+  }
+
+  // 只更新顯示的 URL 與缺 symbol 警示，不重啟輪詢（頻道未變）。
+  function renderWebhookUrl() {
+    var channelId = getChannel();
+    if (!channelId) return;
+    el.liveUrl.textContent = webhookUrlFor(channelId);
+    if (currentFields().symbol) el.liveUrlWarn.setAttribute('hidden', '');
+    else el.liveUrlWarn.removeAttribute('hidden');
   }
 
   function setLiveStatus(text, dotState) {
@@ -777,7 +817,7 @@
     if (channelId) {
       el.liveSetup.setAttribute('hidden', '');
       el.liveReady.removeAttribute('hidden');
-      el.liveUrl.textContent = webhookUrlFor(channelId);
+      renderWebhookUrl();
       startPolling(channelId); // 有連結就自動接收，零動作
     } else {
       el.liveReady.setAttribute('hidden', '');
@@ -911,6 +951,20 @@
     if (hidden) { el.liveBody.removeAttribute('hidden'); el.liveChevron.textContent = '▴'; }
     else { el.liveBody.setAttribute('hidden', ''); el.liveChevron.textContent = '▾'; }
   });
+
+  // 初始化欄位輸入（從 localStorage 帶回，預設標的 ES1!）+ 即時更新網址。
+  (function initFields() {
+    var f = loadFields();
+    el.liveSymbol.value = f.symbol;
+    el.liveTimeframe.value = f.timeframe;
+    el.liveStrategy.value = f.strategy;
+    ['liveSymbol', 'liveTimeframe', 'liveStrategy'].forEach(function (id) {
+      el[id].addEventListener('input', function () {
+        localStorage.setItem(FIELDS_KEY, JSON.stringify(currentFields()));
+        renderWebhookUrl();
+      });
+    });
+  })();
 
   renderLive();
 
