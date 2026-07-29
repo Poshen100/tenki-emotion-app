@@ -134,7 +134,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | CDN 資源（GSAP/Three/MediaPipe/Inter） | 雲端沙箱擋 CDN → 容器內只能結構性驗證；動效手感一律留給 founder 實機 |
 | 任何 UI 顯示生理數值 | **不得放假的生理讀數**（曾移除假 "HR 87 bpm"）；demo 值要明顯是合成示意 |
 | 看到 `styles.css` 的 `--tenki-accent-*` 調色盤（#c97b2f 金）想併入 tokens.css | **不要** — founder 2026-07-03 拍板保留：出自參考截圖的刻意掃描流視覺，不是漏收斂的 bug |
-| TradingView alert 觸發、TV 自家通知有跳,但快訊沒進 TENKI | 先調 **Vercel MCP `get_runtime_logs`** 看 `POST /api/alert` 狀態:**400 = payload 不合格（最常見:webhook URL 漏 `&symbol=`,`symbol` 是 schema 必填）**;**404 = 頻道不符（PWA/Safari/重設連結會換頻道,webhook 指到舊的）**。`/decision-alert/`（`?v=alert13` 起）的**快訊網址產生器**已把 symbol 烤進「複製連結」→ 治源頭;修法一律**請 founder 重新複製連結**貼回 TradingView,別叫他手拼 URL 尾巴（2026-07 兩度踩「裸連結漏 symbol」才提煉此條） |
+| TradingView alert 觸發、TV 自家通知有跳,但快訊沒進 TENKI | 先調 **Vercel MCP `get_runtime_logs`** 看 `POST /api/alert` 狀態:**400 = payload 不合格（最常見:webhook URL 漏 `&symbol=`,`symbol` 是 schema 必填）**;**404 = 頻道不符（PWA/Safari/重設連結會換頻道,webhook 指到舊的）**。**根治已上線**:①`/decision-alert/`（`?v=alert13+`）**快訊網址產生器**把 symbol 烤進「複製連結」（UI 端）② **頻道預設 symbol**（`?v=alert16` 起頁面綁定、`api/alert.ts` 回填）讓裸連結也 200（server 端兜底）。仍 400 表示該頻道**沒綁到預設 symbol** → 請 founder 開 `/decision-alert/`（PWA）填標的一次即綁定。⚠️ **iOS Web Push 只在『加入主畫面』的 PWA 才會背景跳,Safari 分頁不算**;且推播訂閱與 webhook 必須同一頻道（2026-07 三度踩「裸連結漏 symbol」+ push 沒跳才提煉此條） |
 
 ## 7. apps/mobile / engine 陷阱
 

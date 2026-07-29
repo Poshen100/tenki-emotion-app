@@ -90,6 +90,28 @@ export interface DisciplineSummary {
 }
 
 /**
+ * Selects the most recent `limit` outcome records in chronological order
+ * (oldest → newest), for rendering a decision-trajectory strip. The input is
+ * assumed already in insertion (chronological) order — the newest is last — so
+ * this returns the trailing window without re-sorting. A non-positive limit
+ * yields an empty list; a limit at or above the record count returns a copy of
+ * all records.
+ *
+ * @param records - Persisted decision outcome records (chronological).
+ * @param limit - Maximum number of trailing records to return.
+ * @returns The last `limit` records, oldest → newest.
+ */
+export function selectRecentOutcomes(
+  records: readonly DecisionOutcomeRecord[],
+  limit: number,
+): DecisionOutcomeRecord[] {
+  if (limit <= 0) {
+    return [];
+  }
+  return records.slice(Math.max(0, records.length - limit));
+}
+
+/**
  * Summarizes the discipline-completion rate over decision outcome records.
  * Rate = process-followed sessions ÷ total ended sessions.
  *

@@ -122,6 +122,25 @@
   var OUTCOME_STORE_KEY = 'tenki.alert.outcomes.v1';
   var REFLECT_TAGS = ['跟計畫', '有點急', '偏離計畫'];
 
+  // 收束頁顯示偏好（可調 + 持久）。記錄一律 on（安全、不可關）→ 不提供關閉記錄的開關。
+  var RESULT_SETTINGS_KEY = 'tenki.alert.result.settings.v1';
+  var DEFAULT_RESULT_SETTINGS = { showHistory: true, showRecap: true, showReflect: true };
+  function loadResultSettings() {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(RESULT_SETTINGS_KEY)); } catch (e) { s = null; }
+    if (!s || typeof s !== 'object') return Object.assign({}, DEFAULT_RESULT_SETTINGS);
+    return {
+      showHistory: s.showHistory !== false,
+      showRecap: s.showRecap !== false,
+      showReflect: s.showReflect !== false,
+    };
+  }
+  function toggleHidden(node, show) {
+    if (!node) return;
+    if (show) node.removeAttribute('hidden');
+    else node.setAttribute('hidden', '');
+  }
+
   function resolveOutcomeTag(endType, reachedReadiness) {
     if (endType === 'timeout') return 'timed_out';
     if (endType === 'cancel') return 'broke_discipline';
@@ -172,6 +191,7 @@
   var state = {
     zoneIdx: 1, // Neutral 起手
     settings: loadSettings(),
+    resultSettings: loadResultSettings(),
     lastSurfacedAtBySymbol: {},
     sessionActive: false,
     activeSessionSymbol: null,
@@ -189,8 +209,9 @@
     'silentArea', 'logList', 'backdrop', 'entrySheet', 'entryHead', 'entryMode',
     'entryNote', 'entryStateLine', 'entryDiscipline', 'btnDismiss', 'btnEngage',
     'tplSheet', 'tplList', 'aggSheet', 'aggHead', 'aggList',
-    'resultSheet', 'resultHead', 'resultOutcome', 'resultSummary', 'resultRate',
-    'resultReflect', 'btnResultSave',
+    'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcTime',
+    'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
+    'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave',
     'timerBar', 'timerLabel', 'timerClock',
     'btnComplete', 'btnCancel', 'segTrack', 'segLabels', 'timerPhase', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
@@ -199,6 +220,7 @@
     'livePushRow', 'livePushBtn', 'livePushStatus',
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
     'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
+    'resToggle', 'resChevron', 'resBody', 'resShowHistory', 'resShowRecap', 'resShowReflect',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ── 狀態卡 ──
@@ -591,7 +613,117 @@
     if (s) openResult(type, s);
   }
 
-  // ── 決策收束頁（計時器結束後，事件鏈的 Result 階段）──
+  // ── 決策收束頁（計時器結束後，事件鏈的 Result 階段）— 視覺化收束 ──
+  var MOMENTUM_LIMIT = 12;
+  var prefersReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888';
+  }
+  function easeOutCubic(p) { return 1 - Math.pow(1 - p, 3); }
+
+  // 弧規格：跟著流程/完整走完 → 整圈青；提前收束/中途退出 → 走多完整的部分弧（strain 色）。
+  // 「弧長就是你這次走了多完整」— 數值本身即畫面。
+  function resultArcSpec(endType, s) {
+    var tag = resolveOutcomeTag(endType, s.reachedReadiness);
+    if (isDisciplined(tag)) return { ratio: 1, colorVar: '--cyan-active' };
+    var ratio = s.durationSec > 0 ? s.elapsedSec / s.durationSec : 0;
+    return { ratio: Math.min(Math.max(ratio, 0.06), 1), colorVar: '--zone-strain' };
+  }
+
+  // canvas 弧（禁 SVG ring；比照 tissue-instrument 既有 canvas 先例）。固定 176px 尺寸，
+  // 不讀 offsetWidth → 避開 PLAYBOOK §6「sheet 滑入中量到 0」陷阱。
+  function drawResultArc(ratio, colorVar, animate) {
+    var canvas = el.resultArc;
+    if (!canvas || !canvas.getContext) return;
+    canvas.dataset.ratio = String(ratio); // 供 headless 驗證（canvas 像素難斷言）
+    canvas.dataset.colorVar = colorVar;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var size = 176;
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    canvas.width = Math.round(size * dpr);
+    canvas.height = Math.round(size * dpr);
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var cx = size / 2, cy = size / 2, r = size / 2 - 14, lw = 10, start = -Math.PI / 2;
+    var color = cssVar(colorVar), track = cssVar('--border');
+
+    function frame(p) {
+      ctx.clearRect(0, 0, size, size);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = track; ctx.lineWidth = lw; ctx.lineCap = 'butt';
+      ctx.stroke();
+      var sweep = Math.PI * 2 * ratio * p;
+      if (sweep > 0.001) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, start, start + sweep);
+        ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+    }
+
+    if (!animate) { frame(1); return; }
+    var t0 = null, dur = 900;
+    function step(ts) {
+      if (t0 === null) t0 = ts;
+      var p = Math.min((ts - t0) / dur, 1);
+      frame(easeOutCubic(p));
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function segColor(tag) {
+    if (tag === 'stayed_disciplined') return cssVar('--cyan-active');
+    if (tag === 'timed_out') return cssVar('--zone-clear');
+    return cssVar('--zone-strain'); // broke_discipline / no_action_taken
+  }
+
+  // momentum strip：最近 N 次收束（鏡射 domain selectRecentOutcomes），最右＝本次高亮。
+  function renderMomentumStrip(records) {
+    var strip = el.resultStrip;
+    if (!strip) return;
+    strip.textContent = '';
+    var recent = records.slice(Math.max(0, records.length - MOMENTUM_LIMIT));
+    recent.forEach(function (r, i) {
+      var seg = document.createElement('div');
+      seg.className = 'result-seg' + (i === recent.length - 1 ? ' now' : '');
+      seg.style.background = segColor(r.outcomeTag);
+      strip.appendChild(seg);
+    });
+  }
+
+  // 本次事件鏈 recap（流程語言、事實）：快訊 → 同標的更新 → Readiness → 收束。
+  function renderRecap(endType, s) {
+    var list = el.resultRecapList;
+    if (!list) return;
+    list.textContent = '';
+    var disp = outcomeDisplay(endType, s.reachedReadiness);
+    var rows = [
+      { cls: 'on', text: '快訊收到 · ' + s.symbol + '（' + s.tplName + '）' },
+      { cls: s.sameSymbolUpdates > 0 ? 'on' : '', text: '同標的更新：' + s.sameSymbolUpdates + ' 次' },
+      { cls: s.reachedReadiness ? 'on' : 'off', text: 'Readiness 窗：' + (s.reachedReadiness ? '已進入' : '未進入') },
+      { cls: disp.cls === 'disciplined' ? 'on' : 'off', text: '收束：' + disp.text + ' · 用時 ' + formatClock(s.elapsedSec) },
+    ];
+    rows.forEach(function (row) {
+      var rowEl = document.createElement('div');
+      rowEl.className = 'result-recap-row ' + row.cls;
+      var dot = document.createElement('span'); dot.className = 'rc-dot';
+      var txt = document.createElement('span'); txt.textContent = row.text;
+      rowEl.appendChild(dot); rowEl.appendChild(txt);
+      list.appendChild(rowEl);
+    });
+  }
+
+  function disciplineRate(records) {
+    if (records.length === 0) return 0;
+    var d = 0;
+    records.forEach(function (r) { if (isDisciplined(r.outcomeTag)) d += 1; });
+    return d / records.length;
+  }
+
   function openResult(endType, s) {
     var disp = outcomeDisplay(endType, s.reachedReadiness);
     state.pendingOutcome = {
@@ -604,14 +736,15 @@
       ts: Date.now(),
     };
 
-    el.resultHead.textContent = s.symbol + ' · ' + s.tplName + ' · 用時 ' +
-      formatClock(s.elapsedSec) + ' / ' + formatClock(s.durationSec);
+    var withThis = loadOutcomes().concat([state.pendingOutcome]);
+
+    el.resultHead.textContent = s.symbol + ' · ' + s.tplName;
     el.resultOutcome.textContent = disp.text;
     el.resultOutcome.className = 'result-outcome ' + disp.cls;
-    el.resultSummary.textContent = 'Readiness 窗：' + (s.reachedReadiness ? '已進入' : '未進入') +
-      '　·　同標的更新：' + s.sameSymbolUpdates + ' 次';
-    // 顯示「含本次」的累計完成率
-    el.resultRate.textContent = rateText(loadOutcomes().concat([state.pendingOutcome]));
+    el.resultArcTime.textContent = '用時 ' + formatClock(s.elapsedSec) + ' / ' + formatClock(s.durationSec);
+    el.resultRate.textContent = rateText(withThis);
+    renderMomentumStrip(withThis);
+    renderRecap(endType, s);
 
     el.resultReflect.textContent = '';
     REFLECT_TAGS.forEach(function (tag) {
@@ -632,7 +765,20 @@
       el.resultReflect.appendChild(chip);
     });
 
+    // 依收束頁設定決定各區塊顯示（記錄一律照常，只影響呈現）。
+    toggleHidden(el.resultHistory, state.resultSettings.showHistory);
+    toggleHidden(el.resultRecap, state.resultSettings.showRecap);
+    toggleHidden(el.resultReflectWrap, state.resultSettings.showReflect);
+
+    // 收束 meter 從 0 重置，開頁後才填入 → CSS transition 才會跑。
+    el.resultMeterFill.style.width = '0';
     openSheet(el.resultSheet);
+    var spec = resultArcSpec(endType, s);
+    var rate = disciplineRate(withThis);
+    requestAnimationFrame(function () {
+      el.resultMeterFill.style.width = Math.round(rate * 100) + '%';
+      drawResultArc(spec.ratio, spec.colorVar, !prefersReducedMotion);
+    });
   }
 
   // 收束頁離開（存檔或關閉皆持久化，避免漏記）
@@ -728,6 +874,23 @@
     else el.liveUrlWarn.removeAttribute('hidden');
   }
 
+  // 把標的綁成「頻道預設 symbol」（server 端）→ 就算 TradingView 貼的是裸 ?ch= 連結，
+  // /api/alert 也會回填這個 symbol、不再 400。debounce 避免每次按鍵都打 API。
+  var symbolBindTimer = null;
+  function syncChannelSymbol() {
+    var channelId = getChannel();
+    var symbol = currentFields().symbol;
+    if (!channelId || !symbol) return;
+    if (symbolBindTimer) clearTimeout(symbolBindTimer);
+    symbolBindTimer = setTimeout(function () {
+      fetch('/api/channel?ch=' + encodeURIComponent(channelId), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ symbol: symbol }),
+      }).catch(function () { /* best-effort：綁定失敗不影響頁面 */ });
+    }, 700);
+  }
+
   function setLiveStatus(text, dotState) {
     el.liveStatus.textContent = text;
     el.liveDot.classList.remove('on', 'err');
@@ -818,6 +981,7 @@
       el.liveSetup.setAttribute('hidden', '');
       el.liveReady.removeAttribute('hidden');
       renderWebhookUrl();
+      syncChannelSymbol(); // 開頁即把目前標的綁成頻道預設（既有頻道也回填）
       startPolling(channelId); // 有連結就自動接收，零動作
     } else {
       el.liveReady.setAttribute('hidden', '');
@@ -962,6 +1126,7 @@
       el[id].addEventListener('input', function () {
         localStorage.setItem(FIELDS_KEY, JSON.stringify(currentFields()));
         renderWebhookUrl();
+        if (id === 'liveSymbol') syncChannelSymbol(); // 標的變更 → 更新頻道預設
       });
     });
   })();
@@ -1040,7 +1205,26 @@
     else { el.setBody.setAttribute('hidden', ''); el.setChevron.textContent = '▾'; }
   });
 
+  // ── 收束頁設定（顯示偏好，持久）──
+  function renderResultSettingsInputs() {
+    el.resShowHistory.checked = state.resultSettings.showHistory;
+    el.resShowRecap.checked = state.resultSettings.showRecap;
+    el.resShowReflect.checked = state.resultSettings.showReflect;
+  }
+  function persistResultSettings() {
+    localStorage.setItem(RESULT_SETTINGS_KEY, JSON.stringify(state.resultSettings));
+  }
+  el.resShowHistory.addEventListener('change', function () { state.resultSettings.showHistory = el.resShowHistory.checked; persistResultSettings(); });
+  el.resShowRecap.addEventListener('change', function () { state.resultSettings.showRecap = el.resShowRecap.checked; persistResultSettings(); });
+  el.resShowReflect.addEventListener('change', function () { state.resultSettings.showReflect = el.resShowReflect.checked; persistResultSettings(); });
+  el.resToggle.addEventListener('click', function () {
+    var hidden = el.resBody.hasAttribute('hidden');
+    if (hidden) { el.resBody.removeAttribute('hidden'); el.resChevron.textContent = '▴'; }
+    else { el.resBody.setAttribute('hidden', ''); el.resChevron.textContent = '▾'; }
+  });
+
   renderSettingsInputs();
+  renderResultSettingsInputs();
   renderState();
   refreshDiscipline();
 })();

@@ -1,6 +1,7 @@
 import {
   isDisciplinedOutcome,
   resolveOutcomeTag,
+  selectRecentOutcomes,
   summarizeDisciplineRate,
 } from '../policies/decision-outcome';
 import type { DecisionOutcomeRecord } from '../policies/decision-outcome';
@@ -74,5 +75,45 @@ describe('summarizeDisciplineRate', () => {
     expect(summary.total).toBe(4);
     expect(summary.disciplined).toBe(2);
     expect(summary.rate).toBe(0.5);
+  });
+});
+
+describe('selectRecentOutcomes', () => {
+  function record(ts: number): DecisionOutcomeRecord {
+    return {
+      symbol: 'ES1!',
+      templateId: 'FBD',
+      outcomeTag: 'stayed_disciplined',
+      contextTag: null,
+      reachedReadiness: true,
+      durationSec: 180,
+      ts,
+    };
+  }
+
+  const records = [record(1), record(2), record(3), record(4), record(5)];
+
+  it('returns an empty list for a non-positive limit', () => {
+    expect(selectRecentOutcomes(records, 0)).toEqual([]);
+    expect(selectRecentOutcomes(records, -3)).toEqual([]);
+  });
+
+  it('returns the trailing window (oldest → newest) when limit < count', () => {
+    expect(selectRecentOutcomes(records, 2).map((r) => r.ts)).toEqual([4, 5]);
+  });
+
+  it('returns all records when limit >= count', () => {
+    expect(selectRecentOutcomes(records, 5).map((r) => r.ts)).toEqual([1, 2, 3, 4, 5]);
+    expect(selectRecentOutcomes(records, 99).map((r) => r.ts)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('handles an empty record list', () => {
+    expect(selectRecentOutcomes([], 12)).toEqual([]);
+  });
+
+  it('does not mutate the input array', () => {
+    const input = [record(1), record(2)];
+    selectRecentOutcomes(input, 1);
+    expect(input.map((r) => r.ts)).toEqual([1, 2]);
   });
 });

@@ -27,6 +27,9 @@ export const ALERTS_TTL_SEC = 86_400;
 /** Channel TTL in seconds (30 days, sliding — refreshed on poll). */
 export const CHANNEL_TTL_SEC = 2_592_000;
 
+/** Prefix for per-channel default symbol (backfills a bare webhook that omits `&symbol=`). */
+export const CHANNEL_SYMBOL_KEY_PREFIX = 'tenki:chsym:v1:';
+
 /** Prefix for per-channel Web Push subscription lists. */
 export const PUSH_KEY_PREFIX = 'tenki:push:v1:';
 
@@ -112,6 +115,40 @@ export async function channelExists(config: UpstashConfig, channelId: string): P
  */
 export async function touchChannel(config: UpstashConfig, channelId: string): Promise<void> {
   await command(config, ['expire', CHANNEL_KEY_PREFIX + channelId, String(CHANNEL_TTL_SEC)]);
+}
+
+/**
+ * Sets a channel's default symbol. A bare webhook URL (no `&symbol=`) inherits
+ * this so it validates instead of 400-ing — the user sets it once when they
+ * generate their link. TTL follows the channel's 30-day sliding window.
+ *
+ * @param config - Upstash credentials.
+ * @param channelId - Registered channel ID.
+ * @param symbol - Default symbol (already trimmed/validated by the caller).
+ */
+export async function setChannelSymbol(
+  config: UpstashConfig,
+  channelId: string,
+  symbol: string,
+): Promise<void> {
+  const key = CHANNEL_SYMBOL_KEY_PREFIX + channelId;
+  await command(config, ['set', key, symbol]);
+  await command(config, ['expire', key, String(CHANNEL_TTL_SEC)]);
+}
+
+/**
+ * Reads a channel's default symbol, or null when none is set.
+ *
+ * @param config - Upstash credentials.
+ * @param channelId - Registered channel ID.
+ * @returns The stored default symbol, or null.
+ */
+export async function getChannelSymbol(
+  config: UpstashConfig,
+  channelId: string,
+): Promise<string | null> {
+  const result = await command(config, ['get', CHANNEL_SYMBOL_KEY_PREFIX + channelId]);
+  return typeof result === 'string' && result.length > 0 ? result : null;
 }
 
 /**

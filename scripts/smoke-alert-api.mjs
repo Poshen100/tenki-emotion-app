@@ -42,6 +42,8 @@ try {
     else if (cmd === 'lrange') { result = list.slice(Number(args[0]), Number(args[1]) + 1); }
     else if (cmd === 'lrem') { const before = list.length; const kept = list.filter((v) => v !== args[1]); lists.set(key, kept); result = before - kept.length; }
     else if (cmd === 'setnx') { result = keys.has(key) ? 0 : (keys.set(key, args[0]), 1); }
+    else if (cmd === 'set') { keys.set(key, args[0]); result = 'OK'; }
+    else if (cmd === 'get') { result = keys.has(key) ? keys.get(key) : null; }
     else if (cmd === 'exists') { result = keys.has(key) ? 1 : 0; }
     else throw new Error('unexpected command: ' + cmd);
     return { ok: true, status: 200, json: async () => ({ result }) };
@@ -230,6 +232,45 @@ try {
   res = fakeRes();
   await subscribeHandler({ method: 'DELETE', query: { ch }, body: JSON.stringify({ endpoint: SUB.endpoint }) }, res);
   assert(res.statusCode === 200 && (lists.get('tenki:push:v1:' + ch) ?? []).length === 0, 'DELETE 移除訂閱');
+
+  // ── 頻道預設 symbol：裸 webhook 缺 symbol 時 server 端回填（根治 400 坑）──
+  // 25. 綁定 default symbol 需 POST + 合法 symbol
+  res = fakeRes();
+  await channelHandler({ method: 'POST', query: { ch }, body: '{"symbol":""}' }, res);
+  assert(res.statusCode === 400, '綁定 symbol：空字串 → 400');
+
+  // 26. 未註冊頻道綁定 → 404
+  res = fakeRes();
+  await channelHandler({ method: 'POST', query: { ch: 'd'.repeat(64) }, body: '{"symbol":"ES1!"}' }, res);
+  assert(res.statusCode === 404, '綁定 symbol：未註冊頻道 → 404');
+
+  // 27. 合法綁定 → 200 + 存進 chsym key
+  res = fakeRes();
+  await channelHandler({ method: 'POST', query: { ch }, body: '{"symbol":" ES1! "}' }, res);
+  assert(res.statusCode === 200 && res.payload.symbol === 'ES1!', '綁定 symbol：trim 後 200');
+  assert(keys.get('tenki:chsym:v1:' + ch) === 'ES1!', 'chsym key 存入 ES1!');
+
+  // 28. 裸 webhook（純人話 body、無 symbol）現在 → 200，且回填 ES1!
+  res = fakeRes();
+  await alertHandler({ method: 'POST', query: { ch }, body: 'ES1! 交叉 7470（純人話，無 symbol 欄）' }, res);
+  assert(res.statusCode === 200 && res.payload.ok === true, '裸 webhook 缺 symbol → 回填後 200');
+  res = fakeRes();
+  await alertsHandler({ method: 'GET', query: { ch } }, res);
+  assert(res.payload.alerts[0].symbol === 'ES1!', '回填的 symbol = 頻道預設 ES1!');
+  assert(res.payload.alerts[0].note === 'ES1! 交叉 7470（純人話，無 symbol 欄）', 'note 保留原始人話 body');
+
+  // 29. 未綁定 default 的頻道，裸 webhook 仍 400（回填只在有預設時生效）
+  res = fakeRes();
+  await alertHandler({ method: 'POST', query: { ch: ch2 }, body: 'no symbol here' }, res);
+  assert(res.statusCode === 400, '無預設 symbol 的頻道：裸 webhook 仍 400');
+
+  // 30. query 明給 symbol 時，不受頻道預設影響（明給優先）
+  res = fakeRes();
+  await alertHandler({ method: 'POST', query: { ch, symbol: 'NQ1!' }, body: 'plain' }, res);
+  assert(res.statusCode === 200, 'query 明給 symbol → 200');
+  res = fakeRes();
+  await alertsHandler({ method: 'GET', query: { ch } }, res);
+  assert(res.payload.alerts[0].symbol === 'NQ1!', 'query 明給 symbol 優先於頻道預設');
 
   console.log(`\nSMOKE PASS — ${passed} assertions`);
 } finally {

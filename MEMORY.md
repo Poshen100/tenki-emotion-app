@@ -9,6 +9,32 @@
 
 ---
 
+# 2026-07-29 Session Update #40 (決策收束頁 Fable-5 視覺化 + 頻道預設 symbol 根治 400)
+
+> 同一天續作。兩條線:①收束頁從純文字升級成視覺化(founder「像 Fable 5 思考、提高爽感」);②Web Push 又沒跳 → log 揪出還是裸連結 400 → 這次從 server 端根治。
+
+## A. 決策收束頁視覺化(`?v=alert15`,R1–R3)
+- **domain** `selectRecentOutcomes(records,limit)` 純函式 + Jest（取最近 N 筆供軌跡）。
+- **收束頁重排**（`decision-alert.{html,js}`）:canvas 弧揭示（禁 SVG ring → canvas，弧長＝這次走多完整，rAF + reduced-motion 畫終態，固定 176px 避 offsetWidth=0 陷阱）+ 完成率 meter + momentum strip（最近 12 次，最右＝本次高亮）+ 事件鏈 recap（快訊→更新→Readiness→收束）。
+- **反思 land 微互動** + **「收束頁設定」面板**（顯示紀律近況/軌跡/反思 三開關，存 `tenki.alert.result.settings.v1`）。記錄一律 on（auto-save-on-close 既有，背景關閉也存）→ 刻意不做關閉記錄的開關。
+- 爽感走**平靜路線**（AskUserQuestion 定案）:無 streak 壓力，貼合 wellness + brand.md § 5。
+- Playwright `shoot-result.mjs` 32 斷言全綠（弧 ratio/色、meter、strip、recap、反思、持久、設定隱藏、auto-save）。
+
+## B. 頻道預設 symbol —— 裸連結 400 的 server 端根治（P1–P3）
+- **又踩坑**:founder「開網頁能進決策頁但沒開網頁不跳」→ log 顯示 `/api/alert` 過去 14h **9 次全 400**。因輪詢正常(頻道有效)→ 400 = **webhook 又是裸連結、缺 symbol**（第 3 次）。推播是 200 後才送 → 全 400 就一則都不會推。
+- **根治**:`api/_lib/store.ts` `set/getChannelSymbol`（`tenki:chsym:v1:<ch>`）;`api/channel.ts` 收 `POST ?ch=+{symbol}` 綁定頻道預設;`api/alert.ts` payload 缺 symbol 時 best-effort 回填頻道預設 → 200。query 明給仍優先。preview（`?v=alert16`）標的變更/開頁即 debounce POST 綁定。
+- smoke +8（42 斷言）;Playwright bind 斷言。**兩層防呆**:產生器（UI）+ 頻道預設（server）。
+
+## 教訓
+- **iOS Web Push 只在『加入主畫面』PWA 背景跳,Safari 分頁不算**;且推播訂閱與 webhook 必須**同一頻道**（PWA/Safari/重設連結會換頻道）。已寫進 PLAYBOOK §6。
+- 「裸連結漏 symbol」踩到第 3 次 → 光靠 UI 提醒不夠,**server 端兜底才是根治**。凡是「使用者手貼易錯」的必填欄位,想想能不能綁到已知的 server 狀態自動補。
+
+## 下次接手點
+- 本輪 PR merge 後,founder 開 `/decision-alert/`（PWA）填標的一次 → 頻道綁定預設 → 舊的裸 webhook 也會 200。實機驗一則 ES1! 觸發應見 200 + push。
+- 收束頁 R4 docs（SPEC §9 升級）尚未寫；Phase D 其餘（inbox / 連線健康度）仍未做。
+
+---
+
 # 2026-07-29 Session Update #39 (基線結果頁改成校準尺 — Stitch 把區間帶做成了進度條)
 
 > 同一個 session 第二次走「我寫 prompt → founder 丟給 Google Stitch → 我把產出真的做出來」。第一次是掃描頁（#37）。這次是 `#step-result`。
