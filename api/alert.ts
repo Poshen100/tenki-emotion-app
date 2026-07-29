@@ -18,6 +18,7 @@ import type { VercelRequestLike, VercelResponseLike } from './_lib/http';
 import { resolveVapidConfig, sendAlertPush } from './_lib/push';
 import {
   channelExists,
+  getChannelSymbol,
   listPushSubscriptions,
   pushAlert,
   removePushSubscription,
@@ -48,7 +49,23 @@ export default async function handler(
     return;
   }
 
-  const validation = validateAlertPayloadContract(assembleAlertPayload(req));
+  const assembled = assembleAlertPayload(req);
+  // Server-side symbol backfill: a bare webhook URL (no `&symbol=`) inherits the
+  // channel's default symbol, set when the user generated their link. This kills
+  // the recurring "裸連結漏 symbol → 400" trap at the root. Best-effort — if the
+  // lookup fails or no default is set, validation 400s exactly as before.
+  if (typeof assembled.symbol !== 'string' || assembled.symbol.trim().length === 0) {
+    try {
+      const fallback = await getChannelSymbol(storage, channelId);
+      if (fallback !== null) {
+        assembled.symbol = fallback;
+      }
+    } catch {
+      // ignore — validation below produces the same 400 as pre-backfill
+    }
+  }
+
+  const validation = validateAlertPayloadContract(assembled);
   if (!validation.success) {
     res.status(400).json({ ok: false, errors: validation.errors });
     return;

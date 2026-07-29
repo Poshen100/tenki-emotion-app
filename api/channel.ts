@@ -11,9 +11,15 @@
  * abuse is bounded by SETNX-gated writes plus per-channel caps/TTLs.
  */
 
-import { getRequestHost } from './_lib/http';
+import { ALERT_PAYLOAD_MAX_STRING_LENGTH } from '../domain/src/contracts/alert-contract';
+import { getChannelId, getRequestHost, readJsonBody } from './_lib/http';
 import type { VercelRequestLike, VercelResponseLike } from './_lib/http';
-import { registerChannel, resolveUpstashConfig } from './_lib/store';
+import {
+  channelExists,
+  registerChannel,
+  resolveUpstashConfig,
+  setChannelSymbol,
+} from './_lib/store';
 
 export default async function handler(
   req: VercelRequestLike,
@@ -33,9 +39,37 @@ export default async function handler(
     return;
   }
 
-  let channelId: string;
+  // `POST /api/channel?ch=<ch>` with `{ symbol }` binds a default symbol to an
+  // existing channel — a bare webhook URL then inherits it server-side instead
+  // of 400-ing on a missing symbol. Without `ch`, this registers a new channel.
+  const channelId = getChannelId(req);
+  if (channelId !== null) {
+    const parsed = readJsonBody(req);
+    const raw =
+      parsed.ok && parsed.value !== null && typeof parsed.value === 'object'
+        ? (parsed.value as { symbol?: unknown }).symbol
+        : undefined;
+    const symbol = typeof raw === 'string' ? raw.trim() : '';
+    if (symbol.length === 0 || symbol.length > ALERT_PAYLOAD_MAX_STRING_LENGTH) {
+      res.status(400).json({ ok: false, error: 'symbol must be a non-empty string' });
+      return;
+    }
+    try {
+      if (!(await channelExists(storage, channelId))) {
+        res.status(404).json({ ok: false, error: 'channel not found or expired — generate a new link in TENKI' });
+        return;
+      }
+      await setChannelSymbol(storage, channelId, symbol);
+      res.status(200).json({ ok: true, channelId, symbol });
+    } catch (error) {
+      res.status(502).json({ ok: false, error: error instanceof Error ? error.message : 'symbol bind failed' });
+    }
+    return;
+  }
+
+  let newChannelId: string;
   try {
-    channelId = await registerChannel(storage);
+    newChannelId = await registerChannel(storage);
   } catch (error) {
     res.status(502).json({ ok: false, error: error instanceof Error ? error.message : 'channel registration failed' });
     return;
@@ -44,7 +78,7 @@ export default async function handler(
   const host = getRequestHost(req);
   res.status(200).json({
     ok: true,
-    channelId,
-    webhookUrl: host !== null ? `https://${host}/api/alert?ch=${channelId}` : null,
+    channelId: newChannelId,
+    webhookUrl: host !== null ? `https://${host}/api/alert?ch=${newChannelId}` : null,
   });
 }
