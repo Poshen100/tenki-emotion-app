@@ -206,8 +206,18 @@
       flex: 1; padding: 9px 6px; border-radius: 10px; font-size: 12px;
       background: var(--surface); border: 1px solid var(--border);
       color: #CBD5E1; cursor: pointer; text-align: center;
+      transition: transform 0.18s var(--ease-calm), border-color 0.18s, box-shadow 0.18s, color 0.18s, background 0.18s;
     }
-    .result-chip.sel { border-color: var(--zone-neutral); color: #fff; background: rgba(148,163,184,0.12); }
+    .result-chip:active { transform: scale(0.97); }
+    .result-chip.sel {
+      border-color: var(--cyan-active); color: #fff;
+      background: rgba(var(--cyan-active-rgb), 0.10);
+      transform: translateY(-1px) scale(1.04);
+      box-shadow: 0 0 0 1px rgba(var(--cyan-active-rgb), 0.45), 0 4px 16px rgba(var(--cyan-active-rgb), 0.16);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .result-chip, .result-chip:active, .result-chip.sel { transition: none; transform: none; }
+    }
     .alert-q { margin-top: 14px; font-size: 14px; font-weight: 600; }
     .sheet-actions { display: flex; gap: 10px; margin-top: 12px; }
     .btn {
@@ -351,6 +361,19 @@
       </div>
     </div>
 
+    <div class="live-card">
+      <button class="live-toggle" id="resToggle" type="button">
+        <span class="live-title">收束頁設定</span>
+        <span class="live-chevron" id="resChevron">▾</span>
+      </button>
+      <div class="live-body" id="resBody" hidden>
+        <div class="live-hint">收束頁要顯示哪些區塊 — 存在此瀏覽器。決策一律會記錄，不會遺漏。</div>
+        <label class="set-row set-check"><span>顯示紀律近況（完成率 + 軌跡）</span><input type="checkbox" id="resShowHistory" /></label>
+        <label class="set-row set-check"><span>顯示這次的決策軌跡</span><input type="checkbox" id="resShowRecap" /></label>
+        <label class="set-row set-check"><span>每次詢問反思</span><input type="checkbox" id="resShowReflect" /></label>
+      </div>
+    </div>
+
     <div class="silent-area" id="silentArea"></div>
 
     <div class="log-panel">
@@ -443,6 +466,6 @@
     <div class="timer-update" id="timerUpdate"></div>
   </div>
 
-  <script src="decision-alert.js?v=alert14"></script>
+  <script src="decision-alert.js?v=alert15"></script>
 </body>
 </html>

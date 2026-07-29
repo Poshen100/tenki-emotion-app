@@ -122,6 +122,25 @@
   var OUTCOME_STORE_KEY = 'tenki.alert.outcomes.v1';
   var REFLECT_TAGS = ['跟計畫', '有點急', '偏離計畫'];
 
+  // 收束頁顯示偏好（可調 + 持久）。記錄一律 on（安全、不可關）→ 不提供關閉記錄的開關。
+  var RESULT_SETTINGS_KEY = 'tenki.alert.result.settings.v1';
+  var DEFAULT_RESULT_SETTINGS = { showHistory: true, showRecap: true, showReflect: true };
+  function loadResultSettings() {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(RESULT_SETTINGS_KEY)); } catch (e) { s = null; }
+    if (!s || typeof s !== 'object') return Object.assign({}, DEFAULT_RESULT_SETTINGS);
+    return {
+      showHistory: s.showHistory !== false,
+      showRecap: s.showRecap !== false,
+      showReflect: s.showReflect !== false,
+    };
+  }
+  function toggleHidden(node, show) {
+    if (!node) return;
+    if (show) node.removeAttribute('hidden');
+    else node.setAttribute('hidden', '');
+  }
+
   function resolveOutcomeTag(endType, reachedReadiness) {
     if (endType === 'timeout') return 'timed_out';
     if (endType === 'cancel') return 'broke_discipline';
@@ -172,6 +191,7 @@
   var state = {
     zoneIdx: 1, // Neutral 起手
     settings: loadSettings(),
+    resultSettings: loadResultSettings(),
     lastSurfacedAtBySymbol: {},
     sessionActive: false,
     activeSessionSymbol: null,
@@ -200,6 +220,7 @@
     'livePushRow', 'livePushBtn', 'livePushStatus',
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
     'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
+    'resToggle', 'resChevron', 'resBody', 'resShowHistory', 'resShowRecap', 'resShowReflect',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ── 狀態卡 ──
@@ -744,6 +765,11 @@
       el.resultReflect.appendChild(chip);
     });
 
+    // 依收束頁設定決定各區塊顯示（記錄一律照常，只影響呈現）。
+    toggleHidden(el.resultHistory, state.resultSettings.showHistory);
+    toggleHidden(el.resultRecap, state.resultSettings.showRecap);
+    toggleHidden(el.resultReflectWrap, state.resultSettings.showReflect);
+
     // 收束 meter 從 0 重置，開頁後才填入 → CSS transition 才會跑。
     el.resultMeterFill.style.width = '0';
     openSheet(el.resultSheet);
@@ -1160,7 +1186,26 @@
     else { el.setBody.setAttribute('hidden', ''); el.setChevron.textContent = '▾'; }
   });
 
+  // ── 收束頁設定（顯示偏好，持久）──
+  function renderResultSettingsInputs() {
+    el.resShowHistory.checked = state.resultSettings.showHistory;
+    el.resShowRecap.checked = state.resultSettings.showRecap;
+    el.resShowReflect.checked = state.resultSettings.showReflect;
+  }
+  function persistResultSettings() {
+    localStorage.setItem(RESULT_SETTINGS_KEY, JSON.stringify(state.resultSettings));
+  }
+  el.resShowHistory.addEventListener('change', function () { state.resultSettings.showHistory = el.resShowHistory.checked; persistResultSettings(); });
+  el.resShowRecap.addEventListener('change', function () { state.resultSettings.showRecap = el.resShowRecap.checked; persistResultSettings(); });
+  el.resShowReflect.addEventListener('change', function () { state.resultSettings.showReflect = el.resShowReflect.checked; persistResultSettings(); });
+  el.resToggle.addEventListener('click', function () {
+    var hidden = el.resBody.hasAttribute('hidden');
+    if (hidden) { el.resBody.removeAttribute('hidden'); el.resChevron.textContent = '▴'; }
+    else { el.resBody.setAttribute('hidden', ''); el.resChevron.textContent = '▾'; }
+  });
+
   renderSettingsInputs();
+  renderResultSettingsInputs();
   renderState();
   refreshDiscipline();
 })();
