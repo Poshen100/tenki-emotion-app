@@ -411,24 +411,58 @@
         </p>
         <p class="step-subtext" id="result-subtext">從現在開始，每次掃描都是跟你自己比較</p>
 
-        <div class="baseline-metrics" id="baseline-metrics">
-          <div class="metric-card">
-            <div class="metric-label">你的平均心率</div>
-            <div class="metric-value" id="metric-hr">— BPM</div>
+        <!-- Calibration strip. Three separate stat cards said "here are three
+             results"; one strip with a shared scale says "here is the corridor
+             your future scans get measured against". The band is NOT decorative
+             — its position and width come from the measured mean ± std mapped
+             onto the axis, so a value that cannot fit the axis cannot be drawn
+             (see renderCalibrationStrip in baseline-onboarding.js). -->
+        <div class="calib-strip" id="calib-strip">
+          <div class="calib-row" data-metric="hr">
+            <span class="calib-label">心率</span>
+            <div class="calib-axis">
+              <span class="calib-band" id="band-hr"><span class="calib-value" id="metric-hr">—</span></span>
+              <span class="calib-unstable" id="unstable-hr" hidden>訊號不夠穩，下次掃描補上</span>
+              <span class="calib-tick calib-tick-lo">40</span>
+              <span class="calib-tick calib-tick-hi">120</span>
+            </div>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">你的心率變異</div>
-            <div class="metric-value" id="metric-hrv">— ms</div>
+          <div class="calib-row" data-metric="hrv">
+            <span class="calib-label">心率變異</span>
+            <div class="calib-axis">
+              <span class="calib-band" id="band-hrv"><span class="calib-value" id="metric-hrv">—</span></span>
+              <span class="calib-unstable" id="unstable-hrv" hidden>訊號不夠穩，下次掃描補上</span>
+              <span class="calib-tick calib-tick-lo">0</span>
+              <span class="calib-tick calib-tick-hi">120</span>
+            </div>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">你的呼吸節奏</div>
-            <div class="metric-value" id="metric-rr">— 次/分</div>
+          <div class="calib-row" data-metric="rr">
+            <span class="calib-label">呼吸</span>
+            <div class="calib-axis">
+              <span class="calib-band" id="band-rr"><span class="calib-value" id="metric-rr">—</span></span>
+              <span class="calib-unstable" id="unstable-rr" hidden>訊號不夠穩，下次掃描補上</span>
+              <span class="calib-tick calib-tick-lo">6</span>
+              <span class="calib-tick calib-tick-hi">24</span>
+            </div>
           </div>
+          <p class="calib-hint"><span class="calib-caret" aria-hidden="true"></span>未來的每次掃描會落在這些軸上</p>
+          <p class="calib-stamp" id="calib-stamp">CALIBRATED — · ON-DEVICE</p>
         </div>
 
-        <div class="confidence-badge" id="confidence-badge">
+        <div class="confidence-row" id="confidence-badge">
           <span class="confidence-dot"></span>
           <span id="confidence-text">數據品質：良好</span>
+          <span class="confidence-segments" id="confidence-segments" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
+        </div>
+
+        <div class="privacy-seal">
+          <svg class="privacy-seal-lock" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <rect x="2.5" y="6" width="9" height="6" rx="1.6" stroke="currentColor" stroke-width="1.1"/>
+            <path d="M4.6 6V4.4a2.4 2.4 0 0 1 4.8 0V6" stroke="currentColor" stroke-width="1.1"/>
+          </svg>
+          <span>生理原始資料沒有離開這支手機</span>
         </div>
 
         <div class="precision-tip-card">

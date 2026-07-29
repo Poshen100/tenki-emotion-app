@@ -1048,46 +1048,10 @@ body {
   max-width: 300px;
 }
 
-/* ── Baseline Metrics ── */
-.baseline-metrics {
-  display: flex;
-  gap: var(--sp-sm);
-  width: 100%;
-  margin: var(--sp-md) 0;
-}
-
-.metric-card {
-  flex: 1;
-  background: var(--surface);
-  border-radius: var(--r-md);
-  padding: var(--sp-md) var(--sp-sm);
-  text-align: center;
-}
-
-.metric-label {
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-bottom: var(--sp-xs);
-}
-
-.metric-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── Confidence Badge ── */
-.confidence-badge {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-sm);
-  padding: var(--sp-sm) var(--sp-md);
-  background: rgba(0, 180, 216, 0.08);
-  border-radius: var(--r-full);
-  font-size: 13px;
-  color: var(--primary);
-}
+/* The three .metric-card boxes and the .confidence-badge pill they sat under
+   were replaced by the calibration strip + confidence row further down this
+   file — a shared scale carries the "this is your corridor" meaning that three
+   separate boxes could not. */
 
 /* ── Precision Tip Card ── */
 .precision-tip-card {
@@ -2573,4 +2537,177 @@ body,
   font-size: 9px;
   letter-spacing: 0.16em;
   color: rgba(160, 182, 210, 0.7);
+}
+
+/* ─────────────────────────────────────────────
+   Baseline result — calibration strip
+   ─────────────────────────────────────────────
+   Three separate stat cards read as "three results you scored". One strip with
+   a shared, labelled scale reads as "this is your corridor" — which is what a
+   baseline actually is. The gold band is the measured mean ± std mapped onto
+   the axis, so it carries information rather than decorating a number.
+
+   The axes below are DISPLAY SCALES, not normal/abnormal judgements: there is
+   deliberately no green "healthy zone" and no population comparison, because
+   that would turn a reference point into a diagnosis. */
+
+.calib-strip {
+  width: 100%;
+  background: #080C15;
+  border: 1px solid rgba(87, 228, 255, 0.15);
+  border-radius: 16px;
+  padding: 16px 16px 10px;
+  margin: var(--sp-md) 0 12px;
+}
+
+.calib-row {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.calib-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #6E829B;
+  text-align: right;
+}
+
+.calib-axis {
+  position: relative;
+  height: 46px;
+}
+/* The scale itself — one hairline, full width. */
+.calib-axis::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 25px;
+  height: 1px;
+  background: #1E2A3D;
+}
+
+.calib-band {
+  position: absolute;
+  top: 20px;
+  height: 11px;
+  border-radius: 6px;
+  background: rgba(244, 198, 105, 0.22);
+  border: 1px solid rgba(244, 198, 105, 0.85);
+  /* left/width are written by renderCalibrationStrip from the real numbers. */
+  left: 0;
+  width: 0;
+  transition: left 420ms cubic-bezier(0.19, 1, 0.22, 1),
+              width 420ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+.calib-band[hidden] { display: none; }
+
+/* The value rides above its own band, centred on it, so it stays legible even
+   when the band is only a few percent of the axis wide. */
+.calib-value {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 500;
+  color: #F4C669;
+  font-variant-numeric: tabular-nums;
+}
+
+.calib-unstable {
+  position: absolute;
+  left: 0;
+  top: 17px;
+  font-size: 11px;
+  color: #8FA6C0;
+}
+.calib-unstable[hidden] { display: none; }
+
+.calib-tick {
+  position: absolute;
+  top: 31px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: #55697F;
+  font-variant-numeric: tabular-nums;
+}
+.calib-tick-lo { left: 0; }
+.calib-tick-hi { right: 0; }
+
+.calib-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding-left: 72px;
+  font-size: 10px;
+  color: #54E6A6;
+}
+.calib-caret {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 5px solid #54E6A6;
+}
+
+.calib-stamp {
+  margin: 10px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(87, 228, 255, 0.10);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: #55697F;
+  text-align: center;
+}
+
+/* ── Confidence: a graded reading, not a coloured pill ── */
+.confidence-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: #9BB0C9;
+}
+.confidence-row .confidence-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #54E6A6;
+}
+.confidence-segments { display: inline-flex; gap: 3px; }
+.confidence-segments i {
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(84, 230, 166, 0.18);
+}
+.confidence-segments i.on { background: #54E6A6; }
+
+/* ── Privacy: a stamped seal, not a marketing badge ── */
+.privacy-seal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 9px 12px;
+  background: #070B12;
+  border-top: 1px solid rgba(87, 228, 255, 0.08);
+  border-bottom: 1px solid rgba(87, 228, 255, 0.08);
+  font-size: 11px;
+  color: #8FA6C0;
+}
+.privacy-seal-lock { color: #54E6A6; flex-shrink: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .calib-band { transition: none; }
 }
