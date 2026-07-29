@@ -1014,6 +1014,19 @@
     if (el.livePushBtn) el.livePushBtn.classList.toggle('on', !!on);
   }
 
+  // 把（瀏覽器已有的）推播訂閱重新綁到「當前頻道」的 server 端。頻道可能因重設連結 /
+  // 新 PWA session 而更換，而 getSubscription() 只反映本機訂閱 → 若不重綁，webhook 打到
+  // 新頻道、訂閱還掛在舊頻道 → server subscriptions=0、關掉網頁就收不到。冪等（endpoint 去重）。
+  function rebindPush(sub) {
+    var ch = getChannel();
+    if (!ch || !sub) return;
+    fetch('/api/subscribe?ch=' + ch, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(sub),
+    }).catch(function () { /* best-effort */ });
+  }
+
   function refreshPushRow() {
     if (!el.livePushRow) return;
     if (!pushSupported() || !getChannel()) {
@@ -1027,6 +1040,7 @@
         if (sub) {
           el.livePushBtn.textContent = '🔔 手機推播已開啟';
           setPushStatus('關掉網頁也會收到快訊。', true);
+          rebindPush(sub); // 開頁即把訂閱重綁到當前頻道（治「換頻道後訂閱沒跟上」）
         }
       });
     }).catch(function () {});
