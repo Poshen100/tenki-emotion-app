@@ -3358,6 +3358,63 @@ function selectTmpl(el){
   document.documentElement.style.setProperty('--primary', t.color);
   setTimeout(() => { closeSheet(); setState('ready'); }, 260);
 }
+
+// ═════════════════════════════════════════════════
+// 自訂模板（Lab / 模板自訂）— 存 localStorage、merge 進 TEMPLATES、
+// 動態插入 Select Template sheet「我的模板」分類。選了走同一 currentTmpl 管線。
+// ═════════════════════════════════════════════════
+const CUSTOM_TMPL_KEY = 'tenki.v6.templates.v1';
+function loadCustomTemplates(){
+  try { const raw = JSON.parse(localStorage.getItem(CUSTOM_TMPL_KEY)); return Array.isArray(raw) ? raw : []; }
+  catch(e){ return []; }
+}
+function saveCustomTemplates(list){ localStorage.setItem(CUSTOM_TMPL_KEY, JSON.stringify(list)); }
+function customTmplKey(id){ return 'CUSTOM_' + id; }
+function fmtDur(sec){ const m = Math.floor(sec/60), s = sec%60; return m + ':' + String(s).padStart(2,'0'); }
+
+// merge 自訂模板進 TEMPLATES（先清舊 CUSTOM_ key 避免刪除殘留）+ 重繪 sheet 分類。
+function syncCustomTemplates(){
+  Object.keys(TEMPLATES).forEach(k => { if(k.indexOf('CUSTOM_') === 0) delete TEMPLATES[k]; });
+  const list = loadCustomTemplates();
+  list.forEach(t => {
+    TEMPLATES[customTmplKey(t.id)] = {
+      name: t.name, durationSec: t.durationSec, color: t.color,
+      icon: t.icon, segLabel: t.segLabel, custom: true
+    };
+  });
+  renderCustomTmplSheet(list);
+}
+
+function renderCustomTmplSheet(list){
+  const sheet = document.getElementById('sheet');
+  if(!sheet) return;
+  sheet.querySelectorAll('[data-custom-cat],[data-custom="1"]').forEach(n => n.remove());
+  if(list.length === 0) return;
+  const cat = document.createElement('div');
+  cat.className = 'sheet-cat'; cat.setAttribute('data-custom-cat','1');
+  cat.textContent = '— 我的模板 —';
+  sheet.appendChild(cat);
+  list.forEach(t => {
+    const item = document.createElement('div');
+    item.className = 'tmpl-item'; item.setAttribute('data-id', customTmplKey(t.id));
+    item.setAttribute('data-custom','1');
+    item.onclick = function(){ selectTmpl(this); };
+    const ic = document.createElement('div');
+    ic.className = 'ic'; ic.style.color = t.color; ic.innerHTML = ICON_SVG[t.icon] || ICON_SVG.heart;
+    const info = document.createElement('div');
+    info.className = 'info';
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = t.name;
+    const sub = document.createElement('div'); sub.className = 'sub'; sub.textContent = '自訂 · ' + t.segLabel;
+    info.appendChild(nm); info.appendChild(sub);
+    const dur = document.createElement('div');
+    dur.className = 'dur'; dur.textContent = fmtDur(t.durationSec);
+    item.appendChild(ic); item.appendChild(info); item.appendChild(dur);
+    sheet.appendChild(item);
+  });
+}
+
+syncCustomTemplates();
+
 function logEvent(){
   const check = document.querySelector('.fdcb-evts .check');
   if(check.classList.contains('empty')){
