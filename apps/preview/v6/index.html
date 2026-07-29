@@ -1229,6 +1229,46 @@ body{
 }
 .sd-insight b{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
 
+/* ── Session Detail：store-driven 事實卡 ── */
+.sd-outcome{display:flex;align-items:center;gap:14px;padding:16px}
+.sd-outcome-ic{
+  width:44px;height:44px;border-radius:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,0.05);color:var(--primary);
+}
+.sd-outcome-ic svg{width:24px;height:24px}
+.sd-outcome-headline{font-size:17px;font-weight:600;color:#fff;letter-spacing:-0.01em}
+.sd-outcome-sub{font-size:12px;color:var(--txt-sec);margin-top:3px}
+
+.sd-seg-card{padding:16px}
+.sd-seg-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.sd-seg-ttl{font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
+.sd-seg-dur{font-size:13px;color:#fff;font-variant-numeric:tabular-nums}
+.sd-seg-track{display:flex;gap:4px;height:38px}
+.sd-seg.part{
+  border-radius:8px;display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,0.05);
+  font-size:10px;letter-spacing:0.06em;color:var(--txt-sec);
+  transition:background 0.3s,color 0.3s;
+}
+.sd-seg.part.obs{flex:33}
+.sd-seg.part.core{flex:33}
+.sd-seg.part.ext{flex:34}
+.sd-seg.part.core.reached{
+  background:color-mix(in srgb, var(--primary) 22%, transparent);
+  color:#fff;font-weight:600;
+  box-shadow:0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent) inset;
+}
+.sd-seg-times{
+  display:flex;justify-content:space-between;margin-top:6px;
+  font-size:9px;color:var(--txt-dim);font-variant-numeric:tabular-nums;
+}
+
+.sd-facts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:14px}
+.sd-fact{text-align:center}
+.sd-fact .k{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:5px}
+.sd-fact .v{font-size:16px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums}
+
 /* ═══════════════════════════════════════════════════
    FDCB — floating above tab bar
    ═══════════════════════════════════════════════════ */
@@ -2388,106 +2428,43 @@ body{
 
     <div class="sd-body">
 
-      <!-- Hero: Edge Score start/end/delta -->
-      <div class="card sd-hero">
-        <div class="sd-hero-cell">
-          <div class="lbl">Start Edge Score</div>
-          <div class="val" id="sdEdgeTraceStart">75</div>
-          <div class="sub">Clear Zone</div>
-        </div>
-        <div class="sd-hero-arrow">→</div>
-        <div class="sd-hero-cell">
-          <div class="lbl">End Edge Score</div>
-          <div class="val" id="sdEdgeTraceEnd">73</div>
-          <div class="sd-hero-delta down" id="sdEdgeTraceDelta">−2</div>
+      <!-- Outcome hero -->
+      <div class="card sd-outcome">
+        <div class="sd-outcome-ic" id="sdOutcomeIc"></div>
+        <div class="sd-outcome-txt">
+          <div class="sd-outcome-headline" id="sdOutcomeHeadline">跟著流程完成</div>
+          <div class="sd-outcome-sub" id="sdOutcomeSub">達 Breathe · 0 marks</div>
         </div>
       </div>
 
-      <!-- Edge Score trace chart -->
-      <div class="card sd-trace-card">
-        <div class="sd-trace-head">
-          <div class="sd-trace-ttl">Edge Score Trace · Events</div>
-          <div class="sd-trace-dur" id="sdTraceDur">3:00</div>
+      <!-- Segment timeline（三段由 durationSec 推導：Observe → 核心段 → Extended）-->
+      <div class="card sd-seg-card">
+        <div class="sd-seg-head">
+          <div class="sd-seg-ttl">決策節奏</div>
+          <div class="sd-seg-dur" id="sdSegDur">3:00</div>
         </div>
-        <div class="sd-trace">
-          <svg viewBox="0 0 320 140" preserveAspectRatio="none" id="sdTraceSvg">
-            <defs>
-              <linearGradient id="sdArea" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#00B4D8" stop-opacity="0.3"/>
-                <stop offset="100%" stop-color="#00B4D8" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
-            <g id="sdTraceContent"></g>
-          </svg>
+        <div class="sd-seg-track">
+          <div class="sd-seg part obs"><span>Observe</span></div>
+          <div class="sd-seg part core" id="sdSegCore"><span id="sdSegCoreLbl">Readiness</span></div>
+          <div class="sd-seg part ext"><span>Extended</span></div>
         </div>
+        <div class="sd-seg-times" id="sdSegTimes"></div>
       </div>
 
-      <!-- Event timeline -->
-      <div class="card sd-events-card">
-        <div class="sd-events-head">Decision Events</div>
-        <div id="sdEvents"></div>
+      <!-- Facts（只用 store 有的欄位）-->
+      <div class="card sd-facts">
+        <div class="sd-fact"><div class="k">用時</div><div class="v" id="sdFactDur">3:00</div></div>
+        <div class="sd-fact"><div class="k">Readiness</div><div class="v" id="sdFactReadiness">已進入</div></div>
+        <div class="sd-fact"><div class="k">Marks</div><div class="v" id="sdFactMarks">0</div></div>
       </div>
 
-      <!-- Bio comparison -->
-      <div class="card sd-bio-card">
-        <div class="sd-bio-head">Biometric Shift</div>
-        <div class="sd-bio-grid">
-          <div class="sd-bio-col">
-            <div class="sd-bio-item">
-              <div class="sd-bio-lbl">Start HR</div>
-              <div class="sd-bio-val"><span id="sdHrStart">70</span><span class="u">bpm</span></div>
-            </div>
-            <div class="sd-bio-item">
-              <div class="sd-bio-lbl">Start HRV</div>
-              <div class="sd-bio-val"><span id="sdHrvStart">52</span><span class="u">ms</span></div>
-            </div>
-            <div class="sd-bio-item">
-              <div class="sd-bio-lbl">Start RR</div>
-              <div class="sd-bio-val"><span id="sdRrStart">14</span><span class="u">bpm</span></div>
-            </div>
-          </div>
-          <div class="sd-bio-arrows"><span>→</span><span>→</span><span>→</span></div>
-          <div class="sd-bio-col end">
-            <div class="sd-bio-item">
-              <div class="sd-bio-lbl">End HR</div>
-              <div class="sd-bio-val"><span class="u">bpm</span><span id="sdHrEnd">78</span></div>
-            </div>
-            <div class="sd-bio-item">
-              <div class="sd-bio-lbl">End HRV</div>
-              <div class="sd-bio-val"><span class="u">ms</span><span id="sdHrvEnd">44</span></div>
-            </div>
-            <div class="sd-bio-item">
-              <div class="sd-bio-lbl">End RR</div>
-              <div class="sd-bio-val"><span class="u">bpm</span><span id="sdRrEnd">16</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Learning insight -->
+      <!-- Insight（事實語言）-->
       <div class="sd-insight">
         <div class="ic">📊</div>
         <div class="body">
           <div class="head">Pattern Insight</div>
-          <span id="sdInsight">在 <b>Edge Score 75–80</b> 的 Mancini FBD 區段，你的決策清晰度通常較穩定。HR 在執行期間上升 <b>+8 bpm</b>，可留意壓力訊號的變化節奏。</span>
+          <span id="sdInsight"></span>
         </div>
-      </div>
-
-      <!-- Reflection -->
-      <div class="sd-reflect-card">
-        <div class="sd-reflect-head"><span>✎</span> Your Reflection</div>
-        <div class="sd-reflect-prompt">這次決策的清晰度如何？當下你觀察到什麼？</div>
-        <div class="sd-reflect-clarity">
-          <span class="lbl">Decision Clarity</span>
-          <div class="sd-clarity-dots" id="sdClarity">
-            <div class="d" data-v="1" onclick="setClarity(1)"></div>
-            <div class="d" data-v="2" onclick="setClarity(2)"></div>
-            <div class="d on" data-v="3" onclick="setClarity(3)"></div>
-            <div class="d on" data-v="4" onclick="setClarity(4)"></div>
-            <div class="d" data-v="5" onclick="setClarity(5)"></div>
-          </div>
-        </div>
-        <textarea class="sd-reflect-input" placeholder="例：呼吸節奏清楚，但中段有想加速結束的衝動⋯⋯" id="sdReflection"></textarea>
       </div>
 
     </div>
@@ -3879,353 +3856,64 @@ function renderSessionScreen(){
 }
 
 // ═════════════════════════════════════════════════
-// Session Detail — data + render
+// Session Detail — 由統一決策 store 的單筆紀錄驅動（read-only 事實卡）
+// 只顯示 store 有的欄位：outcome / readiness / marks / 用時 / 由 durationSec 推導的三段。
+// 無 Edge Score / 生理數據（那些原本是 demo 造假，已移除）。
 // ═════════════════════════════════════════════════
-const SESSIONS = {
-  // ───────── Wellness (預設模式) sessions ─────────
-  s_w1: {
-    template: 'Health Stress',
-    date: 'APR 19 · 17:15',
-    durationSec: 180,
-    durationStr: '3:00',
-    result: 'Clear',
-    resultClass: 'win',
-    edgeTraceStart: 68, edgeTraceEnd: 76,
-    hrStart: 74, hrEnd: 66,
-    hrvStart: 44, hrvEnd: 58,
-    rrStart: 15, rrEnd: 12,
-    segments: [
-      { startSec: 0, endSec: 60, label: 'Inhale', color: '#34C759' },
-      { startSec: 60, endSec: 120, label: 'Hold', color: '#00B4D8' },
-      { startSec: 120, endSec: 180, label: 'Exhale', color: '#5E3A87' }
-    ],
-    lockEndSec: 60,
-    sweetStart: 60, sweetEnd: 120,
-    edgeTracePoints: [68, 69, 70, 72, 73, 74, 75, 76, 76, 76, 76, 76, 76],
-    events: [
-      { type: 'START', elapsedSec: 5,  edgeScore: 68, phase: 'Inhale' },
-      { type: 'FINISH', elapsedSec: 178,  edgeScore: 76, phase: 'Exhale' }
-    ],
-    insight: '在 <b>Edge Score 68 → 76</b> 區段，呼吸節奏穩定。HR 下降 <b>−8 bpm</b>，HRV 上升 <b>+14 ms</b>，放鬆訊號明確。',
-    clarity: 5
-  },
-  s_w2: {
-    template: 'Work Focus',
-    date: 'APR 19 · 13:30',
-    durationSec: 1500,
-    durationStr: '25:00',
-    result: 'Steady',
-    resultClass: 'breakeven',
-    edgeTraceStart: 72, edgeTraceEnd: 74,
-    hrStart: 68, hrEnd: 70,
-    hrvStart: 56, hrvEnd: 54,
-    rrStart: 14, rrEnd: 14,
-    segments: [
-      { startSec: 0, endSec: 300, label: 'Engage', color: '#00B4D8' },
-      { startSec: 300, endSec: 1200, label: 'Focus', color: '#00B4D8' },
-      { startSec: 1200, endSec: 1500, label: 'Wrap', color: '#8E8E93' }
-    ],
-    lockEndSec: 300,
-    sweetStart: 300, sweetEnd: 1200,
-    edgeTracePoints: [72, 73, 73, 74, 74, 75, 74, 74, 75, 74, 74, 73, 74, 74, 73, 74, 74],
-    events: [
-      { type: 'START', elapsedSec: 30,  edgeScore: 72, phase: 'Engage' },
-      { type: 'DEEPEN', elapsedSec: 480,  edgeScore: 75, phase: 'Focus' },
-      { type: 'FINISH', elapsedSec: 1485,  edgeScore: 74, phase: 'Wrap' }
-    ],
-    insight: '在 <b>Edge Score 72–75</b> 區段，專注狀態穩定 <b>20 分鐘以上</b>。HRV 在 Focus 中段保持 <b>54–56 ms</b>，顯示節奏一致。',
-    clarity: 5
-  },
-  s_w3: {
-    template: 'Exercise',
-    date: 'APR 19 · 09:30',
-    durationSec: 600,
-    durationStr: '10:00',
-    result: 'Active',
-    resultClass: 'no_trade',
-    edgeTraceStart: 64, edgeTraceEnd: 71,
-    hrStart: 72, hrEnd: 78,
-    hrvStart: 42, hrvEnd: 50,
-    rrStart: 14, rrEnd: 15,
-    segments: [
-      { startSec: 0, endSec: 120, label: 'Warm-up', color: '#FF6B35' },
-      { startSec: 120, endSec: 480, label: 'Active', color: '#FF6B35' },
-      { startSec: 480, endSec: 600, label: 'Cool-down', color: '#34C759' }
-    ],
-    sweetStart: 120, sweetEnd: 480,
-    edgeTracePoints: [64, 65, 67, 70, 72, 74, 75, 74, 73, 72, 71, 71, 71],
-    events: [
-      { type: 'START', elapsedSec: 10,  edgeScore: 64, phase: 'Warm-up' },
-      { type: 'FINISH', elapsedSec: 595,  edgeScore: 71, phase: 'Cool-down' }
-    ],
-    insight: '運動結束後 <b>Edge Score 64 → 71</b>，HRV 從 <b>42 → 50 ms</b> 顯示恢復節奏良好。HR 峰值 <b>+6 bpm</b> 在合理活動範圍。',
-    clarity: 4
-  },
-  s_w4: {
-    template: 'Health Stress',
-    date: 'APR 19 · 07:00',
-    durationSec: 180,
-    durationStr: '3:00',
-    result: 'Recovered',
-    resultClass: 'win',
-    edgeTraceStart: 58, edgeTraceEnd: 70,
-    hrStart: 78, hrEnd: 68,
-    hrvStart: 36, hrvEnd: 52,
-    rrStart: 17, rrEnd: 13,
-    segments: [
-      { startSec: 0, endSec: 60, label: 'Inhale', color: '#34C759' },
-      { startSec: 60, endSec: 120, label: 'Hold', color: '#00B4D8' },
-      { startSec: 120, endSec: 180, label: 'Exhale', color: '#5E3A87' }
-    ],
-    lockEndSec: 60,
-    sweetStart: 60, sweetEnd: 120,
-    edgeTracePoints: [58, 60, 62, 64, 66, 67, 68, 69, 69, 70, 70, 70, 70],
-    events: [
-      { type: 'START', elapsedSec: 8,  edgeScore: 58, phase: 'Inhale' },
-      { type: 'FINISH', elapsedSec: 178,  edgeScore: 70, phase: 'Exhale' }
-    ],
-    insight: '晨間從 <b>Strain (58)</b> 恢復到 <b>Clear (70)</b>，HRV 提升 <b>+16 ms</b>，整體訊號明顯改善。',
-    clarity: 5
-  },
-  // ───────── Trader (進階模式) sessions — opt-in templates ─────────
-  s1: {
-    template: 'Mancini FBD',
-    date: 'APR 19 · 14:38',
-    durationSec: 180,
-    durationStr: '3:00',
-    result: 'Win',
-    resultClass: 'win',
-    edgeTraceStart: 75, edgeTraceEnd: 77,
-    hrStart: 70, hrEnd: 74,
-    hrvStart: 52, hrvEnd: 48,
-    rrStart: 14, rrEnd: 15,
-    segments: [
-      { startSec: 0, endSec: 60, label: 'Lock', color: '#5E3A87' },
-      { startSec: 60, endSec: 120, label: 'Execute', color: '#00B4D8' },
-      { startSec: 120, endSec: 180, label: 'Confirm', color: '#F5A623' }
-    ],
-    lockEndSec: 60,
-    sweetStart: 60, sweetEnd: 120,
-    edgeTracePoints: [75, 74, 75, 76, 78, 79, 77, 76, 77, 78, 77, 77, 77],
-    events: [
-      { type: 'ENTRY', elapsedSec: 95,  edgeScore: 78, phase: 'Execute' },
-      { type: 'ADD', elapsedSec: 142,  edgeScore: 77, phase: 'Confirm' },
-      { type: 'EXIT', elapsedSec: 178,  edgeScore: 77, phase: 'Confirm' }
-    ],
-    insight: '在 <b>Edge Score 75–80</b> 的 Mancini FBD 區段，你的決策清晰度通常較穩定。你在 <b>Lock 期間延長了等待</b>，顯示選擇了較慢的確認節奏。',
-    clarity: 4
-  },
-  s2: {
-    template: 'Canslim GS',
-    date: 'APR 19 · 11:22',
-    durationSec: 252,
-    durationStr: '4:12',
-    result: 'BE',
-    resultClass: 'breakeven',
-    edgeTraceStart: 68, edgeTraceEnd: 71,
-    hrStart: 72, hrEnd: 70,
-    hrvStart: 48, hrvEnd: 52,
-    rrStart: 15, rrEnd: 14,
-    segments: [
-      { startSec: 0, endSec: 60, label: 'Observe', color: '#FF6B35' },
-      { startSec: 60, endSec: 180, label: 'Sweet Zone', color: '#00B4D8' },
-      { startSec: 180, endSec: 252, label: 'Extended', color: '#8E8E93' }
-    ],
-    sweetStart: 60, sweetEnd: 180,
-    edgeTracePoints: [68, 67, 69, 70, 69, 70, 71, 72, 71, 72, 71, 70, 71, 71, 70, 71, 71],
-    events: [
-      { type: 'ENTRY', elapsedSec: 118,  edgeScore: 71, phase: 'Sweet Zone' },
-      { type: 'REDUCE', elapsedSec: 210,  edgeScore: 70, phase: 'Extended' },
-      { type: 'EXIT', elapsedSec: 245,  edgeScore: 71, phase: 'Extended' }
-    ],
-    insight: '你在 Sweet Zone 區段內 <b>118s</b> 啟動執行，節奏與訊號對齊。Break Even 的結果反映執行過程的穩定性，獨立於決策評價。',
-    clarity: 5
-  },
-  s3: {
-    template: 'Canslim High RS',
-    date: 'APR 19 · 10:08',
-    durationSec: 94,
-    durationStr: '1:34',
-    result: 'Skip',
-    resultClass: 'no_trade',
-    edgeTraceStart: 62, edgeTraceEnd: 63,
-    hrStart: 75, hrEnd: 74,
-    hrvStart: 42, hrvEnd: 44,
-    rrStart: 16, rrEnd: 15,
-    segments: [
-      { startSec: 0, endSec: 45, label: 'Quick Read', color: '#FF6B35' },
-      { startSec: 45, endSec: 94, label: 'Sweet Zone', color: '#00B4D8' }
-    ],
-    sweetStart: 45, sweetEnd: 150,
-    edgeTracePoints: [62, 63, 62, 63, 64, 63, 62],
-    events: [
-      { type: 'NO_TRADE', elapsedSec: 94,  edgeScore: 63, phase: 'Sweet Zone' }
-    ],
-    insight: 'Edge Score <b>62</b> 低於 Canslim 模板的常見啟動區間 <b>(72–82)</b>。本次未啟動執行，反映你在低訊號清晰度時選擇暫緩。',
-    clarity: 5
-  },
-  s4: {
-    template: 'Mancini FBD',
-    date: 'APR 19 · 09:41',
-    durationSec: 181,
-    durationStr: '3:01',
-    result: 'Loss',
-    resultClass: 'loss',
-    edgeTraceStart: 82, edgeTraceEnd: 79,
-    hrStart: 68, hrEnd: 76,
-    hrvStart: 58, hrvEnd: 40,
-    rrStart: 13, rrEnd: 17,
-    segments: [
-      { startSec: 0, endSec: 60, label: 'Lock', color: '#5E3A87' },
-      { startSec: 60, endSec: 120, label: 'Execute', color: '#00B4D8' },
-      { startSec: 120, endSec: 181, label: 'Confirm', color: '#F5A623' }
-    ],
-    lockEndSec: 60,
-    sweetStart: 60, sweetEnd: 120,
-    edgeTracePoints: [82, 84, 85, 84, 82, 81, 80, 78, 76, 75, 77, 78, 79],
-    events: [
-      { type: 'ENTRY', elapsedSec: 75,  edgeScore: 81, phase: 'Execute' },
-      { type: 'ADD', elapsedSec: 108,  edgeScore: 76, phase: 'Execute' },
-      { type: 'EXIT', elapsedSec: 155,  edgeScore: 78, phase: 'Confirm', variant: 'cancel' }
-    ],
-    insight: '<b>Edge Score 82 · Clear</b> 期間,HRV 在執行期間下跌 <b>18 ms</b>,壓力訊號上升。下次 Clear 高分時段,可考慮放慢確認節奏。',
-    clarity: 2
-  }
-};
-let currentSessionId = null;
+let currentSessionTs = null;
 
-function openSessionDetail(id){
-  const s = SESSIONS[id];
-  if(!s) return;
-  currentSessionId = id;
+function buildDetailInsight(rec, meta){
+  if(rec.outcomeTag === 'broke_discipline')
+    return '這次在 <b>' + escHtml(meta.segLabel) + '</b> 段之前就收束。下次可留意，觀察期走完再決定。';
+  if(rec.outcomeTag === 'timed_out')
+    return '這次完整走完 <b>' + fmtDur(rec.durationSec||0) + '</b>，節奏跟到底。';
+  return '這次進入 <b>' + escHtml(meta.segLabel) + '</b> 段後才收束，跟著流程完成。';
+}
 
-  document.getElementById('sdTitle').textContent = s.template;
-  document.getElementById('sdSubtitle').textContent = `${s.date} · ${s.durationStr} DURATION`;
+function openSessionDetail(ts){
+  const rec = loadOutcomes().find(r => r.ts === ts);
+  if(!rec) return;
+  currentSessionTs = ts;
+  const m = outcomeMeta(rec);
+  const badge = OUTCOME_BADGE_V6[rec.outcomeTag] || { text:'已記錄', cls:'breakeven' };
+  const dur = rec.durationSec || 0;
+  const b = segBounds(dur);
+  const marks = rec.marks || 0;
+
+  document.getElementById('sdTitle').textContent = m.name;
+  document.getElementById('sdSubtitle').textContent = fmtTimeOfDay(rec.ts) + ' · ' + fmtDur(dur) + ' 用時';
   const resultEl = document.getElementById('sdResult');
-  resultEl.textContent = s.result;
-  resultEl.className = 'sd-result result ' + s.resultClass;
+  resultEl.textContent = badge.text;
+  resultEl.className = 'sd-result result ' + badge.cls;
 
-  document.getElementById('sdEdgeTraceStart').textContent = s.edgeTraceStart;
-  document.getElementById('sdEdgeTraceEnd').textContent = s.edgeTraceEnd;
-  const delta = s.edgeTraceEnd - s.edgeTraceStart;
-  const deltaEl = document.getElementById('sdEdgeTraceDelta');
-  deltaEl.textContent = (delta > 0 ? '+' : '') + delta;
-  deltaEl.className = 'sd-hero-delta ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat');
+  // Outcome hero
+  const icEl = document.getElementById('sdOutcomeIc');
+  icEl.style.color = m.color;
+  icEl.innerHTML = ICON_SVG[m.icon] || ICON_SVG.heart;
+  document.getElementById('sdOutcomeHeadline').textContent = OUTCOME_TEXT_V6[rec.outcomeTag] || '已記錄';
+  document.getElementById('sdOutcomeSub').textContent =
+    (rec.reachedReadiness ? ('達 ' + m.segLabel) : ('未達 ' + m.segLabel)) + ' · ' + marks + ' marks';
 
-  document.getElementById('sdTraceDur').textContent = s.durationStr;
+  // Segment track（三段由 durationSec 推導）
+  document.getElementById('sdSegDur').textContent = fmtDur(dur);
+  document.getElementById('sdSegCoreLbl').textContent = m.segLabel;
+  document.getElementById('sdSegCore').classList.toggle('reached', !!rec.reachedReadiness);
+  document.getElementById('sdSegTimes').innerHTML =
+    '<span>0:00</span><span>' + fmtDur(b.rs) + '</span><span>' + fmtDur(b.re) + '</span><span>' + fmtDur(dur) + '</span>';
 
-  document.getElementById('sdHrStart').textContent = s.hrStart;
-  document.getElementById('sdHrEnd').textContent = s.hrEnd;
-  document.getElementById('sdHrvStart').textContent = s.hrvStart;
-  document.getElementById('sdHrvEnd').textContent = s.hrvEnd;
-  document.getElementById('sdRrStart').textContent = s.rrStart;
-  document.getElementById('sdRrEnd').textContent = s.rrEnd;
+  // Facts
+  document.getElementById('sdFactDur').textContent = fmtDur(dur);
+  document.getElementById('sdFactReadiness').textContent = rec.reachedReadiness ? '已進入' : '未進入';
+  document.getElementById('sdFactMarks').textContent = String(marks);
 
-  document.getElementById('sdInsight').innerHTML = s.insight;
-
-  const dots = document.querySelectorAll('#sdClarity .d');
-  dots.forEach((d, i) => d.classList.toggle('on', i < s.clarity));
-
-  renderEdgeTrace(s);
-  renderEventsList(s);
+  document.getElementById('sdInsight').innerHTML = buildDetailInsight(rec, m);
 
   document.getElementById('sessionDetail').classList.add('open');
 }
 
 function closeSessionDetail(){
   document.getElementById('sessionDetail').classList.remove('open');
-  currentSessionId = null;
-}
-
-function renderEdgeTrace(s){
-  const content = document.getElementById('sdTraceContent');
-  const W = 320, H = 140;
-  const padL = 26, padR = 10, padT = 10, padB = 22;
-  const w = W - padL - padR, h = H - padT - padB;
-  const edgeTraceMin = 40, edgeTraceMax = 99;
-  const edgeTraceToY = v => padT + h * (1 - (v - edgeTraceMin) / (edgeTraceMax - edgeTraceMin));
-  const secToX = t => padL + w * (t / s.durationSec);
-
-  let html = '';
-  if(s.lockEndSec){
-    html += `<rect class="lock-zone" x="${secToX(0)}" y="${padT}" width="${secToX(s.lockEndSec) - secToX(0)}" height="${h}"/>`;
-  }
-  if(s.sweetStart !== undefined && s.sweetEnd !== undefined){
-    const x1 = secToX(s.sweetStart);
-    const x2 = secToX(Math.min(s.sweetEnd, s.durationSec));
-    html += `<rect class="sweet-zone" x="${x1}" y="${padT}" width="${x2 - x1}" height="${h}"/>`;
-  }
-  s.segments.forEach((seg, i) => {
-    if(i === 0) return;
-    const x = secToX(seg.startSec);
-    html += `<line class="seg-line" x1="${x}" y1="${padT}" x2="${x}" y2="${padT + h}"/>`;
-  });
-  s.segments.forEach(seg => {
-    const x = secToX((seg.startSec + Math.min(seg.endSec, s.durationSec)) / 2);
-    html += `<text class="seg-label" x="${x}" y="${padT + 10}" text-anchor="middle" fill="${seg.color}" opacity="0.7">${seg.label}</text>`;
-  });
-  [50, 70, 90].forEach(v => {
-    html += `<text class="axis" x="${padL - 4}" y="${edgeTraceToY(v) + 3}" text-anchor="end">${v}</text>`;
-  });
-  const pts = s.edgeTracePoints.map((v, i) => {
-    const t = (i / (s.edgeTracePoints.length - 1)) * s.durationSec;
-    return `${secToX(t)},${edgeTraceToY(v)}`;
-  });
-  const firstPt = pts[0].split(',');
-  const lastPt = pts[pts.length - 1].split(',');
-  const areaPath = `M${pts[0]} L${pts.slice(1).join(' L')} L${lastPt[0]},${padT + h} L${firstPt[0]},${padT + h} Z`;
-  html += `<path class="tl-edge-area" d="${areaPath}"/>`;
-  html += `<polyline class="tl-edge-line" points="${pts.join(' ')}"/>`;
-
-  s.events.forEach(ev => {
-    const x = secToX(ev.elapsedSec);
-    const y = edgeTraceToY(ev.edgeScore);
-    const isCancel = ev.variant === 'cancel';
-    html += `<circle class="evt${isCancel ? ' cancel' : ''}" cx="${x}" cy="${y}" r="4.5"/>`;
-  });
-
-  const durTicks = s.durationSec >= 180 ? [0, 60, 120, s.durationSec] :
-                   s.durationSec >= 90 ? [0, 30, 60, s.durationSec] :
-                   [0, Math.floor(s.durationSec/2), s.durationSec];
-  durTicks.forEach(t => {
-    const x = secToX(t);
-    const m = Math.floor(t/60), sec = t%60;
-    const label = t === 0 ? '0:00' : `${m}:${sec.toString().padStart(2,'0')}`;
-    html += `<text class="axis" x="${x}" y="${padT + h + 14}" text-anchor="middle">${label}</text>`;
-  });
-  content.innerHTML = html;
-}
-
-function renderEventsList(s){
-  const host = document.getElementById('sdEvents');
-  const typeLabels = {
-    // Wellness (預設模式) event types
-    START: '開始', DEEPEN: '加深', SOFTEN: '緩衝',
-    FINISH: '完成', PAUSE: '暫停', SKIP: '略過',
-    // Trader (進階模式) event types — 啟用 trader template 後使用
-    ENTRY: 'Entry', ADD: 'Add Position', REDUCE: 'Reduce',
-    EXIT: 'Exit', CANCEL: 'Cancel', NO_TRADE: 'No Trade'
-  };
-  host.innerHTML = s.events.map(ev => {
-    const m = Math.floor(ev.elapsedSec/60), sec = ev.elapsedSec%60;
-    const time = `${m}:${sec.toString().padStart(2,'0')}`;
-    const cls = (ev.variant === 'cancel' ? 'cancel' : ev.type.toLowerCase());
-    const label = typeLabels[ev.type] || ev.type;
-    return `
-      <div class="sd-evt ${cls}">
-        <div class="time">${time}</div>
-        <div class="dot"></div>
-        <div class="type">${label} <span class="phase">${ev.phase}</span></div>
-        <div class="tl-edge-mark">Edge Score <b>${ev.edgeScore}</b></div>
-      </div>
-    `;
-  }).join('');
-}
-
-function setClarity(v){
-  const dots = document.querySelectorAll('#sdClarity .d');
-  dots.forEach((d, i) => d.classList.toggle('on', i < v));
-  if(currentSessionId) SESSIONS[currentSessionId].clarity = v;
+  currentSessionTs = null;
 }
 
 // ═════════════════════════════════════════════════
