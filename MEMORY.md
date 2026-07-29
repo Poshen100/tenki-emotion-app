@@ -9,6 +9,31 @@
 
 ---
 
+# 2026-07-30 Session Update #42 (v6 四頁升級 Phase 1：Lab / 模板自訂做成真的)
+
+> Founder：四個 tab（Scan/Session/Timeline/Lab）「像 Fable 5 思考、提高爽感」+ 功能做成真的能用，點名**模板自訂「根本不能點」**。決策（AskUserQuestion）：分批做、**先 Lab / 模板自訂**；真實度＝**功能原型**。本輪＝Phase 1。
+
+## 現況（v6 = 單檔瀏覽器原型，`apps/preview/v6/index.html` 4528 行）
+- `goTab()` 切 screen（opacity-based，所有 screen 常駐 DOM）；大量數字寫死、多數按鈕死的。
+- Lab 6 張卡只有 Baseline 有 onclick；模板自訂/穿戴/EdgeBucket/CSV/情境行事曆/Pro 全無 handler。
+- 骨幹 `TEMPLATES`（6 內建）→ 底部 Select Template sheet（`selectTmpl` 讀 data-id）→ `currentTmpl` 驅動 session。
+
+## 做了什麼（L1–L4，各一 commit）
+- **L1**：自訂模板 localStorage（`tenki.v6.templates.v1`）→ merge 進 `TEMPLATES`（CUSTOM_<id>）→ 動態插入 sheet「我的模板」。選了走同一 currentTmpl 管線、零額外接線就能開 session。
+- **L2**：`#tmplEditor` slide-in（名稱/時長/段標籤/顏色/圖示 + 即時預覽，建立/編輯/刪除 + 驗證）；Lab 卡接 `openTmplEditor()`。**z-index 9600 蓋過 scan-takeover**（見教訓）。
+- **L3**：CSV 匯出真下載（`tenki.alert.outcomes.v1` → Blob/a[download]）；其餘死卡 → 誠實 `labInfo` toast（不留 dead click、不放假數據）。
+- **L4**：Lab 進場 stagger（**opacity-only**，不與 :active transform 衝突）+ tap 深度 + featured glow；reduced-motion 安全。
+
+## 教訓（→ PLAYBOOK 候選）
+- **v6 有隱形吃點擊的全屏疊層**：`#stardust-scan-takeover`（z9000）雖 opacity:0/pointer-events:none，但子層 `.scan-takeover-fingerprint-wrapper` 是 `pointer-events:auto`（底部常駐掃描觸發區）→ 會吃掉它範圍內的點擊。新全屏 overlay/底部按鈕要 **z-index > 9000** 才不被吃（editor 設 9600）。headless 也會被 `tenki-splash` 擋 → 測試先 `remove()` 這兩個疊層。
+- v6 screen 是 opacity 常駐（非 display:none）→ 進場動畫別用會在 load 就跑掉的 CSS animation；用 **transition keyed on `#lab-screen.active`**（opacity）才會「進頁才播」。
+
+## 下次接手點
+- Phase 2 Session（對齊率/Insight/卡由真實 outcomes 算）、P3 Scan、P4 Timeline 各自獨立 PR。
+- v6 = CI 盲區 → founder 硬重載 `/v3/` 實走：Lab 建自訂模板 → Select Template 選它開 session。
+
+---
+
 # 2026-07-29 Session Update #41 (收束頁 v2 — 揭示時刻的儀式感 + Web Push 實機通關)
 
 > #40 的收束頁揭示偏「平靜極簡」（所有東西同時放出）。founder 選「再進化、爽感加碼 → 只加揭示時刻儀式感」。另外 Web Push 這輪也實機通關了。
