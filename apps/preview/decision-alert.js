@@ -209,7 +209,7 @@
     'silentArea', 'logList', 'backdrop', 'entrySheet', 'entryHead', 'entryMode',
     'entryNote', 'entryStateLine', 'entryDiscipline', 'btnDismiss', 'btnEngage',
     'tplSheet', 'tplList', 'aggSheet', 'aggHead', 'aggList',
-    'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcTime',
+    'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcCenter', 'resultArcGlow', 'resultArcTime',
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
     'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave',
     'timerBar', 'timerLabel', 'timerClock',
@@ -633,9 +633,9 @@
 
   // canvas 弧（禁 SVG ring；比照 tissue-instrument 既有 canvas 先例）。固定 176px 尺寸，
   // 不讀 offsetWidth → 避開 PLAYBOOK §6「sheet 滑入中量到 0」陷阱。
-  function drawResultArc(ratio, colorVar, animate) {
+  function drawResultArc(ratio, colorVar, animate, onDone) {
     var canvas = el.resultArc;
-    if (!canvas || !canvas.getContext) return;
+    if (!canvas || !canvas.getContext) { if (onDone) onDone(); return; }
     canvas.dataset.ratio = String(ratio); // 供 headless 驗證（canvas 像素難斷言）
     canvas.dataset.colorVar = colorVar;
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -664,13 +664,35 @@
       }
     }
 
-    if (!animate) { frame(1); return; }
+    if (!animate) { frame(1); if (onDone) onDone(); return; }
     var t0 = null, dur = 900;
     function step(ts) {
       if (t0 === null) t0 = ts;
       var p = Math.min((ts - t0) / dur, 1);
       frame(easeOutCubic(p));
       if (p < 1) requestAnimationFrame(step);
+      else if (onDone) onDone();
+    }
+    requestAnimationFrame(step);
+  }
+
+  // 完成率數字遞增（0 → 最終%）。末值與 rateText 完全一致（供頁面與測試對齊）。
+  function countUpRate(records, animate) {
+    var node = el.resultRate;
+    if (!node) return;
+    if (records.length === 0) { node.textContent = rateText(records); return; }
+    var d = 0;
+    records.forEach(function (r) { if (isDisciplined(r.outcomeTag)) d += 1; });
+    var finalPct = Math.round((d / records.length) * 100);
+    var suffix = '%（' + d + '/' + records.length + '）';
+    if (!animate) { node.textContent = '紀律完成率：' + finalPct + suffix; return; }
+    var t0 = null, dur = 600;
+    function step(ts) {
+      if (t0 === null) t0 = ts;
+      var p = Math.min((ts - t0) / dur, 1);
+      node.textContent = '紀律完成率：' + Math.round(finalPct * easeOutCubic(p)) + suffix;
+      if (p < 1) requestAnimationFrame(step);
+      else node.textContent = '紀律完成率：' + finalPct + suffix;
     }
     requestAnimationFrame(step);
   }
@@ -742,7 +764,6 @@
     el.resultOutcome.textContent = disp.text;
     el.resultOutcome.className = 'result-outcome ' + disp.cls;
     el.resultArcTime.textContent = '用時 ' + formatClock(s.elapsedSec) + ' / ' + formatClock(s.durationSec);
-    el.resultRate.textContent = rateText(withThis);
     renderMomentumStrip(withThis);
     renderRecap(endType, s);
 
@@ -770,14 +791,45 @@
     toggleHidden(el.resultRecap, state.resultSettings.showRecap);
     toggleHidden(el.resultReflectWrap, state.resultSettings.showReflect);
 
-    // 收束 meter 從 0 重置，開頁後才填入 → CSS transition 才會跑。
-    el.resultMeterFill.style.width = '0';
-    openSheet(el.resultSheet);
+    // ── 揭示編排（choreographed reveal）──
+    // 弧掃完才依序放出：微光 breath → outcome 落定 → 完成率遞增 + meter 填 → 下方區塊 cascade。
+    // reduced-motion 一律畫終態（不加 .reveal，元素預設可見；onDone 同步觸發、無 glow）。
+    var animate = !prefersReducedMotion;
     var spec = resultArcSpec(endType, s);
     var rate = disciplineRate(withThis);
-    requestAnimationFrame(function () {
+    var revealItems = [el.resultHistory, el.resultRecap, el.resultReflectWrap];
+
+    // 重置上一次的編排殘留
+    el.resultArcCenter.classList.remove('landed');
+    if (el.resultArcGlow) el.resultArcGlow.classList.remove('pulse');
+    revealItems.forEach(function (node) { if (node) node.classList.remove('in'); });
+    el.resultSheet.classList.toggle('reveal', animate);
+    el.resultRate.textContent = animate ? '紀律完成率：0%' : rateText(withThis);
+    el.resultMeterFill.style.width = '0';
+
+    openSheet(el.resultSheet);
+
+    function reveal() {
       el.resultMeterFill.style.width = Math.round(rate * 100) + '%';
-      drawResultArc(spec.ratio, spec.colorVar, !prefersReducedMotion);
+      countUpRate(withThis, animate);
+      el.resultArcCenter.classList.add('landed');
+      if (animate && el.resultArcGlow) {
+        el.resultArcGlow.style.setProperty('--glow', cssVar(spec.colorVar));
+        el.resultArcGlow.classList.add('pulse');
+        el.resultArcGlow.addEventListener('animationend', function handler() {
+          el.resultArcGlow.classList.remove('pulse');
+          el.resultArcGlow.removeEventListener('animationend', handler);
+        });
+      }
+      revealItems.forEach(function (node, i) {
+        if (!node) return;
+        if (!animate) { node.classList.add('in'); return; }
+        setTimeout(function () { node.classList.add('in'); }, i * 90);
+      });
+    }
+
+    requestAnimationFrame(function () {
+      drawResultArc(spec.ratio, spec.colorVar, animate, reveal);
     });
   }
 

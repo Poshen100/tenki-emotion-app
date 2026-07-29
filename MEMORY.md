@@ -9,6 +9,32 @@
 
 ---
 
+# 2026-07-29 Session Update #41 (收束頁 v2 — 揭示時刻的儀式感 + Web Push 實機通關)
+
+> #40 的收束頁揭示偏「平靜極簡」（所有東西同時放出）。founder 選「再進化、爽感加碼 → 只加揭示時刻儀式感」。另外 Web Push 這輪也實機通關了。
+
+## Web Push 通關（延續 #39–#40）
+- 頻道預設 symbol 根治後 log 顯示 webhook **200** 了，但推播仍沒跳 → log `[push] subscriptions=0`。
+- 根因：`refreshPushRow` 只看本機 `getSubscription()` 就顯示「已開啟」，**從不把訂閱綁到「當前頻道」server 端** → 換頻道後訂閱掛舊頻道。修法：開頁偵測本機有訂閱就 best-effort 重 POST `/api/subscribe?ch=<當前頻道>`（冪等）。`?v=alert17`，PR #206。
+- **實機驗收通過**：founder 在別的 App 裡收到「TENKI 決策快訊 · ES1! 交叉 7,480」背景通知。三塊（webhook 200 / 訂閱重綁 / sent=1）全通。
+
+## 收束頁 v2：揭示編排（choreographed reveal，`?v=alert18`）
+把「同時放出」改成**由弧驅動的時間軸**（弧＝真實資料）：
+- `drawResultArc` 加 `onDone` callback（sweep 完成錨點；`animate=false` 同步呼叫）。
+- `openResult` 編排：弧掃完 → 圓心 outcome **落定**（`.landed` scale 1.06→1）+ 一次微光 **breath**（`.result-arc-glow.pulse` 單次，非重複迴圈）+ **完成率 count-up**（`countUpRate` rAF，末值＝`rateText`）+ meter 同刻填 → 下方三區塊 **cascade**（`.reveal-item.in` stagger 90ms）。
+- **平靜/合規**：一次呼吸不做 streak/confetti/音效；`prefers-reduced-motion` 不加 `.reveal`、無 glow、即見終態。
+- Playwright `shoot-result.mjs` 38 斷言（含 landed/cascade/glow/count-up 末值 + reduced-motion 分支）。
+
+## 教訓
+- **page.clock 只 fake JS timers，不 fake CSS animation**：glow 的 `animationend` 走真實時間 → 測試別斷言「pulse 已移除」，改斷言「`--glow` 已設定」等同步狀態。
+- 編排讓收束頁的 rAF/ setTimeout 變長 → 既有測試 `runFor(1000)` 不夠、殘留 pending timer 會卡住後續 clock 操作 → 加編排時**同步把測試等待拉到 ~1900ms**。
+
+## 下次接手點
+- 收束頁四塊只加碼了「揭示」；歷史 sparkline / clarity 反思 / 整頁配色收斂 三塊 founder 這輪沒選，之後可再問。
+- Phase D 其餘（快訊 inbox / 連線健康度面板）仍未做。
+
+---
+
 # 2026-07-29 Session Update #40 (決策收束頁 Fable-5 視覺化 + 頻道預設 symbol 根治 400)
 
 > 同一天續作。兩條線:①收束頁從純文字升級成視覺化(founder「像 Fable 5 思考、提高爽感」);②Web Push 又沒跳 → log 揪出還是裸連結 400 → 這次從 server 端根治。

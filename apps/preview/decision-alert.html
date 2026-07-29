@@ -184,6 +184,28 @@
       align-items: center; justify-content: center; text-align: center; padding: 0 22px;
     }
     .result-arc-time { font-size: 12px; color: #94A3B8; margin-top: 5px; font-variant-numeric: tabular-nums; }
+    /* 揭示編排：一次性微光 breath + outcome 落定 + 下方區塊 cascade（reduced-motion 一律終態）*/
+    .result-arc-glow {
+      position: absolute; top: 50%; left: 50%; width: 150px; height: 150px; margin: -75px 0 0 -75px;
+      border-radius: 50%; opacity: 0; pointer-events: none;
+      background: radial-gradient(circle, var(--glow, var(--cyan-active)) 0%, transparent 70%);
+    }
+    .result-arc-glow.pulse { animation: result-ring-pulse 0.75s var(--ease-calm) 1; }
+    @keyframes result-ring-pulse {
+      0% { opacity: 0; transform: scale(0.9); }
+      40% { opacity: 0.45; }
+      100% { opacity: 0; transform: scale(1.18); }
+    }
+    .result-sheet.reveal .result-arc-center { opacity: 0; transform: scale(1.06); }
+    .result-sheet.reveal .result-arc-center.landed {
+      opacity: 1; transform: scale(1);
+      transition: opacity 0.4s var(--ease-calm), transform 0.4s var(--ease-calm);
+    }
+    .result-sheet.reveal .reveal-item { opacity: 0; transform: translateY(8px); }
+    .result-sheet.reveal .reveal-item.in {
+      opacity: 1; transform: none;
+      transition: opacity 0.35s var(--ease-calm), transform 0.35s var(--ease-calm);
+    }
     .result-block { margin-top: 16px; }
     .result-block-label { font-size: 11px; letter-spacing: 0.08em; color: #64748B; text-transform: uppercase; margin-bottom: 8px; }
     .result-meter { height: 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
@@ -201,6 +223,9 @@
     .result-reflect { display: flex; gap: 8px; margin-top: 8px; }
     @media (prefers-reduced-motion: reduce) {
       .result-meter-fill { transition: none; }
+      .result-arc-glow { display: none; }
+      .result-sheet.reveal .result-arc-center,
+      .result-sheet.reveal .reveal-item { opacity: 1; transform: none; transition: none; }
     }
     .result-chip {
       flex: 1; padding: 9px 6px; border-radius: 10px; font-size: 12px;
@@ -423,26 +448,27 @@
     <div class="alert-head" id="resultHead"></div>
 
     <div class="result-hero">
+      <div class="result-arc-glow" id="resultArcGlow"></div>
       <canvas class="result-arc" id="resultArc"></canvas>
-      <div class="result-arc-center">
+      <div class="result-arc-center" id="resultArcCenter">
         <div class="result-outcome" id="resultOutcome"></div>
         <div class="result-arc-time" id="resultArcTime"></div>
       </div>
     </div>
 
-    <div class="result-block" id="resultHistory">
+    <div class="result-block reveal-item" id="resultHistory">
       <div class="result-block-label">紀律近況</div>
       <div class="result-meter"><div class="result-meter-fill" id="resultMeterFill"></div></div>
       <div class="stat-sub" id="resultRate"></div>
       <div class="result-strip" id="resultStrip"></div>
     </div>
 
-    <div class="result-block" id="resultRecap">
+    <div class="result-block reveal-item" id="resultRecap">
       <div class="result-block-label">這次的決策軌跡</div>
       <div class="result-recap" id="resultRecapList"></div>
     </div>
 
-    <div class="result-reflect-wrap" id="resultReflectWrap">
+    <div class="result-reflect-wrap reveal-item" id="resultReflectWrap">
       <div class="result-reflect-q">這次的決策過程，你給自己：</div>
       <div class="result-reflect" id="resultReflect"></div>
     </div>
@@ -466,6 +492,6 @@
     <div class="timer-update" id="timerUpdate"></div>
   </div>
 
-  <script src="decision-alert.js?v=alert17"></script>
+  <script src="decision-alert.js?v=alert18"></script>
 </body>
 </html>
