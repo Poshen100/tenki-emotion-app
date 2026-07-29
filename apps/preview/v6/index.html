@@ -1322,6 +1322,9 @@ body{
 .fdcb.state-complete .fdcb-time::before{content:'✓ ';font-weight:700}
 .fdcb.state-complete .fdcb-seg,
 .fdcb.state-complete .fdcb-prog{display:none}
+/* 提前收束 = 事實橙、無勾（跟著流程/完整走完維持既有綠 ✓） */
+.fdcb.state-complete.closure-broke .fdcb-time{color:#FF9F0A;text-shadow:0 0 16px rgba(255,159,10,0.35)}
+.fdcb.state-complete.closure-broke .fdcb-time::before{content:''}
 
 .fdcb-evts{
   flex:0 0 auto;display:flex;align-items:center;gap:5px;
@@ -3470,9 +3473,12 @@ function renderFdcb(){
     }, 1000);
   }
   if(s === 'complete'){
-    timeEl.textContent = 'Decision Logged';
+    const tag = pendingClosure ? pendingClosure.tag : 'timed_out';
+    timeEl.textContent = OUTCOME_TEXT_V6[tag] || '已記錄';
     segEl.textContent = '';
     fdcb.classList.remove('in-readiness');
+    fdcb.classList.toggle('closure-disciplined', isDisciplinedV6(tag));
+    fdcb.classList.toggle('closure-broke', !isDisciplinedV6(tag));
   }
 }
 
@@ -3504,11 +3510,34 @@ function renderMarks(){
   else { check.classList.add('empty'); check.textContent = '+'; }
 }
 
-// TM1：結束＝停錶 → complete → idle（TM2 補 outcome / 持久化 / closure 文字）
+// ── 收束：判定 outcome（鏡射 domain/decision-alert resolveOutcomeTag）+ 存進統一 store ──
+const OUTCOME_STORE_KEY_V6 = 'tenki.alert.outcomes.v1';
+const OUTCOME_TEXT_V6 = { stayed_disciplined:'跟著流程完成', broke_discipline:'提前收束', timed_out:'完整走完' };
+let pendingClosure = null;
+function resolveOutcome(type, reached){
+  if(type === 'timeout') return 'timed_out';           // 跑滿
+  return reached ? 'stayed_disciplined' : 'broke_discipline'; // 收束後達 readiness / 未達
+}
+function isDisciplinedV6(tag){ return tag === 'stayed_disciplined' || tag === 'timed_out'; }
+function saveV6Outcome(session, outcomeTag){
+  let all = [];
+  try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
+  if(!Array.isArray(all)) all = [];
+  all.push({
+    symbol: session.name, templateId: session.templateId, outcomeTag,
+    contextTag: null, reachedReadiness: !!session.reachedReadiness,
+    durationSec: elapsed, marks: session.marks, ts: Date.now(), source: 'v6'
+  });
+  if(all.length > 200) all = all.slice(all.length - 200);
+  localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
+}
 function endDecision(type){
   if(runningInterval){ clearInterval(runningInterval); runningInterval = null; }
+  const tag = resolveOutcome(type, sess ? sess.reachedReadiness : false);
+  if(sess) saveV6Outcome(sess, tag);
+  pendingClosure = { tag: tag };
   setState('complete');
-  setTimeout(() => setState('idle'), 1600);
+  setTimeout(() => setState('idle'), 1800);
 }
 
 function nextState(){
