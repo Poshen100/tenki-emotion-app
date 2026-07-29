@@ -924,6 +924,18 @@ body{
 .te-save{background:var(--primary);color:#001;}
 .te-del{flex:0 0 auto;padding:13px 20px;background:transparent;border-color:rgba(255,107,53,0.4);color:#FF6B35}
 @media (prefers-reduced-motion: reduce){ .tmpl-editor{transition:none} .te-sw,.te-ic{transition:none} }
+/* Lab 訊息 toast */
+.lab-toast{
+  position:absolute;left:16px;right:16px;bottom:96px;z-index:9700;
+  background:rgba(28,28,30,0.98);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);
+  border:1px solid rgba(255,255,255,0.10);border-radius:16px;padding:14px 16px;
+  opacity:0;transform:translateY(12px);pointer-events:none;
+  transition:opacity 0.3s var(--ease-calm),transform 0.3s var(--ease-calm);
+}
+.lab-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
+.lab-toast-title{font-size:14px;font-weight:600;color:#fff}
+.lab-toast-sub{font-size:12px;color:var(--txt-sec);margin-top:3px;line-height:1.45}
+@media (prefers-reduced-motion: reduce){ .lab-toast{transition:none} }
 .session-detail{
   position:absolute;inset:0;
   background:
@@ -2310,12 +2322,12 @@ body{
             <div class="nm">Baseline</div>
             <div class="sub">HR 68 · HRV 52 · RR 14<br>重新校準或檢視</div>
           </div>
-          <div class="lab-item">
+          <div class="lab-item" onclick="labInfo('穿戴裝置整合','即將開放 — Apple Watch / BLE 胸帶 / Garmin 需原生 App 支援。')">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="5" width="10" height="16" rx="2"/><circle cx="12" cy="17" r="1"/><path d="M9 9h6"/></svg></div>
             <div class="nm">穿戴裝置</div>
             <div class="sub">整合 Apple Watch<br>BLE 胸帶 / Garmin</div>
           </div>
-          <div class="lab-item beta">
+          <div class="lab-item beta" onclick="labInfo('Edge Score Bucket','即將開放 — 按分數區間分析你的決策統計。')">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 002 3h12a2 2 0 002-3l-5-9V3"/><path d="M7 3h10"/></svg></div>
             <div class="nm">Edge Score Bucket</div>
             <div class="sub">按區間分析<br>你的決策統計</div>
@@ -2325,19 +2337,19 @@ body{
             <div class="nm">模板自訂</div>
             <div class="sub">建立個人化<br>決策模板</div>
           </div>
-          <div class="lab-item">
+          <div class="lab-item" onclick="exportOutcomesCsv()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
             <div class="nm">CSV 匯出</div>
             <div class="sub">下載原始數據<br>供進階分析</div>
           </div>
-          <div class="lab-item beta">
+          <div class="lab-item beta" onclick="labInfo('情境行事曆','即將開放 — 同步日程節律、預排 session。')">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
             <div class="nm">情境行事曆</div>
             <div class="sub">同步日程節律<br>預排 session</div>
           </div>
         </div>
 
-        <div class="lab-wide">
+        <div class="lab-wide" onclick="labInfo('升級到 Pro','即將開放 — 完整 FDCB · 無限掃描 · 藍牙整合。')">
           <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.6 7.2L22 10l-5.8 4.4L18 22l-6-4-6 4 1.8-7.6L2 10l7.4-.8z"/></svg></div>
           <div class="info">
             <div class="nm">升級到 Pro</div>
@@ -2568,6 +2580,12 @@ body{
         <button class="te-btn te-save" id="teSave" type="button" onclick="saveTmplFromEditor()">儲存模板</button>
       </div>
     </div>
+  </div>
+
+  <!-- Lab 訊息 toast（誠實狀態 / 匯出回饋）-->
+  <div class="lab-toast" id="labToast" onclick="this.classList.remove('show')">
+    <div class="lab-toast-title" id="labToastTitle"></div>
+    <div class="lab-toast-sub" id="labToastSub"></div>
   </div>
 
   <!-- Template sheet -->
@@ -3608,6 +3626,43 @@ function deleteTmplFromEditor(){
   const node = document.getElementById(id);
   if(node) node.addEventListener('input', renderEditorPreview);
 });
+
+// ── Lab toast（誠實狀態 / 匯出回饋）──
+let labToastTimer = null;
+function labInfo(title, sub){
+  const t = document.getElementById('labToast');
+  document.getElementById('labToastTitle').textContent = title;
+  document.getElementById('labToastSub').textContent = sub || '';
+  t.classList.add('show');
+  if(labToastTimer) clearTimeout(labToastTimer);
+  labToastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── CSV 匯出（真下載）：匯出決策收束紀錄（tenki.alert.outcomes.v1）──
+function csvEscape(v){ v = (v == null ? '' : String(v)); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }
+function exportOutcomesCsv(){
+  let rows = [];
+  try { rows = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')) || []; } catch(e){ rows = []; }
+  if(!Array.isArray(rows) || rows.length === 0){
+    labInfo('尚無決策紀錄可匯出', '完成幾次決策收束後再回來，這裡會匯出你的 CSV。');
+    return;
+  }
+  const cols = ['ts','datetime','symbol','templateId','outcomeTag','reachedReadiness','durationSec','contextTag'];
+  const lines = [cols.join(',')];
+  rows.forEach(r => {
+    lines.push([
+      r.ts, r.ts ? new Date(r.ts).toISOString() : '', r.symbol, r.templateId,
+      r.outcomeTag, r.reachedReadiness, r.durationSec, r.contextTag
+    ].map(csvEscape).join(','));
+  });
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'tenki-decisions-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  labInfo('已匯出 ' + rows.length + ' 筆決策紀錄', 'CSV 已開始下載。');
+}
 
 function logEvent(){
   const check = document.querySelector('.fdcb-evts .check');
