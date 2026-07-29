@@ -171,12 +171,37 @@
       font-size: 13px; line-height: 1.5;
     }
     .alert-state .stat-sub { color: #64748B; font-size: 12px; }
-    .result-outcome { font-size: 14px; font-weight: 600; margin-top: 6px; }
+    .result-outcome { font-size: 15px; font-weight: 700; }
     .result-outcome.disciplined { color: var(--zone-clear); }
     .result-outcome.broke { color: var(--zone-strain); }
     .result-outcome.neutral { color: #94A3B8; }
-    .result-reflect-q { margin-top: 14px; font-size: 13px; color: #CBD5E1; }
+    /* ── 決策收束頁（視覺化）── */
+    #resultSheet { max-height: 88dvh; overflow-y: auto; }
+    .result-hero { position: relative; width: 176px; height: 176px; margin: 12px auto 6px; }
+    .result-arc { display: block; width: 176px; height: 176px; }
+    .result-arc-center {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; padding: 0 22px;
+    }
+    .result-arc-time { font-size: 12px; color: #94A3B8; margin-top: 5px; font-variant-numeric: tabular-nums; }
+    .result-block { margin-top: 16px; }
+    .result-block-label { font-size: 11px; letter-spacing: 0.08em; color: #64748B; text-transform: uppercase; margin-bottom: 8px; }
+    .result-meter { height: 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+    .result-meter-fill { height: 100%; width: 0; border-radius: 4px; background: linear-gradient(90deg, var(--zone-clear), var(--cyan-active)); transition: width 0.9s var(--ease-calm); }
+    .result-strip { display: flex; gap: 4px; margin-top: 10px; align-items: center; }
+    .result-seg { flex: 1; height: 18px; border-radius: 4px; background: var(--border); min-width: 0; transition: opacity 0.3s; }
+    .result-seg.now { outline: 2px solid rgba(var(--cyan-active-rgb), 0.6); outline-offset: 1px; height: 22px; }
+    .result-recap { display: flex; flex-direction: column; gap: 8px; }
+    .result-recap-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #CBD5E1; }
+    .result-recap-row .rc-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--zone-neutral); }
+    .result-recap-row.on .rc-dot { background: var(--cyan-active); }
+    .result-recap-row.off .rc-dot { background: var(--zone-strain); }
+    .result-reflect-wrap { margin-top: 16px; }
+    .result-reflect-q { font-size: 13px; color: #CBD5E1; }
     .result-reflect { display: flex; gap: 8px; margin-top: 8px; }
+    @media (prefers-reduced-motion: reduce) {
+      .result-meter-fill { transition: none; }
+    }
     .result-chip {
       flex: 1; padding: 9px 6px; border-radius: 10px; font-size: 12px;
       background: var(--surface); border: 1px solid var(--border);
@@ -369,17 +394,36 @@
     <div id="aggList"></div>
   </div>
 
-  <!-- 決策收束頁（計時器結束後） -->
-  <div class="sheet" id="resultSheet">
+  <!-- 決策收束頁（計時器結束後）— 視覺化收束 -->
+  <div class="sheet result-sheet" id="resultSheet">
     <div class="sheet-handle"></div>
     <div class="alert-head" id="resultHead"></div>
-    <div class="result-outcome" id="resultOutcome"></div>
-    <div class="alert-state">
-      <div id="resultSummary"></div>
-      <div class="stat-sub" id="resultRate"></div>
+
+    <div class="result-hero">
+      <canvas class="result-arc" id="resultArc"></canvas>
+      <div class="result-arc-center">
+        <div class="result-outcome" id="resultOutcome"></div>
+        <div class="result-arc-time" id="resultArcTime"></div>
+      </div>
     </div>
-    <div class="result-reflect-q">這次的決策過程，你給自己：</div>
-    <div class="result-reflect" id="resultReflect"></div>
+
+    <div class="result-block" id="resultHistory">
+      <div class="result-block-label">紀律近況</div>
+      <div class="result-meter"><div class="result-meter-fill" id="resultMeterFill"></div></div>
+      <div class="stat-sub" id="resultRate"></div>
+      <div class="result-strip" id="resultStrip"></div>
+    </div>
+
+    <div class="result-block" id="resultRecap">
+      <div class="result-block-label">這次的決策軌跡</div>
+      <div class="result-recap" id="resultRecapList"></div>
+    </div>
+
+    <div class="result-reflect-wrap" id="resultReflectWrap">
+      <div class="result-reflect-q">這次的決策過程，你給自己：</div>
+      <div class="result-reflect" id="resultReflect"></div>
+    </div>
+
     <div class="sheet-actions">
       <button class="btn btn-primary" id="btnResultSave" type="button">記錄並關閉</button>
     </div>
@@ -399,6 +443,6 @@
     <div class="timer-update" id="timerUpdate"></div>
   </div>
 
-  <script src="decision-alert.js?v=alert13"></script>
+  <script src="decision-alert.js?v=alert14"></script>
 </body>
 </html>
