@@ -9,6 +9,26 @@
 
 ---
 
+# 2026-07-30 Session Update #43 (v6 決策計時器做成真的 — dock 就地，取代假 8 秒 demo)
+
+> 四頁升級延伸。Founder：dock 的決策計時器是 demo，要做成真的、「像 Fable 5」。決策（AskUserQuestion）：**dock 就地做真**（不做展開全屏儀表）；**outcomes 寫進和 TradingView 決策同一個 store**。
+
+## 現況 → 做了什麼（`apps/preview/v6/index.html`，TM1–TM3 各一 commit）
+- 舊：`renderFdcb` running 分支跑到 `elapsed>=8` 就 complete 的**假 8 秒**；prog 三段寫死 20/40/40；complete 不存任何東西。
+- **TM1 真實引擎**：跑真 `tmpl.durationSec`；`.fdcb-fill` 填充；三段由時長推導 **Observe 0–33% →（`tmpl.segLabel`＝核心/readiness 段）33–66% → Extended**；`#fdcbSeg` 當前段；進核心段＝`reachedReadiness`。marks 真記錄（logEvent 只在 running 有效）。`nextState`：idle→ready→running；running 中點 core＝收束。
+- **TM2 收束 + 統一 store**：`resolveOutcome`（鏡射 domain `resolveOutcomeTag`）：timeout→timed_out、收束後達 readiness→stayed_disciplined、未達→broke_discipline。`saveV6Outcome` append 到 `tenki.alert.outcomes.v1`（同鍵同形狀 + `marks`/`source:'v6'`，cap 200）→ **v6 決策與 TradingView 決策合流**（餵 /decision-alert/ 完成率 + 之後 Session/Timeline）。complete 顯示事實文字（跟著流程完成/提前收束/完整走完）。
+- **TM3 爽感**：進 readiness 一次 breath 微光 + 收束一次色脈動（綠/橙）；`prefers-reduced-motion` 畫終態。
+
+## 關鍵複用 / 對映
+- v6 模板三段直接對到 decision-alert 的 readiness 模型：**核心段（segLabel）＝readiness 窗**，進入＝達 readiness。零新概念。
+- 兩個計時器（v6 dock / `/decision-alert/`）目前各自 inline、不共用 code（鏡射同語意）；統一 store 讓資料合流。未來可考慮抽共用 decision-timer。
+
+## 下次接手點
+- 四頁還剩 Session / Scan / Timeline（各自 PR）。Session 頁現在可用真實 `tenki.alert.outcomes.v1`（含 v6 + TradingView）算對齊率/Insight。
+- dock 展開「決策儀表」全屏（founder 這輪選 dock-only）是後續可選。
+
+---
+
 # 2026-07-30 Session Update #42 (v6 四頁升級 Phase 1：Lab / 模板自訂做成真的)
 
 > Founder：四個 tab（Scan/Session/Timeline/Lab）「像 Fable 5 思考、提高爽感」+ 功能做成真的能用，點名**模板自訂「根本不能點」**。決策（AskUserQuestion）：分批做、**先 Lab / 模板自訂**；真實度＝**功能原型**。本輪＝Phase 1。

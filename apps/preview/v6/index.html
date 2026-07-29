@@ -1299,9 +1299,25 @@ body{
   background:rgba(255,255,255,0.06);border-radius:1px;margin-top:4px;
   overflow:hidden;display:flex;
 }
-.fdcb-prog .seg-obs{background:var(--sns)}
-.fdcb-prog .seg-sweet{background:var(--primary)}
-.fdcb-prog .seg-ext{background:rgba(142,142,147,0.6)}
+.fdcb-prog{position:relative}
+.fdcb-prog .seg-obs{background:var(--sns);opacity:0.35}
+.fdcb-prog .seg-sweet{background:var(--primary);opacity:0.35}
+.fdcb-prog .seg-ext{background:rgba(142,142,147,0.6);opacity:0.35}
+.fdcb-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--primary);border-radius:1px;box-shadow:0 0 6px var(--primary);transition:width 1s linear;z-index:1}
+/* 進入 readiness（核心段）：整條 dock 一次微光 + 段標籤強調 */
+.fdcb.in-readiness{box-shadow:0 0 0 1px rgba(0,180,216,0.4), 0 0 22px rgba(0,180,216,0.18);animation:fdcb-readiness-in 0.7s var(--ease-calm)}
+.fdcb.in-readiness .fdcb-seg{color:var(--primary);text-shadow:0 0 10px rgba(0,180,216,0.5)}
+/* Fable-5 爽感：進 readiness 一次微光 breath + 收束一次色脈動（一次性，非重複迴圈）*/
+@keyframes fdcb-readiness-in{30%{box-shadow:0 0 0 1px rgba(0,180,216,0.65), 0 0 30px rgba(0,180,216,0.32)}}
+.fdcb.state-complete.closure-disciplined{animation:fdcb-pulse-good 0.7s var(--ease-calm)}
+.fdcb.state-complete.closure-broke{animation:fdcb-pulse-broke 0.7s var(--ease-calm)}
+@keyframes fdcb-pulse-good{40%{box-shadow:0 0 0 1px rgba(52,199,89,0.5), 0 0 26px rgba(52,199,89,0.28)}}
+@keyframes fdcb-pulse-broke{40%{box-shadow:0 0 0 1px rgba(255,159,10,0.5), 0 0 26px rgba(255,159,10,0.24)}}
+@media (prefers-reduced-motion: reduce){
+  .fdcb.in-readiness, .fdcb.state-complete.closure-disciplined, .fdcb.state-complete.closure-broke{animation:none}
+  .fdcb-fill{transition:none}
+  .fdcb-evts .dot{transition:none}
+}
 
 .fdcb.state-idle .fdcb-time{
   font-size:12px;font-weight:500;color:rgba(255,255,255,0.85);letter-spacing:0.14em;
@@ -1317,6 +1333,9 @@ body{
 .fdcb.state-complete .fdcb-time::before{content:'✓ ';font-weight:700}
 .fdcb.state-complete .fdcb-seg,
 .fdcb.state-complete .fdcb-prog{display:none}
+/* 提前收束 = 事實橙、無勾（跟著流程/完整走完維持既有綠 ✓） */
+.fdcb.state-complete.closure-broke .fdcb-time{color:#FF9F0A;text-shadow:0 0 16px rgba(255,159,10,0.35)}
+.fdcb.state-complete.closure-broke .fdcb-time::before{content:''}
 
 .fdcb-evts{
   flex:0 0 auto;display:flex;align-items:center;gap:5px;
@@ -2512,9 +2531,10 @@ body{
       <div class="fdcb-time" id="fdcbTime">Start Decision</div>
       <div class="fdcb-seg" id="fdcbSeg">Observe</div>
       <div class="fdcb-prog">
-        <div class="seg-obs" style="width:20%"></div>
-        <div class="seg-sweet" style="width:40%"></div>
-        <div class="seg-ext" style="width:40%"></div>
+        <div class="fdcb-fill" id="fdcbFill"></div>
+        <div class="seg-obs" style="width:33%"></div>
+        <div class="seg-sweet" style="width:33%"></div>
+        <div class="seg-ext" style="width:34%"></div>
       </div>
     </div>
     <div class="fdcb-evts" onclick="logEvent()">
@@ -3414,46 +3434,129 @@ function setState(s){
   stateIdx = STATES.indexOf(s);
   renderFdcb();
 }
+// ── 真實決策計時器（取代假 8 秒 demo）──
+// 三段由時長推導：Observe 0–33% →（tmpl.segLabel = 核心段 / readiness / Sweet Zone）33–66% → Extended 66–100%。
+// 進入核心段 = reachedReadiness。收束在該段或之後＝跟著流程；在 Observe 就收＝提前；跑滿＝完整走完。
+let sess = null;
+function segBounds(dur){ return { rs: Math.round(dur * 0.33), re: Math.round(dur * 0.66) }; }
+function phaseFor(el, tmpl){
+  const b = segBounds(tmpl.durationSec);
+  if(el < b.rs) return 'Observe';
+  if(el < b.re) return tmpl.segLabel;
+  return 'Extended';
+}
+function fmtClock(sec){ const m = Math.floor(sec/60), s = sec%60; return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0'); }
+
 function renderFdcb(){
   const tmpl = TEMPLATES[currentTmpl];
   const s = STATES[stateIdx];
+  const fdcb = document.getElementById('fdcb');
   const timeEl = document.getElementById('fdcbTime');
   const segEl = document.getElementById('fdcbSeg');
+  const fill = document.getElementById('fdcbFill');
   if(s === 'idle'){
     timeEl.textContent = 'Start Decision';
     segEl.textContent = 'Edge Score · 72';
-    clearInterval(runningInterval);
+    if(runningInterval){ clearInterval(runningInterval); runningInterval = null; }
+    if(fill) fill.style.width = '0';
+    fdcb.classList.remove('in-readiness','closure-disciplined','closure-broke');
+    sess = null;
+    renderMarks();
   }
   if(s === 'ready'){
-    const m = Math.floor(tmpl.durationSec / 60);
-    const ss = (tmpl.durationSec % 60).toString().padStart(2,'0');
-    timeEl.textContent = `${tmpl.name} · ${m}:${ss}`;
+    timeEl.textContent = `${tmpl.name} · ${fmtDur(tmpl.durationSec)}`;
     segEl.textContent = 'Tap to start';
     elapsed = 0;
+    if(fill) fill.style.width = '0';
+    fdcb.classList.remove('in-readiness');
   }
   if(s === 'running'){
+    const b = segBounds(tmpl.durationSec);
+    sess = { templateId: currentTmpl, name: tmpl.name, rs: b.rs, re: b.re, reachedReadiness: false, marks: 0 };
+    elapsed = 0;
+    renderMarks();
+    tickFdcb();
     if(runningInterval) clearInterval(runningInterval);
     runningInterval = setInterval(() => {
       elapsed += 1;
-      const m = Math.floor(elapsed / 60);
-      const ss = (elapsed % 60).toString().padStart(2,'0');
-      timeEl.textContent = `${m.toString().padStart(2,'0')}:${ss}`;
-      if(elapsed >= 8){
-        clearInterval(runningInterval);
-        setState('complete');
-        setTimeout(() => setState('idle'), 1400);
-      }
+      tickFdcb();
+      if(elapsed >= tmpl.durationSec){ endDecision('timeout'); }
     }, 1000);
-    elapsed = 0;
-    timeEl.textContent = '00:00';
-    segEl.textContent = tmpl.segLabel;
   }
   if(s === 'complete'){
-    timeEl.textContent = 'Decision Logged';
+    const tag = pendingClosure ? pendingClosure.tag : 'timed_out';
+    timeEl.textContent = OUTCOME_TEXT_V6[tag] || '已記錄';
     segEl.textContent = '';
+    fdcb.classList.remove('in-readiness');
+    fdcb.classList.toggle('closure-disciplined', isDisciplinedV6(tag));
+    fdcb.classList.toggle('closure-broke', !isDisciplinedV6(tag));
   }
 }
-function nextState(){ setState(STATES[(stateIdx + 1) % STATES.length]); }
+
+// 每秒繪製：時間 mm:ss / 總長 + 填充 + 當前段 + readiness 偵測
+function tickFdcb(){
+  const tmpl = TEMPLATES[currentTmpl];
+  const fdcb = document.getElementById('fdcb');
+  const timeEl = document.getElementById('fdcbTime');
+  const segEl = document.getElementById('fdcbSeg');
+  const fill = document.getElementById('fdcbFill');
+  timeEl.textContent = fmtClock(elapsed) + ' / ' + fmtDur(tmpl.durationSec);
+  const ph = phaseFor(elapsed, tmpl);
+  segEl.textContent = ph;
+  if(fill) fill.style.width = Math.min(elapsed / tmpl.durationSec * 100, 100) + '%';
+  const inReadiness = (ph === tmpl.segLabel);
+  fdcb.classList.toggle('in-readiness', inReadiness);
+  if(inReadiness && sess) sess.reachedReadiness = true;
+}
+
+// marks：3 顆 dot 依 marks 點亮，check 顯示計數
+function renderMarks(){
+  const evts = document.querySelector('.fdcb-evts');
+  if(!evts) return;
+  const dots = evts.querySelectorAll('.dot');
+  const check = evts.querySelector('.check');
+  const n = sess ? sess.marks : 0;
+  dots.forEach((d, i) => d.classList.toggle('on', i < n));
+  if(n > 0){ check.classList.remove('empty'); check.textContent = String(n); }
+  else { check.classList.add('empty'); check.textContent = '+'; }
+}
+
+// ── 收束：判定 outcome（鏡射 domain/decision-alert resolveOutcomeTag）+ 存進統一 store ──
+const OUTCOME_STORE_KEY_V6 = 'tenki.alert.outcomes.v1';
+const OUTCOME_TEXT_V6 = { stayed_disciplined:'跟著流程完成', broke_discipline:'提前收束', timed_out:'完整走完' };
+let pendingClosure = null;
+function resolveOutcome(type, reached){
+  if(type === 'timeout') return 'timed_out';           // 跑滿
+  return reached ? 'stayed_disciplined' : 'broke_discipline'; // 收束後達 readiness / 未達
+}
+function isDisciplinedV6(tag){ return tag === 'stayed_disciplined' || tag === 'timed_out'; }
+function saveV6Outcome(session, outcomeTag){
+  let all = [];
+  try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
+  if(!Array.isArray(all)) all = [];
+  all.push({
+    symbol: session.name, templateId: session.templateId, outcomeTag,
+    contextTag: null, reachedReadiness: !!session.reachedReadiness,
+    durationSec: elapsed, marks: session.marks, ts: Date.now(), source: 'v6'
+  });
+  if(all.length > 200) all = all.slice(all.length - 200);
+  localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
+}
+function endDecision(type){
+  if(runningInterval){ clearInterval(runningInterval); runningInterval = null; }
+  const tag = resolveOutcome(type, sess ? sess.reachedReadiness : false);
+  if(sess) saveV6Outcome(sess, tag);
+  pendingClosure = { tag: tag };
+  setState('complete');
+  setTimeout(() => setState('idle'), 1800);
+}
+
+function nextState(){
+  const s = STATES[stateIdx];
+  if(s === 'running'){ endDecision('close'); return; }   // running 中點 core = 收束
+  if(s === 'complete'){ setState('idle'); return; }
+  setState(STATES[(stateIdx + 1) % STATES.length]);        // idle→ready→running
+}
 function cycleDemo(){ nextState(); }
 
 // ═════════════════════════════════════════════════
@@ -3682,11 +3785,9 @@ function exportOutcomesCsv(){
 }
 
 function logEvent(){
-  const check = document.querySelector('.fdcb-evts .check');
-  if(check.classList.contains('empty')){
-    check.classList.remove('empty');
-    check.textContent = '✔';
-  }
+  if(STATES[stateIdx] !== 'running' || !sess) return; // marks 只在跑決策時記
+  sess.marks += 1;
+  renderMarks();
 }
 
 // ═════════════════════════════════════════════════
