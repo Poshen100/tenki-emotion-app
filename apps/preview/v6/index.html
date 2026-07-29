@@ -853,6 +853,21 @@ body{
 .lab-item .ic svg{width:20px;height:20px}
 .lab-item .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.2}
 .lab-item .sub{font-size:10px;color:var(--txt-sec);line-height:1.4;letter-spacing:0.02em}
+/* ── Lab Fable-5 爽感：進場 stagger（opacity-only，不與 :active transform 衝突）+ tap 深度 + featured glow ── */
+.lab-grid .lab-item, .lab-body .lab-wide{opacity:0}
+#lab-screen.active .lab-grid .lab-item, #lab-screen.active .lab-body .lab-wide{opacity:1}
+#lab-screen.active .lab-grid .lab-item:nth-child(1){transition-delay:0.05s}
+#lab-screen.active .lab-grid .lab-item:nth-child(2){transition-delay:0.10s}
+#lab-screen.active .lab-grid .lab-item:nth-child(3){transition-delay:0.15s}
+#lab-screen.active .lab-grid .lab-item:nth-child(4){transition-delay:0.20s}
+#lab-screen.active .lab-grid .lab-item:nth-child(5){transition-delay:0.25s}
+#lab-screen.active .lab-grid .lab-item:nth-child(6){transition-delay:0.30s}
+#lab-screen.active .lab-body .lab-wide{transition-delay:0.35s}
+.lab-item:active{box-shadow:0 6px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,180,216,0.28)}
+.lab-item.featured{box-shadow:0 0 26px rgba(0,180,216,0.10)}
+@media (prefers-reduced-motion: reduce){
+  .lab-grid .lab-item, .lab-body .lab-wide{opacity:1;transition:none}
+}
 
 .lab-wide{
   grid-column:span 2;
@@ -861,7 +876,9 @@ body{
   background:linear-gradient(135deg, rgba(94,58,135,0.12), rgba(94,58,135,0.02));
   border:1px solid rgba(94,58,135,0.2);
   cursor:pointer;
+  transition:opacity 0.4s var(--ease-calm), transform 0.2s var(--ease-calm), box-shadow 0.2s var(--ease-calm);
 }
+.lab-wide:active{transform:scale(0.98);box-shadow:0 6px 20px rgba(0,0,0,0.35)}
 .lab-wide .ic{width:40px;height:40px;border-radius:10px;background:rgba(94,58,135,0.2);color:#b78dd6;display:flex;align-items:center;justify-content:center}
 .lab-wide .ic svg{width:22px;height:22px}
 .lab-wide .info{flex:1}
