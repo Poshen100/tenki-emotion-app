@@ -871,6 +871,59 @@ body{
 /* ═══════════════════════════════════════════════════
    SESSION DETAIL — slide-in modal
    ═══════════════════════════════════════════════════ */
+/* ── 模板自訂 editor (slide-in) ── */
+.tmpl-editor{
+  /* 9600：蓋過 scan-takeover（z9000，含底部常駐的指紋 wrapper pointer-events:auto），
+     否則 editor 底部的儲存鈕會被那個隱形觸發區吃掉點擊。*/
+  position:absolute;inset:0;z-index:9600;
+  background:radial-gradient(ellipse 80% 40% at 50% 0%, rgba(0,180,216,0.08), transparent 60%), #000;
+  transform:translateX(100%);transition:transform 0.45s var(--ease-calm);
+  display:flex;flex-direction:column;padding-top:54px;overflow:hidden;
+}
+.tmpl-editor.open{transform:translateX(0)}
+.te-header{display:flex;align-items:center;gap:8px;padding:0 16px 10px}
+.te-back{font-size:26px;color:var(--primary);cursor:pointer;width:32px;line-height:1}
+.te-title{font-size:17px;font-weight:600;color:#fff}
+.te-spacer{flex:1}
+.te-body{flex:1;overflow-y:auto;padding:4px 18px 40px;-webkit-overflow-scrolling:touch}
+.te-hint{font-size:12px;color:var(--txt-sec);line-height:1.5;margin-bottom:14px}
+.te-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.te-list:empty{display:none}
+.te-list-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid rgba(255,255,255,0.06);cursor:pointer;transition:background 0.2s}
+.te-list-item:active{background:rgba(255,255,255,0.05)}
+.te-list-item .ic{width:30px;height:30px;border-radius:9px;background:rgba(0,180,216,0.1);display:flex;align-items:center;justify-content:center}
+.te-list-item .ic svg{width:16px;height:16px}
+.te-list-item .nm{flex:1;font-size:13px;color:#fff}
+.te-list-item .dur{font-size:12px;color:var(--txt-sec);font-variant-numeric:tabular-nums}
+.te-list-item .edit{font-size:11px;color:var(--primary)}
+.te-preview{display:flex;align-items:center;gap:14px;padding:12px;border-radius:16px;background:var(--surface);border:1px solid rgba(0,180,216,0.25);margin-bottom:18px}
+.te-preview-ic{width:38px;height:38px;border-radius:11px;background:rgba(0,180,216,0.12);display:flex;align-items:center;justify-content:center;color:var(--primary)}
+.te-preview-ic svg{width:20px;height:20px}
+.te-preview-info{flex:1;min-width:0}
+.te-preview-info .nm{font-size:14px;font-weight:600;color:#fff}
+.te-preview-info .sub{font-size:11px;color:var(--txt-sec);margin-top:2px}
+.te-preview-dur{font-size:14px;color:var(--primary);font-variant-numeric:tabular-nums}
+.te-field{display:flex;flex-direction:column;gap:7px;margin-bottom:15px;font-size:12px;color:var(--txt-sec)}
+.te-field>span{letter-spacing:0.04em}
+.te-field input[type=text],.te-field input[type=number]{background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-family:inherit;font-size:15px;padding:11px 12px;width:100%}
+.te-field-row{flex-direction:row;align-items:center;justify-content:space-between}
+.te-dur{display:flex;align-items:center;gap:6px}
+.te-dur input{width:64px;text-align:center}
+.te-dur em{font-style:normal;color:var(--txt-sec);font-size:12px}
+.te-swatches{display:flex;gap:10px;flex-wrap:wrap}
+.te-sw{width:34px;height:34px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform 0.15s,border-color 0.15s}
+.te-sw:active{transform:scale(0.9)}
+.te-sw.sel{border-color:#fff;transform:scale(1.08)}
+.te-ic{width:38px;height:38px;border-radius:11px;background:var(--surface);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:var(--txt-sec);cursor:pointer;transition:transform 0.15s,color 0.15s,border-color 0.15s}
+.te-ic svg{width:19px;height:19px}
+.te-ic:active{transform:scale(0.9)}
+.te-ic.sel{color:var(--primary);border-color:var(--primary)}
+.te-warn{font-size:12px;color:#FF6B35;line-height:1.5;margin-bottom:12px}
+.te-actions{display:flex;gap:10px;margin-top:6px}
+.te-btn{flex:1;border-radius:12px;padding:13px 0;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid transparent}
+.te-save{background:var(--primary);color:#001;}
+.te-del{flex:0 0 auto;padding:13px 20px;background:transparent;border-color:rgba(255,107,53,0.4);color:#FF6B35}
+@media (prefers-reduced-motion: reduce){ .tmpl-editor{transition:none} .te-sw,.te-ic{transition:none} }
 .session-detail{
   position:absolute;inset:0;
   background:
@@ -2267,7 +2320,7 @@ body{
             <div class="nm">Edge Score Bucket</div>
             <div class="sub">按區間分析<br>你的決策統計</div>
           </div>
-          <div class="lab-item">
+          <div class="lab-item" onclick="openTmplEditor()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg></div>
             <div class="nm">模板自訂</div>
             <div class="sub">建立個人化<br>決策模板</div>
@@ -2483,6 +2536,39 @@ body{
   </nav>
 
   <div class="home"></div>
+
+  <!-- ═══════ 模板自訂 EDITOR (slide-in) ═══════ -->
+  <div class="tmpl-editor" id="tmplEditor">
+    <div class="te-header">
+      <div class="te-back" onclick="closeTmplEditor()">‹</div>
+      <div class="te-title">模板自訂</div>
+      <div class="te-spacer"></div>
+    </div>
+    <div class="te-body">
+      <div class="te-hint">建立你自己的決策節奏模板 — 存在這台裝置，會出現在「Select Template」裡直接套用。</div>
+      <div class="te-list" id="teList"></div>
+      <div class="te-preview" id="tePreview">
+        <div class="te-preview-ic" id="tePrevIc"></div>
+        <div class="te-preview-info"><div class="nm" id="tePrevName">新模板</div><div class="sub" id="tePrevSub">自訂 · Focus</div></div>
+        <div class="te-preview-dur" id="tePrevDur">3:00</div>
+      </div>
+      <label class="te-field"><span>名稱</span><input id="teName" type="text" maxlength="24" placeholder="例：我的 ES 節奏" autocomplete="off" /></label>
+      <div class="te-field te-field-row"><span>時長</span>
+        <div class="te-dur">
+          <input id="teMin" type="number" min="0" max="90" inputmode="numeric" /> <em>分</em>
+          <input id="teSec" type="number" min="0" max="59" inputmode="numeric" /> <em>秒</em>
+        </div>
+      </div>
+      <label class="te-field"><span>節奏段標籤</span><input id="teSeg" type="text" maxlength="16" placeholder="例：Lock / Focus / Breathe" autocomplete="off" /></label>
+      <div class="te-field"><span>顏色</span><div class="te-swatches" id="teColors"></div></div>
+      <div class="te-field"><span>圖示</span><div class="te-swatches te-icons" id="teIcons"></div></div>
+      <div class="te-warn" id="teWarn" hidden></div>
+      <div class="te-actions">
+        <button class="te-btn te-del" id="teDelete" type="button" onclick="deleteTmplFromEditor()" hidden>刪除</button>
+        <button class="te-btn te-save" id="teSave" type="button" onclick="saveTmplFromEditor()">儲存模板</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Template sheet -->
   <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
@@ -3414,6 +3500,114 @@ function renderCustomTmplSheet(list){
 }
 
 syncCustomTemplates();
+
+// ── 模板自訂 editor（建立/編輯/刪除 + 即時預覽）──
+const TE_COLORS = ['#00B4D8','#34C759','#FF6B35','#5E3A87','#E8B45A','#22D3EE'];
+const TE_ICONS = ['heart','work','fbd','gs','rs','ex'];
+let teEditId = null, teColor = TE_COLORS[0], teIcon = TE_ICONS[0];
+function genTmplId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function buildEditorSwatches(){
+  const cWrap = document.getElementById('teColors'); cWrap.innerHTML = '';
+  TE_COLORS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'te-sw' + (c === teColor ? ' sel' : '');
+    sw.style.background = c;
+    sw.onclick = function(){ teColor = c; buildEditorSwatches(); renderEditorPreview(); };
+    cWrap.appendChild(sw);
+  });
+  const iWrap = document.getElementById('teIcons'); iWrap.innerHTML = '';
+  TE_ICONS.forEach(k => {
+    const b = document.createElement('div');
+    b.className = 'te-ic' + (k === teIcon ? ' sel' : '');
+    b.innerHTML = ICON_SVG[k];
+    b.onclick = function(){ teIcon = k; buildEditorSwatches(); renderEditorPreview(); };
+    iWrap.appendChild(b);
+  });
+}
+function currentEditorDurationSec(){
+  const min = parseInt(document.getElementById('teMin').value, 10) || 0;
+  const sec = parseInt(document.getElementById('teSec').value, 10) || 0;
+  return min * 60 + Math.min(Math.max(sec, 0), 59);
+}
+function renderEditorPreview(){
+  const name = document.getElementById('teName').value.trim() || '新模板';
+  const seg = document.getElementById('teSeg').value.trim() || 'Focus';
+  const dur = currentEditorDurationSec();
+  document.getElementById('tePrevName').textContent = name;
+  document.getElementById('tePrevSub').textContent = '自訂 · ' + seg;
+  document.getElementById('tePrevDur').textContent = fmtDur(dur > 0 ? dur : 0);
+  const ic = document.getElementById('tePrevIc');
+  ic.style.color = teColor; ic.innerHTML = ICON_SVG[teIcon];
+  document.getElementById('tePreview').style.borderColor = teColor + '55';
+}
+function renderTeList(){
+  const wrap = document.getElementById('teList'); wrap.innerHTML = '';
+  loadCustomTemplates().forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'te-list-item';
+    row.onclick = function(){ loadTmplIntoForm(t); };
+    const ic = document.createElement('div'); ic.className = 'ic'; ic.style.color = t.color; ic.innerHTML = ICON_SVG[t.icon] || ICON_SVG.heart;
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = t.name;
+    const dur = document.createElement('div'); dur.className = 'dur'; dur.textContent = fmtDur(t.durationSec);
+    const edit = document.createElement('div'); edit.className = 'edit'; edit.textContent = '編輯';
+    row.appendChild(ic); row.appendChild(nm); row.appendChild(dur); row.appendChild(edit);
+    wrap.appendChild(row);
+  });
+}
+function resetEditorForm(){
+  teEditId = null; teColor = TE_COLORS[0]; teIcon = TE_ICONS[0];
+  document.getElementById('teName').value = '';
+  document.getElementById('teMin').value = '3';
+  document.getElementById('teSec').value = '0';
+  document.getElementById('teSeg').value = 'Focus';
+  document.getElementById('teDelete').hidden = true;
+  document.getElementById('teSave').textContent = '儲存模板';
+  document.getElementById('teWarn').hidden = true;
+  buildEditorSwatches(); renderEditorPreview();
+}
+function loadTmplIntoForm(t){
+  teEditId = t.id; teColor = t.color; teIcon = t.icon;
+  document.getElementById('teName').value = t.name;
+  document.getElementById('teMin').value = Math.floor(t.durationSec / 60);
+  document.getElementById('teSec').value = t.durationSec % 60;
+  document.getElementById('teSeg').value = t.segLabel;
+  document.getElementById('teDelete').hidden = false;
+  document.getElementById('teSave').textContent = '更新模板';
+  document.getElementById('teWarn').hidden = true;
+  buildEditorSwatches(); renderEditorPreview();
+  document.querySelector('.te-body').scrollTo({ top: 0, behavior: 'smooth' });
+}
+function openTmplEditor(){
+  resetEditorForm(); renderTeList();
+  document.getElementById('tmplEditor').classList.add('open');
+}
+function closeTmplEditor(){ document.getElementById('tmplEditor').classList.remove('open'); }
+function saveTmplFromEditor(){
+  const name = document.getElementById('teName').value.trim();
+  const seg = document.getElementById('teSeg').value.trim() || 'Focus';
+  const dur = currentEditorDurationSec();
+  const warn = document.getElementById('teWarn');
+  if(!name){ warn.textContent = '請先填模板名稱。'; warn.hidden = false; return; }
+  if(dur <= 0){ warn.textContent = '時長要大於 0。'; warn.hidden = false; return; }
+  const list = loadCustomTemplates();
+  if(teEditId){
+    const i = list.findIndex(x => x.id === teEditId);
+    if(i >= 0) list[i] = { id: teEditId, name, durationSec: dur, color: teColor, icon: teIcon, segLabel: seg };
+  } else {
+    list.push({ id: genTmplId(), name, durationSec: dur, color: teColor, icon: teIcon, segLabel: seg });
+  }
+  saveCustomTemplates(list); syncCustomTemplates(); resetEditorForm(); renderTeList();
+}
+function deleteTmplFromEditor(){
+  if(!teEditId) return;
+  saveCustomTemplates(loadCustomTemplates().filter(x => x.id !== teEditId));
+  syncCustomTemplates(); resetEditorForm(); renderTeList();
+}
+['teName','teMin','teSec','teSeg'].forEach(id => {
+  const node = document.getElementById(id);
+  if(node) node.addEventListener('input', renderEditorPreview);
+});
 
 function logEvent(){
   const check = document.querySelector('.fdcb-evts .check');
