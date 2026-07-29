@@ -403,13 +403,32 @@
     <!-- Step 5: Baseline Result -->
     <section id="step-result" class="step">
       <div class="step-content summary-card" id="summary-card">
-        <div class="result-icon success-bounce" id="result-icon">✓</div>
+        <!-- A sight that has just been zeroed, not a success badge. Nothing
+             fills the ring: it reads as an optic, and (unlike the 80×80 div it
+             replaces) an SVG with a viewBox cannot be crushed out of round by
+             the column flex it sits in. -->
+        <p class="result-kicker">BASELINE ESTABLISHED</p>
+        <div class="result-sight" id="result-sight" aria-hidden="true">
+          <svg viewBox="0 0 96 96" fill="none">
+            <circle cx="48" cy="48" r="34" stroke="rgba(244,198,105,0.45)" stroke-width="1"/>
+            <!-- pathLength normalises the sweep so the dash maths is "85 of 100"
+                 rather than depending on the arc's actual computed length. -->
+            <path class="sight-sweep" d="M48 10 A38 38 0 1 1 25.6 79.4" pathLength="100"
+                  stroke="#F4C669" stroke-width="1" stroke-linecap="round"/>
+            <path d="M48 22V38M48 58V74M22 48H38M58 48H74"
+                  stroke="rgba(244,198,105,0.55)" stroke-width="1"/>
+            <circle cx="48" cy="48" r="3.2" stroke="#F4C669" stroke-width="1"/>
+            <text x="48" y="7.5" fill="rgba(244,198,105,0.6)" font-size="7" text-anchor="middle">N</text>
+            <text x="48" y="93" fill="rgba(244,198,105,0.6)" font-size="7" text-anchor="middle">S</text>
+            <text x="4" y="51" fill="rgba(244,198,105,0.6)" font-size="7">W</text>
+            <text x="86" y="51" fill="rgba(244,198,105,0.6)" font-size="7">E</text>
+          </svg>
+        </div>
         <h1 class="step-headline" id="result-headline">基線已建立</h1>
         <p class="step-body result-body" id="result-body">
-          這是你的目前基線，不是好壞分數。<br>
-          TENKI 已經學到你的心率、心率變異和呼吸節奏的「正常範圍」。
+          這是你的參考點，不是分數。<br>
+          之後每次掃描，都是跟這個你比較。
         </p>
-        <p class="step-subtext" id="result-subtext">從現在開始，每次掃描都是跟你自己比較</p>
 
         <!-- Calibration strip. Three separate stat cards said "here are three
              results"; one strip with a shared scale says "here is the corridor

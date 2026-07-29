@@ -1020,32 +1020,41 @@ body {
 }
 
 /* ── Result ── */
-.result-icon {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--success), #2DB84D);
-  color: white;
-  font-size: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--sp-md);
-  box-shadow: 0 8px 32px rgba(52, 199, 89, 0.3);
+/* The zeroed sight. The 80×80 green disc this replaces measured 80×42 on
+   device: it was a flex item in a column whose content overflowed, so the
+   default flex-shrink:1 crushed it into an ellipse. flex-shrink:0 here, and an
+   SVG viewBox keeps it round regardless. */
+.result-sight {
+  flex-shrink: 0;
+  width: 96px;
+  height: 96px;
+  margin-bottom: 10px;
+}
+.result-sight svg { display: block; width: 100%; height: 100%; }
+
+/* The last increment landing — one sweep, then it rests. */
+.sight-sweep {
+  transform-origin: 50% 50%;
+  animation: sightZero 900ms cubic-bezier(0.19, 1, 0.22, 1) both;
+}
+@keyframes sightZero {
+  0%   { stroke-dasharray: 0 100; opacity: 0; }
+  100% { stroke-dasharray: 85 100; opacity: 1; }
 }
 
-.result-icon.success-bounce {
-  animation: successBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-@keyframes successBounce {
-  0% { transform: scale(0); opacity: 0; }
-  60% { transform: scale(1.15); }
-  100% { transform: scale(1); opacity: 1; }
+.result-kicker {
+  margin: 0 0 10px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: rgba(87, 228, 255, 0.6);
 }
 
 .result-body {
   max-width: 300px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sight-sweep { animation: none; stroke-dasharray: 200 240; opacity: 1; }
 }
 
 /* The three .metric-card boxes and the .confidence-badge pill they sat under
@@ -2576,7 +2585,7 @@ body,
 
 .calib-axis {
   position: relative;
-  height: 46px;
+  height: 52px;
 }
 /* The scale itself — one hairline, full width. */
 .calib-axis::before {
@@ -2608,7 +2617,7 @@ body,
    when the band is only a few percent of the axis wide. */
 .calib-value {
   position: absolute;
-  bottom: calc(100% + 5px);
+  bottom: calc(100% + 7px);
   left: 50%;
   transform: translateX(-50%);
   white-space: nowrap;
@@ -2616,6 +2625,17 @@ body,
   font-weight: 500;
   color: #F4C669;
   font-variant-numeric: tabular-nums;
+}
+/* A hairline dropping from the value to its own band. Without it the numbers
+   float between rows and read as belonging to the axis above. */
+.calib-value::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 1px);
+  width: 1px;
+  height: 5px;
+  background: rgba(244, 198, 105, 0.5);
 }
 
 .calib-unstable {
