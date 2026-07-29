@@ -748,6 +748,15 @@ body{
 .insight-card .body{font-size:13px;color:rgba(255,255,255,0.88);line-height:1.5}
 .insight-card .body b{color:var(--primary);font-weight:600;font-variant-numeric:tabular-nums}
 
+.session-empty{
+  display:none;flex-direction:column;align-items:center;text-align:center;
+  padding:40px 20px 20px;gap:8px;
+}
+.session-empty.show{display:flex}
+.session-empty .ic{font-size:34px;opacity:0.85;margin-bottom:2px}
+.session-empty .ttl{font-size:15px;font-weight:600;color:#fff}
+.session-empty .sub{font-size:12px;color:var(--txt-sec);line-height:1.6}
+
 /* ═══════════════════════════════════════════════════
    TIMELINE SCREEN
    ═══════════════════════════════════════════════════ */
@@ -2176,69 +2185,37 @@ body{
     <div class="screen" id="session-screen">
       <div class="screen-header">
         <div class="screen-title">Session</div>
-        <div class="screen-date">Today · 4 Sessions</div>
+        <div class="screen-date" id="sessionDate">決策紀錄</div>
       </div>
       <div class="session-body">
-        <div class="session-stats">
+        <div class="session-stats" id="sessionStats">
           <div class="cell">
-            <div class="val good">88%</div>
+            <div class="val good" id="statAlign">—</div>
             <div class="lbl">對齊率</div>
           </div>
           <div class="cell">
-            <div class="val">73</div>
-            <div class="lbl">Avg Edge Score</div>
+            <div class="val" id="statCount">—</div>
+            <div class="lbl">決策次數</div>
           </div>
           <div class="cell">
-            <div class="val">2.1<span style="font-size:11px;color:var(--txt-sec)">m</span></div>
-            <div class="lbl">啟動時間</div>
+            <div class="val" id="statAvgDur">—</div>
+            <div class="lbl">平均用時</div>
           </div>
         </div>
 
-        <div class="insight-card">
+        <div class="insight-card" id="sessionInsight">
           <div class="head"><span>📊</span> Decision Insight</div>
-          <div class="body">在 <b>Edge Score 70–75</b> 區間，你的決策啟動時間通常落在 <b>90–150 秒</b><br>決策清晰度穩定 · 採樣 47 次</div>
+          <div class="body" id="sessionInsightBody">完成一次決策後，這裡會出現你的節奏統計。</div>
         </div>
 
-        <div class="session-section">Today's Sessions</div>
+        <div class="session-section" id="sessionListHead">最近的決策</div>
 
-        <div class="session-item" onclick="openSessionDetail('s_w1')">
-          <div class="tmpl-ic" style="color:#34C759"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg></div>
-          <div class="info">
-            <div class="nm">Health Stress</div>
-            <div class="meta"><span>17:15</span><span class="sep">·</span><span>Edge Score 68 → 76</span><span class="sep">·</span><span>3:00</span></div>
-          </div>
-          <div class="result win">Clear</div>
-          <div class="chevron">›</div>
-        </div>
+        <div id="sessionList"></div>
 
-        <div class="session-item" onclick="openSessionDetail('s_w2')">
-          <div class="tmpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4H8M16 4H20V8M20 16V20H16M8 20H4V16"/><path d="M12 9L15 12L12 15L9 12Z"/></svg></div>
-          <div class="info">
-            <div class="nm">Work Focus</div>
-            <div class="meta"><span>13:30</span><span class="sep">·</span><span>Edge Score 72 → 74</span><span class="sep">·</span><span>25:00</span></div>
-          </div>
-          <div class="result breakeven">Steady</div>
-          <div class="chevron">›</div>
-        </div>
-
-        <div class="session-item" onclick="openSessionDetail('s_w3')">
-          <div class="tmpl-ic" style="color:#FF6B35"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12H6L8 8L11 16L14 6L16 12H18L19.5 9.5L21 12H22"/></svg></div>
-          <div class="info">
-            <div class="nm">Exercise</div>
-            <div class="meta"><span>09:30</span><span class="sep">·</span><span>Edge Score 64 → 71</span><span class="sep">·</span><span>10:00</span></div>
-          </div>
-          <div class="result no_trade">Active</div>
-          <div class="chevron">›</div>
-        </div>
-
-        <div class="session-item" onclick="openSessionDetail('s_w4')">
-          <div class="tmpl-ic" style="color:#34C759"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg></div>
-          <div class="info">
-            <div class="nm">Health Stress</div>
-            <div class="meta"><span>07:00</span><span class="sep">·</span><span>Edge Score 58 → 70</span><span class="sep">·</span><span>3:00</span></div>
-          </div>
-          <div class="result win">Recovered</div>
-          <div class="chevron">›</div>
+        <div class="session-empty" id="sessionEmpty">
+          <div class="ic">🎯</div>
+          <div class="ttl">還沒有決策紀錄</div>
+          <div class="sub">跑一次決策計時器，或收到 TradingView 快訊走完一次流程，<br>這裡就會出現你的節奏。</div>
         </div>
       </div>
     </div>
@@ -2973,6 +2950,7 @@ function goTab(id){
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   const screen = document.getElementById(id + '-screen');
   if(screen) screen.classList.add('active');
+  if(id === 'session') renderSessionScreen();
   const tab = document.querySelector(`.tab[data-tab="${id}"]`);
   if(tab) tab.classList.add('active');
   // Haptic hint (visual tap)
@@ -3835,6 +3813,70 @@ function selectSource(el){
 }
 
 renderFdcb();
+
+// ═════════════════════════════════════════════════
+// Session 頁 — 由統一決策 store 驅動（tenki.alert.outcomes.v1）
+// 資料來自 TradingView 快訊決策 + v6 計時器決策，合流成同一份節奏歷史。
+// 只用 store 真的有的欄位，無 Edge Score / 生理數據 → 誠實呈現。
+// ═════════════════════════════════════════════════
+const OUTCOME_BADGE_V6 = {
+  stayed_disciplined: { text:'跟著流程', cls:'win' },
+  timed_out:          { text:'完整走完', cls:'breakeven' },
+  broke_discipline:   { text:'提前收束', cls:'loss' }
+};
+function escHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function loadOutcomes(){
+  let all = [];
+  try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
+  return Array.isArray(all) ? all : [];
+}
+// templateId → {name,icon,color,segLabel}；找不到（例：舊快訊或已刪的自訂模板）就用 symbol fallback。
+function outcomeMeta(rec){
+  const t = TEMPLATES[rec.templateId];
+  if(t) return { name:t.name, icon:t.icon, color:t.color, segLabel:t.segLabel };
+  return { name: rec.symbol || '決策', icon:'heart', color:'#8E8E93', segLabel:'Readiness' };
+}
+function fmtTimeOfDay(ts){
+  const d = new Date(ts); if(isNaN(d.getTime())) return '—';
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+function renderSessionScreen(){
+  const recs = loadOutcomes().slice().sort((a,b) => (b.ts||0) - (a.ts||0));
+  const count = recs.length;
+  const disciplined = recs.filter(r => isDisciplinedV6(r.outcomeTag)).length;
+  const align = count ? Math.round(disciplined / count * 100) : 0;
+  const avgDur = count ? Math.round(recs.reduce((a,r) => a + (r.durationSec||0), 0) / count) : 0;
+
+  document.getElementById('sessionDate').textContent = count ? ('決策紀錄 · ' + count + ' 次') : '決策紀錄';
+  document.getElementById('statAlign').textContent = count ? (align + '%') : '—';
+  document.getElementById('statCount').textContent = count ? String(count) : '—';
+  document.getElementById('statAvgDur').textContent = count ? fmtDur(avgDur) : '—';
+
+  const empty = count === 0;
+  document.getElementById('sessionEmpty').classList.toggle('show', empty);
+  document.getElementById('sessionInsight').style.display = empty ? 'none' : '';
+  document.getElementById('sessionListHead').style.display = empty ? 'none' : '';
+  document.getElementById('sessionList').style.display = empty ? 'none' : '';
+
+  if(!empty){
+    document.getElementById('sessionInsightBody').innerHTML =
+      '已完成 <b>' + count + '</b> 次決策，對齊率 <b>' + align + '%</b>。' +
+      '平均用時 <b>' + fmtDur(avgDur) + '</b>，其中 <b>' + disciplined + '</b> 次跟著流程走完。';
+  }
+
+  document.getElementById('sessionList').innerHTML = recs.map(r => {
+    const m = outcomeMeta(r);
+    const badge = OUTCOME_BADGE_V6[r.outcomeTag] || { text:'已記錄', cls:'breakeven' };
+    const readiness = r.reachedReadiness ? ('達 ' + m.segLabel) : ('未達 ' + m.segLabel);
+    return '<div class="session-item" data-ts="' + r.ts + '" onclick="openSessionDetail(' + r.ts + ')">' +
+      '<div class="tmpl-ic" style="color:' + m.color + '">' + (ICON_SVG[m.icon] || ICON_SVG.heart) + '</div>' +
+      '<div class="info"><div class="nm">' + escHtml(m.name) + '</div>' +
+      '<div class="meta"><span>' + fmtTimeOfDay(r.ts) + '</span><span class="sep">·</span>' +
+      '<span>' + escHtml(readiness) + '</span><span class="sep">·</span><span>' + fmtDur(r.durationSec||0) + '</span></div></div>' +
+      '<div class="result ' + badge.cls + '">' + badge.text + '</div>' +
+      '<div class="chevron">›</div></div>';
+  }).join('');
+}
 
 // ═════════════════════════════════════════════════
 // Session Detail — data + render
