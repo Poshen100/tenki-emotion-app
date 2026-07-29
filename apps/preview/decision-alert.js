@@ -874,6 +874,23 @@
     else el.liveUrlWarn.removeAttribute('hidden');
   }
 
+  // 把標的綁成「頻道預設 symbol」（server 端）→ 就算 TradingView 貼的是裸 ?ch= 連結，
+  // /api/alert 也會回填這個 symbol、不再 400。debounce 避免每次按鍵都打 API。
+  var symbolBindTimer = null;
+  function syncChannelSymbol() {
+    var channelId = getChannel();
+    var symbol = currentFields().symbol;
+    if (!channelId || !symbol) return;
+    if (symbolBindTimer) clearTimeout(symbolBindTimer);
+    symbolBindTimer = setTimeout(function () {
+      fetch('/api/channel?ch=' + encodeURIComponent(channelId), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ symbol: symbol }),
+      }).catch(function () { /* best-effort：綁定失敗不影響頁面 */ });
+    }, 700);
+  }
+
   function setLiveStatus(text, dotState) {
     el.liveStatus.textContent = text;
     el.liveDot.classList.remove('on', 'err');
@@ -964,6 +981,7 @@
       el.liveSetup.setAttribute('hidden', '');
       el.liveReady.removeAttribute('hidden');
       renderWebhookUrl();
+      syncChannelSymbol(); // 開頁即把目前標的綁成頻道預設（既有頻道也回填）
       startPolling(channelId); // 有連結就自動接收，零動作
     } else {
       el.liveReady.setAttribute('hidden', '');
@@ -1108,6 +1126,7 @@
       el[id].addEventListener('input', function () {
         localStorage.setItem(FIELDS_KEY, JSON.stringify(currentFields()));
         renderWebhookUrl();
+        if (id === 'liveSymbol') syncChannelSymbol(); // 標的變更 → 更新頻道預設
       });
     });
   })();

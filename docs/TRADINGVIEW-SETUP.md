@@ -71,6 +71,17 @@
 > `?ch=…` 裸連結，貼上後 TradingView 送來缺 `symbol` → **400 被擋**（founder 2026-07 實機兩度踩到）。
 > 產生器把欄位烤進 URL，源頭消滅這個坑；標的留空時頁面顯示黃色警示提醒。
 
+#### §4b 頻道預設 symbol（server 端回填，雙保險）
+
+產生器頁面填了「標的」後，會**把它綁成該頻道的 server 端預設 symbol**（`POST /api/channel?ch=<ch>` +
+`{symbol}`，存 `tenki:chsym:v1:<ch>`，30 天滑動 TTL）。於是**即使 TradingView 那條 webhook 是裸的
+`?ch=…`（漏了 `&symbol=`）**，`/api/alert` 也會自動回填這個預設 symbol → **200、正常入鏈、推播照送**，
+不再 400。query 有明給 `symbol` 時仍以明給為準（明給優先）。
+
+> 這是「裸連結漏 symbol」的**根治**：產生器（§4a）從 UI 端避免，頻道預設 symbol 從 server 端兜底 ——
+> 兩層都補，founder 就算哪天又貼了舊的裸連結也不會再壞。實作：`api/channel.ts`（綁定）+ `api/alert.ts`
+> （回填）+ `api/_lib/store.ts`（`set/getChannelSymbol`）。
+
 #### 進階/相容：JSON 或 hybrid 寫法
 
 純 JSON（§3 步驟 3）與「人話前綴 + 換行 + JSON」永遠有效 —— 既有 alert 不必重貼。差別只在
