@@ -757,6 +757,11 @@ body{
 .session-empty .ttl{font-size:15px;font-weight:600;color:#fff}
 .session-empty .sub{font-size:12px;color:var(--txt-sec);line-height:1.6}
 
+/* 進場：清單卡片依序浮現（克制）*/
+@keyframes sessRise{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+.session-item.sess-enter{ animation:sessRise 0.42s var(--ease-calm) both }
+@media (prefers-reduced-motion: reduce){ .session-item.sess-enter{ animation:none } }
+
 /* ═══════════════════════════════════════════════════
    TIMELINE SCREEN
    ═══════════════════════════════════════════════════ */
@@ -3802,6 +3807,21 @@ const OUTCOME_BADGE_V6 = {
   broke_discipline:   { text:'提前收束', cls:'loss' }
 };
 function escHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function prefersReducedV6(){ try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } }
+// 克制的數字滾動；reduced-motion 直接落終值。
+function countUpEl(el, target, suffix){
+  if(!el) return;
+  if(prefersReducedV6()){ el.textContent = target + suffix; return; }
+  const dur = 550, start = performance.now();
+  function frame(now){
+    const p = Math.min(1, (now - start) / dur);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(target * eased) + suffix;
+    if(p < 1) requestAnimationFrame(frame);
+    else el.textContent = target + suffix;
+  }
+  requestAnimationFrame(frame);
+}
 function loadOutcomes(){
   let all = [];
   try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
@@ -3825,8 +3845,13 @@ function renderSessionScreen(){
   const avgDur = count ? Math.round(recs.reduce((a,r) => a + (r.durationSec||0), 0) / count) : 0;
 
   document.getElementById('sessionDate').textContent = count ? ('決策紀錄 · ' + count + ' 次') : '決策紀錄';
-  document.getElementById('statAlign').textContent = count ? (align + '%') : '—';
-  document.getElementById('statCount').textContent = count ? String(count) : '—';
+  if(count){
+    countUpEl(document.getElementById('statAlign'), align, '%');
+    countUpEl(document.getElementById('statCount'), count, '');
+  } else {
+    document.getElementById('statAlign').textContent = '—';
+    document.getElementById('statCount').textContent = '—';
+  }
   document.getElementById('statAvgDur').textContent = count ? fmtDur(avgDur) : '—';
 
   const empty = count === 0;
@@ -3841,11 +3866,11 @@ function renderSessionScreen(){
       '平均用時 <b>' + fmtDur(avgDur) + '</b>，其中 <b>' + disciplined + '</b> 次跟著流程走完。';
   }
 
-  document.getElementById('sessionList').innerHTML = recs.map(r => {
+  document.getElementById('sessionList').innerHTML = recs.map((r, i) => {
     const m = outcomeMeta(r);
     const badge = OUTCOME_BADGE_V6[r.outcomeTag] || { text:'已記錄', cls:'breakeven' };
     const readiness = r.reachedReadiness ? ('達 ' + m.segLabel) : ('未達 ' + m.segLabel);
-    return '<div class="session-item" data-ts="' + r.ts + '" onclick="openSessionDetail(' + r.ts + ')">' +
+    return '<div class="session-item sess-enter" style="animation-delay:' + (Math.min(i, 8) * 45) + 'ms" data-ts="' + r.ts + '" onclick="openSessionDetail(' + r.ts + ')">' +
       '<div class="tmpl-ic" style="color:' + m.color + '">' + (ICON_SVG[m.icon] || ICON_SVG.heart) + '</div>' +
       '<div class="info"><div class="nm">' + escHtml(m.name) + '</div>' +
       '<div class="meta"><span>' + fmtTimeOfDay(r.ts) + '</span><span class="sep">·</span>' +
