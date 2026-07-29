@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="styles.css?v=tissue_v1">
+  <link rel="stylesheet" href="styles.css?v=calib_v1">
   <style>
     /* Precision-mode intro hero (?from=precision, entered from the v6 提升精度
        pill). Target composition: founder ref "Build Your Baseline" — rear lens
@@ -403,32 +403,85 @@
     <!-- Step 5: Baseline Result -->
     <section id="step-result" class="step">
       <div class="step-content summary-card" id="summary-card">
-        <div class="result-icon success-bounce" id="result-icon">✓</div>
+        <!-- A sight that has just been zeroed, not a success badge. Nothing
+             fills the ring: it reads as an optic, and (unlike the 80×80 div it
+             replaces) an SVG with a viewBox cannot be crushed out of round by
+             the column flex it sits in. -->
+        <p class="result-kicker">BASELINE ESTABLISHED</p>
+        <div class="result-sight" id="result-sight" aria-hidden="true">
+          <svg viewBox="0 0 96 96" fill="none">
+            <circle cx="48" cy="48" r="34" stroke="rgba(244,198,105,0.45)" stroke-width="1"/>
+            <!-- pathLength normalises the sweep so the dash maths is "85 of 100"
+                 rather than depending on the arc's actual computed length. -->
+            <path class="sight-sweep" d="M48 10 A38 38 0 1 1 25.6 79.4" pathLength="100"
+                  stroke="#F4C669" stroke-width="1" stroke-linecap="round"/>
+            <path d="M48 22V38M48 58V74M22 48H38M58 48H74"
+                  stroke="rgba(244,198,105,0.55)" stroke-width="1"/>
+            <circle cx="48" cy="48" r="3.2" stroke="#F4C669" stroke-width="1"/>
+            <text x="48" y="7.5" fill="rgba(244,198,105,0.6)" font-size="7" text-anchor="middle">N</text>
+            <text x="48" y="93" fill="rgba(244,198,105,0.6)" font-size="7" text-anchor="middle">S</text>
+            <text x="4" y="51" fill="rgba(244,198,105,0.6)" font-size="7">W</text>
+            <text x="86" y="51" fill="rgba(244,198,105,0.6)" font-size="7">E</text>
+          </svg>
+        </div>
         <h1 class="step-headline" id="result-headline">基線已建立</h1>
         <p class="step-body result-body" id="result-body">
-          這是你的目前基線，不是好壞分數。<br>
-          TENKI 已經學到你的心率、心率變異和呼吸節奏的「正常範圍」。
+          這是你的參考點，不是分數。<br>
+          之後每次掃描，都是跟這個你比較。
         </p>
-        <p class="step-subtext" id="result-subtext">從現在開始，每次掃描都是跟你自己比較</p>
 
-        <div class="baseline-metrics" id="baseline-metrics">
-          <div class="metric-card">
-            <div class="metric-label">你的平均心率</div>
-            <div class="metric-value" id="metric-hr">— BPM</div>
+        <!-- Calibration strip. Three separate stat cards said "here are three
+             results"; one strip with a shared scale says "here is the corridor
+             your future scans get measured against". The band is NOT decorative
+             — its position and width come from the measured mean ± std mapped
+             onto the axis, so a value that cannot fit the axis cannot be drawn
+             (see renderCalibrationStrip in baseline-onboarding.js). -->
+        <div class="calib-strip" id="calib-strip">
+          <div class="calib-row" data-metric="hr">
+            <span class="calib-label">心率</span>
+            <div class="calib-axis">
+              <span class="calib-band" id="band-hr"><span class="calib-value" id="metric-hr">—</span></span>
+              <span class="calib-unstable" id="unstable-hr" hidden>訊號不夠穩，下次掃描補上</span>
+              <span class="calib-tick calib-tick-lo">40</span>
+              <span class="calib-tick calib-tick-hi">120</span>
+            </div>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">你的心率變異</div>
-            <div class="metric-value" id="metric-hrv">— ms</div>
+          <div class="calib-row" data-metric="hrv">
+            <span class="calib-label">心率變異</span>
+            <div class="calib-axis">
+              <span class="calib-band" id="band-hrv"><span class="calib-value" id="metric-hrv">—</span></span>
+              <span class="calib-unstable" id="unstable-hrv" hidden>訊號不夠穩，下次掃描補上</span>
+              <span class="calib-tick calib-tick-lo">0</span>
+              <span class="calib-tick calib-tick-hi">120</span>
+            </div>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">你的呼吸節奏</div>
-            <div class="metric-value" id="metric-rr">— 次/分</div>
+          <div class="calib-row" data-metric="rr">
+            <span class="calib-label">呼吸</span>
+            <div class="calib-axis">
+              <span class="calib-band" id="band-rr"><span class="calib-value" id="metric-rr">—</span></span>
+              <span class="calib-unstable" id="unstable-rr" hidden>訊號不夠穩，下次掃描補上</span>
+              <span class="calib-tick calib-tick-lo">6</span>
+              <span class="calib-tick calib-tick-hi">24</span>
+            </div>
           </div>
+          <p class="calib-hint"><span class="calib-caret" aria-hidden="true"></span>未來的每次掃描會落在這些軸上</p>
+          <p class="calib-stamp" id="calib-stamp">CALIBRATED — · ON-DEVICE</p>
         </div>
 
-        <div class="confidence-badge" id="confidence-badge">
+        <div class="confidence-row" id="confidence-badge">
           <span class="confidence-dot"></span>
           <span id="confidence-text">數據品質：良好</span>
+          <span class="confidence-segments" id="confidence-segments" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
+        </div>
+
+        <div class="privacy-seal">
+          <svg class="privacy-seal-lock" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <rect x="2.5" y="6" width="9" height="6" rx="1.6" stroke="currentColor" stroke-width="1.1"/>
+            <path d="M4.6 6V4.4a2.4 2.4 0 0 1 4.8 0V6" stroke="currentColor" stroke-width="1.1"/>
+          </svg>
+          <span>生理原始資料沒有離開這支手機</span>
         </div>
 
         <div class="precision-tip-card">
@@ -478,6 +531,6 @@
   <script src="tenki-icons.js?v=icons-v1"></script>
   <script src="camera-scan.js"></script>
   <script src="tissue-instrument.js?v=tissue_v1"></script>
-  <script src="baseline-onboarding.js?v=tissue_v1"></script>
+  <script src="baseline-onboarding.js?v=calib_v1"></script>
 </body>
 </html>

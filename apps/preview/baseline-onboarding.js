@@ -819,6 +819,12 @@ function startCalibrationScan() {
   // .is-hidden ↔ active transitions take over again.
   const bannerResetEl = document.getElementById('scan-banner');
   if (bannerResetEl) bannerResetEl.style.display = '';
+  // enterTransition hides these outright so they cannot paint over the result
+  // card during the 2s hand-off; a restarted scan needs them back.
+  if (scanEl) {
+    scanEl.querySelectorAll('.privacy-secured, .capture-frame, .capture-ruler')
+      .forEach(function (el) { el.style.display = ''; });
+  }
   if (scanEl) {
     scanEl.querySelectorAll('.finger-halo, .finger-halo-outer').forEach(function(el) {
       el.style.display = '';
@@ -1514,6 +1520,14 @@ function enterTransition() {
   if (scanEl) {
     scanEl.classList.remove('phase-climax');
     scanEl.classList.add('phase-transition');
+    // The scan step stays .active for another 2s so its particles and flash can
+    // finish, but both steps are position:absolute over the same box — so its
+    // NON-ceremonial furniture paints on top of the result card the whole time.
+    // Founder saw exactly this: "PRIVACY SECURED" struck through the confidence
+    // line and a gold bracket frame cropping the body copy (IMG_0207). The
+    // ceremony layers (particles / flash / backdrop) are left alone.
+    scanEl.querySelectorAll('.privacy-secured, .capture-frame, .capture-ruler')
+      .forEach((el) => { el.style.display = 'none'; });
   }
 
   // Golden flash CSS keyframe fires via .phase-transition class.
@@ -1627,108 +1641,141 @@ function zoneFor(score) {
 }
 
 function revealBaselineDigits() {
-  const hr = state.baseline.hr;
-  const hrv = state.baseline.hrv;
-  const rr = state.baseline.rr;
+  // The bands slide to their measured positions and the digits snap in — this
+  // is the beat where the instrument commits to a reading.
+  const allOnAxis = renderCalibrationStrip(false);
+  setCalibrationStamp();
+  setConfidenceReading(state.rollingSqi || 0, allOnAxis);
 
-  const hrEl = document.getElementById('metric-hr');
-  const hrvEl = document.getElementById('metric-hrv');
-  const rrEl = document.getElementById('metric-rr');
-
-  if (hrEl) {
-    const low = Math.round(hr.mean - hr.std);
-    const high = Math.round(hr.mean + hr.std);
-    hrEl.textContent = `${low}-${high} BPM`;
-    hrEl.classList.add('digit-snap');
-  }
-  if (hrvEl) {
-    hrvEl.textContent = `${Math.round(hrv.mean)} ms`;
-    hrvEl.classList.add('digit-snap');
-  }
-  if (rrEl) {
-    rrEl.textContent = `${Math.round(rr.mean)} 次/分`;
-    rrEl.classList.add('digit-snap');
-  }
-
-  // Confidence text keyed to rolling SQI
-  const confText = document.getElementById('confidence-text');
-  if (confText) {
-    const sqi = state.rollingSqi;
-    confText.textContent =
-      sqi >= 0.85 ? '數據品質：優良' :
-      sqi >= 0.70 ? '數據品質：良好' :
-      sqi >= 0.55 ? '數據品質：普通' : '數據品質：勉強';
-  }
+  ['hr', 'hrv', 'rr'].forEach((key) => {
+    const el = document.getElementById(`metric-${key}`);
+    if (el) el.classList.add('digit-snap');
+  });
 }
 
 // ─────────────────────────────────────────────
 // Step 5: Baseline Result
 // ─────────────────────────────────────────────
 
-function showBaselineResult(opts) {
-  const maskDigits = !!(opts && opts.maskDigits);
+/**
+ * Display scales for the calibration strip. These are RULERS, not verdicts:
+ * they exist so a personal range has somewhere to sit, and deliberately carry
+ * no "normal" zone or population comparison — that would turn a reference
+ * point into a diagnosis.
+ * @type {Record<string, {min: number, max: number, format: (mean: number, std: number) => string}>}
+ */
+const CALIB_AXES = {
+  hr: {
+    min: 40,
+    max: 120,
+    format: (mean, std) => `${Math.round(mean - std)}–${Math.round(mean + std)} BPM`,
+  },
+  hrv: { min: 0, max: 120, format: (mean) => `${Math.round(mean)} ms` },
+  rr: { min: 6, max: 24, format: (mean) => `${Math.round(mean)} 次/分` },
+};
 
-  const hrEl = document.getElementById('metric-hr');
-  const hrvEl = document.getElementById('metric-hrv');
-  const rrEl = document.getElementById('metric-rr');
+/** Narrow spreads still need to read as a band rather than a hairline. */
+const CALIB_MIN_BAND_PCT = 8;
 
-  const hr = state.baseline.hr;
-  const hrv = state.baseline.hrv;
-  const rr = state.baseline.rr;
+/**
+ * Place each metric's range on its axis. Returns true when every metric fitted
+ * its scale.
+ *
+ * A range that runs off its axis is NOT clamped to fit: an RMSSD of 510 ms is
+ * peak-detection jitter, not a heart-rate variability, and drawing it at the
+ * edge of the scale would dress bad data as good. That row says so instead.
+ *
+ * @param {boolean} masked — entrance state, before the reveal beat
+ * @returns {boolean} whether all three metrics landed on their axes
+ */
+function renderCalibrationStrip(masked) {
+  let allOnAxis = true;
 
-  if (maskDigits) {
-    // Digits appear as "–" during the cinematic entrance and snap to
-    // their final values at the ~1.0s climax beat (see enterTransition).
-    if (hrEl) hrEl.textContent = '– BPM';
-    if (hrvEl) hrvEl.textContent = '– ms';
-    if (rrEl) rrEl.textContent = '– 次/分';
-  } else {
-    if (hrEl) {
-      const low = Math.round(hr.mean - hr.std);
-      const high = Math.round(hr.mean + hr.std);
-      hrEl.textContent = `${low}-${high} BPM`;
+  Object.keys(CALIB_AXES).forEach((key) => {
+    const axis = CALIB_AXES[key];
+    const band = document.getElementById(`band-${key}`);
+    const value = document.getElementById(`metric-${key}`);
+    const unstable = document.getElementById(`unstable-${key}`);
+    if (!band || !value || !unstable) return;
+
+    const stat = state.baseline[key];
+    const mean = stat ? stat.mean : 0;
+    const std = stat ? stat.std : 0;
+    const span = axis.max - axis.min;
+
+    if (masked || !(mean > 0)) {
+      band.hidden = false;
+      unstable.hidden = true;
+      value.textContent = '—';
+      band.style.left = '46%';
+      band.style.width = `${CALIB_MIN_BAND_PCT}%`;
+      return;
     }
-    if (hrvEl) hrvEl.textContent = `${Math.round(hrv.mean)} ms`;
-    if (rrEl) rrEl.textContent = `${Math.round(rr.mean)} 次/分`;
-  }
 
-  // Confidence badge (final text written again in revealBaselineDigits)
-  const confText = document.getElementById('confidence-text');
-  if (confText && !maskDigits) confText.textContent = '數據品質：良好';
+    const low = mean - std;
+    const high = mean + std;
+    if (low < axis.min || high > axis.max) {
+      // Off the scale — no band to draw, and the row says why.
+      allOnAxis = false;
+      band.hidden = true;
+      unstable.hidden = false;
+      return;
+    }
 
-  // Animate result icon
-  const icon = document.getElementById('result-icon');
-  if (icon) {
-    icon.style.animation = 'none';
-    void icon.offsetHeight; // reflow
-    icon.style.animation = 'successBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
-  }
+    const left = ((low - axis.min) / span) * 100;
+    const width = Math.max(CALIB_MIN_BAND_PCT, ((high - low) / span) * 100);
+    band.hidden = false;
+    unstable.hidden = true;
+    band.style.left = `${Math.min(left, 100 - width).toFixed(2)}%`;
+    band.style.width = `${width.toFixed(2)}%`;
+    value.textContent = axis.format(mean, std);
+  });
 
-  // Counter animation only for direct-entry (non-cinematic) path
-  if (!maskDigits) {
-    animateCounter(hrEl, 0, Math.round(hr.mean), 'BPM', 800);
-    animateCounter(hrvEl, 0, Math.round(hrv.mean), 'ms', 800);
-    animateCounter(rrEl, 0, Math.round(rr.mean), '次/分', 800);
+  return allOnAxis;
+}
+
+/**
+ * Signal-quality line. `allOnAxis === false` caps the wording, because a metric
+ * we could not place is not a "good" capture no matter what the coverage was.
+ *
+ * @param {number} sqi — rolling signal quality, 0..1
+ * @param {boolean} allOnAxis — whether every metric fitted its axis
+ */
+function setConfidenceReading(sqi, allOnAxis) {
+  const textEl = document.getElementById('confidence-text');
+  const segEl = document.getElementById('confidence-segments');
+
+  let level = sqi >= 0.85 ? 3 : sqi >= 0.70 ? 2 : sqi >= 0.55 ? 1 : 0;
+  if (!allOnAxis) level = Math.min(level, 1);
+
+  const labels = ['數據品質：勉強', '數據品質：普通', '數據品質：良好', '數據品質：優良'];
+  if (textEl) textEl.textContent = labels[level];
+  if (segEl) {
+    Array.prototype.forEach.call(segEl.children, (seg, i) => {
+      seg.classList.toggle('on', i < Math.max(1, level));
+    });
   }
 }
 
-function animateCounter(el, from, to, unit, duration) {
+/** Local capture time, stamped onto the strip like a calibration certificate. */
+function setCalibrationStamp() {
+  const el = document.getElementById('calib-stamp');
   if (!el) return;
-  const startTime = performance.now();
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  const when = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  el.textContent = `CALIBRATED ${when} · ON-DEVICE`;
+}
 
-  function tick(now) {
-    const elapsed = now - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    const eased = easeOutCubic(progress);
-    const current = Math.round(from + (to - from) * eased);
-    el.textContent = `${current} ${unit}`;
+function showBaselineResult(opts) {
+  const maskDigits = !!(opts && opts.maskDigits);
 
-    if (progress < 1) {
-      requestAnimationFrame(tick);
-    }
+  const allOnAxis = renderCalibrationStrip(maskDigits);
+  setCalibrationStamp();
+
+  if (!maskDigits) {
+    setConfidenceReading(state.rollingSqi || 0, allOnAxis);
   }
-
-  requestAnimationFrame(tick);
 }
 
 // ─────────────────────────────────────────────

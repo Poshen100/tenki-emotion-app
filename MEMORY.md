@@ -9,6 +9,28 @@
 
 ---
 
+# 2026-07-29 Session Update #39 (基線結果頁改成校準尺 — Stitch 把區間帶做成了進度條)
+
+> 同一個 session 第二次走「我寫 prompt → founder 丟給 Google Stitch → 我把產出真的做出來」。第一次是掃描頁（#37）。這次是 `#step-result`。
+
+## 教訓一：Stitch 會把隱喻做反，照描就等於發錯意思的儀器
+我 prompt 寫的是「**一條刻度軸 + 一段標示你範圍的區間帶**」。Stitch（IMG_0224）畫成「整條實心長條，左邊約 28% 填滿金色」—— 那是**進度條 / 油量表**，讀起來是「你完成了 28%」。這頁沒有任何東西在進行中，也沒有滿分。**產出的構圖可以照抄，語意必須自己驗**：問「這個形狀在使用者眼裡代表什麼」，不是「好不好看」。
+
+## 教訓二：把帶子接上真資料，設計自己會擋掉壞資料
+帶子的 `left`/`width` 直接由 `mean ± std` 映射到軸上（心率 40–120 / HRV 0–120 ms / 呼吸 6–24）。於是 IMG_0207 上那個 **HRV 510 ms**（峰值偵測抖動，不是心率變異）**畫不進軸**，該列自動變成「訊號不夠穩，下次掃描補上」並讓品質標籤降級 —— 不是額外加的檢查，是設計的必然結果。**不截斷到上限假裝正常**：把壞資料包裝成好資料比顯示壞資料更糟。
+
+## 教訓三（→ PLAYBOOK 候選）：直向 flex 裡的固定尺寸元素會被壓扁
+`.result-icon` 宣告 80×80，實測 computed **80×42** —— 直向 flex 容器內容一溢出，預設 `flex-shrink:1` 就壓高度。founder 看到的「橢圓綠勾」是這個，不是造型。判定法：**量 computed 尺寸，跟宣告值不符就是被 flex 壓的**。凡是 flex 容器裡的固定尺寸裝飾都要 `flex-shrink: 0`。
+
+## 教訓四：兩個 absolute step 同時 active 就會互相畫在對方身上
+`enterTransition()` 讓 `#step-result` 先 `.active`，`#step-scan` 到 **t=2.0s** 才拆。那 2 秒內掃描頁的 `.privacy-secured` / `.capture-frame` 整個蓋在結果卡上（founder 截圖裡的疊字與被裁的內文）。修法是轉場一開始就隱藏**非儀式性**裝飾，儀式層（particles / flash / backdrop）不動。**寫測試時要先證明測試會失敗**：第一版探針在掃描頁沒 active 的情況下量，三個數字都是 0 —— 看起來過了，其實什麼都沒驗到。
+
+## 驗證 / 下次接手點
+- headless 390×673：hr 70±2 → 帶子 left 35% / width 8%（夾到下限），與手算一致；HRV 510 → 帶子 hidden、品質「優良」降「普通」；捲到底時 CTA 距免責條 22.3px；轉場 t=0.5/1.5s 掃描家具皆不可見而 `#step-scan` 仍 active；pageerror 0。
+- `?v=` 已 bump 成 `calib_v1`。**真機仍待 founder 實走**；#201 的 iOS switch 觸感也還沒回報。
+
+---
+
 # 2026-07-29 Session Update #38 (快訊網址產生器 — 根治「裸連結漏 symbol → 400」)
 
 > #35 之後隔幾天 founder 又踩同一坑：TradingView alert 觸發、TV 自家通知有跳，但 TENKI 沒進。
