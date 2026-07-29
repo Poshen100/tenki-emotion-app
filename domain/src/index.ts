@@ -97,6 +97,7 @@ export type { DomainMarketMode } from './policies/market-mode';
 export {
   isDisciplinedOutcome,
   resolveOutcomeTag,
+  selectRecentOutcomes,
   summarizeDisciplineRate,
 } from './policies/decision-outcome';
 
