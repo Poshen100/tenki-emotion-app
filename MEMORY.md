@@ -9,6 +9,27 @@
 
 ---
 
+# 2026-07-30 Session Update #44 (v6 四頁升級 Phase 2：Session 頁做成真的)
+
+> 四頁升級 Phase 2。Founder：「接著做 Session2」。決策（AskUserQuestion）：三格 stats＝**對齊率/決策次數/平均用時**（放棄無從推導的 Avg Edge Score）；drill-in **做成真的、只用 store 有的欄位**。
+
+## 現況 → 做了什麼（`apps/preview/v6/index.html`，S1–S3 各一 commit）
+- 舊：整個 `#session-screen` 寫死（88% 對齊率 / 73 Avg Edge Score / 2.1m + 4 張靜態卡 `openSessionDetail('s_wN')`）；drill-in（`SESSIONS` 物件 + `openSessionDetail`）全是**假生理數據**（Edge Score 曲線 SVG / HR / HRV / RR / clarity dots）。
+- **S1 stats+清單+空狀態**：新 `renderSessionScreen()`（`goTab('session')` 觸發）讀統一 store `tenki.alert.outcomes.v1`（TradingView 快訊 + v6 計時器合流）。三格＝對齊率（`isDisciplinedV6` 佔比）/ 決策次數 / 平均用時（avg `durationSec`）；insight 事實化；清單依 `ts` 新→舊；badge：stayed→win「跟著流程」/ timed_out→breakeven「完整走完」/ broke→loss「提前收束」。空 store → `.session-empty` 引導。`outcomeMeta(rec)` 用 templateId 對 TEMPLATES，找不到 fallback 到 symbol。
+- **S2 drill-in 做成真的**：重寫 `#sessionDetail` 為 store-driven 事實卡（outcome hero / 三段時間軸由 `segBounds(dur)` 推導 + 核心段 reached 高亮 / 用時·Readiness·Marks facts / 事實 insight）。**移除**所有造假生理數據；刪 `SESSIONS`/`renderEdgeTrace`/`renderEventsList`/`setClarity`；`openSessionDetail(ts)` 用時間戳從 store 取。
+- **S3 爽感**：清單進場 stagger（`sessRise`，delay 上限 8 張）+ 三格 count-up（`countUpEl`）；`prefers-reduced-motion` 立即落終值、無動畫。
+
+## 陷阱 / 注意
+- **Avg Edge Score 無從推導**：統一 store 每筆只有 outcome/readiness/marks/durationSec/ts，沒有 Edge Score 或生理數據。凡是要在 store-driven UI 顯示 Edge Score/HR/HRV 的都是造假 → 改成可推導指標或留給 Scan phase（有真掃描時）。
+- drill-in 拿掉了 reflection/clarity（那需要往 store 寫新欄位，超出「只用 store 有的欄位」範圍）；未來要反思可再加 clarity 欄位回寫。
+- 舊的 `.sd-hero/.sd-trace/.sd-bio/.sd-reflect/.sd-evt` CSS 已無引用（dead CSS，留著無害，未清）。
+
+## 下次接手點
+- 四頁還剩 **Scan（P3）/ Timeline（P4）**，各自 PR。Timeline 同樣吃 `tenki.alert.outcomes.v1`（可直接複用 `loadOutcomes`/`outcomeMeta`/`OUTCOME_BADGE_V6`）。
+- Playwright：`scratchpad/v6-session.mjs`（空狀態 + 3 筆統計/排序/badge + drill-in + reduced-motion）。
+
+---
+
 # 2026-07-30 Session Update #43 (v6 決策計時器做成真的 — dock 就地，取代假 8 秒 demo)
 
 > 四頁升級延伸。Founder：dock 的決策計時器是 demo，要做成真的、「像 Fable 5」。決策（AskUserQuestion）：**dock 就地做真**（不做展開全屏儀表）；**outcomes 寫進和 TradingView 決策同一個 store**。
