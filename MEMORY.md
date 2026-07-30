@@ -9,6 +9,27 @@
 
 ---
 
+# 2026-07-30 Session Update #45 (v6 四頁升級 Phase 3：Timeline 頁做成真的)
+
+> 接 Phase 2（Session #210 已 merge）。Founder：「Timeline」。決策（AskUserQuestion）：主視覺＝**決策時間軸 strip（24h 軸 + outcome 色點）**（Edge Score 折線無從推導 → 換掉，同 Session 原則）；日期切換 → **拿掉，改單一「最近」視圖**。
+
+## 現況 → 做了什麼（`apps/preview/v6/index.html`，TL1–TL2 各一 commit）
+- 舊：`#timeline-screen` 全寫死——死的 `date-switch`（Apr 19 ‹›）、**24H Edge Score 折線圖**（造假）、Event Log（寫死 session/scan 事件 + 「Edge Score N」）。
+- **TL1 做成真的**：移除 date-switch + Edge 折線。新 `renderTimeline()`（`goTab('timeline')` 觸發）讀 `tenki.alert.outcomes.v1`：上半**決策時間軸 strip**（SVG，x＝time-of-day/1440、色＝outcome、r＝3+min(marks,6)*0.7、glow）；下半 **Event Log**（每筆一列，dot 沿用既有 `.tl-event .dot.entry/.exit/.cancel`＝outcome 色，右側顯示 `fmtDur` 用時，非 Edge Score）；meta＝「N 筆 · X% 對齊」；空狀態 `#tlEmpty`。
+- **TL2 爽感**：strip 點 `tlDotIn` 縮放淡入 + event 列 `sessRise` stagger；reduced-motion 一律無動畫。
+- **複用**（與 Session 同源，零新資料層）：`loadOutcomes`/`outcomeMeta`/`OUTCOME_TEXT_V6`/`isDisciplinedV6`/`fmtTimeOfDay`/`fmtDur`/`escHtml`。新增 `OUTCOME_DOT_CLASS`/`OUTCOME_DOT_FILL`。
+
+## 陷阱 / 注意
+- Timeline 與 Session 是**同一份 store 的兩種視圖**（Session＝彙總卡列表、Timeline＝時間分布 + 事件流）。改資料形狀要一起顧。
+- Edge Score / ANS 連續訊號一律 store 沒有 → strip 只用 time-of-day + outcome + marks（都可推導）。折線類視覺留給 Scan phase（有真掃描時）。
+- 舊 `.tl-edge-chart-*` / `.date-switch` CSS 已無引用（dead，留著無害）。
+
+## 下次接手點
+- 四頁只剩 **Scan（P3）**——比較獨立（臉部基線流程，讀 `docs/SOUL-SCAN-NORTH-STAR.md`），單獨一輪。
+- Playwright：`scratchpad/v6-timeline.mjs`（空狀態 + 3 筆 strip/meta/event log/dot 色/用時 + reduced-motion）。
+
+---
+
 # 2026-07-30 Session Update #44 (v6 四頁升級 Phase 2：Session 頁做成真的)
 
 > 四頁升級 Phase 2。Founder：「接著做 Session2」。決策（AskUserQuestion）：三格 stats＝**對齊率/決策次數/平均用時**（放棄無從推導的 Avg Edge Score）；drill-in **做成真的、只用 store 有的欄位**。

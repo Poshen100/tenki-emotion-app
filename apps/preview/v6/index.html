@@ -806,6 +806,42 @@ body{
 .tl-edge-chart .evt-dot{fill:var(--good);filter:drop-shadow(0 0 4px var(--good))}
 .tl-edge-chart .evt-dot.loss{fill:#ff7e76}
 
+/* 決策時間軸 strip */
+.tl-strip-card{padding:14px}
+.tl-strip-card .head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.tl-strip-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
+.tl-strip-card .avg{font-size:12px;color:var(--txt-sec);letter-spacing:0.05em;font-variant-numeric:tabular-nums}
+.tl-strip-card .avg b{font-size:18px;font-weight:300;color:#fff;margin-right:2px}
+.tl-strip{position:relative;height:96px;min-height:96px}
+.tl-strip svg{width:100%;height:100%;display:block}
+.tl-strip .grid line{stroke:rgba(255,255,255,0.06);stroke-width:1}
+.tl-strip .axis{font-size:8px;fill:var(--txt-dim);font-family:inherit}
+.tl-strip .tl-dot{transform-box:fill-box;transform-origin:center;animation:tlDotIn 0.4s var(--ease-calm) both}
+@keyframes tlDotIn{ from{opacity:0;transform:scale(0)} to{opacity:1;transform:scale(1)} }
+.tl-strip-legend{
+  display:flex;gap:14px;margin-top:8px;padding-top:8px;
+  border-top:1px solid rgba(255,255,255,0.05);
+  font-size:10px;color:var(--txt-sec);
+}
+.tl-strip-legend span{display:flex;align-items:center;gap:5px}
+.tl-strip-legend .lg{width:7px;height:7px;border-radius:50%;display:inline-block}
+.tl-strip-legend .lg.good{background:var(--good)}
+.tl-strip-legend .lg.pri{background:var(--primary)}
+.tl-strip-legend .lg.loss{background:#ff7e76}
+
+.tl-empty{display:none;flex-direction:column;align-items:center;text-align:center;padding:36px 20px 16px;gap:8px}
+.tl-empty.show{display:flex}
+.tl-empty .ic{font-size:32px;opacity:0.85}
+.tl-empty .ttl{font-size:15px;font-weight:600;color:#fff}
+.tl-empty .sub{font-size:12px;color:var(--txt-sec);line-height:1.6}
+
+/* Event log 進場 stagger（複用 sessRise）*/
+.tl-event.tl-enter{animation:sessRise 0.42s var(--ease-calm) both}
+@media (prefers-reduced-motion: reduce){
+  .tl-event.tl-enter{animation:none}
+  .tl-strip .tl-dot{animation:none}
+}
+
 /* Session markers */
 .timeline-events-card{padding:14px}
 .timeline-events-card .head{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:10px}
@@ -2269,100 +2305,47 @@ body{
     <div class="screen" id="timeline-screen">
       <div class="screen-header">
         <div class="screen-title">Timeline</div>
-        <div class="screen-date">Edge Score · ANS · Events</div>
+        <div class="screen-date">最近的決策節奏</div>
       </div>
       <div class="timeline-body">
-        <div class="date-switch">
-          <div class="arr">‹</div>
-          <div class="mid">
-            <div class="day">Apr 19, 2026</div>
-            <div class="sub">Sunday · Today</div>
-          </div>
-          <div class="arr">›</div>
-        </div>
-
-        <div class="card tl-edge-chart-card">
+        <!-- 決策時間軸 strip：一天 24h 分布，每筆決策一顆點，顏色＝outcome、大小＝marks -->
+        <div class="card tl-strip-card">
           <div class="head">
-            <div class="ttl">Edge Score · 24H</div>
-            <div class="avg"><b>73</b>avg</div>
+            <div class="ttl">決策節奏 · 一天分布</div>
+            <div class="avg" id="tlStripMeta"><b>—</b> 筆</div>
           </div>
-          <div class="tl-edge-chart">
-            <svg viewBox="0 0 320 120" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="edgeTraceArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#00B4D8" stop-opacity="0.35"/>
-                  <stop offset="100%" stop-color="#00B4D8" stop-opacity="0"/>
-                </linearGradient>
-              </defs>
-              <!-- zones (v3: Clear band only — Neutral/Strain rendered as plain background) -->
-              <rect class="zone-clear" x="0" y="0" width="320" height="54"/>
-              <!-- grid -->
+          <div class="tl-strip">
+            <svg viewBox="0 0 320 96" preserveAspectRatio="none">
               <g class="grid">
-                <line x1="0" y1="24" x2="320" y2="24"/>
-                <line x1="0" y1="54" x2="320" y2="54"/>
-                <line x1="0" y1="84" x2="320" y2="84"/>
+                <line x1="12" y1="56" x2="308" y2="56"/>
+                <line x1="86" y1="26" x2="86" y2="66"/>
+                <line x1="160" y1="26" x2="160" y2="66"/>
+                <line x1="234" y1="26" x2="234" y2="66"/>
               </g>
-              <!-- y labels -->
-              <text class="axis" x="4" y="18">90</text>
-              <text class="axis" x="4" y="48">70</text>
-              <text class="axis" x="4" y="78">50</text>
-              <text class="axis" x="4" y="108">30</text>
-              <!-- Edge Score line -->
-              <path class="area" d="M0,90 L20,85 L40,70 L60,60 L80,52 L100,50 L120,45 L140,40 L160,48 L180,56 L200,42 L220,35 L240,48 L260,60 L280,55 L300,50 L320,55 L320,120 L0,120 Z"/>
-              <path class="line" d="M0,90 L20,85 L40,70 L60,60 L80,52 L100,50 L120,45 L140,40 L160,48 L180,56 L200,42 L220,35 L240,48 L260,60 L280,55 L300,50 L320,55"/>
-              <!-- event dots (session entries) -->
-              <circle class="evt-dot" cx="100" cy="50" r="3.5"/>
-              <circle class="evt-dot" cx="160" cy="48" r="3.5"/>
-              <circle class="evt-dot loss" cx="220" cy="35" r="3.5"/>
-              <circle class="evt-dot" cx="280" cy="55" r="3.5"/>
-              <!-- x labels -->
-              <text class="axis" x="30" y="116">6am</text>
-              <text class="axis" x="100" y="116">10am</text>
-              <text class="axis" x="160" y="116">2pm</text>
-              <text class="axis" x="220" y="116">6pm</text>
-              <text class="axis" x="280" y="116">10pm</text>
+              <g id="tlStripContent"></g>
+              <text class="axis" x="12" y="86">12am</text>
+              <text class="axis" x="86" y="86" text-anchor="middle">6am</text>
+              <text class="axis" x="160" y="86" text-anchor="middle">12pm</text>
+              <text class="axis" x="234" y="86" text-anchor="middle">6pm</text>
+              <text class="axis" x="308" y="86" text-anchor="end">12am</text>
             </svg>
+          </div>
+          <div class="tl-strip-legend">
+            <span><i class="lg good"></i>跟著流程</span>
+            <span><i class="lg pri"></i>完整走完</span>
+            <span><i class="lg loss"></i>提前收束</span>
           </div>
         </div>
 
         <div class="card timeline-events-card">
-          <div class="head">Event Log</div>
-          <div class="tl-event">
-            <div class="time">17:15</div>
-            <div class="dot entry"></div>
-            <div class="desc">Health Stress · 開始</div>
-            <div class="tl-edge">Edge Score 68</div>
-          </div>
-          <div class="tl-event">
-            <div class="time">13:30</div>
-            <div class="dot entry"></div>
-            <div class="desc">Work Focus · 開始</div>
-            <div class="tl-edge">Edge Score 72</div>
-          </div>
-          <div class="tl-event">
-            <div class="time">09:30</div>
-            <div class="dot entry"></div>
-            <div class="desc">Exercise · 開始</div>
-            <div class="tl-edge">Edge Score 64</div>
-          </div>
-          <div class="tl-event">
-            <div class="time">07:00</div>
-            <div class="dot entry"></div>
-            <div class="desc">Health Stress · 開始</div>
-            <div class="tl-edge">Edge Score 58</div>
-          </div>
-          <div class="tl-event">
-            <div class="time">08:15</div>
-            <div class="dot scan"></div>
-            <div class="desc">Morning Scan</div>
-            <div class="tl-edge">Edge Score 71</div>
-          </div>
-          <div class="tl-event">
-            <div class="time">07:02</div>
-            <div class="dot scan"></div>
-            <div class="desc">Baseline Refresh</div>
-            <div class="tl-edge">—</div>
-          </div>
+          <div class="head">Event Log · 最近</div>
+          <div id="tlEventLog"></div>
+        </div>
+
+        <div class="tl-empty" id="tlEmpty">
+          <div class="ic">🕓</div>
+          <div class="ttl">還沒有決策紀錄</div>
+          <div class="sub">跑一次決策，或走完一次 TradingView 快訊流程，<br>這裡就會畫出你一天的決策節奏。</div>
         </div>
       </div>
     </div>
@@ -2933,6 +2916,7 @@ function goTab(id){
   const screen = document.getElementById(id + '-screen');
   if(screen) screen.classList.add('active');
   if(id === 'session') renderSessionScreen();
+  if(id === 'timeline') renderTimeline();
   const tab = document.querySelector(`.tab[data-tab="${id}"]`);
   if(tab) tab.classList.add('active');
   // Haptic hint (visual tap)
@@ -3877,6 +3861,57 @@ function renderSessionScreen(){
       '<span>' + escHtml(readiness) + '</span><span class="sep">·</span><span>' + fmtDur(r.durationSec||0) + '</span></div></div>' +
       '<div class="result ' + badge.cls + '">' + badge.text + '</div>' +
       '<div class="chevron">›</div></div>';
+  }).join('');
+}
+
+// ═════════════════════════════════════════════════
+// Timeline 頁 — 同源自 tenki.alert.outcomes.v1（單一「最近」視圖）
+// 上半：決策時間軸 strip（24h 軸，x=時間、色=outcome、r=marks）
+// 下半：Event Log（每筆決策一列）。無 Edge Score / 連續訊號 → 不畫折線。
+// ═════════════════════════════════════════════════
+const OUTCOME_DOT_CLASS = { stayed_disciplined:'entry', timed_out:'exit', broke_discipline:'cancel' };
+const OUTCOME_DOT_FILL  = { stayed_disciplined:'var(--good)', timed_out:'var(--primary)', broke_discipline:'#ff7e76' };
+
+function renderTimeline(){
+  const recs = loadOutcomes().slice().sort((a,b) => (b.ts||0) - (a.ts||0));
+  const count = recs.length;
+  const disciplined = recs.filter(r => isDisciplinedV6(r.outcomeTag)).length;
+  const align = count ? Math.round(disciplined / count * 100) : 0;
+  const empty = count === 0;
+
+  document.getElementById('tlEmpty').classList.toggle('show', empty);
+  document.querySelector('#timeline-screen .tl-strip-card').style.display = empty ? 'none' : '';
+  document.querySelector('#timeline-screen .timeline-events-card').style.display = empty ? 'none' : '';
+  if(empty){
+    document.getElementById('tlStripContent').innerHTML = '';
+    document.getElementById('tlEventLog').innerHTML = '';
+    return;
+  }
+
+  document.getElementById('tlStripMeta').innerHTML = '<b>' + count + '</b> 筆 · ' + align + '% 對齊';
+
+  // strip dots：24h 軸 — x=時間、色=outcome、r 依 marks 微幅放大
+  const W = 320, padL = 12, padR = 12, plot = W - padL - padR, y = 56;
+  document.getElementById('tlStripContent').innerHTML = recs.map((r, i) => {
+    const d = new Date(r.ts);
+    const mins = isNaN(d.getTime()) ? 0 : (d.getHours() * 60 + d.getMinutes());
+    const x = padL + plot * (mins / 1440);
+    const rad = 3 + Math.min(r.marks || 0, 6) * 0.7;
+    const fill = OUTCOME_DOT_FILL[r.outcomeTag] || 'var(--txt-sec)';
+    return '<circle class="tl-dot" cx="' + x.toFixed(1) + '" cy="' + y + '" r="' + rad.toFixed(1) +
+      '" fill="' + fill + '" style="animation-delay:' + (Math.min(i, 10) * 40) + 'ms;filter:drop-shadow(0 0 4px ' + fill + ')"/>';
+  }).join('');
+
+  // event log：每筆決策一列（dot 色沿用 outcome，右側顯示用時）
+  document.getElementById('tlEventLog').innerHTML = recs.map((r, i) => {
+    const m = outcomeMeta(r);
+    const dotCls = OUTCOME_DOT_CLASS[r.outcomeTag] || 'exit';
+    const txt = OUTCOME_TEXT_V6[r.outcomeTag] || '已記錄';
+    return '<div class="tl-event tl-enter" style="animation-delay:' + (Math.min(i, 8) * 40) + 'ms">' +
+      '<div class="time">' + fmtTimeOfDay(r.ts) + '</div>' +
+      '<div class="dot ' + dotCls + '"></div>' +
+      '<div class="desc">' + escHtml(m.name) + ' · ' + txt + '</div>' +
+      '<div class="tl-edge">' + fmtDur(r.durationSec || 0) + '</div></div>';
   }).join('');
 }
 
