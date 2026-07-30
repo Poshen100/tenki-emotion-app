@@ -816,7 +816,8 @@ body{
 .tl-strip svg{width:100%;height:100%;display:block}
 .tl-strip .grid line{stroke:rgba(255,255,255,0.06);stroke-width:1}
 .tl-strip .axis{font-size:8px;fill:var(--txt-dim);font-family:inherit}
-.tl-strip .tl-dot{transform-box:fill-box;transform-origin:center}
+.tl-strip .tl-dot{transform-box:fill-box;transform-origin:center;animation:tlDotIn 0.4s var(--ease-calm) both}
+@keyframes tlDotIn{ from{opacity:0;transform:scale(0)} to{opacity:1;transform:scale(1)} }
 .tl-strip-legend{
   display:flex;gap:14px;margin-top:8px;padding-top:8px;
   border-top:1px solid rgba(255,255,255,0.05);
@@ -833,6 +834,13 @@ body{
 .tl-empty .ic{font-size:32px;opacity:0.85}
 .tl-empty .ttl{font-size:15px;font-weight:600;color:#fff}
 .tl-empty .sub{font-size:12px;color:var(--txt-sec);line-height:1.6}
+
+/* Event log 進場 stagger（複用 sessRise）*/
+.tl-event.tl-enter{animation:sessRise 0.42s var(--ease-calm) both}
+@media (prefers-reduced-motion: reduce){
+  .tl-event.tl-enter{animation:none}
+  .tl-strip .tl-dot{animation:none}
+}
 
 /* Session markers */
 .timeline-events-card{padding:14px}
