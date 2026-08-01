@@ -69,7 +69,7 @@ fi
 check_preview() {
   local ok=0
   while IFS= read -r f; do
-    node --check "$f" || ok=1
+    node --check "$f" 2>/dev/null || node --check --input-type=module < "$f" || ok=1
   done < <(find apps/preview -name '*.js' -not -path '*/node_modules/*')
   return $ok
 }
