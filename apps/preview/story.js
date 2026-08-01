@@ -243,6 +243,9 @@
   function initTransition() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
+    var breathEase = getEase('breath', 'sine.inOut');
+    var secureEase = getEase('secure', 'back.out(1.2)');
+
     gsap.matchMedia().add(
       { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
       function (context) {
@@ -260,12 +263,10 @@
         gsap.set(ring, { autoAlpha: 0, scale: 0.7 });
         gsap.set(label, { autoAlpha: 0, y: 12 });
 
-        // Continuous "breathing" pulse on the core while the section is pinned —
-        // independent of scroll position so the unlock cue feels alive, not scrubbed.
         var breathe = gsap.to(core, {
           scale: 1.08,
           duration: 1.6,
-          ease: 'sine.inOut',
+          ease: breathEase,
           repeat: -1,
           yoyo: true,
           paused: true
@@ -286,8 +287,8 @@
           }
         });
 
-        tl.to(ring, { autoAlpha: 1, scale: 1, duration: 0.25 }, 0)
-          .to(label, { autoAlpha: 1, y: 0, duration: 0.2 }, 0.1)
+        tl.to(ring, { autoAlpha: 1, scale: 1, duration: 0.25, ease: secureEase }, 0)
+          .to(label, { autoAlpha: 1, y: 0, duration: 0.2, ease: secureEase }, 0.1)
           .to(ring, { autoAlpha: 0, scale: 1.6, duration: 0.25, ease: 'power2.in' }, 0.72)
           .to(core, { autoAlpha: 0, scale: 1.6, duration: 0.25, ease: 'power2.in' }, 0.72)
           .to(label, { autoAlpha: 0, y: -12, duration: 0.2 }, 0.72);
@@ -303,6 +304,8 @@
 
   function initDashboard() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+
+    var calmEase = getEase('calm', 'expo.out');
 
     gsap.matchMedia().add(
       { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
@@ -324,7 +327,7 @@
         gsap.set(copy, { autoAlpha: 0, y: 28 });
         gsap.set(frame, {
           autoAlpha: 0, y: 60, scale: 0.88,
-          rotateX: 8, rotateY: -6, transformPerspective: 1000
+          rotationX: 8, rotationY: -6, transformPerspective: 1000
         });
 
         var entrance = gsap.timeline({
@@ -336,8 +339,8 @@
         });
 
         entrance
-          .to(copy, { autoAlpha: 1, y: 0, duration: 0.7, stagger: 0.08, ease: 'power3.out' }, 0)
-          .to(frame, { autoAlpha: 1, y: 0, scale: 1, rotateX: 0, rotateY: 0, duration: 1, ease: 'power3.out' }, 0.1);
+          .to(copy, { autoAlpha: 1, y: 0, duration: 0.7, stagger: 0.08, ease: calmEase }, 0)
+          .to(frame, { autoAlpha: 1, y: 0, scale: 1, rotationX: 0, rotationY: 0, duration: 1, ease: calmEase }, 0.1);
 
         var parallax = gsap.to(frame, {
           y: -30,
@@ -363,6 +366,8 @@
   function initFooter() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
+    var calmEase = getEase('calm', 'expo.out');
+
     gsap.matchMedia().add(
       { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
       function (context) {
@@ -387,7 +392,7 @@
           }
         });
 
-        tl.to(targets, { autoAlpha: 1, y: 0, duration: 0.7, stagger: 0.1, ease: 'power3.out' });
+        tl.to(targets, { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.08, ease: calmEase });
 
         return function () {
           if (tl.scrollTrigger) tl.scrollTrigger.kill();
