@@ -28,11 +28,12 @@
 <!-- Three.js classic global build — stardust.js expects window.THREE (same pattern as v6/index.html) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
 
-<!-- GSAP 3.13.0 + Plugins (CDN: SplitText, CustomEase, DrawSVG) -->
+<!-- GSAP 3.13.0 + Plugins (CDN: SplitText, DrawSVG).
+     CustomEase intentionally NOT loaded — founder picked the built-in ease
+     approximations on 2026-08-01 after comparing both on desktop. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/CustomEase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/DrawSVGPlugin.min.js"></script>
 
 <style>

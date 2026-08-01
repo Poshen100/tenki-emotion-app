@@ -15,17 +15,16 @@
     gsap.registerPlugin(DrawSVGPlugin);
   }
 
-  // Brand ease curves — the whole reason CustomEase is on the plugin whitelist.
-  // Without these the named eases never resolve and getEase() silently falls
-  // back to approximations (expo.out / sine.inOut / back.out), which is exactly
-  // what MOTION-DIRECTION §3 says these tokens are meant to replace.
-  // CSS cubic-bezier(x1,y1,x2,y2) → CustomEase path 'M0,0 C x1,y1 x2,y2 1,1'.
-  if (typeof gsap !== 'undefined' && typeof CustomEase !== 'undefined') {
-    gsap.registerPlugin(CustomEase);
-    CustomEase.create('calm', 'M0,0 C0.22,1 0.36,1 1,1');    // --ease-calm
-    CustomEase.create('breath', 'M0,0 C0.4,0 0.6,1 1,1');    // --ease-breath
-    CustomEase.create('secure', 'M0,0 C0.19,1 0.22,1 1,1');  // --ease-secure
-  }
+  // Ease curves for this page.
+  //
+  // ⚠️ Deliberately the GSAP approximations, NOT CustomEase versions of the
+  // tokens.css cubic-beziers. Both were built and compared on desktop; founder
+  // picked these on 2026-08-01 — expo.out's faster attack reads better here than
+  // cubic-bezier(0.22,1,0.36,1). Feel wins over numerical equivalence.
+  // Do not "fix" this back to CustomEase. See MOTION-DIRECTION.md §3.
+  var EASE_CALM = 'expo.out';       // ≈ --ease-calm
+  var EASE_BREATH = 'sine.inOut';   // ≈ --ease-breath
+  var EASE_SECURE = 'back.out(1.2)'; // ≈ --ease-secure
 
   document.addEventListener('DOMContentLoaded', function () {
     initHero();
@@ -43,19 +42,12 @@
     }
   });
 
-  function getEase(name, fallback) {
-    if (typeof CustomEase !== 'undefined' && gsap.parseEase && gsap.parseEase(name)) {
-      return name;
-    }
-    return fallback;
-  }
-
   function initHero() {
     if (typeof gsap === 'undefined') return;
 
-    var calmEase = getEase('calm', 'expo.out');
-    var breathEase = getEase('breath', 'sine.inOut');
-    var secureEase = getEase('secure', 'back.out(1.2)');
+    var calmEase = EASE_CALM;
+    var breathEase = EASE_BREATH;
+    var secureEase = EASE_SECURE;
 
     gsap.matchMedia().add(
       { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
@@ -169,7 +161,7 @@
   function initStoryPanels() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
-    var calmEase = getEase('calm', 'expo.out');
+    var calmEase = EASE_CALM;
 
     gsap.matchMedia().add(
       { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
@@ -261,8 +253,8 @@
   function initTransition() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
-    var breathEase = getEase('breath', 'sine.inOut');
-    var secureEase = getEase('secure', 'back.out(1.2)');
+    var breathEase = EASE_BREATH;
+    var secureEase = EASE_SECURE;
 
     gsap.matchMedia().add(
       { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
@@ -323,7 +315,7 @@
   function initDashboard() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
-    var calmEase = getEase('calm', 'expo.out');
+    var calmEase = EASE_CALM;
 
     gsap.matchMedia().add(
       { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
@@ -384,7 +376,7 @@
   function initFooter() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
-    var calmEase = getEase('calm', 'expo.out');
+    var calmEase = EASE_CALM;
 
     gsap.matchMedia().add(
       { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },

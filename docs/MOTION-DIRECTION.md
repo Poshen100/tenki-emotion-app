@@ -26,6 +26,12 @@
 
 **Duration 音階**（不要發明新值）：`150ms` 微反饋 · `300ms` 狀態切換 · `600ms` 元素進場 · `900ms` 品牌入場 · `1400ms` 分數揭曉收斂 · `6s` 呼吸循環 · EWMA `α=0.05` 極慢收斂（數值類）。
 
+> ⚠️ **Web GSAP 用「近似值」是刻意的決定,不是還沒做完**（founder 2026-08-01 拍板）。
+> 曾用 CustomEase 把上表 cubic-bezier 精確搬進 GSAP（PR #213）,founder 桌機實機兩版並列比較後
+> **選擇保留 `expo.out` / `sine.inOut` / `back.out(1.2)`** — `expo.out` 的起手更快,Hero 更有衝擊力。
+> **手感 > 數值等價**。`apps/preview/story.js` 的 `EASE_CALM/BREATH/SECURE` 常數即此決定的落地,
+> 不要再「修正」回 CustomEase。CSS 端仍用 `tokens.css` 的 `--ease-*`（那裡本來就是原生 cubic-bezier）。
+
 ## 4. 儀式時刻語彙（choreography vocabulary）
 
 品牌只有四種「動作」，所有畫面從這四種組合，不另創：
@@ -59,7 +65,7 @@
 | 滾動敘事（story.html 類） | `gsap-scrolltrigger` |
 | 卡頓/掉幀/效能 | `gsap-performance` |
 | 數值映射、clamp、snap、隨機 | `gsap-utils` |
-| Flip/Draggable/SplitText 等 plugin | `gsap-plugins`（GSAP 3.13 起全 plugin 免費；story.html 白名單＝**SplitText / CustomEase / DrawSVG** 三個，founder 2026-07-10 核可 — 要加第四個先過 founder；**ScrollSmoother 明確不用**，理由見 story-motion kickoff） |
+| Flip/Draggable/SplitText 等 plugin | `gsap-plugins`（GSAP 3.13 起全 plugin 免費；story.html 白名單＝**SplitText / DrawSVG** — 要加新的先過 founder；**ScrollSmoother 明確不用**，理由見 story-motion kickoff；**CustomEase 已試過並由 founder 否決**（2026-08-01，見 §3 註記）— 不要再引入） |
 | React/RN web 內用 GSAP | `gsap-react`（目前 repo 無此場景） |
 | Vue/Svelte | `gsap-frameworks`（目前 repo 無此場景） |
 
