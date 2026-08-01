@@ -1,12 +1,21 @@
-# 2026-07-10 ADDENDUM — TOP PRIORITY: /story/ 全頁 GSAP 動效重現（開工單制）
+# 2026-08-01 ADDENDUM — TOP PRIORITY: Hero「鏡頭感」進場（開工單 v2）
 
-**下次桌機 session 先做這個**（founder 2026-07-10 拍板，排在下方 07-09 的水晶球/盾牌之前）：
-照 **`docs/prompts/antigravity-story-motion-kickoff.md`** 開工 — 把先前做出過、founder 極喜歡、
-但**沒 push 而遺失**的 Hero 進場 + 全頁動效，照開工單裡的 beat 譜重現並永久入庫。
-重點：Hero motion-only 強化已獲 founder 明確授權（文案/球/版面不變）；GSAP 升 3.13.x，
-白名單 SplitText / CustomEase / DrawSVG；**Rule #0 防丟失** — 開工第一分鐘建分支並 push，
-每完成一個 beat 就 commit+push，quota 見底先 push 再收工。完整規格、授權紀錄、驗收
-清單都在開工單內。水晶球（#1-A）與盾牌（#1-B）順延其後。
+**下次桌機 session 先做這個** → **`docs/prompts/antigravity-hero-camera-kickoff.md`**
+
+背景：07-10 的開工單 v1 已執行並 merge（PR #212），但 founder 實機看過後判定**不夠震撼**。
+檢討結論：v1 那份逐拍規格表實質上只是「依序淡入 + 上移」，**整個畫面是平的**，而且
+`v6/stardust.js` 裡那台 `THREE.PerspectiveCamera`（`camera.position.z = 5`）**從初始化後從未動過** —
+Hero 有一台真相機卻從不運鏡。過死的規格同時壓住了創作天花板。
+
+v2 因此改變做法：**不給逐拍表**，只定「不可破的底線 + 震撼的定義 + 技術彈藥庫」，
+由你發揮並**一次交三個鏡頭語言差異夠大的 take**（各附全程錄影）讓 founder 挑。
+北極星＝founder 2026-08-01 指定的**「鏡頭感：推進／拉遠／縱深穿越」**（畫面要有 Z 軸）。
+
+硬底線：`stardust.js` **只能加法修改**（`/v3/`、`/preview/` 行為必須完全不變，星塵手感 v25.8.2 鎖定）；
+文案/球/版面不動，只重做動效；`prefers-reduced-motion` 分支必須**零相機運動**（運鏡最易誘發動暈）；
+真機 60fps。**Rule #0 防丟失**：開工第一分鐘建分支並 push，每個 take 完成就 commit+push。
+
+水晶球（#1-A）與盾牌（#1-B）順延其後。
 
 ---
 
