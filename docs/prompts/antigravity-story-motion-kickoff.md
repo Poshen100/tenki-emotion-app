@@ -1,3 +1,13 @@
+# ⛔ 已被取代（2026-08-01）— 請改讀 `docs/prompts/antigravity-hero-camera-kickoff.md`
+
+> 本開工單（v1）已執行完畢並 merge（PR #212），但 **founder 看過後認定「不夠震撼」**。
+> 失敗原因不在執行，而在本檔的方法論:給了一份逐拍規格表，內容實質上只是「依序淡入 + 上移」，
+> 畫面全平、沒有鏡頭運動，且過死的規格壓住了創作天花板。完整檢討與新做法見
+> **`docs/prompts/antigravity-hero-camera-kickoff.md`（v2，現行）**。
+> 以下保留作為歷史紀錄 —— **不要照著執行**。
+
+---
+
 # Antigravity 開工單 — /story/ Hero + 全頁 GSAP 動效重現（2026-07-10，founder 拍板交辦）
 
 > 使用方式：founder 在桌機 Antigravity 貼上下方 prompt 即可開工。
