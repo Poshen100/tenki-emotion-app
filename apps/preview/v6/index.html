@@ -2187,7 +2187,9 @@ body{
 
       <section class="snap">
         <!-- Coach hint -->
-        <div class="coach-card"><div class="coach-text">目前生理訊號穩定，決策狀態清晰。保持當下節奏。</div><div class="coach-text coach-sub" id="blinkInsight" hidden></div></div>
+        <!-- 起手就寫「沒有讀數」：renderCoachLine() 之前的那一瞬也不能宣稱狀態。
+             #blinkInsight 是星塵收尾另外填的眨眼子句，不歸這裡管。 -->
+        <div class="coach-card"><div class="coach-text" id="coachText">還沒有今天的讀數。到 Scan 掃一次，這裡就會依你的帶位給提示。</div><div class="coach-text coach-sub" id="blinkInsight" hidden></div></div>
 
         <!-- Snapshot — peeking magnetic carousel: one group per swipe -->
         <div class="snap-track" id="snapTrack">
@@ -3782,6 +3784,30 @@ function agoTextV6(ts, now){
   return Math.round(hr / 24) + ' 天前';
 }
 
+// 教練卡文案。
+// 原本是一句寫死的「目前生理訊號穩定，決策狀態清晰」—— 兩個問題：Strain 時也照
+// 講，而且**我們根本沒量生理訊號**（量到的是取景、亮度、逐幀穩定度）。所以新文案
+// 只講掃描當下實際量到的東西，並給流程提示，不給進出場建議、不碰醫療語言。
+const COACH_NO_READING_V6 = '還沒有今天的讀數。到 Scan 掃一次，這裡就會依你的帶位給提示。';
+const COACH_LINE_V6 = {
+  clear:   '掃描當下你是穩的。照原本的節奏走，不用另外加動作。',
+  neutral: '掃描當下的穩定度普通。動作前多給自己一拍，再照流程走。',
+  strain:  '掃描當下不太穩。這種時候流程比直覺可靠 —— 照你的清單走。',
+};
+const COACH_STALE_V6 = '這筆讀數超過 15 分鐘了，描述的不一定是現在。要進決策前建議重新掃一次。';
+const COACH_LOW_CONF_V6 = '（這次的取景條件一般，讀數僅供參考。）';
+
+/** 教練卡：只依真讀數說話，沒讀數就直說沒有。 */
+function renderCoachLine(){
+  const el = document.getElementById('coachText');
+  if(!el) return;
+  const r = loadReadingV6();
+  if(!r){ el.textContent = COACH_NO_READING_V6; return; }
+  if(Date.now() - r.ts >= READING_FRESHNESS_MS_V6){ el.textContent = COACH_STALE_V6; return; }
+  el.textContent = COACH_LINE_V6[r.band]
+    + (r.confidence === 'low' ? COACH_LOW_CONF_V6 : '');
+}
+
 function scannerAvailableV6(){
   const S = window.TENKI_READINESS_SCAN;
   return !!(S && S.begin && S.isAvailable && S.isAvailable());
@@ -3795,6 +3821,7 @@ function renderHeroReading(){
   const zoneEl = document.getElementById('edgeTraceZone');
   const confEl = document.getElementById('edgeConfidence');
   const r = loadReadingV6();
+  renderCoachLine(); // 環與教練卡永遠同一筆讀數，不得各說各話
   if(!zoneEl) return false;
   if(!r){
     zoneEl.textContent = '尚無讀數 · 到 Scan 掃一次';
