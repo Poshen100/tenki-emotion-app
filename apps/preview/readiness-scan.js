@@ -37,7 +37,15 @@
   /** 中央區水平梯度除數（Tier B 取景啟發式）。 */
   var DETAIL_DIVISOR = 18;
 
-  var BRIGHTNESS_MIN = 0.34;
+  /**
+   * 曝光。0.34 原本同時是「滿分下限」和「閘門」—— 實機在夜間室內光下直接卡死
+   * （2026-08-01 founder 23:17 實走：LIGHTING 紅、進度條停在 0，掃描永遠走不完）。
+   * 拆成兩個角色：0.34 以上算滿分，0.16 以下才真的太暗；中間是**斜坡**，
+   * 光線差就讓 captureQuality 掉、confidence 跟著降 —— 而不是不給讀數。
+   * 0.16（≈41/255）以下臉基本上只剩剪影，landmark 也追不動，那時停下來是有依據的。
+   */
+  var BRIGHTNESS_FULL_MIN = 0.34;
+  var BRIGHTNESS_FLOOR = 0.16;
   var BRIGHTNESS_MAX = 0.97;
   var UNIFORMITY_MIN = 0.50;
   var MOTION_STILL_MAX = 0.40;
@@ -50,6 +58,13 @@
   var FACE_INTERVAL_MS = 180;
   /** 位移速度達此值＝takeover 判定「HOLD STILL」的門檻 → stillness 讀 0。 */
   var LANDMARK_MOTION_CEILING = 0.35;
+  /**
+   * Tier A 的 stillness 閘門。**不能借用 `MOTION_STILL_MAX`** —— 那是 soul-enroll
+   * 給「整幀 luma 差分」調的尺度，跟 landmark 位移不是同一種量。取 takeover 那個
+   * 已調過的 HOLD STILL 門檻的一半當閘門（speed ≤ 0.175 ⟺ stillness ≥ 0.5），
+   * 留餘裕給低光下的 landmark 抖動。
+   */
+  var LANDMARK_STILL_GATE = 0.5;
   /** 眼睛開合正規化除數（landmark y 距離 → 0..1）。 */
   var EYE_OPEN_DIVISOR = 0.035;
   /** 眨眼遲滯門檻（EAR-normalized，與 takeover 同一組）。 */
@@ -406,7 +421,11 @@
    * @returns {number} Adequacy in 0..1.
    */
   function lightingAdequacy(brightness) {
-    if (brightness < BRIGHTNESS_MIN) return clamp01(brightness / BRIGHTNESS_MIN);
+    if (brightness < BRIGHTNESS_FLOOR) return 0;
+    if (brightness < BRIGHTNESS_FULL_MIN) {
+      // 斜坡：暗但還量得到 → 給部分分數，讓 confidence 誠實下降。
+      return clamp01((brightness - BRIGHTNESS_FLOOR) / (BRIGHTNESS_FULL_MIN - BRIGHTNESS_FLOOR));
+    }
     if (brightness > BRIGHTNESS_MAX) {
       return clamp01(1 - (brightness - BRIGHTNESS_MAX) / (1 - BRIGHTNESS_MAX));
     }
@@ -426,7 +445,7 @@
    * @returns {{lighting:boolean, centering:?boolean, stillness:?boolean}} Gates.
    */
   function evalGates(frame) {
-    var lighting = frame.brightness >= BRIGHTNESS_MIN
+    var lighting = frame.brightness >= BRIGHTNESS_FULL_MIN
       && frame.brightness <= BRIGHTNESS_MAX
       && frame.uniformity >= UNIFORMITY_MIN;
     if (session.everSawFace) {
@@ -436,7 +455,7 @@
         lighting: lighting,
         centering: fresh ? session.faceFramed === true : false,
         stillness: fresh && session.lastStillness !== null
-          ? session.lastStillness >= 1 - MOTION_STILL_MAX
+          ? session.lastStillness >= LANDMARK_STILL_GATE
           : false,
       };
     }
@@ -445,6 +464,23 @@
       centering: frame.detail >= DETAIL_MIN && lighting,
       stillness: frame.hasMotion ? frame.motion <= MOTION_STILL_MAX : null,
     };
+  }
+
+  /**
+   * 進度前不前進的判準（pause-not-reset）。
+   *
+   * Tier A 刻意**不把 lighting 算進來**：landmark tracker 追得動，就代表光線足夠
+   * 量測 —— 讓追蹤器自己當「夠不夠亮」的裁判，比一個外加的亮度門檻誠實。光線差的
+   * 代價走 `lightingAdequacy` → captureQuality → confidence 下降，而不是不給讀數。
+   * Tier B 沒有追蹤器可當裁判，取景啟發式本身就吃光線，所以照舊要求 lighting。
+   *
+   * @param {{lighting:boolean, centering:?boolean, stillness:?boolean}} gates
+   * @returns {boolean} 這一幀是否讓有效取景時間前進。
+   */
+  function gatesAdvance(gates) {
+    return session.everSawFace
+      ? gates.centering === true && gates.stillness === true
+      : gates.lighting === true && gates.centering === true;
   }
 
   // ── band / confidence（鏡射 domain/src/policies/readiness-band.ts）──
@@ -593,11 +629,14 @@
         acc.stillness += 1 - frame.motion;
         acc.lighting += lightingAdequacy(frame.brightness);
         acc.uniformity += frame.uniformity;
-        if (gates.lighting && gates.centering) session.heldMs += dt;
+        if (gatesAdvance(gates)) session.heldMs += dt;
       }
 
-      setInstruction(gates.lighting
-        ? (gates.centering ? '保持穩定' : '把臉放進框裡')
+      // 單一指令：先講「擋住進度的那一件事」，光線只在它真的是阻塞點時才提。
+      setInstruction(
+        gatesAdvance(gates) ? '保持穩定'
+        : gates.centering !== true ? '把臉放進框裡'
+        : gates.stillness !== true ? '再穩一下'
         : '需要多一點光線');
       setProgress(session.heldMs / session.budgetMs);
     }
