@@ -243,6 +243,82 @@
     @media (prefers-reduced-motion: reduce) {
       .result-chip, .result-chip:active, .result-chip.sel { transition: none; transform: none; }
     }
+    /* ── 進入決策：交易者儀器面板 ── */
+    .sig { display: flex; align-items: center; gap: 12px; position: relative; }
+    .sig-ping {
+      width: 10px; height: 10px; border-radius: 50%; flex: none;
+      background: var(--cyan-active); box-shadow: 0 0 10px rgba(var(--cyan-active-rgb), 0.8);
+    }
+    .entry-sheet.show .sig-ping::after {
+      content: ''; position: absolute; left: -7px; top: 50%; margin-top: -12px;
+      width: 24px; height: 24px; border-radius: 50%;
+      border: 1px solid rgba(var(--cyan-active-rgb), 0.7);
+      animation: sigPing 1.1s var(--ease-calm) 2;
+    }
+    @keyframes sigPing {
+      from { transform: scale(0.4); opacity: 0.9; }
+      to { transform: scale(1.7); opacity: 0; }
+    }
+    .sig-main { flex: 1; min-width: 0; }
+    .sig-symbol { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+    .sig-cond { font-size: 13px; color: #94A3B8; margin-top: 2px; }
+    .sig-age {
+      font-size: 12px; color: var(--cyan-active); font-variant-numeric: tabular-nums;
+      flex: none; letter-spacing: 0.02em;
+    }
+    .sig-source {
+      font-size: 11px; color: #64748B; margin-top: 8px;
+      letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+    }
+    .entry-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .entry-chips:empty { display: none; }
+    .entry-chip {
+      font-size: 11px; padding: 4px 9px; border-radius: 999px;
+      background: var(--surface); border: 1px solid var(--border); color: #94A3B8;
+    }
+    .entry-chip.warn { color: var(--zone-strain); border-color: rgba(194, 112, 61, 0.5); }
+
+    .entry-state {
+      margin-top: 12px; padding: 11px 12px; border-radius: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+    }
+    .entry-state.stale { border-color: rgba(194, 112, 61, 0.45); }
+    .es-row { display: flex; align-items: center; gap: 11px; }
+    .es-band {
+      font-size: 14px; font-weight: 700; padding: 5px 11px; border-radius: 9px;
+      background: var(--card); border: 1px solid var(--border); color: #94A3B8; flex: none;
+    }
+    .es-band.clear { color: var(--zone-clear); border-color: rgba(0, 180, 216, 0.5); }
+    .es-band.neutral { color: var(--zone-neutral); }
+    .es-band.strain { color: var(--zone-strain); border-color: rgba(194, 112, 61, 0.5); }
+    .es-meta { flex: 1; min-width: 0; }
+    .es-lbl { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #64748B; }
+    .es-age { font-size: 13px; color: #CBD5E1; margin-top: 2px; }
+    .es-scan {
+      flex: none; font-family: inherit; font-size: 12px; font-weight: 600;
+      padding: 7px 13px; border-radius: 10px; cursor: pointer;
+      background: transparent; color: var(--cyan-active);
+      border: 1px solid rgba(var(--cyan-active-rgb), 0.5);
+      transition: transform 0.15s var(--ease-calm);
+    }
+    .es-scan:active { transform: scale(0.96); }
+    .es-evidence { font-size: 11px; color: #64748B; margin-top: 8px; line-height: 1.5; }
+    .es-evidence:empty { display: none; }
+
+    .entry-disc { margin-top: 14px; }
+    .ed-head { display: flex; justify-content: space-between; align-items: baseline; }
+    .ed-head .result-block-label { margin-bottom: 0; }
+    .ed-rate { font-size: 12px; color: #CBD5E1; font-variant-numeric: tabular-nums; }
+    .entry-disc .result-strip { margin-top: 7px; }
+    .entry-disc .stat-sub { font-size: 11px; color: #64748B; margin-top: 7px; }
+    .entry-cost {
+      font-size: 11px; color: #64748B; margin-top: 9px; text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .entry-sheet.show .sig-ping::after { animation: none; display: none; }
+    }
+
     .alert-q { margin-top: 14px; font-size: 14px; font-weight: 600; }
     .sheet-actions { display: flex; gap: 10px; margin-top: 12px; }
     .btn {
@@ -412,20 +488,51 @@
   <!-- Bottom sheets -->
   <div class="sheet-backdrop" id="backdrop"></div>
 
-  <div class="sheet" id="entrySheet">
+  <div class="sheet entry-sheet" id="entrySheet">
     <div class="sheet-handle"></div>
-    <div class="alert-head" id="entryHead"></div>
-    <div class="alert-mode" id="entryMode"></div>
-    <div class="alert-note" id="entryNote"></div>
-    <div class="alert-state">
-      <div id="entryStateLine"></div>
-      <div class="stat-sub" id="entryDiscipline">在此狀態下，你過去的紀律完成率：—（資料累積中）</div>
+
+    <!-- 訊號讀出（活的：N 秒前持續跳動）-->
+    <div class="sig">
+      <div class="sig-ping" id="entryPing"></div>
+      <div class="sig-main">
+        <div class="sig-symbol" id="entrySymbol"></div>
+        <div class="sig-cond" id="entryCond"></div>
+      </div>
+      <div class="sig-age" id="entryAge"></div>
     </div>
-    <div class="alert-q">你要進入決策流程嗎？</div>
+    <div class="sig-source" id="entrySource"></div>
+
+    <div class="entry-chips" id="entryChips"></div>
+    <div class="alert-note" id="entryNote"></div>
+
+    <!-- 狀態讀數槽（誠實三態：新鮮 / 過期 / 從未）-->
+    <div class="entry-state" id="entryState">
+      <div class="es-row">
+        <div class="es-band" id="entryBand">—</div>
+        <div class="es-meta">
+          <div class="es-lbl">狀態讀數</div>
+          <div class="es-age" id="entryReadingAge">尚無讀數</div>
+        </div>
+        <button class="es-scan" id="entryRescan" type="button">掃描</button>
+      </div>
+      <div class="es-evidence" id="entryEvidence"></div>
+    </div>
+
+    <!-- 紀律脈絡（真實計數，有出處）-->
+    <div class="entry-disc">
+      <div class="ed-head">
+        <span class="result-block-label" id="entryDiscLabel">紀律近況</span>
+        <span class="ed-rate" id="entryDiscRate"></span>
+      </div>
+      <div class="result-strip" id="entryStrip"></div>
+      <div class="stat-sub" id="entryDiscipline"></div>
+    </div>
+
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="btnDismiss" type="button">略過</button>
       <button class="btn btn-primary" id="btnEngage" type="button">進入決策</button>
     </div>
+    <div class="entry-cost" id="entryCost"></div>
   </div>
 
   <div class="sheet" id="tplSheet">
