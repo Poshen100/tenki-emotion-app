@@ -151,23 +151,45 @@
   function initStoryPanels() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
+    var calmEase = getEase('calm', 'expo.out');
+
     gsap.matchMedia().add(
       { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
       function (context) {
         var reduced = context.conditions.reduced;
         var panels = gsap.utils.toArray('.story-panel');
+        var splits = [];
 
         if (reduced) {
           gsap.set(panels, { clearProps: 'all' });
+          gsap.set('.story-index-line .draw-line', { clearProps: 'all' });
           return;
         }
 
         var scrollTriggers = panels.map(function (panel, i) {
-          var text = panel.querySelectorAll('.story-index, .story-title, .story-body');
+          var indexEl = panel.querySelector('.story-index');
+          var titleEl = panel.querySelector('.story-title');
+          var bodyEl = panel.querySelector('.story-body');
           var visual = panel.querySelector('.story-visual');
+          var drawLine = panel.querySelector('.story-index-line .draw-line');
 
-          gsap.set(text, { autoAlpha: 0, y: 36 });
-          gsap.set(visual, { autoAlpha: 0, scale: 0.92 });
+          var titleLines = [titleEl];
+          if (typeof SplitText !== 'undefined' && titleEl) {
+            var split = new SplitText(titleEl, { type: 'lines' });
+            splits.push(split);
+            titleLines = split.lines;
+          }
+
+          var parallaxY = (i % 2 === 0) ? 24 : -24;
+
+          gsap.set(indexEl, { autoAlpha: 0, y: 20 });
+          gsap.set(titleLines, { autoAlpha: 0, y: 28 });
+          gsap.set(bodyEl, { autoAlpha: 0, y: 20 });
+          gsap.set(visual, { autoAlpha: 0, scale: 0.92, y: parallaxY });
+
+          if (drawLine && typeof DrawSVGPlugin !== 'undefined') {
+            gsap.set(drawLine, { drawSVG: '0%' });
+          }
 
           var tl = gsap.timeline({
             scrollTrigger: {
@@ -175,17 +197,32 @@
               start: 'top top',
               end: '+=100%',
               pin: true,
-              scrub: 1,
+              scrub: 0.8,
               anticipatePin: 1
             }
           });
 
-          tl.to(text, { autoAlpha: 1, y: 0, duration: 0.3, stagger: 0.05 }, 0)
-            .to(visual, { autoAlpha: 1, scale: 1, duration: 0.35 }, 0.05);
+          // 1. Index fade/y
+          tl.to(indexEl, { autoAlpha: 1, y: 0, duration: 0.25, ease: calmEase }, 0);
 
+          // 2. Index line DrawSVG draw-on
+          if (drawLine && typeof DrawSVGPlugin !== 'undefined') {
+            tl.to(drawLine, { drawSVG: '100%', duration: 0.25, ease: calmEase }, 0.05);
+          }
+
+          // 3. Title SplitText(lines) stagger 0.08
+          tl.to(titleLines, { autoAlpha: 1, y: 0, duration: 0.35, stagger: 0.08, ease: calmEase }, 0.08);
+
+          // 4. Body fade/y
+          tl.to(bodyEl, { autoAlpha: 1, y: 0, duration: 0.3, ease: calmEase }, 0.18);
+
+          // 5. Visual depth parallax
+          tl.to(visual, { autoAlpha: 1, scale: 1, y: 0, duration: 0.45, ease: calmEase }, 0.05);
+
+          // Exit fade for panel 1 & 2
           if (i < panels.length - 1) {
-            tl.to(text, { autoAlpha: 0, y: -24, duration: 0.25, stagger: 0.04 }, 0.72)
-              .to(visual, { autoAlpha: 0, scale: 0.96, duration: 0.25 }, 0.72);
+            tl.to([indexEl, titleLines, bodyEl], { autoAlpha: 0, y: -24, duration: 0.25, stagger: 0.04 }, 0.72)
+              .to(visual, { autoAlpha: 0, scale: 0.96, y: -parallaxY, duration: 0.25 }, 0.72);
           }
 
           return tl.scrollTrigger;
@@ -194,6 +231,9 @@
         return function () {
           scrollTriggers.forEach(function (st) {
             if (st) st.kill();
+          });
+          splits.forEach(function (sp) {
+            if (sp && sp.revert) sp.revert();
           });
         };
       }
