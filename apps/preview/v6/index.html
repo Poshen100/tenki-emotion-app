@@ -8,7 +8,6 @@
     document.addEventListener('DOMContentLoaded', function() {
       document.body.classList.add('baseline-takeover-active');
     });
-    window.isDriftBlocked = true;
   }
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -670,6 +669,24 @@ body{
   font-size:11px;color:var(--txt-sec);text-align:center;
   letter-spacing:0.08em;max-width:240px;line-height:1.6;
 }
+/* 帶位是一個詞不是一個數字 —— 比 .score 的 32px 收一點才不會撐破卡片 */
+.scan-last .score{font-size:24px;letter-spacing:0.02em}
+/* 這幾塊自己設了 display，會蓋掉 UA 的 [hidden]{display:none} —— 補回來 */
+.scan-last[hidden],.scan-evidence[hidden],.scan-empty[hidden],.scan-button[hidden]{display:none}
+.scan-empty{
+  font-size:11px;color:var(--txt-sec);text-align:center;
+  letter-spacing:0.06em;max-width:240px;line-height:1.6;
+}
+/* 校準讀出：等寬數字、密度高、刻意不搶戲 */
+.scan-evidence{
+  display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;
+  padding:12px 16px;border-radius:14px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.05);
+}
+.scan-evidence .ev{display:flex;justify-content:space-between;gap:14px;font-size:10px}
+.scan-evidence .k{color:var(--txt-sec);letter-spacing:0.14em;text-transform:uppercase}
+.scan-evidence .v{color:rgba(255,255,255,0.78);font-variant-numeric:tabular-nums}
 
 /* ═══════════════════════════════════════════════════
    SESSION SCREEN
@@ -2157,9 +2174,11 @@ body{
               <circle class="ring-inner" id="ringInner" cx="110" cy="110" r="84"/>
             </svg>
             <div class="tl-edge-center">
-              <div class="tl-edge-score" id="edgeScoreReveal">72</div>
+              <!-- 分數槽留空：readiness 讀數沒有 0-100 分（契約上就沒有），
+                   等原生 pipeline 有真訊號源才填。帶位由下面那行報。 -->
+              <div class="tl-edge-score" id="edgeScoreReveal">—</div>
               <div class="tl-edge-pr">Edge Score</div>
-              <div class="tl-edge-zone" id="edgeTraceZone">Decision Edge · Clear</div>
+              <div class="tl-edge-zone" id="edgeTraceZone">尚無讀數 · 到 Scan 掃一次</div>
               <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
             </div>
           </div>
@@ -2241,24 +2260,28 @@ body{
         <div class="screen-date">Ready</div>
       </div>
       <div class="scan-hero">
-        <div class="scan-last">
-          <div class="score">72</div>
+        <div class="scan-last" id="scanLast" hidden>
+          <div class="score" id="scanLastBand">—</div>
           <div class="meta">
-            <div class="lbl">Last Scan</div>
-            <div class="time">34 min ago · Clear</div>
+            <div class="lbl">Last Reading</div>
+            <div class="time" id="scanLastMeta">—</div>
           </div>
         </div>
+        <div class="scan-empty" id="scanEmpty">還沒有讀數 —— 掃描一次，這裡就會出現你的帶位</div>
 
-        <button class="scan-button" onclick="goTab('today')">
+        <button class="scan-button" id="scanStart" onclick="startReadinessScan()">
           <span class="txt">Tap to Scan</span>
         </button>
 
-        <div class="scan-options">
-          <div class="opt">15s</div>
-          <div class="opt active">30s</div>
-          <div class="opt">60s</div>
+        <!-- 校準讀出：實機門檻要靠這幾個原始值拍板（domain 的 0.7/0.45 目前沒有真機資料），
+             不是裝飾。掃完才出現，沒讀數就不顯示假格子。 -->
+        <div class="scan-evidence" id="scanEvidence" hidden>
+          <div class="ev"><span class="k">Stillness</span><span class="v" id="evStill">—</span></div>
+          <div class="ev"><span class="k">Lighting</span><span class="v" id="evLight">—</span></div>
+          <div class="ev"><span class="k">Uniformity</span><span class="v" id="evUniform">—</span></div>
+          <div class="ev"><span class="k">Tier</span><span class="v" id="evTier">—</span></div>
         </div>
-        <div class="scan-hint">手指覆蓋後鏡頭<br>或面對前鏡頭保持靜止</div>
+        <div class="scan-hint" id="scanHint">面對前鏡頭保持靜止，約 10 秒<br>影像只在本機運算，不上傳、不留存</div>
       </div>
     </div>
 
@@ -2917,6 +2940,8 @@ function goTab(id){
   if(screen) screen.classList.add('active');
   if(id === 'session') renderSessionScreen();
   if(id === 'timeline') renderTimeline();
+  if(id === 'scan') renderScanScreen();
+  if(id === 'today') renderHeroReading(); // 讀數可能在別的分頁被更新或過期
   const tab = document.querySelector(`.tab[data-tab="${id}"]`);
   if(tab) tab.classList.add('active');
   // Haptic hint (visual tap)
@@ -2926,10 +2951,16 @@ function goTab(id){
 
 // Deep-link from /preview/ baseline onboarding: #lab opens Lab tab on load.
 // (Today / Scan / Session / Timeline / Lab 都可,但目前只接 #lab 給「先逛逛」)
+// ⚠️ 必須等 parse 完才跑：各頁的 render* 會用到本 script 後段才宣告的 const
+// （OUTCOME_STORE_KEY_V6 / READING_STORE_KEY_V6），在此直接呼叫會踩 TDZ。
 (function applyEntryHash(){
-  const hash = (window.location.hash || '').replace('#', '');
-  const allowedTabs = ['today', 'scan', 'session', 'timeline', 'lab'];
-  if(allowedTabs.includes(hash)) goTab(hash);
+  function apply(){
+    const hash = (window.location.hash || '').replace('#', '');
+    const allowedTabs = ['today', 'scan', 'session', 'timeline', 'lab'];
+    if(allowedTabs.includes(hash)) goTab(hash);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
+  else apply();
 })();
 
 // ═════════════════════════════════════════════════
@@ -3034,9 +3065,9 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
 // ═════════════════════════════════════════════════
 // Hero entrance: score counter + ring reveal
 // ═════════════════════════════════════════════════
+// 環的揭示動作與時序原樣保留；被拿掉的只有「數到 72」——那個 72 是編的，
+// 沒有讀數可數。帶位由 renderHeroReading() 從 store 報，儀式感留給 S3。
 (function heroEntrance(){
-  const TARGET_SCORE = 72;
-  const DURATION = 1600; // ms
   const scoreEl = document.getElementById('edgeScoreReveal');
   const outerRing = document.querySelector('.ring-outer-wrap');
   const innerRing = document.querySelector('.ring-inner-wrap');
@@ -3048,43 +3079,22 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
     dots.forEach(d => d.classList.add('revealed'));
   }
 
-  // ── GSAP ceremony: Edge Score reveal ──
-  // An instrument confirming a reading — expo settle on the count-up, then a
-  // single calm "lock" breath. Progressive enhancement: falls back to the
-  // original rAF counter when GSAP is unavailable, so the feel never breaks.
-  if(window.gsap && scoreEl){
-    const counter = { val: 1 };
-    scoreEl.textContent = '1';
+  if(window.gsap){
     const tl = gsap.timeline({ delay: 0.2 });
     tl.add(revealRings, 0);
-    tl.to(counter, {
-      val: TARGET_SCORE,
-      duration: 1.8,
-      ease: 'expo.out',
-      roundProps: 'val',
-      onUpdate(){ scoreEl.textContent = counter.val; },
-    }, 0.15);
-    tl.fromTo(scoreEl, { scale: 1 }, {
-      scale: 1.035, duration: 0.32, yoyo: true, repeat: 1,
-      ease: 'sine.inOut', transformOrigin: '50% 50%',
-    }, '>-0.1');
-    return;
+    // 環揭示後的一次沉穩「鎖定」呼吸 —— 儀器確認過讀數的節拍，保留。
+    if(scoreEl){
+      tl.fromTo(scoreEl, { scale: 1 }, {
+        scale: 1.035, duration: 0.32, yoyo: true, repeat: 1,
+        ease: 'sine.inOut', transformOrigin: '50% 50%',
+      }, 1.9);
+    }
+  } else {
+    setTimeout(revealRings, 200);
   }
 
-  // ── Fallback: original rAF counter (easeOutExpo) ──
-  function ease(t){ return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
-  setTimeout(revealRings, 200);
-  if(!scoreEl) return;
-  scoreEl.textContent = '1';
-  const start = performance.now();
-  function tick(now){
-    const elapsed = now - start;
-    const t = Math.min(elapsed / DURATION, 1);
-    const val = Math.round(1 + (TARGET_SCORE - 1) * ease(t));
-    scoreEl.textContent = val;
-    if(t < 1) requestAnimationFrame(tick);
-  }
-  setTimeout(() => requestAnimationFrame(tick), 350);
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderHeroReading);
+  else renderHeroReading();
 })();
 
 // ═════════════════════════════════════════════════
@@ -3735,42 +3745,129 @@ function logEvent(){
 }
 
 // ═════════════════════════════════════════════════
-// Edge Score score drift simulation (spectrum ring is static gradient)
+// Readiness 讀數 — v6 的唯一狀態來源
+//
+// 這裡以前是一組漂移模擬：起手 72，每 5 秒隨機把目標挪到 70~76，星塵掃描收尾
+// 再寫死 84。三個數字都是編的。現在 hero 與 Scan tab 都只讀正典掃描模組寫進
+// `tenki.readiness.reading.v1` 的讀數。
+//
+// ⚠️ 大數字槽刻意留 `—`：readiness 讀數是質化帶位（band + confidence），
+// 契約上就沒有 0-100 分（瀏覽器量不到 HRV，生一個分數＝造假，見
+// domain/src/contracts/readiness-reading.ts）。等原生 pipeline 有真訊號源才填。
+// 語彙與新鮮度鏡射 domain/src/policies/readiness-band.ts（preview 不能 import domain）。
 // ═════════════════════════════════════════════════
-let currentEdgeScore = 72;
-let targetEdgeScore = 72;
-window.currentEdgeScore = currentEdgeScore;
-window.targetEdgeScore = targetEdgeScore;
+const READING_STORE_KEY_V6 = 'tenki.readiness.reading.v1';
+const READING_FRESHNESS_MS_V6 = 15 * 60 * 1000;
+const BAND_LABEL_V6 = { clear:'Clear', neutral:'Neutral', strain:'Strain' };
+const BAND_COLOR_V6 = { clear:'#00B4D8', neutral:'#64748B', strain:'#C2703D' };
+const CONFIDENCE_LABEL_V6 = { high:'信心高', moderate:'信心中', low:'信心低' };
 
-setInterval(() => {
-  if (window.isDriftBlocked) return;
-  // Sync with global window variables which might be updated by takeover
-  currentEdgeScore = window.currentEdgeScore;
-  targetEdgeScore = window.targetEdgeScore;
+function loadReadingV6(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(READING_STORE_KEY_V6));
+    if(!raw || typeof raw !== 'object' || !BAND_LABEL_V6[raw.band]) return null;
+    return raw;
+  } catch(e){ return null; }
+}
 
-  currentEdgeScore = currentEdgeScore * 0.95 + targetEdgeScore * 0.05;
-  window.currentEdgeScore = currentEdgeScore; // Write back
-  
-  const display = Math.round(currentEdgeScore);
-  const scoreEl = document.getElementById('edgeScoreReveal');
-  if(scoreEl) scoreEl.textContent = display;
-  // Update zone label based on Edge Score zone
+// 前 10 秒說「剛剛」——交易者不需要逐秒焦慮（同 decision-alert.js）。
+function agoTextV6(ts, now){
+  const sec = Math.max(0, Math.round((now - ts) / 1000));
+  if(sec < 10) return '剛剛';
+  if(sec < 60) return sec + ' 秒前';
+  const min = Math.round(sec / 60);
+  if(min < 60) return min + ' 分鐘前';
+  const hr = Math.round(min / 60);
+  if(hr < 24) return hr + ' 小時前';
+  return Math.round(hr / 24) + ' 天前';
+}
+
+function scannerAvailableV6(){
+  const S = window.TENKI_READINESS_SCAN;
+  return !!(S && S.begin && S.isAvailable && S.isAvailable());
+}
+
+/**
+ * Hero 中央：有讀數就報帶位，沒有就直說沒有。分數槽永遠不編。
+ * @returns {boolean} 是否真的揭示了一筆讀數（星塵收尾用它決定要不要下 SECURED 拍子）。
+ */
+function renderHeroReading(){
   const zoneEl = document.getElementById('edgeTraceZone');
-  if(zoneEl){
-    // v3 zones: Clear ≥70 / Neutral 40-69 / Strain <40 (packages/shared/src/zone-config.ts)
-    let zone, color;
-    if(display >= 70){ zone = 'Clear'; color = '#00B4D8'; }
-    else if(display >= 40){ zone = 'Neutral'; color = '#64748B'; }
-    else { zone = 'Strain'; color = '#C2703D'; }
-    zoneEl.textContent = zone;
-    zoneEl.style.color = color;
+  const confEl = document.getElementById('edgeConfidence');
+  const r = loadReadingV6();
+  if(!zoneEl) return false;
+  if(!r){
+    zoneEl.textContent = '尚無讀數 · 到 Scan 掃一次';
+    zoneEl.style.color = '';
+    if(confEl) confEl.hidden = true;
+    return false;
   }
-}, 350);
+  const stale = Date.now() - r.ts >= READING_FRESHNESS_MS_V6;
+  zoneEl.textContent = BAND_LABEL_V6[r.band] + (stale ? ' · 讀數已過期' : '');
+  zoneEl.style.color = BAND_COLOR_V6[r.band] || '';
+  if(confEl){
+    confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + '　·　提升精度 ›';
+    confEl.hidden = false;
+  }
+  return true;
+}
 
-setInterval(() => {
-  if (window.isDriftBlocked) return;
-  window.targetEdgeScore = 70 + Math.random() * 6;
-}, 5000);
+/** Scan tab：最近一次讀數 + 校準用的原始 evidence。 */
+function renderScanScreen(){
+  const r = loadReadingV6();
+  const lastEl = document.getElementById('scanLast');
+  const emptyEl = document.getElementById('scanEmpty');
+  const evEl = document.getElementById('scanEvidence');
+  const btn = document.getElementById('scanStart');
+  const hint = document.getElementById('scanHint');
+  const headEl = document.getElementById('scanHeaderState');
+
+  // 沒有相機就不留死按鈕（PLAYBOOK：寧可少一個入口，也不要不能點的鈕）。
+  const ready = scannerAvailableV6();
+  if(btn) btn.hidden = !ready;
+  if(headEl) headEl.textContent = ready ? 'Ready' : 'No camera';
+  if(hint && !ready) hint.textContent = '這個環境沒有可用的相機，無法取得讀數。';
+
+  if(!r){
+    if(lastEl) lastEl.hidden = true;
+    if(evEl) evEl.hidden = true;
+    if(emptyEl) emptyEl.hidden = false;
+    return;
+  }
+  if(emptyEl) emptyEl.hidden = true;
+  if(lastEl){
+    lastEl.hidden = false;
+    const bandEl = document.getElementById('scanLastBand');
+    const metaEl = document.getElementById('scanLastMeta');
+    if(bandEl){
+      bandEl.textContent = BAND_LABEL_V6[r.band];
+      bandEl.style.color = BAND_COLOR_V6[r.band] || '';
+    }
+    if(metaEl) metaEl.textContent = agoTextV6(r.ts, Date.now()) + ' · ' + CONFIDENCE_LABEL_V6[r.confidence];
+  }
+  const ev = r.evidence || {};
+  if(evEl){
+    evEl.hidden = false;
+    const put = (id, val) => {
+      const node = document.getElementById(id);
+      if(node) node.textContent = typeof val === 'number' ? val.toFixed(2) : (val == null ? '—' : String(val));
+    };
+    put('evStill', ev.stillness);
+    put('evLight', ev.lighting);
+    put('evUniform', ev.uniformity);
+    put('evTier', ev.tier);
+  }
+}
+
+/** Scan tab 主鈕 → 正典模組。一個掃描，多道門。 */
+function startReadinessScan(){
+  const S = window.TENKI_READINESS_SCAN;
+  if(!S || !S.begin) return;
+  S.begin({ mission:'daily' }).then(() => {
+    renderScanScreen();
+    renderHeroReading();
+  });
+}
 
 // Scan source toggle
 function selectSource(el){
@@ -4447,6 +4544,9 @@ function closeSessionDetail(){
          Absolute path: this page is mounted at BOTH /v3/ and /preview/v6/
          (vercel.json rewrites), so a ../ relative ref would 404 under /v3/. -->
     <script src="/preview/blink-cadence.js?v=blink1"></script>
+    <!-- 正典 Soul Scan 模組：Scan tab 與 /decision-alert/ 共用同一支，
+         同樣用絕對路徑（本頁同時掛在 /v3/ 與 /preview/v6/）。 -->
+    <script src="/preview/readiness-scan.js?v=rs1"></script>
     <!-- Stardust Scan Takeover logic script -->
     <script src="stardust-scan-takeover.js?v=gyro_v5"></script>
 
