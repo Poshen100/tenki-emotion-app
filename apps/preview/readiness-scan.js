@@ -43,6 +43,28 @@
   var MOTION_STILL_MAX = 0.40;
   var DETAIL_MIN = 0.20;
 
+  // ── 臉部追蹤（Tier A）常數 ──
+  // 全部沿用 v6/stardust-scan-takeover.js 已經調過的值，不另立一套。
+
+  /** MediaPipe 推論節流：~5.5fps。比這快在手機上只是燒電。 */
+  var FACE_INTERVAL_MS = 180;
+  /** 位移速度達此值＝takeover 判定「HOLD STILL」的門檻 → stillness 讀 0。 */
+  var LANDMARK_MOTION_CEILING = 0.35;
+  /** 眼睛開合正規化除數（landmark y 距離 → 0..1）。 */
+  var EYE_OPEN_DIVISOR = 0.035;
+  /** 眨眼遲滯門檻（EAR-normalized，與 takeover 同一組）。 */
+  var BLINK_CLOSE = 0.25;
+  var BLINK_OPEN = 0.55;
+  /** 取景範圍：臉框邊長與置中容差。 */
+  var FACE_SIZE_MIN = 0.30;
+  var FACE_SIZE_MAX = 0.65;
+  var FACE_CENTER_X_TOL = 0.08;
+  var FACE_CENTER_Y_TOL = 0.09;
+  /** 臉部資料超過這麼久沒更新就當作臉不在（推論比取樣慢，要留寬容）。 */
+  var FACE_STALE_MS = 700;
+  /** Tier A 要成立，landmark 樣本至少要這麼多 —— 只瞄到一兩幀不算量到。 */
+  var MIN_LANDMARK_SAMPLES = 10;
+
   /** 低於此的有效取景時間不足以生讀數 —— 寧可沒有讀數，也不生一個。 */
   var MIN_HELD_MS = 5000;
   /** 品質一直不過關時的牆鐘上限（budget × 此值），避免無限等待。 */
@@ -259,6 +281,123 @@
     };
   }
 
+  // ── 臉部追蹤（Tier A）──
+  // host 頁面已經載了 MediaPipe FaceMesh 就用它：landmark 位移是比整幀 luma 差分
+  // 誠實得多的 stillness —— 後者背景有人走過就會算成「你在動」。眨眼節奏也只有
+  // 這條路量得到。拿不到 FaceMesh（例如 /decision-alert/ 沒載）就退回畫面啟發式，
+  // tier 誠實留 B。
+
+  function faceMeshAvailable() {
+    return typeof global.FaceMesh !== 'undefined';
+  }
+
+  function computeFaceBox(lm) {
+    var minX = 1, minY = 1, maxX = 0, maxY = 0;
+    for (var i = 0; i < lm.length; i++) {
+      var p = lm[i];
+      if (!p) continue;
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+    return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+  }
+
+  /** 每次推論結果 → 位移、取景、眨眼。只在這裡累積 landmark 樣本。 */
+  function onFaceResults(results) {
+    if (!session || session.done) return;
+    var faces = results && results.multiFaceLandmarks;
+    if (!faces || !faces.length) {
+      // 臉不見了：位移與眨眼的時間基準都要斷開，空窗不得計入任何視窗。
+      session.lastFaceCenter = null;
+      session.lastFaceAt = 0;
+      session.lastBlinkFeedAt = 0;
+      return;
+    }
+    var lm = faces[0];
+    var now = performance.now();
+
+    var box = computeFaceBox(lm);
+    var centerX = (box.minX + box.maxX) / 2;
+    var centerY = (box.minY + box.maxY) / 2;
+    var size = Math.max(box.maxX - box.minX, box.maxY - box.minY);
+
+    if (session.lastFaceCenter && session.lastFaceAt) {
+      var dt = Math.max(1, now - session.lastFaceAt);
+      var dx = centerX - session.lastFaceCenter.x;
+      var dy = centerY - session.lastFaceCenter.y;
+      var speed = Math.sqrt(dx * dx + dy * dy) / (dt / 1000);
+      session.lastStillness = 1 - clamp01(speed / LANDMARK_MOTION_CEILING);
+      session.lmAcc.n += 1;
+      session.lmAcc.stillness += session.lastStillness;
+    }
+    session.everSawFace = true;
+    session.lastFaceCenter = { x: centerX, y: centerY };
+    session.lastFaceAt = now;
+    session.faceFramed = size >= FACE_SIZE_MIN && size <= FACE_SIZE_MAX
+      && Math.abs(centerX - 0.5) <= FACE_CENTER_X_TOL
+      && Math.abs(centerY - 0.5) <= FACE_CENTER_Y_TOL;
+
+    // 眨眼節奏：只餵臉在的幀，dt 上限避免推論卡頓灌大視窗（同 takeover）。
+    if (session.blinkCounter) {
+      var eyeL = Math.abs(lm[159].y - lm[145].y);
+      var eyeR = Math.abs(lm[386].y - lm[374].y);
+      var eyeOpen = Math.min(1, ((eyeL + eyeR) / 2) / EYE_OPEN_DIVISOR);
+      if (session.lastBlinkFeedAt) {
+        session.blinkCounter.feed(eyeOpen, Math.min(now - session.lastBlinkFeedAt, 200));
+      }
+      session.lastBlinkFeedAt = now;
+    }
+  }
+
+  function startFaceMesh(video) {
+    if (!faceMeshAvailable()) return;
+    var instance;
+    try {
+      instance = new global.FaceMesh({
+        locateFile: function (file) {
+          return 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/' + file;
+        },
+      });
+      instance.setOptions({
+        maxNumFaces: 1, refineLandmarks: false,
+        minDetectionConfidence: 0.5, minTrackingConfidence: 0.5,
+      });
+      instance.onResults(onFaceResults);
+    } catch (e) {
+      return; // 初始化失敗 → 安靜退回 tier B，不擋掃描
+    }
+    session.faceMesh = instance;
+    if (global.TENKI_BLINK) {
+      session.blinkCounter = global.TENKI_BLINK.createCounter({
+        closeBelow: BLINK_CLOSE, openAbove: BLINK_OPEN,
+      });
+    }
+    // 重疊防護：前一次推論還沒回來就不送新的 —— MediaPipe 的影像張量堆積起來
+    // 會把 iOS 記憶體吃爆（takeover 踩過，照抄）。
+    session.faceTimer = setInterval(function () {
+      if (!session || session.done || session.faceBusy) return;
+      if (!video || video.readyState < 2 || !session.faceMesh) return;
+      session.faceBusy = true;
+      session.faceMesh.send({ image: video })
+        .then(function () { if (session) session.faceBusy = false; })
+        .catch(function () { if (session) session.faceBusy = false; });
+    }, FACE_INTERVAL_MS);
+  }
+
+  function stopFaceMesh() {
+    if (!session) return;
+    if (session.faceTimer) { clearInterval(session.faceTimer); session.faceTimer = null; }
+    session.faceMesh = null;
+    session.faceBusy = false;
+  }
+
+  /** 這次掃描是否真的量到臉（決定 tier，不是「有沒有載到 MediaPipe」）。 */
+  function landmarksEarned() {
+    return session.lmAcc.n >= MIN_LANDMARK_SAMPLES;
+  }
+
   /**
    * Exposure adequacy in 0..1. Both under- and over-exposure fall off; the
    * band between the two gate thresholds is fully adequate.
@@ -278,18 +417,33 @@
    * Quality gates for one frame. These drive the status dots and whether
    * progress advances — they do NOT filter the evidence average.
    *
+   * Centering and stillness come from landmarks once this scan has actually
+   * seen a face; until then (or if MediaPipe never delivers) they fall back to
+   * the frame heuristics, so a blocked wasm load degrades instead of hanging.
+   *
    * @param {{brightness:number, uniformity:number, motion:number,
    *   hasMotion:boolean, detail:number}} frame - Per-frame signals.
-   * @returns {{lighting:boolean, centering:boolean, stillness:boolean}} Gates.
+   * @returns {{lighting:boolean, centering:?boolean, stillness:?boolean}} Gates.
    */
   function evalGates(frame) {
     var lighting = frame.brightness >= BRIGHTNESS_MIN
       && frame.brightness <= BRIGHTNESS_MAX
       && frame.uniformity >= UNIFORMITY_MIN;
+    if (session.everSawFace) {
+      var fresh = session.lastFaceAt
+        && (performance.now() - session.lastFaceAt) < FACE_STALE_MS;
+      return {
+        lighting: lighting,
+        centering: fresh ? session.faceFramed === true : false,
+        stillness: fresh && session.lastStillness !== null
+          ? session.lastStillness >= 1 - MOTION_STILL_MAX
+          : false,
+      };
+    }
     return {
       lighting: lighting,
       centering: frame.detail >= DETAIL_MIN && lighting,
-      stillness: frame.hasMotion && frame.motion <= MOTION_STILL_MAX,
+      stillness: frame.hasMotion ? frame.motion <= MOTION_STILL_MAX : null,
     };
   }
 
@@ -328,23 +482,47 @@
   }
 
   /**
+   * Blink-cadence regularity for this scan, or null when it cannot be judged.
+   * Needs BOTH a long-enough face-tracked window AND a stored enrollment
+   * baseline (soul-enroll) — without a baseline there is nothing to be regular
+   * against, and guessing one would fabricate the signal. The 0..1 mapping and
+   * its thresholds live in blink-cadence.js so they keep a single home.
+   *
+   * @returns {?number} Regularity in 0..1, or null.
+   */
+  function blinkRegularity() {
+    var B = global.TENKI_BLINK;
+    if (!B || !session.blinkCounter || !B.regularity) return null;
+    var baseline = B.load();
+    if (!baseline) return null;
+    var daily = B.cadencePerMin(session.blinkCounter.blinks, session.blinkCounter.windowMs);
+    return B.regularity(daily, baseline.cpm);
+  }
+
+  /**
    * Averages the accumulated samples into a ReadinessEvidence, or null when
    * nothing measurable was captured. Averaged over EVERY measured frame, not
    * only the ones that passed the gates — filtering would bias the reading up.
+   *
+   * Stillness has one source per tier and they are never mixed: Tier A reads
+   * landmark displacement (the face moved), Tier B reads whole-frame luma delta
+   * (something moved). The two are not the same measurement and averaging them
+   * together would mean neither.
    *
    * @returns {?Object} ReadinessEvidence, or null.
    */
   function buildEvidence() {
     var acc = session.acc;
     if (!acc.n) return null;
+    var tierA = landmarksEarned();
     return {
-      stillness: round3(acc.stillness / acc.n),
+      stillness: tierA
+        ? round3(session.lmAcc.stillness / session.lmAcc.n)
+        : round3(acc.stillness / acc.n),
       lighting: round3(acc.lighting / acc.n),
       uniformity: round3(acc.uniformity / acc.n),
-      // TODO(S4): 眨眼節奏要有 landmark 來源（v6 的 MediaPipe）才量得到；
-      //   在那之前誠實留 null —— deriveBand 會把權重併回穩定度，不假設值。
-      blinkCadence: null,
-      tier: session.tier,
+      blinkCadence: blinkRegularity(),
+      tier: tierA ? 'A' : 'B',
     };
   }
 
@@ -357,7 +535,8 @@
   /** 進入揭示 —— 量測已結束，取消鈕收起（否則會出現「store 有讀數但回傳 null」）。 */
   function enterReveal() {
     session.done = true;
-    stopCamera(); // 量測已完成，相機立刻關掉
+    stopFaceMesh(); // 推論先停，免得收尾期間還在燒 CPU
+    stopCamera();   // 量測已完成，相機立刻關掉
     var cancel = q('cancel');
     if (cancel) cancel.hidden = true;
   }
@@ -405,11 +584,12 @@
       var gates = evalGates(frame);
       setDot('light', gates.lighting);
       setDot('center', gates.centering);
-      setDot('still', frame.hasMotion ? gates.stillness : null);
+      setDot('still', gates.stillness);
 
       if (frame.hasMotion) {
         var acc = session.acc;
         acc.n += 1;
+        // Tier B 的 stillness 備援；tier A 落地時 buildEvidence 會改用 landmark。
         acc.stillness += 1 - frame.motion;
         acc.lighting += lightingAdequacy(frame.brightness);
         acc.uniformity += frame.uniformity;
@@ -463,6 +643,7 @@
     if (!session) return;
     var resolve = session.resolve;
     if (session.raf) cancelAnimationFrame(session.raf);
+    stopFaceMesh();
     stopCamera();
     var overlay = document.getElementById(OVERLAY_ID);
     if (overlay) overlay.classList.remove('open');
@@ -494,13 +675,17 @@
       session = {
         resolve: resolve, mission: mission, symbol: opts.symbol || null,
         stream: null, raf: null, startedAt: Date.now(),
-        // 本模組只有畫面啟發式，沒有真正的臉部偵測 → 一律 Tier B，
-        // 因此 confidence 永遠不會宣稱 high（TODO(S4)：接上 landmark 來源才談 Tier A）。
-        tier: 'B',
         video: null, ctx: null, prevLuma: null, done: false,
         acc: { n: 0, stillness: 0, lighting: 0, uniformity: 0 },
         heldMs: 0, budgetMs: MISSIONS[mission].budgetSec * 1000,
         captureStartedAt: 0, lastSampleAt: 0,
+        // 臉部追蹤（tier 由實際量到的 landmark 樣本數決定，不是由「有沒有載到
+        // MediaPipe」決定 —— 載到但整場沒看到臉，那就不是 Tier A）。
+        faceMesh: null, faceTimer: null, faceBusy: false,
+        everSawFace: false, faceFramed: false,
+        lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
+        blinkCounter: null, lastBlinkFeedAt: 0,
+        lmAcc: { n: 0, stillness: 0 },
       };
       setProgress(0);
       var video = overlay.querySelector('.rs-video');
@@ -515,8 +700,10 @@
         session.video = video;
         session.captureStartedAt = performance.now();
         setInstruction('保持穩定');
+        startFaceMesh(video); // host 有 MediaPipe 就升到 Tier A；沒有就純畫面啟發式
         tick();
-        // TODO(S3): cyan 角括號對齊 → gold progress halo → 星塵收束（不改星塵感覺）。
+        // TODO(S3): 把星塵本體搬進本模組（takeover 退為薄 adapter）+ cyan 角括號對齊
+        //   → gold progress halo → 收束（不改星塵感覺）。校準後才做。
       });
     });
   }
