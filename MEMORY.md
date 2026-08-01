@@ -30,8 +30,33 @@
   ⚠️ founder 手機實走時會看到本來的大 72 變成 `—` —— **這是刻意的，不是壞了**；那個 72 從來不是真的。
 - gold SECURED 拍子改掛帶位那行（真正被鎖定的是帶位），且只在真有讀數時才下。
 - 星塵/環的揭示動作與時序**原樣保留**，只拿掉「數到 72」。
-- Tier 一律 **B**（本模組只有畫面啟發式，沒有真臉部偵測）→ confidence 永不宣稱 high；
-  `blinkCadence` 誠實留 `null`（沒有 landmark 來源），`deriveBand` 依契約把權重併回穩定度。
+
+## ⛔ 自我更正（S2b，同一輪稍晚）—— 上面曾寫「Tier 一律 B / blinkCadence 留 null 是刻意的誠實邊界」，**那是錯的**
+Founder 補上完整 PR2 計畫後對照才發現：那三件事不是誠實邊界，是**我沒接既有訊號源**的後果。
+v6 早就載了 MediaPipe、takeover 早就接了 `TENKI_BLINK`：
+
+| 我當時寫的 | 實際 |
+|---|---|
+| 「blinkCadence 沒有 landmark 來源」 | 來源一直都在，是我沒接 |
+| 「tier 只能 B」 | MediaPipe 可用且真的量到臉就是 **A** |
+| stillness 用整幀 luma 差分 | 背景有人走過會被算成「你在動」；**landmark 位移**才是量「臉動了」 |
+
+**為什麼要緊**：這三點會直接汙染門檻校準 —— 拿 tier B + blink null + 背景污染的 stillness 校出來的門檻，
+接上 MediaPipe 後量測基準就變了，等於白校一輪。所以 S2b 先補齊才上實機。
+
+**但計畫那張「關鍵發現」表也有兩處與 code 不符**（我實查過）：
+1. `lighting`/`uniformity` 那格寫「`#light-analysis-canvas` 已在做逐幀取樣」→ **假的**。
+   takeover 只**建立**那個 50×50 離屏 canvas（L123-134），全檔沒有任何 `getImageData`/`drawImage`。
+   那兩欄在 takeover 裡沒有來源，S2 的 luma 取樣不是重工，是補洞。
+2. 「同一支模組兩邊載入」要帶星塵過去的成本被低估：`decision-alert.html` **只載一支 `decision-alert.js`**，
+   沒有 three.js / MediaPipe / `stardust.js`；且 `stardust.js` 綁死 `getElementById('universe')`，
+   模組注入會跟 v6 既有 `#universe` 撞 id。
+
+**Founder 拍板（AskUserQuestion）**：這一輪只收斂**量測層**，星塵搬家留給 S3。
+→ S2b 已完成：tier 由「實際量到的 landmark 樣本數」決定（載到 MediaPipe 但整場沒看到臉 ≠ Tier A）；
+stillness **一個 tier 一個來源絕不混算**（A 讀 landmark 位移、B 讀 luma 差分 —— 平均在一起等於兩邊都不是）；
+`blink-cadence.js` 新增 `regularity()`（放那支是因為 BAND_BELOW/ABOVE 住在那裡，寫在呼叫端會讓
+PLAYBOOK 那條「門檻四處同步」變成五處）。
 
 ## ⚠️ 下一輪校準時最容易踩的坑（已提煉進 PLAYBOOK §6）
 readiness 門檻活在**四個地方**：domain policy 常數本尊 / `readiness-scan.js` 鏡射 /
@@ -50,10 +75,14 @@ Chromium fake camera：`scratchpad/readiness-scan-s2.mjs`（19 斷言：契約�
 > 真機數字才算數。
 
 ## 下次接手點
-1. **founder 手機實走**：`/v3/` Scan tab 掃一次 → 抄下 evidence 四個值（Stillness/Lighting/Uniformity/Tier）；
+1. **founder 手機實走**（S2b 之後才有意義）：`/v3/` Scan tab 掃一次 → 抄下 evidence 四個值。
+   **Tier 這格要是 `A`**；若是 `B`，代表 MediaPipe wasm 沒載到或整場沒偵到臉 —— 那批數字不能拿來校門檻。
    同時驗 PR1 的進入決策面板（那個回饋還欠著）。
-2. **依實測校準門檻**（四處同步，見上）。若掃描明顯拖很久 → 調 `readiness-scan.js` 的 `DETAIL_MIN`（取景閘門）。
-3. **S3** cyan/gold 儀式層（校準之後才做）。
+2. **依實測校準門檻**（四處同步，見 PLAYBOOK §6）。掃描明顯拖很久 → 動的是取景閘門
+   （Tier A 是 `FACE_SIZE_MIN/MAX` + `FACE_CENTER_*_TOL`；Tier B 才是 `DETAIL_MIN`）。
+3. **S3**：星塵搬進模組（takeover 退為薄 adapter）+ cyan/gold 儀式層。這輪才真正做到「外觀也只有一套」，
+   要動 v6 星塵 DOM（CLAUDE.md 硬線：感覺不能改）→ 必須 founder 實走驗收才 merge。
+   ⚠️ 別忘了 `decision-alert.html` 得補 three.js + `stardust.js`，且 `#universe` 的 id 衝突要先解。
 4. **S5** `/decision-alert/` 載入同一支模組（PR1 已埋 `hasReadinessScanner()`，載入即現身掃描鈕）。
 
 ---
