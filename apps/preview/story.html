@@ -28,9 +28,12 @@
 <!-- Three.js classic global build — stardust.js expects window.THREE (same pattern as v6/index.html) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
 
-<!-- GSAP + ScrollTrigger (CDN, no bundler in this folder — same pattern as v6/index.html) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<!-- GSAP 3.13.0 + Plugins (CDN: SplitText, CustomEase, DrawSVG) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/CustomEase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/DrawSVGPlugin.min.js"></script>
 
 <style>
 :root{
@@ -160,7 +163,9 @@ section{position:relative}
 .story-index{
   font-size:13px;font-weight:700;letter-spacing:0.2em;color:var(--cyan-active);
   margin-bottom:20px;
+  display:inline-flex;flex-direction:column;gap:6px;align-items:flex-start;
 }
+.story-index-line{display:block;overflow:visible}
 .story-title{
   font-size:clamp(30px, 4vw, 48px);font-weight:700;letter-spacing:-0.02em;
   line-height:1.12;margin-bottom:20px;
@@ -290,7 +295,10 @@ section{position:relative}
   <div class="story-panel" data-panel="1">
     <div class="container">
       <div>
-        <div class="story-index">01 — Soul Scan</div>
+        <div class="story-index">
+          <span>01 — Soul Scan</span>
+          <svg class="story-index-line" width="72" height="2" viewBox="0 0 72 2"><line class="draw-line" x1="0" y1="1" x2="72" y2="1" stroke="var(--cyan-active)" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
         <h2 class="story-title">A 60-second baseline, not a diagnosis.</h2>
         <p class="story-body">Face Baseline enrollment reads steadiness, lighting, centering, and gaze the way Face ID reads geometry — once, calmly, on-device. No raw biometric ever leaves your phone.</p>
       </div>
@@ -300,7 +308,10 @@ section{position:relative}
   <div class="story-panel" data-panel="2">
     <div class="container">
       <div>
-        <div class="story-index">02 — Decision Edge Score</div>
+        <div class="story-index">
+          <span>02 — Decision Edge Score</span>
+          <svg class="story-index-line" width="72" height="2" viewBox="0 0 72 2"><line class="draw-line" x1="0" y1="1" x2="72" y2="1" stroke="var(--cyan-active)" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
         <h2 class="story-title">Eight dimensions, one honest number.</h2>
         <p class="story-body">Clear, Neutral, or Strain — the score normalizes what your body is actually telling you, weighted across eight signal dimensions, so the read is consistent session to session.</p>
       </div>
@@ -310,7 +321,10 @@ section{position:relative}
   <div class="story-panel" data-panel="3">
     <div class="container">
       <div>
-        <div class="story-index">03 — Local-first</div>
+        <div class="story-index">
+          <span>03 — Local-first</span>
+          <svg class="story-index-line" width="72" height="2" viewBox="0 0 72 2"><line class="draw-line" x1="0" y1="1" x2="72" y2="1" stroke="var(--cyan-active)" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
         <h2 class="story-title">Cloud-minimal by design, not by promise.</h2>
         <p class="story-body">Scoring runs where the data is captured. What syncs is the score — never the scan. Privacy controls are never behind a paywall.</p>
       </div>
