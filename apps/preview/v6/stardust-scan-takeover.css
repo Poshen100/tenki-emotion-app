@@ -25,6 +25,17 @@
     pointer-events: auto;
 }
 
+/* 未啟用時這層必須真的退出命中測試。
+   上面的 opacity:0 + pointer-events:none 擋不住「descendant 自己宣告
+   pointer-events:auto」—— .scan-takeover-fingerprint-wrapper 就是這樣，於是一顆
+   124px 的隱形按鈕一直浮在 Today 上面。在 760px 以下的可視高度它剛好落在
+   Snapshot 輪播卡的正中央，把左右滑與上下捲一起吃掉（founder 回報「圖表被遮擋、
+   位置跑掉」）。visibility 會繼承，且不會被 descendant 的 pointer-events 推翻。
+   :not(.active) 寫法讓啟用時不需要任何反向宣告，淡入時序原樣不動。 */
+#stardust-scan-takeover:not(.active) {
+    visibility: hidden;
+}
+
 #stardust-scan-takeover #universe {
     position: absolute;
     inset: 0;

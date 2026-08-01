@@ -2099,7 +2099,7 @@ body{
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <!-- Stardust Scan Takeover Styles -->
-    <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v5">
+    <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
 <body>
     <!-- ═══════════ TENKI Brand v1.0 Splash Overlay ═══════════ -->
@@ -4548,15 +4548,22 @@ function closeSessionDetail(){
          同樣用絕對路徑（本頁同時掛在 /v3/ 與 /preview/v6/）。 -->
     <script src="/preview/readiness-scan.js?v=rs2"></script>
     <!-- Stardust Scan Takeover logic script -->
-    <script src="stardust-scan-takeover.js?v=gyro_v5"></script>
+    <script src="stardust-scan-takeover.js?v=gyro_v6"></script>
 
     <!-- ═══════ Snapshot: magnetic swipe carousel + synchronized vitals ═══════ -->
     <style>
       /* peeking, magnetic, one-group-per-swipe carousel. FIXED height (not flex:1) so the
          whole card — number AND its 54px chart — sits in a compact band above the FDCB/tabbar
          (.snap now reserves that space). Fixed height can't collapse (#103) and can't stretch
-         behind the bars (#106). touch-action:pan-x keeps the swipe from any ancestor scroll. */
-      .snap-track{display:flex;flex:none;height:190px;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x;padding:4px 8vw;}
+         behind the bars (#106).
+         touch-action MUST keep pan-y as well as pan-x: on any viewport under ~760px the ring
+         pushes this band partly below the FDCB bar and the screen scrolls to reach it (founder
+         2026-07-03: scroll, don't shrink the ring). With bare `pan-x` the vertical gesture was
+         swallowed HERE — i.e. the one clipped element was also the one place you could not
+         scroll from, so the card read as permanently cut off. The browser still resolves a
+         mostly-horizontal drag to this track (nothing above it scrolls horizontally), so the
+         carousel snap is unaffected. */
+      .snap-track{display:flex;flex:none;height:190px;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x pan-y;padding:4px 8vw;}
       .snap-track::-webkit-scrollbar{display:none;}
       .snap-page{flex:0 0 84vw;min-width:0;box-sizing:border-box;scroll-snap-align:center;scroll-snap-stop:always;transition:transform .42s var(--ease-calm),opacity .42s var(--ease-calm);}
       .snap-page:not(.active){opacity:.5;transform:scale(.9);}      /* neighbours dim+shrink → the centred card visibly LOCKS */
