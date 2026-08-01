@@ -9,6 +9,41 @@
 
 ---
 
+# 2026-07-30 Session Update #46 (全流程串接 PR1：readiness 契約 + 進入決策儀器面板)
+
+> Founder：把「快訊 → 進入決策（再設計、交易者體驗、提高爽感）→ 星塵靈魂掃描 → 結果頁」串起來，像 Fable 5 一樣思考。
+> 參考貼文的 Fable-5 特徵：**有出處的真實資料**、引導式導覽、儀器級密度、情境模擬 —— 不是漂亮畫面，是**可操作的儀器**。
+
+## 動工前發現：這條流程有兩處假數據
+1. `/decision-alert/` 進入決策頁「你目前的狀態：Neutral（Edge Score 58）」＝ `ZONE_STATES` **寫死三筆**靠 demo 鈕循環。
+2. v6 星塵掃描結束**寫死** `window.currentEdgeScore = 84`（`v6/stardust-scan-takeover.js`）。
+把掃描插進「進入決策」與計時器之間，這條流程才第一次有真讀數，並補上 #210 / #211 兩次撞到的「狀態無從推導」缺口。
+
+## 做了什麼（D1–D2 各一 commit）
+- **D1 domain**：`contracts/readiness-reading.ts` + `policies/readiness-band.ts` + 22 個 Jest。讀數是**質化帶位**——
+  band（複用 `DomainEdgeZone`）+ confidence（`DomainConfidenceBand`）+ evidence，**刻意不產生 0-100 分**（瀏覽器量得到
+  穩定度/亮度/均勻度/眨眼節奏，量不到 HRV，生分數＝捏造）。`deriveBand` 眨眼缺席時把權重併回穩定度**不假設值**；
+  `resolveConfidence` **Tier B（無 FaceDetector）上限 moderate，永不宣稱 high**；`resolveReadingGate` 15 分鐘新鮮窗、
+  **永不擋決策**；`summarizeDisciplineByBand` 無讀數紀錄排除不猜、樣本 < 3 給 null rate 讓 UI 說「資料累積中」。
+- **D2 preview**：進入決策頁 → 交易者儀器面板。訊號讀出 + **活的「N 秒前」ticker**（前 10 秒顯示「剛剛」，
+  不逐秒跳動製造焦慮）+ 出處行 + 情境 chips + 成本預期 chip；**誠實狀態槽三態**（新鮮/過期/從未，含依據行）；
+  紀律脈絡**標的化**真實計數 + strip。讀自新 store `tenki.readiness.reading.v1`。
+
+## 關鍵決定 / 陷阱
+- **不放死按鈕**：掃描層（PR2）還沒到 → `el.entryRescan.hidden = !hasReadinessScanner()`。寧可少一個入口，
+  也不重蹈「模板自訂根本不能點」。同理 D3 的待命狀態卡移到 PR2（要能點才有意義）。
+- preview 是 vanilla JS 不能 import domain → **鏡射**新鮮度與語彙（同 decision-alert 既有慣例）。
+- `agoText` 前 10 秒回「剛剛」是刻意的（交易者不需要逐秒焦慮）—— 寫測試時別誤判成 ticker 沒動。
+
+## 下次接手點
+- **PR2**：`readiness-scan.js`（從 `soul-enroll.js` 移植精簡品質閘門：Tier A/B、亮度/均勻度/motion、**pause-not-reset**）
+  + 掃描 ceremony UI（cyan 框/角括號＝ACTIVE、gold 粒子 mesh + progress halo＝SECURED、3 微型狀態點、單一指令、隱私 pill）
+  + 讀數揭示 → chip 摺進計時條 → 寫入 outcome 的 `readiness` 欄位 + 待命狀態卡。
+- **PR3**：結果頁「狀態 × 結果」關聯（`summarizeDisciplineByBand`）+ Session/Timeline 吃 `readiness`。
+- Playwright：`scratchpad/entry-panel.mjs`（20 斷言，含三態 + ticker + 標的化紀律）。
+
+---
+
 # 2026-07-30 Session Update #45 (v6 四頁升級 Phase 3：Timeline 頁做成真的)
 
 > 接 Phase 2（Session #210 已 merge）。Founder：「Timeline」。決策（AskUserQuestion）：主視覺＝**決策時間軸 strip（24h 軸 + outcome 色點）**（Edge Score 折線無從推導 → 換掉，同 Session 原則）；日期切換 → **拿掉，改單一「最近」視圖**。
