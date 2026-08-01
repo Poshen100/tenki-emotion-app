@@ -8,6 +8,24 @@
   if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
     gsap.registerPlugin(ScrollTrigger);
   }
+  if (typeof gsap !== 'undefined' && typeof SplitText !== 'undefined') {
+    gsap.registerPlugin(SplitText);
+  }
+  if (typeof gsap !== 'undefined' && typeof DrawSVGPlugin !== 'undefined') {
+    gsap.registerPlugin(DrawSVGPlugin);
+  }
+
+  // Brand ease curves — the whole reason CustomEase is on the plugin whitelist.
+  // Without these the named eases never resolve and getEase() silently falls
+  // back to approximations (expo.out / sine.inOut / back.out), which is exactly
+  // what MOTION-DIRECTION §3 says these tokens are meant to replace.
+  // CSS cubic-bezier(x1,y1,x2,y2) → CustomEase path 'M0,0 C x1,y1 x2,y2 1,1'.
+  if (typeof gsap !== 'undefined' && typeof CustomEase !== 'undefined') {
+    gsap.registerPlugin(CustomEase);
+    CustomEase.create('calm', 'M0,0 C0.22,1 0.36,1 1,1');    // --ease-calm
+    CustomEase.create('breath', 'M0,0 C0.4,0 0.6,1 1,1');    // --ease-breath
+    CustomEase.create('secure', 'M0,0 C0.19,1 0.22,1 1,1');  // --ease-secure
+  }
 
   document.addEventListener('DOMContentLoaded', function () {
     initHero();

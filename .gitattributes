@@ -1,0 +1,24 @@
+# 統一換行為 LF — 桌機（Windows）編輯器曾把 scripts/verify.sh 整份存成 CRLF，
+# 導致 `bash scripts/verify.sh`（merge gate）直接語法錯誤而全體失效。
+# 教訓見 docs/PLAYBOOK.md；shell script 尤其致命（shebang 帶 \r 會找不到直譯器）。
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.json text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+
+# 二進位資產不做換行轉換
+*.png binary
+*.jpg binary
+*.ico binary
+*.webp binary
+*.mp4 binary
+*.woff  binary
+*.woff2 binary
