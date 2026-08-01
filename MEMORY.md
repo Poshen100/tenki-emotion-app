@@ -9,6 +9,55 @@
 
 ---
 
+# 2026-08-01 Session Update #48 (PR2 S1+S2+S4：正典掃描模組落地，v6 編造的分數全部拔掉)
+
+> 分支 `claude/jie-s2-lyudvk`（S1 原本在 `claude/tradingview-alert-integration-izt1mm`，未 merge；
+> 本分支接在它上面，那條可廢棄）。順序由 founder 拍板改成 **S4 先於 S3**：門檻要實機資料才校準得了，
+> 沒必要先把一個帶位可能是錯的儀式打磨到漂亮。
+
+## 做了什麼（S1 / S2 / S4 各一 commit）
+- **S1** `apps/preview/readiness-scan.js` 骨架：自帶 markup 注入（不依賴 host DOM id）、`begin({mission,symbol})`
+  回 `Promise<ReadinessReading|null>`、z-index 9700 蓋過 v6 的 z9000。
+- **S2** 逐幀量測匯總：64×64 luma → stillness / lighting / uniformity → band + confidence →
+  寫進 `tenki.readiness.reading.v1`。
+- **S4** v6 接線：Scan tab 假鈕（原本只是 `goTab('today')`）改開正典模組；Last Reading 卡讀 store；
+  新增 **evidence 校準讀出**；hero 三個編造的數字（72 起手 / 每 5s 隨機漂移 / 寫死 84）全部拔掉。
+
+## 幾個刻意的決定（不是待辦，是設計）
+- **evidence 對每一幀取平均，不是只取過閘門的幀** —— 只留好幀會把讀數系統性推高。閘門改成決定
+  「進度前不前進」（pause-not-reset），三個狀態點說明為什麼停住。
+- **大數字槽固定 `—`**：readiness 讀數契約上沒有 0-100 分（瀏覽器量不到 HRV）。帶位那行報真讀數。
+  ⚠️ founder 手機實走時會看到本來的大 72 變成 `—` —— **這是刻意的，不是壞了**；那個 72 從來不是真的。
+- gold SECURED 拍子改掛帶位那行（真正被鎖定的是帶位），且只在真有讀數時才下。
+- 星塵/環的揭示動作與時序**原樣保留**，只拿掉「數到 72」。
+- Tier 一律 **B**（本模組只有畫面啟發式，沒有真臉部偵測）→ confidence 永不宣稱 high；
+  `blinkCadence` 誠實留 `null`（沒有 landmark 來源），`deriveBand` 依契約把權重併回穩定度。
+
+## ⚠️ 下一輪校準時最容易踩的坑（已提煉進 PLAYBOOK §6）
+readiness 門檻活在**四個地方**：domain policy 常數本尊 / `readiness-scan.js` 鏡射 /
+`decision-alert.js` 鏡射 / `readiness-band.test.ts` 的 22 個 Jest 斷言。
+**四處必須同一次改完**，否則不是 CI 紅就是 preview 與 domain 行為分岔。
+
+## 順手修的既有 bug
+`applyEntryHash` 在 parse 期直接呼叫 `goTab`，而各頁 `render*` 用到的 const 宣告在腳本後段 → TDZ。
+`#session` 早就中招（只是沒人走那條 hash），S4 接 `#scan` 會踩到 → 改成等 `DOMContentLoaded`。
+
+## 驗證（CI 不涵蓋 preview，全靠真瀏覽器）
+Chromium fake camera：`scratchpad/readiness-scan-s2.mjs`（19 斷言：契約形狀、tier B 上限、store 落地、
+取消不寫入且釋放相機）+ `scratchpad/v6-scan-s4.mjs`（20 斷言：空狀態、分數槽不漂移、overlay z>9000、
+掃完卡片/evidence/hero 同步）+ `?from=baseline` 星塵路徑無 error。`verify.sh --quick` 全綠。
+> 假相機的合成畫面**不具代表性**（吐 stillness 0.92 → clear，且 pause-not-reset 讓 10s budget 實際跑 18.5s）。
+> 真機數字才算數。
+
+## 下次接手點
+1. **founder 手機實走**：`/v3/` Scan tab 掃一次 → 抄下 evidence 四個值（Stillness/Lighting/Uniformity/Tier）；
+   同時驗 PR1 的進入決策面板（那個回饋還欠著）。
+2. **依實測校準門檻**（四處同步，見上）。若掃描明顯拖很久 → 調 `readiness-scan.js` 的 `DETAIL_MIN`（取景閘門）。
+3. **S3** cyan/gold 儀式層（校準之後才做）。
+4. **S5** `/decision-alert/` 載入同一支模組（PR1 已埋 `hasReadinessScanner()`，載入即現身掃描鈕）。
+
+---
+
 # 2026-07-30 Session Update #47 (方向修正：星塵掃描升格為「唯一正典」共用模組 — PR2 待開工)
 
 > ⚠️ **這條是交接條目，PR2 尚未動工**。上一個 session context 用盡，計畫已核准但 code 未寫。
