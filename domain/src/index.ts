@@ -156,3 +156,27 @@ export {
   isWithinTargetTime,
   shouldShowBaselineOnboarding,
 } from './policies/baseline-policy';
+
+export { READINESS_CAPTURE_TIERS } from './contracts/readiness-reading';
+
+export type {
+  AttachedReadinessReading,
+  ReadinessCaptureTier,
+  ReadinessEvidence,
+  ReadinessReading,
+} from './contracts/readiness-reading';
+
+export {
+  MIN_BAND_SAMPLES_FOR_RATE,
+  READING_FRESHNESS_MS,
+  buildReading,
+  captureQuality,
+  deriveBand,
+  isReadingFresh,
+  resolveConfidence,
+  resolveReadingGate,
+  summarizeDisciplineByBand,
+  tierSupportsHighConfidence,
+} from './policies/readiness-band';
+
+export type { BandDisciplineStat, ReadingGate } from './policies/readiness-band';
