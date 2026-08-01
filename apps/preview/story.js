@@ -25,8 +25,19 @@
     }
   });
 
+  function getEase(name, fallback) {
+    if (typeof CustomEase !== 'undefined' && gsap.parseEase && gsap.parseEase(name)) {
+      return name;
+    }
+    return fallback;
+  }
+
   function initHero() {
     if (typeof gsap === 'undefined') return;
+
+    var calmEase = getEase('calm', 'expo.out');
+    var breathEase = getEase('breath', 'sine.inOut');
+    var secureEase = getEase('secure', 'back.out(1.2)');
 
     gsap.matchMedia().add(
       { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
@@ -37,32 +48,101 @@
           window.TENKI_STARDUST.playEntrance();
         }
 
+        var heroTitle = document.querySelector('#hero-title');
         var words = document.querySelectorAll('#hero-title .word');
+        var split = null;
+
+        if (typeof SplitText !== 'undefined' && heroTitle) {
+          split = new SplitText(heroTitle, { type: 'words', wordsClass: 'word' });
+          words = split.words;
+        }
+
+        var accentWords = Array.prototype.filter.call(words, function (w) {
+          return w.classList && w.classList.contains('accent');
+        });
+
         var targets = ['#nav', '#hero-kicker', words, '#hero-sub', '#hero-actions .btn', '#scroll-cue'];
 
         if (reduced) {
           gsap.set(targets, { clearProps: 'all' });
+          gsap.set('#universe', { opacity: 1 });
           return;
         }
 
+        // Initial hidden states per beat score
         gsap.set('#nav', { autoAlpha: 0, y: -12 });
         gsap.set('#hero-kicker', { autoAlpha: 0, y: 16 });
-        gsap.set(words, { autoAlpha: 0, y: 28 });
+        gsap.set(words, { autoAlpha: 0, y: 40 });
+        if (accentWords.length) {
+          gsap.set(accentWords, { scale: 0.98 });
+        }
         gsap.set('#hero-sub', { autoAlpha: 0, y: 18 });
-        gsap.set('#hero-actions .btn', { autoAlpha: 0, y: 18 });
+        gsap.set('#hero-actions .btn', { autoAlpha: 0, y: 18, scale: 0.96 });
         gsap.set('#scroll-cue', { autoAlpha: 0 });
 
-        var tl = gsap.timeline({ delay: 0.2, defaults: { ease: 'power3.out' } });
+        // Master Entrance Timeline
+        var masterTL = gsap.timeline({ delay: 0.1 });
 
-        tl.to('#nav', { autoAlpha: 1, y: 0, duration: 0.6 })
-          .to('#hero-kicker', { autoAlpha: 1, y: 0, duration: 0.6 }, 0.15)
-          .to(words, { autoAlpha: 1, y: 0, duration: 0.8, stagger: 0.06 }, 0.3)
-          .to('#hero-sub', { autoAlpha: 1, y: 0, duration: 0.7 }, '-=0.35')
-          .to('#hero-actions .btn', { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.08 }, '-=0.4')
-          .to('#scroll-cue', { autoAlpha: 1, duration: 0.6 }, '-=0.2');
+        // Beat 1: #nav at 0.25s (0.5s calm)
+        masterTL.to('#nav', { autoAlpha: 1, y: 0, duration: 0.5, ease: calmEase }, 0.25);
+
+        // Beat 2: #hero-kicker at 0.35s (0.6s calm)
+        masterTL.to('#hero-kicker', { autoAlpha: 1, y: 0, duration: 0.6, ease: calmEase }, 0.35);
+
+        // Beat 3: #hero-title SplitText(words) at 0.50s (0.9s calm/expo.out, stagger 0.055)
+        masterTL.to(words, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.055, ease: calmEase }, 0.50);
+
+        // Beat 4: accent words scale 0.98->1 at +0.1s (0.6s calm)
+        if (accentWords.length) {
+          masterTL.to(accentWords, { scale: 1, duration: 0.6, ease: calmEase }, 0.60);
+        }
+
+        // Beat 5: #hero-sub at 1.30s (0.6s calm)
+        masterTL.to('#hero-sub', { autoAlpha: 1, y: 0, duration: 0.6, ease: calmEase }, 1.30);
+
+        // Beat 6: #hero-actions .btn at 1.50s (0.6s secure, stagger 0.08)
+        masterTL.to('#hero-actions .btn', { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, stagger: 0.08, ease: secureEase }, 1.50);
+
+        // Beat 7: #scroll-cue at 2.00s fade in -> enters breath y loop
+        masterTL.to('#scroll-cue', {
+          autoAlpha: 1,
+          duration: 0.6,
+          ease: calmEase,
+          onComplete: function () {
+            gsap.to('#scroll-cue .line', {
+              scaleY: 1.2,
+              y: 4,
+              duration: 1.8,
+              ease: breathEase,
+              repeat: -1,
+              yoyo: true
+            });
+          }
+        }, 2.00);
+
+        // Hero Exit Scrub (hand off to story panels)
+        var exitScrub = null;
+        if (typeof ScrollTrigger !== 'undefined') {
+          exitScrub = gsap.timeline({
+            scrollTrigger: {
+              trigger: '#hero',
+              start: 'top top',
+              end: 'bottom top',
+              scrub: 0.6
+            }
+          });
+
+          // #universe wrapper y-drop + fade to ~0.35 (transform/opacity on wrapper only!)
+          exitScrub.to('#universe', { yPercent: 20, opacity: 0.35, ease: 'none' }, 0);
+          // Hero text group y -30 + fade out
+          exitScrub.to('.hero-inner', { y: -30, autoAlpha: 0, ease: 'none' }, 0);
+          exitScrub.to('#scroll-cue', { autoAlpha: 0, ease: 'none' }, 0);
+        }
 
         return function () {
-          tl.kill();
+          masterTL.kill();
+          if (exitScrub && exitScrub.scrollTrigger) exitScrub.scrollTrigger.kill();
+          if (split && split.revert) split.revert();
         };
       }
     );
