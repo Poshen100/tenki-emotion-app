@@ -177,8 +177,17 @@
     return '紀律完成率：' + Math.round((d / records.length) * 100) + '%（' + d + '/' + records.length + '）';
   }
 
+  /** 進入決策面板的紀律脈絡由 renderEntryDiscipline 負責（含標的範圍）；
+   *  此處僅在沒有 pending alert 時保留一行泛統計，避免蓋掉標的化文案。 */
   function refreshDiscipline() {
-    if (el.entryDiscipline) el.entryDiscipline.textContent = '你過去的' + rateText(loadOutcomes());
+    if (el.entryDiscipline && !state.pendingAlert) {
+      el.entryDiscipline.textContent = '你過去的' + rateText(loadOutcomes());
+    }
+  }
+
+  /** 掃描層是否已載入（PR2 的 readiness-scan.js 會註冊）。 */
+  function hasReadinessScanner() {
+    return !!(window.TENKI_READINESS_SCAN && window.TENKI_READINESS_SCAN.begin);
   }
 
   // ── 示意狀態（點擊循環；合成值，非真實讀數）──
@@ -187,6 +196,52 @@
     { zone: 'neutral', label: 'Neutral', score: 58, cssVar: '--zone-neutral' },
     { zone: 'strain', label: 'Strain', score: 32, cssVar: '--zone-strain' },
   ];
+
+  // ═══════════════════════════════════════════════
+  // 狀態讀數（readiness reading）
+  // 鏡射 domain/src/policies/readiness-band.ts 的新鮮度與語彙。讀數是「質化帶位」，
+  // 只有 band + confidence + evidence，永遠不生成 0-100 分（瀏覽器量不到 HRV）。
+  // 掃描層在 PR2 接上；在那之前 store 是空的 → UI 誠實顯示「尚無讀數」。
+  // ═══════════════════════════════════════════════
+  var READING_STORE_KEY = 'tenki.readiness.reading.v1';
+  var READING_FRESHNESS_MS = 15 * 60 * 1000;
+  var BAND_LABEL = { clear: 'Clear', neutral: 'Neutral', strain: 'Strain' };
+  var CONFIDENCE_LABEL = { high: '信心高', moderate: '信心中', low: '信心低' };
+
+  function loadReading() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(READING_STORE_KEY));
+      if (!raw || typeof raw !== 'object' || !BAND_LABEL[raw.band]) return null;
+      return raw;
+    } catch (e) { return null; }
+  }
+
+  function saveReading(reading) {
+    localStorage.setItem(READING_STORE_KEY, JSON.stringify(reading));
+  }
+
+  function isReadingFresh(reading, now) {
+    if (!reading) return false;
+    return now - reading.ts < READING_FRESHNESS_MS;
+  }
+
+  /** 'carry_forward' | 'suggest_rescan' | 'no_reading' — 永不擋決策。 */
+  function resolveReadingGate(reading, now) {
+    if (!reading) return 'no_reading';
+    return isReadingFresh(reading, now) ? 'carry_forward' : 'suggest_rescan';
+  }
+
+  /** 相對時間（事實語言，無誇飾）。 */
+  function agoText(ts, now) {
+    var sec = Math.max(0, Math.round((now - ts) / 1000));
+    if (sec < 10) return '剛剛';
+    if (sec < 60) return sec + ' 秒前';
+    var min = Math.round(sec / 60);
+    if (min < 60) return min + ' 分鐘前';
+    var hr = Math.round(min / 60);
+    if (hr < 24) return hr + ' 小時前';
+    return Math.round(hr / 24) + ' 天前';
+  }
 
   var state = {
     zoneIdx: 1, // Neutral 起手
@@ -198,6 +253,8 @@
     session: null,
     pendingOutcome: null,
     pendingAlert: null,
+    entryGate: 'no_reading',
+    entryAgeTimer: null,
     pendingGroup: null,
     alertSeq: 0,
     timer: null,
@@ -206,8 +263,11 @@
   var el = {};
   [
     'stateCard', 'stateDot', 'stateLine', 'btnSingle', 'btnMulti', 'btnRepeat',
-    'silentArea', 'logList', 'backdrop', 'entrySheet', 'entryHead', 'entryMode',
-    'entryNote', 'entryStateLine', 'entryDiscipline', 'btnDismiss', 'btnEngage',
+    'silentArea', 'logList', 'backdrop', 'entrySheet',
+    'entryPing', 'entrySymbol', 'entryCond', 'entryAge', 'entrySource', 'entryChips',
+    'entryNote', 'entryState', 'entryBand', 'entryReadingAge', 'entryRescan', 'entryEvidence',
+    'entryDiscLabel', 'entryDiscRate', 'entryStrip', 'entryDiscipline', 'entryCost',
+    'btnDismiss', 'btnEngage',
     'tplSheet', 'tplList', 'aggSheet', 'aggHead', 'aggList',
     'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcCenter', 'resultArcGlow', 'resultArcTime',
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
@@ -346,18 +406,145 @@
     state.pendingAlert = alert;
     log('surfaced', alert.symbol + ' — 決策入口開啟');
 
-    el.entryHead.textContent = alert.symbol + ' · ' + alert.condition + ' · ' + alert.timeframe;
-    var ctxParts = [];
-    var modeCtx = marketModeContext(alert);
-    if (modeCtx) ctxParts.push(modeCtx);
-    if (state.settings.quietWindow && isWithinQuietWindowET(Date.now())) ctxParts.push('盤整迴避時段');
-    el.entryMode.textContent = ctxParts.join(' · ');
-    el.entryMode.classList.toggle('show', ctxParts.length > 0);
-    el.entryNote.textContent = alert.note || '';
-    var z = currentZone();
-    el.entryStateLine.textContent = '你目前的狀態：' + z.label + '（Decision Edge Score ' + z.score + '）';
-    refreshDiscipline();
+    renderEntryPanel(alert);
     openSheet(el.entrySheet);
+    startEntryAgeTicker(alert);
+  }
+
+  // ── 進入決策：交易者儀器面板 ──
+
+  /** 訊號讀出 + 出處 + 情境 chips + 狀態槽 + 紀律脈絡 + 成本預期。 */
+  function renderEntryPanel(alert) {
+    el.entrySymbol.textContent = alert.symbol;
+    var condParts = [];
+    if (alert.condition) condParts.push(alert.condition);
+    if (alert.timeframe) condParts.push(alert.timeframe);
+    el.entryCond.textContent = condParts.join(' · ');
+
+    // 出處行（Fable-5 的 "Data & method" 直覺）
+    var src = ['TradingView'];
+    if (alert.strategyHint) src.push(alert.strategyHint);
+    el.entrySource.textContent = src.join(' · ');
+
+    // 情境 chips
+    el.entryChips.innerHTML = '';
+    var chips = [];
+    var modeCtx = marketModeContext(alert);
+    if (modeCtx) chips.push({ text: modeCtx, warn: false });
+    if (state.settings.quietWindow && isWithinQuietWindowET(Date.now())) {
+      chips.push({ text: '盤整迴避時段', warn: true });
+    }
+    chips.forEach(function (c) {
+      var node = document.createElement('div');
+      node.className = 'entry-chip' + (c.warn ? ' warn' : '');
+      node.textContent = c.text;
+      el.entryChips.appendChild(node);
+    });
+
+    el.entryNote.textContent = alert.note || '';
+
+    renderEntryState();
+    renderEntryDiscipline(alert);
+    renderEntryCost(alert);
+    updateEntryAge(alert);
+  }
+
+  /** 狀態讀數槽 — 誠實三態，永不假裝有讀數。 */
+  function renderEntryState() {
+    var now = Date.now();
+    var reading = loadReading();
+    var gate = resolveReadingGate(reading, now);
+
+    // 掃描層由 readiness-scan.js 提供（PR2）。還沒有就不顯示死按鈕 —
+    // 寧可少一個入口，也不放一個點了沒反應的鈕。
+    el.entryRescan.hidden = !hasReadinessScanner();
+
+    el.entryState.classList.toggle('stale', gate === 'suggest_rescan');
+    el.entryBand.className = 'es-band' + (reading ? ' ' + reading.band : '');
+    el.entryBand.textContent = reading ? BAND_LABEL[reading.band] : '—';
+
+    if (gate === 'no_reading') {
+      el.entryReadingAge.textContent = '尚無狀態讀數';
+      el.entryEvidence.textContent = '';
+      el.entryRescan.textContent = '掃描';
+    } else if (gate === 'suggest_rescan') {
+      el.entryReadingAge.textContent = '上次讀數 ' + agoText(reading.ts, now) + ' · 建議重掃';
+      el.entryEvidence.textContent = '';
+      el.entryRescan.textContent = '重掃';
+    } else {
+      el.entryReadingAge.textContent = agoText(reading.ts, now);
+      el.entryEvidence.textContent = readingEvidenceText(reading);
+      el.entryRescan.textContent = '重掃';
+    }
+    state.entryGate = gate;
+  }
+
+  /** 依據行 — 說明這個帶位是憑什麼來的（有出處，不神秘）。 */
+  function readingEvidenceText(reading) {
+    var parts = [];
+    if (CONFIDENCE_LABEL[reading.confidence]) parts.push(CONFIDENCE_LABEL[reading.confidence]);
+    var ev = reading.evidence || {};
+    if (typeof ev.stillness === 'number') parts.push('穩定度 ' + Math.round(ev.stillness * 100) + '%');
+    if (typeof ev.lighting === 'number') parts.push('光線 ' + Math.round(ev.lighting * 100) + '%');
+    if (ev.blinkCadence === null || typeof ev.blinkCadence !== 'number') parts.push('眨眼資料不足');
+    if (ev.tier === 'B') parts.push('本裝置無臉部偵測 · 信心上限中');
+    return parts.join(' · ');
+  }
+
+  /** 紀律脈絡 — 這個標的的真實計數（有出處，非泛泛統計）。 */
+  function renderEntryDiscipline(alert) {
+    var all = loadOutcomes();
+    var forSymbol = all.filter(function (r) { return r.symbol === alert.symbol; });
+    var scope = forSymbol.length >= 3 ? forSymbol : all;
+    var scoped = forSymbol.length >= 3;
+
+    el.entryDiscLabel.textContent = scoped ? alert.symbol + ' 紀律近況' : '紀律近況';
+
+    var d = 0;
+    scope.forEach(function (r) { if (isDisciplined(r.outcomeTag)) d += 1; });
+    el.entryDiscRate.textContent = scope.length ? Math.round((d / scope.length) * 100) + '%' : '—';
+
+    var recent = scope.slice(Math.max(0, scope.length - 8));
+    el.entryStrip.innerHTML = '';
+    recent.forEach(function (r, i) {
+      var seg = document.createElement('div');
+      seg.className = 'result-seg' + (i === recent.length - 1 ? ' now' : '');
+      seg.style.background = isDisciplined(r.outcomeTag) ? 'var(--zone-clear)' : 'var(--zone-strain)';
+      el.entryStrip.appendChild(seg);
+    });
+
+    if (scope.length === 0) {
+      el.entryDiscipline.textContent = '還沒有決策紀錄 — 走完一次就會開始累積。';
+    } else {
+      el.entryDiscipline.textContent =
+        (scoped ? '這個標的' : '') + '你過去 ' + scope.length + ' 次：' + d + ' 次跟著流程。';
+    }
+  }
+
+  /** 成本預期（呼應 Fable-5 的 ⏱ chip）。 */
+  function renderEntryCost(alert) {
+    var tpl = TEMPLATES[suggestTemplate(alert.strategyHint)];
+    if (!tpl) { el.entryCost.textContent = ''; return; }
+    var m = Math.floor(tpl.durationSec / 60), s = tpl.durationSec % 60;
+    el.entryCost.textContent =
+      '建議流程 ' + tpl.nameZh + ' · ' + m + ':' + String(s).padStart(2, '0') + '（可自由更換）';
+  }
+
+  /** 訊號「N 秒前」持續跳動 — 讓訊號有生命。 */
+  function updateEntryAge(alert) {
+    el.entryAge.textContent = agoText(alert.receivedAt, Date.now());
+  }
+
+  function startEntryAgeTicker(alert) {
+    stopEntryAgeTicker();
+    state.entryAgeTimer = setInterval(function () {
+      if (!el.entrySheet.classList.contains('show')) { stopEntryAgeTicker(); return; }
+      updateEntryAge(alert);
+    }, 1000);
+  }
+
+  function stopEntryAgeTicker() {
+    if (state.entryAgeTimer) { clearInterval(state.entryAgeTimer); state.entryAgeTimer = null; }
   }
 
   // ── session 中同標的：計時條下浮一行事實更新，不彈新面板 ──
@@ -431,6 +618,7 @@
   function closeSheets() {
     el.backdrop.classList.remove('show');
     [el.entrySheet, el.tplSheet, el.aggSheet, el.resultSheet].forEach(function (s) { s.classList.remove('show'); });
+    stopEntryAgeTicker();
     sheets = [];
   }
 
