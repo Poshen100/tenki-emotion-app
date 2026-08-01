@@ -9,6 +9,58 @@
 
 ---
 
+# 2026-07-30 Session Update #47 (方向修正：星塵掃描升格為「唯一正典」共用模組 — PR2 待開工)
+
+> ⚠️ **這條是交接條目，PR2 尚未動工**。上一個 session context 用盡，計畫已核准但 code 未寫。
+> 完整計畫在 `/root/.claude/plans/tradingview-premium-scalable-heron.md`（若已被覆蓋，靠本條重建）。
+
+## Founder 的糾正（重要，是架構級的）
+Founder：「**scan 是不是應該直接接星塵靈魂掃描頁才對？**」—— 對的，我 PR2 原本的方向是錯的。
+我本來要把一個精簡 ceremony 移進 `/decision-alert/`，那會生出**第二套掃描實作**；加上 v6 Scan tab 的假鈕，
+等於**三套掃描**，必然漂移。
+
+**正確方向：一個掃描，多道門。** 把 v6 星塵 takeover 從「會假裝吐 84 的 v6 疊層」**升格成唯一正典的
+Soul Scan surface** —— 一支共用 JS 模組，v6 與 `/decision-alert/` 各自載入。
+Founder 選 **(a) 同一支模組兩邊載入**（不做跳頁：不犧牲決策一氣呵成、不冒 iOS 跳回掉相機權限的險）。
+
+一次解掉三件事：**v6 Scan tab 變真的**（四頁升級最後一頁）、**決策流程拿到掃描**（不用寫第二套）、**寫死的 84 死掉**。
+
+## 關鍵發現（大幅省工 — 別再去移植 soul-enroll）
+`v6/stardust-scan-takeover.js` **已經在量 PR1 契約需要的每一個 evidence 欄位**，只是全部丟掉：
+| evidence | 現有來源 |
+|---|---|
+| `stillness` | MediaPipe FaceLandmarker 逐幀位移（`onFaceResults`/`computeFaceBox`） |
+| `lighting`/`uniformity` | `#light-analysis-canvas` 已逐幀取樣 |
+| `blinkCadence` | `window.TENKI_BLINK.createCounter`（已接） |
+| `tier` | MediaPipe 可用→A；`getUserMedia` 不可用走 `setSimulatedCapsule()`→B |
+
+→ **不需要移植 `soul-enroll.js` 的閘門**（那是 FaceDetector tier，比現有 MediaPipe 弱）。只要把既有量測匯總成
+reading，取代尾端寫死的 `window.currentEdgeScore = 84`（`stardust-scan-takeover.js` L~606）。
+
+## 硬線
+CLAUDE.md：**「星塵動效『感覺』不能改，保持 v25.8.2 視覺體驗」**。這不是重寫掃描 —— 是保留星塵感覺、
+把假讀數換真、把入口統一。cyan(ACTIVE)/gold(SECURED) 疊在現有星塵**之上**，不取代。
+
+## 架構決定
+現有 takeover 是 IIFE 且**重度耦合 v6 DOM id**（`#stardust-scan-takeover`/`#input-video`/`#light-analysis-canvas`…）→
+**正典模組必須自帶 markup 注入**，不能要求 host 頁面預先有那些 id。
+```
+window.TENKI_READINESS_SCAN = { begin({mission, symbol}) -> Promise<ReadinessReading|null>, isAvailable() }
+```
+z-index 必須 > 9000（v6 疊層陷阱）。mission：`daily`（v6 Scan tab）/ `decision`（帶 symbol、8 秒、收完直接回決策）/
+`refresh`（待命卡）—— 同一台儀器記得你的來意（＝ Fable-5 的情境）。
+
+## Todo（S1–S6 見計畫檔）
+S1 模組骨架（自帶 markup + Promise API + 生命週期）→ S2 量測匯總寫入 `tenki.readiness.reading.v1` →
+S3 cyan/gold 儀式層 → S4 v6 接線（Scan tab 假鈕 + 殺 84）→ S5 decision-alert 載入 → S6 測試/收尾。
+
+## 下次接手點
+- PR1（#216）已推送待 merge：domain readiness 契約 + 進入決策儀器面板。**先確認 #216 狀態**再開 PR2。
+- PR1 已埋 `hasReadinessScanner()` → 模組一載入，決策頁掃描鈕自動現身（PR3 才接「掃完回決策」+ 待命狀態卡）。
+- PR4：結果頁「狀態 × 結果」關聯（`summarizeDisciplineByBand` 已寫好）+ Session/Timeline 吃 `readiness`。
+
+---
+
 # 2026-07-30 Session Update #46 (全流程串接 PR1：readiness 契約 + 進入決策儀器面板)
 
 > Founder：把「快訊 → 進入決策（再設計、交易者體驗、提高爽感）→ 星塵靈魂掃描 → 結果頁」串起來，像 Fable 5 一樣思考。
