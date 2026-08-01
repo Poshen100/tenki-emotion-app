@@ -19,12 +19,20 @@
 
 | Token | 值 | 用途 | GSAP 對應 |
 |-------|-----|------|-----------|
-| `--ease-calm` | `cubic-bezier(0.22,1,0.36,1)` | 一般進場/狀態切換 | `expo.out` 近似 |
-| `--ease-breath` | `cubic-bezier(0.4,0,0.6,1)` | 呼吸/idle 循環 | `sine.inOut` |
-| `--ease-secure` | `cubic-bezier(0.19,1,0.22,1)` | 鎖定/確認落地 | `back.out(1.2)` 收尾感 |
+| `--ease-calm` | `cubic-bezier(0.22,1,0.36,1)` | 一般進場/狀態切換 | CustomEase `'calm'`（精確；退化時 `expo.out`） |
+| `--ease-breath` | `cubic-bezier(0.4,0,0.6,1)` | 呼吸/idle 循環 | CustomEase `'breath'`（精確；退化時 `sine.inOut`） |
+| `--ease-secure` | `cubic-bezier(0.19,1,0.22,1)` | 鎖定/確認落地 | CustomEase `'secure'`（精確；退化時 `back.out(1.2)`） |
 | brand entrance | `900ms cubic-bezier(0.2,0.7,0.3,1)` | logo/lockup 入場（ANTIGRAVITY §18.4 定案） | — |
 
 **Duration 音階**（不要發明新值）：`150ms` 微反饋 · `300ms` 狀態切換 · `600ms` 元素進場 · `900ms` 品牌入場 · `1400ms` 分數揭曉收斂 · `6s` 呼吸循環 · EWMA `α=0.05` 極慢收斂（數值類）。
+
+> 📌 **CustomEase 精確曲線是 founder 拍板的定案（2026-08-01），不是可有可無的加分項。**
+> 背景：`story.js` 一度只載入 CustomEase 卻從未呼叫 `CustomEase.create()`，導致具名 ease 永遠解析失敗、
+> 每一拍都靜默 fallback 到近似值（PR #213 修正）。修好後 founder 在桌機把「精確曲線版」與「近似值版」
+> 兩版並排實機比較，**選定精確曲線版**。
+> 因此：`apps/preview/story.js` 的 `CustomEase.create('calm'|'breath'|'secure', …)` 三行**不可刪除**，
+> 值必須與 `tokens.css` 的 `--ease-*` 保持一致（CSS `cubic-bezier(x1,y1,x2,y2)` → path `'M0,0 C x1,y1 x2,y2 1,1'`）。
+> 看到「CustomEase 好像沒用到」時不要移除 — 先讀本註記。近似值僅作為 CDN 失效時的 graceful degradation。
 
 ## 4. 儀式時刻語彙（choreography vocabulary）
 
