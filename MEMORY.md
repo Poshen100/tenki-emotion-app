@@ -74,8 +74,20 @@ Chromium fake camera：`scratchpad/readiness-scan-s2.mjs`（19 斷言：契約�
 > 假相機的合成畫面**不具代表性**（吐 stillness 0.92 → clear，且 pause-not-reset 讓 10s budget 實際跑 18.5s）。
 > 真機數字才算數。
 
+## S5 已完成（同一輪稍晚）—— `/decision-alert/` 成為第二道門
+- 載入同一支 `readiness-scan.js`；`#entryRescan` **本來沒有 click handler**，只加 `<script>` 會生出
+  死按鈕（正好違反 PR1 埋那個 gate 的初衷）→ 載入與接線一起做。mission `decision`（8 秒 + 掛標的）。
+- **狀態卡的「Decision Edge Score 78」拔掉**，改讀真讀數（四態：真讀數／過期／無讀數／示意）。
+  點擊循環改成 真實 → 三個示意帶位 → 真實，示意模式虛線邊 + 副標自承「示意值 · 非真實讀數」。
+- ⚠️ **`strainSilent` 是行為修正**：它以前判斷的是那張卡點擊循環的**假 zone**（預設 Neutral），
+  所以這個預設開啟的設定**從來沒真正生效過**。現在看真讀數 → Strain 時快訊真的會被靜默接收；
+  反過來**無讀數／過期時不再靜音**（沒有狀態就不該拿「你在 Strain」吃掉一則快訊）。
+- 「掃完自動接回決策」與待命狀態卡仍是 PR3，這輪不搶跑：掃完 sheet 留在原地、原地更新。
+
 ## 下次接手點
 1. **founder 手機實走**（S2b 之後才有意義）：`/v3/` Scan tab 掃一次 → 抄下 evidence 四個值。
+   **順帶驗 `/decision-alert/`**：觸發快訊 → 從進入決策面板掃一次 → 讀數槽與頂部狀態卡要同步；
+   同時收 PR1 進入決策面板那個一直還欠著的回饋。
    **Tier 這格要是 `A`**；若是 `B`，代表 MediaPipe wasm 沒載到或整場沒偵到臉 —— 那批數字不能拿來校門檻。
    同時驗 PR1 的進入決策面板（那個回饋還欠著）。
 2. **依實測校準門檻**（四處同步，見 PLAYBOOK §6）。掃描明顯拖很久 → 動的是取景閘門
