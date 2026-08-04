@@ -190,3 +190,13 @@ export {
 } from './contracts/trade-result';
 
 export type { DomainTradeResult } from './contracts/trade-result';
+
+export {
+  DAILY_TRADE_BUDGET,
+  DAY_CADENCE_STATES,
+  TRADING_DAY_TZ,
+  resolveDayCadence,
+  resolveTradingDayKey,
+} from './policies/day-cadence';
+
+export type { DayCadence, DayCadenceRecord, DayCadenceState } from './policies/day-cadence';
