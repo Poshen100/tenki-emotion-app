@@ -645,6 +645,23 @@
     openSheet(el.tplSheet);
   });
 
+  // 進入決策面板的掃描鈕 → 正典模組（同 /v3/ Scan tab 那一支）。
+  // mission 'decision'：8 秒預算、角落掛著你正要決策的標的。
+  // 掃描層 z9700 蓋過 sheet 的 z31，sheet 留在原地，收尾後原地更新 ——
+  // 「掃完自動接回決策」與待命狀態卡是 PR3 的事，這裡不搶跑。
+  el.entryRescan.addEventListener('click', function () {
+    var S = window.TENKI_READINESS_SCAN;
+    if (!S || !S.begin) return;
+    S.begin({
+      mission: 'decision',
+      symbol: state.pendingAlert ? state.pendingAlert.symbol : null,
+    }).then(function () {
+      // 取消（回 null）也只是重畫 —— 讀數槽自己會誠實顯示現況，不會假裝有讀數。
+      renderEntryState();
+      renderState();
+    });
+  });
+
   // ── 模板選擇 ──
   function renderTemplatePicker(alert) {
     var suggested = suggestTemplate(alert.strategyHint);
