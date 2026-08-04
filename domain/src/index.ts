@@ -180,3 +180,13 @@ export {
 } from './policies/readiness-band';
 
 export type { BandDisciplineStat, ReadingGate } from './policies/readiness-band';
+
+export {
+  DOMAIN_TRADE_RESULTS,
+  countsAsTrade,
+  isLoss,
+  isWin,
+  normalizeTradeResult,
+} from './contracts/trade-result';
+
+export type { DomainTradeResult } from './contracts/trade-result';
