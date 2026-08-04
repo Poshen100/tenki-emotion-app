@@ -190,11 +190,14 @@
     return !!(window.TENKI_READINESS_SCAN && window.TENKI_READINESS_SCAN.begin);
   }
 
-  // ── 示意狀態（點擊循環；合成值，非真實讀數）──
+  // ── 帶位視覺對照 ──
+  // 曾經每個帶位還掛著一個 score（78/58/32），狀態卡直接印「Clear · Decision Edge
+  // Score 78」—— 編造的。readiness 讀數契約上沒有 0-100 分，score 欄位整個拿掉。
+  // 這張表現在只剩「帶位 → 標籤/顏色」，真實模式與示意模式共用。
   var ZONE_STATES = [
-    { zone: 'clear', label: 'Clear', score: 78, cssVar: '--zone-clear' },
-    { zone: 'neutral', label: 'Neutral', score: 58, cssVar: '--zone-neutral' },
-    { zone: 'strain', label: 'Strain', score: 32, cssVar: '--zone-strain' },
+    { zone: 'clear', label: 'Clear', cssVar: '--zone-clear' },
+    { zone: 'neutral', label: 'Neutral', cssVar: '--zone-neutral' },
+    { zone: 'strain', label: 'Strain', cssVar: '--zone-strain' },
   ];
 
   // ═══════════════════════════════════════════════
@@ -244,7 +247,8 @@
   }
 
   var state = {
-    zoneIdx: 1, // Neutral 起手
+    // null ＝ 真實模式（讀 store）。0/1/2 ＝ 示意覆蓋，給你手動切三個帶位測快訊行為。
+    zoneOverride: null,
     settings: loadSettings(),
     resultSettings: loadResultSettings(),
     lastSurfacedAtBySymbol: {},
@@ -262,7 +266,7 @@
 
   var el = {};
   [
-    'stateCard', 'stateDot', 'stateLine', 'btnSingle', 'btnMulti', 'btnRepeat',
+    'stateCard', 'stateDot', 'stateLine', 'stateSub', 'btnSingle', 'btnMulti', 'btnRepeat',
     'silentArea', 'logList', 'backdrop', 'entrySheet',
     'entryPing', 'entrySymbol', 'entryCond', 'entryAge', 'entrySource', 'entryChips',
     'entryNote', 'entryState', 'entryBand', 'entryReadingAge', 'entryRescan', 'entryEvidence',
@@ -284,16 +288,68 @@
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ── 狀態卡 ──
-  function currentZone() { return ZONE_STATES[state.zoneIdx]; }
 
-  function renderState() {
-    var z = currentZone();
-    el.stateDot.style.background = 'var(' + z.cssVar + ')';
-    el.stateLine.textContent = z.label + ' · Decision Edge Score ' + z.score;
+  function zoneMeta(band) {
+    for (var i = 0; i < ZONE_STATES.length; i++) {
+      if (ZONE_STATES[i].zone === band) return ZONE_STATES[i];
+    }
+    return null;
   }
 
+  /**
+   * 目前據以判斷的狀態。優先序：示意覆蓋 > 新鮮真讀數 > 沒有（不猜）。
+   * 回傳 null 代表「我不知道你現在是什麼狀態」—— 呼叫端不得把它當成任何帶位。
+   *
+   * @returns {?{zone: string, label: string, cssVar: string, demo: boolean}}
+   */
+  function effectiveZone() {
+    if (state.zoneOverride !== null) {
+      var z = ZONE_STATES[state.zoneOverride];
+      return { zone: z.zone, label: z.label, cssVar: z.cssVar, demo: true };
+    }
+    var reading = loadReading();
+    if (!reading || !isReadingFresh(reading, Date.now())) return null;
+    var meta = zoneMeta(reading.band);
+    if (!meta) return null;
+    return { zone: meta.zone, label: meta.label, cssVar: meta.cssVar, demo: false };
+  }
+
+  /** 狀態卡：真實模式報 store 的讀數，示意模式明確承認自己是假的。 */
+  function renderState() {
+    var reading = loadReading();
+    var eff = effectiveZone();
+    el.stateCard.classList.toggle('demo', !!(eff && eff.demo));
+
+    if (eff && eff.demo) {
+      el.stateDot.style.background = 'var(' + eff.cssVar + ')';
+      el.stateLine.textContent = eff.label;
+      el.stateSub.textContent = '示意值 · 非真實讀數';
+      return;
+    }
+    if (eff) {
+      el.stateDot.style.background = 'var(' + eff.cssVar + ')';
+      el.stateLine.textContent = eff.label;
+      el.stateSub.textContent = agoText(reading.ts, Date.now())
+        + (CONFIDENCE_LABEL[reading.confidence] ? ' · ' + CONFIDENCE_LABEL[reading.confidence] : '');
+      return;
+    }
+    // 無讀數或已過期 —— 中性點，不借任何帶位的顏色。
+    el.stateDot.style.background = 'var(--zone-neutral)';
+    if (reading) {
+      el.stateLine.textContent = BAND_LABEL[reading.band];
+      el.stateSub.textContent = '讀數已過期 · 建議重掃';
+    } else {
+      el.stateLine.textContent = '尚無狀態讀數';
+      el.stateSub.textContent = '從快訊的進入決策面板掃一次';
+    }
+  }
+
+  // 點擊循環：真實 → Clear(示意) → Neutral(示意) → Strain(示意) → 真實 → …
+  // 保留手動切三個帶位的能力（測快訊行為用），但預設是真實模式。
   el.stateCard.addEventListener('click', function () {
-    state.zoneIdx = (state.zoneIdx + 1) % ZONE_STATES.length;
+    state.zoneOverride = state.zoneOverride === null
+      ? 0
+      : (state.zoneOverride + 1 >= ZONE_STATES.length ? null : state.zoneOverride + 1);
     renderState();
   });
 
@@ -362,7 +418,12 @@
       }
       return { decision: 'silent', reason: '決策進行中' };
     }
-    if (state.settings.strainSilent && currentZone().zone === 'strain') {
+    // 以前這裡看的是點擊循環出來的假 zone（預設 Neutral），等於這個設定的行為
+    // 由一個 demo 開關決定。改看 effectiveZone()：真讀數優先、示意覆蓋次之。
+    // **null（沒有讀數／已過期）時不靜音** —— 沒有狀態，就不該拿「你在 Strain」
+    // 當理由吃掉一則快訊。
+    var zone = effectiveZone();
+    if (state.settings.strainSilent && zone && zone.zone === 'strain') {
       return { decision: 'silent', reason: 'Strain 狀態' };
     }
     var last = state.lastSurfacedAtBySymbol[alert.symbol];

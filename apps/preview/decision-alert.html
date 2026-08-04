@@ -46,6 +46,9 @@
     .state-line { font-size: 14px; font-weight: 600; }
     .state-sub { font-size: 11px; color: #64748B; margin-top: 2px; }
     .state-tap { font-size: 11px; color: #64748B; flex: none; }
+    /* 示意模式：一眼看得出這張卡現在講的不是真讀數（虛線邊 + 副標自己承認）。 */
+    .state-card.demo { border-style: dashed; border-color: rgba(148, 163, 184, 0.45); }
+    .state-card.demo .state-sub { color: #94A3B8; }
 
     /* ── Sim controls ── */
     .sim-row { flex: none; display: flex; gap: 8px; margin-bottom: 12px; }
@@ -398,7 +401,7 @@
       <div class="state-dot" id="stateDot"></div>
       <div class="state-main">
         <div class="state-line" id="stateLine"></div>
-        <div class="state-sub">最近一次掃描的狀態（示意值）</div>
+        <div class="state-sub" id="stateSub">尚無狀態讀數</div>
       </div>
       <div class="state-tap">點擊切換 ▸</div>
     </div>
