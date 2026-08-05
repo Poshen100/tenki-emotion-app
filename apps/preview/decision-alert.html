@@ -435,6 +435,10 @@
             <button class="btn btn-primary live-copy" id="liveCopy" type="button">複製連結</button>
             <button class="btn btn-ghost live-reset" id="liveReset" type="button">重設連結</button>
           </div>
+          <div class="live-row">
+            <button class="btn btn-ghost live-selftest" id="liveSelfTest" type="button">測試這條連結</button>
+            <div class="live-push-hint" id="liveSelfTestResult">用 TradingView 的身分（不帶登入 cookie）打一次這條連結，當場知道通不通。</div>
+          </div>
           <div class="live-push" id="livePushRow" hidden>
             <button class="btn btn-ghost live-push-btn" id="livePushBtn" type="button">🔔 開啟手機推播</button>
             <div class="live-push-hint" id="livePushStatus">關掉網頁也能收到快訊 — 先用分享鈕「加入主畫面」，再回來開啟（iOS 16.4+）。</div>
@@ -599,6 +603,6 @@
     <div class="timer-update" id="timerUpdate"></div>
   </div>
 
-  <script src="decision-alert.js?v=alert18"></script>
+  <script src="decision-alert.js?v=alert19"></script>
 </body>
 </html>
