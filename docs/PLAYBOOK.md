@@ -90,6 +90,8 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | 背景 agent 宣稱完成 | 不可信，用 `git log` 驗實際 commits（agent 可能中途被用量上限砍掉） |
 | 雲端環境查 CI | **無 `gh` CLI**。用 GitHub MCP `pull_request_read(get_check_runs)`；用 gh 或未帶 token 的 curl 會空轉 |
 | Vercel 部署驗證 | 部署有 protection，匿名 WebFetch 會 403；分支 preview 連結在 PR 頁的 Vercel bot 留言 |
+| **要給 founder 驗收網址時** | **永遠從 PR 頁的 Vercel bot 留言讀網址，不要用分支名自己拼。** preview 子網域是 DNS label，上限 63 字元，超過時 Vercel 會**截斷分支名再插一段 hash**——拼出來的網址在瀏覽器是「找不到伺服器」，而 founder 只會看到你給錯連結。2026-08-05 實例：`tenki-emotion-app-git-claude-structure-watch-chenposhens-projects`（65 字）拼錯，真值是 `...-git-claude-struct-7775e3-...`。取得方式：`pull_request_read(get_comments)` 找 `vercel[bot]` 那則 |
+| 分支名要當 preview 網址用時 | 名字取短。`claude/<主題>` 的主題超過約 20 字元就會觸發上面的截斷+hash |
 | push 前 | commit-per-todo（CLAUDE.md 硬規則）；`git push -u origin <branch>`，網路失敗指數退避重試 |
 
 ## 5. CI / 工具鏈陷阱
