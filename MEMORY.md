@@ -9,6 +9,51 @@
 
 ---
 
+# 2026-08-04 Session Update #49 (交易者流程重構：計時器 → 結構守望 + 日界 domain)
+
+> 起於 founder 的一句話：「交易者可能用桌機或筆電下單，也可能另外點開手機的交易 APP」。
+> 把現行流程對回 `docs/TRADING-METHODOLOGY.md`（Adam Mancini 方法論）後找出五個結構性錯配。
+> 完整分析與四階段路線在 plan 檔；本條只記**下個 session 必須知道的事**。
+
+## ⚠️ 計時器語意切換日：2026-08-04
+紀律的定義從「有沒有走完計時器」換成「**有沒有做出判定**」。
+- 新 tag：`judged_entered` / `judged_stood_down`（兩個都算紀律）/ `abandoned_no_judgment`（不算）
+- 舊 tag `timed_out` / `stayed_disciplined` **仍被 `isDisciplined()` 認得，不重寫歷史**
+- 新紀錄帶 `judgmentSchema: 'structure_watch_v1'`；**統計混算時必須標註舊語意筆數**，
+  已在 `rateText()` / `countUpRate()` 實作（「含 N 筆舊語意」）。
+- **不要把兩種語意的資料混成同一條曲線** —— 舊的 `timed_out` 是「乾等到底」，新語意下不算紀律。
+
+## 為什麼要改（實機證據，不是理論）
+Founder 15:51 實走：11 秒判定進場 → 判「提前收束（Readiness 窗前）」→ **紀律 0%**。
+而 §2.2 明載高品質 FBD =「**失敗迅速**」→ **方法論裡品質最高的 setup 就是最快成立的那種**，
+舊計時器對它罰得最重。§7 step 3 的結構確認根本沒有時間表。
+
+## 三條分支的關係（重要，別搞混）
+| 分支 / PR | 內容 | base |
+|---|---|---|
+| `claude/jie-s2-lyudvk` **#217** | S1–S5 正典掃描模組（12 commits） | `main` |
+| `claude/day-cadence-gate` **#218** | 純 domain：`trade-result` 契約 + `day-cadence` 政策（18 斷言） | `main` |
+| `claude/structure-watch` **#219** | 結構守望（**stacked 在 #217 上**） | `claude/jie-s2-lyudvk` |
+
+**merge 順序：#217 → #219**（同一支 `decision-alert.js`）。#218 獨立、可任意時機 merge。
+
+## 幾個查證後推翻自己計畫的結論（別再走回頭路）
+- **`alert-policy` 的 `resolveAlertDayKey()` 是 UTC 日界**（`toISOString()`），會在 ET 19:00/20:00
+  換日，把傍晚交易歸到隔天。交易日必須是 ET → `day-cadence.ts` 自寫 `resolveTradingDayKey()`。
+  檔頭有寫明為什麼不能重用，**不要順手統一回去**。
+- **`templateId` 是持久化契約**（engine types + domain scan-contract + mobile 都吃）→
+  結構守望**不動 engine**，只有 preview 呈現層停用 `durationSec`/`segments`/`readinessWindow`。
+- **日界狀態機是五態不是四態**：`fresh` / `second_chance` / `stop_after_win` / `circuit_break` /
+  `day_complete`（「贏＋輸」無處可歸才加的）。
+
+## 下次接手點
+1. **founder 實走 #217 + #219**（都還沒驗過；#217 的驗收一直被誤走到正式站舊版）。
+2. **Phase 1 commit 3／4**：結果頁交易結果四選一 + Entry Panel 今日節奏事實行 + 快訊依日界收摺
+   （含與 `strainSilent` 兩個靜默理由的疊加規則）。需要 #218 的政策 → 等三條分支合流。
+3. Phase 3 掃描時機前移、Phase 4 runner 帳本。
+
+---
+
 # 2026-08-01 Session Update #48 (PR2 S1+S2+S4：正典掃描模組落地，v6 編造的分數全部拔掉)
 
 > 分支 `claude/jie-s2-lyudvk`（S1 原本在 `claude/tradingview-alert-integration-izt1mm`，未 merge；
