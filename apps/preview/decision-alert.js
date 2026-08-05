@@ -77,6 +77,16 @@
     },
   };
 
+  // 模板選單的副標。以前寫的是「3 分鐘 · Ground → Execute → Confirm」——
+  // 那組時長與段落是舊的時間紀律語意，會暗示「等這麼久才對」。模板現在只回答
+  // 「這是哪一種 setup」。engine 的 durationSec / segments / readinessWindow 三個欄位
+  // 保留不動（mobile 與既有紀錄仍依賴），只是 preview 不再拿它們判紀律或報時長。
+  var TEMPLATE_SUBTITLE_ZH = {
+    FBD: '跌破關鍵低點後迅速收回 · Mancini 招牌結構',
+    CANSLIM: '成長股回檔／突破 · swing 系統',
+    MODE_2: '高相對強度突破 · swing 系統',
+  };
+
   // Mirror of suggestTemplateForStrategyHint（先匹配者優先）
   var STRATEGY_KEYWORDS = [
     { keyword: 'canslim', templateId: 'CANSLIM' },
@@ -141,22 +151,45 @@
     else node.setAttribute('hidden', '');
   }
 
-  function resolveOutcomeTag(endType, reachedReadiness) {
-    if (endType === 'timeout') return 'timed_out';
-    if (endType === 'cancel') return 'broke_discipline';
-    return reachedReadiness ? 'stayed_disciplined' : 'broke_discipline';
+  // ═══════════════════════════════════════════════
+  // 紀律的定義（結構守望語意，2026-08-04 切換）
+  //
+  // 舊語意用「有沒有走完計時器」判紀律，與方法論相反：§7 step 3 的結構確認沒有
+  // 時間表，而 §2.2 把「失敗迅速（fast failure）」列為**最高品質**的 FBD。實機證據
+  // （founder 2026-08-04 15:51）：11 秒判定進場被打成「提前收束」、紀律 0%。
+  //
+  // 新語意只問一件事：**你有沒有做出判定。**
+  //   判定成立並進場（judged_entered）        → 紀律
+  //   判定不成立、放棄（judged_stood_down）   → 紀律（§7 step 7「無觸發 → 不交易」）
+  //   離開/逾時而從未判定（abandoned_no_judgment）→ 不算紀律
+  // 時間不再進入這個判斷，只作為事實脈絡呈現。
+  // ═══════════════════════════════════════════════
+
+  /** 舊語意的 tag。仍要認得 —— 既有紀錄不重寫、也不丟棄。 */
+  var LEGACY_DISCIPLINED_TAGS = ['stayed_disciplined', 'timed_out'];
+  /** 新語意標記，寫進每一筆新紀錄，供統計辨識語意斷點。 */
+  var JUDGMENT_SCHEMA = 'structure_watch_v1';
+
+  /**
+   * judgment: 'entered' | 'stood_down' | 'abandoned'
+   */
+  function resolveOutcomeTag(judgment) {
+    if (judgment === 'entered') return 'judged_entered';
+    if (judgment === 'stood_down') return 'judged_stood_down';
+    return 'abandoned_no_judgment';
   }
 
   function isDisciplined(tag) {
-    return tag === 'stayed_disciplined' || tag === 'timed_out';
+    return tag === 'judged_entered'
+      || tag === 'judged_stood_down'
+      || LEGACY_DISCIPLINED_TAGS.indexOf(tag) !== -1;
   }
 
-  // 收束頁顯示文字：由 endType + 是否進入 readiness 窗決定（比 tag 更細）
-  function outcomeDisplay(endType, reachedReadiness) {
-    if (endType === 'timeout') return { text: '完整走完', cls: 'disciplined' };
-    if (endType === 'cancel') return { text: '中途退出', cls: 'broke' };
-    if (reachedReadiness) return { text: '跟著流程完成', cls: 'disciplined' };
-    return { text: '提前收束（Readiness 窗前）', cls: 'broke' };
+  /** 收束頁顯示文字。兩個判定都是紀律 —— 措辭不暗示哪個「比較好」。 */
+  function outcomeDisplay(judgment) {
+    if (judgment === 'entered') return { text: '判定成立 · 已進場', cls: 'disciplined' };
+    if (judgment === 'stood_down') return { text: '判定不成立 · 未進場', cls: 'disciplined' };
+    return { text: '沒有做出判定', cls: 'broke' };
   }
 
   function loadOutcomes() {
@@ -170,11 +203,23 @@
     localStorage.setItem(OUTCOME_STORE_KEY, JSON.stringify(all));
   }
 
+  /**
+   * 語意斷點註記。2026-08-04 起紀律的定義從「有沒有走完計時器」換成「有沒有做出判定」，
+   * 兩種語意的紀錄不可靜默混成同一個百分比 —— 舊紀錄裡的 timed_out（乾等到底）在新語意
+   * 下根本不算紀律。混算就直說混了幾筆，不假裝是同一條曲線。
+   */
+  function schemaNote(records) {
+    var legacy = 0;
+    records.forEach(function (r) { if (r.judgmentSchema !== JUDGMENT_SCHEMA) legacy += 1; });
+    return legacy > 0 && legacy < records.length ? '（含 ' + legacy + ' 筆舊語意）' : '';
+  }
+
   function rateText(records) {
     if (records.length === 0) return '紀律完成率：—（資料累積中）';
     var d = 0;
     records.forEach(function (r) { if (isDisciplined(r.outcomeTag)) d += 1; });
-    return '紀律完成率：' + Math.round((d / records.length) * 100) + '%（' + d + '/' + records.length + '）';
+    return '紀律完成率：' + Math.round((d / records.length) * 100)
+      + '%（' + d + '/' + records.length + '）' + schemaNote(records);
   }
 
   /** 進入決策面板的紀律脈絡由 renderEntryDiscipline 負責（含標的範圍）；
@@ -277,7 +322,7 @@
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
     'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave',
     'timerBar', 'timerLabel', 'timerClock',
-    'btnComplete', 'btnCancel', 'segTrack', 'segLabels', 'timerPhase', 'timerUpdate',
+    'watchAnchor', 'watchAsk', 'btnStructureConfirmed', 'btnStoodDown', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveUrlWarn', 'liveCopy', 'liveReset',
     'liveSymbol', 'liveTimeframe', 'liveStrategy',
@@ -433,12 +478,16 @@
     return { decision: 'surfaced', reason: '' };
   }
 
-  function makeAlert(symbol, condition, timeframe, strategy, note) {
+  function makeAlert(symbol, condition, timeframe, strategy, note, price) {
     state.alertSeq += 1;
     return {
       id: 'demo-' + state.alertSeq,
       symbol: symbol, condition: condition, timeframe: timeframe,
-      strategyHint: strategy, note: note, receivedAt: Date.now(),
+      strategyHint: strategy, note: note,
+      // 結構守望的錨點來源。真實快訊由 TradingView 帶（schema 早有這欄），
+      // demo 也給一個，否則錨點行永遠空著、看不出這個功能存在。
+      price: typeof price === 'number' ? price : null,
+      receivedAt: Date.now(),
     };
   }
 
@@ -586,9 +635,8 @@
   function renderEntryCost(alert) {
     var tpl = TEMPLATES[suggestTemplate(alert.strategyHint)];
     if (!tpl) { el.entryCost.textContent = ''; return; }
-    var m = Math.floor(tpl.durationSec / 60), s = tpl.durationSec % 60;
-    el.entryCost.textContent =
-      '建議流程 ' + tpl.nameZh + ' · ' + m + ':' + String(s).padStart(2, '0') + '（可自由更換）';
+    // 不再報時長 —— 結構確認沒有時間表（§7 step 3），報一個分鐘數會變成「等這麼久才對」的暗示。
+    el.entryCost.textContent = '建議流程 ' + tpl.nameZh + '（可自由更換）';
   }
 
   /** 訊號「N 秒前」持續跳動 — 讓訊號有生命。 */
@@ -744,8 +792,8 @@
       name.textContent = tpl.nameZh + '（' + tpl.id + '）';
       var sub = document.createElement('div');
       sub.className = 'tpl-sub';
-      sub.textContent = Math.round(tpl.durationSec / 60) + ' 分鐘 · ' +
-        tpl.segments.map(function (s) { return s.label; }).join(' → ');
+      // 模板現在只回答「這是哪一種 setup」，不再回答「你該等幾秒」。
+      sub.textContent = TEMPLATE_SUBTITLE_ZH[tpl.id] || '';
       main.appendChild(name);
       main.appendChild(sub);
 
@@ -774,6 +822,32 @@
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
+  /**
+   * 非接受門檻的位移（§3 模組 3：「價格重新站回低點上方（例：+5 points）並維持數分鐘」）。
+   * 只對 FBD 有定義 —— 其他模板的方向與幅度方法論沒寫，就不編。
+   */
+  var NON_ACCEPTANCE_OFFSET = 5;
+
+  /** 守望的牆鐘上限。超過就當作沒有判定收掉，避免跨日的殭屍 session。 */
+  var WATCH_CEILING_MS = 30 * 60 * 1000;
+
+  function formatLevel(price) {
+    return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  /**
+   * 錨點行：你自己定的關鍵價位，以及（僅 FBD）非接受門檻。
+   * 快訊沒帶 price 就整行空著 —— 寧可沒有錨點，也不編一個價位出來。
+   */
+  function watchAnchorText(alert, tpl) {
+    if (typeof alert.price !== 'number' || !isFinite(alert.price)) return '';
+    var line = '關鍵價位 ' + formatLevel(alert.price);
+    if (tpl.id === 'FBD') {
+      line += ' · 非接受門檻 ' + formatLevel(alert.price + NON_ACCEPTANCE_OFFSET);
+    }
+    return line;
+  }
+
   function startSession(alert, tpl) {
     state.pendingAlert = null;
     state.sessionActive = true;
@@ -782,90 +856,40 @@
       symbol: alert.symbol,
       templateId: tpl.id,
       tplName: tpl.nameZh,
-      durationSec: tpl.durationSec,
-      readinessStartSec: tpl.readinessWindow.startSec,
-      reachedReadiness: false,
       sameSymbolUpdates: 0,
+      // 牆鐘。以前是 `elapsed += 1` 數 setInterval callback —— 分頁進背景（切到券商
+      // APP、鎖屏）就會少算。這裡改讀 Date.now()，對背景暫停免疫。
+      startedAtMs: Date.now(),
       elapsedSec: 0,
+      // 結構確認期間離開過幾次／多久。比進度條真實得多的紀律指標。
+      awayCount: 0,
+      awayMs: 0,
     };
     el.timerUpdate.textContent = '';
     el.timerUpdate.classList.remove('show');
 
     el.timerLabel.textContent = alert.symbol + ' · ' + tpl.nameZh;
     el.timerClock.textContent = formatClock(0);
-    el.timerClock.classList.remove('in-window');
-
-    el.segTrack.textContent = '';
-    el.segLabels.textContent = '';
-    el.timerPhase.textContent = '';
-    el.timerPhase.classList.remove('readiness');
-    var fills = [];
-    var labelSpans = [];
-    tpl.segments.forEach(function (segment) {
-      var span = segment.endSec - segment.startSec;
-      var seg = document.createElement('div');
-      seg.className = 'seg';
-      seg.style.flexGrow = String(span);
-      var fill = document.createElement('div');
-      fill.className = 'seg-fill';
-      fill.style.background = segment.color;
-      seg.appendChild(fill);
-      el.segTrack.appendChild(seg);
-      fills.push({ el: fill, startSec: segment.startSec, endSec: segment.endSec });
-
-      var label = document.createElement('div');
-      label.className = 'seg-label';
-      label.style.flexGrow = String(span);
-      label.style.flexBasis = '0';
-      label.textContent = segment.label;
-      el.segLabels.appendChild(label);
-      labelSpans.push({ el: label, name: segment.label, startSec: segment.startSec, endSec: segment.endSec });
-    });
+    el.watchAnchor.textContent = watchAnchorText(alert, tpl);
 
     el.timerBar.classList.add('show');
-    log('mark', alert.symbol + ' — ' + tpl.nameZh + ' 計時開始');
+    log('mark', alert.symbol + ' — ' + tpl.nameZh + ' 結構守望開始');
 
-    var elapsed = 0;
     state.timer = setInterval(function () {
-      elapsed += 1;
+      if (!state.session) return;
+      var elapsed = Math.floor((Date.now() - state.session.startedAtMs) / 1000);
+      state.session.elapsedSec = elapsed;
       el.timerClock.textContent = formatClock(elapsed);
-      if (state.session) {
-        state.session.elapsedSec = elapsed;
-        if (elapsed >= state.session.readinessStartSec) state.session.reachedReadiness = true;
-      }
-
-      var w = tpl.readinessWindow;
-      var inReadiness = elapsed >= w.startSec && elapsed < w.endSec;
-      el.timerClock.classList.toggle('in-window', inReadiness);
-
-      // 當前段落標籤高亮 + 事實脈絡行（Readiness 窗更明確）
-      var current = null;
-      labelSpans.forEach(function (ls) {
-        var active = elapsed >= ls.startSec && elapsed < ls.endSec;
-        ls.el.classList.toggle('active', active);
-        if (active) current = ls;
-      });
-      if (inReadiness) {
-        el.timerPhase.textContent = 'Readiness 窗開啟';
-        el.timerPhase.classList.add('readiness');
-      } else {
-        el.timerPhase.textContent = current ? '目前：' + current.name : '';
-        el.timerPhase.classList.remove('readiness');
-      }
-
-      fills.forEach(function (f) {
-        var span = f.endSec - f.startSec;
-        var ratio = Math.min(Math.max((elapsed - f.startSec) / span, 0), 1);
-        f.el.style.transform = 'scaleX(' + ratio + ')';
-      });
-
-      if (elapsed >= tpl.durationSec) {
-        endSession('timeout', alert.symbol + ' — 完整走完 ' + tpl.nameZh);
+      if (Date.now() - state.session.startedAtMs >= WATCH_CEILING_MS) {
+        endSession('abandoned', alert.symbol + ' — 守望逾時，沒有做出判定');
       }
     }, 1000);
   }
 
-  function endSession(type, detail) {
+  /**
+   * @param {'entered'|'stood_down'|'abandoned'} judgment 這次守望的判定出口。
+   */
+  function endSession(judgment, detail) {
     if (state.timer) { clearInterval(state.timer); state.timer = null; }
     var s = state.session;
     state.sessionActive = false;
@@ -873,10 +897,9 @@
     state.session = null;
     el.timerBar.classList.remove('show');
     el.timerUpdate.classList.remove('show');
-    el.timerPhase.textContent = '';
-    el.timerPhase.classList.remove('readiness');
-    log(type, detail);
-    if (s) openResult(type, s);
+    // 事件鏈類型沿用既有樣式：有判定＝過程標記，沒判定＝取消。
+    log(judgment === 'abandoned' ? 'cancel' : 'mark', detail);
+    if (s) openResult(judgment, s);
   }
 
   // ── 決策收束頁（計時器結束後，事件鏈的 Result 階段）— 視覺化收束 ──
@@ -888,13 +911,14 @@
   }
   function easeOutCubic(p) { return 1 - Math.pow(1 - p, 3); }
 
-  // 弧規格：跟著流程/完整走完 → 整圈青；提前收束/中途退出 → 走多完整的部分弧（strain 色）。
-  // 「弧長就是你這次走了多完整」— 數值本身即畫面。
-  function resultArcSpec(endType, s) {
-    var tag = resolveOutcomeTag(endType, s.reachedReadiness);
-    if (isDisciplined(tag)) return { ratio: 1, colorVar: '--cyan-active' };
-    var ratio = s.durationSec > 0 ? s.elapsedSec / s.durationSec : 0;
-    return { ratio: Math.min(Math.max(ratio, 0.06), 1), colorVar: '--zone-strain' };
+  // 弧規格：有做出判定（進場或放棄）→ 整圈青；沒有判定 → 短弧（strain 色）。
+  // 弧長不再代表「走了多完整」—— 那是舊的時間紀律語意。現在它只有兩種狀態：
+  // 你做了判定，或你沒有。11 秒的判定與 8 分鐘的判定一樣是整圈。
+  function resultArcSpec(judgment) {
+    if (isDisciplined(resolveOutcomeTag(judgment))) {
+      return { ratio: 1, colorVar: '--cyan-active' };
+    }
+    return { ratio: 0.12, colorVar: '--zone-strain' };
   }
 
   // canvas 弧（禁 SVG ring；比照 tissue-instrument 既有 canvas 先例）。固定 176px 尺寸，
@@ -950,7 +974,7 @@
     var d = 0;
     records.forEach(function (r) { if (isDisciplined(r.outcomeTag)) d += 1; });
     var finalPct = Math.round((d / records.length) * 100);
-    var suffix = '%（' + d + '/' + records.length + '）';
+    var suffix = '%（' + d + '/' + records.length + '）' + schemaNote(records);
     if (!animate) { node.textContent = '紀律完成率：' + finalPct + suffix; return; }
     var t0 = null, dur = 600;
     function step(ts) {
@@ -984,16 +1008,19 @@
   }
 
   // 本次事件鏈 recap（流程語言、事實）：快訊 → 同標的更新 → Readiness → 收束。
-  function renderRecap(endType, s) {
+  function renderRecap(judgment, s) {
     var list = el.resultRecapList;
     if (!list) return;
     list.textContent = '';
-    var disp = outcomeDisplay(endType, s.reachedReadiness);
+    var disp = outcomeDisplay(judgment);
     var rows = [
       { cls: 'on', text: '快訊收到 · ' + s.symbol + '（' + s.tplName + '）' },
       { cls: s.sameSymbolUpdates > 0 ? 'on' : '', text: '同標的更新：' + s.sameSymbolUpdates + ' 次' },
-      { cls: s.reachedReadiness ? 'on' : 'off', text: 'Readiness 窗：' + (s.reachedReadiness ? '已進入' : '未進入') },
-      { cls: disp.cls === 'disciplined' ? 'on' : 'off', text: '收束：' + disp.text + ' · 用時 ' + formatClock(s.elapsedSec) },
+      // 事實，不是扣分項：在桌機/券商 APP 下單本來就會離開。
+      { cls: '', text: s.awayCount > 0
+        ? '守望期間離開 ' + s.awayCount + ' 次 · 共 ' + formatClock(Math.round(s.awayMs / 1000))
+        : '守望期間沒有離開' },
+      { cls: disp.cls === 'disciplined' ? 'on' : 'off', text: '判定：' + disp.text + ' · 等了 ' + formatClock(s.elapsedSec) },
     ];
     rows.forEach(function (row) {
       var rowEl = document.createElement('div');
@@ -1012,14 +1039,17 @@
     return d / records.length;
   }
 
-  function openResult(endType, s) {
-    var disp = outcomeDisplay(endType, s.reachedReadiness);
+  function openResult(judgment, s) {
+    var disp = outcomeDisplay(judgment);
     state.pendingOutcome = {
       symbol: s.symbol,
       templateId: s.templateId,
-      outcomeTag: resolveOutcomeTag(endType, s.reachedReadiness),
+      outcomeTag: resolveOutcomeTag(judgment),
       contextTag: null,
-      reachedReadiness: s.reachedReadiness,
+      // 語意標記：讓統計認得出這筆是新語意，不與舊紀錄混算（見 disciplineRate 註解）。
+      judgmentSchema: JUDGMENT_SCHEMA,
+      awayCount: s.awayCount,
+      awayMs: s.awayMs,
       durationSec: s.elapsedSec,
       ts: Date.now(),
     };
@@ -1029,9 +1059,10 @@
     el.resultHead.textContent = s.symbol + ' · ' + s.tplName;
     el.resultOutcome.textContent = disp.text;
     el.resultOutcome.className = 'result-outcome ' + disp.cls;
-    el.resultArcTime.textContent = '用時 ' + formatClock(s.elapsedSec) + ' / ' + formatClock(s.durationSec);
+    // 沒有分母了 —— 沒有「應該等多久」這回事（§7 step 3 沒有時間表）。
+    el.resultArcTime.textContent = '等了 ' + formatClock(s.elapsedSec);
     renderMomentumStrip(withThis);
-    renderRecap(endType, s);
+    renderRecap(judgment, s);
 
     el.resultReflect.textContent = '';
     REFLECT_TAGS.forEach(function (tag) {
@@ -1061,7 +1092,7 @@
     // 弧掃完才依序放出：微光 breath → outcome 落定 → 完成率遞增 + meter 填 → 下方區塊 cascade。
     // reduced-motion 一律畫終態（不加 .reveal，元素預設可見；onDone 同步觸發、無 glow）。
     var animate = !prefersReducedMotion;
-    var spec = resultArcSpec(endType, s);
+    var spec = resultArcSpec(judgment);
     var rate = disciplineRate(withThis);
     var revealItems = [el.resultHistory, el.resultRecap, el.resultReflectWrap];
 
@@ -1113,12 +1144,33 @@
     closeSheets();
   });
 
-  el.btnComplete.addEventListener('click', function () {
-    endSession('close', el.timerLabel.textContent + ' — 流程完成');
+  // 兩個判定出口。**兩個都是紀律** —— §7 step 7「無觸發 → 不交易」跟 step 4 進場
+  // 一樣是照方法論走。不做判定就離開才不算。
+  el.btnStructureConfirmed.addEventListener('click', function () {
+    endSession('entered', el.timerLabel.textContent + ' — 判定結構成立，已進場');
   });
 
-  el.btnCancel.addEventListener('click', function () {
-    endSession('cancel', el.timerLabel.textContent);
+  el.btnStoodDown.addEventListener('click', function () {
+    endSession('stood_down', el.timerLabel.textContent + ' — 判定結構不成立，未進場');
+  });
+
+  // 結構確認期間離開了多久 —— 交易者是在桌機或券商 APP 下單，離開是常態不是失誤。
+  // 記錄它不是為了扣分，是因為「離開幾次」比進度條真實得多。
+  var awayAtMs = 0;
+  document.addEventListener('visibilitychange', function () {
+    if (!state.session) return;
+    if (document.visibilityState === 'hidden') {
+      awayAtMs = Date.now();
+      return;
+    }
+    if (!awayAtMs) return;
+    var gap = Date.now() - awayAtMs;
+    awayAtMs = 0;
+    // 短暫切換（通知列、誤觸）不算離開，避免把雜訊記成紀律事件。
+    if (gap < 3000) return;
+    state.session.awayCount += 1;
+    state.session.awayMs += gap;
+    log('mark', state.session.symbol + ' — 離開 ' + formatClock(Math.round(gap / 1000)) + ' 後回來');
   });
 
   // ── 連接 TradingView（專屬頻道，零輸入配對；真訊號與模擬走同一條 ingest 管線）──
@@ -1227,6 +1279,9 @@
       timeframe: raw.timeframe || '—',
       strategyHint: raw.strategyHint,
       note: raw.note || '',
+      // TradingView payload 的 price 欄位（docs/TRADINGVIEW-ALERT-SPEC.md）——
+      // 結構守望拿它當錨點。沒帶就是 null，錨點行不顯示，不編數字。
+      price: typeof raw.price === 'number' && isFinite(raw.price) ? raw.price : null,
       receivedAt: raw.receivedAt,
     };
   }
@@ -1468,14 +1523,14 @@
   // ── 模擬按鈕 ──
   // ES1! 單一標的 · Mancini 假跌破（FBD）— 對齊 founder 實際交易型態（示意值）
   el.btnSingle.addEventListener('click', function () {
-    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '關鍵價位掃低後收回（示意）'));
+    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '關鍵價位掃低後收回（示意）', 6851));
   });
 
   // 同一檔快速下殺，一波內連踩兩個關鍵價位 → 60s 窗聚合（不是多檔同時）
   el.btnMulti.addEventListener('click', function () {
     var now = Date.now();
-    var a = makeAlert('ES1!', '掃下緣', '1m', 'Mancini', '快速下殺掃到下緣（示意）');
-    var b = makeAlert('ES1!', '續破下一級', '1m', 'Mancini', '同一波再破下一個關鍵價位（示意）');
+    var a = makeAlert('ES1!', '掃下緣', '1m', 'Mancini', '快速下殺掃到下緣（示意）', 6851);
+    var b = makeAlert('ES1!', '續破下一級', '1m', 'Mancini', '同一波再破下一個關鍵價位（示意）', 6844);
     a.receivedAt = now;
     b.receivedAt = now + 3000; // 同一波 3 秒內連踩兩級
     ingestGroup([a, b]);
@@ -1483,7 +1538,7 @@
 
   // 同一價位 K 棒內反覆穿越 → 冷卻抑制（不轟炸）
   el.btnRepeat.addEventListener('click', function () {
-    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '同一價位 K 棒內反覆穿越（示意）'));
+    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '同一價位 K 棒內反覆穿越（示意）', 6851));
   });
 
   // ── 決策節奏設定面板 ──

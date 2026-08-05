@@ -366,25 +366,29 @@
     .timer-row { display: flex; align-items: center; gap: 10px; }
     .timer-label { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .timer-clock { flex: none; font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 700; }
-    .timer-clock.in-window { color: var(--cyan-active); }
-    .timer-btn {
-      flex: none; width: 34px; height: 34px; border-radius: 50%;
+    /* 時間是事實脈絡，不是紀律指標 —— 刻意收成次要字重，不搶戲。 */
+    .timer-clock { font-weight: 600; color: #94A3B8; font-size: 14px; }
+
+    /* ── 結構守望 ── */
+    /* 錨點：你自己定的關鍵價位與非接受門檻（§3 模組 3）。沒有 price 就整行不顯示，
+       絕不編一個數字出來。 */
+    .watch-anchor {
+      font-size: 12px; color: #CBD5E1; margin-top: 8px;
+      font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+    }
+    .watch-anchor:empty { display: none; }
+    .watch-ask { font-size: 14px; font-weight: 600; margin-top: 8px; }
+    .watch-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .watch-btn {
+      flex: 1; border-radius: 12px; padding: 11px 8px;
+      font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
       border: 1px solid var(--border); background: var(--surface); color: #E5E7EB;
-      font-size: 14px; cursor: pointer; font-family: inherit;
+      transition: transform 0.15s var(--ease-calm), opacity 0.15s;
     }
-    .timer-btn.done { border-color: var(--success); color: var(--success); }
-    .seg-track { display: flex; gap: 2px; margin-top: 8px; height: 5px; border-radius: 3px; overflow: hidden; }
-    .seg { position: relative; height: 100%; background: var(--border); overflow: hidden; }
-    .seg .seg-fill {
-      position: absolute; inset: 0; transform: scaleX(0); transform-origin: left;
-      /* 每秒 tick 線性推進 */
-      transition: transform 1s linear;
-    }
-    .seg-labels { display: flex; gap: 2px; margin-top: 4px; }
-    .seg-label { font-size: 9px; color: #64748B; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; transition: color .3s; }
-    .seg-label.active { color: #fff; font-weight: 600; }
-    .timer-phase { font-size: 11px; color: #94A3B8; margin-top: 6px; }
-    .timer-phase.readiness { color: var(--cyan-active); font-weight: 600; }
+    .watch-btn:active { transform: scale(0.97); opacity: 0.85; }
+    /* 兩個出口都是紀律 —— 顏色不暗示哪個「比較好」，只區分方向。 */
+    .watch-btn.confirm { border-color: var(--cyan-active); color: var(--cyan-active); }
+    .watch-btn.stand-down { color: #CBD5E1; }
     .timer-update { font-size: 11px; color: #94A3B8; margin-top: 6px; display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .timer-update.show { display: block; }
   </style>
@@ -588,17 +592,22 @@
     </div>
   </div>
 
-  <!-- 浮動決策計時條 -->
+  <!-- 浮動結構守望條。
+       以前這裡是倒數進度條（Ground/Execute/Confirm）+ ✔/✘ —— 但方法論 §7 step 3 的
+       結構確認沒有時間表，而 §2.2 又把「失敗迅速」列為最高品質的 FBD。用時間當紀律
+       指標的結果是：品質最好的 setup 被罰得最重。現在時間降為事實脈絡，畫面上只剩
+       你自己的錨點與一個問題。 -->
   <div class="timer-bar" id="timerBar">
     <div class="timer-row">
       <div class="timer-label" id="timerLabel"></div>
       <div class="timer-clock" id="timerClock">00:00</div>
-      <button class="timer-btn done" id="btnComplete" type="button" aria-label="完成">✔</button>
-      <button class="timer-btn" id="btnCancel" type="button" aria-label="取消">✘</button>
     </div>
-    <div class="seg-track" id="segTrack"></div>
-    <div class="seg-labels" id="segLabels"></div>
-    <div class="timer-phase" id="timerPhase"></div>
+    <div class="watch-anchor" id="watchAnchor"></div>
+    <div class="watch-ask" id="watchAsk">結構成立了嗎？</div>
+    <div class="watch-actions">
+      <button class="watch-btn confirm" id="btnStructureConfirmed" type="button">成立 · 我進場了</button>
+      <button class="watch-btn stand-down" id="btnStoodDown" type="button">不成立 · 我不做</button>
+    </div>
     <div class="timer-update" id="timerUpdate"></div>
   </div>
 
@@ -606,6 +615,6 @@
        /decision-alert/(.*) 的 rewrite。必須排在 decision-alert.js 之前 ——
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
   <script src="/preview/readiness-scan.js?v=rs3"></script>
-  <script src="decision-alert.js?v=alert19"></script>
+  <script src="decision-alert.js?v=alert20"></script>
 </body>
 </html>
