@@ -1069,7 +1069,8 @@
 
   // 向 server 問這個部署的 bypass query。既有頻道不用重新配對就能補上。
   function loadBypassQuery() {
-    return fetch('/api/channel', { method: 'GET' })
+    // no-store：密鑰是「之後才會出現」的東西，不能讓瀏覽器把「還沒有」那一版快取住。
+    return fetch('/api/channel', { method: 'GET', cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         live.bypassQuery = (data && typeof data.bypassQuery === 'string') ? data.bypassQuery : '';
@@ -1416,7 +1417,12 @@
       })
       .then(function (problem) {
         if (problem) {
-          el.liveSelfTestResult.textContent = '❌ ' + problem;
+          // 分辨「密鑰沒進到這個部署」與「密鑰有了但仍被擋」—— 兩者的下一步不同，
+          // 只說「被擋下」會讓人反覆重試同一件事。
+          var cause = live.bypassQuery
+            ? '這個部署有 bypass 密鑰，但仍被擋 —— 密鑰可能已失效或被撤銷。'
+            : '這個部署讀不到 bypass 密鑰（VERCEL_AUTOMATION_BYPASS_SECRET 未注入）—— 密鑰沒生成、沒勾「設為環境變數」，或生成後還沒重新部署。';
+          el.liveSelfTestResult.textContent = '❌ ' + problem + ' ' + cause;
         } else {
           el.liveSelfTestResult.textContent = '✅ 這條連結通到 TENKI —— TradingView 可以送達（沒有寫入任何快訊）。';
         }
