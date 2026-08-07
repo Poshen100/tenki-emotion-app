@@ -620,7 +620,9 @@
     recent.forEach(function (r, i) {
       var seg = document.createElement('div');
       seg.className = 'result-seg' + (i === recent.length - 1 ? ' now' : '');
-      seg.style.background = isDisciplined(r.outcomeTag) ? 'var(--zone-clear)' : 'var(--zone-strain)';
+      // 與收束頁的 momentum strip 共用同一支 segColor —— 這段原本是內聯重寫的
+      // 第二份判定，正是 2026-08-07 那個「條紋與完成率互相矛盾」的漂移溫床。
+      seg.style.background = segColor(r.outcomeTag);
       el.entryStrip.appendChild(seg);
     });
 
@@ -988,10 +990,22 @@
     requestAnimationFrame(step);
   }
 
+  /**
+   * Momentum strip 的段落顏色。**必須與 isDisciplined() 用同一個判定** ——
+   * 兩者一旦分岔，同一筆決策會被條紋畫成跟完成率相反的意思。
+   *
+   * 2026-08-07 founder 實走查出：本函式原本逐一比對舊 tag 名
+   * （stayed_disciplined / timed_out），結構守望改名後 `judged_entered`
+   * 掉進 else 分支被畫成 strain 橘色，而正上方寫著「完成率 100%」。
+   * 改成單一判定來源，讓它不可能再漂移。
+   *
+   * 兩個判定出口（進場 / 不做）**刻意同色** —— 配色不得暗示哪個「比較好」。
+   *
+   * @param {string} tag - outcomeTag（新舊語意皆可）。
+   * @returns {string} CSS 色值。
+   */
   function segColor(tag) {
-    if (tag === 'stayed_disciplined') return cssVar('--cyan-active');
-    if (tag === 'timed_out') return cssVar('--zone-clear');
-    return cssVar('--zone-strain'); // broke_discipline / no_action_taken
+    return isDisciplined(tag) ? cssVar('--zone-clear') : cssVar('--zone-strain');
   }
 
   // momentum strip：最近 N 次收束（鏡射 domain selectRecentOutcomes），最右＝本次高亮。
