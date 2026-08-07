@@ -628,6 +628,20 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
   <script src="/preview/v6/stardust.js?v=sd2"></script>
 
+  <!-- MediaPipe FaceMesh：本頁原本沒有，掃描因此永遠停在 Tier B（取景啟發式）。
+       載了之後 readiness-scan 會拿到 landmark，帶來兩件事：① 星塵吃得到表情
+       ② 讀數升到 Tier A（stillness 改用 landmark 位移、confidence 才可能到 high、
+       blinkCadence 才可能非 null）。載不到時 faceMeshAvailable() 回 false，
+       模組自動退回 Tier B —— 與現況完全相同，不會壞。
+       camera_utils 不載：readiness-scan 自己管相機（見 startCamera），
+       多一支只會多一份 iOS 記憶體壓力。 -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <!-- 眨眼節奏的單一家（門檻與換算都住這裡，呼叫端不得自己重寫比值）。
+       ⚠️ 有它才會啟動計數，但 blinkCadence 仍需要一份 soul-enroll 賺到的基線；
+       iOS 主畫面 PWA 與 Safari 分頁儲存不共用，所以在 PWA 裡要重做一次
+       /preview/ 的 soul-enroll 才會有（PLAYBOOK §4）。 -->
+  <script src="/preview/blink-cadence.js?v=blink2"></script>
+
   <!-- 正典 Soul Scan 模組：與 /v3/ 共用同一支（一個掃描，多道門）。絕對路徑不依賴
        /decision-alert/(.*) 的 rewrite。必須排在 decision-alert.js 之前 ——
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
