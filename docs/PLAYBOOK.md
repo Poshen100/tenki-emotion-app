@@ -92,8 +92,10 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | Vercel 部署驗證 | 部署有 protection，匿名 WebFetch 會 403；分支 preview 連結在 PR 頁的 Vercel bot 留言 |
 | **要給 founder 驗收網址時** | **永遠從 PR 頁的 Vercel bot 留言讀網址，不要用分支名自己拼。** preview 子網域是 DNS label，上限 63 字元，超過時 Vercel 會**截斷分支名再插一段 hash**——拼出來的網址在瀏覽器是「找不到伺服器」，而 founder 只會看到你給錯連結。2026-08-05 實例：`tenki-emotion-app-git-claude-structure-watch-chenposhens-projects`（65 字）拼錯，真值是 `...-git-claude-struct-7775e3-...`。取得方式：`pull_request_read(get_comments)` 找 `vercel[bot]` 那則 |
 | 分支名要當 preview 網址用時 | 名字取短。`claude/<主題>` 的主題超過約 20 字元就會觸發上面的截斷+hash |
-| 外部服務（TradingView / Stripe / GitHub webhook）打我們的 API「完全沒反應」 | **先查 Deployment Protection，不要先 debug 程式。** Vercel SSO 在 **edge** 就擋掉匿名請求 → 函式沒被叫到 → **runtime log 一片乾淨**，看起來像沒人打過。診斷法：`get_runtime_logs(group_by: 'requestPath')`——只看到瀏覽器自己的 GET、零筆該有的 POST，就是被擋在門外（瀏覽器帶著 SSO cookie 當然會通，那不是證據）。修法是 Protection Bypass for Automation 密鑰放進 query，見 `docs/TRADINGVIEW-SETUP.md` §1 ② |
-| 判斷「正式站有沒有被保護」 | 看 `ssoProtection.deploymentType`。`all_except_custom_domains` + **專案沒有自訂網域** ＝ 連 production 的 `*.vercel.app` 都在牆後。`get_project` 看 domains 是不是全是 `*.vercel.app`，別假設 production 一定公開 |
+| 外部服務（TradingView / Stripe / GitHub webhook）打我們的 API「完全沒反應」 | **先確認對方填的網址是完整的那一條，再懷疑基礎設施。** 2026-08-06 實例：一路懷疑 Deployment Protection、關 SSO、生 bypass 密鑰，真因是 TradingView 存著一條**不完整的舊連結** → `POST /api/alert` 打得進來、被我們自己回 **400**。診斷順序：① 頁面「測試這條連結」（`credentials:'omit'` 打自己，穿得過就不是牆的問題）② 觸發一次真的快訊，`get_runtime_logs` 立刻看狀態碼 ③ 才輪到保護設定 |
+| `get_runtime_logs` 查不到東西 | **查不到 ≠ 沒發生。Vercel runtime log 沒有長時間歷史。** 實測 `since` 給 2h / 6h / 24h 回的計數**一模一樣**，全都只涵蓋最近很短一段，而且有一兩分鐘的 ingestion 延遲（頁面正在輪詢，查 6h 卻回空表）。**絕不可**拿「寬視窗查空」當成「請求沒進來」的證據——2026-08-05 就是這樣把整條根因推論建在沙上。要用它就查**剛剛才發生**的事，並且先做一個已知會產生 log 的動作當對照組 |
+| 判斷「正式站有沒有被保護」 | **不要從 `ssoProtection.deploymentType` 推論，直接量。** `all_except_custom_domains`（UI 上叫 Standard Protection）豁免的是**正式站網址本身**，不是只有自訂網域——即使專案零自訂網域，`<project>.vercel.app` 仍是匿名可達的。**被保護的是分支 preview。** 量法：`credentials:'omit'` 打一個已知會回 405 的端點，到得了就沒被擋 |
+| iOS「加入主畫面」的 PWA 與 Safari 分頁 | **localStorage 不共用，是兩個獨立的儲存空間。** 2026-08-06 一天內踩兩次：① 從主畫面開 TENKI 後 `ch=` 變成全新頻道，TradingView 還指著 Safari 那組舊的 → 快訊進了看不到的頻道 ② 在 Safari 做過的 soul-enroll 眨眼基線（`tenki.baseline.blink`），PWA 裡讀不到 → `blinkCadence` 又回到 `null`。**規則：任何「在手機上重現」的驗收，先問清楚是分頁還是主畫面 app，兩邊的 localStorage 狀態要分開推理。** web push 只有主畫面 app 能用（iOS 16.4+），所以推播相關的驗收一律在 PWA 那側 |
 | push 前 | commit-per-todo（CLAUDE.md 硬規則）；`git push -u origin <branch>`，網路失敗指數退避重試 |
 
 ## 5. CI / 工具鏈陷阱
