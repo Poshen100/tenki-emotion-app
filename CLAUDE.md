@@ -172,6 +172,8 @@ refactor(session): extract timer segment logic
 - **固定網址只反映 `main`**：`/v3/` 看最新 v3 UI、`/preview/` 看 onboarding；根網址 `/` 會 307 redirect 到 `/story/`（#152 起，Hero 正式門面）。
 - 想在手機瀏覽器看到的東西做在 `apps/preview/`；`apps/mobile` 沒有公開網址，不要編造 Expo/TestFlight 連結。
 - merge 前預覽：GitHub PR 頁的 Vercel bot 留言有分支 preview 連結。
+  **推了 preview 改動就必須主動附上可直接點的實走網址**（含路徑，founder 2026-08-07 指示）——
+  沒附等於沒做完。取得法與備援（`list_deployments` 的 `meta.branchAlias`）見 `docs/PLAYBOOK.md` §4。
 - 新增 route 時要同步更新 `docs/DEPLOYMENT_MAP.md` + `.json`。
 
 ## Session 結束時
