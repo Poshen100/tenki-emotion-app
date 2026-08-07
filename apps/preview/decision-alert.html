@@ -621,10 +621,17 @@
     <div class="timer-update" id="timerUpdate"></div>
   </div>
 
+  <!-- 星塵核心（North Star §4「內核 = 星塵靈魂」）。本頁沒有 #universe，所以
+       stardust.js 的 auto-init 會找不到容器直接 return —— 掛載由 readiness-scan.js
+       在掃描開始時主動發起。三者都是漸進增強：CDN 被擋或 WebGL 不可用時，
+       掃描仍然照常完成，只是沒有粒子。 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+  <script src="/preview/v6/stardust.js?v=sd2"></script>
+
   <!-- 正典 Soul Scan 模組：與 /v3/ 共用同一支（一個掃描，多道門）。絕對路徑不依賴
        /decision-alert/(.*) 的 rewrite。必須排在 decision-alert.js 之前 ——
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
-  <script src="/preview/readiness-scan.js?v=rs3"></script>
+  <script src="/preview/readiness-scan.js?v=rs4"></script>
   <script src="decision-alert.js?v=alert24"></script>
 </body>
 </html>
