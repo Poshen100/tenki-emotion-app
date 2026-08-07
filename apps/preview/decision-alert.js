@@ -1189,9 +1189,13 @@
     catchUp: false,
     // Vercel Deployment Protection 的 bypass query（如 'x-vercel-protection-bypass=xxx'）。
     // 這個部署有 SSO 保護時，匿名的 TradingView POST 會在 edge 就被擋掉、根本進不到
-    // /api/alert（2026-08-05：六小時 runtime log 只有本頁自己的輪詢，零筆 POST）。
-    // TradingView 不能帶自訂 header，所以官方解法是把同一組密鑰放進 query。
-    // 專案沒開 Protection Bypass for Automation 時是 null → 網址跟以前一模一樣。
+    // /api/alert。TradingView 不能帶自訂 header，所以官方解法是把同一組密鑰放進 query。
+    // 專案沒開 Protection Bypass for Automation 時是空字串 → 網址跟以前一模一樣。
+    //
+    // ⚠️ 範圍更正（2026-08-06）：實際被保護的只有**分支 preview**。正式站
+    // （<project>.vercel.app）即使 SSO 開著也匿名可達 —— Standard Protection
+    // 豁免的是正式站網址本身，不是只有自訂網域。此處原本的註解宣稱正式站也在牆後，
+    // 那是錯的（見 docs/PLAYBOOK.md §4）。
     bypassQuery: '',
   };
 

@@ -9,6 +9,68 @@
 
 ---
 
+# 2026-08-06 Session Update #50 (TradingView 快訊全鏈路打通 + #217/#219 合上 main 待實走)
+
+> 這一輪最重要的不是修好了什麼，是**我用錯誤的證據建了一整條根因推論**，而且它已經寫進
+> 文件與 commit message 才被推翻。下面第一段比什麼都值得先讀。
+
+## ⚠️ 我這輪錯了兩次，兩次都是「把查不到當成沒發生」
+
+**錯誤一：宣稱正式站在部署保護牆後。** 依據是 `ssoProtection.deploymentType` 是
+`all_except_custom_domains` 而專案零自訂網域，於是推論 production 的 `*.vercel.app` 也被保護。
+**實測推翻**：SSO 維持開啟、webhook 連結裡沒有任何 bypass 密鑰，一個 `credentials:'omit'`
+的請求仍然打進函式拿到 405。Standard Protection 豁免的是**正式站網址本身**。
+被保護的只有分支 preview。
+
+**錯誤二（更根本）：拿 `get_runtime_logs` 的空結果當證據。** #220 的 PR 內文寫著
+「六小時 log 只有輪詢、`POST /api/alert` 零筆」。事後量：`since` 給 2h / 6h / 24h
+回的計數**完全一樣**，全都只涵蓋最近很短一段，而且有 1–2 分鐘 ingestion 延遲
+（頁面明明正在輪詢，查 6h 卻回空表）。**這個工具沒有長時間歷史，查不到 ≠ 沒發生。**
+
+兩條都已提煉進 `docs/PLAYBOOK.md` §4，並更正 `docs/TRADINGVIEW-SETUP.md` §1/§5
+與 `api/_lib/http.ts`、`apps/preview/decision-alert.js` 裡帶著同一個錯誤宣稱的註解。
+
+## 真正的原因，以及它是怎麼被找到的
+
+TradingView 那格存的是一條**不完整的舊連結** → `POST /api/alert` **有打進來**、
+被我們自己回 **400**。找到它的方法是放棄推論、去觸發一次真的快訊然後立刻看 log：
+`03:39:39 POST /api/alert 400`。`/api/alert` 只有兩個 400 出口（`ch` 格式、缺 `symbol`），
+把頁面新產生的連結全選覆蓋貼回去就同時解掉。
+
+之後 `04:03:51 POST /api/alert 200` + `[push] subscriptions=1 sent=1 failed=0` ——
+**TradingView → /api/alert → 鎖屏推播全鏈路通了**，網頁關著也收得到。
+
+## iOS PWA 與 Safari 分頁的 localStorage 不共用（一天踩兩次）
+
+① 從主畫面開 TENKI 後 `ch=` 變成全新頻道，TradingView 還指著 Safari 那組舊的。
+② 在 Safari 做過的 soul-enroll 眨眼基線（`tenki.baseline.blink`）在 PWA 裡讀不到。
+
+**對下一輪的直接影響**：#217 說「下一輪實走 `blinkCadence` 應該不再是 null」——
+**那個前提在 PWA 裡不成立**。要拿到第二個獨立維度，得在 PWA 裡重做一次 `/preview/` soul-enroll。
+**帶位門檻這輪不要拍板**（只有「動不動」一個維度，會重蹈 S2 那次校準作廢）。
+
+## #217 / #219 合上 main
+
+兩條都落後 main 6 個 commit（#220）。衝突只有 `apps/preview/decision-alert.html`
+的 `<script>` 區塊，`decision-alert.js` 與 `PLAYBOOK.md` 都自動合得起來。
+快取字串：#217 → `alert22`、#219 → `alert23`。`verify.sh --quick` 兩條都全綠。
+
+**⚠️ 驗證能力退化了**：#217/#219 當初那些 27/19/17/13 斷言的 Playwright harness
+（`readiness-lighting.mjs` / `structure-watch.mjs` …）**活在 session scratchpad，已隨容器消失**，
+repo 裡沒有。現在這兩條 PR 除了語法檢查之外**只剩 founder 手機實走**這一道關。
+要不要把 harness 補進 `scripts/` 是待決定的事。
+
+## 下次接手點
+
+- **等 founder 實走 #217（掃描鈕 → 真讀數 → 夜間再掃一次）與 #219（10 秒判定進場 → 完成率 100%）**，
+  過了才 merge，順序 #217 → #219。
+- 之後是 **S3 星塵統一**（founder 已拍板「先量測後星塵」）：`readiness-scan.js` 目前
+  **完全沒有星塵**（零 THREE / 零 TENKI_STARDUST，只注入自己的極簡精密框）。
+  障礙：decision-alert.html 要補 three.js + stardust.js、`#universe` id 衝突、
+  takeover 是重度耦合 v6 DOM 的 IIFE、且碰 CLAUDE.md 硬線「星塵感覺不能改」。
+- 未做但已識別：`/api/alert` 回 400 時應把 validation errors 寫進 log
+  （這次要讀原始碼才知道被拒原因）。
+
 # 2026-08-04 Session Update #49 (交易者流程重構：計時器 → 結構守望 + 日界 domain)
 
 > 起於 founder 的一句話：「交易者可能用桌機或筆電下單，也可能另外點開手機的交易 APP」。

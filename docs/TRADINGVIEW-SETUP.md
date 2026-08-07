@@ -13,27 +13,36 @@
 
 > 沒開通時所有端點會回明確的 500 訊息（不會靜默壞掉）。舊版的 `ALERT_INGEST_TOKEN` 已不再使用，設了也不會被讀。
 
-**② 開 Protection Bypass for Automation**：Settings → **Deployment Protection** → 捲到 **Protection Bypass for Automation** → **Add Secret** → Save → Redeploy 一次。
+**② 開 Protection Bypass for Automation**（**只有要在 preview 分支上收快訊時才需要**）：
+Settings → **Deployment Protection** → 捲到 **Protection Bypass for Automation** → **Add Secret**
+→ Save → Redeploy 一次。
 
-> ### ⚠️ 沒做這一步，快訊會**完全靜默地**收不到
+> ### 正式站不需要這一步（2026-08-06 更正）
 >
-> 本專案的 Vercel Authentication（SSO）目前是 `all_except_custom_domains`，而專案底下
-> **沒有任何自訂網域** —— 也就是說 `tenki-emotion-app.vercel.app`（正式站）和所有分支 preview
-> **全部都在保護牆後面**。TradingView 是匿名 POST、又不能帶自訂 header，於是在 **edge 就被擋掉**，
-> 請求根本不會進到 `/api/alert`。
+> **`tenki-emotion-app.vercel.app`（正式站）是匿名可達的**，即使 Vercel Authentication 開著、
+> `deploymentType` 是 `all_except_custom_domains`。Standard Protection 豁免的是**正式站網址本身**，
+> 不是只有自訂網域。
 >
-> 這個失敗模式最惡毒的地方是它**不留痕跡**：Vercel runtime log 裡看不到任何 4xx/5xx（因為函式沒被叫到），
-> TENKI 頁面照樣顯示「接收中」（那是本頁自己的輪詢，帶著你的登入 cookie，當然會通），
-> TradingView 那邊也顯示 alert 已觸發。三邊都說「正常」，快訊就是不見。
-> **2026-08-05 實例**：ES1! alert 有觸發、有推播，六小時 runtime log 只有 `GET /api/alerts`，
-> `POST /api/alert` 零筆。
+> **實測證據（2026-08-06）**：SSO 維持 `enabled: true`、webhook 連結裡**沒有任何 bypass 密鑰**，
+> 一個 `credentials: 'omit'`（不帶登入 cookie）的請求仍然打進了函式 —— runtime log 出現
+> `GET /api/alert 405`，之後 TradingView 的真實 webhook 也拿到 `POST /api/alert 200`。
+>
+> **被保護的是分支 preview**（`...-git-<branch>-....vercel.app`）。要在 merge 前用 TradingView
+> 實測 preview，才需要這個密鑰。
 >
 > 密鑰存在後，`/api/channel` 會自動把 `&x-vercel-protection-bypass=…` 烤進頁面產生的 webhook 連結
 > ——**不用手貼**，但既有的舊連結要回頁面重新複製一次。
 >
 > 密鑰在網址裡＝看得到螢幕的人就拿得到。截圖分享那條連結時**要連 `ch=` 一起遮掉**（本來就該遮）。
+
+> ### ⚠️ 本檔曾經寫錯，錯的方向值得記住
 >
-> 若之後改用自訂網域，這一步就不再必要（自訂網域不受 SSO 保護），但留著也無害。
+> 2026-08-05 這裡寫著「正式站也在牆後，不做這步會完全靜默地收不到」。**那是錯的**，
+> 並且讓一整輪除錯走向錯的方向（去關 SSO、去生密鑰），真正的原因完全在別處（見 §5）。
+>
+> 錯誤的來源是把 `get_runtime_logs` 的空結果當成「請求沒進來」的證據。
+> **Vercel runtime log 沒有長時間歷史** —— 2、6、24 小時三個視窗回的是一模一樣的計數，
+> 全都只涵蓋最近很短一段。查不到 ≠ 沒發生。
 
 **驗證有沒有設好**：`/decision-alert/` → 連接 TradingView → 按「**測試這條連結**」。
 它會用 TradingView 的身分（`credentials: 'omit'`，不帶你的登入 cookie）打一次自己的 webhook URL，
@@ -154,10 +163,16 @@ TradingView 原生推播的觀感：JSON 模式推播含代碼，乾淨模式零
 
 ## 5. 測試
 
-- **先按「測試這條連結」**（§1 末）。沒過就不用等 K 棒了 —— 十之八九是 §1 ② 沒做。
-- **正式站與 preview 一視同仁**：SSO 是 `all_except_custom_domains` 且無自訂網域，所以
-  `tenki-emotion-app.vercel.app` 跟分支 preview **一樣需要** §1 ② 的 bypass 密鑰。
-  （舊版本檔誤寫成「只有 preview 分支要」，2026-08-05 因此浪費了一整輪除錯 —— 已更正。）
+- **先按「測試這條連結」**（§1 末）。沒過就不用等 K 棒了。
+- **測試通過但快訊還是沒來 → 檢查 TradingView 那格網址是不是完整的。**
+  這是 2026-08-06 真正的原因：TradingView 裡存的是一條**不完整的舊連結**，
+  `POST /api/alert` 有打進來、但被我們自己回了 **400**。`/api/alert` 只有兩個 400 出口：
+  `ch` 不是 32–64 個十六進位字元，或 payload 缺 `symbol`（`domain/src/schemas/alert-schema.ts`
+  唯一的必填欄位）。修法不用分辨是哪一個 —— 回頁面按「複製連結」，在 TradingView
+  **全選覆蓋**再套用，兩個原因一起解掉。
+  > 訊息是純文字（例如 `ES1! 下穿 7,762.00`）**不是**問題 —— 純文字會變成 `note` 欄位，那是刻意設計，
+  > 讓 TradingView 自己的推播在鎖屏上顯示人話。
+- **正式站不需要 bypass 密鑰**（見 §1 ②）。要在**分支 preview** 上實測才需要。
 - **不碰 TradingView 的乾測**（把 `ch=` 換成你頁面產生的連結裡那串）：
   ```bash
   curl -X POST 'https://tenki-emotion-app.vercel.app/api/alert?ch=你的頻道id' \

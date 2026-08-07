@@ -35,13 +35,19 @@ export const PROTECTION_BYPASS_QUERY_KEY = 'x-vercel-protection-bypass';
  * one generated.
  *
  * Why this exists: Vercel Deployment Protection (SSO) rejects anonymous
- * requests **at the edge**, before any function runs — so a TradingView
- * webhook POST never reaches `/api/alert` and leaves no runtime log at all
- * (2026-08-05: six hours of logs showed only the browser's own polling,
- * zero POSTs). TradingView cannot send custom headers, so the documented
- * escape hatch is the same secret carried as a query parameter. Baking it
- * into the generated webhook URL keeps the user from having to paste it by
- * hand.
+ * requests **at the edge**, before any function runs, so an anonymous
+ * webhook POST to a protected deployment never reaches `/api/alert`.
+ * TradingView cannot send custom headers, so the documented escape hatch is
+ * the same secret carried as a query parameter. Baking it into the generated
+ * webhook URL keeps the user from having to paste it by hand.
+ *
+ * Scope correction (2026-08-06): this only matters for **branch previews**.
+ * The production alias is anonymously reachable even with SSO enabled —
+ * `all_except_custom_domains` exempts the production URL itself, not just
+ * custom domains (measured: a cookie-less request reached the function and
+ * got its 405 while SSO was on and no secret existed). An earlier version of
+ * this comment claimed production was walled too; that was wrong and sent a
+ * whole debugging round in the wrong direction. See docs/PLAYBOOK.md §4.
  *
  * Returns null when no secret is provisioned, in which case the webhook URL
  * is built exactly as before — this is inert until the founder generates the
