@@ -147,6 +147,28 @@ async function scanAndCancel(page) {
   await ctx.close();
 }
 
+// ── 2b. Progress Halo：結構、conic 寫入、以及 SECURED 不得殘留到下一輪 ──
+{
+  const { ctx, page } = await newPage();
+  await page.evaluate(() => {
+    window.TENKI_READINESS_SCAN.begin({ mission: 'decision' });
+  });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+  check('halo 在 frame 內',
+    await page.evaluate(() => !!document.querySelector('#tenki-readiness-scan .rs-frame > .rs-halo')), true);
+  check('halo 用 conic-gradient 畫進度',
+    await page.evaluate(() => (document.querySelector('#tenki-readiness-scan .rs-halo').style.background || '').includes('conic-gradient')), true);
+
+  // 模擬「上一輪收束成 SECURED」的殘留狀態，再開新的一輪。
+  await page.evaluate(() => document.querySelector('#tenki-readiness-scan .rs-frame').classList.add('secured'));
+  await page.click('#tenki-readiness-scan .rs-cancel');
+  await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }); });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+  check('新一輪開場不得殘留 SECURED 金框',
+    await page.evaluate(() => document.querySelector('#tenki-readiness-scan .rs-frame').classList.contains('secured')), false);
+  await ctx.close();
+}
+
 // ── 3. reduced-motion：完全不掛 ──
 {
   const { ctx, page } = await newPage({ reducedMotion: 'reduce' });

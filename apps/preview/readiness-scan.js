@@ -73,6 +73,11 @@
   /** 星塵表情的正規化除數 —— 沿用 takeover 已調過的值，改動＝改星塵手感。 */
   var MOUTH_OPEN_DIVISOR = 0.05;
   var BROW_SPAN_DIVISOR = 0.22;
+  /** 收束曲線與色值：對齊 tokens.css 的 --ease-secure / --cyan-active / --gold-secured。
+   *  這裡寫字面值而不是 var()，因為本模組自帶樣式、不假設 host 載了 tokens.css。 */
+  var EASE_SECURE = 'cubic-bezier(0.19,1,0.22,1)';
+  var HALO_ACTIVE = '#22D3EE';
+  var HALO_SECURED = '#FFD46E';
   /** 取景範圍：臉框邊長與置中容差。 */
   var FACE_SIZE_MIN = 0.30;
   var FACE_SIZE_MAX = 0.65;
@@ -139,15 +144,20 @@
       'text-transform:uppercase;color:#A6ADC8;}',
       '#' + OVERLAY_ID + ' .rs-symbol{font-size:13px;color:#3DE0FF;letter-spacing:0.08em;}',
       '#' + OVERLAY_ID + ' .rs-symbol:empty{display:none;}',
-      // 掃描框：圓角超橢圓 + cyan 角括號＝ACTIVE（對齊中）。S3 會在此疊 gold 收束層。
+      // 掃描框：圓角超橢圓 + cyan＝ACTIVE（對齊中）；收束時整組轉 gold＝SECURED。
       '#' + OVERLAY_ID + ' .rs-frame{position:relative;width:236px;height:236px;',
-      'border-radius:64px;border:1px solid rgba(61,224,255,0.28);}',
+      'border-radius:64px;border:1px solid rgba(61,224,255,0.28);',
+      'transition:border-color 0.3s ' + EASE_SECURE + ',box-shadow 0.3s ' + EASE_SECURE + ';}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured{border-color:rgba(255,212,110,0.85);',
+      'box-shadow:0 0 24px rgba(255,212,110,0.28);}',
+      // Progress Halo（North Star §4）：沿臉框逐段閉合的光弧，取代原本的 2px 直線。
+      // conic-gradient + radial mask 是 takeover 已在實機驗過的作法
+      // （stardust-scan-takeover.css:311-328），不另發明。
+      '#' + OVERLAY_ID + ' .rs-halo{position:absolute;inset:-14px;border-radius:50%;',
+      'pointer-events:none;background:conic-gradient(#22D3EE 0%,transparent 0%);',
+      '-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#fff calc(100% - 2px));',
+      'mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#fff calc(100% - 2px));}',
       '#' + OVERLAY_ID + ' .rs-instruction{font-size:17px;font-weight:600;min-height:24px;}',
-      // 進度只在品質閘門通過時前進（pause-not-reset）。S3 會用 gold halo 取代這條。
-      '#' + OVERLAY_ID + ' .rs-progress{width:236px;height:2px;border-radius:2px;',
-      'background:rgba(255,255,255,0.10);overflow:hidden;}',
-      '#' + OVERLAY_ID + ' .rs-progress i{display:block;height:100%;width:0%;',
-      'background:#3DE0FF;transition:width 0.18s linear;}',
       '#' + OVERLAY_ID + ' .rs-dots{display:flex;gap:14px;font-size:10px;color:#5A6178;',
       'letter-spacing:0.1em;text-transform:uppercase;}',
       '#' + OVERLAY_ID + ' .rs-dot{display:flex;align-items:center;gap:5px;}',
@@ -173,9 +183,8 @@
       '<div class="rs-stage">',
       '  <div class="rs-mission" data-rs="mission"></div>',
       '  <div class="rs-symbol" data-rs="symbol"></div>',
-      '  <div class="rs-frame" data-rs="frame"></div>',
+      '  <div class="rs-frame" data-rs="frame"><div class="rs-halo" data-rs="halo"></div></div>',
       '  <div class="rs-instruction" data-rs="instruction"></div>',
-      '  <div class="rs-progress"><i data-rs="progress"></i></div>',
       '  <div class="rs-dots">',
       '    <span class="rs-dot" data-rs="dot-light"><i></i>Lighting</span>',
       '    <span class="rs-dot" data-rs="dot-center"><i></i>Centering</span>',
@@ -211,9 +220,23 @@
     node.classList.toggle('fail', pass === false);
   }
 
-  function setProgress(ratio) {
-    var node = q('progress');
-    if (node) node.style.width = Math.round(clamp01(ratio) * 100) + '%';
+  /**
+   * 推進 Progress Halo。
+   *
+   * 每次取樣（~15fps）直接重寫 conic-gradient，不下 transition —— background 的
+   * 補間本來就不平滑，而且進度是「品質閘門通過才前進」的 pause-not-reset 語意：
+   * 停住的時候就該看得出來停住了，補間會把那個事實抹掉（MOTION-DIRECTION 鐵律 1
+   * 誠實動效）。
+   *
+   * @param {number} ratio - 0..1。
+   * @param {boolean} [secured] - true 時用 gold（SECURED），否則 cyan（ACTIVE）。
+   */
+  function setProgress(ratio, secured) {
+    var node = q('halo');
+    if (!node) return;
+    var pct = Math.round(clamp01(ratio) * 100);
+    var color = secured ? HALO_SECURED : HALO_ACTIVE;
+    node.style.background = 'conic-gradient(' + color + ' ' + pct + '%,transparent 0%)';
   }
 
   // ── 量測（逐幀取樣 → evidence）──
@@ -635,7 +658,12 @@
       evidence: evidence,
     };
     saveReading(reading);
-    setProgress(1);
+    // SECURED 拍子：光弧閉合 + 整組轉 gold。只在**真的有讀數**時才下 ——
+    // gold 在視覺世界規則裡代表 baseline locked / calibrated，訊號不足那條路
+    // （giveUp）不得使用，否則等於用顏色宣稱一個不存在的結果。
+    setProgress(1, true);
+    var frame = q('frame');
+    if (frame) frame.classList.add('secured');
     setInstruction(BAND_LABEL[reading.band] + ' · ' + CONFIDENCE_LABEL[reading.confidence]);
     setTimeout(function () { finish(reading); }, REVEAL_MS);
   }
@@ -791,6 +819,11 @@
     setInstruction('正在啟動相機⋯');
     ['light', 'center', 'still'].forEach(function (name) { setDot(name, null); });
     q('cancel').hidden = false; // 上一輪揭示時收起過
+    // overlay 是 hide 不是 remove，所以上一輪的 SECURED 狀態會留著 —— 必須清掉，
+    // 否則第二次掃描一開場就頂著金框，等於還沒量就宣稱鎖定了。
+    var frameEl = q('frame');
+    if (frameEl) frameEl.classList.remove('secured');
+    setProgress(0);
     overlay.classList.add('open');
 
     return new Promise(function (resolve) {
@@ -810,7 +843,6 @@
         lmAcc: { n: 0, stillness: 0 },
         stardust: false,
       };
-      setProgress(0);
       var video = overlay.querySelector('.rs-video');
       startCamera(video).then(function (stream) {
         if (!session) return; // 啟動中被取消
