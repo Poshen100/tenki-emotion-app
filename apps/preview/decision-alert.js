@@ -327,6 +327,7 @@
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveUrlWarn', 'liveCopy', 'liveReset',
     'liveSymbol', 'liveTimeframe', 'liveStrategy',
     'livePushRow', 'livePushBtn', 'livePushStatus',
+    'liveSelfTest', 'liveSelfTestResult',
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
     'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
     'resToggle', 'resChevron', 'resBody', 'resShowHistory', 'resShowRecap', 'resShowReflect',
@@ -1186,9 +1187,26 @@
     sinceMs: 0,
     seenIds: {},
     catchUp: false,
+    // Vercel Deployment Protection 的 bypass query（如 'x-vercel-protection-bypass=xxx'）。
+    // 這個部署有 SSO 保護時，匿名的 TradingView POST 會在 edge 就被擋掉、根本進不到
+    // /api/alert（2026-08-05：六小時 runtime log 只有本頁自己的輪詢，零筆 POST）。
+    // TradingView 不能帶自訂 header，所以官方解法是把同一組密鑰放進 query。
+    // 專案沒開 Protection Bypass for Automation 時是 null → 網址跟以前一模一樣。
+    bypassQuery: '',
   };
 
   function getChannel() { return localStorage.getItem(CHANNEL_KEY) || ''; }
+
+  // 向 server 問這個部署的 bypass query。既有頻道不用重新配對就能補上。
+  function loadBypassQuery() {
+    // no-store：密鑰是「之後才會出現」的東西，不能讓瀏覽器把「還沒有」那一版快取住。
+    return fetch('/api/channel', { method: 'GET', cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        live.bypassQuery = (data && typeof data.bypassQuery === 'string') ? data.bypassQuery : '';
+      })
+      .catch(function () { live.bypassQuery = ''; });
+  }
 
   function loadLastSeen(channelId) {
     return Number(localStorage.getItem(LASTSEEN_PREFIX + channelId)) || 0;
@@ -1232,6 +1250,7 @@
     if (f.symbol) url += '&symbol=' + encodeURIComponent(f.symbol);
     if (f.timeframe) url += '&timeframe=' + encodeURIComponent(f.timeframe);
     if (f.strategy) url += '&strategy=' + encodeURIComponent(f.strategy);
+    if (live.bypassQuery) url += '&' + live.bypassQuery;
     return url;
   }
 
@@ -1348,12 +1367,19 @@
     live.pollTimer = setInterval(function () { pollOnce(channelId); }, POLL_INTERVAL_MS);
   }
 
+  var bypassAsked = false;
+
   function renderLive() {
     var channelId = getChannel();
     if (channelId) {
       el.liveSetup.setAttribute('hidden', '');
       el.liveReady.removeAttribute('hidden');
       renderWebhookUrl();
+      if (!bypassAsked) {
+        bypassAsked = true;
+        // 問完再重畫一次網址 —— 拿不到就維持原樣，不擋任何流程。
+        loadBypassQuery().then(renderWebhookUrl);
+      }
       syncChannelSymbol(); // 開頁即把目前標的綁成頻道預設（既有頻道也回填）
       startPolling(channelId); // 有連結就自動接收，零動作
     } else {
@@ -1496,6 +1522,51 @@
       done();
     }
   });
+
+  // 「測試這條連結」：用 TradingView 的身分打一次自己的 webhook URL。
+  //
+  // 為什麼要 credentials:'omit' —— 這頁自己輪詢 /api/alerts 會通，是因為瀏覽器帶著
+  // Vercel SSO 的登入 cookie；TradingView 沒有那顆 cookie，會在 edge 就被擋掉。
+  // 不拆掉 cookie 的測試只會測到「我登入了」，測不出 TradingView 的處境。
+  //
+  // 探針用 GET：/api/alert 的第一道檢查就是 method，會回 405 JSON。到得了那個 405
+  // 就代表請求穿過了保護層（而且不會寫進任何一筆快訊、不污染紀錄）。收到別的東西
+  // ——轉址、HTML 登入頁、401——就是被保護層擋在門外。
+  function runWebhookSelfTest() {
+    var url = el.liveUrl.textContent;
+    if (!url) return;
+    el.liveSelfTest.disabled = true;
+    el.liveSelfTestResult.textContent = '測試中…';
+    fetch(url, { method: 'GET', credentials: 'omit', redirect: 'manual', cache: 'no-store' })
+      .then(function (res) {
+        if (res.status === 405) return res.json().then(function () { return null; });
+        if (res.status === 0 || res.type === 'opaqueredirect') {
+          return '被部署保護擋下（轉址到登入頁）—— TradingView 送來的快訊也會這樣消失。修法見 docs/TRADINGVIEW-SETUP.md §1。';
+        }
+        if (res.status === 401 || res.status === 403) {
+          return '被部署保護擋下（' + res.status + '）—— TradingView 送來的快訊也會這樣消失。修法見 docs/TRADINGVIEW-SETUP.md §1。';
+        }
+        return '回了非預期的 ' + res.status + ' —— 這條連結不能用。';
+      })
+      .then(function (problem) {
+        if (problem) {
+          // 分辨「密鑰沒進到這個部署」與「密鑰有了但仍被擋」—— 兩者的下一步不同，
+          // 只說「被擋下」會讓人反覆重試同一件事。
+          var cause = live.bypassQuery
+            ? '這個部署有 bypass 密鑰，但仍被擋 —— 密鑰可能已失效或被撤銷。'
+            : '這個部署讀不到 bypass 密鑰（VERCEL_AUTOMATION_BYPASS_SECRET 未注入）—— 密鑰沒生成、沒勾「設為環境變數」，或生成後還沒重新部署。';
+          el.liveSelfTestResult.textContent = '❌ ' + problem + ' ' + cause;
+        } else {
+          el.liveSelfTestResult.textContent = '✅ 這條連結通到 TENKI —— TradingView 可以送達（沒有寫入任何快訊）。';
+        }
+      })
+      .catch(function () {
+        el.liveSelfTestResult.textContent = '❌ 連不上 —— 多半是被部署保護擋在門外。修法見 docs/TRADINGVIEW-SETUP.md §1。';
+      })
+      .then(function () { el.liveSelfTest.disabled = false; });
+  }
+
+  el.liveSelfTest.addEventListener('click', runWebhookSelfTest);
 
   el.liveToggle.addEventListener('click', function () {
     var hidden = el.liveBody.hasAttribute('hidden');
