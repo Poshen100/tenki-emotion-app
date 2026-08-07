@@ -104,6 +104,12 @@
       -webkit-user-select: all; user-select: all;
     }
     .live-copy, .live-reset { padding: 10px 0; font-size: 13px; }
+    /* 按鈕與結果文字要「上下堆」不是「左右並排」。放進 .live-row 時，.btn 的
+       flex:1（basis 0）會輸給旁邊 flex-basis:auto 的說明文字 → 按鈕被壓成一條、
+       字直排。這裡不用 flex，按鈕自己吃滿一行。 */
+    .live-selftest-block { margin-top: 8px; }
+    .live-selftest-btn { display: block; width: 100%; padding: 10px 0; font-size: 13px; }
+    .live-selftest-btn:disabled { opacity: 0.5; }
     .live-fields { display: flex; gap: 8px; margin-bottom: 8px; }
     .live-field { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #94A3B8; }
     .live-field input { width: 100%; box-sizing: border-box; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #E5E7EB; font-family: inherit; font-size: 13px; padding: 7px 8px; }
@@ -438,6 +444,10 @@
             <button class="btn btn-primary live-copy" id="liveCopy" type="button">複製連結</button>
             <button class="btn btn-ghost live-reset" id="liveReset" type="button">重設連結</button>
           </div>
+          <div class="live-selftest-block">
+            <button class="btn btn-ghost live-selftest-btn" id="liveSelfTest" type="button">測試這條連結</button>
+            <div class="live-push-hint" id="liveSelfTestResult">用 TradingView 的身分（不帶登入 cookie）打一次這條連結，當場知道通不通。</div>
+          </div>
           <div class="live-push" id="livePushRow" hidden>
             <button class="btn btn-ghost live-push-btn" id="livePushBtn" type="button">🔔 開啟手機推播</button>
             <div class="live-push-hint" id="livePushStatus">關掉網頁也能收到快訊 — 先用分享鈕「加入主畫面」，再回來開啟（iOS 16.4+）。</div>
@@ -606,6 +616,6 @@
        /decision-alert/(.*) 的 rewrite。必須排在 decision-alert.js 之前 ——
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
   <script src="/preview/readiness-scan.js?v=rs3"></script>
-  <script src="decision-alert.js?v=alert19"></script>
+  <script src="decision-alert.js?v=alert22"></script>
 </body>
 </html>

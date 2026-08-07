@@ -12,7 +12,13 @@
  */
 
 import { ALERT_PAYLOAD_MAX_STRING_LENGTH } from '../domain/src/contracts/alert-contract';
-import { getChannelId, getRequestHost, readJsonBody } from './_lib/http';
+import {
+  PROTECTION_BYPASS_QUERY_KEY,
+  getChannelId,
+  getProtectionBypassSecret,
+  getRequestHost,
+  readJsonBody,
+} from './_lib/http';
 import type { VercelRequestLike, VercelResponseLike } from './_lib/http';
 import {
   channelExists,
@@ -25,8 +31,22 @@ export default async function handler(
   req: VercelRequestLike,
   res: VercelResponseLike,
 ): Promise<void> {
+  // `GET /api/channel` exposes only the deployment's Protection Bypass query
+  // suffix, so the page can bake it into an already-registered channel's
+  // webhook URL without re-pairing. Reachable only through the SSO wall that
+  // makes the suffix necessary in the first place — an anonymous caller is
+  // bounced at the edge exactly like the webhook it is meant to unblock.
+  if (req.method === 'GET') {
+    const secret = getProtectionBypassSecret();
+    res.status(200).json({
+      ok: true,
+      bypassQuery: secret === null ? null : `${PROTECTION_BYPASS_QUERY_KEY}=${encodeURIComponent(secret)}`,
+    });
+    return;
+  }
+
   if (req.method !== 'POST') {
-    res.status(405).json({ ok: false, error: 'method not allowed — use POST' });
+    res.status(405).json({ ok: false, error: 'method not allowed — use POST or GET' });
     return;
   }
 
@@ -76,9 +96,14 @@ export default async function handler(
   }
 
   const host = getRequestHost(req);
+  const secret = getProtectionBypassSecret();
+  const bypassQuery =
+    secret === null ? null : `${PROTECTION_BYPASS_QUERY_KEY}=${encodeURIComponent(secret)}`;
+  const baseUrl = host !== null ? `https://${host}/api/alert?ch=${newChannelId}` : null;
   res.status(200).json({
     ok: true,
     channelId: newChannelId,
-    webhookUrl: host !== null ? `https://${host}/api/alert?ch=${newChannelId}` : null,
+    bypassQuery,
+    webhookUrl: baseUrl !== null && bypassQuery !== null ? `${baseUrl}&${bypassQuery}` : baseUrl,
   });
 }
