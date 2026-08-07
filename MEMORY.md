@@ -9,6 +9,160 @@
 
 ---
 
+# 2026-08-06 Session Update #50 (TradingView 快訊全鏈路打通 + #217/#219 合上 main 待實走)
+
+> 這一輪最重要的不是修好了什麼，是**我用錯誤的證據建了一整條根因推論**，而且它已經寫進
+> 文件與 commit message 才被推翻。下面第一段比什麼都值得先讀。
+
+## ⚠️ 我這輪錯了兩次，兩次都是「把查不到當成沒發生」
+
+**錯誤一：宣稱正式站在部署保護牆後。** 依據是 `ssoProtection.deploymentType` 是
+`all_except_custom_domains` 而專案零自訂網域，於是推論 production 的 `*.vercel.app` 也被保護。
+**實測推翻**：SSO 維持開啟、webhook 連結裡沒有任何 bypass 密鑰，一個 `credentials:'omit'`
+的請求仍然打進函式拿到 405。Standard Protection 豁免的是**正式站網址本身**。
+被保護的只有分支 preview。
+
+**錯誤二（更根本）：拿 `get_runtime_logs` 的空結果當證據。** #220 的 PR 內文寫著
+「六小時 log 只有輪詢、`POST /api/alert` 零筆」。事後量：`since` 給 2h / 6h / 24h
+回的計數**完全一樣**，全都只涵蓋最近很短一段，而且有 1–2 分鐘 ingestion 延遲
+（頁面明明正在輪詢，查 6h 卻回空表）。**這個工具沒有長時間歷史，查不到 ≠ 沒發生。**
+
+兩條都已提煉進 `docs/PLAYBOOK.md` §4，並更正 `docs/TRADINGVIEW-SETUP.md` §1/§5
+與 `api/_lib/http.ts`、`apps/preview/decision-alert.js` 裡帶著同一個錯誤宣稱的註解。
+
+## 真正的原因，以及它是怎麼被找到的
+
+TradingView 那格存的是一條**不完整的舊連結** → `POST /api/alert` **有打進來**、
+被我們自己回 **400**。找到它的方法是放棄推論、去觸發一次真的快訊然後立刻看 log：
+`03:39:39 POST /api/alert 400`。`/api/alert` 只有兩個 400 出口（`ch` 格式、缺 `symbol`），
+把頁面新產生的連結全選覆蓋貼回去就同時解掉。
+
+之後 `04:03:51 POST /api/alert 200` + `[push] subscriptions=1 sent=1 failed=0` ——
+**TradingView → /api/alert → 鎖屏推播全鏈路通了**，網頁關著也收得到。
+
+## iOS PWA 與 Safari 分頁的 localStorage 不共用（一天踩兩次）
+
+① 從主畫面開 TENKI 後 `ch=` 變成全新頻道，TradingView 還指著 Safari 那組舊的。
+② 在 Safari 做過的 soul-enroll 眨眼基線（`tenki.baseline.blink`）在 PWA 裡讀不到。
+
+**對下一輪的直接影響**：#217 說「下一輪實走 `blinkCadence` 應該不再是 null」——
+**那個前提在 PWA 裡不成立**。要拿到第二個獨立維度，得在 PWA 裡重做一次 `/preview/` soul-enroll。
+**帶位門檻這輪不要拍板**（只有「動不動」一個維度，會重蹈 S2 那次校準作廢）。
+
+## #217 / #219 合上 main
+
+兩條都落後 main 6 個 commit（#220）。衝突只有 `apps/preview/decision-alert.html`
+的 `<script>` 區塊，`decision-alert.js` 與 `PLAYBOOK.md` 都自動合得起來。
+快取字串：#217 → `alert22`、#219 → `alert23`。`verify.sh --quick` 兩條都全綠。
+
+**⚠️ 驗證能力退化了**：#217/#219 當初那些 27/19/17/13 斷言的 Playwright harness
+（`readiness-lighting.mjs` / `structure-watch.mjs` …）**活在 session scratchpad，已隨容器消失**，
+repo 裡沒有。現在這兩條 PR 除了語法檢查之外**只剩 founder 手機實走**這一道關。
+要不要把 harness 補進 `scripts/` 是待決定的事。
+
+## 下次接手點
+
+- **等 founder 實走 #217（掃描鈕 → 真讀數 → 夜間再掃一次）與 #219（10 秒判定進場 → 完成率 100%）**，
+  過了才 merge，順序 #217 → #219。
+- 之後是 **S3 星塵統一**（founder 已拍板「先量測後星塵」）：`readiness-scan.js` 目前
+  **完全沒有星塵**（零 THREE / 零 TENKI_STARDUST，只注入自己的極簡精密框）。
+  障礙：decision-alert.html 要補 three.js + stardust.js、`#universe` id 衝突、
+  takeover 是重度耦合 v6 DOM 的 IIFE、且碰 CLAUDE.md 硬線「星塵感覺不能改」。
+- 未做但已識別：`/api/alert` 回 400 時應把 validation errors 寫進 log
+  （這次要讀原始碼才知道被拒原因）。
+
+---
+
+# 2026-08-01 Session Update #48 (PR2 S1+S2+S4：正典掃描模組落地，v6 編造的分數全部拔掉)
+
+> 分支 `claude/jie-s2-lyudvk`（S1 原本在 `claude/tradingview-alert-integration-izt1mm`，未 merge；
+> 本分支接在它上面，那條可廢棄）。順序由 founder 拍板改成 **S4 先於 S3**：門檻要實機資料才校準得了，
+> 沒必要先把一個帶位可能是錯的儀式打磨到漂亮。
+
+## 做了什麼（S1 / S2 / S4 各一 commit）
+- **S1** `apps/preview/readiness-scan.js` 骨架：自帶 markup 注入（不依賴 host DOM id）、`begin({mission,symbol})`
+  回 `Promise<ReadinessReading|null>`、z-index 9700 蓋過 v6 的 z9000。
+- **S2** 逐幀量測匯總：64×64 luma → stillness / lighting / uniformity → band + confidence →
+  寫進 `tenki.readiness.reading.v1`。
+- **S4** v6 接線：Scan tab 假鈕（原本只是 `goTab('today')`）改開正典模組；Last Reading 卡讀 store；
+  新增 **evidence 校準讀出**；hero 三個編造的數字（72 起手 / 每 5s 隨機漂移 / 寫死 84）全部拔掉。
+
+## 幾個刻意的決定（不是待辦，是設計）
+- **evidence 對每一幀取平均，不是只取過閘門的幀** —— 只留好幀會把讀數系統性推高。閘門改成決定
+  「進度前不前進」（pause-not-reset），三個狀態點說明為什麼停住。
+- **大數字槽固定 `—`**：readiness 讀數契約上沒有 0-100 分（瀏覽器量不到 HRV）。帶位那行報真讀數。
+  ⚠️ founder 手機實走時會看到本來的大 72 變成 `—` —— **這是刻意的，不是壞了**；那個 72 從來不是真的。
+- gold SECURED 拍子改掛帶位那行（真正被鎖定的是帶位），且只在真有讀數時才下。
+- 星塵/環的揭示動作與時序**原樣保留**，只拿掉「數到 72」。
+
+## ⛔ 自我更正（S2b，同一輪稍晚）—— 上面曾寫「Tier 一律 B / blinkCadence 留 null 是刻意的誠實邊界」，**那是錯的**
+Founder 補上完整 PR2 計畫後對照才發現：那三件事不是誠實邊界，是**我沒接既有訊號源**的後果。
+v6 早就載了 MediaPipe、takeover 早就接了 `TENKI_BLINK`：
+
+| 我當時寫的 | 實際 |
+|---|---|
+| 「blinkCadence 沒有 landmark 來源」 | 來源一直都在，是我沒接 |
+| 「tier 只能 B」 | MediaPipe 可用且真的量到臉就是 **A** |
+| stillness 用整幀 luma 差分 | 背景有人走過會被算成「你在動」；**landmark 位移**才是量「臉動了」 |
+
+**為什麼要緊**：這三點會直接汙染門檻校準 —— 拿 tier B + blink null + 背景污染的 stillness 校出來的門檻，
+接上 MediaPipe 後量測基準就變了，等於白校一輪。所以 S2b 先補齊才上實機。
+
+**但計畫那張「關鍵發現」表也有兩處與 code 不符**（我實查過）：
+1. `lighting`/`uniformity` 那格寫「`#light-analysis-canvas` 已在做逐幀取樣」→ **假的**。
+   takeover 只**建立**那個 50×50 離屏 canvas（L123-134），全檔沒有任何 `getImageData`/`drawImage`。
+   那兩欄在 takeover 裡沒有來源，S2 的 luma 取樣不是重工，是補洞。
+2. 「同一支模組兩邊載入」要帶星塵過去的成本被低估：`decision-alert.html` **只載一支 `decision-alert.js`**，
+   沒有 three.js / MediaPipe / `stardust.js`；且 `stardust.js` 綁死 `getElementById('universe')`，
+   模組注入會跟 v6 既有 `#universe` 撞 id。
+
+**Founder 拍板（AskUserQuestion）**：這一輪只收斂**量測層**，星塵搬家留給 S3。
+→ S2b 已完成：tier 由「實際量到的 landmark 樣本數」決定（載到 MediaPipe 但整場沒看到臉 ≠ Tier A）；
+stillness **一個 tier 一個來源絕不混算**（A 讀 landmark 位移、B 讀 luma 差分 —— 平均在一起等於兩邊都不是）；
+`blink-cadence.js` 新增 `regularity()`（放那支是因為 BAND_BELOW/ABOVE 住在那裡，寫在呼叫端會讓
+PLAYBOOK 那條「門檻四處同步」變成五處）。
+
+## ⚠️ 下一輪校準時最容易踩的坑（已提煉進 PLAYBOOK §6）
+readiness 門檻活在**四個地方**：domain policy 常數本尊 / `readiness-scan.js` 鏡射 /
+`decision-alert.js` 鏡射 / `readiness-band.test.ts` 的 22 個 Jest 斷言。
+**四處必須同一次改完**，否則不是 CI 紅就是 preview 與 domain 行為分岔。
+
+## 順手修的既有 bug
+`applyEntryHash` 在 parse 期直接呼叫 `goTab`，而各頁 `render*` 用到的 const 宣告在腳本後段 → TDZ。
+`#session` 早就中招（只是沒人走那條 hash），S4 接 `#scan` 會踩到 → 改成等 `DOMContentLoaded`。
+
+## 驗證（CI 不涵蓋 preview，全靠真瀏覽器）
+Chromium fake camera：`scratchpad/readiness-scan-s2.mjs`（19 斷言：契約形狀、tier B 上限、store 落地、
+取消不寫入且釋放相機）+ `scratchpad/v6-scan-s4.mjs`（20 斷言：空狀態、分數槽不漂移、overlay z>9000、
+掃完卡片/evidence/hero 同步）+ `?from=baseline` 星塵路徑無 error。`verify.sh --quick` 全綠。
+> 假相機的合成畫面**不具代表性**（吐 stillness 0.92 → clear，且 pause-not-reset 讓 10s budget 實際跑 18.5s）。
+> 真機數字才算數。
+
+## S5 已完成（同一輪稍晚）—— `/decision-alert/` 成為第二道門
+- 載入同一支 `readiness-scan.js`；`#entryRescan` **本來沒有 click handler**，只加 `<script>` 會生出
+  死按鈕（正好違反 PR1 埋那個 gate 的初衷）→ 載入與接線一起做。mission `decision`（8 秒 + 掛標的）。
+- **狀態卡的「Decision Edge Score 78」拔掉**，改讀真讀數（四態：真讀數／過期／無讀數／示意）。
+  點擊循環改成 真實 → 三個示意帶位 → 真實，示意模式虛線邊 + 副標自承「示意值 · 非真實讀數」。
+- ⚠️ **`strainSilent` 是行為修正**：它以前判斷的是那張卡點擊循環的**假 zone**（預設 Neutral），
+  所以這個預設開啟的設定**從來沒真正生效過**。現在看真讀數 → Strain 時快訊真的會被靜默接收；
+  反過來**無讀數／過期時不再靜音**（沒有狀態就不該拿「你在 Strain」吃掉一則快訊）。
+- 「掃完自動接回決策」與待命狀態卡仍是 PR3，這輪不搶跑：掃完 sheet 留在原地、原地更新。
+
+## 下次接手點
+1. **founder 手機實走**（S2b 之後才有意義）：`/v3/` Scan tab 掃一次 → 抄下 evidence 四個值。
+   **順帶驗 `/decision-alert/`**：觸發快訊 → 從進入決策面板掃一次 → 讀數槽與頂部狀態卡要同步；
+   同時收 PR1 進入決策面板那個一直還欠著的回饋。
+   **Tier 這格要是 `A`**；若是 `B`，代表 MediaPipe wasm 沒載到或整場沒偵到臉 —— 那批數字不能拿來校門檻。
+   同時驗 PR1 的進入決策面板（那個回饋還欠著）。
+2. **依實測校準門檻**（四處同步，見 PLAYBOOK §6）。掃描明顯拖很久 → 動的是取景閘門
+   （Tier A 是 `FACE_SIZE_MIN/MAX` + `FACE_CENTER_*_TOL`；Tier B 才是 `DETAIL_MIN`）。
+3. **S3**：星塵搬進模組（takeover 退為薄 adapter）+ cyan/gold 儀式層。這輪才真正做到「外觀也只有一套」，
+   要動 v6 星塵 DOM（CLAUDE.md 硬線：感覺不能改）→ 必須 founder 實走驗收才 merge。
+   ⚠️ 別忘了 `decision-alert.html` 得補 three.js + `stardust.js`，且 `#universe` 的 id 衝突要先解。
+4. **S5** `/decision-alert/` 載入同一支模組（PR1 已埋 `hasReadinessScanner()`，載入即現身掃描鈕）。
+
+---
+
 # 2026-07-30 Session Update #47 (方向修正：星塵掃描升格為「唯一正典」共用模組 — PR2 待開工)
 
 > ⚠️ **這條是交接條目，PR2 尚未動工**。上一個 session context 用盡，計畫已核准但 code 未寫。

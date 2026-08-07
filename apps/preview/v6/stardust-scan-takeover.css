@@ -25,6 +25,17 @@
     pointer-events: auto;
 }
 
+/* 未啟用時這層必須真的退出命中測試。
+   上面的 opacity:0 + pointer-events:none 擋不住「descendant 自己宣告
+   pointer-events:auto」—— .scan-takeover-fingerprint-wrapper 就是這樣，於是一顆
+   124px 的隱形按鈕一直浮在 Today 上面。在 760px 以下的可視高度它剛好落在
+   Snapshot 輪播卡的正中央，把左右滑與上下捲一起吃掉（founder 回報「圖表被遮擋、
+   位置跑掉」）。visibility 會繼承，且不會被 descendant 的 pointer-events 推翻。
+   :not(.active) 寫法讓啟用時不需要任何反向宣告，淡入時序原樣不動。 */
+#stardust-scan-takeover:not(.active) {
+    visibility: hidden;
+}
+
 #stardust-scan-takeover #universe {
     position: absolute;
     inset: 0;
@@ -89,11 +100,13 @@
     white-space: nowrap;
 }
 
-/* ── Edge Score "secured" lock glow (gold = SECURED, North Star §4) ── */
-#edgeScoreReveal {
+/* ── "secured" lock glow (gold = SECURED, North Star §4) ──
+   掛在帶位那行而不是分數槽：分數槽已經沒有可宣告的數字（readiness 讀數是
+   質化帶位，契約上沒有 0-100 分），真正被「鎖定」的是帶位。 */
+#edgeScoreReveal, #edgeTraceZone {
     transition: text-shadow 0.5s ease;
 }
-#edgeScoreReveal.edge-secured {
+#edgeScoreReveal.edge-secured, #edgeTraceZone.edge-secured {
     text-shadow: 0 0 28px rgba(var(--gold-secured-rgb), 0.55),
                  0 0 8px rgba(var(--gold-secured-rgb), 0.40);
 }

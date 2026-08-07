@@ -190,11 +190,14 @@
     return !!(window.TENKI_READINESS_SCAN && window.TENKI_READINESS_SCAN.begin);
   }
 
-  // ── 示意狀態（點擊循環；合成值，非真實讀數）──
+  // ── 帶位視覺對照 ──
+  // 曾經每個帶位還掛著一個 score（78/58/32），狀態卡直接印「Clear · Decision Edge
+  // Score 78」—— 編造的。readiness 讀數契約上沒有 0-100 分，score 欄位整個拿掉。
+  // 這張表現在只剩「帶位 → 標籤/顏色」，真實模式與示意模式共用。
   var ZONE_STATES = [
-    { zone: 'clear', label: 'Clear', score: 78, cssVar: '--zone-clear' },
-    { zone: 'neutral', label: 'Neutral', score: 58, cssVar: '--zone-neutral' },
-    { zone: 'strain', label: 'Strain', score: 32, cssVar: '--zone-strain' },
+    { zone: 'clear', label: 'Clear', cssVar: '--zone-clear' },
+    { zone: 'neutral', label: 'Neutral', cssVar: '--zone-neutral' },
+    { zone: 'strain', label: 'Strain', cssVar: '--zone-strain' },
   ];
 
   // ═══════════════════════════════════════════════
@@ -244,7 +247,8 @@
   }
 
   var state = {
-    zoneIdx: 1, // Neutral 起手
+    // null ＝ 真實模式（讀 store）。0/1/2 ＝ 示意覆蓋，給你手動切三個帶位測快訊行為。
+    zoneOverride: null,
     settings: loadSettings(),
     resultSettings: loadResultSettings(),
     lastSurfacedAtBySymbol: {},
@@ -262,7 +266,7 @@
 
   var el = {};
   [
-    'stateCard', 'stateDot', 'stateLine', 'btnSingle', 'btnMulti', 'btnRepeat',
+    'stateCard', 'stateDot', 'stateLine', 'stateSub', 'btnSingle', 'btnMulti', 'btnRepeat',
     'silentArea', 'logList', 'backdrop', 'entrySheet',
     'entryPing', 'entrySymbol', 'entryCond', 'entryAge', 'entrySource', 'entryChips',
     'entryNote', 'entryState', 'entryBand', 'entryReadingAge', 'entryRescan', 'entryEvidence',
@@ -285,16 +289,68 @@
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ── 狀態卡 ──
-  function currentZone() { return ZONE_STATES[state.zoneIdx]; }
 
-  function renderState() {
-    var z = currentZone();
-    el.stateDot.style.background = 'var(' + z.cssVar + ')';
-    el.stateLine.textContent = z.label + ' · Decision Edge Score ' + z.score;
+  function zoneMeta(band) {
+    for (var i = 0; i < ZONE_STATES.length; i++) {
+      if (ZONE_STATES[i].zone === band) return ZONE_STATES[i];
+    }
+    return null;
   }
 
+  /**
+   * 目前據以判斷的狀態。優先序：示意覆蓋 > 新鮮真讀數 > 沒有（不猜）。
+   * 回傳 null 代表「我不知道你現在是什麼狀態」—— 呼叫端不得把它當成任何帶位。
+   *
+   * @returns {?{zone: string, label: string, cssVar: string, demo: boolean}}
+   */
+  function effectiveZone() {
+    if (state.zoneOverride !== null) {
+      var z = ZONE_STATES[state.zoneOverride];
+      return { zone: z.zone, label: z.label, cssVar: z.cssVar, demo: true };
+    }
+    var reading = loadReading();
+    if (!reading || !isReadingFresh(reading, Date.now())) return null;
+    var meta = zoneMeta(reading.band);
+    if (!meta) return null;
+    return { zone: meta.zone, label: meta.label, cssVar: meta.cssVar, demo: false };
+  }
+
+  /** 狀態卡：真實模式報 store 的讀數，示意模式明確承認自己是假的。 */
+  function renderState() {
+    var reading = loadReading();
+    var eff = effectiveZone();
+    el.stateCard.classList.toggle('demo', !!(eff && eff.demo));
+
+    if (eff && eff.demo) {
+      el.stateDot.style.background = 'var(' + eff.cssVar + ')';
+      el.stateLine.textContent = eff.label;
+      el.stateSub.textContent = '示意值 · 非真實讀數';
+      return;
+    }
+    if (eff) {
+      el.stateDot.style.background = 'var(' + eff.cssVar + ')';
+      el.stateLine.textContent = eff.label;
+      el.stateSub.textContent = agoText(reading.ts, Date.now())
+        + (CONFIDENCE_LABEL[reading.confidence] ? ' · ' + CONFIDENCE_LABEL[reading.confidence] : '');
+      return;
+    }
+    // 無讀數或已過期 —— 中性點，不借任何帶位的顏色。
+    el.stateDot.style.background = 'var(--zone-neutral)';
+    if (reading) {
+      el.stateLine.textContent = BAND_LABEL[reading.band];
+      el.stateSub.textContent = '讀數已過期 · 建議重掃';
+    } else {
+      el.stateLine.textContent = '尚無狀態讀數';
+      el.stateSub.textContent = '從快訊的進入決策面板掃一次';
+    }
+  }
+
+  // 點擊循環：真實 → Clear(示意) → Neutral(示意) → Strain(示意) → 真實 → …
+  // 保留手動切三個帶位的能力（測快訊行為用），但預設是真實模式。
   el.stateCard.addEventListener('click', function () {
-    state.zoneIdx = (state.zoneIdx + 1) % ZONE_STATES.length;
+    state.zoneOverride = state.zoneOverride === null
+      ? 0
+      : (state.zoneOverride + 1 >= ZONE_STATES.length ? null : state.zoneOverride + 1);
     renderState();
   });
 
@@ -363,7 +419,12 @@
       }
       return { decision: 'silent', reason: '決策進行中' };
     }
-    if (state.settings.strainSilent && currentZone().zone === 'strain') {
+    // 以前這裡看的是點擊循環出來的假 zone（預設 Neutral），等於這個設定的行為
+    // 由一個 demo 開關決定。改看 effectiveZone()：真讀數優先、示意覆蓋次之。
+    // **null（沒有讀數／已過期）時不靜音** —— 沒有狀態，就不該拿「你在 Strain」
+    // 當理由吃掉一則快訊。
+    var zone = effectiveZone();
+    if (state.settings.strainSilent && zone && zone.zone === 'strain') {
       return { decision: 'silent', reason: 'Strain 狀態' };
     }
     var last = state.lastSurfacedAtBySymbol[alert.symbol];
@@ -644,6 +705,23 @@
     log('engaged', state.pendingAlert.symbol + ' — 選擇流程模板');
     renderTemplatePicker(state.pendingAlert);
     openSheet(el.tplSheet);
+  });
+
+  // 進入決策面板的掃描鈕 → 正典模組（同 /v3/ Scan tab 那一支）。
+  // mission 'decision'：8 秒預算、角落掛著你正要決策的標的。
+  // 掃描層 z9700 蓋過 sheet 的 z31，sheet 留在原地，收尾後原地更新 ——
+  // 「掃完自動接回決策」與待命狀態卡是 PR3 的事，這裡不搶跑。
+  el.entryRescan.addEventListener('click', function () {
+    var S = window.TENKI_READINESS_SCAN;
+    if (!S || !S.begin) return;
+    S.begin({
+      mission: 'decision',
+      symbol: state.pendingAlert ? state.pendingAlert.symbol : null,
+    }).then(function () {
+      // 取消（回 null）也只是重畫 —— 讀數槽自己會誠實顯示現況，不會假裝有讀數。
+      renderEntryState();
+      renderState();
+    });
   });
 
   // ── 模板選擇 ──
@@ -1059,9 +1137,13 @@
     catchUp: false,
     // Vercel Deployment Protection 的 bypass query（如 'x-vercel-protection-bypass=xxx'）。
     // 這個部署有 SSO 保護時，匿名的 TradingView POST 會在 edge 就被擋掉、根本進不到
-    // /api/alert（2026-08-05：六小時 runtime log 只有本頁自己的輪詢，零筆 POST）。
-    // TradingView 不能帶自訂 header，所以官方解法是把同一組密鑰放進 query。
-    // 專案沒開 Protection Bypass for Automation 時是 null → 網址跟以前一模一樣。
+    // /api/alert。TradingView 不能帶自訂 header，所以官方解法是把同一組密鑰放進 query。
+    // 專案沒開 Protection Bypass for Automation 時是空字串 → 網址跟以前一模一樣。
+    //
+    // ⚠️ 範圍更正（2026-08-06）：實際被保護的只有**分支 preview**。正式站
+    // （<project>.vercel.app）即使 SSO 開著也匿名可達 —— Standard Protection
+    // 豁免的是正式站網址本身，不是只有自訂網域。此處原本的註解宣稱正式站也在牆後，
+    // 那是錯的（見 docs/PLAYBOOK.md §4）。
     bypassQuery: '',
   };
 

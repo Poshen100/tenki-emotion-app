@@ -574,46 +574,29 @@
         // Daily blink-cadence vs personal baseline → coach-card sub-line
         if (window.location.search.indexOf('from=baseline') !== -1) applyBlinkInsight();
 
-        // High-frequency random flicker score calculation (極速運算到位的數字)
-        var scoreEl = document.getElementById('edgeScoreReveal');
-        if (scoreEl && window.location.search.indexOf('from=baseline') !== -1) {
-            var startTime = performance.now();
-            var duration = 1200; // 1.2s high-speed calculation
-            var interval = setInterval(function() {
-                var elapsed = performance.now() - startTime;
-                if (elapsed >= duration) {
-                    clearInterval(interval);
-                    scoreEl.textContent = '84';
-                    // Lock: instrument snap-settle + gold SECURED glow (gold = secured).
-                    scoreEl.classList.add('edge-secured');
-                    setTimeout(function() { scoreEl.classList.remove('edge-secured'); }, 1100);
-                    if (window.gsap) {
-                        gsap.fromTo(scoreEl, { scale: 1 }, {
-                            scale: 1.08, duration: 0.26, ease: 'back.out(1.8)',
-                            yoyo: true, repeat: 1, transformOrigin: '50% 50%',
-                        });
-                    } else {
-                        scoreEl.style.transform = 'scale(1.08)';
-                        setTimeout(function() {
-                            scoreEl.style.transform = 'scale(1)';
-                        }, 200);
-                    }
-                    // Haptic snap on completion
-                    if (navigator.vibrate) {
-                        try { navigator.vibrate([15, 30]); } catch (_) {}
-                    }
-                    // Unblock drift and set global values to 84
-                    window.currentEdgeScore = 84;
-                    window.targetEdgeScore = 84;
-                    window.isDriftBlocked = false;
-                } else {
-                    // Random number flicker between 40 and 99
-                    var randomNum = Math.floor(Math.random() * 59) + 40;
-                    scoreEl.textContent = randomNum;
-                    // Keep it centered and scaling slightly during calculation
-                    scoreEl.style.transform = 'scale(' + (1.0 + Math.random() * 0.05).toFixed(3) + ')';
+        // 收尾揭示。以前這裡跑 1.2 秒隨機數字閃動、最後落在寫死的 84 並解開一個
+        // 隨機漂移模擬 —— 儀式是真的，數字全是編的。現在只反映正典掃描模組
+        // (/preview/readiness-scan.js) 寫進 store 的真讀數；沒有讀數就不演一場
+        // 運算，帶位那行會自己說「到 Scan 掃一次」。
+        if (window.location.search.indexOf('from=baseline') !== -1) {
+            var hasReading = typeof window.renderHeroReading === 'function'
+                && window.renderHeroReading() === true;
+            var zoneEl = document.getElementById('edgeTraceZone');
+            if (hasReading && zoneEl) {
+                // Lock: instrument snap-settle + gold SECURED glow (gold = secured).
+                zoneEl.classList.add('edge-secured');
+                setTimeout(function () { zoneEl.classList.remove('edge-secured'); }, 1100);
+                if (window.gsap) {
+                    gsap.fromTo(zoneEl, { scale: 1 }, {
+                        scale: 1.08, duration: 0.26, ease: 'back.out(1.8)',
+                        yoyo: true, repeat: 1, transformOrigin: '50% 50%',
+                    });
                 }
-            }, 40); // 40ms interval (25fps)
+                // Haptic snap on completion
+                if (navigator.vibrate) {
+                    try { navigator.vibrate([15, 30]); } catch (_) {}
+                }
+            }
         }
     }
 

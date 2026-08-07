@@ -67,6 +67,12 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 - CI 與 Biome **都不涵蓋 `apps/preview/**` 與 `scripts/**`** → preview 改動的最終驗證是 **founder 手機實走**，
   程式端至少 `node --check` 每個改到的 `.js`（inline script 用 `new Function()` 驗）。
   歷史教訓：#105→#106→#108 連續三輪「CI 綠了卻在 iOS 上壞」。
+- **preview 改動推上去而沒附實走網址 ＝ 沒做完**（founder 2026-08-07 指示）。回報時：
+  網址放在**回覆最前面**，而且是**可直接點的完整深連結**（帶路徑，例如
+  `https://<preview-host>/decision-alert/`），不是只給主機名讓 founder 自己接路徑。
+  多條分支就每條各給一行並標明對應哪個 PR。取得法與備援見 §4。
+  > 這條之所以要明寫成 DoD：驗證方式是「請人去手機上走一遍」時，**沒有網址等於沒交付** ——
+  > founder 得回頭開口要，那一來一回就是白費的一輪。
 - `apps/mobile` **不在 root workspaces** → root `npm test` 測不到它，要 `cd apps/mobile && npm test` 分開跑。
 - 測試框架是 **Jest + ts-jest**，不是 vitest（舊文件寫錯已糾正）。
 - 動效／視覺類改動：容器內截圖僅供參考，**以 founder 實機為準**；回報時主動請對方確認「減少動態」設定
@@ -90,10 +96,12 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | 背景 agent 宣稱完成 | 不可信，用 `git log` 驗實際 commits（agent 可能中途被用量上限砍掉） |
 | 雲端環境查 CI | **無 `gh` CLI**。用 GitHub MCP `pull_request_read(get_check_runs)`；用 gh 或未帶 token 的 curl 會空轉 |
 | Vercel 部署驗證 | 部署有 protection，匿名 WebFetch 會 403；分支 preview 連結在 PR 頁的 Vercel bot 留言 |
-| **要給 founder 驗收網址時** | **永遠從 PR 頁的 Vercel bot 留言讀網址，不要用分支名自己拼。** preview 子網域是 DNS label，上限 63 字元，超過時 Vercel 會**截斷分支名再插一段 hash**——拼出來的網址在瀏覽器是「找不到伺服器」，而 founder 只會看到你給錯連結。2026-08-05 實例：`tenki-emotion-app-git-claude-structure-watch-chenposhens-projects`（65 字）拼錯，真值是 `...-git-claude-struct-7775e3-...`。取得方式：`pull_request_read(get_comments)` 找 `vercel[bot]` 那則 |
+| **要給 founder 驗收網址時** | **永遠從 PR 頁的 Vercel bot 留言讀網址，不要用分支名自己拼。** preview 子網域是 DNS label，上限 63 字元，超過時 Vercel 會**截斷分支名再插一段 hash**——拼出來的網址在瀏覽器是「找不到伺服器」，而 founder 只會看到你給錯連結。2026-08-05 實例：`tenki-emotion-app-git-claude-structure-watch-chenposhens-projects`（65 字）拼錯，真值是 `...-git-claude-struct-7775e3-...`。取得方式：`pull_request_read(get_comments)` 找 `vercel[bot]` 那則。**沒有 PR、或 bot 留言還沒更新時的備援**：`list_deployments` → 取該筆的 `meta.branchAlias`，那就是分支的穩定 preview 別名，**已經包含 Vercel 對超長分支名做的截斷+hash**（實例：`claude/structure-watch` → `...-git-claude-struct-7775e3-...`），比自己拼字串可靠。⚠️ **附網址是 DoD 不是善意**，見 §3 |
 | 分支名要當 preview 網址用時 | 名字取短。`claude/<主題>` 的主題超過約 20 字元就會觸發上面的截斷+hash |
-| 外部服務（TradingView / Stripe / GitHub webhook）打我們的 API「完全沒反應」 | **先查 Deployment Protection，不要先 debug 程式。** Vercel SSO 在 **edge** 就擋掉匿名請求 → 函式沒被叫到 → **runtime log 一片乾淨**，看起來像沒人打過。診斷法：`get_runtime_logs(group_by: 'requestPath')`——只看到瀏覽器自己的 GET、零筆該有的 POST，就是被擋在門外（瀏覽器帶著 SSO cookie 當然會通，那不是證據）。修法是 Protection Bypass for Automation 密鑰放進 query，見 `docs/TRADINGVIEW-SETUP.md` §1 ② |
-| 判斷「正式站有沒有被保護」 | 看 `ssoProtection.deploymentType`。`all_except_custom_domains` + **專案沒有自訂網域** ＝ 連 production 的 `*.vercel.app` 都在牆後。`get_project` 看 domains 是不是全是 `*.vercel.app`，別假設 production 一定公開 |
+| 外部服務（TradingView / Stripe / GitHub webhook）打我們的 API「完全沒反應」 | **先確認對方填的網址是完整的那一條，再懷疑基礎設施。** 2026-08-06 實例：一路懷疑 Deployment Protection、關 SSO、生 bypass 密鑰，真因是 TradingView 存著一條**不完整的舊連結** → `POST /api/alert` 打得進來、被我們自己回 **400**。診斷順序：① 頁面「測試這條連結」（`credentials:'omit'` 打自己，穿得過就不是牆的問題）② 觸發一次真的快訊，`get_runtime_logs` 立刻看狀態碼 ③ 才輪到保護設定 |
+| `get_runtime_logs` 查不到東西 | **查不到 ≠ 沒發生。Vercel runtime log 沒有長時間歷史。** 實測 `since` 給 2h / 6h / 24h 回的計數**一模一樣**，全都只涵蓋最近很短一段，而且有一兩分鐘的 ingestion 延遲（頁面正在輪詢，查 6h 卻回空表）。**絕不可**拿「寬視窗查空」當成「請求沒進來」的證據——2026-08-05 就是這樣把整條根因推論建在沙上。要用它就查**剛剛才發生**的事，並且先做一個已知會產生 log 的動作當對照組 |
+| 判斷「正式站有沒有被保護」 | **不要從 `ssoProtection.deploymentType` 推論，直接量。** `all_except_custom_domains`（UI 上叫 Standard Protection）豁免的是**正式站網址本身**，不是只有自訂網域——即使專案零自訂網域，`<project>.vercel.app` 仍是匿名可達的。**被保護的是分支 preview。** 量法：`credentials:'omit'` 打一個已知會回 405 的端點，到得了就沒被擋 |
+| iOS「加入主畫面」的 PWA 與 Safari 分頁 | **localStorage 不共用，是兩個獨立的儲存空間。** 2026-08-06 一天內踩兩次：① 從主畫面開 TENKI 後 `ch=` 變成全新頻道，TradingView 還指著 Safari 那組舊的 → 快訊進了看不到的頻道 ② 在 Safari 做過的 soul-enroll 眨眼基線（`tenki.baseline.blink`），PWA 裡讀不到 → `blinkCadence` 又回到 `null`。**規則：任何「在手機上重現」的驗收，先問清楚是分頁還是主畫面 app，兩邊的 localStorage 狀態要分開推理。** web push 只有主畫面 app 能用（iOS 16.4+），所以推播相關的驗收一律在 PWA 那側 |
 | push 前 | commit-per-todo（CLAUDE.md 硬規則）；`git push -u origin <branch>`，網路失敗指數退避重試 |
 
 ## 5. CI / 工具鏈陷阱
@@ -116,7 +124,11 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 |------------|------|
 | 全屏儀式頁 CTA 被 iOS 底部工具列蓋住 | `100vh` 陷阱 → 一律 `100dvh`（保留 `100vh` fallback）+ 容器 `overflow-y:auto` 保險 |
 | 改了模式/文案，實機某一步仍冒舊文案 | preview 指示文案有**兩層**：靜態 HTML（如 `#scan-banner` 寫死的 title/sub/icon）+ JS 動態 writer（如 `#scan-guidance`）。改模式要**兩層都 grep**（2026-07-08 臉部文案第 3 度漏網就是只改了 JS 層） |
-| 修了 JS 但 founder 手機行為沒變 | script 標籤用**固定** `?v=` 字串（如 `?v=stardust_restore_v2`）＝ CDN/Safari 永遠供舊檔。**改 preview JS 必 bump `?v=` 成新字串**，並提醒 founder 硬重載 |
+| 修了 JS 但 founder 手機行為沒變 | script 標籤用**固定** `?v=` 字串（如 `?v=stardust_restore_v2`）＝ CDN/Safari 永遠供舊檔。**改 preview JS 必 bump `?v=` 成新字串**，並提醒 founder 硬重載。⚠️ CSS 的 `<link>` 同樣要 bump（2026-08-01 漏過一次：改了 takeover 的 JS 卻沒動 `?v=gyro_v5`） |
+| 某個區塊點不動 / 滑不動 / 「被遮擋、位置跑掉」，但畫面上看不到任何東西蓋著 | **先 `document.elementFromPoint(x, y)` 問瀏覽器那個點到底命中誰**，不要盯著 CSS 猜。全屏疊層（v6 的 `#stardust-scan-takeover`）用 `opacity:0` + `pointer-events:none` **擋不住 descendant 自己宣告 `pointer-events:auto`** —— 指紋鈕就是這樣，一顆 124px 的隱形按鈕長期浮在 Today 上，在 760px 以下可視高度剛好壓在 Snapshot 輪播卡正中央，左右滑與上下捲一起被吃掉（2026-08-01 founder 回報才查出，main 上已存在很久）。**修法**：`#overlay:not(.active){visibility:hidden}` —— visibility 會繼承且不會被 descendant 的 `pointer-events` 推翻，比逐一 scope 每條 `pointer-events:auto` 穩。 |
+| 水平輪播卡片上下滑不動 | 橫向輪播的 `touch-action` 不能只寫 `pan-x` —— 那會把垂直手勢整個吞掉。祖先是垂直捲動容器時要寫 `pan-x pan-y`（瀏覽器仍會把偏水平的拖曳判給輪播，因為祖先不能水平捲）。症狀：卡片被下方 bar 切掉，而卡片本身正好是唯一捲不動的地方 |
+| 要調 readiness 帶位/信心門檻（實機校準） | 門檻活在**四個地方**，只改一處會靜默分岔（CI 紅或 preview 與 domain 行為不一致）：①`domain/src/policies/readiness-band.ts` 常數本尊（`CLEAR_AT`/`NEUTRAL_AT`/`HIGH_CONFIDENCE_AT`/`MODERATE_CONFIDENCE_AT`/三個 `WEIGHT_*`）②`apps/preview/readiness-scan.js` 的鏡射版 ③`apps/preview/decision-alert.js` 的新鮮度/語彙鏡射 ④`domain/src/__tests__/readiness-band.test.ts`（22 個 Jest 有斷言綁在門檻上，如 stillness 0.95→clear、0.55→neutral、0.05→strain）。**四處必須同一次改完**。preview 是 vanilla JS 不能 import domain，鏡射是刻意的慣例，不是可以順手消除的重複。⚠️ 眨眼的 `BAND_BELOW`/`BAND_ABOVE` **不在這四處之列** —— 它們住在 `apps/preview/blink-cadence.js`，正規化成 0..1 的 `regularity()` 也刻意放在同一支檔案；要換算眨眼時**呼叫它、不要在呼叫端重寫比值**，否則這條會變成五處 |
+| 覺得 evidence 某一欄「量不到、誠實留 null 就好」 | **先 grep 現有 surface 有沒有那個訊號源再下結論**。2026-08-01 踩過：把 `blinkCadence: null` / `tier: 'B'` 寫成「刻意的誠實邊界」寫進 PR 與 commit，實際上 v6 早就載了 MediaPipe、takeover 早就接了 `TENKI_BLINK` —— 是沒接，不是量不到。**代價不只是少一個欄位**：拿殘缺 evidence 去做實機門檻校準，接上真訊號源後量測基準就變了，整輪校準作廢 |
 | canvas 波形／圖表空白但數字會動 | 不要在某個時間點抓 `offsetWidth`（splash/takeover 蓋著時是 0）→ 用 **ResizeObserver** 自我修復，或給 canvas 固定 `width/height` 屬性 |
 | flex 容器裡的橫向 scroll-snap carousel 塌成 0 高 | 容器要 `flex:none` + 明確高度 + `overflow-y:hidden`（否則 overflow 自動升級成雙軸 scroll，`min-height:auto` 變 0） |
 | 卡片內容被底部 bar 遮住 | `.screen` 是 absolute 定位，`.screens` 的 padding 對它無效 → 每頁 body **自帶** FDCB+tabbar 底部預留；carousel 用固定高不用 `flex:1` |
