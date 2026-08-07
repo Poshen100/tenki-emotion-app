@@ -122,6 +122,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 
 | 症狀 / 情境 | 規則 |
 |------------|------|
+| 畫面上兩個地方對同一筆資料講相反的話（數字說 A、顏色／文案說 B） | **判定只能有一個來源函式。呈現層不得內聯重寫判定。** 2026-08-07 實例：收束頁寫「紀律完成率 100%」，正下方軌跡條卻畫成破戒橘 —— 「算不算紀律」當時活在三處（`isDisciplined()` / `segColor()` / entry panel 內聯的第三份），#219 改 tag 名稱時只更新了第一處。**改列舉型 tag／狀態名稱時，先 `grep` 該 tag 的所有比對點**，別只改「主要那個」。顏色與文案都算判定的下游，必須呼叫同一支函式 |
 | 全屏儀式頁 CTA 被 iOS 底部工具列蓋住 | `100vh` 陷阱 → 一律 `100dvh`（保留 `100vh` fallback）+ 容器 `overflow-y:auto` 保險 |
 | 改了模式/文案，實機某一步仍冒舊文案 | preview 指示文案有**兩層**：靜態 HTML（如 `#scan-banner` 寫死的 title/sub/icon）+ JS 動態 writer（如 `#scan-guidance`）。改模式要**兩層都 grep**（2026-07-08 臉部文案第 3 度漏網就是只改了 JS 層） |
 | 修了 JS 但 founder 手機行為沒變 | script 標籤用**固定** `?v=` 字串（如 `?v=stardust_restore_v2`）＝ CDN/Safari 永遠供舊檔。**改 preview JS 必 bump `?v=` 成新字串**，並提醒 founder 硬重載。⚠️ CSS 的 `<link>` 同樣要 bump（2026-08-01 漏過一次：改了 takeover 的 JS 卻沒動 `?v=gyro_v5`） |
