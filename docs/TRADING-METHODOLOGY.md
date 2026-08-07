@@ -254,5 +254,24 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
 2. ⏳ **Mode-aware 模板提示**：Mode 1 日對 FBD 類快訊降權提示（本檔 §5 整合表的機器化）。
 3. ⏳ **行為統計分層**：事件鏈統計依 Mode 分組（「Mode 2 日的紀律完成率」），仍走流程統計語言（勝率語言已禁）。
 4. ✅ **時段感知（quiet window）**（2026-07-19 完成）：§6.1 迴避時段（11:00–14:00 盤整帶）→ **軟性事實提示**。`domain/src/policies/alert-policy.ts` `isWithinQuietWindowET`（美東 ET，DST-aware）+ `QUIET_WINDOW_CONTEXT_ZH`「盤整迴避時段」；preview 設定面板開關（`?v=alert10`）。面板仍浮出、加一行脈絡，不硬靜音。
-5. ⏳ **節奏熔斷**：§6.1 贏停/雙輸熔斷 → 以當日事件鏈（close/cancel 計數）驅動「今天到此為止」的溫和提示。**決策已拍板（2026-07-18）：呈現 = 軟性事實提示（呈現事實不下指令；勝負須映射到 session close/cancel，語言照 compliance 前提，動工前再對齊語意）。**
+5. 🚧 **節奏熔斷**（2026-08-04 domain 層完成，UI 待接）：§6.1 贏停/雙輸熔斷。
+   ⚠️ **原本寫「勝負須映射到 session close/cancel」—— 那是硬湊，close/cancel 不是輸贏。**
+   實際缺的是資料不是邏輯：持久化的每一欄都在描述紀律，沒有一欄描述結果。
+   已補 `domain/src/contracts/trade-result.ts`（`profit_taken`/`stopped_out`/`scratch`/`no_entry`）
+   與 `domain/src/policies/day-cadence.ts`（18 個 Jest 斷言）。
+   判定細節：`no_entry` **不計入當日筆數**（§7 step 7 是紀律，不該燒額度）；
+   `scratch` **不算輸**（熔斷為止血，平手沒在流血）；日界用 **ET**，
+   不可重用 `alert-policy` 的 `resolveAlertDayKey()`（那是 UTC，會把傍晚交易歸到隔天）。
+   待接：結果頁四選一 UI + Entry Panel 事實行 + 快訊收摺。
+
+6. ✅ **結構守望取代決策計時器**（2026-08-04 完成）：原本 180s 固定計時 + Readiness 窗判紀律，
+   與 §7 step 3「結構確認沒有時間表」相反，且 §2.2 把 **fast failure 列為最高品質 FBD** ——
+   等於**對品質最好的 setup 罰得最重**。實機證據：11 秒判定進場被打成紀律 0%。
+   改為「錨點（level + 非接受門檻）+ 一個問題 + 兩個判定出口」，紀律只問**有沒有做出判定**
+   （進場與放棄都算，離開/逾時而未判定才不算）。時間降為事實脈絡。
+   `templateId` 與 engine 的 `durationSec`/`segments`/`readinessWindow` 契約**未動**。
+   ⚠️ 語意斷點：新紀錄帶 `judgmentSchema: 'structure_watch_v1'`，統計混算時必須標註舊語意筆數。
+
+7. ⏳ **Runner 帳本**：§4 level-to-level 管理的機器化（75% 鎖利 / runner 狀態）。
+   目前「對齊率」只量到進場之前；提早砍 runner、沒鎖 75%、加碼攤平都沒被記錄。
 6. ✅ **session 中同標的安靜更新**（2026-07-18 完成，源自 7553/7547 實戰）：active session 中同標的後續觸發 → 計時條下浮一行事實更新、不彈新面板；異標的維持 silent。`domain/src/policies/alert-policy.ts` 的 `session_quiet_update` 決策 + preview 鏡像。
