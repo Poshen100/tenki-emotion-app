@@ -155,9 +155,26 @@ async function scanAndCancel(page) {
   });
   await page.waitForSelector('#tenki-readiness-scan.open');
   check('halo 在 frame 內',
-    await page.evaluate(() => !!document.querySelector('#tenki-readiness-scan .rs-frame > .rs-halo')), true);
-  check('halo 用 conic-gradient 畫進度',
-    await page.evaluate(() => (document.querySelector('#tenki-readiness-scan .rs-halo').style.background || '').includes('conic-gradient')), true);
+    await page.evaluate(() => !!document.querySelector('#tenki-readiness-scan .rs-frame > svg.rs-halo')), true);
+  // 光弧必須與框**共用同一條路徑**：track 與 fill 的幾何一字不差。
+  // 2026-08-07 實走踩過的坑是一個 border-radius:50% 的圓套在圓角方框外面，
+  // 畫面上變成兩個不相干的環 —— 這條就是防它回來。
+  check('track 與 fill 幾何完全相同', await page.evaluate(() => {
+    const g = (s) => {
+      const r = document.querySelector('#tenki-readiness-scan .' + s);
+      return ['x', 'y', 'width', 'height', 'rx', 'ry'].map((a) => r.getAttribute(a)).join(',');
+    };
+    return g('rs-halo-track') === g('rs-halo-fill');
+  }), true);
+  check('框本身沒有另一條 CSS border（避免第二個形狀）', await page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-frame'));
+    return cs.borderTopWidth;
+  }), '0px');
+  check('進度用 pathLength 正規化的 stroke-dash（弧長比例，不是角度）',
+    await page.evaluate(() => {
+      const f = document.querySelector('#tenki-readiness-scan .rs-halo-fill');
+      return f.getAttribute('pathLength') === '1' && /^[\d.]+ 1$/.test(f.getAttribute('stroke-dasharray') || '');
+    }), true);
 
   // 模擬「上一輪收束成 SECURED」的殘留狀態，再開新的一輪。
   await page.evaluate(() => document.querySelector('#tenki-readiness-scan .rs-frame').classList.add('secured'));

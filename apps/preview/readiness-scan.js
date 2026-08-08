@@ -78,6 +78,15 @@
   var EASE_SECURE = 'cubic-bezier(0.19,1,0.22,1)';
   var HALO_ACTIVE = '#22D3EE';
   var HALO_SECURED = '#FFD46E';
+  /**
+   * 光弧起點位移（周長比例）—— 把起點從 SVG rect 的預設起點移到**上緣正中**。
+   *
+   * 推導（rect x=1 y=1 w=h=234 rx=ry=63）：直線段 = 234 - 2×63 = 108；
+   * 每個圓角 = π×63/2 ≈ 98.96；周長 = 4×108 + 4×98.96 ≈ 827.84。
+   * rect 路徑起點在 (x+rx, y) = 左上圓角結束處、順時針沿上緣往右，
+   * 上緣中點距它 234/2 - 63 = 54px → 54 / 827.84 ≈ 0.0652。
+   */
+  var HALO_START_OFFSET = 0.0652;
   /** 取景範圍：臉框邊長與置中容差。 */
   var FACE_SIZE_MIN = 0.30;
   var FACE_SIZE_MAX = 0.65;
@@ -144,19 +153,22 @@
       'text-transform:uppercase;color:#A6ADC8;}',
       '#' + OVERLAY_ID + ' .rs-symbol{font-size:13px;color:#3DE0FF;letter-spacing:0.08em;}',
       '#' + OVERLAY_ID + ' .rs-symbol:empty{display:none;}',
-      // 掃描框：圓角超橢圓 + cyan＝ACTIVE（對齊中）；收束時整組轉 gold＝SECURED。
-      '#' + OVERLAY_ID + ' .rs-frame{position:relative;width:236px;height:236px;',
-      'border-radius:64px;border:1px solid rgba(61,224,255,0.28);',
-      'transition:border-color 0.3s ' + EASE_SECURE + ',box-shadow 0.3s ' + EASE_SECURE + ';}',
-      '#' + OVERLAY_ID + ' .rs-frame.secured{border-color:rgba(255,212,110,0.85);',
-      'box-shadow:0 0 24px rgba(255,212,110,0.28);}',
-      // Progress Halo（North Star §4）：沿臉框逐段閉合的光弧，取代原本的 2px 直線。
-      // conic-gradient + radial mask 是 takeover 已在實機驗過的作法
-      // （stardust-scan-takeover.css:311-328），不另發明。
-      '#' + OVERLAY_ID + ' .rs-halo{position:absolute;inset:-14px;border-radius:50%;',
-      'pointer-events:none;background:conic-gradient(#22D3EE 0%,transparent 0%);',
-      '-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#fff calc(100% - 2px));',
-      'mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#fff calc(100% - 2px));}',
+      // 掃描框：只負責版面尺寸。**框線本身由 SVG 的 track 描邊畫**（見下），
+      // 這裡不能再放 CSS border —— 兩個形狀疊在一起正是 2026-08-07 實走看到的
+      // 「金色圓圈與圓角方框各自為政」。
+      '#' + OVERLAY_ID + ' .rs-frame{position:relative;width:236px;height:236px;}',
+      // Progress Halo（North Star §4「沿臉框逐段閉合的光弧，不用一般圓形 loading」）。
+      // track 與 fill 是**幾何完全相同**的兩個 rect：track 就是框，fill 是進度。
+      // 只有一條路徑，所以不可能再出現第二個形狀。
+      '#' + OVERLAY_ID + ' .rs-halo{position:absolute;inset:0;width:100%;height:100%;',
+      'overflow:visible;pointer-events:none;}',
+      '#' + OVERLAY_ID + ' .rs-halo rect{fill:none;stroke-linecap:round;',
+      'transition:stroke 0.3s ' + EASE_SECURE + ';}',
+      '#' + OVERLAY_ID + ' .rs-halo .rs-halo-track{stroke:rgba(61,224,255,0.28);stroke-width:1;}',
+      '#' + OVERLAY_ID + ' .rs-halo .rs-halo-fill{stroke:' + HALO_ACTIVE + ';stroke-width:2.5;}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-track{stroke:rgba(255,212,110,0.45);}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-fill{stroke:' + HALO_SECURED + ';',
+      'filter:drop-shadow(0 0 6px rgba(255,212,110,0.55));}',
       '#' + OVERLAY_ID + ' .rs-instruction{font-size:17px;font-weight:600;min-height:24px;}',
       '#' + OVERLAY_ID + ' .rs-dots{display:flex;gap:14px;font-size:10px;color:#5A6178;',
       'letter-spacing:0.1em;text-transform:uppercase;}',
@@ -183,7 +195,12 @@
       '<div class="rs-stage">',
       '  <div class="rs-mission" data-rs="mission"></div>',
       '  <div class="rs-symbol" data-rs="symbol"></div>',
-      '  <div class="rs-frame" data-rs="frame"><div class="rs-halo" data-rs="halo"></div></div>',
+      '  <div class="rs-frame" data-rs="frame">',
+      '    <svg class="rs-halo" viewBox="0 0 236 236" aria-hidden="true">',
+      '      <rect class="rs-halo-track" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
+      '      <rect class="rs-halo-fill" data-rs="halo" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
+      '    </svg>',
+      '  </div>',
       '  <div class="rs-instruction" data-rs="instruction"></div>',
       '  <div class="rs-dots">',
       '    <span class="rs-dot" data-rs="dot-light"><i></i>Lighting</span>',
@@ -223,20 +240,30 @@
   /**
    * 推進 Progress Halo。
    *
-   * 每次取樣（~15fps）直接重寫 conic-gradient，不下 transition —— background 的
-   * 補間本來就不平滑，而且進度是「品質閘門通過才前進」的 pause-not-reset 語意：
-   * 停住的時候就該看得出來停住了，補間會把那個事實抹掉（MOTION-DIRECTION 鐵律 1
-   * 誠實動效）。
+   * `pathLength="1"` 把周長正規化成 1，所以 dash 長度就是**走過的弧長比例** ——
+   * 換句話說進度沿著框均勻前進。這是不能用 conic-gradient 的原因：conic 掃的是
+   * **角度**，套在圓角方形上會變成「邊上跑得快、角落卡住」，那是不誠實的進度。
+   *
+   * 刻意不下 transition：進度語意是「品質閘門通過才前進」的 pause-not-reset，
+   * 停住的時候就該看得出來停住了，補間會把那個事實抹掉（MOTION-DIRECTION 鐵律 1）。
+   * 顏色的 transition 另外掛在 CSS 的 stroke 上，不受影響。
    *
    * @param {number} ratio - 0..1。
-   * @param {boolean} [secured] - true 時用 gold（SECURED），否則 cyan（ACTIVE）。
    */
-  function setProgress(ratio, secured) {
+  function setProgress(ratio) {
     var node = q('halo');
     if (!node) return;
-    var pct = Math.round(clamp01(ratio) * 100);
-    var color = secured ? HALO_SECURED : HALO_ACTIVE;
-    node.style.background = 'conic-gradient(' + color + ' ' + pct + '%,transparent 0%)';
+    var p = clamp01(ratio);
+    if (p >= 1) {
+      // 收滿＝實線，不留接縫。用 dash 表示 100% 會在起點留一道縫：
+      // dash 1 + gap 1 的週期是 2，偏移 -0.0652 讓第一段從 0.0652 畫到 1.0652，
+      // 而路徑在 1.0 就結束 → [0, 0.0652) 落在上一個週期的空隙裡（實測可見）。
+      node.setAttribute('stroke-dasharray', 'none');
+      node.setAttribute('stroke-dashoffset', '0');
+      return;
+    }
+    node.setAttribute('stroke-dasharray', p + ' 1');
+    node.setAttribute('stroke-dashoffset', -HALO_START_OFFSET);
   }
 
   // ── 量測（逐幀取樣 → evidence）──
@@ -661,9 +688,9 @@
     // SECURED 拍子：光弧閉合 + 整組轉 gold。只在**真的有讀數**時才下 ——
     // gold 在視覺世界規則裡代表 baseline locked / calibrated，訊號不足那條路
     // （giveUp）不得使用，否則等於用顏色宣稱一個不存在的結果。
-    setProgress(1, true);
+    setProgress(1);
     var frame = q('frame');
-    if (frame) frame.classList.add('secured');
+    if (frame) frame.classList.add('secured'); // 顏色由 CSS 的 .secured 承接
     setInstruction(BAND_LABEL[reading.band] + ' · ' + CONFIDENCE_LABEL[reading.confidence]);
     setTimeout(function () { finish(reading); }, REVEAL_MS);
   }
