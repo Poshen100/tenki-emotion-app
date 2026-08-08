@@ -28,6 +28,7 @@
     var PARTICLE_SIZE = 0.088;
     var scene, camera, renderer, cloud, material;
     var container = null;
+    var mounted = false;      // one binding at a time (see mount())
     var animFrame = null;
     var running = false;
     var contextLost = false;
@@ -56,9 +57,28 @@
     // Expression sync state
     var expr = { mouthOpen: 0, eyeOpen: 1, blinkFlash: 0, browTension: 0.5, active: false };
 
-    function init() {
-        container = document.getElementById('universe');
-        if (!container) return;
+    /**
+     * Bind the stardust to a container element and start rendering.
+     *
+     * Single-binding by design: a second live WebGL context alongside
+     * getUserMedia + MediaPipe is the iOS WebKit OOM zone (the reason
+     * soul-enroll.html releases this context before its own scan). Callers
+     * therefore have to cope with a refused mount — `/preview/readiness-scan.js`
+     * checks the return value and simply skips its stardust layer when a host
+     * page (v6) already owns the binding.
+     *
+     * @param {HTMLElement} [el] - Container to render into. Defaults to
+     *   `#universe`, which keeps the historical auto-init behaviour for
+     *   `/preview/v6/`, `/preview/story.html` and `/preview/soul-enroll.html`.
+     * @returns {boolean} true when this call took ownership of the binding.
+     */
+    function mount(el) {
+        if (mounted) return false;
+        var node = el || document.getElementById('universe');
+        if (!node) return false;
+
+        container = node;
+        mounted = true;
 
         // Fade-in to prevent black flash
         container.style.opacity = '0';
@@ -71,12 +91,18 @@
         // Fade in after first render
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
-                container.style.opacity = '1';
+                if (container) container.style.opacity = '1';
             });
         });
 
         window.addEventListener('resize', onResize);
         document.addEventListener('visibilitychange', onVisibility);
+        return true;
+    }
+
+    /** @returns {boolean} whether the stardust currently owns a container. */
+    function isMounted() {
+        return mounted;
     }
 
     function createRenderer() {
@@ -221,6 +247,10 @@
     // data, then resume. Visual identity is unchanged (same geometry/colours/material).
     function rebuild() {
         if (lostTimer) { clearTimeout(lostTimer); lostTimer = null; }
+        // Unmounted while a retry was in flight: stay down. Without this the
+        // catch below would re-arm the 2500ms timer forever against a null
+        // container, quietly burning a timer for the life of the page.
+        if (!mounted || !container) return;
         try {
             if (renderer) {
                 var old = renderer.domElement;
@@ -383,17 +413,36 @@
 
     /** Dim the stardust (during scan completion) */
     function dim() {
-        var el = document.getElementById('universe');
-        if (el) el.style.opacity = '0.3';
+        if (container) container.style.opacity = '0.3';
     }
 
     /** Brighten the stardust */
     function brighten() {
-        var el = document.getElementById('universe');
-        if (el) el.style.opacity = '1';
+        if (container) container.style.opacity = '1';
     }
 
+    /**
+     * Tear the stardust down completely and release the WebGL context, leaving
+     * the module ready for a fresh `mount()`.
+     *
+     * Previously this was a one-way door: it disposed the renderer but left
+     * `renderer`/`container` set, left the canvas in the DOM, never forced the
+     * context loss, and — because it removes the contextlost/restored listeners
+     * — also removed the only path that could have rebuilt (`rebuild()` hangs
+     * off those listeners). A later `playEntrance()` would then `start()` a rAF
+     * loop against a disposed renderer, surviving only on the try/catch in
+     * `animate()`. A scan overlay opens and closes repeatedly, so a re-mountable
+     * teardown that actually returns the context is required; browsers cap live
+     * contexts (~16) and drop the oldest, which on iOS shows up as the ball
+     * silently freezing.
+     *
+     * Listener removal must happen before `forceContextLoss()` — that call
+     * fires `webglcontextlost`, and our handler would otherwise arm the
+     * 2500ms rebuild watchdog against a renderer we are in the middle of
+     * throwing away.
+     */
     function destroy() {
+        if (!mounted && !renderer) return;
         stop();
         if (lostTimer) { clearTimeout(lostTimer); lostTimer = null; }
         window.removeEventListener('resize', onResize);
@@ -403,9 +452,24 @@
             if (cv) {
                 cv.removeEventListener('webglcontextlost', onContextLost, false);
                 cv.removeEventListener('webglcontextrestored', onContextRestored, false);
+                if (cv.parentNode) cv.parentNode.removeChild(cv);
             }
+            try { renderer.forceContextLoss(); } catch (_) { /* not fatal */ }
             renderer.dispose();
         }
+        renderer = null;
+        scene = null;
+        camera = null;
+        cloud = null;
+        material = null;
+        if (container) {
+            container.style.opacity = '';
+            container.style.transition = '';
+            container = null;
+        }
+        contextLost = false;
+        entranceStart = -1;
+        mounted = false;
     }
 
     /** Set expression data from FaceMesh pipeline */
@@ -426,14 +490,21 @@
         expr.browTension = 0.5;
     }
 
-    // Auto-init when DOM ready
+    // Auto-init when DOM ready. Unchanged behaviour: pages that ship a
+    // `#universe` (v6 / story / soul-enroll) get bound automatically; pages
+    // without one (e.g. /decision-alert/) are simply left alone, and whoever
+    // wants the stardust there calls mount() with their own container.
+    function autoMount() { mount(null); }
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', autoMount);
     } else {
-        init();
+        autoMount();
     }
 
     global.TENKI_STARDUST = {
+        mount: mount,
+        unmount: destroy,
+        isMounted: isMounted,
         dim: dim,
         brighten: brighten,
         destroy: destroy,

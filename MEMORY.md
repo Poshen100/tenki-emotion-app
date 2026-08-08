@@ -9,6 +9,117 @@
 
 ---
 
+# 2026-08-07 Session Update #52 (S3 第一刀：decision-alert 的掃描長出星塵核心 + 沿框光弧)
+
+分支 `claude/jie-s2-lyudvk`，6 個 commit。Founder 拍板的範圍是
+**只做 decision-alert、v6 一行不動**，以及**星塵全程**（不是只在收束）。
+
+## 做了什麼
+
+- `stardust.js` 容器參數化（`#universe` 原本寫死三處）+ 新增 `mount(el)/unmount/isMounted`。
+  `mount()` 在已綁定時回 `false` —— 第二個 WebGL context 疊在相機 + MediaPipe 上就是
+  iOS 的 OOM 區，所以**同一時間只允許一個綁定**，v6 那邊 auto-init 照常、行為不變。
+- `readiness-scan.js` 在 `<video>` 與 `.rs-stage` 之間插 `.rs-stardust` 容器，相機起來後掛，
+  `finish()` 一律卸。表情走**既有的** `onFaceResults`，不另開相機或第二個 FaceMesh。
+- decision-alert 補 three.js r128 + stardust.js + MediaPipe + blink-cadence。
+- 進度條換成**沿框的 SVG 光弧**（見下）。
+
+## ⚠️ `destroy()` 原本是單向門（順帶修好，影響 soul-enroll）
+
+它 dispose 了 renderer 卻留著 `renderer`/`container`、canvas 留在 DOM、沒有
+`forceContextLoss()`，而且**它移除的 contextlost/restored 監聽正是 `rebuild()` 唯一的
+觸發路徑** —— destroy 之後呼叫 `playEntrance()` 會對著已 dispose 的 renderer 重啟 rAF，
+只靠 `animate()` 的 try/catch 撐著。掃描要反覆開關，所以改成可重新掛載的完整拆卸。
+⚠️ 監聽必須在 `forceContextLoss()` **之前**移除，否則那個呼叫觸發的 webglcontextlost
+會讓自己的 handler 對正在丟棄的 renderer 上好 2500ms 重建 watchdog。
+
+順帶：三個載入 stardust.js 的頁面原本**完全沒有 `?v=`**，統一加 `sd2`。
+
+## 我這輪最值得記的錯：光弧做成了 North Star 明文禁止的東西
+
+第一版 `.rs-halo` 是 `inset:-14px;border-radius:50%` —— 一個 264px 的**圓**套在
+236px、圓角 64px 的方框外面。實機上是兩個不相干的環。而 North Star §4 白紙黑字寫
+「Progress Halo：沿臉框逐段閉合的光弧，**不用一般圓形 loading**」。
+
+當時的理由是「沿用 takeover 已在實機驗過的 conic + radial mask，不另發明」——
+**理由沒錯，錯在沒注意到 takeover 那個環是套在圓形指紋鈕上的**。已提煉成 PLAYBOOK §6。
+
+改法：光弧與框**共用同一條 SVG 路徑**（兩個幾何一字不差的 rect：track 就是框、
+fill 是進度），`pathLength="1"` 讓進度＝真正的**弧長比例**。conic 掃的是**角度**，
+套在方形上會「邊上跑得快、角落卡住」，那是不誠實的進度。
+
+## 第二條教訓：能在容器裡截到的視覺，不要送到 founder 手機才發現
+
+光弧與掃描框是純 SVG/CSS，**不受沙箱擋 CDN 影響**（只有星塵需要 three.js）。
+第一輪我沒截圖就推；第二輪自己截，當場又多抓到收滿時上緣正中的 **54px 接縫**
+（dash 1 + gap 1 週期是 2，偏移 -0.0652 讓第一段畫到 1.0652 而路徑在 1.0 結束 →
+`[0, 0.0652)` 落在上一週期的空隙）。收滿改用實線。
+已固定成 `scripts/preview-scan-shot.mjs`，規則進 PLAYBOOK §6。
+
+## 實走結果（founder，兩輪）
+
+14:13 第一輪：星塵成功、SECURED 有作用、讀數寫入，光弧幾何錯。
+17:40 第二輪：小弧從上緣正中起、順時針沿框走、收滿是無縫金環、
+`Clear · 信心中`、決策紀錄 3/3 三段皆 cyan。
+
+## 下次接手點 —— 六個仍未驗的項目
+
+1. **星塵手感是否與 v6 一致**（CLAUDE.md 硬線）。引擎本體 `stardust.js:95-376`
+   一行未動，只改掛載/拆卸 —— 但那不等於 founder 認可
+2. **粒子是否隨表情動**（張嘴／眨眼／皺眉）
+3. **連掃三次不變慢、不白屏** —— harness 只驗了呼叫契約，GL context 真的有沒有還
+   只有實機驗得了
+4. **「減少動態」開啟時完全不掛星塵**
+5. **訊號不足那條路維持 cyan 不轉金**（掃到一半把臉移開）
+6. **夜間掃描**（#51 起就欠著）
+
+另：帶位門檻仍不可拍板（PWA 無眨眼基線 → 讀數只有一個維度）；
+`/api/alert` 400 未記 validation errors（識別三輪了）。
+
+---
+
+# 2026-08-07 Session Update #51 (#217 掃描 + #219 結構守望 已 merge 進 main)
+
+## 實走驗收結果（founder，iPhone 主畫面 PWA）
+
+**#217 掃描通過** —— `/decision-alert/` 狀態卡從「尚無狀態讀數」變成 **Clear · 剛剛 · 信心中**。
+讀數真的寫進 `tenki.readiness.reading.v1`。confidence 停在 moderate 是**對的**：契約規定
+沒有眨眼基線不得宣稱 high，而 PWA 讀不到 Safari 那組 baseline（見 #50 的儲存隔離段）。
+
+**#219 結構守望通過** —— 00:05 判定進場 → **紀律完成率 100%（1/1）**。舊版對同一個行為判 0%，
+這正是該 PR 的核心。錨點行（關鍵價位 6,851.00 · 非接受門檻 6,856.00）與事件鏈三筆皆正確。
+
+Merge：`723bf9ea`（#217）→ `0da5bbf8`（#219）。⚠️ **GitHub 沒有自動把 #219 的 base 換成 main**
+—— 那個自動行為要來源分支被刪除才觸發，而 `claude/jie-s2-lyudvk` 是指定開發分支不刪。
+差點就把 #219 併回那條分支而不是 main。**stacked PR 在上游 merge 後要手動改 base 再驗一次。**
+
+## 實走抓到的 bug：條紋與完成率互相矛盾（`71dd3cb`）
+
+收束頁寫著「完成率 100%」，正下方軌跡條卻是 strain 橘 `#C2703D`。根因：#219 改了 outcomeTag
+名稱，`isDisciplined()` 跟上了、`segColor()` 沒有，於是 `judged_entered` 掉進 else 分支。
+
+**同一個「算不算紀律」的判定，當時活在三個地方**：`isDisciplined()`、`segColor()`、
+還有 entry panel 裡內聯重寫的第三份。改一處另外兩處靜默分岔。已收斂成單一來源，
+規則進 PLAYBOOK §6。
+
+新增 `scripts/preview-strip-color.mjs`（3 斷言，走完整流程讀 computedStyle）。
+**反向驗證過** —— 把 `segColor()` 改回舊版，harness 失敗並回報 `rgb(194,112,61)`，
+正是 founder 螢幕上那個橘色。這補回一點 #217/#219 遺失的 preview harness 覆蓋。
+
+## 下次接手點
+
+- ⚠️ **夜間掃描仍未驗**（`415cc8f` 修的「夜間光線下走不完」）。實走那次是明亮環境。
+  **請在正式站 PWA 於夜間補走一次**：應該是降信心但仍給讀數，不是卡在進度 0。
+- **帶位門檻仍不可拍板** —— PWA 沒有眨眼基線，讀數只有「動不動」一個維度。
+  要第二個維度得先在 PWA 裡重做 `/preview/` soul-enroll。
+- **S3 星塵統一**（founder 已拍板「先量測後星塵」）：`readiness-scan.js` 目前零 THREE、
+  零 `TENKI_STARDUST`。障礙：decision-alert.html 要補 three.js + stardust.js、
+  `#universe` id 衝突、takeover 是重度耦合 v6 DOM 的 IIFE、碰 CLAUDE.md 硬線「星塵感覺不能改」。
+- **#218**（day-cadence，純 domain 無 UI）仍開著，隨時可 merge；Phase 1 commit 3／4 接在其後。
+- `/api/alert` 回 400 時應記錄 validation errors（識別了兩輪，仍未做）。
+
+---
+
 # 2026-08-06 Session Update #50 (TradingView 快訊全鏈路打通 + #217/#219 合上 main 待實走)
 
 > 這一輪最重要的不是修好了什麼，是**我用錯誤的證據建了一整條根因推論**，而且它已經寫進
