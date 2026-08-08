@@ -69,6 +69,24 @@
   var EYE_OPEN_DIVISOR = 0.035;
   /** 主指令的去抖動視窗 —— 沿用 takeover `stabilizeHint` 已調過的值。 */
   var HINT_HOLD_MS = 350;
+  /**
+   * 對位標記的平滑係數（EWMA）。
+   *
+   * ⚠️ **刻意不是 CLAUDE.md 的 `α=0.05`。** 那個是給慢速指標（分數類）用的 ——
+   * Body Battery 的教訓是「24h 指標像均衡器跳＝謊報」。但對位標記是**即時操作回饋**：
+   * 使用者動一下就要看到它跟著動，0.05 會慢到完全沒法用來對位。
+   * 兩者服務的是不同的誠實：慢指標不能假裝反應快，操作回饋不能假裝沒收到。
+   * 下個 session 不要「順手統一」成 0.05。
+   */
+  var RETICLE_SMOOTH = 0.35;
+  /** 目標環半徑（viewBox 單位）＝ 理想臉框大小落在框內的視覺尺度。 */
+  var RETICLE_TARGET_R = 52;
+  /**
+   * 對位誤差飽和點（以容差為 1.0 的尺度）。
+   * 2 ＝ 偏離到容差的兩倍才算「完全沒對準」；剛好進容差時 err=0.5，
+   * 對應角括號 scale(1.07)＝改動前的固定值，所以鎖定那一刻不會跳。
+   */
+  var ERR_RATIO_SPAN = 2;
   /** 眨眼遲滯門檻（EAR-normalized，與 takeover 同一組）。 */
   var BLINK_CLOSE = 0.25;
   var BLINK_OPEN = 0.55;
@@ -143,13 +161,19 @@
       'background:#05060A;color:#F4F6FF;font-family:inherit;',
       'flex-direction:column;align-items:center;justify-content:center;gap:18px;}',
       '#' + OVERLAY_ID + '.open{display:flex;}',
-      // 框＝鏡頭：video 只出現在框內，且看得清楚（對位是這個畫面的任務）。
-      // 框外不放 video —— 那裡是背景與星塵。**絕不加第二個 <video>**：兩個元素
-      // 共用同一條 stream ＝ iOS 兩份 decoder ＝ OOM（PR #67 的整段修復就是這件事）。
+      // 🔴 相機影像一幀都不顯示（North Star §4，founder 2026-08-08 拍板）。
+      // 看到自己的臉會變成自拍、有容貌焦慮的人反而更緊張，而且牽涉肖像權與免責。
+      // 完全露臉只保留在建立臉部基線那條流程。對位改用框內的抽象標記（見下）。
+      //
+      // ⚠️ **video 元素必須留在版面裡並維持解碼** —— `sampleFrame()` 靠
+      // `drawImage(video)` 取像素。改成 `display:none` 或壓成 1px 會讓瀏覽器
+      // 停止解碼，整個量測會**無聲死掉**（掃描跑完卻沒有讀數）。
+      // `drawImage` 取的是 videoWidth/videoHeight 內在尺寸，與 CSS 尺寸無關，
+      // 所以「透明但仍佔版面」既看不到、也不影響取樣品質。
       '#' + OVERLAY_ID + ' .rs-lens{position:absolute;inset:0;border-radius:64px;',
-      'overflow:hidden;background:#04050A;}',
+      'overflow:hidden;opacity:0;pointer-events:none;}',
       '#' + OVERLAY_ID + ' .rs-video{width:100%;height:100%;display:block;',
-      'object-fit:cover;opacity:0.92;transform:scaleX(-1);}',
+      'object-fit:cover;transform:scaleX(-1);}',
       // 星塵核心（North Star §4「內核 = 星塵靈魂」）。夾在 video（無 z-index，最底）
       // 與 .rs-stage（z1）之間，pointer-events:none 讓取消鈕維持可按。
       // 沒有 three.js / 已被 host 佔用 / reduced-motion 時這層是空的 div，不影響版面。
@@ -189,10 +213,38 @@
       // 為什麼 dash 值是這兩個數：pathLength=1 之下，每段直線佔 0.130460、
       // 每個圓角佔 0.119540，兩者相加正好 0.25 —— 所以「露出圓角、藏起直線」
       // 這個 pattern 每 1/4 周長重複一次，四個角自動等距。offset 推到第一個圓角起點。
+      //
+      // 收攏程度**連續**綁在對位誤差上（`--rs-err` 由 updateReticle 每幀寫）：
+      // 越接近越緊，這是「越來越熱」的頻道，跟 reticle 的「你在哪裡」互補。
+      // err 沒被寫（還沒看到臉）時退回 1 ＝ 張到最開，讀作「在搜尋」。
+      // transition 短於 halo 的 0.3s —— 它要跟得上手的動作，不是慢速指標。
       '#' + OVERLAY_ID + ' .rs-halo .rs-halo-corners{stroke:' + HALO_ACTIVE + ';stroke-width:3;',
-      'stroke-dasharray:0.11954 0.13046;stroke-dashoffset:-0.13046;opacity:0.45;',
-      'transform-box:fill-box;transform-origin:center;transform:scale(1.07);',
+      'stroke-dasharray:0.11954 0.13046;stroke-dashoffset:-0.13046;',
+      'opacity:calc(0.4 + (1 - var(--rs-err, 1)) * 0.35);',
+      'transform-box:fill-box;transform-origin:center;',
+      'transform:scale(calc(1 + var(--rs-err, 1) * 0.14));',
+      'transition:transform 0.16s linear,opacity 0.16s linear;}',
+      // 鎖定後回到 Lock 語彙的 snap 曲線（此時 --rs-err 已經很小，位移不大，
+      // 差別在**手感**：收斂是跟手的，snap 是儀器自己下的判斷）。
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-halo-corners{',
       'transition:transform 0.3s ' + EASE_SECURE + ',opacity 0.3s ' + EASE_SECURE + ';}',
+      // ── 目標環 + 對位標記：取代「看自己的臉」──
+      // 望遠鏡／雷達的作法：不給你看目標長什麼樣，給你看儀器有沒有套住它。
+      '#' + OVERLAY_ID + ' .rs-halo .rs-target{fill:none;stroke:rgba(61,224,255,0.30);',
+      'stroke-width:1;stroke-dasharray:4 7;}',
+      '#' + OVERLAY_ID + ' .rs-halo .rs-reticle{fill:rgba(34,211,238,0.10);',
+      'stroke:' + HALO_ACTIVE + ';stroke-width:2;opacity:0;',
+      'transition:opacity 0.3s ' + EASE_SECURE + ';}',
+      // 有臉才顯示標記 —— 沒量到就不畫，不憑空生一個位置出來。
+      '#' + OVERLAY_ID + ' .rs-frame.tracking .rs-reticle{opacity:1;}',
+      // 鎖定：標記與目標環合一（磁吸由 JS 把座標寫回中心，這裡只負責視覺強調）。
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-reticle{fill:rgba(34,211,238,0.22);',
+      'filter:drop-shadow(0 0 8px rgba(34,211,238,0.6));}',
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-target{stroke:rgba(34,211,238,0.55);',
+      'stroke-dasharray:none;}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-reticle{stroke:' + HALO_SECURED + ';',
+      'fill:rgba(255,212,110,0.18);filter:drop-shadow(0 0 8px rgba(255,212,110,0.55));}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-target{stroke:rgba(255,212,110,0.5);}',
       // snap：四角一起收到位並提亮 —— MOTION-DIRECTION §4「Lock 鎖定」的落點。
       '#' + OVERLAY_ID + ' .rs-frame.locked .rs-halo-corners{transform:scale(1);opacity:1;}',
       // 收束時角括號跟著整組轉 gold（cyan=ACTIVE / gold=SECURED）。
@@ -206,8 +258,6 @@
       '@keyframes rs-bloom{0%{box-shadow:0 0 0 0 rgba(34,211,238,0);}',
       '30%{box-shadow:0 0 26px 2px rgba(34,211,238,0.45);}',
       '100%{box-shadow:0 0 0 0 rgba(34,211,238,0);}}',
-      // 鎖定後鏡頭本身也亮一階 —— 「儀器正在看你」。
-      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-video{opacity:1;}',
 
       // ── 指令膠囊（North Star §4：一次只顯示 1 個主指令）──
       '#' + OVERLAY_ID + ' .rs-instruction{display:inline-flex;align-items:center;gap:10px;',
@@ -229,6 +279,8 @@
       // ⚠️ 選擇器要與上面的基礎規則**同樣具體**（id + .rs-halo + .rs-halo-corners）。
       // 少寫一層 class 就會輸掉優先權，媒體查詢看起來有寫、實際上沒生效。
       '#' + OVERLAY_ID + ' .rs-halo .rs-halo-corners{transition:none;}',
+      // .locked 那條 transition 的選擇器更具體，不重寫一次會蓋不掉（同上一課）。
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-halo-corners{transition:none;}',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-track,',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-lens{animation:none;}}',
       '#' + OVERLAY_ID + ' .rs-dots{display:flex;gap:14px;font-size:10px;color:#5A6178;',
@@ -272,6 +324,10 @@
       '      <rect class="rs-halo-track" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
       '      <rect class="rs-halo-corners" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
       '      <rect class="rs-halo-fill" data-rs="halo" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
+      // 目標環（你該在的位置與大小）+ 對位標記（你現在在哪、多大）。
+      // 兩者同一個座標系，所以「移進去、調到一樣大」＝ 對位完成。
+      '      <circle class="rs-target" cx="118" cy="118" r="' + RETICLE_TARGET_R + '"/>',
+      '      <circle class="rs-reticle" data-rs="reticle" cx="118" cy="118" r="' + RETICLE_TARGET_R + '"/>',
       '    </svg>',
       '  </div>',
       '  <div class="rs-instruction" data-rs="instruction"><b data-rs="hint-icon"></b><span data-rs="hint-text"></span></div>',
@@ -525,6 +581,7 @@
     if (!faces || !faces.length) {
       // 臉不見了：位移與眨眼的時間基準都要斷開，空窗不得計入任何視窗。
       setLocked(false); // 臉都不見了就不能還宣稱鎖定
+      clearReticle();
       session.faceFramed = false;
       session.faceBox = null;
       session.lastFaceCenter = null;
@@ -564,8 +621,10 @@
     var framed = size >= FACE_SIZE_MIN && size <= FACE_SIZE_MAX
       && Math.abs(centerX - 0.5) <= FACE_CENTER_X_TOL
       && Math.abs(centerY - 0.5) <= FACE_CENTER_Y_TOL;
+    // 順序：先 setLocked（它讀 session.faceFramed 判斷邊緣），再更新標記。
     setLocked(framed);
     session.faceFramed = framed;
+    updateReticle(session.faceBox, framed);
 
     // 眼睛開合：眨眼計數與星塵表情共用同一個量，不各算一次。
     var eyeL = Math.abs(lm[159].y - lm[145].y);
@@ -927,6 +986,78 @@
     if (video) video.srcObject = null;
   }
 
+  /** 理想臉框大小 —— 容差區間的中點，對位標記以它為 1.0 的尺度基準。 */
+  var RETICLE_IDEAL_SIZE = (FACE_SIZE_MIN + FACE_SIZE_MAX) / 2;
+
+  /**
+   * 更新框內的對位標記。
+   *
+   * 這是「不露臉」之下取代鏡子的東西：標記的**位置就是臉的位置、直徑就是臉的大小**，
+   * 使用者把它移進中央的目標環、調到一樣大就完成對位。只有位置與大小，沒有長相 ——
+   * 望遠鏡不會給你看目標長什麼樣，它給你看儀器有沒有套住它。
+   *
+   * 鎖定後標記**磁吸到正中心**與目標環合一。磁吸只在量測說對準之後才發生 ——
+   * 提前吸就是用動畫假造一個還沒發生的事實。
+   *
+   * @param {{centerX:number,centerY:number,size:number}} box - 這一幀的臉框。
+   * @param {boolean} framed - 是否已落在容差內。
+   */
+  function updateReticle(box, framed) {
+    var node = q('reticle');
+    if (!node) return;
+
+    var tx;
+    var ty;
+    var tr;
+    if (framed) {
+      tx = 118; ty = 118; tr = RETICLE_TARGET_R; // 磁吸歸位
+    } else {
+      tx = (1 - box.centerX) * 236; // 鏡像：畫面是照鏡子的方向
+      ty = box.centerY * 236;
+      tr = Math.max(16, Math.min(100, (box.size / RETICLE_IDEAL_SIZE) * RETICLE_TARGET_R));
+    }
+
+    var s = session.reticle;
+    if (!s) {
+      session.reticle = s = { x: tx, y: ty, r: tr }; // 第一幀直接就位，不從中心滑過去
+    } else {
+      s.x += (tx - s.x) * RETICLE_SMOOTH;
+      s.y += (ty - s.y) * RETICLE_SMOOTH;
+      s.r += (tr - s.r) * RETICLE_SMOOTH;
+    }
+    node.setAttribute('cx', s.x.toFixed(1));
+    node.setAttribute('cy', s.y.toFixed(1));
+    node.setAttribute('r', s.r.toFixed(1));
+
+    // 角括號的收斂程度 ＝ 對位誤差。這是「越來越熱」的頻道，
+    // 與標記的「你在哪裡」互補，兩個報告不同的事。
+    //
+    // ratio：以容差為 1.0 的尺度，三軸取最寬鬆的那一個（哪一項最差就聽哪一項）。
+    // ratio ≤ 1 就是 framed。除以 ERR_RATIO_SPAN 讓「剛好進容差」對應 err=0.5
+    // ＝ 舊的固定 scale(1.07)，鎖定瞬間再由 .locked 收到 scale(1) —— 連續且不跳。
+    var ratio = Math.max(
+      Math.abs(box.centerX - 0.5) / FACE_CENTER_X_TOL,
+      Math.abs(box.centerY - 0.5) / FACE_CENTER_Y_TOL,
+      Math.abs(box.size - RETICLE_IDEAL_SIZE) / ((FACE_SIZE_MAX - FACE_SIZE_MIN) / 2)
+    );
+    var err = clamp01(ratio / ERR_RATIO_SPAN);
+    var frame = q('frame');
+    if (frame) {
+      frame.classList.add('tracking');
+      frame.style.setProperty('--rs-err', err.toFixed(3));
+    }
+  }
+
+  /** 對位標記歸零 —— 臉不見了就收掉，不留一個上一幀的幽靈在框裡。 */
+  function clearReticle() {
+    if (session) session.reticle = null;
+    var frame = q('frame');
+    if (frame) {
+      frame.classList.remove('tracking');
+      frame.style.removeProperty('--rs-err');
+    }
+  }
+
   /**
    * 鎖定狀態轉換 —— MOTION-DIRECTION §4 的 **Lock 鎖定**：
    * 短促 flicker（極速運算感）→ 瞬間 snap → 靜止 + 輝光。
@@ -1056,7 +1187,17 @@
     // overlay 是 hide 不是 remove，所以上一輪的 SECURED 狀態會留著 —— 必須清掉，
     // 否則第二次掃描一開場就頂著金框，等於還沒量就宣稱鎖定了。
     var frameEl = q('frame');
-    if (frameEl) frameEl.classList.remove('secured', 'locked', 'lock-beat', 'stalled');
+    if (frameEl) {
+      frameEl.classList.remove('secured', 'locked', 'lock-beat', 'stalled', 'tracking');
+      frameEl.style.removeProperty('--rs-err');
+    }
+    // 對位標記回到中心的預設位置，不留上一輪的殘影。
+    var reticleEl = q('reticle');
+    if (reticleEl) {
+      reticleEl.setAttribute('cx', '118');
+      reticleEl.setAttribute('cy', '118');
+      reticleEl.setAttribute('r', String(RETICLE_TARGET_R));
+    }
     setProgress(0);
     overlay.classList.add('open');
 
@@ -1071,7 +1212,7 @@
         // 臉部追蹤（tier 由實際量到的 landmark 樣本數決定，不是由「有沒有載到
         // MediaPipe」決定 —— 載到但整場沒看到臉，那就不是 Tier A）。
         faceMesh: null, faceTimer: null, faceBusy: false,
-        everSawFace: false, faceFramed: false, faceBox: null,
+        everSawFace: false, faceFramed: false, faceBox: null, reticle: null,
         lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         lmAcc: { n: 0, stillness: 0 },

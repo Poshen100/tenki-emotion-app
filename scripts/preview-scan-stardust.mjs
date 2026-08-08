@@ -251,6 +251,101 @@ async function scanAndCancel(page) {
   await ctx.close();
 }
 
+// ── 2c-2. 不露臉：畫面上看不到相機，但量測仍然活著 ──
+//
+// 這一組守的是本刀**最高風險**的一點。founder 2026-08-08 拍板日常/決策掃描不得
+// 顯示相機影像（North Star §4），實作方式是把 .rs-lens 轉成 opacity:0 —— 而
+// `sampleFrame()` 靠 `drawImage(video)` 取像素。一旦有人「順手」把它改成
+// display:none / visibility:hidden / 壓成 1px，瀏覽器（尤其 iOS Safari）會停止
+// 解碼，整個量測會**無聲死掉**：畫面照常跑完，結果卻沒有讀數。
+//
+// ⚠️ **哪一條真的在守，實測過了**（2026-08-08 反向驗證）：
+// 把 .rs-lens 改成 display:none 與改成 1px，headless Chromium 的「取樣仍在發生」
+// 那條**都照樣綠**（桌面 Chromium 不管版面照解碼），只有下面那條**結構**斷言抓到。
+// 所以守住這個風險的是「video 仍留在版面裡」，不是取樣那條 ——
+// 取樣那條守的是另一件事（整條取樣鏈有沒有接上），一樣有價值但別記錯了它的功用。
+// 這也是為什麼結構斷言要寫死 display / visibility / 尺寸三項：
+// 我們沒辦法在 CI 裡重現 iOS 的解碼行為，只能把「不准長成那個樣子」講死。
+{
+  const { ctx, page } = await newPage();
+  await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }); });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+
+  check('相機畫面完全不顯示（North Star §4 不露臉）', await page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-lens'));
+    return cs.opacity;
+  }), '0');
+
+  // 透明 ≠ 不解碼。video 必須仍佔版面、仍有內在尺寸。
+  check('video 仍留在版面裡（不是 display:none／1px）', await page.evaluate(() => {
+    const v = document.querySelector('#tenki-readiness-scan video.rs-video');
+    const cs = getComputedStyle(v);
+    const r = v.getBoundingClientRect();
+    return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 100 && r.height > 100;
+  }), true);
+
+  // 取樣鏈仍然接著：三顆燈只有在 sampleFrame() 真的從 video 取到像素時才會離開
+  // 中性態（setDot 只在 frame 非 null 的分支被呼叫）。用燈而不是進度，是因為
+  // 假相機餵的畫面過不了品質閘門，進度本來就不該前進；燈才是「取樣有沒有發生」
+  // 的誠實訊號。（守 iOS 解碼停擺的是上面那條結構斷言，不是這條 —— 見開頭註解。）
+  await page.waitForTimeout(1500);
+  check('相機透明之後取樣仍在發生（三顆燈已離開中性態）', await page.evaluate(() => {
+    const dots = [...document.querySelectorAll('#tenki-readiness-scan .rs-dot')];
+    return dots.some((d) => d.classList.contains('pass') || d.classList.contains('fail'));
+  }), true);
+
+  check('video 有內在尺寸（真的在解碼）', await page.evaluate(() => {
+    const v = document.querySelector('#tenki-readiness-scan video.rs-video');
+    return v.videoWidth > 0 && v.videoHeight > 0;
+  }), true);
+
+  await ctx.close();
+}
+
+// ── 2c-3. 對位標記：取代「看自己的臉」的那個東西 ──
+{
+  const { ctx, page } = await newPage();
+  await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }); });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+
+  // 目標環與標記必須畫在**同一個 SVG**裡，才會跟框、光弧共用座標系。
+  // 各自另外畫一個絕對定位的 div，就是 2026-08-07「圓套在方框外」的同一課。
+  check('目標環與對位標記都在 halo 的 SVG 內', await page.evaluate(() => {
+    const svg = document.querySelector('#tenki-readiness-scan svg.rs-halo');
+    return !!svg.querySelector('circle.rs-target') && !!svg.querySelector('circle.rs-reticle');
+  }), true);
+
+  // 沒量到臉就不畫標記 —— 不憑空生一個位置出來假裝有在追蹤。
+  check('沒有臉時對位標記不顯示', await page.evaluate(() => {
+    return getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-reticle')).opacity;
+  }), '0');
+
+  // 角括號的收攏程度連續綁在 --rs-err 上：越接近越緊。
+  const scaleAt = (err) => page.evaluate((e) => {
+    const f = document.querySelector('#tenki-readiness-scan .rs-frame');
+    f.classList.add('tracking');
+    f.style.setProperty('--rs-err', String(e));
+    const m = getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-halo-corners')).transform;
+    return m === 'none' ? 1 : parseFloat(m.match(/matrix\(([\d.]+)/)[1]);
+  }, err);
+  await page.evaluate(() => {
+    // transition 會讓連續兩次讀值互相污染，這一段只驗映射本身。
+    document.querySelector('#tenki-readiness-scan .rs-halo-corners').style.transition = 'none';
+  });
+  const wide = await scaleAt(1);
+  const tight = await scaleAt(0.1);
+  check('角括號隨對位誤差連續收攏（誤差小 → 更緊）', tight < wide - 0.05, true);
+  // 剛好進容差（err=0.5）要對上改動前的固定值 1.07，鎖定那一刻才不會跳。
+  check('剛進容差時等於舊的 scale(1.07)', Math.abs((await scaleAt(0.5)) - 1.07) < 0.005, true);
+
+  await page.waitForTimeout(400); // 讀 opacity 前要等過 0.3s 的淡入，否則讀到途中值
+  check('對位標記顯示需要 .tracking（有量到臉才畫）', await page.evaluate(() => {
+    return getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-reticle')).opacity;
+  }), '1');
+
+  await ctx.close();
+}
+
 // ── 2d. reduced-motion 下鎖定仍看得出來（只是不動畫）──
 {
   const { ctx, page } = await newPage({ reducedMotion: 'reduce' });
