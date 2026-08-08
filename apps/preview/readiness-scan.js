@@ -67,6 +67,8 @@
   var LANDMARK_STILL_GATE = 0.5;
   /** 眼睛開合正規化除數（landmark y 距離 → 0..1）。 */
   var EYE_OPEN_DIVISOR = 0.035;
+  /** 主指令的去抖動視窗 —— 沿用 takeover `stabilizeHint` 已調過的值。 */
+  var HINT_HOLD_MS = 350;
   /** 眨眼遲滯門檻（EAR-normalized，與 takeover 同一組）。 */
   var BLINK_CLOSE = 0.25;
   var BLINK_OPEN = 0.55;
@@ -141,8 +143,13 @@
       'background:#05060A;color:#F4F6FF;font-family:inherit;',
       'flex-direction:column;align-items:center;justify-content:center;gap:18px;}',
       '#' + OVERLAY_ID + '.open{display:flex;}',
-      '#' + OVERLAY_ID + ' .rs-video{position:absolute;inset:0;width:100%;height:100%;',
-      'object-fit:cover;opacity:0.25;filter:blur(2px);transform:scaleX(-1);}',
+      // 框＝鏡頭：video 只出現在框內，且看得清楚（對位是這個畫面的任務）。
+      // 框外不放 video —— 那裡是背景與星塵。**絕不加第二個 <video>**：兩個元素
+      // 共用同一條 stream ＝ iOS 兩份 decoder ＝ OOM（PR #67 的整段修復就是這件事）。
+      '#' + OVERLAY_ID + ' .rs-lens{position:absolute;inset:0;border-radius:64px;',
+      'overflow:hidden;background:#04050A;}',
+      '#' + OVERLAY_ID + ' .rs-video{width:100%;height:100%;display:block;',
+      'object-fit:cover;opacity:0.92;transform:scaleX(-1);}',
       // 星塵核心（North Star §4「內核 = 星塵靈魂」）。夾在 video（無 z-index，最底）
       // 與 .rs-stage（z1）之間，pointer-events:none 讓取消鈕維持可按。
       // 沒有 three.js / 已被 host 佔用 / reduced-motion 時這層是空的 div，不影響版面。
@@ -169,7 +176,61 @@
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-track{stroke:rgba(255,212,110,0.45);}',
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-fill{stroke:' + HALO_SECURED + ';',
       'filter:drop-shadow(0 0 6px rgba(255,212,110,0.55));}',
-      '#' + OVERLAY_ID + ' .rs-instruction{font-size:17px;font-weight:600;min-height:24px;}',
+      // 進度停住時光弧明顯黯下去。**這不是裝飾** —— 進度只在品質閘門通過時前進
+      // （pause-not-reset），這一層就是把那個因果講出來：「環停住是因為你沒對準」。
+      '#' + OVERLAY_ID + ' .rs-frame.stalled .rs-halo-fill{opacity:0.3;}',
+      '#' + OVERLAY_ID + ' .rs-halo-fill{transition:opacity 0.3s ' + EASE_SECURE + ';}',
+
+      // ── cyan 角括號 ──
+      // 也長在**同一條路徑**上（第三個幾何相同的 rect），只是用 dash 只露出四個圓角。
+      // 這是 2026-08-07 那個「圓套在方框外」的同一課：任何要「沿著框」的東西，
+      // 就得跟框共用路徑，不能自己另外畫一個形狀近似它。
+      //
+      // 為什麼 dash 值是這兩個數：pathLength=1 之下，每段直線佔 0.130460、
+      // 每個圓角佔 0.119540，兩者相加正好 0.25 —— 所以「露出圓角、藏起直線」
+      // 這個 pattern 每 1/4 周長重複一次，四個角自動等距。offset 推到第一個圓角起點。
+      '#' + OVERLAY_ID + ' .rs-halo .rs-halo-corners{stroke:' + HALO_ACTIVE + ';stroke-width:3;',
+      'stroke-dasharray:0.11954 0.13046;stroke-dashoffset:-0.13046;opacity:0.45;',
+      'transform-box:fill-box;transform-origin:center;transform:scale(1.07);',
+      'transition:transform 0.3s ' + EASE_SECURE + ',opacity 0.3s ' + EASE_SECURE + ';}',
+      // snap：四角一起收到位並提亮 —— MOTION-DIRECTION §4「Lock 鎖定」的落點。
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-halo-corners{transform:scale(1);opacity:1;}',
+      // 收束時角括號跟著整組轉 gold（cyan=ACTIVE / gold=SECURED）。
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-corners{stroke:' + HALO_SECURED + ';}',
+      // flicker（極速運算感）+ glow：只在剛鎖上那一拍播一次，之後靜止。
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-track{animation:rs-flicker 0.18s steps(1) 1;}',
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-lens{animation:rs-bloom 0.42s ' + EASE_SECURE + ' 1;}',
+      '@keyframes rs-flicker{0%{stroke:' + HALO_ACTIVE + ';}',
+      '35%{stroke:rgba(61,224,255,0.28);}70%{stroke:' + HALO_ACTIVE + ';}',
+      '100%{stroke:rgba(61,224,255,0.28);}}',
+      '@keyframes rs-bloom{0%{box-shadow:0 0 0 0 rgba(34,211,238,0);}',
+      '30%{box-shadow:0 0 26px 2px rgba(34,211,238,0.45);}',
+      '100%{box-shadow:0 0 0 0 rgba(34,211,238,0);}}',
+      // 鎖定後鏡頭本身也亮一階 —— 「儀器正在看你」。
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-video{opacity:1;}',
+
+      // ── 指令膠囊（North Star §4：一次只顯示 1 個主指令）──
+      '#' + OVERLAY_ID + ' .rs-instruction{display:inline-flex;align-items:center;gap:10px;',
+      'min-height:44px;padding:0 18px 0 10px;border-radius:999px;',
+      'background:rgba(10,14,24,0.72);border:1px solid rgba(61,224,255,0.22);',
+      'font-size:16px;font-weight:600;letter-spacing:0.02em;',
+      'transition:border-color 0.3s ' + EASE_SECURE + ';}',
+      '#' + OVERLAY_ID + ' .rs-instruction b{width:26px;height:26px;flex:none;',
+      'display:flex;align-items:center;justify-content:center;border-radius:50%;',
+      'background:rgba(61,224,255,0.14);color:' + HALO_ACTIVE + ';',
+      'font-size:14px;font-weight:400;font-style:normal;}',
+      '#' + OVERLAY_ID + ' .rs-instruction b:empty{display:none;}',
+      // 鎖定時膠囊轉成「已對準」的靜態語氣，不再閃爍求你動。
+      '#' + OVERLAY_ID + ' .rs-frame.locked ~ .rs-instruction{border-color:rgba(34,211,238,0.55);}',
+
+      // reduced-motion：flicker / bloom / snap 全部跳過，但**鎖定仍然看得出來** ——
+      // 角括號直接在終態、膠囊照樣變色。靜態終態不等於沒有回饋（鐵律 3）。
+      '@media (prefers-reduced-motion: reduce){',
+      // ⚠️ 選擇器要與上面的基礎規則**同樣具體**（id + .rs-halo + .rs-halo-corners）。
+      // 少寫一層 class 就會輸掉優先權，媒體查詢看起來有寫、實際上沒生效。
+      '#' + OVERLAY_ID + ' .rs-halo .rs-halo-corners{transition:none;}',
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-track,',
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-lens{animation:none;}}',
       '#' + OVERLAY_ID + ' .rs-dots{display:flex;gap:14px;font-size:10px;color:#5A6178;',
       'letter-spacing:0.1em;text-transform:uppercase;}',
       '#' + OVERLAY_ID + ' .rs-dot{display:flex;align-items:center;gap:5px;}',
@@ -189,19 +250,31 @@
     node.setAttribute('role', 'dialog');
     node.setAttribute('aria-label', '狀態讀數掃描');
     node.innerHTML = [
-      '<video class="rs-video" playsinline muted autoplay></video>',
       '<div class="rs-stardust" data-rs="stardust"></div>',
+      // iOS 17.4+ 切換 switch 會讓 Safari 播系統觸感。未公開行為、沙箱驗不了，
+      // 純粹是漸進增強 —— 真正撐起鎖定那一刻的是下面的 Lock 視覺語彙。
+      // clip 而非 display:none：隱藏的控制項不會觸發（同 v6 的作法）。
+      '<input type="checkbox" switch data-rs="haptic" tabindex="-1" aria-hidden="true"',
+      ' style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;clip:rect(0 0 0 0)">',
       '<button type="button" class="rs-cancel" data-rs="cancel">取消</button>',
       '<div class="rs-stage">',
       '  <div class="rs-mission" data-rs="mission"></div>',
       '  <div class="rs-symbol" data-rs="symbol"></div>',
       '  <div class="rs-frame" data-rs="frame">',
+      // 框＝鏡頭。video 住在 .rs-lens 裡被裁成超橢圓，框外只剩背景與星塵。
+      // ⚠️ 裁切必須放在 .rs-lens 這個獨立元素上，不能放在 .rs-frame ——
+      // 否則光弧的描邊（路徑在 x=1、stroke 2.5）外緣會被切掉。
+      '    <div class="rs-lens">',
+      '      <video class="rs-video" playsinline muted autoplay></video>',
+      '    </div>',
+      // 三個 rect，幾何一字不差：track（框本身）、corners（角括號）、fill（進度）。
       '    <svg class="rs-halo" viewBox="0 0 236 236" aria-hidden="true">',
       '      <rect class="rs-halo-track" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
+      '      <rect class="rs-halo-corners" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
       '      <rect class="rs-halo-fill" data-rs="halo" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
       '    </svg>',
       '  </div>',
-      '  <div class="rs-instruction" data-rs="instruction"></div>',
+      '  <div class="rs-instruction" data-rs="instruction"><b data-rs="hint-icon"></b><span data-rs="hint-text"></span></div>',
       '  <div class="rs-dots">',
       '    <span class="rs-dot" data-rs="dot-light"><i></i>Lighting</span>',
       '    <span class="rs-dot" data-rs="dot-center"><i></i>Centering</span>',
@@ -224,9 +297,77 @@
   }
 
   /** 一次只顯示一個主指令（North Star §4）。 */
-  function setInstruction(text) {
-    var node = q('instruction');
-    if (node) node.textContent = text;
+  /**
+   * 寫入唯一那一條主指令（North Star §4：一次只顯示 1 個）。
+   *
+   * @param {string} text - 指令文字。
+   * @param {string} [icon] - 選填的方向符號；省略時圖示 chip 自動收起（`b:empty`）。
+   */
+  function setInstruction(text, icon) {
+    var t = q('hint-text');
+    var i = q('hint-icon');
+    if (t) t.textContent = text;
+    if (i) i.textContent = icon || '';
+  }
+
+  /**
+   * 推導**唯一**那一條主指令。
+   *
+   * 資料早就在了 —— `onFaceResults` 每幀都算出臉框的中心與大小，先前卻被壓成一個
+   * boolean `faceFramed` 就丟掉，所以只能說「把臉放進框裡」。這裡把方向還回來。
+   *
+   * 優先序：大小 → 垂直 → 水平 → 光線 → 穩定度。一次只回一條，
+   * 因為 North Star §4 規定「一次只顯示 1 個主指令」。
+   *
+   * ⚠️ 水平方向做過鏡像換算：FaceMesh 的 x 在**相機影像**座標系，而畫面上的
+   * `<video>` 是 `scaleX(-1)`（照鏡子）。指令必須用**使用者看到的**方向講，
+   * 所以比較的是 `1 - centerX`。垂直與遠近沒有這個問題。
+   *
+   * @param {{lighting:boolean,centering:(boolean|null),stillness:(boolean|null)}} gates
+   * @returns {{key:string,text:string,icon:string}}
+   */
+  function resolveHint(gates) {
+    var box = session.faceBox;
+    var fresh = box && session.lastFaceAt
+      && (performance.now() - session.lastFaceAt) < FACE_STALE_MS;
+
+    if (fresh) {
+      if (box.size < FACE_SIZE_MIN) return { key: 'closer', text: '靠近一點', icon: '＋' };
+      if (box.size > FACE_SIZE_MAX) return { key: 'farther', text: '退遠一點', icon: '－' };
+      if (box.centerY > 0.5 + FACE_CENTER_Y_TOL) return { key: 'up', text: '向上對齊', icon: '↑' };
+      if (box.centerY < 0.5 - FACE_CENTER_Y_TOL) return { key: 'down', text: '向下對齊', icon: '↓' };
+      var displayX = 1 - box.centerX; // 鏡像：改用使用者看到的座標
+      if (displayX > 0.5 + FACE_CENTER_X_TOL) return { key: 'left', text: '向左對齊', icon: '←' };
+      if (displayX < 0.5 - FACE_CENTER_X_TOL) return { key: 'right', text: '向右對齊', icon: '→' };
+    } else if (gates.centering !== true) {
+      return { key: 'find', text: '把臉放進框裡', icon: '◎' };
+    }
+
+    if (gates.lighting !== true) return { key: 'light', text: '需要多一點光線', icon: '☀' };
+    if (gates.stillness !== true) return { key: 'still', text: '再穩一下', icon: '≈' };
+    return { key: 'hold', text: '保持穩定', icon: '' };
+  }
+
+  /**
+   * 套用主指令，並做去抖動。
+   *
+   * 候選指令必須連續穩定 `HINT_HOLD_MS` 才換掉正在顯示的那一條 —— 否則在門檻邊界上
+   * 會上下左右亂跳，讀起來像壞掉（350ms 沿用 takeover `stabilizeHint` 已調過的值）。
+   * 第一條指令不等待，立刻顯示。
+   *
+   * @param {{lighting:boolean,centering:(boolean|null),stillness:(boolean|null)}} gates
+   */
+  function applyHint(gates) {
+    var hint = resolveHint(gates);
+    var now = performance.now();
+    if (hint.key !== session.hintPending) {
+      session.hintPending = hint.key;
+      session.hintPendingAt = now;
+    }
+    if (hint.key === session.hintShown) return;
+    if (session.hintShown !== null && (now - session.hintPendingAt) < HINT_HOLD_MS) return;
+    session.hintShown = hint.key;
+    setInstruction(hint.text, hint.icon);
   }
 
   /** 三個微型狀態點 —— 說明進度為什麼停住，而不是讓人乾等。 */
@@ -383,6 +524,9 @@
     var faces = results && results.multiFaceLandmarks;
     if (!faces || !faces.length) {
       // 臉不見了：位移與眨眼的時間基準都要斷開，空窗不得計入任何視窗。
+      setLocked(false); // 臉都不見了就不能還宣稱鎖定
+      session.faceFramed = false;
+      session.faceBox = null;
       session.lastFaceCenter = null;
       session.lastFaceAt = 0;
       session.lastBlinkFeedAt = 0;
@@ -414,9 +558,14 @@
     session.everSawFace = true;
     session.lastFaceCenter = { x: centerX, y: centerY };
     session.lastFaceAt = now;
-    session.faceFramed = size >= FACE_SIZE_MIN && size <= FACE_SIZE_MAX
+    // 保留中心與大小 —— 方向指令（resolveHint）需要它們。先前這裡直接壓成
+    // 一個 boolean，等於把「往哪邊移」的資訊丟掉，只剩「不對」。
+    session.faceBox = { centerX: centerX, centerY: centerY, size: size };
+    var framed = size >= FACE_SIZE_MIN && size <= FACE_SIZE_MAX
       && Math.abs(centerX - 0.5) <= FACE_CENTER_X_TOL
       && Math.abs(centerY - 0.5) <= FACE_CENTER_Y_TOL;
+    setLocked(framed);
+    session.faceFramed = framed;
 
     // 眼睛開合：眨眼計數與星塵表情共用同一個量，不各算一次。
     var eyeL = Math.abs(lm[159].y - lm[145].y);
@@ -668,6 +817,10 @@
     stopCamera();   // 量測已完成，相機立刻關掉
     var cancel = q('cancel');
     if (cancel) cancel.hidden = true;
+    // 量測結束就沒有「停滯」可言了。不清掉的話，最後一幀剛好閘門沒過時，
+    // 收束的 gold 光弧會用 30% 不透明度上場 —— 看起來像失敗，其實是成功。
+    var frame = q('frame');
+    if (frame) frame.classList.remove('stalled', 'lock-beat');
   }
 
   /** 收束：算出讀數 → 存檔 → 揭示 → 回傳。 */
@@ -730,12 +883,12 @@
         if (gatesAdvance(gates)) session.heldMs += dt;
       }
 
-      // 單一指令：先講「擋住進度的那一件事」，光線只在它真的是阻塞點時才提。
-      setInstruction(
-        gatesAdvance(gates) ? '保持穩定'
-        : gates.centering !== true ? '把臉放進框裡'
-        : gates.stillness !== true ? '再穩一下'
-        : '需要多一點光線');
+      // 單一主指令，帶方向（見 resolveHint）。
+      applyHint(gates);
+      // 讓「進度為什麼停住」看得見：閘門沒過就把光弧壓暗。進度本來就只在閘門
+      // 通過時前進（pause-not-reset），這一層只是把既有的因果講出來。
+      var frameEl = q('frame');
+      if (frameEl) frameEl.classList.toggle('stalled', !gatesAdvance(gates));
       setProgress(session.heldMs / session.budgetMs);
     }
 
@@ -772,6 +925,60 @@
     session.stream = null;
     var video = document.querySelector('#' + OVERLAY_ID + ' .rs-video');
     if (video) video.srcObject = null;
+  }
+
+  /**
+   * 鎖定狀態轉換 —— MOTION-DIRECTION §4 的 **Lock 鎖定**：
+   * 短促 flicker（極速運算感）→ 瞬間 snap → 靜止 + 輝光。
+   *
+   * 這一刀存在的理由：`faceFramed` 由 false 翻成 true 是一個**真的狀態轉換**，
+   * 而先前什麼都不發生 —— 使用者感覺不到自己做對了。
+   *
+   * 只在**邊緣**觸發（false→true），不是每幀都放；否則會變成持續閃爍的雜訊。
+   *
+   * @param {boolean} framed - 這一幀臉是否落在框內且大小合適。
+   */
+  function setLocked(framed) {
+    if (!session || framed === session.faceFramed) return;
+    var frame = q('frame');
+    if (!frame) return;
+
+    if (!framed) {
+      frame.classList.remove('locked', 'lock-beat');
+      if (session.stardust && global.TENKI_STARDUST
+        && typeof global.TENKI_STARDUST.dim === 'function') {
+        global.TENKI_STARDUST.dim();
+      }
+      return;
+    }
+
+    frame.classList.add('locked');
+    // reflow 讓 animation 能重播（同一個 class 連續加兩次不會重跑）
+    frame.classList.remove('lock-beat');
+    void frame.offsetWidth;
+    frame.classList.add('lock-beat');
+    if (session.stardust && global.TENKI_STARDUST
+      && typeof global.TENKI_STARDUST.brighten === 'function') {
+      global.TENKI_STARDUST.brighten();
+    }
+    fireLockHaptic();
+  }
+
+  /**
+   * 鎖定的觸感，best-effort。
+   *
+   * ⚠️ **iOS Safari 網頁完全不能震**（`navigator.vibrate` 是靜默 no-op，PLAYBOOK §6），
+   * 所以在 founder 的 iPhone 上這裡多半什麼都不會發生 —— 真正撐起那一刻的是上面的
+   * Lock 視覺語彙。這兩行是給 Android，以及萬一 iOS 的 switch 觸感真的有效。
+   */
+  function fireLockHaptic() {
+    if (navigator.vibrate) {
+      try { navigator.vibrate(12); } catch (_) { /* 無聲失敗即可 */ }
+    }
+    try {
+      var sw = q('haptic');
+      if (sw && sw.hasAttribute('switch')) sw.checked = !sw.checked;
+    } catch (_) { /* 未公開行為，失敗不影響任何事 */ }
   }
 
   // ── 星塵核心（North Star §4「內核 = 星塵靈魂」）──
@@ -849,7 +1056,7 @@
     // overlay 是 hide 不是 remove，所以上一輪的 SECURED 狀態會留著 —— 必須清掉，
     // 否則第二次掃描一開場就頂著金框，等於還沒量就宣稱鎖定了。
     var frameEl = q('frame');
-    if (frameEl) frameEl.classList.remove('secured');
+    if (frameEl) frameEl.classList.remove('secured', 'locked', 'lock-beat', 'stalled');
     setProgress(0);
     overlay.classList.add('open');
 
@@ -864,11 +1071,13 @@
         // 臉部追蹤（tier 由實際量到的 landmark 樣本數決定，不是由「有沒有載到
         // MediaPipe」決定 —— 載到但整場沒看到臉，那就不是 Tier A）。
         faceMesh: null, faceTimer: null, faceBusy: false,
-        everSawFace: false, faceFramed: false,
+        everSawFace: false, faceFramed: false, faceBox: null,
         lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         lmAcc: { n: 0, stillness: 0 },
         stardust: false,
+        // 主指令去抖動狀態：shown 為 null 代表「還沒顯示過」→ 第一條不等待。
+        hintShown: null, hintPending: null, hintPendingAt: 0,
       };
       var video = overlay.querySelector('.rs-video');
       startCamera(video).then(function (stream) {

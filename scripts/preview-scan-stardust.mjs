@@ -186,6 +186,86 @@ async function scanAndCancel(page) {
   await ctx.close();
 }
 
+// ── 2c. 對位回饋：一次一個指令、鎖定隨臉框翻轉、stalled 隨閘門 ──
+//
+// 用 __rsProbe 直接驅動狀態（headless 的假相機餵不出可控的臉），驗的是
+// **呈現層對狀態的反應**，不是量測本身 —— 量測有 tierA/lighting 兩支既有 harness。
+{
+  const { ctx, page } = await newPage();
+  await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }); });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+  await page.waitForTimeout(900);
+
+  const hintCount = await page.evaluate(() => {
+    const el = document.querySelector('#tenki-readiness-scan [data-rs="hint-text"]');
+    return el ? el.textContent.trim().split(/\s{2,}/).length : -1;
+  });
+  check('一次只顯示一個主指令', hintCount, 1);
+
+  check('膠囊有圖示槽（空字串時自動收起）', await page.evaluate(() => {
+    const b = document.querySelector('#tenki-readiness-scan [data-rs="hint-icon"]');
+    return !!b && b.tagName === 'B';
+  }), true);
+
+  // 角括號也長在同一條路徑上（第三個 rect + dash），不是另外畫的四個方塊。
+  check('角括號與框共用同一條路徑', await page.evaluate(() => {
+    const g = (s) => {
+      const r = document.querySelector('#tenki-readiness-scan .' + s);
+      return ['x', 'y', 'width', 'height', 'rx', 'ry'].map((a) => r.getAttribute(a)).join(',');
+    };
+    return g('rs-halo-corners') === g('rs-halo-track');
+  }), true);
+  check('角括號的 dash 週期正好是 1/4 周長（四角等距）', await page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-halo-corners'));
+    const [dash, gap] = cs.strokeDasharray.split(',').map((v) => parseFloat(v));
+    return Math.abs(dash + gap - 0.25) < 1e-4;
+  }), true);
+
+  check('video 住在 .rs-lens 裡（框＝鏡頭）', await page.evaluate(
+    () => !!document.querySelector('#tenki-readiness-scan .rs-frame > .rs-lens > video.rs-video')), true);
+
+  check('全頁只有一個 video（兩個共用 stream ＝ iOS OOM）', await page.evaluate(
+    () => document.querySelectorAll('#tenki-readiness-scan video').length), 1);
+
+  // 未對準時：光弧應該被壓暗（.stalled），這是「環停住是因為你」的那一層
+  check('閘門沒過時光弧被壓暗', await page.evaluate(() => {
+    const f = document.querySelector('#tenki-readiness-scan .rs-frame');
+    f.classList.add('stalled');
+    return getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-halo-fill')).opacity;
+  }), '0.3');
+
+  // 鎖定：角括號收到位（translate 歸零）。
+  // ⚠️ 必須等過 300ms 的 transition —— 加上 class 之後立刻讀到的是**動畫途中**的值。
+  // （reduced-motion 那組不用等，因為那邊 transition 被關掉，這也正是兩組的差別。）
+  await page.evaluate(() => {
+    const f = document.querySelector('#tenki-readiness-scan .rs-frame');
+    f.classList.remove('stalled');
+    f.classList.add('locked');
+  });
+  await page.waitForTimeout(450);
+  check('鎖定時角括號收攏到位（scale 回 1）', await page.evaluate(() => {
+    const t = getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-halo-corners')).transform;
+    return t === 'none' || /matrix\(1,\s*0,\s*0,\s*1,/.test(t);
+  }), true);
+
+  await ctx.close();
+}
+
+// ── 2d. reduced-motion 下鎖定仍看得出來（只是不動畫）──
+{
+  const { ctx, page } = await newPage({ reducedMotion: 'reduce' });
+  await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }); });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+  check('減少動態下鎖定仍落到終態（角括號到位）', await page.evaluate(() => {
+    const f = document.querySelector('#tenki-readiness-scan .rs-frame');
+    f.classList.add('locked');
+    const cs = getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-halo-corners'));
+    const t = cs.transform;
+    return (t === 'none' || /matrix\(1,\s*0,\s*0,\s*1,/.test(t)) && cs.transitionDuration === '0s';
+  }), true);
+  await ctx.close();
+}
+
 // ── 3. reduced-motion：完全不掛 ──
 {
   const { ctx, page } = await newPage({ reducedMotion: 'reduce' });

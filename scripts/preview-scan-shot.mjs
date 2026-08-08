@@ -56,8 +56,31 @@ await page.waitForFunction(() => !!window.TENKI_READINESS_SCAN);
 await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision', symbol: 'ES1!' }); });
 await page.waitForSelector('#tenki-readiness-scan.open');
 
-// 進行中：把進度停在 0.62，看光弧走到哪、有沒有貼著框
+// 未對準：膠囊給方向、光弧被壓暗（「環停住是因為你」）
 await page.waitForTimeout(1200);
+await page.evaluate(() => {
+  const f = document.querySelector('#tenki-readiness-scan .rs-frame');
+  f.classList.add('stalled');
+  f.classList.remove('locked');
+  document.querySelector('#tenki-readiness-scan [data-rs="hint-icon"]').textContent = '↑';
+  document.querySelector('#tenki-readiness-scan [data-rs="hint-text"]').textContent = '向上對齊';
+  document.querySelector('#tenki-readiness-scan .rs-halo-fill').style.strokeDasharray = '0.28 1';
+});
+await page.waitForTimeout(450);
+await page.screenshot({ path: join(outDir, 'scan-unaligned.png') });
+
+// 鎖定：角括號收攏、光弧恢復
+await page.evaluate(() => {
+  const f = document.querySelector('#tenki-readiness-scan .rs-frame');
+  f.classList.remove('stalled');
+  f.classList.add('locked', 'lock-beat');
+  document.querySelector('#tenki-readiness-scan [data-rs="hint-icon"]').textContent = '';
+  document.querySelector('#tenki-readiness-scan [data-rs="hint-text"]').textContent = '保持穩定';
+});
+await page.waitForTimeout(600);
+await page.locator('#tenki-readiness-scan .rs-frame').screenshot({ path: join(outDir, 'scan-frame-locked.png') });
+await page.screenshot({ path: join(outDir, 'scan-locked.png') });
+
 // 用 inline style 而不是 setAttribute：setProgress() 寫的是 presentation attribute，
 // 而 tick 迴圈每 66ms 就覆寫一次 —— inline style 優先權較高，才壓得住。
 await page.evaluate(() => {
