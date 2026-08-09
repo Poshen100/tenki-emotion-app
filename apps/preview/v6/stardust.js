@@ -27,6 +27,16 @@
     var PARTICLE_COUNT = 8000;
     var PARTICLE_SIZE = 0.088;
     var scene, camera, renderer, cloud, material;
+    /** When true, canvas/camera track the container box rather than the viewport. */
+    var fitContainer = false;
+
+    /** @returns {{w:number,h:number}} the drawing size for the current mount. */
+    function viewSize() {
+        if (fitContainer && container && container.clientWidth > 0 && container.clientHeight > 0) {
+            return { w: container.clientWidth, h: container.clientHeight };
+        }
+        return { w: window.innerWidth, h: window.innerHeight };
+    }
     var container = null;
     var mounted = false;      // one binding at a time (see mount())
     var animFrame = null;
@@ -70,14 +80,21 @@
      * @param {HTMLElement} [el] - Container to render into. Defaults to
      *   `#universe`, which keeps the historical auto-init behaviour for
      *   `/preview/v6/`, `/preview/story.html` and `/preview/soul-enroll.html`.
+     * @param {{fitContainer?: boolean}} [opts] - `fitContainer:true` sizes the
+     *   canvas and camera from the container box instead of the viewport, so the
+     *   sphere can live *inside* a small frame (North Star SS4: the soul belongs
+     *   in the aperture). **Opt-in on purpose**: the three historical `#universe`
+     *   hosts keep the viewport path byte-for-byte, because the stardust feel is
+     *   a locked asset (CLAUDE.md) and must not shift as a side effect.
      * @returns {boolean} true when this call took ownership of the binding.
      */
-    function mount(el) {
+    function mount(el, opts) {
         if (mounted) return false;
         var node = el || document.getElementById('universe');
         if (!node) return false;
 
         container = node;
+        fitContainer = !!(opts && opts.fitContainer);
         mounted = true;
 
         // Fade-in to prevent black flash
@@ -107,7 +124,8 @@
 
     function createRenderer() {
         renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        var vs0 = viewSize();
+        renderer.setSize(vs0.w, vs0.h);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         container.appendChild(renderer.domElement);
 
@@ -120,7 +138,8 @@
 
     function buildScene() {
         scene = new THREE.Scene();
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        var vs1 = viewSize();
+        camera = new THREE.PerspectiveCamera(75, vs1.w / vs1.h, 0.1, 1000);
         camera.position.z = 5;
 
         // Fibonacci sphere distribution
@@ -400,9 +419,10 @@
 
     function onResize() {
         if (!camera || !renderer) return;
-        camera.aspect = window.innerWidth / window.innerHeight;
+        var vs = viewSize();
+        camera.aspect = vs.w / vs.h;
         camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(vs.w, vs.h);
     }
 
     /** Play the smooth big→small scale-in (call when the ball becomes visible). */
@@ -460,6 +480,7 @@
         renderer = null;
         scene = null;
         camera = null;
+        fitContainer = false;
         cloud = null;
         material = null;
         if (container) {

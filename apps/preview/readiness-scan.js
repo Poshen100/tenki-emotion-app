@@ -193,10 +193,13 @@
       'overflow:hidden;opacity:0;pointer-events:none;}',
       '#' + OVERLAY_ID + ' .rs-video{width:100%;height:100%;display:block;',
       'object-fit:cover;transform:scaleX(-1);}',
-      // 星塵核心（North Star §4「內核 = 星塵靈魂」）。夾在 video（無 z-index，最底）
-      // 與 .rs-stage（z1）之間，pointer-events:none 讓取消鈕維持可按。
+      // 星塵核心（North Star §4「內核 = 星塵靈魂，外框 = 精密掃描框」）。
+      // 住在 .rs-frame 裡、夾在 video 與線稿之間；pointer-events:none 讓取消鈕維持可按。
       // 沒有 three.js / 已被 host 佔用 / reduced-motion 時這層是空的 div，不影響版面。
-      '#' + OVERLAY_ID + ' .rs-stardust{position:absolute;inset:0;pointer-events:none;}',
+      // 裁成與 .rs-lens 同一個超橢圓，粒子不會溢出到框外。
+      // ⚠️ overflow 放在這一層，不能放 .rs-frame —— 那會切掉光弧描邊與角括號。
+      '#' + OVERLAY_ID + ' .rs-stardust{position:absolute;inset:0;border-radius:64px;',
+      'overflow:hidden;pointer-events:none;}',
       '#' + OVERLAY_ID + ' .rs-stage{position:relative;z-index:1;display:flex;',
       'flex-direction:column;align-items:center;gap:18px;padding:0 24px;text-align:center;}',
       '#' + OVERLAY_ID + ' .rs-mission{font-size:11px;letter-spacing:0.24em;',
@@ -350,7 +353,6 @@
     node.setAttribute('role', 'dialog');
     node.setAttribute('aria-label', '狀態讀數掃描');
     node.innerHTML = [
-      '<div class="rs-stardust" data-rs="stardust"></div>',
       // iOS 17.4+ 切換 switch 會讓 Safari 播系統觸感。未公開行為、沙箱驗不了，
       // 純粹是漸進增強 —— 真正撐起鎖定那一刻的是下面的 Lock 視覺語彙。
       // clip 而非 display:none：隱藏的控制項不會觸發（同 v6 的作法）。
@@ -370,6 +372,9 @@
       // 鎖定閃光的專屬層。**不能借用 .rs-lens** —— 它是 opacity:0，而
       // opacity:0 的元素連 box-shadow / background 都不會畫，動畫等於沒播。
       // 2026-08-08 就是這樣把鎖定閃光弄不見的（founder：「合一還不夠爽」）。
+      // 星塵核心住在**框裡**（North Star §4：內核 = 星塵靈魂，外框 = 精密掃描框）。
+      // 光圈裡是靈魂，框外淨空 —— 這也讓「捕獲」的比喻成立：你被收進儀器裡。
+      '    <div class="rs-stardust" data-rs="stardust"></div>',
       '    <div class="rs-flash"></div>',
       // 三個 rect，幾何一字不差：track（框本身）、corners（角括號）、fill（進度）。
       '    <svg class="rs-halo" viewBox="0 0 236 236" aria-hidden="true">',
@@ -1284,7 +1289,9 @@
 
     var host = q('stardust');
     if (!host) return false;
-    if (!S.mount(host)) return false;
+    // fitContainer：畫布跟著掃描框走，而不是視窗。三個既有的 #universe 頁面
+    // 不傳這個旗標，走原本的 viewport 路徑，一個像素都不會變。
+    if (!S.mount(host, { fitContainer: true })) return false;
     if (typeof S.playEntrance === 'function') S.playEntrance();
     return true;
   }
