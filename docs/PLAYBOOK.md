@@ -82,6 +82,13 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
   比沒有 harness 更危險：它讓下一個人放心地改壞它。
   推論：**CI 跑不到的環境行為（iOS 解碼、記憶體、觸控）只能用「不准長成那個樣子」的結構斷言鎖住**，
   不要假裝在容器裡驗證了行為本身。
+- **`scripts/preview-*.mjs` 這幾支 harness 沒有進 `verify.sh`**（Playwright 走的是容器限定路徑），
+  所以它們**不會自己喊痛**。2026-08-09 實例：把 `.tpl-card` 改名成 `.tpl-row`，
+  `preview-strip-color.mjs` 的選擇器當場失效而全綠照舊。**改 preview 的 class 名／id 時，
+  一併 `grep` `scripts/*.mjs`**；動完 preview 至少手跑一次相關 harness。
+- **偽造狀態要照產品真正的寫法。** harness 為了驗收尾畫面而直接 `el.textContent = '...'`，
+  結果把該元素的子節點整個清掉，後面驗子節點的斷言就炸了 —— 測到的是**被自己弄壞的 DOM**。
+  同理，**靜態掃原始碼的斷言要先剝掉註解**，否則會掃到自己寫的說明文字（兩者都是 2026-08-09 實例）。
 - `apps/mobile` **不在 root workspaces** → root `npm test` 測不到它，要 `cd apps/mobile && npm test` 分開跑。
 - 測試框架是 **Jest + ts-jest**，不是 vitest（舊文件寫錯已糾正）。
 - 動效／視覺類改動：容器內截圖僅供參考，**以 founder 實機為準**；回報時主動請對方確認「減少動態」設定
@@ -143,6 +150,8 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | 改了模式/文案，實機某一步仍冒舊文案 | preview 指示文案有**兩層**：靜態 HTML（如 `#scan-banner` 寫死的 title/sub/icon）+ JS 動態 writer（如 `#scan-guidance`）。改模式要**兩層都 grep**（2026-07-08 臉部文案第 3 度漏網就是只改了 JS 層） |
 | 修了 JS 但 founder 手機行為沒變 | script 標籤用**固定** `?v=` 字串（如 `?v=stardust_restore_v2`）＝ CDN/Safari 永遠供舊檔。**改 preview JS 必 bump `?v=` 成新字串**，並提醒 founder 硬重載。⚠️ CSS 的 `<link>` 同樣要 bump（2026-08-01 漏過一次：改了 takeover 的 JS 卻沒動 `?v=gyro_v5`） |
 | 某個區塊點不動 / 滑不動 / 「被遮擋、位置跑掉」，但畫面上看不到任何東西蓋著 | **先 `document.elementFromPoint(x, y)` 問瀏覽器那個點到底命中誰**，不要盯著 CSS 猜。全屏疊層（v6 的 `#stardust-scan-takeover`）用 `opacity:0` + `pointer-events:none` **擋不住 descendant 自己宣告 `pointer-events:auto`** —— 指紋鈕就是這樣，一顆 124px 的隱形按鈕長期浮在 Today 上，在 760px 以下可視高度剛好壓在 Snapshot 輪播卡正中央，左右滑與上下捲一起被吃掉（2026-08-01 founder 回報才查出，main 上已存在很久）。**修法**：`#overlay:not(.active){visibility:hidden}` —— visibility 會繼承且不會被 descendant 的 `pointer-events` 推翻，比逐一 scope 每條 `pointer-events:auto` 穩。 |
+| 畫面上要顯示一個東西的「代號 / 型號 / 分類」 | **內部 id 一律不上畫面。** 2026-08-09 實例：模板標題寫成 `nameZh（tpl.id）`，於是畫面出現「高 RS 突破流程（MODE_2）」—— 而在 Adam Mancini 的語彙裡「Mode 2」指的是**盤整日盤勢**，跟那個模板完全兩回事。⚠️ 最值得記的是：**repo 早就知道**（`packages/engine/src/session/templates.ts` 與 `docs/TRADING-METHODOLOGY.md` 都寫著那個 id 只是 persisted contract 的歷史遺留），知識在文件裡卻從介面漏出去。修法：另建一張 **顯示用代號表**，內部 id 留給儲存層。領域術語尤其危險 —— 你的內部命名可能剛好是使用者專業詞彙裡的另一個東西 |
+| 要做「像某個專業工具」的介面（彭博 / 終端機 / 儀表板） | **那是一種排版形式，不是「拿掉裝飾」。** 2026-08-09 實例：我提「拿掉 emoji、加分隔線」，founder 直接回「**少了 彭博終端機**」。終端機的要素是具體且可列舉的：欄位表頭 + hairline、`1)` `2)` `3)` 列編號、硬邊（`border-radius:0`、無陰影漸層）、欄位固定寬對齊、頂端狀態列、等寬 + `tabular-nums`。⚠️ 兩個在地化判斷：①**等寬只給拉丁與數字**，中文維持比例字體 —— 等寬 CJK 每個字撐成全形方塊，密度垮掉還斷行在奇怪的位置；②**抄排版不抄配色** —— 彭博琥珀色會撞掉 TENKI 的 gold=SECURED 語意 |
 | 沙箱擋掉某個 CDN，那條路「測不到」 | **先看產品碼是透過哪個全域取用它 —— 塞個 stub 進去往往就能測到真的產品邏輯。** 2026-08-08 實例：MediaPipe 被擋，tier A（landmark）整條路本來完全沒有自動化覆蓋；但 `readiness-scan.js` 只用 `window.FaceMesh` 一個全域，harness 用 `addInitScript` 塞一個假的（`onResults` 把 callback 存起來），就能自己餵 landmark 把「取景判定 → 遲滯 → 鎖定」整條鏈跑起來 —— 測到的是**真的產品程式**，不是加 class 演戲。⚠️ 界線要講清楚：這樣測到的是邏輯，**畫面長相仍然只有實機能判** |
 | 寫 Playwright harness 驗 preview，結果一片 FAIL | **先懷疑 harness，不要先改產品碼。** 2026-08-04 一輪內連踩四次、產品碼四次都是對的：①sheet 的 class 是 `show` 不是 `open` ②`setStrainSilent` 是 `<input type=checkbox>` 用 `.checked`，不是 class toggle（照 class 點下去反而把預設開啟的設定關掉）③`#resultRate` 開場先被塞佔位字串，真值要等弧掃完的 `reveal()` ④真值本身是 600ms 遞增動畫，`waitForSelector` 一過就讀會拿到 p≈0 的那一幀。**規則**：斷言前先 `waitForFunction` 等「終值特徵」出現，再輪詢到**文字不再變動**為止；選擇器一律去 HTML 裡 grep 確認，不要照直覺猜 |
 | 水平輪播卡片上下滑不動 | 橫向輪播的 `touch-action` 不能只寫 `pan-x` —— 那會把垂直手勢整個吞掉。祖先是垂直捲動容器時要寫 `pan-x pan-y`（瀏覽器仍會把偏水平的拖曳判給輪播，因為祖先不能水平捲）。症狀：卡片被下方 bar 切掉，而卡片本身正好是唯一捲不動的地方 |
