@@ -79,6 +79,15 @@
    * 下個 session 不要「順手統一」成 0.05。
    */
   var RETICLE_SMOOTH = 0.35;
+  /**
+   * 鎖定磁吸期間的收束係數 —— 比追蹤時果斷得多。
+   *
+   * 追蹤時 0.35 是「跟著你」，磁吸時要的是「**被儀器拉進去**」：
+   * 使用者沒有在操作它了，是儀器在收。兩者是不同的事，不共用一個值。
+   */
+  var RETICLE_SNAP_SMOOTH = 0.75;
+  /** 磁吸持續時間 —— MOTION-DIRECTION §3 音階的「狀態切換」。 */
+  var RETICLE_SNAP_MS = 300;
   /** 目標環半徑（viewBox 單位）＝ 理想臉框大小落在框內的視覺尺度。 */
   var RETICLE_TARGET_R = 52;
   /**
@@ -232,8 +241,13 @@
       // 望遠鏡／雷達的作法：不給你看目標長什麼樣，給你看儀器有沒有套住它。
       '#' + OVERLAY_ID + ' .rs-halo .rs-target{fill:none;stroke:rgba(61,224,255,0.30);',
       'stroke-width:1;stroke-dasharray:4 7;}',
+      // 位置與大小全部走 transform（每幀只寫 transform/opacity，見 renderReticle）。
+      // transform-box:fill-box + origin:center 讓 scale 以圓心為準，不會往左上飄。
       '#' + OVERLAY_ID + ' .rs-halo .rs-reticle{fill:rgba(34,211,238,0.10);',
       'stroke:' + HALO_ACTIVE + ';stroke-width:2;opacity:0;',
+      'transform-box:fill-box;transform-origin:center;',
+      // 描邊不隨 scale 變粗變細 —— 儀器的線寬是固定的，變的是它套住多大的東西。
+      'vector-effect:non-scaling-stroke;',
       'transition:opacity 0.3s ' + EASE_SECURE + ';}',
       // 有臉才顯示標記 —— 沒量到就不畫，不憑空生一個位置出來。
       '#' + OVERLAY_ID + ' .rs-frame.tracking .rs-reticle{opacity:1;}',
@@ -936,6 +950,12 @@
     session.raf = requestAnimationFrame(tick);
 
     var now = performance.now();
+
+    // 對位標記的插值放在**取樣早退之前** —— 它要跑滿 60fps。
+    // 取樣是 66ms 一次、臉部推論是 180ms 一次，兩個都太慢，標記跟著它們動會一格一格。
+    renderReticle(session.lastRenderAt ? now - session.lastRenderAt : 16.7);
+    session.lastRenderAt = now;
+
     if (now - session.lastSampleAt < SAMPLE_INTERVAL_MS) return;
     // dt 上限：分頁切走或掉幀的空窗不得灌進有效取景時間。
     var dt = session.lastSampleAt ? Math.min(now - session.lastSampleAt, 250) : 0;
@@ -1006,11 +1026,16 @@
   var RETICLE_IDEAL_SIZE = (FACE_SIZE_MIN + FACE_SIZE_MAX) / 2;
 
   /**
-   * 更新框內的對位標記。
+   * 量測 → 對位標記的**目標值**（不負責畫，畫在 renderReticle）。
    *
    * 這是「不露臉」之下取代鏡子的東西：標記的**位置就是臉的位置、直徑就是臉的大小**，
    * 使用者把它移進中央的目標環、調到一樣大就完成對位。只有位置與大小，沒有長相 ——
    * 望遠鏡不會給你看目標長什麼樣，它給你看儀器有沒有套住它。
+   *
+   * ⚠️ **為什麼要拆成目標／繪製兩層**：臉部推論每 `FACE_INTERVAL_MS`(180ms) 才一次
+   * ＝ 約 5.5fps。先前平滑與寫入都做在這裡，標記等於用 5.5fps 在動，手機上一格一格。
+   * 現在這裡只寫目標，插值交給 rAF 的 `renderReticle()` 跑 60fps —— 量測誠實地慢，
+   * 回饋照樣跟手，兩件事不再互相綁架。
    *
    * 鎖定後標記**磁吸到正中心**與目標環合一。磁吸只在量測說對準之後才發生 ——
    * 提前吸就是用動畫假造一個還沒發生的事實。
@@ -1019,31 +1044,18 @@
    * @param {boolean} framed - 是否已落在容差內。
    */
   function updateReticle(box, framed) {
-    var node = q('reticle');
-    if (!node) return;
+    if (!session) return;
 
-    var tx;
-    var ty;
-    var tr;
     if (framed) {
-      tx = 118; ty = 118; tr = RETICLE_TARGET_R; // 磁吸歸位
+      // 磁吸歸位：與目標環合一。
+      session.reticleTarget = { x: 118, y: 118, r: RETICLE_TARGET_R };
     } else {
-      tx = (1 - box.centerX) * 236; // 鏡像：畫面是照鏡子的方向
-      ty = box.centerY * 236;
-      tr = Math.max(16, Math.min(100, (box.size / RETICLE_IDEAL_SIZE) * RETICLE_TARGET_R));
+      session.reticleTarget = {
+        x: (1 - box.centerX) * 236, // 鏡像：畫面是照鏡子的方向
+        y: box.centerY * 236,
+        r: Math.max(16, Math.min(100, (box.size / RETICLE_IDEAL_SIZE) * RETICLE_TARGET_R)),
+      };
     }
-
-    var s = session.reticle;
-    if (!s) {
-      session.reticle = s = { x: tx, y: ty, r: tr }; // 第一幀直接就位，不從中心滑過去
-    } else {
-      s.x += (tx - s.x) * RETICLE_SMOOTH;
-      s.y += (ty - s.y) * RETICLE_SMOOTH;
-      s.r += (tr - s.r) * RETICLE_SMOOTH;
-    }
-    node.setAttribute('cx', s.x.toFixed(1));
-    node.setAttribute('cy', s.y.toFixed(1));
-    node.setAttribute('r', s.r.toFixed(1));
 
     // 角括號的收斂程度 ＝ 對位誤差。這是「越來越熱」的頻道，
     // 與標記的「你在哪裡」互補，兩個報告不同的事。
@@ -1064,9 +1076,51 @@
     }
   }
 
+  /**
+   * 每一幀把對位標記朝目標推進一步。由 `tick()` 的 rAF 呼叫（60fps）。
+   *
+   * ⚠️ **只寫 `transform`，不寫 `cx/cy/r`**（MOTION-DIRECTION §2 鐵律「每幀只寫
+   * transform/opacity」）。circle 固定畫在中心、半徑固定 `RETICLE_TARGET_R`，
+   * 位移與大小全部由 transform 表達 —— 改幾何屬性會逼 SVG 每幀重新柵格化，
+   * 而這支覆蓋層同時還扛著相機解碼 + MediaPipe + WebGL。
+   *
+   * `dt` 正規化：EWMA 的 α 是為固定步長調的，掉幀時要按實際時間補償，
+   * 否則卡頓那幾幀標記會落後一大截然後突然追上。
+   *
+   * @param {number} dtMs - 距上一次繪製的毫秒數。
+   */
+  function renderReticle(dtMs) {
+    if (!session) return;
+    var t = session.reticleTarget;
+    if (!t) return;
+    var node = q('reticle');
+    if (!node) return;
+
+    var s = session.reticle;
+    if (!s) {
+      // 第一次看到臉：直接就位，不從中心滑過去（那會假裝它一路追蹤過來）。
+      session.reticle = s = { x: t.x, y: t.y, r: t.r };
+    } else {
+      var a = session.reticleSnapUntil && performance.now() < session.reticleSnapUntil
+        ? RETICLE_SNAP_SMOOTH   // 鎖定磁吸：一段更果斷的收束
+        : RETICLE_SMOOTH;
+      // 以 60fps 為基準做步長補償，並夾住上限避免掉幀時一步跳到底。
+      var k = Math.min(1, a * Math.min(dtMs, 100) / (1000 / 60));
+      s.x += (t.x - s.x) * k;
+      s.y += (t.y - s.y) * k;
+      s.r += (t.r - s.r) * k;
+    }
+    node.style.transform = 'translate(' + (s.x - 118).toFixed(2) + 'px,'
+      + (s.y - 118).toFixed(2) + 'px) scale(' + (s.r / RETICLE_TARGET_R).toFixed(4) + ')';
+  }
+
   /** 對位標記歸零 —— 臉不見了就收掉，不留一個上一幀的幽靈在框裡。 */
   function clearReticle() {
-    if (session) session.reticle = null;
+    if (session) {
+      session.reticle = null;
+      session.reticleTarget = null;
+      session.reticleSnapUntil = 0;
+    }
     var frame = q('frame');
     if (frame) {
       frame.classList.remove('tracking');
@@ -1209,11 +1263,7 @@
     }
     // 對位標記回到中心的預設位置，不留上一輪的殘影。
     var reticleEl = q('reticle');
-    if (reticleEl) {
-      reticleEl.setAttribute('cx', '118');
-      reticleEl.setAttribute('cy', '118');
-      reticleEl.setAttribute('r', String(RETICLE_TARGET_R));
-    }
+    if (reticleEl) reticleEl.style.transform = '';
     setProgress(0);
     overlay.classList.add('open');
 
@@ -1228,7 +1278,8 @@
         // 臉部追蹤（tier 由實際量到的 landmark 樣本數決定，不是由「有沒有載到
         // MediaPipe」決定 —— 載到但整場沒看到臉，那就不是 Tier A）。
         faceMesh: null, faceTimer: null, faceBusy: false,
-        everSawFace: false, faceFramed: false, faceBox: null, reticle: null,
+        everSawFace: false, faceFramed: false, faceBox: null,
+        reticle: null, reticleTarget: null, reticleSnapUntil: 0, lastRenderAt: 0,
         lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         lmAcc: { n: 0, stillness: 0 },
