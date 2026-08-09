@@ -9,6 +9,64 @@
 
 ---
 
+# 2026-08-09 Session Update #59 (接到正式站的結果頁 —— 判定抽成唯一來源)
+
+#223 已 merge（六刀，`ac9f4515a`）。founder 接著問：**「怎麼接到正式站的結果頁」**。
+
+## 答案：管線早就通了，但兩端講不同方言
+
+兩邊共用 `tenki.alert.outcomes.v1`，資料**確實**存進去了。問題在讀：
+
+| | 寫入 | 判定「算不算紀律」 |
+|---|---|---|
+| `decision-alert.js` | `judged_entered` / `judged_stood_down`（新語意） | 認新 + 舊 |
+| `v6/index.html` | `stayed_disciplined` / `timed_out`（舊語意） | **只認舊的** |
+
+🔴 **demo 裡 100%，進到 /v3/ Session 變 0%。**
+
+⚠️ 「判定只能有一個來源」這是**第三次**踩到。前兩次（`segColor()`、模板代號）
+都在同檔內、grep 得到；**這次跨檔 —— 沒人會想到去對照另一個檔案。**
+所以修法不是補一個 tag，是新增 `apps/preview/decision-outcome.js` 當唯一來源，
+兩頁都改用它，區域實作全刪。**刻意不留 fallback**：「載不到就用本地那份」
+等於又生出第二份判定，正是要消滅的東西。
+
+v6 的**寫入不改** —— 它的計時器決策本來就是舊語意，legacy 清單照認。只改讀不改寫。
+
+## 🔴 挖出一個靜默壞掉很久的測試環境問題
+
+`preview-strip-color.mjs` 的本地伺服器**沒有 `/preview/` → `/apps/preview/` 的 rewrite**
+（正式站是 vercel.json 在做）。於是 decision-alert.html 載的 readiness-scan.js 一路 404，
+**而頁面看起來照樣正常** —— 因為那些模組當時沒被任何斷言用到。
+直到我把 decision-alert.js 改成硬相依 `window.TENKI_OUTCOME` 才爆出來。
+
+**靜默 404 的測試環境比沒有測試更糟**：它讓你以為驗過了完整的頁面。
+（順帶也發現 harness 從來沒按過「記錄並關閉」，store 一直是空的 ——
+決策要被記錄才會進 store，那一步是流程的一部分。）
+
+## 端到端斷言長什麼樣
+
+同一個分頁走完決策 → 導到 `/v3/#session`（同源，localStorage 跟著走，
+與正式站上兩頁同源一致）→ 讀 Session 頁**自己算出來**的對齊率。
+反向驗證：把 `isDisciplinedV6` 改回舊版 → 0%，這條會紅。
+**能紅得出來，才證明它守的是 founder 會遇到的那個斷點。**
+
+## 導覽與儲存隔離
+
+收束後在事件鏈留「已記入決策紀錄 · 看歷史 ›」→ `/v3/#session`
+（`applyEntryHash()` 本來就認得 `#session`）。⚠️ 刻意放 log 那層不放收束頁 ——
+收束頁上一刀才壓到 660px 一屏放得下，加按鈕會推回摺線下。
+
+⚠️ **iOS 主畫面 PWA 與瀏覽器分頁的 localStorage 不共用**（PLAYBOOK §4 既有條目）。
+所以就算全部修好，**混著開一樣看不到** —— 這不是 bug，但不講清楚會被當成沒接到。
+
+## 下次接手點
+
+- 這一刀在 `claude/jie-s2-lyudvk`（已從 merge 後的 main 重開），尚未開 PR
+- 仍未做：preview harness 進 CI；`/api/alert` 400 應記下驗證錯誤（已認定三輪）；
+  夜間掃描補驗；正式免責聲明文案（法務文字，刻意不由我自創）
+
+---
+
 # 2026-08-09 Session Update #58 (收束頁一屏放得下)
 
 實走：1–4 都沒問題（置中、正對鏡頭、終端機、規格行全過）。剩一件：
