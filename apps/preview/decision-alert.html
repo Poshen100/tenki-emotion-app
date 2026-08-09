@@ -136,6 +136,12 @@
       margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 76px);
     }
     .log-empty { font-size: 12px; color: #475569; padding: 10px 0; }
+    /* 收束之後通往 /v3/ 決策紀錄的路。放在 log 這一層 = 零收束頁高度成本。 */
+    .log-link {
+      flex: none; margin-left: auto; font-size: 12px; font-weight: 600;
+      color: var(--cyan-active); text-decoration: none; white-space: nowrap;
+    }
+    .log-link:active { opacity: 0.7; }
     .log-item {
       display: flex; gap: 8px; align-items: baseline;
       font-size: 12px; padding: 6px 0;
@@ -719,6 +725,6 @@
   <script src="/preview/readiness-scan.js?v=rs11"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do1"></script>
-  <script src="decision-alert.js?v=alert27"></script>
+  <script src="decision-alert.js?v=alert28"></script>
 </body>
 </html>

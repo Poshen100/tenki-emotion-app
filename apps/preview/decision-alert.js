@@ -429,7 +429,17 @@
     return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
 
-  function log(type, detail) {
+  /**
+   * 事件鏈的一列。
+   *
+   * @param {string} type - TYPE_LABELS 的 key。
+   * @param {string} detail - 說明文字。
+   * @param {{text:string, href:string}} [link] - 可選的去處。
+   *   用在「收束之後有路可走」：決策記進統一 store 之後，這裡留一條通往
+   *   `/v3/#session` 的路。**刻意放在 log 這一層而不是收束頁** —— 收束頁剛被
+   *   壓到 660px 一屏放得下，再加按鈕會把它推回摺線下（2026-08-09 的教訓）。
+   */
+  function log(type, detail, link) {
     var empty = el.logList.querySelector('.log-empty');
     if (empty) empty.remove();
 
@@ -452,6 +462,13 @@
     item.appendChild(time);
     item.appendChild(typeEl);
     item.appendChild(detailEl);
+    if (link) {
+      var a = document.createElement('a');
+      a.className = 'log-link';
+      a.href = link.href;
+      a.textContent = link.text + ' ›';
+      item.appendChild(a);
+    }
     el.logList.insertBefore(item, el.logList.firstChild);
   }
 
@@ -1203,7 +1220,11 @@
     if (!state.pendingOutcome) return;
     saveOutcome(state.pendingOutcome);
     refreshDiscipline();
-    log('mark', state.pendingOutcome.symbol + ' — 決策已收束並記錄');
+    // 收束不是終點：這筆已經寫進統一 store（`tenki.alert.outcomes.v1`），
+    // /v3/ 的 Session 頁就是它的去處。`applyEntryHash()` 認得 `#session`，
+    // 所以這條連結直接落在決策紀錄那一頁。
+    log('mark', state.pendingOutcome.symbol + ' — 已記入決策紀錄',
+      { text: '看歷史', href: '/v3/#session' });
     state.pendingOutcome = null;
   }
 
