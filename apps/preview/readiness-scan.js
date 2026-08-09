@@ -121,6 +121,16 @@
   var FACE_SIZE_MAX = 0.65;
   var FACE_CENTER_X_TOL = 0.08;
   var FACE_CENTER_Y_TOL = 0.09;
+  /**
+   * 鎖定遲滯（見 `evalFramed`）。
+   *
+   * `FRAME_LOCK_STREAK = 2`：以 `FACE_INTERVAL_MS`(180ms) 計 ≈ 360ms 才入鎖。
+   * 取 2 是先驗的折衷（濾掉邊界抖動 vs 不讓儀器顯得遲鈍），**還沒有實機調過** ——
+   * 手感調參歸桌機 lane（MOTION-DIRECTION §7），雲端這邊只負責把旋鈕做出來。
+   * `FRAME_RELEASE_SLACK = 1.25`：解鎖容差放寬 25%，呼吸與微幅晃動不會把人踢出去。
+   */
+  var FRAME_LOCK_STREAK = 2;
+  var FRAME_RELEASE_SLACK = 1.25;
   /** 臉部資料超過這麼久沒更新就當作臉不在（推論比取樣慢，要留寬容）。 */
   var FACE_STALE_MS = 700;
   /** Tier A 要成立，landmark 樣本至少要這麼多 —— 只瞄到一兩幀不算量到。 */
@@ -604,6 +614,53 @@
     return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
   }
 
+  /**
+   * 臉框是否落在容差內。`slack` 放寬倍率：1 = 入鎖用的嚴格容差，
+   * `FRAME_RELEASE_SLACK` = 解鎖用的寬鬆容差。
+   *
+   * @param {number} cx - 臉框中心 x（0..1）。
+   * @param {number} cy - 臉框中心 y（0..1）。
+   * @param {number} size - 臉框邊長（0..1）。
+   * @param {number} slack - 容差放寬倍率。
+   * @returns {boolean}
+   */
+  function withinFrame(cx, cy, size, slack) {
+    var sizePad = ((FACE_SIZE_MAX - FACE_SIZE_MIN) / 2) * (slack - 1);
+    return size >= FACE_SIZE_MIN - sizePad && size <= FACE_SIZE_MAX + sizePad
+      && Math.abs(cx - 0.5) <= FACE_CENTER_X_TOL * slack
+      && Math.abs(cy - 0.5) <= FACE_CENTER_Y_TOL * slack;
+  }
+
+  /**
+   * 取景判定的**遲滯**（Schmitt trigger）。
+   *
+   * 為什麼需要：先前 `setLocked()` 吃的是每一幀的原始判定，而使用者停在容差邊界時
+   * 那個 boolean 會來回翻 —— 鎖定的 flicker/閃光/snap 就跟著連放。
+   * **一個到處都在放的高潮就不是高潮了**（founder 2026-08-08：「還不夠」）。
+   *
+   * 規則不對稱，這是刻意的：
+   * - **入鎖要連續**：連 `FRAME_LOCK_STREAK` 次取樣都在嚴格容差內才鎖，
+   *   所以那一拍是「你真的停穩了」，不是「你剛好掃過去」。
+   * - **解鎖要明顯**：得掉出放寬 `FRAME_RELEASE_SLACK` 倍的容差才解，
+   *   小幅呼吸晃動不會把你踢出鎖定。
+   *
+   * @param {boolean} inTol - 這一幀是否在嚴格容差內。
+   * @param {number} cx - 臉框中心 x。
+   * @param {number} cy - 臉框中心 y。
+   * @param {number} size - 臉框邊長。
+   * @returns {boolean} 遲滯後的鎖定狀態。
+   */
+  function evalFramed(inTol, cx, cy, size) {
+    if (session.faceFramed) {
+      // 已鎖定：只有明顯出界才放開。
+      if (withinFrame(cx, cy, size, FRAME_RELEASE_SLACK)) return true;
+      session.framedStreak = 0;
+      return false;
+    }
+    session.framedStreak = inTol ? session.framedStreak + 1 : 0;
+    return session.framedStreak >= FRAME_LOCK_STREAK;
+  }
+
   /** 每次推論結果 → 位移、取景、眨眼。只在這裡累積 landmark 樣本。 */
   function onFaceResults(results) {
     if (!session || session.done) return;
@@ -613,6 +670,7 @@
       setLocked(false); // 臉都不見了就不能還宣稱鎖定
       clearReticle();
       session.faceFramed = false;
+      session.framedStreak = 0; // 空窗不得累積進「連續對準」
       session.faceBox = null;
       session.lastFaceCenter = null;
       session.lastFaceAt = 0;
@@ -648,9 +706,12 @@
     // 保留中心與大小 —— 方向指令（resolveHint）需要它們。先前這裡直接壓成
     // 一個 boolean，等於把「往哪邊移」的資訊丟掉，只剩「不對」。
     session.faceBox = { centerX: centerX, centerY: centerY, size: size };
-    var framed = size >= FACE_SIZE_MIN && size <= FACE_SIZE_MAX
-      && Math.abs(centerX - 0.5) <= FACE_CENTER_X_TOL
-      && Math.abs(centerY - 0.5) <= FACE_CENTER_Y_TOL;
+    // ── 取景判定（帶遲滯）──
+    // `inTol` 是這一幀的原始判定；`framed` 是**經過遲滯**的鎖定狀態。
+    // 兩者分開的理由見 evalFramed()：原始判定在容差邊界會抖，
+    // 直接拿去驅動鎖定拍子會讓那一刻變成閃爍的雜訊。
+    var inTol = withinFrame(centerX, centerY, size, 1);
+    var framed = evalFramed(inTol, centerX, centerY, size);
     // 順序：先 setLocked（它讀 session.faceFramed 判斷邊緣），再更新標記。
     setLocked(framed);
     session.faceFramed = framed;
@@ -1280,6 +1341,7 @@
         faceMesh: null, faceTimer: null, faceBusy: false,
         everSawFace: false, faceFramed: false, faceBox: null,
         reticle: null, reticleTarget: null, reticleSnapUntil: 0, lastRenderAt: 0,
+        framedStreak: 0,
         lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         lmAcc: { n: 0, stillness: 0 },
