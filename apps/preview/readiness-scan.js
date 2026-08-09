@@ -279,7 +279,7 @@
       // 時長一律取 MOTION-DIRECTION §3 的音階（150 / 300 / 600），不自創數值。
       '#' + OVERLAY_ID + ' .rs-flash{position:absolute;inset:0;border-radius:64px;',
       'pointer-events:none;opacity:0;background:radial-gradient(circle at center,',
-      'rgba(34,211,238,0.42) 0%,rgba(34,211,238,0.12) 46%,rgba(34,211,238,0) 72%);}',
+      'rgba(34,211,238,0.60) 0%,rgba(34,211,238,0.20) 48%,rgba(34,211,238,0) 76%);}',
       // flicker（極速運算感）150ms + 閃光 300ms + 角括號回彈 300ms，同一拍下。
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-track{animation:rs-flicker 0.15s steps(1) 1;}',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-flash{animation:rs-bloom 0.3s ' + EASE_SECURE + ' 1;}',
@@ -293,6 +293,17 @@
       '@keyframes rs-bloom{0%{opacity:0;}22%{opacity:1;}100%{opacity:0;}}',
       '@keyframes rs-corner-snap{0%{transform:scale(1.07);}',
       '55%{transform:scale(0.985);}100%{transform:scale(1);}}',
+      // 衝擊波 600ms（音階上的「元素進場」）—— 比一擊長，是那一擊的餘波。
+      // 只寫 transform/opacity；non-scaling-stroke 讓波紋擴散時線寬不變粗。
+      '#' + OVERLAY_ID + ' .rs-halo .rs-wave{fill:none;stroke:' + HALO_ACTIVE + ';',
+      'stroke-width:2;opacity:0;vector-effect:non-scaling-stroke;',
+      'transform-box:fill-box;transform-origin:center;}',
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-wave{',
+      'animation:rs-wave-out 0.6s ' + EASE_SECURE + ' 1;}',
+      // opacity 要撐過前三分之一才看得見 —— --ease-secure 是 expo-out，
+      // 不補這個中間 keyframe 的話波紋一出生就淡掉了（實測截圖看出來的）。
+      '@keyframes rs-wave-out{0%{transform:scale(1);opacity:0.95;}',
+      '32%{opacity:0.8;}100%{transform:scale(2.3);opacity:0;}}',
 
       // ── 指令膠囊（North Star §4：一次只顯示 1 個主指令）──
       '#' + OVERLAY_ID + ' .rs-instruction{display:inline-flex;align-items:center;gap:10px;',
@@ -318,6 +329,7 @@
       '#' + OVERLAY_ID + ' .rs-frame.locked .rs-halo-corners{transition:none;}',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-track,',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-corners,',
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-wave,',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-flash{animation:none;}}',
       '#' + OVERLAY_ID + ' .rs-dots{display:flex;gap:14px;font-size:10px;color:#5A6178;',
       'letter-spacing:0.1em;text-transform:uppercase;}',
@@ -368,6 +380,9 @@
       // 兩者同一個座標系，所以「移進去、調到一樣大」＝ 對位完成。
       '      <circle class="rs-target" cx="118" cy="118" r="' + RETICLE_TARGET_R + '"/>',
       '      <circle class="rs-reticle" data-rs="reticle" cx="118" cy="118" r="' + RETICLE_TARGET_R + '"/>',
+      // 衝擊波：合一那一刻從核心往外擴到框、淡出。這是儀器的**回報**，
+      // 只播一次；它不參與任何判定，純粹把「抓到了」講出來。
+      '      <circle class="rs-wave" cx="118" cy="118" r="' + RETICLE_TARGET_R + '"/>',
       '    </svg>',
       '  </div>',
       '  <div class="rs-instruction" data-rs="instruction"><b data-rs="hint-icon"></b><span data-rs="hint-text"></span></div>',
@@ -1215,6 +1230,10 @@
     }
 
     frame.classList.add('locked');
+    // 磁吸窗：這段時間內 renderReticle 改用更果斷的收束係數，
+    // 讓標記**看得見地被拉進**中心，而不是慢慢飄過去。
+    // 只在這裡開窗 —— 磁吸必須發生在量測說對準之後，提前吸就是假造事實。
+    session.reticleSnapUntil = performance.now() + RETICLE_SNAP_MS;
     // reflow 讓 animation 能重播（同一個 class 連續加兩次不會重跑）
     frame.classList.remove('lock-beat');
     void frame.offsetWidth;
