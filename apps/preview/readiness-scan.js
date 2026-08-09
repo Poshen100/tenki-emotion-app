@@ -131,6 +131,25 @@
    */
   var FRAME_LOCK_STREAK = 2;
   var FRAME_RELEASE_SLACK = 1.25;
+  /**
+   * 頭部朝向的 landmark 索引與門檻（見 `headPose`）。
+   * 鼻尖 1、左右眼外角 33 / 263 —— MediaPipe FaceMesh 的標準索引，
+   * 與檔內其他索引（159/145/386/374 眼、13/14 嘴）同一套。
+   */
+  var NOSE_TIP = 1;
+  var EYE_OUTER_L = 33;
+  var EYE_OUTER_R = 263;
+  /**
+   * 「沒有正對鏡頭」的門檻（以兩眼外角距離正規化的偏移）。
+   *
+   * ⚠️ 這兩個值是**先驗的保守估計，還沒實機調過** —— 手感調參歸桌機 lane
+   * （MOTION-DIRECTION §7）。取得偏寬鬆，寧可少講一次也不要一直誤報「正對鏡頭」：
+   * 一個一直亮的提示比沒有提示更糟。
+   * pitch 的容忍度比 yaw 大：正臉時鼻尖本來就在兩眼中點**下方**，基線不是 0。
+   */
+  var YAW_SQUARE_MAX = 0.22;
+  var PITCH_SQUARE_MIN = 0.16;
+  var PITCH_SQUARE_MAX = 0.62;
   /** 臉部資料超過這麼久沒更新就當作臉不在（推論比取樣慢，要留寬容）。 */
   var FACE_STALE_MS = 700;
   /** Tier A 要成立，landmark 樣本至少要這麼多 —— 只瞄到一兩幀不算量到。 */
@@ -368,6 +387,10 @@
       '#' + OVERLAY_ID + ' .rs-done[hidden]{display:none;}',
 
       // ── 指令膠囊（North Star §4：一次只顯示 1 個主指令）──
+      // ⚠️ 左內距 10px 是**留給圖示的**（圖示 26px + gap 10px 之後才是文字）。
+      // `b:empty{display:none}` 把圖示拿掉時那 10px 還在，文字就往左偏 8px ——
+      // 只有「保持穩定」這種沒圖示的指令會被看出來，founder 2026-08-09 實走抓到。
+      // 沒圖示時由 setInstruction() 掛 .no-icon 換成對稱內距。
       '#' + OVERLAY_ID + ' .rs-instruction{display:inline-flex;align-items:center;gap:10px;',
       'min-height:44px;padding:0 18px 0 10px;border-radius:999px;',
       'background:rgba(10,14,24,0.72);border:1px solid rgba(61,224,255,0.22);',
@@ -378,6 +401,7 @@
       'background:rgba(61,224,255,0.14);color:' + HALO_ACTIVE + ';',
       'font-size:14px;font-weight:400;font-style:normal;}',
       '#' + OVERLAY_ID + ' .rs-instruction b:empty{display:none;}',
+      '#' + OVERLAY_ID + ' .rs-instruction.no-icon{padding:0 18px;}',
       // 鎖定時膠囊轉成「已對準」的靜態語氣，不再閃爍求你動。
       '#' + OVERLAY_ID + ' .rs-frame.locked ~ .rs-instruction{border-color:rgba(34,211,238,0.55);}',
 
@@ -505,6 +529,47 @@
     var i = q('hint-icon');
     if (t) t.textContent = text;
     if (i) i.textContent = icon || '';
+    // 沒有圖示時要換成對稱內距，否則文字會左偏（見 .rs-instruction 的註解）。
+    // 用 class 標而不是 CSS `:has()` —— 圖示本來就由這裡寫，狀態讓 JS 標最確定，
+    // 也不用賭 Safari 版本。
+    var pill = q('instruction');
+    if (pill) pill.classList.toggle('no-icon', !icon);
+  }
+
+  /**
+   * 頭部朝向的**真實幾何量測** —— 臉有沒有正對鏡頭。
+   *
+   * 為什麼需要：`computeFaceBox` 是 landmark 的 min/max 包圍盒，它分不出
+   * 「人偏了」和「頭轉了」。轉頭時遠側臉頰被壓縮 → 盒子中心往近側移 →
+   * 叫你「向左／向右對齊」；抬低頭時可見範圍上下不對稱 → 中心 y 位移 →
+   * 叫你「向上／向下對齊」。**那都是錯的建議**，照做只會更歪。
+   *
+   * ⚠️ 先前這段註解寫「低頭會壓短高度 → 叫你靠近一點」，**那是錯的**：
+   * `size = max(寬, 高)`，壓短高度時寬度還在，size 不會變小。
+   * （寫完做反向驗證時算出來的 —— 沒驗就會把一個錯的因果留在檔案裡。）
+   * founder 2026-08-09 問「需不需要一行小字叫人正對鏡頭」，底下的真問題就是這個：
+   * 我們根本沒量這件事（North Star §5 也把 head pose 列在待補信號裡）。
+   *
+   * 量法（不新增依賴、不動 FaceMesh 設定）：正臉時鼻尖應該落在兩眼外角的中點上。
+   * 轉頭時鼻尖往轉的方向偏、抬低頭時往上下偏，**以兩眼外角距離正規化**，
+   * 所以距離遠近不影響這個比值。
+   *
+   * @param {Array<{x:number,y:number}>} lm - FaceMesh landmarks。
+   * @returns {?{yaw:number, pitch:number}} 正規化偏移；點位不足時為 null。
+   */
+  function headPose(lm) {
+    var nose = lm[NOSE_TIP];
+    var eyeL = lm[EYE_OUTER_L];
+    var eyeR = lm[EYE_OUTER_R];
+    if (!nose || !eyeL || !eyeR) return null;
+    var span = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y);
+    if (span < 1e-4) return null; // 退化幾何：不猜，回 null
+    var midX = (eyeL.x + eyeR.x) / 2;
+    var midY = (eyeL.y + eyeR.y) / 2;
+    return {
+      yaw: (nose.x - midX) / span,
+      pitch: (nose.y - midY) / span,
+    };
   }
 
   /**
@@ -529,6 +594,14 @@
       && (performance.now() - session.lastFaceAt) < FACE_STALE_MS;
 
     if (fresh) {
+      // 先講「正對鏡頭」再講位置／大小 —— 順序是這條的重點。
+      // 頭轉了的時候包圍盒本身就被扭曲了，這時候的「向左對齊」「靠近一點」
+      // 都是錯的建議（見 headPose 的註解）。先把姿勢喬正，其他量測才有意義。
+      var pose = session.headPose;
+      if (pose && (Math.abs(pose.yaw) > YAW_SQUARE_MAX
+        || pose.pitch < PITCH_SQUARE_MIN || pose.pitch > PITCH_SQUARE_MAX)) {
+        return { key: 'square', text: '正對鏡頭', icon: '⊕' };
+      }
       if (box.size < FACE_SIZE_MIN) return { key: 'closer', text: '靠近一點', icon: '＋' };
       if (box.size > FACE_SIZE_MAX) return { key: 'farther', text: '退遠一點', icon: '－' };
       if (box.centerY > 0.5 + FACE_CENTER_Y_TOL) return { key: 'up', text: '向上對齊', icon: '↑' };
@@ -772,6 +845,7 @@
       clearReticle();
       session.faceFramed = false;
       session.framedStreak = 0; // 空窗不得累積進「連續對準」
+      session.headPose = null;  // 沒有臉就沒有朝向，不留上一幀的值
       session.faceBox = null;
       session.lastFaceCenter = null;
       session.lastFaceAt = 0;
@@ -805,6 +879,8 @@
     // 特徵點數**當場量**，不寫死 —— 寫 468 就是在賭 MediaPipe 的版本與
     // refineLandmarks 設定（開了 refine 會變 478）。揭曉要報的是這次真的拿到幾點。
     session.landmarkCount = lm.length;
+    // 頭部朝向：只餵指令，**不進閘門**（見 gatesAdvance 的註解）。
+    session.headPose = headPose(lm);
     session.lastFaceCenter = { x: centerX, y: centerY };
     session.lastFaceAt = now;
     // 保留中心與大小 —— 方向指令（resolveHint）需要它們。先前這裡直接壓成
@@ -973,6 +1049,10 @@
    * @param {{lighting:boolean, centering:?boolean, stillness:?boolean}} gates
    * @returns {boolean} 這一幀是否讓有效取景時間前進。
    */
+  // ⚠️ **頭部朝向（headPose）刻意不在這裡。** 它只驅動指令，不擋進度。
+  // 理由：那兩個門檻是先驗估計、還沒實機調過（手感調參歸桌機 lane），
+  // 一旦進了閘門而門檻抓錯，掃描會完成不了 —— 那是比「偶爾少講一句」嚴重得多的壞法。
+  // 先讓它停止給錯建議；要不要收進閘門是下一步、要有實機數據才決定。
   function gatesAdvance(gates) {
     return session.everSawFace
       ? gates.centering === true && gates.stillness === true
@@ -1540,7 +1620,7 @@
         faceMesh: null, faceTimer: null, faceBusy: false,
         everSawFace: false, faceFramed: false, faceBox: null,
         reticle: null, reticleTarget: null, reticleSnapUntil: 0, lastRenderAt: 0,
-        framedStreak: 0, pendingReading: null,
+        framedStreak: 0, pendingReading: null, headPose: null,
         lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0,

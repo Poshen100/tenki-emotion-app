@@ -228,6 +228,29 @@ async function scanAndCancel(page) {
     return !!b && b.tagName === 'B';
   }), true);
 
+  // 膠囊的左內距 10px 是**留給圖示的**（圖示 26px + gap 10px 之後才是文字）。
+  // 圖示被 `b:empty{display:none}` 拿掉時那 10px 還在 → 文字左偏 8px。
+  // 只有「保持穩定」這種沒圖示的指令看得出來，founder 2026-08-09 實走抓到。
+  check('沒有圖示時膠囊左右內距相等（文字才會置中）', await page.evaluate(() => {
+    const pill = document.querySelector('#tenki-readiness-scan .rs-instruction');
+    const withIcon = () => {
+      pill.classList.remove('no-icon');
+      const cs = getComputedStyle(pill);
+      return [cs.paddingLeft, cs.paddingRight];
+    };
+    const noIcon = () => {
+      pill.classList.add('no-icon');
+      const cs = getComputedStyle(pill);
+      return [cs.paddingLeft, cs.paddingRight];
+    };
+    const a = withIcon();
+    const b = noIcon();
+    return {
+      iconAsymmetric: a[0] !== a[1], // 有圖示時仍然是不對稱的（不能矯枉過正）
+      plainSymmetric: b[0] === b[1],
+    };
+  }), { iconAsymmetric: true, plainSymmetric: true });
+
   // 角括號也長在同一條路徑上（第三個 rect + dash），不是另外畫的四個方塊。
   check('角括號與框共用同一條路徑', await page.evaluate(() => {
     const g = (s) => {
@@ -430,19 +453,35 @@ async function scanAndCancel(page) {
   await page.waitForTimeout(300);
 
   // 造一組「臉正好在框正中央、大小理想」的 468 點 landmark，並可整組平移。
-  const feed = (dx, n) => page.evaluate(([dxv, times]) => {
+  // 合成一張**幾何上說得通**的臉，而不是一團同座標的點。
+  // ⚠️ 索引不能亂借：1 是鼻尖、33/263 是兩眼外角（headPose 在讀），
+  // 所以臉框的極值改放在真正的邊界點上（10 額頂、152 下巴、234/454 兩頰）——
+  // 那也正是 MediaPipe 對這些索引的語意。
+  // `yaw` 是鼻尖相對兩眼中點的水平偏移（以眼距正規化），跟產品的量法同一個定義。
+  const makeFace = ({ dx = 0, yaw = 0, pitch = 0.5 } = {}) => {
+    const cx = 0.5 + dx;
+    const half = 0.2375;          // 撐出理想臉框大小（約 0.475）
+    const eyeSpan = 0.26;         // 兩眼外角距離
+    const eyeY = 0.5 - 0.06;
+    const lm = [];
+    for (let i = 0; i < 478; i++) lm.push({ x: cx, y: 0.5, z: 0 });
+    lm[10] = { x: cx, y: 0.5 - half, z: 0 };            // 額頂
+    lm[152] = { x: cx, y: 0.5 + half, z: 0 };           // 下巴
+    lm[234] = { x: cx - half, y: 0.5, z: 0 };           // 左頰
+    lm[454] = { x: cx + half, y: 0.5, z: 0 };           // 右頰
+    lm[33] = { x: cx - eyeSpan / 2, y: eyeY, z: 0 };    // 左眼外角
+    lm[263] = { x: cx + eyeSpan / 2, y: eyeY, z: 0 };   // 右眼外角
+    lm[1] = { x: cx + yaw * eyeSpan, y: eyeY + pitch * eyeSpan, z: 0 }; // 鼻尖
+    return lm;
+  };
+
+  const feed = (dx, n) => page.evaluate(([dxv, times, faceSrc]) => {
     const S = window.__rsFaceMesh;
     if (!S) return 'no-hook';
-    for (let t = 0; t < times; t++) {
-      const lm = [];
-      for (let i = 0; i < 478; i++) lm.push({ x: 0.5 + dxv, y: 0.5, z: 0 });
-      // 臉框由 landmark 的 min/max 決定 → 撐出理想大小（約 0.475）
-      lm[0] = { x: 0.5 + dxv - 0.2375, y: 0.5 - 0.2375, z: 0 };
-      lm[1] = { x: 0.5 + dxv + 0.2375, y: 0.5 + 0.2375, z: 0 };
-      S({ multiFaceLandmarks: [lm] });
-    }
+    const make = eval('(' + faceSrc + ')');
+    for (let t = 0; t < times; t++) S({ multiFaceLandmarks: [make({ dx: dxv })] });
     return 'ok';
-  }, [dx, n]);
+  }, [dx, n, makeFace.toString()]);
 
   const locked = () => page.evaluate(() =>
     document.querySelector('#tenki-readiness-scan .rs-frame').classList.contains('locked'));
@@ -462,6 +501,104 @@ async function scanAndCancel(page) {
     check('明顯出界才解鎖', await locked(), false);
   }
   await ctx.close();
+}
+
+// ── 2c-5b. 正對鏡頭：偏頭時不准再給錯的位置建議 ──
+//
+// founder 2026-08-09 問「需不需要一行小字叫人正對鏡頭」。答案是不加小字
+// （North Star §4：一次只顯示 1 個主指令），但底下的真問題是：
+// **我們根本沒量頭有沒有正對。** 臉框是 landmark 的 min/max 包圍盒，
+// 偏頭會把盒子中心拉歪 → 叫你「向左對齊」；低頭會壓短高度 → 叫你「靠近一點」。
+// 那兩句都是錯的建議。這一組守的就是「偏頭時先講偏頭」。
+{
+  const { ctx, page } = await newPage({ faceMesh: true });
+  await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }); });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+  await page.waitForTimeout(300);
+
+  // ⚠️ 轉頭時**包圍盒本身也會變形** —— 遠側的臉頰被壓縮，盒子中心因此被拉歪，
+  // 低頭抬頭則會壓短高度。這正是「偏頭會得到錯的位置/大小建議」的成因，
+  // 所以合成臉必須把這個耦合做出來，否則「square 要排在 size/center 之前」
+  // 這條順序根本測不到（第一版就是只搬鼻尖，把順序搞反了測試照樣綠）。
+  const makeFace = ({ dx = 0, yaw = 0, pitch = 0.5 } = {}) => {
+    const cx = 0.5 + dx;
+    const half = 0.2375;
+    const eyeSpan = 0.26;
+    const eyeY = 0.5 - 0.06;
+    // 壓縮係數要**夠強到真的把盒中心推出容差**（centerX 容差 0.08，
+    // 盒中心位移 = (half - far) / 2），否則順序那條根本測不到 —— 算過才定的。
+    const squash = Math.min(0.9, Math.abs(yaw) * 1.6);   // 遠側臉頰被壓縮
+    const near = half;
+    const far = half * (1 - squash);
+    // 抬低頭：可見範圍上下**不對稱**地被壓縮 → 盒中心 y 位移（不是 size 變小；
+    // size = max(寬,高)，寬度還在的時候壓高度不會讓 size 變小）。
+    const vShift = (pitch - 0.5) * 0.5;
+    const lm = [];
+    for (let i = 0; i < 478; i++) lm.push({ x: cx, y: 0.5, z: 0 });
+    lm[10] = { x: cx, y: 0.5 - half + vShift, z: 0 };
+    lm[152] = { x: cx, y: 0.5 + half + vShift, z: 0 };
+    // ⚠️ 遠側要**整片**壓縮，眼角也要 —— 只壓臉頰的話眼角會凸在臉頰外面，
+    // 包圍盒的 minX 反而由眼角決定，盒中心根本不會位移，順序那條就測不到
+    // （第一版就是這樣：算好的 0.0855 位移被眼角吃掉，變成 0.0537）。
+    // 真實的轉頭本來就是遠側整片被透視壓縮，這樣才是忠實的合成。
+    const fx = (d) => (d < 0 === yaw >= 0 ? d * (1 - squash) : d); // 遠側縮，近側不動
+    lm[234] = { x: cx + fx(-half), y: 0.5, z: 0 };
+    lm[454] = { x: cx + fx(half), y: 0.5, z: 0 };
+    lm[33] = { x: cx + fx(-eyeSpan / 2), y: eyeY, z: 0 };
+    lm[263] = { x: cx + fx(eyeSpan / 2), y: eyeY, z: 0 };
+    lm[1] = { x: cx + yaw * eyeSpan, y: eyeY + pitch * eyeSpan, z: 0 };
+    return lm;
+  };
+
+  // ⚠️ 兩個時間窗要一起跨過去：指令有 350ms 去抖動（HINT_HOLD_MS），而臉超過
+  // FACE_STALE_MS(700ms) 沒更新就會被當成「臉不在」→ 指令退回「把臉放進框裡」。
+  // 所以要**持續餵**（模擬真實的連續推論），而且**輪詢到文字不再變動為止**
+  // ——固定睡多久都是在賭（PLAYBOOK §6：斷言前輪詢到終值，不要照直覺猜等待時間）。
+  const hintFor = async (opts) => {
+    const src = makeFace.toString();
+    const read = () => page.evaluate(() =>
+      document.querySelector('#tenki-readiness-scan [data-rs="hint-text"]').textContent.trim());
+    // ⚠️ **不能用「連續幾次讀到一樣就當穩定」**：卡在中間態（「把臉放進框裡」）
+    // 的值本身也很穩定，那個條件會提早收工並回報中間態（第一版就這樣紅了一次）。
+    // 改成餵滿一段夠長的時間再取最後值 —— 去抖動 + 臉部新鮮度兩個窗都跨得過去。
+    for (let round = 0; round < 30; round++) {
+      await page.evaluate(([o, s2]) => {
+        const make = eval('(' + s2 + ')');
+        window.__rsFaceMesh({ multiFaceLandmarks: [make(o)] });
+      }, [opts, src]);
+      await page.waitForTimeout(100);
+    }
+    return read();
+  };
+
+  // 正臉（鼻尖在兩眼中點正下方）**不得**叫人正對鏡頭 ——
+  // 一個一直亮的提示比沒有提示更糟。
+  //
+  // ⚠️ 這裡斷言的是「不是正對鏡頭」而**不是**等於某個特定指令：假相機餵的合成畫面
+  // 亮度會來回跳，lighting 閘門跟著翻，指令候選在 light/hold 之間擺盪而永遠
+  // committed 不了（實測：三顆燈的第一顆會 fail↔pass）。那是**測試環境的性質**，
+  // 不是產品行為 —— 硬要比對終值只是在賭假相機那一幀的亮度。
+  // 這一條真正要守的不變量就是：正臉的人不會被一直叫去「正對鏡頭」。
+  const frontalHint = await hintFor({ yaw: 0, pitch: 0.5 });
+  check('正臉時不得出現「正對鏡頭」', frontalHint === '正對鏡頭', false);
+
+  // 明顯轉頭 → 先講正對鏡頭，而不是「向左/向右對齊」。
+  check('明顯偏頭時給「正對鏡頭」', await hintFor({ yaw: 0.45, pitch: 0.5 }), '正對鏡頭');
+
+  // 明顯低/抬頭 → 同理，不得變成「靠近一點」。
+  check('明顯抬低頭時也給「正對鏡頭」', await hintFor({ yaw: 0, pitch: 0.05 }), '正對鏡頭');
+
+  await ctx.close();
+}
+
+// 頭部朝向**不進閘門**：門檻是先驗估計、還沒實機調過，一旦擋住進度而門檻抓錯，
+// 掃描會完成不了 —— 那比「偶爾少講一句」嚴重得多。靜態斷言守這條分界。
+{
+  const src = readFileSync(join(repoRoot, 'apps/preview/readiness-scan.js'), 'utf8');
+  const fn = src.slice(src.indexOf('function gatesAdvance('));
+  const body = fn.slice(0, fn.indexOf('\n  }')).replace(/\/\/[^\n]*/g, '');
+  check('headPose 不得進 gatesAdvance（只當提示，不擋進度）',
+    /headPose|yaw|pitch/i.test(body), false);
 }
 
 // ── 2c-6. 星塵容器就是掃描框（North Star §4：靈魂在光圈裡）──
