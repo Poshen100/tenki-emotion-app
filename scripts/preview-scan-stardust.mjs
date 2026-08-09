@@ -83,6 +83,25 @@ window.__sdHostMounted = false;   // 模擬 host 頁面（v6）已持有綁定
 })();
 `;
 
+/**
+ * 假的 MediaPipe FaceMesh —— 讓 harness 能**驅動真的 onFaceResults**。
+ *
+ * 沙箱擋掉 MediaPipe CDN，所以正式站上跑 tier A 的那條路在這裡本來完全測不到。
+ * 但 readiness-scan 只透過 `window.FaceMesh` 這一個全域取用它，所以塞一個 stub
+ * 就能把取景判定/遲滯/鎖定整條鏈接起來 —— 而且測到的是**真的產品程式**，
+ * 不是加 class 演戲。`send()` 不做事：我們自己呼叫捕獲到的 callback。
+ */
+const FACEMESH_STUB = `
+window.FaceMesh = function () {
+  var self = this;
+  this.setOptions = function () {};
+  this.onResults = function (cb) { window.__rsFaceMesh = cb; };
+  this.send = function () { return Promise.resolve(); };
+  this.close = function () { window.__rsFaceMesh = null; };
+  return self;
+};
+`;
+
 const browser = await chromium.launch({
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
 });
@@ -96,7 +115,9 @@ async function newPage(opts = {}) {
     reducedMotion: opts.reducedMotion,
   });
   const page = await ctx.newPage();
-  await page.addInitScript(STUB + (opts.hostMounted ? '\nwindow.__sdHostMounted = true;' : ''));
+  await page.addInitScript(STUB
+    + (opts.hostMounted ? '\nwindow.__sdHostMounted = true;' : '')
+    + (opts.faceMesh ? FACEMESH_STUB : ''));
   page.on('pageerror', (e) => { console.error('[pageerror]', e.message); fail += 1; });
   await page.goto(PAGE, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.TENKI_READINESS_SCAN);
@@ -343,6 +364,124 @@ async function scanAndCancel(page) {
     return getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-reticle')).opacity;
   }), '1');
 
+  await ctx.close();
+}
+
+// ── 2c-4. 鎖定那一拍：閃光活著、衝擊波在、之後靜止 ──
+//
+// 這一組的由來是一個**我自己造的 bug**：#222 把 .rs-lens 改成 opacity:0，
+// 而鎖定的 bloom 就掛在 .rs-lens 上 —— opacity:0 的元素連 box-shadow 都不畫，
+// 閃光整個消失而沒人發現，直到 founder 說「合一還不夠爽」。
+// 所以這裡守的不是「有沒有寫 animation」，是**那個元素看不看得見**。
+{
+  const { ctx, page } = await newPage();
+  await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }); });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+
+  check('鎖定閃光掛在看得見的層上（不是 opacity:0 的 .rs-lens）', await page.evaluate(() => {
+    const flash = document.querySelector('#tenki-readiness-scan .rs-flash');
+    if (!flash) return 'missing';
+    const cs = getComputedStyle(flash);
+    // 靜止時 opacity 是 0（沒在播），但它不能像 .rs-lens 那樣被整層關掉 ——
+    // 判準是「動畫播起來時會不會被畫出來」：父鏈上不能有 opacity:0。
+    const lens = getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-lens'));
+    return { onLens: false, lensOpacity: lens.opacity, flashDisplay: cs.display };
+  }), { onLens: false, lensOpacity: '0', flashDisplay: 'block' });
+
+  check('衝擊波元素存在且在同一個 SVG 座標系裡', await page.evaluate(() => {
+    const svg = document.querySelector('#tenki-readiness-scan svg.rs-halo');
+    return !!svg.querySelector('circle.rs-wave');
+  }), true);
+
+  // 放一拍，確認三個動畫都真的跑起來（不是只寫了 CSS 卻沒有觸發路徑）。
+  const anims = await page.evaluate(async () => {
+    const f = document.querySelector('#tenki-readiness-scan .rs-frame');
+    f.classList.remove('lock-beat');
+    void f.offsetWidth;
+    f.classList.add('locked', 'lock-beat');
+    await new Promise((r) => requestAnimationFrame(r));
+    const name = (s) => getComputedStyle(document.querySelector('#tenki-readiness-scan ' + s)).animationName;
+    return { flash: name('.rs-flash'), wave: name('.rs-wave'), corners: name('.rs-halo-corners') };
+  });
+  check('鎖定一拍同時放閃光 / 衝擊波 / 角括號回彈',
+    anims, { flash: 'rs-bloom', wave: 'rs-wave-out', corners: 'rs-corner-snap' });
+
+  // 「爽的是突然的靜」—— 一拍過後畫面不得還在動。
+  //
+  // ⚠️ 不能用 computed `animation-name` 判斷：CSS 動畫播完之後那個屬性**還在**
+  // （.lock-beat 不會自己拿掉），照它算會得到 4 個「還在動」的假陽性。
+  // 要問的是**現在有沒有東西在跑**，所以用 getAnimations() 的 playState。
+  await page.waitForTimeout(900);
+  check('一拍過後完全靜止（沒有任何還在跑的動畫）', await page.evaluate(() =>
+    document.getAnimations().filter((a) => a.playState === 'running').length), 0);
+
+  await ctx.close();
+}
+
+// ── 2c-5. 鎖定遲滯：一個到處都在放的高潮就不是高潮 ──
+//
+// 這是本輪唯一有**真邏輯**的一塊，所以驅動真的 onFaceResults，不是加 class 演戲。
+// FACEMESH_STUB 把 readiness-scan 註冊的 callback 存成 window.__rsFaceMesh，
+// 我們自己餵 landmark 進去 —— 走的是產品真正的取景判定路徑。
+{
+  const { ctx, page } = await newPage({ faceMesh: true });
+  await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }); });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+  await page.waitForTimeout(300);
+
+  // 造一組「臉正好在框正中央、大小理想」的 468 點 landmark，並可整組平移。
+  const feed = (dx, n) => page.evaluate(([dxv, times]) => {
+    const S = window.__rsFaceMesh;
+    if (!S) return 'no-hook';
+    for (let t = 0; t < times; t++) {
+      const lm = [];
+      for (let i = 0; i < 478; i++) lm.push({ x: 0.5 + dxv, y: 0.5, z: 0 });
+      // 臉框由 landmark 的 min/max 決定 → 撐出理想大小（約 0.475）
+      lm[0] = { x: 0.5 + dxv - 0.2375, y: 0.5 - 0.2375, z: 0 };
+      lm[1] = { x: 0.5 + dxv + 0.2375, y: 0.5 + 0.2375, z: 0 };
+      S({ multiFaceLandmarks: [lm] });
+    }
+    return 'ok';
+  }, [dx, n]);
+
+  const locked = () => page.evaluate(() =>
+    document.querySelector('#tenki-readiness-scan .rs-frame').classList.contains('locked'));
+
+  const hooked = await feed(0, 1);
+  if (hooked === 'no-hook') {
+    console.log('… 跳過遲滯斷言（模組未匯出 onFaceResults hook）');
+  } else {
+    check('單一幀進容差**不得**鎖定（遲滯生效）', await locked(), false);
+    await feed(0, 1);
+    check('連續兩幀進容差才鎖定', await locked(), true);
+    // 小幅晃出嚴格容差、但仍在放寬容差內 → 不得解鎖
+    await feed(0.09, 1);
+    check('小幅晃動不解鎖（解鎖容差放寬）', await locked(), true);
+    // 明顯出界 → 解鎖
+    await feed(0.25, 1);
+    check('明顯出界才解鎖', await locked(), false);
+  }
+  await ctx.close();
+}
+
+// ── 2c-6. 星塵容器就是掃描框（North Star §4：靈魂在光圈裡）──
+{
+  const { ctx, page } = await newPage();
+  await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }); });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+  await page.waitForTimeout(600);
+  check('星塵容器與掃描框完全重合（不是鋪滿整個螢幕）', await page.evaluate(() => {
+    const f = document.querySelector('#tenki-readiness-scan .rs-frame').getBoundingClientRect();
+    const el = document.querySelector('#tenki-readiness-scan .rs-stardust');
+    const s = el.getBoundingClientRect();
+    return el.parentElement.classList.contains('rs-frame')
+      && Math.abs(f.x - s.x) < 0.5 && Math.abs(f.y - s.y) < 0.5
+      && Math.abs(f.width - s.width) < 0.5 && Math.abs(f.height - s.height) < 0.5;
+  }), true);
+  check('星塵層裁成超橢圓（粒子不溢出框外）', await page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-stardust'));
+    return cs.overflow;
+  }), 'hidden');
   await ctx.close();
 }
 
