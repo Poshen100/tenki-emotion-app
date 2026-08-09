@@ -87,6 +87,27 @@
     MODE_2: '高相對強度突破 · swing 系統',
   };
 
+  /**
+   * 畫面上顯示的代號 —— **內部 template id 一律不上畫面**。
+   *
+   * 🔴 `MODE_2` 絕對不能出現在任何 user-facing 字串裡。理由不是美觀：
+   * 在 Adam Mancini 的語彙裡「Mode 2」指的是**盤整日盤勢**，跟這個模板
+   * （Canslim High RS Breakout）完全是兩回事。engine 自己也記著這件事 ——
+   * `packages/engine/src/session/templates.ts` 的註解寫明那個 id 是歷史遺留、
+   * 因為是 persisted contract 才留著。
+   *
+   * 2026-08-09 founder 實走當場指出：「Canslim 不是 mode2，mode2 是 Adam 交易
+   * 系統的盤整環境」—— 當時畫面把 id 直接印在標題後面（`nameZh（id）`），
+   * 等於讓介面洩漏實作細節，還剛好撞上他每天在用的專業術語。
+   *
+   * engine 的 id 不動（會壞掉既有紀錄），只有這張表決定顯示什麼。
+   */
+  var TEMPLATE_CODE = {
+    FBD: 'FBD',        // Failed Breakdown —— 交易者通用術語，照用
+    CANSLIM: 'CANSLIM', // 真實方法論名稱，照用
+    MODE_2: 'HIGH RS',  // ⚠️ 不得顯示為 MODE_2，理由見上
+  };
+
   // Mirror of suggestTemplateForStrategyHint（先匹配者優先）
   var STRATEGY_KEYWORDS = [
     { keyword: 'canslim', templateId: 'CANSLIM' },
@@ -317,7 +338,7 @@
     'entryNote', 'entryState', 'entryBand', 'entryReadingAge', 'entryRescan', 'entryEvidence',
     'entryDiscLabel', 'entryDiscRate', 'entryStrip', 'entryDiscipline', 'entryCost',
     'btnDismiss', 'btnEngage',
-    'tplSheet', 'tplList', 'aggSheet', 'aggHead', 'aggList',
+    'tplSheet', 'tplList', 'tplStatus', 'aggSheet', 'aggHead', 'aggList',
     'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcCenter', 'resultArcGlow', 'resultArcTime',
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
     'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave',
@@ -775,24 +796,65 @@
   });
 
   // ── 模板選擇 ──
+  /**
+   * 模板選單 —— 終端機讀數，不是卡片選單。
+   *
+   * founder 2026-08-09：「這個頁面太遜 … 想要像彭博（系統的高精度專業風格）」，
+   * 而且第一版計畫只寫「拿掉 emoji、加分隔線」時他直接回：**「少了 彭博終端機」**。
+   * 所以這裡照終端機的**排版形式**做，不是把卡片整理乾淨：
+   * 等寬字、欄位表頭、`1)` 列編號、硬邊 hairline、欄位對齊。
+   *
+   * **不用琥珀色**：彭博的排版 + TENKI 的顏色。gold 在視覺世界規則裡專指 SECURED，
+   * 拿去鋪整片終端機會把那個意義稀釋掉。代號用 cyan（可選 = ACTIVE）。
+   *
+   * 「建議」也拿掉了 —— 交易者本來就有自己的偏好。右欄改成中性欄位值 `ALERT`：
+   * 「這筆快訊標的是這個結構」是**關於快訊的事實**，不是對使用者的指示。
+   */
   function renderTemplatePicker(alert) {
-    var suggested = suggestTemplate(alert.strategyHint);
+    var matched = suggestTemplate(alert.strategyHint);
+
+    // 狀態列：標的 · 快訊標記的結構 · 收到時間。三個都是這筆快訊真的帶著的資料，
+    // 沒有一個是為了「看起來像終端機」湊出來的。
+    if (el.tplStatus) {
+      el.tplStatus.textContent = '';
+      var sym = document.createElement('b');
+      sym.textContent = alert.symbol || '—';
+      var mid = document.createElement('span');
+      mid.textContent = TEMPLATE_CODE[matched] || '';
+      var when = document.createElement('span');
+      when.textContent = new Date(alert.receivedAt).toTimeString().slice(0, 8);
+      el.tplStatus.appendChild(sym);
+      el.tplStatus.appendChild(mid);
+      el.tplStatus.appendChild(when);
+    }
+
     el.tplList.textContent = '';
 
-    Object.keys(TEMPLATES).forEach(function (id) {
-      var tpl = TEMPLATES[id];
-      var card = document.createElement('div');
-      card.className = 'tpl-card' + (id === suggested ? ' suggested' : '');
+    var head = document.createElement('div');
+    head.className = 'tpl-head';
+    ['CODE', 'STRUCTURE', 'MATCH'].forEach(function (label) {
+      var cell = document.createElement('span');
+      cell.textContent = label;
+      head.appendChild(cell);
+    });
+    el.tplList.appendChild(head);
 
-      var icon = document.createElement('div');
-      icon.className = 'tpl-icon';
-      icon.textContent = tpl.icon;
+    Object.keys(TEMPLATES).forEach(function (id, index) {
+      var tpl = TEMPLATES[id];
+      var row = document.createElement('div');
+      row.className = 'tpl-row';
+
+      var code = document.createElement('div');
+      code.className = 'tpl-code';
+      // 彭博式列編號 —— 可選項目一律編號，這是終端機最強的識別特徵。
+      code.textContent = (index + 1) + ') ' + (TEMPLATE_CODE[tpl.id] || tpl.id);
 
       var main = document.createElement('div');
       main.className = 'tpl-main';
       var name = document.createElement('div');
       name.className = 'tpl-name';
-      name.textContent = tpl.nameZh + '（' + tpl.id + '）';
+      // ⚠️ 只放中文名，**不再把內部 id 印在後面**（見 TEMPLATE_CODE 的註解）。
+      name.textContent = tpl.nameZh;
       var sub = document.createElement('div');
       sub.className = 'tpl-sub';
       // 模板現在只回答「這是哪一種 setup」，不再回答「你該等幾秒」。
@@ -800,21 +862,20 @@
       main.appendChild(name);
       main.appendChild(sub);
 
-      card.appendChild(icon);
-      card.appendChild(main);
+      var flag = document.createElement('div');
+      flag.className = 'tpl-flag';
+      // 陳述事實，不下指示：這筆快訊標的就是這個結構。
+      flag.textContent = id === matched ? 'ALERT' : '';
 
-      if (id === suggested) {
-        var star = document.createElement('div');
-        star.className = 'tpl-star';
-        star.textContent = '⭐ 建議';
-        card.appendChild(star);
-      }
+      row.appendChild(code);
+      row.appendChild(main);
+      row.appendChild(flag);
 
-      card.addEventListener('click', function () {
+      row.addEventListener('click', function () {
         closeSheets();
         startSession(alert, tpl);
       });
-      el.tplList.appendChild(card);
+      el.tplList.appendChild(row);
     });
   }
 
@@ -932,9 +993,10 @@
     canvas.dataset.ratio = String(ratio); // 供 headless 驗證（canvas 像素難斷言）
     canvas.dataset.colorVar = colorVar;
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var size = 176;
-    canvas.style.width = size + 'px';
-    canvas.style.height = size + 'px';
+    // 顯示尺寸由 CSS 的 --result-arc 決定（短視窗會縮小），這裡只跟著它調
+    // backing store。**不要**在這裡再寫一次 style.width/height —— 那會蓋掉 CSS，
+    // 兩個地方各記一份尺寸遲早不同步（PLAYBOOK §6：判定/尺寸只能有一個來源）。
+    var size = Math.round(parseFloat(getComputedStyle(canvas).width)) || 176;
     canvas.width = Math.round(size * dpr);
     canvas.height = Math.round(size * dpr);
     var ctx = canvas.getContext('2d');

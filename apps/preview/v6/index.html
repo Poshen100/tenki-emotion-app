@@ -319,6 +319,14 @@ body{
   filter:drop-shadow(0 0 30px rgba(255,255,255,0.15)) drop-shadow(0 2px 4px rgba(0,0,0,0.5));
   transition:all 1.4s var(--ease-calm);
 }
+/* 帶位（Clear / Neutral / Strain）當主角時的字級。
+   86px 是給兩位數分數調的，"Neutral" 放上去會撐爆環心。
+   顏色改用帶位色，且要蓋掉上面的 -webkit-text-fill-color:transparent ——
+   不蓋的話漸層 clip 會讓文字整個看不見。 */
+.tl-edge-score.band{
+  font-size:40px;letter-spacing:-0.01em;line-height:1;
+  background:none;-webkit-text-fill-color:currentColor;
+}
 .tl-edge-pr{
   font-size:12px;font-weight:500;color:rgba(255,255,255,0.85);
   letter-spacing:0.14em;margin-top:2px;
@@ -3818,20 +3826,39 @@ function scannerAvailableV6(){
  * @returns {boolean} 是否真的揭示了一筆讀數（星塵收尾用它決定要不要下 SECURED 拍子）。
  */
 function renderHeroReading(){
+  const scoreEl = document.getElementById('edgeScoreReveal');
   const zoneEl = document.getElementById('edgeTraceZone');
   const confEl = document.getElementById('edgeConfidence');
   const r = loadReadingV6();
   renderCoachLine(); // 環與教練卡永遠同一筆讀數，不得各說各話
   if(!zoneEl) return false;
   if(!r){
+    // 沒有讀數才留空槽 —— 這時候「—」是對的，它就是在說「還沒量」。
+    if(scoreEl){ scoreEl.textContent = '—'; scoreEl.classList.remove('band'); scoreEl.style.color = ''; }
     zoneEl.textContent = '尚無讀數 · 到 Scan 掃一次';
     zoneEl.style.color = '';
     if(confEl) confEl.hidden = true;
     return false;
   }
   const stale = Date.now() - r.ts >= READING_FRESHNESS_MS_V6;
-  zoneEl.textContent = BAND_LABEL_V6[r.band] + (stale ? ' · 讀數已過期' : '');
-  zoneEl.style.color = BAND_COLOR_V6[r.band] || '';
+  // 帶位當主角。
+  //
+  // 為什麼改：分數槽刻意留「—」是誠實的（readiness 讀數契約上沒有 0-100 分，
+  // 瀏覽器量不到 HRV，生一個數字＝造假 —— 這條不變）。但 2026-08-08 實走時
+  // **founder 本人**看著這一屏說「沒有讀數」，而那筆讀數明明就在。
+  // 誠實不等於讀得懂：86px 的破折號在視覺上就是「壞掉／空的」。
+  // 所以把真正存在的東西放到主位 —— 帶位是讀數本尊，不是註腳。
+  if(scoreEl){
+    scoreEl.textContent = BAND_LABEL_V6[r.band];
+    scoreEl.classList.add('band');
+    scoreEl.style.color = BAND_COLOR_V6[r.band] || '';
+  }
+  // 帶位上了主位之後，這一行改報**新鮮度** —— 再說一次「Clear」是廢話，
+  // 「什麼時候量的」才是使用者接著會問的問題。
+  zoneEl.textContent = stale
+    ? '讀數已過期 · 重新掃一次'
+    : agoTextV6(r.ts, Date.now()) + ' 掃描';
+  zoneEl.style.color = '';
   if(confEl){
     confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + '　·　提升精度 ›';
     confEl.hidden = false;
@@ -4566,14 +4593,14 @@ function closeSessionDetail(){
     <!-- ═══════════ End splash controller ═══════════ -->
 
     <!-- 3D stardust animation script (v6 local fork; apps/web/ is frozen) -->
-    <script src="stardust.js?v=sd2"></script>
+    <script src="stardust.js?v=sd3"></script>
     <!-- Shared blink-cadence helper (baseline load + daily comparison).
          Absolute path: this page is mounted at BOTH /v3/ and /preview/v6/
          (vercel.json rewrites), so a ../ relative ref would 404 under /v3/. -->
     <script src="/preview/blink-cadence.js?v=blink2"></script>
     <!-- 正典 Soul Scan 模組：Scan tab 與 /decision-alert/ 共用同一支，
          同樣用絕對路徑（本頁同時掛在 /v3/ 與 /preview/v6/）。 -->
-    <script src="/preview/readiness-scan.js?v=rs7"></script>
+    <script src="/preview/readiness-scan.js?v=rs11"></script>
     <!-- Stardust Scan Takeover logic script -->
     <script src="stardust-scan-takeover.js?v=gyro_v6"></script>
 

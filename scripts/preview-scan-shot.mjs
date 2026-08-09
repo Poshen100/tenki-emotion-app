@@ -65,8 +65,9 @@ await page.evaluate(() => {
   f.classList.add('stalled', 'tracking');
   f.classList.remove('locked');
   f.style.setProperty('--rs-err', '0.9'); // 角括號張到很開＝還差得遠
+  // 標記的位置與大小走 transform（renderReticle 不再寫 cx/cy/r）。
   const r = document.querySelector('#tenki-readiness-scan .rs-reticle');
-  r.setAttribute('cx', '78'); r.setAttribute('cy', '155'); r.setAttribute('r', '38');
+  r.style.transform = 'translate(-40px,37px) scale(0.73)';
   document.querySelector('#tenki-readiness-scan [data-rs="hint-icon"]').textContent = '↑';
   document.querySelector('#tenki-readiness-scan [data-rs="hint-text"]').textContent = '向上對齊';
   document.querySelector('#tenki-readiness-scan .rs-halo-fill').style.strokeDasharray = '0.28 1';
@@ -82,7 +83,7 @@ await page.evaluate(() => {
   f.classList.add('locked', 'lock-beat');
   f.style.setProperty('--rs-err', '0.05');
   const r = document.querySelector('#tenki-readiness-scan .rs-reticle');
-  r.setAttribute('cx', '118'); r.setAttribute('cy', '118'); r.setAttribute('r', '52');
+  r.style.transform = ''; // 合一＝回到中心的原尺寸
   document.querySelector('#tenki-readiness-scan [data-rs="hint-icon"]').textContent = '';
   document.querySelector('#tenki-readiness-scan [data-rs="hint-text"]').textContent = '保持穩定';
 });

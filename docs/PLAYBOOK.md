@@ -82,6 +82,25 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
   比沒有 harness 更危險：它讓下一個人放心地改壞它。
   推論：**CI 跑不到的環境行為（iOS 解碼、記憶體、觸控）只能用「不准長成那個樣子」的結構斷言鎖住**，
   不要假裝在容器裡驗證了行為本身。
+- **`scripts/preview-*.mjs` 這幾支 harness 沒有進 `verify.sh`**（Playwright 走的是容器限定路徑），
+  所以它們**不會自己喊痛**。2026-08-09 實例：把 `.tpl-card` 改名成 `.tpl-row`，
+  `preview-strip-color.mjs` 的選擇器當場失效而全綠照舊。**改 preview 的 class 名／id 時，
+  一併 `grep` `scripts/*.mjs`**；動完 preview 至少手跑一次相關 harness。
+- **合成測試資料要帶著真實世界的耦合，否則測不到它宣稱要測的東西。** 2026-08-09 實例：
+  驗「『正對鏡頭』必須排在位置/大小判斷之前」，但合成臉只搬鼻尖、包圍盒完全不變形 ——
+  於是**把順序改錯了，測試照樣全綠**。真實的轉頭會壓縮遠側臉頰、抬低頭會位移中心，
+  合成資料補上這個耦合才測得到。⚠️ 補了一次還是綠的：只壓臉頰而眼角凸在外面，
+  `minX` 由眼角決定、盒中心根本沒動 —— **遠側要整片壓縮**。每次都要用反向驗證確認。
+- **「連續幾次讀到一樣就當穩定」是錯的輪詢法。** 卡在中間態的值本身也很穩定，
+  這個條件會提早收工並回報中間態。要嘛餵滿一段足夠長的時間再取值，
+  要嘛輪詢到**已知的終值特徵**出現，不要輪詢到「不再變動」。
+- **分清楚「斷言終值」與「斷言不變量」。** 假相機餵的合成畫面亮度會跳，lighting 閘門
+  跟著翻，指令候選擺盪而永遠 committed 不了 —— 硬比對終值只是在賭那一幀的亮度。
+  該問的是這條測試真正要守的不變量（例：「正臉的人不會被一直叫去正對鏡頭」），
+  然後**照那個寫**。環境限制要寫進註解，不要假裝測到了更多。
+- **偽造狀態要照產品真正的寫法。** harness 為了驗收尾畫面而直接 `el.textContent = '...'`，
+  結果把該元素的子節點整個清掉，後面驗子節點的斷言就炸了 —— 測到的是**被自己弄壞的 DOM**。
+  同理，**靜態掃原始碼的斷言要先剝掉註解**，否則會掃到自己寫的說明文字（兩者都是 2026-08-09 實例）。
 - `apps/mobile` **不在 root workspaces** → root `npm test` 測不到它，要 `cd apps/mobile && npm test` 分開跑。
 - 測試框架是 **Jest + ts-jest**，不是 vitest（舊文件寫錯已糾正）。
 - 動效／視覺類改動：容器內截圖僅供參考，**以 founder 實機為準**；回報時主動請對方確認「減少動態」設定
@@ -134,10 +153,21 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | 準備改 preview 的視覺 | **先問「這個在容器裡截得到嗎」，截得到就自己先看過再推。** 純 DOM / CSS / SVG **不受沙箱擋 CDN 影響**，容器裡就驗得掉；只有 WebGL 畫面、相機、動效手感、CDN 資源頁才是非實機不可。指令：`node scripts/preview-shot.mjs <repo-relative-path>`（一般頁面）、`node scripts/preview-scan-shot.mjs`（掃描覆蓋層，`begin()` 之後才存在的東西一般截不到）。2026-08-07 實例：光弧第一版是「圓套在圓角方框外」的一眼可見錯誤，我沒截圖就推，讓 founder 用手機幫我發現；第二輪自己截圖，當場又多抓到一個收滿時上緣正中的 54px 接縫 —— 那種他大概會看到、但很難說出是什麼的瑕疵 |
 | 想沿用站內「已經在實機驗過」的技法 | **連它的前提一起抄，不要只抄 CSS。** 2026-08-07 實例：光弧照抄 takeover 的 conic-gradient + radial mask，理由是「已驗過、不另發明」—— 理由沒錯，錯在**那個環是套在圓形指紋鈕上的**，換到 236px、圓角 64px 的方框就變成兩個不相干的形狀。動手前先問：原本那個技法**假設了什麼形狀 / 尺寸 / 座標系**？進度類尤其要問「它量的是角度還是弧長」——conic 掃角度，套在方形上會邊上跑得快、角落卡住；要沿邊均勻前進得用 SVG 描邊 + `pathLength` 正規化 |
 | 畫面上兩個地方對同一筆資料講相反的話（數字說 A、顏色／文案說 B） | **判定只能有一個來源函式。呈現層不得內聯重寫判定。** 2026-08-07 實例：收束頁寫「紀律完成率 100%」，正下方軌跡條卻畫成破戒橘 —— 「算不算紀律」當時活在三處（`isDisciplined()` / `segColor()` / entry panel 內聯的第三份），#219 改 tag 名稱時只更新了第一處。**改列舉型 tag／狀態名稱時，先 `grep` 該 tag 的所有比對點**，別只改「主要那個」。顏色與文案都算判定的下游，必須呼叫同一支函式 |
+| 要把某一層藏起來（`opacity:0` / `visibility:hidden` / 縮到 1px） | **先問「有誰在這一層上畫東西」。把一層設成透明＝把掛在那一層上的所有視覺效果一起關掉。** 2026-08-08 實例：`.rs-lens` 為了不露臉改成 `opacity:0`，而鎖定閃光是掛在 `.rs-lens` 上的 `box-shadow` —— opacity:0 的元素連 box-shadow / background 都不畫，**閃光整個消失而 CI 全綠**，直到 founder 說「合一還不夠爽」才發現。改可見性之前 `grep` 那個 class，把附著在它身上的 animation / shadow / background 一起搬到看得見的專屬層 |
+| 某個元素會**條件性**隱藏（空值就收起的圖示 / 徽章 / 欄位） | **為它預留的空間要一起收掉。** `display:none` 只拿掉元素，不會拿掉父層為它開的 `padding` / `gap`。2026-08-09 實例：指令膠囊 `padding:0 18px 0 10px`，左邊 10px 是留給圖示的，圖示被 `b:empty{display:none}` 收起後那 10px 還在 → 文字左偏 8px，**只有沒圖示的那一種指令看得出來**，所以三種指令裡只有一種被抓到。修法：由寫入內容的那支 JS 一併掛 `.no-icon` 之類的狀態 class（比 CSS `:has()` 確定，也不賭 Safari 版本）。驗收要**量**：左右間距各是多少，不要用眼睛判斷「看起來有沒有正」 |
+| 在 JS 裡設了 `el.hidden = true`，畫面上東西還在 | **`hidden` 只是作者樣式的 `display:none`，任何 `display` 宣告都蓋得掉。** 2026-08-09 實例：揭曉時把指令膠囊設成 hidden，但 `.rs-instruction` 是 `display:inline-flex`，結果收尾畫面上還在叫使用者「把臉放進框裡」。凡是自訂 `display` 的元素要能被 `hidden` 藏起來，就得自己補一條 `[hidden]{display:none}`。⚠️ 這個 bug 在 DOM 上完全正確（屬性真的設了），只有**看圖**才會發現 |
+| 做完一段「儀式」（掃描／校準／收束）卻覺得空 | **做完高潮不等於做完儀式 —— 儀式要有交付的那一刻，而交付不能跟過程共用同一個容器與字級。** 2026-08-09 實例：掃描的鎖定拍子做得很足，但結果只是被寫進**剛剛還在下指令的那顆小膠囊**、同字級、停 1.2 秒自動消失，founder 的反應是「不知道剛剛完成了什麼」。修法：結果用 MOTION-DIRECTION §4 的 **Reveal 揭曉** 語彙、放在儀式的舞台上（掃描框內）、儀器的工作零件全部退場、**停著等使用者自己收下**而不是計時器關掉。⚠️ 收尾若收起了原本的關閉鈕，新的出口鈕 listener 必須在**注入 markup 當下**就綁，不能依賴收尾流程跑完，否則收尾一出事人就被關在覆蓋層裡 |
+| 想斷言「畫面已經靜下來了」 | **不能用 computed `animation-name`。** CSS 動畫播完之後那個屬性還在（觸發用的 class 不會自己拿掉），照它算會得到一票假陽性。要問的是「**現在**有沒有東西在跑」→ `document.getAnimations().filter(a => a.playState === 'running')` |
+| 即時操作回饋（對位標記、跟手的指標）看起來一格一格 | **檢查它是被誰的節奏驅動的。** 量測迴圈的頻率≠繪製該有的頻率：臉部推論 180ms(≈5.5fps)、取樣 66ms(≈15fps)，把插值寫在那些 callback 裡等於用 5.5fps 畫一個該 60fps 的東西。**拆成兩層**：量測只寫目標值，插值放 rAF（且要放在任何節流早退**之前**），並對 `dt` 做步長補償。順帶：每幀只寫 `transform`/`opacity`（MOTION-DIRECTION §2）——改 SVG 的 `cx/cy/r` 會逼重新柵格化 |
+| 底部 sheet / 面板的主要按鈕要先捲動才看得到 | **sheet 一定要自己有高度上限並自己捲，而且內容要能在 in-app 瀏覽器的實際高度一屏放得下。** 2026-08-09 實例：收束頁只有 `position:fixed; bottom:0`、沒有 `max-height` —— 而 fixed 是相對**版面視口**定位，in-app 瀏覽器的上下工具列把**視覺視口**壓小之後，「記錄並關閉」就沉到摺線下。三層修法：①`max-height:88dvh`（退回 `88vh`）+ `overflow-y:auto` + `overscroll-behavior:contain`；②主要動作 `position:sticky; bottom:0`；③**`@media (max-height:740px)` 壓縮內容**（縮圖形、收留白），讓它一屏放得下。⚠️ 只有第 ③ 層在容器裡驗得到 —— headless 的版面視口等於視覺視口，iOS 那個差異重現不了 |
+| 同一個尺寸同時寫在 CSS 與 JS | **尺寸也只能有一個來源。** 2026-08-09 實例：`drawResultArc()` 寫死 `size=176` 又自己設 `canvas.style.width/height`，把 CSS 蓋掉 —— 於是短視窗的 media query 完全無效。改成 CSS 變數（`--result-arc`）當唯一來源，JS 讀 computed 寬度只決定 canvas backing store |
 | 全屏儀式頁 CTA 被 iOS 底部工具列蓋住 | `100vh` 陷阱 → 一律 `100dvh`（保留 `100vh` fallback）+ 容器 `overflow-y:auto` 保險 |
 | 改了模式/文案，實機某一步仍冒舊文案 | preview 指示文案有**兩層**：靜態 HTML（如 `#scan-banner` 寫死的 title/sub/icon）+ JS 動態 writer（如 `#scan-guidance`）。改模式要**兩層都 grep**（2026-07-08 臉部文案第 3 度漏網就是只改了 JS 層） |
 | 修了 JS 但 founder 手機行為沒變 | script 標籤用**固定** `?v=` 字串（如 `?v=stardust_restore_v2`）＝ CDN/Safari 永遠供舊檔。**改 preview JS 必 bump `?v=` 成新字串**，並提醒 founder 硬重載。⚠️ CSS 的 `<link>` 同樣要 bump（2026-08-01 漏過一次：改了 takeover 的 JS 卻沒動 `?v=gyro_v5`） |
 | 某個區塊點不動 / 滑不動 / 「被遮擋、位置跑掉」，但畫面上看不到任何東西蓋著 | **先 `document.elementFromPoint(x, y)` 問瀏覽器那個點到底命中誰**，不要盯著 CSS 猜。全屏疊層（v6 的 `#stardust-scan-takeover`）用 `opacity:0` + `pointer-events:none` **擋不住 descendant 自己宣告 `pointer-events:auto`** —— 指紋鈕就是這樣，一顆 124px 的隱形按鈕長期浮在 Today 上，在 760px 以下可視高度剛好壓在 Snapshot 輪播卡正中央，左右滑與上下捲一起被吃掉（2026-08-01 founder 回報才查出，main 上已存在很久）。**修法**：`#overlay:not(.active){visibility:hidden}` —— visibility 會繼承且不會被 descendant 的 `pointer-events` 推翻，比逐一 scope 每條 `pointer-events:auto` 穩。 |
+| 畫面上要顯示一個東西的「代號 / 型號 / 分類」 | **內部 id 一律不上畫面。** 2026-08-09 實例：模板標題寫成 `nameZh（tpl.id）`，於是畫面出現「高 RS 突破流程（MODE_2）」—— 而在 Adam Mancini 的語彙裡「Mode 2」指的是**盤整日盤勢**，跟那個模板完全兩回事。⚠️ 最值得記的是：**repo 早就知道**（`packages/engine/src/session/templates.ts` 與 `docs/TRADING-METHODOLOGY.md` 都寫著那個 id 只是 persisted contract 的歷史遺留），知識在文件裡卻從介面漏出去。修法：另建一張 **顯示用代號表**，內部 id 留給儲存層。領域術語尤其危險 —— 你的內部命名可能剛好是使用者專業詞彙裡的另一個東西 |
+| 要做「像某個專業工具」的介面（彭博 / 終端機 / 儀表板） | **那是一種排版形式，不是「拿掉裝飾」。** 2026-08-09 實例：我提「拿掉 emoji、加分隔線」，founder 直接回「**少了 彭博終端機**」。終端機的要素是具體且可列舉的：欄位表頭 + hairline、`1)` `2)` `3)` 列編號、硬邊（`border-radius:0`、無陰影漸層）、欄位固定寬對齊、頂端狀態列、等寬 + `tabular-nums`。⚠️ 兩個在地化判斷：①**等寬只給拉丁與數字**，中文維持比例字體 —— 等寬 CJK 每個字撐成全形方塊，密度垮掉還斷行在奇怪的位置；②**抄排版不抄配色** —— 彭博琥珀色會撞掉 TENKI 的 gold=SECURED 語意 |
+| 沙箱擋掉某個 CDN，那條路「測不到」 | **先看產品碼是透過哪個全域取用它 —— 塞個 stub 進去往往就能測到真的產品邏輯。** 2026-08-08 實例：MediaPipe 被擋，tier A（landmark）整條路本來完全沒有自動化覆蓋；但 `readiness-scan.js` 只用 `window.FaceMesh` 一個全域，harness 用 `addInitScript` 塞一個假的（`onResults` 把 callback 存起來），就能自己餵 landmark 把「取景判定 → 遲滯 → 鎖定」整條鏈跑起來 —— 測到的是**真的產品程式**，不是加 class 演戲。⚠️ 界線要講清楚：這樣測到的是邏輯，**畫面長相仍然只有實機能判** |
 | 寫 Playwright harness 驗 preview，結果一片 FAIL | **先懷疑 harness，不要先改產品碼。** 2026-08-04 一輪內連踩四次、產品碼四次都是對的：①sheet 的 class 是 `show` 不是 `open` ②`setStrainSilent` 是 `<input type=checkbox>` 用 `.checked`，不是 class toggle（照 class 點下去反而把預設開啟的設定關掉）③`#resultRate` 開場先被塞佔位字串，真值要等弧掃完的 `reveal()` ④真值本身是 600ms 遞增動畫，`waitForSelector` 一過就讀會拿到 p≈0 的那一幀。**規則**：斷言前先 `waitForFunction` 等「終值特徵」出現，再輪詢到**文字不再變動**為止；選擇器一律去 HTML 裡 grep 確認，不要照直覺猜 |
 | 水平輪播卡片上下滑不動 | 橫向輪播的 `touch-action` 不能只寫 `pan-x` —— 那會把垂直手勢整個吞掉。祖先是垂直捲動容器時要寫 `pan-x pan-y`（瀏覽器仍會把偏水平的拖曳判給輪播，因為祖先不能水平捲）。症狀：卡片被下方 bar 切掉，而卡片本身正好是唯一捲不動的地方 |
 | 要調 readiness 帶位/信心門檻（實機校準） | 門檻活在**四個地方**，只改一處會靜默分岔（CI 紅或 preview 與 domain 行為不一致）：①`domain/src/policies/readiness-band.ts` 常數本尊（`CLEAR_AT`/`NEUTRAL_AT`/`HIGH_CONFIDENCE_AT`/`MODERATE_CONFIDENCE_AT`/三個 `WEIGHT_*`）②`apps/preview/readiness-scan.js` 的鏡射版 ③`apps/preview/decision-alert.js` 的新鮮度/語彙鏡射 ④`domain/src/__tests__/readiness-band.test.ts`（22 個 Jest 有斷言綁在門檻上，如 stillness 0.95→clear、0.55→neutral、0.05→strain）。**四處必須同一次改完**。preview 是 vanilla JS 不能 import domain，鏡射是刻意的慣例，不是可以順手消除的重複。⚠️ 眨眼的 `BAND_BELOW`/`BAND_ABOVE` **不在這四處之列** —— 它們住在 `apps/preview/blink-cadence.js`，正規化成 0..1 的 `regularity()` 也刻意放在同一支檔案；要換算眨眼時**呼叫它、不要在呼叫端重寫比值**，否則這條會變成五處 |
