@@ -717,6 +717,8 @@
        /decision-alert/(.*) 的 rewrite。必須排在 decision-alert.js 之前 ——
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
   <script src="/preview/readiness-scan.js?v=rs11"></script>
-  <script src="decision-alert.js?v=alert26"></script>
+  <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
+  <script src="/preview/decision-outcome.js?v=do1"></script>
+  <script src="decision-alert.js?v=alert27"></script>
 </body>
 </html>

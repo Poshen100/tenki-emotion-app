@@ -2106,6 +2106,10 @@ body{
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
+         那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
+         放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
+    <script src="/preview/decision-outcome.js?v=do1"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -3486,14 +3490,20 @@ function renderMarks(){
 }
 
 // ── 收束：判定 outcome（鏡射 domain/decision-alert resolveOutcomeTag）+ 存進統一 store ──
-const OUTCOME_STORE_KEY_V6 = 'tenki.alert.outcomes.v1';
+const OUTCOME_STORE_KEY_V6 = window.TENKI_OUTCOME.STORE_KEY;
 const OUTCOME_TEXT_V6 = { stayed_disciplined:'跟著流程完成', broke_discipline:'提前收束', timed_out:'完整走完' };
 let pendingClosure = null;
 function resolveOutcome(type, reached){
   if(type === 'timeout') return 'timed_out';           // 跑滿
   return reached ? 'stayed_disciplined' : 'broke_discipline'; // 收束後達 readiness / 未達
 }
-function isDisciplinedV6(tag){ return tag === 'stayed_disciplined' || tag === 'timed_out'; }
+// 🔴 這裡**曾經**是 `tag === 'stayed_disciplined' || tag === 'timed_out'` ——
+// 只認舊語意。decision-alert 改用新語意（judged_entered / judged_stood_down）之後，
+// 從快訊做的每一筆決策在這一頁都被算成「不算紀律」：
+// **demo 裡看到 100%，進到 Session 頁變 0%。**
+// 兩邊共用同一個 store，資料確實存進去了，只是收端聽不懂寫端的方言。
+// 判定現在只有一個來源（decision-outcome.js），這裡不得再放第二份實作。
+const isDisciplinedV6 = (tag) => window.TENKI_OUTCOME.isDisciplined(tag);
 function saveV6Outcome(session, outcomeTag){
   let all = [];
   try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
