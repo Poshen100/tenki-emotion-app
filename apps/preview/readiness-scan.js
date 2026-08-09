@@ -326,8 +326,18 @@
       '#' + OVERLAY_ID + ' .rs-verdict-band{font-size:40px;font-weight:700;',
       'letter-spacing:-0.01em;line-height:1;color:#8A93AB;}',
       // 「你剛剛做了什麼」—— 不是分數，是行為。全部取自真量到的值。
-      '#' + OVERLAY_ID + ' .rs-verdict-fact{font-size:13px;line-height:1.5;',
-      'color:#A6ADC8;letter-spacing:0.02em;max-width:300px;}',
+      // 規格行用等寬 + tabular-nums：數字對齊才有儀器讀數的樣子，
+      // 而且點數/幀數在不同掃描之間位數會變，比例字體會讓它左右跳。
+      '#' + OVERLAY_ID + ' .rs-verdict-fact{max-width:320px;}',
+      '#' + OVERLAY_ID + ' .rs-verdict-spec{font-size:12.5px;line-height:1.5;',
+      'color:#C6CCDD;letter-spacing:0.01em;',
+      'font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;',
+      'font-variant-numeric:tabular-nums;}',
+      // 退讓詞（信心中）住在第二行、更小更暗 —— 誠實但不當開場白。
+      '#' + OVERLAY_ID + ' .rs-verdict-quality{font-size:11px;line-height:1.6;',
+      'color:#6E778F;letter-spacing:0.04em;margin-top:3px;',
+      'font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;',
+      'font-variant-numeric:tabular-nums;}',
       // ⚠️ `hidden` 屬性只是作者樣式 `display:none`，**會被任何 display 宣告蓋掉**。
       // .rs-instruction 是 inline-flex、.rs-dots 是 flex —— 沒有這兩條，
       // 設了 hidden 也照樣顯示（2026-08-09 截圖當場抓到：揭曉時膠囊還在叫你把臉放進框裡）。
@@ -448,7 +458,10 @@
       '  <div class="rs-instruction" data-rs="instruction"><b data-rs="hint-icon"></b><span data-rs="hint-text"></span></div>',
       // 「你剛剛做了什麼」放在**框外**，接在膠囊原本的位置 —— 框內只留答案。
       // 塞進 236px 的框裡會擠成兩行，而且會跟大字搶注意力。
-      '  <div class="rs-verdict-fact" data-rs="verdict-fact" hidden></div>',
+      '  <div class="rs-verdict-fact" data-rs="verdict-fact" hidden>',
+      '    <div class="rs-verdict-spec" data-rs="verdict-spec"></div>',
+      '    <div class="rs-verdict-quality" data-rs="verdict-quality"></div>',
+      '  </div>',
       // 完成鈕：揭曉之後**唯一的出口**（enterReveal 會收起取消鈕）。
       // ⚠️ listener 與 cancel 一樣在注入當下就綁 —— 見下方 addEventListener。
       // 揭曉時只負責把它顯示出來，這樣就算 finalize() 中途出事，人也出得去。
@@ -789,6 +802,9 @@
       session.lmAcc.stillness += session.lastStillness;
     }
     session.everSawFace = true;
+    // 特徵點數**當場量**，不寫死 —— 寫 468 就是在賭 MediaPipe 的版本與
+    // refineLandmarks 設定（開了 refine 會變 478）。揭曉要報的是這次真的拿到幾點。
+    session.landmarkCount = lm.length;
     session.lastFaceCenter = { x: centerX, y: centerY };
     session.lastFaceAt = now;
     // 保留中心與大小 —— 方向指令（resolveHint）需要它們。先前這裡直接壓成
@@ -1069,15 +1085,18 @@
    * 也呼應 North Star §5「完成時刻不要彈窗式慶祝，是安靜的收束」。
    *
    * @param {string} band - 大字（帶位，或訊號不足時的短語）。
-   * @param {string} fact - 底下那行「你剛剛做了什麼」。
+   * @param {{spec:string, quality:string}} fact - 儀器規格行 + 品質行。
    * @param {?Object} reading - 要回傳給呼叫端的讀數；沒有就是 null。
    */
   function showVerdict(band, fact, reading) {
     if (session) session.pendingReading = reading;
     var bandEl = q('verdict-band');
     var factEl = q('verdict-fact');
+    var specEl = q('verdict-spec');
+    var qualityEl = q('verdict-quality');
     if (bandEl) bandEl.textContent = band;
-    if (factEl) factEl.textContent = fact;
+    if (specEl) specEl.textContent = fact.spec;
+    if (qualityEl) qualityEl.textContent = fact.quality;
     var frame = q('frame');
     if (frame) frame.classList.add('revealed');
     // 完成鈕住在 .rs-stage、跟框是兄弟，所以「這一輪有沒有收束成功」得標在
@@ -1099,23 +1118,38 @@
   }
 
   /**
-   * 「你剛剛做了什麼」——**不是分數**。
+   * 儀器規格行 —— **這次量測做了什麼**，不是分數。
    *
    * founder 兩次問「怎麼沒有數字」。查證過：決定帶位的 composite 乘 100 會長得
    * 跟 Edge Score 一模一樣但根本不是（Edge Score 是 8 維生理；瀏覽器量不到 HRV，
-   * 見 `domain/src/contracts/readiness-reading.ts`）。所以這裡給的是**行為的事實**：
-   * 你穩定取景了幾秒、這段時間有多穩。都是真量到的，而且講的是你做的事，
-   * 不是你這個人幾分。
+   * 見 `domain/src/contracts/readiness-reading.ts`）。所以這裡給的是**儀器的規格**。
    *
-   * @param {{stillness:number}} evidence - 本次掃描的證據。
-   * @returns {string}
+   * 排版是他點的「儀器規格式」：**先講儀器做了什麼，退讓詞降到第二行**。
+   * 先前那版開頭就是「信心中」—— 一句話從自我懷疑開始，再強的數字都撐不起來。
+   *
+   * ⚠️ **Tier B 一個 landmark 字眼都不能有。** 沒有 MediaPipe 時走的是整幀
+   * 啟發式，那條路上根本沒有臉部特徵點；照抄 tier A 的文案就是憑空宣稱一個
+   * 不存在的量測。兩條路各講各自真的有的東西。
+   *
+   * @param {{stillness:number, tier:string}} evidence - 本次掃描的證據。
+   * @returns {{spec:string, quality:string}} 第一行規格、第二行品質。
    */
   function verdictFact(evidence) {
-    var parts = ['穩定取景 ' + Math.max(1, Math.round(session.heldMs / 1000)) + ' 秒'];
-    if (typeof evidence.stillness === 'number') {
-      parts.push('穩定度 ' + Math.round(evidence.stillness * 100) + '%');
+    var seconds = (Math.max(500, session.heldMs) / 1000).toFixed(1);
+    var spec;
+    if (evidence.tier === 'A' && session.landmarkCount > 0) {
+      spec = session.landmarkCount + ' 點臉部特徵 · '
+        + session.lmAcc.n + ' 幀推論 · ' + seconds + ' 秒';
+    } else {
+      // Tier B：只有整幀取樣，沒有特徵點。`acc.n` 是真的取樣次數。
+      spec = session.acc.n + ' 幀畫面取樣 · ' + seconds + ' 秒';
     }
-    return parts.join(' · ');
+    var quality = [];
+    if (typeof evidence.stillness === 'number') {
+      quality.push('穩定度 ' + Math.round(evidence.stillness * 100) + '%');
+    }
+    quality.push(CONFIDENCE_LABEL[resolveConfidence(evidence)]);
+    return { spec: spec, quality: quality.join(' · ') };
   }
 
   /** 收束：算出讀數 → 存檔 → 揭示 → 等使用者收下。 */
@@ -1139,11 +1173,7 @@
     setProgress(1);
     var frame = q('frame');
     if (frame) frame.classList.add('secured'); // 顏色由 CSS 的 .secured 承接
-    showVerdict(
-      BAND_LABEL[reading.band],
-      CONFIDENCE_LABEL[reading.confidence] + ' · ' + verdictFact(evidence),
-      reading,
-    );
+    showVerdict(BAND_LABEL[reading.band], verdictFact(evidence), reading);
   }
 
   /** 訊號不足就說沒有讀數 —— 不用低品質資料湊一個出來。 */
@@ -1151,7 +1181,10 @@
     enterReveal();
     // 不加 .secured：沒有讀數就不准上 gold。失敗更需要被看見，
     // 所以走同一個面板、同樣停著等點，不是一閃而過。
-    showVerdict('訊號不足', '這次沒有取得讀數 · 光線與穩定度不夠再試一次', null);
+    showVerdict('訊號不足', {
+      spec: '這次沒有取得讀數',
+      quality: '光線或穩定度不足 · 再試一次',
+    }, null);
   }
 
   /** 取樣迴圈。進度只在光線與取景過關時前進（pause-not-reset）。 */
@@ -1510,7 +1543,7 @@
         framedStreak: 0, pendingReading: null,
         lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
-        lmAcc: { n: 0, stillness: 0 },
+        lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0,
         stardust: false,
         // 主指令去抖動狀態：shown 為 null 代表「還沒顯示過」→ 第一條不等待。
         hintShown: null, hintPending: null, hintPendingAt: 0,
