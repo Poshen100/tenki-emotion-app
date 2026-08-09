@@ -340,19 +340,53 @@
     .btn-ghost { background: transparent; color: #94A3B8; }
 
     /* ── 模板選擇 ── */
-    .tpl-card {
-      display: flex; align-items: center; gap: 10px;
-      border: 1px solid var(--border); border-radius: 12px;
-      background: var(--surface); padding: 12px; margin-top: 10px; cursor: pointer;
-      transition: transform 0.15s var(--ease-calm);
+    /* ── 模板選單：終端機讀數 ──
+       founder 2026-08-09 要的是彭博終端機，而不是「乾淨的卡片列表」——
+       第一版只拿掉 emoji 加分隔線時他直接回「少了 彭博終端機」。
+       所以這裡照終端機的排版形式做：全等寬、欄位表頭、列編號、硬邊 hairline、
+       欄位對齊、零圓角零陰影。**不抄琥珀色** —— gold 專指 SECURED，
+       鋪成整片底色會稀釋那個意義；可選的代號用 cyan（= ACTIVE）。 */
+    /* ⚠️ 等寬只給**終端機的骨架**（狀態列、欄名、代號、欄位值）—— 那些全是
+       拉丁字母與數字，等寬才對得齊。中文的結構名與說明**維持比例字體**：
+       等寬 CJK 每個字都撐成全形方塊，密度整個垮掉、還會斷行斷在奇怪的地方
+       （實測截圖：「Mancini 招 / 牌結構」）。彭博的密度來自對齊與克制，
+       不是來自「所有東西都用 mono」。 */
+    .tpl-status, .tpl-head, .tpl-code, .tpl-flag {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+      font-variant-numeric: tabular-nums;
     }
-    .tpl-card:active { transform: scale(0.98); }
-    .tpl-card.suggested { border-color: var(--gold-secured); }
-    .tpl-icon { font-size: 20px; flex: none; }
+    .tpl-status {
+      display: flex; justify-content: space-between; gap: 8px;
+      font-size: 10px; letter-spacing: 0.08em; color: #64748B;
+      padding: 2px 0 8px; border-bottom: 1px solid var(--border);
+    }
+    .tpl-status b { color: var(--cyan-active); font-weight: 600; }
+    .tpl-head {
+      display: flex; align-items: baseline; gap: 10px;
+      font-size: 9px; letter-spacing: 0.14em; color: #4A5568;
+      padding: 8px 0 6px; border-bottom: 1px solid var(--border);
+    }
+    .tpl-head span:nth-child(1) { flex: none; width: 96px; }
+    .tpl-head span:nth-child(2) { flex: 1; min-width: 0; }
+    .tpl-head span:nth-child(3) { flex: none; width: 44px; text-align: right; }
+    .tpl-row {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+      border-radius: 0; background: none; cursor: pointer;
+    }
+    .tpl-row:active { background: rgba(61, 224, 255, 0.06); }
+    .tpl-code {
+      flex: none; width: 96px; font-size: 12px; font-weight: 600;
+      letter-spacing: 0.04em; color: var(--cyan-active);
+    }
     .tpl-main { flex: 1; min-width: 0; }
-    .tpl-name { font-size: 14px; font-weight: 600; }
-    .tpl-sub { font-size: 11px; color: #64748B; margin-top: 2px; }
-    .tpl-star { flex: none; font-size: 12px; color: var(--gold-secured); }
+    .tpl-name { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
+    .tpl-sub { font-size: 10.5px; color: #64748B; margin-top: 3px; line-height: 1.5; }
+    /* 事實欄位，不是徽章 —— 沒有底色、沒有圓角、跟其他欄位同一個字級。 */
+    .tpl-flag {
+      flex: none; width: 44px; text-align: right;
+      font-size: 9px; letter-spacing: 0.1em; color: #94A3B8;
+    }
 
     /* ── 聚合卡 ── */
     .agg-symbols { font-size: 15px; font-weight: 600; margin-top: 8px; }
@@ -555,7 +589,9 @@
   <div class="sheet" id="tplSheet">
     <div class="sheet-handle"></div>
     <div class="alert-head">選擇流程模板</div>
-    <div class="alert-note">建議只是高亮，不是指示 — 你永遠可以自由選。</div>
+    <!-- 狀態列：標的 · 快訊標記的結構 · 收到時間。三個都是畫面上已有的真資料。
+         副標以前寫「建議只是高亮，不是指示」—— 它自己在講「建議」，整句換掉。 -->
+    <div class="tpl-status" id="tplStatus"></div>
     <div id="tplList"></div>
   </div>
 
@@ -645,7 +681,7 @@
   <!-- 正典 Soul Scan 模組：與 /v3/ 共用同一支（一個掃描，多道門）。絕對路徑不依賴
        /decision-alert/(.*) 的 rewrite。必須排在 decision-alert.js 之前 ——
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
-  <script src="/preview/readiness-scan.js?v=rs9"></script>
-  <script src="decision-alert.js?v=alert24"></script>
+  <script src="/preview/readiness-scan.js?v=rs10"></script>
+  <script src="decision-alert.js?v=alert25"></script>
 </body>
 </html>
