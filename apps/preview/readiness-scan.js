@@ -140,8 +140,9 @@
   var MIN_HELD_MS = 5000;
   /** 品質一直不過關時的牆鐘上限（budget × 此值），避免無限等待。 */
   var CEILING_FACTOR = 3;
-  /** 讀數揭示停留時間。 */
-  var REVEAL_MS = 1200;
+  // 這裡以前有一個 REVEAL_MS = 1200：揭示停 1.2 秒就自動關掉。
+  // 已移除 —— 揭曉改成**停著等使用者自己點「完成」**（founder 2026-08-09），
+  // 所以收尾不再由計時器決定。要調節奏請看 showVerdict()，不要把常數加回來。
 
   // ── band / confidence 政策（鏡射 domain/src/policies/readiness-band.ts）──
   // preview 是 vanilla JS 不能 import domain，沿用 decision-alert.js 既有的鏡射慣例；
@@ -308,6 +309,54 @@
       '@keyframes rs-wave-out{0%{transform:scale(1);opacity:0.95;}',
       '32%{opacity:0.8;}100%{transform:scale(2.3);opacity:0;}}',
 
+      // ── 揭曉面板（MOTION-DIRECTION §4「Reveal 揭曉」）──
+      //
+      // 為什麼需要這一塊：先前收尾只是把帶位寫進**剛剛還在叫你「保持穩定」的
+      // 那顆小膠囊**，同一個字級，停 1.2 秒就消失。founder 2026-08-09 實走：
+      // 「掃完了以後沒有出現數字，不知道剛剛完成了什麼？」—— 儀式做完了，
+      // 儀器卻什麼都沒交給他。答案要在框裡、要有份量、而且要等他自己收下。
+      '#' + OVERLAY_ID + ' .rs-verdict{position:absolute;inset:0;display:flex;',
+      'flex-direction:column;align-items:center;justify-content:center;gap:8px;',
+      'pointer-events:none;opacity:0;visibility:hidden;padding:0 22px;text-align:center;}',
+      // 帶位大字。Reveal 語彙：收斂 → 收過頭一點 → 落定（overshoot 在 keyframes 裡，
+      // 因為 --ease-secure 是 expo-out 不回彈）。1400ms 是音階上的「分數揭曉收斂」。
+      // 預設是**靜音的灰**，不是 cyan。視覺世界規則裡 cyan = ACTIVE、gold = SECURED，
+      // 而「訊號不足」兩者都不是 —— 用 cyan 會讓一次失敗看起來像個成果。
+      // 只有真的收束成讀數（.secured）才升上 gold，見下。
+      '#' + OVERLAY_ID + ' .rs-verdict-band{font-size:40px;font-weight:700;',
+      'letter-spacing:-0.01em;line-height:1;color:#8A93AB;}',
+      // 「你剛剛做了什麼」—— 不是分數，是行為。全部取自真量到的值。
+      '#' + OVERLAY_ID + ' .rs-verdict-fact{font-size:13px;line-height:1.5;',
+      'color:#A6ADC8;letter-spacing:0.02em;max-width:300px;}',
+      // ⚠️ `hidden` 屬性只是作者樣式 `display:none`，**會被任何 display 宣告蓋掉**。
+      // .rs-instruction 是 inline-flex、.rs-dots 是 flex —— 沒有這兩條，
+      // 設了 hidden 也照樣顯示（2026-08-09 截圖當場抓到：揭曉時膠囊還在叫你把臉放進框裡）。
+      '#' + OVERLAY_ID + ' .rs-instruction[hidden],',
+      '#' + OVERLAY_ID + ' .rs-dots[hidden],',
+      '#' + OVERLAY_ID + ' .rs-verdict-fact[hidden]{display:none;}',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-verdict{visibility:visible;opacity:1;',
+      'animation:rs-verdict-in 1.4s ' + EASE_SECURE + ' 1;}',
+      '@keyframes rs-verdict-in{0%{opacity:0;transform:scale(1.18);}',
+      '18%{opacity:1;}34%{transform:scale(0.98);}100%{opacity:1;transform:scale(1);}}',
+      // 收束成功才轉 gold（gold = SECURED/calibrated；訊號不足那條不得用）。
+      '#' + OVERLAY_ID + ' .rs-frame.revealed.secured .rs-verdict-band{',
+      'color:' + HALO_SECURED + ';filter:drop-shadow(0 0 12px rgba(255,212,110,0.45));}',
+      // 儀器的工作部件退場 —— 對位標記、目標環、角括號的任務結束了。
+      // 這是「安靜的收尾」的一部分：畫面上只剩結果，沒有還在運轉的零件。
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-reticle,',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-target,',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-halo-corners{opacity:0;',
+      'transition:opacity 0.6s ' + EASE_SECURE + ';}',
+      // 完成鈕：揭曉之後唯一的出口，所以做得夠大、夠像個按鈕。
+      // 完成鈕同理：預設中性，收束成功才是 gold。
+      '#' + OVERLAY_ID + ' .rs-done{min-height:48px;padding:0 34px;border-radius:999px;',
+      'border:1px solid rgba(166,173,200,0.4);background:rgba(166,173,200,0.08);',
+      'color:#C6CCDD;font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;',
+      'letter-spacing:0.04em;}',
+      '#' + OVERLAY_ID + '.secured-run .rs-done{border-color:rgba(255,212,110,0.5);',
+      'background:rgba(255,212,110,0.10);color:' + HALO_SECURED + ';}',
+      '#' + OVERLAY_ID + ' .rs-done[hidden]{display:none;}',
+
       // ── 指令膠囊（North Star §4：一次只顯示 1 個主指令）──
       '#' + OVERLAY_ID + ' .rs-instruction{display:inline-flex;align-items:center;gap:10px;',
       'min-height:44px;padding:0 18px 0 10px;border-radius:999px;',
@@ -389,9 +438,22 @@
       // 只播一次；它不參與任何判定，純粹把「抓到了」講出來。
       '      <circle class="rs-wave" cx="118" cy="118" r="' + RETICLE_TARGET_R + '"/>',
       '    </svg>',
+      // 揭曉面板 —— 儀器把結果交到你手上的地方。
+      // 為什麼在**框裡**：框是整場儀式的舞台，答案就該在你被捕獲的那個位置出現，
+      // 而不是等覆蓋層關掉之後、在別的畫面上當一個欄位。
+      '    <div class="rs-verdict" data-rs="verdict" aria-live="polite">',
+      '      <div class="rs-verdict-band" data-rs="verdict-band"></div>',
+      '    </div>',
       '  </div>',
       '  <div class="rs-instruction" data-rs="instruction"><b data-rs="hint-icon"></b><span data-rs="hint-text"></span></div>',
-      '  <div class="rs-dots">',
+      // 「你剛剛做了什麼」放在**框外**，接在膠囊原本的位置 —— 框內只留答案。
+      // 塞進 236px 的框裡會擠成兩行，而且會跟大字搶注意力。
+      '  <div class="rs-verdict-fact" data-rs="verdict-fact" hidden></div>',
+      // 完成鈕：揭曉之後**唯一的出口**（enterReveal 會收起取消鈕）。
+      // ⚠️ listener 與 cancel 一樣在注入當下就綁 —— 見下方 addEventListener。
+      // 揭曉時只負責把它顯示出來，這樣就算 finalize() 中途出事，人也出得去。
+      '  <button type="button" class="rs-done" data-rs="done" hidden>完成</button>',
+      '  <div class="rs-dots" data-rs="dots">',
       '    <span class="rs-dot" data-rs="dot-light"><i></i>Lighting</span>',
       '    <span class="rs-dot" data-rs="dot-center"><i></i>Centering</span>',
       '    <span class="rs-dot" data-rs="dot-still"><i></i>Stillness</span>',
@@ -403,6 +465,12 @@
 
     node.querySelector('[data-rs="cancel"]').addEventListener('click', function () {
       finish(null);
+    });
+    // ⚠️ 這條在**注入當下**就綁，不是揭曉時才綁。揭曉之後取消鈕會收起來，
+    // 完成鈕是唯一出口 —— 綁定不能依賴收尾流程跑完，否則 finalize() 一出事
+    // 使用者就被關在覆蓋層裡出不去。揭曉只負責把它 unhide。
+    node.querySelector('[data-rs="done"]').addEventListener('click', function () {
+      finish(session && session.pendingReading ? session.pendingReading : null);
     });
     return node;
   }
@@ -993,7 +1061,64 @@
     if (frame) frame.classList.remove('stalled', 'lock-beat');
   }
 
-  /** 收束：算出讀數 → 存檔 → 揭示 → 回傳。 */
+  /**
+   * 把揭曉面板放上來，並停住等使用者自己收下。
+   *
+   * **不自動關閉**（founder 2026-08-09 拍板）：先前 1.2 秒就消失，等於儀器
+   * 把結果丟在地上就走。停著等點，使用者才有「我完成了一件事」的收尾 ——
+   * 也呼應 North Star §5「完成時刻不要彈窗式慶祝，是安靜的收束」。
+   *
+   * @param {string} band - 大字（帶位，或訊號不足時的短語）。
+   * @param {string} fact - 底下那行「你剛剛做了什麼」。
+   * @param {?Object} reading - 要回傳給呼叫端的讀數；沒有就是 null。
+   */
+  function showVerdict(band, fact, reading) {
+    if (session) session.pendingReading = reading;
+    var bandEl = q('verdict-band');
+    var factEl = q('verdict-fact');
+    if (bandEl) bandEl.textContent = band;
+    if (factEl) factEl.textContent = fact;
+    var frame = q('frame');
+    if (frame) frame.classList.add('revealed');
+    // 完成鈕住在 .rs-stage、跟框是兄弟，所以「這一輪有沒有收束成功」得標在
+    // overlay 根上。⚠️ 狀態從框身上讀，不另外傳參數 —— 兩個地方各記一次
+    // 就會有機會不同調（PLAYBOOK §6：判定只能有一個來源）。
+    var overlay = document.getElementById(OVERLAY_ID);
+    if (overlay && frame) {
+      overlay.classList.toggle('secured-run', frame.classList.contains('secured'));
+    }
+    // 儀器的儀表板收工：指令膠囊與三顆閘門燈都停止報告。
+    // 揭曉的畫面上只該有結果，不該還有零件在運轉（North Star §5 的安靜收尾）。
+    var instruction = q('instruction');
+    if (instruction) instruction.hidden = true;
+    var dots = q('dots');
+    if (dots) dots.hidden = true;
+    if (factEl) factEl.hidden = false;
+    var done = q('done');
+    if (done) done.hidden = false;
+  }
+
+  /**
+   * 「你剛剛做了什麼」——**不是分數**。
+   *
+   * founder 兩次問「怎麼沒有數字」。查證過：決定帶位的 composite 乘 100 會長得
+   * 跟 Edge Score 一模一樣但根本不是（Edge Score 是 8 維生理；瀏覽器量不到 HRV，
+   * 見 `domain/src/contracts/readiness-reading.ts`）。所以這裡給的是**行為的事實**：
+   * 你穩定取景了幾秒、這段時間有多穩。都是真量到的，而且講的是你做的事，
+   * 不是你這個人幾分。
+   *
+   * @param {{stillness:number}} evidence - 本次掃描的證據。
+   * @returns {string}
+   */
+  function verdictFact(evidence) {
+    var parts = ['穩定取景 ' + Math.max(1, Math.round(session.heldMs / 1000)) + ' 秒'];
+    if (typeof evidence.stillness === 'number') {
+      parts.push('穩定度 ' + Math.round(evidence.stillness * 100) + '%');
+    }
+    return parts.join(' · ');
+  }
+
+  /** 收束：算出讀數 → 存檔 → 揭示 → 等使用者收下。 */
   function finalize() {
     var evidence = buildEvidence();
     enterReveal();
@@ -1014,15 +1139,19 @@
     setProgress(1);
     var frame = q('frame');
     if (frame) frame.classList.add('secured'); // 顏色由 CSS 的 .secured 承接
-    setInstruction(BAND_LABEL[reading.band] + ' · ' + CONFIDENCE_LABEL[reading.confidence]);
-    setTimeout(function () { finish(reading); }, REVEAL_MS);
+    showVerdict(
+      BAND_LABEL[reading.band],
+      CONFIDENCE_LABEL[reading.confidence] + ' · ' + verdictFact(evidence),
+      reading,
+    );
   }
 
   /** 訊號不足就說沒有讀數 —— 不用低品質資料湊一個出來。 */
   function giveUp() {
     enterReveal();
-    setInstruction('訊號不足 · 這次沒有讀數');
-    setTimeout(function () { finish(null); }, REVEAL_MS);
+    // 不加 .secured：沒有讀數就不准上 gold。失敗更需要被看見，
+    // 所以走同一個面板、同樣停著等點，不是一閃而過。
+    showVerdict('訊號不足', '這次沒有取得讀數 · 光線與穩定度不夠再試一次', null);
   }
 
   /** 取樣迴圈。進度只在光線與取景過關時前進（pause-not-reset）。 */
@@ -1341,17 +1470,28 @@
     setInstruction('正在啟動相機⋯');
     ['light', 'center', 'still'].forEach(function (name) { setDot(name, null); });
     q('cancel').hidden = false; // 上一輪揭示時收起過
+    // 上一輪的揭曉面板要收乾淨：膠囊回來、完成鈕收起，否則第二次掃描一開場
+    // 就頂著上一次的結果（overlay 是 hide 不是 remove）。
+    var instructionEl = q('instruction');
+    if (instructionEl) instructionEl.hidden = false;
+    var doneEl = q('done');
+    if (doneEl) doneEl.hidden = true;
+    var dotsEl = q('dots');
+    if (dotsEl) dotsEl.hidden = false;
+    var factResetEl = q('verdict-fact');
+    if (factResetEl) factResetEl.hidden = true;
     // overlay 是 hide 不是 remove，所以上一輪的 SECURED 狀態會留著 —— 必須清掉，
     // 否則第二次掃描一開場就頂著金框，等於還沒量就宣稱鎖定了。
     var frameEl = q('frame');
     if (frameEl) {
-      frameEl.classList.remove('secured', 'locked', 'lock-beat', 'stalled', 'tracking');
+      frameEl.classList.remove('secured', 'locked', 'lock-beat', 'stalled', 'tracking', 'revealed');
       frameEl.style.removeProperty('--rs-err');
     }
     // 對位標記回到中心的預設位置，不留上一輪的殘影。
     var reticleEl = q('reticle');
     if (reticleEl) reticleEl.style.transform = '';
     setProgress(0);
+    overlay.classList.remove('secured-run'); // 上一輪的收束標記不得留到這一輪
     overlay.classList.add('open');
 
     return new Promise(function (resolve) {
@@ -1367,7 +1507,7 @@
         faceMesh: null, faceTimer: null, faceBusy: false,
         everSawFace: false, faceFramed: false, faceBox: null,
         reticle: null, reticleTarget: null, reticleSnapUntil: 0, lastRenderAt: 0,
-        framedStreak: 0,
+        framedStreak: 0, pendingReading: null,
         lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         lmAcc: { n: 0, stillness: 0 },
