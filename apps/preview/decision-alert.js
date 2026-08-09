@@ -993,9 +993,10 @@
     canvas.dataset.ratio = String(ratio); // 供 headless 驗證（canvas 像素難斷言）
     canvas.dataset.colorVar = colorVar;
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var size = 176;
-    canvas.style.width = size + 'px';
-    canvas.style.height = size + 'px';
+    // 顯示尺寸由 CSS 的 --result-arc 決定（短視窗會縮小），這裡只跟著它調
+    // backing store。**不要**在這裡再寫一次 style.width/height —— 那會蓋掉 CSS，
+    // 兩個地方各記一份尺寸遲早不同步（PLAYBOOK §6：判定/尺寸只能有一個來源）。
+    var size = Math.round(parseFloat(getComputedStyle(canvas).width)) || 176;
     canvas.width = Math.round(size * dpr);
     canvas.height = Math.round(size * dpr);
     var ctx = canvas.getContext('2d');

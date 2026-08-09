@@ -129,6 +129,31 @@ const segBg = await page.$eval('#resultStrip .result-seg', (n) => getComputedSty
 check('momentum strip 本次段落 = 紀律色', segBg, CLEAR);
 check('momentum strip 不得畫成 strain 橘', segBg !== STRAIN, true);
 
+// ── 收束頁的主要動作不得沉到摺線下 ──
+// founder 2026-08-09 實走：「要下滑一點才會出現儲存按鈕」。
+//
+// ⚠️ **這兩條守的是「內容塞得進一屏」，不是 iOS 那個視口機制。** 反向驗證過：
+// 把 sheet 的 max-height/overflow 拿掉，這兩條**照樣綠** —— 因為 headless
+// Chromium 的版面視口就等於視覺視口，而 iOS 的病灶正是「fixed 相對版面視口定位，
+// 而 in-app 瀏覽器的工具列把視覺視口壓小」，那個差異在這裡根本重現不了。
+// 真正被守住的是**根因**：收束頁在 in-app 瀏覽器的實際高度（≈660px）要一屏放得下。
+// （拿掉短視窗壓縮的 media query，第二條會紅 —— 那條驗證過。）
+// sheet 的 max-height/overflow 是給更矮的視口（橫向、放大字級）的保險，
+// 那一層只有實機能驗。
+await page.setViewportSize({ width: 390, height: 660 });
+await page.waitForTimeout(400);
+const save = await page.evaluate(() => {
+  const btn = document.getElementById('btnResultSave');
+  const r = btn.getBoundingClientRect();
+  const sheet = document.getElementById('resultSheet');
+  return {
+    完全可見: r.top >= 0 && r.bottom <= window.innerHeight,
+    需捲動: sheet.scrollHeight - sheet.clientHeight,
+  };
+});
+check('短視窗(660px)下儲存鈕完全可見（不必先捲動）', save.完全可見, true);
+check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
+
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
 await browser.close();
 server.close();

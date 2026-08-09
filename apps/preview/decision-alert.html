@@ -160,6 +160,12 @@
       z-index: 30;
     }
     .sheet-backdrop.show { opacity: 1; pointer-events: auto; }
+    /* ⚠️ sheet 一定要**自己有高度上限並自己捲**。
+       先前只有 `position:fixed; bottom:0`、沒有 max-height —— 內容一長，
+       在 iOS 就會掉到可視範圍外：fixed 是相對**版面視口**定位，而 in-app 瀏覽器
+       的上下工具列會把**視覺視口**壓小，於是主要按鈕沉到摺線下面，
+       founder 2026-08-09 實走回報「要下滑一點才會出現儲存按鈕」。
+       這跟 PLAYBOOK §6 的 100vh 陷阱是同一家族的問題，解法也一樣：用 dvh。 */
     .sheet {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 31;
       max-width: 480px; margin: 0 auto;
@@ -167,6 +173,9 @@
       border: 1px solid var(--glass-border); border-bottom: none;
       padding: 14px 18px calc(env(safe-area-inset-bottom, 0px) + 18px);
       transform: translateY(105%); transition: transform 0.3s var(--ease-calm);
+      max-height: 88vh; max-height: 88dvh;   /* dvh 不支援時退回 vh */
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;          /* 捲到底不要把底下的頁面一起帶走 */
     }
     .sheet.show { transform: translateY(0); }
     .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 14px; }
@@ -186,8 +195,25 @@
     .result-outcome.neutral { color: #94A3B8; }
     /* ── 決策收束頁（視覺化）── */
     #resultSheet { max-height: 88dvh; overflow-y: auto; }
-    .result-hero { position: relative; width: 176px; height: 176px; margin: 12px auto 6px; }
-    .result-arc { display: block; width: 176px; height: 176px; }
+    /* 弧的尺寸只有**一個來源**：這個 CSS 變數。drawResultArc() 讀 computed 寬度
+       決定 canvas backing store，不再自己寫死 176 —— 兩邊各記一次就會不同步。 */
+    .result-sheet { --result-arc: 176px; }
+    .result-hero { position: relative; width: var(--result-arc); height: var(--result-arc); margin: 12px auto 6px; }
+    .result-arc { display: block; width: var(--result-arc); height: var(--result-arc); }
+    /* 短視窗（in-app 瀏覽器上下工具列都在時 ≈660px）：收束頁要能**一屏放得下**，
+       不然主要按鈕就得靠捲動才看得到。壓縮的是留白與弧的尺寸，不砍任何資訊。 */
+    @media (max-height: 740px) {
+      .result-sheet { --result-arc: 128px; }
+      .result-sheet .result-hero { margin: 6px auto 2px; }
+      .result-sheet .result-block { margin-top: 10px; }
+      .result-sheet .result-strip { margin-top: 6px; }
+      .result-sheet .result-reflect-wrap { margin-top: 10px; }
+      .result-sheet .sheet-actions { margin-top: 8px; }
+      /* 弧縮小之後中央文字要跟著縮，否則「判定成立 · 已進場」會擠成兩行貼住環。 */
+      .result-sheet .result-outcome { font-size: 13px; }
+      .result-sheet .result-arc-center { padding: 0 10px; }
+      .result-sheet .result-arc-time { font-size: 11px; margin-top: 3px; }
+    }
     .result-arc-center {
       position: absolute; inset: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; text-align: center; padding: 0 22px;
@@ -329,7 +355,16 @@
     }
 
     .alert-q { margin-top: 14px; font-size: 14px; font-weight: 600; }
-    .sheet-actions { display: flex; gap: 10px; margin-top: 12px; }
+    /* 主要動作**釘在 sheet 底部**：內容再長，按鈕都在可視範圍內，
+       不需要先捲到底才發現有東西可按。負的左右 margin + padding 讓底色
+       蓋滿整個寬度，捲動的內容才不會從按鈕兩側露出來。 */
+    .sheet-actions {
+      display: flex; gap: 10px; margin-top: 12px;
+      position: sticky; bottom: 0; z-index: 1;
+      margin-left: -18px; margin-right: -18px;
+      padding: 10px 18px calc(env(safe-area-inset-bottom, 0px) + 4px);
+      background: var(--card);
+    }
     .btn {
       flex: 1; border-radius: 12px; padding: 13px 0; font-size: 15px; font-weight: 600;
       font-family: inherit; border: 1px solid var(--border); cursor: pointer;
@@ -682,6 +717,6 @@
        /decision-alert/(.*) 的 rewrite。必須排在 decision-alert.js 之前 ——
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
   <script src="/preview/readiness-scan.js?v=rs11"></script>
-  <script src="decision-alert.js?v=alert25"></script>
+  <script src="decision-alert.js?v=alert26"></script>
 </body>
 </html>
