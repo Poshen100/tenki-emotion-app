@@ -30,11 +30,18 @@ const repoRoot = resolve(new URL('..', import.meta.url).pathname);
 const MIME = {
   '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
   '.mjs': 'text/javascript', '.json': 'application/json', '.png': 'image/png',
-  '.svg': 'image/svg+xml', '.woff2': 'font/woff2',
+  '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json',
 };
 
 const server = http.createServer((req, res) => {
-  const clean = normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^(\.\.[/\\])+/, '');
+  let clean = normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^(\.\.[/\\])+/, '');
+  // ⚠️ 這兩條 rewrite 正式站是 vercel.json 在做，本地伺服器要自己補。
+  // 少了它們，`/preview/*` 的共用模組全部 404 —— 而先前這支 harness **就是這樣**：
+  // decision-alert.html 載的 readiness-scan.js / decision-outcome.js 一直靜默 404，
+  // 頁面看起來照樣正常（那些模組當時沒被斷言用到），直到 decision-alert.js
+  // 改成硬相依 window.TENKI_OUTCOME 才爆出來。**靜默 404 的測試環境比沒有測試更糟。**
+  if (clean.startsWith('/preview/')) clean = '/apps' + clean;
+  if (clean === '/v3' || clean === '/v3/') clean = '/apps/preview/v6/index.html';
   let file = join(repoRoot, clean);
   if (existsSync(file) && statSync(file).isDirectory()) file = join(file, 'index.html');
   if (!existsSync(file) || !file.startsWith(repoRoot)) {
@@ -153,6 +160,52 @@ const save = await page.evaluate(() => {
 });
 check('短視窗(660px)下儲存鈕完全可見（不必先捲動）', save.完全可見, true);
 check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
+
+// ── 端到端：決策真的接到正式站的結果頁 ──
+//
+// founder 2026-08-09：「怎麼接到正式站的結果頁」。查出來的是 —— 管線早就通了
+// （兩邊共用 `tenki.alert.outcomes.v1`），但兩端講不同方言：decision-alert 寫
+// 新語意 `judged_entered`，而 /v3/ 的 `isDisciplinedV6()` 只認舊的
+// `stayed_disciplined` / `timed_out` → **demo 裡 100%，進到 /v3/ 變 0%**。
+//
+// 這一組是**真的端到端**，不是分開驗兩邊：Playwright 同一個 context ＝ 同源
+// ＝ 共用 localStorage，跟正式站上兩頁同源的情形一致。上面那次決策已經寫進
+// store，這裡直接開 /v3/#session 讀它算出來的對齊率。
+//
+// 反向驗證過：把 isDisciplinedV6 改回只認舊 tag → 對齊率變 0%，這條會紅。
+{
+  // 先真的按下「記錄並關閉」—— 決策要**被記錄**才會進統一 store。
+  // （這一步先前的 harness 沒做過，所以 store 一直是空的。）
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+  await page.click('#btnResultSave');
+  await page.waitForTimeout(500);
+
+  const stored = await page.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')) || [];
+    return all[all.length - 1] || {};
+  });
+  check('決策寫進統一 store，用的是新語意 tag', stored.outcomeTag, 'judged_entered');
+  check('紀錄標了來源（Session 頁才分得出從哪個入口來）', stored.source, 'alert');
+
+  // 收束之後要有路可走 —— 刻意在事件鏈那一層，不佔收束頁高度。
+  const linkHref = await page.evaluate(() => {
+    const a = document.querySelector('#logList .log-link');
+    return a ? a.getAttribute('href') : null;
+  });
+  check('收束後留下通往決策紀錄的路', linkHref, '/v3/#session');
+
+  // 直接把同一個分頁導到 /v3/ —— 同源，localStorage 跟著走，
+  // 與正式站上「走完 demo 再開 /v3/」是同一件事。
+  await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2500);
+  const session = await page.evaluate(() => ({
+    align: document.getElementById('statAlign').textContent.trim(),
+    count: document.getElementById('statCount').textContent.trim(),
+  }));
+  check('🔴 /v3/ Session 認得快訊決策（對齊率不是 0%）', session.align, '100%');
+  check('/v3/ Session 看得到那筆決策', session.count, '1');
+}
 
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
 await browser.close();
