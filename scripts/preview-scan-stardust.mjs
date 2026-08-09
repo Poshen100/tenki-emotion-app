@@ -485,6 +485,95 @@ async function scanAndCancel(page) {
   await ctx.close();
 }
 
+// ── 2c-7. 揭曉：儀器把結果交到你手上，而且不會把你關在裡面 ──
+//
+// founder 2026-08-09：「掃完了以後不知道剛剛完成了什麼？」先前的揭曉是把結果
+// 寫進剛剛還在叫你「保持穩定」的同一顆小膠囊、停 1.2 秒就消失。
+//
+// ⚠️ 誠實邊界：假相機過不了品質閘門，harness **跑不完整整一輪真掃描**，
+// 所以下面驗的是**呈現層**（套上揭曉狀態後畫面對不對）與**出口安全**（結構性質）。
+// 「真的掃完會不會走到這裡」只有實機能答 —— 不要把這組當成全流程覆蓋。
+{
+  const { ctx, page } = await newPage();
+  await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }); });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+
+  // 出口安全：完成鈕的 listener 必須在**注入 markup 當下**就綁好。
+  // 揭曉會收起取消鈕，完成鈕是唯一出口 —— 綁定若依賴收尾流程跑完，
+  // finalize() 一出事使用者就被關在覆蓋層裡。這裡直接點它，還沒揭曉也該關得掉。
+  check('完成鈕在揭曉之前就已經可以關掉覆蓋層（不會把人關在裡面）', await page.evaluate(async () => {
+    window.__exit = 'pending';
+    document.querySelector('#tenki-readiness-scan [data-rs="done"]').click();
+    await new Promise((r) => setTimeout(r, 120));
+    return document.querySelector('#tenki-readiness-scan').classList.contains('open');
+  }), false);
+  await ctx.close();
+}
+
+{
+  const { ctx, page } = await newPage();
+  await page.evaluate(() => { window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }); });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+
+  // 套上揭曉狀態（等同 finalize() 的呈現結果）
+  await page.evaluate(() => {
+    const root = document.querySelector('#tenki-readiness-scan');
+    const f = root.querySelector('.rs-frame');
+    f.classList.add('secured', 'revealed');
+    root.classList.add('secured-run');
+    root.querySelector('[data-rs="verdict-band"]').textContent = 'Neutral';
+    const fact = root.querySelector('[data-rs="verdict-fact"]');
+    fact.textContent = '信心中 · 穩定取景 8 秒 · 穩定度 61%';
+    fact.hidden = false;
+    root.querySelector('[data-rs="instruction"]').hidden = true;
+    root.querySelector('[data-rs="dots"]').hidden = true;
+    root.querySelector('[data-rs="done"]').hidden = false;
+  });
+  await page.waitForTimeout(1600);
+
+  // 帶位要**明顯**比膠囊大 —— 這就是「同一顆膠囊同一個字級」那個病的體檢項。
+  check('帶位是大字（字級明顯大於指令膠囊）', await page.evaluate(() => {
+    const band = parseFloat(getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-verdict-band')).fontSize);
+    const pill = parseFloat(getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-instruction')).fontSize);
+    return band >= pill * 2;
+  }), true);
+
+  // ⚠️ hidden 屬性只是作者樣式 display:none，會被 display:inline-flex/flex 蓋掉。
+  // 2026-08-09 截圖當場抓到：揭曉時膠囊還在叫人「把臉放進框裡」。
+  check('揭曉時儀器的零件全部退場（膠囊與閘門燈真的不見）', await page.evaluate(() => {
+    const gone = (s) => {
+      const el = document.querySelector('#tenki-readiness-scan ' + s);
+      return getComputedStyle(el).display === 'none';
+    };
+    return gone('.rs-instruction') && gone('.rs-dots');
+  }), true);
+
+  check('揭曉時對位標記與目標環淡出', await page.evaluate(() => {
+    const o = (s) => getComputedStyle(document.querySelector('#tenki-readiness-scan ' + s)).opacity;
+    return o('.rs-reticle') === '0' && o('.rs-target') === '0';
+  }), true);
+
+  check('收束成功時帶位是 gold（SECURED）', await page.evaluate(() =>
+    getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-verdict-band')).color),
+  'rgb(255, 212, 110)');
+
+  // 訊號不足**不得**上 gold —— gold 代表 secured/calibrated，
+  // 用它宣稱一個不存在的結果就是拿顏色說謊。
+  const failColor = await page.evaluate(() => {
+    const root = document.querySelector('#tenki-readiness-scan');
+    root.querySelector('.rs-frame').classList.remove('secured');
+    root.classList.remove('secured-run');
+    return {
+      band: getComputedStyle(root.querySelector('.rs-verdict-band')).color,
+      done: getComputedStyle(root.querySelector('.rs-done')).color,
+    };
+  });
+  check('訊號不足時帶位與完成鈕都不得是 gold',
+    failColor.band !== 'rgb(255, 212, 110)' && failColor.done !== 'rgb(255, 212, 110)', true);
+
+  await ctx.close();
+}
+
 // ── 2d. reduced-motion 下鎖定仍看得出來（只是不動畫）──
 {
   const { ctx, page } = await newPage({ reducedMotion: 'reduce' });
