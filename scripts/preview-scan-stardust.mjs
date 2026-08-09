@@ -18,7 +18,7 @@
  */
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import http from 'node:http';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, readFileSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
 
 const repoRoot = resolve(new URL('..', import.meta.url).pathname);
@@ -522,9 +522,13 @@ async function scanAndCancel(page) {
     f.classList.add('secured', 'revealed');
     root.classList.add('secured-run');
     root.querySelector('[data-rs="verdict-band"]').textContent = 'Neutral';
-    const fact = root.querySelector('[data-rs="verdict-fact"]');
-    fact.textContent = '信心中 · 穩定取景 8 秒 · 穩定度 61%';
-    fact.hidden = false;
+    // ⚠️ 寫在**子節點**上，不要對 .rs-verdict-fact 設 textContent ——
+    // 那會把 spec / quality 兩個子元素整個清掉，後面驗它們的斷言就會炸。
+    // （2026-08-09 當場踩到：harness 用產品不會用的方式偽造狀態，
+    //   結果測到的是被自己弄壞的 DOM。偽造狀態要照產品真正的寫法。）
+    root.querySelector('[data-rs="verdict-spec"]').textContent = '468 點臉部特徵 · 121 幀推論 · 8.0 秒';
+    root.querySelector('[data-rs="verdict-quality"]').textContent = '穩定度 88% · 信心中';
+    root.querySelector('[data-rs="verdict-fact"]').hidden = false;
     root.querySelector('[data-rs="instruction"]').hidden = true;
     root.querySelector('[data-rs="dots"]').hidden = true;
     root.querySelector('[data-rs="done"]').hidden = false;
@@ -571,7 +575,45 @@ async function scanAndCancel(page) {
   check('訊號不足時帶位與完成鈕都不得是 gold',
     failColor.band !== 'rgb(255, 212, 110)' && failColor.done !== 'rgb(255, 212, 110)', true);
 
+  // 規格行用等寬 + tabular-nums：數字要對得齊才有儀器讀數的樣子，
+  // 而且點數/幀數在不同掃描之間位數會變，比例字體會讓它左右跳。
+  check('規格行是等寬 + tabular-nums', await page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-verdict-spec'));
+    return /mono/i.test(cs.fontFamily) && /tabular-nums/.test(cs.fontVariantNumeric);
+  }), true);
+
+  // 退讓詞不當開場白：品質行要比規格行小、比規格行暗。
+  check('退讓詞（信心）在第二行且更小更暗', await page.evaluate(() => {
+    const spec = getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-verdict-spec'));
+    const qual = getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-verdict-quality'));
+    return parseFloat(qual.fontSize) < parseFloat(spec.fontSize);
+  }), true);
+
   await ctx.close();
+}
+
+// ── 2c-8. Tier B 不准宣稱臉部特徵點 ──
+//
+// 沒有 MediaPipe（iOS Safari 的常態）時走的是整幀 luma 啟發式，那條路上
+// **根本沒有 landmark**。照抄 tier A 的文案就是憑空宣稱一個不存在的量測 ——
+// 這是誠實動效鐵律「絕不放假的生理讀數」的同一條線，只是換到文字上。
+//
+// ⚠️ 這是一條**靜態**斷言，故意的：假相機跑不完真掃描，所以拿不到 tier B 的
+// 收尾畫面來比對。但真正的失敗模式是「有人改文案時把 tier A 那行照抄過去」，
+// 而那個在原始碼上看得見。與其寫一條跑得到卻守不住的 runtime 斷言
+// （PLAYBOOK §3 的教訓），不如寫一條守得住的靜態斷言並講清楚它是靜態的。
+{
+  const src = readFileSync(join(repoRoot, 'apps/preview/readiness-scan.js'), 'utf8');
+  const fn = src.slice(src.indexOf('function verdictFact('));
+  // ⚠️ 要先把註解剝掉再驗：那個 else 分支的註解本身就在解釋「沒有特徵點」，
+  // 直接掃全文會被自己的說明文字誤判成違規（第一版就這樣紅了一次）。
+  // 驗的是**會顯示給使用者的字串**，不是原始碼裡出現過的字。
+  const tierB = fn.slice(fn.indexOf('} else {'), fn.indexOf('var quality'))
+    .replace(/\/\/[^\n]*/g, '');
+  check('tier B 的規格行不得出現「特徵」（沒有 landmark 就不准宣稱）',
+    /特徵/.test(tierB), false);
+  check('tier A 的規格行才報特徵點數，且點數是實測而非寫死',
+    /landmarkCount/.test(fn) && !/\b468\b/.test(fn), true);
 }
 
 // ── 2d. reduced-motion 下鎖定仍看得出來（只是不動畫）──
