@@ -249,15 +249,26 @@
       '#' + OVERLAY_ID + ' .rs-frame.locked .rs-halo-corners{transform:scale(1);opacity:1;}',
       // 收束時角括號跟著整組轉 gold（cyan=ACTIVE / gold=SECURED）。
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-corners{stroke:' + HALO_SECURED + ';}',
-      // flicker（極速運算感）+ glow：只在剛鎖上那一拍播一次，之後靜止。
-      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-track{animation:rs-flicker 0.18s steps(1) 1;}',
-      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-lens{animation:rs-bloom 0.42s ' + EASE_SECURE + ' 1;}',
+      // ── 鎖定那一拍：發散 → 一擊 → 靜 ──
+      // 爽的不是更多動作，是**突然的靜**。所以這裡的每個動畫都只播一次、
+      // 都在 300ms 內結束，之後畫面完全不動 —— 那個安靜才是「我抓到你了」。
+      // 時長一律取 MOTION-DIRECTION §3 的音階（150 / 300 / 600），不自創數值。
+      '#' + OVERLAY_ID + ' .rs-flash{position:absolute;inset:0;border-radius:64px;',
+      'pointer-events:none;opacity:0;background:radial-gradient(circle at center,',
+      'rgba(34,211,238,0.42) 0%,rgba(34,211,238,0.12) 46%,rgba(34,211,238,0) 72%);}',
+      // flicker（極速運算感）150ms + 閃光 300ms + 角括號回彈 300ms，同一拍下。
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-track{animation:rs-flicker 0.15s steps(1) 1;}',
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-flash{animation:rs-bloom 0.3s ' + EASE_SECURE + ' 1;}',
+      // 回彈才有 snap：--ease-secure 是 expo-out（不回彈），所以 overshoot 得寫在
+      // keyframes 裡 —— 收過頭一點點再回到位，這是「咬住」而不是「滑到」。
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-corners{',
+      'animation:rs-corner-snap 0.3s ' + EASE_SECURE + ' 1;}',
       '@keyframes rs-flicker{0%{stroke:' + HALO_ACTIVE + ';}',
       '35%{stroke:rgba(61,224,255,0.28);}70%{stroke:' + HALO_ACTIVE + ';}',
       '100%{stroke:rgba(61,224,255,0.28);}}',
-      '@keyframes rs-bloom{0%{box-shadow:0 0 0 0 rgba(34,211,238,0);}',
-      '30%{box-shadow:0 0 26px 2px rgba(34,211,238,0.45);}',
-      '100%{box-shadow:0 0 0 0 rgba(34,211,238,0);}}',
+      '@keyframes rs-bloom{0%{opacity:0;}22%{opacity:1;}100%{opacity:0;}}',
+      '@keyframes rs-corner-snap{0%{transform:scale(1.07);}',
+      '55%{transform:scale(0.985);}100%{transform:scale(1);}}',
 
       // ── 指令膠囊（North Star §4：一次只顯示 1 個主指令）──
       '#' + OVERLAY_ID + ' .rs-instruction{display:inline-flex;align-items:center;gap:10px;',
@@ -282,7 +293,8 @@
       // .locked 那條 transition 的選擇器更具體，不重寫一次會蓋不掉（同上一課）。
       '#' + OVERLAY_ID + ' .rs-frame.locked .rs-halo-corners{transition:none;}',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-track,',
-      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-lens{animation:none;}}',
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-corners,',
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-flash{animation:none;}}',
       '#' + OVERLAY_ID + ' .rs-dots{display:flex;gap:14px;font-size:10px;color:#5A6178;',
       'letter-spacing:0.1em;text-transform:uppercase;}',
       '#' + OVERLAY_ID + ' .rs-dot{display:flex;align-items:center;gap:5px;}',
@@ -319,6 +331,10 @@
       '    <div class="rs-lens">',
       '      <video class="rs-video" playsinline muted autoplay></video>',
       '    </div>',
+      // 鎖定閃光的專屬層。**不能借用 .rs-lens** —— 它是 opacity:0，而
+      // opacity:0 的元素連 box-shadow / background 都不會畫，動畫等於沒播。
+      // 2026-08-08 就是這樣把鎖定閃光弄不見的（founder：「合一還不夠爽」）。
+      '    <div class="rs-flash"></div>',
       // 三個 rect，幾何一字不差：track（框本身）、corners（角括號）、fill（進度）。
       '    <svg class="rs-halo" viewBox="0 0 236 236" aria-hidden="true">',
       '      <rect class="rs-halo-track" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
