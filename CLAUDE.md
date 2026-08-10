@@ -160,6 +160,11 @@ refactor(session): extract timer segment logic
     仍然逐位元組不變。粒子數、分布、漂移、滾動、entrance 一律照舊，不在授權內。
   - 🔴 顏色也會宣稱事實：`gold = SECURED`、`cyan = ACTIVE`（`docs/VISUAL-DIRECTION.md` §3）。
     **沒有讀數就不准上 gold** —— 跟文案同一條紅線。
+  - 🔴 **產生新顏色之前，先問「這個顏色在這個產品裡是不是已經有主人」**。
+    2026-08-10 實例：我擋住了自己要用的 gold，卻讓色相旋轉把 cyan 轉成綠 ——
+    而 v6 的 `--good` 就是綠 `#34C759`，等於還沒有結果就亮起「good」。
+    掃描期間的色相因此**改成單向**（0 → +0.06，不得為負）。
+    `scripts/preview-scan-stardust.mjs` 有一條 ΔE 掃描守著這件事，改上限前先看它。
   - 🔴 顏色吃的是**量得到的東西**（landmark 幾何、位移穩定度、該次 band）。
     **不得宣稱偵測情緒**，也不得有任何 user-facing 文案往那個方向講。
 
