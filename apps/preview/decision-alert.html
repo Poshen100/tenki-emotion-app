@@ -217,7 +217,10 @@
       .result-sheet .sheet-actions { margin-top: 8px; }
       /* 弧縮小之後中央文字要跟著縮，否則「判定成立 · 已進場」會擠成兩行貼住環。 */
       .result-sheet .result-outcome { font-size: 13px; }
-      .result-sheet .result-arc-center { padding: 0 10px; }
+      /* 弧縮到 128px 之後，環線的內側淨寬只剩約 90px（r = size/2 - 14、線寬 10）。
+         內距要夠大才逼得動換行 —— 給太小的話文字不是溢出，是**壓在環線上**
+         （量過：文字 103px、容器 128px，看起來像溢出其實是撞線）。 */
+      .result-sheet .result-arc-center { padding: 0 22px; }
       .result-sheet .result-arc-time { font-size: 11px; margin-top: 3px; }
     }
     .result-arc-center {
@@ -248,6 +251,9 @@
       transition: opacity 0.35s var(--ease-calm), transform 0.35s var(--ease-calm);
     }
     .result-block { margin-top: 16px; }
+    /* 紀律近況本來就是「決策紀錄」的預覽 —— 讓它說得出自己是什麼，並且可點進去。 */
+    .result-history-link { cursor: pointer; }
+    .result-history-link:active { opacity: 0.75; }
     .result-block-label { font-size: 11px; letter-spacing: 0.08em; color: #64748B; text-transform: uppercase; margin-bottom: 8px; }
     .result-meter { height: 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
     .result-meter-fill { height: 100%; width: 0; border-radius: 4px; background: linear-gradient(90deg, var(--zone-clear), var(--cyan-active)); transition: width 0.9s var(--ease-calm); }
@@ -657,8 +663,8 @@
       </div>
     </div>
 
-    <div class="result-block reveal-item" id="resultHistory">
-      <div class="result-block-label">紀律近況</div>
+    <div class="result-block reveal-item result-history-link" id="resultHistory">
+      <div class="result-block-label">紀律近況 · 決策紀錄 ›</div>
       <div class="result-meter"><div class="result-meter-fill" id="resultMeterFill"></div></div>
       <div class="stat-sub" id="resultRate"></div>
       <div class="result-strip" id="resultStrip"></div>
@@ -674,8 +680,14 @@
       <div class="result-reflect" id="resultReflect"></div>
     </div>
 
+    <!-- 交接要看得見。先前只在事件鏈留一條「看歷史」小字，founder 2026-08-09：
+         「好像不想讓人知道似的」。他是對的 —— 我當時的理由是「不佔收束頁高度」，
+         但 .sheet-actions 是 flex + .btn{flex:1}，**同一列加第二顆的高度成本是零**
+         （快訊面板本來就是兩顆）。工程方便不該贏過產品意圖。
+         兩顆**都會記錄** —— 記錄不是選項，是收束的一部分。 -->
     <div class="sheet-actions">
-      <button class="btn btn-primary" id="btnResultSave" type="button">記錄並關閉</button>
+      <button class="btn btn-ghost" id="btnResultSave" type="button">關閉</button>
+      <button class="btn btn-primary" id="btnResultRecord" type="button">查看決策紀錄</button>
     </div>
   </div>
 
@@ -725,6 +737,6 @@
   <script src="/preview/readiness-scan.js?v=rs11"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do1"></script>
-  <script src="decision-alert.js?v=alert28"></script>
+  <script src="decision-alert.js?v=alert29"></script>
 </body>
 </html>

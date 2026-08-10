@@ -329,7 +329,7 @@
     'tplSheet', 'tplList', 'tplStatus', 'aggSheet', 'aggHead', 'aggList',
     'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcCenter', 'resultArcGlow', 'resultArcTime',
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
-    'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave',
+    'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave', 'btnResultRecord',
     'timerBar', 'timerLabel', 'timerClock',
     'watchAnchor', 'watchAsk', 'btnStructureConfirmed', 'btnStoodDown', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
@@ -1228,9 +1228,23 @@
     state.pendingOutcome = null;
   }
 
+  /** 決策紀錄的所在。`applyEntryHash()` 認得 `#session`，直接落在那一頁。 */
+  var RECORD_HREF = '/v3/#session';
+
+  // 兩個出口**都先記錄** —— 記錄不是選項，是收束的一部分。
+  // 差別只在記錄完要留在這裡，還是去看它在紀錄裡的樣子。
   el.btnResultSave.addEventListener('click', function () {
     finalizeResult();
     closeSheets();
+  });
+  el.btnResultRecord.addEventListener('click', function () {
+    finalizeResult();
+    window.location.href = RECORD_HREF;
+  });
+  // 紀律近況那一塊本來就是決策紀錄的預覽，點它等同「去看完整的」。
+  el.resultHistory.addEventListener('click', function () {
+    finalizeResult();
+    window.location.href = RECORD_HREF;
   });
 
   // 兩個判定出口。**兩個都是紀律** —— §7 step 7「無觸發 → 不交易」跟 step 4 進場
