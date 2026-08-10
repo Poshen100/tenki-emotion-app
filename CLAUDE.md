@@ -153,6 +153,15 @@ refactor(session): extract timer segment logic
 - Skia 畫環形圖（禁用 SVG ring）
 - EWMA α=0.05 極慢收斂
 - 星塵動效「感覺」不能改，保持 v25.8.2 視覺體驗
+  - ⚠️ **唯一例外（founder 2026-08-10 授權，範圍就是這麼大，不得外推）**：
+    掃描期間的**色彩**可以隨實測值變化。做法是 `stardust.js` 的 `setTone()` ——
+    旋轉整條 cyan→purple→pink 漸層並往當下的色收，**不換調色盤**；
+    且**預設值是恆等變換**，所以沒呼叫它的頁面（story / soul-enroll / v6 takeover）
+    仍然逐位元組不變。粒子數、分布、漂移、滾動、entrance 一律照舊，不在授權內。
+  - 🔴 顏色也會宣稱事實：`gold = SECURED`、`cyan = ACTIVE`（`docs/VISUAL-DIRECTION.md` §3）。
+    **沒有讀數就不准上 gold** —— 跟文案同一條紅線。
+  - 🔴 顏色吃的是**量得到的東西**（landmark 幾何、位移穩定度、該次 band）。
+    **不得宣稱偵測情緒**，也不得有任何 user-facing 文案往那個方向講。
 
 ## 語言慣例
 - 對話 / commit message / 文件：繁體中文 OK
