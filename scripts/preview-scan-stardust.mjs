@@ -606,6 +606,30 @@ async function scanAndCancel(page) {
     // 結果就是他說的「看不出變化」。
     check('🔴 重映射後有打到兩端（用滿視覺預算）',
       Math.min(...stills) <= 0.05 && Math.max(...stills) >= 0.95, true);
+
+    // ── 🔴 重映射本身：必須用**真實節奏**餵才驗得到 ──
+    //
+    // ⚠️ 上面那條其實**驗不到重映射**（拿掉重映射它照樣綠）。原因是
+    // `feed()` 是同步連續呼叫，兩幀之間的 dt ≈ 1ms，而
+    // `speed = 位移 / (dt/1000)` —— 於是**任何**位移都會把 speed 衝爆，
+    // 原始 stillness 直接落到 0，harness 的擺幅比真實使用極端得多。
+    // 真實的臉部推論是 ~180ms 一幀。**合成資料少了「時間」這個真實耦合。**
+    //
+    // 所以這裡照真實節奏餵：dt≈180ms、位移 0.025 →
+    // 原始 stillness ≈ 0.60（正是 founder 實測 63% 那個區段）。
+    // 有重映射：(0.60−0.5)/0.45 ≈ 0.23；沒有重映射：0.60。
+    // 門檻取 0.35，兩者分得開。
+    await page.evaluate(() => { window.__sdReadouts.length = 0; });
+    await feed(0, 1);
+    await page.waitForTimeout(180);
+    await feed(0.025, 1);
+    await page.waitForTimeout(180);
+    await feed(0.050, 1);
+    const realistic = await page.evaluate(() => window.__sdReadouts.map((r) => r.stillness));
+    const midValue = realistic.length ? realistic[realistic.length - 1] : null;
+    console.log(`   （真實節奏下：原始 stillness ≈0.60 → 餵給星塵 ${midValue?.toFixed(2)}）`);
+    check('🔴 真實節奏的中段位移要被拉伸（≤ 0.35，未重映射會是 ~0.60）',
+      midValue !== null && midValue <= 0.35, true);
     // 飽和度由 readout 端從 stillness 換算（0.70..1.35），所以跨度 0.25 的
     // stillness 會換出 ≥ 0.16 的飽和度差 —— 遠大於改版前的 0.087（全程）。
     check('色相真的隨著穩定度在變（不是每幀同一個值）',
@@ -619,7 +643,13 @@ async function scanAndCancel(page) {
     // ── 🔴 progress 是「累積的有效量測」，不是計時器 ──
     // 它只在閘門通過時前進。餵一串**不合格**的臉（明顯偏出框 → centering 不過），
     // 讓真實時間過去，progress 不該動 —— 否則球就是在對著一個沒發生的量測聚焦。
-    const progBefore = readouts[readouts.length - 1].progress;
+    //
+    // ⚠️ 基準值要**當場重讀**，不能用上面那個 `readouts` 快照 ——
+    // 中間又餵過好幾輪，快照早就過期了（改動順序時踩過一次）。
+    const progBefore = await page.evaluate(() => {
+      const r = window.__sdReadouts;
+      return r.length ? r[r.length - 1].progress : 0;
+    });
     for (let i = 0; i < 6; i += 1) {
       await feed(0.32, 1);          // 明顯出界
       await page.waitForTimeout(120); // 讓 rAF 迴圈真的跑過
