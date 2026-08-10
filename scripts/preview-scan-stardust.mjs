@@ -79,6 +79,7 @@ const STUB = `
 window.__sdCalls = [];
 window.__sdHostClass = null;
 window.__sdTones = [];
+window.__sdReadouts = []; // setReadout 收到的每一筆 {stillness, progress}
 window.__sdMounts = [];   // 每次 mount 掛到誰身上（id 或 class），依序
 window.__sdLive = 0;      // 目前活著的 context 數
 window.__sdMaxLive = 0;   // 全程峰值 —— 這才是 OOM 顧慮真正要守的東西
@@ -111,6 +112,8 @@ window.__sdMaxLive = 0;   // 全程峰值 —— 這才是 OOM 顧慮真正要�
     clearExpression: function () { window.__sdCalls.push('clearExpression'); },
     setTone: function (d) { window.__sdTones.push(d); window.__sdCalls.push('setTone'); },
     clearTone: function () { window.__sdCalls.push('clearTone'); },
+    setReadout: function (d) { window.__sdReadouts.push(d); window.__sdCalls.push('setReadout'); },
+    clearReadout: function () { window.__sdCalls.push('clearReadout'); },
     dim: function () {}, brighten: function () {},
     destroy: function () { if (host) { host = null; window.__sdLive -= 1; } },
   };
@@ -565,27 +568,62 @@ async function scanAndCancel(page) {
     await feed(0.25, 1);
     check('明顯出界才解鎖', await locked(), false);
 
-    // ── 量測中的顏色真的被臉驅動了 ──
-    // founder 2026-08-10 要「每次掃描都感應使用者變色」。這條走的是真的
-    // `onFaceResults → feedStardust → feedTone`，所以驗得到「有沒有在動」。
+    // ── 量測中，球真的在讀使用者 ──
     //
-    // ⚠️ 這裡**必須真的把眉/嘴的量餵開** —— 兩個輸入被釘死時，下面每一條
-    // 都會變成在測一個常數點（見 makeFace 上方那段）。
-    // browTension = 1 - browSpan/0.22：span 0 → 張力 1；span 0.176 → 張力 0.2。
-    // 舊的雙向公式在張力 0.2、嘴閉合時會算出 hue ≈ -0.031，正是要擋的負值。
-    await page.evaluate(() => { window.__sdTones.length = 0; });
-    await feed(0, 1, { browSpan: 0, mouthGap: 0 });        // 張力 1.0 / 嘴閉
-    await feed(0, 1, { browSpan: 0.176, mouthGap: 0 });    // 張力 0.2 / 嘴閉 ← 舊公式會轉負
-    await feed(0, 1, { browSpan: 0.22, mouthGap: 0.04 });  // 張力 0   / 嘴開 0.8
-    await feed(0, 1, { browSpan: 0.10, mouthGap: 0.02 });  // 中間值
+    // founder 2026-08-10 第二輪：「顏色好像沒變化？」+「我要的是棒透了」。
+    // 根因是第一版吃的 browTension / mouthOpen 在掃描情境下幾乎是常數
+    // （用力皺眉只讓色相動 0.69°）。現在吃的是 stillness。
+    //
+    // 🔴 **stillness 必須用「真的移動合成臉」產生，不准直接塞值** ——
+    // 塞值等於自己造一個不存在的輸入，那正是上一輪讓斷言失效的作法。
+    // `feed(dx,…)` 會讓 landmark 位移 → 產品自己算出 speed → stillness 下降，
+    // 走的是真正的產品路徑。
+    await page.evaluate(() => {
+      window.__sdTones.length = 0;
+      window.__sdReadouts.length = 0;
+    });
+    await feed(0, 3);        // 不動 → 高 stillness
+    await feed(0.06, 1);     // 小幅移動 → stillness 下降
+    await feed(0, 1);        // 回穩
+    await feed(0.12, 1);     // 大幅移動 → stillness 更低
+    await feed(0, 2);        // 再回穩
 
     const tones = await page.evaluate(() => window.__sdTones.slice());
+    const readouts = await page.evaluate(() => window.__sdReadouts.slice());
     check('量測中有把色調推給星塵', tones.length > 0, true);
-    // 沒有這條，上面那組餵法哪天被簡化掉也不會有人發現。
-    check('色調真的隨著臉在變（不是每幀同一個值）',
+    check('量測中有把讀出量推給星塵', readouts.length > 0, true);
+
+    // 🔴 **量的**條件，不是「有呼叫」。上一輪的教訓：輸入被釘死時
+    // 「有呼叫」照樣綠，只有「真的有跨度」抓得到。
+    const stills = readouts.map((r) => r.stillness);
+    const stillSpan = Math.max(...stills) - Math.min(...stills);
+    console.log(`   （stillness 實際跨度 ${stillSpan.toFixed(3)}，`
+      + `${Math.min(...stills).toFixed(3)} → ${Math.max(...stills).toFixed(3)}）`);
+    check('🔴 stillness 真的有跨度（≥ 0.25），不是一個常數點', stillSpan >= 0.25, true);
+    // 飽和度由 readout 端從 stillness 換算（0.70..1.35），所以跨度 0.25 的
+    // stillness 會換出 ≥ 0.16 的飽和度差 —— 遠大於改版前的 0.087（全程）。
+    check('色相真的隨著穩定度在變（不是每幀同一個值）',
       new Set(tones.map((t) => t.hue.toFixed(4))).size >= 2, true);
     check('量測中不得往任何目標色收（那是收束才做的事）',
       tones.every((t) => !t.toward && (t.mix === 0 || t.mix === undefined)), true);
+    // 飽和度不得由這裡餵 —— 它歸 readout 單一擁有（effectiveSat）。
+    check('量測中不得從 setTone 餵飽和度（單一寫入者）',
+      tones.every((t) => t.sat === undefined), true);
+
+    // ── 🔴 progress 是「累積的有效量測」，不是計時器 ──
+    // 它只在閘門通過時前進。餵一串**不合格**的臉（明顯偏出框 → centering 不過），
+    // 讓真實時間過去，progress 不該動 —— 否則球就是在對著一個沒發生的量測聚焦。
+    const progBefore = readouts[readouts.length - 1].progress;
+    for (let i = 0; i < 6; i += 1) {
+      await feed(0.32, 1);          // 明顯出界
+      await page.waitForTimeout(120); // 讓 rAF 迴圈真的跑過
+    }
+    const progAfter = await page.evaluate(() => {
+      const r = window.__sdReadouts;
+      return r.length ? r[r.length - 1].progress : null;
+    });
+    check('🔴 閘門不過時 progress 不前進（它不是計時器）',
+      Math.abs(progAfter - progBefore) < 1e-6, true);
     // 🔴 單向。負向旋轉會把漸層底部的 cyan 轉成綠，而綠在 v6 是 `--good`
     // —— 等於還沒有結果就亮起「good」（founder 2026-08-10 實走截圖抓到）。
     check('🔴 量測中的色相不得為負（負向就是進綠的方向）',
@@ -1009,6 +1047,19 @@ async function scanAndCancel(page) {
       greyEqual: Math.abs(grey[0] - grey[1]) < 1e-6 && Math.abs(grey[1] - grey[2]) < 1e-6,
       hasSetTone: typeof window.TENKI_STARDUST.setTone === 'function',
       hasHostInfo: typeof window.TENKI_STARDUST.hostInfo === 'function',
+      hasSetReadout: typeof window.TENKI_STARDUST.setReadout === 'function',
+      // 🔴 剛載進來、沒人呼叫過 setReadout 時必須是 inert —— 這就是
+      // story / soul-enroll / v6 takeover 逐位元組不變的那個結構保證。
+      readoutInert: window.TENKI_STARDUST.readoutState().active === false,
+      // 呼叫之後才生效，clearReadout 之後又回到 inert（掃描結束要還原）
+      readoutTogglesOn: (() => {
+        window.TENKI_STARDUST.setReadout({ stillness: 1, progress: 1 });
+        return window.TENKI_STARDUST.readoutState().active === true;
+      })(),
+      readoutTogglesOff: (() => {
+        window.TENKI_STARDUST.clearReadout();
+        return window.TENKI_STARDUST.readoutState().active === false;
+      })(),
     };
   });
   check('🔴 預設值(hue0,sat1)是單位矩陣 —— 沒呼叫 setTone 的頁面不得被改到',
@@ -1018,6 +1069,11 @@ async function scanAndCancel(page) {
   check('sat=0 落到灰（三通道相等）', math.greyEqual, true);
   check('setTone 有對外', math.hasSetTone, true);
   check('hostInfo 有對外（借用方要靠它才還得回去）', math.hasHostInfo, true);
+  check('setReadout 有對外', math.hasSetReadout, true);
+  check('🔴 沒呼叫 setReadout 時完全 inert（story/soul-enroll/takeover 不得被改到）',
+    math.readoutInert, true);
+  check('setReadout 之後才生效', math.readoutTogglesOn, true);
+  check('clearReadout 之後回到 inert（掃描結束要還原）', math.readoutTogglesOff, true);
 
   // ── 🔴 量測中產生的顏色，不得撞上「已經有主人」的顏色 ──
   //
@@ -1041,13 +1097,38 @@ async function scanAndCancel(page) {
   // 「量測中的色相不得為負」是**一組的，不能只留一條**：
   // 行為那條保證產品只會走正向，這條保證正向這段路是乾淨的。
   // 拆掉任何一條，另一條都補不上它的洞（拆掉行為那條，負向的綠就掃不到了）。
+  //
+  // ⚠️ **2026-08-10 第二輪：掃描空間必須跟著產品一起長大。**
+  // readout 層新增了飽和度 0.70–1.35、漸層 spread 1.0→0.45、往 cyanCore 的 focus。
+  // 掃描空間**沒跟著擴大的話，這個守門員會靜默失效** —— 它會繼續回報一個很安全的
+  // ΔE，而產品實際產生的顏色早就跑出它掃過的範圍了。
+  // 所有上下限都直接從 stardust.js 讀，讓測試跟著產品的常數走。
+  //
+  // 這一版擴大之後，它**當場擋下了我自己的下一個設計**：飽和度下限原本想放到 0.55，
+  // 掃出來對 `--zone-neutral #64748B` 只有 ΔE 22.4（去飽和的青會逼近那個 slate，
+  // 而它代表「Neutral 帶位」）。0.70 才過關（27.3）。
   {
-    const scanSource = readFileSync(join(repoRoot, 'apps/preview/readiness-scan.js'), 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-    const liveHue = Number(/TONE_LIVE_HUE\s*=\s*([\d.]+)/.exec(scanSource)?.[1]);
-    check('讀得到 TONE_LIVE_HUE（測試要跟著產品的常數走）', Number.isFinite(liveHue), true);
+    const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const scanSource = stripComments(readFileSync(join(repoRoot, 'apps/preview/readiness-scan.js'), 'utf8'));
+    const dustSource = stripComments(readFileSync(join(repoRoot, 'apps/preview/v6/stardust.js'), 'utf8'));
+    const num = (src, name) => Number(new RegExp(`${name}\\s*=\\s*([\\d.]+)`).exec(src)?.[1]);
+    const liveHue = num(scanSource, 'TONE_LIVE_HUE');
+    const satLo = num(dustSource, 'READOUT_SAT_LO');
+    const satHi = num(dustSource, 'READOUT_SAT_HI');
+    const spreadLo = num(dustSource, 'READOUT_SPREAD_LO');
+    const focusMax = num(dustSource, 'READOUT_FOCUS_MAX');
+    // 聚焦目標色也要從產品讀 —— 在這裡複製一份就是又一個會漂移的鏡射。
+    const focusTarget = (/FOCUS_TARGET\s*=\s*\[([^\]]+)\]/.exec(dustSource)?.[1] || '')
+      .split(',').map((s) => Number(s.trim()));
+    check('讀得到產品的所有色彩上下限（測試要跟著常數走）',
+      [liveHue, satLo, satHi, spreadLo, focusMax].every(Number.isFinite)
+        && focusTarget.length === 3 && focusTarget.every(Number.isFinite), true);
+    // 🔴 聚焦目標**不得是任何帶位色** —— 收向帶位色等於在還沒有結果時宣稱結果。
+    const asHex = (a) => '#' + a.map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+    check('🔴 聚焦目標不得是帶位色（--zone-clear / neutral / strain）',
+      ['#00B4D8', '#64748B', '#C2703D'].indexOf(asHex(focusTarget)) === -1, true);
 
-    const collision = await page.evaluate((hueMax) => {
+    const collision = await page.evaluate(([hueMax, sLo, sHi, spLo, fMax, target]) => {
       const M = window.TENKI_STARDUST.toneMatrix;
       const clamp = (v) => Math.max(0, Math.min(1, v));
       const apply = (m, c) => [
@@ -1081,23 +1162,32 @@ async function scanAndCancel(page) {
       };
       // 靜息漸層的三個色階（stardust.js buildScene 的 top/mid/bot）
       const STOPS = [[0, 0.8, 1], [0.6, 0.4, 1], [1, 0.4, 0.8]];
-      let worst = { d: Infinity, name: null, hue: null, sat: null };
+      const GRAD_MID = [0.6, 0.4, 1];      // spread 收向它
+      let worst = { d: Infinity, name: null, hue: null, sat: null, spread: null, focus: null };
       for (let h = 0; h <= hueMax + 1e-9; h += 0.005) {
-        for (const sat of [0.9, 1.0, 1.1, 1.25]) { // feedTone 的 sat 範圍
-          for (const st of STOPS) {
-            const c = apply(M(h, sat), st);
-            for (const [name, v] of Object.entries(OWNED)) {
-              const d = dE(c, hex(v));
-              if (d < worst.d) worst = { d, name, hue: h, sat };
+        for (let sat = sLo; sat <= sHi + 1e-9; sat += 0.05) {
+          for (let sp = spLo; sp <= 1 + 1e-9; sp += 0.05) {
+            for (let fo = 0; fo <= fMax + 1e-9; fo += 0.05) {
+              for (const st of STOPS) {
+                // 產品的順序：先 spread、再 focus、最後才進色相/飽和矩陣
+                let base = st.map((v, i) => GRAD_MID[i] + (v - GRAD_MID[i]) * sp);
+                base = base.map((v, i) => v + (target[i] - v) * fo);
+                const c = apply(M(h, sat), base);
+                for (const [name, v] of Object.entries(OWNED)) {
+                  const d = dE(c, hex(v));
+                  if (d < worst.d) worst = { d, name, hue: h, sat, spread: sp, focus: fo };
+                }
+              }
             }
           }
         }
       }
       return worst;
-    }, liveHue);
+    }, [liveHue, satLo, satHi, spreadLo, focusMax, focusTarget]);
 
     console.log(`   （最接近的是「${collision.name}」，ΔE ${collision.d.toFixed(1)}`
-      + ` @hue ${collision.hue.toFixed(3)} sat ${collision.sat}）`);
+      + ` @hue ${collision.hue.toFixed(3)} sat ${collision.sat.toFixed(2)}`
+      + ` spread ${collision.spread.toFixed(2)} focus ${collision.focus.toFixed(2)}）`);
     check('🔴 量測中的顏色不得撞上已被指派意義的顏色（ΔE ≥ 25）',
       collision.d >= 25, true);
     // ⚠️ 這裡本來還有一條「綠離得夠遠」的專屬斷言，**已經拿掉**：

@@ -119,14 +119,29 @@
      */
     var READOUT_SAT_LO = 0.70;
     var READOUT_SAT_HI = 1.35;
-    /** 進度收向 cyanCore 的上限。留一截給漸層，收滿了就沒有層次可看。 */
-    var READOUT_FOCUS_MAX = 0.55;
+    /**
+     * 進度收向 `FOCUS_TARGET` 的上限。
+     *
+     * ⚠️ 0.30 是 ΔE 掃描定出來的，不是手感挑的：再往上（0.45/0.55）時，
+     * 「收向青 + 低飽和」的組合會逼近 `--zone-neutral #64748B`（ΔE 20.4 / 17.0）——
+     * 那個色代表「Neutral 帶位」。0.30 時最小 ΔE 27.3，且限制條件回到 coral。
+     */
+    var READOUT_FOCUS_MAX = 0.30;
     /** 進度帶來的尺度收緊（1 → 0.94），讓 10 秒看得出在聚焦。 */
     var READOUT_SCALE_TIGHTEN = 0.06;
     /** 漸層中心（= buildScene 的 midColor 0x9966FF），spread 收向它。 */
     var GRAD_MID = [0.6, 0.4, 1];
-    /** cyanCore #00B4D8 —— ACTIVE 的語意色，progress 收向它（**不是**帶位色）。 */
-    var CYAN_CORE = [0, 0.706, 0.847];
+    /**
+     * progress 聚焦的目標色 = `cyanActive #22D3EE`。
+     *
+     * 🔴 **刻意不是 `cyanCore #00B4D8`** —— 那個值就是 `--zone-clear`，
+     * 也就是 Clear **帶位色**。收向它等於在還沒有結果時宣稱 Clear，
+     * 正好違反我自己定的「不得收向帶位色」。差點自己踩進去。
+     * `cyanActive` 在 VISUAL-DIRECTION §3 的語意是「掃描中 / live / in-progress」，
+     * 正是這一刻該講的話，而且它不是任何帶位的顏色。
+     * （ΔE 也比較安全：同樣 focus 下離 zone-neutral 遠得多。）
+     */
+    var FOCUS_TARGET = [0.133, 0.827, 0.933];
 
     /**
      * Bind the stardust to a container element and start rendering.
@@ -412,7 +427,7 @@
                 // Readout 的顏色兩件事，都在進 tone 矩陣**之前**做，
                 // 這樣既有的 ΔE 守門員只要跟著擴大掃描空間就仍然涵蓋得到：
                 //   spread —— 你越穩，漸層越往中心收（靈魂收攏成一個顏色）
-                //   focus  —— 累積的有效量測越多，越收向 cyanCore（= ACTIVE）
+                //   focus  —— 累積的有效量測越多，越收向 cyanActive（= 掃描中/live）
                 // 🔴 focus **只收向 cyanCore，絕不收向帶位色** ——
                 //    在還沒有結果時收向 Clear/Neutral/Strain 等於宣稱結果。
                 var spread = 1;
@@ -443,13 +458,13 @@
                     var bb = baseColors[idx + 2];
 
                     if (shaped) {
-                        // 往漸層中心收（收窄層次），再往 cyanCore 收（聚焦）
+                        // 往漸層中心收（收窄層次），再往 cyanActive 收（聚焦＝「掃描中」）
                         br = GRAD_MID[0] + (br - GRAD_MID[0]) * spread;
                         bg = GRAD_MID[1] + (bg - GRAD_MID[1]) * spread;
                         bb = GRAD_MID[2] + (bb - GRAD_MID[2]) * spread;
-                        br += (CYAN_CORE[0] - br) * focus;
-                        bg += (CYAN_CORE[1] - bg) * focus;
-                        bb += (CYAN_CORE[2] - bb) * focus;
+                        br += (FOCUS_TARGET[0] - br) * focus;
+                        bg += (FOCUS_TARGET[1] - bg) * focus;
+                        bb += (FOCUS_TARGET[2] - bb) * focus;
                     }
 
                     if (toned) {
