@@ -35,6 +35,12 @@ const server = http.createServer((req, res) => {
   // （不依賴 /decision-alert/ 的 rewrite）。正式站由 Vercel 把 /preview/* 映到
   // apps/preview/*；本地伺服器要自己做，否則模組靜默載不進來、頁面看起來卻正常。
   if (clean.startsWith('/preview/')) clean = '/apps' + clean;
+  // 空殼頁：給「只想在同源下載入某一支模組來驗純函式」的那一組用。
+  // （`about:blank` 的 origin 是 opaque，Chromium 會擋掉它的子資源載入。）
+  if (clean === '/__blank') {
+    res.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><title>blank</title>');
+    return;
+  }
   let file = join(repoRoot, clean);
   if (existsSync(file) && statSync(file).isDirectory()) file = join(file, 'index.html');
   if (!existsSync(file) || !file.startsWith(repoRoot)) {
@@ -58,28 +64,75 @@ function check(name, got, want) {
   console.log(`${ok ? '✓' : '✗'} ${name}${ok ? '' : `\n    got:  ${JSON.stringify(got)}\n    want: ${JSON.stringify(want)}`}`);
 }
 
-/** 假的 TENKI_STARDUST：記下呼叫序列，並回報自己掛在哪個節點上。 */
+/**
+ * 假的 TENKI_STARDUST：記下呼叫序列，並回報自己掛在哪個節點上。
+ *
+ * ⚠️ 2026-08-10 這支 stub 自己被抓出一個缺陷：它用一個布林
+ * `__sdHostMounted` 假裝「host 已持有綁定」，**但沒有真的 host 節點** ——
+ * 於是它模擬不出真實世界最關鍵的那件事：v6 的 `#universe` 是**隱形的**
+ * （住在 `visibility:hidden` 的 takeover 裡），佔著唯一的綁定卻沒人看得到。
+ * 因為模擬不出來，那條錯規則（一律不搶）就被寫成了通過的測試。
+ * 現在 stub 持有一個真的節點，可見性由測試指定 —— PLAYBOOK §3
+ * 「合成測試資料要帶著真實世界的耦合」。
+ */
 const STUB = `
 window.__sdCalls = [];
 window.__sdHostClass = null;
-window.__sdHostMounted = false;   // 模擬 host 頁面（v6）已持有綁定
+window.__sdTones = [];
+window.__sdMounts = [];   // 每次 mount 掛到誰身上（id 或 class），依序
+window.__sdLive = 0;      // 目前活著的 context 數
+window.__sdMaxLive = 0;   // 全程峰值 —— 這才是 OOM 顧慮真正要守的東西
 (function () {
-  var mounted = false;
+  var host = null;        // 目前綁定的節點（null = 未掛載）
+  var fit = false;
   window.TENKI_STARDUST = {
-    mount: function (el) {
-      if (window.__sdHostMounted || mounted) { window.__sdCalls.push('mount:refused'); return false; }
-      mounted = true;
+    mount: function (el, opts) {
+      if (host) { window.__sdCalls.push('mount:refused'); return false; }
+      host = el || document.getElementById('universe');
+      if (!host) { window.__sdCalls.push('mount:refused'); return false; }
+      fit = !!(opts && opts.fitContainer);
+      window.__sdLive += 1;
+      if (window.__sdLive > window.__sdMaxLive) window.__sdMaxLive = window.__sdLive;
       window.__sdCalls.push('mount');
-      window.__sdHostClass = el && el.className;
+      window.__sdMounts.push(host.id || host.className);
+      window.__sdHostClass = host.className;
       return true;
     },
-    unmount: function () { mounted = false; window.__sdCalls.push('unmount'); },
-    isMounted: function () { return window.__sdHostMounted || mounted; },
+    unmount: function () {
+      if (!host) return;
+      host = null; fit = false;
+      window.__sdLive -= 1;
+      window.__sdCalls.push('unmount');
+    },
+    isMounted: function () { return !!host; },
+    hostInfo: function () { return host ? { node: host, fitContainer: fit } : null; },
     playEntrance: function () { window.__sdCalls.push('playEntrance'); },
     setExpression: function () { window.__sdCalls.push('setExpression'); },
     clearExpression: function () { window.__sdCalls.push('clearExpression'); },
-    dim: function () {}, brighten: function () {}, destroy: function () { mounted = false; },
+    setTone: function (d) { window.__sdTones.push(d); window.__sdCalls.push('setTone'); },
+    clearTone: function () { window.__sdCalls.push('clearTone'); },
+    dim: function () {}, brighten: function () {},
+    destroy: function () { if (host) { host = null; window.__sdLive -= 1; } },
   };
+})();
+`;
+
+/**
+ * 讓一個**真的**節點先持有綁定，模擬 v6 的 `#universe`。
+ * `visible:false` 就是正式站上的實況：takeover 沒啟用時整層 visibility:hidden。
+ */
+const hostScript = (visible) => `
+(function () {
+  function put() {
+    var u = document.createElement('div');
+    u.id = 'universe';
+    u.style.cssText = 'position:fixed;inset:0;'
+      + (${visible ? "''" : "'visibility:hidden;'"});
+    document.body.appendChild(u);
+    window.TENKI_STARDUST.mount(u);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put);
+  else put();
 })();
 `;
 
@@ -116,7 +169,7 @@ async function newPage(opts = {}) {
   });
   const page = await ctx.newPage();
   await page.addInitScript(STUB
-    + (opts.hostMounted ? '\nwindow.__sdHostMounted = true;' : '')
+    + (opts.hostMounted ? hostScript(!!opts.hostVisible) : '')
     + (opts.faceMesh ? FACEMESH_STUB : ''));
   page.on('pageerror', (e) => { console.error('[pageerror]', e.message); fail += 1; });
   await page.goto(PAGE, { waitUntil: 'domcontentloaded' });
@@ -499,6 +552,16 @@ async function scanAndCancel(page) {
     // 明顯出界 → 解鎖
     await feed(0.25, 1);
     check('明顯出界才解鎖', await locked(), false);
+
+    // ── 量測中的顏色真的被臉驅動了 ──
+    // founder 2026-08-10 要「每次掃描都感應使用者變色」。這條走的是真的
+    // `onFaceResults → feedStardust → feedTone`，所以驗得到「有沒有在動」。
+    const tones = await page.evaluate(() => window.__sdTones.slice());
+    check('量測中有把色調推給星塵', tones.length > 0, true);
+    check('量測中不得往任何目標色收（那是收束才做的事）',
+      tones.every((t) => !t.toward && (t.mix === 0 || t.mix === undefined)), true);
+    check('色相位移留在小幅範圍內（不得跑進 gold 的語意領地）',
+      tones.every((t) => Math.abs(t.hue) <= 0.10001), true);
   }
   await ctx.close();
 }
@@ -777,13 +840,178 @@ async function scanAndCancel(page) {
   await ctx.close();
 }
 
-// ── 4. host 已持有綁定（v6 的 #universe）：不搶，也不炸 ──
+// ── 4. host 持有綁定但**看不見**（v6 的實況）：借過來，收尾還回去 ──
+//
+// 🔴 這一組先前寫的是「host 已綁定時不搶」—— 它把我一條錯規則固化成了通過的測試。
+// 正式站上 v6 的 `#universe` 住在平常 `visibility:hidden` 的 takeover 裡，
+// 於是一顆沒人看得到的星塵球佔著唯一的綁定，`/v3/` 的掃描框永遠拿不到
+// （founder 2026-08-10 實走：「結果頁下方 scan 是沒有星塵靈魂版」）。
+// 正確行為是**交接**：借走 → 用完還回去，全程只有一個 context 活著。
 {
-  const { ctx, page } = await newPage({ hostMounted: true });
+  const { ctx, page } = await newPage({ hostMounted: true, hostVisible: false });
   const calls = await scanAndCancel(page);
-  check('host 已綁定時不搶（不呼叫 playEntrance）', calls.includes('playEntrance'), false);
-  check('host 已綁定時掃描仍正常收尾', await page.evaluate(() => window.__done), true);
+  const mounts = await page.evaluate(() => window.__sdMounts.slice());
+  check('看不見的 host：掃描框借得到星塵', calls.includes('playEntrance'), true);
+  check('借用順序 = 先還掉 host、再掛掃描框',
+    mounts, ['universe', 'rs-stardust', 'universe']);
+  // ⚠️ 不要用「最後一次 mount 是 universe」當歸還的證據 —— 沒借的時候那條也成立
+  // （反向驗證時它照樣綠）。要問的是**收尾之後綁定確實回到原節點身上**。
+  check('收尾之後綁定回到原主身上', await page.evaluate(() => {
+    const h = window.TENKI_STARDUST.hostInfo();
+    return !!h && h.node.id === 'universe' && h.fitContainer === false;
+  }), true);
+  check('🔴 全程活著的 context 峰值 ≤ 1（原本的 OOM 顧慮）',
+    await page.evaluate(() => window.__sdMaxLive), 1);
+  check('真的借過（不是從頭到尾都沒動）',
+    await page.evaluate(() => window.__sdMounts.length), 3);
+  check('借用情境下掃描仍正常收尾', await page.evaluate(() => window.__done), true);
   await ctx.close();
+}
+
+// ── 4b. host 看得見（takeover 真的在跑）：仍然不搶 ──
+{
+  const { ctx, page } = await newPage({ hostMounted: true, hostVisible: true });
+  const calls = await scanAndCancel(page);
+  check('看得見的 host 不搶（不呼叫 playEntrance）', calls.includes('playEntrance'), false);
+  check('看得見的 host 不被拆掉', calls.includes('unmount'), false);
+  check('不搶時掃描仍正常收尾', await page.evaluate(() => window.__done), true);
+  await ctx.close();
+}
+
+// ── 4c. 走完一整次掃描：收束的顏色代表的是「結果」，不是當下的臉 ──
+//
+// 這一組**真的跑滿 8 秒的量測預算**（decision budget），不是加 class 演戲：
+// 持續餵合格的 landmark → 產品自己 finalize() → revealTone() 被真的呼叫。
+// 慢，但這是唯一能證明「gold 那一拍 + 落到帶位色」真的接上的方式。
+{
+  const { ctx, page } = await newPage({ faceMesh: true, hostMounted: true, hostVisible: false });
+  await page.evaluate(() => {
+    window.__done = false;
+    window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }).then(() => { window.__done = true; });
+  });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+  await page.waitForTimeout(300);
+  // 以真實時間持續餵臉（取樣是時間驅動的，一次塞完 N 幀不會推進預算）。
+  await page.evaluate(() => new Promise((done) => {
+    const half = 0.2375, eyeSpan = 0.26, eyeY = 0.44;
+    const make = () => {
+      const lm = [];
+      for (let i = 0; i < 478; i++) lm.push({ x: 0.5, y: 0.5, z: 0 });
+      lm[10] = { x: 0.5, y: 0.5 - half, z: 0 };
+      lm[152] = { x: 0.5, y: 0.5 + half, z: 0 };
+      lm[234] = { x: 0.5 - half, y: 0.5, z: 0 };
+      lm[454] = { x: 0.5 + half, y: 0.5, z: 0 };
+      lm[33] = { x: 0.5 - eyeSpan / 2, y: eyeY, z: 0 };
+      lm[263] = { x: 0.5 + eyeSpan / 2, y: eyeY, z: 0 };
+      lm[1] = { x: 0.5, y: eyeY + 0.5 * eyeSpan, z: 0 };
+      return lm;
+    };
+    const iv = setInterval(() => {
+      if (window.__rsFaceMesh) window.__rsFaceMesh({ multiFaceLandmarks: [make()] });
+    }, 60);
+    setTimeout(() => { clearInterval(iv); done(); }, 10500);
+  }));
+  const revealed = await page.evaluate(() =>
+    document.querySelector('#tenki-readiness-scan .rs-frame').classList.contains('revealed'));
+  check('餵滿預算後真的收束了（不是靠 harness 加 class）', revealed, true);
+  if (revealed) {
+    // gold → 帶位色的切換有 700ms 延遲，等它落地。
+    await page.waitForTimeout(900);
+    const tones = await page.evaluate(() => window.__sdTones.slice());
+    const withTarget = tones.filter((t) => t.toward);
+    check('收束時把顏色交給結果（出現往目標色收的指令）', withTarget.length >= 1, true);
+    check('SECURED 那一拍先走 gold', withTarget[0] && withTarget[0].toward, '#FFD46E');
+    check('最後停在該次帶位色（不是停在 gold）',
+      withTarget.length >= 2
+        && ['#00B4D8', '#64748B', '#C2703D'].indexOf(withTarget[withTarget.length - 1].toward) !== -1,
+      true);
+    // 借來的綁定在收束→關閉之後仍然要還回去。
+    await page.click('#tenki-readiness-scan .rs-done');
+    await page.waitForFunction(() => window.__done === true, { timeout: 5000 });
+    check('收束路徑也會把綁定還給原主',
+      await page.evaluate(() => window.__sdMounts.slice()),
+      ['universe', 'rs-stardust', 'universe']);
+    check('收束路徑的 context 峰值也 ≤ 1', await page.evaluate(() => window.__sdMaxLive), 1);
+  }
+  await ctx.close();
+}
+
+// ── 5. 色調層：預設是恆等變換，且鏡射的帶位色沒有漂走 ──
+//
+// founder 2026-08-10：「星塵靈魂的顏色能更多層次色彩變化，最好每次掃描都
+// 感應使用者變色」，並選了「保留身分，變化用疊加的」。
+//
+// ⚠️ three.js 被沙箱擋，**畫面驗不到**。但這一層的安全性質是純數學的：
+// 預設值下 `toneMatrix` 必須是單位矩陣，否則沒呼叫 setTone 的頁面
+// （story / soul-enroll / v6 takeover）會被連坐改掉 —— 那是 CLAUDE.md
+// 鎖定的 v25.8.2 資產。所以直接驗那個函式，不假裝驗到了畫面。
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  // 只給 stardust.js 需要的最小 THREE 面（它在頂層 new THREE.Clock()）。
+  await page.addInitScript(`
+    window.THREE = { Clock: function () { this.getElapsedTime = function () { return 0; }; } };
+  `);
+  page.on('pageerror', (e) => { console.error('[pageerror]', e.message); fail += 1; });
+  // 空白頁 + 真的檔案：驗的是**出貨的那支 stardust.js**，不是複製一份數學過來。
+  await page.goto(`${base}/__blank`, { waitUntil: 'domcontentloaded' });
+  await page.addScriptTag({ url: '/apps/preview/v6/stardust.js' });
+  await page.waitForFunction(() => !!window.TENKI_STARDUST);
+
+  const math = await page.evaluate(() => {
+    const M = window.TENKI_STARDUST.toneMatrix;
+    const apply = (m, c) => [
+      m[0] * c[0] + m[1] * c[1] + m[2] * c[2],
+      m[3] * c[0] + m[4] * c[1] + m[5] * c[2],
+      m[6] * c[0] + m[7] * c[1] + m[8] * c[2],
+    ];
+    const luma = (c) => 0.213 * c[0] + 0.715 * c[1] + 0.072 * c[2];
+    const px = [0, 0.8, 1]; // 星塵底部的 cyan
+    const rot = apply(M(0.12, 1), px);
+    const grey = apply(M(0, 0), px);
+    return {
+      identity: M(0, 1).map((v) => Math.round(v * 1e6) / 1e6),
+      lumaKept: Math.abs(luma(rot) - luma(px)) < 1e-3,
+      rotated: Math.abs(rot[0] - px[0]) > 0.05,
+      greyEqual: Math.abs(grey[0] - grey[1]) < 1e-6 && Math.abs(grey[1] - grey[2]) < 1e-6,
+      hasSetTone: typeof window.TENKI_STARDUST.setTone === 'function',
+      hasHostInfo: typeof window.TENKI_STARDUST.hostInfo === 'function',
+    };
+  });
+  check('🔴 預設值(hue0,sat1)是單位矩陣 —— 沒呼叫 setTone 的頁面不得被改到',
+    math.identity, [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  check('色相旋轉真的改了顏色', math.rotated, true);
+  check('色相旋轉保住亮度（只轉色相，不改明暗）', math.lumaKept, true);
+  check('sat=0 落到灰（三通道相等）', math.greyEqual, true);
+  check('setTone 有對外', math.hasSetTone, true);
+  check('hostInfo 有對外（借用方要靠它才還得回去）', math.hasHostInfo, true);
+  await ctx.close();
+}
+
+// ── 6. 收束的帶位色必須跟 tokens.css 同步（鏡射漂移守門員）──
+//
+// readiness-scan 自帶樣式、不假設 host 載了 tokens.css，所以 zone 色是**字面值鏡射**。
+// 鏡射必然漂移（PLAYBOOK §6 已經吃過三次虧），這裡讓它會喊痛：
+// 直接比對兩份檔案裡的值。⚠️ 要先剝掉註解，否則會掃到我自己寫的說明文字。
+{
+  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const scanSrc = strip(readFileSync(join(repoRoot, 'apps/preview/readiness-scan.js'), 'utf8'));
+  const tokensSrc = strip(readFileSync(join(repoRoot, 'apps/preview/tokens.css'), 'utf8'));
+  const bandTone = /BAND_TONE\s*=\s*\{([^}]*)\}/.exec(scanSrc);
+  const mirrored = {};
+  if (bandTone) {
+    for (const m of bandTone[1].matchAll(/(\w+)\s*:\s*'(#[0-9A-Fa-f]{6})'/g)) {
+      mirrored[m[1]] = m[2].toUpperCase();
+    }
+  }
+  const tokenOf = (name) => {
+    const m = new RegExp(`--zone-${name}\\s*:\\s*(#[0-9A-Fa-f]{6})`).exec(tokensSrc);
+    return m ? m[1].toUpperCase() : null;
+  };
+  check('BAND_TONE 有三個帶位', Object.keys(mirrored).sort(), ['clear', 'neutral', 'strain']);
+  for (const band of ['clear', 'neutral', 'strain']) {
+    check(`帶位色 ${band} 與 tokens.css 的 --zone-${band} 相同`, mirrored[band], tokenOf(band));
+  }
 }
 
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
