@@ -3453,7 +3453,7 @@ function renderFdcb(){
   }
   if(s === 'complete'){
     const tag = pendingClosure ? pendingClosure.tag : 'timed_out';
-    timeEl.textContent = OUTCOME_TEXT_V6[tag] || '已記錄';
+    timeEl.textContent = outcomeTextV6(tag);
     segEl.textContent = '';
     fdcb.classList.remove('in-readiness');
     fdcb.classList.toggle('closure-disciplined', isDisciplinedV6(tag));
@@ -3491,7 +3491,10 @@ function renderMarks(){
 
 // ── 收束：判定 outcome（鏡射 domain/decision-alert resolveOutcomeTag）+ 存進統一 store ──
 const OUTCOME_STORE_KEY_V6 = window.TENKI_OUTCOME.STORE_KEY;
-const OUTCOME_TEXT_V6 = { stayed_disciplined:'跟著流程完成', broke_discipline:'提前收束', timed_out:'完整走完' };
+// 呈現對照全部走共用模組（decision-outcome.js）—— 這四張表先前只認舊 tag，
+// 於是從快訊來的決策在 Session／Timeline／詳情全部掉進灰色 fallback。
+// 查不到就回 null，由呼叫端誠實留白，不編一個看起來像結果的預設值。
+const outcomeTextV6 = (tag) => (window.TENKI_OUTCOME.outcomeView(tag) || {}).text || '已記錄';
 let pendingClosure = null;
 function resolveOutcome(type, reached){
   if(type === 'timeout') return 'timed_out';           // 跑滿
@@ -3946,10 +3949,9 @@ renderFdcb();
 // 資料來自 TradingView 快訊決策 + v6 計時器決策，合流成同一份節奏歷史。
 // 只用 store 真的有的欄位，無 Edge Score / 生理數據 → 誠實呈現。
 // ═════════════════════════════════════════════════
-const OUTCOME_BADGE_V6 = {
-  stayed_disciplined: { text:'跟著流程', cls:'win' },
-  timed_out:          { text:'完整走完', cls:'breakeven' },
-  broke_discipline:   { text:'提前收束', cls:'loss' }
+const outcomeBadgeV6 = (tag) => {
+  const v = window.TENKI_OUTCOME.outcomeView(tag);
+  return v ? { text: v.badge, cls: v.cls } : { text: '已記錄', cls: 'breakeven' };
 };
 function escHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function prefersReducedV6(){ try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } }
@@ -3974,9 +3976,31 @@ function loadOutcomes(){
 }
 // templateId → {name,icon,color,segLabel}；找不到（例：舊快訊或已刪的自訂模板）就用 symbol fallback。
 function outcomeMeta(rec){
-  const t = TEMPLATES[rec.templateId];
+  // 快訊決策寫的是 engine 的 TraderTemplateId（FBD / CANSLIM / MODE_2），
+  // v6 的 TEMPLATES 用自己的一套 key —— **兩套從來沒對上**，於是那筆決策
+  // 失去方法論身分，fallback 成一顆灰色心跳圖示加上 symbol。翻譯放共用模組。
+  const t = TEMPLATES[window.TENKI_OUTCOME.toV6TemplateId(rec.templateId)];
   if(t) return { name:t.name, icon:t.icon, color:t.color, segLabel:t.segLabel };
   return { name: rec.symbol || '決策', icon:'heart', color:'#8E8E93', segLabel:'Readiness' };
+}
+/**
+ * 「有沒有進入核心段」這一格。
+ *
+ * 🔴 **沒有這個欄位就不准說「未達」。** v6 的計時器決策才有 `reachedReadiness`；
+ * 快訊決策（source:'alert'）走的是結構守望 + 判定，根本沒有這個量。
+ * 先前直接 `rec.reachedReadiness ? '達' : '未達'` —— `undefined` 落進 else，
+ * 於是畫面對一次**判定成立並進場**的決策印「未達 Readiness」。
+ * 那不是排版瑕疵，是**謊報**。缺欄位就報別的真事實（來源），不編一個否定。
+ *
+ * @param {Object} rec - 決策紀錄。
+ * @param {{segLabel:string}} meta - outcomeMeta 的結果。
+ * @returns {string}
+ */
+function readinessCellV6(rec, meta){
+  if(rec.reachedReadiness === undefined || rec.reachedReadiness === null){
+    return rec.source === 'alert' ? '快訊決策' : '—';
+  }
+  return (rec.reachedReadiness ? '達 ' : '未達 ') + meta.segLabel;
 }
 function fmtTimeOfDay(ts){
   const d = new Date(ts); if(isNaN(d.getTime())) return '—';
@@ -4013,8 +4037,8 @@ function renderSessionScreen(){
 
   document.getElementById('sessionList').innerHTML = recs.map((r, i) => {
     const m = outcomeMeta(r);
-    const badge = OUTCOME_BADGE_V6[r.outcomeTag] || { text:'已記錄', cls:'breakeven' };
-    const readiness = r.reachedReadiness ? ('達 ' + m.segLabel) : ('未達 ' + m.segLabel);
+    const badge = outcomeBadgeV6(r.outcomeTag);
+    const readiness = readinessCellV6(r, m);
     return '<div class="session-item sess-enter" style="animation-delay:' + (Math.min(i, 8) * 45) + 'ms" data-ts="' + r.ts + '" onclick="openSessionDetail(' + r.ts + ')">' +
       '<div class="tmpl-ic" style="color:' + m.color + '">' + (ICON_SVG[m.icon] || ICON_SVG.heart) + '</div>' +
       '<div class="info"><div class="nm">' + escHtml(m.name) + '</div>' +
@@ -4030,8 +4054,10 @@ function renderSessionScreen(){
 // 上半：決策時間軸 strip（24h 軸，x=時間、色=outcome、r=marks）
 // 下半：Event Log（每筆決策一列）。無 Edge Score / 連續訊號 → 不畫折線。
 // ═════════════════════════════════════════════════
-const OUTCOME_DOT_CLASS = { stayed_disciplined:'entry', timed_out:'exit', broke_discipline:'cancel' };
-const OUTCOME_DOT_FILL  = { stayed_disciplined:'var(--good)', timed_out:'var(--primary)', broke_discipline:'#ff7e76' };
+const outcomeDotV6 = (tag) => {
+  const v = window.TENKI_OUTCOME.outcomeView(tag);
+  return v ? { cls: v.dot, fill: v.fill } : { cls: 'exit', fill: 'var(--txt-sec)' };
+};
 
 function renderTimeline(){
   const recs = loadOutcomes().slice().sort((a,b) => (b.ts||0) - (a.ts||0));
@@ -4058,7 +4084,7 @@ function renderTimeline(){
     const mins = isNaN(d.getTime()) ? 0 : (d.getHours() * 60 + d.getMinutes());
     const x = padL + plot * (mins / 1440);
     const rad = 3 + Math.min(r.marks || 0, 6) * 0.7;
-    const fill = OUTCOME_DOT_FILL[r.outcomeTag] || 'var(--txt-sec)';
+    const fill = outcomeDotV6(r.outcomeTag).fill;
     return '<circle class="tl-dot" cx="' + x.toFixed(1) + '" cy="' + y + '" r="' + rad.toFixed(1) +
       '" fill="' + fill + '" style="animation-delay:' + (Math.min(i, 10) * 40) + 'ms;filter:drop-shadow(0 0 4px ' + fill + ')"/>';
   }).join('');
@@ -4066,8 +4092,8 @@ function renderTimeline(){
   // event log：每筆決策一列（dot 色沿用 outcome，右側顯示用時）
   document.getElementById('tlEventLog').innerHTML = recs.map((r, i) => {
     const m = outcomeMeta(r);
-    const dotCls = OUTCOME_DOT_CLASS[r.outcomeTag] || 'exit';
-    const txt = OUTCOME_TEXT_V6[r.outcomeTag] || '已記錄';
+    const dotCls = outcomeDotV6(r.outcomeTag).cls;
+    const txt = outcomeTextV6(r.outcomeTag);
     return '<div class="tl-event tl-enter" style="animation-delay:' + (Math.min(i, 8) * 40) + 'ms">' +
       '<div class="time">' + fmtTimeOfDay(r.ts) + '</div>' +
       '<div class="dot ' + dotCls + '"></div>' +
@@ -4096,7 +4122,7 @@ function openSessionDetail(ts){
   if(!rec) return;
   currentSessionTs = ts;
   const m = outcomeMeta(rec);
-  const badge = OUTCOME_BADGE_V6[rec.outcomeTag] || { text:'已記錄', cls:'breakeven' };
+  const badge = outcomeBadgeV6(rec.outcomeTag);
   const dur = rec.durationSec || 0;
   const b = segBounds(dur);
   const marks = rec.marks || 0;
@@ -4111,9 +4137,9 @@ function openSessionDetail(ts){
   const icEl = document.getElementById('sdOutcomeIc');
   icEl.style.color = m.color;
   icEl.innerHTML = ICON_SVG[m.icon] || ICON_SVG.heart;
-  document.getElementById('sdOutcomeHeadline').textContent = OUTCOME_TEXT_V6[rec.outcomeTag] || '已記錄';
+  document.getElementById('sdOutcomeHeadline').textContent = outcomeTextV6(rec.outcomeTag);
   document.getElementById('sdOutcomeSub').textContent =
-    (rec.reachedReadiness ? ('達 ' + m.segLabel) : ('未達 ' + m.segLabel)) + ' · ' + marks + ' marks';
+    readinessCellV6(rec, m) + ' · ' + marks + ' marks';
 
   // Segment track（三段由 durationSec 推導）
   document.getElementById('sdSegDur').textContent = fmtDur(dur);
@@ -4124,7 +4150,9 @@ function openSessionDetail(ts){
 
   // Facts
   document.getElementById('sdFactDur').textContent = fmtDur(dur);
-  document.getElementById('sdFactReadiness').textContent = rec.reachedReadiness ? '已進入' : '未進入';
+  document.getElementById('sdFactReadiness').textContent =
+    (rec.reachedReadiness === undefined || rec.reachedReadiness === null)
+      ? '—' : (rec.reachedReadiness ? '已進入' : '未進入');
   document.getElementById('sdFactMarks').textContent = String(marks);
 
   document.getElementById('sdInsight').innerHTML = buildDetailInsight(rec, m);

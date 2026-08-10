@@ -95,7 +95,77 @@
     }
   }
 
+  // ═══════════════════════════════════════════════
+  // 呈現對照 —— 紀錄要**認得出自己是誰**
+  // ═══════════════════════════════════════════════
+  // 2026-08-09：判定修好之後，Session 頁的百分比對了，我就宣告「接通了」。
+  // 但那筆決策到了 /v3/ 長成這樣：
+  //     ❤️ ES1!  ·  15:23 · 未達 Readiness · 0:04  ·  [已記錄]
+  // 四處都錯，而且**沒有一處會報錯**（全是 `|| fallback`）。
+  // ⚠️ 教訓：**一個數字對了不等於這筆紀錄被認得。**
+  // 所以呈現對照也收進這裡，跟判定同一個來源。
+
+  /**
+   * 模板 id 對照：快訊決策寫的是 engine 的 `TraderTemplateId`
+   * （`FBD` / `CANSLIM` / `MODE_2`，persisted contract），
+   * 而 v6 的 `TEMPLATES` 用自己的一套 key。**兩套從來沒對上** ——
+   * `TEMPLATES['FBD']` 是 undefined，於是決策失去方法論身分、
+   * fallback 成一顆灰色心跳圖示加上 symbol。
+   *
+   * ⚠️ **兩邊的 id 都不改** —— engine 那組是持久化契約，v6 那組是它自己的表；
+   * 動任何一邊都會弄壞既有紀錄。這裡只做翻譯。
+   */
+  var TEMPLATE_ID_TO_V6 = {
+    FBD: 'MANCINI_FBD',
+    CANSLIM: 'CANSLIM_GS',
+    MODE_2: 'CANSLIM_HIGH_RS',
+  };
+
+  /**
+   * 收束結果的呈現。**新舊語意都要有** —— 少了哪一個，那一筆就會掉進
+   * fallback 變成灰色的「已記錄」，看起來像沒被認得。
+   *
+   * `cls` 對應 v6 既有的 badge 樣式（win / breakeven / loss），
+   * `dot` 對應 Timeline 的點類別，`fill` 是點的顏色。
+   */
+  var OUTCOME_VIEW = {
+    // 新語意（structure_watch_v1）
+    judged_entered: { text: '判定成立 · 已進場', badge: '判定成立', cls: 'win', dot: 'entry', fill: 'var(--good)' },
+    judged_stood_down: { text: '判定不成立 · 未進場', badge: '判定不成立', cls: 'win', dot: 'exit', fill: 'var(--primary)' },
+    abandoned_no_judgment: { text: '沒有做出判定', badge: '未判定', cls: 'loss', dot: 'cancel', fill: '#ff7e76' },
+    // 舊語意（既有紀錄，仍要認得）
+    stayed_disciplined: { text: '跟著流程完成', badge: '跟著流程', cls: 'win', dot: 'entry', fill: 'var(--good)' },
+    timed_out: { text: '完整走完', badge: '完整走完', cls: 'breakeven', dot: 'exit', fill: 'var(--primary)' },
+    broke_discipline: { text: '提前收束', badge: '提前收束', cls: 'loss', dot: 'cancel', fill: '#ff7e76' },
+  };
+
+  /**
+   * 取這筆紀錄的呈現。查不到就回 null —— **由呼叫端決定怎麼誠實地留白**，
+   * 這裡不編一個看起來像結果的預設值。
+   *
+   * @param {string} tag
+   * @returns {?{text:string, badge:string, cls:string, dot:string, fill:string}}
+   */
+  function outcomeView(tag) {
+    return OUTCOME_VIEW[tag] || null;
+  }
+
+  /**
+   * 把快訊決策的 templateId 翻成 v6 的 key。翻不了就回原值
+   * （v6 自己寫的紀錄本來就是 v6 的 key，不需要翻譯）。
+   *
+   * @param {string} templateId
+   * @returns {string}
+   */
+  function toV6TemplateId(templateId) {
+    return TEMPLATE_ID_TO_V6[templateId] || templateId;
+  }
+
   global.TENKI_OUTCOME = {
+    TEMPLATE_ID_TO_V6: TEMPLATE_ID_TO_V6,
+    OUTCOME_VIEW: OUTCOME_VIEW,
+    outcomeView: outcomeView,
+    toV6TemplateId: toV6TemplateId,
     STORE_KEY: STORE_KEY,
     JUDGMENT_SCHEMA: JUDGMENT_SCHEMA,
     DISCIPLINED_TAGS: DISCIPLINED_TAGS,
