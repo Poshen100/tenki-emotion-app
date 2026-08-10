@@ -1512,12 +1512,41 @@
   // ── 星塵核心（North Star §4「內核 = 星塵靈魂」）──
 
   /**
-   * 這次掃描要不要放星塵。
+   * 這個節點現在看得見嗎。
    *
-   * 三種情況一律不放，而且都不是失敗：
-   * 1. 沒有 three.js / 沒載 stardust.js —— 那頁就只有極簡精密框，功能不受影響。
-   * 2. host 頁面已經持有綁定（v6 的 `#universe`）—— 第二個 WebGL context 疊在
-   *    相機 + MediaPipe 上是 iOS 的 OOM 區，寧可不放。
+   * `offsetParent` 對 `position:fixed` 會回 null（誤判），所以再問一次 CSS ——
+   * 星塵的 host 就有可能是 fixed 全屏層。
+   *
+   * @param {HTMLElement} node
+   * @returns {boolean}
+   */
+  function isVisible(node) {
+    if (!node || !node.isConnected) return false;
+    var cs = global.getComputedStyle ? global.getComputedStyle(node) : null;
+    if (cs && (cs.visibility === 'hidden' || cs.display === 'none')) return false;
+    var r = node.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
+  /**
+   * 這次掃描要不要放星塵，以及要不要**跟現任持有者借**。
+   *
+   * ⚠️ 這裡曾經有一條我自己寫錯的規則（2026-08-10 founder 實走抓到）：
+   * 「`isMounted()` 為真就一律不放」。理由寫的是「第二個 WebGL context 疊在
+   * 相機 + MediaPipe 上是 iOS 的 OOM 區」—— **理由對，結論錯。**
+   * `stardust.js` 在 DOM ready 時會 `autoMount()` 綁到 `#universe`，而 v6 的
+   * `#universe` 住在平常 `visibility:hidden` 的 takeover 裡 ——
+   * **於是 /v3/ 上有一顆沒人看得到的星塵球一直在燒 GPU，還佔著唯一的綁定**，
+   * 掃描框永遠拿不到（連帶 `feedStardust()` 整條也是死的）。
+   * 而 `/decision-alert/` 沒有 `#universe`，所以那個入口一直是好的 ——
+   * 同一支掃描在兩個入口長得不一樣，就是這個原因。
+   *
+   * 正確做法是**交接**而不是並存：把唯一那個借過來，收尾再還回去。
+   * 任何時刻仍然只有一個 context 活著，原本那條 OOM 顧慮完整保住。
+   *
+   * 三種情況仍然不放，而且都不是失敗：
+   * 1. 沒有 three.js / 沒載 stardust.js —— 那頁只有極簡精密框，功能不受影響。
+   * 2. 現任持有者**看得見**（takeover 正在跑）—— 那是真的在用，不能搶。
    * 3. 使用者開了「減少動態」—— 星塵是連續漂移，最誠實的靜態終態就是不出現
    *    （MOTION-DIRECTION 鐵律 3）。
    *
@@ -1526,28 +1555,65 @@
   function mountStardust() {
     var S = global.TENKI_STARDUST;
     if (!S || typeof S.mount !== 'function') return false;
-    if (typeof S.isMounted === 'function' && S.isMounted()) return false;
     if (global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
 
     var host = q('stardust');
     if (!host) return false;
+
+    if (typeof S.isMounted === 'function' && S.isMounted()) {
+      // 借之前一定要先問到 host —— `destroy()` 會把 container 設成 null，
+      // 拆完就沒有人記得該還給誰了。
+      var info = typeof S.hostInfo === 'function' ? S.hostInfo() : null;
+      if (!info || isVisible(info.node)) return false; // 真的在用 → 不搶
+      try {
+        S.unmount();
+      } catch (_) {
+        return false; // 拆不掉就不硬搶，維持原狀比壞掉好
+      }
+      session.borrowedFrom = info;
+    }
+
     // fitContainer：畫布跟著掃描框走，而不是視窗。三個既有的 #universe 頁面
     // 不傳這個旗標，走原本的 viewport 路徑，一個像素都不會變。
-    if (!S.mount(host, { fitContainer: true })) return false;
+    if (!S.mount(host, { fitContainer: true })) {
+      returnStardust(); // 借了卻掛不上 → 立刻還回去，不能把頁面留在沒有星塵的狀態
+      return false;
+    }
     if (typeof S.playEntrance === 'function') S.playEntrance();
     return true;
   }
 
+  /**
+   * 把借來的綁定還給原主。**借了就一定要還** —— 不還的話 v6 的 takeover
+   * 下次啟動時會是一顆空的 `#universe`。
+   */
+  function returnStardust() {
+    if (!session || !session.borrowedFrom) return;
+    var info = session.borrowedFrom;
+    session.borrowedFrom = null;
+    var S = global.TENKI_STARDUST;
+    if (!S || typeof S.mount !== 'function') return;
+    try {
+      // 用原本的掛法還回去：`#universe` 走 viewport 路徑（fitContainer:false），
+      // 還錯了等於偷偷改了那一頁的星塵尺寸。
+      S.mount(info.node, { fitContainer: info.fitContainer });
+    } catch (_) { /* 還不回去不該擋住掃描收尾 */ }
+  }
+
   /** 還掉 WebGL context。每次掃描結束都要做 —— 瀏覽器對同時存活的 context 有上限。 */
   function unmountStardust() {
-    if (!session || !session.stardust) return;
+    if (!session) return;
+    var borrowed = session.borrowedFrom;
+    if (!session.stardust && !borrowed) return;
     session.stardust = false;
     var S = global.TENKI_STARDUST;
     if (!S) return;
     try {
       if (typeof S.clearExpression === 'function') S.clearExpression();
+      if (typeof S.clearTone === 'function') S.clearTone();
       if (typeof S.unmount === 'function') S.unmount();
     } catch (_) { /* 拆卸失敗不該擋住掃描收尾 */ }
+    returnStardust();
   }
 
   // ── 生命週期 ──
@@ -1625,6 +1691,8 @@
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0,
         stardust: false,
+        // 借來的星塵綁定（`{node, fitContainer}`）。非 null 就代表**欠著一次歸還**。
+        borrowedFrom: null,
         // 主指令去抖動狀態：shown 為 null 代表「還沒顯示過」→ 第一條不等待。
         hintShown: null, hintPending: null, hintPendingAt: 0,
       };
