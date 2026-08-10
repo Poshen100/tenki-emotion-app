@@ -14,7 +14,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>TENKI CORE · 5-Tab Navigation</title>
-<link rel="stylesheet" href="../tokens.css">
+<!-- ⚠️ 絕對路徑，不能寫 `../tokens.css`：這一頁在正式站的網址是 `/v3/`（rewrite，
+     不是 redirect），所以相對路徑會解成 `/tokens.css`，掉進 vercel.json 最後那條
+     `/(.*)` → `/apps/web/$1`，而 apps/web 底下沒有這支 → 每次載入都 404。
+     （沒炸掉是因為本頁 :root 自己定義了用到的 token；靜默 404 而已。） -->
+<link rel="stylesheet" href="/preview/tokens.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
 .baseline-takeover-active .screens {
