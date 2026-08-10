@@ -67,6 +67,28 @@
     // Expression sync state
     var expr = { mouthOpen: 0, eyeOpen: 1, blinkFlash: 0, browTension: 0.5, active: false };
 
+    // ── Tone layer (2026-08-10) ───────────────────────────────────────────
+    // founder asked for "更多層次色彩變化, 每次掃描都感應使用者變色", and picked
+    // "keep the identity, layer the variation on top" over replacing the palette.
+    //
+    // 🔴 The v25.8.2 look is a locked asset (CLAUDE.md). The lock is honoured by a
+    // structural property, not by good intentions: **at default values this layer
+    // is an identity transform**, so every page that never calls setTone() —
+    // story.html, soul-enroll.html, the v6 takeover — renders byte-for-byte what
+    // it renders today. `toneIdle` short-circuits the work entirely.
+    //
+    // What varies is a *rotation of the whole cyan→purple→pink gradient*, never a
+    // swap of the palette: the relationships between the three stops survive, so
+    // the ball still reads as the same ball.
+    var tone = { hue: 0, sat: 1, mix: 0, r: 0, g: 0, b: 0 };       // smoothed, applied
+    var toneTarget = { hue: 0, sat: 1, mix: 0, r: 0, g: 0, b: 0 }; // requested
+    /** EWMA factor per recolour tick (~20fps). Slow enough that colour never snaps. */
+    var TONE_SMOOTH = 0.12;
+    /** Below this the smoothed tone counts as "off" and the fast path is taken. */
+    var TONE_EPS = 0.002;
+    /** Hue-rotation matrix, recomputed once per tick (not per particle). */
+    var toneMat = null;
+
     /**
      * Bind the stardust to a container element and start rendering.
      *
@@ -330,6 +352,17 @@
             // cadence — and the feel — stays the same whether render is 60 or 30fps.
             if (lastDriftT < 0 || t - lastDriftT >= 0.05) {
                 lastDriftT = t;
+
+                // Tone: ease toward the requested values, then build the 3×3 once
+                // for the whole cloud. Per particle this costs 9 multiplies —
+                // the same order as the shimmer that is already here, and it
+                // touches only the colour buffer (MOTION-DIRECTION §2: no layout).
+                stepTone();
+                var toned = !toneIdle();
+                var m = toned ? toneMat : null;
+                var mixAmt = tone.mix;
+                var tr = tone.r, tg = tone.g, tb = tone.b;
+
                 for (var i = 0; i < PARTICLE_COUNT; i++) {
                     var idx = i * 3;
                     var si = i * 4;
@@ -344,11 +377,26 @@
                     pos[idx + 1] = basePositions[idx + 1] + Math.cos(t * fy + i * 0.013) * amp;
                     pos[idx + 2] = basePositions[idx + 2] + Math.sin(t * fz + i * 0.017) * amp * 0.8;
 
+                    var br = baseColors[idx];
+                    var bg = baseColors[idx + 1];
+                    var bb = baseColors[idx + 2];
+
+                    if (toned) {
+                        // Rotate the gradient (identity is preserved), then pull
+                        // toward the moment's colour by `mix`.
+                        var rr = m[0] * br + m[1] * bg + m[2] * bb;
+                        var gg = m[3] * br + m[4] * bg + m[5] * bb;
+                        var bbv = m[6] * br + m[7] * bg + m[8] * bb;
+                        br = rr + (tr - rr) * mixAmt;
+                        bg = gg + (tg - gg) * mixAmt;
+                        bb = bbv + (tb - bbv) * mixAmt;
+                    }
+
                     // Subtle color shimmer: gentle hue shift over time
                     var shimmer = 0.025 * Math.sin(t * 0.5 + i * 0.003);
-                    col[idx]     = Math.max(0, Math.min(1, baseColors[idx]     + shimmer));
-                    col[idx + 1] = Math.max(0, Math.min(1, baseColors[idx + 1] + shimmer * 0.6));
-                    col[idx + 2] = Math.max(0, Math.min(1, baseColors[idx + 2] - shimmer * 0.3));
+                    col[idx]     = Math.max(0, Math.min(1, br + shimmer));
+                    col[idx + 1] = Math.max(0, Math.min(1, bg + shimmer * 0.6));
+                    col[idx + 2] = Math.max(0, Math.min(1, bb - shimmer * 0.3));
                 }
                 posAttr.needsUpdate = true;
                 colAttr.needsUpdate = true;
@@ -491,6 +539,131 @@
         contextLost = false;
         entranceStart = -1;
         mounted = false;
+        // Tone is per-session, not per-module: a borrowed context handed back to
+        // its original host must not arrive still wearing the scan's colour.
+        tone.hue = 0; tone.sat = 1; tone.mix = 0; tone.r = 0; tone.g = 0; tone.b = 0;
+        toneTarget.hue = 0; toneTarget.sat = 1; toneTarget.mix = 0;
+        toneTarget.r = 0; toneTarget.g = 0; toneTarget.b = 0;
+        toneMat = null;
+    }
+
+    // ── Tone: pure helpers ────────────────────────────────────────────────
+    // Kept side-effect free on purpose so they can be unit-verified directly
+    // (known input → known output) instead of only through a rendered frame,
+    // which the sandbox cannot produce (three.js is CDN-blocked).
+
+    /** Rec.709 luma weights — the axis both hue rotation and saturation pivot on. */
+    var LUM_R = 0.213, LUM_G = 0.715, LUM_B = 0.072;
+
+    /**
+     * Combined saturation + hue-rotation matrix, row-major 9-vector.
+     *
+     * Same construction as SVG `feColorMatrix` (`saturate` ∘ `hueRotate`), so the
+     * result matches what a designer would get from a CSS filter. Composing the
+     * two here means the per-particle inner loop stays a single 3×3 multiply.
+     *
+     * @param {number} hueTurns - Hue rotation in turns (1 = 360°).
+     * @param {number} sat - Saturation multiplier (1 = unchanged, 0 = greyscale).
+     * @returns {Array<number>} 9 coefficients, row-major.
+     */
+    function toneMatrix(hueTurns, sat) {
+        var a = hueTurns * Math.PI * 2;
+        var c = Math.cos(a);
+        var s = Math.sin(a);
+        // hueRotate
+        var h = [
+            LUM_R + c * (1 - LUM_R) - s * LUM_R,
+            LUM_G - c * LUM_G - s * LUM_G,
+            LUM_B - c * LUM_B + s * (1 - LUM_B),
+            LUM_R - c * LUM_R + s * 0.143,
+            LUM_G + c * (1 - LUM_G) + s * 0.140,
+            LUM_B - c * LUM_B - s * 0.283,
+            LUM_R - c * LUM_R - s * (1 - LUM_R),
+            LUM_G - c * LUM_G + s * LUM_G,
+            LUM_B + c * (1 - LUM_B) + s * LUM_B
+        ];
+        if (sat === 1) return h;
+        // saturate
+        var q = [
+            LUM_R + (1 - LUM_R) * sat, LUM_G - LUM_G * sat, LUM_B - LUM_B * sat,
+            LUM_R - LUM_R * sat, LUM_G + (1 - LUM_G) * sat, LUM_B - LUM_B * sat,
+            LUM_R - LUM_R * sat, LUM_G - LUM_G * sat, LUM_B + (1 - LUM_B) * sat
+        ];
+        // h · q
+        var o = new Array(9);
+        for (var r = 0; r < 3; r++) {
+            for (var k = 0; k < 3; k++) {
+                o[r * 3 + k] = h[r * 3] * q[k] + h[r * 3 + 1] * q[3 + k] + h[r * 3 + 2] * q[6 + k];
+            }
+        }
+        return o;
+    }
+
+    /** @returns {boolean} whether the smoothed tone is close enough to "off" to skip. */
+    function toneIdle() {
+        return Math.abs(tone.hue) < TONE_EPS
+            && Math.abs(tone.sat - 1) < TONE_EPS
+            && tone.mix < TONE_EPS;
+    }
+
+    /** Ease the applied tone toward the requested one and rebuild the matrix. */
+    function stepTone() {
+        tone.hue += (toneTarget.hue - tone.hue) * TONE_SMOOTH;
+        tone.sat += (toneTarget.sat - tone.sat) * TONE_SMOOTH;
+        tone.mix += (toneTarget.mix - tone.mix) * TONE_SMOOTH;
+        tone.r += (toneTarget.r - tone.r) * TONE_SMOOTH;
+        tone.g += (toneTarget.g - tone.g) * TONE_SMOOTH;
+        tone.b += (toneTarget.b - tone.b) * TONE_SMOOTH;
+        toneMat = toneIdle() ? null : toneMatrix(tone.hue, tone.sat);
+    }
+
+    /**
+     * Colour the cloud from whatever the caller actually measured.
+     *
+     * 🔴 **Defaults are an identity transform.** A page that never calls this
+     * renders exactly what it renders today — that is how the locked v25.8.2
+     * look survives this feature (CLAUDE.md).
+     *
+     * ⚠️ This module makes no claim about *what* the values mean. It rotates a
+     * gradient; naming the signal is the caller's job, and the caller must only
+     * feed it things it genuinely measured.
+     *
+     * @param {{hue?:number, sat?:number, toward?:string, mix?:number}} [data]
+     *   `hue` in turns (±0.5), `sat` multiplier, `toward` a CSS colour to pull
+     *   toward (resolve `var(--token)` before passing it — this runs per frame
+     *   and must not touch the cascade), `mix` 0..1 how far to pull.
+     */
+    function setTone(data) {
+        var d = data || {};
+        if (d.hue !== undefined) toneTarget.hue = Math.max(-0.5, Math.min(0.5, d.hue));
+        if (d.sat !== undefined) toneTarget.sat = Math.max(0, Math.min(3, d.sat));
+        if (d.mix !== undefined) toneTarget.mix = Math.max(0, Math.min(1, d.mix));
+        if (d.toward !== undefined) {
+            try {
+                var c = new THREE.Color(d.toward);
+                toneTarget.r = c.r; toneTarget.g = c.g; toneTarget.b = c.b;
+            } catch (_) { /* unparseable colour: keep the previous target */ }
+        }
+    }
+
+    /** Return to the resting palette. Smoothed, like every other tone change. */
+    function clearTone() {
+        toneTarget.hue = 0;
+        toneTarget.sat = 1;
+        toneTarget.mix = 0;
+    }
+
+    /**
+     * Who currently owns the binding, and how it was mounted.
+     *
+     * Needed because `destroy()` nulls `container`: a caller that wants to
+     * *borrow* the single context has to capture the host before tearing it
+     * down, or it has nothing to give back.
+     *
+     * @returns {?{node: HTMLElement, fitContainer: boolean}} null when unmounted.
+     */
+    function hostInfo() {
+        return container ? { node: container, fitContainer: fitContainer } : null;
     }
 
     /** Set expression data from FaceMesh pipeline */
@@ -531,6 +704,12 @@
         destroy: destroy,
         playEntrance: playEntrance,
         setExpression: setExpression,
-        clearExpression: clearExpression
+        clearExpression: clearExpression,
+        hostInfo: hostInfo,
+        setTone: setTone,
+        clearTone: clearTone,
+        // Exported for direct unit verification — the rendered frame is not
+        // reachable in the sandbox (three.js is CDN-blocked), but this is.
+        toneMatrix: toneMatrix
     };
 })(window);
