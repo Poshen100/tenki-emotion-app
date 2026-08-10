@@ -977,43 +977,55 @@
       browTension: browTension,
       blinkDetected: blinkDetected,
     });
-    feedTone(mouthOpen, browTension);
+    // ⚠️ `setExpression` 照舊餵 —— 那是 takeover 已經調過的手感通道（眨眼、尺度、
+    // 滾動），不動它。`feedTone` 不再吃 mouthOpen/browTension：量過之後那兩個在
+    // 掃描情境下幾乎是常數，見 feedTone 的說明。
+    feedTone();
   }
 
   /**
-   * 讓星塵的顏色跟著**這次真的量到的東西**走。
+   * 讓星塵跟著**這次真的量到的東西**走 —— 而且是**看得出來**地跟著。
    *
-   * 🔴 **這不是情緒偵測，也不准被講成情緒偵測。** 我們沒有量到「你現在焦慮」——
-   * 我們量到的是眉間距、嘴開合、位移穩定度（landmark 幾何）。顏色直接吃這些量，
-   * 所以它確實隨著你的臉在變、每次掃描都不同；但畫面上不會有任何一個字替它
-   * 貼情緒標籤（CLAUDE.md：禁止醫療診斷措辭；North Star：不放假的讀數）。
+   * 🔴 **這不是情緒偵測，也不准被講成情緒偵測。** 我們量到的是位移穩定度與
+   * 累積的有效量測（landmark 幾何 + 閘門）。畫面上不會有任何一個字替它貼情緒標籤
+   * （CLAUDE.md：禁止醫療診斷措辭；North Star：不放假的讀數）。
    *
-   * 對應關係刻意選得**說得出口**：
-   * - 色相位移 ← 眉間張力與嘴開合（臉上實際的變化）
-   * - 飽和度 ← 位移穩定度（越穩 → 顏色越純；晃動 → 顏色淡掉）
+   * ⚠️ **2026-08-10 重寫，因為第一版的訊號是死的。** 先前色相吃 `browTension`
+   * （兩眉之間的距離比值）與 `mouthOpen`。算過真實情境才發現：
+   *   用力皺眉 → 色相只動 **0.69°**；掃描時嘴閉著 → mouthOpen 恆為 ~0.1。
+   * founder 實走的一句「顏色好像沒變化？」就是這個。
+   * **訊號正規化成 0..1，不代表它會走遍 0..1 —— 要看真實分布。**
    *
-   * 🔴 **色相是單向的（0 → +TONE_LIVE_HUE），不得為負** —— 見該常數的說明：
-   * 負向會把底部的 cyan 轉成綠，而綠在這個產品裡已經是 `--good`。
-   * 所以這裡先把量測值收成一個 0..1 的 `drive`，再乘上限，**結構上就出不了負數**
-   * （不是靠 clamp 補救 —— clamp 會讓「為什麼不能為負」這件事從程式碼裡消失）。
+   * 改吃 `stillness`：每幀、真 0..1，**而且正是畫面上要求使用者控制的那個量**
+   * （「保持穩定」）。使用者做對了，主角就要看得出來 —— 那才是回饋迴圈。
    *
-   * ⚠️ 揭曉之後不再受這裡驅動 —— 那時顏色代表的是**結果**，不是當下的臉。
-   * 兩個階段搶同一個通道就會閃爍，所以用 `toneStage` 分開（單一來源）。
+   * - `stillness` → 飽和度 / 漸層收窄 / 粒子收斂 / 亮度（stardust 端的 readout 層）
+   * - `stillness` → 色相偏移：**越穩越回到 0**，也就是回到星塵原本的身分
+   * - `progress`  → 往 cyanCore 聚焦。用 `heldMs/budgetMs`，而它**只在閘門通過時
+   *   才前進** —— 所以那是「累積的有效量測」，不是計時器。
    *
-   * @param {number} mouthOpen - 已正規化 0..1。
-   * @param {number} browTension - 已正規化 0..1。
+   * 🔴 色相仍然單向（0 → +TONE_LIVE_HUE，不得為負）：負向會把底部的 cyan 轉成綠，
+   * 而綠在這個產品裡是 `--good`。這裡用 `1 - still` 當 drive，**結構上出不了負數**。
+   *
+   * ⚠️ 飽和度**不在這裡餵** —— 由 readout 層單一擁有（`effectiveSat()`）。
+   * 兩個地方寫同一個通道就會打架，那個 bug 類別已經咬過三次。
+   *
+   * ⚠️ 揭曉之後不再受這裡驅動 —— 那時顏色代表的是**結果**，不是當下的你。
    */
-  function feedTone(mouthOpen, browTension) {
+  function feedTone() {
     if (!session || session.toneStage !== 'live') return;
     var S = global.TENKI_STARDUST;
     if (!S || typeof S.setTone !== 'function') return;
     var still = session.lastStillness === null ? 0.5 : clamp01(session.lastStillness);
-    // 兩個實測量合成一個 0..1 的驅動值。眉間張力給主權重（它變化最連續），
-    // 嘴開合是次要的。兩者都已正規化成 0..1，所以 drive 也必然落在 0..1。
-    var drive = clamp01(clamp01(browTension) * 0.7 + clamp01(mouthOpen) * 0.3);
+    var progress = session.budgetMs > 0
+      ? clamp01(session.heldMs / session.budgetMs)
+      : 0;
+    if (typeof S.setReadout === 'function') {
+      S.setReadout({ stillness: still, progress: progress });
+    }
     S.setTone({
-      hue: drive * TONE_LIVE_HUE,
-      sat: 0.9 + still * 0.35,
+      // 晃動 → 偏離身分；穩住 → 回到身分。單向，不得為負。
+      hue: (1 - still) * TONE_LIVE_HUE,
       mix: 0,
     });
   }
@@ -1031,6 +1043,10 @@
     session.toneStage = 'reveal';
     var S = global.TENKI_STARDUST;
     if (!S || typeof S.setTone !== 'function') return;
+    // 🔴 交接點：量測期間飽和度歸 readout，收束之後歸 setTone。
+    // 先關掉 readout 再設 tone，否則兩個寫入者會搶同一個通道（`effectiveSat()`）。
+    // 收散/聚焦也在這裡停下 —— 揭曉的畫面應該是靜的，不該還有東西在收。
+    if (typeof S.clearReadout === 'function') S.clearReadout();
     var target = band && BAND_TONE[band];
     if (!target) {
       // 訊號不足：退掉彩度停在原本的漸層上，不編一個看起來像結果的顏色。
@@ -1719,6 +1735,7 @@
     try {
       if (typeof S.clearExpression === 'function') S.clearExpression();
       if (typeof S.clearTone === 'function') S.clearTone();
+      if (typeof S.clearReadout === 'function') S.clearReadout();
       if (typeof S.unmount === 'function') S.unmount();
     } catch (_) { /* 拆卸失敗不該擋住掃描收尾 */ }
     returnStardust();
