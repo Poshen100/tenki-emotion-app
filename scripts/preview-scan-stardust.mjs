@@ -600,6 +600,12 @@ async function scanAndCancel(page) {
     console.log(`   （stillness 實際跨度 ${stillSpan.toFixed(3)}，`
       + `${Math.min(...stills).toFixed(3)} → ${Math.max(...stills).toFixed(3)}）`);
     check('🔴 stillness 真的有跨度（≥ 0.25），不是一個常數點', stillSpan >= 0.25, true);
+    // 🔴 而且要真的**打到兩端** —— 這條守的是「重映射有沒有把實際工作區間
+    // 拉伸到滿」。原始 stillness 的定義域是 0..1，但實測只會走 0.5..0.95
+    // （founder 的讀數是 63/87/93%），不重映射就有一半以上的視覺預算永遠用不到，
+    // 結果就是他說的「看不出變化」。
+    check('🔴 重映射後有打到兩端（用滿視覺預算）',
+      Math.min(...stills) <= 0.05 && Math.max(...stills) >= 0.95, true);
     // 飽和度由 readout 端從 stillness 換算（0.70..1.35），所以跨度 0.25 的
     // stillness 會換出 ≥ 0.16 的飽和度差 —— 遠大於改版前的 0.087（全程）。
     check('色相真的隨著穩定度在變（不是每幀同一個值）',
@@ -1115,20 +1121,21 @@ async function scanAndCancel(page) {
     const liveHue = num(scanSource, 'TONE_LIVE_HUE');
     const satLo = num(dustSource, 'READOUT_SAT_LO');
     const satHi = num(dustSource, 'READOUT_SAT_HI');
-    const spreadLo = num(dustSource, 'READOUT_SPREAD_LO');
     const focusMax = num(dustSource, 'READOUT_FOCUS_MAX');
+    const scaleLo = num(dustSource, 'READOUT_SCALE_LO');
+    const scaleHi = num(dustSource, 'READOUT_SCALE_HI');
     // 聚焦目標色也要從產品讀 —— 在這裡複製一份就是又一個會漂移的鏡射。
     const focusTarget = (/FOCUS_TARGET\s*=\s*\[([^\]]+)\]/.exec(dustSource)?.[1] || '')
       .split(',').map((s) => Number(s.trim()));
     check('讀得到產品的所有色彩上下限（測試要跟著常數走）',
-      [liveHue, satLo, satHi, spreadLo, focusMax].every(Number.isFinite)
+      [liveHue, satLo, satHi, focusMax, scaleLo, scaleHi].every(Number.isFinite)
         && focusTarget.length === 3 && focusTarget.every(Number.isFinite), true);
     // 🔴 聚焦目標**不得是任何帶位色** —— 收向帶位色等於在還沒有結果時宣稱結果。
     const asHex = (a) => '#' + a.map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
     check('🔴 聚焦目標不得是帶位色（--zone-clear / neutral / strain）',
       ['#00B4D8', '#64748B', '#C2703D'].indexOf(asHex(focusTarget)) === -1, true);
 
-    const collision = await page.evaluate(([hueMax, sLo, sHi, spLo, fMax, target]) => {
+    const collision = await page.evaluate(([hueMax, sLo, sHi, fMax, target]) => {
       const M = window.TENKI_STARDUST.toneMatrix;
       const clamp = (v) => Math.max(0, Math.min(1, v));
       const apply = (m, c) => [
@@ -1162,34 +1169,88 @@ async function scanAndCancel(page) {
       };
       // 靜息漸層的三個色階（stardust.js buildScene 的 top/mid/bot）
       const STOPS = [[0, 0.8, 1], [0.6, 0.4, 1], [1, 0.4, 0.8]];
-      const GRAD_MID = [0.6, 0.4, 1];      // spread 收向它
-      let worst = { d: Infinity, name: null, hue: null, sat: null, spread: null, focus: null };
+      let worst = { d: Infinity, name: null, hue: null, sat: null, focus: null };
       for (let h = 0; h <= hueMax + 1e-9; h += 0.005) {
         for (let sat = sLo; sat <= sHi + 1e-9; sat += 0.05) {
-          for (let sp = spLo; sp <= 1 + 1e-9; sp += 0.05) {
-            for (let fo = 0; fo <= fMax + 1e-9; fo += 0.05) {
-              for (const st of STOPS) {
-                // 產品的順序：先 spread、再 focus、最後才進色相/飽和矩陣
-                let base = st.map((v, i) => GRAD_MID[i] + (v - GRAD_MID[i]) * sp);
-                base = base.map((v, i) => v + (target[i] - v) * fo);
-                const c = apply(M(h, sat), base);
-                for (const [name, v] of Object.entries(OWNED)) {
-                  const d = dE(c, hex(v));
-                  if (d < worst.d) worst = { d, name, hue: h, sat, spread: sp, focus: fo };
-                }
+          for (let fo = 0; fo <= fMax + 1e-9; fo += 0.05) {
+            for (const st of STOPS) {
+              // 產品的順序：先往 FOCUS_TARGET 收，最後才進色相/飽和矩陣
+              const base = st.map((v, i) => v + (target[i] - v) * fo);
+              const c = apply(M(h, sat), base);
+              for (const [name, v] of Object.entries(OWNED)) {
+                const d = dE(c, hex(v));
+                if (d < worst.d) worst = { d, name, hue: h, sat, focus: fo };
               }
             }
           }
         }
       }
       return worst;
-    }, [liveHue, satLo, satHi, spreadLo, focusMax, focusTarget]);
+    }, [liveHue, satLo, satHi, focusMax, focusTarget]);
 
     console.log(`   （最接近的是「${collision.name}」，ΔE ${collision.d.toFixed(1)}`
       + ` @hue ${collision.hue.toFixed(3)} sat ${collision.sat.toFixed(2)}`
-      + ` spread ${collision.spread.toFixed(2)} focus ${collision.focus.toFixed(2)}）`);
+      + ` focus ${collision.focus.toFixed(2)}）`);
     check('🔴 量測中的顏色不得撞上已被指派意義的顏色（ΔE ≥ 25）',
       collision.d >= 25, true);
+
+    // ── 🔴🔴 這一刀的核心：驗「使用者看不看得出來」，不是「參數有沒有變」 ──
+    //
+    // 前三輪我都只驗到「參數確實被設定成不同的值」，而 founder 三次回報
+    // 「看不出變化」。**參數變了不等於畫面變了。**
+    //   ·「粒子收散 ×1.35 → ×0.55」聽起來是 2.5 倍，實際位移差 **2.2px**
+    //   ·「飽和度 0.70–1.35」聽起來是 7.5×，但材質是 AdditiveBlending，
+    //     密集區疊加到白，**同色系內的差異被壓掉**
+    // 所以這裡改成量**可見的結果**：
+    //   ① 漸層的內部 ΔE 跨度 —— 「一團彩色」與「一顆單色」的差別，
+    //      這個是類別差異，additive 壓不掉它
+    //   ② 尺度比 —— 絕對幾何，不受混色影響
+    const visible = await page.evaluate(([sLo, sHi, fMax, target, scLo, scHi]) => {
+      const M = window.TENKI_STARDUST.toneMatrix;
+      const clamp = (v) => Math.max(0, Math.min(1, v));
+      const apply = (m, c) => [
+        clamp(m[0] * c[0] + m[1] * c[1] + m[2] * c[2]),
+        clamp(m[3] * c[0] + m[4] * c[1] + m[5] * c[2]),
+        clamp(m[6] * c[0] + m[7] * c[1] + m[8] * c[2]),
+      ];
+      const fi = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+      const lab = (c) => {
+        const g = c.map((v) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+        const X = (g[0] * 0.4124 + g[1] * 0.3576 + g[2] * 0.1805) / 0.95047;
+        const Y = g[0] * 0.2126 + g[1] * 0.7152 + g[2] * 0.0722;
+        const Z = (g[0] * 0.0193 + g[1] * 0.1192 + g[2] * 0.9505) / 1.08883;
+        return [116 * fi(Y) - 16, 500 * (fi(X) - fi(Y)), 200 * (fi(Y) - fi(Z))];
+      };
+      const dE = (a, b) => {
+        const A = lab(a); const B = lab(b);
+        return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
+      };
+      const STOPS = [[0, 0.8, 1], [0.6, 0.4, 1], [1, 0.4, 0.8]];
+      // 漸層「有多彩」= 三個色階彼此之間最大的 ΔE
+      const spanAt = (focus, sat) => {
+        const cs = STOPS.map((st) => apply(M(0, sat), st.map((v, i) => v + (target[i] - v) * focus)));
+        let mx = 0;
+        for (let a = 0; a < cs.length; a += 1) {
+          for (let b = a + 1; b < cs.length; b += 1) mx = Math.max(mx, dE(cs[a], cs[b]));
+        }
+        return mx;
+      };
+      return {
+        movingSpan: spanAt(0, sLo),        // 晃動端：完整漸層
+        stillSpan: spanAt(fMax, sHi),      // 靜止端：收成單色
+        scaleRatio: scLo / scHi,
+      };
+    }, [satLo, satHi, focusMax, focusTarget, scaleLo, scaleHi]);
+
+    console.log(`   （漸層彩度跨度：晃動 ΔE ${visible.movingSpan.toFixed(0)}`
+      + ` → 靜止 ΔE ${visible.stillSpan.toFixed(0)}；`
+      + `尺度比 ${visible.scaleRatio.toFixed(3)}）`);
+    check('🔴 晃動端是「一團彩色」（三個色階彼此 ΔE ≥ 60）',
+      visible.movingSpan >= 60, true);
+    check('🔴 靜止端是「一顆單色」（三個色階彼此 ΔE ≤ 10）',
+      visible.stillSpan <= 10, true);
+    check('🔴 尺度差看得出來（靜止/晃動 ≤ 0.78）',
+      visible.scaleRatio <= 0.78, true);
     // ⚠️ 這裡本來還有一條「綠離得夠遠」的專屬斷言，**已經拿掉**：
     // `--good` 已經在上面 OWNED 表裡（現行設計下 ΔE 82.7），而那條專屬版
     // 想不出任何會讓它變紅的改動 —— 反向驗證不了的斷言只會讓人誤以為多守了一層。
