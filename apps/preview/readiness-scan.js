@@ -147,6 +147,11 @@
    */
   var TONE_LIVE_HUE = 0.06;
   /**
+   * 星塵讀出的 stillness 高錨（低錨用 `LANDMARK_STILL_GATE`）。
+   * 0.95 而不是 1.00 —— 要求使用者做到完美才給滿分的回饋，那個回饋等於拿不到。
+   */
+  var READOUT_STILL_HI = 0.95;
+  /**
    * 光弧起點位移（周長比例）—— 把起點從 SVG rect 的預設起點移到**上緣正中**。
    *
    * 推導（rect x=1 y=1 w=h=234 rx=ry=63）：直線段 = 234 - 2×63 = 108；
@@ -1021,13 +1026,37 @@
       ? clamp01(session.heldMs / session.budgetMs)
       : 0;
     if (typeof S.setReadout === 'function') {
-      S.setReadout({ stillness: still, progress: progress });
+      S.setReadout({ stillness: readoutStillness(still), progress: progress });
     }
     S.setTone({
       // 晃動 → 偏離身分；穩住 → 回到身分。單向，不得為負。
       hue: (1 - still) * TONE_LIVE_HUE,
       mix: 0,
     });
+  }
+
+  /**
+   * 把 stillness 的**實際工作區間**拉伸到完整的 0..1 再交給星塵。
+   *
+   * 🔴 為什麼不能直接餵原始值：0..1 是它的**定義域**，不是它**會走到**的範圍。
+   * founder 實測讀數是 63% / 87% / 93%，而 `LANDMARK_STILL_GATE = 0.5` 是閘門門檻 ——
+   * 也就是說真正會發生的區間大約 `0.5 → 0.95`。直接餵原始值等於把一半以上的
+   * 視覺預算浪費在永遠不會到達的區段，效果就是 founder 說的「看不出變化」。
+   *
+   * ⚠️ 低端**錨在閘門門檻上**（不是隨手挑一個數）：閘門不過的那一刻正好是視覺最散的
+   * 那一刻，畫面的極值與量測自己的判準對齊。高端 0.95 留一點餘裕 —— 要求使用者
+   * 做到 1.00 才給滿分的回饋，那個回饋等於拿不到。
+   *
+   * 這是「訊號正規化成 0..1 不代表它會走遍 0..1」那一課的第二次應用；
+   * 上一次是輸入端（browTension），這次是輸出端的動態範圍。
+   *
+   * @param {number} still - 原始 stillness 0..1。
+   * @returns {number} 拉伸後的 0..1。
+   */
+  function readoutStillness(still) {
+    var span = READOUT_STILL_HI - LANDMARK_STILL_GATE;
+    if (span <= 0) return clamp01(still);
+    return clamp01((still - LANDMARK_STILL_GATE) / span);
   }
 
   /**
