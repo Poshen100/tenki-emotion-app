@@ -105,32 +105,52 @@
     var readout = { active: false, still: 0.5, prog: 0, sStill: 0.5, sProg: 0 };
     /** EWMA per animation frame. 比 tone 稍快 —— 這是回饋迴圈，慢了就感覺不到因果。 */
     var READOUT_SMOOTH = 0.08;
-    /** 漂移倍率：晃動時放大、靜止時收斂。 */
-    var READOUT_DRIFT_HI = 1.35;
-    var READOUT_DRIFT_LO = 0.55;
-    /** 漸層寬度：1 = 原本的 cyan→purple→pink 全幅；越小越收向中心。 */
-    var READOUT_SPREAD_HI = 1.0;
-    var READOUT_SPREAD_LO = 0.45;
     /**
-     * 飽和度範圍。**下限 0.70 不是隨手挑的**：再往下（0.55）去飽和的青會逼近
-     * `--zone-neutral #64748B`（ΔE 22.4），而那個色代表「Neutral 帶位」——
-     * 等於在還沒有結果時宣稱 Neutral。0.70 時最小 ΔE 27.3。
-     * 這是 `scripts/preview-scan-stardust.mjs` 的 ΔE 掃描抓出來的，改之前先看它。
+     * 🔴 **粒子漂移不再當作回饋通道。**
+     *
+     * 量過才知道：漂移振幅是 0.02–0.07，而球半徑是 2.5 ——
+     * ×1.35 vs ×0.55 的位移差只有**半徑的 1.44%，在手機上約 2.2px**。
+     * founder 三次回報「看不出變化」，這是主因之一。
+     * **倍率聽起來很大不代表看得見。** 收散改由整體尺度承擔（見下），
+     * 那個才有絕對幅度。這裡保留一點點，只當作質感而不是訊號。
      */
-    var READOUT_SAT_LO = 0.70;
+    var READOUT_DRIFT_HI = 1.15;
+    var READOUT_DRIFT_LO = 0.85;
+    /**
+     * 顏色收斂：**這是「穩 vs 晃」的主通道，而且是類別差異而不是程度差異。**
+     *
+     * 晃動 → 0（完整 cyan→purple→pink 漸層，一團彩色的雲）
+     * 穩住 → 1（全部收成單一 `FOCUS_TARGET`，一顆純青的核）
+     *
+     * ⚠️ 之前用「飽和度 + 21.6° 色相 + 漸層收窄」都失敗，因為材質是
+     * `AdditiveBlending`：密集區疊加到白，**同一色系內的差異會被壓掉**。
+     * 唯一躲得過那個壓縮的是「顏色的組成變了」——彩色 vs 單色。
+     */
+    var READOUT_FOCUS_MAX = 1.0;
+    /**
+     * 飽和度範圍。**下限 0.95**：ΔE 掃描顯示「半收斂 + 低飽和」會逼近
+     * `--zone-neutral #64748B`（0.70 時只有 20.6），而那個色代表「Neutral 帶位」。
+     * 0.95 時全幅收斂仍有 ΔE 25.8。
+     * ⚠️ 反正它本來就不是可讀的通道（additive 壓掉），預算讓給顏色收斂與尺度。
+     */
+    var READOUT_SAT_LO = 0.95;
     var READOUT_SAT_HI = 1.35;
     /**
-     * 進度收向 `FOCUS_TARGET` 的上限。
-     *
-     * ⚠️ 0.30 是 ΔE 掃描定出來的，不是手感挑的：再往上（0.45/0.55）時，
-     * 「收向青 + 低飽和」的組合會逼近 `--zone-neutral #64748B`（ΔE 20.4 / 17.0）——
-     * 那個色代表「Neutral 帶位」。0.30 時最小 ΔE 27.3，且限制條件回到 coral。
+     * stillness 帶來的整體尺度：晃動時脹大、穩住時收成一顆核。
+     * 0.86–1.18 ≈ 32%，在 300px 的球上約 48px —— 跟先前 6%（9px）差一個量級。
      */
-    var READOUT_FOCUS_MAX = 0.30;
-    /** 進度帶來的尺度收緊（1 → 0.94），讓 10 秒看得出在聚焦。 */
-    var READOUT_SCALE_TIGHTEN = 0.06;
-    /** 漸層中心（= buildScene 的 midColor 0x9966FF），spread 收向它。 */
-    var GRAD_MID = [0.6, 0.4, 1];
+    var READOUT_SCALE_LO = 0.86;
+    var READOUT_SCALE_HI = 1.18;
+    /**
+     * 總尺度上限。`exprScale`（眼開合 × 嘴開合，0.8–1.56）會跟這裡相乘，
+     * 不夾住的話晃動端可能脹出掃描框。夾在今天實際會到的上限，
+     * **保證這一刀不會讓球比現在更大**。
+     */
+    var READOUT_SCALE_CAP = 1.56;
+    /** 進度帶來的亮度提升 —— 累積的有效量測越多，球越實。 */
+    var READOUT_PROG_LIFT = 0.10;
+    /** stillness 帶來的亮度範圍（原本只有 ±0.06，看不出來）。 */
+    var READOUT_OPACITY_SWING = 0.18;
     /**
      * progress 聚焦的目標色 = `cyanActive #22D3EE`。
      *
@@ -424,20 +444,21 @@
                 var mixAmt = tone.mix;
                 var tr = tone.r, tg = tone.g, tb = tone.b;
 
-                // Readout 的顏色兩件事，都在進 tone 矩陣**之前**做，
+                // Readout 的顏色只剩**一件事**，在進 tone 矩陣之前做，
                 // 這樣既有的 ΔE 守門員只要跟著擴大掃描空間就仍然涵蓋得到：
-                //   spread —— 你越穩，漸層越往中心收（靈魂收攏成一個顏色）
-                //   focus  —— 累積的有效量測越多，越收向 cyanActive（= 掃描中/live）
-                // 🔴 focus **只收向 cyanCore，絕不收向帶位色** ——
-                //    在還沒有結果時收向 Clear/Neutral/Strain 等於宣稱結果。
-                var spread = 1;
-                var focus = 0;
-                if (readout.active) {
-                    spread = READOUT_SPREAD_HI
-                        + (READOUT_SPREAD_LO - READOUT_SPREAD_HI) * readout.sStill;
-                    focus = readout.sProg * READOUT_FOCUS_MAX;
-                }
-                var shaped = readout.active && (spread !== 1 || focus > 0);
+                //
+                //   focus —— 你越穩，所有粒子越收成同一個顏色。
+                //   晃動 = 一團彩色的雲；穩住 = 一顆純青的核。**這是類別差異**，
+                //   而類別差異是唯一躲得過 AdditiveBlending 壓縮的東西
+                //   （同色系內的飽和度/色相差異在密集區會被疊加到白，看不出來）。
+                //
+                // 🔴 只收向 `FOCUS_TARGET`（cyanActive = 掃描中/live），
+                //    **絕不收向帶位色** —— 在還沒有結果時收向 Clear/Neutral/Strain
+                //    等於宣稱結果。
+                // ⚠️ 先前還有一個 `spread`（收向漸層中心 = 紫）已移除：跟 focus 重複，
+                //    而且「穩住 → 變得更紫」是錯的故事（紫留給 session/Premium）。
+                var focus = readout.active ? readout.sStill * READOUT_FOCUS_MAX : 0;
+                var shaped = readout.active && focus > 0;
 
                 for (var i = 0; i < PARTICLE_COUNT; i++) {
                     var idx = i * 3;
@@ -458,10 +479,7 @@
                     var bb = baseColors[idx + 2];
 
                     if (shaped) {
-                        // 往漸層中心收（收窄層次），再往 cyanActive 收（聚焦＝「掃描中」）
-                        br = GRAD_MID[0] + (br - GRAD_MID[0]) * spread;
-                        bg = GRAD_MID[1] + (bg - GRAD_MID[1]) * spread;
-                        bb = GRAD_MID[2] + (bb - GRAD_MID[2]) * spread;
+                        // 全部往 cyanActive 收 —— 收滿時整顆是同一個顏色。
                         br += (FOCUS_TARGET[0] - br) * focus;
                         bg += (FOCUS_TARGET[1] - bg) * focus;
                         bb += (FOCUS_TARGET[2] - bb) * focus;
@@ -528,12 +546,19 @@
                 }
             }
 
-            // Readout: 累積的有效量測越多，球越收緊 —— 10 秒之間看得出它在聚焦。
-            var focusScale = readout.active
-                ? 1 - readout.sProg * READOUT_SCALE_TIGHTEN
+            // Readout: 晃動時脹大、穩住時收成一顆核。
+            // ⚠️ 這一段承擔的是先前交給「粒子漂移」的工作 —— 那個的位移差只有 2.2px，
+            // 這裡是整體尺度 32%（300px 的球上約 48px），差一個量級。
+            var readoutScale = readout.active
+                ? READOUT_SCALE_HI + (READOUT_SCALE_LO - READOUT_SCALE_HI) * readout.sStill
                 : 1;
 
-            var totalScale = breath * exprScale * entScale * focusScale;
+            var totalScale = breath * exprScale * entScale * readoutScale;
+            // 夾住上限 —— exprScale 最大到 1.56，相乘後可能脹出掃描框。
+            // 夾在今天實際會到的值，保證這一刀不會讓球比現在更大。
+            if (readout.active && entranceStart < 0 && totalScale > READOUT_SCALE_CAP) {
+                totalScale = READOUT_SCALE_CAP;
+            }
             cloud.scale.set(totalScale, totalScale, totalScale);
         }
 
@@ -549,8 +574,10 @@
                 // 眨眼是**真的量到的離散事件**，值得一道看得見的脈衝而不只是變暗一點。
                 // 先前只有 −0.35 的凹陷，在深色背景上幾乎看不出來。
                 op += expr.blinkFlash * 0.55;
-                // 越穩越亮：跟飽和度同方向，讓「穩住」這件事在亮度上也有回饋。
-                op += (readout.sStill - 0.5) * 0.12;
+                // 越穩越亮。範圍從 ±0.06 拉到 ±0.18 —— 前者在 additive 混色下看不出來。
+                op += (readout.sStill - 0.5) * READOUT_OPACITY_SWING * 2;
+                // 累積的有效量測越多，球越實。
+                op += readout.sProg * READOUT_PROG_LIFT;
             }
             material.opacity = Math.max(0.4, Math.min(1.0, op));
         }
@@ -808,7 +835,8 @@
      * 目前套用中的讀出量（已平滑）。給 harness 驗「通道真的有動」用 ——
      * 渲染結果在容器裡看不到（three.js 被沙箱擋），但這些數字看得到。
      *
-     * @returns {{active:boolean, stillness:number, progress:number, sat:number, spread:number, drift:number}}
+     * @returns {{active:boolean, stillness:number, progress:number, sat:number,
+     *   focus:number, scale:number, drift:number}}
      */
     function readoutState() {
         return {
@@ -816,7 +844,12 @@
             stillness: readout.sStill,
             progress: readout.sProg,
             sat: effectiveSat(),
-            spread: READOUT_SPREAD_HI + (READOUT_SPREAD_LO - READOUT_SPREAD_HI) * readout.sStill,
+            // focus 與 scale 是這一刀的兩個主通道，**harness 要靠它們去驗
+            // 「使用者看不看得出來」**（顏色收成單色的程度、球脹縮的比例）。
+            focus: readout.active ? readout.sStill * READOUT_FOCUS_MAX : 0,
+            scale: readout.active
+                ? READOUT_SCALE_HI + (READOUT_SCALE_LO - READOUT_SCALE_HI) * readout.sStill
+                : 1,
             drift: READOUT_DRIFT_HI + (READOUT_DRIFT_LO - READOUT_DRIFT_HI) * readout.sStill,
         };
     }
