@@ -89,6 +89,45 @@
     /** Hue-rotation matrix, recomputed once per tick (not per particle). */
     var toneMat = null;
 
+    // ── Readout layer (2026-08-10, second pass) ───────────────────────────
+    // founder 實走：「顏色好像沒變化？」＋「不要只是還不錯，我要的是棒透了」。
+    //
+    // 第一版的色調吃 `browTension` / `mouthOpen` —— 算過之後那兩個在掃描情境下
+    // **幾乎是常數**（用力皺眉只讓色相動 0.69°；嘴閉著 mouthOpen 恆為 ~0.1）。
+    // 訊號正規化成 0..1 不代表它會**走遍** 0..1，我當初沒查真實分布。
+    //
+    // 這一層改吃 `stillness` —— 每幀、真 0..1，而且**正是我們要求使用者控制的那個量**
+    // （畫面上寫著「保持穩定」，主角卻對它毫無反應，那就是「還不錯」與「棒透了」的差距）。
+    // 外加 `progress`（累積的有效量測，不是計時器）。
+    //
+    // 🔴 一樣用結構守住鎖定資產：**沒呼叫 setReadout 就完全 inert**，
+    // story / soul-enroll / v6 takeover 逐位元組不變。
+    var readout = { active: false, still: 0.5, prog: 0, sStill: 0.5, sProg: 0 };
+    /** EWMA per animation frame. 比 tone 稍快 —— 這是回饋迴圈，慢了就感覺不到因果。 */
+    var READOUT_SMOOTH = 0.08;
+    /** 漂移倍率：晃動時放大、靜止時收斂。 */
+    var READOUT_DRIFT_HI = 1.35;
+    var READOUT_DRIFT_LO = 0.55;
+    /** 漸層寬度：1 = 原本的 cyan→purple→pink 全幅；越小越收向中心。 */
+    var READOUT_SPREAD_HI = 1.0;
+    var READOUT_SPREAD_LO = 0.45;
+    /**
+     * 飽和度範圍。**下限 0.70 不是隨手挑的**：再往下（0.55）去飽和的青會逼近
+     * `--zone-neutral #64748B`（ΔE 22.4），而那個色代表「Neutral 帶位」——
+     * 等於在還沒有結果時宣稱 Neutral。0.70 時最小 ΔE 27.3。
+     * 這是 `scripts/preview-scan-stardust.mjs` 的 ΔE 掃描抓出來的，改之前先看它。
+     */
+    var READOUT_SAT_LO = 0.70;
+    var READOUT_SAT_HI = 1.35;
+    /** 進度收向 cyanCore 的上限。留一截給漸層，收滿了就沒有層次可看。 */
+    var READOUT_FOCUS_MAX = 0.55;
+    /** 進度帶來的尺度收緊（1 → 0.94），讓 10 秒看得出在聚焦。 */
+    var READOUT_SCALE_TIGHTEN = 0.06;
+    /** 漸層中心（= buildScene 的 midColor 0x9966FF），spread 收向它。 */
+    var GRAD_MID = [0.6, 0.4, 1];
+    /** cyanCore #00B4D8 —— ACTIVE 的語意色，progress 收向它（**不是**帶位色）。 */
+    var CYAN_CORE = [0, 0.706, 0.847];
+
     /**
      * Bind the stardust to a container element and start rendering.
      *
@@ -335,6 +374,8 @@
         // Auto-decay blink flash
         expr.blinkFlash *= 0.82;
 
+        stepReadout();
+
         if (cloud) {
             // ── Per-particle organic drift ──
             var posAttr = cloud.geometry.getAttribute('position');
@@ -346,6 +387,11 @@
             var driftMult = 0.95;
             if (expr.active) {
                 driftMult += expr.mouthOpen * 0.48 + expr.browTension * 0.28;
+            }
+            // Readout: 你越穩，粒子越安定。這是「保持穩定」那句指令的回饋迴圈 ——
+            // 使用者做對了，主角要看得出來。(founder 2026-08-10 放寬了漂移的鎖)
+            if (readout.active) {
+                driftMult *= READOUT_DRIFT_HI + (READOUT_DRIFT_LO - READOUT_DRIFT_HI) * readout.sStill;
             }
 
             // Throttle drift to ~20fps by ELAPSED TIME (was: assume 60fps), so the
@@ -362,6 +408,21 @@
                 var m = toned ? toneMat : null;
                 var mixAmt = tone.mix;
                 var tr = tone.r, tg = tone.g, tb = tone.b;
+
+                // Readout 的顏色兩件事，都在進 tone 矩陣**之前**做，
+                // 這樣既有的 ΔE 守門員只要跟著擴大掃描空間就仍然涵蓋得到：
+                //   spread —— 你越穩，漸層越往中心收（靈魂收攏成一個顏色）
+                //   focus  —— 累積的有效量測越多，越收向 cyanCore（= ACTIVE）
+                // 🔴 focus **只收向 cyanCore，絕不收向帶位色** ——
+                //    在還沒有結果時收向 Clear/Neutral/Strain 等於宣稱結果。
+                var spread = 1;
+                var focus = 0;
+                if (readout.active) {
+                    spread = READOUT_SPREAD_HI
+                        + (READOUT_SPREAD_LO - READOUT_SPREAD_HI) * readout.sStill;
+                    focus = readout.sProg * READOUT_FOCUS_MAX;
+                }
+                var shaped = readout.active && (spread !== 1 || focus > 0);
 
                 for (var i = 0; i < PARTICLE_COUNT; i++) {
                     var idx = i * 3;
@@ -380,6 +441,16 @@
                     var br = baseColors[idx];
                     var bg = baseColors[idx + 1];
                     var bb = baseColors[idx + 2];
+
+                    if (shaped) {
+                        // 往漸層中心收（收窄層次），再往 cyanCore 收（聚焦）
+                        br = GRAD_MID[0] + (br - GRAD_MID[0]) * spread;
+                        bg = GRAD_MID[1] + (bg - GRAD_MID[1]) * spread;
+                        bb = GRAD_MID[2] + (bb - GRAD_MID[2]) * spread;
+                        br += (CYAN_CORE[0] - br) * focus;
+                        bg += (CYAN_CORE[1] - bg) * focus;
+                        bb += (CYAN_CORE[2] - bb) * focus;
+                    }
 
                     if (toned) {
                         // Rotate the gradient (identity is preserved), then pull
@@ -442,7 +513,12 @@
                 }
             }
 
-            var totalScale = breath * exprScale * entScale;
+            // Readout: 累積的有效量測越多，球越收緊 —— 10 秒之間看得出它在聚焦。
+            var focusScale = readout.active
+                ? 1 - readout.sProg * READOUT_SCALE_TIGHTEN
+                : 1;
+
+            var totalScale = breath * exprScale * entScale * focusScale;
             cloud.scale.set(totalScale, totalScale, totalScale);
         }
 
@@ -453,6 +529,13 @@
                 op -= expr.blinkFlash * 0.35;
                 // Emotional intensity subtly shifts particle brightness
                 op += (expr.browTension - 0.5) * 0.05;
+            }
+            if (readout.active) {
+                // 眨眼是**真的量到的離散事件**，值得一道看得見的脈衝而不只是變暗一點。
+                // 先前只有 −0.35 的凹陷，在深色背景上幾乎看不出來。
+                op += expr.blinkFlash * 0.55;
+                // 越穩越亮：跟飽和度同方向，讓「穩住」這件事在亮度上也有回饋。
+                op += (readout.sStill - 0.5) * 0.12;
             }
             material.opacity = Math.max(0.4, Math.min(1.0, op));
         }
@@ -545,6 +628,7 @@
         toneTarget.hue = 0; toneTarget.sat = 1; toneTarget.mix = 0;
         toneTarget.r = 0; toneTarget.g = 0; toneTarget.b = 0;
         toneMat = null;
+        clearReadout(); // 同理：借出去的 context 還回原主時不該還帶著上一輪的讀出狀態
     }
 
     // ── Tone: pure helpers ────────────────────────────────────────────────
@@ -599,11 +683,31 @@
         return o;
     }
 
-    /** @returns {boolean} whether the smoothed tone is close enough to "off" to skip. */
+    /**
+     * @returns {boolean} whether the smoothed tone is close enough to "off" to skip.
+     *
+     * ⚠️ 必須把 readout 的飽和度算進來 —— 否則 readout 活著、但 tone 三個值都在
+     * 預設值時會走快捷路徑，飽和度就靜默失效了。
+     */
     function toneIdle() {
         return Math.abs(tone.hue) < TONE_EPS
-            && Math.abs(tone.sat - 1) < TONE_EPS
+            && Math.abs(effectiveSat() - 1) < TONE_EPS
             && tone.mix < TONE_EPS;
+    }
+
+    /**
+     * 目前生效的飽和度。
+     *
+     * 🔴 **飽和度只能有一個寫入者**（PLAYBOOK §6：判定/呈現只能有一個來源 ——
+     * 這個 bug 類別已經咬過我三次）。所以規則寫死在這裡：
+     * **readout 活著的時候由 readout 擁有，否則由 setTone 擁有。**
+     * 量測中 readiness-scan 只餵 `stillness`、不餵 `sat`；
+     * 收束時它先 `clearReadout()` 再 `setTone({sat})`，交接點明確。
+     */
+    function effectiveSat() {
+        return readout.active
+            ? READOUT_SAT_LO + (READOUT_SAT_HI - READOUT_SAT_LO) * readout.sStill
+            : tone.sat;
     }
 
     /** Ease the applied tone toward the requested one and rebuild the matrix. */
@@ -614,7 +718,7 @@
         tone.r += (toneTarget.r - tone.r) * TONE_SMOOTH;
         tone.g += (toneTarget.g - tone.g) * TONE_SMOOTH;
         tone.b += (toneTarget.b - tone.b) * TONE_SMOOTH;
-        toneMat = toneIdle() ? null : toneMatrix(tone.hue, tone.sat);
+        toneMat = toneIdle() ? null : toneMatrix(tone.hue, effectiveSat());
     }
 
     /**
@@ -644,6 +748,62 @@
                 toneTarget.r = c.r; toneTarget.g = c.g; toneTarget.b = c.b;
             } catch (_) { /* unparseable colour: keep the previous target */ }
         }
+    }
+
+    /** Ease the readout toward the requested values (per animation frame). */
+    function stepReadout() {
+        if (!readout.active) return;
+        readout.sStill += (readout.still - readout.sStill) * READOUT_SMOOTH;
+        readout.sProg += (readout.prog - readout.sProg) * READOUT_SMOOTH;
+    }
+
+    /**
+     * 把**這次量測真正量到的東西**接到球身上，讓它成為一個讀出裝置。
+     *
+     * 🔴 這是回饋迴圈，不是裝飾：畫面上叫使用者「保持穩定」，
+     * 那麼「穩住了沒有」就必須在主角身上看得出來。
+     *
+     * - `stillness` → 飽和度 / 漸層寬度 / 粒子漂移 / 亮度（**越穩越收攏、越純、越亮**）
+     * - `progress`  → 往 cyanCore 聚焦 + 尺度收緊（**累積的有效量測**，不是計時器）
+     *
+     * ⚠️ 呼叫這支就代表這一頁**接受星塵會隨量測收散**（founder 2026-08-10 放寬）。
+     * 不呼叫的頁面完全 inert，逐位元組維持 v25.8.2。
+     *
+     * @param {{stillness?: number, progress?: number}} [data] 兩者皆 0..1。
+     */
+    function setReadout(data) {
+        var d = data || {};
+        readout.active = true;
+        if (d.stillness !== undefined) {
+            readout.still = Math.max(0, Math.min(1, d.stillness));
+        }
+        if (d.progress !== undefined) {
+            readout.prog = Math.max(0, Math.min(1, d.progress));
+        }
+    }
+
+    /** 關掉讀出層，回到 inert（掃描結束時呼叫）。 */
+    function clearReadout() {
+        readout.active = false;
+        readout.still = 0.5; readout.prog = 0;
+        readout.sStill = 0.5; readout.sProg = 0;
+    }
+
+    /**
+     * 目前套用中的讀出量（已平滑）。給 harness 驗「通道真的有動」用 ——
+     * 渲染結果在容器裡看不到（three.js 被沙箱擋），但這些數字看得到。
+     *
+     * @returns {{active:boolean, stillness:number, progress:number, sat:number, spread:number, drift:number}}
+     */
+    function readoutState() {
+        return {
+            active: readout.active,
+            stillness: readout.sStill,
+            progress: readout.sProg,
+            sat: effectiveSat(),
+            spread: READOUT_SPREAD_HI + (READOUT_SPREAD_LO - READOUT_SPREAD_HI) * readout.sStill,
+            drift: READOUT_DRIFT_HI + (READOUT_DRIFT_LO - READOUT_DRIFT_HI) * readout.sStill,
+        };
     }
 
     /** Return to the resting palette. Smoothed, like every other tone change. */
@@ -708,6 +868,9 @@
         hostInfo: hostInfo,
         setTone: setTone,
         clearTone: clearTone,
+        setReadout: setReadout,
+        clearReadout: clearReadout,
+        readoutState: readoutState,
         // Exported for direct unit verification — the rendered frame is not
         // reachable in the sandbox (three.js is CDN-blocked), but this is.
         toneMatrix: toneMatrix
