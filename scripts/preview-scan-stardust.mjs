@@ -511,7 +511,13 @@ async function scanAndCancel(page) {
   // 所以臉框的極值改放在真正的邊界點上（10 額頂、152 下巴、234/454 兩頰）——
   // 那也正是 MediaPipe 對這些索引的語意。
   // `yaw` 是鼻尖相對兩眼中點的水平偏移（以眼距正規化），跟產品的量法同一個定義。
-  const makeFace = ({ dx = 0, yaw = 0, pitch = 0.5 } = {}) => {
+  // ⚠️ `browSpan` / `mouthGap` 是 2026-08-10 補的，而補的原因值得記：
+  // 先前這張臉把 105/334（眉）與 13/14（嘴）留在**同一個座標**，於是產品算出來的
+  // `browTension` 永遠是 1、`mouthOpen` 永遠是 0 —— **色調的兩個輸入都被釘死**。
+  // 結果是「色相不得為負」那條斷言**不可能失敗**：反向驗證時把公式改回會產生負值的
+  // 舊版，它照樣全綠。合成臉太理想害測試失效，這是第三次（前兩次是包圍盒不變形、
+  // stub 沒有真的 host 節點）。**輸入被釘死的斷言，等於沒有斷言。**
+  const makeFace = ({ dx = 0, yaw = 0, pitch = 0.5, browSpan = 0, mouthGap = 0 } = {}) => {
     const cx = 0.5 + dx;
     const half = 0.2375;          // 撐出理想臉框大小（約 0.475）
     const eyeSpan = 0.26;         // 兩眼外角距離
@@ -525,16 +531,22 @@ async function scanAndCancel(page) {
     lm[33] = { x: cx - eyeSpan / 2, y: eyeY, z: 0 };    // 左眼外角
     lm[263] = { x: cx + eyeSpan / 2, y: eyeY, z: 0 };   // 右眼外角
     lm[1] = { x: cx + yaw * eyeSpan, y: eyeY + pitch * eyeSpan, z: 0 }; // 鼻尖
+    // 眉頭內側：產品用 |x105 - x334| / 0.22 反推「眉間張力」（span 越大 → 張力越小）
+    lm[105] = { x: cx - browSpan / 2, y: eyeY - 0.05, z: 0 };
+    lm[334] = { x: cx + browSpan / 2, y: eyeY - 0.05, z: 0 };
+    // 上下唇：產品用 |y13 - y14| / 0.05 算嘴開合
+    lm[13] = { x: cx, y: 0.5 + 0.10, z: 0 };
+    lm[14] = { x: cx, y: 0.5 + 0.10 + mouthGap, z: 0 };
     return lm;
   };
 
-  const feed = (dx, n) => page.evaluate(([dxv, times, faceSrc]) => {
+  const feed = (dx, n, extra = {}) => page.evaluate(([dxv, times, faceSrc, ex]) => {
     const S = window.__rsFaceMesh;
     if (!S) return 'no-hook';
     const make = eval('(' + faceSrc + ')');
-    for (let t = 0; t < times; t++) S({ multiFaceLandmarks: [make({ dx: dxv })] });
+    for (let t = 0; t < times; t++) S({ multiFaceLandmarks: [make({ dx: dxv, ...ex })] });
     return 'ok';
-  }, [dx, n, makeFace.toString()]);
+  }, [dx, n, makeFace.toString(), extra]);
 
   const locked = () => page.evaluate(() =>
     document.querySelector('#tenki-readiness-scan .rs-frame').classList.contains('locked'));
@@ -556,12 +568,29 @@ async function scanAndCancel(page) {
     // ── 量測中的顏色真的被臉驅動了 ──
     // founder 2026-08-10 要「每次掃描都感應使用者變色」。這條走的是真的
     // `onFaceResults → feedStardust → feedTone`，所以驗得到「有沒有在動」。
+    //
+    // ⚠️ 這裡**必須真的把眉/嘴的量餵開** —— 兩個輸入被釘死時，下面每一條
+    // 都會變成在測一個常數點（見 makeFace 上方那段）。
+    // browTension = 1 - browSpan/0.22：span 0 → 張力 1；span 0.176 → 張力 0.2。
+    // 舊的雙向公式在張力 0.2、嘴閉合時會算出 hue ≈ -0.031，正是要擋的負值。
+    await page.evaluate(() => { window.__sdTones.length = 0; });
+    await feed(0, 1, { browSpan: 0, mouthGap: 0 });        // 張力 1.0 / 嘴閉
+    await feed(0, 1, { browSpan: 0.176, mouthGap: 0 });    // 張力 0.2 / 嘴閉 ← 舊公式會轉負
+    await feed(0, 1, { browSpan: 0.22, mouthGap: 0.04 });  // 張力 0   / 嘴開 0.8
+    await feed(0, 1, { browSpan: 0.10, mouthGap: 0.02 });  // 中間值
+
     const tones = await page.evaluate(() => window.__sdTones.slice());
     check('量測中有把色調推給星塵', tones.length > 0, true);
+    // 沒有這條，上面那組餵法哪天被簡化掉也不會有人發現。
+    check('色調真的隨著臉在變（不是每幀同一個值）',
+      new Set(tones.map((t) => t.hue.toFixed(4))).size >= 2, true);
     check('量測中不得往任何目標色收（那是收束才做的事）',
       tones.every((t) => !t.toward && (t.mix === 0 || t.mix === undefined)), true);
-    check('色相位移留在小幅範圍內（不得跑進 gold 的語意領地）',
-      tones.every((t) => Math.abs(t.hue) <= 0.10001), true);
+    // 🔴 單向。負向旋轉會把漸層底部的 cyan 轉成綠，而綠在 v6 是 `--good`
+    // —— 等於還沒有結果就亮起「good」（founder 2026-08-10 實走截圖抓到）。
+    check('🔴 量測中的色相不得為負（負向就是進綠的方向）',
+      tones.every((t) => t.hue >= 0), true);
+    check('色相位移留在上限內', tones.every((t) => t.hue <= 0.06001), true);
   }
   await ctx.close();
 }
@@ -925,6 +954,10 @@ async function scanAndCancel(page) {
       withTarget.length >= 2
         && ['#00B4D8', '#64748B', '#C2703D'].indexOf(withTarget[withTarget.length - 1].toward) !== -1,
       true);
+    // founder 2026-08-10 實走：mix 0.5 時三種帶位長得幾乎一樣 —— 因為漸層底部
+    // 本來就是 cyan，往 Clear 拉等於沒拉。夠強才說得出「這是你這次的結果」。
+    check('帶位色夠強到一眼分得出來（mix ≥ 0.8）',
+      withTarget.every((t) => t.mix >= 0.8), true);
     // 借來的綁定在收束→關閉之後仍然要還回去。
     await page.click('#tenki-readiness-scan .rs-done');
     await page.waitForFunction(() => window.__done === true, { timeout: 5000 });
@@ -985,6 +1018,93 @@ async function scanAndCancel(page) {
   check('sat=0 落到灰（三通道相等）', math.greyEqual, true);
   check('setTone 有對外', math.hasSetTone, true);
   check('hostInfo 有對外（借用方要靠它才還得回去）', math.hasHostInfo, true);
+
+  // ── 🔴 量測中產生的顏色，不得撞上「已經有主人」的顏色 ──
+  //
+  // **這條才是真正防止重犯的那一條。** 上面那兩條（hue 不得為負、≤ 上限）
+  // 只擋住了這一次的綠；這條擋的是**下一次的任何顏色**。
+  //
+  // 2026-08-10 的教訓：我擋住了自己要用的色（`.locked` 不准上 gold），
+  // 卻沒有反過來問「我即將產生的顏色，在這個產品裡是不是已經有主人」——
+  // 於是綠從另一個方向溜進來，而 v6 的 `--good` 就是綠。
+  //
+  // 做法：用**真的** `toneMatrix`，把三個色階在整個 live 範圍（0..TONE_LIVE_HUE，
+  // 上限直接從 readiness-scan.js 讀，讓測試跟著產品的常數走）× 整個飽和度範圍
+  // 掃過一遍，跟每個已被指派意義的顏色算 CIE76 ΔE，取最小值。
+  //
+  // 門檻 25 是**量出來之後才定的**，不是猜的：
+  //   現行單向 0..+0.06 → 最小 ΔE 28.6（頂端 pink 對上「未判定」coral）
+  //   舊的雙向 ±0.10    → 最小 ΔE 12.9（同樣是 coral，綠那側也只有 ~20）
+  // 25 落在兩者之間、靠近現況一側，所以任何把範圍再放寬的改動都會立刻喊痛。
+  //
+  // ⚠️ **這條掃的是 0..上限，只涵蓋正向** —— 它跟上面那條行為斷言
+  // 「量測中的色相不得為負」是**一組的，不能只留一條**：
+  // 行為那條保證產品只會走正向，這條保證正向這段路是乾淨的。
+  // 拆掉任何一條，另一條都補不上它的洞（拆掉行為那條，負向的綠就掃不到了）。
+  {
+    const scanSource = readFileSync(join(repoRoot, 'apps/preview/readiness-scan.js'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const liveHue = Number(/TONE_LIVE_HUE\s*=\s*([\d.]+)/.exec(scanSource)?.[1]);
+    check('讀得到 TONE_LIVE_HUE（測試要跟著產品的常數走）', Number.isFinite(liveHue), true);
+
+    const collision = await page.evaluate((hueMax) => {
+      const M = window.TENKI_STARDUST.toneMatrix;
+      const clamp = (v) => Math.max(0, Math.min(1, v));
+      const apply = (m, c) => [
+        clamp(m[0] * c[0] + m[1] * c[1] + m[2] * c[2]),
+        clamp(m[3] * c[0] + m[4] * c[1] + m[5] * c[2]),
+        clamp(m[6] * c[0] + m[7] * c[1] + m[8] * c[2]),
+      ];
+      // sRGB → CIE Lab（D65），只為了算 ΔE
+      const fi = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+      const lab = (c) => {
+        const g = c.map((v) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+        const X = (g[0] * 0.4124 + g[1] * 0.3576 + g[2] * 0.1805) / 0.95047;
+        const Y = g[0] * 0.2126 + g[1] * 0.7152 + g[2] * 0.0722;
+        const Z = (g[0] * 0.0193 + g[1] * 0.1192 + g[2] * 0.9505) / 1.08883;
+        return [116 * fi(Y) - 16, 500 * (fi(X) - fi(Y)), 200 * (fi(Y) - fi(Z))];
+      };
+      const dE = (a, b) => {
+        const A = lab(a); const B = lab(b);
+        return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
+      };
+      const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16) / 255);
+      // 每一個在這個產品裡**已經代表某件事**的顏色。
+      // cyan / zone-clear 刻意不列 —— 星塵本來就是 cyan 家族，撞它是預期內的。
+      const OWNED = {
+        '--good 綠': '#34C759',
+        '--warn 琥珀': '#F5A623',
+        'zone-strain': '#C2703D',
+        '未判定 coral': '#FF7E76',
+        'gold-secured': '#FFD46E',
+        'zone-neutral': '#64748B',
+      };
+      // 靜息漸層的三個色階（stardust.js buildScene 的 top/mid/bot）
+      const STOPS = [[0, 0.8, 1], [0.6, 0.4, 1], [1, 0.4, 0.8]];
+      let worst = { d: Infinity, name: null, hue: null, sat: null };
+      for (let h = 0; h <= hueMax + 1e-9; h += 0.005) {
+        for (const sat of [0.9, 1.0, 1.1, 1.25]) { // feedTone 的 sat 範圍
+          for (const st of STOPS) {
+            const c = apply(M(h, sat), st);
+            for (const [name, v] of Object.entries(OWNED)) {
+              const d = dE(c, hex(v));
+              if (d < worst.d) worst = { d, name, hue: h, sat };
+            }
+          }
+        }
+      }
+      return worst;
+    }, liveHue);
+
+    console.log(`   （最接近的是「${collision.name}」，ΔE ${collision.d.toFixed(1)}`
+      + ` @hue ${collision.hue.toFixed(3)} sat ${collision.sat}）`);
+    check('🔴 量測中的顏色不得撞上已被指派意義的顏色（ΔE ≥ 25）',
+      collision.d >= 25, true);
+    // ⚠️ 這裡本來還有一條「綠離得夠遠」的專屬斷言，**已經拿掉**：
+    // `--good` 已經在上面 OWNED 表裡（現行設計下 ΔE 82.7），而那條專屬版
+    // 想不出任何會讓它變紅的改動 —— 反向驗證不了的斷言只會讓人誤以為多守了一層。
+    // 綠由「色相不得為負」（行為，已反向驗證）＋ 這條 ΔE 掃描（已反向驗證）共同守住。
+  }
   await ctx.close();
 }
 
