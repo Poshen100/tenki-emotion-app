@@ -108,6 +108,25 @@
   var HALO_ACTIVE = '#22D3EE';
   var HALO_SECURED = '#FFD46E';
   /**
+   * 星塵在收束時要落到的帶位色 —— **鏡射 `apps/preview/tokens.css` 的 zone token**
+   * （`--zone-clear` / `--zone-neutral` / `--zone-strain`，見 `docs/VISUAL-DIRECTION.md` §3）。
+   *
+   * ⚠️ 這是一份鏡射，鏡射就會漂移。理由跟上面 HALO_* 一樣：本模組自帶樣式、
+   * 不假設 host 載了 tokens.css，`getComputedStyle` 解 `var()` 又不能放進每幀路徑。
+   * 所以**由 harness 去比對這裡的字面值與 tokens.css 是否仍相同** ——
+   * 讓漂移會喊痛，而不是靠人記得（PLAYBOOK §6：判定/呈現只能有一個來源；
+   * 真的必須鏡射時，要有東西守住兩份是一樣的）。
+   */
+  var BAND_TONE = { clear: '#00B4D8', neutral: '#64748B', strain: '#C2703D' };
+  /** 收束時往帶位色拉多少。留一半給原本的漸層 —— 那是「保留身分」的意思。 */
+  var TONE_REVEAL_MIX = 0.5;
+  /** SECURED 那一拍先閃過的金，隨後才落到帶位色。 */
+  var TONE_SECURED_MIX = 0.55;
+  /** gold → 帶位色的停留時間。 */
+  var TONE_SECURED_MS = 700;
+  /** 量測中色相位移的半幅（turn）。刻意小 —— 大了就會跑進 gold 的語意領地。 */
+  var TONE_LIVE_HUE = 0.10;
+  /**
    * 光弧起點位移（周長比例）—— 把起點從 SVG rect 的預設起點移到**上緣正中**。
    *
    * 推導（rect x=1 y=1 w=h=234 rx=ry=63）：直線段 = 234 - 2×63 = 108；
@@ -930,12 +949,71 @@
     if (!session || !session.stardust) return;
     var S = global.TENKI_STARDUST;
     if (!S || typeof S.setExpression !== 'function') return;
+    var mouthOpen = Math.min(1, Math.abs(lm[13].y - lm[14].y) / MOUTH_OPEN_DIVISOR);
+    var browTension = Math.max(0, Math.min(1, 1 - Math.abs(lm[105].x - lm[334].x) / BROW_SPAN_DIVISOR));
     S.setExpression({
-      mouthOpen: Math.min(1, Math.abs(lm[13].y - lm[14].y) / MOUTH_OPEN_DIVISOR),
+      mouthOpen: mouthOpen,
       eyeOpen: eyeOpen,
-      browTension: Math.max(0, Math.min(1, 1 - Math.abs(lm[105].x - lm[334].x) / BROW_SPAN_DIVISOR)),
+      browTension: browTension,
       blinkDetected: blinkDetected,
     });
+    feedTone(mouthOpen, browTension);
+  }
+
+  /**
+   * 讓星塵的顏色跟著**這次真的量到的東西**走。
+   *
+   * 🔴 **這不是情緒偵測，也不准被講成情緒偵測。** 我們沒有量到「你現在焦慮」——
+   * 我們量到的是眉間距、嘴開合、位移穩定度（landmark 幾何）。顏色直接吃這些量，
+   * 所以它確實隨著你的臉在變、每次掃描都不同；但畫面上不會有任何一個字替它
+   * 貼情緒標籤（CLAUDE.md：禁止醫療診斷措辭；North Star：不放假的讀數）。
+   *
+   * 對應關係刻意選得**說得出口**：
+   * - 色相位移 ← 眉間張力與嘴開合（臉上實際的變化）
+   * - 飽和度 ← 位移穩定度（越穩 → 顏色越純；晃動 → 顏色淡掉）
+   *
+   * ⚠️ 揭曉之後不再受這裡驅動 —— 那時顏色代表的是**結果**，不是當下的臉。
+   * 兩個階段搶同一個通道就會閃爍，所以用 `toneStage` 分開（單一來源）。
+   *
+   * @param {number} mouthOpen - 已正規化 0..1。
+   * @param {number} browTension - 已正規化 0..1。
+   */
+  function feedTone(mouthOpen, browTension) {
+    if (!session || session.toneStage !== 'live') return;
+    var S = global.TENKI_STARDUST;
+    if (!S || typeof S.setTone !== 'function') return;
+    var still = session.lastStillness === null ? 0.5 : clamp01(session.lastStillness);
+    S.setTone({
+      hue: ((browTension - 0.5) * 1.4 + (mouthOpen - 0.15) * 0.6) * TONE_LIVE_HUE,
+      sat: 0.9 + still * 0.35,
+      mix: 0,
+    });
+  }
+
+  /**
+   * 收束時把顏色交給結果。
+   *
+   * 有讀數：先閃過 gold（`--gold-secured` = SECURED，跟光弧同一拍），
+   * 再落到該次帶位色。**沒有讀數就不准碰 gold** —— 顏色跟文案一樣會宣稱事實。
+   *
+   * @param {?string} band - `clear` / `neutral` / `strain`；null = 訊號不足。
+   */
+  function revealTone(band) {
+    if (!session) return;
+    session.toneStage = 'reveal';
+    var S = global.TENKI_STARDUST;
+    if (!S || typeof S.setTone !== 'function') return;
+    var target = band && BAND_TONE[band];
+    if (!target) {
+      // 訊號不足：退掉彩度停在原本的漸層上，不編一個看起來像結果的顏色。
+      S.setTone({ hue: 0, sat: 0.75, mix: 0 });
+      return;
+    }
+    S.setTone({ hue: 0, sat: 1.1, toward: HALO_SECURED, mix: TONE_SECURED_MIX });
+    session.toneTimer = setTimeout(function () {
+      if (!session || session.toneStage !== 'reveal') return;
+      S.setTone({ toward: target, mix: TONE_REVEAL_MIX });
+    }, TONE_SECURED_MS);
   }
 
   function startFaceMesh(video) {
@@ -1253,6 +1331,7 @@
     setProgress(1);
     var frame = q('frame');
     if (frame) frame.classList.add('secured'); // 顏色由 CSS 的 .secured 承接
+    revealTone(reading.band); // 星塵跟著同一拍走：先 gold，再落到帶位色
     showVerdict(BAND_LABEL[reading.band], verdictFact(evidence), reading);
   }
 
@@ -1261,6 +1340,7 @@
     enterReveal();
     // 不加 .secured：沒有讀數就不准上 gold。失敗更需要被看見，
     // 所以走同一個面板、同樣停著等點，不是一閃而過。
+    revealTone(null); // 星塵同理：退彩度，不給一個看起來像結果的顏色
     showVerdict('訊號不足', {
       spec: '這次沒有取得讀數',
       quality: '光線或穩定度不足 · 再試一次',
@@ -1622,6 +1702,9 @@
     if (!session) return;
     var resolve = session.resolve;
     if (session.raf) cancelAnimationFrame(session.raf);
+    // gold → 帶位色那個延遲還可能在飛。session 馬上就要變 null，
+    // 讓它落在一個已經拆掉的星塵上沒有意義，還會讓下一輪繼承到上一輪的顏色。
+    if (session.toneTimer) clearTimeout(session.toneTimer);
     stopFaceMesh();
     stopCamera();
     unmountStardust();
@@ -1693,6 +1776,9 @@
         stardust: false,
         // 借來的星塵綁定（`{node, fitContainer}`）。非 null 就代表**欠著一次歸還**。
         borrowedFrom: null,
+        // 顏色現在歸誰驅動：'live' = 當下的臉，'reveal' = 這次的結果。
+        // 兩邊搶同一個通道就會閃爍，所以只有一個階段能寫。
+        toneStage: 'live', toneTimer: null,
         // 主指令去抖動狀態：shown 為 null 代表「還沒顯示過」→ 第一條不等待。
         hintShown: null, hintPending: null, hintPendingAt: 0,
       };
