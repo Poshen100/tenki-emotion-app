@@ -94,10 +94,16 @@ baseline maturity 走到 `ready` 的那一刻，App 第一次有資格說
    單次掃描仍只給帶位 —— 那 Edge Score 天然就是 PRO 的東西（需要歷史）。
 2. **核心指標正名成帶位**，不再承諾 0-100。
 
-**建議走 (1)**：它讓「跟自己基線的落差」與 Edge Score 是同一件事，
-付費理由與技術現實一致，而且不必推翻既有語言。
-⚠️ 但這需要 founder 拍板，AI 不得自行決定（`CLAUDE.md` §禁止事項：
-不得自行重新命名 zone/Baseline 語言）。
+✅ **已拍板（founder 2026-08-11）：走 (1) 的變體。**
+Edge Score 保留名字、改定義成 **1-99 的基線相對位置，50 = 你的常態**。
+定義與數學見 `docs/EDGE-SCORE-DEFINITION.md`，實作在
+`domain/src/policies/baseline-score.ts`。
+
+這讓定價論述與技術現實對齊：**「跟自己基線的落差」與 Edge Score 就是同一件事**。
+⚠️ 連帶後果：位置分需要約兩週的基線才開得了口（`MIN_SAMPLES_FOR_SCORE = 14`），
+而那正好就是 §3 說的價值里程碑 —— 付費牆該掛的地方。
+⚠️ 但也要注意與 `localHistoryDays: 7` 的關係：基線是**四個數字的滾動統計**，
+不是可瀏覽的歷史，所以免費層保有基線、只限制「看得到幾天」並不矛盾。
 
 ---
 

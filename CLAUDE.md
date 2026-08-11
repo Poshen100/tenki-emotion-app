@@ -11,7 +11,15 @@
 `docs/brand.md`（內部語言系統，含 dopamine state 內部模型，禁止外流到 user-facing copy）。任何 AI 描述本產品時，
 **不要**用 "trading tool" / "signal system" / "meditation app"。
 
-- **核心指標**：Decision Edge Score (0-100)
+- **核心指標**：Decision Edge Score —— **1-99 的「相對你自己基線的位置」，50 = 你的常態**
+  （founder 2026-08-11 拍板；定義與數學見 `docs/EDGE-SCORE-DEFINITION.md`，
+  實作 `domain/src/policies/baseline-score.ts`）
+  - ⚠️ **不是絕對分、不是 0-100、不跟別人比。** 舊的 `0-100` 說法已作廢。
+  - 🔴 **「絕對分」與「位置分」的門檻不可混用**：位置分對使用者自己是均勻分布的，
+    套用舊的 70/40 會讓人**永遠有 40% 的日子落在最低帶**，不管他過得多好。
+    位置分的門檻是 **80/20**。
+  - 🔴 樣本不足（< 14 次）一律回 `null`，**不得回一個看起來像真的的數字**。
+  - ⚠️ `PR99` 仍是禁用詞（見下方禁止事項）—— 概念可以用，那三個字不行。
 - **掃描主入口**：Soul Scan（臉部基線）— 方向定調見 `docs/SOUL-SCAN-NORTH-STAR.md`（必讀）；finger PPG 退為校準/補強層，不要把臉部流程塞進 `(tabs)/scan.tsx`
 - **3 Zone**：Clear (70-100) / Neutral (40-69) / Strain (0-39)
   - ⚠️ 長期方向是改用 Baseline 語言（Above/At/Below Baseline），但 mapping 尚未定案（Strain 對應「過度刺激」還是
