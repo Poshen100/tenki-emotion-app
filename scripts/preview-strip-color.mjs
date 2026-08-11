@@ -316,6 +316,9 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
       badgeColors: badges.map((b) => getComputedStyle(b).color),
       trackText: document.getElementById('snapTrack')?.innerText ?? '',
       noteVisible: vis(note),
+      // 說明搬到圓點上方時，把圓點擠到底座下面去了 —— 一個修好換來另一個壞掉。
+      // 兩個都鎖住，才不會下次又用其中一個換另一個。
+      dotsVisible: vis(document.getElementById('snapDots')),
       noteText: note?.textContent ?? '',
       nsStatus: document.getElementById('nsStatus')?.textContent.trim() ?? '',
       // Hero 的分數槽與它的標籤要一致
@@ -344,6 +347,7 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('🔴 示意標記不得吃已被指派意義的顏色（綠=good／琥珀=warn）',
     today.badgeColors.some((c) => c === 'rgb(52, 199, 89)' || c === 'rgb(245, 166, 35)'), false);
   check('說明那一行看得見（給停下來看的人）', today.noteVisible, true);
+  check('輪播圓點沒有被底座蓋掉（修一個不得換壞另一個）', today.dotsVisible, true);
   check('說明講的是真原因（需要感測器、尚未接上）',
     /感測器/.test(today.noteText) && /尚未接上/.test(today.noteText), true);
   // 「**在**綠色安全區」是對使用者神經系統下的判定；只報區段名稱不是。
