@@ -1174,13 +1174,21 @@ async function scanAndCancel(page) {
         ? MID.map((v, i) => v + (TOP[i] - v) * ((ny - 0.5) * 2))
         : BOT.map((v, i) => v + (MID[i] - v) * (ny * 2)));
       const mid = (nBands - 1) / 2;
-      // 一顆球在給定 (bloom, rot, sat) 下的所有色帶顏色
+      // 🔴 **色帶不再對應高度，所以要掃 base × band 的所有組合。**
+      // 產品的色帶吃 y 與方位角的混合（螺旋）—— 同一高度的粒子會落在不同色帶，
+      // 反過來同一色帶也會收到各種高度的底色。
+      // 舊模型（band b ↔ 高度 (b+0.5)/N 一一對應）**已經不成立**；
+      // 不改的話這個守門員會繼續用一個不存在的球去算主色。
+      const NY = 12; // 高度取樣段數
       const ballAt = (bloom, rot, sat) => {
         const cs = [];
-        for (let b = 0; b < nBands; b += 1) {
-          const ny = (b + 0.5) / nBands;
-          const h = rot + ((b - mid) / mid) * (bloom / 2);
-          cs.push(apply(M(h, sat), baseAt(ny)));
+        for (let iy = 0; iy < NY; iy += 1) {
+          const ny = (iy + 0.5) / NY;
+          const base = baseAt(ny);
+          for (let b = 0; b < nBands; b += 1) {
+            const h = rot + ((b - mid) / mid) * (bloom / 2);
+            cs.push(apply(M(h, sat), base));
+          }
         }
         return cs;
       };
@@ -1195,9 +1203,9 @@ async function scanAndCancel(page) {
       let worstMean = { d: Infinity };
       let minSpan = { v: Infinity };
       let maxSpan = { v: -Infinity };
-      for (let bl = 0; bl <= blMax + 1e-9; bl += 0.02) {
-        for (let ro = 0; ro <= roMax + 1e-9; ro += 0.02) {
-          for (let sat = sLo; sat <= sHi + 1e-9; sat += 0.05) {
+      for (let bl = 0; bl <= blMax + 1e-9; bl += 0.04) {
+        for (let ro = 0; ro <= roMax + 1e-9; ro += 0.04) {
+          for (let sat = sLo; sat <= sHi + 1e-9; sat += 0.1) {
             const cs = ballAt(bl, ro, sat);
             const mean = meanOf(cs);
             for (const [name, v] of Object.entries(OWNED)) {
@@ -1233,12 +1241,46 @@ async function scanAndCancel(page) {
     //   ② 最高點要真的更豐富 → 穩住時看得出「展開」
     check('🔴 顏色永遠不得變少（最低點 ≥ 80，即基礎漸層）',
       colour.minSpan.v >= 80, true);
-    check('🔴 穩住時真的更豐富（最高點 ≥ 140）',
-      colour.maxSpan.v >= 140, true);
+    check('🔴 穩住時真的更豐富（最高點 ≥ 190）',
+      colour.maxSpan.v >= 190, true);
 
     // 尺度是絕對幾何，不受 additive 混色影響 —— 狀態回饋交給它。
     const scaleRatio = scaleLo / scaleHi;
     check('🔴 尺度差看得出來（靜止/晃動 ≤ 0.78）', scaleRatio <= 0.78, true);
+
+    // ── 🔴 顏色要在**兩個方向**上變（螺旋），不只上下 ──
+    //
+    // 只吃高度的話，畫面只是一條單純的上下漸層 —— 那是 founder 說「顏色變化很少」
+    // 的其中一層原因。混入方位角之後，同一高度的粒子會落在不同色帶。
+    // 直接驗產品那支純函式，不是掃原始碼字串。
+    const spiral = await page.evaluate(() => {
+      const f = window.TENKI_STARDUST.hueBandOf;
+      const N = window.TENKI_STARDUST.HUE_BANDS;
+      // 同一高度、繞一圈的方位角 → 應該落在多個不同色帶
+      const sameHeight = new Set();
+      for (let a = 0; a < 24; a += 1) {
+        const th = (a / 24) * Math.PI * 2;
+        sameHeight.add(f(0.5, Math.cos(th), Math.sin(th)));
+      }
+      // 同一方位角、不同高度 → 也要落在多個不同色帶（原本就有的上下向）
+      const sameAzimuth = new Set();
+      for (let iy = 0; iy < 24; iy += 1) sameAzimuth.add(f(iy / 23, 1, 0));
+      // 整體用得到幾個色帶
+      const all = new Set();
+      for (let iy = 0; iy < 16; iy += 1) {
+        for (let a = 0; a < 16; a += 1) {
+          const th = (a / 16) * Math.PI * 2;
+          all.add(f(iy / 15, Math.cos(th), Math.sin(th)));
+        }
+      }
+      return { bands: N, sameHeight: sameHeight.size, sameAzimuth: sameAzimuth.size, all: all.size };
+    });
+    console.log(`   （同一高度用到 ${spiral.sameHeight} 個色帶、同一方位角 ${spiral.sameAzimuth} 個、`
+      + `全部 ${spiral.all}/${spiral.bands}）`);
+    check('🔴 同一高度也會有不同顏色（螺旋，不只上下漸層）',
+      spiral.sameHeight >= 5, true);
+    check('上下方向的顏色變化仍在', spiral.sameAzimuth >= 5, true);
+    check('整顆球用得到所有色帶', spiral.all, spiral.bands);
     // ⚠️ 這裡本來還有一條「綠離得夠遠」的專屬斷言，**已經拿掉**：
     // `--good` 已經在上面 OWNED 表裡（現行設計下 ΔE 82.7），而那條專屬版
     // 想不出任何會讓它變紅的改動 —— 反向驗證不了的斷言只會讓人誤以為多守了一層。

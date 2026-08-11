@@ -181,6 +181,28 @@
     var READOUT_OPACITY_SWING = 0.18;
 
     /**
+     * 一顆粒子屬於哪個色帶。**純函式，對外 export 給 harness 直接驗。**
+     *
+     * 🔴 色帶同時吃**高度**與**方位角** —— 這就是「螺旋」：
+     * 顏色不只在上下方向變，也繞著球轉，所以同一高度的粒子會落在不同色帶。
+     * 只吃高度的話畫面只是一條單純的上下漸層，那正是 founder 說「顏色變化很少」
+     * 的其中一層原因。
+     *
+     * ⚠️ 這也讓底色與色帶**不再一一對應**，守門員必須掃 base × band 的所有組合
+     * （見 `scripts/preview-scan-stardust.mjs`）。
+     *
+     * @param {number} normalizedY - 0..1，粒子在球上的高度。
+     * @param {number} x - 粒子的 x 座標（算方位角用）。
+     * @param {number} z - 粒子的 z 座標。
+     * @returns {number} 0..HUE_BANDS-1
+     */
+    function hueBandOf(normalizedY, x, z) {
+        var azimuth = (Math.atan2(z, x) / (Math.PI * 2)) + 0.5; // 0..1
+        var t = (normalizedY * 0.62 + azimuth * 0.38) % 1;
+        return Math.min(HUE_BANDS - 1, Math.floor(t * HUE_BANDS));
+    }
+
+    /**
      * Bind the stardust to a container element and start rendering.
      *
      * Single-binding by design: a second live WebGL context alongside
@@ -321,9 +343,7 @@
             // ⚠️ 這也讓底色與色帶**不再一一對應**，所以守門員必須改掃
             // base × band 的所有組合（見 preview-scan-stardust.mjs）。
             // 意外的好處：混合之後整顆的平均色更不容易趨灰，主色 ΔE 反而變好。
-            var azimuth = (Math.atan2(positions[idx + 2], positions[idx]) / (Math.PI * 2)) + 0.5;
-            var bandT = (normalizedY * 0.62 + azimuth * 0.38) % 1;
-            hueBand[i] = Math.min(HUE_BANDS - 1, Math.floor(bandT * HUE_BANDS));
+            hueBand[i] = hueBandOf(normalizedY, positions[idx], positions[idx + 2]);
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -995,6 +1015,8 @@
         readoutState: readoutState,
         // Exported for direct unit verification — the rendered frame is not
         // reachable in the sandbox (three.js is CDN-blocked), but this is.
-        toneMatrix: toneMatrix
+        toneMatrix: toneMatrix,
+        hueBandOf: hueBandOf,
+        HUE_BANDS: HUE_BANDS
     };
 })(window);
