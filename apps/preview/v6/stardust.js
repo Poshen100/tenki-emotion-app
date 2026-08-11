@@ -63,6 +63,7 @@
     var basePositions = null;   // Original Fibonacci positions
     var driftSeeds = null;      // Random seeds per particle (Float32Array × 4: freqX, freqY, freqZ, amplitude)
     var baseColors = null;      // Original color values for shimmer
+    var hueBand = null;         // 每顆粒子的色帶索引（bloom 用），建構時算一次
 
     // Expression sync state
     var expr = { mouthOpen: 0, eyeOpen: 1, blinkFlash: 0, browTension: 0.5, active: false };
@@ -117,16 +118,28 @@
     var READOUT_DRIFT_HI = 1.15;
     var READOUT_DRIFT_LO = 0.85;
     /**
-     * 顏色收斂：**這是「穩 vs 晃」的主通道，而且是類別差異而不是程度差異。**
+     * 🔴 **bloom：每顆粒子各自的色相散幅 —— 這是「更多層次色彩變化」的主通道。**
      *
-     * 晃動 → 0（完整 cyan→purple→pink 漸層，一團彩色的雲）
-     * 穩住 → 1（全部收成單一 `FOCUS_TARGET`，一顆純青的核）
+     * ⚠️ 上一版是反過來的（`focus`：越穩越收成單一 cyanActive）。
+     * 算出來在 founder 實測的穩定度下，球的彩度跨度只剩 **36（77%）/ 4（93%）**，
+     * 而正常握穩就是 85–95% —— **整場掃描幾乎都是單一青色**。
+     * 他從第一天要的是「更多層次色彩變化」，我卻把顏色抽乾了。**優化錯了東西。**
      *
-     * ⚠️ 之前用「飽和度 + 21.6° 色相 + 漸層收窄」都失敗，因為材質是
-     * `AdditiveBlending`：密集區疊加到白，**同一色系內的差異會被壓掉**。
-     * 唯一躲得過那個壓縮的是「顏色的組成變了」——彩色 vs 單色。
+     * 現在是散開：穩住 → 靈魂**展開**得更豐富（跨度 147）。
+     * **顏色永遠不會變少** —— bloom=0 時仍是完整的基礎漸層。
+     *
+     * 上限 0.20 是新守則自己長出來的天花板，不是手感挑的：
+     * **色相散太開，整顆的平均色會趨近灰，而灰就是 `--zone-neutral`（Neutral 帶位）。**
+     * bloom 0.20 → 主色 ΔE 30.2 ✅；0.24 → 25.9（margin 太薄）；0.28 → 21.7 ❌
      */
-    var READOUT_FOCUS_MAX = 1.0;
+    var READOUT_BLOOM_MAX = 0.20;
+    /**
+     * hueRot：整場掃描的色相旅程，由 progress 驅動 —— 10 秒之間球走過一段色相。
+     * 上限同樣是主色守則定的：轉超過 0.20 turn，主色會轉到 strain/neutral 上（ΔE 7.1 ❌）。
+     */
+    var READOUT_HUEROT_MAX = 0.20;
+    /** 色帶數：bloom 的量化粒度。每 tick 只建這麼多個矩陣。 */
+    var HUE_BANDS = 16;
     /**
      * 飽和度範圍。**下限 0.95**：ΔE 掃描顯示「半收斂 + 低飽和」會逼近
      * `--zone-neutral #64748B`（0.70 時只有 20.6），而那個色代表「Neutral 帶位」。
@@ -151,17 +164,6 @@
     var READOUT_PROG_LIFT = 0.10;
     /** stillness 帶來的亮度範圍（原本只有 ±0.06，看不出來）。 */
     var READOUT_OPACITY_SWING = 0.18;
-    /**
-     * progress 聚焦的目標色 = `cyanActive #22D3EE`。
-     *
-     * 🔴 **刻意不是 `cyanCore #00B4D8`** —— 那個值就是 `--zone-clear`，
-     * 也就是 Clear **帶位色**。收向它等於在還沒有結果時宣稱 Clear，
-     * 正好違反我自己定的「不得收向帶位色」。差點自己踩進去。
-     * `cyanActive` 在 VISUAL-DIRECTION §3 的語意是「掃描中 / live / in-progress」，
-     * 正是這一刻該講的話，而且它不是任何帶位的顏色。
-     * （ΔE 也比較安全：同樣 focus 下離 zone-neutral 遠得多。）
-     */
-    var FOCUS_TARGET = [0.133, 0.827, 0.933];
 
     /**
      * Bind the stardust to a container element and start rendering.
@@ -250,6 +252,7 @@
         // Per-particle drift seeds: each particle gets unique freq and amplitude
         basePositions = new Float32Array(PARTICLE_COUNT * 3);
         driftSeeds = new Float32Array(PARTICLE_COUNT * 4);
+        hueBand = new Uint8Array(PARTICLE_COUNT);
         baseColors = new Float32Array(PARTICLE_COUNT * 3);
 
         for (var i = 0; i < PARTICLE_COUNT; i++) {
@@ -291,6 +294,12 @@
             baseColors[idx] = mixed.r;
             baseColors[idx + 1] = mixed.g;
             baseColors[idx + 2] = mixed.b;
+
+            // 色帶索引：bloom 要讓**每顆粒子有自己的色相偏移**，但不能每顆算一次
+            // 三角函數。量化成 HUE_BANDS 個色帶（建構時算一次），每個 tick 只建
+            // HUE_BANDS 個矩陣，每顆粒子照它的色帶取用 ——
+            // per-particle 成本仍是 9 次乘法，跟今天一樣（MOTION-DIRECTION §2）。
+            hueBand[i] = Math.min(HUE_BANDS - 1, Math.floor(normalizedY * HUE_BANDS));
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -441,24 +450,24 @@
                 stepTone();
                 var toned = !toneIdle();
                 var m = toned ? toneMat : null;
+
+                // ── Readout 的顏色：bloom（散開）+ hueRot（旅程）──
+                //
+                //   bloom  —— 你越穩，每顆粒子的色相散得越開，靈魂**展開**得更豐富
+                //   hueRot —— 累積的有效量測越多，整場色相走過一段旅程
+                //
+                // ⚠️ 上一版是反過來的（收成單一青色），結果在正常握穩的 85–95%
+                //    穩定度下整場都是單色 —— founder 要的是「更多層次色彩變化」。
+                //    **現在顏色永遠不會變少**：bloom=0 時仍是完整的基礎漸層。
+                //
+                // 每顆粒子要有自己的色相偏移，但不能每顆算三角函數：
+                // 量化成 HUE_BANDS 個色帶，每 tick 建 HUE_BANDS 個矩陣，
+                // 每顆粒子照 `hueBand[i]` 取用 —— per-particle 仍是 9 次乘法。
+                var bloomed = readout.active
+                    && (readout.sStill > 0.001 || readout.sProg > 0.001);
+                if (bloomed) buildBandMats();
                 var mixAmt = tone.mix;
                 var tr = tone.r, tg = tone.g, tb = tone.b;
-
-                // Readout 的顏色只剩**一件事**，在進 tone 矩陣之前做，
-                // 這樣既有的 ΔE 守門員只要跟著擴大掃描空間就仍然涵蓋得到：
-                //
-                //   focus —— 你越穩，所有粒子越收成同一個顏色。
-                //   晃動 = 一團彩色的雲；穩住 = 一顆純青的核。**這是類別差異**，
-                //   而類別差異是唯一躲得過 AdditiveBlending 壓縮的東西
-                //   （同色系內的飽和度/色相差異在密集區會被疊加到白，看不出來）。
-                //
-                // 🔴 只收向 `FOCUS_TARGET`（cyanActive = 掃描中/live），
-                //    **絕不收向帶位色** —— 在還沒有結果時收向 Clear/Neutral/Strain
-                //    等於宣稱結果。
-                // ⚠️ 先前還有一個 `spread`（收向漸層中心 = 紫）已移除：跟 focus 重複，
-                //    而且「穩住 → 變得更紫」是錯的故事（紫留給 session/Premium）。
-                var focus = readout.active ? readout.sStill * READOUT_FOCUS_MAX : 0;
-                var shaped = readout.active && focus > 0;
 
                 for (var i = 0; i < PARTICLE_COUNT; i++) {
                     var idx = i * 3;
@@ -478,22 +487,27 @@
                     var bg = baseColors[idx + 1];
                     var bb = baseColors[idx + 2];
 
-                    if (shaped) {
-                        // 全部往 cyanActive 收 —— 收滿時整顆是同一個顏色。
-                        br += (FOCUS_TARGET[0] - br) * focus;
-                        bg += (FOCUS_TARGET[1] - bg) * focus;
-                        bb += (FOCUS_TARGET[2] - bb) * focus;
-                    }
-
-                    if (toned) {
-                        // Rotate the gradient (identity is preserved), then pull
-                        // toward the moment's colour by `mix`.
+                    // 🔴 **矩陣只能套一次。** bandMats 已經含了色相旋轉與飽和度，
+                    // 若這裡再套一次 toneMat 就是雙重飽和 + 雙重色相。
+                    // 所以兩者是**互斥**的：bloom 活著就由它擁有這一步，
+                    // 否則才走全域的 toneMat（收束時 readout 已被 clear，走這條）。
+                    if (bloomed) {
+                        var bo = hueBand[i] * 9;
+                        var pr = bandMats[bo] * br + bandMats[bo + 1] * bg + bandMats[bo + 2] * bb;
+                        var pg = bandMats[bo + 3] * br + bandMats[bo + 4] * bg + bandMats[bo + 5] * bb;
+                        var pb = bandMats[bo + 6] * br + bandMats[bo + 7] * bg + bandMats[bo + 8] * bb;
+                        br = pr; bg = pg; bb = pb;
+                    } else if (toned) {
                         var rr = m[0] * br + m[1] * bg + m[2] * bb;
                         var gg = m[3] * br + m[4] * bg + m[5] * bb;
                         var bbv = m[6] * br + m[7] * bg + m[8] * bb;
-                        br = rr + (tr - rr) * mixAmt;
-                        bg = gg + (tg - gg) * mixAmt;
-                        bb = bbv + (tb - bbv) * mixAmt;
+                        br = rr; bg = gg; bb = bbv;
+                    }
+                    // 往當下的目標色收（收束時的 gold / 帶位色）。兩條路都要做。
+                    if (mixAmt > 0) {
+                        br += (tr - br) * mixAmt;
+                        bg += (tg - bg) * mixAmt;
+                        bb += (tb - bb) * mixAmt;
                     }
 
                     // Subtle color shimmer: gentle hue shift over time
@@ -792,6 +806,41 @@
         }
     }
 
+    /** HUE_BANDS 個 3×3（row-major，連續存放），每 tick 重建一次。 */
+    var bandMats = new Float32Array(HUE_BANDS * 9);
+
+    /**
+     * 目前的散幅與旅程。抽出來當單一來源 —— `readoutState()` 與繪製迴圈
+     * 都要用同一組值，各算一次就是下一個會漂移的鏡射。
+     *
+     * @returns {{bloom:number, rot:number}} turn 為單位。
+     */
+    function bloomRot() {
+        if (!readout.active) return { bloom: 0, rot: 0 };
+        return {
+            bloom: readout.sStill * READOUT_BLOOM_MAX,
+            rot: readout.sProg * READOUT_HUEROT_MAX,
+        };
+    }
+
+    /**
+     * 建 HUE_BANDS 個色帶矩陣。每個色帶 = 全場旋轉 + 它自己在漸層上的散幅偏移。
+     *
+     * 散幅以漸層中點為軸對稱展開（`band - 中點`），所以**整顆球的平均色相
+     * 不會被 bloom 推走** —— 推走的話主色會漂到別的語意色上。
+     */
+    function buildBandMats() {
+        var br = bloomRot();
+        var sat = effectiveSat();
+        var mid = (HUE_BANDS - 1) / 2;
+        for (var b = 0; b < HUE_BANDS; b++) {
+            var h = br.rot + ((b - mid) / mid) * (br.bloom / 2);
+            var mm = toneMatrix(h, sat);
+            var o = b * 9;
+            for (var k = 0; k < 9; k++) bandMats[o + k] = mm[k];
+        }
+    }
+
     /** Ease the readout toward the requested values (per animation frame). */
     function stepReadout() {
         if (!readout.active) return;
@@ -836,7 +885,7 @@
      * 渲染結果在容器裡看不到（three.js 被沙箱擋），但這些數字看得到。
      *
      * @returns {{active:boolean, stillness:number, progress:number, sat:number,
-     *   focus:number, scale:number, drift:number}}
+     *   bloom:number, rot:number, scale:number, drift:number}}
      */
     function readoutState() {
         return {
@@ -844,9 +893,10 @@
             stillness: readout.sStill,
             progress: readout.sProg,
             sat: effectiveSat(),
-            // focus 與 scale 是這一刀的兩個主通道，**harness 要靠它們去驗
-            // 「使用者看不看得出來」**（顏色收成單色的程度、球脹縮的比例）。
-            focus: readout.active ? readout.sStill * READOUT_FOCUS_MAX : 0,
+            // bloom / rot / scale 是主通道，**harness 靠它們驗「使用者看不看得出來」**
+            // （顏色散得多開、走過多少色相、球脹縮的比例）。
+            bloom: bloomRot().bloom,
+            rot: bloomRot().rot,
             scale: readout.active
                 ? READOUT_SCALE_HI + (READOUT_SCALE_LO - READOUT_SCALE_HI) * readout.sStill
                 : 1,
