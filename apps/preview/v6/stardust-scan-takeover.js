@@ -193,18 +193,28 @@
         });
     }
 
+    /**
+     * 相機拿不到時的膠囊。
+     *
+     * 🔴 這裡本來寫「INTEGRATING SIGNALS · 訊號整合中」，而且吃 `status-good`
+     * （cyan = ACTIVE，`docs/VISUAL-DIRECTION.md` §3 的世界規則：cyan 代表活訊號）。
+     * **一個訊號都沒有的時候宣稱訊號正在整合，還用活訊號的顏色講** ——
+     * 跟寫死的假讀數是同一類錯，只是換了個地方。
+     *
+     * 失敗路徑不得吃任何「事情正在順利進行」的語意色。改用 warn 琥珀 + 說實話。
+     */
     function setSimulatedCapsule() {
         showCapsule();
         var hintText = document.getElementById('hint-text');
         var capsule = document.getElementById('align-hint-capsule');
         var iconBox = document.getElementById('hint-icon-box');
 
-        if (hintText) hintText.innerHTML = 'INTEGRATING SIGNALS · 訊號整合中';
+        if (hintText) hintText.innerHTML = 'NO CAMERA · 相機未啟用，無法量測';
         if (capsule) {
-            capsule.className = 'status-good show';
+            capsule.className = 'status-warn show';
         }
         if (iconBox) {
-            iconBox.style.background = 'rgba(var(--cyan-active-rgb), 0.15)';
+            iconBox.style.background = 'rgba(234, 179, 8, 0.15)';
         }
     }
 

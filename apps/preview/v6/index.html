@@ -2683,7 +2683,8 @@ body{
       <div class="scan-takeover-header">
         <div>
           <div class="scan-takeover-title">TENKI</div>
-          <div class="scan-takeover-sub">v6.0 3D BIOMETRIC SYNC</div>
+          <!-- 「BIOMETRIC SYNC」宣稱了生物特徵量測與同步，兩件都沒發生。 -->
+          <div class="scan-takeover-sub">v6.0 · FACE STABILITY SCAN</div>
         </div>
         <span class="scan-takeover-status-badge" id="scan-takeover-status-badge">SYSTEM READY</span>
       </div>
@@ -2738,8 +2739,15 @@ body{
             </svg>
           </div>
         </div>
-        <div class="scan-takeover-instruction">HOLD TO SYNC</div>
-        <div class="scan-takeover-tip">按住指紋感測器，啟動 8 秒 3D 生理與情緒基線同步<br>影像僅在本機即時運算，不上傳雲端</div>
+        <!-- 🔴 這兩行本來寫「按住指紋感測器，啟動 8 秒 3D 生理與情緒基線同步」。
+             三個宣稱，三個都不成立：
+               ① 那顆鈕是一個 <div> + SVG，不讀指紋、也不讀 PPG
+               ② 沒有任何生理量測（沒有心率、沒有 rPPG）
+               ③ 沒有情緒量測，而且「情緒」措辭本身違反
+                  docs/SOUL-SCAN-NORTH-STAR.md §7（App Store 4.2 / 隱私審查）
+             真正在量的是臉部特徵點的穩定度與對位，所以文案就講那件事。 -->
+        <div class="scan-takeover-instruction">HOLD TO SCAN</div>
+        <div class="scan-takeover-tip">按住並保持對位 · 量的是臉部特徵點的穩定度<br>影像僅在本機即時運算，不上傳雲端</div>
       </div>
     </div>
   </div>
