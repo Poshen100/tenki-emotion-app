@@ -361,6 +361,27 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('🔴 沒有讀數時 FDCB 不得報一個分數', today.fdcbSeg, '尚無讀數');
   check('Hero 分數槽是空的（契約上就沒有 0-100 分）', today.heroScore, '—');
   check('🔴 Hero 標籤跟槽裡的東西一致（不掛 Edge Score）', today.heroLabel, '狀態讀數');
+
+  // ══════════════════════════════════════════════════════════════════
+  // 🔴 掃描儀式不得宣稱沒有發生的量測
+  //
+  // takeover 那支原本寫「按住指紋感測器，啟動 8 秒 3D 生理與情緒基線同步」：
+  // 那顆鈕是 <div>+SVG（不讀指紋、不讀 PPG）、沒有生理量測、沒有情緒量測。
+  // 「情緒」措辭另外違反 SOUL-SCAN-NORTH-STAR §7（App Store 4.2 / 隱私審查）。
+  // ══════════════════════════════════════════════════════════════════
+  const claims = await page.evaluate(() => {
+    const clone = document.body.cloneNode(true);
+    clone.querySelectorAll('script,style').forEach((n) => n.remove());
+    return clone.textContent;
+  });
+  check('🔴 不得宣稱讀指紋感測器（那顆鈕不讀任何生物特徵）',
+    /指紋感測器/.test(claims), false);
+  check('🔴 不得宣稱做生理量測（沒有心率、沒有 rPPG）',
+    /生理與情緒|生理基線/.test(claims), false);
+  check('🔴 不得宣稱偵測情緒（合規紅線，非文字風格問題）',
+    /情緒基線|情緒偵測|情緒辨識/.test(claims), false);
+  check('🔴 不得掛 BIOMETRIC 字樣（宣稱生物特徵量測與同步）',
+    /BIOMETRIC/i.test(claims), false);
 }
 
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
