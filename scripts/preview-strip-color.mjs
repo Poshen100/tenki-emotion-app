@@ -384,6 +384,89 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     /BIOMETRIC/i.test(claims), false);
 }
 
+// ══════════════════════════════════════════════════════════════════
+// 🔴 /preview/reliability.html —— 量測重複性自測（儀器自測，不是讀數）
+//
+// 這一頁的價值全繫於「它不能假裝知道」：缺資料要說未取得、不能顯示帶位、
+// 不能讓人以為同場離散度本身就是結論。
+// ══════════════════════════════════════════════════════════════════
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto(`${base}/preview/reliability.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(500);
+
+  // 🔴 鏡像對照：preview 是無建置的 vanilla JS，沒辦法 import domain 的
+  // TypeScript，所以 personSignalComposite 被鏡像了一份 —— 兩個來源，
+  // 正是 PLAYBOOK §6 咬過三次的 bug 類別。這裡拿同一組輸入比對兩邊。
+  // 改任一邊而不改另一邊，這條就會紅。
+  const mirrored = await page.evaluate(() => {
+    const f = window.TENKI_RELIABILITY.personSignalComposite;
+    return [
+      f({ stillness: 0.72, blinkCadence: null }),
+      f({ stillness: 1, blinkCadence: 0 }),
+      f({ stillness: 0.5, blinkCadence: 0.5 }),
+      f({ stillness: 5, blinkCadence: null }),
+      f({ stillness: -5, blinkCadence: null }),
+    ].map((v) => Math.round(v * 1e6) / 1e6);
+  });
+  // domain/src/policies/baseline-score.ts 的公式（0.6 / 0.4，clamp 到 0..1，
+  // blinkCadence 為 null 時退成純 stillness）在同一組輸入下的答案。
+  const expected = [0.72, 0.6, 0.5, 1, 0].map((v) => Math.round(v * 1e6) / 1e6);
+  check('🔴 preview 的 composite 鏡像與 domain 的實作一致', mirrored, expected);
+
+  // 🔴 「一筆資料的離散度不是 0，是未知」——  這條直接驗那支純函式。
+  // 反向驗證發現：只驗畫面的話，把 stdDev 的 null 改成 0 不會紅
+  // （畫面那層另有「有效次數不足」的閘擋著），所以這道紀律本身是沒人守的。
+  const spread = await page.evaluate(() => {
+    const R = window.TENKI_RELIABILITY;
+    return {
+      sdOne: R.stdDev([0.5]),
+      sdNone: R.stdDev([]),
+      rangeOne: R.range([0.5]),
+      sdTwo: Math.round(R.stdDev([0.4, 0.6]) * 1e6) / 1e6,
+      rangeTwo: Math.round(R.range([0.4, 0.6]) * 1e6) / 1e6,
+    };
+  });
+  check('🔴 單筆資料的標準差是 null（未知），不是 0', spread.sdOne, null);
+  check('🔴 空資料的標準差是 null，不是 0', spread.sdNone, null);
+  check('🔴 單筆資料的全距是 null，不是 0', spread.rangeOne, null);
+  check('兩筆資料算得出樣本標準差（n−1）', spread.sdTwo, Math.round(Math.sqrt(0.02) * 1e6) / 1e6);
+  check('兩筆資料算得出全距', spread.rangeTwo, 0.2);
+
+  const rl = await page.evaluate(() => {
+    const clone = document.body.cloneNode(true);
+    clone.querySelectorAll('script,style').forEach((n) => n.remove());
+    return {
+      text: clone.textContent,
+      withinSd: document.getElementById('rl-within-sd').textContent.trim(),
+      withinRange: document.getElementById('rl-within-range').textContent.trim(),
+      betweenSd: document.getElementById('rl-between-sd').textContent.trim(),
+      rows: document.querySelectorAll('#rl-rows .rl-row').length,
+    };
+  });
+
+  check('自測頁真的載到（前提，不然下面幾條會空過）', rl.rows, 3);
+
+  // 🔴 沒有任何一次有效掃描時，離散度不得是 0 —— 一筆資料的離散度不是零，是未知。
+  check('🔴 沒有資料時同場離散度顯示未取得，不是 0',
+    rl.withinSd === '未取得' && rl.withinRange === '未取得', true);
+  check('🔴 只有 0 天時跨天離散度也不得編一個數字',
+    rl.betweenSd, '未取得');
+
+  // 🔴 這是儀器自測，不是讀數。出現帶位就等於在講使用者的狀態。
+  check('🔴 頁面不得出現帶位字樣（clear/neutral/strain）',
+    /\bclear\b|\bneutral\b|\bstrain\b/i.test(rl.text), false);
+
+  // 🔴 單看同場離散度會讓人以為儀器很穩 —— 必須明說那證明不了任何事。
+  check('🔴 明說單看同場證明不了任何事',
+    /單看同場離散度證明不了任何事/.test(rl.text), true);
+  check('說得出為什麼中間要放開（不是禮貌，是會低估噪音）',
+    /低估/.test(rl.text), true);
+
+  await ctx.close();
+}
+
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
 await browser.close();
 server.close();
