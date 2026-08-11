@@ -722,11 +722,20 @@ async function scanAndCancel(page) {
   check('🔴 沒按住時，膠囊直接說原因是「沒按住」（不是指一個不是原因的地方）',
     /按住/.test(await hintText()), true);
 
+  // 🔴 **這一組才是真正守住「按住是必要條件」的斷言。**
+  // 只驗 UI 狀態是不夠的：反向驗證時把 holdSatisfied 改成永遠回 true
+  // （＝退回 takeover 那個純計時器的病），上面那些 UI 斷言**全部照樣綠** ——
+  // 因為這個環境沒有相機，tick 的取樣段根本不會跑。所以直接驗那道門本身。
+  check('🔴 ceremony 開著、沒按住 → 這一幀不准前進',
+    await page.evaluate(() => window.TENKI_READINESS_SCAN.holdSatisfied()), false);
+
   await press(true);
   await page.waitForTimeout(120);
   const heldClass = await page.evaluate(() =>
     document.querySelector('[data-rs="hold"]').classList.contains('holding'));
   check('按住之後狀態有記錄下來', heldClass, true);
+  check('🔴 ceremony 開著、按住了 → 這一幀才准前進',
+    await page.evaluate(() => window.TENKI_READINESS_SCAN.holdSatisfied()), true);
 
   await press(false);
   await page.waitForTimeout(120);
@@ -743,6 +752,8 @@ async function scanAndCancel(page) {
   check('🔴 沒開 ceremony 時按住層整塊不出現（既有流程一個位元不變）',
     await page.evaluate(() => document.querySelector('[data-rs="hold"]').hidden), true);
   check('沒開 ceremony 時膠囊不會叫人按住', /按住/.test(await hintText()), false);
+  check('🔴 沒開 ceremony 時這道門永遠放行（既有流程不受手勢影響）',
+    await page.evaluate(() => window.TENKI_READINESS_SCAN.holdSatisfied()), true);
   await ctx.close();
 }
 

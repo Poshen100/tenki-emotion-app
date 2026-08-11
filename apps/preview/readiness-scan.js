@@ -1996,5 +1996,15 @@
     isAvailable: isAvailable,
     MISSIONS: MISSIONS,
     STORE_KEY: READING_STORE_KEY,
+    /**
+     * 🔴 對外只為了**可驗證性**：進度的門有兩道（`gatesAdvance` 與這道），
+     * 而 harness 的環境沒有相機，取樣段根本不會跑 —— 只驗 UI 狀態的話，
+     * 把這個函式改成永遠回 true（＝按住不再是條件、退回 takeover 那個病）
+     * 也**不會有任何一條紅**。2026-08-11 反向驗證當場抓到。
+     *
+     * 純函式、無副作用，讀 session 的 ceremony/holding 兩個欄位。
+     * @returns {boolean} 這一幀是否被「按住」允許前進。
+     */
+    holdSatisfied: holdSatisfied,
   };
 })(window);
