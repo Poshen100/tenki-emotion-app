@@ -646,12 +646,21 @@ async function scanAndCancel(page) {
     //
     // ⚠️ 基準值要**當場重讀**，不能用上面那個 `readouts` 快照 ——
     // 中間又餵過好幾輪，快照早就過期了（改動順序時踩過一次）。
+    //
+    // ⚠️ 而且要**先把閘門關上、等它安定，才取基準值**。上一輪餵的是合格的臉，
+    // 閘門還開著；如果一關門就立刻取樣，關門前那幾個 rAF tick 仍在合法累積
+    // progress，基準值就會落在「還在前進」的那一段 —— 這條斷言因此偶爾紅
+    // （2026-08-11 抓到，是測試的競態，不是產品的）。
+    for (let i = 0; i < 3; i += 1) {
+      await feed(0.32, 1);          // 明顯出界 → 先把閘門關上
+      await page.waitForTimeout(120);
+    }
     const progBefore = await page.evaluate(() => {
       const r = window.__sdReadouts;
       return r.length ? r[r.length - 1].progress : 0;
     });
     for (let i = 0; i < 6; i += 1) {
-      await feed(0.32, 1);          // 明顯出界
+      await feed(0.32, 1);          // 閘門已關，再讓真實時間過去
       await page.waitForTimeout(120); // 讓 rAF 迴圈真的跑過
     }
     const progAfter = await page.evaluate(() => {
