@@ -3443,7 +3443,10 @@ function renderFdcb(){
   const fill = document.getElementById('fdcbFill');
   if(s === 'idle'){
     timeEl.textContent = 'Start Decision';
-    segEl.textContent = 'Edge Score · 72';
+    // 🔴 這裡本來寫死 'Edge Score · 72'。72 不是任何東西算出來的 ——
+    // readiness 掃描契約上就沒有 0-100 分（Hero 的分數槽也是「—」）。
+    // 一個永遠不變的假分數比沒有分數更糟：它看起來像今天量到的。
+    segEl.textContent = '尚無讀數';
     if(runningInterval){ clearInterval(runningInterval); runningInterval = null; }
     if(fill) fill.style.width = '0';
     fdcb.classList.remove('in-readiness','closure-disciplined','closure-broke');
