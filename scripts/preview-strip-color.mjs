@@ -292,10 +292,16 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   await page.waitForTimeout(600);
 
   const today = await page.evaluate(() => {
+    // ⚠️ 「有沒有版面」跟「看不看得到」是兩件事。**遮擋不會改變 bounding rect** ——
+    // 這一行原本被固定在底部的 FDCB 底座整片蓋住，只量 rect 的版本照樣綠，
+    // 是本機截圖才抓到的。所以再問一次 elementFromPoint：那個點上最上層的元素，
+    // 必須就是它自己（或它的子孫）。
     const vis = (el) => {
       if (!el) return false;
       const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+      if (!(r.width > 0 && r.height > 0) || getComputedStyle(el).visibility === 'hidden') return false;
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!top && el.contains(top);
     };
     const cards = Array.from(document.querySelectorAll('#snapTrack .vcard'));
     const badges = Array.from(document.querySelectorAll('#snapTrack .metric-status'));

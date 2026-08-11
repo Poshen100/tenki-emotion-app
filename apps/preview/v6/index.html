@@ -2274,12 +2274,12 @@ body{
             </div>
           </div>
         </div>
-        <div class="snap-dots" id="snapDots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
         <!-- 🔴 這四張卡的數字全部由 Math.sin 產生（見本檔底部的 "living vitals" 迴圈）。
              心率／HRV／呼吸要有感測器才量得到，目前沒有接。**畫面不得宣稱沒量到的事。**
              卡上的「示意」標記 + 這一行是同一件事的兩個層次：標記給掃過去的眼睛，
              這一行給停下來看的人。 -->
         <div class="vitals-demo-note">以上四張為<b>示意畫面</b> · 心率／HRV／呼吸需要感測器，目前尚未接上</div>
+        <div class="snap-dots" id="snapDots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
 
         <!-- first-visit swipe coach hint (one-time, self-dismissing) -->
         <div class="snap-hint" id="snapHint" aria-hidden="true">
@@ -4704,9 +4704,13 @@ function closeSessionDetail(){
          squeezing it to ~0 on a tight card. */
       .vwave{width:100%;height:54px;flex:none;display:block;margin-top:6px;}
       .vstress{margin-top:10px;}
+      /* ⚠️ 這一行原本擺在圓點**下方**，也就是整個 section 的最後一個元素 ——
+         結果被固定在底部的 FDCB 底座整片蓋住，本機截圖才看出來。
+         harness 的「看得見」只量了 bounding rect，**遮擋不會改變 rect** ——
+         所以那條斷言補了 elementFromPoint。 */
       .vitals-demo-note{
         text-align:center;font-size:10.5px;line-height:1.5;
-        color:rgba(255,255,255,0.42);letter-spacing:0.02em;margin:8px 4px 2px;
+        color:rgba(255,255,255,0.42);letter-spacing:0.02em;margin:12px 4px 2px;
       }
       .vitals-demo-note b{font-weight:600;color:rgba(255,255,255,0.62);}
       .snap-dots{display:flex;justify-content:center;gap:8px;margin:14px 0 2px;}
