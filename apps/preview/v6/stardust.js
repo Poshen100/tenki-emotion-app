@@ -1017,6 +1017,11 @@
         // reachable in the sandbox (three.js is CDN-blocked), but this is.
         toneMatrix: toneMatrix,
         hueBandOf: hueBandOf,
-        HUE_BANDS: HUE_BANDS
+        HUE_BANDS: HUE_BANDS,
+        // 🔴 鎖定資產的**真正**閘門：它是 false 的那一刻，粒子就一顆都不重新上色。
+        // harness 本來只驗 `readoutState().active === false`，但那是一個記帳用的
+        // 旗標，不是顏色通道 —— 我把 effectiveSat 改成永遠走 readout 分支
+        // （靜息飽和度 1.0 → 1.20，v25.8.2 的樣子當場被改掉）時它照樣全綠。
+        toneIdle: toneIdle
     };
 })(window);

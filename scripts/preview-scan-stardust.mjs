@@ -1095,15 +1095,24 @@ async function scanAndCancel(page) {
       hasSetReadout: typeof window.TENKI_STARDUST.setReadout === 'function',
       // 🔴 剛載進來、沒人呼叫過 setReadout 時必須是 inert —— 這就是
       // story / soul-enroll / v6 takeover 逐位元組不變的那個結構保證。
-      readoutInert: window.TENKI_STARDUST.readoutState().active === false,
+      //
+      // ⚠️ 驗的是**顏色通道本身**（`toneIdle()` —— 它是 false 的那一刻粒子才會
+      // 被重新上色），不是 `active` 那個記帳旗標。2026-08-11 反向驗證抓到：
+      // 把 effectiveSat 改成永遠走 readout 分支（靜息飽和度 1.0 → 1.20，
+      // v25.8.2 的樣子當場被改掉），只驗旗標的版本照樣全綠。
+      readoutInert: window.TENKI_STARDUST.readoutState().active === false
+        && window.TENKI_STARDUST.toneIdle() === true
+        && window.TENKI_STARDUST.readoutState().sat === 1,
       // 呼叫之後才生效，clearReadout 之後又回到 inert（掃描結束要還原）
       readoutTogglesOn: (() => {
         window.TENKI_STARDUST.setReadout({ stillness: 1, progress: 1 });
-        return window.TENKI_STARDUST.readoutState().active === true;
+        return window.TENKI_STARDUST.readoutState().active === true
+          && window.TENKI_STARDUST.toneIdle() === false;
       })(),
       readoutTogglesOff: (() => {
         window.TENKI_STARDUST.clearReadout();
-        return window.TENKI_STARDUST.readoutState().active === false;
+        return window.TENKI_STARDUST.readoutState().active === false
+          && window.TENKI_STARDUST.toneIdle() === true;
       })(),
     };
   });
