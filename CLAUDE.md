@@ -19,7 +19,8 @@
     套用舊的 70/40 會讓人**永遠有 40% 的日子落在最低帶**，不管他過得多好。
     位置分的門檻是 **80/20**。
   - 🔴 樣本不足（< 14 次）一律回 `null`，**不得回一個看起來像真的的數字**。
-  - ⚠️ `PR99` 仍是禁用詞（見下方禁止事項）—— 概念可以用，那三個字不行。
+  - ✅ `PR99` 已**內部解禁**（founder 2026-08-11）：code 註解／docs／commit message
+    都可以用，**但不得進 user-facing copy**（理由與血統見 `docs/EDGE-SCORE-DEFINITION.md`）。
 - **掃描主入口**：Soul Scan（臉部基線）— 方向定調見 `docs/SOUL-SCAN-NORTH-STAR.md`（必讀）；finger PPG 退為校準/補強層，不要把臉部流程塞進 `(tabs)/scan.tsx`
 - **3 Zone**：Clear (70-100) / Neutral (40-69) / Strain (0-39)
   - ⚠️ 長期方向是改用 Baseline 語言（Above/At/Below Baseline），但 mapping 尚未定案（Strain 對應「過度刺激」還是
@@ -36,7 +37,8 @@
 
 | ✗ 不要做 | 為什麼 |
 |---------|--------|
-| 使用 TEI / PR99 / PEAK / OPTIMAL / 4 zone / 3 tier | v2 已廢棄詞彙，會引起架構混淆 |
+| 使用 TEI / PEAK / OPTIMAL / 4 zone / 3 tier | v2 已廢棄詞彙，會引起架構混淆 |
+| 把 `PR99` 用在 user-facing copy | 台灣語境「PR 值」＝跟**別人**比的排名（基測／學測），與 Edge Score「跟你自己比」正好相反，會主動誤導。內部可用，見 `docs/EDGE-SCORE-DEFINITION.md` |
 | 修改 `apps/web/` 任何檔案 | Web prototype 已凍結，新功能走 `apps/mobile/` |
 | TypeScript 用 `any` | strict mode，違反就壞鏈 |
 | 給醫療診斷或金融建議的措辭 | App Store compliance / 法律風險 |

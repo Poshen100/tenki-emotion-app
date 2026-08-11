@@ -9,6 +9,52 @@
 
 ---
 
+# 2026-08-11 Session Update #70 (PR99 內部解禁 —— 並發現 v3 當初走錯了一步)
+
+founder：「禁用這個詞的理由是什麼？我忘了 / 不影響幫我解禁」。
+
+## 一、查證：禁它的理由**沒有一條說數學錯**
+
+`CLAUDE.md`「v2 廢棄詞彙會引起架構混淆」、`ANTIGRAVITY.md:1126`「語意遷移完成禁止回退」、
+`BRAND.md:93` 命名表、`ANTIGRAVITY.md:1211` 反例文案「你的 PR99 是 85，**趕快加倉**！」、
+`brand/TAGLINE-SYSTEM.md:113`「deprecated since v3 rebrand」。
+**全部是品牌與定位的遷移衛生。**
+
+## 二、🔴 而且查到更重要的：v3 當初把對的東西換掉了
+
+`packages/engine/src/common/legacy-tei-adapter.ts:20`：
+
+> Legacy PR99 **was a percentile rank against personal history**.
+> Edge Score is a weighted multi-factor score. They measure different things.
+
+**v2 的 PR99 本來就是「跟自己歷史比的 1-99 百分位」。** v3 換成 0-100 絕對加權分，
+而那個絕對分這條管線根本產不出來。所以 #69 那一刀不是新發明，是**修正 v3**。
+當初該退役的是交易話術，不是統計模型。
+
+⚠️ v2 的 `calculateTeiPr()` 有兩個新版剛好避開的毛病：沒有歷史時 `return 50`（假數字）、
+`countBelow/n` 再硬夾 1-99（端點必然被撞到）。已寫進 EDGE-SCORE-DEFINITION §7 當對照。
+
+## 三、解禁的做法：把封鎖點搬家，不是拆掉
+
+founder 選「內部解禁，不進用戶文案」。所以：
+- `scripts/check-vocab.sh` 拿掉 `PR99`（`TEI` 保留）
+- `'pr99'` 進 `packages/engine/src/compliance/safe-copy.ts` 的 `PROHIBITED_VOCABULARY`
+
+🔴 **規則縮小範圍時，執行點也要跟著移到那個範圍上。** 留在原地會擋錯人，
+搬走又不補就等於沒規則。已提煉進 PLAYBOOK §8。
+
+🔴 不完全解禁的理由不是儀式：**台灣語境「PR 值」＝基測／學測，跟別人比的排名**，
+而 Edge Score 的承諾恰好相反（跟你自己比）。對目標使用者會主動誤導。
+
+## 四、下次接手點
+
+- 四條反向驗證都做過：PR99 放行 ✅、TEI 仍紅 ✅、user-facing 仍擋 ✅、拿掉 'pr99' 會紅 ✅
+- engine 319 / scan 111 / shared 59 / domain 165 全綠，verify.sh --quick 全綠
+- ⚠️ `npm test` 會依序跑四個 workspace，`tail` 只看得到最後一個的總結 ——
+  要確認某個 workspace 有沒有跑到，得 `grep "Tests:"` 或直接進去跑
+
+---
+
 # 2026-08-11 Session Update #69 (Edge Score 改成 1-99 的基線相對位置)
 
 founder：「我原本是想用 1-99，不用 0-100…但實作上計算適合嗎？」

@@ -344,7 +344,12 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 
 - 禁用詞彙與安全替代表：`ANTIGRAVITY.md` §2.1；user-facing copy 過 `packages/engine/src/compliance/safe-copy`。
 - `docs/brand.md` 的 dopamine/withdrawal/craving 內部語言**禁止**出現在 user-facing copy。
-- `TEI` / `PR99` 禁止出現在新代碼（`scripts/check-vocab.sh` 會在 CI 擋；既有殘留如 v6 的 `tlTlTlTeiScore` id 屬已知債，另開任務清）。
+- `TEI` 禁止出現在新代碼（`scripts/check-vocab.sh` 會在 CI 擋；既有殘留如 v6 的 `tlTlTlTeiScore` id 屬已知債，另開任務清）。
+- ⚠️ **`PR99` 已於 2026-08-11 內部解禁**（founder 拍板）：code 註解／docs／commit message 可用，
+  **只有 user-facing copy 仍禁**。封鎖點也跟著搬家 —— 從 `check-vocab.sh`（掃全部新增代碼）移到
+  `packages/engine/src/compliance/safe-copy.ts` 的 `PROHIBITED_VOCABULARY`（只管用戶看得到的字）。
+  🔴 這是一個值得記住的形狀：**規則縮小範圍時，執行點也要跟著移到那個範圍上** ——
+  留在原地只會擋錯人，搬走又不補就等於沒規則。理由與血統見 `docs/EDGE-SCORE-DEFINITION.md` §7。
 - Zone 改名（Clear/Neutral/Strain → Baseline 語言）**尚未定案** — 不要自行 rename `EdgeZone` / `zone-config.ts`。
 - 鎖定資產（polish 可以、redesign 不行）：`/story/` Hero + 星塵球（SYSTEM.md §8）、logo 與 lockup（ANTIGRAVITY.md §18）、
   Tier-1 taglines（`brand/TAGLINE-SYSTEM.md`）、星塵動效 v25.8.2 手感。

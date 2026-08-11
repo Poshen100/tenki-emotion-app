@@ -3,8 +3,9 @@
 > 📌 **Edge Score 是「相對你自己基線的位置」，1-99，50 = 你的常態。**
 > 不是絕對分數、不是健康量測、不是跟別人比。
 > 實作：`domain/src/policies/baseline-score.ts` · 測試：`domain/src/__tests__/baseline-score.test.ts`
-> ⚠️ `PR99` 是 `CLAUDE.md` 明文禁用詞（v2 廢棄詞彙）。概念可以用，那三個字不得出現在
-> code、文件或任何文案裡。
+> ✅ `PR99` 已於 2026-08-11 **內部解禁**：code 註解／docs／commit message 都可以用，
+> **但不得進 user-facing copy**（由 `packages/engine/src/compliance/safe-copy.ts` 執行）。
+> 血統與理由見 §7。
 
 ---
 
@@ -125,4 +126,48 @@ n=5 的標準差極不穩定，分數會為了跟使用者無關的理由亂跳�
 
 ---
 
-*最後更新：2026-08-11 · Claude Code（founder 拍板 1-99 當天）*
+## 7. 血統：這不是新發明，是把 v3 走錯的一步走回來
+
+🔴 **v2 的 `PR99` 本來就是「跟自己歷史比的 1-99 百分位」。**
+`packages/engine/src/common/legacy-tei-adapter.ts:20` 白紙黑字：
+
+> Legacy PR99 **was a percentile rank against personal history**.
+> Edge Score is a weighted multi-factor score. **They measure different things.**
+
+v3 遷移把它換成 0-100 的**絕對加權分** —— 而那個絕對分，這條管線根本產不出來
+（`apps/preview/readiness-scan.js:9-10` 契約明寫「永遠不生成 0-100 分」）。
+所以 2026-08-11 這一刀不是新發明，是**修正 v3 的那一步**。
+
+⚠️ **當初該退役的是「趕快加倉」那套交易話術，不是統計模型。**
+查證過的禁用理由（`CLAUDE.md`、`ANTIGRAVITY.md:1126`、`BRAND.md:93`、
+`brand/TAGLINE-SYSTEM.md:113`）**沒有任何一條說那個數學是錯的** ——
+全部是品牌與定位的遷移衛生。
+
+### v2 版有兩個毛病，新版剛好都避開了
+
+`packages/engine/src/legacy/tei.ts:43` 的 `calculateTeiPr()`：
+
+| v2 | 新版 |
+|---|---|
+| 沒有歷史時 **`return 50`**（一個看起來像真的的假數字） | `null`，直到 n ≥ 14 |
+| `countBelow/n` 再硬夾 1-99 → **端點必然被撞到**（史上最好那天就是最大值） | `Φ(z)` + `Z_CLAMP`，1/99 各自代表「比 99% 的日子更極端」 |
+
+⚠️ v2 用的是**經驗排名**（需要保留歷史陣列），新版用 **z 分數**（只需要
+`{mean, std, n}`）。兩者都合理；選 z 是因為 Welford 的統計已經存在、
+而全 repo 目前沒有任何地方在存時間序列（見 §5）。
+
+### 詞彙規則（founder 2026-08-11 拍板）
+
+| 場合 | `PR99` |
+|---|---|
+| code 註解、docs、commit message、內部討論 | ✅ 可用 |
+| **user-facing copy** | 🔴 禁用，由 compliance 層擋 |
+
+🔴 理由不是儀式：**台灣語境裡「PR 值」壓倒性地指基測／學測 —— 跟別人比的排名。**
+而 Edge Score 的核心承諾恰好相反：跟你自己比。對目標使用者而言這個詞會主動誤導。
+
+⚠️ `TEI` **未解禁**（它連著整套 v2 架構詞彙），`scripts/check-vocab.sh` 仍然擋它。
+
+---
+
+*最後更新：2026-08-11 · Claude Code（founder 拍板 1-99、並內部解禁 PR99 當天）*
