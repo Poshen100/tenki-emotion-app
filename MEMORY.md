@@ -9,6 +9,64 @@
 
 ---
 
+# 2026-08-11 Session Update #68 (旗艦掃描儀式根本沒在量 + 定價戰略)
+
+founder 實走後問三件事：兩種掃描準度是否一樣、「尚無讀數」是否多餘、能否整合兩者；
+外加要 PRO $9.9/月 的戰略思考。**查完之後發現的事實比問題本身嚴重。**
+
+## 一、🔴 那不是兩支掃描，是三支，而且旗艦那支沒有在量
+
+他說的「大星塵」不在 `/preview/`（截圖標題「5-Tab Navigation」= `/v3/`）。
+
+| | 大星塵 HOLD TO SYNC | 鎖定版 readiness-scan |
+|---|---|---|
+| 相機 + FaceMesh | 真的開、真的跑 | 真的開、真的跑 |
+| 對位閘門 | **算得出來，但 updateLoop 從來沒讀 `align.aligned`** | 閘門通過才前進 |
+| 那 8 秒 | **`progress += dt/8000`，手指按住的牆鐘時間** | 累積的有效量測 |
+| 沒相機／沒臉／全黑 | **照樣 100%，且 fallback 顯示 cyan「INTEGRATING SIGNALS」** | 不存讀數 |
+| 產出 | **無** | band + confidence + evidence |
+
+**答案：那支沒有「準度」這個東西可談。** 手機蓋在桌上按住 8 秒，結果一模一樣。
+
+**而「尚無讀數」不多餘 —— 它是那個畫面上唯一誠實的東西。** 他掃完還看到它，
+是因為那支掃描從來沒寫過 `tenki.readiness.reading.v1`。**拿掉它才是災難。**
+
+## 二、做了什麼（founder 選「真貨穿上戲服」+「限深度不限次數」）
+
+- `?from=baseline` 改走正典引擎；takeover 那條鏈全部退役（模組頂端標明不得接回去）
+- readiness 加 **opt-in** ceremony 層：按住 = 承諾訊號，**必要但不充分** ——
+  `holdSatisfied() && gatesAdvance()` 兩個都要成立。沒開 ceremony 時整塊 inert，
+  `/decision-alert/` 與 Scan 分頁一個位元不變
+- 停止宣稱：「按住指紋感測器」（那是 `<div>`+SVG）、「3D 生理與情緒基線同步」
+  （沒有生理、沒有情緒，且「情緒」違反 North Star §7 合規）、「BIOMETRIC SYNC」；
+  沒相機的 fallback 從 cyan（ACTIVE = 活訊號）改成 warn
+- soul-enroll 拿掉 Threat Low／Mode Ghost／亂數二進位／寫死 5842／假 processing %
+- 免費層 `dailyScanLimit` 1 → `'unlimited'`，刪掉矛盾的 `ScanLimiterPolicy`
+- hero gate 星塵自主漂移（不接任何輸入，色相 0→0.20 turn 的量過上限）
+- 新增 `docs/PRICING-STRATEGY.md`
+
+## 三、🔴 兩個教訓（已進 PLAYBOOK）
+
+1. **「算了但沒接」比沒算更難發現。** 閘門算得很認真、相機也真的開著，
+   但沒有第二個地方讀那個變數 —— 畫面看起來完全正常。
+   **看到進度條先追它的加法在哪一行、那一行的條件是什麼。**
+2. **環境缺一半時，只驗 UI 狀態的斷言會全綠。** 我為 ceremony 寫的 6 條
+   （按住層出現沒、有沒有 holding class、膠囊講什麼）在把 `holdSatisfied()`
+   改成永遠 true 之後**全部照樣綠**，因為 harness 沒有相機、取樣段不會跑。
+   改成 export 那道門直接驗才紅。
+
+## 四、下次接手點
+
+- harness：`preview-scan-stardust` 115/115、`preview-strip-color` 49/49
+- ⬜ takeover 的死碼與 `#stardust-scan-takeover` markup/CSS 整條移除（另案）
+- ⬜ 定價：IAP SDK、paywall UI、restore purchases、EAS 設定、相機用途說明**全部不存在**，
+  距離收第一塊錢還隔著一整塊訂閱基礎建設
+- 🔴 定價之前要先拍板的產品定義問題：**Edge Score 0-100 目前的管線產不出來**
+  （`readiness-scan.js` 契約明寫「永遠不生成 0-100 分」），
+  但 CLAUDE.md 說它是核心指標。見 PRICING-STRATEGY §5
+
+---
+
 # 2026-08-11 Session Update #67 (/v3/ Today 不再宣稱沒量到的事)
 
 founder「好」→ 接著做已拍板的另案。
