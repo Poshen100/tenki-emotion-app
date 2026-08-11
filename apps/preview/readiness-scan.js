@@ -472,6 +472,32 @@
       '#' + OVERLAY_ID + ' .rs-cancel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);',
       'right:16px;z-index:2;background:none;border:0;color:#A6ADC8;font-size:15px;',
       'font-family:inherit;padding:10px 14px;cursor:pointer;}',
+      // ── ceremony 層（opt-in）──
+      // 進度環用 conic-gradient 吃 --rs-hold-p，跟沿框光弧同一個 p。
+      '#' + OVERLAY_ID + ' .rs-hold{display:flex;flex-direction:column;align-items:center;',
+      'gap:10px;margin-top:2px;}',
+      '#' + OVERLAY_ID + ' .rs-hold[hidden]{display:none;}',
+      '#' + OVERLAY_ID + ' .rs-hold-btn{position:relative;width:74px;height:74px;',
+      'border-radius:50%;display:flex;align-items:center;justify-content:center;',
+      'cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;',
+      'user-select:none;-webkit-user-select:none;}',
+      '#' + OVERLAY_ID + ' .rs-hold-ring{position:absolute;inset:0;border-radius:50%;',
+      // 未按住時是一圈暗軌；按住並且閘門通過時，p 會前進。
+      'background:conic-gradient(var(--rs-hold-c,#22D3EE) var(--rs-hold-p,0%),',
+      'rgba(255,255,255,0.10) 0);',
+      '-webkit-mask:radial-gradient(farthest-side,#0000 calc(100% - 3px),#000 0);',
+      'mask:radial-gradient(farthest-side,#0000 calc(100% - 3px),#000 0);',
+      'transition:opacity .2s ease;}',
+      '#' + OVERLAY_ID + ' .rs-hold-core{width:52px;height:52px;border-radius:50%;',
+      'background:rgba(34,211,238,0.10);border:1px solid rgba(34,211,238,0.28);',
+      'transition:transform .18s ease, background .18s ease;}',
+      '#' + OVERLAY_ID + ' .rs-hold.holding .rs-hold-core{transform:scale(0.92);',
+      'background:rgba(34,211,238,0.20);}',
+      '#' + OVERLAY_ID + ' .rs-hold-label{font-size:11px;letter-spacing:0.14em;',
+      'color:#5A6178;text-transform:uppercase;}',
+      '#' + OVERLAY_ID + ' .rs-hold.holding .rs-hold-label{color:#A6ADC8;}',
+      // 收束之後手勢層退場 —— 揭曉時畫面上只留答案與完成鈕。
+      '#' + OVERLAY_ID + '.secured-run .rs-hold{display:none;}',
     ].join('');
     document.head.appendChild(style);
 
@@ -534,6 +560,16 @@
       // ⚠️ listener 與 cancel 一樣在注入當下就綁 —— 見下方 addEventListener。
       // 揭曉時只負責把它顯示出來，這樣就算 finalize() 中途出事，人也出得去。
       '  <button type="button" class="rs-done" data-rs="done" hidden>完成</button>',
+      // ceremony 層（opt-in，預設 hidden）：按住的手勢 + 沿鈕的進度環。
+      // founder 喜歡 takeover 那個手感，但那支的進度是純牆鐘計時。這裡把手勢
+      // 留下、把計時器丟掉 —— 進度仍由閘門決定（見 holdSatisfied）。
+      '  <div class="rs-hold" data-rs="hold" hidden>',
+      '    <div class="rs-hold-btn" data-rs="hold-btn" role="button" tabindex="0" aria-label="按住開始掃描">',
+      '      <div class="rs-hold-ring" data-rs="hold-ring"></div>',
+      '      <div class="rs-hold-core"></div>',
+      '    </div>',
+      '    <div class="rs-hold-label" data-rs="hold-label">按住開始</div>',
+      '  </div>',
       '  <div class="rs-dots" data-rs="dots">',
       '    <span class="rs-dot" data-rs="dot-light"><i></i>Lighting</span>',
       '    <span class="rs-dot" data-rs="dot-center"><i></i>Centering</span>',
@@ -553,6 +589,22 @@
     node.querySelector('[data-rs="done"]').addEventListener('click', function () {
       finish(session && session.pendingReading ? session.pendingReading : null);
     });
+
+    // ── ceremony：按住／放開 ──
+    // ⚠️ 一樣在注入當下就綁（跟 cancel/done 同理）：綁定不能依賴任何流程跑完。
+    // mouseup/touchend 綁在 window 上，手指滑出鈕外再放開也要算放開，
+    // 否則進度會卡在「以為還按著」。
+    var holdBtn = node.querySelector('[data-rs="hold-btn"]');
+    if (holdBtn) {
+      holdBtn.addEventListener('mousedown', function () { setHolding(true); });
+      holdBtn.addEventListener('touchstart', function (e) {
+        e.preventDefault(); // 不要觸發合成滑鼠事件，也不要選字
+        setHolding(true);
+      }, { passive: false });
+    }
+    global.addEventListener('mouseup', function () { setHolding(false); });
+    global.addEventListener('touchend', function () { setHolding(false); });
+    global.addEventListener('touchcancel', function () { setHolding(false); });
     return node;
   }
 
@@ -672,7 +724,12 @@
    * @param {{lighting:boolean,centering:(boolean|null),stillness:(boolean|null)}} gates
    */
   function applyHint(gates) {
-    var hint = resolveHint(gates);
+    // 🔴 ceremony 模式沒按住時，**停住的原因就是沒按住** —— 這時候還講
+    // 「保持穩定」是在指一個不是原因的地方。因果要指對，否則使用者照著做
+    // 也不會前進（`docs/PLAYBOOK.md`：進度停住要說得出為什麼）。
+    var hint = (session && session.ceremony && !session.holding)
+      ? { key: 'hold-to-start', text: '按住開始', icon: '' }
+      : resolveHint(gates);
     var now = performance.now();
     if (hint.key !== session.hintPending) {
       session.hintPending = hint.key;
@@ -707,8 +764,12 @@
    */
   function setProgress(ratio) {
     var node = q('halo');
-    if (!node) return;
     var p = clamp01(ratio);
+    // ceremony 的環跟光弧吃**同一個** p —— 它是 heldMs/budgetMs 的視覺化，
+    // 不是另一條計時。兩個環永遠說同一件事。
+    var ring = q('hold-ring');
+    if (ring) ring.style.setProperty('--rs-hold-p', (p * 100).toFixed(2) + '%');
+    if (!node) return;
     if (p >= 1) {
       // 收滿＝實線，不留接縫。用 dash 表示 100% 會在起點留一道縫：
       // dash 1 + gap 1 的週期是 2，偏移 -0.0652 讓第一段從 0.0652 畫到 1.0652，
@@ -1204,6 +1265,40 @@
   // 理由：那兩個門檻是先驗估計、還沒實機調過（手感調參歸桌機 lane），
   // 一旦進了閘門而門檻抓錯，掃描會完成不了 —— 那是比「偶爾少講一句」嚴重得多的壞法。
   // 先讓它停止給錯建議；要不要收進閘門是下一步、要有實機數據才決定。
+  /**
+   * ceremony 模式下「使用者正按著」是否成立。
+   *
+   * 🔴 **非 ceremony 模式永遠回傳 true** —— 這條是整個設計的鎖：
+   * `/decision-alert/` 與 Scan 分頁的既有流程一個位元都不受影響，
+   * 106 條既有 harness 也因此不必改。手勢是加上去的一層，不是新的必要條件。
+   *
+   * @returns {boolean} 這一幀是否被「按住」允許前進。
+   */
+  function holdSatisfied() {
+    if (!session || !session.ceremony) return true;
+    return session.holding === true;
+  }
+
+  /**
+   * 記錄按住狀態並更新 ceremony 的視覺。
+   *
+   * ⚠️ 這裡**只寫狀態與樣式，不碰 heldMs** —— 進度的唯一寫入點在 tick()。
+   * 兩個地方都能加進度的話，「按住就一定會前進」會從後門溜回來。
+   *
+   * @param {boolean} on - 是否正按著。
+   */
+  function setHolding(on) {
+    if (!session || !session.ceremony) return;
+    if (session.holding === on) return;
+    session.holding = on;
+    var wrap = q('hold');
+    if (wrap) wrap.classList.toggle('holding', on);
+    if (on && global.navigator && typeof global.navigator.vibrate === 'function') {
+      // 按下去的那一下觸覺回饋（takeover 原本就有；只有真的支援才播）。
+      global.navigator.vibrate(12);
+    }
+  }
+
   function gatesAdvance(gates) {
     return session.everSawFace
       ? gates.centering === true && gates.stillness === true
@@ -1451,7 +1546,13 @@
         acc.stillness += 1 - frame.motion;
         acc.lighting += lightingAdequacy(frame.brightness);
         acc.uniformity += frame.uniformity;
-        if (gatesAdvance(gates)) session.heldMs += dt;
+        // 🔴 按住（ceremony 模式）是**必要但不充分**的條件。
+        // founder 2026-08-11 選的方向是「真貨穿上戲服」：他喜歡 takeover 那個
+        // 按住手勢，但那支的進度是 `progress += dt/8000` —— 純粹的牆鐘時間，
+        // 手機蓋在桌上按住 8 秒也會跑到 100%。
+        // 這裡把手勢當作**承諾訊號**接進來：放開就暫停，但放著不放也不會前進，
+        // 因為進度仍然只在閘門通過時累積。兩個條件都要成立。
+        if (gatesAdvance(gates) && holdSatisfied()) session.heldMs += dt;
       }
 
       // 單一主指令，帶方向（見 resolveHint）。
@@ -1459,7 +1560,7 @@
       // 讓「進度為什麼停住」看得見：閘門沒過就把光弧壓暗。進度本來就只在閘門
       // 通過時前進（pause-not-reset），這一層只是把既有的因果講出來。
       var frameEl = q('frame');
-      if (frameEl) frameEl.classList.toggle('stalled', !gatesAdvance(gates));
+      if (frameEl) frameEl.classList.toggle('stalled', !(gatesAdvance(gates) && holdSatisfied()));
       setProgress(session.heldMs / session.budgetMs);
     }
 
@@ -1827,6 +1928,12 @@
     var reticleEl = q('reticle');
     if (reticleEl) reticleEl.style.transform = '';
     setProgress(0);
+    // ceremony 層：opt-in。沒開就整塊留在 hidden，既有流程逐位元組不變。
+    var holdWrap = q('hold');
+    if (holdWrap) {
+      holdWrap.hidden = opts.ceremony !== true;
+      holdWrap.classList.remove('holding');
+    }
     overlay.classList.remove('secured-run'); // 上一輪的收束標記不得留到這一輪
     overlay.classList.add('open');
 
@@ -1847,6 +1954,8 @@
         lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0,
+        // ceremony：按住手勢當承諾訊號（見 holdSatisfied）。opt-in，預設關。
+        ceremony: opts.ceremony === true, holding: false,
         stardust: false,
         // 借來的星塵綁定（`{node, fitContainer}`）。非 null 就代表**欠著一次歸還**。
         borrowedFrom: null,
