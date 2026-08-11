@@ -37,3 +37,6 @@ coverage/
 *.log
 npm-debug.log*
 .gstack/
+
+# 一次性的本地驗證腳本（截圖/量測），不進版控
+scripts/.tmp-*
