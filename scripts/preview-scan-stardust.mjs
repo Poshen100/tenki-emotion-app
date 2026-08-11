@@ -1138,8 +1138,11 @@ async function scanAndCancel(page) {
 //
 // ⚠️ three.js 被沙箱擋，**畫面驗不到**。但這一層的安全性質是純數學的：
 // 預設值下 `toneMatrix` 必須是單位矩陣，否則沒呼叫 setTone 的頁面
-// （story / soul-enroll / v6 takeover）會被連坐改掉 —— 那是 CLAUDE.md
-// 鎖定的 v25.8.2 資產。所以直接驗那個函式，不假裝驗到了畫面。
+// （`story.html`）會被連坐改掉 —— 那是 CLAUDE.md 鎖定的 v25.8.2 資產。
+// 所以直接驗那個函式，不假裝驗到了畫面。
+// ⚠️ soul-enroll 的 hero gate 與 /v3/ 掃描**現在會主動呼叫** setTone/setReadout
+//（founder 2026-08-10 / 08-11 兩次授權）。它們是「有呼叫的頁面」，不在這條保護裡；
+// 這條守的是**沒呼叫的那些**仍然逐位元組不變。
 {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
@@ -1173,7 +1176,7 @@ async function scanAndCancel(page) {
       hasHostInfo: typeof window.TENKI_STARDUST.hostInfo === 'function',
       hasSetReadout: typeof window.TENKI_STARDUST.setReadout === 'function',
       // 🔴 剛載進來、沒人呼叫過 setReadout 時必須是 inert —— 這就是
-      // story / soul-enroll / v6 takeover 逐位元組不變的那個結構保證。
+      // 「沒呼叫的頁面逐位元組不變」的那個結構保證（現在主要是 `story.html`）。
       //
       // ⚠️ 驗的是**顏色通道本身**（`toneIdle()` —— 它是 false 的那一刻粒子才會
       // 被重新上色），不是 `active` 那個記帳旗標。2026-08-11 反向驗證抓到：
@@ -1203,7 +1206,7 @@ async function scanAndCancel(page) {
   check('setTone 有對外', math.hasSetTone, true);
   check('hostInfo 有對外（借用方要靠它才還得回去）', math.hasHostInfo, true);
   check('setReadout 有對外', math.hasSetReadout, true);
-  check('🔴 沒呼叫 setReadout 時完全 inert（story/soul-enroll/takeover 不得被改到）',
+  check('🔴 沒呼叫 setReadout 時完全 inert（沒呼叫的頁面不得被連坐改到）',
     math.readoutInert, true);
   check('setReadout 之後才生效', math.readoutTogglesOn, true);
   check('clearReadout 之後回到 inert（掃描結束要還原）', math.readoutTogglesOff, true);
