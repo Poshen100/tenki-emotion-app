@@ -14,7 +14,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>TENKI CORE · 5-Tab Navigation</title>
-<link rel="stylesheet" href="../tokens.css">
+<!-- ⚠️ 絕對路徑，不能寫 `../tokens.css`：這一頁在正式站的網址是 `/v3/`（rewrite，
+     不是 redirect），所以相對路徑會解成 `/tokens.css`，掉進 vercel.json 最後那條
+     `/(.*)` → `/apps/web/$1`，而 apps/web 底下沒有這支 → 每次載入都 404。
+     （沒炸掉是因為本頁 :root 自己定義了用到的 token；靜默 404 而已。） -->
+<link rel="stylesheet" href="/preview/tokens.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
 .baseline-takeover-active .screens {
@@ -476,6 +480,16 @@ body{
 .metric-status.balanced{
   background:rgba(52,199,89,0.15);
   color:var(--good);
+}
+/* 🔴 示意標記：這張卡的數字是動畫，不是量出來的。
+   刻意**不吃任何已被指派意義的顏色** —— 綠是 `--good`、琥珀是 `--warn`、
+   金是 SECURED、slate 是 Neutral 帶位。用純白低透明度 + 虛線邊，
+   讀起來是「這不是一個讀數」，而不是某個帶位的判定。 */
+.metric-status.demo{
+  background:transparent;
+  color:rgba(255,255,255,0.45);
+  border:1px dashed rgba(255,255,255,0.25);
+  padding:2px 6px;
 }
 
 .metric-body{
@@ -2106,6 +2120,10 @@ body{
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
+         那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
+         放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
+    <script src="/preview/decision-outcome.js?v=do1"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -2185,7 +2203,12 @@ body{
               <!-- 分數槽留空：readiness 讀數沒有 0-100 分（契約上就沒有），
                    等原生 pipeline 有真訊號源才填。帶位由下面那行報。 -->
               <div class="tl-edge-score" id="edgeScoreReveal">—</div>
-              <div class="tl-edge-pr">Edge Score</div>
+              <!-- 🔴 標籤要跟槽裡實際有的東西一致。這個槽永遠是「—」，因為
+                   readiness 掃描的契約裡沒有 0-100 分 —— 掛「Edge Score」等於
+                   承諾一個這條流程產不出來的數字。Edge Score 仍是產品的核心指標
+                   （CLAUDE.md），只是**不由這裡供應**；等原生 pipeline 有真訊號源
+                   再把名字掛回來。 -->
+              <div class="tl-edge-pr">狀態讀數</div>
               <div class="tl-edge-zone" id="edgeTraceZone">尚無讀數 · 到 Scan 掃一次</div>
               <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
             </div>
@@ -2204,7 +2227,7 @@ body{
           <!-- Page 1: Cardiac (HR + HVR) -->
           <div class="snap-page active" data-page="0">
             <div class="card vcard">
-              <div class="vhead"><span class="vtitle">Cardiac · 心臟</span><span class="metric-status sync">Live</span></div>
+              <div class="vhead"><span class="vtitle">Cardiac · 心臟</span><span class="metric-status demo">示意</span></div>
               <div class="vpair">
                 <div class="vmetric"><div class="vlabel">Heart Rate · 心率</div><div class="metric-num"><span class="val" id="hrVal">68</span><span class="unit">BPM</span></div><canvas class="live-wave vwave" id="hrWave" width="160" height="56"></canvas></div>
                 <div class="vmetric"><div class="vlabel">HRV · RMSSD</div><div class="metric-num"><span class="val" id="hrvVal">52</span><span class="unit">ms</span></div><canvas class="live-wave vwave" id="hrvWave" width="160" height="56"></canvas></div>
@@ -2214,7 +2237,7 @@ body{
           <!-- Page 2: Respiration (RR + Stress) -->
           <div class="snap-page" data-page="1">
             <div class="card vcard">
-              <div class="vhead"><span class="vtitle">Respiration · 呼吸</span><span class="metric-status balanced">Stress&nbsp;<b id="stressPct">25%</b></span></div>
+              <div class="vhead"><span class="vtitle">Respiration · 呼吸</span><span class="metric-status demo">示意</span></div>
               <div class="vpair">
                 <div class="vmetric"><div class="vlabel">Respiratory · 呼吸</div><div class="metric-num"><span class="val" id="rrVal">14</span><span class="unit">BrPM</span></div><canvas class="live-wave vwave" id="rrWave" width="160" height="56"></canvas></div>
                 <div class="vmetric"><div class="vlabel">Stress · 壓力</div><div class="metric-num"><span class="val" id="stressVal">25</span><span class="unit">/100</span></div><div class="stress-bar vstress"><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg"></div><div class="seg"></div></div></div>
@@ -2224,7 +2247,7 @@ body{
           <!-- Page 3: Autonomic (交感 / 副交感) -->
           <div class="snap-page" data-page="2">
             <div class="card vcard ans-card">
-              <div class="vhead"><span class="vtitle">Autonomic · 自律平衡</span><span class="metric-status balanced">Synced</span></div>
+              <div class="vhead"><span class="vtitle">Autonomic · 自律平衡</span><span class="metric-status demo">示意</span></div>
               <div class="ans-waves">
                 <div class="ans-wave-row"><span class="ans-lbl sns">交感 SNS</span><canvas class="ans-wave" id="snsWave" width="220" height="44"></canvas><span class="ans-v sns" id="snsPct">38%</span></div>
                 <div class="ans-wave-row"><span class="ans-lbl pns">副交感 PNS</span><canvas class="ans-wave" id="pnsWave" width="220" height="44"></canvas><span class="ans-v pns" id="pnsPct">62%</span></div>
@@ -2238,19 +2261,24 @@ body{
                   <span class="ns-lbl green" title="綠色安全區 · Regulated">安全區</span>
                   <span class="ns-lbl red" title="紅色警戒區 · Hyperarousal">過載</span>
                 </div>
-                <div class="ns-status green" id="nsStatus">在綠色安全區 · Regulated</div>
+                <div class="ns-status green" id="nsStatus">綠色安全區 · Regulated</div>
               </div>
             </div>
           </div>
           <!-- Page 4: Energy (Body Battery, animated) -->
           <div class="snap-page" data-page="3">
             <div class="card vcard bb-page">
-              <div class="vhead"><span class="vtitle">Energy · 體能</span><span class="metric-status balanced">Body Battery</span></div>
+              <div class="vhead"><span class="vtitle">Energy · 體能</span><span class="metric-status demo">示意</span></div>
               <div class="bb-big"><span class="val" id="bbVal">78</span><span class="unit">/ 100</span></div>
               <div class="bb-bars" id="bbBars"></div>
             </div>
           </div>
         </div>
+        <!-- 🔴 這四張卡的數字全部由 Math.sin 產生（見本檔底部的 "living vitals" 迴圈）。
+             心率／HRV／呼吸要有感測器才量得到，目前沒有接。**畫面不得宣稱沒量到的事。**
+             卡上的「示意」標記 + 這一行是同一件事的兩個層次：標記給掃過去的眼睛，
+             這一行給停下來看的人。 -->
+        <div class="vitals-demo-note">以上四張為<b>示意畫面</b> · 心率／HRV／呼吸需要感測器，目前尚未接上</div>
         <div class="snap-dots" id="snapDots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
 
         <!-- first-visit swipe coach hint (one-time, self-dismissing) -->
@@ -3420,7 +3448,10 @@ function renderFdcb(){
   const fill = document.getElementById('fdcbFill');
   if(s === 'idle'){
     timeEl.textContent = 'Start Decision';
-    segEl.textContent = 'Edge Score · 72';
+    // 🔴 這裡本來寫死 'Edge Score · 72'。72 不是任何東西算出來的 ——
+    // readiness 掃描契約上就沒有 0-100 分（Hero 的分數槽也是「—」）。
+    // 一個永遠不變的假分數比沒有分數更糟：它看起來像今天量到的。
+    segEl.textContent = '尚無讀數';
     if(runningInterval){ clearInterval(runningInterval); runningInterval = null; }
     if(fill) fill.style.width = '0';
     fdcb.classList.remove('in-readiness','closure-disciplined','closure-broke');
@@ -3449,7 +3480,7 @@ function renderFdcb(){
   }
   if(s === 'complete'){
     const tag = pendingClosure ? pendingClosure.tag : 'timed_out';
-    timeEl.textContent = OUTCOME_TEXT_V6[tag] || '已記錄';
+    timeEl.textContent = outcomeTextV6(tag);
     segEl.textContent = '';
     fdcb.classList.remove('in-readiness');
     fdcb.classList.toggle('closure-disciplined', isDisciplinedV6(tag));
@@ -3486,14 +3517,23 @@ function renderMarks(){
 }
 
 // ── 收束：判定 outcome（鏡射 domain/decision-alert resolveOutcomeTag）+ 存進統一 store ──
-const OUTCOME_STORE_KEY_V6 = 'tenki.alert.outcomes.v1';
-const OUTCOME_TEXT_V6 = { stayed_disciplined:'跟著流程完成', broke_discipline:'提前收束', timed_out:'完整走完' };
+const OUTCOME_STORE_KEY_V6 = window.TENKI_OUTCOME.STORE_KEY;
+// 呈現對照全部走共用模組（decision-outcome.js）—— 這四張表先前只認舊 tag，
+// 於是從快訊來的決策在 Session／Timeline／詳情全部掉進灰色 fallback。
+// 查不到就回 null，由呼叫端誠實留白，不編一個看起來像結果的預設值。
+const outcomeTextV6 = (tag) => (window.TENKI_OUTCOME.outcomeView(tag) || {}).text || '已記錄';
 let pendingClosure = null;
 function resolveOutcome(type, reached){
   if(type === 'timeout') return 'timed_out';           // 跑滿
   return reached ? 'stayed_disciplined' : 'broke_discipline'; // 收束後達 readiness / 未達
 }
-function isDisciplinedV6(tag){ return tag === 'stayed_disciplined' || tag === 'timed_out'; }
+// 🔴 這裡**曾經**是 `tag === 'stayed_disciplined' || tag === 'timed_out'` ——
+// 只認舊語意。decision-alert 改用新語意（judged_entered / judged_stood_down）之後，
+// 從快訊做的每一筆決策在這一頁都被算成「不算紀律」：
+// **demo 裡看到 100%，進到 Session 頁變 0%。**
+// 兩邊共用同一個 store，資料確實存進去了，只是收端聽不懂寫端的方言。
+// 判定現在只有一個來源（decision-outcome.js），這裡不得再放第二份實作。
+const isDisciplinedV6 = (tag) => window.TENKI_OUTCOME.isDisciplined(tag);
 function saveV6Outcome(session, outcomeTag){
   let all = [];
   try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
@@ -3936,10 +3976,9 @@ renderFdcb();
 // 資料來自 TradingView 快訊決策 + v6 計時器決策，合流成同一份節奏歷史。
 // 只用 store 真的有的欄位，無 Edge Score / 生理數據 → 誠實呈現。
 // ═════════════════════════════════════════════════
-const OUTCOME_BADGE_V6 = {
-  stayed_disciplined: { text:'跟著流程', cls:'win' },
-  timed_out:          { text:'完整走完', cls:'breakeven' },
-  broke_discipline:   { text:'提前收束', cls:'loss' }
+const outcomeBadgeV6 = (tag) => {
+  const v = window.TENKI_OUTCOME.outcomeView(tag);
+  return v ? { text: v.badge, cls: v.cls } : { text: '已記錄', cls: 'breakeven' };
 };
 function escHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function prefersReducedV6(){ try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } }
@@ -3964,9 +4003,31 @@ function loadOutcomes(){
 }
 // templateId → {name,icon,color,segLabel}；找不到（例：舊快訊或已刪的自訂模板）就用 symbol fallback。
 function outcomeMeta(rec){
-  const t = TEMPLATES[rec.templateId];
+  // 快訊決策寫的是 engine 的 TraderTemplateId（FBD / CANSLIM / MODE_2），
+  // v6 的 TEMPLATES 用自己的一套 key —— **兩套從來沒對上**，於是那筆決策
+  // 失去方法論身分，fallback 成一顆灰色心跳圖示加上 symbol。翻譯放共用模組。
+  const t = TEMPLATES[window.TENKI_OUTCOME.toV6TemplateId(rec.templateId)];
   if(t) return { name:t.name, icon:t.icon, color:t.color, segLabel:t.segLabel };
   return { name: rec.symbol || '決策', icon:'heart', color:'#8E8E93', segLabel:'Readiness' };
+}
+/**
+ * 「有沒有進入核心段」這一格。
+ *
+ * 🔴 **沒有這個欄位就不准說「未達」。** v6 的計時器決策才有 `reachedReadiness`；
+ * 快訊決策（source:'alert'）走的是結構守望 + 判定，根本沒有這個量。
+ * 先前直接 `rec.reachedReadiness ? '達' : '未達'` —— `undefined` 落進 else，
+ * 於是畫面對一次**判定成立並進場**的決策印「未達 Readiness」。
+ * 那不是排版瑕疵，是**謊報**。缺欄位就報別的真事實（來源），不編一個否定。
+ *
+ * @param {Object} rec - 決策紀錄。
+ * @param {{segLabel:string}} meta - outcomeMeta 的結果。
+ * @returns {string}
+ */
+function readinessCellV6(rec, meta){
+  if(rec.reachedReadiness === undefined || rec.reachedReadiness === null){
+    return rec.source === 'alert' ? '快訊決策' : '—';
+  }
+  return (rec.reachedReadiness ? '達 ' : '未達 ') + meta.segLabel;
 }
 function fmtTimeOfDay(ts){
   const d = new Date(ts); if(isNaN(d.getTime())) return '—';
@@ -4003,8 +4064,8 @@ function renderSessionScreen(){
 
   document.getElementById('sessionList').innerHTML = recs.map((r, i) => {
     const m = outcomeMeta(r);
-    const badge = OUTCOME_BADGE_V6[r.outcomeTag] || { text:'已記錄', cls:'breakeven' };
-    const readiness = r.reachedReadiness ? ('達 ' + m.segLabel) : ('未達 ' + m.segLabel);
+    const badge = outcomeBadgeV6(r.outcomeTag);
+    const readiness = readinessCellV6(r, m);
     return '<div class="session-item sess-enter" style="animation-delay:' + (Math.min(i, 8) * 45) + 'ms" data-ts="' + r.ts + '" onclick="openSessionDetail(' + r.ts + ')">' +
       '<div class="tmpl-ic" style="color:' + m.color + '">' + (ICON_SVG[m.icon] || ICON_SVG.heart) + '</div>' +
       '<div class="info"><div class="nm">' + escHtml(m.name) + '</div>' +
@@ -4020,8 +4081,10 @@ function renderSessionScreen(){
 // 上半：決策時間軸 strip（24h 軸，x=時間、色=outcome、r=marks）
 // 下半：Event Log（每筆決策一列）。無 Edge Score / 連續訊號 → 不畫折線。
 // ═════════════════════════════════════════════════
-const OUTCOME_DOT_CLASS = { stayed_disciplined:'entry', timed_out:'exit', broke_discipline:'cancel' };
-const OUTCOME_DOT_FILL  = { stayed_disciplined:'var(--good)', timed_out:'var(--primary)', broke_discipline:'#ff7e76' };
+const outcomeDotV6 = (tag) => {
+  const v = window.TENKI_OUTCOME.outcomeView(tag);
+  return v ? { cls: v.dot, fill: v.fill } : { cls: 'exit', fill: 'var(--txt-sec)' };
+};
 
 function renderTimeline(){
   const recs = loadOutcomes().slice().sort((a,b) => (b.ts||0) - (a.ts||0));
@@ -4048,7 +4111,7 @@ function renderTimeline(){
     const mins = isNaN(d.getTime()) ? 0 : (d.getHours() * 60 + d.getMinutes());
     const x = padL + plot * (mins / 1440);
     const rad = 3 + Math.min(r.marks || 0, 6) * 0.7;
-    const fill = OUTCOME_DOT_FILL[r.outcomeTag] || 'var(--txt-sec)';
+    const fill = outcomeDotV6(r.outcomeTag).fill;
     return '<circle class="tl-dot" cx="' + x.toFixed(1) + '" cy="' + y + '" r="' + rad.toFixed(1) +
       '" fill="' + fill + '" style="animation-delay:' + (Math.min(i, 10) * 40) + 'ms;filter:drop-shadow(0 0 4px ' + fill + ')"/>';
   }).join('');
@@ -4056,8 +4119,8 @@ function renderTimeline(){
   // event log：每筆決策一列（dot 色沿用 outcome，右側顯示用時）
   document.getElementById('tlEventLog').innerHTML = recs.map((r, i) => {
     const m = outcomeMeta(r);
-    const dotCls = OUTCOME_DOT_CLASS[r.outcomeTag] || 'exit';
-    const txt = OUTCOME_TEXT_V6[r.outcomeTag] || '已記錄';
+    const dotCls = outcomeDotV6(r.outcomeTag).cls;
+    const txt = outcomeTextV6(r.outcomeTag);
     return '<div class="tl-event tl-enter" style="animation-delay:' + (Math.min(i, 8) * 40) + 'ms">' +
       '<div class="time">' + fmtTimeOfDay(r.ts) + '</div>' +
       '<div class="dot ' + dotCls + '"></div>' +
@@ -4086,7 +4149,7 @@ function openSessionDetail(ts){
   if(!rec) return;
   currentSessionTs = ts;
   const m = outcomeMeta(rec);
-  const badge = OUTCOME_BADGE_V6[rec.outcomeTag] || { text:'已記錄', cls:'breakeven' };
+  const badge = outcomeBadgeV6(rec.outcomeTag);
   const dur = rec.durationSec || 0;
   const b = segBounds(dur);
   const marks = rec.marks || 0;
@@ -4101,9 +4164,9 @@ function openSessionDetail(ts){
   const icEl = document.getElementById('sdOutcomeIc');
   icEl.style.color = m.color;
   icEl.innerHTML = ICON_SVG[m.icon] || ICON_SVG.heart;
-  document.getElementById('sdOutcomeHeadline').textContent = OUTCOME_TEXT_V6[rec.outcomeTag] || '已記錄';
+  document.getElementById('sdOutcomeHeadline').textContent = outcomeTextV6(rec.outcomeTag);
   document.getElementById('sdOutcomeSub').textContent =
-    (rec.reachedReadiness ? ('達 ' + m.segLabel) : ('未達 ' + m.segLabel)) + ' · ' + marks + ' marks';
+    readinessCellV6(rec, m) + ' · ' + marks + ' marks';
 
   // Segment track（三段由 durationSec 推導）
   document.getElementById('sdSegDur').textContent = fmtDur(dur);
@@ -4114,7 +4177,9 @@ function openSessionDetail(ts){
 
   // Facts
   document.getElementById('sdFactDur').textContent = fmtDur(dur);
-  document.getElementById('sdFactReadiness').textContent = rec.reachedReadiness ? '已進入' : '未進入';
+  document.getElementById('sdFactReadiness').textContent =
+    (rec.reachedReadiness === undefined || rec.reachedReadiness === null)
+      ? '—' : (rec.reachedReadiness ? '已進入' : '未進入');
   document.getElementById('sdFactMarks').textContent = String(marks);
 
   document.getElementById('sdInsight').innerHTML = buildDetailInsight(rec, m);
@@ -4593,14 +4658,14 @@ function closeSessionDetail(){
     <!-- ═══════════ End splash controller ═══════════ -->
 
     <!-- 3D stardust animation script (v6 local fork; apps/web/ is frozen) -->
-    <script src="stardust.js?v=sd3"></script>
+    <script src="stardust.js?v=sd8"></script>
     <!-- Shared blink-cadence helper (baseline load + daily comparison).
          Absolute path: this page is mounted at BOTH /v3/ and /preview/v6/
          (vercel.json rewrites), so a ../ relative ref would 404 under /v3/. -->
     <script src="/preview/blink-cadence.js?v=blink2"></script>
     <!-- 正典 Soul Scan 模組：Scan tab 與 /decision-alert/ 共用同一支，
          同樣用絕對路徑（本頁同時掛在 /v3/ 與 /preview/v6/）。 -->
-    <script src="/preview/readiness-scan.js?v=rs11"></script>
+    <script src="/preview/readiness-scan.js?v=rs16"></script>
     <!-- Stardust Scan Takeover logic script -->
     <script src="stardust-scan-takeover.js?v=gyro_v6"></script>
 
@@ -4639,7 +4704,16 @@ function closeSessionDetail(){
          squeezing it to ~0 on a tight card. */
       .vwave{width:100%;height:54px;flex:none;display:block;margin-top:6px;}
       .vstress{margin-top:10px;}
-      .snap-dots{display:flex;justify-content:center;gap:8px;margin:14px 0 2px;}
+      /* ⚠️ 這一行原本擺在圓點**下方**，也就是整個 section 的最後一個元素 ——
+         結果被固定在底部的 FDCB 底座整片蓋住，本機截圖才看出來。
+         harness 的「看得見」只量了 bounding rect，**遮擋不會改變 rect** ——
+         所以那條斷言補了 elementFromPoint。 */
+      .vitals-demo-note{
+        text-align:center;font-size:10px;line-height:1.35;
+        color:rgba(255,255,255,0.42);letter-spacing:0.02em;margin:4px 4px 0;
+      }
+      .vitals-demo-note b{font-weight:600;color:rgba(255,255,255,0.62);}
+      .snap-dots{display:flex;justify-content:center;gap:8px;margin:6px 0 0;}
       .snap-dots .dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.22);transition:all .3s var(--ease-calm);}
       .snap-dots .dot.active{width:22px;border-radius:4px;background:var(--primary);box-shadow:0 0 10px rgba(0,180,216,.6);}
       /* first-visit swipe coach hint — glass chip + outward-drifting chevrons, shown once.
@@ -4846,7 +4920,7 @@ function closeSessionDetail(){
       })();
 
       // ── synchronized "living" vitals + animated Body Battery (one shared breath clock) ──
-      var hr=byId('hrVal'),hrv=byId('hrvVal'),rr=byId('rrVal'),st=byId('stressVal'),stP=byId('stressPct'),
+      var hr=byId('hrVal'),hrv=byId('hrvVal'),rr=byId('rrVal'),st=byId('stressVal'),
           snsP=byId('snsPct'),pnsP=byId('pnsPct'),snsF=byId('snsFill'),pnsF=byId('pnsFill'),bbVal=byId('bbVal'),nsMarker=byId('nsMarker'),nsStatus=byId('nsStatus');
       var sns=byId('snsWave'),pns=byId('pnsWave');
       var sc=sns&&sns.getContext('2d'), pc=pns&&pns.getContext('2d');
@@ -4878,7 +4952,10 @@ function closeSessionDetail(){
           var cn='ns-marker '+zone; if(nsMarker.className!==cn) nsMarker.className=cn;
           if(nsStatus){
             var sc2='ns-status '+zone; if(nsStatus.className!==sc2) nsStatus.className=sc2;
-            var txt=zone==='blue'?'在藍色陷落區 · Low energy':(zone==='red'?'在紅色警戒區 · Activated':'在綠色安全區 · Regulated');
+            // 🔴 拿掉「在」。原文是「**在**綠色安全區 · Regulated」—— 那是一句
+            // 對使用者神經系統下的判定，而底下的值是 Math.sin 產生的。
+            // 現在只報這條軸上的區段名稱（配合卡上的「示意」標記），不宣稱那是誰的狀態。
+            var txt=zone==='blue'?'藍色陷落區 · Low energy':(zone==='red'?'紅色警戒區 · Activated':'綠色安全區 · Regulated');
             if(nsStatus.textContent!==txt) nsStatus.textContent=txt;
           }
         }
@@ -4888,7 +4965,7 @@ function closeSessionDetail(){
         setN(hrv, 52+Math.round(Math.sin(ph+1)*3));
         setN(rr, 14+Math.round(Math.sin(ph*0.8)));
         var stress=25+Math.round(Math.sin(ph+2)*2);
-        setN(st, stress); if(stP) stP.textContent=stress+'%';
+        setN(st, stress);   // 卡頭原本還重複一份 Stress%，連同它的語意綠一起換成「示意」標記了
         var s=38+Math.round(Math.sin(ph)*7);
         if(snsP) snsP.textContent=s+'%';
         if(pnsP) pnsP.textContent=(100-s)+'%';

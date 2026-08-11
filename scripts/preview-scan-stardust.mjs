@@ -35,6 +35,12 @@ const server = http.createServer((req, res) => {
   // （不依賴 /decision-alert/ 的 rewrite）。正式站由 Vercel 把 /preview/* 映到
   // apps/preview/*；本地伺服器要自己做，否則模組靜默載不進來、頁面看起來卻正常。
   if (clean.startsWith('/preview/')) clean = '/apps' + clean;
+  // 空殼頁：給「只想在同源下載入某一支模組來驗純函式」的那一組用。
+  // （`about:blank` 的 origin 是 opaque，Chromium 會擋掉它的子資源載入。）
+  if (clean === '/__blank') {
+    res.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><title>blank</title>');
+    return;
+  }
   let file = join(repoRoot, clean);
   if (existsSync(file) && statSync(file).isDirectory()) file = join(file, 'index.html');
   if (!existsSync(file) || !file.startsWith(repoRoot)) {
@@ -58,28 +64,78 @@ function check(name, got, want) {
   console.log(`${ok ? '✓' : '✗'} ${name}${ok ? '' : `\n    got:  ${JSON.stringify(got)}\n    want: ${JSON.stringify(want)}`}`);
 }
 
-/** 假的 TENKI_STARDUST：記下呼叫序列，並回報自己掛在哪個節點上。 */
+/**
+ * 假的 TENKI_STARDUST：記下呼叫序列，並回報自己掛在哪個節點上。
+ *
+ * ⚠️ 2026-08-10 這支 stub 自己被抓出一個缺陷：它用一個布林
+ * `__sdHostMounted` 假裝「host 已持有綁定」，**但沒有真的 host 節點** ——
+ * 於是它模擬不出真實世界最關鍵的那件事：v6 的 `#universe` 是**隱形的**
+ * （住在 `visibility:hidden` 的 takeover 裡），佔著唯一的綁定卻沒人看得到。
+ * 因為模擬不出來，那條錯規則（一律不搶）就被寫成了通過的測試。
+ * 現在 stub 持有一個真的節點，可見性由測試指定 —— PLAYBOOK §3
+ * 「合成測試資料要帶著真實世界的耦合」。
+ */
 const STUB = `
 window.__sdCalls = [];
 window.__sdHostClass = null;
-window.__sdHostMounted = false;   // 模擬 host 頁面（v6）已持有綁定
+window.__sdTones = [];
+window.__sdReadouts = []; // setReadout 收到的每一筆 {stillness, progress}
+window.__sdMounts = [];   // 每次 mount 掛到誰身上（id 或 class），依序
+window.__sdLive = 0;      // 目前活著的 context 數
+window.__sdMaxLive = 0;   // 全程峰值 —— 這才是 OOM 顧慮真正要守的東西
 (function () {
-  var mounted = false;
+  var host = null;        // 目前綁定的節點（null = 未掛載）
+  var fit = false;
   window.TENKI_STARDUST = {
-    mount: function (el) {
-      if (window.__sdHostMounted || mounted) { window.__sdCalls.push('mount:refused'); return false; }
-      mounted = true;
+    mount: function (el, opts) {
+      if (host) { window.__sdCalls.push('mount:refused'); return false; }
+      host = el || document.getElementById('universe');
+      if (!host) { window.__sdCalls.push('mount:refused'); return false; }
+      fit = !!(opts && opts.fitContainer);
+      window.__sdLive += 1;
+      if (window.__sdLive > window.__sdMaxLive) window.__sdMaxLive = window.__sdLive;
       window.__sdCalls.push('mount');
-      window.__sdHostClass = el && el.className;
+      window.__sdMounts.push(host.id || host.className);
+      window.__sdHostClass = host.className;
       return true;
     },
-    unmount: function () { mounted = false; window.__sdCalls.push('unmount'); },
-    isMounted: function () { return window.__sdHostMounted || mounted; },
+    unmount: function () {
+      if (!host) return;
+      host = null; fit = false;
+      window.__sdLive -= 1;
+      window.__sdCalls.push('unmount');
+    },
+    isMounted: function () { return !!host; },
+    hostInfo: function () { return host ? { node: host, fitContainer: fit } : null; },
     playEntrance: function () { window.__sdCalls.push('playEntrance'); },
     setExpression: function () { window.__sdCalls.push('setExpression'); },
     clearExpression: function () { window.__sdCalls.push('clearExpression'); },
-    dim: function () {}, brighten: function () {}, destroy: function () { mounted = false; },
+    setTone: function (d) { window.__sdTones.push(d); window.__sdCalls.push('setTone'); },
+    clearTone: function () { window.__sdCalls.push('clearTone'); },
+    setReadout: function (d) { window.__sdReadouts.push(d); window.__sdCalls.push('setReadout'); },
+    clearReadout: function () { window.__sdCalls.push('clearReadout'); },
+    dim: function () {}, brighten: function () {},
+    destroy: function () { if (host) { host = null; window.__sdLive -= 1; } },
   };
+})();
+`;
+
+/**
+ * 讓一個**真的**節點先持有綁定，模擬 v6 的 `#universe`。
+ * `visible:false` 就是正式站上的實況：takeover 沒啟用時整層 visibility:hidden。
+ */
+const hostScript = (visible) => `
+(function () {
+  function put() {
+    var u = document.createElement('div');
+    u.id = 'universe';
+    u.style.cssText = 'position:fixed;inset:0;'
+      + (${visible ? "''" : "'visibility:hidden;'"});
+    document.body.appendChild(u);
+    window.TENKI_STARDUST.mount(u);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put);
+  else put();
 })();
 `;
 
@@ -116,7 +172,7 @@ async function newPage(opts = {}) {
   });
   const page = await ctx.newPage();
   await page.addInitScript(STUB
-    + (opts.hostMounted ? '\nwindow.__sdHostMounted = true;' : '')
+    + (opts.hostMounted ? hostScript(!!opts.hostVisible) : '')
     + (opts.faceMesh ? FACEMESH_STUB : ''));
   page.on('pageerror', (e) => { console.error('[pageerror]', e.message); fail += 1; });
   await page.goto(PAGE, { waitUntil: 'domcontentloaded' });
@@ -458,7 +514,13 @@ async function scanAndCancel(page) {
   // 所以臉框的極值改放在真正的邊界點上（10 額頂、152 下巴、234/454 兩頰）——
   // 那也正是 MediaPipe 對這些索引的語意。
   // `yaw` 是鼻尖相對兩眼中點的水平偏移（以眼距正規化），跟產品的量法同一個定義。
-  const makeFace = ({ dx = 0, yaw = 0, pitch = 0.5 } = {}) => {
+  // ⚠️ `browSpan` / `mouthGap` 是 2026-08-10 補的，而補的原因值得記：
+  // 先前這張臉把 105/334（眉）與 13/14（嘴）留在**同一個座標**，於是產品算出來的
+  // `browTension` 永遠是 1、`mouthOpen` 永遠是 0 —— **色調的兩個輸入都被釘死**。
+  // 結果是「色相不得為負」那條斷言**不可能失敗**：反向驗證時把公式改回會產生負值的
+  // 舊版，它照樣全綠。合成臉太理想害測試失效，這是第三次（前兩次是包圍盒不變形、
+  // stub 沒有真的 host 節點）。**輸入被釘死的斷言，等於沒有斷言。**
+  const makeFace = ({ dx = 0, yaw = 0, pitch = 0.5, browSpan = 0, mouthGap = 0 } = {}) => {
     const cx = 0.5 + dx;
     const half = 0.2375;          // 撐出理想臉框大小（約 0.475）
     const eyeSpan = 0.26;         // 兩眼外角距離
@@ -472,16 +534,22 @@ async function scanAndCancel(page) {
     lm[33] = { x: cx - eyeSpan / 2, y: eyeY, z: 0 };    // 左眼外角
     lm[263] = { x: cx + eyeSpan / 2, y: eyeY, z: 0 };   // 右眼外角
     lm[1] = { x: cx + yaw * eyeSpan, y: eyeY + pitch * eyeSpan, z: 0 }; // 鼻尖
+    // 眉頭內側：產品用 |x105 - x334| / 0.22 反推「眉間張力」（span 越大 → 張力越小）
+    lm[105] = { x: cx - browSpan / 2, y: eyeY - 0.05, z: 0 };
+    lm[334] = { x: cx + browSpan / 2, y: eyeY - 0.05, z: 0 };
+    // 上下唇：產品用 |y13 - y14| / 0.05 算嘴開合
+    lm[13] = { x: cx, y: 0.5 + 0.10, z: 0 };
+    lm[14] = { x: cx, y: 0.5 + 0.10 + mouthGap, z: 0 };
     return lm;
   };
 
-  const feed = (dx, n) => page.evaluate(([dxv, times, faceSrc]) => {
+  const feed = (dx, n, extra = {}) => page.evaluate(([dxv, times, faceSrc, ex]) => {
     const S = window.__rsFaceMesh;
     if (!S) return 'no-hook';
     const make = eval('(' + faceSrc + ')');
-    for (let t = 0; t < times; t++) S({ multiFaceLandmarks: [make({ dx: dxv })] });
+    for (let t = 0; t < times; t++) S({ multiFaceLandmarks: [make({ dx: dxv, ...ex })] });
     return 'ok';
-  }, [dx, n, makeFace.toString()]);
+  }, [dx, n, makeFace.toString(), extra]);
 
   const locked = () => page.evaluate(() =>
     document.querySelector('#tenki-readiness-scan .rs-frame').classList.contains('locked'));
@@ -499,6 +567,113 @@ async function scanAndCancel(page) {
     // 明顯出界 → 解鎖
     await feed(0.25, 1);
     check('明顯出界才解鎖', await locked(), false);
+
+    // ── 量測中，球真的在讀使用者 ──
+    //
+    // founder 2026-08-10 第二輪：「顏色好像沒變化？」+「我要的是棒透了」。
+    // 根因是第一版吃的 browTension / mouthOpen 在掃描情境下幾乎是常數
+    // （用力皺眉只讓色相動 0.69°）。現在吃的是 stillness。
+    //
+    // 🔴 **stillness 必須用「真的移動合成臉」產生，不准直接塞值** ——
+    // 塞值等於自己造一個不存在的輸入，那正是上一輪讓斷言失效的作法。
+    // `feed(dx,…)` 會讓 landmark 位移 → 產品自己算出 speed → stillness 下降，
+    // 走的是真正的產品路徑。
+    await page.evaluate(() => {
+      window.__sdTones.length = 0;
+      window.__sdReadouts.length = 0;
+    });
+    await feed(0, 3);        // 不動 → 高 stillness
+    await feed(0.06, 1);     // 小幅移動 → stillness 下降
+    await feed(0, 1);        // 回穩
+    await feed(0.12, 1);     // 大幅移動 → stillness 更低
+    await feed(0, 2);        // 再回穩
+
+    const tones = await page.evaluate(() => window.__sdTones.slice());
+    const readouts = await page.evaluate(() => window.__sdReadouts.slice());
+    check('量測中有把色調推給星塵', tones.length > 0, true);
+    check('量測中有把讀出量推給星塵', readouts.length > 0, true);
+
+    // 🔴 **量的**條件，不是「有呼叫」。上一輪的教訓：輸入被釘死時
+    // 「有呼叫」照樣綠，只有「真的有跨度」抓得到。
+    const stills = readouts.map((r) => r.stillness);
+    const stillSpan = Math.max(...stills) - Math.min(...stills);
+    console.log(`   （stillness 實際跨度 ${stillSpan.toFixed(3)}，`
+      + `${Math.min(...stills).toFixed(3)} → ${Math.max(...stills).toFixed(3)}）`);
+    check('🔴 stillness 真的有跨度（≥ 0.25），不是一個常數點', stillSpan >= 0.25, true);
+    // 🔴 而且要真的**打到兩端** —— 這條守的是「重映射有沒有把實際工作區間
+    // 拉伸到滿」。原始 stillness 的定義域是 0..1，但實測只會走 0.5..0.95
+    // （founder 的讀數是 63/87/93%），不重映射就有一半以上的視覺預算永遠用不到，
+    // 結果就是他說的「看不出變化」。
+    check('🔴 重映射後有打到兩端（用滿視覺預算）',
+      Math.min(...stills) <= 0.05 && Math.max(...stills) >= 0.95, true);
+
+    // ── 🔴 重映射本身：必須用**真實節奏**餵才驗得到 ──
+    //
+    // ⚠️ 上面那條其實**驗不到重映射**（拿掉重映射它照樣綠）。原因是
+    // `feed()` 是同步連續呼叫，兩幀之間的 dt ≈ 1ms，而
+    // `speed = 位移 / (dt/1000)` —— 於是**任何**位移都會把 speed 衝爆，
+    // 原始 stillness 直接落到 0，harness 的擺幅比真實使用極端得多。
+    // 真實的臉部推論是 ~180ms 一幀。**合成資料少了「時間」這個真實耦合。**
+    //
+    // 所以這裡照真實節奏餵：dt≈180ms、位移 0.025 →
+    // 原始 stillness ≈ 0.60（正是 founder 實測 63% 那個區段）。
+    // 有重映射：(0.60−0.5)/0.45 ≈ 0.23；沒有重映射：0.60。
+    // 門檻取 0.35，兩者分得開。
+    await page.evaluate(() => { window.__sdReadouts.length = 0; });
+    await feed(0, 1);
+    await page.waitForTimeout(180);
+    await feed(0.025, 1);
+    await page.waitForTimeout(180);
+    await feed(0.050, 1);
+    const realistic = await page.evaluate(() => window.__sdReadouts.map((r) => r.stillness));
+    const midValue = realistic.length ? realistic[realistic.length - 1] : null;
+    console.log(`   （真實節奏下：原始 stillness ≈0.60 → 餵給星塵 ${midValue?.toFixed(2)}）`);
+    check('🔴 真實節奏的中段位移要被拉伸（≤ 0.35，未重映射會是 ~0.60）',
+      midValue !== null && midValue <= 0.35, true);
+    // 飽和度由 readout 端從 stillness 換算（0.70..1.35），所以跨度 0.25 的
+    // stillness 會換出 ≥ 0.16 的飽和度差 —— 遠大於改版前的 0.087（全程）。
+    check('色相真的隨著穩定度在變（不是每幀同一個值）',
+      new Set(tones.map((t) => t.hue.toFixed(4))).size >= 2, true);
+    check('量測中不得往任何目標色收（那是收束才做的事）',
+      tones.every((t) => !t.toward && (t.mix === 0 || t.mix === undefined)), true);
+    // 飽和度不得由這裡餵 —— 它歸 readout 單一擁有（effectiveSat）。
+    check('量測中不得從 setTone 餵飽和度（單一寫入者）',
+      tones.every((t) => t.sat === undefined), true);
+
+    // ── 🔴 progress 是「累積的有效量測」，不是計時器 ──
+    // 它只在閘門通過時前進。餵一串**不合格**的臉（明顯偏出框 → centering 不過），
+    // 讓真實時間過去，progress 不該動 —— 否則球就是在對著一個沒發生的量測聚焦。
+    //
+    // ⚠️ 基準值要**當場重讀**，不能用上面那個 `readouts` 快照 ——
+    // 中間又餵過好幾輪，快照早就過期了（改動順序時踩過一次）。
+    //
+    // ⚠️ 而且要**先把閘門關上、等它安定，才取基準值**。上一輪餵的是合格的臉，
+    // 閘門還開著；如果一關門就立刻取樣，關門前那幾個 rAF tick 仍在合法累積
+    // progress，基準值就會落在「還在前進」的那一段 —— 這條斷言因此偶爾紅
+    // （2026-08-11 抓到，是測試的競態，不是產品的）。
+    for (let i = 0; i < 3; i += 1) {
+      await feed(0.32, 1);          // 明顯出界 → 先把閘門關上
+      await page.waitForTimeout(120);
+    }
+    const progBefore = await page.evaluate(() => {
+      const r = window.__sdReadouts;
+      return r.length ? r[r.length - 1].progress : 0;
+    });
+    for (let i = 0; i < 6; i += 1) {
+      await feed(0.32, 1);          // 閘門已關，再讓真實時間過去
+      await page.waitForTimeout(120); // 讓 rAF 迴圈真的跑過
+    }
+    const progAfter = await page.evaluate(() => {
+      const r = window.__sdReadouts;
+      return r.length ? r[r.length - 1].progress : null;
+    });
+    check('🔴 閘門不過時 progress 不前進（它不是計時器）',
+      Math.abs(progAfter - progBefore) < 1e-6, true);
+    // 🔴 單向。負向旋轉會把漸層底部的 cyan 轉成綠，而綠在 v6 是 `--good`
+    // —— 等於還沒有結果就亮起「good」（founder 2026-08-10 實走截圖抓到）。
+    check('🔴 量測中的色相不得為負（負向就是進綠的方向）',
+      tones.every((t) => t.hue >= 0), true);
+    check('色相位移留在上限內', tones.every((t) => t.hue <= 0.06001), true);
   }
   await ctx.close();
 }
@@ -777,13 +952,385 @@ async function scanAndCancel(page) {
   await ctx.close();
 }
 
-// ── 4. host 已持有綁定（v6 的 #universe）：不搶，也不炸 ──
+// ── 4. host 持有綁定但**看不見**（v6 的實況）：借過來，收尾還回去 ──
+//
+// 🔴 這一組先前寫的是「host 已綁定時不搶」—— 它把我一條錯規則固化成了通過的測試。
+// 正式站上 v6 的 `#universe` 住在平常 `visibility:hidden` 的 takeover 裡，
+// 於是一顆沒人看得到的星塵球佔著唯一的綁定，`/v3/` 的掃描框永遠拿不到
+// （founder 2026-08-10 實走：「結果頁下方 scan 是沒有星塵靈魂版」）。
+// 正確行為是**交接**：借走 → 用完還回去，全程只有一個 context 活著。
 {
-  const { ctx, page } = await newPage({ hostMounted: true });
+  const { ctx, page } = await newPage({ hostMounted: true, hostVisible: false });
   const calls = await scanAndCancel(page);
-  check('host 已綁定時不搶（不呼叫 playEntrance）', calls.includes('playEntrance'), false);
-  check('host 已綁定時掃描仍正常收尾', await page.evaluate(() => window.__done), true);
+  const mounts = await page.evaluate(() => window.__sdMounts.slice());
+  check('看不見的 host：掃描框借得到星塵', calls.includes('playEntrance'), true);
+  check('借用順序 = 先還掉 host、再掛掃描框',
+    mounts, ['universe', 'rs-stardust', 'universe']);
+  // ⚠️ 不要用「最後一次 mount 是 universe」當歸還的證據 —— 沒借的時候那條也成立
+  // （反向驗證時它照樣綠）。要問的是**收尾之後綁定確實回到原節點身上**。
+  check('收尾之後綁定回到原主身上', await page.evaluate(() => {
+    const h = window.TENKI_STARDUST.hostInfo();
+    return !!h && h.node.id === 'universe' && h.fitContainer === false;
+  }), true);
+  check('🔴 全程活著的 context 峰值 ≤ 1（原本的 OOM 顧慮）',
+    await page.evaluate(() => window.__sdMaxLive), 1);
+  check('真的借過（不是從頭到尾都沒動）',
+    await page.evaluate(() => window.__sdMounts.length), 3);
+  check('借用情境下掃描仍正常收尾', await page.evaluate(() => window.__done), true);
   await ctx.close();
+}
+
+// ── 4b. host 看得見（takeover 真的在跑）：仍然不搶 ──
+{
+  const { ctx, page } = await newPage({ hostMounted: true, hostVisible: true });
+  const calls = await scanAndCancel(page);
+  check('看得見的 host 不搶（不呼叫 playEntrance）', calls.includes('playEntrance'), false);
+  check('看得見的 host 不被拆掉', calls.includes('unmount'), false);
+  check('不搶時掃描仍正常收尾', await page.evaluate(() => window.__done), true);
+  await ctx.close();
+}
+
+// ── 4c. 走完一整次掃描：收束的顏色代表的是「結果」，不是當下的臉 ──
+//
+// 這一組**真的跑滿 8 秒的量測預算**（decision budget），不是加 class 演戲：
+// 持續餵合格的 landmark → 產品自己 finalize() → revealTone() 被真的呼叫。
+// 慢，但這是唯一能證明「gold 那一拍 + 落到帶位色」真的接上的方式。
+{
+  const { ctx, page } = await newPage({ faceMesh: true, hostMounted: true, hostVisible: false });
+  await page.evaluate(() => {
+    window.__done = false;
+    window.TENKI_READINESS_SCAN.begin({ mission: 'decision' }).then(() => { window.__done = true; });
+  });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+  await page.waitForTimeout(300);
+  // 以真實時間持續餵臉（取樣是時間驅動的，一次塞完 N 幀不會推進預算）。
+  await page.evaluate(() => new Promise((done) => {
+    const half = 0.2375, eyeSpan = 0.26, eyeY = 0.44;
+    const make = () => {
+      const lm = [];
+      for (let i = 0; i < 478; i++) lm.push({ x: 0.5, y: 0.5, z: 0 });
+      lm[10] = { x: 0.5, y: 0.5 - half, z: 0 };
+      lm[152] = { x: 0.5, y: 0.5 + half, z: 0 };
+      lm[234] = { x: 0.5 - half, y: 0.5, z: 0 };
+      lm[454] = { x: 0.5 + half, y: 0.5, z: 0 };
+      lm[33] = { x: 0.5 - eyeSpan / 2, y: eyeY, z: 0 };
+      lm[263] = { x: 0.5 + eyeSpan / 2, y: eyeY, z: 0 };
+      lm[1] = { x: 0.5, y: eyeY + 0.5 * eyeSpan, z: 0 };
+      return lm;
+    };
+    const iv = setInterval(() => {
+      if (window.__rsFaceMesh) window.__rsFaceMesh({ multiFaceLandmarks: [make()] });
+    }, 60);
+    setTimeout(() => { clearInterval(iv); done(); }, 10500);
+  }));
+  const revealed = await page.evaluate(() =>
+    document.querySelector('#tenki-readiness-scan .rs-frame').classList.contains('revealed'));
+  check('餵滿預算後真的收束了（不是靠 harness 加 class）', revealed, true);
+  if (revealed) {
+    // gold → 帶位色的切換有 700ms 延遲，等它落地。
+    await page.waitForTimeout(900);
+    const tones = await page.evaluate(() => window.__sdTones.slice());
+    const withTarget = tones.filter((t) => t.toward);
+    check('收束時把顏色交給結果（出現往目標色收的指令）', withTarget.length >= 1, true);
+    check('SECURED 那一拍先走 gold', withTarget[0] && withTarget[0].toward, '#FFD46E');
+    check('最後停在該次帶位色（不是停在 gold）',
+      withTarget.length >= 2
+        && ['#00B4D8', '#64748B', '#C2703D'].indexOf(withTarget[withTarget.length - 1].toward) !== -1,
+      true);
+    // founder 2026-08-10 實走：mix 0.5 時三種帶位長得幾乎一樣 —— 因為漸層底部
+    // 本來就是 cyan，往 Clear 拉等於沒拉。夠強才說得出「這是你這次的結果」。
+    check('帶位色夠強到一眼分得出來（mix ≥ 0.8）',
+      withTarget.every((t) => t.mix >= 0.8), true);
+    // 借來的綁定在收束→關閉之後仍然要還回去。
+    await page.click('#tenki-readiness-scan .rs-done');
+    await page.waitForFunction(() => window.__done === true, { timeout: 5000 });
+    check('收束路徑也會把綁定還給原主',
+      await page.evaluate(() => window.__sdMounts.slice()),
+      ['universe', 'rs-stardust', 'universe']);
+    check('收束路徑的 context 峰值也 ≤ 1', await page.evaluate(() => window.__sdMaxLive), 1);
+  }
+  await ctx.close();
+}
+
+// ── 5. 色調層：預設是恆等變換，且鏡射的帶位色沒有漂走 ──
+//
+// founder 2026-08-10：「星塵靈魂的顏色能更多層次色彩變化，最好每次掃描都
+// 感應使用者變色」，並選了「保留身分，變化用疊加的」。
+//
+// ⚠️ three.js 被沙箱擋，**畫面驗不到**。但這一層的安全性質是純數學的：
+// 預設值下 `toneMatrix` 必須是單位矩陣，否則沒呼叫 setTone 的頁面
+// （story / soul-enroll / v6 takeover）會被連坐改掉 —— 那是 CLAUDE.md
+// 鎖定的 v25.8.2 資產。所以直接驗那個函式，不假裝驗到了畫面。
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  // 只給 stardust.js 需要的最小 THREE 面（它在頂層 new THREE.Clock()）。
+  await page.addInitScript(`
+    window.THREE = { Clock: function () { this.getElapsedTime = function () { return 0; }; } };
+  `);
+  page.on('pageerror', (e) => { console.error('[pageerror]', e.message); fail += 1; });
+  // 空白頁 + 真的檔案：驗的是**出貨的那支 stardust.js**，不是複製一份數學過來。
+  await page.goto(`${base}/__blank`, { waitUntil: 'domcontentloaded' });
+  await page.addScriptTag({ url: '/apps/preview/v6/stardust.js' });
+  await page.waitForFunction(() => !!window.TENKI_STARDUST);
+
+  const math = await page.evaluate(() => {
+    const M = window.TENKI_STARDUST.toneMatrix;
+    const apply = (m, c) => [
+      m[0] * c[0] + m[1] * c[1] + m[2] * c[2],
+      m[3] * c[0] + m[4] * c[1] + m[5] * c[2],
+      m[6] * c[0] + m[7] * c[1] + m[8] * c[2],
+    ];
+    const luma = (c) => 0.213 * c[0] + 0.715 * c[1] + 0.072 * c[2];
+    const px = [0, 0.8, 1]; // 星塵底部的 cyan
+    const rot = apply(M(0.12, 1), px);
+    const grey = apply(M(0, 0), px);
+    return {
+      identity: M(0, 1).map((v) => Math.round(v * 1e6) / 1e6),
+      lumaKept: Math.abs(luma(rot) - luma(px)) < 1e-3,
+      rotated: Math.abs(rot[0] - px[0]) > 0.05,
+      greyEqual: Math.abs(grey[0] - grey[1]) < 1e-6 && Math.abs(grey[1] - grey[2]) < 1e-6,
+      hasSetTone: typeof window.TENKI_STARDUST.setTone === 'function',
+      hasHostInfo: typeof window.TENKI_STARDUST.hostInfo === 'function',
+      hasSetReadout: typeof window.TENKI_STARDUST.setReadout === 'function',
+      // 🔴 剛載進來、沒人呼叫過 setReadout 時必須是 inert —— 這就是
+      // story / soul-enroll / v6 takeover 逐位元組不變的那個結構保證。
+      //
+      // ⚠️ 驗的是**顏色通道本身**（`toneIdle()` —— 它是 false 的那一刻粒子才會
+      // 被重新上色），不是 `active` 那個記帳旗標。2026-08-11 反向驗證抓到：
+      // 把 effectiveSat 改成永遠走 readout 分支（靜息飽和度 1.0 → 1.20，
+      // v25.8.2 的樣子當場被改掉），只驗旗標的版本照樣全綠。
+      readoutInert: window.TENKI_STARDUST.readoutState().active === false
+        && window.TENKI_STARDUST.toneIdle() === true
+        && window.TENKI_STARDUST.readoutState().sat === 1,
+      // 呼叫之後才生效，clearReadout 之後又回到 inert（掃描結束要還原）
+      readoutTogglesOn: (() => {
+        window.TENKI_STARDUST.setReadout({ stillness: 1, progress: 1 });
+        return window.TENKI_STARDUST.readoutState().active === true
+          && window.TENKI_STARDUST.toneIdle() === false;
+      })(),
+      readoutTogglesOff: (() => {
+        window.TENKI_STARDUST.clearReadout();
+        return window.TENKI_STARDUST.readoutState().active === false
+          && window.TENKI_STARDUST.toneIdle() === true;
+      })(),
+    };
+  });
+  check('🔴 預設值(hue0,sat1)是單位矩陣 —— 沒呼叫 setTone 的頁面不得被改到',
+    math.identity, [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  check('色相旋轉真的改了顏色', math.rotated, true);
+  check('色相旋轉保住亮度（只轉色相，不改明暗）', math.lumaKept, true);
+  check('sat=0 落到灰（三通道相等）', math.greyEqual, true);
+  check('setTone 有對外', math.hasSetTone, true);
+  check('hostInfo 有對外（借用方要靠它才還得回去）', math.hasHostInfo, true);
+  check('setReadout 有對外', math.hasSetReadout, true);
+  check('🔴 沒呼叫 setReadout 時完全 inert（story/soul-enroll/takeover 不得被改到）',
+    math.readoutInert, true);
+  check('setReadout 之後才生效', math.readoutTogglesOn, true);
+  check('clearReadout 之後回到 inert（掃描結束要還原）', math.readoutTogglesOff, true);
+
+  // ── 🔴 守則改了：從「每顆粒子」變成「整顆球的主色」 ──
+  //
+  // 這個產品裡幾乎每個色相都已經有語意（綠=--good、琥珀=--warn/strain、
+  // 金=SECURED、珊瑚=未判定），先前我把**每一顆粒子**都擋在那些色外面，
+  // 於是只剩青紫粉那一段弧可用 —— 那正是 founder 三次說「顏色變化很少」的根源。
+  //
+  // founder 2026-08-10 裁決放寬：**星塵是大面積、流動的多色場，不是一顆訊號燈**，
+  // 單顆粒子是綠的不會被讀成「good」。所以守的改成「整顆球的主色」。
+  //
+  // ⚠️ 這個新守則自己長出一個新風險，而且它當場就抓到了：
+  // **把色相散太開，整顆的平均色會趨近灰 —— 而灰就是 `--zone-neutral`（Neutral 帶位）。**
+  // bloom 0.24 → ΔE 25.9（margin 太薄）、0.28 → 21.7 ❌；旋轉超過 0.20 turn → 7.1 ❌。
+  // 現行 0.20/0.20 → 27.3 ✅。上下限全部從產品原始碼讀，讓測試跟著常數走。
+  {
+    const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const dustSource = stripComments(readFileSync(join(repoRoot, 'apps/preview/v6/stardust.js'), 'utf8'));
+    const num = (src, name) => Number(new RegExp(`${name}\\s*=\\s*([\\d.]+)`).exec(src)?.[1]);
+    const satLo = num(dustSource, 'READOUT_SAT_LO');
+    const satHi = num(dustSource, 'READOUT_SAT_HI');
+    const bloomMax = num(dustSource, 'READOUT_BLOOM_MAX');
+    const rotMax = num(dustSource, 'READOUT_HUEROT_MAX');
+    const scaleLo = num(dustSource, 'READOUT_SCALE_LO');
+    const scaleHi = num(dustSource, 'READOUT_SCALE_HI');
+    const bands = num(dustSource, 'HUE_BANDS');
+    check('讀得到產品的所有色彩上下限（測試要跟著常數走）',
+      [satLo, satHi, bloomMax, rotMax, scaleLo, scaleHi, bands].every(Number.isFinite), true);
+
+    const colour = await page.evaluate(([sLo, sHi, blMax, roMax, nBands]) => {
+      const M = window.TENKI_STARDUST.toneMatrix;
+      const clamp = (v) => Math.max(0, Math.min(1, v));
+      const apply = (m, c) => [
+        clamp(m[0] * c[0] + m[1] * c[1] + m[2] * c[2]),
+        clamp(m[3] * c[0] + m[4] * c[1] + m[5] * c[2]),
+        clamp(m[6] * c[0] + m[7] * c[1] + m[8] * c[2]),
+      ];
+      const fi = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+      const lab = (c) => {
+        const g = c.map((v) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+        const X = (g[0] * 0.4124 + g[1] * 0.3576 + g[2] * 0.1805) / 0.95047;
+        const Y = g[0] * 0.2126 + g[1] * 0.7152 + g[2] * 0.0722;
+        const Z = (g[0] * 0.0193 + g[1] * 0.1192 + g[2] * 0.9505) / 1.08883;
+        return [116 * fi(Y) - 16, 500 * (fi(X) - fi(Y)), 200 * (fi(Y) - fi(Z))];
+      };
+      const dE = (a, b) => {
+        const A = lab(a); const B = lab(b);
+        return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
+      };
+      const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16) / 255);
+      const OWNED = {
+        '--good 綠': '#34C759',
+        '--warn 琥珀': '#F5A623',
+        'zone-strain': '#C2703D',
+        '未判定 coral': '#FF7E76',
+        'gold-secured': '#FFD46E',
+        'zone-neutral': '#64748B',
+      };
+      // 靜息漸層（stardust.js buildScene 的 bot→mid→top），照色帶取樣，
+      // 跟產品 buildBandMats 的做法一致。
+      const TOP = [1, 0.4, 0.8], MID = [0.6, 0.4, 1], BOT = [0, 0.8, 1];
+      const baseAt = (ny) => (ny > 0.5
+        ? MID.map((v, i) => v + (TOP[i] - v) * ((ny - 0.5) * 2))
+        : BOT.map((v, i) => v + (MID[i] - v) * (ny * 2)));
+      const mid = (nBands - 1) / 2;
+      // 🔴 **色帶不再對應高度，所以要掃 base × band 的所有組合。**
+      // 產品的色帶吃 y 與方位角的混合（螺旋）—— 同一高度的粒子會落在不同色帶，
+      // 反過來同一色帶也會收到各種高度的底色。
+      // 舊模型（band b ↔ 高度 (b+0.5)/N 一一對應）**已經不成立**；
+      // 不改的話這個守門員會繼續用一個不存在的球去算主色。
+      const NY = 12; // 高度取樣段數
+      const ballAt = (bloom, rot, sat) => {
+        const cs = [];
+        for (let iy = 0; iy < NY; iy += 1) {
+          const ny = (iy + 0.5) / NY;
+          const base = baseAt(ny);
+          for (let b = 0; b < nBands; b += 1) {
+            const h = rot + ((b - mid) / mid) * (bloom / 2);
+            cs.push(apply(M(h, sat), base));
+          }
+        }
+        return cs;
+      };
+      const meanOf = (cs) => [0, 1, 2].map((k) => cs.reduce((a, c) => a + c[k], 0) / cs.length);
+      const spanOf = (cs) => {
+        let mx = 0;
+        for (let a = 0; a < cs.length; a += 1) {
+          for (let b = a + 1; b < cs.length; b += 1) mx = Math.max(mx, dE(cs[a], cs[b]));
+        }
+        return mx;
+      };
+      let worstMean = { d: Infinity };
+      let minSpan = { v: Infinity };
+      let maxSpan = { v: -Infinity };
+      for (let bl = 0; bl <= blMax + 1e-9; bl += 0.04) {
+        for (let ro = 0; ro <= roMax + 1e-9; ro += 0.04) {
+          for (let sat = sLo; sat <= sHi + 1e-9; sat += 0.1) {
+            const cs = ballAt(bl, ro, sat);
+            const mean = meanOf(cs);
+            for (const [name, v] of Object.entries(OWNED)) {
+              const d = dE(mean, hex(v));
+              if (d < worstMean.d) worstMean = { d, name, bloom: bl, rot: ro, sat };
+            }
+            const sp = spanOf(cs);
+            if (sp < minSpan.v) minSpan = { v: sp, bloom: bl, rot: ro, sat };
+            if (sp > maxSpan.v) maxSpan = { v: sp, bloom: bl, rot: ro, sat };
+          }
+        }
+      }
+      return { worstMean, minSpan, maxSpan, restSpan: spanOf(ballAt(0, 0, 1)) };
+    }, [satLo, satHi, bloomMax, rotMax, bands]);
+
+    console.log(`   （主色最接近「${colour.worstMean.name}」ΔE ${colour.worstMean.d.toFixed(1)}`
+      + ` @bloom ${colour.worstMean.bloom.toFixed(2)} rot ${colour.worstMean.rot.toFixed(2)}`
+      + `；彩度跨度 ${colour.minSpan.v.toFixed(0)}–${colour.maxSpan.v.toFixed(0)}`
+      + `，靜息 ${colour.restSpan.toFixed(0)}）`);
+
+    // 🔴 新守則：整顆球的**主色**不得撞上任何已被指派意義的顏色。
+    check('🔴 整顆球的主色不得撞上已被指派意義的顏色（ΔE ≥ 25）',
+      colour.worstMean.d >= 25, true);
+
+    // 🔴🔴 **這兩條直接就是 founder 抱怨的那件事。**
+    // 前三輪我只驗「參數有沒有被設定成不同值」，所以三輪都綠、三輪都被打回。
+    // 他實際看到的彩度跨度是 4（93% 穩定度）到 36（77%）。
+    //
+    // ⚠️ 門檻是**量出來才定的**，而且量的時候修正了我計畫裡的一個誤讀：
+    // 我原本以為「整個空間的最低點」該是 147 —— 錯了，147 是**最高點**（bloom 全開），
+    // 最低點是 bloom=0 的基礎漸層（≈84）。所以要驗的是**一對**：
+    //   ① 最低點不得低於基礎漸層 → 顏色永遠不會變少
+    //   ② 最高點要真的更豐富 → 穩住時看得出「展開」
+    check('🔴 顏色永遠不得變少（最低點 ≥ 80，即基礎漸層）',
+      colour.minSpan.v >= 80, true);
+    check('🔴 穩住時真的更豐富（最高點 ≥ 210）',
+      colour.maxSpan.v >= 210, true);
+
+    // 尺度是絕對幾何，不受 additive 混色影響 —— 狀態回饋交給它。
+    const scaleRatio = scaleLo / scaleHi;
+    check('🔴 尺度差看得出來（靜止/晃動 ≤ 0.78）', scaleRatio <= 0.78, true);
+
+    // ── 🔴 顏色要在**兩個方向**上變（螺旋），不只上下 ──
+    //
+    // 只吃高度的話，畫面只是一條單純的上下漸層 —— 那是 founder 說「顏色變化很少」
+    // 的其中一層原因。混入方位角之後，同一高度的粒子會落在不同色帶。
+    // 直接驗產品那支純函式，不是掃原始碼字串。
+    const spiral = await page.evaluate(() => {
+      const f = window.TENKI_STARDUST.hueBandOf;
+      const N = window.TENKI_STARDUST.HUE_BANDS;
+      // 同一高度、繞一圈的方位角 → 應該落在多個不同色帶
+      const sameHeight = new Set();
+      for (let a = 0; a < 24; a += 1) {
+        const th = (a / 24) * Math.PI * 2;
+        sameHeight.add(f(0.5, Math.cos(th), Math.sin(th)));
+      }
+      // 同一方位角、不同高度 → 也要落在多個不同色帶（原本就有的上下向）
+      const sameAzimuth = new Set();
+      for (let iy = 0; iy < 24; iy += 1) sameAzimuth.add(f(iy / 23, 1, 0));
+      // 整體用得到幾個色帶
+      const all = new Set();
+      for (let iy = 0; iy < 16; iy += 1) {
+        for (let a = 0; a < 16; a += 1) {
+          const th = (a / 16) * Math.PI * 2;
+          all.add(f(iy / 15, Math.cos(th), Math.sin(th)));
+        }
+      }
+      return { bands: N, sameHeight: sameHeight.size, sameAzimuth: sameAzimuth.size, all: all.size };
+    });
+    console.log(`   （同一高度用到 ${spiral.sameHeight} 個色帶、同一方位角 ${spiral.sameAzimuth} 個、`
+      + `全部 ${spiral.all}/${spiral.bands}）`);
+    check('🔴 同一高度也會有不同顏色（螺旋，不只上下漸層）',
+      spiral.sameHeight >= 5, true);
+    check('上下方向的顏色變化仍在', spiral.sameAzimuth >= 5, true);
+    check('整顆球用得到所有色帶', spiral.all, spiral.bands);
+    // ⚠️ 這裡本來還有一條「綠離得夠遠」的專屬斷言，**已經拿掉**：
+    // `--good` 已經在上面 OWNED 表裡（現行設計下 ΔE 82.7），而那條專屬版
+    // 想不出任何會讓它變紅的改動 —— 反向驗證不了的斷言只會讓人誤以為多守了一層。
+    // 綠由「色相不得為負」（行為，已反向驗證）＋ 這條 ΔE 掃描（已反向驗證）共同守住。
+  }
+  await ctx.close();
+}
+
+// ── 6. 收束的帶位色必須跟 tokens.css 同步（鏡射漂移守門員）──
+//
+// readiness-scan 自帶樣式、不假設 host 載了 tokens.css，所以 zone 色是**字面值鏡射**。
+// 鏡射必然漂移（PLAYBOOK §6 已經吃過三次虧），這裡讓它會喊痛：
+// 直接比對兩份檔案裡的值。⚠️ 要先剝掉註解，否則會掃到我自己寫的說明文字。
+{
+  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const scanSrc = strip(readFileSync(join(repoRoot, 'apps/preview/readiness-scan.js'), 'utf8'));
+  const tokensSrc = strip(readFileSync(join(repoRoot, 'apps/preview/tokens.css'), 'utf8'));
+  const bandTone = /BAND_TONE\s*=\s*\{([^}]*)\}/.exec(scanSrc);
+  const mirrored = {};
+  if (bandTone) {
+    for (const m of bandTone[1].matchAll(/(\w+)\s*:\s*'(#[0-9A-Fa-f]{6})'/g)) {
+      mirrored[m[1]] = m[2].toUpperCase();
+    }
+  }
+  const tokenOf = (name) => {
+    const m = new RegExp(`--zone-${name}\\s*:\\s*(#[0-9A-Fa-f]{6})`).exec(tokensSrc);
+    return m ? m[1].toUpperCase() : null;
+  };
+  check('BAND_TONE 有三個帶位', Object.keys(mirrored).sort(), ['clear', 'neutral', 'strain']);
+  for (const band of ['clear', 'neutral', 'strain']) {
+    check(`帶位色 ${band} 與 tokens.css 的 --zone-${band} 相同`, mirrored[band], tokenOf(band));
+  }
 }
 
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);

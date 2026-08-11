@@ -150,7 +150,7 @@
   }
 
   // Mirror of domain decision-outcome（流程語言，非勝負；禁 PnL/勝率）
-  var OUTCOME_STORE_KEY = 'tenki.alert.outcomes.v1';
+  var OUTCOME_STORE_KEY = window.TENKI_OUTCOME.STORE_KEY; // 唯一來源見 decision-outcome.js
   var REFLECT_TAGS = ['跟計畫', '有點急', '偏離計畫'];
 
   // 收束頁顯示偏好（可調 + 持久）。記錄一律 on（安全、不可關）→ 不提供關閉記錄的開關。
@@ -186,25 +186,13 @@
   // 時間不再進入這個判斷，只作為事實脈絡呈現。
   // ═══════════════════════════════════════════════
 
-  /** 舊語意的 tag。仍要認得 —— 既有紀錄不重寫、也不丟棄。 */
-  var LEGACY_DISCIPLINED_TAGS = ['stayed_disciplined', 'timed_out'];
-  /** 新語意標記，寫進每一筆新紀錄，供統計辨識語意斷點。 */
-  var JUDGMENT_SCHEMA = 'structure_watch_v1';
-
-  /**
-   * judgment: 'entered' | 'stood_down' | 'abandoned'
-   */
-  function resolveOutcomeTag(judgment) {
-    if (judgment === 'entered') return 'judged_entered';
-    if (judgment === 'stood_down') return 'judged_stood_down';
-    return 'abandoned_no_judgment';
-  }
-
-  function isDisciplined(tag) {
-    return tag === 'judged_entered'
-      || tag === 'judged_stood_down'
-      || LEGACY_DISCIPLINED_TAGS.indexOf(tag) !== -1;
-  }
+  // 判定、tag 對照與語意標記全部住在 `decision-outcome.js`（唯一來源）。
+  // 這裡**不留本地實作、也不留 fallback** —— 「載不到就用本地那份」等於又生出
+  // 第二份判定，正是 2026-08-09 讓 /v3/ Session 報 0% 的那個 bug。
+  var OUTCOME = window.TENKI_OUTCOME;
+  var JUDGMENT_SCHEMA = OUTCOME.JUDGMENT_SCHEMA;
+  var resolveOutcomeTag = OUTCOME.resolveOutcomeTag;
+  var isDisciplined = OUTCOME.isDisciplined;
 
   /** 收束頁顯示文字。兩個判定都是紀律 —— 措辭不暗示哪個「比較好」。 */
   function outcomeDisplay(judgment) {
@@ -341,7 +329,7 @@
     'tplSheet', 'tplList', 'tplStatus', 'aggSheet', 'aggHead', 'aggList',
     'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcCenter', 'resultArcGlow', 'resultArcTime',
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
-    'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave',
+    'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave', 'btnResultRecord',
     'timerBar', 'timerLabel', 'timerClock',
     'watchAnchor', 'watchAsk', 'btnStructureConfirmed', 'btnStoodDown', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
@@ -441,7 +429,17 @@
     return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
 
-  function log(type, detail) {
+  /**
+   * 事件鏈的一列。
+   *
+   * @param {string} type - TYPE_LABELS 的 key。
+   * @param {string} detail - 說明文字。
+   * @param {{text:string, href:string}} [link] - 可選的去處。
+   *   用在「收束之後有路可走」：決策記進統一 store 之後，這裡留一條通往
+   *   `/v3/#session` 的路。**刻意放在 log 這一層而不是收束頁** —— 收束頁剛被
+   *   壓到 660px 一屏放得下，再加按鈕會把它推回摺線下（2026-08-09 的教訓）。
+   */
+  function log(type, detail, link) {
     var empty = el.logList.querySelector('.log-empty');
     if (empty) empty.remove();
 
@@ -464,6 +462,13 @@
     item.appendChild(time);
     item.appendChild(typeEl);
     item.appendChild(detailEl);
+    if (link) {
+      var a = document.createElement('a');
+      a.className = 'log-link';
+      a.href = link.href;
+      a.textContent = link.text + ' ›';
+      item.appendChild(a);
+    }
     el.logList.insertBefore(item, el.logList.firstChild);
   }
 
@@ -1129,6 +1134,9 @@
       awayMs: s.awayMs,
       durationSec: s.elapsedSec,
       ts: Date.now(),
+      // 這筆決策從哪個入口來（v6 的計時器決策寫 'v6'）。統一 store 是兩個入口
+      // 合流的地方，沒有這個欄位 Session 頁就分不出來源。
+      source: 'alert',
     };
 
     var withThis = loadOutcomes().concat([state.pendingOutcome]);
@@ -1212,13 +1220,31 @@
     if (!state.pendingOutcome) return;
     saveOutcome(state.pendingOutcome);
     refreshDiscipline();
-    log('mark', state.pendingOutcome.symbol + ' — 決策已收束並記錄');
+    // 收束不是終點：這筆已經寫進統一 store（`tenki.alert.outcomes.v1`），
+    // /v3/ 的 Session 頁就是它的去處。`applyEntryHash()` 認得 `#session`，
+    // 所以這條連結直接落在決策紀錄那一頁。
+    log('mark', state.pendingOutcome.symbol + ' — 已記入決策紀錄',
+      { text: '看歷史', href: '/v3/#session' });
     state.pendingOutcome = null;
   }
 
+  /** 決策紀錄的所在。`applyEntryHash()` 認得 `#session`，直接落在那一頁。 */
+  var RECORD_HREF = '/v3/#session';
+
+  // 兩個出口**都先記錄** —— 記錄不是選項，是收束的一部分。
+  // 差別只在記錄完要留在這裡，還是去看它在紀錄裡的樣子。
   el.btnResultSave.addEventListener('click', function () {
     finalizeResult();
     closeSheets();
+  });
+  el.btnResultRecord.addEventListener('click', function () {
+    finalizeResult();
+    window.location.href = RECORD_HREF;
+  });
+  // 紀律近況那一塊本來就是決策紀錄的預覽，點它等同「去看完整的」。
+  el.resultHistory.addEventListener('click', function () {
+    finalizeResult();
+    window.location.href = RECORD_HREF;
   });
 
   // 兩個判定出口。**兩個都是紀律** —— §7 step 7「無觸發 → 不交易」跟 step 4 進場

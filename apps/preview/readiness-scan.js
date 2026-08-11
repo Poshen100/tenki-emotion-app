@@ -108,6 +108,50 @@
   var HALO_ACTIVE = '#22D3EE';
   var HALO_SECURED = '#FFD46E';
   /**
+   * 星塵在收束時要落到的帶位色 —— **鏡射 `apps/preview/tokens.css` 的 zone token**
+   * （`--zone-clear` / `--zone-neutral` / `--zone-strain`，見 `docs/VISUAL-DIRECTION.md` §3）。
+   *
+   * ⚠️ 這是一份鏡射，鏡射就會漂移。理由跟上面 HALO_* 一樣：本模組自帶樣式、
+   * 不假設 host 載了 tokens.css，`getComputedStyle` 解 `var()` 又不能放進每幀路徑。
+   * 所以**由 harness 去比對這裡的字面值與 tokens.css 是否仍相同** ——
+   * 讓漂移會喊痛，而不是靠人記得（PLAYBOOK §6：判定/呈現只能有一個來源；
+   * 真的必須鏡射時，要有東西守住兩份是一樣的）。
+   */
+  var BAND_TONE = { clear: '#00B4D8', neutral: '#64748B', strain: '#C2703D' };
+  /**
+   * 收束時往帶位色拉多少。
+   *
+   * ⚠️ 2026-08-10 由 0.5 調到 0.85（founder 實走）：0.5 時**看不出是哪個帶位** ——
+   * 因為漸層底部本來就是 cyan，往 Clear（`#00B4D8`）拉等於沒拉，只有頂端被拉一半，
+   * 於是 Clear / Neutral / Strain 三種收束長得幾乎一樣。金框有做到 SECURED，
+   * 但球沒有說出結果。0.85 讓三種一眼分得出來，剩下的 0.15 保住粒子的層次。
+   */
+  var TONE_REVEAL_MIX = 0.85;
+  /** SECURED 那一拍先閃過的金，隨後才落到帶位色。要夠強，否則會被隨後的帶位色蓋掉。 */
+  var TONE_SECURED_MIX = 0.8;
+  /** gold → 帶位色的停留時間。 */
+  var TONE_SECURED_MS = 700;
+  /**
+   * 量測中色相位移的上限（turn）。**單向：0 → +TONE_LIVE_HUE，不得為負。**
+   *
+   * 🔴 為什麼不能往負向走：負向旋轉會把漸層底部的 cyan 轉成綠
+   * （hue −0.10 → `#00E48B`），而 **v6 的 `--good` 就是綠 `#34C759`** ——
+   * 等於在還沒有任何結果時亮起「good」。founder 2026-08-10 實走截圖抓到的就是這個。
+   * ⚠️ 這跟「`.locked` 不該上金」是同一類錯：我擋住了自己要用的色，卻沒有反過來問
+   * **「我即將產生的顏色，在這個產品裡是不是已經有主人」**。
+   *
+   * 上限 0.06 也是算出來的，不是估的：+0.10 時漸層頂端變成 `#FF667C`，
+   * 跟 Timeline 上「沒有做出判定」的 `#FF7E76` 幾乎同一個色；
+   * +0.06 的頂端 `#FF62A0` 仍明確是粉紅，三個色階全部留在原本的家族裡。
+   * harness 會把 0..+0.06 全掃一遍去撞已被指派意義的色，改這個數字前先看那條。
+   */
+  var TONE_LIVE_HUE = 0.06;
+  /**
+   * 星塵讀出的 stillness 高錨（低錨用 `LANDMARK_STILL_GATE`）。
+   * 0.95 而不是 1.00 —— 要求使用者做到完美才給滿分的回饋，那個回饋等於拿不到。
+   */
+  var READOUT_STILL_HI = 0.95;
+  /**
    * 光弧起點位移（周長比例）—— 把起點從 SVG rect 的預設起點移到**上緣正中**。
    *
    * 推導（rect x=1 y=1 w=h=234 rx=ry=63）：直線段 = 234 - 2×63 = 108；
@@ -930,12 +974,119 @@
     if (!session || !session.stardust) return;
     var S = global.TENKI_STARDUST;
     if (!S || typeof S.setExpression !== 'function') return;
+    var mouthOpen = Math.min(1, Math.abs(lm[13].y - lm[14].y) / MOUTH_OPEN_DIVISOR);
+    var browTension = Math.max(0, Math.min(1, 1 - Math.abs(lm[105].x - lm[334].x) / BROW_SPAN_DIVISOR));
     S.setExpression({
-      mouthOpen: Math.min(1, Math.abs(lm[13].y - lm[14].y) / MOUTH_OPEN_DIVISOR),
+      mouthOpen: mouthOpen,
       eyeOpen: eyeOpen,
-      browTension: Math.max(0, Math.min(1, 1 - Math.abs(lm[105].x - lm[334].x) / BROW_SPAN_DIVISOR)),
+      browTension: browTension,
       blinkDetected: blinkDetected,
     });
+    // ⚠️ `setExpression` 照舊餵 —— 那是 takeover 已經調過的手感通道（眨眼、尺度、
+    // 滾動），不動它。`feedTone` 不再吃 mouthOpen/browTension：量過之後那兩個在
+    // 掃描情境下幾乎是常數，見 feedTone 的說明。
+    feedTone();
+  }
+
+  /**
+   * 讓星塵跟著**這次真的量到的東西**走 —— 而且是**看得出來**地跟著。
+   *
+   * 🔴 **這不是情緒偵測，也不准被講成情緒偵測。** 我們量到的是位移穩定度與
+   * 累積的有效量測（landmark 幾何 + 閘門）。畫面上不會有任何一個字替它貼情緒標籤
+   * （CLAUDE.md：禁止醫療診斷措辭；North Star：不放假的讀數）。
+   *
+   * ⚠️ **2026-08-10 重寫，因為第一版的訊號是死的。** 先前色相吃 `browTension`
+   * （兩眉之間的距離比值）與 `mouthOpen`。算過真實情境才發現：
+   *   用力皺眉 → 色相只動 **0.69°**；掃描時嘴閉著 → mouthOpen 恆為 ~0.1。
+   * founder 實走的一句「顏色好像沒變化？」就是這個。
+   * **訊號正規化成 0..1，不代表它會走遍 0..1 —— 要看真實分布。**
+   *
+   * 改吃 `stillness`：每幀、真 0..1，**而且正是畫面上要求使用者控制的那個量**
+   * （「保持穩定」）。使用者做對了，主角就要看得出來 —— 那才是回饋迴圈。
+   *
+   * - `stillness` → 飽和度 / 漸層收窄 / 粒子收斂 / 亮度（stardust 端的 readout 層）
+   * - `stillness` → 色相偏移：**越穩越回到 0**，也就是回到星塵原本的身分
+   * - `progress`  → 往 cyanCore 聚焦。用 `heldMs/budgetMs`，而它**只在閘門通過時
+   *   才前進** —— 所以那是「累積的有效量測」，不是計時器。
+   *
+   * 🔴 色相仍然單向（0 → +TONE_LIVE_HUE，不得為負）：負向會把底部的 cyan 轉成綠，
+   * 而綠在這個產品裡是 `--good`。這裡用 `1 - still` 當 drive，**結構上出不了負數**。
+   *
+   * ⚠️ 飽和度**不在這裡餵** —— 由 readout 層單一擁有（`effectiveSat()`）。
+   * 兩個地方寫同一個通道就會打架，那個 bug 類別已經咬過三次。
+   *
+   * ⚠️ 揭曉之後不再受這裡驅動 —— 那時顏色代表的是**結果**，不是當下的你。
+   */
+  function feedTone() {
+    if (!session || session.toneStage !== 'live') return;
+    var S = global.TENKI_STARDUST;
+    if (!S || typeof S.setTone !== 'function') return;
+    var still = session.lastStillness === null ? 0.5 : clamp01(session.lastStillness);
+    var progress = session.budgetMs > 0
+      ? clamp01(session.heldMs / session.budgetMs)
+      : 0;
+    if (typeof S.setReadout === 'function') {
+      S.setReadout({ stillness: readoutStillness(still), progress: progress });
+    }
+    S.setTone({
+      // 晃動 → 偏離身分；穩住 → 回到身分。單向，不得為負。
+      hue: (1 - still) * TONE_LIVE_HUE,
+      mix: 0,
+    });
+  }
+
+  /**
+   * 把 stillness 的**實際工作區間**拉伸到完整的 0..1 再交給星塵。
+   *
+   * 🔴 為什麼不能直接餵原始值：0..1 是它的**定義域**，不是它**會走到**的範圍。
+   * founder 實測讀數是 63% / 87% / 93%，而 `LANDMARK_STILL_GATE = 0.5` 是閘門門檻 ——
+   * 也就是說真正會發生的區間大約 `0.5 → 0.95`。直接餵原始值等於把一半以上的
+   * 視覺預算浪費在永遠不會到達的區段，效果就是 founder 說的「看不出變化」。
+   *
+   * ⚠️ 低端**錨在閘門門檻上**（不是隨手挑一個數）：閘門不過的那一刻正好是視覺最散的
+   * 那一刻，畫面的極值與量測自己的判準對齊。高端 0.95 留一點餘裕 —— 要求使用者
+   * 做到 1.00 才給滿分的回饋，那個回饋等於拿不到。
+   *
+   * 這是「訊號正規化成 0..1 不代表它會走遍 0..1」那一課的第二次應用；
+   * 上一次是輸入端（browTension），這次是輸出端的動態範圍。
+   *
+   * @param {number} still - 原始 stillness 0..1。
+   * @returns {number} 拉伸後的 0..1。
+   */
+  function readoutStillness(still) {
+    var span = READOUT_STILL_HI - LANDMARK_STILL_GATE;
+    if (span <= 0) return clamp01(still);
+    return clamp01((still - LANDMARK_STILL_GATE) / span);
+  }
+
+  /**
+   * 收束時把顏色交給結果。
+   *
+   * 有讀數：先閃過 gold（`--gold-secured` = SECURED，跟光弧同一拍），
+   * 再落到該次帶位色。**沒有讀數就不准碰 gold** —— 顏色跟文案一樣會宣稱事實。
+   *
+   * @param {?string} band - `clear` / `neutral` / `strain`；null = 訊號不足。
+   */
+  function revealTone(band) {
+    if (!session) return;
+    session.toneStage = 'reveal';
+    var S = global.TENKI_STARDUST;
+    if (!S || typeof S.setTone !== 'function') return;
+    // 🔴 交接點：量測期間飽和度歸 readout，收束之後歸 setTone。
+    // 先關掉 readout 再設 tone，否則兩個寫入者會搶同一個通道（`effectiveSat()`）。
+    // 收散/聚焦也在這裡停下 —— 揭曉的畫面應該是靜的，不該還有東西在收。
+    if (typeof S.clearReadout === 'function') S.clearReadout();
+    var target = band && BAND_TONE[band];
+    if (!target) {
+      // 訊號不足：退掉彩度停在原本的漸層上，不編一個看起來像結果的顏色。
+      S.setTone({ hue: 0, sat: 0.75, mix: 0 });
+      return;
+    }
+    S.setTone({ hue: 0, sat: 1.1, toward: HALO_SECURED, mix: TONE_SECURED_MIX });
+    session.toneTimer = setTimeout(function () {
+      if (!session || session.toneStage !== 'reveal') return;
+      S.setTone({ toward: target, mix: TONE_REVEAL_MIX });
+    }, TONE_SECURED_MS);
   }
 
   function startFaceMesh(video) {
@@ -1253,6 +1404,7 @@
     setProgress(1);
     var frame = q('frame');
     if (frame) frame.classList.add('secured'); // 顏色由 CSS 的 .secured 承接
+    revealTone(reading.band); // 星塵跟著同一拍走：先 gold，再落到帶位色
     showVerdict(BAND_LABEL[reading.band], verdictFact(evidence), reading);
   }
 
@@ -1261,6 +1413,7 @@
     enterReveal();
     // 不加 .secured：沒有讀數就不准上 gold。失敗更需要被看見，
     // 所以走同一個面板、同樣停著等點，不是一閃而過。
+    revealTone(null); // 星塵同理：退彩度，不給一個看起來像結果的顏色
     showVerdict('訊號不足', {
       spec: '這次沒有取得讀數',
       quality: '光線或穩定度不足 · 再試一次',
@@ -1512,12 +1665,41 @@
   // ── 星塵核心（North Star §4「內核 = 星塵靈魂」）──
 
   /**
-   * 這次掃描要不要放星塵。
+   * 這個節點現在看得見嗎。
    *
-   * 三種情況一律不放，而且都不是失敗：
-   * 1. 沒有 three.js / 沒載 stardust.js —— 那頁就只有極簡精密框，功能不受影響。
-   * 2. host 頁面已經持有綁定（v6 的 `#universe`）—— 第二個 WebGL context 疊在
-   *    相機 + MediaPipe 上是 iOS 的 OOM 區，寧可不放。
+   * `offsetParent` 對 `position:fixed` 會回 null（誤判），所以再問一次 CSS ——
+   * 星塵的 host 就有可能是 fixed 全屏層。
+   *
+   * @param {HTMLElement} node
+   * @returns {boolean}
+   */
+  function isVisible(node) {
+    if (!node || !node.isConnected) return false;
+    var cs = global.getComputedStyle ? global.getComputedStyle(node) : null;
+    if (cs && (cs.visibility === 'hidden' || cs.display === 'none')) return false;
+    var r = node.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
+  /**
+   * 這次掃描要不要放星塵，以及要不要**跟現任持有者借**。
+   *
+   * ⚠️ 這裡曾經有一條我自己寫錯的規則（2026-08-10 founder 實走抓到）：
+   * 「`isMounted()` 為真就一律不放」。理由寫的是「第二個 WebGL context 疊在
+   * 相機 + MediaPipe 上是 iOS 的 OOM 區」—— **理由對，結論錯。**
+   * `stardust.js` 在 DOM ready 時會 `autoMount()` 綁到 `#universe`，而 v6 的
+   * `#universe` 住在平常 `visibility:hidden` 的 takeover 裡 ——
+   * **於是 /v3/ 上有一顆沒人看得到的星塵球一直在燒 GPU，還佔著唯一的綁定**，
+   * 掃描框永遠拿不到（連帶 `feedStardust()` 整條也是死的）。
+   * 而 `/decision-alert/` 沒有 `#universe`，所以那個入口一直是好的 ——
+   * 同一支掃描在兩個入口長得不一樣，就是這個原因。
+   *
+   * 正確做法是**交接**而不是並存：把唯一那個借過來，收尾再還回去。
+   * 任何時刻仍然只有一個 context 活著，原本那條 OOM 顧慮完整保住。
+   *
+   * 三種情況仍然不放，而且都不是失敗：
+   * 1. 沒有 three.js / 沒載 stardust.js —— 那頁只有極簡精密框，功能不受影響。
+   * 2. 現任持有者**看得見**（takeover 正在跑）—— 那是真的在用，不能搶。
    * 3. 使用者開了「減少動態」—— 星塵是連續漂移，最誠實的靜態終態就是不出現
    *    （MOTION-DIRECTION 鐵律 3）。
    *
@@ -1526,28 +1708,66 @@
   function mountStardust() {
     var S = global.TENKI_STARDUST;
     if (!S || typeof S.mount !== 'function') return false;
-    if (typeof S.isMounted === 'function' && S.isMounted()) return false;
     if (global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
 
     var host = q('stardust');
     if (!host) return false;
+
+    if (typeof S.isMounted === 'function' && S.isMounted()) {
+      // 借之前一定要先問到 host —— `destroy()` 會把 container 設成 null，
+      // 拆完就沒有人記得該還給誰了。
+      var info = typeof S.hostInfo === 'function' ? S.hostInfo() : null;
+      if (!info || isVisible(info.node)) return false; // 真的在用 → 不搶
+      try {
+        S.unmount();
+      } catch (_) {
+        return false; // 拆不掉就不硬搶，維持原狀比壞掉好
+      }
+      session.borrowedFrom = info;
+    }
+
     // fitContainer：畫布跟著掃描框走，而不是視窗。三個既有的 #universe 頁面
     // 不傳這個旗標，走原本的 viewport 路徑，一個像素都不會變。
-    if (!S.mount(host, { fitContainer: true })) return false;
+    if (!S.mount(host, { fitContainer: true })) {
+      returnStardust(); // 借了卻掛不上 → 立刻還回去，不能把頁面留在沒有星塵的狀態
+      return false;
+    }
     if (typeof S.playEntrance === 'function') S.playEntrance();
     return true;
   }
 
+  /**
+   * 把借來的綁定還給原主。**借了就一定要還** —— 不還的話 v6 的 takeover
+   * 下次啟動時會是一顆空的 `#universe`。
+   */
+  function returnStardust() {
+    if (!session || !session.borrowedFrom) return;
+    var info = session.borrowedFrom;
+    session.borrowedFrom = null;
+    var S = global.TENKI_STARDUST;
+    if (!S || typeof S.mount !== 'function') return;
+    try {
+      // 用原本的掛法還回去：`#universe` 走 viewport 路徑（fitContainer:false），
+      // 還錯了等於偷偷改了那一頁的星塵尺寸。
+      S.mount(info.node, { fitContainer: info.fitContainer });
+    } catch (_) { /* 還不回去不該擋住掃描收尾 */ }
+  }
+
   /** 還掉 WebGL context。每次掃描結束都要做 —— 瀏覽器對同時存活的 context 有上限。 */
   function unmountStardust() {
-    if (!session || !session.stardust) return;
+    if (!session) return;
+    var borrowed = session.borrowedFrom;
+    if (!session.stardust && !borrowed) return;
     session.stardust = false;
     var S = global.TENKI_STARDUST;
     if (!S) return;
     try {
       if (typeof S.clearExpression === 'function') S.clearExpression();
+      if (typeof S.clearTone === 'function') S.clearTone();
+      if (typeof S.clearReadout === 'function') S.clearReadout();
       if (typeof S.unmount === 'function') S.unmount();
     } catch (_) { /* 拆卸失敗不該擋住掃描收尾 */ }
+    returnStardust();
   }
 
   // ── 生命週期 ──
@@ -1556,6 +1776,9 @@
     if (!session) return;
     var resolve = session.resolve;
     if (session.raf) cancelAnimationFrame(session.raf);
+    // gold → 帶位色那個延遲還可能在飛。session 馬上就要變 null，
+    // 讓它落在一個已經拆掉的星塵上沒有意義，還會讓下一輪繼承到上一輪的顏色。
+    if (session.toneTimer) clearTimeout(session.toneTimer);
     stopFaceMesh();
     stopCamera();
     unmountStardust();
@@ -1625,6 +1848,11 @@
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0,
         stardust: false,
+        // 借來的星塵綁定（`{node, fitContainer}`）。非 null 就代表**欠著一次歸還**。
+        borrowedFrom: null,
+        // 顏色現在歸誰驅動：'live' = 當下的臉，'reveal' = 這次的結果。
+        // 兩邊搶同一個通道就會閃爍，所以只有一個階段能寫。
+        toneStage: 'live', toneTimer: null,
         // 主指令去抖動狀態：shown 為 null 代表「還沒顯示過」→ 第一條不等待。
         hintShown: null, hintPending: null, hintPendingAt: 0,
       };
