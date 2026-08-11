@@ -277,6 +277,70 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   });
   check('Timeline 的點有 outcome 顏色，不是 fallback 灰', dot.fill, 'var(--good)');
   check('Timeline 那一列認得出流程與結果', dot.desc, 'Mancini FBD · 判定成立 · 已進場');
+
+  // ══════════════════════════════════════════════════════════════════
+  // 🔴 /v3/ Today：畫面不得宣稱沒量到的事
+  //
+  // 那四張 vitals 卡（Cardiac / Respiration / Autonomic / Energy）的數字
+  // 全部由 Math.sin 產生 —— 心率、HRV、呼吸沒有感測器就量不到，目前沒接。
+  // 卡頭原本寫 Live / Synced 並用 --good 綠，那是拿動畫在宣稱事實。
+  //
+  // ⚠️ 這裡每一條都要**同時**問「壞東西不在」與「好東西在」：
+  // 只問「Live 不在」的話，頁面沒載成功時它照樣綠。
+  // ══════════════════════════════════════════════════════════════════
+  await page.evaluate(() => window.goTab('today'));
+  await page.waitForTimeout(600);
+
+  const today = await page.evaluate(() => {
+    const vis = (el) => {
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+    };
+    const cards = Array.from(document.querySelectorAll('#snapTrack .vcard'));
+    const badges = Array.from(document.querySelectorAll('#snapTrack .metric-status'));
+    const note = document.querySelector('.vitals-demo-note');
+    return {
+      cardCount: cards.length,
+      // 每一張卡都必須自己帶著標記 —— 不能只有第一張帶、其他張沒帶
+      everyCardMarked: cards.length > 0
+        && cards.every((c) => /示意/.test(c.querySelector('.metric-status')?.textContent ?? '')),
+      badgeTexts: badges.map((b) => b.textContent.trim()),
+      // 標記自己的顏色也不能宣稱事實（綠 = --good、琥珀 = --warn、金 = SECURED）
+      badgeColors: badges.map((b) => getComputedStyle(b).color),
+      trackText: document.getElementById('snapTrack')?.innerText ?? '',
+      noteVisible: vis(note),
+      noteText: note?.textContent ?? '',
+      nsStatus: document.getElementById('nsStatus')?.textContent.trim() ?? '',
+      // Hero 的分數槽與它的標籤要一致
+      heroScore: document.getElementById('edgeScoreReveal')?.textContent.trim() ?? '',
+      heroLabel: document.querySelector('.tl-edge-pr')?.textContent.trim() ?? '',
+      fdcbSeg: document.getElementById('fdcbSeg')?.textContent.trim() ?? '',
+      bodyText: document.body.innerText,
+    };
+  });
+
+  check('Today 真的載到那四張示意卡（前提，不然下面幾條會空過）', today.cardCount, 4);
+  check('🔴 每一張示意卡都自己帶著「示意」標記', today.everyCardMarked, true);
+  check('🔴 卡頭不得再宣稱 Live', /\bLive\b/.test(today.trackText), false);
+  check('🔴 卡頭不得再宣稱 Synced', /Synced/.test(today.trackText), false);
+  // --good 是 #34C759 → rgb(52, 199, 89)；--warn #F5A623 → rgb(245, 166, 35)
+  check('🔴 示意標記不得吃已被指派意義的顏色（綠=good／琥珀=warn）',
+    today.badgeColors.some((c) => c === 'rgb(52, 199, 89)' || c === 'rgb(245, 166, 35)'), false);
+  check('說明那一行看得見（給停下來看的人）', today.noteVisible, true);
+  check('說明講的是真原因（需要感測器、尚未接上）',
+    /感測器/.test(today.noteText) && /尚未接上/.test(today.noteText), true);
+  // 「**在**綠色安全區」是對使用者神經系統下的判定；只報區段名稱不是。
+  check('🔴 神經系統那行不得對使用者下判定（不以「在」開頭）',
+    /^在/.test(today.nsStatus), false);
+  check('神經系統那行仍然報得出區段（不是整行消失）',
+    /安全區|陷落區|警戒區/.test(today.nsStatus), true);
+
+  check('🔴 頁面上不得出現寫死的 Edge Score · 72',
+    /Edge Score\s*·\s*72/.test(today.bodyText), false);
+  check('🔴 沒有讀數時 FDCB 不得報一個分數', today.fdcbSeg, '尚無讀數');
+  check('Hero 分數槽是空的（契約上就沒有 0-100 分）', today.heroScore, '—');
+  check('🔴 Hero 標籤跟槽裡的東西一致（不掛 Edge Score）', today.heroLabel, '狀態讀數');
 }
 
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
