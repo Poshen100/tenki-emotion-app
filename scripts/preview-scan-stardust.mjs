@@ -1259,8 +1259,8 @@ async function scanAndCancel(page) {
     //   ② 最高點要真的更豐富 → 穩住時看得出「展開」
     check('🔴 顏色永遠不得變少（最低點 ≥ 80，即基礎漸層）',
       colour.minSpan.v >= 80, true);
-    check('🔴 穩住時真的更豐富（最高點 ≥ 190）',
-      colour.maxSpan.v >= 190, true);
+    check('🔴 穩住時真的更豐富（最高點 ≥ 210）',
+      colour.maxSpan.v >= 210, true);
 
     // 尺度是絕對幾何，不受 additive 混色影響 —— 狀態回饋交給它。
     const scaleRatio = scaleLo / scaleHi;
