@@ -316,7 +316,17 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
       heroScore: document.getElementById('edgeScoreReveal')?.textContent.trim() ?? '',
       heroLabel: document.querySelector('.tl-edge-pr')?.textContent.trim() ?? '',
       fdcbSeg: document.getElementById('fdcbSeg')?.textContent.trim() ?? '',
-      bodyText: document.body.innerText,
+      // ⚠️ 這一格踩了兩次才對：
+      //   `innerText` → FDCB 那顆膠囊在 Today 分頁沒有算版面，讀不到它，
+      //     反向驗證時把 'Edge Score · 72' 塞回去**沒有紅**（斷言是死的）。
+      //   `textContent` → 連 <script> 的原始碼都算進來，我自己那句
+      //     「這裡本來寫死 'Edge Score · 72'」的註解**讓它紅了**（斷言太寬）。
+      // 要的是「所有 markup 的文字，含目前沒顯示的」→ 複製一份、把 script/style 拔掉。
+      bodyText: (() => {
+        const clone = document.body.cloneNode(true);
+        clone.querySelectorAll('script,style').forEach((n) => n.remove());
+        return clone.textContent;
+      })(),
     };
   });
 
