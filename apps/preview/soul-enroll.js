@@ -1115,16 +1115,19 @@
   function m3dActivePhase() { return m3d.ready && m3d.seen && M3D_PHASES.has(state.step); }
 
   // agent HUD readouts (cyberpunk flavor) — NODES = particle count, SYNC = capture progress
-  let hudBin = 0;
   function updateHud() {
+    // Nodes = 3D 點雲的實際粒子數（一個繪圖數字，不是量測）。
+    // 🔴 引擎還沒 ready 時本來會顯示寫死的 5842 —— 一個看起來像真的的假數字。
+    // 沒有就顯示「—」，跟 Today 的分數槽同一條規矩。
     const nodesEl = document.getElementById('hud-nodes');
-    if (nodesEl) nodesEl.textContent = (m3d.ready && m3d.P ? m3d.P : 5842).toLocaleString('en-US');
+    if (nodesEl) {
+      nodesEl.textContent = (m3d.ready && m3d.P) ? m3d.P.toLocaleString('en-US') : '—';
+    }
+    // Sync 是唯一誠實的 HUD 數字：它就是閘門賺來的進度。
     const syncEl = document.getElementById('hud-sync');
     if (syncEl) syncEl.textContent = (captureProgress() * 100).toFixed(1) + '%';
-    if ((hudBin = (hudBin + 1) % 6) === 0) {
-      const b = document.getElementById('hud-binary');
-      if (b) { let s = ''; for (let i = 0; i < 10; i++) s += Math.random() > 0.5 ? '1' : '0'; b.textContent = s; }
-    }
+    // 🔴 這裡本來每 6 幀刷一串 Math.random() 的 10 位二進位字串。
+    // 它看起來像資料流，實際上什麼都不是 —— 移除。
   }
 
   function renderModel3D(t) {
@@ -1638,8 +1641,9 @@
       }
       case 'processing': {
         const pp = clamp01((t - state.stepStart) / PROCESSING_MS);
-        const numEl = document.getElementById('proc-pct-num');
-        if (numEl) numEl.textContent = String(Math.round(pp * 100));
+        // 🔴 這裡本來把 `pp`（一個 2.8 秒的計時器）印成 0–100% 的「processing」。
+        // 這段期間沒有任何運算在跑 —— 用百分比包裝一個等待，就是用進度條說謊。
+        // 畫面改成一句狀態文字，時間感交給既有的動效。
         if (pp >= 1) {
           stopCamera();
           saveBlinkBaseline();

@@ -269,7 +269,6 @@
     #hud-brand { top: 26px; left: 22px; display: flex; flex-direction: column; gap: 4px; }
     #hud-brand b { font-size: 12px; letter-spacing: 2px; color: #d8fbff; font-weight: 700; }
     #hud-brand span { color: var(--text-tertiary); }
-    #hud-binary { color: rgba(0,240,255,0.3); font-size: 8.5px; letter-spacing: 2px; }
     #hud-left { left: 18px; top: 46%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 9px; }
     #hud-right { right: 18px; top: 46%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 9px; align-items: flex-end; }
     .hud-kv { color: var(--text-tertiary); }
@@ -589,7 +588,7 @@
       <div class="pill-secured" id="securedPill">&#128274; PRIVACY SECURED · ON-DEVICE</div>
       <h1 id="instruction">Create your Face Baseline.</h1>
       <p id="subtitle">This helps TENKI recognize your natural steady state with higher precision.</p>
-      <div id="proc-pct"><span id="proc-pct-num">0</span>%</div>
+      <div id="proc-pct">建立基線中</div>
       <div id="baseline-extra">
         <span class="bx-band"><span class="dot"></span><span id="bx-band-text">New baseline · signal steady</span></span>
         <ul class="bx-list">
@@ -607,16 +606,15 @@
     </div>
 
     <div id="hud" aria-hidden="true">
-      <div class="hud-tag" id="hud-brand"><b>TENKI CORE</b><span>Neural Lattice</span><span id="hud-binary">0101101001</span></div>
+      <div class="hud-tag" id="hud-brand"><b>TENKI CORE</b><span>Neural Lattice</span></div>
       <div id="hud-reticle"><div class="r-ring"></div><div class="r-tick l"></div><div class="r-tick r"></div></div>
       <div class="hud-tag" id="hud-left">
         <span class="hud-kv">Nodes&nbsp;<b id="hud-nodes">0</b></span>
         <span class="hud-kv gold">Sync&nbsp;<b id="hud-sync">0.0%</b></span>
       </div>
-      <div class="hud-tag" id="hud-right">
-        <span class="hud-kv">Threat&nbsp;<b>Low</b></span>
-        <span class="hud-kv">Mode&nbsp;<b>Ghost</b></span>
-      </div>
+      <!-- 🔴 這裡本來是 `Threat Low` / `Mode Ghost` —— 兩個寫死的字串，
+           沒有任何東西在算它們。一個宣稱做過威脅評估，一個宣稱有個運作模式。
+           HUD 可以有裝飾，但**裝飾不可以長得像讀數**。整塊移除。 -->
     </div>
 
     <!-- ── Pre-camera onboarding: cinematic 5-step Radar → Reframe → Calibration ── -->
