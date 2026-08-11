@@ -3962,13 +3962,29 @@ function renderScanScreen(){
 }
 
 /** Scan tab 主鈕 → 正典模組。一個掃描，多道門。 */
-function startReadinessScan(){
+function startReadinessScan(opts){
   const S = window.TENKI_READINESS_SCAN;
-  if(!S || !S.begin) return;
-  S.begin({ mission:'daily' }).then(() => {
+  if(!S || !S.begin) return Promise.resolve(null);
+  return S.begin(Object.assign({ mission:'daily' }, opts || {})).then((reading) => {
     renderScanScreen();
     renderHeroReading();
+    return reading;
   });
+}
+
+/**
+ * 從基線 onboarding 回來的那條路（`?from=baseline`）。
+ *
+ * 🔴 這裡本來開的是 `#stardust-scan-takeover` 的 8 秒儀式，而那 8 秒是
+ * `progress += dt/8000` —— 手指按住的牆鐘時間，跟臉、光線、對位全都無關。
+ * 拒絕相機、沒有臉、手機蓋在桌上，一樣跑到 100%，而且**什麼都不寫**，
+ * 所以走完它 Today 依然顯示「尚無讀數」。
+ *
+ * 現在走同一顆真引擎，只是開著 ceremony（按住手勢 + 進度環 + 觸覺）：
+ * 按住是承諾訊號，閘門才是進度，收完會真的寫入 `tenki.readiness.reading.v1`。
+ */
+function startBaselineCeremonyScan(){
+  return startReadinessScan({ ceremony:true });
 }
 
 // Scan source toggle

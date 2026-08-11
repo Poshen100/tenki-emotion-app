@@ -1,13 +1,21 @@
 /**
- * stardust-scan-takeover.js — Drives the premium 3D stardust scanning ceremony
+ * stardust-scan-takeover.js — the `?from=baseline` entry point.
  *
- * Handles:
- *   - Redirection checking (?from=baseline)
- *   - Splash transition to 3D stardust takeover
- *   - Camera & MediaPipe FaceMesh expression tracking
- *   - Apple Pay style dynamic alignment guidance capsule
- *   - 8-second interactive fingerprint hold-to-scan button with conic progress ring
- *   - Successful completion climax golden flash & Today dashboard reveal
+ * 現在**還活著的**只有兩件事：
+ *   - 判斷 `?from=baseline` 並把那條路交給正典引擎（`readiness-scan.js`，開 ceremony）
+ *   - `revealTodayRings()`：掃完之後把 Today 的環顯示出來
+ *
+ * 🔴 **底下 `activateTakeover()` 以降那一整條鏈（startHold / endHold / updateLoop /
+ * triggerClimaxSuccess / startCameraAndFaceSync / getAlignmentHint …）已經沒有任何
+ * 進入點，全部是死碼。** 留著只是為了讓這一刀的 diff 看得懂，**不要把它接回去**：
+ * 那條鏈的核心是 `progress += dt / scanDuration` —— 一個 8 秒的牆鐘計時器，
+ * 跟臉、光線、對位完全無關（`align.aligned` 算出來之後從來沒被讀過）。
+ * 拒絕相機、沒有臉、手機蓋在桌上按住 8 秒，它一樣會跑到 100%，而且**什麼都不寫**，
+ * 所以走完它 Today 依然顯示「尚無讀數」。founder 2026-08-11 實走時問的
+ * 「準度跟鎖定版一樣嗎」，答案就是：那支沒有準度這件事可談。
+ *
+ * ⬜ 待辦：整條死碼與 index.html 裡對應的 `#stardust-scan-takeover` markup／CSS
+ * 一起移除。這一刀刻意不做，避免在同一次改動裡混進大範圍刪除。
  */
 (function (global) {
     'use strict';
@@ -56,22 +64,26 @@
         window.openBaseline = function () { console.log('Baseline open bypassed in favor of stardust 3D takeover'); };
         window.bfGo = function () { };
 
-        // Bind fingerprint hold event listeners
-        var trigger = document.getElementById('scan-takeover-trigger');
-        if (trigger) {
-            trigger.addEventListener('mousedown', startHold);
-            trigger.addEventListener('touchstart', function (e) {
-                e.preventDefault();
-                startHold();
-            }, { passive: false });
-
-            window.addEventListener('mouseup', endHold);
-            window.addEventListener('touchend', endHold);
-        }
-
-        // Wait for the Brand Splash to fade out, then fade in stardust takeover
-        // Splash auto-dismisses at 2400ms, fades 400ms → cleared by ~2850ms
-        setTimeout(activateTakeover, 2900);
+        // 🔴 **這條路本來跑的是這支自己的 8 秒儀式，而那 8 秒是牆鐘時間**
+        // （`progress += dt / scanDuration`）。閘門（getAlignmentHint）算得出來，
+        // 但 updateLoop 從來沒讀過 `align.aligned` —— 拒絕相機、沒有臉、
+        // 手機蓋在桌上按住 8 秒，一樣跑到 100%，而且**什麼都不寫**。
+        // 所以走完它 Today 還是顯示「尚無讀數」：那不是贅字，是症狀。
+        //
+        // 現在交給正典引擎（readiness-scan.js），開著 ceremony：
+        // 按住手勢與觸覺留著，但進度只在閘門通過時前進，收完會真的寫入讀數。
+        // 本支保留的是相機/FaceMesh 表情同步與收尾揭曉，不再自己計時。
+        setTimeout(function () {
+            if (typeof window.startBaselineCeremonyScan !== 'function') {
+                // 引擎沒載到就退回 Today，**不假裝掃過** —— 寧可少一段儀式，
+                // 也不要再出現一次「跑完卻沒有讀數」。
+                revealTodayRings();
+                return;
+            }
+            window.startBaselineCeremonyScan().then(function () {
+                revealTodayRings();
+            });
+        }, 2900);
     }
 
     function activateTakeover() {
