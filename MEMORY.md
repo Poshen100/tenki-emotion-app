@@ -9,6 +9,54 @@
 
 ---
 
+# 2026-08-11 Session Update #67 (/v3/ Today 不再宣稱沒量到的事)
+
+founder「好」→ 接著做已拍板的另案。
+
+## 一、做了什麼
+
+| 位置 | 原本 | 現在 |
+|---|---|---|
+| 四張 vitals 卡（Cardiac / Respiration / Autonomic / Energy） | 卡頭寫 Live / Synced / Stress 25% / Body Battery，用 `--good` 綠 | 一律「示意」標記，新 `.metric-status.demo` **不吃任何語意色** |
+| 輪播下方 | 無 | 一行說明：心率／HRV／呼吸需要感測器，目前尚未接上 |
+| 神經系統那行 | 「**在**綠色安全區 · Regulated」 | 「綠色安全區 · Regulated」（只報區段，不對使用者下判定） |
+| FDCB idle | 寫死 `Edge Score · 72` | 「尚無讀數」 |
+| Hero 讀數欄位 | `Edge Score`（槽裡永遠是「—」） | 「狀態讀數」 |
+
+那四張卡的數字全部由頁尾的 `Math.sin` 迴圈產生。Edge Score 仍是產品核心指標，
+只是**不由這條流程供應** —— readiness 掃描契約上就沒有 0-100 分。
+
+## 二、🔴 三個 harness 自身的錯（都是反向驗證/截圖抓的）
+
+1. **「有版面」≠「看得見」**。說明那行被固定的 FDCB 底座整片蓋住，
+   而可見性檢查量的是 bounding rect —— **遮擋不改變 rect，斷言全綠**。
+   本機截圖才看到。補 `elementFromPoint`。
+2. **「不得出現寫死的 72」是條死斷言**。`innerText` 讀不到沒算版面的 FDCB，
+   塞回 72 沒有紅；改 `textContent` 又把 `<script>` 原始碼算進來，
+   **我自己解釋這個 bug 的註解讓它紅了**。正解是複製 body、拔掉 script/style 再讀。
+3. **修一個換壞另一個**。說明搬上去之後圓點被蓋住 —— 可用高度只有 48px、需要 71px。
+   收緊邊距讓兩個都進得去，**並且對兩個都下斷言**。
+
+## 三、⚠️ 同一個坑第四次：`git checkout` 吃掉未 commit 的修改
+
+這次吃掉的是「把說明搬到圓點上方」那個版面修正，導致我截到的是**沒修過的畫面**，
+差點以為修法無效。**反向驗證前先 commit** 已經寫在 MEMORY 兩次了。
+🔴 下次的具體動作：**每一個 `git checkout <file>` 之前，先跑 `git status --short`**；
+有未 commit 的產品改動就先 commit 再驗。
+
+⚠️ 另外 `git add -A` 把兩支拋棄式截圖腳本掃進了 commit（已移除並補 gitignore）。
+它們本來就該待在 scratchpad —— 放進 `scripts/` 是因為第一版 `from 'playwright'`
+解析不到，改用絕對路徑 `/opt/node22/lib/node_modules/playwright/index.mjs` 之後就沒必要了。
+
+## 四、下次接手點
+
+- `preview-strip-color.mjs` 45/45 綠（新增 14 條），每條反向驗證過。
+- ⚠️ 遮擋斷言是**捲動位置的函式** —— 它只驗到 harness 當下的捲動位置。
+- 還沒動的：`docs/brand.md` 的正式免責文案（法務，刻意不由 AI 撰寫）、
+  preview harness 進 CI、`/api/alert` 400 要記 validation error。
+
+---
+
 # 2026-08-11 Session Update #66 (色帶走螺旋 + 我拆掉了自己量出來的假天花板)
 
 founder 第五次回饋：**「有多一點顏色了，可以再多一點」** —— 上一刀（bloom 散開）方向對了，
