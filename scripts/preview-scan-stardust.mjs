@@ -1111,61 +1111,34 @@ async function scanAndCancel(page) {
   check('setReadout 之後才生效', math.readoutTogglesOn, true);
   check('clearReadout 之後回到 inert（掃描結束要還原）', math.readoutTogglesOff, true);
 
-  // ── 🔴 量測中產生的顏色，不得撞上「已經有主人」的顏色 ──
+  // ── 🔴 守則改了：從「每顆粒子」變成「整顆球的主色」 ──
   //
-  // **這條才是真正防止重犯的那一條。** 上面那兩條（hue 不得為負、≤ 上限）
-  // 只擋住了這一次的綠；這條擋的是**下一次的任何顏色**。
+  // 這個產品裡幾乎每個色相都已經有語意（綠=--good、琥珀=--warn/strain、
+  // 金=SECURED、珊瑚=未判定），先前我把**每一顆粒子**都擋在那些色外面，
+  // 於是只剩青紫粉那一段弧可用 —— 那正是 founder 三次說「顏色變化很少」的根源。
   //
-  // 2026-08-10 的教訓：我擋住了自己要用的色（`.locked` 不准上 gold），
-  // 卻沒有反過來問「我即將產生的顏色，在這個產品裡是不是已經有主人」——
-  // 於是綠從另一個方向溜進來，而 v6 的 `--good` 就是綠。
+  // founder 2026-08-10 裁決放寬：**星塵是大面積、流動的多色場，不是一顆訊號燈**，
+  // 單顆粒子是綠的不會被讀成「good」。所以守的改成「整顆球的主色」。
   //
-  // 做法：用**真的** `toneMatrix`，把三個色階在整個 live 範圍（0..TONE_LIVE_HUE，
-  // 上限直接從 readiness-scan.js 讀，讓測試跟著產品的常數走）× 整個飽和度範圍
-  // 掃過一遍，跟每個已被指派意義的顏色算 CIE76 ΔE，取最小值。
-  //
-  // 門檻 25 是**量出來之後才定的**，不是猜的：
-  //   現行單向 0..+0.06 → 最小 ΔE 28.6（頂端 pink 對上「未判定」coral）
-  //   舊的雙向 ±0.10    → 最小 ΔE 12.9（同樣是 coral，綠那側也只有 ~20）
-  // 25 落在兩者之間、靠近現況一側，所以任何把範圍再放寬的改動都會立刻喊痛。
-  //
-  // ⚠️ **這條掃的是 0..上限，只涵蓋正向** —— 它跟上面那條行為斷言
-  // 「量測中的色相不得為負」是**一組的，不能只留一條**：
-  // 行為那條保證產品只會走正向，這條保證正向這段路是乾淨的。
-  // 拆掉任何一條，另一條都補不上它的洞（拆掉行為那條，負向的綠就掃不到了）。
-  //
-  // ⚠️ **2026-08-10 第二輪：掃描空間必須跟著產品一起長大。**
-  // readout 層新增了飽和度 0.70–1.35、漸層 spread 1.0→0.45、往 cyanCore 的 focus。
-  // 掃描空間**沒跟著擴大的話，這個守門員會靜默失效** —— 它會繼續回報一個很安全的
-  // ΔE，而產品實際產生的顏色早就跑出它掃過的範圍了。
-  // 所有上下限都直接從 stardust.js 讀，讓測試跟著產品的常數走。
-  //
-  // 這一版擴大之後，它**當場擋下了我自己的下一個設計**：飽和度下限原本想放到 0.55，
-  // 掃出來對 `--zone-neutral #64748B` 只有 ΔE 22.4（去飽和的青會逼近那個 slate，
-  // 而它代表「Neutral 帶位」）。0.70 才過關（27.3）。
+  // ⚠️ 這個新守則自己長出一個新風險，而且它當場就抓到了：
+  // **把色相散太開，整顆的平均色會趨近灰 —— 而灰就是 `--zone-neutral`（Neutral 帶位）。**
+  // bloom 0.24 → ΔE 25.9（margin 太薄）、0.28 → 21.7 ❌；旋轉超過 0.20 turn → 7.1 ❌。
+  // 現行 0.20/0.20 → 27.3 ✅。上下限全部從產品原始碼讀，讓測試跟著常數走。
   {
     const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-    const scanSource = stripComments(readFileSync(join(repoRoot, 'apps/preview/readiness-scan.js'), 'utf8'));
     const dustSource = stripComments(readFileSync(join(repoRoot, 'apps/preview/v6/stardust.js'), 'utf8'));
     const num = (src, name) => Number(new RegExp(`${name}\\s*=\\s*([\\d.]+)`).exec(src)?.[1]);
-    const liveHue = num(scanSource, 'TONE_LIVE_HUE');
     const satLo = num(dustSource, 'READOUT_SAT_LO');
     const satHi = num(dustSource, 'READOUT_SAT_HI');
-    const focusMax = num(dustSource, 'READOUT_FOCUS_MAX');
+    const bloomMax = num(dustSource, 'READOUT_BLOOM_MAX');
+    const rotMax = num(dustSource, 'READOUT_HUEROT_MAX');
     const scaleLo = num(dustSource, 'READOUT_SCALE_LO');
     const scaleHi = num(dustSource, 'READOUT_SCALE_HI');
-    // 聚焦目標色也要從產品讀 —— 在這裡複製一份就是又一個會漂移的鏡射。
-    const focusTarget = (/FOCUS_TARGET\s*=\s*\[([^\]]+)\]/.exec(dustSource)?.[1] || '')
-      .split(',').map((s) => Number(s.trim()));
+    const bands = num(dustSource, 'HUE_BANDS');
     check('讀得到產品的所有色彩上下限（測試要跟著常數走）',
-      [liveHue, satLo, satHi, focusMax, scaleLo, scaleHi].every(Number.isFinite)
-        && focusTarget.length === 3 && focusTarget.every(Number.isFinite), true);
-    // 🔴 聚焦目標**不得是任何帶位色** —— 收向帶位色等於在還沒有結果時宣稱結果。
-    const asHex = (a) => '#' + a.map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
-    check('🔴 聚焦目標不得是帶位色（--zone-clear / neutral / strain）',
-      ['#00B4D8', '#64748B', '#C2703D'].indexOf(asHex(focusTarget)) === -1, true);
+      [satLo, satHi, bloomMax, rotMax, scaleLo, scaleHi, bands].every(Number.isFinite), true);
 
-    const collision = await page.evaluate(([hueMax, sLo, sHi, fMax, target]) => {
+    const colour = await page.evaluate(([sLo, sHi, blMax, roMax, nBands]) => {
       const M = window.TENKI_STARDUST.toneMatrix;
       const clamp = (v) => Math.max(0, Math.min(1, v));
       const apply = (m, c) => [
@@ -1173,7 +1146,6 @@ async function scanAndCancel(page) {
         clamp(m[3] * c[0] + m[4] * c[1] + m[5] * c[2]),
         clamp(m[6] * c[0] + m[7] * c[1] + m[8] * c[2]),
       ];
-      // sRGB → CIE Lab（D65），只為了算 ΔE
       const fi = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
       const lab = (c) => {
         const g = c.map((v) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
@@ -1187,8 +1159,6 @@ async function scanAndCancel(page) {
         return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
       };
       const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16) / 255);
-      // 每一個在這個產品裡**已經代表某件事**的顏色。
-      // cyan / zone-clear 刻意不列 —— 星塵本來就是 cyan 家族，撞它是預期內的。
       const OWNED = {
         '--good 綠': '#34C759',
         '--warn 琥珀': '#F5A623',
@@ -1197,90 +1167,78 @@ async function scanAndCancel(page) {
         'gold-secured': '#FFD46E',
         'zone-neutral': '#64748B',
       };
-      // 靜息漸層的三個色階（stardust.js buildScene 的 top/mid/bot）
-      const STOPS = [[0, 0.8, 1], [0.6, 0.4, 1], [1, 0.4, 0.8]];
-      let worst = { d: Infinity, name: null, hue: null, sat: null, focus: null };
-      for (let h = 0; h <= hueMax + 1e-9; h += 0.005) {
-        for (let sat = sLo; sat <= sHi + 1e-9; sat += 0.05) {
-          for (let fo = 0; fo <= fMax + 1e-9; fo += 0.05) {
-            for (const st of STOPS) {
-              // 產品的順序：先往 FOCUS_TARGET 收，最後才進色相/飽和矩陣
-              const base = st.map((v, i) => v + (target[i] - v) * fo);
-              const c = apply(M(h, sat), base);
-              for (const [name, v] of Object.entries(OWNED)) {
-                const d = dE(c, hex(v));
-                if (d < worst.d) worst = { d, name, hue: h, sat, focus: fo };
-              }
-            }
-          }
+      // 靜息漸層（stardust.js buildScene 的 bot→mid→top），照色帶取樣，
+      // 跟產品 buildBandMats 的做法一致。
+      const TOP = [1, 0.4, 0.8], MID = [0.6, 0.4, 1], BOT = [0, 0.8, 1];
+      const baseAt = (ny) => (ny > 0.5
+        ? MID.map((v, i) => v + (TOP[i] - v) * ((ny - 0.5) * 2))
+        : BOT.map((v, i) => v + (MID[i] - v) * (ny * 2)));
+      const mid = (nBands - 1) / 2;
+      // 一顆球在給定 (bloom, rot, sat) 下的所有色帶顏色
+      const ballAt = (bloom, rot, sat) => {
+        const cs = [];
+        for (let b = 0; b < nBands; b += 1) {
+          const ny = (b + 0.5) / nBands;
+          const h = rot + ((b - mid) / mid) * (bloom / 2);
+          cs.push(apply(M(h, sat), baseAt(ny)));
         }
-      }
-      return worst;
-    }, [liveHue, satLo, satHi, focusMax, focusTarget]);
-
-    console.log(`   （最接近的是「${collision.name}」，ΔE ${collision.d.toFixed(1)}`
-      + ` @hue ${collision.hue.toFixed(3)} sat ${collision.sat.toFixed(2)}`
-      + ` focus ${collision.focus.toFixed(2)}）`);
-    check('🔴 量測中的顏色不得撞上已被指派意義的顏色（ΔE ≥ 25）',
-      collision.d >= 25, true);
-
-    // ── 🔴🔴 這一刀的核心：驗「使用者看不看得出來」，不是「參數有沒有變」 ──
-    //
-    // 前三輪我都只驗到「參數確實被設定成不同的值」，而 founder 三次回報
-    // 「看不出變化」。**參數變了不等於畫面變了。**
-    //   ·「粒子收散 ×1.35 → ×0.55」聽起來是 2.5 倍，實際位移差 **2.2px**
-    //   ·「飽和度 0.70–1.35」聽起來是 7.5×，但材質是 AdditiveBlending，
-    //     密集區疊加到白，**同色系內的差異被壓掉**
-    // 所以這裡改成量**可見的結果**：
-    //   ① 漸層的內部 ΔE 跨度 —— 「一團彩色」與「一顆單色」的差別，
-    //      這個是類別差異，additive 壓不掉它
-    //   ② 尺度比 —— 絕對幾何，不受混色影響
-    const visible = await page.evaluate(([sLo, sHi, fMax, target, scLo, scHi]) => {
-      const M = window.TENKI_STARDUST.toneMatrix;
-      const clamp = (v) => Math.max(0, Math.min(1, v));
-      const apply = (m, c) => [
-        clamp(m[0] * c[0] + m[1] * c[1] + m[2] * c[2]),
-        clamp(m[3] * c[0] + m[4] * c[1] + m[5] * c[2]),
-        clamp(m[6] * c[0] + m[7] * c[1] + m[8] * c[2]),
-      ];
-      const fi = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
-      const lab = (c) => {
-        const g = c.map((v) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
-        const X = (g[0] * 0.4124 + g[1] * 0.3576 + g[2] * 0.1805) / 0.95047;
-        const Y = g[0] * 0.2126 + g[1] * 0.7152 + g[2] * 0.0722;
-        const Z = (g[0] * 0.0193 + g[1] * 0.1192 + g[2] * 0.9505) / 1.08883;
-        return [116 * fi(Y) - 16, 500 * (fi(X) - fi(Y)), 200 * (fi(Y) - fi(Z))];
+        return cs;
       };
-      const dE = (a, b) => {
-        const A = lab(a); const B = lab(b);
-        return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
-      };
-      const STOPS = [[0, 0.8, 1], [0.6, 0.4, 1], [1, 0.4, 0.8]];
-      // 漸層「有多彩」= 三個色階彼此之間最大的 ΔE
-      const spanAt = (focus, sat) => {
-        const cs = STOPS.map((st) => apply(M(0, sat), st.map((v, i) => v + (target[i] - v) * focus)));
+      const meanOf = (cs) => [0, 1, 2].map((k) => cs.reduce((a, c) => a + c[k], 0) / cs.length);
+      const spanOf = (cs) => {
         let mx = 0;
         for (let a = 0; a < cs.length; a += 1) {
           for (let b = a + 1; b < cs.length; b += 1) mx = Math.max(mx, dE(cs[a], cs[b]));
         }
         return mx;
       };
-      return {
-        movingSpan: spanAt(0, sLo),        // 晃動端：完整漸層
-        stillSpan: spanAt(fMax, sHi),      // 靜止端：收成單色
-        scaleRatio: scLo / scHi,
-      };
-    }, [satLo, satHi, focusMax, focusTarget, scaleLo, scaleHi]);
+      let worstMean = { d: Infinity };
+      let minSpan = { v: Infinity };
+      let maxSpan = { v: -Infinity };
+      for (let bl = 0; bl <= blMax + 1e-9; bl += 0.02) {
+        for (let ro = 0; ro <= roMax + 1e-9; ro += 0.02) {
+          for (let sat = sLo; sat <= sHi + 1e-9; sat += 0.05) {
+            const cs = ballAt(bl, ro, sat);
+            const mean = meanOf(cs);
+            for (const [name, v] of Object.entries(OWNED)) {
+              const d = dE(mean, hex(v));
+              if (d < worstMean.d) worstMean = { d, name, bloom: bl, rot: ro, sat };
+            }
+            const sp = spanOf(cs);
+            if (sp < minSpan.v) minSpan = { v: sp, bloom: bl, rot: ro, sat };
+            if (sp > maxSpan.v) maxSpan = { v: sp, bloom: bl, rot: ro, sat };
+          }
+        }
+      }
+      return { worstMean, minSpan, maxSpan, restSpan: spanOf(ballAt(0, 0, 1)) };
+    }, [satLo, satHi, bloomMax, rotMax, bands]);
 
-    console.log(`   （漸層彩度跨度：晃動 ΔE ${visible.movingSpan.toFixed(0)}`
-      + ` → 靜止 ΔE ${visible.stillSpan.toFixed(0)}；`
-      + `尺度比 ${visible.scaleRatio.toFixed(3)}）`);
-    check('🔴 晃動端是「一團彩色」（三個色階彼此 ΔE ≥ 60）',
-      visible.movingSpan >= 60, true);
-    check('🔴 靜止端是「一顆單色」（三個色階彼此 ΔE ≤ 10）',
-      visible.stillSpan <= 10, true);
-    check('🔴 尺度差看得出來（靜止/晃動 ≤ 0.78）',
-      visible.scaleRatio <= 0.78, true);
+    console.log(`   （主色最接近「${colour.worstMean.name}」ΔE ${colour.worstMean.d.toFixed(1)}`
+      + ` @bloom ${colour.worstMean.bloom.toFixed(2)} rot ${colour.worstMean.rot.toFixed(2)}`
+      + `；彩度跨度 ${colour.minSpan.v.toFixed(0)}–${colour.maxSpan.v.toFixed(0)}`
+      + `，靜息 ${colour.restSpan.toFixed(0)}）`);
+
+    // 🔴 新守則：整顆球的**主色**不得撞上任何已被指派意義的顏色。
+    check('🔴 整顆球的主色不得撞上已被指派意義的顏色（ΔE ≥ 25）',
+      colour.worstMean.d >= 25, true);
+
+    // 🔴🔴 **這兩條直接就是 founder 抱怨的那件事。**
+    // 前三輪我只驗「參數有沒有被設定成不同值」，所以三輪都綠、三輪都被打回。
+    // 他實際看到的彩度跨度是 4（93% 穩定度）到 36（77%）。
+    //
+    // ⚠️ 門檻是**量出來才定的**，而且量的時候修正了我計畫裡的一個誤讀：
+    // 我原本以為「整個空間的最低點」該是 147 —— 錯了，147 是**最高點**（bloom 全開），
+    // 最低點是 bloom=0 的基礎漸層（≈84）。所以要驗的是**一對**：
+    //   ① 最低點不得低於基礎漸層 → 顏色永遠不會變少
+    //   ② 最高點要真的更豐富 → 穩住時看得出「展開」
+    check('🔴 顏色永遠不得變少（最低點 ≥ 80，即基礎漸層）',
+      colour.minSpan.v >= 80, true);
+    check('🔴 穩住時真的更豐富（最高點 ≥ 140）',
+      colour.maxSpan.v >= 140, true);
+
+    // 尺度是絕對幾何，不受 additive 混色影響 —— 狀態回饋交給它。
+    const scaleRatio = scaleLo / scaleHi;
+    check('🔴 尺度差看得出來（靜止/晃動 ≤ 0.78）', scaleRatio <= 0.78, true);
     // ⚠️ 這裡本來還有一條「綠離得夠遠」的專屬斷言，**已經拿掉**：
     // `--good` 已經在上面 OWNED 表裡（現行設計下 ΔE 82.7），而那條專屬版
     // 想不出任何會讓它變紅的改動 —— 反向驗證不了的斷言只會讓人誤以為多守了一層。
