@@ -2203,7 +2203,12 @@ body{
               <!-- 分數槽留空：readiness 讀數沒有 0-100 分（契約上就沒有），
                    等原生 pipeline 有真訊號源才填。帶位由下面那行報。 -->
               <div class="tl-edge-score" id="edgeScoreReveal">—</div>
-              <div class="tl-edge-pr">Edge Score</div>
+              <!-- 🔴 標籤要跟槽裡實際有的東西一致。這個槽永遠是「—」，因為
+                   readiness 掃描的契約裡沒有 0-100 分 —— 掛「Edge Score」等於
+                   承諾一個這條流程產不出來的數字。Edge Score 仍是產品的核心指標
+                   （CLAUDE.md），只是**不由這裡供應**；等原生 pipeline 有真訊號源
+                   再把名字掛回來。 -->
+              <div class="tl-edge-pr">狀態讀數</div>
               <div class="tl-edge-zone" id="edgeTraceZone">尚無讀數 · 到 Scan 掃一次</div>
               <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
             </div>
