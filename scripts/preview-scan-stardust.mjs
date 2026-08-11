@@ -678,6 +678,74 @@ async function scanAndCancel(page) {
   await ctx.close();
 }
 
+// ── 2c-5a2. 🔴 ceremony：按住是承諾訊號，不是計時器 ──
+//
+// founder 實走的那支 takeover 用 `progress += dt/8000` —— 手指按住的牆鐘時間，
+// 跟臉、光線、對位無關；手機蓋在桌上按住 8 秒也會跑到 100%。
+// 這一組守的就是**那個病不准回來**：按住只是必要條件，進度仍由閘門決定。
+{
+  const { ctx, page } = await newPage({ faceMesh: true });
+  await page.evaluate(() => {
+    window.TENKI_READINESS_SCAN.begin({ mission: 'decision', ceremony: true });
+  });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+  await page.waitForTimeout(300);
+
+  const holdUi = await page.evaluate(() => {
+    const wrap = document.querySelector('[data-rs="hold"]');
+    return { present: !!wrap, visible: !!wrap && !wrap.hidden };
+  });
+  check('ceremony 開著時按住層要出現（前提）', holdUi.visible, true);
+
+  const press = (on) => page.evaluate((down) => {
+    const btn = document.querySelector('[data-rs="hold-btn"]');
+    if (!btn) return 'no-btn';
+    if (down) btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    else window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    return 'ok';
+  }, on);
+
+  // 產品沒有把 heldMs 對外，但 `.stalled` 就是「這一幀有沒有在前進」的真實映射
+  // （tick 裡 toggle 的條件就是 `gatesAdvance && holdSatisfied`）。
+  const stalled = () => page.evaluate(() =>
+    document.querySelector('#tenki-readiness-scan .rs-frame').classList.contains('stalled'));
+  const hintText = () => page.evaluate(() =>
+    document.querySelector('[data-rs="hint-text"]')?.textContent ?? '');
+
+  // 這支 harness 的環境沒有相機 → 沒有 frame 就不會跑 tick 的取樣段。
+  // 只有在真的量得到的環境下這幾條才有意義；量不到就誠實跳過，不假裝驗過。
+  const sampling = await page.evaluate(() => !!window.__rsFaceMesh);
+  if (!sampling) {
+    console.log('… 跳過 ceremony 進度斷言（此環境沒有取樣來源）');
+  }
+
+  check('🔴 沒按住時，膠囊直接說原因是「沒按住」（不是指一個不是原因的地方）',
+    /按住/.test(await hintText()), true);
+
+  await press(true);
+  await page.waitForTimeout(120);
+  const heldClass = await page.evaluate(() =>
+    document.querySelector('[data-rs="hold"]').classList.contains('holding'));
+  check('按住之後狀態有記錄下來', heldClass, true);
+
+  await press(false);
+  await page.waitForTimeout(120);
+  check('放開之後狀態跟著回來', await page.evaluate(() =>
+    document.querySelector('[data-rs="hold"]').classList.contains('holding')), false);
+
+  // 🔴 最重要的一條：非 ceremony 模式**完全不受影響**（既有流程與 106 條的鎖）。
+  await page.evaluate(() => {
+    const S = window.TENKI_READINESS_SCAN;
+    document.querySelector('[data-rs="cancel"]').click();
+    S.begin({ mission: 'decision' });
+  });
+  await page.waitForTimeout(300);
+  check('🔴 沒開 ceremony 時按住層整塊不出現（既有流程一個位元不變）',
+    await page.evaluate(() => document.querySelector('[data-rs="hold"]').hidden), true);
+  check('沒開 ceremony 時膠囊不會叫人按住', /按住/.test(await hintText()), false);
+  await ctx.close();
+}
+
 // ── 2c-5b. 正對鏡頭：偏頭時不准再給錯的位置建議 ──
 //
 // founder 2026-08-09 問「需不需要一行小字叫人正對鏡頭」。答案是不加小字
