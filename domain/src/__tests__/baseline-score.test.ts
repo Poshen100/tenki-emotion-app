@@ -130,8 +130,20 @@ describe('personalScore', () => {
   });
 
   // 🔴 樣本不足時回 null，不是回一個看起來像真的的數字。
-  it('🔴 returns null below the minimum sample count', () => {
-    expect(personalScore(0.5, stats({ sampleCount: MIN_SAMPLES_FOR_SCORE - 1 }))).toBeNull();
+  //
+  // ⚠️ 這裡**必須用字面值**。原本寫的是 `MIN_SAMPLES_FOR_SCORE - 1`，
+  // 反向驗證時把常數改成 1 —— 整組測試照樣全綠，因為斷言跟著常數一起移動了。
+  // 那種斷言守不住任何東西。要釘住的是**意圖**：引擎的 ready(5) 對百分位太少。
+  it('🔴 stays silent at the engine\'s ready maturity — 5 samples is too few', () => {
+    expect(personalScore(0.5, stats({ sampleCount: 5 }))).toBeNull();
+  });
+
+  it('🔴 stays silent through most of the first two weeks', () => {
+    expect(personalScore(0.5, stats({ sampleCount: 13 }))).toBeNull();
+  });
+
+  it('🔴 the threshold itself must not be weakened below two weeks', () => {
+    expect(MIN_SAMPLES_FOR_SCORE).toBeGreaterThanOrEqual(14);
   });
 
   it('starts answering exactly at the minimum sample count', () => {
