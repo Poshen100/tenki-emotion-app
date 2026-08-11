@@ -715,7 +715,7 @@
        在掃描開始時主動發起。三者都是漸進增強：CDN 被擋或 WebGL 不可用時，
        掃描仍然照常完成，只是沒有粒子。 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
-  <script src="/preview/v6/stardust.js?v=sd6"></script>
+  <script src="/preview/v6/stardust.js?v=sd7"></script>
 
   <!-- MediaPipe FaceMesh：本頁原本沒有，掃描因此永遠停在 Tier B（取景啟發式）。
        載了之後 readiness-scan 會拿到 landmark，帶來兩件事：① 星塵吃得到表情
@@ -734,7 +734,7 @@
   <!-- 正典 Soul Scan 模組：與 /v3/ 共用同一支（一個掃描，多道門）。絕對路徑不依賴
        /decision-alert/(.*) 的 rewrite。必須排在 decision-alert.js 之前 ——
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
-  <script src="/preview/readiness-scan.js?v=rs15"></script>
+  <script src="/preview/readiness-scan.js?v=rs16"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do1"></script>
   <script src="decision-alert.js?v=alert29"></script>
