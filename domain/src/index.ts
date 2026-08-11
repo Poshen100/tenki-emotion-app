@@ -167,6 +167,21 @@ export type {
 } from './contracts/readiness-reading';
 
 export {
+  MIN_SAMPLES_FOR_SCORE,
+  SCORE_CLEAR_AT,
+  SCORE_MAX,
+  SCORE_MIN,
+  SCORE_NEUTRAL_AT,
+  Z_CLAMP,
+  normalCdf,
+  personSignalComposite,
+  personalScore,
+  scoreBand,
+} from './policies/baseline-score';
+
+export type { PersonalBaselineStats } from './policies/baseline-score';
+
+export {
   MIN_BAND_SAMPLES_FOR_RATE,
   READING_FRESHNESS_MS,
   buildReading,
