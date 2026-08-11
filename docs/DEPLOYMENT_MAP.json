@@ -28,6 +28,14 @@
       "editable": true
     },
     {
+      "route": "/preview/reliability.html",
+      "url": "https://tenki-emotion-app.vercel.app/preview/reliability.html",
+      "source": "apps/preview/reliability.html",
+      "purpose": "Measurement repeatability self-test. An instrument check, not a reading — it never shows a band. Establishes whether between-day spread exceeds within-session spread, which is the precondition for the Edge Score z-model to mean anything.",
+      "status": "active-dev",
+      "editable": true
+    },
+    {
       "route": "/preview/soul-enroll.html",
       "url": "https://tenki-emotion-app.vercel.app/preview/soul-enroll.html",
       "source": "apps/preview/soul-enroll.html",
