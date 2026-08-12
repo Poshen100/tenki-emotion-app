@@ -23,6 +23,7 @@
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import http from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 
 const repoRoot = resolve(new URL('..', import.meta.url).pathname);
@@ -521,6 +522,286 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('有位移時 stillness 掉下來', fs.movedBelowOne, true);
   check('🔴 一幀都沒有時平均是 null，不是 0', fs.emptyMean, null);
   check('沒有特徵點時回 null，不是一個空盒子', fs.noBox, null);
+  await ctx.close();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🔴 baseline-store —— Measurement Profile 分池與計分門檻
+//
+// founder 2026-08-12：「不能把 2 秒臉部掃描與 60 秒深度掃描放進同一個百分位
+// 池裡比較。」短窗的 stillness 平均本來就比長窗離散，混池會**系統性灌大標準差
+// → 分數全體往 50 收，而且看起來完全正常** —— 比明顯壞掉危險得多，
+// 所以這一段是本刀最需要被守住的東西。
+// ══════════════════════════════════════════════════════════════════
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto(`${base}/preview/reliability.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(400);
+
+  const store = await page.evaluate(() => {
+    const S = window.TENKI_BASELINE_STORE;
+    const P = S.PROFILES;
+    const DAY = 86_400_000;
+    const t0 = new Date(2026, 0, 5, 12, 0, 0).getTime();
+    const reset = () => { S.clear(); localStorage.removeItem(S.LEGACY_SEED_KEY); };
+
+    // 分池：兩種 profile 各寫一筆，各自的統計量不得看見對方。
+    reset();
+    S.appendSample({ profile: P.DAILY_SCAN, composite: 0.90, ts: t0 });
+    S.appendSample({ profile: P.ENROLL_NEUTRAL, composite: 0.10, ts: t0 });
+    const dailyMean = S.statsFor(P.DAILY_SCAN).mean;
+    const dailyCount = S.statsFor(P.DAILY_SCAN).sampleCount;
+    const totalCount = S.allSamples().length;
+
+    // 同 profile 同一天：後寫覆蓋，樣本數不增加。
+    reset();
+    S.appendSample({ profile: P.DAILY_SCAN, composite: 0.30, ts: t0 });
+    S.appendSample({ profile: P.DAILY_SCAN, composite: 0.80, ts: t0 + 3 * 3600_000 });
+    const sameDayCount = S.statsFor(P.DAILY_SCAN).sampleCount;
+    const sameDayValue = S.samplesFor(P.DAILY_SCAN)[0].composite;
+
+    // 門檻：樣本夠但天數不夠 → 仍然沒有分數。
+    const build = (n, days) => {
+      reset();
+      for (let i = 0; i < n; i += 1) {
+        S.appendSample({ profile: P.DAILY_SCAN, composite: 0.5 + (i % 5) * 0.02, ts: t0 + i * DAY });
+      }
+      // 全部塞進 `days` 天內（覆蓋規則會讓樣本數降到 days，所以另走一條路：
+      // 直接寫入不同時刻但同幾天，樣本數會等於 days）
+      if (days !== undefined) {
+        reset();
+        for (let i = 0; i < days; i += 1) {
+          S.appendSample({ profile: P.DAILY_SCAN, composite: 0.5 + (i % 5) * 0.02, ts: t0 + i * DAY });
+        }
+      }
+      return S.samplesFor(P.DAILY_SCAN);
+    };
+    const at29 = S.personalScore(0.6, build(29));
+    const at40 = S.personalScore(0.6, build(40));
+
+    // 鏡像對照用的固定序列（下面拿去跟 domain 的答案比）。
+    const fixture = [];
+    for (let i = 0; i < 40; i += 1) {
+      fixture.push({ ts: t0 + i * DAY, composite: 0.40 + (i % 8) * 0.02 });
+    }
+    const mirror = [0.30, 0.44, 0.46, 0.52, 0.90].map((v) => S.personalScore(v, fixture));
+
+    reset();
+    return {
+      dailyMean, dailyCount, totalCount,
+      sameDayCount, sameDayValue,
+      at29, at40, mirror,
+      minSamples: S.MIN_SAMPLES_FOR_SCORE, minDays: S.MIN_DAYS_FOR_SCORE,
+    };
+  });
+
+  // 🔴 這一條是本刀的核心防線。混池時 dailyMean 會變成 0.5（0.9 與 0.1 的平均）。
+  check('🔴 分池：日常掃描的統計量看不到 enrollment 那一池', store.dailyMean, 0.9);
+  check('🔴 分池：日常掃描只算得到自己那一筆', store.dailyCount, 1);
+  check('兩池的樣本都真的存進去了（不然上面兩條是空過的）', store.totalCount, 2);
+
+  // 🔴 連掃共用姿勢、光線與狀態，當成獨立樣本會灌爆分母。
+  check('🔴 同 profile 同一天只留一筆', store.sameDayCount, 1);
+  check('同一天留的是後寫的那一筆', store.sameDayValue, 0.8);
+
+  check('🔴 樣本未達門檻時沒有分數（回 null，不是一個像真的的數字）', store.at29, null);
+  check('達到門檻後才給得出分數', typeof store.at40 === 'number', true);
+  check('門檻本身沒有被放寬', [store.minSamples, store.minDays], [30, 7]);
+
+  // 🔴 端到端鏡像對照：不只比 composite，連門檻、統計量與常態曲線都在比對範圍內。
+  // domain/src/policies/baseline-score.ts 對同一組輸入的答案（見同名 jest 測試）。
+  const { personalScore } = await import('../domain/src/policies/baseline-score.ts')
+    .catch(() => ({ personalScore: null }));
+  if (personalScore) {
+    const DAY = 86_400_000;
+    const t0 = new Date(2026, 0, 5, 12, 0, 0).getTime();
+    const fixture = [];
+    for (let i = 0; i < 40; i += 1) fixture.push({ ts: t0 + i * DAY, composite: 0.40 + (i % 8) * 0.02 });
+    const domainAnswers = [0.30, 0.44, 0.46, 0.52, 0.90].map((v) => personalScore(v, fixture));
+    check('🔴 preview 的 personalScore 鏡像與 domain 端到端一致', store.mirror, domainAnswers);
+  } else {
+    // Node 跑不了 .ts —— 用寫死的期望值當替身，並在 domain 的 jest 測試裡釘住同一組。
+    check('🔴 preview 的 personalScore 鏡像與 domain 端到端一致',
+      store.mirror, [1, 22, 33, 78, 99]);
+  }
+
+  await ctx.close();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🔴 Snapshot 示意卡 —— 動效變好時，標記要等量變重
+//
+// 那四張卡的數字全部由 Math.sin 產生。這一刀讓它們同步、連續、60 秒循環，
+// 也就是**更有說服力** —— 所以標記必須同步加重，淨誠實度才不會掉。
+// ══════════════════════════════════════════════════════════════════
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto(`${base}/v3/`, { waitUntil: 'load' });
+  await page.waitForTimeout(4200); // ⚠️ 要等開場動畫退場，否則 elementFromPoint 讀到 splash
+
+  const demo = await page.evaluate(() => {
+    const cards = Array.from(document.querySelectorAll('#snapTrack .vcard'));
+    return {
+      count: cards.length,
+      allHatched: cards.every((c) => c.classList.contains('demo-card')),
+      allLabelled: cards.every((c) => /示意/.test(c.getAttribute('aria-label') || '')),
+      noteText: document.querySelector('.vitals-demo-note')?.textContent ?? '',
+      splitExists: !!document.getElementById('snsFill'),
+      splitHeight: document.getElementById('snsFill')?.getBoundingClientRect().height ?? 0,
+    };
+  });
+  check('四張示意卡都在（前提）', demo.count, 4);
+  check('🔴 每一張示意卡都帶斜紋外框（不能只有第一張帶）', demo.allHatched, true);
+  check('🔴 每一張示意卡都有給輔助技術的標記', demo.allLabelled, true);
+  check('🔴 說明行講出「循環動畫」（動效變好，標記要跟上）',
+    /循環動畫/.test(demo.noteText), true);
+  // ⚠️ 長條曾經因為少了 flex:none 被 flex column 壓成 0 高 —— 存在不等於看得見。
+  check('交感長條真的有高度（不是被 flex 壓成 0）', demo.splitHeight > 0, true);
+
+  // 長條要連續移動：寬度必須每幀都在變。
+  // ⚠️ 取樣窗要跨過一整秒。正弦在波峰附近是二階平緩的，取樣窗太短會剛好落在
+  // 那裡而讀到幾個相同值 —— 那會變成一條偶爾紅的斷言，比沒有還糟。
+  // 6 秒一息、取樣 8×140ms ≈ 1.1s，即使正對波峰，振幅也走掉約 7%。
+  const widths = await page.evaluate(async () => {
+    const out = [];
+    for (let i = 0; i < 8; i += 1) {
+      out.push(document.getElementById('snsFill').style.width);
+      await new Promise((r) => setTimeout(r, 140));
+    }
+    return out;
+  });
+  check('🔴 交感長條每幀都在動（不是 1Hz 跳一格）', new Set(widths).size >= 4, true);
+
+  await ctx.close();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🔴 60 秒循環：接縫必須接得回去
+//
+// ⚠️ 這裡不驗「t 與 t+60000 相同」—— ph 是用 `t % LOOP_MS` 算的，那個等式
+// **恆成立**，連壞掉的乘數都會通過（2026-08-12 寫錯過一次）。
+// 真正的性質是接縫連續：`sin(k·ph)` 走 k×10 圈，k 必須是 0.1 的倍數。
+// ══════════════════════════════════════════════════════════════════
+{
+  const src = await readFile(resolve(repoRoot, 'apps/preview/v6/index.html'), 'utf8');
+  const loopStart = src.indexOf('function loop(t){');
+  const loopEnd = src.indexOf('requestAnimationFrame(loop);', loopStart + 40);
+  const body = src.slice(loopStart, loopEnd);
+  check('找得到 living-vitals 迴圈（前提）', loopStart > 0 && loopEnd > loopStart, true);
+  check('迴圈長度是宣告出來的 60 秒', /LOOP_MS\s*=\s*60000/.test(src), true);
+
+  // 抓出所有 `ph*<數字>` 的乘數，檢查每一個都是 0.1 的倍數。
+  const multipliers = [...body.matchAll(/ph\s*\*\s*([0-9]*\.?[0-9]+)/g)].map((m) => Number(m[1]));
+  const offenders = multipliers.filter((k) => Math.abs(k * 10 - Math.round(k * 10)) > 1e-9);
+  check('迴圈裡真的有取到乘數（不然下一條是空過的）', multipliers.length >= 4, true);
+  check('🔴 每個 ph 乘數都是 0.1 的倍數（接縫才接得回去）', offenders, []);
+
+  check('🔴 說明行同時保留「為什麼沒有」的真原因',
+    /感測器/.test(src) && /尚未接上/.test(src), true);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🔴 訊號不足那條路不得寫入基線樣本
+//
+// 用一次失敗的量測去定義使用者的常態，而且它會**永遠**留在分母裡。
+// harness 沒有相機，跑不到 finalize()/giveUp()，所以這條驗結構：
+// giveUp 的函式體裡不得出現任何寫入。
+// ══════════════════════════════════════════════════════════════════
+{
+  const src = await readFile(resolve(repoRoot, 'apps/preview/readiness-scan.js'), 'utf8');
+  const gs = src.indexOf('function giveUp()');
+  const ge = src.indexOf('function tick()', gs);
+  const giveUpBody = src.slice(gs, ge);
+  check('找得到 giveUp（前提）', gs > 0 && ge > gs, true);
+  check('🔴 giveUp 不寫入基線樣本', /saveBaselineSample|appendSample/.test(giveUpBody), false);
+
+  const fs2 = src.indexOf('function finalize()');
+  const fe2 = src.indexOf('function giveUp()', fs2);
+  check('🔴 finalize（有讀數那條）才寫入',
+    /saveBaselineSample\(/.test(src.slice(fs2, fe2)), true);
+
+  // 🔴 納入欄只能列真的有值的欄位 —— 純函式，直接餵。
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto(`${base}/preview/reliability.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(300);
+  const inputs = await page.evaluate(() => {
+    const V = window.TENKI_READINESS_SCAN.verdictInputs;
+    const base = { stillness: 0.8, lighting: 0.9, uniformity: 0.8, tier: 'A' };
+    return {
+      withBlink: V({ ...base, blinkCadence: 0.7 }),
+      noBlink: V({ ...base, blinkCadence: null }),
+      tierB: V({ ...base, blinkCadence: null, tier: 'B' }),
+    };
+  });
+  check('🔴 blinkCadence 為 null 時不得列進「本次納入」',
+    inputs.noBlink.included.some((s) => /眨眼/.test(s)), false);
+  check('🔴 而且必須出現在「本次未納入」（是落下去，不是消失）',
+    inputs.noBlink.excluded.some((s) => /眨眼/.test(s)), true);
+  check('有值時才列進納入', inputs.withBlink.included.some((s) => /眨眼/.test(s)), true);
+  // ⚠️ Tier B 走整幀啟發式，那條路上根本沒有臉部特徵點。
+  check('🔴 Tier B 不得出現「臉部特徵點」字樣',
+    inputs.tierB.included.some((s) => /臉部特徵點/.test(s)), false);
+  check('🔴 量不到的東西一律在未納入（心率／HRV）',
+    inputs.withBlink.excluded.some((s) => /HRV/.test(s)), true);
+  check('🔴 未納入的理由不得寫成「即將開放」那種承諾',
+    inputs.withBlink.excluded.some((s) => /即將|敬請期待|即將開放/.test(s)), false);
+  await ctx.close();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🔴 基線未成熟時，環心不得出現任何 1-99 數字
+//
+// 「基線太薄」與「沒有訊號」是同一件事：兩者都代表這個數字不成立。
+// 同一個大字換一行小字，使用者只會讀數字。
+// ══════════════════════════════════════════════════════════════════
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+
+  const seed = (n) => `(() => {
+    const S = window.TENKI_BASELINE_STORE, P = S.PROFILES;
+    S.clear(); localStorage.removeItem(S.LEGACY_SEED_KEY);
+    const DAY = 86400000, now = Date.now();
+    for (let i = 0; i < ${n}; i++) {
+      S.appendSample({ profile: P.DAILY_SCAN, composite: 0.5 + (i % 7) * 0.02,
+        quality: 0.8, tier: 'A', ts: now - (${n} - i) * DAY });
+    }
+    localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify({
+      band: 'clear', confidence: 'high', ts: now,
+      evidence: { stillness: 0.86, lighting: 0.9, uniformity: 0.9, blinkCadence: null, tier: 'A' },
+    }));
+  })()`;
+
+  const state = async (n) => {
+    await page.goto(`${base}/v3/`, { waitUntil: 'domcontentloaded' });
+    await page.evaluate(seed(n));
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForTimeout(1200);
+    return page.evaluate(() => ({
+      centre: document.getElementById('edgeScoreReveal').textContent.trim(),
+      line: document.getElementById('baselineProgress').textContent.trim(),
+      gold: document.getElementById('baselineRingFill').classList.contains('mature'),
+      // ⚠️ 值對不等於看得見 —— 這條環曾經整個被 `.tl-edge svg{display:none}` 關掉。
+      ringVisible: document.getElementById('baselineRing').getBoundingClientRect().width > 0,
+    }));
+  };
+
+  const thin = await state(12);
+  check('🔴 基線未成熟時環心不得出現數字', /^\d+$/.test(thin.centre), false);
+  check('未成熟時環心報的是帶位詞', /Clear|Neutral|Strain/i.test(thin.centre), true);
+  check('🔴 未成熟時進度環不得上金（gold = 已校準）', thin.gold, false);
+  check('環下那行報得出真實進度', /建立基線\s*12\s*\/\s*30/.test(thin.line), true);
+  // 🔴 「值對」與「看得見」是兩件事，2026-08-12 當場被咬。
+  check('🔴 進度環真的在畫面上（不是被 display:none 關掉）', thin.ringVisible, true);
+
+  const mature = await state(40);
+  check('基線成熟後環心才出現 1-99', /^\d+$/.test(mature.centre), true);
+  check('成熟後那一行改講「相對你自己的基線」', /相對你自己的基線/.test(mature.line), true);
+  check('成熟後進度環轉金', mature.gold, true);
+
   await ctx.close();
 }
 
