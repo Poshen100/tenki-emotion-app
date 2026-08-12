@@ -888,6 +888,147 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   await ctx.close();
 }
 
+// ══════════════════════════════════════════════════════════════════
+// 🔴 決策底座：出現與否、多高、說什麼，由 (狀態 × 分頁 × 有沒有讀數) 決定
+//
+// founder 2026-08-12 實走：「決策計時器好像是作一半的狀態，各功能都在而且也會
+// 遮擋」。功能其實是完整的 —— 問題是**閒置時畫著正在跑的儀表**，而且它用執行中
+// 的尺寸付 5 個分頁的永久租金。更深的一層：它算得出「尚無讀數」卻仍然邀請你
+// 開始決策 —— App 同時在說「我不知道你的狀態」和「去做決策吧」。
+// ══════════════════════════════════════════════════════════════════
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.setViewportSize({ width: 430, height: 740 });
+
+  const READING = JSON.stringify({
+    band: 'clear', confidence: 'high', ts: Date.now(),
+    evidence: { stillness: 0.8, lighting: 0.9, uniformity: 0.9, blinkCadence: null, tier: 'A' },
+  });
+
+  const dock = () => page.evaluate(() => {
+    const d = document.getElementById('fdcb');
+    const seen = (sel) => {
+      const e = d.querySelector(sel);
+      return !!e && getComputedStyle(e).display !== 'none';
+    };
+    return {
+      visible: !d.hidden && getComputedStyle(d).display !== 'none',
+      h: getComputedStyle(document.documentElement).getPropertyValue('--fdcb-h').trim(),
+      copy: (document.getElementById('fdcbTime') || {}).textContent || '',
+      prog: seen('.fdcb-prog'),
+      evts: seen('.fdcb-evts'),
+      dots: d.querySelectorAll('.fdcb-evts .dot').length,
+      label: (d.querySelector('.evts-label') || {}).textContent || '',
+    };
+  });
+
+  // ── 閒置 · Today · 沒有讀數 ──
+  await page.goto(`${base}/v3/`, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => localStorage.removeItem('tenki.readiness.reading.v1'));
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForTimeout(4300); // ⚠️ 等開場退場，否則量到的是 splash
+  const noReading = await dock();
+  check('🔴 沒有讀數時底座不得說「開始決策」', /開始決策/.test(noReading.copy), false);
+  check('🔴 沒有讀數時底座導向掃描', /掃/.test(noReading.copy), true);
+  // ⚠️ 進度軌在 2026-08-12 之前就已經藏了（`.fdcb.state-idle .fdcb-prog`）——
+  // 這條是**回歸防線**，不是新行為。我原本以為它閒置時還在畫，那個判斷是錯的：
+  // 閒置時真正還在畫的只有事件群（兩顆點 + 一個假的可按 `+`）。
+  check('閒置時不渲染進度軌（既有行為的回歸防線）', noReading.prog, false);
+  check('🔴 閒置時不得渲染事件群（logEvent 這時直接 return，按了沒反應）',
+    noReading.evts, false);
+  check('閒置時底座是矮的（不是執行中的尺寸）', noReading.h, '40px');
+
+  // 🔴 沒有讀數時，狀態行仍要報得出基線進度 —— 上一刀只接了「有讀數」那條分支，
+  // 於是第一次開啟 App 的人（最需要看到進度的人）什麼都看不到。
+  const zoneNoReading = await page.evaluate(
+    () => document.getElementById('edgeTraceZone').textContent,
+  );
+  check('🔴 沒有讀數時狀態行仍報得出基線進度', /基線\s*\d+\s*\/\s*\d+/.test(zoneNoReading), true);
+
+  // ── 閒置 · 其他分頁 → 整組不佔位 ──
+  await page.evaluate(() => goTab('timeline'));
+  await page.waitForTimeout(400);
+  const awayTimeline = await dock();
+  check('🔴 閒置切到 Timeline → 底座不在畫面上', awayTimeline.visible, false);
+  check('🔴 而且高度變數歸零（視覺消失還不夠，要真的讓出空間）', awayTimeline.h, '0px');
+
+  await page.evaluate(() => goTab('lab'));
+  await page.waitForTimeout(300);
+  check('🔴 Lab 同理', (await dock()).visible, false);
+
+  // ── 閒置 · Today · 有讀數 ──
+  await page.evaluate((r) => {
+    localStorage.setItem('tenki.readiness.reading.v1', r);
+    goTab('today');
+  }, READING);
+  await page.waitForTimeout(500);
+  const withReading = await dock();
+  check('有讀數時才出現「開始決策」', /開始決策/.test(withReading.copy), true);
+  check('有讀數時底座仍是矮的', withReading.h, '40px');
+
+  // ── 執行中 → 儀表回來，而且跟著跨分頁 ──
+  await page.evaluate(() => setState('running'));
+  await page.waitForTimeout(600);
+  const running = await dock();
+  // 🔴 沒有這兩條的話，上面「閒置不得渲染」可以用「永久刪掉」通過。
+  check('🔴 執行中進度軌必須回來', running.prog, true);
+  check('🔴 執行中事件群必須回來', running.evts, true);
+  check('執行中底座回到完整高度', running.h, '58px');
+  check('🔴 事件群帶得到「事件」標籤（先前完全沒有標籤）', running.label.trim(), '事件');
+  // 🔴 計數無上限，3 顆點在第 4 筆就全亮 —— founder 實走看到 16。點的語彙不能用。
+  check('🔴 不得再用固定數量的圓點表達無上限的計數', running.dots, 0);
+
+  await page.evaluate(() => goTab('timeline'));
+  await page.waitForTimeout(400);
+  check('🔴 執行中切到 Timeline → 底座仍在（HUD 要跟著跑）', (await dock()).visible, true);
+
+  // ── 遮擋：Snapshot 的線圖不得被底座蓋住 ──
+  await page.evaluate(() => { setState('idle'); goTab('today'); });
+  for (const h of [700, 740, 760]) {
+    await page.setViewportSize({ width: 430, height: h });
+    await page.waitForTimeout(600);
+    const occ = await page.evaluate(() => {
+      const track = document.getElementById('snapTrack');
+      track.scrollLeft = track.clientWidth;
+      return new Promise((r) => setTimeout(() => {
+        const wave = document.querySelector('.snap-page[data-page="1"] canvas.vwave');
+        const d = document.getElementById('fdcb');
+        const tab = document.querySelector('.tabbar');
+        const wr = wave.getBoundingClientRect();
+        const dr = d.getBoundingClientRect();
+        const top = dr.height > 0 ? dr.top : tab.getBoundingClientRect().top;
+        // ⚠️ 圓點要**捲到底之後**再量。這一段高度的頁面本來就會捲（設計如此：
+        // CLAUDE.md 鎖定「短視窗不得縮環，改成讓畫面捲動」），而 elementFromPoint
+        // 對視窗外的點回 null —— 不先捲就會把「在摺線之下」誤判成「被底座蓋住」，
+        // 然後往錯的方向修。這裡驗的是**可及性**：捲到底就摸得到，且沒被蓋住。
+        const scr = document.querySelector('#today-screen');
+        scr.scrollTop = scr.scrollHeight;
+        const dots = document.getElementById('snapDots');
+        const rr = dots.getBoundingClientRect();
+        const hit = document.elementFromPoint(rr.left + rr.width / 2, rr.top + rr.height / 2);
+        r({
+          hidden: Math.max(0, Math.round(wr.bottom - top)),
+          dotsVisible: !!hit && dots.contains(hit),
+        });
+      }, 600));
+    });
+    check(`🔴 ${h}px 高時 Snapshot 線圖不得被蓋住`, occ.hidden, 0);
+    check(`${h}px 高時輪播圓點捲到底摸得到（沒被底座蓋住）`, occ.dotsVisible, true);
+  }
+
+  // ── 一物一名：Session 詳情不得再出現英文 marks ──
+  const sessionCopy = await page.evaluate(() => {
+    const clone = document.getElementById('session-screen').cloneNode(true);
+    clone.querySelectorAll('script,style').forEach((n) => n.remove());
+    return clone.textContent;
+  });
+  check('🔴 Session 詳情不再用「marks」（與 EVENT LOG 同稱「事件」）',
+    /marks/i.test(sessionCopy), false);
+
+  await ctx.close();
+}
+
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
 await browser.close();
 server.close();
