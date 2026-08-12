@@ -538,6 +538,19 @@ body{
   border:1px dashed rgba(255,255,255,0.25);
   padding:2px 6px;
 }
+/* 🔴 **整張卡的示意標記**（2026-08-12）。
+   這一刀讓四張卡的動效變好（60 秒同步循環、長條連續左右動），而動效越好、
+   假數字就越有說服力。所以標記要**同步加重**，淨誠實度才不會掉：
+   角落那顆小徽章給掃過去的眼睛，虛線外框給停下來的眼睛，底下那一行給讀字的人。
+   ⚠️ 這條規則的重點是「等量」—— 之後誰再讓這幾張卡更像真的，就得再加一層。 */
+.vcard.demo-card{
+  border:1px dashed rgba(255,255,255,0.16);
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(255,255,255,0.022) 0 6px,
+      transparent 6px 14px),
+    linear-gradient(180deg, rgba(40,40,44,0.55) 0%, rgba(28,28,30,0.45) 100%);
+}
 
 .metric-body{
   display:flex;align-items:flex-end;justify-content:space-between;gap:10px;
@@ -2284,7 +2297,7 @@ body{
         <div class="snap-track" id="snapTrack">
           <!-- Page 1: Cardiac (HR + HVR) -->
           <div class="snap-page active" data-page="0">
-            <div class="card vcard">
+            <div class="card vcard demo-card" aria-label="示意畫面，非量測結果">
               <div class="vhead"><span class="vtitle">Cardiac · 心臟</span><span class="metric-status demo">示意</span></div>
               <div class="vpair">
                 <div class="vmetric"><div class="vlabel">Heart Rate · 心率</div><div class="metric-num"><span class="val" id="hrVal">68</span><span class="unit">BPM</span></div><canvas class="live-wave vwave" id="hrWave" width="160" height="56"></canvas></div>
@@ -2294,7 +2307,7 @@ body{
           </div>
           <!-- Page 2: Respiration (RR + Stress) -->
           <div class="snap-page" data-page="1">
-            <div class="card vcard">
+            <div class="card vcard demo-card" aria-label="示意畫面，非量測結果">
               <div class="vhead"><span class="vtitle">Respiration · 呼吸</span><span class="metric-status demo">示意</span></div>
               <div class="vpair">
                 <div class="vmetric"><div class="vlabel">Respiratory · 呼吸</div><div class="metric-num"><span class="val" id="rrVal">14</span><span class="unit">BrPM</span></div><canvas class="live-wave vwave" id="rrWave" width="160" height="56"></canvas></div>
@@ -2304,11 +2317,18 @@ body{
           </div>
           <!-- Page 3: Autonomic (交感 / 副交感) -->
           <div class="snap-page" data-page="2">
-            <div class="card vcard ans-card">
+            <div class="card vcard ans-card demo-card" aria-label="示意畫面，非量測結果">
               <div class="vhead"><span class="vtitle">Autonomic · 自律平衡</span><span class="metric-status demo">示意</span></div>
               <div class="ans-waves">
                 <div class="ans-wave-row"><span class="ans-lbl sns">交感 SNS</span><canvas class="ans-wave" id="snsWave" width="220" height="44"></canvas><span class="ans-v sns" id="snsPct">38%</span></div>
                 <div class="ans-wave-row"><span class="ans-lbl pns">副交感 PNS</span><canvas class="ans-wave" id="pnsWave" width="220" height="44"></canvas><span class="ans-v pns" id="pnsPct">62%</span></div>
+              </div>
+              <!-- 交感／副交感的消長條：跟兩條波形吃同一個 ph，所以是真的同步。
+                   ⚠️ 迴圈裡本來就有 #snsFill / #pnsFill 的查找，但畫面上沒有這兩個
+                   元素 —— 那兩行一直是死碼。這裡把它們接上真元素。 -->
+              <div class="ans-split" aria-hidden="true">
+                <div class="ans-split-fill sns" id="snsFill"></div>
+                <div class="ans-split-fill pns" id="pnsFill"></div>
               </div>
               <!-- Nervous-system state map — The Yes Brain window of tolerance:
                    藍色陷落 Shutdown · 綠色安全 Regulated (home) · 紅色警戒 Hyperarousal -->
@@ -2325,7 +2345,7 @@ body{
           </div>
           <!-- Page 4: Energy (Body Battery, animated) -->
           <div class="snap-page" data-page="3">
-            <div class="card vcard bb-page">
+            <div class="card vcard bb-page demo-card" aria-label="示意畫面，非量測結果">
               <div class="vhead"><span class="vtitle">Energy · 體能</span><span class="metric-status demo">示意</span></div>
               <div class="bb-big"><span class="val" id="bbVal">78</span><span class="unit">/ 100</span></div>
               <div class="bb-bars" id="bbBars"></div>
@@ -2336,7 +2356,7 @@ body{
              心率／HRV／呼吸要有感測器才量得到，目前沒有接。**畫面不得宣稱沒量到的事。**
              卡上的「示意」標記 + 這一行是同一件事的兩個層次：標記給掃過去的眼睛，
              這一行給停下來看的人。 -->
-        <div class="vitals-demo-note">以上四張為<b>示意畫面</b> · 心率／HRV／呼吸需要感測器，目前尚未接上</div>
+        <div class="vitals-demo-note">以上四張為<b>示意畫面</b> · 心率／HRV／呼吸需要感測器，目前尚未接上<br>數值為 60 秒循環動畫，非量測結果</div>
         <div class="snap-dots" id="snapDots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
 
         <!-- first-visit swipe coach hint (one-time, self-dismissing) -->
@@ -4919,6 +4939,17 @@ function closeSessionDetail(){
       .ans-card{gap:6px;}
       .ans-card .ans-waves{display:flex;flex-direction:column;gap:8px;margin:2px 0 6px;flex:none;}
       .ans-wave-row{display:flex;align-items:center;gap:10px;}
+      /* 交感／副交感消長條。左右兩段的寬度和永遠是 100%，所以視覺上就是一條
+         左右移動的分界 —— founder 要的「左右動」。
+         ⚠️ **不加 transition**：寬度由 rAF 每幀寫，CSS 過渡會跟每幀的新目標值
+         打架，反而變成一頓一頓的。連續是靠更新頻率，不是靠補間。 */
+      /* ⚠️ flex:none 是必要的，不是保險：.vcard 是 flex column，5px 的子元素
+         預設 flex-shrink:1，空間一緊就被壓成 0 —— 第一版當場整條消失。 */
+      .ans-split{display:flex;flex:none;height:5px;border-radius:999px;overflow:hidden;
+        margin-top:10px;background:rgba(255,255,255,0.05);}
+      .ans-split-fill{height:100%;}
+      .ans-split-fill.sns{background:linear-gradient(90deg,rgba(245,166,35,0.45),#F5A623);}
+      .ans-split-fill.pns{background:linear-gradient(90deg,#34C759,rgba(52,199,89,0.45));}
       .ans-lbl{font-size:12px;font-weight:600;width:84px;flex:none;letter-spacing:.02em;}
       .ans-lbl.sns{color:var(--warn);}
       .ans-lbl.pns{color:var(--good);}
@@ -5086,20 +5117,45 @@ function closeSessionDetail(){
         for(var x=0;x<=w;x+=1){
           var u=x/w;
           var amp=(h*0.3)*(0.7+0.3*Math.sin(ph));                            // breathing amplitude
-          var y=h/2 + sign*Math.sin(u*Math.PI*4 - ph*2.2)*amp;              // denser, anti-correlated
+          var y=h/2 + sign*Math.sin(u*Math.PI*4 - ph*2.2)*amp;              // denser, anti-correlated (2.2 → 22 週期／分，整數)
           if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
         }
         ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.shadowColor=color; ctx.shadowBlur=7; ctx.stroke();
       }
       function setN(el,v){ if(el) el.textContent=v; }
       var lastNum=0;
+
+      /**
+       * 這一組畫面的迴圈長度：60 秒，之後**逐格重複**。
+       *
+       * 🔴 為什麼要讓它看得出來在循環（founder 2026-08-12 提的，而且他是對的）：
+       * 這四張卡的數字全部由 Math.sin 產生 —— 心率／HRV／呼吸要有感測器才量得到，
+       * 目前沒有接。**永不重複的假資料看起來更像真的**；看得出循環的畫面，
+       * 使用者一分鐘就能自己發現「這是示範」。誠實度是往上而不是往下。
+       */
+      var LOOP_MS=60000;
+      /** 60 秒內的呼吸次數。10 次 ≈ 6 秒一息，跟原本 t*0.0011（約 5.7 秒）一樣。 */
+      var BREATHS_PER_LOOP=10;
+
       function loop(t){
         requestAnimationFrame(loop);
-        var ph=t*0.0011;                 // shared breath phase → everything moves together
+        // 🔴 相位只由「這一圈走到哪」決定，與頁面開了多久無關 → t 與 t+60000
+        // 產出**完全相同**的畫面。
+        //
+        // ⚠️ 但週期是不是真的 60 秒，取決於底下每一個乘數：`Math.sin(k*ph)` 的
+        // 週期數是 k×10，**k 必須是 0.1 的倍數**才會在 60 秒整處接回去，
+        // 否則接縫會跳一下。現有的 2.2 / 0.7 / 0.8 / 0.5 都合格；
+        // 原本的 0.23（＝2.3 圈）不合格，已改成 0.2。
+        var ph=2*Math.PI*BREATHS_PER_LOOP*((t%LOOP_MS)/LOOP_MS);
         drawAns(sc,sns,ph,'#F5A623',1);  // 交感 rises
         drawAns(pc,pns,ph,'#34C759',-1); // 副交感 falls (anti-correlated)
+        // 交感／副交感消長條：跟波形吃同一個 ph，而且**每幀都寫** ——
+        // 數字停在 1Hz（儀器感），長條要連續，才會是「左右動」而不是一格一格跳。
+        var split=38+Math.sin(ph)*7;
+        if(snsF) snsF.style.width=split.toFixed(2)+'%';
+        if(pnsF) pnsF.style.width=(100-split).toFixed(2)+'%';
         if(nsMarker){                    // nervous-system marker: regulated, living within the green safe zone (home)
-          var nv=50+Math.sin(ph*0.7)*12+Math.sin(ph*0.23)*5; // demo: drifts inside green (~33–67), eases toward edges but stays home
+          var nv=50+Math.sin(ph*0.7)*12+Math.sin(ph*0.2)*5; // demo: drifts inside green (~33–67), eases toward edges but stays home
           nv=Math.max(2,Math.min(98,nv));
           nsMarker.style.left=nv.toFixed(1)+'%';
           var zone=nv<22?'blue':(nv>78?'red':'green');        // window of tolerance: blue <22 · green 22–78 (home) · red >78
@@ -5120,11 +5176,9 @@ function closeSessionDetail(){
         setN(rr, 14+Math.round(Math.sin(ph*0.8)));
         var stress=25+Math.round(Math.sin(ph+2)*2);
         setN(st, stress);   // 卡頭原本還重複一份 Stress%，連同它的語意綠一起換成「示意」標記了
-        var s=38+Math.round(Math.sin(ph)*7);
+        var s=Math.round(split);         // 與長條同一個值，只是取整（不得各算一次）
         if(snsP) snsP.textContent=s+'%';
         if(pnsP) pnsP.textContent=(100-s)+'%';
-        if(snsF) snsF.style.width=s+'%';
-        if(pnsF) pnsF.style.width=(100-s)+'%';
         if(bbVal) setN(bbVal, 78+Math.round(Math.sin(ph*0.5)*2));   // Body Battery breathes (charge sheen via CSS ::after)
       }
       requestAnimationFrame(loop);
