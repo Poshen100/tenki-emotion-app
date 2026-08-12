@@ -97,7 +97,20 @@ export interface BaselineProfile {
 /** Baseline maturity level. */
 export type BaselineMaturity = 'new' | 'building' | 'ready' | 'mature';
 
-/** Minimum accepted scans for baseline thresholds. */
+/**
+ * Minimum accepted scans for baseline thresholds.
+ *
+ * 🔴 **These govern the engine's own `BaselineProfile` (HR / HRV / RR / stress
+ * proxy) and must never be used to decide whether an Edge Score may be shown.**
+ * That gate is `MIN_SAMPLES_FOR_SCORE` / `MIN_DAYS_FOR_SCORE` in
+ * `domain/src/policies/baseline-score.ts`, and it is deliberately much stricter:
+ * a position score divides by the user's own standard deviation, and at n=5 that
+ * denominator is far too unstable to divide by.
+ *
+ * Two sets of thresholds for two different objects is fine. Two sets for the
+ * *same* decision is how a rule quietly stops holding — see `docs/PLAYBOOK.md`
+ * §6 on single-source predicates.
+ */
 export const BASELINE_THRESHOLDS = {
   /** Minimum scans to transition from 'new' to 'building'. */
   BUILDING: 1,
