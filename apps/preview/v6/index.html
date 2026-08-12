@@ -57,7 +57,13 @@
 
   --top-safe:14px;
   --tabbar-h:74px;
-  --fdcb-h:58px;
+  /* 底座高度是 state 的函式（applyFdcbHeight 改寫這個變數）：
+     idle 只有「模板 + 開始決策」一列，用不到 58px；跑起來才長回三欄。
+     各分頁的 padding-bottom 保留區吃的是同一個變數 —— 兩邊分開寫死，
+     一定有一邊先過期。 */
+  --fdcb-h:44px;
+  --fdcb-h-idle:44px;
+  --fdcb-h-live:58px;
   --fdcb-gap:10px; /* gap between fdcb and tabbar */
 }
 
@@ -1455,6 +1461,10 @@ body{
 }
 .fdcb.state-idle .fdcb-seg,
 .fdcb.state-idle .fdcb-prog{display:none}
+/* idle 的 44px 塞不下原本 8px 的膠囊內距（圖示 20 + 兩行字 24 + 內距 16 = 40
+   > 可用的 36）—— 收緊內距而不是壓縮字級，字級一動就跟 running 對不齊。 */
+.fdcb.state-idle .fdcb-tmpl{padding:5px 10px;margin:3px 2px 3px 4px}
+.fdcb.state-idle .fdcb-core{padding:4px}
 .fdcb.state-ready .fdcb-time{font-size:13px;letter-spacing:0.06em;color:#fff;text-shadow:none}
 .fdcb.state-ready .fdcb-time::before{content:'▶ ';color:var(--primary);margin-right:2px}
 .fdcb.state-ready .fdcb-seg{color:rgba(255,255,255,0.4)}
@@ -3434,11 +3444,22 @@ let currentTmpl = 'HEALTH_STRESS';
 let runningInterval = null;
 let elapsed = 0;
 
+// 底座高度：idle 只有一列，跑起來才要三欄的 58px。
+// 改的是 :root 的 --fdcb-h，所以每一頁 padding-bottom 的
+// `calc(var(--tabbar-h) + var(--fdcb-h) + ...)` 保留區會跟著縮放 ——
+// 🔴 底座高度與保留區必須是同一個數字的兩個讀者，不得各寫各的。
+function applyFdcbHeight(s){
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue(s === 'idle' ? '--fdcb-h-idle' : '--fdcb-h-live').trim();
+  if(v) document.documentElement.style.setProperty('--fdcb-h', v);
+}
+
 function setState(s){
   const fdcb = document.getElementById('fdcb');
   STATES.forEach(x => fdcb.classList.remove('state-'+x));
   fdcb.classList.add('state-'+s);
   stateIdx = STATES.indexOf(s);
+  applyFdcbHeight(s);
   renderFdcb();
 }
 // ── 真實決策計時器（取代假 8 秒 demo）──
@@ -4028,7 +4049,9 @@ function selectSource(el){
   el.classList.add('active');
 }
 
-renderFdcb();
+// 開機走 setState 而不是直接 renderFdcb()：高度／保留區與 state 是同一條路徑，
+// 少走一段就會出現「畫面是 idle、保留區還按 58px 算」這種只差一次載入的偏差。
+setState('idle');
 
 // ═════════════════════════════════════════════════
 // Session 頁 — 由統一決策 store 驅動（tenki.alert.outcomes.v1）
