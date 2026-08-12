@@ -2356,7 +2356,10 @@ body{
              心率／HRV／呼吸要有感測器才量得到，目前沒有接。**畫面不得宣稱沒量到的事。**
              卡上的「示意」標記 + 這一行是同一件事的兩個層次：標記給掃過去的眼睛，
              這一行給停下來看的人。 -->
-        <div class="vitals-demo-note">以上四張為<b>示意畫面</b> · 心率／HRV／呼吸需要感測器，目前尚未接上<br>數值為 60 秒循環動畫，非量測結果</div>
+        <!-- ⚠️ 這一行的**高度**是有預算的：多一行就會把輪播圓點推進底座下面
+             （harness 有一條「修一個不得換壞另一個」在守）。所以補上「60 秒循環
+             動畫」之後要同步把句子縮短，不能只加不減。 -->
+        <div class="vitals-demo-note">以上四張為<b>示意畫面</b> · 60 秒循環動畫 · 心率／HRV／呼吸需感測器，尚未接上</div>
         <div class="snap-dots" id="snapDots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
 
         <!-- first-visit swipe coach hint (one-time, self-dismissing) -->
@@ -4882,12 +4885,17 @@ function closeSessionDetail(){
          結果被固定在底部的 FDCB 底座整片蓋住，本機截圖才看出來。
          harness 的「看得見」只量了 bounding rect，**遮擋不會改變 rect** ——
          所以那條斷言補了 elementFromPoint。 */
+      /* ⚠️ **這一行的高度是有預算的，而且預算只剩約 1px。**
+         它與輪播圓點、FDCB 底座擠在同一段垂直空間裡：多一行（+13.5px）就會把
+         圓點推到底座底下，harness 的「修一個不得換壞另一個」當場紅。
+         2026-08-12 補「60 秒循環動畫」時再次踩到 —— 所以連同字級與上下margin
+         一起收，換到真正的餘裕，而不是靠剛好差 1px 過關。 */
       .vitals-demo-note{
-        text-align:center;font-size:10px;line-height:1.35;
-        color:rgba(255,255,255,0.42);letter-spacing:0.02em;margin:4px 4px 0;
+        text-align:center;font-size:9.5px;line-height:1.3;
+        color:rgba(255,255,255,0.42);letter-spacing:0;margin:3px 2px 0;
       }
       .vitals-demo-note b{font-weight:600;color:rgba(255,255,255,0.62);}
-      .snap-dots{display:flex;justify-content:center;gap:8px;margin:6px 0 0;}
+      .snap-dots{display:flex;justify-content:center;gap:8px;margin:4px 0 0;}
       .snap-dots .dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.22);transition:all .3s var(--ease-calm);}
       .snap-dots .dot.active{width:22px;border-radius:4px;background:var(--primary);box-shadow:0 0 10px rgba(0,180,216,.6);}
       /* first-visit swipe coach hint — glass chip + outward-drifting chevrons, shown once.
