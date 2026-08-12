@@ -1424,6 +1424,34 @@
     } catch (e) { /* Safari 無痕等 —— 讀數單純不留存，不影響本次回傳 */ }
   }
 
+  /**
+   * 把這次掃描併進個人基線序列。
+   *
+   * 🔴 **只在真的有 evidence 時才呼叫**（`finalize()` 裡，`giveUp()` 那條路上
+   * 沒有）。訊號不足時補一筆樣本，等於用一次失敗的量測去定義使用者的常態 ——
+   * 而且它會永遠留在分母裡。
+   *
+   * 🔴 profile 是 `face_scan_10s`，**與 enrollment 的 3.6 秒那池分開**。
+   * 混池會系統性灌大標準差；理由見 `baseline-store.js` 檔頭。
+   *
+   * ⚠️ 存的是 **person-signal composite**（只有人的訊號），不是 `deriveBand()`
+   * 用的那個絕對 composite —— 後者含 captureQuality，拿它當基線等於「房間暗
+   * 一點你的常態就低一點」。captureQuality 另外存進 `quality` 欄，之後當權重用。
+   *
+   * @param {{stillness:number, lighting:number, uniformity:number,
+   *          blinkCadence:?number, tier:string}} evidence
+   */
+  function saveBaselineSample(evidence) {
+    var store = global.TENKI_BASELINE_STORE;
+    if (!store) return; // 沒載到就只是不留存，不擋這一輪讀數
+    store.appendSample({
+      profile: store.PROFILES.DAILY_SCAN,
+      composite: store.personSignalComposite(evidence),
+      quality: captureQuality(evidence),
+      tier: evidence.tier,
+    });
+  }
+
   /** 進入揭示 —— 量測已結束，取消鈕收起（否則會出現「store 有讀數但回傳 null」）。 */
   function enterReveal() {
     session.done = true;
@@ -1597,6 +1625,7 @@
       evidence: evidence,
     };
     saveReading(reading);
+    saveBaselineSample(evidence);
     // SECURED 拍子：光弧閉合 + 整組轉 gold。只在**真的有讀數**時才下 ——
     // gold 在視覺世界規則裡代表 baseline locked / calibrated，訊號不足那條路
     // （giveUp）不得使用，否則等於用顏色宣稱一個不存在的結果。

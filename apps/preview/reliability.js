@@ -36,26 +36,17 @@
     var STORE_MAX = 60;
 
     /**
-     * person-signal composite。
+     * person-signal composite —— **委派給 `baseline-store.js`**。
      *
-     * ⚠️ **這是 `domain/src/policies/baseline-score.ts` 的鏡像。**
-     * domain 是 TypeScript、preview 是無建置的 vanilla JS，沒辦法直接 import，
-     * 所以只能鏡像 —— 而鏡像就是兩個來源（PLAYBOOK §6 已知 bug 類別）。
-     * 沿用 repo 既有處理法（`readiness-scan.js` 的 BAND_TONE 鏡像 tokens.css）：
-     * **由 harness 拿同一組輸入比對兩邊結果**，改任一邊而不改另一邊就會紅。
-     *
-     * 🔴 只吃「人」的訊號。lighting/uniformity 是房間不是人，拿它排名等於
-     * 「房間暗一點你的分數就低」—— 環境只能決定 confidence。
+     * ⚠️ 這裡原本自己抄了一份 domain 的實作。加上日常掃描也要算同一個量之後，
+     * 那會變成三個來源 —— 所以鏡像收斂到 `baseline-store.js` 一支，
+     * 由 harness 拿同一組輸入比對它與 domain。這支只負責轉呼叫。
      *
      * @param {{stillness:number, blinkCadence:?number}} evidence
      * @returns {number} 0..1
      */
     function personSignalComposite(evidence) {
-        var stillness = clamp01(evidence.stillness);
-        if (evidence.blinkCadence === null || evidence.blinkCadence === undefined) {
-            return stillness;
-        }
-        return stillness * 0.6 + clamp01(evidence.blinkCadence) * 0.4;
+        return window.TENKI_BASELINE_STORE.personSignalComposite(evidence);
     }
 
     function clamp01(v) {
