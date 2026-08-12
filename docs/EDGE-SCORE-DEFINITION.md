@@ -123,11 +123,38 @@ n=5 的標準差極不穩定，分數會為了跟使用者無關的理由亂跳�
 
 ---
 
+## 5.1 臉部基線種下第一筆樣本（2026-08-12）
+
+founder：「建立臉部基線卻沒有讀數好像怪怪的」。
+
+**整場 enrollment 仍然不給帶位** —— North Star §3 第 6 步明寫「不直接給分數」，
+而且 **arc 階段要求使用者轉頭**（motion 門檻放寬到 0.62），拿它算狀態
+等於把「你有沒有照指示做」當成「你今天怎麼樣」，是範疇錯誤。
+
+但 **neutral_capture 那 3.6 秒的任務跟日常掃描完全相同**（自然直視、要求靜止），
+所以它成為 baseline 的第一筆樣本，寫進 `tenki.baseline.seed.v1`。
+
+🔴 **做這件事之前必須先解決的陷阱**：兩支算的 stillness 原本**不是同一個量** ——
+`readiness-scan` 用 **bbox 中心**的位移速度，`soul-enroll` 用**質心**、而且完全
+沒有位移速度（只有整幀 luma 差分）。
+**基線用一種尺度建、讀數用另一種尺度量，z 分數會看起來完全正常而默默是錯的。**
+所以先抽出 `apps/preview/face-stillness.js` 當唯一來源，兩支都吃它。
+
+⚠️ 三個誠實的限制：
+- 它是**一筆**樣本，不是多筆。3.6 秒內的幀高度自相關，切成好幾筆是假的獨立性，
+  而那正好會灌爆 z 分數的分母。
+- 3.6s 比日常掃描的 10s 短，噪音較大。
+- **不會讓使用者提早看到分數** —— `MIN_SAMPLES_FOR_SCORE` 仍是 14。
+  它的作用只是「第一天不白做」。
+
+---
+
 ## 6. 尚未做的事
 
 - 接 UI、接掃描流程
 - **持久化**：z 分數不需要時間序列，但那四個數字（mean/std/sampleCount/lastUpdatedAt）
-  今天也還沒被存下來（`faceBaselineStore` 沒有 persist、preview 沒有 baseline profile）
+  今天仍然沒有被完整維護。⚠️ enrollment 已經寫下 `tenki.baseline.seed.v1`（第一筆），
+  但**日常掃描還沒有把後續樣本併進去** —— 種子目前有寫入者、沒有更新者。下一刀。
 - `apps/mobile/features/face-baseline/utils/dailyScan.ts` 的 `deriveDailyEdgeScore`：
   fallback 是 `Math.sin(day)` 的假分數，真路徑把 **confidence 當成分數**（範疇錯誤）。
   兩個都要換掉，但它連著 UI，另案處理。
