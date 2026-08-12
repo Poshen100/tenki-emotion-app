@@ -146,7 +146,33 @@ founder 2026-08-12 原本的規格裡有一個「初步估計 57」的畫面。*
   v2 的 `calculateTeiPr()` 正是這個病，`clip(1,99)` 只是把它夾住，沒有解決。
 - **自相關**：連續幾天的狀態是相關的，百分位假設樣本獨立。
   顯示無妨，但**若之後要做預測就必須處理**。
-- 🔴 **再現性尚未量到數字，但已經有量測工具**：`/preview/reliability.html`
+- 🟡 **再現性：第一組實測數字已經有了（founder 2026-08-12，同場）**
+
+  | | 值 |
+  |---|---|
+  | 三次 composite | 0.886 / 0.912 / 0.876（**全部 tier B**） |
+  | 平均 | 0.891 |
+  | 同場標準差 | **0.0186** |
+  | 同場全距 | 0.036 |
+  | 變異係數 | 2.08% |
+
+  🔴 **這只是分母的一半。** 這個 z 模型要成立，**跨天**標準差必須顯著大於 0.0186：
+
+  | 若跨天 SD 是 | 訊噪比 | 量到的變異裡有多少是儀器噪音 |
+  |---|---|---|
+  | 0.02 | 1.1× | **86%** ← 分數等於隨機 |
+  | 0.03 | 1.6× | 38% |
+  | 0.05 | 2.7× | 14% |
+  | 0.08 | 4.3× | 5% |
+
+  ⚠️ 另一個要注意的地方：三次都落在 **0.876–0.912**，貼在 0..1 尺度的頂端。
+  如果日常值長期都擠在那個窄帶裡，可用的動態範圍本來就小，儀器噪音會吃掉
+  跨天變異的一大塊。**跨天資料出來之前，不得宣稱這個分數有鑑別力。**
+
+  ⚠️ 自測頁的掃描**會寫進真實基線**（它走的就是 `begin()`）。因為一天一筆的
+  規則，那三次只留下一筆 —— 影響有界，但要知道這件事。
+
+- 🔴 **量測工具**：`/preview/reliability.html`
   （`apps/preview/reliability.js`）。連掃 3 次、中間刻意放開 15 秒讓每次是獨立取像，
   比較**同場離散度**與**跨天離散度**。
   **需要跨天顯著大於同場，這個 z 模型才有意義** —— 否則分子分母量到的都是儀器噪音，
@@ -205,10 +231,29 @@ founder 同日指出：
 
 所以現在有 **Measurement Profile 分池**（`apps/preview/baseline-store.js`）：
 
-| profile | 哪裡 | 長度 |
+| profile | 哪裡 | 量的是什麼 |
 |---|---|---|
-| `face_enroll_neutral_3s` | enrollment 的 neutral_capture | 3.6s |
-| `face_scan_10s` | 日常掃描 | ~10s |
+| `face_enroll_neutral_3s` | enrollment 的 neutral_capture（3.6s） | landmark bbox 位移 |
+| `face_scan_10s_landmark` | 日常掃描 · tier A（~10s） | landmark bbox 位移 |
+| `face_scan_10s_frame` | 日常掃描 · tier B（~10s） | **整幀 luma 差分** |
+
+### 🔴 第二次更正（同日稍晚）：tier A 與 tier B 也不是同一個量
+
+founder 實走 `/preview/reliability.html`，三次**全部落在 tier B**。那揭發了同一個
+錯誤的第二個實例 —— 而我剛修完第一個。
+
+`readiness-scan.js` 的 `buildEvidence()` 註解白紙黑字寫著：
+
+> Tier A reads landmark displacement (the face moved), Tier B reads whole-frame
+> luma delta (something moved). **The two are not the same measurement and
+> averaging them together would mean neither.**
+
+它在**一次掃描之內**守住了這條，卻沒有人在**跨掃描的百分位池**上守。
+而 tier 會隨裝置與網路（MediaPipe 載不載得到）改變，**不能假設一個人永遠同 tier**。
+
+⚠️ 教訓不是「再分一次池」，是：**每次寫下「這兩個量不可比」的時候，要立刻問
+它在哪幾層成立** —— 一次量測之內、跨掃描的池、跨裝置、跨版本。守住一層不代表
+守住其他層。
 
 `statsFor(profile)` 只看得到同一個 profile 的樣本。要混池就得自己 concat
 兩次呼叫的結果 —— 而那在 code review 裡看得見。
