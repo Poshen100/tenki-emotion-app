@@ -108,7 +108,13 @@
                 if (!box) return null;
                 var c = boxCenter(box);
                 var value = null;
-                if (last && lastAt) {
+                // ⚠️ 條件是 `last !== null`，**不是 `last && lastAt`**。
+                // 舊寫法用 `lastAt` 當有沒有前一幀的旗標，而 `lastAt === 0` 是
+                // falsy —— 時間戳剛好是 0 的那一幀會被當成「沒有前一幀」，
+                // 它之後那一筆量測整個被丟掉。正式站餵的是真時鐘所以踩不到，
+                // 但測試餵 0 起算時當場少一筆（2026-08-12 寫連續性測試時抓到）。
+                // 「只在特定輸入下才錯」的判斷式遲早會咬人。
+                if (last !== null) {
                     value = stillnessBetween(last, c, nowMs - lastAt);
                     sum += value;
                     n += 1;
@@ -118,6 +124,18 @@
                 return value;
             },
             reset: function () { last = null; lastAt = 0; sum = 0; n = 0; },
+            /**
+             * 忘掉「上一幀在哪」，但**保留已累積的平均**。
+             *
+             * 🔴 給「同一次量測分成好幾段、中間有空窗」用的。沒有這個的話，
+             * 續接後的第一幀會拿現在的位置去跟空窗前的位置相減 —— 那段時間
+             * 根本沒在看，算出來的位移是**憑空的**。
+             *
+             * ⚠️ 而且它不會長得像壞掉：`stillnessBetween` 會用很大的 dt 去除，
+             * 速度算出來很小 → stillness 逼近 1 → **默默灌了一個假滿分進平均**。
+             * 那正是最難發現的一種錯。
+             */
+            breakContinuity: function () { last = null; lastAt = 0; },
             /** @returns {?number} 至今的平均 stillness；一筆都沒有時 null，不是 0。 */
             mean: function () { return n > 0 ? sum / n : null; },
             /** @returns {number} 已累積的幀數。 */

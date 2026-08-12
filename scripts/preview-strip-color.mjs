@@ -522,6 +522,43 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('有位移時 stillness 掉下來', fs.movedBelowOne, true);
   check('🔴 一幀都沒有時平均是 null，不是 0', fs.emptyMean, null);
   check('沒有特徵點時回 null，不是一個空盒子', fs.noBox, null);
+
+  // 🔴 分段量測的連續性：enrollment 收 neutral(3.6s) + stability(3.2s)，
+  // 中間隔著 4.2 秒的轉頭。不切斷連續性的話，續接後第一幀會拿現在的位置去跟
+  // 空窗前的位置相減 —— 那段根本沒在看，算出來的位移是憑空的。
+  // ⚠️ 而且它不長得像壞掉：dt 很大 → 速度很小 → stillness 逼近 1 →
+  // **默默灌一個假滿分進平均**。
+  const cont = await page.evaluate(() => {
+    const F = window.TENKI_FACE_STILLNESS;
+    const lm = (x) => [{ x, y: 0.5 }, { x: x + 0.2, y: 0.7 }];
+    const run = (breakIt) => {
+      const t = F.createTracker();
+      let ms = 1000;
+      t.feed(lm(0.40), ms);
+      for (let i = 0; i < 5; i += 1) { ms += 100; t.feed(lm(0.40), ms); }
+      if (breakIt) t.breakContinuity();
+      ms += 4200;                       // 轉頭那 4.2 秒沒有餵
+      const first = t.feed(lm(0.55), ms); // 位置也變了
+      return { first, mean: t.mean(), n: t.count() };
+    };
+    const withBreak = run(true);
+    const noBreak = run(false);
+    // t=0 起算也要算得到（舊版把 lastAt===0 當成「沒有前一幀」）
+    const fromZero = F.createTracker();
+    fromZero.feed(lm(0.4), 0); fromZero.feed(lm(0.4), 100);
+    return { withBreak, noBreak, zeroCount: fromZero.count() };
+  });
+  check('🔴 切斷連續性後，續接的第一幀不進平均（回 null）', cont.withBreak.first, null);
+  check('🔴 切斷連續性後，平均不被空窗那一幀污染', cont.withBreak.mean, 1);
+  // 反向對照：不切斷時**確實**會生出一個看起來很合理的假分數，
+  // 否則上面兩條是空過的。
+  check('不切斷時確實會憑空生出一筆（不然上兩條驗不到東西）',
+    cont.noBreak.first !== null && cont.noBreak.first > 0.8, true);
+  check('🔴 breakContinuity 只忘掉位置，不清掉已累積的幀數', cont.withBreak.n, 5);
+  // ⚠️ `lastAt === 0` 是 falsy —— 舊版拿它當「有沒有前一幀」的旗標，
+  // 時間戳為 0 的那一幀之後那筆量測會整個消失。
+  check('🔴 時間戳從 0 起算也算得到量測', cont.zeroCount, 1);
+
   await ctx.close();
 }
 
@@ -752,6 +789,20 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   const fe2 = src.indexOf('function giveUp()', fs2);
   check('🔴 finalize（有讀數那條）才寫入',
     /saveBaselineSample\(/.test(src.slice(fs2, fe2)), true);
+
+  // 🔴 enrollment 只收「要求靜止」的階段。arc 要求轉頭，收進來等於把
+  // 「你有沒有照指示做」當成「你今天怎麼樣」。harness 沒有相機跑不到 FSM，
+  // 所以驗那份白名單本身。
+  const enroll = await readFile(resolve(repoRoot, 'apps/preview/soul-enroll.js'), 'utf8');
+  const listed = /const STILL_TASK_STEPS = new Set\(\[([^\]]*)\]\)/.exec(enroll);
+  const steps = listed ? listed[1].match(/'[^']+'/g).map((s) => s.slice(1, -1)).sort() : null;
+  check('🔴 靜止段白名單就是 neutral + stability（不多不少）',
+    steps, ['neutral_capture', 'stability_pass']);
+  check('🔴 arc 永遠不得進基線', steps !== null && steps.some((s) => /arc/.test(s)), false);
+  check('🔴 離開靜止段要切斷連續性（否則跨空窗會憑空生一筆滿分）',
+    /breakContinuity\(\)/.test(enroll), true);
+  // sampleConfidence 的七項加權先前只收斂成一個字，數值整個丟掉。
+  check('擷取品質有被存下來（不再丟掉）', /confSum \/ state\.confN/.test(enroll), true);
 
   // 🔴 納入欄只能列真的有值的欄位 —— 純函式，直接餵。
   const ctx = await browser.newContext();

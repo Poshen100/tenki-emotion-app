@@ -237,6 +237,15 @@
   // 多角度），卻只存了眨眼節奏四個數字，其餘全部丟掉。
   /** 種子至少要這麼多幀才算數 —— 太少的話平均值只是雜訊。 */
   const SEED_MIN_FRAMES = 8;
+  /**
+   * 哪些階段的任務是「保持靜止」—— 只有這些的 landmark 位移可以進基線。
+   *
+   * 🔴 `arc_left` / `arc_right` **不在裡面而且永遠不會在**：那兩段要求轉頭
+   * （motion 門檻 0.62），拿它算狀態是範疇錯誤。
+   * ⚠️ `processing` 也不在：相機還開著，但畫面沒有要求使用者做任何事 ——
+   * 他可能已經放鬆或看別處，收進來會系統性壓低這個人的基線。
+   */
+  const STILL_TASK_STEPS = new Set(['neutral_capture', 'stability_pass']);
   const seedTracker = (window.TENKI_FACE_STILLNESS)
     ? window.TENKI_FACE_STILLNESS.createTracker()
     : null;
@@ -269,7 +278,11 @@
     store.appendSample({
       profile: store.PROFILES.ENROLL_NEUTRAL,
       composite,
-      quality: null, // enrollment 沒有算 lighting/uniformity；不編一個
+      // 🔴 `sampleConfidence()` 每一幀算七項加權（穩定度／亮度／均勻度／置中／
+      // 正面度／睜眼／距離），累積在 confSum/confN —— 而它先前只被收斂成一個
+      // 'strong'/'steady' 的字，數值整個丟掉。它就是這一筆的擷取品質，
+      // 存下來給日後的加權百分位用。**不進 composite**（那是房間與姿勢，不是人）。
+      quality: state.confN > 0 ? Math.round((state.confSum / state.confN) * 1e4) / 1e4 : null,
       tier: 'A',     // 走到 neutral_capture 就代表 landmark 追蹤是活的
     });
     return composite;
@@ -1107,15 +1120,33 @@
   }
 
   function ingestLandmarks(L, res) {
-    // 🔴 只在 neutral_capture 累積 landmark 位移穩定度。
-    // arc 階段**要求使用者轉頭**（motion 門檻放寬到 0.62），把它算進去等於把
-    // 「你有沒有照指示做」當成「你今天的狀態」—— 範疇錯誤。
-    // neutral 的任務（自然直視、要求靜止）跟日常掃描完全相同，是唯一可比的一段。
+    // 🔴 只在「要求靜止」的階段累積 landmark 位移穩定度。
+    //
+    // arc_left / arc_right **要求使用者轉頭**（motion 門檻放寬到 0.62），把它算進去
+    // 等於把「你有沒有照指示做」當成「你今天的狀態」—— 範疇錯誤，永遠不收。
+    //
+    // 但 neutral_capture(3.6s, 門檻 0.36) 與 stability_pass(3.2s, 門檻 **0.30**，
+    // 更嚴) 的任務**完全相同**：自然直視、保持靜止 —— 跟日常掃描也相同。
+    // 先前只收 neutral，等於白白丟掉一半可用的量測時間（founder 2026-08-12：
+    // 「不要浪費這麼長時間的檢測，能讀取跟適合建立的數據盡量利用」）。
+    //
+    // ⚠️ 這**不會**變成兩筆樣本，仍然是一筆 —— 同一次靜坐裡的兩段共用姿勢、
+    // 光線與情緒，切成兩筆是假的獨立性，而且儲存層一天只留一筆。
+    // 真正的收穫是**同一筆樣本的取樣時間從 3.6s 變成 6.8s** → 噪音更低，
+    // 而且長度更接近日常掃描的 ~10s（profile 之間更可比）。
     //
     // ⚠️ 用共用的 face-stillness.js，**不是**下面那個質心：兩邊必須同一種尺度，
     // 否則基線與讀數不同尺度，z 分數會看起來正常而默默是錯的。
-    if (state.step === 'neutral_capture' && seedTracker) {
-      seedTracker.feed(L, now());
+    if (seedTracker) {
+      if (STILL_TASK_STEPS.has(state.step)) {
+        seedTracker.feed(L, now());
+      } else {
+        // 🔴 離開靜止段就切斷連續性。不切的話，stability 的第一幀會拿現在的
+        // 位置去跟 4.2 秒前（轉頭之前）的位置相減 —— 中間那段根本沒在看。
+        // 而且它不會長得像壞掉：dt 很大 → 速度很小 → stillness 逼近 1 →
+        // **默默灌一個假滿分進平均**。
+        seedTracker.breakContinuity();
+      }
     }
     const N = L.length;
     m3d.N = N;
