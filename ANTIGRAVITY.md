@@ -1184,11 +1184,11 @@ tenki-emotion-app/
 > 推出順序見 §13.7，不可顛倒。
 
 - [x] Growth 架構設計 (GROWTH-ARCHITECTURE.md v1.0)
-- [ ] Benchmark contract + policy (domain layer, k≥50 閘門)
-- [ ] Edge Snapshot payload + 合規文案建構器
-- [ ] Decision Performance Record 型別 (local-only)
-- [ ] Coach Insight P1 模板集
-- [ ] Growth feature flags (edge_snapshot_v1 / ai_coach_v1 / benchmark_cohorts_v1)
+- [x] Benchmark contract + policy (domain layer, k≥50 閘門)
+- [x] Edge Snapshot payload + 合規文案建構器
+- [x] Decision Performance Record 型別 (local-only)
+- [x] Coach Insight P1 模板集
+- [x] Growth feature flags (edge_snapshot_v1 / ai_coach_v1 / benchmark_cohorts_v1)
 - [ ] DPD 儲存層 (Encrypted SQLite schema + DAL)
 - [ ] DPD 納入 Data Deletion / Export flow
 - [ ] Edge Snapshot 分享卡 UI (RN)
