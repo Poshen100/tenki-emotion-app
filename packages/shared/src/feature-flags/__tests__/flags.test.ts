@@ -20,11 +20,14 @@ describe('createDefaultFlags', () => {
     expect(flags.benchmark_opt_in).toBe(false);
     expect(flags.reviewer_demo_mode).toBe(false);
     expect(flags.tradingview_alerts_v1).toBe(false);
+    expect(flags.ai_coach_v1).toBe(false);
+    expect(flags.edge_snapshot_v1).toBe(false);
+    expect(flags.benchmark_cohorts_v1).toBe(false);
   });
 
-  it('should include all 7 flag IDs', () => {
+  it('should include all 10 flag IDs', () => {
     const flags = createDefaultFlags();
-    expect(Object.keys(flags).length).toBe(7);
+    expect(Object.keys(flags).length).toBe(10);
   });
 });
 
@@ -78,8 +81,8 @@ describe('applyRemoteOverrides', () => {
 });
 
 describe('FEATURE_FLAGS definitions', () => {
-  it('should have 7 flag definitions', () => {
-    expect(Object.keys(FEATURE_FLAGS).length).toBe(7);
+  it('should have 10 flag definitions', () => {
+    expect(Object.keys(FEATURE_FLAGS).length).toBe(10);
   });
 
   it('tradingview_alerts_v1 should be a dark-launch flag (off by default, remote-configurable)', () => {
@@ -107,5 +110,12 @@ describe('FEATURE_FLAGS definitions', () => {
     expect(FEATURE_FLAGS.scan_pipeline_v1.remoteConfigurable).toBe(true);
     expect(FEATURE_FLAGS.lab_prediction.remoteConfigurable).toBe(true);
     expect(FEATURE_FLAGS.benchmark_opt_in.remoteConfigurable).toBe(true);
+  });
+
+  it('growth flags should ship dark and stay remotely controllable', () => {
+    for (const id of ['ai_coach_v1', 'edge_snapshot_v1', 'benchmark_cohorts_v1'] as const) {
+      expect(FEATURE_FLAGS[id].defaultValue).toBe(false);
+      expect(FEATURE_FLAGS[id].remoteConfigurable).toBe(true);
+    }
   });
 });

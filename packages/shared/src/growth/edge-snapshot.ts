@@ -140,7 +140,7 @@ export function buildSnapshotCopy(payload: EdgeSnapshotPayload): EdgeSnapshotRes
 
   const fields = payload as unknown as Readonly<Record<string, unknown>>;
   for (const field of FORBIDDEN_SNAPSHOT_FIELDS) {
-    if (Object.prototype.hasOwnProperty.call(fields, field)) {
+    if (Object.hasOwn(fields, field)) {
       reasons.push('forbidden_field');
       break;
     }

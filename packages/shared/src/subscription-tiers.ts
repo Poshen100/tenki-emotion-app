@@ -37,6 +37,18 @@ export interface TierFeatures {
   benchmarks: boolean;
   /** Advanced AI insights. */
   advancedInsights: boolean;
+  /**
+   * AI Coach depth. 'basic' is the P1 template set; 'advanced' adds the
+   * correlation and personal-model phases.
+   */
+  aiCoach: 'basic' | 'advanced';
+  /**
+   * Shareable Edge Snapshot card. True on every tier — this is a growth
+   * surface, not a premium feature, and it is on the never-paywall list.
+   *
+   * @see ANTIGRAVITY.md §12.2
+   */
+  edgeSnapshot: boolean;
   /** Multi-mode session archive. */
   sessionArchive: 'limited' | 'full';
   /** Export capability. */
@@ -73,6 +85,8 @@ export const FREE_TIER: TierConfig = {
     externalAlertBridge: false,
     benchmarks: false,
     advancedInsights: false,
+    aiCoach: 'basic',
+    edgeSnapshot: true, // Growth surface — sharing is never paywalled
     sessionArchive: 'limited',
     exportEnabled: true, // Privacy controls never paywalled
   },
@@ -98,6 +112,8 @@ export const PREMIUM_TIER: TierConfig = {
     externalAlertBridge: true,
     benchmarks: true,
     advancedInsights: true,
+    aiCoach: 'advanced',
+    edgeSnapshot: true,
     sessionArchive: 'full',
     exportEnabled: true,
   },

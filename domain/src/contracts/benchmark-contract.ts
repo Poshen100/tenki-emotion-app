@@ -264,7 +264,7 @@ export function validateEnvelope(envelope: object): EnvelopeValidation {
   const forbiddenFields: string[] = [];
 
   for (const field of FORBIDDEN_ENVELOPE_FIELDS) {
-    if (Object.prototype.hasOwnProperty.call(envelope, field)) {
+    if (Object.hasOwn(envelope, field)) {
       forbiddenFields.push(field);
     }
   }

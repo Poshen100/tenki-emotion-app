@@ -54,6 +54,14 @@ describe('FREE_TIER', () => {
   it('should limit history to 7 days', () => {
     expect(FREE_TIER.features.localHistoryDays).toBe(7);
   });
+
+  it('should provide the basic AI Coach', () => {
+    expect(FREE_TIER.features.aiCoach).toBe('basic');
+  });
+
+  it('should always allow Edge Snapshot (sharing never paywalled)', () => {
+    expect(FREE_TIER.features.edgeSnapshot).toBe(true);
+  });
 });
 
 describe('PREMIUM_TIER', () => {
@@ -92,6 +100,14 @@ describe('PREMIUM_TIER', () => {
   it('should provide unlimited history', () => {
     expect(PREMIUM_TIER.features.localHistoryDays).toBe('unlimited');
   });
+
+  it('should provide the advanced AI Coach', () => {
+    expect(PREMIUM_TIER.features.aiCoach).toBe('advanced');
+  });
+
+  it('should allow Edge Snapshot', () => {
+    expect(PREMIUM_TIER.features.edgeSnapshot).toBe(true);
+  });
 });
 
 describe('BILLING_CADENCES', () => {
@@ -125,5 +141,15 @@ describe('hasFeature', () => {
 
   it('free tier should have limited history (truthy as number > 0)', () => {
     expect(hasFeature('free', 'localHistoryDays')).toBe(true);
+  });
+
+  it('both tiers should have Edge Snapshot (growth surface)', () => {
+    expect(hasFeature('free', 'edgeSnapshot')).toBe(true);
+    expect(hasFeature('premium', 'edgeSnapshot')).toBe(true);
+  });
+
+  it('only premium should have the advanced coach', () => {
+    expect(hasFeature('free', 'aiCoach')).toBe(false);
+    expect(hasFeature('premium', 'aiCoach')).toBe(true);
   });
 });

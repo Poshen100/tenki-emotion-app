@@ -75,6 +75,27 @@ export const FEATURE_FLAGS: Record<FeatureFlagId, FeatureFlagDef> = {
     defaultValue: false,
     remoteConfigurable: true,
   },
+  ai_coach_v1: {
+    id: 'ai_coach_v1',
+    name: 'AI Coach v1',
+    description: 'Enable P1 rule-based coach insights on the results screen.',
+    defaultValue: false,
+    remoteConfigurable: true,
+  },
+  edge_snapshot_v1: {
+    id: 'edge_snapshot_v1',
+    name: 'Edge Snapshot v1',
+    description: 'Enable the shareable daily readiness card.',
+    defaultValue: false,
+    remoteConfigurable: true,
+  },
+  benchmark_cohorts_v1: {
+    id: 'benchmark_cohorts_v1',
+    name: 'Benchmark Cohorts v1',
+    description: 'Enable anonymous benchmark cohort comparisons (k-anonymity gated).',
+    defaultValue: false,
+    remoteConfigurable: true,
+  },
 } as const;
 
 /** Runtime feature flag state. */

@@ -151,7 +151,10 @@ export type FeatureFlagId =
   | 'lab_prediction'
   | 'benchmark_opt_in'
   | 'reviewer_demo_mode'
-  | 'tradingview_alerts_v1';
+  | 'tradingview_alerts_v1'
+  | 'ai_coach_v1'
+  | 'edge_snapshot_v1'
+  | 'benchmark_cohorts_v1';
 
 // ─────────────────────────────────────────────
 // Subscription Types
