@@ -880,7 +880,13 @@
     return typeof global.FaceMesh !== 'undefined';
   }
 
+  // 🔴 委派給 `face-stillness.js` —— 那支是 landmark 位移穩定度的唯一來源，
+  // soul-enroll 也吃同一支。兩邊必須用**同一種中心**（bbox，不是質心），
+  // 否則基線與讀數不同尺度，z 分數會看起來正常而默默是錯的。
+  // 模組沒載到時退回原本的行為，不讓掃描整支掛掉。
   function computeFaceBox(lm) {
+    var S = global.TENKI_FACE_STILLNESS;
+    if (S) return S.faceBox(lm) || { minX: 1, minY: 1, maxX: 0, maxY: 0 };
     var minX = 1, minY = 1, maxX = 0, maxY = 0;
     for (var i = 0; i < lm.length; i++) {
       var p = lm[i];
@@ -975,8 +981,10 @@
       var dt = Math.max(1, now - session.lastFaceAt);
       var dx = centerX - session.lastFaceCenter.x;
       var dy = centerY - session.lastFaceCenter.y;
-      var speed = Math.sqrt(dx * dx + dy * dy) / (dt / 1000);
-      session.lastStillness = 1 - clamp01(speed / LANDMARK_MOTION_CEILING);
+      var SFS = global.TENKI_FACE_STILLNESS;
+      session.lastStillness = SFS
+        ? SFS.stillnessBetween(session.lastFaceCenter, { x: centerX, y: centerY }, dt)
+        : 1 - clamp01(Math.sqrt(dx * dx + dy * dy) / (dt / 1000) / LANDMARK_MOTION_CEILING);
       session.lmAcc.n += 1;
       session.lmAcc.stillness += session.lastStillness;
     }
