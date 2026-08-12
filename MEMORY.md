@@ -9,6 +9,52 @@
 
 ---
 
+# 2026-08-12 Session Update #68 (決策計時器：三句實走回報底下的五個實體 bug)
+
+founder 實走 /v3/ 三句話：「決策計時器好像是作一半的狀態」「各功能都在而且也會遮擋」
+「我也不知道它右側的點點按的數字代表什麼意思」。每一句底下都不只是感覺問題。
+
+## 一、量出來的東西（不是讀 code 猜的）
+
+| # | 症狀 | 怎麼抓到的 |
+|---|---|---|
+| 1 | 跑中換模板 → `setState('ready')` 沒清 `runningInterval`：state 顯示 ready、時鐘繼續跑，到**舊**模板的時長時在 ready 底下彈「完整走完」，並往 store 寫一筆使用者沒跑完的**幽靈紀錄** | 種一個 6 秒自訂模板，跑到一半換 Work Focus，6 秒後讀 localStorage → 多出 `{六秒測試, timed_out}` |
+| 2 | 時長標籤寫死 `${Math.floor(sec/60)}:00` → 3:30 的模板顯示 `3:00 ▾`、6 秒的顯示 `0:00 ▾`，而同一列大字時鐘同時寫 `/ 0:06` | 同上，種 210 秒與 6 秒兩個模板 |
+| 3 | 標記區 DOM 是 `dot,dot,[+],dot` —— 第三顆亮的點在 + 的**右邊**；只有三顆點但計數沒上限（按 4 下 → 三顆全亮、膠囊寫 4） | 讀 `.fdcb-evts` innerHTML + running 截圖 |
+| 4 | idle 時標記鍵仍在，按下去 `logEvent()` 直接 return，零回饋 | probe：idle 按 + → 狀態逐欄比對，完全沒變 |
+| 5 | 計數膠囊亮 `--good` 綠 —— 綠是「跟著流程完成」的語意色，等於決策還沒收束就先亮 good | 截圖 + CLAUDE.md 顏色所有權那條 |
+
+「遮擋」的實體：idle 撐滿 58px 去放**兩個當下沒有作用的欄位**（右欄沒有 session
+可掛、中欄只有一行 START DECISION），用不到的高度全部拿去蓋 Today 的 Cardiac 卡。
+
+## 二、做了什麼（4 個 commit，Commit-Per-Todo）
+
+1. `fix` 兩道 guard 擋掉跑中換模板（要換就先收束，那一筆才會被誠實記成提前收束）＋ 時長走 `fmtDur` ＋ 收束回 idle 的 setTimeout 改成抓得住的 `closureTimer`。
+2. `feat` 圓點改成有標籤的「＋ 標記」鍵：只在 running 出現、計數用數字、配色回中性白、按下去段標籤借 1.6 秒回報「已標記 2 · 01:07」。下游 `0 marks` / `Marks` 改中文，Timeline strip 補「點越大 · 標記越多」圖例（點大小本來就吃 marks 卻沒有圖例）。
+3. `feat` idle 底座 44px，`--fdcb-h` 變成 state 的函式，保留區吃同一個變數；開機改走 `setState('idle')`。
+4. `test` `scripts/preview-fdcb.mjs` 34 條，反向驗證過（拿掉 guard + 改回寫死 :00 → 紅 5 條）。
+
+## 三、🔴 教訓（已提煉進 PLAYBOOK）
+
+- **可視高度是變數**：前一天「說明與圓點都要露出來」是在 844 量的縫隙裡排的，
+  founder 的 in-app 瀏覽器只有 ~700，同一份版面在那裡底座頂是 558 —— 兩個都又掉回底座下。
+  遮擋斷言至少驗兩個高度，優先驗矮的。
+- **底座高度與保留區必須是同一個變數的兩個讀者**，不得各寫各的。
+- **每一條離開 running 的路徑都要問「計時器誰關」**；能不轉移就不轉移。
+- **按下去什麼都不做的鍵 = 做一半**；沒有作用的狀態就藏起來。
+- **沒有上限的計數不要用固定數量的指示燈**。
+- harness 自己踩到兩個坑：splash 以 z-index:9999 蓋到 2400ms（固定 waitForTimeout 會
+  問到 splash 而不是版面）、段標籤每秒才 tick（固定 1900ms 落在兩次 tick 中間 → 偶紅）。
+  兩處都改成**等條件**，不要等時間。
+
+## 四、下次接手點
+
+- 尚未做（founder 未裁決）：`state-complete` 只顯示 1.8 秒就自動回 idle —— 結果還沒讀完就消失，是「做一半」感的另一半，但改秒數屬於手感，等實走回報。
+- `apps/mobile/components/DecisionBar.tsx` 還是 mock（`• •` + `+`，沒有狀態機）。原生階段要照 /v3/ 這一版的結論重寫，別把舊的圓點語彙帶過去。
+- `scripts/preview-fdcb.mjs` 沒進 `verify.sh`（Playwright 容器限定路徑，同 preview-strip-color）—— 改 FDCB 的 class 名／id 時要一併 grep `scripts/*.mjs`。
+
+---
+
 # 2026-08-11 Session Update #67 (/v3/ Today 不再宣稱沒量到的事)
 
 founder「好」→ 接著做已拍板的另案。
