@@ -1394,6 +1394,12 @@ body{
 .sd-fact .k{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:5px}
 .sd-fact .v{font-size:16px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums}
 
+/* 底座的高度隨狀態走 —— 這兩條是「視覺變了也要真的讓出空間」的關鍵：
+   每一屏的底部保留量都是 calc(... + var(--fdcb-h) + ...)，改這裡就全部跟上。
+   由 syncFdcb() 在 documentElement 上切換（.fdcb 是後代，改不到 :root 的變數）。 */
+:root.fdcb-idle{ --fdcb-h:40px; }
+:root.fdcb-away{ --fdcb-h:0px; --fdcb-gap:0px; }
+
 /* ═══════════════════════════════════════════════════
    FDCB — floating above tab bar
    ═══════════════════════════════════════════════════ */
@@ -1415,6 +1421,18 @@ body{
     inset 0 1px 0 rgba(255,255,255,0.05);
   transition:all 0.5s var(--ease-calm);
 }
+/* ⚠️ `hidden` 屬性只是作者樣式 display:none，**會被 .fdcb 的 display:flex 蓋掉**。
+   這個檔案已經為了同一個坑修過 .rs-instruction / .rs-verdict-inputs 兩次。 */
+.fdcb[hidden]{display:none;}
+/* 🔴 閒置＝入口，不是儀表。
+   ⚠️ **進度軌與 seg 本來就已經藏了**（見下方 .fdcb.state-idle .fdcb-seg,
+   .fdcb-prog 那條，我動手之前就在）。閒置時真正還在畫的只有**事件群** ——
+   兩顆亮點 + 一個虛線 `+`，而那個 `+` 是**假的可按**：logEvent() 在非 running
+   時直接 return。founder 2026-08-12 實走指的就是它（「不知道右側點點按的數字
+   代表什麼」）。所以這裡只需要多藏事件群。
+   ⚠️ 不重複宣告 .fdcb-prog —— 同一件事兩條規則就是下一個人改錯的地方。 */
+.fdcb.state-idle .fdcb-evts,
+.fdcb.state-complete .fdcb-evts{display:none;}
 .fdcb.state-running{
   border-color:rgba(0,180,216,0.25);
   box-shadow:0 12px 40px rgba(0,0,0,0.55), 0 0 30px rgba(0,180,216,0.12), inset 0 1px 0 rgba(255,255,255,0.05);
@@ -1490,7 +1508,6 @@ body{
 @media (prefers-reduced-motion: reduce){
   .fdcb.in-readiness, .fdcb.state-complete.closure-disciplined, .fdcb.state-complete.closure-broke{animation:none}
   .fdcb-fill{transition:none}
-  .fdcb-evts .dot{transition:none}
 }
 
 .fdcb.state-idle .fdcb-time{
@@ -1517,12 +1534,9 @@ body{
   border-radius:12px;cursor:pointer;transition:background 0.3s;
 }
 .fdcb-evts:active{background:rgba(255,255,255,0.04)}
-.fdcb-evts .dot{
-  width:5px;height:5px;border-radius:50%;
-  background:var(--txt-dim);
-  transition:all 0.4s var(--ease-calm);
+.fdcb-evts .evts-label{
+  font-size:9.5px;letter-spacing:0.1em;color:rgba(255,255,255,0.5);
 }
-.fdcb-evts .dot.on{background:#fff;box-shadow:0 0 5px rgba(255,255,255,0.5)}
 .fdcb-evts .check{
   width:22px;height:22px;border-radius:50%;
   background:var(--good);
@@ -1531,8 +1545,8 @@ body{
   box-shadow:0 0 10px rgba(52,199,89,0.45);
 }
 .fdcb-evts .check.empty{
-  background:transparent;color:rgba(255,255,255,0.35);
-  border:1.2px dashed rgba(255,255,255,0.2);box-shadow:none;
+  background:transparent;color:rgba(255,255,255,0.55);
+  border:1.2px solid rgba(255,255,255,0.22);box-shadow:none;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2544,7 +2558,7 @@ body{
         <div class="sd-outcome-ic" id="sdOutcomeIc"></div>
         <div class="sd-outcome-txt">
           <div class="sd-outcome-headline" id="sdOutcomeHeadline">跟著流程完成</div>
-          <div class="sd-outcome-sub" id="sdOutcomeSub">達 Breathe · 0 marks</div>
+          <div class="sd-outcome-sub" id="sdOutcomeSub">達 Breathe · 0 個事件</div>
         </div>
       </div>
 
@@ -2566,7 +2580,7 @@ body{
       <div class="card sd-facts">
         <div class="sd-fact"><div class="k">用時</div><div class="v" id="sdFactDur">3:00</div></div>
         <div class="sd-fact"><div class="k">Readiness</div><div class="v" id="sdFactReadiness">已進入</div></div>
-        <div class="sd-fact"><div class="k">Marks</div><div class="v" id="sdFactMarks">0</div></div>
+        <div class="sd-fact"><div class="k">事件</div><div class="v" id="sdFactMarks">0</div></div>
       </div>
 
       <!-- Insight（事實語言）-->
@@ -2592,7 +2606,7 @@ body{
         <div class="fdcb-tmpl-dur" id="fdcbDur">3:00 ▾</div>
       </div>
     </div>
-    <div class="fdcb-core" onclick="nextState()">
+    <div class="fdcb-core" onclick="fdcbPrimaryAction()">
       <div class="fdcb-time" id="fdcbTime">Start Decision</div>
       <div class="fdcb-seg" id="fdcbSeg">Observe</div>
       <div class="fdcb-prog">
@@ -2602,11 +2616,13 @@ body{
         <div class="seg-ext" style="width:34%"></div>
       </div>
     </div>
-    <div class="fdcb-evts" onclick="logEvent()">
-      <div class="dot on"></div>
-      <div class="dot on"></div>
-      <div class="check empty">+</div>
-      <div class="dot"></div>
+    <!-- 🔴 這一組原本是 3 顆點 + 一個沒有標籤的數字。計數無上限（founder 實走
+         看到 16），3 顆點在第 4 筆就全亮 —— 點的語彙當場失效，而且沒有任何字
+         告訴人按下去會發生什麼。改成帶標籤的計數，並與 Timeline 的 EVENT LOG
+         共用「事件」這個詞（先前一物兩名：這裡叫 marks、那裡叫 EVENT LOG）。 -->
+    <div class="fdcb-evts" onclick="logEvent()" title="記一個事件">
+      <div class="evts-label">事件</div>
+      <div class="check empty" id="fdcbMarks">0</div>
     </div>
   </div>
 
@@ -3054,6 +3070,7 @@ function goTab(id){
   if(id === 'today') renderHeroReading(); // 讀數可能在別的分頁被更新或過期
   const tab = document.querySelector(`.tab[data-tab="${id}"]`);
   if(tab) tab.classList.add('active');
+  syncFdcb(); // 底座的出現與尺寸由分頁 + 狀態決定（單一判定函式）
   // Haptic hint (visual tap)
   if(tab) tab.style.transform = 'scale(0.9)';
   setTimeout(() => { if(tab) tab.style.transform = ''; }, 120);
@@ -3497,6 +3514,61 @@ function setState(s){
   fdcb.classList.add('state-'+s);
   stateIdx = STATES.indexOf(s);
   renderFdcb();
+  syncFdcb();
+}
+
+/**
+ * 底座**出現在哪、佔多高、說什麼** —— 由 `(狀態, 分頁, 有沒有讀數)` 決定。
+ *
+ * 🔴 **這是唯一的判定來源。** `setState()` / `goTab()` / 讀數變動都呼叫它，
+ * 不得任何地方自己再判斷一次（PLAYBOOK §6 —— 這個 repo 已被同類 bug 咬過三次：
+ * 同一件事兩個地方各算一次，遲早各說各話）。
+ *
+ * | 情境 | 出現 | 高度 | 說什麼 |
+ * |---|---|---|---|
+ * | 閒置 · Today · 沒有讀數 | ✅ | 40px | 導向掃描（**不是**「開始決策」） |
+ * | 閒置 · Today · 有讀數 | ✅ | 40px | 模板 + 「開始決策」 |
+ * | 閒置 · 其他分頁 | ❌ | **0** | 回顧頁不需要入口 |
+ * | 執行中／收束 · 任何分頁 | ✅ | 58px | HUD 要跟著你跨分頁 |
+ *
+ * 🔴 **為什麼沒有讀數就不說「開始決策」**：底座本來就算得出「尚無讀數」
+ * （`renderFdcb()` 的 idle 分支），卻仍然在旁邊邀請你開始決策 ——
+ * **App 同時在說「我不知道你的狀態」和「去做決策吧」**，那牴觸產品自己的命題
+ * （SYSTEM.md：先校準，再決策）。這不是限制使用者，是讓它說話一致：
+ * 把矛盾換成一條路（先量一次）。
+ *
+ * 🔴 **`--fdcb-h` 必須跟著改，否則視覺變了卻沒讓出高度。** 它住在 `:root`，
+ * 而 `.fdcb` 是後代改不到祖先變數 → 所以 class 下在 documentElement 上。
+ * 所有 `.snap` / `.timeline-body` / `.lab-body` / `.session-body` 的底部保留量
+ * 都是 `calc(... + var(--fdcb-h) + ...)`，會自動跟上，不必逐處改。
+ */
+function syncFdcb(){
+  const fdcb = document.getElementById('fdcb');
+  if(!fdcb) return;
+  const state = STATES[stateIdx];
+  const onToday = !!document.querySelector('.tab[data-tab="today"].active');
+  const idle = state === 'idle';
+  const root = document.documentElement;
+
+  root.classList.toggle('fdcb-idle', idle);
+  root.classList.toggle('fdcb-away', idle && !onToday);
+  fdcb.hidden = idle && !onToday;
+
+  // 閒置時的文案由「有沒有讀數」決定。
+  const timeEl = document.getElementById('fdcbTime');
+  if(idle && timeEl){
+    const hasReading = !!loadReadingV6();
+    fdcb.classList.toggle('needs-scan', !hasReading);
+    timeEl.textContent = hasReading ? '開始決策' : '先掃一次';
+  } else if(fdcb){
+    fdcb.classList.remove('needs-scan');
+  }
+}
+
+/** 閒置且沒有讀數時，點底座是去掃描，不是開始一個沒有依據的決策。 */
+function fdcbPrimaryAction(){
+  if(STATES[stateIdx] === 'idle' && !loadReadingV6()){ goTab('scan'); return; }
+  nextState();
 }
 // ── 真實決策計時器（取代假 8 秒 demo）──
 // 三段由時長推導：Observe 0–33% →（tmpl.segLabel = 核心段 / readiness / Sweet Zone）33–66% → Extended 66–100%。
@@ -3519,7 +3591,8 @@ function renderFdcb(){
   const segEl = document.getElementById('fdcbSeg');
   const fill = document.getElementById('fdcbFill');
   if(s === 'idle'){
-    timeEl.textContent = 'Start Decision';
+    // ⚠️ 閒置文案由 syncFdcb() 決定（要看有沒有讀數），這裡不得再寫一次 ——
+    // 兩個地方各寫一次就是各說各話的開始。
     // 🔴 這裡本來寫死 'Edge Score · 72'。72 不是任何東西算出來的 ——
     // readiness 掃描契約上就沒有 0-100 分（Hero 的分數槽也是「—」）。
     // 一個永遠不變的假分數比沒有分數更糟：它看起來像今天量到的。
@@ -3578,14 +3651,14 @@ function tickFdcb(){
 
 // marks：3 顆 dot 依 marks 點亮，check 顯示計數
 function renderMarks(){
-  const evts = document.querySelector('.fdcb-evts');
-  if(!evts) return;
-  const dots = evts.querySelectorAll('.dot');
-  const check = evts.querySelector('.check');
+  const check = document.getElementById('fdcbMarks');
+  if(!check) return;
   const n = sess ? sess.marks : 0;
-  dots.forEach((d, i) => d.classList.toggle('on', i < n));
-  if(n > 0){ check.classList.remove('empty'); check.textContent = String(n); }
-  else { check.classList.add('empty'); check.textContent = '+'; }
+  // 🔴 0 也顯示「0」而不是「+」。先前的 `+` 是**假的可按** —— `logEvent()` 在
+  // 非 running 時直接 return，按了什麼都不會發生。現在整組只在 running 出現
+  // （CSS 擋掉 idle/complete），所以顯示的時候它一定是真的可按，0 就是真的 0。
+  check.textContent = String(n);
+  check.classList.toggle('empty', n === 0);
 }
 
 // ── 收束：判定 outcome（鏡射 domain/decision-alert resolveOutcomeTag）+ 存進統一 store ──
@@ -4003,9 +4076,14 @@ function renderHeroReading(){
   if(!r){
     // 沒有讀數才留空槽 —— 這時候「—」是對的，它就是在說「還沒量」。
     if(scoreEl){ scoreEl.textContent = '—'; scoreEl.classList.remove('band'); scoreEl.style.color = ''; }
-    zoneEl.textContent = '尚無讀數 · 到 Scan 掃一次';
+    // ⚠️ 進度也要接在這一條 —— 上一刀把它併進狀態行時**只接了「有讀數」那條分支**，
+    // 於是沒有讀數時「基線 n/30」整個消失。而第一次開啟 App 的人正是最需要看到
+    // 它的人：那是他唯一看得到的「這件事在前進」。
+    zoneEl.textContent = '尚無讀數 · 到 Scan 掃一次'
+      + (maturity.text ? ' · ' + maturity.text : '');
     zoneEl.style.color = '';
     if(confEl) confEl.hidden = true;
+    syncFdcb(); // 讀數沒了／還沒有 → 底座要說「先掃一次」
     return false;
   }
   const stale = Date.now() - r.ts >= READING_FRESHNESS_MS_V6;
@@ -4056,6 +4134,7 @@ function renderHeroReading(){
     confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + '　·　提升精度 ›';
     confEl.hidden = false;
   }
+  syncFdcb(); // 讀數變了 → 底座從「先掃一次」變成「開始決策」
   return true;
 }
 
@@ -4139,6 +4218,7 @@ function selectSource(el){
 }
 
 renderFdcb();
+syncFdcb(); // 開機也要跑一次 —— 初始是 idle，文案要看有沒有讀數
 
 // ═════════════════════════════════════════════════
 // Session 頁 — 由統一決策 store 驅動（tenki.alert.outcomes.v1）
@@ -4335,7 +4415,7 @@ function openSessionDetail(ts){
   icEl.innerHTML = ICON_SVG[m.icon] || ICON_SVG.heart;
   document.getElementById('sdOutcomeHeadline').textContent = outcomeTextV6(rec.outcomeTag);
   document.getElementById('sdOutcomeSub').textContent =
-    readinessCellV6(rec, m) + ' · ' + marks + ' marks';
+    readinessCellV6(rec, m) + ' · ' + marks + ' 個事件';
 
   // Segment track（三段由 durationSec 推導）
   document.getElementById('sdSegDur').textContent = fmtDur(dur);
@@ -5019,6 +5099,21 @@ function closeSessionDetail(){
       @media (max-height:680px){
         #today-screen .hero{min-height:32vh;}
         #today-screen .snap > .coach-card{display:none;}
+      }
+      /* 🔴 680–780：Snapshot 的線圖會落到 FDCB 底座之下（founder 2026-08-12 實走）。
+         量到的：700px 高時被蓋 54px、740px 時 14px；660 以下反而是 0，
+         因為上面那條規則已經把教練卡收起來了 —— **問題出在那條規則的門檻設低了
+         約 100px**，不是新的取捨。
+
+         這裡不刪內容、只換順序：`.snap` 是 flex column，把教練卡排到 Snapshot
+         之後，線圖立刻全露（實測 700/740 都歸零）。
+         ⚠️ 教練卡的文案本來就是讀數的**後續說明**（「掃描當下你是穩的…」），
+         排在 Snapshot 之後資訊順序其實更順 —— 這不是妥協。
+         ⚠️ 只在這一段換位；高螢幕視覺完全不變（founder：「視覺儘量採用原本的」）。
+         ⚠️ 不縮環 —— CLAUDE.md 鎖定「短視窗不得縮環，改成讓畫面捲動」。 */
+      @media (min-height:681px) and (max-height:780px){
+        #today-screen .snap > *{order:0;}
+        #today-screen .snap > .coach-card{order:9;}
       }
     </style>
     <script>
