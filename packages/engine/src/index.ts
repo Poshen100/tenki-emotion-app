@@ -213,6 +213,27 @@ export {
 
 export type { HapticStep, HapticPattern, PulseEvent, PulseProfile } from './haptics/haptics';
 
+// ─── Analytics: AI Coach ────────────────────
+export {
+  COACH_INSIGHT_SUBJECTS,
+  COACH_PHASES,
+  COACH_PHASE_LABEL_GATES,
+  COACH_RENDER_FAILURES,
+  P1_INSIGHT_TEMPLATES,
+  isPhaseUnlocked,
+  renderInsight,
+} from './analytics/coach-insight';
+
+export type {
+  CoachInsightSlots,
+  CoachInsightSubject,
+  CoachInsightTemplate,
+  CoachPhase,
+  CoachRenderFailure,
+  CoachRenderResult,
+  RenderedCoachInsight,
+} from './analytics/coach-insight';
+
 // ─── Legacy Adapter ─────────────────────────
 export {
   teiToEdgeScoreApprox,
