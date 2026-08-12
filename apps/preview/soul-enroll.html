@@ -266,6 +266,8 @@
     }
     #hud.on { opacity: 0.82; }
     .hud-tag { position: absolute; text-shadow: 0 0 8px rgba(0,240,255,0.5); }
+    #bx-seed { margin-top: 8px; font-size: 11px; letter-spacing: 0.06em; color: rgba(0,240,255,0.68); }
+    #bx-seed b { font-weight: 700; color: rgba(0,240,255,0.95); }
     #hud-brand { top: 26px; left: 22px; display: flex; flex-direction: column; gap: 4px; }
     #hud-brand b { font-size: 12px; letter-spacing: 2px; color: #d8fbff; font-weight: 700; }
     #hud-brand span { color: var(--text-tertiary); }
@@ -600,6 +602,11 @@
           <li>Distance</li>
           <li id="bx-blink" hidden>Blink cadence</li>
         </ul>
+        <!-- 🔴 這一行是 founder 2026-08-12「建立基線卻沒有讀數好像怪怪的」的答案：
+             整場仍然**不給帶位**（North Star §3 第 6 步），但 neutral 那一段的
+             量測會成為 baseline 的第一筆樣本 —— 使用者不是白做一場。
+             量不到（幀數不足／沒有 landmark）就整行不顯示，不寫一個假的進度。 -->
+        <div id="bx-seed" hidden>基線已開始 · 第 <b id="bx-seed-n">1</b> 筆</div>
       </div>
       <div id="meter"><div id="meter-fill"></div></div>
       <button id="cta" data-action="begin">Begin</button>
@@ -733,8 +740,10 @@
     </div>
   </div>
 
+  <!-- ⚠️ 必須在 soul-enroll.js 之前：seedTracker 在模組載入當下就初始化。 -->
+  <script src="face-stillness.js?v=fs1"></script>
   <script src="blink-cadence.js?v=blink2"></script>
-  <script src="soul-enroll.js?v=blink1"></script>
+  <script src="soul-enroll.js?v=se-seed1"></script>
   <script src="soul-onboarding.js"></script>
   <!-- Stardust orb for the hero gate (same engine as /story/ and /v3/; auto-binds #universe.
        Consumes the module THREE this page already exposes on window — r160 satisfies its r128+ floor.

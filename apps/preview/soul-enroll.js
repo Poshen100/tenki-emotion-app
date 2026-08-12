@@ -226,6 +226,51 @@
   const easeOut = (t) => 1 - Math.pow(1 - t, 3);
   const now = () => performance.now();
 
+  // ── 基線種子：把 neutral 那一段的量測留下來 ────────────────────────
+  //
+  // founder 2026-08-12：「建立臉部基線卻沒有讀數好像怪怪的」。
+  // 整場**仍然不給帶位**（North Star §3 第 6 步：不直接給分數，而且 arc 階段
+  // 要求轉頭，拿它算狀態是範疇錯誤）—— 但 neutral 那 3.6 秒的任務跟日常掃描
+  // 完全相同，所以它可以、也應該成為 baseline 的第一筆樣本。
+  //
+  // 🔴 在此之前，enrollment 是這個產品品質最高的一次量測（最長、閘門最嚴、
+  // 多角度），卻只存了眨眼節奏四個數字，其餘全部丟掉。
+  const SEED_KEY = 'tenki.baseline.seed.v1';
+  /** 種子至少要這麼多幀才算數 —— 太少的話平均值只是雜訊。 */
+  const SEED_MIN_FRAMES = 8;
+  const seedTracker = (window.TENKI_FACE_STILLNESS)
+    ? window.TENKI_FACE_STILLNESS.createTracker()
+    : null;
+
+  /**
+   * 把 neutral 段的量測寫成 baseline 的第一筆樣本。
+   *
+   * ⚠️ 這是**一筆**樣本，不是多筆：3.6 秒內的幀高度自相關，切成好幾筆會是
+   * 假的獨立性，而那正好會灌爆 z 分數的分母（使用者自己的標準差）。
+   * ⚠️ 也**不會**讓使用者提早看到分數 —— `MIN_SAMPLES_FOR_SCORE` 仍是 14。
+   * 它的作用只是「第一天不白做」。
+   *
+   * @returns {?number} 寫入的 composite；幀數不足或沒有 tracker 時 null。
+   */
+  function saveBaselineSeed() {
+    if (!seedTracker) return null;
+    const mean = seedTracker.mean();
+    if (mean === null || seedTracker.count() < SEED_MIN_FRAMES) return null;
+    // person-signal composite：這一段沒有眨眼基線可用（它正在被建立），
+    // 所以 composite 就是 stillness 本身 —— 與 baseline-score.ts 的
+    // `blinkCadence === null` 分支一致。**不得把亮度/均勻度算進來**（那是房間）。
+    const composite = Math.round(mean * 1e4) / 1e4;
+    try {
+      window.localStorage.setItem(SEED_KEY, JSON.stringify({
+        composite,
+        frames: seedTracker.count(),
+        source: 'enrollment-neutral',
+        at: Date.now(),
+      }));
+    } catch (e) { return composite; } // 無痕模式：這一輪照樣顯示，只是不留存
+    return composite;
+  }
+
   function hexToRgb(h) {
     const n = parseInt(h.slice(1), 16);
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
@@ -1058,6 +1103,16 @@
   }
 
   function ingestLandmarks(L, res) {
+    // 🔴 只在 neutral_capture 累積 landmark 位移穩定度。
+    // arc 階段**要求使用者轉頭**（motion 門檻放寬到 0.62），把它算進去等於把
+    // 「你有沒有照指示做」當成「你今天的狀態」—— 範疇錯誤。
+    // neutral 的任務（自然直視、要求靜止）跟日常掃描完全相同，是唯一可比的一段。
+    //
+    // ⚠️ 用共用的 face-stillness.js，**不是**下面那個質心：兩邊必須同一種尺度，
+    // 否則基線與讀數不同尺度，z 分數會看起來正常而默默是錯的。
+    if (state.step === 'neutral_capture' && seedTracker) {
+      seedTracker.feed(L, now());
+    }
     const N = L.length;
     m3d.N = N;
     let cx = 0, cy = 0, cz = 0, minx = 1, maxx = 0, miny = 1, maxy = 0;
@@ -1486,6 +1541,9 @@
       // earned row: only shown when a real blink-cadence baseline was measured + saved
       const bxBlink = document.getElementById('bx-blink');
       if (bxBlink) bxBlink.hidden = !state.blinkEarned;
+      // 種子那一行：真的存到才顯示。沒存到就整行不出現 —— 不寫假的進度。
+      const bxSeed = document.getElementById('bx-seed');
+      if (bxSeed) bxSeed.hidden = (state.seedComposite === null || state.seedComposite === undefined);
     }
     setCta(ctaForStep(step));
     if (ph.confirmed) haptic([18, 40, 90]);
@@ -1647,6 +1705,7 @@
         if (pp >= 1) {
           stopCamera();
           saveBlinkBaseline();
+          state.seedComposite = saveBaselineSeed();
           updateConfidenceCopy();
           go('baseline_confirmed');
         }

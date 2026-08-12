@@ -467,6 +467,63 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   await ctx.close();
 }
 
+// ══════════════════════════════════════════════════════════════════
+// 🔴 face-stillness.js —— 兩支掃描共用的「同一把尺」
+//
+// Edge Score 是 z 分數，分母是使用者自己的標準差。基線用一種尺度建、讀數用
+// 另一種尺度量，分數會看起來完全正常而**默默是錯的** —— 比明顯壞掉危險得多。
+// 這一組守的就是「兩邊真的用同一把尺」。
+// ══════════════════════════════════════════════════════════════════
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto(`${base}/preview/reliability.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(400);
+
+  const fs = await page.evaluate(() => {
+    const S = window.TENKI_FACE_STILLNESS;
+    if (!S) return null;
+    // 質心 vs bbox 中心會分岔的形狀：右半邊點特別密。
+    const lm = [
+      { x: 0.2, y: 0.2 }, { x: 0.8, y: 0.8 },
+      { x: 0.75, y: 0.75 }, { x: 0.78, y: 0.72 }, { x: 0.76, y: 0.79 },
+    ];
+    const box = S.faceBox(lm);
+    const c = S.boxCenter(box);
+    const centroid = {
+      x: lm.reduce((a, p) => a + p.x, 0) / lm.length,
+      y: lm.reduce((a, p) => a + p.y, 0) / lm.length,
+    };
+    const t = S.createTracker();
+    const first = t.feed(lm, 1000);
+    const second = t.feed(lm, 1180); // 完全沒動
+    const moved = S.stillnessBetween({ x: 0.5, y: 0.5 }, { x: 0.5 + 0.35 * 0.18, y: 0.5 }, 180);
+    return {
+      ceiling: S.LANDMARK_MOTION_CEILING,
+      center: [Math.round(c.x * 1e6) / 1e6, Math.round(c.y * 1e6) / 1e6],
+      centroidDiffers: Math.abs(c.x - centroid.x) > 1e-6,
+      first,
+      second,
+      movedBelowOne: moved < 1,
+      emptyMean: S.createTracker().mean(),
+      noBox: S.faceBox([]),
+    };
+  });
+
+  check('face-stillness 有載到（前提）', fs !== null, true);
+  check('位移上限是兩邊共用的 0.35', fs.ceiling, 0.35);
+  // 🔴 用 bbox 中心而不是質心 —— 質心會被密集區拉偏，兩邊必須挑定同一種。
+  check('🔴 中心取的是 bbox 而不是質心', fs.center, [0.5, 0.5]);
+  check('這組輸入下質心確實會不一樣（不然上一條驗不到東西）', fs.centroidDiffers, true);
+  // 🔴 第一幀沒有前一幀可比 —— 那是「未知」不是「完全靜止」。
+  check('🔴 第一幀回 null 而不是 1（沒有位移可算 ≠ 完全靜止）', fs.first, null);
+  check('沒動的第二幀 stillness 是 1', fs.second, 1);
+  check('有位移時 stillness 掉下來', fs.movedBelowOne, true);
+  check('🔴 一幀都沒有時平均是 null，不是 0', fs.emptyMean, null);
+  check('沒有特徵點時回 null，不是一個空盒子', fs.noBox, null);
+  await ctx.close();
+}
+
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
 await browser.close();
 server.close();
