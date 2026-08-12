@@ -180,3 +180,49 @@ export {
 } from './policies/readiness-band';
 
 export type { BandDisciplineStat, ReadingGate } from './policies/readiness-band';
+
+export {
+  BENCHMARK_CLARITY_BANDS,
+  BENCHMARK_COHORT_DIMENSIONS,
+  BENCHMARK_K_THRESHOLD,
+  BENCHMARK_MATURITY_STAGES,
+  BENCHMARK_ROLLOUT_STAGES,
+  BENCHMARK_TIME_BUCKETS,
+  ENVELOPE_REJECTION_REASONS,
+  FORBIDDEN_ENVELOPE_FIELDS,
+  ROLLOUT_STAGE_DIMENSIONS,
+  buildCohortKey,
+  isCohortEligible,
+  validateEnvelope,
+} from './contracts/benchmark-contract';
+
+export type {
+  AnonymousBenchmarkEnvelope,
+  BenchmarkClarityBand,
+  BenchmarkCohortDimension,
+  BenchmarkCohortDistribution,
+  BenchmarkCohortKey,
+  BenchmarkComparisonResult,
+  BenchmarkMaturityStage,
+  BenchmarkRolloutStage,
+  BenchmarkTimeBucket,
+  EnvelopeRejectionReason,
+  EnvelopeValidation,
+} from './contracts/benchmark-contract';
+
+export {
+  MAX_UPLOADS_PER_DAY,
+  MIN_UPLOAD_INTERVAL_MS,
+  PARTICIPATION_BLOCKERS,
+  UPLOAD_BUFFER_HOURS,
+  canContribute,
+  isBufferDue,
+  isThrottled,
+  resolveComparison,
+} from './policies/benchmark-policy';
+
+export type {
+  BenchmarkParticipationState,
+  ParticipationBlocker,
+  ParticipationDecision,
+} from './policies/benchmark-policy';
