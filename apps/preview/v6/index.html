@@ -867,6 +867,7 @@ body{
 .tl-strip-legend .lg.good{background:var(--good)}
 .tl-strip-legend .lg.pri{background:var(--primary)}
 .tl-strip-legend .lg.loss{background:#ff7e76}
+.tl-strip-legend .lg-note{color:var(--txt-dim);margin-left:auto}
 
 .tl-empty{display:none;flex-direction:column;align-items:center;text-align:center;padding:36px 20px 16px;gap:8px}
 .tl-empty.show{display:flex}
@@ -1445,7 +1446,7 @@ body{
 @media (prefers-reduced-motion: reduce){
   .fdcb.in-readiness, .fdcb.state-complete.closure-disciplined, .fdcb.state-complete.closure-broke{animation:none}
   .fdcb-fill{transition:none}
-  .fdcb-evts .dot{transition:none}
+  .fdcb-mark{transition:none}
 }
 
 .fdcb.state-idle .fdcb-time{
@@ -1466,28 +1467,33 @@ body{
 .fdcb.state-complete.closure-broke .fdcb-time{color:#FF9F0A;text-shadow:0 0 16px rgba(255,159,10,0.35)}
 .fdcb.state-complete.closure-broke .fdcb-time::before{content:''}
 
-.fdcb-evts{
-  flex:0 0 auto;display:flex;align-items:center;gap:5px;
-  padding:8px 12px 8px 8px;margin:4px 4px 4px 2px;
-  border-radius:12px;cursor:pointer;transition:background 0.3s;
+/* 標記鍵 —— **只在決策進行中出現**。idle 沒有 session，標記無處可掛，
+   一顆按下去沒反應的鍵就是「做一半」本身。
+   🔴 計數不得用 --good 綠：綠在這個產品裡是「跟著流程完成」的語意色
+   （見 CLAUDE.md 顏色所有權那條），而標記數只是「你按了幾次」，不是結果。
+   舊版那顆綠色數字膠囊等於在決策還沒收束時就先亮起「good」。 */
+.fdcb-mark{
+  flex:0 0 auto;display:none;align-items:center;gap:4px;
+  padding:7px 9px;margin:4px 6px 4px 2px;
+  border-radius:12px;cursor:pointer;
+  background:transparent;
+  border:1px dashed rgba(255,255,255,0.22);
+  color:rgba(255,255,255,0.6);
+  font-size:10px;font-weight:600;letter-spacing:0.06em;
+  font-family:inherit;
+  transition:background 0.3s, border-color 0.3s, color 0.3s;
 }
-.fdcb-evts:active{background:rgba(255,255,255,0.04)}
-.fdcb-evts .dot{
-  width:5px;height:5px;border-radius:50%;
-  background:var(--txt-dim);
-  transition:all 0.4s var(--ease-calm);
+.fdcb.state-running .fdcb-mark{display:flex}
+.fdcb-mark:active{background:rgba(255,255,255,0.06)}
+.fdcb-mark .mk-plus{font-size:12px;line-height:1}
+.fdcb-mark .mk-n{
+  min-width:16px;height:16px;padding:0 3px;border-radius:8px;
+  background:rgba(255,255,255,0.16);color:#fff;
+  font-size:10px;line-height:16px;text-align:center;
+  font-variant-numeric:tabular-nums;
 }
-.fdcb-evts .dot.on{background:#fff;box-shadow:0 0 5px rgba(255,255,255,0.5)}
-.fdcb-evts .check{
-  width:22px;height:22px;border-radius:50%;
-  background:var(--good);
-  display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:700;color:#000;
-  box-shadow:0 0 10px rgba(52,199,89,0.45);
-}
-.fdcb-evts .check.empty{
-  background:transparent;color:rgba(255,255,255,0.35);
-  border:1.2px dashed rgba(255,255,255,0.2);box-shadow:none;
+.fdcb-mark.has-marks{
+  border-style:solid;border-color:rgba(255,255,255,0.28);color:#fff;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2395,6 +2401,9 @@ body{
             <span><i class="lg good"></i>跟著流程</span>
             <span><i class="lg pri"></i>完整走完</span>
             <span><i class="lg loss"></i>提前收束</span>
+            <!-- 點的**大小**吃 marks（r = 3 + min(marks,6)*0.7），先前完全沒有圖例，
+                 於是「為什麼有的點比較大」在畫面上無法回答。 -->
+            <span class="lg-note">點越大 · 標記越多</span>
           </div>
         </div>
 
@@ -2482,7 +2491,7 @@ body{
         <div class="sd-outcome-ic" id="sdOutcomeIc"></div>
         <div class="sd-outcome-txt">
           <div class="sd-outcome-headline" id="sdOutcomeHeadline">跟著流程完成</div>
-          <div class="sd-outcome-sub" id="sdOutcomeSub">達 Breathe · 0 marks</div>
+          <div class="sd-outcome-sub" id="sdOutcomeSub">達 Breathe · 0 個標記</div>
         </div>
       </div>
 
@@ -2504,7 +2513,7 @@ body{
       <div class="card sd-facts">
         <div class="sd-fact"><div class="k">用時</div><div class="v" id="sdFactDur">3:00</div></div>
         <div class="sd-fact"><div class="k">Readiness</div><div class="v" id="sdFactReadiness">已進入</div></div>
-        <div class="sd-fact"><div class="k">Marks</div><div class="v" id="sdFactMarks">0</div></div>
+        <div class="sd-fact"><div class="k">標記</div><div class="v" id="sdFactMarks">0</div></div>
       </div>
 
       <!-- Insight（事實語言）-->
@@ -2540,12 +2549,18 @@ body{
         <div class="seg-ext" style="width:34%"></div>
       </div>
     </div>
-    <div class="fdcb-evts" onclick="logEvent()">
-      <div class="dot on"></div>
-      <div class="dot on"></div>
-      <div class="check empty">+</div>
-      <div class="dot"></div>
-    </div>
+    <!-- 標記：決策進行中按一下，記下「這一刻值得回頭看」。
+         🔴 舊版是三顆沒有名字的圓點 + 一顆綠色數字膠囊，DOM 順序還是
+         dot,dot,[+],dot —— 第三顆亮起來的點會出現在 + 的**右邊**，
+         而且 idle 時按下去完全沒有反應。founder 實走一句
+         「不知道它右側的點點按的數字代表什麼意思」（2026-08-12）。
+         現在：有名字、有計數、只在跑決策時出現、按下去段標籤會回報記在第幾分幾秒。 -->
+    <button type="button" class="fdcb-mark" id="fdcbMark" onclick="logEvent()"
+            title="決策進行中按一下，記下值得回頭看的一刻" aria-label="標記這一刻">
+      <span class="mk-plus" aria-hidden="true">+</span>
+      <span class="mk-lbl">標記</span>
+      <span class="mk-n" id="fdcbMarkN" hidden>0</span>
+    </button>
   </div>
 
   <!-- ═══════ TAB BAR ═══════ -->
@@ -3484,6 +3499,7 @@ function renderFdcb(){
     const b = segBounds(tmpl.durationSec);
     sess = { templateId: currentTmpl, name: tmpl.name, rs: b.rs, re: b.re, reachedReadiness: false, marks: 0 };
     elapsed = 0;
+    markFlashUntil = 0;
     renderMarks();
     tickFdcb();
     if(runningInterval) clearInterval(runningInterval);
@@ -3503,6 +3519,10 @@ function renderFdcb(){
   }
 }
 
+// 按下「標記」後，段標籤讓位給回報訊息這麼久（tickFdcb 每秒會搶回去寫）
+const MARK_FLASH_MS = 1600;
+let markFlashUntil = 0;
+
 // 每秒繪製：時間 mm:ss / 總長 + 填充 + 當前段 + readiness 偵測
 function tickFdcb(){
   const tmpl = TEMPLATES[currentTmpl];
@@ -3512,23 +3532,25 @@ function tickFdcb(){
   const fill = document.getElementById('fdcbFill');
   timeEl.textContent = fmtClock(elapsed) + ' / ' + fmtDur(tmpl.durationSec);
   const ph = phaseFor(elapsed, tmpl);
-  segEl.textContent = ph;
+  if(Date.now() >= markFlashUntil) segEl.textContent = ph;
   if(fill) fill.style.width = Math.min(elapsed / tmpl.durationSec * 100, 100) + '%';
   const inReadiness = (ph === tmpl.segLabel);
   fdcb.classList.toggle('in-readiness', inReadiness);
   if(inReadiness && sess) sess.reachedReadiness = true;
 }
 
-// marks：3 顆 dot 依 marks 點亮，check 顯示計數
+// 標記計數：0 = 虛線框只寫「＋ 標記」，>0 才長出數字。
+// ⚠️ 舊版用三顆 dot 表示數量，但計數會超過 3（實測按 4 下 → 三顆全亮、
+// 膠囊寫 4），而且第三顆 dot 在 DOM 裡排在 + 的後面。數字沒有上限問題。
 function renderMarks(){
-  const evts = document.querySelector('.fdcb-evts');
-  if(!evts) return;
-  const dots = evts.querySelectorAll('.dot');
-  const check = evts.querySelector('.check');
+  const btn = document.getElementById('fdcbMark');
+  const nEl = document.getElementById('fdcbMarkN');
+  if(!btn || !nEl) return;
   const n = sess ? sess.marks : 0;
-  dots.forEach((d, i) => d.classList.toggle('on', i < n));
-  if(n > 0){ check.classList.remove('empty'); check.textContent = String(n); }
-  else { check.classList.add('empty'); check.textContent = '+'; }
+  nEl.hidden = n === 0;
+  nEl.textContent = String(n);
+  btn.classList.toggle('has-marks', n > 0);
+  btn.setAttribute('aria-label', n === 0 ? '標記這一刻' : '標記這一刻，已標記 ' + n + ' 次');
 }
 
 // ── 收束：判定 outcome（鏡射 domain/decision-alert resolveOutcomeTag）+ 存進統一 store ──
@@ -3820,9 +3842,15 @@ function exportOutcomesCsv(){
 }
 
 function logEvent(){
-  if(STATES[stateIdx] !== 'running' || !sess) return; // marks 只在跑決策時記
+  // 這顆鍵在 idle 根本不出現（CSS `.fdcb.state-running .fdcb-mark{display:flex}`），
+  // 所以這道 guard 現在只是防呆 —— 舊版是「鍵一直在，按下去靜靜地什麼都不做」。
+  if(STATES[stateIdx] !== 'running' || !sess) return;
   sess.marks += 1;
+  markFlashUntil = Date.now() + MARK_FLASH_MS;
   renderMarks();
+  // 段標籤借用 1.6 秒回報「剛剛那一下記在第幾分幾秒」。
+  // 舊版按下去只有一顆點亮起來，沒有任何一個字告訴你那代表什麼。
+  document.getElementById('fdcbSeg').textContent = '已標記 ' + sess.marks + ' · ' + fmtClock(elapsed);
 }
 
 // ═════════════════════════════════════════════════
@@ -4197,7 +4225,7 @@ function openSessionDetail(ts){
   icEl.innerHTML = ICON_SVG[m.icon] || ICON_SVG.heart;
   document.getElementById('sdOutcomeHeadline').textContent = outcomeTextV6(rec.outcomeTag);
   document.getElementById('sdOutcomeSub').textContent =
-    readinessCellV6(rec, m) + ' · ' + marks + ' marks';
+    readinessCellV6(rec, m) + ' · ' + marks + ' 個標記';
 
   // Segment track（三段由 durationSec 推導）
   document.getElementById('sdSegDur').textContent = fmtDur(dur);
