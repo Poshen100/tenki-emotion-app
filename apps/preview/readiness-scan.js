@@ -401,11 +401,33 @@
       'color:#6E778F;letter-spacing:0.04em;margin-top:3px;',
       'font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;',
       'font-variant-numeric:tabular-nums;}',
+      // 「本次納入 / 未納入」—— 儀器最誠實的一段：它同時說出**量到了什麼**
+      // 和**沒量到什麼**。founder 2026-08-12 的規格。
+      // 🔴 未納入那一欄比納入那一欄重要：一台只講自己做得到什麼的儀器，
+      // 使用者永遠不知道該把結果信到什麼程度。
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs{display:grid;',
+      'grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:10px;text-align:left;',
+      'font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;}',
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs h4{margin:0 0 3px;font-size:9.5px;',
+      'font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#59627A;}',
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs ul{margin:0;padding:0;list-style:none;}',
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs li{font-size:10px;line-height:1.55;',
+      'letter-spacing:0.01em;position:relative;padding-left:9px;}',
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs li::before{position:absolute;left:0;top:0;}',
+      // 納入 = 實線點；未納入 = 空心點。形狀本身就分得出來，不靠顏色
+      // （顏色在這個產品裡另有指派意義，不該再被借去當清單樣式）。
+      '#' + OVERLAY_ID + ' .rs-in li{color:#9AA3BA;}',
+      '#' + OVERLAY_ID + ' .rs-in li::before{content:"\\2022";}',
+      '#' + OVERLAY_ID + ' .rs-out li{color:#646C82;}',
+      '#' + OVERLAY_ID + ' .rs-out li::before{content:"\\25E6";}',
       // ⚠️ `hidden` 屬性只是作者樣式 `display:none`，**會被任何 display 宣告蓋掉**。
       // .rs-instruction 是 inline-flex、.rs-dots 是 flex —— 沒有這兩條，
       // 設了 hidden 也照樣顯示（2026-08-09 截圖當場抓到：揭曉時膠囊還在叫你把臉放進框裡）。
       '#' + OVERLAY_ID + ' .rs-instruction[hidden],',
       '#' + OVERLAY_ID + ' .rs-dots[hidden],',
+      // ⚠️ .rs-verdict-inputs 是 display:grid —— 同一個坑，同一條解法。
+      // 訊號不足（giveUp）時這一區必須真的消失，否則會出現一個空的「本次納入」。
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs[hidden],',
       '#' + OVERLAY_ID + ' .rs-verdict-fact[hidden]{display:none;}',
       '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-verdict{visibility:visible;opacity:1;',
       'animation:rs-verdict-in 1.4s ' + EASE_SECURE + ' 1;}',
@@ -555,6 +577,10 @@
       '  <div class="rs-verdict-fact" data-rs="verdict-fact" hidden>',
       '    <div class="rs-verdict-spec" data-rs="verdict-spec"></div>',
       '    <div class="rs-verdict-quality" data-rs="verdict-quality"></div>',
+      '    <div class="rs-verdict-inputs" data-rs="verdict-inputs" hidden>',
+      '      <div class="rs-in"><h4>本次納入</h4><ul data-rs="inputs-in"></ul></div>',
+      '      <div class="rs-out"><h4>本次未納入</h4><ul data-rs="inputs-out"></ul></div>',
+      '    </div>',
       '  </div>',
       // 完成鈕：揭曉之後**唯一的出口**（enterReveal 會收起取消鈕）。
       // ⚠️ listener 與 cancel 一樣在注入當下就綁 —— 見下方 addEventListener。
@@ -1431,6 +1457,7 @@
     if (bandEl) bandEl.textContent = band;
     if (specEl) specEl.textContent = fact.spec;
     if (qualityEl) qualityEl.textContent = fact.quality;
+    renderInputs(fact.inputs || null);
     var frame = q('frame');
     if (frame) frame.classList.add('revealed');
     // 完成鈕住在 .rs-stage、跟框是兄弟，所以「這一輪有沒有收束成功」得標在
@@ -1483,7 +1510,76 @@
       quality.push('穩定度 ' + Math.round(evidence.stillness * 100) + '%');
     }
     quality.push(CONFIDENCE_LABEL[resolveConfidence(evidence)]);
-    return { spec: spec, quality: quality.join(' · ') };
+    return { spec: spec, quality: quality.join(' · '), inputs: verdictInputs(evidence) };
+  }
+
+  /**
+   * 「本次納入 / 本次未納入」（founder 2026-08-12 規格）。
+   *
+   * 🔴 **納入欄只能列 evidence 裡真的有值的欄位。** 不得因為程式碼有這個欄位
+   * 就把它列上去 —— 那就是換一個地方宣稱沒發生的事。`blinkCadence` 為 null
+   * （還沒有臉部基線可比）時它必須落到**未納入**，不是消失。
+   *
+   * 🔴 每一項要說出它**通到哪裡**，因為那三條路不一樣：穩定度與眨眼節律進基線
+   * （會影響分數），影像品質只決定信心（那是房間不是人，見
+   * `docs/EDGE-SCORE-DEFINITION.md` §3.1）。不標的話使用者會以為房間亮一點分數就高。
+   *
+   * ⚠️ 未納入的理由要講**現在為什麼沒有**，不得寫成「即將開放」那種暗示已在
+   * 路上的話 —— 那是承諾，不是事實，而這一區的全部價值就在於它只說事實。
+   *
+   * ⚠️ Tier B 一個 landmark 字眼都不能有（同 `verdictFact` 的規矩）：
+   * 那條路走的是整幀啟發式，根本沒有臉部特徵點。
+   *
+   * @param {{stillness:number, lighting:number, uniformity:number,
+   *          blinkCadence:?number, tier:string}} evidence - 本次掃描的證據。
+   * @returns {{included:Array<string>, excluded:Array<string>}}
+   */
+  function verdictInputs(evidence) {
+    var included = [];
+    var excluded = [];
+    if (typeof evidence.stillness === 'number') {
+      included.push(evidence.tier === 'A'
+        ? '臉部特徵點穩定度 · 進基線'
+        : '畫面動態穩定度 · 進基線');
+    }
+    if (typeof evidence.blinkCadence === 'number') {
+      included.push('眨眼節律 · 進基線');
+    } else {
+      excluded.push('眨眼節律 · 尚未建立臉部基線');
+    }
+    if (typeof evidence.lighting === 'number' && typeof evidence.uniformity === 'number') {
+      included.push('影像品質 · 只決定信心');
+    }
+    // 這兩項在**任何** tier 都量不到：瀏覽器沒有接觸式感測器，也沒有連任何來源。
+    excluded.push('心率 / HRV · 需接觸式或穿戴感測器');
+    excluded.push('睡眠與恢復 · 未連接來源');
+    return { included: included, excluded: excluded };
+  }
+
+  /**
+   * 把清單填進去。空陣列 → 整區收起（不留一個空的欄位標題）。
+   *
+   * @param {?{included:Array<string>, excluded:Array<string>}} inputs
+   */
+  function renderInputs(inputs) {
+    var wrap = q('verdict-inputs');
+    if (!wrap) return;
+    if (!inputs || !inputs.included.length) {
+      wrap.hidden = true;
+      return;
+    }
+    var fill = function (el, items) {
+      if (!el) return;
+      el.textContent = '';
+      for (var i = 0; i < items.length; i++) {
+        var li = document.createElement('li');
+        li.textContent = items[i];
+        el.appendChild(li);
+      }
+    };
+    fill(q('inputs-in'), inputs.included);
+    fill(q('inputs-out'), inputs.excluded);
+    wrap.hidden = false;
   }
 
   /** 收束：算出讀數 → 存檔 → 揭示 → 等使用者收下。 */
@@ -2014,5 +2110,12 @@
      * @returns {boolean} 這一幀是否被「按住」允許前進。
      */
     holdSatisfied: holdSatisfied,
+    /**
+     * 🔴 同樣是為了可驗證性：harness 沒有相機，`finalize()` 不會跑，所以
+     * 「納入欄不得列出量不到的東西」這條**只驗 DOM 是驗不到的**。純函式，
+     * 直接餵 evidence 就能斷言。
+     * @returns {{included:Array<string>, excluded:Array<string>}}
+     */
+    verdictInputs: verdictInputs,
   };
 })(window);
