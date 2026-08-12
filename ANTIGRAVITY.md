@@ -320,10 +320,10 @@ npm run ios
 
 ---
 
-# TENKI CORE — ANTIGRAVITY MASTER BLUEPRINT v4.1
+# TENKI CORE — ANTIGRAVITY MASTER BLUEPRINT v4.2
 
-> **最後更新**：2026-06-12
-> **版本**：v4.1
+> **最後更新**：2026-08-12
+> **版本**：v4.2（v4.1 + Section 13 Growth Architecture 全面改寫）
 > **狀態**：Active — Canonical Source of Truth
 > **維護者**：Founder + Autonomous Agents
 
@@ -947,28 +947,140 @@ Scan 是 TENKI 的**核心互動動詞**。使用者每次使用 TENKI 的起點
 | 數據刪除 / 匯出 | 隱私權利永不付費 |
 | 基本歷史 (7 天) | 最低限度的自我追蹤 |
 | 多巴胺狀態日誌 | 自我覺察是基本功能 |
+| **Edge Snapshot 分享** | 付費牆擋住分享 = 掐死病毒係數（見 §13.4） |
 
 ---
 
 ## 13. Growth Architecture
 
-### 13.1 免費→付費漏斗
+> 完整設計（含指標樹、cohort 定義、AI Coach 語言規則、反模式清單）詳見
+> **`/docs/GROWTH-ARCHITECTURE.md`**。本節只保留 blueprint 層級的結論。
+
+### 13.1 Growth Flywheel
 
 ```
-下載 → Onboarding (12 步) → 首次掃描
-     → 7 天免費體驗 → 達到掃描上限
-     → Premium 轉換
+Biometric Data → Edge Score → AI Insights → Decision Reflection
+      ↑                                              ↓
+  More Data ← Daily Habit ← Personal Edge Learning ←┘
 ```
 
-### 13.2 留存機制
+核心論點：**迴圈每轉一圈，退出成本就升高一次。**
 
-| 機制 | 說明 |
+| 迴圈段 | 這一圈留下什麼 | 換到競品會損失什麼 |
+|--------|----------------|--------------------|
+| Biometric Data → Edge Score | 一個分數 | 幾乎沒有 |
+| AI Insights | 以你自己基線為參照的解釋 | 參照系歸零 |
+| Decision Reflection | 一筆 clarity 標註 | 標註無法轉移 |
+| Personal Edge Learning | baseline 成熟度前進一格 | 回到 `new`，重新累積 15+ 樣本 / 3+ 天 |
+| Daily Habit | 連續天數 | 儀式斷裂 |
+| More Data | confidence band 上升 | 分數回到低信心區 |
+
+**Baseline 成熟度是真正的鎖定點**：它是時間的函數，不是帳號資料。
+競品可以抄走 UI 與演算法，抄不走使用者已經走過的 90 天。
+
+使用者價值 ≈ `f(baseline_maturity × reflection_labels × time_bucket_coverage)` —— 乘法關係，
+任一因子為零則整體趨近零。這是 D7 為關鍵斷點的原因。
+
+### 13.2 Data Moat — Decision Performance Dataset
+
+DPD 把六種訊號綁在**同一個決策時刻**：biometrics 衍生值、多巴胺狀態自評、
+decision clarity 事後評分、時段分桶、stress proxy level、Edge Score context。
+**DPD 永不上雲**（僅裝置端 Encrypted SQLite）。
+
+三層護城河：
+
+| 層 | 內容 | 複製成本 |
+|----|------|----------|
+| **Local** | 個人 180 天的 DPD 與基線 | 成本由使用者承擔——他必須在競品上重活一次 |
+| **Aggregate** | 匿名分桶的 cohort 分布（用於校準門檻，非識別個人） | 隨 opt-in 使用者數超線性成長 |
+| **Labeling** | **生理狀態 ↔ 事後決策清晰度**的配對標註 | 最深：穿戴裝置有身體沒情境，生產力工具有情境沒身體 |
+
+Layer 3 是關鍵差異：只有 TENKI 在決策的前後兩端都問了問題。競爭者要追上，
+必須重新設計核心互動——而那等於變成 TENKI。
+
+**local-first 不削弱 moat**：信任降低採集摩擦（樣本密度更高）、
+退出成本由使用者感知（與資料存在哪台機器無關）、監管風險趨近零。
+
+### 13.3 Network Effect — 匿名 Benchmark
+
+```
+cohortKey = timeBucket × dayOfWeek × baselineMaturity × scenarioMode
+```
+
+| 規則 | 值 |
+|------|-----|
+| 上傳內容 | 只有 zone 與 band，**永遠沒有** Edge Score 數值、沒有 HR/HRV |
+| k-anonymity | cohort distinct devices < 50 → **不回傳結果**，顯示「樣本累積中」 |
+| 刻意不收錄 | 年齡、性別、地區、裝置型號（準識別風險高、收益低） |
+| 冷啟動 | 由粗到細四階開放，`benchmark_cohorts_v1` 遠端控制 |
+
+網路效應鏈：更多 opt-in → 更多 cohort 跨過 k → benchmark 對**所有人**更有用 →
+benchmark 是 Premium → 付費價值隨用戶數自我增強。
+這是 same-side network effect，且**不需要任何社群功能**。
+
+明確不做：好友、排行榜、公開個人檔案、群組挑戰（見 `/docs/GROWTH-ARCHITECTURE.md` §4.8）。
+
+### 13.4 Social Growth — Edge Snapshot
+
+分享卡只有一個數值：`Decision Readiness Today: 82` + zone 色帶 + 日期 + TENKI mark。
+所有文案在建構時跑 `findProhibitedTerms()`，非空即拒絕產生卡片。
+
+| 規則 | 說明 |
 |------|------|
-| 每日掃描習慣 | 通知提醒 + 連續天數追蹤 |
-| Baseline 成長 | 隨時間累積的個人基線讓使用者不想放棄 |
-| Session 紀錄 | 決策品質追蹤產生回顧價值 |
-| Pattern 洞察 | Premium 提供的個人模式分析 |
-| 多巴胺日誌 | 記錄自己的情緒狀態轉折點 |
+| **必須免費** | 兩個 tier 都開放。付費牆擋住分享 = 掐死病毒係數 |
+| 低分也能分享 | 只讓高分分享 = 變成炫耀，違反 wellness 定位 |
+| 絕不出現 | HRV/HR 數值、行動指示、市場字眼、醫療化描述、反思文字 |
+| 分享動機 | 身分表達（「我是會先確認自己狀態的人」），不是績效炫耀 |
+
+病毒迴圈成立的前提是**觀看者下載後很快拿到自己的數字** —— 所以首次掃描必成功
+（D1 機制）同時也是病毒迴圈的成立條件。
+
+### 13.5 AI Coach
+
+| 階段 | 能力 | 運算位置 | Tier |
+|------|------|----------|------|
+| P1 規則式 | 時段 pattern、趨勢方向 | 裝置端 | Free 基本 / Premium 完整 |
+| P2 相關性 | 睡眠 × clarity 等個人相關性 | 裝置端 | Premium |
+| P3 個人模型 | 個人化 pattern 模型 | 裝置端 | Premium |
+| P4 語言層 | 自然語言解釋 | 雲端 opt-in | Premium |
+
+洞察模板：`{觀察對象} 在 {條件} 時 {傾向動詞} {方向}。`
+
+✅「你的 decision clarity 在睡眠低於 6 小時的日子**傾向**偏低。」
+🚫「睡眠不足**會導致**你判斷失誤。」／🚫「你**應該**在上午做重要決定。」
+
+> **命名警告**：`predict` 是 `PROHIBITED_VOCABULARY` 中的禁用詞。
+> Edge Prediction Engine 是**內部模組代號**，UI 文案一律用 pattern /「傾向」。
+
+P4 隱私閘門：只送去識別化的聚合特徵向量；絕不送原始生理值、反思文字、精確時間戳；
+雲端不留存不訓練；**LLM 輸出必須再跑一次 `isCompliantCopy()` 才顯示**。
+
+### 13.6 訂閱轉換：時機式，不是額度式
+
+主要轉換觸發器不是「今日次數已用完」，而是**資料剛好成熟到能解鎖某個洞察**的那一刻：
+
+| 觸發時機 | 提示 |
+|----------|------|
+| baseline 推進到 `ready` | Personal Edge Graph |
+| 累積滿 7 天歷史 | Edge Timeline 完整版 |
+| 完成第 10 筆反思標註 | Replay 進階洞察 |
+| 所屬 cohort 跨過 k=50 | 匿名 Benchmark（此刻才真的可用） |
+| 連續 14 天 | AI Coach P2 |
+
+額度式觸發使用者情緒是挫折，時機式是好奇；後者轉換品質高且不傷留存。
+
+**North Star：WACL（每週完成完整迴圈 scan → reflection 的使用者數）**，而非 DAU ——
+只有完成反思的使用者才產生標註，而標註是最深的那層護城河。
+
+### 13.7 Feature Flags 推出順序
+
+```
+1. ai_coach_v1（P1 模板）   → 先把主留存迴圈跑順
+2. edge_snapshot_v1         → 再開病毒迴圈
+3. benchmark_cohorts_v1 S1  → 有足夠 opt-in 後才開最粗 cohort
+```
+
+順序不可顛倒：**留存迴圈跑順之前開病毒迴圈，等於把使用者灌進漏斗然後流失掉。**
 
 ---
 
@@ -988,6 +1100,7 @@ tenki-emotion-app/
 │   │       ├── baseline/     ← Welford + time buckets
 │   │       ├── scoring/      ← Edge Score, Edge Detector
 │   │       ├── session/      ← State machine, gate, templates
+│   │       ├── analytics/    ← Replay, Insight Generator, Coach insights
 │   │       ├── compliance/   ← Safe copy, notification guard
 │   │       ├── common/       ← Types, EWMA, legacy adapter
 │   │       └── legacy/       ← 舊版 TEI 模組 (deprecated)
@@ -995,6 +1108,7 @@ tenki-emotion-app/
 │       └── src/
 │           ├── copy/         ← Disclaimers, onboarding
 │           ├── feature-flags/← Feature flag system
+│           ├── growth/       ← Edge Snapshot, DPD record (§13)
 │           ├── components/   ← ParticleSphere, ResultSummary
 │           ├── zone-config.ts
 │           ├── subscription-tiers.ts
@@ -1063,6 +1177,26 @@ tenki-emotion-app/
 - [ ] Terms of Service 頁面
 - [ ] TestFlight 測試
 - [ ] App Store 提交
+
+### Phase E — Growth Layer
+
+> 設計已完成（§13 + `/docs/GROWTH-ARCHITECTURE.md`），以下為實作項目。
+> 推出順序見 §13.7，不可顛倒。
+
+- [x] Growth 架構設計 (GROWTH-ARCHITECTURE.md v1.0)
+- [ ] Benchmark contract + policy (domain layer, k≥50 閘門)
+- [ ] Edge Snapshot payload + 合規文案建構器
+- [ ] Decision Performance Record 型別 (local-only)
+- [ ] Coach Insight P1 模板集
+- [ ] Growth feature flags (edge_snapshot_v1 / ai_coach_v1 / benchmark_cohorts_v1)
+- [ ] DPD 儲存層 (Encrypted SQLite schema + DAL)
+- [ ] DPD 納入 Data Deletion / Export flow
+- [ ] Edge Snapshot 分享卡 UI (RN)
+- [ ] Benchmark 聚合服務 (伺服器端 k-anonymity)
+- [ ] Benchmark 比較 UI (Lab)
+- [ ] AI Coach P1 洞察卡 UI
+- [ ] 時機式轉換觸發器 (§13.6)
+- [ ] Privacy Policy 增補 (Edge Snapshot + AI Coach P4)
 
 ---
 
@@ -1250,4 +1384,4 @@ Return to baseline. Find your turning point.
 
 ---
 
-*— END OF ANTIGRAVITY MASTER BLUEPRINT v4.1 —*
+*— END OF ANTIGRAVITY MASTER BLUEPRINT v4.2 —*
