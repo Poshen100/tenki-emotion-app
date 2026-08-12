@@ -339,16 +339,6 @@ body{
   stroke:#F5A623;
   filter:drop-shadow(0 0 8px rgba(245,166,35,0.55));
 }
-/* 環下方那一行：進度或「相對你自己的基線」。 */
-.tl-baseline{
-  /* 進度環往外長了 12px，這一行要讓開，否則會被弧壓到。 */
-  margin-top:22px;text-align:center;
-  font-size:11px;letter-spacing:0.06em;color:rgba(255,255,255,0.42);
-  font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
-  font-variant-numeric:tabular-nums;
-}
-.tl-baseline.mature{color:rgba(245,166,35,0.72);}
-
 /* Center dark circle — contains text */
 .tl-edge-center{
   position:relative;z-index:5;
@@ -538,19 +528,14 @@ body{
   border:1px dashed rgba(255,255,255,0.25);
   padding:2px 6px;
 }
-/* 🔴 **整張卡的示意標記**（2026-08-12）。
+/* 🔴 示意標記的「等量」原則（2026-08-12）。
    這一刀讓四張卡的動效變好（60 秒同步循環、長條連續左右動），而動效越好、
-   假數字就越有說服力。所以標記要**同步加重**，淨誠實度才不會掉：
-   角落那顆小徽章給掃過去的眼睛，虛線外框給停下來的眼睛，底下那一行給讀字的人。
-   ⚠️ 這條規則的重點是「等量」—— 之後誰再讓這幾張卡更像真的，就得再加一層。 */
-.vcard.demo-card{
-  border:1px dashed rgba(255,255,255,0.16);
-  background:
-    repeating-linear-gradient(135deg,
-      rgba(255,255,255,0.022) 0 6px,
-      transparent 6px 14px),
-    linear-gradient(180deg, rgba(40,40,44,0.55) 0%, rgba(28,28,30,0.45) 100%);
-}
+   假數字就越有說服力 —— 所以標記必須同步加重，淨誠實度才不會掉。
+   ⚠️ **第一版做成斜紋底 + 虛線外框，founder 實走退回**：「怎麼跟原本的視覺
+   不太一樣，視覺儘量採用原本的」。所以加重改由**文案**承擔，不動卡片外觀：
+   角落的「示意」徽章（既有）+ 說明行點名「60 秒循環動畫」（新增）。
+   `.demo-card` 保留為純語意 hook（aria-label 的掛點），**不得再加視覺樣式**。
+   之後誰再讓這幾張卡更像真的，要加的是說明，不是材質。 */
 
 .metric-body{
   display:flex;align-items:flex-end;justify-content:space-between;gap:10px;
@@ -2280,10 +2265,6 @@ body{
               <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
             </div>
           </div>
-          <!-- 🔴 第 1 天就有東西看，而且每一個字都是真的：進度是實際樣本數。
-               起手值刻意是「尚未開始建立基線」而不是 0/30 —— renderBaselineProgress()
-               跑之前的那一瞬也不得宣稱進度。 -->
-          <div class="tl-baseline" id="baselineProgress">尚未開始建立基線</div>
         </div>
       </section>
 
@@ -3957,7 +3938,7 @@ function scannerAvailableV6(){
  * @returns {boolean} 是否真的揭示了一筆讀數（星塵收尾用它決定要不要下 SECURED 拍子）。
  */
 /**
- * 基線建立進度環 + 環下那一行。
+ * 基線建立進度環 + 它要顯示的文字。
  *
  * 🔴 **這是冷啟動那段唯一誠實的「有東西在動」。** 使用者第 1 天就看得到進度，
  * 而進度是真實的樣本數與天數 —— 不是為了留住人而做的假動畫。
@@ -3965,34 +3946,41 @@ function scannerAvailableV6(){
  * 🔴 cyan = ACTIVE（建立中）、gold = SECURED（已成熟）。顏色跟文案同一條紅線：
  * 沒成熟不准上金。
  *
- * @returns {{mature:boolean}} 給 renderHeroReading 決定中心要不要出數字。
+ * @param {?Object} reading - 今天的讀數；用它的 tier 決定看哪一池。
+ * @returns {{mature:boolean, text:string, sampleCount:number, profile:string}}
  */
-function renderBaselineProgress(){
+function renderBaselineProgress(reading){
   const store = window.TENKI_BASELINE_STORE;
   const fill = document.getElementById('baselineRingFill');
-  const line = document.getElementById('baselineProgress');
-  if(!store){ return { mature:false }; }
-  const m = store.maturity(store.PROFILES.DAILY_SCAN);
+  if(!store){ return { mature:false, text:'' }; }
+  // 🔴 進度看的是**這次讀數所屬的那一池**。tier A（landmark 位移）與 tier B
+  // （整幀 luma 差分）不是同一個量，池子是分開的 —— 顯示另一池的進度會讓
+  // 使用者以為自己更接近成熟。沒有讀數時預設 landmark 池（tier A 是目標態）。
+  const profile = reading && reading.evidence
+    ? store.dailyProfileForTier(reading.evidence.tier)
+    : store.PROFILES.DAILY_SCAN_LANDMARK;
+  const m = store.maturity(profile);
+  m.profile = profile;
   const C = 2 * Math.PI * 146;
   if(fill){
     fill.style.strokeDasharray = C.toFixed(3);
     fill.style.strokeDashoffset = (C * (1 - m.ratio)).toFixed(3);
     fill.classList.toggle('mature', m.mature);
   }
-  if(line){
-    if(m.mature){
-      line.textContent = '相對你自己的基線';
-    } else if(m.sampleCount === 0){
-      line.textContent = '尚未開始建立基線 · 掃一次就開始';
-    } else {
-      // ⚠️ 天數那一段只在它**還是限制條件**的時候出現。滿足之後繼續倒數會
-      // 印出「第 12 / 7 天」這種讀起來像壞掉的東西（實走當場抓到）。
-      const days = m.distinctDays < store.MIN_DAYS_FOR_SCORE
-        ? ` · 第 ${m.distinctDays} / ${store.MIN_DAYS_FOR_SCORE} 天`
-        : '';
-      line.textContent = `建立基線 ${m.sampleCount} / ${store.MIN_SAMPLES_FOR_SCORE}${days}`;
-    }
-    line.classList.toggle('mature', m.mature);
+  // ⚠️ 進度**不另起一行**。原本那一行把下面所有東西推低 36px，短視窗上
+  // Snapshot 的線圖就被 FDCB 底座蓋住（founder 2026-08-12 實走回報）。
+  // 併進既有的狀態行 → 零額外高度。
+  if(m.mature){
+    m.text = '相對你自己的基線';
+  } else if(m.sampleCount === 0){
+    m.text = '基線 0 / ' + store.MIN_SAMPLES_FOR_SCORE;
+  } else {
+    // ⚠️ 天數那一段只在它**還是限制條件**的時候出現。滿足之後繼續倒數會
+    // 印出「第 12 / 7 天」這種讀起來像壞掉的東西（實走當場抓到）。
+    const days = m.distinctDays < store.MIN_DAYS_FOR_SCORE
+      ? ` · ${m.distinctDays}/${store.MIN_DAYS_FOR_SCORE} 天`
+      : '';
+    m.text = `基線 ${m.sampleCount}/${store.MIN_SAMPLES_FOR_SCORE}${days}`;
   }
   return m;
 }
@@ -4009,7 +3997,7 @@ function renderHeroReading(){
   const zoneEl = document.getElementById('edgeTraceZone');
   const confEl = document.getElementById('edgeConfidence');
   const r = loadReadingV6();
-  const maturity = renderBaselineProgress();
+  const maturity = renderBaselineProgress(r);
   renderCoachLine(); // 環與教練卡永遠同一筆讀數，不得各說各話
   if(!zoneEl) return false;
   if(!r){
@@ -4036,9 +4024,12 @@ function renderHeroReading(){
   const store = window.TENKI_BASELINE_STORE;
   let score = null;
   if(store && maturity.mature && r.evidence){
+    // 🔴 用**進度環同一池**（maturity.profile，由讀數的 tier 決定）。
+    // 先前寫死 PROFILES.DAILY_SCAN，tier 分池之後那個常數不存在了 →
+    // samplesFor(undefined) 回空陣列 → 分數永遠 null，而畫面看起來只是「還沒成熟」。
     score = store.personalScore(
       store.personSignalComposite(r.evidence),
-      store.samplesBefore(store.PROFILES.DAILY_SCAN, r.ts),
+      store.samplesBefore(maturity.profile, r.ts),
     );
   }
   if(scoreEl){
@@ -4054,9 +4045,12 @@ function renderHeroReading(){
   }
   // 帶位上了主位之後，這一行改報**新鮮度** —— 再說一次「Clear」是廢話，
   // 「什麼時候量的」才是使用者接著會問的問題。
-  zoneEl.textContent = stale
+  // 新鮮度 + 基線進度共用這一行。⚠️ 進度原本自己佔一行，把下面所有東西推低
+  // 36px，短視窗上 Snapshot 的線圖就被 FDCB 底座蓋住（founder 實走回報）。
+  zoneEl.textContent = (stale
     ? '讀數已過期 · 重新掃一次'
-    : agoTextV6(r.ts, Date.now()) + ' 掃描';
+    : agoTextV6(r.ts, Date.now()) + ' 掃描')
+    + (maturity.text ? ' · ' + maturity.text : '');
   zoneEl.style.color = '';
   if(confEl){
     confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + '　·　提升精度 ›';
@@ -4841,8 +4835,8 @@ function closeSessionDetail(){
     <!-- 正典 Soul Scan 模組：Scan tab 與 /decision-alert/ 共用同一支，
          同樣用絕對路徑（本頁同時掛在 /v3/ 與 /preview/v6/）。 -->
     <script src="/preview/face-stillness.js?v=fs1"></script>
-    <script src="/preview/baseline-store.js?v=bs2"></script>
-    <script src="/preview/readiness-scan.js?v=rs18"></script>
+    <script src="/preview/baseline-store.js?v=bs3"></script>
+    <script src="/preview/readiness-scan.js?v=rs19"></script>
     <!-- Stardust Scan Takeover logic script -->
     <script src="stardust-scan-takeover.js?v=gyro_v6"></script>
 

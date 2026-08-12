@@ -48,14 +48,46 @@
      */
     var MAX_SAMPLES = 180;
 
-    /** 已知的量測條件。值會寫進 localStorage，改名等於丟掉舊資料。 */
+    /**
+     * 已知的量測條件。值會寫進 localStorage，改名等於丟掉舊資料。
+     *
+     * 🔴 **日常掃描分成兩池，因為 tier A 與 tier B 量的不是同一個東西**
+     * （founder 2026-08-12 實走三次都落在 tier B 才暴露出來）。
+     * `readiness-scan.js` 的 `buildEvidence()` 註解早就寫著：
+     *
+     * > Tier A reads landmark displacement (the face moved), Tier B reads
+     * > whole-frame luma delta (something moved). **The two are not the same
+     * > measurement and averaging them together would mean neither.**
+     *
+     * 它在**一次掃描之內**守住了這件事，卻沒有人在**跨掃描的百分位池**上守 ——
+     * 而那正是同一個錯誤（見 `docs/EDGE-SCORE-DEFINITION.md` §5.1 的混池陷阱）。
+     * tier 會隨裝置、網路（MediaPipe 載不載得到）而變，所以不能假設一個人永遠同 tier。
+     */
     var PROFILES = {
         ENROLL_NEUTRAL: 'face_enroll_neutral_3s',
-        DAILY_SCAN: 'face_scan_10s',
+        /** 日常掃描 · tier A：landmark bbox 位移速度。 */
+        DAILY_SCAN_LANDMARK: 'face_scan_10s_landmark',
+        /** 日常掃描 · tier B：整幀 luma 差分。**與上面不可比。** */
+        DAILY_SCAN_FRAME: 'face_scan_10s_frame',
     };
 
+    /**
+     * 日常掃描該進哪一池。
+     *
+     * @param {string} tier - `'A'` 或 `'B'`。
+     * @returns {string} profile
+     */
+    function dailyProfileForTier(tier) {
+        return tier === 'A' ? PROFILES.DAILY_SCAN_LANDMARK : PROFILES.DAILY_SCAN_FRAME;
+    }
+
+    /** 舊 key：2026-08-12 早上短暫存在過的單一日常掃描池，只用來遷移。 */
+    var LEGACY_DAILY = 'face_scan_10s';
+
     function isProfile(p) {
-        return p === PROFILES.ENROLL_NEUTRAL || p === PROFILES.DAILY_SCAN;
+        return p === PROFILES.ENROLL_NEUTRAL
+            || p === PROFILES.DAILY_SCAN_LANDMARK
+            || p === PROFILES.DAILY_SCAN_FRAME;
     }
 
     function isFiniteNumber(v) {
@@ -145,6 +177,29 @@
     }
 
     /**
+     * 把舊的單一日常掃描池按 tier 拆開。
+     *
+     * ⚠️ **tier 認不出來的樣本就丟掉，不猜。** 猜錯等於把 luma 差分算進 landmark
+     * 的分布，正是這次要修的錯。舊 key 只存在幾個小時，最多影響一筆。
+     *
+     * @param {Array} list - 原始序列。
+     * @returns {Array} 已重貼 profile 的序列。
+     */
+    function migrateLegacyDailyPool(list) {
+        var out = [];
+        for (var i = 0; i < list.length; i++) {
+            var s = list[i];
+            if (!s || s.profile !== LEGACY_DAILY) { out.push(s); continue; }
+            if (s.tier !== 'A' && s.tier !== 'B') continue; // 認不出來 → 丟
+            out.push({
+                ts: s.ts, profile: dailyProfileForTier(s.tier),
+                composite: s.composite, quality: s.quality, tier: s.tier,
+            });
+        }
+        return out;
+    }
+
+    /**
      * 把舊的單筆種子搬成一筆 `face_enroll_neutral_3s` 樣本。
      *
      * 冪等：已經有同 profile 同日的樣本就不重複搬。搬完不刪舊 key
@@ -192,13 +247,14 @@
      *   quality:?number, tier:?string}>}
      */
     function allSamples() {
-        var list = readRaw().filter(isValidSample);
-        if (migrateLegacySeed(list)) {
-            list.sort(function (a, b) { return a.ts - b.ts; });
-            writeRaw(list);
-            return list;
-        }
+        var raw = readRaw();
+        var remapped = migrateLegacyDailyPool(raw);
+        var poolChanged = remapped.length !== raw.length
+            || remapped.some(function (s, i) { return !s || !raw[i] || s.profile !== raw[i].profile; });
+        var list = remapped.filter(isValidSample);
+        var seeded = migrateLegacySeed(list);
         list.sort(function (a, b) { return a.ts - b.ts; });
+        if (poolChanged || seeded) writeRaw(list);
         return list;
     }
 
@@ -409,6 +465,7 @@
         LEGACY_SEED_KEY: LEGACY_SEED_KEY,
         MAX_SAMPLES: MAX_SAMPLES,
         PROFILES: PROFILES,
+        dailyProfileForTier: dailyProfileForTier,
         MIN_SAMPLES_FOR_SCORE: MIN_SAMPLES_FOR_SCORE,
         MIN_DAYS_FOR_SCORE: MIN_DAYS_FOR_SCORE,
         dayKey: dayKey,

@@ -542,40 +542,42 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   const store = await page.evaluate(() => {
     const S = window.TENKI_BASELINE_STORE;
     const P = S.PROFILES;
+    const DAILY = P.DAILY_SCAN_FRAME;      // tier B 池（founder 實走都落這裡）
+    const DAILY_A = P.DAILY_SCAN_LANDMARK; // tier A 池 —— 與上面**不可比**
     const DAY = 86_400_000;
     const t0 = new Date(2026, 0, 5, 12, 0, 0).getTime();
     const reset = () => { S.clear(); localStorage.removeItem(S.LEGACY_SEED_KEY); };
 
     // 分池：兩種 profile 各寫一筆，各自的統計量不得看見對方。
     reset();
-    S.appendSample({ profile: P.DAILY_SCAN, composite: 0.90, ts: t0 });
+    S.appendSample({ profile: DAILY, composite: 0.90, ts: t0 });
     S.appendSample({ profile: P.ENROLL_NEUTRAL, composite: 0.10, ts: t0 });
-    const dailyMean = S.statsFor(P.DAILY_SCAN).mean;
-    const dailyCount = S.statsFor(P.DAILY_SCAN).sampleCount;
+    const dailyMean = S.statsFor(DAILY).mean;
+    const dailyCount = S.statsFor(DAILY).sampleCount;
     const totalCount = S.allSamples().length;
 
     // 同 profile 同一天：後寫覆蓋，樣本數不增加。
     reset();
-    S.appendSample({ profile: P.DAILY_SCAN, composite: 0.30, ts: t0 });
-    S.appendSample({ profile: P.DAILY_SCAN, composite: 0.80, ts: t0 + 3 * 3600_000 });
-    const sameDayCount = S.statsFor(P.DAILY_SCAN).sampleCount;
-    const sameDayValue = S.samplesFor(P.DAILY_SCAN)[0].composite;
+    S.appendSample({ profile: DAILY, composite: 0.30, ts: t0 });
+    S.appendSample({ profile: DAILY, composite: 0.80, ts: t0 + 3 * 3600_000 });
+    const sameDayCount = S.statsFor(DAILY).sampleCount;
+    const sameDayValue = S.samplesFor(DAILY)[0].composite;
 
     // 門檻：樣本夠但天數不夠 → 仍然沒有分數。
     const build = (n, days) => {
       reset();
       for (let i = 0; i < n; i += 1) {
-        S.appendSample({ profile: P.DAILY_SCAN, composite: 0.5 + (i % 5) * 0.02, ts: t0 + i * DAY });
+        S.appendSample({ profile: DAILY, composite: 0.5 + (i % 5) * 0.02, ts: t0 + i * DAY });
       }
       // 全部塞進 `days` 天內（覆蓋規則會讓樣本數降到 days，所以另走一條路：
       // 直接寫入不同時刻但同幾天，樣本數會等於 days）
       if (days !== undefined) {
         reset();
         for (let i = 0; i < days; i += 1) {
-          S.appendSample({ profile: P.DAILY_SCAN, composite: 0.5 + (i % 5) * 0.02, ts: t0 + i * DAY });
+          S.appendSample({ profile: DAILY, composite: 0.5 + (i % 5) * 0.02, ts: t0 + i * DAY });
         }
       }
-      return S.samplesFor(P.DAILY_SCAN);
+      return S.samplesFor(DAILY);
     };
     const at29 = S.personalScore(0.6, build(29));
     const at40 = S.personalScore(0.6, build(40));
@@ -595,6 +597,35 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
       minSamples: S.MIN_SAMPLES_FOR_SCORE, minDays: S.MIN_DAYS_FOR_SCORE,
     };
   });
+
+  // 🔴 tier A 與 tier B 量的不是同一個東西（landmark 位移 vs 整幀 luma 差分），
+  // 不得共用百分位池。founder 2026-08-12 實走三次全落 tier B 才暴露出來 ——
+  // readiness-scan 的 buildEvidence 在**一次掃描之內**守住了這條，
+  // 跨掃描的池卻沒有人守。
+  const tiers = await page.evaluate(() => {
+    const S = window.TENKI_BASELINE_STORE, P = S.PROFILES;
+    const t0 = new Date(2026, 0, 5, 12, 0, 0).getTime();
+    S.clear(); localStorage.removeItem(S.LEGACY_SEED_KEY);
+    S.appendSample({ profile: S.dailyProfileForTier('A'), composite: 0.20, tier: 'A', ts: t0 });
+    S.appendSample({ profile: S.dailyProfileForTier('B'), composite: 0.90, tier: 'B', ts: t0 });
+    // ⚠️ null-safe：路由壞掉時某一池會是空的，`statsFor` 回 null。
+    // 直接讀 `.mean` 會**擲錯而不是報紅** —— 那會中斷後面所有斷言，
+    // 而且輸出是堆疊而不是「哪一條規則被違反」。反向驗證當場踩到。
+    const meanOf = (p) => { const st = S.statsFor(p); return st === null ? 'EMPTY_POOL' : st.mean; };
+    const out = {
+      sameProfile: P.DAILY_SCAN_LANDMARK === P.DAILY_SCAN_FRAME,
+      aMean: meanOf(P.DAILY_SCAN_LANDMARK),
+      bMean: meanOf(P.DAILY_SCAN_FRAME),
+      routeA: S.dailyProfileForTier('A'),
+      routeB: S.dailyProfileForTier('B'),
+    };
+    S.clear();
+    return out;
+  });
+  check('🔴 tier A 與 tier B 是兩個不同的池', tiers.sameProfile, false);
+  check('🔴 tier A 的統計量看不到 tier B 的樣本', tiers.aMean, 0.2);
+  check('🔴 tier B 的統計量看不到 tier A 的樣本', tiers.bMean, 0.9);
+  check('tier 路由真的分流', tiers.routeA !== tiers.routeB, true);
 
   // 🔴 這一條是本刀的核心防線。混池時 dailyMean 會變成 0.5（0.9 與 0.1 的平均）。
   check('🔴 分池：日常掃描的統計量看不到 enrollment 那一池', store.dailyMean, 0.9);
@@ -653,7 +684,7 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     };
   });
   check('四張示意卡都在（前提）', demo.count, 4);
-  check('🔴 每一張示意卡都帶斜紋外框（不能只有第一張帶）', demo.allHatched, true);
+  check('🔴 每一張示意卡都帶得到語意標記（不能只有第一張帶）', demo.allHatched, true);
   check('🔴 每一張示意卡都有給輔助技術的標記', demo.allLabelled, true);
   check('🔴 說明行講出「循環動畫」（動效變好，標記要跟上）',
     /循環動畫/.test(demo.noteText), true);
@@ -766,7 +797,8 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     S.clear(); localStorage.removeItem(S.LEGACY_SEED_KEY);
     const DAY = 86400000, now = Date.now();
     for (let i = 0; i < ${n}; i++) {
-      S.appendSample({ profile: P.DAILY_SCAN, composite: 0.5 + (i % 7) * 0.02,
+      // 🔴 tier A 的樣本必須進 landmark 池；環讀的也是讀數 tier 對應的那一池。
+      S.appendSample({ profile: P.DAILY_SCAN_LANDMARK, composite: 0.5 + (i % 7) * 0.02,
         quality: 0.8, tier: 'A', ts: now - (${n} - i) * DAY });
     }
     localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify({
@@ -782,7 +814,7 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     await page.waitForTimeout(1200);
     return page.evaluate(() => ({
       centre: document.getElementById('edgeScoreReveal').textContent.trim(),
-      line: document.getElementById('baselineProgress').textContent.trim(),
+      line: document.getElementById('edgeTraceZone').textContent.trim(),
       gold: document.getElementById('baselineRingFill').classList.contains('mature'),
       // ⚠️ 值對不等於看得見 —— 這條環曾經整個被 `.tl-edge svg{display:none}` 關掉。
       ringVisible: document.getElementById('baselineRing').getBoundingClientRect().width > 0,
@@ -793,7 +825,7 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('🔴 基線未成熟時環心不得出現數字', /^\d+$/.test(thin.centre), false);
   check('未成熟時環心報的是帶位詞', /Clear|Neutral|Strain/i.test(thin.centre), true);
   check('🔴 未成熟時進度環不得上金（gold = 已校準）', thin.gold, false);
-  check('環下那行報得出真實進度', /建立基線\s*12\s*\/\s*30/.test(thin.line), true);
+  check('狀態行報得出真實進度', /基線\s*12\s*\/\s*30/.test(thin.line), true);
   // 🔴 「值對」與「看得見」是兩件事，2026-08-12 當場被咬。
   check('🔴 進度環真的在畫面上（不是被 display:none 關掉）', thin.ringVisible, true);
 

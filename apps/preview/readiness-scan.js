@@ -1445,7 +1445,10 @@
     var store = global.TENKI_BASELINE_STORE;
     if (!store) return; // 沒載到就只是不留存，不擋這一輪讀數
     store.appendSample({
-      profile: store.PROFILES.DAILY_SCAN,
+      // 🔴 tier 決定進哪一池：tier A 是 landmark 位移、tier B 是整幀 luma 差分，
+      // 上面 buildEvidence 的註解已經說了「平均起來哪個都不是」—— 那條紀律
+      // 在一次掃描之內成立，跨掃描的百分位池也必須成立。
+      profile: store.dailyProfileForTier(evidence.tier),
       composite: store.personSignalComposite(evidence),
       quality: captureQuality(evidence),
       tier: evidence.tier,
