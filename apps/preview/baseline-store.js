@@ -290,6 +290,110 @@
         };
     }
 
+    // ── 計分（`domain/src/policies/baseline-score.ts` 的鏡像）─────────────
+    //
+    // ⚠️ 同上：preview 無建置、import 不到 TypeScript，所以只能鏡像。
+    // 鏡像收在這一支，由 harness 拿同一組輸入**端到端**比對兩邊的分數 ——
+    // 比只對照 composite 強，因為門檻、統計與曲線都在比對範圍裡。
+
+    /** 見 domain：門檻刻意高於引擎的 ready(5)。 */
+    var MIN_SAMPLES_FOR_SCORE = 30;
+    /** 見 domain：30 次擠在一個下午描述的是一個時刻，不是一個人的範圍。 */
+    var MIN_DAYS_FOR_SCORE = 7;
+    var Z_CLAMP = 2.33;
+    var SCORE_MIN = 1;
+    var SCORE_MAX = 99;
+    var SCORE_CLEAR_AT = 80;
+    var SCORE_NEUTRAL_AT = 20;
+
+    /** 標準常態 CDF（Abramowitz & Stegun 7.1.26）。 */
+    function normalCdf(z) {
+        var sign = z < 0 ? -1 : 1;
+        var x = Math.abs(z) / Math.SQRT2;
+        var t = 1 / (1 + 0.3275911 * x);
+        var y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t
+            - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+        return 0.5 * (1 + sign * y);
+    }
+
+    /**
+     * 今天在你自己的分布裡的位置。
+     *
+     * 🔴 樣本不足、跨日不足、或離散度還不是真的 → `null`。
+     * **不是回一個看起來像真的的數字** —— 「基線太薄」與「沒有訊號」是同一件事。
+     *
+     * @param {number} value - 今天的 person-signal composite。
+     * @param {Array<{ts:number, composite:number}>} samples - **同 profile** 的歷史樣本。
+     * @returns {?number} 1..99，或 null。
+     */
+    function personalScore(value, samples) {
+        if (!isFiniteNumber(value) || !samples || !samples.length) return null;
+        var usable = samples.filter(function (s) {
+            return isFiniteNumber(s.composite) && isFiniteNumber(s.ts);
+        });
+        if (usable.length < MIN_SAMPLES_FOR_SCORE) return null;
+        var days = {};
+        for (var i = 0; i < usable.length; i++) days[dayKey(usable[i].ts)] = 1;
+        if (Object.keys(days).length < MIN_DAYS_FOR_SCORE) return null;
+        var mean = usable.reduce(function (a, s) { return a + s.composite; }, 0) / usable.length;
+        var ss = usable.reduce(function (a, s) { return a + (s.composite - mean) * (s.composite - mean); }, 0);
+        var std = Math.sqrt(ss / (usable.length - 1));
+        if (!(std > 0) || !isFinite(std)) return null;
+        var z = Math.min(Z_CLAMP, Math.max(-Z_CLAMP, (value - mean) / std));
+        return Math.min(SCORE_MAX, Math.max(SCORE_MIN, Math.round(100 * normalCdf(z))));
+    }
+
+    /**
+     * 位置分的帶位。
+     *
+     * ⚠️ 門檻是 80/20，**不是**絕對分的 70/40。位置分對使用者自己是均勻分布的，
+     * 沿用 70/40 會讓他永遠有 40% 的日子落在最低帶（EDGE-SCORE-DEFINITION §3.2）。
+     *
+     * @param {number} score - 1..99
+     * @returns {string} 'clear' | 'neutral' | 'strain'
+     */
+    function scoreBand(score) {
+        if (score >= SCORE_CLEAR_AT) return 'clear';
+        return score >= SCORE_NEUTRAL_AT ? 'neutral' : 'strain';
+    }
+
+    /**
+     * 某 profile 的**某一天之前**的樣本。
+     *
+     * ⚠️ 給今天評分時要排掉今天自己那一筆 —— 把今天算進自己的參照分布，
+     * 問的就不再是「今天相對於歷史在哪裡」。
+     *
+     * @param {string} profile
+     * @param {number} ts - 基準時間戳（通常是今天的讀數時間）。
+     * @returns {Array}
+     */
+    function samplesBefore(profile, ts) {
+        var today = dayKey(ts);
+        return samplesFor(profile).filter(function (s) { return dayKey(s.ts) !== today; });
+    }
+
+    /**
+     * 基線建立進度 —— 給環用。
+     *
+     * 🔴 回的是**真實的樣本數與天數**。UI 不得為了好看而灌水。
+     *
+     * @param {string} profile
+     * @returns {{sampleCount:number, distinctDays:number, ratio:number, mature:boolean}}
+     */
+    function maturity(profile) {
+        var st = statsFor(profile);
+        var n = st ? st.sampleCount : 0;
+        var d = st ? st.distinctDays : 0;
+        return {
+            sampleCount: n,
+            distinctDays: d,
+            // 兩個條件都要滿足，所以進度取兩者中**較落後**的那個 —— 顯示樂觀的
+            // 那一個會讓環先滿、數字卻還不出現。
+            ratio: Math.min(1, Math.min(n / MIN_SAMPLES_FOR_SCORE, d / MIN_DAYS_FOR_SCORE)),
+            mature: n >= MIN_SAMPLES_FOR_SCORE && d >= MIN_DAYS_FOR_SCORE,
+        };
+    }
+
     /** 測試用：清空序列（不動 legacy key）。 */
     function clear() {
         try {
@@ -305,12 +409,19 @@
         LEGACY_SEED_KEY: LEGACY_SEED_KEY,
         MAX_SAMPLES: MAX_SAMPLES,
         PROFILES: PROFILES,
+        MIN_SAMPLES_FOR_SCORE: MIN_SAMPLES_FOR_SCORE,
+        MIN_DAYS_FOR_SCORE: MIN_DAYS_FOR_SCORE,
         dayKey: dayKey,
         personSignalComposite: personSignalComposite,
+        normalCdf: normalCdf,
+        personalScore: personalScore,
+        scoreBand: scoreBand,
         allSamples: allSamples,
         samplesFor: samplesFor,
+        samplesBefore: samplesBefore,
         appendSample: appendSample,
         statsFor: statsFor,
+        maturity: maturity,
         clear: clear,
     };
 })(window);

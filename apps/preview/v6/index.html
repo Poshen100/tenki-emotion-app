@@ -306,6 +306,49 @@ body{
   background:#87D9A8;color:#87D9A8;
 }
 
+/* 基線建立進度環。
+   走一條**自己的軌**，在裝飾環外緣 —— 不去動 .ring-outer-wrap 的漸層
+   （那是 v6 鎖定的視覺）。z-index 3：在裝飾環與掃光(::after, z2)之上、
+   中心圓(z5)之下。 */
+.tl-edge-progress{
+  /* 🔴 **負 inset：軌道要在裝飾環之外。** 第一版是 inset:0，進度弧剛好落在
+     .ring-outer-wrap 那條 cyan→orange 漸層上 —— 渲染了、數字也對，但在那個
+     顏色背景上人眼根本分不出來。看不見的進度等於沒有進度。 */
+  position:absolute;inset:-12px;z-index:3;pointer-events:none;
+  /* 12 點鐘開始順時針 —— 進度條的通用讀法。 */
+  transform:rotate(-90deg);
+  overflow:visible;
+}
+.tl-edge-progress circle{
+  fill:none;stroke-linecap:round;
+  /* 2π·146。dasharray/offset 由 JS 寫，因為 r 在這裡是常數但週長不是好記的數。 */
+  stroke-dasharray:917.345;
+}
+.bp-track{stroke:rgba(255,255,255,0.07);stroke-width:3;}
+/* cyan = ACTIVE（正在建立中）。🔴 gold = SECURED/calibrated，所以只有基線
+   真的成熟時才准上金 —— 顏色跟文案同一條紅線，不得提早宣稱校準完成。 */
+.bp-fill{
+  stroke:var(--primary);stroke-width:4;
+  /* 🔴 初始必須是**空環**。沒有這一行，dashoffset 預設 0 = 滿環 —— 在 JS 跑到
+     之前的那幾十毫秒，畫面會宣稱基線已經建立完成。起手值不得比事實樂觀。 */
+  stroke-dashoffset:917.345;
+  filter:drop-shadow(0 0 6px rgba(0,180,216,0.55));
+  transition:stroke-dashoffset 1.2s var(--ease-calm), stroke 0.8s var(--ease-calm);
+}
+.bp-fill.mature{
+  stroke:#F5A623;
+  filter:drop-shadow(0 0 8px rgba(245,166,35,0.55));
+}
+/* 環下方那一行：進度或「相對你自己的基線」。 */
+.tl-baseline{
+  /* 進度環往外長了 12px，這一行要讓開，否則會被弧壓到。 */
+  margin-top:22px;text-align:center;
+  font-size:11px;letter-spacing:0.06em;color:rgba(255,255,255,0.42);
+  font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  font-variant-numeric:tabular-nums;
+}
+.tl-baseline.mature{color:rgba(245,166,35,0.72);}
+
 /* Center dark circle — contains text */
 .tl-edge-center{
   position:relative;z-index:5;
@@ -366,7 +409,11 @@ body{
 .source-toggle .src.src-finger[hidden]{display:none}
 
 /* Legacy SVG rings — hidden in v6 (replaced by conic-gradient wrappers) */
-.tl-edge svg{display:none}
+/* ⚠️ 這條原本是 `.tl-edge svg{display:none}`，為了藏 legacy 的 drift SVG。
+   它會**連帶關掉之後加進來的任何 SVG** —— 基線進度環加上去時當場中招：
+   dashoffset 與文字全都算對了，畫面上卻一片空白（值對 ≠ 看得見）。
+   所以改成只藏沒有 class 的那個 legacy 節點。 */
+.tl-edge > svg:not([class]){display:none}
 
 /* Short viewports (in-app browsers, small phones): keep the V6 proportions —
    founder's call (2026-07-03) — and let the screen scroll instead. flex-shrink:0
@@ -2194,6 +2241,13 @@ body{
             <div class="ring-inner-wrap"></div>
             <div class="ring-dot outer"></div>
             <div class="ring-dot inner"></div>
+            <!-- 基線建立進度環 —— 環上**唯一**由真實資料驅動的東西。
+                 上面那兩個 conic wrap 是裝飾（固定漸層、只會呼吸與掃光），
+                 所以進度另開一條軌，不去改它們的視覺。 -->
+            <svg class="tl-edge-progress" id="baselineRing" viewBox="0 0 300 300" aria-hidden="true">
+              <circle class="bp-track" cx="150" cy="150" r="146"/>
+              <circle class="bp-fill" id="baselineRingFill" cx="150" cy="150" r="146"/>
+            </svg>
             <!-- Legacy SVG kept for drift compatibility, hidden -->
             <svg viewBox="0 0 220 220" aria-hidden="true">
               <circle class="ring-outer" id="ringOuter" cx="110" cy="110" r="100"/>
@@ -2213,6 +2267,10 @@ body{
               <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
             </div>
           </div>
+          <!-- 🔴 第 1 天就有東西看，而且每一個字都是真的：進度是實際樣本數。
+               起手值刻意是「尚未開始建立基線」而不是 0/30 —— renderBaselineProgress()
+               跑之前的那一瞬也不得宣稱進度。 -->
+          <div class="tl-baseline" id="baselineProgress">尚未開始建立基線</div>
         </div>
       </section>
 
@@ -3875,11 +3933,60 @@ function scannerAvailableV6(){
  * Hero 中央：有讀數就報帶位，沒有就直說沒有。分數槽永遠不編。
  * @returns {boolean} 是否真的揭示了一筆讀數（星塵收尾用它決定要不要下 SECURED 拍子）。
  */
+/**
+ * 基線建立進度環 + 環下那一行。
+ *
+ * 🔴 **這是冷啟動那段唯一誠實的「有東西在動」。** 使用者第 1 天就看得到進度，
+ * 而進度是真實的樣本數與天數 —— 不是為了留住人而做的假動畫。
+ *
+ * 🔴 cyan = ACTIVE（建立中）、gold = SECURED（已成熟）。顏色跟文案同一條紅線：
+ * 沒成熟不准上金。
+ *
+ * @returns {{mature:boolean}} 給 renderHeroReading 決定中心要不要出數字。
+ */
+function renderBaselineProgress(){
+  const store = window.TENKI_BASELINE_STORE;
+  const fill = document.getElementById('baselineRingFill');
+  const line = document.getElementById('baselineProgress');
+  if(!store){ return { mature:false }; }
+  const m = store.maturity(store.PROFILES.DAILY_SCAN);
+  const C = 2 * Math.PI * 146;
+  if(fill){
+    fill.style.strokeDasharray = C.toFixed(3);
+    fill.style.strokeDashoffset = (C * (1 - m.ratio)).toFixed(3);
+    fill.classList.toggle('mature', m.mature);
+  }
+  if(line){
+    if(m.mature){
+      line.textContent = '相對你自己的基線';
+    } else if(m.sampleCount === 0){
+      line.textContent = '尚未開始建立基線 · 掃一次就開始';
+    } else {
+      // ⚠️ 天數那一段只在它**還是限制條件**的時候出現。滿足之後繼續倒數會
+      // 印出「第 12 / 7 天」這種讀起來像壞掉的東西（實走當場抓到）。
+      const days = m.distinctDays < store.MIN_DAYS_FOR_SCORE
+        ? ` · 第 ${m.distinctDays} / ${store.MIN_DAYS_FOR_SCORE} 天`
+        : '';
+      line.textContent = `建立基線 ${m.sampleCount} / ${store.MIN_SAMPLES_FOR_SCORE}${days}`;
+    }
+    line.classList.toggle('mature', m.mature);
+  }
+  return m;
+}
+
+/**
+ * Hero 中央：有讀數就報帶位；基線成熟後改報 1-99 的位置分。
+ *
+ * 🔴 **基線未成熟時中心不得出現任何 1-99 數字**，連「初步估計」都不行 ——
+ * 同一個大字換一行小字，使用者只會讀數字。「基線太薄」與「沒有訊號」是同一件事，
+ * 兩者都該給進度與帶位，不是一個看起來像真的的數字。
+ */
 function renderHeroReading(){
   const scoreEl = document.getElementById('edgeScoreReveal');
   const zoneEl = document.getElementById('edgeTraceZone');
   const confEl = document.getElementById('edgeConfidence');
   const r = loadReadingV6();
+  const maturity = renderBaselineProgress();
   renderCoachLine(); // 環與教練卡永遠同一筆讀數，不得各說各話
   if(!zoneEl) return false;
   if(!r){
@@ -3898,10 +4005,29 @@ function renderHeroReading(){
   // **founder 本人**看著這一屏說「沒有讀數」，而那筆讀數明明就在。
   // 誠實不等於讀得懂：86px 的破折號在視覺上就是「壞掉／空的」。
   // 所以把真正存在的東西放到主位 —— 帶位是讀數本尊，不是註腳。
+  // 基線成熟之後，中心從帶位詞換成 1-99 —— **那個轉變本身就是里程碑**
+  // （「從現在開始，是跟你自己比」）。在那之前中心只給帶位。
+  //
+  // ⚠️ 評分時排掉今天自己那一筆（samplesBefore）：把今天算進自己的參照分布，
+  // 問的就不再是「今天相對於歷史在哪裡」。
+  const store = window.TENKI_BASELINE_STORE;
+  let score = null;
+  if(store && maturity.mature && r.evidence){
+    score = store.personalScore(
+      store.personSignalComposite(r.evidence),
+      store.samplesBefore(store.PROFILES.DAILY_SCAN, r.ts),
+    );
+  }
   if(scoreEl){
-    scoreEl.textContent = BAND_LABEL_V6[r.band];
-    scoreEl.classList.add('band');
-    scoreEl.style.color = BAND_COLOR_V6[r.band] || '';
+    if(score !== null){
+      scoreEl.textContent = String(score);
+      scoreEl.classList.remove('band'); // 回到 86px 的數字字級與漸層
+      scoreEl.style.color = '';
+    } else {
+      scoreEl.textContent = BAND_LABEL_V6[r.band];
+      scoreEl.classList.add('band');
+      scoreEl.style.color = BAND_COLOR_V6[r.band] || '';
+    }
   }
   // 帶位上了主位之後，這一行改報**新鮮度** —— 再說一次「Clear」是廢話，
   // 「什麼時候量的」才是使用者接著會問的問題。
@@ -4692,7 +4818,7 @@ function closeSessionDetail(){
     <!-- 正典 Soul Scan 模組：Scan tab 與 /decision-alert/ 共用同一支，
          同樣用絕對路徑（本頁同時掛在 /v3/ 與 /preview/v6/）。 -->
     <script src="/preview/face-stillness.js?v=fs1"></script>
-    <script src="/preview/baseline-store.js?v=bs1"></script>
+    <script src="/preview/baseline-store.js?v=bs2"></script>
     <script src="/preview/readiness-scan.js?v=rs18"></script>
     <!-- Stardust Scan Takeover logic script -->
     <script src="stardust-scan-takeover.js?v=gyro_v6"></script>
