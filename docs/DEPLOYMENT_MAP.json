@@ -29,10 +29,11 @@
     },
     {
       "route": "/preview/reliability.html",
-      "url": "https://tenki-emotion-app.vercel.app/preview/reliability.html",
+      "url": "NOT ON THE CANONICAL HOST YET — branch preview only: https://tenki-emotion-app-git-claude-jie-s2-lyudvk-chenposhens-projects.vercel.app/preview/reliability.html",
       "source": "apps/preview/reliability.html",
       "purpose": "Measurement repeatability self-test. An instrument check, not a reading — it never shows a band. Establishes whether between-day spread exceeds within-session spread, which is the precondition for the Edge Score z-model to mean anything.",
-      "status": "active-dev",
+      "status": "branch-only",
+      "note": "Lives only on branch claude/jie-s2-lyudvk; not in main, so the canonical-host path falls through to the catch-all. Its between-day store is localStorage, i.e. bound to the origin — moving to the canonical host after merge starts the day count over. Flip status back to active-dev and restore the canonical url in the SAME commit that merges it.",
       "editable": true
     },
     {
