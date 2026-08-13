@@ -18,7 +18,7 @@
  */
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import http from 'node:http';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
 
 const [, , pagePath, outArg] = process.argv;
@@ -35,12 +35,44 @@ const MIME = {
   '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.woff2': 'font/woff2',
 };
 
+/**
+ * Production rewrites, read straight out of `vercel.json`.
+ *
+ * 🔴 Not copied by hand: PLAYBOOK §3 has this exact failure twice — a harness
+ * server missing a rewrite makes the page's shared modules 404 *silently*, and
+ * the screenshot then shows something that is not the product. Reading the real
+ * table means a new route can't drift away from the harness.
+ *
+ * ⚠️ Applied only after a literal file miss, so the documented repo-relative
+ * usage (`apps/preview/foo.html`) keeps working — otherwise vercel's trailing
+ * `/(.*)` → `/apps/web/$1` catch-all would swallow it.
+ */
+const REWRITES = JSON.parse(readFileSync(join(repoRoot, 'vercel.json'), 'utf8')).rewrites.map(
+  (r) => ({
+    re: new RegExp(`^${r.source.replace(/\(\.\*\)/g, '(.*)')}$`),
+    to: r.destination,
+  }),
+);
+
+/** @param {string} pathname @returns {?string} rewritten pathname, or null. */
+function rewrite(pathname) {
+  for (const { re, to } of REWRITES) {
+    const m = pathname.match(re);
+    if (m) return to.replace(/\$1/g, m[1] ?? '');
+  }
+  return null;
+}
+
 const server = http.createServer((req, res) => {
   const clean = normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^(\.\.[/\\])+/, '');
   let file = join(repoRoot, clean);
   if (existsSync(file) && statSync(file).isDirectory()) file = join(file, 'index.html');
+  if (!existsSync(file)) {
+    const target = rewrite(clean.startsWith('/') ? clean : `/${clean}`);
+    if (target) file = join(repoRoot, target);
+  }
   if (!existsSync(file) || !file.startsWith(repoRoot)) {
-    res.writeHead(404).end('not found');
+    res.writeHead(404).end(`not found: ${clean}`);
     return;
   }
   res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' });
