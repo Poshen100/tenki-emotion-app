@@ -1017,6 +1017,89 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     check(`${h}px 高時輪播圓點捲到底摸得到（沒被底座蓋住）`, occ.dotsVisible, true);
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // 🔴 環心那行的**字元預算** —— 刻意不量像素
+  //
+  // founder 2026-08-13 實走：「13 秒前 掃描 · 基線 2/30 · 2/7 天」撐破環心
+  // （186px）換到第二行，「天」變成孤字。
+  //
+  // ⚠️ 而沙盒量出來是 172px、**沒有換行** —— 因為容器沒有 PingFang TC，
+  // CJK 被代換成較窄的字。量像素的斷言在這裡會**沙盒綠、裝置紅**。
+  // 所以改量顯示欄寬（CJK/全形 = 2 欄），那與字體無關。
+  //
+  // 預算推導：.tl-edge-center 186px ÷ 12px 字級 = 15.5em = 31 欄是硬上限，
+  // 28 欄留約 10% 餘裕。
+  // ══════════════════════════════════════════════════════════════════
+  const ZONE_COLUMN_BUDGET = 28;
+  const cols = (t) => [...t].reduce(
+    (a, ch) => a + (/[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/.test(ch) ? 2 : 1),
+    0,
+  );
+  const zoneStates = await page.evaluate(() => {
+    const S = window.TENKI_BASELINE_STORE, P = S.PROFILES;
+    const DAY = 86_400_000, now = Date.now();
+    const out = [];
+    // 走幾個代表性的狀態，取實際渲染出來的字串（不是自己拼一個）。
+    // ⚠️ 要掃過**所有措辭形狀**，不能只試一種 —— agoTextV6 有
+    // 剛剛／N 秒前／N 分鐘前／N 小時前／N 天前 五種，加上過期那條，
+    // 而樣本數的位數也會變。只試一種等於只量到一種字形。
+    const ages = [0, 45_000, 59 * 60_000, 14 * 60_000, 23 * 3600_000, 3 * DAY];
+    for (const n of [1, 12, 29]) {
+      S.clear(); localStorage.removeItem(S.LEGACY_SEED_KEY);
+      for (let i = 0; i < n; i += 1) {
+        S.appendSample({
+          profile: P.DAILY_SCAN_LANDMARK, composite: 0.5 + (i % 5) * 0.02,
+          quality: 0.8, tier: 'A', ts: now - (n - i) * DAY,
+        });
+      }
+      for (const age of ages) {
+        localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify({
+          band: 'neutral', confidence: 'high', ts: now - age,
+          evidence: { stillness: 0.6, lighting: 0.9, uniformity: 0.9, blinkCadence: null, tier: 'A' },
+        }));
+        renderHeroReading();
+        out.push(document.getElementById('edgeTraceZone').textContent.trim());
+      }
+      // 沒有讀數那條分支也要量（它也接了基線進度）
+      localStorage.removeItem('tenki.readiness.reading.v1');
+      renderHeroReading();
+      out.push(document.getElementById('edgeTraceZone').textContent.trim());
+    }
+    S.clear();
+    return out;
+  });
+  const worst = zoneStates.reduce((a, t) => (cols(t) > cols(a) ? t : a), '');
+  check(`🔴 環心狀態行不得超過 ${ZONE_COLUMN_BUDGET} 欄（最長：「${worst}」= ${cols(worst)}）`,
+    cols(worst) <= ZONE_COLUMN_BUDGET, true);
+  check('掃過所有措辭形狀（不然上一條只量到一種字形）',
+    zoneStates.length === 21 && new Set(zoneStates).size >= 8, true);
+
+  // 🔴 顯示能省掉天數的**前提**就是這個恆等式：一天一筆 → n ≡ distinctDays。
+  // 哪天有人拿掉同日去重，「基線 30/30」就會變成誤導（可能只跨 2 天），
+  // 這條會先紅，提醒把天數加回顯示。
+  const identity = await page.evaluate(() => {
+    const S = window.TENKI_BASELINE_STORE, P = S.PROFILES, DAY = 86_400_000;
+    const t0 = new Date(2026, 0, 5, 12, 0, 0).getTime();
+    S.clear(); localStorage.removeItem(S.LEGACY_SEED_KEY);
+    const pairs = [];
+    for (let d = 0; d < 9; d += 1) {
+      for (let k = 0; k < 3; k += 1) {      // 同一天掃三次
+        S.appendSample({
+          profile: P.DAILY_SCAN_LANDMARK, composite: 0.5 + k * 0.01,
+          tier: 'A', ts: t0 + d * DAY + k * 3600_000,
+        });
+      }
+      const st = S.statsFor(P.DAILY_SCAN_LANDMARK);
+      pairs.push([st.sampleCount, st.distinctDays]);
+    }
+    S.clear();
+    return pairs;
+  });
+  check('🔴 一天一筆 → 樣本數恆等於跨日數（環心只顯示一個計數的前提）',
+    identity.every(([n, d]) => n === d), true);
+  check('恆等式真的被多次掃描考驗過（不然上一條是空過的）',
+    identity.length === 9 && identity[8][0] === 9, true);
+
   // ── 一物一名：Session 詳情不得再出現英文 marks ──
   const sessionCopy = await page.evaluate(() => {
     const clone = document.getElementById('session-screen').cloneNode(true);
