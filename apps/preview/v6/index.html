@@ -2275,7 +2275,7 @@ body{
                    （CLAUDE.md），只是**不由這裡供應**；等原生 pipeline 有真訊號源
                    再把名字掛回來。 -->
               <div class="tl-edge-pr">狀態讀數</div>
-              <div class="tl-edge-zone" id="edgeTraceZone">尚無讀數 · 到 Scan 掃一次</div>
+              <div class="tl-edge-zone" id="edgeTraceZone">尚無讀數</div>
               <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
             </div>
           </div>
@@ -4048,12 +4048,20 @@ function renderBaselineProgress(reading){
   } else if(m.sampleCount === 0){
     m.text = '基線 0 / ' + store.MIN_SAMPLES_FOR_SCORE;
   } else {
-    // ⚠️ 天數那一段只在它**還是限制條件**的時候出現。滿足之後繼續倒數會
-    // 印出「第 12 / 7 天」這種讀起來像壞掉的東西（實走當場抓到）。
-    const days = m.distinctDays < store.MIN_DAYS_FOR_SCORE
-      ? ` · ${m.distinctDays}/${store.MIN_DAYS_FOR_SCORE} 天`
-      : '';
-    m.text = `基線 ${m.sampleCount}/${store.MIN_SAMPLES_FOR_SCORE}${days}`;
+    // 🔴 **只顯示一個計數，不再另外報天數。**
+    //
+    // 儲存層一天一筆（`baseline-store.js` 的 appendSample 同 profile 同日覆蓋），
+    // 所以對任一 profile **`sampleCount` 恆等於 `distinctDays`** ——
+    // 「2/30」與「2/7 天」是同一個數字講兩遍。實測每天掃 3 次、連續 12 天，
+    // 兩者每一天都相等。
+    //
+    // 而它不只是冗詞：那一段正是把這行字撐破 `.tl-edge-center`（186px）的原因
+    // （founder 2026-08-13 實走，「天」被擠成第二行的孤字）。
+    //
+    // ⚠️ **`MIN_DAYS_FOR_SCORE` 那個閘門不得跟著拿掉** —— 它是縱深防禦：
+    // 這個恆等式是**另一個模組**的性質，而依賴遠處檔案的保證不算保證
+    // （docs/EDGE-SCORE-DEFINITION.md §3.3）。要移除的只是顯示。
+    m.text = `基線 ${m.sampleCount}/${store.MIN_SAMPLES_FOR_SCORE}`;
   }
   return m;
 }
@@ -4079,7 +4087,10 @@ function renderHeroReading(){
     // ⚠️ 進度也要接在這一條 —— 上一刀把它併進狀態行時**只接了「有讀數」那條分支**，
     // 於是沒有讀數時「基線 n/30」整個消失。而第一次開啟 App 的人正是最需要看到
     // 它的人：那是他唯一看得到的「這件事在前進」。
-    zoneEl.textContent = '尚無讀數 · 到 Scan 掃一次'
+    // ⚠️「到 Scan 掃一次」教練卡已經在講（COACH_NO_READING_V6），這裡不重複 ——
+    // 同樣是字元預算的問題：加上基線進度之後，這條是**所有狀態裡最長的一個**
+    // （38 欄，遠超過環心容得下的 31）。
+    zoneEl.textContent = '尚無讀數'
       + (maturity.text ? ' · ' + maturity.text : '');
     zoneEl.style.color = '';
     if(confEl) confEl.hidden = true;
@@ -4125,9 +4136,13 @@ function renderHeroReading(){
   // 「什麼時候量的」才是使用者接著會問的問題。
   // 新鮮度 + 基線進度共用這一行。⚠️ 進度原本自己佔一行，把下面所有東西推低
   // 36px，短視窗上 Snapshot 的線圖就被 FDCB 底座蓋住（founder 實走回報）。
-  zoneEl.textContent = (stale
-    ? '讀數已過期 · 重新掃一次'
-    : agoTextV6(r.ts, Date.now()) + ' 掃描')
+  // ⚠️ 這一行同時要放**新鮮度**與**基線進度**，而它住在 186px 的環心裡 ——
+  // 字元預算很緊（見 harness 的 ZONE_COLUMN_BUDGET）。所以兩處都只留事實、
+  // 拿掉在別處已經講過的話：
+  //   · 「重新掃一次」教練卡已經在講（COACH_STALE_V6），不在這裡重複
+  //   · 「掃描」二字在帶位大字 +「狀態讀數」標籤底下是冗詞，時間本身就夠
+  // 這不是省字遊戲：founder 2026-08-13 實走時這行撐破環心、「天」變成孤字。
+  zoneEl.textContent = (stale ? '已過期' : agoTextV6(r.ts, Date.now()))
     + (maturity.text ? ' · ' + maturity.text : '');
   zoneEl.style.color = '';
   if(confEl){
