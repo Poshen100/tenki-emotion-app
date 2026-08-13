@@ -1,422 +1,377 @@
-/**
- * story.js — animation/scroll wiring for apps/preview/story.html
- * GSAP timelines + ScrollTrigger only; no framework, no bundler.
- */
-(function () {
-  'use strict';
-
-  if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
-    gsap.registerPlugin(ScrollTrigger);
-  }
-  if (typeof gsap !== 'undefined' && typeof SplitText !== 'undefined') {
-    gsap.registerPlugin(SplitText);
-  }
-  if (typeof gsap !== 'undefined' && typeof DrawSVGPlugin !== 'undefined') {
-    gsap.registerPlugin(DrawSVGPlugin);
-  }
-
-  // Brand ease curves — the whole reason CustomEase is on the plugin whitelist.
-  // Without these the named eases never resolve and getEase() silently falls
-  // back to approximations (expo.out / sine.inOut / back.out), which is exactly
-  // what MOTION-DIRECTION §3 says these tokens are meant to replace.
-  // CSS cubic-bezier(x1,y1,x2,y2) → CustomEase path 'M0,0 C x1,y1 x2,y2 1,1'.
-  if (typeof gsap !== 'undefined' && typeof CustomEase !== 'undefined') {
-    gsap.registerPlugin(CustomEase);
-    CustomEase.create('calm', 'M0,0 C0.22,1 0.36,1 1,1');    // --ease-calm
-    CustomEase.create('breath', 'M0,0 C0.4,0 0.6,1 1,1');    // --ease-breath
-    CustomEase.create('secure', 'M0,0 C0.19,1 0.22,1 1,1');  // --ease-secure
-  }
-
-  document.addEventListener('DOMContentLoaded', function () {
-    initHero();
-    initStoryPanels();
-    initTransition();
-    initDashboard();
-    initFooter();
-
-    // Web font swap (Inter) can reflow text after ScrollTrigger has already
-    // measured pin start/end positions — refresh once fonts settle.
-    if (typeof ScrollTrigger !== 'undefined' && document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(function () {
-        ScrollTrigger.refresh();
-      });
-    }
-  });
-
-  function getEase(name, fallback) {
-    if (typeof CustomEase !== 'undefined' && gsap.parseEase && gsap.parseEase(name)) {
-      return name;
-    }
-    return fallback;
-  }
-
-  function initHero() {
-    if (typeof gsap === 'undefined') return;
-
-    var calmEase = getEase('calm', 'expo.out');
-    var breathEase = getEase('breath', 'sine.inOut');
-    var secureEase = getEase('secure', 'back.out(1.2)');
-
-    gsap.matchMedia().add(
-      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
-      function (context) {
-        var reduced = context.conditions.reduced;
-
-        if (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.playEntrance === 'function') {
-          window.TENKI_STARDUST.playEntrance();
-        }
-
-        var heroTitle = document.querySelector('#hero-title');
-        var words = document.querySelectorAll('#hero-title .word');
-        var split = null;
-
-        if (typeof SplitText !== 'undefined' && heroTitle) {
-          split = new SplitText(heroTitle, { type: 'words', wordsClass: 'word' });
-          words = split.words;
-        }
-
-        var accentWords = Array.prototype.filter.call(words, function (w) {
-          return w.classList && w.classList.contains('accent');
-        });
-
-        var targets = ['#nav', '#hero-kicker', words, '#hero-sub', '#hero-actions .btn', '#scroll-cue'];
-
-        if (reduced) {
-          gsap.set(targets, { clearProps: 'all' });
-          gsap.set('#universe', { opacity: 1 });
-          return;
-        }
-
-        // Initial hidden states per beat score
-        gsap.set('#nav', { autoAlpha: 0, y: -12 });
-        gsap.set('#hero-kicker', { autoAlpha: 0, y: 16 });
-        gsap.set(words, { autoAlpha: 0, y: 40 });
-        if (accentWords.length) {
-          gsap.set(accentWords, { scale: 0.98 });
-        }
-        gsap.set('#hero-sub', { autoAlpha: 0, y: 18 });
-        gsap.set('#hero-actions .btn', { autoAlpha: 0, y: 18, scale: 0.96 });
-        gsap.set('#scroll-cue', { autoAlpha: 0 });
-
-        // Master Entrance Timeline
-        var masterTL = gsap.timeline({ delay: 0.1 });
-
-        // Beat 1: #nav at 0.25s (0.5s calm)
-        masterTL.to('#nav', { autoAlpha: 1, y: 0, duration: 0.5, ease: calmEase }, 0.25);
-
-        // Beat 2: #hero-kicker at 0.35s (0.6s calm)
-        masterTL.to('#hero-kicker', { autoAlpha: 1, y: 0, duration: 0.6, ease: calmEase }, 0.35);
-
-        // Beat 3: #hero-title SplitText(words) at 0.50s (0.9s calm/expo.out, stagger 0.055)
-        masterTL.to(words, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.055, ease: calmEase }, 0.50);
-
-        // Beat 4: accent words scale 0.98->1 at +0.1s (0.6s calm)
-        if (accentWords.length) {
-          masterTL.to(accentWords, { scale: 1, duration: 0.6, ease: calmEase }, 0.60);
-        }
-
-        // Beat 5: #hero-sub at 1.30s (0.6s calm)
-        masterTL.to('#hero-sub', { autoAlpha: 1, y: 0, duration: 0.6, ease: calmEase }, 1.30);
-
-        // Beat 6: #hero-actions .btn at 1.50s (0.6s secure, stagger 0.08)
-        masterTL.to('#hero-actions .btn', { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, stagger: 0.08, ease: secureEase }, 1.50);
-
-        // Beat 7: #scroll-cue at 2.00s fade in -> enters breath y loop
-        masterTL.to('#scroll-cue', {
-          autoAlpha: 1,
-          duration: 0.6,
-          ease: calmEase,
-          onComplete: function () {
-            gsap.to('#scroll-cue .line', {
-              scaleY: 1.2,
-              y: 4,
-              duration: 1.8,
-              ease: breathEase,
-              repeat: -1,
-              yoyo: true
-            });
-          }
-        }, 2.00);
-
-        // Hero Exit Scrub (hand off to story panels)
-        var exitScrub = null;
-        if (typeof ScrollTrigger !== 'undefined') {
-          exitScrub = gsap.timeline({
-            scrollTrigger: {
-              trigger: '#hero',
-              start: 'top top',
-              end: 'bottom top',
-              scrub: 0.6
-            }
-          });
-
-          // #universe wrapper y-drop + fade to ~0.35 (transform/opacity on wrapper only!)
-          exitScrub.to('#universe', { yPercent: 20, opacity: 0.35, ease: 'none' }, 0);
-          // Hero text group y -30 + fade out
-          exitScrub.to('.hero-inner', { y: -30, autoAlpha: 0, ease: 'none' }, 0);
-          exitScrub.to('#scroll-cue', { autoAlpha: 0, ease: 'none' }, 0);
-        }
-
-        return function () {
-          masterTL.kill();
-          if (exitScrub && exitScrub.scrollTrigger) exitScrub.scrollTrigger.kill();
-          if (split && split.revert) split.revert();
-        };
-      }
-    );
-  }
-
-  function initStoryPanels() {
-    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
-
-    var calmEase = getEase('calm', 'expo.out');
-
-    gsap.matchMedia().add(
-      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
-      function (context) {
-        var reduced = context.conditions.reduced;
-        var panels = gsap.utils.toArray('.story-panel');
-        var splits = [];
-
-        if (reduced) {
-          gsap.set(panels, { clearProps: 'all' });
-          gsap.set('.story-index-line .draw-line', { clearProps: 'all' });
-          return;
-        }
-
-        var scrollTriggers = panels.map(function (panel, i) {
-          var indexEl = panel.querySelector('.story-index');
-          var titleEl = panel.querySelector('.story-title');
-          var bodyEl = panel.querySelector('.story-body');
-          var visual = panel.querySelector('.story-visual');
-          var drawLine = panel.querySelector('.story-index-line .draw-line');
-
-          var titleLines = [titleEl];
-          if (typeof SplitText !== 'undefined' && titleEl) {
-            var split = new SplitText(titleEl, { type: 'lines' });
-            splits.push(split);
-            titleLines = split.lines;
-          }
-
-          var parallaxY = (i % 2 === 0) ? 24 : -24;
-
-          gsap.set(indexEl, { autoAlpha: 0, y: 20 });
-          gsap.set(titleLines, { autoAlpha: 0, y: 28 });
-          gsap.set(bodyEl, { autoAlpha: 0, y: 20 });
-          gsap.set(visual, { autoAlpha: 0, scale: 0.92, y: parallaxY });
-
-          if (drawLine && typeof DrawSVGPlugin !== 'undefined') {
-            gsap.set(drawLine, { drawSVG: '0%' });
-          }
-
-          var tl = gsap.timeline({
-            scrollTrigger: {
-              trigger: panel,
-              start: 'top top',
-              end: '+=100%',
-              pin: true,
-              scrub: 0.8,
-              anticipatePin: 1
-            }
-          });
-
-          // 1. Index fade/y
-          tl.to(indexEl, { autoAlpha: 1, y: 0, duration: 0.25, ease: calmEase }, 0);
-
-          // 2. Index line DrawSVG draw-on
-          if (drawLine && typeof DrawSVGPlugin !== 'undefined') {
-            tl.to(drawLine, { drawSVG: '100%', duration: 0.25, ease: calmEase }, 0.05);
-          }
-
-          // 3. Title SplitText(lines) stagger 0.08
-          tl.to(titleLines, { autoAlpha: 1, y: 0, duration: 0.35, stagger: 0.08, ease: calmEase }, 0.08);
-
-          // 4. Body fade/y
-          tl.to(bodyEl, { autoAlpha: 1, y: 0, duration: 0.3, ease: calmEase }, 0.18);
-
-          // 5. Visual depth parallax
-          tl.to(visual, { autoAlpha: 1, scale: 1, y: 0, duration: 0.45, ease: calmEase }, 0.05);
-
-          // Exit fade for panel 1 & 2
-          if (i < panels.length - 1) {
-            tl.to([indexEl, titleLines, bodyEl], { autoAlpha: 0, y: -24, duration: 0.25, stagger: 0.04 }, 0.72)
-              .to(visual, { autoAlpha: 0, scale: 0.96, y: -parallaxY, duration: 0.25 }, 0.72);
-          }
-
-          return tl.scrollTrigger;
-        });
-
-        return function () {
-          scrollTriggers.forEach(function (st) {
-            if (st) st.kill();
-          });
-          splits.forEach(function (sp) {
-            if (sp && sp.revert) sp.revert();
-          });
-        };
-      }
-    );
-  }
-
-  function initTransition() {
-    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
-
-    var breathEase = getEase('breath', 'sine.inOut');
-    var secureEase = getEase('secure', 'back.out(1.2)');
-
-    gsap.matchMedia().add(
-      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
-      function (context) {
-        var reduced = context.conditions.reduced;
-        var section = document.querySelector('#transition');
-        var ring = document.querySelector('#unlock-ring');
-        var core = document.querySelector('#unlock-core');
-        var label = document.querySelector('#unlock-label');
-
-        if (!section || reduced) {
-          gsap.set([ring, label], { clearProps: 'all' });
-          return;
-        }
-
-        gsap.set(ring, { autoAlpha: 0, scale: 0.7 });
-        gsap.set(label, { autoAlpha: 0, y: 12 });
-
-        var breathe = gsap.to(core, {
-          scale: 1.08,
-          duration: 1.6,
-          ease: breathEase,
-          repeat: -1,
-          yoyo: true,
-          paused: true
-        });
-
-        var tl = gsap.timeline({
-          scrollTrigger: {
-            trigger: section,
-            start: 'top top',
-            end: '+=120%',
-            pin: true,
-            scrub: 1,
-            anticipatePin: 1,
-            onEnter: function () { breathe.play(); },
-            onEnterBack: function () { breathe.play(); },
-            onLeave: function () { breathe.pause(); },
-            onLeaveBack: function () { breathe.pause(); }
-          }
-        });
-
-        tl.to(ring, { autoAlpha: 1, scale: 1, duration: 0.25, ease: secureEase }, 0)
-          .to(label, { autoAlpha: 1, y: 0, duration: 0.2, ease: secureEase }, 0.1)
-          .to(ring, { autoAlpha: 0, scale: 1.6, duration: 0.25, ease: 'power2.in' }, 0.72)
-          .to(core, { autoAlpha: 0, scale: 1.6, duration: 0.25, ease: 'power2.in' }, 0.72)
-          .to(label, { autoAlpha: 0, y: -12, duration: 0.2 }, 0.72);
-
-        return function () {
-          breathe.kill();
-          if (tl.scrollTrigger) tl.scrollTrigger.kill();
-          tl.kill();
-        };
-      }
-    );
-  }
-
-  function initDashboard() {
-    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
-
-    var calmEase = getEase('calm', 'expo.out');
-
-    gsap.matchMedia().add(
-      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
-      function (context) {
-        var reduced = context.conditions.reduced;
-        var section = document.querySelector('#dashboard');
-        var frame = document.querySelector('#phone-frame');
-        if (!section || !frame) return;
-
-        var copy = section.querySelectorAll(
-          '.dash-copy > .story-index, .dash-copy > .story-title, .dash-copy > .story-body, .dash-annotation'
-        );
-
-        if (reduced) {
-          gsap.set([copy, frame], { clearProps: 'all' });
-          return;
-        }
-
-        gsap.set(copy, { autoAlpha: 0, y: 28 });
-        gsap.set(frame, {
-          autoAlpha: 0, y: 60, scale: 0.88,
-          rotationX: 8, rotationY: -6, transformPerspective: 1000
-        });
-
-        var entrance = gsap.timeline({
-          scrollTrigger: {
-            trigger: section,
-            start: 'top 70%',
-            toggleActions: 'play none none reverse'
-          }
-        });
-
-        entrance
-          .to(copy, { autoAlpha: 1, y: 0, duration: 0.7, stagger: 0.08, ease: calmEase }, 0)
-          .to(frame, { autoAlpha: 1, y: 0, scale: 1, rotationX: 0, rotationY: 0, duration: 1, ease: calmEase }, 0.1);
-
-        var parallax = gsap.to(frame, {
-          y: -30,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: section,
-            start: 'top bottom',
-            end: 'bottom top',
-            scrub: true
-          }
-        });
-
-        return function () {
-          if (entrance.scrollTrigger) entrance.scrollTrigger.kill();
-          entrance.kill();
-          if (parallax.scrollTrigger) parallax.scrollTrigger.kill();
-          parallax.kill();
-        };
-      }
-    );
-  }
-
-  function initFooter() {
-    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
-
-    var calmEase = getEase('calm', 'expo.out');
-
-    gsap.matchMedia().add(
-      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
-      function (context) {
-        var reduced = context.conditions.reduced;
-        var footer = document.querySelector('#site-footer');
-        if (!footer) return;
-
-        var targets = footer.querySelectorAll('.footer-title, .footer-actions .btn, .footer-mark');
-
-        if (reduced) {
-          gsap.set(targets, { clearProps: 'all' });
-          return;
-        }
-
-        gsap.set(targets, { autoAlpha: 0, y: 24 });
-
-        var tl = gsap.timeline({
-          scrollTrigger: {
-            trigger: footer,
-            start: 'top 80%',
-            toggleActions: 'play none none reverse'
-          }
-        });
-
-        tl.to(targets, { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.08, ease: calmEase });
-
-        return function () {
-          if (tl.scrollTrigger) tl.scrollTrigger.kill();
-          tl.kill();
-        };
-      }
-    );
-  }
-})();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TENKI CORE — Decision Edge, Made Visible</title>
+<meta name="description" content="TENKI CORE — a privacy-first cognitive wellness instrument. Soul Scan baseline, Decision Edge Score, on-device always.">
+<meta name="theme-color" content="#020617">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- TENKI Core Brand v1.0 — favicon + Open Graph (front-door parity) -->
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon/apple-touch-icon-180.png">
+<meta property="og:title" content="TENKI Core — Decision Edge, Made Visible">
+<meta property="og:description" content="A privacy-first cognitive wellness instrument. Soul Scan baseline, Decision Edge Score, on-device always.">
+<meta property="og:image" content="https://tenki-emotion-app.vercel.app/brand/marketing/og-card-1200x630.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tenki-emotion-app.vercel.app/story/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TENKI Core — Decision Edge, Made Visible">
+<meta name="twitter:image" content="https://tenki-emotion-app.vercel.app/brand/marketing/og-card-1200x630.png">
+
+<!-- Canonical brand tokens — link first so every color below resolves the same hex as the rest of the preview surface -->
+<link rel="stylesheet" href="tokens.css">
+
+<!-- Three.js classic global build — stardust.js expects window.THREE (same pattern as v6/index.html) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+
+<!-- GSAP 3.13.0 + Plugins (CDN: SplitText, CustomEase, DrawSVG) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/CustomEase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/DrawSVGPlugin.min.js"></script>
+
+<style>
+:root{
+  --ink:#F5F7FA;
+  --ink-dim:rgba(245,247,250,0.62);
+  --ink-faint:rgba(245,247,250,0.38);
+  --hairline:rgba(255,255,255,0.08);
+  --serif: 'Inter', -apple-system, system-ui, sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+html,body{
+  background:var(--bg-space);
+  color:var(--ink);
+  font-family:var(--serif);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  width:100%;
+}
+a{color:inherit;text-decoration:none}
+.container{
+  width:min(1180px, 92vw);
+  margin:0 auto;
+}
+section{position:relative}
+
+/* ═══════════════════════════════════════════════════
+   NAV — minimal, fixed, fades in after hero
+   ═══════════════════════════════════════════════════ */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px clamp(24px, 4vw, 56px);
+  background:var(--glass-bg);
+  border-bottom:1px solid var(--glass-border);
+  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+}
+.nav-mark{font-size:14px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:var(--ink)}
+.nav-mark span{color:var(--cyan-active)}
+.nav-cta{
+  font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
+  padding:9px 18px;border-radius:999px;
+  border:1px solid var(--hairline);
+  background:rgba(255,255,255,0.04);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  transition:background 0.3s var(--ease-calm), border-color 0.3s var(--ease-calm);
+}
+.nav-cta:hover{background:rgba(34,211,238,0.1);border-color:rgba(34,211,238,0.3)}
+
+/* ═══════════════════════════════════════════════════
+   HERO
+   ═══════════════════════════════════════════════════ */
+#hero{
+  min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;
+  padding:120px 24px 80px;
+  overflow:hidden;
+  perspective:1200px;
+}
+#universe{
+  position:absolute;inset:0;z-index:0;
+  opacity:0;
+}
+.hero-inner{
+  position:relative;z-index:2;max-width:880px;
+  transform-style:preserve-3d;
+}
+.hero-kicker{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:11px;font-weight:600;letter-spacing:0.24em;text-transform:uppercase;
+  color:var(--ink-dim);
+  padding:7px 16px;border-radius:999px;
+  border:1px solid var(--hairline);
+  background:rgba(255,255,255,0.03);
+  margin-bottom:32px;
+}
+.hero-kicker .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan-active);box-shadow:0 0 8px var(--cyan-active)}
+.hero-title{
+  font-size:clamp(40px, 7vw, 84px);
+  font-weight:700;letter-spacing:-0.03em;line-height:1.04;
+  margin-bottom:28px;
+}
+.hero-title .word{display:inline-block;will-change:transform,opacity}
+.hero-title .accent{
+  background:linear-gradient(135deg, var(--cyan-active) 0%, var(--gold-secured) 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero-sub{
+  font-size:clamp(16px, 2vw, 19px);
+  color:var(--ink-dim);
+  line-height:1.6;
+  max-width:560px;margin:0 auto 40px;
+}
+.hero-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.btn{
+  font-size:13px;font-weight:600;letter-spacing:0.05em;
+  padding:14px 28px;border-radius:999px;
+  transition:transform 0.25s var(--ease-calm), background 0.3s, border-color 0.3s;
+}
+.btn:active{transform:scale(0.96)}
+.btn-primary{
+  background:linear-gradient(135deg, var(--cyan-active), #0e9bb8);
+  color:#021018;
+  box-shadow:0 12px 32px rgba(34,211,238,0.25);
+}
+.btn-secondary{
+  border:1px solid var(--hairline);
+  background:rgba(255,255,255,0.03);
+}
+.btn-secondary:hover{background:rgba(255,255,255,0.06)}
+.scroll-cue{
+  position:absolute;bottom:40px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-faint);
+}
+.scroll-cue .line{width:1px;height:32px;background:linear-gradient(180deg, var(--ink-faint), transparent)}
+
+/* ═══════════════════════════════════════════════════
+   STORY — pinned scroll panels
+   ═══════════════════════════════════════════════════ */
+#story{position:relative}
+.story-panel{
+  height:100vh;
+  display:flex;align-items:center;
+  position:relative;
+}
+.story-panel .container{
+  display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;
+}
+.story-index{
+  font-size:13px;font-weight:700;letter-spacing:0.2em;color:var(--cyan-active);
+  margin-bottom:20px;
+  display:inline-flex;flex-direction:column;gap:6px;align-items:flex-start;
+}
+.story-index-line{display:block;overflow:visible}
+.story-title{
+  font-size:clamp(30px, 4vw, 48px);font-weight:700;letter-spacing:-0.02em;
+  line-height:1.12;margin-bottom:20px;
+}
+.story-body{font-size:16px;line-height:1.75;color:var(--ink-dim);max-width:440px}
+.story-visual{
+  aspect-ratio:1/1;border-radius:28px;
+  border:1px solid var(--hairline);
+  background:radial-gradient(circle at 30% 30%, rgba(34,211,238,0.12), rgba(255,255,255,0.02) 60%);
+  position:relative;overflow:hidden;
+}
+
+/* ═══════════════════════════════════════════════════
+   TRANSITION — login → dashboard demo beat
+   ═══════════════════════════════════════════════════ */
+#transition{
+  height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  text-align:center;
+}
+.unlock-ring{
+  width:180px;height:180px;border-radius:50%;
+  border:1.5px solid rgba(34,211,238,0.35);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;margin-bottom:32px;
+}
+.unlock-ring::before{
+  content:'';position:absolute;inset:-18px;border-radius:50%;
+  border:1px solid rgba(34,211,238,0.12);
+}
+.unlock-core{
+  width:64px;height:64px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, var(--gold-secured), #b8893a 80%);
+  box-shadow:0 0 40px rgba(255,212,110,0.4);
+}
+.unlock-label{
+  font-size:12px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;
+  color:var(--ink-dim);
+}
+
+/* ═══════════════════════════════════════════════════
+   DASHBOARD PREVIEW
+   ═══════════════════════════════════════════════════ */
+#dashboard{
+  min-height:100vh;
+  display:flex;align-items:center;
+  padding:120px 0;
+}
+#dashboard .container{
+  display:grid;grid-template-columns:0.9fr 1.1fr;gap:60px;align-items:center;
+}
+.dash-copy .story-index{margin-bottom:20px}
+.dash-annotations{display:flex;flex-direction:column;gap:24px;margin-top:36px}
+.dash-annotation{padding-left:18px;border-left:2px solid rgba(34,211,238,0.3)}
+.dash-annotation b{display:block;font-size:14px;margin-bottom:4px}
+.dash-annotation span{font-size:13px;color:var(--ink-dim);line-height:1.6}
+.phone-frame{
+  position:relative;width:min(360px, 100%);margin:0 auto;
+  aspect-ratio:390/844;
+  border-radius:46px;
+  background:#000;
+  box-shadow:0 0 0 2px #1a1a1a, 0 40px 100px rgba(0,0,0,0.6), 0 0 60px rgba(34,211,238,0.08);
+  overflow:hidden;
+  will-change:transform;
+}
+.phone-frame iframe{
+  width:100%;height:100%;border:none;display:block;
+  pointer-events:none;
+}
+
+/* ═══════════════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════════════ */
+#site-footer{
+  padding:100px 24px 60px;
+  text-align:center;
+  border-top:1px solid var(--hairline);
+}
+.footer-title{font-size:clamp(26px,4vw,40px);font-weight:700;letter-spacing:-0.02em;margin-bottom:24px}
+.footer-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:48px}
+.footer-mark{font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-faint)}
+
+@media (max-width:880px){
+  .story-panel{height:auto;padding:80px 0}
+  .story-panel .container,
+  #dashboard .container{grid-template-columns:1fr;gap:40px}
+  .story-visual{order:-1;max-width:420px;margin:0 auto}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="nav-mark">TENKI <span>CORE</span></div>
+  <a class="nav-cta" href="/preview/">Start Soul Scan</a>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     PRESERVED HERO — founder-loved. Do NOT redesign or replace without an
+     explicit founder request. Locked elements:
+       • Headline "Read your edge before it reads you." (accent on "it reads you.")
+       • The scrolling stardust orb (#universe + v6/stardust.js TENKI_STARDUST,
+         playEntrance on load) — the signature brand visual, keep it.
+       • Kicker, sub ("…a single, honest number — your Decision Edge Score…"),
+         and the two CTAs.
+     Polish IS allowed: timing/eases, font loading, perf, reduced-motion — as long
+     as the headline, the orb, and the layout/feel stay intact.
+     See SYSTEM.md §8 "Preserved design assets" and ANTIGRAVITY.md.
+     ═══════════════════════════════════════════════════════════════════ -->
+<section id="hero">
+  <div id="universe"></div>
+  <div class="hero-inner">
+    <div class="hero-kicker" id="hero-kicker"><span class="dot"></span> Privacy-first cognitive wellness</div>
+    <h1 class="hero-title" id="hero-title">
+      <span class="word">Read</span> <span class="word">your</span> <span class="word">edge</span> <span class="word">before</span> <span class="word accent">it</span> <span class="word accent">reads</span> <span class="word accent">you.</span>
+    </h1>
+    <p class="hero-sub" id="hero-sub">TENKI CORE turns a 60-second face baseline into a single, honest number — your Decision Edge Score. Everything stays on-device.</p>
+    <div class="hero-actions" id="hero-actions">
+      <a class="btn btn-primary" href="/preview/">Start Soul Scan</a>
+      <a class="btn btn-secondary" href="#story">See how it works</a>
+    </div>
+  </div>
+  <div class="scroll-cue" id="scroll-cue"><span>Scroll</span><span class="line"></span></div>
+</section>
+
+<section id="story">
+  <div class="story-panel" data-panel="1">
+    <div class="container">
+      <div>
+        <div class="story-index">
+          <span>01 — Soul Scan</span>
+          <svg class="story-index-line" width="72" height="2" viewBox="0 0 72 2"><line class="draw-line" x1="0" y1="1" x2="72" y2="1" stroke="var(--cyan-active)" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <h2 class="story-title">A 60-second baseline, not a diagnosis.</h2>
+        <p class="story-body">Face Baseline enrollment reads steadiness, lighting, centering, and gaze the way Face ID reads geometry — once, calmly, on-device. No raw biometric ever leaves your phone.</p>
+      </div>
+      <div class="story-visual" data-visual="1"></div>
+    </div>
+  </div>
+  <div class="story-panel" data-panel="2">
+    <div class="container">
+      <div>
+        <div class="story-index">
+          <span>02 — Decision Edge Score</span>
+          <svg class="story-index-line" width="72" height="2" viewBox="0 0 72 2"><line class="draw-line" x1="0" y1="1" x2="72" y2="1" stroke="var(--cyan-active)" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <h2 class="story-title">Eight dimensions, one honest number.</h2>
+        <p class="story-body">Clear, Neutral, or Strain — the score normalizes what your body is actually telling you, weighted across eight signal dimensions, so the read is consistent session to session.</p>
+      </div>
+      <div class="story-visual" data-visual="2"></div>
+    </div>
+  </div>
+  <div class="story-panel" data-panel="3">
+    <div class="container">
+      <div>
+        <div class="story-index">
+          <span>03 — Local-first</span>
+          <svg class="story-index-line" width="72" height="2" viewBox="0 0 72 2"><line class="draw-line" x1="0" y1="1" x2="72" y2="1" stroke="var(--cyan-active)" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <h2 class="story-title">Cloud-minimal by design, not by promise.</h2>
+        <p class="story-body">Scoring runs where the data is captured. What syncs is the score — never the scan. Privacy controls are never behind a paywall.</p>
+      </div>
+      <div class="story-visual" data-visual="3"></div>
+    </div>
+  </div>
+</section>
+
+<section id="transition">
+  <div>
+    <div class="unlock-ring" id="unlock-ring"><div class="unlock-core" id="unlock-core"></div></div>
+    <div class="unlock-label" id="unlock-label">Baseline secured</div>
+  </div>
+</section>
+
+<section id="dashboard">
+  <div class="container">
+    <div class="dash-copy">
+      <div class="story-index">04 — Today</div>
+      <h2 class="story-title">Your day, read at a glance.</h2>
+      <p class="story-body">The Today screen is the instrument panel — Edge Score ring, ANS balance, Body Battery, session history — all live, all on-device.</p>
+      <div class="dash-annotations">
+        <div class="dash-annotation"><b>Spectrum ring</b><span>A single glance read of where you are right now — Clear, Neutral, or Strain.</span></div>
+        <div class="dash-annotation"><b>ANS balance</b><span>Sympathetic vs. parasympathetic load, tracked continuously.</span></div>
+        <div class="dash-annotation"><b>Session timeline</b><span>Every scan and session, laid out across your day.</span></div>
+      </div>
+    </div>
+    <div class="phone-frame" id="phone-frame">
+      <iframe src="/v3/" loading="lazy" title="TENKI CORE — Today dashboard preview" tabindex="-1"></iframe>
+    </div>
+  </div>
+</section>
+
+<footer id="site-footer">
+  <h2 class="footer-title">Establish your baseline today.</h2>
+  <div class="footer-actions">
+    <a class="btn btn-primary" href="/preview/">Start Soul Scan</a>
+    <a class="btn btn-secondary" href="/v3/">Open Dashboard</a>
+  </div>
+  <div class="footer-mark">TENKI CORE — Decision Edge Score</div>
+</footer>
+
+<script src="v6/stardust.js?v=sd8"></script>
+<script src="story.js"></script>
+</body>
+</html>
