@@ -1112,6 +1112,47 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   await ctx.close();
 }
 
+// ══════════════════════════════════════════════════════════════════
+// 🔴 自測頁：「已累積天數」必須在按開始之前就反映本機紀錄
+//
+// 那個數字是跨天自測唯一的事前自我檢查 —— 頁面現在明寫「開始之前先看上面那個
+// 數字…如果是 0，先別掃」。若它要等掃完才更新，這句話就是在指路到一個空欄位，
+// 而代價是整輪白跑（3 次掃描 + 兩段 15 秒），且那一天的跨天對照補不回來。
+//
+// ⚠️ 這條**必須先塞資料再驗**：markup 裡 #rl-days 的初值就寫死 `0`，
+// 直接驗「等於 0」是同義反覆（renderSummary 整個拿掉也照樣綠）。
+// 塞兩個不同日子進去，讀到 2 才代表 init() 真的算過。
+// ══════════════════════════════════════════════════════════════════
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => { console.error('[pageerror]', e.message); fail += 1; });
+
+  const url = `${base}/preview/reliability.html`;
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => {
+    const DAY = 86_400_000;
+    const t = Date.now();
+    // 同一天兩筆 + 前一天一筆 → 天數 2，而且證明它數的是**日子**不是筆數。
+    localStorage.setItem(window.TENKI_RELIABILITY.STORE_KEY, JSON.stringify([
+      { ts: t - DAY, composite: 0.51, tier: 'A', confidence: 'high' },
+      { ts: t, composite: 0.55, tier: 'A', confidence: 'high' },
+      { ts: t + 1000, composite: 0.57, tier: 'A', confidence: 'high' },
+    ]));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(300);
+
+  // 刻意**不按**「開始自測」—— 驗的就是「開始之前」讀得到。
+  const daysBeforeStart = await page.evaluate(
+    () => document.getElementById('rl-days').textContent.trim(),
+  );
+  check('🔴 「已累積天數」在按開始之前就反映本機紀錄（3 筆跨 2 天 → 2）',
+    daysBeforeStart, '2');
+
+  await ctx.close();
+}
+
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
 await browser.close();
 server.close();
