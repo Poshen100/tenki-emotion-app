@@ -33,6 +33,12 @@ export const PROHIBITED_VOCABULARY = [
   'detect illness', 'detect anxiety', 'treatment',
   'predict', 'prediction accuracy', 'guarantee',
   'your body says', 'you should', 'you must',
+  // 🔴 `PR99` 是 v2 舊名，2026-08-11 founder **內部解禁**（code 註解、docs、
+  // commit message 都可以用），但**不得進 user-facing copy**。
+  // 理由不是儀式：台灣語境裡「PR 值」壓倒性地指基測／學測 ——
+  // **跟別人比的排名**。而 Edge Score 的核心承諾恰好相反：跟你自己比。
+  // 對目標使用者而言這個詞會主動誤導。詳見 docs/EDGE-SCORE-DEFINITION.md。
+  'pr99',
 ] as const;
 
 /**

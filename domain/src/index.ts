@@ -167,6 +167,25 @@ export type {
 } from './contracts/readiness-reading';
 
 export {
+  MIN_DAYS_FOR_SCORE,
+  MIN_SAMPLES_FOR_SCORE,
+  SCORE_CLEAR_AT,
+  SCORE_MAX,
+  SCORE_MIN,
+  SCORE_NEUTRAL_AT,
+  Z_CLAMP,
+  localDayKey,
+  normalCdf,
+  personSignalComposite,
+  personalScore,
+  scoreBand,
+  summarizeSamples,
+  weightedPercentile,
+} from './policies/baseline-score';
+
+export type { BaselineSample, PersonalBaselineStats } from './policies/baseline-score';
+
+export {
   MIN_BAND_SAMPLES_FOR_RATE,
   READING_FRESHNESS_MS,
   buildReading,

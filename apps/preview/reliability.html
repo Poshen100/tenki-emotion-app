@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#020617" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>TENKI — 量測重複性自測</title>
+  <link rel="stylesheet" href="/preview/tokens.css" />
+  <style>
+    *{ box-sizing: border-box; }
+    body{
+      margin:0; background:var(--space-bg, #020617); color:#F4F6FF;
+      font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Noto Sans TC', sans-serif;
+      padding:28px 20px calc(40px + env(safe-area-inset-bottom,0px));
+      line-height:1.6; -webkit-font-smoothing:antialiased;
+    }
+    .wrap{ max-width:520px; margin:0 auto; }
+    h1{ font-size:19px; font-weight:600; letter-spacing:0.01em; margin:0 0 6px; }
+    .sub{ font-size:12.5px; color:#8A93AD; margin:0 0 22px; }
+    .card{
+      background:rgba(255,255,255,0.035); border:1px solid rgba(255,255,255,0.08);
+      border-radius:14px; padding:16px 16px 14px; margin-bottom:16px;
+    }
+    .card h2{ font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase;
+      color:#8A93AD; margin:0 0 12px; }
+    .rl-row{ display:flex; align-items:baseline; gap:10px; padding:7px 0;
+      border-bottom:1px solid rgba(255,255,255,0.05); }
+    .rl-row:last-child{ border-bottom:0; }
+    .rl-k{ font-size:13px; color:#A6ADC8; width:72px; flex-shrink:0; }
+    .rl-v{ font-size:17px; font-variant-numeric:tabular-nums; font-weight:600; min-width:76px; }
+    .rl-meta{ font-size:11px; color:#5A6178; }
+    .kv{ display:flex; justify-content:space-between; align-items:baseline; padding:6px 0; }
+    .kv .k{ font-size:12.5px; color:#A6ADC8; }
+    .kv .v{ font-size:15px; font-variant-numeric:tabular-nums; }
+    /* 比值有時是一句話（「還不能比 —— 需要⋯」），塞不進右對齊的數字欄位；
+       讓它自己一行，標籤不被擠成兩行。 */
+    .rl-verdict-row{ padding:6px 0; }
+    .rl-verdict-row .k{ display:block; font-size:12.5px; color:#A6ADC8; margin-bottom:2px; }
+    .rl-verdict-row span:last-child{ font-size:14px; font-variant-numeric:tabular-nums; }
+    button{
+      width:100%; min-height:52px; border-radius:999px; font-size:15px; font-family:inherit;
+      font-weight:600; letter-spacing:0.02em; cursor:pointer; margin-top:4px;
+      background:rgba(34,211,238,0.14); border:1px solid rgba(34,211,238,0.4); color:#E8FBFF;
+    }
+    button:disabled{ opacity:0.45; cursor:default; }
+    #rl-status{ font-size:12.5px; color:#8A93AD; min-height:20px; margin-top:12px; text-align:center; }
+    .note{ font-size:11.5px; color:#6C7590; line-height:1.65; margin-top:6px; }
+    .note b{ color:#A6ADC8; font-weight:600; }
+    /* 「開始前先看這個數字」比旁邊的說明更需要被讀到 —— 但它是操作提醒，
+       不是讀數，所以只提亮、不上任何已被指派意義的顏色（gold/cyan/綠）。 */
+    .rl-origin{ border-left:2px solid rgba(255,255,255,0.14); padding-left:10px; }
+    .why{ border-left:2px solid rgba(34,211,238,0.35); padding-left:12px; margin:0 0 20px;
+      font-size:12.5px; color:#8A93AD; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>量測重複性自測</h1>
+    <!-- 🔴 第一句就要講清楚這不是讀數。這一頁是儀器對自己的測試。 -->
+    <p class="sub">這是<b>儀器自測</b>，不是你的讀數。它不會給你帶位，也不會告訴你今天狀態如何。</p>
+
+    <div class="why">
+      Edge Score 是「今天 − 你的均值」除以<b>你的標準差</b>。
+      如果同一場連掃三次的離散度，跟跨天的離散度差不多大，
+      那分數量到的就是<b>量測噪音，不是你的狀態</b>。這一頁就是去看那件事。
+    </div>
+
+    <div class="card">
+      <h2>這一輪</h2>
+      <div id="rl-rows"></div>
+      <button type="button" id="rl-start">開始自測（3 次）</button>
+      <div id="rl-status"></div>
+      <p class="note">
+        每次之間會請你<b>放下手機或看別處 15 秒</b>。這不是禮貌 ——
+        背靠背連掃會共用姿勢與光線，量到的離散度會<b>低估</b>真實噪音，
+        讓儀器看起來比實際可靠。放開再重新取像，每一次才算獨立。
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>同場離散度（within-session）</h2>
+      <div class="kv"><span class="k">有效次數</span><span class="v" id="rl-valid">0 / 3</span></div>
+      <div class="kv"><span class="k">標準差</span><span class="v" id="rl-within-sd">未取得</span></div>
+      <div class="kv"><span class="k">全距</span><span class="v" id="rl-within-range">未取得</span></div>
+    </div>
+
+    <div class="card">
+      <h2>跨天離散度（between-day）</h2>
+      <div class="kv"><span class="k">已累積天數</span><span class="v" id="rl-days">0</span></div>
+      <div class="kv"><span class="k">日平均的標準差</span><span class="v" id="rl-between-sd">未取得</span></div>
+      <div class="rl-verdict-row"><span class="k">比值</span><span id="rl-verdict">—</span></div>
+      <!-- 🔴 這段講的是「開始之前要先看什麼」，所以它必須排在按鈕之後、
+           但在解釋跨天意義的 .note 之前 —— 跑完才發現開錯地方，那一天的
+           跨天對照就永遠補不回來了（日界過了就過了）。 -->
+      <p class="note rl-origin">
+        <b>開始之前先看上面那個數字。</b>它讀的是<b>這個網址、這個開啟方式</b>的本機紀錄 ——
+        換一個連結，或改成從主畫面開（而先前是 Safari 分頁），都是<b>另一份紀錄</b>。
+        第二天它應該是 <b>1</b>；<b>如果是 0，先別掃</b> —— 掃了也湊不成跨天對照。
+      </p>
+      <p class="note">
+        要的是<b>跨天顯著大於同場</b> —— 那才代表訊號裡有「日與日之間的真實差異」，
+        而不只是儀器在抖。<b>單看同場離散度證明不了任何事</b>，一定要有跨天的對照。
+      </p>
+    </div>
+
+    <p class="note">
+      本機運算 · 不留影像。這一頁只存四個純量（時間、composite、tier、confidence），
+      不存任何影像或臉部特徵點。
+    </p>
+  </div>
+
+  <script src="/preview/blink-cadence.js"></script>
+  <script src="/preview/face-stillness.js?v=fs2"></script>
+  <script src="/preview/baseline-store.js?v=bs3"></script>
+  <script src="/preview/readiness-scan.js?v=rs19"></script>
+  <script src="/preview/reliability.js?v=rl2"></script>
+</body>
+</html>

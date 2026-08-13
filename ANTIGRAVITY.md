@@ -1123,7 +1123,8 @@ TENKI CORE 的完成標準：
 
 | 禁止 | 原因 |
 |------|------|
-| 使用 TEI、PR99 語彙 | v3 語意遷移完成，禁止回退 |
+| 使用 TEI 語彙 | v3 語意遷移完成，禁止回退 |
+| 把 `PR99` 用在 user-facing copy | ⚠️ 2026-08-11 更新：`PR99` 已**內部解禁**（code／docs／commit 可用），只有用戶看得到的文案仍禁。理由與血統見 `docs/EDGE-SCORE-DEFINITION.md` §7 |
 | 上傳原始 HR/HRV/RR | 違反 privacy-first 原則 |
 | 修改 `apps/web/` (無指示) | 保護現有 prototype 穩定 |
 | 使用 `any` 型別 | 型別安全是核心品質 |

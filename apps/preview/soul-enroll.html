@@ -266,10 +266,11 @@
     }
     #hud.on { opacity: 0.82; }
     .hud-tag { position: absolute; text-shadow: 0 0 8px rgba(0,240,255,0.5); }
+    #bx-seed { margin-top: 8px; font-size: 11px; letter-spacing: 0.06em; color: rgba(0,240,255,0.68); }
+    #bx-seed b { font-weight: 700; color: rgba(0,240,255,0.95); }
     #hud-brand { top: 26px; left: 22px; display: flex; flex-direction: column; gap: 4px; }
     #hud-brand b { font-size: 12px; letter-spacing: 2px; color: #d8fbff; font-weight: 700; }
     #hud-brand span { color: var(--text-tertiary); }
-    #hud-binary { color: rgba(0,240,255,0.3); font-size: 8.5px; letter-spacing: 2px; }
     #hud-left { left: 18px; top: 46%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 9px; }
     #hud-right { right: 18px; top: 46%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 9px; align-items: flex-end; }
     .hud-kv { color: var(--text-tertiary); }
@@ -589,7 +590,7 @@
       <div class="pill-secured" id="securedPill">&#128274; PRIVACY SECURED · ON-DEVICE</div>
       <h1 id="instruction">Create your Face Baseline.</h1>
       <p id="subtitle">This helps TENKI recognize your natural steady state with higher precision.</p>
-      <div id="proc-pct"><span id="proc-pct-num">0</span>%</div>
+      <div id="proc-pct">建立基線中</div>
       <div id="baseline-extra">
         <span class="bx-band"><span class="dot"></span><span id="bx-band-text">New baseline · signal steady</span></span>
         <ul class="bx-list">
@@ -601,22 +602,26 @@
           <li>Distance</li>
           <li id="bx-blink" hidden>Blink cadence</li>
         </ul>
+        <!-- 🔴 這一行是 founder 2026-08-12「建立基線卻沒有讀數好像怪怪的」的答案：
+             整場仍然**不給帶位**（North Star §3 第 6 步），但 neutral 那一段的
+             量測會成為 baseline 的第一筆樣本 —— 使用者不是白做一場。
+             量不到（幀數不足／沒有 landmark）就整行不顯示，不寫一個假的進度。 -->
+        <div id="bx-seed" hidden>基線已開始 · 第 <b id="bx-seed-n">1</b> 筆</div>
       </div>
       <div id="meter"><div id="meter-fill"></div></div>
       <button id="cta" data-action="begin">Begin</button>
     </div>
 
     <div id="hud" aria-hidden="true">
-      <div class="hud-tag" id="hud-brand"><b>TENKI CORE</b><span>Neural Lattice</span><span id="hud-binary">0101101001</span></div>
+      <div class="hud-tag" id="hud-brand"><b>TENKI CORE</b><span>Neural Lattice</span></div>
       <div id="hud-reticle"><div class="r-ring"></div><div class="r-tick l"></div><div class="r-tick r"></div></div>
       <div class="hud-tag" id="hud-left">
         <span class="hud-kv">Nodes&nbsp;<b id="hud-nodes">0</b></span>
         <span class="hud-kv gold">Sync&nbsp;<b id="hud-sync">0.0%</b></span>
       </div>
-      <div class="hud-tag" id="hud-right">
-        <span class="hud-kv">Threat&nbsp;<b>Low</b></span>
-        <span class="hud-kv">Mode&nbsp;<b>Ghost</b></span>
-      </div>
+      <!-- 🔴 這裡本來是 `Threat Low` / `Mode Ghost` —— 兩個寫死的字串，
+           沒有任何東西在算它們。一個宣稱做過威脅評估，一個宣稱有個運作模式。
+           HUD 可以有裝飾，但**裝飾不可以長得像讀數**。整塊移除。 -->
     </div>
 
     <!-- ── Pre-camera onboarding: cinematic 5-step Radar → Reframe → Calibration ── -->
@@ -735,8 +740,12 @@
     </div>
   </div>
 
+  <!-- ⚠️ 這兩支都必須在 soul-enroll.js 之前：seedTracker 在模組載入當下就
+       初始化，而 saveBaselineSeed 要寫進 baseline-store 那個池。 -->
+  <script src="face-stillness.js?v=fs2"></script>
+  <script src="baseline-store.js?v=bs3"></script>
   <script src="blink-cadence.js?v=blink2"></script>
-  <script src="soul-enroll.js?v=blink1"></script>
+  <script src="soul-enroll.js?v=se-still1"></script>
   <script src="soul-onboarding.js"></script>
   <!-- Stardust orb for the hero gate (same engine as /story/ and /v3/; auto-binds #universe.
        Consumes the module THREE this page already exposes on window — r160 satisfies its r128+ floor.
@@ -752,16 +761,47 @@
         if (el && el.querySelector('canvas')) {
           el.classList.add('lit');
           if (window.TENKI_STARDUST && window.TENKI_STARDUST.playEntrance) window.TENKI_STARDUST.playEntrance();
+          startHeroDrift();
           return;
         }
         if (++tries < 50) setTimeout(lightUniverse, 200); // give the CDN ~10s, then stay static
       })();
+      // ── hero gate 的自主漂移（founder 2026-08-11「顏色也可以幫我改多色版」）──
+      //
+      // 🔴 **這一顆沒有任何量測**（相機還沒開，掃描還沒開始）。所以它只能做
+      // 「不宣稱的漂移」：色相自己走，**不接任何輸入**。
+      // 讓它跟著一個假訊號動，就是換一種方式重犯這一輪在修的錯 —— 畫面宣稱沒發生的事。
+      //
+      // 🔴 範圍是量出來的，不是挑順眼的：色相位移 0 → 0.20 turn。
+      // 0.24 就會讓整顆球的主色撞上「未判定 coral」（ΔE 19.1 ❌，
+      // 見 scripts/preview-scan-stardust.mjs 的主色守則），0.32 更慘（7.5）。
+      // 起點 0 = 恆等，所以它永遠不會比原本的 cyan→purple→pink 更糟。
+      // 飽和度上限對守則零成本，用來把顏色撐飽一點。
+      var HERO_HUE_MAX = 0.20;    // 硬上限，量過的
+      var HERO_CYCLE_MS = 42000;  // 一圈 42 秒 —— 慢到不會變成「動效」
+      var heroDriftTimer = null;
+      function startHeroDrift() {
+        var S = window.TENKI_STARDUST;
+        if (!S || typeof S.setTone !== 'function' || heroDriftTimer) return;
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        var t0 = Date.now();
+        heroDriftTimer = setInterval(function () {
+          var ph = ((Date.now() - t0) % HERO_CYCLE_MS) / HERO_CYCLE_MS; // 0..1
+          var wave = (1 - Math.cos(ph * Math.PI * 2)) / 2;              // 0→1→0，兩端平滑
+          S.setTone({ hue: wave * HERO_HUE_MAX, sat: 1 + wave * 0.28, mix: 0 });
+        }, 220); // setTone 本身有 EWMA 平滑，不需要每幀餵
+      }
+      function stopHeroDrift() {
+        if (heroDriftTimer) { clearInterval(heroDriftTimer); heroDriftTimer = null; }
+      }
+
       // gentle word-rise (polish only — the full hero motion pass is the story-motion lane)
       if (window.gsap && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
         window.gsap.from('#hg-title .word', { y: 26, opacity: 0, duration: 0.8, stagger: 0.07, ease: 'power3.out', delay: 0.15 });
       }
       document.getElementById('hg-start').addEventListener('click', function () {
         var gate = document.getElementById('hero-gate');
+        stopHeroDrift(); // 先停迴圈再 destroy —— 否則計時器會對著已銷毀的引擎繼續餵
         try { if (window.TENKI_STARDUST) window.TENKI_STARDUST.destroy(); } catch (_) {} // free the WebGL context before the scan's own 3D/camera work (iOS OOM)
         gate.classList.add('leaving');
         setTimeout(function () { gate.remove(); }, 720);

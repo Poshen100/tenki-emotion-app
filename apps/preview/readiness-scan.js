@@ -401,11 +401,33 @@
       'color:#6E778F;letter-spacing:0.04em;margin-top:3px;',
       'font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;',
       'font-variant-numeric:tabular-nums;}',
+      // 「本次納入 / 未納入」—— 儀器最誠實的一段：它同時說出**量到了什麼**
+      // 和**沒量到什麼**。founder 2026-08-12 的規格。
+      // 🔴 未納入那一欄比納入那一欄重要：一台只講自己做得到什麼的儀器，
+      // 使用者永遠不知道該把結果信到什麼程度。
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs{display:grid;',
+      'grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:10px;text-align:left;',
+      'font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;}',
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs h4{margin:0 0 3px;font-size:9.5px;',
+      'font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#59627A;}',
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs ul{margin:0;padding:0;list-style:none;}',
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs li{font-size:10px;line-height:1.55;',
+      'letter-spacing:0.01em;position:relative;padding-left:9px;}',
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs li::before{position:absolute;left:0;top:0;}',
+      // 納入 = 實線點；未納入 = 空心點。形狀本身就分得出來，不靠顏色
+      // （顏色在這個產品裡另有指派意義，不該再被借去當清單樣式）。
+      '#' + OVERLAY_ID + ' .rs-in li{color:#9AA3BA;}',
+      '#' + OVERLAY_ID + ' .rs-in li::before{content:"\\2022";}',
+      '#' + OVERLAY_ID + ' .rs-out li{color:#646C82;}',
+      '#' + OVERLAY_ID + ' .rs-out li::before{content:"\\25E6";}',
       // ⚠️ `hidden` 屬性只是作者樣式 `display:none`，**會被任何 display 宣告蓋掉**。
       // .rs-instruction 是 inline-flex、.rs-dots 是 flex —— 沒有這兩條，
       // 設了 hidden 也照樣顯示（2026-08-09 截圖當場抓到：揭曉時膠囊還在叫你把臉放進框裡）。
       '#' + OVERLAY_ID + ' .rs-instruction[hidden],',
       '#' + OVERLAY_ID + ' .rs-dots[hidden],',
+      // ⚠️ .rs-verdict-inputs 是 display:grid —— 同一個坑，同一條解法。
+      // 訊號不足（giveUp）時這一區必須真的消失，否則會出現一個空的「本次納入」。
+      '#' + OVERLAY_ID + ' .rs-verdict-inputs[hidden],',
       '#' + OVERLAY_ID + ' .rs-verdict-fact[hidden]{display:none;}',
       '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-verdict{visibility:visible;opacity:1;',
       'animation:rs-verdict-in 1.4s ' + EASE_SECURE + ' 1;}',
@@ -472,6 +494,32 @@
       '#' + OVERLAY_ID + ' .rs-cancel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);',
       'right:16px;z-index:2;background:none;border:0;color:#A6ADC8;font-size:15px;',
       'font-family:inherit;padding:10px 14px;cursor:pointer;}',
+      // ── ceremony 層（opt-in）──
+      // 進度環用 conic-gradient 吃 --rs-hold-p，跟沿框光弧同一個 p。
+      '#' + OVERLAY_ID + ' .rs-hold{display:flex;flex-direction:column;align-items:center;',
+      'gap:10px;margin-top:2px;}',
+      '#' + OVERLAY_ID + ' .rs-hold[hidden]{display:none;}',
+      '#' + OVERLAY_ID + ' .rs-hold-btn{position:relative;width:74px;height:74px;',
+      'border-radius:50%;display:flex;align-items:center;justify-content:center;',
+      'cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;',
+      'user-select:none;-webkit-user-select:none;}',
+      '#' + OVERLAY_ID + ' .rs-hold-ring{position:absolute;inset:0;border-radius:50%;',
+      // 未按住時是一圈暗軌；按住並且閘門通過時，p 會前進。
+      'background:conic-gradient(var(--rs-hold-c,#22D3EE) var(--rs-hold-p,0%),',
+      'rgba(255,255,255,0.10) 0);',
+      '-webkit-mask:radial-gradient(farthest-side,#0000 calc(100% - 3px),#000 0);',
+      'mask:radial-gradient(farthest-side,#0000 calc(100% - 3px),#000 0);',
+      'transition:opacity .2s ease;}',
+      '#' + OVERLAY_ID + ' .rs-hold-core{width:52px;height:52px;border-radius:50%;',
+      'background:rgba(34,211,238,0.10);border:1px solid rgba(34,211,238,0.28);',
+      'transition:transform .18s ease, background .18s ease;}',
+      '#' + OVERLAY_ID + ' .rs-hold.holding .rs-hold-core{transform:scale(0.92);',
+      'background:rgba(34,211,238,0.20);}',
+      '#' + OVERLAY_ID + ' .rs-hold-label{font-size:11px;letter-spacing:0.14em;',
+      'color:#5A6178;text-transform:uppercase;}',
+      '#' + OVERLAY_ID + ' .rs-hold.holding .rs-hold-label{color:#A6ADC8;}',
+      // 收束之後手勢層退場 —— 揭曉時畫面上只留答案與完成鈕。
+      '#' + OVERLAY_ID + '.secured-run .rs-hold{display:none;}',
     ].join('');
     document.head.appendChild(style);
 
@@ -529,11 +577,25 @@
       '  <div class="rs-verdict-fact" data-rs="verdict-fact" hidden>',
       '    <div class="rs-verdict-spec" data-rs="verdict-spec"></div>',
       '    <div class="rs-verdict-quality" data-rs="verdict-quality"></div>',
+      '    <div class="rs-verdict-inputs" data-rs="verdict-inputs" hidden>',
+      '      <div class="rs-in"><h4>本次納入</h4><ul data-rs="inputs-in"></ul></div>',
+      '      <div class="rs-out"><h4>本次未納入</h4><ul data-rs="inputs-out"></ul></div>',
+      '    </div>',
       '  </div>',
       // 完成鈕：揭曉之後**唯一的出口**（enterReveal 會收起取消鈕）。
       // ⚠️ listener 與 cancel 一樣在注入當下就綁 —— 見下方 addEventListener。
       // 揭曉時只負責把它顯示出來，這樣就算 finalize() 中途出事，人也出得去。
       '  <button type="button" class="rs-done" data-rs="done" hidden>完成</button>',
+      // ceremony 層（opt-in，預設 hidden）：按住的手勢 + 沿鈕的進度環。
+      // founder 喜歡 takeover 那個手感，但那支的進度是純牆鐘計時。這裡把手勢
+      // 留下、把計時器丟掉 —— 進度仍由閘門決定（見 holdSatisfied）。
+      '  <div class="rs-hold" data-rs="hold" hidden>',
+      '    <div class="rs-hold-btn" data-rs="hold-btn" role="button" tabindex="0" aria-label="按住開始掃描">',
+      '      <div class="rs-hold-ring" data-rs="hold-ring"></div>',
+      '      <div class="rs-hold-core"></div>',
+      '    </div>',
+      '    <div class="rs-hold-label" data-rs="hold-label">按住開始</div>',
+      '  </div>',
       '  <div class="rs-dots" data-rs="dots">',
       '    <span class="rs-dot" data-rs="dot-light"><i></i>Lighting</span>',
       '    <span class="rs-dot" data-rs="dot-center"><i></i>Centering</span>',
@@ -553,6 +615,22 @@
     node.querySelector('[data-rs="done"]').addEventListener('click', function () {
       finish(session && session.pendingReading ? session.pendingReading : null);
     });
+
+    // ── ceremony：按住／放開 ──
+    // ⚠️ 一樣在注入當下就綁（跟 cancel/done 同理）：綁定不能依賴任何流程跑完。
+    // mouseup/touchend 綁在 window 上，手指滑出鈕外再放開也要算放開，
+    // 否則進度會卡在「以為還按著」。
+    var holdBtn = node.querySelector('[data-rs="hold-btn"]');
+    if (holdBtn) {
+      holdBtn.addEventListener('mousedown', function () { setHolding(true); });
+      holdBtn.addEventListener('touchstart', function (e) {
+        e.preventDefault(); // 不要觸發合成滑鼠事件，也不要選字
+        setHolding(true);
+      }, { passive: false });
+    }
+    global.addEventListener('mouseup', function () { setHolding(false); });
+    global.addEventListener('touchend', function () { setHolding(false); });
+    global.addEventListener('touchcancel', function () { setHolding(false); });
     return node;
   }
 
@@ -672,7 +750,12 @@
    * @param {{lighting:boolean,centering:(boolean|null),stillness:(boolean|null)}} gates
    */
   function applyHint(gates) {
-    var hint = resolveHint(gates);
+    // 🔴 ceremony 模式沒按住時，**停住的原因就是沒按住** —— 這時候還講
+    // 「保持穩定」是在指一個不是原因的地方。因果要指對，否則使用者照著做
+    // 也不會前進（`docs/PLAYBOOK.md`：進度停住要說得出為什麼）。
+    var hint = (session && session.ceremony && !session.holding)
+      ? { key: 'hold-to-start', text: '按住開始', icon: '' }
+      : resolveHint(gates);
     var now = performance.now();
     if (hint.key !== session.hintPending) {
       session.hintPending = hint.key;
@@ -707,8 +790,12 @@
    */
   function setProgress(ratio) {
     var node = q('halo');
-    if (!node) return;
     var p = clamp01(ratio);
+    // ceremony 的環跟光弧吃**同一個** p —— 它是 heldMs/budgetMs 的視覺化，
+    // 不是另一條計時。兩個環永遠說同一件事。
+    var ring = q('hold-ring');
+    if (ring) ring.style.setProperty('--rs-hold-p', (p * 100).toFixed(2) + '%');
+    if (!node) return;
     if (p >= 1) {
       // 收滿＝實線，不留接縫。用 dash 表示 100% 會在起點留一道縫：
       // dash 1 + gap 1 的週期是 2，偏移 -0.0652 讓第一段從 0.0652 畫到 1.0652，
@@ -819,7 +906,13 @@
     return typeof global.FaceMesh !== 'undefined';
   }
 
+  // 🔴 委派給 `face-stillness.js` —— 那支是 landmark 位移穩定度的唯一來源，
+  // soul-enroll 也吃同一支。兩邊必須用**同一種中心**（bbox，不是質心），
+  // 否則基線與讀數不同尺度，z 分數會看起來正常而默默是錯的。
+  // 模組沒載到時退回原本的行為，不讓掃描整支掛掉。
   function computeFaceBox(lm) {
+    var S = global.TENKI_FACE_STILLNESS;
+    if (S) return S.faceBox(lm) || { minX: 1, minY: 1, maxX: 0, maxY: 0 };
     var minX = 1, minY = 1, maxX = 0, maxY = 0;
     for (var i = 0; i < lm.length; i++) {
       var p = lm[i];
@@ -914,8 +1007,10 @@
       var dt = Math.max(1, now - session.lastFaceAt);
       var dx = centerX - session.lastFaceCenter.x;
       var dy = centerY - session.lastFaceCenter.y;
-      var speed = Math.sqrt(dx * dx + dy * dy) / (dt / 1000);
-      session.lastStillness = 1 - clamp01(speed / LANDMARK_MOTION_CEILING);
+      var SFS = global.TENKI_FACE_STILLNESS;
+      session.lastStillness = SFS
+        ? SFS.stillnessBetween(session.lastFaceCenter, { x: centerX, y: centerY }, dt)
+        : 1 - clamp01(Math.sqrt(dx * dx + dy * dy) / (dt / 1000) / LANDMARK_MOTION_CEILING);
       session.lmAcc.n += 1;
       session.lmAcc.stillness += session.lastStillness;
     }
@@ -1204,6 +1299,40 @@
   // 理由：那兩個門檻是先驗估計、還沒實機調過（手感調參歸桌機 lane），
   // 一旦進了閘門而門檻抓錯，掃描會完成不了 —— 那是比「偶爾少講一句」嚴重得多的壞法。
   // 先讓它停止給錯建議；要不要收進閘門是下一步、要有實機數據才決定。
+  /**
+   * ceremony 模式下「使用者正按著」是否成立。
+   *
+   * 🔴 **非 ceremony 模式永遠回傳 true** —— 這條是整個設計的鎖：
+   * `/decision-alert/` 與 Scan 分頁的既有流程一個位元都不受影響，
+   * 106 條既有 harness 也因此不必改。手勢是加上去的一層，不是新的必要條件。
+   *
+   * @returns {boolean} 這一幀是否被「按住」允許前進。
+   */
+  function holdSatisfied() {
+    if (!session || !session.ceremony) return true;
+    return session.holding === true;
+  }
+
+  /**
+   * 記錄按住狀態並更新 ceremony 的視覺。
+   *
+   * ⚠️ 這裡**只寫狀態與樣式，不碰 heldMs** —— 進度的唯一寫入點在 tick()。
+   * 兩個地方都能加進度的話，「按住就一定會前進」會從後門溜回來。
+   *
+   * @param {boolean} on - 是否正按著。
+   */
+  function setHolding(on) {
+    if (!session || !session.ceremony) return;
+    if (session.holding === on) return;
+    session.holding = on;
+    var wrap = q('hold');
+    if (wrap) wrap.classList.toggle('holding', on);
+    if (on && global.navigator && typeof global.navigator.vibrate === 'function') {
+      // 按下去的那一下觸覺回饋（takeover 原本就有；只有真的支援才播）。
+      global.navigator.vibrate(12);
+    }
+  }
+
   function gatesAdvance(gates) {
     return session.everSawFace
       ? gates.centering === true && gates.stillness === true
@@ -1295,6 +1424,37 @@
     } catch (e) { /* Safari 無痕等 —— 讀數單純不留存，不影響本次回傳 */ }
   }
 
+  /**
+   * 把這次掃描併進個人基線序列。
+   *
+   * 🔴 **只在真的有 evidence 時才呼叫**（`finalize()` 裡，`giveUp()` 那條路上
+   * 沒有）。訊號不足時補一筆樣本，等於用一次失敗的量測去定義使用者的常態 ——
+   * 而且它會永遠留在分母裡。
+   *
+   * 🔴 profile 是 `face_scan_10s`，**與 enrollment 的 3.6 秒那池分開**。
+   * 混池會系統性灌大標準差；理由見 `baseline-store.js` 檔頭。
+   *
+   * ⚠️ 存的是 **person-signal composite**（只有人的訊號），不是 `deriveBand()`
+   * 用的那個絕對 composite —— 後者含 captureQuality，拿它當基線等於「房間暗
+   * 一點你的常態就低一點」。captureQuality 另外存進 `quality` 欄，之後當權重用。
+   *
+   * @param {{stillness:number, lighting:number, uniformity:number,
+   *          blinkCadence:?number, tier:string}} evidence
+   */
+  function saveBaselineSample(evidence) {
+    var store = global.TENKI_BASELINE_STORE;
+    if (!store) return; // 沒載到就只是不留存，不擋這一輪讀數
+    store.appendSample({
+      // 🔴 tier 決定進哪一池：tier A 是 landmark 位移、tier B 是整幀 luma 差分，
+      // 上面 buildEvidence 的註解已經說了「平均起來哪個都不是」—— 那條紀律
+      // 在一次掃描之內成立，跨掃描的百分位池也必須成立。
+      profile: store.dailyProfileForTier(evidence.tier),
+      composite: store.personSignalComposite(evidence),
+      quality: captureQuality(evidence),
+      tier: evidence.tier,
+    });
+  }
+
   /** 進入揭示 —— 量測已結束，取消鈕收起（否則會出現「store 有讀數但回傳 null」）。 */
   function enterReveal() {
     session.done = true;
@@ -1328,6 +1488,7 @@
     if (bandEl) bandEl.textContent = band;
     if (specEl) specEl.textContent = fact.spec;
     if (qualityEl) qualityEl.textContent = fact.quality;
+    renderInputs(fact.inputs || null);
     var frame = q('frame');
     if (frame) frame.classList.add('revealed');
     // 完成鈕住在 .rs-stage、跟框是兄弟，所以「這一輪有沒有收束成功」得標在
@@ -1380,7 +1541,76 @@
       quality.push('穩定度 ' + Math.round(evidence.stillness * 100) + '%');
     }
     quality.push(CONFIDENCE_LABEL[resolveConfidence(evidence)]);
-    return { spec: spec, quality: quality.join(' · ') };
+    return { spec: spec, quality: quality.join(' · '), inputs: verdictInputs(evidence) };
+  }
+
+  /**
+   * 「本次納入 / 本次未納入」（founder 2026-08-12 規格）。
+   *
+   * 🔴 **納入欄只能列 evidence 裡真的有值的欄位。** 不得因為程式碼有這個欄位
+   * 就把它列上去 —— 那就是換一個地方宣稱沒發生的事。`blinkCadence` 為 null
+   * （還沒有臉部基線可比）時它必須落到**未納入**，不是消失。
+   *
+   * 🔴 每一項要說出它**通到哪裡**，因為那三條路不一樣：穩定度與眨眼節律進基線
+   * （會影響分數），影像品質只決定信心（那是房間不是人，見
+   * `docs/EDGE-SCORE-DEFINITION.md` §3.1）。不標的話使用者會以為房間亮一點分數就高。
+   *
+   * ⚠️ 未納入的理由要講**現在為什麼沒有**，不得寫成「即將開放」那種暗示已在
+   * 路上的話 —— 那是承諾，不是事實，而這一區的全部價值就在於它只說事實。
+   *
+   * ⚠️ Tier B 一個 landmark 字眼都不能有（同 `verdictFact` 的規矩）：
+   * 那條路走的是整幀啟發式，根本沒有臉部特徵點。
+   *
+   * @param {{stillness:number, lighting:number, uniformity:number,
+   *          blinkCadence:?number, tier:string}} evidence - 本次掃描的證據。
+   * @returns {{included:Array<string>, excluded:Array<string>}}
+   */
+  function verdictInputs(evidence) {
+    var included = [];
+    var excluded = [];
+    if (typeof evidence.stillness === 'number') {
+      included.push(evidence.tier === 'A'
+        ? '臉部特徵點穩定度 · 進基線'
+        : '畫面動態穩定度 · 進基線');
+    }
+    if (typeof evidence.blinkCadence === 'number') {
+      included.push('眨眼節律 · 進基線');
+    } else {
+      excluded.push('眨眼節律 · 尚未建立臉部基線');
+    }
+    if (typeof evidence.lighting === 'number' && typeof evidence.uniformity === 'number') {
+      included.push('影像品質 · 只決定信心');
+    }
+    // 這兩項在**任何** tier 都量不到：瀏覽器沒有接觸式感測器，也沒有連任何來源。
+    excluded.push('心率 / HRV · 需接觸式或穿戴感測器');
+    excluded.push('睡眠與恢復 · 未連接來源');
+    return { included: included, excluded: excluded };
+  }
+
+  /**
+   * 把清單填進去。空陣列 → 整區收起（不留一個空的欄位標題）。
+   *
+   * @param {?{included:Array<string>, excluded:Array<string>}} inputs
+   */
+  function renderInputs(inputs) {
+    var wrap = q('verdict-inputs');
+    if (!wrap) return;
+    if (!inputs || !inputs.included.length) {
+      wrap.hidden = true;
+      return;
+    }
+    var fill = function (el, items) {
+      if (!el) return;
+      el.textContent = '';
+      for (var i = 0; i < items.length; i++) {
+        var li = document.createElement('li');
+        li.textContent = items[i];
+        el.appendChild(li);
+      }
+    };
+    fill(q('inputs-in'), inputs.included);
+    fill(q('inputs-out'), inputs.excluded);
+    wrap.hidden = false;
   }
 
   /** 收束：算出讀數 → 存檔 → 揭示 → 等使用者收下。 */
@@ -1398,6 +1628,7 @@
       evidence: evidence,
     };
     saveReading(reading);
+    saveBaselineSample(evidence);
     // SECURED 拍子：光弧閉合 + 整組轉 gold。只在**真的有讀數**時才下 ——
     // gold 在視覺世界規則裡代表 baseline locked / calibrated，訊號不足那條路
     // （giveUp）不得使用，否則等於用顏色宣稱一個不存在的結果。
@@ -1451,7 +1682,13 @@
         acc.stillness += 1 - frame.motion;
         acc.lighting += lightingAdequacy(frame.brightness);
         acc.uniformity += frame.uniformity;
-        if (gatesAdvance(gates)) session.heldMs += dt;
+        // 🔴 按住（ceremony 模式）是**必要但不充分**的條件。
+        // founder 2026-08-11 選的方向是「真貨穿上戲服」：他喜歡 takeover 那個
+        // 按住手勢，但那支的進度是 `progress += dt/8000` —— 純粹的牆鐘時間，
+        // 手機蓋在桌上按住 8 秒也會跑到 100%。
+        // 這裡把手勢當作**承諾訊號**接進來：放開就暫停，但放著不放也不會前進，
+        // 因為進度仍然只在閘門通過時累積。兩個條件都要成立。
+        if (gatesAdvance(gates) && holdSatisfied()) session.heldMs += dt;
       }
 
       // 單一主指令，帶方向（見 resolveHint）。
@@ -1459,7 +1696,7 @@
       // 讓「進度為什麼停住」看得見：閘門沒過就把光弧壓暗。進度本來就只在閘門
       // 通過時前進（pause-not-reset），這一層只是把既有的因果講出來。
       var frameEl = q('frame');
-      if (frameEl) frameEl.classList.toggle('stalled', !gatesAdvance(gates));
+      if (frameEl) frameEl.classList.toggle('stalled', !(gatesAdvance(gates) && holdSatisfied()));
       setProgress(session.heldMs / session.budgetMs);
     }
 
@@ -1827,6 +2064,12 @@
     var reticleEl = q('reticle');
     if (reticleEl) reticleEl.style.transform = '';
     setProgress(0);
+    // ceremony 層：opt-in。沒開就整塊留在 hidden，既有流程逐位元組不變。
+    var holdWrap = q('hold');
+    if (holdWrap) {
+      holdWrap.hidden = opts.ceremony !== true;
+      holdWrap.classList.remove('holding');
+    }
     overlay.classList.remove('secured-run'); // 上一輪的收束標記不得留到這一輪
     overlay.classList.add('open');
 
@@ -1847,6 +2090,8 @@
         lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0,
+        // ceremony：按住手勢當承諾訊號（見 holdSatisfied）。opt-in，預設關。
+        ceremony: opts.ceremony === true, holding: false,
         stardust: false,
         // 借來的星塵綁定（`{node, fitContainer}`）。非 null 就代表**欠著一次歸還**。
         borrowedFrom: null,
@@ -1887,5 +2132,22 @@
     isAvailable: isAvailable,
     MISSIONS: MISSIONS,
     STORE_KEY: READING_STORE_KEY,
+    /**
+     * 🔴 對外只為了**可驗證性**：進度的門有兩道（`gatesAdvance` 與這道），
+     * 而 harness 的環境沒有相機，取樣段根本不會跑 —— 只驗 UI 狀態的話，
+     * 把這個函式改成永遠回 true（＝按住不再是條件、退回 takeover 那個病）
+     * 也**不會有任何一條紅**。2026-08-11 反向驗證當場抓到。
+     *
+     * 純函式、無副作用，讀 session 的 ceremony/holding 兩個欄位。
+     * @returns {boolean} 這一幀是否被「按住」允許前進。
+     */
+    holdSatisfied: holdSatisfied,
+    /**
+     * 🔴 同樣是為了可驗證性：harness 沒有相機，`finalize()` 不會跑，所以
+     * 「納入欄不得列出量不到的東西」這條**只驗 DOM 是驗不到的**。純函式，
+     * 直接餵 evidence 就能斷言。
+     * @returns {{included:Array<string>, excluded:Array<string>}}
+     */
+    verdictInputs: verdictInputs,
   };
 })(window);

@@ -13,7 +13,25 @@ export type { SubscriptionTier, BillingCadence };
 
 /** Feature access configuration per tier. */
 export interface TierFeatures {
-  /** Daily scan limit. */
+  /**
+   * Daily scan limit.
+   *
+   * 🔴 **兩層都是 `'unlimited'`（founder 2026-08-11 拍板：限深度，不限次數）。**
+   * 欄位留著是因為它是契約的一部分，未來若要對濫用設上限有地方掛 ——
+   * 但**不是**用來當付費槓桿。
+   *
+   * 理由是量出來的，不是慷慨：掃描全在裝置上算，邊際成本是零；
+   * 而每一次掃描都讓 personal baseline 更準（Welford bootstrap →
+   * baseline maturity `new/building/ready/mature`）。限制次數 = 延後 baseline
+   * 成熟 = 延後使用者第一次看到「今天跟你平常不一樣」的那一天，
+   * 而那一刻正是唯一有說服力的轉換點。**那是拿護城河換一點點施壓。**
+   *
+   * 付費槓桿改放在**深度**：跟自己基線的落差、趨勢、決策迴圈、進階洞察。
+   * 「今天是 Clear」不太可行動；「你今天比你自己的基線低」才是產品。
+   *
+   * ⚠️ 另見 `ANTIGRAVITY.md` §12.2「基本掃描能力不得付費牆」——
+   * 舊值 `1` 其實跟那條規則就是打架的。
+   */
   dailyScanLimit: number | 'unlimited';
   /** Edge Score access. */
   edgeScore: boolean;
@@ -61,7 +79,7 @@ export const FREE_TIER: TierConfig = {
   id: 'free',
   name: 'Free',
   features: {
-    dailyScanLimit: 1,
+    dailyScanLimit: 'unlimited', // 量測不設限，槓桿放在深度（見 TierFeatures）
     edgeScore: true,
     basicInsight: true,
     localHistoryDays: 7,

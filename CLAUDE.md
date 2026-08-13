@@ -11,7 +11,21 @@
 `docs/brand.md`（內部語言系統，含 dopamine state 內部模型，禁止外流到 user-facing copy）。任何 AI 描述本產品時，
 **不要**用 "trading tool" / "signal system" / "meditation app"。
 
-- **核心指標**：Decision Edge Score (0-100)
+- **核心指標**：Decision Edge Score —— **1-99 的「相對你自己基線的位置」，50 = 你的常態**
+  （founder 2026-08-11 拍板；定義與數學見 `docs/EDGE-SCORE-DEFINITION.md`，
+  實作 `domain/src/policies/baseline-score.ts`）
+  - ⚠️ **不是絕對分、不是 0-100、不跟別人比。** 舊的 `0-100` 說法已作廢。
+  - 🔴 **「絕對分」與「位置分」的門檻不可混用**：位置分對使用者自己是均勻分布的，
+    套用舊的 70/40 會讓人**永遠有 40% 的日子落在最低帶**，不管他過得多好。
+    位置分的門檻是 **80/20**。
+  - 🔴 樣本不足（**< 30 筆或跨日 < 7 天**，founder 2026-08-12 拍板取代原本的 14）
+    一律回 `null`，**不得回一個看起來像真的的數字**，連「初步估計」都不行。
+    冷啟動那段畫面上給的是**進度環 + 帶位詞 + 本次納入／未納入清單**，三樣都是真的。
+  - 🔴 **不同 Measurement Profile 不得混池**：3.6s 的 enrollment 與 ~10s 的日常掃描
+    分開存（`apps/preview/baseline-store.js`）。短窗平均本來就比長窗離散，混池會
+    系統性灌大標準差 → 分數全體往 50 收，**而且看起來完全正常**。
+  - ✅ `PR99` 已**內部解禁**（founder 2026-08-11）：code 註解／docs／commit message
+    都可以用，**但不得進 user-facing copy**（理由與血統見 `docs/EDGE-SCORE-DEFINITION.md`）。
 - **掃描主入口**：Soul Scan（臉部基線）— 方向定調見 `docs/SOUL-SCAN-NORTH-STAR.md`（必讀）；finger PPG 退為校準/補強層，不要把臉部流程塞進 `(tabs)/scan.tsx`
 - **3 Zone**：Clear (70-100) / Neutral (40-69) / Strain (0-39)
   - ⚠️ 長期方向是改用 Baseline 語言（Above/At/Below Baseline），但 mapping 尚未定案（Strain 對應「過度刺激」還是
@@ -28,7 +42,8 @@
 
 | ✗ 不要做 | 為什麼 |
 |---------|--------|
-| 使用 TEI / PR99 / PEAK / OPTIMAL / 4 zone / 3 tier | v2 已廢棄詞彙，會引起架構混淆 |
+| 使用 TEI / PEAK / OPTIMAL / 4 zone / 3 tier | v2 已廢棄詞彙，會引起架構混淆 |
+| 把 `PR99` 用在 user-facing copy | 台灣語境「PR 值」＝跟**別人**比的排名（基測／學測），與 Edge Score「跟你自己比」正好相反，會主動誤導。內部可用，見 `docs/EDGE-SCORE-DEFINITION.md` |
 | 修改 `apps/web/` 任何檔案 | Web prototype 已凍結，新功能走 `apps/mobile/` |
 | TypeScript 用 `any` | strict mode，違反就壞鏈 |
 | 給醫療診斷或金融建議的措辭 | App Store compliance / 法律風險 |
@@ -157,7 +172,13 @@ refactor(session): extract timer segment logic
     **掃描期間**星塵可以隨實測值變化 —— 色彩（`setTone()`）與**收散**（`setReadout()`）。
     做法是旋轉整條 cyan→purple→pink 漸層並往當下的色收，**不換調色盤**；
     收散只調漂移倍率與整體尺度。⚠️ **粒子數量與 Fibonacci 分布、entrance
-    仍然不在授權內**；其他頁面（story / soul-enroll / v6 takeover）也不在。
+    仍然不在授權內**；`story.html` 也不在。
+  - ⚠️ **授權擴大（founder 2026-08-11，「顏色也可以幫我改多色版」）**：
+    `/preview/`（soul-enroll）**hero gate 那一顆**也可以上色。
+    🔴 **範圍僅此一頁一顆，不得外推到 story。**
+    🔴 而且那一顆**沒有量測**，所以只准做「不宣稱的自主緩慢漂移」——
+    色相自走、不接任何輸入。**不得讓它隨任何假訊號變化**，
+    否則就是換一種方式重犯 2026-08-11 這一整輪在修的錯（畫面宣稱沒發生的事）。
   - 🔴 **鎖定資產靠「預設值 = 恆等變換」這個結構性質守住，不是靠小心**：
     `setTone` / `setReadout` 沒被呼叫時完全 inert，沒呼叫的頁面逐位元組不變，
     而且 harness 直接驗那件事。新增任何會動到星塵的通道都要照這個做法。

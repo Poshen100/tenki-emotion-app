@@ -734,7 +734,9 @@
   <!-- 正典 Soul Scan 模組：與 /v3/ 共用同一支（一個掃描，多道門）。絕對路徑不依賴
        /decision-alert/(.*) 的 rewrite。必須排在 decision-alert.js 之前 ——
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
-  <script src="/preview/readiness-scan.js?v=rs16"></script>
+  <script src="/preview/face-stillness.js?v=fs2"></script>
+  <script src="/preview/baseline-store.js?v=bs3"></script>
+  <script src="/preview/readiness-scan.js?v=rs19"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do1"></script>
   <script src="decision-alert.js?v=alert29"></script>

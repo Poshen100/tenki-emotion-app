@@ -89,11 +89,36 @@ Deliverable: HealthKit/Health Connect HR/HRV/sleep visibly influence the Edge Sc
 | Sleep/recovery input slot | `packages/engine/src/common/types.ts` — `SleepRecoveryInput` |
 | HRV cross-source harmonisation | `packages/engine/src/biometric/hrv.ts` — `harmonizeHrv` (SDNN→RMSSD) |
 | Edge Score input / weights | `packages/engine/src/scoring/edge-score.ts`, `scoring/types.ts` |
-| Multi-modal blend pattern | `packages/engine/src/baseline/multi-modal-blend.ts` |
+| ~~Multi-modal blend pattern~~ | 🔴 **`packages/engine/src/baseline/multi-modal-blend.ts` DOES NOT EXIST.** That directory holds only `baseline.ts`, `bootstrap.ts`, `signal-quality-gate.ts`. Stale anchor, corrected 2026-08-12 (also referenced as live in `docs/healthcheck/notes.md:18`). |
+| **Wearable HRV injection slot** | ✅ `packages/engine/src/pipeline/scan-pipeline.ts:44` — `wearableHrvRmssdMs?: number`, plumbed end-to-end into `calculateEdgeScore`. ⚠️ **But hard-coded `undefined` at the only call site** (`apps/mobile/features/scan/hooks/useProgressiveScan.ts:106`), and that hook has no callers. So the path is dead today — it is a slot, not a feature. |
 | Raw-data rejection (privacy) | `domain/src/schemas/scan-schema.ts` (`DISALLOWED_PERSISTED_KEYS`, `raw*`) |
 | Local store boundary | `domain/contracts/ILocalStorage.ts` |
 | Devices UI placeholder | `apps/mobile/app/(tabs)/lab.tsx:81` |
 | Source toggle (UI only today) | `apps/preview/v6/index.html` `selectSource()` |
+
+## Historical backfill — the strongest business case, and nobody had considered it
+
+🔴 **The Garmin Health API can return *history*, not just today.** For a user who already
+wears a Garmin, importing their past HRV / stress / sleep would **eliminate the cold start
+entirely** — the 30-sample / 7-day wait before an Edge Score can be shown
+(`docs/EDGE-SCORE-DEFINITION.md` §3.3) becomes zero for them.
+
+That is a far stronger reason to do the Garmin partnership than the Body Battery card is.
+Verified 2026-08-12: repo-wide search for `backfill|cold.start|coldstart` finds nothing
+relevant — no code, no doc, no consideration. `docs/PRICING-STRATEGY.md:23` names the cold
+start as a business cost without proposing this fix.
+
+⚠️ Two things that must be settled before building it, because they are not obvious:
+
+1. **Backfilled samples are a different Measurement Profile.** Garmin HRV is a contact
+   measurement over a night; a 10s face scan is not. Feeding them into the same pool is
+   exactly the mixing error corrected in `EDGE-SCORE-DEFINITION.md` §5.1 — the denominator
+   inflates and every score drifts toward 50 while looking perfectly normal. A backfilled
+   baseline scores *Garmin readings*, not face scans; the two produce separate scores until
+   there is a defensible way to relate them.
+2. **The baseline update path deliberately excludes wearable values today**
+   (`scan-pipeline.ts:166-169` — "avoid contaminating the baseline with device drift"). So
+   backfill is not a matter of feeding the existing slot; it needs its own decision.
 
 ## Compliance / privacy guardrails
 

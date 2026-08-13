@@ -4,6 +4,12 @@
  *
  * Clear (70-100) / Neutral (40-69) / Strain (0-39)
  *
+ * ⚠️ **這組門檻屬於「絕對分」，待退役。** founder 2026-08-11 拍板 Edge Score 改成
+ * 1-99 的**基線相對位置**，而位置分的門檻是 80/20（`domain/src/policies/baseline-score.ts`）。
+ * 🔴 兩組門檻**不可混用**：位置分對使用者自己是均勻分布的，套用 70/40 會讓人
+ * 永遠有 40% 的日子落在最低帶，不管他過得多好。詳見 `docs/EDGE-SCORE-DEFINITION.md`。
+ * 目前只有本檔自己的測試在消費這組值；UI 接上位置分之後應一併移除。
+ *
  * @version 3.0 — Replaces v2 PEAK/OPTIMAL/NEUTRAL/DEGRADED 4-zone system.
  * @see ANTIGRAVITY.md v3.0 Section 1.2
  */

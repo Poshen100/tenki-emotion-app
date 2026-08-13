@@ -306,6 +306,39 @@ body{
   background:#87D9A8;color:#87D9A8;
 }
 
+/* 基線建立進度環。
+   走一條**自己的軌**，在裝飾環外緣 —— 不去動 .ring-outer-wrap 的漸層
+   （那是 v6 鎖定的視覺）。z-index 3：在裝飾環與掃光(::after, z2)之上、
+   中心圓(z5)之下。 */
+.tl-edge-progress{
+  /* 🔴 **負 inset：軌道要在裝飾環之外。** 第一版是 inset:0，進度弧剛好落在
+     .ring-outer-wrap 那條 cyan→orange 漸層上 —— 渲染了、數字也對，但在那個
+     顏色背景上人眼根本分不出來。看不見的進度等於沒有進度。 */
+  position:absolute;inset:-12px;z-index:3;pointer-events:none;
+  /* 12 點鐘開始順時針 —— 進度條的通用讀法。 */
+  transform:rotate(-90deg);
+  overflow:visible;
+}
+.tl-edge-progress circle{
+  fill:none;stroke-linecap:round;
+  /* 2π·146。dasharray/offset 由 JS 寫，因為 r 在這裡是常數但週長不是好記的數。 */
+  stroke-dasharray:917.345;
+}
+.bp-track{stroke:rgba(255,255,255,0.07);stroke-width:3;}
+/* cyan = ACTIVE（正在建立中）。🔴 gold = SECURED/calibrated，所以只有基線
+   真的成熟時才准上金 —— 顏色跟文案同一條紅線，不得提早宣稱校準完成。 */
+.bp-fill{
+  stroke:var(--primary);stroke-width:4;
+  /* 🔴 初始必須是**空環**。沒有這一行，dashoffset 預設 0 = 滿環 —— 在 JS 跑到
+     之前的那幾十毫秒，畫面會宣稱基線已經建立完成。起手值不得比事實樂觀。 */
+  stroke-dashoffset:917.345;
+  filter:drop-shadow(0 0 6px rgba(0,180,216,0.55));
+  transition:stroke-dashoffset 1.2s var(--ease-calm), stroke 0.8s var(--ease-calm);
+}
+.bp-fill.mature{
+  stroke:#F5A623;
+  filter:drop-shadow(0 0 8px rgba(245,166,35,0.55));
+}
 /* Center dark circle — contains text */
 .tl-edge-center{
   position:relative;z-index:5;
@@ -366,7 +399,11 @@ body{
 .source-toggle .src.src-finger[hidden]{display:none}
 
 /* Legacy SVG rings — hidden in v6 (replaced by conic-gradient wrappers) */
-.tl-edge svg{display:none}
+/* ⚠️ 這條原本是 `.tl-edge svg{display:none}`，為了藏 legacy 的 drift SVG。
+   它會**連帶關掉之後加進來的任何 SVG** —— 基線進度環加上去時當場中招：
+   dashoffset 與文字全都算對了，畫面上卻一片空白（值對 ≠ 看得見）。
+   所以改成只藏沒有 class 的那個 legacy 節點。 */
+.tl-edge > svg:not([class]){display:none}
 
 /* Short viewports (in-app browsers, small phones): keep the V6 proportions —
    founder's call (2026-07-03) — and let the screen scroll instead. flex-shrink:0
@@ -491,6 +528,14 @@ body{
   border:1px dashed rgba(255,255,255,0.25);
   padding:2px 6px;
 }
+/* 🔴 示意標記的「等量」原則（2026-08-12）。
+   這一刀讓四張卡的動效變好（60 秒同步循環、長條連續左右動），而動效越好、
+   假數字就越有說服力 —— 所以標記必須同步加重，淨誠實度才不會掉。
+   ⚠️ **第一版做成斜紋底 + 虛線外框，founder 實走退回**：「怎麼跟原本的視覺
+   不太一樣，視覺儘量採用原本的」。所以加重改由**文案**承擔，不動卡片外觀：
+   角落的「示意」徽章（既有）+ 說明行點名「60 秒循環動畫」（新增）。
+   `.demo-card` 保留為純語意 hook（aria-label 的掛點），**不得再加視覺樣式**。
+   之後誰再讓這幾張卡更像真的，要加的是說明，不是材質。 */
 
 .metric-body{
   display:flex;align-items:flex-end;justify-content:space-between;gap:10px;
@@ -1349,6 +1394,12 @@ body{
 .sd-fact .k{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:5px}
 .sd-fact .v{font-size:16px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums}
 
+/* 底座的高度隨狀態走 —— 這兩條是「視覺變了也要真的讓出空間」的關鍵：
+   每一屏的底部保留量都是 calc(... + var(--fdcb-h) + ...)，改這裡就全部跟上。
+   由 syncFdcb() 在 documentElement 上切換（.fdcb 是後代，改不到 :root 的變數）。 */
+:root.fdcb-idle{ --fdcb-h:40px; }
+:root.fdcb-away{ --fdcb-h:0px; --fdcb-gap:0px; }
+
 /* ═══════════════════════════════════════════════════
    FDCB — floating above tab bar
    ═══════════════════════════════════════════════════ */
@@ -1370,6 +1421,18 @@ body{
     inset 0 1px 0 rgba(255,255,255,0.05);
   transition:all 0.5s var(--ease-calm);
 }
+/* ⚠️ `hidden` 屬性只是作者樣式 display:none，**會被 .fdcb 的 display:flex 蓋掉**。
+   這個檔案已經為了同一個坑修過 .rs-instruction / .rs-verdict-inputs 兩次。 */
+.fdcb[hidden]{display:none;}
+/* 🔴 閒置＝入口，不是儀表。
+   ⚠️ **進度軌與 seg 本來就已經藏了**（見下方 .fdcb.state-idle .fdcb-seg,
+   .fdcb-prog 那條，我動手之前就在）。閒置時真正還在畫的只有**事件群** ——
+   兩顆亮點 + 一個虛線 `+`，而那個 `+` 是**假的可按**：logEvent() 在非 running
+   時直接 return。founder 2026-08-12 實走指的就是它（「不知道右側點點按的數字
+   代表什麼」）。所以這裡只需要多藏事件群。
+   ⚠️ 不重複宣告 .fdcb-prog —— 同一件事兩條規則就是下一個人改錯的地方。 */
+.fdcb.state-idle .fdcb-evts,
+.fdcb.state-complete .fdcb-evts{display:none;}
 .fdcb.state-running{
   border-color:rgba(0,180,216,0.25);
   box-shadow:0 12px 40px rgba(0,0,0,0.55), 0 0 30px rgba(0,180,216,0.12), inset 0 1px 0 rgba(255,255,255,0.05);
@@ -1445,7 +1508,6 @@ body{
 @media (prefers-reduced-motion: reduce){
   .fdcb.in-readiness, .fdcb.state-complete.closure-disciplined, .fdcb.state-complete.closure-broke{animation:none}
   .fdcb-fill{transition:none}
-  .fdcb-evts .dot{transition:none}
 }
 
 .fdcb.state-idle .fdcb-time{
@@ -1472,12 +1534,9 @@ body{
   border-radius:12px;cursor:pointer;transition:background 0.3s;
 }
 .fdcb-evts:active{background:rgba(255,255,255,0.04)}
-.fdcb-evts .dot{
-  width:5px;height:5px;border-radius:50%;
-  background:var(--txt-dim);
-  transition:all 0.4s var(--ease-calm);
+.fdcb-evts .evts-label{
+  font-size:9.5px;letter-spacing:0.1em;color:rgba(255,255,255,0.5);
 }
-.fdcb-evts .dot.on{background:#fff;box-shadow:0 0 5px rgba(255,255,255,0.5)}
 .fdcb-evts .check{
   width:22px;height:22px;border-radius:50%;
   background:var(--good);
@@ -1486,8 +1545,8 @@ body{
   box-shadow:0 0 10px rgba(52,199,89,0.45);
 }
 .fdcb-evts .check.empty{
-  background:transparent;color:rgba(255,255,255,0.35);
-  border:1.2px dashed rgba(255,255,255,0.2);box-shadow:none;
+  background:transparent;color:rgba(255,255,255,0.55);
+  border:1.2px solid rgba(255,255,255,0.22);box-shadow:none;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2194,6 +2253,13 @@ body{
             <div class="ring-inner-wrap"></div>
             <div class="ring-dot outer"></div>
             <div class="ring-dot inner"></div>
+            <!-- 基線建立進度環 —— 環上**唯一**由真實資料驅動的東西。
+                 上面那兩個 conic wrap 是裝飾（固定漸層、只會呼吸與掃光），
+                 所以進度另開一條軌，不去改它們的視覺。 -->
+            <svg class="tl-edge-progress" id="baselineRing" viewBox="0 0 300 300" aria-hidden="true">
+              <circle class="bp-track" cx="150" cy="150" r="146"/>
+              <circle class="bp-fill" id="baselineRingFill" cx="150" cy="150" r="146"/>
+            </svg>
             <!-- Legacy SVG kept for drift compatibility, hidden -->
             <svg viewBox="0 0 220 220" aria-hidden="true">
               <circle class="ring-outer" id="ringOuter" cx="110" cy="110" r="100"/>
@@ -2209,7 +2275,7 @@ body{
                    （CLAUDE.md），只是**不由這裡供應**；等原生 pipeline 有真訊號源
                    再把名字掛回來。 -->
               <div class="tl-edge-pr">狀態讀數</div>
-              <div class="tl-edge-zone" id="edgeTraceZone">尚無讀數 · 到 Scan 掃一次</div>
+              <div class="tl-edge-zone" id="edgeTraceZone">尚無讀數</div>
               <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
             </div>
           </div>
@@ -2226,7 +2292,7 @@ body{
         <div class="snap-track" id="snapTrack">
           <!-- Page 1: Cardiac (HR + HVR) -->
           <div class="snap-page active" data-page="0">
-            <div class="card vcard">
+            <div class="card vcard demo-card" aria-label="示意畫面，非量測結果">
               <div class="vhead"><span class="vtitle">Cardiac · 心臟</span><span class="metric-status demo">示意</span></div>
               <div class="vpair">
                 <div class="vmetric"><div class="vlabel">Heart Rate · 心率</div><div class="metric-num"><span class="val" id="hrVal">68</span><span class="unit">BPM</span></div><canvas class="live-wave vwave" id="hrWave" width="160" height="56"></canvas></div>
@@ -2236,7 +2302,7 @@ body{
           </div>
           <!-- Page 2: Respiration (RR + Stress) -->
           <div class="snap-page" data-page="1">
-            <div class="card vcard">
+            <div class="card vcard demo-card" aria-label="示意畫面，非量測結果">
               <div class="vhead"><span class="vtitle">Respiration · 呼吸</span><span class="metric-status demo">示意</span></div>
               <div class="vpair">
                 <div class="vmetric"><div class="vlabel">Respiratory · 呼吸</div><div class="metric-num"><span class="val" id="rrVal">14</span><span class="unit">BrPM</span></div><canvas class="live-wave vwave" id="rrWave" width="160" height="56"></canvas></div>
@@ -2246,11 +2312,18 @@ body{
           </div>
           <!-- Page 3: Autonomic (交感 / 副交感) -->
           <div class="snap-page" data-page="2">
-            <div class="card vcard ans-card">
+            <div class="card vcard ans-card demo-card" aria-label="示意畫面，非量測結果">
               <div class="vhead"><span class="vtitle">Autonomic · 自律平衡</span><span class="metric-status demo">示意</span></div>
               <div class="ans-waves">
                 <div class="ans-wave-row"><span class="ans-lbl sns">交感 SNS</span><canvas class="ans-wave" id="snsWave" width="220" height="44"></canvas><span class="ans-v sns" id="snsPct">38%</span></div>
                 <div class="ans-wave-row"><span class="ans-lbl pns">副交感 PNS</span><canvas class="ans-wave" id="pnsWave" width="220" height="44"></canvas><span class="ans-v pns" id="pnsPct">62%</span></div>
+              </div>
+              <!-- 交感／副交感的消長條：跟兩條波形吃同一個 ph，所以是真的同步。
+                   ⚠️ 迴圈裡本來就有 #snsFill / #pnsFill 的查找，但畫面上沒有這兩個
+                   元素 —— 那兩行一直是死碼。這裡把它們接上真元素。 -->
+              <div class="ans-split" aria-hidden="true">
+                <div class="ans-split-fill sns" id="snsFill"></div>
+                <div class="ans-split-fill pns" id="pnsFill"></div>
               </div>
               <!-- Nervous-system state map — The Yes Brain window of tolerance:
                    藍色陷落 Shutdown · 綠色安全 Regulated (home) · 紅色警戒 Hyperarousal -->
@@ -2267,7 +2340,7 @@ body{
           </div>
           <!-- Page 4: Energy (Body Battery, animated) -->
           <div class="snap-page" data-page="3">
-            <div class="card vcard bb-page">
+            <div class="card vcard bb-page demo-card" aria-label="示意畫面，非量測結果">
               <div class="vhead"><span class="vtitle">Energy · 體能</span><span class="metric-status demo">示意</span></div>
               <div class="bb-big"><span class="val" id="bbVal">78</span><span class="unit">/ 100</span></div>
               <div class="bb-bars" id="bbBars"></div>
@@ -2278,7 +2351,10 @@ body{
              心率／HRV／呼吸要有感測器才量得到，目前沒有接。**畫面不得宣稱沒量到的事。**
              卡上的「示意」標記 + 這一行是同一件事的兩個層次：標記給掃過去的眼睛，
              這一行給停下來看的人。 -->
-        <div class="vitals-demo-note">以上四張為<b>示意畫面</b> · 心率／HRV／呼吸需要感測器，目前尚未接上</div>
+        <!-- ⚠️ 這一行的**高度**是有預算的：多一行就會把輪播圓點推進底座下面
+             （harness 有一條「修一個不得換壞另一個」在守）。所以補上「60 秒循環
+             動畫」之後要同步把句子縮短，不能只加不減。 -->
+        <div class="vitals-demo-note">以上四張為<b>示意畫面</b> · 60 秒循環動畫 · 心率／HRV／呼吸需感測器，尚未接上</div>
         <div class="snap-dots" id="snapDots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
 
         <!-- first-visit swipe coach hint (one-time, self-dismissing) -->
@@ -2482,7 +2558,7 @@ body{
         <div class="sd-outcome-ic" id="sdOutcomeIc"></div>
         <div class="sd-outcome-txt">
           <div class="sd-outcome-headline" id="sdOutcomeHeadline">跟著流程完成</div>
-          <div class="sd-outcome-sub" id="sdOutcomeSub">達 Breathe · 0 marks</div>
+          <div class="sd-outcome-sub" id="sdOutcomeSub">達 Breathe · 0 個事件</div>
         </div>
       </div>
 
@@ -2504,7 +2580,7 @@ body{
       <div class="card sd-facts">
         <div class="sd-fact"><div class="k">用時</div><div class="v" id="sdFactDur">3:00</div></div>
         <div class="sd-fact"><div class="k">Readiness</div><div class="v" id="sdFactReadiness">已進入</div></div>
-        <div class="sd-fact"><div class="k">Marks</div><div class="v" id="sdFactMarks">0</div></div>
+        <div class="sd-fact"><div class="k">事件</div><div class="v" id="sdFactMarks">0</div></div>
       </div>
 
       <!-- Insight（事實語言）-->
@@ -2530,7 +2606,7 @@ body{
         <div class="fdcb-tmpl-dur" id="fdcbDur">3:00 ▾</div>
       </div>
     </div>
-    <div class="fdcb-core" onclick="nextState()">
+    <div class="fdcb-core" onclick="fdcbPrimaryAction()">
       <div class="fdcb-time" id="fdcbTime">Start Decision</div>
       <div class="fdcb-seg" id="fdcbSeg">Observe</div>
       <div class="fdcb-prog">
@@ -2540,11 +2616,13 @@ body{
         <div class="seg-ext" style="width:34%"></div>
       </div>
     </div>
-    <div class="fdcb-evts" onclick="logEvent()">
-      <div class="dot on"></div>
-      <div class="dot on"></div>
-      <div class="check empty">+</div>
-      <div class="dot"></div>
+    <!-- 🔴 這一組原本是 3 顆點 + 一個沒有標籤的數字。計數無上限（founder 實走
+         看到 16），3 顆點在第 4 筆就全亮 —— 點的語彙當場失效，而且沒有任何字
+         告訴人按下去會發生什麼。改成帶標籤的計數，並與 Timeline 的 EVENT LOG
+         共用「事件」這個詞（先前一物兩名：這裡叫 marks、那裡叫 EVENT LOG）。 -->
+    <div class="fdcb-evts" onclick="logEvent()" title="記一個事件">
+      <div class="evts-label">事件</div>
+      <div class="check empty" id="fdcbMarks">0</div>
     </div>
   </div>
 
@@ -2683,7 +2761,8 @@ body{
       <div class="scan-takeover-header">
         <div>
           <div class="scan-takeover-title">TENKI</div>
-          <div class="scan-takeover-sub">v6.0 3D BIOMETRIC SYNC</div>
+          <!-- 「BIOMETRIC SYNC」宣稱了生物特徵量測與同步，兩件都沒發生。 -->
+          <div class="scan-takeover-sub">v6.0 · FACE STABILITY SCAN</div>
         </div>
         <span class="scan-takeover-status-badge" id="scan-takeover-status-badge">SYSTEM READY</span>
       </div>
@@ -2738,8 +2817,15 @@ body{
             </svg>
           </div>
         </div>
-        <div class="scan-takeover-instruction">HOLD TO SYNC</div>
-        <div class="scan-takeover-tip">按住指紋感測器，啟動 8 秒 3D 生理與情緒基線同步<br>影像僅在本機即時運算，不上傳雲端</div>
+        <!-- 🔴 這兩行本來寫「按住指紋感測器，啟動 8 秒 3D 生理與情緒基線同步」。
+             三個宣稱，三個都不成立：
+               ① 那顆鈕是一個 <div> + SVG，不讀指紋、也不讀 PPG
+               ② 沒有任何生理量測（沒有心率、沒有 rPPG）
+               ③ 沒有情緒量測，而且「情緒」措辭本身違反
+                  docs/SOUL-SCAN-NORTH-STAR.md §7（App Store 4.2 / 隱私審查）
+             真正在量的是臉部特徵點的穩定度與對位，所以文案就講那件事。 -->
+        <div class="scan-takeover-instruction">HOLD TO SCAN</div>
+        <div class="scan-takeover-tip">按住並保持對位 · 量的是臉部特徵點的穩定度<br>影像僅在本機即時運算，不上傳雲端</div>
       </div>
     </div>
   </div>
@@ -2758,8 +2844,10 @@ body{
         </svg>
       </div>
       <div class="bf-title-display">BASELINE · CALIBRATION</div>
-      <div class="bf-title-hero">建立你的生理基線</div>
-      <div class="bf-title-sub">TENKI 需要認識你的身體節律，<br>才能精準判斷你的即時狀態</div>
+      <!-- 🔴「生理基線」「身體節律」都宣稱了生理量測。這條流程量的是臉部特徵點的
+           幾何與穩定度，沒有心率、沒有 rPPG。文案只能講量得到的東西。 -->
+      <div class="bf-title-hero">建立你的臉部基線</div>
+      <div class="bf-title-sub">TENKI 需要先認識你平常的樣子，<br>之後每次掃描才有比較的對象</div>
       <div class="bf-bullets">
         <div class="bf-bullet"><div class="b-ic">🫀</div><div class="b-txt">用手指覆蓋鏡頭 <b>30 秒</b></div></div>
         <div class="bf-bullet"><div class="b-ic">📊</div><div class="b-txt">立即建立 <b>HR / HRV / RR</b> 個人基線</div></div>
@@ -2892,7 +2980,7 @@ body{
     <!-- ANALYZING -->
     <div class="bf-state" id="bf-analyze">
       <div class="bf-glass bf-analyze-card">
-        <div class="bf-analyze-title">正在分析你的生理指紋</div>
+        <div class="bf-analyze-title">正在建立你的臉部基線</div>
         <div class="bf-analyze-sub">Computing Baseline</div>
         <div class="bf-analyze-item processing" id="bfA1">
           <div class="ic">❤</div>
@@ -2918,7 +3006,7 @@ body{
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-11"/></svg>
       </div>
       <div class="bf-done-title">基線凝聚完成</div>
-      <div class="bf-done-sub">你的生理指紋已建立。<br>TENKI 將達到 <b>最高精準度</b></div>
+      <div class="bf-done-sub">你的臉部基線已建立。<br>之後的掃描會拿它當<b>比較的基準</b></div>
       <div class="bf-glass bf-summary">
         <div class="bf-summary-head">個人基線 · Baseline</div>
         <div class="bf-summary-grid">
@@ -2982,6 +3070,7 @@ function goTab(id){
   if(id === 'today') renderHeroReading(); // 讀數可能在別的分頁被更新或過期
   const tab = document.querySelector(`.tab[data-tab="${id}"]`);
   if(tab) tab.classList.add('active');
+  syncFdcb(); // 底座的出現與尺寸由分頁 + 狀態決定（單一判定函式）
   // Haptic hint (visual tap)
   if(tab) tab.style.transform = 'scale(0.9)';
   setTimeout(() => { if(tab) tab.style.transform = ''; }, 120);
@@ -3425,6 +3514,61 @@ function setState(s){
   fdcb.classList.add('state-'+s);
   stateIdx = STATES.indexOf(s);
   renderFdcb();
+  syncFdcb();
+}
+
+/**
+ * 底座**出現在哪、佔多高、說什麼** —— 由 `(狀態, 分頁, 有沒有讀數)` 決定。
+ *
+ * 🔴 **這是唯一的判定來源。** `setState()` / `goTab()` / 讀數變動都呼叫它，
+ * 不得任何地方自己再判斷一次（PLAYBOOK §6 —— 這個 repo 已被同類 bug 咬過三次：
+ * 同一件事兩個地方各算一次，遲早各說各話）。
+ *
+ * | 情境 | 出現 | 高度 | 說什麼 |
+ * |---|---|---|---|
+ * | 閒置 · Today · 沒有讀數 | ✅ | 40px | 導向掃描（**不是**「開始決策」） |
+ * | 閒置 · Today · 有讀數 | ✅ | 40px | 模板 + 「開始決策」 |
+ * | 閒置 · 其他分頁 | ❌ | **0** | 回顧頁不需要入口 |
+ * | 執行中／收束 · 任何分頁 | ✅ | 58px | HUD 要跟著你跨分頁 |
+ *
+ * 🔴 **為什麼沒有讀數就不說「開始決策」**：底座本來就算得出「尚無讀數」
+ * （`renderFdcb()` 的 idle 分支），卻仍然在旁邊邀請你開始決策 ——
+ * **App 同時在說「我不知道你的狀態」和「去做決策吧」**，那牴觸產品自己的命題
+ * （SYSTEM.md：先校準，再決策）。這不是限制使用者，是讓它說話一致：
+ * 把矛盾換成一條路（先量一次）。
+ *
+ * 🔴 **`--fdcb-h` 必須跟著改，否則視覺變了卻沒讓出高度。** 它住在 `:root`，
+ * 而 `.fdcb` 是後代改不到祖先變數 → 所以 class 下在 documentElement 上。
+ * 所有 `.snap` / `.timeline-body` / `.lab-body` / `.session-body` 的底部保留量
+ * 都是 `calc(... + var(--fdcb-h) + ...)`，會自動跟上，不必逐處改。
+ */
+function syncFdcb(){
+  const fdcb = document.getElementById('fdcb');
+  if(!fdcb) return;
+  const state = STATES[stateIdx];
+  const onToday = !!document.querySelector('.tab[data-tab="today"].active');
+  const idle = state === 'idle';
+  const root = document.documentElement;
+
+  root.classList.toggle('fdcb-idle', idle);
+  root.classList.toggle('fdcb-away', idle && !onToday);
+  fdcb.hidden = idle && !onToday;
+
+  // 閒置時的文案由「有沒有讀數」決定。
+  const timeEl = document.getElementById('fdcbTime');
+  if(idle && timeEl){
+    const hasReading = !!loadReadingV6();
+    fdcb.classList.toggle('needs-scan', !hasReading);
+    timeEl.textContent = hasReading ? '開始決策' : '先掃一次';
+  } else if(fdcb){
+    fdcb.classList.remove('needs-scan');
+  }
+}
+
+/** 閒置且沒有讀數時，點底座是去掃描，不是開始一個沒有依據的決策。 */
+function fdcbPrimaryAction(){
+  if(STATES[stateIdx] === 'idle' && !loadReadingV6()){ goTab('scan'); return; }
+  nextState();
 }
 // ── 真實決策計時器（取代假 8 秒 demo）──
 // 三段由時長推導：Observe 0–33% →（tmpl.segLabel = 核心段 / readiness / Sweet Zone）33–66% → Extended 66–100%。
@@ -3447,7 +3591,8 @@ function renderFdcb(){
   const segEl = document.getElementById('fdcbSeg');
   const fill = document.getElementById('fdcbFill');
   if(s === 'idle'){
-    timeEl.textContent = 'Start Decision';
+    // ⚠️ 閒置文案由 syncFdcb() 決定（要看有沒有讀數），這裡不得再寫一次 ——
+    // 兩個地方各寫一次就是各說各話的開始。
     // 🔴 這裡本來寫死 'Edge Score · 72'。72 不是任何東西算出來的 ——
     // readiness 掃描契約上就沒有 0-100 分（Hero 的分數槽也是「—」）。
     // 一個永遠不變的假分數比沒有分數更糟：它看起來像今天量到的。
@@ -3506,14 +3651,14 @@ function tickFdcb(){
 
 // marks：3 顆 dot 依 marks 點亮，check 顯示計數
 function renderMarks(){
-  const evts = document.querySelector('.fdcb-evts');
-  if(!evts) return;
-  const dots = evts.querySelectorAll('.dot');
-  const check = evts.querySelector('.check');
+  const check = document.getElementById('fdcbMarks');
+  if(!check) return;
   const n = sess ? sess.marks : 0;
-  dots.forEach((d, i) => d.classList.toggle('on', i < n));
-  if(n > 0){ check.classList.remove('empty'); check.textContent = String(n); }
-  else { check.classList.add('empty'); check.textContent = '+'; }
+  // 🔴 0 也顯示「0」而不是「+」。先前的 `+` 是**假的可按** —— `logEvent()` 在
+  // 非 running 時直接 return，按了什麼都不會發生。現在整組只在 running 出現
+  // （CSS 擋掉 idle/complete），所以顯示的時候它一定是真的可按，0 就是真的 0。
+  check.textContent = String(n);
+  check.classList.toggle('empty', n === 0);
 }
 
 // ── 收束：判定 outcome（鏡射 domain/decision-alert resolveOutcomeTag）+ 存進統一 store ──
@@ -3865,19 +4010,91 @@ function scannerAvailableV6(){
  * Hero 中央：有讀數就報帶位，沒有就直說沒有。分數槽永遠不編。
  * @returns {boolean} 是否真的揭示了一筆讀數（星塵收尾用它決定要不要下 SECURED 拍子）。
  */
+/**
+ * 基線建立進度環 + 它要顯示的文字。
+ *
+ * 🔴 **這是冷啟動那段唯一誠實的「有東西在動」。** 使用者第 1 天就看得到進度，
+ * 而進度是真實的樣本數與天數 —— 不是為了留住人而做的假動畫。
+ *
+ * 🔴 cyan = ACTIVE（建立中）、gold = SECURED（已成熟）。顏色跟文案同一條紅線：
+ * 沒成熟不准上金。
+ *
+ * @param {?Object} reading - 今天的讀數；用它的 tier 決定看哪一池。
+ * @returns {{mature:boolean, text:string, sampleCount:number, profile:string}}
+ */
+function renderBaselineProgress(reading){
+  const store = window.TENKI_BASELINE_STORE;
+  const fill = document.getElementById('baselineRingFill');
+  if(!store){ return { mature:false, text:'' }; }
+  // 🔴 進度看的是**這次讀數所屬的那一池**。tier A（landmark 位移）與 tier B
+  // （整幀 luma 差分）不是同一個量，池子是分開的 —— 顯示另一池的進度會讓
+  // 使用者以為自己更接近成熟。沒有讀數時預設 landmark 池（tier A 是目標態）。
+  const profile = reading && reading.evidence
+    ? store.dailyProfileForTier(reading.evidence.tier)
+    : store.PROFILES.DAILY_SCAN_LANDMARK;
+  const m = store.maturity(profile);
+  m.profile = profile;
+  const C = 2 * Math.PI * 146;
+  if(fill){
+    fill.style.strokeDasharray = C.toFixed(3);
+    fill.style.strokeDashoffset = (C * (1 - m.ratio)).toFixed(3);
+    fill.classList.toggle('mature', m.mature);
+  }
+  // ⚠️ 進度**不另起一行**。原本那一行把下面所有東西推低 36px，短視窗上
+  // Snapshot 的線圖就被 FDCB 底座蓋住（founder 2026-08-12 實走回報）。
+  // 併進既有的狀態行 → 零額外高度。
+  if(m.mature){
+    m.text = '相對你自己的基線';
+  } else if(m.sampleCount === 0){
+    m.text = '基線 0 / ' + store.MIN_SAMPLES_FOR_SCORE;
+  } else {
+    // 🔴 **只顯示一個計數，不再另外報天數。**
+    //
+    // 儲存層一天一筆（`baseline-store.js` 的 appendSample 同 profile 同日覆蓋），
+    // 所以對任一 profile **`sampleCount` 恆等於 `distinctDays`** ——
+    // 「2/30」與「2/7 天」是同一個數字講兩遍。實測每天掃 3 次、連續 12 天，
+    // 兩者每一天都相等。
+    //
+    // 而它不只是冗詞：那一段正是把這行字撐破 `.tl-edge-center`（186px）的原因
+    // （founder 2026-08-13 實走，「天」被擠成第二行的孤字）。
+    //
+    // ⚠️ **`MIN_DAYS_FOR_SCORE` 那個閘門不得跟著拿掉** —— 它是縱深防禦：
+    // 這個恆等式是**另一個模組**的性質，而依賴遠處檔案的保證不算保證
+    // （docs/EDGE-SCORE-DEFINITION.md §3.3）。要移除的只是顯示。
+    m.text = `基線 ${m.sampleCount}/${store.MIN_SAMPLES_FOR_SCORE}`;
+  }
+  return m;
+}
+
+/**
+ * Hero 中央：有讀數就報帶位；基線成熟後改報 1-99 的位置分。
+ *
+ * 🔴 **基線未成熟時中心不得出現任何 1-99 數字**，連「初步估計」都不行 ——
+ * 同一個大字換一行小字，使用者只會讀數字。「基線太薄」與「沒有訊號」是同一件事，
+ * 兩者都該給進度與帶位，不是一個看起來像真的的數字。
+ */
 function renderHeroReading(){
   const scoreEl = document.getElementById('edgeScoreReveal');
   const zoneEl = document.getElementById('edgeTraceZone');
   const confEl = document.getElementById('edgeConfidence');
   const r = loadReadingV6();
+  const maturity = renderBaselineProgress(r);
   renderCoachLine(); // 環與教練卡永遠同一筆讀數，不得各說各話
   if(!zoneEl) return false;
   if(!r){
     // 沒有讀數才留空槽 —— 這時候「—」是對的，它就是在說「還沒量」。
     if(scoreEl){ scoreEl.textContent = '—'; scoreEl.classList.remove('band'); scoreEl.style.color = ''; }
-    zoneEl.textContent = '尚無讀數 · 到 Scan 掃一次';
+    // ⚠️ 進度也要接在這一條 —— 上一刀把它併進狀態行時**只接了「有讀數」那條分支**，
+    // 於是沒有讀數時「基線 n/30」整個消失。而第一次開啟 App 的人正是最需要看到
+    // 它的人：那是他唯一看得到的「這件事在前進」。
+    // ⚠️「到 Scan 掃一次」教練卡已經在講（COACH_NO_READING_V6），這裡不重複 ——
+    // 同樣是字元預算的問題：加上基線進度之後，這條是**所有狀態裡最長的一個**
+    // （38 欄，遠超過環心容得下的 31）。
+    zoneEl.textContent = '尚無讀數'
+      + (maturity.text ? ' · ' + maturity.text : '');
     zoneEl.style.color = '';
     if(confEl) confEl.hidden = true;
+    syncFdcb(); // 讀數沒了／還沒有 → 底座要說「先掃一次」
     return false;
   }
   const stale = Date.now() - r.ts >= READING_FRESHNESS_MS_V6;
@@ -3888,21 +4105,51 @@ function renderHeroReading(){
   // **founder 本人**看著這一屏說「沒有讀數」，而那筆讀數明明就在。
   // 誠實不等於讀得懂：86px 的破折號在視覺上就是「壞掉／空的」。
   // 所以把真正存在的東西放到主位 —— 帶位是讀數本尊，不是註腳。
+  // 基線成熟之後，中心從帶位詞換成 1-99 —— **那個轉變本身就是里程碑**
+  // （「從現在開始，是跟你自己比」）。在那之前中心只給帶位。
+  //
+  // ⚠️ 評分時排掉今天自己那一筆（samplesBefore）：把今天算進自己的參照分布，
+  // 問的就不再是「今天相對於歷史在哪裡」。
+  const store = window.TENKI_BASELINE_STORE;
+  let score = null;
+  if(store && maturity.mature && r.evidence){
+    // 🔴 用**進度環同一池**（maturity.profile，由讀數的 tier 決定）。
+    // 先前寫死 PROFILES.DAILY_SCAN，tier 分池之後那個常數不存在了 →
+    // samplesFor(undefined) 回空陣列 → 分數永遠 null，而畫面看起來只是「還沒成熟」。
+    score = store.personalScore(
+      store.personSignalComposite(r.evidence),
+      store.samplesBefore(maturity.profile, r.ts),
+    );
+  }
   if(scoreEl){
-    scoreEl.textContent = BAND_LABEL_V6[r.band];
-    scoreEl.classList.add('band');
-    scoreEl.style.color = BAND_COLOR_V6[r.band] || '';
+    if(score !== null){
+      scoreEl.textContent = String(score);
+      scoreEl.classList.remove('band'); // 回到 86px 的數字字級與漸層
+      scoreEl.style.color = '';
+    } else {
+      scoreEl.textContent = BAND_LABEL_V6[r.band];
+      scoreEl.classList.add('band');
+      scoreEl.style.color = BAND_COLOR_V6[r.band] || '';
+    }
   }
   // 帶位上了主位之後，這一行改報**新鮮度** —— 再說一次「Clear」是廢話，
   // 「什麼時候量的」才是使用者接著會問的問題。
-  zoneEl.textContent = stale
-    ? '讀數已過期 · 重新掃一次'
-    : agoTextV6(r.ts, Date.now()) + ' 掃描';
+  // 新鮮度 + 基線進度共用這一行。⚠️ 進度原本自己佔一行，把下面所有東西推低
+  // 36px，短視窗上 Snapshot 的線圖就被 FDCB 底座蓋住（founder 實走回報）。
+  // ⚠️ 這一行同時要放**新鮮度**與**基線進度**，而它住在 186px 的環心裡 ——
+  // 字元預算很緊（見 harness 的 ZONE_COLUMN_BUDGET）。所以兩處都只留事實、
+  // 拿掉在別處已經講過的話：
+  //   · 「重新掃一次」教練卡已經在講（COACH_STALE_V6），不在這裡重複
+  //   · 「掃描」二字在帶位大字 +「狀態讀數」標籤底下是冗詞，時間本身就夠
+  // 這不是省字遊戲：founder 2026-08-13 實走時這行撐破環心、「天」變成孤字。
+  zoneEl.textContent = (stale ? '已過期' : agoTextV6(r.ts, Date.now()))
+    + (maturity.text ? ' · ' + maturity.text : '');
   zoneEl.style.color = '';
   if(confEl){
     confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + '　·　提升精度 ›';
     confEl.hidden = false;
   }
+  syncFdcb(); // 讀數變了 → 底座從「先掃一次」變成「開始決策」
   return true;
 }
 
@@ -3954,13 +4201,29 @@ function renderScanScreen(){
 }
 
 /** Scan tab 主鈕 → 正典模組。一個掃描，多道門。 */
-function startReadinessScan(){
+function startReadinessScan(opts){
   const S = window.TENKI_READINESS_SCAN;
-  if(!S || !S.begin) return;
-  S.begin({ mission:'daily' }).then(() => {
+  if(!S || !S.begin) return Promise.resolve(null);
+  return S.begin(Object.assign({ mission:'daily' }, opts || {})).then((reading) => {
     renderScanScreen();
     renderHeroReading();
+    return reading;
   });
+}
+
+/**
+ * 從基線 onboarding 回來的那條路（`?from=baseline`）。
+ *
+ * 🔴 這裡本來開的是 `#stardust-scan-takeover` 的 8 秒儀式，而那 8 秒是
+ * `progress += dt/8000` —— 手指按住的牆鐘時間，跟臉、光線、對位全都無關。
+ * 拒絕相機、沒有臉、手機蓋在桌上，一樣跑到 100%，而且**什麼都不寫**，
+ * 所以走完它 Today 依然顯示「尚無讀數」。
+ *
+ * 現在走同一顆真引擎，只是開著 ceremony（按住手勢 + 進度環 + 觸覺）：
+ * 按住是承諾訊號，閘門才是進度，收完會真的寫入 `tenki.readiness.reading.v1`。
+ */
+function startBaselineCeremonyScan(){
+  return startReadinessScan({ ceremony:true });
 }
 
 // Scan source toggle
@@ -3970,6 +4233,7 @@ function selectSource(el){
 }
 
 renderFdcb();
+syncFdcb(); // 開機也要跑一次 —— 初始是 idle，文案要看有沒有讀數
 
 // ═════════════════════════════════════════════════
 // Session 頁 — 由統一決策 store 驅動（tenki.alert.outcomes.v1）
@@ -4166,7 +4430,7 @@ function openSessionDetail(ts){
   icEl.innerHTML = ICON_SVG[m.icon] || ICON_SVG.heart;
   document.getElementById('sdOutcomeHeadline').textContent = outcomeTextV6(rec.outcomeTag);
   document.getElementById('sdOutcomeSub').textContent =
-    readinessCellV6(rec, m) + ' · ' + marks + ' marks';
+    readinessCellV6(rec, m) + ' · ' + marks + ' 個事件';
 
   // Segment track（三段由 durationSec 推導）
   document.getElementById('sdSegDur').textContent = fmtDur(dur);
@@ -4665,7 +4929,9 @@ function closeSessionDetail(){
     <script src="/preview/blink-cadence.js?v=blink2"></script>
     <!-- 正典 Soul Scan 模組：Scan tab 與 /decision-alert/ 共用同一支，
          同樣用絕對路徑（本頁同時掛在 /v3/ 與 /preview/v6/）。 -->
-    <script src="/preview/readiness-scan.js?v=rs16"></script>
+    <script src="/preview/face-stillness.js?v=fs2"></script>
+    <script src="/preview/baseline-store.js?v=bs3"></script>
+    <script src="/preview/readiness-scan.js?v=rs19"></script>
     <!-- Stardust Scan Takeover logic script -->
     <script src="stardust-scan-takeover.js?v=gyro_v6"></script>
 
@@ -4708,12 +4974,17 @@ function closeSessionDetail(){
          結果被固定在底部的 FDCB 底座整片蓋住，本機截圖才看出來。
          harness 的「看得見」只量了 bounding rect，**遮擋不會改變 rect** ——
          所以那條斷言補了 elementFromPoint。 */
+      /* ⚠️ **這一行的高度是有預算的，而且預算只剩約 1px。**
+         它與輪播圓點、FDCB 底座擠在同一段垂直空間裡：多一行（+13.5px）就會把
+         圓點推到底座底下，harness 的「修一個不得換壞另一個」當場紅。
+         2026-08-12 補「60 秒循環動畫」時再次踩到 —— 所以連同字級與上下margin
+         一起收，換到真正的餘裕，而不是靠剛好差 1px 過關。 */
       .vitals-demo-note{
-        text-align:center;font-size:10px;line-height:1.35;
-        color:rgba(255,255,255,0.42);letter-spacing:0.02em;margin:4px 4px 0;
+        text-align:center;font-size:9.5px;line-height:1.3;
+        color:rgba(255,255,255,0.42);letter-spacing:0;margin:3px 2px 0;
       }
       .vitals-demo-note b{font-weight:600;color:rgba(255,255,255,0.62);}
-      .snap-dots{display:flex;justify-content:center;gap:8px;margin:6px 0 0;}
+      .snap-dots{display:flex;justify-content:center;gap:8px;margin:4px 0 0;}
       .snap-dots .dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.22);transition:all .3s var(--ease-calm);}
       .snap-dots .dot.active{width:22px;border-radius:4px;background:var(--primary);box-shadow:0 0 10px rgba(0,180,216,.6);}
       /* first-visit swipe coach hint — glass chip + outward-drifting chevrons, shown once.
@@ -4765,6 +5036,17 @@ function closeSessionDetail(){
       .ans-card{gap:6px;}
       .ans-card .ans-waves{display:flex;flex-direction:column;gap:8px;margin:2px 0 6px;flex:none;}
       .ans-wave-row{display:flex;align-items:center;gap:10px;}
+      /* 交感／副交感消長條。左右兩段的寬度和永遠是 100%，所以視覺上就是一條
+         左右移動的分界 —— founder 要的「左右動」。
+         ⚠️ **不加 transition**：寬度由 rAF 每幀寫，CSS 過渡會跟每幀的新目標值
+         打架，反而變成一頓一頓的。連續是靠更新頻率，不是靠補間。 */
+      /* ⚠️ flex:none 是必要的，不是保險：.vcard 是 flex column，5px 的子元素
+         預設 flex-shrink:1，空間一緊就被壓成 0 —— 第一版當場整條消失。 */
+      .ans-split{display:flex;flex:none;height:5px;border-radius:999px;overflow:hidden;
+        margin-top:10px;background:rgba(255,255,255,0.05);}
+      .ans-split-fill{height:100%;}
+      .ans-split-fill.sns{background:linear-gradient(90deg,rgba(245,166,35,0.45),#F5A623);}
+      .ans-split-fill.pns{background:linear-gradient(90deg,#34C759,rgba(52,199,89,0.45));}
       .ans-lbl{font-size:12px;font-weight:600;width:84px;flex:none;letter-spacing:.02em;}
       .ans-lbl.sns{color:var(--warn);}
       .ans-lbl.pns{color:var(--good);}
@@ -4832,6 +5114,21 @@ function closeSessionDetail(){
       @media (max-height:680px){
         #today-screen .hero{min-height:32vh;}
         #today-screen .snap > .coach-card{display:none;}
+      }
+      /* 🔴 680–780：Snapshot 的線圖會落到 FDCB 底座之下（founder 2026-08-12 實走）。
+         量到的：700px 高時被蓋 54px、740px 時 14px；660 以下反而是 0，
+         因為上面那條規則已經把教練卡收起來了 —— **問題出在那條規則的門檻設低了
+         約 100px**，不是新的取捨。
+
+         這裡不刪內容、只換順序：`.snap` 是 flex column，把教練卡排到 Snapshot
+         之後，線圖立刻全露（實測 700/740 都歸零）。
+         ⚠️ 教練卡的文案本來就是讀數的**後續說明**（「掃描當下你是穩的…」），
+         排在 Snapshot 之後資訊順序其實更順 —— 這不是妥協。
+         ⚠️ 只在這一段換位；高螢幕視覺完全不變（founder：「視覺儘量採用原本的」）。
+         ⚠️ 不縮環 —— CLAUDE.md 鎖定「短視窗不得縮環，改成讓畫面捲動」。 */
+      @media (min-height:681px) and (max-height:780px){
+        #today-screen .snap > *{order:0;}
+        #today-screen .snap > .coach-card{order:9;}
       }
     </style>
     <script>
@@ -4932,20 +5229,45 @@ function closeSessionDetail(){
         for(var x=0;x<=w;x+=1){
           var u=x/w;
           var amp=(h*0.3)*(0.7+0.3*Math.sin(ph));                            // breathing amplitude
-          var y=h/2 + sign*Math.sin(u*Math.PI*4 - ph*2.2)*amp;              // denser, anti-correlated
+          var y=h/2 + sign*Math.sin(u*Math.PI*4 - ph*2.2)*amp;              // denser, anti-correlated (2.2 → 22 週期／分，整數)
           if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
         }
         ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.shadowColor=color; ctx.shadowBlur=7; ctx.stroke();
       }
       function setN(el,v){ if(el) el.textContent=v; }
       var lastNum=0;
+
+      /**
+       * 這一組畫面的迴圈長度：60 秒，之後**逐格重複**。
+       *
+       * 🔴 為什麼要讓它看得出來在循環（founder 2026-08-12 提的，而且他是對的）：
+       * 這四張卡的數字全部由 Math.sin 產生 —— 心率／HRV／呼吸要有感測器才量得到，
+       * 目前沒有接。**永不重複的假資料看起來更像真的**；看得出循環的畫面，
+       * 使用者一分鐘就能自己發現「這是示範」。誠實度是往上而不是往下。
+       */
+      var LOOP_MS=60000;
+      /** 60 秒內的呼吸次數。10 次 ≈ 6 秒一息，跟原本 t*0.0011（約 5.7 秒）一樣。 */
+      var BREATHS_PER_LOOP=10;
+
       function loop(t){
         requestAnimationFrame(loop);
-        var ph=t*0.0011;                 // shared breath phase → everything moves together
+        // 🔴 相位只由「這一圈走到哪」決定，與頁面開了多久無關 → t 與 t+60000
+        // 產出**完全相同**的畫面。
+        //
+        // ⚠️ 但週期是不是真的 60 秒，取決於底下每一個乘數：`Math.sin(k*ph)` 的
+        // 週期數是 k×10，**k 必須是 0.1 的倍數**才會在 60 秒整處接回去，
+        // 否則接縫會跳一下。現有的 2.2 / 0.7 / 0.8 / 0.5 都合格；
+        // 原本的 0.23（＝2.3 圈）不合格，已改成 0.2。
+        var ph=2*Math.PI*BREATHS_PER_LOOP*((t%LOOP_MS)/LOOP_MS);
         drawAns(sc,sns,ph,'#F5A623',1);  // 交感 rises
         drawAns(pc,pns,ph,'#34C759',-1); // 副交感 falls (anti-correlated)
+        // 交感／副交感消長條：跟波形吃同一個 ph，而且**每幀都寫** ——
+        // 數字停在 1Hz（儀器感），長條要連續，才會是「左右動」而不是一格一格跳。
+        var split=38+Math.sin(ph)*7;
+        if(snsF) snsF.style.width=split.toFixed(2)+'%';
+        if(pnsF) pnsF.style.width=(100-split).toFixed(2)+'%';
         if(nsMarker){                    // nervous-system marker: regulated, living within the green safe zone (home)
-          var nv=50+Math.sin(ph*0.7)*12+Math.sin(ph*0.23)*5; // demo: drifts inside green (~33–67), eases toward edges but stays home
+          var nv=50+Math.sin(ph*0.7)*12+Math.sin(ph*0.2)*5; // demo: drifts inside green (~33–67), eases toward edges but stays home
           nv=Math.max(2,Math.min(98,nv));
           nsMarker.style.left=nv.toFixed(1)+'%';
           var zone=nv<22?'blue':(nv>78?'red':'green');        // window of tolerance: blue <22 · green 22–78 (home) · red >78
@@ -4966,11 +5288,9 @@ function closeSessionDetail(){
         setN(rr, 14+Math.round(Math.sin(ph*0.8)));
         var stress=25+Math.round(Math.sin(ph+2)*2);
         setN(st, stress);   // 卡頭原本還重複一份 Stress%，連同它的語意綠一起換成「示意」標記了
-        var s=38+Math.round(Math.sin(ph)*7);
+        var s=Math.round(split);         // 與長條同一個值，只是取整（不得各算一次）
         if(snsP) snsP.textContent=s+'%';
         if(pnsP) pnsP.textContent=(100-s)+'%';
-        if(snsF) snsF.style.width=s+'%';
-        if(pnsF) pnsF.style.width=(100-s)+'%';
         if(bbVal) setN(bbVal, 78+Math.round(Math.sin(ph*0.5)*2));   // Body Battery breathes (charge sheen via CSS ::after)
       }
       requestAnimationFrame(loop);

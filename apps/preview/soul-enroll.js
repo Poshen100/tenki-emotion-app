@@ -226,6 +226,68 @@
   const easeOut = (t) => 1 - Math.pow(1 - t, 3);
   const now = () => performance.now();
 
+  // ── 基線種子：把 neutral 那一段的量測留下來 ────────────────────────
+  //
+  // founder 2026-08-12：「建立臉部基線卻沒有讀數好像怪怪的」。
+  // 整場**仍然不給帶位**（North Star §3 第 6 步：不直接給分數，而且 arc 階段
+  // 要求轉頭，拿它算狀態是範疇錯誤）—— 但 neutral 那 3.6 秒的任務跟日常掃描
+  // 完全相同，所以它可以、也應該成為 baseline 的第一筆樣本。
+  //
+  // 🔴 在此之前，enrollment 是這個產品品質最高的一次量測（最長、閘門最嚴、
+  // 多角度），卻只存了眨眼節奏四個數字，其餘全部丟掉。
+  /** 種子至少要這麼多幀才算數 —— 太少的話平均值只是雜訊。 */
+  const SEED_MIN_FRAMES = 8;
+  /**
+   * 哪些階段的任務是「保持靜止」—— 只有這些的 landmark 位移可以進基線。
+   *
+   * 🔴 `arc_left` / `arc_right` **不在裡面而且永遠不會在**：那兩段要求轉頭
+   * （motion 門檻 0.62），拿它算狀態是範疇錯誤。
+   * ⚠️ `processing` 也不在：相機還開著，但畫面沒有要求使用者做任何事 ——
+   * 他可能已經放鬆或看別處，收進來會系統性壓低這個人的基線。
+   */
+  const STILL_TASK_STEPS = new Set(['neutral_capture', 'stability_pass']);
+  const seedTracker = (window.TENKI_FACE_STILLNESS)
+    ? window.TENKI_FACE_STILLNESS.createTracker()
+    : null;
+
+  /**
+   * 把 neutral 段的量測寫成 baseline 的一筆樣本。
+   *
+   * 🔴 **profile 是 `face_enroll_neutral_3s`，不是日常掃描那個池**
+   * （founder 2026-08-12）。這一段只有 3.6 秒，日常掃描是 ~10 秒 —— 短窗的
+   * stillness 平均本來就比長窗離散，混池會系統性灌大標準差，讓分數全體往 50 收
+   * 而且看起來完全正常。理由與分池機制見 `baseline-store.js` 檔頭。
+   *
+   * ⚠️ 這是**一筆**樣本，不是多筆：3.6 秒內的幀高度自相關，切成好幾筆會是
+   * 假的獨立性，而那同樣會灌爆分母。
+   * ⚠️ 也**不會**讓使用者提早看到分數 —— 門檻在 `baseline-score.ts`，
+   * 而且日常掃描那個池此刻仍是 0 筆。它的作用只是「第一天不白做」。
+   *
+   * @returns {?number} 寫入的 composite；幀數不足或沒有 tracker 時 null。
+   */
+  function saveBaselineSeed() {
+    if (!seedTracker) return null;
+    const mean = seedTracker.mean();
+    if (mean === null || seedTracker.count() < SEED_MIN_FRAMES) return null;
+    // person-signal composite：這一段沒有眨眼基線可用（它正在被建立），
+    // 所以 composite 就是 stillness 本身 —— 與 baseline-score.ts 的
+    // `blinkCadence === null` 分支一致。**不得把亮度/均勻度算進來**（那是房間）。
+    const composite = Math.round(mean * 1e4) / 1e4;
+    const store = window.TENKI_BASELINE_STORE;
+    if (!store) return composite; // 沒載到就只是不留存，不擋這一輪
+    store.appendSample({
+      profile: store.PROFILES.ENROLL_NEUTRAL,
+      composite,
+      // 🔴 `sampleConfidence()` 每一幀算七項加權（穩定度／亮度／均勻度／置中／
+      // 正面度／睜眼／距離），累積在 confSum/confN —— 而它先前只被收斂成一個
+      // 'strong'/'steady' 的字，數值整個丟掉。它就是這一筆的擷取品質，
+      // 存下來給日後的加權百分位用。**不進 composite**（那是房間與姿勢，不是人）。
+      quality: state.confN > 0 ? Math.round((state.confSum / state.confN) * 1e4) / 1e4 : null,
+      tier: 'A',     // 走到 neutral_capture 就代表 landmark 追蹤是活的
+    });
+    return composite;
+  }
+
   function hexToRgb(h) {
     const n = parseInt(h.slice(1), 16);
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
@@ -1058,6 +1120,34 @@
   }
 
   function ingestLandmarks(L, res) {
+    // 🔴 只在「要求靜止」的階段累積 landmark 位移穩定度。
+    //
+    // arc_left / arc_right **要求使用者轉頭**（motion 門檻放寬到 0.62），把它算進去
+    // 等於把「你有沒有照指示做」當成「你今天的狀態」—— 範疇錯誤，永遠不收。
+    //
+    // 但 neutral_capture(3.6s, 門檻 0.36) 與 stability_pass(3.2s, 門檻 **0.30**，
+    // 更嚴) 的任務**完全相同**：自然直視、保持靜止 —— 跟日常掃描也相同。
+    // 先前只收 neutral，等於白白丟掉一半可用的量測時間（founder 2026-08-12：
+    // 「不要浪費這麼長時間的檢測，能讀取跟適合建立的數據盡量利用」）。
+    //
+    // ⚠️ 這**不會**變成兩筆樣本，仍然是一筆 —— 同一次靜坐裡的兩段共用姿勢、
+    // 光線與情緒，切成兩筆是假的獨立性，而且儲存層一天只留一筆。
+    // 真正的收穫是**同一筆樣本的取樣時間從 3.6s 變成 6.8s** → 噪音更低，
+    // 而且長度更接近日常掃描的 ~10s（profile 之間更可比）。
+    //
+    // ⚠️ 用共用的 face-stillness.js，**不是**下面那個質心：兩邊必須同一種尺度，
+    // 否則基線與讀數不同尺度，z 分數會看起來正常而默默是錯的。
+    if (seedTracker) {
+      if (STILL_TASK_STEPS.has(state.step)) {
+        seedTracker.feed(L, now());
+      } else {
+        // 🔴 離開靜止段就切斷連續性。不切的話，stability 的第一幀會拿現在的
+        // 位置去跟 4.2 秒前（轉頭之前）的位置相減 —— 中間那段根本沒在看。
+        // 而且它不會長得像壞掉：dt 很大 → 速度很小 → stillness 逼近 1 →
+        // **默默灌一個假滿分進平均**。
+        seedTracker.breakContinuity();
+      }
+    }
     const N = L.length;
     m3d.N = N;
     let cx = 0, cy = 0, cz = 0, minx = 1, maxx = 0, miny = 1, maxy = 0;
@@ -1115,16 +1205,19 @@
   function m3dActivePhase() { return m3d.ready && m3d.seen && M3D_PHASES.has(state.step); }
 
   // agent HUD readouts (cyberpunk flavor) — NODES = particle count, SYNC = capture progress
-  let hudBin = 0;
   function updateHud() {
+    // Nodes = 3D 點雲的實際粒子數（一個繪圖數字，不是量測）。
+    // 🔴 引擎還沒 ready 時本來會顯示寫死的 5842 —— 一個看起來像真的的假數字。
+    // 沒有就顯示「—」，跟 Today 的分數槽同一條規矩。
     const nodesEl = document.getElementById('hud-nodes');
-    if (nodesEl) nodesEl.textContent = (m3d.ready && m3d.P ? m3d.P : 5842).toLocaleString('en-US');
+    if (nodesEl) {
+      nodesEl.textContent = (m3d.ready && m3d.P) ? m3d.P.toLocaleString('en-US') : '—';
+    }
+    // Sync 是唯一誠實的 HUD 數字：它就是閘門賺來的進度。
     const syncEl = document.getElementById('hud-sync');
     if (syncEl) syncEl.textContent = (captureProgress() * 100).toFixed(1) + '%';
-    if ((hudBin = (hudBin + 1) % 6) === 0) {
-      const b = document.getElementById('hud-binary');
-      if (b) { let s = ''; for (let i = 0; i < 10; i++) s += Math.random() > 0.5 ? '1' : '0'; b.textContent = s; }
-    }
+    // 🔴 這裡本來每 6 幀刷一串 Math.random() 的 10 位二進位字串。
+    // 它看起來像資料流，實際上什麼都不是 —— 移除。
   }
 
   function renderModel3D(t) {
@@ -1483,6 +1576,9 @@
       // earned row: only shown when a real blink-cadence baseline was measured + saved
       const bxBlink = document.getElementById('bx-blink');
       if (bxBlink) bxBlink.hidden = !state.blinkEarned;
+      // 種子那一行：真的存到才顯示。沒存到就整行不出現 —— 不寫假的進度。
+      const bxSeed = document.getElementById('bx-seed');
+      if (bxSeed) bxSeed.hidden = (state.seedComposite === null || state.seedComposite === undefined);
     }
     setCta(ctaForStep(step));
     if (ph.confirmed) haptic([18, 40, 90]);
@@ -1638,11 +1734,13 @@
       }
       case 'processing': {
         const pp = clamp01((t - state.stepStart) / PROCESSING_MS);
-        const numEl = document.getElementById('proc-pct-num');
-        if (numEl) numEl.textContent = String(Math.round(pp * 100));
+        // 🔴 這裡本來把 `pp`（一個 2.8 秒的計時器）印成 0–100% 的「processing」。
+        // 這段期間沒有任何運算在跑 —— 用百分比包裝一個等待，就是用進度條說謊。
+        // 畫面改成一句狀態文字，時間感交給既有的動效。
         if (pp >= 1) {
           stopCamera();
           saveBlinkBaseline();
+          state.seedComposite = saveBaselineSeed();
           updateConfidenceCopy();
           go('baseline_confirmed');
         }

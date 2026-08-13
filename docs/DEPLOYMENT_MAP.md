@@ -41,6 +41,7 @@ tenki-emotion-app.vercel.app
 | `https://tenki-emotion-app.vercel.app/` (legacy) | `apps/web/` | 舊 web prototype v51.1，現僅由 `/(.*)` catch-all 服務深層路徑（root 已導向 Hero） | 🔒 Frozen |
 | `https://tenki-emotion-app.vercel.app/v3/` | `apps/preview/v6/index.html` | **v3 主入口** — Today + 5-Tab Nav + FDCB,v3 nomenclature 已對齊 (Clear/Neutral/Strain) | ✨ Founder 認可,active dev |
 | `https://tenki-emotion-app.vercel.app/preview/` | `apps/preview/soul-enroll.html` | **Soul Scan 臉部基線建立門面**（Face ID 式，真實前鏡頭 + live gates，對應 mobile FSM） | ✨ Front door, active dev |
+| 🚧 **還不在正式站** —— 只在分支 preview：`https://tenki-emotion-app-git-claude-jie-s2-lyudvk-chenposhens-projects.vercel.app/preview/reliability.html` | `apps/preview/reliability.html` | **量測重複性自測** —— 儀器自測，不是讀數（全程不顯示帶位）。連掃 3 次（中間刻意放開 15 秒讓每次獨立），比較同場離散度與跨天離散度。⚠️ 跨天顯著大於同場，Edge Score 的 z 模型才有意義。<br>🔴 **跨天紀錄是 localStorage，綁在 origin 上** —— 每天都要用**同一個連結**、同樣的開啟方式（分頁 or 主畫面）才會累積。merge 後改用正式站網址＝日數從 0 重來。<br>⚠️ merge 進 `main` 的**同一個 commit** 要把這一列改回正式站網址與 🔧 狀態 | 🚧 Branch-only（`claude/jie-s2-lyudvk`） |
 | `https://tenki-emotion-app.vercel.app/preview/soul-enroll.html` | `apps/preview/soul-enroll.html` | Soul Scan 直接路徑（內容同 `/preview/` 門面） | ✨ Active dev |
 | `https://tenki-emotion-app.vercel.app/preview/v6/` | `apps/preview/v6/index.html` | 同 `/v3/`,並列舊路徑保留以避免 share-link 失效 | 🔧 Active dev |
 | `https://tenki-emotion-app.vercel.app/preview/brand/` | `apps/preview/brand/index.html` | TENKI 品牌標誌（Resonance Ensō）預覽 — variants / lockups / 使用規則 | ✅ Active |

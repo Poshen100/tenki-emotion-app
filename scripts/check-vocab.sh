@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # TENKI Core — 禁用詞彙檢查（v2 廢棄詞不得進入新代碼）
 #
+# ⚠️ `PR99` 已於 2026-08-11 由 founder **內部解禁**，所以本檔不再擋它。
+# 它剩下的那一半規則（不得進 user-facing copy）改由 compliance 層執行：
+# packages/engine/src/compliance/safe-copy.ts 的 PROHIBITED_VOCABULARY。
+# 理由見 docs/EDGE-SCORE-DEFINITION.md「血統」一節。
+#
 # 只檢查「相對於 main 新增的行」，所以既有 legacy 殘留（packages/engine/src/tei.ts、
 # legacy-tei-adapter 等 18 個已知檔案）不會誤報；那些屬已知債，見 docs/PLAYBOOK.md §8。
 #
@@ -16,7 +21,7 @@ cd "$(dirname "$0")/.."
 BASE_REF="${1:-origin/main}"
 
 # 禁用詞（case-sensitive; 全大寫縮寫不會誤中 tlTlTlTeiScore 這類既有 camelCase 殘留）
-BANNED_REGEX='\bTEI\b|\bPR99\b'
+BANNED_REGEX='\bTEI\b'
 
 # 只掃代碼路徑；排除 legacy / tei 相容層（它們合法地談論舊詞彙）
 PATHSPECS=(
@@ -45,7 +50,7 @@ HITS=$(git diff "$MERGE_BASE" -- "${PATHSPECS[@]}" \
   | grep -nE "$BANNED_REGEX" || true)
 
 if [ -n "$HITS" ]; then
-  echo "🚫 新增的代碼含 v2 廢棄詞彙（TEI / PR99）— 請改用 Edge Score / Decision Edge:"
+  echo "🚫 新增的代碼含 v2 廢棄詞彙（TEI）— 請改用 Edge Score / Decision Edge:"
   echo "$HITS"
   echo ""
   echo "   規則出處: CLAUDE.md 禁止事項表、docs/PLAYBOOK.md §8"

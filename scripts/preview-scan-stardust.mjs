@@ -678,6 +678,85 @@ async function scanAndCancel(page) {
   await ctx.close();
 }
 
+// ── 2c-5a2. 🔴 ceremony：按住是承諾訊號，不是計時器 ──
+//
+// founder 實走的那支 takeover 用 `progress += dt/8000` —— 手指按住的牆鐘時間，
+// 跟臉、光線、對位無關；手機蓋在桌上按住 8 秒也會跑到 100%。
+// 這一組守的就是**那個病不准回來**：按住只是必要條件，進度仍由閘門決定。
+{
+  const { ctx, page } = await newPage({ faceMesh: true });
+  await page.evaluate(() => {
+    window.TENKI_READINESS_SCAN.begin({ mission: 'decision', ceremony: true });
+  });
+  await page.waitForSelector('#tenki-readiness-scan.open');
+  await page.waitForTimeout(300);
+
+  const holdUi = await page.evaluate(() => {
+    const wrap = document.querySelector('[data-rs="hold"]');
+    return { present: !!wrap, visible: !!wrap && !wrap.hidden };
+  });
+  check('ceremony 開著時按住層要出現（前提）', holdUi.visible, true);
+
+  const press = (on) => page.evaluate((down) => {
+    const btn = document.querySelector('[data-rs="hold-btn"]');
+    if (!btn) return 'no-btn';
+    if (down) btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    else window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    return 'ok';
+  }, on);
+
+  // 產品沒有把 heldMs 對外，但 `.stalled` 就是「這一幀有沒有在前進」的真實映射
+  // （tick 裡 toggle 的條件就是 `gatesAdvance && holdSatisfied`）。
+  const stalled = () => page.evaluate(() =>
+    document.querySelector('#tenki-readiness-scan .rs-frame').classList.contains('stalled'));
+  const hintText = () => page.evaluate(() =>
+    document.querySelector('[data-rs="hint-text"]')?.textContent ?? '');
+
+  // 這支 harness 的環境沒有相機 → 沒有 frame 就不會跑 tick 的取樣段。
+  // 只有在真的量得到的環境下這幾條才有意義；量不到就誠實跳過，不假裝驗過。
+  const sampling = await page.evaluate(() => !!window.__rsFaceMesh);
+  if (!sampling) {
+    console.log('… 跳過 ceremony 進度斷言（此環境沒有取樣來源）');
+  }
+
+  check('🔴 沒按住時，膠囊直接說原因是「沒按住」（不是指一個不是原因的地方）',
+    /按住/.test(await hintText()), true);
+
+  // 🔴 **這一組才是真正守住「按住是必要條件」的斷言。**
+  // 只驗 UI 狀態是不夠的：反向驗證時把 holdSatisfied 改成永遠回 true
+  // （＝退回 takeover 那個純計時器的病），上面那些 UI 斷言**全部照樣綠** ——
+  // 因為這個環境沒有相機，tick 的取樣段根本不會跑。所以直接驗那道門本身。
+  check('🔴 ceremony 開著、沒按住 → 這一幀不准前進',
+    await page.evaluate(() => window.TENKI_READINESS_SCAN.holdSatisfied()), false);
+
+  await press(true);
+  await page.waitForTimeout(120);
+  const heldClass = await page.evaluate(() =>
+    document.querySelector('[data-rs="hold"]').classList.contains('holding'));
+  check('按住之後狀態有記錄下來', heldClass, true);
+  check('🔴 ceremony 開著、按住了 → 這一幀才准前進',
+    await page.evaluate(() => window.TENKI_READINESS_SCAN.holdSatisfied()), true);
+
+  await press(false);
+  await page.waitForTimeout(120);
+  check('放開之後狀態跟著回來', await page.evaluate(() =>
+    document.querySelector('[data-rs="hold"]').classList.contains('holding')), false);
+
+  // 🔴 最重要的一條：非 ceremony 模式**完全不受影響**（既有流程與 106 條的鎖）。
+  await page.evaluate(() => {
+    const S = window.TENKI_READINESS_SCAN;
+    document.querySelector('[data-rs="cancel"]').click();
+    S.begin({ mission: 'decision' });
+  });
+  await page.waitForTimeout(300);
+  check('🔴 沒開 ceremony 時按住層整塊不出現（既有流程一個位元不變）',
+    await page.evaluate(() => document.querySelector('[data-rs="hold"]').hidden), true);
+  check('沒開 ceremony 時膠囊不會叫人按住', /按住/.test(await hintText()), false);
+  check('🔴 沒開 ceremony 時這道門永遠放行（既有流程不受手勢影響）',
+    await page.evaluate(() => window.TENKI_READINESS_SCAN.holdSatisfied()), true);
+  await ctx.close();
+}
+
 // ── 2c-5b. 正對鏡頭：偏頭時不准再給錯的位置建議 ──
 //
 // founder 2026-08-09 問「需不需要一行小字叫人正對鏡頭」。答案是不加小字
@@ -1059,8 +1138,11 @@ async function scanAndCancel(page) {
 //
 // ⚠️ three.js 被沙箱擋，**畫面驗不到**。但這一層的安全性質是純數學的：
 // 預設值下 `toneMatrix` 必須是單位矩陣，否則沒呼叫 setTone 的頁面
-// （story / soul-enroll / v6 takeover）會被連坐改掉 —— 那是 CLAUDE.md
-// 鎖定的 v25.8.2 資產。所以直接驗那個函式，不假裝驗到了畫面。
+// （`story.html`）會被連坐改掉 —— 那是 CLAUDE.md 鎖定的 v25.8.2 資產。
+// 所以直接驗那個函式，不假裝驗到了畫面。
+// ⚠️ soul-enroll 的 hero gate 與 /v3/ 掃描**現在會主動呼叫** setTone/setReadout
+//（founder 2026-08-10 / 08-11 兩次授權）。它們是「有呼叫的頁面」，不在這條保護裡；
+// 這條守的是**沒呼叫的那些**仍然逐位元組不變。
 {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
@@ -1094,7 +1176,7 @@ async function scanAndCancel(page) {
       hasHostInfo: typeof window.TENKI_STARDUST.hostInfo === 'function',
       hasSetReadout: typeof window.TENKI_STARDUST.setReadout === 'function',
       // 🔴 剛載進來、沒人呼叫過 setReadout 時必須是 inert —— 這就是
-      // story / soul-enroll / v6 takeover 逐位元組不變的那個結構保證。
+      // 「沒呼叫的頁面逐位元組不變」的那個結構保證（現在主要是 `story.html`）。
       //
       // ⚠️ 驗的是**顏色通道本身**（`toneIdle()` —— 它是 false 的那一刻粒子才會
       // 被重新上色），不是 `active` 那個記帳旗標。2026-08-11 反向驗證抓到：
@@ -1124,7 +1206,7 @@ async function scanAndCancel(page) {
   check('setTone 有對外', math.hasSetTone, true);
   check('hostInfo 有對外（借用方要靠它才還得回去）', math.hasHostInfo, true);
   check('setReadout 有對外', math.hasSetReadout, true);
-  check('🔴 沒呼叫 setReadout 時完全 inert（story/soul-enroll/takeover 不得被改到）',
+  check('🔴 沒呼叫 setReadout 時完全 inert（沒呼叫的頁面不得被連坐改到）',
     math.readoutInert, true);
   check('setReadout 之後才生效', math.readoutTogglesOn, true);
   check('clearReadout 之後回到 inert（掃描結束要還原）', math.readoutTogglesOff, true);

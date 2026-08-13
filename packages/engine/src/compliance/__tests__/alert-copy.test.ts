@@ -42,6 +42,29 @@ describe('Chinese prohibited vocabulary', () => {
   });
 });
 
+/**
+ * `PR99` 於 2026-08-11 由 founder **內部解禁**（code 註解／docs／commit message
+ * 都可以用），但仍**不得進 user-facing copy**。封鎖點因此從
+ * `scripts/check-vocab.sh`（全代碼掃描）搬到這裡（只管用戶看得到的字）。
+ *
+ * 🔴 理由是台灣語境：「PR 值」壓倒性地指基測／學測 —— **跟別人比的排名**，
+ * 而 Edge Score 的承諾恰好相反（跟你自己比）。這個詞會主動誤導目標使用者。
+ */
+describe('PR99 — internal-only vocabulary', () => {
+  it('🔴 is rejected in user-facing copy', () => {
+    expect(isCompliantCopy('Your PR99 is 85')).toBe(false);
+    expect(findProhibitedTerms('Your PR99 is 85')).toContain('pr99');
+  });
+
+  it('is matched case-insensitively', () => {
+    expect(isCompliantCopy('your pr99 today')).toBe(false);
+  });
+
+  it('does not flag the approved name', () => {
+    expect(isCompliantCopy('Your Edge Score is 85')).toBe(true);
+  });
+});
+
 describe('canonical alert panel copy', () => {
   it.each(CANONICAL_ALERT_PANEL_COPY)('passes compliance: %s', text => {
     expect(findProhibitedTerms(text)).toEqual([]);

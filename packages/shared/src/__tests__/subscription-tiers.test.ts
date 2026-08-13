@@ -27,8 +27,11 @@ describe('FREE_TIER', () => {
     expect(FREE_TIER.id).toBe('free');
   });
 
-  it('should limit daily scans to 1', () => {
-    expect(FREE_TIER.features.dailyScanLimit).toBe(1);
+  // 🔴 免費層**不限掃描次數**（founder 2026-08-11：限深度，不限次數）。
+  // 掃描邊際成本為零，且每次掃描都讓 baseline 更準 —— 限制次數等於延後
+  // 使用者看到價值的那一天。付費槓桿放在深度（edgeGraph / edgeTimeline / …）。
+  it('should NOT ration measurement — free scans are unlimited', () => {
+    expect(FREE_TIER.features.dailyScanLimit).toBe('unlimited');
   });
 
   it('should provide basic Edge Score', () => {
