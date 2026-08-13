@@ -1,10 +1,22 @@
 /**
  * @module subscription-tiers
- * @description v3 Subscription model — Free / Premium (two tiers only).
- * Premium has monthly and yearly billing cadences.
+ * @description v3 Subscription model — Free / Pro (two tiers only), with
+ * monthly and yearly billing cadences on the paid tier.
  *
- * @version 3.0 — Replaces v2 free/retail/pro 3-tier system.
- * @see ANTIGRAVITY.md v3.0 Section 1.3
+ * Scanning is unlimited on both tiers. That is a deliberate growth decision,
+ * not generosity: every free scan deepens that user's own baseline, produces a
+ * potential label, and (when opted in) pushes a benchmark cohort closer to its
+ * k threshold. Charging per scan would mean charging users to build the moat,
+ * and scans cost nothing to serve — the engine runs on-device.
+ *
+ * The line between tiers is time and derived intelligence, never measurement
+ * fidelity. The free Edge Score uses all eight dimensions and the full baseline
+ * engine; a deliberately degraded free score would teach users the product does
+ * not work, and accuracy is the trust foundation of a health app.
+ *
+ * @version 3.1 — Unlimited free scanning; Premium renamed Pro (id unchanged).
+ * @see ANTIGRAVITY.md §12
+ * @see docs/GROWTH-ARCHITECTURE.md §7
  */
 
 import type { SubscriptionTier, BillingCadence } from '../../engine/src/common/types';
@@ -13,7 +25,13 @@ export type { SubscriptionTier, BillingCadence };
 
 /** Feature access configuration per tier. */
 export interface TierFeatures {
-  /** Daily scan limit. */
+  /**
+   * Daily scan limit. 'unlimited' on both tiers — scanning is on the
+   * never-paywall list. The field is kept rather than deleted so a limit can
+   * be reintroduced if abuse ever appears, but it is not a tier differentiator.
+   *
+   * @see ANTIGRAVITY.md §12.2
+   */
   dailyScanLimit: number | 'unlimited';
   /** Edge Score access. */
   edgeScore: boolean;
@@ -29,8 +47,19 @@ export interface TierFeatures {
   edgeTimeline: 'limited' | 'full';
   /** Replay insights depth. */
   replayInsights: 'basic' | 'advanced';
-  /** Edge Detector alerts. */
+  /**
+   * Live Edge Detector alerts — the app taps you on the shoulder the moment a
+   * clear window opens. This is the proactive axis and the single strongest
+   * conversion surface in the product.
+   */
   detectorAlerts: boolean;
+  /**
+   * End-of-day recap of the windows the detector observed. True on every tier:
+   * the free version runs the detector silently and reports afterwards, which
+   * demonstrates value that already happened to that user rather than
+   * advertising a feature they have never seen.
+   */
+  detectorDailyRecap: boolean;
   /** External alert bridge (TradingView webhook → decision flow). */
   externalAlertBridge: boolean;
   /** Anonymous benchmarks. */
@@ -49,6 +78,12 @@ export interface TierFeatures {
    * @see ANTIGRAVITY.md §12.2
    */
   edgeSnapshot: boolean;
+  /**
+   * Access to every scenario mode (Focus, Performance, Trader) and their
+   * templates. Free is Health Reset only — the context axis, not a limit on
+   * the engine, which is identical across modes.
+   */
+  allScenarioModes: boolean;
   /** Multi-mode session archive. */
   sessionArchive: 'limited' | 'full';
   /** Export capability. */
@@ -66,14 +101,17 @@ export interface TierConfig {
 }
 
 /**
- * Free tier configuration.
- * Provides enough utility to build habit, but limits intelligence depth.
+ * Free tier configuration — "know where you are".
+ *
+ * Full-fidelity measurement with no quota, plus seven days of history. What it
+ * withholds is the compounding half: depth of history, derived patterns,
+ * comparison, and proactive alerting.
  */
 export const FREE_TIER: TierConfig = {
   id: 'free',
   name: 'Free',
   features: {
-    dailyScanLimit: 1,
+    dailyScanLimit: 'unlimited', // Never paywalled — see module doc
     edgeScore: true,
     basicInsight: true,
     localHistoryDays: 7,
@@ -82,23 +120,28 @@ export const FREE_TIER: TierConfig = {
     edgeTimeline: 'limited',
     replayInsights: 'basic',
     detectorAlerts: false,
+    detectorDailyRecap: true, // Detector runs silently, reports at end of day
     externalAlertBridge: false,
     benchmarks: false,
     advancedInsights: false,
     aiCoach: 'basic',
     edgeSnapshot: true, // Growth surface — sharing is never paywalled
+    allScenarioModes: false,
     sessionArchive: 'limited',
     exportEnabled: true, // Privacy controls never paywalled
   },
 };
 
 /**
- * Premium tier configuration.
- * Unlocks longitudinal intelligence, not basic trust.
+ * Pro tier configuration — "know how you work".
+ *
+ * Unlocks longitudinal intelligence, not basic trust. The tier id stays
+ * `premium` so stored subscription state and receipts need no migration; only
+ * the display name is Pro.
  */
 export const PREMIUM_TIER: TierConfig = {
   id: 'premium',
-  name: 'Premium',
+  name: 'Pro',
   features: {
     dailyScanLimit: 'unlimited',
     edgeScore: true,
@@ -109,11 +152,13 @@ export const PREMIUM_TIER: TierConfig = {
     edgeTimeline: 'full',
     replayInsights: 'advanced',
     detectorAlerts: true,
+    detectorDailyRecap: true,
     externalAlertBridge: true,
     benchmarks: true,
     advancedInsights: true,
     aiCoach: 'advanced',
     edgeSnapshot: true,
+    allScenarioModes: true,
     sessionArchive: 'full',
     exportEnabled: true,
   },
@@ -125,10 +170,34 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, TierConfig> = {
   premium: PREMIUM_TIER,
 };
 
-/** Billing cadence options for premium. */
-export const BILLING_CADENCES: Record<BillingCadence, { label: string; discount?: string }> = {
-  monthly: { label: 'Monthly' },
-  yearly: { label: 'Yearly', discount: 'Save ~20%' },
+/** Display configuration for one billing cadence. */
+export interface BillingCadenceConfig {
+  /** Display label. */
+  label: string;
+  /**
+   * List price in USD, for display only.
+   *
+   * App Store Connect and Google Play are the authoritative source of what a
+   * user is actually charged. Anything read from here is a label on a screen,
+   * never a basis for entitlement — otherwise a price change in the store
+   * silently disagrees with the app.
+   */
+  priceUsd: number;
+  /** Savings badge, where one applies. */
+  discount?: string;
+}
+
+/**
+ * Billing cadence options for the paid tier.
+ *
+ * Yearly is $89.99 rather than a straight 20% off $119.88. Twelve months at
+ * $9.99 is $119.88; a ~20% cut lands on $95.99, which reads as an awkward
+ * number. $89.99 is a cleaner anchor at roughly 25% off and still under the
+ * $90 threshold.
+ */
+export const BILLING_CADENCES: Record<BillingCadence, BillingCadenceConfig> = {
+  monthly: { label: 'Monthly', priceUsd: 9.99 },
+  yearly: { label: 'Yearly', priceUsd: 89.99, discount: 'Save ~25%' },
 };
 
 /**
