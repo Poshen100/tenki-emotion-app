@@ -341,7 +341,7 @@ npm run ios
 | App Store 分類 | Health & Fitness |
 | 核心指標 | Decision Edge Score (0–100) |
 | 隱私模型 | Local-first + Cloud-minimal |
-| 商業模式 | Free + Premium 訂閱制 |
+| 商業模式 | Free + Pro 訂閱制（$9.99 / 月）|
 | 平台 | iOS + Android |
 
 ### TENKI 不是什麼
@@ -878,7 +878,7 @@ draft → configured → precheck → scanning → gated
 
 ### 10.2 Lab
 
-| 功能 | 說明 | Premium |
+| 功能 | 說明 | Pro |
 |------|------|----|
 | 呼吸練習 | 4-7-8、方框呼吸 | — |
 | 雙耳節拍 (Binaural Beats) | 腦波引導，Alpha/Theta 狀態 | ✅ |
@@ -1038,7 +1038,7 @@ cohortKey = timeBucket × dayOfWeek × baselineMaturity × scenarioMode
 | 冷啟動 | 由粗到細四階開放，`benchmark_cohorts_v1` 遠端控制 |
 
 網路效應鏈：更多 opt-in → 更多 cohort 跨過 k → benchmark 對**所有人**更有用 →
-benchmark 是 Premium → 付費價值隨用戶數自我增強。
+benchmark 是 Pro → 付費價值隨用戶數自我增強。
 這是 same-side network effect，且**不需要任何社群功能**。
 
 明確不做：好友、排行榜、公開個人檔案、群組挑戰（見 `/docs/GROWTH-ARCHITECTURE.md` §4.8）。
@@ -1062,10 +1062,10 @@ benchmark 是 Premium → 付費價值隨用戶數自我增強。
 
 | 階段 | 能力 | 運算位置 | Tier |
 |------|------|----------|------|
-| P1 規則式 | 時段 pattern、趨勢方向 | 裝置端 | Free 基本 / Premium 完整 |
-| P2 相關性 | 睡眠 × clarity 等個人相關性 | 裝置端 | Premium |
-| P3 個人模型 | 個人化 pattern 模型 | 裝置端 | Premium |
-| P4 語言層 | 自然語言解釋 | 雲端 opt-in | Premium |
+| P1 規則式 | 時段 pattern、趨勢方向 | 裝置端 | Free 基本 / Pro 完整 |
+| P2 相關性 | 睡眠 × clarity 等個人相關性 | 裝置端 | Pro |
+| P3 個人模型 | 個人化 pattern 模型 | 裝置端 | Pro |
+| P4 語言層 | 自然語言解釋 | 雲端 opt-in | Pro |
 
 洞察模板：`{觀察對象} 在 {條件} 時 {傾向動詞} {方向}。`
 
