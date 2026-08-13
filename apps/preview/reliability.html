@@ -48,6 +48,9 @@
     #rl-status{ font-size:12.5px; color:#8A93AD; min-height:20px; margin-top:12px; text-align:center; }
     .note{ font-size:11.5px; color:#6C7590; line-height:1.65; margin-top:6px; }
     .note b{ color:#A6ADC8; font-weight:600; }
+    /* 「開始前先看這個數字」比旁邊的說明更需要被讀到 —— 但它是操作提醒，
+       不是讀數，所以只提亮、不上任何已被指派意義的顏色（gold/cyan/綠）。 */
+    .rl-origin{ border-left:2px solid rgba(255,255,255,0.14); padding-left:10px; }
     .why{ border-left:2px solid rgba(34,211,238,0.35); padding-left:12px; margin:0 0 20px;
       font-size:12.5px; color:#8A93AD; }
   </style>
@@ -88,6 +91,14 @@
       <div class="kv"><span class="k">已累積天數</span><span class="v" id="rl-days">0</span></div>
       <div class="kv"><span class="k">日平均的標準差</span><span class="v" id="rl-between-sd">未取得</span></div>
       <div class="rl-verdict-row"><span class="k">比值</span><span id="rl-verdict">—</span></div>
+      <!-- 🔴 這段講的是「開始之前要先看什麼」，所以它必須排在按鈕之後、
+           但在解釋跨天意義的 .note 之前 —— 跑完才發現開錯地方，那一天的
+           跨天對照就永遠補不回來了（日界過了就過了）。 -->
+      <p class="note rl-origin">
+        <b>開始之前先看上面那個數字。</b>它讀的是<b>這個網址、這個開啟方式</b>的本機紀錄 ——
+        換一個連結，或改成從主畫面開（而先前是 Safari 分頁），都是<b>另一份紀錄</b>。
+        第二天它應該是 <b>1</b>；<b>如果是 0，先別掃</b> —— 掃了也湊不成跨天對照。
+      </p>
       <p class="note">
         要的是<b>跨天顯著大於同場</b> —— 那才代表訊號裡有「日與日之間的真實差異」，
         而不只是儀器在抖。<b>單看同場離散度證明不了任何事</b>，一定要有跨天的對照。
