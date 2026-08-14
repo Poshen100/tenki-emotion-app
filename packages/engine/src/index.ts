@@ -245,6 +245,29 @@ export type {
   FocusWindowSample,
 } from './analytics/focus-window';
 
+// ─── Importers: Apple Health export ─────────
+export {
+  ASLEEP_VALUES,
+  DAYS_NEEDED_FOR_CORRELATION,
+  HEALTH_RECORD_TYPES,
+  NIGHT_GAP_TOLERANCE_MS,
+  PAIRS_NEEDED_FOR_CORRELATION,
+  SLEEP_VALUES,
+  groupSleepNights,
+  parseAppleDate,
+  parseHealthRecordLine,
+  summarizeImport,
+  toSleepContext,
+} from './importers/apple-health';
+
+export type {
+  HealthRecord,
+  HealthRecordType,
+  ImportSummary,
+  ImportedSleepContext,
+  SleepNight,
+} from './importers/apple-health';
+
 // ─── Analytics: Personal Correlation ────────
 export {
   CORRELATION_GAPS,
