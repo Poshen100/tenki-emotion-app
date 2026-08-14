@@ -61,13 +61,23 @@ export const QUIET_WINDOW_TZ = 'America/New_York';
 export const QUIET_WINDOW_START_HOUR = 11;
 /** Quiet window end hour (exclusive), ET. */
 export const QUIET_WINDOW_END_HOUR = 14;
-/** Soft context line shown for alerts arriving in the quiet window (a fact, not advice). */
-export const QUIET_WINDOW_CONTEXT_ZH = '盤整迴避時段';
+/**
+ * Soft context line shown for alerts arriving in the quiet window (a fact, not
+ * advice).
+ *
+ * The label names the window, not the market condition behind it. The previous
+ * wording ("盤整迴避時段") described a market state on a user-facing chip, which
+ * is market-timing language in the interface — ANTIGRAVITY §1.4 excludes that
+ * outright, and PLAYBOOK §279 already records this exact failure mode: a
+ * domain term that happens to be the user's professional vocabulary leaking
+ * from internals onto the screen.
+ */
+export const QUIET_WINDOW_CONTEXT_ZH = '安靜時段';
 
 /**
  * Whether the given instant falls in the ET quiet window (11:00–14:00,
  * DST-aware via Intl). Used as a soft context annotation — it never silences
- * an alert, only adds a "盤整迴避時段" fact line.
+ * an alert, only adds a "安靜時段" fact line.
  *
  * @param nowMs - Instant to test (Unix ms).
  * @returns True when within 11:00–14:00 America/New_York.
