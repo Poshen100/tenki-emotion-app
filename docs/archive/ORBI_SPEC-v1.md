@@ -1,3 +1,18 @@
+> **⚠️ 已歸檔 — 2026-08-13。原路徑 `docs/ORBI_SPEC.md`。**
+>
+> 狀態原本就是 *Proposal — Pending Founder Approval*，從未核准實作。
+> 歸檔原因是**定價段落過時**（L229 附近寫「Free / $0 / 每日 3 次掃描」；
+> 現行為兩個 tier 都不限掃描次數 —— 見 `ANTIGRAVITY.md` §12.1）。
+>
+> **ORBI 概念本身沒有被否決，只是尚未實作。** 全 repo 沒有任何 ORBI 相關程式碼。
+>
+> 與 `ORBI_STARDUST_GUARDIAN-v1.md` 高度重疊（兩份都叫「星塵守護者模組 v1.0」）。
+> 重啟這條線時的第一件事應該是把兩份合併成單一來源。
+>
+> 原文未改寫。
+
+---
+
 # ORBI — 星塵守護者模組規格書 v1.0
 
 > **狀態**：Proposal — Pending Founder Approval  

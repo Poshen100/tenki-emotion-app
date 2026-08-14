@@ -1,3 +1,15 @@
+> **⚠️ 已歸檔 — 2026-08-13。原路徑 `docs/PRD.md`。**
+>
+> 本文件是 **v2 時期**的產物，整份已被取代：核心指標寫 TEI（v3 已遷移為 Edge Score）、
+> 訂閱寫三級制 Free / Retail $9 / Pro $22（現行為二級制 Free / Pro $9.99）。
+>
+> **現行來源**：產品定義與訂閱看 `ANTIGRAVITY.md` §0–§12，growth 策略看
+> `docs/GROWTH-ARCHITECTURE.md`。
+>
+> 原文未改寫 —— 包含其中所有過時的數字。保留是為了決策軌跡，不是為了參考。
+
+---
+
 # Product Requirements Document (PRD)
 
 > **Product**: Tenki Core — iOS/Android 訂閱制 App
