@@ -24,13 +24,16 @@ import type { DomainConfidenceBand } from './scan-contract';
  * Detected state labels. Mirrors `DetectedState` in the engine's scoring
  * types and stays inside the compliance ALLOWED_VOCABULARY — these strings
  * reach the interface.
+ *
+ * No 'recovered' member: recovery is relative to a worse prior state, which
+ * the score-only classifier cannot express, and the recovery narrative already
+ * belongs to the EDGE STATUS chip.
  */
 export const EDGE_DETECTED_STATES = [
   'calm',
   'focused',
   'balanced',
   'stable',
-  'recovered',
   'clear',
 ] as const;
 export type EdgeDetectedState = typeof EDGE_DETECTED_STATES[number];

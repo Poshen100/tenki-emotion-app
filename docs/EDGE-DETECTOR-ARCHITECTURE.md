@@ -216,8 +216,23 @@ confidence 門檻讓 baseline `new` 階段幾乎不可能觸發偵測 —— 這
 stable (≥75) / balanced (≥72) / calm (其餘)。
 全部是 `ALLOWED_VOCABULARY` 內的字彙。
 
-> 注意 `DetectedState` 型別含 `'recovered'` 但 `classifyDetectedState()`
-> 從未回傳它 —— 見 §11 Open Question #3。
+#### 為什麼沒有 `'recovered'`（2026-08-14 移除）
+
+`DetectedState` 原本有 `'recovered'` 成員，但 `classifyDetectedState()` 從未回傳它，
+也沒有任何測試斷言它。它不是漏掉的分支，是**結構上不可能存在**的分支：
+
+> **「recovered」是相對於「之前更差」的敘述。**
+> 單一分數表達不了它 —— 你需要前一個狀態才知道現在算不算恢復。
+> 而偵測器只在分數 ≥68 時才啟動，它看到的每一個狀態都已經是好的。
+
+補一個分支給它，會讓產品出現**兩個來源不同、算法不同的 recovery 概念**：
+一個在偵測器標籤，一個在 EDGE STATUS chip（`resolveEdgeStatus()`，由 zone 推導）。
+那正是本文件 §5.5 那類重複概念漂移的成因。
+
+**決議：移除成員，recovery 敘述只留在 EDGE STATUS（§8.1）。**
+
+`ALLOWED_VOCABULARY` 的 `'recovered state'` 與 `zone-config.ts` 的 guidance 不受影響 ——
+那是文案詞彙，與偵測器標籤是兩件事。
 
 ### 5.4 矛盾 ① — 文件與程式碼的門檻不符
 
@@ -551,7 +566,7 @@ MIN_SAMPLES_PER_HOUR   = 3    // 該時段最少樣本
 |---|------|------|------|
 | 1 | §5.5 Edge Detector 專屬通知政策 | 職責分離 | ✅ **已完成 2026-08-14** — `edge-notification-policy.ts` + 22 個測試；engine 端已標 `@deprecated` |
 | 2 | §5.6 TradingView 的市場時間字串與註解 | 該功能的送審風險 | **已移交** — 歸檔到 `TRADINGVIEW-ALERT-SPEC.md` Open Compliance Items，非本文件範圍 |
-| 3 | `DetectedState` 含 `'recovered'` 但 `classifyDetectedState()` 從不回傳 | 死型別，或是遺漏的分支 | 待確認原始意圖 |
+| 3 | `DetectedState` 含 `'recovered'` 但 `classifyDetectedState()` 從不回傳 | 死型別，或是遺漏的分支 | ✅ **已解決 2026-08-14** — 確認是結構上不可達（recovery 需要前一個狀態，分數的純函式表達不了）。已移除成員；recovery 敘述只留在 EDGE STATUS（§5.3、§8.1）|
 | 4 | 背景模式無法即時偵測（§2.2），UI 如何誠實表達？ | 期待管理 | 建議：設定頁明說「即時提醒需 app 在前景」 |
 | 5 | ANS balance 是否應進入 Coach P2 的相關性分析？ | 需要 DPD 累積 ANS 欄位 | 待 P2 實作時決定 |
 | 6 | 手指 PPG 連續串流的電量實測 | Foreground Active 模式可行性 | 需實機測試 |

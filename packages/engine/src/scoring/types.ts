@@ -179,13 +179,24 @@ export interface EdgeScoreMetadata {
 // Edge Detector Types
 // ─────────────────────────────────────────────
 
-/** Detected readiness state (safe vocabulary only). */
+/**
+ * Detected readiness state (safe vocabulary only).
+ *
+ * Note there is no 'recovered' member, and deliberately so. Recovery is a
+ * statement about having come back from something worse, which a pure function
+ * of the current score cannot express — you would need the previous state to
+ * know whether this one counts as a recovery. The detector also only engages
+ * above 68, so every state it ever sees is already a good one.
+ *
+ * The recovery narrative lives in the EDGE STATUS chip instead
+ * (`resolveEdgeStatus()` in `shared/growth/edge-status.ts`, driven by zone).
+ * Keeping it in one place avoids two recovery concepts computed different ways.
+ */
 export type DetectedState =
   | 'calm'
   | 'focused'
   | 'balanced'
   | 'stable'
-  | 'recovered'
   | 'clear';
 
 /** Edge Detector detection thresholds. */
