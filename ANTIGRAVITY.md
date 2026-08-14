@@ -1279,6 +1279,7 @@ tenki-emotion-app/
 - [x] EDGE_DETECTED 安全推播模板 (compliance)
 - [x] Edge Detector 專屬通知政策 (domain, 本地時區安靜時段 + 本地日界線)
 - [x] engine 端 delivery 計數標記 `@deprecated`
+- [x] 設定頁文案：背景模式限制的誠實說明 (shared/copy)
 - [ ] HealthKit observer query + background delivery（需實機）
 - [ ] 即時管線接上 `tickDetector()`
 - [ ] EDGE STATUS + Focus Window RN 元件

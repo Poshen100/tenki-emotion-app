@@ -1,3 +1,4 @@
+export * from './copy/detector-settings';
 export * from './design-tokens';
 export * from './growth/decision-performance-record';
 export * from './growth/edge-snapshot';

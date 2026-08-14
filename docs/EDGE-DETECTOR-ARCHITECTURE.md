@@ -567,7 +567,7 @@ MIN_SAMPLES_PER_HOUR   = 3    // 該時段最少樣本
 | 1 | §5.5 Edge Detector 專屬通知政策 | 職責分離 | ✅ **已完成 2026-08-14** — `edge-notification-policy.ts` + 22 個測試；engine 端已標 `@deprecated` |
 | 2 | §5.6 TradingView 的市場時間字串與註解 | 該功能的送審風險 | **已移交** — 歸檔到 `TRADINGVIEW-ALERT-SPEC.md` Open Compliance Items，非本文件範圍 |
 | 3 | `DetectedState` 含 `'recovered'` 但 `classifyDetectedState()` 從不回傳 | 死型別，或是遺漏的分支 | ✅ **已解決 2026-08-14** — 確認是結構上不可達（recovery 需要前一個狀態，分數的純函式表達不了）。已移除成員；recovery 敘述只留在 EDGE STATUS（§5.3、§8.1）|
-| 4 | 背景模式無法即時偵測（§2.2），UI 如何誠實表達？ | 期待管理 | 建議：設定頁明說「即時提醒需 app 在前景」 |
+| 4 | 背景模式無法即時偵測（§2.2），UI 如何誠實表達？ | 期待管理 | ✅ **已解決 2026-08-14** — `shared/copy/detector-settings.ts`：限制文字**與它限制的功能放同一個區塊**，不放註腳；不用「省電」包裝（那是平台限制不是設計選擇）；並說明關閉期間的視窗會進當日回顧 |
 | 5 | ANS balance 是否應進入 Coach P2 的相關性分析？ | 需要 DPD 累積 ANS 欄位 | 待 P2 實作時決定 |
 | 6 | 手指 PPG 連續串流的電量實測 | Foreground Active 模式可行性 | 需實機測試 |
 
