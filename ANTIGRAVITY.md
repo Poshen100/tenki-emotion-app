@@ -320,10 +320,10 @@ npm run ios
 
 ---
 
-# TENKI CORE — ANTIGRAVITY MASTER BLUEPRINT v4.3
+# TENKI CORE — ANTIGRAVITY MASTER BLUEPRINT v4.4
 
 > **最後更新**：2026-08-14
-> **版本**：v4.3（+ Section 5.2 Edge Detector 對齊程式碼與架構補完）
+> **版本**：v4.4（+ Section 10.4 Edge DNA）
 > **狀態**：Active — Canonical Source of Truth
 > **維護者**：Founder + Autonomous Agents
 
@@ -936,6 +936,49 @@ draft → configured → precheck → scanning → gated
 | 關鍵時刻標記 | 自動標記高/低點 |
 | 學習洞察 | Pattern-based 觀察 (非建議) |
 
+### 10.4 Edge DNA — 個人決策側寫
+
+> 完整設計詳見 **`/docs/EDGE-DNA-ARCHITECTURE.md`**。
+
+**Edge DNA 不是新引擎，是 AI Coach P2 / P3 的使用者可見名稱。**
+相關性由 `analytics/correlation.ts` 算、時段由既有 `analytics/focus-window.ts` 算，
+`analytics/edge-dna.ts` 只負責組裝成特質。在這裡重寫一套相關性，
+產品就會有兩個「睡眠如何影響你」——重複概念漂移已經吃過兩次虧。
+
+#### 四個特質
+
+| Kind | 來源 | 說明 |
+|------|------|------|
+| `focus_timing` | Focus Window 寬度 + clear rate | 視窗越窄越集中 |
+| `sleep_sensitivity` | clarity × 睡眠時數 | 越大越依賴睡眠 |
+| `stress_tolerance` | clarity × strain | **反轉**（強負相關 = 低耐受度）|
+| `hrv_coupling` | clarity × 恢復訊號 | 越大耦合越緊 |
+
+#### 三個統計門檻（不可放寬）
+
+| 決定 | 理由 |
+|------|------|
+| **Spearman 不用 Pearson** | clarity 是 1–5 順序量表，不是等距量表 |
+| **效果量不用顯著性** | 4 個特質同時檢定，p<0.05 下至少一個假陽性機率約 **19%** |
+| **分半穩定性** | 模式必須在前半與後半**同方向**都成立才呈現。雜訊過不了這關，真模式通常可以 |
+
+門檻：≥20 配對、≥14 天跨度、\|rho\| ≥0.35、兩半各 ≥0.15、profile 至少 2 個特質。
+
+#### ⚠️ 兩條硬規則
+
+1. **「DNA」只是比喻。** 文案不得出現 genetic / genes / inherited / hardwired /
+   born with，**也不得出現 "DNA" 這個詞本身**。產品名可以叫 Edge DNA，特質描述不行。
+   Profile 永遠附 `PROFILE_REVISABILITY_NOTE`（特質會隨證據改變）。
+2. **絕不做族群比較。** 「比平均更敏感」是**比較式健康聲明**，而且裝置上根本沒有這個資料
+   （DPD 是 local-only，benchmark 只有 k≥50 的 zone 分桶）。
+   主詞永遠是使用者自己的紀錄。
+
+#### 新增的 DPD 欄位
+
+`sleep: SleepContext` 與 `biometrics.ansPosition` —— 兩者原本都沒存。
+睡眠屬於某個決策的**前一晚**，事後查等於用猜的；
+ANS position 相對於**當時**的基線，事後重算會得到不同數字。兩者皆可為 null。
+
 ---
 
 ## 11. Mobile Information Architecture
@@ -1281,6 +1324,20 @@ tenki-emotion-app/
 - [x] engine 端 delivery 計數標記 `@deprecated`
 - [x] 設定頁文案：背景模式限制的誠實說明 (shared/copy)
 - [ ] HealthKit observer query + background delivery（需實機）
+
+### Phase G — Edge DNA
+
+> 設計已完成（§10.4 + `/docs/EDGE-DNA-ARCHITECTURE.md`）。
+> Edge DNA = Coach P2 + P3 的使用者可見名稱，不是獨立引擎。
+
+- [x] Edge DNA 架構設計 (EDGE-DNA-ARCHITECTURE.md v1.0)
+- [x] 相關性分析 (Spearman + 效果量 + 分半穩定性)
+- [x] 特質推導 + profile 組裝（含 stress_tolerance 反轉）
+- [x] DPD 新增 `sleep` 與 `ansPosition` 欄位
+- [ ] 配對抽取層（DPD → CorrelationPair，需 DAL）
+- [ ] EDGE DNA 畫面 (RN)：Decision Style / Focus Window / Stress Response
+- [ ] building 狀態畫面（特質不足 2 個時的進度呈現）
+- [ ] 既有 DPD 記錄的欄位遷移策略（見新 doc §11 Q1）
 - [ ] 即時管線接上 `tickDetector()`
 - [ ] EDGE STATUS + Focus Window RN 元件
 - [ ] 每日回顧畫面（免費版 `detectorDailyRecap`）
@@ -1471,4 +1528,4 @@ Return to baseline. Find your turning point.
 
 ---
 
-*— END OF ANTIGRAVITY MASTER BLUEPRINT v4.3 —*
+*— END OF ANTIGRAVITY MASTER BLUEPRINT v4.4 —*
