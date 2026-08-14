@@ -1,7 +1,7 @@
 # Edge Detector — 即時認知準備度偵測架構
 
 > **最後更新**：2026-08-14
-> **版本**：v1.0
+> **版本**：v1.1（§5.5 §5.6 更正）
 > **狀態**：Active
 > **原則**：偵測器只回答「偵測到了嗎」。要不要打擾使用者，是另一層的事。
 
@@ -15,12 +15,13 @@
 |--------|------|------|
 | 偵測狀態機 | `packages/engine/src/scoring/edge-detector.ts` | soft/strong 門檻、連續視窗、hold duration、每日上限、抑制邏輯 |
 | 門檻與型別 | `packages/engine/src/scoring/types.ts` | `EDGE_DETECTOR_THRESHOLDS`、`EdgeDetectorState`、`DetectedState` |
-| 提醒節流 | `domain/src/policies/alert-policy.ts` | cooldown、聚合視窗、每日上限、安靜時段、同時多則分組 |
+| 通知節流（wellness） | `domain/src/policies/edge-notification-policy.ts` | 本地安靜時段、本地日界線、cooldown、每日上限、tier |
+| 警報節流（**TradingView，另一個功能**） | `domain/src/policies/alert-policy.ts` | 以 `symbol` 為主鍵。**wellness 通知不得走它**，見 §5.5 |
 | 推播合規 | `packages/engine/src/compliance/notification-guard.ts` | `validateNotification()` + 安全模板（已含 `FOCUS_WINDOW`） |
 | Tier gating | `packages/shared/src/subscription-tiers.ts` | `detectorAlerts`（Pro）/ `detectorDailyRecap`（兩 tier） |
 | Edge Score 引擎 | `packages/engine/src/scoring/edge-score.ts` | 8 維度加權、zone 分類、`getTimeBucket()` |
 
-本文件要補的是**周圍缺的三塊**，以及修掉**三個既有矛盾**。
+本文件要補的是**周圍缺的三塊**，以及一個文件/程式碼不符（§5.4）。
 
 ### 1.1 缺的三塊
 
@@ -30,9 +31,11 @@
 | 2 | **Focus Window** | 「10:00–12:00 高清晰時段」不存在。需要跨天的時段統計 |
 | 3 | **EDGE DETECTED 事件契約 + EDGE STATUS UI** | 偵測結果目前停在 `EdgeDetectorState`，沒有對外的事件與呈現層 |
 
-### 1.2 三個必須先解決的矛盾
+### 1.2 需要先解決的事
 
-見 §5.4、§5.5、§5.6。其中 §5.6 是**合規風險**，優先度最高。
+- **§5.4** — `ANTIGRAVITY.md` §5.2 的門檻與程式碼不符，以程式碼為準
+- **§5.5** — Edge Detector 需要自己的通知政策，不能沿用 TradingView 的 `alert-policy.ts`
+- **§5.6** — TradingView 那邊的市場時間字串（已移交該功能的規格文件）
 
 ---
 
@@ -55,7 +58,7 @@
 │     ↓ EdgeDetectedEvent（僅在確認時）                     │
 ├────────────────────────────────────────────────────────┤
 │ L4  傳遞（Delivery）— 獨立一層，見 §5.5                   │
-│     alert-policy 節流 → notification-guard 合規 → 推播    │
+│     edge-notification-policy 節流 → 合規驗證 → 推播        │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -97,7 +100,8 @@ score 序列，事後判定「剛才有沒有出現過視窗」。這正好對�
 | `suppressed` / `suppressionReason` | 瞬時 | 重新計算 |
 
 `alertsFiredToday` 存 Encrypted SQLite，與 DPD 同一個 DAL。
-日界線用**使用者本地時區**的午夜，不是 UTC —— 見 §5.6。
+日界線用**使用者本地時區**的午夜，不是 UTC —— UTC 日界線會讓 UTC+8 的使用者
+在早上 8 點重置額度（見 §5.5）。權威計數在 `edge-notification-policy.ts`。
 
 ---
 
@@ -230,73 +234,97 @@ stable (≥75) / balanced (≥72) / calm (其餘)。
 
 （§5.5 決議後，engine 的 `DAILY_ALERT_CAP` 會退位，所以 3 vs 5 之爭自然消失。）
 
-### 5.5 矛盾 ② — 三層節流互不知道對方存在
+### 5.5 為什麼 Edge Detector 需要自己的通知政策
 
-目前有三個地方在管「要不要打擾使用者」：
+> **更正紀錄（2026-08-14）**：本節初版宣稱「engine 的 `DAILY_ALERT_CAP` 與 domain 的
+> `ALERT_DAILY_SURFACE_CAP` 互相衝突、實際上限取決於呼叫順序」。**那是錯的**，
+> 重讀 `alert-policy.ts` 全文後更正如下。
 
-| 層 | 常數 | 值 |
-|----|------|-----|
-| engine | `EDGE_DETECTOR_THRESHOLDS.DAILY_ALERT_CAP` | 5 |
-| domain | `ALERT_DAILY_SURFACE_CAP` | 10 |
-| domain | `ALERT_COOLDOWN_SEC` | 300 |
-
-engine 自己數一份、domain 又數一份，**兩邊沒有任何引用關係**。
-實際上限是哪個，沒人說得準 —— 取決於呼叫順序。
-
-**決議：職責單一化。**
-
-```
-engine  → 只回答「偵測到了嗎」
-domain  → 唯一決定「要不要送出」
-```
-
-具體做法：
-
-1. `alert-policy.ts` 成為**唯一**的節流權威（它已經有 cooldown、每日上限、
-   安靜時段、分組，功能最完整）
-2. engine 的 `DAILY_ALERT_CAP` 與 `recordAlertFired()` **標記為 deprecated**，
-   保留欄位避免破壞既有測試，但不再作為決策依據
-3. `tickDetector()` 的 `quietHoursActive` 參數改由呼叫端從 alert-policy 取得，
-   engine 不自行判斷時間
-
-**本次不動程式碼** —— 這是行為變更，需要獨立的 commit 與測試調整。
-本節記錄決議，實作見 §11 Open Question #1。
-
-### 5.6 矛盾 ③ — ⚠️ 安靜時段是用市場時間定義的
-
-`domain/src/policies/alert-policy.ts`：
+`domain/src/policies/alert-policy.ts` **整份是 TradingView 外部警報橋接**的政策，
+不是通用通知政策。證據在它的 contract 形狀：
 
 ```typescript
-export const QUIET_WINDOW_TZ = 'America/New_York';
+interface AlertContract {
+  symbol: string;        // 交易標的
+  price: number | null;
+  timeframe: string | null;
+  strategyHint: string | null;
+}
+```
+
+它由 `tradingview_alerts_v1` flag（預設 false）+ `externalAlertBridge` tier（Pro）雙重把關。
+
+| 常數 | 管什麼 | 領域 |
+|------|--------|------|
+| `EDGE_DETECTOR_THRESHOLDS.DAILY_ALERT_CAP` | Edge Detector 的 wellness 提醒 | 生理狀態 |
+| `ALERT_DAILY_SURFACE_CAP` | TradingView 警報面板要不要跳出 | 外部交易警報 |
+
+**兩者管不同領域，沒有衝突。** 而「把節流全交給 `alert-policy.ts`」的想法是錯的 ——
+那等於把 wellness 通知丟進一個以**交易標的**為主鍵的政策裡。
+
+**決議：Edge Detector 有自己的通知政策。**
+
+```
+engine                      → 只回答「偵測到了嗎」
+edge-notification-policy.ts → 決定「要不要送出」（wellness）
+alert-policy.ts             → 決定「要不要跳警報面板」（TradingView，另一個功能）
+```
+
+`domain/src/policies/edge-notification-policy.ts` 沿用 `alert-policy.ts` 的**結構慣例**
+（純函式、throttle state 由呼叫端持有），但**不 import 它**，也沒有任何 symbol 概念。
+兩者不共用 state、不共用常數。
+
+關鍵差異：
+
+| 項目 | wellness 政策 | TradingView 政策 |
+|------|--------------|-----------------|
+| 安靜時段 | 使用者**本地時區**，支援跨午夜 | 不適用 |
+| 日界線 | **本地**午夜 | UTC |
+| 每日上限 | 3 | 10 |
+| Cooldown | 30 分鐘 | 5 分鐘 |
+
+wellness 的預設刻意更嚴：**一則你沒要求的、關於你身體的提醒，能得到的耐心比你自己接上的警報少。**
+
+日界線用本地時間不是細節 —— UTC 日界線會讓 UTC+8 的使用者在**早上 8 點**重置額度。
+
+engine 的 `DAILY_ALERT_CAP` 與 `recordAlertFired()` 已標記 `@deprecated`
+並指向新政策，行為與 state 形狀保持不變。
+
+### 5.6 已知的殘留問題（歸屬 TradingView 規格）
+
+> **更正紀錄（2026-08-14）**：本節初版宣稱安靜時段「寫死在推播決策路徑上」並標為
+> 最高優先合規風險。**那是誇大的**，更正如下。
+
+`alert-policy.ts` 確實有市場時間的常數：
+
+```typescript
+export const QUIET_WINDOW_TZ = 'America/New_York';   // (Adam Mancini ES session)
 export const QUIET_WINDOW_START_HOUR = 11;
 export const QUIET_WINDOW_END_HOUR = 14;
 export const QUIET_WINDOW_CONTEXT_ZH = '盤整迴避時段';
 ```
 
-11:00–14:00 ET 是典型的美股盤中盤整時段，變數名直接寫「盤整迴避」。
+但 `isWithinQuietWindowET()` **從未出現在 `evaluateAlertDelivery()` 裡**。
+它的 JSDoc 就寫明「never silences an alert, only adds a 盤整迴避時段 fact line」。
+唯一實際使用點是 `apps/preview/decision-alert.js:571` —— 在
+**TradingView 警報卡片**上渲染一個 chip，而且還要使用者自己開 `settings.quietWindow`。
 
-**這是一個 Health & Fitness 分類的 app，在推播決策路徑上寫死了美股交易時段。**
+**它不靜音任何東西，也完全碰不到 Edge Detector。**
 
-問題的嚴重性不在文案 —— 使用者看不到變數名。問題在於：
+殘留的真實問題比初版說的小，但不是零：
 
-1. **這是邏輯，不是措辭。** 它把應用行為綁定在金融市場的作息上，
-   等於在程式碼層面承認產品的真實用途是交易輔助
-2. **App Store 審查看得到程式碼。** 送審時提供的 build 含符號；
-   而 `ANTIGRAVITY.md` §1.4 明列「市場時機指引」為絕對禁止
-3. **它對非交易使用者是錯的。** 一個在台北用 TENKI 管理專注力的人，
-   為什麼在他的深夜 23:00–02:00 收不到提醒？
+| # | 問題 | 性質 |
+|---|------|------|
+| 1 | 「盤整迴避時段」是**使用者看得到**的字串，語意是市場盤整 | UI 上的市場時機用語 |
+| 2 | 註解 `(Adam Mancini ES session)` 點名特定交易者的 ES 方法論 | 程式碼註解 |
+| 3 | 兩者隨 binary 出貨，與 flag 開關無關 | 送審可見 |
 
-**決議：去市場化。**
+**這兩項屬於 TradingView 橋接功能的合規範圍，不屬於 Edge Detector。**
+已歸檔到 `docs/TRADINGVIEW-ALERT-SPEC.md` 的 Open Compliance Items，
+由該功能的擁有者決定。本文件不再追蹤。
 
-| 現行 | 改為 |
-|------|------|
-| 硬編碼 `America/New_York` | 使用者**本地時區** |
-| 硬編碼 11–14 時 | 使用者可設定的安靜時段，**預設取 HealthKit 睡眠時段** |
-| `盤整迴避時段` | `安靜時段` / `Quiet hours` |
-
-**本次不動程式碼**，理由寫在 §11 Open Question #2 ——
-這是合規議題不是實作細節，值得自己一次審查的注意力，
-混在新功能的 commit 裡容易被略過。
+**Edge Detector 這邊要保證的只有一件事**：`edge-notification-policy.ts`
+永遠不 import `alert-policy.ts`，也永遠不使用任何市場時間概念。這由測試強制。
 
 ---
 
@@ -335,7 +363,7 @@ EDGE DETECTED 是**裝置端事件**。它會：
 
 - 寫入 DPD 記錄（`decision-performance-record.ts`）
 - 觸發 UI 狀態變更
-- 送進 alert-policy 判斷要不要通知
+- 送進 `edge-notification-policy.ts` 判斷要不要通知
 
 它**不會**上傳。opt-in analytics 只記錄「發生了一次 `edge_detected`」這個事實，
 不記錄任何欄位（`PRIVACY_ARCHITECTURE.md` §9.2）。
@@ -379,12 +407,13 @@ brief 給的範例是「Edge detected. Your signals suggest a stable and focused
 
 | # | 條件 | 由誰判斷 |
 |---|------|----------|
-| 1 | 偵測已確認且持續 ≥ 180 秒 | `shouldFireAlert()` |
-| 2 | tier 含 `detectorAlerts` | `subscription-tiers.ts` |
-| 3 | 未在安靜時段 | `alert-policy.ts` |
-| 4 | 未超過每日上限、未在 cooldown | `alert-policy.ts` |
-| 5 | 沒有進行中的 session | `alert-policy.ts`（`sessionActive`）|
-| 6 | 文案通過 `validateNotification()` | `notification-guard.ts` |
+| 1 | 偵測已確認且持續 ≥ 180 秒 | `shouldFireAlert()`（engine）|
+| 2 | 事件來源可即時通知（非背景） | `isLiveAlertEligible()`（domain）|
+| 3 | tier 含 `detectorAlerts` | `edge-notification-policy.ts` |
+| 4 | 沒有進行中的 session | `edge-notification-policy.ts` |
+| 5 | 未在安靜時段（**本地時區**） | `edge-notification-policy.ts` |
+| 6 | 未在 cooldown、未超過每日上限（**本地日界線**）| `edge-notification-policy.ts` |
+| 7 | 文案通過 `validateNotification()` | `notification-guard.ts` |
 
 條件 5 值得特別說：**提醒永遠不打斷進行中的決策 session。**
 一個正在走流程的人，最不需要的就是一則通知。
@@ -505,14 +534,14 @@ MIN_SAMPLES_PER_HOUR   = 3    // 該時段最少樣本
 
 | # | 檢查項 | 本設計的答案 |
 |---|--------|-------------|
-| 1 | 有無金融語彙？ | 推播正文不含 "Edge"；§5.6 提出移除市場時段邏輯 |
+| 1 | 有無金融語彙？ | 推播正文不含 "Edge"；wellness 政策不 import 交易政策、不含 symbol 概念（§5.5，測試強制）|
 | 2 | 有無醫療診斷語言？ | ANS balance 只給相對位置，不做臨床分級（§4.2）|
 | 3 | 有無行動指示？ | 一律描述狀態不描述時機（§7.2）|
 | 4 | 有無預測聲明？ | Focus Window 明確定義為歷史統計（§9.1）|
 | 5 | 推播含具體數值？ | 否 —— 模板不含分數（§7.1）|
 | 6 | 原始生理數據離開裝置？ | 否 —— 事件只帶分類（§6.1、§6.3）|
 | 7 | 所有文案通過 `findProhibitedTerms()`？ | 是，且由測試強制 |
-| 8 | 對非交易使用者是否合理？ | §5.6 決議後為是；現行的市場時段邏輯為否 |
+| 8 | 對非交易使用者是否合理？ | 是 —— 安靜時段用**使用者本地時區**，日界線用本地午夜（§5.5）|
 
 ---
 
@@ -520,8 +549,8 @@ MIN_SAMPLES_PER_HOUR   = 3    // 該時段最少樣本
 
 | # | 問題 | 影響 | 狀態 |
 |---|------|------|------|
-| 1 | §5.5 節流單一化：engine 的 `DAILY_ALERT_CAP` 退位 | 行為變更 + 既有測試需調整 | **待實作** — 決議已定，需獨立 commit |
-| 2 | §5.6 移除 `QUIET_WINDOW_*` 的市場時間邏輯 | **合規風險**，且動到既有 alert 行為 | **待 founder 決定** — 建議獨立 PR，優先度高 |
+| 1 | §5.5 Edge Detector 專屬通知政策 | 職責分離 | ✅ **已完成 2026-08-14** — `edge-notification-policy.ts` + 22 個測試；engine 端已標 `@deprecated` |
+| 2 | §5.6 TradingView 的市場時間字串與註解 | 該功能的送審風險 | **已移交** — 歸檔到 `TRADINGVIEW-ALERT-SPEC.md` Open Compliance Items，非本文件範圍 |
 | 3 | `DetectedState` 含 `'recovered'` 但 `classifyDetectedState()` 從不回傳 | 死型別，或是遺漏的分支 | 待確認原始意圖 |
 | 4 | 背景模式無法即時偵測（§2.2），UI 如何誠實表達？ | 期待管理 | 建議：設定頁明說「即時提醒需 app 在前景」 |
 | 5 | ANS balance 是否應進入 Coach P2 的相關性分析？ | 需要 DPD 累積 ANS 欄位 | 待 P2 實作時決定 |
@@ -529,4 +558,4 @@ MIN_SAMPLES_PER_HOUR   = 3    // 該時段最少樣本
 
 ---
 
-*— END OF EDGE DETECTOR ARCHITECTURE v1.0 —*
+*— END OF EDGE DETECTOR ARCHITECTURE v1.1 —*

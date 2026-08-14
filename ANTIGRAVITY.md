@@ -714,22 +714,24 @@ TENKI 的核心洞察之一：**把「轉機」變成可訓練、可量化的能
 #### 職責分界（重要）
 
 ```
-engine → 只回答「偵測到了嗎」
-domain → 唯一決定「要不要送出」（alert-policy.ts）
+engine                      → 只回答「偵測到了嗎」
+edge-notification-policy.ts → 決定「要不要送出」（wellness）
+alert-policy.ts             → 決定「要不要跳警報面板」（TradingView，另一個功能）
 ```
 
 偵測器不知道也不該知道現在幾點、使用者今天被打擾幾次、他有沒有訂閱。
-engine 的 `DAILY_ALERT_CAP` 與 domain 的 `ALERT_DAILY_SURFACE_CAP` 目前各數一份且
-互不引用 —— **實際上限取決於呼叫順序**。決議為節流全數交給 `alert-policy.ts`，
-engine 端標記為 deprecated（實作見新 doc §11 Open Question #1）。
 
-#### ⚠️ 已知合規風險
+**`alert-policy.ts` 是 TradingView 外部警報橋接的政策，不是通用通知政策** ——
+它的 contract 以 `symbol` / `price` / `timeframe` 為欄位。wellness 通知不得走它。
+Edge Detector 用自己的 `domain/src/policies/edge-notification-policy.ts`：
+安靜時段用**使用者本地時區**（支援跨午夜）、日界線用**本地午夜**
+（UTC 日界線會讓 UTC+8 使用者在早上 8 點重置額度）、每日 3 則、cooldown 30 分鐘。
 
-`alert-policy.ts` 的安靜時段硬編碼為 `America/New_York` 11:00–14:00，
-變數名 `盤整迴避時段`。**Health & Fitness 分類的 app 不該在推播路徑上寫死美股時段** ——
-這是邏輯問題不是措辭問題，且對非交易使用者（例如台北的使用者）行為就是錯的。
-決議為改成使用者本地時區的可設定安靜時段（預設取 HealthKit 睡眠時段）。
-優先度高，詳見新 doc §5.6。
+預設刻意比交易警報嚴（3 則 vs 10 則、30 分鐘 vs 5 分鐘）：
+**一則你沒要求的、關於你身體的提醒，能得到的耐心比你自己接上的警報少。**
+
+engine 的 `DAILY_ALERT_CAP` 與 `recordAlertFired()` 已標 `@deprecated` 指向新政策，
+行為與 state 形狀不變。
 
 #### 背景模式偵測不到即時視窗
 
@@ -1275,8 +1277,8 @@ tenki-emotion-app/
 - [x] Focus Window 演算法 (engine, 含低樣本閘門)
 - [x] EDGE STATUS 三態解析 + 文案 (shared)
 - [x] EDGE_DETECTED 安全推播模板 (compliance)
-- [ ] **節流單一化**：engine `DAILY_ALERT_CAP` 退位，全數交給 `alert-policy.ts`
-- [ ] **⚠️ 移除安靜時段的市場時間硬編碼**（合規，優先度高）
+- [x] Edge Detector 專屬通知政策 (domain, 本地時區安靜時段 + 本地日界線)
+- [x] engine 端 delivery 計數標記 `@deprecated`
 - [ ] HealthKit observer query + background delivery（需實機）
 - [ ] 即時管線接上 `tickDetector()`
 - [ ] EDGE STATUS + Focus Window RN 元件

@@ -200,3 +200,34 @@ UI：三模板卡全列，建議者加 ⭐ 高亮；使用者永遠可自由選�
 
 - 邏輯層：`bash scripts/verify.sh` 全綠；domain/engine 新模組測試覆蓋（zone 三態、cooldown 邊界、跨日重置、聚合、中文禁詞攔截）。
 - Demo：founder 手機實走 `/decision-alert/` — 模擬快訊 → 面板 → 模板 ⭐ → 計時條 → 事件鏈 log；strain 態安靜膠囊；同標的重觸發被冷卻。
+
+## 14. Open Compliance Items（2026-08-14 提出，待 founder 決定）
+
+在設計 Edge Detector 通知層時盤點到的兩項，屬於**本功能**的送審風險，
+不屬於 Edge Detector。兩者都**尚未修改**。
+
+| # | 項目 | 位置 | 性質 |
+|---|------|------|------|
+| 1 | 「盤整迴避時段」是**使用者看得到**的 chip 文字 | `alert-policy.ts` `QUIET_WINDOW_CONTEXT_ZH`；渲染於 `apps/preview/decision-alert.js:571` | UI 上的**市場時機用語**。`ANTIGRAVITY.md` §1.4 明列「市場時機指引」為絕對禁止 |
+| 2 | 註解 `(Adam Mancini ES session)` 點名特定交易者的 ES 方法論 | `alert-policy.ts` L58 | 程式碼註解，隨 binary 出貨，與 flag 開關無關 |
+
+### 需要澄清的事實（避免被誇大）
+
+`isWithinQuietWindowET()` **從未出現在 `evaluateAlertDelivery()` 裡**。
+它的 JSDoc 寫明「never silences an alert, only adds a 盤整迴避時段 fact line」，
+唯一使用點是 preview 的 chip 渲染，而且要使用者自己開 `settings.quietWindow`。
+
+**它不靜音任何東西，也碰不到 Edge Detector 或任何 wellness 通知路徑。**
+風險是**用語**與**註解**，不是行為。
+
+### 建議
+
+| 項目 | 建議 |
+|------|------|
+| 1 | 改為中性描述（例如「時段提示」）或直接移除該 chip。若保留概念，措辭不得指涉市場狀態 |
+| 2 | 移除人名與 ES 指涉，只保留時間區間的技術說明 |
+
+兩項都很小，但**建議獨立一個 commit / PR** —— 合規改動混在功能開發裡容易被略過。
+
+> Edge Detector 那邊的保證：`edge-notification-policy.ts` 永遠不 import
+> `alert-policy.ts`，也永遠不使用任何市場時間概念。已由測試強制。
