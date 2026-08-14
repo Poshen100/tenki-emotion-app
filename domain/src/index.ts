@@ -211,6 +211,29 @@ export type {
 } from './contracts/benchmark-contract';
 
 export {
+  EDGE_DETECTED_STATES,
+  EDGE_DETECTION_STRENGTHS,
+  EDGE_EVENT_SOURCES,
+  EDGE_EVENT_TIME_BUCKETS,
+  EVENT_REJECTION_REASONS,
+  FORBIDDEN_EVENT_FIELDS,
+  buildEventDedupeKey,
+  isDuplicateEvent,
+  isLiveAlertEligible,
+  validateEdgeEvent,
+} from './contracts/edge-event-contract';
+
+export type {
+  EdgeDetectedEvent,
+  EdgeDetectedState,
+  EdgeDetectionStrength,
+  EdgeEventSource,
+  EdgeEventTimeBucket,
+  EdgeEventValidation,
+  EventRejectionReason,
+} from './contracts/edge-event-contract';
+
+export {
   MAX_UPLOADS_PER_DAY,
   MIN_UPLOAD_INTERVAL_MS,
   PARTICIPATION_BLOCKERS,
