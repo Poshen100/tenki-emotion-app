@@ -94,4 +94,25 @@ describe('SAFE_NOTIFICATION_TEMPLATES', () => {
       expect(value.length).toBeGreaterThan(0);
     }
   });
+
+  it('EDGE_DETECTED should pass the notification guard', () => {
+    const result = validateNotification(SAFE_NOTIFICATION_TEMPLATES.EDGE_DETECTED);
+    expect(result.isCompliant).toBe(true);
+  });
+
+  it('EDGE_DETECTED should not use the word "edge" on a lock screen', () => {
+    // 'you have an edge' is already prohibited; stripped of the app's product
+    // context, "edge" reads as a financial advantage rather than Edge Score.
+    expect(SAFE_NOTIFICATION_TEMPLATES.EDGE_DETECTED.toLowerCase()).not.toContain('edge');
+  });
+
+  it('no template should suggest a moment to act', () => {
+    const timingLanguage = ['good time', 'now is', 'act now', 'best time', 'opportunity'];
+    for (const value of Object.values(SAFE_NOTIFICATION_TEMPLATES)) {
+      const lower = value.toLowerCase();
+      for (const phrase of timingLanguage) {
+        expect(lower).not.toContain(phrase);
+      }
+    }
+  });
 });

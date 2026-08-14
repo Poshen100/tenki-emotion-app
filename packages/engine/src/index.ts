@@ -213,6 +213,38 @@ export {
 
 export type { HapticStep, HapticPattern, PulseEvent, PulseProfile } from './haptics/haptics';
 
+// ─── Biometric: Autonomic Balance ───────────
+export {
+  ANS_BALANCED_BAND,
+  ANS_LEANS,
+  ANS_MIN_DISPLAY_CONFIDENCE,
+  ANS_WEIGHTS,
+  classifyLean,
+  computeAnsBalance,
+  isAnsBalanceDisplayable,
+} from './biometric/ans-balance';
+
+export type { AnsBalanceInput, AnsBalanceResult, AnsLean } from './biometric/ans-balance';
+
+// ─── Analytics: Focus Window ────────────────
+export {
+  CLEAR_RATE_MARGIN,
+  FOCUS_WINDOW_GAPS,
+  LOOKBACK_DAYS,
+  MIN_SAMPLES_FOR_WINDOW,
+  MIN_SAMPLES_PER_HOUR,
+  MIN_WINDOW_HOURS,
+  computeFocusWindow,
+  formatFocusWindow,
+} from './analytics/focus-window';
+
+export type {
+  FocusWindow,
+  FocusWindowGap,
+  FocusWindowResult,
+  FocusWindowSample,
+} from './analytics/focus-window';
+
 // ─── Analytics: AI Coach ────────────────────
 export {
   COACH_INSIGHT_SUBJECTS,

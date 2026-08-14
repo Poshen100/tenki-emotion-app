@@ -27,6 +27,21 @@ export const SAFE_NOTIFICATION_TEMPLATES = {
   WEEKLY_SUMMARY: 'Your weekly clarity summary is ready in TENKI.',
   /** Baseline needs refresh. */
   BASELINE_REFRESH: 'Your baseline could use a fresh scan for better accuracy.',
+  /**
+   * Edge Detector confirmed a sustained readiness window.
+   *
+   * Note what this template does NOT say. The word "Edge" is absent on purpose:
+   * NOTIFICATION_PROHIBITED already blocks 'you have an edge', because in a
+   * financial context an edge is an advantage. Inside the app "Edge Score" has
+   * enough product context to read correctly; on a lock screen, stripped of
+   * that context, it does not. The template also describes a STATE and never a
+   * moment — "now is a good time" would be advice about timing, and advice
+   * about timing attached to physiology is what turns a wellness app into an
+   * advice app.
+   *
+   * @see docs/EDGE-DETECTOR-ARCHITECTURE.md §7.2
+   */
+  EDGE_DETECTED: 'Your signals suggest a steady, focused state right now.',
 } as const;
 
 /** Notification template identifier. */
