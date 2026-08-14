@@ -68,6 +68,30 @@ export interface DerivedBiometrics {
   readonly respiratoryRate: number;
   /** Signal quality grade of the underlying capture. */
   readonly signalQuality: number;
+  /**
+   * Autonomic balance position, -1 (sympathetic-leaning) to +1
+   * (parasympathetic-leaning), or null when the baseline was too immature for
+   * a trustworthy reading.
+   *
+   * Persisted rather than recomputed at read time: the position is relative to
+   * the baseline as it stood at capture, and that baseline has since moved.
+   */
+  readonly ansPosition: number | null;
+}
+
+/**
+ * Sleep preceding the decision, read from HealthKit.
+ *
+ * Stored on the record because sleep belongs to the night before a specific
+ * decision. Resolving it retrospectively means guessing which night a
+ * months-old record belonged to, and Edge DNA's sleep trait is only as honest
+ * as that pairing.
+ */
+export interface SleepContext {
+  /** Hours slept, or null when no sleep data was available. */
+  readonly durationHours: number | null;
+  /** Sleep quality 0–100 where available, or null. */
+  readonly qualityScore: number | null;
 }
 
 /** Edge Score context captured at the decision moment. */
@@ -113,6 +137,8 @@ export interface DecisionPerformanceRecord {
   readonly biometrics: DerivedBiometrics;
   /** Stress proxy level at capture. */
   readonly stressLevel: StressLevel;
+  /** Sleep preceding this decision. */
+  readonly sleep: SleepContext;
   /** Edge Score context. */
   readonly scoreContext: ScoreContext;
   /** Self-reported dopamine state, or null if not logged. */

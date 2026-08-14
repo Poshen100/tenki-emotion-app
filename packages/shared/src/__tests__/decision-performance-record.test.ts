@@ -33,8 +33,10 @@ function makeRecord(
       meanHr: 62,
       respiratoryRate: 13,
       signalQuality: 0.9,
+      ansPosition: 0.4,
     },
     stressLevel: 'LOW',
+    sleep: { durationHours: 7.5, qualityScore: 82 },
     scoreContext: {
       score: 74,
       zone: 'clear',
@@ -54,6 +56,30 @@ describe('storage policy', () => {
 
   it('marks records local_only', () => {
     expect(makeRecord().storagePolicy).toBe('local_only');
+  });
+});
+
+describe('Edge DNA inputs', () => {
+  it('stores sleep alongside the decision it preceded', () => {
+    const record = makeRecord();
+    expect(record.sleep.durationHours).toBe(7.5);
+    expect(record.sleep.qualityScore).toBe(82);
+  });
+
+  it('allows sleep to be absent without losing the record', () => {
+    const record = makeRecord({ sleep: { durationHours: null, qualityScore: null } });
+    expect(isLabeledRecord(record)).toBe(true);
+  });
+
+  it('stores the autonomic position captured against the baseline of the day', () => {
+    expect(makeRecord().biometrics.ansPosition).toBe(0.4);
+  });
+
+  it('allows an absent autonomic reading on an immature baseline', () => {
+    const record = makeRecord({
+      biometrics: { ...makeRecord().biometrics, ansPosition: null },
+    });
+    expect(record.biometrics.ansPosition).toBeNull();
   });
 });
 

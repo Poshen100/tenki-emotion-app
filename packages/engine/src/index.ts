@@ -245,6 +245,53 @@ export type {
   FocusWindowSample,
 } from './analytics/focus-window';
 
+// ─── Analytics: Personal Correlation ────────
+export {
+  CORRELATION_GAPS,
+  CORRELATION_STRENGTHS,
+  MIN_ABS_RHO,
+  MIN_HALF_ABS_RHO,
+  MIN_PAIRS_FOR_CORRELATION,
+  MIN_SPAN_DAYS,
+  STRONG_RHO_THRESHOLD,
+  analyzeCorrelation,
+  pearson,
+  rank,
+  spearman,
+} from './analytics/correlation';
+
+export type {
+  CorrelationFinding,
+  CorrelationGap,
+  CorrelationPair,
+  CorrelationResult,
+  CorrelationStrength,
+} from './analytics/correlation';
+
+// ─── Analytics: Edge DNA ────────────────────
+export {
+  EDGE_DNA_TRAIT_KINDS,
+  MIN_TRAITS_FOR_PROFILE,
+  PROFILE_GAPS,
+  PROFILE_REVISABILITY_NOTE,
+  TRAIT_COPY,
+  TRAIT_LEVELS,
+  allEdgeDnaCopy,
+  buildEdgeDnaProfile,
+  levelFromRho,
+  traitFromCorrelation,
+} from './analytics/edge-dna';
+
+export type {
+  EdgeDnaInput,
+  EdgeDnaProfile,
+  EdgeDnaResult,
+  EdgeDnaTrait,
+  EdgeDnaTraitKind,
+  ProfileGap,
+  TraitLevel,
+} from './analytics/edge-dna';
+
 // ─── Analytics: AI Coach ────────────────────
 export {
   COACH_INSIGHT_SUBJECTS,
