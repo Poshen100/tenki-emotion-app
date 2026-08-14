@@ -234,6 +234,30 @@ export type {
 } from './contracts/edge-event-contract';
 
 export {
+  DEFAULT_QUIET_HOURS_END,
+  DEFAULT_QUIET_HOURS_START,
+  EDGE_NOTIFICATION_COOLDOWN_SEC,
+  EDGE_NOTIFICATION_DAILY_CAP,
+  EDGE_NOTIFICATION_DECISIONS,
+  EDGE_WITHHOLD_REASONS,
+  createDefaultEdgeNotificationSettings,
+  createEmptyEdgeNotificationState,
+  evaluateEdgeNotification,
+  isWithinQuietHours,
+  recordEdgeNotificationSent,
+  resolveEdgeNotificationDayKey,
+} from './policies/edge-notification-policy';
+
+export type {
+  EdgeNotificationDecision,
+  EdgeNotificationEvaluation,
+  EdgeNotificationInput,
+  EdgeNotificationSettings,
+  EdgeNotificationThrottleState,
+  EdgeWithholdReason,
+} from './policies/edge-notification-policy';
+
+export {
   MAX_UPLOADS_PER_DAY,
   MIN_UPLOAD_INTERVAL_MS,
   PARTICIPATION_BLOCKERS,
