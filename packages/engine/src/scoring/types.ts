@@ -198,7 +198,16 @@ export const EDGE_DETECTOR_THRESHOLDS = {
   HOLD_DURATION_SEC: 180,
   /** Minimum consecutive accepted windows. */
   MIN_CONSECUTIVE_WINDOWS: 2,
-  /** Daily alert cap. */
+  /**
+   * Daily alert cap.
+   *
+   * @deprecated Delivery is not the engine's job. The authority on whether a
+   * detection reaches the user is `evaluateEdgeNotification()` in
+   * `domain/src/policies/edge-notification-policy.ts`, which also owns quiet
+   * hours, cooldown and the tier check. This constant stays so the detector's
+   * own suppression flag keeps working, but callers must not treat it as the
+   * delivery limit.
+   */
   DAILY_ALERT_CAP: 5,
 } as const;
 

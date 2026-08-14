@@ -3,8 +3,15 @@
  * @description Edge Detector — real-time readiness window detection.
  * Detects sustained periods of clear/focused state for optional alerts.
  *
+ * This module answers exactly one question: is a sustained readiness window
+ * present right now. It deliberately does not know the time of day, how often
+ * the user has been interrupted, or what they pay for — deciding whether a
+ * detection reaches someone belongs to
+ * `domain/src/policies/edge-notification-policy.ts`.
+ *
  * @version 3.0
- * @see ANTIGRAVITY.md v3.0 Section 7
+ * @see ANTIGRAVITY.md §5.2
+ * @see docs/EDGE-DETECTOR-ARCHITECTURE.md §5
  */
 
 import {
@@ -137,6 +144,13 @@ export function tickDetector(
 
 /**
  * Records that an alert was fired, incrementing the daily counter.
+ *
+ * @deprecated Counting deliveries belongs to the delivery layer. Use
+ * `recordEdgeNotificationSent()` in
+ * `domain/src/policies/edge-notification-policy.ts`, which counts against the
+ * user's LOCAL day rather than the detector's in-memory tally and survives an
+ * app restart. This function remains so the detector's own suppression flag
+ * keeps behaving as before.
  *
  * @param state - Current detector state.
  * @returns Updated state with incremented alert count.
