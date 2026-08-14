@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#020617" />
+  <title>TENKI — 匯入健康資料</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      background: var(--bg-space, #020617);
+      color: #E5E7EB;
+      font-family: -apple-system, "SF Pro Text", "PingFang TC", "Noto Sans TC", sans-serif;
+      line-height: 1.6;
+    }
+    .wrap {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: calc(env(safe-area-inset-top, 0px) + 24px) 16px
+              calc(env(safe-area-inset-bottom, 0px) + 40px);
+    }
+
+    .kicker {
+      font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: #64748B;
+    }
+    h1 { font-size: 22px; font-weight: 700; margin-top: 6px; }
+    .sub { font-size: 13px; color: #94A3B8; margin-top: 8px; }
+
+    .privacy {
+      display: flex; gap: 10px; align-items: flex-start;
+      margin-top: 18px; padding: 12px 14px;
+      background: rgba(0, 180, 216, 0.08);
+      border: 1px solid rgba(0, 180, 216, 0.35);
+      border-radius: 12px;
+      font-size: 12.5px; color: #CBD5E1;
+    }
+    .privacy b { color: #E5E7EB; }
+
+    .steps { margin-top: 22px; }
+    .steps h2 {
+      font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: #64748B; font-weight: 600; margin-bottom: 10px;
+    }
+    .steps ol { list-style: none; counter-reset: s; }
+    .steps li {
+      counter-increment: s; position: relative;
+      padding: 7px 0 7px 30px; font-size: 13.5px; color: #CBD5E1;
+    }
+    .steps li::before {
+      content: counter(s);
+      position: absolute; left: 0; top: 8px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: rgba(148, 163, 184, 0.15);
+      color: #94A3B8; font-size: 11px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .steps em { font-style: normal; color: #E5E7EB; font-weight: 600; }
+
+    .pick { margin-top: 24px; }
+    .pick input[type="file"] { display: none; }
+    .pick label {
+      display: block; text-align: center; cursor: pointer;
+      padding: 16px; border-radius: 14px;
+      border: 1px dashed rgba(148, 163, 184, 0.5);
+      background: rgba(20, 20, 24, 0.5);
+      font-size: 15px; font-weight: 600; color: #E5E7EB;
+    }
+    .pick label:active { opacity: 0.8; }
+    .pick .hint { font-size: 11.5px; color: #64748B; text-align: center; margin-top: 8px; }
+
+    #progress {
+      margin-top: 16px; font-size: 13px; color: #94A3B8;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    }
+
+    .verdict {
+      margin-top: 24px; padding: 14px; border-radius: 12px;
+      font-size: 14px; font-weight: 600; text-align: center;
+    }
+    .verdict.ok { background: rgba(0, 180, 216, 0.12); border: 1px solid #00B4D8; color: #4FD3EA; }
+    .verdict.wait { background: rgba(194, 112, 61, 0.12); border: 1px solid #C2703D; color: #DD8F5C; }
+
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .stat {
+      background: rgba(20, 20, 24, 0.6); border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 12px; padding: 12px 14px;
+    }
+    .stat .k {
+      font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #64748B;
+    }
+    .stat .v {
+      font-size: 22px; font-weight: 200; margin-top: 4px;
+      font-variant-numeric: tabular-nums; color: #E5E7EB;
+    }
+
+    #notes { margin-top: 16px; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    #notes li {
+      font-size: 12.5px; color: #94A3B8; padding-left: 14px; position: relative;
+    }
+    #notes li::before {
+      content: "—"; position: absolute; left: 0; color: #475569;
+    }
+
+    #downloadRow { margin-top: 20px; }
+    #downloadBtn {
+      width: 100%; padding: 13px; border-radius: 12px;
+      background: transparent; border: 1px solid #00B4D8; color: #4FD3EA;
+      font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    #downloadBtn:active { opacity: 0.8; }
+    .dl-hint { font-size: 11.5px; color: #64748B; margin-top: 8px; text-align: center; }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="kicker">TENKI CORE</div>
+    <h1>匯入你的健康資料</h1>
+    <p class="sub">
+      把 Apple 健康 App 的匯出檔交給這個頁面，看看你已經累積了多少可用的睡眠紀錄。
+    </p>
+
+    <div class="privacy">
+      <span>🔒</span>
+      <span>
+        <b>檔案完全不會離開這台裝置。</b>
+        解析在你的瀏覽器裡完成，沒有任何上傳 —— 這個頁面沒有寫任何一行網路請求。
+      </span>
+    </div>
+
+    <div class="steps">
+      <h2>怎麼拿到匯出檔</h2>
+      <ol>
+        <li>打開<em>健康</em> App，點右上角你的<em>大頭貼</em></li>
+        <li>滑到最底，選<em>匯出所有健康資料</em></li>
+        <li>等它打包完，存到<em>檔案</em> App（會是一個 zip）</li>
+        <li>在檔案 App 裡<em>長按 zip → 解壓縮</em></li>
+        <li>回到這裡，選裡面的 <em>export.xml</em></li>
+      </ol>
+    </div>
+
+    <div class="pick">
+      <input type="file" id="fileInput" accept=".xml,text/xml" />
+      <label for="fileInput">選擇 export.xml</label>
+      <p class="hint">大檔案是正常的 —— 頁面會分段讀，不會整份載進記憶體</p>
+    </div>
+
+    <p id="progress" hidden></p>
+
+    <div id="results" hidden>
+      <div class="verdict" id="verdict"></div>
+
+      <div class="stats">
+        <div class="stat"><div class="k">相關紀錄</div><div class="v" id="statRecords">—</div></div>
+        <div class="stat"><div class="k">睡眠夜數</div><div class="v" id="statNights">—</div></div>
+        <div class="stat"><div class="k">橫跨</div><div class="v" id="statSpan">—</div></div>
+        <div class="stat"><div class="k">平均睡眠</div><div class="v" id="statMean">—</div></div>
+      </div>
+
+      <ul id="notes"></ul>
+
+      <div id="downloadRow" hidden>
+        <button id="downloadBtn" type="button">下載睡眠紀錄 JSON</button>
+        <p class="dl-hint">之後可以餵回 TENKI，作為 Edge DNA 的睡眠來源</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="health-import.js"></script>
+</body>
+</html>
