@@ -320,10 +320,10 @@ npm run ios
 
 ---
 
-# TENKI CORE — ANTIGRAVITY MASTER BLUEPRINT v4.2
+# TENKI CORE — ANTIGRAVITY MASTER BLUEPRINT v4.3
 
-> **最後更新**：2026-08-12
-> **版本**：v4.2（v4.1 + Section 13 Growth Architecture 全面改寫）
+> **最後更新**：2026-08-14
+> **版本**：v4.3（+ Section 5.2 Edge Detector 對齊程式碼與架構補完）
 > **狀態**：Active — Canonical Source of Truth
 > **維護者**：Founder + Autonomous Agents
 
@@ -690,13 +690,52 @@ TENKI 的核心洞察之一：**把「轉機」變成可訓練、可量化的能
 
 即時穩定偵測器，用於偵測持續性的 clear/focused 狀態視窗。
 
+> 完整架構（即時管線、Focus Window、事件契約、UI、合規檢查表）詳見
+> **`/docs/EDGE-DETECTOR-ARCHITECTURE.md`**。
+
+**門檻以 `EDGE_DETECTOR_THRESHOLDS` 為準**（2026-08-14 對齊，此表原本與程式碼不符）：
+
 | 參數 | 值 | 說明 |
 |------|------|------|
 | Soft 門檻 | Score ≥ 68, Confidence ≥ 0.70 | 軟偵測 |
-| Strong 門檻 | Score ≥ 78, Confidence ≥ 0.82 | 強偵測 |
+| Strong 門檻 | Score ≥ 78, Confidence ≥ **0.80** | 強偵測 |
 | 最少連續視窗 | 2 | 確認偵測需連續 2 個視窗 |
 | 持續時間門檻 | 180 秒 | 觸發提醒前需持續 3 分鐘 |
-| 每日提醒上限 | 3 次 | 避免過度打擾 |
+| 每日提醒上限 | **5** 次（deprecating） | 見下方節流單一化 |
+
+#### 三道確認條件各擋掉一種假陽性
+
+| 條件 | 擋掉什麼 |
+|------|----------|
+| 連續視窗 ≥ 2 | 單次量測雜訊 |
+| 持續 ≥ 180 秒 | 短暫波動（深呼吸幾次就能拉高瞬時 HRV）|
+| Confidence ≥ 0.70 | **基線未成熟時的高分** —— 新使用者的高分沒有意義 |
+
+#### 職責分界（重要）
+
+```
+engine → 只回答「偵測到了嗎」
+domain → 唯一決定「要不要送出」（alert-policy.ts）
+```
+
+偵測器不知道也不該知道現在幾點、使用者今天被打擾幾次、他有沒有訂閱。
+engine 的 `DAILY_ALERT_CAP` 與 domain 的 `ALERT_DAILY_SURFACE_CAP` 目前各數一份且
+互不引用 —— **實際上限取決於呼叫順序**。決議為節流全數交給 `alert-policy.ts`，
+engine 端標記為 deprecated（實作見新 doc §11 Open Question #1）。
+
+#### ⚠️ 已知合規風險
+
+`alert-policy.ts` 的安靜時段硬編碼為 `America/New_York` 11:00–14:00，
+變數名 `盤整迴避時段`。**Health & Fitness 分類的 app 不該在推播路徑上寫死美股時段** ——
+這是邏輯問題不是措辭問題，且對非交易使用者（例如台北的使用者）行為就是錯的。
+決議為改成使用者本地時區的可設定安靜時段（預設取 HealthKit 睡眠時段）。
+優先度高，詳見新 doc §5.6。
+
+#### 背景模式偵測不到即時視窗
+
+iOS background delivery 不保證頻率，拿不到 180 秒內的連續樣本。
+背景模式的角色是**回顧性標記**（餵每日回顧與 Focus Window 統計），
+**不是即時偵測**。UI 與文案不得暗示 app 關閉時仍會即時提醒。
 
 ### 5.3 Baseline Engine
 
@@ -1226,6 +1265,23 @@ tenki-emotion-app/
 - [ ] 時機式轉換觸發器 (§13.6)
 - [ ] Privacy Policy 增補 (Edge Snapshot + AI Coach P4)
 
+### Phase F — Edge Detector
+
+> 設計已完成（§5.2 + `/docs/EDGE-DETECTOR-ARCHITECTURE.md`）。
+
+- [x] Edge Detector 架構設計 (EDGE-DETECTOR-ARCHITECTURE.md v1.0)
+- [x] EDGE DETECTED 事件契約 (domain, 含禁止欄位防呆 + 去重)
+- [x] ANS Balance 衍生指標 (engine)
+- [x] Focus Window 演算法 (engine, 含低樣本閘門)
+- [x] EDGE STATUS 三態解析 + 文案 (shared)
+- [x] EDGE_DETECTED 安全推播模板 (compliance)
+- [ ] **節流單一化**：engine `DAILY_ALERT_CAP` 退位，全數交給 `alert-policy.ts`
+- [ ] **⚠️ 移除安靜時段的市場時間硬編碼**（合規，優先度高）
+- [ ] HealthKit observer query + background delivery（需實機）
+- [ ] 即時管線接上 `tickDetector()`
+- [ ] EDGE STATUS + Focus Window RN 元件
+- [ ] 每日回顧畫面（免費版 `detectorDailyRecap`）
+
 ---
 
 ## 16. Done = Go
@@ -1412,4 +1468,4 @@ Return to baseline. Find your turning point.
 
 ---
 
-*— END OF ANTIGRAVITY MASTER BLUEPRINT v4.2 —*
+*— END OF ANTIGRAVITY MASTER BLUEPRINT v4.3 —*
