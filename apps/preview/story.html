@@ -92,12 +92,18 @@ section{position:relative}
   text-align:center;
   padding:120px 24px 80px;
   overflow:hidden;
+  /* camera/depth groundwork (Antigravity 2026-08-13) — inert until story.js
+     animates z/rotationX on the layers inside .hero-inner */
+  perspective:1200px;
 }
 #universe{
   position:absolute;inset:0;z-index:0;
   opacity:0;
 }
-.hero-inner{position:relative;z-index:2;max-width:880px}
+.hero-inner{
+  position:relative;z-index:2;max-width:880px;
+  transform-style:preserve-3d;
+}
 .hero-kicker{
   display:inline-flex;align-items:center;gap:8px;
   font-size:11px;font-weight:600;letter-spacing:0.24em;text-transform:uppercase;
