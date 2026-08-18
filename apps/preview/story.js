@@ -466,17 +466,16 @@
         if (!section) return;
 
         if (reduced) {
-          gsap.set(['#transition-ring', '#transition-core', '#transition-label'], { clearProps: 'all' });
+          gsap.set(['#unlock-ring', '#unlock-core', '#unlock-label'], { clearProps: 'all' });
           return;
         }
 
-        gsap.set('#transition-ring', { autoAlpha: 0, scale: 0.82, rotate: -45 });
-        gsap.set('#transition-core', { autoAlpha: 0, scale: 0.55 });
-        gsap.set('#transition-label', { autoAlpha: 0, y: 24 });
+        gsap.set('#unlock-ring', { autoAlpha: 0, scale: 0.82, rotate: -45 });
+        gsap.set('#unlock-core', { autoAlpha: 0, scale: 0.55 });
+        gsap.set('#unlock-label', { autoAlpha: 0, y: 24 });
 
-        var pulseTween = gsap.to('#transition-core', {
+        var pulseTween = gsap.to('#unlock-core', {
           scale: 1.14,
-          boxShadow: '0 0 55px rgba(255,212,110,0.65)',
           duration: 1.5,
           ease: breathEase,
           repeat: -1,
@@ -499,11 +498,11 @@
           }
         });
 
-        tl.to('#transition-ring', { autoAlpha: 1, scale: 1, rotate: 0, duration: 0.38, ease: calmEase }, 0)
-          .to('#transition-core', { autoAlpha: 1, scale: 1, duration: 0.38, ease: calmEase }, 0.06)
-          .to('#transition-label', { autoAlpha: 1, y: 0, duration: 0.32, ease: calmEase }, 0.14)
-          .to('#transition-ring', { rotate: 45, duration: 0.45, ease: 'none' }, 0.38)
-          .to(['#transition-ring', '#transition-core', '#transition-label'], {
+        tl.to('#unlock-ring', { autoAlpha: 1, scale: 1, rotate: 0, duration: 0.38, ease: calmEase }, 0)
+          .to('#unlock-core', { autoAlpha: 1, scale: 1, duration: 0.38, ease: calmEase }, 0.06)
+          .to('#unlock-label', { autoAlpha: 1, y: 0, duration: 0.32, ease: calmEase }, 0.14)
+          .to('#unlock-ring', { rotate: 45, duration: 0.45, ease: 'none' }, 0.38)
+          .to(['#unlock-ring', '#unlock-core', '#unlock-label'], {
             autoAlpha: 0,
             scale: 1.25,
             duration: 0.28,
