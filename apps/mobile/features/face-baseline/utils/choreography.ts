@@ -212,3 +212,76 @@ export function resolveHapticTrigger(
 export function isRecoveryMoment(previous: RitualPhase, next: RitualPhase): boolean {
   return next === 'lost' && previous !== 'lost';
 }
+
+// ─────────────────────────────────────────────
+// Quality adapter
+// ─────────────────────────────────────────────
+
+/**
+ * The subset of `QualityMetrics` the choreography actually reads.
+ *
+ * Declared structurally rather than importing the full type, so it is obvious
+ * which four numbers drive the ritual — `QualityMetrics` satisfies this.
+ */
+export interface QualityLike {
+  /** Signal Quality Index, higher is better. */
+  sqi: number;
+  /** Motion magnitude, **lower** is better. */
+  motion: number;
+  /** Face-in-frame coverage, higher is better. */
+  coverage: number;
+  /** Landmark tracking confidence, higher is better. */
+  landmarkConfidence: number;
+}
+
+/**
+ * Whether the capture pipeline is actually producing readings yet.
+ *
+ * The store initialises every metric to zero, and zero is indistinguishable
+ * from "the camera is telling us the signal is terrible". Those two mean very
+ * different things on screen: an un-instrumented build should not render as a
+ * failing scan. Callers use this to fall back to a legible demo state instead
+ * of showing a mesh that has blown apart for no reason.
+ *
+ * Once the native camera pipeline lands this returns true in normal operation
+ * and the fallback stops being reachable.
+ *
+ * @param quality - Current metrics.
+ * @returns True when at least one positive reading exists.
+ */
+export function isQualityInstrumented(quality: QualityLike): boolean {
+  return quality.sqi > 0 || quality.coverage > 0 || quality.landmarkConfidence > 0;
+}
+
+/**
+ * Maps capture metrics onto ritual signals.
+ *
+ * Quality averages the three higher-is-better readings; stability inverts
+ * motion, since holding still is what the mesh is meant to reward.
+ *
+ * @param quality - Current metrics.
+ * @param progress - Capture progress, 0–1.
+ * @returns Signals for {@link composeSensoryFrame}.
+ */
+export function signalsFromQuality(quality: QualityLike, progress: number): RitualSignals {
+  return {
+    quality: clamp01((clamp01(quality.sqi) + clamp01(quality.coverage) + clamp01(quality.landmarkConfidence)) / 3),
+    stability: clamp01(1 - clamp01(quality.motion)),
+    progress: clamp01(progress),
+  };
+}
+
+/**
+ * Signals for a build where the capture pipeline is not yet wired.
+ *
+ * Derived from progress alone, so the ritual still reads as advancing rather
+ * than failing. This is a placeholder for a missing input, not a simulation of
+ * a good scan — it is only reachable while `isQualityInstrumented` is false.
+ *
+ * @param progress - Capture progress, 0–1.
+ * @returns Signals driven by progress.
+ */
+export function placeholderSignals(progress: number): RitualSignals {
+  const p = clamp01(progress);
+  return { quality: 0.8, stability: 0.5 + p * 0.5, progress: p };
+}

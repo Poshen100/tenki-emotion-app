@@ -11,8 +11,12 @@
 import {
   MAX_SCATTER,
   composeSensoryFrame,
+  isQualityInstrumented,
   isRecoveryMoment,
+  placeholderSignals,
   resolveHapticTrigger,
+  signalsFromQuality,
+  type QualityLike,
   type RitualPhase,
   type RitualSignals,
 } from '../utils/choreography';
@@ -174,5 +178,45 @@ describe('recovery moment', () => {
     for (const phase of PHASES.filter((p) => p !== 'lost')) {
       expect(isRecoveryMoment('capturing', phase)).toBe(false);
     }
+  });
+});
+
+describe('quality adapter', () => {
+  const zeroed: QualityLike = { sqi: 0, motion: 1, coverage: 0, landmarkConfidence: 0 };
+
+  it('treats an all-zero store as not yet instrumented', () => {
+    expect(isQualityInstrumented(zeroed)).toBe(false);
+  });
+
+  it('recognises any positive reading as instrumented', () => {
+    expect(isQualityInstrumented({ ...zeroed, sqi: 0.1 })).toBe(true);
+    expect(isQualityInstrumented({ ...zeroed, coverage: 0.1 })).toBe(true);
+    expect(isQualityInstrumented({ ...zeroed, landmarkConfidence: 0.1 })).toBe(true);
+  });
+
+  it('inverts motion into stability', () => {
+    expect(signalsFromQuality({ ...zeroed, motion: 0 }, 0).stability).toBe(1);
+    expect(signalsFromQuality({ ...zeroed, motion: 1 }, 0).stability).toBe(0);
+  });
+
+  it('averages the higher-is-better readings into quality', () => {
+    const s = signalsFromQuality({ sqi: 1, motion: 0, coverage: 1, landmarkConfidence: 1 }, 0.5);
+    expect(s.quality).toBe(1);
+    expect(s.progress).toBe(0.5);
+  });
+
+  it('clamps out-of-range readings', () => {
+    const s = signalsFromQuality({ sqi: 9, motion: -4, coverage: 9, landmarkConfidence: 9 }, 12);
+    expect(s.quality).toBe(1);
+    expect(s.stability).toBe(1);
+    expect(s.progress).toBe(1);
+  });
+
+  it('gives placeholder signals that advance rather than fail', () => {
+    const early = placeholderSignals(0);
+    const late = placeholderSignals(1);
+    expect(late.stability).toBeGreaterThan(early.stability);
+    // Never renders as a failing scan while the pipeline is missing.
+    expect(composeSensoryFrame('capturing', early, false).scatter).toBeLessThan(0.5);
   });
 });

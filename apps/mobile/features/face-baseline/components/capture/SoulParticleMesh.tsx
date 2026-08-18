@@ -2,22 +2,51 @@
  * @module face-baseline/components/SoulParticleMesh
  * @description Gold stardust mesh over the face — "your living signal".
  *
- * Pure RN Animated: generates a mesh of floating golden stardust particles
- * that pulse, drift, and converge closer to their centers as stability rises,
- * scattering slightly when stability drops.
+ * Pure RN Animated on purpose: no Skia, so it renders in Expo Go and on web
+ * without a development build, which is what makes the scan ritual something
+ * that can be felt today rather than after a native toolchain exists.
  *
- * @version 3.1
- * @see apps/mobile/features/face-baseline/SPEC.md
+ * The mesh does not decide how it should look. It animates toward a
+ * {@link SensoryFrame} produced by `utils/choreography.ts`, so the rules
+ * governing convergence, scatter and glow live in one tested place instead of
+ * being scattered across components.
+ *
+ * @version 3.2
+ * @see apps/mobile/features/face-baseline/utils/choreography.ts
  */
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
-import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
+import type { SensoryFrame } from '../../utils/choreography';
 
 interface SoulParticleMeshProps {
-  /** 0–1: higher = more crystallized/brighter. */
+  /**
+   * Target values from the choreography engine. Preferred over `stability`.
+   */
+  frame?: SensoryFrame;
+  /**
+   * Legacy single-value driver, kept so existing screens keep working. When
+   * `frame` is absent one is derived from this.
+   */
   stability?: number;
   size?: number;
+  /**
+   * Stops the ambient drift and breathing loops. The mesh still shows state
+   * through position and opacity — motion is removed, information is not.
+   */
+  reducedMotion?: boolean;
+}
+
+/** Builds a frame from the legacy `stability` prop so old call sites behave as before. */
+function frameFromStability(stability: number): SensoryFrame {
+  const s = Math.min(1, Math.max(0, stability));
+  return {
+    convergence: s,
+    scatter: 1 - s,
+    brightness: 0.65 + s * 0.35,
+    glow: s,
+    transitionMs: 400,
+  };
 }
 
 interface SpeckDef {
@@ -99,12 +128,14 @@ const SPECKS: SpeckDef[] = [
 
 function AnimatedSpeck({
   speck,
-  stability,
+  frame,
   containerSize,
+  reducedMotion,
 }: {
   speck: SpeckDef;
-  stability: number;
+  frame: SensoryFrame;
   containerSize: number;
+  reducedMotion: boolean;
 }): React.JSX.Element {
   // Drift/wobble animation
   const driftX = useRef(new Animated.Value(0)).current;
@@ -112,6 +143,10 @@ function AnimatedSpeck({
   const pulse = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
+    // Reduced motion stops the ambient life entirely — no drift, no breathing.
+    // State still reads through position and opacity below.
+    if (reducedMotion) return;
+
     // Continuous random drift loop
     const createDrift = (anim: Animated.Value, max: number) => {
       const run = () => {
@@ -151,35 +186,34 @@ function AnimatedSpeck({
       driftY.stopAnimation();
       pulseLoop.stop();
     };
-  }, [driftX, driftY, pulse, speck]);
+  }, [driftX, driftY, pulse, speck, reducedMotion]);
 
-  // Scatter/Converge animation based on stability
-  // As stability approaches 1, the scatter displacement decreases (converging onto grid)
-  const stabilityFactor = 1 - stability; // 1 = fully scattered, 0 = fully converged
-  const scatterX = speck.offsetX * stabilityFactor;
-  const scatterY = speck.offsetY * stabilityFactor;
+  // Displacement is the choreography's scatter, damped by its convergence:
+  // dispersing on poor quality and drawing back in as the capture settles are
+  // two separate forces rather than one inverted number.
+  const displacement = frame.scatter * (1 - frame.convergence * 0.6);
+  const scatterX = speck.offsetX * displacement;
+  const scatterY = speck.offsetY * displacement;
 
-  // Animate the scatter transition
   const transitionX = useRef(new Animated.Value(scatterX)).current;
   const transitionY = useRef(new Animated.Value(scatterY)).current;
 
   useEffect(() => {
-    Animated.spring(transitionX, {
-      toValue: scatterX,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-    Animated.spring(transitionY, {
-      toValue: scatterY,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-  }, [scatterX, scatterY, transitionX, transitionY]);
+    // A shorter transitionMs means a tighter spring, so the phase's own sense
+    // of urgency carries into how the particles physically move.
+    const tension = Math.round(120000 / Math.max(120, frame.transitionMs));
+    const config = { friction: 7, tension, useNativeDriver: true };
 
-  // Opacity derived from overall stability + internal breathing pulse
+    Animated.spring(transitionX, { ...config, toValue: scatterX }).start();
+    Animated.spring(transitionY, { ...config, toValue: scatterY }).start();
+  }, [scatterX, scatterY, transitionX, transitionY, frame.transitionMs]);
+
+  // Brightness sets the band the breathing pulse swings within. With reduced
+  // motion the pulse never animates, so this settles at a steady value that
+  // still encodes brightness.
   const opacity = pulse.interpolate({
     inputRange: [0.3, 1],
-    outputRange: [0.3 + stability * 0.2, 0.65 + stability * 0.35],
+    outputRange: [0.25 + frame.brightness * 0.3, 0.55 + frame.brightness * 0.45],
   });
 
   const posX = (speck.leftPercent / 100) * containerSize;
@@ -188,6 +222,9 @@ function AnimatedSpeck({
   const isGold = speck.color === 'gold';
   const dotColor = isGold ? '#FFC85E' : '#00F0FF';
   const glowColor = isGold ? '#FF8800' : '#00F0FF';
+  // Halo grows with the frame's glow so a locked state reads as crystallised
+  // rather than merely brighter.
+  const shadowRadius = 3 + frame.glow * 6;
 
   return (
     <Animated.View
@@ -202,6 +239,7 @@ function AnimatedSpeck({
           borderRadius: speck.size / 2,
           backgroundColor: dotColor,
           shadowColor: glowColor,
+          shadowRadius,
           transform: [
             { translateX: Animated.add(driftX, transitionX) },
             { translateY: Animated.add(driftY, transitionY) },
@@ -212,7 +250,14 @@ function AnimatedSpeck({
   );
 }
 
-export function SoulParticleMesh({ stability = 0.6, size = 200 }: SoulParticleMeshProps): React.JSX.Element {
+export function SoulParticleMesh({
+  frame,
+  stability = 0.6,
+  size = 200,
+  reducedMotion = false,
+}: SoulParticleMeshProps): React.JSX.Element {
+  const resolved = frame ?? frameFromStability(stability);
+
   return (
     <View style={[styles.wrap, { width: size, height: size }]} pointerEvents="none">
       {SPECKS.map((speck, i) => (
@@ -220,8 +265,9 @@ export function SoulParticleMesh({ stability = 0.6, size = 200 }: SoulParticleMe
           // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count static render; index is the element identity
           key={i}
           speck={speck}
-          stability={stability}
+          frame={resolved}
           containerSize={size}
+          reducedMotion={reducedMotion}
         />
       ))}
     </View>
@@ -234,7 +280,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.95,
-    shadowRadius: 6,
     elevation: 4,
   },
 });

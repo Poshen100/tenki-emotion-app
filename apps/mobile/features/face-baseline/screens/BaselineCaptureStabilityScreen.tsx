@@ -24,6 +24,13 @@ import {
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
 import { captureProgress } from '../utils/progress';
+import {
+  composeSensoryFrame,
+  isQualityInstrumented,
+  placeholderSignals,
+  signalsFromQuality,
+} from '../utils/choreography';
+import { useBaselineHaptics } from '../hooks/useBaselineHaptics';
 import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
 import { FB_ROUTES } from './routes';
 
@@ -32,8 +39,19 @@ export default function BaselineCaptureStabilityScreen(): React.JSX.Element {
   const goTo = useFaceBaselineStore((s) => s.goTo);
   const setCapturePhase = useFaceBaselineStore((s) => s.setCapturePhase);
   const setStabilityProgress = useFaceBaselineStore((s) => s.setStabilityProgress);
+  const quality = useFaceBaselineStore((s) => s.quality);
+  const reducedMotion = useFaceBaselineStore((s) => s.reducedMotion);
+  const haptics = useBaselineHaptics();
   const [progress, setProgress] = useState(0);
   const done = useRef(false);
+
+  // Real metrics once the capture pipeline exists; until then progress-driven
+  // placeholders, so an un-instrumented build reads as advancing rather than
+  // as a failing scan. See utils/choreography.ts.
+  const signals = isQualityInstrumented(quality)
+    ? signalsFromQuality(quality, progress)
+    : placeholderSignals(progress);
+  const frame = composeSensoryFrame('stabilizing', signals, reducedMotion);
 
   useEffect(() => {
     goTo('stability_pass');
@@ -45,13 +63,16 @@ export default function BaselineCaptureStabilityScreen(): React.JSX.Element {
         setStabilityProgress(next);
         if (next >= 1 && !done.current) {
           done.current = true;
+          // Edge triggered: this is the one moment the phase actually changes,
+          // so it is the one moment touch is allowed to speak.
+          haptics.trigger('success');
           setTimeout(() => router.push(FB_ROUTES.processing), 250);
         }
         return next;
       });
     }, 90);
     return () => clearInterval(interval);
-  }, [goTo, setCapturePhase, setStabilityProgress, router]);
+  }, [goTo, setCapturePhase, setStabilityProgress, router, haptics]);
 
   return (
     <CosmicBackground mode="captureWarm">
@@ -59,8 +80,10 @@ export default function BaselineCaptureStabilityScreen(): React.JSX.Element {
         <NavBar title="Baseline Capture" onCancel={() => router.back()} />
         <View style={styles.frameWrap}>
           <FaceScanFrame shape="halo" state="capturing" size={250}>
-            {/* Settled mesh: particles converge as the user relaxes into stillness. */}
-            <SoulParticleMesh stability={1} size={210} />
+            {/* Settled mesh: convergence, scatter and glow all come from the
+                choreography engine, so the feel of this moment is defined in
+                one tested place rather than here. */}
+            <SoulParticleMesh frame={frame} size={210} reducedMotion={reducedMotion} />
           </FaceScanFrame>
         </View>
         <View style={styles.footer}>
