@@ -1,33 +1,41 @@
 import type React from 'react';
-import { View, StyleSheet, Text, Pressable, Dimensions, type StyleProp, type ViewStyle } from 'react-native';
+import { View, StyleSheet, Text, Pressable, type StyleProp, type ViewStyle } from 'react-native';
+import { CosmicBackground } from '../features/face-baseline/components/shared/CosmicBackground';
+import { useReducedMotion } from '../features/face-baseline/hooks/useReducedMotion';
+import { composeAtmosphere, type AtmosphereZone } from '../features/face-baseline/utils/atmosphere';
+import { getZoneForScore } from '../theme';
 
-const { width, height } = Dimensions.get('window');
 
 /**
- * Reusable dark premium background container with soft auroras and stardust.
+ * Dark premium background for the tab and onboarding screens.
+ *
+ * This used to be five hard-coded dots and three static glows, while the real
+ * animated sky lived in the face-baseline flow — where no Edge Score exists
+ * yet. So the one background that could react to the user's Zone was the one
+ * that never saw it. It now delegates to {@link CosmicBackground}, and screens
+ * that know the score can pass it.
+ *
+ * @param score - Latest Edge Score, or null/undefined when nothing has been
+ *   scanned. Classified with the existing {@link getZoneForScore}; the 70/40
+ *   boundary is not restated here.
+ * @param maturityRatio - Baseline maturity 0–1, surfacing circuit traces as it
+ *   rises. Defaults to 0.
  */
-export function BackgroundContainer({ children }: { children: React.ReactNode }) {
-  return (
-    <View style={styles.container}>
-      {/* Navy gradient simulation */}
-      <View style={styles.gradientTop} />
-      
-      {/* Subtle teal aurora glow top-right */}
-      <View style={styles.tealGlow} />
-      
-      {/* Faint amber glow bottom-left */}
-      <View style={styles.amberGlow} />
+export function BackgroundContainer({
+  children,
+  score,
+  maturityRatio = 0,
+}: {
+  children: React.ReactNode;
+  score?: number | null;
+  maturityRatio?: number;
+}) {
+  const reducedMotion = useReducedMotion();
+  const zone: AtmosphereZone =
+    score === null || score === undefined ? 'unknown' : getZoneForScore(score).name;
+  const atmosphere = composeAtmosphere(zone, maturityRatio, reducedMotion);
 
-      {/* Subtle stardust specks */}
-      <View style={[styles.star, { top: '15%', left: '10%' }]} />
-      <View style={[styles.star, { top: '25%', left: '85%', opacity: 0.6 }]} />
-      <View style={[styles.star, { top: '45%', left: '70%', opacity: 0.4 }]} />
-      <View style={[styles.star, { top: '70%', left: '15%', opacity: 0.5 }]} />
-      <View style={[styles.star, { top: '80%', left: '75%', opacity: 0.3 }]} />
-
-      {children}
-    </View>
-  );
+  return <CosmicBackground atmosphere={atmosphere}>{children}</CosmicBackground>;
 }
 
 /**
@@ -127,47 +135,6 @@ export function TertiaryLink({ label, onPress }: { label: string; onPress: () =>
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#060E1C',
-  },
-  gradientTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: height * 0.6,
-    backgroundColor: '#0A1628',
-    opacity: 0.7,
-  },
-  tealGlow: {
-    position: 'absolute',
-    top: -height * 0.1,
-    right: -width * 0.1,
-    width: width * 0.6,
-    height: width * 0.6,
-    borderRadius: 9999,
-    backgroundColor: '#5FE9D0',
-    opacity: 0.06,
-  },
-  amberGlow: {
-    position: 'absolute',
-    bottom: -height * 0.08,
-    left: -width * 0.1,
-    width: width * 0.5,
-    height: width * 0.5,
-    borderRadius: 9999,
-    backgroundColor: '#FFC68A',
-    opacity: 0.04,
-  },
-  star: {
-    position: 'absolute',
-    width: 2,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: '#EAF1F8',
-    opacity: 0.7,
-  },
   indicatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',

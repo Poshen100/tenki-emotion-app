@@ -16,6 +16,7 @@ import { AutonomicCard } from '../../components/AutonomicCard';
 import { DecisionBar } from '../../components/DecisionBar';
 import { useScanStore } from '../../stores/scan-store';
 import { useUserStore } from '../../stores/user-store';
+import { stageProgress } from '../../features/face-baseline/utils/maturityStage';
 import { useAutonomicStore } from '../../stores/autonomic-store';
 import { BackgroundContainer } from '../../components/onboarding-components';
 
@@ -36,6 +37,7 @@ export default function TodayScreen() {
   const hasBaseline = useUserStore((s) => s.hasBaseline);
   const autonomicSource = useAutonomicStore((s) => s.source);
   const wearableHrvApplied = useAutonomicStore((s) => s.wearableHrvApplied);
+  const faceBaselineCount = useUserStore((s) => s.faceBaselineCount);
 
   useEffect(() => {
     if (!hasBaseline) {
@@ -44,6 +46,8 @@ export default function TodayScreen() {
   }, [hasBaseline]);
 
   const currentScore = lastResult?.edgeScore ?? null;
+  // The background reads the same score the ring and badge do, so the sky and
+  // the number can never disagree.
   const lastScanTime = lastResult
     ? `Last scan ${formatScanTime(lastResult.timestamp)}`
     : 'No scans today';
@@ -53,7 +57,7 @@ export default function TodayScreen() {
   const garminActive = wearableHrvApplied || autonomicSource === 'watch_healthkit';
 
   return (
-    <BackgroundContainer>
+    <BackgroundContainer score={currentScore} maturityRatio={stageProgress(faceBaselineCount)}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
           style={styles.scroll}
