@@ -1,5 +1,5 @@
 /**
- * stardust.js — Three.js 8000-particle stardust soul animation (v6 preview fork)
+ * stardust.js ??Three.js 8000-particle stardust soul animation (v6 preview fork)
  *
  * Forked from apps/web/stardust.js (which is FROZEN per CLAUDE.md) so the v6
  * preview can harden the scan ceremony without touching the web prototype.
@@ -7,12 +7,11 @@
  * rolling, breathing, expression API) is preserved byte-for-byte in feel.
  *
  * v6 additions (no visual-identity change):
- *   - Freeze resilience: WebGL context-loss/restore handling (the big one —
- *     without preventDefault a lost context never restores → permanent freeze),
+ *   - Freeze resilience: WebGL context-loss/restore handling (the big one ?? *     without preventDefault a lost context never restores ??permanent freeze),
  *     pause/resume on tab visibility, render wrapped so a transient error can't
  *     kill the rAF loop.
  *   - Frame-rate-independent drift throttle (was "assume 60fps").
- *   - playEntrance(): smooth big→small scale-in for the scan entrance.
+ *   - playEntrance(): smooth big?�small scale-in for the scan entrance.
  *
  * Requires: THREE.js (r128+)
  */
@@ -44,7 +43,7 @@
     var contextLost = false;
     var lostTimer = null;     // watchdog: rebuild if a lost context never restores
     var lastDriftT = -1;      // time-based drift throttle (seconds)
-    var entranceStart = -1;   // big→small scale-in start time (seconds); <0 = idle
+    var entranceStart = -1;   // big?�small scale-in start time (seconds); <0 = idle
     var clock = new THREE.Clock();
 
     // v25.8.2 feel-preserving micro-tune knobs (P1)
@@ -57,28 +56,26 @@
     };
 
     // Entrance scale-in: ball starts a touch larger and eases down to rest.
-    var ENTRANCE = { from: 1.5, dur: 1.2 }; // 1.5× → 1.0× over 1.2s (easeOutCubic)
+    var ENTRANCE = { from: 1.5, dur: 1.2 }; // 1.5? ??1.0? over 1.2s (easeOutCubic)
 
     // Per-particle drift data (organic movement)
     var basePositions = null;   // Original Fibonacci positions
-    var driftSeeds = null;      // Random seeds per particle (Float32Array × 4: freqX, freqY, freqZ, amplitude)
+    var driftSeeds = null;      // Random seeds per particle (Float32Array ? 4: freqX, freqY, freqZ, amplitude)
     var baseColors = null;      // Original color values for shimmer
-    var hueBand = null;         // 每顆粒子的色帶索引（bloom 用），建構時算一次
-
+    var hueBand = null;         // 每�?粒�??�色帶索引�?bloom ?��?，建構�?算�?�?
     // Expression sync state
     var expr = { mouthOpen: 0, eyeOpen: 1, blinkFlash: 0, browTension: 0.5, active: false };
 
-    // ── Tone layer (2026-08-10) ───────────────────────────────────────────
-    // founder asked for "更多層次色彩變化, 每次掃描都感應使用者變色", and picked
+    // ?�?� Tone layer (2026-08-10) ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+    // founder asked for "?��?層次?�彩變�?, 每次?��??��??�使?�者�???, and picked
     // "keep the identity, layer the variation on top" over replacing the palette.
     //
-    // 🔴 The v25.8.2 look is a locked asset (CLAUDE.md). The lock is honoured by a
+    // ?�� The v25.8.2 look is a locked asset (CLAUDE.md). The lock is honoured by a
     // structural property, not by good intentions: **at default values this layer
-    // is an identity transform**, so every page that never calls setTone() —
-    // story.html, soul-enroll.html, the v6 takeover — renders byte-for-byte what
+    // is an identity transform**, so every page that never calls setTone() ??    // story.html, soul-enroll.html, the v6 takeover ??renders byte-for-byte what
     // it renders today. `toneIdle` short-circuits the work entirely.
     //
-    // What varies is a *rotation of the whole cyan→purple→pink gradient*, never a
+    // What varies is a *rotation of the whole cyan?�purple?�pink gradient*, never a
     // swap of the palette: the relationships between the three stops survive, so
     // the ball still reads as the same ball.
     var tone = { hue: 0, sat: 1, mix: 0, r: 0, g: 0, b: 0 };       // smoothed, applied
@@ -90,119 +87,69 @@
     /** Hue-rotation matrix, recomputed once per tick (not per particle). */
     var toneMat = null;
 
-    // ── Readout layer (2026-08-10, second pass) ───────────────────────────
-    // founder 實走：「顏色好像沒變化？」＋「不要只是還不錯，我要的是棒透了」。
-    //
-    // 第一版的色調吃 `browTension` / `mouthOpen` —— 算過之後那兩個在掃描情境下
-    // **幾乎是常數**（用力皺眉只讓色相動 0.69°；嘴閉著 mouthOpen 恆為 ~0.1）。
-    // 訊號正規化成 0..1 不代表它會**走遍** 0..1，我當初沒查真實分布。
-    //
-    // 這一層改吃 `stillness` —— 每幀、真 0..1，而且**正是我們要求使用者控制的那個量**
-    // （畫面上寫著「保持穩定」，主角卻對它毫無反應，那就是「還不錯」與「棒透了」的差距）。
-    // 外加 `progress`（累積的有效量測，不是計時器）。
-    //
-    // 🔴 一樣用結構守住鎖定資產：**沒呼叫 setReadout 就完全 inert**，
-    // story / soul-enroll / v6 takeover 逐位元組不變。
-    var readout = { active: false, still: 0.5, prog: 0, sStill: 0.5, sProg: 0 };
-    /** EWMA per animation frame. 比 tone 稍快 —— 這是回饋迴圈，慢了就感覺不到因果。 */
+    // ?�?� Readout layer (2026-08-10, second pass) ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+    // founder 實走：「�??�好?��?變�?？」�??��?要只?��?不錯，�?要�??��??��??��?    //
+    // 第�??��??�調??`browTension` / `mouthOpen` ?��?算�?之�???��?�在?��??��?�?    // **幾�??�常??*（用?�皺?�只讓色?��? 0.69°；嘴?��? mouthOpen ?�為 ~0.1）�?    // 訊�?�???��? 0..1 不代表�???*走�?** 0..1，�??��?沒查?�實?��???    //
+    // ?��?層改??`stillness` ?��?每�??��? 0..1，而�?**�?��?�們�?求使?�者控?��???���?**
+    // （畫?��?寫�??��??�穩定」�?主�??��?它毫?��??��???��?�「�?不錯?��??��??��??��?差�?）�?    // 外�? `progress`（累積�??��??�測，�??��??�器）�?    //
+    // ?�� 一�?��結�?守�??��?資產�?*沒呼??setReadout 就�???inert**�?    // story / soul-enroll / v6 takeover ?��??��?不�???    var readout = { active: false, still: 0.5, prog: 0, sStill: 0.5, sProg: 0 };
+    /** EWMA per animation frame. �?tone 稍快 ?��??�是?��?迴�?，慢了就?�覺不到?��???*/
     var READOUT_SMOOTH = 0.08;
     /**
-     * 🔴 **粒子漂移不再當作回饋通道。**
+     * ?�� **粒�?漂移不�??��??��??��???*
      *
-     * 量過才知道：漂移振幅是 0.02–0.07，而球半徑是 2.5 ——
-     * ×1.35 vs ×0.55 的位移差只有**半徑的 1.44%，在手機上約 2.2px**。
-     * founder 三次回報「看不出變化」，這是主因之一。
-     * **倍率聽起來很大不代表看得見。** 收散改由整體尺度承擔（見下），
-     * 那個才有絕對幅度。這裡保留一點點，只當作質感而不是訊號。
-     */
+     * ?��??�知?��?漂移?��???0.02??.07，而�??��???2.5 ?��?     * ?1.35 vs ?0.55 ?��?移差?��?**?��???1.44%，在?��?上�? 2.2px**??     * founder 三次?�報?��?不出變�??��??�是主�?之�???     * **?��??�起來�?大�?�?��?��?見�?* ?�散?�由?��?尺度?��?（�?下�?�?     * ??���??��?對�?度。這裡保�?一點�?，只?��?質�??��??��??��?     */
     var READOUT_DRIFT_HI = 1.15;
     var READOUT_DRIFT_LO = 0.85;
     /**
-     * 🔴 **bloom：每顆粒子各自的色相散幅 —— 這是「更多層次色彩變化」的主通道。**
+     * ?�� **bloom：�?顆�?子�??��??�相??? ?��??�是?�更多層次色彩�??�」�?主通�???*
      *
-     * ⚠️ 上一版是反過來的（`focus`：越穩越收成單一 cyanActive）。
-     * 算出來在 founder 實測的穩定度下，球的彩度跨度只剩 **36（77%）/ 4（93%）**，
-     * 而正常握穩就是 85–95% —— **整場掃描幾乎都是單一青色**。
-     * 他從第一天要的是「更多層次色彩變化」，我卻把顏色抽乾了。**優化錯了東西。**
+     * ?��? 上�??�是?��?來�?（`focus`：�?穩�??��??��? cyanActive）�?     * 算出來在 founder 實測?�穩定度下�??��?彩度跨度?�剩 **36�?7%�? 4�?3%�?*�?     * ?�正常握穩就??85??5% ?��?**?�場?��?幾�??�是?��??�色**??     * 他�?第�?天�??�是?�更多層次色彩�??�」�??�卻?��??�抽乾�???*?��??��??�西??*
      *
-     * 現在是散開：穩住 → 靈魂**展開**得更豐富。
-     * **顏色永遠不會變少** —— bloom=0 時仍是完整的基礎漸層。
+     * ?�在?�散?��?穩�? ???��?**展�?**得更豐�???     * **顏色永�?不�?變�?** ?��?bloom=0 ?��??��??��??��?漸層??     *
+     * 上�??�主?��??�決定�?不是?��??��?�?     * **?�相??��?��??��??�平?�色?�趨近灰，而灰就是 `--zone-neutral`（Neutral 帶�?）�?*
      *
-     * 上限由主色守則決定，不是手感挑的：
-     * **色相散太開，整顆的平均色會趨近灰，而灰就是 `--zone-neutral`（Neutral 帶位）。**
-     *
-     * 🔴 **但 bloom 其實不是那個守則的瓶頸 —— 色相旋轉才是。**
-     * 這件事只有在守門員改成掃 base × band 全組合之後才看得到。
-     * 舊模型（band ↔ 高度一一對應）算出「satLo 0.95 + bloom 0.28 → ΔE 21.3 ❌」，
-     * 換成正確的球重算是 **32.1 ✅** —— 那個 ❌ 是模型的產物，不是產品的性質。
-     * ⚠️ **我曾照著那個假瓶頸去挑參數。** 量測值會過期；換了模型就要全部重算。
-     *
-     * 實測（2026-08-11，正確模型）：
-     *   bloom 0.28 → 跨度 205、ΔE 32.7 ｜ **0.40 → 216、ΔE 仍是 32.7**（最壞點落在
-     *   0.24 rot 0.20，再往上不影響）｜ 0.52 → 217、ΔE 掉到 27.4
-     * 所以 **0.40 是那個膝點**：跨度買滿，安全邊際一分沒付；再往上只多 +1 卻開始蝕本。
-     */
+     * ?�� **�?bloom ?�實不是??���??��??�頸 ?��??�相?��??�是??*
+     * ?�件事只?�在守�??�改?��? base ? band ?��??��?後�??��??��?     * ?�模?��?band ??高度一一對�?）�??�「satLo 0.95 + bloom 0.28 ???E 21.3 ?�」�?
+     * ?��?�?��?��??��???**32.1 ??* ?��???�????�模?��??�物，�??�產?��??�質??     * ?��? **?�曾?��???���??�頸?��??�數??* ?�測?��??��?；�?了模?�就要全?��?算�?     *
+     * 實測�?026-08-11，正確模?��?�?     *   bloom 0.28 ??跨度 205?�ΔE 32.7 �?**0.40 ??216?�ΔE 仍是 32.7**（�?壞�??�在
+     *   0.24 rot 0.20，�?往上�?影響）�? 0.52 ??217?�ΔE ?�到 27.4
+     * ?��?**0.40 ?�那?��?�?*：跨度買滿�?安全?��?一?��?付�??��?上只�?+1 ?��?始�??��?     */
     var READOUT_BLOOM_MAX = 0.40;
     /**
-     * hueRot：整場掃描的色相旅程，由 progress 驅動 —— 10 秒之間球走過一段色相。
-     *
-     * 🔴 **0.20 是硬上限，而且是整組參數裡唯一真正卡住的那一個。**
-     * 正確模型下實測：0.24 → 主色撞 coral **ΔE 19.1 ❌**、0.32 → **7.5 ❌**。
-     * 提高飽和度也買不動它 —— 它動的是平均色的**色相**，不是彩度。
-     * 想再多顏色請往 bloom / 飽和度上限去要，不要動這個數字。
-     */
+     * hueRot：整?��??��??�相?��?，由 progress 驅�? ?��?10 秒�??��?走�?一段色?��?     *
+     * ?�� **0.20 ?�硬上�?，而�??�整組�??�裡?��??�正?��??�那一?��?*
+     * �?��模�?下實測�?0.24 ??主色??coral **?E 19.1 ??*??.32 ??**7.5 ??*??     * ?��?飽�?度�?買�??��? ?��?它�??�是平�??��?**?�相**，�??�彩度�?     * ?��?多�??��?往 bloom / 飽�?度�??�去要�?不�??�這個數字�?     */
     var READOUT_HUEROT_MAX = 0.20;
-    /** 色帶數：bloom 的量化粒度。每 tick 只建這麼多個矩陣。 */
+    /** ?�帶?��?bloom ?��??��?度。�? tick ?�建?�麼多個矩??�?*/
     var HUE_BANDS = 16;
     /**
-     * 飽和度範圍。
-     *
-     * **下限 1.20 買的是「晃動那一端不要洗白」**，不是 bloom 空間 ——
-     * ⚠️ 我原本寫的理由（「提高下限才買得到 bloom 空間」）**是錯的**：
-     * 正確模型下 satLo 0.95 + bloom 0.28 的主色 ΔE 是 32.1 ✅，不是 21.3 ❌。
-     * 兩者的球內彩度跨度也幾乎一樣（83–208 vs 87–205）。
-     * 它真正改到的是**低 stillness 端的飽和度地板**：使用者還在晃的時候，
-     * 球不會是一顆洗掉顏色的灰球。這是實走看得到、但「跨度」這個指標量不到的東西。
-     *
-     * **上限 1.55 對守則零成本**：守則卡的是低飽和端，提高上限不影響它。
-     *
-     * ⚠️ 飽和度不是可讀的**訊號**通道（additive 混色會壓掉同色系差異）——
-     * 它決定的是顏色的底氣，狀態回饋交給 bloom 與尺度。
-     */
+     * 飽�?度�??��?     *
+     * **下�? 1.20 買�??�「�??�那一端�?要�??��?*，�???bloom 空�? ?��?     * ?��? ?��??�寫?��??��??��?高�??��?買�???bloom 空�??��?**?�錯??*�?     * �?��模�?�?satLo 0.95 + bloom 0.28 ?�主???E ??32.1 ?��?不是 21.3 ?��?     * ?�者�??�內彩度跨度也幾乎�?�??83??08 vs 87??05）�?     * 它�?�?��?��???*�?stillness 端�?飽�?度地??*：使?�者�??��??��??��?
+     * ?��??�是一顆�??��??��??��??�這是實走?��??�、�??�跨度」這個�?標�?不到?�東西�?     *
+     * **上�? 1.55 對�??�零?�本**：�??�卡?�是低飽?�端，�?高�??��?影響它�?     *
+     * ?��? 飽�?度�??�可讀??*訊�?**?��?（additive 混色?��??��??�系差異）—�?     * 它決定�??��??��?底氣，�??��?饋交�?bloom ?�尺度�?     */
     var READOUT_SAT_LO = 1.20;
     var READOUT_SAT_HI = 1.55;
     /**
-     * stillness 帶來的整體尺度：晃動時脹大、穩住時收成一顆核。
-     * 0.86–1.18 ≈ 32%，在 300px 的球上約 48px —— 跟先前 6%（9px）差一個量級。
-     */
+     * stillness 帶�??�整體尺度�??��??�脹大、穩住�??��?一顆核??     * 0.86??.18 ??32%，在 300px ?��?上�? 48px ?��?跟�???6%�?px）差一?��?級�?     */
     var READOUT_SCALE_LO = 0.86;
     var READOUT_SCALE_HI = 1.18;
     /**
-     * 總尺度上限。`exprScale`（眼開合 × 嘴開合，0.8–1.56）會跟這裡相乘，
-     * 不夾住的話晃動端可能脹出掃描框。夾在今天實際會到的上限，
-     * **保證這一刀不會讓球比現在更大**。
-     */
+     * 總尺度�??�。`exprScale`（眼?��? ? ?��??��?0.8??.56）�?跟這裡?��?�?     * 不夾住�?話�??�端?�能?�出?��?框。夾?��?天實?��??��?上�?�?     * **保�??��??�不�?讓�?比現?�更�?*??     */
     var READOUT_SCALE_CAP = 1.56;
-    /** 進度帶來的亮度提升 —— 累積的有效量測越多，球越實。 */
+    /** ?�度帶�??�亮度�????��?累�??��??��?測�?多�??��?實�?*/
     var READOUT_PROG_LIFT = 0.10;
-    /** stillness 帶來的亮度範圍（原本只有 ±0.06，看不出來）。 */
+    /** stillness 帶�??�亮度�??��??�本?��? ±0.06，�?不出來�???*/
     var READOUT_OPACITY_SWING = 0.18;
 
     /**
-     * 一顆粒子屬於哪個色帶。**純函式，對外 export 給 harness 直接驗。**
+     * 一顆�?子屬?�哪?�色帶�?*純函式�?對�? export �?harness ?�接驗�?*
      *
-     * 🔴 色帶同時吃**高度**與**方位角** —— 這就是「螺旋」：
-     * 顏色不只在上下方向變，也繞著球轉，所以同一高度的粒子會落在不同色帶。
-     * 只吃高度的話畫面只是一條單純的上下漸層，那正是 founder 說「顏色變化很少」
-     * 的其中一層原因。
-     *
-     * ⚠️ 這也讓底色與色帶**不再一一對應**，守門員必須掃 base × band 的所有組合
-     * （見 `scripts/preview-scan-stardust.mjs`）。
-     *
-     * @param {number} normalizedY - 0..1，粒子在球上的高度。
-     * @param {number} x - 粒子的 x 座標（算方位角用）。
-     * @param {number} z - 粒子的 z 座標。
-     * @returns {number} 0..HUE_BANDS-1
+     * ?�� ?�帶?��???*高度**??*?��?�?* ?��??�就?�「螺?�」�?
+     * 顏色不只?��?下方?��?，�?繞�??��?，�?以�?一高度?��?子�??�在不�??�帶??     * ?��?高度?�話?�面?�是一條單純�?上�?漸層，那�?�� founder 說「�??��??��?少�?     * ?�其中�?層�??��?     *
+     * ?��? ?��?讓�??��??�帶**不�?一一對�?**，�??�?��??��? base ? band ?��??��???     * （�? `scripts/preview-scan-stardust.mjs`）�?     *
+     * @param {number} normalizedY - 0..1，�?子在?��??��?度�?     * @param {number} x - 粒�???x 座�?（�??��?角用）�?     * @param {number} z - 粒�???z 座�???     * @returns {number} 0..HUE_BANDS-1
      */
     function hueBandOf(normalizedY, x, z) {
         var azimuth = (Math.atan2(z, x) / (Math.PI * 2)) + 0.5; // 0..1
@@ -216,7 +163,7 @@
      * Single-binding by design: a second live WebGL context alongside
      * getUserMedia + MediaPipe is the iOS WebKit OOM zone (the reason
      * soul-enroll.html releases this context before its own scan). Callers
-     * therefore have to cope with a refused mount — `/preview/readiness-scan.js`
+     * therefore have to cope with a refused mount ??`/preview/readiness-scan.js`
      * checks the return value and simply skips its stardust layer when a host
      * page (v6) already owns the binding.
      *
@@ -272,8 +219,8 @@
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         container.appendChild(renderer.domElement);
 
-        // ── Freeze fix: a lost GL context must be preventDefault()-ed or the
-        // browser will never restore it, leaving the ball frozen forever. ──
+        // ?�?� Freeze fix: a lost GL context must be preventDefault()-ed or the
+        // browser will never restore it, leaving the ball frozen forever. ?�?�
         var cv = renderer.domElement;
         cv.addEventListener('webglcontextlost', onContextLost, false);
         cv.addEventListener('webglcontextrestored', onContextRestored, false);
@@ -323,7 +270,7 @@
             driftSeeds[si + 2] = 0.4 + Math.random() * 0.6;   // freqZ: 0.4-1.0
             driftSeeds[si + 3] = 0.02 + Math.random() * 0.05; // amplitude: 0.02-0.07 (tighter sphere)
 
-            // Color gradient: bot cyan → mid purple → top pink
+            // Color gradient: bot cyan ??mid purple ??top pink
             var normalizedY = (y + 1) / 2;
             var mixed = new THREE.Color();
             if (normalizedY > 0.5) {
@@ -340,18 +287,11 @@
             baseColors[idx + 1] = mixed.g;
             baseColors[idx + 2] = mixed.b;
 
-            // 色帶索引：bloom 要讓**每顆粒子有自己的色相偏移**，但不能每顆算一次
-            // 三角函數。量化成 HUE_BANDS 個色帶（建構時算一次），每個 tick 只建
-            // HUE_BANDS 個矩陣，每顆粒子照它的色帶取用 ——
-            // per-particle 成本仍是 9 次乘法，跟今天一樣（MOTION-DIRECTION §2）。
-            //
-            // 🔴 **色帶同時吃高度與方位角（螺旋），不只吃高度。**
-            // 只吃高度時顏色只在上下方向變，是一條單純的漸層；混入方位角之後
-            // 顏色也繞著球轉，同一高度的粒子會落在不同色帶 —— 那才是「層次」。
-            // ⚠️ 這也讓底色與色帶**不再一一對應**，所以守門員必須改掃
-            // base × band 的所有組合（見 preview-scan-stardust.mjs）。
-            // 意外的好處：混合之後整顆的平均色更不容易趨灰，主色 ΔE 反而變好。
-            hueBand[i] = hueBandOf(normalizedY, positions[idx], positions[idx + 2]);
+            // ?�帶索�?：bloom 要�?**每�?粒�??�自己�??�相?�移**，�?不能每�?算�?�?            // 三�??�數?��??��? HUE_BANDS ?�色帶�?建�??��?一次�?，�???tick ?�建
+            // HUE_BANDS ?�矩???每�?粒�??��??�色帶�????��?            // per-particle ?�本仍是 9 次�?法�?跟�?天�?�??MOTION-DIRECTION §2）�?            //
+            // ?�� **?�帶?��??��?度�??��?角�??��?）�?不只?��?度�?*
+            // ?��?高度?��??�只?��?下方?��?，是一條單純�?漸層；混?�方位�?之�?
+            // 顏色也�??��?轉�??��?高度?��?子�??�在不�??�帶 ?��?????�「層次」�?            // ?��? ?��?讓�??��??�帶**不�?一一對�?**，�?以�??�?��??�改??            // base ? band ?��??��??��?�?preview-scan-stardust.mjs）�?            // ?��??�好?��?混�?之�??��??�平?�色?��?容�?趨灰，主???E ?�而�?好�?            hueBand[i] = hueBandOf(normalizedY, positions[idx], positions[idx + 2]);
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -405,18 +345,18 @@
         contextLost = true;
         stop();
         // Watchdog: some mobile browsers never fire 'restored' after an OOM loss,
-        // which would leave the ball frozen forever — rebuild ourselves if so.
+        // which would leave the ball frozen forever ??rebuild ourselves if so.
         if (lostTimer) clearTimeout(lostTimer);
         lostTimer = setTimeout(function () { if (contextLost) rebuild(); }, 2500);
-        console.warn('[TENKI stardust] WebGL context lost — awaiting restore/rebuild');
+        console.warn('[TENKI stardust] WebGL context lost ??awaiting restore/rebuild');
     }
 
     function onContextRestored() {
         if (lostTimer) { clearTimeout(lostTimer); lostTimer = null; }
-        // Full rebuild (fresh renderer + scene) — guarantees recovery regardless of
+        // Full rebuild (fresh renderer + scene) ??guarantees recovery regardless of
         // whether the GL driver kept our resources. Same scene, so visually identical.
         rebuild();
-        console.warn('[TENKI stardust] WebGL context restored — rebuilt');
+        console.warn('[TENKI stardust] WebGL context restored ??rebuilt');
     }
 
     // Tear down the dead renderer/canvas and recreate everything from retained CPU
@@ -448,7 +388,7 @@
             playEntrance();
             console.warn('[TENKI stardust] rebuilt after context loss');
         } catch (e) {
-            // GPU still unavailable — back off and retry.
+            // GPU still unavailable ??back off and retry.
             contextLost = true;
             if (lostTimer) clearTimeout(lostTimer);
             lostTimer = setTimeout(rebuild, 2500);
@@ -473,49 +413,42 @@
         stepReadout();
 
         if (cloud) {
-            // ── Per-particle organic drift ──
+            // ?�?� Per-particle organic drift ?�?�
             var posAttr = cloud.geometry.getAttribute('position');
             var colAttr = cloud.geometry.getAttribute('color');
             var pos = posAttr.array;
             var col = colAttr.array;
 
-            // Drift intensity scales with expression (more emotional → more particle chaos)
+            // Drift intensity scales with expression (more emotional ??more particle chaos)
             var driftMult = 0.95;
             if (expr.active) {
                 driftMult += expr.mouthOpen * 0.48 + expr.browTension * 0.28;
             }
-            // Readout: 你越穩，粒子越安定。這是「保持穩定」那句指令的回饋迴圈 ——
-            // 使用者做對了，主角要看得出來。(founder 2026-08-10 放寬了漂移的鎖)
+            // Readout: 你�?穩�?粒�?越�?定。這是?��??�穩定」那?��?令�??��?迴�? ?��?            // 使用?��?對�?，主角�??��??��???founder 2026-08-10 ?�寬了�?移�???
             if (readout.active) {
                 driftMult *= READOUT_DRIFT_HI + (READOUT_DRIFT_LO - READOUT_DRIFT_HI) * readout.sStill;
             }
 
             // Throttle drift to ~20fps by ELAPSED TIME (was: assume 60fps), so the
-            // cadence — and the feel — stays the same whether render is 60 or 30fps.
+            // cadence ??and the feel ??stays the same whether render is 60 or 30fps.
             if (lastDriftT < 0 || t - lastDriftT >= 0.05) {
                 lastDriftT = t;
 
-                // Tone: ease toward the requested values, then build the 3×3 once
-                // for the whole cloud. Per particle this costs 9 multiplies —
-                // the same order as the shimmer that is already here, and it
+                // Tone: ease toward the requested values, then build the 3?3 once
+                // for the whole cloud. Per particle this costs 9 multiplies ??                // the same order as the shimmer that is already here, and it
                 // touches only the colour buffer (MOTION-DIRECTION §2: no layout).
                 stepTone();
                 var toned = !toneIdle();
                 var m = toned ? toneMat : null;
 
-                // ── Readout 的顏色：bloom（散開）+ hueRot（旅程）──
+                // ?�?� Readout ?��??��?bloom（散?��?+ hueRot（�?程�??�?�
                 //
-                //   bloom  —— 你越穩，每顆粒子的色相散得越開，靈魂**展開**得更豐富
-                //   hueRot —— 累積的有效量測越多，整場色相走過一段旅程
-                //
-                // ⚠️ 上一版是反過來的（收成單一青色），結果在正常握穩的 85–95%
-                //    穩定度下整場都是單色 —— founder 要的是「更多層次色彩變化」。
-                //    **現在顏色永遠不會變少**：bloom=0 時仍是完整的基礎漸層。
-                //
-                // 每顆粒子要有自己的色相偏移，但不能每顆算三角函數：
-                // 量化成 HUE_BANDS 個色帶，每 tick 建 HUE_BANDS 個矩陣，
-                // 每顆粒子照 `hueBand[i]` 取用 —— per-particle 仍是 9 次乘法。
-                var bloomed = readout.active
+                //   bloom  ?��?你�?穩�?每�?粒�??�色?�散得�??��??��?**展�?**得更豐�?
+                //   hueRot ?��?累�??��??��?測�?多�??�場?�相走�?一段�?�?                //
+                // ?��? 上�??�是?��?來�?（收?�單一?�色）�?結�??�正常握穩�? 85??5%
+                //    穩�?度�??�場?�是?�色 ?��?founder 要�??�「更多層次色彩�??�」�?                //    **?�在顏色永�?不�?變�?**：bloom=0 ?��??��??��??��?漸層??                //
+                // 每�?粒�?要�??�己?�色?��?移�?但�??��?顆�?三�??�數�?                // ?��???HUE_BANDS ?�色帶�?�?tick �?HUE_BANDS ?�矩???
+                // 每�?粒�???`hueBand[i]` ?�用 ?��?per-particle 仍是 9 次�?法�?                var bloomed = readout.active
                     && (readout.sStill > 0.001 || readout.sProg > 0.001);
                 if (bloomed) buildBandMats();
                 var mixAmt = tone.mix;
@@ -539,11 +472,8 @@
                     var bg = baseColors[idx + 1];
                     var bb = baseColors[idx + 2];
 
-                    // 🔴 **矩陣只能套一次。** bandMats 已經含了色相旋轉與飽和度，
-                    // 若這裡再套一次 toneMat 就是雙重飽和 + 雙重色相。
-                    // 所以兩者是**互斥**的：bloom 活著就由它擁有這一步，
-                    // 否則才走全域的 toneMat（收束時 readout 已被 clear，走這條）。
-                    if (bloomed) {
+                    // ?�� **?�陣?�能套�?次�?* bandMats 已�??��??�相?��??�飽?�度�?                    // ?�這裡?��?一�?toneMat 就是?��?飽�? + ?��??�相??                    // ?�以兩?�是**互斥**?��?bloom 活�?就由它�??�這�?步�?
+                    // ?��??�走?��???toneMat（收?��? readout 已被 clear，走?��?）�?                    if (bloomed) {
                         var bo = hueBand[i] * 9;
                         var pr = bandMats[bo] * br + bandMats[bo + 1] * bg + bandMats[bo + 2] * bb;
                         var pg = bandMats[bo + 3] * br + bandMats[bo + 4] * bg + bandMats[bo + 5] * bb;
@@ -555,8 +485,7 @@
                         var bbv = m[6] * br + m[7] * bg + m[8] * bb;
                         br = rr; bg = gg; bb = bbv;
                     }
-                    // 往當下的目標色收（收束時的 gold / 帶位色）。兩條路都要做。
-                    if (mixAmt > 0) {
+                    // 往?��??�目標色?��??��??��? gold / 帶�??��??�兩條路?��??��?                    if (mixAmt > 0) {
                         br += (tr - br) * mixAmt;
                         bg += (tg - bg) * mixAmt;
                         bb += (tb - bb) * mixAmt;
@@ -572,16 +501,16 @@
                 colAttr.needsUpdate = true;
             }
 
-            // ── v25.8.2 Rolling Rotation (accumulating increment = natural tumble) ──
+            // ?�?� v25.8.2 Rolling Rotation (accumulating increment = natural tumble) ?�?�
             // Forward roll: X-axis is the main rolling axis, with gentle Y/Z precession
             var rotSpeedX = ROLL_CFG.x;
             var rotSpeedY = ROLL_CFG.y;
             var rotSpeedZ = ROLL_CFG.z;
             var rollPulse = Math.sin(t * ROLL_CFG.pulseFreq) * ROLL_CFG.pulseAmp;
             if (expr.active) {
-                // Emotion active: brow tension → faster rolling (agitation)
+                // Emotion active: brow tension ??faster rolling (agitation)
                 rotSpeedX += expr.browTension * 0.00195;
-                // Mouth open → slightly faster (excitement/arousal)
+                // Mouth open ??slightly faster (excitement/arousal)
                 rotSpeedY += expr.mouthOpen * 0.00095;
                 // Add wobble on other axes for dramatic expression
                 rotSpeedZ += expr.browTension * 0.00042;
@@ -590,10 +519,10 @@
             cloud.rotation.y += rotSpeedY + Math.sin(t * 0.13) * 0.00037;
             cloud.rotation.z += rotSpeedZ + Math.sin(t * 0.16) * 0.00020;
 
-            // ── v25.8.2 Per-particle Expression Scaling (updateParticleSync) ──
+            // ?�?� v25.8.2 Per-particle Expression Scaling (updateParticleSync) ?�?�
             // Each particle individually scales based on expression:
-            // eyeScale: eyes closed → particles contract (0.8×), eyes open → expand (1.2×)
-            // mouthExpansion: mouth open → particles spread outward (up to 1.3×)
+            // eyeScale: eyes closed ??particles contract (0.8?), eyes open ??expand (1.2?)
+            // mouthExpansion: mouth open ??particles spread outward (up to 1.3?)
             var eyeScale = 0.8 + (expr.eyeOpen * 0.4);
             var mouthExpansion = 1 + (expr.mouthOpen * 0.3);
             var exprScale = eyeScale * mouthExpansion;
@@ -601,7 +530,7 @@
             // Breathing: period ~4s, combines with expression scale
             var breath = 1 + Math.sin(t * 1.571) * 0.02;
 
-            // Smooth big→small entrance (easeOutCubic), multiplies the rest.
+            // Smooth big?�small entrance (easeOutCubic), multiplies the rest.
             var entScale = 1;
             if (entranceStart >= 0) {
                 var p = (t - entranceStart) / ENTRANCE.dur;
@@ -612,23 +541,18 @@
                 }
             }
 
-            // Readout: 晃動時脹大、穩住時收成一顆核。
-            // ⚠️ 這一段承擔的是先前交給「粒子漂移」的工作 —— 那個的位移差只有 2.2px，
-            // 這裡是整體尺度 32%（300px 的球上約 48px），差一個量級。
-            var readoutScale = readout.active
+            // Readout: ?��??�脹大、穩住�??��?一顆核??            // ?��? ?��?段承?��??��??�交給「�?子�?移」�?工�? ?��???���?位移差只??2.2px�?            // ?�裡?�整體尺�?32%�?00px ?��?上�? 48px）�?差�??��?級�?            var readoutScale = readout.active
                 ? READOUT_SCALE_HI + (READOUT_SCALE_LO - READOUT_SCALE_HI) * readout.sStill
                 : 1;
 
             var totalScale = breath * exprScale * entScale * readoutScale;
-            // 夾住上限 —— exprScale 最大到 1.56，相乘後可能脹出掃描框。
-            // 夾在今天實際會到的值，保證這一刀不會讓球比現在更大。
-            if (readout.active && entranceStart < 0 && totalScale > READOUT_SCALE_CAP) {
+            // 夾�?上�? ?��?exprScale ?�大到 1.56，相乘�??�能?�出?��?框�?            // 夾在今天實�??�到?�值�?保�??��??�不�?讓�?比現?�更大�?            if (readout.active && entranceStart < 0 && totalScale > READOUT_SCALE_CAP) {
                 totalScale = READOUT_SCALE_CAP;
             }
             cloud.scale.set(totalScale, totalScale, totalScale);
         }
 
-        // Blink flash → brief opacity dip (abstract "blink" via particle opacity)
+        // Blink flash ??brief opacity dip (abstract "blink" via particle opacity)
         if (material) {
             var op = 0.9;
             if (expr.active) {
@@ -637,13 +561,9 @@
                 op += (expr.browTension - 0.5) * 0.05;
             }
             if (readout.active) {
-                // 眨眼是**真的量到的離散事件**，值得一道看得見的脈衝而不只是變暗一點。
-                // 先前只有 −0.35 的凹陷，在深色背景上幾乎看不出來。
-                op += expr.blinkFlash * 0.55;
-                // 越穩越亮。範圍從 ±0.06 拉到 ±0.18 —— 前者在 additive 混色下看不出來。
-                op += (readout.sStill - 0.5) * READOUT_OPACITY_SWING * 2;
-                // 累積的有效量測越多，球越實。
-                op += readout.sProg * READOUT_PROG_LIFT;
+                // ?�眼??*?��??�到?�離???�?*，值�?一?��?得�??��?衝而�??�是變�?一點�?                // ?��??��? ??.35 ?�凹?��??�深?��??��?幾�??��??��???                op += expr.blinkFlash * 0.55;
+                // 越穩越亮?��??��? ±0.06 ?�到 ±0.18 ?��??�者在 additive 混色下�?不出來�?                op += (readout.sStill - 0.5) * READOUT_OPACITY_SWING * 2;
+                // 累�??��??��?測�?多�??��?實�?                op += readout.sProg * READOUT_PROG_LIFT;
             }
             material.opacity = Math.max(0.4, Math.min(1.0, op));
         }
@@ -664,7 +584,7 @@
         renderer.setSize(vs.w, vs.h);
     }
 
-    /** Play the smooth big→small scale-in (call when the ball becomes visible). */
+    /** Play the smooth big?�small scale-in (call when the ball becomes visible). */
     function playEntrance() {
         entranceStart = clock.getElapsedTime();
         if (!contextLost) start();
@@ -686,8 +606,8 @@
      *
      * Previously this was a one-way door: it disposed the renderer but left
      * `renderer`/`container` set, left the canvas in the DOM, never forced the
-     * context loss, and — because it removes the contextlost/restored listeners
-     * — also removed the only path that could have rebuilt (`rebuild()` hangs
+     * context loss, and ??because it removes the contextlost/restored listeners
+     * ??also removed the only path that could have rebuilt (`rebuild()` hangs
      * off those listeners). A later `playEntrance()` would then `start()` a rAF
      * loop against a disposed renderer, surviving only on the try/catch in
      * `animate()`. A scan overlay opens and closes repeatedly, so a re-mountable
@@ -695,7 +615,7 @@
      * contexts (~16) and drop the oldest, which on iOS shows up as the ball
      * silently freezing.
      *
-     * Listener removal must happen before `forceContextLoss()` — that call
+     * Listener removal must happen before `forceContextLoss()` ??that call
      * fires `webglcontextlost`, and our handler would otherwise arm the
      * 2500ms rebuild watchdog against a renderer we are in the middle of
      * throwing away.
@@ -736,23 +656,22 @@
         toneTarget.hue = 0; toneTarget.sat = 1; toneTarget.mix = 0;
         toneTarget.r = 0; toneTarget.g = 0; toneTarget.b = 0;
         toneMat = null;
-        clearReadout(); // 同理：借出去的 context 還回原主時不該還帶著上一輪的讀出狀態
-    }
+        clearReadout(); // ?��?：借出?��? context ?��??�主?��?該�?帶�?上�?輪�?讀?��???    }
 
-    // ── Tone: pure helpers ────────────────────────────────────────────────
+    // ?�?� Tone: pure helpers ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
     // Kept side-effect free on purpose so they can be unit-verified directly
-    // (known input → known output) instead of only through a rendered frame,
+    // (known input ??known output) instead of only through a rendered frame,
     // which the sandbox cannot produce (three.js is CDN-blocked).
 
-    /** Rec.709 luma weights — the axis both hue rotation and saturation pivot on. */
+    /** Rec.709 luma weights ??the axis both hue rotation and saturation pivot on. */
     var LUM_R = 0.213, LUM_G = 0.715, LUM_B = 0.072;
 
     /**
      * Combined saturation + hue-rotation matrix, row-major 9-vector.
      *
-     * Same construction as SVG `feColorMatrix` (`saturate` ∘ `hueRotate`), so the
+     * Same construction as SVG `feColorMatrix` (`saturate` ??`hueRotate`), so the
      * result matches what a designer would get from a CSS filter. Composing the
-     * two here means the per-particle inner loop stays a single 3×3 multiply.
+     * two here means the per-particle inner loop stays a single 3?3 multiply.
      *
      * @param {number} hueTurns - Hue rotation in turns (1 = 360°).
      * @param {number} sat - Saturation multiplier (1 = unchanged, 0 = greyscale).
@@ -794,9 +713,7 @@
     /**
      * @returns {boolean} whether the smoothed tone is close enough to "off" to skip.
      *
-     * ⚠️ 必須把 readout 的飽和度算進來 —— 否則 readout 活著、但 tone 三個值都在
-     * 預設值時會走快捷路徑，飽和度就靜默失效了。
-     */
+     * ?��? 必�???readout ?�飽?�度算進�? ?��??��? readout 活�??��? tone 三個值都??     * ?�設?��??�走快捷路�?，飽?�度就�?默失?��???     */
     function toneIdle() {
         return Math.abs(tone.hue) < TONE_EPS
             && Math.abs(effectiveSat() - 1) < TONE_EPS
@@ -804,14 +721,9 @@
     }
 
     /**
-     * 目前生效的飽和度。
-     *
-     * 🔴 **飽和度只能有一個寫入者**（PLAYBOOK §6：判定/呈現只能有一個來源 ——
-     * 這個 bug 類別已經咬過我三次）。所以規則寫死在這裡：
-     * **readout 活著的時候由 readout 擁有，否則由 setTone 擁有。**
-     * 量測中 readiness-scan 只餵 `stillness`、不餵 `sat`；
-     * 收束時它先 `clearReadout()` 再 `setTone({sat})`，交接點明確。
-     */
+     * ?��??��??�飽?�度??     *
+     * ?�� **飽�?度只?��?一?�寫?��?*（PLAYBOOK §6：判�??�現?�能?��??��?�??��?     * ?��?bug 類別已�??��??��?次�??��?以�??�寫死在?�裡�?     * **readout 活�??��??�由 readout ?��?，否?�由 setTone ?��???*
+     * ?�測�?readiness-scan ?�餵 `stillness`?��?�?`sat`�?     * ?��??��???`clearReadout()` ??`setTone({sat})`，交?��??�確??     */
     function effectiveSat() {
         return readout.active
             ? READOUT_SAT_LO + (READOUT_SAT_HI - READOUT_SAT_LO) * readout.sStill
@@ -832,17 +744,17 @@
     /**
      * Colour the cloud from whatever the caller actually measured.
      *
-     * 🔴 **Defaults are an identity transform.** A page that never calls this
-     * renders exactly what it renders today — that is how the locked v25.8.2
+     * ?�� **Defaults are an identity transform.** A page that never calls this
+     * renders exactly what it renders today ??that is how the locked v25.8.2
      * look survives this feature (CLAUDE.md).
      *
-     * ⚠️ This module makes no claim about *what* the values mean. It rotates a
+     * ?��? This module makes no claim about *what* the values mean. It rotates a
      * gradient; naming the signal is the caller's job, and the caller must only
      * feed it things it genuinely measured.
      *
      * @param {{hue?:number, sat?:number, toward?:string, mix?:number}} [data]
      *   `hue` in turns (±0.5), `sat` multiplier, `toward` a CSS colour to pull
-     *   toward (resolve `var(--token)` before passing it — this runs per frame
+     *   toward (resolve `var(--token)` before passing it ??this runs per frame
      *   and must not touch the cascade), `mix` 0..1 how far to pull.
      */
     function setTone(data) {
@@ -858,15 +770,12 @@
         }
     }
 
-    /** HUE_BANDS 個 3×3（row-major，連續存放），每 tick 重建一次。 */
+    /** HUE_BANDS ??3?3（row-major，�??存放）�?�?tick ?�建一次�?*/
     var bandMats = new Float32Array(HUE_BANDS * 9);
 
     /**
-     * 目前的散幅與旅程。抽出來當單一來源 —— `readoutState()` 與繪製迴圈
-     * 都要用同一組值，各算一次就是下一個會漂移的鏡射。
-     *
-     * @returns {{bloom:number, rot:number}} turn 為單位。
-     */
+     * ?��??�散幅�??��??�抽?��??�單一來�? ?��?`readoutState()` ?�繪製迴??     * ?��??��?一組值�??��?一次就?��?一?��?漂移?�鏡射�?     *
+     * @returns {{bloom:number, rot:number}} turn ?�單位�?     */
     function bloomRot() {
         if (!readout.active) return { bloom: 0, rot: 0 };
         return {
@@ -876,11 +785,9 @@
     }
 
     /**
-     * 建 HUE_BANDS 個色帶矩陣。每個色帶 = 全場旋轉 + 它自己在漸層上的散幅偏移。
-     *
-     * 散幅以漸層中點為軸對稱展開（`band - 中點`），所以**整顆球的平均色相
-     * 不會被 bloom 推走** —— 推走的話主色會漂到別的語意色上。
-     */
+     * �?HUE_BANDS ?�色帶矩??���??�色�?= ?�場?��? + 它自己在漸層上�?????�移??     *
+     * ???以漸層中點為軸�?稱�??��?`band - 中�?`）�??��?*?��??��?平�??�相
+     * 不�?�?bloom ?�走** ?��??�走?�話主色?��??�別?��??�色上�?     */
     function buildBandMats() {
         var br = bloomRot();
         var sat = effectiveSat();
@@ -901,19 +808,12 @@
     }
 
     /**
-     * 把**這次量測真正量到的東西**接到球身上，讓它成為一個讀出裝置。
-     *
-     * 🔴 這是回饋迴圈，不是裝飾：畫面上叫使用者「保持穩定」，
-     * 那麼「穩住了沒有」就必須在主角身上看得出來。
-     *
-     * - `stillness` → 飽和度 / 漸層寬度 / 粒子漂移 / 亮度（**越穩越收攏、越純、越亮**）
-     * - `progress`  → 往 cyanCore 聚焦 + 尺度收緊（**累積的有效量測**，不是計時器）
-     *
-     * ⚠️ 呼叫這支就代表這一頁**接受星塵會隨量測收散**（founder 2026-08-10 放寬）。
-     * 不呼叫的頁面完全 inert，逐位元組維持 v25.8.2。
-     *
-     * @param {{stillness?: number, progress?: number}} [data] 兩者皆 0..1。
-     */
+     * ??*?�次?�測?�正?�到?�東�?*?�到?�身上�?讓�??�為一?��??��?置�?     *
+     * ?�� ?�是?��?迴�?，�??��?飾�??�面上叫使用?�「�??�穩定」�?
+     * ??��?�穩住�?沒�??�就必�??�主角身上�?得出來�?     *
+     * - `stillness` ??飽�?�?/ 漸層寬度 / 粒�?漂移 / 亮度�?*越穩越收?�、�?純、�?�?*�?     * - `progress`  ??往 cyanCore ?�焦 + 尺度?��?�?*累�??��??��?�?*，�??��??�器�?     *
+     * ?��? ?�叫?�支就代表這�???*?��??�塵?�隨?�測?�散**（founder 2026-08-10 ?�寬）�?     * 不呼?��??�面完全 inert，逐�??��?維�? v25.8.2??     *
+     * @param {{stillness?: number, progress?: number}} [data] ?�者�? 0..1??     */
     function setReadout(data) {
         var d = data || {};
         readout.active = true;
@@ -925,7 +825,7 @@
         }
     }
 
-    /** 關掉讀出層，回到 inert（掃描結束時呼叫）。 */
+    /** ?��?讀?�層，�???inert（�??��??��??�叫）�?*/
     function clearReadout() {
         readout.active = false;
         readout.still = 0.5; readout.prog = 0;
@@ -933,9 +833,7 @@
     }
 
     /**
-     * 目前套用中的讀出量（已平滑）。給 harness 驗「通道真的有動」用 ——
-     * 渲染結果在容器裡看不到（three.js 被沙箱擋），但這些數字看得到。
-     *
+     * ?��?套用中�?讀?��?（已平�?）。給 harness 驗「通�??��??��??�用 ?��?     * 渲�?結�??�容?�裡?��??��?three.js 被�?箱�?）�?但這�??��??��??��?     *
      * @returns {{active:boolean, stillness:number, progress:number, sat:number,
      *   bloom:number, rot:number, scale:number, drift:number}}
      */
@@ -945,9 +843,8 @@
             stillness: readout.sStill,
             progress: readout.sProg,
             sat: effectiveSat(),
-            // bloom / rot / scale 是主通道，**harness 靠它們驗「使用者看不看得出來」**
-            // （顏色散得多開、走過多少色相、球脹縮的比例）。
-            bloom: bloomRot().bloom,
+            // bloom / rot / scale ?�主?��?�?*harness ?��??��??�使?�者�?不�?得出來�?*
+            // （�??�散得�??�、走?��?少色?�、�??�縮?��?例�???            bloom: bloomRot().bloom,
             rot: bloomRot().rot,
             scale: readout.active
                 ? READOUT_SCALE_HI + (READOUT_SCALE_LO - READOUT_SCALE_HI) * readout.sStill
@@ -1005,7 +902,73 @@
         autoMount();
     }
 
+    
+    // �w�w Camera Control Layer (Additive API for Hero Camera Motion) �w�w�w�w�w�w�w�w�w�w�w
+    var camControl = {
+        active: false,
+        x: 0, y: 0, z: 5,
+        rotX: 0, rotY: 0, rotZ: 0,
+        fov: 75,
+        lookAtX: 0, lookAtY: 0, lookAtZ: 0
+    };
+
+    function setCamera(opts) {
+        if (!opts) return;
+        camControl.active = true;
+        if (opts.x !== undefined) camControl.x = opts.x;
+        if (opts.y !== undefined) camControl.y = opts.y;
+        if (opts.z !== undefined) camControl.z = opts.z;
+        if (opts.rotX !== undefined) camControl.rotX = opts.rotX;
+        if (opts.rotY !== undefined) camControl.rotY = opts.rotY;
+        if (opts.rotZ !== undefined) camControl.rotZ = opts.rotZ;
+        if (opts.fov !== undefined && camera && camera.fov !== opts.fov) {
+            camControl.fov = opts.fov;
+            camera.fov = opts.fov;
+            camera.updateProjectionMatrix();
+        }
+        if (camera) {
+            camera.position.set(camControl.x, camControl.y, camControl.z);
+            if (opts.lookAtX !== undefined || opts.lookAtY !== undefined || opts.lookAtZ !== undefined) {
+                camControl.lookAtX = opts.lookAtX || 0;
+                camControl.lookAtY = opts.lookAtY || 0;
+                camControl.lookAtZ = opts.lookAtZ || 0;
+                camera.lookAt(camControl.lookAtX, camControl.lookAtY, camControl.lookAtZ);
+            }
+        }
+    }
+
+    function getCamera() {
+        return camera;
+    }
+
+    function cameraState() {
+        return {
+            active: camControl.active,
+            x: camera ? camera.position.x : 0,
+            y: camera ? camera.position.y : 0,
+            z: camera ? camera.position.z : 5,
+            fov: camera ? camera.fov : 75
+        };
+    }
+
+    function resetCamera() {
+        camControl.active = false;
+        camControl.x = 0; camControl.y = 0; camControl.z = 5;
+        camControl.rotX = 0; camControl.rotY = 0; camControl.rotZ = 0;
+        camControl.fov = 75;
+        if (camera) {
+            camera.position.set(0, 0, 5);
+            camera.fov = 75;
+            camera.updateProjectionMatrix();
+            camera.lookAt(0, 0, 0);
+        }
+    }
+
     global.TENKI_STARDUST = {
+        setCamera: setCamera,
+        getCamera: getCamera,
+        cameraState: cameraState,
+        resetCamera: resetCamera,
         mount: mount,
         unmount: destroy,
         isMounted: isMounted,
@@ -1021,15 +984,13 @@
         setReadout: setReadout,
         clearReadout: clearReadout,
         readoutState: readoutState,
-        // Exported for direct unit verification — the rendered frame is not
+        // Exported for direct unit verification ??the rendered frame is not
         // reachable in the sandbox (three.js is CDN-blocked), but this is.
         toneMatrix: toneMatrix,
         hueBandOf: hueBandOf,
         HUE_BANDS: HUE_BANDS,
-        // 🔴 鎖定資產的**真正**閘門：它是 false 的那一刻，粒子就一顆都不重新上色。
-        // harness 本來只驗 `readoutState().active === false`，但那是一個記帳用的
-        // 旗標，不是顏色通道 —— 我把 effectiveSat 改成永遠走 readout 分支
-        // （靜息飽和度 1.0 → 1.20，v25.8.2 的樣子當場被改掉）時它照樣全綠。
-        toneIdle: toneIdle
+        // ?�� ?��?資產??*?�正**?��?：�???false ?�那一?��?粒�?就�?顆都不�??��??��?        // harness ?��??��? `readoutState().active === false`，�???��一?��?帳用??        // ?��?，�??��??�通�? ?��??��? effectiveSat ?��?永�?�?readout ?�支
+        // （�??�飽?�度 1.0 ??1.20，v25.8.2 ?�樣子當?�被?��?）�?它照�?��綠�?        toneIdle: toneIdle
     };
 })(window);
+
