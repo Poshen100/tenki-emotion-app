@@ -27,6 +27,14 @@ import {
   toScanMetrics,
 } from '../utils/dailyScan';
 import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
+import {
+  composeSensoryFrame,
+  isQualityInstrumented,
+  placeholderSignals,
+  signalsFromQuality,
+} from '../utils/choreography';
+import { STAGE_ORDER, maturityStage } from '../utils/maturityStage';
+import { useDeviceTilt } from '../hooks/useDeviceTilt';
 import { useScanStore } from '../../../stores/scan-store';
 import { useUserStore } from '../../../stores/user-store';
 import { DAILY_RESULT_ROUTE, FB_ROUTES } from './routes';
@@ -37,8 +45,21 @@ export default function ProcessingBaselineScreen(): React.JSX.Element {
   const setProcessing = useFaceBaselineStore((s) => s.setProcessing);
   const establishBaseline = useFaceBaselineStore((s) => s.establishBaseline);
   const quality = useFaceBaselineStore((s) => s.quality);
+  const reducedMotion = useFaceBaselineStore((s) => s.reducedMotion);
+  const scanCount = useFaceBaselineStore((s) => s.scanCount);
+  const tilt = useDeviceTilt(reducedMotion);
   const [progress, setProgress] = useState(0);
   const done = useRef(false);
+
+  // Real metrics once the capture pipeline exists; progress-driven placeholders
+  // until then, so an un-instrumented build reads as working rather than as a
+  // failing scan. See utils/choreography.ts.
+  const signals = isQualityInstrumented(quality)
+    ? signalsFromQuality(quality, progress)
+    : placeholderSignals(progress);
+  const frame = composeSensoryFrame('stabilizing', signals, reducedMotion);
+  const maturityRatio =
+    STAGE_ORDER.indexOf(maturityStage(scanCount)) / (STAGE_ORDER.length - 1);
 
   useEffect(() => {
     goTo('processing');
@@ -90,7 +111,13 @@ export default function ProcessingBaselineScreen(): React.JSX.Element {
     <CosmicBackground mode="processing">
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
-          <ProcessingOrb progress={progress} size={230} />
+          <ProcessingOrb
+            progress={progress}
+            size={230}
+            frame={frame}
+            tilt={tilt}
+            maturityRatio={maturityRatio}
+          />
           <Text style={styles.title}>{C.processing.title}</Text>
           <PercentReadout progress={progress} />
         </View>

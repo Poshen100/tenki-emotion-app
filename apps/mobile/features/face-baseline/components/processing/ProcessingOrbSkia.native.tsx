@@ -1,37 +1,115 @@
+/**
+ * @module face-baseline/components/ProcessingOrbSkia.native
+ * @description The gold "securing" orb, drawn with Skia.
+ *
+ * Ring speed, radius, thickness, blur and parallax all come from
+ * `utils/orbPhysics.ts`. This file draws; it does not decide. That split is
+ * what lets the orb's behaviour be tested without a canvas.
+ *
+ * ⚠️ Known issue, deliberately not fixed here: the rotation angles live in
+ * React state and are written once per animation frame, which re-renders this
+ * component roughly sixty times a second. The idiomatic fix is Skia's own
+ * clock (`useClock` plus derived values) so rotation never crosses into React
+ * at all. That is a change to the rendering model, and it cannot be verified
+ * without a device running Skia — so it is recorded rather than guessed at.
+ */
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Canvas, Circle, Group, Paint, RadialGradient, BlurMask, Path, vec } from '@shopify/react-native-skia';
+import { Canvas, Circle, Group, RadialGradient, BlurMask, vec } from '@shopify/react-native-skia';
 import { clamp01 } from '../../utils/progress';
+import type { SensoryFrame } from '../../utils/choreography';
+import {
+  NO_TILT,
+  RING_COUNT,
+  advanceAngle,
+  parallaxOffset,
+  ringGeometry,
+  ringSpeeds,
+  type Tilt,
+} from '../../utils/orbPhysics';
 
 interface ProcessingOrbSkiaProps {
   progress: number;
   size?: number;
+  /** Live signal state. Falls back to a progress-derived frame when absent. */
+  frame?: SensoryFrame;
+  /** Device tilt for parallax. Defaults to still. */
+  tilt?: Tilt;
+  /** Baseline maturity, 0–1. Thickens and brightens the rings. */
+  maturityRatio?: number;
 }
 
-export function ProcessingOrbSkia({ progress, size = 220 }: ProcessingOrbSkiaProps): React.JSX.Element {
+/** Derives a frame from progress alone, so existing call sites keep working. */
+function frameFromProgress(progress: number): SensoryFrame {
+  const p = clamp01(progress);
+  return {
+    convergence: p,
+    scatter: (1 - p) * 0.35,
+    brightness: 0.55 + p * 0.45,
+    glow: 0.4 + p * 0.6,
+    transitionMs: 400,
+  };
+}
+
+export function ProcessingOrbSkia({
+  progress,
+  size = 220,
+  frame,
+  tilt = NO_TILT,
+  maturityRatio = 0.5,
+}: ProcessingOrbSkiaProps): React.JSX.Element {
   const clampedProgress = clamp01(progress);
-  const [angle, setAngle] = useState(0);
+  const resolvedFrame = frame ?? frameFromProgress(progress);
+  const [angles, setAngles] = useState<number[]>(() => new Array(RING_COUNT).fill(0));
+  const lastAt = useRef(0);
 
   useEffect(() => {
     let animId: number;
-    const tick = () => {
-      setAngle((a) => (a + 0.015) % (Math.PI * 2));
+    const tick = (now: number) => {
+      // Elapsed time rather than a fixed increment, so orbit speed means the
+      // same thing on a 60Hz phone and a 120Hz one.
+      const dt = lastAt.current === 0 ? 16 : Math.min(64, now - lastAt.current);
+      lastAt.current = now;
+
+      const speeds = ringSpeeds(resolvedFrame);
+      setAngles((prev) => prev.map((a, i) => advanceAngle(a, speeds[i], dt)));
       animId = requestAnimationFrame(tick);
     };
     animId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animId);
-  }, []);
+    return () => {
+      cancelAnimationFrame(animId);
+      lastAt.current = 0;
+    };
+  }, [resolvedFrame]);
 
   const center = size * 0.75;
   const canvasSize = size * 1.5;
   const orbRadius = size / 2;
 
-  // Orbiting ring radiuses
-  const r1 = orbRadius * 0.94;
-  const r2 = orbRadius * 0.82;
-  const r3 = orbRadius * 0.66;
-  const r4 = orbRadius * 0.48;
+  // Geometry and parallax per ring, both derived rather than hardcoded.
+  const rings = Array.from({ length: RING_COUNT }, (_, i) => {
+    const geo = ringGeometry(i, resolvedFrame, maturityRatio);
+    const offset = parallaxOffset(tilt, i);
+    return {
+      radius: orbRadius * geo.radiusRatio,
+      strokeWidth: geo.strokeWidth,
+      blur: geo.blur,
+      opacity: geo.opacity,
+      angle: angles[i] ?? 0,
+      cx: center + offset.dx,
+      cy: center + offset.dy,
+    };
+  });
+
+  const RING_COLORS = ['#FFC85E', '#FFFFFF', '#FF8800', '#FFF0D0'];
+  // Fixed axis tilts keep each ring on its own plane; only rotateZ animates.
+  const RING_AXES: Array<{ rotateX: number; rotateY?: number }> = [
+    { rotateX: 0.96, rotateY: 0.17 },
+    { rotateX: 1.13, rotateY: -0.44 },
+    { rotateX: 0.7, rotateY: 0.61 },
+    { rotateX: 1.22 },
+  ];
 
   return (
     <View style={{ width: canvasSize, height: canvasSize }}>
@@ -50,35 +128,42 @@ export function ProcessingOrbSkia({ progress, size = 220 }: ProcessingOrbSkiaPro
           />
         </Circle>
 
-        {/* 3. Orbiting ring 1 (Outer) */}
-        <Group transform={[{ rotateX: 0.96 }, { rotateY: 0.17 }, { rotateZ: angle }]} origin={vec(center, center)}>
-          <Circle cx={center} cy={center} r={r1} style="stroke" strokeWidth={2.0} color="#FFC85E">
-            <BlurMask blur={1.5} style="normal" />
-          </Circle>
-        </Group>
+        {/* 3–6. Orbiting rings — speed, size, blur and parallax all derived. */}
+        {rings.map((ring, i) => (
+          <Group
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed ring count; index is the identity
+            key={i}
+            transform={[
+              { rotateX: RING_AXES[i].rotateX },
+              ...(RING_AXES[i].rotateY === undefined ? [] : [{ rotateY: RING_AXES[i].rotateY }]),
+              { rotateZ: ring.angle },
+            ]}
+            origin={vec(ring.cx, ring.cy)}
+          >
+            <Circle
+              cx={ring.cx}
+              cy={ring.cy}
+              r={ring.radius}
+              style="stroke"
+              strokeWidth={ring.strokeWidth}
+              color={RING_COLORS[i]}
+              opacity={ring.opacity}
+            >
+              <BlurMask blur={ring.blur} style="normal" />
+            </Circle>
+          </Group>
+        ))}
 
-        {/* 4. Orbiting ring 2 (Mid) */}
-        <Group transform={[{ rotateX: 1.13 }, { rotateY: -0.44 }, { rotateZ: -angle * 1.3 }]} origin={vec(center, center)}>
-          <Circle cx={center} cy={center} r={r2} style="stroke" strokeWidth={1.5} color="#FFFFFF">
-            <BlurMask blur={1} style="normal" />
-          </Circle>
-        </Group>
-
-        {/* 5. Orbiting ring 3 (Inner) */}
-        <Group transform={[{ rotateX: 0.7 }, { rotateY: 0.61 }, { rotateZ: angle * 1.6 }]} origin={vec(center, center)}>
-          <Circle cx={center} cy={center} r={r3} style="stroke" strokeWidth={2.5} color="#FF8800">
-            <BlurMask blur={2} style="normal" />
-          </Circle>
-        </Group>
-
-        {/* 6. Orbiting ring 4 (Core) */}
-        <Group transform={[{ rotateX: 1.22 }, { rotateZ: -angle * 2 }]} origin={vec(center, center)}>
-          <Circle cx={center} cy={center} r={r4} style="stroke" strokeWidth={1} color="#FFF0D0" />
-        </Group>
-
-        {/* 7. Supercharged Glowing Gold Core */}
-        <Circle cx={center} cy={center} r={orbRadius * (0.22 + clampedProgress * 0.12)} color="#FFC85E">
-          <BlurMask blur={8 + clampedProgress * 12} style="normal" />
+        {/* 7. Glowing gold core — brightness follows the live frame, so the
+             orb reads as settling rather than just filling up. */}
+        <Circle
+          cx={center}
+          cy={center}
+          r={orbRadius * (0.22 + clampedProgress * 0.12)}
+          color="#FFC85E"
+          opacity={0.6 + resolvedFrame.brightness * 0.4}
+        >
+          <BlurMask blur={8 + resolvedFrame.glow * 14} style="normal" />
         </Circle>
 
         {/* 8. Extra glass specular highlight gloss */}

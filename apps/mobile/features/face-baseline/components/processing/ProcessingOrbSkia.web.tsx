@@ -7,6 +7,14 @@ import { clamp01 } from '../../utils/progress';
 interface ProcessingOrbSkiaProps {
   progress: number;
   size?: number;
+  /**
+   * Accepted for parity with the native implementation. The web build keeps
+   * the simpler progress-driven rendering — declaring the props here means a
+   * shared call site type-checks on both platforms.
+   */
+  frame?: unknown;
+  tilt?: unknown;
+  maturityRatio?: number;
 }
 
 function GlassSpecularShine({ size }: { size: number }): React.JSX.Element {

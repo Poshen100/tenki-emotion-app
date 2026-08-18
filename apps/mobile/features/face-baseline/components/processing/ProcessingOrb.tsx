@@ -14,14 +14,36 @@ import { Text, StyleSheet } from 'react-native';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
 import { clamp01 } from '../../utils/progress';
 import { ProcessingOrbSkia } from './ProcessingOrbSkia';
+import type { SensoryFrame } from '../../utils/choreography';
+import type { Tilt } from '../../utils/orbPhysics';
 
 interface ProcessingOrbProps {
   progress: number;
   size?: number;
+  /** Live signal state; a progress-derived frame is used when absent. */
+  frame?: SensoryFrame;
+  /** Device tilt for parallax. */
+  tilt?: Tilt;
+  /** Baseline maturity, 0–1. */
+  maturityRatio?: number;
 }
 
-export function ProcessingOrb({ progress, size = 220 }: ProcessingOrbProps): React.JSX.Element {
-  return <ProcessingOrbSkia progress={progress} size={size} />;
+export function ProcessingOrb({
+  progress,
+  size = 220,
+  frame,
+  tilt,
+  maturityRatio,
+}: ProcessingOrbProps): React.JSX.Element {
+  return (
+    <ProcessingOrbSkia
+      progress={progress}
+      size={size}
+      frame={frame}
+      tilt={tilt}
+      maturityRatio={maturityRatio}
+    />
+  );
 }
 
 /** Large tabular percent numeral, shown beneath the orb. */
