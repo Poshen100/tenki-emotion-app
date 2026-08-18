@@ -364,11 +364,19 @@
           }
 
           var parallaxY = (i % 2 === 0) ? 24 : -24;
+          var tiltY = (i % 2 === 0) ? 7 : -7;
 
           gsap.set(indexEl, { autoAlpha: 0, y: 20 });
           gsap.set(titleLines, { autoAlpha: 0, y: 28 });
           gsap.set(bodyEl, { autoAlpha: 0, y: 20 });
-          gsap.set(visual, { autoAlpha: 0, scale: 0.92, y: parallaxY });
+          gsap.set(visual, {
+            autoAlpha: 0,
+            scale: 0.92,
+            y: parallaxY,
+            transformPerspective: 1000,
+            rotateY: tiltY,
+            rotateX: 4
+          });
 
           if (drawLine && typeof DrawSVGPlugin !== 'undefined') {
             gsap.set(drawLine, { drawSVG: '0%' });
@@ -399,13 +407,28 @@
           // 4. Body text reveal
           tl.to(bodyEl, { autoAlpha: 1, y: 0, duration: 0.3, ease: calmEase }, 0.18);
 
-          // 5. Visual depth parallax
-          tl.to(visual, { autoAlpha: 1, scale: 1, y: 0, duration: 0.45, ease: calmEase }, 0.05);
+          // 5. Visual depth parallax & 3D tilt level-out
+          tl.to(visual, {
+            autoAlpha: 1,
+            scale: 1,
+            y: 0,
+            rotateY: 0,
+            rotateX: 0,
+            duration: 0.45,
+            ease: calmEase
+          }, 0.05);
 
           // Exit fade for panel 1 & 2
           if (i < panels.length - 1) {
             tl.to([indexEl, titleLines, bodyEl], { autoAlpha: 0, y: -24, duration: 0.25, stagger: 0.04 }, 0.72)
-              .to(visual, { autoAlpha: 0, scale: 0.96, y: -parallaxY, duration: 0.25 }, 0.72);
+              .to(visual, {
+                autoAlpha: 0,
+                scale: 0.96,
+                y: -parallaxY,
+                rotateY: -tiltY * 0.7,
+                rotateX: -3,
+                duration: 0.25
+              }, 0.72);
           }
 
           return tl.scrollTrigger;
@@ -447,13 +470,14 @@
           return;
         }
 
-        gsap.set('#transition-ring', { autoAlpha: 0, scale: 0.85, rotate: -30 });
-        gsap.set('#transition-core', { autoAlpha: 0, scale: 0.6 });
-        gsap.set('#transition-label', { autoAlpha: 0, y: 20 });
+        gsap.set('#transition-ring', { autoAlpha: 0, scale: 0.82, rotate: -45 });
+        gsap.set('#transition-core', { autoAlpha: 0, scale: 0.55 });
+        gsap.set('#transition-label', { autoAlpha: 0, y: 24 });
 
         var pulseTween = gsap.to('#transition-core', {
-          scale: 1.08,
-          duration: 1.4,
+          scale: 1.14,
+          boxShadow: '0 0 55px rgba(255,212,110,0.65)',
+          duration: 1.5,
           ease: breathEase,
           repeat: -1,
           yoyo: true,
@@ -475,15 +499,16 @@
           }
         });
 
-        tl.to('#transition-ring', { autoAlpha: 1, scale: 1, rotate: 0, duration: 0.35, ease: calmEase }, 0)
-          .to('#transition-core', { autoAlpha: 1, scale: 1, duration: 0.35, ease: calmEase }, 0.08)
-          .to('#transition-label', { autoAlpha: 1, y: 0, duration: 0.3, ease: calmEase }, 0.16)
+        tl.to('#transition-ring', { autoAlpha: 1, scale: 1, rotate: 0, duration: 0.38, ease: calmEase }, 0)
+          .to('#transition-core', { autoAlpha: 1, scale: 1, duration: 0.38, ease: calmEase }, 0.06)
+          .to('#transition-label', { autoAlpha: 1, y: 0, duration: 0.32, ease: calmEase }, 0.14)
+          .to('#transition-ring', { rotate: 45, duration: 0.45, ease: 'none' }, 0.38)
           .to(['#transition-ring', '#transition-core', '#transition-label'], {
             autoAlpha: 0,
-            scale: 1.18,
-            duration: 0.3,
+            scale: 1.25,
+            duration: 0.28,
             ease: 'power2.in'
-          }, 0.75);
+          }, 0.74);
 
         return function () {
           if (tl.scrollTrigger) tl.scrollTrigger.kill();
