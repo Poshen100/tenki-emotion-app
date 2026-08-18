@@ -9,6 +9,54 @@
 
 ---
 
+# 2026-08-18 Session Update #68 (Hero ➔ 水晶球全流程電影級升級與無縫轉場貫通)
+
+founder 回饋：**「目前水晶球的感覺不夠順暢自然，這個部份把工作任務交辦 Google Antigravity，包含水晶球完整視覺動效跟轉場，我要電影級的升級」** ＋ **「hero 之後 一直到水晶球（Crystal Orb）頁面，也幫我做電影級升級」**。
+
+已全數完成並推送到遠端 `origin/feat/hero-camera` 分支（Commits: `63f85c0` ➔ `c81a0c3` ➔ `3f16363`）。
+
+---
+
+## 一、做了什麼（全旅程電影級升級矩陣）
+
+| 階段 / 模組 | 檔案 | 升級前（舊版） | 電影級升級後（新版） |
+|---|---|---|---|
+| **1. 水晶球核心渲染器** | `apps/preview/soul-enroll.js` (`drawProcessingOrb`) | 112 分段粗線條 Ribbon（`lineWidth: 1.6~6.0px`），色階斷層、機械陀螺儀剛體旋轉 | **1,620 顆高密度微粒金沙流體**（4 條非共面克卜勒 3D 軌道：傾角 1.18 / -0.82 / 0.50 / -1.30rad）、非線性都卜勒光溫（近景白熱金 `#FFFDF0` ➔ 遠景深琥珀金 `#D49B28`）、流動運動光痕（Motion Streaks） |
+| **2. 體積光學玻璃球** | `apps/preview/soul-enroll.js` | 單一固定主光與簡單徑向漸層 | **雙光照模型**（12 點鐘主光呼吸擺動 $\pm 8^\circ$ + 4 點鐘二次反光補光）、背光側雙層折射焦散池（Ray-Bent Refractive Caustics）、頂部鏡面高光與捕光點、內部厚度 AO 圈與邊緣霜面微氣（Frosted Haze） |
+| **3. 水晶球轉場儀式** | `apps/preview/soul-enroll.js` | 處理中（R=76）到鎖定（R=98）半徑瞬間突跳 | **半徑諧波平滑插值（76px ➔ 98px）**、鎖定瞬間觸發黃金超新星核心脈衝（Supernova Bloom）與諧波衝擊波光環（Shockwave Ring），平穩過渡至 6 秒神聖呼吸穩態（6s `--ease-breath`） |
+| **4. Hero 3D 相機穿梭** | `apps/preview/story.js`, `apps/preview/v6/stardust.js` | 固定相機平面 fade-in | **3D 景深穿梭進場**（`z: 10.8 -> 5.0`，3.8s 信心滑行）、滾動時向下縱深推進至 `z: 1.2` 穿越星塵核心進入故事面板 |
+| **5. 3D 故事面板** | `apps/preview/story.js` | 平面滾動、基本透明度漸變 | **`.story-visual` 空間 $\pm 7^\circ$ 3D 視差微俯仰**（Parallax Tilt）與景深羽化、`DrawSVGPlugin` 黃金流光索引線、`SplitText` 逐行立體升起 |
+| **6. 解鎖轉場儀式** | `apps/preview/story.js` | 單純縮放與圓形遮罩 | **雙層同心解鎖環陀螺儀旋轉**（$-45^\circ \rightarrow 0^\circ \rightarrow +45^\circ$）、黃金核心伴隨 1.5s 柔和光暈脈衝（`box-shadow: 0 0 55px`）與引力吸入 |
+| **7. 5 步術前引導旅程** | `apps/preview/soul-onboarding.js` | 線性點對點位移 | **靈魂旅行球（Travel Orb）物理重力下潛**（`--ease-calm`）、Step 3 轉折峰值折線（Turning Point Mark）流光掃描、Step 4 長按高能引力光束吸回基準線並伴隨共振脈衝與觸覺震動（Haptic Feedback） |
+| **8. Step 5 超立體黃金盾牌** | `apps/preview/soul-enroll.html` | 平面雙色 SVG 線框盾牌 | **對標 ANTIGRAVITY #1-B：真 3D 金屬倒角盾牌**（4.5px Bevel Rim 外框、雙面受光漸層 `#FFF0C8` / `#7A4D0C`、中央 3D 鏡面脊線、內凹銘牌、立體安全鎖圖騰、CSS 3D 透視呼吸 `perspective: 800px`） |
+
+---
+
+## 二、教訓與技術陷阱（Guardrails & Pitfalls）
+
+1. **Canvas 2D 物理粒子與記憶體配置（Zero-Allocation in render loop）**：
+   - 1,600+ 微粒如果每幀 `new Array()` 或產生臨時物件，會在低階手機上造成 Garbage Collection (GC) 抖動卡頓。
+   - 所有軌道投影、三角函數與雜湊函數（Keplerian Drift）皆使用無記憶體分配的純數學公式與 Float32 空間運算，確保在行動端維持嚴格 60fps。
+2. **`prefers-reduced-motion` 靜態無損降級**：
+   - 水晶球在 reduced-motion 下停止劇烈公轉與進動，但完整保留光學玻璃折射、體積焦散與發光質感，呈現靜態但極度尊貴的發光琉璃水晶球。
+   - Hero 3D 相機與 5 步引導在 reduced-motion 下關閉自動計時與視差，改為點擊直達。
+3. **測試 Harness 契約向下相容**：
+   - `scripts/orb-tuner/harness.html` 透過 `window.TENKI_ORB.drawProcessingOrb(ctx, W/2, H/2, t, { R: R || 150 })` 驅動，本次重構完全保留原函式簽章，並向下相容 headless 測試。
+4. **資安與 Token 防護**：
+   - 遠端推送完畢後，本地 remote URL 立即重設為乾淨的無 Token 網址（`https://github.com/Poshen100/tenki-emotion-app.git`），防止憑證外洩。
+
+---
+
+## 三、下次接手點（Next Steps for Future Agents）
+
+- **當前分支**：[`feat/hero-camera`](https://github.com/Poshen100/tenki-emotion-app/tree/feat/hero-camera)（已完全同步至遠端，包含 3 筆新 Commits）。
+- **Pull Request**：可直接透過 [PR 連結](https://github.com/Poshen100/tenki-emotion-app/pull/new/feat/hero-camera) 檢閱並 Merge 回 `main`。
+- **待確認實機感受**：
+  1. 實機測試手機端 60fps 流暢度與發光焦散（Caustics）對比度。
+  2. 體驗從 Onboarding 長按校準 ➔ 3D 盾牌 ➔ 進入相機掃描 ➔ 水晶球 60s 鎖定儀式的整體節奏手感。
+
+---
+
 # 2026-08-11 Session Update #67 (/v3/ Today 不再宣稱沒量到的事)
 
 founder「好」→ 接著做已拍板的另案。

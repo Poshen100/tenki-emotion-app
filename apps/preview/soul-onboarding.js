@@ -58,7 +58,7 @@
   /** Moves the orb (and beam) to a vertical offset from baseline. */
   function orbTo(y, animate) {
     if (HAS_GSAP && animate && !REDUCE) {
-      window.gsap.to([orb, beam], { y: y, duration: 0.9, ease: 'power2.out', overwrite: 'auto' });
+      window.gsap.to([orb, beam], { y: y, duration: 1.05, ease: 'power3.out', overwrite: 'auto' });
     } else {
       const t = 'translateY(' + y + 'px)';
       orb.style.transform = t;
@@ -150,8 +150,18 @@
     if (calibrated) return;
     calibrated = true;
     holdLabel.textContent = 'Calibrated';
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try { navigator.vibrate([20, 50, 90]); } catch (_) {}
+    }
+    if (orb) {
+      orb.animate([
+        { transform: 'scale(1)', filter: 'drop-shadow(0 0 20px #FFD46E)' },
+        { transform: 'scale(1.24)', filter: 'drop-shadow(0 0 45px #FFF8E7)' },
+        { transform: 'scale(1)', filter: 'drop-shadow(0 0 24px #FFD46E)' },
+      ], { duration: 520, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+    }
     // brief settle at baseline, then advance to Secure Access
-    setTimeout(() => showStep(5), 460);
+    setTimeout(() => showStep(5), 520);
   }
 
   /** Builds (or rebuilds) the hold interaction for the Calibration step. */
