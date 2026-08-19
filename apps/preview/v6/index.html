@@ -4886,14 +4886,15 @@ function closeSessionDetail(){
          實測 390×700：hero 281 + coach 80 + track 190 + dots/note + gaps 超出
          可視高度 56px。這裡把輪播與 hero 收一收，讓首屏就放得下。
          量測方式見 PLAYBOOK：用 getBoundingClientRect + elementFromPoint 問瀏覽器。 */
-      @media (max-height:760px){
+      @media (max-height:880px){
         /* 短視窗要騰出空間時，縮的是那顆巨環（佔畫面最大宗），不是資料卡 ——
            先前把輪播壓到 130px，圖表幾乎沒了還被 Swipe 提示蓋住，等於用一個
            問題換另一個問題。 */
         #today-screen .hero{min-height:26vh;}
         #today-screen .tl-edge{width:min(54vw,208px);height:min(54vw,208px);}
         .snap-track{height:168px;}
-        .snap{gap:8px;}
+        /* 圓點是最後一個元素，原本 +10px 的餘裕在這帶不夠，會壓到底座上緣 */
+        .snap{gap:8px;padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 26px);}
       }
       @media (max-height:680px){
         #today-screen .hero{min-height:24vh;}
@@ -4938,6 +4939,7 @@ function closeSessionDetail(){
       // ── first-visit "swipe" coach hint: teach the gesture once, then never again ──
       (function(){
         var hint=byId('snapHint'); if(!hint) return;
+        var snap=hint.offsetParent||hint.parentElement;
         var SEEN='tenki.snapHintSeen3'; // bumped per redesign (#121 fingertip hint) so returning users see it once more
         var force=/[?&]hint=1\b/.test(location.search); // ?hint=1 / &hint=1 → force-show for re-testing; never persists
         if(!force){ try{ if(localStorage.getItem(SEEN)==='1') return; }catch(e){} }
@@ -4959,8 +4961,23 @@ function closeSessionDetail(){
           if(shown||done) return;
           if(cur!==0){ markSeen(); done=true; return; }   // already explored during the wait → don't nag
           shown=true;
-          // float over the lower area of the cards — the track is always visible; .snap clips below it
-          hint.style.top=(track.offsetTop+track.offsetHeight-22)+'px';
+          // 🔴 不要壓在卡片下緣 —— 那裡現在是波形圖。
+          // 舊值 (track.offsetTop+offsetHeight-22) 是在「.snap 會裁掉 track 以下」的
+          // 舊版面下訂的；#231 之後卡片完整露出，那個位置正好蓋住 HR/HRV 波形，
+          // 而 founder 回報的就是「遮擋圖表」。改放**標題列與圖表之間的數字帶**，
+          // 用實際元素量出來（版面/卡片高度再變也會自己跟上），量不到才退回比例值。
+          var _snapTop=snap.getBoundingClientRect().top;
+          var _card=track.querySelector('.vcard');
+          var _head=_card&&_card.querySelector('.vhead');
+          var _chart=_card&&_card.querySelector('canvas,svg');
+          var _top;
+          if(_head&&_chart){
+            var _mid=(_head.getBoundingClientRect().bottom+_chart.getBoundingClientRect().top)/2;
+            _top=Math.round(_mid-_snapTop-hint.offsetHeight/2);
+          } else {
+            _top=Math.round(track.offsetTop+track.offsetHeight*0.34);
+          }
+          hint.style.top=_top+'px';
           hint.classList.add('on');
           track.addEventListener('pointerdown',dismiss,{passive:true});
           track.addEventListener('touchstart',dismiss,{passive:true});
