@@ -324,6 +324,11 @@ body{
   box-shadow:inset 0 0 20px rgba(0,0,0,0.6);
 }
 .tl-edge-score{
+  /* 🔴 讀數永遠不從中間斷開。斷了就會變成「尚未量」/「測」並把整段推出環心
+     （2026-08-19 實測 360px）。nowrap 是結構保證；下面的 clamp 負責讓它塞得下。
+     兩條一起才成立：只有 nowrap 會變成橫向溢出，只有 clamp 會在文案變長時再爆。
+     harness 同時驗「1 行」與「盒子在圓內」，任何一邊破了都會紅。 */
+  white-space:nowrap;
   font-size:86px;font-weight:700;line-height:0.9;letter-spacing:-0.04em;
   color:#fff;font-variant-numeric:tabular-nums;
   background:linear-gradient(180deg, #fff 0%, #d8e0e4 40%, #a8b8c0 100%);
@@ -360,7 +365,11 @@ body{
 .tl-edge.no-reading .ring-dot{display:none}      /* 沒有讀數就沒有資料點 */
 .tl-edge.no-reading::before{opacity:0.25}
 .tl-edge-score.awaiting{
-  font-size:30px;font-weight:600;letter-spacing:0.01em;line-height:1.1;
+  /* 環心是環的 62%，而環吃 vw —— 所以環心也是 vw 的函式（實測 360→121px、
+     390→129px）。字級卻是寫死的 30px：四個中文字剛好 121px，在 360 上零餘裕就換行。
+     🔴 固定 px 的內容放進 % 的容器，就是「排進量出來的縫隙」——
+     字級改成跟著同一個 vw 走，容器縮它就跟著縮。30px 是上限，寬螢幕維持原樣。 */
+  font-size:clamp(24px, 7.2vw, 30px);font-weight:600;letter-spacing:0.01em;line-height:1.1;
   background:none;-webkit-text-fill-color:rgba(255,255,255,0.55);
   filter:none;
 }
@@ -369,6 +378,9 @@ body{
   appearance:none;border:1px solid rgba(0,180,216,0.35);
   background:rgba(0,180,216,0.10);color:var(--primary);
   font-size:12px;font-weight:600;letter-spacing:0.02em;
+  /* 🔴 這一句永遠不該從詞中間斷開（「到 Scan 掃一」/「次 ›」）。
+     搬出環心之後有整個螢幕寬，nowrap 不會造成橫向溢出。 */
+  white-space:nowrap;
   padding:7px 16px;border-radius:999px;margin-top:10px;cursor:pointer;
   transition:background .2s var(--ease-calm), border-color .2s var(--ease-calm);
 }
@@ -390,6 +402,8 @@ body{
    (docs/FINGER-PRECISION-WIRING.md §6, docs/prompts/antigravity-finger-precision-kickoff.md) */
 .tl-edge-conf{
   margin-top:10px;
+  /* 同上：「信心中 · 提升精度 ›」不得斷成「信心中 · 提」/「升精度 ›」 */
+  white-space:nowrap;
   display:inline-flex;align-items:center;gap:6px;
   font-size:11.5px;font-weight:500;letter-spacing:0.02em;
   font-family:inherit;
@@ -2357,10 +2371,18 @@ body{
                    再把名字掛回來。 -->
               <div class="tl-edge-pr">狀態讀數</div>
               <div class="tl-edge-zone" id="edgeTraceZone">還沒有今天的讀數</div>
-              <button type="button" class="tl-edge-cta" id="edgeScanCta" onclick="goTab('scan')">到 Scan 掃一次 ›</button>
-              <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
             </div>
           </div>
+          <!-- 🔴 動作鍵搬出環心（2026-08-19，founder 實走「點了掃描」後回報爆版）。
+               量出來的事實：環心 .tl-edge-center 是環的 62%，實測只有 121~129px，
+               卻要裝下 讀數(30~40px) + 狀態讀數 + 新鮮度 + 膠囊(43px) ——
+               **內容高在 360/375/390/414/430 每一個寬度都 >= 圓高**，零餘裕。
+               而「信心中　·　提升精度 ›」本身就要約 178px，**塞不進 129px 的圓**，
+               任何字級微調都救不了：它在 360~430 全部換行，讀數也全部戳出圓上緣。
+               語意上這兩顆本來就不是讀數 —— 圓心放「量到什麼」，動作放環下面。
+               搬出來之後它們有整個螢幕寬，nowrap 才不會變成橫向溢出。 -->
+          <button type="button" class="tl-edge-cta" id="edgeScanCta" onclick="goTab('scan')">到 Scan 掃一次 ›</button>
+          <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
         </div>
       </section>
 
