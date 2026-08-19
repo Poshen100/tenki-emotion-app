@@ -4021,12 +4021,21 @@ function exportOutcomesCsv(){
     labInfo('尚無決策紀錄可匯出', '完成幾次決策收束後再回來，這裡會匯出你的 CSV。');
     return;
   }
-  const cols = ['ts','datetime','symbol','templateId','outcomeTag','reachedReadiness','durationSec','contextTag'];
+  // marks 一直寫進 store 卻從來沒進 CSV —— 順手補上這個既有缺口。
+  // 節點攤平成兩欄：markLabels（做了什麼）與 markBands（當下是什麼狀態），
+  // 用 | 串接、對齊同一個順序。csvEscape 已經處理引號/逗號/換行。
+  // 🔴 沒讀數的節點寫 'no_reading'，不留空也不填預設帶位 —— 空白會被下游讀成
+  // 「漏了」，而填一個帶位就是造假。
+  const cols = ['ts','datetime','symbol','templateId','outcomeTag','reachedReadiness','durationSec','contextTag','marks','markLabels','markBands'];
   const lines = [cols.join(',')];
   rows.forEach(r => {
+    const evs = Array.isArray(r.events) ? r.events : [];
     lines.push([
       r.ts, r.ts ? new Date(r.ts).toISOString() : '', r.symbol, r.templateId,
-      r.outcomeTag, r.reachedReadiness, r.durationSec, r.contextTag
+      r.outcomeTag, r.reachedReadiness, r.durationSec, r.contextTag,
+      r.marks == null ? '' : r.marks,
+      evs.map(e => e.label || '').join('|'),
+      evs.map(e => e.band || 'no_reading').join('|')
     ].map(csvEscape).join(','));
   });
   const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
