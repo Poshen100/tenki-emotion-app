@@ -19,6 +19,7 @@ export const FACE_BASELINE_COPY = {
     body: '',
     timeSeconds: 60,
     cta: 'Begin Calibration',
+    ctaHoldHint: 'Press and hold to begin.',
     whyLink: 'Why does this matter?',
   },
   why: {

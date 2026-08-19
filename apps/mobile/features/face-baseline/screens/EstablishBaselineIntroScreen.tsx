@@ -18,6 +18,7 @@ import {
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
 import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
+import { HOLD_TO_CONFIRM_MS } from '../utils/gestureFeel';
 import { FB_ROUTES } from './routes';
 
 export default function EstablishBaselineIntroScreen(): React.JSX.Element {
@@ -43,7 +44,14 @@ export default function EstablishBaselineIntroScreen(): React.JSX.Element {
           </View>
         </View>
         <View style={styles.footer}>
-          <GlowPrimaryButton accent="cyan" label={C.intro.cta} onPress={() => router.push(FB_ROUTES.secure)} />
+          {/* Held rather than tapped: establishing a baseline is not undone. */}
+          <GlowPrimaryButton
+            accent="cyan"
+            label={C.intro.cta}
+            holdMs={HOLD_TO_CONFIRM_MS}
+            holdHint={C.intro.ctaHoldHint}
+            onPress={() => router.push(FB_ROUTES.secure)}
+          />
           <TextLink label={C.intro.whyLink} onPress={() => router.push(FB_ROUTES.why)} />
         </View>
       </SafeAreaView>

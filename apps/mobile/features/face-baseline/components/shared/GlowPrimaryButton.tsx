@@ -12,7 +12,11 @@
  *
  * Pure RN Animated — no Skia/Reanimated.
  *
- * @version 3.2
+ * Pass `holdMs` to turn the CTA into a hold-to-confirm control: a charge sweeps
+ * the capsule and the haptics step up as it fills. Without it the button
+ * behaves exactly as it always has.
+ *
+ * @version 3.3
  * @see apps/mobile/features/face-baseline/SPEC.md
  */
 import type React from 'react';
@@ -23,6 +27,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { faceBaselineTokens as t, type AccentWorld } from '../../tokens/faceBaseline.tokens';
+import { useHoldToConfirm } from '../../hooks/useHoldToConfirm';
+import { HOLD_TO_CONFIRM_MS } from '../../utils/gestureFeel';
 
 /** Visual variant: `solid` = world gradient, `pale` = light capsule + dark label. */
 export type GlowButtonVariant = 'solid' | 'pale';
@@ -36,6 +42,18 @@ interface GlowPrimaryButtonProps {
   loading?: boolean;
   testID?: string;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Turns the button into a hold-to-confirm control, for actions weighty
+   * enough to deserve the deliberation. Omit for a normal tap button.
+   *
+   * Under Reduce Motion the control confirms on a plain tap instead — see
+   * `useHoldToConfirm`.
+   */
+  holdMs?: number;
+  /** Live signal quality 0–1. Changes how the hold feels, never its duration. */
+  quality?: number;
+  /** Screen-reader hint describing the hold, e.g. "Press and hold to begin." */
+  holdHint?: string;
 }
 
 /** Gradient stops for the active fill, by accent world / variant. */
@@ -53,11 +71,23 @@ export function GlowPrimaryButton({
   loading = false,
   testID,
   style,
+  holdMs,
+  quality = 1,
+  holdHint,
 }: GlowPrimaryButtonProps): React.JSX.Element {
   const isGold = accent === 'gold';
   const isPale = variant === 'pale';
   const inactive = disabled || loading;
   const darkLabel = isGold || isPale;
+  const isHold = holdMs !== undefined;
+
+  // Always called (hooks cannot be conditional) but inert unless holdMs is set.
+  const hold = useHoldToConfirm({
+    onConfirm: onPress,
+    requiredMs: holdMs ?? HOLD_TO_CONFIRM_MS,
+    quality,
+    disabled: !isHold || inactive,
+  });
 
   // Breathing glow (outer halo pulsing)
   const glowAnim = useRef(new Animated.Value(0)).current;
@@ -87,6 +117,7 @@ export function GlowPrimaryButton({
   }, [glowAnim, inactive]);
 
   const handlePressIn = (): void => {
+    if (isHold) hold.onPressIn();
     Animated.timing(scaleAnim, {
       toValue: 0.97,
       duration: 100,
@@ -95,6 +126,7 @@ export function GlowPrimaryButton({
   };
 
   const handlePressOut = (): void => {
+    if (isHold) hold.onPressOut();
     Animated.timing(scaleAnim, {
       toValue: 1,
       duration: 150,
@@ -143,8 +175,9 @@ export function GlowPrimaryButton({
         testID={testID}
         accessibilityRole="button"
         accessibilityState={{ disabled: inactive }}
+        accessibilityHint={isHold && hold.requiresHold ? holdHint : undefined}
         disabled={inactive}
-        onPress={onPress}
+        onPress={isHold ? hold.onPress : onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={styles.btn}
@@ -159,6 +192,22 @@ export function GlowPrimaryButton({
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={StyleSheet.absoluteFill}
+          />
+        )}
+        {/* Charge sweep — a brighter wash growing from the leading edge */}
+        {isHold && hold.requiresHold && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.charge,
+              {
+                backgroundColor: haloColor,
+                width: hold.progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '100%'],
+                }),
+              },
+            ]}
           />
         )}
         <View style={styles.inner}>
@@ -187,6 +236,7 @@ export function GlowPrimaryButton({
 }
 
 const styles = StyleSheet.create({
+  charge: { position: 'absolute', left: 0, top: 0, bottom: 0, opacity: 0.35 },
   btn: {
     height: 57,
     borderRadius: t.radius.pill,
