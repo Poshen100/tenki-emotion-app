@@ -342,7 +342,14 @@ body{
    顏色改用帶位色，且要蓋掉上面的 -webkit-text-fill-color:transparent ——
    不蓋的話漸層 clip 會讓文字整個看不見。 */
 .tl-edge-score.band{
-  font-size:40px;letter-spacing:-0.01em;line-height:1;
+  /* 🔴 40px 仍然撐爆 —— 實測「Neutral」（三個帶位裡最長的）在 390 是 136px，
+     而環心只有 128px，左右各溢出 3px。上面那段註解已經知道「Neutral 放上去會
+     撐爆環心」、從 86px 降到 40px，但**降到一個固定值仍然是固定值**：
+     環心是 vw 的函式，字級不是，於是換一個寬度就又不成立。
+     跟 .awaiting 同樣的解法 —— 字級吃同一個 vw，上限 36px 留出餘裕。
+     harness 在 360/375/390/414 四個寬度驗「讀數整個在環心圓內」，
+     以後哪個帶位詞變長都會當場紅。 */
+  font-size:clamp(30px, 9vw, 36px);letter-spacing:-0.01em;line-height:1;
   background:none;-webkit-text-fill-color:currentColor;
 }
 /* 🔴 沒有讀數時的樣子（2026-08-18）。

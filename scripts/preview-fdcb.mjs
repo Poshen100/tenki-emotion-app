@@ -75,9 +75,9 @@ const browser = await chromium.launch();
 
 /** 開一頁 /v3/，種好讀數，跳過 splash，停在 Today。 */
 async function openV3(height, opts) {
-  const options = Object.assign({ reading: true }, opts || {});
+  const options = Object.assign({ reading: true, width: 390 }, opts || {});
   const page = await browser.newPage({
-    viewport: { width: 390, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+    viewport: { width: options.width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
   });
   await page.addInitScript((opts) => {
     // 自訂模板：一個 6 秒（跑得完）、一個 3:30（分秒都要顯示對）
@@ -459,6 +459,57 @@ console.log('\n── 自訂標籤 compliance ──');
   check('乾淨的標籤存得進去', ok.blocked, false);
   check('存進去了', ok.stored, 1);
   await page.close();
+}
+
+// ═══════════════ 10. Hero 讀數不得爆版 ═══════════════
+// founder 2026-08-19 實走回報：「尚未量測」斷成「尚未量」/「測」且跑出深色圓外，
+// 信心膠囊斷成「信心中 · 提」/「升精度 ›」。
+//
+// 🔴 這一組是**這三個 PR（#229/#231/#232）都沒有、也正是它們沒被擋下的原因**。
+// 環心是環的 62%（vw 的函式，實測 121~129px），而裡面的字級是寫死的 px ——
+// 390 剛好塞得下、375 就爆。PLAYBOOK 那條「把元素排進量出來的縫隙」的翻版。
+//
+// ⚠️ 所以這裡**掃多個寬度**，而且問的是「幾行」與「在不在圓內」這兩個看得見的事實，
+// 不是去比對某個寬度下量到的 px。
+console.log('\n── Hero 讀數不得爆版 ──');
+{
+  for (const width of [360, 375, 390, 414]) {
+    for (const withReading of [false, true]) {
+      const page = await openV3(700, { reading: withReading, width });
+      const h = await page.evaluate(() => {
+        const lines = (el) => {
+          if (!el || el.hidden) return null;
+          const r = document.createRange();
+          r.selectNodeContents(el);
+          return r.getClientRects().length;
+        };
+        const ctr = document.querySelector('.tl-edge-center');
+        const score = document.getElementById('edgeScoreReveal');
+        const cta = document.getElementById('edgeScanCta');
+        const conf = document.getElementById('edgeConfidence');
+        const action = (cta && !cta.hidden) ? cta : conf;
+        const cr = ctr.getBoundingClientRect();
+        const sr = score.getBoundingClientRect();
+        return {
+          text: score.textContent.trim(),
+          scoreLines: lines(score),
+          // 讀數的盒子必須完全落在環心的盒子裡（上下左右都不得溢出）
+          insideCircle: sr.top >= cr.top - 0.5 && sr.bottom <= cr.bottom + 0.5
+                     && sr.left >= cr.left - 0.5 && sr.right <= cr.right + 0.5,
+          // 圓裡的內容不得高過圓本身
+          contentFits: ctr.scrollHeight <= Math.ceil(cr.height) + 1,
+          actionText: action ? action.textContent.trim() : null,
+          actionLines: lines(action),
+        };
+      });
+      const tag = `${width}px ${withReading ? '有讀數' : '無讀數'}`;
+      check(`${tag}：讀數「${h.text}」只有 1 行`, h.scoreLines, 1);
+      check(`${tag}：讀數整個在環心圓內`, h.insideCircle, true);
+      check(`${tag}：環心裝得下自己的內容`, h.contentFits, true);
+      check(`${tag}：動作鍵「${h.actionText}」只有 1 行`, h.actionLines, 1);
+      await page.close();
+    }
+  }
 }
 
 await browser.close();
