@@ -1,9 +1,18 @@
 /**
- * story.js — animation/scroll wiring for apps/preview/story.html
- * GSAP timelines + ScrollTrigger only; no framework, no bundler.
+ * story.js — Cinematic Camera & Scroll Wiring for apps/preview/story.html
+ * GSAP 3.13+ timelines + ScrollTrigger + SplitText + CustomEase + DrawSVG.
+ *
+ * Implements 3 distinct camera language takes (Take 1 / Take 2 / Take 3).
+ * To switch takes, set ACTIVE_TAKE = 1 | 2 | 3 below.
  */
 (function () {
   'use strict';
+
+  // ── Take Selector ──────────────────────────────────────────────────────────
+  // 1 = Depth Push-In & Space Fly-Through (Recommended / Founder North Star)
+  // 2 = Cosmic Pull-Back & Grand Reveal
+  // 3 = Orbital Parallax & Dive
+  var ACTIVE_TAKE = 1;
 
   if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
     gsap.registerPlugin(ScrollTrigger);
@@ -15,11 +24,7 @@
     gsap.registerPlugin(DrawSVGPlugin);
   }
 
-  // Brand ease curves — the whole reason CustomEase is on the plugin whitelist.
-  // Without these the named eases never resolve and getEase() silently falls
-  // back to approximations (expo.out / sine.inOut / back.out), which is exactly
-  // what MOTION-DIRECTION §3 says these tokens are meant to replace.
-  // CSS cubic-bezier(x1,y1,x2,y2) → CustomEase path 'M0,0 C x1,y1 x2,y2 1,1'.
+  // Brand ease curves registered via CustomEase
   if (typeof gsap !== 'undefined' && typeof CustomEase !== 'undefined') {
     gsap.registerPlugin(CustomEase);
     CustomEase.create('calm', 'M0,0 C0.22,1 0.36,1 1,1');    // --ease-calm
@@ -34,8 +39,7 @@
     initDashboard();
     initFooter();
 
-    // Web font swap (Inter) can reflow text after ScrollTrigger has already
-    // measured pin start/end positions — refresh once fonts settle.
+    // Web font swap (Inter) reflow compensation
     if (typeof ScrollTrigger !== 'undefined' && document.fonts && document.fonts.ready) {
       document.fonts.ready.then(function () {
         ScrollTrigger.refresh();
@@ -50,6 +54,9 @@
     return fallback;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HERO — 3D Cinematic Camera Entrance & Depth Parallax
+  // ═══════════════════════════════════════════════════════════════════════════
   function initHero() {
     if (typeof gsap === 'undefined') return;
 
@@ -58,9 +65,24 @@
     var secureEase = getEase('secure', 'back.out(1.2)');
 
     gsap.matchMedia().add(
-      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
+      {
+        reduced: '(prefers-reduced-motion: reduce)',
+        full: '(prefers-reduced-motion: no-preference)'
+      },
       function (context) {
         var reduced = context.conditions.reduced;
+
+        // 🔴 Guardrail #3: prefers-reduced-motion MUST have zero camera motion
+        if (reduced) {
+          if (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.resetCamera === 'function') {
+            window.TENKI_STARDUST.resetCamera();
+          }
+          gsap.set(['#nav', '#hero-kicker', '#hero-title', '#hero-title .word', '#hero-sub', '#hero-actions .btn', '#scroll-cue'], {
+            clearProps: 'all'
+          });
+          gsap.set('#universe', { opacity: 1, clearProps: 'transform' });
+          return;
+        }
 
         if (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.playEntrance === 'function') {
           window.TENKI_STARDUST.playEntrance();
@@ -79,68 +101,180 @@
           return w.classList && w.classList.contains('accent');
         });
 
-        var targets = ['#nav', '#hero-kicker', words, '#hero-sub', '#hero-actions .btn', '#scroll-cue'];
-
-        if (reduced) {
-          gsap.set(targets, { clearProps: 'all' });
-          gsap.set('#universe', { opacity: 1 });
-          return;
-        }
-
-        // Initial hidden states per beat score
-        gsap.set('#nav', { autoAlpha: 0, y: -12 });
-        gsap.set('#hero-kicker', { autoAlpha: 0, y: 16 });
-        gsap.set(words, { autoAlpha: 0, y: 40 });
-        if (accentWords.length) {
-          gsap.set(accentWords, { scale: 0.98 });
-        }
-        gsap.set('#hero-sub', { autoAlpha: 0, y: 18 });
-        gsap.set('#hero-actions .btn', { autoAlpha: 0, y: 18, scale: 0.96 });
-        gsap.set('#scroll-cue', { autoAlpha: 0 });
-
-        // Master Entrance Timeline
+        // ── Initial 3D Camera & DOM States per Selected Take ──────────────────
+        var camProxy = { z: 5, y: 0, x: 0, fov: 75 };
         var masterTL = gsap.timeline({ delay: 0.1 });
 
-        // Beat 1: #nav at 0.25s (0.5s calm)
-        masterTL.to('#nav', { autoAlpha: 1, y: 0, duration: 0.5, ease: calmEase }, 0.25);
+        if (ACTIVE_TAKE === 1) {
+          // ── Take 1: Depth Push-In & Space Fly-Through ──────────────────────
+          camProxy.z = 10.8;
+          if (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.setCamera === 'function') {
+            window.TENKI_STARDUST.setCamera({ z: camProxy.z, y: 0, x: 0 });
+          }
 
-        // Beat 2: #hero-kicker at 0.35s (0.6s calm)
-        masterTL.to('#hero-kicker', { autoAlpha: 1, y: 0, duration: 0.6, ease: calmEase }, 0.35);
+          // Initial 3D placement across deep Z layers
+          gsap.set('#universe', { opacity: 0, scale: 0.95 });
+          gsap.set('#nav', { autoAlpha: 0, y: -16, z: 20 });
+          gsap.set('#hero-kicker', { autoAlpha: 0, y: 24, z: -100, rotateX: 18 });
+          gsap.set(words, { autoAlpha: 0, y: 50, z: -80, rotateX: 25, transformPerspective: 1000 });
+          if (accentWords.length) {
+            gsap.set(accentWords, { scale: 0.96, z: -60 });
+          }
+          gsap.set('#hero-sub', { autoAlpha: 0, y: 28, z: -50, rotateX: 12 });
+          gsap.set('#hero-actions .btn', { autoAlpha: 0, y: 24, z: -30, scale: 0.92 });
+          gsap.set('#scroll-cue', { autoAlpha: 0, z: 10 });
 
-        // Beat 3: #hero-title SplitText(words) at 0.50s (0.9s calm/expo.out, stagger 0.055)
-        masterTL.to(words, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.055, ease: calmEase }, 0.50);
+          // 1. Stardust Canvas & Three.js Camera Push-In (3.8s confident glide)
+          masterTL.to('#universe', { opacity: 1, scale: 1, duration: 1.6, ease: 'sine.out' }, 0.05);
+          masterTL.to(camProxy, {
+            z: 5.0,
+            duration: 3.8,
+            ease: calmEase,
+            onUpdate: function () {
+              if (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.setCamera === 'function') {
+                window.TENKI_STARDUST.setCamera({ z: camProxy.z });
+              }
+            }
+          }, 0.1);
 
-        // Beat 4: accent words scale 0.98->1 at +0.1s (0.6s calm)
-        if (accentWords.length) {
-          masterTL.to(accentWords, { scale: 1, duration: 0.6, ease: calmEase }, 0.60);
+          // 2. Nav Bar Reveal
+          masterTL.to('#nav', { autoAlpha: 1, y: 0, z: 0, duration: 0.8, ease: calmEase }, 0.3);
+
+          // 3. Kicker Pill with subtle 3D leveling
+          masterTL.to('#hero-kicker', { autoAlpha: 1, y: 0, z: 0, rotateX: 0, duration: 1.0, ease: calmEase }, 0.45);
+
+          // 4. Headline Word-by-Word 3D Surfacing
+          masterTL.to(words, {
+            autoAlpha: 1,
+            y: 0,
+            z: 0,
+            rotateX: 0,
+            duration: 1.3,
+            stagger: 0.065,
+            ease: calmEase
+          }, 0.7);
+
+          // 5. Accent Glow Pop
+          if (accentWords.length) {
+            masterTL.to(accentWords, { scale: 1, z: 0, duration: 0.9, ease: secureEase }, 1.3);
+          }
+
+          // 6. Subhead Materialize
+          masterTL.to('#hero-sub', { autoAlpha: 1, y: 0, z: 0, rotateX: 0, duration: 1.0, ease: calmEase }, 1.8);
+
+          // 7. CTAs Spring-in
+          masterTL.to('#hero-actions .btn', {
+            autoAlpha: 1,
+            y: 0,
+            z: 0,
+            scale: 1,
+            duration: 0.8,
+            stagger: 0.1,
+            ease: secureEase
+          }, 2.2);
+
+          // 8. Scroll Cue Ambient Pulse
+          masterTL.to('#scroll-cue', {
+            autoAlpha: 1,
+            duration: 0.8,
+            ease: calmEase,
+            onComplete: function () {
+              gsap.to('#scroll-cue .line', {
+                scaleY: 1.25,
+                y: 4,
+                duration: 1.8,
+                ease: breathEase,
+                repeat: -1,
+                yoyo: true
+              });
+            }
+          }, 2.8);
+
+        } else if (ACTIVE_TAKE === 2) {
+          // ── Take 2: Cosmic Pull-Back & Grand Reveal ───────────────────────
+          camProxy.z = 1.8;
+          if (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.setCamera === 'function') {
+            window.TENKI_STARDUST.setCamera({ z: camProxy.z });
+          }
+
+          gsap.set('#universe', { opacity: 0, scale: 1.2 });
+          gsap.set('#nav', { autoAlpha: 0, y: -12 });
+          gsap.set('#hero-kicker', { autoAlpha: 0, scale: 0.8, y: 20 });
+          gsap.set(words, { autoAlpha: 0, scale: 1.15, z: 60, filter: 'blur(8px)' });
+          gsap.set('#hero-sub', { autoAlpha: 0, y: 20 });
+          gsap.set('#hero-actions .btn', { autoAlpha: 0, scale: 0.9, y: 16 });
+          gsap.set('#scroll-cue', { autoAlpha: 0 });
+
+          masterTL.to('#universe', { opacity: 1, scale: 1, duration: 2.0, ease: 'power2.out' }, 0);
+          masterTL.to(camProxy, {
+            z: 5.2,
+            duration: 4.0,
+            ease: 'power3.out',
+            onUpdate: function () {
+              if (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.setCamera === 'function') {
+                window.TENKI_STARDUST.setCamera({ z: camProxy.z });
+              }
+            }
+          }, 0.1);
+
+          masterTL.to('#nav', { autoAlpha: 1, y: 0, duration: 0.7, ease: calmEase }, 0.4);
+          masterTL.to('#hero-kicker', { autoAlpha: 1, scale: 1, y: 0, duration: 0.9, ease: calmEase }, 0.6);
+          masterTL.to(words, {
+            autoAlpha: 1,
+            scale: 1,
+            z: 0,
+            filter: 'blur(0px)',
+            duration: 1.4,
+            stagger: 0.06,
+            ease: calmEase
+          }, 0.9);
+          masterTL.to('#hero-sub', { autoAlpha: 1, y: 0, duration: 0.9, ease: calmEase }, 1.9);
+          masterTL.to('#hero-actions .btn', { autoAlpha: 1, scale: 1, y: 0, duration: 0.8, stagger: 0.08, ease: secureEase }, 2.3);
+          masterTL.to('#scroll-cue', { autoAlpha: 1, duration: 0.8, ease: calmEase }, 2.9);
+
+        } else if (ACTIVE_TAKE === 3) {
+          // ── Take 3: Orbital Parallax & Dive ──────────────────────────────
+          camProxy.z = 7.5;
+          camProxy.y = 2.0;
+          if (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.setCamera === 'function') {
+            window.TENKI_STARDUST.setCamera({ z: camProxy.z, y: camProxy.y, lookAtY: -0.2 });
+          }
+
+          gsap.set('#universe', { opacity: 0 });
+          gsap.set('.hero-inner', { rotateX: 16, y: 40 });
+          gsap.set('#nav', { autoAlpha: 0, y: -20 });
+          gsap.set('#hero-kicker', { autoAlpha: 0, y: 20 });
+          gsap.set(words, { autoAlpha: 0, y: 35, z: -40 });
+          gsap.set('#hero-sub', { autoAlpha: 0, y: 24 });
+          gsap.set('#hero-actions .btn', { autoAlpha: 0, scale: 0.92, y: 20 });
+          gsap.set('#scroll-cue', { autoAlpha: 0 });
+
+          masterTL.to('#universe', { opacity: 1, duration: 1.4 }, 0);
+          masterTL.to(camProxy, {
+            z: 5.0,
+            y: 0,
+            duration: 3.6,
+            ease: calmEase,
+            onUpdate: function () {
+              if (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.setCamera === 'function') {
+                window.TENKI_STARDUST.setCamera({ z: camProxy.z, y: camProxy.y, lookAtY: 0 });
+              }
+            }
+          }, 0.1);
+
+          masterTL.to('.hero-inner', { rotateX: 0, y: 0, duration: 3.2, ease: calmEase }, 0.2);
+          masterTL.to('#nav', { autoAlpha: 1, y: 0, duration: 0.8, ease: calmEase }, 0.3);
+          masterTL.to('#hero-kicker', { autoAlpha: 1, y: 0, duration: 0.9, ease: calmEase }, 0.5);
+          masterTL.to(words, { autoAlpha: 1, y: 0, z: 0, duration: 1.1, stagger: 0.06, ease: calmEase }, 0.8);
+          masterTL.to('#hero-sub', { autoAlpha: 1, y: 0, duration: 0.9, ease: calmEase }, 1.8);
+          masterTL.to('#hero-actions .btn', { autoAlpha: 1, scale: 1, y: 0, duration: 0.8, stagger: 0.1, ease: secureEase }, 2.2);
+          masterTL.to('#scroll-cue', { autoAlpha: 1, duration: 0.8, ease: calmEase }, 2.8);
         }
 
-        // Beat 5: #hero-sub at 1.30s (0.6s calm)
-        masterTL.to('#hero-sub', { autoAlpha: 1, y: 0, duration: 0.6, ease: calmEase }, 1.30);
-
-        // Beat 6: #hero-actions .btn at 1.50s (0.6s secure, stagger 0.08)
-        masterTL.to('#hero-actions .btn', { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, stagger: 0.08, ease: secureEase }, 1.50);
-
-        // Beat 7: #scroll-cue at 2.00s fade in -> enters breath y loop
-        masterTL.to('#scroll-cue', {
-          autoAlpha: 1,
-          duration: 0.6,
-          ease: calmEase,
-          onComplete: function () {
-            gsap.to('#scroll-cue .line', {
-              scaleY: 1.2,
-              y: 4,
-              duration: 1.8,
-              ease: breathEase,
-              repeat: -1,
-              yoyo: true
-            });
-          }
-        }, 2.00);
-
-        // Hero Exit Scrub (hand off to story panels)
+        // ── Hero Exit Scrub: 3D Depth Traversal (Hero -> Story Panel 1) ──────
         var exitScrub = null;
         if (typeof ScrollTrigger !== 'undefined') {
+          var scrollCam = { z: 5.0 };
           exitScrub = gsap.timeline({
             scrollTrigger: {
               trigger: '#hero',
@@ -150,10 +284,32 @@
             }
           });
 
-          // #universe wrapper y-drop + fade to ~0.35 (transform/opacity on wrapper only!)
-          exitScrub.to('#universe', { yPercent: 20, opacity: 0.35, ease: 'none' }, 0);
-          // Hero text group y -30 + fade out
-          exitScrub.to('.hero-inner', { y: -30, autoAlpha: 0, ease: 'none' }, 0);
+          // Camera plunges deep through the particle cloud into story
+          exitScrub.to(scrollCam, {
+            z: 1.2,
+            ease: 'none',
+            onUpdate: function () {
+              if (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.setCamera === 'function') {
+                window.TENKI_STARDUST.setCamera({ z: scrollCam.z });
+              }
+            }
+          }, 0);
+
+          // Hero DOM accelerates toward viewer in 3D and fades out
+          exitScrub.to('.hero-inner', {
+            z: 280,
+            y: -60,
+            autoAlpha: 0,
+            ease: 'power1.in'
+          }, 0);
+
+          // Stardust fades partially to serve as luminous backdrop for story
+          exitScrub.to('#universe', {
+            opacity: 0.42,
+            yPercent: 12,
+            ease: 'none'
+          }, 0);
+
           exitScrub.to('#scroll-cue', { autoAlpha: 0, ease: 'none' }, 0);
         }
 
@@ -161,18 +317,27 @@
           masterTL.kill();
           if (exitScrub && exitScrub.scrollTrigger) exitScrub.scrollTrigger.kill();
           if (split && split.revert) split.revert();
+          if (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.resetCamera === 'function') {
+            window.TENKI_STARDUST.resetCamera();
+          }
         };
       }
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STORY PANELS — Pinning & Deep Parallax Transitions
+  // ═══════════════════════════════════════════════════════════════════════════
   function initStoryPanels() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
     var calmEase = getEase('calm', 'expo.out');
 
     gsap.matchMedia().add(
-      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
+      {
+        reduced: '(prefers-reduced-motion: reduce)',
+        full: '(prefers-reduced-motion: no-preference)'
+      },
       function (context) {
         var reduced = context.conditions.reduced;
         var panels = gsap.utils.toArray('.story-panel');
@@ -199,11 +364,19 @@
           }
 
           var parallaxY = (i % 2 === 0) ? 24 : -24;
+          var tiltY = (i % 2 === 0) ? 7 : -7;
 
           gsap.set(indexEl, { autoAlpha: 0, y: 20 });
           gsap.set(titleLines, { autoAlpha: 0, y: 28 });
           gsap.set(bodyEl, { autoAlpha: 0, y: 20 });
-          gsap.set(visual, { autoAlpha: 0, scale: 0.92, y: parallaxY });
+          gsap.set(visual, {
+            autoAlpha: 0,
+            scale: 0.92,
+            y: parallaxY,
+            transformPerspective: 1000,
+            rotateY: tiltY,
+            rotateX: 4
+          });
 
           if (drawLine && typeof DrawSVGPlugin !== 'undefined') {
             gsap.set(drawLine, { drawSVG: '0%' });
@@ -228,19 +401,34 @@
             tl.to(drawLine, { drawSVG: '100%', duration: 0.25, ease: calmEase }, 0.05);
           }
 
-          // 3. Title SplitText(lines) stagger 0.08
+          // 3. Title SplitText(lines) stagger
           tl.to(titleLines, { autoAlpha: 1, y: 0, duration: 0.35, stagger: 0.08, ease: calmEase }, 0.08);
 
-          // 4. Body fade/y
+          // 4. Body text reveal
           tl.to(bodyEl, { autoAlpha: 1, y: 0, duration: 0.3, ease: calmEase }, 0.18);
 
-          // 5. Visual depth parallax
-          tl.to(visual, { autoAlpha: 1, scale: 1, y: 0, duration: 0.45, ease: calmEase }, 0.05);
+          // 5. Visual depth parallax & 3D tilt level-out
+          tl.to(visual, {
+            autoAlpha: 1,
+            scale: 1,
+            y: 0,
+            rotateY: 0,
+            rotateX: 0,
+            duration: 0.45,
+            ease: calmEase
+          }, 0.05);
 
           // Exit fade for panel 1 & 2
           if (i < panels.length - 1) {
             tl.to([indexEl, titleLines, bodyEl], { autoAlpha: 0, y: -24, duration: 0.25, stagger: 0.04 }, 0.72)
-              .to(visual, { autoAlpha: 0, scale: 0.96, y: -parallaxY, duration: 0.25 }, 0.72);
+              .to(visual, {
+                autoAlpha: 0,
+                scale: 0.96,
+                y: -parallaxY,
+                rotateY: -tiltY * 0.7,
+                rotateX: -3,
+                duration: 0.25
+              }, 0.72);
           }
 
           return tl.scrollTrigger;
@@ -258,32 +446,37 @@
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRANSITION & SOUL SCAN CEREMONY
+  // ═══════════════════════════════════════════════════════════════════════════
   function initTransition() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
+    var calmEase = getEase('calm', 'expo.out');
     var breathEase = getEase('breath', 'sine.inOut');
-    var secureEase = getEase('secure', 'back.out(1.2)');
 
     gsap.matchMedia().add(
-      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
+      {
+        reduced: '(prefers-reduced-motion: reduce)',
+        full: '(prefers-reduced-motion: no-preference)'
+      },
       function (context) {
         var reduced = context.conditions.reduced;
         var section = document.querySelector('#transition');
-        var ring = document.querySelector('#unlock-ring');
-        var core = document.querySelector('#unlock-core');
-        var label = document.querySelector('#unlock-label');
+        if (!section) return;
 
-        if (!section || reduced) {
-          gsap.set([ring, label], { clearProps: 'all' });
+        if (reduced) {
+          gsap.set(['#unlock-ring', '#unlock-core', '#unlock-label'], { clearProps: 'all' });
           return;
         }
 
-        gsap.set(ring, { autoAlpha: 0, scale: 0.7 });
-        gsap.set(label, { autoAlpha: 0, y: 12 });
+        gsap.set('#unlock-ring', { autoAlpha: 0, scale: 0.82, rotate: -45 });
+        gsap.set('#unlock-core', { autoAlpha: 0, scale: 0.55 });
+        gsap.set('#unlock-label', { autoAlpha: 0, y: 24 });
 
-        var breathe = gsap.to(core, {
-          scale: 1.08,
-          duration: 1.6,
+        var pulseTween = gsap.to('#unlock-core', {
+          scale: 1.14,
+          duration: 1.5,
           ease: breathEase,
           repeat: -1,
           yoyo: true,
@@ -294,113 +487,136 @@
           scrollTrigger: {
             trigger: section,
             start: 'top top',
-            end: '+=120%',
+            end: '+=100%',
             pin: true,
-            scrub: 1,
+            scrub: 0.8,
             anticipatePin: 1,
-            onEnter: function () { breathe.play(); },
-            onEnterBack: function () { breathe.play(); },
-            onLeave: function () { breathe.pause(); },
-            onLeaveBack: function () { breathe.pause(); }
+            onEnter: function () { pulseTween.play(); },
+            onLeave: function () { pulseTween.pause(); },
+            onEnterBack: function () { pulseTween.play(); },
+            onLeaveBack: function () { pulseTween.pause(); }
           }
         });
 
-        tl.to(ring, { autoAlpha: 1, scale: 1, duration: 0.25, ease: secureEase }, 0)
-          .to(label, { autoAlpha: 1, y: 0, duration: 0.2, ease: secureEase }, 0.1)
-          .to(ring, { autoAlpha: 0, scale: 1.6, duration: 0.25, ease: 'power2.in' }, 0.72)
-          .to(core, { autoAlpha: 0, scale: 1.6, duration: 0.25, ease: 'power2.in' }, 0.72)
-          .to(label, { autoAlpha: 0, y: -12, duration: 0.2 }, 0.72);
+        tl.to('#unlock-ring', { autoAlpha: 1, scale: 1, rotate: 0, duration: 0.38, ease: calmEase }, 0)
+          .to('#unlock-core', { autoAlpha: 1, scale: 1, duration: 0.38, ease: calmEase }, 0.06)
+          .to('#unlock-label', { autoAlpha: 1, y: 0, duration: 0.32, ease: calmEase }, 0.14)
+          .to('#unlock-ring', { rotate: 45, duration: 0.45, ease: 'none' }, 0.38)
+          .to(['#unlock-ring', '#unlock-core', '#unlock-label'], {
+            autoAlpha: 0,
+            scale: 1.25,
+            duration: 0.28,
+            ease: 'power2.in'
+          }, 0.74);
 
         return function () {
-          breathe.kill();
           if (tl.scrollTrigger) tl.scrollTrigger.kill();
-          tl.kill();
+          pulseTween.kill();
         };
       }
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DASHBOARD SECTION
+  // ═══════════════════════════════════════════════════════════════════════════
   function initDashboard() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
     var calmEase = getEase('calm', 'expo.out');
 
     gsap.matchMedia().add(
-      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
+      {
+        reduced: '(prefers-reduced-motion: reduce)',
+        full: '(prefers-reduced-motion: no-preference)'
+      },
       function (context) {
         var reduced = context.conditions.reduced;
         var section = document.querySelector('#dashboard');
-        var frame = document.querySelector('#phone-frame');
-        if (!section || !frame) return;
+        if (!section) return;
 
-        var copy = section.querySelectorAll(
-          '.dash-copy > .story-index, .dash-copy > .story-title, .dash-copy > .story-body, .dash-annotation'
-        );
+        var frame = section.querySelector('.phone-frame');
+        var annotations = section.querySelectorAll('.annotation');
 
         if (reduced) {
-          gsap.set([copy, frame], { clearProps: 'all' });
+          gsap.set([frame, annotations], { clearProps: 'all' });
           return;
         }
 
-        gsap.set(copy, { autoAlpha: 0, y: 28 });
         gsap.set(frame, {
-          autoAlpha: 0, y: 60, scale: 0.88,
-          rotationX: 8, rotationY: -6, transformPerspective: 1000
+          autoAlpha: 0,
+          scale: 0.9,
+          rotateX: 10,
+          rotateY: -6,
+          transformPerspective: 1200,
+          transformOrigin: 'center center'
         });
+        gsap.set(annotations, { autoAlpha: 0, x: -20 });
 
-        var entrance = gsap.timeline({
+        var entranceTL = gsap.timeline({
           scrollTrigger: {
             trigger: section,
-            start: 'top 70%',
+            start: 'top 75%',
             toggleActions: 'play none none reverse'
           }
         });
 
-        entrance
-          .to(copy, { autoAlpha: 1, y: 0, duration: 0.7, stagger: 0.08, ease: calmEase }, 0)
-          .to(frame, { autoAlpha: 1, y: 0, scale: 1, rotationX: 0, rotationY: 0, duration: 1, ease: calmEase }, 0.1);
+        entranceTL
+          .to(frame, { autoAlpha: 1, scale: 1, rotateX: 0, rotateY: 0, duration: 0.9, ease: calmEase })
+          .to(annotations, { autoAlpha: 1, x: 0, duration: 0.6, stagger: 0.12, ease: calmEase }, '-=0.5');
 
-        var parallax = gsap.to(frame, {
-          y: -30,
-          ease: 'none',
+        var parallaxTL = gsap.timeline({
           scrollTrigger: {
             trigger: section,
             start: 'top bottom',
             end: 'bottom top',
-            scrub: true
+            scrub: 0.6
           }
         });
 
+        parallaxTL.to(frame, { y: -30, rotateX: -4, ease: 'none' });
+
         return function () {
-          if (entrance.scrollTrigger) entrance.scrollTrigger.kill();
-          entrance.kill();
-          if (parallax.scrollTrigger) parallax.scrollTrigger.kill();
-          parallax.kill();
+          if (entranceTL.scrollTrigger) entranceTL.scrollTrigger.kill();
+          if (parallaxTL.scrollTrigger) parallaxTL.scrollTrigger.kill();
         };
       }
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FOOTER SECTION
+  // ═══════════════════════════════════════════════════════════════════════════
   function initFooter() {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
     var calmEase = getEase('calm', 'expo.out');
+    var secureEase = getEase('secure', 'back.out(1.2)');
 
     gsap.matchMedia().add(
-      { reduced: '(prefers-reduced-motion: reduce)', full: '(prefers-reduced-motion: no-preference)' },
+      {
+        reduced: '(prefers-reduced-motion: reduce)',
+        full: '(prefers-reduced-motion: no-preference)'
+      },
       function (context) {
         var reduced = context.conditions.reduced;
-        var footer = document.querySelector('#site-footer');
+        var footer = document.querySelector('.footer');
         if (!footer) return;
 
-        var targets = footer.querySelectorAll('.footer-title, .footer-actions .btn, .footer-mark');
+        var elements = [
+          footer.querySelector('.footer-title'),
+          footer.querySelectorAll('.footer-actions .btn'),
+          footer.querySelector('.footer-mark')
+        ];
 
         if (reduced) {
-          gsap.set(targets, { clearProps: 'all' });
+          gsap.set(elements, { clearProps: 'all' });
           return;
         }
 
-        gsap.set(targets, { autoAlpha: 0, y: 24 });
+        gsap.set(footer.querySelector('.footer-title'), { autoAlpha: 0, y: 24 });
+        gsap.set(footer.querySelectorAll('.footer-actions .btn'), { autoAlpha: 0, y: 20, scale: 0.96 });
+        gsap.set(footer.querySelector('.footer-mark'), { autoAlpha: 0 });
 
         var tl = gsap.timeline({
           scrollTrigger: {
@@ -410,13 +626,22 @@
           }
         });
 
-        tl.to(targets, { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.08, ease: calmEase });
+        tl.to(footer.querySelector('.footer-title'), { autoAlpha: 1, y: 0, duration: 0.7, ease: calmEase })
+          .to(footer.querySelectorAll('.footer-actions .btn'), {
+            autoAlpha: 1,
+            y: 0,
+            scale: 1,
+            duration: 0.6,
+            stagger: 0.1,
+            ease: secureEase
+          }, '-=0.4')
+          .to(footer.querySelector('.footer-mark'), { autoAlpha: 1, duration: 0.8, ease: calmEase }, '-=0.2');
 
         return function () {
           if (tl.scrollTrigger) tl.scrollTrigger.kill();
-          tl.kill();
         };
       }
     );
   }
+
 })();

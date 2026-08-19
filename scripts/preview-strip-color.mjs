@@ -359,7 +359,15 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('🔴 頁面上不得出現寫死的 Edge Score · 72',
     /Edge Score\s*·\s*72/.test(today.bodyText), false);
   check('🔴 沒有讀數時 FDCB 不得報一個分數', today.fdcbSeg, '尚無讀數');
-  check('Hero 分數槽是空的（契約上就沒有 0-100 分）', today.heroScore, '—');
+  // 🔴 這一條原本比對字面的 '—'。#231 把無讀數狀態設計成「尚未量測」（那是更好的
+  // 文案 —— 它說出了正在發生的事），但沒回頭改這條斷言，於是 **main 自己一路紅著**
+  // 44/45 沒人發現：本 harness 不在 verify.sh／CI 裡（Playwright 容器限定路徑），
+  // 它不會自己喊痛。PLAYBOOK 早就寫過這個盲區，這次是它真的發生。
+  // 改成問**意圖**而不是問字形：這一格不准出現任何數字（那才是「契約上沒有分數」
+  // 這條紅線真正要守的東西），而且必須有話說、不能整格空白。
+  check('🔴 Hero 分數槽不得出現任何數字（契約上就沒有 0-100 分）',
+    /\d/.test(today.heroScore), false);
+  check('Hero 分數槽有話說（不是整格空白）', today.heroScore.trim().length > 0, true);
   check('🔴 Hero 標籤跟槽裡的東西一致（不掛 Edge Score）', today.heroLabel, '狀態讀數');
 }
 

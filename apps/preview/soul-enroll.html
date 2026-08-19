@@ -468,12 +468,34 @@
     #ob-hint.show { opacity: .7; animation: ob-hint-pulse 2.6s ease-in-out infinite .4s; }
     @keyframes ob-hint-pulse { 0%,100% { opacity: .45; } 50% { opacity: .8; } }
 
-    /* ── Step 5: Secure Access (handoff) ── */
-    .ob-shield { position: relative; margin: 8px auto 6px; width: 112px; height: 128px; animation: ob-shield-breathe 4.2s ease-in-out infinite; }
-    .ob-shield svg { width: 100%; height: 100%; overflow: visible; }
+    /* ── Step 5: Secure Access (Super-3D Faceted Gold Shield per ANTIGRAVITY #1-B) ── */
+    .ob-shield {
+      position: relative; margin: 12px auto 8px; width: 120px; height: 138px;
+      perspective: 800px;
+      transform-style: preserve-3d;
+      animation: ob-shield-breathe 4.6s cubic-bezier(.4,0,.6,1) infinite;
+    }
+    .ob-shield svg {
+      width: 100%; height: 100%; overflow: visible;
+      filter: drop-shadow(0 12px 28px rgba(243,169,42,.32)) drop-shadow(0 0 16px rgba(255,212,110,.25));
+      transition: transform .6s cubic-bezier(.22,1,.36,1);
+    }
+    .ob-shield:hover svg {
+      transform: rotateY(8deg) rotateX(-6deg) scale(1.03);
+    }
+    .ob-shield::after {
+      content: ''; position: absolute; inset: 10px 20px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,233,176,.25), transparent 70%);
+      filter: blur(12px); pointer-events: none; opacity: .8;
+      animation: ob-shield-glow 4.6s ease-in-out infinite;
+    }
     @keyframes ob-shield-breathe {
-      0%,100% { filter: drop-shadow(0 0 14px rgba(243,169,42,.34)); transform: translateY(0); }
-      50%     { filter: drop-shadow(0 0 26px rgba(243,169,42,.6)); transform: translateY(-3px); }
+      0%,100% { transform: translateY(0) rotateX(0deg); }
+      50%     { transform: translateY(-4px) rotateX(3deg); }
+    }
+    @keyframes ob-shield-glow {
+      0%,100% { opacity: .6; transform: scale(.95); }
+      50%     { opacity: 1; transform: scale(1.1); }
     }
     .ob-points { list-style: none; margin: 24px 0 0; padding: 0; width: 100%; max-width: 330px; text-align: left; }
     .ob-points li { display: flex; align-items: flex-start; gap: 13px; padding: 13px 0; border-top: 1px solid rgba(255,255,255,.06); }
@@ -688,18 +710,88 @@
       <section class="ob-panel" id="ob-secure" data-step="5">
         <div class="ob-spacer"></div>
         <div class="ob-shield" data-rise="1">
-          <svg viewBox="0 0 116 132" fill="none">
+          <svg viewBox="0 0 120 140" fill="none">
             <defs>
-              <linearGradient id="shieldStroke" x1="0" y1="0" x2="116" y2="132" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#FFE9B0"/>
-                <stop offset="1" stop-color="#F3A92A"/>
+              <!-- Outer Bevel Rim Gradient -->
+              <linearGradient id="shieldRim" x1="10" y1="6" x2="110" y2="134" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#FFF8E7"/>
+                <stop offset="25%" stop-color="#FFDA73"/>
+                <stop offset="65%" stop-color="#C88018"/>
+                <stop offset="100%" stop-color="#5A3606"/>
               </linearGradient>
+              <!-- Left Lit Facet (Specular key light side) -->
+              <linearGradient id="shieldFacetLeft" x1="20" y1="12" x2="60" y2="126" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#FFF0C8"/>
+                <stop offset="35%" stop-color="#F5B238"/>
+                <stop offset="85%" stop-color="#B87314"/>
+                <stop offset="100%" stop-color="#704408"/>
+              </linearGradient>
+              <!-- Right Shadow Facet (Ambient occlusion side) -->
+              <linearGradient id="shieldFacetRight" x1="100" y1="12" x2="60" y2="126" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#C8821C"/>
+                <stop offset="45%" stop-color="#7A4D0C"/>
+                <stop offset="85%" stop-color="#422703"/>
+                <stop offset="100%" stop-color="#241401"/>
+              </linearGradient>
+              <!-- Inner Plate Gradient -->
+              <linearGradient id="shieldInnerPlate" x1="30" y1="24" x2="90" y2="110" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="rgba(30,20,50,0.85)"/>
+                <stop offset="100%" stop-color="rgba(10,6,18,0.95)"/>
+              </linearGradient>
+              <!-- Center Ridge Specular Spine -->
+              <linearGradient id="shieldSpine" x1="60" y1="8" x2="60" y2="128" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#FFFFFF"/>
+                <stop offset="20%" stop-color="#FFF0C8"/>
+                <stop offset="80%" stop-color="#E89B20"/>
+                <stop offset="100%" stop-color="rgba(232,155,32,0)"/>
+              </linearGradient>
+              <!-- Soft Core Bloom -->
+              <radialGradient id="shieldCoreBloom" cx="60" cy="65" r="45" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="rgba(255,220,120,0.35)"/>
+                <stop offset="60%" stop-color="rgba(243,169,42,0.12)"/>
+                <stop offset="100%" stop-color="rgba(243,169,42,0)"/>
+              </radialGradient>
             </defs>
-            <path d="M58 4 L10 22 V64 C10 96 30 118 58 128 Z" fill="rgba(243,169,42,.20)"/>
-            <path d="M58 4 L106 22 V64 C106 96 86 118 58 128 Z" fill="rgba(243,169,42,.07)"/>
-            <path d="M58 4 L106 22 V64 C106 96 86 118 58 128 C30 118 10 96 10 64 V22 Z"
-                  fill="none" stroke="url(#shieldStroke)" stroke-width="2.5" stroke-linejoin="round"/>
-            <path d="M58 4 V128" stroke="url(#shieldStroke)" stroke-width="1.4" stroke-opacity=".5"/>
+
+            <!-- 1. Outer 3D Cast Shadow Base -->
+            <path d="M60 8 L14 26 V68 C14 100 34 122 60 132 C86 122 106 100 106 68 V26 Z"
+                  fill="rgba(0,0,0,0.5)" filter="blur(6px)"/>
+
+            <!-- 2. Outer Bevel Rim -->
+            <path d="M60 8 L14 26 V68 C14 100 34 122 60 132 C86 122 106 100 106 68 V26 Z"
+                  fill="none" stroke="url(#shieldRim)" stroke-width="4.5" stroke-linejoin="round"/>
+
+            <!-- 3. Left 3D Facet (Lit Side) -->
+            <path d="M60 8 L16 27 V68 C16 98 35 119 60 129 Z" fill="url(#shieldFacetLeft)"/>
+
+            <!-- 4. Right 3D Facet (Shadow Side) -->
+            <path d="M60 8 L104 27 V68 C104 98 85 119 60 129 Z" fill="url(#shieldFacetRight)"/>
+
+            <!-- 5. Inner Recessed Shield Plate -->
+            <path d="M60 18 L24 33 V68 C24 92 40 109 60 118 C80 109 96 92 96 68 V33 Z"
+                  fill="url(#shieldInnerPlate)" stroke="rgba(255,233,176,0.35)" stroke-width="1.2"/>
+            <path d="M60 18 L24 33 V68 C24 92 40 109 60 118 C80 109 96 92 96 68 V33 Z"
+                  fill="url(#shieldCoreBloom)"/>
+
+            <!-- 6. Central Specular Ridge (3D Spine) -->
+            <path d="M60 8 V129" stroke="url(#shieldSpine)" stroke-width="2.0" stroke-linecap="round"/>
+
+            <!-- 7. Embossed Secure Core (Lock + Check Biometric Glyph) -->
+            <g transform="translate(60, 68)">
+              <!-- Shackle -->
+              <path d="M-9 -4 V-11 C-9 -16 9 -16 9 -11 V-4"
+                    fill="none" stroke="#FFE9B0" stroke-width="2.4" stroke-linecap="round"/>
+              <!-- Body -->
+              <rect x="-14" y="-4" width="28" height="22" rx="4.5"
+                    fill="url(#shieldFacetLeft)" stroke="#FFF8E7" stroke-width="1.2"/>
+              <!-- Keyhole / Check glyph -->
+              <circle cx="0" cy="4" r="2.8" fill="#1A1002"/>
+              <path d="M0 6.5 V11" stroke="#1A1002" stroke-width="2.2" stroke-linecap="round"/>
+            </g>
+
+            <!-- 8. Specular Catchlight Flares on Top Bevel -->
+            <circle cx="60" cy="8" r="2.5" fill="#FFFFFF" filter="drop-shadow(0 0 3px #FFFFFF)"/>
+            <circle cx="16" cy="27" r="1.8" fill="#FFF8E7"/>
           </svg>
         </div>
         <h1 class="ob-h" data-rise="2" style="font-size:27px;margin-top:14px">Secure Access</h1>

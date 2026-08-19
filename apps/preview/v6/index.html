@@ -340,6 +340,39 @@ body{
   font-size:40px;letter-spacing:-0.01em;line-height:1;
   background:none;-webkit-text-fill-color:currentColor;
 }
+/* 🔴 沒有讀數時的樣子（2026-08-18）。
+   分數槽留空是誠實的（readiness 契約沒有 0-100 分，編一個＝造假），但
+   **誠實不等於讀得懂** —— 這是 2026-08-08 那條教訓的另一半：那次是「有讀數卻
+   看起來沒有」，這次是「沒讀數卻看起來像故障」。founder 實走原話：
+   「不顯示數字雖然誠實但看起來像固障」。
+   病灶不是那個「—」，是**環照樣畫滿橘→綠→青的漸層**：環看起來有資料、
+   中間卻空著，讀起來就是壞掉。所以沒讀數時把環降成「待機軌道」，
+   主位換成講人話的狀態（仍然沒有任何捏造的數字）。 */
+.tl-edge.no-reading{filter:drop-shadow(0 0 18px rgba(0,180,216,0.06))}
+.tl-edge.no-reading .ring-outer-wrap,
+.tl-edge.no-reading .ring-inner-wrap{
+  /* 環有呼吸動畫在跑，而 **CSS 動畫的優先級高過一般宣告** —— 不關掉它，
+     這裡寫 opacity/filter 會整段失效（實測 computed 仍是 0.97）。 */
+  animation:none !important;
+  filter:saturate(0.15) brightness(0.55) !important;
+  opacity:0.40 !important;
+}
+.tl-edge.no-reading .ring-dot{display:none}      /* 沒有讀數就沒有資料點 */
+.tl-edge.no-reading::before{opacity:0.25}
+.tl-edge-score.awaiting{
+  font-size:30px;font-weight:600;letter-spacing:0.01em;line-height:1.1;
+  background:none;-webkit-text-fill-color:rgba(255,255,255,0.55);
+  filter:none;
+}
+/* 「到 Scan 掃一次」本來只是一行字，長得像連結卻點不動 —— 補成真的可點 */
+.tl-edge-cta{
+  appearance:none;border:1px solid rgba(0,180,216,0.35);
+  background:rgba(0,180,216,0.10);color:var(--primary);
+  font-size:12px;font-weight:600;letter-spacing:0.02em;
+  padding:7px 16px;border-radius:999px;margin-top:10px;cursor:pointer;
+  transition:background .2s var(--ease-calm), border-color .2s var(--ease-calm);
+}
+.tl-edge-cta:active{background:rgba(0,180,216,0.20)}
 .tl-edge-pr{
   font-size:12px;font-weight:500;color:rgba(255,255,255,0.85);
   letter-spacing:0.14em;margin-top:2px;
@@ -2323,7 +2356,8 @@ body{
                    （CLAUDE.md），只是**不由這裡供應**；等原生 pipeline 有真訊號源
                    再把名字掛回來。 -->
               <div class="tl-edge-pr">狀態讀數</div>
-              <div class="tl-edge-zone" id="edgeTraceZone">尚無讀數 · 到 Scan 掃一次</div>
+              <div class="tl-edge-zone" id="edgeTraceZone">還沒有今天的讀數</div>
+              <button type="button" class="tl-edge-cta" id="edgeScanCta" onclick="goTab('scan')">到 Scan 掃一次 ›</button>
               <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
             </div>
           </div>
@@ -4400,9 +4434,20 @@ function renderHeroReading(){
   if(!zoneEl) return false;
   if(!r){
     // 沒有讀數才留空槽 —— 這時候「—」是對的，它就是在說「還沒量」。
-    if(scoreEl){ scoreEl.textContent = '—'; scoreEl.classList.remove('band'); scoreEl.style.color = ''; }
-    zoneEl.textContent = '尚無讀數 · 到 Scan 掃一次';
+    if(scoreEl){
+      // 講人話的狀態取代裸破折號 —— 仍然沒有任何捏造的數字。
+      scoreEl.textContent = '尚未量測';
+      scoreEl.classList.remove('band');
+      scoreEl.classList.add('awaiting');
+      scoreEl.style.color = '';
+    }
+    // 環降成待機軌道，別再假裝自己有資料
+    const edgeEl = document.querySelector('.tl-edge');
+    if(edgeEl) edgeEl.classList.add('no-reading');
+    zoneEl.textContent = '還沒有今天的讀數';
     zoneEl.style.color = '';
+    const ctaEl = document.getElementById('edgeScanCta');
+    if(ctaEl) ctaEl.hidden = false;
     if(confEl) confEl.hidden = true;
     return false;
   }
@@ -4417,8 +4462,14 @@ function renderHeroReading(){
   if(scoreEl){
     scoreEl.textContent = BAND_LABEL_V6[r.band];
     scoreEl.classList.add('band');
+    scoreEl.classList.remove('awaiting');
     scoreEl.style.color = BAND_COLOR_V6[r.band] || '';
   }
+  // 兩個方向都要清，否則狀態會卡在待機樣式
+  const edgeElOn = document.querySelector('.tl-edge');
+  if(edgeElOn) edgeElOn.classList.remove('no-reading');
+  const ctaOn = document.getElementById('edgeScanCta');
+  if(ctaOn) ctaOn.hidden = true;
   // 帶位上了主位之後，這一行改報**新鮮度** —— 再說一次「Clear」是廢話，
   // 「什麼時候量的」才是使用者接著會問的問題。
   zoneEl.textContent = stale
@@ -5437,9 +5488,27 @@ function closeSessionDetail(){
       .live-wave,.ans-wave{background-image:repeating-linear-gradient(0deg,rgba(120,200,255,0.09) 0 1px,transparent 1px 13px),repeating-linear-gradient(90deg,rgba(120,200,255,0.09) 0 1px,transparent 1px 13px);border-radius:8px;}
       /* short phones (iPhone SE / older): reclaim vertical budget so the full card + dots fit —
          trim the hero and drop the coach hint (taller phones keep both). */
+      /* 🔴 短視窗：首屏不得把 vitals 卡切在 FDCB 底座下面。
+         ≤760px 時頁面雖然「捲得動」（.screen overflow-y:auto），但使用者一進來
+         看到的是被切一半的圖表 —— 讀起來像故障，不像「往下捲還有」。
+         實測 390×700：hero 281 + coach 80 + track 190 + dots/note + gaps 超出
+         可視高度 56px。這裡把輪播與 hero 收一收，讓首屏就放得下。
+         量測方式見 PLAYBOOK：用 getBoundingClientRect + elementFromPoint 問瀏覽器。 */
+      @media (max-height:880px){
+        /* 短視窗要騰出空間時，縮的是那顆巨環（佔畫面最大宗），不是資料卡 ——
+           先前把輪播壓到 130px，圖表幾乎沒了還被 Swipe 提示蓋住，等於用一個
+           問題換另一個問題。 */
+        #today-screen .hero{min-height:26vh;}
+        #today-screen .tl-edge{width:min(54vw,208px);height:min(54vw,208px);}
+        .snap-track{height:168px;}
+        /* 圓點是最後一個元素，原本 +10px 的餘裕在這帶不夠，會壓到底座上緣 */
+        .snap{gap:8px;padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 26px);}
+      }
       @media (max-height:680px){
-        #today-screen .hero{min-height:32vh;}
+        #today-screen .hero{min-height:24vh;}
+        #today-screen .tl-edge{width:min(48vw,186px);height:min(48vw,186px);}
         #today-screen .snap > .coach-card{display:none;}
+        .snap-track{height:168px;}
       }
     </style>
     <script>
@@ -5478,6 +5547,7 @@ function closeSessionDetail(){
       // ── first-visit "swipe" coach hint: teach the gesture once, then never again ──
       (function(){
         var hint=byId('snapHint'); if(!hint) return;
+        var snap=hint.offsetParent||hint.parentElement;
         var SEEN='tenki.snapHintSeen3'; // bumped per redesign (#121 fingertip hint) so returning users see it once more
         var force=/[?&]hint=1\b/.test(location.search); // ?hint=1 / &hint=1 → force-show for re-testing; never persists
         if(!force){ try{ if(localStorage.getItem(SEEN)==='1') return; }catch(e){} }
@@ -5499,8 +5569,23 @@ function closeSessionDetail(){
           if(shown||done) return;
           if(cur!==0){ markSeen(); done=true; return; }   // already explored during the wait → don't nag
           shown=true;
-          // float over the lower area of the cards — the track is always visible; .snap clips below it
-          hint.style.top=(track.offsetTop+track.offsetHeight-22)+'px';
+          // 🔴 不要壓在卡片下緣 —— 那裡現在是波形圖。
+          // 舊值 (track.offsetTop+offsetHeight-22) 是在「.snap 會裁掉 track 以下」的
+          // 舊版面下訂的；#231 之後卡片完整露出，那個位置正好蓋住 HR/HRV 波形，
+          // 而 founder 回報的就是「遮擋圖表」。改放**標題列與圖表之間的數字帶**，
+          // 用實際元素量出來（版面/卡片高度再變也會自己跟上），量不到才退回比例值。
+          var _snapTop=snap.getBoundingClientRect().top;
+          var _card=track.querySelector('.vcard');
+          var _head=_card&&_card.querySelector('.vhead');
+          var _chart=_card&&_card.querySelector('canvas,svg');
+          var _top;
+          if(_head&&_chart){
+            var _mid=(_head.getBoundingClientRect().bottom+_chart.getBoundingClientRect().top)/2;
+            _top=Math.round(_mid-_snapTop-hint.offsetHeight/2);
+          } else {
+            _top=Math.round(track.offsetTop+track.offsetHeight*0.34);
+          }
+          hint.style.top=_top+'px';
           hint.classList.add('on');
           track.addEventListener('pointerdown',dismiss,{passive:true});
           track.addEventListener('touchstart',dismiss,{passive:true});

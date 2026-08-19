@@ -1,3 +1,24 @@
+# 2026-08-19 ADDENDUM — TOP PRIORITY: Soul Lock 柔性鎖定儀式
+
+**下次桌機 session 先做這個** → **`docs/prompts/antigravity-soul-lock-kickoff.md`**
+
+按下 Scan 後的頭 2 秒改成四拍儀式：**Seek → Align → Sync → Hold**（找到你 → 對準你 →
+眨眼同步 → 鎖定有效訊號）。定調：**TENKI 不是在監控你，它正在等你與自己回到同一個節奏。**
+
+重點：**這不是新的感測，是編排層**。`readiness-scan.js` 已經有 `stillness`、眼睛開合（眨眼）、
+`headPose`、`computeFaceBox`、Tier A 有效樣本門檻；`v6/stardust.js` 已經有 `setExpression` /
+`setTone` / `setReadout` / `setCamera` 等「沒呼叫就 inert」的公開通道 —— 把兩排接起來即可，
+**星塵 v25.8.2 內部手感仍然鎖定**（`SYSTEM.md` §8），要加通道就照 `setCamera` 的加法作法。
+
+硬紅線：不得宣稱偵測情緒、不得放假生理讀數、不得出現人臉方框／準星／「Face Locked」等監控語彙、
+掃描中不得先染上 zone 結果色、相機權限只在使用者手勢內請求、reduced-motion 要有靜態終態。
+**第一刀只做四拍；Echo Ring 明確不在範圍**（founder 指示，且冷啟動期永遠不得顯示）。
+**Rule #0 防丟失**：開工第一分鐘建 `feat/soul-lock` 並 push，每完成一拍就 commit+push。
+
+Hero 相機（開工單 v2）已完成並 merge（#229/#230）；水晶球與 3D 盾牌亦已隨該批入庫。
+
+---
+
 # 2026-08-01 ADDENDUM — TOP PRIORITY: Hero「鏡頭感」進場（開工單 v2）
 
 **下次桌機 session 先做這個** → **`docs/prompts/antigravity-hero-camera-kickoff.md`**
