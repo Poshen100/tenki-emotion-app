@@ -1,3 +1,32 @@
+# 2026-08-19 ADDENDUM — 讓 founder 親眼看到 mobile UX（開工單）
+
+**下次圖書館 Windows session 先做這個** → **`docs/prompts/antigravity-expo-go-kickoff.md`**
+
+分支 `claude/tenki-core-growth-arch-7teiqj` 累積了 37 個 commit 的 mobile UX 工作
+（多感官掃描儀式、Skia orb 物理 + 傾斜視差、Zone 自適應宇宙背景、手勢微互動語言），
+**founder 一次都沒看過** —— 全部在雲端寫的，容器裡沒有裝置也沒有 `apps/mobile/node_modules`。
+
+工單目標只有一個：**把 dev server 跑起來，讓他用自己的 iPhone 透過 Expo Go 看到它。**
+不重構、不加功能。能跑 + 能看 + 誠實回報就是完成。
+
+三個會吃掉整個下午的坑，工單裡都寫了退路：
+1. **分支** —— 那 37 個 commit 不在 `main` 上。
+2. **`apps/mobile` 不在 npm workspace 裡** —— root `npm install` 不會裝它的依賴，
+   而這輪新增了 `expo-sensors`。
+3. **圖書館 Wi-Fi 幾乎一定開 client isolation** —— 一開始就用 `--tunnel`，
+   不要花時間 debug 連不上的 `exp://192.168.x.x`。
+
+**已知限制（不是 bug，不要修）**：Expo Go 沒有 `react-native-vision-camera` 也沒有
+`@shopify/react-native-skia`，所以擷取畫面與 Processing/Resonance 畫面會崩 —— 掃描儀式與
+orb 物理在 Expo Go 驗不到，需要 development build。**嚴禁為了讓它跑起來就拔掉這兩個套件。**
+
+> 順帶修正上面 2026-07-03 工作清單第 3 項「原生 lane（需 Mac）」的說法：**編譯不需要 Mac**
+> —— EAS 免費層在 Expo 託管的 macOS runner 上編 iOS。真正的門檻是**裝到自己 iPhone**
+> 需要 Apple Developer Program（$99/年），因為免費 Apple ID 側載必須透過只跑 macOS 的 Xcode。
+> Android 兩者都不需要，但 founder 手上沒有 Android 機。
+
+---
+
 # 2026-08-01 ADDENDUM — TOP PRIORITY: Hero「鏡頭感」進場（開工單 v2）
 
 **下次桌機 session 先做這個** → **`docs/prompts/antigravity-hero-camera-kickoff.md`**

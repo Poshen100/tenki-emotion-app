@@ -9,6 +9,51 @@
 
 ---
 
+# 2026-08-19 Session Update #68 (mobile UX 四輪完成，但 founder 還沒看過任何一眼)
+
+## What was done
+
+分支 `claude/tenki-core-growth-arch-7teiqj`，37 commit。合夥人五項 UX 計畫做完前四項：
+
+1. **多感官掃描儀式** — `utils/choreography.ts`：視覺每幀取樣、觸覺**邊緣觸發**。
+2. **Skia orb 物理 + 傾斜視差** — `utils/orbPhysics.ts`（frame-rate 無關的 half-life 阻尼）
+   + `hooks/useDeviceTilt.ts`（expo-sensors，新依賴）。
+3. **Zone 自適應宇宙背景** — `utils/atmosphere.ts` + `CosmicBackground` 新增 optional
+   `atmosphere` prop。順手收掉第五個重複概念：`BackgroundContainer` 本來是 31 行靜態殘骸
+   （5 顆寫死的星、零動畫），而它才是 Today/Timeline/Session/Lab/onboarding 在用的背景 ——
+   也就是**唯一看得到 Zone 的畫面用的是最爛的那個背景**。已改為委派 `CosmicBackground`。
+4. **手勢微互動語言** — `utils/gestureFeel.ts`（長按充能、阻力、上滑重試）
+   + `useHoldToConfirm`。順手修掉既有 bug：`react-native-gesture-handler` 是依賴但
+   **從來沒人掛 `GestureHandlerRootView`**（RNGH 手勢在 Android 上一直是死的）。
+
+測試：mobile 124 → 161 passed；全 repo 884 passed 無變化。
+
+## 教訓/注意
+
+- **重複概念漂移這個 session 出現五次**（pulse 引擎、maturity 門檻、zone 70/40 分類、
+  apple-health 瀏覽器鏡像、背景元件）。根因多半是建置約束（`apps/mobile` 不在 workspace 內），
+  解法固定為 **parity test**。→ 已達 PLAYBOOK 提煉門檻，值得寫成一條「情境 → 規則」。
+- **可及性當成合規在測**：Strain 的暖度有硬上限（`MAX_STRAIN_WARMTH`，對照
+  GROWTH-ARCHITECTURE §7.5「不用焦慮驅動轉換」）；品質阻力**只改感受不改門檻** ——
+  用型別強制（`chargeProgress` 簽名裡沒有 quality，`Resistance` 裡沒有時間欄位），
+  測試掃過整個 quality 值域斷言完成時間恆等。
+- **雲端容器驗不了 mobile 型別**：`apps/mobile/tsconfig.json` extends `expo/tsconfig.base`，
+  但該目錄沒有 `node_modules`，tsc 連 `jsx` 設定都讀不到，吐出的幾百個錯誤全是環境噪音。
+  純模組靠 ts-jest（`strict: true`）覆蓋；`.tsx` 只能在有裝依賴的機器上驗。
+
+## 下次接手點
+
+**founder 一眼都沒看過這 37 個 commit。** 下次圖書館 Windows + Antigravity session 先跑
+`docs/prompts/antigravity-expo-go-kickoff.md`（ANTIGRAVITY.md 已置頂 ADDENDUM）。
+
+已知限制：Expo Go 沒有 vision-camera 也沒有 Skia，所以**第 1、2 項在 Expo Go 驗不到**，
+只有第 3、4 項看得到。要驗完整流程需要 development build ——
+編譯不需要 Mac（EAS 免費層跑 Expo 託管的 macOS runner），但裝到自己 iPhone 需要 $99/年。
+
+第 5 項（Lab 工具）未做，且有合規埋伏：「腦波引導進入 Alpha/Theta」是健康聲明，
+文案必須先過 `findProhibitedTerms()`，`ALLOWED_VOCABULARY` 可能要擴充。
+雙耳節拍要用 `expo-audio`（`expo-av` 已在 SDK 55 移除）。
+
 # 2026-08-11 Session Update #67 (/v3/ Today 不再宣稱沒量到的事)
 
 founder「好」→ 接著做已拍板的另案。
