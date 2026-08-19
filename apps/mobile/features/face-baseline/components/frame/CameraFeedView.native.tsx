@@ -1,55 +1,32 @@
+/**
+ * @module face-baseline/components/CameraFeedView.native
+ * @description Shows the real camera when there is one, and says so plainly
+ * when there is not.
+ *
+ * `react-native-vision-camera` is not among the native modules Expo Go bundles,
+ * and its JS entry throws while evaluating when the native half is missing —
+ * which took down every capture screen and made the scan ritual impossible to
+ * look at without a development build.
+ *
+ * The fallback deliberately does not fake a feed. A capture that cannot read
+ * anything must not look like a capture that is working.
+ */
 import type React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Camera, useCameraDevice } from 'react-native-vision-camera';
-import { useFaceBaselineStore } from '../../store/faceBaselineStore';
+import { probeOptionalModule } from '../../utils/optionalNative';
+import { CameraFeedUnavailable } from './CameraFeedUnavailable';
 
-interface CameraFeedViewProps {
+export interface CameraFeedViewProps {
   size?: number;
   active?: boolean;
 }
 
-export function CameraFeedView({ size = 240, active = false }: CameraFeedViewProps): React.JSX.Element {
-  const permission = useFaceBaselineStore((s) => s.permission);
-  const device = useCameraDevice('front');
+type FeedComponent = (props: CameraFeedViewProps) => React.JSX.Element;
 
-  if (permission !== 'granted') {
-    return (
-      <View style={[styles.container, { width: size, height: size }]}>
-        <Text style={styles.text}>Camera access not enabled</Text>
-      </View>
-    );
-  }
+/** Resolved once at module load; the native module cannot appear mid-session. */
+const vision = probeOptionalModule<{ CameraFeedVision: FeedComponent }>(() =>
+  require('./CameraFeedVision'),
+);
 
-  if (device == null) {
-    return (
-      <View style={[styles.container, { width: size, height: size }]}>
-        <Text style={styles.text}>Finding front camera device...</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.container, { width: size, height: size }]}>
-      <Camera
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={active}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#000',
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  text: {
-    color: '#888',
-    fontSize: 12,
-    textAlign: 'center',
-    padding: 16,
-  },
-});
+export const CameraFeedView: FeedComponent = vision.available
+  ? (vision.module as { CameraFeedVision: FeedComponent }).CameraFeedVision
+  : ({ size }: CameraFeedViewProps) => <CameraFeedUnavailable size={size} />;
