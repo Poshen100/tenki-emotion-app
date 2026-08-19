@@ -5,20 +5,42 @@
  * world — zero cyan.
  *
  * INTEGRATION (Reanimated): checkmark draw + bloom pulse on reveal.
+ *
+ * The seal is felt, not just seen: reaching a baseline plays the user's own
+ * `baseline_locked` signature rather than a generic OS success buzz, and the
+ * seal can be tapped to feel it again. That replay is the one purely
+ * celebratory haptic in the app, which is why it only ever happens when the
+ * user reaches for it.
  */
 import type React from 'react';
-import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Pressable } from 'react-native';
+import { usePulseProfileStore } from '../../../../stores/pulse-profile-store';
 import { useBaselineHaptics } from '../../hooks/useBaselineHaptics';
 import { faceBaselineTokens as t } from '../../tokens/faceBaseline.tokens';
+import { scanEventPulse } from '../../utils/pulse';
 
 interface BaselineSuccessCardProps {
   title: string;
   body: string;
+  /** Accessibility label for the replayable seal. */
+  replayLabel?: string;
 }
 
-export function BaselineSuccessCard({ title, body }: BaselineSuccessCardProps): React.JSX.Element {
+export function BaselineSuccessCard({
+  title,
+  body,
+  replayLabel = 'Feel your baseline signature again',
+}: BaselineSuccessCardProps): React.JSX.Element {
   const haptics = useBaselineHaptics();
+  const profile = usePulseProfileStore((s) => s.profile);
+
+  /** The celebration is a moment, not a subscription to profile changes. */
+  const celebrated = useRef(false);
+
+  const celebrate = useCallback((): void => {
+    haptics.playPattern(scanEventPulse('baseline_locked', profile));
+  }, [haptics, profile]);
 
   // Seal animation values
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
@@ -26,8 +48,11 @@ export function BaselineSuccessCard({ title, body }: BaselineSuccessCardProps): 
   const particlePulse = useRef(new Animated.Value(0.2)).current;
 
   useEffect(() => {
-    // Trigger success haptic
-    haptics.trigger('success');
+    // The user's own signature, played once on arrival.
+    if (!celebrated.current) {
+      celebrated.current = true;
+      celebrate();
+    }
 
     // Run spring mount animation
     Animated.parallel([
@@ -59,25 +84,31 @@ export function BaselineSuccessCard({ title, body }: BaselineSuccessCardProps): 
         }),
       ])
     ).start();
-  }, [haptics, scaleAnim, opacityAnim, particlePulse]);
+  }, [celebrate, scaleAnim, opacityAnim, particlePulse]);
 
   return (
     <View style={styles.card}>
       {/* Golden success seal with concentric pulsing halos - matches reference exactly */}
-      <Animated.View style={[styles.sealContainer, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>
-        <View style={styles.sealOuterHalo} />
-        <View style={styles.sealInnerHalo} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={replayLabel}
+        onPress={celebrate}
+      >
+        <Animated.View style={[styles.sealContainer, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>
+          <View style={styles.sealOuterHalo} />
+          <View style={styles.sealInnerHalo} />
         
-        {/* Pulsing golden particles around the seal */}
-        <Animated.View style={[styles.successParticle, { top: -10, left: 10, opacity: particlePulse, transform: [{ scale: particlePulse }] }]} />
-        <Animated.View style={[styles.successParticle, { top: 20, right: -12, opacity: particlePulse, transform: [{ scale: particlePulse }] }]} />
-        <Animated.View style={[styles.successParticle, { bottom: -8, left: 24, opacity: particlePulse, transform: [{ scale: particlePulse }] }]} />
-        <Animated.View style={[styles.successParticle, { bottom: 16, right: -8, opacity: particlePulse, transform: [{ scale: particlePulse }] }]} />
+          {/* Pulsing golden particles around the seal */}
+          <Animated.View style={[styles.successParticle, { top: -10, left: 10, opacity: particlePulse, transform: [{ scale: particlePulse }] }]} />
+          <Animated.View style={[styles.successParticle, { top: 20, right: -12, opacity: particlePulse, transform: [{ scale: particlePulse }] }]} />
+          <Animated.View style={[styles.successParticle, { bottom: -8, left: 24, opacity: particlePulse, transform: [{ scale: particlePulse }] }]} />
+          <Animated.View style={[styles.successParticle, { bottom: 16, right: -8, opacity: particlePulse, transform: [{ scale: particlePulse }] }]} />
 
-        <View style={styles.seal}>
-          <Text style={styles.check}>✓</Text>
-        </View>
-      </Animated.View>
+          <View style={styles.seal}>
+            <Text style={styles.check}>✓</Text>
+          </View>
+        </Animated.View>
+      </Pressable>
 
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.body}>{body}</Text>
