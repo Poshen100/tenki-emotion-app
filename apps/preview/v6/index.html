@@ -1334,7 +1334,41 @@ body{
 .sd-seg-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
 .sd-seg-ttl{font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
 .sd-seg-dur{font-size:13px;color:#fff;font-variant-numeric:tabular-nums}
-.sd-seg-track{display:flex;gap:4px;height:38px}
+.sd-seg-track{display:flex;gap:4px;height:38px;position:relative}
+/* ═══ Turning Point 節點 —— founder 畫的 ——●——●—— 就是這一條 ═══
+   掛在既有的三段軌上（Observe → 核心段 → Extended），x = t / durationSec。
+   ⚠️ 軌本身有 gap:4px，所以映射差約 2%（兩道 gap 佔全寬的比例），肉眼不可辨；
+   要精準到像素就得把節點移出這條 flex 軌，那會失去「節點長在段落上」的意思。
+   🔴 顏色吃帶位（BAND_COLOR_V6 同一組值），沒讀數就空心虛線 —— 不假裝量到。
+   刻意不用 .sd-evt.entry/.add 那組既有的型別色：那組吃 --good 綠，
+   而綠在這個產品裡是「跟著流程完成」的語意色（CLAUDE.md 顏色所有權那條）。 */
+.sd-tp-node{
+  position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
+  transform:translate(-50%,-50%);z-index:2;
+  border:1.5px solid rgba(0,0,0,0.55);
+  background:var(--txt-sec);
+}
+.sd-tp-node.band-clear{background:#00B4D8;box-shadow:0 0 7px rgba(0,180,216,0.75)}
+.sd-tp-node.band-neutral{background:#64748B;box-shadow:0 0 7px rgba(100,116,139,0.75)}
+.sd-tp-node.band-strain{background:#C2703D;box-shadow:0 0 7px rgba(194,112,61,0.75)}
+.sd-tp-node.no-reading{background:transparent;border:1.5px dashed rgba(255,255,255,0.6);box-shadow:none}
+/* 節點清單的圓點沿用同一套帶位色（.sd-evt 的結構是復活既有 CSS）*/
+.sd-evt .dot.band-clear{background:#00B4D8;box-shadow:0 0 7px rgba(0,180,216,0.6)}
+.sd-evt .dot.band-neutral{background:#64748B;box-shadow:0 0 7px rgba(100,116,139,0.6)}
+.sd-evt .dot.band-strain{background:#C2703D;box-shadow:0 0 7px rgba(194,112,61,0.6)}
+.sd-evt .dot.no-reading{background:transparent;border:1.5px dashed rgba(255,255,255,0.5);box-shadow:none}
+.sd-evt .state{font-size:11px;color:var(--txt-sec);letter-spacing:0.02em;flex-shrink:0}
+.sd-evt .state.none{color:var(--txt-dim)}
+.sd-tp-empty{font-size:12px;color:var(--txt-sec);line-height:1.6;padding:2px 0}
+/* 🔴 .sd-body 是 flex column + overflow-y:auto，子卡片預設 flex-shrink:1 ——
+   內容一長就被壓扁，再被 .card{overflow:hidden} 裁掉（實測：4 個節點的第 4 列
+   直接消失在卡片邊緣）。這個 repo 已經為短視窗踩過同一個坑，修法一樣
+   （見 .screens .screen > * 那條）。 */
+.sd-body > *{flex-shrink:0}
+/* 一列放不下「標籤 + 段落膠囊 + 狀態章」—— 390px 寬會把標籤擠到換行。
+   改成兩行：上行是使用者記的事，下行是當下的狀態章。 */
+.sd-evt .type{flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+.sd-evt .tp-label{display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.3}
 .sd-seg.part{
   border-radius:8px;display:flex;align-items:center;justify-content:center;
   background:rgba(255,255,255,0.05);
@@ -2570,6 +2604,17 @@ body{
           <div class="sd-seg part ext"><span>Extended</span></div>
         </div>
         <div class="sd-seg-times" id="sdSegTimes"></div>
+      </div>
+
+      <!-- 決策軌跡：每個標記一列 —— 時間 / 帶位色圓點 / 標籤 / 段落
+           復活 .sd-evt 那組既有 CSS（連接線 + 型別圓點），全 repo 唯一的
+           「連接線 + 點」元件，先前是一組沒有任何 markup 用到的孤兒樣式。 -->
+      <div class="card sd-tp-card">
+        <div class="sd-seg-head">
+          <div class="sd-seg-ttl">決策軌跡</div>
+          <div class="sd-seg-dur" id="sdTpCount">—</div>
+        </div>
+        <div id="sdTpList"></div>
       </div>
 
       <!-- Facts（只用 store 有的欄位）-->
@@ -4466,6 +4511,83 @@ function buildDetailInsight(rec, meta){
   return '這次進入 <b>' + escHtml(meta.segLabel) + '</b> 段後才收束，跟著流程完成。';
 }
 
+/** 節點的狀態章顯示成一句話。沒讀數就直說沒讀數 —— 不留空、也不編。 */
+function tpStateTextV6(ev){
+  if(!ev.band) return '無讀數';
+  const band = BAND_LABEL_V6[ev.band] || ev.band;
+  const conf = CONFIDENCE_LABEL_V6[ev.confidence] || '';
+  const age = ev.readingTs ? agoTextV6(ev.readingTs, Date.now()) : '';
+  return [band, conf, age].filter(Boolean).join(' · ');
+}
+
+/**
+ * 決策軌跡 —— founder 畫的 `——事件節點——事件節點——`。
+ * 上半掛在既有的三段軌上（位置＝t/durationSec），下半是逐列清單。
+ *
+ * 🔴 舊紀錄只有 marks、沒有 events：顯示「N 個標記（沒有逐一節點）」，
+ * **不得**顯示 0、也不得出現任何否定字樣（PLAYBOOK：缺欄位就不准說否定）。
+ */
+function renderTurningPoints(rec, dur){
+  const track = document.querySelector('.sd-seg-track');
+  const list = document.getElementById('sdTpList');
+  const countEl = document.getElementById('sdTpCount');
+  if(!track || !list || !countEl) return;
+  track.querySelectorAll('.sd-tp-node').forEach(n => n.remove());
+  list.innerHTML = '';
+
+  const events = Array.isArray(rec.events) ? rec.events : null;
+  const marks = rec.marks || 0;
+
+  if(!events || events.length === 0){
+    countEl.textContent = marks > 0 ? marks + ' 個標記' : '—';
+    const p = document.createElement('div');
+    p.className = 'sd-tp-empty';
+    p.textContent = marks > 0
+      ? '這筆只記了標記數，沒有逐一的節點 —— 它是在節點功能之前跑的。'
+      : '這次沒有標記。決策進行中按「標記」，這裡就會畫出你的轉折點。';
+    list.appendChild(p);
+    return;
+  }
+
+  countEl.textContent = events.length + ' 個節點';
+
+  if(dur > 0){
+    events.forEach(ev => {
+      const node = document.createElement('div');
+      node.className = 'sd-tp-node' + (ev.band ? ' band-' + ev.band : ' no-reading');
+      node.style.left = Math.min(Math.max(ev.t / dur * 100, 0), 100) + '%';
+      node.title = (ev.label || '標記') + ' · ' + fmtClock(ev.t);
+      track.appendChild(node);
+    });
+  }
+
+  events.forEach(ev => {
+    const row = document.createElement('div');
+    row.className = 'sd-evt';
+    const time = document.createElement('div');
+    time.className = 'time'; time.textContent = fmtClock(ev.t);
+    const dot = document.createElement('div');
+    dot.className = 'dot ' + (ev.band ? 'band-' + ev.band : 'no-reading');
+    const type = document.createElement('div');
+    type.className = 'type';
+    const lbl = document.createElement('div');
+    lbl.className = 'tp-label';
+    // 沒選標籤的節點是合法的 —— 它就是一個純時間點，照實說。
+    lbl.appendChild(document.createTextNode(ev.label || '標記'));
+    if(ev.phase){
+      const ph = document.createElement('span');
+      ph.className = 'phase'; ph.textContent = ev.phase;
+      lbl.appendChild(ph);
+    }
+    const state = document.createElement('div');
+    state.className = 'state' + (ev.band ? '' : ' none');
+    state.textContent = tpStateTextV6(ev);
+    type.appendChild(lbl); type.appendChild(state);
+    row.appendChild(time); row.appendChild(dot); row.appendChild(type);
+    list.appendChild(row);
+  });
+}
+
 function openSessionDetail(ts){
   const rec = loadOutcomes().find(r => r.ts === ts);
   if(!rec) return;
@@ -4496,6 +4618,9 @@ function openSessionDetail(ts){
   document.getElementById('sdSegCore').classList.toggle('reached', !!rec.reachedReadiness);
   document.getElementById('sdSegTimes').innerHTML =
     '<span>0:00</span><span>' + fmtDur(b.rs) + '</span><span>' + fmtDur(b.re) + '</span><span>' + fmtDur(dur) + '</span>';
+
+  // 決策軌跡：軌上的節點 + 底下的逐列清單
+  renderTurningPoints(rec, dur);
 
   // Facts
   document.getElementById('sdFactDur').textContent = fmtDur(dur);
