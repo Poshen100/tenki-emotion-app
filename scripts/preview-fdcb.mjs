@@ -74,20 +74,27 @@ function checkTruthy(name, actual) {
 const browser = await chromium.launch();
 
 /** 開一頁 /v3/，種好讀數，跳過 splash，停在 Today。 */
-async function openV3(height) {
+async function openV3(height, opts) {
+  const options = Object.assign({ reading: true }, opts || {});
   const page = await browser.newPage({
     viewport: { width: 390, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
   });
-  await page.addInitScript(() => {
+  await page.addInitScript((opts) => {
     // 自訂模板：一個 6 秒（跑得完）、一個 3:30（分秒都要顯示對）
     localStorage.setItem('tenki.v6.templates.v1', JSON.stringify([
       { id: 'h6', name: '六秒', durationSec: 6, color: '#00B4D8', icon: 'heart', segLabel: 'Focus' },
       { id: 'h210', name: '三分半', durationSec: 210, color: '#00B4D8', icon: 'heart', segLabel: 'Focus' },
     ]));
-    localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify({
-      band: 'neutral', confidence: 'high', ts: Date.now() - 120e3, baselineDays: 1, baselineScans: 1,
-    }));
-  });
+    localStorage.removeItem('tenki.alert.outcomes.v1');
+    localStorage.removeItem('tenki.v6.tplabels.v1');
+    if (opts.reading) {
+      localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify({
+        band: 'neutral', confidence: 'high', ts: Date.now() - 120e3, baselineDays: 1, baselineScans: 1,
+      }));
+    } else {
+      localStorage.removeItem('tenki.readiness.reading.v1');
+    }
+  }, options);
   await page.goto(`${base}/v3/`, { waitUntil: 'networkidle' }).catch(() => {});
   // ⚠️ splash 自己在 2400ms 後 dismiss，之前它以 z-index:9999 蓋滿整頁 ——
   // 用固定 waitForTimeout 猜這個時間，遮擋斷言就會去問到 splash 而不是版面
@@ -271,6 +278,186 @@ console.log('\n── 下游文案 ──');
   });
   check('user-facing 不再出現英文 "marks"', /\bmarks\b/i.test(txt), false);
   checkTruthy('Timeline strip 有解釋點大小的圖例', txt.includes('點越大'));
+  await page.close();
+}
+
+// ═══════════════ 6. Turning Point 節點 ═══════════════
+// founder 2026-08-14：「標記很好按，一下子從 1 按到 5，但這應該是可以快速選擇
+// 或是自訂、自己記錄用 —— 這樣才能看到 ——事件節點（掃描狀態）——」。
+console.log('\n── Turning Point 節點 ──');
+{
+  const page = await openV3(700);
+  await page.evaluate(() => { window.nextState(); window.nextState(); });
+  await page.waitForTimeout(1200);
+
+  // 🔴 快路徑：不碰快選也要能連按到 5。這是 founder 唯一稱讚的地方 ——
+  // 加上「選標籤」之後把它弄慢，就是拿舊的去換新的。
+  for (let i = 0; i < 5; i++) {
+    await page.evaluate(() => window.logEvent());
+    await page.waitForTimeout(90);
+  }
+  const fast = await dock(page);
+  check('不碰快選也能連按到 5（快路徑手感沒被換掉）', fast.markText.replace(/\s/g, ''), '+標記5');
+
+  const live = await page.evaluate(() => {
+    const el = document.getElementById('tpPicker');
+    const fdcb = document.getElementById('fdcb');
+    const tabbar = document.getElementById('tabbar');
+    const chip = el.querySelector('.tp-chip');
+    let hit = 'nochip';
+    if (chip) {
+      const b = chip.getBoundingClientRect();
+      const top = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+      hit = !top ? 'nothing'
+        : fdcb.contains(top) ? 'fdcb'
+        : tabbar.contains(top) ? 'tabbar'
+        : (el.contains(top) ? 'self' : 'other:' + top.className);
+    }
+    return {
+      open: el.classList.contains('open'),
+      chips: [...el.querySelectorAll('.tp-chip')].map((c) => c.textContent),
+      chipHit: hit,
+      // 同一秒的節點必須併成一顆（否則軌上一顆、計數寫 5）
+      ticks: [...document.querySelectorAll('.fdcb-prog .tp-tick')].length,
+    };
+  });
+  check('按完之後快選會滑出來', live.open, true);
+  checkTruthy('快選帶的是這個模板自己的轉折點', live.chips.length >= 3);
+  // ⚠️ 這一列落在 390x700 下最擠的那一段（底座頂 558）。PLAYBOOK：可視高度是變數，先驗矮的。
+  check('快選晶片沒有被底座／tab bar 蓋住（390x700）', live.chipHit, 'self');
+  // 🔴 五顆全落在同一秒 → 軌上必須是一顆（大小表示數量），不能是一顆卻宣稱五個
+  check('同一秒的節點併成一顆（軌上不得與計數打架）', live.ticks, 1);
+
+  // 選一個標籤 → 只補在剛剛那一顆上
+  await page.evaluate(() => document.querySelectorAll('.tp-chip')[0].click());
+  await page.waitForTimeout(200);
+  const afterPick = await dock(page);
+  checkTruthy('選完標籤，段標籤回報選了什麼', afterPick.seg.indexOf('已標記 · ') === 0);
+  check('選完之後快選自己收走', await page.evaluate(() => document.getElementById('tpPicker').classList.contains('open')), false);
+
+  await page.evaluate(() => window.nextState());
+  await page.waitForTimeout(500);
+  const rec = (await outcomes(page))[0] || {};
+  check('節點隨 outcome 一起落地', Array.isArray(rec.events) && rec.events.length, 5);
+  check('marks 仍然寫（既有持久化欄位不得改名/移除）', rec.marks, 5);
+  check('沒選標籤的節點是合法的純時間點', rec.events.filter((e) => e.label === null).length, 4);
+  checkTruthy('選過的那一顆帶得到標籤', typeof rec.events[4].label === 'string' && rec.events[4].label.length > 0);
+  check('節點 type 沿用凍結的六個成員之一', rec.events[0].type, 'mark');
+  // 🔴 反造假：節點上不得有 0-100 分
+  check('節點不得帶 edgeScore 之類的數字欄位',
+    Object.keys(rec.events[0]).filter((k) => /score/i.test(k)).length, 0);
+  await page.close();
+}
+
+// ═══════════════ 7. 沒有讀數時不得假裝量到 ═══════════════
+console.log('\n── 無讀數的誠實 ──');
+{
+  const page = await openV3(700, { reading: false });
+  await page.evaluate(() => { window.nextState(); window.nextState(); });
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => window.logEvent());
+  await page.waitForTimeout(200);
+  const t = await page.evaluate(() => {
+    const el = document.querySelector('.fdcb-prog .tp-tick');
+    return { cls: el ? el.className : null, bg: el ? getComputedStyle(el).backgroundColor : null };
+  });
+  checkTruthy('沒讀數的節點是 no-reading（空心）', (t.cls || '').indexOf('no-reading') >= 0);
+  check('空心節點真的沒有填色', t.bg, 'rgba(0, 0, 0, 0)');
+  await page.evaluate(() => window.nextState());
+  await page.waitForTimeout(500);
+  const rec = (await outcomes(page))[0] || {};
+  const ev = (rec.events || [])[0] || {};
+  check('沒讀數就四個欄位都 null（不回填預設帶位）',
+    [ev.band, ev.confidence, ev.readingTs, ev.staleAtDecision], [null, null, null, null]);
+  await page.close();
+}
+
+// ═══════════════ 8. 詳情頁的決策軌跡 ═══════════════
+console.log('\n── 決策軌跡（Session Detail）──');
+{
+  const page = await openV3(700);
+  const now = Date.now();
+  await page.evaluate((now) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([
+      { symbol: 'Mancini FBD', templateId: 'MANCINI_FBD', outcomeTag: 'timed_out', contextTag: null,
+        reachedReadiness: true, durationSec: 180, marks: 3, ts: now - 3600e3, source: 'v6',
+        events: [
+          { t: 18, type: 'mark', phase: 'Observe', labelId: 'WAITED', label: '等到了', band: 'clear', confidence: 'high', readingTs: now - 3900e3, staleAtDecision: false },
+          { t: 90, type: 'mark', phase: 'Lock', labelId: null, label: null, band: null, confidence: null, readingTs: null, staleAtDecision: null },
+          { t: 171, type: 'mark', phase: 'Extended', labelId: 'HOLD', label: '先不動', band: 'strain', confidence: 'low', readingTs: now - 3900e3, staleAtDecision: true },
+        ] },
+      // 舊紀錄：只有 marks、沒有 events（節點功能之前跑的）
+      { symbol: 'Health Stress', templateId: 'HEALTH_STRESS', outcomeTag: 'stayed_disciplined', contextTag: null,
+        reachedReadiness: true, durationSec: 180, marks: 3, ts: now - 7200e3, source: 'v6' },
+    ]));
+  }, now);
+  await page.evaluate(() => window.goTab('session'));
+  await page.waitForTimeout(300);
+
+  await page.evaluate((ts) => window.openSessionDetail(ts), now - 3600e3);
+  await page.waitForTimeout(400);
+  const detail = await page.evaluate(() => ({
+    count: document.getElementById('sdTpCount').textContent,
+    nodes: [...document.querySelectorAll('.sd-tp-node')].map((n) => ({
+      cls: n.className.replace('sd-tp-node ', ''), left: Math.round(parseFloat(n.style.left)),
+    })),
+    rows: [...document.querySelectorAll('#sdTpList .sd-evt')].length,
+    // 卡片不得把最後一列裁掉（.sd-body 是 flex column，子項預設會被壓扁）
+    clipped: (() => {
+      const card = document.querySelector('.sd-tp-card');
+      const list = document.getElementById('sdTpList');
+      if (!card || !list) return 'missing';
+      return list.getBoundingClientRect().bottom > card.getBoundingClientRect().bottom + 1;
+    })(),
+    states: [...document.querySelectorAll('#sdTpList .state')].map((s) => s.textContent),
+  }));
+  check('軌上畫得出 3 顆節點', detail.nodes.length, 3);
+  // x = t / durationSec：18/180 = 10%、90/180 = 50%、171/180 = 95%
+  check('節點位置對應 t / durationSec', detail.nodes.map((n) => n.left), [10, 50, 95]);
+  check('節點顏色吃帶位，沒讀數的是空心',
+    detail.nodes.map((n) => n.cls), ['band-clear', 'no-reading', 'band-strain']);
+  check('逐列軌跡有 3 列', detail.rows, 3);
+  check('🔴 卡片不得把最後一列裁掉（flex-shrink 壓扁 + overflow:hidden）', detail.clipped, false);
+  checkTruthy('沒讀數的那一列直說「無讀數」', detail.states.some((x) => x === '無讀數'));
+  checkTruthy('有讀數的那一列報得出帶位＋信心＋多久', /Clear · 信心高 · .+/.test(detail.states[0]));
+
+  // 舊紀錄：不得說 0、不得出現否定
+  await page.evaluate(() => window.closeSessionDetail());
+  await page.waitForTimeout(300);
+  await page.evaluate((ts) => window.openSessionDetail(ts), now - 7200e3);
+  await page.waitForTimeout(300);
+  const legacy = await page.evaluate(() => ({
+    count: document.getElementById('sdTpCount').textContent,
+    text: document.getElementById('sdTpList').textContent,
+  }));
+  check('🔴 舊紀錄報的是它真的有的 3 個標記，不是 0', legacy.count, '3 個標記');
+  check('舊紀錄不得出現「0 個」這種否定', /0 個/.test(legacy.text), false);
+  await page.close();
+}
+
+// ═══════════════ 9. 自訂標籤的禁用詞把關 ═══════════════
+console.log('\n── 自訂標籤 compliance ──');
+{
+  const page = await openV3(700);
+  await page.evaluate(() => window.openTpLabelEditor());
+  await page.waitForTimeout(300);
+  const tryLabel = (text) => page.evaluate((text) => {
+    document.getElementById('tplText').value = text;
+    document.getElementById('tplScope').value = '';
+    window.saveTpLabel();
+    return {
+      blocked: !document.getElementById('tplWarn').hidden,
+      stored: JSON.parse(localStorage.getItem('tenki.v6.tplabels.v1') || '[]').length,
+    };
+  }, text);
+  const zh = await tryLabel('停損點到了');
+  check('🔴 中文金融動作詞被擋下', zh.blocked, true);
+  check('被擋下的標籤不得落地', zh.stored, 0);
+  const en = await tryLabel('buy more');
+  check('🔴 英文金融動作詞也被擋下', en.blocked, true);
+  const ok = await tryLabel('先深呼吸');
+  check('乾淨的標籤存得進去', ok.blocked, false);
+  check('存進去了', ok.stored, 1);
   await page.close();
 }
 

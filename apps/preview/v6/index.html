@@ -1577,9 +1577,20 @@ body{
   border-radius:14px;
   box-shadow:0 8px 28px rgba(0,0,0,0.5);
   opacity:0;transform:translateY(6px);pointer-events:none;
-  transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm);
+  /* 🔴 收起時一併 visibility:hidden，不是只靠 opacity + pointer-events。
+     PLAYBOOK 有一條實傷：`opacity:0 + pointer-events:none` **擋不住 descendant
+     自己宣告 pointer-events:auto** —— v6 的指紋鈕就是這樣，一顆隱形按鈕長期浮在
+     Today 上吃掉滑動。這一列的位置正好落在 390x700 下「示意說明 / 輪播圓點」
+     那一段，是同一個地雷區。visibility 會繼承、且不會被 descendant 推翻，
+     靠結構守住比靠「我記得別加 pointer-events」穩。
+     ⚠️ visibility 延後到淡出結束才切，否則收起來會直接消失而不是淡出。 */
+  visibility:hidden;
+  transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s linear 0.3s;
 }
-.tp-picker.open{opacity:1;transform:translateY(0);pointer-events:auto}
+.tp-picker.open{
+  opacity:1;transform:translateY(0);pointer-events:auto;visibility:visible;
+  transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s;
+}
 .tp-picker::-webkit-scrollbar{display:none}
 .tp-chip{
   flex:0 0 auto;padding:7px 12px;border-radius:10px;
