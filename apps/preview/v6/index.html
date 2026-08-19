@@ -349,7 +349,10 @@ body{
      跟 .awaiting 同樣的解法 —— 字級吃同一個 vw，上限 36px 留出餘裕。
      harness 在 360/375/390/414 四個寬度驗「讀數整個在環心圓內」，
      以後哪個帶位詞變長都會當場紅。 */
-  font-size:clamp(30px, 9vw, 36px);letter-spacing:-0.01em;line-height:1;
+  /* 上限 36→34px（2026-08-19，harness 進 CI 時順手）：36px 時「Neutral」在容器
+     預設字型下是 124px、環心 128px —— **只剩 4px 餘裕**，字型稍微換一下就紅。
+     斷言現在會在 CI 跑，假紅的代價比字小一點高得多。 */
+  font-size:clamp(28px, 8.5vw, 34px);letter-spacing:-0.01em;line-height:1;
   background:none;-webkit-text-fill-color:currentColor;
 }
 /* 🔴 沒有讀數時的樣子（2026-08-18）。
