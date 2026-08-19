@@ -17,8 +17,16 @@
    不要花時間 debug 連不上的 `exp://192.168.x.x`。
 
 **已知限制（不是 bug，不要修）**：Expo Go 沒有 `react-native-vision-camera` 也沒有
-`@shopify/react-native-skia`，所以擷取畫面與 Processing/Resonance 畫面會崩 —— 掃描儀式與
-orb 物理在 Expo Go 驗不到，需要 development build。**嚴禁為了讓它跑起來就拔掉這兩個套件。**
+`@shopify/react-native-skia`。2026-08-19 已加上探測 + 降級（`utils/optionalNative.ts`），
+畫面**不再崩**，但看到的東西不同：擷取畫面在框裡明說「沒有相機」（**刻意不假裝**），
+Processing/Resonance 顯示純 RN Animated 的降級 orb。
+
+結果：**第 1 項（掃描儀式）在 Expo Go 看得到**；**第 2 項（Skia orb 物理 + 傾斜視差）
+看不到真樣子**，環速/視差/模糊都是 Skia 專屬，仍需 development build。
+
+**嚴禁為了讓它跑起來就拔掉這兩個套件，或把降級版當正式實作。**
+`__tests__/optionalNative.test.ts` 會掃原始碼，把這兩個模組寫回 module scope 的
+static import 就會紅燈 —— 那正是當初崩潰的成因。
 
 > 順帶修正上面 2026-07-03 工作清單第 3 項「原生 lane（需 Mac）」的說法：**編譯不需要 Mac**
 > —— EAS 免費層在 Expo 託管的 macOS runner 上編 iOS。真正的門檻是**裝到自己 iPhone**

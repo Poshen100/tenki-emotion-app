@@ -94,25 +94,33 @@ founder 用 iPhone 的 **Expo Go** 掃終端機印出的 QR code。
 | 4 | 基準線成功頁 | 點金色封印 | 重播個人簽名脈衝（3 段遞增） |
 | 5 | 重試頁 | 上滑 / 左右滑 | 上滑觸發重試；**左右滑不觸發**，系統返回手勢正常 |
 | 6 | 設定 → 減少動態 | 打開後重看 1、3 | 星星停止閃爍但仍在；長按 CTA 變成**一般點擊即確認** |
+| 7 | 擷取畫面 | 走進掃描流程 | **不崩**；框裡明說沒有相機；粒子隨進度收斂、觸覺同步（＝第 1 項） |
+| 8 | Processing 畫面 | 走到「Securing…」 | **不崩**；降級 orb 會轉。這裡看不到 Skia 版，屬預期 |
 
 第 6 項是可及性驗收，**不要跳過** —— 它是這輪唯一沒有自動測試能覆蓋的承諾。
 
 ---
 
-## 7. 已知會崩的兩個畫面 — **回報，不要修**
+## 7. 缺的原生模組 — 已降級，**不要「修」它**
 
-| 畫面 | 缺的模組 | 為什麼 |
-|------|---------|--------|
-| 任何渲染 `CameraFeedView` 的擷取畫面 | `react-native-vision-camera` | 不在 Expo Go 內建的原生模組清單裡 |
-| Processing / Resonance 畫面 | `@shopify/react-native-skia` | 同上 |
+Expo Go 不帶 `react-native-vision-camera` 也不帶 `@shopify/react-native-skia`。
+2026-08-19 已加上探測 + 降級（`utils/optionalNative.ts`），所以**畫面不再崩**，但要知道
+你看到的是什麼：
 
-**這代表「多感官掃描儀式」與「Skia orb 物理」在 Expo Go 驗不到**，需要 development build。
+| 畫面 | Expo Go 實際看到 | 意義 |
+|------|-----------------|------|
+| 擷取畫面 | 掃描框裡顯示「No camera in this build」 | **刻意不假裝有相機**。周圍的粒子網格、進度尺、觸覺全部真的在跑 |
+| Processing / Resonance | 降級版 orb（純 RN Animated） | 環真的會轉、球真的會隨進度變亮，**但不是 Skia 那顆** |
 
-**嚴禁為了讓它跑起來就把這兩個套件從 `package.json` 拿掉。** 崩潰是預期內的，回報即可。
+因此：
 
-`scheme` 是 `tenki` 且用 expo-router，可以直接輸入路由跳過崩潰畫面去看第 4、5 項。
+- **第 1 項（多感官掃描儀式）→ 看得到。** 粒子收斂/散開與觸覺同步本來就是純 RN Animated。
+- **第 2 項（Skia orb 物理 + 傾斜視差）→ 看不到真樣子。** 環速、視差、模糊都是 Skia 專屬，
+  降級版沒有。這一項仍需 development build。Expo Go 只能證明「它不會崩」。
 
----
+**嚴禁**為了讓它「完整」就把這兩個套件從 `package.json` 拿掉，或把降級版當成正式實作。
+有一條測試（`__tests__/optionalNative.test.ts`）會掃描原始碼，如果有人把這兩個模組
+重新寫成 module scope 的 static import，測試會紅燈 —— 那就是當初崩潰的成因。
 
 ## 8. 公用電腦的安全規則
 
