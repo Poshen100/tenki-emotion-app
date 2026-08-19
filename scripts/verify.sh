@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # TENKI Core — 一鍵 merge gate（Definition of Done）
 #
-# 跑完整套驗證: lint + 4 套件 tsc + root 測試 + mobile tsc/測試 + preview 語法 + 禁用詞彙。
+# 跑完整套驗證: lint + 5 套件 tsc + root 測試 + mobile tsc/測試 + preview 語法 + 禁用詞彙
+#              + preview harness（Playwright，偵測得到才跑）。
 # 沒有這裡的綠燈，任何改動都不算「完成」。（CI = .github/workflows/ci.yml 跑同一套。）
 #
 # ⚠️ 本腳本涵蓋不到的事（見 docs/PLAYBOOK.md §3）:
@@ -77,6 +78,19 @@ run_step "preview syntax (node --check)" check_preview
 
 # ── 6. 禁用詞彙（TEI/PR99 不得進新代碼）──────────────────
 run_step "banned vocab (check-vocab)" bash scripts/check-vocab.sh
+
+# ── 7. Preview harness（Playwright）─────────────────────
+# 這兩支以前是 CI／verify 的盲區，而那個盲區咬過兩次（#231 改文案沒改斷言、
+# Hero 爆版連三個 PR 沒紅）。現在 CI 一定會跑它們（.github/workflows/ci.yml
+# 的 preview job），本機則是**偵測得到就跑**：裝了 Playwright 就當場採雷，
+# 沒裝就標示跳過 —— 跟 mobile 未安裝時同樣的處理方式，不讓它變成硬失敗。
+if node -e "import('playwright')" >/dev/null 2>&1 \
+   || [ -d /opt/node22/lib/node_modules/playwright ]; then
+  run_step "preview harness (fdcb)" node scripts/preview-fdcb.mjs
+  run_step "preview harness (strip-color)" node scripts/preview-strip-color.mjs
+else
+  RESULTS+=("– preview harness（未裝 Playwright，略過；CI 會跑）")
+fi
 
 # ── 總結 ─────────────────────────────────────────────────
 echo ""
