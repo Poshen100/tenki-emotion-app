@@ -197,7 +197,13 @@ export type SessionEventType =
   | 'cancel'      // Cancelled process
   | 'no_action';  // Decided not to act
 
-/** Single session event record. */
+/**
+ * Single session event record — a candidate Turning Point
+ * ("a moment where behavior shifts from reactive to intentional", SYSTEM.md section 4).
+ *
+ * The `type` vocabulary above stays frozen (docs/TRADINGVIEW-ALERT-SPEC.md section 9);
+ * what varies per template is the human-readable `label`, not the type.
+ */
 export interface SessionEvent {
   /** Event unique ID. */
   id: string;
@@ -205,10 +211,33 @@ export interface SessionEvent {
   type: SessionEventType;
   /** Seconds elapsed since session start. */
   elapsedSec: number;
-  /** Edge Score at event time. */
+  /**
+   * Edge Score at event time.
+   *
+   * @deprecated DO NOT write a browser-tier readiness reading here. A reading is
+   * qualitative by contract — band + confidence, never a 0-100 number
+   * (domain/src/contracts/readiness-reading.ts, domain/src/policies/readiness-band.ts).
+   * This field predates that contract, from when Edge Score was assumed to be a real
+   * measurement on every surface. Filling it from a scan would fabricate the exact
+   * number two prior sessions removed from the UI. Attach `AttachedReadinessReading`
+   * to the decision record instead. Kept only so existing records keep parsing.
+   */
   edgeScoreAtEvent: number;
   /** Timestamp (Unix ms). */
   timestamp: number;
+  /**
+   * Preset id the label came from, or null when the user just marked the moment
+   * without choosing one. Absent on records written before typed marks existed.
+   */
+  labelId?: string | null;
+  /**
+   * Human-readable label, snapshotted at mark time so renaming a template later
+   * cannot rewrite history.
+   *
+   * WARNING: user-authored labels are user-facing copy and MUST be checked with
+   * `findProhibitedTerms()` (../compliance/safe-copy) before being stored.
+   */
+  label?: string | null;
 }
 
 // ─────────────────────────────────────────────
