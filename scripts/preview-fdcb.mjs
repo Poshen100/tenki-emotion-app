@@ -23,7 +23,7 @@
  */
 // Playwright 從共用 resolver 拿：CI 走 node_modules、容器退回全域安裝。
 // 這一行原本是寫死的 /opt/node22/... 絕對路徑 —— 那就是 harness 進不了 CI 的原因。
-import { getChromium } from './lib/playwright.mjs';
+import { getChromium, checkFontCanary } from './lib/playwright.mjs';
 import http from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
@@ -141,6 +141,22 @@ const outcomes = (page) => page.evaluate(() => {
   try { return JSON.parse(localStorage.getItem(window.TENKI_OUTCOME.STORE_KEY)) || []; }
   catch (e) { return []; }
 });
+
+// ═══════════════ 0. 字型金絲雀（必須跑在所有版面斷言之前）═══════════════
+// 🔴 下面每一條「幾行 / 在不在圓內」都是文字寬度的函式，而文字寬度是字型的函式。
+// 先確認這台機器的字型跟基準對得上 —— 對不上就在這裡明說，
+// 不要讓它去翻掉版面斷言，害下一個人以為是版面壞了。
+console.log('\n── 字型金絲雀 ──');
+{
+  const page = await openV3(700);
+  const drift = await checkFontCanary(page);
+  check('字型與基準一致（不一致就不要相信下面的版面斷言）', drift, []);
+  if (drift.length) {
+    console.log('   ⚠️ 這台機器的字型跟基準不同 —— 先修環境（CI 應裝 fonts-wqy-zenhei），');
+    console.log('      不要去改產品的版面來迎合它。');
+  }
+  await page.close();
+}
 
 // ═══════════════ 1. idle：底座是單行，保留區跟著縮，標記鍵不出現 ═══════════════
 console.log('\n── idle 底座（390x700）──');
