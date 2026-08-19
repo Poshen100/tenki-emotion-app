@@ -8,6 +8,9 @@
  *
  * INTEGRATION (retryReason): show reason-specific copy from classifyRetryReason
  * and resume via RESUME_TARGET for the failed state.
+ *
+ * A flick upward retries as a shortcut. The button stays the primary path —
+ * a gesture that is the only way in is a gesture that locks people out.
  */
 import type React from 'react';
 import { useEffect, useRef } from 'react';
@@ -15,6 +18,7 @@ import { View, Text, Animated, Easing, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   CosmicBackground,
   RecoveryChecklist,
@@ -25,6 +29,7 @@ import {
 import { FACE_BASELINE_COPY as C } from '../copy/face-baseline.copy';
 import { useFaceBaselineStore } from '../store/faceBaselineStore';
 import { faceBaselineTokens as t } from '../tokens/faceBaseline.tokens';
+import { swipeIntent } from '../utils/gestureFeel';
 import { FB_ROUTES } from './routes';
 
 const GLYPH = 210;
@@ -105,34 +110,51 @@ export default function FaceDetectionRecoveryScreen(): React.JSX.Element {
     router.replace(FB_ROUTES.faceLock);
   };
 
+  // Upward, not sideways: a horizontal shortcut would fight the iOS
+  // interactive back gesture. All the thresholds live in `swipeIntent`.
+  //
+  // runOnJS is explicit rather than incidental. Without reanimated installed
+  // RNGH already dispatches on the JS thread, so this changes nothing today —
+  // but the day someone adds reanimated, an unmarked handler touching the
+  // router would start crashing on the UI thread.
+  const flickUpToRetry = Gesture.Pan()
+    .runOnJS(true)
+    .onEnd((e) => {
+      if (swipeIntent(e.translationX, e.translationY, e.velocityY) === 'retry') {
+        onTryAgain();
+      }
+    });
+
   return (
-    <CosmicBackground mode="dim">
-      {/* warm blurred ambient: large warm blobs + blur + dark scrim */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <View style={[styles.ambientBlob, styles.blobA]} />
-        <View style={[styles.ambientBlob, styles.blobB]} />
-        <View style={[styles.ambientBlob, styles.blobC]} />
-        <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
-        <View style={styles.scrim} />
-      </View>
-      <SafeAreaView style={styles.safe}>
-        <NavBar onBack={() => router.back()} />
-        <View style={styles.frameWrap}>
-          <DetectionGlyph />
+    <GestureDetector gesture={flickUpToRetry}>
+      <CosmicBackground mode="dim">
+        {/* warm blurred ambient: large warm blobs + blur + dark scrim */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <View style={[styles.ambientBlob, styles.blobA]} />
+          <View style={[styles.ambientBlob, styles.blobB]} />
+          <View style={[styles.ambientBlob, styles.blobC]} />
+          <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={styles.scrim} />
         </View>
-        <View style={styles.body}>
-          <Text style={styles.title}>{C.recovery.title}</Text>
-          <Text style={styles.subtitle}>{C.recovery.subtitle}</Text>
-          <View style={styles.checklist}>
-            <RecoveryChecklist items={C.recovery.checklist} />
+        <SafeAreaView style={styles.safe}>
+          <NavBar onBack={() => router.back()} />
+          <View style={styles.frameWrap}>
+            <DetectionGlyph />
           </View>
-        </View>
-        <View style={styles.footer}>
-          <GlowPrimaryButton accent="cyan" label={C.recovery.cta} onPress={onTryAgain} />
-          <TextLink label={C.recovery.helpLink} tone="muted" onPress={() => undefined} />
-        </View>
-      </SafeAreaView>
-    </CosmicBackground>
+          <View style={styles.body}>
+            <Text style={styles.title}>{C.recovery.title}</Text>
+            <Text style={styles.subtitle}>{C.recovery.subtitle}</Text>
+            <View style={styles.checklist}>
+              <RecoveryChecklist items={C.recovery.checklist} />
+            </View>
+          </View>
+          <View style={styles.footer}>
+            <GlowPrimaryButton accent="cyan" label={C.recovery.cta} onPress={onTryAgain} />
+            <TextLink label={C.recovery.helpLink} tone="muted" onPress={() => undefined} />
+          </View>
+        </SafeAreaView>
+      </CosmicBackground>
+    </GestureDetector>
   );
 }
 
