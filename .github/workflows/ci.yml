@@ -51,12 +51,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Typecheck (engine, scan, shared, domain)
+      - name: Typecheck (engine, scan, shared, domain, api)
         run: |
           npx tsc --noEmit -p packages/engine
           npx tsc --noEmit -p packages/scan
           npx tsc --noEmit -p packages/shared
           npx tsc --noEmit -p domain
+          npx tsc --noEmit -p api
 
       - name: Run tests
         run: npm test
@@ -84,3 +85,64 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  # ═══════════════════════════════════════════════════════════
+  # preview harness（Playwright）
+  #
+  # 🔴 這個 job 存在的理由：apps/preview 長期是 CI 盲區，而那個盲區咬過兩次 ——
+  #   1. #231 改了 Hero 無讀數文案沒改斷言 → preview-strip-color 在 main 上
+  #      紅著 44/45 好幾天沒人發現。
+  #   2. #229/#231/#232 讓 Hero 讀數爆版三次都沒紅，最後是 founder 用手機發現的。
+  # 唯一的硬阻礙本來只是六行寫死的 Playwright 絕對路徑（已改成 scripts/lib/playwright.mjs）。
+  #
+  # ⚠️ 字型是真正要小心的地方：harness 量文字寬度與行數，而 ubuntu runner 預設
+  # **沒有中文字型**，Latin 的 sans-serif 也可能解析到 DejaVu（實測「Neutral」
+  # 在 DejaVu 下 152px vs 容器 124px，而環心只有 ~128px）。所以這裡明確裝
+  # fonts-wqy-zenhei 跟開發容器對齊，harness 自己還有一條字型金絲雀會當場抓到飄移。
+  #
+  # ⚠️ preview-scan-stardust.mjs **刻意還沒收進來**：它的註解寫明倚賴容器
+  # 「連不到 cdnjs」（three.js 載不進來、走 stub），而 CI 連得到，前提整個反過來。
+  # 要進 CI 得先處理那個相依，不能直接丟。
+  # ═══════════════════════════════════════════════════════════
+  preview:
+    name: preview harness (playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 跟開發容器同一套字型 —— 不釘的話版面斷言會假紅（見上方註解）
+      - name: Pin fonts (match the dev container)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-wqy-zenhei
+          fc-cache -f
+          echo "--- sans-serif 解析到 ---"
+          fc-match sans-serif
+          fc-match "sans-serif:lang=zh-tw"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: pw-${{ runner.os }}-
+
+      # ⚠️ 這一步是 CI 專屬。PLAYBOOK 有一條「不要 playwright install」——
+      # 那是**開發容器**的規則（瀏覽器已預裝在 /opt/pw-browsers），不適用於 runner。
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: FDCB + Turning Point harness
+        run: node scripts/preview-fdcb.mjs
+
+      - name: Strip colour / outcome harness
+        run: node scripts/preview-strip-color.mjs
