@@ -191,10 +191,13 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
   一關門就立刻取基準值，關門前那幾個 rAF tick 仍在**合法**累積 progress。
   是測試的競態，不是產品的 bug。作法：**先餵幾幀把狀態推到位、等它安定，才取基準值。**
   ⚠️ 偶紅的斷言比紅的更貴 —— 它會訓練你忽略紅燈。看到 flaky 就當場修，不要重跑到綠為止。
-- **`scripts/preview-*.mjs` 這幾支 harness 沒有進 `verify.sh`**（Playwright 走的是容器限定路徑），
-  所以它們**不會自己喊痛**。2026-08-09 實例：把 `.tpl-card` 改名成 `.tpl-row`，
-  `preview-strip-color.mjs` 的選擇器當場失效而全綠照舊。**改 preview 的 class 名／id 時，
-  一併 `grep` `scripts/*.mjs`**；動完 preview 至少手跑一次相關 harness。
+- **`preview-fdcb.mjs` 與 `preview-strip-color.mjs` 已經進 CI 與 `verify.sh`**（2026-08-19）。
+  在那之前它們是盲區（Playwright 走容器限定的絕對路徑），而那個盲區**咬過兩次**：
+  2026-08-09 把 `.tpl-card` 改名成 `.tpl-row`、選擇器當場失效而全綠照舊；
+  2026-08-19 發現 `preview-strip-color` 因為 #231 改文案沒改斷言，**在 main 上紅了好幾天沒人知道**。
+  現在：`.github/workflows/ci.yml` 的 `preview` job 一定會跑，`verify.sh` 偵測得到 Playwright 就跑。
+  ⚠️ **`preview-scan-stardust.mjs` 仍在盲區**（它倚賴容器連不到 cdnjs，CI 連得到，前提相反）——
+  改到它涵蓋的東西時仍要手跑。**改 preview 的 class 名／id 時，一併 `grep` `scripts/*.mjs`**。
 - **合成測試資料要帶著真實世界的耦合，否則測不到它宣稱要測的東西。** 2026-08-09 實例：
   驗「『正對鏡頭』必須排在位置/大小判斷之前」，但合成臉只搬鼻尖、包圍盒完全不變形 ——
   於是**把順序改錯了，測試照樣全綠**。真實的轉頭會壓縮遠側臉頰、抬低頭會位移中心，
@@ -310,7 +313,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | 乾淨容器 | root 與 `apps/mobile` 要**各自** `npm ci`（mobile 不在 workspaces） |
 | 在 `apps/mobile` 裝依賴 | 工具呼叫之間 shell cwd 會重置 → 用單一命令 `cd /abs/path/apps/mobile && npm install ...`，否則會污染 root package.json |
 | `expo export` 失敗 | 它會先清空 output dir — dist 消失 = build 失敗的訊號；`dist/` 是 gitignored，需要時 `git add -f` |
-| Playwright | 全域裝在 `/opt/pw-browsers`，不要 `playwright install`；orb 截圖迴圈：`node scripts/orb-tuner/shoot.mjs` |
+| Playwright | **本容器內**全域裝在 `/opt/pw-browsers`，不要 `playwright install`（⚠️ 這是容器規則；CI 的 `preview` job **必須**自己裝，別照這條把它拿掉）；orb 截圖迴圈：`node scripts/orb-tuner/shoot.mjs` |
 
 ## 6. apps/preview（vanilla JS）前端陷阱
 

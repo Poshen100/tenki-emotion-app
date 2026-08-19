@@ -13,8 +13,9 @@
  *
  * 2026-08-09 起也守模板選單的終端機排版與兩條內容紅線（MODE_2 不上畫面、不推薦）。
  * ⚠️ 那次改版把 `.tpl-card` 改名成 `.tpl-row`，本 harness 的選擇器當場失效 ——
- * preview harness **沒有進 verify.sh**（Playwright 路徑是容器限定），所以它不會
- * 自己喊痛。改 preview 的 class 名時要一併 grep scripts/*.mjs。
+ * ⚠️ 那時候 preview harness 沒有進 verify.sh（Playwright 路徑是容器限定），所以它
+ * 不會自己喊痛。**2026-08-19 起這支已經進 CI 與 verify.sh**（見 ci.yml 的 preview job）——
+ * 但選擇器失效仍然是靜默的，改 preview 的 class 名時還是要一併 grep scripts/*.mjs。
  *
  * 走法：模擬快訊 → 進入決策 → 選 FBD → 立刻「成立 · 我進場了」→ 讀收束頁條紋。
  * Run:  node scripts/preview-strip-color.mjs

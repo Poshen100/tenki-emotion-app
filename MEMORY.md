@@ -9,6 +9,65 @@
 
 ---
 
+# 2026-08-19 Session Update #71 (preview harness 進 CI —— 補掉咬過兩次的盲區)
+
+founder：「想辦法讓它們進 CI」。
+
+## 一、擋路的其實只有六行
+
+六支 harness 都寫死 `import { chromium } from '/opt/node22/.../playwright/index.mjs'`
+—— 容器的全域安裝路徑，runner 上不存在。**就這樣**，不是什麼架構問題。
+其餘全部是可攜的（`repoRoot` 相對推導、本地 ephemeral port、沒有任何 `/home/user` 寫死）。
+
+新增 `scripts/lib/playwright.mjs`：先試 `import('playwright')`，
+`ERR_MODULE_NOT_FOUND` 才退回容器絕對路徑。**兩條路都親自走過**
+（把 node_modules/playwright 移走驗 fallback），只驗一條就宣稱兩條都行等於沒驗。
+
+## 二、🔴 真正的難題是字型，而它會製造「假紅」
+
+harness 量文字寬度與行數，而寬度是字型的函式。實測：
+
+| 字型 | 尚未量測@30px | Neutral@36px |
+|---|---|---|
+| 容器預設 sans | 120 | **124** |
+| WenQuanYi Zen Hei | 120 | 114 |
+| **DejaVu Sans** | 120 | **152** |
+
+中文穩（漢字 1em/字），**英文差 33%**。環心只有 ~128px ——
+ubuntu runner 若解析到 DejaVu，「讀數在圓內」那條第一次跑就紅，而且是假紅。
+
+兩層防護：
+1. CI 裝 `fonts-wqy-zenhei` 跟容器對齊（founder 拍板），並印 `fc-match` 到 log。
+2. **字型金絲雀**：所有版面斷言之前先量一組已知字串，對不上就以「字型與基準不一致」
+   失敗，並印「先修環境，不要去改產品的版面來迎合它」。
+   反向驗證過：把頁面切到 DejaVu → 金絲雀第一條就紅，底下 4 條版面斷言跟著紅。
+   **沒有金絲雀的話，下一個人只會看到那 4 條，然後跑去改產品迎合一個環境問題。**
+
+順手把 `.band` 上限 36→34px：36px 時「Neutral」124px 對 128px 的圓，**只剩 4px 餘裕**，
+而假紅會訓練人忽略紅燈。現在餘裕 46px。
+
+## 三、刻意沒收的
+
+`preview-scan-stardust.mjs`（105 條斷言，看起來最划算）**沒進 CI** ——
+它的註解寫明倚賴容器「連不到 cdnjs」（three.js 載不進來、走 stub），
+而 CI 連得到，**前提整個反過來**，放進去等於在測另一個東西。
+
+## 四、順帶補的落差
+
+`verify.sh:50` 有 `tsc api`、`ci.yml` 沒有，而 verify.sh 開頭寫著「CI 跑同一套」。
+既然這輪就是在修「本機與 CI 對不齊」，一起補。
+（`scripts/smoke-alert-api.mjs` 也是今天就能進 CI 的斷言型腳本、同樣不在 CI 裡 —— 下次。）
+
+## 五、下次接手點
+
+- **`preview-scan-stardust.mjs` 進 CI**：要先處理 cdnjs 相依（擋 egress 或強制 stub）。
+- `scripts/smoke-alert-api.mjs` 進 CI（不需要瀏覽器，最便宜的一個）。
+- ⚠️ **文件裡「preview harness 沒進 CI」的敘述已經改掉三處**（PLAYBOOK 兩處 +
+  strip-color 檔頭）。PLAYBOOK 那條「不要 playwright install」也加了範圍限定 ——
+  那是容器規則，CI 必須自己裝，別照著把安裝步驟拿掉。
+
+---
+
 # 2026-08-19 Session Update #70 (Hero 讀數爆版 —— 不是我弄的，但是我修的)
 
 founder 實走 PR #226 的 preview、**點了掃描**，兩張截圖都爆版：
