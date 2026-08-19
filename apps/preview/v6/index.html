@@ -1525,6 +1525,41 @@ body{
 }
 
 /* ═══════════════════════════════════════════════════
+   Turning Point 快選晶片列 —— 浮在底座正上方
+   ⚠️ 它落在 700px 可視高度下最擠的那一段（底座頂 558）。harness 用
+   elementFromPoint 驗它沒有被底座/tabbar 蓋住（PLAYBOOK：可視高度是變數）。
+   ═══════════════════════════════════════════════════ */
+.tp-picker{
+  position:absolute;
+  left:10px;right:10px;
+  bottom:calc(var(--tabbar-h) + var(--fdcb-gap) + var(--fdcb-h) + 8px);
+  z-index:46; /* 高於 .fdcb 的 45 */
+  display:flex;gap:6px;padding:6px;
+  overflow-x:auto;scrollbar-width:none;
+  background:rgba(20,20,24,0.92);
+  backdrop-filter:blur(24px) saturate(140%);
+  -webkit-backdrop-filter:blur(24px) saturate(140%);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:14px;
+  box-shadow:0 8px 28px rgba(0,0,0,0.5);
+  opacity:0;transform:translateY(6px);pointer-events:none;
+  transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm);
+}
+.tp-picker.open{opacity:1;transform:translateY(0);pointer-events:auto}
+.tp-picker::-webkit-scrollbar{display:none}
+.tp-chip{
+  flex:0 0 auto;padding:7px 12px;border-radius:10px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.10);
+  color:#fff;font-size:12px;font-family:inherit;line-height:1;
+  cursor:pointer;white-space:nowrap;
+  transition:background 0.2s;
+}
+.tp-chip:active{background:rgba(255,255,255,0.14)}
+.tp-chip.picked{background:rgba(255,255,255,0.18);border-color:rgba(255,255,255,0.3)}
+@media (prefers-reduced-motion: reduce){ .tp-picker{transition:none} }
+
+/* ═══════════════════════════════════════════════════
    TAB BAR — bottom navigation
    ═══════════════════════════════════════════════════ */
 .tabbar{
@@ -2555,6 +2590,14 @@ body{
 
     </div>
   </div>
+
+  <!-- ═══════ Turning Point 快選（點完標記之後才滑出）═══════
+       ⚠️ 刻意**不**用既有的 .sheet / openSheet() —— openSheet 與 selectTmpl 在
+       running 時 hard-return（那是上一個 PR 為了擋殭屍計時器加的 guard），
+       而這個快選正好必須在決策進行中打開。所以自己的元素、自己的 open/close。
+       ⚠️ 也刻意不用全屏 bottom sheet：決策正在跑，不該被一張蓋住畫面的表單打斷。
+       晶片列橫向捲動，標籤再多也不用改版面。 -->
+  <div class="tp-picker" id="tpPicker" role="group" aria-label="給剛剛那個標記選一個標籤"></div>
 
   <!-- ═══════ FDCB (floating above tab bar) ═══════ -->
   <div class="fdcb state-idle" id="fdcb">
@@ -3665,6 +3708,7 @@ function clearClosureTimer(){ if(closureTimer){ clearTimeout(closureTimer); clos
 
 function endDecision(type){
   if(runningInterval){ clearInterval(runningInterval); runningInterval = null; }
+  closeTpPicker();   // 決策收束了，快選沒有東西可以掛
   const tag = resolveOutcome(type, sess ? sess.reachedReadiness : false);
   if(sess) saveV6Outcome(sess, tag);
   pendingClosure = { tag: tag };
@@ -3981,6 +4025,65 @@ function renderLiveNodes(){
   });
 }
 
+// ── 自訂標籤：沿用自訂模板那條五段管線（load / save / 前綴 id / merge / render）──
+// templateId === null 代表「所有模板都出現」。
+const TP_LABEL_KEY = 'tenki.v6.tplabels.v1';
+function loadCustomTpLabels(){
+  try { const raw = JSON.parse(localStorage.getItem(TP_LABEL_KEY)); return Array.isArray(raw) ? raw : []; }
+  catch(e){ return []; }
+}
+function saveCustomTpLabels(list){ localStorage.setItem(TP_LABEL_KEY, JSON.stringify(list)); }
+
+/** 這個模板當下可選的標籤 = 內建（跟著模板走）+ 適用的自訂。 */
+function tpPresetsFor(tmplId){
+  const base = TP_PRESETS[tmplId] || TP_PRESETS_DEFAULT;
+  const custom = loadCustomTpLabels()
+    .filter(x => !x.templateId || x.templateId === tmplId)
+    .map(x => ({ id: 'CUSTOM_' + x.id, text: x.text }));
+  return base.concat(custom);
+}
+
+// 快選自己收走的時間。⚠️ 不是「選完才算數」——
+// 沒選就是一顆合法的純時間點，快路徑不因為多了這一列而變慢。
+const TP_PICKER_MS = 4200;
+let tpPickerTimer = null;
+
+function closeTpPicker(){
+  const el = document.getElementById('tpPicker');
+  if(el) el.classList.remove('open');
+  if(tpPickerTimer){ clearTimeout(tpPickerTimer); tpPickerTimer = null; }
+}
+
+function openTpPicker(){
+  const el = document.getElementById('tpPicker');
+  if(!el || !pendingTp) return;
+  const list = tpPresetsFor(currentTmpl);
+  el.innerHTML = '';
+  list.forEach(opt => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'tp-chip' + (pendingTp.labelId === opt.id ? ' picked' : '');
+    chip.textContent = opt.text;
+    chip.onclick = function(){ pickTpLabel(opt.id, opt.text); };
+    el.appendChild(chip);
+  });
+  el.scrollLeft = 0;
+  el.classList.add('open');
+  if(tpPickerTimer) clearTimeout(tpPickerTimer);
+  tpPickerTimer = setTimeout(closeTpPicker, TP_PICKER_MS);
+}
+
+/** 回頭幫剛剛那顆節點補上標籤。沒有這一步，那顆節點依然成立。 */
+function pickTpLabel(id, text){
+  if(!pendingTp) { closeTpPicker(); return; }
+  pendingTp.labelId = id;
+  pendingTp.label = text;
+  markFlashUntil = Date.now() + MARK_FLASH_MS;
+  document.getElementById('fdcbSeg').textContent = '已標記 · ' + text;
+  renderLiveNodes();
+  closeTpPicker();
+}
+
 /** 剛落地、還沒補標籤的那一顆（快選會回頭改它）。 */
 let pendingTp = null;
 
@@ -4008,6 +4111,7 @@ function logEvent(){
   // 段標籤借用 1.6 秒回報「剛剛那一下記在第幾分幾秒」。
   // 舊版按下去只有一顆點亮起來，沒有任何一個字告訴你那代表什麼。
   document.getElementById('fdcbSeg').textContent = '已標記 ' + sess.marks + ' · ' + fmtClock(elapsed);
+  openTpPicker();
 }
 
 // ═════════════════════════════════════════════════
