@@ -11,10 +11,15 @@
  * Run: node scripts/orb-tuner/shoot.mjs
  * (Playwright is installed globally; we import it by absolute path so ESM resolves.)
  */
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+// Playwright 從共用 resolver 拿：CI 走 node_modules、容器退回全域安裝。
+// 這一行原本是寫死的 /opt/node22/... 絕對路徑 —— 那就是 harness 進不了 CI 的原因。
+import { getChromium } from '../lib/playwright.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdirSync } from 'node:fs';
+
+// top-level await：ESM 可以，且必須在任何 chromium.* 之前解析完。
+const chromium = await getChromium();
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, 'out');
