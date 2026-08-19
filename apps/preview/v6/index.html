@@ -1021,7 +1021,7 @@ body{
 .te-preview-dur{font-size:14px;color:var(--primary);font-variant-numeric:tabular-nums}
 .te-field{display:flex;flex-direction:column;gap:7px;margin-bottom:15px;font-size:12px;color:var(--txt-sec)}
 .te-field>span{letter-spacing:0.04em}
-.te-field input[type=text],.te-field input[type=number]{background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-family:inherit;font-size:15px;padding:11px 12px;width:100%}
+.te-field select,.te-field input[type=text],.te-field input[type=number]{background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-family:inherit;font-size:15px;padding:11px 12px;width:100%}
 .te-field-row{flex-direction:row;align-items:center;justify-content:space-between}
 .te-dur{display:flex;align-items:center;gap:6px}
 .te-dur input{width:64px;text-align:center}
@@ -2545,6 +2545,11 @@ body{
             <div class="nm">模板自訂</div>
             <div class="sub">建立個人化<br>決策模板</div>
           </div>
+          <div class="lab-item" onclick="openTpLabelEditor()">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><circle cx="8" cy="12" r="2.2"/><circle cx="16" cy="12" r="2.2"/></svg></div>
+            <div class="nm">標記標籤</div>
+            <div class="sub">自訂決策中<br>要記下的轉折</div>
+          </div>
           <div class="lab-item" onclick="exportOutcomesCsv()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
             <div class="nm">CSV 匯出</div>
@@ -2721,6 +2726,34 @@ body{
   <div class="home"></div>
 
   <!-- ═══════ 模板自訂 EDITOR (slide-in) ═══════ -->
+  <!-- ═══════ 標記標籤自訂（沿用 .te-* 既有樣式，不新增一套）═══════
+       自訂只在這裡建，不在跑決策中建 —— 決策進行中那一刻使用者該在跑決策，
+       不是在填表單。建好的標籤會出現在快選晶片列。 -->
+  <div class="tmpl-editor" id="tpLabelEditor">
+    <div class="te-header">
+      <div class="te-back" onclick="closeTpLabelEditor()">‹</div>
+      <div class="te-title">標記標籤</div>
+      <div class="te-spacer"></div>
+    </div>
+    <div class="te-body">
+      <div class="te-hint">決策進行中按「標記」，會跳出這些標籤讓你選。<br>沒選也沒關係 —— 那就是一個純粹的時間點。</div>
+      <div class="te-list" id="tplList"></div>
+      <div class="te-field">
+        <span>標籤文字</span>
+        <input type="text" id="tplText" maxlength="12" placeholder="例：等到了">
+      </div>
+      <div class="te-field">
+        <span>出現在</span>
+        <select id="tplScope"></select>
+      </div>
+      <div class="te-warn" id="tplWarn" hidden></div>
+      <div class="te-actions">
+        <div class="te-btn te-del" id="tplDelete" hidden onclick="deleteTpLabel()">刪除</div>
+        <div class="te-btn te-save" id="tplSave" onclick="saveTpLabel()">儲存標籤</div>
+      </div>
+    </div>
+  </div>
+
   <div class="tmpl-editor" id="tmplEditor">
     <div class="te-header">
       <div class="te-back" onclick="closeTmplEditor()">‹</div>
@@ -4078,6 +4111,114 @@ function loadCustomTpLabels(){
   catch(e){ return []; }
 }
 function saveCustomTpLabels(list){ localStorage.setItem(TP_LABEL_KEY, JSON.stringify(list)); }
+
+// 🔴 自訂標籤是**使用者輸入的 user-facing copy** —— 這是本功能開的最大 compliance 面。
+// 鏡射 packages/engine/src/compliance/safe-copy.ts 的 PROHIBITED_VOCABULARY_ZH
+// 與英文清單裡會真的出現在標籤上的那幾個（preview 是 vanilla JS，不能 import）。
+// ⚠️ 兩邊要同步：改那支就要改這裡（同 readiness 門檻的四處鏡射慣例，PLAYBOOK §6）。
+const TP_BANNED_ZH = [
+  '勝率', '買入', '賣出', '買進', '賣壓', '獲利', '虧損',
+  '停損', '停利', '追價', '進場訊號', '出場訊號', '交易建議',
+  '投資建議', '保證報酬', '保證獲利', '快進快出', '現在進場', '立即下單',
+];
+const TP_BANNED_EN = ['trade', 'buy', 'sell', 'profit', 'win rate', 'setup', 'market'];
+/** 回傳踩到的禁用詞（空陣列 = 乾淨）。 */
+function findBannedTpTerms(text){
+  const lower = String(text).toLowerCase();
+  return TP_BANNED_ZH.filter(t => text.includes(t))
+    .concat(TP_BANNED_EN.filter(t => lower.includes(t)));
+}
+
+// ── 標記標籤編輯器（沿用 .te-* 既有樣式與自訂模板的 create-or-update-by-id 慣例）──
+let tplEditId = null;
+function genTpLabelId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function renderTplScope(){
+  const sel = document.getElementById('tplScope');
+  if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '';
+  const all = document.createElement('option');
+  all.value = ''; all.textContent = '所有模板';
+  sel.appendChild(all);
+  Object.keys(TEMPLATES).forEach(k => {
+    const o = document.createElement('option');
+    o.value = k; o.textContent = TEMPLATES[k].name;
+    sel.appendChild(o);
+  });
+  sel.value = cur || '';
+}
+
+function renderTplList(){
+  const wrap = document.getElementById('tplList');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  loadCustomTpLabels().forEach(x => {
+    const row = document.createElement('div');
+    row.className = 'te-list-item';
+    row.onclick = function(){ loadTpLabelIntoForm(x); };
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = x.text;
+    const scope = document.createElement('div'); scope.className = 'dur';
+    scope.textContent = x.templateId && TEMPLATES[x.templateId] ? TEMPLATES[x.templateId].name : '所有模板';
+    const edit = document.createElement('div'); edit.className = 'edit'; edit.textContent = '編輯';
+    row.appendChild(nm); row.appendChild(scope); row.appendChild(edit);
+    wrap.appendChild(row);
+  });
+}
+
+function resetTpLabelForm(){
+  tplEditId = null;
+  document.getElementById('tplText').value = '';
+  renderTplScope();
+  document.getElementById('tplScope').value = '';
+  document.getElementById('tplDelete').hidden = true;
+  document.getElementById('tplSave').textContent = '儲存標籤';
+  document.getElementById('tplWarn').hidden = true;
+}
+
+function loadTpLabelIntoForm(x){
+  tplEditId = x.id;
+  document.getElementById('tplText').value = x.text;
+  renderTplScope();
+  document.getElementById('tplScope').value = x.templateId || '';
+  document.getElementById('tplDelete').hidden = false;
+  document.getElementById('tplSave').textContent = '更新標籤';
+  document.getElementById('tplWarn').hidden = true;
+}
+
+function openTpLabelEditor(){
+  resetTpLabelForm(); renderTplList();
+  document.getElementById('tpLabelEditor').classList.add('open');
+}
+function closeTpLabelEditor(){ document.getElementById('tpLabelEditor').classList.remove('open'); }
+
+function saveTpLabel(){
+  const warn = document.getElementById('tplWarn');
+  const text = document.getElementById('tplText').value.trim();
+  const scope = document.getElementById('tplScope').value || null;
+  if(!text){ warn.textContent = '請先填標籤文字。'; warn.hidden = false; return; }
+  const banned = findBannedTpTerms(text);
+  if(banned.length){
+    // 誠實地講清楚擋在哪 —— 不是預設值靜靜吃掉使用者輸入。
+    warn.textContent = '「' + banned[0] + '」不能用在標籤上。標記記的是你當下的決策過程，不是金融動作。';
+    warn.hidden = false;
+    return;
+  }
+  const list = loadCustomTpLabels();
+  if(tplEditId){
+    const i = list.findIndex(x => x.id === tplEditId);
+    if(i >= 0) list[i] = { id: tplEditId, text, templateId: scope };
+  } else {
+    list.push({ id: genTpLabelId(), text, templateId: scope });
+  }
+  saveCustomTpLabels(list); resetTpLabelForm(); renderTplList();
+}
+
+function deleteTpLabel(){
+  if(!tplEditId) return;
+  saveCustomTpLabels(loadCustomTpLabels().filter(x => x.id !== tplEditId));
+  resetTpLabelForm(); renderTplList();
+}
 
 /** 這個模板當下可選的標籤 = 內建（跟著模板走）+ 適用的自訂。 */
 function tpPresetsFor(tmplId){
