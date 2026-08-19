@@ -105,6 +105,27 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
   ⚠️ 這條特別容易咬 preview：畫面底部有固定的 FDCB 底座與 tab bar，
   **任何 section 的最後一個元素都在它們的陰影裡**。
   ⚠️ 而且它是 scroll 位置的函式 —— harness 只會在它當下的捲動位置驗到。
+- **🔴 同一個事實在畫面上有兩個地方講，就會有一個先說錯**（2026-08-14）。
+  決策節點依 `t/durationSec` 落在進度軌上，而 founder 的實際手感是「一下子從 1 按到 5」
+  —— 五顆全落在 `t=1`，疊成同一個位置。軌上看得到一顆、右邊計數寫 5。
+  兩個都沒寫錯 code，但畫面在自相矛盾。
+  判準：**任何「位置＝時間」的視覺，先問「同一個時間點會不會有多筆」**；
+  會的話就得決定是合併（用大小/數字表示數量）還是散開，不能放著讓它們互相蓋。
+  這次合併，公式沿用 Timeline strip 既有的 `r = 3 + min(n,6)*0.7`，不另創視覺語言。
+- **🔴 flex column + `overflow-y:auto` 的子項會被壓扁，再被 `overflow:hidden` 裁掉**（2026-08-14）。
+  `.sd-body` 是 flex column 捲動容器，子卡片預設 `flex-shrink:1`；內容一長就被壓縮，
+  而 `.card{overflow:hidden}` 把溢出的部分直接切掉 —— 4 個節點的第 4 列整列消失，
+  **沒有任何錯誤、捲動也捲不出來**。
+  ⚠️ 這個 repo 已經為短視窗踩過**同一個坑**（`.screens .screen > *{flex-shrink:0}`，
+  當時的症狀是「coach card 消失、卡片滑到底座下面」）。第二次了，所以進法典：
+  **在 flex 捲動容器裡新增卡片，一律同時下 `flex-shrink:0`。**
+- **🔴 `opacity:0 + pointer-events:none` 不是隱藏，`visibility:hidden` 才是**（2026-08-14，第二次）。
+  新增的快選晶片列收起時原本只有 `opacity:0 + pointer-events:none`，而它的位置
+  正好落在 390x700 下「示意說明／輪播圓點」那一段 —— 跟指紋鈕那次同一個地雷區。
+  這次沒被咬到（晶片是沒有自訂 `pointer-events` 的 `<button>`），但**沒被咬到不等於安全**：
+  下一個人在晶片上加一條 `pointer-events:auto` 就會重演。
+  規則：**浮層收起時一併 `visibility:hidden`**（會繼承、且不被 descendant 推翻），
+  並把 `visibility` 的 transition 延後到淡出結束（`visibility 0s linear .3s`）以免直接消失。
 - **🔴 可視高度是變數，把元素排進「量出來的縫隙」只在那個高度成立**（2026-08-12）。
   前一天為了讓說明與圓點都露出來，量了 844 高的可用高度（卡片底 654 → 底座頂 702）
   再收緊邊距把兩者排進去 —— 而 founder 是在 in-app 瀏覽器看的，扣掉上下工具列

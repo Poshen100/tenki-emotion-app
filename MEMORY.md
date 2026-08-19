@@ -9,6 +9,70 @@
 
 ---
 
+# 2026-08-14 Session Update #69 (標記 → Turning Point 節點：把 repo 裡蓋好一半的四塊零件接起來)
+
+founder 實走 #68 的成果後回報：
+
+> 標記 很好按 一下子就從1按到5，但這應該是 可以快速選擇或是自訂、自己記錄用
+> 這樣才能看到 ——事件節點（掃描狀態/分數）—事件節點（掃描狀態/分數）—-
+
+「很好按」是贏，「一下子從 1 按到 5」是輸 —— 那個 5 什麼都沒記下來。
+
+## 一、🔑 這個功能在 repo 裡已經被蓋好一半，四塊零件從沒接起來
+
+| 已存在 | 位置 | 狀態 |
+|---|---|---|
+| **名字** `Turning Point`「a moment where behavior shifts from reactive to intentional」 | `SYSTEM.md` §4 | 語言系統四個桶之一，**而這個桶至今零實作** |
+| **型別** `AttachedReadinessReading`（band/confidence/ts/evidence/staleAtDecision） | `domain/src/contracts/readiness-reading.ts:57` | 宣告了，全 repo 沒有人用。註解寫明「as attached to a decision record」 |
+| **分析** `summarizeDisciplineByBand()`（「我在 Clear 的時候是不是比較跟得住流程」） | `domain/src/policies/readiness-band.ts:179` | 寫好了，**沒有任何東西餵它** —— 因為至今沒有一筆決策紀錄帶 `band` |
+| **視覺** `.sd-evt` + `.sd-trace .evt`（連接線 + 型別圓點 + 段落膠囊） | `apps/preview/v6/index.html:1096-1290` | 約 195 行孤兒 CSS，**全 repo 唯一的「連接線 + 點」元件**，沒有任何 markup 用到 |
+
+所以這一版不是長新功能，是把四個各自為了這件事蓋好、卻沒接起來的零件接上。
+`summarizeDisciplineByBand()` 的 doc comment 甚至已經先把誠實規則寫死：
+「沒有讀數的紀錄要排除，猜一個等於偽造這個統計存在的意義本身。」
+
+## 二、🔴 我改動了需求的一點（已與 founder 確認）
+
+founder 寫「掃描狀態/**分數**」。**節點上沒有分數。** 契約明寫 never a fabricated
+0-100 score，而 `SessionEvent.edgeScoreAtEvent` 剛好就是陷阱 ——
+**掛「當下狀態」最自然的那個欄位，被一個產品不被允許產生的數字佔住了**。
+已把它標 `@deprecated` 並寫清楚原因。狀態章＝帶位 + 信心 + 讀數多久 + staleAtDecision，
+沒讀數就四欄全 null + 空心虛線節點。
+
+## 三、做了什麼（8 個 commit，Commit-Per-Todo）
+
+engine 加 `label`/`labelId`（**六個凍結的 SessionEventType 一字未動** —— per-template
+的快選供應的是 label，不是新 type）→ 節點資料模型 + 即時掛在 `.fdcb-prog` 上（Lock 語彙）
+→ 快選晶片列 → Session Detail 的軌 + 逐列軌跡（復活孤兒 CSS）→ Lab 自訂標籤 + 禁用詞把關
+→ CSV → harness +31 條。
+
+⚠️ 快選**不能**走既有的 `openSheet()`/`selectTmpl()` —— 那兩個在 running 時 hard-return，
+是 #68 為了擋殭屍計時器加的 guard，而快選正好必須在跑決策中打開。自己的元素、自己的 open/close。
+
+## 四、🔴 實作中踩到的三個坑（已提煉進 PLAYBOOK）
+
+1. **同一秒的節點疊在同一個位置** → 軌上一顆、計數寫 5，同個畫面兩個地方打架。
+2. **flex column 捲動容器的子卡片被壓扁再被 `overflow:hidden` 裁掉** → 第 4 列整列消失、
+   捲也捲不出來。**這個 repo 已經為短視窗踩過同一個坑**，第二次，所以進法典。
+3. **`opacity:0 + pointer-events:none` 不是隱藏** —— 這次沒被咬到，但位置正好落在
+   指紋鈕那次的同一個地雷區，改成一併 `visibility:hidden` 靠結構守住。
+
+反向驗證：四處破壞 → harness 紅 9 條；另外單獨反驗「節點不得帶分數」那條
+（只在有讀數的分支偷塞 `edgeScoreAtEvent:72`）→ 紅 1 條，確認不是死斷言。
+
+## 五、下次接手點
+
+- **`lockEventSec` 沒有實作**（`session/types.ts:98`，FBD = 60 秒「Lock event marking for
+  the first N seconds」）。preview 的 `TEMPLATES` 根本沒有這個欄位。本輪刻意不補 ——
+  補了會讓前 60 秒按不動，正好動到 founder 剛稱讚的手感。要補得由 founder 拍板。
+- **`summarizeDisciplineByBand()` 現在終於有資料可以餵了** —— 節點帶 band 了。
+  「我在 Clear 的時候是不是比較跟得住流程」這張圖可以做了，那是下一個自然的一步。
+- **「轉折點」的中文 user-facing 用詞未定案**。程式碼註解用 Turning Point（SYSTEM.md 語彙），
+  但畫面上一律沿用既有的「標記」與新的「決策軌跡」，沒有自己發明中文譯名。
+- `state-complete` 只停 1.8 秒（#68 留下的問題）仍未動，等 founder 實走回報。
+
+---
+
 # 2026-08-12 Session Update #68 (決策計時器：三句實走回報底下的五個實體 bug)
 
 founder 實走 /v3/ 三句話：「決策計時器好像是作一半的狀態」「各功能都在而且也會遮擋」
