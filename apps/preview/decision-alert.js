@@ -922,7 +922,7 @@
   function acceptReturnTicket() {
     var t = null;
     try { t = JSON.parse(localStorage.getItem(RETURN_KEY)); } catch (e) { t = null; }
-    try { localStorage.removeItem(RETURN_KEY); } catch (e) { /* 無妨 */ }
+
     if (!t || typeof t.ts !== 'number') return false;
     if (typeof t.at !== 'number' || Date.now() - t.at > HANDOFF_TTL_MS) return false;
 
