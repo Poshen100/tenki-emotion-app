@@ -602,9 +602,13 @@
   // CINEMATIC CRYSTAL ORB — Processing & Baseline Locked Volumetric Glass Sphere
   // Target: docs/refs/crystal-ball-target-IMG_8437.png
   // ═══════════════════════════════════════════════════════════════════════════
-  // High-density luminous gold stardust particles (1,600+ micro-grains across 4
-  // tangled Keplerian orbits), dynamic ray-bent refractive caustics, dual key+fill
-  // volumetric glass shading, frosted edge-haze, and smooth state-transition bloom.
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CINEMATIC CRYSTAL ORB — Processing & Baseline Locked Volumetric Glass Sphere
+  // Target: docs/refs/crystal-ball-target-IMG_8437.png
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Ultra-smooth flowing golden sand fluid dynamics: 2,200+ multi-scale micro-grains
+  // across 4 tangled Keplerian orbits with non-linear velocity gradients, organic
+  // viscous stream turbulence, curved Bezier motion streaks, and crystalline specular glints.
   function drawProcessingOrb(c, cx, cy, t, opts = {}) {
     c.save();
     const R = opts.R || 76;
@@ -626,10 +630,10 @@
 
     // ── 4 Tangled Keplerian Orbits (Non-coplanar 3D Golden Knot) ────────────
     const ORBITS = [
-      { rr: R * 0.96, tilt: 1.18, roll: 0.00, yaw: 0.0, head: 0.00320, grit: 480 },
-      { rr: R * 0.86, tilt: -0.82, roll: 1.15, yaw: 1.7, head: 0.00440, grit: 440 },
-      { rr: R * 0.74, tilt: 0.50, roll: -1.05, yaw: 3.4, head: -0.00550, grit: 380 },
-      { rr: R * 0.60, tilt: -1.30, roll: 0.55, yaw: 5.1, head: 0.00680, grit: 320 },
+      { rr: R * 0.94, tilt: 1.15, roll: 0.00, yaw: 0.0, head: 0.00340, grit: 620, ecc: 0.12 },
+      { rr: R * 0.82, tilt: -0.85, roll: 1.18, yaw: 1.7, head: 0.00460, grit: 580, ecc: 0.15 },
+      { rr: R * 0.68, tilt: 0.52, roll: -1.08, yaw: 3.4, head: -0.00580, grit: 520, ecc: 0.18 },
+      { rr: R * 0.52, tilt: -1.28, roll: 0.58, yaw: 5.1, head: 0.00720, grit: 480, ecc: 0.22 },
     ];
 
     // Asynchronous multi-harmonic precession (Keplerian drift)
@@ -643,7 +647,7 @@
       return s - Math.floor(s);
     };
 
-    // Project orbits to 3D space with continuous angular velocity
+    // Project orbits to 3D space with continuous angular velocity and fluid stream harmonics
     const O = ORBITS.map((o) => {
       const ax = o.tilt + (reducedMotion ? 0 : t * GROT.pitch);
       const ay = o.yaw + (reducedMotion ? 0 : t * GROT.yaw);
@@ -651,9 +655,11 @@
       const cb = Math.cos(ay), sb = Math.sin(ay);
       const cr = Math.cos(o.roll || 0), sr = Math.sin(o.roll || 0);
 
-      const project = (phi) => {
-        const x0 = Math.cos(phi) * o.rr, y0 = Math.sin(phi) * o.rr;
-        const y1 = y0 * ca, z1 = y0 * sa;
+      const project = (phi, radOffset = 0, zOffset = 0) => {
+        // Keplerian radial breathing + fluid eccentricity
+        const curR = (o.rr + radOffset) * (1 - o.ecc * Math.cos(phi));
+        const x0 = Math.cos(phi) * curR, y0 = Math.sin(phi) * curR;
+        const y1 = y0 * ca, z1 = y0 * sa + zOffset;
         const x2 = x0 * cb + z1 * sb, z2 = -x0 * sb + z1 * cb;
         const xr = x2 * cr - y1 * sr, yr = x2 * sr + y1 * cr;
         return { x: cx + xr, y: cy + yr, z: z2 };
@@ -661,13 +667,13 @@
 
       const dir = Math.sign(o.head) || 1;
       const head = reducedMotion ? 0 : (((t * o.head) % TAU + TAU) % TAU);
-      const comet = (phi) => Math.exp(-(((dir * (head - phi)) % TAU + TAU) % TAU) * 0.32);
+      const comet = (phi) => Math.exp(-(((dir * (head - phi)) % TAU + TAU) % TAU) * 0.28);
 
       return { o, project, comet };
     });
 
-    // ── High-Density Micro-Stardust Particles Stream ─────────────────────────
-    const EPS = 0.045; // Fine tangent delta
+    // ── High-Density Golden Sand Fluid Particles Stream (2,200+ grains) ──────
+    const EPS = 0.035; // Fine tangent delta for curved motion streaks
     const drawMicroStardust = (front) => {
       c.save();
       c.lineCap = 'round';
@@ -678,58 +684,87 @@
           const h1 = hash(o.rr * 9.1 + i * 17.3);
           const h2 = hash(i * 5.7 + o.rr * 3.3);
           const h3 = hash(i * 11.9 + 101.1);
+          const h4 = hash(i * 23.3 + 47.9);
 
-          const spd = 0.65 + h1 * 1.1; // Per-grain orbital speed variation
-          const phi = reducedMotion ? (h1 * TAU) : (h1 * TAU + t * (o.head * spd));
+          // Natural speed distribution: core flow is faster, boundary layer slower
+          const spd = 0.72 + h1 * 0.95;
+          // Organic fluid turbulence: slight sinusoidal cross-drift over time
+          const turb = reducedMotion ? 0 : Math.sin(t * 0.0018 + h3 * TAU) * 0.04;
+          const phi = reducedMotion ? (h1 * TAU) : (h1 * TAU + t * (o.head * spd) + turb);
 
-          // Keplerian non-linear velocity pulse
-          const kepPhi = phi + 0.08 * Math.sin(phi * 2);
-          const p = project(kepPhi);
+          // Non-linear Keplerian orbital velocity acceleration (faster near periapsis)
+          const kepPhi = phi + 0.12 * Math.sin(phi);
+
+          // Cross-stream Gaussian dispersion (fluid stream tube thickness)
+          const off = (h2 - 0.5) * 2;
+          const spreadRad = off * R * 0.11 * (1 - 0.3 * Math.abs(off));
+          const spreadZ = (h3 - 0.5) * R * 0.08;
+
+          const p = project(kepPhi, spreadRad, spreadZ);
           if ((p.z >= 0) !== front) continue;
 
-          const q = project(kepPhi + EPS);
-          let tx = q.x - p.x, ty = q.y - p.y;
-          const tl = Math.hypot(tx, ty) || 1;
-          tx /= tl; ty /= tl; // Unit tangent vector
-          const nx = -ty, ny = tx; // Screen normal
+          // Compute instantaneous curvature and tangents for curved fluid motion
+          const pPrev = project(kepPhi - EPS * 0.8, spreadRad, spreadZ);
+          const pNext = project(kepPhi + EPS * 0.8, spreadRad, spreadZ);
 
-          const d = (p.z / o.rr) * 0.5 + 0.5; // Depth: 0 (deep behind) -> 1 (closest front)
+          const d = (p.z / o.rr) * 0.5 + 0.5; // Normalized depth: 0 (deep back) -> 1 (closest front)
           const ci = comet(kepPhi);
-          const twinkle = reducedMotion ? 0.9 : (0.75 + 0.25 * Math.sin(t * 0.007 + h3 * 6.28));
+          
+          // Organic crystal facet twinkle (tumbles as it travels)
+          const facetAngle = (t * 0.008 + h4 * TAU) % TAU;
+          const facetReflect = Math.max(0, Math.cos(facetAngle));
+          const isSpark = h4 > 0.88; // 12% crystalline flake grains with specular glint
+          const isEmbers = h4 < 0.08; // 8% blazing core embers
 
-          // Doppler brightness + Climax energy boost
-          const a = (0.28 + ci * 0.92 + climax * 0.4) * (front ? (0.72 + 0.38 * d) : (0.28 + 0.15 * d)) * twinkle;
-          if (a < 0.015) continue;
+          // Alpha blending with depth attenuation & Doppler boost
+          let a = (0.30 + ci * 0.95 + climax * 0.45) * (front ? (0.75 + 0.35 * d) : (0.26 + 0.14 * d));
+          if (isSpark) a *= (0.8 + 0.8 * facetReflect);
+          if (a < 0.012) continue;
 
-          // Gaussian tube cross-section dispersion
-          const off = (h2 - 0.5) * 2;
-          const spread = off * R * 0.13 * (1 - 0.35 * Math.abs(off));
-          const gx = p.x + nx * spread, gy = p.y + ny * spread;
+          // Motion streak length scaled by orbital speed & depth
+          const lenScale = (1.8 + d * 3.6 + spd * 1.8 + climax * 2.8) * (R / 76);
+          const tx = (pNext.x - pPrev.x) * 0.5;
+          const ty = (pNext.y - pPrev.y) * 0.5;
+          const tl = Math.hypot(tx, ty) || 1;
+          const ux = (tx / tl) * lenScale;
+          const uy = (ty / tl) * lenScale;
 
-          // Motion streak length
-          const len = (2.0 + d * 4.4 + spd * 2.2 + climax * 3.0) * (R / 76);
+          c.globalAlpha = clamp01(a * (1 - 0.35 * Math.abs(off)));
 
-          c.globalAlpha = clamp01(a * (1 - 0.4 * Math.abs(off)));
-          c.lineWidth = (0.45 + d * 0.95 + (ci > 0.6 ? 0.4 : 0)) * (R / 76);
+          // Grain size hierarchy:
+          // - Embers: 1.2 ~ 2.2px
+          // - Sparks: 0.8 ~ 1.5px
+          // - Micro-sand: 0.35 ~ 0.85px
+          const baseW = isEmbers ? (1.1 + d * 0.9) : isSpark ? (0.75 + d * 0.65) : (0.38 + d * 0.52);
+          c.lineWidth = baseW * (R / 76);
 
-          // Color temperature: White-hot on near dragon-head -> luminous gold -> rich deep amber in tail
-          if (ci > 0.65 || (front && d > 0.82)) {
+          // Rich Doppler color palette: White-gold head -> Radiant sovereign gold -> Deep honey amber
+          if (isEmbers || (ci > 0.68 && front)) {
+            c.strokeStyle = '#FFFFFF';
+            c.shadowColor = '#FFEAA7';
+            c.shadowBlur = 4.5 + d * 8.0 + climax * 9.0;
+          } else if (isSpark && facetReflect > 0.6) {
             c.strokeStyle = '#FFFDF0';
-            c.shadowColor = '#FFE8A3';
-            c.shadowBlur = 4.0 + d * 7.0 + climax * 8.0;
-          } else if (ci > 0.25 || front) {
-            c.strokeStyle = '#FFE28A';
-            c.shadowColor = COLORS.gold;
-            c.shadowBlur = 2.5 + d * 5.0;
+            c.shadowColor = '#FFD46E';
+            c.shadowBlur = 3.5 + d * 6.0;
+          } else if (ci > 0.28 || (front && d > 0.6)) {
+            c.strokeStyle = '#FFDF78';
+            c.shadowColor = '#F3A92A';
+            c.shadowBlur = 2.2 + d * 4.5;
+          } else if (front) {
+            c.strokeStyle = '#F0B842';
+            c.shadowColor = '#D48B1E';
+            c.shadowBlur = 1.6;
           } else {
-            c.strokeStyle = '#D49B28';
-            c.shadowColor = '#A06E10';
-            c.shadowBlur = 1.5;
+            c.strokeStyle = '#C27F18';
+            c.shadowColor = '#7A4806';
+            c.shadowBlur = 1.0;
           }
 
+          // Render curved quadratic Bezier fluid trail
           c.beginPath();
-          c.moveTo(gx - tx * len * 0.5, gy - ty * len * 0.5);
-          c.lineTo(gx + tx * len * 0.5, gy + ty * len * 0.5);
+          c.moveTo(p.x - ux, p.y - uy);
+          c.quadraticCurveTo(p.x, p.y, p.x + ux, p.y + uy);
           c.stroke();
         }
       }
@@ -1540,6 +1575,13 @@
     state.step = step;
     state.stepStart = now();
     document.getElementById('stage').dataset.step = step; // scopes per-step layout (e.g. compact end screen)
+    
+    // Toggle Camera Permission Hub if permission denied
+    const permHub = document.getElementById('perm-hub');
+    if (permHub) {
+      permHub.classList.toggle('show', step === 'permission_denied');
+    }
+
     if (step === 'face_detecting') { // fresh Guided Lock-On each entry
       state.alignHold = {}; state.alignLocked = {}; state.alignProg = 0; state.shownNudge = ''; state.candNudge = '';
     }
@@ -1621,6 +1663,54 @@
       state.orbClimax = Math.sin(p * Math.PI) * (1 - p * 0.4);
     } else {
       state.orbClimax *= 0.92;
+    }
+
+    // Demo simulation loop when camera is not available
+    if (state.isDemo) {
+      const gDemo = { lighting: true, centering: true, stillness: true };
+      INDICATORS.forEach((ind) => {
+        const dot = document.querySelector('#pin-' + ind.key + ' .pindot');
+        if (dot) dot.classList.add('on');
+      });
+      switch (state.step) {
+        case 'environment_check':
+          if (t - state.stepStart >= 1200) go('face_detecting');
+          break;
+        case 'face_detecting':
+          if (t - state.stepStart >= 1500) go('face_locked');
+          break;
+        case 'face_locked':
+          if (t - state.stepStart >= 800) go('neutral_capture');
+          break;
+        case 'neutral_capture':
+          state.neutral += 0.008;
+          if (state.neutral >= 1) go('arc_left');
+          break;
+        case 'arc_left':
+          state.arc += 0.008;
+          if (state.arc >= 0.5) go('arc_right');
+          break;
+        case 'arc_right':
+          state.arc += 0.008;
+          if (state.arc >= 1.0) go('stability_pass');
+          break;
+        case 'stability_pass':
+          state.stability += 0.008;
+          if (state.stability >= 1.0) go('processing');
+          break;
+        case 'processing': {
+          const pp = clamp01((t - state.stepStart) / 2200);
+          const numEl = document.getElementById('proc-pct-num');
+          if (numEl) numEl.textContent = String(Math.round(pp * 100));
+          if (pp >= 1) {
+            updateConfidenceCopy();
+            go('baseline_confirmed');
+          }
+          break;
+        }
+        default: break;
+      }
+      return;
     }
 
     if (!state.started || !state.stream) return;
@@ -1782,12 +1872,15 @@
   async function begin() {
     if (state.started) return;
     state.started = true;
+    state.isDemo = false;
     state.blink = window.TENKI_BLINK
       ? window.TENKI_BLINK.createCounter({ closeBelow: BLINK_CLOSE, openAbove: BLINK_OPEN })
       : null;
     state.blinkEarned = false;
     document.getElementById('cta').classList.add('hidden');
     document.getElementById('indicators').style.opacity = '1';
+    const permHub = document.getElementById('perm-hub');
+    if (permHub) permHub.classList.remove('show');
     go('permission_check');
     try {
       await startCamera();
@@ -1796,6 +1889,20 @@
     } catch (_) {
       go('permission_denied');
     }
+  }
+
+  function startDemoSimulation() {
+    state.isDemo = true;
+    state.started = true;
+    const permHub = document.getElementById('perm-hub');
+    if (permHub) permHub.classList.remove('show');
+    document.getElementById('cta').classList.add('hidden');
+    document.getElementById('indicators').style.opacity = '1';
+    state.tierA = true;
+    state.confSum = 50;
+    state.confN = 55;
+    state.envHoldStart = 0;
+    go('environment_check');
   }
 
   function onCta() {
@@ -1815,7 +1922,7 @@
     stopCamera();
     document.getElementById('stage').dataset.step = 'intro';
     Object.assign(state, {
-      step: 'intro', stepStart: 0, started: false, tierA: false, detector: null, face: null,
+      step: 'intro', stepStart: 0, started: false, isDemo: false, tierA: false, detector: null, face: null,
       q: { brightness: 0, uniformity: 0, motion: 1, detail: 0, coverage: 0, centerOffset: 1 },
       gates: { lighting: false, centering: false, stillness: false },
       mpActive: false, lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0, cx: 0.5, cy: 0.5, dist: 0, roll: 0, pitch: 0, eyeOpen: 1 },
@@ -1840,6 +1947,8 @@
     pill.textContent = '🔒 PRIVACY SECURED · ON-DEVICE';
     document.getElementById('baseline-extra').classList.remove('on');
     document.getElementById('proc-pct').classList.remove('on');
+    const permHub = document.getElementById('perm-hub');
+    if (permHub) permHub.classList.remove('show');
     m3d.seen = false; // re-seed the 3D model on the next run
     const m3dHost = document.getElementById('model3d');
     if (m3dHost) m3dHost.classList.remove('on');
@@ -1864,10 +1973,24 @@
     sampler = document.createElement('canvas');
     sampler.width = SAMP; sampler.height = SAMP;
     sctx = sampler.getContext('2d', { willReadFrequently: true });
+    
     // route the static HTML CTA through the state-aware handler
     const cta = document.getElementById('cta');
-    cta.dataset.action = 'begin';
-    cta.onclick = onCta;
+    if (cta) {
+      cta.dataset.action = 'begin';
+      cta.onclick = onCta;
+    }
+
+    // Connect Permission Hub buttons
+    const retryBtn = document.getElementById('perm-retry-btn');
+    if (retryBtn) {
+      retryBtn.onclick = () => { state.started = false; begin(); };
+    }
+    const demoBtn = document.getElementById('perm-demo-btn');
+    if (demoBtn) {
+      demoBtn.onclick = () => { startDemoSimulation(); };
+    }
+
     window.addEventListener('resize', () => { initStarfield(); });
     requestAnimationFrame(render);
     requestAnimationFrame(loop);
