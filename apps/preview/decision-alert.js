@@ -989,7 +989,7 @@
     try { localStorage.setItem(HANDOFF_KEY, JSON.stringify(payload)); }
     catch (e) { /* 存不進去就不要導過去，免得那頁空手起跑一個不知道是誰的決策 */ return; }
     log('engaged', alert.symbol + ' — 交給決策計時器');
-    window.location.href = '/v3/#session';
+    window.location.href = '/v3/#decision';
   }
 
   // ── 浮動決策計時條 ──

@@ -151,21 +151,44 @@ await page.click('.tpl-row'); // 第 1 列 = 快訊標記的 FBD
 // ⚠️ 先等導覽真的完成再 waitForFunction —— 點擊會觸發跳頁，
 // 而 waitForFunction 若在導覽當下啟動會綁到**舊頁的執行脈絡**，
 // 於是明明新頁已經跑起來了它還是逾時（實際踩到：sess 明明有值卻 timeout）。
-await page.waitForURL(/\/v3\//, { timeout: 15000 });
-// 等交棒真的把決策起跑（輪詢已知的終值特徵，不是輪詢「某個東西還不存在」）
-await page.waitForFunction(
-  () => typeof sess !== 'undefined' && sess && !!sess.originAlertId,
-  null, { timeout: 15000 },
-);
+// ⚠️ 用 try/catch 包起來，等不到就報一條**說得出人話**的失敗。
+// 裸的 waitForFunction 逾時會讓整支腳本以 Playwright 的 stack trace 死掉 ——
+// 下一個人在 CI 上看到的是「TimeoutError at line 156」，而不是「交棒斷了」。
+// 2026-08-20 實際發生過：故意破壞交棒，CI 紅的訊息完全看不出原因。
+let handedOff = true;
+try {
+  await page.waitForURL(/\/v3\//, { timeout: 15000 });
+  await page.waitForFunction(
+    () => typeof sess !== 'undefined' && sess && !!sess.originAlertId,
+    null, { timeout: 15000 },
+  );
+} catch (e) { handedOff = false; }
+check('🔴 選完模板交棒到 /v3/ 的決策計時器（斷了的話底下收束頁的斷言都到不了）', handedOff, true);
+if (!handedOff) {
+  console.log('\n🔴 交棒沒把決策起跑 —— 底下的收束頁斷言全部無法抵達，先修交棒。');
+  await browser.close();
+  server.close();
+  process.exit(1);
+}
 await page.waitForTimeout(1200); // 讓守望累積幾秒（快速判定正是要保護的案例）
 await page.evaluate(() => window.judgeWatch('entered'));
 // 判定完會導回這一頁並開收束頁（同樣先等導覽完成）
-await page.waitForURL(/decision-alert/, { timeout: 15000 });
-await page.waitForFunction(
-  () => document.getElementById('resultSheet')
-    && document.getElementById('resultSheet').className.indexOf('show') !== -1,
-  null, { timeout: 15000 },
-);
+let returned = true;
+try {
+  await page.waitForURL(/decision-alert/, { timeout: 15000 });
+  await page.waitForFunction(
+    () => document.getElementById('resultSheet')
+      && document.getElementById('resultSheet').className.indexOf('show') !== -1,
+    null, { timeout: 15000 },
+  );
+} catch (e) { returned = false; }
+check('🔴 判定完回到 /decision-alert/ 並開出收束頁', returned, true);
+if (!returned) {
+  console.log('\n🔴 回程沒到 —— 底下的收束頁斷言全部無法抵達，先修回程。');
+  await browser.close();
+  server.close();
+  process.exit(1);
+}
 await page.waitForTimeout(1600); // 收束頁的揭示編排
 
 const rate = (await page.textContent('#resultRate'))?.trim() ?? '';
