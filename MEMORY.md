@@ -75,6 +75,37 @@ founder 裁：判定完導回去看原收束頁。
 
 ---
 
+# 2026-08-20 Session Update #73 (Energy 長條圖被截斷 —— 一個會說謊的容器)
+
+founder 實走 `/v3/` 回報「體能 長條圖被截斷」。
+
+## 實測
+
+390 寬掃五個高度：**≤880px 時 `.bb-bars` 被 flex 壓成 33px，而長條仍是 JS 算出來的
+53px 絕對高度**，上緣整排被 `overflow:hidden` 削掉。932 剛好放得下 ——
+所以只有矮視窗會壞，而那正是 in-app 瀏覽器的實際可視高度。
+
+三件事疊起來才會壞：固定高但可被壓縮的 flex 子項 + 矮視窗的 media query 縮軌道
++ `overflow:hidden` 把後果藏起來。長條高度是絕對 px，容器縮了它完全不知道。
+
+## 兩個教訓（都已進 PLAYBOOK）
+
+1. **有 `overflow:hidden` 的容器會讓上層的溢出偵測說謊。**
+   `card.scrollHeight > clientHeight` 在 bug 存在時回報 **false**。
+   要逐個子元素問 `rect.top < container.top`。
+2. **只寫在註解裡的不變量會默默失效。** 動效註解寫著「±10% → 48px 不會切 54px」，
+   我把高度改成 % 之後那句話立刻變假而沒有東西喊痛。
+   改成具名常數 `BAR_HEADROOM = 0.85` + 逐幀斷言（90 幀，含呼吸波峰）。
+
+## 反向驗證的分布本身就是證據
+
+高度改回絕對 px → 844/760/700/660 紅、**932 不紅**，與原 bug 的分布完全一致。
+
+## 下次接手點
+
+- founder 尚未回覆的兩題：`brand/TAGLINE-SYSTEM.md` Tier 3 的「TRADER MODE」與
+  compliance 衝突；`/decision-alert/` 交棒後不再被呼叫的舊守望條要不要清掉。
+
 # 2026-08-19 Session Update #71 (preview harness 進 CI —— 補掉咬過兩次的盲區)
 
 founder：「想辦法讓它們進 CI」。
