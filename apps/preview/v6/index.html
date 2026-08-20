@@ -1445,7 +1445,10 @@ body{
   font-size:9px;color:var(--txt-dim);font-variant-numeric:tabular-nums;
 }
 
-.sd-facts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:14px}
+/* 欄數跟著「實際看得見的格子數」走，不寫死 3 ——「離開」那格只有在紀錄真的有
+   這個欄位時才出現（舊紀錄沒有就整格不存在，見 PLAYBOOK：缺欄位不准說否定）。
+   [hidden] 是 display:none，不會佔掉一條 grid track。 */
+.sd-facts{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;padding:14px}
 .sd-fact{text-align:center}
 .sd-fact .k{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:5px}
 .sd-fact .v{font-size:16px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums}
@@ -2704,6 +2707,9 @@ body{
         <div class="sd-fact"><div class="k">用時</div><div class="v" id="sdFactDur">3:00</div></div>
         <div class="sd-fact"><div class="k">Readiness</div><div class="v" id="sdFactReadiness">已進入</div></div>
         <div class="sd-fact"><div class="k">標記</div><div class="v" id="sdFactMarks">0</div></div>
+        <!-- 離開：交易者在桌機或券商 APP 下單，離開是常態不是失誤 —— 這裡只陳述事實，
+             不寫成扣分。舊紀錄沒有這個欄位 → 整格 hidden，不顯示「0 次」。 -->
+        <div class="sd-fact" id="sdFactAwayCell" hidden><div class="k">離開</div><div class="v" id="sdFactAway">—</div></div>
       </div>
 
       <!-- Insight（事實語言）-->
@@ -3733,6 +3739,25 @@ function elapsedNow(){
   return Math.floor((Date.now() - sess.startedAtMs) / 1000);
 }
 
+// ── 決策期間離開了幾次、多久 ──
+// 交易者是在桌機或券商 APP 下單，**離開是常態不是失誤**。記錄它不是為了扣分，
+// 是因為「離開幾次」比進度條真實得多（decision-alert.js:1260 的原話，語氣照搬）。
+// 短暫切換（通知列、誤觸）不算，避免把雜訊記成紀律事件。
+const AWAY_MIN_MS = 3000;
+let awayAtMs = 0;
+document.addEventListener('visibilitychange', () => {
+  if(!sess) return;
+  if(document.visibilityState === 'hidden'){ awayAtMs = Date.now(); return; }
+  // 回到前景：先把時鐘補到真值，不要等下一次 tick（最多會慢 1 秒才跳對）
+  if(STATES[stateIdx] === 'running'){ elapsed = elapsedNow(); tickFdcb(); }
+  if(!awayAtMs) return;
+  const gap = Date.now() - awayAtMs;
+  awayAtMs = 0;
+  if(gap < AWAY_MIN_MS) return;
+  sess.awayCount = (sess.awayCount || 0) + 1;
+  sess.awayMs = (sess.awayMs || 0) + gap;
+});
+
 // 模板膠囊（左欄）。時長一律走 fmtDur ——
 // 🔴 舊版寫死 `${Math.floor(sec/60)}:00`：3:30 的自訂模板在這裡顯示 3:00、
 // 6 秒的顯示 0:00，而同一個膠囊裡的大字時鐘同時寫 `/ 0:06`
@@ -3784,7 +3809,8 @@ function renderFdcb(){
     // 這正是交易者的常態使用情境（下單根本不在這支手機上）。
     // decision-alert.js:928-956 早就為同一件事改成 Date.now()，這裡照抄，不另發明。
     sess = { templateId: currentTmpl, name: tmpl.name, rs: b.rs, re: b.re,
-             reachedReadiness: false, marks: 0, events: [], startedAtMs: Date.now() };
+             reachedReadiness: false, marks: 0, events: [], startedAtMs: Date.now(),
+             awayCount: 0, awayMs: 0 };
     elapsed = 0;
     markFlashUntil = 0;
     renderMarks();
@@ -3870,6 +3896,10 @@ function saveV6Outcome(session, outcomeTag){
     // SYSTEM.md §6 明訂不得改既有持久化欄位名 —— 所以 events 是**加**，不是換。
     marks: session.marks,
     events: Array.isArray(session.events) ? session.events : [],
+    // 離開次數／時長：新增欄位（加，不換 —— SYSTEM.md §6）。
+    // 舊紀錄沒有這兩欄，讀端必須當「不知道」處理，不得顯示 0。
+    awayCount: session.awayCount || 0,
+    awayMs: session.awayMs || 0,
     ts: Date.now(), source: 'v6'
   });
   if(all.length > 200) all = all.slice(all.length - 200);
@@ -4894,6 +4924,15 @@ function openSessionDetail(ts){
     (rec.reachedReadiness === undefined || rec.reachedReadiness === null)
       ? '—' : (rec.reachedReadiness ? '已進入' : '未進入');
   document.getElementById('sdFactMarks').textContent = String(marks);
+  // 🔴 舊紀錄沒有 awayCount → 整格不顯示。不得印「0 次」——
+  // 那是把「不知道」講成「沒發生」（PLAYBOOK：缺欄位就不准說否定）。
+  const awayCell = document.getElementById('sdFactAwayCell');
+  if(typeof rec.awayCount === 'number'){
+    awayCell.hidden = false;
+    document.getElementById('sdFactAway').textContent = rec.awayCount + ' 次';
+  } else {
+    awayCell.hidden = true;
+  }
 
   document.getElementById('sdInsight').innerHTML = buildDetailInsight(rec, m);
 

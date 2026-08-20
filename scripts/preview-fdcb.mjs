@@ -578,6 +578,71 @@ console.log('\n── Hero 讀數不得爆版 ──');
   await page.close();
 }
 
+// ═════════════════════════════════════════════════
+// 決策期間「離開」的記錄
+// 交易者在桌機或券商 APP 下單，離開是常態不是失誤 —— 記錄它是陳述事實，不是扣分。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 離開記錄（桌機／券商 APP 下單是常態）──');
+  const page = await openV3(700);
+  await page.evaluate(async () => {
+    window.setState('ready'); window.setState('running');
+    const fire = (v) => {
+      Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+    fire('hidden'); await new Promise((r) => setTimeout(r, 4100)); fire('visible');  // 算
+    fire('hidden'); await new Promise((r) => setTimeout(r, 1000)); fire('visible');  // 不算（雜訊）
+  });
+  const live = await page.evaluate(() => ({ count: sess.awayCount, ms: sess.awayMs }));
+  check('離開 4.1 秒記一次；1 秒的雜訊不記', live.count, 1);
+  checkTruthy(`離開時長記到了（${live.ms}ms）`, live.ms >= 4000 && live.ms < 5000);
+
+  await page.evaluate(() => window.endDecision('close'));
+  await page.waitForTimeout(200);
+  const rec = await page.evaluate(() => JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')).slice(-1)[0]);
+  check('離開次數落進紀錄', rec.awayCount, 1);
+
+  // 詳情頁：有欄位 → 該格出現；整排不得橫向溢出、每格 1 行
+  const shown = await page.evaluate((ts) => {
+    window.goTab('session'); window.openSessionDetail(ts);
+    const card = document.querySelector('.sd-facts');
+    const cells = [...card.querySelectorAll('.sd-fact')].filter((e) => !e.hidden);
+    return {
+      n: cells.length,
+      overflow: card.scrollWidth > card.clientWidth + 1,
+      maxLines: Math.max(...cells.map((c) => c.querySelector('.v').getClientRects().length)),
+      away: (document.getElementById('sdFactAway') || {}).textContent,
+    };
+  }, rec.ts);
+  check('詳情頁四格都在', shown.n, 4);
+  check('facts 那排沒有橫向溢出', shown.overflow, false);
+  check('facts 每格都只有 1 行', shown.maxLines, 1);
+  check('離開格顯示次數', shown.away, '1 次');
+
+  // 🔴 舊紀錄沒有 awayCount → 整格不顯示，且不得出現「0 次」
+  const legacy = await page.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    const old = Object.assign({}, all[all.length - 1], { ts: Date.now() - 60e3 });
+    delete old.awayCount; delete old.awayMs;
+    all.push(old);
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.openSessionDetail(old.ts);
+    const card = document.querySelector('.sd-facts');
+    return {
+      hidden: document.getElementById('sdFactAwayCell').hidden,
+      n: [...card.querySelectorAll('.sd-fact')].filter((e) => !e.hidden).length,
+      text: card.textContent,
+      overflow: card.scrollWidth > card.clientWidth + 1,
+    };
+  });
+  check('舊紀錄：離開格整格不顯示', legacy.hidden, true);
+  check('舊紀錄：剩下三格', legacy.n, 3);
+  check('🔴 舊紀錄不得出現「0 次」（缺欄位就不准說否定）', /0\s*次/.test(legacy.text), false);
+  check('舊紀錄三格也不橫向溢出', legacy.overflow, false);
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);
