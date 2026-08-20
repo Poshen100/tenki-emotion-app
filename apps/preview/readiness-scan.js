@@ -274,22 +274,41 @@
       // 這裡不能再放 CSS border —— 兩個形狀疊在一起正是 2026-08-07 實走看到的
       // 「金色圓圈與圓角方框各自為政」。
       '#' + OVERLAY_ID + ' .rs-frame{position:relative;width:236px;height:236px;}',
-      // Progress Halo（North Star §4「沿臉框逐段閉合的光弧，不用一般圓形 loading」）。
-      // track 與 fill 是**幾何完全相同**的兩個 rect：track 就是框，fill 是進度。
-      // 只有一條路徑，所以不可能再出現第二個形狀。
+      // Progress Halo & Soul Lock 雙環
       '#' + OVERLAY_ID + ' .rs-halo{position:absolute;inset:0;width:100%;height:100%;',
       'overflow:visible;pointer-events:none;}',
       '#' + OVERLAY_ID + ' .rs-halo rect{fill:none;stroke-linecap:round;',
       'transition:stroke 0.3s ' + EASE_SECURE + ';}',
-      '#' + OVERLAY_ID + ' .rs-halo .rs-halo-track{stroke:rgba(61,224,255,0.28);stroke-width:1;}',
+      '#' + OVERLAY_ID + ' .rs-halo .rs-halo-track{stroke:rgba(61,224,255,0.24);stroke-width:1;}',
+      '#' + OVERLAY_ID + ' .rs-halo .rs-inner-track{stroke:rgba(61,224,255,0.12);stroke-width:1;}',
       '#' + OVERLAY_ID + ' .rs-halo .rs-halo-fill{stroke:' + HALO_ACTIVE + ';stroke-width:2.5;}',
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-track{stroke:rgba(255,212,110,0.45);}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-inner-track{stroke:rgba(255,212,110,0.25);}',
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-fill{stroke:' + HALO_SECURED + ';',
       'filter:drop-shadow(0 0 6px rgba(255,212,110,0.55));}',
-      // 進度停住時光弧明顯黯下去。**這不是裝飾** —— 進度只在品質閘門通過時前進
-      // （pause-not-reset），這一層就是把那個因果講出來：「環停住是因為你沒對準」。
+      // 進度停住時光弧明顯黯下去。
       '#' + OVERLAY_ID + ' .rs-frame.stalled .rs-halo-fill{opacity:0.3;}',
       '#' + OVERLAY_ID + ' .rs-halo-fill{transition:opacity 0.3s ' + EASE_SECURE + ';}',
+
+      // ── Soul Lock Beat 1: Seek 微光標記 ──
+      // 3 顆極淡微光標記分佈在外環上，臉進入範圍時慢慢靠攏
+      '#' + OVERLAY_ID + ' .rs-seek-beacon{fill:' + HALO_ACTIVE + ';opacity:0.35;',
+      'filter:drop-shadow(0 0 3px rgba(34,211,238,0.5));',
+      'transition:opacity 0.4s ' + EASE_SECURE + ',transform 0.4s ' + EASE_SECURE + ';',
+      'transform-origin:118px 118px;}',
+      '#' + OVERLAY_ID + ' .rs-frame.tracking .rs-seek-beacon{opacity:0.65;}',
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-seek-beacon{opacity:0;}',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-seek-beacon{opacity:0;}',
+
+      // ── Soul Lock Beat 2: Align 細光弧 ──
+      // 25–35% 圓周細光弧，滑向對齊方向，對準後吸附上方核心點
+      '#' + OVERLAY_ID + ' .rs-halo .rs-align-arc{stroke:' + HALO_ACTIVE + ';stroke-width:2;',
+      'stroke-linecap:round;stroke-dasharray:0.28 0.72;stroke-dashoffset:-' + HALO_START_OFFSET + ';',
+      'opacity:0;transition:opacity 0.3s ' + EASE_SECURE + ',stroke 0.3s ' + EASE_SECURE + ';}',
+      '#' + OVERLAY_ID + ' .rs-frame.aligning .rs-align-arc{opacity:0.85;}',
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-align-arc{opacity:1;stroke-dashoffset:-' + HALO_START_OFFSET + ';}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-align-arc{stroke:' + HALO_SECURED + ';}',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-align-arc{opacity:0;}',
 
       // ── cyan 角括號 ──
       // 也長在**同一條路徑**上（第三個幾何相同的 rect），只是用 dash 只露出四個圓角。
@@ -371,6 +390,33 @@
       // 不補這個中間 keyframe 的話波紋一出生就淡掉了（實測截圖看出來的）。
       '@keyframes rs-wave-out{0%{transform:scale(1);opacity:0.95;}',
       '32%{opacity:0.8;}100%{transform:scale(2.3);opacity:0;}}',
+
+      // ── Soul Lock Beat 3: Sync 眨眼光波與同步光點 ──
+      '#' + OVERLAY_ID + ' .rs-halo .rs-sync-dot{fill:' + HALO_ACTIVE + ';opacity:0;',
+      'filter:drop-shadow(0 0 6px rgba(34,211,238,0.85));',
+      'transition:opacity 0.3s ' + EASE_SECURE + ',fill 0.3s ' + EASE_SECURE + ';}',
+      '#' + OVERLAY_ID + ' .rs-frame.synced .rs-sync-dot{opacity:1;}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-sync-dot{fill:' + HALO_SECURED + ';',
+      'filter:drop-shadow(0 0 6px rgba(255,212,110,0.85));}',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-sync-dot{opacity:0;}',
+      '#' + OVERLAY_ID + ' .rs-halo .rs-sync-pulse{fill:none;stroke:' + HALO_ACTIVE + ';',
+      'stroke-width:1.5;opacity:0;vector-effect:non-scaling-stroke;',
+      'transform-box:fill-box;transform-origin:center;}',
+      '#' + OVERLAY_ID + ' .rs-frame.sync-beat .rs-sync-pulse{',
+      'animation:rs-sync-ripple 0.6s ' + EASE_SECURE + ' 1;}',
+      '@keyframes rs-sync-ripple{0%{transform:scale(0.3);opacity:0.95;}',
+      '35%{opacity:0.8;}100%{transform:scale(2.1);opacity:0;}}',
+
+      // ── Soul Lock Beat 4: Hold 鎖定有效訊號與 Soul Thread ──
+      // 雙環之間生長出一條極細 Soul Thread，只隨 Tier A 有效 frame 累積
+      '#' + OVERLAY_ID + ' .rs-halo .rs-soul-thread{fill:none;stroke:' + HALO_ACTIVE + ';stroke-width:1.5;',
+      'stroke-linecap:round;filter:drop-shadow(0 0 5px rgba(34,211,238,0.65));opacity:0;',
+      'transition:opacity 0.3s ' + EASE_SECURE + ',stroke 0.3s ' + EASE_SECURE + ';}',
+      '#' + OVERLAY_ID + ' .rs-frame.holding .rs-soul-thread{opacity:1;}',
+      '#' + OVERLAY_ID + ' .rs-frame.stalled .rs-soul-thread{opacity:0.35;}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-soul-thread{stroke:' + HALO_SECURED + ';',
+      'filter:drop-shadow(0 0 6px rgba(255,212,110,0.65));}',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-soul-thread{opacity:0;}',
 
       // ── 揭曉面板（MOTION-DIRECTION §4「Reveal 揭曉」）──
       //
@@ -460,7 +506,8 @@
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-track,',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-corners,',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-wave,',
-      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-flash{animation:none;}}',
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-flash,',
+      '#' + OVERLAY_ID + ' .rs-frame.sync-beat .rs-sync-pulse{animation:none;}}',
       '#' + OVERLAY_ID + ' .rs-dots{display:flex;gap:14px;font-size:10px;color:#5A6178;',
       'letter-spacing:0.1em;text-transform:uppercase;}',
       '#' + OVERLAY_ID + ' .rs-dot{display:flex;align-items:center;gap:5px;}',
@@ -506,8 +553,20 @@
       // 三個 rect，幾何一字不差：track（框本身）、corners（角括號）、fill（進度）。
       '    <svg class="rs-halo" viewBox="0 0 236 236" aria-hidden="true">',
       '      <rect class="rs-halo-track" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
+      '      <rect class="rs-inner-track" x="16" y="16" width="204" height="204" rx="55" ry="55" pathLength="1"/>',
+      // Soul Lock Beat 4: Hold 雙環間的 Soul Thread
+      '      <rect class="rs-soul-thread" data-rs="soul-thread" x="8.5" y="8.5" width="219" height="219" rx="59" ry="59" pathLength="1"/>',
       '      <rect class="rs-halo-corners" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
       '      <rect class="rs-halo-fill" data-rs="halo" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
+      // Soul Lock Beat 2: Align 細光弧
+      '      <rect class="rs-align-arc" data-rs="align-arc" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
+      // Soul Lock Beat 1: 3 顆極淡微光標記（120度等距分佈於外環）
+      '      <circle class="rs-seek-beacon rs-seek-1" data-rs="seek-1" cx="118" cy="8" r="2.5"/>',
+      '      <circle class="rs-seek-beacon rs-seek-2" data-rs="seek-2" cx="23" cy="172" r="2.5"/>',
+      '      <circle class="rs-seek-beacon rs-seek-3" data-rs="seek-3" cx="213" cy="172" r="2.5"/>',
+      // Soul Lock Beat 3: Sync 同步光點與光波
+      '      <circle class="rs-sync-dot" data-rs="sync-dot" cx="118" cy="1" r="3.5"/>',
+      '      <circle class="rs-sync-pulse" data-rs="sync-pulse" cx="118" cy="118" r="52"/>',
       // 目標環（你該在的位置與大小）+ 對位標記（你現在在哪、多大）。
       // 兩者同一個座標系，所以「移進去、調到一樣大」＝ 對位完成。
       '      <circle class="rs-target" cx="118" cy="118" r="' + RETICLE_TARGET_R + '"/>',
@@ -646,7 +705,7 @@
         || pose.pitch < PITCH_SQUARE_MIN || pose.pitch > PITCH_SQUARE_MAX)) {
         return { key: 'square', text: '正對鏡頭', icon: '⊕' };
       }
-      if (box.size < FACE_SIZE_MIN) return { key: 'closer', text: '靠近一點', icon: '＋' };
+      if (box.size < FACE_SIZE_MIN) return { key: 'closer', text: '再靠近一些', icon: '＋' };
       if (box.size > FACE_SIZE_MAX) return { key: 'farther', text: '退遠一點', icon: '－' };
       if (box.centerY > 0.5 + FACE_CENTER_Y_TOL) return { key: 'up', text: '向上對齊', icon: '↑' };
       if (box.centerY < 0.5 - FACE_CENTER_Y_TOL) return { key: 'down', text: '向下對齊', icon: '↓' };
@@ -654,12 +713,28 @@
       if (displayX > 0.5 + FACE_CENTER_X_TOL) return { key: 'left', text: '向左對齊', icon: '←' };
       if (displayX < 0.5 - FACE_CENTER_X_TOL) return { key: 'right', text: '向右對齊', icon: '→' };
     } else if (gates.centering !== true) {
-      return { key: 'find', text: '把臉放進框裡', icon: '◎' };
+      return { key: 'find', text: '正在找到你', icon: '◎' };
     }
 
-    if (gates.lighting !== true) return { key: 'light', text: '需要多一點光線', icon: '☀' };
-    if (gates.stillness !== true) return { key: 'still', text: '再穩一下', icon: '≈' };
-    return { key: 'hold', text: '保持穩定', icon: '' };
+    if (gates.lighting !== true) return { key: 'light', text: '讓光線落在臉上', icon: '☀' };
+    if (gates.stillness !== true) return { key: 'still', text: '保持自然呼吸', icon: '≈' };
+
+    // Soul Lock Beat 4: Hold 階段動態文案演進
+    if (session.synced || session.heldMs > 0) {
+      var heldSec = session.heldMs / 1000;
+      if (heldSec < 3) {
+        return { key: 'hold-1', text: '初步讀取已完成', icon: '' };
+      }
+      if (heldSec < 6) {
+        return { key: 'hold-2', text: '正在提高信心', icon: '' };
+      }
+      return {
+        key: 'hold-3',
+        text: '有效訊號 ' + Math.floor(heldSec) + ' 秒 · 再穩住片刻',
+        icon: '',
+      };
+    }
+    return { key: 'hold', text: '保持自然呼吸', icon: '' };
   }
 
   /**
@@ -693,7 +768,7 @@
   }
 
   /**
-   * 推進 Progress Halo。
+   * 推進 Progress Halo 與 Soul Thread。
    *
    * `pathLength="1"` 把周長正規化成 1，所以 dash 長度就是**走過的弧長比例** ——
    * 換句話說進度沿著框均勻前進。這是不能用 conic-gradient 的原因：conic 掃的是
@@ -707,18 +782,30 @@
    */
   function setProgress(ratio) {
     var node = q('halo');
-    if (!node) return;
+    var thread = q('soul-thread');
+    var frame = q('frame');
     var p = clamp01(ratio);
-    if (p >= 1) {
-      // 收滿＝實線，不留接縫。用 dash 表示 100% 會在起點留一道縫：
-      // dash 1 + gap 1 的週期是 2，偏移 -0.0652 讓第一段從 0.0652 畫到 1.0652，
-      // 而路徑在 1.0 就結束 → [0, 0.0652) 落在上一個週期的空隙裡（實測可見）。
-      node.setAttribute('stroke-dasharray', 'none');
-      node.setAttribute('stroke-dashoffset', '0');
-      return;
+    if (frame) {
+      frame.classList.toggle('holding', p > 0.005);
     }
-    node.setAttribute('stroke-dasharray', p + ' 1');
-    node.setAttribute('stroke-dashoffset', -HALO_START_OFFSET);
+    if (node) {
+      if (p >= 1) {
+        node.setAttribute('stroke-dasharray', 'none');
+        node.setAttribute('stroke-dashoffset', '0');
+      } else {
+        node.setAttribute('stroke-dasharray', p + ' 1');
+        node.setAttribute('stroke-dashoffset', -HALO_START_OFFSET);
+      }
+    }
+    if (thread) {
+      if (p >= 1) {
+        thread.setAttribute('stroke-dasharray', 'none');
+        thread.setAttribute('stroke-dashoffset', '0');
+      } else {
+        thread.setAttribute('stroke-dasharray', p + ' 1');
+        thread.setAttribute('stroke-dashoffset', -HALO_START_OFFSET);
+      }
+    }
   }
 
   // ── 量測（逐幀取樣 → evidence）──
@@ -896,9 +983,13 @@
       session.lastBlinkFeedAt = 0;
       session.prevEyeOpen = 1;
       // 星塵回中性 —— 沒有臉就沒有表情，不該讓粒子停在最後一幀的形狀。
-      if (session.stardust && global.TENKI_STARDUST
-        && typeof global.TENKI_STARDUST.clearExpression === 'function') {
-        global.TENKI_STARDUST.clearExpression();
+      if (session.stardust && global.TENKI_STARDUST) {
+        if (typeof global.TENKI_STARDUST.clearExpression === 'function') {
+          global.TENKI_STARDUST.clearExpression();
+        }
+        if (typeof global.TENKI_STARDUST.resetCamera === 'function') {
+          global.TENKI_STARDUST.resetCamera();
+        }
       }
       return;
     }
@@ -956,7 +1047,47 @@
       session.lastBlinkFeedAt = now;
     }
 
+    // Soul Lock Beat 3: Sync 眨眼確認觸發
+    if (framed && !session.synced) {
+      if (blinkDetected || session.framedStreak >= 7) {
+        triggerSync();
+      }
+    }
+
     feedStardust(lm, eyeOpen, blinkDetected);
+  }
+
+  /**
+   * Soul Lock Beat 3: Sync 眨眼成為確認。
+   *
+   * 正常眨一次眼 → 星塵中心短暫微收縮 → 細光波由中心推向雙環 → 外環上方亮起「已同步」光點。
+   * 文案：已同步 → 正在建立初步讀數（禁止打勾、禁止「Verified」）。
+   */
+  function triggerSync() {
+    if (!session || session.synced) return;
+    session.synced = true;
+    session.syncAt = performance.now();
+    var frame = q('frame');
+    if (frame) {
+      frame.classList.add('synced');
+      frame.classList.remove('sync-beat');
+      void frame.offsetWidth;
+      frame.classList.add('sync-beat');
+    }
+    // 星塵中心短暫收縮後恢復
+    var S = global.TENKI_STARDUST;
+    if (session.stardust && S) {
+      if (typeof S.dim === 'function') S.dim();
+      setTimeout(function () {
+        if (session && typeof S.brighten === 'function') S.brighten();
+      }, 250);
+    }
+    setInstruction('已同步', '');
+    setTimeout(function () {
+      if (session && !session.done) {
+        setInstruction('正在建立初步讀數', '');
+      }
+    }, 450);
   }
 
   /**
@@ -982,6 +1113,12 @@
       browTension: browTension,
       blinkDetected: blinkDetected,
     });
+    // Soul Lock Beat 1: 星塵重心朝臉部中心極輕微偏移（注視感）
+    if (session.faceBox && typeof S.setCamera === 'function') {
+      var camX = (session.faceBox.centerX - 0.5) * 0.25;
+      var camY = -(session.faceBox.centerY - 0.5) * 0.25;
+      S.setCamera({ x: camX, y: camY });
+    }
     // ⚠️ `setExpression` 照舊餵 —— 那是 takeover 已經調過的手感通道（眨眼、尺度、
     // 滾動），不動它。`feedTone` 不再吃 mouthOpen/browTension：量過之後那兩個在
     // 掃描情境下幾乎是常數，見 feedTone 的說明。
@@ -1550,6 +1687,39 @@
       frame.classList.add('tracking');
       frame.style.setProperty('--rs-err', err.toFixed(3));
     }
+    updateAlignArc(box, session.headPose, framed);
+  }
+
+  /**
+   * Soul Lock Beat 2: Align 細光弧滑動與軟磁吸。
+   *
+   * 25-35% 圓周的細光弧朝著對齊方向滑動；偏頭或偏離時停在對應方向，
+   * 進入容差後以 soft magnetism 吸附到頂部核心點（-HALO_START_OFFSET）。
+   *
+   * @param {?{centerX:number,centerY:number,size:number}} box
+   * @param {?{yaw:number,pitch:number}} pose
+   * @param {boolean} framed
+   */
+  function updateAlignArc(box, pose, framed) {
+    if (!session) return;
+    var arc = q('align-arc');
+    var frame = q('frame');
+    if (!arc || !frame) return;
+    if (!box) {
+      frame.classList.remove('aligning');
+      return;
+    }
+    frame.classList.add('aligning');
+    if (framed) {
+      // 磁吸歸位：頂端核心點 (12點鐘)
+      arc.style.strokeDashoffset = (-HALO_START_OFFSET).toFixed(4);
+    } else {
+      var displayX = 1 - box.centerX;
+      var yawOffset = pose ? pose.yaw * 0.12 : 0;
+      var posOffset = (displayX - 0.5) * 0.16;
+      var offset = -HALO_START_OFFSET + posOffset + yawOffset;
+      arc.style.strokeDashoffset = offset.toFixed(4);
+    }
   }
 
   /**
@@ -1599,9 +1769,11 @@
     }
     var frame = q('frame');
     if (frame) {
-      frame.classList.remove('tracking');
+      frame.classList.remove('tracking', 'aligning');
       frame.style.removeProperty('--rs-err');
     }
+    var arc = q('align-arc');
+    if (arc) arc.style.removeProperty('stroke-dashoffset');
   }
 
   /**
@@ -1765,6 +1937,7 @@
       if (typeof S.clearExpression === 'function') S.clearExpression();
       if (typeof S.clearTone === 'function') S.clearTone();
       if (typeof S.clearReadout === 'function') S.clearReadout();
+      if (typeof S.resetCamera === 'function') S.resetCamera();
       if (typeof S.unmount === 'function') S.unmount();
     } catch (_) { /* 拆卸失敗不該擋住掃描收尾 */ }
     returnStardust();
@@ -1820,7 +1993,7 @@
     // 否則第二次掃描一開場就頂著金框，等於還沒量就宣稱鎖定了。
     var frameEl = q('frame');
     if (frameEl) {
-      frameEl.classList.remove('secured', 'locked', 'lock-beat', 'stalled', 'tracking', 'revealed');
+      frameEl.classList.remove('secured', 'locked', 'lock-beat', 'stalled', 'tracking', 'revealed', 'aligning', 'synced', 'sync-beat', 'holding');
       frameEl.style.removeProperty('--rs-err');
     }
     // 對位標記回到中心的預設位置，不留上一輪的殘影。
@@ -1838,6 +2011,8 @@
         acc: { n: 0, stillness: 0, lighting: 0, uniformity: 0 },
         heldMs: 0, budgetMs: MISSIONS[mission].budgetSec * 1000,
         captureStartedAt: 0, lastSampleAt: 0,
+        // Soul Lock 同步狀態
+        synced: false, syncAt: 0,
         // 臉部追蹤（tier 由實際量到的 landmark 樣本數決定，不是由「有沒有載到
         // MediaPipe」決定 —— 載到但整場沒看到臉，那就不是 Tier A）。
         faceMesh: null, faceTimer: null, faceBusy: false,
