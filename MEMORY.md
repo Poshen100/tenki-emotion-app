@@ -58,7 +58,27 @@ ubuntu runner 若解析到 DejaVu，「讀數在圓內」那條第一次跑就�
 既然這輪就是在修「本機與 CI 對不齊」，一起補。
 （`scripts/smoke-alert-api.mjs` 也是今天就能進 CI 的斷言型腳本、同樣不在 CI 裡 —— 下次。）
 
-## 五、下次接手點
+## 五、🔴 關卡上線後，要用一次真紅燈驗收
+
+**綠燈本身無法區分「守住了」與「根本沒跑」。** job 設定錯（步驟沒真的執行、
+exit code 被吞掉）一樣是綠的，而那種綠會讓人以為有保護。
+
+所以刻意推了一個爆版 commit（`a719260`，把 `.tl-edge-score.band` 的字級從
+`clamp(28px, 8.5vw, 34px)` 改回寫死的 40px），再 revert（`27f2d7c`）。兩個都留在歷史裡。
+
+CI run `32315555664` 的結果就是要的那組：
+
+- `preview harness (playwright)` → **failure**，`Process completed with exit code 1`
+- 紅的正是 360/375/390/414 四個寬度的「有讀數：讀數整個在環心圓內」
+- **金絲雀綠** —— 證明這是真的版面壞掉，不是 runner 字型跟基準對不上。
+  金絲雀若紅，這次驗證就沒有意義（會分不清是產品壞了還是環境不一致）
+- 其餘三個 job 全綠 —— 爆的範圍就在該爆的地方，沒有連坐
+- 瀏覽器快取命中，裝 Chromium 只花 7 秒（首跑含下載是一分多鐘）；整個 job 2m41s
+
+⚠️ 反向驗證要**只動產品、不動 harness**。改斷言也會紅，但那證明的是
+「我把斷言改壞了」，不是「產品壞了會被擋」——兩件完全不同的事。
+
+## 六、下次接手點
 
 - **`preview-scan-stardust.mjs` 進 CI**：要先處理 cdnjs 相依（擋 egress 或強制 stub）。
 - `scripts/smoke-alert-api.mjs` 進 CI（不需要瀏覽器，最便宜的一個）。
