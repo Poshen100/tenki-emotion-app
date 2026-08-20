@@ -1555,6 +1555,36 @@ body{
 .tp-tick.band-neutral{background:#64748B;box-shadow:0 0 5px rgba(100,116,139,0.7)}
 .tp-tick.band-strain{background:#C2703D;box-shadow:0 0 5px rgba(194,112,61,0.7)}
 .tp-tick.no-reading{background:transparent;border:1px dashed rgba(255,255,255,0.55);box-shadow:none}
+/* ── 結構守望的判定列 ──
+   位置與收合方式抄 .tp-picker（已驗證過的那組）。
+   🔴 收起時一併 visibility:hidden —— opacity:0 + pointer-events:none 擋不住
+   descendant 自己宣告 pointer-events（PLAYBOOK 指紋鈕那次的舊傷）。 */
+.watch-judge{
+  position:absolute;left:10px;right:10px;
+  bottom:calc(var(--tabbar-h) + var(--fdcb-gap) + var(--fdcb-h) + 8px);
+  z-index:46;display:flex;gap:8px;
+  opacity:0;visibility:hidden;transform:translateY(6px);
+  transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s 0.3s;
+}
+.watch-judge.open{opacity:1;visibility:visible;transform:translateY(0);transition-delay:0s}
+.wj-btn{
+  flex:1;min-width:0;padding:11px 8px;
+  border-radius:12px;border:1px solid rgba(255,255,255,0.14);
+  background:rgba(20,24,34,0.92);backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+  color:#fff;font-size:12px;font-weight:600;white-space:nowrap;
+  font-family:inherit;cursor:pointer;
+  transition:transform 0.15s var(--ease-secure), background 0.3s;
+}
+.wj-btn:active{transform:scale(0.97)}
+/* 兩個出口都算紀律，所以**都不上綠**（綠 = 跟著流程完成，那是收束後才有資格說的事）。
+   用中性的邊框差異區分，不用語意色宣告勝負。 */
+.wj-in{border-color:rgba(0,180,216,0.42)}
+.wj-out{border-color:rgba(255,255,255,0.22)}
+@media (prefers-reduced-motion: reduce){
+  .watch-judge{transition:opacity 0.01s, visibility 0s}
+  .wj-btn:active{transform:none}
+}
 /* Lock 鎖定：snap 進場 + 一次輝光（一次性，非迴圈） */
 .tp-tick.landing{animation:tpLand 150ms var(--ease-secure) both}
 @keyframes tpLand{ from{transform:translate(-50%,-50%) scale(0)} to{transform:translate(-50%,-50%) scale(1)} }
@@ -2749,6 +2779,16 @@ body{
        晶片列橫向捲動，標籤再多也不用改版面。 -->
   <div class="tp-picker" id="tpPicker" role="group" aria-label="給剛剛那個標記選一個標籤"></div>
 
+  <!-- ═══════ 結構守望的判定出口（決策紀律模式）═══════
+       ⚠️ 同樣刻意**不**用 .sheet / openSheet() —— 那兩個在 running 時 hard-return，
+       而判定正好只在決策進行中發生。自己的元素、自己的 open/close。
+       ⚠️ 兩個出口都是「做出判定」，所以都算紀律 —— 差別只在做了什麼，
+       不在誰對誰錯（decision-outcome.js 的語意斷點）。 -->
+  <div class="watch-judge" id="watchJudge" role="group" aria-label="這次結構守望的判定">
+    <button type="button" class="wj-btn wj-in" onclick="judgeWatch('entered')">成立 · 我進場了</button>
+    <button type="button" class="wj-btn wj-out" onclick="judgeWatch('stood_down')">不成立 · 我不做</button>
+  </div>
+
   <!-- ═══════ FDCB (floating above tab bar) ═══════ -->
   <div class="fdcb state-idle" id="fdcb">
     <div class="fdcb-tmpl" onclick="openSheet()">
@@ -3832,11 +3872,16 @@ function renderFdcb(){
     markFlashUntil = 0;
     renderMarks();
     tickFdcb();
+    sess.watch = watchMode(currentTmpl);
     if(runningInterval) clearInterval(runningInterval);
     runningInterval = setInterval(() => {
       elapsed = elapsedNow();
       tickFdcb();
-      if(elapsed >= tmpl.durationSec){ endDecision('timeout'); }
+      // 守望模式沒有「時間到」這回事 —— 只有 30 分鐘的殭屍上限，
+      // 超過就當成從未做出判定（decision-alert.js 的 WATCH_CEILING_MS 同一個值）。
+      if(sess && sess.watch){
+        if(elapsed >= WATCH_CEILING_SEC){ endDecision('abandoned'); }
+      } else if(elapsed >= tmpl.durationSec){ endDecision('timeout'); }
     }, 1000);
   }
   if(s === 'complete'){
@@ -3860,6 +3905,19 @@ function tickFdcb(){
   const timeEl = document.getElementById('fdcbTime');
   const segEl = document.getElementById('fdcbSeg');
   const fill = document.getElementById('fdcbFill');
+  // 🔴 守望模式：時鐘只往上數，**不顯示總長、不推進填充條**。
+  // 那條倒數是被刻意拆掉的 —— decision-alert.html:694 記著為什麼：
+  //「用時間當紀律指標的結果是：品質最好的 setup 被罰得最重。」
+  // 這裡不是把 v3 的倒數搬去快訊，而是反過來把守望語意帶進 FDCB。
+  if(sess && sess.watch){
+    timeEl.textContent = fmtClock(elapsed);
+    if(Date.now() >= markFlashUntil) segEl.textContent = '結構守望 · 點一下判定';
+    if(fill) fill.style.width = '0';
+    // reachedReadiness 是「有沒有走到時間上的核心段」—— 守望模式不用時間判紀律，
+    // 所以這個量在這裡沒有意義，維持 false，讓詳情頁誠實顯示「—」而不是編一個。
+    fdcb.classList.remove('in-readiness');
+    return;
+  }
   timeEl.textContent = fmtClock(elapsed) + ' / ' + fmtDur(tmpl.durationSec);
   const ph = phaseFor(elapsed, tmpl);
   if(Date.now() >= markFlashUntil) segEl.textContent = ph;
@@ -3907,7 +3965,12 @@ function saveV6Outcome(session, outcomeTag){
   if(!Array.isArray(all)) all = [];
   all.push({
     symbol: session.name, templateId: session.templateId, outcomeTag,
-    contextTag: null, reachedReadiness: !!session.reachedReadiness,
+    contextTag: null,
+    // 🔴 守望模式**根本沒有 readiness 這個量**（它不用時間判紀律），所以寫 null＝
+    // 「沒有這個量」，不是 false＝「沒達到」。三元運算子最愛把這兩件事混成同一個
+    // 分支 —— PLAYBOOK 記過一模一樣的傷：一次「判定成立並進場」的決策被印成
+    // 「未達 Readiness」。在來源就寫誠實的值，比在每個讀端各加一個 if 可靠。
+    reachedReadiness: session.watch ? null : !!session.reachedReadiness,
     durationSec: elapsed,
     // marks 是既有的持久化欄位（Timeline strip 的點半徑吃它、harness 也有斷言），
     // SYSTEM.md §6 明訂不得改既有持久化欄位名 —— 所以 events 是**加**，不是換。
@@ -3917,6 +3980,10 @@ function saveV6Outcome(session, outcomeTag){
     // 舊紀錄沒有這兩欄，讀端必須當「不知道」處理，不得顯示 0。
     awayCount: session.awayCount || 0,
     awayMs: session.awayMs || 0,
+    // 語意版本：守望模式的收束用的是 structure_watch_v1（「有沒有做出判定」），
+    // 跟倒數模式的舊語意（「有沒有走完計時器」）不是同一把尺。
+    // 標記它，統計端才分得出來 —— 不標就只能猜。
+    judgmentSchema: session.watch ? window.TENKI_OUTCOME.JUDGMENT_SCHEMA : null,
     ts: Date.now(), source: 'v6'
   });
   if(all.length > 200) all = all.slice(all.length - 200);
@@ -3931,9 +3998,15 @@ function endDecision(type){
   // 先把時間補到真值再收束。背景節流時最後一個 tick 可能是幾十秒前跑的，
   // 使用者切回來馬上收束的話，那個舊值會被 saveV6Outcome 當 durationSec 寫進去。
   if(sess) elapsed = elapsedNow();
+  const watch = !!(sess && sess.watch);
   if(runningInterval){ clearInterval(runningInterval); runningInterval = null; }
   closeTpPicker();   // 決策收束了，快選沒有東西可以掛
-  const tag = resolveOutcome(type, sess ? sess.reachedReadiness : false);
+  closeWatchJudge(); // 判定已經做完（或逾時），列子沒有東西可以掛
+  // 守望模式走共用模組的新語意（judged_entered / judged_stood_down /
+  // abandoned_no_judgment）；一般倒數模式維持既有的舊語意，一個字不動。
+  const tag = watch
+    ? window.TENKI_OUTCOME.resolveOutcomeTag(type)
+    : resolveOutcome(type, sess ? sess.reachedReadiness : false);
   if(sess) saveV6Outcome(sess, tag);
   pendingClosure = { tag: tag };
   setState('complete');
@@ -3944,7 +4017,13 @@ function endDecision(type){
 function nextState(){
   clearClosureTimer();
   const s = STATES[stateIdx];
-  if(s === 'running'){ endDecision('close'); return; }   // running 中點 core = 收束
+  if(s === 'running'){
+    // 守望模式：點 core 不是收束，是打開判定列 ——
+    // 收束必須帶著「你做了什麼判定」，不能只是「結束了」。
+    // 多一拍也擋掉誤觸：手機放在旁邊，一個意外的「我進場了」會寫下一筆假紀錄。
+    if(sess && sess.watch){ watchJudgeOpen() ? closeWatchJudge() : openWatchJudge(); return; }
+    endDecision('close'); return;                        // 一般模式：點 core = 收束
+  }
   if(s === 'complete'){ setState('idle'); return; }
   setState(STATES[(stateIdx + 1) % STATES.length]);        // idle→ready→running
 }
@@ -4015,6 +4094,36 @@ function disciplineOn(){
 function watchMode(tmplId){
   return disciplineOn() && DISCIPLINE_TEMPLATES.includes(tmplId || currentTmpl);
 }
+/** 守望的牆鐘上限（秒）。超過就當作沒有判定收掉，避免跨日的殭屍 session。
+ *  與 decision-alert.js 的 WATCH_CEILING_MS 同一個值，兩邊要一起改。 */
+const WATCH_CEILING_SEC = 30 * 60;
+
+/** 判定列開著嗎（供 harness 與收束時清理用）。 */
+function watchJudgeOpen(){
+  const el = document.getElementById('watchJudge');
+  return !!el && el.classList.contains('open');
+}
+function openWatchJudge(){
+  if(!(sess && sess.watch)) return;
+  document.getElementById('watchJudge').classList.add('open');
+}
+function closeWatchJudge(){
+  const el = document.getElementById('watchJudge');
+  if(el) el.classList.remove('open');
+}
+/**
+ * 結構守望的判定出口。
+ * 🔴 兩個出口**都算紀律** —— 差別只在你做了什麼，不在誰對誰錯。
+ * outcome tag 一律走共用模組，不得在這裡再寫一份判定
+ * （PLAYBOOK：兩邊各寫一份的下場是「demo 看到 100%，進 Session 變 0%」）。
+ * @param {'entered'|'stood_down'} judgment
+ */
+function judgeWatch(judgment){
+  if(!(sess && sess.watch)) return;
+  closeWatchJudge();
+  endDecision(judgment);
+}
+
 function renderDisciplineTile(){
   const tile = document.getElementById('labDisciplineTile');
   const sub = document.getElementById('labDisciplineSub');

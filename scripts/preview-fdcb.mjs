@@ -706,6 +706,102 @@ console.log('\n── Hero 讀數不得爆版 ──');
   await page.close();
 }
 
+// ═════════════════════════════════════════════════
+// 結構守望：決策紀律模式下，交易者模板改用判定出口而不是倒數
+//
+// 為什麼不是把 v3 的倒數搬去快訊，而是反過來 —— decision-alert.html:694 記著
+// 已經付過的學費：「用時間當紀律指標的結果是：品質最好的 setup 被罰得最重。」
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 結構守望模式（390x700，刻意驗矮的）──');
+  const page = await openV3(700);
+  await page.evaluate(() => {
+    localStorage.setItem('tenki.v6.decisionDiscipline.v1', '1');
+    const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === 'MANCINI_FBD');
+    window.selectTmpl(el);
+  });
+  await page.waitForTimeout(450);
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(1500);
+
+  const run = await page.evaluate(() => ({
+    watch: sess.watch,
+    time: document.getElementById('fdcbTime').textContent,
+    seg: document.getElementById('fdcbSeg').textContent,
+    fill: document.getElementById('fdcbFill').style.width,
+    inReadiness: document.getElementById('fdcb').classList.contains('in-readiness'),
+  }));
+  check('交易者模板在模式開啟時走守望', run.watch, true);
+  check('🔴 守望不顯示總長（沒有截止時間這回事）', /\//.test(run.time), false);
+  check('🔴 守望不推進填充條', run.fill === '0' || run.fill === '0px' || run.fill === '', true);
+  check('守望不進 readiness 段（那是時間判紀律的東西）', run.inReadiness, false);
+  checkTruthy(`段標籤說得出這是守望（${run.seg}）`, run.seg.includes('守望'));
+
+  // 點 core：開判定列，而不是收束
+  await page.evaluate(() => window.nextState());
+  await page.waitForTimeout(420);
+  const opened = await page.evaluate(() => ({
+    open: document.getElementById('watchJudge').classList.contains('open'),
+    running: document.getElementById('fdcb').className.includes('state-running'),
+  }));
+  check('點 core 開判定列', opened.open, true);
+  check('🔴 點 core 不會直接收束（收束必須帶著判定）', opened.running, true);
+
+  // 遮擋：用 elementFromPoint 問瀏覽器，不看 bounding rect
+  const btns = await page.evaluate(() => [...document.querySelectorAll('#watchJudge .wj-btn')].map((b) => {
+    const r = b.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return { txt: b.textContent, lines: b.getClientRects().length, self: b.contains(hit) || b === hit };
+  }));
+  check('兩個判定出口都在', btns.length, 2);
+  btns.forEach((b) => {
+    check(`判定鍵「${b.txt}」沒被底座/tabbar 蓋住`, b.self, true);
+    check(`判定鍵「${b.txt}」只有 1 行`, b.lines, 1);
+  });
+
+  // 判定 → 收束，走共用模組的語意
+  await page.evaluate(() => window.judgeWatch('entered'));
+  await page.waitForTimeout(300);
+  const rec = await page.evaluate(() => JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')).slice(-1)[0]);
+  check('判定成立寫成 judged_entered', rec.outcomeTag, 'judged_entered');
+  check('紀錄標上語意版本', rec.judgmentSchema, 'structure_watch_v1');
+  checkTruthy('判定算紀律', await page.evaluate((t) => window.TENKI_OUTCOME.isDisciplined(t), rec.outcomeTag));
+  check('收束後判定列收起', await page.evaluate(() => document.getElementById('watchJudge').classList.contains('open')), false);
+
+  // 🔴 守望沒有 readiness 這個量 → 寫 null，畫面不得說否定
+  check('🔴 守望紀錄的 reachedReadiness 是 null（不是 false）', rec.reachedReadiness, null);
+  const detail = await page.evaluate((ts) => {
+    window.goTab('session'); window.openSessionDetail(ts);
+    return {
+      fact: document.getElementById('sdFactReadiness').textContent,
+      headline: document.getElementById('sdOutcomeHeadline').textContent,
+      negative: /未達|未進入/.test(document.querySelector('.sd-body').textContent),
+    };
+  }, rec.ts);
+  check('🔴 詳情頁不得對守望紀錄印出否定的 readiness', detail.negative, false);
+  check('readiness 欄留白', detail.fact, '—');
+  checkTruthy(`收束標題說得出判定（${detail.headline}）`, detail.headline.includes('判定'));
+
+  // 對照組：同一個模式下，非交易者模板一個字都不變
+  await page.evaluate(() => {
+    window.setState('idle');
+    const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === 'HEALTH_STRESS');
+    window.selectTmpl(el);
+  });
+  await page.waitForTimeout(450);
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(1500);
+  const ctrl = await page.evaluate(() => ({
+    watch: sess.watch,
+    time: document.getElementById('fdcbTime').textContent,
+    fill: document.getElementById('fdcbFill').style.width,
+  }));
+  check('🔴 對照組：Health Stress 仍走倒數', ctrl.watch, false);
+  checkTruthy(`對照組仍顯示總長（${ctrl.time}）`, ctrl.time.includes('/'));
+  checkTruthy(`對照組填充條仍在推進（${ctrl.fill}）`, ctrl.fill !== '0' && ctrl.fill !== '0px' && ctrl.fill !== '');
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);
