@@ -92,6 +92,7 @@ async function openV3(height, opts) {
     ]));
     localStorage.removeItem('tenki.alert.outcomes.v1');
     localStorage.removeItem('tenki.v6.tplabels.v1');
+    localStorage.removeItem('tenki.v6.decisionDiscipline.v1');  // 決策紀律模式預設關，測試隔離
     if (opts.reading) {
       localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify({
         band: 'neutral', confidence: 'high', ts: Date.now() - 120e3, baselineDays: 1, baselineScans: 1,
@@ -653,6 +654,55 @@ console.log('\n── Hero 讀數不得爆版 ──');
   check('舊紀錄：剩下三格', legacy.n, 3);
   check('🔴 舊紀錄不得出現「0 次」（缺欄位就不准說否定）', /0\s*次/.test(legacy.text), false);
   check('舊紀錄三格也不橫向溢出', legacy.overflow, false);
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 決策紀律模式（Settings opt-in，預設關）
+// user-facing 一律「決策紀律」；內部識別字仍是 SessionMode='trader'。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 決策紀律模式開關 ──');
+  const page = await openV3(700);
+  const off = await page.evaluate(() => ({
+    on: disciplineOn(), fbd: watchMode('MANCINI_FBD'),
+    aria: document.getElementById('labDisciplineTile').getAttribute('aria-pressed'),
+  }));
+  check('預設關閉', off.on, false);
+  check('關閉時交易者模板不走守望', off.fbd, false);
+  check('關閉時 aria-pressed=false', off.aria, 'false');
+
+  await page.evaluate(() => window.toggleDisciplineMode());
+  const on = await page.evaluate(() => ({
+    on: disciplineOn(), fbd: watchMode('MANCINI_FBD'), health: watchMode('HEALTH_STRESS'),
+    onCls: document.getElementById('labDisciplineTile').classList.contains('mode-on'),
+  }));
+  check('開啟後 disciplineOn() 為真', on.on, true);
+  check('開啟後交易者模板走守望', on.fbd, true);
+  check('🔴 開啟也不影響非交易者模板（Health Stress 仍走倒數）', on.health, false);
+  check('開啟後磁磚上 mode-on', on.onCls, true);
+
+  // Lab 版面：多一格不得把格線擠爆
+  const lay = await page.evaluate(() => {
+    window.goTab('lab');
+    const g = document.querySelector('.lab-grid');
+    const t = document.getElementById('labDisciplineTile');
+    return {
+      overflow: g.scrollWidth > g.clientWidth + 1,
+      nameLines: t.querySelector('.nm').getClientRects().length,
+      fits: t.scrollHeight <= Math.ceil(t.getBoundingClientRect().height) + 1,
+    };
+  });
+  check('Lab 格線沒有橫向溢出', lay.overflow, false);
+  check('磁磚標題只有 1 行', lay.nameLines, 1);
+  check('磁磚裝得下自己的內容', lay.fits, true);
+
+  // 決策進行中不得切換（與「跑中不得換模板」同一個理由）
+  await page.evaluate(() => { window.goTab('today'); window.setState('ready'); window.setState('running'); });
+  const before = await page.evaluate(() => disciplineOn());
+  await page.evaluate(() => window.toggleDisciplineMode());
+  const after = await page.evaluate(() => disciplineOn());
+  check('決策進行中切換模式會被擋下', after, before);
   await page.close();
 }
 

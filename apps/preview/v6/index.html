@@ -1018,9 +1018,16 @@ body{
 #lab-screen.active .lab-grid .lab-item:nth-child(4){transition-delay:0.20s}
 #lab-screen.active .lab-grid .lab-item:nth-child(5){transition-delay:0.25s}
 #lab-screen.active .lab-grid .lab-item:nth-child(6){transition-delay:0.30s}
+#lab-screen.active .lab-grid .lab-item:nth-child(7){transition-delay:0.35s}
+#lab-screen.active .lab-grid .lab-item:nth-child(8){transition-delay:0.40s}
 #lab-screen.active .lab-body .lab-wide{transition-delay:0.35s}
 .lab-item:active{box-shadow:0 6px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,180,216,0.28)}
 .lab-item.featured{box-shadow:0 0 26px rgba(0,180,216,0.10)}
+/* 決策紀律模式開啟時的樣子。用既有的 --primary（cyan = ACTIVE），
+   **不用 --good 綠** —— 綠在這個產品裡是「跟著流程完成」的語意色，
+   一個設定開關沒有資格宣告那件事（CLAUDE.md 顏色所有權）。 */
+.lab-item.mode-on{border-color:rgba(0,180,216,0.45);background:rgba(0,180,216,0.07)}
+.lab-item.mode-on .ic{color:var(--primary)}
 @media (prefers-reduced-motion: reduce){
   .lab-grid .lab-item, .lab-body .lab-wide{opacity:1;transition:none}
 }
@@ -2630,6 +2637,16 @@ body{
             <div class="nm">標記標籤</div>
             <div class="sub">自訂決策中<br>要記下的轉折</div>
           </div>
+          <!-- 決策紀律模式：Settings opt-in，預設關閉。
+               ⚠️ user-facing 一律「決策紀律」，不得出現「交易者 / Trader」——
+               內部識別字仍是 SessionMode='trader'（TRADINGVIEW-ALERT-SPEC.md §0、
+               APP_STORE_COMPLIANCE.md §6 與送審檢查表 #17）。
+               ⚠️ 入口刻意放在 Lab（設定），不放 onboarding、不開新分頁。 -->
+          <div class="lab-item" id="labDisciplineTile" onclick="toggleDisciplineMode()">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+            <div class="nm">決策紀律模式</div>
+            <div class="sub" id="labDisciplineSub">目前關閉<br>開啟後改用結構守望</div>
+          </div>
           <div class="lab-item" onclick="exportOutcomesCsv()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
             <div class="nm">CSV 匯出</div>
@@ -3967,6 +3984,59 @@ function selectTmpl(el){
 }
 
 // ═════════════════════════════════════════════════
+// ═════════════════════════════════════════════════
+// 決策紀律模式（內部 SessionMode='trader'）
+//
+// 🔴 命名：user-facing **一律「決策紀律」**，畫面上不得出現「交易者 / Trader」。
+// 內部識別字沿用 engine 既有的 SessionMode='trader'（不改）。
+// 依據：docs/TRADINGVIEW-ALERT-SPEC.md §0（唯一權威規格）、
+// docs/APP_STORE_COMPLIANCE.md §6 與送審檢查表 #17。founder 2026-08-20 拍板。
+//
+// 這個模式改變的是**決策計時器怎麼收束**：交易者模板改用結構守望
+// （判定出口，不是倒數壓力），因為「用時間當紀律指標的結果是：品質最好的
+// setup 被罰得最重」（decision-alert.html:694 已付過的學費）。
+//
+// 入口是 Settings（Lab）opt-in，預設關閉 —— 不放 onboarding、不開新分頁。
+// ═════════════════════════════════════════════════
+const DISCIPLINE_KEY = 'tenki.v6.decisionDiscipline.v1';
+/** 交易者模板：只有這幾個在決策紀律模式下改走結構守望。 */
+const DISCIPLINE_TEMPLATES = ['CANSLIM_GS', 'CANSLIM_HIGH_RS', 'MANCINI_FBD'];
+
+/** @returns {boolean} 決策紀律模式是否開啟（預設關）。 */
+function disciplineOn(){
+  try { return localStorage.getItem(DISCIPLINE_KEY) === '1'; } catch(e){ return false; }
+}
+/**
+ * 這次決策是否走結構守望（而不是倒數）。
+ * 條件：模式開啟 **且** 當前模板是交易者模板。其餘一律維持原本的倒數行為。
+ * @param {string} [tmplId] 預設看 currentTmpl
+ * @returns {boolean}
+ */
+function watchMode(tmplId){
+  return disciplineOn() && DISCIPLINE_TEMPLATES.includes(tmplId || currentTmpl);
+}
+function renderDisciplineTile(){
+  const tile = document.getElementById('labDisciplineTile');
+  const sub = document.getElementById('labDisciplineSub');
+  if(!tile || !sub) return;
+  const on = disciplineOn();
+  tile.classList.toggle('mode-on', on);
+  sub.innerHTML = on ? '已開啟<br>快訊接進決策計時器' : '目前關閉<br>開啟後改用結構守望';
+  tile.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+function toggleDisciplineMode(){
+  // 決策進行中不得換模式 —— 跟「跑中不得換模板」同一個理由：
+  // 收束語意會在半路改變，那一筆紀錄就說不清楚自己是怎麼結束的。
+  if(STATES[stateIdx] === 'running'){
+    labInfo('決策進行中', '這一筆決策還沒收束，先收束再切換模式 —— 中途換會讓這筆紀錄說不清楚自己是怎麼結束的。');
+    return;
+  }
+  const next = !disciplineOn();
+  try { localStorage.setItem(DISCIPLINE_KEY, next ? '1' : '0'); } catch(e){}
+  renderDisciplineTile();
+  renderFdcb();
+}
+
 // 自訂模板（Lab / 模板自訂）— 存 localStorage、merge 進 TEMPLATES、
 // 動態插入 Select Template sheet「我的模板」分類。選了走同一 currentTmpl 管線。
 // ═════════════════════════════════════════════════
@@ -4021,6 +4091,7 @@ function renderCustomTmplSheet(list){
 }
 
 syncCustomTemplates();
+renderDisciplineTile();  // 開頁就把磁磚畫成目前真正的狀態
 
 // ── 模板自訂 editor（建立/編輯/刪除 + 即時預覽）──
 const TE_COLORS = ['#00B4D8','#34C759','#FF6B35','#5E3A87','#E8B45A','#22D3EE'];
