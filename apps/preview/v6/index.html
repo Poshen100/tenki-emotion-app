@@ -3722,6 +3722,17 @@ function phaseFor(el, tmpl){
 }
 function fmtClock(sec){ const m = Math.floor(sec/60), s = sec%60; return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0'); }
 
+/**
+ * 這次決策已經過了幾秒 —— **一律從牆鐘算**，不從 tick 累加。
+ * 沒有進行中的 session 就是 0。
+ * 唯一的真實來源：改任何跟時間有關的東西都要走這裡，不要在別處各算各的。
+ * @returns {number} 已經過的整數秒
+ */
+function elapsedNow(){
+  if(!sess || !sess.startedAtMs) return 0;
+  return Math.floor((Date.now() - sess.startedAtMs) / 1000);
+}
+
 // 模板膠囊（左欄）。時長一律走 fmtDur ——
 // 🔴 舊版寫死 `${Math.floor(sec/60)}:00`：3:30 的自訂模板在這裡顯示 3:00、
 // 6 秒的顯示 0:00，而同一個膠囊裡的大字時鐘同時寫 `/ 0:06`
@@ -3765,14 +3776,22 @@ function renderFdcb(){
   }
   if(s === 'running'){
     const b = segBounds(tmpl.durationSec);
-    sess = { templateId: currentTmpl, name: tmpl.name, rs: b.rs, re: b.re, reachedReadiness: false, marks: 0, events: [] };
+    // 🔴 牆鐘，不是數 setInterval 的 callback 次數。
+    // 舊版寫 `elapsed += 1`：分頁一進背景（鎖屏、切去券商 APP、切去桌機下單前
+    // 按掉螢幕），瀏覽器就把 setInterval 節流到每分鐘幾次、甚至整個暫停 ——
+    // 時鐘少算，而 saveV6Outcome 又把這個 elapsed 當 durationSec 寫進紀錄，
+    // 於是**紀錄跟著一起說謊**。
+    // 這正是交易者的常態使用情境（下單根本不在這支手機上）。
+    // decision-alert.js:928-956 早就為同一件事改成 Date.now()，這裡照抄，不另發明。
+    sess = { templateId: currentTmpl, name: tmpl.name, rs: b.rs, re: b.re,
+             reachedReadiness: false, marks: 0, events: [], startedAtMs: Date.now() };
     elapsed = 0;
     markFlashUntil = 0;
     renderMarks();
     tickFdcb();
     if(runningInterval) clearInterval(runningInterval);
     runningInterval = setInterval(() => {
-      elapsed += 1;
+      elapsed = elapsedNow();
       tickFdcb();
       if(elapsed >= tmpl.durationSec){ endDecision('timeout'); }
     }, 1000);
@@ -3862,6 +3881,9 @@ let closureTimer = null;
 function clearClosureTimer(){ if(closureTimer){ clearTimeout(closureTimer); closureTimer = null; } }
 
 function endDecision(type){
+  // 先把時間補到真值再收束。背景節流時最後一個 tick 可能是幾十秒前跑的，
+  // 使用者切回來馬上收束的話，那個舊值會被 saveV6Outcome 當 durationSec 寫進去。
+  if(sess) elapsed = elapsedNow();
   if(runningInterval){ clearInterval(runningInterval); runningInterval = null; }
   closeTpPicker();   // 決策收束了，快選沒有東西可以掛
   const tag = resolveOutcome(type, sess ? sess.reachedReadiness : false);

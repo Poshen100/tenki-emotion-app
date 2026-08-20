@@ -533,6 +533,51 @@ console.log('\n── Hero 讀數不得爆版 ──');
   }
 }
 
+// ═════════════════════════════════════════════════
+// 決策計時器必須吃牆鐘，不得數 tick
+//
+// 交易者的常態是**下單根本不在這支手機上**（桌機或券商 APP），所以決策跑到
+// 一半頁面被鎖屏／切走是常態。舊版 `elapsed += 1` 數的是 setInterval 的
+// callback 次數 —— 那段時間 tick 一次都沒發生，時鐘就少算，而
+// saveV6Outcome 又把它當 durationSec 寫進紀錄，於是紀錄跟著說謊。
+//
+// 🔴 怎麼驗（前兩種寫法都試過，都是**死斷言**）：
+//   ✗ 開第二個分頁把它推到背景 —— Playwright 預設帶
+//     --disable-background-timer-throttling，新舊碼同樣讀到 00:07。
+//   ✗ CDP Page.setWebLifecycleState('frozen') —— 需要頁面先真的 hidden，
+//     直接送同樣驗不出差別。
+//   ✓ 用忙迴圈把頁面的 JS 執行緒卡住。模擬的是同一件事的本質：
+//     **這段時間裡 tick 一次都沒發生**。實測差異：新碼 00:07 / 舊碼 00:03。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 計時器吃牆鐘（背景不得少算）──');
+  const page = await openV3(700);
+  await page.evaluate(() => { window.setState('ready'); window.setState('running'); });
+  await page.waitForTimeout(1100);
+
+  const BLOCK_MS = 5000;
+  await page.evaluate((ms) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) { /* 卡住 event loop，setInterval 排不進來 */ }
+  }, BLOCK_MS);
+  await page.waitForTimeout(1100); // 解除封鎖後的下一次 tick
+
+  const seen = await page.evaluate(() => ({
+    clockSec: (() => {
+      const m = /^(\d\d):(\d\d)/.exec(document.getElementById('fdcbTime').textContent.trim());
+      return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+    })(),
+    trueSec: window.elapsedNow(),
+  }));
+  // 卡住 5s + 前後各約 1.1s ≈ 7s。允許 ±1s 的取樣誤差，但**不允許掉掉整段封鎖時間**
+  // （數 tick 的實作在這裡會是 3 秒左右）。
+  checkTruthy(
+    `卡住 ${BLOCK_MS}ms 後時鐘沒有少算（實際 ${seen.clockSec}s，真值 ${seen.trueSec}s）`,
+    seen.clockSec !== null && Math.abs(seen.clockSec - seen.trueSec) <= 1,
+  );
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);
