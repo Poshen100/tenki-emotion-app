@@ -352,7 +352,7 @@ body{
   /* 上限 36→34px（2026-08-19，harness 進 CI 時順手）：36px 時「Neutral」在容器
      預設字型下是 124px、環心 128px —— **只剩 4px 餘裕**，字型稍微換一下就紅。
      斷言現在會在 CI 跑，假紅的代價比字小一點高得多。 */
-  font-size:40px;letter-spacing:-0.01em;line-height:1;
+  font-size:clamp(28px, 8.5vw, 34px);letter-spacing:-0.01em;line-height:1;
   background:none;-webkit-text-fill-color:currentColor;
 }
 /* 🔴 沒有讀數時的樣子（2026-08-18）。
