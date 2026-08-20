@@ -179,9 +179,71 @@ section{position:relative}
 .story-body{font-size:16px;line-height:1.75;color:var(--ink-dim);max-width:440px}
 .story-visual{
   aspect-ratio:1/1;border-radius:28px;
-  border:1px solid var(--hairline);
-  background:radial-gradient(circle at 30% 30%, rgba(34,211,238,0.12), rgba(255,255,255,0.02) 60%);
+  border:1px solid rgba(255,255,255,0.08);
+  background:radial-gradient(circle at 50% 40%, rgba(30,20,60,0.45), rgba(2,6,23,0.92) 80%);
   position:relative;overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,0.5), 0 0 40px rgba(34,211,238,0.06);
+  display:flex;align-items:center;justify-content:center;
+}
+.story-visual::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 60%);
+  pointer-events:none;z-index:3;
+}
+
+/* ── Visual 1: 3D Face Geometry & Laser Telemetry ── */
+.sv-hud-wrap{width:100%;height:100%;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.sv-hud-svg{width:100%;height:100%;position:absolute;inset:0;pointer-events:none}
+.sv-telemetry-badge{
+  position:absolute;
+  font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;
+  padding:5px 12px;border-radius:999px;
+  background:rgba(2,6,23,0.78);border:1px solid rgba(34,211,238,0.3);
+  color:var(--cyan-active);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  z-index:4;
+}
+.sv-badge-top{top:20px;left:20px}
+.sv-badge-bottom{bottom:20px;right:20px;border-color:rgba(255,212,110,0.3);color:var(--gold-secured)}
+.sv-scan-laser{
+  position:absolute;left:10%;right:10%;height:2px;
+  background:linear-gradient(90deg, transparent, var(--cyan-active), #ffffff, var(--cyan-active), transparent);
+  box-shadow:0 0 16px var(--cyan-active), 0 0 32px var(--cyan-active);
+  z-index:3;pointer-events:none;
+}
+
+/* ── Visual 2: 8-Factor Holographic Radar ── */
+.sv-radar-center-score{
+  position:absolute;z-index:4;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  width:110px;height:110px;border-radius:50%;
+  background:rgba(2,6,23,0.85);
+  border:1.5px solid rgba(34,211,238,0.45);
+  box-shadow:0 0 30px rgba(34,211,238,0.25), inset 0 0 20px rgba(34,211,238,0.15);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+}
+.sv-score-val{font-size:36px;font-weight:800;letter-spacing:-0.03em;color:#fff;line-height:1}
+.sv-score-label{font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:var(--cyan-active);margin-top:4px}
+.sv-score-sub{font-size:8px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint);margin-top:2px}
+
+/* ── Visual 3: Local-First Enclave & Security Vault ── */
+.sv-vault-wrap{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%}
+.sv-vault-chip{
+  width:120px;height:120px;border-radius:24px;
+  background:radial-gradient(circle at 35% 30%, #2a1f4e, #0c0818 90%);
+  border:2px solid rgba(255,212,110,0.5);
+  box-shadow:0 0 50px rgba(255,212,110,0.2), inset 0 0 24px rgba(255,212,110,0.15);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;z-index:3;
+}
+.sv-vault-icon{width:42px;height:42px;fill:none;stroke:var(--gold-secured);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.sv-vault-tag{
+  margin-top:20px;
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--gold-secured);
+  padding:6px 16px;border-radius:999px;
+  background:rgba(255,212,110,0.08);border:1px solid rgba(255,212,110,0.25);
+  z-index:3;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -190,26 +252,29 @@ section{position:relative}
 #transition{
   height:100vh;
   display:flex;align-items:center;justify-content:center;
-  text-align:center;
+  text-align:center;position:relative;
+}
+.unlock-gyro-wrap{position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:32px}
+.unlock-ring-outer{
+  width:210px;height:210px;border-radius:50%;
+  border:1.5px dashed rgba(34,211,238,0.45);
+  position:absolute;
 }
 .unlock-ring{
-  width:180px;height:180px;border-radius:50%;
-  border:1.5px solid rgba(34,211,238,0.35);
+  width:160px;height:160px;border-radius:50%;
+  border:2px solid rgba(255,212,110,0.5);
   display:flex;align-items:center;justify-content:center;
-  position:relative;margin-bottom:32px;
-}
-.unlock-ring::before{
-  content:'';position:absolute;inset:-18px;border-radius:50%;
-  border:1px solid rgba(34,211,238,0.12);
+  position:relative;
+  box-shadow:0 0 35px rgba(255,212,110,0.2);
 }
 .unlock-core{
-  width:64px;height:64px;border-radius:50%;
-  background:radial-gradient(circle at 35% 30%, var(--gold-secured), #b8893a 80%);
-  box-shadow:0 0 40px rgba(255,212,110,0.4);
+  width:68px;height:68px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #fff9e6 0%, var(--gold-secured) 50%, #8a5a12 100%);
+  box-shadow:0 0 45px rgba(255,212,110,0.6), inset 0 0 15px #fff;
 }
 .unlock-label{
-  font-size:12px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;
-  color:var(--ink-dim);
+  font-size:13px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;
+  color:var(--gold-secured);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -225,17 +290,24 @@ section{position:relative}
 }
 .dash-copy .story-index{margin-bottom:20px}
 .dash-annotations{display:flex;flex-direction:column;gap:24px;margin-top:36px}
-.dash-annotation{padding-left:18px;border-left:2px solid rgba(34,211,238,0.3)}
-.dash-annotation b{display:block;font-size:14px;margin-bottom:4px}
+.dash-annotation{padding-left:18px;border-left:2px solid rgba(34,211,238,0.4)}
+.dash-annotation b{display:block;font-size:14px;margin-bottom:4px;color:#fff}
 .dash-annotation span{font-size:13px;color:var(--ink-dim);line-height:1.6}
+.phone-frame-wrap{position:relative;perspective:1200px;display:flex;justify-content:center}
+.phone-ambient-glow{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:320px;height:600px;border-radius:50%;
+  background:radial-gradient(circle, rgba(34,211,238,0.18) 0%, rgba(255,212,110,0.08) 50%, transparent 75%);
+  filter:blur(40px);z-index:0;pointer-events:none;
+}
 .phone-frame{
   position:relative;width:min(360px, 100%);margin:0 auto;
   aspect-ratio:390/844;
   border-radius:46px;
   background:#000;
-  box-shadow:0 0 0 2px #1a1a1a, 0 40px 100px rgba(0,0,0,0.6), 0 0 60px rgba(34,211,238,0.08);
+  box-shadow:0 0 0 2px #26262b, 0 40px 100px rgba(0,0,0,0.7), 0 0 60px rgba(34,211,238,0.12);
   overflow:hidden;
-  will-change:transform;
+  will-change:transform;z-index:1;
 }
 .phone-frame iframe{
   width:100%;height:100%;border:none;display:block;
@@ -249,6 +321,7 @@ section{position:relative}
   padding:100px 24px 60px;
   text-align:center;
   border-top:1px solid var(--hairline);
+  background:radial-gradient(80% 50% at 50% 100%, rgba(30,18,77,0.45), transparent 70%);
 }
 .footer-title{font-size:clamp(26px,4vw,40px);font-weight:700;letter-spacing:-0.02em;margin-bottom:24px}
 .footer-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:48px}
@@ -308,7 +381,34 @@ section{position:relative}
         <h2 class="story-title">A 60-second baseline, not a diagnosis.</h2>
         <p class="story-body">Face Baseline enrollment reads steadiness, lighting, centering, and gaze the way Face ID reads geometry — once, calmly, on-device. No raw biometric ever leaves your phone.</p>
       </div>
-      <div class="story-visual" data-visual="1"></div>
+      <div class="story-visual" data-visual="1">
+        <div class="sv-hud-wrap">
+          <div class="sv-telemetry-badge sv-badge-top">3D MESH · 468 NODES · 示意</div>
+          <div class="sv-telemetry-badge sv-badge-bottom">GAZE STABILITY 99.4% · 示意</div>
+          <div class="sv-scan-laser" id="sv-laser-1"></div>
+          <svg class="sv-hud-svg" viewBox="0 0 400 400" fill="none">
+            <!-- 3D Face Wireframe Topology -->
+            <ellipse cx="200" cy="200" rx="110" ry="140" stroke="rgba(34,211,238,0.25)" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <ellipse cx="200" cy="200" rx="75" ry="115" stroke="rgba(34,211,238,0.35)" stroke-width="1.5"/>
+            <!-- Eye Alignment Arcs & Glabella Target -->
+            <circle cx="160" cy="175" r="16" stroke="rgba(34,211,238,0.6)" stroke-width="1.5"/>
+            <circle cx="160" cy="175" r="4" fill="var(--cyan-active)"/>
+            <circle cx="240" cy="175" r="16" stroke="rgba(34,211,238,0.6)" stroke-width="1.5"/>
+            <circle cx="240" cy="175" r="4" fill="var(--cyan-active)"/>
+            <!-- Glabella rPPG Target -->
+            <circle cx="200" cy="165" r="8" stroke="var(--gold-secured)" stroke-width="2" stroke-dasharray="3 2"/>
+            <circle cx="200" cy="165" r="2.5" fill="var(--gold-secured)"/>
+            <!-- Nose bridge & Mouth anchor lines -->
+            <path d="M200 165 L200 220 L188 235 H212 L200 220" stroke="rgba(34,211,238,0.5)" stroke-width="1.5" fill="none"/>
+            <path d="M165 265 Q200 280 235 265 Q200 272 165 265" stroke="rgba(34,211,238,0.6)" stroke-width="1.5" fill="rgba(34,211,238,0.08)"/>
+            <!-- Outer Reticle Brackets -->
+            <path d="M70 120 V70 H120" stroke="var(--cyan-active)" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M330 120 V70 H280" stroke="var(--cyan-active)" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M70 280 V330 H120" stroke="var(--cyan-active)" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M330 280 V330 H280" stroke="var(--cyan-active)" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
     </div>
   </div>
   <div class="story-panel" data-panel="2">
@@ -321,7 +421,42 @@ section{position:relative}
         <h2 class="story-title">Eight dimensions, one honest number.</h2>
         <p class="story-body">Clear, Neutral, or Strain — the score normalizes what your body is actually telling you, weighted across eight signal dimensions, so the read is consistent session to session.</p>
       </div>
-      <div class="story-visual" data-visual="2"></div>
+      <div class="story-visual" data-visual="2">
+        <div class="sv-hud-wrap">
+          <!-- 🔴 這裡的數字全部是寫死的展示畫面，不是任何人的讀數。
+               同一條線在 /v3/ 已經走過兩次：四張 vitals 卡被要求標「示意」，
+               Hero 的「Edge Score · 72」被整個拿掉（4c141a2c）——
+               **畫面不得宣稱沒量到的事**。行銷頁一樣算數，所以標記照掛。 -->
+          <div class="sv-radar-center-score">
+            <span class="sv-score-val">88</span>
+            <span class="sv-score-label">Clear</span>
+            <span class="sv-score-sub">Edge Score · 示意</span>
+          </div>
+          <svg class="sv-hud-svg" viewBox="0 0 400 400" fill="none">
+            <!-- Concentric Radar Webs -->
+            <circle cx="200" cy="200" r="145" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+            <circle cx="200" cy="200" r="115" stroke="rgba(34,211,238,0.15)" stroke-width="1"/>
+            <circle cx="200" cy="200" r="85" stroke="rgba(34,211,238,0.22)" stroke-width="1" stroke-dasharray="3 3"/>
+            <!-- 8 Dimension Radians -->
+            <line x1="200" y1="55" x2="200" y2="345" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+            <line x1="55" y1="200" x2="345" y2="200" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+            <line x1="97" y1="97" x2="303" y2="303" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+            <line x1="97" y1="303" x2="303" y2="97" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+            <!-- 8-Factor Data Polygon (High Readiness State) -->
+            <polygon id="sv-radar-polygon" points="200,68 285,115 320,200 290,285 200,318 108,288 80,200 112,112"
+                     fill="rgba(34,211,238,0.18)" stroke="var(--cyan-active)" stroke-width="2" stroke-linejoin="round"/>
+            <!-- Vertex Glow Nodes -->
+            <circle cx="200" cy="68" r="4" fill="var(--cyan-active)"/>
+            <circle cx="285" cy="115" r="4" fill="var(--gold-secured)"/>
+            <circle cx="320" cy="200" r="4" fill="var(--cyan-active)"/>
+            <circle cx="290" cy="285" r="4" fill="var(--cyan-active)"/>
+            <circle cx="200" cy="318" r="4" fill="var(--gold-secured)"/>
+            <circle cx="108" cy="288" r="4" fill="var(--cyan-active)"/>
+            <circle cx="80" cy="200" r="4" fill="var(--cyan-active)"/>
+            <circle cx="112" cy="112" r="4" fill="var(--gold-secured)"/>
+          </svg>
+        </div>
+      </div>
     </div>
   </div>
   <div class="story-panel" data-panel="3">
@@ -334,14 +469,39 @@ section{position:relative}
         <h2 class="story-title">Cloud-minimal by design, not by promise.</h2>
         <p class="story-body">Scoring runs where the data is captured. What syncs is the score — never the scan. Privacy controls are never behind a paywall.</p>
       </div>
-      <div class="story-visual" data-visual="3"></div>
+      <div class="story-visual" data-visual="3">
+        <div class="sv-vault-wrap">
+          <svg class="sv-hud-svg" viewBox="0 0 400 400" fill="none">
+            <!-- Cybernetic Circuit Traces -->
+            <path d="M50 80 H150 L180 140" stroke="rgba(255,212,110,0.3)" stroke-width="1.5" fill="none"/>
+            <circle cx="50" cy="80" r="4" fill="var(--gold-secured)"/>
+            <path d="M350 80 H250 L220 140" stroke="rgba(34,211,238,0.3)" stroke-width="1.5" fill="none"/>
+            <circle cx="350" cy="80" r="4" fill="var(--cyan-active)"/>
+            <path d="M50 320 H150 L180 260" stroke="rgba(34,211,238,0.3)" stroke-width="1.5" fill="none"/>
+            <circle cx="50" cy="320" r="4" fill="var(--cyan-active)"/>
+            <path d="M350 320 H250 L220 260" stroke="rgba(255,212,110,0.3)" stroke-width="1.5" fill="none"/>
+            <circle cx="350" cy="320" r="4" fill="var(--gold-secured)"/>
+          </svg>
+          <div class="sv-vault-chip">
+            <svg class="sv-vault-icon" viewBox="0 0 24 24">
+              <rect x="3" y="11" width="18" height="11" rx="3" ry="3"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              <circle cx="12" cy="16" r="1.5" fill="var(--gold-secured)"/>
+            </svg>
+          </div>
+          <div class="sv-vault-tag">&#128274; 100% On-Device Enclave</div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
 <section id="transition">
   <div>
-    <div class="unlock-ring" id="unlock-ring"><div class="unlock-core" id="unlock-core"></div></div>
+    <div class="unlock-gyro-wrap">
+      <div class="unlock-ring-outer"></div>
+      <div class="unlock-ring" id="unlock-ring"><div class="unlock-core" id="unlock-core"></div></div>
+    </div>
     <div class="unlock-label" id="unlock-label">Baseline secured</div>
   </div>
 </section>
@@ -358,8 +518,11 @@ section{position:relative}
         <div class="dash-annotation"><b>Session timeline</b><span>Every scan and session, laid out across your day.</span></div>
       </div>
     </div>
-    <div class="phone-frame" id="phone-frame">
-      <iframe src="/v3/" loading="lazy" title="TENKI CORE — Today dashboard preview" tabindex="-1"></iframe>
+    <div class="phone-frame-wrap">
+      <div class="phone-ambient-glow"></div>
+      <div class="phone-frame" id="phone-frame">
+        <iframe src="/v3/" loading="lazy" title="TENKI CORE — Today dashboard preview" tabindex="-1"></iframe>
+      </div>
     </div>
   </div>
 </section>

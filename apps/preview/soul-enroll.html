@@ -583,8 +583,91 @@
       background: rgba(255,255,255,0.03);
     }
     #hero-gate .btn-secondary:hover { background: rgba(255,255,255,0.06); }
+    /* ── Camera Permission Hub (Cinematic Permission Needed & Denied Experience) ── */
+    #perm-hub {
+      position: absolute; inset: 0; z-index: 15;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px; text-align: center;
+      background: radial-gradient(120% 90% at 50% 20%, rgba(30,18,77,0.88), rgba(3,4,7,0.97) 80%);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      opacity: 0; pointer-events: none; transition: opacity .45s cubic-bezier(.22,1,.36,1);
+    }
+    #perm-hub.show { opacity: 1; pointer-events: auto; }
+    .perm-card {
+      width: 100%; max-width: 380px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .perm-icon-wrap {
+      position: relative; width: 88px; height: 88px; margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .perm-icon-pulse {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,212,110,0.3) 0%, rgba(34,211,238,0.12) 60%, transparent 75%);
+      animation: perm-pulse 3s ease-in-out infinite;
+    }
+    @keyframes perm-pulse {
+      0%, 100% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.2); opacity: 1; }
+    }
+    .perm-cam-icon {
+      width: 52px; height: 52px; position: relative; z-index: 2;
+      filter: drop-shadow(0 0 12px rgba(255,212,110,0.6));
+    }
+    .perm-lock-badge {
+      position: absolute; bottom: 0; right: 0; z-index: 3;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #020617; border: 1.5px solid var(--gold-soft);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; box-shadow: 0 0 12px rgba(255,212,110,0.4);
+    }
+    .perm-title {
+      font-size: 24px; font-weight: 800; letter-spacing: -0.02em;
+      color: #fff; margin-bottom: 10px;
+    }
+    .perm-desc {
+      font-size: 13.5px; line-height: 1.55; color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    .perm-desc b { color: var(--gold-soft); }
+    .perm-guides {
+      width: 100%; display: flex; flex-direction: column; gap: 10px;
+      margin-bottom: 28px;
+    }
+    .perm-guide-item {
+      padding: 12px 16px; border-radius: 14px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+      text-align: left;
+    }
+    .perm-guide-tag {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--cyan-glow); margin-bottom: 4px;
+    }
+    .perm-guide-text {
+      font-size: 12.5px; line-height: 1.45; color: var(--text-primary);
+    }
+    .perm-guide-text b { color: var(--gold-soft); }
+    .perm-actions {
+      width: 100%; display: flex; flex-direction: column; gap: 10px;
+    }
+    .perm-btn {
+      width: 100%; padding: 15px 20px; border-radius: 16px;
+      font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: transform .15s ease, box-shadow .3s ease;
+    }
+    .perm-btn-primary {
+      border: none; color: #021018;
+      background: linear-gradient(135deg, var(--gold-soft), var(--gold-resonance));
+      box-shadow: 0 10px 30px rgba(243,169,42,0.35);
+    }
+    .perm-btn-primary:active { transform: scale(0.97); }
+    .perm-btn-demo {
+      border: 1px solid rgba(255,255,255,0.15); color: var(--text-secondary);
+      background: rgba(255,255,255,0.03); font-weight: 600; font-size: 13.5px;
+    }
+    .perm-btn-demo:hover { background: rgba(255,255,255,0.06); color: #fff; }
     @media (prefers-reduced-motion: reduce) {
-      #hero-gate, #hero-gate #universe { transition: none; }
+      #hero-gate, #hero-gate #universe, .perm-icon-pulse { transition: none; animation: none; }
     }
   </style>
   <!-- GSAP (CDN, no bundler in this folder — same pattern as v6/index.html & story.html) -->
@@ -805,6 +888,39 @@
         <button class="ob-link" id="ob-privacy">Learn more about our privacy</button>
       </section>
     </div>
+
+    <!-- ── Camera Permission Hub (Cinematic Permission Needed & Denied Experience) ── -->
+    <div id="perm-hub" class="perm-hub" aria-live="polite">
+      <div class="perm-card">
+        <div class="perm-icon-wrap">
+          <div class="perm-icon-pulse"></div>
+          <svg class="perm-cam-icon" viewBox="0 0 24 24" fill="none">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="var(--gold-soft)" stroke-width="1.8" stroke-linejoin="round"/>
+            <circle cx="12" cy="13" r="4" stroke="var(--gold-soft)" stroke-width="1.8"/>
+            <circle cx="12" cy="13" r="1.5" fill="var(--gold-soft)"/>
+          </svg>
+          <div class="perm-lock-badge">&#128274;</div>
+        </div>
+        <h2 class="perm-title">Camera access needed</h2>
+        <p class="perm-desc">TENKI reads your steady state from the front camera. <b>100% on-device</b> — no video or biometric data is ever recorded or uploaded.</p>
+        
+        <div class="perm-guides">
+          <div class="perm-guide-item">
+            <div class="perm-guide-tag">&#127822; iOS Safari</div>
+            <div class="perm-guide-text">Tap <b>aA</b> or &#128247; in the address bar &rarr; <b>Website Settings</b> &rarr; <b>Camera: Allow</b></div>
+          </div>
+          <div class="perm-guide-item">
+            <div class="perm-guide-tag">&#127760; Chrome / Android</div>
+            <div class="perm-guide-text">Tap &#128274; in address bar &rarr; <b>Permissions</b> &rarr; <b>Camera: Allow</b></div>
+          </div>
+        </div>
+
+        <div class="perm-actions">
+          <button class="perm-btn perm-btn-primary" id="perm-retry-btn">Allow Camera & Continue</button>
+          <button class="perm-btn perm-btn-demo" id="perm-demo-btn">Experience with Demo Simulation</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ═══ HERO GATE — the locked /story/ Hero as the opening screen ═══
@@ -828,7 +944,7 @@
   </div>
 
   <script src="blink-cadence.js?v=blink2"></script>
-  <script src="soul-enroll.js?v=orb2"></script>
+  <script src="soul-enroll.js?v=blink1"></script>
   <script src="soul-onboarding.js"></script>
   <!-- Stardust orb for the hero gate (same engine as /story/ and /v3/; auto-binds #universe.
        Consumes the module THREE this page already exposes on window — r160 satisfies its r128+ floor.
