@@ -9,6 +9,72 @@
 
 ---
 
+# 2026-08-20 Session Update #72 (TradingView 快訊 → 決策計時器 —— 把斷掉的接縫接起來)
+
+founder：「從 tradingview快訊 - Tenki core快訊 - 導入決策計時器⏱️，要以使用者的角度
+去設計整個流程，要考量到**交易者可能另外用桌機下單或另外開啟交易APP下單**」。
+
+## 一、這不是新功能，是四個接縫裡有兩個壞的
+
+| # | 接縫 | 動工前 |
+|---|---|---|
+| 1 | TradingView → API | ✅ 早就通了 |
+| 2 | 快訊 → 決策入口 | ✅ 通，但只活在 `/decision-alert/` |
+| 3 | 入口 → **決策計時器** | ❌ 斷的。唯一出口是 `/v3/#session`＝**歷史頁** |
+| 4 | 計時器在背景 | ❌ **當時就在說謊** |
+
+## 二、🔴 接縫 4：v6 的 FDCB 數 tick 計時，而那正是 founder 的使用情境
+
+`elapsed += 1` 數的是 setInterval callback。鎖屏／切券商 APP → 少算，
+而 `saveV6Outcome` 又把它當 `durationSec` 寫進紀錄 —— **紀錄跟著說謊**。
+`/decision-alert/` 早就為同一件事改成 `Date.now()` 了，`/v3/` 沒有。
+
+**驗這條 bug 花的力氣比修它多。** 兩種直覺寫法都是死斷言：
+把分頁推到背景（Playwright 預設帶 `--disable-background-timer-throttling`）、
+CDP `Page.setWebLifecycleState('frozen')`（要頁面先真的 hidden）——
+新舊碼都讀到 `00:07`。能用的是**忙迴圈卡住 JS 執行緒**：卡 5 秒，牆鐘 `00:07`、數 tick `00:03`。
+
+## 三、做了什麼（8 個 commit）
+
+牆鐘 → 離開追蹤（交易者在桌機下單，離開是常態不是失誤）→ 送審詞彙
+（`交易模式`→`決策紀律`）→ 決策紀律模式開關（Lab opt-in，預設關）→
+結構守望成為 FDCB 的一種跑法 → PWA scope 放寬 → 交棒 → 回程收束頁。
+
+命名：user-facing **一律「決策紀律」**，內部 `SessionMode='trader'` 一字不動
+（founder 2026-08-20 拍板，對齊 TRADINGVIEW-ALERT-SPEC §0 與送審檢查表 #17）。
+
+⚠️ 一併回報但**未動**：`brand/TAGLINE-SYSTEM.md` Tier 3 指定設定頁叫
+「TRADER MODE / 交易者模式」，與 `safe-copy.ts:29` 及送審檢查表**直接衝突**。
+那是 locked 資產，只有 founder 能裁。同理 `Canslim`/`Mancini FBD` 模板名
+（檢查表 #18 說不得出現在可見 UI，但 `decision-alert.js:106` 說「照用」）。
+
+## 四、🔴 是既有的 harness 擋下我，不是我自己發現的
+
+交棒把計時器搬去 `/v3/` 之後，`preview-strip-color` 紅了 —— 因為
+`/decision-alert/` 那張**已實走驗收過**的收束頁變成走不到。我沒察覺這個副作用。
+founder 裁：判定完導回去看原收束頁。
+
+## 五、這一輪學到的（都已進 PLAYBOOK）
+
+1. **反向驗證一次只破壞一處** —— 三處一起破壞時有一條沒紅，兩個破壞抵銷了。
+2. **「等某個東西消失」是雙向競態** —— splash 還沒建立時 `!splash` 立刻為真；
+   太早不等又會量到被 splash 蓋住。先等正向訊號，再等它消失。
+3. **點擊觸發跳頁時 `waitForFunction` 會綁到舊頁脈絡** —— 要先 `waitForURL`。
+4. **斷言要跑在真的會執行那段程式碼的路徑上** —— 「只留一筆紀錄」第一版是死的：
+   寫入只在按下收尾鍵時發生，而斷言只是開了頁就去數。
+5. **本地伺服器少一條 rewrite = 靜默 404**，同一個坑第三次（這次是 `/decision-alert/*`）。
+
+## 六、下次接手點
+
+- **`Decision chain harness` 還沒在 CI 上紅過** —— 照 PLAYBOOK 的規矩要用一次
+  故意破壞證明它會擋。
+- `/decision-alert/` 的 `startSession` / `#timerBar` 交棒後**不再被任何路徑呼叫**，
+  先留著沒刪，要不要清由 founder 決定。
+- Session 列顯示模板名而不是標的（紀錄裡兩者都有），既有行為未動。
+- `preview-scan-stardust.mjs` / `smoke-alert-api.mjs` 仍未進 CI。
+
+---
+
 # 2026-08-19 Session Update #71 (preview harness 進 CI —— 補掉咬過兩次的盲區)
 
 founder：「想辦法讓它們進 CI」。
