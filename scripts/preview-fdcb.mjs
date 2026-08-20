@@ -298,6 +298,19 @@ console.log('\n── 下游文案 ──');
     return clone.textContent;
   });
   check('user-facing 不再出現英文 "marks"', /\bmarks\b/i.test(txt), false);
+  // 🔴 送審紅線：APP_STORE_COMPLIANCE §5.1 禁「交易 / Trade / Trading」出現在
+  // 審核可見的任何位置，§6 明訂「交易模式 → 決策模式 / 紀律模式」，
+  // 檢查表 #17 是送審 blocker。safe-copy.ts:29 也把 trader/trading 列入禁用。
+  // ⚠️ 這裡讀的是**移除 script/style 後**的文字 —— 頁內鏡射的禁用詞清單本來就
+  // 含「交易建議」，那是資料不是文案，不該被算進來。
+  check('🔴 使用者看得到的文字不得出現「交易」', /交易/.test(txt), false);
+  // ⚠️ 「TradingView」是第三方服務的專有名詞，不是交易詞彙 —— 而且
+  // TRADINGVIEW-ALERT-SPEC.md §6 的 canonical 面板文案本來就把它當來源標示
+  // （「TradingView · <strategyHint>」）。所以先把專有名詞挖掉再問，
+  // 否則這條會擋掉一個規格明文允許的東西。
+  const txtNoBrand = txt.replace(/TradingView/g, '');
+  check('🔴 使用者看得到的文字不得出現 trader/trading（TradingView 這個專有名詞除外）',
+    /trad(er|ing)/i.test(txtNoBrand), false);
   checkTruthy('Timeline strip 有解釋點大小的圖例', txt.includes('點越大'));
   await page.close();
 }
