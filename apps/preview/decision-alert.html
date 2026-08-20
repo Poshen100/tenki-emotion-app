@@ -7,6 +7,15 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="TENKI" />
+  <!-- ⚠️ manifest 的 scope 是 "/"（不是 "/decision-alert/"）。
+       原因：從這裡進入決策會導到 /v3/ 的決策計時器，而**離開 scope 的導覽
+       會讓 iOS standalone 把使用者踢回 Safari** —— 連帶失去 PWA 的執行脈絡，
+       而 Web Push 正是綁在那個 PWA 上（PLAYBOOK:312、:390 同一家族的坑）。
+       start_url 仍是 /decision-alert/（scope 內，合法）。
+       ⚠️ service worker 不受影響：它註冊在 /decision-alert/sw.js、沒指定 scope，
+       所以 SW scope 仍是 /decision-alert/，推播照舊。
+       ⚠️ 已經加到主畫面的 PWA 要**重裝**才會吃到新的 scope。
+       .webmanifest 是 JSON、不能寫註解，所以理由記在這裡。 -->
   <link rel="manifest" href="/decision-alert/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/brand/favicon/apple-touch-icon-180.png" />
   <title>TENKI — 外部快訊 → 決策入口（Demo）</title>
