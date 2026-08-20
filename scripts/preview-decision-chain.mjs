@@ -89,8 +89,6 @@ await page.evaluate(() => document.querySelector('#tplList .tpl-row').click());
 await page.waitForTimeout(1500);
 
 check('🔴 交棒導到跑起來的計時器，不是歷史頁', new URL(page.url()).hash, '#decision');
-check('🔴 信物讀完就刪（否則下次開會再起跑一次同一筆）',
-  await page.evaluate(() => localStorage.getItem('tenki.v6.handoff.v1')), null);
 
 // 🔴 **不要**等 `!document.getElementById('tenki-splash')` —— splash 還沒被建立時
 // 這個條件立刻為真，於是我們在頁面根本還沒跑起來的時候就往下讀（實際踩到：
@@ -108,6 +106,9 @@ try {
   );
 } catch (e) { started = false; }
 checkTruthy('🔴 交棒真的把決策起跑了（等不到就是交棒斷了，往下的斷言都不用看）', started);
+// ⚠️ 這條要問在「已經起跑」之後 —— 問太早會抓到頁面還沒讀它的那一瞬間（實際踩到）。
+check('🔴 信物讀完就刪（否則下次開會再起跑一次同一筆）',
+  await page.evaluate(() => localStorage.getItem('tenki.v6.handoff.v1')), null);
 await page.waitForTimeout(1200);
 const run = await page.evaluate(() => ({
   running: document.getElementById('fdcb').className.includes('state-running'),
@@ -125,6 +126,12 @@ checkTruthy(`底座顯示標的而不是模板名（${run.name}）`, run.name ==
 checkTruthy(`帶著來源快訊 id（${run.origin}）`, !!run.origin);
 checkTruthy(`帶著關鍵價位（${run.anchor}）`, typeof run.anchor === 'number');
 
+// 🔴 遮擋斷言必須等 splash 真的離開 —— 否則量到的是「被 splash 蓋住」
+// （實際踩到：命中 tenki-splash，y=530/700）。
+// ⚠️ 順序很重要：**先**等到「決策已起跑」這個正向訊號（證明頁面真的跑起來、
+// splash 已經被建立），**才**等它消失。反過來寫就會踩到本檔開頭那個坑 ——
+// splash 還沒被建立時 `!splash` 立刻為真。兩個方向的競態都要擋。
+await page.waitForFunction(() => !document.getElementById('tenki-splash'), null, { timeout: 15000 });
 await page.evaluate(() => window.nextState());
 await page.waitForTimeout(450);
 const strip = await page.evaluate(() => {
@@ -136,7 +143,14 @@ const strip = await page.evaluate(() => {
     btns: [...document.querySelectorAll('#watchJudge .wj-btn')].map((b) => {
       const r = b.getBoundingClientRect();
       const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-      return { t: b.textContent, self: b.contains(hit) || b === hit, lines: b.getClientRects().length };
+      return {
+        t: b.textContent, self: b.contains(hit) || b === hit,
+        lines: b.getClientRects().length,
+        // 遮擋失敗時要說得出「被誰蓋住」——「false」本身不夠人看懂。
+        hit: hit ? (hit.id || hit.className || hit.tagName) : 'null(點在視窗外?)',
+        cy: Math.round(r.top + r.height / 2),
+        winH: window.innerHeight,
+      };
     }),
   };
 });
@@ -144,12 +158,24 @@ check('關鍵價位出現在判定的那一刻', strip.hidden, false);
 checkTruthy(`關鍵價位顯示得出來（${strip.text}）`, /\d/.test(strip.text));
 check('關鍵價位只有 1 行', strip.lines, 1);
 strip.btns.forEach((b) => {
-  check(`判定鍵「${b.t}」沒被遮住`, b.self, true);
+  check(`判定鍵「${b.t}」沒被遮住（命中 ${b.hit}，y=${b.cy}/${b.winH}）`, b.self, true);
   check(`判定鍵「${b.t}」只有 1 行`, b.lines, 1);
 });
 
 await page.evaluate(() => window.judgeWatch('stood_down'));
-await page.waitForTimeout(400);
+// 判定完會導回 /decision-alert/#result 看收束頁 —— 等它真的到（輪詢終值特徵，
+// 不是輪詢「某個東西還不存在」）。
+let returned = true;
+try {
+  await page.waitForFunction(
+    () => location.pathname.indexOf('/decision-alert') === 0
+      && document.getElementById('resultSheet')
+      && document.getElementById('resultSheet').className.indexOf('show') !== -1,
+    null, { timeout: 12000 },
+  );
+} catch (e) { returned = false; }
+checkTruthy('🔴 判定完回到 /decision-alert/ 並開出收束頁', returned);
+
 const rec = await page.evaluate(() => JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')).slice(-1)[0]);
 check('判定不成立寫成 judged_stood_down', rec.outcomeTag, 'judged_stood_down');
 // 🔴 兩套 id 的翻譯：engine 的 FBD → v6 的 MANCINI_FBD。
@@ -160,9 +186,44 @@ check('紀錄認得自己是快訊決策', rec.source, 'alert');
 check('紀錄標上語意版本', rec.judgmentSchema, 'structure_watch_v1');
 checkTruthy('這筆算紀律', await page.evaluate((t) => window.TENKI_OUTCOME.isDisciplined(t), rec.outcomeTag));
 
+// 🔴 一筆決策只能有一筆紀錄。
+// 收束頁的收尾本來會 push 一筆，而計時器那邊已經寫過了 —— 直接重用會**存兩份**，
+// 紀律統計立刻失真。這是整段回程最容易靜默壞掉的地方。
+//
+// ⚠️ **一定要真的按下收尾鍵再數。** 第一版只是「開了收束頁就去數」——
+// 而 finalizeResult 只有在使用者按下去才跑，所以把就地更新整個拿掉、
+// 讓它每次都 push，那條斷言**照樣綠**。是一條死斷言，實測抓到的。
+// 順便選一個反思晶片，確保 contextTag 這條真的會走到寫入。
+await page.evaluate(() => {
+  const chip = document.querySelector('#resultReflect .result-chip');
+  if (chip) chip.click();
+});
+await page.waitForTimeout(200);
+await page.evaluate(() => document.getElementById('btnResultSave').click());
+await page.waitForTimeout(400);
+const store = await page.evaluate(() => JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')) || []);
+checkTruthy('反思晶片補上的 contextTag 有寫進那一筆',
+  store.length === 1 && !!store[0].contextTag);
+check('🔴 一筆決策只留一筆紀錄（回程不得再寫一次）', store.length, 1);
+check('🔴 回程票讀完就刪', await page.evaluate(() => localStorage.getItem('tenki.alert.return.v1')), null);
+
+// 收束頁上的事實要對得起紀錄
+const sheet = await page.evaluate(() => ({
+  head: (document.getElementById('resultHead') || {}).textContent,
+  outcome: (document.getElementById('resultOutcome') || {}).textContent,
+  recap: (document.getElementById('resultRecapList') || {}).textContent,
+}));
+checkTruthy(`收束頁標題帶著標的（${sheet.head}）`, (sheet.head || '').includes('ES1!'));
+checkTruthy(`收束頁說得出判定（${sheet.outcome}）`, !!(sheet.outcome || '').trim());
+checkTruthy('收束頁的 recap 說得出離開次數（v6 記的欄位接上了）',
+  /離開|沒有離開/.test(sheet.recap || ''));
+
 // Session 頁：逐欄看那一列長什麼樣（PLAYBOOK：不要只看彙總數字）
+await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+await page.waitForFunction(
+  () => document.querySelector('#sessionList > *') !== null, null, { timeout: 15000 },
+).catch(() => {});
 const row = await page.evaluate(() => {
-  window.goTab('session');
   const el = document.querySelector('#sessionList > *');
   return el ? el.textContent.replace(/\s+/g, ' ').trim() : null;
 });

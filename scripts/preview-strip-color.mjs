@@ -55,6 +55,11 @@ const server = http.createServer((req, res) => {
   //    **差點照著假畫面去修沒壞的東西。**
   // 靜默 404 的測試環境比沒有測試更糟。
   if (clean.startsWith('/preview/')) clean = '/apps' + clean;
+  // 3. 少了 `/decision-alert/*` —— 2026-08-20 判定完會導回 `/decision-alert/#result`，
+  //    沒有這條 rewrite 就是靜默 404：URL 對、但頁面沒有 #resultSheet，
+  //    於是斷言以「等不到收束頁」逾時，看起來像產品壞了。**同一個坑的第三次。**
+  if (clean === '/decision-alert' || clean === '/decision-alert/') clean = '/apps/preview/decision-alert.html';
+  else if (clean.startsWith('/decision-alert/')) clean = '/apps/preview/' + clean.slice('/decision-alert/'.length);
   if (clean === '/v3' || clean === '/v3/') clean = '/apps/preview/v6/index.html';
   else if (clean.startsWith('/v3/')) clean = '/apps/preview/v6/' + clean.slice('/v3/'.length);
   let file = join(repoRoot, clean);
@@ -138,9 +143,29 @@ check('列是硬邊（不是圓角卡片）', term.rowRadius, '0px');
 check('有欄位表頭列', term.hasHead, true);
 check('每一列都有彭博式編號 N)', term.numbered, true);
 
+// ⚠️ 2026-08-20 起這裡不再是「就地起計時」——
+// 選完模板會**交棒到 /v3/ 的決策計時器**，判定完再回到這一頁看收束頁
+// （founder：「從 tradingview快訊 - Tenki core快訊 - 導入決策計時器」）。
+// 底下所有收束頁的斷言照舊有效，只是要先走完這條鏈才會抵達。
 await page.click('.tpl-row'); // 第 1 列 = 快訊標記的 FBD
-await page.waitForTimeout(1200); // 讓守望條累積幾秒（快速判定正是要保護的案例）
-await page.click('#btnStructureConfirmed');
+// ⚠️ 先等導覽真的完成再 waitForFunction —— 點擊會觸發跳頁，
+// 而 waitForFunction 若在導覽當下啟動會綁到**舊頁的執行脈絡**，
+// 於是明明新頁已經跑起來了它還是逾時（實際踩到：sess 明明有值卻 timeout）。
+await page.waitForURL(/\/v3\//, { timeout: 15000 });
+// 等交棒真的把決策起跑（輪詢已知的終值特徵，不是輪詢「某個東西還不存在」）
+await page.waitForFunction(
+  () => typeof sess !== 'undefined' && sess && !!sess.originAlertId,
+  null, { timeout: 15000 },
+);
+await page.waitForTimeout(1200); // 讓守望累積幾秒（快速判定正是要保護的案例）
+await page.evaluate(() => window.judgeWatch('entered'));
+// 判定完會導回這一頁並開收束頁（同樣先等導覽完成）
+await page.waitForURL(/decision-alert/, { timeout: 15000 });
+await page.waitForFunction(
+  () => document.getElementById('resultSheet')
+    && document.getElementById('resultSheet').className.indexOf('show') !== -1,
+  null, { timeout: 15000 },
+);
 await page.waitForTimeout(1600); // 收束頁的揭示編排
 
 const rate = (await page.textContent('#resultRate'))?.trim() ?? '';

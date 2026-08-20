@@ -3974,10 +3974,15 @@ function resolveOutcome(type, reached){
 // 兩邊共用同一個 store，資料確實存進去了，只是收端聽不懂寫端的方言。
 // 判定現在只有一個來源（decision-outcome.js），這裡不得再放第二份實作。
 const isDisciplinedV6 = (tag) => window.TENKI_OUTCOME.isDisciplined(tag);
+/**
+ * 把這次收束寫進共用 store。
+ * @returns {number} 這筆紀錄的 ts —— 回程票要靠它指名是哪一筆。
+ */
 function saveV6Outcome(session, outcomeTag){
   let all = [];
   try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
   if(!Array.isArray(all)) all = [];
+  const ts = Date.now();
   all.push({
     symbol: session.name, templateId: session.templateId, outcomeTag,
     contextTag: null,
@@ -4004,10 +4009,11 @@ function saveV6Outcome(session, outcomeTag){
     // 不新增第二種寫法。originAlertId 是真正的 join key
     // （engine 的 SessionRecord.originAlertId 宣告很久了，這是第一次真的被用上）。
     originAlertId: session.originAlertId || null,
-    ts: Date.now(), source: session.originAlertId ? 'alert' : 'v6'
+    ts, source: session.originAlertId ? 'alert' : 'v6'
   });
   if(all.length > 200) all = all.slice(all.length - 200);
   localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
+  return ts;
 }
 // 收束後回 idle 的那一拍要抓得住 —— 舊版是裸的 setTimeout，
 // 使用者在這 1.8 秒內做別的事（點中間、換模板）會被它從背後拉回 idle。
@@ -4027,7 +4033,17 @@ function endDecision(type){
   const tag = watch
     ? window.TENKI_OUTCOME.resolveOutcomeTag(type)
     : resolveOutcome(type, sess ? sess.reachedReadiness : false);
-  if(sess) saveV6Outcome(sess, tag);
+  const savedTs = sess ? saveV6Outcome(sess, tag) : null;
+  // 🔴 從快訊來的決策，收束頁在 /decision-alert/ ——
+  // 那張頁（弧、反思晶片 → contextTag、紀律計）是已經被實走驗收過的東西，
+  // 而 v6 的 state-complete 只有 1.8 秒。所以判定完把人送回去看結果。
+  // ⚠️ 只有快訊決策回程；自己在 /v3/ 起跑的決策本來就不是從那裡來的。
+  if(sess && sess.originAlertId && savedTs){
+    try {
+      localStorage.setItem(RETURN_KEY, JSON.stringify({ ts: savedTs, at: Date.now() }));
+      window.location.href = '/decision-alert/#result';
+    } catch(e){ /* 存不進去就留在原地，至少紀錄已經寫好了 */ }
+  }
   pendingClosure = { tag: tag };
   setState('complete');
   clearClosureTimer();
@@ -4118,6 +4134,8 @@ function watchMode(tmplId){
 // 從 /decision-alert/ 交棒過來的一筆決策
 // ═════════════════════════════════════════════════
 const HANDOFF_KEY = 'tenki.v6.handoff.v1';
+/** 回程票：判定完帶著「是哪一筆」回 /decision-alert/ 看收束頁。 */
+const RETURN_KEY = 'tenki.alert.return.v1';
 /** 信物保鮮期，與 decision-alert.js 的 HANDOFF_TTL_MS 同值。 */
 const HANDOFF_TTL_MS = 5 * 60 * 1000;
 

@@ -205,9 +205,27 @@
     try { return JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY)) || []; } catch (e) { return []; }
   }
 
+  /**
+   * 寫進統一 store。
+   * 🔴 從 /v3/ 回程過來的那一筆**已經在 store 裡了**（計時器那邊寫的）——
+   * 這時要**就地更新**（反思晶片會補 contextTag），不能再 push 一筆，
+   * 否則同一筆決策存兩份，紀律統計立刻失真。
+   * @param {Object} record 這次收束的紀錄
+   */
   function saveOutcome(record) {
     var all = loadOutcomes();
-    all.push(record);
+    var idx = -1;
+    if (record.alreadyPersisted) {
+      for (var i = 0; i < all.length; i += 1) {
+        if (all[i].ts === record.ts) { idx = i; break; }
+      }
+    }
+    if (idx >= 0) {
+      // 只補這一頁真的產生的欄位，其餘沿用計時器那邊寫的事實。
+      all[idx].contextTag = record.contextTag;
+    } else {
+      all.push(record);
+    }
     if (all.length > 200) all = all.slice(all.length - 200);
     localStorage.setItem(OUTCOME_STORE_KEY, JSON.stringify(all));
   }
@@ -885,6 +903,55 @@
   }
 
   // ═══════════════════════════════════════════════
+  // 從 /v3/ 判定完回程 —— 收束頁還是在這裡
+  //
+  // 計時器搬去 /v3/ 之後，這張收束頁（弧、反思晶片 → contextTag、紀律計、
+  // 660px 一屏放得下）仍然是收束的地方 —— 它是已經被實走驗收過的東西，
+  // 而 /v3/ 的 state-complete 只有 1.8 秒。所以判定完把人送回來看結果。
+  // ═══════════════════════════════════════════════
+
+  /** 回程票：/v3/ 判定完寫的，指名要顯示哪一筆。 */
+  var RETURN_KEY = 'tenki.alert.return.v1';
+
+  /**
+   * 收下回程票並開收束頁。
+   * 🔴 **票讀完就刪**（同交棒信物的規矩）—— 留著它，下次開這頁會再彈一次
+   * 同一張收束頁，而使用者根本沒做新的決策。
+   * @returns {boolean} 有沒有真的開起來
+   */
+  function acceptReturnTicket() {
+    var t = null;
+    try { t = JSON.parse(localStorage.getItem(RETURN_KEY)); } catch (e) { t = null; }
+    try { localStorage.removeItem(RETURN_KEY); } catch (e) { /* 無妨 */ }
+    if (!t || typeof t.ts !== 'number') return false;
+    if (typeof t.at !== 'number' || Date.now() - t.at > HANDOFF_TTL_MS) return false;
+
+    var all = loadOutcomes();
+    var rec = null;
+    for (var i = 0; i < all.length; i += 1) { if (all[i].ts === t.ts) { rec = all[i]; break; } }
+    if (!rec) return false;
+
+    // 把紀錄翻回 openResult 要的 session 形狀。
+    // ⚠️ renderRecap 吃 awayCount / awayMs / elapsedSec —— v6 這一輪剛好都記了。
+    var judgment = rec.outcomeTag === 'judged_entered' ? 'entered'
+      : rec.outcomeTag === 'judged_stood_down' ? 'stood_down' : 'abandoned';
+    openResult(judgment, {
+      symbol: rec.symbol || '—',
+      templateId: rec.templateId,
+      tplName: rec.templateId,
+      elapsedSec: rec.durationSec || 0,
+      awayCount: typeof rec.awayCount === 'number' ? rec.awayCount : 0,
+      awayMs: typeof rec.awayMs === 'number' ? rec.awayMs : 0,
+      sameSymbolUpdates: 0,
+      // 🔴 這一筆**已經在 store 裡**（計時器那邊寫的）—— 收尾只能就地更新，
+      // 不能再 push 一筆，否則同一筆決策存兩份、紀律統計失真。
+      alreadyPersisted: true,
+      recordTs: rec.ts,
+    });
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════
   // 交棒到 /v3/ 的決策計時器
   //
   // 在這之前，快訊有自己的一套守望條，而 /v3/ 的 FDCB 是另一套 —— **兩個計時器
@@ -1174,13 +1241,18 @@
       awayCount: s.awayCount,
       awayMs: s.awayMs,
       durationSec: s.elapsedSec,
-      ts: Date.now(),
+      // 回程時沿用既有紀錄的 ts —— 它是就地更新要用的 key。
+      ts: s.recordTs || Date.now(),
+      alreadyPersisted: !!s.alreadyPersisted,
       // 這筆決策從哪個入口來（v6 的計時器決策寫 'v6'）。統一 store 是兩個入口
       // 合流的地方，沒有這個欄位 Session 頁就分不出來源。
       source: 'alert',
     };
 
-    var withThis = loadOutcomes().concat([state.pendingOutcome]);
+    // 回程的那一筆已經在 store 裡 —— 再 concat 一次等於把同一筆算兩遍。
+    var withThis = s.alreadyPersisted
+      ? loadOutcomes()
+      : loadOutcomes().concat([state.pendingOutcome]);
 
     el.resultHead.textContent = s.symbol + ' · ' + s.tplName;
     el.resultOutcome.textContent = disp.text;
@@ -1832,4 +1904,8 @@
   renderResultSettingsInputs();
   renderState();
   refreshDiscipline();
+
+  // 從 /v3/ 判定完回來 → 直接開收束頁。放在最後，確保所有 render* 與
+  // openResult 需要的元素／狀態都已就緒。
+  if ((window.location.hash || '').replace('#', '') === 'result') acceptReturnTicket();
 })();
