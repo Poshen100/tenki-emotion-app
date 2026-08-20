@@ -146,3 +146,8 @@ jobs:
 
       - name: Strip colour / outcome harness
         run: node scripts/preview-strip-color.mjs
+
+      # 快訊 → 交棒 → 決策計時器 → 收束，跨兩個頁面走完整條鏈。
+      # 這一段最容易靜默壞掉：跨頁、跨 localStorage、跨兩套 template id。
+      - name: Decision chain harness (alert → timer)
+        run: node scripts/preview-decision-chain.mjs

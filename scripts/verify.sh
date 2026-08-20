@@ -88,6 +88,7 @@ if node -e "import('playwright')" >/dev/null 2>&1 \
    || [ -d /opt/node22/lib/node_modules/playwright ]; then
   run_step "preview harness (fdcb)" node scripts/preview-fdcb.mjs
   run_step "preview harness (strip-color)" node scripts/preview-strip-color.mjs
+  run_step "preview harness (decision-chain)" node scripts/preview-decision-chain.mjs
 else
   RESULTS+=("– preview harness（未裝 Playwright，略過；CI 會跑）")
 fi
