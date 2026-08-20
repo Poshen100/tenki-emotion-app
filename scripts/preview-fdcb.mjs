@@ -802,6 +802,61 @@ console.log('\n── Hero 讀數不得爆版 ──');
   await page.close();
 }
 
+// ═════════════════════════════════════════════════
+// Energy 長條圖不得被截斷
+//
+// founder 2026-08-20 實走：「體能 長條圖被截斷」。實測 ≤880px 高時
+// .bb-bars 被 flex 壓成 33px，而長條仍是 JS 算出來的 53px 絕對高度，
+// 上緣整排被 overflow:hidden 削掉 —— 而且**畫面上毫無破綻**。
+//
+// 🔴 不要用 `card.scrollHeight > card.clientHeight` 當斷言：實測在 bug 存在時
+// 它仍然回報 false（壓扁被 .bb-bars 吸收，它自己的 overflow:hidden 又把後果吞掉）。
+// **一個「藏起來」的容器會讓上層的溢出偵測說謊** —— 要直接問每一根長條。
+//
+// 🔴 而且要在**動畫跑動時逐幀量**：待機呼吸會把長條放大到 1.16 倍，
+// 靜態量到「剛好放得下」不代表波峰不會被削。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── Energy 長條圖（不得被截斷）──');
+  for (const h of [932, 844, 760, 700, 660]) {
+    const page = await openV3(h);
+    await page.evaluate(() => {
+      const t = document.getElementById('snapTrack');
+      t.scrollLeft = t.querySelector('[data-page="3"]').offsetLeft;
+    });
+    await page.waitForTimeout(2600); // 等進場動畫（scaleY 0.06→1）跑完，進入待機呼吸
+
+    const m = await page.evaluate(() => new Promise((res) => {
+      const host = document.getElementById('bbBars');
+      let clippedFrames = 0; let maxH = 0; let frames = 0;
+      (function f() {
+        const hr = host.getBoundingClientRect();
+        [...host.children].forEach((x) => {
+          const r = x.getBoundingClientRect();
+          if (r.top < hr.top - 0.5) clippedFrames++;      // 頂端被容器切掉
+          if (r.height > maxH) maxH = r.height;
+        });
+        if (++frames < 90) requestAnimationFrame(f);
+        else res({
+          clippedFrames,
+          maxH: +maxH.toFixed(1),
+          boxH: +hr.height.toFixed(1),
+          n: host.children.length,
+          shortest: Math.min(...[...host.children].map((x) => x.getBoundingClientRect().height)),
+          barsOverflow: host.scrollHeight > host.clientHeight + 1,
+        });
+      })();
+    }));
+
+    check(`${h}px：🔴 沒有任何一根長條被切（90 幀取樣，含呼吸波峰）`, m.clippedFrames, 0);
+    checkTruthy(`${h}px：最高的長條放得進容器（${m.maxH} ≤ ${m.boxH}）`, m.maxH <= m.boxH + 0.5);
+    check(`${h}px：長條容器自己不溢出`, m.barsOverflow, false);
+    check(`${h}px：15 根長條都在`, m.n, 15);
+    checkTruthy(`${h}px：最矮的長條仍看得見（${m.shortest.toFixed(1)}px）`, m.shortest >= 6);
+    await page.close();
+  }
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);

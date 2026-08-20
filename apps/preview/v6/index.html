@@ -641,6 +641,10 @@ body{
 .bb-bars{
   display:flex;gap:4px;height:54px;align-items:flex-end;
   margin-bottom:18px;
+  /* 🔴 它是資料圖表，不是可壓縮的空白。預設 flex-shrink:1 會讓它在矮視窗被
+     壓成 33px，而長條仍是原尺寸 → 被 overflow:hidden 切掉且畫面毫無破綻。
+     高度由設計在斷點決定，不由「剩下多少」決定。 */
+  flex-shrink:0;
 }
 .bb-bars .bar{
   flex:1;border-radius:20px;
@@ -3682,6 +3686,15 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
   // realistic Garmin Body Battery day (oldest → newest), ending at the current value (~78,
   // matching #bbVal): overnight recharge → morning peak → daytime drain + stress dip → recovery → now.
   const vals = [56,62,70,80,88,93,89,80,69,57,46,41,52,66,78];
+  // 🔴 長條的靜態高度要**留出待機動效放大的餘裕**，否則最高那根在呼吸的波峰
+  // 會被 overflow:hidden 削掉頂端。
+  // 待機迴圈的最大放大倍率：`now` 那根 1 + 0.13（呼吸）+ 0.03（光暈）= 1.16。
+  // 所以靜態高度上限必須 ≤ 1/1.16 ≈ 0.862 —— 取 0.85 留一點邊。
+  // ⚠️ 這個數字**跟 startIdle() 的振幅是一組的**：改動任何一邊都要同時改另一邊，
+  //    而且 harness 會在動畫跑動時逐幀量，改壞會當場紅（不是靠這段註解守）。
+  //    舊版把這個關係只寫在註解裡（「±10% → 48px 不會切 54px」），
+  //    於是我把高度改成 % 之後它就默默失效了。
+  const BAR_HEADROOM = 0.85;
   function zoneColor(v){
     if(v>=85) return '#46C56B';   // green (high)
     if(v>=70) return '#2FB6C0';   // cyan-green
@@ -3693,7 +3706,12 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
   const bars = vals.map((v,i) => {
     const b = document.createElement('div');
     b.className = 'bar' + (i===vals.length-1 ? ' now' : '');
-    b.style.height = Math.max(14, v*0.52) + 'px';
+    // 🔴 高度是**容器高的百分比**，不是絕對 px。
+    // 舊版寫死 `v*0.52 + 'px'`（最高 48px），而 .bb-bars 是 flex 子項會被壓扁 ——
+    // 視窗高 ≤880px 時容器只剩 33px，長條仍堅持要 53px，於是上緣被
+    // overflow:hidden 整排切掉（founder 2026-08-20 實走：「體能 長條圖被截斷」）。
+    // 用 % 之後，斷點給多少高度它就畫多高，結構上不可能溢出。
+    b.style.height = (v * BAR_HEADROOM) + '%';
     b.style.background = `linear-gradient(180deg, ${zoneColor(v)} 0%, ${shadeColor(zoneColor(v), -22)} 100%)`;
     b.style.transformOrigin = 'bottom';
     b.style.transform = reduce ? 'scaleY(1)' : 'scaleY(0.06)';
@@ -5874,6 +5892,9 @@ function closeSessionDetail(){
         #today-screen .hero{min-height:26vh;}
         #today-screen .tl-edge{width:min(54vw,208px);height:min(54vw,208px);}
         .snap-track{height:168px;}
+        /* 軌道縮到 168 時，Energy 卡要自己讓出高度 —— 明寫圖表高度，
+           而不是讓 flex 去壓它（壓出來的結果會被 overflow:hidden 藏起來）。 */
+        .bb-page .bb-bars{height:38px;margin-bottom:10px;}
         /* 圓點是最後一個元素，原本 +10px 的餘裕在這帶不夠，會壓到底座上緣 */
         .snap{gap:8px;padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 26px);}
       }
