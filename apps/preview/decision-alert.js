@@ -878,10 +878,51 @@
 
       row.addEventListener('click', function () {
         closeSheets();
-        startSession(alert, tpl);
+        handOffToDecisionTimer(alert, tpl);
       });
       el.tplList.appendChild(row);
     });
+  }
+
+  // ═══════════════════════════════════════════════
+  // 交棒到 /v3/ 的決策計時器
+  //
+  // 在這之前，快訊有自己的一套守望條，而 /v3/ 的 FDCB 是另一套 —— **兩個計時器
+  // 從來沒有見過面**，快訊唯一通往 v3 的出口是 /v3/#session（歷史頁，不是一個
+  // 跑起來的計時器）。founder：「從 tradingview快訊 - Tenki core快訊 -
+  // 導入決策計時器」。所以這裡不再自己起計時，改成把這一筆交出去。
+  //
+  // 交棒走 localStorage 而不是 query string：**價位與標的不該進網址**
+  // （會留在瀏覽歷史、被分享出去）。同源同裝置，localStorage 就夠，
+  // 而且跟這個 repo 既有的跨頁共用（讀數、決策紀錄）是同一個做法。
+  // ═══════════════════════════════════════════════
+
+  /** 交棒信物的 key。v6 開頁時讀它。 */
+  var HANDOFF_KEY = 'tenki.v6.handoff.v1';
+  /** 信物的保鮮期。過期就不自動起跑 —— 昨天的快訊今天不該自己開始一個決策。 */
+  var HANDOFF_TTL_MS = 5 * 60 * 1000;
+
+  /**
+   * 把這一筆快訊交給 /v3/ 的決策計時器，然後導過去。
+   * @param {Object} alert 這筆快訊
+   * @param {Object} tpl 使用者選的模板
+   */
+  function handOffToDecisionTimer(alert, tpl) {
+    var payload = {
+      symbol: alert.symbol,
+      // 🔴 兩套 id 從來沒對上過（engine 的 FBD vs v6 的 MANCINI_FBD）——
+      // PLAYBOOK 記著那次「名稱、圖示、readiness、badge 四處全錯而且沒有一處會報錯」。
+      // 翻譯走共用模組，**兩邊的 id 都不改**（persisted contract）。
+      templateId: window.TENKI_OUTCOME.toV6TemplateId(tpl.id),
+      originAlertId: alert.id,
+      price: typeof alert.price === 'number' && isFinite(alert.price) ? alert.price : null,
+      condition: alert.condition || null,
+      ts: Date.now(),
+    };
+    try { localStorage.setItem(HANDOFF_KEY, JSON.stringify(payload)); }
+    catch (e) { /* 存不進去就不要導過去，免得那頁空手起跑一個不知道是誰的決策 */ return; }
+    log('engaged', alert.symbol + ' — 交給決策計時器');
+    window.location.href = '/v3/#decision';
   }
 
   // ── 浮動決策計時條 ──

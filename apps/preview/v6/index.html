@@ -1562,7 +1562,7 @@ body{
 .watch-judge{
   position:absolute;left:10px;right:10px;
   bottom:calc(var(--tabbar-h) + var(--fdcb-gap) + var(--fdcb-h) + 8px);
-  z-index:46;display:flex;gap:8px;
+  z-index:46;display:flex;flex-wrap:wrap;gap:8px;
   opacity:0;visibility:hidden;transform:translateY(6px);
   transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s 0.3s;
 }
@@ -1579,6 +1579,13 @@ body{
 .wj-btn:active{transform:scale(0.97)}
 /* 兩個出口都算紀律，所以**都不上綠**（綠 = 跟著流程完成，那是收束後才有資格說的事）。
    用中性的邊框差異區分，不用語意色宣告勝負。 */
+/* 關鍵價位獨佔一整行（flex-basis:100% + wrap），按鈕仍在下面平分。 */
+.wj-anchor{
+  flex:0 0 100%;text-align:center;
+  font-size:11px;letter-spacing:0.06em;color:var(--txt-sec);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
 .wj-in{border-color:rgba(0,180,216,0.42)}
 .wj-out{border-color:rgba(255,255,255,0.22)}
 @media (prefers-reduced-motion: reduce){
@@ -2785,6 +2792,10 @@ body{
        ⚠️ 兩個出口都是「做出判定」，所以都算紀律 —— 差別只在做了什麼，
        不在誰對誰錯（decision-outcome.js 的語意斷點）。 -->
   <div class="watch-judge" id="watchJudge" role="group" aria-label="這次結構守望的判定">
+    <!-- 關鍵價位：只有從快訊交棒過來、而且那筆快訊真的帶了價位時才出現。
+         擺在判定列裡是刻意的 —— 它正好在「要做判定」的那一刻才被需要，
+         而底座只有 44/58px，沒有它的位置。 -->
+    <div class="wj-anchor" id="wjAnchor" hidden></div>
     <button type="button" class="wj-btn wj-in" onclick="judgeWatch('entered')">成立 · 我進場了</button>
     <button type="button" class="wj-btn wj-out" onclick="judgeWatch('stood_down')">不成立 · 我不做</button>
   </div>
@@ -3330,6 +3341,10 @@ function goTab(id){
   function apply(){
     const hash = (window.location.hash || '').replace('#', '');
     const allowedTabs = ['today', 'scan', 'session', 'timeline', 'lab'];
+    // #decision：從 /decision-alert/ 交棒過來，直接起跑那一筆決策。
+    // 這是 founder 要的那條鏈子的最後一段 —— 在這之前快訊唯一的出口是
+    // /v3/#session（歷史頁），使用者被丟在一個「已經結束的東西」前面。
+    if(hash === 'decision'){ goTab('today'); acceptHandoff(); return; }
     if(allowedTabs.includes(hash)) goTab(hash);
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
@@ -3984,7 +3999,12 @@ function saveV6Outcome(session, outcomeTag){
     // 跟倒數模式的舊語意（「有沒有走完計時器」）不是同一把尺。
     // 標記它，統計端才分得出來 —— 不標就只能猜。
     judgmentSchema: session.watch ? window.TENKI_OUTCOME.JUDGMENT_SCHEMA : null,
-    ts: Date.now(), source: 'v6'
+    // 這一筆從哪來。有 originAlertId 就是快訊決策 —— v6 既有的呈現
+    // （readinessCellV6、Session 列）本來就認得 source==='alert'，沿用它，
+    // 不新增第二種寫法。originAlertId 是真正的 join key
+    // （engine 的 SessionRecord.originAlertId 宣告很久了，這是第一次真的被用上）。
+    originAlertId: session.originAlertId || null,
+    ts: Date.now(), source: session.originAlertId ? 'alert' : 'v6'
   });
   if(all.length > 200) all = all.slice(all.length - 200);
   localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
@@ -4094,6 +4114,67 @@ function disciplineOn(){
 function watchMode(tmplId){
   return disciplineOn() && DISCIPLINE_TEMPLATES.includes(tmplId || currentTmpl);
 }
+// ═════════════════════════════════════════════════
+// 從 /decision-alert/ 交棒過來的一筆決策
+// ═════════════════════════════════════════════════
+const HANDOFF_KEY = 'tenki.v6.handoff.v1';
+/** 信物保鮮期，與 decision-alert.js 的 HANDOFF_TTL_MS 同值。 */
+const HANDOFF_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * 讀交棒信物並直接起跑決策。
+ * 🔴 **讀完就刪**，無論用不用得上 —— 留著它，下次開 /v3/#decision
+ * 會再起跑一次同一筆決策（而使用者根本沒收到新快訊）。
+ * @returns {boolean} 有沒有真的起跑
+ */
+function acceptHandoff(){
+  let h = null;
+  try { h = JSON.parse(localStorage.getItem(HANDOFF_KEY)); } catch(e){ h = null; }
+  try { localStorage.removeItem(HANDOFF_KEY); } catch(e){}
+  if(!h || !h.templateId || !TEMPLATES[h.templateId]) return false;
+  // 過期就不自動起跑 —— 昨天的快訊今天不該自己開始一個決策。
+  if(!(typeof h.ts === 'number') || Date.now() - h.ts > HANDOFF_TTL_MS) return false;
+
+  currentTmpl = h.templateId;
+  const t = TEMPLATES[currentTmpl];
+  document.documentElement.style.setProperty('--primary', t.color);
+  setState('running');
+  if(sess){
+    // 這一筆的身分：標的名、來源快訊、以及自己定的關鍵價位。
+    sess.symbol = h.symbol || null;
+    sess.originAlertId = h.originAlertId || null;
+    sess.anchorPrice = (typeof h.price === 'number') ? h.price : null;
+    // 🔴 從快訊交棒過來的決策**一律走守望**，不看 Lab 那個開關。
+    // 理由不是圖方便：快訊流程的收束語意本來就是「有沒有做出判定」
+    // （docs/TRADINGVIEW-ALERT-SPEC.md §9、decision-outcome.js 的語意斷點）。
+    // 若這裡退回倒數，就會重新引進那個已經付過學費的問題 ——
+    //「用時間當紀律指標，品質最好的 setup 被罰得最重」。
+    // Lab 的開關管的是「使用者自己起跑」時要不要守望，不管快訊這條路。
+    sess.watch = true;
+    // 底座左欄改顯示標的 —— 決策進行中，「ES1!」比「Mancini FBD」有用得多。
+    if(sess.symbol){
+      sess.name = sess.symbol;
+      document.getElementById('fdcbName').textContent = sess.symbol;
+    }
+    renderWatchAnchor();
+  }
+  return true;
+}
+
+/**
+ * 判定列上的關鍵價位行。
+ * 🔴 快訊沒帶 price 就整行空著 —— **寧可沒有錨點，也不編一個價位出來**
+ * （decision-alert.js:910 同一條規則，語氣照搬）。
+ */
+function renderWatchAnchor(){
+  const el = document.getElementById('wjAnchor');
+  if(!el) return;
+  const p = sess && typeof sess.anchorPrice === 'number' ? sess.anchorPrice : null;
+  if(p === null){ el.textContent = ''; el.hidden = true; return; }
+  el.hidden = false;
+  el.textContent = '關鍵價位 ' + p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 /** 守望的牆鐘上限（秒）。超過就當作沒有判定收掉，避免跨日的殭屍 session。
  *  與 decision-alert.js 的 WATCH_CEILING_MS 同一個值，兩邊要一起改。 */
 const WATCH_CEILING_SEC = 30 * 60;
@@ -4105,6 +4186,7 @@ function watchJudgeOpen(){
 }
 function openWatchJudge(){
   if(!(sess && sess.watch)) return;
+  renderWatchAnchor();  // 每次打開都重畫 —— 上一筆決策的價位不得留在畫面上
   document.getElementById('watchJudge').classList.add('open');
 }
 function closeWatchJudge(){
