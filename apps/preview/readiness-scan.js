@@ -417,6 +417,14 @@
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-soul-thread{stroke:' + HALO_SECURED + ';',
       'filter:drop-shadow(0 0 6px rgba(255,212,110,0.65));}',
       '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-soul-thread{opacity:0;}',
+      // 🔴 鎖定之後不准再補間 —— 「爽的是突然的靜」。
+      // Soul Thread 的 opacity transition（0.3s）在 lock 一拍後仍會被 setProgress()
+      // 的 holding/stalled 切換重新點燃，harness 的「一拍過後完全靜止」因此紅燈
+      // （getAnimations() 抓得到 transition，不只 CSS animation）。
+      // 這跟本檔上面對進度環寫的理由是同一條：停住就該看得出來停住，補間會把那個事實抹掉。
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-soul-thread,',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-soul-thread,',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-soul-thread{transition:none;}',
 
       // ── 揭曉面板（MOTION-DIRECTION §4「Reveal 揭曉」）──
       //
