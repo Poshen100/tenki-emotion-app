@@ -1805,6 +1805,19 @@
   // 探針用 GET：/api/alert 的第一道檢查就是 method，會回 405 JSON。到得了那個 405
   // 就代表請求穿過了保護層（而且不會寫進任何一筆快訊、不污染紀錄）。收到別的東西
   // ——轉址、HTML 登入頁、401——就是被保護層擋在門外。
+  /**
+   * 這道牆的範圍。分支 preview 才有，正式站不受影響 —— 不講的話，
+   * 上面那句紅字看起來像是整個快訊功能壞掉。
+   * @returns {string} 要接在錯誤訊息後面的補充（正式站上是空字串）
+   */
+  function scopeNote() {
+    if (!/-git-/.test(location.hostname)) return '';
+    // ⚠️ 這是 textContent，不是 markdown —— 這裡不能用 ** 標粗體，會原樣印出星號。
+    return ' ⚠️ 你現在在分支預覽上，這道牆是分支預覽才有的 —— 正式站'
+      + '（tenki-emotion-app.vercel.app）匿名可達，不受影響。要在這條分支上'
+      + '實測 TradingView 才需要補密鑰；只是要走流程的話，用上面三顆模擬快訊鍵就夠了。';
+  }
+
   function runWebhookSelfTest() {
     var url = el.liveUrl.textContent;
     if (!url) return;
@@ -1828,7 +1841,11 @@
           var cause = live.bypassQuery
             ? '這個部署有 bypass 密鑰，但仍被擋 —— 密鑰可能已失效或被撤銷。'
             : '這個部署讀不到 bypass 密鑰（VERCEL_AUTOMATION_BYPASS_SECRET 未注入）—— 密鑰沒生成、沒勾「設為環境變數」，或生成後還沒重新部署。';
-          el.liveSelfTestResult.textContent = '❌ ' + problem + ' ' + cause;
+          // 🔴 **講清楚這道牆的範圍，否則這句紅字會被讀成「快訊功能壞了」。**
+          // TRADINGVIEW-SETUP.md §1 有一整個框在講這個誤會：2026-08-05 的文件寫成
+          // 「正式站也在牆後」，害一整輪除錯走去關 SSO、生密鑰，而真正的原因在別處。
+          // 實測（2026-08-06）：正式站匿名可達，被保護的只有分支 preview。
+          el.liveSelfTestResult.textContent = '❌ ' + problem + ' ' + cause + scopeNote();
         } else {
           el.liveSelfTestResult.textContent = '✅ 這條連結通到 TENKI —— TradingView 可以送達（沒有寫入任何快訊）。';
         }
