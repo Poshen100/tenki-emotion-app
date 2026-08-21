@@ -59,7 +59,7 @@ export const SESSION_MODES: Record<SessionMode, ModeConfig> = {
   },
   trader: {
     id: 'trader',
-    name: 'Trader',
+    name: 'Decision Mode',
     nameZh: '決策紀律模式',
     icon: '📊',
     description: 'Process discipline for high-stakes decision-making.',

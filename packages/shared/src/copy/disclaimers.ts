@@ -22,9 +22,9 @@ export const HEALTH_DISCLAIMER =
   'If you have concerns about your health, symptoms, or stress response, ' +
   'consult a qualified healthcare professional.';
 
-/** Trader mode disclaimer. */
+/** Decision Mode disclaimer. (Internal SessionMode id stays `trader`.) */
 export const TRADER_MODE_DISCLAIMER =
-  'Trader mode supports emotional readiness and process discipline only. ' +
+  'Decision Mode supports emotional readiness and process discipline only. ' +
   'It does not advise whether to enter, exit, or manage any financial position.';
 
 // ─────────────────────────────────────────────
@@ -126,7 +126,7 @@ export const REVIEWER_NOTES = [
   '4. Sensitive biometric and reflection data are stored on device. ' +
     'Cloud services are limited to subscription state, anonymous analytics, ' +
     'and anonymous benchmark distributions.',
-  '5. "Trader" mode is a structured discipline mode for decision process governance only. ' +
+  '5. "Decision Mode" is a structured discipline mode for decision process governance only. ' +
     'It does not provide market predictions, trading recommendations, or execution guidance.',
   '6. Demo mode is available with sample data and simulated sessions; ' +
     'no external wearable is required for review.',

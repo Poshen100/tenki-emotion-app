@@ -10,7 +10,7 @@ const MODE_LABELS: Record<string, string> = {
   health_reset: 'Health Reset',
   focus: 'Focus',
   performance: 'Performance',
-  trader: 'Trader',
+  trader: 'Decision Mode',
 };
 
 /** Format seconds to a human-readable duration. */
