@@ -4065,6 +4065,9 @@ function endDecision(type){
     : null;
   // 🔴 跨頁標記在這裡就要清掉 —— 從快訊來的決策下面會 location.href 回程，
   // 導頁之後這一頁**沒有機會再清**，而留下來的標記會靜默吃掉之後每一則快訊。
+  // ⚠️ 這一行與 setState() 裡的清除是**刻意重複**的（下面 setState('complete')
+  // 也會清）：兩者單獨拿掉 harness 都抓不到，兩個一起拿掉才會紅 —— 實測過。
+  // 留著是為了導頁與 setState 之間那個競態，不是忘了刪。
   clearActiveDecision();
   // 先把時間補到真值再收束。背景節流時最後一個 tick 可能是幾十秒前跑的，
   // 使用者切回來馬上收束的話，那個舊值會被 saveV6Outcome 當 durationSec 寫進去。

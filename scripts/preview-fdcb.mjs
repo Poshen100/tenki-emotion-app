@@ -904,6 +904,45 @@ console.log('\n── Hero 讀數不得爆版 ──');
   }
 }
 
+// ═════════════════════════════════════════════════
+// 「決策進行中」標記（docs/TRADINGVIEW-ALERT-SPEC.md §8）
+//
+// 跨頁那一半（快訊真的安靜下來）由 preview-decision-chain.mjs 驗 —— 它要開兩個
+// page。這裡驗的是**這一頁自己的責任**：標記在 running 時存在、其餘 state 一律
+// 消失，而且**自己起跑的決策也算「進行中」**（§8 說的是 Session，不是「快訊來的
+// Session」）。⚠️ 交棒那條路會在 acceptHandoff 裡再發佈一次，所以只驗快訊鏈
+// 的話，setState 這條路壞掉不會有任何東西喊痛 —— 實測過，真的全綠。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 決策進行中標記（自己起跑的決策也算）──');
+  const page = await openV3(700);
+  const KEY = 'tenki.v6.activeDecision.v1';
+  const read = () => page.evaluate((k) => JSON.parse(localStorage.getItem(k)), KEY);
+
+  check('idle 時沒有標記', await read(), null);
+  await page.evaluate(() => { window.nextState(); window.nextState(); }); // idle→ready→running
+  await page.waitForTimeout(600);
+  // ⚠️ 標記不存在時**每一條都要是具名失敗**，不是 TypeError ——
+  // 反向驗證時實際踩到：拿掉發佈之後前兩條紅完，第三條讀 m.expiresAtMs 直接把
+  // 腳本炸掉，下一個人看到的是 stack trace 而不是「標記沒發佈」。
+  const m = (await read()) || {};
+  checkTruthy('🔴 自己起跑的決策也要發佈標記（不是只有快訊來的）',
+    typeof m.startedAtMs === 'number');
+  check('沒有標的就寫 null，不編一個', m.symbol === undefined ? '(沒有標記)' : m.symbol, null);
+  checkTruthy('標記自帶到期時間（心跳在背景會說謊，所以不用心跳）',
+    typeof m.expiresAtMs === 'number' && m.expiresAtMs > Date.now());
+  // 倒數模式的到期＝模板時長＋寬限，**不是**守望那個 30 分鐘上限。
+  const dur = await page.evaluate(() => TEMPLATES[currentTmpl].durationSec);
+  const span = typeof m.expiresAtMs === 'number' ? (m.expiresAtMs - m.startedAtMs) / 1000 : null;
+  checkTruthy(`到期時間貼著這個模板的時長（${span === null ? '沒有標記' : Math.round(span) + 's'} vs ${dur}s）`,
+    span !== null && span <= dur + 120);
+
+  await page.evaluate(() => window.nextState());   // running → 收束
+  await page.waitForTimeout(600);
+  check('🔴 收束後標記一定要消失（留著會靜默吃掉之後每一則快訊）', await read(), null);
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);

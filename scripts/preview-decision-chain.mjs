@@ -11,6 +11,10 @@
  * （engine 的 `FBD` vs v6 的 `MANCINI_FBD`）。PLAYBOOK 記著那次
  * 「名稱、圖示、readiness、badge 四處全錯，而且沒有一處會報錯」。
  *
+ * 第二段（2026-08-21）：規格 §8「Session 進行中收到新快訊 → 一律靜默接收」。
+ * 那條**必須開兩個 page**（同一個 ctx 才共用 localStorage）—— 決策跑在 /v3/、
+ * 快訊在 /decision-alert/，「不打斷」本質上就是跨頁的，單一 page 驗不到。
+ *
  * ⚠️ 遮擋一律用 elementFromPoint 問瀏覽器，且在 390x700 驗（矮的那個）。
  *
  * Run:  node scripts/preview-decision-chain.mjs
@@ -126,6 +130,71 @@ checkTruthy(`底座顯示標的而不是模板名（${run.name}）`, run.name ==
 checkTruthy(`帶著來源快訊 id（${run.origin}）`, !!run.origin);
 checkTruthy(`帶著關鍵價位（${run.anchor}）`, typeof run.anchor === 'number');
 
+// ═══════════════════════════════════════════════
+// §8：決策進行中收到新快訊 → 一律靜默接收
+//
+// 這一段**必須開第二個 page**（同一個 ctx，才共用 localStorage）：決策跑在
+// /v3/，快訊在 /decision-alert/ ——「不打斷」這件事本質上就是跨頁的，
+// 在單一 page 上無論怎麼寫都驗不到它。
+// ═══════════════════════════════════════════════
+const alertPage = await ctx.newPage();
+alertPage.on('pageerror', (e) => pageErrors.push('[alert] ' + e.message));
+await alertPage.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+await alertPage.waitForTimeout(2500);
+
+const ACTIVE_KEY = 'tenki.v6.activeDecision.v1';
+const readMarker = () => alertPage.evaluate(
+  (k) => JSON.parse(localStorage.getItem(k)), ACTIVE_KEY);
+const patchMarker = (patch) => alertPage.evaluate(([k, pt]) => {
+  const m = JSON.parse(localStorage.getItem(k));
+  Object.assign(m, pt);
+  localStorage.setItem(k, JSON.stringify(m));
+}, [ACTIVE_KEY, patch]);
+const entryOpen = () => alertPage.evaluate(
+  () => document.getElementById('entrySheet').className.includes('show'));
+
+const mark0 = await readMarker();
+checkTruthy('🔴 決策在跑時，/decision-alert/ 看得到跨頁標記', !!mark0);
+check('標記帶著標的（同標的更新要靠它配對）', mark0 && mark0.symbol, 'ES1!');
+check('標記一開始沒有同標的更新', mark0 && mark0.sameSymbolUpdates, 0);
+checkTruthy('標記自帶到期時間（否則留下來會靜默吃掉每一則快訊）',
+  mark0 && typeof mark0.expiresAtMs === 'number' && mark0.expiresAtMs > Date.now());
+
+// ── 同標的後續觸發 → 安靜接收，不彈面板 ──
+await alertPage.evaluate(() => document.getElementById('btnSingle').click());
+await alertPage.waitForTimeout(600);
+check('🔴 決策進行中的同標的快訊**不得**彈出決策入口面板', await entryOpen(), false);
+checkTruthy('安靜接收有留下看得見的痕跡（靜默區 chip）',
+  await alertPage.evaluate(() => document.getElementById('silentArea').children.length > 0));
+const mark1 = await readMarker();
+check('同標的後續觸發被記下來了', mark1 && mark1.sameSymbolUpdates, 1);
+
+// ── 不同標的 → 一樣不得打斷（§8 說的是「一律」）──
+await patchMarker({ symbol: 'NQ1!' });
+await alertPage.evaluate(() => document.getElementById('btnSingle').click());
+await alertPage.waitForTimeout(600);
+check('🔴 決策進行中的**別的**標的快訊也不得彈出面板', await entryOpen(), false);
+check('別的標的不算「同標的更新」',
+  (await readMarker()).sameSymbolUpdates, 1);
+await patchMarker({ symbol: 'ES1!' });
+
+// ── 🔴 過期的標記**不得**吃掉快訊 ──
+// 這條守的是這個功能最危險的失敗模式：標記留下來沒被清掉（/v3/ 的分頁被殺、
+// 瀏覽器崩潰、使用者直接關掉那一頁）→ 這一頁從此靜默吃掉每一則快訊，
+// 而且完全沒有跡象，使用者只會覺得「快訊壞了」。那比沒有這個功能糟糕得多。
+const liveUntil = (await readMarker()).expiresAtMs;
+await patchMarker({ expiresAtMs: Date.now() - 1000 });
+await alertPage.evaluate(() => document.getElementById('btnSingle').click());
+await alertPage.waitForTimeout(700);
+check('🔴 標記過期之後，快訊必須照常彈出決策入口（不得永遠靜音）',
+  await entryOpen(), true);
+await alertPage.evaluate(() => document.getElementById('btnDismiss').click());
+await patchMarker({ expiresAtMs: liveUntil });
+await alertPage.close();
+await page.bringToFront();
+await page.waitForTimeout(300);
+
+
 // 🔴 遮擋斷言必須等 splash 真的離開 —— 否則量到的是「被 splash 蓋住」
 // （實際踩到：命中 tenki-splash，y=530/700）。
 // ⚠️ 順序很重要：**先**等到「決策已起跑」這個正向訊號（證明頁面真的跑起來、
@@ -182,6 +251,8 @@ check('判定不成立寫成 judged_stood_down', rec.outcomeTag, 'judged_stood_d
 // PLAYBOOK：凡是有 `|| fallback` 的欄位都要有一條斷言確認**沒有掉進 fallback**。
 check('🔴 template id 翻對了（沒掉進 fallback）', rec.templateId, 'MANCINI_FBD');
 checkTruthy('紀錄帶著來源快訊 id（join key）', !!rec.originAlertId);
+// §8：決策期間收到的同標的快訊，數字要真的走到紀錄裡（不是 null、更不是 0）。
+check('🔴 同標的更新的真數字進了紀錄', rec.sameSymbolUpdates, 1);
 check('紀錄認得自己是快訊決策', rec.source, 'alert');
 check('紀錄標上語意版本', rec.judgmentSchema, 'structure_watch_v1');
 checkTruthy('這筆算紀律', await page.evaluate((t) => window.TENKI_OUTCOME.isDisciplined(t), rec.outcomeTag));
@@ -206,6 +277,11 @@ checkTruthy('反思晶片補上的 contextTag 有寫進那一筆',
   store.length === 1 && !!store[0].contextTag);
 check('🔴 一筆決策只留一筆紀錄（回程不得再寫一次）', store.length, 1);
 check('🔴 回程票讀完就刪', await page.evaluate(() => localStorage.getItem('tenki.alert.return.v1')), null);
+// 🔴 決策結束了，「進行中」標記一定要消失 —— 留著就會靜默吃掉之後每一則快訊。
+// ⚠️ 這一筆是快訊決策，收束時會 location.href 回程；標記必須在導頁**之前**清掉，
+// 導頁之後 /v3/ 那一頁就沒有機會再清了。
+check('🔴 決策收束後「進行中」標記已清除',
+  await page.evaluate((k) => localStorage.getItem(k), 'tenki.v6.activeDecision.v1'), null);
 
 // 收束頁上的事實要對得起紀錄
 const sheet = await page.evaluate(() => ({
@@ -215,8 +291,11 @@ const sheet = await page.evaluate(() => ({
 }));
 checkTruthy(`收束頁標題帶著標的（${sheet.head}）`, (sheet.head || '').includes('ES1!'));
 checkTruthy(`收束頁說得出判定（${sheet.outcome}）`, !!(sheet.outcome || '').trim());
-// 🔴 交棒之後這一頁不再知道「同標的更新」幾次（那個計數靠 state.sessionActive，
-// 而決策跑在 /v3/）。不知道就整列不出現 —— 不得印「同標的更新：0 次」。
+// 同標的更新現在有真數字了（§8 的跨頁標記記的），收束頁要說得出來。
+// ⚠️ 但「0 次」仍然是紅線：那是「有在數而且真的沒有」與「不知道」被混成同一句話
+// 的老傷 —— 不知道時 renderRecap 必須整列不出現。
+checkTruthy('🔴 收束頁印出真的同標的更新次數（不是留白、也不是 0）',
+  /同標的更新：1\s*次/.test(await page.textContent('#resultRecapList')));
 check('🔴 收束頁不得印「同標的更新：0 次」（不知道就別說否定）',
   /同標的更新：0\s*次/.test(await page.textContent('#resultRecapList')), false);
 
