@@ -2968,6 +2968,14 @@ body{
       <div class="info"><div class="nm">Exercise</div><div class="sub">運動 · Warm/Active/Cool</div></div>
       <div class="dur">10:00</div>
     </div>
+    <!-- 🔴 交易者模板收在決策紀律模式後面 —— **關閉時整段從 DOM 移除**，不是 CSS 隱藏。
+         `Canslim` / `Mancini FBD` 是第三方方法論的名字（O'Neil / Adam Mancini），
+         是交易者腦子裡本來就在用的詞，改名等於讓他看不懂自己的流程。
+         但 docs/APP_STORE_COMPLIANCE.md 送審檢查表 #18 說它們不得出現在可見 UI ——
+         把它們收到 opt-in 後面，預設安裝（含審核員）就看不到，兩邊都成立。
+         ⚠️ 必須真的移除節點：`display:none` 的文字仍在 DOM 裡，
+         斷言（與任何抓文字的工具）照樣讀得到。 -->
+    <div id="tmplDisciplineGroup">
     <div class="sheet-cat">— 進階 · 決策紀律 —</div>
     <div class="tmpl-item" data-id="CANSLIM_GS" onclick="selectTmpl(this)">
       <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg></div>
@@ -2983,6 +2991,7 @@ body{
       <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 11.5v1M12.5 12h-1"/></svg></div>
       <div class="info"><div class="nm">Mancini FBD</div><div class="sub">失敗突破 · Entry Lock 60s</div></div>
       <div class="dur">3:00</div>
+    </div>
     </div>
   </div>
 
@@ -4242,6 +4251,24 @@ function judgeWatch(judgment){
   endDecision(judgment);
 }
 
+/**
+ * 交易者模板只在決策紀律模式開啟時存在於 DOM。
+ * 🔴 用「移除／插回節點」而不是 CSS 隱藏 —— `display:none` 的文字仍在 DOM 裡，
+ * 任何抓文字的東西（含送審截圖工具、輔助技術、我們自己的斷言）都還讀得到。
+ * 依據：docs/APP_STORE_COMPLIANCE.md 送審檢查表 #18。
+ */
+let disciplineGroupNode = null;   // 被移除時暫存在這裡，開回來時插回原位
+function syncDisciplineTemplates(){
+  const sheet = document.getElementById('sheet');
+  if(!sheet) return;
+  const inDom = document.getElementById('tmplDisciplineGroup');
+  if(disciplineOn()){
+    if(!inDom && disciplineGroupNode) sheet.appendChild(disciplineGroupNode);
+    return;
+  }
+  if(inDom){ disciplineGroupNode = inDom; inDom.remove(); }
+}
+
 function renderDisciplineTile(){
   const tile = document.getElementById('labDisciplineTile');
   const sub = document.getElementById('labDisciplineSub');
@@ -4261,6 +4288,7 @@ function toggleDisciplineMode(){
   const next = !disciplineOn();
   try { localStorage.setItem(DISCIPLINE_KEY, next ? '1' : '0'); } catch(e){}
   renderDisciplineTile();
+  syncDisciplineTemplates();
   renderFdcb();
 }
 
@@ -4318,7 +4346,8 @@ function renderCustomTmplSheet(list){
 }
 
 syncCustomTemplates();
-renderDisciplineTile();  // 開頁就把磁磚畫成目前真正的狀態
+renderDisciplineTile();       // 開頁就把磁磚畫成目前真正的狀態
+syncDisciplineTemplates();   // 模式關閉時，交易者模板不進 DOM
 
 // ── 模板自訂 editor（建立/編輯/刪除 + 即時預覽）──
 const TE_COLORS = ['#00B4D8','#34C759','#FF6B35','#5E3A87','#E8B45A','#22D3EE'];

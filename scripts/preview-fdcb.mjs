@@ -707,6 +707,49 @@ console.log('\n── Hero 讀數不得爆版 ──');
 }
 
 // ═════════════════════════════════════════════════
+// 交易者模板收在開關後面（送審檢查表 #18）
+//
+// `Canslim` / `Mancini FBD` 是第三方方法論的名字（O'Neil / Adam Mancini），
+// 交易者腦子裡本來就在用 —— 改名等於讓他看不懂自己的流程。
+// 但 docs/APP_STORE_COMPLIANCE.md 檢查表 #18 說它們不得出現在可見 UI。
+// 解法不是改名，是把它們收到 opt-in 後面：預設安裝（含審核員）看不到。
+//
+// 🔴 讀的是**移除 script/style 後的整頁文字**，不是「有沒有顯示」——
+// `display:none` 的文字仍在 DOM 裡，那樣的 gate 擋不住任何抓文字的東西。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 交易者模板收在開關後面 ──');
+  const page = await openV3(700);
+  const pageText = () => page.evaluate(() => {
+    const clone = document.body.cloneNode(true);
+    clone.querySelectorAll('script,style').forEach((n) => n.remove());
+    return clone.textContent;
+  });
+
+  const off = await pageText();
+  check('🔴 模式關閉時整頁不得出現 Canslim', /canslim/i.test(off), false);
+  check('🔴 模式關閉時整頁不得出現 Mancini', /mancini/i.test(off), false);
+  check('🔴 模式關閉時整頁不得出現 FBD', /\bFBD\b/.test(off), false);
+  check('模式關閉時模板表只剩日常情境',
+    await page.evaluate(() => !document.getElementById('tmplDisciplineGroup')), true);
+
+  await page.evaluate(() => window.toggleDisciplineMode());
+  await page.waitForTimeout(200);
+  const on = await pageText();
+  checkTruthy('開啟後 Canslim 回來了', /canslim/i.test(on));
+  checkTruthy('開啟後 Mancini FBD 回來了', /mancini/i.test(on));
+  check('開啟後三個交易者模板都在',
+    await page.evaluate(() => document.querySelectorAll('#tmplDisciplineGroup .tmpl-item').length), 3);
+
+  // 關回去要真的再消失（不是只在第一次生效）
+  await page.evaluate(() => window.toggleDisciplineMode());
+  await page.waitForTimeout(200);
+  const off2 = await pageText();
+  check('關回去之後又消失（來回都要成立）', /canslim/i.test(off2), false);
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
 // 結構守望：決策紀律模式下，交易者模板改用判定出口而不是倒數
 //
 // 為什麼不是把 v3 的倒數搬去快訊，而是反過來 —— decision-alert.html:694 記著
@@ -715,8 +758,12 @@ console.log('\n── Hero 讀數不得爆版 ──');
 {
   console.log('\n── 結構守望模式（390x700，刻意驗矮的）──');
   const page = await openV3(700);
+  // ⚠️ 走**產品自己的開關**，不要直接寫 localStorage ——
+  // 交易者模板現在是開關開了才進 DOM，直接改 storage 不會觸發同步，
+  // 於是 querySelector 拿到 undefined（寫這條時實際踩到）。
+  // 而且走真實路徑本來就比較誠實：使用者就是這樣打開它的。
   await page.evaluate(() => {
-    localStorage.setItem('tenki.v6.decisionDiscipline.v1', '1');
+    window.toggleDisciplineMode();
     const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === 'MANCINI_FBD');
     window.selectTmpl(el);
   });
