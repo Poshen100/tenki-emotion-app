@@ -150,6 +150,7 @@ UI：三模板卡全列，建議者加 ⭐ 高亮；使用者永遠可自由選�
 - 浮動計時條自動帶入：symbol、建議模板、時間戳；segments 分色與 readiness window 來自 `TRADER_TEMPLATES` 資料。
 - **✅ Phase B（2026-07-19）**：計時條隨 elapsed **高亮當前段落標籤**；進入 readiness 窗 → 事實行「Readiness 窗開啟」（強調色，流程語言、非「可進場」建議），離開恢復「目前：<段落>」。early-complete（窗前收束）偵測見 §9。
 - **Session 進行中收到新快訊 → 一律靜默接收**（沿用舊 spec「僅觸發，不顯示」的正確直覺）：決策過程不被下一個訊號打斷。
+- **✅ 已落地（2026-08-21，preview）**：計時器跑在 `/v3/`、快訊在 `/decision-alert/`，所以「有沒有決策在跑」是**跨頁事實** — 由 `/v3/` 寫 `tenki.v6.activeDecision.v1`（`apps/preview/v6/index.html` `publishActiveDecision()`），`/decision-alert/` 的 `evaluateDelivery` 讀它。🔴 標記**自帶到期時間、寫一次就不更新**：心跳在分頁進背景時會被節流，而背景正是這條規則唯一有用的時候（在桌機／券商 APP 下單）；沒有到期時間則會在標記被留下時靜默吃掉之後每一則快訊。同標的後續觸發累加在標記上，收束時寫進紀錄的 `sameSymbolUpdates`（讀不回標記就寫 `null`＝不知道，不是 `0`）。守門：`scripts/preview-decision-chain.mjs`（開兩個 page）+ `scripts/preview-fdcb.mjs`（自己起跑的決策也算「進行中」）。
 - 未點擊前的最小呈現：底部 bar 顯示 `[ NVDA 快訊 ● ]`；點擊後轉為 `[ CANSLIM ▾  00:00 ● ]`。
 
 ## 9. 事件鏈模型（Alert → Decision → 過程 → Result）
