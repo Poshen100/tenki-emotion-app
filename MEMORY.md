@@ -9,6 +9,51 @@
 
 ---
 
+# 2026-08-21 Session Update #76 (分支 preview 上實測真實 TradingView webhook —— 通了，順帶挖出兩個坑)
+
+founder：「我想在這條分支上實測真的 TradingView webhook」。
+
+## 一、結果：整條鏈在分支 preview 上是通的
+
+TradingView 觸發 → 穿過 Deployment Protection → `/api/alert` → 頻道 →
+**決策入口面板自動彈出（帶真實價位 7,703.25）** → 後來連 **TENKI 自己的 Web Push
+也跳出來**（「TENKI 決策快訊 from TENKI Core · ES1! — ES1! 交叉 7,701.00」）。
+
+前置：Vercel → Protection Bypass for Automation → Add Secret → 指定為系統環境變數
+→ **重新部署**（環境變數是部署時綁的，既有部署讀不到 —— 我推了一顆空 commit `efa560c`）。
+
+## 二、🔴 坑一：加入主畫面 = 換了一個身分
+
+同一支手機、同一個網址，**in-app 瀏覽器是頻道 `61b459…`、主畫面 App 是 `eff4d558…`**。
+iOS 的三種容器（Safari 分頁 / App 內建瀏覽器 / 主畫面 App）storage 各自獨立，
+而這個 repo 幾乎所有東西都住在 localStorage：頻道、推播訂閱、讀數、決策紀錄、
+決策紀律開關、跨頁的「決策進行中」標記。
+
+於是「加入主畫面」這個看起來只是換個開啟方式的動作，**換掉了整個身分** ——
+TradingView 那條 webhook 還指著舊頻道：快訊照常入鏈，**推播卻不會來，而且畫面零跡象**。
+已提煉成 PLAYBOOK 一條，並在 TRADINGVIEW-SETUP.md §7 B 加成必做的第 3 步。
+
+## 三、🔴 坑二：不支援時整列隱藏，等於把問題變成無解
+
+`refreshPushRow()` 在 `!pushSupported()` 時把整列 `hidden`。founder 在 in-app 瀏覽器
+只看到「推播按鈕不見了」，卡了一輪。改成**留著、停用、就地說原因與下一步**
+（並補 `:disabled` 樣式，否則就變成既有的「死鈕」那條）。
+
+這跟同一天修的「紅字沒說出自己的範圍」是同一條規則的兩面：**沉默與半句話一樣會誤導。**
+
+## 四、回報給 founder、沒有自己動的
+
+TradingView 訊息欄是**寫死的** `ES1! 交叉 7,701.00`（建立當下的價格）——
+之後每一次觸發的 note 都會印同一個舊價位。建議改成 `ES1! 交叉 {{close}}`。
+那是 TradingView 那邊的設定，不是 repo 裡的東西。
+
+## 下次接手點
+
+- **PR 合併、分支刪掉之後，那條分支 preview 網址會死** → TradingView 的 webhook 要改指正式站
+  （正式站不需要 bypass 密鑰），而且要在**正式站的主畫面 App** 裡重新產生連結。
+- VAPID 三個環境變數這次沒去確認是不是也給了 Preview 環境 —— 推播真的跳出來了，
+  所以答案是「有」，但那是推論自結果，不是查過設定。
+
 # 2026-08-21 Session Update #75 (補回規格 §8：決策進行中，快訊不打斷)
 
 第七輪收尾時我留給 founder 一題：「§8 那條跨頁的『決策進行中』標記要不要補？」
