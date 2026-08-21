@@ -1701,11 +1701,26 @@
 
   function refreshPushRow() {
     if (!el.livePushRow) return;
-    if (!pushSupported() || !getChannel()) {
+    // 還沒配對頻道 → 整列不出現（推播綁在頻道上，沒頻道就無從談起）。
+    if (!getChannel()) {
       el.livePushRow.setAttribute('hidden', '');
       return;
     }
     el.livePushRow.removeAttribute('hidden');
+    // 🔴 瀏覽器不支援時**不要整列消失** —— 那樣畫面上完全沒有解釋，
+    // 使用者只會看到「推播的按鈕不見了」。founder 2026-08-21 實走就卡在這裡：
+    // in-app 瀏覽器沒有 PushManager，那一列整個不見，看不出下一步是什麼。
+    // 留著並說出原因與下一步，跟自我測試那句紅字同一條規則（要講出範圍）。
+    if (!pushSupported()) {
+      el.livePushBtn.disabled = true;
+      el.livePushBtn.textContent = '🔔 手機推播（這個瀏覽器不支援）';
+      setPushStatus('iOS 只有「加入主畫面」後、從主畫面那顆圖示開啟的 App 才有網頁推播'
+        + '（Safari 分頁與 App 內建瀏覽器都沒有）。⚠️ 主畫面 App 有自己的儲存空間，'
+        + '會產生一條新的專屬連結 —— 開啟推播後記得回來「複製連結」重貼進 TradingView，'
+        + '否則快訊會送到舊的通道。', false);
+      return;
+    }
+    el.livePushBtn.disabled = false;
     navigator.serviceWorker.getRegistration('/decision-alert/').then(function (reg) {
       if (!reg || !reg.pushManager) return;
       reg.pushManager.getSubscription().then(function (sub) {
