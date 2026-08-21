@@ -3813,6 +3813,9 @@ function setState(s){
   stateIdx = STATES.indexOf(s);
   applyFdcbHeight(s);
   renderFdcb();
+  // 跨頁的「決策進行中」標記。🔴 用「不是 running 就清掉」而不是逐一列舉 idle /
+  // ready / complete —— 少列到一條路徑，那條路徑就會留下一個永遠靜音快訊的旗標。
+  if(s === 'running') publishActiveDecision(); else clearActiveDecision();
 }
 // ── 真實決策計時器（取代假 8 秒 demo）──
 // 三段由時長推導：Observe 0–33% →（tmpl.segLabel = 核心段 / readiness / Sweet Zone）33–66% → Extended 66–100%。
@@ -4048,6 +4051,9 @@ let closureTimer = null;
 function clearClosureTimer(){ if(closureTimer){ clearTimeout(closureTimer); closureTimer = null; } }
 
 function endDecision(type){
+  // 🔴 跨頁標記在這裡就要清掉 —— 從快訊來的決策下面會 location.href 回程，
+  // 導頁之後這一頁**沒有機會再清**，而留下來的標記會靜默吃掉之後每一則快訊。
+  clearActiveDecision();
   // 先把時間補到真值再收束。背景節流時最後一個 tick 可能是幾十秒前跑的，
   // 使用者切回來馬上收束的話，那個舊值會被 saveV6Outcome 當 durationSec 寫進去。
   if(sess) elapsed = elapsedNow();
@@ -4166,6 +4172,73 @@ const RETURN_KEY = 'tenki.alert.return.v1';
 /** 信物保鮮期，與 decision-alert.js 的 HANDOFF_TTL_MS 同值。 */
 const HANDOFF_TTL_MS = 5 * 60 * 1000;
 
+// ═════════════════════════════════════════════════
+// 「決策進行中」標記（docs/TRADINGVIEW-ALERT-SPEC.md §8）
+//
+// §8：「Session 進行中收到新快訊 → 一律靜默接收」—— 決策過程不被下一個訊號打斷。
+// 但決策跑在這一頁，快訊在 /decision-alert/ ——**那一頁沒有辦法知道**。
+// 所以這裡把「有一筆決策正在跑」寫成跨頁看得到的事實。走 localStorage，
+// 跟讀數、決策紀錄、交棒信物、回程票是同一個做法（同源同裝置）。
+//
+// 🔴 **標記自帶到期時間，寫一次就不再更新。**
+// 最危險的失敗模式是旗標留下來沒被清掉（分頁被殺、瀏覽器崩潰、直接關掉這一頁）——
+// 那樣 /decision-alert/ 會從此靜默吃掉每一則快訊，而且完全沒有跡象，
+// 使用者只會覺得「快訊壞了」。那比沒有這個功能糟糕得多。
+//
+// ⚠️ **心跳（每秒回寫 at）是錯的解法**：這一頁一進背景，interval 就被節流甚至暫停
+// （FDCB 改吃牆鐘就是為了同一件事）—— 而**背景正是這個功能唯一有用的時候**
+// （在桌機下單、手機鎖屏）。心跳會在最該靜音的那一刻宣告「沒有決策在跑」。
+// 到期時間用的是既有的殭屍 session 上限，沒有引進新的不變量。
+// ═════════════════════════════════════════════════
+
+/** 跨頁標記的 key。/decision-alert/ 的 evaluateDelivery 讀它。 */
+const ACTIVE_DECISION_KEY = 'tenki.v6.activeDecision.v1';
+/** 倒數模式的寬限：背景節流會讓自動收束晚到，別讓標記比決策先過期。 */
+const ACTIVE_DECISION_GRACE_MS = 60 * 1000;
+
+/**
+ * 發佈「有一筆決策正在跑」。同一筆決策可以重複呼叫（覆寫）。
+ * ⚠️ 覆寫會把 sameSymbolUpdates 歸零 —— 只在起跑的那個呼叫堆疊裡重發，
+ * 中間不可能插進一則快訊。決策跑起來之後不得再呼叫。
+ */
+function publishActiveDecision(){
+  if(!sess) return;
+  const tmpl = TEMPLATES[sess.templateId] || TEMPLATES[currentTmpl];
+  const dur = sess.watch
+    ? WATCH_CEILING_SEC * 1000
+    : ((tmpl ? tmpl.durationSec : WATCH_CEILING_SEC) * 1000 + ACTIVE_DECISION_GRACE_MS);
+  try {
+    localStorage.setItem(ACTIVE_DECISION_KEY, JSON.stringify({
+      startedAtMs: sess.startedAtMs,
+      expiresAtMs: sess.startedAtMs + dur,
+      symbol: sess.symbol || null,
+      templateId: sess.templateId,
+      originAlertId: sess.originAlertId || null,
+      watch: !!sess.watch,
+      // /decision-alert/ 在這裡累加同標的後續觸發；收束時我們讀回來寫進紀錄。
+      sameSymbolUpdates: 0,
+    }));
+  } catch(e){ /* 存不進去就當作沒有這個功能，決策照跑 */ }
+}
+
+/** 決策結束（或根本沒在跑）—— 標記一定要消失。 */
+function clearActiveDecision(){
+  try { localStorage.removeItem(ACTIVE_DECISION_KEY); } catch(e){}
+}
+
+/**
+ * 讀回**自己這一筆**的標記。
+ * 🔴 比對 startedAtMs：別的分頁留下的標記不是我們的，不得拿它的計數來寫紀錄。
+ * @returns {?Object} 對得上就回標記本身，否則 null
+ */
+function readOwnActiveDecision(){
+  if(!sess || !sess.startedAtMs) return null;
+  let m = null;
+  try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch(e){ m = null; }
+  if(!m || m.startedAtMs !== sess.startedAtMs) return null;
+  return m;
+}
+
 /**
  * 讀交棒信物並直接起跑決策。
  * 🔴 **讀完就刪**，無論用不用得上 —— 留著它，下次開 /v3/#decision
@@ -4202,6 +4275,10 @@ function acceptHandoff(){
       document.getElementById('fdcbName').textContent = sess.symbol;
     }
     renderWatchAnchor();
+    // 🔴 再發佈一次。setState('running') 那次是在這些欄位被設定**之前**跑的 ——
+    // 拿不到 symbol（同標的更新就配不起來），也還不知道要走守望（到期時間會算短）。
+    // 兩次都在同一個呼叫堆疊裡，中間不可能插進一則快訊，覆寫是安全的。
+    publishActiveDecision();
   }
   return true;
 }
