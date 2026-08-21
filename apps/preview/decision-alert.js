@@ -990,10 +990,10 @@
       awayCount: typeof rec.awayCount === 'number' ? rec.awayCount : 0,
       awayMs: typeof rec.awayMs === 'number' ? rec.awayMs : 0,
       // 🔴 `null` ＝「我們沒有這個數」，不是 `0` ＝「沒發生過」。
-      // 同標的更新原本由 sessionQuietUpdate 記，而它靠 state.sessionActive ——
-      // 決策現在跑在 /v3/，這一頁根本不知道有決策在跑（見下方 §8 的註記）。
-      // 寫 0 會讓收束頁對每一筆都印「同標的更新：0 次」，那是謊報。
-      sameSymbolUpdates: null,
+      // 決策進行中的同標的後續觸發由這一頁記在跨頁標記上、由 /v3/ 收束時寫進紀錄
+      // （規格 §8）。**沒有這一欄的舊紀錄仍然是 null** —— renderRecap 會整列不顯示，
+      // 而不是印一個謊報的「0 次」。
+      sameSymbolUpdates: typeof rec.sameSymbolUpdates === 'number' ? rec.sameSymbolUpdates : null,
       // 🔴 這一筆**已經在 store 裡**（計時器那邊寫的）—— 收尾只能就地更新，
       // 不能再 push 一筆，否則同一筆決策存兩份、紀律統計失真。
       alreadyPersisted: true,

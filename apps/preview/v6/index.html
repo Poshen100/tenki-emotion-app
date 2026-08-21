@@ -4030,6 +4030,9 @@ function saveV6Outcome(session, outcomeTag){
     // 舊紀錄沒有這兩欄，讀端必須當「不知道」處理，不得顯示 0。
     awayCount: session.awayCount || 0,
     awayMs: session.awayMs || 0,
+    // 決策進行中收到幾則同標的快訊（規格 §8）。新增欄位（加，不換 —— SYSTEM.md §6）。
+    // null ＝「跨頁標記當時讀不回來，我不知道」，不是 0 ＝「沒發生過」。
+    sameSymbolUpdates: typeof session.sameSymbolUpdates === 'number' ? session.sameSymbolUpdates : null,
     // 語意版本：守望模式的收束用的是 structure_watch_v1（「有沒有做出判定」），
     // 跟倒數模式的舊語意（「有沒有走完計時器」）不是同一把尺。
     // 標記它，統計端才分得出來 —— 不標就只能猜。
@@ -4051,6 +4054,15 @@ let closureTimer = null;
 function clearClosureTimer(){ if(closureTimer){ clearTimeout(closureTimer); closureTimer = null; } }
 
 function endDecision(type){
+  // 🔴 清掉之前先讀回自己那一張 —— /decision-alert/ 在決策期間把「同標的後續觸發」
+  // 累加在上面，那是收束頁「同標的更新：N 次」唯一的來源。
+  const activeMarker = readOwnActiveDecision();
+  if(sess) sess.sameSymbolUpdates = activeMarker && typeof activeMarker.sameSymbolUpdates === 'number'
+    ? activeMarker.sameSymbolUpdates
+    // 🔴 讀不回自己的標記（過期／被別的分頁蓋掉）＝「這條通道當時斷了，我不知道」→ null。
+    // **不寫 0** —— 0 是「有在數，而且真的沒有」。讀端對這兩件事的處理必須不一樣
+    // （PLAYBOOK：缺欄位就不准說否定）。
+    : null;
   // 🔴 跨頁標記在這裡就要清掉 —— 從快訊來的決策下面會 location.href 回程，
   // 導頁之後這一頁**沒有機會再清**，而留下來的標記會靜默吃掉之後每一則快訊。
   clearActiveDecision();
