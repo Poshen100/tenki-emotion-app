@@ -97,6 +97,16 @@
    */
   var ERR_RATIO_SPAN = 2;
   /** 眨眼遲滯門檻（EAR-normalized，與 takeover 同一組）。 */
+  /**
+   * Soul Lock Beat 3 的眨眼寬限期（ms）。
+   *
+   * 🔴 這個數字決定「眨眼」到底是主角還是裝飾。
+   * 原本寫的是 `framedStreak >= 7`：以 FACE_INTERVAL_MS(180ms) 計 **≈1.26 秒**就保底觸發，
+   * 而人盯著鏡頭時自然眨眼間隔約 4–6 秒 —— 保底永遠先開，眨眼那條路幾乎不會贏。
+   * founder 實走後回報「沒看到眨眼那一拍」，追出來就是這件事（2026-08-21）。
+   * 拉到 4.5 秒讓真的眨一次眼有機會成為觸發者；保底只當防呆，不再是主路徑。
+   */
+  var SYNC_BLINK_GRACE_MS = 4500;
   var BLINK_CLOSE = 0.25;
   var BLINK_OPEN = 0.55;
   /** 星塵表情的正規化除數 —— 沿用 takeover 已調過的值，改動＝改星塵手感。 */
@@ -1056,10 +1066,24 @@
     }
 
     // Soul Lock Beat 3: Sync 眨眼確認觸發
-    if (framed && !session.synced) {
-      if (blinkDetected || session.framedStreak >= 7) {
-        triggerSync();
+    //
+    // 兩條路徑刻意不等價：眨到 = 使用者真的確認了，走完整儀式；
+    // 等不到 = 只是不想卡住流程，安靜通過，**不宣稱「已同步」**（沒等到確認就別說已確認）。
+    //
+    // 🔴 前提是 `heldMs > 0`，不是只有 `framed`。
+    // `framed` 只看臉框的位置與大小 —— 偏頭、背光、在動都還算 framed。
+    // 拿它當條件，會在使用者還被提示「正對鏡頭」的時候就宣告「正在建立初步讀數」，
+    // 那跟寫死讀數是同一種謊。`heldMs` 只在 `gatesAdvance()` 通過時才累加，
+    // 所以它才是「真的在累積有效訊號」。（harness 的頭部姿勢兩條就是這樣抓到的。）
+    if (framed && session.heldMs > 0 && !session.synced) {
+      if (!session.framedSince) session.framedSince = now;
+      if (blinkDetected) {
+        triggerSync(true);
+      } else if (now - session.framedSince >= SYNC_BLINK_GRACE_MS) {
+        triggerSync(false);
       }
+    } else if (!session.synced) {
+      session.framedSince = 0; // 掉出有效狀態就重新計時，寬限期不得跨越空窗累積
     }
 
     feedStardust(lm, eyeOpen, blinkDetected);
@@ -1071,10 +1095,25 @@
    * 正常眨一次眼 → 星塵中心短暫微收縮 → 細光波由中心推向雙環 → 外環上方亮起「已同步」光點。
    * 文案：已同步 → 正在建立初步讀數（禁止打勾、禁止「Verified」）。
    */
-  function triggerSync() {
+  function triggerSync(byBlink) {
     if (!session || session.synced) return;
     session.synced = true;
     session.syncAt = performance.now();
+    session.syncByBlink = !!byBlink;
+
+    // 🔴 保底路徑不得宣稱「已同步」。
+    // `.synced`（外環那顆光點）與 `.sync-beat`（光波脈衝）都是在說「你確認了」——
+    // 但寬限期到了才自動放行的那次，使用者根本沒做任何確認動作。
+    // 對它們上這兩個 class ＝ 拿視覺替使用者宣告一件沒發生的事，跟寫死讀數同一條線。
+    // 所以保底只是安靜往下走：Hold 照常開始，但不演確認、不說「已同步」。
+    if (!byBlink) {
+      // 而且**連文案都不要搶**。instructionFor() 每幀在跑，姿勢/光線提示的優先權
+      // 排在 Hold 文案前面；這裡硬寫一行「正在建立初步讀數」會把還在指引使用者的
+      // 「正對鏡頭」蓋掉（harness 的頭部姿勢兩條就是這樣紅的）。
+      // 保底只負責把 beat 3 標記成過了，畫面說什麼交給每幀的邏輯決定。
+      return;
+    }
+
     var frame = q('frame');
     if (frame) {
       frame.classList.add('synced');
@@ -1091,11 +1130,13 @@
       }, 250);
     }
     setInstruction('已同步', '');
+    // 450ms 站不住一拍 —— 光波脈衝本身就要 0.6s，文案會比動畫先被蓋掉。
+    // 給它 1000ms，讓「已同步」是看得見的一拍，不是一閃而過。
     setTimeout(function () {
       if (session && !session.done) {
         setInstruction('正在建立初步讀數', '');
       }
-    }, 450);
+    }, 1000);
   }
 
   /**
