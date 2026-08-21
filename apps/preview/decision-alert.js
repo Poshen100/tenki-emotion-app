@@ -704,6 +704,12 @@
   }
 
   // ── session 中同標的：計時條下浮一行事實更新，不彈新面板 ──
+  // ⚠️ **目前到不了**（2026-08-21）：`state.sessionActive` 只在 startSession 裡設為 true，
+  // 而決策自從交棒之後跑在 /v3/ —— 這一頁不知道有決策正在進行。
+  // 也就是說 docs/TRADINGVIEW-ALERT-SPEC.md §8「Session 進行中收到新快訊 → 一律靜默接收」
+  // 這條行為**目前沒有被實作到**。要修需要跨頁的「決策進行中」標記，
+  // 那是獨立一次的工作，不在本輪範圍 —— 刻意留著這個實作與這段註記，
+  // 因為刪掉等於把「我們掉了一條規格行為」這件事一起刪掉。
   function sessionQuietUpdate(alert) {
     if (state.session) state.session.sameSymbolUpdates += 1;
     var parts = [alert.symbol];
@@ -942,7 +948,11 @@
       elapsedSec: rec.durationSec || 0,
       awayCount: typeof rec.awayCount === 'number' ? rec.awayCount : 0,
       awayMs: typeof rec.awayMs === 'number' ? rec.awayMs : 0,
-      sameSymbolUpdates: 0,
+      // 🔴 `null` ＝「我們沒有這個數」，不是 `0` ＝「沒發生過」。
+      // 同標的更新原本由 sessionQuietUpdate 記，而它靠 state.sessionActive ——
+      // 決策現在跑在 /v3/，這一頁根本不知道有決策在跑（見下方 §8 的註記）。
+      // 寫 0 會讓收束頁對每一筆都印「同標的更新：0 次」，那是謊報。
+      sameSymbolUpdates: null,
       // 🔴 這一筆**已經在 store 裡**（計時器那邊寫的）—— 收尾只能就地更新，
       // 不能再 push 一筆，否則同一筆決策存兩份、紀律統計失真。
       alreadyPersisted: true,
@@ -1205,14 +1215,17 @@
     var disp = outcomeDisplay(judgment);
     var rows = [
       { cls: 'on', text: '快訊收到 · ' + s.symbol + '（' + s.tplName + '）' },
-      { cls: s.sameSymbolUpdates > 0 ? 'on' : '', text: '同標的更新：' + s.sameSymbolUpdates + ' 次' },
+      // 缺欄位就不准說否定：不知道就整列不出現，不印「0 次」（PLAYBOOK）。
+      typeof s.sameSymbolUpdates === 'number'
+        ? { cls: s.sameSymbolUpdates > 0 ? 'on' : '', text: '同標的更新：' + s.sameSymbolUpdates + ' 次' }
+        : null,
       // 事實，不是扣分項：在桌機/券商 APP 下單本來就會離開。
       { cls: '', text: s.awayCount > 0
         ? '守望期間離開 ' + s.awayCount + ' 次 · 共 ' + formatClock(Math.round(s.awayMs / 1000))
         : '守望期間沒有離開' },
       { cls: disp.cls === 'disciplined' ? 'on' : 'off', text: '判定：' + disp.text + ' · 等了 ' + formatClock(s.elapsedSec) },
     ];
-    rows.forEach(function (row) {
+    rows.filter(Boolean).forEach(function (row) {
       var rowEl = document.createElement('div');
       rowEl.className = 'result-recap-row ' + row.cls;
       var dot = document.createElement('span'); dot.className = 'rc-dot';

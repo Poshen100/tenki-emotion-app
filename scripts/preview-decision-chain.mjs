@@ -215,6 +215,11 @@ const sheet = await page.evaluate(() => ({
 }));
 checkTruthy(`收束頁標題帶著標的（${sheet.head}）`, (sheet.head || '').includes('ES1!'));
 checkTruthy(`收束頁說得出判定（${sheet.outcome}）`, !!(sheet.outcome || '').trim());
+// 🔴 交棒之後這一頁不再知道「同標的更新」幾次（那個計數靠 state.sessionActive，
+// 而決策跑在 /v3/）。不知道就整列不出現 —— 不得印「同標的更新：0 次」。
+check('🔴 收束頁不得印「同標的更新：0 次」（不知道就別說否定）',
+  /同標的更新：0\s*次/.test(await page.textContent('#resultRecapList')), false);
+
 checkTruthy('收束頁的 recap 說得出離開次數（v6 記的欄位接上了）',
   /離開|沒有離開/.test(sheet.recap || ''));
 
