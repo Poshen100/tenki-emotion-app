@@ -500,10 +500,39 @@
     }
   }
 
+  // ── 決策進行中？（docs/TRADINGVIEW-ALERT-SPEC.md §8）──
+  //
+  // 計時器自從交棒之後跑在 /v3/ —— **這一頁看不到它**。所以「有沒有決策在跑」
+  // 這件事改讀 /v3/ 寫出來的跨頁標記（同源 localStorage，跟讀數／決策紀錄／
+  // 交棒信物／回程票同一個做法）。
+  //
+  // 🔴 一定要看到期時間。標記可能被留下來沒清掉（/v3/ 的分頁被殺、瀏覽器崩潰、
+  // 使用者直接關掉那一頁）—— 沒有到期檢查的話，這一頁會從此靜默吃掉每一則快訊，
+  // 而且完全沒有跡象，使用者只會覺得「快訊壞了」。
+  var ACTIVE_DECISION_KEY = 'tenki.v6.activeDecision.v1';
+
+  /**
+   * 現在有沒有一筆決策正在跑。
+   * @param {number} nowMs
+   * @returns {?{symbol: ?string, marker: ?Object}} null ＝ 沒有
+   */
+  function activeDecisionSnapshot(nowMs) {
+    // 同頁的 session（legacy：這一頁自己那條守望條）。目前沒有路徑走得到它，
+    // 但它若被接回來就該優先 —— 就在眼前的事實勝過 localStorage 上的快照。
+    if (state.sessionActive && state.session) {
+      return { symbol: state.activeSessionSymbol, marker: null };
+    }
+    var m = null;
+    try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch (e) { m = null; }
+    if (!m || typeof m.expiresAtMs !== 'number' || nowMs >= m.expiresAtMs) return null;
+    return { symbol: typeof m.symbol === 'string' ? m.symbol : null, marker: m };
+  }
+
   // ── Delivery policy（mirror of domain alert-policy 判定順序）──
   function evaluateDelivery(alert, nowMs) {
-    if (state.sessionActive) {
-      if (state.settings.sessionQuietUpdate && state.activeSessionSymbol !== null && state.activeSessionSymbol === alert.symbol) {
+    var active = activeDecisionSnapshot(nowMs);
+    if (active) {
+      if (state.settings.sessionQuietUpdate && active.symbol !== null && active.symbol === alert.symbol) {
         return { decision: 'session_update', reason: '同標的後續觸發' };
       }
       return { decision: 'silent', reason: '決策進行中' };
@@ -703,21 +732,33 @@
     if (state.entryAgeTimer) { clearInterval(state.entryAgeTimer); state.entryAgeTimer = null; }
   }
 
-  // ── session 中同標的：計時條下浮一行事實更新，不彈新面板 ──
-  // ⚠️ **目前到不了**（2026-08-21）：`state.sessionActive` 只在 startSession 裡設為 true，
-  // 而決策自從交棒之後跑在 /v3/ —— 這一頁不知道有決策正在進行。
-  // 也就是說 docs/TRADINGVIEW-ALERT-SPEC.md §8「Session 進行中收到新快訊 → 一律靜默接收」
-  // 這條行為**目前沒有被實作到**。要修需要跨頁的「決策進行中」標記，
-  // 那是獨立一次的工作，不在本輪範圍 —— 刻意留著這個實作與這段註記，
-  // 因為刪掉等於把「我們掉了一條規格行為」這件事一起刪掉。
+  // ── session 中同標的：安靜接收 + 記一筆事實，不彈新面板 ──
+  //
+  // 計數寫回**跨頁標記本身**：/v3/ 收束時讀回來寫進紀錄，收束頁的
+  // 「同標的更新：N 次」才有真數字可印（在這之前只能誠實留白）。
+  //
+  // ⚠️ 舊版把這行事實寫進 `el.timerUpdate`（那條守望條下面的一行）——
+  // 而 `#timerBar` 自從交棒之後**永遠不會 .show**，等於寫進一個看不見的元素。
+  // 改用這一頁真的看得到的兩個面：靜默區的 chip + 事件日誌。
   function sessionQuietUpdate(alert) {
     if (state.session) state.session.sameSymbolUpdates += 1;
+    bumpActiveDecisionUpdates();
     var parts = [alert.symbol];
     if (alert.condition) parts.push(alert.condition);
-    if (alert.note) parts.push(alert.note);
-    el.timerUpdate.textContent = '↳ ' + parts.join(' · ');
-    el.timerUpdate.classList.add('show');
+    silentChip(parts.join(' · ') + '（決策進行中 · 已接收）');
     log('mark', alert.symbol + ' — 同標的後續觸發（決策進行中，安靜更新）');
+  }
+
+  /**
+   * 同標的後續觸發 +1，寫回跨頁標記。
+   * 讀完再寫（read-modify-write）—— 標記的擁有者是 /v3/，這裡只碰這一個欄位。
+   */
+  function bumpActiveDecisionUpdates() {
+    var m = null;
+    try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch (e) { m = null; }
+    if (!m || typeof m.expiresAtMs !== 'number' || Date.now() >= m.expiresAtMs) return;
+    m.sameSymbolUpdates = (typeof m.sameSymbolUpdates === 'number' ? m.sameSymbolUpdates : 0) + 1;
+    try { localStorage.setItem(ACTIVE_DECISION_KEY, JSON.stringify(m)); } catch (e) { /* 記不下就算了，不擋靜默接收 */ }
   }
 
   // ── 聚合（多快訊同窗）──
