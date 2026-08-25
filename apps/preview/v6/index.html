@@ -405,6 +405,14 @@ body{
   color:var(--primary);
   letter-spacing:0.02em;
   transition:color 1.2s;
+  /* 🔴 這一行住在環心裡（121~129px），過期時的「讀數已過期 · 重新掃一次」
+     一定放不下一行 —— 但**斷在哪裡**是有差的。預設的 CJK 斷行會逐字斷：
+     實測 390 寬是 122px + 12px，也就是「…重新掃一」/「次」，一個孤字掉到第二行
+     （founder 2026-08-25 實走截圖看得到）。`keep-all` 讓它只在空格／間隔號斷開：
+     69px + 61px ＝「讀數已過期 ·」/「重新掃一次」，兩個詞都完整。
+     ⚠️ **不能改用 nowrap** —— 這串在 12px 下約 132px，比環心還寬，
+     nowrap 只會把它推出圓外（第三輪已經為 CTA 付過這個學費）。 */
+  word-break:keep-all;
 }
 
 /* Precision-layer confidence affordance (entry to finger calibration).

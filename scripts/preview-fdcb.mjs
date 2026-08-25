@@ -80,7 +80,8 @@ const browser = await chromium.launch();
 
 /** 開一頁 /v3/，種好讀數，跳過 splash，停在 Today。 */
 async function openV3(height, opts) {
-  const options = Object.assign({ reading: true, width: 390 }, opts || {});
+  // readingAgeMs：讀數有多舊。預設 2 分鐘＝新鮮；> 15 分鐘會走「已過期」那條文案。
+  const options = Object.assign({ reading: true, width: 390, readingAgeMs: 120e3 }, opts || {});
   const page = await browser.newPage({
     viewport: { width: options.width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
   });
@@ -95,7 +96,8 @@ async function openV3(height, opts) {
     localStorage.removeItem('tenki.v6.decisionDiscipline.v1');  // 決策紀律模式預設關，測試隔離
     if (opts.reading) {
       localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify({
-        band: 'neutral', confidence: 'high', ts: Date.now() - 120e3, baselineDays: 1, baselineScans: 1,
+        band: 'neutral', confidence: 'high', ts: Date.now() - opts.readingAgeMs,
+        baselineDays: 1, baselineScans: 1,
       }));
     } else {
       localStorage.removeItem('tenki.readiness.reading.v1');
@@ -900,6 +902,43 @@ console.log('\n── Hero 讀數不得爆版 ──');
     check(`${h}px：長條容器自己不溢出`, m.barsOverflow, false);
     check(`${h}px：15 根長條都在`, m.n, 15);
     checkTruthy(`${h}px：最矮的長條仍看得見（${m.shortest.toFixed(1)}px）`, m.shortest >= 6);
+    await page.close();
+  }
+}
+
+// ═════════════════════════════════════════════════
+// 環心的新鮮度那一行：可以兩行，但**不准把詞斷成孤字**
+//
+// founder 2026-08-25 實走截圖：過期狀態的「讀數已過期 · 重新掃一次」在環心裡
+// 逐字斷行，390 寬實測 122px + 12px —— 也就是「…重新掃一」/「次」，
+// 一個孤字掉到第二行。這一格在此之前**完全沒有斷言**（第三輪補了讀數與動作鍵，
+// 漏了它），所以沒有任何東西會喊痛。
+//
+// 🔴 斷言問的是**意圖**不是行數：這一行本來就放不下一行（環心只有 121~129px），
+// 所以不能要求「1 行」；要求的是**每一行都不是孤字**。
+// ⚠️ 也不能改用 nowrap —— 那串比環心寬，只會推出圓外（第三輪付過的學費）。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 環心新鮮度那一行（過期文案不得斷成孤字）──');
+  for (const width of [360, 375, 390, 414]) {
+    const page = await openV3(700, { width, readingAgeMs: 40 * 60e3 });
+    const m = await page.evaluate(() => {
+      const z = document.getElementById('edgeTraceZone');
+      const c = document.querySelector('.tl-edge-center');
+      const r = document.createRange(); r.selectNodeContents(z);
+      const rects = [...r.getClientRects()].map((x) => Math.round(x.width));
+      const zr = z.getBoundingClientRect(); const cr = c.getBoundingClientRect();
+      return {
+        text: z.textContent, rects,
+        inside: zr.left >= cr.left - 0.5 && zr.right <= cr.right + 0.5
+          && zr.top >= cr.top - 0.5 && zr.bottom <= cr.bottom + 0.5,
+      };
+    });
+    checkTruthy(`${width}px：過期時這一行有話說（${m.text}）`, /過期/.test(m.text));
+    // 12px 字級下 3 個字約 36px —— 比這更窄的一行就是被斷出來的孤字。
+    checkTruthy(`${width}px：🔴 沒有孤字（每行寬度 ${JSON.stringify(m.rects)}）`,
+      m.rects.length > 0 && Math.min(...m.rects) >= 36);
+    check(`${width}px：這一行整個在環心圓內`, m.inside, true);
     await page.close();
   }
 }
