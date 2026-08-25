@@ -131,6 +131,58 @@ checkTruthy(`帶著來源快訊 id（${run.origin}）`, !!run.origin);
 checkTruthy(`帶著關鍵價位（${run.anchor}）`, typeof run.anchor === 'number');
 
 // ═══════════════════════════════════════════════
+// 下完單回來，決策還在（founder 2026-08-21 的實體動線）
+//
+// 「進入決策 → 跳回桌面 → 開交易 App 下單 → 回 TENKI Core」。
+// iOS 會把 standalone web app 清出記憶體，回來時整頁重新載入 ——
+// 這裡用 page.reload() 模擬那件事的本質：**這一頁的記憶體全沒了**。
+// 沒有 resume 的話，重載之後 sess 是 null，整筆決策連同標記一起蒸發。
+// ═══════════════════════════════════════════════
+await page.evaluate(() => window.logEvent());          // 先留一個標記，看它活不活得過重載
+await page.waitForTimeout(500);
+const preReload = await page.evaluate((k) => ({
+  marks: sess.marks, started: sess.startedAtMs, elapsed,
+  snapEvents: (JSON.parse(localStorage.getItem(k)) || {}).events,
+}), 'tenki.v6.activeDecision.v1');
+checkTruthy(`重載前有 1 個標記（${preReload.marks}）`, preReload.marks === 1);
+// 🔴 這一條要**當場**問快照，不能只靠下面的「活過重載」——
+// `page.reload()` 之前瀏覽器會先送一次 visibilitychange → hidden，而那個 handler
+// 也會同步快照。也就是說：把 logEvent 裡的同步整個拿掉，「活過重載」照樣綠。
+// 實際踩到（反向驗證時發現它是死的）。要問的是「落地當下就寫進去了嗎」。
+checkTruthy(`🔴 標記落地當下就寫進快照（${(preReload.snapEvents || []).length} 個節點）`,
+  Array.isArray(preReload.snapEvents) && preReload.snapEvents.length === 1);
+
+await page.waitForTimeout(2200);                       // 讓牆鐘往前走，才驗得出「沒有倒退」
+await page.reload({ waitUntil: 'domcontentloaded' });
+let resumed = true;
+try {
+  await page.waitForFunction(
+    () => typeof sess !== 'undefined' && sess && !!sess.startedAtMs,
+    null, { timeout: 12000 },
+  );
+} catch (e) { resumed = false; }
+checkTruthy('🔴 重新載入之後決策還在（下完單回來不能是一片空白）', resumed);
+
+const post = await page.evaluate(() => ({
+  running: document.getElementById('fdcb').className.includes('state-running'),
+  marks: sess ? sess.marks : null,
+  started: sess ? sess.startedAtMs : null,
+  watch: sess ? sess.watch : null,
+  symbol: sess ? sess.symbol : null,
+  origin: sess ? sess.originAlertId : null,
+  anchor: sess ? sess.anchorPrice : null,
+  elapsed,
+}));
+check('計時器接著跑，不是回到 idle', post.running, true);
+check('🔴 起跑時間一模一樣（牆鐘的唯一來源不能被重載換掉）', post.started, preReload.started);
+checkTruthy(`🔴 時鐘沒有倒退（${preReload.elapsed} → ${post.elapsed}）`, post.elapsed > preReload.elapsed);
+check('🔴 標記活過重載（events 是快照的一部分）', post.marks, 1);
+check('守望語意跟著回來', post.watch, true);
+check('標的跟著回來', post.symbol, 'ES1!');
+checkTruthy('來源快訊 id 跟著回來（join key 不能斷）', !!post.origin);
+checkTruthy('關鍵價位跟著回來', typeof post.anchor === 'number');
+
+// ═══════════════════════════════════════════════
 // §8：決策進行中收到新快訊 → 一律靜默接收
 //
 // 這一段**必須開第二個 page**（同一個 ctx，才共用 localStorage）：決策跑在
@@ -169,6 +221,28 @@ checkTruthy('安靜接收有留下看得見的痕跡（靜默區 chip）',
 const mark1 = await readMarker();
 check('同標的後續觸發被記下來了', mark1 && mark1.sameSymbolUpdates, 1);
 
+// ── 決策進行中橫幅：這一頁要說得出「還有一筆在跑」──
+// ⚠️ 這幾條要問在標記還活著的時候。下面「過期的標記」那一段會讓橫幅收起來
+// （而且會停掉它的每秒重繪），順序反過來就會量到收起來的狀態（實際踩到）。
+const bar = await alertPage.evaluate(() => {
+  const b = document.getElementById('timerBar');
+  return {
+    shown: b.className.includes('show'),
+    label: document.getElementById('timerLabel').textContent,
+    clock: document.getElementById('timerClock').textContent,
+    back: document.getElementById('timerBack').textContent,
+    // 🔴 判定只有一份，在 /v3/ —— 這一頁不得再長出第二組判定鍵。
+    judgeBtns: document.querySelectorAll('#timerBar button').length,
+    update: document.getElementById('timerUpdate').className.includes('show'),
+  };
+});
+check('🔴 決策進行中時，快訊頁要浮出回程橫幅', bar.shown, true);
+checkTruthy(`橫幅說得出是哪一筆（${bar.label}）`, bar.label.includes('ES1!'));
+checkTruthy(`橫幅的時鐘在走（${bar.clock}）`, /^\d\d:\d\d$/.test(bar.clock) && bar.clock !== '00:00');
+checkTruthy(`橫幅說得出怎麼回去（${bar.back}）`, /回到計時器/.test(bar.back));
+check('🔴 橫幅上不得有第二份判定 UI', bar.judgeBtns, 0);
+check('同標的更新的事實行浮在橫幅下（規格 §8 原本的形狀）', bar.update, true);
+
 // ── 不同標的 → 一樣不得打斷（§8 說的是「一律」）──
 await patchMarker({ symbol: 'NQ1!' });
 await alertPage.evaluate(() => document.getElementById('btnSingle').click());
@@ -190,6 +264,25 @@ check('🔴 標記過期之後，快訊必須照常彈出決策入口（不得�
   await entryOpen(), true);
 await alertPage.evaluate(() => document.getElementById('btnDismiss').click());
 await patchMarker({ expiresAtMs: liveUntil });
+
+// ── 點橫幅回到那一筆決策 ──
+// 先重新載入這一頁 —— 那正是 iOS 把 App 換回前景時實際會發生的事，
+// 也順便證明橫幅在「一開頁就有決策在跑」的情況下自己會出現。
+await alertPage.reload({ waitUntil: 'domcontentloaded' });
+await alertPage.waitForTimeout(2200);
+check('🔴 一開頁就有決策在跑時，橫幅自己會出現',
+  await alertPage.evaluate(() => document.getElementById('timerBar').className.includes('show')), true);
+await alertPage.evaluate(() => document.getElementById('timerBar').click());
+await alertPage.waitForTimeout(1500);
+check('🔴 點橫幅真的回到跑著的決策', new URL(alertPage.url()).pathname.indexOf('/v3'), 0);
+let barResumed = true;
+try {
+  await alertPage.waitForFunction(
+    () => typeof sess !== 'undefined' && sess && !!sess.startedAtMs, null, { timeout: 12000 },
+  );
+} catch (e) { barResumed = false; }
+checkTruthy('🔴 從橫幅回去的那一頁也接得回決策（信物早就被刪了，走的是 resume）', barResumed);
+
 await alertPage.close();
 await page.bringToFront();
 await page.waitForTimeout(300);
@@ -315,6 +408,38 @@ checkTruthy(`Session 列畫得出來（${row}）`, !!row);
 checkTruthy('Session 列說得出這是快訊決策', row && row.includes('快訊決策'));
 check('🔴 Session 列不得出現否定的 readiness（守望沒有這個量）',
   /未達|未進入/.test(row || ''), false);
+
+// ═══════════════════════════════════════════════
+// 離開太久：不是接回一個殭屍，是誠實收束
+//
+// 🔴 這條守的是 resume 最容易做錯的方向。「決策活得過離開」很容易寫成
+// 「決策永遠活著」—— 那樣使用者隔天打開 App 會看到一個跑了 14 小時的計時器。
+// 超過上限就走既有的 endDecision 寫一筆紀錄：**決策不該憑空消失，
+// 也不該假裝還在跑。**
+// ═══════════════════════════════════════════════
+await page.evaluate(() => {
+  localStorage.removeItem('tenki.alert.outcomes.v1');
+  window.nextState(); window.nextState();          // idle → ready → running
+});
+await page.waitForTimeout(1200);
+await page.evaluate((k) => {
+  const m = JSON.parse(localStorage.getItem(k));
+  m.startedAtMs = Date.now() - 40 * 60 * 1000;     // 40 分鐘前（守望上限是 30 分鐘）
+  m.expiresAtMs = m.startedAtMs + 30 * 60 * 1000;
+  localStorage.setItem(k, JSON.stringify(m));
+}, ACTIVE_KEY);
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.waitForTimeout(3000);
+const stale = await page.evaluate((k) => ({
+  running: document.getElementById('fdcb').className.includes('state-running'),
+  marker: localStorage.getItem(k),
+  store: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1') || '[]'),
+}), ACTIVE_KEY);
+check('🔴 超過上限不得接回一個殭屍計時器', stale.running, false);
+check('🔴 超過上限的標記要被清掉', stale.marker, null);
+check('🔴 而且要留下一筆誠實的紀錄（決策不能憑空消失）', stale.store.length, 1);
+checkTruthy(`那筆紀錄說得出它是怎麼結束的（${stale.store[0] && stale.store[0].outcomeTag}）`,
+  stale.store.length === 1 && !!stale.store[0].outcomeTag);
 
 check('整條鏈走完沒有任何 page error', pageErrors, []);
 

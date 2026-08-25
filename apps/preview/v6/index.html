@@ -4401,6 +4401,11 @@ function resumeActiveDecision(){
   // 🔴 **超過上限就不是 resume，是收束。** 決策不該憑空消失，也不該假裝還在跑
   // ——「你離開太久，這一筆沒有做出判定」本身就是要記下來的事實。
   // 收束走的是既有的 endDecision，語意與紀錄格式完全一致，不另寫第二份。
+  //
+  // ⚠️ 這一段與 running interval 裡的上限檢查是**刻意重複**的：接回來之後那個
+  // interval 一秒內也會收掉它。單獨拿掉任一處 harness 都抓不到（實測），
+  // 兩處一起拿掉才紅。留著是為了不讓使用者看到一個跑了 40 分鐘的計時器 ——
+  // 哪怕只有一秒。不是忘了刪。
   const overdue = elapsedSec >= ceilingSec || now >= m.expiresAtMs;
 
   currentTmpl = m.templateId;
