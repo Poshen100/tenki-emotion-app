@@ -324,16 +324,15 @@
     settings: loadSettings(),
     resultSettings: loadResultSettings(),
     lastSurfacedAtBySymbol: {},
-    sessionActive: false,
-    activeSessionSymbol: null,
-    session: null,
+    // ⚠️ sessionActive / activeSessionSymbol / session / timer 是舊守望條的欄位，
+    // 已隨那塊碼一起刪掉。「有沒有決策在跑」現在只有一個來源：
+    // readActiveDecision()（/v3/ 寫的跨頁快照）。
     pendingOutcome: null,
     pendingAlert: null,
     entryGate: 'no_reading',
     entryAgeTimer: null,
     pendingGroup: null,
     alertSeq: 0,
-    timer: null,
   };
 
   var el = {};
@@ -349,7 +348,7 @@
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
     'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave', 'btnResultRecord',
     'timerBar', 'timerLabel', 'timerClock',
-    'watchAnchor', 'watchAsk', 'btnStructureConfirmed', 'btnStoodDown', 'timerUpdate',
+    'watchAnchor', 'timerBack', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveUrlWarn', 'liveCopy', 'liveReset',
     'liveSymbol', 'liveTimeframe', 'liveStrategy',
@@ -512,27 +511,25 @@
   var ACTIVE_DECISION_KEY = 'tenki.v6.activeDecision.v1';
 
   /**
-   * 現在有沒有一筆決策正在跑。
+   * 讀「決策進行中」的快照，**唯一的來源**。
+   * 過期一律當作沒有 —— 見上面那段紅字。
    * @param {number} nowMs
-   * @returns {?{symbol: ?string, marker: ?Object}} null ＝ 沒有
+   * @returns {?Object} 標記本身，沒有就 null
    */
-  function activeDecisionSnapshot(nowMs) {
-    // 同頁的 session（legacy：這一頁自己那條守望條）。目前沒有路徑走得到它，
-    // 但它若被接回來就該優先 —— 就在眼前的事實勝過 localStorage 上的快照。
-    if (state.sessionActive && state.session) {
-      return { symbol: state.activeSessionSymbol, marker: null };
-    }
+  function readActiveDecision(nowMs) {
     var m = null;
     try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch (e) { m = null; }
-    if (!m || typeof m.expiresAtMs !== 'number' || nowMs >= m.expiresAtMs) return null;
-    return { symbol: typeof m.symbol === 'string' ? m.symbol : null, marker: m };
+    if (!m || typeof m.expiresAtMs !== 'number' || typeof m.startedAtMs !== 'number') return null;
+    if (nowMs >= m.expiresAtMs) return null;
+    return m;
   }
 
   // ── Delivery policy（mirror of domain alert-policy 判定順序）──
   function evaluateDelivery(alert, nowMs) {
-    var active = activeDecisionSnapshot(nowMs);
+    var active = readActiveDecision(nowMs);
     if (active) {
-      if (state.settings.sessionQuietUpdate && active.symbol !== null && active.symbol === alert.symbol) {
+      var activeSymbol = (typeof active.symbol === 'string') ? active.symbol : null;
+      if (state.settings.sessionQuietUpdate && activeSymbol !== null && activeSymbol === alert.symbol) {
         return { decision: 'session_update', reason: '同標的後續觸發' };
       }
       return { decision: 'silent', reason: '決策進行中' };
@@ -741,11 +738,15 @@
   // 而 `#timerBar` 自從交棒之後**永遠不會 .show**，等於寫進一個看不見的元素。
   // 改用這一頁真的看得到的兩個面：靜默區的 chip + 事件日誌。
   function sessionQuietUpdate(alert) {
-    if (state.session) state.session.sameSymbolUpdates += 1;
     bumpActiveDecisionUpdates();
     var parts = [alert.symbol];
     if (alert.condition) parts.push(alert.condition);
-    silentChip(parts.join(' · ') + '（決策進行中 · 已接收）');
+    if (alert.note) parts.push(alert.note);
+    // 規格 §8 原本的形狀：計時條下浮一行事實更新，不彈新面板。
+    // 第八輪寫不到這裡（#timerBar 那時候永遠不會 .show），現在橫幅是活的了。
+    el.timerUpdate.textContent = '↳ ' + parts.join(' · ');
+    el.timerUpdate.classList.add('show');
+    silentChip(alert.symbol + ' · ' + (alert.condition || '') + '（決策進行中 · 已接收）');
     log('mark', alert.symbol + ' — 同標的後續觸發（決策進行中，安靜更新）');
   }
 
@@ -1043,92 +1044,56 @@
     window.location.href = '/v3/#decision';
   }
 
-  // ── 浮動決策計時條 ──
+  // ── 決策進行中的回程橫幅 ──
+  //
+  // 這一塊以前是這一頁自己的守望條（startSession / endSession / 兩顆判定鍵）。
+  // 第五輪把計時器交棒給 /v3/ 之後它就沒有呼叫者了；第七輪決定留著，理由是
+  // 「它是規格 §8 唯一的實作」；第八輪把 §8 用跨頁標記正式補回來，那個理由失效。
+  // 現在整塊改成它真正該做的事：**告訴你有一筆決策還在跑，並把你送回去。**
+  //
+  // 為什麼這一頁需要它（founder 2026-08-21 實走情境）：交易者的動線是
+  // 「進入決策 → 跳回桌面 → 開交易 App 下單 → 回 TENKI Core」，而 PWA 的
+  // start_url 就是這一頁 —— iOS 把 web app 清出記憶體之後，回來就落在這裡，
+  // 看不到正在跑的計時器。沒有這條橫幅，那一刻畫面上完全沒有線索。
+  //
+  // 🔴 這裡**不放判定鍵**：判定只有一份，在 /v3/。
+
   function formatClock(sec) {
     var m = Math.floor(sec / 60);
     var s = sec % 60;
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
-  /**
-   * 非接受門檻的位移（§3 模組 3：「價格重新站回低點上方（例：+5 points）並維持數分鐘」）。
-   * 只對 FBD 有定義 —— 其他模板的方向與幅度方法論沒寫，就不編。
-   */
-  var NON_ACCEPTANCE_OFFSET = 5;
-
-  /** 守望的牆鐘上限。超過就當作沒有判定收掉，避免跨日的殭屍 session。 */
-  var WATCH_CEILING_MS = 30 * 60 * 1000;
-
   function formatLevel(price) {
     return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  /**
-   * 錨點行：你自己定的關鍵價位，以及（僅 FBD）非接受門檻。
-   * 快訊沒帶 price 就整行空著 —— 寧可沒有錨點，也不編一個價位出來。
-   */
-  function watchAnchorText(alert, tpl) {
-    if (typeof alert.price !== 'number' || !isFinite(alert.price)) return '';
-    var line = '關鍵價位 ' + formatLevel(alert.price);
-    if (tpl.id === 'FBD') {
-      line += ' · 非接受門檻 ' + formatLevel(alert.price + NON_ACCEPTANCE_OFFSET);
+  var decisionBarTimer = null;
+
+  /** 有決策在跑就顯示橫幅，沒有就收起來。每秒重畫一次時鐘。 */
+  function renderDecisionBar() {
+    var m = readActiveDecision(Date.now());
+    if (!m) {
+      el.timerBar.classList.remove('show');
+      el.timerUpdate.classList.remove('show');
+      el.timerUpdate.textContent = '';
+      if (decisionBarTimer) { clearInterval(decisionBarTimer); decisionBarTimer = null; }
+      return;
     }
-    return line;
-  }
-
-  function startSession(alert, tpl) {
-    state.pendingAlert = null;
-    state.sessionActive = true;
-    state.activeSessionSymbol = alert.symbol;
-    state.session = {
-      symbol: alert.symbol,
-      templateId: tpl.id,
-      tplName: tpl.nameZh,
-      sameSymbolUpdates: 0,
-      // 牆鐘。以前是 `elapsed += 1` 數 setInterval callback —— 分頁進背景（切到券商
-      // APP、鎖屏）就會少算。這裡改讀 Date.now()，對背景暫停免疫。
-      startedAtMs: Date.now(),
-      elapsedSec: 0,
-      // 結構確認期間離開過幾次／多久。比進度條真實得多的紀律指標。
-      awayCount: 0,
-      awayMs: 0,
-    };
-    el.timerUpdate.textContent = '';
-    el.timerUpdate.classList.remove('show');
-
-    el.timerLabel.textContent = alert.symbol + ' · ' + tpl.nameZh;
-    el.timerClock.textContent = formatClock(0);
-    el.watchAnchor.textContent = watchAnchorText(alert, tpl);
-
+    el.timerLabel.textContent = m.symbol || m.name || '決策進行中';
+    // 牆鐘 —— 跟 /v3/ 讀同一個 startedAtMs，兩邊的時鐘不會各說各話。
+    el.timerClock.textContent = formatClock(Math.max(0, Math.floor((Date.now() - m.startedAtMs) / 1000)));
+    // 快訊沒帶 price 就整行空著 —— 寧可沒有錨點，也不編一個價位出來。
+    el.watchAnchor.textContent = (typeof m.anchorPrice === 'number')
+      ? '關鍵價位 ' + formatLevel(m.anchorPrice) : '';
     el.timerBar.classList.add('show');
-    log('mark', alert.symbol + ' — ' + tpl.nameZh + ' 結構守望開始');
-
-    state.timer = setInterval(function () {
-      if (!state.session) return;
-      var elapsed = Math.floor((Date.now() - state.session.startedAtMs) / 1000);
-      state.session.elapsedSec = elapsed;
-      el.timerClock.textContent = formatClock(elapsed);
-      if (Date.now() - state.session.startedAtMs >= WATCH_CEILING_MS) {
-        endSession('abandoned', alert.symbol + ' — 守望逾時，沒有做出判定');
-      }
-    }, 1000);
+    if (!decisionBarTimer) decisionBarTimer = setInterval(renderDecisionBar, 1000);
   }
 
-  /**
-   * @param {'entered'|'stood_down'|'abandoned'} judgment 這次守望的判定出口。
-   */
-  function endSession(judgment, detail) {
-    if (state.timer) { clearInterval(state.timer); state.timer = null; }
-    var s = state.session;
-    state.sessionActive = false;
-    state.activeSessionSymbol = null;
-    state.session = null;
-    el.timerBar.classList.remove('show');
-    el.timerUpdate.classList.remove('show');
-    // 事件鏈類型沿用既有樣式：有判定＝過程標記，沒判定＝取消。
-    log(judgment === 'abandoned' ? 'cancel' : 'mark', detail);
-    if (s) openResult(judgment, s);
-  }
+  el.timerBar.addEventListener('click', function () {
+    // 回到那一筆決策。/v3/ 開頁時 acceptHandoff() 拿不到信物就會走 resume。
+    window.location.href = '/v3/#decision';
+  });
 
   // ── 決策收束頁（計時器結束後，事件鏈的 Result 階段）— 視覺化收束 ──
   var MOMENTUM_LIMIT = 12;
@@ -1414,33 +1379,14 @@
     window.location.href = RECORD_HREF;
   });
 
-  // 兩個判定出口。**兩個都是紀律** —— §7 step 7「無觸發 → 不交易」跟 step 4 進場
-  // 一樣是照方法論走。不做判定就離開才不算。
-  el.btnStructureConfirmed.addEventListener('click', function () {
-    endSession('entered', el.timerLabel.textContent + ' — 判定結構成立，已進場');
-  });
+  // 「結構確認期間離開了多久」現在由 /v3/ 記 —— 決策真正在跑的地方是那一頁，
+  // 而且它把離開寫進跨頁快照，連「離開之後沒回來就被清掉記憶體」都記得住。
+  // 這一頁曾經有一份同樣的追蹤，但它靠 state.session（只有 startSession 會設），
+  // 交棒之後永遠進不去 —— 兩份同語意的實作留一份就好。
 
-  el.btnStoodDown.addEventListener('click', function () {
-    endSession('stood_down', el.timerLabel.textContent + ' — 判定結構不成立，未進場');
-  });
-
-  // 結構確認期間離開了多久 —— 交易者是在桌機或券商 APP 下單，離開是常態不是失誤。
-  // 記錄它不是為了扣分，是因為「離開幾次」比進度條真實得多。
-  var awayAtMs = 0;
+  // 回到這一頁時（含 iOS 把 App 換回前景）重畫橫幅，不用等下一次 tick。
   document.addEventListener('visibilitychange', function () {
-    if (!state.session) return;
-    if (document.visibilityState === 'hidden') {
-      awayAtMs = Date.now();
-      return;
-    }
-    if (!awayAtMs) return;
-    var gap = Date.now() - awayAtMs;
-    awayAtMs = 0;
-    // 短暫切換（通知列、誤觸）不算離開，避免把雜訊記成紀律事件。
-    if (gap < 3000) return;
-    state.session.awayCount += 1;
-    state.session.awayMs += gap;
-    log('mark', state.session.symbol + ' — 離開 ' + formatClock(Math.round(gap / 1000)) + ' 後回來');
+    if (document.visibilityState === 'visible') renderDecisionBar();
   });
 
   // ── 連接 TradingView（專屬頻道，零輸入配對；真訊號與模擬走同一條 ingest 管線）──
@@ -1990,6 +1936,9 @@
   renderResultSettingsInputs();
   renderState();
   refreshDiscipline();
+  // 開頁就問「有沒有決策還在跑」—— 這一頁是 PWA 的 start_url，
+  // 交易者下完單回來第一眼看到的就是它。
+  renderDecisionBar();
 
   // 從 /v3/ 判定完回來 → 直接開收束頁。放在最後，確保所有 render* 與
   // openResult 需要的元素／狀態都已就緒。
