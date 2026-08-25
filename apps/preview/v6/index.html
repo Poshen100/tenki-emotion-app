@@ -3357,8 +3357,17 @@ function goTab(id){
     // #decision：從 /decision-alert/ 交棒過來，直接起跑那一筆決策。
     // 這是 founder 要的那條鏈子的最後一段 —— 在這之前快訊唯一的出口是
     // /v3/#session（歷史頁），使用者被丟在一個「已經結束的東西」前面。
-    if(hash === 'decision'){ goTab('today'); acceptHandoff(); return; }
+    if(hash === 'decision'){
+      goTab('today');
+      // 交棒信物讀完就刪 —— 所以「從桌面點回來、頁面被 iOS 重新載入」這一次
+      // 一定拿不到信物。那時候要走的是 resume，不是空手回到 idle。
+      if(!acceptHandoff()) resumeActiveDecision();
+      return;
+    }
     if(allowedTabs.includes(hash)) goTab(hash);
+    // 🔴 沒有 hash 也要接回來 —— PWA 的 start_url 是 /decision-alert/，
+    // 但使用者也可能直接開 /v3/。決策在不在，跟你是從哪個網址進來的無關。
+    resumeActiveDecision();
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
   else apply();
@@ -3807,15 +3816,24 @@ function applyFdcbHeight(s){
 }
 
 function setState(s){
+  const prev = STATES[stateIdx];
   const fdcb = document.getElementById('fdcb');
   STATES.forEach(x => fdcb.classList.remove('state-'+x));
   fdcb.classList.add('state-'+s);
   stateIdx = STATES.indexOf(s);
   applyFdcbHeight(s);
   renderFdcb();
-  // 跨頁的「決策進行中」標記。🔴 用「不是 running 就清掉」而不是逐一列舉 idle /
-  // ready / complete —— 少列到一條路徑，那條路徑就會留下一個永遠靜音快訊的旗標。
-  if(s === 'running') publishActiveDecision(); else clearActiveDecision();
+  // 跨頁的「決策進行中」標記。
+  // 🔴 **清除要看「離開 running」這個轉換，不能只看「現在不是 running」。**
+  // 第八輪原本寫的是後者，理由是「少列一條路徑就會留下永遠靜音的旗標」——
+  // 那個顧慮沒錯，但它有一個當時看不到的副作用：**開頁時的 setState('idle')
+  // （檔尾那一行）會在 resume 有機會讀之前就把標記刪掉**，於是「下完單回來
+  // 接回決策」永遠接不到（2026-08-21 實測，probe 打出 running:false）。
+  // 現在的保證換成：離開 running 一定清、endDecision 開頭再清一次（刻意重複），
+  // 而**殘留的標記由 resume 自己處理** —— 過期或模板不存在就清掉，
+  // 沒過期就本來就該接回來。旗標不會永遠留著，只是換一個人負責。
+  if(s === 'running') publishActiveDecision();
+  else if(prev === 'running') clearActiveDecision();
 }
 // ── 真實決策計時器（取代假 8 秒 demo）──
 // 三段由時長推導：Observe 0–33% →（tmpl.segLabel = 核心段 / readiness / Sweet Zone）33–66% → Extended 66–100%。
@@ -4350,6 +4368,83 @@ function acceptHandoff(){
     // 兩次都在同一個呼叫堆疊裡，中間不可能插進一則快訊，覆寫是安全的。
     publishActiveDecision();
   }
+  return true;
+}
+
+/**
+ * 開頁時把還在跑的決策接回來。
+ *
+ * 🔴 為什麼需要這個（founder 2026-08-21 實走情境）：交易者的動線是
+ * 「進入決策 → 跳回桌面 → 開交易 App 下單 → 再回 TENKI Core」，而 iOS 會把
+ * standalone web app 清出記憶體 —— 回來時整頁重載，`sess` 是 null。
+ * 沒有這條路徑，**下完單回來整筆決策就消失了**：沒有判定、沒有紀錄、
+ * 標記全丟，而畫面只會安靜地停在 idle，看不出剛剛有東西不見。
+ *
+ * ⚠️ 順序陷阱（跟 acceptHandoff 同一個）：`setState('running')` 會建一個**全新的**
+ * sess 並呼叫 publishActiveDecision()（整份覆寫、計數歸零）。所以要先把快照
+ * 讀出來留在手上，setState 之後再把欄位灌回去，最後**再發佈一次**。
+ *
+ * @returns {boolean} 有沒有真的接回來
+ */
+function resumeActiveDecision(){
+  if(STATES[stateIdx] === 'running') return false;   // 已經在跑，不要蓋掉
+  let m = null;
+  try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch(e){ m = null; }
+  if(!m || typeof m.startedAtMs !== 'number' || typeof m.expiresAtMs !== 'number') return false;
+  if(!m.templateId || !TEMPLATES[m.templateId]){ clearActiveDecision(); return false; }
+
+  const now = Date.now();
+  const tmpl = TEMPLATES[m.templateId];
+  const ceilingSec = m.watch ? WATCH_CEILING_SEC : tmpl.durationSec;
+  const elapsedSec = Math.floor((now - m.startedAtMs) / 1000);
+
+  // 🔴 **超過上限就不是 resume，是收束。** 決策不該憑空消失，也不該假裝還在跑
+  // ——「你離開太久，這一筆沒有做出判定」本身就是要記下來的事實。
+  // 收束走的是既有的 endDecision，語意與紀錄格式完全一致，不另寫第二份。
+  const overdue = elapsedSec >= ceilingSec || now >= m.expiresAtMs;
+
+  currentTmpl = m.templateId;
+  document.documentElement.style.setProperty('--primary', tmpl.color);
+  setState('running');
+  if(!sess){ clearActiveDecision(); return false; }
+
+  sess.startedAtMs = m.startedAtMs;               // 牆鐘的唯一來源，接回原值
+  sess.symbol = m.symbol || null;
+  sess.originAlertId = m.originAlertId || null;
+  sess.anchorPrice = (typeof m.anchorPrice === 'number') ? m.anchorPrice : null;
+  sess.watch = !!m.watch;
+  sess.events = Array.isArray(m.events) ? m.events : [];
+  sess.marks = sess.events.length;                 // marks 一律由節點數導出
+  sess.awayCount = m.awayCount || 0;
+  sess.awayMs = m.awayMs || 0;
+  // 上一趟離開還沒被結算（走的時候頁面就被清掉了）—— 現在補記它。
+  if(typeof m.hiddenAtMs === 'number' && m.hiddenAtMs > 0){
+    const gap = now - m.hiddenAtMs;
+    if(gap >= AWAY_MIN_MS){
+      sess.awayCount += 1;
+      sess.awayMs += gap;
+    }
+  }
+  sess.hiddenAtMs = null;
+  if(sess.symbol){
+    sess.name = sess.symbol;
+    document.getElementById('fdcbName').textContent = sess.symbol;
+  } else if(m.name){
+    sess.name = m.name;
+  }
+  elapsed = elapsedNow();
+  publishActiveDecision();                         // 重建之後重新發佈（計數見下）
+  // 計數是 /decision-alert/ 記在標記上的，publish 會歸零 —— 補回去。
+  if(typeof m.sameSymbolUpdates === 'number' && m.sameSymbolUpdates > 0){
+    const own = readOwnActiveDecision();
+    if(own){ own.sameSymbolUpdates = m.sameSymbolUpdates; writeActiveDecision(own); }
+  }
+  renderMarks();
+  renderLiveNodes();
+  renderWatchAnchor();
+  tickFdcb();
+
+  if(overdue){ endDecision(sess.watch ? 'abandoned' : 'timeout'); return true; }
   return true;
 }
 
