@@ -3849,15 +3849,26 @@ const AWAY_MIN_MS = 3000;
 let awayAtMs = 0;
 document.addEventListener('visibilitychange', () => {
   if(!sess) return;
-  if(document.visibilityState === 'hidden'){ awayAtMs = Date.now(); return; }
+  if(document.visibilityState === 'hidden'){
+    awayAtMs = Date.now();
+    // 🔴 離開的那一刻就要寫進跨頁快照 —— 這一趟很可能**回不來**
+    // （iOS 把 web app 清出記憶體）。沒有這一行，被清掉之後就再也沒人知道
+    // 這段離開發生過，而「離開幾次」正是這個產品最誠實的紀律指標。
+    sess.hiddenAtMs = awayAtMs;
+    syncActiveDecision();
+    return;
+  }
   // 回到前景：先把時鐘補到真值，不要等下一次 tick（最多會慢 1 秒才跳對）
   if(STATES[stateIdx] === 'running'){ elapsed = elapsedNow(); tickFdcb(); }
-  if(!awayAtMs) return;
+  sess.hiddenAtMs = null;
+  if(!awayAtMs) { syncActiveDecision(); return; }
   const gap = Date.now() - awayAtMs;
   awayAtMs = 0;
-  if(gap < AWAY_MIN_MS) return;
-  sess.awayCount = (sess.awayCount || 0) + 1;
-  sess.awayMs = (sess.awayMs || 0) + gap;
+  if(gap >= AWAY_MIN_MS){
+    sess.awayCount = (sess.awayCount || 0) + 1;
+    sess.awayMs = (sess.awayMs || 0) + gap;
+  }
+  syncActiveDecision();
 });
 
 // 模板膠囊（左欄）。時長一律走 fmtDur ——
@@ -4212,28 +4223,72 @@ const ACTIVE_DECISION_KEY = 'tenki.v6.activeDecision.v1';
 const ACTIVE_DECISION_GRACE_MS = 60 * 1000;
 
 /**
- * 發佈「有一筆決策正在跑」。同一筆決策可以重複呼叫（覆寫）。
- * ⚠️ 覆寫會把 sameSymbolUpdates 歸零 —— 只在起跑的那個呼叫堆疊裡重發，
- * 中間不可能插進一則快訊。決策跑起來之後不得再呼叫。
+ * 這一筆決策的完整快照 —— **接得回來**所需要的每一個欄位。
+ *
+ * 🔴 為什麼要存到這種程度（founder 2026-08-21 實走情境）：
+ * 交易者的動線是「進入決策 → 跳回桌面 → 開交易 App 下單 → 再回 TENKI Core」。
+ * iOS 會把 standalone web app 從記憶體清掉，回來時整頁重新載入 ——
+ * 而 `sess` 只活在記憶體，全 repo 沒有任何 pagehide/beforeunload 持久化。
+ * 也就是說：**下完單回來，整筆決策連同標記一起蒸發，一筆紀錄都沒有。**
+ * 第五輪的牆鐘讓「時間」不說謊，這一輪讓「決策本身」活得過離開。
+ *
+ * @returns {?Object} 沒有進行中的決策就回 null
  */
-function publishActiveDecision(){
-  if(!sess) return;
+function activeDecisionSnapshot(){
+  if(!sess || !sess.startedAtMs) return null;
   const tmpl = TEMPLATES[sess.templateId] || TEMPLATES[currentTmpl];
   const dur = sess.watch
     ? WATCH_CEILING_SEC * 1000
     : ((tmpl ? tmpl.durationSec : WATCH_CEILING_SEC) * 1000 + ACTIVE_DECISION_GRACE_MS);
-  try {
-    localStorage.setItem(ACTIVE_DECISION_KEY, JSON.stringify({
-      startedAtMs: sess.startedAtMs,
-      expiresAtMs: sess.startedAtMs + dur,
-      symbol: sess.symbol || null,
-      templateId: sess.templateId,
-      originAlertId: sess.originAlertId || null,
-      watch: !!sess.watch,
-      // /decision-alert/ 在這裡累加同標的後續觸發；收束時我們讀回來寫進紀錄。
-      sameSymbolUpdates: 0,
-    }));
-  } catch(e){ /* 存不進去就當作沒有這個功能，決策照跑 */ }
+  return {
+    startedAtMs: sess.startedAtMs,
+    expiresAtMs: sess.startedAtMs + dur,
+    symbol: sess.symbol || null,
+    templateId: sess.templateId,
+    // 底座左欄顯示的字（快訊決策會被換成標的），重建時要一模一樣。
+    name: sess.name || null,
+    originAlertId: sess.originAlertId || null,
+    anchorPrice: (typeof sess.anchorPrice === 'number') ? sess.anchorPrice : null,
+    watch: !!sess.watch,
+    marks: sess.marks || 0,
+    events: Array.isArray(sess.events) ? sess.events : [],
+    awayCount: sess.awayCount || 0,
+    awayMs: sess.awayMs || 0,
+    // 離開的那一刻。**還沒回來就被清掉記憶體**時，接回來要靠它把這段補記進去。
+    hiddenAtMs: sess.hiddenAtMs || null,
+  };
+}
+
+function writeActiveDecision(snap){
+  try { localStorage.setItem(ACTIVE_DECISION_KEY, JSON.stringify(snap)); }
+  catch(e){ /* 存不進去就當作沒有這個功能，決策照跑 */ }
+}
+
+/**
+ * 發佈「有一筆決策正在跑」。**起跑專用** —— 整份覆寫，計數歸零。
+ * ⚠️ 只在起跑的那個呼叫堆疊裡重發（setState → acceptHandoff / resume），
+ * 中間不可能插進一則快訊。**決策跑起來之後要用 syncActiveDecision()**，
+ * 否則會把 /decision-alert/ 記在上面的同標的計數洗掉。
+ */
+function publishActiveDecision(){
+  const snap = activeDecisionSnapshot();
+  if(!snap) return;
+  // /decision-alert/ 在這裡累加同標的後續觸發；收束時我們讀回來寫進紀錄。
+  snap.sameSymbolUpdates = 0;
+  writeActiveDecision(snap);
+}
+
+/**
+ * 決策進行中更新快照（標記、離開）—— **保留** sameSymbolUpdates。
+ * 讀不回自己那一張就什麼都不做：那是別的分頁的決策，不該被我們蓋掉。
+ */
+function syncActiveDecision(){
+  const own = readOwnActiveDecision();
+  if(!own) return;
+  const snap = activeDecisionSnapshot();
+  if(!snap) return;
+  snap.sameSymbolUpdates = (typeof own.sameSymbolUpdates === 'number') ? own.sameSymbolUpdates : 0;
+  writeActiveDecision(snap);
 }
 
 /** 決策結束（或根本沒在跑）—— 標記一定要消失。 */
@@ -4821,6 +4876,7 @@ function pickTpLabel(id, text){
   if(!pendingTp) { closeTpPicker(); return; }
   pendingTp.labelId = id;
   pendingTp.label = text;
+  syncActiveDecision();   // 標籤是後補的，不同步的話接回來只會剩一顆純時間點
   markFlashUntil = Date.now() + MARK_FLASH_MS;
   document.getElementById('fdcbSeg').textContent = '已標記 · ' + text;
   renderLiveNodes();
@@ -4847,6 +4903,7 @@ function logEvent(){
   }, stampReadingV6());
   sess.events.push(node);
   sess.marks = sess.events.length;             // marks 一律由節點數導出，不再各算各的
+  syncActiveDecision();                        // 標記要活得過「App 被清出記憶體」
   pendingTp = node;
   markFlashUntil = Date.now() + MARK_FLASH_MS;
   renderMarks();
