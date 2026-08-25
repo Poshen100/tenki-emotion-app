@@ -9,6 +9,63 @@
 
 ---
 
+# 2026-08-21 Session Update #77 (下完單回來，決策還在 —— 交易者的實體動線)
+
+founder 兩張截圖把情境釘到動作層級：**Tradesea 與 TENKI Core 並排在同一個桌面上**。
+「要考量到交易者可能另外用桌機下單或另外開啟交易 APP 下單（**需要跳回手機桌面，
+點入交易 APP 去交易，可能再回去看 TENKI Core APP**）」。
+
+## 一、那條回程原本會弄丟整筆決策
+
+三件事疊起來：①`sess` 只活在記憶體，全 repo **沒有任何** pagehide/beforeunload
+持久化；②`/v3/` 開頁只認 `#decision`（交棒信物，讀完就刪），沒有 resume 路徑；
+③PWA 的 `start_url` 是 `/decision-alert/`，iOS 把 web app 清出記憶體之後
+回來就落在快訊頁，而那一頁完全不提有決策在跑。
+
+→ 下完單回來，**計時器回到 idle、marks/events 全丟、一筆紀錄都沒有**。
+
+## 二、做了什麼
+
+第八輪的跨頁標記升級成**可續跑的快照**（+ name/anchorPrice/marks/events/
+awayCount/awayMs/hiddenAtMs）；`/v3/` 開頁 `resumeActiveDecision()` 接回來；
+`/decision-alert/` 浮出**可點的回程橫幅**（founder 拍板：不自動跳）。
+順便把那塊死碼收掉 —— 舊守望條本來就是這個形狀。
+
+🔴 **超過上限不是 resume，是收束**：走既有 `endDecision` 寫一筆
+`timed_out`／`abandoned_no_judgment`。決策不該憑空消失，也不該假裝還在跑。
+
+## 三、🔴 第一版接不回來，兇手是我第八輪自己寫的那行
+
+第八輪的清除條件是「不是 running 就清掉」（為了不留下永遠靜音的旗標）。
+第九輪要在開頁 resume，卻**永遠讀不到** —— 檔尾那行 `setState('idle')` 在
+DOMContentLoaded 之前就把標記刪了，而且不報錯。改成看「離開 running」這個轉換。
+已提煉成 PLAYBOOK 一條。
+
+## 四、🔴 反向驗證抓到兩條我自己寫的死斷言
+
+1. **「標記活過重載」抓不到 logEvent 少同步** —— `page.reload()` 之前瀏覽器先送
+   visibilitychange → hidden，那個 handler 也會同步。改成當場問快照。
+2. **「超過上限不得接回殭屍」抓不到 resume 少了 overdue 分支** —— running interval
+   一秒內也會收掉它。兩處一起拿掉才紅（已驗），保留是為了不讓使用者看到
+   一個跑了 40 分鐘的計時器哪怕一秒，已在原地註明它是重複的。
+
+同一輪出現兩次「重複的實作讓斷言變成半死」。判準記下來：
+**反向驗證時只要有一處拿掉還是綠的，就要問「是不是有第二條路做同一件事」**——
+是的話，要嘛把斷言改到只有那一條路會影響的地方，要嘛在原地註明重複是刻意的。
+
+## 五、明確不做
+
+**不做「一鍵跳去交易 App」。** 即使 Tradesea 有 URL scheme：一顆在訊號當下把人
+送進下單畫面的按鈕等於**引導交易動作**，踩 CLAUDE.md 硬規則與 APP_STORE_COMPLIANCE。
+離開是常態、我們記錄它，但不推你出門。
+
+## 下次接手點
+
+- 手機實走這條動線（快訊 → 進入決策 → 回桌面開交易 App 30 秒以上 → 回 TENKI Core
+  → 應看到回程橫幅 → 點回去 → 時鐘沒退、標記還在 → 判定 → 收束頁「離開 1 次」）。
+- PR 合併後那條分支 preview 網址會死，TradingView 的 webhook 要改指正式站，
+  而且要在**正式站的主畫面 App** 裡重新產生連結（見 #76）。
+
 # 2026-08-21 Session Update #76 (分支 preview 上實測真實 TradingView webhook —— 通了，順帶挖出兩個坑)
 
 founder：「我想在這條分支上實測真的 TradingView webhook」。
