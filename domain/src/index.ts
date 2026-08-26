@@ -180,3 +180,23 @@ export {
 } from './policies/readiness-band';
 
 export type { BandDisciplineStat, ReadingGate } from './policies/readiness-band';
+
+export {
+  DOMAIN_TRADE_RESULTS,
+  countsAsTrade,
+  isLoss,
+  isWin,
+  normalizeTradeResult,
+} from './contracts/trade-result';
+
+export type { DomainTradeResult } from './contracts/trade-result';
+
+export {
+  DAILY_TRADE_BUDGET,
+  DAY_CADENCE_STATES,
+  TRADING_DAY_TZ,
+  resolveDayCadence,
+  resolveTradingDayKey,
+} from './policies/day-cadence';
+
+export type { DayCadence, DayCadenceRecord, DayCadenceState } from './policies/day-cadence';
