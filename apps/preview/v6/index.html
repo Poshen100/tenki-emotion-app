@@ -352,7 +352,9 @@ body{
   /* 上限 36→34px（2026-08-19，harness 進 CI 時順手）：36px 時「Neutral」在容器
      預設字型下是 124px、環心 128px —— **只剩 4px 餘裕**，字型稍微換一下就紅。
      斷言現在會在 CI 跑，假紅的代價比字小一點高得多。 */
-  font-size:clamp(28px, 8.5vw, 34px);letter-spacing:-0.01em;line-height:1;
+  /* 上限同理跟著環在 385px 收手（見 .awaiting）：8.5% × 385 ≈ 32.7 → 32.5px。
+     34px 的舊上限要到 400px 才封頂，而圓在 385 就不長了。 */
+  font-size:clamp(28px, 8.5vw, 32.5px);letter-spacing:-0.01em;line-height:1;
   background:none;-webkit-text-fill-color:currentColor;
 }
 /* 🔴 沒有讀數時的樣子（2026-08-18）。
@@ -379,7 +381,13 @@ body{
      390→129px）。字級卻是寫死的 30px：四個中文字剛好 121px，在 360 上零餘裕就換行。
      🔴 固定 px 的內容放進 % 的容器，就是「排進量出來的縫隙」——
      字級改成跟著同一個 vw 走，容器縮它就跟著縮。30px 是上限，寬螢幕維持原樣。 */
-  font-size:clamp(24px, 7.2vw, 30px);font-weight:600;letter-spacing:0.01em;line-height:1.1;
+  /* 🔴 上限要跟**環的上限同一個寬度**收手，否則寬螢幕上字還在長、圓已經不長了。
+     環是 min(54vw, 208px) → 54vw 在 **385px** 撞到 208，之後圓固定在 129px。
+     字級若撐到自己的上限（7.2vw 要到 417px 才封頂），385~417 這一段就是
+     「字還在長、容器不長」——「尚未量測」實測 390 是 113px、414 變 121px，
+     角落被推出圓外 6.2px（2026-08-28 新的圓形斷言抓到的）。
+     所以上限取 7.2% × 385 ≈ 27.7 → 27.5px：兩個 clamp 在同一個寬度收手。 */
+  font-size:clamp(24px, 7.2vw, 27.5px);font-weight:600;letter-spacing:0.01em;line-height:1.1;
   background:none;-webkit-text-fill-color:rgba(255,255,255,0.55);
   filter:none;
 }
@@ -5137,16 +5145,22 @@ function renderHeroReading(){
   const edgeElOn = document.querySelector('.tl-edge');
   if(edgeElOn) edgeElOn.classList.remove('no-reading');
   const ctaOn = document.getElementById('edgeScanCta');
-  if(ctaOn) ctaOn.hidden = true;
   // 帶位上了主位之後，這一行改報**新鮮度** —— 再說一次「Clear」是廢話，
   // 「什麼時候量的」才是使用者接著會問的問題。
-  zoneEl.textContent = stale
-    ? '讀數已過期 · 重新掃一次'
-    : agoTextV6(r.ts, Date.now()) + ' 掃描';
+  // 🔴 過期時**只留事實，動作交給環下面的 CTA**。
+  // 舊值是「讀數已過期 · 重新掃一次」—— 那句最長、會斷成兩行，而第二行掛在圓的
+  // 下半部，圓在那裡已經收窄：實測超出圓 12.5~13.7px（founder 2026-08-28 實走截圖）。
+  // ⚠️ 當時的斷言拿**方框**去比所以全綠 —— 環心是圓，方框斷言等於沒有斷言。
+  // 「重新掃一次」本來就是**動作**，而第三輪已經拍板「圓心放量到什麼、動作放環下面」，
+  // 而且要用的零件早就在了：#edgeScanCta 就住在環下面、nowrap、已經有斷言守著。
+  zoneEl.textContent = stale ? '讀數已過期' : agoTextV6(r.ts, Date.now()) + ' 掃描';
   zoneEl.style.color = '';
+  // 過期 → 該做的是重掃，不是提升精度；而且兩顆膠囊疊起來會把環往上擠。
+  // 所以這兩顆是互斥的：過期給 CTA、新鮮給信心。
+  if(ctaOn) ctaOn.hidden = !stale;
   if(confEl){
     confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + '　·　提升精度 ›';
-    confEl.hidden = false;
+    confEl.hidden = stale;
   }
   return true;
 }
