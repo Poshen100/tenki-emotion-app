@@ -76,6 +76,23 @@ function checkTruthy(name, actual) {
   if (!ok) console.log(`   實際 ${JSON.stringify(actual)}`);
 }
 
+/**
+ * 🔴 圓形容器的溢出，**必須拿圓去問，不能拿方框**。
+ *
+ * 環心 `.tl-edge-center` 是 `border-radius:50%`。一個盒子「在方框內」與「在圓外」
+ * 可以同時成立 —— 尤其是掛在圓下半部的第二行文字，圓在那裡已經收窄了。
+ * 2026-08-28 實測：過期文案超出圓 12.5~13.7px，而當時的方框斷言**全綠**。
+ * ⚠️ 更糟的是**反向驗證也會一起綠**，因為破壞與斷言共用同一個錯誤幾何。
+ *
+ * 下面兩處各自在 page.evaluate 裡內聯同一段量法（跨不進去，只能各寫一次）：
+ *   逐行取 client rects → 每個矩形的四個角問 hypot(角 − 圓心) − R。
+ *
+ * 容差是**推導的，不是反推的**：12px 字放在 14px 行盒裡，上下各多約 1px，
+ * 所以「角落到圓心」的高估上限約 2~3px → 取 4px。
+ * 佐證：本來就沒壞的兩個狀態最差 2.6px（容差內），這次的傷 12.5px 是三倍以上。
+ */
+const OUTSIDE_CIRCLE_TOL = 4;
+
 const browser = await chromium.launch();
 
 /** 開一頁 /v3/，種好讀數，跳過 splash，停在 Today。 */
@@ -528,9 +545,17 @@ console.log('\n── 自訂標籤 compliance ──');
 // 不是去比對某個寬度下量到的 px。
 console.log('\n── Hero 讀數不得爆版 ──');
 {
+  // ⚠️ 原本只跑 `reading: true/false`，而 openV3 的預設讀數是**新鮮**的 ——
+  // 過期那條路 §10 從來沒走過，而 founder 拍到的正是它。三個狀態都要跑。
+  const HERO_STATES = [
+    { tag: '無讀數', opts: { reading: false } },
+    { tag: '新鮮讀數', opts: { reading: true, readingAgeMs: 2 * 60e3 } },
+    { tag: '過期讀數', opts: { reading: true, readingAgeMs: 40 * 60e3 } },
+  ];
   for (const width of [360, 375, 390, 414]) {
-    for (const withReading of [false, true]) {
-      const page = await openV3(700, { reading: withReading, width });
+    for (const st of HERO_STATES) {
+      const tag = `${width}px ${st.tag}`;
+      const page = await openV3(700, Object.assign({ width }, st.opts));
       const h = await page.evaluate(() => {
         const lines = (el) => {
           if (!el || el.hidden) return null;
@@ -540,26 +565,43 @@ console.log('\n── Hero 讀數不得爆版 ──');
         };
         const ctr = document.querySelector('.tl-edge-center');
         const score = document.getElementById('edgeScoreReveal');
+        const zone = document.getElementById('edgeTraceZone');
         const cta = document.getElementById('edgeScanCta');
         const conf = document.getElementById('edgeConfidence');
         const action = (cta && !cta.hidden) ? cta : conf;
         const cr = ctr.getBoundingClientRect();
-        const sr = score.getBoundingClientRect();
+        // 🔴 圓形容器要問圓，不是問方框（見檔頭 OUTSIDE_CIRCLE_TOL 那段）
+        const outsideCircle = (el) => {
+          const c = ctr.getBoundingClientRect();
+          const cx = c.left + c.width / 2, cy = c.top + c.height / 2, R = c.width / 2;
+          const rg = document.createRange(); rg.selectNodeContents(el);
+          let out = 0;
+          for (const r of rg.getClientRects()) {
+            for (const [x, y] of [[r.left, r.top], [r.right, r.top], [r.left, r.bottom], [r.right, r.bottom]]) {
+              out = Math.max(out, Math.hypot(x - cx, y - cy) - R);
+            }
+          }
+          return Math.round(out * 10) / 10;
+        };
         return {
           text: score.textContent.trim(),
+          zoneText: zone.textContent.trim(),
           scoreLines: lines(score),
-          // 讀數的盒子必須完全落在環心的盒子裡（上下左右都不得溢出）
-          insideCircle: sr.top >= cr.top - 0.5 && sr.bottom <= cr.bottom + 0.5
-                     && sr.left >= cr.left - 0.5 && sr.right <= cr.right + 0.5,
+          // 🔴 方框 → 圓。舊寫法問的是「在不在環心的**方框**裡」，
+          // 而環心是圓 —— 兩者可以同時「在方框內」且「在圓外」。
+          scoreOut: outsideCircle(score),
+          zoneOut: outsideCircle(zone),
           // 圓裡的內容不得高過圓本身
           contentFits: ctr.scrollHeight <= Math.ceil(cr.height) + 1,
           actionText: action ? action.textContent.trim() : null,
           actionLines: lines(action),
         };
       });
-      const tag = `${width}px ${withReading ? '有讀數' : '無讀數'}`;
       check(`${tag}：讀數「${h.text}」只有 1 行`, h.scoreLines, 1);
-      check(`${tag}：讀數整個在環心圓內`, h.insideCircle, true);
+      checkTruthy(`${tag}：讀數整個在環心圓內（超出 ${h.scoreOut}px）`,
+        h.scoreOut <= OUTSIDE_CIRCLE_TOL);
+      checkTruthy(`${tag}：新鮮度那一行整個在環心圓內（「${h.zoneText}」超出 ${h.zoneOut}px）`,
+        h.zoneOut <= OUTSIDE_CIRCLE_TOL);
       check(`${tag}：環心裝得下自己的內容`, h.contentFits, true);
       check(`${tag}：動作鍵「${h.actionText}」只有 1 行`, h.actionLines, 1);
       await page.close();
@@ -945,18 +987,24 @@ console.log('\n── Hero 讀數不得爆版 ──');
       const c = document.querySelector('.tl-edge-center');
       const r = document.createRange(); r.selectNodeContents(z);
       const rects = [...r.getClientRects()].map((x) => Math.round(x.width));
-      const zr = z.getBoundingClientRect(); const cr = c.getBoundingClientRect();
-      return {
-        text: z.textContent, rects,
-        inside: zr.left >= cr.left - 0.5 && zr.right <= cr.right + 0.5
-          && zr.top >= cr.top - 0.5 && zr.bottom <= cr.bottom + 0.5,
-      };
+      // 🔴 方框 → 圓（見檔頭 OUTSIDE_CIRCLE_TOL）。這一行掛在圓的下半部，
+      // 那裡圓已經收窄 —— 方框斷言在傷得最重的時候仍然全綠。
+      const cr = c.getBoundingClientRect();
+      const cx = cr.left + cr.width / 2, cy = cr.top + cr.height / 2, R = cr.width / 2;
+      let out = 0;
+      for (const x of r.getClientRects()) {
+        for (const [px, py] of [[x.left, x.top], [x.right, x.top], [x.left, x.bottom], [x.right, x.bottom]]) {
+          out = Math.max(out, Math.hypot(px - cx, py - cy) - R);
+        }
+      }
+      return { text: z.textContent, rects, out: Math.round(out * 10) / 10 };
     });
     checkTruthy(`${width}px：過期時這一行有話說（${m.text}）`, /過期/.test(m.text));
     // 12px 字級下 3 個字約 36px —— 比這更窄的一行就是被斷出來的孤字。
     checkTruthy(`${width}px：🔴 沒有孤字（每行寬度 ${JSON.stringify(m.rects)}）`,
       m.rects.length > 0 && Math.min(...m.rects) >= 36);
-    check(`${width}px：這一行整個在環心圓內`, m.inside, true);
+    checkTruthy(`${width}px：這一行整個在環心圓內（超出 ${m.out}px）`,
+      m.out <= OUTSIDE_CIRCLE_TOL);
     await page.close();
   }
 }
