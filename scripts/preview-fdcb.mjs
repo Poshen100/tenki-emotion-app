@@ -81,9 +81,14 @@ const browser = await chromium.launch();
 /** 開一頁 /v3/，種好讀數，跳過 splash，停在 Today。 */
 async function openV3(height, opts) {
   // readingAgeMs：讀數有多舊。預設 2 分鐘＝新鮮；> 15 分鐘會走「已過期」那條文案。
-  const options = Object.assign({ reading: true, width: 390, readingAgeMs: 120e3 }, opts || {});
+  const options = Object.assign(
+    { reading: true, width: 390, readingAgeMs: 120e3, query: '', desktop: false }, opts || {});
+  // ⚠️ 桌機視型要關掉 isMobile/hasTouch —— 它們會改變 meta viewport 的處理方式，
+  // 而 #232 這一輪要驗的正是「桌機瀏覽器上版面拿到哪一組尺寸」。
   const page = await browser.newPage({
-    viewport: { width: options.width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+    viewport: { width: options.width, height },
+    deviceScaleFactor: options.desktop ? 1 : 2,
+    isMobile: !options.desktop, hasTouch: !options.desktop,
   });
   await page.addInitScript((opts) => {
     // 自訂模板：一個 6 秒（跑得完）、一個 3:30（分秒都要顯示對）
@@ -103,7 +108,7 @@ async function openV3(height, opts) {
       localStorage.removeItem('tenki.readiness.reading.v1');
     }
   }, options);
-  await page.goto(`${base}/v3/`, { waitUntil: 'networkidle' }).catch(() => {});
+  await page.goto(`${base}/v3/${options.query}`, { waitUntil: 'networkidle' }).catch(() => {});
   // ⚠️ splash 自己在 2400ms 後 dismiss，之前它以 z-index:9999 蓋滿整頁 ——
   // 用固定 waitForTimeout 猜這個時間，遮擋斷言就會去問到 splash 而不是版面
   // （第一版實際踩到，回報 other:tenki-splash）。等它真的離開 DOM 才往下走。
@@ -992,6 +997,96 @@ console.log('\n── Hero 讀數不得爆版 ──');
   checkTruthy(`自己起跑的決策：Session 列有名字（${selfRow}）`, !!selfRow);
   check('🔴 自己起跑的決策不得被印成「模板名 · 模板名」', /(.+) · \1/.test(selfRow || ''), false);
   await page.close();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// #232 —— 「滑動看更多 · Swipe」教學膠囊不得蓋住資料
+//
+// founder 兩次回報同一顆膠囊：先是蓋住波形圖，改放「卡頭↔圖表中點」之後改成
+// 蓋住 HRV 數字。根因不是座標挑錯 —— 是**那張卡從卡頭到波形是滿的**
+// （.vhead / .vlabel / .metric-num / canvas 四層連續），卡片裡沒有它能站的地方。
+// 所以斷言問的是「有沒有壓到卡片裡的任何一層」，不是「有沒有壓到 #hrvVal」——
+// 只盯一個元素的話，把膠囊往左移 20px 就會變綠，而它只是改壓 #hrVal。
+//
+// 🔴 同時守第二件事：版面活在 `.phone`（高度夾在 844）裡，但那幾條 media query
+// 量的是**視窗**。視窗比外框高時版面會拿到一套為更大螢幕設計的尺寸，塞不進外框，
+// 輪播圓點整排掉到 FDCB 底座下面。既有那條圓點斷言只跑 390×844，所以從沒紅過 ——
+// 這裡改成掃五個尺寸，其中 430×932 與 1280×900 正是會破的那兩個。
+// ═══════════════════════════════════════════════════════════════════════
+{
+  console.log('\n── #232 滑動提示 + 外框／視窗尺寸錯位（掃五個尺寸）──');
+  const SIZES = [
+    { w: 375, h: 667, name: 'iPhone SE' },
+    { w: 390, h: 844, name: 'iPhone 13/14' },
+    { w: 414, h: 896, name: 'iPhone XR（外框真的這麼高）' },
+    { w: 430, h: 932, name: 'iPhone 16 Pro Max（外框夾在 844）' },
+    { w: 1280, h: 900, name: '桌機預覽（外框夾在 844）', desktop: true },
+  ];
+  // 膠囊自己 33px；上下各留 6px。這兩個數字跟 v6 的 show() 是一組的。
+  const HINT_H = 33, CLEAR = 6, NEED = HINT_H + CLEAR * 2;
+
+  for (const s of SIZES) {
+    const page = await openV3(s.h, { width: s.w, query: '?hint=1', desktop: !!s.desktop });
+    // 提示自己在 ~650ms 後 show()、4800ms 後自動收走。等它真的出現，
+    // **不要用固定 timeout 猜** —— 逾時就當作「這個尺寸不顯示」，那本身就是被驗的行為。
+    const shown = await page
+      .waitForFunction(() => document.getElementById('snapHint').classList.contains('on'),
+        { timeout: 6000 })
+      .then(() => true).catch(() => false);
+
+    const g = await page.evaluate(() => {
+      const hint = document.getElementById('snapHint');
+      const dots = document.getElementById('snapDots');
+      const dock = document.getElementById('fdcb');
+      const db = dots.getBoundingClientRect(), kb = dock.getBoundingClientRect();
+      // 🔴 遮擋要問 elementFromPoint，不能只看 rect —— 被底座蓋住不會改變 rect，
+      // 只量 rect 的斷言在這個 bug 面前永遠是綠的（PLAYBOOK 記載過同一族）。
+      const seenBy = (el) => {
+        const r = el.getBoundingClientRect();
+        const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return t && el.contains(t) ? true : (t ? (t.id || String(t.className).split(' ')[0] || t.tagName) : 'null');
+      };
+      // ⚠️ 這一條踩過：膠囊自己是 `pointer-events:none`（要讓滑動穿過去），
+      // 而 `elementFromPoint` **會直接跳過**這種元素 —— 所以拿它問膠囊本人，
+      // 永遠回不到膠囊，斷言恆紅、而且紅得看起來像版面壞掉。
+      // 這裡暫時把它翻成 auto 再問：測的是**視覺堆疊**（有沒有被底座蓋住），
+      // 不是它該不該吃點擊。問完就翻回去。
+      const hpe = hint.style.pointerEvents;
+      hint.style.pointerEvents = 'auto';
+      const hintSeen = seenBy(hint);
+      hint.style.pointerEvents = hpe;
+      const hb = hint.getBoundingClientRect();
+      const overlaps = [];
+      document.querySelectorAll(
+        '#snapTrack .vhead, #snapTrack .vlabel, #snapTrack .metric-num, #snapTrack canvas',
+      ).forEach((el) => {
+        const b = el.getBoundingClientRect();
+        if (!(b.right < hb.left || b.left > hb.right || b.bottom < hb.top || b.top > hb.bottom)) {
+          overlaps.push(el.id || String(el.className).split(' ')[0]);
+        }
+      });
+      return {
+        band: Math.round((kb.top - db.bottom) * 100) / 100,
+        dots: seenBy(dots),
+        hint: hintSeen,
+        overlaps: [...new Set(overlaps)],
+        ring: Math.round(document.querySelector('#today-screen .tl-edge').getBoundingClientRect().height),
+      };
+    });
+
+    const tag = `${s.name} ${s.w}×${s.h}`;
+    // ① 這條在 430×932 / 1280×900 上，修好 media query 之前就是紅的。
+    check(`${tag}：輪播圓點沒有被底座蓋掉（環 ${g.ring}px、帶寬 ${g.band}px）`, g.dots, true);
+    if (shown) {
+      check(`${tag}：🔴 膠囊不得壓到卡片任何一層`, g.overlaps, []);
+      check(`${tag}：膠囊顯示了就要真的看得見（不在底座下）`, g.hint, true);
+    }
+    // ② 帶寬明顯夠就一定要出現；明顯不夠就一定不能出現。
+    //    中間那段（NEED ~ NEED+15）刻意不斷言 —— 那是實作的判準，不是產品承諾。
+    if (g.band >= NEED + 15) checkTruthy(`${tag}：帶寬夠（${g.band}px）就要教一次手勢`, shown);
+    if (g.band < NEED) check(`${tag}：🔴 帶寬不夠（${g.band}px）就不得顯示`, shown, false);
+    await page.close();
+  }
 }
 
 await browser.close();
