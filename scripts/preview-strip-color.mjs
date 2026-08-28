@@ -408,6 +408,10 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('🔴 示意標記不得吃已被指派意義的顏色（綠=good／琥珀=warn）',
     today.badgeColors.some((c) => c === 'rgb(52, 199, 89)' || c === 'rgb(245, 166, 35)'), false);
   check('說明那一行看得見（給停下來看的人）', today.noteVisible, true);
+  // ⚠️ 這條只跑 390×844 一個尺寸 —— 而 #232 那個 bug（版面活在夾在 844 的 .phone
+  // 外框裡，media query 卻量視窗）只在 430×932 / 1280×900 上發作，所以它從沒紅過。
+  // 多尺寸版本在 `preview-fdcb.mjs` 的「#232」那一段。這條留著是因為它守的是**另一個**
+  // 迴歸：說明行搬到圓點上方時把圓點擠到底座下面（同一個症狀、不同的原因）。
   check('輪播圓點沒有被底座蓋掉（修一個不得換壞另一個）', today.dotsVisible, true);
   check('說明講的是真原因（需要感測器、尚未接上）',
     /感測器/.test(today.noteText) && /尚未接上/.test(today.noteText), true);
