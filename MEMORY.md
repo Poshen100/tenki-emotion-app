@@ -9,6 +9,57 @@
 
 ---
 
+# 2026-08-28 Session Update #78 (Session 列說得出「哪一檔」+ 又用 git checkout 洗掉自己的修正)
+
+founder 在主畫面 App 裡把整條鏈實走完（快訊 → 交棒 → 守望 → 判定成立 → 收束頁 → Session），
+收束頁正確印出「守望期間離開 3 次 · 共 06:28」。但 **Session 那一列寫的是 `Mancini FBD`** ——
+那是「哪一種流程」，不是「哪一筆決策」。紀錄裡有 `symbol: 'ES1!'`，收束頁標題也已經帶了它。
+第五輪回報過、當時沒動；這次 founder 說「要」。
+
+## 一、做了什麼（commit `f24c003`）
+
+`outcomeMeta()` 多回一個 `meta.symbol`（**不併進 `m.name`**），新增 `outcomeTitle(m)`。
+Session 列與 Session 詳情用它 → `ES1! · Mancini FBD`；**Timeline 事件列刻意不動** ——
+那是「時間 / 點 / 描述 / 用時」的窄四欄，是這個 repo 已經付過兩次學費的溢出家族。
+閘門是 `rec.source === 'alert'`：自己起跑的決策 `symbol` 存的是模板名，
+不設閘門會印出「Health Stress · Health Stress」。舊紀錄沒有 `source` → 維持現狀，不猜。
+
+版面是量的不是估的：360/375/390/414 四個寬度 `.nm` 都 1 行、列高一律 62px（與改動前相同），
+詳情標題 1 行且 `scrollWidth === clientWidth` → 不需要動 CSS。
+
+## 二、🔴 同一個坑，隔三天再踩一次
+
+反向驗證第一個破壞之後，我用 `git checkout -- apps/preview/v6/index.html` 還原 ——
+**那個檔案裡還沒 commit 的實作本身也一起沒了**。PLAYBOOK:367 就是 8/25（`1c9904c`）
+那次寫下的，我照樣犯。
+
+差別在**這次是怎麼發現的**：還原後順手 `git status`，看到改動清單裡只剩兩支 harness、
+`index.html` 不見了。上次是 `npm run verify` 紅燈才抓到。
+
+**教訓不是「要記得先 commit」**（那正是上次寫的規則，而它靠的是每次都想起來）。
+已把 PLAYBOOK 那條改成一個不必記的動作：反向驗證前先 `cp` 一份到 scratchpad，
+還原一律 `cp` 回來，**永遠不對工作中的檔案用 `git checkout --`**。
+
+## 三、三次反向驗證（一次只破壞一處）
+
+1. 拿掉 `source === 'alert'` 閘門 → fdcb 那條紅（實印 `Health Stress · Health Stress`），只有它紅
+2. 拿掉 symbol 前綴 → 「說得出哪一檔」紅（`Mancini FBD`），「流程名還在」仍綠
+3. 強制走 fallback → 兩條都紅（實印 `ES1! · ES1!`）—— 證明「流程名還在」那半也是活的
+
+第 3 條是重點：**fallback 的長相正好就是「只有 symbol」**，所以斷言不能放寬成
+「含 ES1! 就通過」—— 那樣掉進 fallback 也會綠，這條就死了。
+
+## 四、下次接手點
+
+- `resumeActiveDecision()` **仍未在真實裝置上走過**（founder 只走過路徑 A）。
+  實走腳本：快訊 → 進決策 → 回桌面開交易 App 停留 30 秒以上 → 回 TENKI Core →
+  應看到「決策進行中」橫幅 → 點回去 → 時鐘沒退、標記還在。
+- 兩件已提議、founder 尚未回答的：①守望模式要不要藏掉那條靜態三段軌
+  （它不是進度條，但長得像）②#232「滑動看更多 · Swipe」膠囊蓋住 HRV 數字。
+- founder 那邊：TradingView 訊息欄寫死 `ES1! 交叉 7,701.00`，建議改 `{{close}}`；
+  PR merge 後分支 preview 網址會死，webhook 要重指到 production 並在
+  **production 的主畫面 App** 裡重新配對（iOS 三個 storage 容器 = 三份身分）。
+
 # 2026-08-21 Session Update #77 (下完單回來，決策還在 —— 交易者的實體動線)
 
 founder 兩張截圖把情境釘到動作層級：**Tradesea 與 TENKI Core 並排在同一個桌面上**。
