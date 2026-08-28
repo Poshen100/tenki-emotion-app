@@ -6275,24 +6275,33 @@ function closeSessionDetail(){
         function show(){
           if(shown||done) return;
           if(cur!==0){ markSeen(); done=true; return; }   // already explored during the wait → don't nag
-          shown=true;
-          // 🔴 不要壓在卡片下緣 —— 那裡現在是波形圖。
-          // 舊值 (track.offsetTop+offsetHeight-22) 是在「.snap 會裁掉 track 以下」的
-          // 舊版面下訂的；#231 之後卡片完整露出，那個位置正好蓋住 HR/HRV 波形，
-          // 而 founder 回報的就是「遮擋圖表」。改放**標題列與圖表之間的數字帶**，
-          // 用實際元素量出來（版面/卡片高度再變也會自己跟上），量不到才退回比例值。
-          var _snapTop=snap.getBoundingClientRect().top;
-          var _card=track.querySelector('.vcard');
-          var _head=_card&&_card.querySelector('.vhead');
-          var _chart=_card&&_card.querySelector('canvas,svg');
-          var _top;
-          if(_head&&_chart){
-            var _mid=(_head.getBoundingClientRect().bottom+_chart.getBoundingClientRect().top)/2;
-            _top=Math.round(_mid-_snapTop-hint.offsetHeight/2);
-          } else {
-            _top=Math.round(track.offsetTop+track.offsetHeight*0.34);
+          // 🔴 這顆膠囊**不放在資料卡裡** —— 卡片裡沒有它能站的地方。
+          // 歷史：原本掛在卡片下緣（#231 之後那裡是波形圖）→ founder 回報「遮擋圖表」
+          // → 改放「卡頭與圖表的中點」→ founder 回報「蓋住 HRV 數字」。
+          // 兩次都只是換一個受害者，因為 .vcard 由上到下是
+          //   .vhead / .vlabel / .metric-num / canvas 四層**連續**的內容，
+          // 卡片裡根本沒有空白帶。判準要從「挑一個座標」升級成
+          // **「這個容器有沒有它能站的地方，沒有就不要放」**。
+          //
+          // 真的空的地方只有一處：圓點下緣 → FDCB 底座上緣（那是 .snap 的保留區）。
+          // 座標一律現算，版面再變會自己跟上；量不到就不顯示 ——
+          // **不要退回比例猜測值**，猜出來的位置正是上面那兩次遮擋的來源。
+          var _dots=byId('snapDots'), _dock=byId('fdcb');
+          if(!_dots||!_dock){ markSeen(); done=true; return; }
+          var _db=_dots.getBoundingClientRect(), _kb=_dock.getBoundingClientRect();
+          var _band=_kb.top-_db.bottom, _clear=6;
+          // 放不下就不顯示膠囊 —— 但**還是要 tug 一次**：讓卡片自己滑一下才是真正
+          // 示範動作的部分，膠囊只是加註解。⚠️ 早一版把 tug 也一起 return 掉了，
+          // 而註解卻寫著「手勢還是教得會」—— 註解與行為對不上比沒有註解更糟。
+          // markSeen() 是必要的，否則每次開頁都會再跑一次 tug。
+          // 實測：只有 iPhone XR（414×896，帶寬 43px）會走到這裡。
+          if(_band < hint.offsetHeight + _clear*2){
+            if(!reduce) tug(30,440);
+            markSeen(); done=true; return;
           }
-          hint.style.top=_top+'px';
+          shown=true;
+          var _snapTop=snap.getBoundingClientRect().top;
+          hint.style.top=Math.round((_db.bottom+_kb.top)/2-_snapTop-hint.offsetHeight/2)+'px';
           hint.classList.add('on');
           track.addEventListener('pointerdown',dismiss,{passive:true});
           track.addEventListener('touchstart',dismiss,{passive:true});
