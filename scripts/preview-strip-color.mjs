@@ -306,7 +306,14 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
       badgeCls: badge.className,
     };
   });
-  check('Session 列顯示流程名，不是 symbol fallback', row && row.name, 'Mancini FBD');
+  // 🔴 這條守的是第二輪的真傷：紀錄掉進 `|| fallback` 之後，列上只剩 symbol
+  // 加一顆灰色心跳（`❤️ ES1! · 未達 Readiness · [已記錄]`，四處全錯、沒有一處報錯）。
+  // ⚠️ **fallback 的長相正好就是「只有 ES1!」** —— 所以第十輪把列名改成
+  // `ES1! · Mancini FBD` 之後，斷言**不能**放寬成「含 ES1! 就通過」：
+  // 那樣掉進 fallback 也會綠，這條就死了。要同時問「有標的」與「流程名還在」。
+  check('Session 列說得出哪一檔（快訊決策帶標的）', row && row.name, 'ES1! · Mancini FBD');
+  check('🔴 而且流程名還在（沒有掉進 symbol fallback）',
+    !!row && row.name.includes('Mancini FBD'), true);
   // FBD 的模板色 #5E3A87；fallback 是 #8E8E93 灰。
   check('圖示是模板色，不是 fallback 灰', row && row.iconColor, 'rgb(94, 58, 135)');
   check('圖示不是 fallback 的灰', row && row.iconColor !== 'rgb(142, 142, 147)', true);

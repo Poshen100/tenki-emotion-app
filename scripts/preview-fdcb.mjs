@@ -979,6 +979,18 @@ console.log('\n── Hero 讀數不得爆版 ──');
   await page.evaluate(() => window.nextState());   // running → 收束
   await page.waitForTimeout(600);
   check('🔴 收束後標記一定要消失（留著會靜默吃掉之後每一則快訊）', await read(), null);
+
+  // 🔴 第十輪的閘門：Session 列上「標的 · 流程名」只給**快訊決策**。
+  // saveV6Outcome 對自己起跑的決策寫的是 `symbol: session.name`（＝模板名），
+  // 所以少了 `source === 'alert'` 這道閘門就會印出「Health Stress · Health Stress」。
+  await page.evaluate(() => window.goTab('session'));
+  await page.waitForTimeout(600);
+  const selfRow = await page.evaluate(() => {
+    const nm = document.querySelector('#sessionList .session-item .nm');
+    return nm ? nm.textContent.trim() : null;
+  });
+  checkTruthy(`自己起跑的決策：Session 列有名字（${selfRow}）`, !!selfRow);
+  check('🔴 自己起跑的決策不得被印成「模板名 · 模板名」', /(.+) · \1/.test(selfRow || ''), false);
   await page.close();
 }
 

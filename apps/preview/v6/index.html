@@ -5254,9 +5254,24 @@ function outcomeMeta(rec){
   // v6 的 TEMPLATES 用自己的一套 key —— **兩套從來沒對上**，於是那筆決策
   // 失去方法論身分，fallback 成一顆灰色心跳圖示加上 symbol。翻譯放共用模組。
   const t = TEMPLATES[window.TENKI_OUTCOME.toV6TemplateId(rec.templateId)];
-  if(t) return { name:t.name, icon:t.icon, color:t.color, segLabel:t.segLabel };
-  return { name: rec.symbol || '決策', icon:'heart', color:'#8E8E93', segLabel:'Readiness' };
+  const meta = t
+    ? { name:t.name, icon:t.icon, color:t.color, segLabel:t.segLabel }
+    : { name: rec.symbol || '決策', icon:'heart', color:'#8E8E93', segLabel:'Readiness' };
+  // 🔴 標的另外放一格，**不併進 name** —— 三個面共用這個 meta，其中 Timeline
+  // 那一列是窄四欄，塞不下（這個 repo 已經為溢出付過兩次學費）。由各面自己決定用不用。
+  // ⚠️ 閘門必須是 `source === 'alert'`：自己起跑的決策，`saveV6Outcome` 往
+  // `symbol` 寫的是**模板名**，不設閘門就會印出「Health Stress · Health Stress」。
+  // ⚠️ 舊紀錄可能沒有 source（第五輪之前）→ 條件不成立就維持現狀，不猜。
+  meta.symbol = (rec.source === 'alert' && typeof rec.symbol === 'string' && rec.symbol)
+    ? rec.symbol : null;
+  return meta;
 }
+/**
+ * 列名／標題：有標的就說得出「哪一檔的哪一種決策」，沒有就只說流程。
+ * @param {{name:string, symbol:?string}} m - outcomeMeta 的結果。
+ * @returns {string}
+ */
+function outcomeTitle(m){ return m.symbol ? m.symbol + ' · ' + m.name : m.name; }
 /**
  * 「有沒有進入核心段」這一格。
  *
@@ -5315,7 +5330,7 @@ function renderSessionScreen(){
     const readiness = readinessCellV6(r, m);
     return '<div class="session-item sess-enter" style="animation-delay:' + (Math.min(i, 8) * 45) + 'ms" data-ts="' + r.ts + '" onclick="openSessionDetail(' + r.ts + ')">' +
       '<div class="tmpl-ic" style="color:' + m.color + '">' + (ICON_SVG[m.icon] || ICON_SVG.heart) + '</div>' +
-      '<div class="info"><div class="nm">' + escHtml(m.name) + '</div>' +
+      '<div class="info"><div class="nm">' + escHtml(outcomeTitle(m)) + '</div>' +
       '<div class="meta"><span>' + fmtTimeOfDay(r.ts) + '</span><span class="sep">·</span>' +
       '<span>' + escHtml(readiness) + '</span><span class="sep">·</span><span>' + fmtDur(r.durationSec||0) + '</span></div></div>' +
       '<div class="result ' + badge.cls + '">' + badge.text + '</div>' +
@@ -5478,7 +5493,7 @@ function openSessionDetail(ts){
   const b = segBounds(dur);
   const marks = rec.marks || 0;
 
-  document.getElementById('sdTitle').textContent = m.name;
+  document.getElementById('sdTitle').textContent = outcomeTitle(m);
   document.getElementById('sdSubtitle').textContent = fmtTimeOfDay(rec.ts) + ' · ' + fmtDur(dur) + ' 用時';
   const resultEl = document.getElementById('sdResult');
   resultEl.textContent = badge.text;
