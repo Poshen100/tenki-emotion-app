@@ -108,11 +108,24 @@ async function openV3(height, opts) {
       localStorage.removeItem('tenki.readiness.reading.v1');
     }
   }, options);
+  // 🔴 擋掉外部 CDN —— 這是「本機綠、CI 紅」的來源。
+  // `/v3/` 在 splash 那段 inline script **之前**有四支 blocking 的外部 script
+  // （head 的 gsap、以及 three.js + 兩包 mediapipe）。開發容器連不到 cdnjs/jsdelivr
+  // （實測 CONNECT tunnel failed, 403），它們立刻失敗、頁面照走 —— **所有斷言都是
+  // 在那個前提下寫的、也是在那個前提下反向驗證的**。但 CI runner 連得到：每開一頁
+  // 都真的去下載（每個 context 都是冷快取），其中一支卡住，後面的 inline splash
+  // script 就不會執行 → splash 永遠不消失 → openV3 逾時。
+  // 2026-08-28 CI 實際紅在這裡（430×932 逾時、前一個 414×896 光開頁就花了 28 秒）。
+  // 擋掉之後兩邊條件一致，而且快得多。
+  await page.route(/(cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net)/, (r) => r.abort());
   await page.goto(`${base}/v3/${options.query}`, { waitUntil: 'networkidle' }).catch(() => {});
   // ⚠️ splash 自己在 2400ms 後 dismiss，之前它以 z-index:9999 蓋滿整頁 ——
   // 用固定 waitForTimeout 猜這個時間，遮擋斷言就會去問到 splash 而不是版面
   // （第一版實際踩到，回報 other:tenki-splash）。等它真的離開 DOM 才往下走。
-  await page.waitForFunction(() => !document.getElementById('tenki-splash'), { timeout: 8000 });
+  // ⚠️ `waitForFunction(fn, arg, options)` —— timeout 是**第三**個參數。
+  // 原本寫成第二個，等於把它當成傳給函式的 arg，逾時默默退回預設的 30 秒；
+  // CI 那次紅燈的訊息因此寫「Timeout 30000ms」而不是我們以為的 8 秒。
+  await page.waitForFunction(() => !document.getElementById('tenki-splash'), null, { timeout: 8000 });
   await page.evaluate(() => window.goTab('today'));
   await page.waitForTimeout(400);
   return page;
