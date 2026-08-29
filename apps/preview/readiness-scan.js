@@ -475,9 +475,14 @@
       'animation:rs-verdict-in 1.4s ' + EASE_SECURE + ' 1;}',
       '@keyframes rs-verdict-in{0%{opacity:0;transform:scale(1.18);}',
       '18%{opacity:1;}34%{transform:scale(0.98);}100%{opacity:1;transform:scale(1);}}',
-      // 收束成功才轉 gold（gold = SECURED/calibrated；訊號不足那條不得用）。
+      // 收束成功之後，這個大字報的是**帶位**，所以吃帶位色（`BAND_TONE`）——
+      // 顏色由 showVerdict() 逐次寫進 inline style，因為它跟著讀數變。
+      // ⚠️ 以前這裡是 gold。founder 2026-08-29 實走截圖指出：Today 環上的
+      // 「Clear」是青的、結果頁的「Clear」是金的，同一個帶位兩種顏色會混淆。
+      // gold = SECURED 仍然守著 —— 由**外框與完成鈕**承接，那是「狀態」；
+      // 大字承接的是「帶位」。兩件事分開講，顏色才不會互相蓋台。
       '#' + OVERLAY_ID + ' .rs-frame.revealed.secured .rs-verdict-band{',
-      'color:' + HALO_SECURED + ';filter:drop-shadow(0 0 12px rgba(255,212,110,0.45));}',
+      'filter:drop-shadow(0 0 12px rgba(255,255,255,0.16));}',
       // 儀器的工作部件退場 —— 對位標記、目標環、角括號的任務結束了。
       // 這是「安靜的收尾」的一部分：畫面上只剩結果，沒有還在運轉的零件。
       '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-reticle,',
@@ -1511,7 +1516,12 @@
     var factEl = q('verdict-fact');
     var specEl = q('verdict-spec');
     var qualityEl = q('verdict-quality');
-    if (bandEl) bandEl.textContent = band;
+    if (bandEl) {
+      bandEl.textContent = band;
+      // 每次都寫（含清空）—— 同一個 overlay 會被重複使用，上一輪的顏色留著
+      // 就會讓「訊號不足」繼承上一次的帶位色，等於用顏色宣稱一個沒發生的結果。
+      bandEl.style.color = (reading && BAND_TONE[reading.band]) || '';
+    }
     if (specEl) specEl.textContent = fact.spec;
     if (qualityEl) qualityEl.textContent = fact.quality;
     var frame = q('frame');
@@ -1564,6 +1574,13 @@
     var quality = [];
     if (typeof evidence.stillness === 'number') {
       quality.push('穩定度 ' + Math.round(evidence.stillness * 100) + '%');
+    }
+    // Beat 3 (Sync) 只亮 1 秒，掃完就沒了 —— founder 走了兩次都沒能判斷
+    // 自己踩到的是眨眼那條路還是 4.5 秒的靜默保底。這裡把它變成事後看得到的
+    // 事實。⚠️ 只有 tier A 有眼瞼 landmark；tier B 根本沒有眨眼偵測這回事，
+    // 那條路上一個字都不能提，否則就是宣稱一個不存在的量測。
+    if (evidence.tier === 'A' && session.landmarkCount > 0 && session.synced) {
+      quality.push(session.syncByBlink ? '眨眼確認' : '未偵測到眨眼');
     }
     quality.push(CONFIDENCE_LABEL[resolveConfidence(evidence)]);
     return { spec: spec, quality: quality.join(' · ') };
