@@ -109,6 +109,29 @@
   var SYNC_BLINK_GRACE_MS = 4500;
   var BLINK_CLOSE = 0.25;
   var BLINK_OPEN = 0.55;
+  /**
+   * 谷底式眨眼偵測 —— 為什麼絕對門檻不夠用。
+   *
+   * 🔴 FaceMesh 每 `FACE_INTERVAL_MS`(180ms) 才推論一次，而一次自然眨眼閉合
+   * 只有 100–150ms。眨眼常常整個發生在兩次取樣之間；就算落到一幀，那幀多半是
+   * **半閉**（約 0.3–0.5），`eyeOpen < 0.25 && prev > 0.55` 兩個門檻都不滿足，
+   * 整次眨眼就被丟掉。founder 2026-08-29 實走：他確實眨了，結果頁卻報
+   * 「未偵測到眨眼」—— 漏的是偵測，不是他。
+   *
+   * 所以改看**形狀**而不是絕對值：開合度掉到自己基線的一定比例以下（谷），
+   * 然後在幾幀內回升（睜回來）。
+   *
+   * ⚠️ 放寬的是**靈敏度，不是誠實度**。「眨眼確認」那行字在宣稱一個事實，
+   * 所以谷底必須在 `BLINK_DIP_MAX_SAMPLES` 幀內回升 —— 真眨眼會立刻睜開，
+   * 瞇眼與低頭不會。沒回升的谷會被標記作廢，等真的睜開才重新武裝，
+   * 不然「長時間瞇著、最後睜開」會被算成一次眨眼。
+   */
+  var BLINK_DIP_RATIO = 0.62;
+  var BLINK_RECOVER_RATIO = 0.85;
+  var BLINK_DIP_MAX_SAMPLES = 3;
+  /** 開合基線的 EWMA 係數：升得快、落得慢，追的是「睜著」那個狀態。 */
+  var EYE_BASE_RISE = 0.30;
+  var EYE_BASE_FALL = 0.03;
   /** 星塵表情的正規化除數 —— 沿用 takeover 已調過的值，改動＝改星塵手感。 */
   var MOUTH_OPEN_DIVISOR = 0.05;
   var BROW_SPAN_DIVISOR = 0.22;
@@ -990,6 +1013,54 @@
   }
 
   /** 每次推論結果 → 位移、取景、眨眼。只在這裡累積 landmark 樣本。 */
+  /**
+   * 一次眼睛開合取樣 → 這一幀有沒有構成一次眨眼。
+   *
+   * 純狀態機：只讀寫 `state` 上的 `prevEyeOpen` / `eyeBaseline` / `eyeDip`，
+   * 不碰 DOM、不碰 session 的其他欄位 —— 所以 `scripts/preview-scan-blink.mjs`
+   * 可以直接餵序列驗它，不必開相機走完整場掃描。
+   *
+   * 兩條路徑（OR）：
+   *  1. **絕對門檻** —— 真的抓到閉眼幀（`< BLINK_CLOSE`，且前一幀是睜的）。
+   *     成立就是確定，沒有放寬的理由。
+   *  2. **谷底** —— 開合度掉到自己基線的 `BLINK_DIP_RATIO` 以下，再於
+   *     `BLINK_DIP_MAX_SAMPLES` 幀內回到 `BLINK_RECOVER_RATIO` 以上。
+   *     這條是為了 180ms 取樣率下只抓得到「半閉」那一幀的情況。
+   *
+   * @param {{prevEyeOpen:number, eyeBaseline:(number|null), eyeDip:(object|null)}} state
+   * @param {number} eyeOpen - 正規化到 0..1 的眼睛開合度。
+   * @returns {boolean} 這一幀是否構成一次眨眼。
+   */
+  function detectBlink(state, eyeOpen) {
+    // 基線只被「睜著」的樣本拉高、被閉眼樣本慢慢拉低 —— 眨眼自己不會把它帶走。
+    if (state.eyeBaseline == null) {
+      state.eyeBaseline = eyeOpen;
+    } else {
+      var a = eyeOpen > state.eyeBaseline ? EYE_BASE_RISE : EYE_BASE_FALL;
+      state.eyeBaseline += (eyeOpen - state.eyeBaseline) * a;
+    }
+    var blinked = eyeOpen < BLINK_CLOSE && state.prevEyeOpen > BLINK_OPEN;
+    var base = state.eyeBaseline;
+    if (!blinked && base > 0) {
+      if (state.eyeDip) {
+        state.eyeDip.samples += 1;
+        if (eyeOpen >= base * BLINK_RECOVER_RATIO) {
+          // 睜回來了 —— 只有沒被作廢的谷才算一次眨眼。
+          blinked = !state.eyeDip.expired;
+          state.eyeDip = null;
+        } else if (state.eyeDip.samples > BLINK_DIP_MAX_SAMPLES) {
+          // 太久沒睜回來：這是瞇眼或低頭。標記作廢但**不清掉** ——
+          // 清掉的話下一幀會馬上重新入谷，等真的睜開時又補報一次假眨眼。
+          state.eyeDip.expired = true;
+        }
+      } else if (eyeOpen < base * BLINK_DIP_RATIO) {
+        state.eyeDip = { samples: 1, expired: false };
+      }
+    }
+    state.prevEyeOpen = eyeOpen;
+    return blinked;
+  }
+
   function onFaceResults(results) {
     if (!session || session.done) return;
     var faces = results && results.multiFaceLandmarks;
@@ -1005,6 +1076,9 @@
       session.lastFaceAt = 0;
       session.lastBlinkFeedAt = 0;
       session.prevEyeOpen = 1;
+      // 谷也要斷開 —— 臉不見前正在下降的谷，若跨過空窗才「睜回來」，
+      // 會被算成一次根本沒看到的眨眼。基線留著（同一個人、同一場掃描）。
+      session.eyeDip = null;
       // 星塵回中性 —— 沒有臉就沒有表情，不該讓粒子停在最後一幀的形狀。
       if (session.stardust && global.TENKI_STARDUST) {
         if (typeof global.TENKI_STARDUST.clearExpression === 'function') {
@@ -1059,8 +1133,7 @@
     var eyeL = Math.abs(lm[159].y - lm[145].y);
     var eyeR = Math.abs(lm[386].y - lm[374].y);
     var eyeOpen = Math.min(1, ((eyeL + eyeR) / 2) / EYE_OPEN_DIVISOR);
-    var blinkDetected = eyeOpen < BLINK_CLOSE && session.prevEyeOpen > BLINK_OPEN;
-    session.prevEyeOpen = eyeOpen;
+    var blinkDetected = detectBlink(session, eyeOpen);
 
     // 眨眼節奏：只餵臉在的幀，dt 上限避免推論卡頓灌大視窗（同 takeover）。
     if (session.blinkCounter) {
@@ -2087,6 +2160,8 @@
         framedStreak: 0, pendingReading: null, headPose: null,
         lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
+        // 谷底式眨眼偵測的狀態（見 BLINK_DIP_RATIO 的註解）。
+        eyeBaseline: null, eyeDip: null,
         lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0,
         stardust: false,
         // 借來的星塵綁定（`{node, fitContainer}`）。非 null 就代表**欠著一次歸還**。
@@ -2128,5 +2203,23 @@
     isAvailable: isAvailable,
     MISSIONS: MISSIONS,
     STORE_KEY: READING_STORE_KEY,
+    /**
+     * Harness contract（`scripts/preview-scan-blink.mjs` 用）。
+     *
+     * 眨眼偵測要驗，就得餵它一串開合度序列 —— 開相機走完整場掃描既慢又不可控，
+     * 而且 CI 不涵蓋 apps/preview/**。所以把純狀態機開出來直接餵。
+     * ⚠️ 這是**唯讀的測試出口**：不得從外面拿它去驅動 UI。
+     */
+    __blink: {
+      detect: detectBlink,
+      newState: function () { return { prevEyeOpen: 1, eyeBaseline: null, eyeDip: null }; },
+      constants: {
+        FACE_INTERVAL_MS: FACE_INTERVAL_MS,
+        BLINK_CLOSE: BLINK_CLOSE, BLINK_OPEN: BLINK_OPEN,
+        BLINK_DIP_RATIO: BLINK_DIP_RATIO,
+        BLINK_RECOVER_RATIO: BLINK_RECOVER_RATIO,
+        BLINK_DIP_MAX_SAMPLES: BLINK_DIP_MAX_SAMPLES,
+      },
+    },
   };
 })(window);
