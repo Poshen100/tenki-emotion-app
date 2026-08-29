@@ -91,7 +91,12 @@ body{
 }
 /* full-app deep-space starfield, behind every screen */
 #cosmos{position:absolute;inset:0;z-index:0;pointer-events:none}
-@media (max-width:420px){.phone{width:100%;height:100dvh;border-radius:0;box-shadow:none}}
+/* 🔴 這個門檻要蓋住所有真手機，不只窄的那些。
+   420px 把 iPhone Plus／Pro Max（430–440pt）擋在外面：那些機器上 app 被關在
+   390×844 的框裡letterbox，但 `@media (max-height:880px)` 那層壓縮判斷讀的是
+   **視窗高 932**、不是框高 844 —— 於是壓縮不生效，內容撐出框、FDCB dock 蓋掉
+   輪播圓點與示意註記。440px 讓那些機型跟其他手機一樣全螢幕，兩個判斷就對齊了。 */
+@media (max-width:440px){.phone{width:100%;height:100dvh;border-radius:0;box-shadow:none}}
 
 /* ═════════════════════════════════════════════════
    SCREENS (tabs)
@@ -359,10 +364,11 @@ body{
 .tl-edge-cta{
   appearance:none;border:1px solid rgba(0,180,216,0.35);
   background:rgba(0,180,216,0.10);color:var(--primary);
-  font-size:12px;font-weight:600;letter-spacing:0.02em;
-  padding:7px 16px;border-radius:999px;margin-top:10px;cursor:pointer;
+  font-size:11px;font-weight:600;letter-spacing:0.02em;
+  padding:5px 12px;border-radius:999px;margin-top:10px;cursor:pointer;
   transition:background .2s var(--ease-calm), border-color .2s var(--ease-calm);
 }
+.tl-edge-cta{white-space:nowrap}
 .tl-edge-cta:active{background:rgba(0,180,216,0.20)}
 .tl-edge-pr{
   font-size:12px;font-weight:500;color:rgba(255,255,255,0.85);
@@ -382,11 +388,16 @@ body{
 .tl-edge-conf{
   margin-top:10px;
   display:inline-flex;align-items:center;gap:6px;
-  font-size:11.5px;font-weight:500;letter-spacing:0.02em;
+  /* 🔴 這顆 chip 住在環心的黑圓裡，那個圓在 375px 手機上只有 ~112px 寬。
+     它會換行（founder 2026-08-29 實走截圖：斷成「信心中 · 提／升精度 ›」）。
+     所以這裡 nowrap 起來當守門員 —— 一旦有人把文案改長，它會明顯地溢出
+     而不是安靜地斷在詞中間。文案長度上限由 scripts/preview-today-layout.mjs 守。 */
+  white-space:nowrap;
+  font-size:11px;font-weight:500;letter-spacing:0.02em;
   font-family:inherit;
   color:#E8B45A;background:rgba(232,180,90,0.08);
   border:1px solid rgba(232,180,90,0.38);border-radius:999px;
-  padding:6px 14px;cursor:pointer;
+  padding:5px 12px;cursor:pointer;
   transition:all 0.6s var(--ease-calm);
 }
 .tl-edge-conf:active{transform:scale(0.97)}
@@ -2243,8 +2254,8 @@ body{
                    再把名字掛回來。 -->
               <div class="tl-edge-pr">狀態讀數</div>
               <div class="tl-edge-zone" id="edgeTraceZone">還沒有今天的讀數</div>
-              <button type="button" class="tl-edge-cta" id="edgeScanCta" onclick="goTab('scan')">到 Scan 掃一次 ›</button>
-              <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
+              <button type="button" class="tl-edge-cta" id="edgeScanCta" onclick="goTab('scan')">去掃一次 ›</button>
+              <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心中 · 提升 ›</button>
             </div>
           </div>
         </div>
@@ -3951,7 +3962,7 @@ function renderHeroReading(){
     : agoTextV6(r.ts, Date.now()) + ' 掃描';
   zoneEl.style.color = '';
   if(confEl){
-    confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + '　·　提升精度 ›';
+    confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + ' · 提升 ›';
     confEl.hidden = false;
   }
   return true;
@@ -4598,7 +4609,7 @@ function closeSessionDetail(){
     // 「不能點」): the pill must always re-open the finger flow (recalibrate
     // anytime; completion refreshes lastTs).
     conf.classList.toggle('calibrated', done);
-    conf.textContent = done ? '信心 · 高　·　✓ 已校準' : '信心 · 中　·　提升精度 ›';
+    conf.textContent = done ? '信心高 · 已校準' : '信心中 · 提升 ›';
     if(chip) chip.hidden = !done;
     // Root hook for the Antigravity visual pass (ring glow, autonomic refine)
     document.documentElement.classList.toggle('precision-calibrated', done);
@@ -4961,21 +4972,29 @@ function closeSessionDetail(){
           if(shown||done) return;
           if(cur!==0){ markSeen(); done=true; return; }   // already explored during the wait → don't nag
           shown=true;
-          // 🔴 不要壓在卡片下緣 —— 那裡現在是波形圖。
-          // 舊值 (track.offsetTop+offsetHeight-22) 是在「.snap 會裁掉 track 以下」的
-          // 舊版面下訂的；#231 之後卡片完整露出，那個位置正好蓋住 HR/HRV 波形，
-          // 而 founder 回報的就是「遮擋圖表」。改放**標題列與圖表之間的數字帶**，
-          // 用實際元素量出來（版面/卡片高度再變也會自己跟上），量不到才退回比例值。
+          // 🔴 這顆提示**不准疊在卡片上** —— 卡片裡沒有一塊真正的空白。
+          // 這條規則是踩了兩次才寫下來的：
+          //   1. 舊值 (track.offsetTop+offsetHeight-22) 蓋住 HR/HRV 波形 → founder「遮擋圖表」
+          //   2. 改成「標題列 ↔ 圖表」的中點後，那個帶裡站著數字本身 → 蓋住 68 BPM / 49 ms
+          // 卡片是密的：標題列、單位標籤、大數字、波形，由上到下沒有空隙。
+          // 所以錨到**輪播圓點下方**那塊真空區 —— 提示仍緊貼著它在教的東西，
+          // 但不擋任何讀數。位置用實際元素量（版面再變也跟得上），量不到才退回比例值。
           var _snapTop=snap.getBoundingClientRect().top;
-          var _card=track.querySelector('.vcard');
-          var _head=_card&&_card.querySelector('.vhead');
-          var _chart=_card&&_card.querySelector('canvas,svg');
+          var _dots=byId('snapDots');
           var _top;
-          if(_head&&_chart){
-            var _mid=(_head.getBoundingClientRect().bottom+_chart.getBoundingClientRect().top)/2;
-            _top=Math.round(_mid-_snapTop-hint.offsetHeight/2);
+          if(_dots){
+            _top=Math.round(_dots.getBoundingClientRect().bottom-_snapTop+12);
           } else {
-            _top=Math.round(track.offsetTop+track.offsetHeight*0.34);
+            _top=Math.round(track.offsetTop+track.offsetHeight+34);
+          }
+          // 圓點下方的空間有多少，取決於 FDCB dock 停在哪（各機型不同）。
+          // 夾住下緣，不夠時就往上收到緊貼 dock —— 上限是圓點正下方 4px，
+          // 再上去就會碰到它自己要教的東西。
+          var _dock=byId('fdcb');
+          if(_dock&&_dots){
+            var _maxTop=Math.round(_dock.getBoundingClientRect().top-_snapTop-hint.offsetHeight-12);
+            var _minTop=Math.round(_dots.getBoundingClientRect().bottom-_snapTop+4);
+            _top=Math.max(_minTop,Math.min(_top,_maxTop));
           }
           hint.style.top=_top+'px';
           hint.classList.add('on');
