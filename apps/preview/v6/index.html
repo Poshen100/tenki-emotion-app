@@ -1534,7 +1534,20 @@ body{
 .fdcb-tmpl-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
 .fdcb-tmpl-name{
   font-size:11px;font-weight:600;color:#fff;line-height:1;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px;
+  /* 🔴 上限要從**最長的內建模板名**推導，不是隨手訂一個數字。
+     實測（11px/600，容器字型）：Canslim High RS **89px**、Health Stress 70px、
+     Mancini FBD 67px、Canslim GS 62px、Work Focus 63px、Exercise 45px。
+     舊值 72px 的後果：Canslim High RS **任何字型下都被切**，而 Health Stress
+     只剩 2px 餘裕 —— 容器字型剛好過關，founder 的 iPhone（SF Pro 較寬）就切成
+     「Health Stre…」（2026-08-28 實走截圖）。**模擬器綠、實機壞**，
+     跟 PLAYBOOK 那條「只剩 4px 餘裕，字型換一下就翻」同一族。
+     89px + 約 12% 裝置字型餘裕 → 100px。空間是從中間欄借的（375 寬實測
+     dock 355 ＝ 模板欄 117 + 中間 161 + 標記 53），harness 同時鎖住
+     「每個模板名都不被切」與「中間的時鐘仍是 1 行、不被切」兩邊。
+     ⚠️ 新增內建模板名時要回來重量這個數字。
+     ⚠️ **使用者自訂的模板名不在保證範圍內** —— 那是他自己取的字，
+     太長就讓它 ellipsis，不為了它把中間欄吃掉。 */
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;
 }
 .fdcb-tmpl-dur{
   font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.08em;
