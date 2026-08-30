@@ -99,7 +99,14 @@ const browser = await chromium.launch();
 async function openV3(height, opts) {
   // readingAgeMs：讀數有多舊。預設 2 分鐘＝新鮮；> 15 分鐘會走「已過期」那條文案。
   const options = Object.assign(
-    { reading: true, width: 390, readingAgeMs: 120e3, query: '', desktop: false }, opts || {});
+    {
+      reading: true, width: 390, readingAgeMs: 120e3, query: '', desktop: false,
+      // 自訂模板清單（種進 localStorage）。預設兩個：一個 6 秒（跑得完）、一個 3:30。
+      templates: [
+        { id: 'h6', name: '六秒', durationSec: 6, color: '#00B4D8', icon: 'heart', segLabel: 'Focus' },
+        { id: 'h210', name: '三分半', durationSec: 210, color: '#00B4D8', icon: 'heart', segLabel: 'Focus' },
+      ],
+    }, opts || {});
   // ⚠️ 桌機視型要關掉 isMobile/hasTouch —— 它們會改變 meta viewport 的處理方式，
   // 而 #232 這一輪要驗的正是「桌機瀏覽器上版面拿到哪一組尺寸」。
   const page = await browser.newPage({
@@ -109,10 +116,7 @@ async function openV3(height, opts) {
   });
   await page.addInitScript((opts) => {
     // 自訂模板：一個 6 秒（跑得完）、一個 3:30（分秒都要顯示對）
-    localStorage.setItem('tenki.v6.templates.v1', JSON.stringify([
-      { id: 'h6', name: '六秒', durationSec: 6, color: '#00B4D8', icon: 'heart', segLabel: 'Focus' },
-      { id: 'h210', name: '三分半', durationSec: 210, color: '#00B4D8', icon: 'heart', segLabel: 'Focus' },
-    ]));
+    localStorage.setItem('tenki.v6.templates.v1', JSON.stringify(opts.templates));
     localStorage.removeItem('tenki.alert.outcomes.v1');
     localStorage.removeItem('tenki.v6.tplabels.v1');
     localStorage.removeItem('tenki.v6.decisionDiscipline.v1');  // 決策紀律模式預設關，測試隔離
@@ -1146,6 +1150,107 @@ console.log('\n── Hero 讀數不得爆版 ──');
     //    中間那段（NEED ~ NEED+15）刻意不斷言 —— 那是實作的判準，不是產品承諾。
     if (g.band >= NEED + 15) checkTruthy(`${tag}：帶寬夠（${g.band}px）就要教一次手勢`, shown);
     if (g.band < NEED) check(`${tag}：🔴 帶寬不夠（${g.band}px）就不得顯示`, shown, false);
+    await page.close();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 底座的模板名不得被截斷
+//
+// founder 2026-08-28 實走截圖：底座寫的是「Health Stre…」。
+// `.fdcb-tmpl-name{max-width:72px}`（#175 2026-07-11 留下的）——
+// 「Health Stress」在容器字型下實測 **70px**，只剩 2px 餘裕，所以**模擬器剛好過、
+// 實機（iPhone 的 SF Pro 較寬）就被切**。而「Canslim High RS」需要 89px，
+// **任何字型下都被切**。這是 PLAYBOOK「只剩幾 px 餘裕，字型換一下就翻」的同一族。
+//
+// 🔴 一定要走**產品路徑**（真的把那個模板選起來），不能注入 textContent ——
+// 第一次量的時候我就是注入文字，而 renderFdcb() 會把它改回去，
+// 於是量到「沒事」**是假的**（文字根本沒換成功）。
+// ⚠️ 交易者那三個模板要先開決策紀律模式才進 DOM（第七輪的 gate）。
+// ═══════════════════════════════════════════════════════════════════════
+{
+  console.log('\n── 底座的模板名不得被截斷（走產品路徑選模板）──');
+  // 360 是最窄的機型；模板欄變寬是從中間那欄借空間，所以最窄的地方最該驗。
+  for (const width of [360, 375, 390]) {
+    const page = await openV3(700, { width });
+    // 交易者模板是 opt-in 才進 DOM —— 不開就只驗得到三個，等於漏掉最長的那個
+    await page.evaluate(() => window.toggleDisciplineMode());
+    await page.waitForTimeout(200);
+    const ids = await page.evaluate(() => [...document.querySelectorAll('.tmpl-item')].map((x) => x.dataset.id));
+    // 🔴 前提：**最長的那個**（Canslim High RS）真的在清單裡。
+    // 少了它這一整段會全綠而什麼都沒守到 —— 這是「斷言跑在真的會執行的路徑上」那條。
+    // ⚠️ 不要斷言「剛好六個」：openV3 會另外種兩個自訂模板（六秒／三分半）。
+    checkTruthy(`${width}px：最長的模板在清單裡（共 ${ids.length} 個）`,
+      ids.includes('CANSLIM_HIGH_RS'));
+
+    for (const id of ids) {
+      await pickTmpl(page, id);
+      await page.waitForTimeout(420); // selectTmpl 260ms 後才 closeSheet + setState
+      const m = await page.evaluate(() => {
+        const n = document.getElementById('fdcbName');
+        const t = document.getElementById('fdcbTime');
+        const rg = document.createRange(); rg.selectNodeContents(t);
+        return {
+          name: n.textContent.trim(),
+          need: n.scrollWidth, shown: Math.round(n.getBoundingClientRect().width),
+          cut: n.scrollWidth > n.clientWidth + 0.5,
+          clockLines: rg.getClientRects().length,
+          clockCut: t.scrollWidth > t.clientWidth + 0.5,
+        };
+      });
+      checkTruthy(`${width}px：「${m.name}」沒有被切（需 ${m.need}px、給 ${m.shown}px）`, !m.cut);
+      // 模板欄變寬是跟中間那欄借的 —— 借過頭就換時鐘壞掉，兩邊要一起鎖
+      check(`${width}px：「${m.name}」時，中間的時鐘仍是 1 行`, m.clockLines, 1);
+      checkTruthy(`${width}px：「${m.name}」時，中間的時鐘沒有被切`, !m.clockCut);
+      await page.evaluate(() => window.openSheet());
+      await page.waitForTimeout(120);
+    }
+    await page.close();
+  }
+
+  // 🔴 上限只在「名字比它長」時才起作用 —— 六個內建名字最長 89px，所以把上限從
+  // 72 提到 100 對它們**零成本**（欄位是內容寬，不會因為上限變大就變寬）。
+  // 實際驗過：把上限灌到 260px，上面那圈斷言**零條紅**。也就是說上面那組
+  // 「中間的時鐘仍是 1 行」**擋不住上限訂太大** —— 它守的是「未來有人取了一個
+  // 長到會擠爆中間欄的內建名字」，不是守這一輪的改動。這點必須講明，不然下一個人
+  // 會以為那組斷言在保證這件事。
+  //
+  // 真正會撐開欄位的是**使用者自訂的長名字**。這裡鎖住的是那件事該有的樣子：
+  // 它被 ellipsis 是**刻意的** —— 那是使用者自己取的字，不為它把中間欄吃掉。
+  //
+  // ⚠️ 一併記下（**不是這一輪造成的、也沒有修**）：選完模板會進 ready 狀態，
+  // 而 ready 的中間欄印的是「<模板名> · <時長>」。自訂名字太長時那裡會折成兩行 ——
+  // 實測 360 寬在 **72px 與 100px 兩個上限下都一樣會折**，所以它跟這個上限無關。
+  {
+    const LONG = '超長自訂模板名稱測試用不得吃掉中間欄';
+    const page = await openV3(700, {
+      width: 360,
+      templates: [{ id: 'long', name: LONG, durationSec: 180, color: '#00B4D8', icon: 'heart', segLabel: 'Focus' }],
+    });
+    // ⚠️ 自訂模板在 sheet 裡的 data-id 是 `CUSTOM_<id>`（customTmplKey），不是裸 id。
+    // 用錯 id 時 pickTmpl 只是回 false、底座維持預設模板 —— 下面三條就會**空過**。
+    // 所以先把「真的選到了」變成一條具名斷言（第一版就是踩這個踩到假綠）。
+    const picked = await pickTmpl(page, 'CUSTOM_long');
+    checkTruthy('360px：超長自訂模板真的被選起來了（不然下面三條是空過的）', picked);
+    await page.waitForTimeout(420);
+    const m = await page.evaluate(() => {
+      const n = document.getElementById('fdcbName');
+      const t = document.getElementById('fdcbTime');
+      const rg = document.createRange(); rg.selectNodeContents(t);
+      return {
+        cut: n.scrollWidth > n.clientWidth + 0.5,
+        nameW: Math.round(n.getBoundingClientRect().width),
+        coreW: Math.round(document.querySelector('.fdcb-core').getBoundingClientRect().width),
+        clockLines: rg.getClientRects().length,
+        clockCut: t.scrollWidth > t.clientWidth + 0.5,
+      };
+    });
+    checkTruthy(`360px：超長的自訂名字被 ellipsis 是刻意的（給 ${m.nameW}px）`, m.cut);
+    // ⚠️ 這裡**不**斷言中間欄的行數：ready 狀態的中間欄印的是模板名本身，
+    // 自訂名字太長時在任何上限下都會折（實測 72px 與 100px 一樣）——
+    // 把一個既有行為寫成斷言，等於把「我沒改壞」講成「我修好了」。
+    checkTruthy(`360px：左欄吃掉中間欄之後，中間欄仍有一半以上的空間（${m.coreW}px）`,
+      m.coreW >= 150);
     await page.close();
   }
 }
