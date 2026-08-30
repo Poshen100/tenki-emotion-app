@@ -100,7 +100,12 @@ body{
 }
 /* full-app deep-space starfield, behind every screen */
 #cosmos{position:absolute;inset:0;z-index:0;pointer-events:none}
-@media (max-width:420px){.phone{width:100%;height:100dvh;border-radius:0;box-shadow:none}}
+/* 🔴 這個門檻要蓋住所有真手機，不只窄的那些。
+   420px 把 iPhone Plus／Pro Max（430–440pt）擋在外面：那些機器上 app 被關在
+   390×844 的框裡letterbox，但 `@media (max-height:880px)` 那層壓縮判斷讀的是
+   **視窗高 932**、不是框高 844 —— 於是壓縮不生效，內容撐出框、FDCB dock 蓋掉
+   輪播圓點與示意註記。440px 讓那些機型跟其他手機一樣全螢幕，兩個判斷就對齊了。 */
+@media (max-width:440px){.phone{width:100%;height:100dvh;border-radius:0;box-shadow:none}}
 
 /* ═════════════════════════════════════════════════
    SCREENS (tabs)
@@ -402,6 +407,7 @@ body{
   padding:7px 16px;border-radius:999px;margin-top:10px;cursor:pointer;
   transition:background .2s var(--ease-calm), border-color .2s var(--ease-calm);
 }
+.tl-edge-cta{white-space:nowrap}
 .tl-edge-cta:active{background:rgba(0,180,216,0.20)}
 .tl-edge-pr{
   font-size:12px;font-weight:500;color:rgba(255,255,255,0.85);
@@ -431,11 +437,18 @@ body{
   /* 同上：「信心中 · 提升精度 ›」不得斷成「信心中 · 提」/「升精度 ›」 */
   white-space:nowrap;
   display:inline-flex;align-items:center;gap:6px;
-  font-size:11.5px;font-weight:500;letter-spacing:0.02em;
+  /* ⚠️ 這段註解在 main 上寫的是「這顆 chip 住在環心的黑圓裡」——
+     **在這條分支上不成立**：第三輪已經把兩顆動作鍵搬出環心（見上面 markup 那段
+     註解的實測數字：圓只有 121~129px，而這顆 chip 要 138~148px，塞不進去）。
+     搬出來之後它有整個螢幕寬，nowrap 的意義從「明顯溢出當守門員」變成
+     「這句永遠不從詞中間斷開」。過期的註解比沒有註解更危險，所以就地改掉。
+     長度上限由 scripts/preview-today-layout.mjs 守（那支的界線也一起從
+     「黑圓寬」改成「畫面寬」——同一個原因）。 */
+  font-size:11px;font-weight:500;letter-spacing:0.02em;
   font-family:inherit;
   color:#E8B45A;background:rgba(232,180,90,0.08);
   border:1px solid rgba(232,180,90,0.38);border-radius:999px;
-  padding:6px 14px;cursor:pointer;
+  padding:5px 12px;cursor:pointer;
   transition:all 0.6s var(--ease-calm);
 }
 .tl-edge-conf:active{transform:scale(0.97)}
@@ -5925,7 +5938,7 @@ function closeSessionDetail(){
     // 「不能點」): the pill must always re-open the finger flow (recalibrate
     // anytime; completion refreshes lastTs).
     conf.classList.toggle('calibrated', done);
-    conf.textContent = done ? '信心 · 高　·　✓ 已校準' : '信心 · 中　·　提升精度 ›';
+    conf.textContent = done ? '信心高 · 已校準' : '信心中 · 提升 ›';
     if(chip) chip.hidden = !done;
     // Root hook for the Antigravity visual pass (ring glow, autonomic refine)
     document.documentElement.classList.toggle('precision-calibrated', done);
@@ -6043,7 +6056,7 @@ function closeSessionDetail(){
     <script src="/preview/blink-cadence.js?v=blink2"></script>
     <!-- 正典 Soul Scan 模組：Scan tab 與 /decision-alert/ 共用同一支，
          同樣用絕對路徑（本頁同時掛在 /v3/ 與 /preview/v6/）。 -->
-    <script src="/preview/readiness-scan.js?v=rs16"></script>
+    <script src="/preview/readiness-scan.js?v=rs20"></script>
     <!-- Stardust Scan Takeover logic script -->
     <script src="stardust-scan-takeover.js?v=gyro_v6"></script>
 

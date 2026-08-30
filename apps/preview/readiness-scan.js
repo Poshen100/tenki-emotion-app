@@ -97,8 +97,41 @@
    */
   var ERR_RATIO_SPAN = 2;
   /** 眨眼遲滯門檻（EAR-normalized，與 takeover 同一組）。 */
+  /**
+   * Soul Lock Beat 3 的眨眼寬限期（ms）。
+   *
+   * 🔴 這個數字決定「眨眼」到底是主角還是裝飾。
+   * 原本寫的是 `framedStreak >= 7`：以 FACE_INTERVAL_MS(180ms) 計 **≈1.26 秒**就保底觸發，
+   * 而人盯著鏡頭時自然眨眼間隔約 4–6 秒 —— 保底永遠先開，眨眼那條路幾乎不會贏。
+   * founder 實走後回報「沒看到眨眼那一拍」，追出來就是這件事（2026-08-21）。
+   * 拉到 4.5 秒讓真的眨一次眼有機會成為觸發者；保底只當防呆，不再是主路徑。
+   */
+  var SYNC_BLINK_GRACE_MS = 4500;
   var BLINK_CLOSE = 0.25;
   var BLINK_OPEN = 0.55;
+  /**
+   * 谷底式眨眼偵測 —— 為什麼絕對門檻不夠用。
+   *
+   * 🔴 FaceMesh 每 `FACE_INTERVAL_MS`(180ms) 才推論一次，而一次自然眨眼閉合
+   * 只有 100–150ms。眨眼常常整個發生在兩次取樣之間；就算落到一幀，那幀多半是
+   * **半閉**（約 0.3–0.5），`eyeOpen < 0.25 && prev > 0.55` 兩個門檻都不滿足，
+   * 整次眨眼就被丟掉。founder 2026-08-29 實走：他確實眨了，結果頁卻報
+   * 「未偵測到眨眼」—— 漏的是偵測，不是他。
+   *
+   * 所以改看**形狀**而不是絕對值：開合度掉到自己基線的一定比例以下（谷），
+   * 然後在幾幀內回升（睜回來）。
+   *
+   * ⚠️ 放寬的是**靈敏度，不是誠實度**。「眨眼確認」那行字在宣稱一個事實，
+   * 所以谷底必須在 `BLINK_DIP_MAX_SAMPLES` 幀內回升 —— 真眨眼會立刻睜開，
+   * 瞇眼與低頭不會。沒回升的谷會被標記作廢，等真的睜開才重新武裝，
+   * 不然「長時間瞇著、最後睜開」會被算成一次眨眼。
+   */
+  var BLINK_DIP_RATIO = 0.62;
+  var BLINK_RECOVER_RATIO = 0.85;
+  var BLINK_DIP_MAX_SAMPLES = 3;
+  /** 開合基線的 EWMA 係數：升得快、落得慢，追的是「睜著」那個狀態。 */
+  var EYE_BASE_RISE = 0.30;
+  var EYE_BASE_FALL = 0.03;
   /** 星塵表情的正規化除數 —— 沿用 takeover 已調過的值，改動＝改星塵手感。 */
   var MOUTH_OPEN_DIVISOR = 0.05;
   var BROW_SPAN_DIVISOR = 0.22;
@@ -274,22 +307,41 @@
       // 這裡不能再放 CSS border —— 兩個形狀疊在一起正是 2026-08-07 實走看到的
       // 「金色圓圈與圓角方框各自為政」。
       '#' + OVERLAY_ID + ' .rs-frame{position:relative;width:236px;height:236px;}',
-      // Progress Halo（North Star §4「沿臉框逐段閉合的光弧，不用一般圓形 loading」）。
-      // track 與 fill 是**幾何完全相同**的兩個 rect：track 就是框，fill 是進度。
-      // 只有一條路徑，所以不可能再出現第二個形狀。
+      // Progress Halo & Soul Lock 雙環
       '#' + OVERLAY_ID + ' .rs-halo{position:absolute;inset:0;width:100%;height:100%;',
       'overflow:visible;pointer-events:none;}',
       '#' + OVERLAY_ID + ' .rs-halo rect{fill:none;stroke-linecap:round;',
       'transition:stroke 0.3s ' + EASE_SECURE + ';}',
-      '#' + OVERLAY_ID + ' .rs-halo .rs-halo-track{stroke:rgba(61,224,255,0.28);stroke-width:1;}',
+      '#' + OVERLAY_ID + ' .rs-halo .rs-halo-track{stroke:rgba(61,224,255,0.24);stroke-width:1;}',
+      '#' + OVERLAY_ID + ' .rs-halo .rs-inner-track{stroke:rgba(61,224,255,0.12);stroke-width:1;}',
       '#' + OVERLAY_ID + ' .rs-halo .rs-halo-fill{stroke:' + HALO_ACTIVE + ';stroke-width:2.5;}',
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-track{stroke:rgba(255,212,110,0.45);}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-inner-track{stroke:rgba(255,212,110,0.25);}',
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-fill{stroke:' + HALO_SECURED + ';',
       'filter:drop-shadow(0 0 6px rgba(255,212,110,0.55));}',
-      // 進度停住時光弧明顯黯下去。**這不是裝飾** —— 進度只在品質閘門通過時前進
-      // （pause-not-reset），這一層就是把那個因果講出來：「環停住是因為你沒對準」。
+      // 進度停住時光弧明顯黯下去。
       '#' + OVERLAY_ID + ' .rs-frame.stalled .rs-halo-fill{opacity:0.3;}',
       '#' + OVERLAY_ID + ' .rs-halo-fill{transition:opacity 0.3s ' + EASE_SECURE + ';}',
+
+      // ── Soul Lock Beat 1: Seek 微光標記 ──
+      // 3 顆極淡微光標記分佈在外環上，臉進入範圍時慢慢靠攏
+      '#' + OVERLAY_ID + ' .rs-seek-beacon{fill:' + HALO_ACTIVE + ';opacity:0.35;',
+      'filter:drop-shadow(0 0 3px rgba(34,211,238,0.5));',
+      'transition:opacity 0.4s ' + EASE_SECURE + ',transform 0.4s ' + EASE_SECURE + ';',
+      'transform-origin:118px 118px;}',
+      '#' + OVERLAY_ID + ' .rs-frame.tracking .rs-seek-beacon{opacity:0.65;}',
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-seek-beacon{opacity:0;}',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-seek-beacon{opacity:0;}',
+
+      // ── Soul Lock Beat 2: Align 細光弧 ──
+      // 25–35% 圓周細光弧，滑向對齊方向，對準後吸附上方核心點
+      '#' + OVERLAY_ID + ' .rs-halo .rs-align-arc{stroke:' + HALO_ACTIVE + ';stroke-width:2;',
+      'stroke-linecap:round;stroke-dasharray:0.28 0.72;stroke-dashoffset:-' + HALO_START_OFFSET + ';',
+      'opacity:0;transition:opacity 0.3s ' + EASE_SECURE + ',stroke 0.3s ' + EASE_SECURE + ';}',
+      '#' + OVERLAY_ID + ' .rs-frame.aligning .rs-align-arc{opacity:0.85;}',
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-align-arc{opacity:1;stroke-dashoffset:-' + HALO_START_OFFSET + ';}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-align-arc{stroke:' + HALO_SECURED + ';}',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-align-arc{opacity:0;}',
 
       // ── cyan 角括號 ──
       // 也長在**同一條路徑**上（第三個幾何相同的 rect），只是用 dash 只露出四個圓角。
@@ -372,6 +424,41 @@
       '@keyframes rs-wave-out{0%{transform:scale(1);opacity:0.95;}',
       '32%{opacity:0.8;}100%{transform:scale(2.3);opacity:0;}}',
 
+      // ── Soul Lock Beat 3: Sync 眨眼光波與同步光點 ──
+      '#' + OVERLAY_ID + ' .rs-halo .rs-sync-dot{fill:' + HALO_ACTIVE + ';opacity:0;',
+      'filter:drop-shadow(0 0 6px rgba(34,211,238,0.85));',
+      'transition:opacity 0.3s ' + EASE_SECURE + ',fill 0.3s ' + EASE_SECURE + ';}',
+      '#' + OVERLAY_ID + ' .rs-frame.synced .rs-sync-dot{opacity:1;}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-sync-dot{fill:' + HALO_SECURED + ';',
+      'filter:drop-shadow(0 0 6px rgba(255,212,110,0.85));}',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-sync-dot{opacity:0;}',
+      '#' + OVERLAY_ID + ' .rs-halo .rs-sync-pulse{fill:none;stroke:' + HALO_ACTIVE + ';',
+      'stroke-width:1.5;opacity:0;vector-effect:non-scaling-stroke;',
+      'transform-box:fill-box;transform-origin:center;}',
+      '#' + OVERLAY_ID + ' .rs-frame.sync-beat .rs-sync-pulse{',
+      'animation:rs-sync-ripple 0.6s ' + EASE_SECURE + ' 1;}',
+      '@keyframes rs-sync-ripple{0%{transform:scale(0.3);opacity:0.95;}',
+      '35%{opacity:0.8;}100%{transform:scale(2.1);opacity:0;}}',
+
+      // ── Soul Lock Beat 4: Hold 鎖定有效訊號與 Soul Thread ──
+      // 雙環之間生長出一條極細 Soul Thread，只隨 Tier A 有效 frame 累積
+      '#' + OVERLAY_ID + ' .rs-halo .rs-soul-thread{fill:none;stroke:' + HALO_ACTIVE + ';stroke-width:1.5;',
+      'stroke-linecap:round;filter:drop-shadow(0 0 5px rgba(34,211,238,0.65));opacity:0;',
+      'transition:opacity 0.3s ' + EASE_SECURE + ',stroke 0.3s ' + EASE_SECURE + ';}',
+      '#' + OVERLAY_ID + ' .rs-frame.holding .rs-soul-thread{opacity:1;}',
+      '#' + OVERLAY_ID + ' .rs-frame.stalled .rs-soul-thread{opacity:0.35;}',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-soul-thread{stroke:' + HALO_SECURED + ';',
+      'filter:drop-shadow(0 0 6px rgba(255,212,110,0.65));}',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-soul-thread{opacity:0;}',
+      // 🔴 鎖定之後不准再補間 —— 「爽的是突然的靜」。
+      // Soul Thread 的 opacity transition（0.3s）在 lock 一拍後仍會被 setProgress()
+      // 的 holding/stalled 切換重新點燃，harness 的「一拍過後完全靜止」因此紅燈
+      // （getAnimations() 抓得到 transition，不只 CSS animation）。
+      // 這跟本檔上面對進度環寫的理由是同一條：停住就該看得出來停住，補間會把那個事實抹掉。
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-soul-thread,',
+      '#' + OVERLAY_ID + ' .rs-frame.secured .rs-soul-thread,',
+      '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-soul-thread{transition:none;}',
+
       // ── 揭曉面板（MOTION-DIRECTION §4「Reveal 揭曉」）──
       //
       // 為什麼需要這一塊：先前收尾只是把帶位寫進**剛剛還在叫你「保持穩定」的
@@ -411,9 +498,14 @@
       'animation:rs-verdict-in 1.4s ' + EASE_SECURE + ' 1;}',
       '@keyframes rs-verdict-in{0%{opacity:0;transform:scale(1.18);}',
       '18%{opacity:1;}34%{transform:scale(0.98);}100%{opacity:1;transform:scale(1);}}',
-      // 收束成功才轉 gold（gold = SECURED/calibrated；訊號不足那條不得用）。
+      // 收束成功之後，這個大字報的是**帶位**，所以吃帶位色（`BAND_TONE`）——
+      // 顏色由 showVerdict() 逐次寫進 inline style，因為它跟著讀數變。
+      // ⚠️ 以前這裡是 gold。founder 2026-08-29 實走截圖指出：Today 環上的
+      // 「Clear」是青的、結果頁的「Clear」是金的，同一個帶位兩種顏色會混淆。
+      // gold = SECURED 仍然守著 —— 由**外框與完成鈕**承接，那是「狀態」；
+      // 大字承接的是「帶位」。兩件事分開講，顏色才不會互相蓋台。
       '#' + OVERLAY_ID + ' .rs-frame.revealed.secured .rs-verdict-band{',
-      'color:' + HALO_SECURED + ';filter:drop-shadow(0 0 12px rgba(255,212,110,0.45));}',
+      'filter:drop-shadow(0 0 12px rgba(255,255,255,0.16));}',
       // 儀器的工作部件退場 —— 對位標記、目標環、角括號的任務結束了。
       // 這是「安靜的收尾」的一部分：畫面上只剩結果，沒有還在運轉的零件。
       '#' + OVERLAY_ID + ' .rs-frame.revealed .rs-reticle,',
@@ -460,7 +552,8 @@
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-track,',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-halo-corners,',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-wave,',
-      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-flash{animation:none;}}',
+      '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-flash,',
+      '#' + OVERLAY_ID + ' .rs-frame.sync-beat .rs-sync-pulse{animation:none;}}',
       '#' + OVERLAY_ID + ' .rs-dots{display:flex;gap:14px;font-size:10px;color:#5A6178;',
       'letter-spacing:0.1em;text-transform:uppercase;}',
       '#' + OVERLAY_ID + ' .rs-dot{display:flex;align-items:center;gap:5px;}',
@@ -506,8 +599,20 @@
       // 三個 rect，幾何一字不差：track（框本身）、corners（角括號）、fill（進度）。
       '    <svg class="rs-halo" viewBox="0 0 236 236" aria-hidden="true">',
       '      <rect class="rs-halo-track" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
+      '      <rect class="rs-inner-track" x="16" y="16" width="204" height="204" rx="55" ry="55" pathLength="1"/>',
+      // Soul Lock Beat 4: Hold 雙環間的 Soul Thread
+      '      <rect class="rs-soul-thread" data-rs="soul-thread" x="8.5" y="8.5" width="219" height="219" rx="59" ry="59" pathLength="1"/>',
       '      <rect class="rs-halo-corners" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
       '      <rect class="rs-halo-fill" data-rs="halo" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
+      // Soul Lock Beat 2: Align 細光弧
+      '      <rect class="rs-align-arc" data-rs="align-arc" x="1" y="1" width="234" height="234" rx="63" ry="63" pathLength="1"/>',
+      // Soul Lock Beat 1: 3 顆極淡微光標記（120度等距分佈於外環）
+      '      <circle class="rs-seek-beacon rs-seek-1" data-rs="seek-1" cx="118" cy="8" r="2.5"/>',
+      '      <circle class="rs-seek-beacon rs-seek-2" data-rs="seek-2" cx="23" cy="172" r="2.5"/>',
+      '      <circle class="rs-seek-beacon rs-seek-3" data-rs="seek-3" cx="213" cy="172" r="2.5"/>',
+      // Soul Lock Beat 3: Sync 同步光點與光波
+      '      <circle class="rs-sync-dot" data-rs="sync-dot" cx="118" cy="1" r="3.5"/>',
+      '      <circle class="rs-sync-pulse" data-rs="sync-pulse" cx="118" cy="118" r="52"/>',
       // 目標環（你該在的位置與大小）+ 對位標記（你現在在哪、多大）。
       // 兩者同一個座標系，所以「移進去、調到一樣大」＝ 對位完成。
       '      <circle class="rs-target" cx="118" cy="118" r="' + RETICLE_TARGET_R + '"/>',
@@ -646,7 +751,7 @@
         || pose.pitch < PITCH_SQUARE_MIN || pose.pitch > PITCH_SQUARE_MAX)) {
         return { key: 'square', text: '正對鏡頭', icon: '⊕' };
       }
-      if (box.size < FACE_SIZE_MIN) return { key: 'closer', text: '靠近一點', icon: '＋' };
+      if (box.size < FACE_SIZE_MIN) return { key: 'closer', text: '再靠近一些', icon: '＋' };
       if (box.size > FACE_SIZE_MAX) return { key: 'farther', text: '退遠一點', icon: '－' };
       if (box.centerY > 0.5 + FACE_CENTER_Y_TOL) return { key: 'up', text: '向上對齊', icon: '↑' };
       if (box.centerY < 0.5 - FACE_CENTER_Y_TOL) return { key: 'down', text: '向下對齊', icon: '↓' };
@@ -654,12 +759,28 @@
       if (displayX > 0.5 + FACE_CENTER_X_TOL) return { key: 'left', text: '向左對齊', icon: '←' };
       if (displayX < 0.5 - FACE_CENTER_X_TOL) return { key: 'right', text: '向右對齊', icon: '→' };
     } else if (gates.centering !== true) {
-      return { key: 'find', text: '把臉放進框裡', icon: '◎' };
+      return { key: 'find', text: '正在找到你', icon: '◎' };
     }
 
-    if (gates.lighting !== true) return { key: 'light', text: '需要多一點光線', icon: '☀' };
-    if (gates.stillness !== true) return { key: 'still', text: '再穩一下', icon: '≈' };
-    return { key: 'hold', text: '保持穩定', icon: '' };
+    if (gates.lighting !== true) return { key: 'light', text: '讓光線落在臉上', icon: '☀' };
+    if (gates.stillness !== true) return { key: 'still', text: '保持自然呼吸', icon: '≈' };
+
+    // Soul Lock Beat 4: Hold 階段動態文案演進
+    if (session.synced || session.heldMs > 0) {
+      var heldSec = session.heldMs / 1000;
+      if (heldSec < 3) {
+        return { key: 'hold-1', text: '初步讀取已完成', icon: '' };
+      }
+      if (heldSec < 6) {
+        return { key: 'hold-2', text: '正在提高信心', icon: '' };
+      }
+      return {
+        key: 'hold-3',
+        text: '有效訊號 ' + Math.floor(heldSec) + ' 秒 · 再穩住片刻',
+        icon: '',
+      };
+    }
+    return { key: 'hold', text: '保持自然呼吸', icon: '' };
   }
 
   /**
@@ -693,7 +814,7 @@
   }
 
   /**
-   * 推進 Progress Halo。
+   * 推進 Progress Halo 與 Soul Thread。
    *
    * `pathLength="1"` 把周長正規化成 1，所以 dash 長度就是**走過的弧長比例** ——
    * 換句話說進度沿著框均勻前進。這是不能用 conic-gradient 的原因：conic 掃的是
@@ -707,18 +828,30 @@
    */
   function setProgress(ratio) {
     var node = q('halo');
-    if (!node) return;
+    var thread = q('soul-thread');
+    var frame = q('frame');
     var p = clamp01(ratio);
-    if (p >= 1) {
-      // 收滿＝實線，不留接縫。用 dash 表示 100% 會在起點留一道縫：
-      // dash 1 + gap 1 的週期是 2，偏移 -0.0652 讓第一段從 0.0652 畫到 1.0652，
-      // 而路徑在 1.0 就結束 → [0, 0.0652) 落在上一個週期的空隙裡（實測可見）。
-      node.setAttribute('stroke-dasharray', 'none');
-      node.setAttribute('stroke-dashoffset', '0');
-      return;
+    if (frame) {
+      frame.classList.toggle('holding', p > 0.005);
     }
-    node.setAttribute('stroke-dasharray', p + ' 1');
-    node.setAttribute('stroke-dashoffset', -HALO_START_OFFSET);
+    if (node) {
+      if (p >= 1) {
+        node.setAttribute('stroke-dasharray', 'none');
+        node.setAttribute('stroke-dashoffset', '0');
+      } else {
+        node.setAttribute('stroke-dasharray', p + ' 1');
+        node.setAttribute('stroke-dashoffset', -HALO_START_OFFSET);
+      }
+    }
+    if (thread) {
+      if (p >= 1) {
+        thread.setAttribute('stroke-dasharray', 'none');
+        thread.setAttribute('stroke-dashoffset', '0');
+      } else {
+        thread.setAttribute('stroke-dasharray', p + ' 1');
+        thread.setAttribute('stroke-dashoffset', -HALO_START_OFFSET);
+      }
+    }
   }
 
   // ── 量測（逐幀取樣 → evidence）──
@@ -880,6 +1013,54 @@
   }
 
   /** 每次推論結果 → 位移、取景、眨眼。只在這裡累積 landmark 樣本。 */
+  /**
+   * 一次眼睛開合取樣 → 這一幀有沒有構成一次眨眼。
+   *
+   * 純狀態機：只讀寫 `state` 上的 `prevEyeOpen` / `eyeBaseline` / `eyeDip`，
+   * 不碰 DOM、不碰 session 的其他欄位 —— 所以 `scripts/preview-scan-blink.mjs`
+   * 可以直接餵序列驗它，不必開相機走完整場掃描。
+   *
+   * 兩條路徑（OR）：
+   *  1. **絕對門檻** —— 真的抓到閉眼幀（`< BLINK_CLOSE`，且前一幀是睜的）。
+   *     成立就是確定，沒有放寬的理由。
+   *  2. **谷底** —— 開合度掉到自己基線的 `BLINK_DIP_RATIO` 以下，再於
+   *     `BLINK_DIP_MAX_SAMPLES` 幀內回到 `BLINK_RECOVER_RATIO` 以上。
+   *     這條是為了 180ms 取樣率下只抓得到「半閉」那一幀的情況。
+   *
+   * @param {{prevEyeOpen:number, eyeBaseline:(number|null), eyeDip:(object|null)}} state
+   * @param {number} eyeOpen - 正規化到 0..1 的眼睛開合度。
+   * @returns {boolean} 這一幀是否構成一次眨眼。
+   */
+  function detectBlink(state, eyeOpen) {
+    // 基線只被「睜著」的樣本拉高、被閉眼樣本慢慢拉低 —— 眨眼自己不會把它帶走。
+    if (state.eyeBaseline == null) {
+      state.eyeBaseline = eyeOpen;
+    } else {
+      var a = eyeOpen > state.eyeBaseline ? EYE_BASE_RISE : EYE_BASE_FALL;
+      state.eyeBaseline += (eyeOpen - state.eyeBaseline) * a;
+    }
+    var blinked = eyeOpen < BLINK_CLOSE && state.prevEyeOpen > BLINK_OPEN;
+    var base = state.eyeBaseline;
+    if (!blinked && base > 0) {
+      if (state.eyeDip) {
+        state.eyeDip.samples += 1;
+        if (eyeOpen >= base * BLINK_RECOVER_RATIO) {
+          // 睜回來了 —— 只有沒被作廢的谷才算一次眨眼。
+          blinked = !state.eyeDip.expired;
+          state.eyeDip = null;
+        } else if (state.eyeDip.samples > BLINK_DIP_MAX_SAMPLES) {
+          // 太久沒睜回來：這是瞇眼或低頭。標記作廢但**不清掉** ——
+          // 清掉的話下一幀會馬上重新入谷，等真的睜開時又補報一次假眨眼。
+          state.eyeDip.expired = true;
+        }
+      } else if (eyeOpen < base * BLINK_DIP_RATIO) {
+        state.eyeDip = { samples: 1, expired: false };
+      }
+    }
+    state.prevEyeOpen = eyeOpen;
+    return blinked;
+  }
+
   function onFaceResults(results) {
     if (!session || session.done) return;
     var faces = results && results.multiFaceLandmarks;
@@ -895,10 +1076,17 @@
       session.lastFaceAt = 0;
       session.lastBlinkFeedAt = 0;
       session.prevEyeOpen = 1;
+      // 谷也要斷開 —— 臉不見前正在下降的谷，若跨過空窗才「睜回來」，
+      // 會被算成一次根本沒看到的眨眼。基線留著（同一個人、同一場掃描）。
+      session.eyeDip = null;
       // 星塵回中性 —— 沒有臉就沒有表情，不該讓粒子停在最後一幀的形狀。
-      if (session.stardust && global.TENKI_STARDUST
-        && typeof global.TENKI_STARDUST.clearExpression === 'function') {
-        global.TENKI_STARDUST.clearExpression();
+      if (session.stardust && global.TENKI_STARDUST) {
+        if (typeof global.TENKI_STARDUST.clearExpression === 'function') {
+          global.TENKI_STARDUST.clearExpression();
+        }
+        if (typeof global.TENKI_STARDUST.resetCamera === 'function') {
+          global.TENKI_STARDUST.resetCamera();
+        }
       }
       return;
     }
@@ -945,8 +1133,7 @@
     var eyeL = Math.abs(lm[159].y - lm[145].y);
     var eyeR = Math.abs(lm[386].y - lm[374].y);
     var eyeOpen = Math.min(1, ((eyeL + eyeR) / 2) / EYE_OPEN_DIVISOR);
-    var blinkDetected = eyeOpen < BLINK_CLOSE && session.prevEyeOpen > BLINK_OPEN;
-    session.prevEyeOpen = eyeOpen;
+    var blinkDetected = detectBlink(session, eyeOpen);
 
     // 眨眼節奏：只餵臉在的幀，dt 上限避免推論卡頓灌大視窗（同 takeover）。
     if (session.blinkCounter) {
@@ -956,7 +1143,78 @@
       session.lastBlinkFeedAt = now;
     }
 
+    // Soul Lock Beat 3: Sync 眨眼確認觸發
+    //
+    // 兩條路徑刻意不等價：眨到 = 使用者真的確認了，走完整儀式；
+    // 等不到 = 只是不想卡住流程，安靜通過，**不宣稱「已同步」**（沒等到確認就別說已確認）。
+    //
+    // 🔴 前提是 `heldMs > 0`，不是只有 `framed`。
+    // `framed` 只看臉框的位置與大小 —— 偏頭、背光、在動都還算 framed。
+    // 拿它當條件，會在使用者還被提示「正對鏡頭」的時候就宣告「正在建立初步讀數」，
+    // 那跟寫死讀數是同一種謊。`heldMs` 只在 `gatesAdvance()` 通過時才累加，
+    // 所以它才是「真的在累積有效訊號」。（harness 的頭部姿勢兩條就是這樣抓到的。）
+    if (framed && session.heldMs > 0 && !session.synced) {
+      if (!session.framedSince) session.framedSince = now;
+      if (blinkDetected) {
+        triggerSync(true);
+      } else if (now - session.framedSince >= SYNC_BLINK_GRACE_MS) {
+        triggerSync(false);
+      }
+    } else if (!session.synced) {
+      session.framedSince = 0; // 掉出有效狀態就重新計時，寬限期不得跨越空窗累積
+    }
+
     feedStardust(lm, eyeOpen, blinkDetected);
+  }
+
+  /**
+   * Soul Lock Beat 3: Sync 眨眼成為確認。
+   *
+   * 正常眨一次眼 → 星塵中心短暫微收縮 → 細光波由中心推向雙環 → 外環上方亮起「已同步」光點。
+   * 文案：已同步 → 正在建立初步讀數（禁止打勾、禁止「Verified」）。
+   */
+  function triggerSync(byBlink) {
+    if (!session || session.synced) return;
+    session.synced = true;
+    session.syncAt = performance.now();
+    session.syncByBlink = !!byBlink;
+
+    // 🔴 保底路徑不得宣稱「已同步」。
+    // `.synced`（外環那顆光點）與 `.sync-beat`（光波脈衝）都是在說「你確認了」——
+    // 但寬限期到了才自動放行的那次，使用者根本沒做任何確認動作。
+    // 對它們上這兩個 class ＝ 拿視覺替使用者宣告一件沒發生的事，跟寫死讀數同一條線。
+    // 所以保底只是安靜往下走：Hold 照常開始，但不演確認、不說「已同步」。
+    if (!byBlink) {
+      // 而且**連文案都不要搶**。instructionFor() 每幀在跑，姿勢/光線提示的優先權
+      // 排在 Hold 文案前面；這裡硬寫一行「正在建立初步讀數」會把還在指引使用者的
+      // 「正對鏡頭」蓋掉（harness 的頭部姿勢兩條就是這樣紅的）。
+      // 保底只負責把 beat 3 標記成過了，畫面說什麼交給每幀的邏輯決定。
+      return;
+    }
+
+    var frame = q('frame');
+    if (frame) {
+      frame.classList.add('synced');
+      frame.classList.remove('sync-beat');
+      void frame.offsetWidth;
+      frame.classList.add('sync-beat');
+    }
+    // 星塵中心短暫收縮後恢復
+    var S = global.TENKI_STARDUST;
+    if (session.stardust && S) {
+      if (typeof S.dim === 'function') S.dim();
+      setTimeout(function () {
+        if (session && typeof S.brighten === 'function') S.brighten();
+      }, 250);
+    }
+    setInstruction('已同步', '');
+    // 450ms 站不住一拍 —— 光波脈衝本身就要 0.6s，文案會比動畫先被蓋掉。
+    // 給它 1000ms，讓「已同步」是看得見的一拍，不是一閃而過。
+    setTimeout(function () {
+      if (session && !session.done) {
+        setInstruction('正在建立初步讀數', '');
+      }
+    }, 1000);
   }
 
   /**
@@ -982,6 +1240,12 @@
       browTension: browTension,
       blinkDetected: blinkDetected,
     });
+    // Soul Lock Beat 1: 星塵重心朝臉部中心極輕微偏移（注視感）
+    if (session.faceBox && typeof S.setCamera === 'function') {
+      var camX = (session.faceBox.centerX - 0.5) * 0.25;
+      var camY = -(session.faceBox.centerY - 0.5) * 0.25;
+      S.setCamera({ x: camX, y: camY });
+    }
     // ⚠️ `setExpression` 照舊餵 —— 那是 takeover 已經調過的手感通道（眨眼、尺度、
     // 滾動），不動它。`feedTone` 不再吃 mouthOpen/browTension：量過之後那兩個在
     // 掃描情境下幾乎是常數，見 feedTone 的說明。
@@ -1325,7 +1589,12 @@
     var factEl = q('verdict-fact');
     var specEl = q('verdict-spec');
     var qualityEl = q('verdict-quality');
-    if (bandEl) bandEl.textContent = band;
+    if (bandEl) {
+      bandEl.textContent = band;
+      // 每次都寫（含清空）—— 同一個 overlay 會被重複使用，上一輪的顏色留著
+      // 就會讓「訊號不足」繼承上一次的帶位色，等於用顏色宣稱一個沒發生的結果。
+      bandEl.style.color = (reading && BAND_TONE[reading.band]) || '';
+    }
     if (specEl) specEl.textContent = fact.spec;
     if (qualityEl) qualityEl.textContent = fact.quality;
     var frame = q('frame');
@@ -1378,6 +1647,13 @@
     var quality = [];
     if (typeof evidence.stillness === 'number') {
       quality.push('穩定度 ' + Math.round(evidence.stillness * 100) + '%');
+    }
+    // Beat 3 (Sync) 只亮 1 秒，掃完就沒了 —— founder 走了兩次都沒能判斷
+    // 自己踩到的是眨眼那條路還是 4.5 秒的靜默保底。這裡把它變成事後看得到的
+    // 事實。⚠️ 只有 tier A 有眼瞼 landmark；tier B 根本沒有眨眼偵測這回事，
+    // 那條路上一個字都不能提，否則就是宣稱一個不存在的量測。
+    if (evidence.tier === 'A' && session.landmarkCount > 0 && session.synced) {
+      quality.push(session.syncByBlink ? '眨眼確認' : '未偵測到眨眼');
     }
     quality.push(CONFIDENCE_LABEL[resolveConfidence(evidence)]);
     return { spec: spec, quality: quality.join(' · ') };
@@ -1550,6 +1826,39 @@
       frame.classList.add('tracking');
       frame.style.setProperty('--rs-err', err.toFixed(3));
     }
+    updateAlignArc(box, session.headPose, framed);
+  }
+
+  /**
+   * Soul Lock Beat 2: Align 細光弧滑動與軟磁吸。
+   *
+   * 25-35% 圓周的細光弧朝著對齊方向滑動；偏頭或偏離時停在對應方向，
+   * 進入容差後以 soft magnetism 吸附到頂部核心點（-HALO_START_OFFSET）。
+   *
+   * @param {?{centerX:number,centerY:number,size:number}} box
+   * @param {?{yaw:number,pitch:number}} pose
+   * @param {boolean} framed
+   */
+  function updateAlignArc(box, pose, framed) {
+    if (!session) return;
+    var arc = q('align-arc');
+    var frame = q('frame');
+    if (!arc || !frame) return;
+    if (!box) {
+      frame.classList.remove('aligning');
+      return;
+    }
+    frame.classList.add('aligning');
+    if (framed) {
+      // 磁吸歸位：頂端核心點 (12點鐘)
+      arc.style.strokeDashoffset = (-HALO_START_OFFSET).toFixed(4);
+    } else {
+      var displayX = 1 - box.centerX;
+      var yawOffset = pose ? pose.yaw * 0.12 : 0;
+      var posOffset = (displayX - 0.5) * 0.16;
+      var offset = -HALO_START_OFFSET + posOffset + yawOffset;
+      arc.style.strokeDashoffset = offset.toFixed(4);
+    }
   }
 
   /**
@@ -1599,9 +1908,11 @@
     }
     var frame = q('frame');
     if (frame) {
-      frame.classList.remove('tracking');
+      frame.classList.remove('tracking', 'aligning');
       frame.style.removeProperty('--rs-err');
     }
+    var arc = q('align-arc');
+    if (arc) arc.style.removeProperty('stroke-dashoffset');
   }
 
   /**
@@ -1765,6 +2076,7 @@
       if (typeof S.clearExpression === 'function') S.clearExpression();
       if (typeof S.clearTone === 'function') S.clearTone();
       if (typeof S.clearReadout === 'function') S.clearReadout();
+      if (typeof S.resetCamera === 'function') S.resetCamera();
       if (typeof S.unmount === 'function') S.unmount();
     } catch (_) { /* 拆卸失敗不該擋住掃描收尾 */ }
     returnStardust();
@@ -1820,7 +2132,7 @@
     // 否則第二次掃描一開場就頂著金框，等於還沒量就宣稱鎖定了。
     var frameEl = q('frame');
     if (frameEl) {
-      frameEl.classList.remove('secured', 'locked', 'lock-beat', 'stalled', 'tracking', 'revealed');
+      frameEl.classList.remove('secured', 'locked', 'lock-beat', 'stalled', 'tracking', 'revealed', 'aligning', 'synced', 'sync-beat', 'holding');
       frameEl.style.removeProperty('--rs-err');
     }
     // 對位標記回到中心的預設位置，不留上一輪的殘影。
@@ -1838,6 +2150,8 @@
         acc: { n: 0, stillness: 0, lighting: 0, uniformity: 0 },
         heldMs: 0, budgetMs: MISSIONS[mission].budgetSec * 1000,
         captureStartedAt: 0, lastSampleAt: 0,
+        // Soul Lock 同步狀態
+        synced: false, syncAt: 0,
         // 臉部追蹤（tier 由實際量到的 landmark 樣本數決定，不是由「有沒有載到
         // MediaPipe」決定 —— 載到但整場沒看到臉，那就不是 Tier A）。
         faceMesh: null, faceTimer: null, faceBusy: false,
@@ -1846,6 +2160,8 @@
         framedStreak: 0, pendingReading: null, headPose: null,
         lastFaceCenter: null, lastFaceAt: 0, lastStillness: null,
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
+        // 谷底式眨眼偵測的狀態（見 BLINK_DIP_RATIO 的註解）。
+        eyeBaseline: null, eyeDip: null,
         lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0,
         stardust: false,
         // 借來的星塵綁定（`{node, fitContainer}`）。非 null 就代表**欠著一次歸還**。
@@ -1887,5 +2203,23 @@
     isAvailable: isAvailable,
     MISSIONS: MISSIONS,
     STORE_KEY: READING_STORE_KEY,
+    /**
+     * Harness contract（`scripts/preview-scan-blink.mjs` 用）。
+     *
+     * 眨眼偵測要驗，就得餵它一串開合度序列 —— 開相機走完整場掃描既慢又不可控，
+     * 而且 CI 不涵蓋 apps/preview/**。所以把純狀態機開出來直接餵。
+     * ⚠️ 這是**唯讀的測試出口**：不得從外面拿它去驅動 UI。
+     */
+    __blink: {
+      detect: detectBlink,
+      newState: function () { return { prevEyeOpen: 1, eyeBaseline: null, eyeDip: null }; },
+      constants: {
+        FACE_INTERVAL_MS: FACE_INTERVAL_MS,
+        BLINK_CLOSE: BLINK_CLOSE, BLINK_OPEN: BLINK_OPEN,
+        BLINK_DIP_RATIO: BLINK_DIP_RATIO,
+        BLINK_RECOVER_RATIO: BLINK_RECOVER_RATIO,
+        BLINK_DIP_MAX_SAMPLES: BLINK_DIP_MAX_SAMPLES,
+      },
+    },
   };
 })(window);
