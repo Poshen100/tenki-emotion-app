@@ -91,14 +91,13 @@
    * 畫面上顯示的代號 —— **內部 template id 一律不上畫面**。
    *
    * 🔴 `MODE_2` 絕對不能出現在任何 user-facing 字串裡。理由不是美觀：
-   * 在 Adam Mancini 的語彙裡「Mode 2」指的是**盤整日盤勢**，跟這個模板
-   * （Canslim High RS Breakout）完全是兩回事。engine 自己也記著這件事 ——
-   * `packages/engine/src/session/templates.ts` 的註解寫明那個 id 是歷史遺留、
+   * 在使用者每天在用的專業語彙裡，「Mode 2」指的是另一種完全不同的東西，
+   * 跟這個模板（Canslim High RS Breakout）是兩回事。engine 自己也記著這件事
+   * —— `packages/engine/src/session/templates.ts` 的註解寫明那個 id 是歷史遺留、
    * 因為是 persisted contract 才留著。
    *
-   * 2026-08-09 founder 實走當場指出：「Canslim 不是 mode2，mode2 是 Adam 交易
-   * 系統的盤整環境」—— 當時畫面把 id 直接印在標題後面（`nameZh（id）`），
-   * 等於讓介面洩漏實作細節，還剛好撞上他每天在用的專業術語。
+   * 2026-08-09 founder 實走當場指出這個撞名 —— 當時畫面把 id 直接印在標題
+   * 後面（`nameZh（id）`），等於讓介面洩漏實作細節，還剛好撞上他的專業術語。
    *
    * engine 的 id 不動（會壞掉既有紀錄），只有這張表決定顯示什麼。
    */
@@ -569,7 +568,7 @@
     var modeCtx = marketModeContext(alert);
     if (modeCtx) chips.push({ text: modeCtx, warn: false });
     if (state.settings.quietWindow && isWithinQuietWindowET(Date.now())) {
-      chips.push({ text: '盤整迴避時段', warn: true });
+      chips.push({ text: '安靜時段', warn: true });
     }
     chips.forEach(function (c) {
       var node = document.createElement('div');

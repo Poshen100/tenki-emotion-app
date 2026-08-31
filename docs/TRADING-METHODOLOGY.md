@@ -253,7 +253,7 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
 1. ✅ **Mode 標籤進快訊**（2026-07-18 完成）：alert `condition`/`note` 帶 `Mode 1`/`Mode 2` → Entry Panel 脈絡行（事實陳述，非建議）。`domain/src/policies/market-mode.ts` + preview `?v=alert7`。
 2. ⏳ **Mode-aware 模板提示**：Mode 1 日對 FBD 類快訊降權提示（本檔 §5 整合表的機器化）。
 3. ⏳ **行為統計分層**：事件鏈統計依 Mode 分組（「Mode 2 日的紀律完成率」），仍走流程統計語言（勝率語言已禁）。
-4. ✅ **時段感知（quiet window）**（2026-07-19 完成）：§6.1 迴避時段（11:00–14:00 盤整帶）→ **軟性事實提示**。`domain/src/policies/alert-policy.ts` `isWithinQuietWindowET`（美東 ET，DST-aware）+ `QUIET_WINDOW_CONTEXT_ZH`「盤整迴避時段」；preview 設定面板開關（`?v=alert10`）。面板仍浮出、加一行脈絡，不硬靜音。
+4. ✅ **時段感知（quiet window）**（2026-07-19 完成）：§6.1 迴避時段（11:00–14:00 盤整帶）→ **軟性事實提示**。`domain/src/policies/alert-policy.ts` `isWithinQuietWindowET`（美東 ET，DST-aware）+ `QUIET_WINDOW_CONTEXT_ZH`「安靜時段」；preview 設定面板開關（`?v=alert10`）。面板仍浮出、加一行脈絡，不硬靜音。
 5. 🚧 **節奏熔斷**（2026-08-04 domain 層完成，UI 待接）：§6.1 贏停/雙輸熔斷。
    ⚠️ **原本寫「勝負須映射到 session close/cancel」—— 那是硬湊，close/cancel 不是輸贏。**
    實際缺的是資料不是邏輯：持久化的每一欄都在描述紀律，沒有一欄描述結果。
