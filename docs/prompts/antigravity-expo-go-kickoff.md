@@ -5,6 +5,37 @@
 
 ---
 
+## 0. 先停 — 你大概正走在錯的路上
+
+**這份檔案不在 `main` 上。** 它只存在於分支
+`claude/tenki-core-growth-arch-7teiqj`。所以：
+
+- `raw.githubusercontent.com/.../main/...` → **404**
+- 從 `main` 的 tree 找 → **找不到**
+
+**不要用 GitHub API 去搜。** 這個 repo 有 **71 條分支**，未認證的 GitHub API
+每小時只有 **60 次**請求。「逐條分支拉 tree 找檔案」會在走到一半時被 rate limit
+擋掉；如果你的迴圈把錯誤 `catch {}` 吞掉，你會得到「找不到」的錯誤結論，
+然後開始憑空編造一份計畫。**這已經發生過一次（2026-08-19）。**
+
+正確做法只有一個 —— **你已經 clone 了整個 repo，用它**：
+
+```powershell
+cd <你 clone 的路徑>\tenki-emotion-app
+git fetch origin claude/tenki-core-growth-arch-7teiqj
+git checkout claude/tenki-core-growth-arch-7teiqj
+git log --oneline -1        # 應為 docs: record what Expo Go can and cannot show now
+type docs\prompts\antigravity-expo-go-kickoff.md
+```
+
+零次 API 呼叫。從磁碟讀。
+
+> **如果任何一步失敗就停下來回報，不要推測。** 推測出來的計畫比沒有計畫更貴 ——
+> 上一次的推測版本主張用「模擬訊號管線」補上缺少的相機，
+> 那正好是本工單與 `choreography.ts` 的 `isQualityInstrumented()` 明文禁止的事。
+
+---
+
 ## 0. 這張工單要達成的一件事
 
 分支 `claude/tenki-core-growth-arch-7teiqj` 上有 37 個 commit 的 mobile UX 工作，

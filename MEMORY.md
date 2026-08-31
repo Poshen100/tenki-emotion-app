@@ -9,7 +9,12 @@
 
 ---
 
-# 2026-08-19 Session Update #68 (mobile UX 四輪完成，但 founder 還沒看過任何一眼)
+# 2026-08-19 Session Update #70 (mobile UX 四輪完成，但 founder 還沒看過任何一眼)
+
+> ⚠️ 本條寫於雲端 lane，當時分支落後 main。main 後來有 #68（08-18 Hero 水晶球）
+> 與 #69（08-29 Today 版面）。編號已改為 #70 避免撞號 ——
+> **合併前務必先把 origin/main 併進本分支**，日期會是亂序（08-19 在 08-29 之上），
+> 這是 lane 分岔造成的，不是排序錯誤。
 
 ## What was done
 
