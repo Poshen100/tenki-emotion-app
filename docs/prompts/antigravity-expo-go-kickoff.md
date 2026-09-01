@@ -82,15 +82,24 @@ git log --oneline -1     # 應為 086341a feat(mobile): flick up to retry a fail
 
 ---
 
-## 4. 安裝（`apps/mobile` 那一步是必要的）
+## 4. 安裝 — **第一件事就開始跑，別等**
+
+兩個 `package-lock.json` 都在，所以用 `npm ci`（比 `npm install` 快，而且是鎖定版本）：
 
 ```bash
-npm install                    # root
-cd apps/mobile && npm install  # 必要，不可省略
+npm ci --no-audit --no-fund                    # root
+cd apps/mobile && npm ci --no-audit --no-fund  # 必要，不可省略
 ```
 
-⚠️ **`apps/mobile` 刻意不在 npm workspace 裡**（root `workspaces` 只有 `packages/*` 與 `domain`），
-所以 root 的 `npm install` **不會**幫它裝依賴。而且這輪新增了 `expo-sensors`，沒裝就會缺模組。
+⚠️ **`apps/mobile` 刻意不在 npm workspace 裡**（root `workspaces` 只有 `packages/*` 與
+`domain`），所以 root 的安裝**不會**碰它。而且該分支新增了 `expo-sensors`，沒裝就缺模組。
+
+**總下載量約 1GB，在公用網路可能 15–25 分鐘。** 如果沒有隨身碟，這筆代價每次新登入都要
+重付一次 —— 所以**開工第一分鐘就把它跑起來**，然後在等的期間做第 3 節的環境檢查、
+讀完這份工單、確認分支正確。不要先做完所有檢查才開始下載。
+
+> 有隨身碟的話：整個資料夾（含 `node_modules`）放隨身碟，再加一份 portable Node
+> 與 `npm config set cache <USB>\npm-cache`。下次就只剩 `git pull` + 啟動，約兩分鐘。
 
 ---
 
