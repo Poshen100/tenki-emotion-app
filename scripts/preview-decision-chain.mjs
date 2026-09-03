@@ -165,6 +165,8 @@ checkTruthy('🔴 重新載入之後決策還在（下完單回來不能是一�
 
 const post = await page.evaluate(() => ({
   running: document.getElementById('fdcb').className.includes('state-running'),
+  dur: document.getElementById('fdcbDur').textContent.trim(),
+  setting: watchMode(currentTmpl),
   marks: sess ? sess.marks : null,
   started: sess ? sess.startedAtMs : null,
   watch: sess ? sess.watch : null,
@@ -178,6 +180,15 @@ check('🔴 起跑時間一模一樣（牆鐘的唯一來源不能被重載換�
 checkTruthy(`🔴 時鐘沒有倒退（${preReload.elapsed} → ${post.elapsed}）`, post.elapsed > preReload.elapsed);
 check('🔴 標記活過重載（events 是快照的一部分）', post.marks, 1);
 check('守望語意跟著回來', post.watch, true);
+// 🔴 接回來之後，底座左欄講的必須是**這一次的界線**（守望上限），不是模板的倒數時長。
+// 這條沒有跟上面那條重複：`sess.watch` 對了，畫面還是可能印錯 ——
+// setState('running') 已經跑過 renderTmplChip()，而 sess.watch 是在那之後才接回來的
+// （acceptHandoff 為了同一個理由補畫過一次，resume 這條路第十五輪才補上）。
+// ⚠️ 這支 harness 從頭到尾**沒有碰決策紀律開關**（預設關），所以 watchMode() 是 false
+// —— 正是「設定與事實分岔」的那條路，用設定去代表事實在這裡一定會印成 3:00。
+check('resume 這條路上設定與事實故意不一致（前提）', post.setting, false);
+checkTruthy(`🔴 接回來的底座左欄印的是守望上限，不是模板時長（現在是「${post.dur}」）`,
+  /上限/.test(post.dur) && !post.dur.startsWith('3:00'));
 check('標的跟著回來', post.symbol, 'ES1!');
 checkTruthy('來源快訊 id 跟著回來（join key 不能斷）', !!post.origin);
 checkTruthy('關鍵價位跟著回來', typeof post.anchor === 'number');

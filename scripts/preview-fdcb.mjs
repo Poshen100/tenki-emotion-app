@@ -101,6 +101,10 @@ async function openV3(height, opts) {
   const options = Object.assign(
     {
       reading: true, width: 390, readingAgeMs: 120e3, query: '', desktop: false,
+      // handoff：把快訊交棒信物種進 localStorage（decision-alert.js:1029 那個形狀）。
+      // 配 query:'#decision' 就能走完整條「快訊 → /v3/ 自動起跑」的產品路徑 ——
+      // 而那正是「Lab 開關」與「這一次怎麼跑」會分岔的唯一一條路。
+      handoff: null,
       // 自訂模板清單（種進 localStorage）。預設兩個：一個 6 秒（跑得完）、一個 3:30。
       templates: [
         { id: 'h6', name: '六秒', durationSec: 6, color: '#00B4D8', icon: 'heart', segLabel: 'Focus' },
@@ -120,6 +124,13 @@ async function openV3(height, opts) {
     localStorage.removeItem('tenki.alert.outcomes.v1');
     localStorage.removeItem('tenki.v6.tplabels.v1');
     localStorage.removeItem('tenki.v6.decisionDiscipline.v1');  // 決策紀律模式預設關，測試隔離
+    localStorage.removeItem('tenki.v6.activeDecision.v1');
+    if (opts.handoff) {
+      localStorage.setItem('tenki.v6.handoff.v1', JSON.stringify(
+        Object.assign({ ts: Date.now() }, opts.handoff)));
+    } else {
+      localStorage.removeItem('tenki.v6.handoff.v1');
+    }
     if (opts.reading) {
       localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify({
         band: 'neutral', confidence: 'high', ts: Date.now() - opts.readingAgeMs,
@@ -1322,6 +1333,55 @@ console.log('\n── Hero 讀數不得爆版 ──');
   checkTruthy(`時鐘真的超過模板時長了（${run.clock}）`, /^0[6-9]:/.test(run.clock));
   // 守望不畫倒數條 —— founder 看到的那條是靜態三段軌，這條鎖住「填充不動」
   check('守望模式的倒數填充不得推進', run.fill === '' || run.fill === '0px' || run.fill === '0', true);
+  await page.close();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 快訊交棒 + 決策紀律模式**關著** —— 設定與事實故意分岔的那條路
+//
+// founder 2026-09-03 第二批實走：18:23 在 App 內建瀏覽器（開關開著）左欄寫
+// 「上限 30:00」✅，18:31 在**主畫面 PWA**（另一個 storage 容器，開關是預設的關）
+// 同一個底座寫 `ES1!` / **3:00** / 12:19 · 結構守望 🔴 —— 上一輪的修法只修好一半。
+//
+// 🔴 為什麼上一組斷言抓不到：它走的是**手動路徑**（toggleDisciplineMode →
+// selectTmpl），開關永遠是開的，`watchMode()` 與 `sess.watch` 永遠一致。
+// 而 acceptHandoff() 明文寫著「快訊交棒過來的決策一律 sess.watch = true，
+// **不看 Lab 那個開關**」—— 會壞的組合是「快訊 + 開關關著」，那條路一次都沒走過。
+//
+// 所以這一段除了驗畫面，還**直接鎖住那個分岔本身**（sess.watch true 而
+// watchMode() false）：哪天有人把兩者統一了，這條會請他先去看 acceptHandoff 的理由。
+// ═══════════════════════════════════════════════════════════════════════
+{
+  console.log('\n── 快訊交棒（決策紀律模式關著）：界線問的是這一次怎麼跑 ──');
+  const page = await openV3(700, {
+    query: '#decision',
+    handoff: { symbol: 'ES1!', templateId: 'MANCINI_FBD', originAlertId: 'a-r15', price: 7677.75 },
+  });
+  await page.waitForTimeout(600);
+
+  const st = await page.evaluate(() => ({
+    state: STATES[stateIdx],
+    tmpl: currentTmpl,
+    sessWatch: !!(sess && sess.watch),
+    setting: watchMode(currentTmpl),
+    dur: document.getElementById('fdcbDur').textContent.trim(),
+    name: document.getElementById('fdcbName').textContent.trim(),
+    seg: document.getElementById('fdcbSeg').textContent.trim(),
+    tmplDur: TEMPLATES[currentTmpl].durationSec,
+  }));
+
+  // 前提：這條路真的走到了（不然底下全是空過的）
+  check('交棒真的起跑了（前提）', st.state, 'running');
+  check('交棒帶對模板（前提）', st.tmpl, 'MANCINI_FBD');
+  check('底座左欄顯示標的（前提）', st.name, 'ES1!');
+  // 🔴 分岔本身：這一次是守望，但 Lab 的設定說不是
+  check('🔴 這一次的事實：sess.watch 為真', st.sessWatch, true);
+  check('🔴 而設定（watchMode）為假 —— 兩者在快訊這條路上故意不一致', st.setting, false);
+  // 畫面要講的是事實，不是設定
+  checkTruthy(`🔴 左欄不得印該模板的倒數時長（現在是「${st.dur}」）`, !st.dur.startsWith('3:00'));
+  checkTruthy(`左欄印的是上限（${st.dur}）`, /上限/.test(st.dur) && /30:00/.test(st.dur));
+  checkTruthy(`段標仍是結構守望（${st.seg}）`, /結構守望/.test(st.seg));
+
   await page.close();
 }
 
