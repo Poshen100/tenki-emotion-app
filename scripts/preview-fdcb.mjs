@@ -1255,6 +1255,76 @@ console.log('\n── Hero 讀數不得爆版 ──');
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 底座左欄印的是「這一筆決策的界線」，不是「模板設定了多久」
+//
+// founder 2026-09-03 實走真實快訊、放了 6 分鐘：底座**同一列**左邊寫「3:00」、
+// 中間寫「06:16」。結構守望根本不倒數 —— 它唯一的界線是 WATCH_CEILING_SEC
+// （30 分鐘殭屍上限），所以那個 3:00 在守望模式下**不是一個存在的量**。
+//
+// ⚠️ 這一格的斷言要問**取捨**，不是問字面：
+//   守望 → 不得印該模板的倒數時長，要印上限
+//   倒數 → 照舊印自己的時長（不得被誤傷）
+// 兩邊一起鎖，才擋得住「乾脆全部都印上限」這種把一邊修好、另一邊弄壞的改法。
+// ═══════════════════════════════════════════════════════════════════════
+{
+  console.log('\n── 底座左欄：守望印上限，倒數印時長 ──');
+  const page = await openV3(700);
+
+  // ① 倒數模板（預設 Health Stress，3:00）—— 決策紀律模式關著
+  const countdown = await page.evaluate(() => ({
+    dur: document.getElementById('fdcbDur').textContent.trim(),
+    tmplDur: TEMPLATES[currentTmpl].durationSec,
+    watch: watchMode(currentTmpl),
+  }));
+  check('倒數模板不走守望（前提）', countdown.watch, false);
+  checkTruthy(`倒數模板照舊印自己的時長（${countdown.dur}）`,
+    countdown.dur.startsWith('3:00'));
+  checkTruthy('🔴 倒數模板不得被誤傷成「上限」', !countdown.dur.includes('上限'));
+
+  // ② 守望模板 —— 走產品路徑：開決策紀律模式 → 選 Mancini FBD → 起跑
+  await page.evaluate(() => {
+    window.toggleDisciplineMode();
+    const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === 'MANCINI_FBD');
+    window.selectTmpl(el);
+  });
+  await page.waitForTimeout(500);
+  const ready = await page.evaluate(() => ({
+    dur: document.getElementById('fdcbDur').textContent.trim(),
+    centre: document.getElementById('fdcbTime').textContent.trim(),
+    watch: watchMode(currentTmpl),
+    tmplDur: TEMPLATES[currentTmpl].durationSec,
+    ceiling: WATCH_CEILING_SEC,
+  }));
+  check('守望模板真的走守望（前提，不然下面全是空過的）', ready.watch, true);
+  checkTruthy(`🔴 守望不得印該模板的倒數時長（現在是「${ready.dur}」）`,
+    !ready.dur.startsWith('3:00'));
+  checkTruthy(`守望印的是上限（${ready.dur}）`, /上限/.test(ready.dur) && /30:00/.test(ready.dur));
+  // 同一個謊的第二個出口：ready 狀態中間欄也印同一個界線
+  checkTruthy(`🔴 ready 的中間欄也不得印倒數時長（現在是「${ready.centre}」）`,
+    !/· 3:00$/.test(ready.centre));
+  // ⚠️ 這一格**不能**直接印「上限 30:00」：實測最長的模板名配上它會折成 2 行
+  // （既有的「中間的時鐘仍是 1 行」把它擋下來的）。上限由左欄負責，這裡只講跑法。
+  checkTruthy(`ready 的中間欄講的是跑法（${ready.centre}）`, /守望/.test(ready.centre));
+
+  // ③ 跑起來、推到超過模板時長 —— founder 截到的正是這一刻
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(1100);
+  await page.evaluate(() => { sess.startedAtMs = Date.now() - 376 * 1000; });
+  await page.waitForTimeout(1300);
+  const run = await page.evaluate(() => ({
+    dur: document.getElementById('fdcbDur').textContent.trim(),
+    clock: document.getElementById('fdcbTime').textContent.trim(),
+    fill: document.getElementById('fdcbFill').style.width,
+  }));
+  checkTruthy(`🔴 跑到 ${run.clock} 時左欄仍不得寫 3:00（現在是「${run.dur}」）`,
+    !run.dur.includes('3:00'));
+  checkTruthy(`時鐘真的超過模板時長了（${run.clock}）`, /^0[6-9]:/.test(run.clock));
+  // 守望不畫倒數條 —— founder 看到的那條是靜態三段軌，這條鎖住「填充不動」
+  check('守望模式的倒數填充不得推進', run.fill === '' || run.fill === '0px' || run.fill === '0', true);
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);
