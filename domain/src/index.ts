@@ -206,3 +206,14 @@ export {
   partitionValidSamples,
   validateBiometricSample,
 } from './schemas/wearable-schema';
+
+export {
+  METRIC_FRESHNESS_MS,
+  SOURCE_PLATFORM_PRIORITY,
+  isSampleFresh,
+  isUsableSample,
+  resolveLatestByMetric,
+  resolveSourcePlatform,
+  sampleAgeMs,
+  selectPreferredSample,
+} from './policies/wearable-source-policy';
