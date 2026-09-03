@@ -3941,8 +3941,36 @@ function renderTmplChip(){
   if(!t) return;
   const running = STATES[stateIdx] === 'running';
   document.getElementById('fdcbName').textContent = t.name;
-  document.getElementById('fdcbDur').textContent = fmtDur(t.durationSec) + (running ? '' : ' ▾');
+  document.getElementById('fdcbDur').textContent = tmplBoundLabel(currentTmpl) + (running ? '' : ' ▾');
   document.getElementById('fdcbIcon').innerHTML = ICON_SVG[t.icon] || ICON_SVG.heart;
+}
+
+/**
+ * 底座左欄那一行的「界線」。
+ *
+ * 🔴 這一格印的不是「模板設定了多久」，而是**這一筆決策的界線是什麼**——
+ * 兩者在倒數模式下剛好相同，在結構守望下**完全不同**：守望不倒數，
+ * 它唯一的界線是 WATCH_CEILING_SEC（殭屍上限）。
+ *
+ * founder 2026-09-03 實走真實快訊、放了 6 分鐘：底座同一列左邊寫「3:00」、
+ * 中間寫「06:16」。舊碼無條件印 `fmtDur(t.durationSec)`，而守望模板的 3:00
+ * 在那個模式下**根本不是一個存在的量**。
+ *
+ * ⚠️ 這是 renderTmplChip 上面那段註解記載的坑的第二次，但形狀不同：
+ * 第一次是格式化算錯（3:30 印成 3:00），這次是**那個量在這個模式下不存在**。
+ * 判準：換模式時逐一問「這一格的量在新模式下還存在嗎」，
+ * 不存在就換成該模式真正的界線，不要照樣印預設值。
+ *
+ * 「上限」兩個字是刻意的 —— 30:00 是**界線**不是**目標**，
+ * 守望的收束靠判定，不是靠把時間跑完。
+ *
+ * @param {string} tmplId - 模板 id。
+ * @returns {string} 例：'3:00'（倒數）或 '上限 30:00'（守望）。
+ */
+function tmplBoundLabel(tmplId){
+  const t = TEMPLATES[tmplId];
+  if(!t) return '';
+  return watchMode(tmplId) ? '上限 ' + fmtDur(WATCH_CEILING_SEC) : fmtDur(t.durationSec);
 }
 
 function renderFdcb(){
@@ -3966,7 +3994,14 @@ function renderFdcb(){
     renderMarks();
   }
   if(s === 'ready'){
-    timeEl.textContent = `${tmpl.name} · ${fmtDur(tmpl.durationSec)}`;
+    // 守望模板在起跑前也不得印倒數時長（只改左欄等於把同一個謊留一半），
+    // 但這一格**不能**直接套 tmplBoundLabel：實測「Canslim High RS · 上限 30:00」
+    // 在 360/375/390 三個寬度都折成 2 行（180/195/210px）—— 是既有的
+    // 「中間的時鐘仍是 1 行」斷言（第十三輪加的）當場把它擋下來的，不是我自己發現的。
+    // 上限已經由左欄負責；這一格改成講**這是哪一種跑法**，量過 175px、三個寬度都 1 行。
+    timeEl.textContent = watchMode(currentTmpl)
+      ? `${tmpl.name} · 守望`
+      : `${tmpl.name} · ${fmtDur(tmpl.durationSec)}`;
     segEl.textContent = 'Tap to start';
     elapsed = 0;
     if(fill) fill.style.width = '0';
