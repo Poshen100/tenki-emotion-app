@@ -9,6 +9,69 @@
 
 ---
 
+# 2026-09-03 Session Update #83 (第十四輪的修法問錯了對象 —— 快訊決策仍然印 3:00)
+
+founder 五張實走截圖，兩張直接把上一輪的修法判了：
+
+| 時間 | 容器 | 底座 | |
+|---|---|---|---|
+| 18:23 | App 內建瀏覽器 | `Mancini FBD` / **上限 30:00** / 00:02 | ✅ 第十四輪有效 |
+| 18:31 | **主畫面 PWA** | `ES1!` / **3:00** / 12:19 · 結構守望 | 🔴 同一個 bug 還在 |
+
+⚠️ 兩張結果不同不是隨機：founder 在 App 內建瀏覽器把決策紀律模式打開了
+（截圖 4 的 Lab 寫「已開啟」），18:31 那張是**主畫面 PWA** —— 另一個 storage
+容器，開關是預設的**關**。iOS 三個 storage 容器那條 PLAYBOOK 規則的第 N 次應驗。
+
+## 一、我問錯了對象
+
+`tmplBoundLabel()` 問的是 `watchMode(currentTmpl)` —— 一個**設定**（Lab 開關 +
+是不是交易者模板）。但一筆正在跑的決策，它的界線是 `sess.watch`，**那一次跑法
+的事實**。而 `acceptHandoff()` 明文寫著「快訊交棒過來的決策一律 `sess.watch =
+true`，不看那個開關」—— 兩者在快訊這條路上**故意不一致**。
+
+已重現（信物寫進 localStorage、開 `/v3/#decision`）：
+
+| 決策紀律模式 | `sess.watch` | `watchMode()` | 底座左欄 |
+|---|---|---|---|
+| **關** | true | **false** | **`3:00`** 🔴 |
+| 開 | true | true | 上限 30:00 ✅ |
+
+**為什麼 founder 看得到、我沒看到**：第十四輪的守門走**手動路徑**
+（`toggleDisciplineMode` → `selectTmpl`），開關永遠是開的 —— 設定與事實永遠
+一致。會壞的組合是「快訊交棒 + 開關關著」，那條路我一次都沒走。
+**只走兩者一致的路徑，等於沒有守門。**
+
+## 二、改了什麼
+
+- `tmplBoundLabel()`：正在跑用 `sess.watch`，沒在跑才退回 `watchMode()`
+- 順序陷阱（`acceptHandoff` 自己早就記載過同一個）：`setState('running')` 已經
+  跑過 `renderTmplChip()`，而 `sess.watch` 是在那之後才設的 ——
+  `acceptHandoff()` 與 `resumeActiveDecision()` 設完都要**再重畫一次**
+- `preview-fdcb.mjs`：`openV3` 新增 `handoff` 選項，新增一段走快訊交棒 + 開關關著
+- `preview-decision-chain.mjs`：resume 那一段補上底座左欄斷言（這支從頭到尾沒碰
+  開關，resume 正好也在分岔那條路上）
+
+逐條反向驗證（一次只破壞一處，還原一律 `cp`）：
+① `tmplBoundLabel` 改回只問 `watchMode` → **新那段 2 條紅、第十四輪手動路徑
+11 條全綠**（這就是「為什麼舊守門抓不到」的證明）②拿掉 `acceptHandoff` 的
+`renderTmplChip()` → 同樣 2 條紅 ③拿掉 `resumeActiveDecision` 的 → 鏈上新那條
+紅且只有它紅。三處各自都是 load-bearing，不是裝飾。
+
+## 三、同一批截圖確認落地的（沒動）
+
+第二張是 `/decision-alert/`，底部橫幅寫「ES1! 12:09 · 決策進行中 · 點一下回到
+計時器 ›」—— **第九輪那條跨頁橫幅第一次在真機上被看到**。
+⚠️ 精確講：這只證明**橫幅**那一半（跨頁標記讀得到、時鐘在跑）。點下去之後
+`resumeActiveDecision()` 有沒有把 marks/events 接回來，截圖看不出來，
+**真機上仍未驗證**（容器裡有斷言，那是另一回事）。
+
+## 四、下次接手點
+
+- founder 實走待驗：**在主畫面 PWA 裡**收一則快訊 → 進入決策 → 底座左欄應寫
+  「上限 30:00」；以及點橫幅回去之後標記還在不在
+- 仍未裁決（量過，寫在 #79）：Session 列「未達 Breathe」在 360 寬折兩行、
+  390×700 圓點要捲才看得到、428/430 手機吃的是 390 寬的模型框
+
 # 2026-09-03 Session Update #82 (守望的底座印倒數時長 + 實走確認了兩個先前只在模擬器驗過的修正)
 
 founder 實走真實 TradingView 快訊（ES1! 交叉 7,677.75），整條鏈走通：
