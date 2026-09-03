@@ -3970,7 +3970,21 @@ function renderTmplChip(){
 function tmplBoundLabel(tmplId){
   const t = TEMPLATES[tmplId];
   if(!t) return '';
-  return watchMode(tmplId) ? '上限 ' + fmtDur(WATCH_CEILING_SEC) : fmtDur(t.durationSec);
+  // 🔴 **正在跑的時候問「這一次怎麼跑」，不是問「設定是什麼」。**
+  //
+  // `watchMode(tmplId)` 是一個**設定**（Lab 的決策紀律開關 + 是不是交易者模板）。
+  // 但一筆正在跑的決策，它的界線是 `sess.watch` —— **那一次跑法的事實**。
+  // 兩者在快訊這條路上**故意不一致**：`acceptHandoff()` 明文寫著
+  //「快訊交棒過來的決策一律 sess.watch = true，不看 Lab 那個開關」。
+  //
+  // founder 2026-09-03 實走截到：主畫面 PWA（開關是預設的關）收到快訊 →
+  // 底座同一列**同時**寫著「結構守望 · 點一下判定」與「3:00」。
+  // 第十四輪我拿設定去代表事實，所以只修好了手動起跑那條路。
+  // ⚠️ 兩張截圖結果不同不是隨機：App 內建瀏覽器與主畫面 PWA 是**兩個 storage
+  // 容器**（PLAYBOOK 既有條目），開關各有一份。
+  const running = STATES[stateIdx] === 'running';
+  const watch = (running && sess) ? !!sess.watch : watchMode(tmplId);
+  return watch ? '上限 ' + fmtDur(WATCH_CEILING_SEC) : fmtDur(t.durationSec);
 }
 
 function renderFdcb(){
@@ -4434,6 +4448,10 @@ function acceptHandoff(){
     //「用時間當紀律指標，品質最好的 setup 被罰得最重」。
     // Lab 的開關管的是「使用者自己起跑」時要不要守望，不管快訊這條路。
     sess.watch = true;
+    // 🔴 同一個順序陷阱：setState('running') 已經跑過 renderTmplChip() 了，
+    // 而那時 sess.watch 還沒設 —— 左欄會印成該模板的倒數時長（3:00）。
+    // 設完之後補畫一次，理由跟下面再 publishActiveDecision() 一次完全相同。
+    renderTmplChip();
     // 底座左欄改顯示標的 —— 決策進行中，「ES1!」比「Mancini FBD」有用得多。
     if(sess.symbol){
       sess.name = sess.symbol;
@@ -4495,6 +4513,10 @@ function resumeActiveDecision(){
   sess.originAlertId = m.originAlertId || null;
   sess.anchorPrice = (typeof m.anchorPrice === 'number') ? m.anchorPrice : null;
   sess.watch = !!m.watch;
+  // 🔴 跟 acceptHandoff() 完全同一個順序陷阱：setState('running') 已經跑過
+  // renderTmplChip() 了，而那時 sess.watch 還沒接回來 —— 一筆守望決策接回來
+  // 之後，左欄會印成該模板的倒數時長。設完補畫一次。
+  renderTmplChip();
   sess.events = Array.isArray(m.events) ? m.events : [];
   sess.marks = sess.events.length;                 // marks 一律由節點數導出
   sess.awayCount = m.awayCount || 0;
