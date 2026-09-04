@@ -40,11 +40,18 @@
    `npx tsc` 會去抓遠端 TypeScript 6.0.2 並在 `moduleResolution=node10` 上報 TS5107。
    先 `npm ci`（root + apps/mobile）再驗，錯誤自然消失 —— 那不是 repo 的問題。
 
-## 下次接手點
+## 追加（2026-09-04）：PR #243 + HRV 裁決
 
-- **待 founder 裁決**：`packages/engine/src/biometric/hrv.ts` 的 `harmonizeHrv()` 把 SDNN × 0.75 當
-  RMSSD 用，與新契約的「SDNN ≠ RMSSD」相衝。三個選項見 `docs/WEARABLE-INTEGRATION.md` §3。
-  改它會動到 Edge Score 數值，屬產品決策。
+founder 回「全依你的建議」→ 開了 PR #243，並實作 `docs/WEARABLE-INTEGRATION.md` §3 的選項 (b)：
+`harmonizeHrv()`（SDNN × 0.75）移除，改成 `HrvMetric` 標記 + `BaselineProfile.hrvSdnn` 獨立軌
+（commit `aebad79`）。
+
+**動手前先查呼叫端救了這一刀**：原本我把它標成「會動到 Edge Score 的產品決策」，
+grep 之後發現 v3 的 `harmonizeHrv()` 只有 engine index 再匯出、**沒有任何 pipeline 呼叫**
+（有測試的是 `legacy/hrv.ts` 的同名函式）。所以這是在陷阱被接上之前拆掉，數值零變動。
+→ 規則：把某項改動歸類為「高風險產品決策」之前，先 grep 呼叫端；死碼的風險是零。
+
+## 下次接手點
 - Phase 1–3（HealthKit / Health Connect / BLE 橋接）需要 native module + Mac 實機，未動。
 - `apps/mobile/app/(tabs)/lab.tsx:81` 的 Devices 入口仍是 `onPress: undefined` 佔位。
 
