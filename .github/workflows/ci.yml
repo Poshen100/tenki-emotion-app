@@ -151,3 +151,17 @@ jobs:
       # 這一段最容易靜默壞掉：跨頁、跨 localStorage、跨兩套 template id。
       - name: Decision chain harness (alert → timer)
         run: node scripts/preview-decision-chain.mjs
+
+      # 這兩支是 #238 / #240 為了 founder 實走回報寫的（Today 版面遮擋 33 條、
+      # 眨眼谷底偵測 9 條），但當時 harness 還沒進 CI，所以它們一直只能在開發
+      # 容器裡手跑 —— 也就是完全沒有在守任何東西。
+      #
+      # ⚠️ stardust 那條排除理由（倚賴容器連不到 cdnjs）**不適用於這兩支**：
+      # 兩支都不碰 three.js／TENKI_STARDUST，且用 domcontentloaded 不等 load。
+      # 但 scan-blink 載的是 v6/index.html，而 CI 連得到 cdnjs、容器連不到 ——
+      # 這個前提差異在沙箱裡驗不掉，第一次 CI run 就是它的驗收。
+      - name: Today layout harness (遮擋幾何)
+        run: node scripts/preview-today-layout.mjs
+
+      - name: Scan blink harness (谷底偵測)
+        run: node scripts/preview-scan-blink.mjs
