@@ -180,3 +180,40 @@ export {
 } from './policies/readiness-band';
 
 export type { BandDisciplineStat, ReadingGate } from './policies/readiness-band';
+
+export {
+  BIOMETRIC_METRICS,
+  BIOMETRIC_PERMISSION_SCOPES,
+  BIOMETRIC_SOURCE_PLATFORMS,
+  LOCAL_ONLY_METRICS,
+  MIN_USABLE_QUALITY,
+  SAMPLE_QUALITY_GRADES,
+  isHrvMetric,
+  mayLeaveDevice,
+} from './contracts/wearable-sample';
+
+export type {
+  BiometricMetric,
+  BiometricPermissionScope,
+  BiometricSample,
+  BiometricSourcePlatform,
+  SampleQualityGrade,
+} from './contracts/wearable-sample';
+
+export {
+  MAX_CLOCK_SKEW_MS,
+  METRIC_PLAUSIBLE_RANGES,
+  partitionValidSamples,
+  validateBiometricSample,
+} from './schemas/wearable-schema';
+
+export {
+  METRIC_FRESHNESS_MS,
+  SOURCE_PLATFORM_PRIORITY,
+  isSampleFresh,
+  isUsableSample,
+  resolveLatestByMetric,
+  resolveSourcePlatform,
+  sampleAgeMs,
+  selectPreferredSample,
+} from './policies/wearable-source-policy';
