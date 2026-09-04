@@ -55,15 +55,24 @@ App 內連接頁應只出現四個選項：**Apple 健康**（iOS）／**Health 
    由它算出的 RMSSD / SDNN 屬 derived，不受此限。使用者同意能放寬「讀什麼」，
    **不能放寬「什麼可以離開裝置」**。
 
-### 已知衝突（待 founder 裁決，本次未動）
+### HRV 換算：已裁決採 (b)，2026-09-04
 
-`packages/engine/src/biometric/hrv.ts` 的 `harmonizeHrv()` 目前把 HealthKit 的 SDNN 乘 0.75
-當成 RMSSD 用。這與規則 1 直接衝突（該係數沒有個人化依據，跨人差異很大）。
-改它會動到 Edge Score 數值 → 屬產品決策，不在 Phase 0 範圍。三個選項：
+原本 `packages/engine/src/biometric/hrv.ts` 的 `harmonizeHrv()` 把 HealthKit 的 SDNN 乘 0.75
+當 RMSSD 用。那個係數沒有個人化依據（跨人差異很大），與規則 1 直接衝突。
+**founder 已裁決採選項 (b)：兩條獨立基線軌，誰有資料用誰。** 已實作：
 
-- (a) 保留係數，但在 UI／log 標記「換算值、信心降級」；
-- (b) 改成兩條獨立的基線軌（SDNN 軌與 RMSSD 軌），誰有資料用誰；← 與本契約一致
-- (c) 只在同一來源內比較，不跨來源換算。
+| 改動 | 位置 |
+|---|---|
+| `harmonizeHrv()` 移除（v3 模組；`legacy/hrv.ts` 保留不動） | `packages/engine/src/biometric/hrv.ts` |
+| `HrvMetric` / `HrvObservation` / `NATIVE_HRV_METRIC` / `buildHrvObservation()` —— 每個 HRV 值都帶著「它到底是哪個統計量」，**永不換算** | 同上 |
+| `BaselineProfile.hrvSdnn` —— SDNN 自己的基線軌（optional，舊 profile 沒有就是「還沒有 SDNN 基線」，不從 RMSSD 軌回填） | `packages/engine/src/common/types.ts` |
+| `updateBaselineProfile(..., hrvSdnnMs)` 路由 SDNN、`selectHrvBaseline(profile, metric, bucket)` 取對的軌 | `packages/engine/src/baseline/baseline.ts` |
+
+⚠️ **Edge Score 數值沒有變**：`harmonizeHrv()` 當時沒有任何 pipeline 呼叫（只有 engine index 再匯出），
+SDNN 軌在 HealthKit 接上前也不會有資料。這是把陷阱在被接上之前拆掉，不是改計分。
+
+Phase 1 接 HealthKit 時的義務：SDNN 值必須走 `hrvSdnnMs` 進 SDNN 軌，
+**不得塞進 `BiometricReading.hrvRmssdMs`**；沒有對應軌的基線就不出該項讀數，不借用另一軌。
 
 ## 4. Phase 1–4 — 尚未實作
 

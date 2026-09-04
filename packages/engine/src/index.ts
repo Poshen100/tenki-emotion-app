@@ -99,11 +99,18 @@ export type { NotificationTemplateId } from './compliance/notification-guard';
 export {
   calculateHrvBaselineRange,
   getHrvStatus,
-  harmonizeHrv,
+  buildHrvObservation,
   computeHrvZScore,
+  NATIVE_HRV_METRIC,
 } from './biometric/hrv';
 
-export type { HrvStatus, HrvBaselineRange, HrvSource } from './biometric/hrv';
+export type {
+  HrvStatus,
+  HrvBaselineRange,
+  HrvSource,
+  HrvMetric,
+  HrvObservation,
+} from './biometric/hrv';
 
 export {
   clampBrpm,
@@ -143,6 +150,7 @@ export {
   resolveTimeBucket,
   assessMaturity,
   updateBaselineProfile,
+  selectHrvBaseline,
 } from './baseline/baseline';
 
 // ─── Scoring Engine ─────────────────────────
