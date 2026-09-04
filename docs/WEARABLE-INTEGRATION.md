@@ -74,26 +74,58 @@ SDNN 軌在 HealthKit 接上前也不會有資料。這是把陷阱在被接上�
 Phase 1 接 HealthKit 時的義務：SDNN 值必須走 `hrvSdnnMs` 進 SDNN 軌，
 **不得塞進 `BiometricReading.hrvRmssdMs`**；沒有對應軌的基線就不出該項讀數，不借用另一軌。
 
-## 4. Phase 1–4 — 尚未實作
+## 4. Phase 1 — 連接頁（非原生部分已完成，2026-09-04）
+
+`apps/mobile/features/devices/` + route `/devices`（Lab → Devices 進入）。
+**接縫是 `port.ts` 的 `DeviceLinkPort`**：上面全是純邏輯、今天就能測；
+下面是要 Mac 才能寫的 native module。原生階段只要實作這個介面，
+畫面、狀態機、store 都不用改。
+
+| 檔案 | 職責 |
+|---|---|
+| `providers.ts` | 四個入口的 catalogue + `resolveUnavailableReason()`（先擋錯 OS，再擋第二波，再擋沒裝 Health Connect，最後才是沒有 adapter） |
+| `copy.ts` | 所有 user-facing 字串集中一處，測試直接驗 §1 命名紅線與 compliance |
+| `machine/deviceLinkMachine.ts` | 每個 provider 一台連線狀態機（`unavailable` / `disconnected` / `requesting` / `denied` / `connected` / `error`） |
+| `store/devicesStore.ts` | 連線紀錄（狀態、拿到哪些 scope、上次同步）—— 生理數值不經過它 |
+| `status.ts` | 「Apple Watch · 12 分鐘前」；stale 門檻 borrow domain 的 `METRIC_FRESHNESS_MS` |
+| `port.ts` | **原生階段的實作點**；預設 `createUnwiredLinkPort()` 對每個 provider 都回「這個版本還沒有裝置連接模組」 |
+
+已定案的行為（有測試守著，改動前先看測試）：
+
+- **PARTIAL 授權算已連接**，畫面列出實際拿到的 scope，不含糊帶過。
+- **DENIED 不是 error、也不是死路**：那一列明說「相機掃描仍可完整使用」，RETRY 永遠在。
+- **BLOCK 從任何狀態都收**：使用者可能中途解除安裝 Health Connect，
+  不能讓「已連接」卡在那裡宣稱不存在的連線。
+- **沒有 adapter 就照實說**，那是我們的缺口不是使用者的；不得長成「連了但永遠沒資料」。
+- 隱私說明與中斷連接就在頁面上，整頁免費（v3 硬規則：隱私控制不得放在付費牆後）。
+
+## 5. Phase 1–4 原生部分 — 尚未實作
 
 | Phase | 內容 | 為什麼還沒做 |
 |---|---|---|
-| 1 | iOS HealthKit 原生橋接、contextual 權限、30 天基線首次同步、資料新鮮度顯示 | 需要 native module + Mac 實機驗證（CLAUDE.md AI 分工表） |
+| 1 | iOS HealthKit 橋接（實作 `DeviceLinkPort`）、30 天基線首次同步 | 需要 native module + Mac 實機驗證（CLAUDE.md AI 分工表） |
 | 2 | Android Health Connect（權限分群 Vitals / Sleep / Activity；未安裝時導引，不當成登入失敗） | 同上 |
 | 3 | BLE Precision Link：只支援標準 Heart Rate Service，即時顯示有效搏數與 RR 可用性 | 同上。⚠️ 沒有 RR interval 的裝置只能提升心率品質，**不得宣稱量到胸帶 HRV** |
 | 4 | Garmin Health API（先申請 evaluation，不把授權費放進 MVP 必要條件） | 審核制外部相依 → `docs/garmin-integration.md` |
 
 Phase 1–3 的共同驗收線：**權限被拒時相機 Soul Scan 仍完整可用**，穿戴資料是補強層，不是前置條件。
 
-## 5. 現況（2026-09-03 查核）
+實作 `DeviceLinkPort` 時的義務：
+1. `describeEnvironment()` 要照實回報 adapter 是否存在 —— 回 `true` 但沒有橋接，
+   會讓畫面開始說謊。
+2. SDNN 值走 `updateBaselineProfile(..., hrvSdnnMs)` 進 SDNN 軌，
+   **不得塞進 `BiometricReading.hrvRmssdMs`**（見 §3）。
+3. 權限要 contextual（掃描之後才問），且逐個 scope，不在冷啟動一次要全部。
 
-repo 內**沒有**任何可用的 HealthKit / Health Connect / Garmin / BLE 讀取實作。
-既有的只有型別槽位與 UI 佔位：
+### 現況（2026-09-04 查核）
+
+repo 內**沒有**任何可用的 HealthKit / Health Connect / Garmin / BLE 讀取實作 ——
+連接頁在真機上會顯示「尚未開放連接，功能還在開發中」，這是設計行為，不是 bug。
+既有的其他槽位：
 
 - `packages/engine/src/common/types.ts` — `BiometricSource`、`SleepRecoveryInput`（有槽位，無資料）
 - `packages/engine/src/fusion.ts` — `FusionSource` 優先序（本檔 Phase 0 沿用其排序）
 - `packages/engine/src/pipeline/scan-pipeline.ts` — `wearableHrvRmssdMs` 覆寫路徑（等資料）
-- `apps/mobile/app/(tabs)/lab.tsx:81` — Devices 入口 `onPress: undefined`（佔位）
 
 因此**任何對外文案都不得宣稱已支援穿戴裝置**。
 
