@@ -60,9 +60,10 @@ export function calculateHrvBaselineRange(samples: number[]): HrvBaselineRange {
 // ─────────────────────────────────────────────
 
 /**
- * Determines HRV status based on current RMSSD and personal baseline range.
+ * Determines HRV status based on the current HRV value and the personal
+ * baseline range for the SAME HRV statistic (see `HrvMetric`).
  *
- * @param currentRmssd - Current HRV RMSSD measurement in ms.
+ * @param currentRmssd - Current HRV measurement in ms.
  * @param baselineRange - The user's calculated baseline HRV range.
  * @returns The HrvStatus classification.
  */
@@ -85,42 +86,88 @@ export function getHrvStatus(currentRmssd: number, baselineRange: HrvBaselineRan
 }
 
 // ─────────────────────────────────────────────
-// Cross-Source Harmonization
+// Cross-Source Metric Tagging
 // ─────────────────────────────────────────────
 
-/** Biometric source for HRV harmonization. */
+/** Biometric source for HRV readings. */
 export type HrvSource = 'healthkit' | 'health_connect' | 'finger_scan' | 'ble_chest';
 
 /**
- * Harmonizes HRV across different device sources.
- * HealthKit provides SDNN; we approximate RMSSD as SDNN × 0.75.
- *
- * @param source - The origin of the HRV measurement.
- * @param rmssdMs - The provided RMSSD value (if directly available).
- * @param sdnnMs - The provided SDNN value (from HealthKit, if available).
- * @returns The harmonized RMSSD value in ms.
+ * Which HRV statistic a value actually is. SDNN and RMSSD are different
+ * quantities computed over different time structure — they are NOT
+ * interchangeable, and no fixed ratio converts one into the other for a given
+ * person. Every HRV value therefore travels tagged with the statistic it is.
  */
-export function harmonizeHrv(
+export type HrvMetric = 'rmssd' | 'sdnn';
+
+/** An HRV value together with the statistic it actually represents. */
+export interface HrvObservation {
+  /** Which HRV statistic this value is. */
+  metric: HrvMetric;
+  /** The value in milliseconds. */
+  valueMs: number;
+}
+
+/**
+ * The HRV statistic each platform reports natively.
+ * Apple Health exposes HRV as SDNN; Health Connect defines its HRV type as
+ * RMSSD; a chest strap and a finger scan both give us inter-beat intervals,
+ * from which TENKI computes RMSSD directly.
+ */
+export const NATIVE_HRV_METRIC: Readonly<Record<HrvSource, HrvMetric>> = {
+  healthkit: 'sdnn',
+  health_connect: 'rmssd',
+  ble_chest: 'rmssd',
+  finger_scan: 'rmssd',
+};
+
+/**
+ * Tags an incoming HRV value with the statistic it actually is, preferring the
+ * source's native statistic and falling back to whichever value is present.
+ * It never converts between SDNN and RMSSD: a value that cannot be labelled
+ * honestly is dropped rather than reshaped into the other metric's units.
+ *
+ * @param source - Where the HRV value came from.
+ * @param values - Whichever HRV values the adapter obtained.
+ * @returns The tagged observation, or null when no usable value is available.
+ */
+export function buildHrvObservation(
   source: HrvSource,
-  rmssdMs: number,
-  sdnnMs: number | null
-): number {
-  if (source === 'healthkit' && sdnnMs !== null) {
-    return sdnnMs * 0.75;
+  values: { rmssdMs?: number | null; sdnnMs?: number | null }
+): HrvObservation | null {
+  const byMetric: Record<HrvMetric, number | null | undefined> = {
+    rmssd: values.rmssdMs,
+    sdnn: values.sdnnMs,
+  };
+
+  const native = NATIVE_HRV_METRIC[source];
+  const fallback: HrvMetric = native === 'rmssd' ? 'sdnn' : 'rmssd';
+
+  for (const metric of [native, fallback]) {
+    const value = byMetric[metric];
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      return { metric, valueMs: value };
+    }
   }
-  return rmssdMs;
+
+  return null;
 }
 
 /**
  * Computes the HRV z-score against a metric baseline.
  *
- * @param hrvRmssd - Current HRV RMSSD in ms.
- * @param baseline - Metric baseline for HRV.
+ * The caller is responsible for pairing the value with the baseline track for
+ * the SAME HRV statistic — use `selectHrvBaseline()` in baseline/baseline.ts.
+ * Scoring an SDNN value against an RMSSD baseline produces a number that looks
+ * valid and means nothing.
+ *
+ * @param hrvValueMs - Current HRV value in ms (SDNN or RMSSD).
+ * @param baseline - Metric baseline for that same HRV statistic.
  * @returns Z-score, or 0 if baseline is insufficient.
  */
-export function computeHrvZScore(hrvRmssd: number, baseline: MetricBaseline): number {
+export function computeHrvZScore(hrvValueMs: number, baseline: MetricBaseline): number {
   if (baseline.sampleCount === 0 || baseline.std === 0) {
     return 0;
   }
-  return (hrvRmssd - baseline.mean) / baseline.std;
+  return (hrvValueMs - baseline.mean) / baseline.std;
 }

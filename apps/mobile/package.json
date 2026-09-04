@@ -44,7 +44,8 @@
     "testEnvironment": "node",
     "testMatch": [
       "**/features/face-baseline/__tests__/**/*.test.ts",
-      "**/features/finger-precision/__tests__/**/*.test.ts"
+      "**/features/finger-precision/__tests__/**/*.test.ts",
+      "**/features/devices/__tests__/**/*.test.ts"
     ],
     "transform": {
       "^.+\\.tsx?$": [
@@ -53,6 +54,9 @@
           "tsconfig": "<rootDir>/features/face-baseline/jest.tsconfig.json"
         }
       ]
+    },
+    "moduleNameMapper": {
+      "^@tenki/domain$": "<rootDir>/../../domain/src/index.ts"
     }
   },
   "private": true

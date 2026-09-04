@@ -9,6 +9,93 @@
 
 ---
 
+# 2026-09-04 Session Update #71 (Devices 連接頁：把接縫先做出來，native 之後補)
+
+雲端 Claude Code。PR #243（Phase 0 契約 + HRV 軌分離）已 merge 進 main；本次從 main 重開分支做 Phase 1
+的**非原生部分**：`apps/mobile/features/devices/` + route `/devices`。
+
+## 做了什麼
+
+| Commit | 內容 |
+|---|---|
+| `0d74ff3` | provider catalogue（四個入口）+ `resolveUnavailableReason()` + `copy.ts`（合規測試）；順帶把 `@tenki/domain` 接進 mobile |
+| `00dede4` | 每個 provider 一台連線狀態機 |
+| `b193326` | devicesStore + `DeviceLinkPort` + 「Apple Watch · 12 分鐘前」狀態行 |
+| `1f6a46d` | DevicesScreen + `/devices` route + Lab 入口（原本 `onPress: undefined`）|
+
+`verify.sh` 全綠，新增 50 條 mobile 測試。
+
+## 教訓 / 注意
+
+1. **要在 native module 之前交付流程，就把接縫定成一個 port。** `port.ts` 的 `DeviceLinkPort` 之上全是純
+   邏輯（今天就能測），之下是要 Mac 才能寫的東西。預設的 `createUnwiredLinkPort()` 對每個 provider 都回
+   「這個版本還沒有裝置連接模組」—— 沒有橋接時這才是誠實答案，**不能長成「連了但永遠沒資料」**。
+2. **合規可以用測試守，不必靠人盯**：`copy.ts` 把所有 user-facing 字串集中，測試直接驗
+   「必須有 Apple 健康、不得有 Apple 健身 / Google Fit / 診斷 / 偵測情緒 / 獲利」。
+3. **expo-router 是檔案路由，push 錯路徑只會靜靜 404** → `DEVICES_ROUTE` 常數 + 一條「對應的
+   `app/devices.tsx` 真的存在」的測試。**已照 PLAYBOOK §3 反向驗證**：把檔案搬走，那條測試確實變紅。
+4. **mobile 的 jest 只跑白名單目錄**（`package.json` 的 `testMatch` 逐個列出 feature），
+   新 feature 的 `__tests__` 不加進去就是靜靜地不跑。
+5. mobile 要 import repo 內的套件，**tsc paths、metro watchFolders、jest moduleNameMapper 三處都要加**
+   —— 少一處就是「tsc 過但 bundle 掛」或「app 跑得動但測試找不到模組」。
+
+## 下次接手點
+
+- 原生階段實作 `DeviceLinkPort` 即可接上；義務寫在 `docs/WEARABLE-INTEGRATION.md` §5
+  （adapter 要照實回報、SDNN 走 SDNN 軌、權限 contextual 且逐個 scope）。
+- Devices 連接頁**沒有 founder 實走過**（`apps/mobile` 沒有公開網址，要等 Expo Go／實機）。
+  在真機上目前每列都會顯示「尚未開放連接，功能還在開發中」—— 那是設計行為。
+- Lab 的 Profile / Privacy / Subscription 三個入口仍是 `onPress: undefined` 佔位。
+
+# 2026-09-03 Session Update #70 (穿戴資料整合 Phase 0：先立契約，不先接裝置)
+
+雲端 Claude Code，分支 `claude/wearable-data-integration-x5ulwr`。founder 給的是一份穿戴整合策略備忘
+（Apple 健康 / Health Connect / BLE 胸帶為 P0），我只實作其中「Phase 0 資料契約」這一段。
+
+## 做了什麼
+
+| Commit | 內容 |
+|---|---|
+| `627f14e` | `domain/contracts/wearable-sample.ts` + `schemas/wearable-schema.ts`：canonical `BiometricSample`、生理合理範圍驗證、批次 partition |
+| `a28d716` | `domain/policies/wearable-source-policy.ts`：來源優先序、freshness 窗、每 metric 選一個贏家、舊詞彙對應 |
+| `793e291` | `docs/WEARABLE-INTEGRATION.md`（canonical）+ PLAYBOOK 路由列 + garmin-integration.md 指回 |
+
+`verify.sh` 全綠（171 root + 80 mobile 測試）。
+
+## 教訓 / 注意
+
+1. **founder 備忘裡有兩個違反本 repo 硬規則的詞**：全篇用「TEI」（v2 廢棄詞，`check-vocab.sh` 會擋）、
+   以及把產品講成 trading tool。我在代碼與文件裡一律改用 Edge Score / decision readiness。
+   → 外部策略文件（含其他 AI 產出）進 repo 前要先過禁用詞彙這一關。
+2. **附圖上的「Apple 健身」不是資料 API**。正確入口是 Apple 健康（HealthKit）；
+   Google Fit API 已淘汰，Android 要走 Health Connect。命名紅線已寫進 canonical 文件 §1。
+3. **repo 已經有四套平行的來源詞彙**（`BiometricSource` / `FusionSource` / `HrvSource` /
+   `AutonomicSource`）。這正是「先立契約再接裝置」的理由 —— 再接一支手錶就是第五套。
+   收斂用 `resolveSourcePlatform()`，不做一次性 breaking rename。
+4. **`key in obj` 會命中原型鏈** —— `resolveSourcePlatform('toString')` 第一版回傳了字串本身，
+   被測試抓到。查表型的來源解析一律用 `Object.hasOwn`。
+5. **環境坑**：本 session 起始時 root 與 apps/mobile 的 `node_modules` 都不存在，
+   `npx tsc` 會去抓遠端 TypeScript 6.0.2 並在 `moduleResolution=node10` 上報 TS5107。
+   先 `npm ci`（root + apps/mobile）再驗，錯誤自然消失 —— 那不是 repo 的問題。
+
+## 追加（2026-09-04）：PR #243 + HRV 裁決
+
+founder 回「全依你的建議」→ 開了 PR #243，並實作 `docs/WEARABLE-INTEGRATION.md` §3 的選項 (b)：
+`harmonizeHrv()`（SDNN × 0.75）移除，改成 `HrvMetric` 標記 + `BaselineProfile.hrvSdnn` 獨立軌
+（commit `aebad79`）。
+
+**動手前先查呼叫端救了這一刀**：原本我把它標成「會動到 Edge Score 的產品決策」，
+grep 之後發現 v3 的 `harmonizeHrv()` 只有 engine index 再匯出、**沒有任何 pipeline 呼叫**
+（有測試的是 `legacy/hrv.ts` 的同名函式）。所以這是在陷阱被接上之前拆掉，數值零變動。
+→ 規則：把某項改動歸類為「高風險產品決策」之前，先 grep 呼叫端；死碼的風險是零。
+
+## 下次接手點
+- Phase 1–3（HealthKit / Health Connect / BLE 橋接）需要 native module + Mac 實機，未動。
+- `apps/mobile/app/(tabs)/lab.tsx:81` 的 Devices 入口仍是 `onPress: undefined` 佔位。
+
+
+---
+
 # 2026-09-03 Session Update #83 (第十四輪的修法問錯了對象 —— 快訊決策仍然印 3:00)
 
 founder 五張實走截圖，兩張直接把上一輪的修法判了：
