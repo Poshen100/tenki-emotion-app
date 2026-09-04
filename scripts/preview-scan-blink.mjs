@@ -15,7 +15,10 @@
  *
  * Run: node scripts/preview-scan-blink.mjs
  */
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+// Playwright 的取得集中在 scripts/lib/playwright.mjs：先走 devDependency，
+// 找不到才退回開發容器的絕對路徑。寫死容器路徑正是這批 harness 一直進不了
+// CI 的唯一硬阻礙（#226 第四輪），這支是 #240 之後才寫的，當時漏掉。
+import { getChromium } from './lib/playwright.mjs';
 import http from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
@@ -63,6 +66,7 @@ const CASES = [
     seq: [1, 0.95, 0.9, 0.93, 0.97, 1, 0.94], want: 0 },
 ];
 
+const chromium = await getChromium();
 const browser = await chromium.launch();
 const page = await browser.newPage();
 await page.goto(`${base}/apps/preview/v6/index.html`, { waitUntil: 'domcontentloaded' }).catch(() => {});

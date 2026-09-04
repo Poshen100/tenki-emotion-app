@@ -89,6 +89,8 @@ if node -e "import('playwright')" >/dev/null 2>&1 \
   run_step "preview harness (fdcb)" node scripts/preview-fdcb.mjs
   run_step "preview harness (strip-color)" node scripts/preview-strip-color.mjs
   run_step "preview harness (decision-chain)" node scripts/preview-decision-chain.mjs
+  run_step "preview harness (today-layout)" node scripts/preview-today-layout.mjs
+  run_step "preview harness (scan-blink)" node scripts/preview-scan-blink.mjs
 else
   RESULTS+=("– preview harness（未裝 Playwright，略過；CI 會跑）")
 fi
