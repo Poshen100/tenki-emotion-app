@@ -7,6 +7,10 @@
     "strict": true,
     "skipLibCheck": true,
     "types": ["jest", "node"],
-    "isolatedModules": true
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@tenki/domain": ["../../../../domain/src/index.ts"]
+    }
   }
 }

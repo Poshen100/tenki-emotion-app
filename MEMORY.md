@@ -9,6 +9,44 @@
 
 ---
 
+# 2026-09-04 Session Update #71 (Devices 連接頁：把接縫先做出來，native 之後補)
+
+雲端 Claude Code。PR #243（Phase 0 契約 + HRV 軌分離）已 merge 進 main；本次從 main 重開分支做 Phase 1
+的**非原生部分**：`apps/mobile/features/devices/` + route `/devices`。
+
+## 做了什麼
+
+| Commit | 內容 |
+|---|---|
+| `0d74ff3` | provider catalogue（四個入口）+ `resolveUnavailableReason()` + `copy.ts`（合規測試）；順帶把 `@tenki/domain` 接進 mobile |
+| `00dede4` | 每個 provider 一台連線狀態機 |
+| `b193326` | devicesStore + `DeviceLinkPort` + 「Apple Watch · 12 分鐘前」狀態行 |
+| `1f6a46d` | DevicesScreen + `/devices` route + Lab 入口（原本 `onPress: undefined`）|
+
+`verify.sh` 全綠，新增 50 條 mobile 測試。
+
+## 教訓 / 注意
+
+1. **要在 native module 之前交付流程，就把接縫定成一個 port。** `port.ts` 的 `DeviceLinkPort` 之上全是純
+   邏輯（今天就能測），之下是要 Mac 才能寫的東西。預設的 `createUnwiredLinkPort()` 對每個 provider 都回
+   「這個版本還沒有裝置連接模組」—— 沒有橋接時這才是誠實答案，**不能長成「連了但永遠沒資料」**。
+2. **合規可以用測試守，不必靠人盯**：`copy.ts` 把所有 user-facing 字串集中，測試直接驗
+   「必須有 Apple 健康、不得有 Apple 健身 / Google Fit / 診斷 / 偵測情緒 / 獲利」。
+3. **expo-router 是檔案路由，push 錯路徑只會靜靜 404** → `DEVICES_ROUTE` 常數 + 一條「對應的
+   `app/devices.tsx` 真的存在」的測試。**已照 PLAYBOOK §3 反向驗證**：把檔案搬走，那條測試確實變紅。
+4. **mobile 的 jest 只跑白名單目錄**（`package.json` 的 `testMatch` 逐個列出 feature），
+   新 feature 的 `__tests__` 不加進去就是靜靜地不跑。
+5. mobile 要 import repo 內的套件，**tsc paths、metro watchFolders、jest moduleNameMapper 三處都要加**
+   —— 少一處就是「tsc 過但 bundle 掛」或「app 跑得動但測試找不到模組」。
+
+## 下次接手點
+
+- 原生階段實作 `DeviceLinkPort` 即可接上；義務寫在 `docs/WEARABLE-INTEGRATION.md` §5
+  （adapter 要照實回報、SDNN 走 SDNN 軌、權限 contextual 且逐個 scope）。
+- Devices 連接頁**沒有 founder 實走過**（`apps/mobile` 沒有公開網址，要等 Expo Go／實機）。
+  在真機上目前每列都會顯示「尚未開放連接，功能還在開發中」—— 那是設計行為。
+- Lab 的 Profile / Privacy / Subscription 三個入口仍是 `onPress: undefined` 佔位。
+
 # 2026-09-03 Session Update #70 (穿戴資料整合 Phase 0：先立契約，不先接裝置)
 
 雲端 Claude Code，分支 `claude/wearable-data-integration-x5ulwr`。founder 給的是一份穿戴整合策略備忘
