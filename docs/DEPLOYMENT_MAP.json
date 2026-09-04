@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-07-12T00:00:00Z",
+  "lastUpdated": "2026-08-20",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -68,6 +68,22 @@
       "editable": true
     },
     {
+      "route": "/v3/#decision",
+      "url": "https://tenki-emotion-app.vercel.app/v3/#decision",
+      "source": "apps/preview/v6/index.html",
+      "purpose": "從快訊交棒過來的決策計時器入口(2026-08-20)。讀 tenki.v6.handoff.v1 後直接起跑那一筆決策(帶標的、originAlertId、關鍵價位),走結構守望而非倒數。規格:docs/TRADINGVIEW-ALERT-SPEC.md",
+      "status": "active",
+      "editable": true
+    },
+    {
+      "route": "/decision-alert/#result",
+      "url": "https://tenki-emotion-app.vercel.app/decision-alert/#result",
+      "source": "apps/preview/decision-alert.html",
+      "purpose": "判定完的回程收束頁(2026-08-20)。讀 tenki.alert.return.v1 找出那筆紀錄並開收束頁;只顯示不落地(紀錄是計時器那邊寫的)。",
+      "status": "active",
+      "editable": true
+    },
+    {
       "route": "/api/channel",
       "url": "https://tenki-emotion-app.vercel.app/api/channel",
       "source": "api/channel.ts (serverless function)",
@@ -98,6 +114,14 @@
       "purpose": "品牌靜態資產直達路由(vercel.json rewrites)",
       "status": "active",
       "editable": false
+    },
+    {
+      "route": "/api/subscribe",
+      "url": "https://tenki-emotion-app.vercel.app/api/subscribe",
+      "source": "api/subscribe.ts",
+      "purpose": "Web Push 訂閱端點(POST 存、DELETE 移除,?ch=)。需 VAPID env。先前只寫在 .md、漏在本檔 —— 正是檔頭警告的同步失敗。",
+      "status": "active",
+      "editable": true
     }
   ],
   "mobileApp": {

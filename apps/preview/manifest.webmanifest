@@ -3,7 +3,7 @@
   "short_name": "TENKI",
   "description": "外部快訊 → 決策入口",
   "start_url": "/decision-alert/",
-  "scope": "/decision-alert/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#020617",
   "theme_color": "#020617",

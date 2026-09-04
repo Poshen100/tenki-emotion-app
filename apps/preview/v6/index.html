@@ -54,10 +54,19 @@
   --warn:#F5A623;
   --ease-calm:cubic-bezier(0.22, 1, 0.36, 1);
   --ease-breath:cubic-bezier(0.4, 0, 0.6, 1);
+  /* 鎖定/確認落地（MOTION-DIRECTION §3）。tokens.css 也有一份，但這一頁的
+     :root 一向自己帶用得到的 token —— 上面那支是絕對路徑載入的，掉了不能連手感一起掉。 */
+  --ease-secure:cubic-bezier(0.19, 1, 0.22, 1);
 
   --top-safe:14px;
   --tabbar-h:74px;
-  --fdcb-h:58px;
+  /* 底座高度是 state 的函式（applyFdcbHeight 改寫這個變數）：
+     idle 只有「模板 + 開始決策」一列，用不到 58px；跑起來才長回三欄。
+     各分頁的 padding-bottom 保留區吃的是同一個變數 —— 兩邊分開寫死，
+     一定有一邊先過期。 */
+  --fdcb-h:44px;
+  --fdcb-h-idle:44px;
+  --fdcb-h-live:58px;
   --fdcb-gap:10px; /* gap between fdcb and tabbar */
 }
 
@@ -320,6 +329,11 @@ body{
   box-shadow:inset 0 0 20px rgba(0,0,0,0.6);
 }
 .tl-edge-score{
+  /* 🔴 讀數永遠不從中間斷開。斷了就會變成「尚未量」/「測」並把整段推出環心
+     （2026-08-19 實測 360px）。nowrap 是結構保證；下面的 clamp 負責讓它塞得下。
+     兩條一起才成立：只有 nowrap 會變成橫向溢出，只有 clamp 會在文案變長時再爆。
+     harness 同時驗「1 行」與「盒子在圓內」，任何一邊破了都會紅。 */
+  white-space:nowrap;
   font-size:86px;font-weight:700;line-height:0.9;letter-spacing:-0.04em;
   color:#fff;font-variant-numeric:tabular-nums;
   background:linear-gradient(180deg, #fff 0%, #d8e0e4 40%, #a8b8c0 100%);
@@ -333,7 +347,19 @@ body{
    顏色改用帶位色，且要蓋掉上面的 -webkit-text-fill-color:transparent ——
    不蓋的話漸層 clip 會讓文字整個看不見。 */
 .tl-edge-score.band{
-  font-size:40px;letter-spacing:-0.01em;line-height:1;
+  /* 🔴 40px 仍然撐爆 —— 實測「Neutral」（三個帶位裡最長的）在 390 是 136px，
+     而環心只有 128px，左右各溢出 3px。上面那段註解已經知道「Neutral 放上去會
+     撐爆環心」、從 86px 降到 40px，但**降到一個固定值仍然是固定值**：
+     環心是 vw 的函式，字級不是，於是換一個寬度就又不成立。
+     跟 .awaiting 同樣的解法 —— 字級吃同一個 vw，上限 36px 留出餘裕。
+     harness 在 360/375/390/414 四個寬度驗「讀數整個在環心圓內」，
+     以後哪個帶位詞變長都會當場紅。 */
+  /* 上限 36→34px（2026-08-19，harness 進 CI 時順手）：36px 時「Neutral」在容器
+     預設字型下是 124px、環心 128px —— **只剩 4px 餘裕**，字型稍微換一下就紅。
+     斷言現在會在 CI 跑，假紅的代價比字小一點高得多。 */
+  /* 上限同理跟著環在 385px 收手（見 .awaiting）：8.5% × 385 ≈ 32.7 → 32.5px。
+     34px 的舊上限要到 400px 才封頂，而圓在 385 就不長了。 */
+  font-size:clamp(28px, 8.5vw, 32.5px);letter-spacing:-0.01em;line-height:1;
   background:none;-webkit-text-fill-color:currentColor;
 }
 /* 🔴 沒有讀數時的樣子（2026-08-18）。
@@ -356,7 +382,17 @@ body{
 .tl-edge.no-reading .ring-dot{display:none}      /* 沒有讀數就沒有資料點 */
 .tl-edge.no-reading::before{opacity:0.25}
 .tl-edge-score.awaiting{
-  font-size:30px;font-weight:600;letter-spacing:0.01em;line-height:1.1;
+  /* 環心是環的 62%，而環吃 vw —— 所以環心也是 vw 的函式（實測 360→121px、
+     390→129px）。字級卻是寫死的 30px：四個中文字剛好 121px，在 360 上零餘裕就換行。
+     🔴 固定 px 的內容放進 % 的容器，就是「排進量出來的縫隙」——
+     字級改成跟著同一個 vw 走，容器縮它就跟著縮。30px 是上限，寬螢幕維持原樣。 */
+  /* 🔴 上限要跟**環的上限同一個寬度**收手，否則寬螢幕上字還在長、圓已經不長了。
+     環是 min(54vw, 208px) → 54vw 在 **385px** 撞到 208，之後圓固定在 129px。
+     字級若撐到自己的上限（7.2vw 要到 417px 才封頂），385~417 這一段就是
+     「字還在長、容器不長」——「尚未量測」實測 390 是 113px、414 變 121px，
+     角落被推出圓外 6.2px（2026-08-28 新的圓形斷言抓到的）。
+     所以上限取 7.2% × 385 ≈ 27.7 → 27.5px：兩個 clamp 在同一個寬度收手。 */
+  font-size:clamp(24px, 7.2vw, 27.5px);font-weight:600;letter-spacing:0.01em;line-height:1.1;
   background:none;-webkit-text-fill-color:rgba(255,255,255,0.55);
   filter:none;
 }
@@ -364,8 +400,11 @@ body{
 .tl-edge-cta{
   appearance:none;border:1px solid rgba(0,180,216,0.35);
   background:rgba(0,180,216,0.10);color:var(--primary);
-  font-size:11px;font-weight:600;letter-spacing:0.02em;
-  padding:5px 12px;border-radius:999px;margin-top:10px;cursor:pointer;
+  font-size:12px;font-weight:600;letter-spacing:0.02em;
+  /* 🔴 這一句永遠不該從詞中間斷開（「到 Scan 掃一」/「次 ›」）。
+     搬出環心之後有整個螢幕寬，nowrap 不會造成橫向溢出。 */
+  white-space:nowrap;
+  padding:7px 16px;border-radius:999px;margin-top:10px;cursor:pointer;
   transition:background .2s var(--ease-calm), border-color .2s var(--ease-calm);
 }
 .tl-edge-cta{white-space:nowrap}
@@ -380,6 +419,14 @@ body{
   color:var(--primary);
   letter-spacing:0.02em;
   transition:color 1.2s;
+  /* 🔴 這一行住在環心裡（121~129px），過期時的「讀數已過期 · 重新掃一次」
+     一定放不下一行 —— 但**斷在哪裡**是有差的。預設的 CJK 斷行會逐字斷：
+     實測 390 寬是 122px + 12px，也就是「…重新掃一」/「次」，一個孤字掉到第二行
+     （founder 2026-08-25 實走截圖看得到）。`keep-all` 讓它只在空格／間隔號斷開：
+     69px + 61px ＝「讀數已過期 ·」/「重新掃一次」，兩個詞都完整。
+     ⚠️ **不能改用 nowrap** —— 這串在 12px 下約 132px，比環心還寬，
+     nowrap 只會把它推出圓外（第三輪已經為 CTA 付過這個學費）。 */
+  word-break:keep-all;
 }
 
 /* Precision-layer confidence affordance (entry to finger calibration).
@@ -387,12 +434,16 @@ body{
    (docs/FINGER-PRECISION-WIRING.md §6, docs/prompts/antigravity-finger-precision-kickoff.md) */
 .tl-edge-conf{
   margin-top:10px;
-  display:inline-flex;align-items:center;gap:6px;
-  /* 🔴 這顆 chip 住在環心的黑圓裡，那個圓在 375px 手機上只有 ~112px 寬。
-     它會換行（founder 2026-08-29 實走截圖：斷成「信心中 · 提／升精度 ›」）。
-     所以這裡 nowrap 起來當守門員 —— 一旦有人把文案改長，它會明顯地溢出
-     而不是安靜地斷在詞中間。文案長度上限由 scripts/preview-today-layout.mjs 守。 */
+  /* 同上：「信心中 · 提升精度 ›」不得斷成「信心中 · 提」/「升精度 ›」 */
   white-space:nowrap;
+  display:inline-flex;align-items:center;gap:6px;
+  /* ⚠️ 這段註解在 main 上寫的是「這顆 chip 住在環心的黑圓裡」——
+     **在這條分支上不成立**：第三輪已經把兩顆動作鍵搬出環心（見上面 markup 那段
+     註解的實測數字：圓只有 121~129px，而這顆 chip 要 138~148px，塞不進去）。
+     搬出來之後它有整個螢幕寬，nowrap 的意義從「明顯溢出當守門員」變成
+     「這句永遠不從詞中間斷開」。過期的註解比沒有註解更危險，所以就地改掉。
+     長度上限由 scripts/preview-today-layout.mjs 守（那支的界線也一起從
+     「黑圓寬」改成「畫面寬」——同一個原因）。 */
   font-size:11px;font-weight:500;letter-spacing:0.02em;
   font-family:inherit;
   color:#E8B45A;background:rgba(232,180,90,0.08);
@@ -619,6 +670,10 @@ body{
 .bb-bars{
   display:flex;gap:4px;height:54px;align-items:flex-end;
   margin-bottom:18px;
+  /* 🔴 它是資料圖表，不是可壓縮的空白。預設 flex-shrink:1 會讓它在矮視窗被
+     壓成 33px，而長條仍是原尺寸 → 被 overflow:hidden 切掉且畫面毫無破綻。
+     高度由設計在斷點決定，不由「剩下多少」決定。 */
+  flex-shrink:0;
 }
 .bb-bars .bar{
   flex:1;border-radius:20px;
@@ -911,6 +966,7 @@ body{
 .tl-strip-legend .lg.good{background:var(--good)}
 .tl-strip-legend .lg.pri{background:var(--primary)}
 .tl-strip-legend .lg.loss{background:#ff7e76}
+.tl-strip-legend .lg-note{color:var(--txt-dim);margin-left:auto}
 
 .tl-empty{display:none;flex-direction:column;align-items:center;text-align:center;padding:36px 20px 16px;gap:8px}
 .tl-empty.show{display:flex}
@@ -995,9 +1051,16 @@ body{
 #lab-screen.active .lab-grid .lab-item:nth-child(4){transition-delay:0.20s}
 #lab-screen.active .lab-grid .lab-item:nth-child(5){transition-delay:0.25s}
 #lab-screen.active .lab-grid .lab-item:nth-child(6){transition-delay:0.30s}
+#lab-screen.active .lab-grid .lab-item:nth-child(7){transition-delay:0.35s}
+#lab-screen.active .lab-grid .lab-item:nth-child(8){transition-delay:0.40s}
 #lab-screen.active .lab-body .lab-wide{transition-delay:0.35s}
 .lab-item:active{box-shadow:0 6px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,180,216,0.28)}
 .lab-item.featured{box-shadow:0 0 26px rgba(0,180,216,0.10)}
+/* 決策紀律模式開啟時的樣子。用既有的 --primary（cyan = ACTIVE），
+   **不用 --good 綠** —— 綠在這個產品裡是「跟著流程完成」的語意色，
+   一個設定開關沒有資格宣告那件事（CLAUDE.md 顏色所有權）。 */
+.lab-item.mode-on{border-color:rgba(0,180,216,0.45);background:rgba(0,180,216,0.07)}
+.lab-item.mode-on .ic{color:var(--primary)}
 @media (prefers-reduced-motion: reduce){
   .lab-grid .lab-item, .lab-body .lab-wide{opacity:1;transition:none}
 }
@@ -1055,7 +1118,7 @@ body{
 .te-preview-dur{font-size:14px;color:var(--primary);font-variant-numeric:tabular-nums}
 .te-field{display:flex;flex-direction:column;gap:7px;margin-bottom:15px;font-size:12px;color:var(--txt-sec)}
 .te-field>span{letter-spacing:0.04em}
-.te-field input[type=text],.te-field input[type=number]{background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-family:inherit;font-size:15px;padding:11px 12px;width:100%}
+.te-field select,.te-field input[type=text],.te-field input[type=number]{background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-family:inherit;font-size:15px;padding:11px 12px;width:100%}
 .te-field-row{flex-direction:row;align-items:center;justify-content:space-between}
 .te-dur{display:flex;align-items:center;gap:6px}
 .te-dur input{width:64px;text-align:center}
@@ -1368,7 +1431,41 @@ body{
 .sd-seg-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
 .sd-seg-ttl{font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
 .sd-seg-dur{font-size:13px;color:#fff;font-variant-numeric:tabular-nums}
-.sd-seg-track{display:flex;gap:4px;height:38px}
+.sd-seg-track{display:flex;gap:4px;height:38px;position:relative}
+/* ═══ Turning Point 節點 —— founder 畫的 ——●——●—— 就是這一條 ═══
+   掛在既有的三段軌上（Observe → 核心段 → Extended），x = t / durationSec。
+   ⚠️ 軌本身有 gap:4px，所以映射差約 2%（兩道 gap 佔全寬的比例），肉眼不可辨；
+   要精準到像素就得把節點移出這條 flex 軌，那會失去「節點長在段落上」的意思。
+   🔴 顏色吃帶位（BAND_COLOR_V6 同一組值），沒讀數就空心虛線 —— 不假裝量到。
+   刻意不用 .sd-evt.entry/.add 那組既有的型別色：那組吃 --good 綠，
+   而綠在這個產品裡是「跟著流程完成」的語意色（CLAUDE.md 顏色所有權那條）。 */
+.sd-tp-node{
+  position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
+  transform:translate(-50%,-50%);z-index:2;
+  border:1.5px solid rgba(0,0,0,0.55);
+  background:var(--txt-sec);
+}
+.sd-tp-node.band-clear{background:#00B4D8;box-shadow:0 0 7px rgba(0,180,216,0.75)}
+.sd-tp-node.band-neutral{background:#64748B;box-shadow:0 0 7px rgba(100,116,139,0.75)}
+.sd-tp-node.band-strain{background:#C2703D;box-shadow:0 0 7px rgba(194,112,61,0.75)}
+.sd-tp-node.no-reading{background:transparent;border:1.5px dashed rgba(255,255,255,0.6);box-shadow:none}
+/* 節點清單的圓點沿用同一套帶位色（.sd-evt 的結構是復活既有 CSS）*/
+.sd-evt .dot.band-clear{background:#00B4D8;box-shadow:0 0 7px rgba(0,180,216,0.6)}
+.sd-evt .dot.band-neutral{background:#64748B;box-shadow:0 0 7px rgba(100,116,139,0.6)}
+.sd-evt .dot.band-strain{background:#C2703D;box-shadow:0 0 7px rgba(194,112,61,0.6)}
+.sd-evt .dot.no-reading{background:transparent;border:1.5px dashed rgba(255,255,255,0.5);box-shadow:none}
+.sd-evt .state{font-size:11px;color:var(--txt-sec);letter-spacing:0.02em;flex-shrink:0}
+.sd-evt .state.none{color:var(--txt-dim)}
+.sd-tp-empty{font-size:12px;color:var(--txt-sec);line-height:1.6;padding:2px 0}
+/* 🔴 .sd-body 是 flex column + overflow-y:auto，子卡片預設 flex-shrink:1 ——
+   內容一長就被壓扁，再被 .card{overflow:hidden} 裁掉（實測：4 個節點的第 4 列
+   直接消失在卡片邊緣）。這個 repo 已經為短視窗踩過同一個坑，修法一樣
+   （見 .screens .screen > * 那條）。 */
+.sd-body > *{flex-shrink:0}
+/* 一列放不下「標籤 + 段落膠囊 + 狀態章」—— 390px 寬會把標籤擠到換行。
+   改成兩行：上行是使用者記的事，下行是當下的狀態章。 */
+.sd-evt .type{flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+.sd-evt .tp-label{display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.3}
 .sd-seg.part{
   border-radius:8px;display:flex;align-items:center;justify-content:center;
   background:rgba(255,255,255,0.05);
@@ -1388,7 +1485,10 @@ body{
   font-size:9px;color:var(--txt-dim);font-variant-numeric:tabular-nums;
 }
 
-.sd-facts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:14px}
+/* 欄數跟著「實際看得見的格子數」走，不寫死 3 ——「離開」那格只有在紀錄真的有
+   這個欄位時才出現（舊紀錄沒有就整格不存在，見 PLAYBOOK：缺欄位不准說否定）。
+   [hidden] 是 display:none，不會佔掉一條 grid track。 */
+.sd-facts{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;padding:14px}
 .sd-fact{text-align:center}
 .sd-fact .k{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:5px}
 .sd-fact .v{font-size:16px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums}
@@ -1447,7 +1547,20 @@ body{
 .fdcb-tmpl-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
 .fdcb-tmpl-name{
   font-size:11px;font-weight:600;color:#fff;line-height:1;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px;
+  /* 🔴 上限要從**最長的內建模板名**推導，不是隨手訂一個數字。
+     實測（11px/600，容器字型）：Canslim High RS **89px**、Health Stress 70px、
+     Mancini FBD 67px、Canslim GS 62px、Work Focus 63px、Exercise 45px。
+     舊值 72px 的後果：Canslim High RS **任何字型下都被切**，而 Health Stress
+     只剩 2px 餘裕 —— 容器字型剛好過關，founder 的 iPhone（SF Pro 較寬）就切成
+     「Health Stre…」（2026-08-28 實走截圖）。**模擬器綠、實機壞**，
+     跟 PLAYBOOK 那條「只剩 4px 餘裕，字型換一下就翻」同一族。
+     89px + 約 12% 裝置字型餘裕 → 100px。空間是從中間欄借的（375 寬實測
+     dock 355 ＝ 模板欄 117 + 中間 161 + 標記 53），harness 同時鎖住
+     「每個模板名都不被切」與「中間的時鐘仍是 1 行、不被切」兩邊。
+     ⚠️ 新增內建模板名時要回來重量這個數字。
+     ⚠️ **使用者自訂的模板名不在保證範圍內** —— 那是他自己取的字，
+     太長就讓它 ellipsis，不為了它把中間欄吃掉。 */
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;
 }
 .fdcb-tmpl-dur{
   font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.08em;
@@ -1477,6 +1590,58 @@ body{
 .fdcb-prog .seg-sweet{background:var(--primary);opacity:0.35}
 .fdcb-prog .seg-ext{background:rgba(142,142,147,0.6);opacity:0.35}
 .fdcb-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--primary);border-radius:1px;box-shadow:0 0 6px var(--primary);transition:width 1s linear;z-index:1}
+/* Turning Point 節點刻度 —— 掛在進度軌上，決策跑的時候看得到自己在長出紀錄。
+   顏色吃帶位（BAND_COLOR_V6 同一組值）；🔴 沒讀數就空心，不假裝量到。 */
+.tp-tick{
+  position:absolute;top:50%;width:5px;height:5px;border-radius:50%;
+  transform:translate(-50%,-50%);z-index:2;
+  background:var(--txt-sec);
+}
+.tp-tick.band-clear{background:#00B4D8;box-shadow:0 0 5px rgba(0,180,216,0.7)}
+.tp-tick.band-neutral{background:#64748B;box-shadow:0 0 5px rgba(100,116,139,0.7)}
+.tp-tick.band-strain{background:#C2703D;box-shadow:0 0 5px rgba(194,112,61,0.7)}
+.tp-tick.no-reading{background:transparent;border:1px dashed rgba(255,255,255,0.55);box-shadow:none}
+/* ── 結構守望的判定列 ──
+   位置與收合方式抄 .tp-picker（已驗證過的那組）。
+   🔴 收起時一併 visibility:hidden —— opacity:0 + pointer-events:none 擋不住
+   descendant 自己宣告 pointer-events（PLAYBOOK 指紋鈕那次的舊傷）。 */
+.watch-judge{
+  position:absolute;left:10px;right:10px;
+  bottom:calc(var(--tabbar-h) + var(--fdcb-gap) + var(--fdcb-h) + 8px);
+  z-index:46;display:flex;flex-wrap:wrap;gap:8px;
+  opacity:0;visibility:hidden;transform:translateY(6px);
+  transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s 0.3s;
+}
+.watch-judge.open{opacity:1;visibility:visible;transform:translateY(0);transition-delay:0s}
+.wj-btn{
+  flex:1;min-width:0;padding:11px 8px;
+  border-radius:12px;border:1px solid rgba(255,255,255,0.14);
+  background:rgba(20,24,34,0.92);backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+  color:#fff;font-size:12px;font-weight:600;white-space:nowrap;
+  font-family:inherit;cursor:pointer;
+  transition:transform 0.15s var(--ease-secure), background 0.3s;
+}
+.wj-btn:active{transform:scale(0.97)}
+/* 兩個出口都算紀律，所以**都不上綠**（綠 = 跟著流程完成，那是收束後才有資格說的事）。
+   用中性的邊框差異區分，不用語意色宣告勝負。 */
+/* 關鍵價位獨佔一整行（flex-basis:100% + wrap），按鈕仍在下面平分。 */
+.wj-anchor{
+  flex:0 0 100%;text-align:center;
+  font-size:11px;letter-spacing:0.06em;color:var(--txt-sec);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.wj-in{border-color:rgba(0,180,216,0.42)}
+.wj-out{border-color:rgba(255,255,255,0.22)}
+@media (prefers-reduced-motion: reduce){
+  .watch-judge{transition:opacity 0.01s, visibility 0s}
+  .wj-btn:active{transform:none}
+}
+/* Lock 鎖定：snap 進場 + 一次輝光（一次性，非迴圈） */
+.tp-tick.landing{animation:tpLand 150ms var(--ease-secure) both}
+@keyframes tpLand{ from{transform:translate(-50%,-50%) scale(0)} to{transform:translate(-50%,-50%) scale(1)} }
+@media (prefers-reduced-motion: reduce){ .tp-tick.landing{animation:none} }
 /* 進入 readiness（核心段）：整條 dock 一次微光 + 段標籤強調 */
 .fdcb.in-readiness{box-shadow:0 0 0 1px rgba(0,180,216,0.4), 0 0 22px rgba(0,180,216,0.18);animation:fdcb-readiness-in 0.7s var(--ease-calm)}
 .fdcb.in-readiness .fdcb-seg{color:var(--primary);text-shadow:0 0 10px rgba(0,180,216,0.5)}
@@ -1489,7 +1654,7 @@ body{
 @media (prefers-reduced-motion: reduce){
   .fdcb.in-readiness, .fdcb.state-complete.closure-disciplined, .fdcb.state-complete.closure-broke{animation:none}
   .fdcb-fill{transition:none}
-  .fdcb-evts .dot{transition:none}
+  .fdcb-mark{transition:none}
 }
 
 .fdcb.state-idle .fdcb-time{
@@ -1498,6 +1663,10 @@ body{
 }
 .fdcb.state-idle .fdcb-seg,
 .fdcb.state-idle .fdcb-prog{display:none}
+/* idle 的 44px 塞不下原本 8px 的膠囊內距（圖示 20 + 兩行字 24 + 內距 16 = 40
+   > 可用的 36）—— 收緊內距而不是壓縮字級，字級一動就跟 running 對不齊。 */
+.fdcb.state-idle .fdcb-tmpl{padding:5px 10px;margin:3px 2px 3px 4px}
+.fdcb.state-idle .fdcb-core{padding:4px}
 .fdcb.state-ready .fdcb-time{font-size:13px;letter-spacing:0.06em;color:#fff;text-shadow:none}
 .fdcb.state-ready .fdcb-time::before{content:'▶ ';color:var(--primary);margin-right:2px}
 .fdcb.state-ready .fdcb-seg{color:rgba(255,255,255,0.4)}
@@ -1510,29 +1679,80 @@ body{
 .fdcb.state-complete.closure-broke .fdcb-time{color:#FF9F0A;text-shadow:0 0 16px rgba(255,159,10,0.35)}
 .fdcb.state-complete.closure-broke .fdcb-time::before{content:''}
 
-.fdcb-evts{
-  flex:0 0 auto;display:flex;align-items:center;gap:5px;
-  padding:8px 12px 8px 8px;margin:4px 4px 4px 2px;
-  border-radius:12px;cursor:pointer;transition:background 0.3s;
+/* 標記鍵 —— **只在決策進行中出現**。idle 沒有 session，標記無處可掛，
+   一顆按下去沒反應的鍵就是「做一半」本身。
+   🔴 計數不得用 --good 綠：綠在這個產品裡是「跟著流程完成」的語意色
+   （見 CLAUDE.md 顏色所有權那條），而標記數只是「你按了幾次」，不是結果。
+   舊版那顆綠色數字膠囊等於在決策還沒收束時就先亮起「good」。 */
+.fdcb-mark{
+  flex:0 0 auto;display:none;align-items:center;gap:4px;
+  padding:7px 9px;margin:4px 6px 4px 2px;
+  border-radius:12px;cursor:pointer;
+  background:transparent;
+  border:1px dashed rgba(255,255,255,0.22);
+  color:rgba(255,255,255,0.6);
+  font-size:10px;font-weight:600;letter-spacing:0.06em;
+  font-family:inherit;
+  transition:background 0.3s, border-color 0.3s, color 0.3s;
 }
-.fdcb-evts:active{background:rgba(255,255,255,0.04)}
-.fdcb-evts .dot{
-  width:5px;height:5px;border-radius:50%;
-  background:var(--txt-dim);
-  transition:all 0.4s var(--ease-calm);
+.fdcb.state-running .fdcb-mark{display:flex}
+.fdcb-mark:active{background:rgba(255,255,255,0.06)}
+.fdcb-mark .mk-plus{font-size:12px;line-height:1}
+.fdcb-mark .mk-n{
+  min-width:16px;height:16px;padding:0 3px;border-radius:8px;
+  background:rgba(255,255,255,0.16);color:#fff;
+  font-size:10px;line-height:16px;text-align:center;
+  font-variant-numeric:tabular-nums;
 }
-.fdcb-evts .dot.on{background:#fff;box-shadow:0 0 5px rgba(255,255,255,0.5)}
-.fdcb-evts .check{
-  width:22px;height:22px;border-radius:50%;
-  background:var(--good);
-  display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:700;color:#000;
-  box-shadow:0 0 10px rgba(52,199,89,0.45);
+.fdcb-mark.has-marks{
+  border-style:solid;border-color:rgba(255,255,255,0.28);color:#fff;
 }
-.fdcb-evts .check.empty{
-  background:transparent;color:rgba(255,255,255,0.35);
-  border:1.2px dashed rgba(255,255,255,0.2);box-shadow:none;
+
+/* ═══════════════════════════════════════════════════
+   Turning Point 快選晶片列 —— 浮在底座正上方
+   ⚠️ 它落在 700px 可視高度下最擠的那一段（底座頂 558）。harness 用
+   elementFromPoint 驗它沒有被底座/tabbar 蓋住（PLAYBOOK：可視高度是變數）。
+   ═══════════════════════════════════════════════════ */
+.tp-picker{
+  position:absolute;
+  left:10px;right:10px;
+  bottom:calc(var(--tabbar-h) + var(--fdcb-gap) + var(--fdcb-h) + 8px);
+  z-index:46; /* 高於 .fdcb 的 45 */
+  display:flex;gap:6px;padding:6px;
+  overflow-x:auto;scrollbar-width:none;
+  background:rgba(20,20,24,0.92);
+  backdrop-filter:blur(24px) saturate(140%);
+  -webkit-backdrop-filter:blur(24px) saturate(140%);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:14px;
+  box-shadow:0 8px 28px rgba(0,0,0,0.5);
+  opacity:0;transform:translateY(6px);pointer-events:none;
+  /* 🔴 收起時一併 visibility:hidden，不是只靠 opacity + pointer-events。
+     PLAYBOOK 有一條實傷：`opacity:0 + pointer-events:none` **擋不住 descendant
+     自己宣告 pointer-events:auto** —— v6 的指紋鈕就是這樣，一顆隱形按鈕長期浮在
+     Today 上吃掉滑動。這一列的位置正好落在 390x700 下「示意說明 / 輪播圓點」
+     那一段，是同一個地雷區。visibility 會繼承、且不會被 descendant 推翻，
+     靠結構守住比靠「我記得別加 pointer-events」穩。
+     ⚠️ visibility 延後到淡出結束才切，否則收起來會直接消失而不是淡出。 */
+  visibility:hidden;
+  transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s linear 0.3s;
 }
+.tp-picker.open{
+  opacity:1;transform:translateY(0);pointer-events:auto;visibility:visible;
+  transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s;
+}
+.tp-picker::-webkit-scrollbar{display:none}
+.tp-chip{
+  flex:0 0 auto;padding:7px 12px;border-radius:10px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.10);
+  color:#fff;font-size:12px;font-family:inherit;line-height:1;
+  cursor:pointer;white-space:nowrap;
+  transition:background 0.2s;
+}
+.tp-chip:active{background:rgba(255,255,255,0.14)}
+.tp-chip.picked{background:rgba(255,255,255,0.18);border-color:rgba(255,255,255,0.3)}
+@media (prefers-reduced-motion: reduce){ .tp-picker{transition:none} }
 
 /* ═══════════════════════════════════════════════════
    TAB BAR — bottom navigation
@@ -2254,10 +2474,18 @@ body{
                    再把名字掛回來。 -->
               <div class="tl-edge-pr">狀態讀數</div>
               <div class="tl-edge-zone" id="edgeTraceZone">還沒有今天的讀數</div>
-              <button type="button" class="tl-edge-cta" id="edgeScanCta" onclick="goTab('scan')">去掃一次 ›</button>
-              <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心中 · 提升 ›</button>
             </div>
           </div>
+          <!-- 🔴 動作鍵搬出環心（2026-08-19，founder 實走「點了掃描」後回報爆版）。
+               量出來的事實：環心 .tl-edge-center 是環的 62%，實測只有 121~129px，
+               卻要裝下 讀數(30~40px) + 狀態讀數 + 新鮮度 + 膠囊(43px) ——
+               **內容高在 360/375/390/414/430 每一個寬度都 >= 圓高**，零餘裕。
+               而「信心中　·　提升精度 ›」本身就要約 178px，**塞不進 129px 的圓**，
+               任何字級微調都救不了：它在 360~430 全部換行，讀數也全部戳出圓上緣。
+               語意上這兩顆本來就不是讀數 —— 圓心放「量到什麼」，動作放環下面。
+               搬出來之後它們有整個螢幕寬，nowrap 才不會變成橫向溢出。 -->
+          <button type="button" class="tl-edge-cta" id="edgeScanCta" onclick="goTab('scan')">到 Scan 掃一次 ›</button>
+          <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
         </div>
       </section>
 
@@ -2440,6 +2668,9 @@ body{
             <span><i class="lg good"></i>跟著流程</span>
             <span><i class="lg pri"></i>完整走完</span>
             <span><i class="lg loss"></i>提前收束</span>
+            <!-- 點的**大小**吃 marks（r = 3 + min(marks,6)*0.7），先前完全沒有圖例，
+                 於是「為什麼有的點比較大」在畫面上無法回答。 -->
+            <span class="lg-note">點越大 · 標記越多</span>
           </div>
         </div>
 
@@ -2484,6 +2715,21 @@ body{
             <div class="nm">模板自訂</div>
             <div class="sub">建立個人化<br>決策模板</div>
           </div>
+          <div class="lab-item" onclick="openTpLabelEditor()">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><circle cx="8" cy="12" r="2.2"/><circle cx="16" cy="12" r="2.2"/></svg></div>
+            <div class="nm">標記標籤</div>
+            <div class="sub">自訂決策中<br>要記下的轉折</div>
+          </div>
+          <!-- 決策紀律模式：Settings opt-in，預設關閉。
+               ⚠️ user-facing 一律「決策紀律」，不得出現「交易者 / Trader」——
+               內部識別字仍是 SessionMode='trader'（TRADINGVIEW-ALERT-SPEC.md §0、
+               APP_STORE_COMPLIANCE.md §6 與送審檢查表 #17）。
+               ⚠️ 入口刻意放在 Lab（設定），不放 onboarding、不開新分頁。 -->
+          <div class="lab-item" id="labDisciplineTile" onclick="toggleDisciplineMode()">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+            <div class="nm">決策紀律模式</div>
+            <div class="sub" id="labDisciplineSub">目前關閉<br>開啟後改用結構守望</div>
+          </div>
           <div class="lab-item" onclick="exportOutcomesCsv()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
             <div class="nm">CSV 匯出</div>
@@ -2527,7 +2773,7 @@ body{
         <div class="sd-outcome-ic" id="sdOutcomeIc"></div>
         <div class="sd-outcome-txt">
           <div class="sd-outcome-headline" id="sdOutcomeHeadline">跟著流程完成</div>
-          <div class="sd-outcome-sub" id="sdOutcomeSub">達 Breathe · 0 marks</div>
+          <div class="sd-outcome-sub" id="sdOutcomeSub">達 Breathe · 0 個標記</div>
         </div>
       </div>
 
@@ -2545,11 +2791,25 @@ body{
         <div class="sd-seg-times" id="sdSegTimes"></div>
       </div>
 
+      <!-- 決策軌跡：每個標記一列 —— 時間 / 帶位色圓點 / 標籤 / 段落
+           復活 .sd-evt 那組既有 CSS（連接線 + 型別圓點），全 repo 唯一的
+           「連接線 + 點」元件，先前是一組沒有任何 markup 用到的孤兒樣式。 -->
+      <div class="card sd-tp-card">
+        <div class="sd-seg-head">
+          <div class="sd-seg-ttl">決策軌跡</div>
+          <div class="sd-seg-dur" id="sdTpCount">—</div>
+        </div>
+        <div id="sdTpList"></div>
+      </div>
+
       <!-- Facts（只用 store 有的欄位）-->
       <div class="card sd-facts">
         <div class="sd-fact"><div class="k">用時</div><div class="v" id="sdFactDur">3:00</div></div>
         <div class="sd-fact"><div class="k">Readiness</div><div class="v" id="sdFactReadiness">已進入</div></div>
-        <div class="sd-fact"><div class="k">Marks</div><div class="v" id="sdFactMarks">0</div></div>
+        <div class="sd-fact"><div class="k">標記</div><div class="v" id="sdFactMarks">0</div></div>
+        <!-- 離開：交易者在桌機或券商 APP 下單，離開是常態不是失誤 —— 這裡只陳述事實，
+             不寫成扣分。舊紀錄沒有這個欄位 → 整格 hidden，不顯示「0 次」。 -->
+        <div class="sd-fact" id="sdFactAwayCell" hidden><div class="k">離開</div><div class="v" id="sdFactAway">—</div></div>
       </div>
 
       <!-- Insight（事實語言）-->
@@ -2562,6 +2822,28 @@ body{
       </div>
 
     </div>
+  </div>
+
+  <!-- ═══════ Turning Point 快選（點完標記之後才滑出）═══════
+       ⚠️ 刻意**不**用既有的 .sheet / openSheet() —— openSheet 與 selectTmpl 在
+       running 時 hard-return（那是上一個 PR 為了擋殭屍計時器加的 guard），
+       而這個快選正好必須在決策進行中打開。所以自己的元素、自己的 open/close。
+       ⚠️ 也刻意不用全屏 bottom sheet：決策正在跑，不該被一張蓋住畫面的表單打斷。
+       晶片列橫向捲動，標籤再多也不用改版面。 -->
+  <div class="tp-picker" id="tpPicker" role="group" aria-label="給剛剛那個標記選一個標籤"></div>
+
+  <!-- ═══════ 結構守望的判定出口（決策紀律模式）═══════
+       ⚠️ 同樣刻意**不**用 .sheet / openSheet() —— 那兩個在 running 時 hard-return，
+       而判定正好只在決策進行中發生。自己的元素、自己的 open/close。
+       ⚠️ 兩個出口都是「做出判定」，所以都算紀律 —— 差別只在做了什麼，
+       不在誰對誰錯（decision-outcome.js 的語意斷點）。 -->
+  <div class="watch-judge" id="watchJudge" role="group" aria-label="這次結構守望的判定">
+    <!-- 關鍵價位：只有從快訊交棒過來、而且那筆快訊真的帶了價位時才出現。
+         擺在判定列裡是刻意的 —— 它正好在「要做判定」的那一刻才被需要，
+         而底座只有 44/58px，沒有它的位置。 -->
+    <div class="wj-anchor" id="wjAnchor" hidden></div>
+    <button type="button" class="wj-btn wj-in" onclick="judgeWatch('entered')">成立 · 我進場了</button>
+    <button type="button" class="wj-btn wj-out" onclick="judgeWatch('stood_down')">不成立 · 我不做</button>
   </div>
 
   <!-- ═══════ FDCB (floating above tab bar) ═══════ -->
@@ -2585,12 +2867,18 @@ body{
         <div class="seg-ext" style="width:34%"></div>
       </div>
     </div>
-    <div class="fdcb-evts" onclick="logEvent()">
-      <div class="dot on"></div>
-      <div class="dot on"></div>
-      <div class="check empty">+</div>
-      <div class="dot"></div>
-    </div>
+    <!-- 標記：決策進行中按一下，記下「這一刻值得回頭看」。
+         🔴 舊版是三顆沒有名字的圓點 + 一顆綠色數字膠囊，DOM 順序還是
+         dot,dot,[+],dot —— 第三顆亮起來的點會出現在 + 的**右邊**，
+         而且 idle 時按下去完全沒有反應。founder 實走一句
+         「不知道它右側的點點按的數字代表什麼意思」（2026-08-12）。
+         現在：有名字、有計數、只在跑決策時出現、按下去段標籤會回報記在第幾分幾秒。 -->
+    <button type="button" class="fdcb-mark" id="fdcbMark" onclick="logEvent()"
+            title="決策進行中按一下，記下值得回頭看的一刻" aria-label="標記這一刻">
+      <span class="mk-plus" aria-hidden="true">+</span>
+      <span class="mk-lbl">標記</span>
+      <span class="mk-n" id="fdcbMarkN" hidden>0</span>
+    </button>
   </div>
 
   <!-- ═══════ TAB BAR ═══════ -->
@@ -2635,6 +2923,34 @@ body{
   <div class="home"></div>
 
   <!-- ═══════ 模板自訂 EDITOR (slide-in) ═══════ -->
+  <!-- ═══════ 標記標籤自訂（沿用 .te-* 既有樣式，不新增一套）═══════
+       自訂只在這裡建，不在跑決策中建 —— 決策進行中那一刻使用者該在跑決策，
+       不是在填表單。建好的標籤會出現在快選晶片列。 -->
+  <div class="tmpl-editor" id="tpLabelEditor">
+    <div class="te-header">
+      <div class="te-back" onclick="closeTpLabelEditor()">‹</div>
+      <div class="te-title">標記標籤</div>
+      <div class="te-spacer"></div>
+    </div>
+    <div class="te-body">
+      <div class="te-hint">決策進行中按「標記」，會跳出這些標籤讓你選。<br>沒選也沒關係 —— 那就是一個純粹的時間點。</div>
+      <div class="te-list" id="tplList"></div>
+      <div class="te-field">
+        <span>標籤文字</span>
+        <input type="text" id="tplText" maxlength="12" placeholder="例：等到了">
+      </div>
+      <div class="te-field">
+        <span>出現在</span>
+        <select id="tplScope"></select>
+      </div>
+      <div class="te-warn" id="tplWarn" hidden></div>
+      <div class="te-actions">
+        <div class="te-btn te-del" id="tplDelete" hidden onclick="deleteTpLabel()">刪除</div>
+        <div class="te-btn te-save" id="tplSave" onclick="saveTpLabel()">儲存標籤</div>
+      </div>
+    </div>
+  </div>
+
   <div class="tmpl-editor" id="tmplEditor">
     <div class="te-header">
       <div class="te-back" onclick="closeTmplEditor()">‹</div>
@@ -2694,7 +3010,15 @@ body{
       <div class="info"><div class="nm">Exercise</div><div class="sub">運動 · Warm/Active/Cool</div></div>
       <div class="dur">10:00</div>
     </div>
-    <div class="sheet-cat">— 進階 · 交易模式 —</div>
+    <!-- 🔴 交易者模板收在決策紀律模式後面 —— **關閉時整段從 DOM 移除**，不是 CSS 隱藏。
+         `Canslim` / `Mancini FBD` 是第三方方法論的名字（O'Neil / Adam Mancini），
+         是交易者腦子裡本來就在用的詞，改名等於讓他看不懂自己的流程。
+         但 docs/APP_STORE_COMPLIANCE.md 送審檢查表 #18 說它們不得出現在可見 UI ——
+         把它們收到 opt-in 後面，預設安裝（含審核員）就看不到，兩邊都成立。
+         ⚠️ 必須真的移除節點：`display:none` 的文字仍在 DOM 裡，
+         斷言（與任何抓文字的工具）照樣讀得到。 -->
+    <div id="tmplDisciplineGroup">
+    <div class="sheet-cat">— 進階 · 決策紀律 —</div>
     <div class="tmpl-item" data-id="CANSLIM_GS" onclick="selectTmpl(this)">
       <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg></div>
       <div class="info"><div class="nm">Canslim GS</div><div class="sub">一般設定 · Sweet Zone 60–180s</div></div>
@@ -2709,6 +3033,7 @@ body{
       <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 11.5v1M12.5 12h-1"/></svg></div>
       <div class="info"><div class="nm">Mancini FBD</div><div class="sub">失敗突破 · Entry Lock 60s</div></div>
       <div class="dur">3:00</div>
+    </div>
     </div>
   </div>
 
@@ -3004,6 +3329,37 @@ const TEMPLATES = {
   HEALTH_STRESS:   {name:'Health Stress',   durationSec:180, color:'#34C759', icon:'heart', segLabel:'Breathe'},
   EXERCISE:        {name:'Exercise',        durationSec:600, color:'#FF6B35', icon:'ex',    segLabel:'Active'}
 };
+// ═════════════════════════════════════════════════
+// Turning Point 標記
+//
+// SYSTEM.md §4：Turning Point =「A moment where behavior shifts from reactive
+// to intentional」。標記就是使用者自己標出來的候選轉折點 —— 語言系統四個桶
+// （Radar / Calibration / Baseline / Turning Point）裡，這是最後一個沒有實作的。
+//
+// 🔴 這裡供應的是 **label**，不是新的 event type。
+// `packages/engine/src/session/types.ts` 的六個 SessionEventType 被
+// docs/TRADINGVIEW-ALERT-SPEC.md §9 明文凍結（process-neutral 是刻意的
+// compliance 設計），節點的 type 一律沿用既有的 'mark'。
+//
+// 轉折點是流程性的，而且**跟著模板走** —— Mancini FBD 的轉折點跟 Health Stress
+// 不是同一種事（founder 2026-08-14 拍板）。
+// ⚠️ 這些字串是 user-facing copy，不得出現金融動作詞（見 check-vocab 與
+// packages/engine/src/compliance/safe-copy.ts 的 PROHIBITED_VOCABULARY_ZH）。
+// ═════════════════════════════════════════════════
+const TP_PRESETS = {
+  CANSLIM_GS:      [{id:'MET', text:'條件到了'}, {id:'SHORT', text:'還差一項'}, {id:'EARLY', text:'想提前動'}, {id:'HOLD', text:'先不動'}],
+  CANSLIM_HIGH_RS: [{id:'MET', text:'條件到了'}, {id:'SHORT', text:'還差一項'}, {id:'EARLY', text:'想提前動'}, {id:'HOLD', text:'先不動'}],
+  MANCINI_FBD:     [{id:'WAITED', text:'等到了'}, {id:'CHANGED', text:'條件變了'}, {id:'EARLY', text:'想提前動'}, {id:'HOLD', text:'先不動'}],
+  WORK_FOCUS:      [{id:'DRIFT', text:'分心了'}, {id:'BACK', text:'回到手上'}, {id:'STUCK', text:'卡住了'}, {id:'SWITCH', text:'想換一件事'}],
+  HEALTH_STRESS:   [{id:'BODY', text:'身體有反應'}, {id:'EASE', text:'呼吸變順'}, {id:'LOOP', text:'念頭停不下'}, {id:'REL', text:'鬆開了'}],
+  EXERCISE:        [{id:'HARD', text:'開始喘'}, {id:'RHYTHM', text:'找到節奏'}, {id:'STOP', text:'想停下來'}, {id:'THROUGH', text:'撐過去了'}],
+};
+/** 自訂模板沒有自己的一套時用這組（通用、流程性）。 */
+const TP_PRESETS_DEFAULT = [
+  {id:'ONPLAN', text:'照流程走'}, {id:'EARLY', text:'想提前收'},
+  {id:'DRIFT', text:'分心了'}, {id:'BODY', text:'身體有反應'},
+];
+
 const ICON_SVG = {
   gs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg>',
   rs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18L12 6L16 12L20 4"/><path d="M16 4H20V8"/></svg>',
@@ -3040,7 +3396,20 @@ function goTab(id){
   function apply(){
     const hash = (window.location.hash || '').replace('#', '');
     const allowedTabs = ['today', 'scan', 'session', 'timeline', 'lab'];
+    // #decision：從 /decision-alert/ 交棒過來，直接起跑那一筆決策。
+    // 這是 founder 要的那條鏈子的最後一段 —— 在這之前快訊唯一的出口是
+    // /v3/#session（歷史頁），使用者被丟在一個「已經結束的東西」前面。
+    if(hash === 'decision'){
+      goTab('today');
+      // 交棒信物讀完就刪 —— 所以「從桌面點回來、頁面被 iOS 重新載入」這一次
+      // 一定拿不到信物。那時候要走的是 resume，不是空手回到 idle。
+      if(!acceptHandoff()) resumeActiveDecision();
+      return;
+    }
     if(allowedTabs.includes(hash)) goTab(hash);
+    // 🔴 沒有 hash 也要接回來 —— PWA 的 start_url 是 /decision-alert/，
+    // 但使用者也可能直接開 /v3/。決策在不在，跟你是從哪個網址進來的無關。
+    resumeActiveDecision();
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
   else apply();
@@ -3377,6 +3746,15 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
   // realistic Garmin Body Battery day (oldest → newest), ending at the current value (~78,
   // matching #bbVal): overnight recharge → morning peak → daytime drain + stress dip → recovery → now.
   const vals = [56,62,70,80,88,93,89,80,69,57,46,41,52,66,78];
+  // 🔴 長條的靜態高度要**留出待機動效放大的餘裕**，否則最高那根在呼吸的波峰
+  // 會被 overflow:hidden 削掉頂端。
+  // 待機迴圈的最大放大倍率：`now` 那根 1 + 0.13（呼吸）+ 0.03（光暈）= 1.16。
+  // 所以靜態高度上限必須 ≤ 1/1.16 ≈ 0.862 —— 取 0.85 留一點邊。
+  // ⚠️ 這個數字**跟 startIdle() 的振幅是一組的**：改動任何一邊都要同時改另一邊，
+  //    而且 harness 會在動畫跑動時逐幀量，改壞會當場紅（不是靠這段註解守）。
+  //    舊版把這個關係只寫在註解裡（「±10% → 48px 不會切 54px」），
+  //    於是我把高度改成 % 之後它就默默失效了。
+  const BAR_HEADROOM = 0.85;
   function zoneColor(v){
     if(v>=85) return '#46C56B';   // green (high)
     if(v>=70) return '#2FB6C0';   // cyan-green
@@ -3388,7 +3766,12 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
   const bars = vals.map((v,i) => {
     const b = document.createElement('div');
     b.className = 'bar' + (i===vals.length-1 ? ' now' : '');
-    b.style.height = Math.max(14, v*0.52) + 'px';
+    // 🔴 高度是**容器高的百分比**，不是絕對 px。
+    // 舊版寫死 `v*0.52 + 'px'`（最高 48px），而 .bb-bars 是 flex 子項會被壓扁 ——
+    // 視窗高 ≤880px 時容器只剩 33px，長條仍堅持要 53px，於是上緣被
+    // overflow:hidden 整排切掉（founder 2026-08-20 實走：「體能 長條圖被截斷」）。
+    // 用 % 之後，斷點給多少高度它就畫多高，結構上不可能溢出。
+    b.style.height = (v * BAR_HEADROOM) + '%';
     b.style.background = `linear-gradient(180deg, ${zoneColor(v)} 0%, ${shadeColor(zoneColor(v), -22)} 100%)`;
     b.style.transformOrigin = 'bottom';
     b.style.transform = reduce ? 'scaleY(1)' : 'scaleY(0.06)';
@@ -3464,12 +3847,35 @@ let currentTmpl = 'HEALTH_STRESS';
 let runningInterval = null;
 let elapsed = 0;
 
+// 底座高度：idle 只有一列，跑起來才要三欄的 58px。
+// 改的是 :root 的 --fdcb-h，所以每一頁 padding-bottom 的
+// `calc(var(--tabbar-h) + var(--fdcb-h) + ...)` 保留區會跟著縮放 ——
+// 🔴 底座高度與保留區必須是同一個數字的兩個讀者，不得各寫各的。
+function applyFdcbHeight(s){
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue(s === 'idle' ? '--fdcb-h-idle' : '--fdcb-h-live').trim();
+  if(v) document.documentElement.style.setProperty('--fdcb-h', v);
+}
+
 function setState(s){
+  const prev = STATES[stateIdx];
   const fdcb = document.getElementById('fdcb');
   STATES.forEach(x => fdcb.classList.remove('state-'+x));
   fdcb.classList.add('state-'+s);
   stateIdx = STATES.indexOf(s);
+  applyFdcbHeight(s);
   renderFdcb();
+  // 跨頁的「決策進行中」標記。
+  // 🔴 **清除要看「離開 running」這個轉換，不能只看「現在不是 running」。**
+  // 第八輪原本寫的是後者，理由是「少列一條路徑就會留下永遠靜音的旗標」——
+  // 那個顧慮沒錯，但它有一個當時看不到的副作用：**開頁時的 setState('idle')
+  // （檔尾那一行）會在 resume 有機會讀之前就把標記刪掉**，於是「下完單回來
+  // 接回決策」永遠接不到（2026-08-21 實測，probe 打出 running:false）。
+  // 現在的保證換成：離開 running 一定清、endDecision 開頭再清一次（刻意重複），
+  // 而**殘留的標記由 resume 自己處理** —— 過期或模板不存在就清掉，
+  // 沒過期就本來就該接回來。旗標不會永遠留著，只是換一個人負責。
+  if(s === 'running') publishActiveDecision();
+  else if(prev === 'running') clearActiveDecision();
 }
 // ── 真實決策計時器（取代假 8 秒 demo）──
 // 三段由時長推導：Observe 0–33% →（tmpl.segLabel = 核心段 / readiness / Sweet Zone）33–66% → Extended 66–100%。
@@ -3484,9 +3890,107 @@ function phaseFor(el, tmpl){
 }
 function fmtClock(sec){ const m = Math.floor(sec/60), s = sec%60; return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0'); }
 
+/**
+ * 這次決策已經過了幾秒 —— **一律從牆鐘算**，不從 tick 累加。
+ * 沒有進行中的 session 就是 0。
+ * 唯一的真實來源：改任何跟時間有關的東西都要走這裡，不要在別處各算各的。
+ * @returns {number} 已經過的整數秒
+ */
+function elapsedNow(){
+  if(!sess || !sess.startedAtMs) return 0;
+  return Math.floor((Date.now() - sess.startedAtMs) / 1000);
+}
+
+// ── 決策期間離開了幾次、多久 ──
+// 交易者是在桌機或券商 APP 下單，**離開是常態不是失誤**。記錄它不是為了扣分，
+// 是因為「離開幾次」比進度條真實得多（decision-alert.js:1260 的原話，語氣照搬）。
+// 短暫切換（通知列、誤觸）不算，避免把雜訊記成紀律事件。
+const AWAY_MIN_MS = 3000;
+let awayAtMs = 0;
+document.addEventListener('visibilitychange', () => {
+  if(!sess) return;
+  if(document.visibilityState === 'hidden'){
+    awayAtMs = Date.now();
+    // 🔴 離開的那一刻就要寫進跨頁快照 —— 這一趟很可能**回不來**
+    // （iOS 把 web app 清出記憶體）。沒有這一行，被清掉之後就再也沒人知道
+    // 這段離開發生過，而「離開幾次」正是這個產品最誠實的紀律指標。
+    sess.hiddenAtMs = awayAtMs;
+    syncActiveDecision();
+    return;
+  }
+  // 回到前景：先把時鐘補到真值，不要等下一次 tick（最多會慢 1 秒才跳對）
+  if(STATES[stateIdx] === 'running'){ elapsed = elapsedNow(); tickFdcb(); }
+  sess.hiddenAtMs = null;
+  if(!awayAtMs) { syncActiveDecision(); return; }
+  const gap = Date.now() - awayAtMs;
+  awayAtMs = 0;
+  if(gap >= AWAY_MIN_MS){
+    sess.awayCount = (sess.awayCount || 0) + 1;
+    sess.awayMs = (sess.awayMs || 0) + gap;
+  }
+  syncActiveDecision();
+});
+
+// 模板膠囊（左欄）。時長一律走 fmtDur ——
+// 🔴 舊版寫死 `${Math.floor(sec/60)}:00`：3:30 的自訂模板在這裡顯示 3:00、
+// 6 秒的顯示 0:00，而同一個膠囊裡的大字時鐘同時寫 `/ 0:06`
+// （2026-08-12 實測）。同一個事實在同一列有兩個講法，其中一個一定是假的。
+// running 時拿掉 ▾：那當下模板不可換（見 openSheet），caret 是一個不能兌現的承諾。
+function renderTmplChip(){
+  const t = TEMPLATES[currentTmpl];
+  if(!t) return;
+  const running = STATES[stateIdx] === 'running';
+  document.getElementById('fdcbName').textContent = t.name;
+  document.getElementById('fdcbDur').textContent = tmplBoundLabel(currentTmpl) + (running ? '' : ' ▾');
+  document.getElementById('fdcbIcon').innerHTML = ICON_SVG[t.icon] || ICON_SVG.heart;
+}
+
+/**
+ * 底座左欄那一行的「界線」。
+ *
+ * 🔴 這一格印的不是「模板設定了多久」，而是**這一筆決策的界線是什麼**——
+ * 兩者在倒數模式下剛好相同，在結構守望下**完全不同**：守望不倒數，
+ * 它唯一的界線是 WATCH_CEILING_SEC（殭屍上限）。
+ *
+ * founder 2026-09-03 實走真實快訊、放了 6 分鐘：底座同一列左邊寫「3:00」、
+ * 中間寫「06:16」。舊碼無條件印 `fmtDur(t.durationSec)`，而守望模板的 3:00
+ * 在那個模式下**根本不是一個存在的量**。
+ *
+ * ⚠️ 這是 renderTmplChip 上面那段註解記載的坑的第二次，但形狀不同：
+ * 第一次是格式化算錯（3:30 印成 3:00），這次是**那個量在這個模式下不存在**。
+ * 判準：換模式時逐一問「這一格的量在新模式下還存在嗎」，
+ * 不存在就換成該模式真正的界線，不要照樣印預設值。
+ *
+ * 「上限」兩個字是刻意的 —— 30:00 是**界線**不是**目標**，
+ * 守望的收束靠判定，不是靠把時間跑完。
+ *
+ * @param {string} tmplId - 模板 id。
+ * @returns {string} 例：'3:00'（倒數）或 '上限 30:00'（守望）。
+ */
+function tmplBoundLabel(tmplId){
+  const t = TEMPLATES[tmplId];
+  if(!t) return '';
+  // 🔴 **正在跑的時候問「這一次怎麼跑」，不是問「設定是什麼」。**
+  //
+  // `watchMode(tmplId)` 是一個**設定**（Lab 的決策紀律開關 + 是不是交易者模板）。
+  // 但一筆正在跑的決策，它的界線是 `sess.watch` —— **那一次跑法的事實**。
+  // 兩者在快訊這條路上**故意不一致**：`acceptHandoff()` 明文寫著
+  //「快訊交棒過來的決策一律 sess.watch = true，不看 Lab 那個開關」。
+  //
+  // founder 2026-09-03 實走截到：主畫面 PWA（開關是預設的關）收到快訊 →
+  // 底座同一列**同時**寫著「結構守望 · 點一下判定」與「3:00」。
+  // 第十四輪我拿設定去代表事實，所以只修好了手動起跑那條路。
+  // ⚠️ 兩張截圖結果不同不是隨機：App 內建瀏覽器與主畫面 PWA 是**兩個 storage
+  // 容器**（PLAYBOOK 既有條目），開關各有一份。
+  const running = STATES[stateIdx] === 'running';
+  const watch = (running && sess) ? !!sess.watch : watchMode(tmplId);
+  return watch ? '上限 ' + fmtDur(WATCH_CEILING_SEC) : fmtDur(t.durationSec);
+}
+
 function renderFdcb(){
   const tmpl = TEMPLATES[currentTmpl];
   const s = STATES[stateIdx];
+  renderTmplChip();
   const fdcb = document.getElementById('fdcb');
   const timeEl = document.getElementById('fdcbTime');
   const segEl = document.getElementById('fdcbSeg');
@@ -3504,7 +4008,14 @@ function renderFdcb(){
     renderMarks();
   }
   if(s === 'ready'){
-    timeEl.textContent = `${tmpl.name} · ${fmtDur(tmpl.durationSec)}`;
+    // 守望模板在起跑前也不得印倒數時長（只改左欄等於把同一個謊留一半），
+    // 但這一格**不能**直接套 tmplBoundLabel：實測「Canslim High RS · 上限 30:00」
+    // 在 360/375/390 三個寬度都折成 2 行（180/195/210px）—— 是既有的
+    // 「中間的時鐘仍是 1 行」斷言（第十三輪加的）當場把它擋下來的，不是我自己發現的。
+    // 上限已經由左欄負責；這一格改成講**這是哪一種跑法**，量過 175px、三個寬度都 1 行。
+    timeEl.textContent = watchMode(currentTmpl)
+      ? `${tmpl.name} · 守望`
+      : `${tmpl.name} · ${fmtDur(tmpl.durationSec)}`;
     segEl.textContent = 'Tap to start';
     elapsed = 0;
     if(fill) fill.style.width = '0';
@@ -3512,15 +4023,30 @@ function renderFdcb(){
   }
   if(s === 'running'){
     const b = segBounds(tmpl.durationSec);
-    sess = { templateId: currentTmpl, name: tmpl.name, rs: b.rs, re: b.re, reachedReadiness: false, marks: 0 };
+    // 🔴 牆鐘，不是數 setInterval 的 callback 次數。
+    // 舊版寫 `elapsed += 1`：分頁一進背景（鎖屏、切去券商 APP、切去桌機下單前
+    // 按掉螢幕），瀏覽器就把 setInterval 節流到每分鐘幾次、甚至整個暫停 ——
+    // 時鐘少算，而 saveV6Outcome 又把這個 elapsed 當 durationSec 寫進紀錄，
+    // 於是**紀錄跟著一起說謊**。
+    // 這正是交易者的常態使用情境（下單根本不在這支手機上）。
+    // decision-alert.js:928-956 早就為同一件事改成 Date.now()，這裡照抄，不另發明。
+    sess = { templateId: currentTmpl, name: tmpl.name, rs: b.rs, re: b.re,
+             reachedReadiness: false, marks: 0, events: [], startedAtMs: Date.now(),
+             awayCount: 0, awayMs: 0 };
     elapsed = 0;
+    markFlashUntil = 0;
     renderMarks();
     tickFdcb();
+    sess.watch = watchMode(currentTmpl);
     if(runningInterval) clearInterval(runningInterval);
     runningInterval = setInterval(() => {
-      elapsed += 1;
+      elapsed = elapsedNow();
       tickFdcb();
-      if(elapsed >= tmpl.durationSec){ endDecision('timeout'); }
+      // 守望模式沒有「時間到」這回事 —— 只有 30 分鐘的殭屍上限，
+      // 超過就當成從未做出判定（decision-alert.js 的 WATCH_CEILING_MS 同一個值）。
+      if(sess && sess.watch){
+        if(elapsed >= WATCH_CEILING_SEC){ endDecision('abandoned'); }
+      } else if(elapsed >= tmpl.durationSec){ endDecision('timeout'); }
     }, 1000);
   }
   if(s === 'complete'){
@@ -3533,6 +4059,10 @@ function renderFdcb(){
   }
 }
 
+// 按下「標記」後，段標籤讓位給回報訊息這麼久（tickFdcb 每秒會搶回去寫）
+const MARK_FLASH_MS = 1600;
+let markFlashUntil = 0;
+
 // 每秒繪製：時間 mm:ss / 總長 + 填充 + 當前段 + readiness 偵測
 function tickFdcb(){
   const tmpl = TEMPLATES[currentTmpl];
@@ -3540,25 +4070,40 @@ function tickFdcb(){
   const timeEl = document.getElementById('fdcbTime');
   const segEl = document.getElementById('fdcbSeg');
   const fill = document.getElementById('fdcbFill');
+  // 🔴 守望模式：時鐘只往上數，**不顯示總長、不推進填充條**。
+  // 那條倒數是被刻意拆掉的 —— decision-alert.html:694 記著為什麼：
+  //「用時間當紀律指標的結果是：品質最好的 setup 被罰得最重。」
+  // 這裡不是把 v3 的倒數搬去快訊，而是反過來把守望語意帶進 FDCB。
+  if(sess && sess.watch){
+    timeEl.textContent = fmtClock(elapsed);
+    if(Date.now() >= markFlashUntil) segEl.textContent = '結構守望 · 點一下判定';
+    if(fill) fill.style.width = '0';
+    // reachedReadiness 是「有沒有走到時間上的核心段」—— 守望模式不用時間判紀律，
+    // 所以這個量在這裡沒有意義，維持 false，讓詳情頁誠實顯示「—」而不是編一個。
+    fdcb.classList.remove('in-readiness');
+    return;
+  }
   timeEl.textContent = fmtClock(elapsed) + ' / ' + fmtDur(tmpl.durationSec);
   const ph = phaseFor(elapsed, tmpl);
-  segEl.textContent = ph;
+  if(Date.now() >= markFlashUntil) segEl.textContent = ph;
   if(fill) fill.style.width = Math.min(elapsed / tmpl.durationSec * 100, 100) + '%';
   const inReadiness = (ph === tmpl.segLabel);
   fdcb.classList.toggle('in-readiness', inReadiness);
   if(inReadiness && sess) sess.reachedReadiness = true;
 }
 
-// marks：3 顆 dot 依 marks 點亮，check 顯示計數
+// 標記計數：0 = 虛線框只寫「＋ 標記」，>0 才長出數字。
+// ⚠️ 舊版用三顆 dot 表示數量，但計數會超過 3（實測按 4 下 → 三顆全亮、
+// 膠囊寫 4），而且第三顆 dot 在 DOM 裡排在 + 的後面。數字沒有上限問題。
 function renderMarks(){
-  const evts = document.querySelector('.fdcb-evts');
-  if(!evts) return;
-  const dots = evts.querySelectorAll('.dot');
-  const check = evts.querySelector('.check');
+  const btn = document.getElementById('fdcbMark');
+  const nEl = document.getElementById('fdcbMarkN');
+  if(!btn || !nEl) return;
   const n = sess ? sess.marks : 0;
-  dots.forEach((d, i) => d.classList.toggle('on', i < n));
-  if(n > 0){ check.classList.remove('empty'); check.textContent = String(n); }
-  else { check.classList.add('empty'); check.textContent = '+'; }
+  nEl.hidden = n === 0;
+  nEl.textContent = String(n);
+  btn.classList.toggle('has-marks', n > 0);
+  btn.setAttribute('aria-label', n === 0 ? '標記這一刻' : '標記這一刻，已標記 ' + n + ' 次');
 }
 
 // ── 收束：判定 outcome（鏡射 domain/decision-alert resolveOutcomeTag）+ 存進統一 store ──
@@ -3579,30 +4124,110 @@ function resolveOutcome(type, reached){
 // 兩邊共用同一個 store，資料確實存進去了，只是收端聽不懂寫端的方言。
 // 判定現在只有一個來源（decision-outcome.js），這裡不得再放第二份實作。
 const isDisciplinedV6 = (tag) => window.TENKI_OUTCOME.isDisciplined(tag);
+/**
+ * 把這次收束寫進共用 store。
+ * @returns {number} 這筆紀錄的 ts —— 回程票要靠它指名是哪一筆。
+ */
 function saveV6Outcome(session, outcomeTag){
   let all = [];
   try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
   if(!Array.isArray(all)) all = [];
+  const ts = Date.now();
   all.push({
     symbol: session.name, templateId: session.templateId, outcomeTag,
-    contextTag: null, reachedReadiness: !!session.reachedReadiness,
-    durationSec: elapsed, marks: session.marks, ts: Date.now(), source: 'v6'
+    contextTag: null,
+    // 🔴 守望模式**根本沒有 readiness 這個量**（它不用時間判紀律），所以寫 null＝
+    // 「沒有這個量」，不是 false＝「沒達到」。三元運算子最愛把這兩件事混成同一個
+    // 分支 —— PLAYBOOK 記過一模一樣的傷：一次「判定成立並進場」的決策被印成
+    // 「未達 Readiness」。在來源就寫誠實的值，比在每個讀端各加一個 if 可靠。
+    reachedReadiness: session.watch ? null : !!session.reachedReadiness,
+    durationSec: elapsed,
+    // marks 是既有的持久化欄位（Timeline strip 的點半徑吃它、harness 也有斷言），
+    // SYSTEM.md §6 明訂不得改既有持久化欄位名 —— 所以 events 是**加**，不是換。
+    marks: session.marks,
+    events: Array.isArray(session.events) ? session.events : [],
+    // 離開次數／時長：新增欄位（加，不換 —— SYSTEM.md §6）。
+    // 舊紀錄沒有這兩欄，讀端必須當「不知道」處理，不得顯示 0。
+    awayCount: session.awayCount || 0,
+    awayMs: session.awayMs || 0,
+    // 決策進行中收到幾則同標的快訊（規格 §8）。新增欄位（加，不換 —— SYSTEM.md §6）。
+    // null ＝「跨頁標記當時讀不回來，我不知道」，不是 0 ＝「沒發生過」。
+    sameSymbolUpdates: typeof session.sameSymbolUpdates === 'number' ? session.sameSymbolUpdates : null,
+    // 語意版本：守望模式的收束用的是 structure_watch_v1（「有沒有做出判定」），
+    // 跟倒數模式的舊語意（「有沒有走完計時器」）不是同一把尺。
+    // 標記它，統計端才分得出來 —— 不標就只能猜。
+    judgmentSchema: session.watch ? window.TENKI_OUTCOME.JUDGMENT_SCHEMA : null,
+    // 這一筆從哪來。有 originAlertId 就是快訊決策 —— v6 既有的呈現
+    // （readinessCellV6、Session 列）本來就認得 source==='alert'，沿用它，
+    // 不新增第二種寫法。originAlertId 是真正的 join key
+    // （engine 的 SessionRecord.originAlertId 宣告很久了，這是第一次真的被用上）。
+    originAlertId: session.originAlertId || null,
+    ts, source: session.originAlertId ? 'alert' : 'v6'
   });
   if(all.length > 200) all = all.slice(all.length - 200);
   localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
+  return ts;
 }
+// 收束後回 idle 的那一拍要抓得住 —— 舊版是裸的 setTimeout，
+// 使用者在這 1.8 秒內做別的事（點中間、換模板）會被它從背後拉回 idle。
+let closureTimer = null;
+function clearClosureTimer(){ if(closureTimer){ clearTimeout(closureTimer); closureTimer = null; } }
+
 function endDecision(type){
+  // 🔴 清掉之前先讀回自己那一張 —— /decision-alert/ 在決策期間把「同標的後續觸發」
+  // 累加在上面，那是收束頁「同標的更新：N 次」唯一的來源。
+  const activeMarker = readOwnActiveDecision();
+  if(sess) sess.sameSymbolUpdates = activeMarker && typeof activeMarker.sameSymbolUpdates === 'number'
+    ? activeMarker.sameSymbolUpdates
+    // 🔴 讀不回自己的標記（過期／被別的分頁蓋掉）＝「這條通道當時斷了，我不知道」→ null。
+    // **不寫 0** —— 0 是「有在數，而且真的沒有」。讀端對這兩件事的處理必須不一樣
+    // （PLAYBOOK：缺欄位就不准說否定）。
+    : null;
+  // 🔴 跨頁標記在這裡就要清掉 —— 從快訊來的決策下面會 location.href 回程，
+  // 導頁之後這一頁**沒有機會再清**，而留下來的標記會靜默吃掉之後每一則快訊。
+  // ⚠️ 這一行與 setState() 裡的清除是**刻意重複**的（下面 setState('complete')
+  // 也會清）：兩者單獨拿掉 harness 都抓不到，兩個一起拿掉才會紅 —— 實測過。
+  // 留著是為了導頁與 setState 之間那個競態，不是忘了刪。
+  clearActiveDecision();
+  // 先把時間補到真值再收束。背景節流時最後一個 tick 可能是幾十秒前跑的，
+  // 使用者切回來馬上收束的話，那個舊值會被 saveV6Outcome 當 durationSec 寫進去。
+  if(sess) elapsed = elapsedNow();
+  const watch = !!(sess && sess.watch);
   if(runningInterval){ clearInterval(runningInterval); runningInterval = null; }
-  const tag = resolveOutcome(type, sess ? sess.reachedReadiness : false);
-  if(sess) saveV6Outcome(sess, tag);
+  closeTpPicker();   // 決策收束了，快選沒有東西可以掛
+  closeWatchJudge(); // 判定已經做完（或逾時），列子沒有東西可以掛
+  // 守望模式走共用模組的新語意（judged_entered / judged_stood_down /
+  // abandoned_no_judgment）；一般倒數模式維持既有的舊語意，一個字不動。
+  const tag = watch
+    ? window.TENKI_OUTCOME.resolveOutcomeTag(type)
+    : resolveOutcome(type, sess ? sess.reachedReadiness : false);
+  const savedTs = sess ? saveV6Outcome(sess, tag) : null;
+  // 🔴 從快訊來的決策，收束頁在 /decision-alert/ ——
+  // 那張頁（弧、反思晶片 → contextTag、紀律計）是已經被實走驗收過的東西，
+  // 而 v6 的 state-complete 只有 1.8 秒。所以判定完把人送回去看結果。
+  // ⚠️ 只有快訊決策回程；自己在 /v3/ 起跑的決策本來就不是從那裡來的。
+  if(sess && sess.originAlertId && savedTs){
+    try {
+      localStorage.setItem(RETURN_KEY, JSON.stringify({ ts: savedTs, at: Date.now() }));
+      window.location.href = '/decision-alert/#result';
+    } catch(e){ /* 存不進去就留在原地，至少紀錄已經寫好了 */ }
+  }
   pendingClosure = { tag: tag };
   setState('complete');
-  setTimeout(() => setState('idle'), 1800);
+  clearClosureTimer();
+  closureTimer = setTimeout(() => { closureTimer = null; setState('idle'); }, 1800);
 }
 
 function nextState(){
+  clearClosureTimer();
   const s = STATES[stateIdx];
-  if(s === 'running'){ endDecision('close'); return; }   // running 中點 core = 收束
+  if(s === 'running'){
+    // 守望模式：點 core 不是收束，是打開判定列 ——
+    // 收束必須帶著「你做了什麼判定」，不能只是「結束了」。
+    // 多一拍也擋掉誤觸：手機放在旁邊，一個意外的「我進場了」會寫下一筆假紀錄。
+    if(sess && sess.watch){ watchJudgeOpen() ? closeWatchJudge() : openWatchJudge(); return; }
+    endDecision('close'); return;                        // 一般模式：點 core = 收束
+  }
   if(s === 'complete'){ setState('idle'); return; }
   setState(STATES[(stateIdx + 1) % STATES.length]);        // idle→ready→running
 }
@@ -3611,7 +4236,15 @@ function cycleDemo(){ nextState(); }
 // ═════════════════════════════════════════════════
 // Template sheet
 // ═════════════════════════════════════════════════
+// 🔴 決策在跑的時候不得換模板。舊版換了會留下沒清掉的 interval：
+// state 變成 ready、時鐘卻繼續往前跑，到**舊**模板的時長時在 ready 狀態下
+// 彈出「完整走完」，並往 store 寫一筆使用者根本沒跑完的幽靈紀錄
+// —— 2026-08-12 實測：跑「六秒測試」中途換成 Work Focus，6 秒後畫面顯示
+// Work Focus，Timeline 卻多出一筆「六秒測試 · 完整走完」。
+// 要換模板就先收束（點中間），那一筆才會被誠實記成提前收束。
 function openSheet(){
+  if(STATES[stateIdx] === 'running') return;
+  clearClosureTimer();
   document.getElementById('sheet').classList.add('open');
   document.getElementById('sheetBackdrop').classList.add('open');
 }
@@ -3620,19 +4253,391 @@ function closeSheet(){
   document.getElementById('sheetBackdrop').classList.remove('open');
 }
 function selectTmpl(el){
+  // openSheet 已經擋過，這裡是第二道 —— 選單以外的呼叫路徑（harness、未來的
+  // 快訊流程）也不得在決策進行中改 currentTmpl，否則同樣長出幽靈紀錄。
+  if(STATES[stateIdx] === 'running') return;
+  clearClosureTimer();
   document.querySelectorAll('.tmpl-item').forEach(x => x.classList.remove('selected'));
   el.classList.add('selected');
   currentTmpl = el.dataset.id;
   const t = TEMPLATES[currentTmpl];
-  document.getElementById('fdcbName').textContent = t.name;
-  const m = Math.floor(t.durationSec / 60);
-  document.getElementById('fdcbDur').textContent = `${m}:00 ▾`;
-  document.getElementById('fdcbIcon').innerHTML = ICON_SVG[t.icon];
+  renderTmplChip();
   document.documentElement.style.setProperty('--primary', t.color);
   setTimeout(() => { closeSheet(); setState('ready'); }, 260);
 }
 
 // ═════════════════════════════════════════════════
+// ═════════════════════════════════════════════════
+// 決策紀律模式（內部 SessionMode='trader'）
+//
+// 🔴 命名：user-facing **一律「決策紀律」**，畫面上不得出現「交易者 / Trader」。
+// 內部識別字沿用 engine 既有的 SessionMode='trader'（不改）。
+// 依據：docs/TRADINGVIEW-ALERT-SPEC.md §0（唯一權威規格）、
+// docs/APP_STORE_COMPLIANCE.md §6 與送審檢查表 #17。founder 2026-08-20 拍板。
+//
+// 這個模式改變的是**決策計時器怎麼收束**：交易者模板改用結構守望
+// （判定出口，不是倒數壓力），因為「用時間當紀律指標的結果是：品質最好的
+// setup 被罰得最重」（decision-alert.html:694 已付過的學費）。
+//
+// 入口是 Settings（Lab）opt-in，預設關閉 —— 不放 onboarding、不開新分頁。
+// ═════════════════════════════════════════════════
+const DISCIPLINE_KEY = 'tenki.v6.decisionDiscipline.v1';
+/** 交易者模板：只有這幾個在決策紀律模式下改走結構守望。 */
+const DISCIPLINE_TEMPLATES = ['CANSLIM_GS', 'CANSLIM_HIGH_RS', 'MANCINI_FBD'];
+
+/** @returns {boolean} 決策紀律模式是否開啟（預設關）。 */
+function disciplineOn(){
+  try { return localStorage.getItem(DISCIPLINE_KEY) === '1'; } catch(e){ return false; }
+}
+/**
+ * 這次決策是否走結構守望（而不是倒數）。
+ * 條件：模式開啟 **且** 當前模板是交易者模板。其餘一律維持原本的倒數行為。
+ * @param {string} [tmplId] 預設看 currentTmpl
+ * @returns {boolean}
+ */
+function watchMode(tmplId){
+  return disciplineOn() && DISCIPLINE_TEMPLATES.includes(tmplId || currentTmpl);
+}
+// ═════════════════════════════════════════════════
+// 從 /decision-alert/ 交棒過來的一筆決策
+// ═════════════════════════════════════════════════
+const HANDOFF_KEY = 'tenki.v6.handoff.v1';
+/** 回程票：判定完帶著「是哪一筆」回 /decision-alert/ 看收束頁。 */
+const RETURN_KEY = 'tenki.alert.return.v1';
+/** 信物保鮮期，與 decision-alert.js 的 HANDOFF_TTL_MS 同值。 */
+const HANDOFF_TTL_MS = 5 * 60 * 1000;
+
+// ═════════════════════════════════════════════════
+// 「決策進行中」標記（docs/TRADINGVIEW-ALERT-SPEC.md §8）
+//
+// §8：「Session 進行中收到新快訊 → 一律靜默接收」—— 決策過程不被下一個訊號打斷。
+// 但決策跑在這一頁，快訊在 /decision-alert/ ——**那一頁沒有辦法知道**。
+// 所以這裡把「有一筆決策正在跑」寫成跨頁看得到的事實。走 localStorage，
+// 跟讀數、決策紀錄、交棒信物、回程票是同一個做法（同源同裝置）。
+//
+// 🔴 **標記自帶到期時間，寫一次就不再更新。**
+// 最危險的失敗模式是旗標留下來沒被清掉（分頁被殺、瀏覽器崩潰、直接關掉這一頁）——
+// 那樣 /decision-alert/ 會從此靜默吃掉每一則快訊，而且完全沒有跡象，
+// 使用者只會覺得「快訊壞了」。那比沒有這個功能糟糕得多。
+//
+// ⚠️ **心跳（每秒回寫 at）是錯的解法**：這一頁一進背景，interval 就被節流甚至暫停
+// （FDCB 改吃牆鐘就是為了同一件事）—— 而**背景正是這個功能唯一有用的時候**
+// （在桌機下單、手機鎖屏）。心跳會在最該靜音的那一刻宣告「沒有決策在跑」。
+// 到期時間用的是既有的殭屍 session 上限，沒有引進新的不變量。
+// ═════════════════════════════════════════════════
+
+/** 跨頁標記的 key。/decision-alert/ 的 evaluateDelivery 讀它。 */
+const ACTIVE_DECISION_KEY = 'tenki.v6.activeDecision.v1';
+/** 倒數模式的寬限：背景節流會讓自動收束晚到，別讓標記比決策先過期。 */
+const ACTIVE_DECISION_GRACE_MS = 60 * 1000;
+
+/**
+ * 這一筆決策的完整快照 —— **接得回來**所需要的每一個欄位。
+ *
+ * 🔴 為什麼要存到這種程度（founder 2026-08-21 實走情境）：
+ * 交易者的動線是「進入決策 → 跳回桌面 → 開交易 App 下單 → 再回 TENKI Core」。
+ * iOS 會把 standalone web app 從記憶體清掉，回來時整頁重新載入 ——
+ * 而 `sess` 只活在記憶體，全 repo 沒有任何 pagehide/beforeunload 持久化。
+ * 也就是說：**下完單回來，整筆決策連同標記一起蒸發，一筆紀錄都沒有。**
+ * 第五輪的牆鐘讓「時間」不說謊，這一輪讓「決策本身」活得過離開。
+ *
+ * @returns {?Object} 沒有進行中的決策就回 null
+ */
+function activeDecisionSnapshot(){
+  if(!sess || !sess.startedAtMs) return null;
+  const tmpl = TEMPLATES[sess.templateId] || TEMPLATES[currentTmpl];
+  const dur = sess.watch
+    ? WATCH_CEILING_SEC * 1000
+    : ((tmpl ? tmpl.durationSec : WATCH_CEILING_SEC) * 1000 + ACTIVE_DECISION_GRACE_MS);
+  return {
+    startedAtMs: sess.startedAtMs,
+    expiresAtMs: sess.startedAtMs + dur,
+    symbol: sess.symbol || null,
+    templateId: sess.templateId,
+    // 底座左欄顯示的字（快訊決策會被換成標的），重建時要一模一樣。
+    name: sess.name || null,
+    originAlertId: sess.originAlertId || null,
+    anchorPrice: (typeof sess.anchorPrice === 'number') ? sess.anchorPrice : null,
+    watch: !!sess.watch,
+    marks: sess.marks || 0,
+    events: Array.isArray(sess.events) ? sess.events : [],
+    awayCount: sess.awayCount || 0,
+    awayMs: sess.awayMs || 0,
+    // 離開的那一刻。**還沒回來就被清掉記憶體**時，接回來要靠它把這段補記進去。
+    hiddenAtMs: sess.hiddenAtMs || null,
+  };
+}
+
+function writeActiveDecision(snap){
+  try { localStorage.setItem(ACTIVE_DECISION_KEY, JSON.stringify(snap)); }
+  catch(e){ /* 存不進去就當作沒有這個功能，決策照跑 */ }
+}
+
+/**
+ * 發佈「有一筆決策正在跑」。**起跑專用** —— 整份覆寫，計數歸零。
+ * ⚠️ 只在起跑的那個呼叫堆疊裡重發（setState → acceptHandoff / resume），
+ * 中間不可能插進一則快訊。**決策跑起來之後要用 syncActiveDecision()**，
+ * 否則會把 /decision-alert/ 記在上面的同標的計數洗掉。
+ */
+function publishActiveDecision(){
+  const snap = activeDecisionSnapshot();
+  if(!snap) return;
+  // /decision-alert/ 在這裡累加同標的後續觸發；收束時我們讀回來寫進紀錄。
+  snap.sameSymbolUpdates = 0;
+  writeActiveDecision(snap);
+}
+
+/**
+ * 決策進行中更新快照（標記、離開）—— **保留** sameSymbolUpdates。
+ * 讀不回自己那一張就什麼都不做：那是別的分頁的決策，不該被我們蓋掉。
+ */
+function syncActiveDecision(){
+  const own = readOwnActiveDecision();
+  if(!own) return;
+  const snap = activeDecisionSnapshot();
+  if(!snap) return;
+  snap.sameSymbolUpdates = (typeof own.sameSymbolUpdates === 'number') ? own.sameSymbolUpdates : 0;
+  writeActiveDecision(snap);
+}
+
+/** 決策結束（或根本沒在跑）—— 標記一定要消失。 */
+function clearActiveDecision(){
+  try { localStorage.removeItem(ACTIVE_DECISION_KEY); } catch(e){}
+}
+
+/**
+ * 讀回**自己這一筆**的標記。
+ * 🔴 比對 startedAtMs：別的分頁留下的標記不是我們的，不得拿它的計數來寫紀錄。
+ * @returns {?Object} 對得上就回標記本身，否則 null
+ */
+function readOwnActiveDecision(){
+  if(!sess || !sess.startedAtMs) return null;
+  let m = null;
+  try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch(e){ m = null; }
+  if(!m || m.startedAtMs !== sess.startedAtMs) return null;
+  return m;
+}
+
+/**
+ * 讀交棒信物並直接起跑決策。
+ * 🔴 **讀完就刪**，無論用不用得上 —— 留著它，下次開 /v3/#decision
+ * 會再起跑一次同一筆決策（而使用者根本沒收到新快訊）。
+ * @returns {boolean} 有沒有真的起跑
+ */
+function acceptHandoff(){
+  let h = null;
+  try { h = JSON.parse(localStorage.getItem(HANDOFF_KEY)); } catch(e){ h = null; }
+  try { localStorage.removeItem(HANDOFF_KEY); } catch(e){}
+  if(!h || !h.templateId || !TEMPLATES[h.templateId]) return false;
+  // 過期就不自動起跑 —— 昨天的快訊今天不該自己開始一個決策。
+  if(!(typeof h.ts === 'number') || Date.now() - h.ts > HANDOFF_TTL_MS) return false;
+
+  currentTmpl = h.templateId;
+  const t = TEMPLATES[currentTmpl];
+  document.documentElement.style.setProperty('--primary', t.color);
+  setState('running');
+  if(sess){
+    // 這一筆的身分：標的名、來源快訊、以及自己定的關鍵價位。
+    sess.symbol = h.symbol || null;
+    sess.originAlertId = h.originAlertId || null;
+    sess.anchorPrice = (typeof h.price === 'number') ? h.price : null;
+    // 🔴 從快訊交棒過來的決策**一律走守望**，不看 Lab 那個開關。
+    // 理由不是圖方便：快訊流程的收束語意本來就是「有沒有做出判定」
+    // （docs/TRADINGVIEW-ALERT-SPEC.md §9、decision-outcome.js 的語意斷點）。
+    // 若這裡退回倒數，就會重新引進那個已經付過學費的問題 ——
+    //「用時間當紀律指標，品質最好的 setup 被罰得最重」。
+    // Lab 的開關管的是「使用者自己起跑」時要不要守望，不管快訊這條路。
+    sess.watch = true;
+    // 🔴 同一個順序陷阱：setState('running') 已經跑過 renderTmplChip() 了，
+    // 而那時 sess.watch 還沒設 —— 左欄會印成該模板的倒數時長（3:00）。
+    // 設完之後補畫一次，理由跟下面再 publishActiveDecision() 一次完全相同。
+    renderTmplChip();
+    // 底座左欄改顯示標的 —— 決策進行中，「ES1!」比「Mancini FBD」有用得多。
+    if(sess.symbol){
+      sess.name = sess.symbol;
+      document.getElementById('fdcbName').textContent = sess.symbol;
+    }
+    renderWatchAnchor();
+    // 🔴 再發佈一次。setState('running') 那次是在這些欄位被設定**之前**跑的 ——
+    // 拿不到 symbol（同標的更新就配不起來），也還不知道要走守望（到期時間會算短）。
+    // 兩次都在同一個呼叫堆疊裡，中間不可能插進一則快訊，覆寫是安全的。
+    publishActiveDecision();
+  }
+  return true;
+}
+
+/**
+ * 開頁時把還在跑的決策接回來。
+ *
+ * 🔴 為什麼需要這個（founder 2026-08-21 實走情境）：交易者的動線是
+ * 「進入決策 → 跳回桌面 → 開交易 App 下單 → 再回 TENKI Core」，而 iOS 會把
+ * standalone web app 清出記憶體 —— 回來時整頁重載，`sess` 是 null。
+ * 沒有這條路徑，**下完單回來整筆決策就消失了**：沒有判定、沒有紀錄、
+ * 標記全丟，而畫面只會安靜地停在 idle，看不出剛剛有東西不見。
+ *
+ * ⚠️ 順序陷阱（跟 acceptHandoff 同一個）：`setState('running')` 會建一個**全新的**
+ * sess 並呼叫 publishActiveDecision()（整份覆寫、計數歸零）。所以要先把快照
+ * 讀出來留在手上，setState 之後再把欄位灌回去，最後**再發佈一次**。
+ *
+ * @returns {boolean} 有沒有真的接回來
+ */
+function resumeActiveDecision(){
+  if(STATES[stateIdx] === 'running') return false;   // 已經在跑，不要蓋掉
+  let m = null;
+  try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch(e){ m = null; }
+  if(!m || typeof m.startedAtMs !== 'number' || typeof m.expiresAtMs !== 'number') return false;
+  if(!m.templateId || !TEMPLATES[m.templateId]){ clearActiveDecision(); return false; }
+
+  const now = Date.now();
+  const tmpl = TEMPLATES[m.templateId];
+  const ceilingSec = m.watch ? WATCH_CEILING_SEC : tmpl.durationSec;
+  const elapsedSec = Math.floor((now - m.startedAtMs) / 1000);
+
+  // 🔴 **超過上限就不是 resume，是收束。** 決策不該憑空消失，也不該假裝還在跑
+  // ——「你離開太久，這一筆沒有做出判定」本身就是要記下來的事實。
+  // 收束走的是既有的 endDecision，語意與紀錄格式完全一致，不另寫第二份。
+  //
+  // ⚠️ 這一段與 running interval 裡的上限檢查是**刻意重複**的：接回來之後那個
+  // interval 一秒內也會收掉它。單獨拿掉任一處 harness 都抓不到（實測），
+  // 兩處一起拿掉才紅。留著是為了不讓使用者看到一個跑了 40 分鐘的計時器 ——
+  // 哪怕只有一秒。不是忘了刪。
+  const overdue = elapsedSec >= ceilingSec || now >= m.expiresAtMs;
+
+  currentTmpl = m.templateId;
+  document.documentElement.style.setProperty('--primary', tmpl.color);
+  setState('running');
+  if(!sess){ clearActiveDecision(); return false; }
+
+  sess.startedAtMs = m.startedAtMs;               // 牆鐘的唯一來源，接回原值
+  sess.symbol = m.symbol || null;
+  sess.originAlertId = m.originAlertId || null;
+  sess.anchorPrice = (typeof m.anchorPrice === 'number') ? m.anchorPrice : null;
+  sess.watch = !!m.watch;
+  // 🔴 跟 acceptHandoff() 完全同一個順序陷阱：setState('running') 已經跑過
+  // renderTmplChip() 了，而那時 sess.watch 還沒接回來 —— 一筆守望決策接回來
+  // 之後，左欄會印成該模板的倒數時長。設完補畫一次。
+  renderTmplChip();
+  sess.events = Array.isArray(m.events) ? m.events : [];
+  sess.marks = sess.events.length;                 // marks 一律由節點數導出
+  sess.awayCount = m.awayCount || 0;
+  sess.awayMs = m.awayMs || 0;
+  // 上一趟離開還沒被結算（走的時候頁面就被清掉了）—— 現在補記它。
+  if(typeof m.hiddenAtMs === 'number' && m.hiddenAtMs > 0){
+    const gap = now - m.hiddenAtMs;
+    if(gap >= AWAY_MIN_MS){
+      sess.awayCount += 1;
+      sess.awayMs += gap;
+    }
+  }
+  sess.hiddenAtMs = null;
+  if(sess.symbol){
+    sess.name = sess.symbol;
+    document.getElementById('fdcbName').textContent = sess.symbol;
+  } else if(m.name){
+    sess.name = m.name;
+  }
+  elapsed = elapsedNow();
+  publishActiveDecision();                         // 重建之後重新發佈（計數見下）
+  // 計數是 /decision-alert/ 記在標記上的，publish 會歸零 —— 補回去。
+  if(typeof m.sameSymbolUpdates === 'number' && m.sameSymbolUpdates > 0){
+    const own = readOwnActiveDecision();
+    if(own){ own.sameSymbolUpdates = m.sameSymbolUpdates; writeActiveDecision(own); }
+  }
+  renderMarks();
+  renderLiveNodes();
+  renderWatchAnchor();
+  tickFdcb();
+
+  if(overdue){ endDecision(sess.watch ? 'abandoned' : 'timeout'); return true; }
+  return true;
+}
+
+/**
+ * 判定列上的關鍵價位行。
+ * 🔴 快訊沒帶 price 就整行空著 —— **寧可沒有錨點，也不編一個價位出來**
+ * （decision-alert.js:910 同一條規則，語氣照搬）。
+ */
+function renderWatchAnchor(){
+  const el = document.getElementById('wjAnchor');
+  if(!el) return;
+  const p = sess && typeof sess.anchorPrice === 'number' ? sess.anchorPrice : null;
+  if(p === null){ el.textContent = ''; el.hidden = true; return; }
+  el.hidden = false;
+  el.textContent = '關鍵價位 ' + p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** 守望的牆鐘上限（秒）。超過就當作沒有判定收掉，避免跨日的殭屍 session。
+ *  與 decision-alert.js 的 WATCH_CEILING_MS 同一個值，兩邊要一起改。 */
+const WATCH_CEILING_SEC = 30 * 60;
+
+/** 判定列開著嗎（供 harness 與收束時清理用）。 */
+function watchJudgeOpen(){
+  const el = document.getElementById('watchJudge');
+  return !!el && el.classList.contains('open');
+}
+function openWatchJudge(){
+  if(!(sess && sess.watch)) return;
+  renderWatchAnchor();  // 每次打開都重畫 —— 上一筆決策的價位不得留在畫面上
+  document.getElementById('watchJudge').classList.add('open');
+}
+function closeWatchJudge(){
+  const el = document.getElementById('watchJudge');
+  if(el) el.classList.remove('open');
+}
+/**
+ * 結構守望的判定出口。
+ * 🔴 兩個出口**都算紀律** —— 差別只在你做了什麼，不在誰對誰錯。
+ * outcome tag 一律走共用模組，不得在這裡再寫一份判定
+ * （PLAYBOOK：兩邊各寫一份的下場是「demo 看到 100%，進 Session 變 0%」）。
+ * @param {'entered'|'stood_down'} judgment
+ */
+function judgeWatch(judgment){
+  if(!(sess && sess.watch)) return;
+  closeWatchJudge();
+  endDecision(judgment);
+}
+
+/**
+ * 交易者模板只在決策紀律模式開啟時存在於 DOM。
+ * 🔴 用「移除／插回節點」而不是 CSS 隱藏 —— `display:none` 的文字仍在 DOM 裡，
+ * 任何抓文字的東西（含送審截圖工具、輔助技術、我們自己的斷言）都還讀得到。
+ * 依據：docs/APP_STORE_COMPLIANCE.md 送審檢查表 #18。
+ */
+let disciplineGroupNode = null;   // 被移除時暫存在這裡，開回來時插回原位
+function syncDisciplineTemplates(){
+  const sheet = document.getElementById('sheet');
+  if(!sheet) return;
+  const inDom = document.getElementById('tmplDisciplineGroup');
+  if(disciplineOn()){
+    if(!inDom && disciplineGroupNode) sheet.appendChild(disciplineGroupNode);
+    return;
+  }
+  if(inDom){ disciplineGroupNode = inDom; inDom.remove(); }
+}
+
+function renderDisciplineTile(){
+  const tile = document.getElementById('labDisciplineTile');
+  const sub = document.getElementById('labDisciplineSub');
+  if(!tile || !sub) return;
+  const on = disciplineOn();
+  tile.classList.toggle('mode-on', on);
+  sub.innerHTML = on ? '已開啟<br>快訊接進決策計時器' : '目前關閉<br>開啟後改用結構守望';
+  tile.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+function toggleDisciplineMode(){
+  // 決策進行中不得換模式 —— 跟「跑中不得換模板」同一個理由：
+  // 收束語意會在半路改變，那一筆紀錄就說不清楚自己是怎麼結束的。
+  if(STATES[stateIdx] === 'running'){
+    labInfo('決策進行中', '這一筆決策還沒收束，先收束再切換模式 —— 中途換會讓這筆紀錄說不清楚自己是怎麼結束的。');
+    return;
+  }
+  const next = !disciplineOn();
+  try { localStorage.setItem(DISCIPLINE_KEY, next ? '1' : '0'); } catch(e){}
+  renderDisciplineTile();
+  syncDisciplineTemplates();
+  renderFdcb();
+}
+
 // 自訂模板（Lab / 模板自訂）— 存 localStorage、merge 進 TEMPLATES、
 // 動態插入 Select Template sheet「我的模板」分類。選了走同一 currentTmpl 管線。
 // ═════════════════════════════════════════════════
@@ -3687,6 +4692,8 @@ function renderCustomTmplSheet(list){
 }
 
 syncCustomTemplates();
+renderDisciplineTile();       // 開頁就把磁磚畫成目前真正的狀態
+syncDisciplineTemplates();   // 模式關閉時，交易者模板不進 DOM
 
 // ── 模板自訂 editor（建立/編輯/刪除 + 即時預覽）──
 const TE_COLORS = ['#00B4D8','#34C759','#FF6B35','#5E3A87','#E8B45A','#22D3EE'];
@@ -3816,12 +4823,21 @@ function exportOutcomesCsv(){
     labInfo('尚無決策紀錄可匯出', '完成幾次決策收束後再回來，這裡會匯出你的 CSV。');
     return;
   }
-  const cols = ['ts','datetime','symbol','templateId','outcomeTag','reachedReadiness','durationSec','contextTag'];
+  // marks 一直寫進 store 卻從來沒進 CSV —— 順手補上這個既有缺口。
+  // 節點攤平成兩欄：markLabels（做了什麼）與 markBands（當下是什麼狀態），
+  // 用 | 串接、對齊同一個順序。csvEscape 已經處理引號/逗號/換行。
+  // 🔴 沒讀數的節點寫 'no_reading'，不留空也不填預設帶位 —— 空白會被下游讀成
+  // 「漏了」，而填一個帶位就是造假。
+  const cols = ['ts','datetime','symbol','templateId','outcomeTag','reachedReadiness','durationSec','contextTag','marks','markLabels','markBands'];
   const lines = [cols.join(',')];
   rows.forEach(r => {
+    const evs = Array.isArray(r.events) ? r.events : [];
     lines.push([
       r.ts, r.ts ? new Date(r.ts).toISOString() : '', r.symbol, r.templateId,
-      r.outcomeTag, r.reachedReadiness, r.durationSec, r.contextTag
+      r.outcomeTag, r.reachedReadiness, r.durationSec, r.contextTag,
+      r.marks == null ? '' : r.marks,
+      evs.map(e => e.label || '').join('|'),
+      evs.map(e => e.band || 'no_reading').join('|')
     ].map(csvEscape).join(','));
   });
   const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
@@ -3833,10 +4849,268 @@ function exportOutcomesCsv(){
   labInfo('已匯出 ' + rows.length + ' 筆決策紀錄', 'CSV 已開始下載。');
 }
 
+/**
+ * 節點的狀態章。鏡射 domain/src/contracts/readiness-reading.ts 的
+ * AttachedReadinessReading（那個型別宣告很久了，一直沒有人用 —— 這是第一次）。
+ *
+ * ⚠️ 讀數 store 只存**一筆**、沒有歷史，所以同一次決策的所有節點共用同一份讀數。
+ * 誠實的 per-node 事實是「那一刻這份讀數幾分鐘大」，不是重新量到的值 ——
+ * 這正是 staleAtDecision 的 carry-forward 語意。
+ *
+ * 🔴 沒有讀數就四個欄位都留 null：不回填預設帶位、不猜、更不生 0-100 分。
+ * readiness 契約上就沒有分數（readiness-reading.ts 明寫 never a fabricated
+ * 0-100 score），而 summarizeDisciplineByBand() 的註解也已經先講死了：
+ * 沒有讀數的紀錄要排除，猜一個等於偽造這個統計存在的意義本身。
+ */
+function stampReadingV6(){
+  const r = loadReadingV6();
+  if(!r) return { band: null, confidence: null, readingTs: null, staleAtDecision: null };
+  return {
+    band: r.band,
+    confidence: r.confidence || null,
+    readingTs: r.ts,
+    staleAtDecision: Date.now() - r.ts >= READING_FRESHNESS_MS_V6,
+  };
+}
+
+/**
+ * 進行中的節點軌。.fdcb-prog 是**全 app 唯一**已經 position:relative
+ * 且內含絕對定位子元素（.fdcb-fill）的水平軌，節點直接掛上去，不新增版面。
+ *
+ * 動效走 docs/MOTION-DIRECTION.md §4 的 **Lock 鎖定** 語彙（snap + 輝光）、
+ * §3 的 --ease-secure 與 150ms 微反饋。不發明新 token、不新增 duration 值。
+ * prefers-reduced-motion 由 CSS 直接 snap 到終態（§2 鐵律 3）。
+ */
+function renderLiveNodes(){
+  const prog = document.querySelector('.fdcb-prog');
+  if(!prog) return;
+  prog.querySelectorAll('.tp-tick').forEach(n => n.remove());
+  if(!sess || !Array.isArray(sess.events)) return;
+  const tmpl = TEMPLATES[currentTmpl];
+  const dur = tmpl && tmpl.durationSec ? tmpl.durationSec : 0;
+  if(dur <= 0) return;
+  // 🔴 同一秒內的節點會疊在同一個位置上 —— founder 實走就是「一下子從 1 按到 5」，
+  // 五顆全部落在 t=1。直接畫五顆等於軌上只看得到一顆，而右邊的計數寫 5：
+  // 同一個畫面上兩個地方講不一樣的事。
+  // 併成一顆、用大小表示數量 —— 沿用 Timeline strip 已經在用的公式
+  // （renderTimeline: r = 3 + min(marks,6) * 0.7），不另創一套視覺語言。
+  const groups = [];
+  sess.events.forEach((ev) => {
+    const last = groups[groups.length - 1];
+    if(last && last.t === ev.t && last.band === ev.band) last.n += 1;
+    else groups.push({ t: ev.t, band: ev.band, n: 1 });
+  });
+  groups.forEach((g, i) => {
+    const tick = document.createElement('div');
+    tick.className = 'tp-tick' + (g.band ? ' band-' + g.band : ' no-reading');
+    tick.style.left = Math.min(g.t / dur * 100, 100) + '%';
+    const size = 5 + Math.min(g.n - 1, 6) * 0.7;
+    tick.style.width = size + 'px';
+    tick.style.height = size + 'px';
+    if(g.n > 1) tick.title = g.n + ' 個標記';
+    // 只有最後一顆帶落地動效 —— 其餘是既成事實，重繪不該讓整排再閃一次。
+    if(i === groups.length - 1) tick.classList.add('landing');
+    prog.appendChild(tick);
+  });
+}
+
+// ── 自訂標籤：沿用自訂模板那條五段管線（load / save / 前綴 id / merge / render）──
+// templateId === null 代表「所有模板都出現」。
+const TP_LABEL_KEY = 'tenki.v6.tplabels.v1';
+function loadCustomTpLabels(){
+  try { const raw = JSON.parse(localStorage.getItem(TP_LABEL_KEY)); return Array.isArray(raw) ? raw : []; }
+  catch(e){ return []; }
+}
+function saveCustomTpLabels(list){ localStorage.setItem(TP_LABEL_KEY, JSON.stringify(list)); }
+
+// 🔴 自訂標籤是**使用者輸入的 user-facing copy** —— 這是本功能開的最大 compliance 面。
+// 鏡射 packages/engine/src/compliance/safe-copy.ts 的 PROHIBITED_VOCABULARY_ZH
+// 與英文清單裡會真的出現在標籤上的那幾個（preview 是 vanilla JS，不能 import）。
+// ⚠️ 兩邊要同步：改那支就要改這裡（同 readiness 門檻的四處鏡射慣例，PLAYBOOK §6）。
+const TP_BANNED_ZH = [
+  '勝率', '買入', '賣出', '買進', '賣壓', '獲利', '虧損',
+  '停損', '停利', '追價', '進場訊號', '出場訊號', '交易建議',
+  '投資建議', '保證報酬', '保證獲利', '快進快出', '現在進場', '立即下單',
+];
+const TP_BANNED_EN = ['trade', 'buy', 'sell', 'profit', 'win rate', 'setup', 'market'];
+/** 回傳踩到的禁用詞（空陣列 = 乾淨）。 */
+function findBannedTpTerms(text){
+  const lower = String(text).toLowerCase();
+  return TP_BANNED_ZH.filter(t => text.includes(t))
+    .concat(TP_BANNED_EN.filter(t => lower.includes(t)));
+}
+
+// ── 標記標籤編輯器（沿用 .te-* 既有樣式與自訂模板的 create-or-update-by-id 慣例）──
+let tplEditId = null;
+function genTpLabelId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function renderTplScope(){
+  const sel = document.getElementById('tplScope');
+  if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '';
+  const all = document.createElement('option');
+  all.value = ''; all.textContent = '所有模板';
+  sel.appendChild(all);
+  Object.keys(TEMPLATES).forEach(k => {
+    const o = document.createElement('option');
+    o.value = k; o.textContent = TEMPLATES[k].name;
+    sel.appendChild(o);
+  });
+  sel.value = cur || '';
+}
+
+function renderTplList(){
+  const wrap = document.getElementById('tplList');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  loadCustomTpLabels().forEach(x => {
+    const row = document.createElement('div');
+    row.className = 'te-list-item';
+    row.onclick = function(){ loadTpLabelIntoForm(x); };
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = x.text;
+    const scope = document.createElement('div'); scope.className = 'dur';
+    scope.textContent = x.templateId && TEMPLATES[x.templateId] ? TEMPLATES[x.templateId].name : '所有模板';
+    const edit = document.createElement('div'); edit.className = 'edit'; edit.textContent = '編輯';
+    row.appendChild(nm); row.appendChild(scope); row.appendChild(edit);
+    wrap.appendChild(row);
+  });
+}
+
+function resetTpLabelForm(){
+  tplEditId = null;
+  document.getElementById('tplText').value = '';
+  renderTplScope();
+  document.getElementById('tplScope').value = '';
+  document.getElementById('tplDelete').hidden = true;
+  document.getElementById('tplSave').textContent = '儲存標籤';
+  document.getElementById('tplWarn').hidden = true;
+}
+
+function loadTpLabelIntoForm(x){
+  tplEditId = x.id;
+  document.getElementById('tplText').value = x.text;
+  renderTplScope();
+  document.getElementById('tplScope').value = x.templateId || '';
+  document.getElementById('tplDelete').hidden = false;
+  document.getElementById('tplSave').textContent = '更新標籤';
+  document.getElementById('tplWarn').hidden = true;
+}
+
+function openTpLabelEditor(){
+  resetTpLabelForm(); renderTplList();
+  document.getElementById('tpLabelEditor').classList.add('open');
+}
+function closeTpLabelEditor(){ document.getElementById('tpLabelEditor').classList.remove('open'); }
+
+function saveTpLabel(){
+  const warn = document.getElementById('tplWarn');
+  const text = document.getElementById('tplText').value.trim();
+  const scope = document.getElementById('tplScope').value || null;
+  if(!text){ warn.textContent = '請先填標籤文字。'; warn.hidden = false; return; }
+  const banned = findBannedTpTerms(text);
+  if(banned.length){
+    // 誠實地講清楚擋在哪 —— 不是預設值靜靜吃掉使用者輸入。
+    warn.textContent = '「' + banned[0] + '」不能用在標籤上。標記記的是你當下的決策過程，不是金融動作。';
+    warn.hidden = false;
+    return;
+  }
+  const list = loadCustomTpLabels();
+  if(tplEditId){
+    const i = list.findIndex(x => x.id === tplEditId);
+    if(i >= 0) list[i] = { id: tplEditId, text, templateId: scope };
+  } else {
+    list.push({ id: genTpLabelId(), text, templateId: scope });
+  }
+  saveCustomTpLabels(list); resetTpLabelForm(); renderTplList();
+}
+
+function deleteTpLabel(){
+  if(!tplEditId) return;
+  saveCustomTpLabels(loadCustomTpLabels().filter(x => x.id !== tplEditId));
+  resetTpLabelForm(); renderTplList();
+}
+
+/** 這個模板當下可選的標籤 = 內建（跟著模板走）+ 適用的自訂。 */
+function tpPresetsFor(tmplId){
+  const base = TP_PRESETS[tmplId] || TP_PRESETS_DEFAULT;
+  const custom = loadCustomTpLabels()
+    .filter(x => !x.templateId || x.templateId === tmplId)
+    .map(x => ({ id: 'CUSTOM_' + x.id, text: x.text }));
+  return base.concat(custom);
+}
+
+// 快選自己收走的時間。⚠️ 不是「選完才算數」——
+// 沒選就是一顆合法的純時間點，快路徑不因為多了這一列而變慢。
+const TP_PICKER_MS = 4200;
+let tpPickerTimer = null;
+
+function closeTpPicker(){
+  const el = document.getElementById('tpPicker');
+  if(el) el.classList.remove('open');
+  if(tpPickerTimer){ clearTimeout(tpPickerTimer); tpPickerTimer = null; }
+}
+
+function openTpPicker(){
+  const el = document.getElementById('tpPicker');
+  if(!el || !pendingTp) return;
+  const list = tpPresetsFor(currentTmpl);
+  el.innerHTML = '';
+  list.forEach(opt => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'tp-chip' + (pendingTp.labelId === opt.id ? ' picked' : '');
+    chip.textContent = opt.text;
+    chip.onclick = function(){ pickTpLabel(opt.id, opt.text); };
+    el.appendChild(chip);
+  });
+  el.scrollLeft = 0;
+  el.classList.add('open');
+  if(tpPickerTimer) clearTimeout(tpPickerTimer);
+  tpPickerTimer = setTimeout(closeTpPicker, TP_PICKER_MS);
+}
+
+/** 回頭幫剛剛那顆節點補上標籤。沒有這一步，那顆節點依然成立。 */
+function pickTpLabel(id, text){
+  if(!pendingTp) { closeTpPicker(); return; }
+  pendingTp.labelId = id;
+  pendingTp.label = text;
+  syncActiveDecision();   // 標籤是後補的，不同步的話接回來只會剩一顆純時間點
+  markFlashUntil = Date.now() + MARK_FLASH_MS;
+  document.getElementById('fdcbSeg').textContent = '已標記 · ' + text;
+  renderLiveNodes();
+  closeTpPicker();
+}
+
+/** 剛落地、還沒補標籤的那一顆（快選會回頭改它）。 */
+let pendingTp = null;
+
 function logEvent(){
-  if(STATES[stateIdx] !== 'running' || !sess) return; // marks 只在跑決策時記
-  sess.marks += 1;
+  // 這顆鍵在 idle 根本不出現（CSS `.fdcb.state-running .fdcb-mark{display:flex}`），
+  // 所以這道 guard 現在只是防呆 —— 舊版是「鍵一直在，按下去靜靜地什麼都不做」。
+  if(STATES[stateIdx] !== 'running' || !sess) return;
+  const tmpl = TEMPLATES[currentTmpl];
+  // 🔴 點一下**先落地**，標籤後補（founder 2026-08-14 拍板）。
+  // 「標記很好按，一下子從 1 按到 5」是這一版唯一被稱讚的地方 ——
+  // 加上選標籤之後不得把那條快路徑弄慢。不選標籤的節點是合法的純時間點。
+  const node = Object.assign({
+    t: elapsed,
+    type: 'mark',                              // 六個凍結成員之一，不新增
+    phase: tmpl ? phaseFor(elapsed, tmpl) : null,
+    labelId: null,
+    label: null,
+  }, stampReadingV6());
+  sess.events.push(node);
+  sess.marks = sess.events.length;             // marks 一律由節點數導出，不再各算各的
+  syncActiveDecision();                        // 標記要活得過「App 被清出記憶體」
+  pendingTp = node;
+  markFlashUntil = Date.now() + MARK_FLASH_MS;
   renderMarks();
+  renderLiveNodes();
+  // 段標籤借用 1.6 秒回報「剛剛那一下記在第幾分幾秒」。
+  // 舊版按下去只有一顆點亮起來，沒有任何一個字告訴你那代表什麼。
+  document.getElementById('fdcbSeg').textContent = '已標記 ' + sess.marks + ' · ' + fmtClock(elapsed);
+  openTpPicker();
 }
 
 // ═════════════════════════════════════════════════
@@ -3954,16 +5228,22 @@ function renderHeroReading(){
   const edgeElOn = document.querySelector('.tl-edge');
   if(edgeElOn) edgeElOn.classList.remove('no-reading');
   const ctaOn = document.getElementById('edgeScanCta');
-  if(ctaOn) ctaOn.hidden = true;
   // 帶位上了主位之後，這一行改報**新鮮度** —— 再說一次「Clear」是廢話，
   // 「什麼時候量的」才是使用者接著會問的問題。
-  zoneEl.textContent = stale
-    ? '讀數已過期 · 重新掃一次'
-    : agoTextV6(r.ts, Date.now()) + ' 掃描';
+  // 🔴 過期時**只留事實，動作交給環下面的 CTA**。
+  // 舊值是「讀數已過期 · 重新掃一次」—— 那句最長、會斷成兩行，而第二行掛在圓的
+  // 下半部，圓在那裡已經收窄：實測超出圓 12.5~13.7px（founder 2026-08-28 實走截圖）。
+  // ⚠️ 當時的斷言拿**方框**去比所以全綠 —— 環心是圓，方框斷言等於沒有斷言。
+  // 「重新掃一次」本來就是**動作**，而第三輪已經拍板「圓心放量到什麼、動作放環下面」，
+  // 而且要用的零件早就在了：#edgeScanCta 就住在環下面、nowrap、已經有斷言守著。
+  zoneEl.textContent = stale ? '讀數已過期' : agoTextV6(r.ts, Date.now()) + ' 掃描';
   zoneEl.style.color = '';
+  // 過期 → 該做的是重掃，不是提升精度；而且兩顆膠囊疊起來會把環往上擠。
+  // 所以這兩顆是互斥的：過期給 CTA、新鮮給信心。
+  if(ctaOn) ctaOn.hidden = !stale;
   if(confEl){
-    confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + ' · 提升 ›';
-    confEl.hidden = false;
+    confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + '　·　提升精度 ›';
+    confEl.hidden = stale;
   }
   return true;
 }
@@ -4031,7 +5311,9 @@ function selectSource(el){
   el.classList.add('active');
 }
 
-renderFdcb();
+// 開機走 setState 而不是直接 renderFdcb()：高度／保留區與 state 是同一條路徑，
+// 少走一段就會出現「畫面是 idle、保留區還按 58px 算」這種只差一次載入的偏差。
+setState('idle');
 
 // ═════════════════════════════════════════════════
 // Session 頁 — 由統一決策 store 驅動（tenki.alert.outcomes.v1）
@@ -4069,9 +5351,24 @@ function outcomeMeta(rec){
   // v6 的 TEMPLATES 用自己的一套 key —— **兩套從來沒對上**，於是那筆決策
   // 失去方法論身分，fallback 成一顆灰色心跳圖示加上 symbol。翻譯放共用模組。
   const t = TEMPLATES[window.TENKI_OUTCOME.toV6TemplateId(rec.templateId)];
-  if(t) return { name:t.name, icon:t.icon, color:t.color, segLabel:t.segLabel };
-  return { name: rec.symbol || '決策', icon:'heart', color:'#8E8E93', segLabel:'Readiness' };
+  const meta = t
+    ? { name:t.name, icon:t.icon, color:t.color, segLabel:t.segLabel }
+    : { name: rec.symbol || '決策', icon:'heart', color:'#8E8E93', segLabel:'Readiness' };
+  // 🔴 標的另外放一格，**不併進 name** —— 三個面共用這個 meta，其中 Timeline
+  // 那一列是窄四欄，塞不下（這個 repo 已經為溢出付過兩次學費）。由各面自己決定用不用。
+  // ⚠️ 閘門必須是 `source === 'alert'`：自己起跑的決策，`saveV6Outcome` 往
+  // `symbol` 寫的是**模板名**，不設閘門就會印出「Health Stress · Health Stress」。
+  // ⚠️ 舊紀錄可能沒有 source（第五輪之前）→ 條件不成立就維持現狀，不猜。
+  meta.symbol = (rec.source === 'alert' && typeof rec.symbol === 'string' && rec.symbol)
+    ? rec.symbol : null;
+  return meta;
 }
+/**
+ * 列名／標題：有標的就說得出「哪一檔的哪一種決策」，沒有就只說流程。
+ * @param {{name:string, symbol:?string}} m - outcomeMeta 的結果。
+ * @returns {string}
+ */
+function outcomeTitle(m){ return m.symbol ? m.symbol + ' · ' + m.name : m.name; }
 /**
  * 「有沒有進入核心段」這一格。
  *
@@ -4130,7 +5427,7 @@ function renderSessionScreen(){
     const readiness = readinessCellV6(r, m);
     return '<div class="session-item sess-enter" style="animation-delay:' + (Math.min(i, 8) * 45) + 'ms" data-ts="' + r.ts + '" onclick="openSessionDetail(' + r.ts + ')">' +
       '<div class="tmpl-ic" style="color:' + m.color + '">' + (ICON_SVG[m.icon] || ICON_SVG.heart) + '</div>' +
-      '<div class="info"><div class="nm">' + escHtml(m.name) + '</div>' +
+      '<div class="info"><div class="nm">' + escHtml(outcomeTitle(m)) + '</div>' +
       '<div class="meta"><span>' + fmtTimeOfDay(r.ts) + '</span><span class="sep">·</span>' +
       '<span>' + escHtml(readiness) + '</span><span class="sep">·</span><span>' + fmtDur(r.durationSec||0) + '</span></div></div>' +
       '<div class="result ' + badge.cls + '">' + badge.text + '</div>' +
@@ -4206,6 +5503,83 @@ function buildDetailInsight(rec, meta){
   return '這次進入 <b>' + escHtml(meta.segLabel) + '</b> 段後才收束，跟著流程完成。';
 }
 
+/** 節點的狀態章顯示成一句話。沒讀數就直說沒讀數 —— 不留空、也不編。 */
+function tpStateTextV6(ev){
+  if(!ev.band) return '無讀數';
+  const band = BAND_LABEL_V6[ev.band] || ev.band;
+  const conf = CONFIDENCE_LABEL_V6[ev.confidence] || '';
+  const age = ev.readingTs ? agoTextV6(ev.readingTs, Date.now()) : '';
+  return [band, conf, age].filter(Boolean).join(' · ');
+}
+
+/**
+ * 決策軌跡 —— founder 畫的 `——事件節點——事件節點——`。
+ * 上半掛在既有的三段軌上（位置＝t/durationSec），下半是逐列清單。
+ *
+ * 🔴 舊紀錄只有 marks、沒有 events：顯示「N 個標記（沒有逐一節點）」，
+ * **不得**顯示 0、也不得出現任何否定字樣（PLAYBOOK：缺欄位就不准說否定）。
+ */
+function renderTurningPoints(rec, dur){
+  const track = document.querySelector('.sd-seg-track');
+  const list = document.getElementById('sdTpList');
+  const countEl = document.getElementById('sdTpCount');
+  if(!track || !list || !countEl) return;
+  track.querySelectorAll('.sd-tp-node').forEach(n => n.remove());
+  list.innerHTML = '';
+
+  const events = Array.isArray(rec.events) ? rec.events : null;
+  const marks = rec.marks || 0;
+
+  if(!events || events.length === 0){
+    countEl.textContent = marks > 0 ? marks + ' 個標記' : '—';
+    const p = document.createElement('div');
+    p.className = 'sd-tp-empty';
+    p.textContent = marks > 0
+      ? '這筆只記了標記數，沒有逐一的節點 —— 它是在節點功能之前跑的。'
+      : '這次沒有標記。決策進行中按「標記」，這裡就會畫出你的轉折點。';
+    list.appendChild(p);
+    return;
+  }
+
+  countEl.textContent = events.length + ' 個節點';
+
+  if(dur > 0){
+    events.forEach(ev => {
+      const node = document.createElement('div');
+      node.className = 'sd-tp-node' + (ev.band ? ' band-' + ev.band : ' no-reading');
+      node.style.left = Math.min(Math.max(ev.t / dur * 100, 0), 100) + '%';
+      node.title = (ev.label || '標記') + ' · ' + fmtClock(ev.t);
+      track.appendChild(node);
+    });
+  }
+
+  events.forEach(ev => {
+    const row = document.createElement('div');
+    row.className = 'sd-evt';
+    const time = document.createElement('div');
+    time.className = 'time'; time.textContent = fmtClock(ev.t);
+    const dot = document.createElement('div');
+    dot.className = 'dot ' + (ev.band ? 'band-' + ev.band : 'no-reading');
+    const type = document.createElement('div');
+    type.className = 'type';
+    const lbl = document.createElement('div');
+    lbl.className = 'tp-label';
+    // 沒選標籤的節點是合法的 —— 它就是一個純時間點，照實說。
+    lbl.appendChild(document.createTextNode(ev.label || '標記'));
+    if(ev.phase){
+      const ph = document.createElement('span');
+      ph.className = 'phase'; ph.textContent = ev.phase;
+      lbl.appendChild(ph);
+    }
+    const state = document.createElement('div');
+    state.className = 'state' + (ev.band ? '' : ' none');
+    state.textContent = tpStateTextV6(ev);
+    type.appendChild(lbl); type.appendChild(state);
+    row.appendChild(time); row.appendChild(dot); row.appendChild(type);
+    list.appendChild(row);
+  });
+}
+
 function openSessionDetail(ts){
   const rec = loadOutcomes().find(r => r.ts === ts);
   if(!rec) return;
@@ -4216,7 +5590,7 @@ function openSessionDetail(ts){
   const b = segBounds(dur);
   const marks = rec.marks || 0;
 
-  document.getElementById('sdTitle').textContent = m.name;
+  document.getElementById('sdTitle').textContent = outcomeTitle(m);
   document.getElementById('sdSubtitle').textContent = fmtTimeOfDay(rec.ts) + ' · ' + fmtDur(dur) + ' 用時';
   const resultEl = document.getElementById('sdResult');
   resultEl.textContent = badge.text;
@@ -4228,7 +5602,7 @@ function openSessionDetail(ts){
   icEl.innerHTML = ICON_SVG[m.icon] || ICON_SVG.heart;
   document.getElementById('sdOutcomeHeadline').textContent = outcomeTextV6(rec.outcomeTag);
   document.getElementById('sdOutcomeSub').textContent =
-    readinessCellV6(rec, m) + ' · ' + marks + ' marks';
+    readinessCellV6(rec, m) + ' · ' + marks + ' 個標記';
 
   // Segment track（三段由 durationSec 推導）
   document.getElementById('sdSegDur').textContent = fmtDur(dur);
@@ -4237,12 +5611,24 @@ function openSessionDetail(ts){
   document.getElementById('sdSegTimes').innerHTML =
     '<span>0:00</span><span>' + fmtDur(b.rs) + '</span><span>' + fmtDur(b.re) + '</span><span>' + fmtDur(dur) + '</span>';
 
+  // 決策軌跡：軌上的節點 + 底下的逐列清單
+  renderTurningPoints(rec, dur);
+
   // Facts
   document.getElementById('sdFactDur').textContent = fmtDur(dur);
   document.getElementById('sdFactReadiness').textContent =
     (rec.reachedReadiness === undefined || rec.reachedReadiness === null)
       ? '—' : (rec.reachedReadiness ? '已進入' : '未進入');
   document.getElementById('sdFactMarks').textContent = String(marks);
+  // 🔴 舊紀錄沒有 awayCount → 整格不顯示。不得印「0 次」——
+  // 那是把「不知道」講成「沒發生」（PLAYBOOK：缺欄位就不准說否定）。
+  const awayCell = document.getElementById('sdFactAwayCell');
+  if(typeof rec.awayCount === 'number'){
+    awayCell.hidden = false;
+    document.getElementById('sdFactAway').textContent = rec.awayCount + ' 次';
+  } else {
+    awayCell.hidden = true;
+  }
 
   document.getElementById('sdInsight').innerHTML = buildDetailInsight(rec, m);
 
@@ -4897,13 +6283,28 @@ function closeSessionDetail(){
          實測 390×700：hero 281 + coach 80 + track 190 + dots/note + gaps 超出
          可視高度 56px。這裡把輪播與 hero 收一收，讓首屏就放得下。
          量測方式見 PLAYBOOK：用 getBoundingClientRect + elementFromPoint 問瀏覽器。 */
-      @media (max-height:880px){
+      /* 🔴 條件必須跟 `.phone` 的高度規則對齊 —— 版面活在那個外框裡，不是活在視窗裡：
+             `.phone{height:min(100vh,100dvh,844px)}`
+         · 視窗 ≤880 → 外框＝視窗 → 走這裡（原本只有這條）
+         · 視窗 >880 **但寬 ≥421** → 外框被夾在 844，也要走這裡（**原本漏掉的就是這條**）
+         · 視窗 >880 **且寬 ≤420** → 外框真的那麼高（Pixel 412×915、iPhone XR 414×896）→ 維持大版
+         漏掉第二條的後果（實測 圓點下緣→底座上緣）：
+           iPhone 14 Plus 428×926 −20px／16 Pro Max 430×932 −22px／**桌機 1280×900 −11px**
+         → 輪播圓點整排被 FDCB 底座蓋住，而且**桌機預覽永遠在這個破掉的分支上**，
+           所以「我自己看起來沒事」從來不算證據。修好後三者都是 +87px。
+         ⚠️ 不要改用 `max-height:1000px` 這種魔術數字：它只是剛好蓋過今天量到的機型，
+            說不出「為什麼是這個數」。條件要跟它想守的那個盒子長一樣。
+         ⚠️ 下面 `max-height:680px` 那條不需要同樣處理 —— 視窗 ≤680 必然代表外框 ≤680。 */
+      @media (max-height:880px), (min-width:421px){
         /* 短視窗要騰出空間時，縮的是那顆巨環（佔畫面最大宗），不是資料卡 ——
            先前把輪播壓到 130px，圖表幾乎沒了還被 Swipe 提示蓋住，等於用一個
            問題換另一個問題。 */
         #today-screen .hero{min-height:26vh;}
         #today-screen .tl-edge{width:min(54vw,208px);height:min(54vw,208px);}
         .snap-track{height:168px;}
+        /* 軌道縮到 168 時，Energy 卡要自己讓出高度 —— 明寫圖表高度，
+           而不是讓 flex 去壓它（壓出來的結果會被 overflow:hidden 藏起來）。 */
+        .bb-page .bb-bars{height:38px;margin-bottom:10px;}
         /* 圓點是最後一個元素，原本 +10px 的餘裕在這帶不夠，會壓到底座上緣 */
         .snap{gap:8px;padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 26px);}
       }
@@ -4971,32 +6372,33 @@ function closeSessionDetail(){
         function show(){
           if(shown||done) return;
           if(cur!==0){ markSeen(); done=true; return; }   // already explored during the wait → don't nag
+          // 🔴 這顆膠囊**不放在資料卡裡** —— 卡片裡沒有它能站的地方。
+          // 歷史：原本掛在卡片下緣（#231 之後那裡是波形圖）→ founder 回報「遮擋圖表」
+          // → 改放「卡頭與圖表的中點」→ founder 回報「蓋住 HRV 數字」。
+          // 兩次都只是換一個受害者，因為 .vcard 由上到下是
+          //   .vhead / .vlabel / .metric-num / canvas 四層**連續**的內容，
+          // 卡片裡根本沒有空白帶。判準要從「挑一個座標」升級成
+          // **「這個容器有沒有它能站的地方，沒有就不要放」**。
+          //
+          // 真的空的地方只有一處：圓點下緣 → FDCB 底座上緣（那是 .snap 的保留區）。
+          // 座標一律現算，版面再變會自己跟上；量不到就不顯示 ——
+          // **不要退回比例猜測值**，猜出來的位置正是上面那兩次遮擋的來源。
+          var _dots=byId('snapDots'), _dock=byId('fdcb');
+          if(!_dots||!_dock){ markSeen(); done=true; return; }
+          var _db=_dots.getBoundingClientRect(), _kb=_dock.getBoundingClientRect();
+          var _band=_kb.top-_db.bottom, _clear=6;
+          // 放不下就不顯示膠囊 —— 但**還是要 tug 一次**：讓卡片自己滑一下才是真正
+          // 示範動作的部分，膠囊只是加註解。⚠️ 早一版把 tug 也一起 return 掉了，
+          // 而註解卻寫著「手勢還是教得會」—— 註解與行為對不上比沒有註解更糟。
+          // markSeen() 是必要的，否則每次開頁都會再跑一次 tug。
+          // 實測：只有 iPhone XR（414×896，帶寬 43px）會走到這裡。
+          if(_band < hint.offsetHeight + _clear*2){
+            if(!reduce) tug(30,440);
+            markSeen(); done=true; return;
+          }
           shown=true;
-          // 🔴 這顆提示**不准疊在卡片上** —— 卡片裡沒有一塊真正的空白。
-          // 這條規則是踩了兩次才寫下來的：
-          //   1. 舊值 (track.offsetTop+offsetHeight-22) 蓋住 HR/HRV 波形 → founder「遮擋圖表」
-          //   2. 改成「標題列 ↔ 圖表」的中點後，那個帶裡站著數字本身 → 蓋住 68 BPM / 49 ms
-          // 卡片是密的：標題列、單位標籤、大數字、波形，由上到下沒有空隙。
-          // 所以錨到**輪播圓點下方**那塊真空區 —— 提示仍緊貼著它在教的東西，
-          // 但不擋任何讀數。位置用實際元素量（版面再變也跟得上），量不到才退回比例值。
           var _snapTop=snap.getBoundingClientRect().top;
-          var _dots=byId('snapDots');
-          var _top;
-          if(_dots){
-            _top=Math.round(_dots.getBoundingClientRect().bottom-_snapTop+12);
-          } else {
-            _top=Math.round(track.offsetTop+track.offsetHeight+34);
-          }
-          // 圓點下方的空間有多少，取決於 FDCB dock 停在哪（各機型不同）。
-          // 夾住下緣，不夠時就往上收到緊貼 dock —— 上限是圓點正下方 4px，
-          // 再上去就會碰到它自己要教的東西。
-          var _dock=byId('fdcb');
-          if(_dock&&_dots){
-            var _maxTop=Math.round(_dock.getBoundingClientRect().top-_snapTop-hint.offsetHeight-12);
-            var _minTop=Math.round(_dots.getBoundingClientRect().bottom-_snapTop+4);
-            _top=Math.max(_minTop,Math.min(_top,_maxTop));
-          }
-          hint.style.top=_top+'px';
+          hint.style.top=Math.round((_db.bottom+_kb.top)/2-_snapTop-hint.offsetHeight/2)+'px';
           hint.classList.add('on');
           track.addEventListener('pointerdown',dismiss,{passive:true});
           track.addEventListener('touchstart',dismiss,{passive:true});

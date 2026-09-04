@@ -205,9 +205,27 @@
     try { return JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY)) || []; } catch (e) { return []; }
   }
 
+  /**
+   * 寫進統一 store。
+   * 🔴 從 /v3/ 回程過來的那一筆**已經在 store 裡了**（計時器那邊寫的）——
+   * 這時要**就地更新**（反思晶片會補 contextTag），不能再 push 一筆，
+   * 否則同一筆決策存兩份，紀律統計立刻失真。
+   * @param {Object} record 這次收束的紀錄
+   */
   function saveOutcome(record) {
     var all = loadOutcomes();
-    all.push(record);
+    var idx = -1;
+    if (record.alreadyPersisted) {
+      for (var i = 0; i < all.length; i += 1) {
+        if (all[i].ts === record.ts) { idx = i; break; }
+      }
+    }
+    if (idx >= 0) {
+      // 只補這一頁真的產生的欄位，其餘沿用計時器那邊寫的事實。
+      all[idx].contextTag = record.contextTag;
+    } else {
+      all.push(record);
+    }
     if (all.length > 200) all = all.slice(all.length - 200);
     localStorage.setItem(OUTCOME_STORE_KEY, JSON.stringify(all));
   }
@@ -306,16 +324,15 @@
     settings: loadSettings(),
     resultSettings: loadResultSettings(),
     lastSurfacedAtBySymbol: {},
-    sessionActive: false,
-    activeSessionSymbol: null,
-    session: null,
+    // ⚠️ sessionActive / activeSessionSymbol / session / timer 是舊守望條的欄位，
+    // 已隨那塊碼一起刪掉。「有沒有決策在跑」現在只有一個來源：
+    // readActiveDecision()（/v3/ 寫的跨頁快照）。
     pendingOutcome: null,
     pendingAlert: null,
     entryGate: 'no_reading',
     entryAgeTimer: null,
     pendingGroup: null,
     alertSeq: 0,
-    timer: null,
   };
 
   var el = {};
@@ -331,7 +348,7 @@
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
     'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave', 'btnResultRecord',
     'timerBar', 'timerLabel', 'timerClock',
-    'watchAnchor', 'watchAsk', 'btnStructureConfirmed', 'btnStoodDown', 'timerUpdate',
+    'watchAnchor', 'timerBack', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveUrlWarn', 'liveCopy', 'liveReset',
     'liveSymbol', 'liveTimeframe', 'liveStrategy',
@@ -482,10 +499,37 @@
     }
   }
 
+  // ── 決策進行中？（docs/TRADINGVIEW-ALERT-SPEC.md §8）──
+  //
+  // 計時器自從交棒之後跑在 /v3/ —— **這一頁看不到它**。所以「有沒有決策在跑」
+  // 這件事改讀 /v3/ 寫出來的跨頁標記（同源 localStorage，跟讀數／決策紀錄／
+  // 交棒信物／回程票同一個做法）。
+  //
+  // 🔴 一定要看到期時間。標記可能被留下來沒清掉（/v3/ 的分頁被殺、瀏覽器崩潰、
+  // 使用者直接關掉那一頁）—— 沒有到期檢查的話，這一頁會從此靜默吃掉每一則快訊，
+  // 而且完全沒有跡象，使用者只會覺得「快訊壞了」。
+  var ACTIVE_DECISION_KEY = 'tenki.v6.activeDecision.v1';
+
+  /**
+   * 讀「決策進行中」的快照，**唯一的來源**。
+   * 過期一律當作沒有 —— 見上面那段紅字。
+   * @param {number} nowMs
+   * @returns {?Object} 標記本身，沒有就 null
+   */
+  function readActiveDecision(nowMs) {
+    var m = null;
+    try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch (e) { m = null; }
+    if (!m || typeof m.expiresAtMs !== 'number' || typeof m.startedAtMs !== 'number') return null;
+    if (nowMs >= m.expiresAtMs) return null;
+    return m;
+  }
+
   // ── Delivery policy（mirror of domain alert-policy 判定順序）──
   function evaluateDelivery(alert, nowMs) {
-    if (state.sessionActive) {
-      if (state.settings.sessionQuietUpdate && state.activeSessionSymbol !== null && state.activeSessionSymbol === alert.symbol) {
+    var active = readActiveDecision(nowMs);
+    if (active) {
+      var activeSymbol = (typeof active.symbol === 'string') ? active.symbol : null;
+      if (state.settings.sessionQuietUpdate && activeSymbol !== null && activeSymbol === alert.symbol) {
         return { decision: 'session_update', reason: '同標的後續觸發' };
       }
       return { decision: 'silent', reason: '決策進行中' };
@@ -685,15 +729,37 @@
     if (state.entryAgeTimer) { clearInterval(state.entryAgeTimer); state.entryAgeTimer = null; }
   }
 
-  // ── session 中同標的：計時條下浮一行事實更新，不彈新面板 ──
+  // ── session 中同標的：安靜接收 + 記一筆事實，不彈新面板 ──
+  //
+  // 計數寫回**跨頁標記本身**：/v3/ 收束時讀回來寫進紀錄，收束頁的
+  // 「同標的更新：N 次」才有真數字可印（在這之前只能誠實留白）。
+  //
+  // ⚠️ 舊版把這行事實寫進 `el.timerUpdate`（那條守望條下面的一行）——
+  // 而 `#timerBar` 自從交棒之後**永遠不會 .show**，等於寫進一個看不見的元素。
+  // 改用這一頁真的看得到的兩個面：靜默區的 chip + 事件日誌。
   function sessionQuietUpdate(alert) {
-    if (state.session) state.session.sameSymbolUpdates += 1;
+    bumpActiveDecisionUpdates();
     var parts = [alert.symbol];
     if (alert.condition) parts.push(alert.condition);
     if (alert.note) parts.push(alert.note);
+    // 規格 §8 原本的形狀：計時條下浮一行事實更新，不彈新面板。
+    // 第八輪寫不到這裡（#timerBar 那時候永遠不會 .show），現在橫幅是活的了。
     el.timerUpdate.textContent = '↳ ' + parts.join(' · ');
     el.timerUpdate.classList.add('show');
+    silentChip(alert.symbol + ' · ' + (alert.condition || '') + '（決策進行中 · 已接收）');
     log('mark', alert.symbol + ' — 同標的後續觸發（決策進行中，安靜更新）');
+  }
+
+  /**
+   * 同標的後續觸發 +1，寫回跨頁標記。
+   * 讀完再寫（read-modify-write）—— 標記的擁有者是 /v3/，這裡只碰這一個欄位。
+   */
+  function bumpActiveDecisionUpdates() {
+    var m = null;
+    try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch (e) { m = null; }
+    if (!m || typeof m.expiresAtMs !== 'number' || Date.now() >= m.expiresAtMs) return;
+    m.sameSymbolUpdates = (typeof m.sameSymbolUpdates === 'number' ? m.sameSymbolUpdates : 0) + 1;
+    try { localStorage.setItem(ACTIVE_DECISION_KEY, JSON.stringify(m)); } catch (e) { /* 記不下就算了，不擋靜默接收 */ }
   }
 
   // ── 聚合（多快訊同窗）──
@@ -878,98 +944,156 @@
 
       row.addEventListener('click', function () {
         closeSheets();
-        startSession(alert, tpl);
+        handOffToDecisionTimer(alert, tpl);
       });
       el.tplList.appendChild(row);
     });
   }
 
-  // ── 浮動決策計時條 ──
+  // ═══════════════════════════════════════════════
+  // 從 /v3/ 判定完回程 —— 收束頁還是在這裡
+  //
+  // 計時器搬去 /v3/ 之後，這張收束頁（弧、反思晶片 → contextTag、紀律計、
+  // 660px 一屏放得下）仍然是收束的地方 —— 它是已經被實走驗收過的東西，
+  // 而 /v3/ 的 state-complete 只有 1.8 秒。所以判定完把人送回來看結果。
+  // ═══════════════════════════════════════════════
+
+  /** 回程票：/v3/ 判定完寫的，指名要顯示哪一筆。 */
+  var RETURN_KEY = 'tenki.alert.return.v1';
+
+  /**
+   * 收下回程票並開收束頁。
+   * 🔴 **票讀完就刪**（同交棒信物的規矩）—— 留著它，下次開這頁會再彈一次
+   * 同一張收束頁，而使用者根本沒做新的決策。
+   * @returns {boolean} 有沒有真的開起來
+   */
+  function acceptReturnTicket() {
+    var t = null;
+    try { t = JSON.parse(localStorage.getItem(RETURN_KEY)); } catch (e) { t = null; }
+    try { localStorage.removeItem(RETURN_KEY); } catch (e) { /* 無妨 */ }
+    if (!t || typeof t.ts !== 'number') return false;
+    if (typeof t.at !== 'number' || Date.now() - t.at > HANDOFF_TTL_MS) return false;
+
+    var all = loadOutcomes();
+    var rec = null;
+    for (var i = 0; i < all.length; i += 1) { if (all[i].ts === t.ts) { rec = all[i]; break; } }
+    if (!rec) return false;
+
+    // 把紀錄翻回 openResult 要的 session 形狀。
+    // ⚠️ renderRecap 吃 awayCount / awayMs / elapsedSec —— v6 這一輪剛好都記了。
+    var judgment = rec.outcomeTag === 'judged_entered' ? 'entered'
+      : rec.outcomeTag === 'judged_stood_down' ? 'stood_down' : 'abandoned';
+    openResult(judgment, {
+      symbol: rec.symbol || '—',
+      templateId: rec.templateId,
+      tplName: rec.templateId,
+      elapsedSec: rec.durationSec || 0,
+      awayCount: typeof rec.awayCount === 'number' ? rec.awayCount : 0,
+      awayMs: typeof rec.awayMs === 'number' ? rec.awayMs : 0,
+      // 🔴 `null` ＝「我們沒有這個數」，不是 `0` ＝「沒發生過」。
+      // 決策進行中的同標的後續觸發由這一頁記在跨頁標記上、由 /v3/ 收束時寫進紀錄
+      // （規格 §8）。**沒有這一欄的舊紀錄仍然是 null** —— renderRecap 會整列不顯示，
+      // 而不是印一個謊報的「0 次」。
+      sameSymbolUpdates: typeof rec.sameSymbolUpdates === 'number' ? rec.sameSymbolUpdates : null,
+      // 🔴 這一筆**已經在 store 裡**（計時器那邊寫的）—— 收尾只能就地更新，
+      // 不能再 push 一筆，否則同一筆決策存兩份、紀律統計失真。
+      alreadyPersisted: true,
+      recordTs: rec.ts,
+    });
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════
+  // 交棒到 /v3/ 的決策計時器
+  //
+  // 在這之前，快訊有自己的一套守望條，而 /v3/ 的 FDCB 是另一套 —— **兩個計時器
+  // 從來沒有見過面**，快訊唯一通往 v3 的出口是 /v3/#session（歷史頁，不是一個
+  // 跑起來的計時器）。founder：「從 tradingview快訊 - Tenki core快訊 -
+  // 導入決策計時器」。所以這裡不再自己起計時，改成把這一筆交出去。
+  //
+  // 交棒走 localStorage 而不是 query string：**價位與標的不該進網址**
+  // （會留在瀏覽歷史、被分享出去）。同源同裝置，localStorage 就夠，
+  // 而且跟這個 repo 既有的跨頁共用（讀數、決策紀錄）是同一個做法。
+  // ═══════════════════════════════════════════════
+
+  /** 交棒信物的 key。v6 開頁時讀它。 */
+  var HANDOFF_KEY = 'tenki.v6.handoff.v1';
+  /** 信物的保鮮期。過期就不自動起跑 —— 昨天的快訊今天不該自己開始一個決策。 */
+  var HANDOFF_TTL_MS = 5 * 60 * 1000;
+
+  /**
+   * 把這一筆快訊交給 /v3/ 的決策計時器，然後導過去。
+   * @param {Object} alert 這筆快訊
+   * @param {Object} tpl 使用者選的模板
+   */
+  function handOffToDecisionTimer(alert, tpl) {
+    var payload = {
+      symbol: alert.symbol,
+      // 🔴 兩套 id 從來沒對上過（engine 的 FBD vs v6 的 MANCINI_FBD）——
+      // PLAYBOOK 記著那次「名稱、圖示、readiness、badge 四處全錯而且沒有一處會報錯」。
+      // 翻譯走共用模組，**兩邊的 id 都不改**（persisted contract）。
+      templateId: window.TENKI_OUTCOME.toV6TemplateId(tpl.id),
+      originAlertId: alert.id,
+      price: typeof alert.price === 'number' && isFinite(alert.price) ? alert.price : null,
+      condition: alert.condition || null,
+      ts: Date.now(),
+    };
+    try { localStorage.setItem(HANDOFF_KEY, JSON.stringify(payload)); }
+    catch (e) { /* 存不進去就不要導過去，免得那頁空手起跑一個不知道是誰的決策 */ return; }
+    log('engaged', alert.symbol + ' — 交給決策計時器');
+    window.location.href = '/v3/#decision';
+  }
+
+  // ── 決策進行中的回程橫幅 ──
+  //
+  // 這一塊以前是這一頁自己的守望條（startSession / endSession / 兩顆判定鍵）。
+  // 第五輪把計時器交棒給 /v3/ 之後它就沒有呼叫者了；第七輪決定留著，理由是
+  // 「它是規格 §8 唯一的實作」；第八輪把 §8 用跨頁標記正式補回來，那個理由失效。
+  // 現在整塊改成它真正該做的事：**告訴你有一筆決策還在跑，並把你送回去。**
+  //
+  // 為什麼這一頁需要它（founder 2026-08-21 實走情境）：交易者的動線是
+  // 「進入決策 → 跳回桌面 → 開交易 App 下單 → 回 TENKI Core」，而 PWA 的
+  // start_url 就是這一頁 —— iOS 把 web app 清出記憶體之後，回來就落在這裡，
+  // 看不到正在跑的計時器。沒有這條橫幅，那一刻畫面上完全沒有線索。
+  //
+  // 🔴 這裡**不放判定鍵**：判定只有一份，在 /v3/。
+
   function formatClock(sec) {
     var m = Math.floor(sec / 60);
     var s = sec % 60;
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
-  /**
-   * 非接受門檻的位移（§3 模組 3：「價格重新站回低點上方（例：+5 points）並維持數分鐘」）。
-   * 只對 FBD 有定義 —— 其他模板的方向與幅度方法論沒寫，就不編。
-   */
-  var NON_ACCEPTANCE_OFFSET = 5;
-
-  /** 守望的牆鐘上限。超過就當作沒有判定收掉，避免跨日的殭屍 session。 */
-  var WATCH_CEILING_MS = 30 * 60 * 1000;
-
   function formatLevel(price) {
     return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  /**
-   * 錨點行：你自己定的關鍵價位，以及（僅 FBD）非接受門檻。
-   * 快訊沒帶 price 就整行空著 —— 寧可沒有錨點，也不編一個價位出來。
-   */
-  function watchAnchorText(alert, tpl) {
-    if (typeof alert.price !== 'number' || !isFinite(alert.price)) return '';
-    var line = '關鍵價位 ' + formatLevel(alert.price);
-    if (tpl.id === 'FBD') {
-      line += ' · 非接受門檻 ' + formatLevel(alert.price + NON_ACCEPTANCE_OFFSET);
+  var decisionBarTimer = null;
+
+  /** 有決策在跑就顯示橫幅，沒有就收起來。每秒重畫一次時鐘。 */
+  function renderDecisionBar() {
+    var m = readActiveDecision(Date.now());
+    if (!m) {
+      el.timerBar.classList.remove('show');
+      el.timerUpdate.classList.remove('show');
+      el.timerUpdate.textContent = '';
+      if (decisionBarTimer) { clearInterval(decisionBarTimer); decisionBarTimer = null; }
+      return;
     }
-    return line;
-  }
-
-  function startSession(alert, tpl) {
-    state.pendingAlert = null;
-    state.sessionActive = true;
-    state.activeSessionSymbol = alert.symbol;
-    state.session = {
-      symbol: alert.symbol,
-      templateId: tpl.id,
-      tplName: tpl.nameZh,
-      sameSymbolUpdates: 0,
-      // 牆鐘。以前是 `elapsed += 1` 數 setInterval callback —— 分頁進背景（切到券商
-      // APP、鎖屏）就會少算。這裡改讀 Date.now()，對背景暫停免疫。
-      startedAtMs: Date.now(),
-      elapsedSec: 0,
-      // 結構確認期間離開過幾次／多久。比進度條真實得多的紀律指標。
-      awayCount: 0,
-      awayMs: 0,
-    };
-    el.timerUpdate.textContent = '';
-    el.timerUpdate.classList.remove('show');
-
-    el.timerLabel.textContent = alert.symbol + ' · ' + tpl.nameZh;
-    el.timerClock.textContent = formatClock(0);
-    el.watchAnchor.textContent = watchAnchorText(alert, tpl);
-
+    el.timerLabel.textContent = m.symbol || m.name || '決策進行中';
+    // 牆鐘 —— 跟 /v3/ 讀同一個 startedAtMs，兩邊的時鐘不會各說各話。
+    el.timerClock.textContent = formatClock(Math.max(0, Math.floor((Date.now() - m.startedAtMs) / 1000)));
+    // 快訊沒帶 price 就整行空著 —— 寧可沒有錨點，也不編一個價位出來。
+    el.watchAnchor.textContent = (typeof m.anchorPrice === 'number')
+      ? '關鍵價位 ' + formatLevel(m.anchorPrice) : '';
     el.timerBar.classList.add('show');
-    log('mark', alert.symbol + ' — ' + tpl.nameZh + ' 結構守望開始');
-
-    state.timer = setInterval(function () {
-      if (!state.session) return;
-      var elapsed = Math.floor((Date.now() - state.session.startedAtMs) / 1000);
-      state.session.elapsedSec = elapsed;
-      el.timerClock.textContent = formatClock(elapsed);
-      if (Date.now() - state.session.startedAtMs >= WATCH_CEILING_MS) {
-        endSession('abandoned', alert.symbol + ' — 守望逾時，沒有做出判定');
-      }
-    }, 1000);
+    if (!decisionBarTimer) decisionBarTimer = setInterval(renderDecisionBar, 1000);
   }
 
-  /**
-   * @param {'entered'|'stood_down'|'abandoned'} judgment 這次守望的判定出口。
-   */
-  function endSession(judgment, detail) {
-    if (state.timer) { clearInterval(state.timer); state.timer = null; }
-    var s = state.session;
-    state.sessionActive = false;
-    state.activeSessionSymbol = null;
-    state.session = null;
-    el.timerBar.classList.remove('show');
-    el.timerUpdate.classList.remove('show');
-    // 事件鏈類型沿用既有樣式：有判定＝過程標記，沒判定＝取消。
-    log(judgment === 'abandoned' ? 'cancel' : 'mark', detail);
-    if (s) openResult(judgment, s);
-  }
+  el.timerBar.addEventListener('click', function () {
+    // 回到那一筆決策。/v3/ 開頁時 acceptHandoff() 拿不到信物就會走 resume。
+    window.location.href = '/v3/#decision';
+  });
 
   // ── 決策收束頁（計時器結束後，事件鏈的 Result 階段）— 視覺化收束 ──
   var MOMENTUM_LIMIT = 12;
@@ -1097,14 +1221,17 @@
     var disp = outcomeDisplay(judgment);
     var rows = [
       { cls: 'on', text: '快訊收到 · ' + s.symbol + '（' + s.tplName + '）' },
-      { cls: s.sameSymbolUpdates > 0 ? 'on' : '', text: '同標的更新：' + s.sameSymbolUpdates + ' 次' },
+      // 缺欄位就不准說否定：不知道就整列不出現，不印「0 次」（PLAYBOOK）。
+      typeof s.sameSymbolUpdates === 'number'
+        ? { cls: s.sameSymbolUpdates > 0 ? 'on' : '', text: '同標的更新：' + s.sameSymbolUpdates + ' 次' }
+        : null,
       // 事實，不是扣分項：在桌機/券商 APP 下單本來就會離開。
       { cls: '', text: s.awayCount > 0
         ? '守望期間離開 ' + s.awayCount + ' 次 · 共 ' + formatClock(Math.round(s.awayMs / 1000))
         : '守望期間沒有離開' },
       { cls: disp.cls === 'disciplined' ? 'on' : 'off', text: '判定：' + disp.text + ' · 等了 ' + formatClock(s.elapsedSec) },
     ];
-    rows.forEach(function (row) {
+    rows.filter(Boolean).forEach(function (row) {
       var rowEl = document.createElement('div');
       rowEl.className = 'result-recap-row ' + row.cls;
       var dot = document.createElement('span'); dot.className = 'rc-dot';
@@ -1133,13 +1260,18 @@
       awayCount: s.awayCount,
       awayMs: s.awayMs,
       durationSec: s.elapsedSec,
-      ts: Date.now(),
+      // 回程時沿用既有紀錄的 ts —— 它是就地更新要用的 key。
+      ts: s.recordTs || Date.now(),
+      alreadyPersisted: !!s.alreadyPersisted,
       // 這筆決策從哪個入口來（v6 的計時器決策寫 'v6'）。統一 store 是兩個入口
       // 合流的地方，沒有這個欄位 Session 頁就分不出來源。
       source: 'alert',
     };
 
-    var withThis = loadOutcomes().concat([state.pendingOutcome]);
+    // 回程的那一筆已經在 store 裡 —— 再 concat 一次等於把同一筆算兩遍。
+    var withThis = s.alreadyPersisted
+      ? loadOutcomes()
+      : loadOutcomes().concat([state.pendingOutcome]);
 
     el.resultHead.textContent = s.symbol + ' · ' + s.tplName;
     el.resultOutcome.textContent = disp.text;
@@ -1247,33 +1379,14 @@
     window.location.href = RECORD_HREF;
   });
 
-  // 兩個判定出口。**兩個都是紀律** —— §7 step 7「無觸發 → 不交易」跟 step 4 進場
-  // 一樣是照方法論走。不做判定就離開才不算。
-  el.btnStructureConfirmed.addEventListener('click', function () {
-    endSession('entered', el.timerLabel.textContent + ' — 判定結構成立，已進場');
-  });
+  // 「結構確認期間離開了多久」現在由 /v3/ 記 —— 決策真正在跑的地方是那一頁，
+  // 而且它把離開寫進跨頁快照，連「離開之後沒回來就被清掉記憶體」都記得住。
+  // 這一頁曾經有一份同樣的追蹤，但它靠 state.session（只有 startSession 會設），
+  // 交棒之後永遠進不去 —— 兩份同語意的實作留一份就好。
 
-  el.btnStoodDown.addEventListener('click', function () {
-    endSession('stood_down', el.timerLabel.textContent + ' — 判定結構不成立，未進場');
-  });
-
-  // 結構確認期間離開了多久 —— 交易者是在桌機或券商 APP 下單，離開是常態不是失誤。
-  // 記錄它不是為了扣分，是因為「離開幾次」比進度條真實得多。
-  var awayAtMs = 0;
+  // 回到這一頁時（含 iOS 把 App 換回前景）重畫橫幅，不用等下一次 tick。
   document.addEventListener('visibilitychange', function () {
-    if (!state.session) return;
-    if (document.visibilityState === 'hidden') {
-      awayAtMs = Date.now();
-      return;
-    }
-    if (!awayAtMs) return;
-    var gap = Date.now() - awayAtMs;
-    awayAtMs = 0;
-    // 短暫切換（通知列、誤觸）不算離開，避免把雜訊記成紀律事件。
-    if (gap < 3000) return;
-    state.session.awayCount += 1;
-    state.session.awayMs += gap;
-    log('mark', state.session.symbol + ' — 離開 ' + formatClock(Math.round(gap / 1000)) + ' 後回來');
+    if (document.visibilityState === 'visible') renderDecisionBar();
   });
 
   // ── 連接 TradingView（專屬頻道，零輸入配對；真訊號與模擬走同一條 ingest 管線）──
@@ -1534,11 +1647,26 @@
 
   function refreshPushRow() {
     if (!el.livePushRow) return;
-    if (!pushSupported() || !getChannel()) {
+    // 還沒配對頻道 → 整列不出現（推播綁在頻道上，沒頻道就無從談起）。
+    if (!getChannel()) {
       el.livePushRow.setAttribute('hidden', '');
       return;
     }
     el.livePushRow.removeAttribute('hidden');
+    // 🔴 瀏覽器不支援時**不要整列消失** —— 那樣畫面上完全沒有解釋，
+    // 使用者只會看到「推播的按鈕不見了」。founder 2026-08-21 實走就卡在這裡：
+    // in-app 瀏覽器沒有 PushManager，那一列整個不見，看不出下一步是什麼。
+    // 留著並說出原因與下一步，跟自我測試那句紅字同一條規則（要講出範圍）。
+    if (!pushSupported()) {
+      el.livePushBtn.disabled = true;
+      el.livePushBtn.textContent = '🔔 手機推播（這個瀏覽器不支援）';
+      setPushStatus('iOS 只有「加入主畫面」後、從主畫面那顆圖示開啟的 App 才有網頁推播'
+        + '（Safari 分頁與 App 內建瀏覽器都沒有）。⚠️ 主畫面 App 有自己的儲存空間，'
+        + '會產生一條新的專屬連結 —— 開啟推播後記得回來「複製連結」重貼進 TradingView，'
+        + '否則快訊會送到舊的通道。', false);
+      return;
+    }
+    el.livePushBtn.disabled = false;
     navigator.serviceWorker.getRegistration('/decision-alert/').then(function (reg) {
       if (!reg || !reg.pushManager) return;
       reg.pushManager.getSubscription().then(function (sub) {
@@ -1638,6 +1766,19 @@
   // 探針用 GET：/api/alert 的第一道檢查就是 method，會回 405 JSON。到得了那個 405
   // 就代表請求穿過了保護層（而且不會寫進任何一筆快訊、不污染紀錄）。收到別的東西
   // ——轉址、HTML 登入頁、401——就是被保護層擋在門外。
+  /**
+   * 這道牆的範圍。分支 preview 才有，正式站不受影響 —— 不講的話，
+   * 上面那句紅字看起來像是整個快訊功能壞掉。
+   * @returns {string} 要接在錯誤訊息後面的補充（正式站上是空字串）
+   */
+  function scopeNote() {
+    if (!/-git-/.test(location.hostname)) return '';
+    // ⚠️ 這是 textContent，不是 markdown —— 這裡不能用 ** 標粗體，會原樣印出星號。
+    return ' ⚠️ 你現在在分支預覽上，這道牆是分支預覽才有的 —— 正式站'
+      + '（tenki-emotion-app.vercel.app）匿名可達，不受影響。要在這條分支上'
+      + '實測 TradingView 才需要補密鑰；只是要走流程的話，用上面三顆模擬快訊鍵就夠了。';
+  }
+
   function runWebhookSelfTest() {
     var url = el.liveUrl.textContent;
     if (!url) return;
@@ -1661,7 +1802,11 @@
           var cause = live.bypassQuery
             ? '這個部署有 bypass 密鑰，但仍被擋 —— 密鑰可能已失效或被撤銷。'
             : '這個部署讀不到 bypass 密鑰（VERCEL_AUTOMATION_BYPASS_SECRET 未注入）—— 密鑰沒生成、沒勾「設為環境變數」，或生成後還沒重新部署。';
-          el.liveSelfTestResult.textContent = '❌ ' + problem + ' ' + cause;
+          // 🔴 **講清楚這道牆的範圍，否則這句紅字會被讀成「快訊功能壞了」。**
+          // TRADINGVIEW-SETUP.md §1 有一整個框在講這個誤會：2026-08-05 的文件寫成
+          // 「正式站也在牆後」，害一整輪除錯走去關 SSO、生密鑰，而真正的原因在別處。
+          // 實測（2026-08-06）：正式站匿名可達，被保護的只有分支 preview。
+          el.liveSelfTestResult.textContent = '❌ ' + problem + ' ' + cause + scopeNote();
         } else {
           el.liveSelfTestResult.textContent = '✅ 這條連結通到 TENKI —— TradingView 可以送達（沒有寫入任何快訊）。';
         }
@@ -1791,4 +1936,11 @@
   renderResultSettingsInputs();
   renderState();
   refreshDiscipline();
+  // 開頁就問「有沒有決策還在跑」—— 這一頁是 PWA 的 start_url，
+  // 交易者下完單回來第一眼看到的就是它。
+  renderDecisionBar();
+
+  // 從 /v3/ 判定完回來 → 直接開收束頁。放在最後，確保所有 render* 與
+  // openResult 需要的元素／狀態都已就緒。
+  if ((window.location.hash || '').replace('#', '') === 'result') acceptReturnTicket();
 })();

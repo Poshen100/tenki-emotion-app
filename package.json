@@ -9,6 +9,7 @@
   "scripts": {
     "test": "npm run test --workspaces --if-present -- --runInBand",
     "verify": "bash scripts/verify.sh",
+    "verify:preview": "node scripts/preview-fdcb.mjs && node scripts/preview-strip-color.mjs",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "icons:batch1": "node scripts/generate-tenki-icon-batch1.mjs"
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
     "@types/web-push": "^3.6.4",
+    "playwright": "1.56.1",
     "typescript": "^5.0.0"
   }
 }

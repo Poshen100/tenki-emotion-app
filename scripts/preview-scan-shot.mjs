@@ -12,10 +12,15 @@
  * Run:  node scripts/preview-scan-shot.mjs [outDir]
  * 產出：<outDir>/scan-progress.png（進行中）與 <outDir>/scan-secured.png（收束）
  */
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+// Playwright 從共用 resolver 拿：CI 走 node_modules、容器退回全域安裝。
+// 這一行原本是寫死的 /opt/node22/... 絕對路徑 —— 那就是 harness 進不了 CI 的原因。
+import { getChromium } from './lib/playwright.mjs';
 import http from 'node:http';
 import { createReadStream, existsSync, statSync, mkdirSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
+
+// top-level await：ESM 可以，且必須在任何 chromium.* 之前解析完。
+const chromium = await getChromium();
 
 const repoRoot = resolve(new URL('..', import.meta.url).pathname);
 const outDir = resolve(process.argv[2] ?? '/tmp/scan-shot');

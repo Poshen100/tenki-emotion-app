@@ -93,6 +93,874 @@ grep 之後發現 v3 的 `harmonizeHrv()` 只有 engine index 再匯出、**沒�
 - Phase 1–3（HealthKit / Health Connect / BLE 橋接）需要 native module + Mac 實機，未動。
 - `apps/mobile/app/(tabs)/lab.tsx:81` 的 Devices 入口仍是 `onPress: undefined` 佔位。
 
+
+---
+
+# 2026-09-03 Session Update #83 (第十四輪的修法問錯了對象 —— 快訊決策仍然印 3:00)
+
+founder 五張實走截圖，兩張直接把上一輪的修法判了：
+
+| 時間 | 容器 | 底座 | |
+|---|---|---|---|
+| 18:23 | App 內建瀏覽器 | `Mancini FBD` / **上限 30:00** / 00:02 | ✅ 第十四輪有效 |
+| 18:31 | **主畫面 PWA** | `ES1!` / **3:00** / 12:19 · 結構守望 | 🔴 同一個 bug 還在 |
+
+⚠️ 兩張結果不同不是隨機：founder 在 App 內建瀏覽器把決策紀律模式打開了
+（截圖 4 的 Lab 寫「已開啟」），18:31 那張是**主畫面 PWA** —— 另一個 storage
+容器，開關是預設的**關**。iOS 三個 storage 容器那條 PLAYBOOK 規則的第 N 次應驗。
+
+## 一、我問錯了對象
+
+`tmplBoundLabel()` 問的是 `watchMode(currentTmpl)` —— 一個**設定**（Lab 開關 +
+是不是交易者模板）。但一筆正在跑的決策，它的界線是 `sess.watch`，**那一次跑法
+的事實**。而 `acceptHandoff()` 明文寫著「快訊交棒過來的決策一律 `sess.watch =
+true`，不看那個開關」—— 兩者在快訊這條路上**故意不一致**。
+
+已重現（信物寫進 localStorage、開 `/v3/#decision`）：
+
+| 決策紀律模式 | `sess.watch` | `watchMode()` | 底座左欄 |
+|---|---|---|---|
+| **關** | true | **false** | **`3:00`** 🔴 |
+| 開 | true | true | 上限 30:00 ✅ |
+
+**為什麼 founder 看得到、我沒看到**：第十四輪的守門走**手動路徑**
+（`toggleDisciplineMode` → `selectTmpl`），開關永遠是開的 —— 設定與事實永遠
+一致。會壞的組合是「快訊交棒 + 開關關著」，那條路我一次都沒走。
+**只走兩者一致的路徑，等於沒有守門。**
+
+## 二、改了什麼
+
+- `tmplBoundLabel()`：正在跑用 `sess.watch`，沒在跑才退回 `watchMode()`
+- 順序陷阱（`acceptHandoff` 自己早就記載過同一個）：`setState('running')` 已經
+  跑過 `renderTmplChip()`，而 `sess.watch` 是在那之後才設的 ——
+  `acceptHandoff()` 與 `resumeActiveDecision()` 設完都要**再重畫一次**
+- `preview-fdcb.mjs`：`openV3` 新增 `handoff` 選項，新增一段走快訊交棒 + 開關關著
+- `preview-decision-chain.mjs`：resume 那一段補上底座左欄斷言（這支從頭到尾沒碰
+  開關，resume 正好也在分岔那條路上）
+
+逐條反向驗證（一次只破壞一處，還原一律 `cp`）：
+① `tmplBoundLabel` 改回只問 `watchMode` → **新那段 2 條紅、第十四輪手動路徑
+11 條全綠**（這就是「為什麼舊守門抓不到」的證明）②拿掉 `acceptHandoff` 的
+`renderTmplChip()` → 同樣 2 條紅 ③拿掉 `resumeActiveDecision` 的 → 鏈上新那條
+紅且只有它紅。三處各自都是 load-bearing，不是裝飾。
+
+## 三、同一批截圖確認落地的（沒動）
+
+第二張是 `/decision-alert/`，底部橫幅寫「ES1! 12:09 · 決策進行中 · 點一下回到
+計時器 ›」—— **第九輪那條跨頁橫幅第一次在真機上被看到**。
+⚠️ 精確講：這只證明**橫幅**那一半（跨頁標記讀得到、時鐘在跑）。點下去之後
+`resumeActiveDecision()` 有沒有把 marks/events 接回來，截圖看不出來，
+**真機上仍未驗證**（容器裡有斷言，那是另一回事）。
+
+## 四、下次接手點
+
+- founder 實走待驗：**在主畫面 PWA 裡**收一則快訊 → 進入決策 → 底座左欄應寫
+  「上限 30:00」；以及點橫幅回去之後標記還在不在
+- 仍未裁決（量過，寫在 #79）：Session 列「未達 Breathe」在 360 寬折兩行、
+  390×700 圓點要捲才看得到、428/430 手機吃的是 390 寬的模型框
+
+# 2026-09-03 Session Update #82 (守望的底座印倒數時長 + 實走確認了兩個先前只在模擬器驗過的修正)
+
+founder 實走真實 TradingView 快訊（ES1! 交叉 7,677.75），整條鏈走通：
+TradingView → 快訊面板 → 決策前讀數掃描 → 進入決策 → `/v3/` 守望計時器，
+**放了 6 分鐘**再截圖。
+
+## 一、那張截圖裡的矛盾
+
+底座**同一列**：左邊「3:00」、中間「06:16」。`renderTmplChip()` 無條件印
+模板的倒數時長，但結構守望不倒數 —— 界線是 `WATCH_CEILING_SEC`（30 分鐘）。
+
+⚠️ 那個函式**自己的註解**就記著同一個坑的第一次（寫死 `${分}:00` 讓 3:30 印成
+3:00）。但形狀不同：第一次是算錯，這次是**那個量在這個模式下不存在**。
+已提煉成 PLAYBOOK 一條。
+
+修法：`tmplBoundLabel()` —— 守望回「上限 30:00」（從常數算，不寫死），
+倒數回自己的時長。「上限」是刻意的：30:00 是界線不是目標。
+
+## 二、🔴 第一版改壞了，是第十三輪的斷言擋下來的
+
+ready 狀態中間欄我一併改成「Canslim High RS · 上限 30:00」——
+**360/375/390 三個寬度全折成兩行**（180/195/210px），
+第十三輪加的「中間的時鐘仍是 1 行」當場全紅。**不是我自己發現的。**
+
+上限已經由左欄負責，中間欄改成講跑法：「… · 守望」（175px，三寬度 1 行）。
+教訓：同一個事實在兩個欄位重複，長度成本是加倍的。
+
+## 三、實走順帶確認了兩個我先前只能在模擬器裡驗的修正
+
+1. **第十二輪**：環心「讀數已過期」完整在圓內、「到 Scan 掃一次 ›」在環下面 ✅
+   → 先前那個「iOS 可能把小字放大」的殘留疑慮**沒有發生**，
+   `text-size-adjust` 這一條可以從待辦拿掉（不用補）。
+2. **第十三輪**：底座印出完整的「Health Stress」，不再是「Health Stre…」✅
+
+掃描結果頁的「Clear」現在是**帶位色（青）**不是金色 —— 那是併進來的 main #239
+（report the band in its own colour）在起作用，符合 CLAUDE.md 的顏色所有權。
+
+## 四、查過但沒動
+
+`#fdcbFill` 實測 `0px` —— 守望模式沒有在跑進度條，founder 看到的那條是靜態
+三段軌，不是 bug（先前也回報過，founder 未要求動）。
+
+## 五、下次接手點
+
+- `resumeActiveDecision()`（第九輪：回桌面開交易 App 再回來）**仍未在真機上走過** ——
+  founder 這次放了 6 分鐘但沒離開 App，所以那條路還是沒被驗到。
+- 待裁：Session 列「未達 Breathe」斷兩行（360 寬兩列都斷、375 寬只有長用時那列斷）。
+
+# 2026-08-28 Session Update #81 (底座模板名被切 + 我自己三條假斷言)
+
+founder 傳兩張實走截圖、沒附字，問過是「只是給我看實走」。但截圖把一個既有缺陷
+拍了進去：底座寫「Health Stre…」。回報後 founder 說「要修」。
+
+## 一、缺陷本身
+
+`.fdcb-tmpl-name{max-width:72px}`（#175 7/11 留下的）。實測（11px/600、容器字型）：
+Canslim High RS **89px**（任何字型都被切）、Health Stress **70px**（只剩 2px 餘裕）。
+所以 Health Stress 在容器字型剛好過、在 iPhone 的 SF Pro 就切 —— **模擬器綠、實機壞**。
+上限改成從最長的內建名字推導：89px + 約 12% 裝置餘裕 → 100px。
+
+⚠️ 這個改動對現有版面**零成本**：欄位是內容寬，`max-width` 只在名字比它長時才作用。
+
+## 二、🔴 這一輪真正的收穫是我自己寫了三條假斷言
+
+1. **「中間的時鐘仍是 1 行」擋不住上限訂太大。** 我以為它守住「模板欄變寬＝跟中間欄
+   借空間」；把上限灌到 260px 破壞 → **零條紅**。斷言沒錯，但**守的不是我以為的那件事**。
+2. **超長自訂名字那條「時鐘不准折行」是把既有行為寫成我的功勞。** ready 的中間欄
+   印的是模板名本身，太長就折 —— 實測 72px 與 100px **兩邊都折**，跟改動無關。
+   把「我沒改壞」寫成「我修好了」是最難看的一種假綠。
+3. **那個超長自訂模板根本沒被選起來。** 自訂模板的 `data-id` 是 `CUSTOM_<id>`，
+   我用了裸 id → `pickTmpl` 回 false、底座維持預設模板、底下三條全是空過的全綠。
+
+三條都提煉成 PLAYBOOK 規則了（破壞要破在那個取捨上／新斷言要在改動前跑一次／
+「真的選到了」與「會出事的那個在清單裡」都要寫成具名前提）。
+
+## 三、量到、沒修、也沒宣稱修的
+
+ready 狀態的中間欄印「<模板名> · <時長>」，自訂名字太長會折成兩行 ——
+360 寬在 72px 與 100px 上限下都一樣。既有行為，記在 harness 註解裡。
+
+## 四、下次接手點
+
+- `resumeActiveDecision()` 仍未在真機上走過（第九輪那條腳本）。
+- 第十二輪修的「過期讀數」那句 founder 還沒實走驗過（要讀數放 15 分鐘以上）。
+- Session 列「未達 Breathe」斷兩行（#80 第四節有數字）、`text-size-adjust`（#80 第五節）。
+
+# 2026-08-28 Session Update #80 (環心「讀數已過期」出圈 —— 方框斷言在傷得最重時全綠)
+
+founder 實走截圖 +「字歪掉了」：環心的「讀數已過期 · 重新掃一次」壓到青色環上。
+
+## 一、我第一次量的結論是錯的，錯在斷言的幾何
+
+7 個尺寸跑完**每一個都回報 0px 溢出**，我差點回覆「模擬器裡量不到，可能是 iOS
+文字放大」。但那是因為斷言拿**方框**比 —— 環心是**圓**。改成逐行問四個角
+`hypot(角 − 圓心) − R` 之後當場重現：**12.5~13.7px**，360/375/390/393 全中。
+
+🔴 最毒的一點：**反向驗證也會一起綠**，因為破壞與斷言共用同一個錯誤幾何。
+這條斷言是我第十輪自己寫的，活了兩輪。這次特地補了一條驗收：
+**把破壞留著、只把斷言改回方框 → 全綠**，證明換幾何才是真的修好關卡。
+
+## 二、修法：圓心留事實，動作放環下面
+
+「重新掃一次」本來就是動作，第三輪已經拍板「圓心放量到什麼、動作放環下面」，
+而 `#edgeScanCta` 早就住在環下面。過期 → 圓心只印「讀數已過期」（0px 出圈）、
+顯示 CTA、隱藏信心膠囊（兩顆會疊）。另外兩個狀態本來就 0px，一個字沒動。
+
+## 三、新斷言翻出的既有傷：兩個 clamp 的上限不同步
+
+環 `min(54vw,208px)` 在 **385px** 封頂，字級 clamp 要到 400~417px 才封頂 ——
+中間那段「字還在長、容器不長」，「尚未量測」在 414 被推出圓外 6.2px。
+把兩個字級上限改成跟環在同一個寬度收手（27.5px / 32.5px）。
+⚠️ 代價：414 寬手機上那兩個字小 2.5px。不在 founder 指名範圍內，我自己決定一起修
+（不修就得放寬容差，那等於把剛寫下的規則第一天就違反）—— 改回去只是兩個數字。
+
+## 四、量到但 founder 說這一輪不做
+
+**Session 列「未達 Breathe」斷成兩行**（截圖 1 第二列）：已重現並量到 ——
+360 寬時兩列都斷、375 寬時只有長用時那列斷（列高 62→70px）。斷在「未達」與
+「Breathe」中間的空格，詞被切開。founder 只選了環心那個，這件事沒動。
+
+## 五、沒做也沒宣稱做過的：`text-size-adjust`
+
+這一頁**從來沒有宣告過 `text-size-adjust`**（整份 repo grep 零命中），
+所以 iOS/WKWebView 的小字自動放大理論上會讓這件事更糟。但這一輪已經有一個
+量得到、修得掉的真因，而那條我**在容器裡驗不到** —— 刻意不順手補。
+若 founder 實走之後還是看到它壓在環上，那就是裝置端放大，下一輪獨立處理。
+
+## 六、下次接手點
+
+- `resumeActiveDecision()` 仍未在真機上走過（第九輪那條腳本）。
+- 上面第四、第五節兩件，等 founder 決定。
+
+# 2026-08-28 Session Update #79 (#232 滑動提示搬出資料卡 + 桌機預覽一直在破掉的分支上)
+
+founder：「232 的『滑動看更多』膠囊蓋住 HRV 數字。幫我優化」。
+
+## 一、膠囊：這是第二次「用一個遮擋換另一個遮擋」
+
+實測膠囊 452–485 / `#hrvVal` 455–493，**每一個寬度都壓住**。但根因不是座標挑錯：
+`.vcard` 由上到下是 `.vhead`/`.vlabel`/`.metric-num`/`canvas` 四層連續內容，
+**卡片裡沒有任何空白帶**。原本掛在卡片下緣（#231 之後那裡變波形）→ 回報遮擋 →
+改放「卡頭↔圖表中點」→ 回報蓋住數字。每一次都只是換一個受害者。
+
+改成放**圓點下緣 → FDCB 底座上緣**（`.snap` 的保留區，真的空的），座標現算，
+帶寬不足就整個不顯示（但仍然 tug 一次）。九個尺寸顯示且零交集，只有 iPhone XR
+（414×896，帶寬 43px）不顯示。
+
+## 二、🔴 量的時候撞到第二個 bug，而且我第一次的歸因是錯的
+
+`.phone{height:min(100vh,100dvh,844px)}` —— 版面活在夾在 844 的外框裡，
+但 media query 量的是**視窗**。視窗比外框高 → 拿到為更大螢幕設計的尺寸 →
+塞不進外框 → 輪播圓點整排被底座蓋住。破的是 428/430 寬的 iPhone
+（帶寬 −20/−22）**以及所有高於 880px 的桌機視窗**（−11）。
+
+我第一次告訴 founder 的是「螢幕越高巨環吃越多」—— **錯的**，當場更正過。
+正解是「視窗比外框高」，所以**我們每天看 preview 的桌機畫面一直在破掉的分支上**。
+
+修法照抄 `.phone` 的高度規則：`@media (max-height:880px), (min-width:421px)`，
+不是換一個更大的魔術數字。代價（founder 拍板接受）：巨環在大螢幕與桌機由
+300px → 208px，換來桌機看到的畫面**真的等於**手機上看到的。
+
+## 三、守門漏在哪：只驗一個尺寸
+
+既有那條「輪播圓點沒有被底座蓋掉」只跑 390×844，所以這個 bug 從沒紅過。
+改成掃五個尺寸（含 430×932 與 1280×900）。
+
+⚠️ 我自己也寫了一條**恆紅的死斷言**：用 `elementFromPoint` 問膠囊本人有沒有被蓋住，
+但膠囊是 `pointer-events:none`，而 `elementFromPoint` 會直接跳過那種元素 ——
+永遠回不到膠囊，而且紅得看起來像版面壞掉。已改成問之前暫時翻成 `auto`。
+
+反向驗證四次（一次只破壞一處）：拿掉 `min-width:421px` → 只有 430×932/1280×900 紅；
+膠囊放回卡片中點 → 交集四紅；膠囊改壓左欄 HR（不碰 HRV）→ **仍然紅**（證明斷言
+不是只盯 `#hrvVal`）；拿掉「放不下就不顯示」→ 只有 414×896 紅。
+
+## 三之二、🔴 CI 紅了一次，而且是「本機綠、CI 紅」的經典款
+
+新增五個尺寸之後 CI 的 playwright job 紅了：`openV3` 等 splash 離開 DOM 逾時
+（430×932），前一個尺寸光開頁就花了 **28 秒**。
+
+根因：`/v3/` 在 splash 那段 inline script **之前**有四支 blocking 的外部 script
+（head 的 gsap + three.js + 兩包 mediapipe）。**開發容器連不到 cdnjs / jsdelivr**
+（實測 curl 回 000），它們立刻失敗、頁面照走 —— 所有斷言都是在這個前提下寫的、
+也是在這個前提下反向驗證的。**CI runner 連得到**，每開一頁都真的下載（冷快取），
+一支卡住，後面的 inline splash script 就不執行 → splash 永遠不消失。
+
+**這個曝險一直都在**，只是這一輪把每次 run 多加了五次頁面載入才長到會卡住。
+修法是在 harness 裡 `page.route(...).abort()` 擋掉那兩個網域，兩邊條件才一致。
+
+⚠️ 這個修法**在容器裡驗不出效果**（那裡本來就連不到），所以我改成量
+「路由有沒有真的攔到」（4 支全中，逐一印出來），真正的驗收在 CI。
+**驗不到的東西就不要宣稱驗過。**
+
+順手修掉 `waitForFunction(fn, {timeout:8000})` —— timeout 是**第三**個參數，
+寫成第二個等於被當成傳給函式的 arg，逾時默默退回預設 30 秒。
+CI 那則訊息寫「Timeout 30000ms」而不是我們以為的 8 秒，就是這個原因。
+
+⚠️ `preview-strip-color.mjs` 與 `preview-decision-chain.mjs` 也載 `/v3/`，
+有同一個曝險，只是還沒長到會卡住。刻意沒一起改（擋 CDN 會改變它們在 CI 上
+實際載到的東西，要各自重驗一次）—— 下一個動它們的人記得這件事。
+
+## 四、量到但 founder 說這一輪不動的兩件事
+
+1. **390×700 圓點要捲才看得到**（你的 in-app 瀏覽器就是這個高度）。`≤680px` 才會
+   藏教練卡，700 卡在兩個斷點中間 —— 太矮放不下、又沒矮到觸發隱藏。把那個斷點拉到
+   `≤760px` 就解了（帶寬 −35 → +53），代價是 700 高以下看不到教練卡。
+2. **428/430 手機吃的是「模型框」不是滿版**。`@media (max-width:420px)` 才滿版，
+   而 14 Plus / Pro Max 是 428/430 寬 —— 那些手機看到的是一張 390 寬、圓角、置中、
+   還帶陰影的小卡片，不是滿版 App。斷點放寬到 440px 就滿版了，但**那會改變大螢幕
+   手機上整個 App 的長相，不只這一頁** → 要 founder 拍板。
+
+## 五、下次接手點
+
+- `resumeActiveDecision()` 仍未在真機上走過（第九輪那條實走腳本）。
+- 上面第四節那兩件，等 founder 決定。
+
+# 2026-08-28 Session Update #78 (Session 列說得出「哪一檔」+ 又用 git checkout 洗掉自己的修正)
+
+founder 在主畫面 App 裡把整條鏈實走完（快訊 → 交棒 → 守望 → 判定成立 → 收束頁 → Session），
+收束頁正確印出「守望期間離開 3 次 · 共 06:28」。但 **Session 那一列寫的是 `Mancini FBD`** ——
+那是「哪一種流程」，不是「哪一筆決策」。紀錄裡有 `symbol: 'ES1!'`，收束頁標題也已經帶了它。
+第五輪回報過、當時沒動；這次 founder 說「要」。
+
+## 一、做了什麼（commit `f24c003`）
+
+`outcomeMeta()` 多回一個 `meta.symbol`（**不併進 `m.name`**），新增 `outcomeTitle(m)`。
+Session 列與 Session 詳情用它 → `ES1! · Mancini FBD`；**Timeline 事件列刻意不動** ——
+那是「時間 / 點 / 描述 / 用時」的窄四欄，是這個 repo 已經付過兩次學費的溢出家族。
+閘門是 `rec.source === 'alert'`：自己起跑的決策 `symbol` 存的是模板名，
+不設閘門會印出「Health Stress · Health Stress」。舊紀錄沒有 `source` → 維持現狀，不猜。
+
+版面是量的不是估的：360/375/390/414 四個寬度 `.nm` 都 1 行、列高一律 62px（與改動前相同），
+詳情標題 1 行且 `scrollWidth === clientWidth` → 不需要動 CSS。
+
+## 二、🔴 同一個坑，隔三天再踩一次
+
+反向驗證第一個破壞之後，我用 `git checkout -- apps/preview/v6/index.html` 還原 ——
+**那個檔案裡還沒 commit 的實作本身也一起沒了**。PLAYBOOK:367 就是 8/25（`1c9904c`）
+那次寫下的，我照樣犯。
+
+差別在**這次是怎麼發現的**：還原後順手 `git status`，看到改動清單裡只剩兩支 harness、
+`index.html` 不見了。上次是 `npm run verify` 紅燈才抓到。
+
+**教訓不是「要記得先 commit」**（那正是上次寫的規則，而它靠的是每次都想起來）。
+已把 PLAYBOOK 那條改成一個不必記的動作：反向驗證前先 `cp` 一份到 scratchpad，
+還原一律 `cp` 回來，**永遠不對工作中的檔案用 `git checkout --`**。
+
+## 三、三次反向驗證（一次只破壞一處）
+
+1. 拿掉 `source === 'alert'` 閘門 → fdcb 那條紅（實印 `Health Stress · Health Stress`），只有它紅
+2. 拿掉 symbol 前綴 → 「說得出哪一檔」紅（`Mancini FBD`），「流程名還在」仍綠
+3. 強制走 fallback → 兩條都紅（實印 `ES1! · ES1!`）—— 證明「流程名還在」那半也是活的
+
+第 3 條是重點：**fallback 的長相正好就是「只有 symbol」**，所以斷言不能放寬成
+「含 ES1! 就通過」—— 那樣掉進 fallback 也會綠，這條就死了。
+
+## 四、下次接手點
+
+- `resumeActiveDecision()` **仍未在真實裝置上走過**（founder 只走過路徑 A）。
+  實走腳本：快訊 → 進決策 → 回桌面開交易 App 停留 30 秒以上 → 回 TENKI Core →
+  應看到「決策進行中」橫幅 → 點回去 → 時鐘沒退、標記還在。
+- 兩件已提議、founder 尚未回答的：①守望模式要不要藏掉那條靜態三段軌
+  （它不是進度條，但長得像）②#232「滑動看更多 · Swipe」膠囊蓋住 HRV 數字。
+- founder 那邊：TradingView 訊息欄寫死 `ES1! 交叉 7,701.00`，建議改 `{{close}}`；
+  PR merge 後分支 preview 網址會死，webhook 要重指到 production 並在
+  **production 的主畫面 App** 裡重新配對（iOS 三個 storage 容器 = 三份身分）。
+
+# 2026-08-21 Session Update #77 (下完單回來，決策還在 —— 交易者的實體動線)
+
+founder 兩張截圖把情境釘到動作層級：**Tradesea 與 TENKI Core 並排在同一個桌面上**。
+「要考量到交易者可能另外用桌機下單或另外開啟交易 APP 下單（**需要跳回手機桌面，
+點入交易 APP 去交易，可能再回去看 TENKI Core APP**）」。
+
+## 一、那條回程原本會弄丟整筆決策
+
+三件事疊起來：①`sess` 只活在記憶體，全 repo **沒有任何** pagehide/beforeunload
+持久化；②`/v3/` 開頁只認 `#decision`（交棒信物，讀完就刪），沒有 resume 路徑；
+③PWA 的 `start_url` 是 `/decision-alert/`，iOS 把 web app 清出記憶體之後
+回來就落在快訊頁，而那一頁完全不提有決策在跑。
+
+→ 下完單回來，**計時器回到 idle、marks/events 全丟、一筆紀錄都沒有**。
+
+## 二、做了什麼
+
+第八輪的跨頁標記升級成**可續跑的快照**（+ name/anchorPrice/marks/events/
+awayCount/awayMs/hiddenAtMs）；`/v3/` 開頁 `resumeActiveDecision()` 接回來；
+`/decision-alert/` 浮出**可點的回程橫幅**（founder 拍板：不自動跳）。
+順便把那塊死碼收掉 —— 舊守望條本來就是這個形狀。
+
+🔴 **超過上限不是 resume，是收束**：走既有 `endDecision` 寫一筆
+`timed_out`／`abandoned_no_judgment`。決策不該憑空消失，也不該假裝還在跑。
+
+## 三、🔴 第一版接不回來，兇手是我第八輪自己寫的那行
+
+第八輪的清除條件是「不是 running 就清掉」（為了不留下永遠靜音的旗標）。
+第九輪要在開頁 resume，卻**永遠讀不到** —— 檔尾那行 `setState('idle')` 在
+DOMContentLoaded 之前就把標記刪了，而且不報錯。改成看「離開 running」這個轉換。
+已提煉成 PLAYBOOK 一條。
+
+## 四、🔴 反向驗證抓到兩條我自己寫的死斷言
+
+1. **「標記活過重載」抓不到 logEvent 少同步** —— `page.reload()` 之前瀏覽器先送
+   visibilitychange → hidden，那個 handler 也會同步。改成當場問快照。
+2. **「超過上限不得接回殭屍」抓不到 resume 少了 overdue 分支** —— running interval
+   一秒內也會收掉它。兩處一起拿掉才紅（已驗），保留是為了不讓使用者看到
+   一個跑了 40 分鐘的計時器哪怕一秒，已在原地註明它是重複的。
+
+同一輪出現兩次「重複的實作讓斷言變成半死」。判準記下來：
+**反向驗證時只要有一處拿掉還是綠的，就要問「是不是有第二條路做同一件事」**——
+是的話，要嘛把斷言改到只有那一條路會影響的地方，要嘛在原地註明重複是刻意的。
+
+## 五、明確不做
+
+**不做「一鍵跳去交易 App」。** 即使 Tradesea 有 URL scheme：一顆在訊號當下把人
+送進下單畫面的按鈕等於**引導交易動作**，踩 CLAUDE.md 硬規則與 APP_STORE_COMPLIANCE。
+離開是常態、我們記錄它，但不推你出門。
+
+## 下次接手點
+
+- 手機實走這條動線（快訊 → 進入決策 → 回桌面開交易 App 30 秒以上 → 回 TENKI Core
+  → 應看到回程橫幅 → 點回去 → 時鐘沒退、標記還在 → 判定 → 收束頁「離開 1 次」）。
+- PR 合併後那條分支 preview 網址會死，TradingView 的 webhook 要改指正式站，
+  而且要在**正式站的主畫面 App** 裡重新產生連結（見 #76）。
+
+# 2026-08-21 Session Update #76 (分支 preview 上實測真實 TradingView webhook —— 通了，順帶挖出兩個坑)
+
+founder：「我想在這條分支上實測真的 TradingView webhook」。
+
+## 一、結果：整條鏈在分支 preview 上是通的
+
+TradingView 觸發 → 穿過 Deployment Protection → `/api/alert` → 頻道 →
+**決策入口面板自動彈出（帶真實價位 7,703.25）** → 後來連 **TENKI 自己的 Web Push
+也跳出來**（「TENKI 決策快訊 from TENKI Core · ES1! — ES1! 交叉 7,701.00」）。
+
+前置：Vercel → Protection Bypass for Automation → Add Secret → 指定為系統環境變數
+→ **重新部署**（環境變數是部署時綁的，既有部署讀不到 —— 我推了一顆空 commit `efa560c`）。
+
+## 二、🔴 坑一：加入主畫面 = 換了一個身分
+
+同一支手機、同一個網址，**in-app 瀏覽器是頻道 `61b459…`、主畫面 App 是 `eff4d558…`**。
+iOS 的三種容器（Safari 分頁 / App 內建瀏覽器 / 主畫面 App）storage 各自獨立，
+而這個 repo 幾乎所有東西都住在 localStorage：頻道、推播訂閱、讀數、決策紀錄、
+決策紀律開關、跨頁的「決策進行中」標記。
+
+於是「加入主畫面」這個看起來只是換個開啟方式的動作，**換掉了整個身分** ——
+TradingView 那條 webhook 還指著舊頻道：快訊照常入鏈，**推播卻不會來，而且畫面零跡象**。
+已提煉成 PLAYBOOK 一條，並在 TRADINGVIEW-SETUP.md §7 B 加成必做的第 3 步。
+
+## 三、🔴 坑二：不支援時整列隱藏，等於把問題變成無解
+
+`refreshPushRow()` 在 `!pushSupported()` 時把整列 `hidden`。founder 在 in-app 瀏覽器
+只看到「推播按鈕不見了」，卡了一輪。改成**留著、停用、就地說原因與下一步**
+（並補 `:disabled` 樣式，否則就變成既有的「死鈕」那條）。
+
+這跟同一天修的「紅字沒說出自己的範圍」是同一條規則的兩面：**沉默與半句話一樣會誤導。**
+
+## 四、回報給 founder、沒有自己動的
+
+TradingView 訊息欄是**寫死的** `ES1! 交叉 7,701.00`（建立當下的價格）——
+之後每一次觸發的 note 都會印同一個舊價位。建議改成 `ES1! 交叉 {{close}}`。
+那是 TradingView 那邊的設定，不是 repo 裡的東西。
+
+## 下次接手點
+
+- **PR 合併、分支刪掉之後，那條分支 preview 網址會死** → TradingView 的 webhook 要改指正式站
+  （正式站不需要 bypass 密鑰），而且要在**正式站的主畫面 App** 裡重新產生連結。
+- VAPID 三個環境變數這次沒去確認是不是也給了 Preview 環境 —— 推播真的跳出來了，
+  所以答案是「有」，但那是推論自結果，不是查過設定。
+
+# 2026-08-21 Session Update #75 (補回規格 §8：決策進行中，快訊不打斷)
+
+第七輪收尾時我留給 founder 一題：「§8 那條跨頁的『決策進行中』標記要不要補？」
+founder：**「都幫我完成」**。
+
+## 一、這條規格行為是我自己弄掉的
+
+`TRADINGVIEW-ALERT-SPEC.md` §8：「Session 進行中收到新快訊 → 一律靜默接收」。
+`evaluateDelivery` 看的是 `state.sessionActive`，而它只在 `startSession` 裡被設為 true
+—— 那個函式自從第五輪把計時器交棒給 `/v3/` 之後 0 個呼叫者。
+也就是說：**正在做決策時回到 `/decision-alert/`，每一則快訊都照常彈出決策入口面板**。
+
+## 二、設計上唯一真正難的地方：這個功能最危險的失敗模式
+
+旗標**沒被清掉**（分頁被殺、瀏覽器崩潰、直接關掉 `/v3/`）→ 從此靜默吃掉每一則快訊，
+**完全沒有跡象**。比沒有這個功能糟糕得多。
+
+而**心跳是錯的解法**：`/v3/` 一進背景 interval 就被節流（第五輪把 FDCB 改吃牆鐘正是
+為了這件事）—— 而**背景正是這個功能唯一有用的時候**（在桌機下單、手機鎖屏）。
+心跳會在最該靜音的那一刻宣告「沒有決策在跑」。
+
+→ 標記自帶 `expiresAtMs`、寫一次就不更新，上限沿用既有的 30 分鐘殭屍 session 上限
+（沒有引進新的不變量）。已提煉成 PLAYBOOK 一條。
+
+## 三、順手修掉的一個「畫面死掉」
+
+`sessionQuietUpdate` 的事實行寫進 `el.timerUpdate`，而 `#timerBar` 永遠不會 `.show`
+—— 寫進一個看不見的元素等於沒做，而且不報錯。改用靜默區 chip + 事件日誌。
+（PLAYBOOK 新條：死的是畫面而不是邏輯，更難看出來。）
+
+## 四、`sameSymbolUpdates` 從 `null` 變回真數字
+
+第七輪 `b36283e` 誠實留白的那一欄，這一輪有來源了。讀不回自己的標記仍然寫 `null`
+＝「通道當時斷了」，不是 `0` ＝「沒發生過」。
+
+## 五、🔴 反向驗證抓到我自己少驗的一條
+
+拿掉 `setState` 裡的發佈 → **decision-chain 全綠**。因為交棒那條路會在 `acceptHandoff`
+裡再發佈一次，只驗快訊鏈的話，**自己在 `/v3/` 起跑的決策**那條路壞掉不會有任何東西喊痛。
+補了 `preview-fdcb.mjs` 一段（§8 說的是 Session，不是「快訊來的 Session」）。
+教訓：一個行為有兩條寫入路徑時，**斷言要問到每一條**，不能只走最顯眼的那條。
+
+## 下次接手點
+
+- `/decision-alert/` 那塊到不了的舊守望條（`startSession` / `#timerBar` / `endSession` /
+  兩顆判定鍵 / `NON_ACCEPTANCE_OFFSET` / `WATCH_CEILING_MS`）**現在可以刪了** ——
+  第七輪決定不刪的理由（「它是 §8 唯一的實作」）這一輪失效了。刻意沒混進這個 diff。
+- `/v3/` 自己不會輪詢快訊，所以「同標的更新」那行事實在 `/v3/` 上看不到即時回饋
+  （要兩個分頁同時開著）。真要做是「`/v3/` 自己接快訊」，那是另一個題目。
+
+# 2026-08-20 Session Update #72 (TradingView 快訊 → 決策計時器 —— 把斷掉的接縫接起來)
+
+founder：「從 tradingview快訊 - Tenki core快訊 - 導入決策計時器⏱️，要以使用者的角度
+去設計整個流程，要考量到**交易者可能另外用桌機下單或另外開啟交易APP下單**」。
+
+## 一、這不是新功能，是四個接縫裡有兩個壞的
+
+| # | 接縫 | 動工前 |
+|---|---|---|
+| 1 | TradingView → API | ✅ 早就通了 |
+| 2 | 快訊 → 決策入口 | ✅ 通，但只活在 `/decision-alert/` |
+| 3 | 入口 → **決策計時器** | ❌ 斷的。唯一出口是 `/v3/#session`＝**歷史頁** |
+| 4 | 計時器在背景 | ❌ **當時就在說謊** |
+
+## 二、🔴 接縫 4：v6 的 FDCB 數 tick 計時，而那正是 founder 的使用情境
+
+`elapsed += 1` 數的是 setInterval callback。鎖屏／切券商 APP → 少算，
+而 `saveV6Outcome` 又把它當 `durationSec` 寫進紀錄 —— **紀錄跟著說謊**。
+`/decision-alert/` 早就為同一件事改成 `Date.now()` 了，`/v3/` 沒有。
+
+**驗這條 bug 花的力氣比修它多。** 兩種直覺寫法都是死斷言：
+把分頁推到背景（Playwright 預設帶 `--disable-background-timer-throttling`）、
+CDP `Page.setWebLifecycleState('frozen')`（要頁面先真的 hidden）——
+新舊碼都讀到 `00:07`。能用的是**忙迴圈卡住 JS 執行緒**：卡 5 秒，牆鐘 `00:07`、數 tick `00:03`。
+
+## 三、做了什麼（8 個 commit）
+
+牆鐘 → 離開追蹤（交易者在桌機下單，離開是常態不是失誤）→ 送審詞彙
+（`交易模式`→`決策紀律`）→ 決策紀律模式開關（Lab opt-in，預設關）→
+結構守望成為 FDCB 的一種跑法 → PWA scope 放寬 → 交棒 → 回程收束頁。
+
+命名：user-facing **一律「決策紀律」**，內部 `SessionMode='trader'` 一字不動
+（founder 2026-08-20 拍板，對齊 TRADINGVIEW-ALERT-SPEC §0 與送審檢查表 #17）。
+
+⚠️ 一併回報但**未動**：`brand/TAGLINE-SYSTEM.md` Tier 3 指定設定頁叫
+「TRADER MODE / 交易者模式」，與 `safe-copy.ts:29` 及送審檢查表**直接衝突**。
+那是 locked 資產，只有 founder 能裁。同理 `Canslim`/`Mancini FBD` 模板名
+（檢查表 #18 說不得出現在可見 UI，但 `decision-alert.js:106` 說「照用」）。
+
+## 四、🔴 是既有的 harness 擋下我，不是我自己發現的
+
+交棒把計時器搬去 `/v3/` 之後，`preview-strip-color` 紅了 —— 因為
+`/decision-alert/` 那張**已實走驗收過**的收束頁變成走不到。我沒察覺這個副作用。
+founder 裁：判定完導回去看原收束頁。
+
+## 五、這一輪學到的（都已進 PLAYBOOK）
+
+1. **反向驗證一次只破壞一處** —— 三處一起破壞時有一條沒紅，兩個破壞抵銷了。
+2. **「等某個東西消失」是雙向競態** —— splash 還沒建立時 `!splash` 立刻為真；
+   太早不等又會量到被 splash 蓋住。先等正向訊號，再等它消失。
+3. **點擊觸發跳頁時 `waitForFunction` 會綁到舊頁脈絡** —— 要先 `waitForURL`。
+4. **斷言要跑在真的會執行那段程式碼的路徑上** —— 「只留一筆紀錄」第一版是死的：
+   寫入只在按下收尾鍵時發生，而斷言只是開了頁就去數。
+5. **本地伺服器少一條 rewrite = 靜默 404**，同一個坑第三次（這次是 `/decision-alert/*`）。
+
+## 六、下次接手點
+
+- **`Decision chain harness` 還沒在 CI 上紅過** —— 照 PLAYBOOK 的規矩要用一次
+  故意破壞證明它會擋。
+- `/decision-alert/` 的 `startSession` / `#timerBar` 交棒後**不再被任何路徑呼叫**，
+  先留著沒刪，要不要清由 founder 決定。
+- Session 列顯示模板名而不是標的（紀錄裡兩者都有），既有行為未動。
+- `preview-scan-stardust.mjs` / `smoke-alert-api.mjs` 仍未進 CI。
+
+---
+
+# 2026-08-21 Session Update #74 (三個懸案：founder 授權我裁決，其中一個我改了自己的答案)
+
+founder：「1.2.3 你幫我決定或給建議」—— 把三個原本我拒絕自行決定的懸案交給我。
+（拒絕的理由是它們牽涉 locked 品牌資產與產品定位；有明確授權後才動，
+每個 commit message 都留了授權紀錄。）
+
+## ① 命名 —— 我原本規劃的驗證方式是錯的
+
+修了 5 處使用者看得到的「Trader」漏字（engine 顯示名、mobile 兩處標籤、
+onboarding CTA、免責聲明內文與 Reviewer Notes）。
+
+🔴 但我計畫裡寫的「加一條斷言：免責聲明必須通過 `isCompliantCopy`」**是錯的**。
+同一個檔案有四處在說本產品**不提供** trading signals —— 那個字非出現不可。
+**否認句必須點名它否認的東西。**
+規則改窄成「不得把這個模式**命名**為 Trader，否認句照留」，
+守門加在既有的 `check-vocab.sh`，兩個方向都驗過（命名→紅、否認句→放行）。
+
+⚠️ 刻意不為了測試新增 engine→shared 的套件相依（兩者目前互不相依）。
+
+## ② 模板名 —— 查到的事實換掉了答案
+
+原本的兩難是「改名 vs 不改名」。實際查下去發現：那三個交易者模板是
+**靜態 markup、跟開關完全無關** → 預設安裝的每個使用者與審核員都看得到。
+所以正解不是改名（CANSLIM / Mancini FBD 是第三方方法論的名字，改了使用者
+看不懂自己的流程），而是**收到 opt-in 後面**：預設看不到，檢查表 #18 字面滿足。
+
+🔴 用**移除／插回節點**，不是 `display:none` —— 隱藏的文字仍在 DOM 裡。
+
+## ③ 舊守望條 —— **我改了自己的答案：先不刪**
+
+查 `startSession` 的相依時發現 `state.sessionActive` 只在它裡面設 true，
+而 `TRADINGVIEW-ALERT-SPEC.md` §8「Session 進行中收到新快訊 → 一律靜默接收」
+正是靠那個旗標 —— 也就是說**那條規格行為在交棒之後等於沒有了**。
+
+而且我上一輪還為此引進一個謊報：回程收束頁對每一筆都印「同標的更新：0 次」。
+（PLAYBOOK:337 那條的第三次：把「不知道」講成「沒發生」。已改成 null + 整列不出現。）
+
+刪掉會把「我們掉了一條規格行為」這件事一起刪掉 → 留著並在原地註明它到不了。
+
+## 下次接手點
+
+- **§8 跨頁「決策進行中」標記要不要補**（已問 founder，未回覆）。補了快訊才不會
+  在使用者正在做決策時打斷他。這是新功能不是修 bug，所以我沒自行動手。
+- 自我回檢排程仍需 founder 授權才掛得上（工具呼叫被擋）。
+
+---
+
+# 2026-08-20 Session Update #73 (Energy 長條圖被截斷 —— 一個會說謊的容器)
+
+founder 實走 `/v3/` 回報「體能 長條圖被截斷」。
+
+## 實測
+
+390 寬掃五個高度：**≤880px 時 `.bb-bars` 被 flex 壓成 33px，而長條仍是 JS 算出來的
+53px 絕對高度**，上緣整排被 `overflow:hidden` 削掉。932 剛好放得下 ——
+所以只有矮視窗會壞，而那正是 in-app 瀏覽器的實際可視高度。
+
+三件事疊起來才會壞：固定高但可被壓縮的 flex 子項 + 矮視窗的 media query 縮軌道
++ `overflow:hidden` 把後果藏起來。長條高度是絕對 px，容器縮了它完全不知道。
+
+## 兩個教訓（都已進 PLAYBOOK）
+
+1. **有 `overflow:hidden` 的容器會讓上層的溢出偵測說謊。**
+   `card.scrollHeight > clientHeight` 在 bug 存在時回報 **false**。
+   要逐個子元素問 `rect.top < container.top`。
+2. **只寫在註解裡的不變量會默默失效。** 動效註解寫著「±10% → 48px 不會切 54px」，
+   我把高度改成 % 之後那句話立刻變假而沒有東西喊痛。
+   改成具名常數 `BAR_HEADROOM = 0.85` + 逐幀斷言（90 幀，含呼吸波峰）。
+
+## 反向驗證的分布本身就是證據
+
+高度改回絕對 px → 844/760/700/660 紅、**932 不紅**，與原 bug 的分布完全一致。
+
+## 下次接手點
+
+- founder 尚未回覆的兩題：`brand/TAGLINE-SYSTEM.md` Tier 3 的「TRADER MODE」與
+  compliance 衝突；`/decision-alert/` 交棒後不再被呼叫的舊守望條要不要清掉。
+
+# 2026-08-19 Session Update #71 (preview harness 進 CI —— 補掉咬過兩次的盲區)
+
+founder：「想辦法讓它們進 CI」。
+
+## 一、擋路的其實只有六行
+
+六支 harness 都寫死 `import { chromium } from '/opt/node22/.../playwright/index.mjs'`
+—— 容器的全域安裝路徑，runner 上不存在。**就這樣**，不是什麼架構問題。
+其餘全部是可攜的（`repoRoot` 相對推導、本地 ephemeral port、沒有任何 `/home/user` 寫死）。
+
+新增 `scripts/lib/playwright.mjs`：先試 `import('playwright')`，
+`ERR_MODULE_NOT_FOUND` 才退回容器絕對路徑。**兩條路都親自走過**
+（把 node_modules/playwright 移走驗 fallback），只驗一條就宣稱兩條都行等於沒驗。
+
+## 二、🔴 真正的難題是字型，而它會製造「假紅」
+
+harness 量文字寬度與行數，而寬度是字型的函式。實測：
+
+| 字型 | 尚未量測@30px | Neutral@36px |
+|---|---|---|
+| 容器預設 sans | 120 | **124** |
+| WenQuanYi Zen Hei | 120 | 114 |
+| **DejaVu Sans** | 120 | **152** |
+
+中文穩（漢字 1em/字），**英文差 33%**。環心只有 ~128px ——
+ubuntu runner 若解析到 DejaVu，「讀數在圓內」那條第一次跑就紅，而且是假紅。
+
+兩層防護：
+1. CI 裝 `fonts-wqy-zenhei` 跟容器對齊（founder 拍板），並印 `fc-match` 到 log。
+2. **字型金絲雀**：所有版面斷言之前先量一組已知字串，對不上就以「字型與基準不一致」
+   失敗，並印「先修環境，不要去改產品的版面來迎合它」。
+   反向驗證過：把頁面切到 DejaVu → 金絲雀第一條就紅，底下 4 條版面斷言跟著紅。
+   **沒有金絲雀的話，下一個人只會看到那 4 條，然後跑去改產品迎合一個環境問題。**
+
+順手把 `.band` 上限 36→34px：36px 時「Neutral」124px 對 128px 的圓，**只剩 4px 餘裕**，
+而假紅會訓練人忽略紅燈。現在餘裕 46px。
+
+## 三、刻意沒收的
+
+`preview-scan-stardust.mjs`（105 條斷言，看起來最划算）**沒進 CI** ——
+它的註解寫明倚賴容器「連不到 cdnjs」（three.js 載不進來、走 stub），
+而 CI 連得到，**前提整個反過來**，放進去等於在測另一個東西。
+
+## 四、順帶補的落差
+
+`verify.sh:50` 有 `tsc api`、`ci.yml` 沒有，而 verify.sh 開頭寫著「CI 跑同一套」。
+既然這輪就是在修「本機與 CI 對不齊」，一起補。
+（`scripts/smoke-alert-api.mjs` 也是今天就能進 CI 的斷言型腳本、同樣不在 CI 裡 —— 下次。）
+
+## 五、🔴 關卡上線後，要用一次真紅燈驗收
+
+**綠燈本身無法區分「守住了」與「根本沒跑」。** job 設定錯（步驟沒真的執行、
+exit code 被吞掉）一樣是綠的，而那種綠會讓人以為有保護。
+
+所以刻意推了一個爆版 commit（`a719260`，把 `.tl-edge-score.band` 的字級從
+`clamp(28px, 8.5vw, 34px)` 改回寫死的 40px），再 revert（`27f2d7c`）。兩個都留在歷史裡。
+
+CI run `32315555664` 的結果就是要的那組：
+
+- `preview harness (playwright)` → **failure**，`Process completed with exit code 1`
+- 紅的正是 360/375/390/414 四個寬度的「有讀數：讀數整個在環心圓內」
+- **金絲雀綠** —— 證明這是真的版面壞掉，不是 runner 字型跟基準對不上。
+  金絲雀若紅，這次驗證就沒有意義（會分不清是產品壞了還是環境不一致）
+- 其餘三個 job 全綠 —— 爆的範圍就在該爆的地方，沒有連坐
+- 瀏覽器快取命中，裝 Chromium 只花 7 秒（首跑含下載是一分多鐘）；整個 job 2m41s
+
+⚠️ 反向驗證要**只動產品、不動 harness**。改斷言也會紅，但那證明的是
+「我把斷言改壞了」，不是「產品壞了會被擋」——兩件完全不同的事。
+
+## 六、下次接手點
+
+- **`preview-scan-stardust.mjs` 進 CI**：要先處理 cdnjs 相依（擋 egress 或強制 stub）。
+- `scripts/smoke-alert-api.mjs` 進 CI（不需要瀏覽器，最便宜的一個）。
+- ⚠️ **文件裡「preview harness 沒進 CI」的敘述已經改掉三處**（PLAYBOOK 兩處 +
+  strip-color 檔頭）。PLAYBOOK 那條「不要 playwright install」也加了範圍限定 ——
+  那是容器規則，CI 必須自己裝，別照著把安裝步驟拿掉。
+
+---
+
+# 2026-08-19 Session Update #70 (Hero 讀數爆版 —— 不是我弄的，但是我修的)
+
+founder 實走 PR #226 的 preview、**點了掃描**，兩張截圖都爆版：
+掃描前「尚未量測」斷成「尚未量」/「測」且整段跑到深色圓外；掃描後「Clear」同樣戳出
+圓上緣，信心膠囊斷成「信心中 · 提」/「升精度 ›」。
+
+## 一、歸屬（先查，再修）
+
+- 「尚未量測」在本分支 base 不存在，是 **#231** 帶進來的文案。
+- `git show origin/main:apps/preview/v6/index.html` 拉出來單獨跑，**壞法逐欄一模一樣**
+  → 純粹繼承，我的 merge 沒有造成它。
+- #229/#231/#232 全已 merge、**沒有任何 open PR 在動這塊** → 沒有衝突風險，我修。
+
+## 二、量出來的根因（不是窄螢幕邊界案例）
+
+環心 `.tl-edge-center` = 環的 62%，實測 121~129px，要裝下
+讀數(30~40px) + 狀態讀數 + 新鮮度 + 膠囊(43px)：
+
+| 寬 | 圓 | 內容高 | 讀數超出圓上緣 | 信心膠囊 |
+|---|---|---|---|---|
+| 360 | 121 | 141 | +20px | 2 行 |
+| 375 | 126 | 127 | +3px | 2 行 |
+| 390 | 129 | 129 | +2px | **2 行** |
+| 430 | 129 | 130 | +2px | **2 行** |
+
+**內容高在每個寬度都 ≥ 圓高；信心膠囊在 360~430 全部換行。**
+而「信心中　·　提升精度 ›」本身要約 178px —— 塞不進 129px 的圓，字級微調救不了。
+
+## 三、修法
+
+1. **動作鍵搬出環心**（`.tl-edge-cta` / `.tl-edge-conf` → `.tl-edge-wrap`，環下方）。
+   語意上它們本來就不是讀數。搬出來有整個螢幕寬，`nowrap` 才不會變橫向溢出。
+2. 讀數 `white-space:nowrap`。
+3. `.awaiting` → `clamp(24px, 7.2vw, 30px)`、`.band` → `clamp(30px, 9vw, 36px)`。
+
+## 四、🔴 三條教訓（已進 PLAYBOOK）
+
+1. **固定 px 的內容放進 % 的容器**，換個寬度就不成立。降到「比較小的固定值」不算修好。
+2. **只量一條邊會讓你以為修好了** —— 我只量上緣（-25px，看起來安全）就收工，
+   斷言改成問四條邊之後當場抓到「Neutral」左右各溢出 3px。
+3. **排版斷言要掃寬度**（360/375/390/414，優先驗窄的）。三個 Hero PR 連續沒紅，
+   就是因為 `scripts/*.mjs` 沒有任何一條在看 Hero。
+
+## 五、下次接手點
+
+- **「滑動看更多 · Swipe」膠囊蓋住 HRV 數字**（#232）—— main 上同樣重現，本輪只回報不動。
+- 文案沒動：「尚未量測 / 狀態讀數 / 還沒有今天的讀數 / 到 Scan 掃一次」四行語意重疊，
+  那是 #231 剛拍板的設計，交給 founder 決定。
+- ⚠️ `preview-strip-color.mjs` 這次也發現**在 main 上已經紅著沒人發現**
+  （#231 改文案沒改斷言）。兩支 preview harness 都不在 `verify.sh`／CI 裡 ——
+  這個盲區已經咬人兩次了，值得考慮想辦法進 CI。
+
+---
+
+# 2026-08-14 Session Update #69 (標記 → Turning Point 節點：把 repo 裡蓋好一半的四塊零件接起來)
+
+founder 實走 #68 的成果後回報：
+
+> 標記 很好按 一下子就從1按到5，但這應該是 可以快速選擇或是自訂、自己記錄用
+> 這樣才能看到 ——事件節點（掃描狀態/分數）—事件節點（掃描狀態/分數）—-
+
+「很好按」是贏，「一下子從 1 按到 5」是輸 —— 那個 5 什麼都沒記下來。
+
+## 一、🔑 這個功能在 repo 裡已經被蓋好一半，四塊零件從沒接起來
+
+| 已存在 | 位置 | 狀態 |
+|---|---|---|
+| **名字** `Turning Point`「a moment where behavior shifts from reactive to intentional」 | `SYSTEM.md` §4 | 語言系統四個桶之一，**而這個桶至今零實作** |
+| **型別** `AttachedReadinessReading`（band/confidence/ts/evidence/staleAtDecision） | `domain/src/contracts/readiness-reading.ts:57` | 宣告了，全 repo 沒有人用。註解寫明「as attached to a decision record」 |
+| **分析** `summarizeDisciplineByBand()`（「我在 Clear 的時候是不是比較跟得住流程」） | `domain/src/policies/readiness-band.ts:179` | 寫好了，**沒有任何東西餵它** —— 因為至今沒有一筆決策紀錄帶 `band` |
+| **視覺** `.sd-evt` + `.sd-trace .evt`（連接線 + 型別圓點 + 段落膠囊） | `apps/preview/v6/index.html:1096-1290` | 約 195 行孤兒 CSS，**全 repo 唯一的「連接線 + 點」元件**，沒有任何 markup 用到 |
+
+所以這一版不是長新功能，是把四個各自為了這件事蓋好、卻沒接起來的零件接上。
+`summarizeDisciplineByBand()` 的 doc comment 甚至已經先把誠實規則寫死：
+「沒有讀數的紀錄要排除，猜一個等於偽造這個統計存在的意義本身。」
+
+## 二、🔴 我改動了需求的一點（已與 founder 確認）
+
+founder 寫「掃描狀態/**分數**」。**節點上沒有分數。** 契約明寫 never a fabricated
+0-100 score，而 `SessionEvent.edgeScoreAtEvent` 剛好就是陷阱 ——
+**掛「當下狀態」最自然的那個欄位，被一個產品不被允許產生的數字佔住了**。
+已把它標 `@deprecated` 並寫清楚原因。狀態章＝帶位 + 信心 + 讀數多久 + staleAtDecision，
+沒讀數就四欄全 null + 空心虛線節點。
+
+## 三、做了什麼（8 個 commit，Commit-Per-Todo）
+
+engine 加 `label`/`labelId`（**六個凍結的 SessionEventType 一字未動** —— per-template
+的快選供應的是 label，不是新 type）→ 節點資料模型 + 即時掛在 `.fdcb-prog` 上（Lock 語彙）
+→ 快選晶片列 → Session Detail 的軌 + 逐列軌跡（復活孤兒 CSS）→ Lab 自訂標籤 + 禁用詞把關
+→ CSV → harness +31 條。
+
+⚠️ 快選**不能**走既有的 `openSheet()`/`selectTmpl()` —— 那兩個在 running 時 hard-return，
+是 #68 為了擋殭屍計時器加的 guard，而快選正好必須在跑決策中打開。自己的元素、自己的 open/close。
+
+## 四、🔴 實作中踩到的三個坑（已提煉進 PLAYBOOK）
+
+1. **同一秒的節點疊在同一個位置** → 軌上一顆、計數寫 5，同個畫面兩個地方打架。
+2. **flex column 捲動容器的子卡片被壓扁再被 `overflow:hidden` 裁掉** → 第 4 列整列消失、
+   捲也捲不出來。**這個 repo 已經為短視窗踩過同一個坑**，第二次，所以進法典。
+3. **`opacity:0 + pointer-events:none` 不是隱藏** —— 這次沒被咬到，但位置正好落在
+   指紋鈕那次的同一個地雷區，改成一併 `visibility:hidden` 靠結構守住。
+
+反向驗證：四處破壞 → harness 紅 9 條；另外單獨反驗「節點不得帶分數」那條
+（只在有讀數的分支偷塞 `edgeScoreAtEvent:72`）→ 紅 1 條，確認不是死斷言。
+
+## 五、下次接手點
+
+- **`lockEventSec` 沒有實作**（`session/types.ts:98`，FBD = 60 秒「Lock event marking for
+  the first N seconds」）。preview 的 `TEMPLATES` 根本沒有這個欄位。本輪刻意不補 ——
+  補了會讓前 60 秒按不動，正好動到 founder 剛稱讚的手感。要補得由 founder 拍板。
+- **`summarizeDisciplineByBand()` 現在終於有資料可以餵了** —— 節點帶 band 了。
+  「我在 Clear 的時候是不是比較跟得住流程」這張圖可以做了，那是下一個自然的一步。
+- **「轉折點」的中文 user-facing 用詞未定案**。程式碼註解用 Turning Point（SYSTEM.md 語彙），
+  但畫面上一律沿用既有的「標記」與新的「決策軌跡」，沒有自己發明中文譯名。
+- `state-complete` 只停 1.8 秒（#68 留下的問題）仍未動，等 founder 實走回報。
+
+---
+
+# 2026-08-12 Session Update #68 (決策計時器：三句實走回報底下的五個實體 bug)
+
+founder 實走 /v3/ 三句話：「決策計時器好像是作一半的狀態」「各功能都在而且也會遮擋」
+「我也不知道它右側的點點按的數字代表什麼意思」。每一句底下都不只是感覺問題。
+
+## 一、量出來的東西（不是讀 code 猜的）
+
+| # | 症狀 | 怎麼抓到的 |
+|---|---|---|
+| 1 | 跑中換模板 → `setState('ready')` 沒清 `runningInterval`：state 顯示 ready、時鐘繼續跑，到**舊**模板的時長時在 ready 底下彈「完整走完」，並往 store 寫一筆使用者沒跑完的**幽靈紀錄** | 種一個 6 秒自訂模板，跑到一半換 Work Focus，6 秒後讀 localStorage → 多出 `{六秒測試, timed_out}` |
+| 2 | 時長標籤寫死 `${Math.floor(sec/60)}:00` → 3:30 的模板顯示 `3:00 ▾`、6 秒的顯示 `0:00 ▾`，而同一列大字時鐘同時寫 `/ 0:06` | 同上，種 210 秒與 6 秒兩個模板 |
+| 3 | 標記區 DOM 是 `dot,dot,[+],dot` —— 第三顆亮的點在 + 的**右邊**；只有三顆點但計數沒上限（按 4 下 → 三顆全亮、膠囊寫 4） | 讀 `.fdcb-evts` innerHTML + running 截圖 |
+| 4 | idle 時標記鍵仍在，按下去 `logEvent()` 直接 return，零回饋 | probe：idle 按 + → 狀態逐欄比對，完全沒變 |
+| 5 | 計數膠囊亮 `--good` 綠 —— 綠是「跟著流程完成」的語意色，等於決策還沒收束就先亮 good | 截圖 + CLAUDE.md 顏色所有權那條 |
+
+「遮擋」的實體：idle 撐滿 58px 去放**兩個當下沒有作用的欄位**（右欄沒有 session
+可掛、中欄只有一行 START DECISION），用不到的高度全部拿去蓋 Today 的 Cardiac 卡。
+
+## 二、做了什麼（4 個 commit，Commit-Per-Todo）
+
+1. `fix` 兩道 guard 擋掉跑中換模板（要換就先收束，那一筆才會被誠實記成提前收束）＋ 時長走 `fmtDur` ＋ 收束回 idle 的 setTimeout 改成抓得住的 `closureTimer`。
+2. `feat` 圓點改成有標籤的「＋ 標記」鍵：只在 running 出現、計數用數字、配色回中性白、按下去段標籤借 1.6 秒回報「已標記 2 · 01:07」。下游 `0 marks` / `Marks` 改中文，Timeline strip 補「點越大 · 標記越多」圖例（點大小本來就吃 marks 卻沒有圖例）。
+3. `feat` idle 底座 44px，`--fdcb-h` 變成 state 的函式，保留區吃同一個變數；開機改走 `setState('idle')`。
+4. `test` `scripts/preview-fdcb.mjs` 34 條，反向驗證過（拿掉 guard + 改回寫死 :00 → 紅 5 條）。
+
+## 三、🔴 教訓（已提煉進 PLAYBOOK）
+
+- **可視高度是變數**：前一天「說明與圓點都要露出來」是在 844 量的縫隙裡排的，
+  founder 的 in-app 瀏覽器只有 ~700，同一份版面在那裡底座頂是 558 —— 兩個都又掉回底座下。
+  遮擋斷言至少驗兩個高度，優先驗矮的。
+- **底座高度與保留區必須是同一個變數的兩個讀者**，不得各寫各的。
+- **每一條離開 running 的路徑都要問「計時器誰關」**；能不轉移就不轉移。
+- **按下去什麼都不做的鍵 = 做一半**；沒有作用的狀態就藏起來。
+- **沒有上限的計數不要用固定數量的指示燈**。
+- harness 自己踩到兩個坑：splash 以 z-index:9999 蓋到 2400ms（固定 waitForTimeout 會
+  問到 splash 而不是版面）、段標籤每秒才 tick（固定 1900ms 落在兩次 tick 中間 → 偶紅）。
+  兩處都改成**等條件**，不要等時間。
+
+## 四、下次接手點
+
+- 尚未做（founder 未裁決）：`state-complete` 只顯示 1.8 秒就自動回 idle —— 結果還沒讀完就消失，是「做一半」感的另一半，但改秒數屬於手感，等實走回報。
+- `apps/mobile/components/DecisionBar.tsx` 還是 mock（`• •` + `+`，沒有狀態機）。原生階段要照 /v3/ 這一版的結論重寫，別把舊的圓點語彙帶過去。
+- `scripts/preview-fdcb.mjs` 沒進 `verify.sh`（Playwright 容器限定路徑，同 preview-strip-color）—— 改 FDCB 的 class 名／id 時要一併 grep `scripts/*.mjs`。
 # 2026-08-29 Session Update #69 (Today 版面遮擋清乾淨 + 眨眼那一拍真的抓得到)
 
 雲端 Claude Code。全程由 founder 手機截圖驅動：他走一次、截一張、我修一輪。PR #238 / #239 / #240 都已 merge 進 main 並部署。
@@ -127,7 +995,6 @@ grep 之後發現 v3 的 `harmonizeHrv()` 只有 engine index 再匯出、**沒�
 - Echo Ring 仍明確不在範圍內（founder 指示）。
 
 ---
-
 # 2026-08-18 Session Update #68 (Hero ➔ 水晶球全流程電影級升級與無縫轉場貫通)
 
 founder 回饋：**「目前水晶球的感覺不夠順暢自然，這個部份把工作任務交辦 Google Antigravity，包含水晶球完整視覺動效跟轉場，我要電影級的升級」** ＋ **「hero 之後 一直到水晶球（Crystal Orb）頁面，也幫我做電影級升級」**。
