@@ -9,6 +9,38 @@
 
 ---
 
+# 2026-09-04 Session Update #72 (Devices 頁收尾＋PR #244 merge；以及我沒 grep PLAYBOOK 就重推了一次)
+
+同一天稍晚。PR #243（Phase 0）與 #244（Devices 連接頁非原生部分）都已 merge 進 main。
+
+## 做了什麼
+
+- `088e9df` 依 founder 指示：**被擋住的列也保留說明那行**。順帶修掉 `disconnected` 那列把說明印兩次的 bug
+  （狀態行 fallback 到 description，下面又 render 一次）。改法是把「每列顯示哪三行」抽成純函式
+  `describeRow()`（title / primary / state），畫面只負責畫，8 條測試涵蓋每個狀態。
+- PR #244 開出、CI 全綠、founder merge。穿戴整合到此：Phase 0 契約 ✅、Phase 1 非原生 ✅，
+  剩下的全部卡在兩個外部條件 —— **Mac**（原生模組）與 **Garmin 開發者審核**。
+
+## 教訓（最重要的一條是關於我自己）
+
+1. 🔴 **founder 問「這頁要不要去圖書館電腦才能驗？」我從零推導出 expo export web + Playwright 截圖 ——
+   而 `docs/PLAYBOOK.md` §7 早就有那一條。** 我沒 grep 到，是因為我拿「圖書館電腦 / 實機驗證」去想，
+   而那條的情境欄寫的是「想截 RN 畫面給 founder」。**動手前先 grep PLAYBOOK 是規矩，不是建議**；
+   而且要用**同義詞**掃，不要只用自己腦中的說法。已把 founder 實際會問的那句話加進該列的情境欄。
+2. 同一天我還踩了 §7 另一條已記載的坑：`pkill -f serve.py` 把自己殺掉（exit 144）。**兩次都在同一節。**
+3. 已強化（🟢 合併強化既有列，未開新列）：
+   - 「mobile 要 import packages/domain」→ 補上第三處 **jest `moduleNameMapper` ＋ jest tsconfig paths**
+     （少了就是「app 跑得動但測試找不到模組」）。
+   - 「想截 RN 畫面給 founder」→ 補上：**版面/文案/狀態邏輯到此驗得完不必實機**；`fullPage: true` 會拍出
+     假白邊（`Dimensions.get('window')` 固定高度撐不滿）；要看特定狀態就開臨時 route 灌 store、截完刪掉。
+
+## 下次接手點
+
+- 原生階段：實作 `DeviceLinkPort`，義務見 `docs/WEARABLE-INTEGRATION.md` §5。
+- Garmin evaluation 申請是長前置時間項目，**現在就能去申請**（founder 端）。
+- Devices 頁仍未在實機／Expo Go 走過；目前每列顯示「尚未開放連接」是設計行為。
+- Lab 的 Profile / Privacy / Subscription 三個入口仍是 `onPress: undefined` 佔位。
+
 # 2026-09-04 Session Update #71 (Devices 連接頁：把接縫先做出來，native 之後補)
 
 雲端 Claude Code。PR #243（Phase 0 契約 + HRV 軌分離）已 merge 進 main；本次從 main 重開分支做 Phase 1

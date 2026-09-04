@@ -323,10 +323,10 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | vision-camera v5 | permission API 在 `VisionCamera` factory 上，不在 `Camera` 元件上 |
 | Scan tab | `(tabs)/scan.tsx` 只做路由儀表板，**capture 流程不得塞回去**（North Star 鐵律 1） |
 | 引擎改動 | 先寫測試再整合；engine/scan 覆蓋率 ≥ 90%；純函式、platform-neutral |
-| mobile 要 import `packages/*` | tsc 靠 tsconfig paths、**Metro 靠 `metro.config.js` 的 `watchFolders`** — 兩邊都要有，否則 tsc 綠但 runtime/web bundle 掛 |
+| mobile 要 import `packages/*` 或 `domain/` | **三處都要加，少一處壞在不同地方**：① tsconfig paths（少了 tsc 紅）② `metro.config.js` 的 `watchFolders`（少了 tsc 綠但 runtime/web bundle 掛）③ `package.json` 的 jest `moduleNameMapper` ＋ jest tsconfig 的 `paths`（少了 app 跑得動但測試找不到模組）|
 | Expo Web 全白 + `import.meta` SyntaxError | zustand v5 ESM 被 web 'import' 條件選中 → metro.config 已把 zustand 釘到 CJS；新增類似 ESM-only 套件時比照處理。**不要**全域關 `unstable_enablePackageExports`（會弄壞 react-native→react-native-web alias） |
 | Expo Web 報 "importing a module from 'react-native' instead of 'react-native-web'" | 有 native-only 套件（vision-camera/nitro 等）被頂層 import 進了 web 可達的模組 → 改 platform-split（`.native.tsx`）或 native 分支內 `await import()` |
-| 想截 RN 畫面給 founder | `cd apps/mobile && npx expo export --platform web`（offline 模式）→ 本地 serve dist → Playwright 截圖。dev server（`expo start`）的 LogBox 在 web 會拉 RN internals，**用生產 export 別用 dev**。（`/face-baseline/` 公開網址與 app.json baseUrl 已於 2026-07-03 退場 — dist 不再入庫，僅本地截圖用） |
+| 想截 RN 畫面給 founder ／ **founder 問「這頁要不要實機或圖書館電腦才能驗？」** | `cd apps/mobile && npx expo export --platform web`（offline 模式）→ 本地 serve dist（SPA fallback 到 index.html，否則子路由 404）→ Playwright 截圖。dev server（`expo start`）的 LogBox 在 web 會拉 RN internals，**用生產 export 別用 dev**。**版面／文案／狀態邏輯到此為止就驗得完，不必實機**；只有原生行為（相機、Skia、觸覺、真的權限視窗）才需要 Expo Go＋電腦。⚠️ `fullPage: true` 會拍出假白邊（`Dimensions.get('window')` 在載入時算的固定高度撐不滿），**用真機視窗尺寸截**。要看某個狀態長什麼樣（已連接／未授權／錯誤）就開一支臨時 route 灌 store，截完刪掉、不進 commit。（`/face-baseline/` 公開網址與 app.json baseUrl 已於 2026-07-03 退場 — dist 不再入庫，僅本地截圖用） |
 | 跑 `pkill -f <pattern>` | pattern 若出現在自己這條命令字串裡會自殺（exit 144）→ 用 `[x]` 技巧如 `pkill -f 'cli/build/[b]in'` |
 
 ## 8. 合規與文案（紅線）
