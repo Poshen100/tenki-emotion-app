@@ -18,11 +18,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, radius, spacing, typography as typo } from '../../../theme';
 import { BackgroundContainer } from '../../../components/onboarding-components';
-import { DEVICES_SCREEN_COPY, UNAVAILABLE_COPY } from '../copy';
-import { primaryAction } from '../machine/deviceLinkMachine';
+import { DEVICES_SCREEN_COPY } from '../copy';
 import { createUnwiredLinkPort } from '../port';
 import { providersForOs } from '../providers';
-import { formatSyncStatus, isSyncStale } from '../status';
+import { describeRow } from '../rowPresentation';
 import { useDevicesStore } from '../store/devicesStore';
 import type { DeviceConnection, DeviceProvider } from '../types/devices.types';
 
@@ -103,69 +102,47 @@ function ProviderRow({
   onConnect: () => void;
   onDisconnect: () => void;
 }) {
-  const action = primaryAction(connection.state);
-  const blocked = connection.state === 'unavailable';
-  const connected = connection.state === 'connected';
-  const stale = connected && isSyncStale(connection, Date.now());
-
-  const statusLine = (() => {
-    if (blocked && connection.unavailableReason) {
-      return UNAVAILABLE_COPY[connection.unavailableReason];
-    }
-    if (connection.state === 'requesting') return '等待授權…';
-    if (connection.state === 'denied') return '未授權，相機掃描仍可完整使用';
-    if (connection.state === 'error') return connection.errorMessage ?? '連接失敗';
-    if (connected) return formatSyncStatus(connection, Date.now());
-    return provider.description;
-  })();
-
-  const actionLabel = (() => {
-    switch (action) {
-      case 'REQUEST':
-        return DEVICES_SCREEN_COPY.connectAction;
-      case 'RETRY':
-        return DEVICES_SCREEN_COPY.retryAction;
-      case 'DISCONNECT':
-        return DEVICES_SCREEN_COPY.disconnectAction;
-      default:
-        return null;
-    }
-  })();
+  const row = describeRow(provider, connection, Date.now());
 
   return (
-    <View style={[styles.row, blocked && styles.rowBlocked]}>
+    <View style={[styles.row, row.blocked && styles.rowBlocked]}>
       <View style={styles.rowHeader}>
         <View style={styles.rowInfo}>
-          <Text style={styles.rowTitle}>{provider.label}</Text>
-          <Text style={[styles.rowStatus, stale && styles.rowStatusStale]}>{statusLine}</Text>
+          <Text style={styles.rowTitle}>{row.title}</Text>
+          <Text style={[styles.rowPrimary, row.primaryIsStale && styles.rowPrimaryStale]}>
+            {row.primaryLine}
+          </Text>
         </View>
 
-        {actionLabel && (
+        {row.actionLabel && (
           <Pressable
-            style={[styles.actionBtn, connected && styles.actionBtnQuiet]}
-            onPress={action === 'DISCONNECT' ? onDisconnect : onConnect}
+            style={[styles.actionBtn, row.action === 'DISCONNECT' && styles.actionBtnQuiet]}
+            onPress={row.action === 'DISCONNECT' ? onDisconnect : onConnect}
             accessibilityRole="button"
-            accessibilityLabel={`${actionLabel} ${provider.label}`}
+            accessibilityLabel={`${row.actionLabel} ${row.title}`}
           >
-            <Text style={[styles.actionText, connected && styles.actionTextQuiet]}>
-              {actionLabel}
+            <Text
+              style={[
+                styles.actionText,
+                row.action === 'DISCONNECT' && styles.actionTextQuiet,
+              ]}
+            >
+              {row.actionLabel}
             </Text>
           </Pressable>
         )}
       </View>
 
-      {connected && connection.grantedScopes.length > 0 && (
+      {row.stateLine && <Text style={styles.rowStateLine}>{row.stateLine}</Text>}
+
+      {row.scopes.length > 0 && (
         <View style={styles.scopeRow}>
-          {connection.grantedScopes.map((scope) => (
+          {row.scopes.map((scope) => (
             <View key={scope} style={styles.scopeChip}>
               <Text style={styles.scopeText}>{SCOPE_LABELS[scope] ?? scope}</Text>
             </View>
           ))}
         </View>
-      )}
-
-      {!blocked && !connected && connection.state !== 'requesting' && (
-        <Text style={styles.rowDescription}>{provider.description}</Text>
       )}
     </View>
   );
@@ -218,14 +195,17 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: 2,
   },
-  rowStatus: {
+  rowPrimary: {
     fontSize: 12,
+    lineHeight: 17,
     color: colors.textSecondary,
   },
-  rowStatusStale: { color: colors.warning },
-  rowDescription: {
+  rowPrimaryStale: { color: colors.warning },
+  rowStateLine: {
     fontSize: 12,
-    color: colors.textSecondary,
+    lineHeight: 17,
+    color: colors.textPrimary,
+    opacity: 0.75,
     marginTop: spacing.sm,
   },
   actionBtn: {
