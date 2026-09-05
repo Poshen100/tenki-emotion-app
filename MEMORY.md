@@ -9,6 +9,48 @@
 
 ---
 
+# 2026-09-05 Session Update #73 (P0 三條：能在雲端做完的那一半做完了，另一半不是等 Mac 是等帳號)
+
+founder 問「P0 三條完成了嗎？沒有的話幫我完成」。查證：原生部分 **0%**（無任何 health/BLE 相依套件、
+未 prebuild）。**不能在這裡完成**，但每個來源真正容易錯的那一段是純函式 —— 那一半已完成並測起來。
+
+## 做了什麼
+
+| Commit | 內容 |
+|---|---|
+| `e7dafc8` | `adapters/bleHeartRate.ts` —— 標準 Heart Rate Measurement（0x180D / 0x2A37）解析，11 條測試 |
+| `52d2670` | `adapters/healthKitMapping.ts` —— Apple 健康 sample → BiometricSample，13 條 |
+| `5d2a598` | `adapters/healthConnectMapping.ts` —— Health Connect record → BiometricSample，11 條 |
+
+devices feature 累計 92 條測試，`verify.sh` 全綠。
+
+## 教訓
+
+1. 🔴 **「等 Mac」其實不精確，害我自己重複講了好幾輪。** EAS Build 是在 Expo 的**雲端 macOS** 上編譯，
+   不需要自己有 Mac。真正的前置條件是 **Expo 帳號 + Apple Developer Program 年費**（把 dev build 裝進
+   實體 iPhone 要 provisioning），外加「Expo Go 載不了自訂原生模組，必須 development build」。
+   → 已寫進 `docs/WEARABLE-INTEGRATION.md` §5「沒有 Mac 也能建 iOS 版」。
+   ⚠️ 若借得到 Android 手機，Health Connect 與 BLE 兩條可以**零費用**先驗（APK 側載）。
+2. **無法驗證的原生橋接比沒有橋接更危險** —— 它會讓連接頁開始說謊（顯示已連接但永遠沒資料）。
+   所以停在轉換層是刻意的，不是偷懶。
+3. **單位是這一層唯一真正的風險，而且錯了不會 crash、只會安靜地移動基線。**
+   三個具體案例都變成測試：RR interval 是 1/1024 秒不是毫秒（800 raw = 781ms）；
+   HealthKit 的 percent 是分數（0.97 = 97%）；SDNN 從 Apple 來可能是秒。
+   做法是**兩道網**：adapter 不猜單位（沒告知就拒收）＋ 每筆再過一次 domain validator
+   的生理合理範圍。單靠任何一道都不夠。
+4. **一個平台一支 mapper，不要為了 DRY 合併** —— Apple 給 SDNN、Health Connect 給 RMSSD，
+   分開寫才讓那個差異在結構上無法被含糊帶過（各自只生得出自己那個 metric，有測試釘住）。
+5. TS 的 discriminated union 加一個 `{ recordType: string }` catch-all 成員會**整組失去 narrowing**。
+   正解是把 catch-all 拿掉、在邊界做一次 deliberate cast（bridge payload 在 runtime 本來就沒型別），
+   型別對但形狀壞掉的資料交給 validator 擋。
+
+## 下次接手點
+
+- 前置條件到位後（Expo 帳號／Apple Developer），原生層只剩「拿資料 → 餵進 mapper」與實作
+  `DeviceLinkPort`；容易錯的部分都已經測完。
+- 三支 mapper 都**沒有在真實裝置資料上跑過** —— 第一次接上時要抽驗實際單位字串是否落在
+  accepted 清單裡（不在就會被拒收，那是設計行為，補進表即可）。
+
 # 2026-09-04 Session Update #72 (Devices 頁收尾＋PR #244 merge；以及我沒 grep PLAYBOOK 就重推了一次)
 
 同一天稍晚。PR #243（Phase 0）與 #244（Devices 連接頁非原生部分）都已 merge 進 main。
