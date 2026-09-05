@@ -398,10 +398,19 @@ checkTruthy(`收束頁說得出判定（${sheet.outcome}）`, !!(sheet.outcome |
 // 同標的更新現在有真數字了（§8 的跨頁標記記的），收束頁要說得出來。
 // ⚠️ 但「0 次」仍然是紅線：那是「有在數而且真的沒有」與「不知道」被混成同一句話
 // 的老傷 —— 不知道時 renderRecap 必須整列不出現。
-checkTruthy('🔴 收束頁印出真的同標的更新次數（不是留白、也不是 0）',
-  /同標的更新：1\s*次/.test(await page.textContent('#resultRecapList')));
-check('🔴 收束頁不得印「同標的更新：0 次」（不知道就別說否定）',
-  /同標的更新：0\s*次/.test(await page.textContent('#resultRecapList')), false);
+//
+// 🔴 這兩條原本是拿整段 textContent 比 `/同標的更新：1 次/`。2026-09-05 收束頁
+// 改成欄位表（標籤與值各自一個 span，中間沒有冒號了），第一條當場紅 ——
+// **而第二條變成永遠綠的死斷言**：冒號不存在，`同標的更新：0 次` 再也不可能 match，
+// 就算真的印出 0 次它也抓不到。一條紅的旁邊常常站著一條默默失效的，要一起看。
+// 改成問**結構**（依標籤找到那一列，讀它的值），呈現再變也不會誤判。
+const sameSymRow = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('#resultRecapList .result-recap-row')]
+    .find((r) => r.querySelector('.rc-label')?.textContent === '同標的更新');
+  return row ? (row.querySelector('.rc-value')?.textContent ?? '').trim() : null;
+});
+check('🔴 收束頁印出真的同標的更新次數（不是留白、也不是 0）', sameSymRow, '1 次');
+check('🔴 收束頁不得印「同標的更新：0 次」（不知道就別說否定）', sameSymRow === '0 次', false);
 
 checkTruthy('收束頁的 recap 說得出離開次數（v6 記的欄位接上了）',
   /離開|沒有離開/.test(sheet.recap || ''));
