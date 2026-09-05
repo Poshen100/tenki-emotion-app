@@ -1160,23 +1160,41 @@
     requestAnimationFrame(step);
   }
 
-  // 完成率數字遞增（0 → 最終%）。末值與 rateText 完全一致（供頁面與測試對齊）。
+  /**
+   * 把完成率寫成「大數字 + 小註腳」兩段（收束頁的儀器表頭用）。
+   * 🔴 只有 `.num` 走等寬 —— 註腳是中文，等寬 CJK 會撐成全形方塊。
+   * ⚠️ `#resultRate` 的 textContent 仍然含「NN%」：preview-strip-color.mjs
+   * 在驗 /100%/，把它拆成節點不能讓那條斷言紅。
+   * @param {HTMLElement} node #resultRate
+   * @param {string} value 大數字（'100%' 或 '—'）
+   * @param {string} sub 註腳（'（1/1）'…），可為空
+   */
+  function setRateNode(node, value, sub) {
+    node.textContent = '';
+    var v = document.createElement('span'); v.className = 'num'; v.textContent = value;
+    node.appendChild(v);
+    if (sub) { var t = document.createElement('span'); t.className = 'sub'; t.textContent = sub; node.appendChild(t); }
+  }
+
+  // 完成率數字遞增（0 → 最終%）。末值與 rateText 的數字完全一致（供頁面與測試對齊）。
+  // ⚠️ 標題文字「紀律完成率：」不再由這裡印 —— 它現在是表頭左邊那個微標籤。
+  // rateText() 本身一個字不動：進入決策面板（renderEntryDiscipline）還在共用它。
   function countUpRate(records, animate) {
     var node = el.resultRate;
     if (!node) return;
-    if (records.length === 0) { node.textContent = rateText(records); return; }
+    if (records.length === 0) { setRateNode(node, '—', '（資料累積中）'); return; }
     var d = 0;
     records.forEach(function (r) { if (isDisciplined(r.outcomeTag)) d += 1; });
     var finalPct = Math.round((d / records.length) * 100);
-    var suffix = '%（' + d + '/' + records.length + '）' + schemaNote(records);
-    if (!animate) { node.textContent = '紀律完成率：' + finalPct + suffix; return; }
+    var suffix = '（' + d + '/' + records.length + '）' + schemaNote(records);
+    if (!animate) { setRateNode(node, finalPct + '%', suffix); return; }
     var t0 = null, dur = 600;
     function step(ts) {
       if (t0 === null) t0 = ts;
       var p = Math.min((ts - t0) / dur, 1);
-      node.textContent = '紀律完成率：' + Math.round(finalPct * easeOutCubic(p)) + suffix;
+      setRateNode(node, Math.round(finalPct * easeOutCubic(p)) + '%', suffix);
       if (p < 1) requestAnimationFrame(step);
-      else node.textContent = '紀律完成率：' + finalPct + suffix;
+      else setRateNode(node, finalPct + '%', suffix);
     }
     requestAnimationFrame(step);
   }
@@ -1342,7 +1360,8 @@
     if (el.resultArcGlow) el.resultArcGlow.classList.remove('pulse');
     revealItems.forEach(function (node) { if (node) node.classList.remove('in'); });
     el.resultSheet.classList.toggle('reveal', animate);
-    el.resultRate.textContent = animate ? '紀律完成率：0%' : rateText(withThis);
+    if (animate) setRateNode(el.resultRate, '0%', '');
+    else countUpRate(withThis, false);
     el.resultMeterFill.style.width = '0';
 
     openSheet(el.resultSheet);

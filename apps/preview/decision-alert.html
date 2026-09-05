@@ -274,6 +274,21 @@
     .result-history-link { cursor: pointer; }
     .result-history-link:active { opacity: 0.75; }
     .result-block-label { font-size: 11px; letter-spacing: 0.08em; color: #64748B; text-transform: uppercase; margin-bottom: 8px; }
+    /* 儀器表頭：左微標籤、右數字、底下一條 hairline。
+       ⚠️ 完成率數字是**搬**上來的（原本在 meter 下面自己一行），不是新增 ——
+       所以這一列的高度成本是負的，實測 sheet 568 → 563。 */
+    .result-block-head {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+      padding-bottom: 5px; margin-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    .result-block-head .result-block-label { margin-bottom: 0; }
+    .result-rate { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+    /* 「量」的樣子：等寬、tabular、比周圍大一級。中文註腳不吃等寬。 */
+    .result-rate .num {
+      font-family: var(--mono); font-variant-numeric: tabular-nums;
+      font-size: 15px; font-weight: 600; letter-spacing: 0.02em; color: #E5E7EB;
+    }
+    .result-rate .sub { font-size: 10px; color: #64748B; }
     .result-meter { height: 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
     .result-meter-fill { height: 100%; width: 0; border-radius: 4px; background: linear-gradient(90deg, var(--zone-clear), var(--cyan-active)); transition: width 0.9s var(--ease-calm); }
     .result-strip { display: flex; gap: 4px; margin-top: 10px; align-items: center; }
@@ -711,14 +726,18 @@
     </div>
 
     <div class="result-block reveal-item result-history-link" id="resultHistory">
-      <div class="result-block-label">紀律近況 · 決策紀錄 ›</div>
+      <div class="result-block-head">
+        <span class="result-block-label">紀律近況 · 決策紀錄 ›</span>
+        <span class="result-rate" id="resultRate"></span>
+      </div>
       <div class="result-meter"><div class="result-meter-fill" id="resultMeterFill"></div></div>
-      <div class="stat-sub" id="resultRate"></div>
       <div class="result-strip" id="resultStrip"></div>
     </div>
 
     <div class="result-block reveal-item" id="resultRecap">
-      <div class="result-block-label">這次的決策軌跡</div>
+      <div class="result-block-head">
+        <span class="result-block-label">這次的決策軌跡</span>
+      </div>
       <div class="result-recap" id="resultRecapList"></div>
     </div>
 
