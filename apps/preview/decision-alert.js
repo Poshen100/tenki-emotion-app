@@ -1214,29 +1214,53 @@
   }
 
   // 本次事件鏈 recap（流程語言、事實）：快訊 → 同標的更新 → Readiness → 收束。
+  /**
+   * 值欄的一個片段。`num: true` 的才走等寬（--mono）。
+   * 🔴 **不自動偵測數字**：`ES1!` 裡有一個 1，自動偵測會把 "ES" 排成比例字、
+   * "1" 排成等寬，同一個代號兩種字體。哪些片段是「量」由呼叫端明講。
+   * @param {string} t 文字
+   * @param {boolean} [num] 是否為數字/代號（走等寬）
+   */
+  function seg(t, num) { return { t: String(t), num: !!num }; }
+
   function renderRecap(judgment, s) {
     var list = el.resultRecapList;
     if (!list) return;
     list.textContent = '';
     var disp = outcomeDisplay(judgment);
+    // 欄位表：標籤 : 值。值欄左緣靠 .rc-label 的固定寬對齊成一條線。
     var rows = [
-      { cls: 'on', text: '快訊收到 · ' + s.symbol + '（' + s.tplName + '）' },
+      // 標的代號整段走等寬 —— 它是代號不是句子（跟模板表的 .tpl-code 同一個理由）。
+      { cls: 'on', label: '標的', segs: [seg(s.symbol + ' · ' + s.tplName, true)] },
       // 缺欄位就不准說否定：不知道就整列不出現，不印「0 次」（PLAYBOOK）。
       typeof s.sameSymbolUpdates === 'number'
-        ? { cls: s.sameSymbolUpdates > 0 ? 'on' : '', text: '同標的更新：' + s.sameSymbolUpdates + ' 次' }
+        ? { cls: s.sameSymbolUpdates > 0 ? 'on' : '', label: '同標的更新',
+            segs: [seg(s.sameSymbolUpdates, true), seg(' 次')] }
         : null,
       // 事實，不是扣分項：在桌機/券商 APP 下單本來就會離開。
-      { cls: '', text: s.awayCount > 0
-        ? '守望期間離開 ' + s.awayCount + ' 次 · 共 ' + formatClock(Math.round(s.awayMs / 1000))
-        : '守望期間沒有離開' },
-      { cls: disp.cls === 'disciplined' ? 'on' : 'off', text: '判定：' + disp.text + ' · 等了 ' + formatClock(s.elapsedSec) },
+      { cls: '', label: '期間離開', segs: s.awayCount > 0
+        ? [seg(s.awayCount, true), seg(' 次 · '), seg(formatClock(Math.round(s.awayMs / 1000)), true)]
+        : [seg('沒有離開')] },
+      { cls: disp.cls === 'disciplined' ? 'on' : 'off', label: '判定', segs: [seg(disp.text)] },
+      // 「等了 NN:NN」原本擠在判定那句的尾巴。它是一個**量**，不是判定的形容詞
+      // —— 給它自己的欄位，數字才對得齊上面那些。
+      { cls: '', label: '等待', segs: [seg(formatClock(s.elapsedSec), true)] },
     ];
     rows.filter(Boolean).forEach(function (row) {
       var rowEl = document.createElement('div');
       rowEl.className = 'result-recap-row ' + row.cls;
-      var dot = document.createElement('span'); dot.className = 'rc-dot';
-      var txt = document.createElement('span'); txt.textContent = row.text;
-      rowEl.appendChild(dot); rowEl.appendChild(txt);
+      var lab = document.createElement('span');
+      lab.className = 'rc-label';
+      lab.textContent = row.label;
+      var val = document.createElement('span');
+      val.className = 'rc-value';
+      row.segs.forEach(function (sg) {
+        var node = document.createElement('span');
+        if (sg.num) node.className = 'num';
+        node.textContent = sg.t;
+        val.appendChild(node);
+      });
+      rowEl.appendChild(lab); rowEl.appendChild(val);
       list.appendChild(rowEl);
     });
   }
