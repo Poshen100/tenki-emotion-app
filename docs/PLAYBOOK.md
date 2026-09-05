@@ -322,6 +322,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | stop-hook 警告 main 頂端 commit「Unverified（noreply@github.com）」並建議 amend | **誤報，絕不可照做**——那是 GitHub 自己產生的 merge/squash commit，amend＝改寫 main 歷史。只有「未推的本地 commit」才適用 reset-author 修簽名 |
 | clone 異常肥大 / 大型 merge 之後 | `.gitignore` **擋不住已被 add 的檔案**。抽查 `git ls-files \| grep -c node_modules`——#154 曾把 38,641 個 `apps/mobile/node_modules` 檔案（Skia 44MB .a 等）commit 進 main，clone 肥到 350MB 才被發現。修法 `git rm -r --cached <dir>`（磁碟保留）；歷史 blob 清洗（filter-repo）屬 🔴 需 founder 拍板＋全 session 重 clone |
 | 收到 Antigravity 的 patch relay（貼 diff） | 先 `git log --stat` 驗 base 乾淨；**不要盲 `git apply`**，用 Edit 對真實檔案逐段重建（順帶就是 review）；大檔改貼 `git show HEAD:<file>` 全文更可靠 |
+| 兩條分支都會往**同一個位置**插東西的檔案（MEMORY.md 這種日誌、CHANGELOG、共用清單） | 🔴 **不要用單調遞增的流水號當識別。** 判準：識別欄位要能在兩條分支**各自往前走之後**仍然唯一 —— 日期、內容雜湊、分支名可以，`#NN` 不行。2026-09-05 實例：MEMORY.md 的 `#68` `#69` `#70` `#71` `#72` **五組各有兩條完全無關的紀錄**，跨三次併分支累積，而且我查的當天又多出一組。後果是協議承諾的兩種讀法**同時失效** ——`grep "#71"` 回兩條無關紀錄，而「最上面 1~2 條」也不再是日期最新的（解衝突時兩邊條目各自成塊，塊內有序、塊間不一定）。⚠️ **發現時不要重編號**：那要動幾百行別人寫的紀錄，風險遠大於收益 ——壞的不是那些條目，是**規則宣稱了一件它守不住的事**，所以修的是規則（founder 2026-09-05 拍板）。⚠️ 這個形狀不限於 MEMORY.md：任何「兩邊都往同一處插入」的檔案都會長出它，而且**每次併分支只多一組、沒有人會為了一組去動它**，所以它專門靠「留給下一輪」活下來。 |
 | 背景 agent 宣稱完成 | 不可信，用 `git log` 驗實際 commits（agent 可能中途被用量上限砍掉） |
 | 雲端環境查 CI | **無 `gh` CLI**。用 GitHub MCP `pull_request_read(get_check_runs)`；用 gh 或未帶 token 的 curl 會空轉 |
 | Vercel 部署驗證 | 部署有 protection，匿名 WebFetch 會 403；分支 preview 連結在 PR 頁的 Vercel bot 留言 |
