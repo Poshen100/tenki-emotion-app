@@ -7,7 +7,12 @@ import {
 const NOW = 1_760_000_000_000;
 const RECENT = NOW - 60_000;
 
-function record(overrides: Partial<RawHealthConnectRecord> = {}): RawHealthConnectRecord {
+/**
+ * Builds a record the way the bridge would. Takes loose fields on purpose: a
+ * Health Connect payload carries different fields per record type, and this
+ * helper stands in for that untyped boundary.
+ */
+function record(overrides: Record<string, unknown> = {}): RawHealthConnectRecord {
   return {
     recordType: 'HeartRate',
     beatsPerMinute: 62,
@@ -38,7 +43,7 @@ describe('mapHealthConnectRecord', () => {
       record({
         recordType: 'HeartRateVariabilityRmssd',
         heartRateVariabilityMillis: 44,
-      } as Partial<RawHealthConnectRecord>),
+      }),
       'context',
       NOW,
     );
@@ -55,7 +60,7 @@ describe('mapHealthConnectRecord', () => {
       record({
         recordType: 'HeartRateVariabilityRmssd',
         heartRateVariabilityMillis: 44,
-      } as Partial<RawHealthConnectRecord>),
+      }),
       'context',
       NOW,
     );
@@ -66,7 +71,7 @@ describe('mapHealthConnectRecord', () => {
 
   it('takes SpO2 as an already-scaled percentage, unlike HealthKit', () => {
     const result = mapHealthConnectRecord(
-      record({ recordType: 'OxygenSaturation', percentage: 97 } as Partial<RawHealthConnectRecord>),
+      record({ recordType: 'OxygenSaturation', percentage: 97 }),
       'context',
       NOW,
     );
@@ -81,7 +86,7 @@ describe('mapHealthConnectRecord', () => {
         recordType: 'ActiveCaloriesBurned',
         energy: { unit: 'joules', value: 4184 },
         endTime: RECENT,
-      } as Partial<RawHealthConnectRecord>),
+      }),
       'context',
       NOW,
     );
@@ -93,7 +98,7 @@ describe('mapHealthConnectRecord', () => {
         recordType: 'ActiveCaloriesBurned',
         energy: { unit: 'calories', value: 500 },
         endTime: RECENT,
-      } as unknown as Partial<RawHealthConnectRecord>),
+      }),
       'context',
       NOW,
     );
@@ -108,7 +113,7 @@ describe('mapHealthConnectRecord', () => {
         recordType: 'SleepSession',
         startTime: endTime - 7 * 3_600_000,
         endTime,
-      } as Partial<RawHealthConnectRecord>),
+      }),
       'context',
       NOW,
     );
@@ -126,7 +131,7 @@ describe('mapHealthConnectRecord', () => {
         recordType: 'SleepSession',
         startTime: NOW,
         endTime: NOW - 1000,
-      } as Partial<RawHealthConnectRecord>),
+      }),
       'context',
       NOW,
     );
@@ -135,7 +140,7 @@ describe('mapHealthConnectRecord', () => {
 
   it('ignores record types TENKI does not consume', () => {
     const result = mapHealthConnectRecord(
-      record({ recordType: 'BodyTemperature' } as Partial<RawHealthConnectRecord>),
+      record({ recordType: 'BodyTemperature' }),
       'context',
       NOW,
     );
