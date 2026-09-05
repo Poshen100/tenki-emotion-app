@@ -234,12 +234,20 @@
          （量過：文字 103px、容器 128px，看起來像溢出其實是撞線）。 */
       .result-sheet .result-arc-center { padding: 0 22px; }
       .result-sheet .result-arc-time { font-size: 11px; margin-top: 3px; }
+      /* 決策軌跡在短視窗再密一格。⚠️ 這是**買空間**不是隨手調：
+         2026-09-05 把軌跡從散文改成欄位表（多了「等待」一列 + hairline），
+         660px 實測 sheet 561 → 578，而上限是 88dvh = 580 —— 只剩 2px。
+         PLAYBOOK 記載過「只剩 4px 餘裕，字型稍微換一下就紅」是同一族的傷，
+         2px 更糟。這一條把列距收到 2px，578 → 568，餘裕回到 12px。
+         壓的是留白，**一個欄位都沒砍**（跟這個 media query 其餘各條同一個原則）。 */
+      .result-sheet .result-recap-row { padding-top: 2px; padding-bottom: 2px; }
     }
     .result-arc-center {
       position: absolute; inset: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; text-align: center; padding: 0 22px;
     }
     .result-arc-time { font-size: 12px; color: #94A3B8; margin-top: 5px; font-variant-numeric: tabular-nums; }
+    .result-arc-time .num { font-family: var(--mono); letter-spacing: 0.02em; color: #CBD5E1; }
     /* 揭示編排：一次性微光 breath + outcome 落定 + 下方區塊 cascade（reduced-motion 一律終態）*/
     .result-arc-glow {
       position: absolute; top: 50%; left: 50%; width: 150px; height: 150px; margin: -75px 0 0 -75px;
@@ -267,16 +275,64 @@
     .result-history-link { cursor: pointer; }
     .result-history-link:active { opacity: 0.75; }
     .result-block-label { font-size: 11px; letter-spacing: 0.08em; color: #64748B; text-transform: uppercase; margin-bottom: 8px; }
+    /* 儀器表頭：左微標籤、右數字、底下一條 hairline。
+       ⚠️ 完成率數字是**搬**上來的（原本在 meter 下面自己一行），不是新增 ——
+       所以這一列的高度成本是負的，實測 sheet 568 → 563。 */
+    .result-block-head {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+      padding-bottom: 5px; margin-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    .result-block-head .result-block-label { margin-bottom: 0; }
+    .result-rate { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+    /* 「量」的樣子：等寬、tabular、比周圍大一級。中文註腳不吃等寬。 */
+    .result-rate .num {
+      font-family: var(--mono); font-variant-numeric: tabular-nums;
+      font-size: 15px; font-weight: 600; letter-spacing: 0.02em; color: #E5E7EB;
+    }
+    .result-rate .sub { font-size: 10px; color: #64748B; }
     .result-meter { height: 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
     .result-meter-fill { height: 100%; width: 0; border-radius: 4px; background: linear-gradient(90deg, var(--zone-clear), var(--cyan-active)); transition: width 0.9s var(--ease-calm); }
     .result-strip { display: flex; gap: 4px; margin-top: 10px; align-items: center; }
     .result-seg { flex: 1; height: 18px; border-radius: 4px; background: var(--border); min-width: 0; transition: opacity 0.3s; }
     .result-seg.now { outline: 2px solid rgba(var(--cyan-active-rgb), 0.6); outline-offset: 1px; height: 22px; }
-    .result-recap { display: flex; flex-direction: column; gap: 8px; }
-    .result-recap-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #CBD5E1; }
-    .result-recap-row .rc-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--zone-neutral); }
-    .result-recap-row.on .rc-dot { background: var(--cyan-active); }
-    .result-recap-row.off .rc-dot { background: var(--zone-strain); }
+    /* ── 決策軌跡：欄位表，不是散文 ──
+       founder 2026-09-05 給了三張參考（彭博終端機的交易確認畫面等），要的是
+       「頂級專業交易者平台」的手感。**這一頁不是新設計** —— 同一份檔案的模板表
+       （.tpl-status / .tpl-head / .tpl-row，見下面約 :405 那段註解）2026-08-09
+       就已經照終端機做過一次了，這裡是把那套語言接到收束頁，值一律沿用它的：
+       9~10px 微標籤、0.08~0.14em 字距、1px hairline、零圓角、欄位固定寬對齊。
+
+       🔴 **不抄琥珀色**（founder 2026-09-05 拍板）。實測彭博琥珀 #FFA028 落在
+       hue 69.1°，而它兩邊站著 --zone-strain(56.0°，「該休息」) 與
+       --gold-secured(86.4°，SECURED)，跟 --warning #F5A623 更是 ΔE 只有 7.5
+       —— 鋪成主色等於同時弄壞兩個已經有主人的語義。cyan-on-black 的儀器感
+       一點都不輸 amber-on-black。
+
+       🔴 狀態色從圓點改成**左緣 2px 色條**：彭博沒有圓點，而且色條吃 0 垂直空間
+       —— 這一頁在 660px in-app 瀏覽器只剩 19px 餘裕（實測 sheet 561 / 上限
+       88dvh=580），每一 px 都要付得出理由。 */
+    .result-recap { display: flex; flex-direction: column; }
+    .result-recap-row {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 3px 0 3px 8px; border-bottom: 1px solid var(--border);
+      border-left: 2px solid transparent; border-radius: 0;
+      font-size: 12px; line-height: 1.25; color: #CBD5E1;
+    }
+    .result-recap-row:last-child { border-bottom: none; }
+    .result-recap-row.on { border-left-color: var(--cyan-active); }
+    .result-recap-row.off { border-left-color: var(--zone-strain); }
+    /* 固定寬才是「對齊」的來源 —— 值欄的左緣因此在每一列都落在同一個 x。
+       ⚠️ 標籤是中文，**不吃 --mono**（等寬 CJK 會撐成全形方塊）。 */
+    .result-recap-row .rc-label {
+      flex: none; width: 62px; font-size: 10px; letter-spacing: 0.06em;
+      color: #64748B; white-space: nowrap;
+    }
+    .result-recap-row .rc-value { flex: 1; min-width: 0; }
+    /* 數字與代號才走等寬 —— 這就是「量得出來」的樣子。 */
+    .result-recap-row .num {
+      font-family: var(--mono); font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em; color: #E5E7EB;
+    }
     .result-reflect-wrap { margin-top: 16px; }
     .result-reflect-q { font-size: 13px; color: #CBD5E1; }
     .result-reflect { display: flex; gap: 8px; margin-top: 8px; }
@@ -671,14 +727,18 @@
     </div>
 
     <div class="result-block reveal-item result-history-link" id="resultHistory">
-      <div class="result-block-label">紀律近況 · 決策紀錄 ›</div>
+      <div class="result-block-head">
+        <span class="result-block-label">紀律近況 · 決策紀錄 ›</span>
+        <span class="result-rate" id="resultRate"></span>
+      </div>
       <div class="result-meter"><div class="result-meter-fill" id="resultMeterFill"></div></div>
-      <div class="stat-sub" id="resultRate"></div>
       <div class="result-strip" id="resultStrip"></div>
     </div>
 
     <div class="result-block reveal-item" id="resultRecap">
-      <div class="result-block-label">這次的決策軌跡</div>
+      <div class="result-block-head">
+        <span class="result-block-label">這次的決策軌跡</span>
+      </div>
       <div class="result-recap" id="resultRecapList"></div>
     </div>
 
@@ -746,6 +806,6 @@
   <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do1"></script>
-  <script src="decision-alert.js?v=alert34"></script>
+  <script src="decision-alert.js?v=alert35"></script>
 </body>
 </html>

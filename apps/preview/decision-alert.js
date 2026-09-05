@@ -1160,23 +1160,41 @@
     requestAnimationFrame(step);
   }
 
-  // 完成率數字遞增（0 → 最終%）。末值與 rateText 完全一致（供頁面與測試對齊）。
+  /**
+   * 把完成率寫成「大數字 + 小註腳」兩段（收束頁的儀器表頭用）。
+   * 🔴 只有 `.num` 走等寬 —— 註腳是中文，等寬 CJK 會撐成全形方塊。
+   * ⚠️ `#resultRate` 的 textContent 仍然含「NN%」：preview-strip-color.mjs
+   * 在驗 /100%/，把它拆成節點不能讓那條斷言紅。
+   * @param {HTMLElement} node #resultRate
+   * @param {string} value 大數字（'100%' 或 '—'）
+   * @param {string} sub 註腳（'（1/1）'…），可為空
+   */
+  function setRateNode(node, value, sub) {
+    node.textContent = '';
+    var v = document.createElement('span'); v.className = 'num'; v.textContent = value;
+    node.appendChild(v);
+    if (sub) { var t = document.createElement('span'); t.className = 'sub'; t.textContent = sub; node.appendChild(t); }
+  }
+
+  // 完成率數字遞增（0 → 最終%）。末值與 rateText 的數字完全一致（供頁面與測試對齊）。
+  // ⚠️ 標題文字「紀律完成率：」不再由這裡印 —— 它現在是表頭左邊那個微標籤。
+  // rateText() 本身一個字不動：進入決策面板（renderEntryDiscipline）還在共用它。
   function countUpRate(records, animate) {
     var node = el.resultRate;
     if (!node) return;
-    if (records.length === 0) { node.textContent = rateText(records); return; }
+    if (records.length === 0) { setRateNode(node, '—', '（資料累積中）'); return; }
     var d = 0;
     records.forEach(function (r) { if (isDisciplined(r.outcomeTag)) d += 1; });
     var finalPct = Math.round((d / records.length) * 100);
-    var suffix = '%（' + d + '/' + records.length + '）' + schemaNote(records);
-    if (!animate) { node.textContent = '紀律完成率：' + finalPct + suffix; return; }
+    var suffix = '（' + d + '/' + records.length + '）' + schemaNote(records);
+    if (!animate) { setRateNode(node, finalPct + '%', suffix); return; }
     var t0 = null, dur = 600;
     function step(ts) {
       if (t0 === null) t0 = ts;
       var p = Math.min((ts - t0) / dur, 1);
-      node.textContent = '紀律完成率：' + Math.round(finalPct * easeOutCubic(p)) + suffix;
+      setRateNode(node, Math.round(finalPct * easeOutCubic(p)) + '%', suffix);
       if (p < 1) requestAnimationFrame(step);
-      else node.textContent = '紀律完成率：' + finalPct + suffix;
+      else setRateNode(node, finalPct + '%', suffix);
     }
     requestAnimationFrame(step);
   }
@@ -1214,29 +1232,53 @@
   }
 
   // 本次事件鏈 recap（流程語言、事實）：快訊 → 同標的更新 → Readiness → 收束。
+  /**
+   * 值欄的一個片段。`num: true` 的才走等寬（--mono）。
+   * 🔴 **不自動偵測數字**：`ES1!` 裡有一個 1，自動偵測會把 "ES" 排成比例字、
+   * "1" 排成等寬，同一個代號兩種字體。哪些片段是「量」由呼叫端明講。
+   * @param {string} t 文字
+   * @param {boolean} [num] 是否為數字/代號（走等寬）
+   */
+  function seg(t, num) { return { t: String(t), num: !!num }; }
+
   function renderRecap(judgment, s) {
     var list = el.resultRecapList;
     if (!list) return;
     list.textContent = '';
     var disp = outcomeDisplay(judgment);
+    // 欄位表：標籤 : 值。值欄左緣靠 .rc-label 的固定寬對齊成一條線。
     var rows = [
-      { cls: 'on', text: '快訊收到 · ' + s.symbol + '（' + s.tplName + '）' },
+      // 標的代號整段走等寬 —— 它是代號不是句子（跟模板表的 .tpl-code 同一個理由）。
+      { cls: 'on', label: '標的', segs: [seg(s.symbol + ' · ' + s.tplName, true)] },
       // 缺欄位就不准說否定：不知道就整列不出現，不印「0 次」（PLAYBOOK）。
       typeof s.sameSymbolUpdates === 'number'
-        ? { cls: s.sameSymbolUpdates > 0 ? 'on' : '', text: '同標的更新：' + s.sameSymbolUpdates + ' 次' }
+        ? { cls: s.sameSymbolUpdates > 0 ? 'on' : '', label: '同標的更新',
+            segs: [seg(s.sameSymbolUpdates, true), seg(' 次')] }
         : null,
       // 事實，不是扣分項：在桌機/券商 APP 下單本來就會離開。
-      { cls: '', text: s.awayCount > 0
-        ? '守望期間離開 ' + s.awayCount + ' 次 · 共 ' + formatClock(Math.round(s.awayMs / 1000))
-        : '守望期間沒有離開' },
-      { cls: disp.cls === 'disciplined' ? 'on' : 'off', text: '判定：' + disp.text + ' · 等了 ' + formatClock(s.elapsedSec) },
+      { cls: '', label: '期間離開', segs: s.awayCount > 0
+        ? [seg(s.awayCount, true), seg(' 次 · '), seg(formatClock(Math.round(s.awayMs / 1000)), true)]
+        : [seg('沒有離開')] },
+      { cls: disp.cls === 'disciplined' ? 'on' : 'off', label: '判定', segs: [seg(disp.text)] },
+      // 「等了 NN:NN」原本擠在判定那句的尾巴。它是一個**量**，不是判定的形容詞
+      // —— 給它自己的欄位，數字才對得齊上面那些。
+      { cls: '', label: '等待', segs: [seg(formatClock(s.elapsedSec), true)] },
     ];
     rows.filter(Boolean).forEach(function (row) {
       var rowEl = document.createElement('div');
       rowEl.className = 'result-recap-row ' + row.cls;
-      var dot = document.createElement('span'); dot.className = 'rc-dot';
-      var txt = document.createElement('span'); txt.textContent = row.text;
-      rowEl.appendChild(dot); rowEl.appendChild(txt);
+      var lab = document.createElement('span');
+      lab.className = 'rc-label';
+      lab.textContent = row.label;
+      var val = document.createElement('span');
+      val.className = 'rc-value';
+      row.segs.forEach(function (sg) {
+        var node = document.createElement('span');
+        if (sg.num) node.className = 'num';
+        node.textContent = sg.t;
+        val.appendChild(node);
+      });
+      rowEl.appendChild(lab); rowEl.appendChild(val);
       list.appendChild(rowEl);
     });
   }
@@ -1277,7 +1319,12 @@
     el.resultOutcome.textContent = disp.text;
     el.resultOutcome.className = 'result-outcome ' + disp.cls;
     // 沒有分母了 —— 沒有「應該等多久」這回事（§7 step 3 沒有時間表）。
-    el.resultArcTime.textContent = '等了 ' + formatClock(s.elapsedSec);
+    // 數字走等寬（跟軌跡表的 .num 同一個理由），「等了」兩個中文字不走。
+    el.resultArcTime.textContent = '等了 ';
+    var arcNum = document.createElement('span');
+    arcNum.className = 'num';
+    arcNum.textContent = formatClock(s.elapsedSec);
+    el.resultArcTime.appendChild(arcNum);
     renderMomentumStrip(withThis);
     renderRecap(judgment, s);
 
@@ -1318,7 +1365,8 @@
     if (el.resultArcGlow) el.resultArcGlow.classList.remove('pulse');
     revealItems.forEach(function (node) { if (node) node.classList.remove('in'); });
     el.resultSheet.classList.toggle('reveal', animate);
-    el.resultRate.textContent = animate ? '紀律完成率：0%' : rateText(withThis);
+    if (animate) setRateNode(el.resultRate, '0%', '');
+    else countUpRate(withThis, false);
     el.resultMeterFill.style.width = '0';
 
     openSheet(el.resultSheet);
