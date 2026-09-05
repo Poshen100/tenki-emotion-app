@@ -247,6 +247,7 @@
       align-items: center; justify-content: center; text-align: center; padding: 0 22px;
     }
     .result-arc-time { font-size: 12px; color: #94A3B8; margin-top: 5px; font-variant-numeric: tabular-nums; }
+    .result-arc-time .num { font-family: var(--mono); letter-spacing: 0.02em; color: #CBD5E1; }
     /* 揭示編排：一次性微光 breath + outcome 落定 + 下方區塊 cascade（reduced-motion 一律終態）*/
     .result-arc-glow {
       position: absolute; top: 50%; left: 50%; width: 150px; height: 150px; margin: -75px 0 0 -75px;
@@ -805,6 +806,6 @@
   <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do1"></script>
-  <script src="decision-alert.js?v=alert34"></script>
+  <script src="decision-alert.js?v=alert35"></script>
 </body>
 </html>

@@ -1319,7 +1319,12 @@
     el.resultOutcome.textContent = disp.text;
     el.resultOutcome.className = 'result-outcome ' + disp.cls;
     // 沒有分母了 —— 沒有「應該等多久」這回事（§7 step 3 沒有時間表）。
-    el.resultArcTime.textContent = '等了 ' + formatClock(s.elapsedSec);
+    // 數字走等寬（跟軌跡表的 .num 同一個理由），「等了」兩個中文字不走。
+    el.resultArcTime.textContent = '等了 ';
+    var arcNum = document.createElement('span');
+    arcNum.className = 'num';
+    arcNum.textContent = formatClock(s.elapsedSec);
+    el.resultArcTime.appendChild(arcNum);
     renderMomentumStrip(withThis);
     renderRecap(judgment, s);
 
