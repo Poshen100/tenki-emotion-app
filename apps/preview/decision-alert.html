@@ -25,7 +25,7 @@
     html, body {
       height: 100vh; height: 100dvh;
       background: var(--bg-space);
-      color: #E5E7EB;
+      color: var(--n-200);
       font-family: -apple-system, "SF Pro Text", "PingFang TC", "Noto Sans TC", sans-serif;
       overscroll-behavior: none;
       -webkit-user-select: none; user-select: none;
@@ -39,9 +39,9 @@
 
     /* ── Header ── */
     header { flex: none; padding-bottom: 12px; }
-    .kicker { font-size: 11px; letter-spacing: 0.14em; color: #64748B; text-transform: uppercase; }
+    .kicker { font-size: 11px; letter-spacing: 0.14em; color: var(--n-500); text-transform: uppercase; }
     h1 { font-size: 20px; font-weight: 700; margin-top: 4px; }
-    .demo-note { margin-top: 6px; font-size: 11px; color: #64748B; }
+    .demo-note { margin-top: 6px; font-size: 11px; color: var(--n-500); }
 
     /* ── State card ── */
     .state-card {
@@ -53,23 +53,23 @@
     .state-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; transition: opacity 0.3s var(--ease-calm); }
     .state-main { flex: 1; min-width: 0; }
     .state-line { font-size: 14px; font-weight: 600; }
-    .state-sub { font-size: 11px; color: #64748B; margin-top: 2px; }
-    .state-tap { font-size: 11px; color: #64748B; flex: none; }
+    .state-sub { font-size: 11px; color: var(--n-500); margin-top: 2px; }
+    .state-tap { font-size: 11px; color: var(--n-500); flex: none; }
     /* 示意模式：一眼看得出這張卡現在講的不是真讀數（虛線邊 + 副標自己承認）。 */
     .state-card.demo { border-style: dashed; border-color: rgba(148, 163, 184, 0.45); }
-    .state-card.demo .state-sub { color: #94A3B8; }
+    .state-card.demo .state-sub { color: var(--n-400); }
 
     /* ── Sim controls ── */
     .sim-row { flex: none; display: flex; gap: 8px; margin-bottom: 12px; }
     .sim-btn {
       flex: 1; border: 1px solid var(--border); border-radius: 12px;
-      background: var(--surface); color: #E5E7EB;
+      background: var(--surface); color: var(--n-200);
       font-size: 12px; line-height: 1.35; padding: 10px 6px;
       font-family: inherit; cursor: pointer;
       transition: transform 0.15s var(--ease-calm), opacity 0.15s;
     }
     .sim-btn:active { transform: scale(0.97); opacity: 0.85; }
-    .sim-btn small { display: block; color: #64748B; font-size: 10px; margin-top: 3px; }
+    .sim-btn small { display: block; color: var(--n-500); font-size: 10px; margin-top: 3px; }
 
     /* ── 連接真實快訊 ── */
     .live-card {
@@ -78,31 +78,31 @@
     }
     .live-toggle {
       display: flex; align-items: center; gap: 8px; width: 100%;
-      background: transparent; border: none; color: #E5E7EB;
+      background: transparent; border: none; color: var(--n-200);
       font-family: inherit; font-size: 13px; padding: 11px 14px; cursor: pointer;
     }
-    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #475569; flex: none; transition: opacity 0.3s; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--n-600); flex: none; transition: opacity 0.3s; }
     .live-dot.on { background: var(--cyan-active); }
     .live-dot.err { background: var(--error); }
     .live-title { font-weight: 600; }
-    .live-status { flex: 1; text-align: right; color: #64748B; font-size: 11px; }
-    .live-chevron { color: #64748B; font-size: 11px; }
+    .live-status { flex: 1; text-align: right; color: var(--n-500); font-size: 11px; }
+    .live-chevron { color: var(--n-500); font-size: 11px; }
     .live-badge {
       flex: none; font-size: 9px; letter-spacing: 0.08em; font-weight: 700;
       color: var(--gold-secured); border: 1px solid rgba(var(--gold-secured-rgb), 0.4);
       border-radius: 999px; padding: 2px 7px; text-transform: uppercase;
     }
     .live-body { padding: 0 14px 12px; }
-    .live-hint { font-size: 11px; color: #64748B; line-height: 1.5; margin-bottom: 8px; }
+    .live-hint { font-size: 11px; color: var(--n-500); line-height: 1.5; margin-bottom: 8px; }
     .live-push { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
     .live-push-btn { width: 100%; }
     .live-push-btn.on { color: var(--cyan-active); border-color: var(--cyan-active); }
     /* 🔴 不支援推播的瀏覽器裡這顆是停用的，外觀必須看得出來 ——
        PLAYBOOK：「按下去什麼都不做的鍵 = 做一半」。下面那行 hint 會說原因與下一步。 */
     .live-push-btn:disabled { opacity: 0.5; cursor: default; }
-    .live-push-hint { font-size: 11px; color: #64748B; line-height: 1.5; margin-top: 6px; }
-    .set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: #CBD5E1; padding: 7px 0; }
-    .set-row input[type="number"] { width: 72px; text-align: right; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #E5E7EB; font-family: inherit; font-size: 12px; padding: 5px 8px; }
+    .live-push-hint { font-size: 11px; color: var(--n-500); line-height: 1.5; margin-top: 6px; }
+    .set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--n-300); padding: 7px 0; }
+    .set-row input[type="number"] { width: 72px; text-align: right; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--n-200); font-family: inherit; font-size: 12px; padding: 5px 8px; }
     .set-row.set-check { cursor: pointer; }
     .set-row.set-check input { width: 16px; height: 16px; flex: none; accent-color: var(--cyan-active); }
     .live-row { display: flex; gap: 8px; }
@@ -123,14 +123,14 @@
     .live-selftest-btn { display: block; width: 100%; padding: 10px 0; font-size: 13px; }
     .live-selftest-btn:disabled { opacity: 0.5; }
     .live-fields { display: flex; gap: 8px; margin-bottom: 8px; }
-    .live-field { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #94A3B8; }
-    .live-field input { width: 100%; box-sizing: border-box; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #E5E7EB; font-family: inherit; font-size: 13px; padding: 7px 8px; }
+    .live-field { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--n-400); }
+    .live-field input { width: 100%; box-sizing: border-box; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--n-200); font-family: inherit; font-size: 13px; padding: 7px 8px; }
     .live-warn { font-size: 11px; color: #F59E0B; line-height: 1.5; margin-bottom: 8px; }
 
     /* ── Silent chips ── */
     .silent-area { flex: none; display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; margin-bottom: 10px; }
     .silent-chip {
-      font-size: 11px; color: #94A3B8; background: var(--surface);
+      font-size: 11px; color: var(--n-400); background: var(--surface);
       border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px;
       opacity: 0; transform: translateY(4px);
       animation: chip-in 0.35s var(--ease-calm) forwards;
@@ -139,7 +139,7 @@
 
     /* ── Event chain log ── */
     .log-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    .log-title { flex: none; font-size: 11px; letter-spacing: 0.12em; color: #64748B; text-transform: uppercase; margin-bottom: 6px; }
+    .log-title { flex: none; font-size: 11px; letter-spacing: 0.12em; color: var(--n-500); text-transform: uppercase; margin-bottom: 6px; }
     .log-list {
       flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
       border: 1px solid var(--glass-border); border-radius: 14px;
@@ -147,7 +147,7 @@
       /* 底部預留：浮動計時條 + safe area */
       margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 76px);
     }
-    .log-empty { font-size: 12px; color: #475569; padding: 10px 0; }
+    .log-empty { font-size: 12px; color: var(--n-600); padding: 10px 0; }
     /* 收束之後通往 /v3/ 決策紀錄的路。放在 log 這一層 = 零收束頁高度成本。 */
     .log-link {
       flex: none; margin-left: auto; font-size: 12px; font-weight: 600;
@@ -161,15 +161,15 @@
       opacity: 0; animation: chip-in 0.3s var(--ease-calm) forwards;
     }
     .log-item:last-child { border-bottom: none; }
-    .log-time { flex: none; font-variant-numeric: tabular-nums; color: #475569; font-size: 11px; }
+    .log-time { flex: none; font-variant-numeric: tabular-nums; color: var(--n-600); font-size: 11px; }
     .log-type { flex: none; font-weight: 600; }
-    .log-type.received   { color: #94A3B8; }
+    .log-type.received   { color: var(--n-400); }
     .log-type.surfaced   { color: var(--cyan-active); }
     .log-type.engaged    { color: var(--gold-secured); }
-    .log-type.dismissed  { color: #64748B; }
+    .log-type.dismissed  { color: var(--n-500); }
     .log-type.suppressed { color: var(--zone-strain); }
     .log-type.outcome    { color: var(--success); }
-    .log-detail { color: #94A3B8; min-width: 0; }
+    .log-detail { color: var(--n-400); min-width: 0; }
 
     /* ── Bottom sheet（entry panel / 模板 / 聚合）── */
     .sheet-backdrop {
@@ -198,19 +198,19 @@
     .sheet.show { transform: translateY(0); }
     .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 14px; }
     .alert-head { font-size: 17px; font-weight: 700; }
-    .alert-mode { font-size: 12px; color: #94A3B8; margin-top: 6px; display: none; }
+    .alert-mode { font-size: 12px; color: var(--n-400); margin-top: 6px; display: none; }
     .alert-mode.show { display: block; }
-    .alert-note { font-size: 13px; color: #94A3B8; margin-top: 4px; }
+    .alert-note { font-size: 13px; color: var(--n-400); margin-top: 4px; }
     .alert-state {
       margin-top: 12px; padding: 10px 12px; border-radius: 12px;
       background: var(--surface); border: 1px solid var(--border);
       font-size: 13px; line-height: 1.5;
     }
-    .alert-state .stat-sub { color: #64748B; font-size: 12px; }
+    .alert-state .stat-sub { color: var(--n-500); font-size: 12px; }
     .result-outcome { font-size: 15px; font-weight: 700; }
     .result-outcome.disciplined { color: var(--zone-clear); }
     .result-outcome.broke { color: var(--zone-strain); }
-    .result-outcome.neutral { color: #94A3B8; }
+    .result-outcome.neutral { color: var(--n-400); }
     /* ── 決策收束頁（視覺化）── */
     #resultSheet { max-height: 88dvh; overflow-y: auto; }
     /* 弧的尺寸只有**一個來源**：這個 CSS 變數。drawResultArc() 讀 computed 寬度
@@ -246,8 +246,8 @@
       position: absolute; inset: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; text-align: center; padding: 0 22px;
     }
-    .result-arc-time { font-size: 12px; color: #94A3B8; margin-top: 5px; font-variant-numeric: tabular-nums; }
-    .result-arc-time .num { font-family: var(--mono); letter-spacing: 0.02em; color: #CBD5E1; }
+    .result-arc-time { font-size: 12px; color: var(--n-400); margin-top: 5px; font-variant-numeric: tabular-nums; }
+    .result-arc-time .num { font-family: var(--mono); letter-spacing: 0.02em; color: var(--n-300); }
     /* 揭示編排：一次性微光 breath + outcome 落定 + 下方區塊 cascade（reduced-motion 一律終態）*/
     .result-arc-glow {
       position: absolute; top: 50%; left: 50%; width: 150px; height: 150px; margin: -75px 0 0 -75px;
@@ -274,7 +274,7 @@
     /* 紀律近況本來就是「決策紀錄」的預覽 —— 讓它說得出自己是什麼，並且可點進去。 */
     .result-history-link { cursor: pointer; }
     .result-history-link:active { opacity: 0.75; }
-    .result-block-label { font-size: 11px; letter-spacing: 0.08em; color: #64748B; text-transform: uppercase; margin-bottom: 8px; }
+    .result-block-label { font-size: 11px; letter-spacing: 0.08em; color: var(--n-500); text-transform: uppercase; margin-bottom: 8px; }
     /* 儀器表頭：左微標籤、右數字、底下一條 hairline。
        ⚠️ 完成率數字是**搬**上來的（原本在 meter 下面自己一行），不是新增 ——
        所以這一列的高度成本是負的，實測 sheet 568 → 563。 */
@@ -287,9 +287,9 @@
     /* 「量」的樣子：等寬、tabular、比周圍大一級。中文註腳不吃等寬。 */
     .result-rate .num {
       font-family: var(--mono); font-variant-numeric: tabular-nums;
-      font-size: 15px; font-weight: 600; letter-spacing: 0.02em; color: #E5E7EB;
+      font-size: 15px; font-weight: 600; letter-spacing: 0.02em; color: var(--n-200);
     }
-    .result-rate .sub { font-size: 10px; color: #64748B; }
+    .result-rate .sub { font-size: 10px; color: var(--n-500); }
     .result-meter { height: 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
     .result-meter-fill { height: 100%; width: 0; border-radius: 4px; background: linear-gradient(90deg, var(--zone-clear), var(--cyan-active)); transition: width 0.9s var(--ease-calm); }
     .result-strip { display: flex; gap: 4px; margin-top: 10px; align-items: center; }
@@ -316,7 +316,7 @@
       display: flex; align-items: baseline; gap: 10px;
       padding: 3px 0 3px 8px; border-bottom: 1px solid var(--border);
       border-left: 2px solid transparent; border-radius: 0;
-      font-size: 12px; line-height: 1.25; color: #CBD5E1;
+      font-size: 12px; line-height: 1.25; color: var(--n-300);
     }
     .result-recap-row:last-child { border-bottom: none; }
     .result-recap-row.on { border-left-color: var(--cyan-active); }
@@ -325,16 +325,16 @@
        ⚠️ 標籤是中文，**不吃 --mono**（等寬 CJK 會撐成全形方塊）。 */
     .result-recap-row .rc-label {
       flex: none; width: 62px; font-size: 10px; letter-spacing: 0.06em;
-      color: #64748B; white-space: nowrap;
+      color: var(--n-500); white-space: nowrap;
     }
     .result-recap-row .rc-value { flex: 1; min-width: 0; }
     /* 數字與代號才走等寬 —— 這就是「量得出來」的樣子。 */
     .result-recap-row .num {
       font-family: var(--mono); font-variant-numeric: tabular-nums;
-      letter-spacing: 0.02em; color: #E5E7EB;
+      letter-spacing: 0.02em; color: var(--n-200);
     }
     .result-reflect-wrap { margin-top: 16px; }
-    .result-reflect-q { font-size: 13px; color: #CBD5E1; }
+    .result-reflect-q { font-size: 13px; color: var(--n-300); }
     .result-reflect { display: flex; gap: 8px; margin-top: 8px; }
     @media (prefers-reduced-motion: reduce) {
       .result-meter-fill { transition: none; }
@@ -345,7 +345,7 @@
     .result-chip {
       flex: 1; padding: 9px 6px; border-radius: 10px; font-size: 12px;
       background: var(--surface); border: 1px solid var(--border);
-      color: #CBD5E1; cursor: pointer; text-align: center;
+      color: var(--n-300); cursor: pointer; text-align: center;
       transition: transform 0.18s var(--ease-calm), border-color 0.18s, box-shadow 0.18s, color 0.18s, background 0.18s;
     }
     .result-chip:active { transform: scale(0.97); }
@@ -376,20 +376,20 @@
     }
     .sig-main { flex: 1; min-width: 0; }
     .sig-symbol { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
-    .sig-cond { font-size: 13px; color: #94A3B8; margin-top: 2px; }
+    .sig-cond { font-size: 13px; color: var(--n-400); margin-top: 2px; }
     .sig-age {
       font-size: 12px; color: var(--cyan-active); font-variant-numeric: tabular-nums;
       flex: none; letter-spacing: 0.02em;
     }
     .sig-source {
-      font-size: 11px; color: #64748B; margin-top: 8px;
+      font-size: 11px; color: var(--n-500); margin-top: 8px;
       letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
     }
     .entry-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     .entry-chips:empty { display: none; }
     .entry-chip {
       font-size: 11px; padding: 4px 9px; border-radius: 999px;
-      background: var(--surface); border: 1px solid var(--border); color: #94A3B8;
+      background: var(--surface); border: 1px solid var(--border); color: var(--n-400);
     }
     .entry-chip.warn { color: var(--zone-strain); border-color: rgba(194, 112, 61, 0.5); }
 
@@ -401,14 +401,14 @@
     .es-row { display: flex; align-items: center; gap: 11px; }
     .es-band {
       font-size: 14px; font-weight: 700; padding: 5px 11px; border-radius: 9px;
-      background: var(--card); border: 1px solid var(--border); color: #94A3B8; flex: none;
+      background: var(--card); border: 1px solid var(--border); color: var(--n-400); flex: none;
     }
     .es-band.clear { color: var(--zone-clear); border-color: rgba(0, 180, 216, 0.5); }
     .es-band.neutral { color: var(--zone-neutral); }
     .es-band.strain { color: var(--zone-strain); border-color: rgba(194, 112, 61, 0.5); }
     .es-meta { flex: 1; min-width: 0; }
-    .es-lbl { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #64748B; }
-    .es-age { font-size: 13px; color: #CBD5E1; margin-top: 2px; }
+    .es-lbl { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--n-500); }
+    .es-age { font-size: 13px; color: var(--n-300); margin-top: 2px; }
     .es-scan {
       flex: none; font-family: inherit; font-size: 12px; font-weight: 600;
       padding: 7px 13px; border-radius: 10px; cursor: pointer;
@@ -417,17 +417,17 @@
       transition: transform 0.15s var(--ease-calm);
     }
     .es-scan:active { transform: scale(0.96); }
-    .es-evidence { font-size: 11px; color: #64748B; margin-top: 8px; line-height: 1.5; }
+    .es-evidence { font-size: 11px; color: var(--n-500); margin-top: 8px; line-height: 1.5; }
     .es-evidence:empty { display: none; }
 
     .entry-disc { margin-top: 14px; }
     .ed-head { display: flex; justify-content: space-between; align-items: baseline; }
     .ed-head .result-block-label { margin-bottom: 0; }
-    .ed-rate { font-size: 12px; color: #CBD5E1; font-variant-numeric: tabular-nums; }
+    .ed-rate { font-size: 12px; color: var(--n-300); font-variant-numeric: tabular-nums; }
     .entry-disc .result-strip { margin-top: 7px; }
-    .entry-disc .stat-sub { font-size: 11px; color: #64748B; margin-top: 7px; }
+    .entry-disc .stat-sub { font-size: 11px; color: var(--n-500); margin-top: 7px; }
     .entry-cost {
-      font-size: 11px; color: #64748B; margin-top: 9px; text-align: center;
+      font-size: 11px; color: var(--n-500); margin-top: 9px; text-align: center;
       font-variant-numeric: tabular-nums;
     }
     @media (prefers-reduced-motion: reduce) {
@@ -452,7 +452,7 @@
     }
     .btn:active { transform: scale(0.97); opacity: 0.85; }
     .btn-primary { background: var(--cyan-core); border-color: var(--cyan-core); color: #02131a; }
-    .btn-ghost { background: transparent; color: #94A3B8; }
+    .btn-ghost { background: transparent; color: var(--n-400); }
 
     /* ── 模板選擇 ── */
     /* ── 模板選單：終端機讀數 ──
@@ -472,13 +472,13 @@
     }
     .tpl-status {
       display: flex; justify-content: space-between; gap: 8px;
-      font-size: 10px; letter-spacing: 0.08em; color: #64748B;
+      font-size: 10px; letter-spacing: 0.08em; color: var(--n-500);
       padding: 2px 0 8px; border-bottom: 1px solid var(--border);
     }
     .tpl-status b { color: var(--cyan-active); font-weight: 600; }
     .tpl-head {
       display: flex; align-items: baseline; gap: 10px;
-      font-size: 9px; letter-spacing: 0.14em; color: #4A5568;
+      font-size: 9px; letter-spacing: 0.14em; color: var(--n-600);
       padding: 8px 0 6px; border-bottom: 1px solid var(--border);
     }
     .tpl-head span:nth-child(1) { flex: none; width: 96px; }
@@ -496,11 +496,11 @@
     }
     .tpl-main { flex: 1; min-width: 0; }
     .tpl-name { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
-    .tpl-sub { font-size: 10.5px; color: #64748B; margin-top: 3px; line-height: 1.5; }
+    .tpl-sub { font-size: 10.5px; color: var(--n-500); margin-top: 3px; line-height: 1.5; }
     /* 事實欄位，不是徽章 —— 沒有底色、沒有圓角、跟其他欄位同一個字級。 */
     .tpl-flag {
       flex: none; width: 44px; text-align: right;
-      font-size: 9px; letter-spacing: 0.1em; color: #94A3B8;
+      font-size: 9px; letter-spacing: 0.1em; color: var(--n-400);
     }
 
     /* ── 聚合卡 ── */
@@ -526,20 +526,20 @@
     .timer-label { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .timer-clock { flex: none; font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 700; }
     /* 時間是事實脈絡，不是紀律指標 —— 刻意收成次要字重，不搶戲。 */
-    .timer-clock { font-weight: 600; color: #94A3B8; font-size: 14px; }
+    .timer-clock { font-weight: 600; color: var(--n-400); font-size: 14px; }
 
     /* ── 結構守望 ── */
     /* 錨點：你自己定的關鍵價位與非接受門檻（§3 模組 3）。沒有 price 就整行不顯示，
        絕不編一個數字出來。 */
     .watch-anchor {
-      font-size: 12px; color: #CBD5E1; margin-top: 8px;
+      font-size: 12px; color: var(--n-300); margin-top: 8px;
       font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
     }
     .watch-anchor:empty { display: none; }
     /* 回程提示。cyan = ACTIVE（有東西正在進行），不是 --good ——
        綠是「跟著流程完成」的語意色，決策還沒收束就沒有資格宣告那件事。 */
     .timer-back { font-size: 13px; font-weight: 600; color: var(--cyan-active); margin-top: 8px; }
-    .timer-update { font-size: 11px; color: #94A3B8; margin-top: 6px; display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .timer-update { font-size: 11px; color: var(--n-400); margin-top: 6px; display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .timer-update.show { display: block; }
   </style>
 </head>
@@ -806,6 +806,6 @@
   <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do1"></script>
-  <script src="decision-alert.js?v=alert35"></script>
+  <script src="decision-alert.js?v=alert36"></script>
 </body>
 </html>
