@@ -1385,6 +1385,117 @@ console.log('\n── Hero 讀數不得爆版 ──');
   await page.close();
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 底座上的每一個字都要讀得到 —— 逐模板掃
+//
+// founder 2026-09-06 實走截圖（Mancini FBD 守望跑到 00:13）：時鐘是紫的。
+// 查下去 `.fdcb-time` 吃 `var(--primary)` ＝ **模板的識別色**，於是
+// Mancini FBD 的 #5E3A87 壓在底座上只有 **1.94:1**（AA 大字門檻都要 3.0），
+// 而 Health Stress 的青是 6.80:1 —— **同一個元件，換個模板就從能讀變成不能讀**。
+//
+// 🔴 所以這條斷言不是「不准用紫色」，是**逐模板掃過每一個文字節點**。
+// 只擋紫色的話，下一個人取一個深色模板色就又破了；而問題的形狀是
+// 「顏色綁在『哪一個模板』而不是『這是什麼東西』」。
+//
+// ⚠️ 背景要**往上走到真的有底色的那一層**再算 —— 子元素多半是透明的，
+// 拿元素自己的 background-color 去算會得到 rgba(0,0,0,0)，那是死斷言。
+//
+// 🔴 **已知涵蓋不到的一塊，先講清楚**：`::before` / `::after` 的 content
+// 不是子文字節點，這個掃描看不到它們（例如 ready 狀態時鐘前面那個 ▶）。
+// 那些要嘛個別列出來驗，要嘛就別用偽元素放會變色的字。
+// 說出涵蓋範圍的邊界，比讓下一個人以為「全掃過了」誠實。
+// ═══════════════════════════════════════════════════════════════════════
+{
+  console.log('\n── 底座文字對比：六個模板 × 三個狀態 ──');
+  const page = await openV3(844);
+  await page.evaluate(() => window.toggleDisciplineMode());   // 交易者模板才進得了 DOM
+  await page.waitForTimeout(300);
+
+  const TEMPLATES = ['CANSLIM_GS', 'CANSLIM_HIGH_RS', 'MANCINI_FBD', 'WORK_FOCUS', 'HEALTH_STRESS', 'EXERCISE'];
+  const AA = 4.5;
+  const worst = [];
+
+  for (const tid of TEMPLATES) {
+    const ok = await pickTmpl(page, tid);
+    if (!ok) { check(`前提：找得到模板 ${tid}`, ok, true); continue; }
+    await page.waitForTimeout(250);
+    for (const state of ['ready', 'running']) {
+      if (state === 'running') await page.evaluate(() => window.setState('running'));
+      await page.waitForTimeout(state === 'running' ? 1100 : 250);
+      const rows = await page.evaluate(() => {
+        const lin = (c) => ((c /= 255), c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+        const relL = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+        const parse = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+        // 往上走到第一個不透明的底色 —— 子元素多半 transparent。
+        const bgOf = (el) => {
+          for (let n = el; n; n = n.parentElement) {
+            const c = parse(getComputedStyle(n).backgroundColor);
+            if (c.length >= 3 && (c[3] === undefined || c[3] > 0.5)) return c.slice(0, 3);
+          }
+          return [2, 6, 23];
+        };
+        const out = [];
+        for (const el of document.querySelectorAll('#fdcb *')) {
+          const txt = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent.trim()).join('');
+          if (!txt) continue;
+          const cs = getComputedStyle(el);
+          if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) < 0.15) continue;
+          const fg = parse(cs.color).slice(0, 3);
+          const a = parse(cs.color)[3];
+          const bg = bgOf(el);
+          // 半透明前景先合成到底色上，不然算出來會比實際好看。
+          const mix = a !== undefined && a < 1 ? fg.map((v, i) => v * a + bg[i] * (1 - a)) : fg;
+          const L1 = relL(mix), L2 = relL(bg);
+          const ratio = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+          out.push({ cls: el.className || el.id, txt: txt.slice(0, 14), ratio: Math.round(ratio * 100) / 100 });
+        }
+        return out;
+      });
+      for (const r of rows) if (r.ratio < AA) worst.push({ tid, state, ...r });
+    }
+    await page.evaluate(() => window.setState('idle'));
+    await page.waitForTimeout(200);
+  }
+
+  if (worst.length) {
+    console.log('   不合格的節點：');
+    for (const w of worst.slice(0, 12)) console.log(`     ${w.tid}/${w.state}  ${w.ratio}:1  .${w.cls}  「${w.txt}」`);
+  }
+  check(`🔴 底座上每個文字對底色 ≥ ${AA}:1（六個模板 × ready/running）`,
+    worst.map((w) => `${w.tid}/${w.cls}@${w.ratio}`), []);
+  await page.close();
+}
+
+// ── 三段軌是結構，不得穿語義色 ──
+// seg-obs 原本吃 --sns #FF6B35（交感神經色），跟 --error 只差 ΔE 19.5。
+// 軌講的是模板的階段（Observe/Sweet/Extended）—— 結構用骨架色，靠明度分段。
+{
+  console.log('\n── 三段軌只准用中性階 ──');
+  const page = await openV3(844);
+  await page.evaluate(() => { window.toggleDisciplineMode(); });
+  await pickTmpl(page, 'MANCINI_FBD');
+  await page.waitForTimeout(300);
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(1100);
+  const segs = await page.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const neutral = ['--n-950', '--n-900', '--n-850', '--n-800', '--n-700',
+      '--n-600', '--n-550', '--n-500', '--n-450', '--n-400', '--n-300', '--n-200', '--n-100']
+      .map((n) => cs.getPropertyValue(n).trim().toUpperCase());
+    const hex = (s) => {
+      const c = (s.match(/\d+/g) || []).map(Number);
+      return c.length >= 3 ? '#' + c.slice(0, 3).map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase() : null;
+    };
+    return [...document.querySelectorAll('#fdcb .fdcb-prog > span, #fdcb .fdcb-prog > div')]
+      .filter((n) => /seg-/.test(n.className))
+      .map((n) => ({ cls: n.className, bg: hex(getComputedStyle(n).backgroundColor), inRamp: neutral.includes(hex(getComputedStyle(n).backgroundColor)) }));
+  });
+  checkTruthy(`三段軌抓得到（${segs.length} 段，抓不到就是死斷言）`, segs.length === 3);
+  check('🔴 三段軌的每一段都是中性階（不得是語義色）',
+    segs.filter((x) => !x.inRamp).map((x) => `${x.cls}=${x.bg}`), []);
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);

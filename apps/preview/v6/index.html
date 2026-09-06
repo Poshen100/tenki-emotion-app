@@ -1565,7 +1565,9 @@ body{
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;
 }
 .fdcb-tmpl-dur{
-  font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.08em;
+  /* ⚠️ 原本是寫死的 rgba(255,255,255,0.4) —— 合成到底座底 (--n-900) 上只有
+     3.36:1，六個模板全部不及格（新守門抓到的，我原本以為只有紫色時鐘有問題）。 */
+  font-size:9px;color:var(--n-400);letter-spacing:0.08em;
   font-variant-numeric:tabular-nums;
 }
 
@@ -1574,12 +1576,21 @@ body{
   padding:6px 4px;min-width:0;cursor:pointer;
 }
 .fdcb-time{
-  font-size:20px;font-weight:600;color:var(--primary);
+  /* 🔴 **量測值不上色。** 時鐘原本吃 var(--primary) ＝ **模板的識別色**，
+     所以 Mancini FBD（#5E3A87 紫）壓在底座上只有 **1.94:1** ——
+     連 AA 的大字門檻 3.0 都不到，而 Health Stress（青）是 6.80:1。
+     **同一個元件，換個模板就從能讀變成不能讀。**
+     模板身分不會因此消失：底座左欄本來就印模板名，狀態本來就由邊框講
+     （2026-09-05 關燈那一輪改的）—— 顏色在這一格是多餘的，而且不可讀。
+     改成 --n-100 之後 1.94 → 17.8:1，而且**每個模板都一樣可讀**。 */
+  font-size:20px;font-weight:600;color:var(--n-100);
   font-variant-numeric:tabular-nums;letter-spacing:-0.02em;line-height:1;
 }
 .fdcb-seg{
+  /* 段標是**分類**不是量測，本來可以帶色 —— 但同一個 #5E3A87 一樣讀不到。
+     分類由**字**講（「結構守望 · 點一下判定」），顏色退成中性。 */
   font-size:8px;letter-spacing:0.22em;text-transform:uppercase;
-  color:var(--primary);margin-top:3px;font-weight:500;
+  color:var(--n-400);margin-top:3px;font-weight:500;
 }
 .fdcb-prog{
   height:2px;width:100%;max-width:120px;
@@ -1587,9 +1598,14 @@ body{
   overflow:hidden;display:flex;
 }
 .fdcb-prog{position:relative}
-.fdcb-prog .seg-obs{background:var(--sns);opacity:0.35}
-.fdcb-prog .seg-sweet{background:var(--primary);opacity:0.35}
-.fdcb-prog .seg-ext{background:rgba(142,142,147,0.6);opacity:0.35}
+/* 🔴 **結構元件不得穿語義色。** 三段軌講的是模板的**階段**
+   （Observe / Sweet / Extended）—— 那是結構，不是生理訊號。
+   而 seg-obs 原本吃 --sns #FF6B35 ＝**交感神經**的顏色，等於讓一個結構元件
+   宣稱一件它不知道的事；它還跟 --error 只差 ΔE 19.5（暖色弧上第五個主人）。
+   改成靠**明度**分段，用骨架色。 */
+.fdcb-prog .seg-obs{background:var(--n-600)}
+.fdcb-prog .seg-sweet{background:var(--n-450)}
+.fdcb-prog .seg-ext{background:var(--n-700)}
 .fdcb-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--primary);border-radius:1px;transition:width 1s linear;z-index:1}
 /* Turning Point 節點刻度 —— 掛在進度軌上，決策跑的時候看得到自己在長出紀錄。
    顏色吃帶位（BAND_COLOR_V6 同一組值）；🔴 沒讀數就空心，不假裝量到。 */
@@ -1671,8 +1687,12 @@ body{
 .fdcb.state-idle .fdcb-tmpl{padding:5px 10px;margin:3px 2px 3px 4px}
 .fdcb.state-idle .fdcb-core{padding:4px}
 .fdcb.state-ready .fdcb-time{font-size:13px;letter-spacing:0.06em;color:#fff;text-shadow:none}
-.fdcb.state-ready .fdcb-time::before{content:'▶ ';color:var(--primary);margin-right:2px}
-.fdcb.state-ready .fdcb-seg{color:rgba(255,255,255,0.4)}
+/* ⚠️ 這個 ▶ 也是 var(--primary)，Mancini FBD 下同樣 1.94:1。
+   它是**動作**標記不是量測，最終歸屬是「可動層」（--amber-400），
+   但琥珀還沒鋪到底座 —— 先給中性讓它讀得到，鋪琥珀時再回來改這一行。
+   🔴 新守門掃不到它：::before 的 content 不是子文字節點。已記在 harness 註解裡。 */
+.fdcb.state-ready .fdcb-time::before{content:'▶ ';color:var(--n-300);margin-right:2px}
+.fdcb.state-ready .fdcb-seg{color:var(--n-400)}   /* 同上：0.4 白在底座上 3.36:1 */
 .fdcb.state-ready .fdcb-prog{display:none}
 .fdcb.state-complete .fdcb-time{font-size:12px;color:var(--fdcb-complete);letter-spacing:0.08em}
 .fdcb.state-complete .fdcb-time::before{content:'✓ ';font-weight:700}
