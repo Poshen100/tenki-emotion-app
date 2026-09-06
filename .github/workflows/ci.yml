@@ -165,3 +165,6 @@ jobs:
 
       - name: Scan blink harness (谷底偵測)
         run: node scripts/preview-scan-blink.mjs
+
+      - name: Token scale harness (色階系統守門)
+        run: node scripts/preview-token-scale.mjs
