@@ -159,8 +159,12 @@ body{
   color:rgba(255,255,255,0.75);
   text-transform:uppercase;white-space:nowrap;
 }
+/* 🔴 這一族全都寫著「底色 rgba(0,180,216,…) + 文字 var(--primary)」——
+   也就是它們**本來就想要品牌青**，只是拿了一個會變的變數去要。
+   決策一起跑 --primary 就變成模板色，於是底色青、字紫。改指 --cyan-core
+   （＝ --primary 在 :root 的預設值），**沒有決策在跑時逐位元組不變**。 */
 .scan-badge .spark{
-  color:var(--primary);filter:drop-shadow(0 0 4px var(--primary));
+  color:var(--cyan-core);filter:drop-shadow(0 0 4px var(--cyan-core));
   font-size:10px;
 }
 .source-toggle{
@@ -183,11 +187,11 @@ body{
   transition:stroke 0.3s;
 }
 .source-toggle .src.active{
-  background:rgba(0,180,216,0.12);color:var(--primary);
+  background:rgba(0,180,216,0.12);color:var(--cyan-core);
   box-shadow:inset 0 0 0 1px rgba(0,180,216,0.15);
 }
 .source-toggle .src.active svg.src-svg{
-  stroke:var(--primary);
+  stroke:var(--cyan-core);
 }
 /* Hero area — nebula + big spectrum ring */
 .hero{
@@ -400,8 +404,17 @@ body{
 }
 /* 「到 Scan 掃一次」本來只是一行字，長得像連結卻點不動 —— 補成真的可點 */
 .tl-edge-cta{
+  /* 🔴 框跟字**必須是同一個顏色的家族**，否則遲早不一致 —— 而它們已經不一致了：
+     框是寫死的青 rgba(0,180,216,…)，字卻吃 `var(--primary)` ＝ 當下哪一個模板在跑。
+     決策一起跑，這顆鈕就變成「紫字配青框」，而紫在這裡只有 2.34:1
+     （founder 2026-09-07 實機截圖）。
+     字改成 `--cyan-core`（＝框那個 0,180,216 的同一個值，8.18:1），
+     六個模板一致，而且框與字從此指向同一個來源。
+     ⚠️ 這顆鈕語意上屬於「可動層」，最終歸屬是琥珀 --amber-400；
+     但鋪琥珀有前置條件（--warning 要先退場，見 VISUAL-DIRECTION §3.6 ④），
+     所以這一輪只把它從模板色手上拿回來，不順手換成琥珀。 */
   appearance:none;border:1px solid rgba(0,180,216,0.35);
-  background:rgba(0,180,216,0.10);color:var(--primary);
+  background:rgba(0,180,216,0.10);color:var(--cyan-core);
   font-size:12px;font-weight:600;letter-spacing:0.02em;
   /* 🔴 這一句永遠不該從詞中間斷開（「到 Scan 掃一」/「次 ›」）。
      搬出環心之後有整個螢幕寬，nowrap 不會造成橫向溢出。 */
@@ -418,7 +431,14 @@ body{
 .tl-edge-zone{
   margin-top:2px;
   font-size:12px;font-weight:400;
-  color:var(--primary);
+  /* 🔴 這一行講的是**讀數多舊**（「剛剛 掃描」／「讀數已過期」）—— 一個量測到的
+     事實，不是分類。所以照「量測值不上色」走中性階。
+     舊值是 `var(--primary)` ＝ **當下哪一個模板在跑**的顏色 —— 決策一起跑，
+     這一行就跟著變色，而 Mancini FBD 的 #5E3A87 在環心上只有 **2.15:1**
+     （founder 2026-09-07 實機截圖）。跟底座紫時鐘是同一個 bug 的第二個出口：
+     一個綁在「哪一個模板」的顏色，爬到跟模板完全無關的元素上。
+     --n-400 在環心 6.27:1（中央）／7.08:1（邊緣），六個模板都一樣。 */
+  color:var(--n-400);
   letter-spacing:0.02em;
   transition:color 1.2s;
   /* 🔴 這一行住在環心裡（121~129px），過期時的「讀數已過期 · 重新掃一次」
@@ -448,16 +468,27 @@ body{
      「黑圓寬」改成「畫面寬」——同一個原因）。 */
   font-size:11px;font-weight:500;letter-spacing:0.02em;
   font-family:inherit;
-  color:#E8B45A;background:rgba(232,180,90,0.08);
-  border:1px solid rgba(232,180,90,0.38);border-radius:999px;
+  /* 🔴 舊值是 #E8B45A，而它與 --gold-secured #FFD46E 只差 **ΔE 12.2**（肉眼幾乎
+     同一色）。gold 在這個產品裡是 **SECURED / 已鎖定**（CLAUDE.md 顏色所有權），
+     但這顆膠囊講的是「你的讀數精度**還不夠**，去提升」—— 正好相反。
+     一顆長得像「已鎖定 ✓」的膠囊在說「還沒鎖定」，那是顏色在宣稱假的事實。
+     改成中性：**信心等級是分類，而分類由字講**（「信心中」四個字已經說完了），
+     顏色只負責當表面。--n-300 對地面 10.5:1。 */
+  color:var(--n-300);background:transparent;
+  border:1px solid var(--n-700);border-radius:999px;
   padding:5px 12px;cursor:pointer;
   transition:all 0.6s var(--ease-calm);
 }
 .tl-edge-conf:active{transform:scale(0.97)}
 .tl-edge-conf[hidden]{display:none}
+/* 校準完成 ＝ **SECURED**，而 SECURED 在這個產品裡就是 gold（CLAUDE.md 顏色所有權）。
+   舊值 #37E0A8 是第八個顏色，跟 --success #34C759 同一個語義家族卻不是同一個值。
+   ⚠️ 這是一個**語意判斷**，不是純粹的機械替換：我把「精度已鎖定」讀成 SECURED。
+   如果 founder 認為它該是別的意思，改這裡就好 —— 但不要退回一個沒有主人的新綠。
+   gold 對地面 14.3:1。 */
 .tl-edge-conf.calibrated{
-  color:#37E0A8;background:rgba(55,224,168,0.09);
-  border-color:rgba(55,224,168,0.38);
+  color:var(--gold-secured);background:rgba(var(--gold-secured-rgb),0.09);
+  border-color:rgba(var(--gold-secured-rgb),0.38);
 }
 .source-toggle .src.src-finger{color:#37E0A8}
 .source-toggle .src.src-finger[hidden]{display:none}
@@ -6183,7 +6214,8 @@ function closeSessionDetail(){
       .vitals-demo-note b{font-weight:600;color:rgba(255,255,255,0.62);}
       .snap-dots{display:flex;justify-content:center;gap:8px;margin:6px 0 0;}
       .snap-dots .dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.22);transition:all .3s var(--ease-calm);}
-      .snap-dots .dot.active{width:22px;border-radius:4px;background:var(--primary);box-shadow:0 0 10px rgba(0,180,216,.6);}
+      /* 輪播圓點跟「哪一個模板在跑」完全無關 —— 而它的光暈本來就寫死青。 */
+      .snap-dots .dot.active{width:22px;border-radius:4px;background:var(--cyan-core);box-shadow:0 0 10px rgba(0,180,216,.6);}
       /* first-visit swipe coach hint — glass chip + outward-drifting chevrons, shown once.
          FLOATING OVERLAY (position:absolute, JS sets top from the track geometry): out of the
          .snap flex flow so it adds no height and can't be clipped by .snap's overflow:hidden +
