@@ -61,8 +61,9 @@
 
     /* ── Sim controls ── */
     .sim-row { flex: none; display: flex; gap: 8px; margin-bottom: 12px; }
+    /* 三顆都是動作（觸發一則模擬快訊）→ 可動層的邊。不填色：它們是次要動作。 */
     .sim-btn {
-      flex: 1; border: 1px solid var(--border); border-radius: 12px;
+      flex: 1; border: 1px solid rgba(var(--amber-400-rgb), 0.30); border-radius: 12px;
       background: var(--surface); color: var(--n-200);
       font-size: 12px; line-height: 1.35; padding: 10px 6px;
       font-family: inherit; cursor: pointer;
@@ -76,6 +77,8 @@
       flex: none; background: var(--glass-bg); border: 1px solid var(--glass-border);
       border-radius: 14px; margin-bottom: 12px; overflow: hidden;
     }
+    /* 展開列（決策節奏設定 ▾ / 收束頁設定 ▾ / 連接 TradingView）—— 點了會展開，
+       所以是動作；但它整列是文字，只把**尾端那個記號**交給可動層即可。 */
     .live-toggle {
       display: flex; align-items: center; gap: 8px; width: 100%;
       background: transparent; border: none; color: var(--n-200);
@@ -86,7 +89,7 @@
     .live-dot.err { background: var(--error); }
     .live-title { font-weight: 600; }
     .live-status { flex: 1; text-align: right; color: var(--n-500); font-size: 11px; }
-    .live-chevron { color: var(--n-500); font-size: 11px; }
+    .live-chevron { color: var(--amber-400); font-size: 11px; }
     .live-badge {
       flex: none; font-size: 9px; letter-spacing: 0.08em; font-weight: 700;
       color: var(--gold-secured); border: 1px solid rgba(var(--gold-secured-rgb), 0.4);
@@ -272,7 +275,10 @@
     }
     .result-block { margin-top: 16px; }
     /* 紀律近況本來就是「決策紀錄」的預覽 —— 讓它說得出自己是什麼，並且可點進去。 */
+    /* 這一列點得進決策紀錄 → 可動層。只給那個 `›` 記號與 hairline，
+   不動列裡的數字（量測值不上色）。 */
     .result-history-link { cursor: pointer; }
+    .result-history-link .result-block-label { color: var(--amber-400); }
     .result-history-link:active { opacity: 0.75; }
     .result-block-label { font-size: 11px; letter-spacing: 0.08em; color: var(--n-500); text-transform: uppercase; margin-bottom: 8px; }
     /* 儀器表頭：左微標籤、右數字、底下一條 hairline。
@@ -826,6 +832,6 @@
   <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do1"></script>
-  <script src="decision-alert.js?v=alert38"></script>
+  <script src="decision-alert.js?v=alert40"></script>
 </body>
 </html>

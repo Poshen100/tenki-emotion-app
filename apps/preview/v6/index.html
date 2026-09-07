@@ -889,11 +889,15 @@ body{
   transform:scale(0.985);
   background:rgba(255,255,255,0.05);
 }
+/* 🔴 這個 `›` 是 Session 每一列**唯一在說「點得進去」**的東西 → 可動層。
+   ⚠️ 舊值 --txt-dim 對地面只有 **2.21:1**（§3.6 ③ 量過），一個看不清楚的
+   affordance 等於沒有 affordance。琥珀 9.9:1。
+   ⚠️ 只動這個記號，**不動列裡的名稱、圖示色與數字** —— 那些是紀錄的身分與量測值。 */
 .session-item .chevron{
-  color:var(--txt-dim);font-size:18px;margin-left:2px;
+  color:var(--amber-400);font-size:18px;margin-left:2px;
   transition:transform 0.3s;flex-shrink:0;
 }
-.session-item:active .chevron{transform:translateX(2px);color:var(--primary)}
+.session-item:active .chevron{transform:translateX(2px);color:var(--amber-500)}
 .session-item .tmpl-ic{
   width:36px;height:36px;border-radius:10px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
@@ -1055,10 +1059,13 @@ body{
 .lab-body > *{flex-shrink:0}
 
 .lab-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* 🔴 整塊可點 → 可動層。**只給邊，不填色** —— Lab 有九塊磁磚，
+   全部填琥珀會讓整頁只剩一個顏色（那正是「顏色好像有點少」的另一種版本）。
+   底仍是中性，琥珀只負責說「這塊按得下去」。 */
 .lab-item{
   padding:16px 14px;border-radius:16px;
   background:rgba(255,255,255,0.03);
-  border:1px solid rgba(255,255,255,0.05);
+  border:1px solid rgba(var(--amber-400-rgb),0.32);
   display:flex;flex-direction:column;gap:8px;
   cursor:pointer;transition:all 0.3s var(--ease-calm);
   position:relative;overflow:hidden;
@@ -1095,7 +1102,7 @@ body{
 #lab-screen.active .lab-grid .lab-item:nth-child(7){transition-delay:0.35s}
 #lab-screen.active .lab-grid .lab-item:nth-child(8){transition-delay:0.40s}
 #lab-screen.active .lab-body .lab-wide{transition-delay:0.35s}
-.lab-item:active{box-shadow:0 6px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,180,216,0.28)}
+.lab-item:active{box-shadow:0 6px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(var(--amber-400-rgb),0.45)}
 .lab-item.featured{box-shadow:0 0 26px rgba(0,180,216,0.10)}
 /* 決策紀律模式開啟時的樣子。用既有的 --primary（cyan = ACTIVE），
    **不用 --good 綠** —— 綠在這個產品裡是「跟著流程完成」的語意色，
@@ -1717,8 +1724,9 @@ body{
   .fdcb-mark{transition:none}
 }
 
+/* idle 時整個底座只有一件事可做：起跑。→ 可動層。8.2:1 對底座。 */
 .fdcb.state-idle .fdcb-time{
-  font-size:12px;font-weight:500;color:rgba(255,255,255,0.85);letter-spacing:0.14em;
+  font-size:12px;font-weight:500;color:var(--amber-400);letter-spacing:0.14em;
   text-transform:uppercase;text-shadow:none;
 }
 .fdcb.state-idle .fdcb-seg,
@@ -1917,7 +1925,7 @@ body{
 .sheet-title{font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:14px;text-align:center}
 .sheet-cat{font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin:16px 4px 8px}
 .tmpl-item{display:flex;align-items:center;gap:14px;padding:10px 12px;border-radius:14px;cursor:pointer;transition:background 0.2s}
-.tmpl-item:active{background:rgba(255,255,255,0.04)}
+.tmpl-item:active{background:rgba(var(--amber-400-rgb),0.08)}
 .tmpl-item.selected{background:rgba(0,180,216,0.08)}
 .tmpl-item .ic{width:34px;height:34px;border-radius:10px;background:rgba(0,180,216,0.1);display:flex;align-items:center;justify-content:center;color:var(--primary)}
 .tmpl-item .ic svg{width:18px;height:18px}
@@ -2031,9 +2039,12 @@ body{
   font-size:14px;font-weight:600;letter-spacing:0.02em;
   cursor:pointer;transition:all 0.3s var(--ease-calm);font-family:inherit;
 }
+/* 校準流程的主要鈕（開始校準／開始掃描／進入 TENKI）→ 可動層填色。
+   ⚠️ 字用 --n-950：白字壓在琥珀上只有 2.0:1（掃描球那次剛付過學費）。
+   舊值 #001420 是又一個沒有主人的近黑，一起收掉。 */
 .baseline-flow .bf-btn-primary{
-  background:linear-gradient(180deg, #00C4E8 0%, #00B4D8 100%);color:#001420;
-  box-shadow:0 10px 30px rgba(0,180,216,0.3), inset 0 1px 0 rgba(255,255,255,0.3);
+  background:linear-gradient(180deg, var(--amber-400) 0%, var(--amber-500) 100%);color:var(--n-950);
+  box-shadow:0 10px 30px rgba(var(--amber-400-rgb),0.3), inset 0 1px 0 rgba(255,255,255,0.3);
 }
 .baseline-flow .bf-btn-primary:active{transform:translateY(1px)}
 .baseline-flow .bf-btn-ghost{background:transparent;color:var(--txt-sec);margin-top:8px;padding:10px}
