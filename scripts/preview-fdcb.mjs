@@ -1716,13 +1716,23 @@ console.log('\n── Hero 讀數不得爆版 ──');
   const page = await openV3(844);
   await page.evaluate(() => window.setState('running'));
   await page.waitForTimeout(900);
-  const bad = await page.evaluate(() => {
+  // 🔴 掃過**每一個分頁**，不是只有 Today。⚠️ `.screen` 是用 opacity:0 藏的，
+  // 不是 display:none —— 只問 display 會讓五個分頁的元素每次都被算進來
+  // （我第一版的清單就是這樣，五個分頁數字一模一樣）。所以下面用 `.active` 判斷。
+  const SURFACES = ['today', 'scan', 'session', 'timeline', 'lab'];
+  const bad = { out: [], ringDots: [] };
+  for (const tab of SURFACES) {
+    await page.evaluate((t) => window.goTab(t), tab);
+    await page.waitForTimeout(500);
+    const r = await page.evaluate(() => {
     const amber = getComputedStyle(document.documentElement).getPropertyValue('--amber-400').trim();
     const m = amber.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
     const near = (s) => {
       const c = (s.match(/[\d.]+/g) || []).map(Number);
       if (c.length < 3) return false;
-      if (c[3] !== undefined && c[3] < 0.25) return false;   // 幾乎透明的不算宣稱
+      // ⚠️ 切點從 0.25 降到 0.15：Lab 磁磚的邊是 alpha 0.22，看得見卻被舊切點濾掉
+      //    —— 一個「看得見但守門看不到」的區間，正是這一系列踩過最多次的形狀。
+      if (c[3] !== undefined && c[3] < 0.15) return false;   // 幾乎透明的不算宣稱
       return Math.hypot(c[0] - m[0], c[1] - m[1], c[2] - m[2]) < 40;
     };
     const clickable = (el) => {
@@ -1749,8 +1759,14 @@ console.log('\n── Hero 讀數不得爆版 ──');
       if (el.closest('.tl-edge')) { ringDots.push(el.className); continue; }
       out.push(`${el.id || el.className || el.tagName}(${hit.join(',')})`);
     }
-    return { out, ringDots };
-  });
+      return { out, ringDots };
+    });
+    bad.out.push(...r.out.map((x) => `${tab}/${x}`));
+    bad.ringDots.push(...r.ringDots);
+  }
+  // 環上那顆裝飾點每個分頁都會被數到一次（環住在 Today，但 #today-screen
+  // 在其他分頁只是 opacity:0…不，它有 .active 判斷，所以只會出現一次）。去重。
+  bad.ringDots = [...new Set(bad.ringDots)];
   if (bad.out.length) { console.log('   穿琥珀但點不下去的：'); for (const x of bad.out.slice(0, 8)) console.log(`     ${x}`); }
   check('🔴 每一個穿琥珀的可見節點都是可點的（環上的裝飾點除外，見下）', bad.out, []);
   // 例外清單自己也要被鎖住 —— 不然它會慢慢變成一張放行整族的空頭支票。
@@ -1759,22 +1775,52 @@ console.log('\n── Hero 讀數不得爆版 ──');
 
   // 🔴 反面也要驗：琥珀**真的有出現**。否則這條在「一個琥珀都沒有」時也全綠 ——
   // 那正是它要守的東西不見了的情況（死斷言）。
-  const amberNodes = await page.evaluate(() => {
-    const amber = getComputedStyle(document.documentElement).getPropertyValue('--amber-400').trim();
-    const m = amber.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
-    let n = 0;
-    for (const el of document.querySelectorAll('#today-screen *, #fdcb *')) {
-      const cs = getComputedStyle(el);
-      if (cs.display === 'none') continue;
-      for (const k of ['color', 'backgroundColor', 'borderTopColor']) {
-        const c = (cs[k].match(/[\d.]+/g) || []).map(Number);
-        if (c.length >= 3 && !(c[3] !== undefined && c[3] < 0.25)
-          && Math.hypot(c[0] - m[0], c[1] - m[1], c[2] - m[2]) < 40) { n++; break; }
-      }
-    }
-    return n;
+  // 🔴 種一筆紀錄，否則 Session / Timeline 在 harness 裡是空清單 ——
+  // 「這一面鋪了沒」在一個空清單上問不出答案。
+  await page.evaluate(() => {
+    const k = window.TENKI_OUTCOME.STORE_KEY;
+    localStorage.setItem(k, JSON.stringify([{
+      symbol: 'ES1!', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+      contextTag: null, reachedReadiness: null, durationSec: 392, marks: 2,
+      ts: Date.now() - 3600e3, source: 'alert', originAlertId: 'a-guard',
+    }]));
   });
-  checkTruthy(`可動層真的鋪上去了（${amberNodes} 個節點穿琥珀，0 個＝這條是死斷言）`, amberNodes > 0);
+  const countOn = (tab) => page.evaluate((t) => window.goTab(t), tab)
+    .then(() => page.waitForTimeout(600))
+    .then(() => page.evaluate(() => {
+      const amber = getComputedStyle(document.documentElement).getPropertyValue('--amber-400').trim();
+      const m = amber.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+      let n = 0, clicks = 0;
+      // 🔴 **不含 #fdcb**：底座浮在每一個分頁上，把它算進來這條就永遠 ≥3，
+      //    等於在測「底座存在嗎」而不是「這一面鋪了沒」。
+      //    2026-09-08 的反向驗證證實了這件事：把 Lab 磁磚的琥珀整個拿掉，
+      //    lab 從 10 掉到 3，而斷言（n > 0）**照樣綠**。
+      // 🔴 `backgroundImage` 一定要一起讀 —— 漸層住在那裡。
+      //    少了它，`.scan-button`（全 app 最大的一顆琥珀）會被數成 0，
+      //    而這已經是同一個漏洞在這一輪的**第三次**（發光計數、動作盤點、這裡）。
+      const cols = (str) => (str.match(/rgba?\([^)]*\)/g) || []).map((t) => (t.match(/[\d.]+/g) || []).map(Number));
+      for (const el of document.querySelectorAll('.screen.active *')) {
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 4 || r.height < 4) continue;
+        if (cs.cursor === 'pointer' || el.tagName === 'BUTTON' || el.tagName === 'A' || el.hasAttribute('onclick')) clicks++;
+        const all = [...cols(cs.color), ...cols(cs.backgroundColor), ...cols(cs.borderTopColor), ...cols(cs.backgroundImage)];
+        if (all.some((c) => c.length >= 3 && !(c[3] !== undefined && c[3] < 0.15)
+          && Math.hypot(c[0] - m[0], c[1] - m[1], c[2] - m[2]) < 40)) n++;
+      }
+      return { n, clicks };
+    }));
+  // 🔴 反面斷言必須跟上面那條掃**同一個範圍**，否則它是在替一件它沒量過的事背書。
+  // 第一版只掃 #today-screen，卻寫在一條掃五個分頁的斷言旁邊 —— 那正是
+  //「量測方式看不到什麼」那條 PLAYBOOK 的又一個實例，這次的受害者是我自己的反面斷言。
+  // 🔴 判準不是「每一面都要有琥珀」，而是**「有動作的面才要有」** ——
+  // Timeline 實測 **0 個可點元素**（純閱讀面），要求它上琥珀是我把規則套錯。
+  // 寫成雙向的等價式，這條就會自己修正：哪天 Timeline 長出一顆按鈕而沒鋪，它會紅。
+  for (const tab of SURFACES) {
+    const { n, clicks } = await countOn(tab);
+    check(`${tab}：有動作就有可動層（可點 ${clicks} / 穿琥珀 ${n}）`, clicks > 0 === n > 0, true);
+  }
   await page.close();
 }
 
