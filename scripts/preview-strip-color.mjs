@@ -199,6 +199,55 @@ const segBg = await page.$eval('#resultStrip .result-seg', (n) => getComputedSty
 check('momentum strip 本次段落 = 紀律色', segBg, CLEAR);
 check('momentum strip 不得畫成 strain 橘', segBg !== STRAIN, true);
 
+// ── 決策軌跡是「欄位表」，不是散文 ──
+//
+// founder 2026-09-05 給了彭博終端機的交易確認畫面當參考，要「頂級專業交易者
+// 平台」的手感。這一頁改成欄位表之後，**真正讓它讀起來專業的是「對齊」**，
+// 不是任何一個樣式字串 —— 所以第一條斷言直接問值欄的左緣在不在同一條線上。
+//
+// 🔴 反向驗證過：把 .rc-label 的 `width:62px` 改成 `width:auto`，
+// 值欄就跟著標籤長短跑掉，這條當場紅 —— 它驗的是對齊本身，不是 CSS 寫法。
+const recap = await page.evaluate(() => {
+  const rows = [...document.querySelectorAll('#resultRecapList .result-recap-row')];
+  const mono = (n) => /mono|menlo|sf ?mono/i.test(getComputedStyle(n).fontFamily);
+  return {
+    n: rows.length,
+    labels: rows.map((r) => r.querySelector('.rc-label')?.textContent ?? null),
+    valueLefts: rows.map((r) => Math.round(r.querySelector('.rc-value').getBoundingClientRect().left)),
+    // 每一列的「量」都要是等寬；中文標籤/中文值**不得**是等寬。
+    numsAllMono: rows.every((r) => [...r.querySelectorAll('.num')].every(mono)),
+    labelsAnyMono: rows.some((r) => mono(r.querySelector('.rc-label'))),
+    // 純中文的值（例如「判定成立 · 已進場」）不得被丟進等寬
+    cjkValueMono: rows.some((r) => {
+      const v = r.querySelector('.rc-value');
+      const hasNum = !!v.querySelector('.num');
+      return !hasNum && /[\u4e00-\u9fff]/.test(v.textContent) && mono(v);
+    }),
+    waitValue: (rows.find((r) => r.querySelector('.rc-label')?.textContent === '等待')
+      ?.querySelector('.rc-value')?.textContent ?? '').trim(),
+  };
+});
+check('🔴 值欄左緣在每一列都對齊同一條線', new Set(recap.valueLefts).size, 1);
+check('每一列都有欄位標籤', recap.labels.every((l) => !!l), true);
+check('數字與代號走等寬', recap.numsAllMono, true);
+// 🔴 這兩條擋的是「整頁丟進 mono」那種偷懶做法 —— 等寬 CJK 會把每個字撐成
+// 全形方塊，密度整個垮掉（decision-alert.html:405 那段註解為這件事付過學費）。
+check('🔴 中文標籤不得走等寬', recap.labelsAnyMono, false);
+check('🔴 純中文的值不得走等寬', recap.cjkValueMono, false);
+// 「等了 NN:NN」原本擠在判定那句的尾巴 —— 它是一個量，要有自己的欄位。
+check('等待自成一欄且值是時鐘', /^\d{2}:\d{2}$/.test(recap.waitValue), true);
+
+// 完成率是表頭右邊的「量」：大數字走等寬，中文註腳不走。
+const rateNode = await page.evaluate(() => {
+  const box = document.getElementById('resultRate');
+  const num = box.querySelector('.num');
+  const sub = box.querySelector('.sub');
+  const mono = (n) => n ? /mono|menlo|sf ?mono/i.test(getComputedStyle(n).fontFamily) : null;
+  return { numText: num?.textContent ?? null, numMono: mono(num), subMono: mono(sub) };
+});
+check('完成率的數字走等寬', rateNode.numMono, true);
+check('🔴 完成率的中文註腳不得走等寬', rateNode.subMono, false);
+
 // ── 收束頁的主要動作不得沉到摺線下 ──
 // founder 2026-08-09 實走：「要下滑一點才會出現儲存按鈕」。
 //

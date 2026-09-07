@@ -39,6 +39,17 @@
   --zone-neutral: #64748B;
   --zone-strain:  #C2703D;
 
+  /* ── Type ──
+     🔴 --mono 只給「終端機骨架」用：拉丁字母、數字、欄位代號、時鐘。
+     **不要拿它包中文。** 等寬 CJK 會把每個字撐成全形方塊，密度整個垮掉、
+     還會斷在奇怪的地方（decision-alert.html 的模板表已經為這件事付過學費，
+     實測截圖「Mancini 招 / 牌結構」）。彭博的密度來自**對齊與克制**，
+     不是來自「所有東西都用 mono」。
+     這一行同時是收斂：同一組堆疊本來散在 decision-alert.html（兩處）、
+     soul-enroll.html、baseline-3d.html 各自硬寫一份
+     （VISUAL-DIRECTION.md §2 破口 5「字體雙頭 source」的同一族）。 */
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
   /* ── Easing ── */
   --ease-calm:   cubic-bezier(0.22, 1, 0.36, 1);
   --ease-breath: cubic-bezier(0.4, 0, 0.6, 1);
