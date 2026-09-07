@@ -1732,7 +1732,11 @@ body{
    它是**動作**標記不是量測，最終歸屬是「可動層」（--amber-400），
    但琥珀還沒鋪到底座 —— 先給中性讓它讀得到，鋪琥珀時再回來改這一行。
    🔴 新守門掃不到它：::before 的 content 不是子文字節點。已記在 harness 註解裡。 */
-.fdcb.state-ready .fdcb-time::before{content:'▶ ';color:var(--n-300);margin-right:2px}
+/* ▶ 是**動作**標記（按一下就起跑）—— f1cfacd 的 commit message 裡寫過
+   「最終歸屬可動層 --amber-400，鋪琥珀時回來改」，這裡兌現。
+   ⚠️ 它是 ::before 的 content，對比守門的節點掃描看不到它（那條的涵蓋邊界
+   寫在守門原地），所以這一處的 8.2:1 是手動量的。 */
+.fdcb.state-ready .fdcb-time::before{content:'▶ ';color:var(--amber-400);margin-right:2px}
 .fdcb.state-ready .fdcb-seg{color:var(--n-400)}   /* 同上：0.4 白在底座上 3.36:1 */
 .fdcb.state-ready .fdcb-prog{display:none}
 .fdcb.state-complete .fdcb-time{font-size:12px;color:var(--fdcb-complete);letter-spacing:0.08em}
@@ -1808,16 +1812,21 @@ body{
   transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s;
 }
 .tp-picker::-webkit-scrollbar{display:none}
+/* 🔴 快選晶片是**動作**（點一顆就給剛剛那個標記貼上標籤）→ 可動層琥珀。
+   founder 2026-09-08 實走時真的用了它，而它當時還是無主的白 ——
+   全 app 唯一還沒鋪到的動作面。外框式：它是次要動作，主要動作是「+ 標記」本身。
+   ⚠️ `.picked` 是**已經選了**（狀態），所以改成實心填色 + 深空色字，
+   而不是換一個顏色 —— 同一個可動層的兩個階，靠明度差講「選了沒」。 */
 .tp-chip{
   flex:0 0 auto;padding:7px 12px;border-radius:10px;
-  background:rgba(255,255,255,0.06);
-  border:1px solid rgba(255,255,255,0.10);
-  color:#fff;font-size:12px;font-family:inherit;line-height:1;
+  background:rgba(var(--amber-400-rgb),0.08);
+  border:1px solid rgba(var(--amber-400-rgb),0.38);
+  color:var(--amber-400);font-size:12px;font-family:inherit;line-height:1;
   cursor:pointer;white-space:nowrap;
-  transition:background 0.2s;
+  transition:background 0.2s, color 0.2s, border-color 0.2s;
 }
-.tp-chip:active{background:rgba(255,255,255,0.14)}
-.tp-chip.picked{background:rgba(255,255,255,0.18);border-color:rgba(255,255,255,0.3)}
+.tp-chip:active{background:rgba(var(--amber-400-rgb),0.18)}
+.tp-chip.picked{background:var(--amber-400);border-color:var(--amber-400);color:var(--n-950)}
 @media (prefers-reduced-motion: reduce){ .tp-picker{transition:none} }
 
 /* ═══════════════════════════════════════════════════
