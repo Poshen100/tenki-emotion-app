@@ -781,13 +781,17 @@ body{
 .scan-last .lbl{font-size:9px;letter-spacing:0.2em;color:var(--txt-sec);text-transform:uppercase;font-weight:600}
 .scan-last .time{font-size:11px;color:rgba(255,255,255,0.6)}
 
+/* 🔴 全 app 最大的一顆動作鍵 → 可動層琥珀（founder 2026-09-07 拍板「全部可點元素都鋪」）。
+   它原本是青色，而青 ＝ ACTIVE / live ＝「這件事正在發生」—— 但這顆是「**你**去讓它發生」。
+   ⚠️ 這是世界 A（深空）的元素，所以**輝光保留**，只換色相：關燈那條管的是儀器世界。
+   漸層的三站照原本的明暗關係換過去（亮→base→暗），呼吸動效一個參數都沒動。 */
 .scan-button{
   width:200px;height:200px;border-radius:50%;
-  background:radial-gradient(circle at 30% 30%, #0dd4f7 0%, #00B4D8 45%, #006b82 100%);
+  background:radial-gradient(circle at 30% 30%, #FFC46B 0%, var(--amber-400) 45%, var(--amber-800) 100%);
   border:none;cursor:pointer;position:relative;
   box-shadow:
-    0 20px 60px rgba(0,180,216,0.4),
-    0 0 0 8px rgba(0,180,216,0.08),
+    0 20px 60px rgba(var(--amber-400-rgb),0.4),
+    0 0 0 8px rgba(var(--amber-400-rgb),0.08),
     inset 0 2px 20px rgba(255,255,255,0.3);
   display:flex;align-items:center;justify-content:center;
   transition:transform 0.2s var(--ease-calm);
@@ -795,13 +799,17 @@ body{
 }
 .scan-button:active{transform:scale(0.94)}
 @keyframes scanBreathe{
-  0%,100%{box-shadow:0 20px 60px rgba(0,180,216,0.3), 0 0 0 8px rgba(0,180,216,0.06), inset 0 2px 20px rgba(255,255,255,0.3)}
-  50%    {box-shadow:0 20px 60px rgba(0,180,216,0.5), 0 0 0 14px rgba(0,180,216,0.12), inset 0 2px 20px rgba(255,255,255,0.3)}
+  0%,100%{box-shadow:0 20px 60px rgba(var(--amber-400-rgb),0.3), 0 0 0 8px rgba(var(--amber-400-rgb),0.06), inset 0 2px 20px rgba(255,255,255,0.3)}
+  50%    {box-shadow:0 20px 60px rgba(var(--amber-400-rgb),0.5), 0 0 0 14px rgba(var(--amber-400-rgb),0.12), inset 0 2px 20px rgba(255,255,255,0.3)}
 }
 .scan-button .txt{
-  font-size:14px;font-weight:600;color:#fff;
+  /* 🔴 白字**不能**壓在琥珀上 —— 實測 2.0:1，完全不可讀。
+     這是我自己在 tokens.css 寫下的那條規則，而我換成琥珀球的第一版就踩了它
+     （截圖上還「看得見」是因為有 text-shadow 在撐，那不是對比，那是描邊）。
+     深空色字壓在 amber-400 上是 9.9:1。 */
+  font-size:14px;font-weight:600;color:var(--n-950);
   letter-spacing:0.24em;text-transform:uppercase;
-  text-shadow:0 1px 4px rgba(0,0,0,0.3);
+  text-shadow:none;
 }
 
 .scan-options{
@@ -1167,7 +1175,9 @@ body{
 .te-warn{font-size:12px;color:#FF6B35;line-height:1.5;margin-bottom:12px}
 .te-actions{display:flex;gap:10px;margin-top:6px}
 .te-btn{flex:1;border-radius:12px;padding:13px 0;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid transparent}
-.te-save{background:var(--primary);color:#001;}
+/* 儲存是動作 → 琥珀填色，字用深空色（白字壓在琥珀上只有 2.0:1）。
+   ⚠️ 舊值 color:#001 是一個沒有主人的近黑，順手收進 --n-950。 */
+.te-save{background:var(--amber-400);color:var(--n-950);}
 .te-del{flex:0 0 auto;padding:13px 20px;background:transparent;border-color:rgba(255,107,53,0.4);color:#FF6B35}
 @media (prefers-reduced-motion: reduce){ .tmpl-editor{transition:none} .te-sw,.te-ic{transition:none} }
 /* Lab 訊息 toast */

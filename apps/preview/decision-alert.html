@@ -507,10 +507,12 @@
       padding: 10px 0; border-bottom: 1px solid var(--border);
       border-radius: 0; background: none; cursor: pointer;
     }
-    .tpl-row:active { background: rgba(61, 224, 255, 0.06); }
+    .tpl-row:active { background: rgba(var(--amber-400-rgb), 0.08); }
+    /* 代號欄是這一列**可以按**的視覺把手（整列可點，但眼睛先落在代號上）→ 可動層。
+       ⚠️ `:active` 舊值是寫死的 rgba(61,224,255,…) ＝ 第六種 cyan，順手一起收掉。 */
     .tpl-code {
       flex: none; width: 96px; font-size: 12px; font-weight: 600;
-      letter-spacing: 0.04em; color: var(--cyan-active);
+      letter-spacing: 0.04em; color: var(--amber-400);
     }
     .tpl-main { flex: 1; min-width: 0; }
     .tpl-name { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
@@ -824,6 +826,6 @@
   <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do1"></script>
-  <script src="decision-alert.js?v=alert37"></script>
+  <script src="decision-alert.js?v=alert38"></script>
 </body>
 </html>

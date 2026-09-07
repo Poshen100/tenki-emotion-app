@@ -1778,6 +1778,39 @@ console.log('\n── Hero 讀數不得爆版 ──');
   await page.close();
 }
 
+// ── 琥珀填色塊上的字，一律要 ≥ 4.5:1 ──
+// 🔴 這條是為了擋**我自己剛剛犯的那個錯**：把 TAP TO SCAN 換成琥珀球時，
+// 標籤留著白字 —— 實測 **2.0:1**，而我自己在 tokens.css 寫著「填色塊上的字用
+// 深空色，不是白色」。截圖上看起來還「讀得到」是因為有 text-shadow 在描邊，
+// 那不是對比。⚠️ 白字 + 描邊會讓肉眼過關而數字不過關 —— 所以這條要用量的。
+{
+  console.log('\n── 琥珀填色塊上的字 ──');
+  const page = await openV3(844);
+  await page.evaluate(() => window.goTab('scan'));
+  await page.waitForTimeout(700);
+  const rows = await page.evaluate(() => {
+    const lin = (c) => ((c /= 255), c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const relL = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    const P = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+    const cs0 = getComputedStyle(document.documentElement);
+    const amber = cs0.getPropertyValue('--amber-400').trim().replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+    const out = [];
+    // 目前的琥珀填色塊：掃描球的標籤。（外框式的不算 —— 它們的字壓在地面上。）
+    for (const sel of ['.scan-button .txt']) {
+      const el = document.querySelector(sel);
+      if (!el) { out.push({ sel, ratio: 0, note: '找不到（死斷言）' }); continue; }
+      const fg = P(getComputedStyle(el).color).slice(0, 3);
+      const L1 = relL(fg), L2 = relL(amber);
+      out.push({ sel, ratio: Math.round(((Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05)) * 100) / 100 });
+    }
+    return out;
+  });
+  for (const r of rows) console.log(`   ${r.sel}  ${r.ratio}:1 ${r.note || ''}`);
+  check('🔴 琥珀填色塊上的字 ≥ 4.5:1（白字只有 2.0，這條擋的是我自己犯過的錯）',
+    rows.filter((r) => r.ratio < 4.5).map((r) => `${r.sel}@${r.ratio}`), []);
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);
