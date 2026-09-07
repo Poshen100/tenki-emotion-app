@@ -228,6 +228,15 @@ North Star 寫「**不是 trading terminal 的科幻電競感**」—— 擋的�
 （`f1cfacd` 保留 `#fdcbFill` 的理由是「它是唯一真的在講進行中的東西」，
 **這一條量完之後那個理由只對五個模板成立**。）
 
+🔴 **同一格還有第二個綠**：`<div class="ic" id="fdcbIcon" style="color:#34C759">`（`:2872`）——
+**inline style 寫死的 `--success` 綠**。`renderTmplChip()`（`:3965`）只換 SVG 的 `innerHTML`，
+**從來不動顏色**，所以：
+
+- `.fdcb-tmpl .ic{color:var(--primary)}`（`:1545`）是**死規則**，永遠被 inline style 蓋掉；
+- 決策一跑起來，底座左邊就有一顆 `--success` 綠的環**全程亮著** —— 六個模板都一樣。
+
+跟 `.fdcb-fill` 是同一件事的兩個出口：**還沒有結果，畫面已經在用「跟著流程完成」的顏色。**
+
 ### ③ 兩個家族的破口本體，就是這一頁最常用的兩個文字色
 
 `--txt-sec`（69 處）與 `--txt-dim`（12 處）是 **iOS 系統灰**（彩度 ≈ 0），
@@ -284,7 +293,7 @@ North Star 寫「**不是 trading terminal 的科幻電競感**」—— 擋的�
 | 優先 | 動作 | 風險 |
 |---|---|---|
 | 1 | 刪 8 個死 token（`--sns` `--pns` `--bg` `--card` `--border` + 三個 `--zone-*`）| **零**（0 用量，可用 grep 證明）|
-| 2 | 拿掉 `.fdcb-tmpl .ic` 的 drop-shadow | 極低，補完上一輪的關燈 |
+| 2 | 拿掉 `.fdcb-tmpl .ic` 的 drop-shadow + 那顆 inline 綠 | 極低，補完上一輪的關燈 |
 | 3 | `--txt-sec` / `--txt-dim` → 中性階 | 中（81 處，但都是文字色，且會**修好** 1.84:1）|
 | 4 | `--warning` / `--warn` 退場 | 中，**且是鋪琥珀的前置** |
 | 5 | 拆開 `--primary`：模板身分 vs「進行中」 | 高，要先決定模板身分還需不需要顏色 |
