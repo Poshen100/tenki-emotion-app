@@ -99,6 +99,24 @@ Phase 1 接 HealthKit 時的義務：SDNN 值必須走 `hrvSdnnMs` 進 SDNN 軌�
 - **沒有 adapter 就照實說**，那是我們的缺口不是使用者的；不得長成「連了但永遠沒資料」。
 - 隱私說明與中斷連接就在頁面上，整頁免費（v3 硬規則：隱私控制不得放在付費牆後）。
 
+## 4b. 三個來源的資料轉換層（已完成，2026-09-05）
+
+原生模組還沒有，但**每個來源真正容易出錯的那一段是純函式，已經寫完並測起來**：
+native 橋接之後只負責把平台資料交出來，剩下的判斷都在這裡。
+
+| 檔案 | 職責 | 守住什麼 |
+|---|---|---|
+| `adapters/bleHeartRate.ts` | 解析標準 Heart Rate Measurement（`0x180D` / `0x2A37`） | RR interval 單位是 **1/1024 秒不是毫秒**；energy 欄位在 RR 之前，offset 算錯會生出假的第一拍；contact-status bit 在 supported bit 沒設時無意義，不得顯示成「接觸良好」 |
+| `adapters/healthKitMapping.ts` | Apple 健康 sample → `BiometricSample` | Apple 的 HRV 一律落 `hrv_sdnn_ms`；**沒告知的單位一律拒收不猜**（HealthKit 的 percent 是分數、SDNN 可能是秒也可能是毫秒）；使用者手動輸入的數字降級 |
+| `adapters/healthConnectMapping.ts` | Health Connect record → `BiometricSample` | Health Connect 的 HRV 一律落 `hrv_rmssd_ms`；SpO2 已是 0..100；energy 只認 kcal / joules |
+
+**兩道網，缺一不可**：① adapter 不猜單位 ② 每一筆再過一次 domain 的
+`validateBiometricSample()`。所以就算單位判斷錯了，撞到生理合理範圍還是會被擋掉
+（SpO2 0.97 會被拒收，不會被當成 0.97% 存進基線）。
+
+⚠️ 一個平台一支 mapper 是**刻意的**，不要為了 DRY 合併：
+Apple 給 SDNN、Health Connect 給 RMSSD，分開寫才讓那個差異在結構上無法被含糊帶過。
+
 ## 5. Phase 1–4 原生部分 — 尚未實作
 
 | Phase | 內容 | 為什麼還沒做 |
@@ -110,6 +128,21 @@ Phase 1 接 HealthKit 時的義務：SDNN 值必須走 `hrvSdnnMs` 進 SDNN 軌�
 
 Phase 1–3 的共同驗收線：**權限被拒時相機 Soul Scan 仍完整可用**，穿戴資料是補強層，不是前置條件。
 
+### 沒有 Mac 也能建 iOS 版（founder 端的前置條件）
+
+「等 Mac」其實不精確 —— **EAS Build 是在 Expo 的雲端 macOS 上編譯**，不需要自己有 Mac。
+真正的前置條件是：
+
+| 需要 | 為什麼 | 成本 |
+|---|---|---|
+| **Expo 帳號 + EAS Build** | Expo Go **載不了自訂原生模組**，三條 P0 都需要 development build（dev client） | 免費方案有 build 額度與排隊，夠用 |
+| **Apple Developer Program** | 把 dev build 裝進實體 iPhone 需要 provisioning；日後 TestFlight／上架也要 | 年費（以 Apple 官方公告為準） |
+| 一支 Android 手機（可借） | Health Connect 與 BLE 兩條可以**零費用**先驗，APK 直接側載 | 0 |
+
+⚠️ 這三條沒有一條是 Claude Code 能代辦的（都要 founder 的帳號與付款）。
+在它們到位之前，原生模組寫了也**無法驗證**，而未經驗證的橋接比沒有橋接更危險 ——
+它會讓連接頁開始說謊。
+
 實作 `DeviceLinkPort` 時的義務：
 1. `describeEnvironment()` 要照實回報 adapter 是否存在 —— 回 `true` 但沒有橋接，
    會讓畫面開始說謊。
@@ -117,11 +150,12 @@ Phase 1–3 的共同驗收線：**權限被拒時相機 Soul Scan 仍完整可�
    **不得塞進 `BiometricReading.hrvRmssdMs`**（見 §3）。
 3. 權限要 contextual（掃描之後才問），且逐個 scope，不在冷啟動一次要全部。
 
-### 現況（2026-09-04 查核）
+### 現況（2026-09-05 查核）
 
-repo 內**沒有**任何可用的 HealthKit / Health Connect / Garmin / BLE 讀取實作 ——
+repo 內**沒有**任何原生的 HealthKit / Health Connect / Garmin / BLE 讀取實作 ——
+沒有相關相依套件、也還沒 prebuild（沒有 `ios/` 或 `android/`）。
 連接頁在真機上會顯示「尚未開放連接，功能還在開發中」，這是設計行為，不是 bug。
-既有的其他槽位：
+資料轉換層已完成（見 §4b），等的是把資料交進來的那一層。既有的其他槽位：
 
 - `packages/engine/src/common/types.ts` — `BiometricSource`、`SleepRecoveryInput`（有槽位，無資料）
 - `packages/engine/src/fusion.ts` — `FusionSource` 優先序（本檔 Phase 0 沿用其排序）
