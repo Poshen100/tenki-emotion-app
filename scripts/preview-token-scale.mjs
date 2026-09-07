@@ -116,11 +116,13 @@ await page.waitForFunction(
 const TOKENS = await page.evaluate(() => {
   const cs = getComputedStyle(document.documentElement);
   const names = [
-    '--amber-400', '--amber-600', '--amber-800', '--amber-950',
+    '--amber-400', '--amber-500', '--amber-600', '--amber-800', '--amber-950',
     '--cyan-200', '--cyan-400', '--cyan-500', '--cyan-800', '--cyan-950',
     '--cyan-core', '--cyan-active', '--zone-clear', '--zone-neutral', '--zone-strain',
     '--gold-secured', '--success', '--error',
-    '--clear-950', '--clear-800', '--neutral-950', '--neutral-800', '--strain-950', '--strain-800',
+    '--clear-400', '--clear-500', '--clear-600', '--clear-800', '--clear-950',
+    '--neutral-400', '--neutral-500', '--neutral-600', '--neutral-800', '--neutral-950',
+    '--strain-400', '--strain-500', '--strain-600', '--strain-800', '--strain-950',
     '--n-950', '--n-900', '--n-850', '--n-800', '--n-700', '--n-600',
     '--n-550', '--n-500', '--n-450', '--n-400', '--n-300', '--n-200', '--n-100',
   ];
@@ -143,9 +145,19 @@ check('--cyan-500 解析 = --cyan-core', TOKENS['--cyan-500'], TOKENS['--cyan-co
 const srcCss = await (await fetch(`${base}/preview/tokens.css`)).text();
 checkTruthy('🔴 --cyan-400/500 是用 var() 指過去，不是複製 hex',
   /--cyan-400:\s*var\(--cyan-active\)/.test(srcCss) && /--cyan-500:\s*var\(--cyan-core\)/.test(srcCss));
+// 帶位三色的 -400 同樣是**指過去**，不複製 hex —— --zone-clear 被
+// preview-scan-stardust.mjs 寫死兩處，值是鎖定的。
+check('--clear-400 解析 = --zone-clear', TOKENS['--clear-400'], TOKENS['--zone-clear']);
+check('--neutral-400 解析 = --zone-neutral', TOKENS['--neutral-400'], TOKENS['--zone-neutral']);
+check('--strain-400 解析 = --zone-strain', TOKENS['--strain-400'], TOKENS['--zone-strain']);
+checkTruthy('🔴 帶位 -400 是用 var() 指過去，不是複製 hex',
+  /--clear-400:\s*var\(--zone-clear\)/.test(srcCss)
+  && /--neutral-400:\s*var\(--zone-neutral\)/.test(srcCss)
+  && /--strain-400:\s*var\(--zone-strain\)/.test(srcCss));
+
 
 console.log('\n── ③ 琥珀不得有比 base 更亮的階（往亮處走就撞 SECURED）──');
-const amberSteps = ['--amber-400', '--amber-600', '--amber-800', '--amber-950'];
+const amberSteps = ['--amber-400', '--amber-500', '--amber-600', '--amber-800', '--amber-950'];
 const baseL = lightness(TOKENS['--amber-400']);
 const lighter = amberSteps.filter((k) => k !== '--amber-400' && lightness(TOKENS[k]) > baseL);
 check(`🔴 沒有階比 --amber-400 亮（base L* ${baseL.toFixed(0)}）`, lighter, []);

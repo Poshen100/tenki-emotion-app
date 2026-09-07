@@ -1700,6 +1700,84 @@ console.log('\n── Hero 讀數不得爆版 ──');
   await page.close();
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 🔴 琥珀只准標「這裡可以動手」——**每一個穿琥珀的節點都必須是可點的**
+//
+// founder 2026-09-05 拍板 amber #FFA028 當「可動層」，2026-09-07 鋪上。
+// 這條擋的不是今天的樣子，是**它慢慢變成一個裝飾色**那個未來 ——
+// 這個 repo 已經為「顏色沒有主人」付過很多次學費（--warning / --sns / 五種 cyan）。
+//
+// 判準：可點 ＝ button / [role=button] / a / onclick / cursor:pointer。
+// ⚠️ 祖先可點也算（例：`.tl-edge-cta` 裡的文字節點），所以要往上找。
+// ⚠️ 只掃**看得見**的節點：display:none 的東西沒有在宣稱任何事。
+// ═══════════════════════════════════════════════════════════════════════
+{
+  console.log('\n── 琥珀只出現在可以動手的東西上 ──');
+  const page = await openV3(844);
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(900);
+  const bad = await page.evaluate(() => {
+    const amber = getComputedStyle(document.documentElement).getPropertyValue('--amber-400').trim();
+    const m = amber.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+    const near = (s) => {
+      const c = (s.match(/[\d.]+/g) || []).map(Number);
+      if (c.length < 3) return false;
+      if (c[3] !== undefined && c[3] < 0.25) return false;   // 幾乎透明的不算宣稱
+      return Math.hypot(c[0] - m[0], c[1] - m[1], c[2] - m[2]) < 40;
+    };
+    const clickable = (el) => {
+      for (let n = el; n && n !== document.body; n = n.parentElement) {
+        if (n.tagName === 'BUTTON' || n.tagName === 'A') return true;
+        if (n.getAttribute && (n.getAttribute('role') === 'button' || n.hasAttribute('onclick'))) return true;
+        if (getComputedStyle(n).cursor === 'pointer') return true;
+      }
+      return false;
+    };
+    const out = [], ringDots = [];
+    for (const el of document.querySelectorAll('#today-screen *, #fdcb *')) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      const hit = ['color', 'backgroundColor', 'borderTopColor'].filter((k) => near(cs[k]));
+      if (!hit.length || clickable(el)) continue;
+      // 🔴 **一個逐項列舉、而且會自己長不大的例外**：英雄環上有兩顆純裝飾的點
+      // （.ring-dot，pointer-events:none、沒有任何語義），其中 outer 寫死 #F5A623
+      // ＝ --warning，而 --warning 與可動層琥珀正常視覺 ΔE 7.5、綠色盲 0.6。
+      // 環是世界 A 的鎖定資產，這一輪不動它 —— 但也**不默默放行**：
+      // 它被單獨數出來，下面那條斷言鎖死「例外就是這兩顆」，多一顆就紅。
+      if (el.closest('.tl-edge')) { ringDots.push(el.className); continue; }
+      out.push(`${el.id || el.className || el.tagName}(${hit.join(',')})`);
+    }
+    return { out, ringDots };
+  });
+  if (bad.out.length) { console.log('   穿琥珀但點不下去的：'); for (const x of bad.out.slice(0, 8)) console.log(`     ${x}`); }
+  check('🔴 每一個穿琥珀的可見節點都是可點的（環上的裝飾點除外，見下）', bad.out, []);
+  // 例外清單自己也要被鎖住 —— 不然它會慢慢變成一張放行整族的空頭支票。
+  check('🔴 環上穿暖色的裝飾點就是已知的那一顆，沒有長出第二顆',
+    bad.ringDots.sort(), ['ring-dot outer revealed']);
+
+  // 🔴 反面也要驗：琥珀**真的有出現**。否則這條在「一個琥珀都沒有」時也全綠 ——
+  // 那正是它要守的東西不見了的情況（死斷言）。
+  const amberNodes = await page.evaluate(() => {
+    const amber = getComputedStyle(document.documentElement).getPropertyValue('--amber-400').trim();
+    const m = amber.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+    let n = 0;
+    for (const el of document.querySelectorAll('#today-screen *, #fdcb *')) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none') continue;
+      for (const k of ['color', 'backgroundColor', 'borderTopColor']) {
+        const c = (cs[k].match(/[\d.]+/g) || []).map(Number);
+        if (c.length >= 3 && !(c[3] !== undefined && c[3] < 0.25)
+          && Math.hypot(c[0] - m[0], c[1] - m[1], c[2] - m[2]) < 40) { n++; break; }
+      }
+    }
+    return n;
+  });
+  checkTruthy(`可動層真的鋪上去了（${amberNodes} 個節點穿琥珀，0 個＝這條是死斷言）`, amberNodes > 0);
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);

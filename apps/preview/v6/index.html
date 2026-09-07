@@ -404,17 +404,17 @@ body{
 }
 /* 「到 Scan 掃一次」本來只是一行字，長得像連結卻點不動 —— 補成真的可點 */
 .tl-edge-cta{
-  /* 🔴 框跟字**必須是同一個顏色的家族**，否則遲早不一致 —— 而它們已經不一致了：
-     框是寫死的青 rgba(0,180,216,…)，字卻吃 `var(--primary)` ＝ 當下哪一個模板在跑。
-     決策一起跑，這顆鈕就變成「紫字配青框」，而紫在這裡只有 2.34:1
-     （founder 2026-09-07 實機截圖）。
-     字改成 `--cyan-core`（＝框那個 0,180,216 的同一個值，8.18:1），
-     六個模板一致，而且框與字從此指向同一個來源。
-     ⚠️ 這顆鈕語意上屬於「可動層」，最終歸屬是琥珀 --amber-400；
-     但鋪琥珀有前置條件（--warning 要先退場，見 VISUAL-DIRECTION §3.6 ④），
-     所以這一輪只把它從模板色手上拿回來，不順手換成琥珀。 */
-  appearance:none;border:1px solid rgba(0,180,216,0.35);
-  background:rgba(0,180,216,0.10);color:var(--cyan-core);
+  /* 🔴 框跟字**必須是同一個顏色的家族**，否則遲早不一致 —— 而它們曾經不一致：
+     框是寫死的青，字卻吃 `var(--primary)` ＝ 當下哪一個模板在跑，
+     決策一起跑就變成「紫字配青框」，2.34:1（founder 2026-09-07 實機截圖）。
+     🔴 現在整顆走**可動層琥珀** —— 「到 Scan 掃一次」是一個動作，不是一個讀數。
+     框與字同源（`--amber-400`），9.9:1，六個模板一致。
+     ⚠️ 我先前說「鋪琥珀要等 --warning 退場」—— 那句話太強了。
+     真正的條件是**琥珀與 --warning 不得出現在同一個表面**（兩者綠色盲下 ΔE 0.6）。
+     `--warn` 的 12 處全在 Session / Timeline / baseline-flow，跟這一屏不同框，
+     所以這裡可以先鋪。要往那三個表面鋪之前，--warning 必須先退場。 */
+  appearance:none;border:1px solid rgba(var(--amber-400-rgb),0.45);
+  background:rgba(var(--amber-400-rgb),0.10);color:var(--amber-400);
   font-size:12px;font-weight:600;letter-spacing:0.02em;
   /* 🔴 這一句永遠不該從詞中間斷開（「到 Scan 掃一」/「次 ›」）。
      搬出環心之後有整個螢幕寬，nowrap 不會造成橫向溢出。 */
@@ -423,7 +423,7 @@ body{
   transition:background .2s var(--ease-calm), border-color .2s var(--ease-calm);
 }
 .tl-edge-cta{white-space:nowrap}
-.tl-edge-cta:active{background:rgba(0,180,216,0.20)}
+.tl-edge-cta:active{background:rgba(var(--amber-400-rgb),0.20)}
 .tl-edge-pr{
   font-size:12px;font-weight:500;color:rgba(255,255,255,0.85);
   letter-spacing:0.14em;margin-top:2px;
@@ -1742,15 +1742,18 @@ body{
   flex:0 0 auto;display:none;align-items:center;gap:4px;
   padding:7px 9px;margin:4px 6px 4px 2px;
   border-radius:12px;cursor:pointer;
+  /* 🔴 決策跑著的時候，這是底座上**唯一能動手**的東西 —— 可動層琥珀。
+     虛線保留（它表達「還沒標記」），只是顏色從無主的白換成有意義的琥珀。
+     實測對底座 --n-900：8.2:1。 */
   background:transparent;
-  border:1px dashed rgba(255,255,255,0.22);
-  color:rgba(255,255,255,0.6);
+  border:1px dashed rgba(var(--amber-400-rgb),0.45);
+  color:var(--amber-400);
   font-size:10px;font-weight:600;letter-spacing:0.06em;
   font-family:inherit;
   transition:background 0.3s, border-color 0.3s, color 0.3s;
 }
 .fdcb.state-running .fdcb-mark{display:flex}
-.fdcb-mark:active{background:rgba(255,255,255,0.06)}
+.fdcb-mark:active{background:rgba(var(--amber-400-rgb),0.12)}
 .fdcb-mark .mk-plus{font-size:12px;line-height:1}
 .fdcb-mark .mk-n{
   min-width:16px;height:16px;padding:0 3px;border-radius:8px;
@@ -1759,7 +1762,9 @@ body{
   font-variant-numeric:tabular-nums;
 }
 .fdcb-mark.has-marks{
-  border-style:solid;border-color:rgba(255,255,255,0.28);color:#fff;
+  /* 有標記了 → 實線（事實變了），但**顏色不變** —— 它仍然是同一個可動的東西，
+     不是一個「完成」的狀態。標記數由旁邊的數字講。 */
+  border-style:solid;border-color:rgba(var(--amber-400-rgb),0.7);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -6266,12 +6271,17 @@ function closeSessionDetail(){
       .ans-card .ans-waves{display:flex;flex-direction:column;gap:8px;margin:2px 0 6px;flex:none;}
       .ans-wave-row{display:flex;align-items:center;gap:10px;}
       .ans-lbl{font-size:12px;font-weight:600;width:84px;flex:none;letter-spacing:.02em;}
-      .ans-lbl.sns{color:var(--warn);}
-      .ans-lbl.pns{color:var(--good);}
+      /* 🔴 舊值是 --warn（＝ --warning）與 --good（＝ --success）—— 兩個都借錯了主人：
+         副交感不是「跟著流程完成」，交感也不是「警告」。而且 --warning 與可動層琥珀
+         綠色盲下 ΔE 0.6，兩者同框就無法分辨 —— 這一屏正好同框（守門抓到的）。
+         改用**已經有主人的帶位色**：交感 ＝ 喚起 → --strain-400，副交感 ＝ 靜息 → --clear-400。
+         ⚠️ 這是語意判斷，不是機械替換；不同意就改這兩行。 */
+      .ans-lbl.sns{color:var(--strain-400);}
+      .ans-lbl.pns{color:var(--clear-400);}
       .ans-wave{flex:1;height:26px;}
       .ans-v{font-size:17px;font-weight:600;width:46px;text-align:right;font-variant-numeric:tabular-nums;}
-      .ans-v.sns{color:var(--warn);}
-      .ans-v.pns{color:var(--good);}
+      /* 數字是量測值 → 不上色（分類已經由左邊那一欄的字＋顏色講完了）。 */
+      .ans-v.sns, .ans-v.pns{color:var(--n-100);}
       /* ── Nervous-system state map (The Yes Brain three-zone model) ──
          a continuous spectrum (NOT a score/progress bar): Blue shutdown · Green regulated · Red
          hyperarousal. Green is widest (the ideal dwell zone). Soft, low-sat colours; the marker

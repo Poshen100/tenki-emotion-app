@@ -403,17 +403,26 @@
       font-size: 14px; font-weight: 700; padding: 5px 11px; border-radius: 9px;
       background: var(--card); border: 1px solid var(--border); color: var(--n-400); flex: none;
     }
-    .es-band.clear { color: var(--zone-clear); border-color: rgba(0, 180, 216, 0.5); }
-    .es-band.neutral { color: var(--zone-neutral); }
-    .es-band.strain { color: var(--zone-strain); border-color: rgba(194, 112, 61, 0.5); }
+    /* 🔴 帶位 chip ＝ **wash 底 + 帶位色的邊 + 中性白的字**。
+       為什麼字不用帶位色（雖然看起來比較「有顏色」）：實測它壓在 --card 上
+       **neutral 只有 2.93:1、strain 3.77:1**，兩個都不到 AA ——
+       這是現況就在漏的，只是 founder 的讀數一直是 Clear（5.65:1）所以沒撞到。
+       而且沒有任何 wash 配置能同時保住帶位色的字與 AA（三種組合最好也只有 4.87）。
+       → **顏色當表面、字當宣稱**（tokens.css 那條）：wash + 邊承載帶位，
+       字用 --n-200（7.4 / 13.0 / 11.0:1 ✅）。
+       ⚠️ 附帶好處：三個帶位現在**真的長得不一樣**了 —— 舊的 neutral 連邊框顏色都沒有。 */
+    .es-band.clear   { background: var(--clear-950);   border-color: var(--clear-500);   color: var(--n-200); }
+    .es-band.neutral { background: var(--neutral-950); border-color: var(--neutral-500); color: var(--n-200); }
+    .es-band.strain  { background: var(--strain-950);  border-color: var(--strain-500);  color: var(--n-200); }
     .es-meta { flex: 1; min-width: 0; }
     .es-lbl { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--n-500); }
     .es-age { font-size: 13px; color: var(--n-300); margin-top: 2px; }
     .es-scan {
       flex: none; font-family: inherit; font-size: 12px; font-weight: 600;
       padding: 7px 13px; border-radius: 10px; cursor: pointer;
-      background: transparent; color: var(--cyan-active);
-      border: 1px solid rgba(var(--cyan-active-rgb), 0.5);
+      /* 「掃描 / 重掃」是動作 → 可動層。外框式，因為它是次要動作（主要是「進入決策」）。 */
+      background: transparent; color: var(--amber-400);
+      border: 1px solid rgba(var(--amber-400-rgb), 0.5);
       transition: transform 0.15s var(--ease-calm);
     }
     .es-scan:active { transform: scale(0.96); }
@@ -451,7 +460,16 @@
       transition: transform 0.15s var(--ease-calm), opacity 0.15s;
     }
     .btn:active { transform: scale(0.97); opacity: 0.85; }
-    .btn-primary { background: var(--cyan-core); border-color: var(--cyan-core); color: #02131a; }
+    /* 🔴 琥珀 ＝ 「這裡可以動手」（founder 2026-09-05 拍板，2026-09-07 鋪上）。
+       它不是「好」也不是「鎖定」—— 那兩個位子分別是 --success 與 --gold-secured。
+       彭博畫面上的黃底方塊就是輸入欄，那是這個顏色最主要的用途，而 TENKI
+       一直缺這一層：畫面上「可以按」與「只是資訊」以前用同一個青。
+       🔴 **填色塊上的字用深空底色 --n-950，不是白色** —— 白字壓在 amber-400
+       上只有 2.0:1，完全不可讀。9.9:1 vs 2.0:1，這一條不能省。 */
+    .btn-primary {
+      background: var(--amber-400); border-color: var(--amber-400); color: var(--n-950);
+    }
+    .btn-primary:active { background: var(--amber-500); border-color: var(--amber-500); }
     .btn-ghost { background: transparent; color: var(--n-400); }
 
     /* ── 模板選擇 ── */
@@ -806,6 +824,6 @@
   <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do1"></script>
-  <script src="decision-alert.js?v=alert36"></script>
+  <script src="decision-alert.js?v=alert37"></script>
 </body>
 </html>
