@@ -1496,6 +1496,210 @@ console.log('\n── Hero 讀數不得爆版 ──');
   await page.close();
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 🔴 決策跑著的時候，畫面上**不得有任何顏色因為換了模板而改變**
+//
+// 底座那一輪修好了紫時鐘，但同一個 bug 在 Today 英雄區還有兩個出口
+// （founder 2026-09-07 主畫面 PWA 實機截圖抓到的）：
+//   .tl-edge-zone（「剛剛 掃描」）與 .tl-edge-cta（「到 Scan 掃一次 ›」）
+//   都吃 var(--primary) ＝ 當下哪一個模板在跑 → Mancini FBD 時 2.34:1。
+//   .tl-edge-cta 更糟：**框寫死青、字跟著模板**，兩者必然不一致。
+//
+// 🔴 所以這條斷言的形狀不是「這幾個元素不准是紫的」，而是
+// **「換模板 → 畫面顏色逐項不變」**。前者只擋得住今天這三個元素，
+// 後者擋得住整個 bug 家族（那正是它已經復發三次的原因）。
+//
+// ⚠️ 白名單只有一個：#fdcbFill —— 進度填充**應該**吃模板色，那是刻意保留的。
+// 白名單要用 id 逐一列舉，不能用 class 前綴，否則會默默放行一整族。
+// ═══════════════════════════════════════════════════════════════════════
+{
+  console.log('\n── 換模板不得改變畫面顏色（紫時鐘那個 bug 的家族守門）──');
+
+  /** 決策跑著、停在 Today 時，量整屏每個可見元素的三個顏色。 */
+  const paintOf = (page, tid) => page.evaluate((t) => {
+    const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === t);
+    if (el) window.selectTmpl(el);
+    window.setState('running');
+    return null;
+  }, tid).then(() => page.waitForTimeout(900)).then(() => page.evaluate(() => {
+    const out = {};
+    const nodes = [...document.querySelectorAll('#today-screen *, #fdcb *')];
+    nodes.forEach((n, i) => {
+      const cs = getComputedStyle(n);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return;
+      const r = n.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return;
+      // key 要含 index —— 只用 class 會讓同 class 的多個元素互相覆蓋，
+      // 而覆蓋掉的那個正好可能是壞掉的那個。
+      const key = `${i}:${n.id || n.className || n.tagName}`;
+      out[key] = [cs.color, cs.backgroundColor, cs.borderColor].join(' | ');
+    });
+    return out;
+  }));
+
+  const page = await openV3(844);
+  await page.evaluate(() => window.toggleDisciplineMode());
+  await page.waitForTimeout(300);
+
+  // 兩個顏色差最遠的模板：Mancini FBD 紫 #5E3A87 vs Health Stress 綠 #34C759
+  const a = await paintOf(page, 'MANCINI_FBD');
+  await page.evaluate(() => window.setState('idle'));
+  await page.waitForTimeout(300);
+  const b = await paintOf(page, 'HEALTH_STRESS');
+
+  const ALLOW = ['fdcbFill'];   // 進度填充刻意吃模板色（唯一的例外）
+  const drift = [];
+  for (const k of Object.keys(a)) {
+    if (b[k] === undefined || a[k] === b[k]) continue;
+    if (ALLOW.some((id) => k.endsWith(`:${id}`))) continue;
+    drift.push(`${k.replace(/^\d+:/, '')}  紫「${a[k]}」 vs 綠「${b[k]}」`);
+  }
+  if (drift.length) { console.log('   會跟著模板變色的：'); for (const d of drift.slice(0, 10)) console.log(`     ${d}`); }
+  check('🔴 換模板之後，Today + 底座每個可見元素的顏色逐項不變（#fdcbFill 除外）', drift, []);
+  checkTruthy(`量得到東西（${Object.keys(a).length} 個節點，0 個就是死斷言）`, Object.keys(a).length > 30);
+
+  // 白名單自己要是真的 —— 否則哪天 #fdcbFill 不再吃模板色，這個例外就變成謊。
+  checkTruthy('#fdcbFill 確實仍然吃模板色（白名單不得是空頭支票）',
+    (a['' + Object.keys(a).find((k) => k.endsWith(':fdcbFill'))] || '') !==
+    (b['' + Object.keys(b).find((k) => k.endsWith(':fdcbFill'))] || 'x'));
+  await page.close();
+}
+
+// ── 這一輪修好的三顆，逐模板量對比 ──
+// ⚠️ 背景要往上走到第一個不透明的祖先再算（子元素多半 transparent，
+//    拿元素自己的 background-color 去算會得到 rgba(0,0,0,0)，那是死斷言）。
+{
+  console.log('\n── 環心新鮮度 / Scan CTA / 信心膠囊：六個模板都要讀得到 ──');
+  const page = await openV3(844);
+  await page.evaluate(() => window.toggleDisciplineMode());
+  await page.waitForTimeout(300);
+  const TEMPLATES = ['CANSLIM_GS', 'CANSLIM_HIGH_RS', 'MANCINI_FBD', 'WORK_FOCUS', 'HEALTH_STRESS', 'EXERCISE'];
+  const bad = [];
+  for (const tid of TEMPLATES) {
+    await pickTmpl(page, tid);
+    await page.evaluate(() => window.setState('running'));
+    await page.waitForTimeout(700);
+    // 新鮮讀數 → 信心膠囊；過期讀數 → CTA。兩顆互斥，所以兩種都要走一次。
+    for (const stale of [false, true]) {
+      await page.evaluate((st) => {
+        const raw = JSON.parse(localStorage.getItem('tenki.readiness.reading.v1'));
+        raw.ts = Date.now() - (st ? 20 * 60e3 : 60e3);
+        localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify(raw));
+        window.renderHeroReading();
+      }, stale);
+      await page.waitForTimeout(250);
+      const rows = await page.evaluate(() => {
+        const lin = (c) => ((c /= 255), c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+        const relL = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+        const parse = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+        const bgOf = (el) => {
+          for (let n = el; n; n = n.parentElement) {
+            const c = parse(getComputedStyle(n).backgroundColor);
+            if (c.length >= 3 && (c[3] === undefined || c[3] > 0.5)) return c.slice(0, 3);
+          }
+          return [2, 6, 23];
+        };
+        const out = [];
+        for (const id of ['edgeTraceZone', 'edgeScanCta', 'edgeConfidence']) {
+          const el = document.getElementById(id);
+          if (!el || el.hidden) continue;
+          const cs = getComputedStyle(el);
+          if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+          const fg = parse(cs.color).slice(0, 3), al = parse(cs.color)[3], bg = bgOf(el);
+          const mix = al !== undefined && al < 1 ? fg.map((v, i) => v * al + bg[i] * (1 - al)) : fg;
+          const L1 = relL(mix), L2 = relL(bg);
+          out.push({ id, ratio: Math.round(((Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05)) * 100) / 100 });
+        }
+        return out;
+      });
+      // ⚠️ 抓不到任何一顆＝死斷言，要當場說出來而不是靜靜通過。
+      checkTruthy(`${tid}/${stale ? '過期' : '新鮮'}：至少量到一顆膠囊`, rows.length > 0);
+      for (const r of rows) if (r.ratio < 4.5) bad.push(`${tid}/${stale ? 'stale' : 'fresh'}/${r.id}@${r.ratio}`);
+    }
+    await page.evaluate(() => window.setState('idle'));
+    await page.waitForTimeout(200);
+  }
+  check('🔴 三顆都 ≥ 4.5:1（六個模板 × 新鮮/過期）', bad, []);
+  await page.close();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🔴 gold ＝ SECURED，所以**沒有在講「已鎖定」的東西不准長得像 gold**
+//
+// CLAUDE.md：「顏色也會宣稱事實：gold = SECURED、cyan = ACTIVE…
+// 沒有讀數就不准上 gold」。而 2026-09-07 實機截圖抓到的正是這條的違例：
+// 信心膠囊 #E8B45A 與 --gold-secured #FFD46E 只差 **ΔE 12.2**（肉眼幾乎同一色），
+// 內容卻是「你的讀數精度**還不夠**，去提升」—— 跟「已鎖定 ✓」正好相反。
+//
+// 🔴 為什麼要獨立這一條：上面兩條都抓不到它。
+//   對比守門：#E8B45A 有 10.67:1，**過**。
+//   換模板守門：它不吃 --primary，**過**。
+// 一個顏色可以完全可讀、完全穩定，而且**在說謊**。
+// 那是「顏色宣稱事實」這條紅線唯一的機器版本。
+//
+// 允許名單要**逐一列舉並寫明它憑什麼是 SECURED**，不得用前綴放行一整族。
+// ═══════════════════════════════════════════════════════════════════════
+{
+  console.log('\n── 只有真的在講 SECURED 的東西才准長得像 gold ──');
+  const page = await openV3(844);
+  const hits = await page.evaluate(() => {
+    // CIELAB ΔE76，跟 tokens 那支守門同一套數學。
+    const lin = (c) => ((c /= 255), c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const lab = (rgb) => {
+      const [r, g, b] = rgb.map(lin);
+      const X = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+      const Y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+      const Z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+      const f = (t) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+      const [fx, fy, fz] = [f(X / 0.95047), f(Y), f(Z / 1.08883)];
+      return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+    };
+    const de = (p, q) => Math.hypot(...lab(p).map((v, i) => v - lab(q)[i]));
+    const parse = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+    const goldStr = getComputedStyle(document.documentElement).getPropertyValue('--gold-secured').trim();
+    const gm = goldStr.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+    // 這些是**真的**在講 SECURED 的，逐一列舉：
+    const ALLOW = (el) => el.classList.contains('calibrated');   // 精度校準完成 ＝ 已鎖定
+    const out = [];
+    for (const el of document.querySelectorAll('#today-screen *, #fdcb *')) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      if (ALLOW(el)) continue;
+      for (const prop of ['color', 'backgroundColor', 'borderTopColor']) {
+        const c = parse(cs[prop]);
+        if (c.length < 3) continue;
+        if (c[3] !== undefined && c[3] < 0.5) continue;   // 幾乎透明的不算宣稱
+        const d = de(c.slice(0, 3), gm);
+        if (d < 20) out.push(`${el.id || el.className || el.tagName}.${prop} ΔE${d.toFixed(1)}`);
+      }
+    }
+    return out;
+  });
+  if (hits.length) { console.log('   長得像 gold 但沒在講 SECURED 的：'); for (const h of hits.slice(0, 8)) console.log(`     ${h}`); }
+  check('🔴 沒有在講 SECURED 的元素，不得與 --gold-secured ΔE < 20', hits, []);
+
+  // 允許名單不得是空頭支票：.calibrated 真的要是 gold，否則這個例外沒有意義。
+  // 🔴 `.tl-edge-conf` 有 `transition:all 0.6s` —— 加完 class **立刻**讀
+  // getComputedStyle 拿到的是**過渡中的當下值**，不是目標值。
+  // 第一版就是這樣：明明已經改成 gold，卻讀回 rgb(177,188,206)（＝過渡起點
+  // --n-300），看起來像「我的 CSS 沒生效」。等它跑完再讀。
+  await page.evaluate(() => {
+    const el = document.getElementById('edgeConfidence');
+    el.hidden = false; el.classList.add('calibrated');
+  });
+  await page.waitForTimeout(800);
+  const calib = await page.evaluate(() => {
+    const el = document.getElementById('edgeConfidence');
+    const c = getComputedStyle(el).color;
+    el.classList.remove('calibrated');
+    return c;
+  });
+  checkTruthy(`允許名單是真的：.calibrated 確實是 gold（${calib}）`, /255,\s*212,\s*110/.test(calib));
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);
