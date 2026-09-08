@@ -1516,14 +1516,23 @@ console.log('\n── Hero 讀數不得爆版 ──');
   console.log('\n── 換模板不得改變畫面顏色（紫時鐘那個 bug 的家族守門）──');
 
   /** 決策跑著、停在 Today 時，量整屏每個可見元素的三個顏色。 */
+  // 🔴 **掃五個分頁，不是只有 Today。** 2026-09-08 founder 的 Lab 截圖裡六顆紫圖示
+  // 就是這條看不到的東西：`.lab-item .ic` 吃 `var(--primary)`，於是 Lab 的圖示
+  // 跟著「哪個決策模板在跑」變色（Mancini 紫 / Health Stress 綠 / Exercise 橘）。
+  // 這條守的是那個 bug 家族，卻只掃了家族住的其中一個房間。
   const paintOf = (page, tid) => page.evaluate((t) => {
     const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === t);
     if (el) window.selectTmpl(el);
     window.setState('running');
     return null;
-  }, tid).then(() => page.waitForTimeout(900)).then(() => page.evaluate(() => {
+  }, tid).then(() => page.waitForTimeout(900)).then(async () => {
+    const acc = {};
+    for (const tab of ['today', 'scan', 'session', 'timeline', 'lab']) {
+      await page.evaluate((t) => window.goTab(t), tab);
+      await page.waitForTimeout(450);
+      Object.assign(acc, await page.evaluate((tab) => {
     const out = {};
-    const nodes = [...document.querySelectorAll('#today-screen *, #fdcb *')];
+    const nodes = [...document.querySelectorAll('.screen.active *, #fdcb *')];
     nodes.forEach((n, i) => {
       const cs = getComputedStyle(n);
       if (cs.display === 'none' || cs.visibility === 'hidden') return;
@@ -1531,11 +1540,14 @@ console.log('\n── Hero 讀數不得爆版 ──');
       if (r.width === 0 || r.height === 0) return;
       // key 要含 index —— 只用 class 會讓同 class 的多個元素互相覆蓋，
       // 而覆蓋掉的那個正好可能是壞掉的那個。
-      const key = `${i}:${n.id || n.className || n.tagName}`;
-      out[key] = [cs.color, cs.backgroundColor, cs.borderColor].join(' | ');
+      const key = `${tab}/${i}:${n.id || n.className || n.tagName}`;
+      out[key] = [cs.color, cs.backgroundColor, cs.borderColor, cs.backgroundImage].join(' | ');
     });
     return out;
-  }));
+      }, tab));
+    }
+    return acc;
+  });
 
   const page = await openV3(844);
   await page.evaluate(() => window.toggleDisciplineMode());
@@ -1552,10 +1564,10 @@ console.log('\n── Hero 讀數不得爆版 ──');
   for (const k of Object.keys(a)) {
     if (b[k] === undefined || a[k] === b[k]) continue;
     if (ALLOW.some((id) => k.endsWith(`:${id}`))) continue;
-    drift.push(`${k.replace(/^\d+:/, '')}  紫「${a[k]}」 vs 綠「${b[k]}」`);
+    drift.push(`${k.replace(/\/\d+:/, '/')}  紫「${a[k]}」 vs 綠「${b[k]}」`);
   }
   if (drift.length) { console.log('   會跟著模板變色的：'); for (const d of drift.slice(0, 10)) console.log(`     ${d}`); }
-  check('🔴 換模板之後，Today + 底座每個可見元素的顏色逐項不變（#fdcbFill 除外）', drift, []);
+  check('🔴 換模板之後，五個分頁 + 底座每個可見元素的顏色逐項不變（#fdcbFill 除外）', drift, []);
   checkTruthy(`量得到東西（${Object.keys(a).length} 個節點，0 個就是死斷言）`, Object.keys(a).length > 30);
 
   // 白名單自己要是真的 —— 否則哪天 #fdcbFill 不再吃模板色，這個例外就變成謊。
