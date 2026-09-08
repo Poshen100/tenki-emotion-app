@@ -32,14 +32,17 @@
    TENKI CORE · v3 with 5-Tab Navigation
    Today / Scan / Session / Timeline / Lab
    ═════════════════════════════════════════════════ */
+/* 🔴 這裡曾經有八個**宣告了沒人用**的顏色 token，2026-09-08 刪掉：
+     --zone-clear / --zone-neutral / --zone-strain（帶位色實際是 BAND_COLOR_V6
+       在 JS 裡寫死的，這三個從來沒被 var() 讀過；tokens.css 也各有一份）
+     --card / --border（與 tokens.css 同值，v6 內 0 用量）
+     --sns #FF6B35 / --pns #00B4D8（自律神經色，最後一個消費者在 f1cfacd 被換掉）
+     --bg #000（🔴 而地面其實是 --bg-space #020617 —— 這一個是**地面曾經漂過**
+       的化石，留著只會讓下一個人以為地面是純黑）
+   刪除前逐一驗過：`var(--x)` 全 repo 0 次、無 getPropertyValue 讀取、
+   harness 只在註解裡提過它們。**這一輪的視覺輸出逐位元組不變。** */
 :root{
-  --zone-clear:#00B4D8;
-  --zone-neutral:#64748B;
-  --zone-strain:#C2703D;
-  --bg:#000;
   --surface:#1C1C1E;
-  --card:#2C2C2E;
-  --border:#38383A;
   --primary:#00B4D8;
   --txt:#FFFFFF;
   --txt-sec:#8E8E93;
@@ -50,8 +53,6 @@
   --fdcb-border:rgba(255,255,255,0.08);
   --fdcb-complete:#34C759;
   --tabbar-bg:rgba(18,18,22,0.72);
-  --sns:#FF6B35;
-  --pns:#00B4D8;
   --good:#34C759;
   --warn:#F5A623;
   --ease-calm:cubic-bezier(0.22, 1, 0.36, 1);
