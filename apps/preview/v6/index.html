@@ -1077,36 +1077,66 @@ body{
 /* 🔴 整塊可點 → 可動層。**只給邊，不填色** —— Lab 有九塊磁磚，
    全部填琥珀會讓整頁只剩一個顏色（那正是「顏色好像有點少」的另一種版本）。
    底仍是中性，琥珀只負責說「這塊按得下去」。 */
+/* 🔴 Lab 的磁磚**不是同一種東西**，所以不該長得一樣（founder 2026-09-08）：
+     `is-live`   有真資料在上面（Baseline 顯示 HR/HRV/RR）→ cyan ＝ live
+     `is-control` 點下去**就地改變一件事**（決策紀律開關、CSV 匯出）→ 可動層琥珀
+     （預設）    導航進子畫面（模板自訂、標記標籤）→ 中性
+     `.lab-soon` 還沒有的東西 → 最暗，且**拿掉所有可動訊號**
+
+   🔴 這也修正了上一輪的規則：**在「什麼都可以按」的頁面上，把每一塊都標成
+   可動層等於沒有標。** 琥珀改成只給「會改變狀態」的 —— 導航不算。
+   founder 2026-09-08 拍板：「只給改變狀態的」。 */
 .lab-item{
   padding:16px 14px;border-radius:16px;
   background:rgba(255,255,255,0.03);
-  border:1px solid rgba(var(--amber-400-rgb),0.32);
+  border:1px solid var(--n-700);
   display:flex;flex-direction:column;gap:8px;
   cursor:pointer;transition:all 0.3s var(--ease-calm);
   position:relative;overflow:hidden;
 }
 .lab-item:active{transform:scale(0.97);background:rgba(255,255,255,0.05)}
-.lab-item.featured{
+.lab-item.is-live{
   background:linear-gradient(135deg, rgba(0,180,216,0.08), rgba(0,180,216,0.02));
   border-color:rgba(0,180,216,0.2);
 }
-.lab-item.beta::after{
-  content:'BETA';position:absolute;top:10px;right:10px;
-  font-size:8px;letter-spacing:0.18em;font-weight:700;
-  padding:2px 6px;border-radius:5px;
-  /* BETA 是一個**事實標籤**（這功能還在測），不是警告。→ 中性。 */
-  background:var(--neutral-950);color:var(--n-300);
-}
+/* ⚠️ `.lab-item.beta::after` 已刪：三塊 beta 磁磚都搬進「即將開放」區了，
+   那一區有自己的 `::after`。剛清完八個死 token，不要立刻長出一條死 CSS。 */
+/* 🔴 舊值是 `color:var(--primary)` ＝ **當下哪個決策模板在跑**的顏色。
+   實測：Mancini FBD → 紫 `rgb(94,58,135)`、Health Stress → 綠、Exercise → 橘。
+   **Lab 跟模板毫無關係**，founder 2026-09-08 的截圖裡那六顆紫圖示就是這樣來的
+   （當時 Mancini 正在跑）。跟紫時鐘同一個 bug 的又一個出口。
+   ⚠️ 而上一輪的「換模板不變色」守門**只掃 Today + 底座**，所以看不到這一頁 ——
+   這一輪把它擴到五個分頁，擴完立刻紅在這裡。
+   → 圖示改成講**種類**，不講模板。 */
 .lab-item .ic{
   width:38px;height:38px;border-radius:10px;
   display:flex;align-items:center;justify-content:center;
-  background:rgba(0,180,216,0.12);color:var(--primary);
+  background:var(--n-800);color:var(--n-300);
   margin-bottom:4px;
 }
 .lab-item .ic svg{width:20px;height:20px}
+/* 種類色：只有這三種，而且每一種都說得出自己是什麼 */
+.lab-item.is-live .ic{background:rgba(0,180,216,0.12);color:var(--cyan-core)}
+.lab-item.is-control{border-color:rgba(var(--amber-400-rgb),0.38)}
+.lab-item.is-control .ic{background:rgba(var(--amber-400-rgb),0.12);color:var(--amber-400)}
+/* 「即將開放」：拿掉全部可動訊號 —— 不上色、降對比、邊框最弱。 */
+.lab-soon-head{
+  font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--n-500);margin:18px 2px 8px;
+}
+.lab-soon .lab-item{border-color:var(--n-800);background:rgba(255,255,255,0.015)}
+.lab-soon .lab-item .ic{background:var(--n-850);color:var(--n-500)}
+.lab-soon .lab-item .nm{color:var(--n-400)}
+.lab-soon .lab-item .sub{color:var(--n-500)}
+.lab-soon .lab-item::after{
+  content:'即將開放';position:absolute;top:10px;right:10px;
+  font-size:8px;letter-spacing:0.14em;font-weight:700;
+  padding:2px 6px;border-radius:5px;
+  background:var(--neutral-950);color:var(--n-500);
+}
 .lab-item .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.2}
 .lab-item .sub{font-size:10px;color:var(--n-400);line-height:1.4;letter-spacing:0.02em}
-/* ── Lab Fable-5 爽感：進場 stagger（opacity-only，不與 :active transform 衝突）+ tap 深度 + featured glow ── */
+/* ── Lab Fable-5 爽感：進場 stagger（opacity-only，不與 :active transform 衝突）+ tap 深度 + is-live glow ── */
 .lab-grid .lab-item, .lab-body .lab-wide{opacity:0}
 #lab-screen.active .lab-grid .lab-item, #lab-screen.active .lab-body .lab-wide{opacity:1}
 #lab-screen.active .lab-grid .lab-item:nth-child(1){transition-delay:0.05s}
@@ -1119,12 +1149,14 @@ body{
 #lab-screen.active .lab-grid .lab-item:nth-child(8){transition-delay:0.40s}
 #lab-screen.active .lab-body .lab-wide{transition-delay:0.35s}
 .lab-item:active{box-shadow:0 6px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(var(--amber-400-rgb),0.45)}
-.lab-item.featured{box-shadow:0 0 26px rgba(0,180,216,0.10)}
+.lab-item.is-live{box-shadow:0 0 26px rgba(0,180,216,0.10)}
 /* 決策紀律模式開啟時的樣子。用既有的 --primary（cyan = ACTIVE），
    **不用 --good 綠** —— 綠在這個產品裡是「跟著流程完成」的語意色，
    一個設定開關沒有資格宣告那件事（CLAUDE.md 顏色所有權）。 */
-.lab-item.mode-on{border-color:rgba(0,180,216,0.45);background:rgba(0,180,216,0.07)}
-.lab-item.mode-on .ic{color:var(--primary)}
+/* 🔴 舊的 mode-on 是**青框**，跟 `featured`（有資料）長得一模一樣 ——
+   兩個不同的意思用同一個訊號。開關「開著」是**可動層的一個狀態** → 琥珀。 */
+.lab-item.mode-on{border-color:rgba(var(--amber-400-rgb),0.65);background:rgba(var(--amber-400-rgb),0.07)}
+.lab-item.mode-on .ic{background:var(--amber-400);color:var(--n-950)}
 @media (prefers-reduced-motion: reduce){
   .lab-grid .lab-item, .lab-body .lab-wide{opacity:1;transition:none}
 }
@@ -2819,20 +2851,10 @@ body{
       </div>
       <div class="lab-body">
         <div class="lab-grid">
-          <div class="lab-item featured" onclick="openBaseline()">
+          <div class="lab-item is-live" onclick="openBaseline()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="14" rx="2"/><circle cx="12" cy="10" r="2"/><path d="M12 17v4M9 21h6"/></svg></div>
             <div class="nm">Baseline</div>
             <div class="sub">HR 68 · HRV 52 · RR 14<br>重新校準或檢視</div>
-          </div>
-          <div class="lab-item" onclick="labInfo('穿戴裝置整合','即將開放 — Apple Watch / BLE 胸帶 / Garmin 需原生 App 支援。')">
-            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="5" width="10" height="16" rx="2"/><circle cx="12" cy="17" r="1"/><path d="M9 9h6"/></svg></div>
-            <div class="nm">穿戴裝置</div>
-            <div class="sub">整合 Apple Watch<br>BLE 胸帶 / Garmin</div>
-          </div>
-          <div class="lab-item beta" onclick="labInfo('Edge Score Bucket','即將開放 — 按分數區間分析你的決策統計。')">
-            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 002 3h12a2 2 0 002-3l-5-9V3"/><path d="M7 3h10"/></svg></div>
-            <div class="nm">Edge Score Bucket</div>
-            <div class="sub">按區間分析<br>你的決策統計</div>
           </div>
           <div class="lab-item" onclick="openTmplEditor()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg></div>
@@ -2849,17 +2871,38 @@ body{
                內部識別字仍是 SessionMode='trader'（TRADINGVIEW-ALERT-SPEC.md §0、
                APP_STORE_COMPLIANCE.md §6 與送審檢查表 #17）。
                ⚠️ 入口刻意放在 Lab（設定），不放 onboarding、不開新分頁。 -->
-          <div class="lab-item" id="labDisciplineTile" onclick="toggleDisciplineMode()">
+          <div class="lab-item is-control" id="labDisciplineTile" onclick="toggleDisciplineMode()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
             <div class="nm">決策紀律模式</div>
             <div class="sub" id="labDisciplineSub">目前關閉<br>開啟後改用結構守望</div>
           </div>
-          <div class="lab-item" onclick="exportOutcomesCsv()">
+          <div class="lab-item is-control" onclick="exportOutcomesCsv()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
             <div class="nm">CSV 匯出</div>
             <div class="sub">下載原始數據<br>供進階分析</div>
           </div>
-          <div class="lab-item beta" onclick="labInfo('情境行事曆','即將開放 — 同步日程節律、預排 session。')">
+        </div>
+
+        <!-- 🔴 「即將開放」區（founder 2026-09-08 拍板）。
+             這三塊點下去**只彈一個 toast**，什麼都不會發生。放在格線裡跟能用的
+             功能同權，等於**畫面在承諾三件不存在的事** —— 而「穿戴裝置」連 BETA
+             徽章都沒有，看起來完全可用。
+             降級的做法是**拿掉所有「可以動手」的訊號**：無可動層琥珀、圖示不上色、
+             整區降透明度，並在段首明寫「即將開放」。仍然看得到（使用者要知道路線圖），
+             但不再假裝可用。 -->
+        <div class="lab-soon-head">即將開放</div>
+        <div class="lab-grid lab-soon">
+          <div class="lab-item" onclick="labInfo('穿戴裝置整合','即將開放 — Apple Watch / BLE 胸帶 / Garmin 需原生 App 支援。')">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="5" width="10" height="16" rx="2"/><circle cx="12" cy="17" r="1"/><path d="M9 9h6"/></svg></div>
+            <div class="nm">穿戴裝置</div>
+            <div class="sub">整合 Apple Watch<br>BLE 胸帶 / Garmin</div>
+          </div>
+          <div class="lab-item" onclick="labInfo('Edge Score Bucket','即將開放 — 按分數區間分析你的決策統計。')">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 002 3h12a2 2 0 002-3l-5-9V3"/><path d="M7 3h10"/></svg></div>
+            <div class="nm">Edge Score Bucket</div>
+            <div class="sub">按區間分析<br>你的決策統計</div>
+          </div>
+          <div class="lab-item" onclick="labInfo('情境行事曆','即將開放 — 同步日程節律、預排 session。')">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
             <div class="nm">情境行事曆</div>
             <div class="sub">同步日程節律<br>預排 session</div>
@@ -6318,7 +6361,10 @@ function closeSessionDetail(){
       /* fingertip swipe gesture: a glowing touch-dot glides across a short lane, comet trailing behind it */
       .snap-hint .sh-gesture{position:relative;width:34px;height:12px;flex:none;}
       .snap-hint .sh-dot{position:absolute;top:50%;left:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;
-        border-radius:50%;background:radial-gradient(circle at 38% 35%, #d8f7ff, var(--primary) 72%);
+        /* ⚠️ 這顆點也曾經吃 var(--primary) —— 藏在 radial-gradient 裡，
+           所以要把 backgroundImage 加進比對才看得到它。膠囊講的是「可以滑」，
+           跟哪個模板在跑無關。 */
+        border-radius:50%;background:radial-gradient(circle at 38% 35%, #d8f7ff, var(--cyan-core) 72%);
         box-shadow:0 0 8px rgba(0,180,216,.85), 0 0 2px rgba(255,255,255,.9);
         animation:shSwipe 2s var(--ease-breath) infinite;}
       .snap-hint .sh-dot::before{content:'';position:absolute;top:50%;left:100%;width:16px;height:5px;margin-top:-2.5px;
