@@ -4499,6 +4499,23 @@ function saveV6Outcome(session, outcomeTag){
     // 跟倒數模式的舊語意（「有沒有走完計時器」）不是同一把尺。
     // 標記它，統計端才分得出來 —— 不標就只能猜。
     judgmentSchema: session.watch ? window.TENKI_OUTCOME.JUDGMENT_SCHEMA : null,
+    // 🔴 決策當下的讀數快照 —— `domain/src/contracts/readiness-reading.ts` 的
+    // `AttachedReadinessReading`（band / confidence / ts / evidence + staleAtDecision）。
+    // 那個介面**宣告很久了，一次都沒有被用上**；而 `summarizeDisciplineByBand()`
+    // 也早就寫好、從來沒有東西餵它 —— 因為今天沒有任何一筆紀錄帶 band。
+    // 這一欄就是那條線的接頭。
+    // ⚠️ 新增欄位（加，不換 —— SYSTEM.md §6）。舊紀錄沒有它 → 讀端一律排除，
+    //    **不得猜一個帶位**（那正是這個統計存在的理由本身會被偽造）。
+    // ⚠️ 沒有讀數時寫 null ＝「這一筆沒有帶位可歸屬」，不是寫一個預設帶位。
+    readingAtDecision: (function(){
+      const r = loadReadingV6();
+      if(!r || typeof r.ts !== 'number') return null;
+      return {
+        band: r.band, confidence: r.confidence, ts: r.ts,
+        evidence: r.evidence || null,
+        staleAtDecision: (ts - r.ts) > READING_FRESHNESS_MS_V6,
+      };
+    })(),
     // 這一筆從哪來。有 originAlertId 就是快訊決策 —— v6 既有的呈現
     // （readinessCellV6、Session 列）本來就認得 source==='alert'，沿用它，
     // 不新增第二種寫法。originAlertId 是真正的 join key
