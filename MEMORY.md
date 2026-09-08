@@ -18,6 +18,41 @@
 
 ---
 
+# 2026-09-08 Session Update (顏色所有權清帳 —— 新守門推翻我一個假設，又抓到第九個顏色)
+
+⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。
+⚠️ PR #249 已 merge（`e555ff3`），本輪從最新 main 重開同名分支 → **新的 PR #250**。
+
+## 做了什麼
+
+`docs/VISUAL-DIRECTION.md` §3.6 裁決摘要 **1–4 項**（第 5 項高風險未動）：
+刪 8 個死 token、底座圖示關光暈+拿掉 inline 綠、`--txt-sec`/`--txt-dim` 併中性階、
+`--warning` 退場（八個消費者逐一看過，**沒有一個真的在講警告**）。
+
+## 教訓
+
+- 🔴 **我以為「既有的琥珀守門已經涵蓋 `--warning` 的回歸」—— 反向驗證證明是錯的。**
+  把 `--warning` 放回 `.result.no_trade`，**照樣全綠**。原因比我想的有意思：
+  **runtime 掃描只看得到此刻畫面上真的存在的元素**，而 `no_trade` 這個 class
+  **從來沒有被套用過**（`decision-outcome.js` 只吐 win/loss/breakeven —— 死 CSS）。
+  → 新增**樣式表守門**（掃 `document.styleSheets` 本身，判準用 ΔE 不用字面）。
+- 🔴 **那條新守門寫完立刻抓到第九個暖色**：`#FF9F0A`（「提前收束」）與琥珀
+  **ΔE 6.2**，比剛退場的 `--warning`（7.5）**還近**。
+  ⚠️ 修它時一併換了 `@keyframes fdcb-pulse-broke` 的顏色停點 ——
+  那是 MOTION-DIRECTION 的地盤，所以**只換顏色，timing/曲線/形狀一個參數沒動**。
+- ⚠️ **兩個守門各自的邊界（實測，不是推論）**：runtime 掃描看不到條件狀態；
+  樣式表掃描看不到 JS 寫的 inline style（例如 `scoreEl.style.color`）。兩種互補。
+- ⚠️ `.result.no_trade` 是**死 CSS**（沒有任何 outcome tag 會產生它）。
+  這一輪順手把它改成中性，但那是**改在死碼上**，沒有使用者看得到 —— 照實記。
+
+## 下次接手點
+
+- `--good #34C759`（35 處）仍在 —— 牽涉 Session/Timeline 的結果語義，單獨一輪。
+- 裁決摘要第 5 項「拆開 `--primary`」（含 `TE_COLORS` 六個選項五個已有主人）未動。
+- **`resumeActiveDecision()` 接回 marks/events 那一半，仍未在真機上驗過。**
+
+---
+
 # 2026-09-08 Session Update (可動層鋪完全 app —— 而守門修了三次才問對問題)
 
 ⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。
