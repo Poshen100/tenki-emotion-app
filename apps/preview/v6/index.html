@@ -1119,6 +1119,62 @@ body{
 .lab-body::-webkit-scrollbar{display:none}
 .lab-body > *{flex-shrink:0}
 
+/* ═════════════════════════════════════════════════
+   校準台（Lab 的主體）
+   ═════════════════════════════════════════════════
+   founder 2026-09-08：「像 Fable 5 一樣思考」。那兩張贏的圖的共同點不是好看，
+   是 **chrome 幾乎全黑、顏色來自資料本身**。TENKI 剛好相反：顏色都在小小的
+   邊框與圖示上，而畫面上**沒有任何一片資料的光**。那就是為什麼每一輪調完色階，
+   「顏色好像有點少」還是會回來 —— 調的一直是 chrome。
+
+   所以 Lab 不再是九塊設定磁磚，主體換成這台產品真正的主張：
+   **「你在什麼狀態下最跟得住自己的流程」**。
+
+   🔴 這不是我發明的統計：`domain/src/policies/readiness-band.ts` 的
+   `summarizeDisciplineByBand()` 早就寫好，而且**從來沒有東西餵它** ——
+   因為在 readingAtDecision 之前，沒有任何一筆紀錄帶得出帶位。
+
+   🔴 誠實規則寫在那支的 doc comment 裡，這裡逐條遵守：
+     · 沒有讀數的紀錄排除，而且**排除幾筆要講出來**
+     · 樣本 < 3 → 印「資料累積中」，不印一個吵雜的百分比
+     · 零筆 → 三個空通道 + 一句邀請，**不是一張假圖表**
+
+   ⚠️ 光來自**填色**（linear-gradient），不用 box-shadow / blur / radial ——
+   「儀器世界關燈」那條規則沒有被放寬，資料的顏色不是輝光。 */
+.cal{
+  border:1px solid var(--n-800);border-radius:18px;
+  background:var(--n-900);padding:16px 16px 14px;margin-bottom:14px;
+}
+.cal-kicker{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--n-500)}
+.cal-q{font-size:15px;font-weight:600;color:var(--n-100);margin:6px 0 2px;line-height:1.35}
+.cal-chart{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.cal-col{display:flex;flex-direction:column;align-items:center;gap:8px}
+.cal-track{
+  position:relative;width:100%;height:96px;border-radius:10px;
+  background:var(--n-950);border:1px solid var(--n-850);overflow:hidden;
+}
+.cal-bar{position:absolute;left:0;right:0;bottom:0;height:0;transition:height 0.9s var(--ease-calm)}
+.cal-col.clear   .cal-bar{background:linear-gradient(180deg, var(--clear-400),   var(--clear-800))}
+.cal-col.neutral .cal-bar{background:linear-gradient(180deg, var(--neutral-400), var(--neutral-800))}
+.cal-col.strain  .cal-bar{background:linear-gradient(180deg, var(--strain-400),  var(--strain-800))}
+/* 樣本不足：斜線紋 = 「這裡還沒有結論」。**不是**一根矮的實心長條 ——
+   矮長條會被讀成「這個帶位表現差」，那正好是相反的意思。 */
+.cal-col.thin .cal-bar{
+  background:repeating-linear-gradient(135deg, var(--n-700) 0 4px, transparent 4px 8px);
+  height:26px;
+}
+.cal-rate{font-size:17px;font-weight:600;color:var(--n-100);font-variant-numeric:tabular-nums;
+  line-height:20px;height:20px;display:flex;align-items:center;justify-content:center}
+.cal-rate.pending{font-size:11px;font-weight:500;color:var(--n-500)}
+.cal-band{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--n-400)}
+.cal-n{font-size:10px;color:var(--n-500);font-variant-numeric:tabular-nums}
+.cal-foot{
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--n-850);
+  font-size:10px;line-height:1.6;color:var(--n-500);
+}
+.cal-foot b{color:var(--n-300);font-weight:600;font-variant-numeric:tabular-nums}
+.cal-empty{font-size:12px;line-height:1.6;color:var(--n-400);margin-top:14px}
+.lab-sec{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-500);margin:4px 2px 8px}
 .lab-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 /* 🔴 整塊可點 → 可動層。**只給邊，不填色** —— Lab 有九塊磁磚，
    全部填琥珀會讓整頁只剩一個顏色（那正是「顏色好像有點少」的另一種版本）。
@@ -2945,6 +3001,15 @@ body{
         <div class="screen-date">Advanced · Beta</div>
       </div>
       <div class="lab-body">
+        <!-- 校準台 —— Lab 的主體。設定磁磚降級成它下面的一區。 -->
+        <div class="cal" id="calPanel">
+          <div class="cal-kicker">Calibration</div>
+          <div class="cal-q">你在什麼狀態下最跟得住自己的流程</div>
+          <div class="cal-chart" id="calChart"></div>
+          <div class="cal-foot" id="calFoot"></div>
+        </div>
+
+        <div class="lab-sec">設定</div>
         <div class="lab-grid">
           <!-- 🔴 這一塊的副標原本寫死 `HR 68 · HRV 52 · RR 14`。
                那三個數字**跟 Today 四張 vitals 卡上的是同一組**，而那四張每一張
@@ -5199,9 +5264,62 @@ function labBaselineLine(){
   const label = (BAND_LABEL_V6 && BAND_LABEL_V6[r.band]) || r.band || '—';
   return '最近讀數 · ' + label + '<br>' + ago + ' 校準';
 }
+/**
+ * 校準台。三個帶位通道 = `summarizeDisciplineByBand()` 的三列，
+ * 光來自資料本身（帶位色填滿），不是來自 chrome。
+ *
+ * 🔴 三條誠實規則直接照 domain 那支的 doc comment：
+ *   ① 沒有讀數的紀錄排除，**而且排除幾筆要印出來**
+ *   ② 樣本 < MIN_BAND_SAMPLES_FOR_RATE → 印「資料累積中」，不印百分比
+ *   ③ 一筆可歸屬的都沒有 → 空通道 + 一句邀請，不是一張假圖表
+ */
+function renderCalibrationBench(){
+  const chart = document.getElementById('calChart');
+  const foot = document.getElementById('calFoot');
+  if(!chart || !foot) return;
+  const OUT = window.TENKI_OUTCOME;
+  const sum = OUT.disciplineByBand(OUT.load());
+  const LABEL = { clear:'Clear', neutral:'Neutral', strain:'Strain' };
+
+  chart.innerHTML = sum.stats.map(st => {
+    const thin = st.rate === null;
+    // 樣本不足畫斜線紋、不畫矮長條 —— 矮長條會被讀成「這個帶位表現差」，
+    // 而它真正的意思是「還不夠說」。那是兩件完全不同的事。
+    const h = thin ? 0 : Math.round(st.rate * 100);
+    const rate = thin
+      ? '<div class="cal-rate pending">資料累積中</div>'
+      : '<div class="cal-rate">' + h + '%</div>';
+    const n = st.total === 0 ? '尚無紀錄' : st.disciplined + ' / ' + st.total + ' 筆';
+    return '<div class="cal-col ' + st.band + (thin ? ' thin' : '') + '">'
+      // ⚠️ 樣本不足時**不下 inline height** —— inline 會蓋掉 `.thin .cal-bar`
+      // 的斜線紋高度，斜紋就整條消失（第一版就是這樣，Strain 那欄空白）。
+      + '<div class="cal-track"><div class="cal-bar"' + (thin ? '' : ' style="height:' + h + '%"') + '></div></div>'
+      + rate
+      + '<div class="cal-band">' + LABEL[st.band] + '</div>'
+      + '<div class="cal-n">' + n + '</div>'
+      + '</div>';
+  }).join('');
+
+  if(sum.total === 0){
+    foot.innerHTML = '<span class="cal-empty">還沒有決策紀錄。做完第一次收束，這裡就會開始長 ——'
+      + '它比對的是「你當下的狀態」與「你有沒有跟著自己的流程走」。</span>';
+    return;
+  }
+  // 🔴 排除了幾筆一定要講。只印可歸屬的那些，等於用一半的資料宣稱一個全貌。
+  let line = '<b>' + sum.total + '</b> 筆紀錄 · <b>' + sum.attributed + '</b> 筆有讀數可歸屬';
+  if(sum.excluded > 0){
+    line += ' · <b>' + sum.excluded + '</b> 筆決策當下沒有讀數（不列入 —— 猜一個帶位會偽造這張圖本身）';
+  }
+  if(sum.attributed === 0){
+    line += '<br>目前沒有一筆帶得出帶位。<b>先掃一次再進決策</b>，這張圖才有東西可講。';
+  }
+  foot.innerHTML = line;
+}
+
 function renderLab(){
   const sub = document.getElementById('labBaselineSub');
   if(sub) sub.innerHTML = labBaselineLine();
+  renderCalibrationBench();
 }
 
 function labInfo(title, sub){

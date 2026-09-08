@@ -161,6 +161,78 @@
     return TEMPLATE_ID_TO_V6[templateId] || templateId;
   }
 
+  // ═══════════════════════════════════════════════
+  // 「我在什麼狀態下最跟得住自己的流程」
+  //
+  // ⚠️ 這是 `domain/src/policies/readiness-band.ts` 的
+  // `summarizeDisciplineByBand()` 的鏡射（preview 不能 import domain）。
+  // 語意以該檔為準，兩邊改動要同步 —— 跟本檔其餘部分同一個規矩。
+  //
+  // 🔴 那支的 doc comment 自己就把誠實規則寫死了：
+  //   "Records without a reading are excluded — they cannot be attributed to a
+  //    band, and guessing one would fabricate the very insight this exists to give."
+  // 所以沒有 `readingAtDecision` 的紀錄（2026-09-08 之前的全部）一律排除，
+  // 而**排除了幾筆要講出來** —— 不講就變成「用一半的資料宣稱一個全貌」。
+  //
+  // 🔴 樣本 < MIN_BAND_SAMPLES_FOR_RATE 時 `rate` 回 null ＝「還不夠說」，
+  // 不是 0。UI 要印「資料累積中」，不是一個吵雜的百分比。
+  // ═══════════════════════════════════════════════
+
+  /** 一個帶位至少要幾筆才值得給比率。與 domain 同值。 */
+  var MIN_BAND_SAMPLES_FOR_RATE = 3;
+
+  /** 帶位順序，clear → strain。 */
+  var BAND_ORDER = ['clear', 'neutral', 'strain'];
+
+  /**
+   * 從紀錄推出「這一筆是在哪個帶位做的」。
+   *
+   * @param {object} rec
+   * @returns {'clear'|'neutral'|'strain'|null} null = 這筆沒有讀數可歸屬
+   */
+  function bandOfRecord(rec) {
+    var r = rec && rec.readingAtDecision;
+    if (!r || BAND_ORDER.indexOf(r.band) < 0) return null;
+    return r.band;
+  }
+
+  /**
+   * Summarizes discipline completion grouped by the band the decision was
+   * taken in. Mirrors domain's `summarizeDisciplineByBand`.
+   *
+   * @param {object[]} records
+   * @returns {{stats:object[], attributed:number, excluded:number, total:number}}
+   */
+  function disciplineByBand(records) {
+    var list = Array.isArray(records) ? records : [];
+    var stats = [];
+    var attributed = 0;
+    for (var i = 0; i < BAND_ORDER.length; i++) {
+      var band = BAND_ORDER[i];
+      var inBand = list.filter(function (r) { return bandOfRecord(r) === band; });
+      attributed += inBand.length;
+      // ⚠️ `isDisciplined` 吃的是 **tag 字串**，不是紀錄物件。
+      // 直接 `.filter(isDisciplined)` 會全部回 false —— 而畫面上長出來的是
+      // 一張「每個帶位都 0%」的**看起來很合理**的圖。第一版就是這樣，
+      // 是把圖畫出來看才發現的。
+      var disciplined = inBand.filter(function (r) {
+        return isDisciplined(r && r.outcomeTag);
+      }).length;
+      stats.push({
+        band: band,
+        total: inBand.length,
+        disciplined: disciplined,
+        rate: inBand.length >= MIN_BAND_SAMPLES_FOR_RATE ? disciplined / inBand.length : null,
+      });
+    }
+    return {
+      stats: stats,
+      attributed: attributed,
+      excluded: list.length - attributed,
+      total: list.length,
+    };
+  }
+
   global.TENKI_OUTCOME = {
     TEMPLATE_ID_TO_V6: TEMPLATE_ID_TO_V6,
     OUTCOME_VIEW: OUTCOME_VIEW,
@@ -173,5 +245,9 @@
     isDisciplined: isDisciplined,
     resolveOutcomeTag: resolveOutcomeTag,
     load: load,
+    MIN_BAND_SAMPLES_FOR_RATE: MIN_BAND_SAMPLES_FOR_RATE,
+    BAND_ORDER: BAND_ORDER,
+    bandOfRecord: bandOfRecord,
+    disciplineByBand: disciplineByBand,
   };
 }(typeof window !== 'undefined' ? window : this));
