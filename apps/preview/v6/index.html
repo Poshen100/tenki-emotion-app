@@ -84,7 +84,13 @@
      :root 一向自己帶用得到的 token —— 上面那支是絕對路徑載入的，掉了不能連手感一起掉。 */
   --ease-secure:cubic-bezier(0.19, 1, 0.22, 1);
 
-  --top-safe:14px;
+  /* 🔴 iPhone 的狀態列（時間 / 訊號 / 電量）會蓋在頁面上 —— 這在**加入主畫面的
+     PWA**（standalone）裡一定發生，而那正是 founder 實走的容器。
+     2026-09-08 實走截圖：`14:31` 壓在「DEEP SCAN」膠囊上。
+     14px 是「內容與螢幕邊緣的呼吸」，不是安全區 —— 兩件事要相加，不是二選一。
+     ⚠️ `viewport-fit=cover` 本來就在 <meta> 裡（沒有它 env() 會是 0），
+     所以這一行改完立刻生效；Safari 分頁裡 inset 是 0，維持原樣。 */
+  --top-safe:calc(env(safe-area-inset-top, 0px) + 14px);
   --tabbar-h:74px;
   /* 底座高度是 state 的函式（applyFdcbHeight 改寫這個變數）：
      idle 只有「模板 + 開始決策」一列，用不到 58px；跑起來才長回三欄。
@@ -152,9 +158,9 @@ body{
   position:absolute;inset:0;z-index:0;pointer-events:none;
   opacity:0;transition:opacity 1.2s var(--ease-calm);
   background:
-    radial-gradient(ellipse 125% 55% at 50% 100%, color-mix(in srgb, var(--tmpl) 30%, transparent), transparent 70%),
-    radial-gradient(ellipse 105% 38% at 50% 62%,  color-mix(in srgb, var(--tmpl) 15%, transparent), transparent 72%),
-    radial-gradient(ellipse 95%  34% at 50% -4%,  color-mix(in srgb, var(--tmpl) 14%, transparent), transparent 66%);
+    radial-gradient(ellipse 125% 55% at 50% 100%, color-mix(in srgb, var(--tmpl) 27%, transparent), transparent 70%),
+    radial-gradient(ellipse 105% 38% at 50% 62%,  color-mix(in srgb, var(--tmpl) 12%, transparent), transparent 72%),
+    radial-gradient(ellipse 95%  34% at 50% -4%,  color-mix(in srgb, var(--tmpl) 12%, transparent), transparent 66%);
 }
 .phone.decision-live #envWash{opacity:1}
 @media (prefers-reduced-motion: reduce){ #envWash{transition:none} }
@@ -578,6 +584,15 @@ body{
      this the carousel + dots fall behind the bottom bars (charts hidden, swipe eaten). */
   padding:2px 14px calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 10px);
   display:flex;flex-direction:column;gap:10px;
+  /* 🔴 剩餘空間置中，不要全部堆在最後一個子元素後面。
+     實測 390×844：圓點下緣 601、底座上緣 702 —— **101px 的空白**全擠在
+     計時器正上方（founder 2026-09-08 實走：「計時器上方有一些空間是空白的」）。
+     `.snap` 是 flex:1 的欄，內容（教練卡／輪播／說明／圓點）加起來比它矮，
+     預設 flex-start 就把差額整塊留在尾巴。置中之後差額上下對半，
+     不再有一條「什麼都沒有」的帶。
+     ⚠️ 這裡刻意**不**改 `.snap-track` 的高度去吃掉空白 —— 那會動到
+     Energy 長條圖的高度推導（那組數字有自己的守門），是另一個決定。 */
+  justify-content:center;
   overflow:hidden;
 }
 /* Card entrance stagger animation */
