@@ -1745,7 +1745,10 @@ body{
 .fdcb.state-complete.closure-disciplined{animation:fdcb-pulse-good 0.7s var(--ease-calm)}
 .fdcb.state-complete.closure-broke{animation:fdcb-pulse-broke 0.7s var(--ease-calm)}
 @keyframes fdcb-pulse-good{40%{box-shadow:0 0 0 1px rgba(52,199,89,0.5), 0 0 26px rgba(52,199,89,0.28)}}
-@keyframes fdcb-pulse-broke{40%{box-shadow:0 0 0 1px rgba(255,159,10,0.5), 0 0 26px rgba(255,159,10,0.24)}}
+/* ⚠️ 這是 **keyframe**（MOTION-DIRECTION 的地盤）。這裡只換**顏色停點**，
+   timing、曲線、形狀一個參數都沒動 —— 換的理由跟上面同一條：
+   `#FF9F0A` 與可動層琥珀 ΔE 6.2，一個在底座上脈動的顏色不能跟「可以動手」撞。 */
+@keyframes fdcb-pulse-broke{40%{box-shadow:0 0 0 1px rgba(194,112,61,0.5), 0 0 26px rgba(194,112,61,0.24)}}
 @media (prefers-reduced-motion: reduce){
   .fdcb.in-readiness, .fdcb.state-complete.closure-disciplined, .fdcb.state-complete.closure-broke{animation:none}
   .fdcb-fill{transition:none}
@@ -1779,8 +1782,12 @@ body{
 .fdcb.state-complete .fdcb-time::before{content:'✓ ';font-weight:700}
 .fdcb.state-complete .fdcb-seg,
 .fdcb.state-complete .fdcb-prog{display:none}
-/* 提前收束 = 事實橙、無勾（跟著流程/完整走完維持既有綠 ✓） */
-.fdcb.state-complete.closure-broke .fdcb-time{color:#FF9F0A}
+/* 🔴 「提前收束」舊值是 `#FF9F0A` —— 而它與可動層琥珀 `--amber-400` 只差
+   **ΔE 6.2**（比剛退場的 `--warning` 的 7.5 還近）。這是**樣式表守門**抓到的，
+   runtime 掃描看不到它：`closure-broke` 是一個條件狀態，那一刻畫面上才存在。
+   → 走 `--strain-400`（該休息／收手，跟 `.sd-evt.pause` 同一個主人）。
+   ⚠️ 無勾（`::before{content:''}`）維持不變 —— 那是它跟「完整走完」的真正差別。 */
+.fdcb.state-complete.closure-broke .fdcb-time{color:var(--strain-400)}
 .fdcb.state-complete.closure-broke .fdcb-time::before{content:''}
 
 /* 標記鍵 —— **只在決策進行中出現**。idle 沒有 session，標記無處可掛，
