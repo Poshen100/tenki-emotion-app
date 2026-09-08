@@ -2946,10 +2946,17 @@ body{
       </div>
       <div class="lab-body">
         <div class="lab-grid">
-          <div class="lab-item is-live" onclick="openBaseline()">
+          <!-- 🔴 這一塊的副標原本寫死 `HR 68 · HRV 52 · RR 14`。
+               那三個數字**跟 Today 四張 vitals 卡上的是同一組**，而那四張每一張
+               都掛著「示意」標記、下面還有一行「需要感測器，目前尚未接上」——
+               **只有這裡一個標記都沒有**。
+               PLAYBOOK：「任何 UI 顯示生理數值 → 不得放假的生理讀數」。
+               ⚠️ 而我上一輪還因為「它有真資料」把它標成 is-live —— 那個分類是錯的，
+               我沒查就分了。現在副標由 renderLab() 從真的讀數 store 填。 -->
+          <div class="lab-item is-live" id="labBaselineTile" onclick="openBaseline()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="14" rx="2"/><circle cx="12" cy="10" r="2"/><path d="M12 17v4M9 21h6"/></svg></div>
             <div class="nm">Baseline</div>
-            <div class="sub">HR 68 · HRV 52 · RR 14<br>重新校準或檢視</div>
+            <div class="sub" id="labBaselineSub">重新校準或檢視</div>
           </div>
           <div class="lab-item" onclick="openTmplEditor()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg></div>
@@ -3712,6 +3719,7 @@ function goTab(id){
   if(id === 'timeline') renderTimeline();
   if(id === 'scan') renderScanScreen();
   if(id === 'today') renderHeroReading(); // 讀數可能在別的分頁被更新或過期
+  if(id === 'lab') renderLab();
   const tab = document.querySelector(`.tab[data-tab="${id}"]`);
   if(tab) tab.classList.add('active');
   // Haptic hint (visual tap)
@@ -5153,6 +5161,32 @@ function deleteTmplFromEditor(){
 
 // ── Lab toast（誠實狀態 / 匯出回饋）──
 let labToastTimer = null;
+// ═════════════════════════════════════════════════
+// Lab 的真實面
+//
+// 🔴 這裡只印**真的量得到的東西**。改之前 Baseline 磁磚寫死
+// `HR 68 · HRV 52 · RR 14`，那三個數字跟 Today 那四張標著「示意」的卡是同一組，
+// 但這裡一個標記都沒有 —— 等於在一個沒有感測器的產品上宣稱三個生理讀數。
+//
+// ⚠️ 讀數 store（tenki.readiness.reading.v1）實際只有
+// `band` / `confidence` / `ts` / `evidence` 四個欄位（readiness-scan.js:1670）。
+// **沒有** baselineDays / baselineScans —— 那兩個只出現在 harness 的假資料裡。
+// 所以這裡不印它們：印一個 store 沒有的東西就是下一個假讀數。
+// ═════════════════════════════════════════════════
+function labBaselineLine(){
+  let r = null;
+  try { r = JSON.parse(localStorage.getItem(READING_STORE_KEY_V6)); } catch(e){ r = null; }
+  if(!r || typeof r.ts !== 'number') return '尚未校準<br>做一次掃描開始';
+  const mins = Math.max(0, Math.round((Date.now() - r.ts) / 60000));
+  const ago = mins < 1 ? '剛剛' : mins < 60 ? mins + ' 分鐘前' : Math.round(mins/60) + ' 小時前';
+  const label = (BAND_LABEL_V6 && BAND_LABEL_V6[r.band]) || r.band || '—';
+  return '最近讀數 · ' + label + '<br>' + ago + ' 校準';
+}
+function renderLab(){
+  const sub = document.getElementById('labBaselineSub');
+  if(sub) sub.innerHTML = labBaselineLine();
+}
+
 function labInfo(title, sub){
   const t = document.getElementById('labToast');
   document.getElementById('labToastTitle').textContent = title;
