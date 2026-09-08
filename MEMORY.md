@@ -18,6 +18,56 @@
 
 ---
 
+# 2026-09-08 Session Update (Lab 視覺分級 —— 守門只掃了家族住的其中一個房間)
+
+⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/decision-timer-completion-sh7ogg`（PR #250）。
+
+## 做了什麼
+
+founder 傳 Lab / Timeline / Today 三張截圖 +「Lab視覺再升級 / 像Fable5一樣思考」。
+盤點之後 Lab 有兩個問題，founder 各拍板一次：
+
+1. **九塊磁磚長得一樣，其實是四種東西** → `is-live`（Baseline，有真 HR/HRV/RR）cyan、
+   `is-control`（決策紀律開關 / CSV 匯出，**就地改變一件事**）琥珀、
+   （預設）導航進子畫面 → 中性、`.lab-soon`（三塊空 stub）→ 拿掉全部可動訊號。
+2. **三塊 stub 點下去只彈 toast** → 降級成獨立的「即將開放」區（founder：「降級成即將開放區」）。
+3. **琥珀改成只給「會改變狀態」的**（founder：「只給改變狀態的」）——
+   上一輪我把 Lab **每一塊**都鑲琥珀邊，在全部都可點的頁面上等於沒有標。
+
+## 教訓
+
+- 🔴 **「換模板不變色」守門只掃 `#today-screen` + `#fdcb`** —— 它守的是一個跨全站的
+  bug 家族，卻只掃了家族住的其中一個房間。Lab 的 `.lab-item .ic` 吃 `var(--primary)`，
+  九顆圖示跟著模板走（Mancini 紫 / Health Stress 綠 / Exercise 橘）——
+  **founder 用截圖發現，守門全程綠**。擴到五個分頁後立刻紅在 16 個節點上。
+  反向驗證：把 `.ic` 改回 `var(--primary)` → 紅的 key **全部是 `lab/*`**，
+  也就是舊範圍**一條都抓不到** —— 那才是「擴範圍有意義」的證明。
+- 🔴 擴範圍時踩了兩個死斷言：①`.screen` 用 `opacity:0` 藏、**不是** `display:none`，
+  不切分頁就每頁都掃到全部五頁（症狀：每個分頁數字一模一樣）；
+  ②`#fdcb` 浮在每一頁上，進了每個分頁的分母 → 「這頁有沒有琥珀」永遠成立
+  （Lab 從 10 個降到 3 個仍然綠，是反向驗證證明它死掉的）。
+- 🔴 **顏色藏在 `radial-gradient()` 裡就不在 `backgroundColor`**（`.snap-hint .sh-dot`
+  就是這樣逃掉的）。而解析 gradient 時**不能把字串裡的數字都當顏色**——
+  `circle at 38% 35%` 會被算成色值。這個洞這一輪出現了**三次**。
+- 🔴 **我的 markup 手術搬錯了三塊磁磚**：helper 從名字往前抓固定行數，
+  結果 Baseline（真資料）與 CSV 匯出（真動作）被丟進「即將開放」，
+  兩塊空 stub 留在主格線。**harness 全綠、只有截圖看得出來** ——
+  大範圍搬 markup 要真的解析出每一塊的邊界並印出名字核對。
+
+## 沒動、留給 founder 裁
+
+- `.lab-wide`「升級到 Pro」也是 `labInfo` stub（點下去只彈「即將開放」），
+  但它是**付費 CTA**，降級與否是產品決定。它的圖示還寫死 `#b78dd6` /
+  `rgba(94,58,135,.2)`（＝ Mancini 紫，但沒吃 `--primary` 所以不跟著模板變）。
+- §3.6 第 5 項「拆開 `--primary`」（含 `TE_COLORS`）仍未動 —— 高風險。
+- `resumeActiveDecision()` 接回 marks/events 那一半**仍未在真機上驗過**。
+
+## 下次接手點
+
+founder 實走 PR #250 的 Lab 分頁；`--good`（35 處）退場是下一個候選。
+
+---
+
 # 2026-09-08 Session Update (顏色所有權清帳 —— 新守門推翻我一個假設，又抓到第九個顏色)
 
 ⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。
