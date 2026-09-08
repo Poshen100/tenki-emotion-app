@@ -43,7 +43,7 @@ describe('normalizeHealthConnectRecord', () => {
     });
 
     expect(normalized.record).toMatchObject({ time: Date.parse(T1) });
-    expect(typeof (normalized.record as { time: number }).time).toBe('number');
+    expect(typeof (normalized.record as unknown as { time: number }).time).toBe('number');
   });
 
   it('re-declares the energy unit rather than passing a bare number', () => {

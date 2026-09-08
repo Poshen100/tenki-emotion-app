@@ -49,7 +49,7 @@ export interface DevicesState {
   /** Swaps in the real port once the native adapters exist. */
   setPort: (port: DeviceLinkPort) => void;
   /** Reconciles every row against the environment (OS, hub, adapters). */
-  syncEnvironment: (environment?: DeviceEnvironment) => void;
+  syncEnvironment: (environment?: DeviceEnvironment) => Promise<void>;
   /** Runs one permission request through the port and the machine. */
   connect: (providerId: DeviceProviderId) => Promise<void>;
   /** Drops the link; the row returns to disconnected. */
@@ -66,8 +66,8 @@ export const useDevicesStore = create<DevicesState>((set, get) => ({
 
   setPort: (port) => set({ port }),
 
-  syncEnvironment: (environment) => {
-    const env = environment ?? get().port.describeEnvironment();
+  syncEnvironment: async (environment) => {
+    const env = environment ?? (await get().port.describeEnvironment());
 
     set((state) => {
       const next = { ...state.connections };
