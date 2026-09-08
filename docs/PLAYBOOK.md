@@ -370,6 +370,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | 情境 | 規則 |
 |------|------|
 | PR 被 squash-merge 之後 | 立刻 `git fetch origin main && git reset --hard origin/main` 同步分支，否則下個 PR 必撞 `mergeable_state: dirty` |
+| **PR 開了卻一個 check 都沒有**（不是紅，是完全沒有） | **先看 `mergeable_state`，不要先懷疑 CI 壞了或 Actions 額度用完。** `dirty` 的 PR 算不出 merge ref，`pull_request` 事件就不會 dispatch —— 只有第三方 check（Vercel 之類，跑的是 head 不是 merge ref）會出現，看起來像「CI 選擇性罷工」。解掉衝突推上去，CI 立刻排隊。2026-09-08 實例：#251 開了半小時零 check，同一時段別的 PR 照跑 |
 | 發現 main 上的檔案被「默默還原」 | 是別台機器的 stale checkout 直推。用 `git diff <pre-feature> <wip>` 確認是否純還原，從正確 commit checkout 回檔案；**別動對方真正的新功能** |
 | merge PR 之前（尤其多 session 並行時） | 先 `pull_request_read(get)` 核實 **PR head sha == 你剛推的 tip**。2026-07-08 實例：#165 merge 時 head 停在三刀中的第一刀，後兩個 fix 靜默遺失，靠本地 cherry-pick 救回。merge 後也要 `git log origin/main --oneline -3` 確認你的 commit 真的在裡面 |
 | stop-hook 警告 main 頂端 commit「Unverified（noreply@github.com）」並建議 amend | **誤報，絕不可照做**——那是 GitHub 自己產生的 merge/squash commit，amend＝改寫 main 歷史。只有「未推的本地 commit」才適用 reset-author 修簽名 |
