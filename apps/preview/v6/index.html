@@ -43,7 +43,19 @@
    harness 只在註解裡提過它們。**這一輪的視覺輸出逐位元組不變。** */
 :root{
   --surface:#1C1C1E;
+  /* 🔴 `--primary` 與 `--tmpl` 是**兩件事**，2026-09-08 拆開（founder 拍板）。
+     拆之前 `--primary` 是全域變數，而決策一起跑就被 setProperty 覆寫成
+     **當下那個模板的顏色** —— 全頁 60 幾處 var(--primary) 一起改色。
+     紫時鐘 1.94:1、Lab 六顆紫圖示、滑動膠囊的點，全是同一個根因的不同出口。
+
+       --primary  = ACTIVE / live / 正在量。**永遠是 cyan，不隨模板變。**
+       --tmpl     = 這一次決策的身分。**就是要隨模板變**，但只准出現在
+                    「環境層名單」上（見 `.env-wash` 與 #fdcbFill 原地註解）。
+
+     預設值 = --primary ⇒ **沒有決策在跑時 `--tmpl` 是恆等變換**，
+     跟星塵 setTone 同一個結構性質：沒被設定的頁面逐位元組不變。 */
   --primary:#00B4D8;
+  --tmpl:var(--primary);
   /* 🔴 `--txt-sec #8E8E93` 與 `--txt-dim #48484A` 已刪（2026-09-08）——
      它們是 **iOS 系統灰（彩度 ≈ 0）**，而中性階是 268° 的藍調 slate。
      這一頁最常用的兩個文字色，整個不屬於那個家族 —— §2 破口「灰階來自兩個家族」
@@ -1714,7 +1726,10 @@ body{
 .fdcb-prog .seg-obs{background:var(--n-600)}
 .fdcb-prog .seg-sweet{background:var(--n-450)}
 .fdcb-prog .seg-ext{background:var(--n-700)}
-.fdcb-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--primary);border-radius:1px;transition:width 1s linear;z-index:1}
+/* 🔴 環境層名單成員 #1：倒數填充。它是這一格唯一真的在講「這一次決策」的東西，
+   而且是 2px 的條、不是文字 —— 所以它吃 `--tmpl`（模板身分），不吃 `--primary`。
+   舊的守門把它寫成「唯一的白名單例外」；拆開之後它不是例外，是**名單的第一個成員**。 */
+.fdcb-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--tmpl);border-radius:1px;transition:width 1s linear;z-index:1}
 /* Turning Point 節點刻度 —— 掛在進度軌上，決策跑的時候看得到自己在長出紀錄。
    顏色吃帶位（BAND_COLOR_V6 同一組值）；🔴 沒讀數就空心，不假裝量到。 */
 .tp-tick{
@@ -3490,13 +3505,41 @@ body{
 // ═════════════════════════════════════════════════
 // Templates
 // ═════════════════════════════════════════════════
+// ═════════════════════════════════════════════════
+// 模板身分色 —— 兩個家族 × 三階（2026-09-08 拍板，全部量過）
+//
+// 🔴 改之前六個身分色**沒有一個是乾淨的**：
+//     Canslim GS / Canslim High RS / Work Focus  三個都是 #00B4D8
+//       ＝ cyan ACTIVE ＝ Clear 帶位（一個顏色同時當三個模板 + 兩個語義）
+//     Mancini FBD #5E3A87   對底座 **1.94:1** —— 連大字門檻 3.0 都不到
+//     Health Stress #34C759 ＝ --good「跟著流程完成」
+//     Exercise #FF6B35      ΔE 19.5 → error 紅
+//   六個裡三個重複、三個各偷一個語義主人。那不是身分色系統。
+//
+// 新系統不是六個色相（那是玩具調色盤），是**兩個家族**，
+// 而這兩族程式裡本來就分開了（守望模式 vs 倒數模式）：
+//     冷 276° ＝ 外面的結構（交易者模板，watchMode）
+//     暖 336° ＝ 你自己（節律模板，倒數）
+//   兩族 ΔE 50.3；族內三階 ΔE 8~10 —— **刻意的**：
+//   顏色講「你在哪一類決策裡」，名字講「哪一個模板」。
+//
+// 實測（對地面 #020617 / 對底座 #181E26 / 離最近的語義主人）：
+//   #6EADFF 8.73/7.25 ΔE33.8   #EB8BD1 8.79/7.30 ΔE51.5
+//   #4C9BF8 7.06/5.87 ΔE39.7   #DB75C0 7.03/5.84 ΔE52.4
+//   #1089EB 5.57/4.63 ΔE44.1   #CB5FB0 5.57/4.63 ΔE54.4
+//   最差的一個 4.63:1，仍然過 AA —— 舊的最差是 1.94。
+//
+// ⚠️ 紫 #5E3A87 從這裡退出，正式歸 **Premium**
+//   （docs/VISUAL-DIRECTION.md §5.1 早就寫著「紫留給 session/Premium」，
+//    一直沒人認領，所以 Mancini 還蹲在上面）。
+// ═════════════════════════════════════════════════
 const TEMPLATES = {
-  CANSLIM_GS:      {name:'Canslim GS',      durationSec:300, color:'#00B4D8', icon:'gs',    segLabel:'Sweet Zone'},
-  CANSLIM_HIGH_RS: {name:'Canslim High RS', durationSec:240, color:'#00B4D8', icon:'rs',    segLabel:'Sweet Zone'},
-  MANCINI_FBD:     {name:'Mancini FBD',     durationSec:180, color:'#5E3A87', icon:'fbd',   segLabel:'Lock'},
-  WORK_FOCUS:      {name:'Work Focus',      durationSec:1500,color:'#00B4D8', icon:'work',  segLabel:'Focus'},
-  HEALTH_STRESS:   {name:'Health Stress',   durationSec:180, color:'#34C759', icon:'heart', segLabel:'Breathe'},
-  EXERCISE:        {name:'Exercise',        durationSec:600, color:'#FF6B35', icon:'ex',    segLabel:'Active'}
+  CANSLIM_GS:      {name:'Canslim GS',      durationSec:300, color:'#6EADFF', icon:'gs',    segLabel:'Sweet Zone'},
+  CANSLIM_HIGH_RS: {name:'Canslim High RS', durationSec:240, color:'#4C9BF8', icon:'rs',    segLabel:'Sweet Zone'},
+  MANCINI_FBD:     {name:'Mancini FBD',     durationSec:180, color:'#1089EB', icon:'fbd',   segLabel:'Lock'},
+  WORK_FOCUS:      {name:'Work Focus',      durationSec:1500,color:'#EB8BD1', icon:'work',  segLabel:'Focus'},
+  HEALTH_STRESS:   {name:'Health Stress',   durationSec:180, color:'#DB75C0', icon:'heart', segLabel:'Breathe'},
+  EXERCISE:        {name:'Exercise',        durationSec:600, color:'#CB5FB0', icon:'ex',    segLabel:'Active'}
 };
 // ═════════════════════════════════════════════════
 // Turning Point 標記
@@ -4431,7 +4474,7 @@ function selectTmpl(el){
   currentTmpl = el.dataset.id;
   const t = TEMPLATES[currentTmpl];
   renderTmplChip();
-  document.documentElement.style.setProperty('--primary', t.color);
+  document.documentElement.style.setProperty('--tmpl', t.color);
   setTimeout(() => { closeSheet(); setState('ready'); }, 260);
 }
 
@@ -4603,7 +4646,7 @@ function acceptHandoff(){
 
   currentTmpl = h.templateId;
   const t = TEMPLATES[currentTmpl];
-  document.documentElement.style.setProperty('--primary', t.color);
+  document.documentElement.style.setProperty('--tmpl', t.color);
   setState('running');
   if(sess){
     // 這一筆的身分：標的名、來源快訊、以及自己定的關鍵價位。
@@ -4673,7 +4716,7 @@ function resumeActiveDecision(){
   const overdue = elapsedSec >= ceilingSec || now >= m.expiresAtMs;
 
   currentTmpl = m.templateId;
-  document.documentElement.style.setProperty('--primary', tmpl.color);
+  document.documentElement.style.setProperty('--tmpl', tmpl.color);
   setState('running');
   if(!sess){ clearActiveDecision(); return false; }
 
@@ -4865,7 +4908,10 @@ renderDisciplineTile();       // 開頁就把磁磚畫成目前真正的狀態
 syncDisciplineTemplates();   // 模式關閉時，交易者模板不進 DOM
 
 // ── 模板自訂 editor（建立/編輯/刪除 + 即時預覽）──
-const TE_COLORS = ['#00B4D8','#34C759','#FF6B35','#5E3A87','#E8B45A','#22D3EE'];
+/* 🔴 自訂模板抽的是**同一套身分色**，不是另一個調色盤。
+   舊那組六個顏色裡有五個已經有主人（cyan ACTIVE / success 綠 / --sns 橘 /
+   紫 Premium / 近 gold 的 #E8B45A），等於讓使用者親手製造撞色。 */
+const TE_COLORS = ['#6EADFF','#4C9BF8','#1089EB','#EB8BD1','#DB75C0','#CB5FB0'];
 const TE_ICONS = ['heart','work','fbd','gs','rs','ex'];
 let teEditId = null, teColor = TE_COLORS[0], teIcon = TE_ICONS[0];
 function genTmplId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
