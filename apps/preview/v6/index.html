@@ -1217,9 +1217,54 @@ body{
   transition:opacity 0.4s var(--ease-calm), transform 0.2s var(--ease-calm), box-shadow 0.2s var(--ease-calm);
 }
 .lab-wide:active{transform:scale(0.98);box-shadow:0 6px 20px rgba(0,0,0,0.35)}
-.lab-wide .ic{width:40px;height:40px;border-radius:10px;background:rgba(94,58,135,0.2);color:#b78dd6;display:flex;align-items:center;justify-content:center}
+/* 🔴 這顆圖示原本是 `rgba(94,58,135,0.2)` / `#b78dd6` —— 剛好就是 Mancini 紫的色域，
+   只是它沒吃 `var(--primary)` 所以不會跟著模板變。2026-09-08 紫歸 Premium 之後，
+   它從「一個沒人說得出理由的紫」變成**這一族唯一該用紫的地方**。
+   ⚠️ 字與圖示走中性（--n-100），紫只當表面 —— 紫活不過色盲守門，
+   宣稱由字承擔（見 tokens.css 的 premium 註解）。 */
+.lab-wide .ic{width:40px;height:40px;border-radius:10px;background:var(--premium-800);color:var(--n-100);display:flex;align-items:center;justify-content:center}
 .lab-wide .ic svg{width:22px;height:22px}
 .lab-wide .info{flex:1}
+/* ═════ Premium 對照表 ═════
+   🔴 這一塊取代的是一個**假的購買鍵**：舊的「升級到 Pro」點下去只彈一個
+   `labInfo` toast（「即將開放 — 完整 FDCB · 無限掃描 · 藍牙整合」），
+   而右邊還掛著一個 `›`。一個什麼都不會發生的購買 CTA，是這一輪
+   founder 指名要一起想清楚的東西。
+
+   換成真的：內容**逐欄來自 packages/shared/src/subscription-tiers.ts**
+   （FREE_TIER / PREMIUM_TIER 的欄位，不是我編的行銷詞）。
+   🔴 而 `exportEnabled: true, // Privacy controls never paywalled` 那一行
+   是這份設定裡最重要的一條 —— 舊的磁磚完全沒有反映它。
+   🔴 **沒有購買流程就不放購買鍵**：一行「尚未開賣」，不是一個會騙人的按鈕。 */
+.pm-sheet{max-height:88dvh;overflow-y:auto;overscroll-behavior:contain}
+.pm-hero{
+  margin:-10px -20px 16px;padding:22px 20px 18px;
+  background:linear-gradient(160deg, var(--premium-800), var(--premium-950) 70%, transparent);
+  border-bottom:1px solid var(--premium-600);
+}
+.pm-kicker{font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--n-300)}
+.pm-title{font-size:22px;font-weight:600;color:var(--n-100);margin-top:6px}
+.pm-lede{font-size:12px;line-height:1.6;color:var(--n-200);margin-top:8px}
+.pm-row{
+  display:grid;grid-template-columns:1fr 62px 62px;gap:8px;align-items:center;
+  padding:10px 2px;border-bottom:1px solid var(--n-850);
+}
+.pm-row.head{border-bottom-color:var(--n-700);padding-bottom:6px}
+.pm-row.head span{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-500)}
+.pm-k{font-size:12px;color:var(--n-200)}
+.pm-k small{display:block;font-size:10px;color:var(--n-500);margin-top:2px}
+.pm-v{font-size:11px;text-align:center;color:var(--n-400);font-variant-numeric:tabular-nums}
+.pm-v.on{color:var(--n-100);font-weight:600}
+.pm-v.off{color:var(--n-600)}
+/* 隱私那一列不是「功能」，是一條承諾 —— 給它自己的樣子，而且**兩欄都是 ✓**。 */
+.pm-row.keep{border-bottom:none;margin-top:14px;padding:12px;border-radius:12px;
+  background:var(--n-900);border:1px solid var(--n-700)}
+.pm-note{
+  margin-top:16px;padding:12px 14px;border-radius:12px;
+  background:var(--n-900);border:1px dashed var(--n-700);
+  font-size:11px;line-height:1.6;color:var(--n-400);
+}
+.pm-note b{color:var(--n-200);font-weight:600}
 .lab-wide .nm{font-size:14px;font-weight:600;color:#fff}
 .lab-wide .sub{font-size:11px;color:var(--n-400);margin-top:2px}
 
@@ -2959,11 +3004,15 @@ body{
           </div>
         </div>
 
-        <div class="lab-wide" onclick="labInfo('升級到 Pro','即將開放 — 完整 FDCB · 無限掃描 · 藍牙整合。')">
+        <!-- 🔴 舊的這一列是**一個假的購買鍵**：點下去只彈一個 toast，右邊卻掛著 `›`。
+             現在點下去打開的是一張**用 subscription-tiers.ts 逐欄建出來的對照表**，
+             所以那個 `›` 第一次是真的（它導航到一個真的存在的東西）。
+             ⚠️ 導航＝中性，不上可動層琥珀（founder 2026-09-08：琥珀只給會改變狀態的）。 -->
+        <div class="lab-wide" onclick="openPremiumSheet()">
           <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.6 7.2L22 10l-5.8 4.4L18 22l-6-4-6 4 1.8-7.6L2 10l7.4-.8z"/></svg></div>
           <div class="info">
-            <div class="nm">升級到 Pro</div>
-            <div class="sub">解鎖完整 FDCB · 無限掃描 · 藍牙整合</div>
+            <div class="nm">Premium</div>
+            <div class="sub">看看它解鎖什麼 · 以及 Free 永遠保留什麼</div>
           </div>
           <div style="color:var(--n-400);font-size:18px">›</div>
         </div>
@@ -3209,6 +3258,41 @@ body{
   </div>
 
   <!-- Template sheet -->
+  <div class="sheet-backdrop" id="premiumBackdrop" onclick="closePremiumSheet()"></div>
+  <div class="sheet pm-sheet" id="premiumSheet">
+    <div class="sheet-handle"></div>
+    <div class="pm-hero">
+      <div class="pm-kicker">Tier</div>
+      <div class="pm-title">Premium</div>
+      <!-- 🔴 這句是 subscription-tiers.ts 的檔頭註解本身：
+           "Unlocks longitudinal intelligence, not basic trust." -->
+      <div class="pm-lede">解鎖的是<b>縱向的理解</b>（更長的歷史、跨時間的規律），
+        不是基本的信任。基本的量測與紀錄，Free 本來就給滿。</div>
+    </div>
+
+    <div class="pm-row head"><span>能力</span><span>Free</span><span>Premium</span></div>
+
+    <div class="pm-row"><div class="pm-k">每日掃描</div><div class="pm-v">1 次</div><div class="pm-v on">無限</div></div>
+    <div class="pm-row"><div class="pm-k">本機歷史<small>紀錄一律留在這台裝置上</small></div><div class="pm-v">7 天</div><div class="pm-v on">無限</div></div>
+    <div class="pm-row"><div class="pm-k">Edge Timeline</div><div class="pm-v">有限</div><div class="pm-v on">完整</div></div>
+    <div class="pm-row"><div class="pm-k">回放洞察</div><div class="pm-v">基本</div><div class="pm-v on">進階</div></div>
+    <div class="pm-row"><div class="pm-k">Session 封存</div><div class="pm-v">有限</div><div class="pm-v on">完整</div></div>
+    <div class="pm-row"><div class="pm-k">個人 Edge 圖譜<small>你自己的狀態隨時間怎麼走</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">Edge 走勢預估<small>對象是你自己的節律</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">偵測器快訊</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">外部快訊接入<small>把外部訊號接進決策流程</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">匿名基準</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">進階洞察</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+
+    <!-- 🔴 這一列不是功能，是一條承諾，而且**兩欄都是 ✓**。
+         來源：subscription-tiers.ts 的 FREE_TIER
+         `exportEnabled: true, // Privacy controls never paywalled`。 -->
+    <div class="pm-row keep"><div class="pm-k">CSV 匯出 · 資料帶得走<small>隱私控制永遠不上鎖 —— 這條不會變</small></div><div class="pm-v on">✓</div><div class="pm-v on">✓</div></div>
+
+    <div class="pm-note"><b>尚未開賣。</b>這裡沒有購買鍵，因為現在還沒有可以買的東西 ——
+      有的時候會出現在這一頁，不會出現在別的地方。</div>
+  </div>
+
   <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
   <div class="sheet" id="sheet">
     <div class="sheet-handle"></div>
@@ -4501,6 +4585,17 @@ function openSheet(){
 function closeSheet(){
   document.getElementById('sheet').classList.remove('open');
   document.getElementById('sheetBackdrop').classList.remove('open');
+}
+// Premium 對照表：自己的元素、自己的 open/close。
+// ⚠️ **不能走 openSheet()** —— 它在 running 時 hard-return（擋殭屍計時器），
+// 而看一眼方案跟決策在不在跑無關。`.tp-picker` 當初為了同一個理由也是這樣做的。
+function openPremiumSheet(){
+  document.getElementById('premiumSheet').classList.add('open');
+  document.getElementById('premiumBackdrop').classList.add('open');
+}
+function closePremiumSheet(){
+  document.getElementById('premiumSheet').classList.remove('open');
+  document.getElementById('premiumBackdrop').classList.remove('open');
 }
 function selectTmpl(el){
   // openSheet 已經擋過，這裡是第二道 —— 選單以外的呼叫路徑（harness、未來的
