@@ -363,9 +363,11 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('Session 列說得出哪一檔（快訊決策帶標的）', row && row.name, 'ES1! · Mancini FBD');
   check('🔴 而且流程名還在（沒有掉進 symbol fallback）',
     !!row && row.name.includes('Mancini FBD'), true);
-  // FBD 的模板色 #5E3A87；fallback 是 #8E8E93 灰。
-  check('圖示是模板色，不是 fallback 灰', row && row.iconColor, 'rgb(94, 58, 135)');
-  check('圖示不是 fallback 的灰', row && row.iconColor !== 'rgb(142, 142, 147)', true);
+  // FBD 的模板色 2026-09-08 從 `#5E3A87` 換成冷族的 `#1089EB`
+  // （舊值對底座只有 1.94:1，而且紫已歸 Premium）。
+  // fallback 是中性階 `--n-500`（舊值 `#8E8E93` ＝ iOS 系統灰，同一輪一併退場）。
+  check('圖示是模板色，不是 fallback 灰', row && row.iconColor, 'rgb(16, 137, 235)');
+  check('圖示不是 fallback 的中性灰', row && row.iconColor !== 'rgb(99, 115, 137)', true);
 
   // 🔴 誠實紅線：快訊決策沒有 `reachedReadiness` 這個量，
   // 先前 `undefined` 落進 else 分支 → 對一次**判定成立並進場**的決策印「未達」。

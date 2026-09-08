@@ -5885,7 +5885,10 @@ function outcomeMeta(rec){
   const t = TEMPLATES[window.TENKI_OUTCOME.toV6TemplateId(rec.templateId)];
   const meta = t
     ? { name:t.name, icon:t.icon, color:t.color, segLabel:t.segLabel }
-    : { name: rec.symbol || '決策', icon:'heart', color:'#8E8E93', segLabel:'Readiness' };
+    // ⚠️ fallback 色原本寫死 `#8E8E93` —— 那是 **iOS 系統灰**，
+    //    正是 2026-09-08 把 `--txt-sec` 退場時認定「不屬於中性階家族」的那個值。
+    //    退了 token 卻留一份寫死的複本，等於沒退。改指中性階。
+    : { name: rec.symbol || '決策', icon:'heart', color:'var(--n-500)', segLabel:'Readiness' };
   // 🔴 標的另外放一格，**不併進 name** —— 三個面共用這個 meta，其中 Timeline
   // 那一列是窄四欄，塞不下（這個 repo 已經為溢出付過兩次學費）。由各面自己決定用不用。
   // ⚠️ 閘門必須是 `source === 'alert'`：自己起跑的決策，`saveV6Outcome` 往
