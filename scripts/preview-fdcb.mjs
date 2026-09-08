@@ -1857,6 +1857,78 @@ console.log('\n── Hero 讀數不得爆版 ──');
   await page.close();
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 🔴 樣式表裡不得存在「跟可動層琥珀很像但不是它」的顏色
+//
+// 為什麼要有這一條，而不是靠上面那條 runtime 掃描：
+// **runtime 掃描只看得到「此刻畫面上真的存在」的元素。** 條件狀態看不到 ——
+// 其他 outcome tag 的徽章、其他帶位、錯誤狀態、`::before/::after`。
+// 2026-09-08 實測證明了這個邊界：把 `--warning #F5A623` 放回 `.result.no_trade`
+// 之後，runtime 掃描**照樣全綠** —— 因為 `no_trade` 這個 class
+// **從來沒有被套用過**（decision-outcome.js 只吐 win / loss / breakeven）。
+//
+// 所以改成掃**樣式表本身**：每一條 CSS 規則裡宣告的每一個顏色，
+// 不管它此刻有沒有匹配到任何元素。判準是數值的（ΔE），不是字面的 ——
+// 換個寫法（#F5A623 → rgb(245,166,35)）照樣抓得到。
+//
+// 門檻 ΔE < 12：`--warning` 離琥珀 7.5（綠色盲下 0.6，等於同一個顏色），
+// 而 `--amber-500` 離 base 是 8.5 —— 所以自家的階要逐一列舉放行。
+// ═══════════════════════════════════════════════════════════════════════
+{
+  console.log('\n── 樣式表裡不得有琥珀的近似色（連沒被套用的規則也算）──');
+  const page = await openV3(844);
+  const hits = await page.evaluate(() => {
+    const lin = (c) => ((c /= 255), c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const lab = (rgb) => {
+      const [r, g, b] = rgb.map(lin);
+      const X = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+      const Y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+      const Z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+      const f = (t) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+      const [fx, fy, fz] = [f(X / 0.95047), f(Y), f(Z / 1.08883)];
+      return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+    };
+    const de = (p, q) => Math.hypot(...lab(p).map((v, i) => v - lab(q)[i]));
+    const cs0 = getComputedStyle(document.documentElement);
+    const hx = (n) => cs0.getPropertyValue(n).trim().replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+    const amber = hx('--amber-400');
+    // 自家的階：逐一列舉放行，不用前綴。
+    const OK = ['--amber-400', '--amber-500', '--amber-600', '--amber-800', '--amber-950']
+      .map((n) => hx(n).join(','));
+    const out = [];
+    for (const sheet of document.styleSheets) {
+      let rules; try { rules = sheet.cssRules; } catch (e) { continue; }
+      const walk = (list) => {
+        for (const r of list) {
+          if (r.cssRules) { walk(r.cssRules); continue; }
+          if (!r.style) continue;
+          const txt = r.cssText;
+          for (const m of txt.matchAll(/#([0-9a-fA-F]{6})\b|rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g)) {
+            const c = m[1]
+              ? m[1].match(/../g).map((h) => parseInt(h, 16))
+              : [+m[2], +m[3], +m[4]];
+            if (OK.includes(c.join(','))) continue;
+            const d = de(c, amber);
+            if (d < 12) out.push(`${r.selectorText || '?'} → ${m[0]} ΔE${d.toFixed(1)}`);
+          }
+        }
+      };
+      walk(rules);
+    }
+    return [...new Set(out)];
+  });
+  if (hits.length) { console.log('   跟琥珀撞的：'); for (const h of hits.slice(0, 8)) console.log(`     ${h}`); }
+  check('🔴 樣式表裡沒有與 --amber-400 ΔE < 12 的其他顏色', hits, []);
+  // 掃得到東西嗎 —— cssRules 讀不到（跨來源）時上面會靜靜回 []，那是死斷言。
+  const ruleCount = await page.evaluate(() => {
+    let n = 0;
+    for (const sh of document.styleSheets) { try { n += sh.cssRules.length; } catch (e) { /* 跨來源 */ } }
+    return n;
+  });
+  checkTruthy(`讀得到樣式表（${ruleCount} 條規則，0 條＝這條是死斷言）`, ruleCount > 200);
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);
