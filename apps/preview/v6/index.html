@@ -60,7 +60,12 @@
   --fdcb-complete:#34C759;
   --tabbar-bg:rgba(18,18,22,0.72);
   --good:#34C759;
-  --warn:#F5A623;
+  /* 🔴 `--warn:#F5A623` 已刪（2026-09-08）。兩個理由：
+     ① 它與可動層琥珀 `--amber-400 #FFA028` 正常視覺 ΔE **7.5**、
+        **綠色盲下 0.6** —— 只要同框就分不出「警告」與「可以動手」。
+     ② 逐一看過八個消費者，**沒有一個真的在講警告**：
+        no_trade 是紀律、掃描是量測、BETA 是事實標籤、insight 是資訊、
+        校準進度是進行中。它們只是都想要一個「暖一點的強調色」。 */
   --ease-calm:cubic-bezier(0.22, 1, 0.36, 1);
   --ease-breath:cubic-bezier(0.4, 0, 0.6, 1);
   /* 鎖定/確認落地（MOTION-DIRECTION §3）。tokens.css 也有一份，但這一頁的
@@ -924,7 +929,9 @@ body{
 .result.win{background:rgba(52,199,89,0.15);color:var(--good)}
 .result.loss{background:rgba(255,69,58,0.12);color:#ff7e76}
 .result.breakeven{background:rgba(142,142,147,0.15);color:var(--n-400)}
-.result.no_trade{background:rgba(245,166,35,0.12);color:var(--warn)}
+/* 🔴 `no_trade` ＝「不成立 · 我不做」。CLAUDE.md：**兩個出口都算紀律** ——
+   它不是一個警告，把它染成警告色等於用顏色責備一個正確的決定。→ 中性帶位。 */
+.result.no_trade{background:var(--neutral-950);color:var(--n-200)}
 
 .insight-card{
   padding:14px 16px;border-radius:14px;
@@ -1053,7 +1060,8 @@ body{
 .tl-event .dot.entry{background:var(--good);box-shadow:0 0 8px var(--good)}
 .tl-event .dot.exit{background:var(--primary);box-shadow:0 0 6px var(--primary)}
 .tl-event .dot.cancel{background:#ff7e76}
-.tl-event .dot.scan{background:var(--warn)}
+/* 掃描是一次量測（live）→ cyan ＝ ACTIVE，不是警告。 */
+.tl-event .dot.scan{background:var(--cyan-core)}
 .tl-event .desc{flex:1;font-size:13px;color:#fff}
 .tl-event .tl-edge{font-size:11px;color:var(--n-400);font-variant-numeric:tabular-nums}
 
@@ -1086,7 +1094,8 @@ body{
   content:'BETA';position:absolute;top:10px;right:10px;
   font-size:8px;letter-spacing:0.18em;font-weight:700;
   padding:2px 6px;border-radius:5px;
-  background:rgba(245,166,35,0.18);color:var(--warn);
+  /* BETA 是一個**事實標籤**（這功能還在測），不是警告。→ 中性。 */
+  background:var(--neutral-950);color:var(--n-300);
 }
 .lab-item .ic{
   width:38px;height:38px;border-radius:10px;
@@ -1358,7 +1367,9 @@ body{
 .sd-evt.skip .dot{background:#ff7e76;box-shadow:0 0 6px #ff7e76}
 .sd-evt.reduce .dot,
 .sd-evt.soften .dot,
-.sd-evt.pause .dot{background:var(--warn);box-shadow:0 0 6px var(--warn)}
+/* 減量 / 放軟 / 暫停 ＝ **收手**，而「該休息」正是 --zone-strain 的語義。
+   ⚠️ 光暈一併拿掉：Session 詳情是儀器世界。 */
+.sd-evt.pause .dot{background:var(--strain-400)}
 .sd-evt .type{
   font-size:13px;font-weight:500;color:#fff;flex:1;
   display:flex;align-items:center;gap:6px;
@@ -1463,14 +1474,15 @@ body{
 }
 .sd-insight .ic{
   width:32px;height:32px;border-radius:10px;flex-shrink:0;
-  background:rgba(245,166,35,0.12);color:var(--warn);
+  /* insight 是**資訊**，不是警告 —— 這張卡的工作不是宣稱一個狀態。→ 中性。 */
+  background:var(--neutral-950);color:var(--n-300);
   display:flex;align-items:center;justify-content:center;
   font-size:16px;
 }
 .sd-insight .body{flex:1;font-size:12px;line-height:1.5;color:rgba(255,255,255,0.85)}
 .sd-insight .body .head{
   font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
-  color:var(--warn);font-weight:600;margin-bottom:4px;
+  color:var(--n-400);font-weight:600;margin-bottom:4px;
 }
 .sd-insight b{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
 
@@ -2126,7 +2138,7 @@ body{
   border:1px solid rgba(255,255,255,0.1);color:#fff;
   display:flex;align-items:center;gap:6px;z-index:3;
 }
-.baseline-flow .bf-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--warn);box-shadow:0 0 8px var(--warn);animation:bfBlink 1.4s infinite}
+.baseline-flow .bf-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--cyan-active);box-shadow:0 0 8px var(--cyan-active);animation:bfBlink 1.4s infinite}
 .baseline-flow .bf-pill.stabilizing{background:rgba(0,180,216,0.12);border-color:rgba(0,180,216,0.3)}
 .baseline-flow .bf-pill.stabilizing::before{background:var(--primary);box-shadow:0 0 8px var(--primary)}
 .baseline-flow .bf-pill.ready{background:rgba(52,199,89,0.18);border-color:rgba(52,199,89,0.45);color:var(--good)}
@@ -2146,7 +2158,8 @@ body{
 .baseline-flow .bf-meter{display:flex;align-items:center;gap:12px}
 .baseline-flow .bf-meter .lbl{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-400);width:58px;flex-shrink:0;font-weight:600}
 .baseline-flow .bf-meter .bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.05);overflow:hidden}
-.baseline-flow .bf-meter .fill{height:100%;border-radius:2px;background:linear-gradient(90deg, var(--warn), var(--good));transition:width 1.2s var(--ease-calm)}
+.baseline-flow .bf-meter .fill{height:100%;border-radius:2px;/* 進度條：低→高走同一條 cyan 色階，不再用「警告→好」講一個進度 */
+  background:linear-gradient(90deg, var(--cyan-800), var(--cyan-400));transition:width 1.2s var(--ease-calm)}
 .baseline-flow .bf-meter .val{font-size:11px;color:#fff;font-variant-numeric:tabular-nums;width:32px;text-align:right;font-weight:600}
 
 .baseline-flow .bf-hint{text-align:center;font-size:11px;color:var(--n-400);line-height:1.5;margin:4px 0 12px;padding:0 12px;transition:color 0.5s}
@@ -2310,9 +2323,11 @@ body{
 }
 .baseline-flow .bf-demo-nav button.active,
 .baseline-flow .bf-demo-nav button:active{background:rgba(0,180,216,0.4);border-color:var(--primary)}
-.baseline-flow .bf-demo-nav .auto{background:rgba(245,166,35,0.15);border-color:rgba(245,166,35,0.3)}
+/* demo nav 的自動播放鍵 —— 它是可點的，所以走可動層；順帶收掉最後兩處
+   寫死的 #F5A623（那是剛退場的 --warning 的值）。 */
+.baseline-flow .bf-demo-nav .auto{background:rgba(var(--amber-400-rgb),0.15);border-color:rgba(var(--amber-400-rgb),0.3)}
 .baseline-flow .bf-demo-nav .auto.active,
-.baseline-flow .bf-demo-nav .auto:active{background:rgba(245,166,35,0.4)}
+.baseline-flow .bf-demo-nav .auto:active{background:rgba(var(--amber-400-rgb),0.4)}
 /* ═══════════ TENKI Brand v1.0 Splash — iPhone Responsive ═══════════ */
 .tenki-splash {
   position: fixed;
