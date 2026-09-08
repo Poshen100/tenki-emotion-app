@@ -32,35 +32,65 @@
    TENKI CORE · v3 with 5-Tab Navigation
    Today / Scan / Session / Timeline / Lab
    ═════════════════════════════════════════════════ */
+/* 🔴 這裡曾經有八個**宣告了沒人用**的顏色 token，2026-09-08 刪掉：
+     --zone-clear / --zone-neutral / --zone-strain（帶位色實際是 BAND_COLOR_V6
+       在 JS 裡寫死的，這三個從來沒被 var() 讀過；tokens.css 也各有一份）
+     --card / --border（與 tokens.css 同值，v6 內 0 用量）
+     --sns #FF6B35 / --pns #00B4D8（自律神經色，最後一個消費者在 f1cfacd 被換掉）
+     --bg #000（🔴 而地面其實是 --bg-space #020617 —— 這一個是**地面曾經漂過**
+       的化石，留著只會讓下一個人以為地面是純黑）
+   刪除前逐一驗過：`var(--x)` 全 repo 0 次、無 getPropertyValue 讀取、
+   harness 只在註解裡提過它們。**這一輪的視覺輸出逐位元組不變。** */
 :root{
-  --zone-clear:#00B4D8;
-  --zone-neutral:#64748B;
-  --zone-strain:#C2703D;
-  --bg:#000;
   --surface:#1C1C1E;
-  --card:#2C2C2E;
-  --border:#38383A;
+  /* 🔴 `--primary` 與 `--tmpl` 是**兩件事**，2026-09-08 拆開（founder 拍板）。
+     拆之前 `--primary` 是全域變數，而決策一起跑就被 setProperty 覆寫成
+     **當下那個模板的顏色** —— 全頁 60 幾處 var(--primary) 一起改色。
+     紫時鐘 1.94:1、Lab 六顆紫圖示、滑動膠囊的點，全是同一個根因的不同出口。
+
+       --primary  = ACTIVE / live / 正在量。**永遠是 cyan，不隨模板變。**
+       --tmpl     = 這一次決策的身分。**就是要隨模板變**，但只准出現在
+                    「環境層名單」上（見 `.env-wash` 與 #fdcbFill 原地註解）。
+
+     預設值 = --primary ⇒ **沒有決策在跑時 `--tmpl` 是恆等變換**，
+     跟星塵 setTone 同一個結構性質：沒被設定的頁面逐位元組不變。 */
   --primary:#00B4D8;
+  --tmpl:var(--primary);
+  /* 🔴 `--txt-sec #8E8E93` 與 `--txt-dim #48484A` 已刪（2026-09-08）——
+     它們是 **iOS 系統灰（彩度 ≈ 0）**，而中性階是 268° 的藍調 slate。
+     這一頁最常用的兩個文字色，整個不屬於那個家族 —— §2 破口「灰階來自兩個家族」
+     的本體就是這兩個。而且 `--txt-dim` 對地面只有 **2.21:1**，連大字門檻都不到。
+     → `--txt-sec`（69 處）→ `--n-400`（6.19 → 6.80:1）
+       `--txt-dim`（12 處）→ `--n-500`（**2.21 → 4.17:1**）；
+       其中兩處真的是文字（空狀態訊息、輸入框 placeholder）走 `--n-400` 到得了 AA。
+     ⚠️ `--txt` 保留：它就是純白，是一個站得住的值，而且只有 1 個消費者。 */
   --txt:#FFFFFF;
-  --txt-sec:#8E8E93;
-  --txt-dim:#48484A;
   /* 🔴 儀器世界：不透明。半透明＋模糊是「玻璃」的語言，
      而底座是你透過它看的那片玻璃本身 —— 玻璃是平的，光在它後面。 */
   --fdcb-bg:var(--n-900);
   --fdcb-border:rgba(255,255,255,0.08);
   --fdcb-complete:#34C759;
   --tabbar-bg:rgba(18,18,22,0.72);
-  --sns:#FF6B35;
-  --pns:#00B4D8;
   --good:#34C759;
-  --warn:#F5A623;
+  /* 🔴 `--warn:#F5A623` 已刪（2026-09-08）。兩個理由：
+     ① 它與可動層琥珀 `--amber-400 #FFA028` 正常視覺 ΔE **7.5**、
+        **綠色盲下 0.6** —— 只要同框就分不出「警告」與「可以動手」。
+     ② 逐一看過八個消費者，**沒有一個真的在講警告**：
+        no_trade 是紀律、掃描是量測、BETA 是事實標籤、insight 是資訊、
+        校準進度是進行中。它們只是都想要一個「暖一點的強調色」。 */
   --ease-calm:cubic-bezier(0.22, 1, 0.36, 1);
   --ease-breath:cubic-bezier(0.4, 0, 0.6, 1);
   /* 鎖定/確認落地（MOTION-DIRECTION §3）。tokens.css 也有一份，但這一頁的
      :root 一向自己帶用得到的 token —— 上面那支是絕對路徑載入的，掉了不能連手感一起掉。 */
   --ease-secure:cubic-bezier(0.19, 1, 0.22, 1);
 
-  --top-safe:14px;
+  /* 🔴 iPhone 的狀態列（時間 / 訊號 / 電量）會蓋在頁面上 —— 這在**加入主畫面的
+     PWA**（standalone）裡一定發生，而那正是 founder 實走的容器。
+     2026-09-08 實走截圖：`14:31` 壓在「DEEP SCAN」膠囊上。
+     14px 是「內容與螢幕邊緣的呼吸」，不是安全區 —— 兩件事要相加，不是二選一。
+     ⚠️ `viewport-fit=cover` 本來就在 <meta> 裡（沒有它 env() 會是 0），
+     所以這一行改完立刻生效；Safari 分頁裡 inset 是 0，維持原樣。 */
+  --top-safe:calc(env(safe-area-inset-top, 0px) + 14px);
   --tabbar-h:74px;
   /* 底座高度是 state 的函式（applyFdcbHeight 改寫這個變數）：
      idle 只有「模板 + 開始決策」一列，用不到 58px；跑起來才長回三欄。
@@ -93,13 +123,47 @@ body{
   /* deep-space console backdrop — faint nebula over brand spaceBg */
   background:
     radial-gradient(ellipse 95% 55% at 50% 6%, rgba(0,180,216,0.10), transparent 60%),
-    radial-gradient(ellipse 85% 50% at 50% 96%, rgba(94,58,135,0.08), transparent 72%),
+    /* 🔴 這顆原本是 rgba(94,58,135,0.08) ＝ Mancini 紫。紫 2026-09-08 歸 Premium，
+       一顆常駐在每一頁底部的紫光等於整個 App 都在說「Premium」。換成無主人的
+       slate（跟中性階同一個 268° 家族），語義層改由 #envWash 負責。 */
+    radial-gradient(ellipse 85% 50% at 50% 96%, rgba(72,86,110,0.08), transparent 72%),
     radial-gradient(ellipse 60% 45% at 82% 38%, rgba(0,150,170,0.05), transparent 60%),
     #020617;
   border-radius:44px;
   overflow:hidden;
   box-shadow:0 0 0 2px #1a1a1a, 0 30px 80px rgba(0,0,0,0.6);
 }
+/* ═════════════════════════════════════════════════
+   環境層（env wash）—— 「換模板不得改變畫面顏色」那條規則的替代品
+   ═════════════════════════════════════════════════
+   founder 2026-09-08：把那條規則拿掉。拿掉之後模板色要去哪裡？
+
+   🔴 不是回到舊的做法（`--primary` 全域覆寫 → 時鐘、圖示、膠囊一起變色，
+   其中一個 1.94:1）。**儀器維持中性** —— 底座、判定列、收束頁講的是
+   「活著 / 可以動手」，那跟哪個模板在跑無關。
+
+   會變的是**深空本身**：決策進行中，整片地面染上該模板的色。
+   一大片、低彩度、不宣稱任何事 —— 只是「你現在在這個模式裡」。
+   這也正面回答了「顏色好像有點少」：**顏色變多的來源是面積，不是色相數。**
+   前幾輪一直在調小小的邊框與圖示，那種面積再怎麼調都不會讓畫面變得有顏色。
+
+   實測（wash 疊在 --bg-space #020617 上）：
+     alpha 0.20 → 離最近的帶位色仍有 ΔE 33.4（不會被讀成「你是 Neutral」）
+                  --n-100 壓上去 13.12:1、--n-400 5.00:1（都還過 AA）
+   取 0.18 留餘裕。**上限是守門在管的，不是註解在管的**（見 preview-fdcb.mjs）。
+
+   ⚠️ 預設 opacity:0 且 `--tmpl` 預設 = `--primary` ⇒ 沒有決策在跑時
+   這一層是恆等變換，逐位元組不變。 */
+#envWash{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  opacity:0;transition:opacity 1.2s var(--ease-calm);
+  background:
+    radial-gradient(ellipse 125% 55% at 50% 100%, color-mix(in srgb, var(--tmpl) 27%, transparent), transparent 70%),
+    radial-gradient(ellipse 105% 38% at 50% 62%,  color-mix(in srgb, var(--tmpl) 12%, transparent), transparent 72%),
+    radial-gradient(ellipse 95%  34% at 50% -4%,  color-mix(in srgb, var(--tmpl) 12%, transparent), transparent 66%);
+}
+.phone.decision-live #envWash{opacity:1}
+@media (prefers-reduced-motion: reduce){ #envWash{transition:none} }
 /* full-app deep-space starfield, behind every screen */
 #cosmos{position:absolute;inset:0;z-index:0;pointer-events:none}
 /* 🔴 這個門檻要蓋住所有真手機，不只窄的那些。
@@ -134,7 +198,7 @@ body{
   font-size:28px;font-weight:400;letter-spacing:-0.02em;color:#fff;
 }
 .screen-date{
-  font-size:11px;color:var(--txt-sec);letter-spacing:0.12em;text-transform:uppercase;
+  font-size:11px;color:var(--n-400);letter-spacing:0.12em;text-transform:uppercase;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -520,6 +584,15 @@ body{
      this the carousel + dots fall behind the bottom bars (charts hidden, swipe eaten). */
   padding:2px 14px calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 10px);
   display:flex;flex-direction:column;gap:10px;
+  /* 🔴 剩餘空間置中，不要全部堆在最後一個子元素後面。
+     實測 390×844：圓點下緣 601、底座上緣 702 —— **101px 的空白**全擠在
+     計時器正上方（founder 2026-09-08 實走：「計時器上方有一些空間是空白的」）。
+     `.snap` 是 flex:1 的欄，內容（教練卡／輪播／說明／圓點）加起來比它矮，
+     預設 flex-start 就把差額整塊留在尾巴。置中之後差額上下對半，
+     不再有一條「什麼都沒有」的帶。
+     ⚠️ 這裡刻意**不**改 `.snap-track` 的高度去吃掉空白 —— 那會動到
+     Energy 長條圖的高度推導（那組數字有自己的守門），是另一個決定。 */
+  justify-content:center;
   overflow:hidden;
 }
 /* Card entrance stagger animation */
@@ -778,7 +851,7 @@ body{
   font-variant-numeric:tabular-nums;line-height:1;
 }
 .scan-last .meta{display:flex;flex-direction:column;gap:2px}
-.scan-last .lbl{font-size:9px;letter-spacing:0.2em;color:var(--txt-sec);text-transform:uppercase;font-weight:600}
+.scan-last .lbl{font-size:9px;letter-spacing:0.2em;color:var(--n-400);text-transform:uppercase;font-weight:600}
 .scan-last .time{font-size:11px;color:rgba(255,255,255,0.6)}
 
 /* 🔴 全 app 最大的一顆動作鍵 → 可動層琥珀（founder 2026-09-07 拍板「全部可點元素都鋪」）。
@@ -828,7 +901,7 @@ body{
   box-shadow:inset 0 0 0 1px rgba(0,180,216,0.2);
 }
 .scan-hint{
-  font-size:11px;color:var(--txt-sec);text-align:center;
+  font-size:11px;color:var(--n-400);text-align:center;
   letter-spacing:0.08em;max-width:240px;line-height:1.6;
 }
 /* 帶位是一個詞不是一個數字 —— 比 .score 的 32px 收一點才不會撐破卡片 */
@@ -836,7 +909,7 @@ body{
 /* 這幾塊自己設了 display，會蓋掉 UA 的 [hidden]{display:none} —— 補回來 */
 .scan-last[hidden],.scan-evidence[hidden],.scan-empty[hidden],.scan-button[hidden]{display:none}
 .scan-empty{
-  font-size:11px;color:var(--txt-sec);text-align:center;
+  font-size:11px;color:var(--n-400);text-align:center;
   letter-spacing:0.06em;max-width:240px;line-height:1.6;
 }
 /* 校準讀出：等寬數字、密度高、刻意不搶戲 */
@@ -847,7 +920,7 @@ body{
   border:1px solid rgba(255,255,255,0.05);
 }
 .scan-evidence .ev{display:flex;justify-content:space-between;gap:14px;font-size:10px}
-.scan-evidence .k{color:var(--txt-sec);letter-spacing:0.14em;text-transform:uppercase}
+.scan-evidence .k{color:var(--n-400);letter-spacing:0.14em;text-transform:uppercase}
 .scan-evidence .v{color:rgba(255,255,255,0.78);font-variant-numeric:tabular-nums}
 
 /* ═══════════════════════════════════════════════════
@@ -873,7 +946,7 @@ body{
 }
 .session-stats .val{font-size:22px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
 .session-stats .val.good{color:var(--good)}
-.session-stats .lbl{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--txt-sec);margin-top:4px;font-weight:600}
+.session-stats .lbl{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-400);margin-top:4px;font-weight:600}
 
 .session-section{font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;padding:8px 4px 2px}
 
@@ -908,16 +981,18 @@ body{
 .session-item.neut .tmpl-ic{background:rgba(142,142,147,0.15);color:#aaa}
 .session-item .info{flex:1;min-width:0}
 .session-item .nm{font-size:13px;font-weight:500;color:#fff;margin-bottom:2px}
-.session-item .meta{font-size:11px;color:var(--txt-sec);display:flex;gap:8px;font-variant-numeric:tabular-nums}
-.session-item .meta span.sep{color:var(--txt-dim)}
+.session-item .meta{font-size:11px;color:var(--n-400);display:flex;gap:8px;font-variant-numeric:tabular-nums}
+.session-item .meta span.sep{color:var(--n-500)}
 .session-item .result{
   font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
   padding:4px 9px;border-radius:8px;
 }
 .result.win{background:rgba(52,199,89,0.15);color:var(--good)}
 .result.loss{background:rgba(255,69,58,0.12);color:#ff7e76}
-.result.breakeven{background:rgba(142,142,147,0.15);color:var(--txt-sec)}
-.result.no_trade{background:rgba(245,166,35,0.12);color:var(--warn)}
+.result.breakeven{background:rgba(142,142,147,0.15);color:var(--n-400)}
+/* 🔴 `no_trade` ＝「不成立 · 我不做」。CLAUDE.md：**兩個出口都算紀律** ——
+   它不是一個警告，把它染成警告色等於用顏色責備一個正確的決定。→ 中性帶位。 */
+.result.no_trade{background:var(--neutral-950);color:var(--n-200)}
 
 .insight-card{
   padding:14px 16px;border-radius:14px;
@@ -938,7 +1013,7 @@ body{
 .session-empty.show{display:flex}
 .session-empty .ic{font-size:34px;opacity:0.85;margin-bottom:2px}
 .session-empty .ttl{font-size:15px;font-weight:600;color:#fff}
-.session-empty .sub{font-size:12px;color:var(--txt-sec);line-height:1.6}
+.session-empty .sub{font-size:12px;color:var(--n-400);line-height:1.6}
 
 /* 進場：清單卡片依序浮現（克制）*/
 @keyframes sessRise{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
@@ -968,12 +1043,12 @@ body{
 }
 .date-switch .mid{text-align:center}
 .date-switch .day{font-size:15px;font-weight:600;color:#fff}
-.date-switch .sub{font-size:10px;color:var(--txt-sec);letter-spacing:0.15em;margin-top:2px;text-transform:uppercase}
+.date-switch .sub{font-size:10px;color:var(--n-400);letter-spacing:0.15em;margin-top:2px;text-transform:uppercase}
 
 /* Edge Score hour chart */
 .tl-edge-chart-card{padding:14px}
 .tl-edge-chart-card .head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
-.tl-edge-chart-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
+.tl-edge-chart-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--n-400);font-weight:600}
 .tl-edge-chart-card .avg{font-size:12px;color:var(--primary);letter-spacing:0.05em;font-variant-numeric:tabular-nums}
 .tl-edge-chart-card .avg b{font-size:18px;font-weight:300;color:#fff;margin-right:2px}
 .tl-edge-chart{
@@ -985,39 +1060,39 @@ body{
 .tl-edge-chart .zone-clear{fill:rgba(0,180,216,0.05)}
 .tl-edge-chart .line{fill:none;stroke:var(--primary);stroke-width:1.6;filter:drop-shadow(0 0 3px rgba(0,180,216,0.4))}
 .tl-edge-chart .area{fill:url(#edgeTraceArea);opacity:0.6}
-.tl-edge-chart .axis{font-size:8px;fill:var(--txt-dim);font-family:inherit}
+.tl-edge-chart .axis{font-size:8px;fill:var(--n-500);font-family:inherit}
 .tl-edge-chart .evt-dot{fill:var(--good);filter:drop-shadow(0 0 4px var(--good))}
 .tl-edge-chart .evt-dot.loss{fill:#ff7e76}
 
 /* 決策時間軸 strip */
 .tl-strip-card{padding:14px}
 .tl-strip-card .head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
-.tl-strip-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
-.tl-strip-card .avg{font-size:12px;color:var(--txt-sec);letter-spacing:0.05em;font-variant-numeric:tabular-nums}
+.tl-strip-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--n-400);font-weight:600}
+.tl-strip-card .avg{font-size:12px;color:var(--n-400);letter-spacing:0.05em;font-variant-numeric:tabular-nums}
 .tl-strip-card .avg b{font-size:18px;font-weight:300;color:#fff;margin-right:2px}
 .tl-strip{position:relative;height:96px;min-height:96px}
 .tl-strip svg{width:100%;height:100%;display:block}
 .tl-strip .grid line{stroke:rgba(255,255,255,0.06);stroke-width:1}
-.tl-strip .axis{font-size:8px;fill:var(--txt-dim);font-family:inherit}
+.tl-strip .axis{font-size:8px;fill:var(--n-500);font-family:inherit}
 .tl-strip .tl-dot{transform-box:fill-box;transform-origin:center;animation:tlDotIn 0.4s var(--ease-calm) both}
 @keyframes tlDotIn{ from{opacity:0;transform:scale(0)} to{opacity:1;transform:scale(1)} }
 .tl-strip-legend{
   display:flex;gap:14px;margin-top:8px;padding-top:8px;
   border-top:1px solid rgba(255,255,255,0.05);
-  font-size:10px;color:var(--txt-sec);
+  font-size:10px;color:var(--n-400);
 }
 .tl-strip-legend span{display:flex;align-items:center;gap:5px}
 .tl-strip-legend .lg{width:7px;height:7px;border-radius:50%;display:inline-block}
 .tl-strip-legend .lg.good{background:var(--good)}
 .tl-strip-legend .lg.pri{background:var(--primary)}
 .tl-strip-legend .lg.loss{background:#ff7e76}
-.tl-strip-legend .lg-note{color:var(--txt-dim);margin-left:auto}
+.tl-strip-legend .lg-note{color:var(--n-500);margin-left:auto}
 
 .tl-empty{display:none;flex-direction:column;align-items:center;text-align:center;padding:36px 20px 16px;gap:8px}
 .tl-empty.show{display:flex}
 .tl-empty .ic{font-size:32px;opacity:0.85}
 .tl-empty .ttl{font-size:15px;font-weight:600;color:#fff}
-.tl-empty .sub{font-size:12px;color:var(--txt-sec);line-height:1.6}
+.tl-empty .sub{font-size:12px;color:var(--n-400);line-height:1.6}
 
 /* Event log 進場 stagger（複用 sessRise）*/
 .tl-event.tl-enter{animation:sessRise 0.42s var(--ease-calm) both}
@@ -1028,7 +1103,7 @@ body{
 
 /* Session markers */
 .timeline-events-card{padding:14px}
-.timeline-events-card .head{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:10px}
+.timeline-events-card .head{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--n-400);font-weight:600;margin-bottom:10px}
 .tl-event{
   display:flex;align-items:center;gap:10px;
   padding:8px 0;
@@ -1036,7 +1111,7 @@ body{
 }
 .tl-event:last-child{border-bottom:none}
 .tl-event .time{
-  font-size:11px;color:var(--txt-sec);
+  font-size:11px;color:var(--n-400);
   font-variant-numeric:tabular-nums;letter-spacing:0.08em;
   width:42px;flex-shrink:0;
 }
@@ -1046,9 +1121,10 @@ body{
 .tl-event .dot.entry{background:var(--good);box-shadow:0 0 8px var(--good)}
 .tl-event .dot.exit{background:var(--primary);box-shadow:0 0 6px var(--primary)}
 .tl-event .dot.cancel{background:#ff7e76}
-.tl-event .dot.scan{background:var(--warn)}
+/* 掃描是一次量測（live）→ cyan ＝ ACTIVE，不是警告。 */
+.tl-event .dot.scan{background:var(--cyan-core)}
 .tl-event .desc{flex:1;font-size:13px;color:#fff}
-.tl-event .tl-edge{font-size:11px;color:var(--txt-sec);font-variant-numeric:tabular-nums}
+.tl-event .tl-edge{font-size:11px;color:var(--n-400);font-variant-numeric:tabular-nums}
 
 /* ═══════════════════════════════════════════════════
    LAB SCREEN
@@ -1058,39 +1134,126 @@ body{
 .lab-body::-webkit-scrollbar{display:none}
 .lab-body > *{flex-shrink:0}
 
+/* ═════════════════════════════════════════════════
+   校準台（Lab 的主體）
+   ═════════════════════════════════════════════════
+   founder 2026-09-08：「像 Fable 5 一樣思考」。那兩張贏的圖的共同點不是好看，
+   是 **chrome 幾乎全黑、顏色來自資料本身**。TENKI 剛好相反：顏色都在小小的
+   邊框與圖示上，而畫面上**沒有任何一片資料的光**。那就是為什麼每一輪調完色階，
+   「顏色好像有點少」還是會回來 —— 調的一直是 chrome。
+
+   所以 Lab 不再是九塊設定磁磚，主體換成這台產品真正的主張：
+   **「你在什麼狀態下最跟得住自己的流程」**。
+
+   🔴 這不是我發明的統計：`domain/src/policies/readiness-band.ts` 的
+   `summarizeDisciplineByBand()` 早就寫好，而且**從來沒有東西餵它** ——
+   因為在 readingAtDecision 之前，沒有任何一筆紀錄帶得出帶位。
+
+   🔴 誠實規則寫在那支的 doc comment 裡，這裡逐條遵守：
+     · 沒有讀數的紀錄排除，而且**排除幾筆要講出來**
+     · 樣本 < 3 → 印「資料累積中」，不印一個吵雜的百分比
+     · 零筆 → 三個空通道 + 一句邀請，**不是一張假圖表**
+
+   ⚠️ 光來自**填色**（linear-gradient），不用 box-shadow / blur / radial ——
+   「儀器世界關燈」那條規則沒有被放寬，資料的顏色不是輝光。 */
+.cal{
+  border:1px solid var(--n-800);border-radius:18px;
+  background:var(--n-900);padding:16px 16px 14px;margin-bottom:14px;
+}
+.cal-kicker{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--n-500)}
+.cal-q{font-size:15px;font-weight:600;color:var(--n-100);margin:6px 0 2px;line-height:1.35}
+.cal-chart{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.cal-col{display:flex;flex-direction:column;align-items:center;gap:8px}
+.cal-track{
+  position:relative;width:100%;height:96px;border-radius:10px;
+  background:var(--n-950);border:1px solid var(--n-850);overflow:hidden;
+}
+.cal-bar{position:absolute;left:0;right:0;bottom:0;height:0;transition:height 0.9s var(--ease-calm)}
+.cal-col.clear   .cal-bar{background:linear-gradient(180deg, var(--clear-400),   var(--clear-800))}
+.cal-col.neutral .cal-bar{background:linear-gradient(180deg, var(--neutral-400), var(--neutral-800))}
+.cal-col.strain  .cal-bar{background:linear-gradient(180deg, var(--strain-400),  var(--strain-800))}
+/* 樣本不足：斜線紋 = 「這裡還沒有結論」。**不是**一根矮的實心長條 ——
+   矮長條會被讀成「這個帶位表現差」，那正好是相反的意思。 */
+.cal-col.thin .cal-bar{
+  background:repeating-linear-gradient(135deg, var(--n-700) 0 4px, transparent 4px 8px);
+  height:26px;
+}
+.cal-rate{font-size:17px;font-weight:600;color:var(--n-100);font-variant-numeric:tabular-nums;
+  line-height:20px;height:20px;display:flex;align-items:center;justify-content:center}
+.cal-rate.pending{font-size:11px;font-weight:500;color:var(--n-500)}
+.cal-band{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--n-400)}
+.cal-n{font-size:10px;color:var(--n-500);font-variant-numeric:tabular-nums}
+.cal-foot{
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--n-850);
+  font-size:10px;line-height:1.6;color:var(--n-500);
+}
+.cal-foot b{color:var(--n-300);font-weight:600;font-variant-numeric:tabular-nums}
+.cal-empty{font-size:12px;line-height:1.6;color:var(--n-400);margin-top:14px}
+.lab-sec{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-500);margin:4px 2px 8px}
 .lab-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 /* 🔴 整塊可點 → 可動層。**只給邊，不填色** —— Lab 有九塊磁磚，
    全部填琥珀會讓整頁只剩一個顏色（那正是「顏色好像有點少」的另一種版本）。
    底仍是中性，琥珀只負責說「這塊按得下去」。 */
+/* 🔴 Lab 的磁磚**不是同一種東西**，所以不該長得一樣（founder 2026-09-08）：
+     `is-live`   有真資料在上面（Baseline 顯示 HR/HRV/RR）→ cyan ＝ live
+     `is-control` 點下去**就地改變一件事**（決策紀律開關、CSV 匯出）→ 可動層琥珀
+     （預設）    導航進子畫面（模板自訂、標記標籤）→ 中性
+     `.lab-soon` 還沒有的東西 → 最暗，且**拿掉所有可動訊號**
+
+   🔴 這也修正了上一輪的規則：**在「什麼都可以按」的頁面上，把每一塊都標成
+   可動層等於沒有標。** 琥珀改成只給「會改變狀態」的 —— 導航不算。
+   founder 2026-09-08 拍板：「只給改變狀態的」。 */
 .lab-item{
   padding:16px 14px;border-radius:16px;
   background:rgba(255,255,255,0.03);
-  border:1px solid rgba(var(--amber-400-rgb),0.32);
+  border:1px solid var(--n-700);
   display:flex;flex-direction:column;gap:8px;
   cursor:pointer;transition:all 0.3s var(--ease-calm);
   position:relative;overflow:hidden;
 }
 .lab-item:active{transform:scale(0.97);background:rgba(255,255,255,0.05)}
-.lab-item.featured{
+.lab-item.is-live{
   background:linear-gradient(135deg, rgba(0,180,216,0.08), rgba(0,180,216,0.02));
   border-color:rgba(0,180,216,0.2);
 }
-.lab-item.beta::after{
-  content:'BETA';position:absolute;top:10px;right:10px;
-  font-size:8px;letter-spacing:0.18em;font-weight:700;
-  padding:2px 6px;border-radius:5px;
-  background:rgba(245,166,35,0.18);color:var(--warn);
-}
+/* ⚠️ `.lab-item.beta::after` 已刪：三塊 beta 磁磚都搬進「即將開放」區了，
+   那一區有自己的 `::after`。剛清完八個死 token，不要立刻長出一條死 CSS。 */
+/* 🔴 舊值是 `color:var(--primary)` ＝ **當下哪個決策模板在跑**的顏色。
+   實測：Mancini FBD → 紫 `rgb(94,58,135)`、Health Stress → 綠、Exercise → 橘。
+   **Lab 跟模板毫無關係**，founder 2026-09-08 的截圖裡那六顆紫圖示就是這樣來的
+   （當時 Mancini 正在跑）。跟紫時鐘同一個 bug 的又一個出口。
+   ⚠️ 而上一輪的「換模板不變色」守門**只掃 Today + 底座**，所以看不到這一頁 ——
+   這一輪把它擴到五個分頁，擴完立刻紅在這裡。
+   → 圖示改成講**種類**，不講模板。 */
 .lab-item .ic{
   width:38px;height:38px;border-radius:10px;
   display:flex;align-items:center;justify-content:center;
-  background:rgba(0,180,216,0.12);color:var(--primary);
+  background:var(--n-800);color:var(--n-300);
   margin-bottom:4px;
 }
 .lab-item .ic svg{width:20px;height:20px}
+/* 種類色：只有這三種，而且每一種都說得出自己是什麼 */
+.lab-item.is-live .ic{background:rgba(0,180,216,0.12);color:var(--cyan-core)}
+.lab-item.is-control{border-color:rgba(var(--amber-400-rgb),0.38)}
+.lab-item.is-control .ic{background:rgba(var(--amber-400-rgb),0.12);color:var(--amber-400)}
+/* 「即將開放」：拿掉全部可動訊號 —— 不上色、降對比、邊框最弱。 */
+.lab-soon-head{
+  font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--n-500);margin:18px 2px 8px;
+}
+.lab-soon .lab-item{border-color:var(--n-800);background:rgba(255,255,255,0.015)}
+.lab-soon .lab-item .ic{background:var(--n-850);color:var(--n-500)}
+.lab-soon .lab-item .nm{color:var(--n-400)}
+.lab-soon .lab-item .sub{color:var(--n-500)}
+.lab-soon .lab-item::after{
+  content:'即將開放';position:absolute;top:10px;right:10px;
+  font-size:8px;letter-spacing:0.14em;font-weight:700;
+  padding:2px 6px;border-radius:5px;
+  background:var(--neutral-950);color:var(--n-500);
+}
 .lab-item .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.2}
-.lab-item .sub{font-size:10px;color:var(--txt-sec);line-height:1.4;letter-spacing:0.02em}
-/* ── Lab Fable-5 爽感：進場 stagger（opacity-only，不與 :active transform 衝突）+ tap 深度 + featured glow ── */
+.lab-item .sub{font-size:10px;color:var(--n-400);line-height:1.4;letter-spacing:0.02em}
+/* ── Lab Fable-5 爽感：進場 stagger（opacity-only，不與 :active transform 衝突）+ tap 深度 + is-live glow ── */
 .lab-grid .lab-item, .lab-body .lab-wide{opacity:0}
 #lab-screen.active .lab-grid .lab-item, #lab-screen.active .lab-body .lab-wide{opacity:1}
 #lab-screen.active .lab-grid .lab-item:nth-child(1){transition-delay:0.05s}
@@ -1103,12 +1266,14 @@ body{
 #lab-screen.active .lab-grid .lab-item:nth-child(8){transition-delay:0.40s}
 #lab-screen.active .lab-body .lab-wide{transition-delay:0.35s}
 .lab-item:active{box-shadow:0 6px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(var(--amber-400-rgb),0.45)}
-.lab-item.featured{box-shadow:0 0 26px rgba(0,180,216,0.10)}
+.lab-item.is-live{box-shadow:0 0 26px rgba(0,180,216,0.10)}
 /* 決策紀律模式開啟時的樣子。用既有的 --primary（cyan = ACTIVE），
    **不用 --good 綠** —— 綠在這個產品裡是「跟著流程完成」的語意色，
    一個設定開關沒有資格宣告那件事（CLAUDE.md 顏色所有權）。 */
-.lab-item.mode-on{border-color:rgba(0,180,216,0.45);background:rgba(0,180,216,0.07)}
-.lab-item.mode-on .ic{color:var(--primary)}
+/* 🔴 舊的 mode-on 是**青框**，跟 `featured`（有資料）長得一模一樣 ——
+   兩個不同的意思用同一個訊號。開關「開著」是**可動層的一個狀態** → 琥珀。 */
+.lab-item.mode-on{border-color:rgba(var(--amber-400-rgb),0.65);background:rgba(var(--amber-400-rgb),0.07)}
+.lab-item.mode-on .ic{background:var(--amber-400);color:var(--n-950)}
 @media (prefers-reduced-motion: reduce){
   .lab-grid .lab-item, .lab-body .lab-wide{opacity:1;transition:none}
 }
@@ -1123,11 +1288,56 @@ body{
   transition:opacity 0.4s var(--ease-calm), transform 0.2s var(--ease-calm), box-shadow 0.2s var(--ease-calm);
 }
 .lab-wide:active{transform:scale(0.98);box-shadow:0 6px 20px rgba(0,0,0,0.35)}
-.lab-wide .ic{width:40px;height:40px;border-radius:10px;background:rgba(94,58,135,0.2);color:#b78dd6;display:flex;align-items:center;justify-content:center}
+/* 🔴 這顆圖示原本是 `rgba(94,58,135,0.2)` / `#b78dd6` —— 剛好就是 Mancini 紫的色域，
+   只是它沒吃 `var(--primary)` 所以不會跟著模板變。2026-09-08 紫歸 Premium 之後，
+   它從「一個沒人說得出理由的紫」變成**這一族唯一該用紫的地方**。
+   ⚠️ 字與圖示走中性（--n-100），紫只當表面 —— 紫活不過色盲守門，
+   宣稱由字承擔（見 tokens.css 的 premium 註解）。 */
+.lab-wide .ic{width:40px;height:40px;border-radius:10px;background:var(--premium-800);color:var(--n-100);display:flex;align-items:center;justify-content:center}
 .lab-wide .ic svg{width:22px;height:22px}
 .lab-wide .info{flex:1}
+/* ═════ Premium 對照表 ═════
+   🔴 這一塊取代的是一個**假的購買鍵**：舊的「升級到 Pro」點下去只彈一個
+   `labInfo` toast（「即將開放 — 完整 FDCB · 無限掃描 · 藍牙整合」），
+   而右邊還掛著一個 `›`。一個什麼都不會發生的購買 CTA，是這一輪
+   founder 指名要一起想清楚的東西。
+
+   換成真的：內容**逐欄來自 packages/shared/src/subscription-tiers.ts**
+   （FREE_TIER / PREMIUM_TIER 的欄位，不是我編的行銷詞）。
+   🔴 而 `exportEnabled: true, // Privacy controls never paywalled` 那一行
+   是這份設定裡最重要的一條 —— 舊的磁磚完全沒有反映它。
+   🔴 **沒有購買流程就不放購買鍵**：一行「尚未開賣」，不是一個會騙人的按鈕。 */
+.pm-sheet{max-height:88dvh;overflow-y:auto;overscroll-behavior:contain}
+.pm-hero{
+  margin:-10px -20px 16px;padding:22px 20px 18px;
+  background:linear-gradient(160deg, var(--premium-800), var(--premium-950) 70%, transparent);
+  border-bottom:1px solid var(--premium-600);
+}
+.pm-kicker{font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--n-300)}
+.pm-title{font-size:22px;font-weight:600;color:var(--n-100);margin-top:6px}
+.pm-lede{font-size:12px;line-height:1.6;color:var(--n-200);margin-top:8px}
+.pm-row{
+  display:grid;grid-template-columns:1fr 62px 62px;gap:8px;align-items:center;
+  padding:10px 2px;border-bottom:1px solid var(--n-850);
+}
+.pm-row.head{border-bottom-color:var(--n-700);padding-bottom:6px}
+.pm-row.head span{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-500)}
+.pm-k{font-size:12px;color:var(--n-200)}
+.pm-k small{display:block;font-size:10px;color:var(--n-500);margin-top:2px}
+.pm-v{font-size:11px;text-align:center;color:var(--n-400);font-variant-numeric:tabular-nums}
+.pm-v.on{color:var(--n-100);font-weight:600}
+.pm-v.off{color:var(--n-600)}
+/* 隱私那一列不是「功能」，是一條承諾 —— 給它自己的樣子，而且**兩欄都是 ✓**。 */
+.pm-row.keep{border-bottom:none;margin-top:14px;padding:12px;border-radius:12px;
+  background:var(--n-900);border:1px solid var(--n-700)}
+.pm-note{
+  margin-top:16px;padding:12px 14px;border-radius:12px;
+  background:var(--n-900);border:1px dashed var(--n-700);
+  font-size:11px;line-height:1.6;color:var(--n-400);
+}
+.pm-note b{color:var(--n-200);font-weight:600}
 .lab-wide .nm{font-size:14px;font-weight:600;color:#fff}
-.lab-wide .sub{font-size:11px;color:var(--txt-sec);margin-top:2px}
+.lab-wide .sub{font-size:11px;color:var(--n-400);margin-top:2px}
 
 /* ═══════════════════════════════════════════════════
    SESSION DETAIL — slide-in modal
@@ -1147,7 +1357,7 @@ body{
 .te-title{font-size:17px;font-weight:600;color:#fff}
 .te-spacer{flex:1}
 .te-body{flex:1;overflow-y:auto;padding:4px 18px 40px;-webkit-overflow-scrolling:touch}
-.te-hint{font-size:12px;color:var(--txt-sec);line-height:1.5;margin-bottom:14px}
+.te-hint{font-size:12px;color:var(--n-400);line-height:1.5;margin-bottom:14px}
 .te-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
 .te-list:empty{display:none}
 .te-list-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid rgba(255,255,255,0.06);cursor:pointer;transition:background 0.2s}
@@ -1155,27 +1365,27 @@ body{
 .te-list-item .ic{width:30px;height:30px;border-radius:9px;background:rgba(0,180,216,0.1);display:flex;align-items:center;justify-content:center}
 .te-list-item .ic svg{width:16px;height:16px}
 .te-list-item .nm{flex:1;font-size:13px;color:#fff}
-.te-list-item .dur{font-size:12px;color:var(--txt-sec);font-variant-numeric:tabular-nums}
+.te-list-item .dur{font-size:12px;color:var(--n-400);font-variant-numeric:tabular-nums}
 .te-list-item .edit{font-size:11px;color:var(--primary)}
 .te-preview{display:flex;align-items:center;gap:14px;padding:12px;border-radius:16px;background:var(--surface);border:1px solid rgba(0,180,216,0.25);margin-bottom:18px}
 .te-preview-ic{width:38px;height:38px;border-radius:11px;background:rgba(0,180,216,0.12);display:flex;align-items:center;justify-content:center;color:var(--primary)}
 .te-preview-ic svg{width:20px;height:20px}
 .te-preview-info{flex:1;min-width:0}
 .te-preview-info .nm{font-size:14px;font-weight:600;color:#fff}
-.te-preview-info .sub{font-size:11px;color:var(--txt-sec);margin-top:2px}
+.te-preview-info .sub{font-size:11px;color:var(--n-400);margin-top:2px}
 .te-preview-dur{font-size:14px;color:var(--primary);font-variant-numeric:tabular-nums}
-.te-field{display:flex;flex-direction:column;gap:7px;margin-bottom:15px;font-size:12px;color:var(--txt-sec)}
+.te-field{display:flex;flex-direction:column;gap:7px;margin-bottom:15px;font-size:12px;color:var(--n-400)}
 .te-field>span{letter-spacing:0.04em}
 .te-field select,.te-field input[type=text],.te-field input[type=number]{background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-family:inherit;font-size:15px;padding:11px 12px;width:100%}
 .te-field-row{flex-direction:row;align-items:center;justify-content:space-between}
 .te-dur{display:flex;align-items:center;gap:6px}
 .te-dur input{width:64px;text-align:center}
-.te-dur em{font-style:normal;color:var(--txt-sec);font-size:12px}
+.te-dur em{font-style:normal;color:var(--n-400);font-size:12px}
 .te-swatches{display:flex;gap:10px;flex-wrap:wrap}
 .te-sw{width:34px;height:34px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform 0.15s,border-color 0.15s}
 .te-sw:active{transform:scale(0.9)}
 .te-sw.sel{border-color:#fff;transform:scale(1.08)}
-.te-ic{width:38px;height:38px;border-radius:11px;background:var(--surface);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:var(--txt-sec);cursor:pointer;transition:transform 0.15s,color 0.15s,border-color 0.15s}
+.te-ic{width:38px;height:38px;border-radius:11px;background:var(--surface);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:var(--n-400);cursor:pointer;transition:transform 0.15s,color 0.15s,border-color 0.15s}
 .te-ic svg{width:19px;height:19px}
 .te-ic:active{transform:scale(0.9)}
 .te-ic.sel{color:var(--primary);border-color:var(--primary)}
@@ -1197,7 +1407,7 @@ body{
 }
 .lab-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
 .lab-toast-title{font-size:14px;font-weight:600;color:#fff}
-.lab-toast-sub{font-size:12px;color:var(--txt-sec);margin-top:3px;line-height:1.45}
+.lab-toast-sub{font-size:12px;color:var(--n-400);margin-top:3px;line-height:1.45}
 @media (prefers-reduced-motion: reduce){ .lab-toast{transition:none} }
 .session-detail{
   position:absolute;inset:0;
@@ -1228,7 +1438,7 @@ body{
 .sd-back:active{background:rgba(0,180,216,0.15);transform:scale(0.94)}
 .sd-title-wrap{flex:1;min-width:0}
 .sd-title{font-size:17px;font-weight:600;color:#fff;letter-spacing:-0.01em}
-.sd-subtitle{font-size:11px;color:var(--txt-sec);letter-spacing:0.1em;margin-top:2px}
+.sd-subtitle{font-size:11px;color:var(--n-400);letter-spacing:0.1em;margin-top:2px}
 .sd-result{
   font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;
   padding:5px 10px;border-radius:8px;flex-shrink:0;
@@ -1252,18 +1462,18 @@ body{
 .sd-hero-cell{text-align:center;flex:1}
 .sd-hero-cell .lbl{
   font-size:9px;letter-spacing:0.22em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;margin-bottom:4px;
+  color:var(--n-400);font-weight:600;margin-bottom:4px;
 }
 .sd-hero-cell .val{
   font-size:36px;font-weight:200;letter-spacing:-0.03em;
   font-variant-numeric:tabular-nums;color:#fff;line-height:1;
 }
 .sd-hero-cell .sub{
-  font-size:10px;color:var(--txt-sec);margin-top:4px;
+  font-size:10px;color:var(--n-400);margin-top:4px;
   letter-spacing:0.08em;
 }
 .sd-hero-arrow{
-  font-size:22px;color:var(--txt-dim);
+  font-size:22px;color:var(--n-500);
   padding:0 4px;align-self:flex-end;margin-bottom:8px;
 }
 .sd-hero-delta{
@@ -1273,7 +1483,7 @@ body{
 }
 .sd-hero-delta.up{color:var(--good)}
 .sd-hero-delta.down{color:#ff7e76}
-.sd-hero-delta.flat{color:var(--txt-sec)}
+.sd-hero-delta.flat{color:var(--n-400)}
 
 /* Edge Score trace chart */
 .sd-trace-card{padding:14px}
@@ -1283,7 +1493,7 @@ body{
 }
 .sd-trace-ttl{
   font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;
+  color:var(--n-400);font-weight:600;
 }
 .sd-trace-dur{
   font-size:11px;color:var(--primary);
@@ -1298,9 +1508,9 @@ body{
 .sd-trace .seg-line{stroke:rgba(255,255,255,0.04);stroke-width:1;stroke-dasharray:2 3}
 .sd-trace .tl-edge-line{fill:none;stroke:var(--primary);stroke-width:1.8;filter:drop-shadow(0 0 4px rgba(0,180,216,0.5))}
 .sd-trace .tl-edge-area{fill:url(#sdArea)}
-.sd-trace .axis{font-size:9px;fill:var(--txt-dim);font-family:inherit;letter-spacing:0.05em}
+.sd-trace .axis{font-size:9px;fill:var(--n-500);font-family:inherit;letter-spacing:0.05em}
 .sd-trace .seg-label{
-  font-size:8px;fill:var(--txt-sec);
+  font-size:8px;fill:var(--n-400);
   font-weight:600;letter-spacing:0.16em;text-transform:uppercase;
 }
 .sd-trace .evt{
@@ -1318,7 +1528,7 @@ body{
 .sd-events-card{padding:14px 16px}
 .sd-events-head{
   font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;margin-bottom:10px;
+  color:var(--n-400);font-weight:600;margin-bottom:10px;
 }
 .sd-evt{
   display:flex;align-items:center;gap:10px;
@@ -1328,7 +1538,7 @@ body{
 }
 .sd-evt:last-child{border-bottom:none}
 .sd-evt .time{
-  font-size:11px;color:var(--txt-sec);
+  font-size:11px;color:var(--n-400);
   font-variant-numeric:tabular-nums;
   width:52px;flex-shrink:0;font-weight:500;letter-spacing:0.04em;
 }
@@ -1351,7 +1561,9 @@ body{
 .sd-evt.skip .dot{background:#ff7e76;box-shadow:0 0 6px #ff7e76}
 .sd-evt.reduce .dot,
 .sd-evt.soften .dot,
-.sd-evt.pause .dot{background:var(--warn);box-shadow:0 0 6px var(--warn)}
+/* 減量 / 放軟 / 暫停 ＝ **收手**，而「該休息」正是 --zone-strain 的語義。
+   ⚠️ 光暈一併拿掉：Session 詳情是儀器世界。 */
+.sd-evt.pause .dot{background:var(--strain-400)}
 .sd-evt .type{
   font-size:13px;font-weight:500;color:#fff;flex:1;
   display:flex;align-items:center;gap:6px;
@@ -1363,7 +1575,7 @@ body{
   background:rgba(0,180,216,0.1);
 }
 .sd-evt .tl-edge-mark{
-  font-size:11px;color:var(--txt-sec);
+  font-size:11px;color:var(--n-400);
   font-variant-numeric:tabular-nums;letter-spacing:0.04em;
 }
 .sd-evt .tl-edge-mark b{color:#fff;font-weight:600}
@@ -1372,7 +1584,7 @@ body{
 .sd-bio-card{padding:14px}
 .sd-bio-head{
   font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;margin-bottom:12px;
+  color:var(--n-400);font-weight:600;margin-bottom:12px;
 }
 .sd-bio-grid{
   display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;
@@ -1381,13 +1593,14 @@ body{
 .sd-bio-col.end{text-align:right}
 .sd-bio-arrows{
   display:flex;flex-direction:column;gap:18px;
-  color:var(--txt-dim);font-size:14px;text-align:center;
+  /* 空狀態訊息是這一屏唯一的內容 → 要到得了 AA，走 --n-400（6.8:1）而不是 --n-500。 */
+  color:var(--n-400);font-size:14px;text-align:center;
 }
 .sd-bio-item{display:flex;flex-direction:column;gap:2px}
 .sd-bio-col.end .sd-bio-item{align-items:flex-end}
 .sd-bio-lbl{
   font-size:9px;letter-spacing:0.2em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;
+  color:var(--n-400);font-weight:600;
 }
 .sd-bio-val{
   font-size:20px;font-weight:300;color:#fff;
@@ -1395,7 +1608,7 @@ body{
   display:flex;align-items:baseline;gap:3px;line-height:1;
 }
 .sd-bio-col.end .sd-bio-val{flex-direction:row-reverse}
-.sd-bio-val .u{font-size:10px;color:var(--txt-sec);font-weight:400}
+.sd-bio-val .u{font-size:10px;color:var(--n-400);font-weight:400}
 
 /* Reflection section */
 .sd-reflect-card{
@@ -1416,7 +1629,7 @@ body{
 }
 .sd-reflect-clarity .lbl{
   font-size:10px;letter-spacing:0.16em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;
+  color:var(--n-400);font-weight:600;
 }
 .sd-clarity-dots{
   display:flex;gap:5px;margin-left:auto;
@@ -1443,7 +1656,7 @@ body{
   transition:border 0.3s;
 }
 .sd-reflect-input:focus{border-color:rgba(0,180,216,0.4)}
-.sd-reflect-input::placeholder{color:var(--txt-dim);font-style:italic}
+.sd-reflect-input::placeholder{color:var(--n-400);font-style:italic}
 
 /* Learning insight */
 .sd-insight{
@@ -1455,14 +1668,15 @@ body{
 }
 .sd-insight .ic{
   width:32px;height:32px;border-radius:10px;flex-shrink:0;
-  background:rgba(245,166,35,0.12);color:var(--warn);
+  /* insight 是**資訊**，不是警告 —— 這張卡的工作不是宣稱一個狀態。→ 中性。 */
+  background:var(--neutral-950);color:var(--n-300);
   display:flex;align-items:center;justify-content:center;
   font-size:16px;
 }
 .sd-insight .body{flex:1;font-size:12px;line-height:1.5;color:rgba(255,255,255,0.85)}
 .sd-insight .body .head{
   font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
-  color:var(--warn);font-weight:600;margin-bottom:4px;
+  color:var(--n-400);font-weight:600;margin-bottom:4px;
 }
 .sd-insight b{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
 
@@ -1475,11 +1689,11 @@ body{
 }
 .sd-outcome-ic svg{width:24px;height:24px}
 .sd-outcome-headline{font-size:17px;font-weight:600;color:#fff;letter-spacing:-0.01em}
-.sd-outcome-sub{font-size:12px;color:var(--txt-sec);margin-top:3px}
+.sd-outcome-sub{font-size:12px;color:var(--n-400);margin-top:3px}
 
 .sd-seg-card{padding:16px}
 .sd-seg-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
-.sd-seg-ttl{font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
+.sd-seg-ttl{font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--n-400);font-weight:600}
 .sd-seg-dur{font-size:13px;color:#fff;font-variant-numeric:tabular-nums}
 .sd-seg-track{display:flex;gap:4px;height:38px;position:relative}
 /* ═══ Turning Point 節點 —— founder 畫的 ——●——●—— 就是這一條 ═══
@@ -1493,7 +1707,7 @@ body{
   position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
   transform:translate(-50%,-50%);z-index:2;
   border:1.5px solid rgba(0,0,0,0.55);
-  background:var(--txt-sec);
+  background:var(--n-400);
 }
 .sd-tp-node.band-clear{background:#00B4D8;box-shadow:0 0 7px rgba(0,180,216,0.75)}
 .sd-tp-node.band-neutral{background:#64748B;box-shadow:0 0 7px rgba(100,116,139,0.75)}
@@ -1504,9 +1718,9 @@ body{
 .sd-evt .dot.band-neutral{background:#64748B;box-shadow:0 0 7px rgba(100,116,139,0.6)}
 .sd-evt .dot.band-strain{background:#C2703D;box-shadow:0 0 7px rgba(194,112,61,0.6)}
 .sd-evt .dot.no-reading{background:transparent;border:1.5px dashed rgba(255,255,255,0.5);box-shadow:none}
-.sd-evt .state{font-size:11px;color:var(--txt-sec);letter-spacing:0.02em;flex-shrink:0}
-.sd-evt .state.none{color:var(--txt-dim)}
-.sd-tp-empty{font-size:12px;color:var(--txt-sec);line-height:1.6;padding:2px 0}
+.sd-evt .state{font-size:11px;color:var(--n-400);letter-spacing:0.02em;flex-shrink:0}
+.sd-evt .state.none{color:var(--n-500)}
+.sd-tp-empty{font-size:12px;color:var(--n-400);line-height:1.6;padding:2px 0}
 /* 🔴 .sd-body 是 flex column + overflow-y:auto，子卡片預設 flex-shrink:1 ——
    內容一長就被壓扁，再被 .card{overflow:hidden} 裁掉（實測：4 個節點的第 4 列
    直接消失在卡片邊緣）。這個 repo 已經為短視窗踩過同一個坑，修法一樣
@@ -1519,7 +1733,7 @@ body{
 .sd-seg.part{
   border-radius:8px;display:flex;align-items:center;justify-content:center;
   background:rgba(255,255,255,0.05);
-  font-size:10px;letter-spacing:0.06em;color:var(--txt-sec);
+  font-size:10px;letter-spacing:0.06em;color:var(--n-400);
   transition:background 0.3s,color 0.3s;
 }
 .sd-seg.part.obs{flex:33}
@@ -1532,7 +1746,7 @@ body{
 }
 .sd-seg-times{
   display:flex;justify-content:space-between;margin-top:6px;
-  font-size:9px;color:var(--txt-dim);font-variant-numeric:tabular-nums;
+  font-size:9px;color:var(--n-500);font-variant-numeric:tabular-nums;
 }
 
 /* 欄數跟著「實際看得見的格子數」走，不寫死 3 ——「離開」那格只有在紀錄真的有
@@ -1540,7 +1754,7 @@ body{
    [hidden] 是 display:none，不會佔掉一條 grid track。 */
 .sd-facts{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;padding:14px}
 .sd-fact{text-align:center}
-.sd-fact .k{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:5px}
+.sd-fact .k{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--n-400);font-weight:600;margin-bottom:5px}
 .sd-fact .v{font-size:16px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums}
 
 /* ═══════════════════════════════════════════════════
@@ -1587,11 +1801,19 @@ body{
   cursor:pointer;transition:background 0.3s;
 }
 .fdcb-tmpl:active{background:rgba(255,255,255,0.04)}
+/* 🔴 兩件事一起修（§3.6 裁決摘要第 2 項）：
+   ① `filter:drop-shadow(0 0 6px rgba(0,180,216,0.4))` —— 一個**寫死的青色光暈**，
+      圖示是綠的紫的都照樣發青光。「儀器世界關燈」那一輪沒關掉它，因為我當時的
+      發光計數只數 box-shadow/text-shadow/radial-gradient/blur，**沒數 drop-shadow**。
+   ② 顏色。舊的走 `var(--primary)`，但那被 markup 上的 inline
+      `style="color:#34C759"` 永遠蓋掉 —— 於是**每個模板的圖示都是 --success 綠**，
+      決策一跑起來底座就有一顆「跟著流程完成」的綠環全程亮著。
+      而 `var(--primary)` 自己也不能用：Mancini FBD 的紫在底座上只有 1.94:1。
+   → 中性。模板身分由**圖示的形狀**與左欄的名字講，不靠顏色。--n-300 對底座 9.7:1。 */
 .fdcb-tmpl .ic{
   width:20px;height:20px;
   display:flex;align-items:center;justify-content:center;
-  color:var(--primary);
-  filter:drop-shadow(0 0 6px rgba(0,180,216,0.4));
+  color:var(--n-300);
 }
 .fdcb-tmpl .ic svg{width:18px;height:18px}
 .fdcb-tmpl-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -1654,13 +1876,16 @@ body{
 .fdcb-prog .seg-obs{background:var(--n-600)}
 .fdcb-prog .seg-sweet{background:var(--n-450)}
 .fdcb-prog .seg-ext{background:var(--n-700)}
-.fdcb-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--primary);border-radius:1px;transition:width 1s linear;z-index:1}
+/* 🔴 環境層名單成員 #1：倒數填充。它是這一格唯一真的在講「這一次決策」的東西，
+   而且是 2px 的條、不是文字 —— 所以它吃 `--tmpl`（模板身分），不吃 `--primary`。
+   舊的守門把它寫成「唯一的白名單例外」；拆開之後它不是例外，是**名單的第一個成員**。 */
+.fdcb-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--tmpl);border-radius:1px;transition:width 1s linear;z-index:1}
 /* Turning Point 節點刻度 —— 掛在進度軌上，決策跑的時候看得到自己在長出紀錄。
    顏色吃帶位（BAND_COLOR_V6 同一組值）；🔴 沒讀數就空心，不假裝量到。 */
 .tp-tick{
   position:absolute;top:50%;width:5px;height:5px;border-radius:50%;
   transform:translate(-50%,-50%);z-index:2;
-  background:var(--txt-sec);
+  background:var(--n-400);
 }
 /* 5px 的節點掛 5px 的光暈 = 實心點變成一團霧，位置反而讀不準。 */
 .tp-tick.band-clear{background:#00B4D8}
@@ -1693,7 +1918,7 @@ body{
 /* 關鍵價位獨佔一整行（flex-basis:100% + wrap），按鈕仍在下面平分。 */
 .wj-anchor{
   flex:0 0 100%;text-align:center;
-  font-size:11px;letter-spacing:0.06em;color:var(--txt-sec);
+  font-size:11px;letter-spacing:0.06em;color:var(--n-400);
   font-variant-numeric:tabular-nums;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;
 }
@@ -1717,7 +1942,10 @@ body{
 .fdcb.state-complete.closure-disciplined{animation:fdcb-pulse-good 0.7s var(--ease-calm)}
 .fdcb.state-complete.closure-broke{animation:fdcb-pulse-broke 0.7s var(--ease-calm)}
 @keyframes fdcb-pulse-good{40%{box-shadow:0 0 0 1px rgba(52,199,89,0.5), 0 0 26px rgba(52,199,89,0.28)}}
-@keyframes fdcb-pulse-broke{40%{box-shadow:0 0 0 1px rgba(255,159,10,0.5), 0 0 26px rgba(255,159,10,0.24)}}
+/* ⚠️ 這是 **keyframe**（MOTION-DIRECTION 的地盤）。這裡只換**顏色停點**，
+   timing、曲線、形狀一個參數都沒動 —— 換的理由跟上面同一條：
+   `#FF9F0A` 與可動層琥珀 ΔE 6.2，一個在底座上脈動的顏色不能跟「可以動手」撞。 */
+@keyframes fdcb-pulse-broke{40%{box-shadow:0 0 0 1px rgba(194,112,61,0.5), 0 0 26px rgba(194,112,61,0.24)}}
 @media (prefers-reduced-motion: reduce){
   .fdcb.in-readiness, .fdcb.state-complete.closure-disciplined, .fdcb.state-complete.closure-broke{animation:none}
   .fdcb-fill{transition:none}
@@ -1751,8 +1979,12 @@ body{
 .fdcb.state-complete .fdcb-time::before{content:'✓ ';font-weight:700}
 .fdcb.state-complete .fdcb-seg,
 .fdcb.state-complete .fdcb-prog{display:none}
-/* 提前收束 = 事實橙、無勾（跟著流程/完整走完維持既有綠 ✓） */
-.fdcb.state-complete.closure-broke .fdcb-time{color:#FF9F0A}
+/* 🔴 「提前收束」舊值是 `#FF9F0A` —— 而它與可動層琥珀 `--amber-400` 只差
+   **ΔE 6.2**（比剛退場的 `--warning` 的 7.5 還近）。這是**樣式表守門**抓到的，
+   runtime 掃描看不到它：`closure-broke` 是一個條件狀態，那一刻畫面上才存在。
+   → 走 `--strain-400`（該休息／收手，跟 `.sd-evt.pause` 同一個主人）。
+   ⚠️ 無勾（`::before{content:''}`）維持不變 —— 那是它跟「完整走完」的真正差別。 */
+.fdcb.state-complete.closure-broke .fdcb-time{color:var(--strain-400)}
 .fdcb.state-complete.closure-broke .fdcb-time::before{content:''}
 
 /* 標記鍵 —— **只在決策進行中出現**。idle 沒有 session，標記無處可掛，
@@ -2017,7 +2249,7 @@ body{
 }
 .baseline-flow .bf-title-display{font-size:11px;letter-spacing:0.32em;text-transform:uppercase;color:var(--primary);text-align:center;margin-bottom:10px;font-weight:600}
 .baseline-flow .bf-title-hero{font-size:26px;font-weight:300;letter-spacing:-0.01em;text-align:center;color:#fff;margin-bottom:12px;line-height:1.2}
-.baseline-flow .bf-title-sub{font-size:13px;color:var(--txt-sec);text-align:center;line-height:1.6;max-width:300px;margin:0 auto 30px}
+.baseline-flow .bf-title-sub{font-size:13px;color:var(--n-400);text-align:center;line-height:1.6;max-width:300px;margin:0 auto 30px}
 
 .baseline-flow .bf-bullets{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
 .baseline-flow .bf-bullet{
@@ -2047,14 +2279,14 @@ body{
   box-shadow:0 10px 30px rgba(var(--amber-400-rgb),0.3), inset 0 1px 0 rgba(255,255,255,0.3);
 }
 .baseline-flow .bf-btn-primary:active{transform:translateY(1px)}
-.baseline-flow .bf-btn-ghost{background:transparent;color:var(--txt-sec);margin-top:8px;padding:10px}
+.baseline-flow .bf-btn-ghost{background:transparent;color:var(--n-400);margin-top:8px;padding:10px}
 .baseline-flow .bf-btn:disabled{opacity:0.4;pointer-events:none}
 
 /* ─── SENSOR_CHOICE ─── */
 .baseline-flow #bf-sensor{padding:84px 20px 32px}
 .baseline-flow .bf-head{text-align:center;margin-bottom:24px}
 .baseline-flow .bf-head h1{font-size:22px;font-weight:300;letter-spacing:-0.01em;margin-bottom:6px}
-.baseline-flow .bf-head .sub{font-size:12px;color:var(--txt-sec);line-height:1.5;max-width:280px;margin:0 auto}
+.baseline-flow .bf-head .sub{font-size:12px;color:var(--n-400);line-height:1.5;max-width:280px;margin:0 auto}
 
 .baseline-flow .bf-sensor-opt{
   padding:14px;margin-bottom:10px;
@@ -2068,13 +2300,13 @@ body{
 .baseline-flow .bf-sensor-opt .info{flex:1;min-width:0}
 .baseline-flow .bf-sensor-opt .nm{font-size:14px;font-weight:600;color:#fff;margin-bottom:2px;display:flex;align-items:center;gap:8px}
 .baseline-flow .bf-sensor-opt .tag{font-size:8px;letter-spacing:0.2em;padding:2px 6px;background:rgba(0,180,216,0.15);color:var(--primary);border-radius:5px;text-transform:uppercase;font-weight:700}
-.baseline-flow .bf-sensor-opt .desc{font-size:11px;color:var(--txt-sec);line-height:1.4}
-.baseline-flow .bf-sensor-opt .arr{color:var(--txt-dim);font-size:16px;flex-shrink:0}
+.baseline-flow .bf-sensor-opt .desc{font-size:11px;color:var(--n-400);line-height:1.4}
+.baseline-flow .bf-sensor-opt .arr{color:var(--n-500);font-size:16px;flex-shrink:0}
 .baseline-flow .bf-sensor-opt.recommended{border-color:rgba(0,180,216,0.25);background:linear-gradient(180deg, rgba(0,180,216,0.06), rgba(0,180,216,0.02))}
 .baseline-flow .bf-sensor-opt.recommended .ic{background:radial-gradient(circle, rgba(0,180,216,0.3) 0%, rgba(0,180,216,0.1) 100%);color:var(--primary);box-shadow:0 0 20px rgba(0,180,216,0.2)}
 .baseline-flow .bf-sensor-opt.standard .ic{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.7)}
 .baseline-flow .bf-sensor-opt.disabled{opacity:0.4;pointer-events:none}
-.baseline-flow .bf-sensor-opt.disabled .ic{background:rgba(142,142,147,0.08);color:var(--txt-sec)}
+.baseline-flow .bf-sensor-opt.disabled .ic{background:rgba(142,142,147,0.08);color:var(--n-400)}
 .baseline-flow .bf-sensor-opt:active{transform:scale(0.98)}
 .baseline-flow .bf-sensor-opt .ic svg{width:22px;height:22px}
 
@@ -2110,7 +2342,7 @@ body{
   border:1px solid rgba(255,255,255,0.1);color:#fff;
   display:flex;align-items:center;gap:6px;z-index:3;
 }
-.baseline-flow .bf-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--warn);box-shadow:0 0 8px var(--warn);animation:bfBlink 1.4s infinite}
+.baseline-flow .bf-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--cyan-active);box-shadow:0 0 8px var(--cyan-active);animation:bfBlink 1.4s infinite}
 .baseline-flow .bf-pill.stabilizing{background:rgba(0,180,216,0.12);border-color:rgba(0,180,216,0.3)}
 .baseline-flow .bf-pill.stabilizing::before{background:var(--primary);box-shadow:0 0 8px var(--primary)}
 .baseline-flow .bf-pill.ready{background:rgba(52,199,89,0.18);border-color:rgba(52,199,89,0.45);color:var(--good)}
@@ -2118,7 +2350,7 @@ body{
 @keyframes bfBlink{0%,100%{opacity:1}50%{opacity:0.3}}
 
 .baseline-flow .bf-checks{padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
-.baseline-flow .bf-chk{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--txt-sec);transition:color 0.4s}
+.baseline-flow .bf-chk{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--n-400);transition:color 0.4s}
 .baseline-flow .bf-chk.done{color:#fff}
 .baseline-flow .bf-chk.active{color:var(--primary)}
 .baseline-flow .bf-chk .ic{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;transition:all 0.4s var(--ease-calm)}
@@ -2128,14 +2360,15 @@ body{
 
 .baseline-flow .bf-meters{padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 .baseline-flow .bf-meter{display:flex;align-items:center;gap:12px}
-.baseline-flow .bf-meter .lbl{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--txt-sec);width:58px;flex-shrink:0;font-weight:600}
+.baseline-flow .bf-meter .lbl{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-400);width:58px;flex-shrink:0;font-weight:600}
 .baseline-flow .bf-meter .bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.05);overflow:hidden}
-.baseline-flow .bf-meter .fill{height:100%;border-radius:2px;background:linear-gradient(90deg, var(--warn), var(--good));transition:width 1.2s var(--ease-calm)}
+.baseline-flow .bf-meter .fill{height:100%;border-radius:2px;/* 進度條：低→高走同一條 cyan 色階，不再用「警告→好」講一個進度 */
+  background:linear-gradient(90deg, var(--cyan-800), var(--cyan-400));transition:width 1.2s var(--ease-calm)}
 .baseline-flow .bf-meter .val{font-size:11px;color:#fff;font-variant-numeric:tabular-nums;width:32px;text-align:right;font-weight:600}
 
-.baseline-flow .bf-hint{text-align:center;font-size:11px;color:var(--txt-sec);line-height:1.5;margin:4px 0 12px;padding:0 12px;transition:color 0.5s}
+.baseline-flow .bf-hint{text-align:center;font-size:11px;color:var(--n-400);line-height:1.5;margin:4px 0 12px;padding:0 12px;transition:color 0.5s}
 .baseline-flow #bf-ready .bf-hint{color:var(--good)}
-.baseline-flow .bf-auto-cd{display:flex;align-items:center;justify-content:center;gap:8px;font-size:10px;color:var(--txt-sec);margin-top:8px;letter-spacing:0.1em}
+.baseline-flow .bf-auto-cd{display:flex;align-items:center;justify-content:center;gap:8px;font-size:10px;color:var(--n-400);margin-top:8px;letter-spacing:0.1em}
 .baseline-flow .bf-auto-cd .num{color:var(--good);font-weight:700;font-variant-numeric:tabular-nums}
 
 /* ─── SCANNING ─── */
@@ -2179,7 +2412,7 @@ body{
 
 .baseline-flow .bf-scan-msg{margin-top:28px;text-align:center;z-index:4}
 .baseline-flow .bf-scan-msg .headline{font-size:18px;font-weight:300;color:#fff;margin-bottom:6px;letter-spacing:-0.01em}
-.baseline-flow .bf-scan-msg .sub{font-size:12px;color:var(--txt-sec);letter-spacing:0.05em;line-height:1.5}
+.baseline-flow .bf-scan-msg .sub{font-size:12px;color:var(--n-400);letter-spacing:0.05em;line-height:1.5}
 
 .baseline-flow .bf-ppg{position:absolute;bottom:120px;left:24px;right:24px;height:36px;border-radius:8px;overflow:hidden;z-index:4}
 .baseline-flow .bf-ppg svg{width:100%;height:100%}
@@ -2195,9 +2428,9 @@ body{
   border:1px solid rgba(255,255,255,0.06);
   backdrop-filter:blur(20px);text-align:center;
 }
-.baseline-flow .bf-stat .lbl{font-size:8px;letter-spacing:0.18em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:3px;font-weight:600}
+.baseline-flow .bf-stat .lbl{font-size:8px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-400);margin-bottom:3px;font-weight:600}
 .baseline-flow .bf-stat .val{font-size:16px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
-.baseline-flow .bf-stat .u{font-size:8px;color:var(--txt-sec);margin-left:2px}
+.baseline-flow .bf-stat .u{font-size:8px;color:var(--n-400);margin-left:2px}
 
 .baseline-flow .bf-early{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -2241,9 +2474,9 @@ body{
 .baseline-flow .bf-analyze-item .ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;background:rgba(255,255,255,0.04);transition:all 0.4s}
 .baseline-flow .bf-analyze-item .info{flex:1;min-width:0}
 .baseline-flow .bf-analyze-item .nm{font-size:13px;color:#fff;margin-bottom:2px;font-weight:500}
-.baseline-flow .bf-analyze-item .st{font-size:10px;color:var(--txt-sec)}
+.baseline-flow .bf-analyze-item .st{font-size:10px;color:var(--n-400)}
 .baseline-flow .bf-analyze-item .val{font-size:16px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;opacity:0;transform:translateX(8px);transition:all 0.5s var(--ease-calm)}
-.baseline-flow .bf-analyze-item .val .u{font-size:9px;color:var(--txt-sec);margin-left:2px}
+.baseline-flow .bf-analyze-item .val .u{font-size:9px;color:var(--n-400);margin-left:2px}
 .baseline-flow .bf-analyze-item.processing .ic{background:rgba(0,180,216,0.15);animation:bfSpin 1.2s linear infinite}
 .baseline-flow .bf-analyze-item.done .ic{background:rgba(52,199,89,0.2);color:var(--good)}
 .baseline-flow .bf-analyze-item.done .st{color:var(--good)}
@@ -2264,15 +2497,15 @@ body{
   50%{transform:scale(1.04)}
 }
 .baseline-flow .bf-done-title{font-size:26px;font-weight:300;color:#fff;text-align:center;margin-bottom:6px;letter-spacing:-0.01em}
-.baseline-flow .bf-done-sub{font-size:12px;color:var(--txt-sec);text-align:center;margin-bottom:28px;line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto}
+.baseline-flow .bf-done-sub{font-size:12px;color:var(--n-400);text-align:center;margin-bottom:28px;line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto}
 .baseline-flow .bf-done-sub b{color:#fff}
 
 .baseline-flow .bf-summary{padding:16px 18px;margin-bottom:18px}
-.baseline-flow .bf-summary-head{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:12px;text-align:center;font-weight:600}
+.baseline-flow .bf-summary-head{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--n-400);margin-bottom:12px;text-align:center;font-weight:600}
 .baseline-flow .bf-summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .baseline-flow .bf-summary-cell{text-align:center}
-.baseline-flow .bf-summary-cell .u{font-size:9px;color:var(--txt-sec);margin-left:2px;letter-spacing:0.1em}
-.baseline-flow .bf-summary-cell .lbl{font-size:8px;letter-spacing:0.2em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:5px;font-weight:600}
+.baseline-flow .bf-summary-cell .u{font-size:9px;color:var(--n-400);margin-left:2px;letter-spacing:0.1em}
+.baseline-flow .bf-summary-cell .lbl{font-size:8px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-400);margin-bottom:5px;font-weight:600}
 .baseline-flow .bf-summary-cell .val{font-size:20px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
 
 .baseline-flow .bf-accuracy{text-align:center;font-size:11px;color:var(--primary);margin-bottom:22px;letter-spacing:0.05em}
@@ -2294,9 +2527,11 @@ body{
 }
 .baseline-flow .bf-demo-nav button.active,
 .baseline-flow .bf-demo-nav button:active{background:rgba(0,180,216,0.4);border-color:var(--primary)}
-.baseline-flow .bf-demo-nav .auto{background:rgba(245,166,35,0.15);border-color:rgba(245,166,35,0.3)}
+/* demo nav 的自動播放鍵 —— 它是可點的，所以走可動層；順帶收掉最後兩處
+   寫死的 #F5A623（那是剛退場的 --warning 的值）。 */
+.baseline-flow .bf-demo-nav .auto{background:rgba(var(--amber-400-rgb),0.15);border-color:rgba(var(--amber-400-rgb),0.3)}
 .baseline-flow .bf-demo-nav .auto.active,
-.baseline-flow .bf-demo-nav .auto:active{background:rgba(245,166,35,0.4)}
+.baseline-flow .bf-demo-nav .auto:active{background:rgba(var(--amber-400-rgb),0.4)}
 /* ═══════════ TENKI Brand v1.0 Splash — iPhone Responsive ═══════════ */
 .tenki-splash {
   position: fixed;
@@ -2506,6 +2741,7 @@ body{
 
 <div class="phone">
   <canvas id="cosmos"></canvas>
+  <div id="envWash"></div>
   <div class="state-pill" id="statePill">Edge Score · Clear</div>
 
   <div class="screens">
@@ -2780,21 +3016,27 @@ body{
         <div class="screen-date">Advanced · Beta</div>
       </div>
       <div class="lab-body">
+        <!-- 校準台 —— Lab 的主體。設定磁磚降級成它下面的一區。 -->
+        <div class="cal" id="calPanel">
+          <div class="cal-kicker">Calibration</div>
+          <div class="cal-q">你在什麼狀態下最跟得住自己的流程</div>
+          <div class="cal-chart" id="calChart"></div>
+          <div class="cal-foot" id="calFoot"></div>
+        </div>
+
+        <div class="lab-sec">設定</div>
         <div class="lab-grid">
-          <div class="lab-item featured" onclick="openBaseline()">
+          <!-- 🔴 這一塊的副標原本寫死 `HR 68 · HRV 52 · RR 14`。
+               那三個數字**跟 Today 四張 vitals 卡上的是同一組**，而那四張每一張
+               都掛著「示意」標記、下面還有一行「需要感測器，目前尚未接上」——
+               **只有這裡一個標記都沒有**。
+               PLAYBOOK：「任何 UI 顯示生理數值 → 不得放假的生理讀數」。
+               ⚠️ 而我上一輪還因為「它有真資料」把它標成 is-live —— 那個分類是錯的，
+               我沒查就分了。現在副標由 renderLab() 從真的讀數 store 填。 -->
+          <div class="lab-item is-live" id="labBaselineTile" onclick="openBaseline()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="14" rx="2"/><circle cx="12" cy="10" r="2"/><path d="M12 17v4M9 21h6"/></svg></div>
             <div class="nm">Baseline</div>
-            <div class="sub">HR 68 · HRV 52 · RR 14<br>重新校準或檢視</div>
-          </div>
-          <div class="lab-item" onclick="labInfo('穿戴裝置整合','即將開放 — Apple Watch / BLE 胸帶 / Garmin 需原生 App 支援。')">
-            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="5" width="10" height="16" rx="2"/><circle cx="12" cy="17" r="1"/><path d="M9 9h6"/></svg></div>
-            <div class="nm">穿戴裝置</div>
-            <div class="sub">整合 Apple Watch<br>BLE 胸帶 / Garmin</div>
-          </div>
-          <div class="lab-item beta" onclick="labInfo('Edge Score Bucket','即將開放 — 按分數區間分析你的決策統計。')">
-            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 002 3h12a2 2 0 002-3l-5-9V3"/><path d="M7 3h10"/></svg></div>
-            <div class="nm">Edge Score Bucket</div>
-            <div class="sub">按區間分析<br>你的決策統計</div>
+            <div class="sub" id="labBaselineSub">重新校準或檢視</div>
           </div>
           <div class="lab-item" onclick="openTmplEditor()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg></div>
@@ -2811,30 +3053,55 @@ body{
                內部識別字仍是 SessionMode='trader'（TRADINGVIEW-ALERT-SPEC.md §0、
                APP_STORE_COMPLIANCE.md §6 與送審檢查表 #17）。
                ⚠️ 入口刻意放在 Lab（設定），不放 onboarding、不開新分頁。 -->
-          <div class="lab-item" id="labDisciplineTile" onclick="toggleDisciplineMode()">
+          <div class="lab-item is-control" id="labDisciplineTile" onclick="toggleDisciplineMode()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
             <div class="nm">決策紀律模式</div>
             <div class="sub" id="labDisciplineSub">目前關閉<br>開啟後改用結構守望</div>
           </div>
-          <div class="lab-item" onclick="exportOutcomesCsv()">
+          <div class="lab-item is-control" onclick="exportOutcomesCsv()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
             <div class="nm">CSV 匯出</div>
             <div class="sub">下載原始數據<br>供進階分析</div>
           </div>
-          <div class="lab-item beta" onclick="labInfo('情境行事曆','即將開放 — 同步日程節律、預排 session。')">
+        </div>
+
+        <!-- 🔴 「即將開放」區（founder 2026-09-08 拍板）。
+             這三塊點下去**只彈一個 toast**，什麼都不會發生。放在格線裡跟能用的
+             功能同權，等於**畫面在承諾三件不存在的事** —— 而「穿戴裝置」連 BETA
+             徽章都沒有，看起來完全可用。
+             降級的做法是**拿掉所有「可以動手」的訊號**：無可動層琥珀、圖示不上色、
+             整區降透明度，並在段首明寫「即將開放」。仍然看得到（使用者要知道路線圖），
+             但不再假裝可用。 -->
+        <div class="lab-soon-head">即將開放</div>
+        <div class="lab-grid lab-soon">
+          <div class="lab-item" onclick="labInfo('穿戴裝置整合','即將開放 — Apple Watch / BLE 胸帶 / Garmin 需原生 App 支援。')">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="5" width="10" height="16" rx="2"/><circle cx="12" cy="17" r="1"/><path d="M9 9h6"/></svg></div>
+            <div class="nm">穿戴裝置</div>
+            <div class="sub">整合 Apple Watch<br>BLE 胸帶 / Garmin</div>
+          </div>
+          <div class="lab-item" onclick="labInfo('Edge Score Bucket','即將開放 — 按分數區間分析你的決策統計。')">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 002 3h12a2 2 0 002-3l-5-9V3"/><path d="M7 3h10"/></svg></div>
+            <div class="nm">Edge Score Bucket</div>
+            <div class="sub">按區間分析<br>你的決策統計</div>
+          </div>
+          <div class="lab-item" onclick="labInfo('情境行事曆','即將開放 — 同步日程節律、預排 session。')">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
             <div class="nm">情境行事曆</div>
             <div class="sub">同步日程節律<br>預排 session</div>
           </div>
         </div>
 
-        <div class="lab-wide" onclick="labInfo('升級到 Pro','即將開放 — 完整 FDCB · 無限掃描 · 藍牙整合。')">
+        <!-- 🔴 舊的這一列是**一個假的購買鍵**：點下去只彈一個 toast，右邊卻掛著 `›`。
+             現在點下去打開的是一張**用 subscription-tiers.ts 逐欄建出來的對照表**，
+             所以那個 `›` 第一次是真的（它導航到一個真的存在的東西）。
+             ⚠️ 導航＝中性，不上可動層琥珀（founder 2026-09-08：琥珀只給會改變狀態的）。 -->
+        <div class="lab-wide" onclick="openPremiumSheet()">
           <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.6 7.2L22 10l-5.8 4.4L18 22l-6-4-6 4 1.8-7.6L2 10l7.4-.8z"/></svg></div>
           <div class="info">
-            <div class="nm">升級到 Pro</div>
-            <div class="sub">解鎖完整 FDCB · 無限掃描 · 藍牙整合</div>
+            <div class="nm">Premium</div>
+            <div class="sub">看看它解鎖什麼 · 以及 Free 永遠保留什麼</div>
           </div>
-          <div style="color:var(--txt-sec);font-size:18px">›</div>
+          <div style="color:var(--n-400);font-size:18px">›</div>
         </div>
       </div>
     </div>
@@ -2935,7 +3202,9 @@ body{
   <!-- ═══════ FDCB (floating above tab bar) ═══════ -->
   <div class="fdcb state-idle" id="fdcb">
     <div class="fdcb-tmpl" onclick="openSheet()">
-      <div class="ic" id="fdcbIcon" style="color:#34C759">
+      <!-- ⚠️ 這裡曾經有 style="color:#34C759" —— inline style 把上面那條 CSS
+           變成**永遠被蓋掉的死規則**。顏色現在由 CSS 講，markup 不再插手。 -->
+      <div class="ic" id="fdcbIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg>
       </div>
       <div class="fdcb-tmpl-txt">
@@ -3076,6 +3345,41 @@ body{
   </div>
 
   <!-- Template sheet -->
+  <div class="sheet-backdrop" id="premiumBackdrop" onclick="closePremiumSheet()"></div>
+  <div class="sheet pm-sheet" id="premiumSheet">
+    <div class="sheet-handle"></div>
+    <div class="pm-hero">
+      <div class="pm-kicker">Tier</div>
+      <div class="pm-title">Premium</div>
+      <!-- 🔴 這句是 subscription-tiers.ts 的檔頭註解本身：
+           "Unlocks longitudinal intelligence, not basic trust." -->
+      <div class="pm-lede">解鎖的是<b>縱向的理解</b>（更長的歷史、跨時間的規律），
+        不是基本的信任。基本的量測與紀錄，Free 本來就給滿。</div>
+    </div>
+
+    <div class="pm-row head"><span>能力</span><span>Free</span><span>Premium</span></div>
+
+    <div class="pm-row"><div class="pm-k">每日掃描</div><div class="pm-v">1 次</div><div class="pm-v on">無限</div></div>
+    <div class="pm-row"><div class="pm-k">本機歷史<small>紀錄一律留在這台裝置上</small></div><div class="pm-v">7 天</div><div class="pm-v on">無限</div></div>
+    <div class="pm-row"><div class="pm-k">Edge Timeline</div><div class="pm-v">有限</div><div class="pm-v on">完整</div></div>
+    <div class="pm-row"><div class="pm-k">回放洞察</div><div class="pm-v">基本</div><div class="pm-v on">進階</div></div>
+    <div class="pm-row"><div class="pm-k">Session 封存</div><div class="pm-v">有限</div><div class="pm-v on">完整</div></div>
+    <div class="pm-row"><div class="pm-k">個人 Edge 圖譜<small>你自己的狀態隨時間怎麼走</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">Edge 走勢預估<small>對象是你自己的節律</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">偵測器快訊</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">外部快訊接入<small>把外部訊號接進決策流程</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">匿名基準</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">進階洞察</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+
+    <!-- 🔴 這一列不是功能，是一條承諾，而且**兩欄都是 ✓**。
+         來源：subscription-tiers.ts 的 FREE_TIER
+         `exportEnabled: true, // Privacy controls never paywalled`。 -->
+    <div class="pm-row keep"><div class="pm-k">CSV 匯出 · 資料帶得走<small>隱私控制永遠不上鎖 —— 這條不會變</small></div><div class="pm-v on">✓</div><div class="pm-v on">✓</div></div>
+
+    <div class="pm-note"><b>尚未開賣。</b>這裡沒有購買鍵，因為現在還沒有可以買的東西 ——
+      有的時候會出現在這一頁，不會出現在別的地方。</div>
+  </div>
+
   <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
   <div class="sheet" id="sheet">
     <div class="sheet-handle"></div>
@@ -3407,13 +3711,41 @@ body{
 // ═════════════════════════════════════════════════
 // Templates
 // ═════════════════════════════════════════════════
+// ═════════════════════════════════════════════════
+// 模板身分色 —— 兩個家族 × 三階（2026-09-08 拍板，全部量過）
+//
+// 🔴 改之前六個身分色**沒有一個是乾淨的**：
+//     Canslim GS / Canslim High RS / Work Focus  三個都是 #00B4D8
+//       ＝ cyan ACTIVE ＝ Clear 帶位（一個顏色同時當三個模板 + 兩個語義）
+//     Mancini FBD #5E3A87   對底座 **1.94:1** —— 連大字門檻 3.0 都不到
+//     Health Stress #34C759 ＝ --good「跟著流程完成」
+//     Exercise #FF6B35      ΔE 19.5 → error 紅
+//   六個裡三個重複、三個各偷一個語義主人。那不是身分色系統。
+//
+// 新系統不是六個色相（那是玩具調色盤），是**兩個家族**，
+// 而這兩族程式裡本來就分開了（守望模式 vs 倒數模式）：
+//     冷 276° ＝ 外面的結構（交易者模板，watchMode）
+//     暖 336° ＝ 你自己（節律模板，倒數）
+//   兩族 ΔE 50.3；族內三階 ΔE 8~10 —— **刻意的**：
+//   顏色講「你在哪一類決策裡」，名字講「哪一個模板」。
+//
+// 實測（對地面 #020617 / 對底座 #181E26 / 離最近的語義主人）：
+//   #6EADFF 8.73/7.25 ΔE33.8   #EB8BD1 8.79/7.30 ΔE51.5
+//   #4C9BF8 7.06/5.87 ΔE39.7   #DB75C0 7.03/5.84 ΔE52.4
+//   #1089EB 5.57/4.63 ΔE44.1   #CB5FB0 5.57/4.63 ΔE54.4
+//   最差的一個 4.63:1，仍然過 AA —— 舊的最差是 1.94。
+//
+// ⚠️ 紫 #5E3A87 從這裡退出，正式歸 **Premium**
+//   （docs/VISUAL-DIRECTION.md §5.1 早就寫著「紫留給 session/Premium」，
+//    一直沒人認領，所以 Mancini 還蹲在上面）。
+// ═════════════════════════════════════════════════
 const TEMPLATES = {
-  CANSLIM_GS:      {name:'Canslim GS',      durationSec:300, color:'#00B4D8', icon:'gs',    segLabel:'Sweet Zone'},
-  CANSLIM_HIGH_RS: {name:'Canslim High RS', durationSec:240, color:'#00B4D8', icon:'rs',    segLabel:'Sweet Zone'},
-  MANCINI_FBD:     {name:'Mancini FBD',     durationSec:180, color:'#5E3A87', icon:'fbd',   segLabel:'Lock'},
-  WORK_FOCUS:      {name:'Work Focus',      durationSec:1500,color:'#00B4D8', icon:'work',  segLabel:'Focus'},
-  HEALTH_STRESS:   {name:'Health Stress',   durationSec:180, color:'#34C759', icon:'heart', segLabel:'Breathe'},
-  EXERCISE:        {name:'Exercise',        durationSec:600, color:'#FF6B35', icon:'ex',    segLabel:'Active'}
+  CANSLIM_GS:      {name:'Canslim GS',      durationSec:300, color:'#6EADFF', icon:'gs',    segLabel:'Sweet Zone'},
+  CANSLIM_HIGH_RS: {name:'Canslim High RS', durationSec:240, color:'#4C9BF8', icon:'rs',    segLabel:'Sweet Zone'},
+  MANCINI_FBD:     {name:'Mancini FBD',     durationSec:180, color:'#1089EB', icon:'fbd',   segLabel:'Lock'},
+  WORK_FOCUS:      {name:'Work Focus',      durationSec:1500,color:'#EB8BD1', icon:'work',  segLabel:'Focus'},
+  HEALTH_STRESS:   {name:'Health Stress',   durationSec:180, color:'#DB75C0', icon:'heart', segLabel:'Breathe'},
+  EXERCISE:        {name:'Exercise',        durationSec:600, color:'#CB5FB0', icon:'ex',    segLabel:'Active'}
 };
 // ═════════════════════════════════════════════════
 // Turning Point 標記
@@ -3467,6 +3799,7 @@ function goTab(id){
   if(id === 'timeline') renderTimeline();
   if(id === 'scan') renderScanScreen();
   if(id === 'today') renderHeroReading(); // 讀數可能在別的分頁被更新或過期
+  if(id === 'lab') renderLab();
   const tab = document.querySelector(`.tab[data-tab="${id}"]`);
   if(tab) tab.classList.add('active');
   // Haptic hint (visual tap)
@@ -3962,6 +4295,9 @@ function setState(s){
   // 沒過期就本來就該接回來。旗標不會永遠留著，只是換一個人負責。
   if(s === 'running') publishActiveDecision();
   else if(prev === 'running') clearActiveDecision();
+  // 環境層只在決策進行中亮起 —— 「選好了」還不是「正在做」。
+  const phone = document.querySelector('.phone');
+  if(phone) phone.classList.toggle('decision-live', s === 'running');
 }
 // ── 真實決策計時器（取代假 8 秒 demo）──
 // 三段由時長推導：Observe 0–33% →（tmpl.segLabel = 核心段 / readiness / Sweet Zone）33–66% → Extended 66–100%。
@@ -4243,6 +4579,23 @@ function saveV6Outcome(session, outcomeTag){
     // 跟倒數模式的舊語意（「有沒有走完計時器」）不是同一把尺。
     // 標記它，統計端才分得出來 —— 不標就只能猜。
     judgmentSchema: session.watch ? window.TENKI_OUTCOME.JUDGMENT_SCHEMA : null,
+    // 🔴 決策當下的讀數快照 —— `domain/src/contracts/readiness-reading.ts` 的
+    // `AttachedReadinessReading`（band / confidence / ts / evidence + staleAtDecision）。
+    // 那個介面**宣告很久了，一次都沒有被用上**；而 `summarizeDisciplineByBand()`
+    // 也早就寫好、從來沒有東西餵它 —— 因為今天沒有任何一筆紀錄帶 band。
+    // 這一欄就是那條線的接頭。
+    // ⚠️ 新增欄位（加，不換 —— SYSTEM.md §6）。舊紀錄沒有它 → 讀端一律排除，
+    //    **不得猜一個帶位**（那正是這個統計存在的理由本身會被偽造）。
+    // ⚠️ 沒有讀數時寫 null ＝「這一筆沒有帶位可歸屬」，不是寫一個預設帶位。
+    readingAtDecision: (function(){
+      const r = loadReadingV6();
+      if(!r || typeof r.ts !== 'number') return null;
+      return {
+        band: r.band, confidence: r.confidence, ts: r.ts,
+        evidence: r.evidence || null,
+        staleAtDecision: (ts - r.ts) > READING_FRESHNESS_MS_V6,
+      };
+    })(),
     // 這一筆從哪來。有 originAlertId 就是快訊決策 —— v6 既有的呈現
     // （readinessCellV6、Session 列）本來就認得 source==='alert'，沿用它，
     // 不新增第二種寫法。originAlertId 是真正的 join key
@@ -4338,6 +4691,17 @@ function closeSheet(){
   document.getElementById('sheet').classList.remove('open');
   document.getElementById('sheetBackdrop').classList.remove('open');
 }
+// Premium 對照表：自己的元素、自己的 open/close。
+// ⚠️ **不能走 openSheet()** —— 它在 running 時 hard-return（擋殭屍計時器），
+// 而看一眼方案跟決策在不在跑無關。`.tp-picker` 當初為了同一個理由也是這樣做的。
+function openPremiumSheet(){
+  document.getElementById('premiumSheet').classList.add('open');
+  document.getElementById('premiumBackdrop').classList.add('open');
+}
+function closePremiumSheet(){
+  document.getElementById('premiumSheet').classList.remove('open');
+  document.getElementById('premiumBackdrop').classList.remove('open');
+}
 function selectTmpl(el){
   // openSheet 已經擋過，這裡是第二道 —— 選單以外的呼叫路徑（harness、未來的
   // 快訊流程）也不得在決策進行中改 currentTmpl，否則同樣長出幽靈紀錄。
@@ -4348,7 +4712,7 @@ function selectTmpl(el){
   currentTmpl = el.dataset.id;
   const t = TEMPLATES[currentTmpl];
   renderTmplChip();
-  document.documentElement.style.setProperty('--primary', t.color);
+  document.documentElement.style.setProperty('--tmpl', t.color);
   setTimeout(() => { closeSheet(); setState('ready'); }, 260);
 }
 
@@ -4520,7 +4884,7 @@ function acceptHandoff(){
 
   currentTmpl = h.templateId;
   const t = TEMPLATES[currentTmpl];
-  document.documentElement.style.setProperty('--primary', t.color);
+  document.documentElement.style.setProperty('--tmpl', t.color);
   setState('running');
   if(sess){
     // 這一筆的身分：標的名、來源快訊、以及自己定的關鍵價位。
@@ -4590,7 +4954,7 @@ function resumeActiveDecision(){
   const overdue = elapsedSec >= ceilingSec || now >= m.expiresAtMs;
 
   currentTmpl = m.templateId;
-  document.documentElement.style.setProperty('--primary', tmpl.color);
+  document.documentElement.style.setProperty('--tmpl', tmpl.color);
   setState('running');
   if(!sess){ clearActiveDecision(); return false; }
 
@@ -4782,7 +5146,10 @@ renderDisciplineTile();       // 開頁就把磁磚畫成目前真正的狀態
 syncDisciplineTemplates();   // 模式關閉時，交易者模板不進 DOM
 
 // ── 模板自訂 editor（建立/編輯/刪除 + 即時預覽）──
-const TE_COLORS = ['#00B4D8','#34C759','#FF6B35','#5E3A87','#E8B45A','#22D3EE'];
+/* 🔴 自訂模板抽的是**同一套身分色**，不是另一個調色盤。
+   舊那組六個顏色裡有五個已經有主人（cyan ACTIVE / success 綠 / --sns 橘 /
+   紫 Premium / 近 gold 的 #E8B45A），等於讓使用者親手製造撞色。 */
+const TE_COLORS = ['#6EADFF','#4C9BF8','#1089EB','#EB8BD1','#DB75C0','#CB5FB0'];
 const TE_ICONS = ['heart','work','fbd','gs','rs','ex'];
 let teEditId = null, teColor = TE_COLORS[0], teIcon = TE_ICONS[0];
 function genTmplId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
@@ -4891,6 +5258,85 @@ function deleteTmplFromEditor(){
 
 // ── Lab toast（誠實狀態 / 匯出回饋）──
 let labToastTimer = null;
+// ═════════════════════════════════════════════════
+// Lab 的真實面
+//
+// 🔴 這裡只印**真的量得到的東西**。改之前 Baseline 磁磚寫死
+// `HR 68 · HRV 52 · RR 14`，那三個數字跟 Today 那四張標著「示意」的卡是同一組，
+// 但這裡一個標記都沒有 —— 等於在一個沒有感測器的產品上宣稱三個生理讀數。
+//
+// ⚠️ 讀數 store（tenki.readiness.reading.v1）實際只有
+// `band` / `confidence` / `ts` / `evidence` 四個欄位（readiness-scan.js:1670）。
+// **沒有** baselineDays / baselineScans —— 那兩個只出現在 harness 的假資料裡。
+// 所以這裡不印它們：印一個 store 沒有的東西就是下一個假讀數。
+// ═════════════════════════════════════════════════
+function labBaselineLine(){
+  let r = null;
+  try { r = JSON.parse(localStorage.getItem(READING_STORE_KEY_V6)); } catch(e){ r = null; }
+  if(!r || typeof r.ts !== 'number') return '尚未校準<br>做一次掃描開始';
+  const mins = Math.max(0, Math.round((Date.now() - r.ts) / 60000));
+  const ago = mins < 1 ? '剛剛' : mins < 60 ? mins + ' 分鐘前' : Math.round(mins/60) + ' 小時前';
+  const label = (BAND_LABEL_V6 && BAND_LABEL_V6[r.band]) || r.band || '—';
+  return '最近讀數 · ' + label + '<br>' + ago + ' 校準';
+}
+/**
+ * 校準台。三個帶位通道 = `summarizeDisciplineByBand()` 的三列，
+ * 光來自資料本身（帶位色填滿），不是來自 chrome。
+ *
+ * 🔴 三條誠實規則直接照 domain 那支的 doc comment：
+ *   ① 沒有讀數的紀錄排除，**而且排除幾筆要印出來**
+ *   ② 樣本 < MIN_BAND_SAMPLES_FOR_RATE → 印「資料累積中」，不印百分比
+ *   ③ 一筆可歸屬的都沒有 → 空通道 + 一句邀請，不是一張假圖表
+ */
+function renderCalibrationBench(){
+  const chart = document.getElementById('calChart');
+  const foot = document.getElementById('calFoot');
+  if(!chart || !foot) return;
+  const OUT = window.TENKI_OUTCOME;
+  const sum = OUT.disciplineByBand(OUT.load());
+  const LABEL = { clear:'Clear', neutral:'Neutral', strain:'Strain' };
+
+  chart.innerHTML = sum.stats.map(st => {
+    const thin = st.rate === null;
+    // 樣本不足畫斜線紋、不畫矮長條 —— 矮長條會被讀成「這個帶位表現差」，
+    // 而它真正的意思是「還不夠說」。那是兩件完全不同的事。
+    const h = thin ? 0 : Math.round(st.rate * 100);
+    const rate = thin
+      ? '<div class="cal-rate pending">資料累積中</div>'
+      : '<div class="cal-rate">' + h + '%</div>';
+    const n = st.total === 0 ? '尚無紀錄' : st.disciplined + ' / ' + st.total + ' 筆';
+    return '<div class="cal-col ' + st.band + (thin ? ' thin' : '') + '">'
+      // ⚠️ 樣本不足時**不下 inline height** —— inline 會蓋掉 `.thin .cal-bar`
+      // 的斜線紋高度，斜紋就整條消失（第一版就是這樣，Strain 那欄空白）。
+      + '<div class="cal-track"><div class="cal-bar"' + (thin ? '' : ' style="height:' + h + '%"') + '></div></div>'
+      + rate
+      + '<div class="cal-band">' + LABEL[st.band] + '</div>'
+      + '<div class="cal-n">' + n + '</div>'
+      + '</div>';
+  }).join('');
+
+  if(sum.total === 0){
+    foot.innerHTML = '<span class="cal-empty">還沒有決策紀錄。做完第一次收束，這裡就會開始長 ——'
+      + '它比對的是「你當下的狀態」與「你有沒有跟著自己的流程走」。</span>';
+    return;
+  }
+  // 🔴 排除了幾筆一定要講。只印可歸屬的那些，等於用一半的資料宣稱一個全貌。
+  let line = '<b>' + sum.total + '</b> 筆紀錄 · <b>' + sum.attributed + '</b> 筆有讀數可歸屬';
+  if(sum.excluded > 0){
+    line += ' · <b>' + sum.excluded + '</b> 筆決策當下沒有讀數（不列入 —— 猜一個帶位會偽造這張圖本身）';
+  }
+  if(sum.attributed === 0){
+    line += '<br>目前沒有一筆帶得出帶位。<b>先掃一次再進決策</b>，這張圖才有東西可講。';
+  }
+  foot.innerHTML = line;
+}
+
+function renderLab(){
+  const sub = document.getElementById('labBaselineSub');
+  if(sub) sub.innerHTML = labBaselineLine();
+  renderCalibrationBench();
+}
+
 function labInfo(title, sub){
   const t = document.getElementById('labToast');
   document.getElementById('labToastTitle').textContent = title;
@@ -5439,7 +5885,10 @@ function outcomeMeta(rec){
   const t = TEMPLATES[window.TENKI_OUTCOME.toV6TemplateId(rec.templateId)];
   const meta = t
     ? { name:t.name, icon:t.icon, color:t.color, segLabel:t.segLabel }
-    : { name: rec.symbol || '決策', icon:'heart', color:'#8E8E93', segLabel:'Readiness' };
+    // ⚠️ fallback 色原本寫死 `#8E8E93` —— 那是 **iOS 系統灰**，
+    //    正是 2026-09-08 把 `--txt-sec` 退場時認定「不屬於中性階家族」的那個值。
+    //    退了 token 卻留一份寫死的複本，等於沒退。改指中性階。
+    : { name: rec.symbol || '決策', icon:'heart', color:'var(--n-500)', segLabel:'Readiness' };
   // 🔴 標的另外放一格，**不併進 name** —— 三個面共用這個 meta，其中 Timeline
   // 那一列是窄四欄，塞不下（這個 repo 已經為溢出付過兩次學費）。由各面自己決定用不用。
   // ⚠️ 閘門必須是 `source === 'alert'`：自己起跑的決策，`saveV6Outcome` 往
@@ -5528,7 +5977,7 @@ function renderSessionScreen(){
 // ═════════════════════════════════════════════════
 const outcomeDotV6 = (tag) => {
   const v = window.TENKI_OUTCOME.outcomeView(tag);
-  return v ? { cls: v.dot, fill: v.fill } : { cls: 'exit', fill: 'var(--txt-sec)' };
+  return v ? { cls: v.dot, fill: v.fill } : { cls: 'exit', fill: 'var(--n-400)' };
 };
 
 function renderTimeline(){
@@ -6278,7 +6727,10 @@ function closeSessionDetail(){
       /* fingertip swipe gesture: a glowing touch-dot glides across a short lane, comet trailing behind it */
       .snap-hint .sh-gesture{position:relative;width:34px;height:12px;flex:none;}
       .snap-hint .sh-dot{position:absolute;top:50%;left:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;
-        border-radius:50%;background:radial-gradient(circle at 38% 35%, #d8f7ff, var(--primary) 72%);
+        /* ⚠️ 這顆點也曾經吃 var(--primary) —— 藏在 radial-gradient 裡，
+           所以要把 backgroundImage 加進比對才看得到它。膠囊講的是「可以滑」，
+           跟哪個模板在跑無關。 */
+        border-radius:50%;background:radial-gradient(circle at 38% 35%, #d8f7ff, var(--cyan-core) 72%);
         box-shadow:0 0 8px rgba(0,180,216,.85), 0 0 2px rgba(255,255,255,.9);
         animation:shSwipe 2s var(--ease-breath) infinite;}
       .snap-hint .sh-dot::before{content:'';position:absolute;top:50%;left:100%;width:16px;height:5px;margin-top:-2.5px;

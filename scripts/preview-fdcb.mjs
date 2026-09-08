@@ -28,6 +28,36 @@ import http from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
 
+// ── 色彩數學（node 端；與 preview-token-scale.mjs / VISUAL-DIRECTION §3.5 同一套）──
+// ⚠️ 只吃 #rrggbb 與 rgb(...)：這裡拿到的來源有兩種 —— PNG 畫素（我自己組的 hex）
+// 與 getComputedStyle 的 color（一律是 rgb/rgba）。認不得就丟例外，**不要回一個
+// 預設值** —— 一個安靜的預設色會讓整條斷言變成永遠綠。
+function toRgb(c) {
+  if (/^#[0-9a-f]{6}$/i.test(c)) return [1, 3, 5].map((_, k) => parseInt(c.slice(1 + k * 2, 3 + k * 2), 16));
+  const m = c.match(/[\d.]+/g);
+  if (!m || m.length < 3) throw new Error(`看不懂的顏色：${c}`);
+  return m.slice(0, 3).map(Number);
+}
+const _lin = (v) => ((v /= 255), v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+function contrast(a, b) {
+  const L = (c) => { const [r, g, bl] = toRgb(c).map(_lin); return 0.2126 * r + 0.7152 * g + 0.0722 * bl; };
+  const la = L(a), lb = L(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+function _lab(c) {
+  const [r, g, b] = toRgb(c).map(_lin);
+  const X = r * 0.4124 + g * 0.3576 + b * 0.1805;
+  const Y = r * 0.2126 + g * 0.7152 + b * 0.0722;
+  const Z = r * 0.0193 + g * 0.1192 + b * 0.9505;
+  const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const fx = f(X / 0.95047), fy = f(Y), fz = f(Z / 1.08883);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+function deltaE(a, b) {
+  const A = _lab(a), B = _lab(b);
+  return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
+}
+
 // top-level await：ESM 可以，且必須在任何 chromium.* 之前解析完。
 const chromium = await getChromium();
 
@@ -107,8 +137,10 @@ async function openV3(height, opts) {
       handoff: null,
       // 自訂模板清單（種進 localStorage）。預設兩個：一個 6 秒（跑得完）、一個 3:30。
       templates: [
-        { id: 'h6', name: '六秒', durationSec: 6, color: '#00B4D8', icon: 'heart', segLabel: 'Focus' },
-        { id: 'h210', name: '三分半', durationSec: 210, color: '#00B4D8', icon: 'heart', segLabel: 'Focus' },
+        // ⚠️ 顏色要用 TE_COLORS 裡真的有的值 —— 假資料用 `#00B4D8`（＝ cyan ACTIVE）
+        // 會讓「模板色不得撞語義主人」那條斷言紅在**測試佈景**上，而不是產品上。
+        { id: 'h6', name: '六秒', durationSec: 6, color: '#EB8BD1', icon: 'heart', segLabel: 'Focus' },
+        { id: 'h210', name: '三分半', durationSec: 210, color: '#DB75C0', icon: 'heart', segLabel: 'Focus' },
       ],
     }, opts || {});
   // ⚠️ 桌機視型要關掉 isMobile/hasTouch —— 它們會改變 meta viewport 的處理方式，
@@ -184,11 +216,25 @@ const dock = (page) => page.evaluate(() => {
   };
 });
 
-const pickTmpl = (page, id) => page.evaluate((tid) => {
-  const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === tid);
-  if (el) window.selectTmpl(el);
-  return !!el;
-}, id);
+// 🔴 兩個會讓「量 running 狀態」的斷言**靜靜地量到 ready** 的陷阱，
+// 2026-09-08 才發現，而它們一直都在：
+//   ① `selectTmpl` 在 running 時 **hard-return**（擋殭屍計時器）——
+//      不先回 idle，第二個模板根本換不過去，而畫面看起來完全正常。
+//   ② `selectTmpl` 會排一個 **260ms 後的 `setState('ready')`** ——
+//      呼叫端緊接著下的 `setState('running')` 會被那個 timer 覆蓋掉。
+//      於是所有「選模板 → 起跑 → 量」的斷言，量到的其實是 ready。
+// 這支把兩件事都吃掉，讓呼叫端拿到的是它以為自己拿到的東西。
+const pickTmpl = async (page, id) => {
+  await page.evaluate(() => window.setState('idle'));
+  await page.waitForTimeout(120);
+  const found = await page.evaluate((tid) => {
+    const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === tid);
+    if (el) window.selectTmpl(el);
+    return !!el;
+  }, id);
+  await page.waitForTimeout(340);   // 等那個 260ms 的 timer 過去再交還控制權
+  return found;
+};
 
 const outcomes = (page) => page.evaluate(() => {
   try { return JSON.parse(localStorage.getItem(window.TENKI_OUTCOME.STORE_KEY)) || []; }
@@ -320,7 +366,12 @@ console.log('\n── 跑中換模板（殭屍計時器 / 幽靈紀錄）──'
   await page.waitForTimeout(200);
   check('running 時模板選單打不開', await page.evaluate(() => document.getElementById('sheet').classList.contains('open')), false);
 
-  await pickTmpl(page, 'WORK_FOCUS');            // 直接呼叫也不得生效
+  // ⚠️ 這裡**不能**用 pickTmpl —— 它會先 setState('idle')，正好拆掉這條要驗的前提
+  //    （「running 中直接呼叫 selectTmpl 不得生效」）。這裡要的就是裸呼叫。
+  await page.evaluate(() => {
+    const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === 'WORK_FOCUS');
+    if (el) window.selectTmpl(el);
+  });
   await page.waitForTimeout(400);
   const mid = await dock(page);
   check('running 時 selectTmpl 不生效，state 仍是 running', mid.state, 'running');
@@ -1236,7 +1287,7 @@ console.log('\n── Hero 讀數不得爆版 ──');
     const LONG = '超長自訂模板名稱測試用不得吃掉中間欄';
     const page = await openV3(700, {
       width: 360,
-      templates: [{ id: 'long', name: LONG, durationSec: 180, color: '#00B4D8', icon: 'heart', segLabel: 'Focus' }],
+      templates: [{ id: 'long', name: LONG, durationSec: 180, color: '#CB5FB0', icon: 'heart', segLabel: 'Focus' }],
     });
     // ⚠️ 自訂模板在 sheet 裡的 data-id 是 `CUSTOM_<id>`（customTmplKey），不是裸 id。
     // 用錯 id 時 pickTmpl 只是回 false、底座維持預設模板 —— 下面三條就會**空過**。
@@ -1513,55 +1564,223 @@ console.log('\n── Hero 讀數不得爆版 ──');
 // 白名單要用 id 逐一列舉，不能用 class 前綴，否則會默默放行一整族。
 // ═══════════════════════════════════════════════════════════════════════
 {
-  console.log('\n── 換模板不得改變畫面顏色（紫時鐘那個 bug 的家族守門）──');
+  console.log('\n── 環境層名單：只有名單上的表面可以隨模板變色 ──');
 
-  /** 決策跑著、停在 Today 時，量整屏每個可見元素的三個顏色。 */
-  const paintOf = (page, tid) => page.evaluate((t) => {
-    const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === t);
-    if (el) window.selectTmpl(el);
-    window.setState('running');
-    return null;
-  }, tid).then(() => page.waitForTimeout(900)).then(() => page.evaluate(() => {
-    const out = {};
-    const nodes = [...document.querySelectorAll('#today-screen *, #fdcb *')];
-    nodes.forEach((n, i) => {
-      const cs = getComputedStyle(n);
-      if (cs.display === 'none' || cs.visibility === 'hidden') return;
-      const r = n.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) return;
-      // key 要含 index —— 只用 class 會讓同 class 的多個元素互相覆蓋，
-      // 而覆蓋掉的那個正好可能是壞掉的那個。
-      const key = `${i}:${n.id || n.className || n.tagName}`;
-      out[key] = [cs.color, cs.backgroundColor, cs.borderColor].join(' | ');
-    });
-    return out;
-  }));
+  /** 決策**真的跑著**、逐一走過五個分頁時，量整屏每個可見元素的四個顏色。 */
+  const paintOf = async (page, tid) => {
+    // 🔴 pickTmpl 已經吃掉「running 中換不了模板」與「260ms 後被打回 ready」
+    //    這兩個陷阱。**在它修好之前，這條斷言其實一直在量 ready 狀態**，
+    //    也就是環境層根本沒亮 —— 一條看起來很嚴格、卻從沒走進 running 的斷言。
+    await pickTmpl(page, tid);
+    await page.evaluate(() => window.setState('running'));
+    await page.waitForTimeout(1500);   // 等環境層 1.2s 的淡入走完
+    const acc = {};
+    for (const tab of ['today', 'scan', 'session', 'timeline', 'lab']) {
+      await page.evaluate((t) => window.goTab(t), tab);
+      await page.waitForTimeout(450);
+      Object.assign(acc, await page.evaluate((tab) => {
+        const out = {};
+        // 🔴 範圍是**整個 .phone**，只跳過沒在前景的 `.screen`。
+        // 第一版寫 `.screen.active *, #fdcb *` —— 反向驗證當場證明它是死的：
+        // 把 `.tab.active` 改成吃 `var(--tmpl)`（tabbar 在 .screen 與 #fdcb 之外）
+        // **照樣全綠**。一條「名單以外都不准變」的斷言，範圍必須是「全部」，
+        // 不是「我想得到的那幾個容器」。
+        const nodes = [...document.querySelectorAll('.phone *')].filter((n) => {
+          const sc = n.closest('.screen');
+          return !sc || sc.classList.contains('active');
+        });
+        nodes.forEach((n, i) => {
+          const cs = getComputedStyle(n);
+          if (cs.display === 'none' || cs.visibility === 'hidden') return;
+          const r = n.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) return;
+          // key 要含 index —— 只用 class 會讓同 class 的多個元素互相覆蓋，
+          // 而覆蓋掉的那個正好可能是壞掉的那個。
+          const key = `${tab}/${i}:${n.id || n.className || n.tagName}`;
+          out[key] = [cs.color, cs.backgroundColor, cs.borderColor, cs.backgroundImage].join(' | ');
+        });
+        return out;
+      }, tab));
+    }
+    return acc;
+  };
 
   const page = await openV3(844);
   await page.evaluate(() => window.toggleDisciplineMode());
   await page.waitForTimeout(300);
 
-  // 兩個顏色差最遠的模板：Mancini FBD 紫 #5E3A87 vs Health Stress 綠 #34C759
+  // 兩族各取一個（冷 #1089EB vs 暖 #CB5FB0，ΔE 50.3）
   const a = await paintOf(page, 'MANCINI_FBD');
-  await page.evaluate(() => window.setState('idle'));
-  await page.waitForTimeout(300);
-  const b = await paintOf(page, 'HEALTH_STRESS');
+  const b = await paintOf(page, 'EXERCISE');
 
-  const ALLOW = ['fdcbFill'];   // 進度填充刻意吃模板色（唯一的例外）
+  // 🔴 **這就是「換模板不得改變畫面顏色」那條規則的替代品**（founder 2026-09-08
+  // 指名拿掉它）。舊規則說「什麼都不准變」，而產品同時出貨了一個 1.94:1 的紫時鐘
+  // —— 它同時擋住了設計、也沒擋住那個 bug。
+  // 新規則不是放寬，是**換一個形狀**：模板色可以變，但只准變在名單上；
+  // 名單以外的每一個節點仍然逐項比對。名單要用 id 逐一列舉，不能用 class 前綴。
+  const ALLOW = [
+    'envWash',    // 環境層：整片深空隨模板染色（這一輪的主體）
+    'fdcbFill',   // 倒數填充：這一格唯一真的在講「這一次決策」的東西
+  ];
   const drift = [];
   for (const k of Object.keys(a)) {
     if (b[k] === undefined || a[k] === b[k]) continue;
     if (ALLOW.some((id) => k.endsWith(`:${id}`))) continue;
-    drift.push(`${k.replace(/^\d+:/, '')}  紫「${a[k]}」 vs 綠「${b[k]}」`);
+    drift.push(`${k.replace(/\/\d+:/, '/')}  冷「${a[k]}」 vs 暖「${b[k]}」`);
   }
-  if (drift.length) { console.log('   會跟著模板變色的：'); for (const d of drift.slice(0, 10)) console.log(`     ${d}`); }
-  check('🔴 換模板之後，Today + 底座每個可見元素的顏色逐項不變（#fdcbFill 除外）', drift, []);
+  if (drift.length) { console.log('   名單外卻跟著模板變色的：'); for (const d of drift.slice(0, 10)) console.log(`     ${d}`); }
+  check('🔴 環境層名單以外，五個分頁 + 底座的顏色逐項不變', drift, []);
   checkTruthy(`量得到東西（${Object.keys(a).length} 個節點，0 個就是死斷言）`, Object.keys(a).length > 30);
 
-  // 白名單自己要是真的 —— 否則哪天 #fdcbFill 不再吃模板色，這個例外就變成謊。
-  checkTruthy('#fdcbFill 確實仍然吃模板色（白名單不得是空頭支票）',
-    (a['' + Object.keys(a).find((k) => k.endsWith(':fdcbFill'))] || '') !==
-    (b['' + Object.keys(b).find((k) => k.endsWith(':fdcbFill'))] || 'x'));
+  // 🔴 名單上的每一個都要**真的**在變 —— 一個沒在變的白名單成員，
+  // 代表那個功能壞了而斷言還在幫它掩護（空頭支票）。
+  const kaW = Object.keys(a).find((k) => k.endsWith(':envWash'));
+  const kbW = Object.keys(b).find((k) => k.endsWith(':envWash'));
+  checkTruthy('名單成員 envWash 確實隨模板變色（白名單不得是空頭支票）',
+    !!kaW && !!kbW && a[kaW] !== b[kbW]);
+
+  // ⚠️ `#fdcbFill` 要另外量，而理由本身是一個事實：
+  // **倒數填充只有倒數模板才有寬度**，守望模式（＝全部三個冷族模板）實測 0px，
+  // 寬度 0 的節點會被上面那個掃描濾掉。所以這一條要拿**兩個暖族倒數模板**來比。
+  await pickTmpl(page, 'WORK_FOCUS');
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(1200);
+  const fillA = await page.evaluate(() => getComputedStyle(document.getElementById('fdcbFill')).backgroundColor);
+  await pickTmpl(page, 'EXERCISE');
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(1200);
+  const fillB = await page.evaluate(() => getComputedStyle(document.getElementById('fdcbFill')).backgroundColor);
+  checkTruthy(`名單成員 fdcbFill 確實隨模板變色（${fillA} vs ${fillB}）`, fillA !== fillB);
+  await page.close();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 模板身分色：六個都要讀得到
+// ═══════════════════════════════════════════════════════════════════════
+// 🔴 舊的六個身分色沒有一個是乾淨的：三個是同一個 #00B4D8（＝ cyan ACTIVE
+// ＝ Clear 帶位）、Mancini 紫對底座 **1.94:1**、Health Stress 就是 --good 綠、
+// Exercise 離 error 紅 ΔE 19.5。
+// 「模板色可以染環境」這件事成立的前提，是**每一個模板色都讀得到**。
+// 這條就是那個前提本身。
+{
+  console.log('\n── 六個模板身分色都要 ≥ AA ──');
+  const page = await openV3(844);
+  const colors = await page.evaluate(() => {
+    const out = {};
+    // TEMPLATES 是 script-scope 的 const，evaluate 裡直接讀得到（同 sess 的做法）。
+    for (const k of Object.keys(TEMPLATES)) out[k] = TEMPLATES[k].color;
+    return out;
+  });
+  const DOCK = '#181E26';   // --n-900，底座底色
+  const GROUND = '#020617'; // --bg-space
+  const OWNERS = {
+    'cyan ACTIVE': '#00B4D8', 'gold SECURED': '#FFD46E', 'amber 可動': '#FFA028',
+    'neutral 帶位': '#64748B', 'strain 帶位': '#C2703D', 'success 綠': '#34C759',
+    'error 紅': '#FF3B30',
+  };
+  // ⚠️ TEMPLATES 會含 openV3 種進去的自訂模板，所以不是剛好六個。
+  // 但**自訂模板抽的也是同一組 TE_COLORS**，所以下面兩條對它們一樣要成立 ——
+  // 這正是「使用者不得親手製造撞色」那件事的守門。
+  const BUILTIN = ['CANSLIM_GS', 'CANSLIM_HIGH_RS', 'MANCINI_FBD', 'WORK_FOCUS', 'HEALTH_STRESS', 'EXERCISE'];
+  check('六個內建模板都在（少一個下面就漏驗一個）',
+    BUILTIN.filter((k) => !colors[k]), []);
+  const dim = [], collide = [], seen = new Map();
+  for (const [k, hex] of Object.entries(colors)) {
+    const cd = contrast(hex, DOCK), cg = contrast(hex, GROUND);
+    if (cd < 4.5 || cg < 4.5) dim.push(`${k} ${hex} 底座 ${cd.toFixed(2)} / 地面 ${cg.toFixed(2)}`);
+    for (const [n, o] of Object.entries(OWNERS)) {
+      if (deltaE(hex, o) < 20) collide.push(`${k} ${hex} 撞 ${n}（ΔE ${deltaE(hex, o).toFixed(1)}）`);
+    }
+    // ⚠️ 「不得兩個同色」**只對六個內建模板成立**。
+    // `TE_COLORS` 是一組六色的調色盤，使用者建的自訂模板本來就會抽到跟內建
+    // 一樣的顏色 —— 那是設計，不是撞色（分辨靠名字，顏色只講「哪一類」）。
+    // 第一版沒分這件事，於是斷言紅在一個完全正確的行為上。
+    if (BUILTIN.includes(k)) {
+      if (seen.has(hex)) collide.push(`${k} 與 ${seen.get(hex)} 是同一個顏色 ${hex}`);
+      seen.set(hex, k);
+    }
+  }
+  if (dim.length) for (const d of dim) console.log(`     ${d}`);
+  if (collide.length) for (const d of collide) console.log(`     ${d}`);
+  check('🔴 六個模板色對底座與地面都 ≥ 4.5:1', dim, []);
+  check('🔴 沒有模板色撞到語義主人；六個內建也沒有兩個同色', collide, []);
+  await page.close();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 環境層：**量畫素**，不是量 CSS 宣告
+// ═══════════════════════════════════════════════════════════════════════
+// 🔴 環境層是三層 color-mix 漸層疊在 .phone 的星雲上，再疊 #cosmos 星點。
+// 「它到底多亮」不是任何一條 CSS 宣告回答得了的問題 —— getComputedStyle 讀到的是
+// **宣告**（`color-mix(... 30% ...)`），不是**結果**。
+// 這個 repo 已經為「斷言看的東西跟使用者看的東西不是同一個」付過很多次學費，
+// 所以這條直接解 PNG 去看畫素（scripts/lib/png.mjs）。
+//
+// 守兩件事：
+//   ① 地面被染色之後，**不得靠近任何一個帶位色** —— 否則整片背景就在
+//      宣稱「你是 Neutral」。這跟「顏色也會宣稱事實」是同一條紅線。
+//   ② 壓在地面上的每一段文字仍然 ≥ 4.5:1。量法是**把文字藏起來再拍**，
+//      拿到它底下真正的背景，而不是拿 CSS 推出來的合成值。
+{
+  console.log('\n── 環境層：染色強度不得越線 ──');
+  // 🔴 這條守的是**我授權自己染多深**，而它是一個要講清楚的涵蓋邊界。
+  //
+  // 我原本寫的是「解 PNG 去看畫素」——理由是對的（環境層是三層 color-mix 疊在
+  // 星雲上，`getComputedStyle` 回的是宣告不是結果）。但實作連續三版都失敗，
+  // 而失敗的原因每一次都一樣：**要量「地面」就得先把前景藏乾淨，
+  // 而「前景」這個名單是我手寫的，每一版都漏**
+  //（先漏 sheet/toast，再漏 tabbar；把 dump 存下來看才發現 tabbar 還亮著）。
+  // 那正是同一輪稍早被反向驗證判死的那條斷言的同一個毛病。
+  //
+  // 所以改成量**我控制得到的那一層本身**：`#envWash` 宣告的每一個 rgba 停點，
+  // 合成到 `--bg-space` 上。這條答得了「我把地面染多深」，
+  // **答不了**「加上星空與其他圖層之後畫面實際長怎樣」——後者留給 founder 實走。
+  // 誠實地守一件事，比宣稱守住一件其實沒守到的事有用。
+  const page = await openV3(844);
+  await page.evaluate(() => window.toggleDisciplineMode());
+  await page.waitForTimeout(300);
+  const GROUND = '#020617';
+  const over = (fg, bg, a) => {
+    const F = toRgb(fg), B = toRgb(bg);
+    return '#' + [0, 1, 2].map((i) => Math.round(F[i] * a + B[i] * (1 - a)).toString(16).padStart(2, '0')).join('');
+  };
+  const dim = [];
+  let stops = 0;
+  for (const tid of ['MANCINI_FBD', 'EXERCISE']) {
+    await pickTmpl(page, tid);
+    await page.evaluate(() => window.setState('running'));
+    await page.waitForTimeout(1400);
+    const bgi = await page.evaluate(() => getComputedStyle(document.getElementById('envWash')).backgroundImage);
+    // 只取 rgba(...) / color(srgb ... / α) 的顏色停點 —— **不要**把字串裡的數字
+    // 全當顏色抓（`ellipse 125% 55% at 50% 100%` 那些百分比會被算進去，
+    // 這個洞這個月出現過三次）。
+    const groups = bgi.match(/(rgba?\([^)]*\)|color\(srgb[^)]*\))/g) || [];
+    for (const g of groups) {
+      const nums = (g.match(/[\d.]+/g) || []).map(Number);
+      if (nums.length < 4) continue;              // 不透明或解析不出 alpha 的跳過
+      const isSrgb = g.startsWith('color(');
+      const rgb = isSrgb
+        ? `#${nums.slice(0, 3).map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('')}`
+        : `rgb(${nums.slice(0, 3).join(',')})`;
+      const a = nums[3];
+      if (a <= 0.001) continue;
+      stops++;
+      const composite = over(rgb, GROUND, a);
+      // `--n-400` 是躺在地面上的次要文字色；它壓在最深的那一層 wash 上仍要過 AA。
+      // 🔴 **這是唯一會綁住手的那一條**，實測：α0.27 → 4.91:1（過），
+      // α0.40 → 3.86:1（紅）。所以「染多深」這件事真正的上限是可讀性，不是色相。
+      //
+      // ⚠️ 我原本還寫了第二條「複合色離帶位色 ΔE ≥ 25」，**已經拿掉**：
+      // 它在任何 α 下都是 30 以上，永遠不會紅 —— 而它想守的事**上游已經守住了**：
+      // wash 就是模板色的低透明度版本，而「模板色離每個語義主人 ≥ ΔE 20」
+      // 那條斷言已經涵蓋帶位色。一條永遠不紅的斷言不是保險，是裝飾。
+      const c = contrast('#8897AD', composite);
+      if (c < 4.5) dim.push(`${tid} 停點 α${a} → ${composite}，--n-400 只有 ${c.toFixed(2)}:1`);
+    }
+  }
+  checkTruthy(`解析得到顏色停點（${stops} 個，0 個就是死斷言）`, stops >= 4);
+  if (dim.length) for (const d of dim.slice(0, 6)) console.log(`     ${d}`);
+  check('🔴 --n-400 壓在最深的一層 wash 上仍要 ≥ 4.5:1', dim, []);
   await page.close();
 }
 
@@ -1854,6 +2073,78 @@ console.log('\n── Hero 讀數不得爆版 ──');
   for (const r of rows) console.log(`   ${r.sel}  ${r.ratio}:1 ${r.note || ''}`);
   check('🔴 琥珀填色塊上的字 ≥ 4.5:1（白字只有 2.0，這條擋的是我自己犯過的錯）',
     rows.filter((r) => r.ratio < 4.5).map((r) => `${r.sel}@${r.ratio}`), []);
+  await page.close();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🔴 樣式表裡不得存在「跟可動層琥珀很像但不是它」的顏色
+//
+// 為什麼要有這一條，而不是靠上面那條 runtime 掃描：
+// **runtime 掃描只看得到「此刻畫面上真的存在」的元素。** 條件狀態看不到 ——
+// 其他 outcome tag 的徽章、其他帶位、錯誤狀態、`::before/::after`。
+// 2026-09-08 實測證明了這個邊界：把 `--warning #F5A623` 放回 `.result.no_trade`
+// 之後，runtime 掃描**照樣全綠** —— 因為 `no_trade` 這個 class
+// **從來沒有被套用過**（decision-outcome.js 只吐 win / loss / breakeven）。
+//
+// 所以改成掃**樣式表本身**：每一條 CSS 規則裡宣告的每一個顏色，
+// 不管它此刻有沒有匹配到任何元素。判準是數值的（ΔE），不是字面的 ——
+// 換個寫法（#F5A623 → rgb(245,166,35)）照樣抓得到。
+//
+// 門檻 ΔE < 12：`--warning` 離琥珀 7.5（綠色盲下 0.6，等於同一個顏色），
+// 而 `--amber-500` 離 base 是 8.5 —— 所以自家的階要逐一列舉放行。
+// ═══════════════════════════════════════════════════════════════════════
+{
+  console.log('\n── 樣式表裡不得有琥珀的近似色（連沒被套用的規則也算）──');
+  const page = await openV3(844);
+  const hits = await page.evaluate(() => {
+    const lin = (c) => ((c /= 255), c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const lab = (rgb) => {
+      const [r, g, b] = rgb.map(lin);
+      const X = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+      const Y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+      const Z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+      const f = (t) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+      const [fx, fy, fz] = [f(X / 0.95047), f(Y), f(Z / 1.08883)];
+      return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+    };
+    const de = (p, q) => Math.hypot(...lab(p).map((v, i) => v - lab(q)[i]));
+    const cs0 = getComputedStyle(document.documentElement);
+    const hx = (n) => cs0.getPropertyValue(n).trim().replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+    const amber = hx('--amber-400');
+    // 自家的階：逐一列舉放行，不用前綴。
+    const OK = ['--amber-400', '--amber-500', '--amber-600', '--amber-800', '--amber-950']
+      .map((n) => hx(n).join(','));
+    const out = [];
+    for (const sheet of document.styleSheets) {
+      let rules; try { rules = sheet.cssRules; } catch (e) { continue; }
+      const walk = (list) => {
+        for (const r of list) {
+          if (r.cssRules) { walk(r.cssRules); continue; }
+          if (!r.style) continue;
+          const txt = r.cssText;
+          for (const m of txt.matchAll(/#([0-9a-fA-F]{6})\b|rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g)) {
+            const c = m[1]
+              ? m[1].match(/../g).map((h) => parseInt(h, 16))
+              : [+m[2], +m[3], +m[4]];
+            if (OK.includes(c.join(','))) continue;
+            const d = de(c, amber);
+            if (d < 12) out.push(`${r.selectorText || '?'} → ${m[0]} ΔE${d.toFixed(1)}`);
+          }
+        }
+      };
+      walk(rules);
+    }
+    return [...new Set(out)];
+  });
+  if (hits.length) { console.log('   跟琥珀撞的：'); for (const h of hits.slice(0, 8)) console.log(`     ${h}`); }
+  check('🔴 樣式表裡沒有與 --amber-400 ΔE < 12 的其他顏色', hits, []);
+  // 掃得到東西嗎 —— cssRules 讀不到（跨來源）時上面會靜靜回 []，那是死斷言。
+  const ruleCount = await page.evaluate(() => {
+    let n = 0;
+    for (const sh of document.styleSheets) { try { n += sh.cssRules.length; } catch (e) { /* 跨來源 */ } }
+    return n;
+  });
+  checkTruthy(`讀得到樣式表（${ruleCount} 條規則，0 條＝這條是死斷言）`, ruleCount > 200);
   await page.close();
 }
 

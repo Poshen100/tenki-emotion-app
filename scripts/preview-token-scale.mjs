@@ -120,6 +120,7 @@ const TOKENS = await page.evaluate(() => {
     '--cyan-200', '--cyan-400', '--cyan-500', '--cyan-800', '--cyan-950',
     '--cyan-core', '--cyan-active', '--zone-clear', '--zone-neutral', '--zone-strain',
     '--gold-secured', '--success', '--error',
+    '--premium-600', '--premium-800', '--premium-950',
     '--clear-400', '--clear-500', '--clear-600', '--clear-800', '--clear-950',
     '--neutral-400', '--neutral-500', '--neutral-600', '--neutral-800', '--neutral-950',
     '--strain-400', '--strain-500', '--strain-600', '--strain-800', '--strain-950',
@@ -178,6 +179,13 @@ const SEMANTIC = {
   strain: TOKENS['--zone-strain'],
   gold: TOKENS['--gold-secured'],
 };
+// 🔴 **premium 刻意不在這一組，而且它連 `-400` 都不該存在。**
+// 2026-09-08 實測：整個紫色弧 295–325° × L*38–88 × C*25–110，
+// 能同時「對地面/底座 ≥ 4.5:1」又「三種色盲下離每個語義主人 ≥ ΔE 20」的
+// **一個都沒有**；最好的一個只到 ΔE 16.5（卡在紅色盲下的 Neutral 帶位）。
+// 紫失去紅分量就變藍，於是綠/紅色盲下它會塌向 Clear cyan。
+// → Premium 只用**表面**（-600/-800/-950），宣稱由字承擔。
+// 這一條就是把那個決定鎖住：補了 -400 就代表有人想拿紫去表達一個意思。
 // ⚠️ cyan × clear 是**同一條色階的兩階**，本來就近（ΔE 12.8）—— 它們不是
 // 兩個語義，是「live」與「resting」的深淺差，所以這一對排除在外。
 const EXEMPT = new Set(['cyan|clear']);
@@ -194,6 +202,11 @@ for (const [kind, label] of [['deuter', '綠色盲'], ['prot', '紅色盲'], ['t
   checkTruthy(`${label}：最接近的一對仍 ≥ 20（${worst.a} × ${worst.b} = ΔE ${worst.d.toFixed(1)}）`,
     worst.d >= 20);
 }
+
+const premium400 = await page.evaluate(
+  () => getComputedStyle(document.documentElement).getPropertyValue('--premium-400').trim(),
+);
+checkTruthy('🔴 --premium-400 不得存在（紫活不過色盲守門，只能當表面）', premium400 === '');
 
 console.log('\n── ⑤ 中性階：一個家族、明度單調遞增 ──');
 const ramp = ['--n-950', '--n-900', '--n-850', '--n-800', '--n-700', '--n-600',

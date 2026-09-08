@@ -18,6 +18,173 @@
 
 ---
 
+# 2026-09-08 Session Update (拿掉「換模板不變色」—— 拆 --primary、環境層、校準台、Premium)
+
+⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/decision-timer-completion-sh7ogg`（PR #250）。
+
+## founder 的指令
+
+> 「換模板不得改變畫面顏色 這條規則拿掉，整體完整思考，包含[升級到Pro]，
+>  要像 Fable5 一樣思考。不要只是還不錯，我要的是棒透了」
+
+## 做了什麼（8 顆 commit）
+
+1. **拆 `--primary` / `--tmpl`** —— 前者 ACTIVE 永不變、後者這一次決策的身分。
+   六個模板身分色全換（兩族 × 三階，冷 276° ＝ 外面的結構、暖 336° ＝ 你自己）。
+2. **環境層 `#envWash`** —— 決策進行中整片深空染上模板色。
+3. **紫歸 Premium**（只當表面，見下）。
+4. **「升級到 Pro」→ 真的方案對照表**（逐欄來自 `subscription-tiers.ts`）+「尚未開賣」。
+5. **Baseline 磁磚不再印假生理讀數。**
+6. **`readingAtDecision` 進紀錄**（`AttachedReadinessReading`，宣告很久沒人用過）。
+7. **Lab → 校準台**（`summarizeDisciplineByBand()` 第一次有東西餵它）。
+8. **守門換代**：舊規則刪，換成三條（環境層名單 / 六個模板色 ≥ AA / **畫素量測**）。
+
+## 教訓
+
+- 🔴 **六個「身分色」裡沒有一個是乾淨的** —— 三個是同一個 `#00B4D8`（＝ cyan ACTIVE
+  ＝ Clear 帶位），另外三個各偷一個語義主人（紫 **1.94:1**、`--good` 綠、近 error 紅）。
+  那不是身分色系統。**做這種調色盤之前先把現有那組全部量一次。**
+- 🔴 **紫當不了語義色，而這是量出來的**：整個紫色弧 295–325° × L\*38–88 × C\*25–110
+  **一個都活不過色盲守門**（最好 ΔE 16.5，卡在紅色盲下的 Neutral）。
+  → 正解不是降低標準，是讓它**當表面**（沒有 `-400`），宣稱由字承擔，
+  並加一條「`--premium-400` 不得存在」把決定鎖住。
+- 🔴 **「換模板不變色」那條守門一直在量 `ready`，不是 `running`。**
+  `selectTmpl` 排了一個 260ms 後的 `setState('ready')`，把呼叫端接著下的
+  `setState('running')` 覆蓋掉 —— 而且畫面在那 260ms 內確實是 running，
+  截圖也看得到跑起來的時鐘。**量測發生在之後。**
+  同一個 helper 還有第二個坑：running 時 `selectTmpl` hard-return，
+  所以連續量兩個模板時第二個根本沒換過去。兩件事都吃進 `pickTmpl`。
+- 🔴 **疊出來的顏色只有畫素答得出來**。環境層是三層 `color-mix` 疊星雲再疊星點，
+  `getComputedStyle` 回的是宣告不是結果。新增 `scripts/lib/png.mjs`（60 行解碼器），
+  守門直接取畫素；量文字底下的背景要**先把文字藏起來再拍**。
+- 🔴 **顏色變多的來源是面積，不是色相數。** 前幾輪一直在調 chrome（小邊框、小圖示），
+  所以「顏色好像有點少」每一輪都會回來。這一輪加的是兩片大面積：環境層 + 校準台。
+- 🔴 `isDisciplined` 吃的是 **tag 字串**不是紀錄物件 —— `.filter(isDisciplined)`
+  全回 false，長出一張「每個帶位都 0%」**看起來很合理**的圖。
+  斷言抓不到這種，是把圖畫出來看才發現的。
+
+## founder 同一輪的第二批實走（主畫面 PWA 截圖）
+
+- 🔴 **iPhone 狀態列壓在「DEEP SCAN」上**。`--top-safe:14px` 是「呼吸」不是安全區；
+  standalone PWA 的狀態列會蓋在頁面上，兩件事要**相加**。
+  → `calc(env(safe-area-inset-top,0px) + 14px)`（`viewport-fit=cover` 本來就有，
+  鄰居 `decision-alert.html` 早就是這個寫法 —— 又一次「同一件事兩頁各做各的」）。
+- 🔴 **計時器上方 101px 空白**（實測 390×844：圓點下緣 601、底座上緣 702）。
+  `.snap` 是 `flex:1` 的欄，內容比它矮，預設 `flex-start` 把差額整塊留在尾巴。
+  → `justify-content:center`，101 → 71px。**不動 `.snap-track` 高度**（會動到
+  Energy 長條圖的推導，那組數字有自己的守門）。
+
+## 守門那一段的三個教訓（都是反向驗證抓到的）
+
+- 🔴 **「名單以外都不准」的斷言，範圍是手寫的就一定會漏。** 第一版寫
+  `.screen.active *, #fdcb *`，把 `.tab.active` 改成吃 `--tmpl`（tabbar 在那兩個
+  容器外）**照樣全綠**。要嘛全稱，要嘛別宣稱全稱。
+- 🔴 **同一個毛病咬了我三次**：後來想用畫素量地面，得先把前景藏乾淨，
+  而「前景」那個名單同樣是手寫的 —— 先漏 sheet/toast、再漏 tabbar。
+  把 screenshot dump 出來看一眼才發現 tabbar 還亮著。**最後收回畫素路線**，
+  改成量「我控制得到的那一層」並寫明涵蓋邊界。
+- 🔴 **一條永遠不會紅的斷言不是保險，是裝飾。** 「複合色離帶位色 ΔE ≥ 25」
+  在任何 α 下都是 30 以上 —— 而它想守的事上游已經守住了（模板色離語義主人
+  ≥ ΔE 20，wash 就是模板色的低透明度版本）。刪掉。
+
+## 沒動、留給下一輪
+
+- `--good`（35 處）退場。
+- `resumeActiveDecision()` 接回 marks/events 那一半**仍未在真機上驗過**。
+- Session/Timeline 列的 `.tmpl-ic` 吃的是**該筆紀錄的**模板色（inline style），
+  那是歷史身分不是當下模板，所以不在環境層名單裡；但樣式表守門看不到 inline style。
+
+## 下次接手點
+
+founder 實走 PR #250：`/v3/` 起跑一個決策看整片深空變色、Lab 看校準台與 Premium 對照表。
+
+---
+
+# 2026-09-08 Session Update (Lab 視覺分級 —— 守門只掃了家族住的其中一個房間)
+
+⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/decision-timer-completion-sh7ogg`（PR #250）。
+
+## 做了什麼
+
+founder 傳 Lab / Timeline / Today 三張截圖 +「Lab視覺再升級 / 像Fable5一樣思考」。
+盤點之後 Lab 有兩個問題，founder 各拍板一次：
+
+1. **九塊磁磚長得一樣，其實是四種東西** → `is-live`（Baseline，有真 HR/HRV/RR）cyan、
+   `is-control`（決策紀律開關 / CSV 匯出，**就地改變一件事**）琥珀、
+   （預設）導航進子畫面 → 中性、`.lab-soon`（三塊空 stub）→ 拿掉全部可動訊號。
+2. **三塊 stub 點下去只彈 toast** → 降級成獨立的「即將開放」區（founder：「降級成即將開放區」）。
+3. **琥珀改成只給「會改變狀態」的**（founder：「只給改變狀態的」）——
+   上一輪我把 Lab **每一塊**都鑲琥珀邊，在全部都可點的頁面上等於沒有標。
+
+## 教訓
+
+- 🔴 **「換模板不變色」守門只掃 `#today-screen` + `#fdcb`** —— 它守的是一個跨全站的
+  bug 家族，卻只掃了家族住的其中一個房間。Lab 的 `.lab-item .ic` 吃 `var(--primary)`，
+  九顆圖示跟著模板走（Mancini 紫 / Health Stress 綠 / Exercise 橘）——
+  **founder 用截圖發現，守門全程綠**。擴到五個分頁後立刻紅在 16 個節點上。
+  反向驗證：把 `.ic` 改回 `var(--primary)` → 紅的 key **全部是 `lab/*`**，
+  也就是舊範圍**一條都抓不到** —— 那才是「擴範圍有意義」的證明。
+- 🔴 擴範圍時踩了兩個死斷言：①`.screen` 用 `opacity:0` 藏、**不是** `display:none`，
+  不切分頁就每頁都掃到全部五頁（症狀：每個分頁數字一模一樣）；
+  ②`#fdcb` 浮在每一頁上，進了每個分頁的分母 → 「這頁有沒有琥珀」永遠成立
+  （Lab 從 10 個降到 3 個仍然綠，是反向驗證證明它死掉的）。
+- 🔴 **顏色藏在 `radial-gradient()` 裡就不在 `backgroundColor`**（`.snap-hint .sh-dot`
+  就是這樣逃掉的）。而解析 gradient 時**不能把字串裡的數字都當顏色**——
+  `circle at 38% 35%` 會被算成色值。這個洞這一輪出現了**三次**。
+- 🔴 **我的 markup 手術搬錯了三塊磁磚**：helper 從名字往前抓固定行數，
+  結果 Baseline（真資料）與 CSV 匯出（真動作）被丟進「即將開放」，
+  兩塊空 stub 留在主格線。**harness 全綠、只有截圖看得出來** ——
+  大範圍搬 markup 要真的解析出每一塊的邊界並印出名字核對。
+
+## 沒動、留給 founder 裁
+
+- `.lab-wide`「升級到 Pro」也是 `labInfo` stub（點下去只彈「即將開放」），
+  但它是**付費 CTA**，降級與否是產品決定。它的圖示還寫死 `#b78dd6` /
+  `rgba(94,58,135,.2)`（＝ Mancini 紫，但沒吃 `--primary` 所以不跟著模板變）。
+- §3.6 第 5 項「拆開 `--primary`」（含 `TE_COLORS`）仍未動 —— 高風險。
+- `resumeActiveDecision()` 接回 marks/events 那一半**仍未在真機上驗過**。
+
+## 下次接手點
+
+founder 實走 PR #250 的 Lab 分頁；`--good`（35 處）退場是下一個候選。
+
+---
+
+# 2026-09-08 Session Update (顏色所有權清帳 —— 新守門推翻我一個假設，又抓到第九個顏色)
+
+⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。
+⚠️ PR #249 已 merge（`e555ff3`），本輪從最新 main 重開同名分支 → **新的 PR #250**。
+
+## 做了什麼
+
+`docs/VISUAL-DIRECTION.md` §3.6 裁決摘要 **1–4 項**（第 5 項高風險未動）：
+刪 8 個死 token、底座圖示關光暈+拿掉 inline 綠、`--txt-sec`/`--txt-dim` 併中性階、
+`--warning` 退場（八個消費者逐一看過，**沒有一個真的在講警告**）。
+
+## 教訓
+
+- 🔴 **我以為「既有的琥珀守門已經涵蓋 `--warning` 的回歸」—— 反向驗證證明是錯的。**
+  把 `--warning` 放回 `.result.no_trade`，**照樣全綠**。原因比我想的有意思：
+  **runtime 掃描只看得到此刻畫面上真的存在的元素**，而 `no_trade` 這個 class
+  **從來沒有被套用過**（`decision-outcome.js` 只吐 win/loss/breakeven —— 死 CSS）。
+  → 新增**樣式表守門**（掃 `document.styleSheets` 本身，判準用 ΔE 不用字面）。
+- 🔴 **那條新守門寫完立刻抓到第九個暖色**：`#FF9F0A`（「提前收束」）與琥珀
+  **ΔE 6.2**，比剛退場的 `--warning`（7.5）**還近**。
+  ⚠️ 修它時一併換了 `@keyframes fdcb-pulse-broke` 的顏色停點 ——
+  那是 MOTION-DIRECTION 的地盤，所以**只換顏色，timing/曲線/形狀一個參數沒動**。
+- ⚠️ **兩個守門各自的邊界（實測，不是推論）**：runtime 掃描看不到條件狀態；
+  樣式表掃描看不到 JS 寫的 inline style（例如 `scoreEl.style.color`）。兩種互補。
+- ⚠️ `.result.no_trade` 是**死 CSS**（沒有任何 outcome tag 會產生它）。
+  這一輪順手把它改成中性，但那是**改在死碼上**，沒有使用者看得到 —— 照實記。
+
+## 下次接手點
+
+- `--good #34C759`（35 處）仍在 —— 牽涉 Session/Timeline 的結果語義，單獨一輪。
+- 裁決摘要第 5 項「拆開 `--primary`」（含 `TE_COLORS` 六個選項五個已有主人）未動。
+- **`resumeActiveDecision()` 接回 marks/events 那一半，仍未在真機上驗過。**
+
+---
+
 # 2026-09-08 Session Update (可動層鋪完全 app —— 而守門修了三次才問對問題)
 
 ⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。
