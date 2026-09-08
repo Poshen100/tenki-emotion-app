@@ -11,6 +11,8 @@
 import type { DeviceLinkPort } from '../port';
 import { createUnwiredLinkPort } from '../port';
 import type { DevicePlatformOs } from '../types/devices.types';
+import { createBleChestStrapPort } from './bleChestStrapPort';
+import { composeLinkPorts } from './composeLinkPorts';
 import { createHealthConnectPort } from './healthConnectPort';
 
 /**
@@ -18,6 +20,13 @@ import { createHealthConnectPort } from './healthConnectPort';
  * @returns The port to use; never throws, never invents an adapter.
  */
 export function selectLinkPort(os: DevicePlatformOs): DeviceLinkPort {
-  // iOS keeps the unwired port until the HealthKit bridge exists.
-  return os === 'android' ? createHealthConnectPort(os) : createUnwiredLinkPort(os);
+  // iOS keeps the unwired port until the HealthKit bridge exists. The chest
+  // strap is BLE and would work there too, but shipping it before anyone can
+  // build for iOS would put a button on screen nobody can prove.
+  if (os !== 'android') return createUnwiredLinkPort(os);
+
+  return composeLinkPorts(os, {
+    health_connect: createHealthConnectPort(os),
+    chest_strap: createBleChestStrapPort(os),
+  });
 }

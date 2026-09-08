@@ -33,7 +33,10 @@
         "android.permission.health.READ_SLEEP",
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
-        "android.permission.health.READ_HEALTH_DATA_HISTORY"
+        "android.permission.health.READ_HEALTH_DATA_HISTORY",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -42,7 +45,8 @@
     },
     "plugins": [
       "expo-router",
-      "react-native-health-connect"
+      "react-native-health-connect",
+      "react-native-ble-plx"
     ]
   }
 }
