@@ -117,13 +117,47 @@ body{
   /* deep-space console backdrop — faint nebula over brand spaceBg */
   background:
     radial-gradient(ellipse 95% 55% at 50% 6%, rgba(0,180,216,0.10), transparent 60%),
-    radial-gradient(ellipse 85% 50% at 50% 96%, rgba(94,58,135,0.08), transparent 72%),
+    /* 🔴 這顆原本是 rgba(94,58,135,0.08) ＝ Mancini 紫。紫 2026-09-08 歸 Premium，
+       一顆常駐在每一頁底部的紫光等於整個 App 都在說「Premium」。換成無主人的
+       slate（跟中性階同一個 268° 家族），語義層改由 #envWash 負責。 */
+    radial-gradient(ellipse 85% 50% at 50% 96%, rgba(72,86,110,0.08), transparent 72%),
     radial-gradient(ellipse 60% 45% at 82% 38%, rgba(0,150,170,0.05), transparent 60%),
     #020617;
   border-radius:44px;
   overflow:hidden;
   box-shadow:0 0 0 2px #1a1a1a, 0 30px 80px rgba(0,0,0,0.6);
 }
+/* ═════════════════════════════════════════════════
+   環境層（env wash）—— 「換模板不得改變畫面顏色」那條規則的替代品
+   ═════════════════════════════════════════════════
+   founder 2026-09-08：把那條規則拿掉。拿掉之後模板色要去哪裡？
+
+   🔴 不是回到舊的做法（`--primary` 全域覆寫 → 時鐘、圖示、膠囊一起變色，
+   其中一個 1.94:1）。**儀器維持中性** —— 底座、判定列、收束頁講的是
+   「活著 / 可以動手」，那跟哪個模板在跑無關。
+
+   會變的是**深空本身**：決策進行中，整片地面染上該模板的色。
+   一大片、低彩度、不宣稱任何事 —— 只是「你現在在這個模式裡」。
+   這也正面回答了「顏色好像有點少」：**顏色變多的來源是面積，不是色相數。**
+   前幾輪一直在調小小的邊框與圖示，那種面積再怎麼調都不會讓畫面變得有顏色。
+
+   實測（wash 疊在 --bg-space #020617 上）：
+     alpha 0.20 → 離最近的帶位色仍有 ΔE 33.4（不會被讀成「你是 Neutral」）
+                  --n-100 壓上去 13.12:1、--n-400 5.00:1（都還過 AA）
+   取 0.18 留餘裕。**上限是守門在管的，不是註解在管的**（見 preview-fdcb.mjs）。
+
+   ⚠️ 預設 opacity:0 且 `--tmpl` 預設 = `--primary` ⇒ 沒有決策在跑時
+   這一層是恆等變換，逐位元組不變。 */
+#envWash{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  opacity:0;transition:opacity 1.2s var(--ease-calm);
+  background:
+    radial-gradient(ellipse 125% 55% at 50% 100%, color-mix(in srgb, var(--tmpl) 30%, transparent), transparent 70%),
+    radial-gradient(ellipse 105% 38% at 50% 62%,  color-mix(in srgb, var(--tmpl) 15%, transparent), transparent 72%),
+    radial-gradient(ellipse 95%  34% at 50% -4%,  color-mix(in srgb, var(--tmpl) 14%, transparent), transparent 66%);
+}
+.phone.decision-live #envWash{opacity:1}
+@media (prefers-reduced-motion: reduce){ #envWash{transition:none} }
 /* full-app deep-space starfield, behind every screen */
 #cosmos{position:absolute;inset:0;z-index:0;pointer-events:none}
 /* 🔴 這個門檻要蓋住所有真手機，不只窄的那些。
@@ -2591,6 +2625,7 @@ body{
 
 <div class="phone">
   <canvas id="cosmos"></canvas>
+  <div id="envWash"></div>
   <div class="state-pill" id="statePill">Edge Score · Clear</div>
 
   <div class="screens">
@@ -4088,6 +4123,9 @@ function setState(s){
   // 沒過期就本來就該接回來。旗標不會永遠留著，只是換一個人負責。
   if(s === 'running') publishActiveDecision();
   else if(prev === 'running') clearActiveDecision();
+  // 環境層只在決策進行中亮起 —— 「選好了」還不是「正在做」。
+  const phone = document.querySelector('.phone');
+  if(phone) phone.classList.toggle('decision-live', s === 'running');
 }
 // ── 真實決策計時器（取代假 8 秒 demo）──
 // 三段由時長推導：Observe 0–33% →（tmpl.segLabel = 核心段 / readiness / Sweet Zone）33–66% → Extended 66–100%。
