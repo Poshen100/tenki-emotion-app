@@ -1,0 +1,66 @@
+# Builds an installable Android development APK on EAS's machines.
+#
+# Why this exists: Expo Go cannot load custom native modules, so the wearable
+# adapters (Health Connect, BLE) can only be exercised in a development build.
+# Running `eas build` needs a computer — this workflow runs it on GitHub's,
+# so the whole loop is reachable from a phone: Actions → Run workflow → wait
+# for the build link → install the APK.
+#
+# Prerequisite (one time): add an Expo access token as the repository secret
+# EXPO_TOKEN. See docs/WEARABLE-INTEGRATION.md §5.
+name: Android dev build (EAS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'EAS build profile'
+        required: true
+        default: development
+        type: choice
+        options:
+          - development
+          - preview
+
+jobs:
+  build:
+    name: eas build --platform android
+    runs-on: ubuntu-latest
+    # The `secrets` context is not available in a step's `if`, so the token is
+    # lifted into the job environment and checked from there.
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Fail early without a token
+        if: ${{ env.EXPO_TOKEN == '' }}
+        run: |
+          echo "::error::EXPO_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # apps/mobile is deliberately outside the root npm workspaces, so its
+      # dependencies must be installed separately (see docs/PLAYBOOK.md §7).
+      - name: Install mobile dependencies
+        working-directory: apps/mobile
+        run: npm ci
+
+      - name: Queue the EAS build
+        working-directory: apps/mobile
+        run: |
+          npx --yes eas-cli@latest build \
+            --platform android \
+            --profile "${{ inputs.profile }}" \
+            --non-interactive \
+            --no-wait
+
+      - name: Where to get the APK
+        run: |
+          echo "### Build queued on EAS" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Open <https://expo.dev> on the phone → your project → Builds." >> "$GITHUB_STEP_SUMMARY"
+          echo "When it finishes, tap the build → Install to side-load the APK." >> "$GITHUB_STEP_SUMMARY"
