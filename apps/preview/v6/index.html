@@ -44,9 +44,15 @@
 :root{
   --surface:#1C1C1E;
   --primary:#00B4D8;
+  /* 🔴 `--txt-sec #8E8E93` 與 `--txt-dim #48484A` 已刪（2026-09-08）——
+     它們是 **iOS 系統灰（彩度 ≈ 0）**，而中性階是 268° 的藍調 slate。
+     這一頁最常用的兩個文字色，整個不屬於那個家族 —— §2 破口「灰階來自兩個家族」
+     的本體就是這兩個。而且 `--txt-dim` 對地面只有 **2.21:1**，連大字門檻都不到。
+     → `--txt-sec`（69 處）→ `--n-400`（6.19 → 6.80:1）
+       `--txt-dim`（12 處）→ `--n-500`（**2.21 → 4.17:1**）；
+       其中兩處真的是文字（空狀態訊息、輸入框 placeholder）走 `--n-400` 到得了 AA。
+     ⚠️ `--txt` 保留：它就是純白，是一個站得住的值，而且只有 1 個消費者。 */
   --txt:#FFFFFF;
-  --txt-sec:#8E8E93;
-  --txt-dim:#48484A;
   /* 🔴 儀器世界：不透明。半透明＋模糊是「玻璃」的語言，
      而底座是你透過它看的那片玻璃本身 —— 玻璃是平的，光在它後面。 */
   --fdcb-bg:var(--n-900);
@@ -135,7 +141,7 @@ body{
   font-size:28px;font-weight:400;letter-spacing:-0.02em;color:#fff;
 }
 .screen-date{
-  font-size:11px;color:var(--txt-sec);letter-spacing:0.12em;text-transform:uppercase;
+  font-size:11px;color:var(--n-400);letter-spacing:0.12em;text-transform:uppercase;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -779,7 +785,7 @@ body{
   font-variant-numeric:tabular-nums;line-height:1;
 }
 .scan-last .meta{display:flex;flex-direction:column;gap:2px}
-.scan-last .lbl{font-size:9px;letter-spacing:0.2em;color:var(--txt-sec);text-transform:uppercase;font-weight:600}
+.scan-last .lbl{font-size:9px;letter-spacing:0.2em;color:var(--n-400);text-transform:uppercase;font-weight:600}
 .scan-last .time{font-size:11px;color:rgba(255,255,255,0.6)}
 
 /* 🔴 全 app 最大的一顆動作鍵 → 可動層琥珀（founder 2026-09-07 拍板「全部可點元素都鋪」）。
@@ -829,7 +835,7 @@ body{
   box-shadow:inset 0 0 0 1px rgba(0,180,216,0.2);
 }
 .scan-hint{
-  font-size:11px;color:var(--txt-sec);text-align:center;
+  font-size:11px;color:var(--n-400);text-align:center;
   letter-spacing:0.08em;max-width:240px;line-height:1.6;
 }
 /* 帶位是一個詞不是一個數字 —— 比 .score 的 32px 收一點才不會撐破卡片 */
@@ -837,7 +843,7 @@ body{
 /* 這幾塊自己設了 display，會蓋掉 UA 的 [hidden]{display:none} —— 補回來 */
 .scan-last[hidden],.scan-evidence[hidden],.scan-empty[hidden],.scan-button[hidden]{display:none}
 .scan-empty{
-  font-size:11px;color:var(--txt-sec);text-align:center;
+  font-size:11px;color:var(--n-400);text-align:center;
   letter-spacing:0.06em;max-width:240px;line-height:1.6;
 }
 /* 校準讀出：等寬數字、密度高、刻意不搶戲 */
@@ -848,7 +854,7 @@ body{
   border:1px solid rgba(255,255,255,0.05);
 }
 .scan-evidence .ev{display:flex;justify-content:space-between;gap:14px;font-size:10px}
-.scan-evidence .k{color:var(--txt-sec);letter-spacing:0.14em;text-transform:uppercase}
+.scan-evidence .k{color:var(--n-400);letter-spacing:0.14em;text-transform:uppercase}
 .scan-evidence .v{color:rgba(255,255,255,0.78);font-variant-numeric:tabular-nums}
 
 /* ═══════════════════════════════════════════════════
@@ -874,7 +880,7 @@ body{
 }
 .session-stats .val{font-size:22px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
 .session-stats .val.good{color:var(--good)}
-.session-stats .lbl{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--txt-sec);margin-top:4px;font-weight:600}
+.session-stats .lbl{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-400);margin-top:4px;font-weight:600}
 
 .session-section{font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;padding:8px 4px 2px}
 
@@ -909,15 +915,15 @@ body{
 .session-item.neut .tmpl-ic{background:rgba(142,142,147,0.15);color:#aaa}
 .session-item .info{flex:1;min-width:0}
 .session-item .nm{font-size:13px;font-weight:500;color:#fff;margin-bottom:2px}
-.session-item .meta{font-size:11px;color:var(--txt-sec);display:flex;gap:8px;font-variant-numeric:tabular-nums}
-.session-item .meta span.sep{color:var(--txt-dim)}
+.session-item .meta{font-size:11px;color:var(--n-400);display:flex;gap:8px;font-variant-numeric:tabular-nums}
+.session-item .meta span.sep{color:var(--n-500)}
 .session-item .result{
   font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
   padding:4px 9px;border-radius:8px;
 }
 .result.win{background:rgba(52,199,89,0.15);color:var(--good)}
 .result.loss{background:rgba(255,69,58,0.12);color:#ff7e76}
-.result.breakeven{background:rgba(142,142,147,0.15);color:var(--txt-sec)}
+.result.breakeven{background:rgba(142,142,147,0.15);color:var(--n-400)}
 .result.no_trade{background:rgba(245,166,35,0.12);color:var(--warn)}
 
 .insight-card{
@@ -939,7 +945,7 @@ body{
 .session-empty.show{display:flex}
 .session-empty .ic{font-size:34px;opacity:0.85;margin-bottom:2px}
 .session-empty .ttl{font-size:15px;font-weight:600;color:#fff}
-.session-empty .sub{font-size:12px;color:var(--txt-sec);line-height:1.6}
+.session-empty .sub{font-size:12px;color:var(--n-400);line-height:1.6}
 
 /* 進場：清單卡片依序浮現（克制）*/
 @keyframes sessRise{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
@@ -969,12 +975,12 @@ body{
 }
 .date-switch .mid{text-align:center}
 .date-switch .day{font-size:15px;font-weight:600;color:#fff}
-.date-switch .sub{font-size:10px;color:var(--txt-sec);letter-spacing:0.15em;margin-top:2px;text-transform:uppercase}
+.date-switch .sub{font-size:10px;color:var(--n-400);letter-spacing:0.15em;margin-top:2px;text-transform:uppercase}
 
 /* Edge Score hour chart */
 .tl-edge-chart-card{padding:14px}
 .tl-edge-chart-card .head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
-.tl-edge-chart-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
+.tl-edge-chart-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--n-400);font-weight:600}
 .tl-edge-chart-card .avg{font-size:12px;color:var(--primary);letter-spacing:0.05em;font-variant-numeric:tabular-nums}
 .tl-edge-chart-card .avg b{font-size:18px;font-weight:300;color:#fff;margin-right:2px}
 .tl-edge-chart{
@@ -986,39 +992,39 @@ body{
 .tl-edge-chart .zone-clear{fill:rgba(0,180,216,0.05)}
 .tl-edge-chart .line{fill:none;stroke:var(--primary);stroke-width:1.6;filter:drop-shadow(0 0 3px rgba(0,180,216,0.4))}
 .tl-edge-chart .area{fill:url(#edgeTraceArea);opacity:0.6}
-.tl-edge-chart .axis{font-size:8px;fill:var(--txt-dim);font-family:inherit}
+.tl-edge-chart .axis{font-size:8px;fill:var(--n-500);font-family:inherit}
 .tl-edge-chart .evt-dot{fill:var(--good);filter:drop-shadow(0 0 4px var(--good))}
 .tl-edge-chart .evt-dot.loss{fill:#ff7e76}
 
 /* 決策時間軸 strip */
 .tl-strip-card{padding:14px}
 .tl-strip-card .head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
-.tl-strip-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
-.tl-strip-card .avg{font-size:12px;color:var(--txt-sec);letter-spacing:0.05em;font-variant-numeric:tabular-nums}
+.tl-strip-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--n-400);font-weight:600}
+.tl-strip-card .avg{font-size:12px;color:var(--n-400);letter-spacing:0.05em;font-variant-numeric:tabular-nums}
 .tl-strip-card .avg b{font-size:18px;font-weight:300;color:#fff;margin-right:2px}
 .tl-strip{position:relative;height:96px;min-height:96px}
 .tl-strip svg{width:100%;height:100%;display:block}
 .tl-strip .grid line{stroke:rgba(255,255,255,0.06);stroke-width:1}
-.tl-strip .axis{font-size:8px;fill:var(--txt-dim);font-family:inherit}
+.tl-strip .axis{font-size:8px;fill:var(--n-500);font-family:inherit}
 .tl-strip .tl-dot{transform-box:fill-box;transform-origin:center;animation:tlDotIn 0.4s var(--ease-calm) both}
 @keyframes tlDotIn{ from{opacity:0;transform:scale(0)} to{opacity:1;transform:scale(1)} }
 .tl-strip-legend{
   display:flex;gap:14px;margin-top:8px;padding-top:8px;
   border-top:1px solid rgba(255,255,255,0.05);
-  font-size:10px;color:var(--txt-sec);
+  font-size:10px;color:var(--n-400);
 }
 .tl-strip-legend span{display:flex;align-items:center;gap:5px}
 .tl-strip-legend .lg{width:7px;height:7px;border-radius:50%;display:inline-block}
 .tl-strip-legend .lg.good{background:var(--good)}
 .tl-strip-legend .lg.pri{background:var(--primary)}
 .tl-strip-legend .lg.loss{background:#ff7e76}
-.tl-strip-legend .lg-note{color:var(--txt-dim);margin-left:auto}
+.tl-strip-legend .lg-note{color:var(--n-500);margin-left:auto}
 
 .tl-empty{display:none;flex-direction:column;align-items:center;text-align:center;padding:36px 20px 16px;gap:8px}
 .tl-empty.show{display:flex}
 .tl-empty .ic{font-size:32px;opacity:0.85}
 .tl-empty .ttl{font-size:15px;font-weight:600;color:#fff}
-.tl-empty .sub{font-size:12px;color:var(--txt-sec);line-height:1.6}
+.tl-empty .sub{font-size:12px;color:var(--n-400);line-height:1.6}
 
 /* Event log 進場 stagger（複用 sessRise）*/
 .tl-event.tl-enter{animation:sessRise 0.42s var(--ease-calm) both}
@@ -1029,7 +1035,7 @@ body{
 
 /* Session markers */
 .timeline-events-card{padding:14px}
-.timeline-events-card .head{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:10px}
+.timeline-events-card .head{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--n-400);font-weight:600;margin-bottom:10px}
 .tl-event{
   display:flex;align-items:center;gap:10px;
   padding:8px 0;
@@ -1037,7 +1043,7 @@ body{
 }
 .tl-event:last-child{border-bottom:none}
 .tl-event .time{
-  font-size:11px;color:var(--txt-sec);
+  font-size:11px;color:var(--n-400);
   font-variant-numeric:tabular-nums;letter-spacing:0.08em;
   width:42px;flex-shrink:0;
 }
@@ -1049,7 +1055,7 @@ body{
 .tl-event .dot.cancel{background:#ff7e76}
 .tl-event .dot.scan{background:var(--warn)}
 .tl-event .desc{flex:1;font-size:13px;color:#fff}
-.tl-event .tl-edge{font-size:11px;color:var(--txt-sec);font-variant-numeric:tabular-nums}
+.tl-event .tl-edge{font-size:11px;color:var(--n-400);font-variant-numeric:tabular-nums}
 
 /* ═══════════════════════════════════════════════════
    LAB SCREEN
@@ -1090,7 +1096,7 @@ body{
 }
 .lab-item .ic svg{width:20px;height:20px}
 .lab-item .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.2}
-.lab-item .sub{font-size:10px;color:var(--txt-sec);line-height:1.4;letter-spacing:0.02em}
+.lab-item .sub{font-size:10px;color:var(--n-400);line-height:1.4;letter-spacing:0.02em}
 /* ── Lab Fable-5 爽感：進場 stagger（opacity-only，不與 :active transform 衝突）+ tap 深度 + featured glow ── */
 .lab-grid .lab-item, .lab-body .lab-wide{opacity:0}
 #lab-screen.active .lab-grid .lab-item, #lab-screen.active .lab-body .lab-wide{opacity:1}
@@ -1128,7 +1134,7 @@ body{
 .lab-wide .ic svg{width:22px;height:22px}
 .lab-wide .info{flex:1}
 .lab-wide .nm{font-size:14px;font-weight:600;color:#fff}
-.lab-wide .sub{font-size:11px;color:var(--txt-sec);margin-top:2px}
+.lab-wide .sub{font-size:11px;color:var(--n-400);margin-top:2px}
 
 /* ═══════════════════════════════════════════════════
    SESSION DETAIL — slide-in modal
@@ -1148,7 +1154,7 @@ body{
 .te-title{font-size:17px;font-weight:600;color:#fff}
 .te-spacer{flex:1}
 .te-body{flex:1;overflow-y:auto;padding:4px 18px 40px;-webkit-overflow-scrolling:touch}
-.te-hint{font-size:12px;color:var(--txt-sec);line-height:1.5;margin-bottom:14px}
+.te-hint{font-size:12px;color:var(--n-400);line-height:1.5;margin-bottom:14px}
 .te-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
 .te-list:empty{display:none}
 .te-list-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid rgba(255,255,255,0.06);cursor:pointer;transition:background 0.2s}
@@ -1156,27 +1162,27 @@ body{
 .te-list-item .ic{width:30px;height:30px;border-radius:9px;background:rgba(0,180,216,0.1);display:flex;align-items:center;justify-content:center}
 .te-list-item .ic svg{width:16px;height:16px}
 .te-list-item .nm{flex:1;font-size:13px;color:#fff}
-.te-list-item .dur{font-size:12px;color:var(--txt-sec);font-variant-numeric:tabular-nums}
+.te-list-item .dur{font-size:12px;color:var(--n-400);font-variant-numeric:tabular-nums}
 .te-list-item .edit{font-size:11px;color:var(--primary)}
 .te-preview{display:flex;align-items:center;gap:14px;padding:12px;border-radius:16px;background:var(--surface);border:1px solid rgba(0,180,216,0.25);margin-bottom:18px}
 .te-preview-ic{width:38px;height:38px;border-radius:11px;background:rgba(0,180,216,0.12);display:flex;align-items:center;justify-content:center;color:var(--primary)}
 .te-preview-ic svg{width:20px;height:20px}
 .te-preview-info{flex:1;min-width:0}
 .te-preview-info .nm{font-size:14px;font-weight:600;color:#fff}
-.te-preview-info .sub{font-size:11px;color:var(--txt-sec);margin-top:2px}
+.te-preview-info .sub{font-size:11px;color:var(--n-400);margin-top:2px}
 .te-preview-dur{font-size:14px;color:var(--primary);font-variant-numeric:tabular-nums}
-.te-field{display:flex;flex-direction:column;gap:7px;margin-bottom:15px;font-size:12px;color:var(--txt-sec)}
+.te-field{display:flex;flex-direction:column;gap:7px;margin-bottom:15px;font-size:12px;color:var(--n-400)}
 .te-field>span{letter-spacing:0.04em}
 .te-field select,.te-field input[type=text],.te-field input[type=number]{background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-family:inherit;font-size:15px;padding:11px 12px;width:100%}
 .te-field-row{flex-direction:row;align-items:center;justify-content:space-between}
 .te-dur{display:flex;align-items:center;gap:6px}
 .te-dur input{width:64px;text-align:center}
-.te-dur em{font-style:normal;color:var(--txt-sec);font-size:12px}
+.te-dur em{font-style:normal;color:var(--n-400);font-size:12px}
 .te-swatches{display:flex;gap:10px;flex-wrap:wrap}
 .te-sw{width:34px;height:34px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform 0.15s,border-color 0.15s}
 .te-sw:active{transform:scale(0.9)}
 .te-sw.sel{border-color:#fff;transform:scale(1.08)}
-.te-ic{width:38px;height:38px;border-radius:11px;background:var(--surface);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:var(--txt-sec);cursor:pointer;transition:transform 0.15s,color 0.15s,border-color 0.15s}
+.te-ic{width:38px;height:38px;border-radius:11px;background:var(--surface);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:var(--n-400);cursor:pointer;transition:transform 0.15s,color 0.15s,border-color 0.15s}
 .te-ic svg{width:19px;height:19px}
 .te-ic:active{transform:scale(0.9)}
 .te-ic.sel{color:var(--primary);border-color:var(--primary)}
@@ -1198,7 +1204,7 @@ body{
 }
 .lab-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
 .lab-toast-title{font-size:14px;font-weight:600;color:#fff}
-.lab-toast-sub{font-size:12px;color:var(--txt-sec);margin-top:3px;line-height:1.45}
+.lab-toast-sub{font-size:12px;color:var(--n-400);margin-top:3px;line-height:1.45}
 @media (prefers-reduced-motion: reduce){ .lab-toast{transition:none} }
 .session-detail{
   position:absolute;inset:0;
@@ -1229,7 +1235,7 @@ body{
 .sd-back:active{background:rgba(0,180,216,0.15);transform:scale(0.94)}
 .sd-title-wrap{flex:1;min-width:0}
 .sd-title{font-size:17px;font-weight:600;color:#fff;letter-spacing:-0.01em}
-.sd-subtitle{font-size:11px;color:var(--txt-sec);letter-spacing:0.1em;margin-top:2px}
+.sd-subtitle{font-size:11px;color:var(--n-400);letter-spacing:0.1em;margin-top:2px}
 .sd-result{
   font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;
   padding:5px 10px;border-radius:8px;flex-shrink:0;
@@ -1253,18 +1259,18 @@ body{
 .sd-hero-cell{text-align:center;flex:1}
 .sd-hero-cell .lbl{
   font-size:9px;letter-spacing:0.22em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;margin-bottom:4px;
+  color:var(--n-400);font-weight:600;margin-bottom:4px;
 }
 .sd-hero-cell .val{
   font-size:36px;font-weight:200;letter-spacing:-0.03em;
   font-variant-numeric:tabular-nums;color:#fff;line-height:1;
 }
 .sd-hero-cell .sub{
-  font-size:10px;color:var(--txt-sec);margin-top:4px;
+  font-size:10px;color:var(--n-400);margin-top:4px;
   letter-spacing:0.08em;
 }
 .sd-hero-arrow{
-  font-size:22px;color:var(--txt-dim);
+  font-size:22px;color:var(--n-500);
   padding:0 4px;align-self:flex-end;margin-bottom:8px;
 }
 .sd-hero-delta{
@@ -1274,7 +1280,7 @@ body{
 }
 .sd-hero-delta.up{color:var(--good)}
 .sd-hero-delta.down{color:#ff7e76}
-.sd-hero-delta.flat{color:var(--txt-sec)}
+.sd-hero-delta.flat{color:var(--n-400)}
 
 /* Edge Score trace chart */
 .sd-trace-card{padding:14px}
@@ -1284,7 +1290,7 @@ body{
 }
 .sd-trace-ttl{
   font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;
+  color:var(--n-400);font-weight:600;
 }
 .sd-trace-dur{
   font-size:11px;color:var(--primary);
@@ -1299,9 +1305,9 @@ body{
 .sd-trace .seg-line{stroke:rgba(255,255,255,0.04);stroke-width:1;stroke-dasharray:2 3}
 .sd-trace .tl-edge-line{fill:none;stroke:var(--primary);stroke-width:1.8;filter:drop-shadow(0 0 4px rgba(0,180,216,0.5))}
 .sd-trace .tl-edge-area{fill:url(#sdArea)}
-.sd-trace .axis{font-size:9px;fill:var(--txt-dim);font-family:inherit;letter-spacing:0.05em}
+.sd-trace .axis{font-size:9px;fill:var(--n-500);font-family:inherit;letter-spacing:0.05em}
 .sd-trace .seg-label{
-  font-size:8px;fill:var(--txt-sec);
+  font-size:8px;fill:var(--n-400);
   font-weight:600;letter-spacing:0.16em;text-transform:uppercase;
 }
 .sd-trace .evt{
@@ -1319,7 +1325,7 @@ body{
 .sd-events-card{padding:14px 16px}
 .sd-events-head{
   font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;margin-bottom:10px;
+  color:var(--n-400);font-weight:600;margin-bottom:10px;
 }
 .sd-evt{
   display:flex;align-items:center;gap:10px;
@@ -1329,7 +1335,7 @@ body{
 }
 .sd-evt:last-child{border-bottom:none}
 .sd-evt .time{
-  font-size:11px;color:var(--txt-sec);
+  font-size:11px;color:var(--n-400);
   font-variant-numeric:tabular-nums;
   width:52px;flex-shrink:0;font-weight:500;letter-spacing:0.04em;
 }
@@ -1364,7 +1370,7 @@ body{
   background:rgba(0,180,216,0.1);
 }
 .sd-evt .tl-edge-mark{
-  font-size:11px;color:var(--txt-sec);
+  font-size:11px;color:var(--n-400);
   font-variant-numeric:tabular-nums;letter-spacing:0.04em;
 }
 .sd-evt .tl-edge-mark b{color:#fff;font-weight:600}
@@ -1373,7 +1379,7 @@ body{
 .sd-bio-card{padding:14px}
 .sd-bio-head{
   font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;margin-bottom:12px;
+  color:var(--n-400);font-weight:600;margin-bottom:12px;
 }
 .sd-bio-grid{
   display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;
@@ -1382,13 +1388,14 @@ body{
 .sd-bio-col.end{text-align:right}
 .sd-bio-arrows{
   display:flex;flex-direction:column;gap:18px;
-  color:var(--txt-dim);font-size:14px;text-align:center;
+  /* 空狀態訊息是這一屏唯一的內容 → 要到得了 AA，走 --n-400（6.8:1）而不是 --n-500。 */
+  color:var(--n-400);font-size:14px;text-align:center;
 }
 .sd-bio-item{display:flex;flex-direction:column;gap:2px}
 .sd-bio-col.end .sd-bio-item{align-items:flex-end}
 .sd-bio-lbl{
   font-size:9px;letter-spacing:0.2em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;
+  color:var(--n-400);font-weight:600;
 }
 .sd-bio-val{
   font-size:20px;font-weight:300;color:#fff;
@@ -1396,7 +1403,7 @@ body{
   display:flex;align-items:baseline;gap:3px;line-height:1;
 }
 .sd-bio-col.end .sd-bio-val{flex-direction:row-reverse}
-.sd-bio-val .u{font-size:10px;color:var(--txt-sec);font-weight:400}
+.sd-bio-val .u{font-size:10px;color:var(--n-400);font-weight:400}
 
 /* Reflection section */
 .sd-reflect-card{
@@ -1417,7 +1424,7 @@ body{
 }
 .sd-reflect-clarity .lbl{
   font-size:10px;letter-spacing:0.16em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;
+  color:var(--n-400);font-weight:600;
 }
 .sd-clarity-dots{
   display:flex;gap:5px;margin-left:auto;
@@ -1444,7 +1451,7 @@ body{
   transition:border 0.3s;
 }
 .sd-reflect-input:focus{border-color:rgba(0,180,216,0.4)}
-.sd-reflect-input::placeholder{color:var(--txt-dim);font-style:italic}
+.sd-reflect-input::placeholder{color:var(--n-400);font-style:italic}
 
 /* Learning insight */
 .sd-insight{
@@ -1476,11 +1483,11 @@ body{
 }
 .sd-outcome-ic svg{width:24px;height:24px}
 .sd-outcome-headline{font-size:17px;font-weight:600;color:#fff;letter-spacing:-0.01em}
-.sd-outcome-sub{font-size:12px;color:var(--txt-sec);margin-top:3px}
+.sd-outcome-sub{font-size:12px;color:var(--n-400);margin-top:3px}
 
 .sd-seg-card{padding:16px}
 .sd-seg-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
-.sd-seg-ttl{font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
+.sd-seg-ttl{font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--n-400);font-weight:600}
 .sd-seg-dur{font-size:13px;color:#fff;font-variant-numeric:tabular-nums}
 .sd-seg-track{display:flex;gap:4px;height:38px;position:relative}
 /* ═══ Turning Point 節點 —— founder 畫的 ——●——●—— 就是這一條 ═══
@@ -1494,7 +1501,7 @@ body{
   position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
   transform:translate(-50%,-50%);z-index:2;
   border:1.5px solid rgba(0,0,0,0.55);
-  background:var(--txt-sec);
+  background:var(--n-400);
 }
 .sd-tp-node.band-clear{background:#00B4D8;box-shadow:0 0 7px rgba(0,180,216,0.75)}
 .sd-tp-node.band-neutral{background:#64748B;box-shadow:0 0 7px rgba(100,116,139,0.75)}
@@ -1505,9 +1512,9 @@ body{
 .sd-evt .dot.band-neutral{background:#64748B;box-shadow:0 0 7px rgba(100,116,139,0.6)}
 .sd-evt .dot.band-strain{background:#C2703D;box-shadow:0 0 7px rgba(194,112,61,0.6)}
 .sd-evt .dot.no-reading{background:transparent;border:1.5px dashed rgba(255,255,255,0.5);box-shadow:none}
-.sd-evt .state{font-size:11px;color:var(--txt-sec);letter-spacing:0.02em;flex-shrink:0}
-.sd-evt .state.none{color:var(--txt-dim)}
-.sd-tp-empty{font-size:12px;color:var(--txt-sec);line-height:1.6;padding:2px 0}
+.sd-evt .state{font-size:11px;color:var(--n-400);letter-spacing:0.02em;flex-shrink:0}
+.sd-evt .state.none{color:var(--n-500)}
+.sd-tp-empty{font-size:12px;color:var(--n-400);line-height:1.6;padding:2px 0}
 /* 🔴 .sd-body 是 flex column + overflow-y:auto，子卡片預設 flex-shrink:1 ——
    內容一長就被壓扁，再被 .card{overflow:hidden} 裁掉（實測：4 個節點的第 4 列
    直接消失在卡片邊緣）。這個 repo 已經為短視窗踩過同一個坑，修法一樣
@@ -1520,7 +1527,7 @@ body{
 .sd-seg.part{
   border-radius:8px;display:flex;align-items:center;justify-content:center;
   background:rgba(255,255,255,0.05);
-  font-size:10px;letter-spacing:0.06em;color:var(--txt-sec);
+  font-size:10px;letter-spacing:0.06em;color:var(--n-400);
   transition:background 0.3s,color 0.3s;
 }
 .sd-seg.part.obs{flex:33}
@@ -1533,7 +1540,7 @@ body{
 }
 .sd-seg-times{
   display:flex;justify-content:space-between;margin-top:6px;
-  font-size:9px;color:var(--txt-dim);font-variant-numeric:tabular-nums;
+  font-size:9px;color:var(--n-500);font-variant-numeric:tabular-nums;
 }
 
 /* 欄數跟著「實際看得見的格子數」走，不寫死 3 ——「離開」那格只有在紀錄真的有
@@ -1541,7 +1548,7 @@ body{
    [hidden] 是 display:none，不會佔掉一條 grid track。 */
 .sd-facts{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;padding:14px}
 .sd-fact{text-align:center}
-.sd-fact .k{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:5px}
+.sd-fact .k{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--n-400);font-weight:600;margin-bottom:5px}
 .sd-fact .v{font-size:16px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums}
 
 /* ═══════════════════════════════════════════════════
@@ -1669,7 +1676,7 @@ body{
 .tp-tick{
   position:absolute;top:50%;width:5px;height:5px;border-radius:50%;
   transform:translate(-50%,-50%);z-index:2;
-  background:var(--txt-sec);
+  background:var(--n-400);
 }
 /* 5px 的節點掛 5px 的光暈 = 實心點變成一團霧，位置反而讀不準。 */
 .tp-tick.band-clear{background:#00B4D8}
@@ -1702,7 +1709,7 @@ body{
 /* 關鍵價位獨佔一整行（flex-basis:100% + wrap），按鈕仍在下面平分。 */
 .wj-anchor{
   flex:0 0 100%;text-align:center;
-  font-size:11px;letter-spacing:0.06em;color:var(--txt-sec);
+  font-size:11px;letter-spacing:0.06em;color:var(--n-400);
   font-variant-numeric:tabular-nums;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;
 }
@@ -2026,7 +2033,7 @@ body{
 }
 .baseline-flow .bf-title-display{font-size:11px;letter-spacing:0.32em;text-transform:uppercase;color:var(--primary);text-align:center;margin-bottom:10px;font-weight:600}
 .baseline-flow .bf-title-hero{font-size:26px;font-weight:300;letter-spacing:-0.01em;text-align:center;color:#fff;margin-bottom:12px;line-height:1.2}
-.baseline-flow .bf-title-sub{font-size:13px;color:var(--txt-sec);text-align:center;line-height:1.6;max-width:300px;margin:0 auto 30px}
+.baseline-flow .bf-title-sub{font-size:13px;color:var(--n-400);text-align:center;line-height:1.6;max-width:300px;margin:0 auto 30px}
 
 .baseline-flow .bf-bullets{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
 .baseline-flow .bf-bullet{
@@ -2056,14 +2063,14 @@ body{
   box-shadow:0 10px 30px rgba(var(--amber-400-rgb),0.3), inset 0 1px 0 rgba(255,255,255,0.3);
 }
 .baseline-flow .bf-btn-primary:active{transform:translateY(1px)}
-.baseline-flow .bf-btn-ghost{background:transparent;color:var(--txt-sec);margin-top:8px;padding:10px}
+.baseline-flow .bf-btn-ghost{background:transparent;color:var(--n-400);margin-top:8px;padding:10px}
 .baseline-flow .bf-btn:disabled{opacity:0.4;pointer-events:none}
 
 /* ─── SENSOR_CHOICE ─── */
 .baseline-flow #bf-sensor{padding:84px 20px 32px}
 .baseline-flow .bf-head{text-align:center;margin-bottom:24px}
 .baseline-flow .bf-head h1{font-size:22px;font-weight:300;letter-spacing:-0.01em;margin-bottom:6px}
-.baseline-flow .bf-head .sub{font-size:12px;color:var(--txt-sec);line-height:1.5;max-width:280px;margin:0 auto}
+.baseline-flow .bf-head .sub{font-size:12px;color:var(--n-400);line-height:1.5;max-width:280px;margin:0 auto}
 
 .baseline-flow .bf-sensor-opt{
   padding:14px;margin-bottom:10px;
@@ -2077,13 +2084,13 @@ body{
 .baseline-flow .bf-sensor-opt .info{flex:1;min-width:0}
 .baseline-flow .bf-sensor-opt .nm{font-size:14px;font-weight:600;color:#fff;margin-bottom:2px;display:flex;align-items:center;gap:8px}
 .baseline-flow .bf-sensor-opt .tag{font-size:8px;letter-spacing:0.2em;padding:2px 6px;background:rgba(0,180,216,0.15);color:var(--primary);border-radius:5px;text-transform:uppercase;font-weight:700}
-.baseline-flow .bf-sensor-opt .desc{font-size:11px;color:var(--txt-sec);line-height:1.4}
-.baseline-flow .bf-sensor-opt .arr{color:var(--txt-dim);font-size:16px;flex-shrink:0}
+.baseline-flow .bf-sensor-opt .desc{font-size:11px;color:var(--n-400);line-height:1.4}
+.baseline-flow .bf-sensor-opt .arr{color:var(--n-500);font-size:16px;flex-shrink:0}
 .baseline-flow .bf-sensor-opt.recommended{border-color:rgba(0,180,216,0.25);background:linear-gradient(180deg, rgba(0,180,216,0.06), rgba(0,180,216,0.02))}
 .baseline-flow .bf-sensor-opt.recommended .ic{background:radial-gradient(circle, rgba(0,180,216,0.3) 0%, rgba(0,180,216,0.1) 100%);color:var(--primary);box-shadow:0 0 20px rgba(0,180,216,0.2)}
 .baseline-flow .bf-sensor-opt.standard .ic{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.7)}
 .baseline-flow .bf-sensor-opt.disabled{opacity:0.4;pointer-events:none}
-.baseline-flow .bf-sensor-opt.disabled .ic{background:rgba(142,142,147,0.08);color:var(--txt-sec)}
+.baseline-flow .bf-sensor-opt.disabled .ic{background:rgba(142,142,147,0.08);color:var(--n-400)}
 .baseline-flow .bf-sensor-opt:active{transform:scale(0.98)}
 .baseline-flow .bf-sensor-opt .ic svg{width:22px;height:22px}
 
@@ -2127,7 +2134,7 @@ body{
 @keyframes bfBlink{0%,100%{opacity:1}50%{opacity:0.3}}
 
 .baseline-flow .bf-checks{padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
-.baseline-flow .bf-chk{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--txt-sec);transition:color 0.4s}
+.baseline-flow .bf-chk{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--n-400);transition:color 0.4s}
 .baseline-flow .bf-chk.done{color:#fff}
 .baseline-flow .bf-chk.active{color:var(--primary)}
 .baseline-flow .bf-chk .ic{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;transition:all 0.4s var(--ease-calm)}
@@ -2137,14 +2144,14 @@ body{
 
 .baseline-flow .bf-meters{padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 .baseline-flow .bf-meter{display:flex;align-items:center;gap:12px}
-.baseline-flow .bf-meter .lbl{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--txt-sec);width:58px;flex-shrink:0;font-weight:600}
+.baseline-flow .bf-meter .lbl{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-400);width:58px;flex-shrink:0;font-weight:600}
 .baseline-flow .bf-meter .bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.05);overflow:hidden}
 .baseline-flow .bf-meter .fill{height:100%;border-radius:2px;background:linear-gradient(90deg, var(--warn), var(--good));transition:width 1.2s var(--ease-calm)}
 .baseline-flow .bf-meter .val{font-size:11px;color:#fff;font-variant-numeric:tabular-nums;width:32px;text-align:right;font-weight:600}
 
-.baseline-flow .bf-hint{text-align:center;font-size:11px;color:var(--txt-sec);line-height:1.5;margin:4px 0 12px;padding:0 12px;transition:color 0.5s}
+.baseline-flow .bf-hint{text-align:center;font-size:11px;color:var(--n-400);line-height:1.5;margin:4px 0 12px;padding:0 12px;transition:color 0.5s}
 .baseline-flow #bf-ready .bf-hint{color:var(--good)}
-.baseline-flow .bf-auto-cd{display:flex;align-items:center;justify-content:center;gap:8px;font-size:10px;color:var(--txt-sec);margin-top:8px;letter-spacing:0.1em}
+.baseline-flow .bf-auto-cd{display:flex;align-items:center;justify-content:center;gap:8px;font-size:10px;color:var(--n-400);margin-top:8px;letter-spacing:0.1em}
 .baseline-flow .bf-auto-cd .num{color:var(--good);font-weight:700;font-variant-numeric:tabular-nums}
 
 /* ─── SCANNING ─── */
@@ -2188,7 +2195,7 @@ body{
 
 .baseline-flow .bf-scan-msg{margin-top:28px;text-align:center;z-index:4}
 .baseline-flow .bf-scan-msg .headline{font-size:18px;font-weight:300;color:#fff;margin-bottom:6px;letter-spacing:-0.01em}
-.baseline-flow .bf-scan-msg .sub{font-size:12px;color:var(--txt-sec);letter-spacing:0.05em;line-height:1.5}
+.baseline-flow .bf-scan-msg .sub{font-size:12px;color:var(--n-400);letter-spacing:0.05em;line-height:1.5}
 
 .baseline-flow .bf-ppg{position:absolute;bottom:120px;left:24px;right:24px;height:36px;border-radius:8px;overflow:hidden;z-index:4}
 .baseline-flow .bf-ppg svg{width:100%;height:100%}
@@ -2204,9 +2211,9 @@ body{
   border:1px solid rgba(255,255,255,0.06);
   backdrop-filter:blur(20px);text-align:center;
 }
-.baseline-flow .bf-stat .lbl{font-size:8px;letter-spacing:0.18em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:3px;font-weight:600}
+.baseline-flow .bf-stat .lbl{font-size:8px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-400);margin-bottom:3px;font-weight:600}
 .baseline-flow .bf-stat .val{font-size:16px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
-.baseline-flow .bf-stat .u{font-size:8px;color:var(--txt-sec);margin-left:2px}
+.baseline-flow .bf-stat .u{font-size:8px;color:var(--n-400);margin-left:2px}
 
 .baseline-flow .bf-early{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -2250,9 +2257,9 @@ body{
 .baseline-flow .bf-analyze-item .ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;background:rgba(255,255,255,0.04);transition:all 0.4s}
 .baseline-flow .bf-analyze-item .info{flex:1;min-width:0}
 .baseline-flow .bf-analyze-item .nm{font-size:13px;color:#fff;margin-bottom:2px;font-weight:500}
-.baseline-flow .bf-analyze-item .st{font-size:10px;color:var(--txt-sec)}
+.baseline-flow .bf-analyze-item .st{font-size:10px;color:var(--n-400)}
 .baseline-flow .bf-analyze-item .val{font-size:16px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;opacity:0;transform:translateX(8px);transition:all 0.5s var(--ease-calm)}
-.baseline-flow .bf-analyze-item .val .u{font-size:9px;color:var(--txt-sec);margin-left:2px}
+.baseline-flow .bf-analyze-item .val .u{font-size:9px;color:var(--n-400);margin-left:2px}
 .baseline-flow .bf-analyze-item.processing .ic{background:rgba(0,180,216,0.15);animation:bfSpin 1.2s linear infinite}
 .baseline-flow .bf-analyze-item.done .ic{background:rgba(52,199,89,0.2);color:var(--good)}
 .baseline-flow .bf-analyze-item.done .st{color:var(--good)}
@@ -2273,15 +2280,15 @@ body{
   50%{transform:scale(1.04)}
 }
 .baseline-flow .bf-done-title{font-size:26px;font-weight:300;color:#fff;text-align:center;margin-bottom:6px;letter-spacing:-0.01em}
-.baseline-flow .bf-done-sub{font-size:12px;color:var(--txt-sec);text-align:center;margin-bottom:28px;line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto}
+.baseline-flow .bf-done-sub{font-size:12px;color:var(--n-400);text-align:center;margin-bottom:28px;line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto}
 .baseline-flow .bf-done-sub b{color:#fff}
 
 .baseline-flow .bf-summary{padding:16px 18px;margin-bottom:18px}
-.baseline-flow .bf-summary-head{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:12px;text-align:center;font-weight:600}
+.baseline-flow .bf-summary-head{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--n-400);margin-bottom:12px;text-align:center;font-weight:600}
 .baseline-flow .bf-summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .baseline-flow .bf-summary-cell{text-align:center}
-.baseline-flow .bf-summary-cell .u{font-size:9px;color:var(--txt-sec);margin-left:2px;letter-spacing:0.1em}
-.baseline-flow .bf-summary-cell .lbl{font-size:8px;letter-spacing:0.2em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:5px;font-weight:600}
+.baseline-flow .bf-summary-cell .u{font-size:9px;color:var(--n-400);margin-left:2px;letter-spacing:0.1em}
+.baseline-flow .bf-summary-cell .lbl{font-size:8px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-400);margin-bottom:5px;font-weight:600}
 .baseline-flow .bf-summary-cell .val{font-size:20px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
 
 .baseline-flow .bf-accuracy{text-align:center;font-size:11px;color:var(--primary);margin-bottom:22px;letter-spacing:0.05em}
@@ -2843,7 +2850,7 @@ body{
             <div class="nm">升級到 Pro</div>
             <div class="sub">解鎖完整 FDCB · 無限掃描 · 藍牙整合</div>
           </div>
-          <div style="color:var(--txt-sec);font-size:18px">›</div>
+          <div style="color:var(--n-400);font-size:18px">›</div>
         </div>
       </div>
     </div>
@@ -5539,7 +5546,7 @@ function renderSessionScreen(){
 // ═════════════════════════════════════════════════
 const outcomeDotV6 = (tag) => {
   const v = window.TENKI_OUTCOME.outcomeView(tag);
-  return v ? { cls: v.dot, fill: v.fill } : { cls: 'exit', fill: 'var(--txt-sec)' };
+  return v ? { cls: v.dot, fill: v.fill } : { cls: 'exit', fill: 'var(--n-400)' };
 };
 
 function renderTimeline(){
