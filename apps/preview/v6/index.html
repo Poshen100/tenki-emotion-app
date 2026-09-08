@@ -1588,11 +1588,19 @@ body{
   cursor:pointer;transition:background 0.3s;
 }
 .fdcb-tmpl:active{background:rgba(255,255,255,0.04)}
+/* 🔴 兩件事一起修（§3.6 裁決摘要第 2 項）：
+   ① `filter:drop-shadow(0 0 6px rgba(0,180,216,0.4))` —— 一個**寫死的青色光暈**，
+      圖示是綠的紫的都照樣發青光。「儀器世界關燈」那一輪沒關掉它，因為我當時的
+      發光計數只數 box-shadow/text-shadow/radial-gradient/blur，**沒數 drop-shadow**。
+   ② 顏色。舊的走 `var(--primary)`，但那被 markup 上的 inline
+      `style="color:#34C759"` 永遠蓋掉 —— 於是**每個模板的圖示都是 --success 綠**，
+      決策一跑起來底座就有一顆「跟著流程完成」的綠環全程亮著。
+      而 `var(--primary)` 自己也不能用：Mancini FBD 的紫在底座上只有 1.94:1。
+   → 中性。模板身分由**圖示的形狀**與左欄的名字講，不靠顏色。--n-300 對底座 9.7:1。 */
 .fdcb-tmpl .ic{
   width:20px;height:20px;
   display:flex;align-items:center;justify-content:center;
-  color:var(--primary);
-  filter:drop-shadow(0 0 6px rgba(0,180,216,0.4));
+  color:var(--n-300);
 }
 .fdcb-tmpl .ic svg{width:18px;height:18px}
 .fdcb-tmpl-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -2936,7 +2944,9 @@ body{
   <!-- ═══════ FDCB (floating above tab bar) ═══════ -->
   <div class="fdcb state-idle" id="fdcb">
     <div class="fdcb-tmpl" onclick="openSheet()">
-      <div class="ic" id="fdcbIcon" style="color:#34C759">
+      <!-- ⚠️ 這裡曾經有 style="color:#34C759" —— inline style 把上面那條 CSS
+           變成**永遠被蓋掉的死規則**。顏色現在由 CSS 講，markup 不再插手。 -->
+      <div class="ic" id="fdcbIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg>
       </div>
       <div class="fdcb-tmpl-txt">
