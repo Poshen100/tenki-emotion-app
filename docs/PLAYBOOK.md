@@ -311,6 +311,59 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
   多狀態頁面用 `page.evaluate` 切態各截一張（如 zone 三態）。**仍必須實機的**：動效手感、CDN 資源頁
   （GSAP/Three/字型被沙箱擋，只能看 fallback）、iOS Safari 特有行為（100vh/dvh、mix-blend OOM、震動）、
   相機/手勢流程。
+- 🔴 **盤點類的數字，要當場說出「這個量法看不到什麼」；沒有邊界的計數不得當證據用。**
+  2026-09-06 一次踩到三種形狀，全部是「我用一個看不見 X 的量法，然後宣告我掃過了」：
+  ① 掃寫死顏色只掃 hex → **`rgba()` 的 372 處整批看不到**（hex 只是四分之一）；
+  ② 同一次沒剝註解 → 中文註解裡的 PR 編號 `#231`/`#148` 被算成顏色
+  （⚠️ 這條 §3 上面 2026-08-09 就寫過了，我沒照做）；
+  ③ 「發光計數」只數 `box-shadow`/`text-shadow`/`radial-gradient`/`blur(` →
+  **`filter: drop-shadow()` 的 19 處看不到**，其中一個就掛在剛「關過燈」的底座上。
+  判準：報一個計數之前，先列出那個東西**能有幾種寫法**，逐一確認量法涵蓋得到；
+  涵蓋不到的就寫在數字旁邊。**同一家族還有既有那條「容器是圓的時候，拿方框當斷言＝
+  那條斷言不存在」** —— 差別只在受害者是斷言還是盤點。
+- 🔴 **斷言要守 bug 的「家族」，不要守它這一次的「實例」。**
+  2026-09-07 實例：「時鐘不准是紫的」只擋得住那一個元素；改寫成
+  **「換一個模板 → 整屏顏色逐項不變（白名單除外）」**之後，同一條斷言
+  **當場又抓到四個我漏掉的元素**（sparkline、來源切換鈕、輪播圓點…）。
+  判準：問「這個 bug 的**形狀**是什麼」而不是「這次壞的是誰」——
+  形狀通常是「某個會變的東西被綁到不該變的地方」，那就去斷言「它不該變」。
+  ⚠️ 配套：**白名單要逐一列舉 id 並自己也有斷言**（那個例外必須真的還成立），
+  否則白名單會慢慢變成一張放行整族的空頭支票。
+- 🔴 **一個顏色可以完全可讀、完全穩定，而且在說謊 —— 那需要第三種斷言。**
+  同一天實例：信心膠囊 `#E8B45A` 與 `--gold-secured` ΔE 12.2（gold ＝ SECURED），
+  但它講的是「精度**還不夠**」。對比斷言過（10.67:1）、換模板斷言過（不吃 `--primary`），
+  **只有「沒在講 SECURED 的東西不准長得像 gold」這條抓得到**。
+  CLAUDE.md 的「顏色也會宣稱事實」要有機器版本，就是這個形狀：
+  **語義色 + ΔE 門檻 + 逐一列舉的允許名單**。
+- ⚠️ **量一個有 `transition` 的屬性，`getComputedStyle` 會給你過渡中的當下值。**
+  同一天踩到：加完 class 立刻讀 `.tl-edge-conf`（`transition:all 0.6s`）的 color，
+  拿回過渡**起點**的值，看起來像「我的 CSS 沒生效」，其實是我讀太早。
+  改動 class 之後要等過渡跑完再讀（或讀 `getComputedStyle` 之前先關掉 transition）。
+- 🔴 **反面斷言（「這東西真的在」）最容易變成死斷言 —— 它必須跟正面斷言掃同一個範圍。**
+  2026-09-08 實例：「這一面真的鋪了可動層嗎」把浮在每個分頁上的**底座**算了進去，
+  於是它永遠 ≥3。**反向驗證當場證明它是死的**：把整個 Lab 的琥珀拿掉，
+  數字從 10 掉到 3，斷言照樣綠。判準：反面斷言的**分母**要排除「無論如何都存在」
+  的共用 chrome，否則它保證的是「chrome 還在」而不是「我做的事在」。
+- ⚠️ **`.screen` 用 `opacity:0` 藏，不是 `display:none`。** 掃畫面時只問 display，
+  五個分頁的元素會每次都被算進來 —— **徵兆是「每個分頁的數字一模一樣」**。
+  要問 `el.closest('.screen').classList.contains('active')`。
+- ⚠️ **漸層住在 `backgroundImage`，不在 `backgroundColor`。**
+  2026-09-08 同一個漏洞出現**三次**（發光計數、動作盤點、可動層計數），
+  每次都把全 app 最大的那顆漸層按鈕判成「沒有顏色」。
+  順帶：解析時只抓 `rgba?()` 群組，直接抓所有數字會把
+  `radial-gradient(circle at 30% 30%, …)` 的百分比當成色值。
+- 🔴 **守門把規則套錯時，把判準改寫成「雙向等價」而不是放寬它。**
+  同一天實例：「每一面都要有可動層」在 Timeline 上紅了 —— 而 Timeline 實測
+  **0 個可點元素**，是純閱讀面。正解不是把 Timeline 加進白名單，而是改寫成
+  **「有動作的面才要有」**（`clicks > 0 === amber > 0`）——
+  這樣它會自己修正：哪天那一面長出按鈕而沒鋪，它照樣會紅。
+- 🔴 **「改前 vs 改後」的對照圖，必須用同一支留了檔的腳本產。**
+  2026-09-06 實例：上一輪那四張底座圖是用一段沒存檔的臨時腳本產的，
+  要補改後圖時**根本沒有共同的渲染路徑可言**，兩組圖不可比。
+  做法：腳本吃 `--root <repoRoot> --out <前綴>`，舊版用
+  `git archive <sha>^ <子樹> | tar -x -C <暫存目錄>` 材料化，同一支腳本跑兩次。
+  ⚠️ 順帶：`window.sess` 是 undefined 但 `sess` 有值（那是 script scope 的全域，
+  不掛在 window 上）—— 照抄既有 harness 的寫法，不要自己加 `window.` 前綴。
 
 ## 4. Git 與多 AI 協作陷阱
 
@@ -321,6 +374,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | merge PR 之前（尤其多 session 並行時） | 先 `pull_request_read(get)` 核實 **PR head sha == 你剛推的 tip**。2026-07-08 實例：#165 merge 時 head 停在三刀中的第一刀，後兩個 fix 靜默遺失，靠本地 cherry-pick 救回。merge 後也要 `git log origin/main --oneline -3` 確認你的 commit 真的在裡面 |
 | stop-hook 警告 main 頂端 commit「Unverified（noreply@github.com）」並建議 amend | **誤報，絕不可照做**——那是 GitHub 自己產生的 merge/squash commit，amend＝改寫 main 歷史。只有「未推的本地 commit」才適用 reset-author 修簽名 |
 | clone 異常肥大 / 大型 merge 之後 | `.gitignore` **擋不住已被 add 的檔案**。抽查 `git ls-files \| grep -c node_modules`——#154 曾把 38,641 個 `apps/mobile/node_modules` 檔案（Skia 44MB .a 等）commit 進 main，clone 肥到 350MB 才被發現。修法 `git rm -r --cached <dir>`（磁碟保留）；歷史 blob 清洗（filter-repo）屬 🔴 需 founder 拍板＋全 session 重 clone |
+| 反向驗證後要把**還沒 commit 的新檔案**還原 | 🔴 **`git checkout --` 對未追蹤的檔案是靜默 no-op —— 破壞會留在檔案裡。** 2026-09-06 實例：新寫的 `preview-token-scale.mjs` 還沒 commit，反向驗證時 sed 進兩處 sabotage，收尾用 `git checkout -- <file> 2>/dev/null || true` 還原 —— git 回「did not match any file(s)」，`|| true` 把它吞掉，**兩處 sabotage 原封不動留著**，`git status` 只顯示 `?? file` 看不出異常。⚠️ 這比既有那條「`git checkout --` 洗掉未 commit 的修正」**更危險**：那次是東西不見了（會發現），這次是破壞留下來了（不會發現，而且差點 commit 進去）。**規則不變、範圍擴大**：反向驗證前一律 `cp` 一份到 scratchpad，還原一律 `cp` 回來 —— 追蹤與否都一樣，不要對工作中的檔案用任何 git 還原指令。收尾一定要**逐項 grep 確認 sabotage 真的沒了**，不要相信還原指令的沉默。 |
 | 收到 Antigravity 的 patch relay（貼 diff） | 先 `git log --stat` 驗 base 乾淨；**不要盲 `git apply`**，用 Edit 對真實檔案逐段重建（順帶就是 review）；大檔改貼 `git show HEAD:<file>` 全文更可靠 |
 | 兩條分支都會往**同一個位置**插東西的檔案（MEMORY.md 這種日誌、CHANGELOG、共用清單） | 🔴 **不要用單調遞增的流水號當識別。** 判準：識別欄位要能在兩條分支**各自往前走之後**仍然唯一 —— 日期、內容雜湊、分支名可以，`#NN` 不行。2026-09-05 實例：MEMORY.md 的 `#68` `#69` `#70` `#71` `#72` **五組各有兩條完全無關的紀錄**，跨三次併分支累積，而且我查的當天又多出一組。後果是協議承諾的兩種讀法**同時失效** ——`grep "#71"` 回兩條無關紀錄，而「最上面 1~2 條」也不再是日期最新的（解衝突時兩邊條目各自成塊，塊內有序、塊間不一定）。⚠️ **發現時不要重編號**：那要動幾百行別人寫的紀錄，風險遠大於收益 ——壞的不是那些條目，是**規則宣稱了一件它守不住的事**，所以修的是規則（founder 2026-09-05 拍板）。⚠️ 這個形狀不限於 MEMORY.md：任何「兩邊都往同一處插入」的檔案都會長出它，而且**每次併分支只多一組、沒有人會為了一組去動它**，所以它專門靠「留給下一輪」活下來。 |
 | 背景 agent 宣稱完成 | 不可信，用 `git log` 驗實際 commits（agent 可能中途被用量上限砍掉） |
