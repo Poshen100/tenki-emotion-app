@@ -69,6 +69,7 @@ tenki-emotion-app/
 | 模組 | 位置 | 職責 |
 |------|------|------|
 | Edge Score | `packages/engine/src/scoring/` | 8 維度加權正規化 → 0-100 |
+| Decision Intelligence | `packages/engine/src/intelligence/` | 個人決策雷達：drift / twin / calibration proof / black box + evidence 契約（規格 `docs/DECISION-INTELLIGENCE.md`） |
 | Session Governance | `packages/engine/src/session/` | modes + templates + timer + gate + violations |
 | Baseline | `packages/engine/src/baseline/` | signal-quality-gate + bootstrap (Welford) |
 | Compliance | `packages/engine/src/compliance/` | user-facing copy 審查 |
