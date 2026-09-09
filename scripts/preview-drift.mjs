@@ -240,6 +240,8 @@ await page.getByRole('button', { name: '沒有明顯改變' }).click();
 await page.locator('#calibrate-btn').click();
 await page.locator('#calib-card').waitFor({ state: 'visible', timeout: 15000 });
 check('判定是 no clear shift', await text('#calib-headline'), 'No clear shift yet');
+// 前後讀數是一對，不准被拆成「大的 82 + 小的 → 83」。
+check('前後讀數維持同一級', await text('#calib-figure'), '82 → 83');
 checkTruthy('文案講「不是失敗」', (await text('#calib-body')).includes('not a failure'), await text('#calib-body'));
 checkTruthy(
   '沒有被改寫成鼓勵',

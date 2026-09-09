@@ -237,8 +237,12 @@
     el.innerHTML = '';
     if (!text) return;
     var gap = text.indexOf(' ');
-    var value = gap === -1 ? text : text.slice(0, gap);
-    var unit = gap === -1 ? '' : text.slice(gap + 1);
+    var rest = gap === -1 ? '' : text.slice(gap + 1);
+    // 只有在後半是**文字標籤**時才降級。「82 → 83」的後半是另一個讀數，
+    // 拆開會變成「大大的 82、小小的 → 83」—— 那組數字是一對，不是值加單位。
+    var splitIt = gap !== -1 && /^[A-Za-z]/.test(rest);
+    var value = splitIt ? text.slice(0, gap) : text;
+    var unit = splitIt ? rest : '';
     var valueEl = document.createElement('span');
     valueEl.className = 'figure-value';
     valueEl.textContent = value;
