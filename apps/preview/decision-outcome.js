@@ -115,6 +115,20 @@
    * ⚠️ **兩邊的 id 都不改** —— engine 那組是持久化契約，v6 那組是它自己的表；
    * 動任何一邊都會弄壞既有紀錄。這裡只做翻譯。
    */
+  /**
+   * v6 key → 顯示名。**與 `v6/index.html` 的 `TEMPLATES[*].name` 同字**。
+   * 自訂模板（使用者自己建的，id 是亂數）不在這裡 —— 那是刻意的：
+   * 收束頁只會為快訊決策開啟，而快訊一律走這三個交易者模板。
+   */
+  var TEMPLATE_NAME = {
+    CANSLIM_GS: 'Canslim GS',
+    CANSLIM_HIGH_RS: 'Canslim High RS',
+    MANCINI_FBD: 'Mancini FBD',
+    WORK_FOCUS: 'Work Focus',
+    HEALTH_STRESS: 'Health Stress',
+    EXERCISE: 'Exercise',
+  };
+
   var TEMPLATE_ID_TO_V6 = {
     FBD: 'MANCINI_FBD',
     CANSLIM: 'CANSLIM_GS',
@@ -159,6 +173,33 @@
    */
   function toV6TemplateId(templateId) {
     return TEMPLATE_ID_TO_V6[templateId] || templateId;
+  }
+
+  /**
+   * 模板的**顯示名**。
+   *
+   * 🔴 2026-09-09 founder 實走抓到：`/decision-alert/` 的收束頁把
+   * **內部 id 直接印在畫面上** —— 標題與軌跡表的「標的」列都是
+   * `ES1! · MANCINI_FBD`。同一筆紀錄在 `/v3/` 的 Session 詳情印的卻是
+   * 正確的 `ES1! · Mancini FBD`（那邊查了 `TEMPLATES[...].name`）。
+   * 根因是 `acceptReturnTicket()` 寫 `tplName: rec.templateId` ——
+   * **拿 id 當名字**。
+   *
+   * ⚠️ 這正是送審檢查表 #18 與「MODE_2 不得出現在任何 user-facing 文字」
+   * 擋的那一類，而那條斷言只守模板選單、沒有守收束頁，所以一路綠著。
+   *
+   * 名字放這裡的理由跟 `OUTCOME_VIEW` 一樣：**兩頁看同一筆紀錄，
+   * 就不能各自有一份講法**。來源是 `apps/preview/v6/index.html` 的
+   * `TEMPLATES`（v6 是這些名字的主人），這裡是它的鏡射 —— 加模板要同步。
+   *
+   * 🔴 查不到就回 `null`，**不回原值** —— 回原值就是把 id 印上畫面，
+   * 正是這支函式存在的理由。由呼叫端決定怎麼誠實地留白。
+   *
+   * @param {string} templateId - 可以是 engine 的 id 或 v6 的 key。
+   * @returns {?string} 顯示名，或 null（不認得）。
+   */
+  function templateName(templateId) {
+    return TEMPLATE_NAME[toV6TemplateId(templateId)] || null;
   }
 
   // ═══════════════════════════════════════════════
@@ -238,6 +279,8 @@
     OUTCOME_VIEW: OUTCOME_VIEW,
     outcomeView: outcomeView,
     toV6TemplateId: toV6TemplateId,
+    TEMPLATE_NAME: TEMPLATE_NAME,
+    templateName: templateName,
     STORE_KEY: STORE_KEY,
     JUDGMENT_SCHEMA: JUDGMENT_SCHEMA,
     DISCIPLINED_TAGS: DISCIPLINED_TAGS,

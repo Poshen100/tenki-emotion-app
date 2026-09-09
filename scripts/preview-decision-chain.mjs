@@ -415,6 +415,24 @@ check('🔴 收束頁不得印「同標的更新：0 次」（不知道就別說
 checkTruthy('收束頁的 recap 說得出離開次數（v6 記的欄位接上了）',
   /離開|沒有離開/.test(sheet.recap || ''));
 
+// 🔴 收束頁不得出現任何**內部 id**。
+// 2026-09-09 founder 實走截圖：標題與軌跡表都印著 `ES1! · MANCINI_FBD` ——
+// 而同一筆紀錄在 /v3/ 的 Session 詳情印的是 `ES1! · Mancini FBD`。
+// 根因：回程票那條路 `tplName: rec.templateId`，**拿 id 當名字**。
+//
+// ⚠️ 這一頁本來就有一條「MODE_2 不得出現在任何 user-facing 文字裡」，
+// 但它只掃**模板選單**。同一條紅線在收束頁沒有人守，所以漏了一年。
+// 判準改成**形狀**而不是列舉某幾個 id：內部 key 一律是 `大寫_大寫`，
+// 顯示名一律不是。這樣新增模板不用回來改斷言。
+const sheetText = await page.evaluate(() => {
+  const n = document.getElementById('resultSheet');
+  return n ? n.innerText : '';
+});
+const leakedIds = (sheetText.match(/\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b/g) || []);
+check('🔴 收束頁不得出現內部 template id（大寫_大寫）', leakedIds, []);
+checkTruthy(`收束頁真的有字可掃（${sheetText.length} 字，0 就是死斷言）`, sheetText.length > 40);
+checkTruthy(`收束頁印的是顯示名（${sheet.head}）`, /Mancini FBD/.test(sheet.head || ''));
+
 // Session 頁：逐欄看那一列長什麼樣（PLAYBOOK：不要只看彙總數字）
 await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(

@@ -986,7 +986,13 @@
     openResult(judgment, {
       symbol: rec.symbol || '—',
       templateId: rec.templateId,
-      tplName: rec.templateId,
+      // 🔴 這一行原本是 `tplName: rec.templateId` —— **拿內部 id 當顯示名**，
+      // 於是收束頁的標題與軌跡表印出 `ES1! · MANCINI_FBD`
+      // （founder 2026-09-09 實走截圖）。而同一筆紀錄在 `/v3/` 的 Session
+      // 詳情印的是 `ES1! · Mancini FBD` —— 兩頁對同一筆紀錄有兩種講法。
+      // 名字現在由共用模組給（跟判定、呈現對照同一個來源）。
+      // ⚠️ 認不得就是 `null`，讓下面兩處自己誠實留白，**不得退回 id**。
+      tplName: window.TENKI_OUTCOME.templateName(rec.templateId),
       elapsedSec: rec.durationSec || 0,
       awayCount: typeof rec.awayCount === 'number' ? rec.awayCount : 0,
       awayMs: typeof rec.awayMs === 'number' ? rec.awayMs : 0,
@@ -1249,7 +1255,7 @@
     // 欄位表：標籤 : 值。值欄左緣靠 .rc-label 的固定寬對齊成一條線。
     var rows = [
       // 標的代號整段走等寬 —— 它是代號不是句子（跟模板表的 .tpl-code 同一個理由）。
-      { cls: 'on', label: '標的', segs: [seg(s.symbol + ' · ' + s.tplName, true)] },
+      { cls: 'on', label: '標的', segs: [seg(s.tplName ? s.symbol + ' · ' + s.tplName : s.symbol, true)] },
       // 缺欄位就不准說否定：不知道就整列不出現，不印「0 次」（PLAYBOOK）。
       typeof s.sameSymbolUpdates === 'number'
         ? { cls: s.sameSymbolUpdates > 0 ? 'on' : '', label: '同標的更新',
@@ -1315,7 +1321,9 @@
       ? loadOutcomes()
       : loadOutcomes().concat([state.pendingOutcome]);
 
-    el.resultHead.textContent = s.symbol + ' · ' + s.tplName;
+    // 認不得模板時只印標的 —— 標的本來就是這筆決策最重要的身分，
+    // 而印一個內部 id 比少印一個名字糟得多。
+    el.resultHead.textContent = s.tplName ? s.symbol + ' · ' + s.tplName : s.symbol;
     el.resultOutcome.textContent = disp.text;
     el.resultOutcome.className = 'result-outcome ' + disp.cls;
     // 沒有分母了 —— 沒有「應該等多久」這回事（§7 step 3 沒有時間表）。
