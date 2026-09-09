@@ -687,6 +687,8 @@
 
     var recent = scope.slice(Math.max(0, scope.length - 8));
     el.entryStrip.innerHTML = '';
+    // 同一個理由：一筆畫不出「最近幾次」（見 MOMENTUM_MIN）。
+    el.entryStrip.hidden = recent.length < MOMENTUM_MIN;
     recent.forEach(function (r, i) {
       var seg = document.createElement('div');
       seg.className = 'result-seg' + (i === recent.length - 1 ? ' now' : '');
@@ -1223,12 +1225,27 @@
     return isDisciplined(tag) ? cssVar('--zone-clear') : cssVar('--zone-strain');
   }
 
+  /**
+   * 一條 strip 至少要有這麼多筆才畫得出「趨勢」。
+   *
+   * 🔴 只有 1 筆時 strip 退化成**一條滿版的實心青條**，而它正上方就是紀律近況
+   * 那條滿版青色進度條 —— 兩條長得一樣、講同一件事，第一次決策的使用者看到的
+   * 就是這個（founder 2026-09-09 實走截圖）。實測：1 個 segment、寬 352px、
+   * 實心 `rgb(0,180,216)`。
+   * **一筆資料畫不出「最近幾次」**，那不是稀疏，是根本沒有那個量。
+   */
+  var MOMENTUM_MIN = 2;
+
   // momentum strip：最近 N 次收束（鏡射 domain selectRecentOutcomes），最右＝本次高亮。
   function renderMomentumStrip(records) {
     var strip = el.resultStrip;
     if (!strip) return;
     strip.textContent = '';
     var recent = records.slice(Math.max(0, records.length - MOMENTUM_LIMIT));
+    // 不夠就整條不出現 —— 跟「缺欄位就不准說否定」同一條規矩：
+    // 沒有那個量的時候，留白比畫一條看起來像壞掉的進度條誠實。
+    strip.hidden = recent.length < MOMENTUM_MIN;
+    if (strip.hidden) return;
     recent.forEach(function (r, i) {
       var seg = document.createElement('div');
       seg.className = 'result-seg' + (i === recent.length - 1 ? ' now' : '');

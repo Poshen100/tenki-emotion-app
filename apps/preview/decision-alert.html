@@ -299,6 +299,12 @@
     .result-meter { height: 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
     .result-meter-fill { height: 100%; width: 0; border-radius: 4px; background: linear-gradient(90deg, var(--zone-clear), var(--cyan-active)); transition: width 0.9s var(--ease-calm); }
     .result-strip { display: flex; gap: 4px; margin-top: 10px; align-items: center; }
+    /* 🔴 `[hidden]` 的 `display:none` 來自 UA 樣式表，**同一個元素上的
+       `display:flex` 會蓋掉它**。少了這一行，`strip.hidden = true` 只會讓它
+       變成一個 0 高的 flex 容器 —— 元素還在版面裡，`margin-top:10px` 也還在。
+       實測：hidden 之後 `getBoundingClientRect()` 回 `w:352 h:0`（真的
+       display:none 會四個值全 0）。 */
+    .result-strip[hidden] { display: none; }
     .result-seg { flex: 1; height: 18px; border-radius: 4px; background: var(--border); min-width: 0; transition: opacity 0.3s; }
     .result-seg.now { outline: 2px solid rgba(var(--cyan-active-rgb), 0.6); outline-offset: 1px; height: 22px; }
     /* ── 決策軌跡：欄位表，不是散文 ──
