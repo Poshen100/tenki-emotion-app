@@ -108,6 +108,24 @@
     .progress[hidden] { display: none; }
     .progress > i { display: block; height: 100%; width: 0; background: var(--amber-400); transition: width 0.2s linear; }
 
+    /* ── 真實分布（不是合成）──
+       這張卡與上面的 demo 卡要一眼分得出來：上面全部是合成資料，
+       這一張是這個瀏覽器裡真的累積到的東西。看錯的代價很大。
+       🔴 但**分辨用的是實心邊 + 卡頭的字，不是語義色** —— cyan ＝ ACTIVE/live，
+       拿它來講「這是真資料」是借一個已經有主人的顏色去講別的事
+       （2026-08-10 那條「產生新顏色前先問這個顏色有沒有主人」）。 */
+    #real-card { border-color: var(--n-700); }
+    .dist { margin-top: 12px; display: flex; flex-direction: column; gap: 14px; }
+    .dist-row { display: flex; flex-direction: column; gap: 6px; }
+    .dist-name { font-size: 12px; color: var(--n-300); display: flex; justify-content: space-between; align-items: baseline; }
+    .dist-name b { font-family: var(--mono); font-size: 11px; color: var(--n-450); font-weight: 400; }
+    .dist-nums { font-family: var(--mono); font-size: 11px; color: var(--n-450); }
+    /* span 是這張卡的重點欄位：門檻撐不撐得起來看它，所以只有它上主要字色。 */
+    .dist-nums em { font-style: normal; color: var(--n-100); }
+    .hist { display: flex; align-items: flex-end; gap: 2px; height: 34px; }
+    .hist i { flex: 1; background: var(--n-700); border-radius: 1px 1px 0 0; min-height: 1px; }
+    .hist i.on { background: var(--n-450); }
+
     /* ── Black box chain ── */
     .chain { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
     .chain li { display: grid; grid-template-columns: 52px 1fr; gap: 10px; font-size: 12px; line-height: 1.5; }
@@ -186,6 +204,15 @@
       <div class="evidence-line" id="twin-evidence"></div>
     </section>
 
+    <!-- ── 真實累積（不是合成）── -->
+    <section class="card" id="real-card">
+      <div class="card-kicker">Your own data · 真的，不是合成</div>
+      <h2 class="headline" id="real-headline"></h2>
+      <p class="body" id="real-body"></p>
+      <div class="dist" id="real-dist"></div>
+      <div class="evidence-line" id="real-dropped" hidden></div>
+    </section>
+
     <!-- ── Decision Black Box ── -->
     <section class="card" id="chain-card">
       <div class="card-kicker">Decision black box</div>
@@ -197,6 +224,7 @@
     </section>
   </div>
 
+  <script src="readiness-history.js"></script>
   <script src="drift.js"></script>
   <script src="drift-alert.js"></script>
 </body>
