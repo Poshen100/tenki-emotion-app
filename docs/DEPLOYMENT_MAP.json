@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-08-20",
+  "lastUpdated": "2026-09-09",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -64,6 +64,14 @@
       "url": "https://tenki-emotion-app.vercel.app/decision-alert/",
       "source": "apps/preview/decision-alert.html",
       "purpose": "外部快訊 → 決策入口 demo — 模擬 TradingView 快訊走 delivery policy(zone 閘門/冷卻/聚合) → Decision Entry Panel → 模板建議 → 浮動決策計時條 → 事件鏈 log。規格: docs/TRADINGVIEW-ALERT-SPEC.md",
+      "status": "active-dev",
+      "editable": true
+    },
+    {
+      "route": "/drift/",
+      "url": "https://tenki-emotion-app.vercel.app/drift/",
+      "source": "apps/preview/drift-alert.html",
+      "purpose": "Drift Alert 偏移預警 demo(個人決策雷達 flagship) — 偏移量 → 證據 X 光 → 校準證明(含「沒有明顯改變」) → 決策分身 → 決策黑盒子。判定來自 apps/preview/drift.js(engine intelligence/ 鏡射)。規格: docs/DECISION-INTELLIGENCE.md",
       "status": "active-dev",
       "editable": true
     },
@@ -145,7 +153,9 @@
     "/decision-alert/": "apps/preview/decision-alert.html",
     "/decision-alert/*": "apps/preview/*",
     "/*": "apps/web/$1",
-    "/brand/*": "brand/$1 (repo 根目錄靜態資產)"
+    "/brand/*": "brand/$1 (repo 根目錄靜態資產)",
+    "/drift/": "apps/preview/drift-alert.html",
+    "/drift/*": "apps/preview/*"
   },
   "branches": {
     "main": "production",
