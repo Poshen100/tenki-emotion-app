@@ -553,6 +553,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | Zone 色 / brand 色 canonical | `packages/shared/src/design-tokens.ts` consts + `apps/preview/tokens.css`（web 鏡像） |
 | mobile 主題鏡像 | `apps/mobile/theme/index.ts`（keep-in-sync 註解） |
 | Edge Score 8 因子 | `packages/engine/src/scoring/edge-score.ts` |
+| 決策雷達五大支柱 / 證據契約 | `docs/DECISION-INTELLIGENCE.md`（引擎 `packages/engine/src/intelligence/`） |
 | 臉部基線 FSM（mobile） | `apps/mobile/features/face-baseline/`（SPEC.md 同目錄） |
 | 路由 ↔ 部署對照 | `docs/DEPLOYMENT_MAP.md`（+ `.json`） |
 | orb 截圖回饋迴圈 | `scripts/orb-tuner/`（`node shoot.mjs` → `out/*.png`） |

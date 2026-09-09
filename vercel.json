@@ -4,6 +4,7 @@
     "redirects": [
         { "source": "/preview", "destination": "/preview/", "permanent": false },
         { "source": "/decision-alert", "destination": "/decision-alert/", "permanent": false },
+        { "source": "/drift", "destination": "/drift/", "permanent": false },
         { "source": "/v3", "destination": "/v3/", "permanent": false },
         { "source": "/story", "destination": "/story/", "permanent": false },
         { "source": "/", "destination": "/story/", "permanent": false }
@@ -18,6 +19,8 @@
         { "source": "/preview/(.*)", "destination": "/apps/preview/$1" },
         { "source": "/decision-alert/", "destination": "/apps/preview/decision-alert.html" },
         { "source": "/decision-alert/(.*)", "destination": "/apps/preview/$1" },
+        { "source": "/drift/", "destination": "/apps/preview/drift-alert.html" },
+        { "source": "/drift/(.*)", "destination": "/apps/preview/$1" },
         { "source": "/", "destination": "/apps/web/index.html" },
         { "source": "/(.*)", "destination": "/apps/web/$1" }
     ]

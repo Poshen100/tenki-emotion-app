@@ -31,6 +31,7 @@ tenki-emotion-app.vercel.app
 ├── /preview/soul-enroll.html → apps/preview/          ✨ Soul Scan (direct path, = /preview/)
 ├── /story/                   → apps/preview/story.html ✨ Cinematic scroll-narrative landing page 🔒 Hero locked
 ├── /decision-alert/          → apps/preview/decision-alert.html 🔧 外部快訊 → 決策入口 demo（模擬 TradingView 快訊）
+├── /drift/                   → apps/preview/drift-alert.html 🔧 Drift Alert 偏移預警 demo（個人決策雷達 flagship）
 │     ├── #result             → 判定完的回程收束頁（讀 tenki.alert.return.v1）
 │   （快訊選完模板 → 交棒 → /v3/#decision 起跑計時器 → 判定 → 回到上面那條）
 ```
@@ -50,6 +51,7 @@ tenki-emotion-app.vercel.app
 | `https://tenki-emotion-app.vercel.app/story/` | `apps/preview/story.html` | 高質感滾動式敘事 landing page — Hero 進場（🔒 Hero locked，見 SYSTEM.md §8）、ScrollTrigger 產品故事、Login→Dashboard 轉場、嵌入 `/v3/` 的 Dashboard 預覽,CTA 連回 `/preview/` 與 `/v3/` | ✨ Active dev · 🔒 Hero locked |
 | `https://tenki-emotion-app.vercel.app/decision-alert/` | `apps/preview/decision-alert.html` | 外部快訊 → 決策入口 demo — 模擬 TradingView 快訊走 delivery policy（zone 閘門/冷卻/聚合）→ Decision Entry Panel → 模板建議 → 浮動決策計時條 → 事件鏈 log；「連接真實快訊」模式輪詢 `/api/alerts`。規格：`docs/TRADINGVIEW-ALERT-SPEC.md` | 🔧 Founder demo |
 | `…/v3/#decision` | `apps/preview/v6/index.html` | **從快訊交棒過來的決策計時器入口**（2026-08-20）。讀 `tenki.v6.handoff.v1` 後直接起跑那一筆決策（帶標的、`originAlertId`、關鍵價位），走結構守望而非倒數。規格：`docs/TRADINGVIEW-ALERT-SPEC.md` | 🔧 Founder demo |
+| `https://tenki-emotion-app.vercel.app/drift/` | `apps/preview/drift-alert.html` | **Drift Alert 偏移預警**（2026-09-09，個人決策雷達 flagship）— 把使用者跟他自己比：偏移量 → 證據 X 光（樣本數/天數/provenance/信心理由）→ 校準證明（含「沒有明顯改變」）→ 決策分身 → 決策黑盒子事件鏈。判定全部來自 `apps/preview/drift.js`（engine `intelligence/` 的鏡射，`scripts/preview-drift.mjs` 逐一比對常數）。合成資料，無真實掃描。規格：`docs/DECISION-INTELLIGENCE.md` | 🔧 Founder demo |
 | `…/decision-alert/#result` | `apps/preview/decision-alert.html` | **判定完的回程收束頁**（2026-08-20）。讀 `tenki.alert.return.v1` 找出那筆紀錄並開收束頁；**只顯示不落地**（紀錄是計時器那邊寫的）。規格：同上 | 🔧 Founder demo |
 | `https://tenki-emotion-app.vercel.app/api/channel` | `api/channel.ts`（serverless function） | 頻道配對端點（POST）— 生成專屬 webhook 連結（capability URL，30 天滑動 TTL）。未來 Premium entitlement 驗證掛載點 | ✅ Active（需 Upstash） |
 | `https://tenki-emotion-app.vercel.app/api/alert` | `api/alert.ts`（serverless function） | TradingView webhook 接收端（POST，`?ch=` 頻道驗證，per-channel 暫存 50 筆/24h）。設定：`docs/TRADINGVIEW-SETUP.md` | ✅ Active（需 Upstash） |
@@ -68,6 +70,8 @@ tenki-emotion-app.vercel.app
   "/preview/(.*)":  "apps/preview/$1",
   "/decision-alert/":     "apps/preview/decision-alert.html",
   "/decision-alert/(.*)": "apps/preview/$1",
+  "/drift/":              "apps/preview/drift-alert.html",
+  "/drift/(.*)":          "apps/preview/$1",
   "/":             "apps/web/index.html",
   "/(.*)":         "apps/web/$1"
 }

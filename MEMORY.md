@@ -18,6 +18,68 @@
 
 ---
 
+# 2026-09-09 Session Update (個人決策雷達落地 —— 五大支柱、證據契約、Drift Alert 實走頁)
+
+⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/tenki-decision-intelligence-n7satv`。
+
+## founder 的指令
+
+貼了一整份 Decision Intelligence 定位文（五大超級賣點 + 分階段做法），沒有動詞。
+我用 AskUserQuestion 問了兩題定範圍，founder 選：**文件＋引擎＋preview 實走頁**、
+flagship 是 **Drift Alert 偏移預警**。
+
+## 做了什麼（10 顆 commit）
+
+1. `docs/DECISION-INTELLIGENCE.md` —— canonical 規格（五大支柱、證據契約、八條文案紅線、三期）。
+2. `intelligence/evidence.ts` —— EvidenceBasis / confidence 推導 / InsufficientEvidence。
+3. `intelligence/drift.ts` —— flagship，個人參考值 + 偏移量 + 零變異防呆。
+4. `intelligence/calibration.ts` —— 校準證明，門檻由使用者自己的變異推導。
+5. `intelligence/twin.ts` —— 決策分身，只陳述歷史。
+6. `intelligence/black-box.ts` + `copy.ts` + index 匯出。
+7. `apps/preview/drift-alert.html` + `drift.js`（鏡射）+ `/drift/` 路由 + DEPLOYMENT_MAP 雙檔。
+8. `scripts/preview-drift.mjs` harness（53→54 條）。
+9. `[制度變更]` 接進 verify.sh + CI（**單獨一顆，founder 不收可以 drop**）。
+10. `82 → 83` 被拆成兩級的排版修正。
+
+引擎測試 92 條，`verify.sh` 全綠（含 mobile）。
+
+## 教訓
+
+- 🔴 **「baseline 的方向」有兩套相反語意，而且會靜默壞掉。**
+  `docs/brand.md` §4.2 的 above/below baseline **兩端都不好**，Edge Score 卻是**越高越好** ——
+  同一組字意思相反。§7 明文禁止自行猜 mapping，所以處置是：**使用者宣稱只講距離、不講方向**，
+  方向欄位刻意命名 `higher/at/lower` 避開撞字，只當 Evidence X-Ray 的事實脈絡。
+  harness 對四個情境的主畫面下斷言：不得出現 above/below/higher/lower。
+- 🔴 **合規檢查器擋得住謊言，也擋得住誠實的否認。** founder 文中那句
+  「這不是預測」翻成英文含 `prediction`，而 `PROHIBITED_VOCABULARY` 用 substring
+  比對 `predict` —— 誠實的否認與被禁的宣稱在檢查器眼裡長得一樣。
+  **沒有去放寬檢查器**（那會開一個它本來就要堵的洞），改用 `forecast` 講同一件事，
+  並在檔頭寫明「不要修回去」。⚠️ 這件事與 `check-vocab.sh` 那條「只擋命名，不擋否認」
+  是同一個家族的坑，但那支有 regex 級的豁免、safe-copy 沒有 —— 誰要動 safe-copy 先看這條。
+- 🔴 **零變異會讓正規化爆掉，而爆出來的數字看起來很有說服力。**
+  std ≈ 0 時 `deviation/std` 把 3 分變動報成劇烈偏移。那不是偏移，是樣本沒有代表性。
+  → z 回 `null`、改用絕對距離、evidence 掛 `low_variability_reference` 並壓 confidence。
+- 🔴 **鏡射的守法是「機器逐一比對」，不是註解拜託。** `apps/preview/drift.js` 抄了
+  engine 的 13 組常數與 27 句文案，harness 直接讀兩邊的原始碼比對。
+  ⚠️ 但**字面比對只涵蓋單引號字面** —— 反向驗證時把 no_clear_shift 那句改寫成
+  「Almost there — try again」，字面那條**沒有紅**（那句活在 template literal 裡），
+  是瀏覽器斷言抓到的。兩層都要留，缺口已寫進 harness 註解。
+- 🔴 **自己截圖看，抓到三個斷言抓不到的東西**：30px 等寬整串「+17 away from your baseline」
+  在 390px 折兩行；證據行 11px 把「High」擠到第二行單獨一個字（50 字 × 11px ≈ 330px
+  vs 卡片內寬 326px）；`82 → 83` 被 renderFigure 從第一個空白切開，變成大的 82 加小的
+  「→ 83」——**那兩個數字是一對，不是值加單位**。三個都是看得出來、量不出來的。
+- 🟡 harness 自己先抓到我一個錯：我把「還差幾次」寫成 6（照抄 founder 文中的例子），
+  實際是 5（minSamples 8 − 情境的 3 筆歷史）。**demo 的數字是算出來的，不是寫死的字串**，
+  所以斷言要跟著實際跑出來的走。
+
+## 下次接手點
+
+- **Clear Window / Turning Point 刻意留白**（規格 §6 Phase 2）。它們需要跨日、數十次可比較
+  session，現在做只會是一張由三筆資料撐起、看起來很合理的圖 —— 2026-09-08 已經發生過一次。
+- **引擎目前還沒有真的接上讀數**：`ReadinessSample` 要從哪裡來（Soul Scan 的 band？
+  `AttachedReadinessReading`？）還沒接線，preview 用的是合成歷史。
+- `[制度變更]` 那顆（verify.sh + CI 接線）等 founder 決定收不收。
+
 # 2026-09-08 Session Update (拿掉「換模板不變色」—— 拆 --primary、環境層、校準台、Premium)
 
 ⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/decision-timer-completion-sh7ogg`（PR #250）。
