@@ -2269,6 +2269,70 @@ for (const h of [700, 740, 844, 932]) {
   await page.close();
 }
 
+// ═════════════════════════════════════════════════
+// 校準台的歸屬規則：過期的讀數不算，而且要說得出「為什麼不算」
+//
+// founder 2026-09-10 實走：Baseline 寫「最近讀數 · Clear · 49 小時前 校準」，
+// 而一筆用它跑完的決策被歸給 Clear（實測 attributed:1 excluded:0）。
+// 那張圖問的是「我按下判定那一刻在什麼狀態」—— 49 小時前量的東西答不出來。
+// `staleAtDecision` 那個旗標寫進去了、沒有人讀。
+//
+// 🔴 這條同時鎖住兩件事：
+//   ① 過期的不得歸屬（那是誠實紅線）
+//   ② 「沒有讀數」與「讀數已過期」要分開回（合成一句＝把不知道講成沒發生）
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 校準台：過期讀數不得歸屬帶位 ──');
+  const page = await openV3(844);
+  const sum = await page.evaluate(() => {
+    const now = Date.now();
+    const mk = (tag, reading) => ({ ts: now, outcomeTag: tag, templateId: 'MANCINI_FBD', readingAtDecision: reading });
+    const recs = [
+      // 新鮮讀數 → 歸得出來
+      mk('judged_entered', { band: 'clear', confidence: 'high', ts: now - 60e3, evidence: null, staleAtDecision: false }),
+      // 過期讀數 → 不得歸屬（founder 的 49 小時）
+      mk('judged_entered', { band: 'clear', confidence: 'high', ts: now - 49 * 36e5, evidence: null, staleAtDecision: true }),
+      // 完全沒有讀數（2026-09-08 之前的舊紀錄）
+      mk('judged_stood_down', undefined),
+    ];
+    const s = window.TENKI_OUTCOME.disciplineByBand(recs);
+    return {
+      why: recs.map((r) => window.TENKI_OUTCOME.bandExclusionReason(r)),
+      bands: recs.map((r) => window.TENKI_OUTCOME.bandOfRecord(r)),
+      attributed: s.attributed, excluded: s.excluded,
+      noReading: s.excludedNoReading, stale: s.excludedStale, total: s.total,
+      clearTotal: s.stats.filter((x) => x.band === 'clear')[0].total,
+    };
+  });
+  check('🔴 過期的讀數歸不出帶位', sum.bands[1], null);
+  check('新鮮的讀數照樣歸得出來（不得誤傷）', sum.bands[0], 'clear');
+  check('沒有讀數的仍然是 no_reading', sum.why[2], 'no_reading');
+  check('🔴 過期的理由是 stale，不是 no_reading（兩件事不得合成一句）', sum.why[1], 'stale');
+  check('可歸屬只剩那一筆新鮮的', sum.attributed, 1);
+  check('Clear 那一欄只算新鮮的那一筆', sum.clearTotal, 1);
+  check('排除數分得開：沒讀數 1', sum.noReading, 1);
+  check('排除數分得開：已過期 1', sum.stale, 1);
+  check('三個桶加起來等於總數（沒有人被漏掉或重複算）', sum.attributed + sum.noReading + sum.stale, sum.total);
+
+  // 畫面真的把兩個理由分開講 —— 只驗回傳值等於沒驗到 founder 看到的東西
+  const foot = await page.evaluate(() => {
+    const now = Date.now();
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([
+      { ts: now, outcomeTag: 'judged_entered', templateId: 'MANCINI_FBD',
+        readingAtDecision: { band: 'clear', confidence: 'high', ts: now - 49 * 36e5, evidence: null, staleAtDecision: true } },
+      { ts: now - 1e6, outcomeTag: 'judged_stood_down', templateId: 'MANCINI_FBD' },
+    ]));
+    window.goTab('lab');
+    window.renderLab();
+    return document.getElementById('calFoot').textContent;
+  });
+  checkTruthy(`畫面說得出「沒有讀數」（${foot.slice(0, 40)}…）`, foot.includes('1 筆決策當下沒有讀數'));
+  checkTruthy('畫面說得出「讀數已過期」', foot.includes('1 筆決策當下的讀數已過期'));
+  // 🔴 邀請語要對得上：他掃過了、只是太久以前，「先掃一次再進決策」對他是假的
+  checkTruthy('有過期紀錄時邀請語改成「進決策前先掃一次」', foot.includes('進決策前先掃一次'));
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);

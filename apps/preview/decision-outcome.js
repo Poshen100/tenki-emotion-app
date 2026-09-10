@@ -245,8 +245,10 @@
   function bandExclusionReason(rec) {
     var r = rec && rec.readingAtDecision;
     if (!r || BAND_ORDER.indexOf(r.band) < 0) return 'no_reading';
-    // 🔴 只有 `=== true` 才算過期。舊紀錄可能沒有這個欄位（undefined），
-    // 那是「不知道」不是「過期」—— 缺欄位不准說否定，也不准說肯定。
+    // 🔴 只有 `=== true` 才算過期。`readingAtDecision` 與 `staleAtDecision`
+    // 是**同一顆 commit 加進去的**，所以有讀數就一定有這個旗標 ——
+    // undefined 是一個現實中不存在的形狀。真的遇到就不放進「已過期」那一格
+    // （說不出口的事不要說），而不是為它發明第三個桶。
     if (r.staleAtDecision === true) return 'stale';
     return null;
   }
