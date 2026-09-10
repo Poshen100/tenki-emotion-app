@@ -468,6 +468,46 @@ founder 傳兩張底座截圖：「底座 你截圖給我看」（Mancini FBD �
 
 ---
 
+# 2026-09-08 Session Update (Android 原生層：先立的接縫真的沒白立)
+
+founder 借得到 Android 手機 → 開工寫 Health Connect + BLE 原生層與手機可觸發的 build pipeline。
+
+## 做了什麼
+
+| Commit | 內容 |
+|---|---|
+| `aa10f8c` | `eas.json` + `.github/workflows/android-dev-build.yml`（手機上點一下就出 APK）|
+| `61e3350` | `healthConnectNormalize.ts` —— 套件真實形狀 → mapper（9 條測試）|
+| `59eddd6` | Health Connect 的 `DeviceLinkPort` 實作 + app.json plugin/權限（12 條測試）|
+| `ea2c268` | BLE 胸帶 port + `composeLinkPorts` 路由（19 條測試）|
+
+devices feature 累計 **132 條測試**，`verify.sh` 全綠。
+
+## 教訓
+
+1. 🟢 **接縫立對了**：加兩條原生來源，畫面／狀態機／store／三支 mapper **一行都沒改**。
+   驗證成本也低 —— 每次改完跑一次 `expo export --platform web`，web bundle 照樣成功、
+   `/devices` 零 console error，就知道動態載入沒漏。
+2. 🔴 **「照著文件寫」跟「照著型別定義寫」差很多。** 裝了套件之後讀 `.d.ts` 才發現三處
+   形狀跟我原本假設的不同（時間是 ISO 字串、HeartRate 是一整包 samples、energy 已預先
+   換算）。**每一處猜錯都不會 crash，只會安靜地產出空的或錯的資料。**
+   → 規則：接第三方 SDK 前，先讀它的型別定義，不要憑印象寫。
+3. 🔴 **套件文件裡的警告要當一等公民讀。** `revokeAllPermissions` 的 JSDoc 明寫「撤銷要等
+   app 重啟才生效，別拿它做 in-app 中斷開關」—— 照著做的話，畫面會說已中斷但其實還在讀。
+4. **一個畫面一個 port，但每列要路由到自己的 adapter**（`composeLinkPorts`）。沒有它，
+   點胸帶會收到「這個來源不由 Health Connect 提供」。
+5. **測試碰得到的模組不 import react-native**（PLAYBOOK §7）——
+   `healthConnectPort` 第一版 import 了 `Platform`，node-env 的 jest 直接掛。
+   os 本來就是參數，改用參數即可。
+6. GitHub Actions 的 **`secrets` context 在 step 的 `if` 裡不可用** → 提到 job 層 env 再判斷。
+
+## 下次接手點
+
+- **等 founder 實走**（§4d 有四項驗收清單）。三支 mapper 都沒見過真資料，第一次連上要抽驗
+  單位字串／record 形狀是否落在 accepted 清單裡。
+- iOS 仍是 unwired port；HealthKit 那條等 Apple Developer 帳號。
+- 胸帶多裝置挑選 UI 還沒做（目前連第一個廣播 0x180D 的裝置）。
+
 # 2026-09-05 Session Update (收束頁改成儀器級版面 —— 借彭博的結構，不借它的琥珀)
 
 ⚠️ 依本檔協議 2b（同一天剛改的）：**這一條不編號** —— 日期＋主題就是身分。

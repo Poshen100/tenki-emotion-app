@@ -28,8 +28,11 @@ export type DeviceLinkOutcome =
 
 /** What the native layer must provide for the Devices screen to work. */
 export interface DeviceLinkPort {
-  /** What this build and this device actually offer. */
-  describeEnvironment(): DeviceEnvironment;
+  /**
+   * What this build and this device actually offer. Async because probing is:
+   * Health Connect's availability is an OS call, not a constant.
+   */
+  describeEnvironment(): Promise<DeviceEnvironment>;
   /** Asks the OS for the given scopes. Never throws; failures come back typed. */
   requestAccess(
     providerId: DeviceProviderId,
@@ -47,7 +50,7 @@ export interface DeviceLinkPort {
  */
 export function createUnwiredLinkPort(os: DevicePlatformOs): DeviceLinkPort {
   return {
-    describeEnvironment: () => ({ os, adapters: {}, healthConnectInstalled: false }),
+    describeEnvironment: async () => ({ os, adapters: {}, healthConnectInstalled: false }),
     requestAccess: async () => ({
       kind: 'failed',
       message: '這個版本還沒有裝置連接模組',

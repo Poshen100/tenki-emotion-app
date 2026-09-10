@@ -117,13 +117,82 @@ native 橋接之後只負責把平台資料交出來，剩下的判斷都在這�
 ⚠️ 一個平台一支 mapper 是**刻意的**，不要為了 DRY 合併：
 Apple 給 SDNN、Health Connect 給 RMSSD，分開寫才讓那個差異在結構上無法被含糊帶過。
 
-## 5. Phase 1–4 原生部分 — 尚未實作
+## 4c. Android 原生層（已寫，2026-09-08，**尚未在真裝置上跑過**）
+
+| 檔案 | 職責 |
+|---|---|
+| `adapters/healthConnectPort.ts` | Health Connect 的 `DeviceLinkPort` 實作 |
+| `adapters/healthConnectNormalize.ts` | 套件的真實形狀 → mapper 吃的扁平記錄（純函式，有測試）|
+| `adapters/bleChestStrapPort.ts` | 公版 Heart Rate Service（`0x180D`）的胸帶連線 |
+| `adapters/bleChestStrap.ts` | base64 解碼 + 掃描權限（純函式，有測試）|
+| `adapters/composeLinkPorts.ts` | 一個畫面一個 port，但每列路由到自己的 adapter（純函式，有測試）|
+| `adapters/selectLinkPort.ts` | 平台選擇；iOS 仍是 unwired port |
+| `apps/mobile/eas.json` + `.github/workflows/android-dev-build.yml` | 手機可觸發的 APK build |
+
+**畫面、狀態機、store、三支 mapper 一行都沒改** —— 這就是先把 `DeviceLinkPort`
+定出來的用途。
+
+### 寫的時候才發現的形狀差異（猜錯都不會 crash，只會靜靜壞掉）
+
+1. Health Connect 的時間是 **ISO 字串**，不是 Unix ms。
+2. **`HeartRate` 是一整包 samples**，不是單一讀數 —— 攤平錯了，四十拍變一拍。
+3. energy 已預先換算成 `{inKilocalories, …}`，不是 `{unit, value}`。
+4. ble-plx 的 characteristic 值是 **base64 字串**，不是 bytes。
+5. **Android 12 起掃描要 `BLUETOOTH_SCAN`/`CONNECT`，12 之前要 `ACCESS_FINE_LOCATION`**
+   —— 要錯的症狀是「永遠找不到胸帶」，不是權限錯誤。
+
+### 兩條刻意的克制
+
+- `disconnect()` **不呼叫 `revokeAllPermissions()`**：套件文件寫明撤銷要等 app
+  process 重啟才生效，拿它做 in-app 開關會變成「畫面說已中斷、其實還在讀」。
+  改成清掉自己的狀態並開啟 Health Connect 設定。
+- 一個 scope 要**全部** record type 都授權才算拿到（半個 bucket 不是 bucket）。
+
+### 動這些檔案時的鐵律
+
+原生套件一律 `await import()` **動態載入，絕不 top-level import**，而且測試碰得到的
+模組**不 import react-native**（PLAYBOOK §7 兩條）。驗證方式：改完跑
+`npx expo export --platform web`，web bundle 要照樣成功、`/devices` 渲染零 console error。
+
+## 4d. 第一次真機實走（Android，零費用路線）
+
+**founder 端（手機上，約 15 分鐘）**
+
+1. 借到的 Android 手機：設定 → 關於手機 → 確認 **Android 版本**（14+ 內建 Health
+   Connect；13 以下到 Play 商店裝）。
+2. 設定 → 應用程式 → 特殊存取權 → **安裝不明應用程式** → 允許 Chrome。
+3. `expo.dev` 註冊（免費）→ 帳號設定產生 **Access Token**。
+4. GitHub → repo → Settings → Secrets and variables → Actions → New secret，
+   名稱 **`EXPO_TOKEN`**，值貼上。
+
+**出 APK（手機上）**
+
+GitHub → Actions → **Android dev build (EAS)** → Run workflow → 等約 15 分鐘 →
+到 expo.dev 的 Builds 下載安裝。
+
+**要驗的四件事**
+
+| # | 動作 | 通過的樣子 |
+|---|---|---|
+| 1 | Lab → Devices | 「Health Connect」那列的按鈕變成**可按的「連接」**（不再是「尚未開放連接」）|
+| 2 | 點連接 | 跳出**真的 Health Connect 權限視窗**，逐項可勾 |
+| 3 | 只勾一部分 | 回到頁面仍是「已連接」，chip 只列出**實際拿到的** scope |
+| 4 | 點「心率胸帶」連接 | 跳藍牙權限 → 掃描 → 找到胸帶就連上；沒有胸帶會顯示「找不到心率胸帶」（正確行為）|
+
+**沒有手錶／胸帶也能驗**：Health Connect Toolbox（Google 的開發者工具，可塞測試資料）
+與 BLE Peripheral Simulator（讓另一支 Android 假裝成心率裝置）。⚠️ 名稱憑記憶，
+到商店確認；找不到就回報。
+
+**第一次連上時務必抽驗**：三支 mapper 都沒見過真資料。看實際的單位字串／record 形狀
+有沒有落在 accepted 清單裡 —— 不在就會被拒收（設計行為），補進表即可。
+
+## 5. Phase 1–4 —— 還缺什麼
 
 | Phase | 內容 | 為什麼還沒做 |
 |---|---|---|
-| 1 | iOS HealthKit 橋接（實作 `DeviceLinkPort`）、30 天基線首次同步 | 需要 native module + Mac 實機驗證（CLAUDE.md AI 分工表） |
-| 2 | Android Health Connect（權限分群 Vitals / Sleep / Activity；未安裝時導引，不當成登入失敗） | 同上 |
-| 3 | BLE Precision Link：只支援標準 Heart Rate Service，即時顯示有效搏數與 RR 可用性 | 同上。⚠️ 沒有 RR interval 的裝置只能提升心率品質，**不得宣稱量到胸帶 HRV** |
+| 1 | iOS HealthKit 橋接（實作 `DeviceLinkPort`）、30 天基線首次同步 | 需要 Apple Developer 帳號才能把 dev build 裝進 iPhone（見下節）|
+| 2 | Android Health Connect | **程式已寫（§4c），等真機實走（§4d）** |
+| 3 | BLE Precision Link：只支援標準 Heart Rate Service | **連線與解析已寫（§4c），等真機實走**。⚠️ 沒有 RR interval 的裝置只能提升心率品質，**不得宣稱量到胸帶 HRV** |
 | 4 | Garmin Health API（先申請 evaluation，不把授權費放進 MVP 必要條件） | 審核制外部相依 → `docs/garmin-integration.md` |
 
 Phase 1–3 的共同驗收線：**權限被拒時相機 Soul Scan 仍完整可用**，穿戴資料是補強層，不是前置條件。
@@ -150,12 +219,15 @@ Phase 1–3 的共同驗收線：**權限被拒時相機 Soul Scan 仍完整可�
    **不得塞進 `BiometricReading.hrvRmssdMs`**（見 §3）。
 3. 權限要 contextual（掃描之後才問），且逐個 scope，不在冷啟動一次要全部。
 
-### 現況（2026-09-05 查核）
+### 現況（2026-09-08 查核）
 
-repo 內**沒有**任何原生的 HealthKit / Health Connect / Garmin / BLE 讀取實作 ——
-沒有相關相依套件、也還沒 prebuild（沒有 `ios/` 或 `android/`）。
-連接頁在真機上會顯示「尚未開放連接，功能還在開發中」，這是設計行為，不是 bug。
-資料轉換層已完成（見 §4b），等的是把資料交進來的那一層。既有的其他槽位：
+- **Android**：Health Connect 與 BLE 胸帶的原生層已寫（§4c），相依套件已裝，
+  但**沒有任何一行在真裝置上跑過**。第一次實走照 §4d。
+- **iOS**：完全沒有 HealthKit 實作，連接頁上每一列都會顯示「尚未開放連接」——
+  設計行為，不是 bug。
+- 尚未 prebuild（沒有 `ios/` 或 `android/` 資料夾）—— EAS build 時才產生。
+
+既有的其他槽位：
 
 - `packages/engine/src/common/types.ts` — `BiometricSource`、`SleepRecoveryInput`（有槽位，無資料）
 - `packages/engine/src/fusion.ts` — `FusionSource` 優先序（本檔 Phase 0 沿用其排序）
