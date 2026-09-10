@@ -37,6 +37,22 @@ export const ONBOARDING_STEP_ORDER: readonly BaselineOnboardingStep[] = [
 /** Available sensor types for baseline calibration. */
 export type SensorChoice = 'finger' | 'face_beta';
 
+/**
+ * Shortest capture that can establish an HRV baseline, in seconds.
+ *
+ * 🔴 This is not a UX preference, it is what the signal chain can do. Mirrors
+ * `SCAN_MODE_CONFIGS.full_scan.minDurationSec` in
+ * `packages/engine/src/biometric/scan-modes.ts`, which is canonical — `domain`
+ * is the lower layer and does not depend on the engine. Keep the two in step.
+ *
+ * The previous copy promised 30 seconds. Measured against the synthetic
+ * fixtures, a 30-second window produced an HRV estimate **0 times out of 12**:
+ * `quick_check` does not report HRV at all, by construction. The flow was
+ * promising something it could not deliver, and a test was holding that promise
+ * in place without ever checking it was true.
+ */
+export const MIN_SECONDS_FOR_HRV_BASELINE = 45;
+
 /** Sensor choice display config. */
 export interface SensorChoiceConfig {
   /** Sensor identifier. */
@@ -57,16 +73,21 @@ export interface SensorChoiceConfig {
 export const SENSOR_CHOICES: readonly SensorChoiceConfig[] = [
   {
     id: 'finger',
-    label: '手指快速建立',
-    description: '將手指輕放在後鏡頭上，30 秒即可完成',
+    label: '手指精密建立',
+    // 90 秒是量出來的甜蜜點：RMSSD 估計的離散度從 45 秒的 ±2.15 降到 ±1.12，
+    // 再往上到 180 秒只再降到 ±0.95 —— 報酬遞減得很快。
+    description: '將手指輕放在後鏡頭上，90 秒建立心律變異基線',
     isBeta: false,
-    estimatedTimeSec: 30,
+    estimatedTimeSec: 90,
     iconHint: '👆',
   },
   {
     id: 'face_beta',
     label: '臉部自然建立',
-    description: '看著前鏡頭，60 秒自然建立（較穩定）',
+    // 刻意不再宣稱「較穩定」：那是一個沒有量測依據的比較宣稱。
+    // repo 自己的來源優先序已把 camera(45) 排在 finger_scan(60) 之下
+    // （domain/policies/wearable-source-policy.ts）。
+    description: '看著前鏡頭，60 秒建立心率基線',
     isBeta: true,
     estimatedTimeSec: 60,
     iconHint: '🙂',

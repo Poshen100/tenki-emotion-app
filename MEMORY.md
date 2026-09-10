@@ -107,6 +107,37 @@ founder 問「接下來怎麼做」，用 AskUserQuestion 定範圍，選 **P0 �
 
 `verify.sh` 全綠。引擎 471 → 481，domain 179 → 189。
 
+## 續二：手指基線流程的完整思考（founder 貼 Fable 5 截圖 + 「要棒透了」）
+
+founder 問「建立 PPG 手指基線的流程要不要再升級，尤其針對只有手機的使用者」。
+用 AskUserQuestion 定了兩件事：**90s 建立 + noise floor 後續累積**、
+**phone-only 使用者 onboarding 就走手指**（後者修改了 SOUL-SCAN-NORTH-STAR §1，
+已在該檔標明是 founder 2026-09-11 拍板）。
+
+- 🔴 **最重要的一張表**：模擬生理狀態**完全不變**的使用者，掃過訊噪比 0.33→0.97，
+  分數 SD 幾乎不變（12.2 vs 11.3），**畫面上完全分不出來**。
+  z-score 會把幅度正規化，所以**震盪幅度不能告訴你系統準不準**。
+  → 系統必須量自己的雜訊。`ppg/repeatability.ts` + `baseline/noise-floor.ts`。
+  效果是**選擇性**的：訊噪比差時壓下震盪 34%，好時完全不動。
+  ⚠️ 誠實講它不會讓 0.33 變好，資訊本來就不在那裡；它只是不再假裝。
+- 🔴 **手指補強層一直存錯東西**：`FINGER-PRECISION-WIRING.md` §5 只存
+  `tenki.precision.hrBaseline` —— 而 HR 是臉掃也拿得到的那一項。
+  手指唯一真正換來的 HRV 反而沒有基線。而 HRV ＋ stress proxy ＝ **40% 權重**。
+- 🔴 **測試會鎖住一個錯的值**：`SENSOR_CHOICES` 承諾「30 秒建立基線」，
+  實測 30 秒產出 HRV **0/12**，而且有一條測試斷言 `toBe(30)` ——
+  它守住了那個承諾，卻從來沒有檢查承諾做不做得到。
+  → 加 `MIN_SECONDS_FOR_HRV_BASELINE`，把承諾綁到能力上，兩邊各有測試。
+- 🔴 **我自己的合成器沒有日間生理變異**，所以「跨日 std 該多大」我量不到
+  （量出來 0.95ms 比窗口內 1.75ms 還小，那是合成器的性質不是系統的）。
+  差點用一個不存在的東西推導基線設計。**這個參數只能用真人資料回答。**
+- 🟡 **驗證方式本身會騙人**：`npm test --silent | grep "Tests:"` 抓不到
+  「Test suite failed to run」，我一度看到「185 passed」而該 suite 根本沒編譯過。
+  是 `verify.sh` 抓到的。**要看 `Suites:` 那行，不要只看 `Tests:`。**
+- 🟡 反向驗證再抓到一條裝飾性斷言（HRV 被扣住時不量 repeatability）——
+  我用的重晃動案例拍點本來就不夠，換成 frameDrops（拍點充足但 HRV 被擋）才紅。
+
+`verify.sh` 全綠。引擎 481 → 500，domain 185 → 191。
+
 ## 下次接手點
 
 - **相機擷取層（VisionCamera frame processor → `PpgFrame`）還沒寫**，需要實機。
