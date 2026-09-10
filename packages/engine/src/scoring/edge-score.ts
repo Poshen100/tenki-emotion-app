@@ -115,6 +115,27 @@ function getDirection(subScore: number): DriverDirection {
 // Sub-Score Calculators (Factors 1-8)
 // ─────────────────────────────────────────────
 
+/**
+ * Which of a scan's physiological inputs were actually measured.
+ *
+ * A phone-only scan routinely establishes a heart rate and nothing else — the
+ * camera pipeline withholds HRV and respiration whenever beat timing is not
+ * good enough (see `biometric/ppg/`). Without this, the only way to run the
+ * engine was to hand it a number for every field, which means inventing two.
+ *
+ * Omit it entirely and every input is assumed present, which is what every
+ * caller predating this did — their scores are unchanged.
+ */
+export interface ReadingAvailability {
+  /** False when `reading.hrvRmssdMs` is a placeholder rather than a measurement. */
+  hrv: boolean;
+  /** False when `reading.rrBrpm` is a placeholder rather than a measurement. */
+  respiration: boolean;
+}
+
+/** Everything measured — the assumption when no availability is given. */
+export const FULL_AVAILABILITY: ReadingAvailability = { hrv: true, respiration: true };
+
 /** Input data for Edge Score calculation. */
 export interface EdgeScoreInput {
   /** Current biometric reading. */
@@ -127,6 +148,11 @@ export interface EdgeScoreInput {
   sleepRecovery: SleepRecoveryInput;
   /** Recent Edge Scores for trend analysis (newest first, up to 10). */
   recentScores: number[];
+  /**
+   * Which physiological inputs were actually measured. Omit when all were.
+   * @see ReadingAvailability
+   */
+  availability?: ReadingAvailability;
 }
 
 /**
@@ -383,7 +409,8 @@ function calcConfidence(
   quality: SignalQuality,
   sleep: SleepRecoveryInput,
   recentCount: number,
-  now: number
+  now: number,
+  availability: ReadingAvailability = FULL_AVAILABILITY
 ): ConfidenceBreakdown {
   // Baseline maturity
   const maturityMap: Record<string, number> = {
@@ -391,12 +418,16 @@ function calcConfidence(
   };
   const baselineMaturity = maturityMap[baseline.maturity] ?? 0.2;
 
-  // Input completeness
-  let inputs = 0;
-  let totalInputs = 3; // HR, HRV, RR are always expected
-  inputs += 3; // These are always present in a BiometricReading
-  if (sleep.source !== 'none') { inputs += 1; totalInputs += 1; }
-  const inputCompleteness = inputs / totalInputs;
+  // Input completeness. Counted from what was actually measured — the previous
+  // version added 3 unconditionally with the comment "always present in a
+  // BiometricReading", which was true of the TYPE and not of the scan: a
+  // phone-only reading with HRV withheld reported full completeness.
+  const expectedInputs = 4; // HR, HRV, respiration, sleep
+  let inputs = 1; // Heart rate: a reading exists at all.
+  if (availability.hrv) inputs += 1;
+  if (availability.respiration) inputs += 1;
+  if (sleep.source !== 'none') inputs += 1;
+  const inputCompleteness = inputs / expectedInputs;
 
   // Signal quality
   const sqiConfidence = quality.score / 100;
@@ -484,12 +515,33 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
     signal_quality: EDGE_WEIGHTS.signalQuality,
   };
 
+  // Drivers with no measurement behind them are EXCLUDED and their weight is
+  // spread across the drivers that do have data. The two obvious alternatives
+  // are both fabrications: a neutral 50 asserts the user is average on a
+  // dimension nobody measured, and a 0 asserts they are at the floor of it.
+  // Excluding says only what is true — this reading rests on less.
+  const availability = input.availability ?? FULL_AVAILABILITY;
+  const excludedDrivers: ScoreDriverKey[] = [];
+
+  if (!availability.hrv) {
+    // The stress proxy is HR z-score minus HRV z-score. Without HRV it is not a
+    // weaker stress proxy, it is a different quantity.
+    excludedDrivers.push('hrv_vs_baseline', 'stress_proxy_vs_baseline');
+  }
+  if (!availability.respiration) {
+    excludedDrivers.push('respiration_stability');
+  }
+
+  const includedKeys = (Object.keys(subScores) as ScoreDriverKey[]).filter(
+    (key) => !excludedDrivers.includes(key),
+  );
+  const includedWeight = includedKeys.reduce((sum, key) => sum + weightMap[key], 0);
+
   const drivers: ScoreDriver[] = [];
   let weightedSum = 0;
 
   for (const key of Object.keys(subScores) as ScoreDriverKey[]) {
     const raw = subScores[key];
-    const weight = weightMap[key];
     const direction = getDirection(raw);
 
     drivers.push({
@@ -498,8 +550,12 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
       impact: Math.round(((raw - 50) / 50) * 100) / 100, // Normalize to -1 to 1
       rawSubScore: raw,
     });
+  }
 
-    weightedSum += raw * (weight / 100);
+  for (const key of includedKeys) {
+    // Renormalizing over the included weight keeps the score on the same 0-100
+    // scale; it does NOT change any weight's meaning relative to the others.
+    weightedSum += subScores[key] * (weightMap[key] / includedWeight);
   }
 
   const finalScore = clamp(Math.round(weightedSum), 0, 100);
@@ -511,7 +567,8 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
     input.signalQuality,
     input.sleepRecovery,
     input.recentScores.length,
-    now
+    now,
+    availability
   );
 
   // Generate safe copy (v0: strain zone gets a directional subtype context)
@@ -531,6 +588,7 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
       baselineVersion: input.baseline.version,
       scanQuality: input.signalQuality.score,
       dataCompleteness: confidence.factors.inputCompleteness,
+      excludedDrivers,
       sourceMix: [], // Populated by caller
       computedAt: now,
     },

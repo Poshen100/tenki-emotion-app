@@ -15,6 +15,9 @@ export type {
 export { PPG_QUALITY_REASONS, PPG_METRICS } from './types';
 
 export { analyzePpgScan, hasUsableReading, wasWithheld, MIN_FRAMES } from './analyze';
+
+export { toEngineInput } from './to-reading';
+export type { PpgEngineInput, PpgReadingAvailability } from './to-reading';
 export type { PpgOutcome, PpgCompletion, PpgRejection } from './analyze';
 
 export {
