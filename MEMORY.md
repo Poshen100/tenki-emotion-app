@@ -68,6 +68,28 @@ absolute/fixed、z-index ≥ 45、與內容矩形相交的元素）不是寫死�
   一塊乾淨的覆蓋，但內容確實被蓋住 —— 要不要讓版面在浮層打開時縮，是 founder 的決定，
   這一輪沒有自行決定。
 
+## 同一天第二輪（founder 又走了一次，五張截圖）
+
+**確認落地**：判定列的底板在真機上生效、收束那一格印 `上限 30:00`、`+ 標記` 與
+決策紀律模式磁磚的琥珀、Lab 的「設定 / 即將開放」分區。
+
+**量過、不是 bug**：底座與判定列在 Lab 上壓過磁磚是**捲到一半**的正常疊放 ——
+捲到底時 `.lab-body` 的保留區夠（390×700：最後一塊下緣 458、判定列上緣 495，
+空 37px），三個高度都一樣。沒有動它。
+
+**🔴 但那五張露出一件真的**：Baseline 寫「最近讀數 · Clear · **49 小時前** 校準」，
+而拿同樣條件跑一筆決策，實測 `bandOfRecord → "clear"`、`attributed:1 excluded:0`
+—— **決策被歸給了 Clear**。`staleAtDecision` 這個旗標寫進去了、`bandOfRecord()`
+從來沒讀它。而那正是 `readiness-band.ts` 的 doc comment 自己警告的 fabricate，
+也跟 Hero 自己的標準打架（超過 15 分鐘就印「讀數已過期」）。
+
+修法：`bandExclusionReason()` 回 `'no_reading' | 'stale' | null`；排除數分成
+`excludedNoReading` / `excludedStale` 兩個欄位；邀請語跟著分岔。
+閾值**不另訂** —— 旗標存檔時用 `READING_FRESHNESS_MS_V6` 算好，讀端只讀它。
+兩條規則已提煉進 PLAYBOOK。
+
+⚠️ 代價：這張圖會空更久（要 15 分鐘內掃過再進決策才開始累積）。founder 拍板接受。
+
 ## 下次接手點
 
 - **`resumeActiveDecision()` 接回 marks/events 那一半，仍未在真機上驗證**
