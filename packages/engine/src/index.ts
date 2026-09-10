@@ -161,6 +161,19 @@ export {
 export type { ScanMode, ScanModeConfig, ScanSignalSource } from './biometric/scan-modes';
 
 // ─── Baseline ───────────────────────────────
+// 使用者自己的量測雜訊底線。規格: docs/PHONE-PPG.md §10
+export {
+  MAX_APPLIED_NOISE_FLOOR_MS,
+  MIN_SCANS_FOR_NOISE_FLOOR,
+  NOISE_FLOOR_WINDOW,
+  createEmptyNoiseFloor,
+  recordRepeatability,
+  resolveEffectiveStd,
+  resolveNoiseFloor,
+} from './baseline/noise-floor';
+
+export type { NoiseFloorState } from './baseline/noise-floor';
+
 export {
   updateMetricBaseline,
   createEmptyMetricBaseline,
@@ -179,7 +192,8 @@ export {
   inferStrainSubtype,
 } from './scoring/edge-score';
 
-export type { EdgeScoreInput } from './scoring/edge-score';
+export type { EdgeScoreInput, ReadingAvailability } from './scoring/edge-score';
+export { FULL_AVAILABILITY, resolveAvailability } from './scoring/edge-score';
 
 export {
   createEdgeDetectorState,

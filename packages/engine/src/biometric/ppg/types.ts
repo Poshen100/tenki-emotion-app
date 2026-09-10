@@ -132,6 +132,15 @@ export interface PpgAnalysis {
   durationSec: number;
   /** Sample rate the window was resampled onto, in Hz. */
   sampleRateHz: number;
+  /**
+   * How reproducible this scan's HRV was across its own duration, in ms, or
+   * null when HRV was not reported or the scan was too short to split.
+   *
+   * This is the instrument measuring itself. It feeds the user's noise floor
+   * (`baseline/noise-floor.ts`), which is what stops a difference smaller than
+   * the measurement error from being scored as a change in state.
+   */
+  repeatabilitySdMs: number | null;
   /** Metrics deliberately not reported, with the reason for each. */
   withheld: PpgWithheld[];
 }

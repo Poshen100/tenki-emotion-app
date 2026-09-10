@@ -61,6 +61,14 @@ export {
 export type { RespirationEstimate } from './respiration';
 
 export { GOOD_PERFUSION, MIN_PERFUSION, QUALITY_WEIGHTS, assessPpgQuality } from './quality';
+
+export {
+  MIN_INTERVALS_PER_WINDOW,
+  MIN_WINDOWS_FOR_REPEATABILITY,
+  REPEATABILITY_WINDOW_SEC,
+  estimateRepeatability,
+} from './repeatability';
+export type { Repeatability } from './repeatability';
 export type { QualityInput } from './quality';
 
 // The synthetic generator ships with the module on purpose: it is how the

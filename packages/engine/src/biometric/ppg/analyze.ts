@@ -33,6 +33,7 @@ import {
   estimateRate,
 } from './pulse';
 import { MAX_FRAME_DROPS, assessPpgQuality } from './quality';
+import { estimateRepeatability } from './repeatability';
 import { estimateRespiration } from './respiration';
 import { type ScanMode, SCAN_MODE_CONFIGS, isCameraMode, modeReports } from '../scan-modes';
 import type { PpgAnalysis, PpgFrame, PpgWithheld } from './types';
@@ -127,6 +128,7 @@ export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): Ppg
         respiratoryRateBrpm: null,
         beatCount: 0,
         artifactFraction: 0,
+        repeatabilitySdMs: null,
         durationSec: round1(durationSec),
         sampleRateHz: resampled.sampleRateHz,
         withheld: [
@@ -204,6 +206,14 @@ export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): Ppg
     }
   }
 
+  // Only measured when HRV was actually reported. A scan whose HRV was
+  // withheld never reaches a baseline, so its noise tells us nothing about how
+  // trustworthy the baseline is.
+  const repeatability =
+    hrvRmssdMs === null
+      ? null
+      : estimateRepeatability(series.accepted, series.acceptedAtMs);
+
   return {
     status: 'analysed',
     analysis: {
@@ -211,6 +221,7 @@ export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): Ppg
       heartRateBpm,
       hrvRmssdMs,
       respiratoryRateBrpm,
+      repeatabilitySdMs: repeatability?.sdMs ?? null,
       beatCount: series.accepted.length + (series.accepted.length > 0 ? 1 : 0),
       artifactFraction: Math.round(series.artifactFraction * 100) / 100,
       durationSec: round1(durationSec),

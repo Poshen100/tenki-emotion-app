@@ -30,6 +30,7 @@ import {
 } from './types';
 
 import { generateSafeCopy, } from '../compliance/safe-copy';
+import { resolveEffectiveStd } from '../baseline/noise-floor';
 
 // ─────────────────────────────────────────────
 // Helper: clamp
@@ -71,11 +72,20 @@ function zScoreToSubScore(zScore: number, invert: boolean = false): number {
  * @param baseline - Baseline containing mean and std.
  * @returns Z-score, or 0 if baseline is insufficient.
  */
-function computeZScore(value: number, baseline: MetricBaseline): number {
+function computeZScore(
+  value: number,
+  baseline: MetricBaseline,
+  noiseFloorMs: number | null = null
+): number {
   if (baseline.sampleCount === 0 || baseline.std === 0) {
     return 0;
   }
-  return (value - baseline.mean) / baseline.std;
+  // Never divide by less than the instrument can resolve. A baseline spread
+  // below the user's own noise floor does not mean they are remarkably
+  // steady — it means too few samples have been gathered to have seen them
+  // move, and dividing by it turns measurement error into a confident z.
+  const std = resolveEffectiveStd(baseline.std, noiseFloorMs);
+  return (value - baseline.mean) / std;
 }
 
 // ─────────────────────────────────────────────
@@ -184,6 +194,12 @@ export interface EdgeScoreInput {
    * @see ReadingAvailability
    */
   availability?: ReadingAvailability;
+  /**
+   * The user's measured HRV noise floor in ms, from
+   * `baseline/noise-floor.ts`. Omit while there is not yet enough evidence —
+   * z-scores then divide by the baseline's own spread, as before.
+   */
+  hrvNoiseFloorMs?: number | null;
 }
 
 /**
@@ -194,8 +210,12 @@ export interface EdgeScoreInput {
  * @param baseline - HRV baseline for current time bucket.
  * @returns Sub-score 0-100.
  */
-function calcHrvVsBaseline(hrvRmssd: number, baseline: MetricBaseline): number {
-  const z = computeZScore(hrvRmssd, baseline);
+function calcHrvVsBaseline(
+  hrvRmssd: number,
+  baseline: MetricBaseline,
+  noiseFloorMs: number | null
+): number {
+  const z = computeZScore(hrvRmssd, baseline, noiseFloorMs);
   return zScoreToSubScore(z, false); // Higher HRV = better
 }
 
@@ -240,11 +260,12 @@ function calcRespirationStability(rrBrpm: number, baseline: MetricBaseline): num
 function calcStressProxy(
   reading: BiometricReading,
   baseline: BaselineProfile,
-  timeBucket: TimeBucket
+  timeBucket: TimeBucket,
+  noiseFloorMs: number | null
 ): number {
   // Stress proxy: combination of HR elevation + HRV depression
   const hrZ = computeZScore(reading.hrBpm, baseline.hr[timeBucket]);
-  const hrvZ = computeZScore(reading.hrvRmssdMs, baseline.hrv[timeBucket]);
+  const hrvZ = computeZScore(reading.hrvRmssdMs, baseline.hrv[timeBucket], noiseFloorMs);
 
   // Higher HR + Lower HRV = more stress
   const stressIndicator = hrZ - hrvZ; // positive = more stress
@@ -524,10 +545,19 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
 
   // Calculate 8 sub-scores
   const subScores: Record<ScoreDriverKey, number> = {
-    hrv_vs_baseline: calcHrvVsBaseline(input.reading.hrvRmssdMs, input.baseline.hrv[timeBucket]),
+    hrv_vs_baseline: calcHrvVsBaseline(
+      input.reading.hrvRmssdMs,
+      input.baseline.hrv[timeBucket],
+      input.hrvNoiseFloorMs ?? null
+    ),
     hr_stability: calcHrStability(input.reading.hrBpm, input.baseline.hr[timeBucket]),
     respiration_stability: calcRespirationStability(input.reading.rrBrpm, input.baseline.rr[timeBucket]),
-    stress_proxy_vs_baseline: calcStressProxy(input.reading, input.baseline, timeBucket),
+    stress_proxy_vs_baseline: calcStressProxy(
+      input.reading,
+      input.baseline,
+      timeBucket,
+      input.hrvNoiseFloorMs ?? null
+    ),
     sleep_recovery: calcSleepRecovery(input.sleepRecovery),
     recent_trend: calcRecentTrend(input.recentScores),
     baseline_freshness: calcBaselineFreshness(input.baseline, now),
