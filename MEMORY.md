@@ -62,10 +62,27 @@
   `rgba(255,160,40,0.32)`、填色式是 `rgb(255,160,40)`。第一版拿整串比
   只抓到 1 個節點，斷言看起來很嚴格、實際只守到填色那一半。
 
+## 2026-09-10 追加：founder 用**真實 TradingView 快訊**走完整條鏈
+
+實走順序（截圖時間）：快訊入口收到 `ES1! 下穿 7,649.00` → 決策前讀數（真臉部掃描，
+`468 點 · 42 幀 · 8.0 秒 · 穩定度 89% · 眨眼確認`）→ Clear/信心中 →
+`ES1! / 上限 30:00 / 結構守望` 跑起來 → 判定不成立。**整個產品迴圈第一次用真快訊走通。**
+
+又抓到兩件，**形狀跟這一輪前三個一模一樣**（規則存在、但沒掃到那一面）：
+
+4. 🔴 **收束那一格印「Mancini FBD / 3:00」** —— 而那一筆是以「上限 30:00 結構守望」
+   跑完的。`tmplBoundLabel()` 只在 `running` 時問 `sess.watch`，complete 時退回問
+   `watchMode()`（Lab 開關，主畫面 PWA 裡預設關）。
+   第十四輪修 ready、第十五輪修 running，**這是第三個出口**。
+   → complete 是**對剛剛發生的事的報告**，報告要問事實。`sess` 在 complete 時還在。
+5. 🔴 **`PREMIUM` 徽章還是金色**（`--gold-secured`）—— 而金是 SECURED。
+   09-08 認領紫給 Premium 那一輪只掃了 v6。同一個產品裡兩個 Premium 色。
+
 ## 下次接手點
 
-founder 實走 PR：收束頁應該只剩一條青條、標題印 `Mancini FBD`、
-琥珀在三顆自評晶片上。仍未驗：`resumeActiveDecision()` 的 marks/events。
+founder 實走 PR #252：收束頁應該只剩一條青條、標題印 `Mancini FBD`、
+琥珀在三顆自評晶片上、收束那一格印「上限 30:00」、PREMIUM 徽章是紫的。
+**仍未驗**：`resumeActiveDecision()` 的 marks/events（要 force quit 再重開才測得到）。
 
 ---
 
