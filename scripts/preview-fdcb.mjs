@@ -2176,6 +2176,99 @@ console.log('\n── Hero 讀數不得爆版 ──');
   await page.close();
 }
 
+// ═════════════════════════════════════════════════
+// 浮在底座上方的覆蓋列：底下的東西不得透出來
+//
+// founder 2026-09-10 實走截圖：判定列的兩顆按鈕之間，
+// 「以上四張為示意畫面 · …」那一行從縫隙透出來 —— 看起來就是字壓在字上。
+//
+// 🔴 根因不是座標挑錯，是**抄了一半**：`.watch-judge` 的註解寫著
+// 「位置與收合方式抄 .tp-picker」，但 .tp-picker 之所以能站在那個座標上，
+// 靠的是它有一塊不透明底板；判定列抄了座標、沒抄底板。
+//
+// 而那個座標**本來就會撞**。實測 390 寬 × 15 個可視高度（640…932），
+// 兩條覆蓋列與「示意說明／輪播圓點／vitals 卡」的垂直交集：
+//   640 / 660 / 680 / 700 / 720 / 740 / 760 / 780 / 800 / 896 / 932 → 撞（2~42px）
+//   820 / 844 / 852 / 874                                          → 不撞
+// 也就是說「不撞」只發生在 820~874 這一小段 —— 那是設計高度 844 的**巧合**，
+// 不是保證。而 Safari／in-app 瀏覽器的可視高度會落在 700~780
+// （iPhone 的 852/932 是**裝置**高度，扣掉網址列與工具列才是視窗高度）——
+// 那正好是撞得最兇的一段，也是為什麼 founder 看得到、我先前只掃裝置高度看不到。
+//
+// 🔴 這條**不能**用 elementFromPoint 寫。一個沒有背景的 div 仍然會吃到
+// hit test（pointer-events 不看背景透不透明）—— 改壞了它照樣綠，是死斷言。
+// 要問的是那個真正讓覆蓋成立的性質：**背景不透明**。
+// ═════════════════════════════════════════════════
+for (const h of [700, 740, 844, 932]) {
+  console.log(`\n── 覆蓋列不得透出底下的內容（390x${h}）──`);
+  const page = await openV3(h);
+  await page.evaluate(() => {
+    window.toggleDisciplineMode();
+    window.selectTmpl([...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === 'MANCINI_FBD'));
+  });
+  await page.waitForTimeout(450);
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(900);
+  // 兩條列同時打開：這條斷言問的是「有沒有底板」，不是「哪一條先出現」。
+  await page.evaluate(() => {
+    window.logEvent();
+    document.getElementById('watchJudge').classList.add('open');
+  });
+  await page.waitForTimeout(500);
+
+  const layers = await page.evaluate(() => {
+    const flow = ['.vitals-demo-note', '.snap-dots', '.vcard', '.snap-track']
+      .map((s) => document.querySelector(s)).filter(Boolean)
+      .map((e) => ({ name: (e.className || '').toString().split(' ')[0], r: e.getBoundingClientRect() }));
+    const overlaps = (a, c) => Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top) > 0
+      && Math.min(a.right, c.right) - Math.max(a.left, c.left) > 0;
+    const alphaOf = (bg) => {
+      if (!bg || bg === 'transparent') return 0;
+      const m = bg.match(/rgba?\(([^)]+)\)/);
+      if (!m) return 0;
+      const parts = m[1].split(',').map((x) => parseFloat(x));
+      return parts.length > 3 ? parts[3] : 1;
+    };
+    const out = [];
+    // 🔴 掃的是「所有壓在內容上的高層」，不是一份寫死的名單 ——
+    // 下一條覆蓋列加進來時，這條要自動守到它。
+    for (const e of document.querySelectorAll('.phone *')) {
+      const cs = getComputedStyle(e);
+      if (cs.position !== 'absolute' && cs.position !== 'fixed') continue;
+      if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) continue;
+      const z = parseInt(cs.zIndex, 10);
+      if (!(z >= 45)) continue;
+      const r = e.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) continue;
+      const hit = flow.filter((f) => overlaps(r, f.r)).map((f) => f.name);
+      if (!hit.length) continue;
+      out.push({
+        who: e.id || (e.className || '').toString().split(' ')[0],
+        bg: cs.backgroundColor, alpha: alphaOf(cs.backgroundColor), covers: hit.join('/'),
+      });
+    }
+    return out;
+  });
+
+  // 掃得到東西嗎 —— 一條掃不到目標的斷言是裝飾品，不是保險。
+  // ⚠️ 但 844 **本來就掃不到**：它落在 820~874 那段不撞的巧合裡（見上表），
+  //    所以它不能拿來當「這條斷言活著」的證據。活性證明交給會撞的那三個高度；
+  //    844 仍然跑底板檢查 —— 哪天它也開始撞，這條會自動守到。
+  const names = layers.map((l) => l.who);
+  if (h !== 844) {
+    checkTruthy(`掃得到壓在內容上的覆蓋層（${names.join(', ') || '無'}）`, layers.length >= 2);
+    checkTruthy('判定列在名單裡（它就是這一輪壞掉的那條）', names.includes('watchJudge'));
+  } else {
+    // 不對 844 斷言「必須不撞」—— 那會在別人合理地調版面時變成假紅。
+    // 它撞了也沒關係：底板檢查會接住它。這裡只把事實印出來。
+    console.log(`   844 壓在內容上的覆蓋層：${names.join(', ') || '無'}（設計高度剛好不撞）`);
+  }
+  for (const l of layers) {
+    check(`🔴 「${l.who}」壓在 ${l.covers} 上，背景必須不透明（${l.bg}）`, l.alpha, 1);
+  }
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);
