@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#020617" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TENKI" />
+  <link rel="apple-touch-icon" href="/brand/favicon/apple-touch-icon-180.png" />
+  <title>TENKI — Drift Alert 偏移預警（Demo）</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    /* ═══════════════════════════════════════════════════
+       規則（docs/DECISION-INTELLIGENCE.md §5）:
+       🔴 量測值不上色 —— 偏移量、讀數一律 --n-100 / --n-200。
+          顏色會宣稱事實，而這一頁的宣稱全部由**字**承擔。
+       🔴 沒有讀數不准上 gold（gold = SECURED）。這一頁完全不用 gold。
+       🔴 amber = 可動層（「這裡可以動手」），只有按鈕吃它。
+       🔴 帶位色（clear/neutral/strain）刻意不用 —— 這一頁講的是**距離**
+          不是帶位，上帶位色等於偷渡一個沒有做出來的宣稱。
+       ═══════════════════════════════════════════════════ */
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      min-height: 100vh; min-height: 100dvh;
+      background: var(--bg-space);
+      color: var(--n-200);
+      font-family: -apple-system, "SF Pro Text", "PingFang TC", "Noto Sans TC", sans-serif;
+      overscroll-behavior: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    .app {
+      max-width: 480px; margin: 0 auto;
+      padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px
+               calc(env(safe-area-inset-bottom, 0px) + 28px);
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    /* ── Header ── */
+    .kicker { font-size: 11px; letter-spacing: 0.14em; color: var(--n-500); text-transform: uppercase; }
+    h1 { font-size: 20px; font-weight: 700; margin-top: 4px; }
+    .demo-note { margin-top: 6px; font-size: 11px; line-height: 1.5; color: var(--n-500); }
+
+    /* ── Demo controls ──
+       這一排存在的理由：founder 要能在手機上**走遍每一條分支**，
+       尤其是「證據不足」與「校準後沒有改變」那兩條 —— 它們才是這個
+       產品的賣點，而它們在真實資料下最難湊出來。 */
+    .sim { display: flex; flex-wrap: wrap; gap: 6px; }
+    .sim-label { width: 100%; font-size: 10px; letter-spacing: 0.1em; color: var(--n-550); text-transform: uppercase; }
+    .chip {
+      flex: 1 1 auto; min-width: 84px;
+      border: 1px solid rgba(var(--amber-400-rgb), 0.30); border-radius: 10px;
+      background: var(--surface); color: var(--n-300);
+      font-family: inherit; font-size: 12px; line-height: 1.3; padding: 8px 6px;
+      cursor: pointer; transition: transform 0.15s var(--ease-calm), border-color 0.15s;
+    }
+    .chip[aria-pressed="true"] { border-color: var(--amber-400); color: var(--n-100); }
+    .chip:active { transform: scale(0.97); }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: 14px; padding: 16px 16px 14px;
+    }
+    .card-kicker { font-size: 10px; letter-spacing: 0.12em; color: var(--n-550); text-transform: uppercase; }
+    .headline { font-size: 22px; font-weight: 700; line-height: 1.25; margin-top: 8px; color: var(--n-100); }
+    .body { font-size: 13px; line-height: 1.6; color: var(--n-300); margin-top: 8px; }
+    /* 量測值：大、清楚、**不上色**。--mono 只包拉丁與數字，不包中文。
+       數字與單位分兩級 —— 儀器的讀數是數字大、標籤小，整串同一級會在
+       390px 上折成兩行，而且讀起來像一句話而不是一個讀數。 */
+    .figure { margin-top: 14px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .figure-value {
+      font-family: var(--mono); font-size: 34px; font-weight: 600; letter-spacing: -0.02em;
+      color: var(--n-100); line-height: 1.05;
+    }
+    .figure-unit { font-size: 12px; color: var(--n-450); letter-spacing: 0.01em; }
+    /* 10px 不是隨手挑的：「Based on 28 comparable sessions · Confidence: High」
+       50 字 × 等寬 11px ≈ 330px，卡片內寬只有 326px —— 11px 一定會把
+       「High」擠到第二行單獨一個字。10px 剛好進得去。 */
+    .evidence-line { font-size: 10px; color: var(--n-450); margin-top: 10px; font-family: var(--mono); }
+
+    /* ── Actions ── */
+    .actions { display: flex; gap: 8px; margin-top: 14px; }
+    .btn {
+      flex: 1; border-radius: 11px; font-family: inherit; font-size: 13px; font-weight: 600;
+      padding: 11px 8px; cursor: pointer; transition: transform 0.15s var(--ease-calm), opacity 0.15s;
+      border: 1px solid rgba(var(--amber-400-rgb), 0.35); background: transparent; color: var(--n-200);
+    }
+    /* 填色按鈕上的字用深空色 —— 白字壓在 amber-400 上只有 2.0:1（tokens.css 已量過）。 */
+    .btn.primary { background: var(--amber-400); border-color: var(--amber-400); color: var(--n-950); }
+    .btn:active { transform: scale(0.98); opacity: 0.9; }
+    .btn[disabled] { opacity: 0.4; cursor: default; }
+
+    /* ── Evidence X-Ray ── */
+    .xray { margin-top: 12px; border-top: 1px solid var(--n-800); padding-top: 12px; }
+    .xray[hidden] { display: none; }
+    .xray-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; }
+    .xray-key { color: var(--n-550); }
+    .xray-val { color: var(--n-200); font-family: var(--mono); }
+    .xray-reasons { list-style: none; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .xray-reasons li { font-size: 12px; line-height: 1.5; color: var(--n-400); padding-left: 14px; position: relative; }
+    .xray-reasons li::before { content: "·"; position: absolute; left: 4px; color: var(--n-600); }
+    .prov { display: inline-block; border: 1px solid var(--n-700); border-radius: 6px;
+            padding: 1px 6px; margin-right: 4px; font-size: 10px; color: var(--n-400); font-family: var(--mono); }
+
+    /* ── Calibration progress ── */
+    .progress { height: 3px; border-radius: 2px; background: var(--n-800); margin-top: 12px; overflow: hidden; }
+    .progress[hidden] { display: none; }
+    .progress > i { display: block; height: 100%; width: 0; background: var(--amber-400); transition: width 0.2s linear; }
+
+    /* ── Black box chain ── */
+    .chain { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .chain li { display: grid; grid-template-columns: 52px 1fr; gap: 10px; font-size: 12px; line-height: 1.5; }
+    .chain time { color: var(--n-550); font-family: var(--mono); font-size: 11px; padding-top: 1px; }
+    .chain .what { color: var(--n-300); }
+    .chain .what b { color: var(--n-100); font-weight: 600; }
+    .chain .backing { color: var(--n-550); font-size: 11px; font-family: var(--mono); }
+    .empty { font-size: 12px; color: var(--n-550); margin-top: 8px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="kicker">Decision Radar</div>
+      <h1>Drift Alert — 偏移預警</h1>
+      <p class="demo-note">
+        全部是合成資料，沒有真實掃描。判定由 <code>drift.js</code> 當場算出來（engine
+        <code>intelligence/</code> 的鏡射），畫面上的每個數字都是真的跑出來的，不是寫死的字串。
+      </p>
+    </header>
+
+    <section class="sim" id="scenario-row">
+      <div class="sim-label">情境（換一個就整頁重算）</div>
+    </section>
+
+    <!-- ── Drift Alert ── -->
+    <section class="card" id="drift-card">
+      <div class="card-kicker">State vs. your own baseline</div>
+      <h2 class="headline" id="drift-headline"></h2>
+      <p class="body" id="drift-body"></p>
+      <div class="figure" id="drift-figure"></div>
+      <div class="evidence-line" id="drift-evidence"></div>
+
+      <div class="actions">
+        <button class="btn" id="xray-toggle" type="button" aria-expanded="false" aria-controls="xray">See why</button>
+        <button class="btn primary" id="calibrate-btn" type="button">Begin calibration</button>
+      </div>
+
+      <div class="progress" id="calib-progress" hidden><i id="calib-bar"></i></div>
+
+      <div class="xray" id="xray" hidden>
+        <div class="xray-grid">
+          <span class="xray-key">Comparable sessions</span><span class="xray-val" id="xray-samples"></span>
+          <span class="xray-key">Spanning</span><span class="xray-val" id="xray-days"></span>
+          <span class="xray-key">Your usual range</span><span class="xray-val" id="xray-reference"></span>
+          <span class="xray-key">Normalized distance</span><span class="xray-val" id="xray-z"></span>
+          <span class="xray-key">Data behind it</span><span class="xray-val" id="xray-provenance"></span>
+          <span class="xray-key">Confidence</span><span class="xray-val" id="xray-confidence"></span>
+        </div>
+        <ul class="xray-reasons" id="xray-reasons"></ul>
+      </div>
+    </section>
+
+    <!-- ── Calibration Proof ── -->
+    <section class="sim" id="calib-outcome-row">
+      <div class="sim-label">校準後實際量到什麼（demo 用，真實情況由掃描決定）</div>
+    </section>
+
+    <section class="card" id="calib-card" hidden>
+      <div class="card-kicker">Calibration proof</div>
+      <h2 class="headline" id="calib-headline"></h2>
+      <div class="figure" id="calib-figure"></div>
+      <p class="body" id="calib-body"></p>
+      <div class="evidence-line" id="calib-evidence"></div>
+    </section>
+
+    <!-- ── Decision Twin ── -->
+    <section class="card" id="twin-card">
+      <div class="card-kicker">Decision twin</div>
+      <h2 class="headline" id="twin-headline"></h2>
+      <p class="body" id="twin-body"></p>
+      <div class="evidence-line" id="twin-evidence"></div>
+    </section>
+
+    <!-- ── Decision Black Box ── -->
+    <section class="card" id="chain-card">
+      <div class="card-kicker">Decision black box</div>
+      <p class="body" style="margin-top:6px">
+        引擎<b>願意講出口</b>的事實，照時間排好。拒絕宣稱的東西不會出現在這裡。
+      </p>
+      <ol class="chain" id="chain"></ol>
+      <p class="empty" id="chain-empty" hidden>這一輪還沒有任何可記錄的宣稱。</p>
+    </section>
+  </div>
+
+  <script src="drift.js"></script>
+  <script src="drift-alert.js"></script>
+</body>
+</html>

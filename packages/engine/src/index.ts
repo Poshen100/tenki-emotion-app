@@ -227,3 +227,109 @@ export {
   legacyZoneToEdgeZone,
   edgeZoneToLegacyZone,
 } from './common/legacy-tei-adapter';
+
+// ─── Decision Intelligence ──────────────────
+// 個人決策雷達。規格: docs/DECISION-INTELLIGENCE.md
+export {
+  buildEvidence,
+  capBand,
+  countDistinctDays,
+  insufficientEvidence,
+  normalizeProvenance,
+  samplesShortOfFloor,
+  CAPPING_REASONS,
+  INSIGHT_PROVENANCES,
+  MS_PER_DAY,
+} from './intelligence/evidence';
+
+export type {
+  EvidenceBasis,
+  EvidenceInput,
+  EvidenceReasonCode,
+  EvidenceRequirement,
+  InsightProvenance,
+  InsufficientEvidence,
+} from './intelligence/evidence';
+
+export {
+  assessDrift,
+  buildPersonalReference,
+  isDriftAssessed,
+  selectComparableSamples,
+  AT_REFERENCE_POINTS,
+  DRIFT_ABSOLUTE_THRESHOLDS,
+  DRIFT_EVIDENCE_REQUIREMENT,
+  DRIFT_Z_THRESHOLDS,
+  MIN_MEANINGFUL_STD,
+  REFERENCE_WINDOW_DAYS,
+} from './intelligence/drift';
+
+export type {
+  DriftAssessment,
+  DriftDirection,
+  DriftMagnitude,
+  DriftOptions,
+  DriftResult,
+  PersonalReference,
+  ReadinessSample,
+} from './intelligence/drift';
+
+export {
+  assessCalibration,
+  classifyShift,
+  isCalibrationAssessed,
+  meaningfulShiftThreshold,
+  summarizePriors,
+  CALIBRATION_EVIDENCE_REQUIREMENT,
+  MIN_MEANINGFUL_SHIFT,
+  SHIFT_STD_FRACTION,
+} from './intelligence/calibration';
+
+export type {
+  CalibrationInput,
+  CalibrationProof,
+  CalibrationReading,
+  CalibrationResult,
+  CalibrationVerdict,
+  PriorCalibration,
+  PriorCalibrationSummary,
+} from './intelligence/calibration';
+
+export {
+  findDecisionTwins,
+  isTwinAssessed,
+  sharedFeatures,
+  twinSimilarity,
+  TWIN_EVIDENCE_REQUIREMENT,
+  TWIN_FEATURE_WEIGHTS,
+  TWIN_MATCH_THRESHOLD,
+} from './intelligence/twin';
+
+export type {
+  DecisionMoment,
+  DecisionTwinMatch,
+  DecisionTwinRecord,
+  DecisionTwinResult,
+  TwinFeature,
+} from './intelligence/twin';
+
+export { buildBlackBox } from './intelligence/black-box';
+
+export type {
+  BlackBoxDetail,
+  BlackBoxEvent,
+  BlackBoxSource,
+  BlackBoxTimeline,
+} from './intelligence/black-box';
+
+export {
+  calibrationCopy,
+  driftCopy,
+  evidenceLine,
+  evidenceReasonCopy,
+  formatConfidence,
+  formatCount,
+  twinCopy,
+} from './intelligence/copy';
+
+export type { InsightCopy } from './intelligence/copy';

@@ -168,3 +168,9 @@ jobs:
 
       - name: Token scale harness (色階系統守門)
         run: node scripts/preview-token-scale.mjs
+
+      # 鏡射守門：apps/preview/drift.js 是 packages/engine/src/intelligence/ 的
+      # 手抄鏡射，而「跨檔鏡射漂移」是這個 repo 付過三次學費的坑。這一支逐一
+      # 比對兩邊的常數與文案，並實走誠實分支（證據不足 / 沒有明顯改變）。
+      - name: Drift alert harness (鏡射比對 + 誠實分支)
+        run: node scripts/preview-drift.mjs

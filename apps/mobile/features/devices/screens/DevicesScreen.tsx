@@ -19,7 +19,7 @@ import { useRouter } from 'expo-router';
 import { colors, radius, spacing, typography as typo } from '../../../theme';
 import { BackgroundContainer } from '../../../components/onboarding-components';
 import { DEVICES_SCREEN_COPY } from '../copy';
-import { createUnwiredLinkPort } from '../port';
+import { selectLinkPort } from '../adapters/selectLinkPort';
 import { providersForOs } from '../providers';
 import { describeRow } from '../rowPresentation';
 import { useDevicesStore } from '../store/devicesStore';
@@ -44,10 +44,11 @@ export function DevicesScreen() {
   const providers = providersForOs(os);
 
   useEffect(() => {
-    // Until the native adapters land, the unwired port reports the truth:
-    // the right entries for this OS, and no adapter behind any of them.
-    setPort(createUnwiredLinkPort(os));
-    syncEnvironment();
+    // Android gets the Health Connect port; everything else keeps the unwired
+    // one, which reports "no adapter" instead of a connection that never
+    // delivers data.
+    setPort(selectLinkPort(os));
+    void syncEnvironment();
   }, [os, setPort, syncEnvironment]);
 
   const connectedCount = providers.filter(

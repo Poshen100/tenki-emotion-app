@@ -14,7 +14,7 @@ const READY_IOS: DeviceEnvironment = {
 
 function fakePort(outcome: DeviceLinkOutcome, env: DeviceEnvironment = READY_IOS): DeviceLinkPort {
   return {
-    describeEnvironment: () => env,
+    describeEnvironment: async () => env,
     requestAccess: async () => outcome,
     disconnect: async () => undefined,
   };
@@ -45,8 +45,8 @@ describe('syncEnvironment', () => {
     }
   });
 
-  it('unblocks only the providers this environment can actually connect', () => {
-    useDevicesStore.getState().syncEnvironment(READY_IOS);
+  it('unblocks only the providers this environment can actually connect', async () => {
+    await useDevicesStore.getState().syncEnvironment(READY_IOS);
     const { connections } = useDevicesStore.getState();
 
     expect(connections.apple_health.state).toBe('disconnected');
@@ -56,19 +56,19 @@ describe('syncEnvironment', () => {
     expect(connections.garmin_connect.unavailableReason).toBe('second_wave');
   });
 
-  it('falls back to the port when no environment is passed', () => {
+  it('falls back to the port when no environment is passed', async () => {
     useDevicesStore.getState().setPort(fakePort({ kind: 'denied' }));
-    useDevicesStore.getState().syncEnvironment();
+    await useDevicesStore.getState().syncEnvironment();
     expect(useDevicesStore.getState().connections.apple_health.state).toBe('disconnected');
   });
 
   it('blocks a live connection when its adapter disappears', async () => {
     useDevicesStore.getState().setPort(fakePort({ kind: 'granted', scopes: ['scan'] }));
-    useDevicesStore.getState().syncEnvironment(READY_IOS);
+    await useDevicesStore.getState().syncEnvironment(READY_IOS);
     await useDevicesStore.getState().connect('apple_health');
     expect(useDevicesStore.getState().connections.apple_health.state).toBe('connected');
 
-    useDevicesStore.getState().syncEnvironment({ ...READY_IOS, adapters: {} });
+    await useDevicesStore.getState().syncEnvironment({ ...READY_IOS, adapters: {} });
     const blocked = useDevicesStore.getState().connections.apple_health;
     expect(blocked.state).toBe('unavailable');
     expect(blocked.unavailableReason).toBe('adapter_missing');
@@ -76,8 +76,8 @@ describe('syncEnvironment', () => {
 });
 
 describe('connect', () => {
-  beforeEach(() => {
-    useDevicesStore.getState().syncEnvironment(READY_IOS);
+  beforeEach(async () => {
+    await useDevicesStore.getState().syncEnvironment(READY_IOS);
   });
 
   it('records the granted scopes on success', async () => {
@@ -125,7 +125,7 @@ describe('connect', () => {
 
   it('reports no adapter rather than pretending, on the default port', async () => {
     useDevicesStore.getState().setPort(createUnwiredLinkPort('ios'));
-    useDevicesStore.getState().syncEnvironment({ ...READY_IOS });
+    await useDevicesStore.getState().syncEnvironment({ ...READY_IOS });
     await useDevicesStore.getState().connect('apple_health');
 
     const conn = useDevicesStore.getState().connections.apple_health;
@@ -137,7 +137,7 @@ describe('connect', () => {
 describe('disconnect', () => {
   it('clears the grant and the sync record', async () => {
     useDevicesStore.getState().setPort(fakePort({ kind: 'granted', scopes: ['scan'] }));
-    useDevicesStore.getState().syncEnvironment(READY_IOS);
+    await useDevicesStore.getState().syncEnvironment(READY_IOS);
     await useDevicesStore.getState().connect('apple_health');
     useDevicesStore.getState().recordSync('apple_health', NOW, 'Apple Watch');
 
@@ -151,8 +151,8 @@ describe('disconnect', () => {
 });
 
 describe('recordSync', () => {
-  it('ignores a sync for a provider that is not connected', () => {
-    useDevicesStore.getState().syncEnvironment(READY_IOS);
+  it('ignores a sync for a provider that is not connected', async () => {
+    await useDevicesStore.getState().syncEnvironment(READY_IOS);
     useDevicesStore.getState().recordSync('apple_health', NOW, 'Apple Watch');
     expect(useDevicesStore.getState().connections.apple_health.lastSyncAt).toBeNull();
   });
