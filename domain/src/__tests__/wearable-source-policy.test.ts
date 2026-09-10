@@ -1,7 +1,9 @@
 import type { BiometricSample } from '../contracts/wearable-sample';
 import {
   METRIC_FRESHNESS_MS,
+  METRIC_LIVE_MS,
   SOURCE_PLATFORM_PRIORITY,
+  classifySampleFreshness,
   isSampleFresh,
   isUsableSample,
   resolveLatestByMetric,
@@ -22,6 +24,7 @@ function sample(overrides: Partial<BiometricSample> = {}): BiometricSample {
     sourceApp: null,
     quality: 4,
     confidence: 0.8,
+    derivation: 'observed',
     permissionScope: 'scan',
     ...overrides,
   };
@@ -164,5 +167,43 @@ describe('resolveSourcePlatform', () => {
     expect(resolveSourcePlatform('fusion')).toBeNull();
     expect(resolveSourcePlatform('google_fit')).toBeNull();
     expect(resolveSourcePlatform('toString')).toBeNull();
+  });
+});
+
+describe('freshness classification', () => {
+  it('calls a just-taken heart rate live, and a minutes-old one only recent', () => {
+    const justNow = sample({ observedAt: NOW - 5_000 });
+    expect(classifySampleFreshness(justNow, NOW)).toBe('live');
+
+    const minutesOld = sample({ observedAt: NOW - 2 * 60_000 });
+    expect(classifySampleFreshness(minutesOld, NOW)).toBe('recent');
+  });
+
+  it("never calls yesterday's watch HRV live — it is stale, not the user's HRV now", () => {
+    const yesterday = sample({
+      metric: 'hrv_sdnn_ms',
+      value: 54,
+      observedAt: NOW - 24 * 60 * 60_000,
+    });
+
+    expect(classifySampleFreshness(yesterday, NOW)).toBe('stale');
+    expect(isSampleFresh(yesterday, NOW)).toBe(false);
+  });
+
+  it('never calls a span metric live, however recently it was written', () => {
+    // Resting HR, sleep and steps each summarize a period. "Live" would be a
+    // claim about right now that the number cannot support.
+    for (const metric of ['resting_heart_rate_bpm', 'sleep_duration_hours', 'steps_count'] as const) {
+      expect(METRIC_LIVE_MS[metric]).toBeUndefined();
+      expect(classifySampleFreshness(sample({ metric, value: 7, observedAt: NOW }), NOW)).toBe(
+        'recent',
+      );
+    }
+  });
+
+  it('treats the live edge as inclusive and one ms past it as recent', () => {
+    const live = METRIC_LIVE_MS.heart_rate_bpm as number;
+    expect(classifySampleFreshness(sample({ observedAt: NOW - live }), NOW)).toBe('live');
+    expect(classifySampleFreshness(sample({ observedAt: NOW - live - 1 }), NOW)).toBe('recent');
   });
 });

@@ -16,6 +16,16 @@ import {
 } from '../common/types';
 import type { HrvMetric } from '../biometric/hrv';
 
+/**
+ * Which physiological tracks this reading may update. Mirrors
+ * `ReadingAvailability` in scoring/edge-score; kept as its own type so the
+ * baseline module does not depend on the scoring module.
+ */
+export interface BaselineInputAvailability {
+  hrv: boolean;
+  respiration: boolean;
+}
+
 // ─────────────────────────────────────────────
 // Welford's Online Algorithm
 // ─────────────────────────────────────────────
@@ -40,6 +50,13 @@ export function updateMetricBaseline(
   value: number,
   timestamp: number
 ): MetricBaseline {
+  // A non-finite value is never a measurement. Phone-only readings carry NaN
+  // in the fields the camera withheld, and a NaN reaching Welford poisons the
+  // running mean permanently — every later scan inherits it.
+  if (!Number.isFinite(value)) {
+    return baseline;
+  }
+
   let { mean, std, sampleCount } = baseline;
 
   // Apply decay if at cap
@@ -171,25 +188,33 @@ export function updateBaselineProfile(
   reading: BiometricReading,
   stressScore: number,
   distinctDays: number = 0,
-  hrvSdnnMs: number | null = null
+  hrvSdnnMs: number | null = null,
+  availability: BaselineInputAvailability = { hrv: true, respiration: true }
 ): BaselineProfile {
   const bucket = resolveTimeBucket(reading.timestamp);
   const ts = reading.timestamp;
 
+  // A track the scan did not measure is left exactly as it was. Feeding it a
+  // placeholder would not merely mis-report one scan — it would move the
+  // reference every future scan is compared against.
   return {
     hr: {
       ...profile.hr,
       [bucket]: updateMetricBaseline(profile.hr[bucket], reading.hrBpm, ts),
     },
-    hrv: {
-      ...profile.hrv,
-      [bucket]: updateMetricBaseline(profile.hrv[bucket], reading.hrvRmssdMs, ts),
-    },
+    hrv: availability.hrv
+      ? {
+          ...profile.hrv,
+          [bucket]: updateMetricBaseline(profile.hrv[bucket], reading.hrvRmssdMs, ts),
+        }
+      : profile.hrv,
     hrvSdnn: updateSdnnTrack(profile.hrvSdnn, bucket, hrvSdnnMs, ts),
-    rr: {
-      ...profile.rr,
-      [bucket]: updateMetricBaseline(profile.rr[bucket], reading.rrBrpm, ts),
-    },
+    rr: availability.respiration
+      ? {
+          ...profile.rr,
+          [bucket]: updateMetricBaseline(profile.rr[bucket], reading.rrBrpm, ts),
+        }
+      : profile.rr,
     stressProxy: updateMetricBaseline(profile.stressProxy, stressScore, ts),
     maturity: assessMaturity(profile.totalScanCount + 1, distinctDays),
     totalScanCount: profile.totalScanCount + 1,
