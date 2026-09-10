@@ -1895,11 +1895,22 @@ body{
 /* ── 結構守望的判定列 ──
    位置與收合方式抄 .tp-picker（已驗證過的那組）。
    🔴 收起時一併 visibility:hidden —— opacity:0 + pointer-events:none 擋不住
-   descendant 自己宣告 pointer-events（PLAYBOOK 指紋鈕那次的舊傷）。 */
+   descendant 自己宣告 pointer-events（PLAYBOOK 指紋鈕那次的舊傷）。
+   🔴 **這個座標之所以安全，靠的是不透明的底板，不是座標本身。**
+   它浮在 Today 的「示意說明 / 輪播圓點 / vitals 卡」正上方 —— 那條帶在
+   700~780 的可視高度下完全沒有空白（實測 15 個高度，只有 820~874 這一段
+   剛好不撞，而那是設計高度的巧合，不是保證）。
+   第一版只抄了 .tp-picker 的**位置與收合**，沒抄它的**底板** ——
+   於是底下那行說明從兩顆按鈕的縫隙與 .wj-anchor 那一行透出來，
+   實測 740 高度下看起來就是「字壓在字上」。抄座標要連同抄它為什麼安全。 */
 .watch-judge{
   position:absolute;left:10px;right:10px;
   bottom:calc(var(--tabbar-h) + var(--fdcb-gap) + var(--fdcb-h) + 8px);
   z-index:46;display:flex;flex-wrap:wrap;gap:8px;
+  padding:6px;
+  background:var(--n-900);
+  border:1px solid rgba(255,255,255,0.10);
+  border-radius:14px;
   opacity:0;visibility:hidden;transform:translateY(6px);
   transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s 0.3s;
 }
