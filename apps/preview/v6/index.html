@@ -4404,8 +4404,17 @@ function tmplBoundLabel(tmplId){
   // 第十四輪我拿設定去代表事實，所以只修好了手動起跑那條路。
   // ⚠️ 兩張截圖結果不同不是隨機：App 內建瀏覽器與主畫面 PWA 是**兩個 storage
   // 容器**（PLAYBOOK 既有條目），開關各有一份。
-  const running = STATES[stateIdx] === 'running';
-  const watch = (running && sess) ? !!sess.watch : watchMode(tmplId);
+  // 🔴 **complete 也要問事實**，而這是同一個矛盾的第三個出口
+  //（founder 2026-09-10 用真實 TradingView 快訊實走截到）：
+  // 一筆以「ES1! / 上限 30:00 / 結構守望」跑完的決策，收束那一格印的是
+  // 「Mancini FBD / **3:00** ✓ 判定不成立 · 未進場」—— 因為 complete 時
+  // 這裡退回 `watchMode(tmplId)`，而那是 Lab 開關（主畫面 PWA 裡是預設的關）。
+  //
+  // 第十五輪把「正在跑」修對了，但**收束那一格講的也是那一次跑法**，
+  // 不是「接下來會怎麼跑」。complete 是一份**對剛剛發生的事的報告**，
+  // 而報告必須問事實。`sess` 在 complete 時還在（只有 idle 分支才 `sess = null`）。
+  const reporting = STATES[stateIdx] === 'running' || STATES[stateIdx] === 'complete';
+  const watch = (reporting && sess) ? !!sess.watch : watchMode(tmplId);
   return watch ? '上限 ' + fmtDur(WATCH_CEILING_SEC) : fmtDur(t.durationSec);
 }
 

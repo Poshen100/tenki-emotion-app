@@ -1433,6 +1433,34 @@ console.log('\n── Hero 讀數不得爆版 ──');
   checkTruthy(`左欄印的是上限（${st.dur}）`, /上限/.test(st.dur) && /30:00/.test(st.dur));
   checkTruthy(`段標仍是結構守望（${st.seg}）`, /結構守望/.test(st.seg));
 
+  // 🔴 **收束那一格也在講這一次怎麼跑** —— 同一個矛盾的第三個出口。
+  // founder 2026-09-10 用真實 TradingView 快訊實走截到：一筆以
+  // 「ES1! / 上限 30:00 / 結構守望」跑完的決策，收束時底座印的是
+  // 「Mancini FBD / **3:00** ✓ 判定不成立 · 未進場」——
+  // 因為 complete 時 `tmplBoundLabel` 退回問 `watchMode()`（Lab 開關，
+  // 主畫面 PWA 裡是預設的關）。
+  // complete 是一份**對剛剛發生的事的報告**，報告必須問事實。
+  // ⚠️ 判定完會因為 `sess.originAlertId` 導回 `/decision-alert/#result`
+  // （那是刻意的：收束頁在那一頁）—— 導走之後這裡就沒有底座可以量了。
+  // 這一條要驗的是**complete 那一格印什麼**，不是回程；回程本身在
+  // preview-strip-color / preview-decision-chain 各有完整覆蓋。
+  // 所以判定前把 originAlertId 拿掉，讓它留在 /v3/ 的 complete 狀態。
+  // 🔴 `sess.watch` 一個字都不動 —— 那才是這條在測的東西。
+  await page.evaluate(() => { if (sess) sess.originAlertId = null; });
+  await page.evaluate(() => window.judgeWatch('stood_down'));
+  await page.waitForTimeout(500);
+  const done = await page.evaluate(() => ({
+    state: STATES[stateIdx],
+    sessAlive: !!sess,
+    dur: document.getElementById('fdcbDur').textContent.trim(),
+  }));
+  check('判定完停在 complete（前提）', done.state, 'complete');
+  // sess 只有 idle 分支才會被清掉 —— 這條同時鎖住那件事，
+  // 因為一旦有人在 complete 之前清掉 sess，上面那條就會退回問設定而沒人發現。
+  check('🔴 complete 時 sess 還在（報告要問得到事實）', done.sessAlive, true);
+  checkTruthy(`🔴 收束那一格不得印倒數時長（現在是「${done.dur}」）`, !done.dur.startsWith('3:00'));
+  checkTruthy(`收束印的是這一次真正的界線（${done.dur}）`, /上限/.test(done.dur) && /30:00/.test(done.dur));
+
   await page.close();
 }
 
