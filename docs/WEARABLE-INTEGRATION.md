@@ -71,6 +71,21 @@ App 內連接頁應只出現四個選項：**Apple 健康**（iOS）／**Health 
    **不是 quality 的同義詞**：高品質的相機估計仍然是估計，低品質的胸帶讀數
    仍然是由真 RR 算出來的。validator 擋掉沒有標記與不在名單內的值。
 
+   ⚠️ **標記了不代表有人在讀。** `derivation` 與 freshness 一開始零消費者 ——
+   契約分得出來，但沒有任何一層據此改變行為。現在由
+   `domain/src/policies/reading-claim.ts` 消費（2026-09-10）：
+
+   - `buildReadingClaim()` → 這筆讀數**能被講成什麼**（qualifier ＋ tense）。
+     刻意回**結構**不回句子：文案分語言分 surface，字串產生器在這裡只會
+     被繞過或變成第二套文案系統。
+   - `mayClaimAsCurrent()` → stale 一律 false。
+   - `validateReadingCopy()` → 兩條：stale 不得講成「現在」、
+     estimated 不得不加限定詞。
+   - 🔴 **否定豁免是刻意的**：`「這不是你現在的讀數」` 必須放行。
+     本 repo 已被鏡像版本咬過一次（substring 比對 `predict` 擋掉了
+     「this is not a prediction」，MEMORY 2026-09-09）。
+     擋不住否認的檢查器會把文案逼向更含糊，正好與目的相反。
+
 ### HRV 換算：已裁決採 (b)，2026-09-04
 
 原本 `packages/engine/src/biometric/hrv.ts` 的 `harmonizeHrv()` 把 HealthKit 的 SDNN 乘 0.75

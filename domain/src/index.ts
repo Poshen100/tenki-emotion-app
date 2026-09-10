@@ -225,3 +225,21 @@ export {
 } from './policies/wearable-source-policy';
 
 export type { SampleFreshness } from './policies/wearable-source-policy';
+
+export {
+  CLAIM_QUALIFIERS,
+  CLAIM_TIMINGS,
+  ESTIMATE_TERMS,
+  IMMEDIACY_TERMS,
+  buildReadingClaim,
+  mayClaimAsCurrent,
+  validateReadingCopy,
+} from './policies/reading-claim';
+
+export type {
+  ClaimQualifier,
+  ClaimTiming,
+  ReadingClaim,
+  ReadingCopyCheck,
+  ReadingCopyProblem,
+} from './policies/reading-claim';

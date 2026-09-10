@@ -83,6 +83,30 @@
   取樣率），68bpm＋20brpm＝每次呼吸 3.4 拍，測不到。最後的處置是拒答 ——
   連原本會對的也一起放棄。值得，因為報一半的呼吸率下游分不出來。
 
+## 續：接線與 provenance 消費者（同一分支，追加 3 顆 commit）
+
+founder 問「接下來怎麼做」，用 AskUserQuestion 定範圍，選 **P0 接線 + P1 引擎完整性**（不碰 preview）。
+
+- 🔴 **上一輪把能力做好了，但沒接上真正會被呼叫的那條 pipeline。**
+  `runScanPipeline` 有真呼叫者（`useProgressiveScan.ts:187`），把只立住心率的讀數餵進去實測：
+  `success=true / score=NaN / zone=strain / conf=0.67`。
+  `classifyEdgeZone(NaN)` 兩個比較都是 false，**最後一個分支贏** ——
+  量不出 HRV 的使用者會被判「狀態不好」，依據是一個沒人算出來的數字。
+  **教訓：做完能力要問「誰真的會呼叫它」，不是「測試綠了沒」。**
+- 🔴 **同一個裝飾性斷言教訓在同一個 session 內第二次**（pipeline 層的 availability 轉交）。
+  已依協議 4 提煉成 `docs/PLAYBOOK.md` 一條：縱深防禦要用「另一層接不住」的輸入各自測；
+  兩次的解法都是改用**有限但被宣告為未量測**的值。
+- 🔴 **穿戴 HRV 覆寫的觸發條件是反的**：`fingerCalibrated && fingerConfidence >= 0.80`
+  —— 相機**已經**高信心成功才用穿戴值，相機量不出來時反而完全不補。
+  而且吃裸 number，擋不住 HealthKit 的 SDNN（活案例，不是假想），也沒有 freshness。
+  改成帶 provenance 的 `WearableHrvContext` ＋ `evaluateWearableHrv()`。
+  progressive 那條改吃**同一個函式**，不抄第二份（兩份規則＝兩個讀數會不一致）。
+- 🟡 `derivation`/freshness 一開始**零消費者**（grep 證實）。契約逼你標記，
+  但沒有任何一層據此改變行為。補了 `domain/policies/reading-claim.ts`。
+  其中**否定豁免**是把 2026-09-09 那條「檢查器擋得住謊言也擋得住誠實否認」制度化。
+
+`verify.sh` 全綠。引擎 471 → 481，domain 179 → 189。
+
 ## 下次接手點
 
 - **相機擷取層（VisionCamera frame processor → `PpgFrame`）還沒寫**，需要實機。
