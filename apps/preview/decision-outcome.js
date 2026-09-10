@@ -215,6 +215,17 @@
   // 所以沒有 `readingAtDecision` 的紀錄（2026-09-08 之前的全部）一律排除，
   // 而**排除了幾筆要講出來** —— 不講就變成「用一半的資料宣稱一個全貌」。
   //
+  // 🔴 **過期的讀數也不算**（2026-09-10 加）。`staleAtDecision` 這個旗標
+  // 寫進去了卻沒有人讀 —— founder 實走時 Baseline 是「49 小時前 校準」，
+  // 而一筆用它跑完的決策被歸給了 **Clear**（實測 `attributed:1 excluded:0`）。
+  // 但這張圖問的是「我**按下判定那一刻**在什麼狀態」，49 小時前量的東西
+  // 答不出來 —— 那正是上面那句 doc comment 說的 fabricate。
+  // ⚠️ 而且它跟這個 app 自己的標準打架：Hero 超過 15 分鐘就印「讀數已過期 ·
+  // 到 Scan 掃一次」。閾值不另訂，直接沿用寫紀錄那一端的
+  // `READING_FRESHNESS_MS_V6` —— 旗標在存檔時就算好了，這裡只是**讀它**。
+  // ⚠️ 「沒有讀數」與「讀數已過期」是**兩件事**，排除數要分開回，
+  // 合成一句就是「把不知道講成沒發生」的同一家族。
+  //
   // 🔴 樣本 < MIN_BAND_SAMPLES_FOR_RATE 時 `rate` 回 null ＝「還不夠說」，
   // 不是 0。UI 要印「資料累積中」，不是一個吵雜的百分比。
   // ═══════════════════════════════════════════════
@@ -226,15 +237,29 @@
   var BAND_ORDER = ['clear', 'neutral', 'strain'];
 
   /**
+   * 為什麼一筆紀錄歸不出帶位。`null` ＝ 歸得出來。
+   *
+   * @param {object} rec
+   * @returns {'no_reading'|'stale'|null}
+   */
+  function bandExclusionReason(rec) {
+    var r = rec && rec.readingAtDecision;
+    if (!r || BAND_ORDER.indexOf(r.band) < 0) return 'no_reading';
+    // 🔴 只有 `=== true` 才算過期。舊紀錄可能沒有這個欄位（undefined），
+    // 那是「不知道」不是「過期」—— 缺欄位不准說否定，也不准說肯定。
+    if (r.staleAtDecision === true) return 'stale';
+    return null;
+  }
+
+  /**
    * 從紀錄推出「這一筆是在哪個帶位做的」。
    *
    * @param {object} rec
-   * @returns {'clear'|'neutral'|'strain'|null} null = 這筆沒有讀數可歸屬
+   * @returns {'clear'|'neutral'|'strain'|null} null = 這筆歸不出帶位（沒讀數或已過期）
    */
   function bandOfRecord(rec) {
-    var r = rec && rec.readingAtDecision;
-    if (!r || BAND_ORDER.indexOf(r.band) < 0) return null;
-    return r.band;
+    if (bandExclusionReason(rec)) return null;
+    return rec.readingAtDecision.band;
   }
 
   /**
@@ -242,7 +267,8 @@
    * taken in. Mirrors domain's `summarizeDisciplineByBand`.
    *
    * @param {object[]} records
-   * @returns {{stats:object[], attributed:number, excluded:number, total:number}}
+   * @returns {{stats:object[], attributed:number, excluded:number,
+   *            excludedNoReading:number, excludedStale:number, total:number}}
    */
   function disciplineByBand(records) {
     var list = Array.isArray(records) ? records : [];
@@ -266,10 +292,19 @@
         rate: inBand.length >= MIN_BAND_SAMPLES_FOR_RATE ? disciplined / inBand.length : null,
       });
     }
+    var noReading = 0;
+    var stale = 0;
+    for (var j = 0; j < list.length; j++) {
+      var why = bandExclusionReason(list[j]);
+      if (why === 'no_reading') noReading += 1;
+      else if (why === 'stale') stale += 1;
+    }
     return {
       stats: stats,
       attributed: attributed,
       excluded: list.length - attributed,
+      excludedNoReading: noReading,
+      excludedStale: stale,
       total: list.length,
     };
   }
@@ -291,6 +326,7 @@
     MIN_BAND_SAMPLES_FOR_RATE: MIN_BAND_SAMPLES_FOR_RATE,
     BAND_ORDER: BAND_ORDER,
     bandOfRecord: bandOfRecord,
+    bandExclusionReason: bandExclusionReason,
     disciplineByBand: disciplineByBand,
   };
 }(typeof window !== 'undefined' ? window : this));

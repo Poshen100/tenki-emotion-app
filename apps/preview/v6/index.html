@@ -2719,7 +2719,7 @@ body{
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do1"></script>
+    <script src="/preview/decision-outcome.js?v=do2"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -5342,11 +5342,21 @@ function renderCalibrationBench(){
   }
   // 🔴 排除了幾筆一定要講。只印可歸屬的那些，等於用一半的資料宣稱一個全貌。
   let line = '<b>' + sum.total + '</b> 筆紀錄 · <b>' + sum.attributed + '</b> 筆有讀數可歸屬';
+  // 🔴 「沒有讀數」與「讀數已過期」是兩件事，分開講。合成一句就是把「不知道」
+  //    講成「沒發生」—— 而且會讓「先掃一次」那句話對過期的人變成無效建議
+  //    （他掃過了，只是太久以前）。
+  if(sum.excludedNoReading > 0){
+    line += ' · <b>' + sum.excludedNoReading + '</b> 筆決策當下沒有讀數';
+  }
+  if(sum.excludedStale > 0){
+    line += ' · <b>' + sum.excludedStale + '</b> 筆決策當下的讀數已過期';
+  }
   if(sum.excluded > 0){
-    line += ' · <b>' + sum.excluded + '</b> 筆決策當下沒有讀數（不列入 —— 猜一個帶位會偽造這張圖本身）';
+    line += '（不列入 —— 猜一個帶位會偽造這張圖本身）';
   }
   if(sum.attributed === 0){
-    line += '<br>目前沒有一筆帶得出帶位。<b>先掃一次再進決策</b>，這張圖才有東西可講。';
+    line += '<br>目前沒有一筆帶得出帶位。<b>' + (sum.excludedStale > 0 ? '進決策前先掃一次' : '先掃一次再進決策')
+      + '</b>，這張圖才有東西可講。';
   }
   foot.innerHTML = line;
 }
