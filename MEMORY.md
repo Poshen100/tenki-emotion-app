@@ -18,6 +18,80 @@
 
 ---
 
+# 2026-09-10 Session Update (Phone-first biometric —— 相機 PPG 量測鏈、derivation、missing-data 的 Edge)
+
+⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/tenki-biometric-v2-ubzosn`。
+
+## founder 的指令
+
+貼了一整份「REAL BIOMETRIC ARCHITECTURE v2 — PHONE-FIRST + WEARABLE-ENHANCED」執行書：
+41 節，核心命題是**只有一支手機的人才是最大市場**，相機 PPG 不得做成「沒手錶時的退路」。
+明寫「不要只給我 architecture report，要 implement」。
+
+## 現況盤點（動工前查的，寫下來免得下次重查）
+
+已經有的比我以為的多：`BiometricSample` 契約、來源優先序＋freshness 窗、
+三支 mapper（HealthKit SDNN / Health Connect RMSSD / BLE 0x2A37）、devices 頁與
+`DeviceLinkPort`、Android 原生層。**缺的是相機那一條，而且缺得比看起來嚴重。**
+
+## 做了什麼（5 顆 commit）
+
+1. `derivation`（observed/derived/estimated）＋ `classifySampleFreshness` live/recent/stale。
+2. **真的相機 PPG pipeline**（`packages/engine/src/biometric/ppg/`）＋ 合成 replay ＋ scan modes。
+3. Edge Score／baseline 的 missing-data 路徑（`ReadingAvailability`）。
+4. 胸帶 RR → HRV（`beat-series.ts` + `adapters/bleHrv.ts`）。
+5. `docs/PHONE-PPG.md`（canonical）＋ WEARABLE/CLAUDE/PLAYBOOK/ANTIGRAVITY 接線。
+
+`verify.sh` 全綠（含 mobile 與七支 preview harness）。引擎測試 451 → 471。
+
+## 教訓
+
+- 🔴 **「測試綠」跟「演算法對」是兩件事，而中間那步是把數字印出來看。**
+  28 條測試全綠之後我才去印實際回收值，一次抓到三個真問題：
+  ① **呼吸率跟著心率跑** —— 舊的過零計數估計器在 jitter > RSA（光學拍點的常態）時，
+  「呼吸次數」變成拍數的函數：同一個 14 brpm 的 fixture，50bpm 報 14.3、105bpm 報 33.8，
+  **一路上都長得像正常生理數字**。
+  ② **自相關的八度錯誤** —— 16 brpm 報 8、20 報 10，而 8 和 12 一路都對，
+  **只在特定速率才現形**，所以抽兩個點測會全過。
+  ③ **偽跡剔除會靜靜地低報變異度** —— 真值 RMSSD 262ms，剔掉 19% 後 survivors 給 125ms，
+  品質分數 83，看起來完全生理合理，**不到真值一半**。
+  三個都是「測試會綠、量出來才知道錯」的那一類。
+
+- 🔴 **門檻要對著自己的量測值校準，不是對著教科書。**
+  `MIN_PERFUSION`/`GOOD_PERFUSION` 第一版照教科書的 1-3% 灌流指數設，結果
+  **每一次好掃描都被標成 `weak_pulse`** —— 因為我的量測是對帶通後訊號取 RMS，
+  而脈波是窄尖峰，健康的合成指尖只讀到 0.0062。
+  （PLAYBOOK §3「守門員自己也有模型」的同一族，這次是模型從一開始就沒對過。）
+
+- 🔴 **互為備援的兩道防線，會讓彼此的測試變成裝飾。**
+  baseline 有兩道擋佔位值：`updateBaselineProfile` 看 availability、`updateMetricBaseline`
+  拒非有限值。反向驗證時**單獨破壞任何一道，461 條測試照樣全綠** —— 另一道把案例接住了。
+  補了兩條各自隔離的測試（有限值＋availability=false 只驗前者；直接對 Welford 餵 NaN
+  只驗後者）才各紅一條。**冗餘是要的，沒被測到的那一層不是。**
+
+- 🔴 **合成 fixture 的參數不生理，會讓拒答看起來像正確的謹慎。**
+  第一版 `CLEAN_SCAN` 是 jitter 主導（RSA 18ms p-p vs jitter 22ms SD），
+  於是呼吸路徑**每一個 fixture 都回 null**，而我差點就收下那個結果。
+  靜息時 RSA 本來就是拍間變異的大宗，改成 55/12 之後路徑才真的被走到。
+
+- 🔴 **「缺就填一個合理預設值」是這份 codebase 最容易犯的錯，而且它有慣性。**
+  舊 `finger-ppg.ts` 偵測不到拍點時用 1000ms 當平均間期 → 報 60 bpm，呼吸率回 15。
+  `calcConfidence` 寫死 `inputs += 3; // These are always present in a BiometricReading`
+  —— 那句話對**型別**是真的，對**掃描**不是。已全部拆掉並寫進 CLAUDE.md 禁止事項。
+
+- 🟡 **拒答比報一半好，而且要接受它的代價。** 呼吸率受拍點取樣限制（心率就是呼吸的
+  取樣率），68bpm＋20brpm＝每次呼吸 3.4 拍，測不到。最後的處置是拒答 ——
+  連原本會對的也一起放棄。值得，因為報一半的呼吸率下游分不出來。
+
+## 下次接手點
+
+- **相機擷取層（VisionCamera frame processor → `PpgFrame`）還沒寫**，需要實機。
+  接縫已定好：`PpgFrame` 是純量，raw pixel 進不到引擎。
+- **所有準確度證據都來自合成器。** 第一次實機實走要把 perfusion／periodicity 的
+  實際分布印出來，門檻很可能要重校 —— 它們是對合成訊號量出來的。
+- 掃描 UI 還沒有（品質 reasons、模式選擇）。⚠️ **不要塞進 `(tabs)/scan.tsx`**（CLAUDE.md）。
+- iOS HealthKit 橋接、Android 真機實走都還在原地（見 WEARABLE-INTEGRATION §4d/§5）。
+
 # 2026-09-09 Session Update (個人決策雷達落地 —— 五大支柱、證據契約、Drift Alert 實走頁)
 
 ⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/tenki-decision-intelligence-n7satv`。

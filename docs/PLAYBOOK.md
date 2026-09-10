@@ -40,6 +40,7 @@
 | 品牌 / 文案 | 依 §9 定位表 | `SYSTEM.md` + `docs/brand.md` §5 | compliance 詞彙表 |
 | 動效 / 動畫（任何 surface） | 依 §9 定位表 | **`docs/MOTION-DIRECTION.md`（canonical）** + 對應 `gsap-*` skill 包（其 §6 路由） | 其 §7 驗收清單（真瀏覽器 + reduced-motion + 短視窗） |
 | 穿戴 / 健康資料整合（HealthKit、Health Connect、BLE、Garmin） | `domain/` + `apps/mobile/` | **`docs/WEARABLE-INTEGRATION.md`（canonical）** + `docs/garmin-integration.md` | `bash scripts/verify.sh` |
+| 相機 PPG / 訊號處理 / 品質閘 / 掃描模式 | `packages/engine/src/biometric/ppg/` | **`docs/PHONE-PPG.md`（canonical）** —— 尤其 §3 三個量出來的真問題與 §8 門檻是量出來的 | `verify.sh` + **對合成真值比對，不是只看測試綠** |
 | 文件 / 制度 | 根目錄 + `docs/` | 本檔 §0 優先序 | 無矛盾引入 |
 | ❌ 任何理由都不碰 | `apps/web/`（凍結）、`core/`（legacy 參考） | — | hook 會直接擋 |
 
