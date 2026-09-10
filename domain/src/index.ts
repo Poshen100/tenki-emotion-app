@@ -187,7 +187,9 @@ export {
   BIOMETRIC_SOURCE_PLATFORMS,
   LOCAL_ONLY_METRICS,
   MIN_USABLE_QUALITY,
+  SAMPLE_DERIVATIONS,
   SAMPLE_QUALITY_GRADES,
+  isEstimatedSample,
   isHrvMetric,
   mayLeaveDevice,
 } from './contracts/wearable-sample';
@@ -197,6 +199,7 @@ export type {
   BiometricPermissionScope,
   BiometricSample,
   BiometricSourcePlatform,
+  SampleDerivation,
   SampleQualityGrade,
 } from './contracts/wearable-sample';
 
@@ -209,7 +212,10 @@ export {
 
 export {
   METRIC_FRESHNESS_MS,
+  METRIC_LIVE_MS,
+  SAMPLE_FRESHNESS_CLASSES,
   SOURCE_PLATFORM_PRIORITY,
+  classifySampleFreshness,
   isSampleFresh,
   isUsableSample,
   resolveLatestByMetric,
@@ -217,3 +223,5 @@ export {
   sampleAgeMs,
   selectPreferredSample,
 } from './policies/wearable-source-policy';
+
+export type { SampleFreshness } from './policies/wearable-source-policy';

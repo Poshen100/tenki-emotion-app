@@ -15,6 +15,7 @@ import {
   BIOMETRIC_SOURCE_PLATFORMS,
   type BiometricMetric,
   type BiometricSample,
+  SAMPLE_DERIVATIONS,
   SAMPLE_QUALITY_GRADES,
 } from '../contracts/wearable-sample';
 import type { ValidationResult } from './scan-schema';
@@ -122,6 +123,10 @@ export function validateBiometricSample(
 
   if (!isFiniteNumber(input.confidence) || input.confidence < 0 || input.confidence > 1) {
     errors.push('biometric sample.confidence must be between 0 and 1');
+  }
+
+  if (!isEnumValue(input.derivation, SAMPLE_DERIVATIONS)) {
+    errors.push('biometric sample.derivation must be observed, derived, or estimated');
   }
 
   if (!isEnumValue(input.permissionScope, BIOMETRIC_PERMISSION_SCOPES)) {

@@ -86,6 +86,9 @@ export function mapHealthConnectRecord(
     metric: BiometricSample['metric'],
     value: number,
     observedAt: number,
+    // Health Connect hands over the metric itself for everything except the
+    // sleep session, whose hours figure is TENKI's own arithmetic.
+    derivation: BiometricSample['derivation'] = 'observed',
   ): MappingResult => {
     const result = validateBiometricSample(
       {
@@ -97,6 +100,7 @@ export function mapHealthConnectRecord(
         sourceApp: raw.dataOriginPackage ?? null,
         quality: HUB_QUALITY,
         confidence: HUB_CONFIDENCE,
+        derivation,
         permissionScope: scope,
       },
       now,
@@ -147,7 +151,7 @@ export function mapHealthConnectRecord(
         return { status: 'rejected', errors: ['sleep session ends before it starts'] };
       }
       // A night is dated by when it ended — that is when it becomes context.
-      return build('sleep_duration_hours', durationMs / 3_600_000, record.endTime);
+      return build('sleep_duration_hours', durationMs / 3_600_000, record.endTime, 'derived');
     }
 
     default:

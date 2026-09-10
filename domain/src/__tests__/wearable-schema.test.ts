@@ -2,6 +2,8 @@ import {
   BIOMETRIC_METRICS,
   type BiometricSample,
   LOCAL_ONLY_METRICS,
+  SAMPLE_DERIVATIONS,
+  isEstimatedSample,
   isHrvMetric,
   mayLeaveDevice,
 } from '../contracts/wearable-sample';
@@ -24,6 +26,7 @@ function sample(overrides: Partial<BiometricSample> = {}): BiometricSample {
     sourceApp: null,
     quality: 5,
     confidence: 0.95,
+    derivation: 'observed',
     permissionScope: 'scan',
     ...overrides,
   };
@@ -141,5 +144,46 @@ describe('partitionValidSamples', () => {
 
   it('returns empty results for an empty batch', () => {
     expect(partitionValidSamples([], NOW)).toEqual({ accepted: [], rejected: [] });
+  });
+});
+
+describe('derivation provenance', () => {
+  it('rejects a sample that does not say how the number came to exist', () => {
+    const { derivation: _dropped, ...untagged } = sample();
+    const result = validateBiometricSample(untagged, NOW);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.errors.join(' ')).toContain('derivation');
+    }
+  });
+
+  it('rejects a derivation outside the three the contract defines', () => {
+    // "clinical" is exactly the word a phone-camera adapter must never be able
+    // to attach to an optical estimate.
+    const result = validateBiometricSample({ ...sample(), derivation: 'clinical' }, NOW);
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts each of the three derivations', () => {
+    for (const derivation of SAMPLE_DERIVATIONS) {
+      expect(validateBiometricSample({ ...sample(), derivation }, NOW).success).toBe(true);
+    }
+  });
+
+  it('separates estimated values from measured and computed ones', () => {
+    // Quality and derivation are independent: a high-quality camera estimate is
+    // still an estimate, and a mediocre strap reading is still derived from RR.
+    const cameraHrv = sample({
+      metric: 'hrv_rmssd_ms',
+      value: 44,
+      sourcePlatform: 'finger_scan',
+      quality: 5,
+      derivation: 'estimated',
+    });
+    const strapHrv = sample({ metric: 'hrv_rmssd_ms', value: 44, quality: 2, derivation: 'derived' });
+
+    expect(isEstimatedSample(cameraHrv)).toBe(true);
+    expect(isEstimatedSample(strapHrv)).toBe(false);
   });
 });
