@@ -136,6 +136,37 @@ export interface ReadingAvailability {
 /** Everything measured — the assumption when no availability is given. */
 export const FULL_AVAILABILITY: ReadingAvailability = { hrv: true, respiration: true };
 
+/**
+ * Reconciles what the caller declared with what the reading actually holds.
+ *
+ * A non-finite value is never a measurement, so a field carrying one is treated
+ * as unavailable whatever the caller said. This is the second of two layers,
+ * and it exists because the first one is a promise the caller has to remember
+ * to keep.
+ *
+ * 🔴 Measured, not hypothetical. A phone-only reading (heart rate established,
+ * HRV withheld, `NaN` in the field per `ppg/to-reading.ts`) passed through
+ * `runScanPipeline` without an availability record and produced
+ * `score: NaN` — which `classifyEdgeZone` then classified as **`strain`**,
+ * because `NaN >= 70` and `NaN >= 40` are both false and the last branch wins.
+ * The pipeline reported `success: true` and a confidence of 0.67 alongside it.
+ * A user whose beat timing was simply too noisy for HRV would have been told
+ * their state was poor, on the strength of a number nobody computed.
+ *
+ * @param reading - The reading about to be scored.
+ * @param declared - What the caller said was measured, if anything.
+ * @returns Availability narrowed to fields that actually hold a real value.
+ */
+export function resolveAvailability(
+  reading: BiometricReading,
+  declared: ReadingAvailability = FULL_AVAILABILITY,
+): ReadingAvailability {
+  return {
+    hrv: declared.hrv && Number.isFinite(reading.hrvRmssdMs),
+    respiration: declared.respiration && Number.isFinite(reading.rrBrpm),
+  };
+}
+
 /** Input data for Edge Score calculation. */
 export interface EdgeScoreInput {
   /** Current biometric reading. */
@@ -520,7 +551,7 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
   // are both fabrications: a neutral 50 asserts the user is average on a
   // dimension nobody measured, and a 0 asserts they are at the floor of it.
   // Excluding says only what is true — this reading rests on less.
-  const availability = input.availability ?? FULL_AVAILABILITY;
+  const availability = resolveAvailability(input.reading, input.availability);
   const excludedDrivers: ScoreDriverKey[] = [];
 
   if (!availability.hrv) {

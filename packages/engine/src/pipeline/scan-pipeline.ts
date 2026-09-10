@@ -7,7 +7,12 @@
  */
 
 import type { BiometricReading, BaselineProfile, SignalQuality, SleepRecoveryInput } from '../common/types';
-import { calculateEdgeScore, type EdgeScoreInput } from '../scoring/edge-score';
+import {
+  calculateEdgeScore,
+  type EdgeScoreInput,
+  type ReadingAvailability,
+  resolveAvailability,
+} from '../scoring/edge-score';
 import { evaluateGate, canProceed } from '../session/gate';
 import { updateBaselineProfile } from '../baseline/baseline';
 import { selectSource, buildFusionLog, type SourceQuality } from '../fusion';
@@ -36,6 +41,15 @@ export interface PipelineDependencies {
    */
   availableSources?: SourceQuality[];
   /**
+   * Which of the reading's physiological fields are real measurements.
+   *
+   * A phone-only scan routinely establishes a heart rate and withholds the
+   * rest; omit this and every field is assumed measured, which is what callers
+   * predating the camera pipeline did. Fields holding a non-finite value are
+   * treated as unavailable regardless of what is declared here.
+   */
+  availability?: ReadingAvailability;
+  /**
    * ACTION 2 — Wearable HRV reading (RMSSD ms) from Apple Watch / Garmin / chest belt.
    * When fingerCalibrated=true, fingerConfidence>=0.80, and this value is set,
    * it replaces the rPPG HRV estimate before the 8-factor engine runs.
@@ -54,7 +68,12 @@ export interface PipelineResult {
   /** Gate evaluation details for feedback */
   gateFeedback: ReturnType<typeof evaluateGate>;
   /** Pipeline error code if failed */
-  rejectReason?: 'POOR_SIGNAL' | 'TOO_SHORT' | 'GATE_REJECTED';
+  rejectReason?: 'POOR_SIGNAL' | 'TOO_SHORT' | 'GATE_REJECTED' | 'NO_HEART_RATE';
+  /**
+   * Which drivers the Edge Score left out for want of a measurement. Empty for
+   * a complete reading; non-empty is normal for a phone-only scan.
+   */
+  excludedDrivers?: string[];
   /** Optional blended confidence when finger scan is calibrated */
   blendedConfidence?: number;
   /** Optional blend mode applied */
@@ -96,6 +115,26 @@ export function runScanPipeline(
     : buildFusionLog('rppg_cheek', signalQuality.score);
 
   // ─── Step 1: Initial Sanity Checks ───────────────────────────────────────
+  // No heart rate means there is no reading to score. HRV and respiration can
+  // be excluded and the score renormalized over what remains; the heart rate
+  // cannot — every remaining physiological driver reads from it. Scoring it
+  // anyway produced NaN, which `classifyEdgeZone` then called `strain`.
+  if (!Number.isFinite(rawReading.hrBpm)) {
+    return {
+      success: false,
+      updatedBaseline: deps.currentBaseline,
+      gateFeedback: {
+        result: 'force_hold',
+        scoreAtGate: 0,
+        confidenceAtGate: 0,
+        message: 'No heart rate established',
+        consecutiveRedGates: 0,
+      },
+      rejectReason: 'NO_HEART_RATE',
+      fusionLog,
+    };
+  }
+
   if (signalQuality.score < 20 || !signalQuality.acceptable) {
     return {
       success: false,
@@ -133,12 +172,17 @@ export function runScanPipeline(
     wearableHrvApplied = true;
   }
 
+  // Narrowed against the reading actually being scored, so a wearable value
+  // that filled a gap above counts as available and a placeholder does not.
+  const availability = resolveAvailability(effectiveReading, deps.availability);
+
   const edgeInput: EdgeScoreInput = {
     reading: effectiveReading,
     baseline: deps.currentBaseline,
     signalQuality,
     sleepRecovery: deps.sleepRecovery,
     recentScores: deps.recentScores,
+    availability,
   };
 
   const edgeScoreResult = calculateEdgeScore(edgeInput);
@@ -170,10 +214,16 @@ export function runScanPipeline(
   const stressDriver = edgeScoreResult.drivers.find(d => d.key === 'stress_proxy_vs_baseline');
   const stressScore = stressDriver ? stressDriver.rawSubScore : 50;
 
+  // Availability is resolved against rawReading, not effectiveReading: the
+  // baseline tracks what the CAMERA measured, so a wearable value that filled
+  // a gap for scoring must not also fill it for the baseline.
   const updatedBaseline = updateBaselineProfile(
     deps.currentBaseline,
     rawReading,
-    stressScore
+    stressScore,
+    0,
+    null,
+    resolveAvailability(rawReading, deps.availability)
   );
 
   // ─── Step 5: Multi-modal Confidence Blend ────────────────────────────────
@@ -209,5 +259,6 @@ export function runScanPipeline(
     blendMode,
     fusionLog,
     wearableHrvApplied,
+    excludedDrivers: edgeScoreResult.metadata.excludedDrivers ?? [],
   };
 }
