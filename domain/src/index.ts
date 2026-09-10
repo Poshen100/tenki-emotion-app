@@ -167,6 +167,31 @@ export type {
 } from './contracts/readiness-reading';
 
 export {
+  READINESS_HISTORY_KEY,
+  READINESS_HISTORY_MAX,
+  READINESS_HISTORY_SCHEMA,
+} from './contracts/readiness-history';
+
+export type {
+  ReadinessHistoryLoad,
+  ReadinessHistorySample,
+} from './contracts/readiness-history';
+
+export {
+  appendHistorySample,
+  histogram,
+  loadHistory,
+  summarizeHistory,
+  summarizeSignal,
+  toHistorySample,
+} from './policies/readiness-history';
+
+export type {
+  ReadinessHistorySummary,
+  SignalDistribution,
+} from './policies/readiness-history';
+
+export {
   MIN_BAND_SAMPLES_FOR_RATE,
   READING_FRESHNESS_MS,
   buildReading,

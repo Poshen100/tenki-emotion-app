@@ -18,6 +18,67 @@
 
 ---
 
+# 2026-09-09 Session Update b (讓讀數開始累積 —— 護城河先前每天被抹掉一次)
+
+⚠️ 依協議 2b：**不編號**。同一天第二條，接在 PR #253 merge 之後。分支同名重開自 main。
+
+## founder 的指令
+
+> 「接下來」→ 我回報現況後 →「開始第 1 步」
+
+## 🔴 這次最重要的發現（也是這條分支存在的理由）
+
+**每次掃描都把上一次覆蓋掉。** `readiness-scan.js` 的 `saveReading` 用
+`setItem` 存 `tenki.readiness.reading.v1`，單列。所以「當下讀數」一直有，
+**「你自己的歷史」一筆都沒有在累積** —— 而 PR #253 做的 Drift Alert /
+Decision Twin / Clear Window 全部吃歷史。產品講的護城河
+（別人抄不走的個人決策史）在真實 app 裡每天被抹掉一次，而且不會有任何錯誤訊息：
+畫面照跑、讀數照給，只有那三個支柱永遠說「證據不足」。
+
+## 做了什麼（5 顆 commit）
+
+1. `domain/`：`contracts/readiness-history.ts` + `policies/readiness-history.ts`（27 條測試）。
+2. `apps/preview/readiness-history.js` 鏡射 + `saveReading` 接上 + 兩個頁面載入。
+3. `/drift/` 加「你自己的資料」真實分布卡（min/med/max/**span**/sd + 直方圖）。
+4. `preview-drift.mjs` 加 16 條（鏡射 + 接線 + 實走），共 73 條。
+5. 文件：`DECISION-INTELLIGENCE.md` Phase 2 補上前置條件與「下一個決定」。
+
+`verify.sh` 全綠（含 mobile）。
+
+## 教訓
+
+- 🔴 **「功能做完了」與「它有資料可吃」是兩件事，而且後者不會報錯。**
+  上一輪我把 drift/twin/clear-window 全做完、92 條測試全綠、preview 走得漂亮 ——
+  但真實 app 裡它們一筆歷史都拿不到。**做完吃歷史的功能，下一個問題永遠是
+  「歷史從哪來、存在哪、會不會被覆蓋」**，而不是「畫面對不對」。
+- 🔴 **新增 persisted 行為要開新 key，不要改舊 key 的語意。**
+  `tenki.readiness.reading.v1` 的語意就是「當下讀數、單列、會覆蓋」，別的代碼在讀它。
+  歷史走新的 `tenki.readiness.history.v1`。
+- 🔴 **讀不動的列要回報，不要無聲丟掉。** `loadHistory` 回 `{samples, dropped}`，
+  `/drift/` 把 dropped 印出來 —— 用一半的資料算出來的分布，必須有辦法說它只有一半。
+  同理，超出 0..1 的訊號**丟掉不夾住**：夾住會把壞掉的產生端藏進一個看起來很合理的分布裡。
+- 🔴 **斷言在量別的東西 —— 一輪內連中兩次**（都是自己的新斷言抓到的）：
+  ① 「history 的 script 排在 scan 之前」用 `indexOf(檔名)` → 兩頁都紅，
+     因為**註解**裡就寫著 `readiness-scan.js`，比真正的標籤還早出現。
+  ② 天數斷言用 UTC 起點 + 每 12 小時 → 容器（UTC）數到 20 天、別的時區 21 天，
+     是一條會隨 runner 時區飄的斷言。改用**本地**時間一天兩筆跨 20 天。
+- 🔴 **顏色的主人這條又差點犯**：分布卡第一版用 cyan 邊表示「這是真資料」——
+  cyan ＝ ACTIVE/live，那是借一個已經有主人的顏色去講別的事。改成 `--n-700`，
+  分辨交給實心邊 + 卡頭的字。
+
+## 下次接手點（第 2 步）
+
+**決定 drift 的軸，但先看分布。** `assessDrift()` 吃 0-100，而
+`readiness-band.ts` 檔頭明文「刻意不產生數值分數」—— 兩層現在接不起來，
+把 band 硬換成 85/55/25 就是假精準。判準寫在
+`docs/DECISION-INTELLIGENCE.md` §6 Phase 2「🔴 下一個決定：drift 的軸」：
+看 span、**軸不得吃 capture quality**（lighting/uniformity 講的是房間不是人）。
+定軸之後 `MIN_MEANINGFUL_STD` / `DRIFT_ABSOLUTE_THRESHOLDS` /
+`AT_REFERENCE_POINTS` 全部要重新推導。
+
+⚠️ 需要 founder 先在手機上掃幾次，`/drift/` 的分布卡才有東西可看。
+**PWA 與 Safari 分頁的 localStorage 不共用**，掃描與看分布要在同一邊。
+
 # 2026-09-09 Session Update (個人決策雷達落地 —— 五大支柱、證據契約、Drift Alert 實走頁)
 
 ⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/tenki-decision-intelligence-n7satv`。

@@ -208,7 +208,27 @@ Decision Black Box、以及全部 insight 的 evidence / sample count / confiden
 
 ### Phase 2 — 要等資料累積
 
-Clear Window、Strain Window、The Turning Point（30 天）、個人介入反應圖譜。
+**⚠️ 前置條件在 2026-09-09 之前根本不成立**：`tenki.readiness.reading.v1` 是
+`setItem` 單筆，每次掃描覆蓋上一次 —— 所以「使用者自己的歷史」**一筆都沒有在累積**，
+本檔所有吃歷史的支柱（Drift / Twin / Clear Window）在真實 app 裡永遠只會說「證據不足」。
+已修：`domain/src/policies/readiness-history.ts` + `apps/preview/readiness-history.js`
+把每次掃描 append 進 `tenki.readiness.history.v1`（**只存原始 evidence，不存推導分數**）。
+
+#### 🔴 下一個決定：drift 的軸
+
+`assessDrift()` 吃 0-100，而 `domain/src/policies/readiness-band.ts` 檔頭明文
+**刻意不產生數值分數**（capture tier 量不到 HRV，編一個就是捏造）。這兩層現在**接不起來**，
+而把 band 硬換成 85/55/25 正是 §5 紅線 8 的假精準。定軸之前先看兩件事：
+
+1. **span**（`/drift/` 的「你自己的資料」卡有）—— 訊號正規化成 0..1 不代表它會走遍 0..1。
+   span 太小的訊號撐不起門檻，而摘要數字看不出來、直方圖看得出來。
+2. **軸不得吃 capture quality**（lighting / uniformity）。那兩個講的是「房間變暗了」
+   不是「你變了」；它們該進 confidence，不該進訊號 —— 否則偏移量會被燈光推著走。
+
+⚠️ 定軸之後，`drift.ts` 的 `MIN_MEANINGFUL_STD` / `DRIFT_ABSOLUTE_THRESHOLDS` /
+`AT_REFERENCE_POINTS` **全部要重新推導**（它們現在都是 0-100 軸上的值），不是改個名字。
+
+其餘 Phase 2：Clear Window、Strain Window、The Turning Point（30 天）、個人介入反應圖譜。
 ⚠️ **開工前先確認真的有那麼多可比較 session**，不要拿三筆資料畫出一張很有說服力的圖
 （2026-09-08 已經發生過一次：`isDisciplined` 吃錯型別，長出一張「每個帶位都 0%」
 看起來很合理的圖，斷言抓不到，是把圖畫出來看才發現的）。
@@ -230,6 +250,7 @@ provenance 標籤從 `inferred` 升級到 `measured`、confidence 跟著升、
 | TS 來源 | Preview 鏡射 | 守門 |
 |---------|-------------|------|
 | `packages/engine/src/intelligence/drift.ts` 的常數與 magnitude 判定 | `apps/preview/drift.js` | `scripts/preview-drift.mjs`（**逐一比對常數值**，不是靠自律） |
+| `domain/src/contracts/readiness-history.ts` 的 key / schema / 上限 + `policies/readiness-history.ts` 的判定 | `apps/preview/readiness-history.js` | 同上（另含**接線**：`saveReading` 有 append、頁面載入順序、沒有第二份 store） |
 
 ⚠️ 鏡射只鏡射**判定與常數**，不鏡射整個引擎。engine 那邊改了常數而 preview 沒跟上，
 harness 會當場紅 —— 這是本檔唯一防止「兩個頁面同一筆資料算出不同數字」的機制。

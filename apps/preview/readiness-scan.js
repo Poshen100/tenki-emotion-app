@@ -1557,6 +1557,33 @@
     try {
       localStorage.setItem(READING_STORE_KEY, JSON.stringify(reading));
     } catch (e) { /* Safari 無痕等 —— 讀數單純不留存，不影響本次回傳 */ }
+    recordInHistory(reading);
+  }
+
+  /**
+   * 把這一筆**也**記進歷史（append-only）。
+   *
+   * 🔴 上面那個 setItem 是「當下讀數」：單列、每次覆蓋 —— 那是它的語意，不動它。
+   * 但**只有那一列**的話，Drift Alert / Decision Twin / Clear Window 永遠沒有
+   * 東西可吃 —— 使用者的個人歷史每天被抹掉一次，而那正是產品講的護城河。
+   * 累積交給 `readiness-history.js`（domain/policies/readiness-history.ts 的鏡射）。
+   *
+   * ⚠️ **不做 fallback**：模組沒載到就出聲並且不寫，不在這裡自己存第二份 ——
+   * 那正是 PLAYBOOK §6「儲存/判定只能有一個來源」要消滅的形狀。
+   * 載入順序由頁面負責（readiness-history.js 要排在 readiness-scan.js 之前）。
+   */
+  function recordInHistory(reading) {
+    var history = global.TENKI_READINESS_HISTORY;
+    if (!history) {
+      if (global.console && global.console.error) {
+        global.console.error(
+          '[tenki] readiness-history.js 沒載到 —— 這一筆讀數沒有進歷史。' +
+          '頁面必須在 readiness-scan.js 之前載入它。'
+        );
+      }
+      return;
+    }
+    history.record(reading);
   }
 
   /** 進入揭示 —— 量測已結束，取消鈕收起（否則會出現「store 有讀數但回傳 null」）。 */

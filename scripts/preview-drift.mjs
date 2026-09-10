@@ -61,6 +61,16 @@ const TS = {
 };
 const MIRROR = read('apps/preview/drift.js');
 
+/** 第二組鏡射：讀數歷史（domain ↔ preview）。 */
+const HISTORY_TS = read('domain/src/contracts/readiness-history.ts');
+const HISTORY_MIRROR = read('apps/preview/readiness-history.js');
+const SCAN = read('apps/preview/readiness-scan.js');
+const PAGES_LOADING_SCAN = [
+  'apps/preview/decision-alert.html',
+  'apps/preview/v6/index.html',
+  'apps/preview/drift-alert.html',
+];
+
 /**
  * 抓 `NAME = 123` 形式的數字常數（TS 可能有型別註記，數字可能有 _ 分隔）。
  * @param {string} src
@@ -89,6 +99,18 @@ function objectConst(src, name) {
     out[key] = Number(value.replace(/_/g, ''));
   }
   return Object.keys(out).length > 0 ? out : null;
+}
+
+/**
+ * 抓 `NAME = 'text'` 形式的字串常數。localStorage 的 key 是 persisted
+ * contract —— 它漂移的後果是既有紀錄讀不到，比數字漂移更難發現。
+ * @param {string} src
+ * @param {string} name
+ * @returns {string|null}
+ */
+function stringConst(src, name) {
+  const m = src.match(new RegExp(`\\b${name}\\b[^=\\n]*=\\s*'([^']+)'`));
+  return m ? m[1] : null;
 }
 
 const SCALARS = [
@@ -152,6 +174,57 @@ checkTruthy(
   !TS.copy.includes("not a prediction —") && !MIRROR.includes('not a prediction'),
   'PROHIBITED_VOCABULARY 用 substring 比對 predict，誠實的否認會被當成被禁的宣稱一起擋掉'
 );
+
+// ═══════════════════════════════════════════════════
+// 1b. 讀數歷史的鏡射與接線
+//
+// 這一組守的是「讀數真的在累積」。它壞掉的樣子特別安靜：
+// 頁面照跑、掃描照給讀數，只有歷史一直是空的 —— 而依賴歷史的三個支柱
+// 要好幾天之後才會有人發現它們永遠說「證據不足」。
+// ═══════════════════════════════════════════════════
+
+console.log('\n── 讀數歷史：鏡射 ──');
+for (const name of ['READINESS_HISTORY_SCHEMA', 'READINESS_HISTORY_MAX']) {
+  check(`${name} 值一致`, scalarConst(HISTORY_MIRROR, name), scalarConst(HISTORY_TS, name));
+}
+const keyFromTs = stringConst(HISTORY_TS, 'READINESS_HISTORY_KEY');
+checkTruthy('READINESS_HISTORY_KEY 讀得到', keyFromTs !== null, `ts=${keyFromTs}`);
+check('READINESS_HISTORY_KEY 值一致', stringConst(HISTORY_MIRROR, 'READINESS_HISTORY_KEY'), keyFromTs);
+checkTruthy(
+  '歷史沒有挪用「當下讀數」那把 key',
+  keyFromTs !== 'tenki.readiness.reading.v1',
+  '挪用 persisted key ＝ 讓既有紀錄靜默壞掉'
+);
+
+console.log('\n── 讀數歷史：接線 ──');
+checkTruthy(
+  'saveReading 有把讀數送進歷史',
+  /function saveReading[\s\S]{0,400}recordInHistory\(reading\)/.test(SCAN),
+  '掃描存了「當下讀數」卻沒有 append，歷史就永遠是空的'
+);
+checkTruthy(
+  'readiness-scan.js 沒有自己寫第二份歷史',
+  !SCAN.includes(keyFromTs),
+  `readiness-scan.js 直接碰 ${keyFromTs} ＝ 又生出第二個來源（PLAYBOOK §6）`
+);
+for (const page of PAGES_LOADING_SCAN) {
+  const html = read(page);
+  // 🔴 只認 <script> 標籤，不認**提到**檔名的地方。第一版用 indexOf(檔名)，
+  //    兩個頁面都紅 —— 因為 decision-alert.html:809 與 v6/index.html:5269
+  //    的**註解**裡就寫著 readiness-scan.js，比真正的標籤還早出現。
+  //    那不是順序錯了，是斷言在量別的東西。
+  const historyAt = html.search(/<script[^>]+readiness-history\.js/);
+  const scanAt = html.search(/<script[^>]+readiness-scan\.js/);
+  checkTruthy(`${page} 載入了 readiness-history.js`, historyAt !== -1);
+  // drift-alert.html 不載 readiness-scan.js（它沒有掃描），只要有 history 就好。
+  if (scanAt !== -1) {
+    checkTruthy(
+      `${page} 的 history 排在 scan 之前`,
+      historyAt !== -1 && historyAt < scanAt,
+      `history@${historyAt} scan@${scanAt} —— saveReading 會呼叫它，順序反了就記不到`
+    );
+  }
+}
 
 // ═══════════════════════════════════════════════════
 // 2. 瀏覽器實走
@@ -258,6 +331,70 @@ checkTruthy(
   (await text('#calib-body')).includes('Similar in 5 of your last 7 sessions.'),
   await text('#calib-body')
 );
+
+console.log('\n── 🔴 真實累積：沒有資料時不編 ──');
+check('空狀態明說還沒有資料', await text('#real-headline'), '還沒有你的資料');
+checkTruthy(
+  '空狀態講 PWA / 分頁 localStorage 不共用',
+  (await text('#real-body')).includes('不共用'),
+  await text('#real-body')
+);
+
+console.log('\n── 🔴 真實累積：分布是算出來的 ──');
+const seeded = await browser.newPage({ viewport: { width: 390, height: 844 } });
+await seeded.addInitScript(() => {
+  const rows = [];
+  // 🔴 用**本地**時間組時間戳，一天兩筆（09:00 / 21:00），跨 20 天。
+  //    第一版用 UTC 起點 + 每 12 小時，容器（UTC）數到 20 天、
+  //    別的時區會數到 21 —— 那是一條會隨 runner 時區飄的斷言。
+  //    這樣寫還順便證明「天數 ≠ 樣本數」。
+  for (let i = 0; i < 40; i++) {
+    const day = Math.floor(i / 2);
+    const hour = i % 2 === 0 ? 9 : 21;
+    rows.push({
+      schema: 1,
+      ts: new Date(2026, 7, 1 + day, hour, 0, 0).getTime(),
+      // stillness 刻意窄、lighting 刻意寬 —— 斷言要能分辨這兩者，
+      // 才證明 span 是算的而不是印死的。
+      stillness: 0.6 + (i % 2) * 0.1,
+      lighting: 0.2 + (i % 9) * 0.08,
+      uniformity: 0.7,
+      blinkCadence: i % 3 === 0 ? null : 0.5,
+      tier: 'A',
+      band: 'neutral',
+      confidence: 'moderate',
+    });
+  }
+  rows.push({ schema: 99, ts: 1, stillness: 0.5 });
+  localStorage.setItem('tenki.readiness.history.v1', JSON.stringify(rows));
+});
+await seeded.goto(`${base}/apps/preview/drift-alert.html`, { waitUntil: 'domcontentloaded' });
+
+const realText = await seeded.locator('#real-card').innerText();
+// 40 筆、20 天 —— 同一個斷言同時證明「天數不是樣本數」。
+checkTruthy('報出掃描次數與天數', /40 次掃描 · 20 天/.test(realText), realText.split('\n')[1]);
+
+const spanOf = async (signal) => {
+  const row = await seeded.locator(`.dist-row[data-signal="${signal}"] .dist-nums`).innerText();
+  return Number(row.match(/span ([0-9.]+)/)[1]);
+};
+check('窄訊號的 span 是窄的', await spanOf('stillness'), 0.1);
+checkTruthy(
+  '寬訊號的 span 明顯更大（span 不是印死的）',
+  (await spanOf('lighting')) > (await spanOf('stillness')) * 4,
+  `lighting=${await spanOf('lighting')} stillness=${await spanOf('stillness')}`
+);
+checkTruthy(
+  '眨眼只算有量到的那些（40 筆裡 26 筆）',
+  (await seeded.locator('.dist-row[data-signal="blinkCadence"] .dist-name').innerText()).includes('n=26'),
+  await seeded.locator('.dist-row[data-signal="blinkCadence"] .dist-name').innerText()
+);
+checkTruthy(
+  '讀不動的列有說出來，不是無聲丟掉',
+  realText.includes('1 stored rows were unreadable'),
+  realText
+);
+await seeded.close();
 
 console.log('\n── 版面與執行時期 ──');
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
