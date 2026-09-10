@@ -90,9 +90,16 @@
     .live-title { font-weight: 600; }
     .live-status { flex: 1; text-align: right; color: var(--n-500); font-size: 11px; }
     .live-chevron { color: var(--amber-400); font-size: 11px; }
+    /* 🔴 這顆 `PREMIUM` 徽章原本吃 `--gold-secured`。
+       2026-09-08 把**紫**正式認領為 Premium 的顏色之後，那一輪只掃了 v6 ——
+       於是同一個產品裡「Premium」有兩個顏色，而其中一個（金）是別人的：
+       金 = SECURED（baseline 鎖定／校準完成）。founder 2026-09-10 實走截到。
+       ⚠️ 紫只當**表面**（它活不過色盲守門，見 tokens.css），
+       所以是「紫 wash 底 + 中性字」：`--n-200` 壓在 `--premium-950` 上 9.65:1。 */
     .live-badge {
       flex: none; font-size: 9px; letter-spacing: 0.08em; font-weight: 700;
-      color: var(--gold-secured); border: 1px solid rgba(var(--gold-secured-rgb), 0.4);
+      color: var(--n-200); background: var(--premium-950);
+      border: 1px solid var(--premium-600);
       border-radius: 999px; padding: 2px 7px; text-transform: uppercase;
     }
     .live-body { padding: 0 14px 12px; }
@@ -850,6 +857,6 @@
   <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do1"></script>
-  <script src="decision-alert.js?v=alert41"></script>
+  <script src="decision-alert.js?v=alert42"></script>
 </body>
 </html>
