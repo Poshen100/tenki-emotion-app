@@ -81,6 +81,26 @@ export type SampleQualityGrade = typeof SAMPLE_QUALITY_GRADES[number];
 export const MIN_USABLE_QUALITY: SampleQualityGrade = 2;
 
 /**
+ * How the number came to exist. This is NOT quality — a phone-camera HRV
+ * estimate can be a clean measurement of a signal that is only an indirect
+ * proxy for beat timing, and a chest strap's RMSSD can be low-quality while
+ * still being computed from true inter-beat intervals.
+ *
+ *  - `observed` — the platform measured this metric and reports it as its own
+ *    value (Apple Health's SDNN, a strap's heart rate).
+ *  - `derived` — TENKI computed it from a higher-resolution series the source
+ *    genuinely measured (RMSSD from a strap's RR intervals).
+ *  - `estimated` — inferred from an indirect signal whose beat timing is not
+ *    guaranteed (anything a phone camera produces from an optical waveform).
+ *
+ * The distinction has to travel with the value because it is the difference
+ * between what TENKI may and may not claim about it. It is never a synonym for
+ * "worse": it is what the number is.
+ */
+export const SAMPLE_DERIVATIONS = ['observed', 'derived', 'estimated'] as const;
+export type SampleDerivation = typeof SAMPLE_DERIVATIONS[number];
+
+/**
  * Metrics that must never leave the device. `rr_interval_ms` is a raw
  * inter-beat series — the highest-resolution biometric TENKI touches — and is
  * local-only under the CLAUDE.md privacy rule. Derived values computed FROM it
@@ -106,6 +126,11 @@ export interface BiometricSample {
   quality: SampleQualityGrade;
   /** How much the adapter trusts this value, 0..1. */
   confidence: number;
+  /**
+   * How the value came to exist. Required — an untagged number cannot later be
+   * told apart from a measured one, and by then the claim has already shipped.
+   */
+  derivation: SampleDerivation;
   /** Consent bucket this sample was collected under. */
   permissionScope: BiometricPermissionScope;
 }
@@ -122,4 +147,16 @@ export function isHrvMetric(metric: BiometricMetric): boolean {
  */
 export function mayLeaveDevice(metric: BiometricMetric): boolean {
   return !LOCAL_ONLY_METRICS.includes(metric);
+}
+
+/**
+ * Whether a sample is an inference rather than something a sensor reported or
+ * TENKI computed from a real series. Copy that describes an estimated value
+ * must say so; this is the single place that decides which values those are.
+ *
+ * @param sample - The sample to classify.
+ * @returns True when the value is an estimate.
+ */
+export function isEstimatedSample(sample: BiometricSample): boolean {
+  return sample.derivation === 'estimated';
 }

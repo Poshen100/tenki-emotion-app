@@ -40,6 +40,7 @@
 | 品牌 / 文案 | 依 §9 定位表 | `SYSTEM.md` + `docs/brand.md` §5 | compliance 詞彙表 |
 | 動效 / 動畫（任何 surface） | 依 §9 定位表 | **`docs/MOTION-DIRECTION.md`（canonical）** + 對應 `gsap-*` skill 包（其 §6 路由） | 其 §7 驗收清單（真瀏覽器 + reduced-motion + 短視窗） |
 | 穿戴 / 健康資料整合（HealthKit、Health Connect、BLE、Garmin） | `domain/` + `apps/mobile/` | **`docs/WEARABLE-INTEGRATION.md`（canonical）** + `docs/garmin-integration.md` | `bash scripts/verify.sh` |
+| 相機 PPG / 訊號處理 / 品質閘 / 掃描模式 | `packages/engine/src/biometric/ppg/` | **`docs/PHONE-PPG.md`（canonical）** —— 尤其 §3 三個量出來的真問題與 §8 門檻是量出來的 | `verify.sh` + **對合成真值比對，不是只看測試綠** |
 | 文件 / 制度 | 根目錄 + `docs/` | 本檔 §0 優先序 | 無矛盾引入 |
 | ❌ 任何理由都不碰 | `apps/web/`（凍結）、`core/`（legacy 參考） | — | hook 會直接擋 |
 
@@ -199,6 +200,20 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
   現在：`.github/workflows/ci.yml` 的 `preview` job 一定會跑，`verify.sh` 偵測得到 Playwright 就跑。
   ⚠️ **`preview-scan-stardust.mjs` 仍在盲區**（它倚賴容器連不到 cdnjs，CI 連得到，前提相反）——
   改到它涵蓋的東西時仍要手跑。**改 preview 的 class 名／id 時，一併 `grep` `scripts/*.mjs`**。
+- **🔴 縱深防禦會讓彼此的測試變成裝飾 —— 要用「另一層接不住」的案例各自測**（2026-09-10，
+  **同一 session 內犯兩次**才寫成規則）。同一件事守兩層是對的，但**破壞任何一層，
+  測試都會照樣全綠**，因為另一層把案例接住了 —— 於是兩層都沒被測到，
+  而下一個人可以放心地把其中一層刪掉。
+  兩次實例都在 phone-only 的缺值路徑：
+  ① `updateBaselineProfile` 看 availability ＋ `updateMetricBaseline` 拒非有限值；
+  ② `runScanPipeline` 轉交 availability ＋ `resolveAvailability` 在引擎內再推導一次。
+  四道各自單獨破壞，**461/469 條測試全綠**。
+  **規則**：找一個**只有這一層擋得住**的輸入。上面兩組的解法都是同一招 ——
+  改用「**有限但被宣告為未量測**」的值：NaN 會被下游接住，
+  一個形狀完全正常、只是不該用的數字不會。
+  ⚠️ 判準跟本節既有那條「問輸出會不會不一樣」不同：這裡輸出**確實會一樣**，
+  問的是「**把其他層拿掉之後**，這一層還守得住嗎」。
+
 - **🔴 反向驗證要「一次只破壞一處」，多重破壞會互相抵銷**（2026-08-20）。
   三處一起破壞時「決策紀律模式不影響非交易者模板」那條**沒有紅** ——
   另一處把預設值翻成開，兩個破壞剛好抵銷。單獨破壞才看得出它是活的。

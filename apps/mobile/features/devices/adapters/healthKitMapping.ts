@@ -145,6 +145,8 @@ export function mapQuantitySample(
       sourceApp: sample.sourceName ?? null,
       quality: sample.wasUserEntered ? USER_ENTERED_QUALITY : HUB_QUALITY,
       confidence: sample.wasUserEntered ? USER_ENTERED_CONFIDENCE : HUB_CONFIDENCE,
+      // Apple Health hands over the metric itself; TENKI only converts units.
+      derivation: 'observed',
       permissionScope: scope,
     },
     now,
@@ -184,6 +186,8 @@ export function mapSleepSession(
       sourceApp: session.sourceName ?? null,
       quality: HUB_QUALITY,
       confidence: HUB_CONFIDENCE,
+      // Apple Health reports a session; the hours figure is TENKI's arithmetic.
+      derivation: 'derived',
       permissionScope: scope,
     },
     now,

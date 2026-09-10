@@ -142,6 +142,24 @@ export {
 
 export type { FingerPpgSample, FingerPpgResult, Peak } from './biometric/finger-ppg';
 
+// ─── Beat-Series HRV (chest strap RR) ───────
+export { computeBeatSeriesHrv, extendBeatWindow } from './biometric/beat-series';
+
+export type { BeatSeriesHrv, BeatSeriesOptions, BeatSeriesRefusal } from './biometric/beat-series';
+
+// ─── Phone Camera PPG (v2 pipeline) ─────────
+// 手機相機 PPG。規格: docs/PHONE-PPG.md
+export * from './biometric/ppg';
+
+export {
+  SCAN_MODES,
+  SCAN_MODE_CONFIGS,
+  isCameraMode,
+  modeReports,
+} from './biometric/scan-modes';
+
+export type { ScanMode, ScanModeConfig, ScanSignalSource } from './biometric/scan-modes';
+
 // ─── Baseline ───────────────────────────────
 export {
   updateMetricBaseline,
