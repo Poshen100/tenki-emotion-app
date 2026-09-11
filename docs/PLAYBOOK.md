@@ -554,6 +554,10 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | Scan tab | `(tabs)/scan.tsx` 只做路由儀表板，**capture 流程不得塞回去**（North Star 鐵律 1） |
 | 引擎改動 | 先寫測試再整合；engine/scan 覆蓋率 ≥ 90%；純函式、platform-neutral |
 | 把一個機制「搬到另一個量上」（例：noise floor 從 HRV 改吃 BPM）| 🔴 **先量新的量對你關心的變化有沒有反應，再搬**。數學形式一樣不代表量到同一件事：BPM 的窗口離散度品質從 99 掉到 80 只從 0.06 動到 0.18，但心律不整一下跳到 1.81 —— 因為 `heartRateFromIntervals()` 取中位數，中位數抗離群值，所以它量到的是**生理**不是**量具**。穩不代表準（`docs/PHONE-PPG.md` §10）|
+| 要為一個推導值找「自己的閘門」| 🔴 **先量「什麼東西能預測它準不準」，不要假設品質分數可以**。實例：相機 PRV 的誤差跟品質分數幾乎無關 —— 感光雜訊不扣品質分（99 分）卻讓 PRV 錯 156%，重複性也擋不住（rep 0.4 配 177% 誤差）。要找到真的相關的量（這裡是拍形穩定度）才叫閘門（`docs/PHONE-PPG.md` §13）|
+| 兩個來源給出不一樣的數字 | **不取平均。** 一致才提高 confidence；不一致就顯示衝突或什麼都不顯示。對的答案跟錯的答案的平均是第三個錯答案、還多了一位小數 |
+| 「量不到的 driver 要怎麼處理」| 排除它、**但不要把權重重新分配**給其他 driver —— 那會讓資料變少的讀數分數變高（實測 72 → 86）。用「錨點 + 移動量」：量不到的推動 0，其他權重原封不動 |
+| 用 `git checkout --` 還原 sabotage | 🔴 **會把同一個檔案裡自己未 commit 的修改一起洗掉。** 反向驗證前一律 `cp` 備份再改，還原也用 `cp`（我在 2026-09-11 這一輪就這樣丟過一次 to-reading.ts 的修改）|
 | 為一個訊號加「雜訊底線／死區」| 先算訊噪比。底線只在「雜訊跟真實變異同一個數量級」時有意義：HRV ~1:1 需要，脈搏 >10:1 不需要。比值算不出來（合成器沒有日間變異）就不要先蓋一層 |
 | mobile 要 import `packages/*` 或 `domain/` | **三處都要加，少一處壞在不同地方**：① tsconfig paths（少了 tsc 紅）② `metro.config.js` 的 `watchFolders`（少了 tsc 綠但 runtime/web bundle 掛）③ `package.json` 的 jest `moduleNameMapper` ＋ jest tsconfig 的 `paths`（少了 app 跑得動但測試找不到模組）|
 | Expo Web 全白 + `import.meta` SyntaxError | zustand v5 ESM 被 web 'import' 條件選中 → metro.config 已把 zustand 釘到 CJS；新增類似 ESM-only 套件時比照處理。**不要**全域關 `unstable_enablePackageExports`（會弄壞 react-native→react-native-web alias） |

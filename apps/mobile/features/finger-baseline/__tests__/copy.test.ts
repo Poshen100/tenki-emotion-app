@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { findProhibitedTerms } from '@tenki/engine';
+import { findForbiddenAutonomicClaims } from '@tenki/domain';
 import { FINGER_BASELINE_ROUTE } from '../../face-baseline/screens/routes';
 import { FINGER_BASELINE_COPY } from '../copy';
 
@@ -58,17 +59,31 @@ describe('finger baseline copy', () => {
     expect(FINGER_BASELINE_COPY.precisionNote).toContain('不是基線');
   });
 
-  it('🔴 claims no HRV and no respiratory rate anywhere on the screen', () => {
-    // The camera reports neither (`camera_hrv_estimates`, default off). The
-    // only place those words may appear is a sentence saying they are NOT
-    // reported — which is what `limits` is.
+  it('🔴 never calls a camera reading HRV', () => {
+    // A camera produces pulse-rate variability. The only place the words 心律
+    // 變異 may appear is a sentence saying the two are NOT the same thing —
+    // which is what `limits` is.
     for (const [key, line] of Object.entries(FINGER_BASELINE_COPY)) {
-      if (key === 'limits' || key === 'skipCost') continue;
+      if (key === 'limits') continue;
       expect(line).not.toContain('心律變異');
-      expect(line).not.toContain('呼吸率');
     }
-    expect(FINGER_BASELINE_COPY.limits).toContain('不報心律變異');
-    expect(FINGER_BASELINE_COPY.limits).toContain('不報呼吸率');
+    expect(FINGER_BASELINE_COPY.limits).toContain('脈搏間期變化');
+    expect(FINGER_BASELINE_COPY.limits).toContain('不能直接比');
+  });
+
+  it('🔴 says the camera does not report a respiratory rate in this version', () => {
+    expect(FINGER_BASELINE_COPY.limits).toContain('呼吸率');
+    expect(FINGER_BASELINE_COPY.limits).toContain('這個版本不報');
+  });
+
+  it('🔴 makes no autonomic claim of any kind', () => {
+    // A phone cannot measure sympathetic or parasympathetic activity, and a
+    // screen about fingertip pulse is exactly where that claim would get
+    // written. The guard is the domain contract's own list.
+    for (const line of allCopy) {
+      expect(findForbiddenAutonomicClaims(line)).toEqual([]);
+    }
+    expect(FINGER_BASELINE_COPY.notADiagnosis).toContain('讀不到你的神經');
   });
 
   it('🔴 never calls one capture a baseline', () => {

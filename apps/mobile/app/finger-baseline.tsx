@@ -40,6 +40,7 @@ export default function FingerBaselineScreen(): React.JSX.Element {
         </View>
 
         <Text style={styles.privacy}>{C.privacy}</Text>
+        <Text style={styles.privacy}>{C.notADiagnosis}</Text>
 
         <View style={styles.footer}>
           <Text
