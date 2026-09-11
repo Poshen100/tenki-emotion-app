@@ -11,6 +11,11 @@
 一級的意思不是「假裝它跟胸帶一樣準」，而是：**它能量到的就報，量不到的就明說沒量到**，
 而且下游（Edge Score、baseline）能誠實表達「這一項沒有」。
 
+🔴 **第一版相機只報一項：靜息脈搏（Pulse Anchor）。** 心律變異與呼吸率的 pipeline
+留著、測試留著，但退到 `camera_hrv_estimates`（預設 false）後面 —— 見 §11。
+§10 的 noise floor 是 HRV 專用機制，因此一併下架（理由與「改吃 BPM 離散度為什麼
+也不行」的實測都在 §10 最後）。實機驗收清單在 §12，**沒跑完不算完成**。
+
 ## 1. 為什麼不能直接對紅通道平均值找峰值
 
 指尖 PPG 的脈動只佔進到感光元件的光的 **1-3%**。剩下 97% 是 DC、曝光漂移、
@@ -132,6 +137,19 @@ clipped / irregular / frameDrops / poorCoverage / tooShort）。
 
 **改 `perfusionIndex` 就要把這兩個數字重新量一次。**
 
+## 9. 還缺什麼（需要實機）
+
+| 缺口 | 為什麼 |
+|---|---|
+| VisionCamera frame processor → `PpgFrame` | 需要實機：ROI 取樣、閃光燈控制、曝光鎖定、每幀成本 |
+| 掃描 UI 的**擷取與即時回饋**（引導、品質即時顯示、reasons）| 見 `docs/SOUL-SCAN-NORTH-STAR.md`；**不要把手指流程塞進 `(tabs)/scan.tsx`**。⚠️ onboarding 的**路由與說明畫面已接**（`app/finger-baseline.tsx`），但它誠實顯示「這個版本還沒有相機擷取模組」，**不得**在擷取層真的能用之前把它換成看起來能按的開始鍵 —— 有一條測試守著 |
+| 實機準確度 | 合成真值不能代替真手指。第一次實走要抽驗 perfusion／periodicity 的實際分布，門檻很可能要重校 |
+| 效能／發熱 | 逐幀處理不得進 React state、不得每幀 rerender（brief §34）|
+| **真實日間生理變異有多大** | 🔴 上表「真實日間SD」該填哪一列，**合成器答不出來** —— 它每天用同一組生理參數，根本沒有模擬日間變化。這是決定產品成不成立的參數，只能用真人資料回答。第一批實走使用者的 noise floor 與 baseline std 的比值就是答案 |
+
+⚠️ **合成測試全綠不等於在真手指上可用。** 這條 pipeline 目前的證據
+全部來自 `replay.ts`；實機是另一個驗證，不是同一個。
+
 ## 10. 系統要量得到自己的雜訊（2026-09-11）
 
 ### 為什麼：一組看不出差別的數字
@@ -244,15 +262,100 @@ bundle 不再編 noise-floor（`scripts/build-preview-ppg.mjs` 有註解說明�
 這兩個對品質有反應，是 Signal Integrity 儀表（Contact / Light / Stillness /
 Rhythm）的實際來源。
 
-## 9. 還缺什麼（需要實機）
+## 11. Pulse Anchor：相機報什麼、不報什麼（2026-09-11）
 
-| 缺口 | 為什麼 |
-|---|---|
-| VisionCamera frame processor → `PpgFrame` | 需要實機：ROI 取樣、閃光燈控制、曝光鎖定、每幀成本 |
-| 掃描 UI 的**擷取與即時回饋**（引導、品質即時顯示、reasons）| 見 `docs/SOUL-SCAN-NORTH-STAR.md`；**不要把手指流程塞進 `(tabs)/scan.tsx`**。⚠️ onboarding 的**路由與說明畫面已接**（`app/finger-baseline.tsx`），但它誠實顯示「這個版本還沒有相機擷取模組」，**不得**在擷取層真的能用之前把它換成看起來能按的開始鍵 —— 有一條測試守著 |
-| 實機準確度 | 合成真值不能代替真手指。第一次實走要抽驗 perfusion／periodicity 的實際分布，門檻很可能要重校 |
-| 效能／發熱 | 逐幀處理不得進 React state、不得每幀 rerender（brief §34）|
-| **真實日間生理變異有多大** | 🔴 上表「真實日間SD」該填哪一列，**合成器答不出來** —— 它每天用同一組生理參數，根本沒有模擬日間變化。這是決定產品成不成立的參數，只能用真人資料回答。第一批實走使用者的 noise floor 與 baseline std 的比值就是答案 |
+### 一句話
 
-⚠️ **合成測試全綠不等於在真手指上可用。** 這條 pipeline 目前的證據
-全部來自 `replay.ts`；實機是另一個驗證，不是同一個。
+**A Pulse Anchor is a high-quality, camera-derived resting pulse reference.**
+不是 HRV、不是情緒偵測、不是壓力診斷、不是醫療功能、不是身分辨識、不是交易訊號，
+也不保證校準一定成功。
+
+### 相機只報一項
+
+| | 報嗎 | 為什麼 |
+|---|---|---|
+| 靜息脈搏（bpm）| ✅ | 量測雜訊 0.06–0.5 bpm 對真實日間變異 3–8 bpm，訊噪比 >10:1 |
+| 心律變異（RMSSD）| ❌ | `camera_hrv_estimates` 預設關。低報 7–9%、弱訊號重複性 ~13ms 對 RMSSD ~30 |
+| 呼吸率 | ❌ | 從同一串拍間距推的，不可能比它更有依據 |
+| 壓力／情緒／疾病／心律不整／血壓／血氧 | ❌ | 不推論，任何 user-facing 文案都不得往那個方向講 |
+
+⚠️ pipeline **留著**、測試留著、旗標 `remoteConfigurable` ——
+有真人資料再重開這個決定。刪掉就沒有機會重開了。
+
+### 詞彙（`SYSTEM.md` 的語言系統延伸）
+
+| 階段 | 條件 | 中文 |
+|---|---|---|
+| First Pulse Reference | 1 次 | 第一個脈搏參考 |
+| Emerging Rhythm | 3 次跨 2 天 | 節律開始成形 |
+| Personal Resting Band | 7 次跨 3 天 | 你的靜息區間 |
+| Contextual Pulse Baseline | 20 次跨 5 天 | 情境脈搏基線 |
+
+🔴 **只有最後一階可以叫「基線」。** 一次擷取叫 anchor。
+`packages/engine/src/biometric/pulse-anchor.ts` 是唯一的判斷處，畫面不重算門檻。
+⚠️ 這四個門檻是**揭露**門檻（要多少證據才准用更強的詞），不是量出來的統計門檻 ——
+刻意保守，真人資料進來後要重新評估。
+
+⚠️ 它**不是** `BaselineMaturity`（`common/types.ts` 的 new/building/ready/mature）。
+不同的量、不同門檻，而且 north star §2.4 禁止 rename 那一個。兩者不得互相映射。
+
+### Signal Integrity：四個維度，依使用者能動手的順序
+
+| 維度 | 來源 | 幾秒後可用 |
+|---|---|---|
+| 接觸 contactCoverage | 覆蓋率均值 × 抖動懲罰 | 第一幀 |
+| 光 lightStability | 過曝餘裕 | 第一幀 |
+| 穩定 motionArtifact ⚠️ 1 = 最差 | 位移均值 | 第一幀 |
+| 節律 rhythmicCoherence | 自相關主週期強度 | ≥15 秒（之前是 `null`，不是 0）|
+
+🔴 四個值**不是新的計算**，是 `assessPpgQuality()` 本來就加權進分數的
+component（`PpgQualityComponents`）。第二套計算遲早會跟旁邊印的分數不一致。
+`motionArtifact` 照契約保留反向，另給 `dimensionGoodness()` 讓畫面不必記得要 1 減。
+
+⚠️ `lightStability` 目前**只量過曝**。會飄或閃的照明（手電筒閃爍）在這裡會讀成
+1.00，而合成器沒有獨立的照明漂移可以校準第二項（它的 DC 漂移來自晃動，那已經是
+自己一個維度，加進來會重複計算）。實機缺口。
+
+### Pulse Lock
+
+只宣稱一件事：**「如果現在結束，這次擷取會產出讀數。」** 不是結果 → 不上 gold，
+沒有任何動效。不黏著：手指一滑就掉。
+
+🔴 **不能用 BPM 一致度當條件 —— 量過會騙人。** 灌流極低的手指產生的 BPM 估計
+非常一致（68, 68, 70, 71…），因為 `heartRateFromIntervals()` 取中位數，而中位數
+天生抗掉正是讓這次擷取沒用的那種雜訊。容差收到 ±1 bpm，lowPerfusion 還是會在
+第 48 秒 lock，而它的最終結果是拒答。
+
+條件是：**最終讀數用的同一個門檻 ＋ 節律 component ≥ 0.5，連續四個窗口**。
+（分離度的表在 `ppg/live.ts` 的 `MIN_LOCK_COHERENCE` 註解裡。）
+
+### 沒有補光燈：記錄，不拒收
+
+`torch_unavailable` 是 advisory —— 第三類 reason，既非正向也非拒收理由。
+iOS Safari 沒有 torch API，拿它拒收等於拒收一整個平台。它**不影響分數**
+（在分數定案之後才 append），也永遠不會變成某個指標被扣住的理由。
+
+## 12. 實機驗收清單（🔴 沒跑完不算完成）
+
+⚠️ **合成測試全綠不等於在真手指上可用。** 下面每一條都需要真的手機與真的手指，
+而且要**兩台**：一台 iOS Safari（無 torch）、一台 Android Chrome（有 torch）。
+
+| # | 驗什麼 | 通過條件 | 不通過代表 |
+|---|---|---|---|
+| 1 | 覆蓋偵測 | 手指蓋住 → 接觸 ≥90%；手指拿開 → ≤20% | ROI 或紅／綠判準要重校 |
+| 2 | 灌流分布 | 正常手指的 `perfusion` 落在 `MIN_PERFUSION`–`GOOD_PERFUSION` 之間偏上 | 門檻是對合成訊號校的，要用實測重校（PLAYBOOK 有這條）|
+| 3 | 節律 | 靜止 20 秒後 `rhythmicCoherence` ≥0.8 | 帶通或自相關參數要調 |
+| 4 | 脈搏準確度 | 對照血氧儀／手錶，|Δ| ≤3 bpm，連測 5 次 | 拍點偵測要重看 |
+| 5 | 冰手 | 手沖冷水後 → 拒答並給「手可能太冰」 | 品質閘門太鬆 |
+| 6 | 晃動 | 邊走邊量 → 拒答，且 Pulse Lock 從未出現 | lock 條件太鬆（這是最危險的一條）|
+| 7 | 無 torch（iOS）| 室內亮處量得到；advisory 出現但讀數照算 | advisory 被誤當拒收條件 |
+| 8 | 過曝（Android torch）| 壓太用力 → `sensor_clipping`，光維度掉下來 | 過曝判準太鬆 |
+| 9 | 效能／發熱 | 90 秒全程不掉幀、機身不燙、畫面不卡 | 逐幀處理進了 React state 或每幀 rerender |
+| 10 | 記憶體 | 90 秒結束後不崩；重複做 5 次不累積 | 幀緩衝上限沒生效 |
+| 11 | 中斷 | 來電／切 App／鎖屏 → 擷取停止、不留半段假讀數 | 生命週期沒收好 |
+| 12 | 隱私 | 全程沒有任何影像寫入磁碟或網路 | 違反核心承諾，停止一切 |
+| 13 | 跨天階段 | 隔天再做 → 進到「節律開始成形」 | 日界線（本機日曆日）算錯 |
+| 14 | 日間變異 | 收 10 個使用者 × 5 天的 anchor，算跨天 SD | 這是 §10 表格「真實日間SD」該填哪一列的唯一答案 |
+
+🔴 **第 14 條是決定產品成不成立的參數**，而且只有真人資料答得出來。
+

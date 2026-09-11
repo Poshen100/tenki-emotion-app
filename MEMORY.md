@@ -18,6 +18,92 @@
 
 ---
 
+# 2026-09-11 Session Update (PULSE ANCHOR UPGRADE —— 相機只報脈搏，而且兩次實測推翻了我自己的建議)
+
+⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/tenki-biometric-v2-ubzosn`，PR #256。
+
+## founder 的指令
+
+貼了「TENKI — PULSE ANCHOR UPGRADE」九節。核心是把這個功能重新定義成
+**Pulse Anchor：高品質、相機推導的靜息脈搏參考值** —— 明確**不是** HRV 宣稱、
+不是情緒偵測、不是壓力診斷、不是醫療功能、不是身分辨識、不是交易訊號。
+收尾一句「不確定的部份要問我，像 Fable5 一樣思考」。
+
+## 做了什麼
+
+1. **相機 HRV／呼吸率退到 `camera_hrv_estimates`（預設 false）後面。** pipeline 與
+   測試留著、旗標 remoteConfigurable —— 有真人資料再重開。早退路徑（連脈搏都立不住）
+   本來不吃這個閘門，會回報「節律不穩」那個更弱的理由，一併修掉。
+2. **noise floor 下架**，理由寫進 `docs/PHONE-PPG.md` §10（見下）。
+3. **`ppg/signal-quality.ts`**：四維 Signal Integrity 契約（接觸／光／穩定／節律）＋
+   `PpgRejectionReason`（`PpgQualityReason` 的**負向子集**，不是新詞彙）＋ advisory 第三類。
+4. **`biometric/pulse-anchor.ts`**：一次擷取＝一個 anchor；四階段 1 / 3 跨 2 天 /
+   7 跨 3 天 / 20 跨 5 天；`resolveRestingBand()` 在 band 階段之前回 null。
+5. **`ppg/live.ts`**：掃描期間的即時層與 Pulse Lock。
+6. **`/finger/` 全面改寫**：三格指標收成一個脈搏讀數、四維儀表、階段卡、
+   「這個讀數是怎麼來的」、torch advisory。harness 從 22 → 54 條。
+7. **詞彙與理由一起改**：`SENSOR_CHOICES`、`MIN_SECONDS_FOR_PULSE_ANCHOR`、
+   `finger_pulse_baseline`、`only_pulse_reference`、mobile 畫面文案、north star §1。
+8. **`docs/PHONE-PPG.md` §11／§12**：Pulse Anchor 規格 ＋ 14 條實機驗收清單。
+
+## 🔴 兩次「量出來的東西推翻了我自己的建議」
+
+**① noise floor 改吃 BPM 離散度（founder 上一輪選的選項，是我推薦的）—— 不行。**
+窗口間 BPM 的 SD 對品質幾乎沒反應（乾淨 99 分 0.06；覆蓋不良 85 分 0.06；晃動 0.06；
+灌流 0.35 → 0.18），只有真的心律不整跳到 1.81。原因是結構性的：
+`heartRateFromIntervals()` 取**中位數**，中位數抗離群值，所以它量到的是**生理**
+（節律規不規律），不是**量具**。拿它當 noise floor 會把心律不整的人當成量測不可信。
+而且脈搏根本不需要 noise floor：雜訊 0.06–0.5 bpm 對真實日間變異 3–8 bpm，
+訊噪比 >10:1；HRV 是 ~1:1 才需要那層底線。
+
+**② Pulse Lock 用 BPM 一致度 —— 同一個陷阱，我差點又踩一次。**
+灌流極低的手指產生的 BPM 估計非常一致（68, 68, 70, 71…），容差收到 ±1 bpm，
+lowPerfusion 還是會在第 48 秒 lock，而它的最終結果是**拒答**。
+改成「最終讀數用的同一個門檻 ＋ 節律 component ≥ 0.5，連續四個窗口」，
+所有會產出讀數的 fixture 都能連 38 個窗口，所有會被拒答的最多連 1 個。
+
+教訓已提煉進 `docs/PLAYBOOK.md` §7 兩條：搬機制前先量新的量有沒有反應；
+加雜訊底線前先算訊噪比。
+
+## 🔴 三個「harness 綠著但畫面是壞的」
+
+這一輪最值錢的不是新功能，是**截圖看出來的東西**：
+
+1. `.dimFill` 是 inline span，**忽略 width/height** → 四條 bar 完全沒渲染。而 harness
+   讀的是 `style.width`（inline 屬性），所以那條斷言在守一個看不到的數字。
+   → 改成量真的 `getBoundingClientRect()`。
+2. bar 的寬度過渡讓結果頁第一眼是**上一次的值**（節律寫 21%、bar 畫到 85%）。
+   → 過渡只留在掃描中；結果是量到的事實，不滑進定位。
+3. `[hidden]` 的 UA 規則是 `[hidden]{display:none}`，**任何 class 上的 `display`
+   都會贏過它**。`.precisionRow` 是 flex，所以 `hidden` 完全沒作用 —— 靜息區間那一行
+   在還不該出現時照樣顯示著一個「—」。
+4. 掃描階段**以前完全沒有 harness 走過**，而那個盲區藏住了一個真的 bug：即時層拿
+   整段掃描的 45 秒門檻去評一個 20 秒窗口 → 每次即時回饋都會說「時間不足」。
+   順手也抓到進度環 `stroke-width: 8` 在 viewBox 40 → 220px 是 5.5 倍（44px 厚的
+   甜甜圈），以及 `stroke-linecap: round` 在長度 0 時還是會畫一顆假的進度亮點。
+
+## PR #148 稽核（brief §1 要求）
+
+讀完 16 個檔案的 diff。**沒有 merge、沒有抄它的 UI 假設。**只抽了一樣東西：
+**時間為準的 ring buffer**（`while t - times[0] > WINDOW_S*1000 shift()`）—— 而且
+用在正確的地方：**即時回饋**吃近窗（成本不隨已掃描時間上升），**最終分析**吃整段。
+它的 cross-window stability lock（±5 bpm 中位數 inlier）**刻意沒抽** —— 就是上面
+第 ② 個陷阱。它有一個值得記下來的實機洞察：**紅通道在 torch 下常飽和，所以它
+同時跑紅／綠兩條 buffer 自動選**；我們目前只吃紅通道，這是實機階段要驗的事。
+
+## 下次接手點
+
+- 🔴 **實機驗收清單 `docs/PHONE-PPG.md` §12 十四條，一條都還沒跑。**
+  在那之前這個功能**不算完成**（brief §9 明寫）。第 6 條（邊走邊量必須從不 lock）
+  和第 14 條（真人跨天 SD）是最關鍵的兩條。
+- 相機擷取層（VisionCamera frame processor → `PpgFrame`）仍未實作，需要 Mac。
+  `app/finger-baseline.tsx` 照實說「還沒有相機擷取模組」，**不得**在擷取層真的能用
+  之前換成看起來能按的開始鍵（有測試守著）。
+- 兩個懸而未決、需要 founder 決定的事寫在回覆裡：90 秒是否縮短（只報脈搏的話
+  30 秒就到 ±0.06 bpm）、`PulseBaselineStage` 與 `BaselineMaturity` 是否合併。
+
+---
+
 # 2026-09-10 Session Update (Phone-first biometric —— 相機 PPG 量測鏈、derivation、missing-data 的 Edge)
 
 ⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/tenki-biometric-v2-ubzosn`。
