@@ -49,6 +49,68 @@ export const EDGE_WEIGHTS: EdgeWeights = {
   signalQuality: 5,
 } as const;
 
+/**
+ * Where a physiological input came from.
+ *
+ * 🔴 This is what decides whether the evidence cap applies. It is NOT a quality
+ * measure: a pristine camera capture is still camera evidence, and a mediocre
+ * chest-strap reading is still sensor evidence. Quality and provenance answer
+ * different questions and collapsing them is how a phone ends up claiming
+ * medical-grade precision because the light happened to be good.
+ */
+export const PHYSIOLOGY_EVIDENCE_SOURCES = ['phone_camera', 'wearable', 'rr_sensor', 'none'] as const;
+export type PhysiologyEvidenceSource = typeof PHYSIOLOGY_EVIDENCE_SOURCES[number];
+
+/**
+ * Where each physiological input for one reading came from.
+ *
+ * ⚠️ `hrv` deliberately cannot be `phone_camera`. Camera-derived pulse-rate
+ * variability is a different quantity from RR-interval HRV and may never
+ * populate an HRV field (founder rule, 2026-09-11). The type is the enforcement:
+ * there is no value a caller could pass to claim otherwise.
+ */
+export interface PhysiologyEvidenceSources {
+  /** Heart rate / resting pulse. */
+  pulse: PhysiologyEvidenceSource;
+  /** Respiratory rate. */
+  breath: PhysiologyEvidenceSource;
+  /** HRV — from an RR-interval series or a platform, never from a camera. */
+  hrv: 'rr_sensor' | 'wearable' | 'none';
+  /** Sleep and recovery. */
+  sleep: 'wearable' | 'none';
+}
+
+/**
+ * How far phone-derived physiology may move the Edge Score, per evidence item.
+ *
+ * 🔴 founder rule, 2026-09-11: **"沒有可用生理訊號 ≠ 自動加高其他分項權重
+ * ≠ Edge Score 變高"**. A phone can produce real evidence, but not enough of it
+ * to carry a readiness score on its own — so it moves the score within a
+ * ceiling instead of inheriting the weight of everything that is missing.
+ *
+ * ⚠️ `coupling` and `regulation_response` are RESERVED. Neither is computed
+ * yet, so 5 of the 15 points are unreachable today. That is deliberate: the
+ * ceiling is the budget for the finished feature, and a later commit that
+ * starts computing coupling must not have to argue for more room. A test
+ * asserts the reserve stays unspent.
+ */
+export const PHONE_EVIDENCE_CAPS = {
+  /** High-quality Pulse Anchor: resting, comparable, high signal integrity. */
+  pulse: 6,
+  /** Breath Lock: 45-60 s, high-quality periodic signal. */
+  breath: 4,
+  /** Breath-pulse coupling — RESERVED, not yet computed. */
+  coupling: 3,
+  /** Before/after regulation response — RESERVED, not yet computed. */
+  regulation_response: 2,
+} as const;
+
+/** Total ceiling on phone-derived physiology, in Edge Score points. */
+export const PHONE_ONLY_PHYSIOLOGY_CAP = 15;
+
+/** The score every reading starts from before any evidence moves it. */
+export const EDGE_SCORE_ANCHOR = 50;
+
 /** Verify weights sum to 100 at compile time. */
 const _WEIGHT_SUM =
   EDGE_WEIGHTS.hrvVsBaseline +
@@ -164,11 +226,31 @@ export interface EdgeScoreResult {
 /** Edge Score computation metadata. */
 export interface EdgeScoreMetadata {
   /**
-   * Drivers left out because the phone-only scan produced no input for them,
-   * with their weight redistributed across the drivers that did have data.
-   * Empty for a complete reading.
+   * Drivers left out because this reading produced no input for them. They move
+   * the score by nothing; **no weight is redistributed** (see the aggregation
+   * comment in `edge-score.ts`). Empty for a complete reading.
    */
   excludedDrivers?: ScoreDriverKey[];
+  /**
+   * Drivers whose movement hit the phone-evidence ceiling
+   * (`PHONE_EVIDENCE_CAPS`). Present so the cap is auditable rather than an
+   * invisible haircut: if a driver is here, the score is deliberately saying
+   * less than the raw sub-score would.
+   */
+  cappedDrivers?: ScoreDriverKey[];
+  /**
+   * How many points phone-derived physiology actually moved the score, after
+   * both ceilings. Signed: positive raised it, negative lowered it.
+   *
+   * 🔴 Reported rather than inferred. "How much of this number came from a
+   * phone camera" is the question the cap exists to answer, and leaving it to
+   * be reconstructed by differencing two readings is how it stops being
+   * checkable — the sub-scores are not all centred on the anchor, so any such
+   * difference measures a range, not a contribution.
+   */
+  phoneEvidenceMovement?: number;
+  /** The ceiling that movement was held to (`PHONE_ONLY_PHYSIOLOGY_CAP`). */
+  phoneEvidenceCap?: number;
   /** Baseline version used. */
   baselineVersion: string;
   /** Scan quality score 0-100. */
