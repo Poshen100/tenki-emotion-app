@@ -42,6 +42,7 @@ const ENTRIES = [
   'biometric/ppg/to-reading.ts',
   'biometric/scan-modes.ts',
   'biometric/ppg/signal-quality.ts',
+  'biometric/ppg/live.ts',
   'biometric/pulse-anchor.ts',
 ];
 

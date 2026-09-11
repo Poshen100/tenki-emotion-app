@@ -33,6 +33,20 @@ export type {
 
 export { analyzePpgScan, hasUsableReading, wasWithheld, MIN_FRAMES } from './analyze';
 
+// What a capture may say about itself while it is still running.
+export {
+  INITIAL_PULSE_LOCK,
+  LIVE_WINDOW_SEC,
+  LOCK_CONSECUTIVE_WINDOWS,
+  MIN_LIVE_FRAMES,
+  MIN_LIVE_WINDOW_SEC,
+  MIN_LOCK_COHERENCE,
+  advancePulseLock,
+  assessLiveWindow,
+  recentFrames,
+} from './live';
+export type { LiveReading, PulseLockState } from './live';
+
 export { toEngineInput } from './to-reading';
 export type { PpgEngineInput, PpgReadingAvailability } from './to-reading';
 export type { PpgOutcome, PpgCompletion, PpgRejection } from './analyze';
@@ -77,7 +91,16 @@ export {
 } from './respiration';
 export type { RespirationEstimate } from './respiration';
 
-export { GOOD_PERFUSION, MIN_PERFUSION, QUALITY_WEIGHTS, assessPpgQuality } from './quality';
+export {
+  GOOD_PERFUSION,
+  MIN_PERFUSION,
+  PERIODICITY_AT_ONE,
+  PERIODICITY_AT_ZERO,
+  QUALITY_WEIGHTS,
+  assessFrameComponents,
+  assessPpgQuality,
+} from './quality';
+export type { FrameComponents } from './quality';
 
 export {
   MIN_INTERVALS_PER_WINDOW,

@@ -59,9 +59,12 @@
 
     .dial { display: grid; place-items: center; padding-block: 8px; }
     .dial svg { width: min(58vw, 220px); height: min(58vw, 220px); transform: rotate(-90deg); }
-    .dial .track { fill: none; stroke: var(--n-800); stroke-width: 8; }
+    /* ⚠️ stroke-width 是 viewBox 單位：viewBox 40 放大到 220px 是 5.5 倍，
+       所以 8 會畫成 44px 厚的甜甜圈（掃描階段以前沒有截圖走過，所以一直沒被
+       看到）。2.5 才是儀器該有的細環。 */
+    .dial .track { fill: none; stroke: var(--n-800); stroke-width: 2.5; }
     .dial .fill {
-      fill: none; stroke: var(--cyan-active); stroke-width: 8; stroke-linecap: round;
+      fill: none; stroke: var(--cyan-active); stroke-width: 2.5; stroke-linecap: round;
       stroke-dasharray: 100 100;
       stroke-dashoffset: calc(100 - var(--p, 0));
       transition: stroke-dashoffset 240ms linear;
@@ -121,6 +124,11 @@
        警示與可動是兩件事，同一個色相不代表同一個意思。 */
     .dim[data-low="yes"] .dimFill { background: var(--warning); }
     .dim[data-low="yes"] .dimLabel { color: var(--n-300); }
+    .dim[data-pending="yes"] .dimValue { color: var(--n-600); }
+
+    /* Pulse Lock。🔴 不上 gold（gold = SECURED，這不是結果），沒有任何動效。 */
+    .lock { font-size: 12px; line-height: 1.6; color: var(--n-500); }
+    [data-locked="yes"] .lock { color: var(--cyan-core); }
 
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .statValue { font-size: 16px; font-weight: 600; color: var(--n-100); font-variant-numeric: tabular-nums; }
@@ -148,7 +156,7 @@
 <body>
   <video id="cam" playsinline muted autoplay></video>
 
-  <main class="wrap" id="stage" data-phase="intro" data-secured="no">
+  <main class="wrap" id="stage" data-phase="intro" data-secured="no" data-locked="no">
     <header>
       <div class="kicker">PULSE ANCHOR · 指尖脈搏校準</div>
       <h1>建立你的脈搏錨點</h1>
@@ -182,6 +190,7 @@
         </div>
       </div>
       <div class="dialLabel" id="elapsed" style="margin-top:6px">0s / 90s</div>
+      <p class="lock" id="lock" style="margin-top:8px; text-align:center">還在等訊號穩定。</p>
     </section>
 
     <section class="only-scan card">

@@ -223,6 +223,111 @@ check(
   JSON.stringify(shaky.dims.map((d) => [d.key, d.value, d.low])),
 );
 
+// ── 2c. 掃描進行中 ─────────────────────────────────────────────────────────
+// 🔴 掃描階段以前完全沒有 harness 走過。那個盲區藏住過一個真的 bug（即時層
+// 用整段的時長門檻評 20 秒窗口 → 每次即時回饋都說「時間不足」），所以現在
+// 把整段擷取當成使用者實際看到的序列走一遍。
+console.log('\n── 掃描進行中 ──');
+
+/** 把一段擷取當成使用者看到的序列走一遍，回傳每一步畫面上的狀態。 */
+async function replayLive(options) {
+  const { frames } = synthesizePpg({ durationSec: 90, ...options });
+  await page.evaluate(() => window.__tenkiFingerHarness.resetLock());
+  return page.evaluate((all) => {
+    const steps = [];
+    const t0 = all[0].timestampMs;
+    for (let end = 2; end <= 90; end += 2) {
+      window.__tenkiFingerHarness.renderLiveFrames(
+        all.filter((f) => f.timestampMs <= t0 + end * 1000),
+      );
+      const stage = document.getElementById('stage');
+      steps.push({
+        endSec: end,
+        locked: stage.dataset.locked,
+        lockText: document.getElementById('lock').textContent.trim(),
+        quality: document.getElementById('liveQuality').textContent.trim(),
+        reasons: [...document.querySelectorAll('#liveReasons .reason')].map((n) => n.textContent),
+        dims: [...document.querySelectorAll('#liveDims .dim')].map((row) => ({
+          key: row.dataset.key,
+          value: row.querySelector('.dimValue').textContent.trim(),
+          pending: row.dataset.pending,
+        })),
+        elapsed: document.getElementById('elapsed').textContent.trim(),
+        arcPercent: Number(
+          getComputedStyle(document.getElementById('arc')).getPropertyValue('--p'),
+        ),
+        arcOpacity: Number(getComputedStyle(document.getElementById('arc')).opacity),
+        overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      });
+    }
+    return steps;
+  }, frames);
+}
+
+const liveClean = await replayLive({});
+const first = liveClean[0];
+const last = liveClean[liveClean.length - 1];
+const rhythmOf = (step) => step.dims.find((d) => d.key === 'rhythmicCoherence');
+
+check(
+  '第一步就給接觸與光的回饋（不必等窗口長到能找節律）',
+  first.dims.filter((d) => d.pending === 'no').length >= 3,
+  JSON.stringify(first.dims),
+);
+check(
+  '🔴 窗口還不夠長時，節律寫「累積中」而不是 0%',
+  rhythmOf(first).pending === 'yes' && rhythmOf(first).value === '累積中',
+  JSON.stringify(rhythmOf(first)),
+);
+check(
+  '窗口夠長之後節律給得出數字',
+  rhythmOf(last).pending === 'no' && /^\d+%$/.test(rhythmOf(last).value),
+  JSON.stringify(rhythmOf(last)),
+);
+check(
+  '⚠️ 即時回饋不得說整段掃描「時間不足」',
+  liveClean.every((s) => !s.reasons.some((r) => r.includes('時間不足'))),
+  JSON.stringify(liveClean.find((s) => s.reasons.some((r) => r.includes('時間不足')))),
+);
+check(
+  '即時品質分數不是被整段門檻壓平的低分',
+  Number(last.quality) > 20,
+  `quality=${last.quality}`,
+);
+check(
+  '乾淨訊號會穩住（Pulse Lock）',
+  liveClean.some((s) => s.locked === 'yes') && last.locked === 'yes',
+  `locked 序列=${liveClean.map((s) => s.locked).join('')}`,
+);
+check(
+  '穩住不是第一步就發生 —— 要先持續幾個窗口',
+  liveClean[0].locked === 'no' && liveClean[1].locked === 'no',
+  `前兩步=${liveClean.slice(0, 2).map((s) => s.locked).join()}`,
+);
+check(
+  '進度環反映實際經過的時間',
+  /^\d+s \/ 90s$/.test(last.elapsed) && last.arcPercent > 90 && last.arcOpacity === 1,
+  `elapsed=${last.elapsed} arc=${last.arcPercent}% opacity=${last.arcOpacity}`,
+);
+check(
+  '390px 掃描中也無橫向溢出',
+  liveClean.every((s) => s.overflowX === 0),
+  `最大溢出 ${Math.max(...liveClean.map((s) => s.overflowX))}px`,
+);
+
+// 🔴 最重要的一條：會被拒答的擷取，掃描期間不得出現「穩住了」。
+const liveWeak = await replayLive(PPG_FIXTURES.lowPerfusion);
+check(
+  '🔴 最終會被拒答的擷取，掃描期間從沒說過訊號穩住',
+  liveWeak.every((s) => s.locked === 'no'),
+  `locked 序列=${liveWeak.map((s) => s.locked).join('')}`,
+);
+check(
+  '而且掃描期間就講得出可以怎麼改',
+  liveWeak.some((s) => s.reasons.some((r) => r.includes('太冰') || r.includes('施力'))),
+  JSON.stringify(liveWeak[liveWeak.length - 1].reasons),
+);
+
 // ── 3. 訊號不足：必須拒答，而且不准上 gold ─────────────────────────────────
 console.log('\n── 訊號不足（低灌流）──');
 const weak = await runScan(PPG_FIXTURES.lowPerfusion);
@@ -275,6 +380,20 @@ if (shot) {
   await runScan({});
   await page.screenshot({ path: shot, fullPage: true });
   console.log(`\n  📸 ${shot}`);
+}
+const shotScan = process.env.FINGER_SHOT_SCAN;
+if (shotScan) {
+  const { frames } = synthesizePpg({ durationSec: 90 });
+  await page.evaluate((all) => {
+    const t0 = all[0].timestampMs;
+    for (let end = 2; end <= 40; end += 2) {
+      window.__tenkiFingerHarness.renderLiveFrames(
+        all.filter((f) => f.timestampMs <= t0 + end * 1000),
+      );
+    }
+  }, frames);
+  await page.screenshot({ path: shotScan, fullPage: true });
+  console.log(`  📸 ${shotScan}`);
 }
 const shotWeak = process.env.FINGER_SHOT_WEAK;
 if (shotWeak) {

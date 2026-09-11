@@ -44,6 +44,11 @@ export const MAX_CLIPPING = 0.05;
 /** Frame-drop fraction above which the timebase itself is unreliable. */
 export const MAX_FRAME_DROPS = 0.25;
 
+/** Periodicity that scores 0 on the rhythm component. */
+export const PERIODICITY_AT_ZERO = 0.2;
+/** Periodicity at which the rhythm component saturates. */
+export const PERIODICITY_AT_ONE = 0.7;
+
 /** How much each component can contribute to the 0-100 score. */
 export const QUALITY_WEIGHTS = {
   perfusion: 25,
@@ -76,6 +81,65 @@ function ramp(value: number, atZero: number, atOne: number): number {
 }
 
 /**
+ * What the frames alone say about contact, light and stillness.
+ *
+ * Separated from the score because these three need NO minimum duration and no
+ * rhythm: a tenth of a second of frames already says whether the finger is on
+ * the lens. The live capture surface shows them from the first moment, long
+ * before there is enough signal to look for a pulse — and it must read them
+ * from here rather than compute its own, or the guidance during a capture would
+ * be able to disagree with the verdict after it.
+ */
+export interface FrameComponents {
+  /** Mean coverage across the window, 0..1. */
+  coverage: number;
+  /** Frame-to-frame coverage wobble, 0..1. */
+  coverageWobble: number;
+  /** Mean motion, 0..1. */
+  motion: number;
+  /** Mean clipped-pixel fraction, 0..1. */
+  clipping: number;
+  /** Stillness, 0..1 — 1 = still. */
+  stability: number;
+  /** Normalised contact component: mean coverage, penalised by wobble. */
+  contactComponent: number;
+  /** Normalised exposure component: 1 = nothing at the sensor ceiling. */
+  lightComponent: number;
+  /** Frames that individually met the contact, exposure and motion limits. */
+  usableFrameCount: number;
+}
+
+/**
+ * Reduces frames to what they say about the capture conditions.
+ *
+ * @param frames - The window's frames, already reduced to scalars.
+ * @returns Contact, light and motion measures plus their normalised components.
+ */
+export function assessFrameComponents(frames: readonly PpgFrame[]): FrameComponents {
+  const coverage = mean(frames.map((f) => f.coverage));
+  const coverageWobble = standardDeviation(frames.map((f) => f.coverage));
+  const motion = mean(frames.map((f) => f.motion));
+  const clipping = mean(frames.map((f) => f.clippedFraction));
+  const stability = Math.max(0, Math.min(1, 1 - motion / MAX_MOTION));
+
+  return {
+    coverage,
+    coverageWobble,
+    motion,
+    clipping,
+    stability,
+    contactComponent: ramp(coverage, MIN_COVERAGE, 0.95) * (1 - Math.min(1, coverageWobble * 4)),
+    lightComponent: 1 - Math.min(1, clipping / MAX_CLIPPING),
+    // Per-frame limits, not window means — a capture can average acceptable
+    // coverage while half its frames had the finger off the lens.
+    usableFrameCount: frames.filter(
+      (f) =>
+        f.coverage >= MIN_COVERAGE && f.clippedFraction <= MAX_CLIPPING && f.motion <= MAX_MOTION,
+    ).length,
+  };
+}
+
+/**
  * Scores a scan window and says why.
  *
  * @param input - Frame-level and signal-level measurements of the window.
@@ -84,18 +148,15 @@ function ramp(value: number, atZero: number, atOne: number): number {
 export function assessPpgQuality(input: QualityInput): PpgQuality {
   const { frames } = input;
 
-  const coverage = mean(frames.map((f) => f.coverage));
-  const coverageWobble = standardDeviation(frames.map((f) => f.coverage));
-  const motion = mean(frames.map((f) => f.motion));
-  const clipping = mean(frames.map((f) => f.clippedFraction));
-  const stability = Math.max(0, Math.min(1, 1 - motion / MAX_MOTION));
+  const frameParts = assessFrameComponents(frames);
+  const { coverage, coverageWobble, motion, clipping, stability } = frameParts;
 
   const components: PpgQualityComponents = {
     perfusion: ramp(input.perfusion, MIN_PERFUSION, GOOD_PERFUSION),
-    periodicity: ramp(input.periodicity, 0.2, 0.7),
+    periodicity: ramp(input.periodicity, PERIODICITY_AT_ZERO, PERIODICITY_AT_ONE),
     motion: stability,
-    coverage: ramp(coverage, MIN_COVERAGE, 0.95) * (1 - Math.min(1, coverageWobble * 4)),
-    clipping: 1 - Math.min(1, clipping / MAX_CLIPPING),
+    coverage: frameParts.contactComponent,
+    clipping: frameParts.lightComponent,
     frameDrops: 1 - Math.min(1, input.frameDropFraction / MAX_FRAME_DROPS),
   };
 
@@ -131,13 +192,6 @@ export function assessPpgQuality(input: QualityInput): PpgQuality {
 
   if (finalScore >= 75 && !reasons.includes('motion_detected')) reasons.push('stable_signal');
 
-  // How much of the capture was individually worth analysing. Per-frame limits,
-  // not window means — a capture can average acceptable coverage while half its
-  // frames had the finger off the lens.
-  const usableFrameCount = frames.filter(
-    (f) => f.coverage >= MIN_COVERAGE && f.clippedFraction <= MAX_CLIPPING && f.motion <= MAX_MOTION,
-  ).length;
-
   return {
     score: Math.max(0, Math.min(100, finalScore)),
     confidence: deriveConfidence(finalScore, input.periodicity, input.durationSec, input.minDurationSec),
@@ -156,7 +210,7 @@ export function assessPpgQuality(input: QualityInput): PpgQuality {
       frameDrops: round2(components.frameDrops),
     },
     frameCount: frames.length,
-    usableFrameCount,
+    usableFrameCount: frameParts.usableFrameCount,
   };
 }
 

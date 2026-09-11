@@ -23,13 +23,18 @@ import {
   dimensionGoodness,
   toSignalQuality,
 } from './engine/biometric/ppg/signal-quality.js';
+import {
+  INITIAL_PULSE_LOCK,
+  LIVE_WINDOW_SEC,
+  LOCK_CONSECUTIVE_WINDOWS,
+  advancePulseLock,
+  assessLiveWindow,
+  recentFrames,
+} from './engine/biometric/ppg/live.js';
 
 const MODE = 'full_scan';
 const TARGET_SEC = SCAN_MODE_CONFIGS[MODE].targetDurationSec;
 const MIN_SEC = SCAN_MODE_CONFIGS[MODE].minDurationSec;
-
-/** 即時回饋看的視窗長度。跟最終分析無關 —— 最終分析吃整段。 */
-const LIVE_WINDOW_SEC = 20;
 
 /**
  * 幀緩衝上限。
@@ -106,6 +111,7 @@ const state = {
   running: false,
   lastSample: null,
   torchAvailable: false,
+  lock: INITIAL_PULSE_LOCK,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -226,8 +232,9 @@ function tick(video, ctx) {
     return;
   }
 
-  // 每兩秒用累積到現在的幀跑一次真的 pipeline，給即時品質回饋。
-  if (state.frames.length % 60 === 0 && elapsed >= 6) {
+  // 每 30 幀（約一秒）更新一次即時回饋。⚠️ 不再等到第 6 秒才開始 ——
+  // 接觸與光從第一幀就量得到，而那正是使用者最需要被糾正的時候。
+  if (state.frames.length % 30 === 0) {
     renderLive();
   }
 
@@ -240,36 +247,53 @@ function tick(video, ctx) {
 
 function renderProgress(elapsed) {
   const pct = Math.min(100, (elapsed / TARGET_SEC) * 100);
-  $('arc').style.setProperty('--p', String(pct));
+  const arc = $('arc');
+  arc.style.setProperty('--p', String(pct));
+  // ⚠️ `stroke-linecap: round` 在長度 0 時還是會畫一顆圓頭 —— 也就是 0%
+  // 進度會在環的頂端點一個亮點，看起來像已經開始了。長度 0 就整條隱藏。
+  arc.style.opacity = pct > 0 ? '1' : '0';
   $('elapsed').textContent = `${Math.floor(elapsed)}s / ${TARGET_SEC}s`;
 }
 
 /**
- * 掃描進行中的即時回饋：只講品質，不報數值。
+ * 掃描進行中的即時回饋。
  *
- * ⚠️ 只吃**最近** `LIVE_WINDOW_SEC` 秒（PR #148 的 ring buffer 想法）。
- * 原本吃整段累積的幀，成本隨已掃描時間線性上升 —— 自相關是 O(n × lags)，
- * 到第 90 秒時每兩秒要重算 2700 點。而且即時回饋本來就該講「現在」，
- * 把 80 秒前的晃動平均進來反而會騙人。最終結果照樣吃整段。
+ * 🔴 這裡不呼叫 `analyzePpgScan` —— 那是最終分析，會用整段掃描的門檻去評一個
+ * 20 秒的窗口（於是每次即時回饋都會說「時間不足」），而且會算出一個**不該**
+ * 在掃描中顯示的心率。即時層是引擎自己的 `assessLiveWindow()`：接觸／光／穩定
+ * 從第一幀就有，節律要等窗口夠長才有（不夠長時是 `null`，不是 0）。
  */
 function renderLive() {
-  const outcome = analyzePpgScan(recentFrames(LIVE_WINDOW_SEC), MODE);
-  if (outcome.status !== 'analysed') return;
+  const reading = assessLiveWindow(recentFrames(state.frames, LIVE_WINDOW_SEC), MODE);
 
-  const q = outcome.analysis.quality;
-  $('liveQuality').textContent = String(q.score);
-  renderReasons($('liveReasons'), q.reasons);
-  renderDims($('liveDims'), toSignalQuality(outcome.analysis));
+  $('liveQuality').textContent = reading.score === null ? '—' : String(reading.score);
+  renderReasons($('liveReasons'), reading.reasons);
+  renderDims($('liveDims'), reading);
+
+  state.lock = advancePulseLock(state.lock, reading);
+  renderLock();
 }
 
-/** 最近 n 秒的幀。時間為準，不是幀數 —— 掉幀時幀數會騙人。 */
-function recentFrames(seconds) {
-  const frames = state.frames;
-  if (frames.length === 0) return frames;
-  const cutoff = frames[frames.length - 1].timestampMs - seconds * 1000;
-  let start = frames.length;
-  while (start > 0 && frames[start - 1].timestampMs >= cutoff) start--;
-  return frames.slice(start);
+/**
+ * Pulse Lock。
+ *
+ * 🔴 它只宣稱一件事：「如果現在結束，這次擷取會產出讀數。」不是結果 ——
+ * 所以**不上 gold**（gold = SECURED），也沒有任何動效。而且不黏著：手指一滑
+ * 就掉，否則就是把過去的事講成現在。
+ */
+function renderLock() {
+  const el = $('lock');
+  const stage = $('stage');
+  stage.dataset.locked = state.lock.locked ? 'yes' : 'no';
+
+  if (state.lock.locked) {
+    el.textContent = '訊號穩住了 —— 現在結束也會有讀數。';
+    return;
+  }
+  el.textContent =
+    state.lock.consecutive > 0
+      ? `訊號開始穩定（${state.lock.consecutive}/${LOCK_CONSECUTIVE_WINDOWS}）。`
+      : '還在等訊號穩定。下面列出可以調整的地方。';
 }
 
 /**
@@ -295,7 +319,19 @@ function renderDims(host, signal) {
 
   for (const dim of DIMENSIONS) {
     const row = host.querySelector(`.dim[data-key="${dim.key}"]`);
+
+    // 🔴 `null` 是「還沒量到」，不是 0。0 會讀成「你的節律很差」，而真相是
+    // 窗口還不夠長到能找一個週期。空軌道 ＋「累積中」，不給數字。
+    if (signal[dim.key] === null) {
+      row.dataset.low = 'no';
+      row.dataset.pending = 'yes';
+      row.querySelector('.dimValue').textContent = '累積中';
+      row.querySelector('.dimFill').style.width = '0%';
+      continue;
+    }
+
     const goodness = dimensionGoodness(signal, dim.key);
+    row.dataset.pending = 'no';
     row.dataset.low = goodness < DIM_LOW ? 'yes' : 'no';
     row.querySelector('.dimValue').textContent = `${Math.round(goodness * 100)}%`;
     row.querySelector('.dimFill').style.width = `${Math.round(goodness * 100)}%`;
@@ -445,6 +481,8 @@ async function begin() {
 
   state.frames = [];
   state.lastSample = null;
+  state.lock = INITIAL_PULSE_LOCK;
+  renderLock();
   state.startedAt = performance.now();
   state.running = true;
   tick(video, ctx);
@@ -484,5 +522,27 @@ window.__tenkiFingerHarness = {
   renderFrames(frames) {
     state.frames = frames;
     renderOutcome(analyzePpgScan(frames, MODE));
+  },
+  /**
+   * 掃描**進行中**的那一幀。這個接縫是必要的，不是方便：
+   * 掃描階段以前完全沒有 harness 走過，而那個盲區剛好藏住了一個真的 bug
+   * （即時層拿整段掃描的時長門檻去評一個 20 秒窗口，於是每次即時回饋都會
+   * 說「時間不足」）。
+   */
+  renderLiveFrames(frames) {
+    $('stage').dataset.phase = 'scanning';
+    state.frames = frames;
+    // 照真的 loop 做的事：進度也更新。少了這一步，harness 看到的掃描畫面
+    // 永遠停在 0s，而那正好會漏掉進度環自己的問題。
+    renderProgress(
+      frames.length === 0
+        ? 0
+        : (frames[frames.length - 1].timestampMs - frames[0].timestampMs) / 1000,
+    );
+    renderLive();
+  },
+  resetLock() {
+    state.lock = INITIAL_PULSE_LOCK;
+    renderLock();
   },
 };
