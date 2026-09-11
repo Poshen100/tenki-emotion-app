@@ -539,6 +539,97 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('🔴 Hero 標籤跟槽裡的東西一致（不掛 Edge Score）', today.heroLabel, '狀態讀數');
 }
 
+// ═════════════════════════════════════════════════
+// 收束頁環心：文字要在圓裡，而且斷行只准落在分隔點上
+//
+// founder 2026-09-11 實走：「判定不成立 · 未進場，那個頁面是不是有點裁到了？」
+// 量出來的答案分兩半，而**兩半的結論不一樣**：
+//   · 幾何上**沒有**跑出環外（逐行四個角對圓心量過，全在圓內）
+//   · 壞的是**斷點**：整串在 176px 弧下要約 135px，而環心內容框是
+//     176 − padding 22×2 = **132px** —— 差 3px，於是斷成
+//     「判定不成立 · 未進」／「場」，一個字孤零零掉在第二行，看起來就是被裁掉。
+//
+// 🔴 這是第十二輪那條「容器是圓的時候，拿方框當斷言＝那條斷言不存在」的
+// **同一條規則沒有掃到這一頁** —— 當時只加在 `/v3/` 的 Hero 環心。
+//
+// 🔴 第二條不用魔術數字：**最窄的那一行，不得比最短的那一段還窄**。
+// 段（segment）是把文案照 ' · ' 拆開之後用 Range 量出來的真實寬度 ——
+// 所以「把 word-break 拿掉」會讓末行從「未進場」(45px) 掉成「場」(15px)，當場紅。
+// ═════════════════════════════════════════════════
+{
+  const RING_CASES = [
+    ['judged_stood_down', '判定不成立 · 未進場'],
+    ['judged_entered', '判定成立 · 已進場'],
+    ['abandoned_no_judgment', '沒有做出判定'],
+  ];
+  // ⚠️ 掃高度要掃**視窗**高度不是裝置高度（PLAYBOOK 2026-09-10）。
+  // 932/844 走 176px 弧、700 走短視窗的 128px 弧，兩組都要驗。
+  for (const height of [932, 844, 700]) {
+    for (const [tag, want] of RING_CASES) {
+      const rp = await browser.newPage({ viewport: { width: 390, height }, isMobile: true, hasTouch: true });
+      // 走真的產品路徑：紀錄 + 回程票 + `#result`（判定完 /v3/ 就是這樣導回來的）
+      await rp.addInitScript((t) => {
+        if (localStorage.getItem('__ringSeeded')) return;
+        localStorage.setItem('__ringSeeded', '1');
+        const ts = Date.now();
+        localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([{
+          ts, symbol: 'ES1!', templateId: 'MANCINI_FBD', outcomeTag: t,
+          durationSec: 314, awayCount: 3, awayMs: 251000, sameSymbolUpdates: 1,
+          source: 'alert', originAlertId: 'ring-1',
+        }]));
+        localStorage.setItem('tenki.alert.return.v1', JSON.stringify({ ts, at: Date.now() }));
+      }, tag);
+      await rp.goto(`${base}/decision-alert/#result`, { waitUntil: 'domcontentloaded' });
+      await rp.waitForTimeout(1800);
+
+      const m = await rp.evaluate(() => {
+        const hero = document.querySelector('.result-hero');
+        const out = document.getElementById('resultOutcome');
+        if (!hero || !out || !out.textContent) return null;
+        const hr = hero.getBoundingClientRect();
+        const size = hr.width;
+        const cx = hr.left + size / 2;
+        const cy = hr.top + size / 2;
+        // drawResultArc: r = size/2 - 14, lineWidth = 10 → 環線內緣半徑
+        const R = size / 2 - 14 - 5;
+        const txt = out.textContent;
+        const node = out.firstChild;
+        const lineRects = [...(() => { const r = document.createRange(); r.selectNodeContents(out); return r.getClientRects(); })()];
+        // 每一「段」的真實寬度（照 ' · ' 拆），用 Range 量，不用字數估
+        const segW = [];
+        let at = 0;
+        for (const seg of txt.split(' · ')) {
+          const i = txt.indexOf(seg, at);
+          const r = document.createRange();
+          r.setStart(node, i); r.setEnd(node, i + seg.length);
+          segW.push(Math.round(r.getBoundingClientRect().width));
+          at = i + seg.length;
+        }
+        let worst = -Infinity;
+        for (const q of lineRects) {
+          for (const [x, y] of [[q.left, q.top], [q.right, q.top], [q.left, q.bottom], [q.right, q.bottom]]) {
+            worst = Math.max(worst, Math.hypot(x - cx, y - cy) - R);
+          }
+        }
+        return {
+          txt, arc: Math.round(size), lines: lineRects.length,
+          lineW: lineRects.map((q) => Math.round(q.width)),
+          segW, outside: +worst.toFixed(1),
+        };
+      });
+
+      if (!m) { check(`收束頁環心開得起來（${height} / ${tag}）`, 'missing', 'rendered'); await rp.close(); continue; }
+      check(`收束頁環心印對文案（${height} / ${tag}）`, m.txt, want);
+      // TOL=4：行盒比字高（15px 字、約 21px 行盒），角落距離會被高估約 2~3px。
+      // 來源與第十二輪同一條推導，不從「剛好通過」反推。
+      check(`🔴 環心文字整段在圓內（${height} / 弧 ${m.arc} / 溢出 ${m.outside}px）`, m.outside <= 4, true);
+      check(`🔴 斷行不得切在詞中間（${height} / 行寬 ${m.lineW} / 段寬 ${m.segW}）`,
+        Math.min(...m.lineW) >= Math.min(...m.segW) - 2, true);
+      await rp.close();
+    }
+  }
+}
+
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
 await browser.close();
 server.close();
