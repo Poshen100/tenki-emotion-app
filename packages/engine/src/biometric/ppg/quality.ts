@@ -14,7 +14,7 @@
  */
 
 import { mean, standardDeviation } from './filtering';
-import type { PpgFrame, PpgQuality, PpgQualityReason } from './types';
+import type { PpgFrame, PpgQuality, PpgQualityComponents, PpgQualityReason } from './types';
 
 /**
  * Perfusion below which there is no usable pulse in the light.
@@ -90,7 +90,7 @@ export function assessPpgQuality(input: QualityInput): PpgQuality {
   const clipping = mean(frames.map((f) => f.clippedFraction));
   const stability = Math.max(0, Math.min(1, 1 - motion / MAX_MOTION));
 
-  const components = {
+  const components: PpgQualityComponents = {
     perfusion: ramp(input.perfusion, MIN_PERFUSION, GOOD_PERFUSION),
     periodicity: ramp(input.periodicity, 0.2, 0.7),
     motion: stability,
@@ -131,6 +131,13 @@ export function assessPpgQuality(input: QualityInput): PpgQuality {
 
   if (finalScore >= 75 && !reasons.includes('motion_detected')) reasons.push('stable_signal');
 
+  // How much of the capture was individually worth analysing. Per-frame limits,
+  // not window means — a capture can average acceptable coverage while half its
+  // frames had the finger off the lens.
+  const usableFrameCount = frames.filter(
+    (f) => f.coverage >= MIN_COVERAGE && f.clippedFraction <= MAX_CLIPPING && f.motion <= MAX_MOTION,
+  ).length;
+
   return {
     score: Math.max(0, Math.min(100, finalScore)),
     confidence: deriveConfidence(finalScore, input.periodicity, input.durationSec, input.minDurationSec),
@@ -140,7 +147,22 @@ export function assessPpgQuality(input: QualityInput): PpgQuality {
     coverage: Math.round(coverage * 100) / 100,
     stability: Math.round(stability * 100) / 100,
     frameDropFraction: Math.round(input.frameDropFraction * 100) / 100,
+    components: {
+      perfusion: round2(components.perfusion),
+      periodicity: round2(components.periodicity),
+      motion: round2(components.motion),
+      coverage: round2(components.coverage),
+      clipping: round2(components.clipping),
+      frameDrops: round2(components.frameDrops),
+    },
+    frameCount: frames.length,
+    usableFrameCount,
   };
+}
+
+/** Two decimals — an instrument bar has no use for more. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 /**

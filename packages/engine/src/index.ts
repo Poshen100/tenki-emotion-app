@@ -160,6 +160,34 @@ export {
 
 export type { ScanMode, ScanModeConfig, ScanSignalSource } from './biometric/scan-modes';
 
+export type { ScanCapabilityOptions } from './biometric/scan-modes';
+
+// ─── Pulse Anchor ───────────────────────────
+// 一次相機校準得到的靜息脈搏參考值，以及幾個參考值加起來算到哪一階。
+export {
+  PULSE_ANCHOR_DERIVATION,
+  PULSE_ANCHOR_POSTURES,
+  PULSE_ANCHOR_SOURCES,
+  PULSE_ANCHOR_TIMES_OF_DAY,
+  PULSE_BASELINE_STAGES,
+  PULSE_BASELINE_THRESHOLDS,
+  buildPulseAnchor,
+  contextsAreComparable,
+  resolvePulseBaselineProgress,
+  resolveRestingBand,
+} from './biometric/pulse-anchor';
+
+export type {
+  PulseAnchor,
+  PulseAnchorContext,
+  PulseAnchorPosture,
+  PulseAnchorSource,
+  PulseAnchorTimeOfDay,
+  PulseBaselineProgress,
+  PulseBaselineStage,
+  PulseRestingBand,
+} from './biometric/pulse-anchor';
+
 // ─── Baseline ───────────────────────────────
 // 使用者自己的量測雜訊底線。規格: docs/PHONE-PPG.md §10
 export {

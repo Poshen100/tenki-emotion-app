@@ -7,12 +7,29 @@
 export type {
   PpgFrame,
   PpgQuality,
+  PpgQualityComponents,
   PpgQualityReason,
   PpgAnalysis,
   PpgMetric,
   PpgWithheld,
 } from './types';
 export { PPG_QUALITY_REASONS, PPG_METRICS } from './types';
+
+// The instrument a capture reports about itself — what a surface renders.
+export {
+  PPG_POSITIVE_REASONS,
+  PPG_REJECTION_REASONS,
+  SIGNAL_DIMENSION_DIRECTION,
+  dimensionGoodness,
+  isRejectionReason,
+  toSignalQuality,
+} from './signal-quality';
+export type {
+  PpgPositiveReason,
+  PpgRejectionReason,
+  PpgSignalQuality,
+  SignalDimension,
+} from './signal-quality';
 
 export { analyzePpgScan, hasUsableReading, wasWithheld, MIN_FRAMES } from './analyze';
 

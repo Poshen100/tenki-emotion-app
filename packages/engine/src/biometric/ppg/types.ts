@@ -86,6 +86,30 @@ export interface PpgWithheld {
   reason: PpgQualityReason | 'mode_excludes_metric' | 'too_few_beats' | 'too_many_artifacts';
 }
 
+/**
+ * The six normalised components the quality score is built from, each 0..1
+ * with 1 = best.
+ *
+ * These are exposed because the Signal Integrity instrument shows them
+ * directly (see `ppg/signal-quality.ts`). They are the SAME numbers the score
+ * is weighted from — not a second calculation — so an instrument bar can never
+ * disagree with the score beside it.
+ */
+export interface PpgQualityComponents {
+  /** Pulse strength against the calibrated perfusion bounds. */
+  perfusion: number;
+  /** Strength of the dominant repeating period. */
+  periodicity: number;
+  /** Stillness: 1 = no motion, 0 = at or beyond the motion limit. */
+  motion: number;
+  /** Mean coverage, penalised by how much the coverage wobbled. */
+  coverage: number;
+  /** Exposure headroom: 1 = nothing at the sensor ceiling. */
+  clipping: number;
+  /** Timebase completeness: 1 = no dropped frames. */
+  frameDrops: number;
+}
+
 /** Signal quality for one scan window. */
 export interface PpgQuality {
   /** Overall quality 0-100. */
@@ -104,6 +128,19 @@ export interface PpgQuality {
   stability: number;
   /** Fraction of expected frames that never arrived, 0..1. */
   frameDropFraction: number;
+  /** The normalised components behind `score`, for the instrument to show. */
+  components: PpgQualityComponents;
+  /** Frames handed in by the capture layer. */
+  frameCount: number;
+  /**
+   * Frames that individually met the contact, exposure and motion limits.
+   *
+   * ⚠️ Not the same thing as the score: a capture can be 100% usable frames
+   * and still have no readable pulse (a still, well-lit, badly perfused
+   * finger). It answers "how much of the capture was worth analysing", which
+   * is what a user watching a progress readout is actually asking.
+   */
+  usableFrameCount: number;
 }
 
 /**
