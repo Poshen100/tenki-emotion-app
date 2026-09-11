@@ -217,7 +217,19 @@
       font-size: 13px; line-height: 1.5;
     }
     .alert-state .stat-sub { color: var(--n-500); font-size: 12px; }
-    .result-outcome { font-size: 15px; font-weight: 700; }
+    /* 🔴 斷行只准落在分隔點上，不得從詞中間切。
+       實測（390 寬，收束頁走真的回程票路徑）：「判定不成立 · 未進場」在 176px 弧下
+       需要約 135px，而環心容器的內容框只有 **132px**（176 − padding 22×2）——
+       **差 3px**。於是它斷成「判定不成立 · 未進」／「場」，一個字孤零零掉在第二行，
+       看起來就是被裁掉（founder 2026-09-11 實走：「那個頁面是不是有點裁到了？」）。
+       ⚠️ 它其實**沒有**跑出環外（逐行四個角對圓心量過，全部在圓內）——
+       壞的是斷點，不是幾何。所以修的是斷點，不是把字縮小。
+       `word-break: keep-all` 讓 CJK 字元之間不再是斷行機會，只剩分隔號兩側的
+       空白可斷 → 最差情況是「判定不成立 ·」／「未進場」，兩半各自完整。
+       ⚠️ **不改文案字串** —— 那三句同時給底座、Session 徽章、收束頁用
+       （`decision-outcome.js` 的 OUTCOME_VIEW 是單一來源），為了一頁的版面去動它
+       會牽連另外兩頁。 */
+    .result-outcome { font-size: 15px; font-weight: 700; word-break: keep-all; }
     .result-outcome.disciplined { color: var(--zone-clear); }
     .result-outcome.broke { color: var(--zone-strain); }
     .result-outcome.neutral { color: var(--n-400); }
@@ -857,6 +869,6 @@
   <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do2"></script>
-  <script src="decision-alert.js?v=alert42"></script>
+  <script src="decision-alert.js?v=alert43"></script>
 </body>
 </html>
