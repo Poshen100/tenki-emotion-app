@@ -620,9 +620,13 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
 
       if (!m) { check(`收束頁環心開得起來（${height} / ${tag}）`, 'missing', 'rendered'); await rp.close(); continue; }
       check(`收束頁環心印對文案（${height} / ${tag}）`, m.txt, want);
-      // TOL=4：行盒比字高（15px 字、約 21px 行盒），角落距離會被高估約 2~3px。
-      // 來源與第十二輪同一條推導，不從「剛好通過」反推。
-      check(`🔴 環心文字整段在圓內（${height} / 弧 ${m.arc} / 溢出 ${m.outside}px）`, m.outside <= 4, true);
+      // 🔴 門檻不是「有沒有跑出去」，是「離環線還有多遠」。
+      // 行盒比字高，角落距離被高估約 2~3px —— 所以要求**行盒本身再內縮 2px**，
+      // 等於墨跡至少離環線 4~5px。這條把 2026-09-11 買到的餘裕鎖住：
+      // 當時 128px 弧下 13px 字只剩 0.2px（行盒剛好還在圓內、但字型一變就出去），
+      // 改成 12px 之後是 3.1px。只問「在不在圓內」的話，那個 0.2px 是綠的。
+      check(`🔴 環心文字離環線至少 2px（${height} / 弧 ${m.arc} / 實測 ${(-m.outside).toFixed(1)}px）`,
+        m.outside <= -2, true);
       check(`🔴 斷行不得切在詞中間（${height} / 行寬 ${m.lineW} / 段寬 ${m.segW}）`,
         Math.min(...m.lineW) >= Math.min(...m.segW) - 2, true);
       await rp.close();
