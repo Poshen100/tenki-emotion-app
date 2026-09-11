@@ -109,6 +109,12 @@ async function runScan(options) {
       reasons: [...document.querySelectorAll('#resultReasons .reason')].map((n) => n.textContent),
       withheld: [...document.querySelectorAll('#withheld .reason')].map((n) => n.textContent),
       withheldHead: text('withheldHead'),
+      stageTerm: text('stageTerm'),
+      stageName: text('stageName'),
+      stageNote: text('stageNote'),
+      bandShown: document.getElementById('bandRow').offsetParent !== null,
+      band: text('band'),
+      howText: document.getElementById('how').textContent,
       withheldHeadShown: document.getElementById('withheldHead').offsetParent !== null,
       frameNote: text('frameNote'),
       dims: [...document.querySelectorAll('#resultDims .dim')].map((row) => ({
@@ -361,6 +367,93 @@ check(
   !(weak.reasons.some((r) => r.includes('覆蓋完整')) && weak.reasons.some((r) => r.includes('蓋住鏡頭'))),
   `reasons=${JSON.stringify(weak.reasons)}`,
 );
+
+// ── 3b. 一次校準不是基線（brief §5）────────────────────────────────────────
+// 🔴 這一段守的是**用詞**：同一天做幾次都還只是「第一個脈搏參考」，而「基線」
+// 這個詞只有最後一階能用。
+console.log('\n── 基線階段 ──');
+await page.evaluate(() => window.__tenkiFingerHarness.resetAnchors());
+
+const anchor1 = await runScan({});
+check(
+  '第一次是「第一個脈搏參考」，不是基線',
+  anchor1.stageName === '第一個脈搏參考' && anchor1.stageTerm === 'FIRST PULSE REFERENCE',
+  `term=${anchor1.stageTerm} name=${anchor1.stageName}`,
+);
+check(
+  '🔴 這一階的說明裡不准出現「基線」',
+  !anchor1.stageName.includes('基線') && !anchor1.stageNote.includes('基線'),
+  `note=${anchor1.stageNote}`,
+);
+check(
+  '說得出還缺什麼',
+  /再 \d+ 次|再跨 \d+ 天/.test(anchor1.stageNote),
+  `note=${anchor1.stageNote}`,
+);
+check('第一次不給靜息區間', !anchor1.bandShown, `band=${anchor1.band}`);
+
+await runScan({ seed: 51 });
+await runScan({ seed: 52 });
+const sameDay = await runScan({ seed: 53 });
+check(
+  '🔴 同一天做四次還是「第一個脈搏參考」—— 天數是硬條件',
+  sameDay.stageName === '第一個脈搏參考',
+  `name=${sameDay.stageName} note=${sameDay.stageNote}`,
+);
+check(
+  '而且說明裡講的是「再跨幾天」，不是「再幾次」',
+  sameDay.stageNote.includes('再跨') && !/再 \d+ 次/.test(sameDay.stageNote),
+  `note=${sameDay.stageNote}`,
+);
+
+const rejected = await runScan(PPG_FIXTURES.lowPerfusion);
+check(
+  '沒立住的那一次不計入，而且畫面說了',
+  rejected.stageNote.includes('沒有立住') && rejected.stageNote.includes('4 次'),
+  `note=${rejected.stageNote}`,
+);
+
+// 跨天要到最後一階才准說「基線」。頁面只能用今天的日期，所以這裡直接餵
+// 不同日期的 anchor 進 localStorage（頁面照常從引擎算階段）。
+await page.evaluate(() => {
+  const anchors = [];
+  for (let i = 0; i < 20; i++) {
+    anchors.push({
+      restingPulseBpm: 62 + (i % 7),
+      capturedAtMs: 0,
+      localDateKey: `2026-09-${String(1 + (i % 6)).padStart(2, '0')}`,
+      source: 'camera_fingertip_ppg',
+      derivation: 'estimated',
+      quality: { accepted: true, rejectionReasons: [] },
+      context: { timeOfDay: 'morning', posture: 'unknown', afterExertion: null },
+    });
+  }
+  localStorage.setItem('tenki.preview.pulseAnchors', JSON.stringify(anchors));
+});
+const mature = await runScan({ seed: 61 });
+check(
+  '夠多次、跨夠多天之後才叫「情境脈搏基線」',
+  mature.stageName === '情境脈搏基線' && mature.stageTerm === 'CONTEXTUAL PULSE BASELINE',
+  `term=${mature.stageTerm} name=${mature.stageName}`,
+);
+check(
+  '到那時才給靜息區間，而且是四分位不是最小到最大',
+  mature.bandShown && /^\d+(\.\d+)?–\d+(\.\d+)? bpm$/.test(mature.band),
+  `顯示=${mature.bandShown} band=${mature.band}`,
+);
+
+check(
+  '最長的階段名稱在 390px 也不爆版',
+  mature.overflowX === 0,
+  `多出 ${mature.overflowX}px（term=${mature.stageTerm} name=${mature.stageName}）`,
+);
+check(
+  '講得出這個讀數是怎麼量的（§8）',
+  mature.howText.includes('帶通') && mature.howText.includes('不是心電圖'),
+  `how=${mature.howText.slice(0, 60)}`,
+);
+
+await page.evaluate(() => window.__tenkiFingerHarness.resetAnchors());
 
 // ── 4. 掉幀：脈搏仍然立得住 ────────────────────────────────────────────────
 // 掉幀會毀掉毫秒級的拍間距，但不會毀掉每分鐘幾拍。相機只報後者，所以這一格

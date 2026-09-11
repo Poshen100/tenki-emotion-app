@@ -24,6 +24,11 @@ import {
   toSignalQuality,
 } from './engine/biometric/ppg/signal-quality.js';
 import {
+  buildPulseAnchor,
+  resolvePulseBaselineProgress,
+  resolveRestingBand,
+} from './engine/biometric/pulse-anchor.js';
+import {
   INITIAL_PULSE_LOCK,
   LIVE_WINDOW_SEC,
   LOCK_CONSECUTIVE_WINDOWS,
@@ -88,6 +93,20 @@ const DIMENSIONS = [
 /** 低於這個值的維度會被標出來 —— 那是使用者這次該改的地方。 */
 const DIM_LOW = 0.6;
 
+/**
+ * 各階段的名字。英文是對外溝通的 canonical 詞，中文是畫面上的說法。
+ * 🔴 只有最後一階可以叫「基線」。
+ */
+const STAGE_COPY = {
+  none: { term: 'NO REFERENCE YET', name: '還沒有參考點' },
+  first_reference: { term: 'FIRST PULSE REFERENCE', name: '第一個脈搏參考' },
+  emerging_rhythm: { term: 'EMERGING RHYTHM', name: '節律開始成形' },
+  personal_resting_band: { term: 'PERSONAL RESTING BAND', name: '你的靜息區間' },
+  contextual_baseline: { term: 'CONTEXTUAL PULSE BASELINE', name: '情境脈搏基線' },
+};
+
+const ANCHOR_KEY = 'tenki.preview.pulseAnchors';
+
 /** 指標被扣住的理由，直接用 engine 的 withheld reason。 */
 const WITHHELD_COPY = {
   mode_excludes_metric: '相機讀不到這一項',
@@ -115,6 +134,49 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
+
+/**
+ * 存下來的只有**推導出來的數值與品質後設資料**。沒有影像、沒有波形、沒有
+ * 逐幀取樣 —— anchor 的型別裡根本沒有地方放那些東西（engine 有一條測試
+ * 把序列化後的 anchor 攤開來驗這件事）。
+ */
+function loadAnchors() {
+  try {
+    const raw = localStorage.getItem(ANCHOR_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveAnchors(anchors) {
+  try {
+    localStorage.setItem(ANCHOR_KEY, JSON.stringify(anchors));
+  } catch (_) {
+    /* private mode — 這一次就不留下來 */
+  }
+}
+
+/** 本機日曆日。時區只有這台裝置知道，所以日界線由這裡決定，不由引擎猜。 */
+function localDateKey(at) {
+  const d = new Date(at);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** 這次擷取的條件。問不到的就標成不知道，不要猜一個。 */
+function captureContext(at) {
+  const hour = new Date(at).getHours();
+  const timeOfDay =
+    hour < 11 ? 'morning' : hour < 16 ? 'midday' : hour < 22 ? 'evening' : 'night';
+  return {
+    timeOfDay,
+    // 實走頁沒有問姿勢，也沒有問剛剛有沒有動過 —— 所以就是不知道。
+    posture: 'unknown',
+    afterExertion: null,
+  };
+}
 
 // ── camera ──────────────────────────────────────────────────────────────────
 
@@ -392,6 +454,8 @@ function renderOutcome(outcome) {
   renderReasons($('resultReasons'), a.quality.reasons);
   renderWithheld(a.withheld);
 
+  renderStage(a);
+
   $('frameNote').textContent =
     `${signal.usableFrameCount} / ${signal.totalFrameCount} 幀通過接觸、曝光與晃動的逐幀門檻，` +
     `分析了 ${(signal.captureDurationMs / 1000).toFixed(1)} 秒。`;
@@ -414,6 +478,62 @@ function renderOutcome(outcome) {
     a.heartRateBpm === null
       ? '訊號不足以立住心率。下方列出可以改的地方。'
       : `以 ${a.beatCount} 拍為依據。`;
+}
+
+/**
+ * 把這次校準記成一個 anchor（如果它真的立住了），然後說現在算到哪一階。
+ *
+ * 🔴 階段的判斷整個在引擎裡（`resolvePulseBaselineProgress`）—— 頁面不重算
+ * 門檻。同一天做五次描述的是同一個早上，這件事必須只有一個地方說得出來。
+ */
+function renderStage(analysis) {
+  const at = Date.now();
+  const anchor = buildPulseAnchor(analysis, {
+    capturedAtMs: at,
+    localDateKey: localDateKey(at),
+    context: captureContext(at),
+  });
+
+  const anchors = loadAnchors();
+  if (anchor !== null) {
+    anchors.push(anchor);
+    saveAnchors(anchors);
+  }
+
+  const progress = resolvePulseBaselineProgress(anchors);
+  const copy = STAGE_COPY[progress.stage];
+  $('stageTerm').textContent = copy.term;
+  $('stageName').textContent = copy.name;
+
+  const parts = [`已有 ${progress.anchorCount} 次有效校準，分布在 ${progress.dateCount} 天。`];
+  if (progress.nextStage !== null) {
+    const need = [];
+    if (progress.anchorsNeeded > 0) need.push(`再 ${progress.anchorsNeeded} 次`);
+    if (progress.datesNeeded > 0) need.push(`再跨 ${progress.datesNeeded} 天`);
+    parts.push(
+      need.length > 0
+        ? `${need.join('、')}就會進到「${STAGE_COPY[progress.nextStage].name}」。`
+        : `已經達到「${STAGE_COPY[progress.nextStage].name}」的條件。`,
+    );
+  } else {
+    parts.push('這是目前最完整的一階。');
+  }
+  if (anchor === null) {
+    parts.push('這一次沒有立住，不計入。');
+  }
+  $('stageNote').textContent = parts.join('');
+
+  // 🔴 區間要到夠多次、跨夠多天才給。兩三點畫出來的範圍不是保守估計，
+  // 是另一個更窄的宣稱 —— 而且會錯在自信的那一邊。
+  const band = resolveRestingBand(anchors);
+  const show = band !== null;
+  $('bandRow').hidden = !show;
+  $('bandNote').hidden = !show;
+  if (show) {
+    $('band').textContent = `${band.lowBpm}–${band.highBpm} bpm`;
+    $('bandNote').textContent =
+      `中位數 ${band.medianBpm} bpm，以 ${band.anchorCount} 次校準的四分位為界（不是最小值到最大值 —— 一次手冰的早上不該把你的區間永久撐開）。`;
+  }
 }
 
 function renderAnchor(bpm) {
@@ -544,5 +664,13 @@ window.__tenkiFingerHarness = {
   resetLock() {
     state.lock = INITIAL_PULSE_LOCK;
     renderLock();
+  },
+  resetAnchors() {
+    try {
+      localStorage.removeItem(ANCHOR_KEY);
+    } catch (_) { /* ignore */ }
+  },
+  anchorCount() {
+    return loadAnchors().length;
   },
 };
