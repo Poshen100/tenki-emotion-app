@@ -72,6 +72,15 @@ export interface QualityInput {
   durationSec: number;
   /** Shortest capture this scan mode accepts. */
   minDurationSec: number;
+  /**
+   * Whether the capture layer had a torch. `undefined` means it was not
+   * reported — which is different from "there was none".
+   *
+   * ⚠️ Recorded, never scored. A missing torch is a fact about the device, not
+   * a fault in the capture, and its real consequence (a weak signal) is
+   * already measured by perfusion.
+   */
+  torchAvailable?: boolean;
 }
 
 /** Maps a value onto 0..1 by where it falls between two bounds. */
@@ -191,6 +200,9 @@ export function assessPpgQuality(input: QualityInput): PpgQuality {
   else if (input.periodicity >= 0.6) reasons.push('good_periodicity');
 
   if (finalScore >= 75 && !reasons.includes('motion_detected')) reasons.push('stable_signal');
+
+  // Advisory, appended after the score is final so it cannot influence it.
+  if (input.torchAvailable === false) reasons.push('torch_unavailable');
 
   return {
     score: Math.max(0, Math.min(100, finalScore)),

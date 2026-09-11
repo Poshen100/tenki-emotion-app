@@ -105,6 +105,12 @@ const STAGE_COPY = {
   contextual_baseline: { term: 'CONTEXTUAL PULSE BASELINE', name: '情境脈搏基線' },
 };
 
+/** 值得說、但不影響結論的事。 */
+const ADVISORY_COPY = {
+  torch_unavailable:
+    '這次沒有補光燈（iOS Safari 不支援）。讀數照算 —— 沒有補光只是讓訊號更容易太弱，而太弱本來就會被擋下來。',
+};
+
 const ANCHOR_KEY = 'tenki.preview.pulseAnchors';
 
 /** 指標被扣住的理由，直接用 engine 的 withheld reason。 */
@@ -134,6 +140,18 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
+
+/**
+ * 這次擷取的能力旗標。
+ *
+ * 🔴 `torchAvailable` 是**記錄**用的，不是拒收條件（founder 2026-09-11）：
+ * iOS Safari 完全沒有 torch API，拿它拒收等於拒收一整個平台；而夠亮的環境光
+ * 真的量得到。沒有補光燈**通常**造成的結果（訊號太弱）品質閘門本來就會擋，
+ * 這個 reason 的用途是在那件事發生時說得出原因。
+ */
+function captureOptions() {
+  return { torchAvailable: state.torchAvailable };
+}
 
 /**
  * 存下來的只有**推導出來的數值與品質後設資料**。沒有影像、沒有波形、沒有
@@ -418,7 +436,7 @@ function finish() {
   state.running = false;
   cancelAnimationFrame(state.raf);
   stopCamera();
-  renderOutcome(analyzePpgScan(state.frames, MODE));
+  renderOutcome(analyzePpgScan(state.frames, MODE, captureOptions()));
 }
 
 function renderOutcome(outcome) {
@@ -454,6 +472,7 @@ function renderOutcome(outcome) {
   renderReasons($('resultReasons'), a.quality.reasons);
   renderWithheld(a.withheld);
 
+  renderAdvisories(signal.advisories);
   renderStage(a);
 
   $('frameNote').textContent =
@@ -533,6 +552,22 @@ function renderStage(analysis) {
     $('band').textContent = `${band.lowBpm}–${band.highBpm} bpm`;
     $('bandNote').textContent =
       `中位數 ${band.medianBpm} bpm，以 ${band.anchorCount} 次校準的四分位為界（不是最小值到最大值 —— 一次手冰的早上不該把你的區間永久撐開）。`;
+  }
+}
+
+/**
+ * 不是錯、但值得說的事。⚠️ 這一區永遠不會讓一個被接受的讀數變得比較不算數
+ * —— 沒有補光燈是裝置的事實，不是這次擷取的過錯。
+ */
+function renderAdvisories(advisories) {
+  const host = $('advisories');
+  host.innerHTML = '';
+  host.hidden = advisories.length === 0;
+  for (const reason of advisories) {
+    const li = document.createElement('li');
+    li.className = 'reason advisory';
+    li.textContent = ADVISORY_COPY[reason] ?? reason;
+    host.appendChild(li);
   }
 }
 
@@ -641,7 +676,7 @@ window.addEventListener('pagehide', stopCamera);
 window.__tenkiFingerHarness = {
   renderFrames(frames) {
     state.frames = frames;
-    renderOutcome(analyzePpgScan(frames, MODE));
+    renderOutcome(analyzePpgScan(frames, MODE, captureOptions()));
   },
   /**
    * 掃描**進行中**的那一幀。這個接縫是必要的，不是方便：

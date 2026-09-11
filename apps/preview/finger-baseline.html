@@ -85,6 +85,9 @@
     .reason.good::before { content: "✓"; color: var(--cyan-core); }
     .reason.bad::before { content: "!"; color: var(--amber-400); font-weight: 700; }
     .reason.withheld::before { content: "—"; color: var(--n-550); }
+    /* 值得說、但不是錯。中性記號，不吃警示色。 */
+    .reason.advisory { color: var(--n-450); }
+    .reason.advisory::before { content: "·"; color: var(--n-550); font-weight: 700; }
 
     /* 相機只報一項，版面就只留一項 —— 三格裡兩格永遠是「—」本身就是一種宣稱。 */
     .anchor { text-align: center; }
@@ -257,6 +260,7 @@
       <ul id="resultReasons"></ul>
       <div class="dialLabel" id="withheldHead" style="margin:14px 0 10px">這次沒有報的</div>
       <ul id="withheld"></ul>
+      <ul id="advisories" style="margin-top:10px" hidden></ul>
     </section>
 
     <!-- §8：每一個被接受的讀數都要能說出它是怎麼量的。 -->

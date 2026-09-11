@@ -115,6 +115,10 @@ async function runScan(options) {
       bandShown: document.getElementById('bandRow').offsetParent !== null,
       band: text('band'),
       howText: document.getElementById('how').textContent,
+      advisories: [...document.querySelectorAll('#advisories .reason')].map((n) => n.textContent),
+      advisoryColor: document.querySelector('#advisories .reason')
+        ? getComputedStyle(document.querySelector('#advisories .reason')).color
+        : null,
       withheldHeadShown: document.getElementById('withheldHead').offsetParent !== null,
       frameNote: text('frameNote'),
       dims: [...document.querySelectorAll('#resultDims .dim')].map((row) => ({
@@ -172,6 +176,25 @@ check(
   '⚠️ 成功的校準不得把相機本來就不報的項目列成「這次沒報」',
   clean.withheld.length === 0 && !clean.withheldHeadShown,
   `head 顯示中=${clean.withheldHeadShown} withheld=${JSON.stringify(clean.withheld)}`,
+);
+// 🔴 沒有補光燈是**記錄**，不是拒收條件（founder 2026-09-11）。harness 跑在
+// 沒有相機的無頭瀏覽器裡，所以 torch 一定不可用 —— 正好是這條的實走條件。
+check(
+  '沒有補光燈會被說出來',
+  clean.advisories.some((a) => a.includes('補光燈')),
+  JSON.stringify(clean.advisories),
+);
+check(
+  '🔴 但它不會讓一個立住的讀數變得不算數',
+  clean.secured === 'yes' && clean.hr !== '—',
+  `secured=${clean.secured} hr=${clean.hr}`,
+);
+check(
+  '而且它不吃警示色（那不是錯）',
+  clean.advisoryColor !== null &&
+    clean.reasons.length > 0 &&
+    clean.advisoryColor !== 'rgb(255, 160, 40)',
+  `color=${clean.advisoryColor}`,
 );
 check(
   '一次校準不得自稱基線',

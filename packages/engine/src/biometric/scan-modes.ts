@@ -98,6 +98,11 @@ export interface ScanCapabilityOptions {
    * be revisited with real-user data — not deleted.
    */
   cameraHrvEstimates?: boolean;
+  /**
+   * Whether the capture layer had a torch. Recorded in the quality reasons,
+   * never scored — see `PPG_QUALITY_REASONS`' advisory group.
+   */
+  torchAvailable?: boolean;
 }
 
 /** Metrics a camera may not derive while `cameraHrvEstimates` is off. */

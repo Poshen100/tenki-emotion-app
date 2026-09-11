@@ -53,6 +53,26 @@ export const PPG_POSITIVE_REASONS = [
 
 export type PpgPositiveReason = typeof PPG_POSITIVE_REASONS[number];
 
+/**
+ * Reasons that are neither a verdict nor grounds for refusal.
+ *
+ * 🔴 A third category, not a tidy-up. A missing torch is a fact about the
+ * device: it makes a weak signal more likely but it is not itself a fault, and
+ * the thing it causes is already measured. Forcing it into the rejection list
+ * would refuse every capture on iOS Safari (no torch API exists there);
+ * forcing it into the positive list would be absurd. So it is an advisory —
+ * shown, never scored, never a reason a metric was withheld.
+ */
+export const PPG_ADVISORY_REASONS = ['torch_unavailable'] as const satisfies
+  readonly PpgQualityReason[];
+
+export type PpgAdvisoryReason = typeof PPG_ADVISORY_REASONS[number];
+
+/** True when this reason is stated rather than scored. */
+export function isAdvisoryReason(reason: PpgQualityReason): reason is PpgAdvisoryReason {
+  return (PPG_ADVISORY_REASONS as readonly PpgQualityReason[]).includes(reason);
+}
+
 /** True when this reason is one a capture can be rejected for. */
 export function isRejectionReason(reason: PpgQualityReason): reason is PpgRejectionReason {
   return (PPG_REJECTION_REASONS as readonly PpgQualityReason[]).includes(reason);
@@ -99,6 +119,12 @@ export interface PpgSignalQuality {
   accepted: boolean;
   /** Every limit this capture missed. Empty on an accepted clean capture. */
   rejectionReasons: PpgRejectionReason[];
+  /**
+   * Conditions worth stating that are not faults — a missing torch, today.
+   * A surface may show these next to an ACCEPTED reading; they never make one
+   * less valid.
+   */
+  advisories: PpgAdvisoryReason[];
 }
 
 /** Which way a dimension reads: `higher_is_better`, or the inverted one. */
@@ -151,5 +177,6 @@ export function toSignalQuality(analysis: PpgAnalysis): PpgSignalQuality {
     // accepted would put a quality badge on an empty result.
     accepted: analysis.heartRateBpm !== null,
     rejectionReasons: quality.reasons.filter(isRejectionReason),
+    advisories: quality.reasons.filter(isAdvisoryReason),
   };
 }

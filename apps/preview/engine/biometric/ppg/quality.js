@@ -142,6 +142,9 @@ export function assessPpgQuality(input) {
         reasons.push('good_periodicity');
     if (finalScore >= 75 && !reasons.includes('motion_detected'))
         reasons.push('stable_signal');
+    // Advisory, appended after the score is final so it cannot influence it.
+    if (input.torchAvailable === false)
+        reasons.push('torch_unavailable');
     return {
         score: Math.max(0, Math.min(100, finalScore)),
         confidence: deriveConfidence(finalScore, input.periodicity, input.durationSec, input.minDurationSec),

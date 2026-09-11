@@ -69,6 +69,7 @@ export function analyzePpgScan(frames, mode, options = {}) {
         frameDropFraction: resampled.gapFraction,
         durationSec,
         minDurationSec: config.minDurationSec,
+        torchAvailable: options.torchAvailable,
     });
     const withheld = [];
     // ── Heart rate ───────────────────────────────────────────────────────────

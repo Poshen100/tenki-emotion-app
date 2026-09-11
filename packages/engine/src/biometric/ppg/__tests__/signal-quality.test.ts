@@ -10,6 +10,7 @@
 import { PPG_FIXTURES, synthesizePpg } from '../replay';
 import { analyzePpgScan } from '../analyze';
 import {
+  PPG_ADVISORY_REASONS,
   PPG_POSITIVE_REASONS,
   PPG_REJECTION_REASONS,
   dimensionGoodness,
@@ -26,14 +27,18 @@ function analyse(overrides: Parameters<typeof synthesizePpg>[0] = {}): PpgAnalys
 }
 
 describe('the rejection vocabulary is a subset, not a second vocabulary', () => {
-  it('classifies every quality reason as either positive or a rejection', () => {
-    // 🔴 A reason in neither list is a reason no surface can render. This is
-    // what stops the two lists drifting into a parallel vocabulary.
+  it('classifies every quality reason as exactly one of positive, rejection or advisory', () => {
+    // 🔴 A reason in none of the lists is a reason no surface can render, and a
+    // reason in two of them is a reason that means different things in
+    // different places. This is what stops the lists drifting into a parallel
+    // vocabulary.
     for (const reason of PPG_QUALITY_REASONS) {
-      const positive = (PPG_POSITIVE_REASONS as readonly string[]).includes(reason);
-      const rejection = (PPG_REJECTION_REASONS as readonly string[]).includes(reason);
-      expect(positive || rejection).toBe(true);
-      expect(positive && rejection).toBe(false);
+      const memberships = [
+        PPG_POSITIVE_REASONS,
+        PPG_REJECTION_REASONS,
+        PPG_ADVISORY_REASONS,
+      ].filter((list) => (list as readonly string[]).includes(reason));
+      expect(memberships).toHaveLength(1);
     }
   });
 
@@ -100,6 +105,43 @@ describe('the dimensions move the way they claim to', () => {
       expect(goodness).toBeGreaterThanOrEqual(0);
       expect(goodness).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe('a missing torch is stated, not charged against the capture', () => {
+  it('records it without touching the score or the verdict', () => {
+    // 🔴 founder decision: record, do not reject. iOS Safari has no torch API,
+    // so rejecting on it would refuse every capture on a whole platform.
+    const scan = synthesizePpg({ durationSec: 90 });
+    const withTorch = analyzePpgScan(scan.frames, 'full_scan', { torchAvailable: true });
+    const without = analyzePpgScan(scan.frames, 'full_scan', { torchAvailable: false });
+    if (withTorch.status !== 'analysed' || without.status !== 'analysed') throw new Error('rejected');
+
+    expect(without.analysis.quality.score).toBe(withTorch.analysis.quality.score);
+    expect(without.analysis.heartRateBpm).toBe(withTorch.analysis.heartRateBpm);
+    expect(without.analysis.quality.reasons).toContain('torch_unavailable');
+    expect(withTorch.analysis.quality.reasons).not.toContain('torch_unavailable');
+  });
+
+  it('keeps it out of the rejection reasons of an accepted capture', () => {
+    const outcome = analyzePpgScan(
+      synthesizePpg({ durationSec: 90 }).frames,
+      'full_scan',
+      { torchAvailable: false },
+    );
+    if (outcome.status !== 'analysed') throw new Error('rejected');
+    const signal = toSignalQuality(outcome.analysis);
+    expect(signal.accepted).toBe(true);
+    expect(signal.rejectionReasons).toEqual([]);
+    expect(signal.advisories).toEqual(['torch_unavailable']);
+  });
+
+  it('says nothing when the capture layer did not report either way', () => {
+    // `undefined` is "not reported", which is not the same as "there was none".
+    const outcome = analyzePpgScan(synthesizePpg({ durationSec: 90 }).frames, 'full_scan');
+    if (outcome.status !== 'analysed') throw new Error('rejected');
+    expect(outcome.analysis.quality.reasons).not.toContain('torch_unavailable');
+    expect(toSignalQuality(outcome.analysis).advisories).toEqual([]);
   });
 });
 

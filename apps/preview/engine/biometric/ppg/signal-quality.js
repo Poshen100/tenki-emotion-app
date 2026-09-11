@@ -52,6 +52,21 @@ export const PPG_POSITIVE_REASONS = [
     'good_periodicity',
     'full_coverage',
 ];
+/**
+ * Reasons that are neither a verdict nor grounds for refusal.
+ *
+ * 🔴 A third category, not a tidy-up. A missing torch is a fact about the
+ * device: it makes a weak signal more likely but it is not itself a fault, and
+ * the thing it causes is already measured. Forcing it into the rejection list
+ * would refuse every capture on iOS Safari (no torch API exists there);
+ * forcing it into the positive list would be absurd. So it is an advisory —
+ * shown, never scored, never a reason a metric was withheld.
+ */
+export const PPG_ADVISORY_REASONS = ['torch_unavailable'];
+/** True when this reason is stated rather than scored. */
+export function isAdvisoryReason(reason) {
+    return PPG_ADVISORY_REASONS.includes(reason);
+}
 /** True when this reason is one a capture can be rejected for. */
 export function isRejectionReason(reason) {
     return PPG_REJECTION_REASONS.includes(reason);
@@ -99,5 +114,6 @@ export function toSignalQuality(analysis) {
         // accepted would put a quality badge on an empty result.
         accepted: analysis.heartRateBpm !== null,
         rejectionReasons: quality.reasons.filter(isRejectionReason),
+        advisories: quality.reasons.filter(isAdvisoryReason),
     };
 }

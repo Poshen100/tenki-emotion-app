@@ -127,6 +127,7 @@ export function analyzePpgScan(
     frameDropFraction: resampled.gapFraction,
     durationSec,
     minDurationSec: config.minDurationSec,
+    torchAvailable: options.torchAvailable,
   });
 
   const withheld: PpgWithheld[] = [];

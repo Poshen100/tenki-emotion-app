@@ -69,6 +69,14 @@ export const PPG_QUALITY_REASONS = [
   'irregular_periodicity',
   'insufficient_duration',
   'unstable_sampling',
+  // Advisory — neither a verdict on the capture nor grounds for refusing it.
+  // 🔴 founder decision, 2026-09-11: record a missing torch, do not reject on
+  // it. iOS Safari has no torch API at all, so rejecting would refuse every
+  // capture on a whole platform; and a bright enough ambient room genuinely
+  // works. The quality gates already refuse a capture whose signal is too weak
+  // — which is what a missing torch USUALLY causes, and the right place to
+  // catch it. This reason exists so the cause is visible when that happens.
+  'torch_unavailable',
 ] as const;
 export type PpgQualityReason = typeof PPG_QUALITY_REASONS[number];
 
