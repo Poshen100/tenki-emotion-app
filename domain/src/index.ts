@@ -232,7 +232,12 @@ export {
   CLAIM_TIMINGS,
   ESTIMATE_TERMS,
   IMMEDIACY_TERMS,
+  MIN_SCANS_FOR_ESTABLISHED_PRECISION,
+  PRECISION_GRADES,
+  PRECISION_GRADE_BOUNDS,
+  buildPrecisionClaim,
   buildReadingClaim,
+  gradePrecision,
   mayClaimAsCurrent,
   validateReadingCopy,
 } from './policies/reading-claim';
@@ -240,7 +245,24 @@ export {
 export type {
   ClaimQualifier,
   ClaimTiming,
+  PrecisionClaim,
+  PrecisionGrade,
   ReadingClaim,
   ReadingCopyCheck,
   ReadingCopyProblem,
 } from './policies/reading-claim';
+
+export {
+  BASELINE_STEPS,
+  DRIVERS_LOST_WITHOUT_HRV,
+  EDGE_WEIGHT_WITHOUT_HRV,
+  hasHrvCapableSource,
+  planOnboardingBaselines,
+} from './policies/onboarding-sensor-plan';
+
+export type {
+  BaselineStepId,
+  ConnectedSourceSnapshot,
+  FingerStepRationale,
+  OnboardingBaselinePlan,
+} from './policies/onboarding-sensor-plan';
