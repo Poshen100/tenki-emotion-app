@@ -115,6 +115,20 @@
    * ⚠️ **兩邊的 id 都不改** —— engine 那組是持久化契約，v6 那組是它自己的表；
    * 動任何一邊都會弄壞既有紀錄。這裡只做翻譯。
    */
+  /**
+   * v6 key → 顯示名。**與 `v6/index.html` 的 `TEMPLATES[*].name` 同字**。
+   * 自訂模板（使用者自己建的，id 是亂數）不在這裡 —— 那是刻意的：
+   * 收束頁只會為快訊決策開啟，而快訊一律走這三個交易者模板。
+   */
+  var TEMPLATE_NAME = {
+    CANSLIM_GS: 'Canslim GS',
+    CANSLIM_HIGH_RS: 'Canslim High RS',
+    MANCINI_FBD: 'Mancini FBD',
+    WORK_FOCUS: 'Work Focus',
+    HEALTH_STRESS: 'Health Stress',
+    EXERCISE: 'Exercise',
+  };
+
   var TEMPLATE_ID_TO_V6 = {
     FBD: 'MANCINI_FBD',
     CANSLIM: 'CANSLIM_GS',
@@ -161,6 +175,33 @@
     return TEMPLATE_ID_TO_V6[templateId] || templateId;
   }
 
+  /**
+   * 模板的**顯示名**。
+   *
+   * 🔴 2026-09-09 founder 實走抓到：`/decision-alert/` 的收束頁把
+   * **內部 id 直接印在畫面上** —— 標題與軌跡表的「標的」列都是
+   * `ES1! · MANCINI_FBD`。同一筆紀錄在 `/v3/` 的 Session 詳情印的卻是
+   * 正確的 `ES1! · Mancini FBD`（那邊查了 `TEMPLATES[...].name`）。
+   * 根因是 `acceptReturnTicket()` 寫 `tplName: rec.templateId` ——
+   * **拿 id 當名字**。
+   *
+   * ⚠️ 這正是送審檢查表 #18 與「MODE_2 不得出現在任何 user-facing 文字」
+   * 擋的那一類，而那條斷言只守模板選單、沒有守收束頁，所以一路綠著。
+   *
+   * 名字放這裡的理由跟 `OUTCOME_VIEW` 一樣：**兩頁看同一筆紀錄，
+   * 就不能各自有一份講法**。來源是 `apps/preview/v6/index.html` 的
+   * `TEMPLATES`（v6 是這些名字的主人），這裡是它的鏡射 —— 加模板要同步。
+   *
+   * 🔴 查不到就回 `null`，**不回原值** —— 回原值就是把 id 印上畫面，
+   * 正是這支函式存在的理由。由呼叫端決定怎麼誠實地留白。
+   *
+   * @param {string} templateId - 可以是 engine 的 id 或 v6 的 key。
+   * @returns {?string} 顯示名，或 null（不認得）。
+   */
+  function templateName(templateId) {
+    return TEMPLATE_NAME[toV6TemplateId(templateId)] || null;
+  }
+
   // ═══════════════════════════════════════════════
   // 「我在什麼狀態下最跟得住自己的流程」
   //
@@ -174,6 +215,17 @@
   // 所以沒有 `readingAtDecision` 的紀錄（2026-09-08 之前的全部）一律排除，
   // 而**排除了幾筆要講出來** —— 不講就變成「用一半的資料宣稱一個全貌」。
   //
+  // 🔴 **過期的讀數也不算**（2026-09-10 加）。`staleAtDecision` 這個旗標
+  // 寫進去了卻沒有人讀 —— founder 實走時 Baseline 是「49 小時前 校準」，
+  // 而一筆用它跑完的決策被歸給了 **Clear**（實測 `attributed:1 excluded:0`）。
+  // 但這張圖問的是「我**按下判定那一刻**在什麼狀態」，49 小時前量的東西
+  // 答不出來 —— 那正是上面那句 doc comment 說的 fabricate。
+  // ⚠️ 而且它跟這個 app 自己的標準打架：Hero 超過 15 分鐘就印「讀數已過期 ·
+  // 到 Scan 掃一次」。閾值不另訂，直接沿用寫紀錄那一端的
+  // `READING_FRESHNESS_MS_V6` —— 旗標在存檔時就算好了，這裡只是**讀它**。
+  // ⚠️ 「沒有讀數」與「讀數已過期」是**兩件事**，排除數要分開回，
+  // 合成一句就是「把不知道講成沒發生」的同一家族。
+  //
   // 🔴 樣本 < MIN_BAND_SAMPLES_FOR_RATE 時 `rate` 回 null ＝「還不夠說」，
   // 不是 0。UI 要印「資料累積中」，不是一個吵雜的百分比。
   // ═══════════════════════════════════════════════
@@ -185,15 +237,31 @@
   var BAND_ORDER = ['clear', 'neutral', 'strain'];
 
   /**
+   * 為什麼一筆紀錄歸不出帶位。`null` ＝ 歸得出來。
+   *
+   * @param {object} rec
+   * @returns {'no_reading'|'stale'|null}
+   */
+  function bandExclusionReason(rec) {
+    var r = rec && rec.readingAtDecision;
+    if (!r || BAND_ORDER.indexOf(r.band) < 0) return 'no_reading';
+    // 🔴 只有 `=== true` 才算過期。`readingAtDecision` 與 `staleAtDecision`
+    // 是**同一顆 commit 加進去的**，所以有讀數就一定有這個旗標 ——
+    // undefined 是一個現實中不存在的形狀。真的遇到就不放進「已過期」那一格
+    // （說不出口的事不要說），而不是為它發明第三個桶。
+    if (r.staleAtDecision === true) return 'stale';
+    return null;
+  }
+
+  /**
    * 從紀錄推出「這一筆是在哪個帶位做的」。
    *
    * @param {object} rec
-   * @returns {'clear'|'neutral'|'strain'|null} null = 這筆沒有讀數可歸屬
+   * @returns {'clear'|'neutral'|'strain'|null} null = 這筆歸不出帶位（沒讀數或已過期）
    */
   function bandOfRecord(rec) {
-    var r = rec && rec.readingAtDecision;
-    if (!r || BAND_ORDER.indexOf(r.band) < 0) return null;
-    return r.band;
+    if (bandExclusionReason(rec)) return null;
+    return rec.readingAtDecision.band;
   }
 
   /**
@@ -201,7 +269,8 @@
    * taken in. Mirrors domain's `summarizeDisciplineByBand`.
    *
    * @param {object[]} records
-   * @returns {{stats:object[], attributed:number, excluded:number, total:number}}
+   * @returns {{stats:object[], attributed:number, excluded:number,
+   *            excludedNoReading:number, excludedStale:number, total:number}}
    */
   function disciplineByBand(records) {
     var list = Array.isArray(records) ? records : [];
@@ -225,10 +294,19 @@
         rate: inBand.length >= MIN_BAND_SAMPLES_FOR_RATE ? disciplined / inBand.length : null,
       });
     }
+    var noReading = 0;
+    var stale = 0;
+    for (var j = 0; j < list.length; j++) {
+      var why = bandExclusionReason(list[j]);
+      if (why === 'no_reading') noReading += 1;
+      else if (why === 'stale') stale += 1;
+    }
     return {
       stats: stats,
       attributed: attributed,
       excluded: list.length - attributed,
+      excludedNoReading: noReading,
+      excludedStale: stale,
       total: list.length,
     };
   }
@@ -238,6 +316,8 @@
     OUTCOME_VIEW: OUTCOME_VIEW,
     outcomeView: outcomeView,
     toV6TemplateId: toV6TemplateId,
+    TEMPLATE_NAME: TEMPLATE_NAME,
+    templateName: templateName,
     STORE_KEY: STORE_KEY,
     JUDGMENT_SCHEMA: JUDGMENT_SCHEMA,
     DISCIPLINED_TAGS: DISCIPLINED_TAGS,
@@ -248,6 +328,7 @@
     MIN_BAND_SAMPLES_FOR_RATE: MIN_BAND_SAMPLES_FOR_RATE,
     BAND_ORDER: BAND_ORDER,
     bandOfRecord: bandOfRecord,
+    bandExclusionReason: bandExclusionReason,
     disciplineByBand: disciplineByBand,
   };
 }(typeof window !== 'undefined' ? window : this));
