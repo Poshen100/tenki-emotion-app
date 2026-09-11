@@ -47,7 +47,7 @@ export const SCAN_MODE_CONFIGS = {
         minDurationSec: 45,
         targetDurationSec: 90,
         signalSource: 'phone_camera',
-        reports: ['heart_rate', 'hrv', 'respiration'],
+        reports: ['heart_rate', 'prv', 'respiration'],
         minQualityForHeartRate: 45,
         minQualityForHrv: 65,
     },
@@ -56,13 +56,18 @@ export const SCAN_MODE_CONFIGS = {
         minDurationSec: 60,
         targetDurationSec: 120,
         signalSource: 'external_beat_sensor',
-        reports: ['heart_rate', 'hrv', 'respiration'],
+        reports: ['heart_rate', 'prv', 'respiration'],
         minQualityForHeartRate: 45,
         minQualityForHrv: 65,
     },
 };
-/** Metrics a camera may not derive while `cameraHrvEstimates` is off. */
-const CAMERA_GATED_METRICS = ['hrv', 'respiration'];
+/** Which capability flag governs each camera-gated metric. */
+const CAMERA_METRIC_FLAGS = {
+    // PRV is on unless killed; its real gate is beat-shape stability.
+    prv: (options) => options.cameraPrvEstimates !== false,
+    // Respiration is off unless Breath Lock is explicitly enabled.
+    respiration: (options) => options.cameraBreathLock === true,
+};
 /**
  * Whether a mode may report a metric at all, before any quality is considered.
  *
@@ -84,9 +89,11 @@ export function modeReports(mode, metric, options = {}) {
     if (!SCAN_MODE_CONFIGS[mode].reports.includes(metric)) {
         return false;
     }
-    if (isCameraMode(mode) &&
-        CAMERA_GATED_METRICS.includes(metric) &&
-        options.cameraHrvEstimates !== true) {
+    // A beat sensor's metrics are never gated on a camera decision: a chest
+    // strap's RR intervals are a different provenance with a different error
+    // behaviour, and gating them here would be a category error.
+    const flag = isCameraMode(mode) ? CAMERA_METRIC_FLAGS[metric] : undefined;
+    if (flag !== undefined && !flag(options)) {
         return false;
     }
     return true;

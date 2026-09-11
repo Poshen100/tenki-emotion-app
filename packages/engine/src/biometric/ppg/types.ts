@@ -80,8 +80,16 @@ export const PPG_QUALITY_REASONS = [
 ] as const;
 export type PpgQualityReason = typeof PPG_QUALITY_REASONS[number];
 
-/** Metrics the pipeline may withhold, named so the UI can say which. */
-export const PPG_METRICS = ['heart_rate', 'hrv', 'respiration'] as const;
+/**
+ * Metrics the pipeline may withhold, named so the UI can say which.
+ *
+ * 🔴 `prv` — pulse-rate variability — is NOT `hrv`. A camera infers beat times
+ * from a light curve; RR-interval HRV is measured from the beats themselves.
+ * They are different quantities with different error behaviour, and camera PRV
+ * may never populate an HRV field or be labelled HRV in production (founder
+ * rule, 2026-09-11). The vocabulary is the first place that has to hold.
+ */
+export const PPG_METRICS = ['heart_rate', 'prv', 'respiration'] as const;
 export type PpgMetric = typeof PPG_METRICS[number];
 
 /**
@@ -91,7 +99,13 @@ export type PpgMetric = typeof PPG_METRICS[number];
  */
 export interface PpgWithheld {
   metric: PpgMetric;
-  reason: PpgQualityReason | 'mode_excludes_metric' | 'too_few_beats' | 'too_many_artifacts';
+  reason:
+    | PpgQualityReason
+    | 'mode_excludes_metric'
+    | 'too_few_beats'
+    | 'too_many_artifacts'
+    /** Beats did not resemble each other closely enough to trust their timing. */
+    | 'unstable_beat_shape';
 }
 
 /**
@@ -162,11 +176,15 @@ export interface PpgAnalysis {
   /** Heart rate in bpm, or null when the signal did not support one. */
   heartRateBpm: number | null;
   /**
-   * HRV RMSSD in ms, or null. Always an ESTIMATE when non-null — beat timing
-   * inferred from an optical waveform is not a chest strap's RR series and is
-   * never presented as one.
+   * Pulse-rate variability (RMSSD of the beat intervals) in ms, or null.
+   *
+   * 🔴 **Not HRV.** Beat timing inferred from an optical waveform is a
+   * different quantity from a chest strap's RR series: it under-reads by 7-9%
+   * even on a pristine capture, and on a capture the quality score rates 99 it
+   * can be 156% wrong (see `beat-template.ts`). It may never populate an HRV
+   * field, feed the HRV score driver, or be labelled HRV to a user.
    */
-  hrvRmssdMs: number | null;
+  prvRmssdMs: number | null;
   /** Respiratory rate in breaths per minute, or null. */
   respiratoryRateBrpm: number | null;
   /** Accepted beats after artifact rejection. */
@@ -178,8 +196,14 @@ export interface PpgAnalysis {
   /** Sample rate the window was resampled onto, in Hz. */
   sampleRateHz: number;
   /**
-   * How reproducible this scan's HRV was across its own duration, in ms, or
-   * null when HRV was not reported or the scan was too short to split.
+   * How alike this capture's beats were, 0..1, or null when there were too few
+   * complete beats to compare. The gate PRV has to pass — and the only measure
+   * here that notices sensor noise.
+   */
+  beatTemplateCorrelation: number | null;
+  /**
+   * How reproducible this scan's PRV was across its own duration, in ms, or
+   * null when PRV was not reported or the scan was too short to split.
    *
    * This is the instrument measuring itself. It feeds the user's noise floor
    * (`baseline/noise-floor.ts`), which is what stops a difference smaller than

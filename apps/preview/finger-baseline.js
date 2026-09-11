@@ -115,7 +115,8 @@ const ANCHOR_KEY = 'tenki.preview.pulseAnchors';
 
 /** 指標被扣住的理由，直接用 engine 的 withheld reason。 */
 const WITHHELD_COPY = {
-  mode_excludes_metric: '相機讀不到這一項',
+  mode_excludes_metric: '這個版本不報這一項',
+  unstable_beat_shape: '每一拍的波形不夠像，拍點時間不可信（常見原因是感光雜訊）',
   too_few_beats: '拍數不足',
   too_many_artifacts: '拍點被剔除太多，算出來的數字會低報',
   frame_drops: '拍點時序跨過了補插的空隙',
@@ -481,14 +482,17 @@ function renderOutcome(outcome) {
 
   // 🔴 每一個被接受的讀數都要標明它是怎麼來的（PULSE ANCHOR brief §8），
   // 而且要把相機**做不到**的事講在同一句裡 —— 否則使用者會自己補上
-  // 「那應該也量了心律變異吧」。
+  // 「那應該也量了呼吸吧」。
   $('derivation').textContent =
     a.heartRateBpm === null
       ? '這次沒有立住脈搏參考值。'
-      : `相機指尖 PPG · 品質 ${a.quality.score}/100。相機讀不到逐拍間隔，所以不報心律變異與呼吸率。`;
+      : `相機指尖 PPG · 品質 ${a.quality.score}/100。相機不報呼吸率 —— 那需要另一套擷取流程（Breath Lock）。`;
 
-  // availability 是契約講給引擎聽的那一面：沒有的東西要是 false，不是 0。
-  // 這裡只是把它讀出來當自我檢查 —— 畫面不得宣稱比它更多的東西。
+  renderPrv(a);
+
+  // 🔴 availability 是契約講給引擎聽的那一面。相機**永遠**不得回報 hrv：
+  // 它量到的是脈搏間期變化（PRV），那跟胸帶的 RR-derived HRV 是兩個量。
+  // 這一行是自我檢查 —— 真的擋在 `to-reading.ts`，那裡寫死 false。
   if (input.availability.hrv === true) {
     throw new Error('相機掃描不得回報 hrv availability');
   }
@@ -571,6 +575,34 @@ function renderAdvisories(advisories) {
   }
 }
 
+/**
+ * 脈搏間期變化（PRV）。
+ *
+ * 🔴 **不是心律變異。** 相機是從光的波形推回拍點時間，胸帶是直接量拍與拍之間。
+ * 兩個量的誤差行為不一樣：乾淨擷取 PRV 就已經低報 7–9%，而在品質分數 99 的
+ * 擷取上它可以錯 156%（感光雜訊不扣品質分，卻會把每個峰值推開）。所以它只在
+ * 拍形穩定度過關時才出現 —— 過不了就整項消失，不給一個看起來合理的數字。
+ */
+function renderPrv(a) {
+  const row = $('prvRow');
+  const note = $('prvNote');
+  const shown = a.prvRmssdMs !== null;
+
+  row.hidden = !shown;
+  note.hidden = !shown;
+  if (!shown) {
+    // 清掉上一次的值。隱藏的節點留著舊數字，下一次一顯示就是別人的讀數。
+    $('prv').textContent = '—';
+    note.textContent = '';
+    return;
+  }
+
+  $('prv').textContent = `${a.prvRmssdMs} ms`;
+  note.textContent =
+    `相機推導的脈搏間期變化，拍形穩定度 ${a.beatTemplateCorrelation}。` +
+    '這不是心律變異 —— 手錶或胸帶的數字跟它不能直接比。';
+}
+
 function renderAnchor(bpm) {
   const el = $('hr');
   if (bpm === null) {
@@ -587,10 +619,16 @@ function renderWithheld(withheld) {
   const head = $('withheldHead');
   host.innerHTML = '';
 
-  // 相機從來就不報心律變異與呼吸率 —— 那是常態，不是這次的失誤。把它們列進
+  // 相機從來就不報呼吸率 —— 那是常態，不是這次的失誤。把它列進
   // 「這次沒有報的」會讓每一次成功的校準都看起來少了兩項；那句限制在上面的
   // derivation 講過一次就夠。這裡只留**這次**沒立住的東西。
-  const thisScan = withheld.filter((entry) => entry.reason !== 'mode_excludes_metric');
+  let thisScan = withheld.filter((entry) => entry.reason !== 'mode_excludes_metric');
+
+  // ⚠️ 沒有脈搏時，從拍點推出來的東西當然也沒有。列三項失敗會讓使用者以為
+  // 壞了三件事 —— 壞的是同一件。只留根本原因。
+  if (thisScan.some((entry) => entry.metric === 'heart_rate')) {
+    thisScan = thisScan.filter((entry) => entry.metric === 'heart_rate');
+  }
 
   // 「這次沒有報的」底下寫「都讀到了」是自相矛盾的 —— 沒有東西可列時，
   // 整塊換成一句陳述，不要留一個空標題配一句反話。（自己截圖看出來的）
@@ -602,7 +640,7 @@ function renderWithheld(withheld) {
   }
   head.hidden = false;
   head.textContent = '這次沒有報的';
-  const names = { heart_rate: '脈搏', hrv: '心律變異', respiration: '呼吸率' };
+  const names = { heart_rate: '脈搏', prv: '脈搏間期變化', respiration: '呼吸率' };
   for (const entry of thisScan) {
     const li = document.createElement('li');
     li.className = 'reason withheld';

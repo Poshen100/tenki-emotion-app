@@ -115,6 +115,9 @@ async function runScan(options) {
       bandShown: document.getElementById('bandRow').offsetParent !== null,
       band: text('band'),
       howText: document.getElementById('how').textContent,
+      prv: text('prv'),
+      prvShown: document.getElementById('prvRow').offsetParent !== null,
+      prvNote: text('prvNote'),
       advisories: [...document.querySelectorAll('#advisories .reason')].map((n) => n.textContent),
       advisoryColor: document.querySelector('#advisories .reason')
         ? getComputedStyle(document.querySelector('#advisories .reason')).color
@@ -158,9 +161,15 @@ check('390px 無橫向溢出', clean.overflowX === 0, `多出 ${clean.overflowX}
 // 🔴 相機 HRV / 呼吸率是關掉的（feature flag `camera_hrv_estimates` 預設 false）。
 // 關掉的意思是**畫面上不得出現那兩個數字**，不是引擎算了但沒人看。
 check(
-  '🔴 沒有任何心律變異數值',
-  !/\d+(\.\d+)?\s*ms/.test(clean.bodyText),
-  `頁面上出現了 ms 數值：${clean.bodyText.match(/.{0,24}\d+(\.\d+)?\s*ms.{0,24}/)?.[0]}`,
+  '🔴 沒有任何東西被標成「心律變異」',
+  !/心律變異(?!是兩個量)/.test(clean.bodyText.replace(/這不是心律變異[^。]*。/g, '')),
+  `頁面上出現了心律變異：${clean.bodyText.match(/.{0,30}心律變異.{0,30}/)?.[0]}`,
+);
+check(
+  '🔴 有 ms 數值時，它必須被說清楚不是心律變異',
+  !/\d+(\.\d+)?\s*ms/.test(clean.bodyText) ||
+    (clean.prvNote.includes('不是心律變異') && clean.prvNote.includes('相機')),
+  `prvNote=${clean.prvNote}`,
 );
 check(
   '🔴 沒有任何呼吸率數值',
@@ -169,7 +178,7 @@ check(
 );
 check(
   '講明讀數怎麼來的，並且講明相機做不到什麼',
-  clean.derivation.includes('相機指尖 PPG') && clean.derivation.includes('不報心律變異'),
+  clean.derivation.includes('相機指尖 PPG') && clean.derivation.includes('不報呼吸率'),
   `derivation=${clean.derivation}`,
 );
 check(
@@ -357,6 +366,18 @@ check(
   JSON.stringify(liveWeak[liveWeak.length - 1].reasons),
 );
 
+// 🔴 PRV 有自己的閘門（拍形穩定度），而那個閘門是唯一看得到感光雜訊的東西。
+check(
+  '乾淨擷取會報脈搏間期變化',
+  clean.prvShown && /^\d+(\.\d+)? ms$/.test(clean.prv),
+  `顯示=${clean.prvShown} prv=${clean.prv}`,
+);
+check(
+  '而且每次都講明它不是心律變異、不能跟手錶比',
+  clean.prvNote.includes('不是心律變異') && clean.prvNote.includes('拍形穩定度'),
+  `prvNote=${clean.prvNote}`,
+);
+
 // ── 3. 訊號不足：必須拒答，而且不准上 gold ─────────────────────────────────
 console.log('\n── 訊號不足（低灌流）──');
 const weak = await runScan(PPG_FIXTURES.lowPerfusion);
@@ -374,6 +395,11 @@ check(
   '扣住的只有脈搏本身，不多不少',
   weak.withheld.length === 1 && weak.withheld[0].includes('脈搏'),
   `withheld=${JSON.stringify(weak.withheld)}`,
+);
+check(
+  '沒有脈搏時也不會冒出一個脈搏間期變化',
+  !weak.prvShown && weak.prv === '—',
+  `顯示=${weak.prvShown} prv=${weak.prv}`,
 );
 check(
   '🔴 沒有讀數就不准上 gold',

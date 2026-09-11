@@ -47,11 +47,19 @@ export const FEATURE_FLAGS: Record<FeatureFlagId, FeatureFlagDef> = {
     defaultValue: false,
     remoteConfigurable: true,
   },
-  camera_hrv_estimates: {
-    id: 'camera_hrv_estimates',
-    name: 'Camera HRV estimates',
+  camera_prv_estimates: {
+    id: 'camera_prv_estimates',
+    name: 'Camera pulse-rate variability',
     description:
-      'Allow camera fingertip PPG to report HRV and respiratory rate. OFF by default — a camera cannot support an HRV claim in a first release (docs/PHONE-PPG.md). Does not affect chest-strap RR.',
+      'Allow camera fingertip PPG to report pulse-rate variability. ON by default, but the real gate is beat-shape stability (docs/PHONE-PPG.md) — the quality score is blind to sensor noise, so a capture it rates 99 can carry a 156% PRV error. This flag is the remote kill switch for that calibration. PRV is never HRV and never feeds the HRV driver.',
+    defaultValue: true,
+    remoteConfigurable: true,
+  },
+  camera_breath_lock: {
+    id: 'camera_breath_lock',
+    name: 'Breath Lock (camera respiratory rate)',
+    description:
+      'Allow camera fingertip PPG to report a respiratory rate. OFF — camera respiratory rate may be released only as a standalone Breath Lock measurement with its own capture protocol, its own gates and validation against a reference source, none of which exists yet.',
     defaultValue: false,
     remoteConfigurable: true,
   },

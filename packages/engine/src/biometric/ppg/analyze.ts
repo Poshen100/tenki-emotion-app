@@ -33,6 +33,7 @@ import {
   estimateRate,
 } from './pulse';
 import { MAX_FRAME_DROPS, assessPpgQuality } from './quality';
+import { PRV_MIN_TEMPLATE_CORRELATION, beatTemplateCorrelation } from './beat-template';
 import { estimateRepeatability } from './repeatability';
 import { estimateRespiration } from './respiration';
 import {
@@ -73,7 +74,7 @@ export const MIN_FRAMES = 60;
  */
 function rateFailureReason(
   mode: ScanMode,
-  metric: 'hrv' | 'respiration',
+  metric: 'prv' | 'respiration',
   options: ScanCapabilityOptions,
 ): PpgWithheld['reason'] {
   return modeReports(mode, metric, options) ? 'irregular_periodicity' : 'mode_excludes_metric';
@@ -150,10 +151,11 @@ export function analyzePpgScan(
       analysis: {
         quality,
         heartRateBpm: null,
-        hrvRmssdMs: null,
+        prvRmssdMs: null,
         respiratoryRateBrpm: null,
         beatCount: 0,
         artifactFraction: 0,
+        beatTemplateCorrelation: null,
         repeatabilitySdMs: null,
         durationSec: round1(durationSec),
         sampleRateHz: resampled.sampleRateHz,
@@ -162,7 +164,7 @@ export function analyzePpgScan(
         // 理由是這個模式根本不報這一項。兩個原因要照同一個優先序講。
         withheld: [
           ...withheld,
-          { metric: 'hrv', reason: rateFailureReason(mode, 'hrv', options) },
+          { metric: 'prv', reason: rateFailureReason(mode, 'prv', options) },
           { metric: 'respiration', reason: rateFailureReason(mode, 'respiration', options) },
         ],
       },
@@ -185,32 +187,51 @@ export function analyzePpgScan(
     withheld.push({ metric: 'heart_rate', reason: 'irregular_periodicity' });
   }
 
-  // ── HRV ──────────────────────────────────────────────────────────────────
-  let hrvRmssdMs: number | null = null;
-  let hrvBlockedBy: PpgWithheld['reason'] | null = null;
+  // ── Pulse-rate variability ───────────────────────────────────────────────
+  // 🔴 PRV, not HRV. See `types.ts` and `beat-template.ts`.
+  const templateCorrelation = beatTemplateCorrelation(
+    cardiac,
+    rate.periodSamples,
+    peaks.map((p) => Math.round((p.timeMs / 1000) * resampled.sampleRateHz)),
+  );
 
-  if (!modeReports(mode, 'hrv', options)) {
-    hrvBlockedBy = 'mode_excludes_metric';
+  let prvRmssdMs: number | null = null;
+  let prvBlockedBy: PpgWithheld['reason'] | null = null;
+
+  if (!modeReports(mode, 'prv', options)) {
+    prvBlockedBy = 'mode_excludes_metric';
   } else if (quality.score < config.minQualityForHrv) {
-    hrvBlockedBy = dominantNegativeReason(quality.reasons);
+    prvBlockedBy = dominantNegativeReason(quality.reasons);
   } else if (quality.frameDropFraction > MAX_FRAME_DROPS) {
     // Beat timing recovered across interpolated gaps is timing TENKI invented.
     // A heart rate survives that; the millisecond differences HRV is made of
     // do not.
-    hrvBlockedBy = 'frame_drops';
+    prvBlockedBy = 'frame_drops';
   } else if (series.artifactFraction > MAX_ARTIFACT_FRACTION) {
-    hrvBlockedBy = 'too_many_artifacts';
+    prvBlockedBy = 'too_many_artifacts';
   } else if (series.accepted.length < MIN_INTERVALS_FOR_HRV) {
-    hrvBlockedBy = 'too_few_beats';
+    prvBlockedBy = 'too_few_beats';
+  } else if (
+    templateCorrelation === null ||
+    templateCorrelation < PRV_MIN_TEMPLATE_CORRELATION
+  ) {
+    // 🔴 LAST among the signal checks, deliberately. Every gate above names
+    // something the user can act on — close other apps, hold still, warm your
+    // hands — so putting this one first would replace those with a reason
+    // nobody can act on. It is the catch-all for the case none of them see:
+    // sensor noise, which leaves perfusion, periodicity, coverage, motion and
+    // the frame timebase untouched (quality score 99) while moving every peak
+    // enough to make PRV 156% wrong.
+    prvBlockedBy = 'unstable_beat_shape';
   } else {
-    hrvRmssdMs = computeRmssd(series.accepted);
-    if (hrvRmssdMs === null) {
-      hrvBlockedBy = 'too_few_beats';
+    prvRmssdMs = computeRmssd(series.accepted);
+    if (prvRmssdMs === null) {
+      prvBlockedBy = 'too_few_beats';
     }
   }
 
-  if (hrvBlockedBy !== null) {
-    withheld.push({ metric: 'hrv', reason: hrvBlockedBy });
+  if (prvBlockedBy !== null) {
+    withheld.push({ metric: 'prv', reason: prvBlockedBy });
   }
 
   // ── Respiration ──────────────────────────────────────────────────────────
@@ -220,10 +241,10 @@ export function analyzePpgScan(
 
   if (!modeReports(mode, 'respiration', options)) {
     withheld.push({ metric: 'respiration', reason: 'mode_excludes_metric' });
-  } else if (hrvRmssdMs === null) {
+  } else if (prvRmssdMs === null) {
     // Respiration is read out of the same beat timing, so it inherits whatever
-    // stopped HRV rather than inventing a reason of its own.
-    withheld.push({ metric: 'respiration', reason: hrvBlockedBy ?? 'too_many_artifacts' });
+    // stopped PRV rather than inventing a reason of its own.
+    withheld.push({ metric: 'respiration', reason: prvBlockedBy ?? 'too_many_artifacts' });
   } else if (series.accepted.length < MIN_INTERVALS_FOR_RESPIRATION) {
     withheld.push({ metric: 'respiration', reason: 'too_few_beats' });
   } else {
@@ -235,11 +256,11 @@ export function analyzePpgScan(
     }
   }
 
-  // Only measured when HRV was actually reported. A scan whose HRV was
+  // Only measured when PRV was actually reported. A scan whose PRV was
   // withheld never reaches a baseline, so its noise tells us nothing about how
   // trustworthy the baseline is.
   const repeatability =
-    hrvRmssdMs === null
+    prvRmssdMs === null
       ? null
       : estimateRepeatability(series.accepted, series.acceptedAtMs);
 
@@ -248,8 +269,9 @@ export function analyzePpgScan(
     analysis: {
       quality,
       heartRateBpm,
-      hrvRmssdMs,
+      prvRmssdMs,
       respiratoryRateBrpm,
+      beatTemplateCorrelation: templateCorrelation,
       repeatabilitySdMs: repeatability?.sdMs ?? null,
       beatCount: series.accepted.length + (series.accepted.length > 0 ? 1 : 0),
       artifactFraction: Math.round(series.artifactFraction * 100) / 100,

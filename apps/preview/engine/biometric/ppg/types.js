@@ -62,5 +62,13 @@ export const PPG_QUALITY_REASONS = [
     // catch it. This reason exists so the cause is visible when that happens.
     'torch_unavailable',
 ];
-/** Metrics the pipeline may withhold, named so the UI can say which. */
-export const PPG_METRICS = ['heart_rate', 'hrv', 'respiration'];
+/**
+ * Metrics the pipeline may withhold, named so the UI can say which.
+ *
+ * 🔴 `prv` — pulse-rate variability — is NOT `hrv`. A camera infers beat times
+ * from a light curve; RR-interval HRV is measured from the beats themselves.
+ * They are different quantities with different error behaviour, and camera PRV
+ * may never populate an HRV field or be labelled HRV in production (founder
+ * rule, 2026-09-11). The vocabulary is the first place that has to hold.
+ */
+export const PPG_METRICS = ['heart_rate', 'prv', 'respiration'];

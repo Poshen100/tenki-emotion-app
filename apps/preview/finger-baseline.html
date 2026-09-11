@@ -224,6 +224,11 @@
         <div class="metricLabel">這次的脈搏參考值</div>
       </div>
       <p class="fine" id="derivation" style="margin-top:12px"></p>
+      <div class="precisionRow" style="margin-top:14px" id="prvRow" hidden>
+        <span class="dialLabel">脈搏間期變化</span>
+        <span class="precisionValue" id="prv">—</span>
+      </div>
+      <p class="fine" id="prvNote" style="margin-top:8px" hidden></p>
     </section>
 
     <!-- 🔴 一次校準得到一個參考點；基線是多次、跨幾天才成形的東西。這張卡
@@ -268,7 +273,7 @@
       <summary class="dialLabel" style="cursor:pointer">這個讀數是怎麼來的</summary>
       <p class="fine" style="margin-top:10px">後鏡頭對著指尖拍 90 秒。每一幀在本機化簡成幾個數值（紅／綠／藍平均、過曝比例、覆蓋比例、位移）後影像就丟掉 —— 引擎拿不到影像。</p>
       <p class="fine" style="margin-top:8px">那串數值重新取樣到等間隔 → 帶通濾波（0.7–3.5 Hz，心跳的頻帶）→ 自相關找主週期 → 適應性門檻抓拍點 → 剔除不合理的拍間距 → 過品質閘門。過不了閘門就不報，不會給一個看起來合理的數字。</p>
-      <p class="fine" style="margin-top:8px">這是相機指尖 PPG，不是心電圖，也不等於胸帶。它讀的是光，所以只報每分鐘幾拍。</p>
+      <p class="fine" style="margin-top:8px">這是相機指尖 PPG，不是心電圖，也不等於胸帶。拍點是從光的波形推回去的 —— 所以它報的脈搏間期變化跟手錶的心律變異是兩個量，不能直接比。</p>
     </details>
 
     <button class="only-result" id="againBtn">再做一次</button>

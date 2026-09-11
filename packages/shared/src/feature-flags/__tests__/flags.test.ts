@@ -20,7 +20,8 @@ describe('createDefaultFlags', () => {
     expect(flags.benchmark_opt_in).toBe(false);
     expect(flags.reviewer_demo_mode).toBe(false);
     expect(flags.tradingview_alerts_v1).toBe(false);
-    expect(flags.camera_hrv_estimates).toBe(false);
+    expect(flags.camera_prv_estimates).toBe(true);
+    expect(flags.camera_breath_lock).toBe(false);
   });
 
   // 數量斷言改成集合斷言：新增旗標時「8 變 9」不會告訴你少了哪一個。
@@ -79,8 +80,8 @@ describe('applyRemoteOverrides', () => {
 });
 
 describe('FEATURE_FLAGS definitions', () => {
-  it('should have 8 flag definitions', () => {
-    expect(Object.keys(FEATURE_FLAGS).length).toBe(8);
+  it('should have 9 flag definitions', () => {
+    expect(Object.keys(FEATURE_FLAGS).length).toBe(9);
   });
 
   it('tradingview_alerts_v1 should be a dark-launch flag (off by default, remote-configurable)', () => {

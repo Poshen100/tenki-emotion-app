@@ -19,9 +19,9 @@ describe('scan modes', () => {
     // signal however clean can talk it into producing one.
     // ⚠️ Even with the capability enabled — the mode's own list is the first
     // gate, and quick check does not list HRV at all.
-    expect(modeReports('quick_check', 'hrv', { cameraHrvEstimates: true })).toBe(false);
+    expect(modeReports('quick_check', 'prv', { cameraPrvEstimates: true, cameraBreathLock: true })).toBe(false);
     expect(modeReports('quick_check', 'heart_rate')).toBe(true);
-    expect(modeReports('full_scan', 'hrv', { cameraHrvEstimates: true })).toBe(true);
+    expect(modeReports('full_scan', 'prv', { cameraPrvEstimates: true, cameraBreathLock: true })).toBe(true);
   });
 
   it('separates the camera modes from the one that reads a beat sensor', () => {

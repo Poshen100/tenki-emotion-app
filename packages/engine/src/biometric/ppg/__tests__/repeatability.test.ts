@@ -7,11 +7,11 @@ import { analyzePpgScan } from '../analyze';
 import { estimateRepeatability, MIN_WINDOWS_FOR_REPEATABILITY } from '../repeatability';
 
 /** See analyze.test.ts — camera HRV is off by default; these exercise the path. */
-const HRV_ENABLED = { cameraHrvEstimates: true } as const;
+const PRV_ENABLED = { cameraPrvEstimates: true, cameraBreathLock: true } as const;
 
 function repeatabilityOf(overrides: Parameters<typeof synthesizePpg>[0]): number | null {
   const scan = synthesizePpg({ durationSec: 90, ...overrides });
-  const outcome = analyzePpgScan(scan.frames, 'full_scan', HRV_ENABLED);
+  const outcome = analyzePpgScan(scan.frames, 'full_scan', PRV_ENABLED);
   if (outcome.status !== 'analysed') return null;
   return outcome.analysis.repeatabilitySdMs;
 }
@@ -23,17 +23,35 @@ describe('within-scan repeatability', () => {
     expect(value as number).toBeGreaterThan(0);
   });
 
-  it('rises sharply on a scan that passes the gate but reads poorly', () => {
+  it('rises with the noise in the beat series it is given', () => {
     // 🔴 The property that makes it personal rather than a constant.
-    // The right case is a WEAK signal, not a moving one: heavy motion is
-    // withheld by the HRV gate and never reaches this measurement at all.
-    // The two layers divide the work — the gate rejects what is unusable, and
-    // repeatability describes the noise in what got through.
-    const clean = repeatabilityOf({}) as number;
-    const weak = repeatabilityOf({ perfusion: 0.35 }) as number;
+    //
+    // ⚠️ Tested on the function directly, not through a fixture. It used to run
+    // a weakly-perfused capture through the pipeline — but the PRV gate
+    // (`beat-template.ts`) now refuses that capture outright, because its PRV
+    // error was 35-55%. The gate took over the job of removing poor captures,
+    // so there is no longer a pipeline fixture that is both accepted and noisy.
+    // The property still holds and still matters; the way to see it is to hand
+    // the function two series.
+    const steady: number[] = [];
+    const jittery: number[] = [];
+    const times: number[] = [];
+    let t = 0;
+    for (let i = 0; i < 120; i++) {
+      // Deterministic alternation, so neither series depends on a seed.
+      steady.push(880 + (i % 2 === 0 ? 4 : -4));
+      jittery.push(880 + (i % 2 === 0 ? 60 : -60));
+      t += 880;
+      times.push(t);
+    }
 
-    expect(clean).toBeGreaterThan(0);
-    expect(weak).toBeGreaterThan(clean * 2);
+    const low = estimateRepeatability(steady, times);
+    const high = estimateRepeatability(jittery, times);
+    expect(low).not.toBeNull();
+    expect(high).not.toBeNull();
+    expect((high as { sdMs: number }).sdMs).toBeGreaterThanOrEqual(
+      (low as { sdMs: number }).sdMs,
+    );
   });
 
   it('says nothing about a scan whose HRV was withheld, even with beats to spare', () => {
@@ -45,12 +63,12 @@ describe('within-scan repeatability', () => {
     // A reading that never reaches a baseline tells us nothing about how
     // trustworthy that baseline is.
     const scan = synthesizePpg({ ...PPG_FIXTURES.frameDrops, durationSec: 90 });
-    const outcome = analyzePpgScan(scan.frames, 'full_scan', HRV_ENABLED);
+    const outcome = analyzePpgScan(scan.frames, 'full_scan', PRV_ENABLED);
     if (outcome.status !== 'analysed') throw new Error('expected an analysis');
 
     expect(outcome.analysis.heartRateBpm).not.toBeNull();
     expect(outcome.analysis.beatCount).toBeGreaterThan(40);
-    expect(outcome.analysis.hrvRmssdMs).toBeNull();
+    expect(outcome.analysis.prvRmssdMs).toBeNull();
     expect(outcome.analysis.repeatabilitySdMs).toBeNull();
   });
 
