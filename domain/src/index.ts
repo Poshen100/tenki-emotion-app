@@ -266,3 +266,30 @@ export type {
   FingerStepRationale,
   OnboardingBaselinePlan,
 } from './policies/onboarding-sensor-plan';
+
+// ─── Regulation evidence ────────────────────
+// 自律調節的**間接證據**，不是神經活動本身。契約裡刻意沒有 SNS/PNS/LF-HF。
+export {
+  BREATH_PROVENANCE,
+  COUPLING_STATUSES,
+  EVIDENCE_CONFIDENCE_LEVELS,
+  EVIDENCE_QUALITY_LEVELS,
+  FORBIDDEN_AUTONOMIC_CLAIMS,
+  INTERPRETATION_MODES,
+  PULSE_PROVENANCE,
+  findForbiddenAutonomicClaims,
+} from './contracts/regulation-evidence';
+
+export type {
+  BreathEvidence,
+  BreathProvenance,
+  CouplingEvidence,
+  CouplingStatus,
+  EvidenceConfidence,
+  EvidenceQuality,
+  InterpretationMode,
+  PulseEvidence,
+  PulseProvenance,
+  RegulationEvidence,
+  RegulationInterpretation,
+} from './contracts/regulation-evidence';
