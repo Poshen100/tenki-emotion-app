@@ -109,6 +109,23 @@ async function runScan(options) {
       reasons: [...document.querySelectorAll('#resultReasons .reason')].map((n) => n.textContent),
       withheld: [...document.querySelectorAll('#withheld .reason')].map((n) => n.textContent),
       withheldHead: text('withheldHead'),
+      withheldHeadShown: document.getElementById('withheldHead').offsetParent !== null,
+      frameNote: text('frameNote'),
+      dims: [...document.querySelectorAll('#resultDims .dim')].map((row) => ({
+        key: row.dataset.key,
+        label: row.querySelector('.dimLabel').textContent,
+        value: Number.parseInt(row.querySelector('.dimValue').textContent, 10),
+        // ⚠️ 量**真的幾何**，不是 style.width。第一版讀 inline style，所以
+        // 四條 bar 因為 inline span 忽略 width 而完全沒渲染時，斷言照樣綠。
+        width: Math.round(
+          (row.querySelector('.dimFill').getBoundingClientRect().width /
+            row.querySelector('.dimTrack').getBoundingClientRect().width) * 100,
+        ),
+        trackWidth: Math.round(row.querySelector('.dimTrack').getBoundingClientRect().width),
+        fillHeight: Math.round(row.querySelector('.dimFill').getBoundingClientRect().height),
+        low: row.dataset.low,
+        animation: getComputedStyle(row.querySelector('.dimFill')).animationName,
+      })),
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   }, frames);
@@ -147,8 +164,8 @@ check(
 );
 check(
   '⚠️ 成功的校準不得把相機本來就不報的項目列成「這次沒報」',
-  clean.withheld.length === 0 && !clean.withheldHead.includes('沒有報'),
-  `head=${clean.withheldHead} withheld=${JSON.stringify(clean.withheld)}`,
+  clean.withheld.length === 0 && !clean.withheldHeadShown,
+  `head 顯示中=${clean.withheldHeadShown} withheld=${JSON.stringify(clean.withheld)}`,
 );
 check(
   '一次校準不得自稱基線',
@@ -156,11 +173,65 @@ check(
   `bodyText 提到基線的地方：${clean.bodyText.match(/.{0,20}基線.{0,20}/)?.[0]}`,
 );
 
+// ── 2b. Signal Integrity 儀表 ──────────────────────────────────────────────
+// 🔴 這一頁對使用者宣稱量測品質，所以儀表必須是**引擎算出來的值**，不是動畫。
+console.log('\n── 訊號完整度儀表 ──');
+check(
+  '四個維度都在',
+  clean.dims.length === 4 &&
+    clean.dims.map((d) => d.key).join() ===
+      'contactCoverage,lightStability,motionArtifact,rhythmicCoherence',
+  `dims=${JSON.stringify(clean.dims.map((d) => d.key))}`,
+);
+check(
+  'bar 真的畫出來了（有高度、軌道有寬度）',
+  clean.dims.every((d) => d.fillHeight > 0 && d.trackWidth > 100),
+  JSON.stringify(clean.dims.map((d) => [d.key, d.fillHeight, d.trackWidth])),
+);
+check(
+  'bar 畫出來的長度就是顯示的數字（不是另外一個動畫值）',
+  clean.dims.every((d) => Math.abs(d.width - d.value) <= 2),
+  JSON.stringify(clean.dims.map((d) => [d.key, d.value, d.width])),
+);
+check(
+  '乾淨訊號四個維度都不算低',
+  clean.dims.every((d) => d.low === 'no' && d.value >= 60),
+  JSON.stringify(clean.dims.map((d) => [d.key, d.value])),
+);
+check(
+  '🔴 沒有任何律動動效（拒答時演一個沒發生的量測）',
+  clean.dims.every((d) => d.animation === 'none'),
+  JSON.stringify(clean.dims.map((d) => [d.key, d.animation])),
+);
+check(
+  '講出有多少幀真的能用',
+  /^\d+ \/ \d+ 幀/.test(clean.frameNote) && clean.frameNote.includes('秒'),
+  `frameNote=${clean.frameNote}`,
+);
+
+// 維度要對條件有反應 —— 晃動的擷取必須在「穩定」上讀得比較差。
+const shaky = await runScan({ motionAmplitude: 1.2 });
+const stillness = (r) => r.dims.find((d) => d.key === 'motionArtifact').value;
+check(
+  '晃動的擷取在「穩定」維度上讀得比較差',
+  stillness(shaky) < stillness(clean),
+  `晃動 ${stillness(shaky)}% vs 乾淨 ${stillness(clean)}%`,
+);
+check(
+  '讀得差的維度被標出來，使用者才知道要改哪裡',
+  shaky.dims.some((d) => d.low === 'yes'),
+  JSON.stringify(shaky.dims.map((d) => [d.key, d.value, d.low])),
+);
+
 // ── 3. 訊號不足：必須拒答，而且不准上 gold ─────────────────────────────────
 console.log('\n── 訊號不足（低灌流）──');
 const weak = await runScan(PPG_FIXTURES.lowPerfusion);
 check('沒有脈搏讀數', weak.hr === '—', `hr=${weak.hr}`);
-check('說明了為什麼沒報', weak.withheld.length > 0, '沒有列出任何 withheld');
+check(
+  '說明了為什麼沒報',
+  weak.withheld.length > 0 && weak.withheldHeadShown && weak.withheldHead.includes('沒有報'),
+  `head=${weak.withheldHead} 顯示中=${weak.withheldHeadShown} withheld=${JSON.stringify(weak.withheld)}`,
+);
 // 🔴 這一條在守 engine 的早退路徑：心率立不住時，HRV 的理由也必須是
 // 「這個模式不報」而不是「節律不穩」—— 否則相機 HRV 明明關著，畫面卻會
 // 冒出兩行更弱的理由。⚠️ 只斷言「沒有出現某句話」擋不住它（那句話被頁面

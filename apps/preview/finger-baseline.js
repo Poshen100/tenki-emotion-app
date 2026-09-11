@@ -19,10 +19,26 @@
 import { analyzePpgScan } from './engine/biometric/ppg/analyze.js';
 import { SCAN_MODE_CONFIGS } from './engine/biometric/scan-modes.js';
 import { toEngineInput } from './engine/biometric/ppg/to-reading.js';
+import {
+  dimensionGoodness,
+  toSignalQuality,
+} from './engine/biometric/ppg/signal-quality.js';
 
 const MODE = 'full_scan';
 const TARGET_SEC = SCAN_MODE_CONFIGS[MODE].targetDurationSec;
 const MIN_SEC = SCAN_MODE_CONFIGS[MODE].minDurationSec;
+
+/** 即時回饋看的視窗長度。跟最終分析無關 —— 最終分析吃整段。 */
+const LIVE_WINDOW_SEC = 20;
+
+/**
+ * 幀緩衝上限。
+ *
+ * ⚠️ 上限一到就**結束擷取**，不是丟掉最舊的幀。滑動視窗會讓「90 秒」悄悄
+ * 變成別的東西 —— 時長是要報給使用者的量，不能被緩衝策略改掉。
+ * 60fps × 目標時長 × 1.5 的餘裕：正常 30fps 永遠碰不到，計時器卡住時會。
+ */
+const MAX_FRAMES = Math.ceil(TARGET_SEC * 60 * 1.5);
 
 /** ROI 邊長佔畫面較短邊的比例。中央一小塊就夠，取樣成本也低。 */
 const ROI_FRACTION = 0.35;
@@ -49,6 +65,23 @@ const REASON_COPY = {
   insufficient_duration: { tone: 'bad', text: '時間不足' },
   unstable_sampling: { tone: 'bad', text: '取樣不穩' },
 };
+
+/**
+ * Signal Integrity 的四個維度，**依使用者能動手的順序**：先把手指放對、
+ * 再處理光、再把手拿穩，最後才有節律可以找。
+ *
+ * 🔴 `dimensionGoodness()` 是引擎的函式，不是這裡重算的 —— `motionArtifact`
+ * 是唯一反向的維度（1 = 最差），畫面不該自己記得要 1 減。
+ */
+const DIMENSIONS = [
+  { key: 'contactCoverage', label: '接觸', hint: '手指蓋住鏡頭的完整與穩定程度' },
+  { key: 'lightStability', label: '光', hint: '曝光有沒有壓到感光上限' },
+  { key: 'motionArtifact', label: '穩定', hint: '這段時間手有多穩' },
+  { key: 'rhythmicCoherence', label: '節律', hint: '有多清楚的一個重複週期' },
+];
+
+/** 低於這個值的維度會被標出來 —— 那是使用者這次該改的地方。 */
+const DIM_LOW = 0.6;
 
 /** 指標被扣住的理由，直接用 engine 的 withheld reason。 */
 const WITHHELD_COPY = {
@@ -188,6 +221,11 @@ function tick(video, ctx) {
   const elapsed = (now - state.startedAt) / 1000;
   renderProgress(elapsed);
 
+  if (state.frames.length >= MAX_FRAMES) {
+    finish();
+    return;
+  }
+
   // 每兩秒用累積到現在的幀跑一次真的 pipeline，給即時品質回饋。
   if (state.frames.length % 60 === 0 && elapsed >= 6) {
     renderLive();
@@ -206,14 +244,62 @@ function renderProgress(elapsed) {
   $('elapsed').textContent = `${Math.floor(elapsed)}s / ${TARGET_SEC}s`;
 }
 
-/** 掃描進行中的即時回饋：只講品質，不報數值。 */
+/**
+ * 掃描進行中的即時回饋：只講品質，不報數值。
+ *
+ * ⚠️ 只吃**最近** `LIVE_WINDOW_SEC` 秒（PR #148 的 ring buffer 想法）。
+ * 原本吃整段累積的幀，成本隨已掃描時間線性上升 —— 自相關是 O(n × lags)，
+ * 到第 90 秒時每兩秒要重算 2700 點。而且即時回饋本來就該講「現在」，
+ * 把 80 秒前的晃動平均進來反而會騙人。最終結果照樣吃整段。
+ */
 function renderLive() {
-  const outcome = analyzePpgScan(state.frames, MODE);
+  const outcome = analyzePpgScan(recentFrames(LIVE_WINDOW_SEC), MODE);
   if (outcome.status !== 'analysed') return;
 
   const q = outcome.analysis.quality;
   $('liveQuality').textContent = String(q.score);
   renderReasons($('liveReasons'), q.reasons);
+  renderDims($('liveDims'), toSignalQuality(outcome.analysis));
+}
+
+/** 最近 n 秒的幀。時間為準，不是幀數 —— 掉幀時幀數會騙人。 */
+function recentFrames(seconds) {
+  const frames = state.frames;
+  if (frames.length === 0) return frames;
+  const cutoff = frames[frames.length - 1].timestampMs - seconds * 1000;
+  let start = frames.length;
+  while (start > 0 && frames[start - 1].timestampMs >= cutoff) start--;
+  return frames.slice(start);
+}
+
+/**
+ * 四維儀表。值全部來自引擎算出來的 component。
+ *
+ * 🔴 這裡沒有任何「看起來在動」的東西 —— 沒有脈動、沒有 keyframes。訊號被
+ * 拒答時畫面若還在律動，那是在演一個沒有發生的量測（brief §7）。
+ */
+function renderDims(host, signal) {
+  if (host.childElementCount === 0) {
+    for (const dim of DIMENSIONS) {
+      const row = document.createElement('div');
+      row.className = 'dim';
+      row.dataset.key = dim.key;
+      row.innerHTML =
+        `<span class="dimLabel"></span><span class="dimValue"></span>` +
+        `<span class="dimTrack"><span class="dimFill"></span></span>`;
+      row.querySelector('.dimLabel').textContent = dim.label;
+      row.title = dim.hint;
+      host.appendChild(row);
+    }
+  }
+
+  for (const dim of DIMENSIONS) {
+    const row = host.querySelector(`.dim[data-key="${dim.key}"]`);
+    const goodness = dimensionGoodness(signal, dim.key);
+    row.dataset.low = goodness < DIM_LOW ? 'yes' : 'no';
+    row.querySelector('.dimValue').textContent = `${Math.round(goodness * 100)}%`;
+    row.querySelector('.dimFill').style.width = `${Math.round(goodness * 100)}%`;
+  }
 }
 
 function renderReasons(host, reasons) {
@@ -263,9 +349,16 @@ function renderOutcome(outcome) {
   $('confidence').textContent = a.quality.confidence.toFixed(2);
   $('duration').textContent = `${a.durationSec}s`;
 
+  const signal = toSignalQuality(a);
+
   renderAnchor(a.heartRateBpm);
+  renderDims($('resultDims'), signal);
   renderReasons($('resultReasons'), a.quality.reasons);
   renderWithheld(a.withheld);
+
+  $('frameNote').textContent =
+    `${signal.usableFrameCount} / ${signal.totalFrameCount} 幀通過接觸、曝光與晃動的逐幀門檻，` +
+    `分析了 ${(signal.captureDurationMs / 1000).toFixed(1)} 秒。`;
 
   // 🔴 每一個被接受的讀數都要標明它是怎麼來的（PULSE ANCHOR brief §8），
   // 而且要把相機**做不到**的事講在同一句裡 —— 否則使用者會自己補上
@@ -311,9 +404,12 @@ function renderWithheld(withheld) {
   // 「這次沒有報的」底下寫「都讀到了」是自相矛盾的 —— 沒有東西可列時，
   // 整塊換成一句陳述，不要留一個空標題配一句反話。（自己截圖看出來的）
   if (thisScan.length === 0) {
-    head.textContent = '脈搏立住了';
+    // 沒有東西可列時整塊收起來 —— 上面的判語已經說了校準完成，在品質清單
+    // 底下再補一句「脈搏立住了」只是重複，而且看起來像個沒填完的欄位。
+    head.hidden = true;
     return;
   }
+  head.hidden = false;
   head.textContent = '這次沒有報的';
   const names = { heart_rate: '脈搏', hrv: '心律變異', respiration: '呼吸率' };
   for (const entry of thisScan) {

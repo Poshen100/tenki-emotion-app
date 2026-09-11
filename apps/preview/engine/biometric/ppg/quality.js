@@ -116,6 +116,10 @@ export function assessPpgQuality(input) {
         reasons.push('good_periodicity');
     if (finalScore >= 75 && !reasons.includes('motion_detected'))
         reasons.push('stable_signal');
+    // How much of the capture was individually worth analysing. Per-frame limits,
+    // not window means — a capture can average acceptable coverage while half its
+    // frames had the finger off the lens.
+    const usableFrameCount = frames.filter((f) => f.coverage >= MIN_COVERAGE && f.clippedFraction <= MAX_CLIPPING && f.motion <= MAX_MOTION).length;
     return {
         score: Math.max(0, Math.min(100, finalScore)),
         confidence: deriveConfidence(finalScore, input.periodicity, input.durationSec, input.minDurationSec),
@@ -125,7 +129,21 @@ export function assessPpgQuality(input) {
         coverage: Math.round(coverage * 100) / 100,
         stability: Math.round(stability * 100) / 100,
         frameDropFraction: Math.round(input.frameDropFraction * 100) / 100,
+        components: {
+            perfusion: round2(components.perfusion),
+            periodicity: round2(components.periodicity),
+            motion: round2(components.motion),
+            coverage: round2(components.coverage),
+            clipping: round2(components.clipping),
+            frameDrops: round2(components.frameDrops),
+        },
+        frameCount: frames.length,
+        usableFrameCount,
     };
+}
+/** Two decimals — an instrument bar has no use for more. */
+function round2(value) {
+    return Math.round(value * 100) / 100;
 }
 /**
  * How much the pipeline trusts what it reported.

@@ -87,6 +87,41 @@
     .anchorValue.absent { color: var(--n-600); }
     .metricLabel { font-size: 11px; color: var(--n-500); margin-top: 3px; }
 
+    /* ── Signal Integrity 儀表 ──
+       🔴 四條 bar 吃的是引擎真的算出來的 component，不是進度動畫。
+       訊號被拒答時不得有任何節律感的動效（brief §7）—— 所以這裡只有寬度
+       過渡，沒有脈動、沒有 keyframes。 */
+    .dims { display: flex; flex-direction: column; gap: 10px; }
+    .dim { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+    .dimLabel { font-size: 12px; color: var(--n-400); }
+    .dimValue { font-size: 12px; color: var(--n-500); font-variant-numeric: tabular-nums; }
+    .dimTrack {
+      grid-column: 1 / -1; height: 4px; border-radius: 2px;
+      background: var(--n-800); overflow: hidden;
+    }
+    .dimFill {
+      /* ⚠️ `display:block` 是必要的，不是整理：`.dimTrack` 是 grid item 會被
+         blockify，但裡面這顆 span 不是 —— inline 元素**忽略** width/height，
+         bar 會完全不渲染。第一版就是這樣，四條 bar 在畫面上全是空軌道，而
+         harness 讀的是 `style.width`（inline 屬性）所以照樣綠 —— 那條斷言在
+         守一個看不到的數字。現在 harness 量真的幾何。 */
+      display: block;
+      height: 100%; width: 0%; border-radius: 2px;
+      background: var(--n-400);
+    }
+    /* 🔴 過渡**只在掃描中**。結果是量到的事實，不該滑進定位 —— 滑動期間畫面
+       上的長度跟旁邊的數字不一致，而那正好是使用者第一眼看到的那一瞬間。
+       （截圖抓到：節律寫 21%，bar 畫到 85%，因為還在從上一次的 100% 過渡。）*/
+    [data-phase="scanning"] .dimFill {
+      background: var(--cyan-active);
+      transition: width 320ms ease-out;
+    }
+    /* ⚠️ 低的維度用 `--warning`，**不是** `--amber-400`：amber 是可動層
+       （`docs/VISUAL-DIRECTION.md` §⑩「鋪到全部可點元素」），而 bar 點不下去。
+       警示與可動是兩件事，同一個色相不代表同一個意思。 */
+    .dim[data-low="yes"] .dimFill { background: var(--warning); }
+    .dim[data-low="yes"] .dimLabel { color: var(--n-300); }
+
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .statValue { font-size: 16px; font-weight: 600; color: var(--n-100); font-variant-numeric: tabular-nums; }
     .statLabel { font-size: 10px; color: var(--n-550); margin-top: 2px; }
@@ -150,6 +185,11 @@
     </section>
 
     <section class="only-scan card">
+      <div class="dialLabel" style="margin-bottom:12px">訊號完整度</div>
+      <div class="dims" id="liveDims"></div>
+    </section>
+
+    <section class="only-scan card">
       <ul id="liveReasons"></ul>
       <p class="note" id="torchNote" style="margin-top:10px"></p>
     </section>
@@ -175,6 +215,12 @@
         <div><div class="statValue" id="confidence">—</div><div class="statLabel">信心</div></div>
         <div><div class="statValue" id="duration">—</div><div class="statLabel">實際時長</div></div>
       </div>
+    </section>
+
+    <section class="only-result card">
+      <div class="dialLabel" style="margin-bottom:12px">訊號完整度</div>
+      <div class="dims" id="resultDims"></div>
+      <p class="fine" id="frameNote" style="margin-top:12px"></p>
     </section>
 
     <section class="only-result card">
