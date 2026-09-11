@@ -138,6 +138,24 @@ founder 問「建立 PPG 手指基線的流程要不要再升級，尤其針對�
 
 `verify.sh` 全綠。引擎 481 → 500，domain 185 → 191。
 
+## 續三：onboarding 分流與手指基線接線（founder「全依建議，接著做」）
+
+- 手指基線接在**臉部基線之後**，出口是 `establishedExitRoute()`。
+  🔴 **手指永遠不取代臉部** —— 兩者量的是不同東西（臉部＝Soul Scan 的 landmark
+  參考點、手指＝HRV 參考點）。north star 的「主入口是臉」講的是日常掃描入口，
+  不是「只能建一種基線」。有測試對所有連接組合斷言 `steps[0] === 'face_baseline'`。
+- 🔴 **「已連接」必須包含「拿到 scan scope」**：連了但沒給掃描權限的來源
+  在掃描當下什麼都不給，算進去會把 phone-only 使用者導離手指基線。
+- 🔴 **擴充既有純函式時，新參數要 optional 且預設＝原行為**，並**下一條測試守著**
+  （`establishedExitRoute` 不帶 plan 時與從前逐位元組相同）。
+- 手指畫面**誠實顯示「還沒有相機擷取模組」**，不給假裝能掃的按鈕；
+  測試守著那句話，註解寫明擷取層落地時要刻意連同文案一起改。
+- 🟡 **又一次驗證方式的落差**：`npx tsc --noEmit` 紅但 `jest` 綠 ——
+  ts-jest 用的是 `features/face-baseline/jest.tsconfig.json`，不是 app 的 tsconfig。
+  **mobile 改動要兩個都跑**，verify.sh 兩個都有。
+
+`verify.sh` 全綠。domain 191 → 202，mobile 231 → 238。
+
 ## 下次接手點
 
 - **相機擷取層（VisionCamera frame processor → `PpgFrame`）還沒寫**，需要實機。
