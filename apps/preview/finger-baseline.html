@@ -78,13 +78,13 @@
     .reason.bad::before { content: "!"; color: var(--amber-400); font-weight: 700; }
     .reason.withheld::before { content: "—"; color: var(--n-550); }
 
-    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .metric { text-align: center; }
-    .metricValue {
-      font-size: clamp(17px, 4.6vw, 21px); font-weight: 600; color: var(--n-100);
-      white-space: nowrap; font-variant-numeric: tabular-nums;
+    /* 相機只報一項，版面就只留一項 —— 三格裡兩格永遠是「—」本身就是一種宣稱。 */
+    .anchor { text-align: center; }
+    .anchorValue {
+      font-size: clamp(30px, 9vw, 40px); font-weight: 600; color: var(--n-100);
+      white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.2;
     }
-    .metricValue.absent { color: var(--n-600); }
+    .anchorValue.absent { color: var(--n-600); }
     .metricLabel { font-size: 11px; color: var(--n-500); margin-top: 3px; }
 
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -115,18 +115,19 @@
 
   <main class="wrap" id="stage" data-phase="intro" data-secured="no">
     <header>
-      <div class="kicker">PRECISION · 手指基線校準</div>
-      <h1>建立心律變異基線</h1>
+      <div class="kicker">PULSE ANCHOR · 指尖脈搏校準</div>
+      <h1>建立你的脈搏錨點</h1>
     </header>
 
     <!-- ── intro ───────────────────────────────────────────────── -->
     <section class="only-intro card">
-      <p>臉部掃描讀得到心率，但讀不到逐拍之間的細微間隔。手指貼著鏡頭能讀到，而那是你的準備度讀數裡份量最重的一項。</p>
+      <p>讓光透過你的指尖。相機讀得到指尖血流的節律 —— 那是這支手機唯一能真的量準的生理訊號。</p>
       <p style="margin-top:10px">需要 <span id="targetSec">90</span> 秒（低於 <span id="minSec">45</span> 秒不會產出讀數）。手指輕放在後鏡頭上，整片蓋住、不要移動。</p>
     </section>
 
     <section class="only-intro card precision">
-      <p style="color:var(--n-300)">這段時間同時在量另一件事：<strong class="keep" style="color:var(--n-100)">這支手機量你有多穩</strong>。知道了它，之後小於量測誤差的變化就不會被當成狀態改變。</p>
+      <p style="color:var(--n-300)">一次校準得到的是<strong class="keep" style="color:var(--n-100)">一個脈搏參考值</strong>，不是基線。基線要多次、跨幾天才成形。</p>
+      <p class="fine" style="margin-top:10px">相機讀不到逐拍之間的間隔，所以這裡不報心律變異、也不報呼吸率 —— 那兩項需要胸帶或手錶。</p>
     </section>
 
     <p class="only-intro fine">影像不留存。每一幀在本機化簡成數值後就丟棄 —— 引擎拿不到影像，這是型別的性質，不是要記得做的事。</p>
@@ -161,10 +162,9 @@
     </section>
 
     <section class="only-result card">
-      <div class="metrics">
-        <div class="metric"><div class="metricValue" id="hr">—</div><div class="metricLabel">心率</div></div>
-        <div class="metric"><div class="metricValue" id="hrv">—</div><div class="metricLabel">心律變異</div></div>
-        <div class="metric"><div class="metricValue" id="resp">—</div><div class="metricLabel">呼吸率</div></div>
+      <div class="anchor">
+        <div class="anchorValue" id="hr">—</div>
+        <div class="metricLabel">這次的脈搏參考值</div>
       </div>
       <p class="fine" id="derivation" style="margin-top:12px"></p>
     </section>
@@ -175,20 +175,6 @@
         <div><div class="statValue" id="confidence">—</div><div class="statLabel">信心</div></div>
         <div><div class="statValue" id="duration">—</div><div class="statLabel">實際時長</div></div>
       </div>
-    </section>
-
-    <section class="only-result card precision">
-      <div class="precisionRow">
-        <span class="dialLabel">這次的重複性</span>
-        <span class="precisionValue" id="repeatability">—</span>
-      </div>
-      <p class="precisionNote" id="repeatabilityNote"></p>
-      <div class="precisionRow" style="margin-top:14px">
-        <span class="dialLabel">你的雜訊底線（歷次中位數）</span>
-        <span class="precisionValue" id="noiseFloor">—</span>
-      </div>
-      <p class="precisionNote" id="noiseFloorNote"></p>
-      <p class="fine" style="margin-top:10px">以 <span id="scanCount">0</span> 次有效校準為基礎。</p>
     </section>
 
     <section class="only-result card">

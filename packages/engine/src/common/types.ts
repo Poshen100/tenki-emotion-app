@@ -162,7 +162,25 @@ export type FeatureFlagId =
   | 'lab_prediction'
   | 'benchmark_opt_in'
   | 'reviewer_demo_mode'
-  | 'tradingview_alerts_v1';
+  | 'tradingview_alerts_v1'
+  /**
+   * Camera-derived HRV and respiratory-rate estimates.
+   *
+   * 🔴 Default OFF (founder decision 2026-09-11). The pipeline behind it is
+   * complete and tested, but a camera cannot support an HRV claim in a first
+   * release: measured against synthetic ground truth it under-reads RMSSD by
+   * 7-9%, its repeatability on a weak signal reaches ~13 ms against an RMSSD
+   * of ~30, and the ratio that decides whether any of that carries information
+   * — real day-to-day variation against measurement noise — cannot be
+   * established without real-user data.
+   *
+   * ⚠️ This flag governs the CAMERA path only. A chest strap's RR intervals
+   * are a different provenance with a different quality path, and
+   * `biometric/beat-series.ts` is not affected.
+   *
+   * @see docs/PHONE-PPG.md
+   */
+  | 'camera_hrv_estimates';
 
 // ─────────────────────────────────────────────
 // Subscription Types

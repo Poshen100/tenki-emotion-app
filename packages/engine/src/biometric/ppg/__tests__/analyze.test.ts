@@ -10,12 +10,22 @@ import { PPG_FIXTURES, synthesizePpg } from '../replay';
 import { analyzePpgScan, hasUsableReading, wasWithheld } from '../analyze';
 import type { PpgAnalysis } from '../types';
 
+/**
+ * ⚠️ These tests exercise the HRV and respiration paths, so they pass
+ * `cameraHrvEstimates: true` explicitly. That is NOT the product default —
+ * camera HRV is off (founder decision 2026-09-11, see the
+ * `camera_hrv_estimates` flag). The pipeline is kept and tested so the
+ * decision can be revisited with real-user data; `camera-claims.test.ts`
+ * is what holds the default in place.
+ */
+const HRV_ENABLED = { cameraHrvEstimates: true } as const;
+
 function analyse(
   overrides: Parameters<typeof synthesizePpg>[0] = {},
   mode: 'quick_check' | 'full_scan' = 'full_scan',
 ): { analysis: PpgAnalysis; truth: ReturnType<typeof synthesizePpg>['truth'] } {
   const scan = synthesizePpg(overrides);
-  const outcome = analyzePpgScan(scan.frames, mode);
+  const outcome = analyzePpgScan(scan.frames, mode, HRV_ENABLED);
   if (outcome.status !== 'analysed') {
     throw new Error(`expected an analysis, got rejection: ${outcome.reason}`);
   }
@@ -146,7 +156,7 @@ describe('refusals', () => {
 
   it('rejects a capture with too few frames instead of analysing it', () => {
     const scan = synthesizePpg({ durationSec: 1 });
-    expect(analyzePpgScan(scan.frames, 'full_scan')).toEqual({
+    expect(analyzePpgScan(scan.frames, 'full_scan', HRV_ENABLED)).toEqual({
       status: 'rejected',
       reason: 'too_few_frames',
     });
@@ -154,7 +164,7 @@ describe('refusals', () => {
 
   it('refuses to run the camera pipeline for a mode that does not read the camera', () => {
     const scan = synthesizePpg();
-    expect(analyzePpgScan(scan.frames, 'precision')).toEqual({
+    expect(analyzePpgScan(scan.frames, 'precision', HRV_ENABLED)).toEqual({
       status: 'rejected',
       reason: 'not_a_camera_mode',
     });

@@ -82,14 +82,62 @@ export const SCAN_MODE_CONFIGS: Readonly<Record<ScanMode, ScanModeConfig>> = {
 };
 
 /**
+ * What the running build is allowed to derive, independent of signal quality.
+ *
+ * Separate from the mode table because it is a product decision, not an
+ * evidence one: the mode says what 90 seconds of signal could support, this
+ * says what TENKI is willing to claim from a camera today.
+ */
+export interface ScanCapabilityOptions {
+  /**
+   * Whether camera PPG may report HRV and respiratory rate.
+   *
+   * 🔴 Defaults to FALSE (founder decision 2026-09-11). See the
+   * `camera_hrv_estimates` flag in `common/types.ts` for the measurements
+   * behind that default. The pipeline is kept and tested so the decision can
+   * be revisited with real-user data — not deleted.
+   */
+  cameraHrvEstimates?: boolean;
+}
+
+/** Metrics a camera may not derive while `cameraHrvEstimates` is off. */
+const CAMERA_GATED_METRICS: readonly PpgMetric[] = ['hrv', 'respiration'];
+
+/**
  * Whether a mode may report a metric at all, before any quality is considered.
+ *
+ * Two independent gates, and both have to pass:
+ *   1. The mode's own `reports` list — what this much signal could support.
+ *   2. The capability options — what TENKI is willing to claim from a camera.
+ *
+ * ⚠️ The second gate applies to CAMERA modes only. `precision` reads a beat
+ * sensor whose RR intervals are a different provenance entirely, and gating it
+ * on a camera decision would be a category error.
  *
  * @param mode - The scan mode.
  * @param metric - The metric in question.
- * @returns True when the mode's evidence can support the metric.
+ * @param options - What the build is willing to derive. Omit for the default,
+ *   which withholds camera HRV and respiration.
+ * @returns True when the metric may be reported.
  */
-export function modeReports(mode: ScanMode, metric: PpgMetric): boolean {
-  return SCAN_MODE_CONFIGS[mode].reports.includes(metric);
+export function modeReports(
+  mode: ScanMode,
+  metric: PpgMetric,
+  options: ScanCapabilityOptions = {},
+): boolean {
+  if (!SCAN_MODE_CONFIGS[mode].reports.includes(metric)) {
+    return false;
+  }
+
+  if (
+    isCameraMode(mode) &&
+    CAMERA_GATED_METRICS.includes(metric) &&
+    options.cameraHrvEstimates !== true
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 /**

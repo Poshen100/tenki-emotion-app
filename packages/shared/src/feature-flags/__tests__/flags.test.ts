@@ -20,11 +20,12 @@ describe('createDefaultFlags', () => {
     expect(flags.benchmark_opt_in).toBe(false);
     expect(flags.reviewer_demo_mode).toBe(false);
     expect(flags.tradingview_alerts_v1).toBe(false);
+    expect(flags.camera_hrv_estimates).toBe(false);
   });
 
-  it('should include all 7 flag IDs', () => {
-    const flags = createDefaultFlags();
-    expect(Object.keys(flags).length).toBe(7);
+  // 數量斷言改成集合斷言：新增旗標時「8 變 9」不會告訴你少了哪一個。
+  it('should include every declared flag ID', () => {
+    expect(Object.keys(createDefaultFlags()).sort()).toEqual(Object.keys(FEATURE_FLAGS).sort());
   });
 });
 
@@ -78,8 +79,8 @@ describe('applyRemoteOverrides', () => {
 });
 
 describe('FEATURE_FLAGS definitions', () => {
-  it('should have 7 flag definitions', () => {
-    expect(Object.keys(FEATURE_FLAGS).length).toBe(7);
+  it('should have 8 flag definitions', () => {
+    expect(Object.keys(FEATURE_FLAGS).length).toBe(8);
   });
 
   it('tradingview_alerts_v1 should be a dark-launch flag (off by default, remote-configurable)', () => {

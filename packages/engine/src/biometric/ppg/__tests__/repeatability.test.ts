@@ -6,9 +6,12 @@ import { PPG_FIXTURES, synthesizePpg } from '../replay';
 import { analyzePpgScan } from '../analyze';
 import { estimateRepeatability, MIN_WINDOWS_FOR_REPEATABILITY } from '../repeatability';
 
+/** See analyze.test.ts — camera HRV is off by default; these exercise the path. */
+const HRV_ENABLED = { cameraHrvEstimates: true } as const;
+
 function repeatabilityOf(overrides: Parameters<typeof synthesizePpg>[0]): number | null {
   const scan = synthesizePpg({ durationSec: 90, ...overrides });
-  const outcome = analyzePpgScan(scan.frames, 'full_scan');
+  const outcome = analyzePpgScan(scan.frames, 'full_scan', HRV_ENABLED);
   if (outcome.status !== 'analysed') return null;
   return outcome.analysis.repeatabilitySdMs;
 }
@@ -42,7 +45,7 @@ describe('within-scan repeatability', () => {
     // A reading that never reaches a baseline tells us nothing about how
     // trustworthy that baseline is.
     const scan = synthesizePpg({ ...PPG_FIXTURES.frameDrops, durationSec: 90 });
-    const outcome = analyzePpgScan(scan.frames, 'full_scan');
+    const outcome = analyzePpgScan(scan.frames, 'full_scan', HRV_ENABLED);
     if (outcome.status !== 'analysed') throw new Error('expected an analysis');
 
     expect(outcome.analysis.heartRateBpm).not.toBeNull();

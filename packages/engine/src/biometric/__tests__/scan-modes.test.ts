@@ -17,9 +17,11 @@ describe('scan modes', () => {
   it('keeps quick check structurally incapable of reporting HRV', () => {
     // Not a quality threshold — the metric is absent from the list, so no
     // signal however clean can talk it into producing one.
-    expect(modeReports('quick_check', 'hrv')).toBe(false);
+    // ⚠️ Even with the capability enabled — the mode's own list is the first
+    // gate, and quick check does not list HRV at all.
+    expect(modeReports('quick_check', 'hrv', { cameraHrvEstimates: true })).toBe(false);
     expect(modeReports('quick_check', 'heart_rate')).toBe(true);
-    expect(modeReports('full_scan', 'hrv')).toBe(true);
+    expect(modeReports('full_scan', 'hrv', { cameraHrvEstimates: true })).toBe(true);
   });
 
   it('separates the camera modes from the one that reads a beat sensor', () => {

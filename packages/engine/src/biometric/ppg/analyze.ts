@@ -35,7 +35,13 @@ import {
 import { MAX_FRAME_DROPS, assessPpgQuality } from './quality';
 import { estimateRepeatability } from './repeatability';
 import { estimateRespiration } from './respiration';
-import { type ScanMode, SCAN_MODE_CONFIGS, isCameraMode, modeReports } from '../scan-modes';
+import {
+  type ScanCapabilityOptions,
+  type ScanMode,
+  SCAN_MODE_CONFIGS,
+  isCameraMode,
+  modeReports,
+} from '../scan-modes';
 import type { PpgAnalysis, PpgFrame, PpgWithheld } from './types';
 
 /**
@@ -60,6 +66,20 @@ export type PpgOutcome = PpgCompletion | PpgRejection;
 export const MIN_FRAMES = 60;
 
 /**
+ * Why a derived metric is absent when the heart rate itself could not be read.
+ *
+ * The mode gate outranks the signal: a metric this scan mode does not report
+ * would have been withheld even from a perfect recording.
+ */
+function rateFailureReason(
+  mode: ScanMode,
+  metric: 'hrv' | 'respiration',
+  options: ScanCapabilityOptions,
+): PpgWithheld['reason'] {
+  return modeReports(mode, metric, options) ? 'irregular_periodicity' : 'mode_excludes_metric';
+}
+
+/**
  * Runs a camera scan window through the full pipeline.
  *
  * The order matters and each step exists for a failure it prevents:
@@ -69,9 +89,14 @@ export const MIN_FRAMES = 60;
  *
  * @param frames - Frames already reduced to scalars by the capture layer.
  * @param mode - Which scan the user started.
+ * @param options - Which gated metrics this build may report at all.
  * @returns The analysis, or a rejection when nothing could be attempted.
  */
-export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): PpgOutcome {
+export function analyzePpgScan(
+  frames: readonly PpgFrame[],
+  mode: ScanMode,
+  options: ScanCapabilityOptions = {},
+): PpgOutcome {
   if (!isCameraMode(mode)) {
     return { status: 'rejected', reason: 'not_a_camera_mode' };
   }
@@ -131,10 +156,13 @@ export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): Ppg
         repeatabilitySdMs: null,
         durationSec: round1(durationSec),
         sampleRateHz: resampled.sampleRateHz,
+        // ⚠️ 這條早退路徑也要吃 mode 閘門。否則相機 HRV 被關掉時，
+        // 訊號不足的掃描會回報「節律不穩」—— 那是個更弱的理由，而真正的
+        // 理由是這個模式根本不報這一項。兩個原因要照同一個優先序講。
         withheld: [
           ...withheld,
-          { metric: 'hrv', reason: 'irregular_periodicity' },
-          { metric: 'respiration', reason: 'irregular_periodicity' },
+          { metric: 'hrv', reason: rateFailureReason(mode, 'hrv', options) },
+          { metric: 'respiration', reason: rateFailureReason(mode, 'respiration', options) },
         ],
       },
     };
@@ -160,7 +188,7 @@ export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): Ppg
   let hrvRmssdMs: number | null = null;
   let hrvBlockedBy: PpgWithheld['reason'] | null = null;
 
-  if (!modeReports(mode, 'hrv')) {
+  if (!modeReports(mode, 'hrv', options)) {
     hrvBlockedBy = 'mode_excludes_metric';
   } else if (quality.score < config.minQualityForHrv) {
     hrvBlockedBy = dominantNegativeReason(quality.reasons);
@@ -189,7 +217,7 @@ export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): Ppg
   // never be better founded than the beat timing HRV was refused for.
   let respiratoryRateBrpm: number | null = null;
 
-  if (!modeReports(mode, 'respiration')) {
+  if (!modeReports(mode, 'respiration', options)) {
     withheld.push({ metric: 'respiration', reason: 'mode_excludes_metric' });
   } else if (hrvRmssdMs === null) {
     // Respiration is read out of the same beat timing, so it inherits whatever

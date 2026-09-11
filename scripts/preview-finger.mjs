@@ -102,29 +102,25 @@ async function runScan(options) {
       secured: stage.dataset.secured,
       verdict: text('verdict'),
       verdictColor: getComputedStyle(document.getElementById('verdict')).color,
-      hr: text('hr'), hrv: text('hrv'), resp: text('resp'),
+      hr: text('hr'),
       quality: text('qualityScore'),
-      repeatability: text('repeatability'),
-      noiseFloor: text('noiseFloor'),
-      scanCount: text('scanCount'),
+      derivation: text('derivation'),
+      bodyText: document.getElementById('stage').innerText,
       reasons: [...document.querySelectorAll('#resultReasons .reason')].map((n) => n.textContent),
       withheld: [...document.querySelectorAll('#withheld .reason')].map((n) => n.textContent),
+      withheldHead: text('withheldHead'),
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   }, frames);
 }
 
-await page.evaluate(() => window.__tenkiFingerHarness.resetNoiseFloor());
-
-// ── 2. 乾淨訊號：三項都讀到 ─────────────────────────────────────────────────
+// ── 2. 乾淨訊號：脈搏讀到，而且只有脈搏 ────────────────────────────────────
 console.log('\n── 乾淨訊號 ──');
 const clean = await runScan({});
 check('進入結果階段', clean.phase === 'result', `phase=${clean.phase}`);
-check('心率有讀數', clean.hr !== '—', `hr=${clean.hr}`);
-check('心律變異有讀數', clean.hrv !== '—', `hrv=${clean.hrv}`);
+check('脈搏有讀數', /^\d+ bpm$/.test(clean.hr), `hr=${clean.hr}`);
 check('品質分數是數字', /^\d+$/.test(clean.quality), `quality=${clean.quality}`);
 check('列出了品質理由', clean.reasons.length > 0, '一條都沒有');
-check('這次重複性有量到', clean.repeatability !== '—', `rep=${clean.repeatability}`);
 check(
   '立住讀數時才標示 SECURED',
   clean.secured === 'yes',
@@ -132,12 +128,48 @@ check(
 );
 check('390px 無橫向溢出', clean.overflowX === 0, `多出 ${clean.overflowX}px`);
 
+// 🔴 相機 HRV / 呼吸率是關掉的（feature flag `camera_hrv_estimates` 預設 false）。
+// 關掉的意思是**畫面上不得出現那兩個數字**，不是引擎算了但沒人看。
+check(
+  '🔴 沒有任何心律變異數值',
+  !/\d+(\.\d+)?\s*ms/.test(clean.bodyText),
+  `頁面上出現了 ms 數值：${clean.bodyText.match(/.{0,24}\d+(\.\d+)?\s*ms.{0,24}/)?.[0]}`,
+);
+check(
+  '🔴 沒有任何呼吸率數值',
+  !/brpm/.test(clean.bodyText),
+  '頁面上出現了 brpm',
+);
+check(
+  '講明讀數怎麼來的，並且講明相機做不到什麼',
+  clean.derivation.includes('相機指尖 PPG') && clean.derivation.includes('不報心律變異'),
+  `derivation=${clean.derivation}`,
+);
+check(
+  '⚠️ 成功的校準不得把相機本來就不報的項目列成「這次沒報」',
+  clean.withheld.length === 0 && !clean.withheldHead.includes('沒有報'),
+  `head=${clean.withheldHead} withheld=${JSON.stringify(clean.withheld)}`,
+);
+check(
+  '一次校準不得自稱基線',
+  !/一次.{0,6}基線/.test(clean.bodyText) && !clean.derivation.includes('基線'),
+  `bodyText 提到基線的地方：${clean.bodyText.match(/.{0,20}基線.{0,20}/)?.[0]}`,
+);
+
 // ── 3. 訊號不足：必須拒答，而且不准上 gold ─────────────────────────────────
 console.log('\n── 訊號不足（低灌流）──');
 const weak = await runScan(PPG_FIXTURES.lowPerfusion);
-check('沒有心率讀數', weak.hr === '—', `hr=${weak.hr}`);
-check('沒有心律變異讀數', weak.hrv === '—', `hrv=${weak.hrv}`);
+check('沒有脈搏讀數', weak.hr === '—', `hr=${weak.hr}`);
 check('說明了為什麼沒報', weak.withheld.length > 0, '沒有列出任何 withheld');
+// 🔴 這一條在守 engine 的早退路徑：心率立不住時，HRV 的理由也必須是
+// 「這個模式不報」而不是「節律不穩」—— 否則相機 HRV 明明關著，畫面卻會
+// 冒出兩行更弱的理由。⚠️ 只斷言「沒有出現某句話」擋不住它（那句話被頁面
+// 過濾掉了，兩種寫法都會通過），所以這裡斷言**列出的條數**。
+check(
+  '扣住的只有脈搏本身，不多不少',
+  weak.withheld.length === 1 && weak.withheld[0].includes('脈搏'),
+  `withheld=${JSON.stringify(weak.withheld)}`,
+);
 check(
   '🔴 沒有讀數就不准上 gold',
   weak.secured === 'no' && weak.verdictColor !== clean.verdictColor,
@@ -154,32 +186,15 @@ check(
   `reasons=${JSON.stringify(weak.reasons)}`,
 );
 
-// ── 4. 掉幀：心率活著，HRV 被扣住 ──────────────────────────────────────────
+// ── 4. 掉幀：脈搏仍然立得住 ────────────────────────────────────────────────
+// 掉幀會毀掉毫秒級的拍間距，但不會毀掉每分鐘幾拍。相機只報後者，所以這一格
+// 是「該報的還是報得出來」，不是「又少一項」。
 console.log('\n── 掉幀 ──');
 const drops = await runScan(PPG_FIXTURES.frameDrops);
-check('心率仍然讀得到', drops.hr !== '—', `hr=${drops.hr}`);
-check('心律變異被扣住', drops.hrv === '—', `hrv=${drops.hrv}`);
-check(
-  '扣住的理由指向拍點時序，不是泛泛的「訊號不好」',
-  drops.withheld.some((w) => w.includes('空隙') || w.includes('補插')),
-  `withheld=${JSON.stringify(drops.withheld)}`,
-);
+check('脈搏仍然讀得到', /^\d+ bpm$/.test(drops.hr), `hr=${drops.hr}`);
+check('掉幀被講出來', drops.reasons.some((r) => r.includes('掉幀')), `reasons=${JSON.stringify(drops.reasons)}`);
 
-// ── 5. 雜訊底線要累積得起來 ────────────────────────────────────────────────
-console.log('\n── 雜訊底線 ──');
-await page.evaluate(() => window.__tenkiFingerHarness.resetNoiseFloor());
-const first = await runScan({ seed: 11 });
-check('第一次還不給底線', first.noiseFloor === '累積中', `noiseFloor=${first.noiseFloor}`);
-await runScan({ seed: 22 });
-const third = await runScan({ seed: 33 });
-check(
-  '三次之後定出底線',
-  third.noiseFloor.startsWith('±'),
-  `noiseFloor=${third.noiseFloor} scanCount=${third.scanCount}`,
-);
-check('底線以實際有效次數為基礎', Number(third.scanCount) >= 3, `scanCount=${third.scanCount}`);
-
-// ── 6. runtime ─────────────────────────────────────────────────────────────
+// ── 5. runtime ─────────────────────────────────────────────────────────────
 console.log('\n── 執行時期 ──');
 check('沒有 runtime error', errors.length === 0, errors.join(' | '));
 

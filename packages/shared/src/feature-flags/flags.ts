@@ -47,6 +47,14 @@ export const FEATURE_FLAGS: Record<FeatureFlagId, FeatureFlagDef> = {
     defaultValue: false,
     remoteConfigurable: true,
   },
+  camera_hrv_estimates: {
+    id: 'camera_hrv_estimates',
+    name: 'Camera HRV estimates',
+    description:
+      'Allow camera fingertip PPG to report HRV and respiratory rate. OFF by default — a camera cannot support an HRV claim in a first release (docs/PHONE-PPG.md). Does not affect chest-strap RR.',
+    defaultValue: false,
+    remoteConfigurable: true,
+  },
   lab_prediction: {
     id: 'lab_prediction',
     name: 'Lab Prediction',

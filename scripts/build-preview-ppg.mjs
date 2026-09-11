@@ -41,8 +41,16 @@ const ENTRIES = [
   'biometric/ppg/analyze.ts',
   'biometric/ppg/to-reading.ts',
   'biometric/scan-modes.ts',
-  'baseline/noise-floor.ts',
 ];
+
+/*
+ * ⚠️ `baseline/noise-floor.ts` was an entry here and is deliberately not one
+ * now. The floor is an HRV-specific mechanism, and camera HRV is withheld
+ * (feature flag `camera_hrv_estimates`, default off) — so the preview has no
+ * HRV repeatability to feed it and would only be able to render "accumulating"
+ * forever. The engine module stays; the browser bundle carries only what the
+ * page actually runs. Reasoning: docs/PHONE-PPG.md §10.
+ */
 
 const BANNER = `/**
  * ⚠️ GENERATED FILE — DO NOT EDIT.

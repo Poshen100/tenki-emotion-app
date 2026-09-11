@@ -19,11 +19,6 @@
 import { analyzePpgScan } from './engine/biometric/ppg/analyze.js';
 import { SCAN_MODE_CONFIGS } from './engine/biometric/scan-modes.js';
 import { toEngineInput } from './engine/biometric/ppg/to-reading.js';
-import {
-  createEmptyNoiseFloor,
-  recordRepeatability,
-  resolveNoiseFloor,
-} from './engine/baseline/noise-floor.js';
 
 const MODE = 'full_scan';
 const TARGET_SEC = SCAN_MODE_CONFIGS[MODE].targetDurationSec;
@@ -57,7 +52,7 @@ const REASON_COPY = {
 
 /** 指標被扣住的理由，直接用 engine 的 withheld reason。 */
 const WITHHELD_COPY = {
-  mode_excludes_metric: '這個模式不報這一項',
+  mode_excludes_metric: '相機讀不到這一項',
   too_few_beats: '拍數不足',
   too_many_artifacts: '拍點被剔除太多，算出來的數字會低報',
   frame_drops: '拍點時序跨過了補插的空隙',
@@ -70,8 +65,6 @@ const WITHHELD_COPY = {
   weak_pulse: '脈搏訊號偏弱',
 };
 
-const NOISE_FLOOR_KEY = 'tenki.preview.fingerNoiseFloor';
-
 const state = {
   stream: null,
   frames: [],
@@ -83,25 +76,6 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
-
-function loadNoiseFloor() {
-  try {
-    const raw = localStorage.getItem(NOISE_FLOOR_KEY);
-    if (!raw) return createEmptyNoiseFloor();
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed?.samples) ? { samples: parsed.samples } : createEmptyNoiseFloor();
-  } catch (_) {
-    return createEmptyNoiseFloor();
-  }
-}
-
-function saveNoiseFloor(next) {
-  try {
-    localStorage.setItem(NOISE_FLOOR_KEY, JSON.stringify(next));
-  } catch (_) {
-    /* private mode — the floor just does not persist */
-  }
-}
 
 // ── camera ──────────────────────────────────────────────────────────────────
 
@@ -289,18 +263,23 @@ function renderOutcome(outcome) {
   $('confidence').textContent = a.quality.confidence.toFixed(2);
   $('duration').textContent = `${a.durationSec}s`;
 
-  renderMetric('hr', a.heartRateBpm, 'bpm');
-  renderMetric('hrv', a.hrvRmssdMs, 'ms');
-  renderMetric('resp', a.respiratoryRateBrpm, 'brpm');
+  renderAnchor(a.heartRateBpm);
   renderReasons($('resultReasons'), a.quality.reasons);
   renderWithheld(a.withheld);
-  renderNoiseFloor(a.repeatabilitySdMs);
 
-  // 🔴 相機產生的東西一律是 estimated —— 契約逼你標記，畫面就照著講。
+  // 🔴 每一個被接受的讀數都要標明它是怎麼來的（PULSE ANCHOR brief §8），
+  // 而且要把相機**做不到**的事講在同一句裡 —— 否則使用者會自己補上
+  // 「那應該也量了心律變異吧」。
   $('derivation').textContent =
-    input.availability.hrv === true
-      ? '心律變異為相機估計值，與手錶／胸帶的數字不可直接比較。'
-      : '這次沒有心律變異讀數。';
+    a.heartRateBpm === null
+      ? '這次沒有立住脈搏參考值。'
+      : `相機指尖 PPG · 品質 ${a.quality.score}/100。相機讀不到逐拍間隔，所以不報心律變異與呼吸率。`;
+
+  // availability 是契約講給引擎聽的那一面：沒有的東西要是 false，不是 0。
+  // 這裡只是把它讀出來當自我檢查 —— 畫面不得宣稱比它更多的東西。
+  if (input.availability.hrv === true) {
+    throw new Error('相機掃描不得回報 hrv availability');
+  }
 
   $('verdictNote').textContent =
     a.heartRateBpm === null
@@ -308,15 +287,15 @@ function renderOutcome(outcome) {
       : `以 ${a.beatCount} 拍為依據。`;
 }
 
-function renderMetric(id, value, unit) {
-  const el = $(id);
-  if (value === null) {
+function renderAnchor(bpm) {
+  const el = $('hr');
+  if (bpm === null) {
     el.textContent = '—';
     el.classList.add('absent');
     return;
   }
   el.classList.remove('absent');
-  el.textContent = `${value} ${unit}`;
+  el.textContent = `${bpm} bpm`;
 }
 
 function renderWithheld(withheld) {
@@ -324,52 +303,24 @@ function renderWithheld(withheld) {
   const head = $('withheldHead');
   host.innerHTML = '';
 
-  // 「這次沒有報的」底下寫「三項都讀到了」是自相矛盾的 —— 沒有東西可列時，
+  // 相機從來就不報心律變異與呼吸率 —— 那是常態，不是這次的失誤。把它們列進
+  // 「這次沒有報的」會讓每一次成功的校準都看起來少了兩項；那句限制在上面的
+  // derivation 講過一次就夠。這裡只留**這次**沒立住的東西。
+  const thisScan = withheld.filter((entry) => entry.reason !== 'mode_excludes_metric');
+
+  // 「這次沒有報的」底下寫「都讀到了」是自相矛盾的 —— 沒有東西可列時，
   // 整塊換成一句陳述，不要留一個空標題配一句反話。（自己截圖看出來的）
-  if (withheld.length === 0) {
-    head.textContent = '三項都讀到了';
+  if (thisScan.length === 0) {
+    head.textContent = '脈搏立住了';
     return;
   }
   head.textContent = '這次沒有報的';
-  const names = { heart_rate: '心率', hrv: '心律變異', respiration: '呼吸率' };
-  for (const entry of withheld) {
+  const names = { heart_rate: '脈搏', hrv: '心律變異', respiration: '呼吸率' };
+  for (const entry of thisScan) {
     const li = document.createElement('li');
     li.className = 'reason withheld';
     li.textContent = `${names[entry.metric] ?? entry.metric}：${WITHHELD_COPY[entry.reason] ?? entry.reason}`;
     host.appendChild(li);
-  }
-}
-
-/**
- * 重複性與雜訊底線。
- *
- * 這是整頁最重要的一塊：系統在講**它量自己有多準**。
- * 底線未確立時照實說「還在累積」，不給一個假裝已經知道的數字。
- */
-function renderNoiseFloor(repeatabilitySdMs) {
-  const next = recordRepeatability(loadNoiseFloor(), repeatabilitySdMs);
-  saveNoiseFloor(next);
-
-  const floor = resolveNoiseFloor(next);
-  $('scanCount').textContent = String(next.samples.length);
-
-  if (repeatabilitySdMs === null) {
-    $('repeatability').textContent = '—';
-    $('repeatabilityNote').textContent = '這次沒有心律變異讀數，不列入重複性。';
-  } else {
-    $('repeatability').textContent = `±${repeatabilitySdMs} ms`;
-    $('repeatabilityNote').textContent =
-      '這次掃描內部，前後段讀數的差距。比底線大就是這次量得比平常吃力。';
-  }
-
-  if (floor === null) {
-    $('noiseFloor').textContent = '累積中';
-    $('noiseFloorNote').textContent =
-      `再做 ${Math.max(0, 3 - next.samples.length)} 次有效校準就能定出你的雜訊底線。`;
-  } else {
-    $('noiseFloor').textContent = `±${floor.toFixed(1)} ms`;
-    $('noiseFloorNote').textContent =
-      '小於這個幅度的變化，不會被當成狀態改變 —— 那是量測誤差，不是你。';
   }
 }
 
@@ -437,10 +388,5 @@ window.__tenkiFingerHarness = {
   renderFrames(frames) {
     state.frames = frames;
     renderOutcome(analyzePpgScan(frames, MODE));
-  },
-  resetNoiseFloor() {
-    try {
-      localStorage.removeItem(NOISE_FLOOR_KEY);
-    } catch (_) { /* ignore */ }
   },
 };

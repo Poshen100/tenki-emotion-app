@@ -34,7 +34,10 @@ function scanAndScore(
   recentScores: number[] = [],
 ) {
   const scan = synthesizePpg({ ...overrides, startedAtMs: at });
-  const outcome = analyzePpgScan(scan.frames, 'full_scan');
+  // See analyze.test.ts — camera HRV is off by default. These cases are about
+  // the missing-data path in the ENGINE, so they enable it explicitly to get a
+  // complete reading to contrast against.
+  const outcome = analyzePpgScan(scan.frames, 'full_scan', { cameraHrvEstimates: true });
   if (outcome.status !== 'analysed') throw new Error(`rejected: ${outcome.reason}`);
 
   const input = toEngineInput(outcome.analysis, at);
@@ -150,7 +153,7 @@ describe('a user with nothing but a phone', () => {
 
   it('produces no score at all when the scan established nothing', () => {
     const scan = synthesizePpg(PPG_FIXTURES.lowPerfusion);
-    const outcome = analyzePpgScan(scan.frames, 'full_scan');
+    const outcome = analyzePpgScan(scan.frames, 'full_scan', { cameraHrvEstimates: true });
     if (outcome.status !== 'analysed') throw new Error('expected an analysis');
 
     const input = toEngineInput(outcome.analysis, START);
