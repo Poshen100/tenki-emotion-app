@@ -156,6 +156,32 @@ founder 問「建立 PPG 手指基線的流程要不要再升級，尤其針對�
 
 `verify.sh` 全綠。domain 191 → 202，mobile 231 → 238。
 
+## 續四：/finger/ 實走頁（founder 第一次看得到這幾輪的東西）
+
+- 🔴 **鏡射改成機器產生。** `apps/preview/engine/` 由
+  `scripts/build-preview-ppg.mjs` 從 `packages/engine/src` 編出 ESM。
+  既有的 `drift.js` 是 835 行手抄影子 342 行 engine —— PPG pipeline 是它的數倍，
+  手抄等於長期開著一扇門。`--check` 重編後比對，改 TS 沒重建就紅。
+  ⚠️ `replay.ts` **刻意不進 bundle**：測試工具不得進 production 路徑，
+  這件事現在是結構性的。harness 自己在暫存目錄編一份用。
+- 🔴 **harness 當場抓到我自己的 bug**：`data-secured` 從來沒被設定過，
+  CSS 的 `[data-secured="yes"]` 永遠不生效 —— **gold 那條紅線的守門，
+  從寫下去的那一刻就是壞的**。沒有 harness 我不會發現。
+- 🔴 **harness 的資料要來自真 pipeline**：用合成器造 frames 餵進頁面的
+  `renderFrames()`，頁面照常跑 `analyzePpgScan` 再渲染。往 DOM 填數字的
+  harness 守不住任何東西。
+- 🟡 **自己截圖抓到四個斷言抓不到的**：標題被 kicker 行高切過（中文 ascender
+  會超出 line box，margin 是必要不是呼吸）、`<strong>` 換行切開短語、
+  「這次沒有報的 → 三項都讀到了」自相矛盾、低灌流建議說「蓋住鏡頭」
+  但畫面同時顯示「覆蓋完整」。最後一個已加斷言擋住這類矛盾。
+- 🟡 **容器字型會製造假象**：標題「變異」上有一條橫線，量過 CSS 乾淨
+  （text-decoration none、無重疊、無溢出），是沙箱沒有 PingFang TC 的
+  fallback 渲染問題。**不要為容器假象改設計** —— 但要請 founder 實機確認。
+- ⚠️ iOS Safari 沒有 torch API，無補光訊號較弱。頁面照實說，
+  **不因此放寬品質門檻**。
+
+`verify.sh` 全綠（新增 preview-finger 22 條），CI 也接了。
+
 ## 下次接手點
 
 - **相機擷取層（VisionCamera frame processor → `PpgFrame`）還沒寫**，需要實機。
