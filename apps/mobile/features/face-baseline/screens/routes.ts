@@ -4,12 +4,22 @@
  * reference these constants so navigation stays decoupled from string literals.
  */
 
+import type { OnboardingBaselinePlan } from '@tenki/domain';
 import type { EntryContext } from '../types/faceBaseline.types';
 
 const BASE = '/face-baseline' as const;
 
 /** Onboarding completion route — lives outside the face-baseline stack. */
 export const ONBOARDING_COMPLETE_ROUTE = '/onboarding/complete' as const;
+
+/**
+ * The finger HRV baseline, reached from onboarding when no connected wearable
+ * can supply HRV (founder decision 2026-09-11).
+ *
+ * ⚠️ It comes AFTER the face baseline and does not replace it — the two
+ * measure different things. See `docs/SOUL-SCAN-NORTH-STAR.md` §1.
+ */
+export const FINGER_BASELINE_ROUTE = '/finger-baseline' as const;
 
 /**
  * Daily-scan reveal route — the Today tab, whose Edge Score ring renders the
@@ -45,6 +55,18 @@ export type FbRoute = (typeof FB_ROUTES)[keyof typeof FB_ROUTES];
  */
 export function establishedExitRoute(
   entryContext: EntryContext,
-): typeof ONBOARDING_COMPLETE_ROUTE | typeof FB_ROUTES.maturity {
-  return entryContext === 'onboarding' ? ONBOARDING_COMPLETE_ROUTE : FB_ROUTES.maturity;
+  plan?: OnboardingBaselinePlan,
+):
+  | typeof ONBOARDING_COMPLETE_ROUTE
+  | typeof FINGER_BASELINE_ROUTE
+  | typeof FB_ROUTES.maturity {
+  if (entryContext !== 'onboarding') {
+    return FB_ROUTES.maturity;
+  }
+
+  // Omitting the plan keeps the original behaviour, so every caller that
+  // predates the finger branch is unaffected.
+  return plan?.steps.includes('finger_hrv_baseline') === true
+    ? FINGER_BASELINE_ROUTE
+    : ONBOARDING_COMPLETE_ROUTE;
 }

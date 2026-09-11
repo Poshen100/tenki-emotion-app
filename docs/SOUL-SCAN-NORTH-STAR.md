@@ -20,6 +20,16 @@
 
   ⚠️ 這一條**不推翻**上面兩條，也**不改**「不要把臉部流程塞進
   `(tabs)/scan.tsx`」那條鐵律。手指走自己的流程，臉部走自己的。
+
+  **接線位置（2026-09-11 落地）**：手指那一步在**臉部基線之後**，
+  出口在 `features/face-baseline/screens/routes.ts` 的 `establishedExitRoute()`。
+  決策是純函式 `planOnboardingBaselines()`（`domain/policies/onboarding-sensor-plan.ts`），
+  有一條測試對所有連接組合斷言 `steps[0] === 'face_baseline'` ——
+  **手指永遠不取代臉部**。`establishedExitRoute` 不帶 plan 時行為與從前相同。
+
+  ⚠️ 「已連接」＝ 連線成立**且拿到 `scan` scope**。連了但沒給掃描權限的
+  來源在掃描當下什麼都不給，把它算進去會讓 phone-only 使用者被錯誤地
+  導離手指基線（`features/devices/connectedPlatforms.ts`，有測試守著）。
 - 第一次使用的任務不是「做一次掃描」，而是「**建立 Personal Face Baseline**」。
 - 體驗基準 = iPhone 設定 Face ID：安靜、精準、可信、系統級。
 - 要的是 **Apple 式精密感**，不是醫療儀器感：少字、強回饋、不堆 AI 術語，

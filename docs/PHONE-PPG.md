@@ -204,7 +204,7 @@ baseline 的離散度還要包含真實的日間生理變化，必然更大。�
 | 缺口 | 為什麼 |
 |---|---|
 | VisionCamera frame processor → `PpgFrame` | 需要實機：ROI 取樣、閃光燈控制、曝光鎖定、每幀成本 |
-| 掃描 UI（引導、品質即時回饋、reasons 顯示）| 見 `docs/SOUL-SCAN-NORTH-STAR.md`；**不要把手指流程塞進 `(tabs)/scan.tsx`** |
+| 掃描 UI 的**擷取與即時回饋**（引導、品質即時顯示、reasons）| 見 `docs/SOUL-SCAN-NORTH-STAR.md`；**不要把手指流程塞進 `(tabs)/scan.tsx`**。⚠️ onboarding 的**路由與說明畫面已接**（`app/finger-baseline.tsx`），但它誠實顯示「這個版本還沒有相機擷取模組」，**不得**在擷取層真的能用之前把它換成看起來能按的開始鍵 —— 有一條測試守著 |
 | 實機準確度 | 合成真值不能代替真手指。第一次實走要抽驗 perfusion／periodicity 的實際分布，門檻很可能要重校 |
 | 效能／發熱 | 逐幀處理不得進 React state、不得每幀 rerender（brief §34）|
 | **真實日間生理變異有多大** | 🔴 上表「真實日間SD」該填哪一列，**合成器答不出來** —— 它每天用同一組生理參數，根本沒有模擬日間變化。這是決定產品成不成立的參數，只能用真人資料回答。第一批實走使用者的 noise floor 與 baseline std 的比值就是答案 |
