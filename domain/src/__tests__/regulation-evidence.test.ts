@@ -82,7 +82,7 @@ describe('the copy guard catches the phrasings that are known to be wrong', () =
     for (const line of [
       '相機指尖 PPG · 品質 99/100',
       '這次的脈搏參考值',
-      '相機推導的脈搏間期變化，這不是心律變異',
+      '相機推導的靜息脈搏變化，這不是心律變異',
       'Your rhythm became steadier during the reset.',
       'camera-derived respiratory rate',
     ]) {

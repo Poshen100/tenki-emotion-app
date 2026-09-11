@@ -171,8 +171,11 @@ export {
   PULSE_ANCHOR_TIMES_OF_DAY,
   PULSE_BASELINE_STAGES,
   PULSE_BASELINE_THRESHOLDS,
+  MIN_PRV_ANCHORS_FOR_COMPARISON,
+  MIN_PRV_DATES_FOR_COMPARISON,
   buildPulseAnchor,
   contextsAreComparable,
+  resolvePrvComparison,
   resolvePulseBaselineProgress,
   resolveRestingBand,
 } from './biometric/pulse-anchor';
@@ -186,6 +189,7 @@ export type {
   PulseBaselineProgress,
   PulseBaselineStage,
   PulseRestingBand,
+  PrvComparison,
 } from './biometric/pulse-anchor';
 
 // ─── Baseline ───────────────────────────────

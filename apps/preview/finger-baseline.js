@@ -25,6 +25,7 @@ import {
 } from './engine/biometric/ppg/signal-quality.js';
 import {
   buildPulseAnchor,
+  resolvePrvComparison,
   resolvePulseBaselineProgress,
   resolveRestingBand,
 } from './engine/biometric/pulse-anchor.js';
@@ -109,6 +110,18 @@ const STAGE_COPY = {
 const ADVISORY_COPY = {
   torch_unavailable:
     '這次沒有補光燈（iOS Safari 不支援）。讀數照算 —— 沒有補光只是讓訊號更容易太弱，而太弱本來就會被擋下來。',
+};
+
+/**
+ * 三個中性的落點說法。
+ *
+ * 🔴 不得出現壓力／恢復／準備度／交感／副交感 —— 引擎回的是 token，句子在這裡
+ * 生成，就是為了讓「能講什麼」只有一個地方要看。
+ */
+const PLACEMENT_COPY = {
+  below_usual: '比你平常低',
+  usual: '在你平常的範圍內',
+  above_usual: '比你平常高',
 };
 
 const ANCHOR_KEY = 'tenki.preview.pulseAnchors';
@@ -474,7 +487,8 @@ function renderOutcome(outcome) {
   renderWithheld(a.withheld);
 
   renderAdvisories(signal.advisories);
-  renderStage(a);
+  const anchors = renderStage(a);
+  renderPrv(a, anchors);
 
   $('frameNote').textContent =
     `${signal.usableFrameCount} / ${signal.totalFrameCount} 幀通過接觸、曝光與晃動的逐幀門檻，` +
@@ -488,10 +502,9 @@ function renderOutcome(outcome) {
       ? '這次沒有立住脈搏參考值。'
       : `相機指尖 PPG · 品質 ${a.quality.score}/100。相機不報呼吸率 —— 那需要另一套擷取流程（Breath Lock）。`;
 
-  renderPrv(a);
-
   // 🔴 availability 是契約講給引擎聽的那一面。相機**永遠**不得回報 hrv：
-  // 它量到的是脈搏間期變化（PRV），那跟胸帶的 RR-derived HRV 是兩個量。
+  // 它量到的是脈搏節律（相機推導的靜息脈搏變化，PRV），那跟胸帶的
+  // RR-derived HRV 是兩個量。
   // 這一行是自我檢查 —— 真的擋在 `to-reading.ts`，那裡寫死 false。
   if (input.availability.hrv === true) {
     throw new Error('相機掃描不得回報 hrv availability');
@@ -557,6 +570,8 @@ function renderStage(analysis) {
     $('bandNote').textContent =
       `中位數 ${band.medianBpm} bpm，以 ${band.anchorCount} 次校準的四分位為界（不是最小值到最大值 —— 一次手冰的早上不該把你的區間永久撐開）。`;
   }
+
+  return anchors;
 }
 
 /**
@@ -576,31 +591,47 @@ function renderAdvisories(advisories) {
 }
 
 /**
- * 脈搏間期變化（PRV）。
+ * 脈搏節律 —— 相機推導的靜息脈搏變化（PRV）。
  *
- * 🔴 **不是心律變異。** 相機是從光的波形推回拍點時間，胸帶是直接量拍與拍之間。
- * 兩個量的誤差行為不一樣：乾淨擷取 PRV 就已經低報 7–9%，而在品質分數 99 的
- * 擷取上它可以錯 156%（感光雜訊不扣品質分，卻會把每個峰值推開）。所以它只在
- * 拍形穩定度過關時才出現 —— 過不了就整項消失，不給一個看起來合理的數字。
+ * 🔴 **不是心律變異**，而且**不進 Edge Score**（founder 2026-09-11）。
+ * 相機是從光的波形推回拍點時間，胸帶是直接量拍與拍之間；兩者誤差行為不一樣：
+ * 乾淨擷取 PRV 就已經低報 7–9%，而在品質分數 99 的擷取上它可以錯 156%
+ * （感光雜訊不扣品質分，卻會把每個峰值推開）。所以它只在拍形穩定度過關時
+ * 才出現 —— 過不了就**整項消失**，不是降級成一個誤導人的數字。
+ *
+ * 🔴 它只出現在證據層（展開的「量測細節與證據」），不是頭條讀數。
+ * 🔴 個人比較要等到有足夠多**可比較的高品質**靜息錨點才給。
  */
-function renderPrv(a) {
+function renderPrv(a, anchors) {
   const row = $('prvRow');
   const note = $('prvNote');
+  const compare = $('prvCompare');
+  const rule = $('prvRule');
   const shown = a.prvRmssdMs !== null;
 
   row.hidden = !shown;
   note.hidden = !shown;
+  rule.hidden = !shown;
   if (!shown) {
     // 清掉上一次的值。隱藏的節點留著舊數字，下一次一顯示就是別人的讀數。
     $('prv').textContent = '—';
     note.textContent = '';
+    compare.textContent = '';
+    compare.hidden = true;
     return;
   }
 
   $('prv').textContent = `${a.prvRmssdMs} ms`;
   note.textContent =
-    `相機推導的脈搏間期變化，拍形穩定度 ${a.beatTemplateCorrelation}。` +
-    '這不是心律變異 —— 手錶或胸帶的數字跟它不能直接比。';
+    `相機推導的靜息脈搏變化，拍形穩定度 ${a.beatTemplateCorrelation}。` +
+    '這不是心律變異 —— 手錶或胸帶的數字跟它不能直接比。它不進你的分數。';
+
+  const comparison = resolvePrvComparison(anchors, a.prvRmssdMs);
+  compare.hidden = false;
+  compare.textContent =
+    comparison.status === 'established'
+      ? `跟你過去 ${comparison.sampleCount} 次可比較的高品質校準相比：${PLACEMENT_COPY[comparison.placement]}。`
+      : `還在累積可比較的紀錄（${comparison.sampleCount}/${comparison.required} 次），還不能跟你自己比。`;
 }
 
 function renderAnchor(bpm) {
@@ -640,7 +671,7 @@ function renderWithheld(withheld) {
   }
   head.hidden = false;
   head.textContent = '這次沒有報的';
-  const names = { heart_rate: '脈搏', prv: '脈搏間期變化', respiration: '呼吸率' };
+  const names = { heart_rate: '脈搏', prv: '脈搏節律', respiration: '呼吸率' };
   for (const entry of thisScan) {
     const li = document.createElement('li');
     li.className = 'reason withheld';

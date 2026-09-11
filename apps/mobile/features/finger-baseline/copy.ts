@@ -53,7 +53,7 @@ export const FINGER_BASELINE_COPY = {
    * 逐拍之間的間隔") was simply false: a camera does recover beat intervals.
    * What it recovers is pulse-rate variability, which is not HRV.
    */
-  limits: '相機推得回拍與拍之間的間隔，但那是脈搏間期變化 —— 跟手錶或胸帶的心律變異是兩個量，不能直接比。呼吸率要另一套擷取流程，這個版本不報。',
+  limits: '相機推得回拍與拍之間的間隔，但那是「脈搏節律」（相機推導的靜息脈搏變化）—— 跟手錶或胸帶的心律變異是兩個量，不能直接比，也不進你的分數。呼吸率要另一套擷取流程，這個版本不報。',
 
   /** Privacy, stated as a property of the design rather than a promise. */
   privacy: '影像不留存。每一幀在本機化簡成數值後就丟棄。',

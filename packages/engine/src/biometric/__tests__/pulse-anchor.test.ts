@@ -8,11 +8,14 @@
 import { PPG_FIXTURES, synthesizePpg } from '../ppg/replay';
 import { analyzePpgScan } from '../ppg/analyze';
 import {
+  MIN_PRV_ANCHORS_FOR_COMPARISON,
+  MIN_PRV_DATES_FOR_COMPARISON,
   PULSE_BASELINE_THRESHOLDS,
   type PulseAnchor,
   type PulseAnchorContext,
   buildPulseAnchor,
   contextsAreComparable,
+  resolvePrvComparison,
   resolvePulseBaselineProgress,
   resolveRestingBand,
 } from '../pulse-anchor';
@@ -202,5 +205,120 @@ describe('the thresholds are the ones the spec names', () => {
       PULSE_BASELINE_THRESHOLDS.contextual_baseline.dates,
     ];
     for (let i = 1; i < dates.length; i++) expect(dates[i]).toBeGreaterThan(dates[i - 1]);
+  });
+});
+
+describe('Pulse Rhythm is compared only against enough comparable history', () => {
+  /** `count` PRV-bearing anchors over `dates` days, with the given values. */
+  function prvAnchors(count: number, dates: number, values: number[]): PulseAnchor[] {
+    return Array.from({ length: count }, (_, i) => ({
+      ...anchorOn(`2026-09-${String(10 + (i % dates)).padStart(2, '0')}`, 66),
+      prvRmssdMs: values[i % values.length],
+    }));
+  }
+
+  it('withholds the comparison until there are enough comparable anchors', () => {
+    // 🔴 founder rule: personal comparison only after sufficient comparable
+    // high-quality resting anchors. One good capture is not a personal range.
+    const result = resolvePrvComparison(prvAnchors(3, 3, [40, 42, 44]), 41);
+    expect(result.status).toBe('accumulating');
+    expect(result.required).toBe(MIN_PRV_ANCHORS_FOR_COMPARISON);
+  });
+
+  it('withholds it when the anchors are all from one day', () => {
+    const result = resolvePrvComparison(prvAnchors(10, 1, [40, 42, 44]), 41);
+    expect(result.status).toBe('accumulating');
+  });
+
+  it('counts only anchors whose PRV gate actually passed', () => {
+    // ⚠️ An anchor with a pulse but no PRV says nothing about this person's
+    // pulse rhythm, and counting it would reach the threshold on evidence that
+    // does not exist.
+    const withoutPrv = Array.from({ length: 10 }, (_, i) => ({
+      ...anchorOn(`2026-09-${String(10 + (i % 4)).padStart(2, '0')}`, 66),
+      prvRmssdMs: null,
+    }));
+    expect(resolvePrvComparison(withoutPrv, 41).status).toBe('accumulating');
+    expect(resolvePrvComparison(withoutPrv, 41).sampleCount).toBe(0);
+  });
+
+  it('compares only within a comparable context', () => {
+    const morning = prvAnchors(
+      MIN_PRV_ANCHORS_FOR_COMPARISON + 2,
+      MIN_PRV_DATES_FOR_COMPARISON + 1,
+      [40, 42, 44, 46],
+    );
+    const night = morning.map((a) => ({ ...a, context: { ...a.context, timeOfDay: 'night' as const } }));
+    // Plenty of anchors, none of them comparable with a morning capture.
+    expect(resolvePrvComparison(night, 41, CONTEXT).status).toBe('accumulating');
+  });
+
+  it('places a reading inside the usual range once there is enough', () => {
+    const anchors = prvAnchors(
+      MIN_PRV_ANCHORS_FOR_COMPARISON + 2,
+      MIN_PRV_DATES_FOR_COMPARISON + 1,
+      [38, 40, 42, 44, 46],
+    );
+    const result = resolvePrvComparison(anchors, 42);
+    expect(result.status).toBe('established');
+    if (result.status === 'established') expect(result.placement).toBe('usual');
+  });
+
+  it('places a clearly high and a clearly low reading outside it', () => {
+    const anchors = prvAnchors(
+      MIN_PRV_ANCHORS_FOR_COMPARISON + 2,
+      MIN_PRV_DATES_FOR_COMPARISON + 1,
+      [38, 40, 42, 44, 46],
+    );
+    const high = resolvePrvComparison(anchors, 90);
+    const low = resolvePrvComparison(anchors, 5);
+    if (high.status === 'established') expect(high.placement).toBe('above_usual');
+    if (low.status === 'established') expect(low.placement).toBe('below_usual');
+  });
+
+  it('says nothing when this capture produced no PRV at all', () => {
+    // 🔴 A failed gate removes the whole result. It does not become a
+    // comparison against history with a missing number in it.
+    const anchors = prvAnchors(
+      MIN_PRV_ANCHORS_FOR_COMPARISON + 2,
+      MIN_PRV_DATES_FOR_COMPARISON + 1,
+      [38, 40, 42],
+    );
+    expect(resolvePrvComparison(anchors, null).status).toBe('accumulating');
+  });
+
+  it('🔴 offers only neutral placements, never an autonomic reading', () => {
+    // The vocabulary is the guard. There is no value this function can return
+    // that says stress, recovery, readiness or vagal anything.
+    const anchors = prvAnchors(
+      MIN_PRV_ANCHORS_FOR_COMPARISON + 2,
+      MIN_PRV_DATES_FOR_COMPARISON + 1,
+      [38, 40, 42, 44, 46],
+    );
+    const result = resolvePrvComparison(anchors, 42);
+    if (result.status === 'established') {
+      expect(['below_usual', 'usual', 'above_usual']).toContain(result.placement);
+    }
+  });
+});
+
+describe('an anchor carries PRV without ever carrying HRV', () => {
+  it('stores PRV and the gate it passed, beside the pulse', () => {
+    const real = buildPulseAnchor(analyse(), {
+      capturedAtMs: 0,
+      localDateKey: '2026-09-11',
+      context: CONTEXT,
+    });
+    expect(real?.prvRmssdMs).not.toBeNull();
+    expect(real?.beatTemplateCorrelation).not.toBeNull();
+  });
+
+  it('🔴 has no field named hrv anywhere in the persisted shape', () => {
+    const real = buildPulseAnchor(analyse(), {
+      capturedAtMs: 0,
+      localDateKey: '2026-09-11',
+      context: CONTEXT,
+    });
+    expect(JSON.stringify(real).toLowerCase()).not.toContain('hrv');
   });
 });

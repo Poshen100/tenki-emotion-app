@@ -11,7 +11,7 @@
 一級的意思不是「假裝它跟胸帶一樣準」，而是：**它能量到的就報，量不到的就明說沒量到**，
 而且下游（Edge Score、baseline）能誠實表達「這一項沒有」。
 
-🔴 **相機報兩項：靜息脈搏（Pulse Anchor）與脈搏間期變化（PRV）。**
+🔴 **相機報兩項：靜息脈搏（Pulse Anchor）與脈搏節律（PRV）。**
 PRV **不是 HRV**，而且只在拍形穩定度過關時才出現（§13）。呼吸率退到獨立的
 Breath Lock 形式後面（`camera_breath_lock`，預設 false，§14）—— 見 §11。
 §10 的 noise floor 是 HRV 專用機制，因此一併下架（理由與「改吃 BPM 離散度為什麼
@@ -276,7 +276,7 @@ Rhythm）的實際來源。
 | | 報嗎 | 條件 / 為什麼 |
 |---|---|---|
 | 靜息脈搏（bpm）| ✅ | 量測雜訊 0.06–0.5 bpm 對真實日間變異 3–8 bpm，訊噪比 >10:1 |
-| 脈搏間期變化 PRV（RMSSD）| ✅ **有條件** | 只在拍形穩定度 ≥ 0.97 時（§13）。**不是 HRV**，不得填進 HRV 欄位、不得餵 HRV driver、不得被標成 HRV |
+| 脈搏節律 PRV（RMSSD）| ✅ **有條件** | 只在拍形穩定度 ≥ 0.97 時（§13）。**不是 HRV**、**不進 Edge Score**、只出現在證據層（§13）|
 | 呼吸率 | ❌ | 只能以獨立的 Breath Lock 形式釋出（§14）。`camera_breath_lock` 預設關，擷取層還不存在 |
 | 心律變異 HRV | ❌ **永遠** | 相機沒有 RR interval。HRV 只能來自胸帶／平台 |
 | 交感／副交感／LF-HF／自律神經分數 | ❌ **永遠** | 手機量不到神經活動。契約裡連欄位都沒有（`domain/contracts/regulation-evidence.ts`）|
@@ -394,6 +394,24 @@ iOS Safari 沒有 torch API，拿它拒收等於拒收一整個平台。它**不
 🔴 這個門檻是對**合成訊號**校的。真手指的拍形變異比合成器大，所以實機上它
 可能幾乎永遠過不了 —— 那會是「PRV 實際上不出現」，而那是誠實的結果，不是
 bug。實機第 15 條在驗這件事。
+
+### Pulse Rhythm 的產品規則（founder 2026-09-11 決議）
+
+| 規則 | 落在哪 |
+|---|---|
+| 名字只能是 **Camera-derived Resting Pulse Variability** 或 **Pulse Rhythm**（中文：脈搏節律／相機推導的靜息脈搏變化）| 文案＋harness 斷言 |
+| 永遠不叫 HRV、不填 HRV 欄位、不餵 HRV driver | `to-reading.ts` 寫死；型別不允許 |
+| **不得**被講成交感／副交感／迷走／壓力／恢復／準備度／醫療證據 | `findForbiddenAutonomicClaims()` ＋ harness 對 PRV 文案的正規表達式 |
+| 閘門不過就**整項消失**，不是降級成一個誤導人的數字 | `prvRmssdMs: null`，`PrvComparison` 也回 accumulating |
+| 不持久化原始幀或原始脈搏波形 | `PulseAnchor` 只有推導值；有測試把序列化後的 anchor 攤開驗 |
+| **初期只出現在證據／量測細節層** | `/finger/` 收在展開的「量測細節與證據」裡；harness 驗 DOM 歸屬**不是**可見性（收起來的 `<details>` 裡 `offsetParent` 仍不是 null）|
+| **初期不得影響 Edge Score** | 有一條測試把同一筆擷取的 PRV 拿掉再算一次，斷言 score、confidence、excludedDrivers **完全相同** |
+| 個人比較要等到足夠多**可比較的高品質**靜息錨點 | `resolvePrvComparison()`：7 次跨 3 天，且 context 可比較、PRV 閘門有過 |
+| 與 BLE 胸帶 RR-derived HRV 在型別／儲存／分析／文案／計分五處都分開 | 型別 ✓ 儲存 ✓ 計分 ✓ 文案 ✓ 分析：`ScoreDriver.excluded` |
+
+⚠️ 分析層那一條是這一輪補的真 bug：`insight-generator` 原本用
+`driver?.impact || 0`，把「沒量到」變成「正好中性」—— phone-only 使用者
+（永遠沒有 HRV）因此可能拿到一則「你的 HRV 在進步」的洞察，整串都是 0 湊出來的。
 
 ### PRV 不是 HRV，而且分家是結構性的
 

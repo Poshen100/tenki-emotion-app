@@ -196,6 +196,14 @@ export interface ScoreDriver {
   impact: number;
   /** Raw sub-score before weighting (0-100). */
   rawSubScore: number;
+  /**
+   * True when nothing measured this driver, so it moved the score by zero.
+   *
+   * 🔴 Stated rather than inferred from a NaN. Analytics reads driver impacts,
+   * and `impact || 0` silently turns "not measured" into "exactly neutral" —
+   * which is how a phone-only user ends up in an insight about their HRV trend.
+   */
+  excluded: boolean;
 }
 
 // ─────────────────────────────────────────────

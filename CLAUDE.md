@@ -46,6 +46,7 @@
 | 把相機 HRV 跟手錶／胸帶 HRV 當同一個數字比較 | 三者 `derivation` 不同（estimated / observed / derived），contract 逼你標記就是為了擋這件事 |
 | 對 SDNN/RMSSD 或相機 HRV 的偏差**乘一個固定係數**修正 | 沒有個人化依據的魔術常數會把偏差藏起來（`harmonizeHrv() × 0.75` 已因此拆掉一次）|
 | 產出 SNS / PNS score、LF/HF balance、「交感副交感平衡」、「自律神經分數」 | 手機量不到神經活動。LF 不是選擇性的交感指標、LF/HF 不該被描述成 sympathovagal balance。`domain/contracts/regulation-evidence.ts` **連欄位都沒有**，並有 `findForbiddenAutonomicClaims()` 擋文案 |
+| 把「脈搏節律」(PRV) 放進頭條讀數、讓它影響 Edge Score、或在累積夠多可比較的高品質錨點前就跟使用者自己比 | founder 2026-09-11 決議：初期只在**證據／量測細節層**、**不進分數**、比較要等 7 次跨 3 天（`docs/PHONE-PPG.md` §13）|
 | 把相機的 PRV 叫成 HRV、或讓它填進 `hrvRmssdMs` / 餵 HRV driver / 進 HRV baseline | 相機是從光的波形推回拍點，胸帶是直接量拍間距。品質分數 99 的擷取 PRV 可以錯 156%（`docs/PHONE-PPG.md` §13）。混在一起之後沒人分得出那份 baseline 是誰量的 |
 | 讓相機呼吸率以 pulse scan 副產品的形式出現 | 只能是獨立的 Breath Lock：45–60 秒 protocol、自己的閘門、對照參考來源驗證（§14）|
 | 兩個來源的呼吸率不一致時取平均 | 對的答案跟錯的答案的平均是第三個錯答案。不一致就顯示「訊號衝突」或什麼都不顯示 |

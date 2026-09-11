@@ -685,6 +685,7 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
       direction: getDirection(raw),
       impact: Math.round(((raw - 50) / 50) * 100) / 100, // Normalize to -1 to 1
       rawSubScore: raw,
+      excluded: excludedDrivers.includes(key),
     });
   }
 

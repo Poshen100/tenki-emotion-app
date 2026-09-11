@@ -79,6 +79,18 @@ export interface PulseAnchor {
    * is what the stages below turn on.
    */
   localDateKey: string;
+  /**
+   * Camera-derived resting pulse variability in ms, or null when its own gate
+   * did not pass.
+   *
+   * 🔴 Stored beside the pulse, never merged into it and never named `hrv`.
+   * A low-quality or short capture removes this ENTIRELY rather than
+   * downgrading it into a smaller-looking number (founder rule, 2026-09-11) —
+   * which is why it is nullable rather than accompanied by a confidence.
+   */
+  prvRmssdMs: number | null;
+  /** Beat-shape stability the PRV gate was decided on, or null. */
+  beatTemplateCorrelation: number | null;
   source: PulseAnchorSource;
   derivation: typeof PULSE_ANCHOR_DERIVATION;
   /** How well the capture saw it. Kept with the reading, never separable. */
@@ -157,6 +169,8 @@ export function buildPulseAnchor(
 
   return {
     restingPulseBpm: analysis.heartRateBpm,
+    prvRmssdMs: analysis.prvRmssdMs,
+    beatTemplateCorrelation: analysis.beatTemplateCorrelation,
     capturedAtMs: at.capturedAtMs,
     localDateKey: at.localDateKey,
     source: 'camera_fingertip_ppg',
@@ -273,4 +287,98 @@ function percentile(sorted: readonly number[], p: number): number {
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+// ─────────────────────────────────────────────
+// Pulse Rhythm (camera-derived resting PRV)
+// ─────────────────────────────────────────────
+
+/**
+ * Comparable high-quality anchors needed before a PRV reading may be compared
+ * against the user's own history.
+ *
+ * 🔴 founder rule, 2026-09-11: *"only show personal comparison after sufficient
+ * comparable high-quality resting anchors"*. Matched to the resting-band stage
+ * (7 anchors across 3 days) because it is the same question — how much of this
+ * person have we actually seen — and inventing a second, looser number for the
+ * shakier measurement would be backwards.
+ *
+ * ⚠️ These are anchors whose PRV gate PASSED, which is a much smaller set than
+ * anchors overall: the beat-shape threshold admits only near-perfect captures.
+ * Reaching this on a real device may take considerably longer than reaching the
+ * pulse band, and that is the honest consequence of the gate.
+ */
+export const MIN_PRV_ANCHORS_FOR_COMPARISON = 7;
+/** Separate days those anchors must span. */
+export const MIN_PRV_DATES_FOR_COMPARISON = 3;
+
+/** How this capture's Pulse Rhythm sits against the user's own history. */
+export type PrvComparison =
+  | {
+      status: 'accumulating';
+      sampleCount: number;
+      required: number;
+    }
+  | {
+      status: 'established';
+      sampleCount: number;
+      required: number;
+      /**
+       * Descriptive placement, in the user's own terms.
+       *
+       * 🔴 Never framed as stress, recovery, readiness, vagal tone or anything
+       * autonomic — this is where that claim would get written, so the
+       * vocabulary is fixed to three neutral placements.
+       */
+      placement: 'below_usual' | 'usual' | 'above_usual';
+    };
+
+/**
+ * Where this capture's Pulse Rhythm sits relative to comparable history.
+ *
+ * @param anchors - Every anchor kept for this user.
+ * @param currentPrvMs - This capture's PRV, or null when its gate did not pass.
+ * @param context - The context to compare within; defaults to the latest anchor's.
+ * @returns The comparison, or the accumulating state when there is not enough.
+ */
+export function resolvePrvComparison(
+  anchors: readonly PulseAnchor[],
+  currentPrvMs: number | null,
+  context?: PulseAnchorContext,
+): PrvComparison {
+  const reference = context ?? anchors[anchors.length - 1]?.context;
+
+  // Comparable means: accepted, PRV actually reported, and taken under
+  // conditions worth comparing. All three, or the comparison is between two
+  // different things.
+  const comparable = anchors.filter(
+    (a) =>
+      a.quality.accepted &&
+      a.prvRmssdMs !== null &&
+      (reference === undefined || contextsAreComparable(a.context, reference)),
+  );
+
+  const dateCount = new Set(comparable.map((a) => a.localDateKey)).size;
+  const sampleCount = comparable.length;
+
+  if (
+    currentPrvMs === null ||
+    sampleCount < MIN_PRV_ANCHORS_FOR_COMPARISON ||
+    dateCount < MIN_PRV_DATES_FOR_COMPARISON
+  ) {
+    return { status: 'accumulating', sampleCount, required: MIN_PRV_ANCHORS_FOR_COMPARISON };
+  }
+
+  const values = comparable
+    .map((a) => a.prvRmssdMs as number)
+    .sort((a, b) => a - b);
+  const low = percentile(values, 0.25);
+  const high = percentile(values, 0.75);
+
+  return {
+    status: 'established',
+    sampleCount,
+    required: MIN_PRV_ANCHORS_FOR_COMPARISON,
+    placement: currentPrvMs < low ? 'below_usual' : currentPrvMs > high ? 'above_usual' : 'usual',
+  };
 }

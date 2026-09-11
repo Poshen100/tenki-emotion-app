@@ -38,7 +38,15 @@ export function generateInsights(history: EdgeScoreResult[]): InsightPayload[] {
   }
 
   // 2. Check for HRV Driver Improvement
-  const hrvDrivers = history.map(h => h.drivers.find(d => d.key === 'hrv_vs_baseline')?.impact || 0);
+  // 🔴 Only readings where HRV was actually measured. `impact || 0` used to
+  // turn every unmeasured driver into a neutral one, which meant a phone-only
+  // user — who has no HRV source at all, because camera PRV is a different
+  // quantity and never populates this driver — could be handed an insight
+  // about their HRV trend built entirely from zeros.
+  const hrvDrivers = history
+    .map((h) => h.drivers.find((d) => d.key === 'hrv_vs_baseline'))
+    .filter((d): d is NonNullable<typeof d> => d !== undefined && !d.excluded)
+    .map((d) => d.impact);
   const isImproving = hrvDrivers.length > 2 && hrvDrivers[hrvDrivers.length - 1] > hrvDrivers[hrvDrivers.length - 2];
   if (isImproving) {
     insights.push({

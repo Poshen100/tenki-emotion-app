@@ -116,8 +116,15 @@ async function runScan(options) {
       band: text('band'),
       howText: document.getElementById('how').textContent,
       prv: text('prv'),
-      prvShown: document.getElementById('prvRow').offsetParent !== null,
+      prvShown: !document.getElementById('prvRow').hidden,
       prvNote: text('prvNote'),
+      prvCompare: text('prvCompare'),
+      // 🔴 PRV 只能待在證據層。這裡問的是 DOM 的歸屬，不是可見性 ——
+      // 收起來的 <details> 裡的節點 offsetParent 仍然不是 null。
+      prvInEvidenceLayer: document.getElementById('how').contains(
+        document.getElementById('prvRow'),
+      ),
+      headlineCardText: document.getElementById('hr').closest('section').innerText,
       advisories: [...document.querySelectorAll('#advisories .reason')].map((n) => n.textContent),
       advisoryColor: document.querySelector('#advisories .reason')
         ? getComputedStyle(document.querySelector('#advisories .reason')).color
@@ -368,14 +375,36 @@ check(
 
 // 🔴 PRV 有自己的閘門（拍形穩定度），而那個閘門是唯一看得到感光雜訊的東西。
 check(
-  '乾淨擷取會報脈搏間期變化',
+  '乾淨擷取會報脈搏節律',
   clean.prvShown && /^\d+(\.\d+)? ms$/.test(clean.prv),
   `顯示=${clean.prvShown} prv=${clean.prv}`,
 );
 check(
-  '而且每次都講明它不是心律變異、不能跟手錶比',
-  clean.prvNote.includes('不是心律變異') && clean.prvNote.includes('拍形穩定度'),
+  '🔴 PRV 只出現在證據層，不是頭條讀數',
+  clean.prvInEvidenceLayer && !/ms/.test(clean.headlineCardText),
+  `在證據層=${clean.prvInEvidenceLayer} 頭條卡=${clean.headlineCardText.replace(/\n/g, ' | ')}`,
+);
+check(
+  '用的是核准的名字（脈搏節律／相機推導的靜息脈搏變化）',
+  clean.prvNote.includes('相機推導的靜息脈搏變化'),
   `prvNote=${clean.prvNote}`,
+);
+check(
+  '而且每次都講明它不是心律變異、不能跟手錶比、不進分數',
+  clean.prvNote.includes('不是心律變異') &&
+    clean.prvNote.includes('拍形穩定度') &&
+    clean.prvNote.includes('不進你的分數'),
+  `prvNote=${clean.prvNote}`,
+);
+check(
+  '🔴 PRV 的說法不得沾上壓力／恢復／準備度／自律神經',
+  !/(壓力|恢復|準備度|交感|副交感|迷走)/.test(`${clean.prvNote}${clean.prvCompare}`),
+  `prv 文案=${clean.prvNote} / ${clean.prvCompare}`,
+);
+check(
+  '沒有足夠可比較的紀錄之前，不跟使用者自己比',
+  clean.prvCompare.includes('還在累積') && /\d+\/\d+/.test(clean.prvCompare),
+  `prvCompare=${clean.prvCompare}`,
 );
 
 // ── 3. 訊號不足：必須拒答，而且不准上 gold ─────────────────────────────────
@@ -489,6 +518,42 @@ check(
   '到那時才給靜息區間，而且是四分位不是最小到最大',
   mature.bandShown && /^\d+(\.\d+)?–\d+(\.\d+)? bpm$/.test(mature.band),
   `顯示=${mature.bandShown} band=${mature.band}`,
+);
+
+// 🔴 個人比較只在累積夠多**可比較的高品質**錨點之後才給。
+await page.evaluate(() => {
+  const hour = new Date().getHours();
+  const bucket = hour < 11 ? 'morning' : hour < 16 ? 'midday' : hour < 22 ? 'evening' : 'night';
+  const anchors = [];
+  for (let i = 0; i < 12; i++) {
+    anchors.push({
+      restingPulseBpm: 62 + (i % 5),
+      prvRmssdMs: 38 + (i % 5) * 2,
+      beatTemplateCorrelation: 0.98,
+      capturedAtMs: 0,
+      localDateKey: `2026-09-${String(1 + (i % 5)).padStart(2, '0')}`,
+      source: 'camera_fingertip_ppg',
+      derivation: 'estimated',
+      quality: { accepted: true, rejectionReasons: [] },
+      // ⚠️ 必須跟頁面**當下**會產生的 context 一樣，否則它們不可比較 ——
+      // 而那正是這條規則要的行為（第一版把 timeOfDay 寫死 'morning'，在下午
+      // 跑就只剩 1/7，斷言紅得完全正確）。
+      context: { timeOfDay: bucket, posture: 'unknown', afterExertion: null },
+    });
+  }
+  localStorage.setItem('tenki.preview.pulseAnchors', JSON.stringify(anchors));
+});
+const compared = await runScan({ seed: 71 });
+check(
+  '夠多可比較的高品質紀錄之後才跟使用者自己比',
+  compared.prvCompare.includes('可比較的高品質校準') &&
+    /(比你平常低|在你平常的範圍內|比你平常高)/.test(compared.prvCompare),
+  `prvCompare=${compared.prvCompare}`,
+);
+check(
+  '🔴 比較的說法也不得沾上壓力／恢復／準備度／自律神經',
+  !/(壓力|恢復|準備度|交感|副交感|迷走)/.test(compared.prvCompare),
+  `prvCompare=${compared.prvCompare}`,
 );
 
 check(

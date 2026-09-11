@@ -20,6 +20,8 @@ import { analyzePpgScan } from '../analyze';
 import { toEngineInput } from '../to-reading';
 import { PRV_MIN_TEMPLATE_CORRELATION } from '../beat-template';
 import { modeReports } from '../../scan-modes';
+import { calculateEdgeScore } from '../../../scoring/edge-score';
+import type { BaselineProfile, MetricBaseline } from '../../../common/types';
 import { FEATURE_FLAGS } from '../../../../../shared/src/feature-flags/flags';
 import type { PpgAnalysis } from '../types';
 
@@ -175,5 +177,89 @@ describe('the flags say what they govern', () => {
   it('keeps both remotely configurable, so either decision can be revisited', () => {
     expect(FEATURE_FLAGS.camera_prv_estimates.remoteConfigurable).toBe(true);
     expect(FEATURE_FLAGS.camera_breath_lock.remoteConfigurable).toBe(true);
+  });
+});
+
+describe('PRV does not reach the Edge Score at all', () => {
+  function metric(mean: number, std: number): MetricBaseline {
+    return { mean, std, sampleCount: 20, lastUpdatedAt: Date.now() - 3_600_000 };
+  }
+  function baseline(): BaselineProfile {
+    return {
+      hr: { morning: metric(68, 5), midday: metric(72, 6), evening: metric(65, 4) },
+      hrv: { morning: metric(45, 10), midday: metric(40, 8), evening: metric(50, 12) },
+      rr: { morning: metric(16, 2), midday: metric(17, 2), evening: metric(15, 2) },
+      stressProxy: metric(50, 10),
+      maturity: 'mature',
+      totalScanCount: 30,
+      version: '3.0.0',
+    };
+  }
+
+  it('🔴 scores a capture identically whatever its PRV came out as', () => {
+    // founder rule, 2026-09-11: PRV must not affect the Edge Score. Not
+    // "affects it a little" or "only through confidence" — at all. The two
+    // readings below differ ONLY in the PRV that came out of the capture.
+    const scan = synthesizePpg({ durationSec: 90 });
+    const outcome = analyzePpgScan(scan.frames, 'full_scan');
+    if (outcome.status !== 'analysed') throw new Error('rejected');
+    expect(outcome.analysis.prvRmssdMs).not.toBeNull();
+
+    const withPrv = toEngineInput(outcome.analysis, Date.now());
+    const withoutPrv = toEngineInput(
+      { ...outcome.analysis, prvRmssdMs: null, repeatabilitySdMs: null },
+      Date.now(),
+    );
+
+    const common = {
+      baseline: baseline(),
+      signalQuality: withPrv.signalQuality,
+      sleepRecovery: {
+        durationHours: 7.5,
+        qualityScore: 75,
+        source: 'healthkit' as const,
+        stalenessHours: 4,
+      },
+      recentScores: [70, 68, 72],
+    };
+
+    const a = calculateEdgeScore({
+      ...common,
+      reading: withPrv.reading,
+      availability: withPrv.availability,
+    });
+    const b = calculateEdgeScore({
+      ...common,
+      reading: withoutPrv.reading,
+      availability: withoutPrv.availability,
+    });
+
+    expect(a.score).toBe(b.score);
+    expect(a.confidence.overall).toBe(b.confidence.overall);
+    expect(a.metadata.excludedDrivers).toEqual(b.metadata.excludedDrivers);
+  });
+
+  it('leaves the HRV drivers excluded on a camera capture that produced PRV', () => {
+    const scan = synthesizePpg({ durationSec: 90 });
+    const outcome = analyzePpgScan(scan.frames, 'full_scan');
+    if (outcome.status !== 'analysed') throw new Error('rejected');
+    const input = toEngineInput(outcome.analysis, Date.now());
+
+    const result = calculateEdgeScore({
+      reading: input.reading,
+      availability: input.availability,
+      baseline: baseline(),
+      signalQuality: input.signalQuality,
+      sleepRecovery: { durationHours: 7.5, qualityScore: 75, source: 'healthkit', stalenessHours: 4 },
+      recentScores: [70, 68, 72],
+      evidence: { pulse: 'phone_camera' },
+    });
+
+    expect(result.metadata.excludedDrivers).toEqual(
+      expect.arrayContaining(['hrv_vs_baseline', 'stress_proxy_vs_baseline']),
+    );
+    // And the analytics layer can tell the difference without guessing.
+    const hrvDriver = result.drivers.find((d) => d.key === 'hrv_vs_baseline');
+    expect(hrvDriver?.excluded).toBe(true);
   });
 });

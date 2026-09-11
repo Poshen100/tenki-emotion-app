@@ -67,7 +67,8 @@ describe('finger baseline copy', () => {
       if (key === 'limits') continue;
       expect(line).not.toContain('心律變異');
     }
-    expect(FINGER_BASELINE_COPY.limits).toContain('脈搏間期變化');
+    expect(FINGER_BASELINE_COPY.limits).toContain('脈搏節律');
+    expect(FINGER_BASELINE_COPY.limits).toContain('相機推導的靜息脈搏變化');
     expect(FINGER_BASELINE_COPY.limits).toContain('不能直接比');
   });
 
