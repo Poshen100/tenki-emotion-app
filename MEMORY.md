@@ -18,6 +18,47 @@
 
 ---
 
+# 2026-09-11 Session Update (Pulse Rhythm —— 相機 PRV 成為獨立能力，收在證據層)
+
+⚠️ 依協議 2b：**不編號**。分支 `claude/tenki-biometric-v2-ubzosn`，PR #256。
+
+## founder 的決議
+
+相機 PRV 可以對使用者顯示，但它是**跟 HRV 分開的 production capability**，
+十三條非談判規則：只能叫 Pulse Rhythm / Camera-derived Resting Pulse
+Variability；永不叫 HRV、不填 HRV 欄位、不餵 HRV driver；不得被講成交感／
+副交感／迷走／壓力／恢復／準備度／醫療證據；閘門不過就不出現；不持久化原始幀
+或波形；**初期只出現在證據／量測細節層**；**初期不得影響 Edge Score**；
+個人比較要等足夠多可比較的高品質靜息錨點；與 BLE 胸帶 HRV 在型別／儲存／
+分析／文案／計分五處都分開。
+
+## 做了什麼
+
+全面改名；PRV 從頭條卡搬進展開的「量測細節與證據」；`resolvePrvComparison()`
+（7 次跨 3 天 ＋ context 可比較 ＋ PRV 閘門有過）；`PulseAnchor` 存 PRV 與
+拍形穩定度；`ScoreDriver.excluded` 旗標。
+
+## 🔴 兩個教訓
+
+**① 可見性不是歸屬。** 「PRV 只能在證據層」第一版用 `offsetParent !== null`
+驗 —— 但**收起來的 `<details>` 裡的節點 `offsetParent` 仍然不是 null**，
+所以那條斷言對「有沒有搬進去」完全沒有意見。改成驗 DOM 歸屬
+（`#how.contains(prvRow)`）＋ 頭條卡文字裡不得出現 `ms`。
+
+**② 分析層把「沒量到」當成「正好中性」。** `insight-generator` 的
+`driver?.impact || 0`：phone-only 使用者永遠沒有 HRV，卻可能拿到一則
+「你的 HRV 在進步」的洞察，整串都是 0 湊出來的。NaN → 0 的 `||` 是這類 bug
+的典型入口。修法是讓 driver 自己說 `excluded`，不要讓下游從數值反推。
+
+## 下次接手點
+
+- 實機清單 17 條仍然一條都沒跑。
+- Breath Lock 擷取層未寫；`camera_breath_lock` 關著。
+- PRV 的 0.97 門檻在真手指上可能幾乎過不了 → 那會讓「證據層」大多數時候是
+  空的。實機第 15 條先驗這件事，再決定要不要調。
+
+---
+
 # 2026-09-11 Session Update (PULSE ANCHOR 續：PRV/HRV 分家、Breath Lock 契約、Edge 證據上限)
 
 ⚠️ 依協議 2b：**不編號**。分支 `claude/tenki-biometric-v2-ubzosn`，PR #256。
