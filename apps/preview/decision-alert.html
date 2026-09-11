@@ -90,9 +90,16 @@
     .live-title { font-weight: 600; }
     .live-status { flex: 1; text-align: right; color: var(--n-500); font-size: 11px; }
     .live-chevron { color: var(--amber-400); font-size: 11px; }
+    /* 🔴 這顆 `PREMIUM` 徽章原本吃 `--gold-secured`。
+       2026-09-08 把**紫**正式認領為 Premium 的顏色之後，那一輪只掃了 v6 ——
+       於是同一個產品裡「Premium」有兩個顏色，而其中一個（金）是別人的：
+       金 = SECURED（baseline 鎖定／校準完成）。founder 2026-09-10 實走截到。
+       ⚠️ 紫只當**表面**（它活不過色盲守門，見 tokens.css），
+       所以是「紫 wash 底 + 中性字」：`--n-200` 壓在 `--premium-950` 上 9.65:1。 */
     .live-badge {
       flex: none; font-size: 9px; letter-spacing: 0.08em; font-weight: 700;
-      color: var(--gold-secured); border: 1px solid rgba(var(--gold-secured-rgb), 0.4);
+      color: var(--n-200); background: var(--premium-950);
+      border: 1px solid var(--premium-600);
       border-radius: 999px; padding: 2px 7px; text-transform: uppercase;
     }
     .live-body { padding: 0 14px 12px; }
@@ -210,7 +217,19 @@
       font-size: 13px; line-height: 1.5;
     }
     .alert-state .stat-sub { color: var(--n-500); font-size: 12px; }
-    .result-outcome { font-size: 15px; font-weight: 700; }
+    /* 🔴 斷行只准落在分隔點上，不得從詞中間切。
+       實測（390 寬，收束頁走真的回程票路徑）：「判定不成立 · 未進場」在 176px 弧下
+       需要約 135px，而環心容器的內容框只有 **132px**（176 − padding 22×2）——
+       **差 3px**。於是它斷成「判定不成立 · 未進」／「場」，一個字孤零零掉在第二行，
+       看起來就是被裁掉（founder 2026-09-11 實走：「那個頁面是不是有點裁到了？」）。
+       ⚠️ 它其實**沒有**跑出環外（逐行四個角對圓心量過，全部在圓內）——
+       壞的是斷點，不是幾何。所以修的是斷點，不是把字縮小。
+       `word-break: keep-all` 讓 CJK 字元之間不再是斷行機會，只剩分隔號兩側的
+       空白可斷 → 最差情況是「判定不成立 ·」／「未進場」，兩半各自完整。
+       ⚠️ **不改文案字串** —— 那三句同時給底座、Session 徽章、收束頁用
+       （`decision-outcome.js` 的 OUTCOME_VIEW 是單一來源），為了一頁的版面去動它
+       會牽連另外兩頁。 */
+    .result-outcome { font-size: 15px; font-weight: 700; word-break: keep-all; }
     .result-outcome.disciplined { color: var(--zone-clear); }
     .result-outcome.broke { color: var(--zone-strain); }
     .result-outcome.neutral { color: var(--n-400); }
@@ -275,10 +294,11 @@
     }
     .result-block { margin-top: 16px; }
     /* 紀律近況本來就是「決策紀錄」的預覽 —— 讓它說得出自己是什麼，並且可點進去。 */
-    /* 這一列點得進決策紀錄 → 可動層。只給那個 `›` 記號與 hairline，
-   不動列裡的數字（量測值不上色）。 */
+    /* 🔴 這一列點下去是**導航**（進決策紀錄），不是改變狀態。
+       founder 2026-09-08 把可動層規則收窄成「只給會改變狀態的，導航不算」——
+       那一輪只掃了 Lab，這一頁 2026-09-09 才跟上。改中性。 */
     .result-history-link { cursor: pointer; }
-    .result-history-link .result-block-label { color: var(--amber-400); }
+    .result-history-link .result-block-label { color: var(--n-300); }
     .result-history-link:active { opacity: 0.75; }
     .result-block-label { font-size: 11px; letter-spacing: 0.08em; color: var(--n-500); text-transform: uppercase; margin-bottom: 8px; }
     /* 儀器表頭：左微標籤、右數字、底下一條 hairline。
@@ -299,6 +319,12 @@
     .result-meter { height: 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
     .result-meter-fill { height: 100%; width: 0; border-radius: 4px; background: linear-gradient(90deg, var(--zone-clear), var(--cyan-active)); transition: width 0.9s var(--ease-calm); }
     .result-strip { display: flex; gap: 4px; margin-top: 10px; align-items: center; }
+    /* 🔴 `[hidden]` 的 `display:none` 來自 UA 樣式表，**同一個元素上的
+       `display:flex` 會蓋掉它**。少了這一行，`strip.hidden = true` 只會讓它
+       變成一個 0 高的 flex 容器 —— 元素還在版面裡，`margin-top:10px` 也還在。
+       實測：hidden 之後 `getBoundingClientRect()` 回 `w:352 h:0`（真的
+       display:none 會四個值全 0）。 */
+    .result-strip[hidden] { display: none; }
     .result-seg { flex: 1; height: 18px; border-radius: 4px; background: var(--border); min-width: 0; transition: opacity 0.3s; }
     .result-seg.now { outline: 2px solid rgba(var(--cyan-active-rgb), 0.6); outline-offset: 1px; height: 22px; }
     /* ── 決策軌跡：欄位表，不是散文 ──
@@ -348,18 +374,24 @@
       .result-sheet.reveal .result-arc-center,
       .result-sheet.reveal .reveal-item { opacity: 1; transform: none; transition: none; }
     }
+    /* 🔴 這三顆**會改變狀態**（把 contextTag 寫進這一筆紀錄）——
+       在可動層的規則下，它們才是這張收束頁上真正該穿琥珀的東西。
+       改之前剛好相反：兩顆導航穿琥珀，這三顆穿中性／青。
+       ⚠️ 選中態原本用 cyan（＝ ACTIVE / live / 正在量）——
+       一個「我覺得自己有點急」的自評不是一個 live 訊號。 */
     .result-chip {
       flex: 1; padding: 9px 6px; border-radius: 10px; font-size: 12px;
-      background: var(--surface); border: 1px solid var(--border);
+      background: var(--surface); border: 1px solid rgba(var(--amber-400-rgb), 0.32);
       color: var(--n-300); cursor: pointer; text-align: center;
       transition: transform 0.18s var(--ease-calm), border-color 0.18s, box-shadow 0.18s, color 0.18s, background 0.18s;
     }
     .result-chip:active { transform: scale(0.97); }
+    /* 選中＝填色塊；字用深空底色（白字壓在 amber-400 上只有 2.0:1）。 */
     .result-chip.sel {
-      border-color: var(--cyan-active); color: #fff;
-      background: rgba(var(--cyan-active-rgb), 0.10);
+      border-color: var(--amber-400); color: var(--n-950); font-weight: 600;
+      background: var(--amber-400);
       transform: translateY(-1px) scale(1.04);
-      box-shadow: 0 0 0 1px rgba(var(--cyan-active-rgb), 0.45), 0 4px 16px rgba(var(--cyan-active-rgb), 0.16);
+      box-shadow: 0 0 0 1px rgba(var(--amber-400-rgb), 0.45);
     }
     @media (prefers-reduced-motion: reduce) {
       .result-chip, .result-chip:active, .result-chip.sel { transition: none; transform: none; }
@@ -477,6 +509,11 @@
     }
     .btn-primary:active { background: var(--amber-500); border-color: var(--amber-500); }
     .btn-ghost { background: transparent; color: var(--n-400); }
+    /* 🔴 導航用的主位按鈕：仍然是「這一列最顯眼的那顆」，但**不穿可動層**。
+       `查看決策紀錄` 只是換一頁，沒有改變任何東西 —— 而這張收束頁上真正
+       改變狀態的是上面那三顆自評晶片，可動層該給它們。 */
+    .btn-nav { background: var(--n-800); border-color: var(--n-700); color: var(--n-100); }
+    .btn-nav:active { background: var(--n-700); }
 
     /* ── 模板選擇 ── */
     /* ── 模板選單：終端機讀數 ──
@@ -780,7 +817,7 @@
          兩顆**都會記錄** —— 記錄不是選項，是收束的一部分。 -->
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="btnResultSave" type="button">關閉</button>
-      <button class="btn btn-primary" id="btnResultRecord" type="button">查看決策紀錄</button>
+      <button class="btn btn-nav" id="btnResultRecord" type="button">查看決策紀錄</button>
     </div>
   </div>
 
@@ -831,7 +868,7 @@
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
   <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
-  <script src="/preview/decision-outcome.js?v=do1"></script>
-  <script src="decision-alert.js?v=alert40"></script>
+  <script src="/preview/decision-outcome.js?v=do2"></script>
+  <script src="decision-alert.js?v=alert43"></script>
 </body>
 </html>

@@ -1895,11 +1895,22 @@ body{
 /* ── 結構守望的判定列 ──
    位置與收合方式抄 .tp-picker（已驗證過的那組）。
    🔴 收起時一併 visibility:hidden —— opacity:0 + pointer-events:none 擋不住
-   descendant 自己宣告 pointer-events（PLAYBOOK 指紋鈕那次的舊傷）。 */
+   descendant 自己宣告 pointer-events（PLAYBOOK 指紋鈕那次的舊傷）。
+   🔴 **這個座標之所以安全，靠的是不透明的底板，不是座標本身。**
+   它浮在 Today 的「示意說明 / 輪播圓點 / vitals 卡」正上方 —— 那條帶在
+   700~780 的可視高度下完全沒有空白（實測 15 個高度，只有 820~874 這一段
+   剛好不撞，而那是設計高度的巧合，不是保證）。
+   第一版只抄了 .tp-picker 的**位置與收合**，沒抄它的**底板** ——
+   於是底下那行說明從兩顆按鈕的縫隙與 .wj-anchor 那一行透出來，
+   實測 740 高度下看起來就是「字壓在字上」。抄座標要連同抄它為什麼安全。 */
 .watch-judge{
   position:absolute;left:10px;right:10px;
   bottom:calc(var(--tabbar-h) + var(--fdcb-gap) + var(--fdcb-h) + 8px);
   z-index:46;display:flex;flex-wrap:wrap;gap:8px;
+  padding:6px;
+  background:var(--n-900);
+  border:1px solid rgba(255,255,255,0.10);
+  border-radius:14px;
   opacity:0;visibility:hidden;transform:translateY(6px);
   transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s 0.3s;
 }
@@ -2708,7 +2719,7 @@ body{
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do1"></script>
+    <script src="/preview/decision-outcome.js?v=do2"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -4404,8 +4415,17 @@ function tmplBoundLabel(tmplId){
   // 第十四輪我拿設定去代表事實，所以只修好了手動起跑那條路。
   // ⚠️ 兩張截圖結果不同不是隨機：App 內建瀏覽器與主畫面 PWA 是**兩個 storage
   // 容器**（PLAYBOOK 既有條目），開關各有一份。
-  const running = STATES[stateIdx] === 'running';
-  const watch = (running && sess) ? !!sess.watch : watchMode(tmplId);
+  // 🔴 **complete 也要問事實**，而這是同一個矛盾的第三個出口
+  //（founder 2026-09-10 用真實 TradingView 快訊實走截到）：
+  // 一筆以「ES1! / 上限 30:00 / 結構守望」跑完的決策，收束那一格印的是
+  // 「Mancini FBD / **3:00** ✓ 判定不成立 · 未進場」—— 因為 complete 時
+  // 這裡退回 `watchMode(tmplId)`，而那是 Lab 開關（主畫面 PWA 裡是預設的關）。
+  //
+  // 第十五輪把「正在跑」修對了，但**收束那一格講的也是那一次跑法**，
+  // 不是「接下來會怎麼跑」。complete 是一份**對剛剛發生的事的報告**，
+  // 而報告必須問事實。`sess` 在 complete 時還在（只有 idle 分支才 `sess = null`）。
+  const reporting = STATES[stateIdx] === 'running' || STATES[stateIdx] === 'complete';
+  const watch = (reporting && sess) ? !!sess.watch : watchMode(tmplId);
   return watch ? '上限 ' + fmtDur(WATCH_CEILING_SEC) : fmtDur(t.durationSec);
 }
 
@@ -5322,11 +5342,21 @@ function renderCalibrationBench(){
   }
   // 🔴 排除了幾筆一定要講。只印可歸屬的那些，等於用一半的資料宣稱一個全貌。
   let line = '<b>' + sum.total + '</b> 筆紀錄 · <b>' + sum.attributed + '</b> 筆有讀數可歸屬';
+  // 🔴 「沒有讀數」與「讀數已過期」是兩件事，分開講。合成一句就是把「不知道」
+  //    講成「沒發生」—— 而且會讓「先掃一次」那句話對過期的人變成無效建議
+  //    （他掃過了，只是太久以前）。
+  if(sum.excludedNoReading > 0){
+    line += ' · <b>' + sum.excludedNoReading + '</b> 筆決策當下沒有讀數';
+  }
+  if(sum.excludedStale > 0){
+    line += ' · <b>' + sum.excludedStale + '</b> 筆決策當下的讀數已過期';
+  }
   if(sum.excluded > 0){
-    line += ' · <b>' + sum.excluded + '</b> 筆決策當下沒有讀數（不列入 —— 猜一個帶位會偽造這張圖本身）';
+    line += '（不列入 —— 猜一個帶位會偽造這張圖本身）';
   }
   if(sum.attributed === 0){
-    line += '<br>目前沒有一筆帶得出帶位。<b>先掃一次再進決策</b>，這張圖才有東西可講。';
+    line += '<br>目前沒有一筆帶得出帶位。<b>' + (sum.excludedStale > 0 ? '進決策前先掃一次' : '先掃一次再進決策')
+      + '</b>，這張圖才有東西可講。';
   }
   foot.innerHTML = line;
 }
