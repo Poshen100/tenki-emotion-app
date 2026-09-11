@@ -249,8 +249,19 @@
       .result-sheet .result-strip { margin-top: 6px; }
       .result-sheet .result-reflect-wrap { margin-top: 10px; }
       .result-sheet .sheet-actions { margin-top: 8px; }
-      /* 弧縮小之後中央文字要跟著縮，否則「判定成立 · 已進場」會擠成兩行貼住環。 */
-      .result-sheet .result-outcome { font-size: 13px; }
+      /* 弧縮小之後中央文字要跟著縮，否則「判定成立 · 已進場」會擠成兩行貼住環。
+         🔴 13px 仍然太大：2026-09-11 逐行四個角對圓心量過，最壞的
+         「判定不成立 · 未進場」在 128px 弧下離環線內緣只剩 **0.2px** ——
+         行盒比字高、所以墨跡還沒真的碰到環，但那是「餘裕只剩幾 px，字型稍微
+         換一下就紅」的同一族（這個 repo 已經為它付過兩次學費）。
+         12px → **3.1px**，而且 `.result-hero` 是固定高、`.result-arc-center`
+         是 `inset:0`，所以這一格**不花任何垂直空間**（那段預算只剩 12px，
+         見下面 result-recap-row 那條）。
+         ⚠️ 三個判定實測（12px）：不成立 2 行 `[67,36]` 餘裕 3.1、
+         成立 2 行 `[55,36]` 餘裕 6.2、未判定 1 行 `[72]` 餘裕 5.4。
+         再往下調到 11px 可以買到 7.1px，但那是收束頁的**結論**那一行，
+         11px 太小 —— 停在 12px。 */
+      .result-sheet .result-outcome { font-size: 12px; }
       /* 弧縮到 128px 之後，環線的內側淨寬只剩約 90px（r = size/2 - 14、線寬 10）。
          內距要夠大才逼得動換行 —— 給太小的話文字不是溢出，是**壓在環線上**
          （量過：文字 103px、容器 128px，看起來像溢出其實是撞線）。 */
@@ -869,6 +880,6 @@
   <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do2"></script>
-  <script src="decision-alert.js?v=alert43"></script>
+  <script src="decision-alert.js?v=alert44"></script>
 </body>
 </html>
