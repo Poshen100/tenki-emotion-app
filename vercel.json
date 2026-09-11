@@ -2,26 +2,102 @@
     "outputDirectory": ".",
     "framework": null,
     "redirects": [
-        { "source": "/preview", "destination": "/preview/", "permanent": false },
-        { "source": "/decision-alert", "destination": "/decision-alert/", "permanent": false },
-        { "source": "/drift", "destination": "/drift/", "permanent": false },
-        { "source": "/v3", "destination": "/v3/", "permanent": false },
-        { "source": "/story", "destination": "/story/", "permanent": false },
-        { "source": "/", "destination": "/story/", "permanent": false }
+        {
+            "source": "/preview",
+            "destination": "/preview/",
+            "permanent": false
+        },
+        {
+            "source": "/decision-alert",
+            "destination": "/decision-alert/",
+            "permanent": false
+        },
+        {
+            "source": "/drift",
+            "destination": "/drift/",
+            "permanent": false
+        },
+        {
+            "source": "/finger",
+            "destination": "/finger/",
+            "permanent": false
+        },
+        {
+            "source": "/v3",
+            "destination": "/v3/",
+            "permanent": false
+        },
+        {
+            "source": "/story",
+            "destination": "/story/",
+            "permanent": false
+        },
+        {
+            "source": "/",
+            "destination": "/story/",
+            "permanent": false
+        }
     ],
     "rewrites": [
-        { "source": "/brand/(.*)", "destination": "/brand/$1" },
-        { "source": "/v3/", "destination": "/apps/preview/v6/index.html" },
-        { "source": "/v3/(.*)", "destination": "/apps/preview/v6/$1" },
-        { "source": "/story/", "destination": "/apps/preview/story.html" },
-        { "source": "/story/(.*)", "destination": "/apps/preview/$1" },
-        { "source": "/preview/", "destination": "/apps/preview/soul-enroll.html" },
-        { "source": "/preview/(.*)", "destination": "/apps/preview/$1" },
-        { "source": "/decision-alert/", "destination": "/apps/preview/decision-alert.html" },
-        { "source": "/decision-alert/(.*)", "destination": "/apps/preview/$1" },
-        { "source": "/drift/", "destination": "/apps/preview/drift-alert.html" },
-        { "source": "/drift/(.*)", "destination": "/apps/preview/$1" },
-        { "source": "/", "destination": "/apps/web/index.html" },
-        { "source": "/(.*)", "destination": "/apps/web/$1" }
+        {
+            "source": "/brand/(.*)",
+            "destination": "/brand/$1"
+        },
+        {
+            "source": "/v3/",
+            "destination": "/apps/preview/v6/index.html"
+        },
+        {
+            "source": "/v3/(.*)",
+            "destination": "/apps/preview/v6/$1"
+        },
+        {
+            "source": "/story/",
+            "destination": "/apps/preview/story.html"
+        },
+        {
+            "source": "/story/(.*)",
+            "destination": "/apps/preview/$1"
+        },
+        {
+            "source": "/preview/",
+            "destination": "/apps/preview/soul-enroll.html"
+        },
+        {
+            "source": "/preview/(.*)",
+            "destination": "/apps/preview/$1"
+        },
+        {
+            "source": "/decision-alert/",
+            "destination": "/apps/preview/decision-alert.html"
+        },
+        {
+            "source": "/decision-alert/(.*)",
+            "destination": "/apps/preview/$1"
+        },
+        {
+            "source": "/finger/",
+            "destination": "/apps/preview/finger-baseline.html"
+        },
+        {
+            "source": "/finger/(.*)",
+            "destination": "/apps/preview/$1"
+        },
+        {
+            "source": "/drift/",
+            "destination": "/apps/preview/drift-alert.html"
+        },
+        {
+            "source": "/drift/(.*)",
+            "destination": "/apps/preview/$1"
+        },
+        {
+            "source": "/",
+            "destination": "/apps/web/index.html"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/apps/web/$1"
+        }
     ]
 }

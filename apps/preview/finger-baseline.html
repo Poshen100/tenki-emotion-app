@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#020617" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TENKI" />
+  <link rel="apple-touch-icon" href="/brand/favicon/apple-touch-icon-180.png" />
+  <title>TENKI — 手指基線校準（實走）</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    /* ═══════════════════════════════════════════════════
+       規則：
+       🔴 量測值不上色 —— 一律 --n-100。顏色會宣稱事實。
+       🔴 **沒有立住讀數就不准上 gold**（gold = SECURED）。
+          `[data-phase="result"][data-secured="no"]` 走中性色。
+       🔴 cyan-active = ACTIVE，只在**掃描進行中**出現。
+       🔴 amber = 可動層，只有按鈕吃它。
+       🔴 內容用 clamp()，容器是 vw 的函式（PLAYBOOK §6）。
+       ═══════════════════════════════════════════════════ */
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      min-height: 100vh; min-height: 100dvh;
+      background: var(--bg-space);
+      color: var(--n-300);
+      font-family: -apple-system, "SF Pro Text", "PingFang TC", "Noto Sans TC", sans-serif;
+      overscroll-behavior: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    .wrap {
+      min-height: 100vh; min-height: 100dvh;
+      max-width: 520px; margin: 0 auto;
+      padding-inline: 20px;
+      padding-block: calc(env(safe-area-inset-top, 0px) + 18px) calc(env(safe-area-inset-bottom, 0px) + 28px);
+      display: flex; flex-direction: column; gap: 18px;
+    }
+    .kicker { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--n-500); line-height: 1.4; }
+    /* margin-top 是必要的，不是呼吸：中文字的 ascender 會超出 line box，
+       兩個相鄰區塊靠在一起時標題上緣會被 kicker 的底線切過（截圖抓到的）。 */
+    h1 { font-size: clamp(20px, 5.6vw, 26px); font-weight: 600; color: var(--n-100); line-height: 1.35; margin-top: 6px; }
+    p { font-size: 14px; line-height: 1.65; color: var(--n-400); }
+    .card {
+      background: var(--n-900); border: 1px solid var(--n-700);
+      border-radius: 16px; padding: 16px;
+    }
+    /* 短強調語不得被拆行。⚠️ nowrap 要跟 clamp 一起下（PLAYBOOK §6）——
+       只有 nowrap 會在文案變長時橫向溢出。這裡 8 個中文字，390px 放得下。 */
+    .keep { white-space: nowrap; font-size: clamp(13px, 3.6vw, 14px); }
+
+    /* phase gating */
+    [data-phase="intro"] .only-scan, [data-phase="intro"] .only-result,
+    [data-phase="scanning"] .only-intro, [data-phase="scanning"] .only-result,
+    [data-phase="result"] .only-intro, [data-phase="result"] .only-scan { display: none; }
+
+    /* camera stays off-screen: no preview of the fingertip, nothing to look at */
+    #cam { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+    .dial { display: grid; place-items: center; padding-block: 8px; }
+    .dial svg { width: min(58vw, 220px); height: min(58vw, 220px); transform: rotate(-90deg); }
+    .dial .track { fill: none; stroke: var(--n-800); stroke-width: 8; }
+    .dial .fill {
+      fill: none; stroke: var(--cyan-active); stroke-width: 8; stroke-linecap: round;
+      stroke-dasharray: 100 100;
+      stroke-dashoffset: calc(100 - var(--p, 0));
+      transition: stroke-dashoffset 240ms linear;
+    }
+    .dialCenter { position: absolute; display: grid; place-items: center; gap: 2px; }
+    .dialValue { font-size: clamp(26px, 8vw, 34px); font-weight: 600; color: var(--n-100); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .dialLabel { font-size: 11px; color: var(--n-500); letter-spacing: 1px; }
+    .dialStack { position: relative; display: grid; place-items: center; }
+
+    ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .reason { font-size: 13px; line-height: 1.5; padding-left: 18px; position: relative; color: var(--n-300); }
+    .reason::before { position: absolute; left: 0; top: 0; }
+    .reason.good::before { content: "✓"; color: var(--cyan-core); }
+    .reason.bad::before { content: "!"; color: var(--amber-400); font-weight: 700; }
+    .reason.withheld::before { content: "—"; color: var(--n-550); }
+
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .metric { text-align: center; }
+    .metricValue {
+      font-size: clamp(17px, 4.6vw, 21px); font-weight: 600; color: var(--n-100);
+      white-space: nowrap; font-variant-numeric: tabular-nums;
+    }
+    .metricValue.absent { color: var(--n-600); }
+    .metricLabel { font-size: 11px; color: var(--n-500); margin-top: 3px; }
+
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .statValue { font-size: 16px; font-weight: 600; color: var(--n-100); font-variant-numeric: tabular-nums; }
+    .statLabel { font-size: 10px; color: var(--n-550); margin-top: 2px; }
+
+    .verdict { font-size: clamp(19px, 5.2vw, 23px); font-weight: 600; color: var(--n-100); }
+    [data-secured="yes"] .verdict { color: var(--gold-secured); }
+
+    .precision { border-color: rgba(var(--cyan-active-rgb), 0.24); }
+    .precisionRow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .precisionValue { font-size: 18px; font-weight: 600; color: var(--n-100); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .precisionNote { font-size: 12px; line-height: 1.55; color: var(--n-450); margin-top: 8px; }
+
+    button {
+      width: 100%; border: none; border-radius: 14px; padding: 15px;
+      font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer;
+      background: var(--amber-400); color: var(--n-950);
+    }
+    button.ghost { background: transparent; color: var(--n-400); border: 1px solid var(--n-700); }
+    .err { font-size: 13px; color: var(--amber-400); line-height: 1.5; }
+    .fine { font-size: 12px; line-height: 1.6; color: var(--n-550); }
+    .note { font-size: 12px; line-height: 1.6; color: var(--n-450); }
+  </style>
+</head>
+<body>
+  <video id="cam" playsinline muted autoplay></video>
+
+  <main class="wrap" id="stage" data-phase="intro" data-secured="no">
+    <header>
+      <div class="kicker">PRECISION · 手指基線校準</div>
+      <h1>建立心律變異基線</h1>
+    </header>
+
+    <!-- ── intro ───────────────────────────────────────────────── -->
+    <section class="only-intro card">
+      <p>臉部掃描讀得到心率，但讀不到逐拍之間的細微間隔。手指貼著鏡頭能讀到，而那是你的準備度讀數裡份量最重的一項。</p>
+      <p style="margin-top:10px">需要 <span id="targetSec">90</span> 秒（低於 <span id="minSec">45</span> 秒不會產出讀數）。手指輕放在後鏡頭上，整片蓋住、不要移動。</p>
+    </section>
+
+    <section class="only-intro card precision">
+      <p style="color:var(--n-300)">這段時間同時在量另一件事：<strong class="keep" style="color:var(--n-100)">這支手機量你有多穩</strong>。知道了它，之後小於量測誤差的變化就不會被當成狀態改變。</p>
+    </section>
+
+    <p class="only-intro fine">影像不留存。每一幀在本機化簡成數值後就丟棄 —— 引擎拿不到影像，這是型別的性質，不是要記得做的事。</p>
+    <p class="only-intro err" id="startError"></p>
+    <button class="only-intro" id="startBtn" style="margin-top:auto">開始校準</button>
+
+    <!-- ── scanning ────────────────────────────────────────────── -->
+    <section class="only-scan dial">
+      <div class="dialStack">
+        <svg viewBox="0 0 40 40" aria-hidden="true">
+          <circle class="track" cx="20" cy="20" r="15.9155" pathLength="100" />
+          <circle class="fill" id="arc" cx="20" cy="20" r="15.9155" pathLength="100" />
+        </svg>
+        <div class="dialCenter">
+          <div class="dialValue" id="liveQuality">—</div>
+          <div class="dialLabel">訊號品質</div>
+        </div>
+      </div>
+      <div class="dialLabel" id="elapsed" style="margin-top:6px">0s / 90s</div>
+    </section>
+
+    <section class="only-scan card">
+      <ul id="liveReasons"></ul>
+      <p class="note" id="torchNote" style="margin-top:10px"></p>
+    </section>
+    <button class="only-scan ghost" id="abortBtn">中止</button>
+
+    <!-- ── result ──────────────────────────────────────────────── -->
+    <section class="only-result">
+      <div class="verdict" id="verdict">—</div>
+      <p class="note" id="verdictNote" style="margin-top:4px"></p>
+    </section>
+
+    <section class="only-result card">
+      <div class="metrics">
+        <div class="metric"><div class="metricValue" id="hr">—</div><div class="metricLabel">心率</div></div>
+        <div class="metric"><div class="metricValue" id="hrv">—</div><div class="metricLabel">心律變異</div></div>
+        <div class="metric"><div class="metricValue" id="resp">—</div><div class="metricLabel">呼吸率</div></div>
+      </div>
+      <p class="fine" id="derivation" style="margin-top:12px"></p>
+    </section>
+
+    <section class="only-result card">
+      <div class="stats">
+        <div><div class="statValue" id="qualityScore">—</div><div class="statLabel">品質分數</div></div>
+        <div><div class="statValue" id="confidence">—</div><div class="statLabel">信心</div></div>
+        <div><div class="statValue" id="duration">—</div><div class="statLabel">實際時長</div></div>
+      </div>
+    </section>
+
+    <section class="only-result card precision">
+      <div class="precisionRow">
+        <span class="dialLabel">這次的重複性</span>
+        <span class="precisionValue" id="repeatability">—</span>
+      </div>
+      <p class="precisionNote" id="repeatabilityNote"></p>
+      <div class="precisionRow" style="margin-top:14px">
+        <span class="dialLabel">你的雜訊底線（歷次中位數）</span>
+        <span class="precisionValue" id="noiseFloor">—</span>
+      </div>
+      <p class="precisionNote" id="noiseFloorNote"></p>
+      <p class="fine" style="margin-top:10px">以 <span id="scanCount">0</span> 次有效校準為基礎。</p>
+    </section>
+
+    <section class="only-result card">
+      <div class="dialLabel" style="margin-bottom:10px">訊號品質</div>
+      <ul id="resultReasons"></ul>
+      <div class="dialLabel" id="withheldHead" style="margin:14px 0 10px">這次沒有報的</div>
+      <ul id="withheld"></ul>
+    </section>
+
+    <button class="only-result" id="againBtn">再做一次</button>
+  </main>
+
+  <script type="module" src="finger-baseline.js"></script>
+</body>
+</html>
