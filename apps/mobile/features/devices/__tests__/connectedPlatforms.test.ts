@@ -57,8 +57,8 @@ describe('the onboarding branch this feeds', () => {
   it('sends a user with nothing connected through the finger baseline', () => {
     const plan = planOnboardingBaselines({ connectedPlatforms: connectedPlatforms(map()) });
 
-    expect(plan.steps).toEqual(['face_baseline', 'finger_hrv_baseline']);
-    expect(plan.fingerRationale).toBe('only_hrv_source');
+    expect(plan.steps).toEqual(['face_baseline', 'finger_pulse_baseline']);
+    expect(plan.fingerRationale).toBe('only_pulse_reference');
   });
 
   it('skips it for a user whose watch is connected for scanning', () => {
@@ -78,6 +78,6 @@ describe('the onboarding branch this feeds', () => {
     });
     const plan = planOnboardingBaselines({ connectedPlatforms: connectedPlatforms(connections) });
 
-    expect(plan.steps).toContain('finger_hrv_baseline');
+    expect(plan.steps).toContain('finger_pulse_baseline');
   });
 });

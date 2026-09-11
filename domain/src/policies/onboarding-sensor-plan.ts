@@ -2,29 +2,39 @@
  * @module domain/policies/onboarding-sensor-plan
  * @description Which baselines a new user is asked to build, and why.
  *
- * The two baselines measure different things and are not alternatives. The
+ * The two references measure different things and are not alternatives. The
  * face baseline is Soul Scan's reference — landmark geometry and expression
- * stability. The finger baseline is the HRV reference. A user who builds only
- * the first has no reference point for the metric that carries the most weight
- * in the Edge Score.
+ * stability. The finger capture is the **resting pulse** reference.
  *
- * 🔴 Why this policy exists, in numbers: HRV is worth 25 points of the Edge
- * Score and the stress proxy — another 15 — reads HRV too. **40% of the score.**
- * For someone with no wearable, finger PPG is the only source for it: the
- * repo's own source ranking already puts `camera` (45) below `finger_scan`
- * (60). A phone-only user without a finger baseline has those drivers excluded
- * from every reading, permanently. Measured, such a user's score sits at a
- * standard deviation of 1.0 — steady, and carrying almost no information.
+ * 🔴 This rationale was rewritten, and the rewrite matters. It used to read:
+ * "the finger baseline is the HRV reference … HRV is 25 points and the stress
+ * proxy another 15, so 40% of the Edge Score". That justification is **no
+ * longer true**: camera HRV is withheld (`camera_hrv_estimates`, default off,
+ * see docs/PHONE-PPG.md §10), so the camera is not an HRV source at all. A
+ * phone-only user loses those two drivers whether or not they do the finger
+ * capture — the Edge Score excludes them and renormalises over the rest, which
+ * is the honest behaviour and already implemented.
  *
- * founder decision, 2026-09-11: when no wearable can supply HRV, the finger
- * baseline joins the onboarding path. The daily entry point is still the face
- * scan (`docs/SOUL-SCAN-NORTH-STAR.md` §1).
+ * What the finger capture actually buys, in numbers: `hrStability` is 15 points
+ * of the Edge Score, and a fingertip pulse is a far better source for it than a
+ * face scan's — the repo's own source ranking puts `camera` (45) below
+ * `finger_scan` (60). That is the whole claim now. It is smaller than the old
+ * one, and it is true.
+ *
+ * founder decision, 2026-09-11: for a phone-only user the finger capture joins
+ * the onboarding path. The daily entry point is still the face scan
+ * (`docs/SOUL-SCAN-NORTH-STAR.md` §1).
  */
 
 import type { BiometricSourcePlatform } from '../contracts/wearable-sample';
 
-/** A baseline a user can be asked to build during onboarding. */
-export const BASELINE_STEPS = ['face_baseline', 'finger_hrv_baseline'] as const;
+/**
+ * A reference a user can be asked to establish during onboarding.
+ *
+ * ⚠️ `finger_pulse_baseline` was `finger_hrv_baseline`. The camera does not
+ * report HRV, so the old id named something the step cannot do.
+ */
+export const BASELINE_STEPS = ['face_baseline', 'finger_pulse_baseline'] as const;
 export type BaselineStepId = typeof BASELINE_STEPS[number];
 
 /**
@@ -49,9 +59,14 @@ export interface ConnectedSourceSnapshot {
 
 /** Why the finger step is or is not part of the plan. */
 export type FingerStepRationale =
-  /** No connected source can supply HRV, so the camera is the only route to it. */
-  | 'only_hrv_source'
-  /** A connected wearable already supplies HRV. */
+  /**
+   * No connected source can supply a resting pulse reference, so the camera is
+   * the only route to one.
+   *
+   * ⚠️ Was `only_hrv_source`, which is now false — the camera supplies no HRV.
+   */
+  | 'only_pulse_reference'
+  /** A connected wearable already supplies resting heart rate (and HRV). */
   | 'wearable_supplies_hrv';
 
 /** The baselines this user is asked to build, in order. */
@@ -60,8 +75,8 @@ export interface OnboardingBaselinePlan {
   /** Present whether or not the step is included — it explains both outcomes. */
   fingerRationale: FingerStepRationale;
   /**
-   * Whether the finger step may be skipped. Always true: a baseline built by a
-   * user who was cornered into it is a baseline built badly, and the honest
+   * Whether the finger step may be skipped. Always true: a reference built by a
+   * user who was cornered into it is a reference built badly, and the honest
    * move is to say what skipping costs rather than to remove the door.
    */
   fingerSkippable: boolean;
@@ -94,13 +109,20 @@ export function planOnboardingBaselines(
   const wearableHasHrv = hasHrvCapableSource(snapshot);
 
   return {
-    steps: wearableHasHrv ? ['face_baseline'] : ['face_baseline', 'finger_hrv_baseline'],
-    fingerRationale: wearableHasHrv ? 'wearable_supplies_hrv' : 'only_hrv_source',
+    steps: wearableHasHrv ? ['face_baseline'] : ['face_baseline', 'finger_pulse_baseline'],
+    fingerRationale: wearableHasHrv ? 'wearable_supplies_hrv' : 'only_pulse_reference',
     fingerSkippable: true,
   };
 }
 
-/** Score drivers that go unmeasured without an HRV reference. */
+/**
+ * Score drivers a phone-only user has no input for.
+ *
+ * 🔴 The finger capture does **not** recover these. The camera reports no HRV,
+ * so for a user with no wearable these two drivers are excluded from every
+ * reading and the remaining weight is renormalised (`scoring/edge-score.ts`).
+ * Only a chest strap or a platform HRV source brings them back.
+ */
 export const DRIVERS_LOST_WITHOUT_HRV = [
   'hrv_vs_baseline',
   'stress_proxy_vs_baseline',
@@ -108,8 +130,16 @@ export const DRIVERS_LOST_WITHOUT_HRV = [
 
 /**
  * Combined Edge Score weight of the drivers that have no input without an HRV
- * baseline. Mirrors `EDGE_WEIGHTS.hrvVsBaseline + stressProxyVsBaseline` in
+ * source. Mirrors `EDGE_WEIGHTS.hrvVsBaseline + stressProxyVsBaseline` in
  * `packages/engine/src/scoring/types.ts`, which is canonical — `domain` is the
  * lower layer and does not depend on the engine.
  */
 export const EDGE_WEIGHT_WITHOUT_HRV = 40;
+
+/**
+ * Edge Score weight the finger capture actually improves: `hrStability`.
+ *
+ * Mirrors `EDGE_WEIGHTS.hrStability`. This — not the 40 above — is what the
+ * finger step buys a phone-only user, and it is the number its copy may quote.
+ */
+export const EDGE_WEIGHT_FROM_PULSE_REFERENCE = 15;

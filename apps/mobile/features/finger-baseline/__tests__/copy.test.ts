@@ -32,8 +32,14 @@ describe('finger baseline copy', () => {
   it('states the cost of skipping instead of hiding it', () => {
     // 🔴 The step is skippable by policy (`fingerSkippable`). Offering the door
     // without saying what is behind it is the dishonest version of a choice.
+    //
+    // ⚠️ The cost named here changed with the camera-HRV decision. Skipping
+    // used to be said to cost "心律變異" — but a phone-only user has no HRV
+    // either way, so that was charging the user for something the step never
+    // supplied. What it actually costs is a reference for 心率穩定度
+    // (`EDGE_WEIGHT_FROM_PULSE_REFERENCE`, 15 points).
     expect(FINGER_BASELINE_COPY.skipLabel.length).toBeGreaterThan(0);
-    expect(FINGER_BASELINE_COPY.skipCost).toContain('心律變異');
+    expect(FINGER_BASELINE_COPY.skipCost).toContain('心率穩定度');
     expect(FINGER_BASELINE_COPY.skipCost).toContain('隨時');
   });
 
@@ -44,9 +50,32 @@ describe('finger baseline copy', () => {
     expect(FINGER_BASELINE_COPY.unwiredNotice).toContain('還沒有');
   });
 
-  it('says the 90 seconds also measures the instrument, not just the user', () => {
+  it('asks for 90 seconds and says what one capture is', () => {
     expect(FINGER_BASELINE_COPY.duration).toContain('90');
-    expect(FINGER_BASELINE_COPY.precisionNote).toContain('量測誤差');
+    // 🔴 One capture is a reference value, not a baseline. The card used to
+    // promise a measurement-noise floor instead; that mechanism is
+    // HRV-specific and shelved (docs/PHONE-PPG.md §10).
+    expect(FINGER_BASELINE_COPY.precisionNote).toContain('不是基線');
+  });
+
+  it('🔴 claims no HRV and no respiratory rate anywhere on the screen', () => {
+    // The camera reports neither (`camera_hrv_estimates`, default off). The
+    // only place those words may appear is a sentence saying they are NOT
+    // reported — which is what `limits` is.
+    for (const [key, line] of Object.entries(FINGER_BASELINE_COPY)) {
+      if (key === 'limits' || key === 'skipCost') continue;
+      expect(line).not.toContain('心律變異');
+      expect(line).not.toContain('呼吸率');
+    }
+    expect(FINGER_BASELINE_COPY.limits).toContain('不報心律變異');
+    expect(FINGER_BASELINE_COPY.limits).toContain('不報呼吸率');
+  });
+
+  it('🔴 never calls one capture a baseline', () => {
+    // `MIN_SECONDS_FOR_PULSE_ANCHOR` establishes an anchor, not a baseline.
+    // A baseline is a distribution across days (`biometric/pulse-anchor.ts`).
+    expect(FINGER_BASELINE_COPY.title).not.toContain('基線');
+    expect(FINGER_BASELINE_COPY.why).not.toContain('基線');
   });
 
   it('promises about images only what the design actually enforces', () => {

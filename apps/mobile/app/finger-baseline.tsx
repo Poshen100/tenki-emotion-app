@@ -1,5 +1,5 @@
 /**
- * expo-router route → the finger HRV baseline step.
+ * expo-router route → the finger pulse-anchor step.
  *
  * Reached from the face baseline's exit when onboarding planned it
  * (`establishedExitRoute`). It comes AFTER the face baseline and does not
@@ -32,6 +32,7 @@ export default function FingerBaselineScreen(): React.JSX.Element {
 
         <View style={styles.precisionCard}>
           <Text style={styles.precisionText}>{C.precisionNote}</Text>
+          <Text style={styles.limitsText}>{C.limits}</Text>
         </View>
 
         <View style={styles.noticeCard}>
@@ -69,6 +70,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   precisionText: { fontSize: 14, lineHeight: 21, color: '#EAF1F8' },
+  limitsText: { fontSize: 12, lineHeight: 19, color: '#9DB2CC', marginTop: 10 },
   noticeCard: {
     backgroundColor: 'rgba(157, 178, 204, 0.06)',
     borderColor: 'rgba(157, 178, 204, 0.2)',

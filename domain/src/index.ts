@@ -129,7 +129,7 @@ export type {
 } from './contracts/alert-contract';
 
 export {
-  MIN_SECONDS_FOR_HRV_BASELINE,
+  MIN_SECONDS_FOR_PULSE_ANCHOR,
   NEXT_ACTIONS,
   ONBOARDING_STEP_ORDER,
   SENSOR_CHOICES,

@@ -5,7 +5,7 @@ import { SCAN_MODE_CONFIGS, isCameraMode, modeReports } from '../scan-modes';
 
 describe('scan modes', () => {
   it('pins the shortest full scan, because a user-facing promise depends on it', () => {
-    // 🔴 `MIN_SECONDS_FOR_HRV_BASELINE` in
+    // 🔴 `MIN_SECONDS_FOR_PULSE_ANCHOR` in
     // `domain/src/contracts/baseline-contract.ts` mirrors this number, and the
     // sensor-choice copy promises a time at least that long. `domain` is the
     // lower layer and cannot import the engine, so this test is the link:

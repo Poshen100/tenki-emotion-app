@@ -1,5 +1,5 @@
 import {
-  MIN_SECONDS_FOR_HRV_BASELINE,
+  MIN_SECONDS_FOR_PULSE_ANCHOR,
   NEXT_ACTIONS,
   ONBOARDING_STEP_ORDER,
   SENSOR_CHOICES,
@@ -55,7 +55,7 @@ describe('the sensor choice cannot promise what the signal chain cannot do', () 
     // 30-second window produced an HRV estimate 0 times out of 12.
     const finger = SENSOR_CHOICES.find((c) => c.id === 'finger');
 
-    expect(finger?.estimatedTimeSec).toBeGreaterThanOrEqual(MIN_SECONDS_FOR_HRV_BASELINE);
+    expect(finger?.estimatedTimeSec).toBeGreaterThanOrEqual(MIN_SECONDS_FOR_PULSE_ANCHOR);
   });
 
   it('does not claim one sensor is steadier than the other', () => {

@@ -38,20 +38,24 @@ export const ONBOARDING_STEP_ORDER: readonly BaselineOnboardingStep[] = [
 export type SensorChoice = 'finger' | 'face_beta';
 
 /**
- * Shortest capture that can establish an HRV baseline, in seconds.
+ * Shortest camera capture that can establish a pulse anchor, in seconds.
  *
  * 🔴 This is not a UX preference, it is what the signal chain can do. Mirrors
  * `SCAN_MODE_CONFIGS.full_scan.minDurationSec` in
  * `packages/engine/src/biometric/scan-modes.ts`, which is canonical — `domain`
  * is the lower layer and does not depend on the engine. Keep the two in step.
  *
- * The previous copy promised 30 seconds. Measured against the synthetic
- * fixtures, a 30-second window produced an HRV estimate **0 times out of 12**:
- * `quick_check` does not report HRV at all, by construction. The flow was
- * promising something it could not deliver, and a test was holding that promise
- * in place without ever checking it was true.
+ * Two promises have been walked back here, both because they were measured:
+ *
+ *   1. The copy once promised 30 seconds. A 30-second window produced an HRV
+ *      estimate **0 times out of 12** — `quick_check` does not report HRV at
+ *      all, by construction. A test was holding that promise in place without
+ *      ever checking it was true.
+ *   2. The name once said HRV. Camera HRV is withheld
+ *      (`camera_hrv_estimates`, default off), so what this capture establishes
+ *      is a resting **pulse** reference. See docs/PHONE-PPG.md §10.
  */
-export const MIN_SECONDS_FOR_HRV_BASELINE = 45;
+export const MIN_SECONDS_FOR_PULSE_ANCHOR = 45;
 
 /** Sensor choice display config. */
 export interface SensorChoiceConfig {
@@ -74,9 +78,13 @@ export const SENSOR_CHOICES: readonly SensorChoiceConfig[] = [
   {
     id: 'finger',
     label: '手指精密建立',
-    // 90 秒是量出來的甜蜜點：RMSSD 估計的離散度從 45 秒的 ±2.15 降到 ±1.12，
-    // 再往上到 180 秒只再降到 ±0.95 —— 報酬遞減得很快。
-    description: '將手指輕放在後鏡頭上，90 秒建立心律變異基線',
+    // 🔴 不得寫「建立心律變異基線」—— 相機 HRV 是關掉的。而且也不得寫
+    // 「建立基線」：一次擷取得到的是一個參考值，基線要多次跨幾天才成形
+    // （`packages/engine/src/biometric/pulse-anchor.ts`）。
+    // ⚠️ 90 秒是**沿用**下來的：它是 HRV 離散度量出來的甜蜜點（45s ±2.15 →
+    // 90s ±1.12 → 180s ±0.95）。只報脈搏的話 30 秒就到 ±0.06 bpm 了，所以
+    // 這個時長現在是保守而非必要 —— 要縮短是產品決定，不是 AI 自己改。
+    description: '將手指輕放在後鏡頭上，90 秒立一個靜息脈搏參考值',
     isBeta: false,
     estimatedTimeSec: 90,
     iconHint: '👆',

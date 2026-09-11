@@ -19,8 +19,8 @@ describe('which baselines a new user builds', () => {
   it('adds the finger baseline when nothing else can supply HRV', () => {
     const plan = planOnboardingBaselines({ connectedPlatforms: [] });
 
-    expect(plan.steps).toEqual(['face_baseline', 'finger_hrv_baseline']);
-    expect(plan.fingerRationale).toBe('only_hrv_source');
+    expect(plan.steps).toEqual(['face_baseline', 'finger_pulse_baseline']);
+    expect(plan.fingerRationale).toBe('only_pulse_reference');
   });
 
   it('leaves it out when a connected wearable already supplies HRV', () => {

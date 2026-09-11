@@ -66,7 +66,7 @@ export function establishedExitRoute(
 
   // Omitting the plan keeps the original behaviour, so every caller that
   // predates the finger branch is unaffected.
-  return plan?.steps.includes('finger_hrv_baseline') === true
+  return plan?.steps.includes('finger_pulse_baseline') === true
     ? FINGER_BASELINE_ROUTE
     : ONBOARDING_COMPLETE_ROUTE;
 }
