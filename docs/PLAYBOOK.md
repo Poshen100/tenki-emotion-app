@@ -543,6 +543,8 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | vision-camera v5 | permission API 在 `VisionCamera` factory 上，不在 `Camera` 元件上 |
 | Scan tab | `(tabs)/scan.tsx` 只做路由儀表板，**capture 流程不得塞回去**（North Star 鐵律 1） |
 | 引擎改動 | 先寫測試再整合；engine/scan 覆蓋率 ≥ 90%；純函式、platform-neutral |
+| 把一個機制「搬到另一個量上」（例：noise floor 從 HRV 改吃 BPM）| 🔴 **先量新的量對你關心的變化有沒有反應，再搬**。數學形式一樣不代表量到同一件事：BPM 的窗口離散度品質從 99 掉到 80 只從 0.06 動到 0.18，但心律不整一下跳到 1.81 —— 因為 `heartRateFromIntervals()` 取中位數，中位數抗離群值，所以它量到的是**生理**不是**量具**。穩不代表準（`docs/PHONE-PPG.md` §10）|
+| 為一個訊號加「雜訊底線／死區」| 先算訊噪比。底線只在「雜訊跟真實變異同一個數量級」時有意義：HRV ~1:1 需要，脈搏 >10:1 不需要。比值算不出來（合成器沒有日間變異）就不要先蓋一層 |
 | mobile 要 import `packages/*` 或 `domain/` | **三處都要加，少一處壞在不同地方**：① tsconfig paths（少了 tsc 紅）② `metro.config.js` 的 `watchFolders`（少了 tsc 綠但 runtime/web bundle 掛）③ `package.json` 的 jest `moduleNameMapper` ＋ jest tsconfig 的 `paths`（少了 app 跑得動但測試找不到模組）|
 | Expo Web 全白 + `import.meta` SyntaxError | zustand v5 ESM 被 web 'import' 條件選中 → metro.config 已把 zustand 釘到 CJS；新增類似 ESM-only 套件時比照處理。**不要**全域關 `unstable_enablePackageExports`（會弄壞 react-native→react-native-web alias） |
 | Expo Web 報 "importing a module from 'react-native' instead of 'react-native-web'" | 有 native-only 套件（vision-camera/nitro 等）被頂層 import 進了 web 可達的模組 → 改 platform-split（`.native.tsx`）或 native 分支內 `await import()` |
