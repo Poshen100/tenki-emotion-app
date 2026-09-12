@@ -397,3 +397,23 @@ export {
 } from './intelligence/copy';
 
 export type { InsightCopy } from './intelligence/copy';
+
+// ─── Device validation instrument ───────────
+// 把 docs/PHONE-PPG.md §12 的三條關鍵檢查變成裝置自己回答得了的東西。
+export {
+  VALIDATION_SCENARIOS,
+  assessDayToDaySpread,
+  assessLockHonesty,
+  assessPrvGateReachability,
+  formatValidationReport,
+} from './biometric/validation-log';
+
+export type {
+  DayToDaySpread,
+  DayToDaySpreads,
+  LockHonesty,
+  PrvGateReachability,
+  Spread,
+  ValidationCapture,
+  ValidationScenario,
+} from './biometric/validation-log';
