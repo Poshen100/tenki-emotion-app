@@ -23,6 +23,7 @@ import {
   dimensionGoodness,
   toSignalQuality,
 } from './engine/biometric/ppg/signal-quality.js';
+import { formatValidationReport } from './engine/biometric/validation-log.js';
 import {
   buildPulseAnchor,
   resolvePrvComparison,
@@ -125,6 +126,7 @@ const PLACEMENT_COPY = {
 };
 
 const ANCHOR_KEY = 'tenki.preview.pulseAnchors';
+const VALIDATION_KEY = 'tenki.preview.validationLog';
 
 /** 指標被扣住的理由，直接用 engine 的 withheld reason。 */
 const WITHHELD_COPY = {
@@ -151,6 +153,10 @@ const state = {
   lastSample: null,
   torchAvailable: false,
   lock: INITIAL_PULSE_LOCK,
+  /** 這次擷取期間是否曾經 lock 過。實機驗收第 6 條問的就是這個。 */
+  lockEverAchieved: false,
+  /** 使用者說的情境。預設靜坐，但要由他選。 */
+  scenario: 'resting',
 };
 
 const $ = (id) => document.getElementById(id);
@@ -190,11 +196,66 @@ function saveAnchors(anchors) {
   }
 }
 
+function loadValidationLog() {
+  try {
+    const raw = localStorage.getItem(VALIDATION_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+/**
+ * 記下一次擷取嘗試 —— **接受與拒答都記**。
+ *
+ * 🔴 只記推導值。沒有幀、沒有波形、沒有任何本來沒算過的東西；報告本身也只有
+ * 統計，因為它會被從手機複製、貼進對話裡。
+ *
+ * ⚠️ 拒答的那些**特別重要**：實機驗收第 6 條問的是「lock 出現但最終沒有讀數」，
+ * 而那種擷取根本不會產生 anchor。只看 anchor 的話那條檢查永遠是空的。
+ */
+function recordValidationCapture(entry) {
+  const log = loadValidationLog();
+  log.push(entry);
+  try {
+    localStorage.setItem(VALIDATION_KEY, JSON.stringify(log));
+  } catch (_) {
+    /* private mode — 這一次就不留下來 */
+  }
+  return log;
+}
+
+function renderValidationReport(log) {
+  $('validationReport').textContent = formatValidationReport(log);
+}
+
 /** 本機日曆日。時區只有這台裝置知道，所以日界線由這裡決定，不由引擎猜。 */
 function localDateKey(at) {
   const d = new Date(at);
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * 這次擷取在驗收紀錄裡長什麼樣。
+ *
+ * @param a 分析結果，或 null（連分析都跑不動的擷取）。
+ */
+function validationEntry(a) {
+  const at = Date.now();
+  return {
+    atMs: at,
+    localDateKey: localDateKey(at),
+    durationSec: a === null ? 0 : a.durationSec,
+    qualityScore: a === null ? 0 : a.quality.score,
+    accepted: a !== null && a.heartRateBpm !== null,
+    heartRateBpm: a === null ? null : a.heartRateBpm,
+    prvRmssdMs: a === null ? null : a.prvRmssdMs,
+    beatTemplateCorrelation: a === null ? null : a.beatTemplateCorrelation,
+    lockEverAchieved: state.lockEverAchieved,
+    scenario: state.scenario,
+  };
 }
 
 /** 這次擷取的條件。問不到的就標成不知道，不要猜一個。 */
@@ -365,6 +426,7 @@ function renderLive() {
   renderDims($('liveDims'), reading);
 
   state.lock = advancePulseLock(state.lock, reading);
+  state.lockEverAchieved = state.lockEverAchieved || state.lock.locked;
   renderLock();
 }
 
@@ -463,6 +525,9 @@ function renderOutcome(outcome) {
       outcome.reason === 'too_few_frames'
         ? '取到的幀數太少。'
         : '相機時戳不可用。';
+    // ⚠️ 連完全跑不動的擷取也要記。第 6 條問的是「lock 出現但最終沒有讀數」，
+    // 而那正是這條路徑。
+    renderValidationReport(recordValidationCapture(validationEntry(null)));
     return;
   }
 
@@ -489,6 +554,7 @@ function renderOutcome(outcome) {
   renderAdvisories(signal.advisories);
   const anchors = renderStage(a);
   renderPrv(a, anchors);
+  renderValidationReport(recordValidationCapture(validationEntry(a)));
 
   $('frameNote').textContent =
     `${signal.usableFrameCount} / ${signal.totalFrameCount} 幀通過接觸、曝光與晃動的逐幀門檻，` +
@@ -706,6 +772,7 @@ async function begin() {
   state.frames = [];
   state.lastSample = null;
   state.lock = INITIAL_PULSE_LOCK;
+  state.lockEverAchieved = false;
   renderLock();
   state.startedAt = performance.now();
   state.running = true;
@@ -729,6 +796,29 @@ $('againBtn').addEventListener('click', () => {
 
 $('minSec').textContent = String(MIN_SEC);
 $('targetSec').textContent = String(TARGET_SEC);
+
+for (const button of document.querySelectorAll('.scenario')) {
+  button.addEventListener('click', () => {
+    state.scenario = button.dataset.scenario;
+    for (const other of document.querySelectorAll('.scenario')) {
+      other.setAttribute('aria-pressed', String(other === button));
+    }
+  });
+}
+
+$('copyReport').addEventListener('click', async () => {
+  const text = $('validationReport').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    $('copyState').textContent = '已複製。貼回對話就能看結果。';
+  } catch (_) {
+    // 🔴 iOS 的剪貼簿在非使用者手勢或非安全情境下會擋。失敗就照實說，
+    // 不要假裝複製成功 —— 使用者會貼出一片空白然後以為是我們的報告壞了。
+    $('copyState').textContent = '這個瀏覽器擋住了複製。長按上面的報告手動選取。';
+  }
+});
+
+renderValidationReport(loadValidationLog());
 
 window.addEventListener('pagehide', stopCamera);
 
@@ -768,6 +858,18 @@ window.__tenkiFingerHarness = {
   resetLock() {
     state.lock = INITIAL_PULSE_LOCK;
     renderLock();
+  },
+  resetValidationLog() {
+    try {
+      localStorage.removeItem(VALIDATION_KEY);
+    } catch (_) { /* ignore */ }
+    renderValidationReport([]);
+  },
+  setScenario(scenario) {
+    state.scenario = scenario;
+  },
+  setLockAchieved(value) {
+    state.lockEverAchieved = value;
   },
   resetAnchors() {
     try {

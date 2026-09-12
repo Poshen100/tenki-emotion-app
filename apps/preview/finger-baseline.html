@@ -138,6 +138,20 @@
     .lock { font-size: 12px; line-height: 1.6; color: var(--n-500); }
     [data-locked="yes"] .lock { color: var(--cyan-core); }
 
+    .scenarios { display: flex; gap: 8px; }
+    .scenario {
+      flex: 1; width: auto; padding: 10px 6px; font-size: 14px; border-radius: 12px;
+      background: transparent; color: var(--n-400); border: 1px solid var(--n-700);
+    }
+    .scenario[aria-pressed="true"] { border-color: var(--cyan-active); color: var(--n-100); }
+
+    /* 驗收報告是等寬純文字：它要被原樣複製出去。 */
+    .report {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 11px; line-height: 1.65; color: var(--n-400);
+      white-space: pre-wrap; word-break: break-word; margin-top: 8px;
+    }
+
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .statValue { font-size: 16px; font-weight: 600; color: var(--n-100); font-variant-numeric: tabular-nums; }
     .statLabel { font-size: 10px; color: var(--n-550); margin-top: 2px; }
@@ -182,6 +196,19 @@
     </section>
 
     <p class="only-intro fine">影像不留存。每一幀在本機化簡成數值後就丟棄 —— 引擎拿不到影像，這是型別的性質，不是要記得做的事。</p>
+    <!-- 🔴 這次在做什麼由**使用者說**，不是推測。實機驗收第 6 條問的就是
+         「邊走」，而手機分不出走路跟坐在會晃的車上 —— 猜一個會讓那條檢查
+         變成不可證偽。 -->
+    <section class="only-intro card">
+      <div class="dialLabel" style="margin-bottom:10px">這次是在什麼情況下做的</div>
+      <div class="scenarios" id="scenarios">
+        <button type="button" class="scenario" data-scenario="resting" aria-pressed="true">靜坐</button>
+        <button type="button" class="scenario" data-scenario="walking" aria-pressed="false">邊走</button>
+        <button type="button" class="scenario" data-scenario="cold_hands" aria-pressed="false">手冰</button>
+      </div>
+      <p class="fine" style="margin-top:10px">只用來做實機驗收的分類，不影響讀數。</p>
+    </section>
+
     <p class="only-intro err" id="startError"></p>
     <button class="only-intro" id="startBtn" style="margin-top:auto">開始校準</button>
 
@@ -276,6 +303,12 @@
       <p class="fine" id="prvNote" style="margin-top:8px" hidden></p>
       <p class="fine" id="prvCompare" style="margin-top:8px" hidden></p>
       <hr id="prvRule" style="border:none;border-top:1px solid var(--n-800);margin:14px 0" hidden />
+
+      <div class="dialLabel" style="margin-top:4px">實機驗收</div>
+      <pre class="report" id="validationReport">—</pre>
+      <button type="button" class="ghost" id="copyReport" style="margin-top:10px">複製驗收報告</button>
+      <p class="fine" id="copyState" style="margin-top:8px"></p>
+      <hr style="border:none;border-top:1px solid var(--n-800);margin:14px 0" />
 
       <p class="fine" style="margin-top:10px">後鏡頭對著指尖拍 90 秒。每一幀在本機化簡成幾個數值（紅／綠／藍平均、過曝比例、覆蓋比例、位移）後影像就丟掉 —— 引擎拿不到影像。</p>
       <p class="fine" style="margin-top:8px">那串數值重新取樣到等間隔 → 帶通濾波（0.7–3.5 Hz，心跳的頻帶）→ 自相關找主週期 → 適應性門檻抓拍點 → 剔除不合理的拍間距 → 過品質閘門。過不了閘門就不報，不會給一個看起來合理的數字。</p>

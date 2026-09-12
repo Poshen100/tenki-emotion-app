@@ -177,8 +177,11 @@ describe('the report is safe to paste', () => {
       capture({ atMs: 1_757_123_456_789 }),
       capture({ atMs: 1_757_123_999_999, localDateKey: '2026-09-12' }),
     ]);
-    expect(report).not.toContain('1757123456789');
-    expect(report).not.toContain('2026-09-11');
+    // ⚠️ Asserted as a PATTERN, not as the specific values in this fixture.
+    // The first version checked `not.toContain(<first atMs>)`, so printing the
+    // LAST capture's timestamp in the header sailed straight through it.
+    expect(report).not.toMatch(/\d{13}/);
+    expect(report).not.toMatch(/\d{4}-\d{2}-\d{2}/);
     expect(report.split('\n').length).toBeLessThan(20);
   });
 

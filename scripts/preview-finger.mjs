@@ -121,6 +121,13 @@ async function runScan(options) {
       prvCompare: text('prvCompare'),
       // 🔴 PRV 只能待在證據層。這裡問的是 DOM 的歸屬，不是可見性 ——
       // 收起來的 <details> 裡的節點 offsetParent 仍然不是 null。
+      report: document.getElementById('validationReport').textContent,
+      reportInEvidenceLayer: document.getElementById('how').contains(
+        document.getElementById('validationReport'),
+      ),
+      scenarioPressed: [...document.querySelectorAll('.scenario')]
+        .filter((b) => b.getAttribute('aria-pressed') === 'true')
+        .map((b) => b.dataset.scenario),
       prvInEvidenceLayer: document.getElementById('how').contains(
         document.getElementById('prvRow'),
       ),
@@ -446,6 +453,75 @@ check(
   `reasons=${JSON.stringify(weak.reasons)}`,
 );
 
+// ── 2d. 實機驗收儀表 ───────────────────────────────────────────────────────
+// 🔴 §12 有三條檢查要真手指才答得出來。頁面把每次擷取記下來（只記推導值），
+// 這幾條驗的是那個紀錄本身可不可信。
+console.log('\n── 實機驗收儀表 ──');
+await page.evaluate(() => window.__tenkiFingerHarness.resetValidationLog());
+
+const firstLogged = await runScan({});
+check(
+  '驗收報告在證據層，不在頭條',
+  firstLogged.reportInEvidenceLayer,
+  `在證據層=${firstLogged.reportInEvidenceLayer}`,
+);
+check(
+  '一次擷取就開始累積，而且報出三條檢查',
+  firstLogged.report.includes('#15') &&
+    firstLogged.report.includes('#6') &&
+    firstLogged.report.includes('#14'),
+  `report=${firstLogged.report.slice(0, 80)}`,
+);
+check(
+  '🔴 報告裡沒有時間戳，只有統計',
+  !/\d{13}/.test(firstLogged.report) && !/\d{4}-\d{2}-\d{2}/.test(firstLogged.report),
+  `report=${firstLogged.report}`,
+);
+check(
+  '預設情境是靜坐，而且只有一個被選起來',
+  firstLogged.scenarioPressed.length === 1 && firstLogged.scenarioPressed[0] === 'resting',
+  `pressed=${JSON.stringify(firstLogged.scenarioPressed)}`,
+);
+
+// 🔴 最重要的一條：被拒答的擷取**也要進紀錄**。第 6 條問的是「lock 出現但最終
+// 沒有讀數」，而那種擷取根本不會產生 anchor —— 只看 anchor 的話這條永遠是空的。
+await page.evaluate(() => {
+  window.__tenkiFingerHarness.resetValidationLog();
+  window.__tenkiFingerHarness.setScenario('walking');
+  window.__tenkiFingerHarness.setLockAchieved(true);
+});
+const refusedWithLock = await runScan(PPG_FIXTURES.lowPerfusion);
+check(
+  '🔴 拒答的擷取也進紀錄，而且「lock 出現但沒有讀數」會被判定不過',
+  refusedWithLock.report.includes('這條不過'),
+  `report=${refusedWithLock.report}`,
+);
+check(
+  '而且邊走的那次有被算成邊走',
+  /邊走 1 次/.test(refusedWithLock.report),
+  `report=${refusedWithLock.report}`,
+);
+
+// ⚠️ 上面那個 fixture 走的是「analysed 但沒讀數」那條路。**連分析都跑不動**
+// 的擷取是另一條 return，而第一版的斷言完全沒碰到它 —— 把那行記錄拿掉，
+// 上面兩條照樣綠。這一條專門走那條路。
+const tooFew = await page.evaluate(() => {
+  window.__tenkiFingerHarness.resetValidationLog();
+  window.__tenkiFingerHarness.renderFrames([]);
+  return document.getElementById('validationReport').textContent;
+});
+check(
+  '🔴 連分析都跑不動的擷取也要進紀錄',
+  /1 次擷取/.test(tooFew),
+  `report=${tooFew}`,
+);
+
+await page.evaluate(() => {
+  window.__tenkiFingerHarness.resetValidationLog();
+  window.__tenkiFingerHarness.setScenario('resting');
+  window.__tenkiFingerHarness.setLockAchieved(false);
+});
+
 // ── 3b. 一次校準不是基線（brief §5）────────────────────────────────────────
 // 🔴 這一段守的是**用詞**：同一天做幾次都還只是「第一個脈搏參考」，而「基線」
 // 這個詞只有最後一階能用。
@@ -587,6 +663,15 @@ if (shot) {
   await runScan({});
   await page.screenshot({ path: shot, fullPage: true });
   console.log(`\n  📸 ${shot}`);
+}
+const shotEvidence = process.env.FINGER_SHOT_EVIDENCE;
+if (shotEvidence) {
+  await runScan({});
+  await page.evaluate(() => {
+    document.getElementById('how').open = true;
+  });
+  await page.screenshot({ path: shotEvidence, fullPage: true });
+  console.log(`  📸 ${shotEvidence}`);
 }
 const shotScan = process.env.FINGER_SHOT_SCAN;
 if (shotScan) {
