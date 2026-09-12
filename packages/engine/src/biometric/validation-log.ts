@@ -31,6 +31,8 @@
  * @see docs/PHONE-PPG.md §12
  */
 
+import { DC_DRIFT_SUSPECT, type ExposureStability } from './ppg/exposure-stability';
+
 /**
  * What the person was doing during a capture.
  *
@@ -75,6 +77,29 @@ export interface ValidationCapture {
   channelPeriodicity: { red: number; green: number } | null;
   /** Each channel's mean level, 0-255. Near 255 means saturated. */
   channelDcMean: { red: number; green: number } | null;
+  /**
+   * How steady the camera's own operating point was, or null when the capture
+   * was too short to say.
+   *
+   * 🔴 Added after the SECOND real-device run, which the channel fix did not
+   * explain: nothing clipped (light 100%) and rhythm was still 0, with
+   * `strong_pulse` and `irregular_periodicity` reported together. That pair
+   * means the cardiac band is full of energy that does not repeat, and the
+   * leading suspect is auto-exposure re-deciding the level mid-capture
+   * (`exposure-stability.ts`). Recording it is what turns the suspicion into
+   * an answer instead of another guess.
+   */
+  exposure: ExposureStability | null;
+  /**
+   * Whether the page managed to lock exposure / white balance for this
+   * capture, and what it asked for. `null` when it never tried.
+   *
+   * ⚠️ Not the same question as `exposure`: this says whether the *request*
+   * was accepted, that says what the level actually did. A browser can accept
+   * the constraint and keep hunting anyway — which is exactly why both are
+   * recorded.
+   */
+  exposureLock: { requested: string[]; applied: boolean } | null;
   /** What the person said they were doing. */
   scenario: ValidationScenario;
 }
@@ -339,6 +364,42 @@ export function formatValidationReport(log: readonly ValidationCapture[]): strin
       `  綠：選中 ${channels.green.chosenCount} 次 · 節律中位數 ${fmt(channels.green.medianPeriodicity)} · 亮度中位數 ${fmt(channels.green.medianDcMean)}`,
     );
     lines.push('  （紅的亮度接近 255 且節律遠低於綠 = 補光燈把紅通道打飽和了）');
+  }
+  lines.push('');
+
+  lines.push('曝光（相機有沒有在自己重新決定亮度）');
+  const exposures = log.filter(
+    (c): c is ValidationCapture & { exposure: ExposureStability } => c.exposure !== null,
+  );
+  if (exposures.length === 0) {
+    lines.push('  還沒有任何量到曝光的擷取。');
+  } else {
+    const drift = medianOf(exposures.map((c) => c.exposure.dcDriftFraction));
+    const step = medianOf(exposures.map((c) => c.exposure.largestStepFraction));
+    const fps = medianOf(exposures.map((c) => c.exposure.framesPerSecond));
+    const gap = medianOf(exposures.map((c) => c.exposure.longestGapMs));
+    const hunting = exposures.filter((c) => c.exposure.slowDriftDominates).length;
+    const locks = log.filter(
+      (c): c is ValidationCapture & { exposureLock: { requested: string[]; applied: boolean } } =>
+        c.exposureLock !== null,
+    );
+    // ⚠️ 擠在三行裡是刻意的：這份報告是要被**貼回對話**的，長度本身有一條
+    // 斷言守著。門檻印在數字旁邊，讀的人不必記得它是多少。
+    lines.push(
+      `  DC 慢速擺動中位數 ${fmt(drift)} · 最大單秒跳動 ${fmt(step)} · 門檻 ${DC_DRIFT_SUSPECT} · 可疑（擺動 ≥ 門檻）：${hunting}/${exposures.length} 次`,
+    );
+    lines.push(
+      `  時基 fps ${fmt(fps)} · 最長間隔 ${fmt(gap)} ms · 曝光鎖 ${
+        locks.length === 0
+          ? '這個瀏覽器沒有可鎖的項目（或沒試過）'
+          : `成功 ${locks.filter((c) => c.exposureLock.applied).length}/${locks.length} 次（${
+              [...new Set(locks.flatMap((c) => c.exposureLock.requested))].join('、') || '無'
+            }）`
+      }`,
+    );
+    lines.push(
+      '  （擺動遠大於門檻 = auto-exposure 在擷取中重調增益，會蓋掉心搏起伏；鎖成功但擺動仍大 = 瀏覽器收了約束沒真鎖）',
+    );
   }
   lines.push('');
 

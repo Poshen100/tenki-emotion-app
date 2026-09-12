@@ -144,6 +144,10 @@
     }
     .dialCenter { position: absolute; display: grid; place-items: center; gap: 2px; }
     .dialValue { font-size: clamp(26px, 8vw, 34px); font-weight: 600; color: var(--n-100); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    /* 🔴 前 15 秒評不出品質分數是真的，但原本畫一條 `—`，實機上被讀成
+       「壞了」（founder 2026-09-12）。改成跟「節律」那一列同一個字：累積中。
+       字級跟著降 —— 三個中文字用 34px 會看起來像一個讀數。 */
+    .dialValue[data-pending="yes"] { font-size: clamp(14px, 4vw, 17px); font-weight: 500; color: var(--n-500); }
     .dialLabel { font-size: 11px; color: var(--n-500); letter-spacing: 1px; }
     .dialStack { position: relative; display: grid; place-items: center; }
 
@@ -203,6 +207,8 @@
     .dim[data-pending="yes"] .dimValue { color: var(--n-600); }
 
     /* Pulse Lock。🔴 不上 gold（gold = SECURED，這不是結果），沒有任何動效。 */
+    /* 曝光警示吃 --warning，跟低維度的 bar 同一個用法：這是你要改的地方。 */
+    .note[data-tone="bad"] { color: var(--warning); }
     .lock { font-size: 12px; line-height: 1.6; color: var(--n-500); }
     [data-locked="yes"] .lock { color: var(--cyan-core); }
 
@@ -351,6 +357,7 @@
 
     <section class="only-scan card">
       <ul id="liveReasons"></ul>
+      <p class="note" id="exposureNote" data-tone="neutral" style="margin-top:10px"></p>
       <p class="note" id="torchNote" style="margin-top:10px"></p>
     </section>
     <button class="only-scan ghost" id="abortBtn">中止</button>

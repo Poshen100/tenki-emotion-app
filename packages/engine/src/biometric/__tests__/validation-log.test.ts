@@ -8,6 +8,7 @@
  * mean the founder walks around with a phone and comes back with a number
  * that means nothing.
  */
+import { DC_DRIFT_SUSPECT } from '../ppg/exposure-stability';
 import {
   type ValidationCapture,
   assessChannels,
@@ -31,10 +32,59 @@ function capture(overrides: Partial<ValidationCapture> = {}): ValidationCapture 
     channel: 'red',
     channelPeriodicity: { red: 0.93, green: 0.4 },
     channelDcMean: { red: 190, green: 92 },
+    exposure: null,
+    exposureLock: null,
     scenario: 'resting',
     ...overrides,
   };
 }
+
+describe('曝光 — 相機有沒有在自己重新決定亮度', () => {
+  const steady = {
+    dcMedian: 190,
+    dcDriftFraction: 0.004,
+    largestStepFraction: 0.002,
+    slowDriftDominates: false,
+    framesPerSecond: 29.6,
+    longestGapMs: 40,
+    frameCount: 2700,
+  };
+  const hunting = { ...steady, dcDriftFraction: 0.31, largestStepFraction: 0.22, slowDriftDominates: true };
+
+  it('says nothing about exposure until something measured it', () => {
+    // 🔴 Same rule as everywhere else here: "no data" must not render as "fine".
+    // The second real-device failure was invisible precisely because nothing
+    // was recording this.
+    expect(formatValidationReport([capture()])).toContain('還沒有任何量到曝光的擷取');
+  });
+
+  it('reports the drift, the threshold, and how many captures look suspect', () => {
+    const report = formatValidationReport([
+      capture({ exposure: hunting }),
+      capture({ exposure: steady }),
+    ]);
+    expect(report).toContain('可疑（擺動 ≥ 門檻）：1/2 次');
+    // The threshold is printed beside the number, so the reader does not have
+    // to know it from memory to interpret the value.
+    expect(report).toContain(`門檻 ${DC_DRIFT_SUSPECT}`);
+    expect(report).toContain('時基');
+  });
+
+  it('separates "the lock was accepted" from "the level actually held"', () => {
+    // ⚠️ A browser can accept the constraint and keep hunting. Collapsing the
+    // two would make a successful-looking lock hide the failure it caused.
+    const report = formatValidationReport([
+      capture({ exposure: hunting, exposureLock: { requested: ['exposureMode'], applied: true } }),
+    ]);
+    expect(report).toContain('曝光鎖 成功 1/1 次');
+    expect(report).toContain('可疑（擺動 ≥ 門檻）：1/1 次');
+  });
+
+  it('says the browser had nothing to lock rather than implying failure', () => {
+    const report = formatValidationReport([capture({ exposure: steady })]);
+    expect(report).toContain('沒有可鎖的項目');
+  });
+});
 
 describe('#15 — is the PRV gate reachable on a real device', () => {
   it('says nothing from an empty log rather than reporting a rate', () => {
@@ -186,7 +236,9 @@ describe('the report is safe to paste', () => {
     // LAST capture's timestamp in the header sailed straight through it.
     expect(report).not.toMatch(/\d{13}/);
     expect(report).not.toMatch(/\d{4}-\d{2}-\d{2}/);
-    expect(report.split('\n').length).toBeLessThan(20);
+    // ⚠️ 上限的意義是「一次貼得完」，不是一個固定數字。加曝光那一段之後
+    // 從 20 放寬到 24 —— 放寬時要一起確認它仍然是一次貼得完的長度。
+    expect(report.split('\n').length).toBeLessThan(24);
   });
 
   it('says what is missing rather than printing a number it does not have', () => {

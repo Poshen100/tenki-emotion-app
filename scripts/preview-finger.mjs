@@ -714,6 +714,116 @@ check(
   `prvCompare=${clean.prvCompare}`,
 );
 
+// ── 2c2. 前 15 秒的誠實，與曝光診斷 ────────────────────────────────────────
+// 🔴 兩條都是 founder 實機回報的：
+//   1.「一條橫杠，使用者的感受可能會覺得壞掉了」—— 品質分數在前 15 秒是 null。
+//   2.「找不到穩定的脈搏節律（跑一半了仍然是零%）」—— 畫面上沒有任何數字
+//      說得出為什麼。曝光擺動就是那個數字。
+console.log('\n── 掃描中的誠實 ──');
+
+/** 走到指定秒數，回傳中央讀數與曝光那一行。 */
+async function liveAt(options, endSec) {
+  const { frames } = synthesizePpg({ durationSec: 90, ...options });
+  await page.evaluate(() => window.__tenkiFingerHarness.resetLock());
+  return page.evaluate(
+    ({ all, end }) => {
+      const t0 = all[0].timestampMs;
+      window.__tenkiFingerHarness.renderLiveFrames(
+        all.filter((f) => f.timestampMs <= t0 + end * 1000),
+      );
+      const h = window.__tenkiFingerHarness;
+      return {
+        quality: h.qualityCentre(),
+        exposure: h.exposureNote(),
+        dims: [...document.querySelectorAll('#liveDims .dim')].map((row) => ({
+          key: row.dataset.key,
+          value: row.querySelector('.dimValue').textContent.trim(),
+        })),
+      };
+    },
+    { all: frames, end: endSec },
+  );
+}
+
+const early = await liveAt({}, 6);
+check(
+  '🔴 前 15 秒不畫一條橫槓 —— 用跟「節律」同一個字說「累積中」',
+  early.quality.pending === 'yes' &&
+    early.quality.text === '累積中' &&
+    !early.quality.text.includes('—'),
+  JSON.stringify(early.quality),
+);
+const settled = await liveAt({}, 40);
+check(
+  '窗口夠長之後中央就是真的分數（不再是累積中）',
+  settled.quality.pending === 'no' && /^\d+$/.test(settled.quality.text),
+  JSON.stringify(settled.quality),
+);
+
+check(
+  '乾淨擷取：曝光那一行說亮度穩定，而且不上警示色',
+  settled.exposure.tone === 'neutral' &&
+    settled.exposure.text.includes('亮度穩定') &&
+    settled.exposure.text.includes('fps'),
+  JSON.stringify(settled.exposure),
+);
+check(
+  '🔴 幀還不夠時說「累積中」，不說「穩定」（null 不是穩定）',
+  (await liveAt({}, 0.3)).exposure.text.includes('累積中'),
+  JSON.stringify((await liveAt({}, 0.3)).exposure),
+);
+
+// 🔴 實機那個簽名：階梯式曝光擾動 → 節律崩掉，而曝光那一行講得出為什麼。
+const hunting = await page.evaluate(
+  ({ all }) => {
+    const t0 = all[0].timestampMs;
+    // 交替的階梯（auto-exposure 的形狀），疊在同一批幀上。
+    const stepped = all.map((f) => {
+      const sec = (f.timestampMs - t0) / 1000;
+      const step = Math.floor(sec / 1.4) % 2 === 0 ? 0 : 0.35;
+      return { ...f, red: f.red * (1 + step), green: f.green * (1 + step) };
+    });
+    window.__tenkiFingerHarness.renderLiveFrames(stepped);
+    const h = window.__tenkiFingerHarness;
+    return {
+      exposure: h.exposureNote(),
+      dims: [...document.querySelectorAll('#liveDims .dim')].map((row) => ({
+        key: row.dataset.key,
+        value: row.querySelector('.dimValue').textContent.trim(),
+      })),
+    };
+  },
+  { all: synthesizePpg({ durationSec: 45 }).frames },
+);
+const huntingRhythm = hunting.dims.find((d) => d.key === 'rhythmicCoherence');
+check(
+  '🔴 相機在自己調亮度時：節律掉下來，而曝光那一行說得出為什麼',
+  hunting.exposure.tone === 'bad' &&
+    hunting.exposure.text.includes('重新調亮度') &&
+    hunting.exposure.text.includes('門檻'),
+  JSON.stringify({ exposure: hunting.exposure, rhythm: huntingRhythm }),
+);
+// 🔴 畫面不得同時說「脈搏清楚」與「找不到穩定的脈搏節律」。實機第二次就是
+// 這一對，而強的其實是曝光干擾不是脈搏 —— strong_pulse 量的是帶內 AC/DC。
+const huntingReasons = await page.evaluate(() =>
+  [...document.querySelectorAll('#liveReasons .reason')].map((n) => n.textContent),
+);
+check(
+  '🔴 說「找不到節律」的同時，不得有另一行宣稱脈搏清楚',
+  !huntingReasons.some((r) => r.includes('找不到穩定的脈搏節律')) ||
+    !huntingReasons.some((r) => r.includes('脈搏') && r.includes('清楚')),
+  JSON.stringify(huntingReasons),
+);
+
+// ⚠️ 這一條第一版是我自己寫壞的：右邊拿一個由無意義三元式算出來的常數 100
+// 去比，等於「節律 < 100」——永遠成立。要比的是**同樣長度的乾淨擷取**。
+const cleanRhythm = (await liveAt({}, 45)).dims.find((d) => d.key === 'rhythmicCoherence');
+check(
+  '而且那正是實機看到的組合 —— 節律讀得比同樣長度的乾淨擷取差',
+  Number.parseInt(huntingRhythm.value, 10) < Number.parseInt(cleanRhythm.value, 10),
+  JSON.stringify({ hunting: huntingRhythm, clean: cleanRhythm }),
+);
+
 // ── 3. 訊號不足：必須拒答，而且不准上 gold ─────────────────────────────────
 console.log('\n── 訊號不足（低灌流）──');
 const weak = await runScan(PPG_FIXTURES.lowPerfusion);

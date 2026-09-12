@@ -50,6 +50,10 @@ import {
   COVERAGE_MAP_GRID,
   buildCoverageMap,
 } from './engine/biometric/ppg/coverage-map.js';
+import {
+  DC_DRIFT_SUSPECT,
+  assessExposureStability,
+} from './engine/biometric/ppg/exposure-stability.js';
 
 const MODE = 'full_scan';
 const TARGET_SEC = SCAN_MODE_CONFIGS[MODE].targetDurationSec;
@@ -81,7 +85,11 @@ const SAMPLE_SIZE = 64;
 const REASON_COPY = {
   stable_signal: { tone: 'good', text: '訊號穩定' },
   low_motion: { tone: 'good', text: '手很穩' },
-  strong_pulse: { tone: 'good', text: '脈搏清楚' },
+  // 🔴 原本寫「脈搏清楚」。實機第二次把它變成錯的：`strong_pulse` 量的是
+  // **帶內 AC/DC**，而階梯式曝光擾動會讓那個值**上升** —— 於是畫面同時說
+  // 「脈搏清楚」和「找不到穩定的脈搏節律」，而強的其實是干擾不是脈搏。
+  // 講它真正量到的東西：血流訊號強不等於節律讀得到。
+  strong_pulse: { tone: 'good', text: '血流訊號強' },
   good_periodicity: { tone: 'good', text: '節律規律' },
   full_coverage: { tone: 'good', text: '覆蓋完整' },
   motion_detected: { tone: 'bad', text: '偵測到晃動 — 手肘撐在桌上會穩很多' },
@@ -237,6 +245,10 @@ const state = {
   cellRing: [],
   /** 最近一次畫出來的覆蓋地圖。教練句要用它講「哪一邊」。 */
   coverMap: null,
+  /** 這次擷取有沒有鎖住曝光，以及鎖了什麼。null = 沒試或無可鎖。 */
+  exposureLock: null,
+  /** 最近一次算出來的曝光穩定度。掃描中顯示，結束後記進驗收紀錄。 */
+  exposure: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -340,6 +352,12 @@ function validationEntry(a) {
     channel: a === null ? null : a.channel,
     channelPeriodicity: a === null ? null : channelMap(a, 'periodicity'),
     channelDcMean: a === null ? null : channelMap(a, 'dcMean'),
+    // 🔴 曝光診斷。實機第二次通道修正沒有解釋：光 100%（什麼都沒削波）而節律
+    // 仍然是 0，理由同時出現 strong_pulse 與 irregular_periodicity —— 心搏
+    // 頻帶裡有很多不重複的能量。記下來才知道是不是相機在自己調亮度。
+    // ⚠️ 用**被選中的那個通道**算，不是寫死紅的：漂移要量在讀數真的來自的地方。
+    exposure: assessExposureStability(state.frames, a === null ? 'red' : a.channel),
+    exposureLock: state.exposureLock,
     scenario: state.scenario,
   };
 }
@@ -735,13 +753,55 @@ function renderProgress(elapsed) {
 function renderLive() {
   const reading = assessLiveWindow(recentFrames(state.frames, LIVE_WINDOW_SEC), MODE);
 
-  $('liveQuality').textContent = reading.score === null ? '—' : String(reading.score);
+  // 🔴 `—` 在實機上被讀成「壞了」（founder 2026-09-12）。前 15 秒還評不出
+  // 品質分數是真的，但一條橫槓沒有說出那件事 —— 而旁邊的「節律」那一列早就
+  // 用「累積中」講同一件事了。同一個狀態要用同一個字。
+  const quality = $('liveQuality');
+  quality.dataset.pending = reading.score === null ? 'yes' : 'no';
+  quality.textContent = reading.score === null ? '累積中' : String(reading.score);
   renderReasons($('liveReasons'), reading.reasons);
   renderDims($('liveDims'), reading);
+
+  renderExposure();
 
   state.lock = advancePulseLock(state.lock, reading);
   state.lockEverAchieved = state.lockEverAchieved || state.lock.locked;
   renderLock();
+}
+
+/**
+ * 掃描中的曝光讀數。
+ *
+ * 🔴 為什麼要在**掃描進行中**就顯示：實機第二次跑到 46 秒時畫面上能看到的
+ * 只有「節律 0%」和「找不到穩定的脈搏節律」—— 沒有任何一個數字說得出為什麼。
+ * 曝光擺動就是那個數字，而它在第 15 秒就算得出來。
+ *
+ * ⚠️ 活層用紅通道算（此刻還不知道讀數會來自哪個通道）。結束後記進驗收紀錄
+ * 的那一筆用**被選中的**通道。
+ */
+function renderExposure() {
+  const exposure = assessExposureStability(state.frames, 'red');
+  state.exposure = exposure;
+  const note = $('exposureNote');
+
+  if (exposure === null) {
+    // 🔴 量不到就說量不到 —— null 不是「穩定」。
+    note.dataset.tone = 'neutral';
+    note.textContent = '亮度穩定度：累積中。';
+    return;
+  }
+
+  const drift = `${(exposure.dcDriftFraction * 100).toFixed(1)}%`;
+  const fps = exposure.framesPerSecond.toFixed(0);
+  if (exposure.slowDriftDominates) {
+    note.dataset.tone = 'bad';
+    note.textContent =
+      `⚠️ 相機在自己重新調亮度（慢速擺動 ${drift}，門檻 ${(DC_DRIFT_SUSPECT * 100).toFixed(0)}%）。` +
+      '心搏起伏只有百分之一上下，這個幅度會把它整個蓋掉 —— 節律讀不到多半是這個原因。';
+    return;
+  }
+  note.dataset.tone = 'neutral';
+  note.textContent = `亮度穩定（慢速擺動 ${drift}）· ${fps} fps。`;
 }
 
 /**
@@ -1108,6 +1168,48 @@ async function begin() {
 }
 
 /**
+ * 鎖住相機的曝光 / 白平衡 / 對焦。
+ *
+ * 🔴 為什麼是在**擷取開始的那一刻**鎖，而不是開相機的時候：鎖 `manual` 是把
+ * 當下那個曝光值凍住。開相機時鏡頭上還沒有東西，凍住的會是一個對著空氣算出
+ * 來的曝光。就位閘保證了手指此刻已經在鏡頭上、而且 AE 已經對著它收斂 ——
+ * 這是那道閘意外的第二個用處。
+ *
+ * ⚠️ Best-effort，而且**失敗不擋擷取**：Safari 幾乎不支援這些約束。
+ * 成敗記進驗收紀錄，因為「瀏覽器收了約束」跟「亮度真的不動了」是兩個問題
+ * （`exposure-stability.ts`）。
+ */
+async function lockExposure() {
+  state.exposureLock = null;
+  if (state.stream === null) return;
+  const track = state.stream.getVideoTracks()[0];
+  if (!track || typeof track.getCapabilities !== 'function') return;
+
+  let caps = {};
+  try {
+    caps = track.getCapabilities() ?? {};
+  } catch (_) {
+    return;
+  }
+
+  const wanted = {};
+  for (const mode of ['exposureMode', 'whiteBalanceMode', 'focusMode']) {
+    if (Array.isArray(caps[mode]) && caps[mode].includes('manual')) wanted[mode] = 'manual';
+  }
+  const requested = Object.keys(wanted);
+  if (requested.length === 0) return;
+
+  let applied = false;
+  try {
+    await track.applyConstraints({ advanced: [wanted] });
+    applied = true;
+  } catch (_) {
+    applied = false;
+  }
+  state.exposureLock = { requested, applied };
+}
+
+/**
  * 擷取真正開始的地方。時鐘從這裡才走。
  *
  * ⚠️ `state.frames` 從空的開始 —— 就位期間的幀**不算**擷取的一部分。
@@ -1115,6 +1217,10 @@ async function begin() {
 function startCapture(video, ctx) {
   state.gateRunning = false;
   cancelAnimationFrame(state.raf);
+
+  // ⚠️ 不 await：鎖曝光是 best-effort，不該讓時鐘等它。前幾百毫秒的幀
+  // 可能還是 auto 的，而 90 秒的擷取不在乎那幾幀。
+  lockExposure().catch(() => {});
 
   $('stage').dataset.phase = 'scanning';
   state.frames = [];
@@ -1301,6 +1407,14 @@ window.__tenkiFingerHarness = {
   },
   coverageGrid() {
     return COVERAGE_MAP_GRID;
+  },
+  exposureNote() {
+    const note = document.getElementById('exposureNote');
+    return { text: note.textContent.trim(), tone: note.dataset.tone };
+  },
+  qualityCentre() {
+    const el = document.getElementById('liveQuality');
+    return { text: el.textContent.trim(), pending: el.dataset.pending };
   },
   /** 把閘的 blocker 設成指定值再重畫，用來驗教練句吃地圖。 */
   renderGateWithBlocker(blocker) {
