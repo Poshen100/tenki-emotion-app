@@ -268,6 +268,11 @@ export function runScanPipeline(
   // that filled a gap above counts as available and a placeholder does not.
   const availability = resolveAvailability(effectiveReading, deps.availability);
 
+  // 🔴 Where each input came from, so the Edge Score knows what it may claim.
+  // This scan is a camera scan: its pulse and any respiratory rate are
+  // phone-derived and capped (`PHONE_EVIDENCE_CAPS`). HRV is the exception —
+  // it only ever reaches here from a beat sensor, because the camera is not
+  // allowed to populate that field at all.
   const edgeInput: EdgeScoreInput = {
     reading: effectiveReading,
     baseline: deps.currentBaseline,
@@ -275,6 +280,12 @@ export function runScanPipeline(
     sleepRecovery: deps.sleepRecovery,
     recentScores: deps.recentScores,
     availability,
+    evidence: {
+      pulse: 'phone_camera',
+      breath: availability.respiration ? 'phone_camera' : 'none',
+      hrv: wearableHrvApplied ? 'rr_sensor' : availability.hrv ? 'rr_sensor' : 'none',
+      sleep: deps.sleepRecovery.source === 'none' ? 'none' : 'wearable',
+    },
   };
 
   const edgeScoreResult = calculateEdgeScore(edgeInput);

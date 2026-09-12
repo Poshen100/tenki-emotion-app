@@ -45,6 +45,16 @@
 | **量不到就填一個合理的預設值**（HRV 填 50、呼吸率填 15、缺睡眠當 80、沒拍點當 60bpm）| 靜息合理值下游**分不出來**，一路變成假讀數與被推壞的 baseline。缺就是缺：回 `null`，並把 driver 排除、confidence 降下來。詳見 `docs/PHONE-PPG.md` |
 | 把相機 HRV 跟手錶／胸帶 HRV 當同一個數字比較 | 三者 `derivation` 不同（estimated / observed / derived），contract 逼你標記就是為了擋這件事 |
 | 對 SDNN/RMSSD 或相機 HRV 的偏差**乘一個固定係數**修正 | 沒有個人化依據的魔術常數會把偏差藏起來（`harmonizeHrv() × 0.75` 已因此拆掉一次）|
+| 產出 SNS / PNS score、LF/HF balance、「交感副交感平衡」、「自律神經分數」 | 手機量不到神經活動。LF 不是選擇性的交感指標、LF/HF 不該被描述成 sympathovagal balance。`domain/contracts/regulation-evidence.ts` **連欄位都沒有**，並有 `findForbiddenAutonomicClaims()` 擋文案 |
+| 把「脈搏節律」(PRV) 放進頭條讀數、讓它影響 Edge Score、或在累積夠多可比較的高品質錨點前就跟使用者自己比 | founder 2026-09-11 決議：初期只在**證據／量測細節層**、**不進分數**、比較要等 7 次跨 3 天（`docs/PHONE-PPG.md` §13）|
+| 把相機的 PRV 叫成 HRV、或讓它填進 `hrvRmssdMs` / 餵 HRV driver / 進 HRV baseline | 相機是從光的波形推回拍點，胸帶是直接量拍間距。品質分數 99 的擷取 PRV 可以錯 156%（`docs/PHONE-PPG.md` §13）。混在一起之後沒人分得出那份 baseline 是誰量的 |
+| 讓相機呼吸率以 pulse scan 副產品的形式出現 | 只能是獨立的 Breath Lock：45–60 秒 protocol、自己的閘門、對照參考來源驗證（§14）|
+| 兩個來源的呼吸率不一致時取平均 | 對的答案跟錯的答案的平均是第三個錯答案。不一致就顯示「訊號衝突」或什麼都不顯示 |
+| **量不到就把權重重新分配給量得到的 driver** | 資料變少不得讓分數變高。實測：同一筆讀數把 HRV 拿掉，舊做法從 72 分變 **86 分**。改用「錨點 + 有上限的證據移動」（§15）|
+| 用「分數震盪幅度」判斷系統準不準 | z-score 會把幅度正規化。實測訊噪比 0.33 與 0.97 的分數 SD 幾乎一樣（12.2 vs 11.3），**畫面上分不出來**。要判斷準不準只能量雜訊 → `docs/PHONE-PPG.md` §10 |
+| 看到「節律讀不到」就預設是通道飽和 | 2026-09-12 實機第二次否決了這個預設：光 100%（沒有削波）而節律仍然 0。先看 `strong_pulse` 有沒有同時出現 —— 灌流好＋節律零 = 帶內有不重複的能量，主要嫌疑是 auto-exposure（`docs/PHONE-PPG.md` §19）|
+| 把 `strong_pulse` 說成「脈搏清楚」 | 它量的是**帶內 AC/DC**，階梯式曝光擾動會讓它**上升**。舊文案會讓畫面同時宣稱脈搏清楚與找不到節律，而強的其實是干擾 |
+| user-facing 承諾一個訊號鏈做不到的時間／精度 | `SENSOR_CHOICES` 曾承諾「30 秒建立基線」，實測 30 秒產出 HRV **0/12**，而且有一條測試把那個錯的值鎖著。承諾要綁到能力上（`MIN_SECONDS_FOR_HRV_BASELINE`）|
 
 ## Monorepo 架構
 
@@ -78,6 +88,16 @@ tenki-emotion-app/
 | Session Governance | `packages/engine/src/session/` | modes + templates + timer + gate + violations |
 | Baseline | `packages/engine/src/baseline/` | signal-quality-gate + bootstrap (Welford) |
 | Phone PPG | `packages/engine/src/biometric/ppg/` | 手機相機 PPG 量測鏈：重取樣→帶通→自相關→拍點→品質閘（規格 `docs/PHONE-PPG.md`，動工前必讀）|
+| Pulse Anchor | `packages/engine/src/biometric/pulse-anchor.ts` | 一次擷取＝一個靜息脈搏參考值；四階段基線成形（`docs/PHONE-PPG.md` §11）|
+| Signal Integrity | `packages/engine/src/biometric/ppg/signal-quality.ts` + `live.ts` | 四維儀表（接觸／光／穩定／節律）與掃描中的 Pulse Lock |
+| 就位閘 | `packages/engine/src/biometric/ppg/capture-readiness.ts` | 擷取開始**以前**的定位閘：只擋接觸，光與晃是 advisory（`docs/PHONE-PPG.md` §17）|
+| 覆蓋地圖 | `packages/engine/src/biometric/ppg/coverage-map.ts` | 缺口在「哪裡」：4×4 覆蓋格；coverage 與閘門同一個數字；不講方向（`docs/PHONE-PPG.md` §18）|
+| 曝光穩定度 | `packages/engine/src/biometric/ppg/exposure-stability.ts` | 相機有沒有在自己重調增益：DC 慢速擺動 ＋ 時基（`docs/PHONE-PPG.md` §19）|
+| PRV 閘門 | `packages/engine/src/biometric/ppg/beat-template.ts` | 拍形穩定度 —— 唯一看得到感光雜訊的量（§13）|
+| Breath Lock | `packages/engine/src/biometric/ppg/breath-lock.ts` | 相機呼吸率的獨立契約與雙來源和解（§14，擷取層未寫）|
+| Regulation Evidence | `domain/src/contracts/regulation-evidence.ts` | 自律調節的間接證據契約；刻意沒有 SNS/PNS/LF-HF 欄位 |
+| 實機驗收儀表 | `packages/engine/src/biometric/validation-log.ts` | 把 `docs/PHONE-PPG.md` §12 的第 6／14／15 條變成裝置自己算得出來的報告（只記推導值）|
+| Noise Floor | `packages/engine/src/baseline/noise-floor.ts` + `ppg/repeatability.ts` | 系統量自己的雜訊，當 z-score 的分母下限（規格 `docs/PHONE-PPG.md` §10）|
 | Beat-series HRV | `packages/engine/src/biometric/beat-series.ts` | 胸帶 RR interval → RMSSD/SDNN；沒有 RR 就沒有 HRV |
 | Scan Modes | `packages/engine/src/biometric/scan-modes.ts` | quick_check / full_scan / precision，各自能報什麼 |
 | Compliance | `packages/engine/src/compliance/` | user-facing copy 審查 |

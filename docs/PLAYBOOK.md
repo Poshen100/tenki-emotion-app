@@ -41,6 +41,7 @@
 | 動效 / 動畫（任何 surface） | 依 §9 定位表 | **`docs/MOTION-DIRECTION.md`（canonical）** + 對應 `gsap-*` skill 包（其 §6 路由） | 其 §7 驗收清單（真瀏覽器 + reduced-motion + 短視窗） |
 | 穿戴 / 健康資料整合（HealthKit、Health Connect、BLE、Garmin） | `domain/` + `apps/mobile/` | **`docs/WEARABLE-INTEGRATION.md`（canonical）** + `docs/garmin-integration.md` | `bash scripts/verify.sh` |
 | 相機 PPG / 訊號處理 / 品質閘 / 掃描模式 | `packages/engine/src/biometric/ppg/` | **`docs/PHONE-PPG.md`（canonical）** —— 尤其 §3 三個量出來的真問題與 §8 門檻是量出來的 | `verify.sh` + **對合成真值比對，不是只看測試綠** |
+| 基線建立流程 / 手指校準 / z-score 正規化 | `packages/engine/src/baseline/` + `domain/contracts/baseline-contract.ts` | **`docs/PHONE-PPG.md` §10**（雜訊底線）＋ `docs/SOUL-SCAN-NORTH-STAR.md` §1（含 2026-09-11 phone-only 例外） | `verify.sh` |
 | 文件 / 制度 | 根目錄 + `docs/` | 本檔 §0 優先序 | 無矛盾引入 |
 | ❌ 任何理由都不碰 | `apps/web/`（凍結）、`core/`（legacy 參考） | — | hook 會直接擋 |
 
@@ -99,6 +100,24 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
   `active` 只是一個布林旗標，不是「粒子會不會被重新上色」。
   改成驗產品自己的閘門 `toneIdle()` ＋ 靜息飽和度 === 1 之後同一個破壞就紅了。
   判準：**問「輸出會不會不一樣」，不要問「狀態機自認為在哪一格」。**
+- **🔴 「元素在」不等於「有話說」—— 空字串照樣有高度**（2026-09-12，第三次同類）。
+  `/finger/` 的就位教練句在**使用者做對的時候**是空字串（`BLOCKER_COPY[null]` 是 undefined），
+  而 harness 斷言的是那一行 `getBoundingClientRect().height > 0` —— `.coach` 有 `min-height`，
+  所以全綠。**截圖抓到的，不是斷言。**
+  這是同一個病的第三次：`.dimFill` 量 `style.width` 而不是幾何（bar 完全沒渲染仍綠）、
+  「拒答的擷取也要進紀錄」走到的是另一條 return（整行刪掉仍綠）。
+  **第四次（2026-09-12，覆蓋地圖）多一個變種：斷言的「輸入」太乾淨，兩個公式剛好同值。**
+  「地圖的 coverage 就是閘門的 coverage」用對齊格線的留白圖樣驗 —— 而對齊時
+  「像素比例」與「蓋到的格子比例」都是 0.75，把公式換成後者照樣綠。半格高的
+  留白（0.875 vs 0.75）才分得開。**問法補一條：這個測資能不能分開我要守的公式
+  跟我怕的那個公式？** 同值的測資等於沒測。
+  **第五次（2026-09-12，曝光診斷）是最蠢的一種：斷言的右邊恆真。**
+  我寫了「節律 < `Number.parseInt(三元式兩邊都回 '100')`」—— 等於「節律 < 100」。
+  改成跟**同樣長度的乾淨擷取**比才有內容。
+  **問法再補一條：右邊那個數字是從哪裡來的？** 如果它不是另一次量測、而是我手打的
+  常數或一個算出來永遠一樣的式子，這條斷言大概沒有在守東西。
+  判準：**斷言要量使用者實際讀到／看到的那個量** —— 文字量長度，長度量幾何，
+  存在量內容。量到容器就等於沒量。
 - **🔴 「有版面」不等於「看得見」—— 遮擋不會改變 bounding rect**（2026-08-11）。
   /v3/ Today 那行「以上四張為示意畫面」被固定在底部的 FDCB 底座整片蓋住，實際讀不到；
   而 harness 的可見性檢查量的是 `getBoundingClientRect()` + `visibility`，**照樣全綠** ——
@@ -552,6 +571,15 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | vision-camera v5 | permission API 在 `VisionCamera` factory 上，不在 `Camera` 元件上 |
 | Scan tab | `(tabs)/scan.tsx` 只做路由儀表板，**capture 流程不得塞回去**（North Star 鐵律 1） |
 | 引擎改動 | 先寫測試再整合；engine/scan 覆蓋率 ≥ 90%；純函式、platform-neutral |
+| 把一個機制「搬到另一個量上」（例：noise floor 從 HRV 改吃 BPM）| 🔴 **先量新的量對你關心的變化有沒有反應，再搬**。數學形式一樣不代表量到同一件事：BPM 的窗口離散度品質從 99 掉到 80 只從 0.06 動到 0.18，但心律不整一下跳到 1.81 —— 因為 `heartRateFromIntervals()` 取中位數，中位數抗離群值，所以它量到的是**生理**不是**量具**。穩不代表準（`docs/PHONE-PPG.md` §10）|
+| 要為一個推導值找「自己的閘門」| 🔴 **先量「什麼東西能預測它準不準」，不要假設品質分數可以**。實例：相機 PRV 的誤差跟品質分數幾乎無關 —— 感光雜訊不扣品質分（99 分）卻讓 PRV 錯 156%，重複性也擋不住（rep 0.4 配 177% 誤差）。要找到真的相關的量（這裡是拍形穩定度）才叫閘門（`docs/PHONE-PPG.md` §13）|
+| 兩個來源給出不一樣的數字 | **不取平均。** 一致才提高 confidence；不一致就顯示衝突或什麼都不顯示。對的答案跟錯的答案的平均是第三個錯答案、還多了一位小數 |
+| 「量不到的 driver 要怎麼處理」| 排除它、**但不要把權重重新分配**給其他 driver —— 那會讓資料變少的讀數分數變高（實測 72 → 86）。用「錨點 + 移動量」：量不到的推動 0，其他權重原封不動 |
+| 在文件或稽核裡寫下「這是實機階段要驗的事」| 🔴 **問一句：現在先做掉會不會比較便宜。** 2026-09-12 實例：稽核 PR #148 時記下「紅通道在 torch 下常飽和，它同時跑紅／綠兩條 buffer 自動選；我們只吃紅」，標成待驗 —— 然後 founder 第一次實機就撞上它，兩次擷取全部失敗（節律 8%）。已知的裝置事實不要排進「之後再驗」的佇列 |
+| 某個維度的讀數在實機上怪怪的（例：靜坐時「穩定」只有 42%）| 先問**那個量實際在量什麼**，不要先調門檻。`motion` 是逐幀紅平均差值 —— 紅通道飽和時它量到的是削波雜訊不是晃動。⚠️ 但一次只驗一個修正：先修主因，再看這個維度會不會自己回升 |
+| 寫完一條斷言 | 🔴 **問兩個獨立的問題：① 條件對不對 ② 它到底跑到哪一條 code path。** 2026-09-12 實例：「拒答的擷取也要進紀錄」用的 fixture 走的是「analysed 但沒讀數」那條路，而它要守的那行在「連分析都跑不動」那條 `return` 裡 —— 把那行刪掉，斷言照樣綠。同一天另一例：「報告裡沒有時間戳」只比對了 fixture 裡第一筆的 atMs，印最後一筆就穿過去 → 斷言**模式**（`/\d{13}/`）不要斷言特定值 |
+| 用 `git checkout --` 還原 sabotage | 🔴 **會把同一個檔案裡自己未 commit 的修改一起洗掉。** 反向驗證前一律 `cp` 備份再改，還原也用 `cp`（我在 2026-09-11 這一輪就這樣丟過一次 to-reading.ts 的修改）|
+| 為一個訊號加「雜訊底線／死區」| 先算訊噪比。底線只在「雜訊跟真實變異同一個數量級」時有意義：HRV ~1:1 需要，脈搏 >10:1 不需要。比值算不出來（合成器沒有日間變異）就不要先蓋一層 |
 | mobile 要 import `packages/*` 或 `domain/` | **三處都要加，少一處壞在不同地方**：① tsconfig paths（少了 tsc 紅）② `metro.config.js` 的 `watchFolders`（少了 tsc 綠但 runtime/web bundle 掛）③ `package.json` 的 jest `moduleNameMapper` ＋ jest tsconfig 的 `paths`（少了 app 跑得動但測試找不到模組）|
 | Expo Web 全白 + `import.meta` SyntaxError | zustand v5 ESM 被 web 'import' 條件選中 → metro.config 已把 zustand 釘到 CJS；新增類似 ESM-only 套件時比照處理。**不要**全域關 `unstable_enablePackageExports`（會弄壞 react-native→react-native-web alias） |
 | Expo Web 報 "importing a module from 'react-native' instead of 'react-native-web'" | 有 native-only 套件（vision-camera/nitro 等）被頂層 import 進了 web 可達的模組 → 改 platform-split（`.native.tsx`）或 native 分支內 `await import()` |

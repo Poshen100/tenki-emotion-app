@@ -129,6 +129,7 @@ export type {
 } from './contracts/alert-contract';
 
 export {
+  MIN_SECONDS_FOR_PULSE_ANCHOR,
   NEXT_ACTIONS,
   ONBOARDING_STEP_ORDER,
   SENSOR_CHOICES,
@@ -231,7 +232,12 @@ export {
   CLAIM_TIMINGS,
   ESTIMATE_TERMS,
   IMMEDIACY_TERMS,
+  MIN_SCANS_FOR_ESTABLISHED_PRECISION,
+  PRECISION_GRADES,
+  PRECISION_GRADE_BOUNDS,
+  buildPrecisionClaim,
   buildReadingClaim,
+  gradePrecision,
   mayClaimAsCurrent,
   validateReadingCopy,
 } from './policies/reading-claim';
@@ -239,7 +245,51 @@ export {
 export type {
   ClaimQualifier,
   ClaimTiming,
+  PrecisionClaim,
+  PrecisionGrade,
   ReadingClaim,
   ReadingCopyCheck,
   ReadingCopyProblem,
 } from './policies/reading-claim';
+
+export {
+  BASELINE_STEPS,
+  DRIVERS_LOST_WITHOUT_HRV,
+  EDGE_WEIGHT_WITHOUT_HRV,
+  hasHrvCapableSource,
+  planOnboardingBaselines,
+} from './policies/onboarding-sensor-plan';
+
+export type {
+  BaselineStepId,
+  ConnectedSourceSnapshot,
+  FingerStepRationale,
+  OnboardingBaselinePlan,
+} from './policies/onboarding-sensor-plan';
+
+// ─── Regulation evidence ────────────────────
+// 自律調節的**間接證據**，不是神經活動本身。契約裡刻意沒有 SNS/PNS/LF-HF。
+export {
+  BREATH_PROVENANCE,
+  COUPLING_STATUSES,
+  EVIDENCE_CONFIDENCE_LEVELS,
+  EVIDENCE_QUALITY_LEVELS,
+  FORBIDDEN_AUTONOMIC_CLAIMS,
+  INTERPRETATION_MODES,
+  PULSE_PROVENANCE,
+  findForbiddenAutonomicClaims,
+} from './contracts/regulation-evidence';
+
+export type {
+  BreathEvidence,
+  BreathProvenance,
+  CouplingEvidence,
+  CouplingStatus,
+  EvidenceConfidence,
+  EvidenceQuality,
+  InterpretationMode,
+  PulseEvidence,
+  PulseProvenance,
+  RegulationEvidence,
+  RegulationInterpretation,
+} from './contracts/regulation-evidence';

@@ -37,6 +37,26 @@ export const ONBOARDING_STEP_ORDER: readonly BaselineOnboardingStep[] = [
 /** Available sensor types for baseline calibration. */
 export type SensorChoice = 'finger' | 'face_beta';
 
+/**
+ * Shortest camera capture that can establish a pulse anchor, in seconds.
+ *
+ * 🔴 This is not a UX preference, it is what the signal chain can do. Mirrors
+ * `SCAN_MODE_CONFIGS.full_scan.minDurationSec` in
+ * `packages/engine/src/biometric/scan-modes.ts`, which is canonical — `domain`
+ * is the lower layer and does not depend on the engine. Keep the two in step.
+ *
+ * Two promises have been walked back here, both because they were measured:
+ *
+ *   1. The copy once promised 30 seconds. A 30-second window produced an HRV
+ *      estimate **0 times out of 12** — `quick_check` does not report HRV at
+ *      all, by construction. A test was holding that promise in place without
+ *      ever checking it was true.
+ *   2. The name once said HRV. Camera HRV is withheld
+ *      (`camera_hrv_estimates`, default off), so what this capture establishes
+ *      is a resting **pulse** reference. See docs/PHONE-PPG.md §10.
+ */
+export const MIN_SECONDS_FOR_PULSE_ANCHOR = 45;
+
 /** Sensor choice display config. */
 export interface SensorChoiceConfig {
   /** Sensor identifier. */
@@ -57,16 +77,25 @@ export interface SensorChoiceConfig {
 export const SENSOR_CHOICES: readonly SensorChoiceConfig[] = [
   {
     id: 'finger',
-    label: '手指快速建立',
-    description: '將手指輕放在後鏡頭上，30 秒即可完成',
+    label: '手指精密建立',
+    // 🔴 不得寫「建立心律變異基線」—— 相機 HRV 是關掉的。而且也不得寫
+    // 「建立基線」：一次擷取得到的是一個參考值，基線要多次跨幾天才成形
+    // （`packages/engine/src/biometric/pulse-anchor.ts`）。
+    // ⚠️ 90 秒是**沿用**下來的：它是 HRV 離散度量出來的甜蜜點（45s ±2.15 →
+    // 90s ±1.12 → 180s ±0.95）。只報脈搏的話 30 秒就到 ±0.06 bpm 了，所以
+    // 這個時長現在是保守而非必要 —— 要縮短是產品決定，不是 AI 自己改。
+    description: '將手指輕放在後鏡頭上，90 秒立一個靜息脈搏參考值',
     isBeta: false,
-    estimatedTimeSec: 30,
+    estimatedTimeSec: 90,
     iconHint: '👆',
   },
   {
     id: 'face_beta',
     label: '臉部自然建立',
-    description: '看著前鏡頭，60 秒自然建立（較穩定）',
+    // 刻意不再宣稱「較穩定」：那是一個沒有量測依據的比較宣稱。
+    // repo 自己的來源優先序已把 camera(45) 排在 finger_scan(60) 之下
+    // （domain/policies/wearable-source-policy.ts）。
+    description: '看著前鏡頭，60 秒建立心率基線',
     isBeta: true,
     estimatedTimeSec: 60,
     iconHint: '🙂',

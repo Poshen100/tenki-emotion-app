@@ -30,6 +30,15 @@ export interface PpgReadingAvailability {
 /** Everything a camera scan hands the engines. */
 export interface PpgEngineInput {
   reading: BiometricReading;
+  /**
+   * Pulse-rate variability in ms, or null.
+   *
+   * 🔴 Deliberately a sibling of `reading` rather than a field inside it. A
+   * `BiometricReading` carries `hrvRmssdMs`, and anything that lives next to
+   * that field eventually gets copied into it. Keeping PRV outside means a
+   * caller has to write the confusion out by hand rather than fall into it.
+   */
+  prvRmssdMs: number | null;
   availability: PpgReadingAvailability;
   signalQuality: SignalQuality;
   /**
@@ -60,12 +69,20 @@ export function toEngineInput(analysis: PpgAnalysis, observedAtMs: number): PpgE
   return {
     reading: {
       hrBpm: analysis.heartRateBpm ?? Number.NaN,
-      hrvRmssdMs: analysis.hrvRmssdMs ?? Number.NaN,
+      // 🔴 ALWAYS absent. A camera produces pulse-rate variability, and PRV is
+      // not HRV: it may not populate this field, feed the HRV score driver, or
+      // be labelled HRV to a user (founder rule, 2026-09-11). The value is
+      // still computed and still shown as PRV — it just never travels under
+      // this name, which is the only way the two stay distinguishable
+      // downstream.
+      hrvRmssdMs: Number.NaN,
       rrBrpm: analysis.respiratoryRateBrpm ?? Number.NaN,
       timestamp: observedAtMs,
     },
+    /** PRV as measured, kept out of `reading` on purpose — see above. */
+    prvRmssdMs: analysis.prvRmssdMs,
     availability: {
-      hrv: analysis.hrvRmssdMs !== null,
+      hrv: false,
       respiration: analysis.respiratoryRateBrpm !== null,
     },
     signalQuality: {

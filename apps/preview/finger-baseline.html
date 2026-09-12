@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#020617" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TENKI" />
+  <link rel="apple-touch-icon" href="/brand/favicon/apple-touch-icon-180.png" />
+  <title>TENKI — 手指基線校準（實走）</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    /* ═══════════════════════════════════════════════════
+       規則：
+       🔴 量測值不上色 —— 一律 --n-100。顏色會宣稱事實。
+       🔴 **沒有立住讀數就不准上 gold**（gold = SECURED）。
+          `[data-phase="result"][data-secured="no"]` 走中性色。
+       🔴 cyan-active = ACTIVE，只在**掃描進行中**出現。
+       🔴 amber = 可動層，只有按鈕吃它。
+       🔴 內容用 clamp()，容器是 vw 的函式（PLAYBOOK §6）。
+       ═══════════════════════════════════════════════════ */
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    /* ⚠️ `hidden` 的 UA 規則是 `[hidden]{display:none}`，**任何 class 上的
+       `display` 都會贏過它**（class 選擇器優先序更高）。`.precisionRow` 是
+       flex，所以 `hidden` 對它完全沒作用 —— 靜息區間那一行在還不該出現時
+       照樣顯示著一個「—」。harness 抓到的。 */
+    [hidden] { display: none !important; }
+    html, body {
+      min-height: 100vh; min-height: 100dvh;
+      background: var(--bg-space);
+      color: var(--n-300);
+      font-family: -apple-system, "SF Pro Text", "PingFang TC", "Noto Sans TC", sans-serif;
+      overscroll-behavior: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    .wrap {
+      min-height: 100vh; min-height: 100dvh;
+      max-width: 520px; margin: 0 auto;
+      padding-inline: 20px;
+      padding-block: calc(env(safe-area-inset-top, 0px) + 18px) calc(env(safe-area-inset-bottom, 0px) + 28px);
+      display: flex; flex-direction: column; gap: 18px;
+    }
+    .kicker { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--n-500); line-height: 1.4; }
+    /* margin-top 是必要的，不是呼吸：中文字的 ascender 會超出 line box，
+       兩個相鄰區塊靠在一起時標題上緣會被 kicker 的底線切過（截圖抓到的）。 */
+    h1 { font-size: clamp(20px, 5.6vw, 26px); font-weight: 600; color: var(--n-100); line-height: 1.35; margin-top: 6px; }
+    p { font-size: 14px; line-height: 1.65; color: var(--n-400); }
+    .card {
+      background: var(--n-900); border: 1px solid var(--n-700);
+      border-radius: 16px; padding: 16px;
+    }
+    /* 短強調語不得被拆行。⚠️ nowrap 要跟 clamp 一起下（PLAYBOOK §6）——
+       只有 nowrap 會在文案變長時橫向溢出。這裡 8 個中文字，390px 放得下。 */
+    .keep { white-space: nowrap; font-size: clamp(13px, 3.6vw, 14px); }
+
+    /* phase gating */
+    [data-phase="intro"]    :is(.only-ready, .only-scan, .only-result),
+    [data-phase="ready"]    :is(.only-intro, .only-scan, .only-result),
+    [data-phase="scanning"] :is(.only-intro, .only-ready, .only-result),
+    [data-phase="result"]   :is(.only-intro, .only-ready, .only-scan) { display: none; }
+
+    /* ── 就位閘（開始擷取之前）──
+       🔴 這一段**沒有 cyan**。cyan-active = ACTIVE，而這裡什麼都還沒在量 ——
+       擺手指的過程亮起量測進行中的顏色，就是顏色在宣稱一件沒發生的事。
+       目前這一步是 --n-100（亮中性），完成的是 --n-300。 */
+    .rail { display: flex; gap: 6px; }
+    .railStep {
+      flex: 1; padding: 8px 2px; border-radius: 10px; line-height: 1.45;
+      font-size: clamp(10px, 2.9vw, 11px); text-align: center;
+      color: var(--n-600); border: 1px solid var(--n-800);
+    }
+    .railStep[data-state="done"] { color: var(--n-300); border-color: var(--n-600); }
+    .railStep[data-state="now"] { color: var(--n-100); border-color: var(--n-400); }
+    .coach {
+      font-size: clamp(15px, 4.2vw, 17px); line-height: 1.55; color: var(--n-100);
+      min-height: 2.6em;
+    }
+    /* ── 覆蓋地圖 ──
+       沿用舊 onboarding 的 target ring 構圖（styles.css `.readiness-preview-target`
+       ＋ `.readiness-camera-preview`）：外圈細環、內圈虛線、中央一口井。
+       🔴 但**不沿用它的顏色狀態**（green / yellow / red）：綠在這個產品裡是
+          「跟著流程完成」的語意色，而這裡還沒有任何結果。也不沿用 cyan ——
+          cyan-active = ACTIVE，就位階段什麼都還沒在量。
+       🔴 井裡放的是推導出來的覆蓋格子，不是相機影像：蓋好的鏡頭是一整片
+          均勻的紅，缺口剛好是影像上唯一看不出來的東西。 */
+    .coverWrap { position: relative; display: grid; place-items: center; padding-block: 6px; }
+    .coverRing {
+      position: absolute;
+      width: min(52vw, 196px); aspect-ratio: 1; border-radius: 50%;
+      border: 1px solid var(--n-700);
+      pointer-events: none;
+    }
+    .coverRing::before {
+      content: ''; position: absolute; inset: 14px;
+      border-radius: 50%; border: 1px dashed var(--n-700);
+    }
+    .coverWell {
+      position: relative;
+      width: min(40vw, 152px); aspect-ratio: 1;
+      /* ⚠️ 圓角只留 6px。18px 會把四個角的格子各切掉一塊 —— 那正是這一段
+         一開始拒絕把地圖畫成圓形的理由（量了卻看不到），小一號的版本一樣算
+         是那個錯誤。 */
+      border-radius: 6px; overflow: hidden;
+      border: 1px solid var(--n-700);
+      background: var(--n-900);
+    }
+    /* ⚠️ 圓角方形，不是圓 —— 量的 ROI 是**正方形**裁切。畫成圓會把四個角的
+       格子藏起來，而閘門照樣在算它們。外圈的環負責「這是鏡頭」的意象。 */
+    [data-gap="yes"].coverWell { border-color: var(--warning); }
+    .coverGrid { display: grid; width: 100%; height: 100%; gap: 1px; padding: 1px; }
+    .coverCell { border-radius: 2px; background: var(--n-800); }
+    /* ⚠️ 蓋到的格子刻意**不搶眼**（--n-600 而不是 --n-500）：畫面上該跳出來的
+       是要修的那一格，不是已經對的那十五格。 */
+    .coverCell[data-covered="yes"] { background: var(--n-600); }
+    /* 🔴 沒蓋到的格子吃 --warning，跟低維度的 bar 同一個用法：
+       「這是你要改的地方」。不是錯誤色，也不是語意綠的反面。 */
+    .coverCell[data-covered="no"] { background: var(--warning); }
+    .coverLegend {
+      display: flex; gap: 14px; justify-content: center; margin-top: 12px;
+      font-size: 11px; color: var(--n-500);
+    }
+    .coverKey { display: inline-flex; align-items: center; gap: 5px; }
+    .coverKey i { width: 10px; height: 10px; border-radius: 2px; display: block; }
+
+    .holdDots { display: flex; gap: 6px; margin-top: 10px; }
+    .holdDot { width: 100%; height: 3px; border-radius: 2px; background: var(--n-800); }
+    .holdDot[data-on="yes"] { background: var(--n-300); }
+
+    /* camera stays off-screen: no preview of the fingertip, nothing to look at */
+    #cam { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+    .dial { display: grid; place-items: center; padding-block: 8px; }
+    .dial svg { width: min(58vw, 220px); height: min(58vw, 220px); transform: rotate(-90deg); }
+    /* ⚠️ stroke-width 是 viewBox 單位：viewBox 40 放大到 220px 是 5.5 倍，
+       所以 8 會畫成 44px 厚的甜甜圈（掃描階段以前沒有截圖走過，所以一直沒被
+       看到）。2.5 才是儀器該有的細環。 */
+    .dial .track { fill: none; stroke: var(--n-800); stroke-width: 2.5; }
+    .dial .fill {
+      fill: none; stroke: var(--cyan-active); stroke-width: 2.5; stroke-linecap: round;
+      stroke-dasharray: 100 100;
+      stroke-dashoffset: calc(100 - var(--p, 0));
+      transition: stroke-dashoffset 240ms linear;
+    }
+    .dialCenter { position: absolute; display: grid; place-items: center; gap: 2px; }
+    .dialValue { font-size: clamp(26px, 8vw, 34px); font-weight: 600; color: var(--n-100); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    /* 🔴 前 15 秒評不出品質分數是真的，但原本畫一條 `—`，實機上被讀成
+       「壞了」（founder 2026-09-12）。改成跟「節律」那一列同一個字：累積中。
+       字級跟著降 —— 三個中文字用 34px 會看起來像一個讀數。 */
+    .dialValue[data-pending="yes"] { font-size: clamp(14px, 4vw, 17px); font-weight: 500; color: var(--n-500); }
+    .dialLabel { font-size: 11px; color: var(--n-500); letter-spacing: 1px; }
+    .dialStack { position: relative; display: grid; place-items: center; }
+
+    ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .reason { font-size: 13px; line-height: 1.5; padding-left: 18px; position: relative; color: var(--n-300); }
+    .reason::before { position: absolute; left: 0; top: 0; }
+    .reason.good::before { content: "✓"; color: var(--cyan-core); }
+    .reason.bad::before { content: "!"; color: var(--amber-400); font-weight: 700; }
+    .reason.withheld::before { content: "—"; color: var(--n-550); }
+    /* 值得說、但不是錯。中性記號，不吃警示色。 */
+    .reason.advisory { color: var(--n-450); }
+    .reason.advisory::before { content: "·"; color: var(--n-550); font-weight: 700; }
+
+    /* 相機只報一項，版面就只留一項 —— 三格裡兩格永遠是「—」本身就是一種宣稱。 */
+    .anchor { text-align: center; }
+    .anchorValue {
+      font-size: clamp(30px, 9vw, 40px); font-weight: 600; color: var(--n-100);
+      white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.2;
+    }
+    .anchorValue.absent { color: var(--n-600); }
+    .metricLabel { font-size: 11px; color: var(--n-500); margin-top: 3px; }
+
+    /* ── Signal Integrity 儀表 ──
+       🔴 四條 bar 吃的是引擎真的算出來的 component，不是進度動畫。
+       訊號被拒答時不得有任何節律感的動效（brief §7）—— 所以這裡只有寬度
+       過渡，沒有脈動、沒有 keyframes。 */
+    .dims { display: flex; flex-direction: column; gap: 10px; }
+    .dim { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+    .dimLabel { font-size: 12px; color: var(--n-400); }
+    .dimValue { font-size: 12px; color: var(--n-500); font-variant-numeric: tabular-nums; }
+    .dimTrack {
+      grid-column: 1 / -1; height: 4px; border-radius: 2px;
+      background: var(--n-800); overflow: hidden;
+    }
+    .dimFill {
+      /* ⚠️ `display:block` 是必要的，不是整理：`.dimTrack` 是 grid item 會被
+         blockify，但裡面這顆 span 不是 —— inline 元素**忽略** width/height，
+         bar 會完全不渲染。第一版就是這樣，四條 bar 在畫面上全是空軌道，而
+         harness 讀的是 `style.width`（inline 屬性）所以照樣綠 —— 那條斷言在
+         守一個看不到的數字。現在 harness 量真的幾何。 */
+      display: block;
+      height: 100%; width: 0%; border-radius: 2px;
+      background: var(--n-400);
+    }
+    /* 🔴 過渡**只在掃描中**。結果是量到的事實，不該滑進定位 —— 滑動期間畫面
+       上的長度跟旁邊的數字不一致，而那正好是使用者第一眼看到的那一瞬間。
+       （截圖抓到：節律寫 21%，bar 畫到 85%，因為還在從上一次的 100% 過渡。）*/
+    [data-phase="scanning"] .dimFill {
+      background: var(--cyan-active);
+      transition: width 320ms ease-out;
+    }
+    /* ⚠️ 低的維度用 `--warning`，**不是** `--amber-400`：amber 是可動層
+       （`docs/VISUAL-DIRECTION.md` §⑩「鋪到全部可點元素」），而 bar 點不下去。
+       警示與可動是兩件事，同一個色相不代表同一個意思。 */
+    .dim[data-low="yes"] .dimFill { background: var(--warning); }
+    .dim[data-low="yes"] .dimLabel { color: var(--n-300); }
+    .dim[data-pending="yes"] .dimValue { color: var(--n-600); }
+
+    /* Pulse Lock。🔴 不上 gold（gold = SECURED，這不是結果），沒有任何動效。 */
+    /* 曝光警示吃 --warning，跟低維度的 bar 同一個用法：這是你要改的地方。 */
+    .note[data-tone="bad"] { color: var(--warning); }
+    .lock { font-size: 12px; line-height: 1.6; color: var(--n-500); }
+    [data-locked="yes"] .lock { color: var(--cyan-core); }
+
+    .scenarios { display: flex; gap: 8px; }
+    .scenario {
+      flex: 1; width: auto; padding: 10px 6px; font-size: 14px; border-radius: 12px;
+      background: transparent; color: var(--n-400); border: 1px solid var(--n-700);
+    }
+    .scenario[aria-pressed="true"] { border-color: var(--cyan-active); color: var(--n-100); }
+
+    /* 驗收報告是等寬純文字：它要被原樣複製出去。 */
+    .report {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 11px; line-height: 1.65; color: var(--n-400);
+      white-space: pre-wrap; word-break: break-word; margin-top: 8px;
+    }
+
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .statValue { font-size: 16px; font-weight: 600; color: var(--n-100); font-variant-numeric: tabular-nums; }
+    .statLabel { font-size: 10px; color: var(--n-550); margin-top: 2px; }
+
+    .verdict { font-size: clamp(19px, 5.2vw, 23px); font-weight: 600; color: var(--n-100); }
+    [data-secured="yes"] .verdict { color: var(--gold-secured); }
+
+    .precision { border-color: rgba(var(--cyan-active-rgb), 0.24); }
+    .precisionRow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .precisionValue { font-size: 18px; font-weight: 600; color: var(--n-100); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .precisionNote { font-size: 12px; line-height: 1.55; color: var(--n-450); margin-top: 8px; }
+
+    button {
+      width: 100%; border: none; border-radius: 14px; padding: 15px;
+      font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer;
+      background: var(--amber-400); color: var(--n-950);
+    }
+    button.ghost { background: transparent; color: var(--n-400); border: 1px solid var(--n-700); }
+    .err { font-size: 13px; color: var(--amber-400); line-height: 1.5; }
+    .fine { font-size: 12px; line-height: 1.6; color: var(--n-550); }
+    .note { font-size: 12px; line-height: 1.6; color: var(--n-450); }
+  </style>
+</head>
+<body>
+  <video id="cam" playsinline muted autoplay></video>
+
+  <main class="wrap" id="stage" data-phase="intro" data-secured="no" data-locked="no">
+    <header>
+      <div class="kicker">PULSE ANCHOR · 指尖脈搏校準</div>
+      <h1>建立你的脈搏錨點</h1>
+    </header>
+
+    <!-- ── intro ───────────────────────────────────────────────── -->
+    <section class="only-intro card">
+      <p>讓光透過你的指尖。相機讀得到指尖血流的節律 —— 那是這支手機唯一能真的量準的生理訊號。</p>
+      <p style="margin-top:10px">需要 <span id="targetSec">90</span> 秒（低於 <span id="minSec">45</span> 秒不會產出讀數）。手指輕放在後鏡頭上，整片蓋住、不要移動。</p>
+      <!-- 🔴 按鈕叫「打開相機」不叫「開始校準」，因為它真的只打開相機。
+           上一版按下去就起跑 90 秒，於是手指還沒擺好的兩次擷取都跑到底。 -->
+      <p class="fine" style="margin-top:10px">按下去只會打開相機 —— 先對位，確認手指真的擺好了，<strong>時鐘才開始走</strong>。</p>
+    </section>
+
+    <section class="only-intro card precision">
+      <p style="color:var(--n-300)">一次校準得到的是<strong class="keep" style="color:var(--n-100)">一個脈搏參考值</strong>，不是基線。基線要多次、跨幾天才成形。</p>
+      <p class="fine" style="margin-top:10px">相機讀不到逐拍之間的間隔，所以這裡不報心律變異、也不報呼吸率 —— 那兩項需要胸帶或手錶。</p>
+    </section>
+
+    <p class="only-intro fine">影像不留存。每一幀在本機化簡成數值後就丟棄 —— 引擎拿不到影像，這是型別的性質，不是要記得做的事。</p>
+    <!-- 🔴 這次在做什麼由**使用者說**，不是推測。實機驗收第 6 條問的就是
+         「邊走」，而手機分不出走路跟坐在會晃的車上 —— 猜一個會讓那條檢查
+         變成不可證偽。 -->
+    <section class="only-intro card">
+      <div class="dialLabel" style="margin-bottom:10px">這次是在什麼情況下做的</div>
+      <div class="scenarios" id="scenarios">
+        <button type="button" class="scenario" data-scenario="resting" aria-pressed="true">靜坐</button>
+        <button type="button" class="scenario" data-scenario="walking" aria-pressed="false">邊走</button>
+        <button type="button" class="scenario" data-scenario="cold_hands" aria-pressed="false">手冰</button>
+      </div>
+      <p class="fine" style="margin-top:10px">只用來做實機驗收的分類，不影響讀數。</p>
+    </section>
+
+    <p class="only-intro err" id="startError"></p>
+    <button class="only-intro" id="startBtn" style="margin-top:auto">打開相機</button>
+
+    <!-- ── 就位（clock 還沒開始）─────────────────────────────────
+         🔴 這一段存在的理由是量出來的：實機第一次按下去就起跑，燒掉兩次
+         完整 90 秒。舊的 onboarding 有這道閘，/finger/ 沒有。
+         🔴 它只擋接觸。光與晃是 advisory —— clipped / motion 兩個 fixture
+         的對應 component 都是 0.00，卻都在 90 秒後產出讀數（走綠通道）。
+         擋它們會把會成功的擷取擋掉。 -->
+    <section class="only-ready card">
+      <div class="dialLabel" style="margin-bottom:10px">還沒開始計時</div>
+      <p class="coach" id="coach">把指腹輕放在後鏡頭上。</p>
+      <div class="holdDots" id="holdDots"></div>
+    </section>
+
+    <div class="only-ready rail" id="rail">
+      <span class="railStep" data-step="approach">放上鏡頭</span>
+      <span class="railStep" data-step="cover">蓋滿</span>
+      <span class="railStep" data-step="hold">穩住</span>
+      <span class="railStep" data-step="ready">開始擷取</span>
+    </div>
+
+    <section class="only-ready card">
+      <div class="dialLabel" style="margin-bottom:4px">指腹蓋到哪裡了</div>
+      <div class="coverWrap">
+        <div class="coverRing" aria-hidden="true"></div>
+        <div class="coverWell" id="coverWell" data-gap="no">
+          <div class="coverGrid" id="coverGrid" role="img" aria-label="鏡頭覆蓋分佈"></div>
+        </div>
+      </div>
+      <div class="coverLegend">
+        <span class="coverKey"><i style="background:var(--n-600)"></i>蓋到了</span>
+        <span class="coverKey"><i style="background:var(--warning)"></i>還在漏光</span>
+      </div>
+      <p class="fine" style="margin-top:12px">這不是相機畫面 —— 蓋好的鏡頭在畫面上是一整片均勻的紅，缺口剛好看不出來。這裡畫的是每一小塊有沒有被指腹蓋住。</p>
+    </section>
+
+    <section class="only-ready card">
+      <div class="dialLabel" style="margin-bottom:12px">現在量到的</div>
+      <div class="dims" id="readyDims"></div>
+      <p class="note" id="readyAdvisory" style="margin-top:12px" hidden></p>
+    </section>
+
+    <p class="only-ready fine">用<strong>指腹</strong>，不是指尖。輕放就好，不要用力壓鏡頭 —— 壓緊會把血擠開，反而量不到脈搏。</p>
+
+    <button class="only-ready ghost" id="skipGate" style="margin-top:auto" hidden>訊號一直不合格，仍要開始</button>
+    <button class="only-ready ghost" id="cancelGate">取消</button>
+
+    <!-- ── scanning ────────────────────────────────────────────── -->
+    <section class="only-scan dial">
+      <div class="dialStack">
+        <svg viewBox="0 0 40 40" aria-hidden="true">
+          <circle class="track" cx="20" cy="20" r="15.9155" pathLength="100" />
+          <circle class="fill" id="arc" cx="20" cy="20" r="15.9155" pathLength="100" />
+        </svg>
+        <div class="dialCenter">
+          <div class="dialValue" id="liveQuality">—</div>
+          <div class="dialLabel">訊號品質</div>
+        </div>
+      </div>
+      <div class="dialLabel" id="elapsed" style="margin-top:6px">0s / 90s</div>
+      <p class="lock" id="lock" style="margin-top:8px; text-align:center">還在等訊號穩定。</p>
+    </section>
+
+    <section class="only-scan card">
+      <div class="dialLabel" style="margin-bottom:12px">訊號完整度</div>
+      <div class="dims" id="liveDims"></div>
+    </section>
+
+    <section class="only-scan card">
+      <ul id="liveReasons"></ul>
+      <p class="note" id="exposureNote" data-tone="neutral" style="margin-top:10px"></p>
+      <p class="note" id="torchNote" style="margin-top:10px"></p>
+    </section>
+    <button class="only-scan ghost" id="abortBtn">中止</button>
+
+    <!-- ── result ──────────────────────────────────────────────── -->
+    <section class="only-result">
+      <div class="verdict" id="verdict">—</div>
+      <p class="note" id="verdictNote" style="margin-top:4px"></p>
+    </section>
+
+    <section class="only-result card">
+      <div class="anchor">
+        <div class="anchorValue" id="hr">—</div>
+        <div class="metricLabel">這次的脈搏參考值</div>
+      </div>
+      <p class="fine" id="derivation" style="margin-top:12px"></p>
+    </section>
+
+    <!-- 🔴 一次校準得到一個參考點；基線是多次、跨幾天才成形的東西。這張卡
+         唯一的工作就是不讓那兩件事被說成同一件。 -->
+    <section class="only-result card precision">
+      <div class="precisionRow">
+        <span class="dialLabel" id="stageTerm">—</span>
+        <span class="precisionValue" id="stageName">—</span>
+      </div>
+      <p class="precisionNote" id="stageNote"></p>
+      <div class="precisionRow" style="margin-top:14px" id="bandRow" hidden>
+        <span class="dialLabel">你的靜息區間</span>
+        <span class="precisionValue" id="band">—</span>
+      </div>
+      <p class="precisionNote" id="bandNote" hidden></p>
+    </section>
+
+    <section class="only-result card">
+      <div class="stats">
+        <div><div class="statValue" id="qualityScore">—</div><div class="statLabel">品質分數</div></div>
+        <div><div class="statValue" id="confidence">—</div><div class="statLabel">信心</div></div>
+        <div><div class="statValue" id="duration">—</div><div class="statLabel">實際時長</div></div>
+      </div>
+    </section>
+
+    <section class="only-result card">
+      <div class="dialLabel" style="margin-bottom:12px">訊號完整度</div>
+      <div class="dims" id="resultDims"></div>
+      <p class="fine" id="frameNote" style="margin-top:12px"></p>
+      <p class="fine" id="channelNote" style="margin-top:8px"></p>
+    </section>
+
+    <section class="only-result card">
+      <div class="dialLabel" style="margin-bottom:10px">訊號品質</div>
+      <ul id="resultReasons"></ul>
+      <div class="dialLabel" id="withheldHead" style="margin:14px 0 10px">這次沒有報的</div>
+      <ul id="withheld"></ul>
+      <ul id="advisories" style="margin-top:10px" hidden></ul>
+    </section>
+
+    <!-- §8：每一個被接受的讀數都要能說出它是怎麼量的。 -->
+    <!-- 🔴 證據層。PRV **只**出現在這裡（founder 2026-09-11）：它不是頭條
+         讀數，不進 Edge Score，而且要收在使用者主動展開的地方。 -->
+    <details class="only-result card" id="how">
+      <summary class="dialLabel" style="cursor:pointer">量測細節與證據</summary>
+
+      <div class="precisionRow" id="prvRow" style="margin-top:12px" hidden>
+        <span class="dialLabel">脈搏節律</span>
+        <span class="precisionValue" id="prv">—</span>
+      </div>
+      <p class="fine" id="prvNote" style="margin-top:8px" hidden></p>
+      <p class="fine" id="prvCompare" style="margin-top:8px" hidden></p>
+      <hr id="prvRule" style="border:none;border-top:1px solid var(--n-800);margin:14px 0" hidden />
+
+      <div class="dialLabel" style="margin-top:4px">實機驗收</div>
+      <pre class="report" id="validationReport">—</pre>
+      <button type="button" class="ghost" id="copyReport" style="margin-top:10px">複製驗收報告</button>
+      <p class="fine" id="copyState" style="margin-top:8px"></p>
+      <hr style="border:none;border-top:1px solid var(--n-800);margin:14px 0" />
+
+      <p class="fine" style="margin-top:10px">後鏡頭對著指尖拍 90 秒。每一幀在本機化簡成幾個數值（紅／綠／藍平均、過曝比例、覆蓋比例、位移）後影像就丟掉 —— 引擎拿不到影像。</p>
+      <p class="fine" style="margin-top:8px">那串數值重新取樣到等間隔 → 帶通濾波（0.7–3.5 Hz，心跳的頻帶）→ 自相關找主週期 → 適應性門檻抓拍點 → 剔除不合理的拍間距 → 過品質閘門。過不了閘門就不報，不會給一個看起來合理的數字。</p>
+      <p class="fine" style="margin-top:8px">這是相機指尖 PPG，不是心電圖，也不等於胸帶。拍點是從光的波形推回去的 —— 所以「脈搏節律」跟手錶的心律變異是兩個量，不能直接比。</p>
+    </details>
+
+    <button class="only-result" id="againBtn">再做一次</button>
+  </main>
+
+  <script type="module" src="finger-baseline.js"></script>
+</body>
+</html>

@@ -160,7 +160,52 @@ export {
 
 export type { ScanMode, ScanModeConfig, ScanSignalSource } from './biometric/scan-modes';
 
+export type { ScanCapabilityOptions } from './biometric/scan-modes';
+
+// ─── Pulse Anchor ───────────────────────────
+// 一次相機校準得到的靜息脈搏參考值，以及幾個參考值加起來算到哪一階。
+export {
+  PULSE_ANCHOR_DERIVATION,
+  PULSE_ANCHOR_POSTURES,
+  PULSE_ANCHOR_SOURCES,
+  PULSE_ANCHOR_TIMES_OF_DAY,
+  PULSE_BASELINE_STAGES,
+  PULSE_BASELINE_THRESHOLDS,
+  MIN_PRV_ANCHORS_FOR_COMPARISON,
+  MIN_PRV_DATES_FOR_COMPARISON,
+  buildPulseAnchor,
+  contextsAreComparable,
+  resolvePrvComparison,
+  resolvePulseBaselineProgress,
+  resolveRestingBand,
+} from './biometric/pulse-anchor';
+
+export type {
+  PulseAnchor,
+  PulseAnchorContext,
+  PulseAnchorPosture,
+  PulseAnchorSource,
+  PulseAnchorTimeOfDay,
+  PulseBaselineProgress,
+  PulseBaselineStage,
+  PulseRestingBand,
+  PrvComparison,
+} from './biometric/pulse-anchor';
+
 // ─── Baseline ───────────────────────────────
+// 使用者自己的量測雜訊底線。規格: docs/PHONE-PPG.md §10
+export {
+  MAX_APPLIED_NOISE_FLOOR_MS,
+  MIN_SCANS_FOR_NOISE_FLOOR,
+  NOISE_FLOOR_WINDOW,
+  createEmptyNoiseFloor,
+  recordRepeatability,
+  resolveEffectiveStd,
+  resolveNoiseFloor,
+} from './baseline/noise-floor';
+
+export type { NoiseFloorState } from './baseline/noise-floor';
+
 export {
   updateMetricBaseline,
   createEmptyMetricBaseline,
@@ -179,7 +224,8 @@ export {
   inferStrainSubtype,
 } from './scoring/edge-score';
 
-export type { EdgeScoreInput } from './scoring/edge-score';
+export type { EdgeScoreInput, ReadingAvailability } from './scoring/edge-score';
+export { FULL_AVAILABILITY, resolveAvailability } from './scoring/edge-score';
 
 export {
   createEdgeDetectorState,
@@ -351,3 +397,26 @@ export {
 } from './intelligence/copy';
 
 export type { InsightCopy } from './intelligence/copy';
+
+// ─── Device validation instrument ───────────
+// 把 docs/PHONE-PPG.md §12 的三條關鍵檢查變成裝置自己回答得了的東西。
+export {
+  VALIDATION_SCENARIOS,
+  assessChannels,
+  assessDayToDaySpread,
+  assessLockHonesty,
+  assessPrvGateReachability,
+  formatValidationReport,
+} from './biometric/validation-log';
+
+export type {
+  ChannelReport,
+  ChannelSummary,
+  DayToDaySpread,
+  DayToDaySpreads,
+  LockHonesty,
+  PrvGateReachability,
+  Spread,
+  ValidationCapture,
+  ValidationScenario,
+} from './biometric/validation-log';

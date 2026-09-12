@@ -174,3 +174,11 @@ jobs:
       # 比對兩邊的常數與文案，並實走誠實分支（證據不足 / 沒有明顯改變）。
       - name: Drift alert harness (鏡射比對 + 誠實分支)
         run: node scripts/preview-drift.mjs
+
+      # 手指基線實走頁。這一頁會對使用者**宣稱量測結果**，所以守門比其他
+      # preview 頁更重要：① 它跑的 apps/preview/engine/ 是從 packages/engine
+      # 編出來的，改了 TS 沒重建就紅；② 訊號不足時必須真的拒答，而且不准上
+      # gold（gold = SECURED）；③ 斷言的資料來自真的 pipeline，不是往 DOM
+      # 填數字。
+      - name: Finger baseline harness (鏡射同步 + 拒答行為)
+        run: node scripts/preview-finger.mjs

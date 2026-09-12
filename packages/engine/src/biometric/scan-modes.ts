@@ -66,7 +66,7 @@ export const SCAN_MODE_CONFIGS: Readonly<Record<ScanMode, ScanModeConfig>> = {
     minDurationSec: 45,
     targetDurationSec: 90,
     signalSource: 'phone_camera',
-    reports: ['heart_rate', 'hrv', 'respiration'],
+    reports: ['heart_rate', 'prv', 'respiration'],
     minQualityForHeartRate: 45,
     minQualityForHrv: 65,
   },
@@ -75,21 +75,97 @@ export const SCAN_MODE_CONFIGS: Readonly<Record<ScanMode, ScanModeConfig>> = {
     minDurationSec: 60,
     targetDurationSec: 120,
     signalSource: 'external_beat_sensor',
-    reports: ['heart_rate', 'hrv', 'respiration'],
+    reports: ['heart_rate', 'prv', 'respiration'],
     minQualityForHeartRate: 45,
     minQualityForHrv: 65,
   },
 };
 
 /**
+ * What the running build is allowed to derive, independent of signal quality.
+ *
+ * Separate from the mode table because it is a product decision, not an
+ * evidence one: the mode says what 90 seconds of signal could support, this
+ * says what TENKI is willing to claim from a camera today.
+ */
+export interface ScanCapabilityOptions {
+  /**
+   * Whether camera PPG may report pulse-rate variability.
+   *
+   * Defaults to TRUE: PRV is allowed to reach a user, but only through its own
+   * gate — the beat-template correlation in `ppg/beat-template.ts`, which is
+   * far stricter than the pulse gate and is the only measure that notices the
+   * sensor noise that makes PRV wrong. This flag is a remote kill switch for
+   * the case where real-device validation contradicts that calibration, not
+   * the gate itself.
+   *
+   * ⚠️ Whatever this says, camera PRV never populates an HRV field and never
+   * feeds the HRV score driver (founder rule, 2026-09-11).
+   */
+  cameraPrvEstimates?: boolean;
+  /**
+   * Whether camera PPG may report a respiratory rate.
+   *
+   * 🔴 Defaults to FALSE, and this one is not a caution setting. founder rule,
+   * 2026-09-11: camera respiratory rate *"may be researched and released only
+   * as a standalone Breath Lock measurement"* — its own capture protocol, its
+   * own independent quality gates, validated against a reference source. None
+   * of that exists yet, so the metric may not appear. See
+   * `ppg/breath-lock.ts` for the contract it will have to satisfy.
+   */
+  cameraBreathLock?: boolean;
+  /**
+   * Whether the capture layer had a torch. Recorded in the quality reasons,
+   * never scored — see `PPG_QUALITY_REASONS`' advisory group.
+   */
+  torchAvailable?: boolean;
+}
+
+/** Which capability flag governs each camera-gated metric. */
+const CAMERA_METRIC_FLAGS: Partial<
+  Record<PpgMetric, (options: ScanCapabilityOptions) => boolean>
+> = {
+  // PRV is on unless killed; its real gate is beat-shape stability.
+  prv: (options) => options.cameraPrvEstimates !== false,
+  // Respiration is off unless Breath Lock is explicitly enabled.
+  respiration: (options) => options.cameraBreathLock === true,
+};
+
+/**
  * Whether a mode may report a metric at all, before any quality is considered.
+ *
+ * Two independent gates, and both have to pass:
+ *   1. The mode's own `reports` list — what this much signal could support.
+ *   2. The capability options — what TENKI is willing to claim from a camera.
+ *
+ * ⚠️ The second gate applies to CAMERA modes only. `precision` reads a beat
+ * sensor whose RR intervals are a different provenance entirely, and gating it
+ * on a camera decision would be a category error.
  *
  * @param mode - The scan mode.
  * @param metric - The metric in question.
- * @returns True when the mode's evidence can support the metric.
+ * @param options - What the build is willing to derive. Omit for the default,
+ *   which withholds camera HRV and respiration.
+ * @returns True when the metric may be reported.
  */
-export function modeReports(mode: ScanMode, metric: PpgMetric): boolean {
-  return SCAN_MODE_CONFIGS[mode].reports.includes(metric);
+export function modeReports(
+  mode: ScanMode,
+  metric: PpgMetric,
+  options: ScanCapabilityOptions = {},
+): boolean {
+  if (!SCAN_MODE_CONFIGS[mode].reports.includes(metric)) {
+    return false;
+  }
+
+  // A beat sensor's metrics are never gated on a camera decision: a chest
+  // strap's RR intervals are a different provenance with a different error
+  // behaviour, and gating them here would be a category error.
+  const flag = isCameraMode(mode) ? CAMERA_METRIC_FLAGS[metric] : undefined;
+  if (flag !== undefined && !flag(options)) {
+    return false;
+  }
+
+  return true;
 }
 
 /**

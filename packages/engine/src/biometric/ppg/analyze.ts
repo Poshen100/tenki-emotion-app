@@ -33,8 +33,17 @@ import {
   estimateRate,
 } from './pulse';
 import { MAX_FRAME_DROPS, assessPpgQuality } from './quality';
+import { PRV_MIN_TEMPLATE_CORRELATION, beatTemplateCorrelation } from './beat-template';
+import { estimateRepeatability } from './repeatability';
 import { estimateRespiration } from './respiration';
-import { type ScanMode, SCAN_MODE_CONFIGS, isCameraMode, modeReports } from '../scan-modes';
+import { type PpgChannel, selectPulseChannel } from './channels';
+import {
+  type ScanCapabilityOptions,
+  type ScanMode,
+  SCAN_MODE_CONFIGS,
+  isCameraMode,
+  modeReports,
+} from '../scan-modes';
 import type { PpgAnalysis, PpgFrame, PpgWithheld } from './types';
 
 /**
@@ -59,6 +68,20 @@ export type PpgOutcome = PpgCompletion | PpgRejection;
 export const MIN_FRAMES = 60;
 
 /**
+ * Why a derived metric is absent when the heart rate itself could not be read.
+ *
+ * The mode gate outranks the signal: a metric this scan mode does not report
+ * would have been withheld even from a perfect recording.
+ */
+function rateFailureReason(
+  mode: ScanMode,
+  metric: 'prv' | 'respiration',
+  options: ScanCapabilityOptions,
+): PpgWithheld['reason'] {
+  return modeReports(mode, metric, options) ? 'irregular_periodicity' : 'mode_excludes_metric';
+}
+
+/**
  * Runs a camera scan window through the full pipeline.
  *
  * The order matters and each step exists for a failure it prevents:
@@ -68,9 +91,14 @@ export const MIN_FRAMES = 60;
  *
  * @param frames - Frames already reduced to scalars by the capture layer.
  * @param mode - Which scan the user started.
+ * @param options - Which gated metrics this build may report at all.
  * @returns The analysis, or a rejection when nothing could be attempted.
  */
-export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): PpgOutcome {
+export function analyzePpgScan(
+  frames: readonly PpgFrame[],
+  mode: ScanMode,
+  options: ScanCapabilityOptions = {},
+): PpgOutcome {
   if (!isCameraMode(mode)) {
     return { status: 'rejected', reason: 'not_a_camera_mode' };
   }
@@ -80,27 +108,36 @@ export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): Ppg
 
   const config = SCAN_MODE_CONFIGS[mode];
 
-  const resampled = resampleUniform(
-    frames.map((f) => f.timestampMs),
-    frames.map((f) => f.red),
-    PPG_RESAMPLE_HZ,
-  );
-  if (resampled === null) {
+  // 🔴 Which channel the pulse is in is MEASURED, not assumed. The first real
+  // iPhone capture read a rhythm of 8% on red with full contact and produced
+  // no reading at all: under the torch, red saturates and the pulsatile
+  // component is clipped away. See `channels.ts`.
+  const selection = selectPulseChannel(frames);
+  if (selection === null) {
     return { status: 'rejected', reason: 'unusable_timebase' };
   }
 
+  const resampled = selection.chosen;
   const durationSec = resampled.values.length / resampled.sampleRateHz;
-  const cardiac = bandPass(resampled.values, resampled.sampleRateHz);
-  const perfusion = perfusionIndex(resampled.values, cardiac);
-  const rate = estimateRate(cardiac, resampled.sampleRateHz);
+  const cardiac = resampled.cardiac;
+  const perfusion = resampled.perfusion;
+  const rate =
+    resampled.periodSamples === 0
+      ? null
+      : {
+          bpm: resampled.bpm ?? 0,
+          periodicity: resampled.periodicity,
+          periodSamples: resampled.periodSamples,
+        };
 
   const quality = assessPpgQuality({
     frames,
-    periodicity: rate?.periodicity ?? 0,
+    periodicity: resampled.periodicity,
     perfusion,
     frameDropFraction: resampled.gapFraction,
     durationSec,
     minDurationSec: config.minDurationSec,
+    torchAvailable: options.torchAvailable,
   });
 
   const withheld: PpgWithheld[] = [];
@@ -123,16 +160,23 @@ export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): Ppg
       analysis: {
         quality,
         heartRateBpm: null,
-        hrvRmssdMs: null,
+        prvRmssdMs: null,
         respiratoryRateBrpm: null,
         beatCount: 0,
         artifactFraction: 0,
+        beatTemplateCorrelation: null,
+        repeatabilitySdMs: null,
+        channel: resampled.channel,
+        channelDiagnostics: selection.diagnostics,
         durationSec: round1(durationSec),
         sampleRateHz: resampled.sampleRateHz,
+        // ⚠️ 這條早退路徑也要吃 mode 閘門。否則相機 HRV 被關掉時，
+        // 訊號不足的掃描會回報「節律不穩」—— 那是個更弱的理由，而真正的
+        // 理由是這個模式根本不報這一項。兩個原因要照同一個優先序講。
         withheld: [
           ...withheld,
-          { metric: 'hrv', reason: 'irregular_periodicity' },
-          { metric: 'respiration', reason: 'irregular_periodicity' },
+          { metric: 'prv', reason: rateFailureReason(mode, 'prv', options) },
+          { metric: 'respiration', reason: rateFailureReason(mode, 'respiration', options) },
         ],
       },
     };
@@ -154,32 +198,51 @@ export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): Ppg
     withheld.push({ metric: 'heart_rate', reason: 'irregular_periodicity' });
   }
 
-  // ── HRV ──────────────────────────────────────────────────────────────────
-  let hrvRmssdMs: number | null = null;
-  let hrvBlockedBy: PpgWithheld['reason'] | null = null;
+  // ── Pulse-rate variability ───────────────────────────────────────────────
+  // 🔴 PRV, not HRV. See `types.ts` and `beat-template.ts`.
+  const templateCorrelation = beatTemplateCorrelation(
+    cardiac,
+    rate.periodSamples,
+    peaks.map((p) => Math.round((p.timeMs / 1000) * resampled.sampleRateHz)),
+  );
 
-  if (!modeReports(mode, 'hrv')) {
-    hrvBlockedBy = 'mode_excludes_metric';
+  let prvRmssdMs: number | null = null;
+  let prvBlockedBy: PpgWithheld['reason'] | null = null;
+
+  if (!modeReports(mode, 'prv', options)) {
+    prvBlockedBy = 'mode_excludes_metric';
   } else if (quality.score < config.minQualityForHrv) {
-    hrvBlockedBy = dominantNegativeReason(quality.reasons);
+    prvBlockedBy = dominantNegativeReason(quality.reasons);
   } else if (quality.frameDropFraction > MAX_FRAME_DROPS) {
     // Beat timing recovered across interpolated gaps is timing TENKI invented.
     // A heart rate survives that; the millisecond differences HRV is made of
     // do not.
-    hrvBlockedBy = 'frame_drops';
+    prvBlockedBy = 'frame_drops';
   } else if (series.artifactFraction > MAX_ARTIFACT_FRACTION) {
-    hrvBlockedBy = 'too_many_artifacts';
+    prvBlockedBy = 'too_many_artifacts';
   } else if (series.accepted.length < MIN_INTERVALS_FOR_HRV) {
-    hrvBlockedBy = 'too_few_beats';
+    prvBlockedBy = 'too_few_beats';
+  } else if (
+    templateCorrelation === null ||
+    templateCorrelation < PRV_MIN_TEMPLATE_CORRELATION
+  ) {
+    // 🔴 LAST among the signal checks, deliberately. Every gate above names
+    // something the user can act on — close other apps, hold still, warm your
+    // hands — so putting this one first would replace those with a reason
+    // nobody can act on. It is the catch-all for the case none of them see:
+    // sensor noise, which leaves perfusion, periodicity, coverage, motion and
+    // the frame timebase untouched (quality score 99) while moving every peak
+    // enough to make PRV 156% wrong.
+    prvBlockedBy = 'unstable_beat_shape';
   } else {
-    hrvRmssdMs = computeRmssd(series.accepted);
-    if (hrvRmssdMs === null) {
-      hrvBlockedBy = 'too_few_beats';
+    prvRmssdMs = computeRmssd(series.accepted);
+    if (prvRmssdMs === null) {
+      prvBlockedBy = 'too_few_beats';
     }
   }
 
-  if (hrvBlockedBy !== null) {
-    withheld.push({ metric: 'hrv', reason: hrvBlockedBy });
+  if (prvBlockedBy !== null) {
+    withheld.push({ metric: 'prv', reason: prvBlockedBy });
   }
 
   // ── Respiration ──────────────────────────────────────────────────────────
@@ -187,12 +250,12 @@ export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): Ppg
   // never be better founded than the beat timing HRV was refused for.
   let respiratoryRateBrpm: number | null = null;
 
-  if (!modeReports(mode, 'respiration')) {
+  if (!modeReports(mode, 'respiration', options)) {
     withheld.push({ metric: 'respiration', reason: 'mode_excludes_metric' });
-  } else if (hrvRmssdMs === null) {
+  } else if (prvRmssdMs === null) {
     // Respiration is read out of the same beat timing, so it inherits whatever
-    // stopped HRV rather than inventing a reason of its own.
-    withheld.push({ metric: 'respiration', reason: hrvBlockedBy ?? 'too_many_artifacts' });
+    // stopped PRV rather than inventing a reason of its own.
+    withheld.push({ metric: 'respiration', reason: prvBlockedBy ?? 'too_many_artifacts' });
   } else if (series.accepted.length < MIN_INTERVALS_FOR_RESPIRATION) {
     withheld.push({ metric: 'respiration', reason: 'too_few_beats' });
   } else {
@@ -204,13 +267,25 @@ export function analyzePpgScan(frames: readonly PpgFrame[], mode: ScanMode): Ppg
     }
   }
 
+  // Only measured when PRV was actually reported. A scan whose PRV was
+  // withheld never reaches a baseline, so its noise tells us nothing about how
+  // trustworthy the baseline is.
+  const repeatability =
+    prvRmssdMs === null
+      ? null
+      : estimateRepeatability(series.accepted, series.acceptedAtMs);
+
   return {
     status: 'analysed',
     analysis: {
       quality,
       heartRateBpm,
-      hrvRmssdMs,
+      prvRmssdMs,
       respiratoryRateBrpm,
+      beatTemplateCorrelation: templateCorrelation,
+      repeatabilitySdMs: repeatability?.sdMs ?? null,
+      channel: resampled.channel,
+      channelDiagnostics: selection.diagnostics,
       beatCount: series.accepted.length + (series.accepted.length > 0 ? 1 : 0),
       artifactFraction: Math.round(series.artifactFraction * 100) / 100,
       durationSec: round1(durationSec),
