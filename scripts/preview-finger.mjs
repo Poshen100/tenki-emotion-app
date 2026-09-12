@@ -87,6 +87,12 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, devi
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+// 這一頁是 CI 盲區，而 module-level 的 SyntaxError 會讓所有斷言以
+// 「__tenkiFingerHarness undefined」的形式失敗 —— 看不出真正原因。
+if (process.env.FINGER_DEBUG) {
+  page.on('pageerror', (e) => console.log('PAGEERROR', String(e)));
+  page.on('console', (m) => console.log('CONSOLE', m.type(), m.text()));
+}
 
 await page.goto(`${base}${PAGE}`, { waitUntil: 'networkidle' });
 
@@ -274,6 +280,139 @@ check(
   '讀得差的維度被標出來，使用者才知道要改哪裡',
   shaky.dims.some((d) => d.low === 'yes'),
   JSON.stringify(shaky.dims.map((d) => [d.key, d.value, d.low])),
+);
+
+// ── 2b2. 就位閘（90 秒的鐘還沒開始）────────────────────────────────────────
+// 🔴 這一段守的是實機第一次燒掉兩次完整擷取的那個結構問題：按下去就起跑。
+// 最重要的一條是「飽和不擋開始」—— 擋了就會把 channels.ts 剛修好的閃光燈
+// 情境原地打回去，而那條錯誤在畫面上長得**像是更嚴謹**。
+console.log('\n── 就位閘 ──');
+
+/** 把幀切成不重疊的窗口餵進閘，回傳每一步畫面上的狀態。 */
+async function replayGate(options, windows) {
+  const { frames } = synthesizePpg({ durationSec: 30, ...options });
+  await page.evaluate(() => window.__tenkiFingerHarness.resetGate());
+  return page.evaluate(
+    ({ all, windows: n }) => {
+      const h = window.__tenkiFingerHarness;
+      const width = h.readinessWindowSec() * 1000;
+      const steps = [];
+      const t0 = all[0].timestampMs;
+      for (let i = 0; i < n; i++) {
+        const from = t0 + i * width;
+        const gate = h.renderGateWindow(
+          all.filter((f) => f.timestampMs >= from && f.timestampMs <= from + width),
+        );
+        const advisory = document.getElementById('readyAdvisory');
+        steps.push({
+          gate,
+          coach: document.getElementById('coach').textContent.trim(),
+          rail: [...document.querySelectorAll('.railStep')].map((n2) => ({
+            step: n2.dataset.step,
+            state: n2.dataset.state,
+          })),
+          dots: [...document.querySelectorAll('.holdDot')].map((n2) => n2.dataset.on),
+          dims: [...document.querySelectorAll('#readyDims .dim')].map((row) => ({
+            key: row.dataset.key,
+            value: row.querySelector('.dimValue').textContent.trim(),
+            width: row.querySelector('.dimFill').getBoundingClientRect().width,
+          })),
+          advisoryShown: !advisory.hidden && advisory.getBoundingClientRect().height > 0,
+          advisoryText: advisory.textContent.trim(),
+          skipShown: !document.getElementById('skipGate').hidden,
+          elapsed: document.getElementById('elapsed').textContent.trim(),
+          scanVisible: document.querySelector('.only-scan').getBoundingClientRect().height > 0,
+          coachVisible: document.getElementById('coach').getBoundingClientRect().height > 0,
+          overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        });
+      }
+      return steps;
+    },
+    { all: frames, windows },
+  );
+}
+
+const holdWindows = await page.evaluate(() =>
+  window.__tenkiFingerHarness.readinessHoldWindows(),
+);
+
+const gateClean = await replayGate({}, holdWindows + 1);
+check(
+  '乾淨訊號：撐滿 hold 之後才 ready，之前不是',
+  gateClean.slice(0, holdWindows - 1).every((s2) => s2.gate.ready === false) &&
+    gateClean[holdWindows - 1].gate.ready === true,
+  JSON.stringify(gateClean.map((s2) => s2.gate)),
+);
+check(
+  '🔴 就位期間 90 秒的鐘沒有在走（掃描區塊不在畫面上，計時停在 0s）',
+  gateClean.every((s2) => s2.scanVisible === false && s2.elapsed.startsWith('0s')),
+  JSON.stringify(gateClean.map((s2) => ({ scan: s2.scanVisible, t: s2.elapsed }))),
+);
+check(
+  'hold 的進度是看得見的（點亮的點數 = held）',
+  gateClean.every((s2) => s2.dots.filter((d) => d === 'yes').length === s2.gate.held),
+  JSON.stringify(gateClean.map((s2) => ({ held: s2.gate.held, dots: s2.dots }))),
+);
+check(
+  '階段軌指到現在這一階，前面的標成完成',
+  gateClean[0].rail.find((r) => r.step === 'hold')?.state === 'now' &&
+    gateClean[0].rail.find((r) => r.step === 'approach')?.state === 'done' &&
+    gateClean[holdWindows - 1].rail.find((r) => r.step === 'ready')?.state === 'now',
+  JSON.stringify([gateClean[0].rail, gateClean[holdWindows - 1].rail]),
+);
+check(
+  '三條 bar 真的畫出來了（量幾何，不是量 style 字串）',
+  gateClean[0].dims.length === 3 && gateClean[0].dims.every((d) => d.width > 0),
+  JSON.stringify(gateClean[0].dims),
+);
+check(
+  '逃生口一開始不出現',
+  gateClean.every((s2) => s2.skipShown === false),
+  JSON.stringify(gateClean.map((s2) => s2.skipShown)),
+);
+
+const gateOff = await replayGate({ coverage: 0.1 }, 2);
+check(
+  '手指不在鏡頭上：說得出要做什麼，而且 hold 歸零',
+  gateOff.every((s2) => s2.gate.blocker === 'no_contact' && s2.gate.held === 0) &&
+    gateOff[0].coach.includes('指腹'),
+  JSON.stringify(gateOff.map((s2) => ({ b: s2.gate.blocker, c: s2.coach }))),
+);
+check(
+  '只蓋一半：跟「沒放上去」是不同的一句話',
+  (await replayGate({ coverage: 0.45 }, 1))[0].gate.blocker === 'partial_contact',
+  '',
+);
+
+// 🔴 這一條是整段最重要的。紅通道打飽和（閃光燈）的擷取在 90 秒後**有讀數**
+// （走綠通道），所以就位閘不准擋它 —— 擋了就是把 channels.ts 的修正撤掉。
+const gateClipped = await replayGate(PPG_FIXTURES.clipped, holdWindows);
+check(
+  '🔴 紅通道飽和：講，但不擋 —— 而且講的是「會改走綠通道」',
+  gateClipped.every((s2) => s2.gate.blocker === null) &&
+    gateClipped[0].gate.advisories.includes('over_exposed') &&
+    gateClipped[0].advisoryShown &&
+    gateClipped[0].advisoryText.includes('綠通道') &&
+    gateClipped[holdWindows - 1].gate.ready === true,
+  JSON.stringify(gateClipped.map((s2) => ({ b: s2.gate.blocker, a: s2.gate.advisories }))),
+);
+check(
+  '🔴 晃動：一樣是講不是擋（motion fixture 90 秒後也有讀數）',
+  (await replayGate(PPG_FIXTURES.motion, 1))[0].gate.advisories.includes('moving'),
+  '',
+);
+check(
+  '就位畫面在 390px 下不橫向溢出，教練句看得見',
+  gateClean.every((s2) => s2.overflowX <= 0 && s2.coachVisible),
+  JSON.stringify(gateClean.map((s2) => ({ o: s2.overflowX, v: s2.coachVisible }))),
+);
+// ⚠️ 「看得見」擋不住空字串：`.coach` 有 min-height，沒有字照樣有高度。
+// 第一版就是這樣 —— 使用者**做對的時候**那一行是空白的（截圖抓到，不是斷言）。
+const everyGateStep = [...gateClean, ...gateOff, ...gateClipped];
+check(
+  '🔴 每一步都有話說 —— 包含「沒有東西擋著」那一步',
+  everyGateStep.every((s2) => s2.coach.length > 0),
+  JSON.stringify(everyGateStep.map((s2) => ({ b: s2.gate.blocker, c: s2.coach }))),
 );
 
 // ── 2c. 掃描進行中 ─────────────────────────────────────────────────────────
@@ -699,6 +838,12 @@ if (shotScan) {
   }, frames);
   await page.screenshot({ path: shotScan, fullPage: true });
   console.log(`  📸 ${shotScan}`);
+}
+const shotReady = process.env.FINGER_SHOT_READY;
+if (shotReady) {
+  await replayGate({}, 1);
+  await page.screenshot({ path: shotReady, fullPage: true });
+  console.log(`  📸 ${shotReady}`);
 }
 const shotWeak = process.env.FINGER_SHOT_WEAK;
 if (shotWeak) {

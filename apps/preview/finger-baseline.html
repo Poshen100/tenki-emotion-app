@@ -55,9 +55,30 @@
     .keep { white-space: nowrap; font-size: clamp(13px, 3.6vw, 14px); }
 
     /* phase gating */
-    [data-phase="intro"] .only-scan, [data-phase="intro"] .only-result,
-    [data-phase="scanning"] .only-intro, [data-phase="scanning"] .only-result,
-    [data-phase="result"] .only-intro, [data-phase="result"] .only-scan { display: none; }
+    [data-phase="intro"]    :is(.only-ready, .only-scan, .only-result),
+    [data-phase="ready"]    :is(.only-intro, .only-scan, .only-result),
+    [data-phase="scanning"] :is(.only-intro, .only-ready, .only-result),
+    [data-phase="result"]   :is(.only-intro, .only-ready, .only-scan) { display: none; }
+
+    /* ── 就位閘（開始擷取之前）──
+       🔴 這一段**沒有 cyan**。cyan-active = ACTIVE，而這裡什麼都還沒在量 ——
+       擺手指的過程亮起量測進行中的顏色，就是顏色在宣稱一件沒發生的事。
+       目前這一步是 --n-100（亮中性），完成的是 --n-300。 */
+    .rail { display: flex; gap: 6px; }
+    .railStep {
+      flex: 1; padding: 8px 2px; border-radius: 10px; line-height: 1.45;
+      font-size: clamp(10px, 2.9vw, 11px); text-align: center;
+      color: var(--n-600); border: 1px solid var(--n-800);
+    }
+    .railStep[data-state="done"] { color: var(--n-300); border-color: var(--n-600); }
+    .railStep[data-state="now"] { color: var(--n-100); border-color: var(--n-400); }
+    .coach {
+      font-size: clamp(15px, 4.2vw, 17px); line-height: 1.55; color: var(--n-100);
+      min-height: 2.6em;
+    }
+    .holdDots { display: flex; gap: 6px; margin-top: 10px; }
+    .holdDot { width: 100%; height: 3px; border-radius: 2px; background: var(--n-800); }
+    .holdDot[data-on="yes"] { background: var(--n-300); }
 
     /* camera stays off-screen: no preview of the fingertip, nothing to look at */
     #cam { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
@@ -188,6 +209,9 @@
     <section class="only-intro card">
       <p>讓光透過你的指尖。相機讀得到指尖血流的節律 —— 那是這支手機唯一能真的量準的生理訊號。</p>
       <p style="margin-top:10px">需要 <span id="targetSec">90</span> 秒（低於 <span id="minSec">45</span> 秒不會產出讀數）。手指輕放在後鏡頭上，整片蓋住、不要移動。</p>
+      <!-- 🔴 按鈕叫「打開相機」不叫「開始校準」，因為它真的只打開相機。
+           上一版按下去就起跑 90 秒，於是手指還沒擺好的兩次擷取都跑到底。 -->
+      <p class="fine" style="margin-top:10px">按下去只會打開相機 —— 先對位，確認手指真的擺好了，<strong>時鐘才開始走</strong>。</p>
     </section>
 
     <section class="only-intro card precision">
@@ -210,7 +234,37 @@
     </section>
 
     <p class="only-intro err" id="startError"></p>
-    <button class="only-intro" id="startBtn" style="margin-top:auto">開始校準</button>
+    <button class="only-intro" id="startBtn" style="margin-top:auto">打開相機</button>
+
+    <!-- ── 就位（clock 還沒開始）─────────────────────────────────
+         🔴 這一段存在的理由是量出來的：實機第一次按下去就起跑，燒掉兩次
+         完整 90 秒。舊的 onboarding 有這道閘，/finger/ 沒有。
+         🔴 它只擋接觸。光與晃是 advisory —— clipped / motion 兩個 fixture
+         的對應 component 都是 0.00，卻都在 90 秒後產出讀數（走綠通道）。
+         擋它們會把會成功的擷取擋掉。 -->
+    <section class="only-ready card">
+      <div class="dialLabel" style="margin-bottom:10px">還沒開始計時</div>
+      <p class="coach" id="coach">把指腹輕放在後鏡頭上。</p>
+      <div class="holdDots" id="holdDots"></div>
+    </section>
+
+    <div class="only-ready rail" id="rail">
+      <span class="railStep" data-step="approach">放上鏡頭</span>
+      <span class="railStep" data-step="cover">蓋滿</span>
+      <span class="railStep" data-step="hold">穩住</span>
+      <span class="railStep" data-step="ready">開始擷取</span>
+    </div>
+
+    <section class="only-ready card">
+      <div class="dialLabel" style="margin-bottom:12px">現在量到的</div>
+      <div class="dims" id="readyDims"></div>
+      <p class="note" id="readyAdvisory" style="margin-top:12px" hidden></p>
+    </section>
+
+    <p class="only-ready fine">用<strong>指腹</strong>，不是指尖。輕放就好，不要用力壓鏡頭 —— 壓緊會把血擠開，反而量不到脈搏。</p>
+
+    <button class="only-ready ghost" id="skipGate" style="margin-top:auto" hidden>訊號一直不合格，仍要開始</button>
+    <button class="only-ready ghost" id="cancelGate">取消</button>
 
     <!-- ── scanning ────────────────────────────────────────────── -->
     <section class="only-scan dial">

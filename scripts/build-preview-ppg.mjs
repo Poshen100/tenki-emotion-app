@@ -43,6 +43,7 @@ const ENTRIES = [
   'biometric/scan-modes.ts',
   'biometric/ppg/signal-quality.ts',
   'biometric/ppg/live.ts',
+  'biometric/ppg/capture-readiness.ts',
   'biometric/pulse-anchor.ts',
   'biometric/validation-log.ts',
 ];

@@ -38,6 +38,14 @@ import {
   assessLiveWindow,
   recentFrames,
 } from './engine/biometric/ppg/live.js';
+import {
+  INITIAL_READINESS,
+  READINESS_HOLD_WINDOWS,
+  READINESS_STAGES,
+  READINESS_PATIENCE_SEC,
+  READINESS_WINDOW_SEC,
+  assessCaptureReadiness,
+} from './engine/biometric/ppg/capture-readiness.js';
 
 const MODE = 'full_scan';
 const TARGET_SEC = SCAN_MODE_CONFIGS[MODE].targetDurationSec;
@@ -94,6 +102,48 @@ const DIMENSIONS = [
 
 /** 低於這個值的維度會被標出來 —— 那是使用者這次該改的地方。 */
 const DIM_LOW = 0.6;
+
+/**
+ * 就位閘顯示的三個量。
+ *
+ * 🔴 沒有「節律」—— 1.5 秒找不到一個週期，放一條空軌道只會讓人以為它壞了。
+ * 三個都是「越高越好」，所以值直接就是 goodness，不需要 `dimensionGoodness`。
+ */
+const READY_DIMENSIONS = [
+  { key: 'contact', label: '接觸', hint: '手指蓋住鏡頭的完整與穩定程度' },
+  { key: 'light', label: '光', hint: '曝光有沒有壓到感光上限' },
+  { key: 'stillness', label: '穩定', hint: '這 1.5 秒手有多穩' },
+];
+
+/** 擋住開始的那一件事，逐字。一次只講一句。 */
+const BLOCKER_COPY = {
+  no_signal: '相機還在啟動。',
+  no_contact: '把指腹輕放在後鏡頭上。',
+  partial_contact: '再蓋滿一點 —— 鏡頭整片都要被指腹蓋住。',
+};
+
+/**
+ * 講但不擋的事。
+ *
+ * 🔴 `over_exposed` 不是錯誤：紅通道被打飽和時引擎會改讀綠通道
+ * （`channels.ts`）。實機第一次就是這個情況，而那次的問題是沒人告訴他。
+ */
+const GATE_ADVISORY_COPY = {
+  over_exposed: '紅通道被打飽和了（多半是閃光燈或太亮的環境）。讀數會自動改走綠通道，不擋你開始 —— 但關掉閃光燈通常會更準。',
+  moving: '手在晃。晃得動的擷取還是可能成功，但會比較久才穩。',
+};
+
+/**
+ * 沒有東西擋著的時候講什麼。
+ *
+ * ⚠️ 這一段原本是空的 —— `BLOCKER_COPY[null]` 是 undefined，於是使用者**做對
+ * 的時候**畫面上那一句話是空白的。harness 當時只斷言那一行「看得見」，而它
+ * 有 min-height，空字串照樣有高度。截圖抓到的，斷言現在量字。
+ */
+const HOLDING_COPY = '就是這樣 —— 維持住，不要動。';
+
+/** 就位之後的那一句。不是結果，所以不上 gold、也不上 cyan。 */
+const READY_COPY = '就位了 —— 開始擷取。';
 
 /**
  * 各階段的名字。英文是對外溝通的 canonical 詞，中文是畫面上的說法。
@@ -157,6 +207,11 @@ const state = {
   lockEverAchieved: false,
   /** 使用者說的情境。預設靜坐，但要由他選。 */
   scenario: 'resting',
+  /** 就位閘的狀態。`gateFrames` 是**還沒評過**的那一批，評完就清掉。 */
+  gate: INITIAL_READINESS,
+  gateFrames: [],
+  gateStartedAt: 0,
+  gateRunning: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -380,6 +435,112 @@ function sampleFrame(video, ctx, timestampMs) {
     coverage: covered / pixels,
     motion,
   };
+}
+
+// ── 就位閘（clock 還沒開始）─────────────────────────────────────────────────
+
+/**
+ * 擺手指的那段時間。
+ *
+ * 🔴 這裡**不累積擷取用的幀**。`state.gateFrames` 每評完一個窗口就清掉 ——
+ * 使用者找位置的那 10 秒不是量測的一部分，混進去等於在 90 秒的擷取裡塞一段
+ * 手指還在移動的資料。
+ *
+ * ⚠️ 窗口是**不重疊**的：重疊窗口會讓同一批幀被算進好幾次 hold，於是「連續
+ * 三個窗口」變成「一個窗口看三次」。引擎那邊的測試也是照不重疊replay 的。
+ */
+function gateTick(video, ctx) {
+  if (!state.gateRunning) return;
+
+  const now = performance.now();
+  const frame = sampleFrame(video, ctx, now);
+  if (frame !== null) state.gateFrames.push(frame);
+
+  const batch = state.gateFrames;
+  const spanSec =
+    batch.length < 2 ? 0 : (batch[batch.length - 1].timestampMs - batch[0].timestampMs) / 1000;
+
+  if (spanSec >= READINESS_WINDOW_SEC) {
+    state.gate = assessCaptureReadiness(batch, state.gate.held);
+    state.gateFrames = [];
+    renderGate();
+
+    if (state.gate.ready) {
+      startCapture(video, ctx);
+      return;
+    }
+  }
+
+  // 🔴 逃生口，不是逾時自動開始：按鈕出現，但要**使用者自己按**。沒有出口的
+  // 閘會把「coverage 判準在這支手機上不準」的人整個擋在產品外面。
+  if ((now - state.gateStartedAt) / 1000 >= READINESS_PATIENCE_SEC) {
+    $('skipGate').hidden = false;
+  }
+
+  state.raf = requestAnimationFrame(() => gateTick(video, ctx));
+}
+
+/** 就位閘的畫面。教練句、階段軌、三條 bar、advisory。 */
+function renderGate() {
+  const gate = state.gate;
+
+  $('coach').textContent = gate.ready
+    ? READY_COPY
+    : gate.blocker === null
+      ? HOLDING_COPY
+      : BLOCKER_COPY[gate.blocker] ?? BLOCKER_COPY.no_signal;
+
+  const reached = READINESS_STAGES.indexOf(gate.stage);
+  for (const step of document.querySelectorAll('.railStep')) {
+    const index = READINESS_STAGES.indexOf(step.dataset.step);
+    step.dataset.state = index < reached ? 'done' : index === reached ? 'now' : 'todo';
+  }
+
+  const dots = $('holdDots');
+  if (dots.childElementCount === 0) {
+    for (let i = 0; i < READINESS_HOLD_WINDOWS; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'holdDot';
+      dots.appendChild(dot);
+    }
+  }
+  for (let i = 0; i < dots.children.length; i++) {
+    dots.children[i].dataset.on = i < gate.held ? 'yes' : 'no';
+  }
+
+  renderReadyDims(gate);
+
+  const advisory = $('readyAdvisory');
+  const lines = gate.advisories.map((a) => GATE_ADVISORY_COPY[a]).filter(Boolean);
+  advisory.hidden = lines.length === 0;
+  advisory.textContent = lines.join(' ');
+}
+
+/** 三條 bar。值本身就是 goodness，不經過 `dimensionGoodness`。 */
+function renderReadyDims(gate) {
+  const host = $('readyDims');
+  if (host.childElementCount === 0) {
+    for (const dim of READY_DIMENSIONS) {
+      const row = document.createElement('div');
+      row.className = 'dim';
+      row.dataset.key = dim.key;
+      row.innerHTML =
+        `<span class="dimLabel"></span><span class="dimValue"></span>` +
+        `<span class="dimTrack"><span class="dimFill"></span></span>`;
+      row.querySelector('.dimLabel').textContent = dim.label;
+      row.title = dim.hint;
+      host.appendChild(row);
+    }
+  }
+
+  for (const dim of READY_DIMENSIONS) {
+    const row = host.querySelector(`.dim[data-key="${dim.key}"]`);
+    const value = gate[dim.key];
+    row.dataset.pending = 'no';
+    row.dataset.low = value < DIM_LOW ? 'yes' : 'no';
+    row.querySelector('.dimValue').textContent = `${Math.round(value * 100)}%`;
+    row.querySelector('.dimFill').style.width = `${Math.round(value * 100)}%`;
+  }
 }
 
 // ── loop ────────────────────────────────────────────────────────────────────
@@ -767,6 +928,13 @@ function renderWithheld(withheld) {
 
 // ── wiring ──────────────────────────────────────────────────────────────────
 
+/**
+ * 按下「開始校準」之後做的事 —— 注意**不是**開始擷取。
+ *
+ * 🔴 相機開起來，進就位閘，90 秒的鐘還沒動。實機第一次是按下去就起跑，
+ * 於是兩次擷取都在手指還沒擺好的情況下跑滿 90 秒（`docs/PHONE-PPG.md` §12
+ * 第 19 條）。
+ */
 async function begin() {
   const video = $('cam');
   const canvas = document.createElement('canvas');
@@ -774,7 +942,7 @@ async function begin() {
   canvas.height = SAMPLE_SIZE;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-  $('stage').dataset.phase = 'scanning';
+  $('stage').dataset.phase = 'ready';
   $('startError').textContent = '';
 
   try {
@@ -788,11 +956,32 @@ async function begin() {
     return;
   }
 
+  state.gate = INITIAL_READINESS;
+  state.gateFrames = [];
+  state.lastSample = null;
+  state.gateStartedAt = performance.now();
+  state.gateRunning = true;
+  $('skipGate').hidden = true;
+  renderGate();
+  gateTick(video, ctx);
+}
+
+/**
+ * 擷取真正開始的地方。時鐘從這裡才走。
+ *
+ * ⚠️ `state.frames` 從空的開始 —— 就位期間的幀**不算**擷取的一部分。
+ */
+function startCapture(video, ctx) {
+  state.gateRunning = false;
+  cancelAnimationFrame(state.raf);
+
+  $('stage').dataset.phase = 'scanning';
   state.frames = [];
   state.lastSample = null;
   state.lock = INITIAL_PULSE_LOCK;
   state.lockEverAchieved = false;
   renderLock();
+  renderProgress(0);
   state.startedAt = performance.now();
   state.running = true;
   tick(video, ctx);
@@ -800,6 +989,7 @@ async function begin() {
 
 function abort() {
   state.running = false;
+  state.gateRunning = false;
   cancelAnimationFrame(state.raf);
   stopCamera();
   $('stage').dataset.phase = 'intro';
@@ -809,6 +999,16 @@ $('startBtn').addEventListener('click', () => {
   begin().catch(() => {});
 });
 $('abortBtn').addEventListener('click', abort);
+$('cancelGate').addEventListener('click', abort);
+// 🔴 逃生口。按了照樣走完整的 90 秒與同一套閘門 —— 它放寬的是「什麼時候可以
+// 開始」，不是「什麼算得上一次讀數」。
+$('skipGate').addEventListener('click', () => {
+  const video = $('cam');
+  const canvas = document.createElement('canvas');
+  canvas.width = SAMPLE_SIZE;
+  canvas.height = SAMPLE_SIZE;
+  startCapture(video, canvas.getContext('2d', { willReadFrequently: true }));
+});
 $('againBtn').addEventListener('click', () => {
   $('stage').dataset.phase = 'intro';
 });
@@ -897,5 +1097,36 @@ window.__tenkiFingerHarness = {
   },
   anchorCount() {
     return loadAnchors().length;
+  },
+  /**
+   * 就位閘。
+   *
+   * 🔴 這個接縫跟 `renderLiveFrames` 是同一個理由：掃描以前沒有 harness 走過
+   * 的那一段藏過一個真的 bug。就位閘整段都在掃描以前。
+   */
+  resetGate() {
+    state.gate = INITIAL_READINESS;
+    state.gateFrames = [];
+    $('stage').dataset.phase = 'ready';
+    $('skipGate').hidden = true;
+    renderGate();
+  },
+  /** 餵一個窗口。走的是真的 `assessCaptureReadiness` 與真的 `renderGate`。 */
+  renderGateWindow(frames) {
+    state.gate = assessCaptureReadiness(frames, state.gate.held);
+    renderGate();
+    return {
+      stage: state.gate.stage,
+      ready: state.gate.ready,
+      blocker: state.gate.blocker,
+      advisories: state.gate.advisories,
+      held: state.gate.held,
+    };
+  },
+  readinessWindowSec() {
+    return READINESS_WINDOW_SEC;
+  },
+  readinessHoldWindows() {
+    return READINESS_HOLD_WINDOWS;
   },
 };
