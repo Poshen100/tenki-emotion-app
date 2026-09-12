@@ -76,6 +76,53 @@
       font-size: clamp(15px, 4.2vw, 17px); line-height: 1.55; color: var(--n-100);
       min-height: 2.6em;
     }
+    /* ── 覆蓋地圖 ──
+       沿用舊 onboarding 的 target ring 構圖（styles.css `.readiness-preview-target`
+       ＋ `.readiness-camera-preview`）：外圈細環、內圈虛線、中央一口井。
+       🔴 但**不沿用它的顏色狀態**（green / yellow / red）：綠在這個產品裡是
+          「跟著流程完成」的語意色，而這裡還沒有任何結果。也不沿用 cyan ——
+          cyan-active = ACTIVE，就位階段什麼都還沒在量。
+       🔴 井裡放的是推導出來的覆蓋格子，不是相機影像：蓋好的鏡頭是一整片
+          均勻的紅，缺口剛好是影像上唯一看不出來的東西。 */
+    .coverWrap { position: relative; display: grid; place-items: center; padding-block: 6px; }
+    .coverRing {
+      position: absolute;
+      width: min(52vw, 196px); aspect-ratio: 1; border-radius: 50%;
+      border: 1px solid var(--n-700);
+      pointer-events: none;
+    }
+    .coverRing::before {
+      content: ''; position: absolute; inset: 14px;
+      border-radius: 50%; border: 1px dashed var(--n-700);
+    }
+    .coverWell {
+      position: relative;
+      width: min(40vw, 152px); aspect-ratio: 1;
+      /* ⚠️ 圓角只留 6px。18px 會把四個角的格子各切掉一塊 —— 那正是這一段
+         一開始拒絕把地圖畫成圓形的理由（量了卻看不到），小一號的版本一樣算
+         是那個錯誤。 */
+      border-radius: 6px; overflow: hidden;
+      border: 1px solid var(--n-700);
+      background: var(--n-900);
+    }
+    /* ⚠️ 圓角方形，不是圓 —— 量的 ROI 是**正方形**裁切。畫成圓會把四個角的
+       格子藏起來，而閘門照樣在算它們。外圈的環負責「這是鏡頭」的意象。 */
+    [data-gap="yes"].coverWell { border-color: var(--warning); }
+    .coverGrid { display: grid; width: 100%; height: 100%; gap: 1px; padding: 1px; }
+    .coverCell { border-radius: 2px; background: var(--n-800); }
+    /* ⚠️ 蓋到的格子刻意**不搶眼**（--n-600 而不是 --n-500）：畫面上該跳出來的
+       是要修的那一格，不是已經對的那十五格。 */
+    .coverCell[data-covered="yes"] { background: var(--n-600); }
+    /* 🔴 沒蓋到的格子吃 --warning，跟低維度的 bar 同一個用法：
+       「這是你要改的地方」。不是錯誤色，也不是語意綠的反面。 */
+    .coverCell[data-covered="no"] { background: var(--warning); }
+    .coverLegend {
+      display: flex; gap: 14px; justify-content: center; margin-top: 12px;
+      font-size: 11px; color: var(--n-500);
+    }
+    .coverKey { display: inline-flex; align-items: center; gap: 5px; }
+    .coverKey i { width: 10px; height: 10px; border-radius: 2px; display: block; }
+
     .holdDots { display: flex; gap: 6px; margin-top: 10px; }
     .holdDot { width: 100%; height: 3px; border-radius: 2px; background: var(--n-800); }
     .holdDot[data-on="yes"] { background: var(--n-300); }
@@ -254,6 +301,21 @@
       <span class="railStep" data-step="hold">穩住</span>
       <span class="railStep" data-step="ready">開始擷取</span>
     </div>
+
+    <section class="only-ready card">
+      <div class="dialLabel" style="margin-bottom:4px">指腹蓋到哪裡了</div>
+      <div class="coverWrap">
+        <div class="coverRing" aria-hidden="true"></div>
+        <div class="coverWell" id="coverWell" data-gap="no">
+          <div class="coverGrid" id="coverGrid" role="img" aria-label="鏡頭覆蓋分佈"></div>
+        </div>
+      </div>
+      <div class="coverLegend">
+        <span class="coverKey"><i style="background:var(--n-600)"></i>蓋到了</span>
+        <span class="coverKey"><i style="background:var(--warning)"></i>還在漏光</span>
+      </div>
+      <p class="fine" style="margin-top:12px">這不是相機畫面 —— 蓋好的鏡頭在畫面上是一整片均勻的紅，缺口剛好看不出來。這裡畫的是每一小塊有沒有被指腹蓋住。</p>
+    </section>
 
     <section class="only-ready card">
       <div class="dialLabel" style="margin-bottom:12px">現在量到的</div>

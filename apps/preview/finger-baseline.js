@@ -46,6 +46,10 @@ import {
   READINESS_WINDOW_SEC,
   assessCaptureReadiness,
 } from './engine/biometric/ppg/capture-readiness.js';
+import {
+  COVERAGE_MAP_GRID,
+  buildCoverageMap,
+} from './engine/biometric/ppg/coverage-map.js';
 
 const MODE = 'full_scan';
 const TARGET_SEC = SCAN_MODE_CONFIGS[MODE].targetDurationSec;
@@ -59,6 +63,14 @@ const MIN_SEC = SCAN_MODE_CONFIGS[MODE].minDurationSec;
  * 60fps × 目標時長 × 1.5 的餘裕：正常 30fps 永遠碰不到，計時器卡住時會。
  */
 const MAX_FRAMES = Math.ceil(TARGET_SEC * 60 * 1.5);
+
+/**
+ * 覆蓋地圖平均幾幀。
+ *
+ * ⚠️ 5 幀（約 0.17 秒）是刻意的下限：夠壓掉逐幀閃爍，又不會讓地圖落後於
+ * 手指。這不是閘門的窗口 —— 閘門看 1.5 秒，地圖看「現在」。
+ */
+const COVERAGE_RING_FRAMES = 5;
 
 /** ROI 邊長佔畫面較短邊的比例。中央一小塊就夠，取樣成本也低。 */
 const ROI_FRACTION = 0.35;
@@ -142,6 +154,15 @@ const GATE_ADVISORY_COPY = {
  */
 const HOLDING_COPY = '就是這樣 —— 維持住，不要動。';
 
+/**
+ * 閘門沒擋，但**當下這一幀**還有缺口。
+ *
+ * 🔴 這一句是截圖抓出來的：閘門看 1.5 秒的窗口、地圖看現在，所以窗口平均
+ * 過得了的同時畫面上可以有一格是亮的 —— 而「維持住，不要動」印在一個看得見
+ * 的缺口旁邊，是畫面自己在自相矛盾。使用者看的是那張圖，所以教練句跟著圖走。
+ */
+const ALMOST_COPY = '差一點 —— 還有一小塊在漏光，指腹再微調一下。';
+
 /** 就位之後的那一句。不是結果，所以不上 gold、也不上 cyan。 */
 const READY_COPY = '就位了 —— 開始擷取。';
 
@@ -212,6 +233,10 @@ const state = {
   gateFrames: [],
   gateStartedAt: 0,
   gateRunning: false,
+  /** 最近幾幀的 per-cell 覆蓋比例。只給畫面用，跟著幀丟掉，不落地。 */
+  cellRing: [],
+  /** 最近一次畫出來的覆蓋地圖。教練句要用它講「哪一邊」。 */
+  coverMap: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -399,13 +424,36 @@ function sampleFrame(video, ctx, timestampMs) {
 
   ctx.drawImage(video, sx, sy, side, side, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
   const { data } = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+  return reduceRoi(data, timestampMs);
+}
 
+/**
+ * 把 ROI 的像素化簡成純量 ＋ 每格覆蓋比例。
+ *
+ * 🔴 從 `sampleFrame` 拆出來是為了**能被測到**：像素 → 格子的索引換算
+ * （`px` / `py` / row-major 位置）正是 off-by-one 會住的地方，而合成的
+ * `PpgFrame` 永遠碰不到它 —— 合成器產出的是已經化簡完的幀。harness 現在
+ * 直接餵一塊已知圖樣的像素進來。
+ *
+ * @param {Uint8ClampedArray} data - RGBA，SAMPLE_SIZE × SAMPLE_SIZE。
+ * @param {number} timestampMs
+ */
+function reduceRoi(data, timestampMs) {
   let red = 0;
   let green = 0;
   let blue = 0;
   let clipped = 0;
-  let covered = 0;
   const pixels = SAMPLE_SIZE * SAMPLE_SIZE;
+
+  /**
+   * 每一格被蓋住的像素數。
+   *
+   * 🔴 整塊的 `coverage` 是**從這些格子加總出來的**，不是另外算一次 ——
+   * 所以地圖與閘門在算術上不可能講不同的話（`coverage-map.ts`）。
+   */
+  const cellCovered = new Array(COVERAGE_MAP_GRID * COVERAGE_MAP_GRID).fill(0);
+  const cellSide = SAMPLE_SIZE / COVERAGE_MAP_GRID;
+  const cellPixels = cellSide * cellSide;
 
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
@@ -417,8 +465,15 @@ function sampleFrame(video, ctx, timestampMs) {
     if (r >= 254 || r <= 1) clipped++;
     // 手指貼在鏡頭上時紅通道遠高於其他兩個 —— 這就是「有沒有蓋住」的判準，
     // 不是猜的：血液吸收綠光遠多於紅光。
-    if (r > g * 1.35 && r > b * 1.35) covered++;
+    if (r > g * 1.35 && r > b * 1.35) {
+      const px = (i / 4) % SAMPLE_SIZE;
+      const py = Math.floor(i / 4 / SAMPLE_SIZE);
+      cellCovered[Math.floor(py / cellSide) * COVERAGE_MAP_GRID + Math.floor(px / cellSide)]++;
+    }
   }
+
+  let covered = 0;
+  for (const count of cellCovered) covered += count;
 
   const motion =
     state.lastSample === null
@@ -427,13 +482,18 @@ function sampleFrame(video, ctx, timestampMs) {
   state.lastSample = red / pixels;
 
   return {
-    timestampMs,
-    red: red / pixels,
-    green: green / pixels,
-    blue: blue / pixels,
-    clippedFraction: clipped / pixels,
-    coverage: covered / pixels,
-    motion,
+    // `PpgFrame` 就是引擎拿到的全部。⚠️ 格子**不在裡面**：它是給畫面看的
+    // 推導值，不進分析鏈、不落地（`coverage-map.ts` 的隱私註記）。
+    frame: {
+      timestampMs,
+      red: red / pixels,
+      green: green / pixels,
+      blue: blue / pixels,
+      clippedFraction: clipped / pixels,
+      coverage: covered / pixels,
+      motion,
+    },
+    cells: cellCovered.map((count) => count / cellPixels),
   };
 }
 
@@ -453,8 +513,16 @@ function gateTick(video, ctx) {
   if (!state.gateRunning) return;
 
   const now = performance.now();
-  const frame = sampleFrame(video, ctx, now);
-  if (frame !== null) state.gateFrames.push(frame);
+  const sample = sampleFrame(video, ctx, now);
+  if (sample !== null) {
+    state.gateFrames.push(sample.frame);
+    // 🔴 地圖畫的是**現在**，不是這個窗口的平均 —— 使用者的手指正在移動，
+    // 落後 1.5 秒的地圖沒辦法拿來對位。所以它吃最近幾幀的平均：只夠壓掉
+    // 逐幀閃爍，不足以造成延遲。
+    state.cellRing.push(sample.cells);
+    if (state.cellRing.length > COVERAGE_RING_FRAMES) state.cellRing.shift();
+    renderCoverageMap();
+  }
 
   const batch = state.gateFrames;
   const spanSec =
@@ -480,6 +548,33 @@ function gateTick(video, ctx) {
   state.raf = requestAnimationFrame(() => gateTick(video, ctx));
 }
 
+/** 沒有東西擋著時講哪一句 —— 看的是地圖，不是窗口。 */
+function holdingCopy() {
+  const map = state.coverMap;
+  return map && map.uncoveredCount > 0 ? ALMOST_COPY : HOLDING_COPY;
+}
+
+/**
+ * 「再蓋滿一點」→ 缺口長什麼樣子。
+ *
+ * 🔴 **刻意不講方向**（不講「往上」「往左」）。地圖的軸是**影像座標**，而後
+ * 鏡頭的影像上緣對應到手機的哪一邊，取決於裝置方位與瀏覽器怎麼處理
+ * orientation —— 在真機驗過以前，「往上移」有可能剛好是反的，而叫使用者往
+ * 錯的方向移動比什麼都不說更糟。實機驗收清單第 20 條就是驗這個對應關係，
+ * 驗過之後才可以加方向。
+ *
+ * 🔴 講得出來的是**跟方位無關**的那些：缺口在邊上還是在中間、是一邊還是一個
+ * 角。而且把使用者導向那張圖 —— 圖是即時的，他移動手指就看得到格子跟著變，
+ * 迴路是他自己閉的，不需要我猜方向。
+ */
+function coverGapCopy() {
+  const map = state.coverMap;
+  if (!map || map.uncoveredCount === 0) return BLOCKER_COPY.partial_contact;
+  if (map.centreGap) return '指腹中間沒有貼到玻璃 —— 手指放平一點，不要拱起來。';
+  const shape = map.gapEdges.length >= 2 ? '有一個角' : '有一邊';
+  return `${shape}還在漏光 —— 看著上面那張圖移動指腹，把亮起來的格子蓋掉。`;
+}
+
 /** 就位閘的畫面。教練句、階段軌、三條 bar、advisory。 */
 function renderGate() {
   const gate = state.gate;
@@ -487,8 +582,10 @@ function renderGate() {
   $('coach').textContent = gate.ready
     ? READY_COPY
     : gate.blocker === null
-      ? HOLDING_COPY
-      : BLOCKER_COPY[gate.blocker] ?? BLOCKER_COPY.no_signal;
+      ? holdingCopy()
+      : gate.blocker === 'partial_contact'
+        ? coverGapCopy()
+        : BLOCKER_COPY[gate.blocker] ?? BLOCKER_COPY.no_signal;
 
   const reached = READINESS_STAGES.indexOf(gate.stage);
   for (const step of document.querySelectorAll('.railStep')) {
@@ -514,6 +611,50 @@ function renderGate() {
   const lines = gate.advisories.map((a) => GATE_ADVISORY_COPY[a]).filter(Boolean);
   advisory.hidden = lines.length === 0;
   advisory.textContent = lines.join(' ');
+}
+
+/**
+ * 覆蓋地圖 —— 手指「哪裡」沒蓋到。
+ *
+ * 🔴 沿用舊 onboarding 的視覺語言（target ring ＋ 虛線內圈 ＋ 圓形井），
+ * 但**不沿用它的內容**：舊版在那個圈裡放的是相機實時影像，而蓋好的鏡頭
+ * 在畫面上是一整片均勻的紅 —— 缺口恰好是唯一看不出來的東西。
+ * 這裡放的是從同一批像素推導出來的 4×4 覆蓋比例。
+ *
+ * 🔴 地圖上**沒有數字**。旁邊的「接觸」bar 已經在報整塊的量，而它看的是
+ * 1.5 秒的窗口、地圖看的是現在 —— 同一個畫面上兩個會不一致的數字，
+ * 比沒有數字更糟。地圖只回答「哪裡」，bar 回答「多少」。
+ *
+ * 🔴 沒有 green：綠在這個產品裡是「跟著流程完成」的語意色（v6 `--good`），
+ * 而這裡還沒有任何結果。蓋到的格子是中性色，沒蓋到的是 `--warning`
+ * ——「這是你要改的地方」，跟低維度那些 bar 同一個用法。
+ */
+function renderCoverageMap() {
+  const host = $('coverGrid');
+  if (state.cellRing.length === 0) return;
+
+  const size = COVERAGE_MAP_GRID * COVERAGE_MAP_GRID;
+  const mean = new Array(size).fill(0);
+  for (const cells of state.cellRing) {
+    for (let i = 0; i < size; i++) mean[i] += cells[i] / state.cellRing.length;
+  }
+  const map = buildCoverageMap(mean);
+
+  if (host.childElementCount !== size) {
+    host.innerHTML = '';
+    host.style.gridTemplateColumns = `repeat(${map.grid}, 1fr)`;
+    for (let i = 0; i < size; i++) {
+      const cell = document.createElement('span');
+      cell.className = 'coverCell';
+      host.appendChild(cell);
+    }
+  }
+
+  for (let i = 0; i < size; i++) {
+    host.children[i].dataset.covered = map.cells[i].covered ? 'yes' : 'no';
+  }
+  $('coverWell').dataset.gap = map.uncoveredCount > 0 ? 'yes' : 'no';
+  state.coverMap = map;
 }
 
 /** 三條 bar。值本身就是 goodness，不經過 `dimensionGoodness`。 */
@@ -549,8 +690,8 @@ function tick(video, ctx) {
   if (!state.running) return;
 
   const now = performance.now();
-  const frame = sampleFrame(video, ctx, now);
-  if (frame !== null) state.frames.push(frame);
+  const sample = sampleFrame(video, ctx, now);
+  if (sample !== null) state.frames.push(sample.frame);
 
   const elapsed = (now - state.startedAt) / 1000;
   renderProgress(elapsed);
@@ -1125,6 +1266,47 @@ window.__tenkiFingerHarness = {
   },
   readinessWindowSec() {
     return READINESS_WINDOW_SEC;
+  },
+  /**
+   * 覆蓋地圖：餵**真的像素**進真的取樣器。
+   *
+   * 🔴 這是唯一能驗到像素 → 格子索引換算的路徑。合成器給的是已經化簡完的
+   * `PpgFrame`，永遠走不到那段 code。
+   *
+   * @param bare - 要留白（沒被指腹蓋住）的矩形，單位是取樣畫布的像素。
+   */
+  renderSampledCells(bare) {
+    const size = window.__tenkiFingerHarness.sampleSize();
+    const data = new Uint8ClampedArray(size * size * 4);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 4;
+        const isBare =
+          bare !== null &&
+          x >= bare.x && x < bare.x + bare.w && y >= bare.y && y < bare.y + bare.h;
+        // 蓋住 = 紅遠高於綠藍（取樣器的判準）。留白 = 灰，三通道一樣。
+        data[i] = isBare ? 90 : 200;
+        data[i + 1] = 90;
+        data[i + 2] = 90;
+        data[i + 3] = 255;
+      }
+    }
+    const sample = reduceRoi(data, 0);
+    state.cellRing = [sample.cells];
+    renderCoverageMap();
+    return { frameCoverage: sample.frame.coverage, map: state.coverMap };
+  },
+  sampleSize() {
+    return SAMPLE_SIZE;
+  },
+  coverageGrid() {
+    return COVERAGE_MAP_GRID;
+  },
+  /** 把閘的 blocker 設成指定值再重畫，用來驗教練句吃地圖。 */
+  renderGateWithBlocker(blocker) {
+    state.gate = { ...state.gate, blocker, ready: false, stage: 'cover', held: 0 };
+    renderGate();
+    return document.getElementById('coach').textContent.trim();
   },
   readinessHoldWindows() {
     return READINESS_HOLD_WINDOWS;

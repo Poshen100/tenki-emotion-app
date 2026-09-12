@@ -415,6 +415,166 @@ check(
   JSON.stringify(everyGateStep.map((s2) => ({ b: s2.gate.blocker, c: s2.coach }))),
 );
 
+// ── 2b3. 覆蓋地圖（手指「哪裡」沒蓋到）──────────────────────────────────────
+// 🔴 這一段餵的是**真的像素**進真的取樣器（`renderSampledCells`）。合成器
+// 給的是已經化簡完的 PpgFrame，所以像素 → 格子的索引換算沒有別的路徑驗得到，
+// 而那正是 off-by-one 會住的地方 —— 指錯邊的地圖比沒有地圖更糟。
+console.log('\n── 覆蓋地圖 ──');
+
+await page.evaluate(() => window.__tenkiFingerHarness.resetGate());
+const grid = await page.evaluate(() => window.__tenkiFingerHarness.coverageGrid());
+const sampleSize = await page.evaluate(() => window.__tenkiFingerHarness.sampleSize());
+const cellPx = sampleSize / grid;
+
+/** 餵一塊留白矩形，回傳畫面狀態＋地圖。 */
+const sampleCover = (bare) =>
+  page.evaluate((b) => {
+    const out = window.__tenkiFingerHarness.renderSampledCells(b);
+    const cells = [...document.querySelectorAll('#coverGrid .coverCell')];
+    return {
+      ...out,
+      cellCount: cells.length,
+      uncoveredIndexes: cells.flatMap((c, i) => (c.dataset.covered === 'no' ? [i] : [])),
+      geometry: cells.map((c) => {
+        const r = c.getBoundingClientRect();
+        return { w: Math.round(r.width), h: Math.round(r.height) };
+      }),
+      wellGap: document.getElementById('coverWell').dataset.gap,
+      wellBorder: getComputedStyle(document.getElementById('coverWell')).borderTopColor,
+      cellColours: [...new Set(cells.map((c) => getComputedStyle(c).backgroundColor))],
+      legendVisible:
+        document.querySelector('.coverLegend').getBoundingClientRect().height > 0,
+      overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  }, bare);
+
+const fullCover = await sampleCover(null);
+check(
+  `格子真的畫出來了（${grid}×${grid} 個，每個都有幾何）`,
+  fullCover.cellCount === grid * grid && fullCover.geometry.every((g) => g.w > 0 && g.h > 0),
+  JSON.stringify({ n: fullCover.cellCount, g: fullCover.geometry.slice(0, 3) }),
+);
+check(
+  '蓋滿時沒有任何一格標成漏光，井框也不是警示色',
+  fullCover.uncoveredIndexes.length === 0 && fullCover.wellGap === 'no',
+  JSON.stringify({ u: fullCover.uncoveredIndexes, gap: fullCover.wellGap }),
+);
+
+// 🔴 索引換算：留白整條**上緣**，標出來的必須剛好是第一列。
+const topBare = await sampleCover({ x: 0, y: 0, w: sampleSize, h: cellPx });
+check(
+  '🔴 上緣漏光 → 標出來的剛好是第一列（像素 → 格子的換算沒有錯位）',
+  JSON.stringify(topBare.uncoveredIndexes) ===
+    JSON.stringify(Array.from({ length: grid }, (_, i) => i)),
+  JSON.stringify(topBare.uncoveredIndexes),
+);
+check(
+  '上緣漏光時井框變警示色',
+  topBare.wellGap === 'yes' && topBare.wellBorder !== fullCover.wellBorder,
+  JSON.stringify({ gap: topBare.wellGap, border: topBare.wellBorder }),
+);
+
+// 🔴 而且左緣要標成左緣，不是上緣 —— 轉置寫錯的話這兩條剛好互換。
+const leftBare = await sampleCover({ x: 0, y: 0, w: cellPx, h: sampleSize });
+check(
+  '🔴 左緣漏光 → 標出來的剛好是第一欄（row/col 沒有互換）',
+  JSON.stringify(leftBare.uncoveredIndexes) ===
+    JSON.stringify(Array.from({ length: grid }, (_, i) => i * grid)),
+  JSON.stringify(leftBare.uncoveredIndexes),
+);
+
+// 🔴 地圖與閘門讀同一個數字 —— 在真的像素上，不只在單元測試的算術上。
+// ⚠️ 留白**故意不對齊格線**（半格高）。第一版用整格的圖樣，而整格圖樣下
+// 「像素比例」與「蓋到的格子比例」剛好相等（0.75 = 0.75）—— 那條斷言把
+// coverage 改成 covered-cell 比例照樣綠，是裝飾。半格才分得開：
+// 像素 0.875，格子比例 0.75。
+const halfCellBare = await sampleCover({ x: 0, y: 0, w: sampleSize, h: cellPx / 2 });
+const coveredCellRatio =
+  (grid * grid - halfCellBare.uncoveredIndexes.length) / (grid * grid);
+check(
+  '🔴 地圖的 coverage 就是這一幀的 coverage（不是第二個估計值）',
+  Math.abs(halfCellBare.frameCoverage - halfCellBare.map.coverage) < 1e-9 &&
+    Math.abs(halfCellBare.map.coverage - coveredCellRatio) > 1e-6,
+  JSON.stringify({
+    frame: halfCellBare.frameCoverage,
+    map: halfCellBare.map.coverage,
+    cellRatio: coveredCellRatio,
+  }),
+);
+
+check(
+  '🔴 地圖上不出現語意綠（綠 = 跟著流程完成，這裡還沒有結果）',
+  topBare.cellColours.every((c) => !/rgb\(\s*52,\s*199,\s*89/.test(c)),
+  JSON.stringify(topBare.cellColours),
+);
+check(
+  '圖例看得見（不然兩種顏色沒人知道哪個是哪個）',
+  fullCover.legendVisible,
+  '',
+);
+check(
+  '覆蓋地圖在 390px 下不橫向溢出',
+  fullCover.overflowX <= 0 && topBare.overflowX <= 0,
+  JSON.stringify([fullCover.overflowX, topBare.overflowX]),
+);
+
+// 🔴 地圖的產品價值：使用者不必先看懂那張圖。
+await sampleCover({ x: 0, y: 0, w: cellPx, h: sampleSize });
+const coachEdge = await page.evaluate(() =>
+  window.__tenkiFingerHarness.renderGateWithBlocker('partial_contact'),
+);
+check(
+  '教練句講得出缺口長什麼樣（不是「再蓋滿一點」），並把使用者導向那張圖',
+  coachEdge.includes('漏光') && coachEdge.includes('圖') && coachEdge.includes('一邊'),
+  coachEdge,
+);
+// 左上角 2×2 格：上緣 2 格、左緣 2 格 —— 平手才是真的角落（單邊漏光會只報一邊）。
+await sampleCover({ x: 0, y: 0, w: cellPx * 2, h: cellPx * 2 });
+const coachCorner = await page.evaluate(() =>
+  window.__tenkiFingerHarness.renderGateWithBlocker('partial_contact'),
+);
+check(
+  '一個角跟一邊講的不是同一句（跟方位無關，所以講得起）',
+  coachCorner.includes('角') && !coachCorner.includes('一邊'),
+  coachCorner,
+);
+// 🔴 而且**不准講方向**：影像座標的上緣對應到手機的哪一邊還沒在真機驗過
+// （驗收清單第 20 條）。叫使用者往錯的方向移動比什麼都不說更糟。
+check(
+  '🔴 沒有在真機驗過影像↔實體方位以前，文案不得講方向',
+  ![coachEdge, coachCorner].some((line) => /往[上下左右]|[上下左右]邊還在|[上下左右]移/.test(line)),
+  JSON.stringify([coachEdge, coachCorner]),
+);
+await sampleCover({ x: cellPx, y: cellPx, w: cellPx, h: cellPx });
+const coachCentre = await page.evaluate(() =>
+  window.__tenkiFingerHarness.renderGateWithBlocker('partial_contact'),
+);
+check(
+  '中間沒貼到跟邊緣漏光是不同的一句話（手指拱起來，不是放歪）',
+  coachCentre.includes('拱') && !coachCentre.includes('漏光'),
+  coachCentre,
+);
+// 🔴 截圖抓到的：閘門看 1.5 秒窗口、地圖看現在，所以窗口過得了的同時畫面上
+// 可以有一格是亮的 —— 而「維持住，不要動」印在看得見的缺口旁邊是自相矛盾。
+await sampleCover({ x: 0, y: 0, w: cellPx, h: cellPx });
+const coachNoBlocker = await page.evaluate(() =>
+  window.__tenkiFingerHarness.renderGateWithBlocker(null),
+);
+check(
+  '🔴 地圖上還有缺口時，教練句不得說「維持住」',
+  !coachNoBlocker.includes('維持住') && coachNoBlocker.includes('漏光'),
+  coachNoBlocker,
+);
+await sampleCover(null);
+const coachClean = await page.evaluate(() =>
+  window.__tenkiFingerHarness.renderGateWithBlocker(null),
+);
+check(
+  '真的蓋滿了才說「維持住」',
+  coachClean.includes('維持住'),
+  coachClean,
+);
+
 // ── 2c. 掃描進行中 ─────────────────────────────────────────────────────────
 // 🔴 掃描階段以前完全沒有 harness 走過。那個盲區藏住過一個真的 bug（即時層
 // 用整段的時長門檻評 20 秒窗口 → 每次即時回饋都說「時間不足」），所以現在
