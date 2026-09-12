@@ -100,6 +100,14 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
   `active` 只是一個布林旗標，不是「粒子會不會被重新上色」。
   改成驗產品自己的閘門 `toneIdle()` ＋ 靜息飽和度 === 1 之後同一個破壞就紅了。
   判準：**問「輸出會不會不一樣」，不要問「狀態機自認為在哪一格」。**
+- **🔴 「元素在」不等於「有話說」—— 空字串照樣有高度**（2026-09-12，第三次同類）。
+  `/finger/` 的就位教練句在**使用者做對的時候**是空字串（`BLOCKER_COPY[null]` 是 undefined），
+  而 harness 斷言的是那一行 `getBoundingClientRect().height > 0` —— `.coach` 有 `min-height`，
+  所以全綠。**截圖抓到的，不是斷言。**
+  這是同一個病的第三次：`.dimFill` 量 `style.width` 而不是幾何（bar 完全沒渲染仍綠）、
+  「拒答的擷取也要進紀錄」走到的是另一條 return（整行刪掉仍綠）。
+  判準：**斷言要量使用者實際讀到／看到的那個量** —— 文字量長度，長度量幾何，
+  存在量內容。量到容器就等於沒量。
 - **🔴 「有版面」不等於「看得見」—— 遮擋不會改變 bounding rect**（2026-08-11）。
   /v3/ Today 那行「以上四張為示意畫面」被固定在底部的 FDCB 底座整片蓋住，實際讀不到；
   而 harness 的可見性檢查量的是 `getBoundingClientRect()` + `visibility`，**照樣全綠** ——

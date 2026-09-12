@@ -88,6 +88,7 @@ tenki-emotion-app/
 | Phone PPG | `packages/engine/src/biometric/ppg/` | 手機相機 PPG 量測鏈：重取樣→帶通→自相關→拍點→品質閘（規格 `docs/PHONE-PPG.md`，動工前必讀）|
 | Pulse Anchor | `packages/engine/src/biometric/pulse-anchor.ts` | 一次擷取＝一個靜息脈搏參考值；四階段基線成形（`docs/PHONE-PPG.md` §11）|
 | Signal Integrity | `packages/engine/src/biometric/ppg/signal-quality.ts` + `live.ts` | 四維儀表（接觸／光／穩定／節律）與掃描中的 Pulse Lock |
+| 就位閘 | `packages/engine/src/biometric/ppg/capture-readiness.ts` | 擷取開始**以前**的定位閘：只擋接觸，光與晃是 advisory（`docs/PHONE-PPG.md` §17）|
 | PRV 閘門 | `packages/engine/src/biometric/ppg/beat-template.ts` | 拍形穩定度 —— 唯一看得到感光雜訊的量（§13）|
 | Breath Lock | `packages/engine/src/biometric/ppg/breath-lock.ts` | 相機呼吸率的獨立契約與雙來源和解（§14，擷取層未寫）|
 | Regulation Evidence | `domain/src/contracts/regulation-evidence.ts` | 自律調節的間接證據契約；刻意沒有 SNS/PNS/LF-HF 欄位 |
