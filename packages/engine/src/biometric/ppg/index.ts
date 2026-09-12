@@ -33,6 +33,15 @@ export type {
 
 export { analyzePpgScan, hasUsableReading, wasWithheld, MIN_FRAMES } from './analyze';
 
+// Which colour channel the pulse is actually in — measured, not assumed.
+export { PPG_CHANNELS, analyseChannel, selectPulseChannel } from './channels';
+export type {
+  ChannelAnalysis,
+  ChannelSelection,
+  PpgChannel,
+  PpgChannelDiagnostic,
+} from './channels';
+
 // The gate PRV has to pass — the only measure here that notices sensor noise.
 export {
   MIN_BEATS_FOR_TEMPLATE,

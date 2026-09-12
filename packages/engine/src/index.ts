@@ -402,6 +402,7 @@ export type { InsightCopy } from './intelligence/copy';
 // 把 docs/PHONE-PPG.md §12 的三條關鍵檢查變成裝置自己回答得了的東西。
 export {
   VALIDATION_SCENARIOS,
+  assessChannels,
   assessDayToDaySpread,
   assessLockHonesty,
   assessPrvGateReachability,
@@ -409,6 +410,8 @@ export {
 } from './biometric/validation-log';
 
 export type {
+  ChannelReport,
+  ChannelSummary,
   DayToDaySpread,
   DayToDaySpreads,
   LockHonesty,

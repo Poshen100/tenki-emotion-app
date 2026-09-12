@@ -15,13 +15,13 @@
  * from an array of numbers, and every one of those numbers will look plausible.
  * What makes this a measurement rather than a decoration is that it refuses.
  */
-import { PPG_RESAMPLE_HZ, bandPass, perfusionIndex, resampleUniform, } from './filtering.js';
 import { MAX_ARTIFACT_FRACTION, MIN_INTERVALS_FOR_HRV, MIN_INTERVALS_FOR_RESPIRATION, computeRmssd, heartRateFromIntervals, intervalTimes, rejectArtifacts, toIntervals, } from './beats.js';
-import { MAX_PLAUSIBLE_BPM, MIN_PERIODICITY, MIN_PLAUSIBLE_BPM, detectPulsePeaks, estimateRate, } from './pulse.js';
+import { MAX_PLAUSIBLE_BPM, MIN_PERIODICITY, MIN_PLAUSIBLE_BPM, detectPulsePeaks, } from './pulse.js';
 import { MAX_FRAME_DROPS, assessPpgQuality } from './quality.js';
 import { PRV_MIN_TEMPLATE_CORRELATION, beatTemplateCorrelation } from './beat-template.js';
 import { estimateRepeatability } from './repeatability.js';
 import { estimateRespiration } from './respiration.js';
+import { selectPulseChannel } from './channels.js';
 import { SCAN_MODE_CONFIGS, isCameraMode, modeReports, } from '../scan-modes.js';
 /** Fewest frames worth attempting anything with. */
 export const MIN_FRAMES = 60;
@@ -55,17 +55,28 @@ export function analyzePpgScan(frames, mode, options = {}) {
         return { status: 'rejected', reason: 'too_few_frames' };
     }
     const config = SCAN_MODE_CONFIGS[mode];
-    const resampled = resampleUniform(frames.map((f) => f.timestampMs), frames.map((f) => f.red), PPG_RESAMPLE_HZ);
-    if (resampled === null) {
+    // 🔴 Which channel the pulse is in is MEASURED, not assumed. The first real
+    // iPhone capture read a rhythm of 8% on red with full contact and produced
+    // no reading at all: under the torch, red saturates and the pulsatile
+    // component is clipped away. See `channels.ts`.
+    const selection = selectPulseChannel(frames);
+    if (selection === null) {
         return { status: 'rejected', reason: 'unusable_timebase' };
     }
+    const resampled = selection.chosen;
     const durationSec = resampled.values.length / resampled.sampleRateHz;
-    const cardiac = bandPass(resampled.values, resampled.sampleRateHz);
-    const perfusion = perfusionIndex(resampled.values, cardiac);
-    const rate = estimateRate(cardiac, resampled.sampleRateHz);
+    const cardiac = resampled.cardiac;
+    const perfusion = resampled.perfusion;
+    const rate = resampled.periodSamples === 0
+        ? null
+        : {
+            bpm: resampled.bpm ?? 0,
+            periodicity: resampled.periodicity,
+            periodSamples: resampled.periodSamples,
+        };
     const quality = assessPpgQuality({
         frames,
-        periodicity: rate?.periodicity ?? 0,
+        periodicity: resampled.periodicity,
         perfusion,
         frameDropFraction: resampled.gapFraction,
         durationSec,
@@ -96,6 +107,8 @@ export function analyzePpgScan(frames, mode, options = {}) {
                 artifactFraction: 0,
                 beatTemplateCorrelation: null,
                 repeatabilitySdMs: null,
+                channel: resampled.channel,
+                channelDiagnostics: selection.diagnostics,
                 durationSec: round1(durationSec),
                 sampleRateHz: resampled.sampleRateHz,
                 // ⚠️ 這條早退路徑也要吃 mode 閘門。否則相機 HRV 被關掉時，
@@ -203,6 +216,8 @@ export function analyzePpgScan(frames, mode, options = {}) {
             respiratoryRateBrpm,
             beatTemplateCorrelation: templateCorrelation,
             repeatabilitySdMs: repeatability?.sdMs ?? null,
+            channel: resampled.channel,
+            channelDiagnostics: selection.diagnostics,
             beatCount: series.accepted.length + (series.accepted.length > 0 ? 1 : 0),
             artifactFraction: Math.round(series.artifactFraction * 100) / 100,
             durationSec: round1(durationSec),

@@ -47,6 +47,28 @@
  */
 export const VALIDATION_SCENARIOS = ['resting', 'walking', 'cold_hands', 'unspecified'];
 /**
+ * Summarises which channel the pulse was actually in.
+ *
+ * 🔴 The first question a real device has to answer. If red's median DC sits
+ * near 255 and its periodicity is far below green's, the torch is saturating
+ * it and the pipeline was reading a flattened signal — which is exactly what
+ * the first iPhone capture looked like.
+ *
+ * @param log - Every capture attempt.
+ * @returns Per-channel summary.
+ */
+export function assessChannels(log) {
+    const measured = log.filter((c) => c.channelPeriodicity !== null);
+    const summary = (channel) => ({
+        chosenCount: log.filter((c) => c.channel === channel).length,
+        medianPeriodicity: medianOf(measured.map((c) => c.channelPeriodicity[channel])),
+        medianDcMean: medianOf(measured
+            .filter((c) => c.channelDcMean !== null)
+            .map((c) => c.channelDcMean[channel])),
+    });
+    return { captureCount: measured.length, red: summary('red'), green: summary('green') };
+}
+/**
  * Counts how often the PRV gate was reachable.
  *
  * @param log - Every capture attempt.
@@ -151,8 +173,19 @@ export function formatValidationReport(log) {
     const gate = assessPrvGateReachability(log);
     const lock = assessLockHonesty(log);
     const spread = assessDayToDaySpread(log);
+    const channels = assessChannels(log);
     const lines = [];
     lines.push(`TENKI 實機驗收 — ${log.length} 次擷取`);
+    lines.push('');
+    lines.push('通道（脈搏實際在哪個通道）');
+    if (channels.captureCount === 0) {
+        lines.push('  還沒有任何量到通道的擷取。');
+    }
+    else {
+        lines.push(`  紅：選中 ${channels.red.chosenCount} 次 · 節律中位數 ${fmt(channels.red.medianPeriodicity)} · 亮度中位數 ${fmt(channels.red.medianDcMean)}`);
+        lines.push(`  綠：選中 ${channels.green.chosenCount} 次 · 節律中位數 ${fmt(channels.green.medianPeriodicity)} · 亮度中位數 ${fmt(channels.green.medianDcMean)}`);
+        lines.push('  （紅的亮度接近 255 且節律遠低於綠 = 補光燈把紅通道打飽和了）');
+    }
     lines.push('');
     lines.push('#15 PRV 閘門可達性');
     if (gate.captureCount === 0) {
@@ -197,6 +230,16 @@ function spreadOf(values) {
         median: sorted.length % 2 === 1 ? sorted[mid] : round2((sorted[mid - 1] + sorted[mid]) / 2),
         max: sorted[sorted.length - 1],
     };
+}
+function fmt(value) {
+    return value === null ? '—' : String(value);
+}
+function medianOf(values) {
+    if (values.length === 0)
+        return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 1 ? sorted[mid] : round2((sorted[mid - 1] + sorted[mid]) / 2);
 }
 function mean(values) {
     return values.reduce((sum, v) => sum + v, 0) / values.length;

@@ -122,6 +122,7 @@ async function runScan(options) {
       // 🔴 PRV 只能待在證據層。這裡問的是 DOM 的歸屬，不是可見性 ——
       // 收起來的 <details> 裡的節點 offsetParent 仍然不是 null。
       report: document.getElementById('validationReport').textContent,
+      channelNote: document.getElementById('channelNote').textContent,
       reportInEvidenceLayer: document.getElementById('how').contains(
         document.getElementById('validationReport'),
       ),
@@ -476,6 +477,18 @@ check(
   '🔴 報告裡沒有時間戳，只有統計',
   !/\d{13}/.test(firstLogged.report) && !/\d{4}-\d{2}-\d{2}/.test(firstLogged.report),
   `report=${firstLogged.report}`,
+);
+check(
+  '🔴 報告說得出脈搏讀自哪個通道，以及另一個通道長什麼樣',
+  /紅 節律 [\d.]+／亮度 [\d.]+/.test(firstLogged.channelNote) &&
+    /綠 節律 [\d.]+／亮度 [\d.]+/.test(firstLogged.channelNote),
+  `channelNote=${firstLogged.channelNote}`,
+);
+check(
+  '驗收報告有通道那一段，而且排在編號檢查之前',
+  firstLogged.report.includes('通道') &&
+    firstLogged.report.indexOf('通道') < firstLogged.report.indexOf('#15'),
+  `report=${firstLogged.report.slice(0, 120)}`,
 );
 check(
   '預設情境是靜坐，而且只有一個被選起來',

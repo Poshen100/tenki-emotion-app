@@ -254,8 +254,20 @@ function validationEntry(a) {
     prvRmssdMs: a === null ? null : a.prvRmssdMs,
     beatTemplateCorrelation: a === null ? null : a.beatTemplateCorrelation,
     lockEverAchieved: state.lockEverAchieved,
+    // 🔴 通道診斷。實機第一次跑出「接觸 100%、節律 8%、沒有讀數」，而最可能的
+    // 原因是補光燈把紅通道打飽和 —— 記下贏的通道與**兩個**通道的節律和亮度，
+    // 才能把那個懷疑變成答案。
+    channel: a === null ? null : a.channel,
+    channelPeriodicity: a === null ? null : channelMap(a, 'periodicity'),
+    channelDcMean: a === null ? null : channelMap(a, 'dcMean'),
     scenario: state.scenario,
   };
+}
+
+/** 把 `channelDiagnostics` 攤成 `{ red, green }`。 */
+function channelMap(a, field) {
+  const find = (channel) => a.channelDiagnostics.find((d) => d.channel === channel);
+  return { red: find('red')?.[field] ?? 0, green: find('green')?.[field] ?? 0 };
 }
 
 /** 這次擷取的條件。問不到的就標成不知道，不要猜一個。 */
@@ -555,6 +567,13 @@ function renderOutcome(outcome) {
   const anchors = renderStage(a);
   renderPrv(a, anchors);
   renderValidationReport(recordValidationCapture(validationEntry(a)));
+
+  const channelNote = a.channelDiagnostics
+    .map((d) => `${d.channel === 'red' ? '紅' : '綠'} 節律 ${d.periodicity}／亮度 ${d.dcMean}`)
+    .join('，');
+  $('channelNote').textContent =
+    `這次讀的是${a.channel === 'red' ? '紅' : '綠'}通道（${channelNote}）。` +
+    '通道是量出來的 —— 補光燈會把紅通道打飽和，那時脈搏在綠通道裡。';
 
   $('frameNote').textContent =
     `${signal.usableFrameCount} / ${signal.totalFrameCount} 幀通過接觸、曝光與晃動的逐幀門檻，` +

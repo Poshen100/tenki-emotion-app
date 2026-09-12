@@ -21,6 +21,8 @@
  * @see docs/PHONE-PPG.md
  */
 
+import type { PpgChannel, PpgChannelDiagnostic } from './channels';
+
 /**
  * One camera frame, already reduced to the scalars a PPG needs.
  *
@@ -210,6 +212,20 @@ export interface PpgAnalysis {
    * the measurement error from being scored as a change in state.
    */
   repeatabilitySdMs: number | null;
+  /**
+   * Which colour channel the reading was taken from.
+   *
+   * 🔴 Measured, not assumed. On a real iPhone with the torch on, red
+   * saturates and carries no pulse — see `channels.ts`.
+   */
+  channel: PpgChannel;
+  /**
+   * What every channel looked like, winner or not.
+   *
+   * "Why did this capture fail" is answerable from this and unanswerable
+   * without it, and on a real device that question is the whole job.
+   */
+  channelDiagnostics: PpgChannelDiagnostic[];
   /** Metrics deliberately not reported, with the reason for each. */
   withheld: PpgWithheld[];
 }

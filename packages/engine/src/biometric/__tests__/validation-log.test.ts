@@ -10,6 +10,7 @@
  */
 import {
   type ValidationCapture,
+  assessChannels,
   assessDayToDaySpread,
   assessLockHonesty,
   assessPrvGateReachability,
@@ -27,6 +28,9 @@ function capture(overrides: Partial<ValidationCapture> = {}): ValidationCapture 
     prvRmssdMs: 40,
     beatTemplateCorrelation: 0.98,
     lockEverAchieved: true,
+    channel: 'red',
+    channelPeriodicity: { red: 0.93, green: 0.4 },
+    channelDcMean: { red: 190, green: 92 },
     scenario: 'resting',
     ...overrides,
   };
@@ -202,5 +206,48 @@ describe('the report is safe to paste', () => {
       capture({ lockEverAchieved: true, accepted: false, heartRateBpm: null, prvRmssdMs: null }),
     ]);
     expect(report).toContain('這條不過');
+  });
+});
+
+describe('channels — where the pulse actually was', () => {
+  it('says nothing from captures that never got that far', () => {
+    const report = assessChannels([
+      capture({ channel: null, channelPeriodicity: null, channelDcMean: null }),
+    ]);
+    expect(report.captureCount).toBe(0);
+    expect(report.red.medianPeriodicity).toBeNull();
+  });
+
+  it('counts which channel won and what each looked like', () => {
+    const report = assessChannels([
+      capture({ channel: 'red', channelPeriodicity: { red: 0.9, green: 0.3 } }),
+      capture({ channel: 'red', channelPeriodicity: { red: 0.8, green: 0.4 } }),
+      capture({ channel: 'green', channelPeriodicity: { red: 0.2, green: 0.7 } }),
+    ]);
+    expect(report.red.chosenCount).toBe(2);
+    expect(report.green.chosenCount).toBe(1);
+    expect(report.red.medianPeriodicity).toBe(0.8);
+  });
+
+  it('🔴 makes the torch-saturation case readable at a glance', () => {
+    // The shape the first real iPhone run is suspected to have: red pinned
+    // near the ceiling with almost no rhythm in it, green carrying the pulse.
+    const report = assessChannels([
+      capture({
+        channel: 'green',
+        channelPeriodicity: { red: 0.24, green: 0.81 },
+        channelDcMean: { red: 253, green: 140 },
+      }),
+    ]);
+    expect(report.red.medianDcMean as number).toBeGreaterThan(240);
+    expect(report.green.medianPeriodicity as number).toBeGreaterThan(
+      report.red.medianPeriodicity as number,
+    );
+  });
+
+  it('prints the channels in the report, above the numbered checks', () => {
+    const report = formatValidationReport([capture()]);
+    expect(report).toContain('通道');
+    expect(report.indexOf('通道')).toBeLessThan(report.indexOf('#15'));
   });
 });

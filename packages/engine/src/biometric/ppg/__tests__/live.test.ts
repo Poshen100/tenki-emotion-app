@@ -123,7 +123,12 @@ describe('the lock holds only while the signal does', () => {
   it('never shows a lock on a capture the pipeline then refuses', () => {
     // 🔴 The whole point. A user must not watch "signal holding" for forty
     // seconds and then be told there is no reading.
-    for (const fixture of [PPG_FIXTURES.lowPerfusion, PPG_FIXTURES.clipped]) {
+    // ⚠️ `clipped` used to belong in this list and no longer does. Once the
+    // pipeline picks its channel by measurement, an over-exposed capture is
+    // rescued by green — which is the whole point of `channels.ts`, and the
+    // reason a real iPhone with the torch on was failing. It is now a
+    // channel-switch case, covered in channels.test.ts.
+    for (const fixture of [PPG_FIXTURES.lowPerfusion]) {
       const all = frames(fixture);
       expect(finalBpm(all)).toBeNull();
       expect(replayLive(all).everLocked).toBe(false);

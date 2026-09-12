@@ -61,8 +61,72 @@ export interface ValidationCapture {
   beatTemplateCorrelation: number | null;
   /** Whether a Pulse Lock was shown at any point during the capture. */
   lockEverAchieved: boolean;
+  /**
+   * Which colour channel the pulse was read from, or null when the capture
+   * never got that far.
+   *
+   * 🔴 Added after the first real-device run: an iPhone with the torch on
+   * reported full contact, a rhythm score of 8% and no reading, and the
+   * suspected cause was red saturating. Recording the winner and both
+   * channels' periodicity is what turns that suspicion into an answer.
+   */
+  channel: 'red' | 'green' | null;
+  /** Each channel's periodicity, so the losing one can be seen too. */
+  channelPeriodicity: { red: number; green: number } | null;
+  /** Each channel's mean level, 0-255. Near 255 means saturated. */
+  channelDcMean: { red: number; green: number } | null;
   /** What the person said they were doing. */
   scenario: ValidationScenario;
+}
+
+// ─────────────────────────────────────────────
+// Channels — where is the pulse actually being read from?
+// ─────────────────────────────────────────────
+
+/** One channel's summary across every capture. */
+export interface ChannelSummary {
+  /** How many captures this channel won. */
+  chosenCount: number;
+  /** Median periodicity across captures, or null when never measured. */
+  medianPeriodicity: number | null;
+  /** Median DC level, 0-255. Near 255 means it was saturating. */
+  medianDcMean: number | null;
+}
+
+/** What the channels looked like across every capture. */
+export interface ChannelReport {
+  captureCount: number;
+  red: ChannelSummary;
+  green: ChannelSummary;
+}
+
+/**
+ * Summarises which channel the pulse was actually in.
+ *
+ * 🔴 The first question a real device has to answer. If red's median DC sits
+ * near 255 and its periodicity is far below green's, the torch is saturating
+ * it and the pipeline was reading a flattened signal — which is exactly what
+ * the first iPhone capture looked like.
+ *
+ * @param log - Every capture attempt.
+ * @returns Per-channel summary.
+ */
+export function assessChannels(log: readonly ValidationCapture[]): ChannelReport {
+  const measured = log.filter((c) => c.channelPeriodicity !== null);
+
+  const summary = (channel: 'red' | 'green'): ChannelSummary => ({
+    chosenCount: log.filter((c) => c.channel === channel).length,
+    medianPeriodicity: medianOf(
+      measured.map((c) => (c.channelPeriodicity as { red: number; green: number })[channel]),
+    ),
+    medianDcMean: medianOf(
+      measured
+        .filter((c) => c.channelDcMean !== null)
+        .map((c) => (c.channelDcMean as { red: number; green: number })[channel]),
+    ),
+  });
+
+  return { captureCount: measured.length, red: summary('red'), green: summary('green') };
 }
 
 // ─────────────────────────────────────────────
@@ -258,8 +322,24 @@ export function formatValidationReport(log: readonly ValidationCapture[]): strin
   const lock = assessLockHonesty(log);
   const spread = assessDayToDaySpread(log);
 
+  const channels = assessChannels(log);
+
   const lines: string[] = [];
   lines.push(`TENKI 實機驗收 — ${log.length} 次擷取`);
+  lines.push('');
+
+  lines.push('通道（脈搏實際在哪個通道）');
+  if (channels.captureCount === 0) {
+    lines.push('  還沒有任何量到通道的擷取。');
+  } else {
+    lines.push(
+      `  紅：選中 ${channels.red.chosenCount} 次 · 節律中位數 ${fmt(channels.red.medianPeriodicity)} · 亮度中位數 ${fmt(channels.red.medianDcMean)}`,
+    );
+    lines.push(
+      `  綠：選中 ${channels.green.chosenCount} 次 · 節律中位數 ${fmt(channels.green.medianPeriodicity)} · 亮度中位數 ${fmt(channels.green.medianDcMean)}`,
+    );
+    lines.push('  （紅的亮度接近 255 且節律遠低於綠 = 補光燈把紅通道打飽和了）');
+  }
   lines.push('');
 
   lines.push('#15 PRV 閘門可達性');
@@ -312,6 +392,17 @@ function spreadOf(values: readonly number[]): Spread | null {
       sorted.length % 2 === 1 ? sorted[mid] : round2((sorted[mid - 1] + sorted[mid]) / 2),
     max: sorted[sorted.length - 1],
   };
+}
+
+function fmt(value: number | null): string {
+  return value === null ? '—' : String(value);
+}
+
+function medianOf(values: readonly number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : round2((sorted[mid - 1] + sorted[mid]) / 2);
 }
 
 function mean(values: readonly number[]): number {
