@@ -91,6 +91,7 @@ tenki-emotion-app/
 | PRV 閘門 | `packages/engine/src/biometric/ppg/beat-template.ts` | 拍形穩定度 —— 唯一看得到感光雜訊的量（§13）|
 | Breath Lock | `packages/engine/src/biometric/ppg/breath-lock.ts` | 相機呼吸率的獨立契約與雙來源和解（§14，擷取層未寫）|
 | Regulation Evidence | `domain/src/contracts/regulation-evidence.ts` | 自律調節的間接證據契約；刻意沒有 SNS/PNS/LF-HF 欄位 |
+| 實機驗收儀表 | `packages/engine/src/biometric/validation-log.ts` | 把 `docs/PHONE-PPG.md` §12 的第 6／14／15 條變成裝置自己算得出來的報告（只記推導值）|
 | Noise Floor | `packages/engine/src/baseline/noise-floor.ts` + `ppg/repeatability.ts` | 系統量自己的雜訊，當 z-score 的分母下限（規格 `docs/PHONE-PPG.md` §10）|
 | Beat-series HRV | `packages/engine/src/biometric/beat-series.ts` | 胸帶 RR interval → RMSSD/SDNN；沒有 RR 就沒有 HRV |
 | Scan Modes | `packages/engine/src/biometric/scan-modes.ts` | quick_check / full_scan / precision，各自能報什麼 |
