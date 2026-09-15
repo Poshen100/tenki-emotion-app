@@ -584,7 +584,7 @@ async function replayLive(options) {
   return page.evaluate((all) => {
     const steps = [];
     const t0 = all[0].timestampMs;
-    for (let end = 2; end <= 90; end += 2) {
+    for (let end = 2; end <= 60; end += 2) {
       window.__tenkiFingerHarness.renderLiveFrames(
         all.filter((f) => f.timestampMs <= t0 + end * 1000),
       );
@@ -653,8 +653,8 @@ check(
   `前兩步=${liveClean.slice(0, 2).map((s) => s.locked).join()}`,
 );
 check(
-  '進度環反映實際經過的時間',
-  /^\d+s \/ 90s$/.test(last.elapsed) && last.arcPercent > 90 && last.arcOpacity === 1,
+  '🔴 進度環的分母是這次實際會跑到哪裡（預設 60 秒，不是寫死的 90）',
+  /^\d+s \/ 60s$/.test(last.elapsed) && last.arcPercent > 90 && last.arcOpacity === 1,
   `elapsed=${last.elapsed} arc=${last.arcPercent}% opacity=${last.arcOpacity}`,
 );
 check(
@@ -879,6 +879,77 @@ check(
   '而且那正是實機看到的組合 —— 節律讀得比同樣長度的乾淨擷取差',
   Number.parseInt(huntingRhythm.value, 10) < Number.parseInt(cleanRhythm.value, 10),
   JSON.stringify({ hunting: huntingRhythm, clean: cleanRhythm }),
+);
+
+// ── 2d0. Anchor First, Refine Naturally ─────────────────────────────────────
+// 🔴 founder 2026-09-15：使用者不該被困在 90 秒裡。30 秒拿到可用的結果，
+// 留下來才會看得更清楚 —— 而且已經給出去的東西不准再拿回來。
+console.log('\n── 錨點與精修 ──');
+
+const cleanFrames = synthesizePpg({ durationSec: 90 }).frames;
+const upTo = (all, sec) =>
+  all.filter((f) => f.timestampMs <= all[0].timestampMs + sec * 1000);
+
+const timelineAt = async (frames, sec, reset = true) => {
+  if (reset) await page.evaluate(() => window.__tenkiFingerHarness.resetTimeline());
+  return page.evaluate(
+    ({ f, s: sec2 }) => window.__tenkiFingerHarness.advanceTimelineAt(f, sec2),
+    { f: frames, s: sec },
+  );
+};
+
+const before30 = await timelineAt(upTo(cleanFrames, 25), 25);
+check(
+  '🔴 30 秒以前不給錨點，訊號再好也一樣',
+  before30.anchorBpm === null && before30.bannerShown === false,
+  JSON.stringify(before30),
+);
+
+const at30 = await timelineAt(upTo(cleanFrames, 30), 30);
+check(
+  '🔴 30 秒一到就收下錨點，並且畫面上看得到',
+  at30.anchorBpm !== null && at30.bannerShown && at30.bannerText.includes('脈搏錨點已建立'),
+  JSON.stringify(at30),
+);
+check(
+  '🔴 拿到錨點就能離開，而且不必等 —— 「查看今日狀態」隨時在',
+  at30.viewStateShown,
+  JSON.stringify(at30),
+);
+check(
+  '30 秒之後還會繼續精修（不是拿到就停）',
+  at30.keepsCapturing === true && at30.phase === 'anchor_ready',
+  JSON.stringify(at30),
+);
+
+// 🔴 rule 8/9：訊號之後崩掉，錨點不受影響；較差的估計不得取代它。
+const degraded = await timelineAt(
+  upTo(synthesizePpg({ durationSec: 90, perfusion: 0.05, seed: 4242 }).frames, 60),
+  60,
+  false,
+);
+check(
+  '🔴 訊號之後崩掉，錨點還在 —— 只標記精修沒完成',
+  degraded.anchorBpm === at30.anchorBpm && degraded.bannerShown,
+  JSON.stringify({ before: at30.anchorBpm, after: degraded.anchorBpm }),
+);
+
+// 🔴 rule 7：60–90 秒永遠不自動。
+const at60 = await timelineAt(upTo(cleanFrames, 60), 60);
+check(
+  '🔴 60 秒就停 —— 不會自己跑到 90 秒',
+  at60.keepsCapturing === false,
+  JSON.stringify(at60),
+);
+check(
+  '🔴 要再往下只能使用者自己按（Precision 是選配，不是預設）',
+  at60.precisionShown && at60.phase === 'refined',
+  JSON.stringify(at60),
+);
+check(
+  '精修中與精修完成講的不是同一句話',
+  at30.bannerText !== at60.bannerText,
+  JSON.stringify([at30.bannerText, at60.bannerText]),
 );
 
 // ── 3. 訊號不足：必須拒答，而且不准上 gold ─────────────────────────────────

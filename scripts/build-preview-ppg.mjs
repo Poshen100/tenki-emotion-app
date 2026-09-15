@@ -47,6 +47,7 @@ const ENTRIES = [
   'biometric/ppg/coverage-map.ts',
   'biometric/ppg/exposure-stability.ts',
   'biometric/ppg/capture-stage.ts',
+  'biometric/ppg/capture-timeline.ts',
   'biometric/pulse-anchor.ts',
   'biometric/validation-log.ts',
 ];

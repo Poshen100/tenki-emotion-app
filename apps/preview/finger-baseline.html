@@ -159,6 +159,12 @@
       border: 1px solid var(--n-700); display: block;
     }
     .evidenceItem[data-on="yes"] { color: var(--n-300); }
+    /* 🔴 錨點橫幅不上 gold —— gold = SECURED 只屬於最終立住的讀數畫面。
+       這裡講的是「已經有一個可用的結果了」，用中性色加一條 cyan 邊。 */
+    .anchorBanner { border-color: var(--cyan-core); }
+    .anchorBpm { font-size: clamp(22px, 6vw, 28px); color: var(--n-100); margin-top: 6px; }
+    .anchorBpm b { font-weight: 600; font-variant-numeric: tabular-nums; }
+
     .lensDetail { width: 100%; margin-top: 18px; }
     .lensDetail summary {
       font-size: 12px; color: var(--n-500); cursor: pointer;
@@ -422,6 +428,16 @@
       <p class="note" id="exposureNote" data-tone="neutral" style="margin-top:10px"></p>
       <p class="note" id="torchNote" style="margin-top:10px"></p>
     </details>
+    <!-- 🔴 Anchor First：30 秒一過就收下錨點並告訴使用者，他可以馬上走。
+         「查看今日狀態」隨時可按，而且沒有懲罰 —— 精修只是他選擇留下來
+         才拿到的額外東西（founder 2026-09-15 rules 1–6）。 -->
+    <section class="only-scan card anchorBanner" id="anchorBanner" hidden>
+      <div class="dialLabel">脈搏錨點已建立</div>
+      <p class="anchorBpm"><b id="anchorBpm">—</b> bpm</p>
+      <p class="note" id="anchorPhase" style="margin-top:6px"></p>
+      <button id="viewStateBtn" style="margin-top:14px">查看今日狀態</button>
+      <button class="ghost" id="precisionBtn" style="margin-top:8px" hidden>再測 30 秒，取得精密證據</button>
+    </section>
     <button class="only-scan ghost" id="abortBtn">中止</button>
 
     <!-- ── result ──────────────────────────────────────────────── -->

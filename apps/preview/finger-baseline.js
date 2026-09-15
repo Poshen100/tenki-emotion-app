@@ -51,6 +51,14 @@ import {
 } from './engine/biometric/ppg/coverage-map.js';
 import { resolveCaptureStage } from './engine/biometric/ppg/capture-stage.js';
 import {
+  ANCHOR_AT_SEC,
+  INITIAL_TIMELINE,
+  PRECISION_ENDS_SEC,
+  REFINEMENT_ENDS_SEC,
+  advanceCaptureTimeline,
+  shouldKeepCapturing,
+} from './engine/biometric/ppg/capture-timeline.js';
+import {
   DC_DRIFT_SUSPECT,
   assessExposureStability,
 } from './engine/biometric/ppg/exposure-stability.js';
@@ -262,6 +270,12 @@ const state = {
   coverMap: null,
   /** 最近一次的 Pulse Lens 狀態。`previousStage` 要它才講得出「本來有、掉了」。 */
   lensView: null,
+  /** 擷取時間軸：30 秒 anchor → 60 秒收尾 → 90 秒只有明確選擇才走。 */
+  timeline: INITIAL_TIMELINE,
+  /** 使用者有沒有明確選擇繼續到 90 秒。 */
+  precisionOptIn: false,
+  /** 上一次評估 anchor 候選的秒數。`analyzePpgScan` 不便宜，不能每幀跑。 */
+  lastCandidateAtSec: 0,
   /** 這次擷取有沒有鎖住曝光，以及鎖了什麼。null = 沒試或無可鎖。 */
   exposureLock: null,
   /** 最近一次算出來的曝光穩定度。掃描中顯示，結束後記進驗收紀錄。 */
@@ -798,21 +812,101 @@ function tick(video, ctx) {
     renderLive();
   }
 
-  if (elapsed >= TARGET_SEC) {
+  // 🔴 「還要不要繼續」只有一個地方決定 —— `advanceTimeline` 的回傳值。
+  // ⚠️ 這一行本身**沒有測試蓋得到**（harness 沒有相機可以驅動 `tick()`），
+  // 所以決策被推進一個 harness 驅動得到的函式裡，而這裡只剩「照做」。
+  if (!advanceTimeline(elapsed)) {
     finish();
     return;
   }
   state.raf = requestAnimationFrame(() => tick(video, ctx));
 }
 
+/**
+ * 推進擷取的時間軸。
+ *
+ * 🔴 30 秒一到就用 `quick_check` 評一次 —— 那是**同一條**心率品質門檻
+ * （`minQualityForHeartRate` 兩個模式都是 45），不是放寬過的。過了就立刻
+ * 收下 anchor 並告訴使用者，他可以馬上走。
+ *
+ * ⚠️ `analyzePpgScan` 不便宜，所以不是每幀評 —— 30 秒評第一次，之後每
+ * `CANDIDATE_EVERY_SEC` 秒一次，60 秒收尾再評一次。
+ *
+ * @param {number} elapsed - 擷取開始到現在的秒數。
+ * @returns {boolean} 還要不要繼續擷取。擷取迴圈只照這個值做事。
+ */
+function advanceTimeline(elapsed) {
+  const due =
+    elapsed >= ANCHOR_AT_SEC &&
+    elapsed - state.lastCandidateAtSec >= CANDIDATE_EVERY_SEC;
+  if (!due) return shouldKeepCapturing(state.timeline, elapsed, state.precisionOptIn);
+  state.lastCandidateAtSec = elapsed;
+
+  // 30–60 秒用 quick_check 的門檻評 anchor；超過 full_scan 的最短時長之後
+  // 改用 full_scan —— 那才是精修真正買到的東西（PRV、呼吸率、不規則節律）。
+  const mode = elapsed >= SCAN_MODE_CONFIGS.full_scan.minDurationSec ? MODE : 'quick_check';
+  const outcome = analyzePpgScan(state.frames, mode, captureOptions());
+  const analysed = outcome.status === 'analysed' ? outcome.analysis : null;
+
+  state.timeline = advanceCaptureTimeline(state.timeline, {
+    elapsedSec: elapsed,
+    candidate:
+      analysed === null
+        ? { heartRateBpm: null, qualityScore: 0, durationSec: elapsed, meetsGate: false }
+        : {
+            heartRateBpm: analysed.heartRateBpm,
+            qualityScore: analysed.quality.score,
+            durationSec: analysed.durationSec,
+            meetsGate: analysed.heartRateBpm !== null,
+          },
+    precisionOptIn: state.precisionOptIn,
+  });
+  renderTimeline();
+
+  // 🔴 60 秒就停，除非使用者自己選了 Precision Session（founder rule 7）。
+  // 沒有 anchor 也一樣停 —— 在沒有選擇的情況下被留過一分鐘，正是要擋的事。
+  return shouldKeepCapturing(state.timeline, elapsed, state.precisionOptIn);
+}
+
+/** `analyzePpgScan` 的評估間隔。太密會吃掉擷取迴圈的時間。 */
+const CANDIDATE_EVERY_SEC = 5;
+
+/**
+ * 時間軸在畫面上的樣子。
+ *
+ * 🔴 三件事要分得出來（founder rule 10）：已經拿到 anchor、還在精修、
+ * 精密證據是選配。而且**拿到 anchor 之後隨時可以走，不會有懲罰**。
+ */
+function renderTimeline() {
+  const { phase, anchor, refinementIncomplete } = state.timeline;
+  const banner = $('anchorBanner');
+  if (banner === null) return;
+
+  banner.hidden = anchor === null;
+  if (anchor === null) return;
+
+  $('anchorBpm').textContent = String(anchor.heartRateBpm);
+  $('anchorPhase').textContent =
+    phase === 'refining'
+      ? '錨點已收下，正在精修 —— 你隨時可以離開。'
+      : refinementIncomplete
+        ? '錨點已收下。這次的精修沒有完成，錨點不受影響。'
+        : '錨點已收下。';
+  $('precisionBtn').hidden = !(phase === 'refined' && !state.precisionOptIn);
+}
+
 function renderProgress(elapsed) {
-  const pct = Math.min(100, (elapsed / TARGET_SEC) * 100);
+  // 🔴 分母是**這次實際會跑到哪裡**，不是寫死的 90 —— 預設 60 秒收尾，
+  // 只有明確選了 Precision Session 才是 90。畫一個永遠到不了的進度環，
+  // 就是在告訴使用者他被困在 90 秒裡。
+  const target = state.precisionOptIn ? PRECISION_ENDS_SEC : REFINEMENT_ENDS_SEC;
+  const pct = Math.min(100, (elapsed / target) * 100);
   const arc = $('arc');
   arc.style.setProperty('--p', String(pct));
   // ⚠️ `stroke-linecap: round` 在長度 0 時還是會畫一顆圓頭 —— 也就是 0%
   // 進度會在環的頂端點一個亮點，看起來像已經開始了。長度 0 就整條隱藏。
   arc.style.opacity = pct > 0 ? '1' : '0';
-  $('elapsed').textContent = `${Math.floor(elapsed)}s / ${TARGET_SEC}s`;
+  $('elapsed').textContent = `${Math.floor(elapsed)}s / ${target}s`;
 }
 
 /**
@@ -1302,7 +1396,11 @@ function startCapture(video, ctx) {
   state.lastSample = null;
   state.lock = INITIAL_PULSE_LOCK;
   state.lockEverAchieved = false;
+  state.timeline = INITIAL_TIMELINE;
+  state.precisionOptIn = false;
+  state.lastCandidateAtSec = 0;
   renderLock();
+  renderTimeline();
   renderProgress(0);
   state.startedAt = performance.now();
   state.running = true;
@@ -1321,6 +1419,21 @@ $('startBtn').addEventListener('click', () => {
   begin().catch(() => {});
 });
 $('abortBtn').addEventListener('click', abort);
+// 🔴 離開不罰：已經收下的 anchor 就是結果，直接結束擷取並呈現它。
+$('viewStateBtn').addEventListener('click', () => finish());
+// 🔴 60–90 秒**永遠不自動**（rule 7）。要使用者自己按。
+$('precisionBtn').addEventListener('click', () => {
+  state.precisionOptIn = true;
+  $('precisionBtn').hidden = true;
+  if (!state.running) {
+    state.running = true;
+    const video = $('cam');
+    const canvas = document.createElement('canvas');
+    canvas.width = SAMPLE_SIZE;
+    canvas.height = SAMPLE_SIZE;
+    tick(video, canvas.getContext('2d', { willReadFrequently: true }));
+  }
+});
 $('cancelGate').addEventListener('click', abort);
 // 🔴 逃生口。按了照樣走完整的 90 秒與同一套閘門 —— 它放寬的是「什麼時候可以
 // 開始」，不是「什麼算得上一次讀數」。
@@ -1516,6 +1629,34 @@ window.__tenkiFingerHarness = {
   /** 色階本身。harness 要能密集掃過整個 0..1，不能只靠畫面上剛好出現的值。 */
   lensRampAt(t) {
     return sampleLensRamp(t);
+  },
+  /**
+   * 走真的時間軸路徑：設定幀、推進到指定秒數、重畫橫幅。
+   * 回傳畫面上看得到的東西，不是內部 state。
+   */
+  advanceTimelineAt(frames, elapsedSec) {
+    state.frames = frames;
+    state.lastCandidateAtSec = 0;
+    const keepsCapturing = advanceTimeline(elapsedSec);
+    const banner = document.getElementById('anchorBanner');
+    return {
+      phase: state.timeline.phase,
+      anchorBpm: state.timeline.anchor === null ? null : state.timeline.anchor.heartRateBpm,
+      refinementIncomplete: state.timeline.refinementIncomplete,
+      bannerShown: !banner.hidden,
+      bannerText: banner.textContent.replace(/\s+/g, ' ').trim(),
+      viewStateShown: !document.getElementById('viewStateBtn').hidden,
+      precisionShown: !document.getElementById('precisionBtn').hidden,
+      // 回傳的是 `advanceTimeline` **自己算出來的**那一個，不是再算一次 ——
+      // 再算一次就變成測試另一個副本，而不是測擷取迴圈真正遵守的那個。
+      keepsCapturing,
+    };
+  },
+  resetTimeline() {
+    state.timeline = INITIAL_TIMELINE;
+    state.precisionOptIn = false;
+    state.lastCandidateAtSec = 0;
+    renderTimeline();
   },
   /** 把光場清空，讓「有沒有重畫」問得出來。 */
   clearLens() {

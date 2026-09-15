@@ -155,6 +155,18 @@ describe('the user is never held longer than they chose', () => {
     expect(shouldKeepCapturing(state, PRECISION_ENDS_SEC, true)).toBe(false);
   });
 
+  it('🔴 an anchor that arrives late does not claim refinement is still running', () => {
+    // The capture is over at `REFINEMENT_ENDS_SEC`. An anchor accepted exactly
+    // then is a finished capture, not one still improving — and the Precision
+    // opt-in has to be reachable, which it is not from `anchor_ready`.
+    const late = advanceCaptureTimeline(INITIAL_TIMELINE, {
+      elapsedSec: REFINEMENT_ENDS_SEC,
+      candidate: good({ durationSec: REFINEMENT_ENDS_SEC }),
+    });
+    expect(late.anchor).not.toBeNull();
+    expect(late.phase).toBe('refined');
+  });
+
   it('names the three states the user has to tell apart', () => {
     // Rule 10: anchor captured / refining / precision optional.
     const ready = anchored();

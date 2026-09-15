@@ -187,7 +187,11 @@ export function advanceCaptureTimeline(
       return { ...prev, phase: 'anchoring', anchorSuperseded: false };
     }
     return {
-      phase: 'anchor_ready',
+      // ⚠️ The clock decides the phase, not the fact that an anchor just
+      // arrived. An anchor first accepted AT the end of refinement used to
+      // report `anchor_ready` — so the capture was over while the screen said
+      // it was still refining, and the Precision opt-in never appeared.
+      phase: resolvePhase(elapsedSec, precisionOptIn),
       anchor: {
         heartRateBpm: candidate.heartRateBpm as number,
         qualityScore: candidate.qualityScore,
