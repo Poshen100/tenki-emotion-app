@@ -710,6 +710,67 @@ check(
   `prvCompare=${clean.prvCompare}`,
 );
 
+// ── 2c1. Coverage Lock 在整個擷取期間都還活著 ────────────────────────────
+// 🔴 founder 2026-09-15：Coverage Lock 必須在整個 60 秒都有用。手指在擷取
+// 途中滑掉，畫面要當場看得出來 —— 光場只在就位階段活著是不夠的。
+console.log('\n── 擷取期間的 Coverage Lock ──');
+
+const duringScan = await page.evaluate((all) => {
+  const t0 = all[0].timestampMs;
+  const h = window.__tenkiFingerHarness;
+  h.renderLiveFrames(all.filter((f) => f.timestampMs <= t0 + 40 * 1000));
+  // ⚠️ 先清空光場再走**真的**逐幀路徑。第一版沒有清，於是讀到的是稍早
+  // `cover()` 留下來的舊顏色 —— 把擷取迴圈裡的更新整段刪掉照樣綠。
+  h.clearLens();
+  h.feedLensFrame(null);
+  const detail = document.querySelector('.only-scan.lensDetail');
+  const seen = (sel) => {
+    const el = document.querySelector(sel);
+    return el !== null && el.checkVisibility();
+  };
+  return {
+    lensVisible: seen('#lensGrid'),
+    cellsPainted: [...document.querySelectorAll('#lensGrid .lensCell')].filter(
+      (c) => getComputedStyle(c).backgroundColor !== 'rgb(6, 18, 36)',
+    ).length,
+    stateText: document.getElementById('lensState').textContent.trim(),
+    evidenceVisible: seen('.evidenceRow'),
+    // 工程數字要在收合的細節裡，不在主畫面上。
+    detailClosed: detail instanceof HTMLDetailsElement && !detail.open,
+    dimsHidden: !seen('#liveDims'),
+    lockHidden: !seen('#lock'),
+    exposureHidden: !seen('#exposureNote'),
+    // 兩個 details 同時出現 = 重複。
+    detailCount: [...document.querySelectorAll('.lensDetail')].filter((d) =>
+      d.checkVisibility(),
+    ).length,
+  };
+}, synthesizePpg({ durationSec: 90 }).frames);
+
+check(
+  '🔴 擷取進行中光場仍然在畫（不是只有就位階段）',
+  duringScan.lensVisible && duringScan.cellsPainted > 0,
+  JSON.stringify({ v: duringScan.lensVisible, n: duringScan.cellsPainted }),
+);
+check(
+  '擷取進行中也只有一句狀態，而且不是空的',
+  duringScan.stateText.length > 0 && duringScan.evidenceVisible,
+  JSON.stringify(duringScan.stateText),
+);
+check(
+  '🔴 工程數字收在收合的量測細節裡，不在主擷取畫面上',
+  duringScan.detailClosed &&
+    duringScan.dimsHidden &&
+    duringScan.lockHidden &&
+    duringScan.exposureHidden,
+  JSON.stringify(duringScan),
+);
+check(
+  '整個畫面只有一個「量測細節」（就位與掃描不會同時出現）',
+  duringScan.detailCount === 1,
+  String(duringScan.detailCount),
+);
+
 // ── 2c2. 前 15 秒的誠實，與曝光診斷 ────────────────────────────────────────
 // 🔴 兩條都是 founder 實機回報的：
 //   1.「一條橫杠，使用者的感受可能會覺得壞掉了」—— 品質分數在前 15 秒是 null。

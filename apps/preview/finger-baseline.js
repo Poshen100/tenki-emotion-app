@@ -557,17 +557,11 @@ function reduceRoi(data, timestampMs) {
 function gateTick(video, ctx) {
   if (!state.gateRunning) return;
 
+  // 🔴 光場畫的是**現在**，不是這個窗口的平均 —— 使用者的手指正在移動，
+  // 落後 1.5 秒的場沒辦法拿來對位。`sampleAndPublish` 保證每一幀都發布。
   const now = performance.now();
-  const sample = sampleFrame(video, ctx, now);
-  if (sample !== null) {
-    state.gateFrames.push(sample.frame);
-    // 🔴 地圖畫的是**現在**，不是這個窗口的平均 —— 使用者的手指正在移動，
-    // 落後 1.5 秒的地圖沒辦法拿來對位。所以它吃最近幾幀的平均：只夠壓掉
-    // 逐幀閃爍，不足以造成延遲。
-    state.cellRing.push({ cells: sample.cells, clipping: sample.clipping });
-    if (state.cellRing.length > COVERAGE_RING_FRAMES) state.cellRing.shift();
-    renderCoverageMap();
-  }
+  const sample = sampleAndPublish(video, ctx, now);
+  if (sample !== null) state.gateFrames.push(sample.frame);
 
   const batch = state.gateFrames;
   const spanSec =
@@ -657,6 +651,41 @@ function stageInput() {
     // 🔴 null 不是 0：還沒算出場的時候，「已確認」不准打勾。
     uncoveredCells: state.coverMap === null ? null : state.coverMap.uncoveredCount,
   };
+}
+
+/**
+ * 取一幀，並且**同時**把它發布到光場。
+ *
+ * 🔴 兩個迴圈都只能用這一支拿幀，而那是刻意的結構安排，不是整理：
+ * Coverage Lock 必須在整個 60 秒都有用（founder 2026-09-15），而
+ * 「擷取迴圈有沒有記得更新光場」**沒有辦法用 harness 驗**（harness 餵的是
+ * 合成的 `PpgFrame`，沒有像素，走不到取樣器；也沒有相機可以驅動 `tick()`）。
+ * 第一版我寫了一條斷言假裝驗到了 —— 它讀到的其實是稍早 `cover()` 留下來的
+ * 舊顏色，把擷取迴圈裡那一行整段刪掉照樣綠。
+ *
+ * 驗不到的東西就不要用測試假裝驗到：**把漏掉的可能性拿掉**。現在少寫那一行
+ * 的唯一方法是連幀也不取。
+ *
+ * @param {HTMLVideoElement} video
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} now
+ * @returns {{frame: object, cells: number[], clipping: number[]} | null}
+ */
+function sampleAndPublish(video, ctx, now) {
+  const sample = sampleFrame(video, ctx, now);
+  if (sample !== null) updateLensFromSample(sample);
+  return sample;
+}
+
+/**
+ * 把一幀的逐格資料餵進光場。
+ *
+ * @param {{cells: number[], clipping: number[]}} sample
+ */
+function updateLensFromSample(sample) {
+  state.cellRing.push({ cells: sample.cells, clipping: sample.clipping });
+  if (state.cellRing.length > COVERAGE_RING_FRAMES) state.cellRing.shift();
+  renderCoverageMap();
 }
 
 /**
@@ -752,7 +781,7 @@ function tick(video, ctx) {
   if (!state.running) return;
 
   const now = performance.now();
-  const sample = sampleFrame(video, ctx, now);
+  const sample = sampleAndPublish(video, ctx, now);
   if (sample !== null) state.frames.push(sample.frame);
 
   const elapsed = (now - state.startedAt) / 1000;
@@ -809,6 +838,8 @@ function renderLive() {
   renderExposure();
 
   state.lock = advancePulseLock(state.lock, reading);
+  // 狀態與證據列在擷取進行中照樣跟著走 —— 同一個 `resolveCaptureStage`。
+  renderGate();
   state.lockEverAchieved = state.lockEverAchieved || state.lock.locked;
   renderLock();
 }
@@ -1485,6 +1516,37 @@ window.__tenkiFingerHarness = {
   /** 色階本身。harness 要能密集掃過整個 0..1，不能只靠畫面上剛好出現的值。 */
   lensRampAt(t) {
     return sampleLensRamp(t);
+  },
+  /** 把光場清空，讓「有沒有重畫」問得出來。 */
+  clearLens() {
+    state.cellRing = [];
+    state.coverMap = null;
+    for (const cell of document.querySelectorAll('#lensGrid .lensCell')) {
+      cell.style.backgroundColor = '';
+      cell.style.setProperty('--t', '0');
+      cell.dataset.adjust = 'no';
+    }
+  },
+  /**
+   * 走**真的**逐幀路徑（取樣器 → ring → 重畫），在指定 phase 下。
+   * 合成的 `PpgFrame` 沒有像素，所以這是唯一驗得到擷取中光場的接縫。
+   */
+  feedLensFrame(bare) {
+    const size = window.__tenkiFingerHarness.sampleSize();
+    const data = new Uint8ClampedArray(size * size * 4);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 4;
+        const isBare =
+          bare !== null &&
+          x >= bare.x && x < bare.x + bare.w && y >= bare.y && y < bare.y + bare.h;
+        data[i] = isBare ? 90 : 200;
+        data[i + 1] = 90;
+        data[i + 2] = 90;
+        data[i + 3] = 255;
+      }
+    }
+    updateLensFromSample(reduceRoi(data, 0));
   },
   exposureNote() {
     const note = document.getElementById('exposureNote');

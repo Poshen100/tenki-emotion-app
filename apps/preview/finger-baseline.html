@@ -380,7 +380,7 @@
       <!-- 🔴 量測方法的說明全部收在這裡（founder 2026-09-15）：主擷取畫面
            只放一個場、一個狀態、一句指令。數字沒有被刪掉 —— 它們是診斷實機
            問題的唯一依據，只是收在一個 tap 之後。 -->
-      <details class="lensDetail">
+      <details class="lensDetail only-ready">
         <summary>量測細節</summary>
         <div class="dims" id="detailDims" style="margin-top:14px"></div>
         <p class="fine" style="margin-top:14px">這個光場不是相機畫面，也<strong>不是溫度</strong> —— 手機量不到溫度，也沒有紅外線感測器。蓋好的鏡頭在畫面上是一整片均勻的紅，缺口剛好看不出來，所以這裡畫的是每一小塊透過多少光。亮的地方代表光穩定地穿過來了。</p>
@@ -401,23 +401,27 @@
         </svg>
         <div class="dialCenter">
           <div class="dialValue" id="liveQuality">—</div>
-          <div class="dialLabel">訊號品質</div>
+          <div class="dialLabel" id="liveQualityLabel">訊號品質</div>
         </div>
       </div>
       <div class="dialLabel" id="elapsed" style="margin-top:6px">0s / 90s</div>
-      <p class="lock" id="lock" style="margin-top:8px; text-align:center">還在等訊號穩定。</p>
     </section>
 
-    <section class="only-scan card">
-      <div class="dialLabel" style="margin-bottom:12px">訊號完整度</div>
+    <!-- 🔴 掃描期間的工程數字全部收在「量測細節」裡（founder 2026-09-15 §6）。
+         主畫面在擷取進行中跟就位時是同一件事：一個場、一個狀態、一句指令。
+         這些數字沒有被刪 —— 它們是診斷實機問題的唯一依據，只是收在一個
+         tap 之後。 -->
+    <details class="only-scan lensDetail">
+      <summary>量測細節</summary>
+      <!-- 🔴 Pulse Lock 的那一句是工程陳述（「現在結束會有讀數」），而畫面的
+           頭條已經由 Pulse Lens 的狀態講了。一個畫面只留一個狀態。 -->
+      <p class="lock" id="lock" style="margin-top:14px">還在等訊號穩定。</p>
+      <div class="dialLabel" style="margin:14px 0 12px">訊號完整度</div>
       <div class="dims" id="liveDims"></div>
-    </section>
-
-    <section class="only-scan card">
-      <ul id="liveReasons"></ul>
+      <ul id="liveReasons" style="margin-top:14px"></ul>
       <p class="note" id="exposureNote" data-tone="neutral" style="margin-top:10px"></p>
       <p class="note" id="torchNote" style="margin-top:10px"></p>
-    </section>
+    </details>
     <button class="only-scan ghost" id="abortBtn">中止</button>
 
     <!-- ── result ──────────────────────────────────────────────── -->
