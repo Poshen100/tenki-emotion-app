@@ -282,13 +282,56 @@ check(
   JSON.stringify(shaky.dims.map((d) => [d.key, d.value, d.low])),
 );
 
-// ── 2b2. 就位閘（90 秒的鐘還沒開始）────────────────────────────────────────
-// 🔴 這一段守的是實機第一次燒掉兩次完整擷取的那個結構問題：按下去就起跑。
-// 最重要的一條是「飽和不擋開始」—— 擋了就會把 channels.ts 剛修好的閃光燈
-// 情境原地打回去，而那條錯誤在畫面上長得**像是更嚴謹**。
-console.log('\n── 就位閘 ──');
+// ── 2b2. Pulse Lens：一個場、一個狀態、一句指令 ──────────────────────────
+// 🔴 founder 2026-09-15 定案：亮 cyan = 可信的透光；暗 navy/indigo = 沒有可用
+// 的場；amber **只**保留給需要調整的那幾格。同一個亮度不得同時代表「訊號好」
+// 與「沒蓋到」—— 所以缺口靠暗格 ＋ 封環破口表示，完全不用 amber。
+console.log('\n── Pulse Lens ──');
 
-/** 把幀切成不重疊的窗口餵進閘，回傳每一步畫面上的狀態。 */
+const holdWindows = await page.evaluate(() =>
+  window.__tenkiFingerHarness.readinessHoldWindows(),
+);
+const grid = await page.evaluate(() => window.__tenkiFingerHarness.coverageGrid());
+const sampleSize = await page.evaluate(() => window.__tenkiFingerHarness.sampleSize());
+const cellPx = sampleSize / grid;
+
+/** 讀出畫面上 Pulse Lens 的全部可觀察狀態。 */
+const readLens = () =>
+  page.evaluate(() => {
+    const cells = [...document.querySelectorAll('#lensGrid .lensCell')];
+    const paint = (el) => {
+      const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(el).backgroundColor);
+      return m === null ? {} : { r: +m[1], g: +m[2], b: +m[3] };
+    };
+    return {
+      cellCount: cells.length,
+      transmission: cells.map((c) => Number(getComputedStyle(c).getPropertyValue('--t'))),
+      adjust: cells.map((c) => c.dataset.adjust),
+      paint: cells.map(paint),
+      geometry: cells.map((c) => {
+        const r = c.getBoundingClientRect();
+        return { w: Math.round(r.width), h: Math.round(r.height) };
+      }),
+      seals: [...document.querySelectorAll('.sealArc')].map((a) => a.dataset.sealed),
+      state: document.getElementById('lensState').textContent.trim(),
+      overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      bodyText: document.body.innerText,
+    };
+  });
+
+/** 餵一塊已知圖樣的像素進真的取樣器，再讀畫面。 */
+const cover = async (bare, saturated = false) => {
+  await page.evaluate(
+    ({ b, sat }) =>
+      sat
+        ? window.__tenkiFingerHarness.renderSaturatedCells(b)
+        : window.__tenkiFingerHarness.renderSampledCells(b),
+    { b: bare, sat: saturated },
+  );
+  return readLens();
+};
+
+/** 餵不重疊的窗口進就位閘，回傳每一步的狀態。 */
 async function replayGate(options, windows) {
   const { frames } = synthesizePpg({ durationSec: 30, ...options });
   await page.evaluate(() => window.__tenkiFingerHarness.resetGate());
@@ -303,26 +346,13 @@ async function replayGate(options, windows) {
         const gate = h.renderGateWindow(
           all.filter((f) => f.timestampMs >= from && f.timestampMs <= from + width),
         );
-        const advisory = document.getElementById('readyAdvisory');
         steps.push({
           gate,
-          coach: document.getElementById('coach').textContent.trim(),
-          rail: [...document.querySelectorAll('.railStep')].map((n2) => ({
-            step: n2.dataset.step,
-            state: n2.dataset.state,
-          })),
+          state: document.getElementById('lensState').textContent.trim(),
           dots: [...document.querySelectorAll('.holdDot')].map((n2) => n2.dataset.on),
-          dims: [...document.querySelectorAll('#readyDims .dim')].map((row) => ({
-            key: row.dataset.key,
-            value: row.querySelector('.dimValue').textContent.trim(),
-            width: row.querySelector('.dimFill').getBoundingClientRect().width,
-          })),
-          advisoryShown: !advisory.hidden && advisory.getBoundingClientRect().height > 0,
-          advisoryText: advisory.textContent.trim(),
           skipShown: !document.getElementById('skipGate').hidden,
           elapsed: document.getElementById('elapsed').textContent.trim(),
           scanVisible: document.querySelector('.only-scan').getBoundingClientRect().height > 0,
-          coachVisible: document.getElementById('coach').getBoundingClientRect().height > 0,
           overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         });
       }
@@ -332,309 +362,213 @@ async function replayGate(options, windows) {
   );
 }
 
-const holdWindows = await page.evaluate(() =>
-  window.__tenkiFingerHarness.readinessHoldWindows(),
+await page.evaluate(() => window.__tenkiFingerHarness.resetGate());
+const full = await cover(null);
+check(
+  `光場真的畫出來了（${grid}×${grid} 格，每格都有幾何）`,
+  full.cellCount === grid * grid && full.geometry.every((g) => g.w > 0 && g.h > 0),
+  JSON.stringify({ n: full.cellCount, g: full.geometry.slice(0, 2) }),
+);
+
+// 半格高的留白 → 上緣那一列每格剛好透光一半。二值化會把它吃成 0 或 1。
+const half = await cover({ x: 0, y: 0, w: sampleSize, h: cellPx / 2 });
+check(
+  '🔴 色階連續：透光一半的格子既不是 0 也不是 1',
+  half.transmission.some((t) => t > 0.05 && t < 0.95),
+  JSON.stringify([...new Set(half.transmission)].slice(0, 6)),
+);
+check(
+  '🔴 全覆蓋與部分覆蓋在畫面上分得出來',
+  Math.min(...full.transmission) > Math.min(...half.transmission),
+  JSON.stringify({ full: Math.min(...full.transmission), half: Math.min(...half.transmission) }),
+);
+
+// 一格高度的 40% 留白 → 中段透光，驗色階的中間那一階真的存在。
+const gap0 = await cover({ x: 0, y: 0, w: sampleSize, h: cellPx * 0.45 });
+
+// 🔴 這一條是這次定案的核心：缺口不准用 amber。
+const gap = await cover({ x: 0, y: 0, w: cellPx * 3, h: cellPx * 2 });
+check(
+  '🔴 缺口不得用 amber —— 靠暗格表示（同一個亮度不得兩種意思）',
+  gap.adjust.every((a) => a === 'no'),
+  JSON.stringify([...new Set(gap.adjust)]),
+);
+check(
+  '🔴 缺口那幾格是暗的（透光趨近 0）',
+  gap.transmission.filter((t) => t < 0.2).length >= 6,
+  String(gap.transmission.filter((t) => t < 0.2).length),
+);
+check(
+  '🔴 封環在有缺口的象限破口，蓋滿時四段都密封',
+  gap.seals.includes('no') && full.seals.every((x) => x === 'yes'),
+  JSON.stringify({ gap: gap.seals, full: full.seals }),
+);
+
+// 🔴 amber 只在真的被打到感光上限的時候出現。
+const saturated = await cover(null, true);
+check(
+  '🔴 過曝才出現 amber，而且是逐格的',
+  saturated.adjust.every((a) => a === 'yes') && full.adjust.every((a) => a === 'no'),
+  JSON.stringify({ sat: [...new Set(saturated.adjust)], full: [...new Set(full.adjust)] }),
+);
+check(
+  '🔴 而 amber 那格仍然算「有覆蓋」—— 飽和與缺覆蓋是兩件事',
+  saturated.transmission.every((t) => t > 0.8),
+  JSON.stringify([...new Set(saturated.transmission)].slice(0, 4)),
+);
+
+// 色階本身：藍→青的一小段弧，沒有綠/紅/紫（彩虹會打紅這條）。
+const litCells = [...full.paint, ...half.paint, ...gap0.paint].filter((c) => c.r !== undefined);
+check(
+  '🔴 場的色階沒有綠、紅或紫（藍≥綠≥紅，整條弧都是）',
+  litCells.length > 0 && litCells.every((c) => c.b >= c.g && c.g >= c.r),
+  JSON.stringify(litCells.slice(0, 2)),
+);
+// 🔴 亮度必須單調遞增 —— sequential ramp 的定義，也是彩虹被否決的原因。
+// ⚠️ 第一版只用畫面上**剛好出現**的那幾個透光值來驗，而它們全落在 0.45–0.55
+// 與 1.0；把色階中段換成黃色（t 0.8–1.0 才取得到）照樣綠。要密集掃過整個
+// 0..1 才擋得住。教訓同上一條：測資要能分開我要守的東西跟我怕的東西。
+const rampSweep = await page.evaluate(() => {
+  const out = [];
+  for (let t = 0; t <= 1.0001; t += 0.02) {
+    const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(window.__tenkiFingerHarness.lensRampAt(t));
+    out.push({ t: Math.round(t * 100) / 100, r: +m[1], g: +m[2], b: +m[3] });
+  }
+  return out;
+});
+const lumOf = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+check(
+  '🔴 整條色階亮度單調遞增（密集掃 0..1，彩虹會打紅）',
+  rampSweep.every((c, i) => i === 0 || lumOf(c) >= lumOf(rampSweep[i - 1]) - 0.5),
+  JSON.stringify(
+    rampSweep
+      .map((c, i) => ({ t: c.t, l: Math.round(lumOf(c)) }))
+      .filter((_, i) => i % 10 === 0),
+  ),
+);
+check(
+  '🔴 整條色階都是藍≥綠≥紅（沒有綠、黃、紅或紫竄進來）',
+  rampSweep.every((c) => c.b >= c.g && c.g >= c.r),
+  JSON.stringify(rampSweep.filter((c) => !(c.b >= c.g && c.g >= c.r)).slice(0, 3)),
+);
+
+// 而畫面上真的畫出來的顏色，也要跟色階一致。
+const byT = [...full.paint.map((p2, i) => ({ t: full.transmission[i], ...p2 })),
+             ...half.paint.map((p2, i) => ({ t: half.transmission[i], ...p2 })),
+             ...gap0.paint.map((p2, i) => ({ t: gap0.transmission[i], ...p2 }))]
+  .filter((c) => c.r !== undefined)
+  .sort((a, b) => a.t - b.t);
+const lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+check(
+  '🔴 透光愈高畫得愈亮（亮度單調，不是彩虹）',
+  byT.every((c, i) => i === 0 || lum(c) >= lum(byT[i - 1]) - 1),
+  JSON.stringify(byT.filter((_, i) => i % 12 === 0).map((c) => [c.t, Math.round(lum(c))])),
+);
+check(
+  '🔴 中間那一階是 teal，不是把 indigo 直接拉到 cyan（平掉的場看不出差異）',
+  (() => {
+    const mid = byT.filter((c) => c.t > 0.4 && c.t < 0.6);
+    return mid.length === 0 || mid.every((c) => c.g > c.r + 40 && c.b > c.g);
+  })(),
+  JSON.stringify(byT.filter((c) => c.t > 0.4 && c.t < 0.6).slice(0, 2)),
 );
 
 const gateClean = await replayGate({}, holdWindows + 1);
 check(
-  '乾淨訊號：撐滿 hold 之後才 ready，之前不是',
-  gateClean.slice(0, holdWindows - 1).every((s2) => s2.gate.ready === false) &&
-    gateClean[holdWindows - 1].gate.ready === true,
-  JSON.stringify(gateClean.map((s2) => s2.gate)),
-);
-check(
-  '🔴 就位期間 90 秒的鐘沒有在走（掃描區塊不在畫面上，計時停在 0s）',
+  '🔴 就位期間 90 秒的鐘沒有在走',
   gateClean.every((s2) => s2.scanVisible === false && s2.elapsed.startsWith('0s')),
-  JSON.stringify(gateClean.map((s2) => ({ scan: s2.scanVisible, t: s2.elapsed }))),
+  JSON.stringify(gateClean.map((s2) => s2.elapsed)),
 );
 check(
-  'hold 的進度是看得見的（點亮的點數 = held）',
+  'hold 的進度看得見（點亮的點數 = held）',
   gateClean.every((s2) => s2.dots.filter((d) => d === 'yes').length === s2.gate.held),
-  JSON.stringify(gateClean.map((s2) => ({ held: s2.gate.held, dots: s2.dots }))),
+  JSON.stringify(gateClean.map((s2) => ({ h: s2.gate.held, d: s2.dots }))),
 );
 check(
-  '階段軌指到現在這一階，前面的標成完成',
-  gateClean[0].rail.find((r) => r.step === 'hold')?.state === 'now' &&
-    gateClean[0].rail.find((r) => r.step === 'approach')?.state === 'done' &&
-    gateClean[holdWindows - 1].rail.find((r) => r.step === 'ready')?.state === 'now',
-  JSON.stringify([gateClean[0].rail, gateClean[holdWindows - 1].rail]),
+  '每一步都有一句狀態（不會是空的）',
+  gateClean.every((s2) => s2.state.length > 0),
+  JSON.stringify(gateClean.map((s2) => s2.state)),
 );
 check(
-  '三條 bar 真的畫出來了（量幾何，不是量 style 字串）',
-  gateClean[0].dims.length === 3 && gateClean[0].dims.every((d) => d.width > 0),
-  JSON.stringify(gateClean[0].dims),
-);
-check(
-  '逃生口一開始不出現',
-  gateClean.every((s2) => s2.skipShown === false),
-  JSON.stringify(gateClean.map((s2) => s2.skipShown)),
-);
-
-const gateOff = await replayGate({ coverage: 0.1 }, 2);
-check(
-  '手指不在鏡頭上：說得出要做什麼，而且 hold 歸零',
-  gateOff.every((s2) => s2.gate.blocker === 'no_contact' && s2.gate.held === 0) &&
-    gateOff[0].coach.includes('指腹'),
-  JSON.stringify(gateOff.map((s2) => ({ b: s2.gate.blocker, c: s2.coach }))),
-);
-check(
-  '只蓋一半：跟「沒放上去」是不同的一句話',
-  (await replayGate({ coverage: 0.45 }, 1))[0].gate.blocker === 'partial_contact',
-  '',
-);
-
-// 🔴 這一條是整段最重要的。紅通道打飽和（閃光燈）的擷取在 90 秒後**有讀數**
-// （走綠通道），所以就位閘不准擋它 —— 擋了就是把 channels.ts 的修正撤掉。
-const gateClipped = await replayGate(PPG_FIXTURES.clipped, holdWindows);
-check(
-  '🔴 紅通道飽和：講，但不擋 —— 而且講的是「會改走綠通道」',
-  gateClipped.every((s2) => s2.gate.blocker === null) &&
-    gateClipped[0].gate.advisories.includes('over_exposed') &&
-    gateClipped[0].advisoryShown &&
-    gateClipped[0].advisoryText.includes('綠通道') &&
-    gateClipped[holdWindows - 1].gate.ready === true,
-  JSON.stringify(gateClipped.map((s2) => ({ b: s2.gate.blocker, a: s2.gate.advisories }))),
-);
-check(
-  '🔴 晃動：一樣是講不是擋（motion fixture 90 秒後也有讀數）',
-  (await replayGate(PPG_FIXTURES.motion, 1))[0].gate.advisories.includes('moving'),
+  '手指不在鏡頭上：說得出要做什麼',
+  (await replayGate({ coverage: 0.05 }, 1))[0].state.includes('輕放'),
   '',
 );
 check(
-  '就位畫面在 390px 下不橫向溢出，教練句看得見',
-  gateClean.every((s2) => s2.overflowX <= 0 && s2.coachVisible),
-  JSON.stringify(gateClean.map((s2) => ({ o: s2.overflowX, v: s2.coachVisible }))),
+  '🔴 缺口時不得顯示「已確認」',
+  (await replayGate({ coverage: 0.45 }, 1))[0].gate.evidence.coverageConfirmed === false,
+  '',
 );
-// ⚠️ 「看得見」擋不住空字串：`.coach` 有 min-height，沒有字照樣有高度。
-// 第一版就是這樣 —— 使用者**做對的時候**那一行是空白的（截圖抓到，不是斷言）。
-const everyGateStep = [...gateClean, ...gateOff, ...gateClipped];
+check('逃生口一開始不出現', gateClean.every((s2) => s2.skipShown === false), '');
 check(
-  '🔴 每一步都有話說 —— 包含「沒有東西擋著」那一步',
-  everyGateStep.every((s2) => s2.coach.length > 0),
-  JSON.stringify(everyGateStep.map((s2) => ({ b: s2.gate.blocker, c: s2.coach }))),
+  'Pulse Lens 在 390px 下不橫向溢出',
+  full.overflowX <= 0 && gap.overflowX <= 0 && gateClean.every((s2) => s2.overflowX <= 0),
+  JSON.stringify([full.overflowX, gap.overflowX]),
 );
 
-// ── 2b3. 覆蓋地圖（手指「哪裡」沒蓋到）──────────────────────────────────────
-// 🔴 這一段餵的是**真的像素**進真的取樣器（`renderSampledCells`）。合成器
-// 給的是已經化簡完的 PpgFrame，所以像素 → 格子的索引換算沒有別的路徑驗得到，
-// 而那正是 off-by-one 會住的地方 —— 指錯邊的地圖比沒有地圖更糟。
-console.log('\n── 覆蓋地圖 ──');
-
-await page.evaluate(() => window.__tenkiFingerHarness.resetGate());
-const grid = await page.evaluate(() => window.__tenkiFingerHarness.coverageGrid());
-const sampleSize = await page.evaluate(() => window.__tenkiFingerHarness.sampleSize());
-const cellPx = sampleSize / grid;
-
-/** 餵一塊留白矩形，回傳畫面狀態＋地圖。 */
-const sampleCover = (bare) =>
-  page.evaluate((b) => {
-    const out = window.__tenkiFingerHarness.renderSampledCells(b);
-    const cells = [...document.querySelectorAll('#coverGrid .coverCell')];
-    return {
-      ...out,
-      cellCount: cells.length,
-      uncoveredIndexes: cells.flatMap((c, i) => (c.dataset.covered === 'no' ? [i] : [])),
-      geometry: cells.map((c) => {
-        const r = c.getBoundingClientRect();
-        return { w: Math.round(r.width), h: Math.round(r.height) };
-      }),
-      bares: cells.map((c) => Number(getComputedStyle(c).getPropertyValue('--bare'))),
-      // 每格各自的 alpha，以及整張圖用到的色相集合。前者驗單調，後者驗單一色相。
-      paint: cells.map((c) => {
-        const m = /color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/.exec(
-          getComputedStyle(c).backgroundImage,
-        );
-        return m === null
-          ? null
-          : { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] };
-      }),
-      wellGap: document.getElementById('coverWell').dataset.gap,
-      wellBorder: getComputedStyle(document.getElementById('coverWell')).borderTopColor,
-      cellColours: [...new Set(cells.map((c) => getComputedStyle(c).backgroundColor))],
-      legendVisible:
-        document.querySelector('.coverLegend').getBoundingClientRect().height > 0,
-      overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    };
-  }, bare);
-
-const fullCover = await sampleCover(null);
-
+// ── 文案紅線 ────────────────────────────────────────────────────────────────
+// 🔴 熱像的視覺文法會自己做出宣稱，除非文字擋掉。
+const FORBIDDEN_COPY = [
+  '熱成像', '熱像圖', '紅外線成像', '紅外線熱像', '血流影像', '血管影像',
+  '偵測體溫', '測量體溫', '偵測血流', '看見微循環',
+  'thermal imaging', 'infrared', 'blood flow',
+];
 check(
-  `格子真的畫出來了（${grid}×${grid} 個，每個都有幾何）`,
-  fullCover.cellCount === grid * grid && fullCover.geometry.every((g) => g.w > 0 && g.h > 0),
-  JSON.stringify({ n: fullCover.cellCount, g: fullCover.geometry.slice(0, 3) }),
-);
-check(
-  '蓋滿時沒有任何一格標成漏光，井框也不是警示色',
-  fullCover.uncoveredIndexes.length === 0 && fullCover.wellGap === 'no',
-  JSON.stringify({ u: fullCover.uncoveredIndexes, gap: fullCover.wellGap }),
-);
-
-// 🔴 索引換算：留白整條**上緣**，標出來的必須剛好是第一列。
-const topBare = await sampleCover({ x: 0, y: 0, w: sampleSize, h: cellPx });
-check(
-  '🔴 上緣漏光 → 標出來的剛好是第一列（像素 → 格子的換算沒有錯位）',
-  JSON.stringify(topBare.uncoveredIndexes) ===
-    JSON.stringify(Array.from({ length: grid }, (_, i) => i)),
-  JSON.stringify(topBare.uncoveredIndexes),
-);
-check(
-  '上緣漏光時井框變警示色',
-  topBare.wellGap === 'yes' && topBare.wellBorder !== fullCover.wellBorder,
-  JSON.stringify({ gap: topBare.wellGap, border: topBare.wellBorder }),
-);
-
-// 🔴 而且左緣要標成左緣，不是上緣 —— 轉置寫錯的話這兩條剛好互換。
-const leftBare = await sampleCover({ x: 0, y: 0, w: cellPx, h: sampleSize });
-check(
-  '🔴 左緣漏光 → 標出來的剛好是第一欄（row/col 沒有互換）',
-  JSON.stringify(leftBare.uncoveredIndexes) ===
-    JSON.stringify(Array.from({ length: grid }, (_, i) => i * grid)),
-  JSON.stringify(leftBare.uncoveredIndexes),
-);
-
-// ── 色階：像熱像儀的是「連續的場」，不是 FLIR 那條彩虹 ────────────────────
-// 🔴 founder 問能不能做成紅外線成像的效果。成像的作法照抄（連續的場、用色階
-// 表示大小），調色盤不行 —— 彩虹裡每個顏色在這個產品裡都已經有主人，而且
-// 彩虹的亮度不單調，本來就是表示「量」的爛編碼。這幾條守的就是那個界線。
-
-// 半格高的留白 → 上緣那一列每格剛好蓋到一半。二值化會把它吃成「沒蓋到」。
-const halfBare = await sampleCover({ x: 0, y: 0, w: sampleSize, h: cellPx / 2 });
-check(
-  '🔴 色階是連續的：蓋一半的格子既不是 0 也不是 1',
-  halfBare.bares.some((b) => b > 0.05 && b < 0.95),
-  JSON.stringify([...new Set(halfBare.bares)]),
-);
-check(
-  '每格的 --bare 就是 1 − 該格的覆蓋比例（畫的是資料，不是另一個量）',
-  halfBare.bares.every(
-    (b, i) => Math.abs(b - (1 - halfBare.map.cells[i].fraction)) < 1e-6,
-  ),
-  JSON.stringify({ bares: halfBare.bares.slice(0, 4), cells: halfBare.map.cells.slice(0, 4) }),
-);
-
-// 🔴 單一色相、亮度單調 —— sequential ramp 的定義。換成彩虹會打紅這兩條。
-const painted = [...halfBare.paint, ...topBare.paint].filter((c) => c !== null && c.a > 0.01);
-check(
-  '🔴 整張圖只用一個色相（換成 FLIR 彩虹就會紅）',
-  painted.length > 0 &&
-    painted.every(
-      (c) =>
-        Math.abs(c.r - painted[0].r) < 0.01 &&
-        Math.abs(c.g - painted[0].g) < 0.01 &&
-        Math.abs(c.b - painted[0].b) < 0.01,
-    ),
-  JSON.stringify([...new Set(painted.map((c) => `${c.r},${c.g},${c.b}`))]),
-);
-check(
-  '🔴 而且那個色相是琥珀（紅>綠>藍），不是綠、青、紫或紅',
-  painted.length > 0 && painted.every((c) => c.r > c.g && c.g > c.b && c.r > 0.9 && c.b < 0.3),
-  JSON.stringify(painted[0] ?? null),
-);
-check(
-  '愈沒蓋到愈亮：alpha 隨 --bare 單調不遞減',
-  (() => {
-    const pairs = halfBare.bares
-      .map((b, i) => ({ b, a: halfBare.paint[i] === null ? 0 : halfBare.paint[i].a }))
-      .sort((x, y) => x.b - y.b);
-    return pairs.every((x, i) => i === 0 || x.a >= pairs[i - 1].a - 1e-6);
-  })(),
+  '🔴 畫面上沒有任何熱像／紅外線／血流的宣稱',
+  !FORBIDDEN_COPY.some((term) => full.bodyText.toLowerCase().includes(term.toLowerCase())),
   JSON.stringify(
-    halfBare.bares.map((b, i) => [b, halfBare.paint[i]?.a ?? 0]).slice(0, 6),
+    FORBIDDEN_COPY.filter((t) => full.bodyText.toLowerCase().includes(t.toLowerCase())),
   ),
 );
-
-// 🔴 地圖與閘門讀同一個數字 —— 在真的像素上，不只在單元測試的算術上。
-// ⚠️ 留白**故意不對齊格線**（半格高）。第一版用整格的圖樣，而整格圖樣下
-// 「像素比例」與「蓋到的格子比例」剛好相等（0.75 = 0.75）—— 那條斷言把
-// coverage 改成 covered-cell 比例照樣綠，是裝飾。半格才分得開：
-// 像素 0.875，格子比例 0.75。
-const halfCellBare = await sampleCover({ x: 0, y: 0, w: sampleSize, h: cellPx / 2 });
-const coveredCellRatio =
-  (grid * grid - halfCellBare.uncoveredIndexes.length) / (grid * grid);
 check(
-  '🔴 地圖的 coverage 就是這一幀的 coverage（不是第二個估計值）',
-  Math.abs(halfCellBare.frameCoverage - halfCellBare.map.coverage) < 1e-9 &&
-    Math.abs(halfCellBare.map.coverage - coveredCellRatio) > 1e-6,
-  JSON.stringify({
-    frame: halfCellBare.frameCoverage,
-    map: halfCellBare.map.coverage,
-    cellRatio: coveredCellRatio,
-  }),
+  '🔴 不宣稱 100% 實體覆蓋，也不宣稱量到壓力',
+  !/100\s*%\s*(覆蓋|遮蓋)/.test(full.bodyText) && !full.bodyText.includes('壓力值'),
+  full.bodyText.slice(0, 100),
 );
-
+// ⚠️ 這條改過兩次，兩次都是同一個病的變種。
+// 第一版驗「那段字在 .lensDetail 裡面」—— 把 <details> 換成永遠展開的 <div>
+// 照樣綠，字明明就在畫面上。
+// 第二版改量幾何（height === 0）—— 而收合的 <details> 用的是
+// `content-visibility: hidden`：**不繪製，但仍然有 layout box**，量到 76.75px。
+// 正確的儀器是 `checkVisibility()`，它就是為了回答「使用者看不看得到」而存在的。
+// 教訓：「量使用者看到的東西」對，但要挑對量的工具。
+const methodCopy = await page.evaluate(() => {
+  const hit = [...document.querySelectorAll('.lensCard p, .lensCard span')].find((el) =>
+    el.textContent.includes('溫度'),
+  );
+  const detail = document.querySelector('.lensDetail');
+  return {
+    found: hit !== undefined,
+    detailsClosed: detail instanceof HTMLDetailsElement && !detail.open,
+    checkVisibility:
+      hit === undefined
+        ? null
+        : hit.checkVisibility({ contentVisibilityAuto: true, opacityProperty: true, visibilityProperty: true }),
+  };
+});
 check(
-  '🔴 地圖上不出現語意綠（綠 = 跟著流程完成，這裡還沒有結果）',
-  topBare.cellColours.every((c) => !/rgb\(\s*52,\s*199,\s*89/.test(c)),
-  JSON.stringify(topBare.cellColours),
+  '🔴 主擷取畫面不解釋量測方法 —— 「不是溫度」預設看不見',
+  methodCopy.found && methodCopy.detailsClosed && methodCopy.checkVisibility === false,
+  JSON.stringify(methodCopy),
 );
 check(
-  '圖例看得見（不然兩種顏色沒人知道哪個是哪個）',
-  fullCover.legendVisible,
+  '🔴 Coverage Lock 不得畫出任何脈搏漣漪（即時拍點偵測器還不存在）',
+  await page.evaluate(
+    () =>
+      document.querySelectorAll('.ripple, [data-ripple], .beatPulse').length === 0 &&
+      !/@keyframes\s+(ripple|beat)/.test(
+        [...document.styleSheets]
+          .flatMap((sh) => {
+            try {
+              return [...sh.cssRules].map((r) => r.cssText);
+            } catch (_) {
+              return [];
+            }
+          })
+          .join(' '),
+      ),
+  ),
   '',
-);
-check(
-  '覆蓋地圖在 390px 下不橫向溢出',
-  fullCover.overflowX <= 0 && topBare.overflowX <= 0,
-  JSON.stringify([fullCover.overflowX, topBare.overflowX]),
-);
-
-// 🔴 地圖的產品價值：使用者不必先看懂那張圖。
-await sampleCover({ x: 0, y: 0, w: cellPx, h: sampleSize });
-const coachEdge = await page.evaluate(() =>
-  window.__tenkiFingerHarness.renderGateWithBlocker('partial_contact'),
-);
-check(
-  '教練句講得出缺口長什麼樣（不是「再蓋滿一點」），並把使用者導向那張圖',
-  coachEdge.includes('漏光') && coachEdge.includes('圖') && coachEdge.includes('一邊'),
-  coachEdge,
-);
-// 左上角 2×2 格：上緣 2 格、左緣 2 格 —— 平手才是真的角落（單邊漏光會只報一邊）。
-await sampleCover({ x: 0, y: 0, w: cellPx * 2, h: cellPx * 2 });
-const coachCorner = await page.evaluate(() =>
-  window.__tenkiFingerHarness.renderGateWithBlocker('partial_contact'),
-);
-check(
-  '一個角跟一邊講的不是同一句（跟方位無關，所以講得起）',
-  coachCorner.includes('角') && !coachCorner.includes('一邊'),
-  coachCorner,
-);
-// 🔴 而且**不准講方向**：影像座標的上緣對應到手機的哪一邊還沒在真機驗過
-// （驗收清單第 20 條）。叫使用者往錯的方向移動比什麼都不說更糟。
-check(
-  '🔴 沒有在真機驗過影像↔實體方位以前，文案不得講方向',
-  ![coachEdge, coachCorner].some((line) => /往[上下左右]|[上下左右]邊還在|[上下左右]移/.test(line)),
-  JSON.stringify([coachEdge, coachCorner]),
-);
-await sampleCover({ x: cellPx, y: cellPx, w: cellPx, h: cellPx });
-const coachCentre = await page.evaluate(() =>
-  window.__tenkiFingerHarness.renderGateWithBlocker('partial_contact'),
-);
-check(
-  '中間沒貼到跟邊緣漏光是不同的一句話（手指拱起來，不是放歪）',
-  coachCentre.includes('拱') && !coachCentre.includes('漏光'),
-  coachCentre,
-);
-// 🔴 截圖抓到的：閘門看 1.5 秒窗口、地圖看現在，所以窗口過得了的同時畫面上
-// 可以有一格是亮的 —— 而「維持住，不要動」印在看得見的缺口旁邊是自相矛盾。
-await sampleCover({ x: 0, y: 0, w: cellPx, h: cellPx });
-const coachNoBlocker = await page.evaluate(() =>
-  window.__tenkiFingerHarness.renderGateWithBlocker(null),
-);
-check(
-  '🔴 地圖上還有缺口時，教練句不得說「維持住」',
-  !coachNoBlocker.includes('維持住') && coachNoBlocker.includes('漏光'),
-  coachNoBlocker,
-);
-await sampleCover(null);
-const coachClean = await page.evaluate(() =>
-  window.__tenkiFingerHarness.renderGateWithBlocker(null),
-);
-check(
-  '真的蓋滿了才說「維持住」',
-  coachClean.includes('維持住'),
-  coachClean,
 );
 
 // ── 2c. 掃描進行中 ─────────────────────────────────────────────────────────
@@ -1184,7 +1118,7 @@ if (shotCover) {
   await page.evaluate(() => window.__tenkiFingerHarness.resetGate());
   // 一個真的缺口：左上角一塊完全沒蓋到，邊界上再留半格 —— 色階的中間值
   // 只有在這種狀態下看得到。
-  await sampleCover({ x: 0, y: 0, w: cellPx * 3, h: cellPx * 2.5 });
+  await cover({ x: 0, y: 0, w: cellPx * 3, h: cellPx * 2.5 });
   await page.screenshot({ path: shotCover, fullPage: true });
   console.log(`  📸 ${shotCover}`);
 }

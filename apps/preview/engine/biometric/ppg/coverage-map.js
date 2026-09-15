@@ -37,7 +37,7 @@
  *
  * @see docs/PHONE-PPG.md
  */
-import { MIN_COVERAGE } from './quality.js';
+import { MAX_CLIPPING, MIN_COVERAGE } from './quality.js';
 /**
  * Cells per side.
  *
@@ -75,16 +75,22 @@ export const COVERAGE_EDGES = ['top', 'bottom', 'left', 'right'];
  * @returns Where the fingertip is, and the whole-ROI coverage implied by it.
  * @throws RangeError when the array is not a non-empty perfect square.
  */
-export function buildCoverageMap(cellFractions) {
+export function buildCoverageMap(cellFractions, cellClipping = []) {
     const grid = Math.round(Math.sqrt(cellFractions.length));
     if (cellFractions.length === 0 || grid * grid !== cellFractions.length) {
         throw new RangeError(`coverage map needs a square number of cells, got ${cellFractions.length}`);
+    }
+    if (cellClipping.length > 0 && cellClipping.length !== cellFractions.length) {
+        throw new RangeError(`clipping must match the cell count: ${cellClipping.length} vs ${cellFractions.length}`);
     }
     const cells = cellFractions.map((fraction, index) => ({
         row: Math.floor(index / grid),
         col: index % grid,
         fraction,
         covered: fraction >= CELL_COVERED_FRACTION,
+        // Reuses the pipeline's own ceiling rather than a second threshold — a cell
+        // the map calls saturated is one the quality gate would call clipped.
+        saturated: (cellClipping[index] ?? 0) > MAX_CLIPPING,
     }));
     const uncovered = cells.filter((cell) => !cell.covered);
     // Equal cell areas make the pixel-weighted mean a plain mean. Stated rather
@@ -112,5 +118,6 @@ export function buildCoverageMap(cellFractions) {
         uncoveredCount: uncovered.length,
         gapEdges,
         centreGap: uncovered.length > 0 && gapEdges.length === 0,
+        saturatedCount: cells.filter((cell) => cell.saturated).length,
     };
 }

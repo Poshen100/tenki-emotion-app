@@ -41,7 +41,6 @@ import {
 import {
   INITIAL_READINESS,
   READINESS_HOLD_WINDOWS,
-  READINESS_STAGES,
   READINESS_PATIENCE_SEC,
   READINESS_WINDOW_SEC,
   assessCaptureReadiness,
@@ -50,6 +49,7 @@ import {
   COVERAGE_MAP_GRID,
   buildCoverageMap,
 } from './engine/biometric/ppg/coverage-map.js';
+import { resolveCaptureStage } from './engine/biometric/ppg/capture-stage.js';
 import {
   DC_DRIFT_SUSPECT,
   assessExposureStability,
@@ -124,55 +124,70 @@ const DIMENSIONS = [
 const DIM_LOW = 0.6;
 
 /**
- * 就位閘顯示的三個量。
+ * 光場的色階，由暗到亮。
  *
- * 🔴 沒有「節律」—— 1.5 秒找不到一個週期，放一條空軌道只會讓人以為它壞了。
- * 三個都是「越高越好」，所以值直接就是 goodness，不需要 `dimensionGoodness`。
+ * 🔴 亮度嚴格單調（OKLab L 0.182 → 0.797），色相只走 188°–221° 一段 33° 的
+ * 弧 —— viridis 家族的 sequential ramp，不是彩虹。算過才用。
+ *
+ * ⚠️ 寫成資料而不是 CSS 的 `color-mix`：兩個端點混不出中間的 teal，而少了
+ * 那一階，整片場會變成一塊平的 cyan（截圖看出來的）。
  */
-const READY_DIMENSIONS = [
-  { key: 'contact', label: '接觸', hint: '手指蓋住鏡頭的完整與穩定程度' },
-  { key: 'light', label: '光', hint: '曝光有沒有壓到感光上限' },
-  { key: 'stillness', label: '穩定', hint: '這 1.5 秒手有多穩' },
+const LENS_RAMP = [
+  [6, 18, 36],     // #061224 深空 navy —— 沒有可用的場
+  [11, 23, 40],    // #0B1728
+  [36, 54, 94],    // #24365E indigo —— 場正在成形
+  [23, 111, 134],  // #176F86 teal —— 透光建立中
+  [24, 156, 184],  // #189CB8
+  [34, 211, 238],  // --cyan-active —— 可信的光訊號
 ];
 
-/** 擋住開始的那一件事，逐字。一次只講一句。 */
-const BLOCKER_COPY = {
-  no_signal: '相機還在啟動。',
-  no_contact: '把指腹輕放在後鏡頭上。',
-  partial_contact: '再蓋滿一點 —— 鏡頭整片都要被指腹蓋住。',
+/**
+ * 取色階上的一點。
+ *
+ * @param {number} t - 透光 0..1。
+ * @returns {string} `rgb(...)`。
+ */
+function sampleLensRamp(t) {
+  const clamped = Math.max(0, Math.min(1, t));
+  const pos = clamped * (LENS_RAMP.length - 1);
+  const i = Math.min(LENS_RAMP.length - 2, Math.floor(pos));
+  const f = pos - i;
+  const mix = (a, b) => Math.round(a + (b - a) * f);
+  return `rgb(${mix(LENS_RAMP[i][0], LENS_RAMP[i + 1][0])}, ${mix(
+    LENS_RAMP[i][1],
+    LENS_RAMP[i + 1][1],
+  )}, ${mix(LENS_RAMP[i][2], LENS_RAMP[i + 1][2])})`;
+}
+
+/**
+ * 八個顯示狀態的文案，逐字照 founder 2026-09-15 的 COVERAGE LOCK brief。
+ *
+ * 🔴 文案不做任何量測宣稱：不講 100% 實體覆蓋、不講壓力數值、不講溫度或
+ * 紅外線。`pressure_adjustment` 那句是**動作建議**而不是量到的壓力 ——
+ * 觸發它的是逐格飽和，而飽和只說明光被打到頂。
+ */
+const LENS_STATE_COPY = {
+  searching_contact: '把手指輕放在鏡頭與補光燈上。',
+  coverage_gap: '再蓋住一點。光場邊緣還有小缺口。',
+  light_locking: '光已經穿過來了。保持這個位置。',
+  pressure_adjustment: '放鬆一點手指，讓光均勻穿過。',
+  field_shifted: '位置很好。保持不動 5 秒。',
+  coverage_locked: '覆蓋已確認。現在開始找你的節奏。',
+  rhythm_search: '接觸很好。Tenki 正在確認脈搏節律。',
+  pulse_locked: '脈搏已鎖定。',
 };
 
 /**
- * 講但不擋的事。
+ * 只有**狀態句沒講到**的指令才印第二行。
  *
- * 🔴 `over_exposed` 不是錯誤：紅通道被打飽和時引擎會改讀綠通道
- * （`channels.ts`）。實機第一次就是這個情況，而那次的問題是沒人告訴他。
+ * 八個狀態裡有五個本身就是那句指令，再印一次只是重複 —— 而 brief 的規則是
+ * 一次只有一個修正。`warm_fingertip` 是唯一沒有對應狀態的指令，所以只有它
+ * 需要自己的一行。
  */
-const GATE_ADVISORY_COPY = {
-  over_exposed: '紅通道被打飽和了（多半是閃光燈或太亮的環境）。讀數會自動改走綠通道，不擋你開始 —— 但關掉閃光燈通常會更準。',
-  moving: '手在晃。晃得動的擷取還是可能成功，但會比較久才穩。',
+const INSTRUCTION_EXTRA_COPY = {
+  warm_fingertip: '手指偏冷時透光會很弱 —— 搓一下手再試。',
 };
 
-/**
- * 沒有東西擋著的時候講什麼。
- *
- * ⚠️ 這一段原本是空的 —— `BLOCKER_COPY[null]` 是 undefined，於是使用者**做對
- * 的時候**畫面上那一句話是空白的。harness 當時只斷言那一行「看得見」，而它
- * 有 min-height，空字串照樣有高度。截圖抓到的，斷言現在量字。
- */
-const HOLDING_COPY = '就是這樣 —— 維持住，不要動。';
-
-/**
- * 閘門沒擋，但**當下這一幀**還有缺口。
- *
- * 🔴 這一句是截圖抓出來的：閘門看 1.5 秒的窗口、地圖看現在，所以窗口平均
- * 過得了的同時畫面上可以有一格是亮的 —— 而「維持住，不要動」印在一個看得見
- * 的缺口旁邊，是畫面自己在自相矛盾。使用者看的是那張圖，所以教練句跟著圖走。
- */
-const ALMOST_COPY = '差一點 —— 還有一小塊在漏光，指腹再微調一下。';
-
-/** 就位之後的那一句。不是結果，所以不上 gold、也不上 cyan。 */
-const READY_COPY = '就位了 —— 開始擷取。';
 
 /**
  * 各階段的名字。英文是對外溝通的 canonical 詞，中文是畫面上的說法。
@@ -243,8 +258,10 @@ const state = {
   gateRunning: false,
   /** 最近幾幀的 per-cell 覆蓋比例。只給畫面用，跟著幀丟掉，不落地。 */
   cellRing: [],
-  /** 最近一次畫出來的覆蓋地圖。教練句要用它講「哪一邊」。 */
+  /** 最近一次畫出來的光場。狀態機要用它判斷覆蓋有沒有確認。 */
   coverMap: null,
+  /** 最近一次的 Pulse Lens 狀態。`previousStage` 要它才講得出「本來有、掉了」。 */
+  lensView: null,
   /** 這次擷取有沒有鎖住曝光，以及鎖了什麼。null = 沒試或無可鎖。 */
   exposureLock: null,
   /** 最近一次算出來的曝光穩定度。掃描中顯示，結束後記進驗收紀錄。 */
@@ -470,6 +487,13 @@ function reduceRoi(data, timestampMs) {
    * 所以地圖與閘門在算術上不可能講不同的話（`coverage-map.ts`）。
    */
   const cellCovered = new Array(COVERAGE_MAP_GRID * COVERAGE_MAP_GRID).fill(0);
+  /**
+   * 每一格被打到感光上下限的像素數。
+   *
+   * 🔴 逐格，不是逐幀。調整色（amber）存在的意義就是說出「哪裡」要調 ——
+   * 逐幀的旗標會讓整張圖一起變色，等於只講「有東西不對」。
+   */
+  const cellClipped = new Array(COVERAGE_MAP_GRID * COVERAGE_MAP_GRID).fill(0);
   const cellSide = SAMPLE_SIZE / COVERAGE_MAP_GRID;
   const cellPixels = cellSide * cellSide;
 
@@ -480,14 +504,16 @@ function reduceRoi(data, timestampMs) {
     red += r;
     green += g;
     blue += b;
-    if (r >= 254 || r <= 1) clipped++;
+    const px = (i / 4) % SAMPLE_SIZE;
+    const py = Math.floor(i / 4 / SAMPLE_SIZE);
+    const cell = Math.floor(py / cellSide) * COVERAGE_MAP_GRID + Math.floor(px / cellSide);
+    if (r >= 254 || r <= 1) {
+      clipped++;
+      cellClipped[cell]++;
+    }
     // 手指貼在鏡頭上時紅通道遠高於其他兩個 —— 這就是「有沒有蓋住」的判準，
     // 不是猜的：血液吸收綠光遠多於紅光。
-    if (r > g * 1.35 && r > b * 1.35) {
-      const px = (i / 4) % SAMPLE_SIZE;
-      const py = Math.floor(i / 4 / SAMPLE_SIZE);
-      cellCovered[Math.floor(py / cellSide) * COVERAGE_MAP_GRID + Math.floor(px / cellSide)]++;
-    }
+    if (r > g * 1.35 && r > b * 1.35) cellCovered[cell]++;
   }
 
   let covered = 0;
@@ -512,6 +538,7 @@ function reduceRoi(data, timestampMs) {
       motion,
     },
     cells: cellCovered.map((count) => count / cellPixels),
+    clipping: cellClipped.map((count) => count / cellPixels),
   };
 }
 
@@ -537,7 +564,7 @@ function gateTick(video, ctx) {
     // 🔴 地圖畫的是**現在**，不是這個窗口的平均 —— 使用者的手指正在移動，
     // 落後 1.5 秒的地圖沒辦法拿來對位。所以它吃最近幾幀的平均：只夠壓掉
     // 逐幀閃爍，不足以造成延遲。
-    state.cellRing.push(sample.cells);
+    state.cellRing.push({ cells: sample.cells, clipping: sample.clipping });
     if (state.cellRing.length > COVERAGE_RING_FRAMES) state.cellRing.shift();
     renderCoverageMap();
   }
@@ -548,8 +575,10 @@ function gateTick(video, ctx) {
 
   if (spanSec >= READINESS_WINDOW_SEC) {
     state.gate = assessCaptureReadiness(batch, state.gate.held);
-    state.gateFrames = [];
+    // ⚠️ 先畫再清。`stageInput()` 讀的就是這一批幀 —— 清掉再畫，狀態機會拿到
+    // 一個空窗口，然後每個窗口都報「還在找接觸」。
     renderGate();
+    state.gateFrames = [];
 
     if (state.gate.ready) {
       startCapture(video, ctx);
@@ -566,49 +595,31 @@ function gateTick(video, ctx) {
   state.raf = requestAnimationFrame(() => gateTick(video, ctx));
 }
 
-/** 沒有東西擋著時講哪一句 —— 看的是地圖，不是窗口。 */
-function holdingCopy() {
-  const map = state.coverMap;
-  return map && map.uncoveredCount > 0 ? ALMOST_COPY : HOLDING_COPY;
-}
-
 /**
- * 「再蓋滿一點」→ 缺口長什麼樣子。
+ * Pulse Lens —— 一個場、一個狀態、一句指令。
  *
- * 🔴 **刻意不講方向**（不講「往上」「往左」）。地圖的軸是**影像座標**，而後
- * 鏡頭的影像上緣對應到手機的哪一邊，取決於裝置方位與瀏覽器怎麼處理
- * orientation —— 在真機驗過以前，「往上移」有可能剛好是反的，而叫使用者往
- * 錯的方向移動比什麼都不說更糟。實機驗收清單第 20 條就是驗這個對應關係，
- * 驗過之後才可以加方向。
+ * 🔴 狀態與指令都來自引擎的 `resolveCaptureStage`，這一層只負責把 token 換成
+ * 中文。畫面不得自己判斷現在是什麼狀態 —— 那會變成對訊號的第二種意見。
  *
- * 🔴 講得出來的是**跟方位無關**的那些：缺口在邊上還是在中間、是一邊還是一個
- * 角。而且把使用者導向那張圖 —— 圖是即時的，他移動手指就看得到格子跟著變，
- * 迴路是他自己閉的，不需要我猜方向。
+ * 🔴 主畫面**不解釋量測方法**（founder 2026-09-15）。「這不是溫度」那類說明
+ * 全部在「量測細節」裡。主畫面只回答：現在怎麼樣、要做什麼。
  */
-function coverGapCopy() {
-  const map = state.coverMap;
-  if (!map || map.uncoveredCount === 0) return BLOCKER_COPY.partial_contact;
-  if (map.centreGap) return '指腹中間沒有貼到玻璃 —— 手指放平一點，不要拱起來。';
-  const shape = map.gapEdges.length >= 2 ? '有一個角' : '有一邊';
-  return `${shape}還在漏光 —— 看著上面那張圖移動指腹，把亮起來的格子蓋掉。`;
-}
-
-/** 就位閘的畫面。教練句、階段軌、三條 bar、advisory。 */
 function renderGate() {
-  const gate = state.gate;
+  const input = stageInput();
+  const view = resolveCaptureStage(input);
+  state.lensView = view;
 
-  $('coach').textContent = gate.ready
-    ? READY_COPY
-    : gate.blocker === null
-      ? holdingCopy()
-      : gate.blocker === 'partial_contact'
-        ? coverGapCopy()
-        : BLOCKER_COPY[gate.blocker] ?? BLOCKER_COPY.no_signal;
+  $('lensState').textContent = LENS_STATE_COPY[view.lensState] ?? '';
 
-  const reached = READINESS_STAGES.indexOf(gate.stage);
-  for (const step of document.querySelectorAll('.railStep')) {
-    const index = READINESS_STAGES.indexOf(step.dataset.step);
-    step.dataset.state = index < reached ? 'done' : index === reached ? 'now' : 'todo';
+  // 🔴 只有當指令**多講了狀態沒講的事**時才出現第二行。八個狀態裡有五個
+  // 本身就是那句指令，再印一次只是重複。
+  const extra = view.instruction === null ? null : INSTRUCTION_EXTRA_COPY[view.instruction];
+  const line = $('lensInstruction');
+  line.hidden = extra == null;
+  line.textContent = extra ?? '';
+
+  for (const item of document.querySelectorAll('.evidenceItem')) {
+    item.dataset.on = view.evidence[item.dataset.key] ? 'yes' : 'no';
   }
 
   const dots = $('holdDots');
@@ -620,106 +631,119 @@ function renderGate() {
     }
   }
   for (let i = 0; i < dots.children.length; i++) {
-    dots.children[i].dataset.on = i < gate.held ? 'yes' : 'no';
+    dots.children[i].dataset.on = i < state.gate.held ? 'yes' : 'no';
   }
 
-  renderReadyDims(gate);
-
-  const advisory = $('readyAdvisory');
-  const lines = gate.advisories.map((a) => GATE_ADVISORY_COPY[a]).filter(Boolean);
-  advisory.hidden = lines.length === 0;
-  advisory.textContent = lines.join(' ');
+  renderDetailDims(input.reading);
 }
 
 /**
- * 覆蓋地圖 —— 手指「哪裡」沒蓋到。
+ * 把畫面手上的量測湊成引擎要的輸入。
  *
- * 🔴 沿用舊 onboarding 的視覺語言（target ring ＋ 虛線內圈 ＋ 圓形井），
- * 但**不沿用它的內容**：舊版在那個圈裡放的是相機實時影像，而蓋好的鏡頭
- * 在畫面上是一整片均勻的紅 —— 缺口恰好是唯一看不出來的東西。
- * 這裡放的是從同一批像素推導出來的 4×4 覆蓋比例。
+ * ⚠️ 就位期間也要有 `LiveReading` —— 用閘門那一批幀跑 `assessLiveWindow`，
+ * 節律會是 null（窗口太短），那正是它該回的東西。
+ */
+function stageInput() {
+  // 就位期間看閘門那一批，擷取期間看擷取的幀。用「哪一個有東西」而不是
+  // `gateRunning` —— harness 餵幀時沒有跑那個迴圈。
+  const frames = state.gateFrames.length > 0 ? state.gateFrames : state.frames;
+  const reading = assessLiveWindow(recentFrames(frames, LIVE_WINDOW_SEC), MODE);
+  return {
+    reading,
+    lock: state.lock,
+    exposure: assessExposureStability(frames, 'red'),
+    readiness: state.gate.ready ? undefined : state.gate,
+    previousStage: state.lensView === null ? undefined : state.lensView.stage,
+    // 🔴 null 不是 0：還沒算出場的時候，「已確認」不准打勾。
+    uncoveredCells: state.coverMap === null ? null : state.coverMap.uncoveredCount,
+  };
+}
+
+/**
+ * 光場本身。
  *
- * 🔴 地圖上**沒有數字**。旁邊的「接觸」bar 已經在報整塊的量，而它看的是
- * 1.5 秒的窗口、地圖看的是現在 —— 同一個畫面上兩個會不一致的數字，
- * 比沒有數字更糟。地圖只回答「哪裡」，bar 回答「多少」。
+ * 🔴 亮 = 透光良好，暗 navy/indigo = 沒有可用的場。缺口**不用 amber** ——
+ * 靠暗格與封環的破口表示，因為同一個亮度不得同時代表「訊號好」與「沒蓋到」
+ * （founder 2026-09-15 定案）。amber 只標**逐格量到**真的被打到感光上限的
+ * 那幾格。gold 不在這裡出現，它只屬於已立住的 Pulse Anchor。
  *
- * 🔴 **像熱像儀的是「連續的場」，不是 FLIR 那條彩虹。** founder 問能不能做成
- * 紅外線成像的效果 —— 成像的作法可以照抄（一整片連續量的場、用色階表示大小、
- * 不是 on/off 的方塊），調色盤不行，而且有兩個各自成立的理由：
- *
- *   1. **彩虹裡的每一個顏色在這個產品裡都已經有主人**：綠 = `--success`、
- *      青 = Clear 帶位／ACTIVE、紫 = Premium、燒橙 = Strain 帶位、紅 = error、
- *      金 = SECURED。擺一條彩虹進來等於同時亮起六個不相干的宣稱。
- *   2. **彩虹本來就是表示大小的爛編碼**：亮度不是單調的，會在中段做出假的
- *      分界。表示「量」的正確作法是單一色相、亮度單調的 sequential ramp。
- *
- * 所以色階走 repo 自己那條量過的琥珀階（對比 2.5 → 4.2 → 6.3 → 8.0 → 9.9:1，
- * 嚴格遞增）：蓋滿 = 暗中性色（沉下去），愈沒蓋到愈亮 —— 跟 `--warning` 在
- * 這一頁既有的意思一致：**亮的那塊就是你要改的地方**。
- *
- * ⚠️ 刻意**不做雙線性內插**。內插會讓 8×8 的量看起來像一張高解析度的熱像，
- * 而我們並不知道缺口精確在哪一個像素 —— 那是這個 session 一直在擋的假精度。
- * 保留方格反而是誠實的：便宜的熱像儀本來就長這樣。
+ * ⚠️ 不內插：8×8 就畫成 8×8。格線是誠實的解析度，不是瑕疵。
  */
 function renderCoverageMap() {
-  const host = $('coverGrid');
+  const host = $('lensGrid');
   if (state.cellRing.length === 0) return;
 
   const size = COVERAGE_MAP_GRID * COVERAGE_MAP_GRID;
   const mean = new Array(size).fill(0);
-  for (const cells of state.cellRing) {
-    for (let i = 0; i < size; i++) mean[i] += cells[i] / state.cellRing.length;
+  const meanClip = new Array(size).fill(0);
+  for (const frame of state.cellRing) {
+    for (let i = 0; i < size; i++) {
+      mean[i] += frame.cells[i] / state.cellRing.length;
+      meanClip[i] += frame.clipping[i] / state.cellRing.length;
+    }
   }
-  const map = buildCoverageMap(mean);
+  const map = buildCoverageMap(mean, meanClip);
 
   if (host.childElementCount !== size) {
     host.innerHTML = '';
     host.style.gridTemplateColumns = `repeat(${map.grid}, 1fr)`;
     for (let i = 0; i < size; i++) {
       const cell = document.createElement('span');
-      cell.className = 'coverCell';
+      cell.className = 'lensCell';
       host.appendChild(cell);
     }
   }
 
   for (let i = 0; i < size; i++) {
     const cell = host.children[i];
-    // 🔴 連續的，不是二值的。畫的是這一格真正的覆蓋比例 —— 缺口在成形的過程
-    // 中就看得到漸層，而不是某一格突然從灰跳成橘。這也正是 8×8 格能成立的
-    // 原因：每格只有 64 個像素，二值化會讓邊界格在兩個顏色之間閃爍。
-    cell.style.setProperty('--bare', String(1 - map.cells[i].fraction));
-    // `covered` 留著給閘門語意（圖例、以及「還有幾格沒蓋到」），不是給顏色的。
-    cell.dataset.covered = map.cells[i].covered ? 'yes' : 'no';
+    cell.style.setProperty('--t', String(map.cells[i].fraction));
+    // 🔴 amber 只給需要調整的格子；其餘走光場色階。兩者不會同時出現在一格上。
+    cell.style.backgroundColor = map.cells[i].saturated
+      ? ''
+      : sampleLensRamp(map.cells[i].fraction);
+    cell.dataset.adjust = map.cells[i].saturated ? 'yes' : 'no';
   }
-  $('coverWell').dataset.gap = map.uncoveredCount > 0 ? 'yes' : 'no';
+
+  renderSealRing(map);
   state.coverMap = map;
 }
 
-/** 三條 bar。值本身就是 goodness，不經過 `dimensionGoodness`。 */
-function renderReadyDims(gate) {
-  const host = $('readyDims');
-  if (host.childElementCount === 0) {
-    for (const dim of READY_DIMENSIONS) {
-      const row = document.createElement('div');
-      row.className = 'dim';
-      row.dataset.key = dim.key;
-      row.innerHTML =
-        `<span class="dimLabel"></span><span class="dimValue"></span>` +
-        `<span class="dimTrack"><span class="dimFill"></span></span>`;
-      row.querySelector('.dimLabel').textContent = dim.label;
-      row.title = dim.hint;
-      host.appendChild(row);
-    }
+/**
+ * 封環：四段弧，各對應場的一個象限。
+ *
+ * 🔴 破口是缺口的**第二個線索**，跟暗格講同一件事 —— 因為 amber 被保留給
+ * 「需要調整」，缺口只剩亮度可用，而單靠亮度在小尺寸上不夠明顯。
+ *
+ * ⚠️ 環的方位指的是**畫面上那張圖**的方位，不是手機的方位 —— 使用者同時看到
+ * 兩者，所以這不是一個關於實體方向的宣稱（驗收清單第 20 條還沒跑）。
+ */
+function renderSealRing(map) {
+  const half = map.grid / 2;
+  for (const arc of document.querySelectorAll('.sealArc')) {
+    const q = Number(arc.dataset.quadrant);
+    // 0 = 右上、1 = 右下、2 = 左下、3 = 左上（環從 12 點鐘順時針起算）。
+    const top = q === 0 || q === 3;
+    const left = q >= 2;
+    const sealed = map.cells.every(
+      (cell) =>
+        cell.covered ||
+        (cell.row < half) !== top ||
+        (cell.col < half) !== left,
+    );
+    arc.dataset.sealed = sealed ? 'yes' : 'no';
   }
+}
 
-  for (const dim of READY_DIMENSIONS) {
-    const row = host.querySelector(`.dim[data-key="${dim.key}"]`);
-    const value = gate[dim.key];
-    row.dataset.pending = 'no';
-    row.dataset.low = value < DIM_LOW ? 'yes' : 'no';
-    row.querySelector('.dimValue').textContent = `${Math.round(value * 100)}%`;
-    row.querySelector('.dimFill').style.width = `${Math.round(value * 100)}%`;
-  }
+/**
+ * 量測細節裡的四條 bar。
+ *
+ * 🔴 從主畫面移下來的（founder 2026-09-15 §6）：主擷取畫面只放一個場、一個
+ * 狀態、一句指令。這些數字沒有被刪掉 —— 它們是診斷實機問題的唯一依據，
+ * 只是收在一個 tap 之後。
+ */
+function renderDetailDims(reading) {
+  const host = $('detailDims');
+  if (host !== null) renderDims(host, reading);
 }
 
 // ── loop ────────────────────────────────────────────────────────────────────
@@ -1374,12 +1398,16 @@ window.__tenkiFingerHarness = {
   resetGate() {
     state.gate = INITIAL_READINESS;
     state.gateFrames = [];
+    state.lensView = null;
+    state.coverMap = null;
+    state.cellRing = [];
     $('stage').dataset.phase = 'ready';
     $('skipGate').hidden = true;
     renderGate();
   },
   /** 餵一個窗口。走的是真的 `assessCaptureReadiness` 與真的 `renderGate`。 */
   renderGateWindow(frames) {
+    state.gateFrames = frames;
     state.gate = assessCaptureReadiness(frames, state.gate.held);
     renderGate();
     return {
@@ -1388,6 +1416,9 @@ window.__tenkiFingerHarness = {
       blocker: state.gate.blocker,
       advisories: state.gate.advisories,
       held: state.gate.held,
+      lensState: state.lensView === null ? null : state.lensView.lensState,
+      instruction: state.lensView === null ? null : state.lensView.instruction,
+      evidence: state.lensView === null ? null : state.lensView.evidence,
     };
   },
   readinessWindowSec() {
@@ -1418,15 +1449,42 @@ window.__tenkiFingerHarness = {
       }
     }
     const sample = reduceRoi(data, 0);
-    state.cellRing = [sample.cells];
+    state.cellRing = [{ cells: sample.cells, clipping: sample.clipping }];
     renderCoverageMap();
     return { frameCoverage: sample.frame.coverage, map: state.coverMap };
+  },
+  /** 同上，但整個 ROI 都被打到感光上限 —— 驗 amber 只出現在該出現的地方。 */
+  renderSaturatedCells(bareRect) {
+    const size = window.__tenkiFingerHarness.sampleSize();
+    const data = new Uint8ClampedArray(size * size * 4);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 4;
+        const isBare =
+          bareRect !== null &&
+          x >= bareRect.x && x < bareRect.x + bareRect.w &&
+          y >= bareRect.y && y < bareRect.y + bareRect.h;
+        // 蓋住且過曝 = 紅打到 255；留白 = 灰。
+        data[i] = isBare ? 90 : 255;
+        data[i + 1] = 90;
+        data[i + 2] = 90;
+        data[i + 3] = 255;
+      }
+    }
+    const sample = reduceRoi(data, 0);
+    state.cellRing = [{ cells: sample.cells, clipping: sample.clipping }];
+    renderCoverageMap();
+    return { map: state.coverMap };
   },
   sampleSize() {
     return SAMPLE_SIZE;
   },
   coverageGrid() {
     return COVERAGE_MAP_GRID;
+  },
+  /** 色階本身。harness 要能密集掃過整個 0..1，不能只靠畫面上剛好出現的值。 */
+  lensRampAt(t) {
+    return sampleLensRamp(t);
   },
   exposureNote() {
     const note = document.getElementById('exposureNote');

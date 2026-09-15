@@ -55,6 +55,17 @@
     .keep { white-space: nowrap; font-size: clamp(13px, 3.6vw, 14px); }
 
     /* phase gating */
+    /* Pulse Lens 的場色階。⚠️ 這幾個值是這一頁自己的（repo tokens 沒有
+       navy/indigo/teal 這幾階），cyan 那一端直接用既有的 --cyan-active，
+       避免同一個產品裡出現兩種 cyan。 */
+    :root {
+      --lens-navy:   #061224;
+      --lens-indigo: #24365E;
+      --lens-cyan:   var(--cyan-active);
+      --lens-amber:  var(--amber-400);
+    }
+    /* 擷取畫面：就位與掃描共用同一個 Pulse Lens。 */
+    [data-phase="intro"] .only-capture, [data-phase="result"] .only-capture { display: none; }
     [data-phase="intro"]    :is(.only-ready, .only-scan, .only-result),
     [data-phase="ready"]    :is(.only-intro, .only-scan, .only-result),
     [data-phase="scanning"] :is(.only-intro, .only-ready, .only-result),
@@ -76,74 +87,90 @@
       font-size: clamp(15px, 4.2vw, 17px); line-height: 1.55; color: var(--n-100);
       min-height: 2.6em;
     }
-    /* ── 覆蓋地圖 ──
-       沿用舊 onboarding 的 target ring 構圖（styles.css `.readiness-preview-target`
-       ＋ `.readiness-camera-preview`）：外圈細環、內圈虛線、中央一口井。
-       🔴 但**不沿用它的顏色狀態**（green / yellow / red）：綠在這個產品裡是
-          「跟著流程完成」的語意色，而這裡還沒有任何結果。也不沿用 cyan ——
-          cyan-active = ACTIVE，就位階段什麼都還沒在量。
-       🔴 井裡放的是推導出來的覆蓋格子，不是相機影像：蓋好的鏡頭是一整片
-          均勻的紅，缺口剛好是影像上唯一看不出來的東西。 */
-    .coverWrap { position: relative; display: grid; place-items: center; padding-block: 6px; }
-    .coverRing {
-      position: absolute;
-      width: min(52vw, 196px); aspect-ratio: 1; border-radius: 50%;
-      border: 1px solid var(--n-700);
-      pointer-events: none;
+    /* ⚠️ 井是**圓角方形不是圓**，圓角只留 6px —— 量的 ROI 是正方形裁切，
+       畫成圓（或圓角太大）會把四個角的格子藏起來，而閘門照樣在算它們。
+       外圈的封環負責「這是鏡頭」的意象。 */
+    /* ── Pulse Lens 光場 ──
+       🔴 色階：navy → indigo → teal → cyan，**亮 = 透光良好**。
+          多色相，但亮度嚴格單調（OKLab L 0.182→0.797），色相只走 188°–221°
+          一段 33° 的弧 —— 這是 viridis 家族的 sequential ramp，不是彩虹
+          （彩虹的亮度不單調，是表示「量」的爛編碼）。算過才用，沒有用眼睛判斷。
+       🔴 缺口**不用 amber**：暗格 ＋ 外圈封環的破口。同一個亮度不得同時代表
+          「訊號好」與「沒蓋到」（founder 2026-09-15 定案）。
+       🔴 amber 只標**真的被打到感光上限**的那幾格，而且是逐格的量。
+       🔴 gold 不在這裡出現 —— 它只屬於已立住的 Pulse Anchor。
+       ⚠️ 不內插：8×8 就畫成 8×8。格線是誠實的解析度，不是瑕疵。 */
+    .lensCard { display: flex; flex-direction: column; align-items: center; }
+    .lensStack { position: relative; display: grid; place-items: center; padding-block: 4px; }
+    .sealRing {
+      position: absolute; width: min(66vw, 252px); aspect-ratio: 1;
+      transform: rotate(-90deg); pointer-events: none;
     }
-    .coverRing::before {
-      content: ''; position: absolute; inset: 14px;
-      border-radius: 50%; border: 1px dashed var(--n-700);
+    /* 四段弧，各對應場的一個象限。r=45 → 周長 282.74，四分之一 70.7；
+       留 6 的間隙 → dash 64.7。 */
+    .sealArc {
+      fill: none; stroke-width: 1.5; stroke-linecap: round;
+      stroke-dasharray: 64.7 218.04;
+      stroke: var(--lens-cyan); opacity: 0.55;
+      transition: opacity 240ms ease-out, stroke 240ms ease-out;
     }
-    .coverWell {
+    .sealArc[data-quadrant="1"] { transform: rotate(90deg); transform-origin: 50% 50%; }
+    .sealArc[data-quadrant="2"] { transform: rotate(180deg); transform-origin: 50% 50%; }
+    .sealArc[data-quadrant="3"] { transform: rotate(270deg); transform-origin: 50% 50%; }
+    /* 破口：那個象限還有沒蓋到的格。暗下去，不是變色 —— 這一層不講 amber。 */
+    .sealArc[data-sealed="no"] { stroke: var(--lens-indigo); opacity: 0.35; }
+
+    .lensWell {
       position: relative;
-      width: min(40vw, 152px); aspect-ratio: 1;
-      /* ⚠️ 圓角只留 6px。18px 會把四個角的格子各切掉一塊 —— 那正是這一段
-         一開始拒絕把地圖畫成圓形的理由（量了卻看不到），小一號的版本一樣算
-         是那個錯誤。 */
+      width: min(50vw, 188px); aspect-ratio: 1;
       border-radius: 6px; overflow: hidden;
-      border: 1px solid var(--n-700);
-      background: var(--n-900);
+      border: 1px solid var(--n-800);
+      background: var(--lens-navy);
     }
-    /* ⚠️ 圓角方形，不是圓 —— 量的 ROI 是**正方形**裁切。畫成圓會把四個角的
-       格子藏起來，而閘門照樣在算它們。外圈的環負責「這是鏡頭」的意象。 */
-    [data-gap="yes"].coverWell { border-color: var(--warning); }
-    /* ── 色階 ──
-       🔴 像熱像儀的是「連續的場」，不是 FLIR 那條彩虹。彩虹不能用有兩個
-          各自成立的理由：(1) 彩虹裡每個顏色在這個產品裡都已經有主人 ——
-          綠=success、青=Clear/ACTIVE、紫=Premium、燒橙=Strain、紅=error、
-          金=SECURED；(2) 彩虹的亮度不單調，本來就是表示「量」的爛編碼。
-       表示量的正解是單一色相、亮度單調的 sequential ramp。這裡直接用 repo
-       自己量過的琥珀階（對比 2.5→4.2→6.3→8.0→9.9:1，嚴格遞增）。
-       ⚠️ 不做內插：8×8 內插出來會像一張高解析度熱像，而我們並不知道缺口
-          精確在哪個像素。保留方格是誠實的 —— 便宜的熱像儀本來就長這樣。 */
-    .coverGrid { display: grid; width: 100%; height: 100%; gap: 1px; padding: 1px; }
-    .coverCell {
-      /* --bare: 0（蓋滿）→ 1（完全沒蓋到）。JS 每幀寫入真正的比例。 */
-      --bare: 0;
+    .lensGrid { display: grid; width: 100%; height: 100%; gap: 1px; padding: 1px; }
+    .lensCell {
+      /* --t：透光 0（沒有可用的場）→ 1（可信的光訊號）。JS 每幀寫入真值，
+         顏色也由 JS 從 `LENS_RAMP` 取 —— 兩個端點的 color-mix 混不出中間的
+         teal，少了那一階整片場會變成一塊平的 cyan（截圖看出來的）。 */
+      --t: 0;
       border-radius: 1px;
-      background:
-        linear-gradient(
-          color-mix(in srgb, var(--amber-400) calc(var(--bare) * 100%), transparent),
-          color-mix(in srgb, var(--amber-400) calc(var(--bare) * 100%), transparent)
-        ),
-        var(--n-800);
+      background-color: var(--lens-navy);
     }
-    /* 🔴 沒有 color-mix 時也要能看：退成兩段式，仍然是同一條琥珀階。
-       少幾階可以接受，彩虹不行。 */
-    @supports not (background: color-mix(in srgb, red 50%, transparent)) {
-      .coverCell { background: var(--n-800); }
-      .coverCell[data-covered="no"] { background: var(--amber-400); }
+    /* 需要調整的那幾格 —— 只有這裡准出現 amber，而且蓋過色階。 */
+    .lensCell[data-adjust="yes"] { background-color: var(--lens-amber) !important; }
+
+    .lensState {
+      margin-top: 16px; text-align: center;
+      font-size: clamp(15px, 4.2vw, 17px); line-height: 1.55; color: var(--n-100);
     }
-    .coverLegend {
-      display: flex; align-items: center; gap: 10px; justify-content: center;
-      margin-top: 12px; font-size: 11px; color: var(--n-500);
+    .lensInstruction {
+      margin-top: 6px; text-align: center;
+      font-size: clamp(13px, 3.6vw, 14px); line-height: 1.6; color: var(--n-400);
     }
-    /* 圖例本身就是那條色階 —— 兩個色塊講不出「連續」這件事。 */
-    .coverScale {
-      flex: 0 1 140px; height: 8px; border-radius: 4px;
-      background: linear-gradient(to right, var(--n-800), var(--amber-400));
-      border: 1px solid var(--n-700);
+
+    /* 證據列。🔴 每一項都是**即時**讀數 —— 留在畫面上不等於保持打勾。 */
+    .evidenceRow {
+      display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center;
+      margin-top: 14px; font-size: 11px; color: var(--n-600);
+    }
+    .evidenceItem { display: inline-flex; align-items: center; gap: 5px; }
+    .evidenceItem i {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 1px solid var(--n-700); display: block;
+    }
+    .evidenceItem[data-on="yes"] { color: var(--n-300); }
+    .lensDetail { width: 100%; margin-top: 18px; }
+    .lensDetail summary {
+      font-size: 12px; color: var(--n-500); cursor: pointer;
+      list-style: none; text-align: center;
+    }
+    .lensDetail summary::-webkit-details-marker { display: none; }
+    .lensDetail summary::before { content: '▸ '; }
+    .lensDetail[open] summary::before { content: '▾ '; }
+
+    .evidenceItem[data-on="yes"] i {
+      border-color: var(--lens-cyan);
+      background: var(--lens-cyan);
     }
 
     .holdDots { display: flex; gap: 6px; margin-top: 10px; }
@@ -318,42 +345,49 @@
          🔴 它只擋接觸。光與晃是 advisory —— clipped / motion 兩個 fixture
          的對應 component 都是 0.00，卻都在 90 秒後產出讀數（走綠通道）。
          擋它們會把會成功的擷取擋掉。 -->
-    <section class="only-ready card">
-      <div class="dialLabel" style="margin-bottom:10px">還沒開始計時</div>
-      <p class="coach" id="coach">把指腹輕放在後鏡頭上。</p>
-      <div class="holdDots" id="holdDots"></div>
-    </section>
-
-    <div class="only-ready rail" id="rail">
-      <span class="railStep" data-step="approach">放上鏡頭</span>
-      <span class="railStep" data-step="cover">蓋滿</span>
-      <span class="railStep" data-step="hold">穩住</span>
-      <span class="railStep" data-step="ready">開始擷取</span>
-    </div>
-
-    <section class="only-ready card">
-      <div class="dialLabel" style="margin-bottom:4px">指腹蓋到哪裡了</div>
-      <div class="coverWrap">
-        <div class="coverRing" aria-hidden="true"></div>
-        <div class="coverWell" id="coverWell" data-gap="no">
-          <div class="coverGrid" id="coverGrid" role="img" aria-label="鏡頭覆蓋分佈"></div>
+    <!-- ── Pulse Lens ──────────────────────────────────────────
+         🔴 一個場、一個狀態、一句指令（founder 2026-09-15 COVERAGE LOCK）。
+         三條 bar 與「這不是溫度」的說明都移進了證據層 —— 主擷取畫面不解釋
+         量測方法，它只告訴你現在怎麼樣、以及要做什麼。
+         🔴 亮 = 透光良好；暗 navy/indigo = 沒有可用的場。缺口**不用 amber**，
+         靠暗格 ＋ 外圈封環的缺口表示 —— 同一個亮度不得同時代表「訊號好」
+         與「沒蓋到」。amber 只標真的被打到感光上限的那幾格。 -->
+    <section class="only-capture lensCard">
+      <div class="lensStack">
+        <!-- 封環：四段弧各對應場的一個象限。破口就是那個象限還有沒蓋到的格。 -->
+        <svg class="sealRing" viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="sealArc" data-quadrant="0" cx="50" cy="50" r="45" />
+          <circle class="sealArc" data-quadrant="1" cx="50" cy="50" r="45" />
+          <circle class="sealArc" data-quadrant="2" cx="50" cy="50" r="45" />
+          <circle class="sealArc" data-quadrant="3" cx="50" cy="50" r="45" />
+        </svg>
+        <div class="lensWell" id="lensWell">
+          <div class="lensGrid" id="lensGrid" role="img" aria-label="指尖光場"></div>
         </div>
       </div>
-      <div class="coverLegend">
-        <span>蓋滿</span>
-        <span class="coverScale" role="img" aria-label="由暗到亮代表覆蓋愈少"></span>
-        <span>漏光</span>
+
+      <p class="lensState" id="lensState">把手指輕放在鏡頭與補光燈上。</p>
+      <p class="lensInstruction" id="lensInstruction" hidden></p>
+
+      <div class="evidenceRow" id="evidenceRow">
+        <span class="evidenceItem" data-key="coverageConfirmed"><i></i>覆蓋已確認</span>
+        <span class="evidenceItem" data-key="lightUniform"><i></i>光場均勻</span>
+        <span class="evidenceItem" data-key="contactSteady"><i></i>接觸穩定</span>
       </div>
-      <p class="fine" style="margin-top:12px">這不是相機畫面，也<strong>不是溫度</strong> —— 手機量不到溫度。蓋好的鏡頭在畫面上是一整片均勻的紅，缺口剛好看不出來，所以這裡畫的是每一小塊被指腹蓋住多少。亮的地方就是還沒蓋到的地方。</p>
-    </section>
 
-    <section class="only-ready card">
-      <div class="dialLabel" style="margin-bottom:12px">現在量到的</div>
-      <div class="dims" id="readyDims"></div>
-      <p class="note" id="readyAdvisory" style="margin-top:12px" hidden></p>
-    </section>
+      <div class="holdDots only-ready" id="holdDots"></div>
 
-    <p class="only-ready fine">用<strong>指腹</strong>，不是指尖。輕放就好，不要用力壓鏡頭 —— 壓緊會把血擠開，反而量不到脈搏。</p>
+      <!-- 🔴 量測方法的說明全部收在這裡（founder 2026-09-15）：主擷取畫面
+           只放一個場、一個狀態、一句指令。數字沒有被刪掉 —— 它們是診斷實機
+           問題的唯一依據，只是收在一個 tap 之後。 -->
+      <details class="lensDetail">
+        <summary>量測細節</summary>
+        <div class="dims" id="detailDims" style="margin-top:14px"></div>
+        <p class="fine" style="margin-top:14px">這個光場不是相機畫面，也<strong>不是溫度</strong> —— 手機量不到溫度，也沒有紅外線感測器。蓋好的鏡頭在畫面上是一整片均勻的紅，缺口剛好看不出來，所以這裡畫的是每一小塊透過多少光。亮的地方代表光穩定地穿過來了。</p>
+        <p class="fine" style="margin-top:10px">格子就是 8×8，沒有內插 —— 那是這個光場真正的解析度。</p>
+        <p class="fine" style="margin-top:10px">用<strong>指腹</strong>，不是指尖。輕放就好，不要用力壓鏡頭 —— 壓緊會把血擠開，反而量不到脈搏。</p>
+      </details>
+    </section>
 
     <button class="only-ready ghost" id="skipGate" style="margin-top:auto" hidden>訊號一直不合格，仍要開始</button>
     <button class="only-ready ghost" id="cancelGate">取消</button>
