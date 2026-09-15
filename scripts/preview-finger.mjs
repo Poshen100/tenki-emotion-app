@@ -439,6 +439,16 @@ const sampleCover = (bare) =>
         const r = c.getBoundingClientRect();
         return { w: Math.round(r.width), h: Math.round(r.height) };
       }),
+      bares: cells.map((c) => Number(getComputedStyle(c).getPropertyValue('--bare'))),
+      // 每格各自的 alpha，以及整張圖用到的色相集合。前者驗單調，後者驗單一色相。
+      paint: cells.map((c) => {
+        const m = /color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/.exec(
+          getComputedStyle(c).backgroundImage,
+        );
+        return m === null
+          ? null
+          : { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] };
+      }),
       wellGap: document.getElementById('coverWell').dataset.gap,
       wellBorder: getComputedStyle(document.getElementById('coverWell')).borderTopColor,
       cellColours: [...new Set(cells.map((c) => getComputedStyle(c).backgroundColor))],
@@ -449,6 +459,7 @@ const sampleCover = (bare) =>
   }, bare);
 
 const fullCover = await sampleCover(null);
+
 check(
   `格子真的畫出來了（${grid}×${grid} 個，每個都有幾何）`,
   fullCover.cellCount === grid * grid && fullCover.geometry.every((g) => g.w > 0 && g.h > 0),
@@ -481,6 +492,57 @@ check(
   JSON.stringify(leftBare.uncoveredIndexes) ===
     JSON.stringify(Array.from({ length: grid }, (_, i) => i * grid)),
   JSON.stringify(leftBare.uncoveredIndexes),
+);
+
+// ── 色階：像熱像儀的是「連續的場」，不是 FLIR 那條彩虹 ────────────────────
+// 🔴 founder 問能不能做成紅外線成像的效果。成像的作法照抄（連續的場、用色階
+// 表示大小），調色盤不行 —— 彩虹裡每個顏色在這個產品裡都已經有主人，而且
+// 彩虹的亮度不單調，本來就是表示「量」的爛編碼。這幾條守的就是那個界線。
+
+// 半格高的留白 → 上緣那一列每格剛好蓋到一半。二值化會把它吃成「沒蓋到」。
+const halfBare = await sampleCover({ x: 0, y: 0, w: sampleSize, h: cellPx / 2 });
+check(
+  '🔴 色階是連續的：蓋一半的格子既不是 0 也不是 1',
+  halfBare.bares.some((b) => b > 0.05 && b < 0.95),
+  JSON.stringify([...new Set(halfBare.bares)]),
+);
+check(
+  '每格的 --bare 就是 1 − 該格的覆蓋比例（畫的是資料，不是另一個量）',
+  halfBare.bares.every(
+    (b, i) => Math.abs(b - (1 - halfBare.map.cells[i].fraction)) < 1e-6,
+  ),
+  JSON.stringify({ bares: halfBare.bares.slice(0, 4), cells: halfBare.map.cells.slice(0, 4) }),
+);
+
+// 🔴 單一色相、亮度單調 —— sequential ramp 的定義。換成彩虹會打紅這兩條。
+const painted = [...halfBare.paint, ...topBare.paint].filter((c) => c !== null && c.a > 0.01);
+check(
+  '🔴 整張圖只用一個色相（換成 FLIR 彩虹就會紅）',
+  painted.length > 0 &&
+    painted.every(
+      (c) =>
+        Math.abs(c.r - painted[0].r) < 0.01 &&
+        Math.abs(c.g - painted[0].g) < 0.01 &&
+        Math.abs(c.b - painted[0].b) < 0.01,
+    ),
+  JSON.stringify([...new Set(painted.map((c) => `${c.r},${c.g},${c.b}`))]),
+);
+check(
+  '🔴 而且那個色相是琥珀（紅>綠>藍），不是綠、青、紫或紅',
+  painted.length > 0 && painted.every((c) => c.r > c.g && c.g > c.b && c.r > 0.9 && c.b < 0.3),
+  JSON.stringify(painted[0] ?? null),
+);
+check(
+  '愈沒蓋到愈亮：alpha 隨 --bare 單調不遞減',
+  (() => {
+    const pairs = halfBare.bares
+      .map((b, i) => ({ b, a: halfBare.paint[i] === null ? 0 : halfBare.paint[i].a }))
+      .sort((x, y) => x.b - y.b);
+    return pairs.every((x, i) => i === 0 || x.a >= pairs[i - 1].a - 1e-6);
+  })(),
+  JSON.stringify(
+    halfBare.bares.map((b, i) => [b, halfBare.paint[i]?.a ?? 0]).slice(0, 6),
+  ),
 );
 
 // 🔴 地圖與閘門讀同一個數字 —— 在真的像素上，不只在單元測試的算術上。
@@ -1114,6 +1176,17 @@ if (shotReady) {
   await replayGate({}, 1);
   await page.screenshot({ path: shotReady, fullPage: true });
   console.log(`  📸 ${shotReady}`);
+}
+const shotCover = process.env.FINGER_SHOT_COVER;
+if (shotCover) {
+  // ⚠️ 先 resetGate：截圖是在所有斷言跑完之後，而那時頁面早就被推到 result
+  // 階段了 —— 第一版拍到的是結果畫面，不是就位畫面。
+  await page.evaluate(() => window.__tenkiFingerHarness.resetGate());
+  // 一個真的缺口：左上角一塊完全沒蓋到，邊界上再留半格 —— 色階的中間值
+  // 只有在這種狀態下看得到。
+  await sampleCover({ x: 0, y: 0, w: cellPx * 3, h: cellPx * 2.5 });
+  await page.screenshot({ path: shotCover, fullPage: true });
+  console.log(`  📸 ${shotCover}`);
 }
 const shotWeak = process.env.FINGER_SHOT_WEAK;
 if (shotWeak) {

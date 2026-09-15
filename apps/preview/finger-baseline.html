@@ -108,20 +108,43 @@
     /* ⚠️ 圓角方形，不是圓 —— 量的 ROI 是**正方形**裁切。畫成圓會把四個角的
        格子藏起來，而閘門照樣在算它們。外圈的環負責「這是鏡頭」的意象。 */
     [data-gap="yes"].coverWell { border-color: var(--warning); }
+    /* ── 色階 ──
+       🔴 像熱像儀的是「連續的場」，不是 FLIR 那條彩虹。彩虹不能用有兩個
+          各自成立的理由：(1) 彩虹裡每個顏色在這個產品裡都已經有主人 ——
+          綠=success、青=Clear/ACTIVE、紫=Premium、燒橙=Strain、紅=error、
+          金=SECURED；(2) 彩虹的亮度不單調，本來就是表示「量」的爛編碼。
+       表示量的正解是單一色相、亮度單調的 sequential ramp。這裡直接用 repo
+       自己量過的琥珀階（對比 2.5→4.2→6.3→8.0→9.9:1，嚴格遞增）。
+       ⚠️ 不做內插：8×8 內插出來會像一張高解析度熱像，而我們並不知道缺口
+          精確在哪個像素。保留方格是誠實的 —— 便宜的熱像儀本來就長這樣。 */
     .coverGrid { display: grid; width: 100%; height: 100%; gap: 1px; padding: 1px; }
-    .coverCell { border-radius: 2px; background: var(--n-800); }
-    /* ⚠️ 蓋到的格子刻意**不搶眼**（--n-600 而不是 --n-500）：畫面上該跳出來的
-       是要修的那一格，不是已經對的那十五格。 */
-    .coverCell[data-covered="yes"] { background: var(--n-600); }
-    /* 🔴 沒蓋到的格子吃 --warning，跟低維度的 bar 同一個用法：
-       「這是你要改的地方」。不是錯誤色，也不是語意綠的反面。 */
-    .coverCell[data-covered="no"] { background: var(--warning); }
-    .coverLegend {
-      display: flex; gap: 14px; justify-content: center; margin-top: 12px;
-      font-size: 11px; color: var(--n-500);
+    .coverCell {
+      /* --bare: 0（蓋滿）→ 1（完全沒蓋到）。JS 每幀寫入真正的比例。 */
+      --bare: 0;
+      border-radius: 1px;
+      background:
+        linear-gradient(
+          color-mix(in srgb, var(--amber-400) calc(var(--bare) * 100%), transparent),
+          color-mix(in srgb, var(--amber-400) calc(var(--bare) * 100%), transparent)
+        ),
+        var(--n-800);
     }
-    .coverKey { display: inline-flex; align-items: center; gap: 5px; }
-    .coverKey i { width: 10px; height: 10px; border-radius: 2px; display: block; }
+    /* 🔴 沒有 color-mix 時也要能看：退成兩段式，仍然是同一條琥珀階。
+       少幾階可以接受，彩虹不行。 */
+    @supports not (background: color-mix(in srgb, red 50%, transparent)) {
+      .coverCell { background: var(--n-800); }
+      .coverCell[data-covered="no"] { background: var(--amber-400); }
+    }
+    .coverLegend {
+      display: flex; align-items: center; gap: 10px; justify-content: center;
+      margin-top: 12px; font-size: 11px; color: var(--n-500);
+    }
+    /* 圖例本身就是那條色階 —— 兩個色塊講不出「連續」這件事。 */
+    .coverScale {
+      flex: 0 1 140px; height: 8px; border-radius: 4px;
+      background: linear-gradient(to right, var(--n-800), var(--amber-400));
+      border: 1px solid var(--n-700);
+    }
 
     .holdDots { display: flex; gap: 6px; margin-top: 10px; }
     .holdDot { width: 100%; height: 3px; border-radius: 2px; background: var(--n-800); }
@@ -317,10 +340,11 @@
         </div>
       </div>
       <div class="coverLegend">
-        <span class="coverKey"><i style="background:var(--n-600)"></i>蓋到了</span>
-        <span class="coverKey"><i style="background:var(--warning)"></i>還在漏光</span>
+        <span>蓋滿</span>
+        <span class="coverScale" role="img" aria-label="由暗到亮代表覆蓋愈少"></span>
+        <span>漏光</span>
       </div>
-      <p class="fine" style="margin-top:12px">這不是相機畫面 —— 蓋好的鏡頭在畫面上是一整片均勻的紅，缺口剛好看不出來。這裡畫的是每一小塊有沒有被指腹蓋住。</p>
+      <p class="fine" style="margin-top:12px">這不是相機畫面，也<strong>不是溫度</strong> —— 手機量不到溫度。蓋好的鏡頭在畫面上是一整片均勻的紅，缺口剛好看不出來，所以這裡畫的是每一小塊被指腹蓋住多少。亮的地方就是還沒蓋到的地方。</p>
     </section>
 
     <section class="only-ready card">

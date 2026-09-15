@@ -643,9 +643,23 @@ function renderGate() {
  * 1.5 秒的窗口、地圖看的是現在 —— 同一個畫面上兩個會不一致的數字，
  * 比沒有數字更糟。地圖只回答「哪裡」，bar 回答「多少」。
  *
- * 🔴 沒有 green：綠在這個產品裡是「跟著流程完成」的語意色（v6 `--good`），
- * 而這裡還沒有任何結果。蓋到的格子是中性色，沒蓋到的是 `--warning`
- * ——「這是你要改的地方」，跟低維度那些 bar 同一個用法。
+ * 🔴 **像熱像儀的是「連續的場」，不是 FLIR 那條彩虹。** founder 問能不能做成
+ * 紅外線成像的效果 —— 成像的作法可以照抄（一整片連續量的場、用色階表示大小、
+ * 不是 on/off 的方塊），調色盤不行，而且有兩個各自成立的理由：
+ *
+ *   1. **彩虹裡的每一個顏色在這個產品裡都已經有主人**：綠 = `--success`、
+ *      青 = Clear 帶位／ACTIVE、紫 = Premium、燒橙 = Strain 帶位、紅 = error、
+ *      金 = SECURED。擺一條彩虹進來等於同時亮起六個不相干的宣稱。
+ *   2. **彩虹本來就是表示大小的爛編碼**：亮度不是單調的，會在中段做出假的
+ *      分界。表示「量」的正確作法是單一色相、亮度單調的 sequential ramp。
+ *
+ * 所以色階走 repo 自己那條量過的琥珀階（對比 2.5 → 4.2 → 6.3 → 8.0 → 9.9:1，
+ * 嚴格遞增）：蓋滿 = 暗中性色（沉下去），愈沒蓋到愈亮 —— 跟 `--warning` 在
+ * 這一頁既有的意思一致：**亮的那塊就是你要改的地方**。
+ *
+ * ⚠️ 刻意**不做雙線性內插**。內插會讓 8×8 的量看起來像一張高解析度的熱像，
+ * 而我們並不知道缺口精確在哪一個像素 —— 那是這個 session 一直在擋的假精度。
+ * 保留方格反而是誠實的：便宜的熱像儀本來就長這樣。
  */
 function renderCoverageMap() {
   const host = $('coverGrid');
@@ -669,7 +683,13 @@ function renderCoverageMap() {
   }
 
   for (let i = 0; i < size; i++) {
-    host.children[i].dataset.covered = map.cells[i].covered ? 'yes' : 'no';
+    const cell = host.children[i];
+    // 🔴 連續的，不是二值的。畫的是這一格真正的覆蓋比例 —— 缺口在成形的過程
+    // 中就看得到漸層，而不是某一格突然從灰跳成橘。這也正是 8×8 格能成立的
+    // 原因：每格只有 64 個像素，二值化會讓邊界格在兩個顏色之間閃爍。
+    cell.style.setProperty('--bare', String(1 - map.cells[i].fraction));
+    // `covered` 留著給閘門語意（圖例、以及「還有幾格沒蓋到」），不是給顏色的。
+    cell.dataset.covered = map.cells[i].covered ? 'yes' : 'no';
   }
   $('coverWell').dataset.gap = map.uncoveredCount > 0 ? 'yes' : 'no';
   state.coverMap = map;

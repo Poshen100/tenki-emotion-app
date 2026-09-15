@@ -35,12 +35,21 @@ import { MIN_COVERAGE } from './quality';
 /**
  * Cells per side.
  *
- * ⚠️ Chosen against the sampler, not for looks: the page reduces the ROI to a
- * 64×64 canvas, so 4 cells a side is 16×16 = 256 pixels per cell — enough for
- * the fraction to mean something. A finer grid looks more precise and is not:
- * at 6 a side each cell is ~10 px across.
+ * ⚠️ Chosen against the sampler, not for looks. The page reduces the ROI to a
+ * 64×64 canvas, so 8 cells a side is 8×8 = **64 pixels per cell**. Each cell's
+ * fraction is a binomial proportion over those 64 pixels: at the worst case
+ * p = 0.5 its standard error is √(0.25/64) ≈ **6.3%** in one frame, and the
+ * surface averages `COVERAGE_RING_FRAMES` of them, which brings it to ≈ 2.8%.
+ *
+ * 🔴 This was 4 (256 px/cell) while the map drew each cell as covered-or-not.
+ * At a threshold, per-cell noise makes a boundary cell **flip between two
+ * colours**, and a flickering square reads as a broken instrument. Rendering
+ * the fraction continuously is what buys the finer grid: the same noise becomes
+ * a slightly mottled gradient, which is what a noisy measurement should look
+ * like. ⚠️ So the two go together — do not raise this again without checking
+ * that whatever draws it is still continuous.
  */
-export const COVERAGE_MAP_GRID = 4;
+export const COVERAGE_MAP_GRID = 8;
 
 /**
  * Coverage a single cell needs to count as covered.

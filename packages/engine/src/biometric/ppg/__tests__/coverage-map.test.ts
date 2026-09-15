@@ -19,6 +19,18 @@ function cellsWith(leaking: readonly number[], grid = COVERAGE_MAP_GRID): number
   return Array.from({ length: grid * grid }, (_, i) => (leaking.includes(i) ? 0.1 : 1));
 }
 
+// ⚠️ Index helpers rather than literals. The first version wrote `[0, 1, 2, 3]`
+// and called it "the top row", which was only true while the grid was 4 — the
+// tests would have quietly changed meaning when it moved to 8.
+const G = COVERAGE_MAP_GRID;
+const rowAt = (row: number): number[] => Array.from({ length: G }, (_, c) => row * G + c);
+const colAt = (col: number): number[] => Array.from({ length: G }, (_, r) => r * G + col);
+/** A square block whose top-left corner is (row, col). */
+const blockAt = (row: number, col: number, size: number): number[] =>
+  Array.from({ length: size * size }, (_, i) =>
+    (row + Math.floor(i / size)) * G + col + (i % size),
+  );
+
 describe('the map and the gate read the same number', () => {
   it('reports whole-ROI coverage as the mean of its own cells', () => {
     // 🔴 Not a second estimate. If this drifts, the picture and the bar beside
@@ -54,22 +66,27 @@ describe('the map and the gate read the same number', () => {
 
 describe('the map says which side the light is getting in', () => {
   it('names one edge when one edge leaks', () => {
-    // Top row of a 4×4 is indices 0-3. 「上緣還沒蓋到」 beats 「蓋滿一點」.
-    expect(buildCoverageMap(cellsWith([0, 1, 2, 3])).gapEdges).toEqual(['top']);
-    expect(buildCoverageMap(cellsWith([0, 4, 8, 12])).gapEdges).toEqual(['left']);
-    expect(buildCoverageMap(cellsWith([3, 7, 11, 15])).gapEdges).toEqual(['right']);
-    expect(buildCoverageMap(cellsWith([12, 13, 14, 15])).gapEdges).toEqual(['bottom']);
+    // 「上緣還沒蓋到」 beats 「蓋滿一點」.
+    expect(buildCoverageMap(cellsWith(rowAt(0))).gapEdges).toEqual(['top']);
+    expect(buildCoverageMap(cellsWith(colAt(0))).gapEdges).toEqual(['left']);
+    expect(buildCoverageMap(cellsWith(colAt(G - 1))).gapEdges).toEqual(['right']);
+    expect(buildCoverageMap(cellsWith(rowAt(G - 1))).gapEdges).toEqual(['bottom']);
   });
 
   it('names two edges for a real corner, and one for a plain side', () => {
     // 🔴 The reason edges are not simply "every edge with an uncovered cell":
-    // corner cells sit on two edges, so a bare top row (0-3) would report top,
-    // left and right. The user needs "move up", not a list.
-    expect(buildCoverageMap(cellsWith([0, 1, 2, 3])).gapEdges).toEqual(['top']);
-    // A genuine top-left corner gap: 2 uncovered on top, 2 on left → both.
-    expect(buildCoverageMap(cellsWith([0, 1, 4, 5])).gapEdges.sort()).toEqual(['left', 'top']);
+    // corner cells sit on two edges, so a bare top row would report top, left
+    // AND right. The user needs "move up", not a list.
+    expect(buildCoverageMap(cellsWith(rowAt(0))).gapEdges).toEqual(['top']);
+    // A genuine top-left corner: equal counts on top and left → both.
+    expect(buildCoverageMap(cellsWith(blockAt(0, 0, 2))).gapEdges.sort()).toEqual([
+      'left',
+      'top',
+    ]);
     // Top leaking more than left drops left rather than ranking it second.
-    expect(buildCoverageMap(cellsWith([0, 1, 2, 4])).gapEdges).toEqual(['top']);
+    expect(
+      buildCoverageMap(cellsWith([...rowAt(0).slice(0, 3), G])).gapEdges,
+    ).toEqual(['top']);
   });
 
   it('says nothing about edges when the lens is covered', () => {
@@ -80,9 +97,9 @@ describe('the map says which side the light is getting in', () => {
   });
 
   it('distinguishes a gap that touches no edge', () => {
-    // Index 5 is an interior cell of a 4×4. For a fingertip this means the
-    // finger is arched off the glass rather than misplaced — different fix.
-    const map = buildCoverageMap(cellsWith([5]));
+    // An interior cell. For a fingertip this means the finger is arched off the
+    // glass rather than misplaced — a different fix.
+    const map = buildCoverageMap(cellsWith(blockAt(1, 1, 1)));
     expect(map.gapEdges).toEqual([]);
     expect(map.centreGap).toBe(true);
   });
@@ -105,7 +122,7 @@ describe('the map refuses to be something it is not', () => {
   });
 
   it('carries coverage only — no pixels, no colour, no image', () => {
-    const cell = buildCoverageMap(cellsWith([0])).cells[0];
+    const cell = buildCoverageMap(cellsWith(blockAt(0, 0, 1))).cells[0];
     expect(Object.keys(cell).sort()).toEqual(['col', 'covered', 'fraction', 'row']);
   });
 });
