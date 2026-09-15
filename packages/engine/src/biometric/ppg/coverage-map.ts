@@ -30,7 +30,7 @@
  * @see docs/PHONE-PPG.md
  */
 
-import { MIN_COVERAGE } from './quality';
+import { MAX_CLIPPING, MIN_COVERAGE } from './quality';
 
 /**
  * Cells per side.
@@ -75,6 +75,15 @@ export interface CoverageCell {
   fraction: number;
   /** True when this cell alone clears `CELL_COVERED_FRACTION`. */
   covered: boolean;
+  /**
+   * True when this cell's pixels are being driven past the sensor's range.
+   *
+   * 🔴 Per-cell, not per-frame, and that is the whole point: the adjustment
+   * colour is only allowed to mark the part of the field that needs adjusting.
+   * A frame-level saturation flag would turn the entire picture amber, which
+   * tells the user something is wrong without telling them where.
+   */
+  saturated: boolean;
 }
 
 /** Where the fingertip is and is not. */
@@ -101,6 +110,8 @@ export interface CoverageMap {
   gapEdges: CoverageEdge[];
   /** True when uncovered cells exist but none of them touch an edge. */
   centreGap: boolean;
+  /** How many cells are being driven past the sensor's range. */
+  saturatedCount: number;
 }
 
 /**
@@ -112,11 +123,19 @@ export interface CoverageMap {
  * @returns Where the fingertip is, and the whole-ROI coverage implied by it.
  * @throws RangeError when the array is not a non-empty perfect square.
  */
-export function buildCoverageMap(cellFractions: readonly number[]): CoverageMap {
+export function buildCoverageMap(
+  cellFractions: readonly number[],
+  cellClipping: readonly number[] = [],
+): CoverageMap {
   const grid = Math.round(Math.sqrt(cellFractions.length));
   if (cellFractions.length === 0 || grid * grid !== cellFractions.length) {
     throw new RangeError(
       `coverage map needs a square number of cells, got ${cellFractions.length}`,
+    );
+  }
+  if (cellClipping.length > 0 && cellClipping.length !== cellFractions.length) {
+    throw new RangeError(
+      `clipping must match the cell count: ${cellClipping.length} vs ${cellFractions.length}`,
     );
   }
 
@@ -125,6 +144,9 @@ export function buildCoverageMap(cellFractions: readonly number[]): CoverageMap 
     col: index % grid,
     fraction,
     covered: fraction >= CELL_COVERED_FRACTION,
+    // Reuses the pipeline's own ceiling rather than a second threshold — a cell
+    // the map calls saturated is one the quality gate would call clipped.
+    saturated: (cellClipping[index] ?? 0) > MAX_CLIPPING,
   }));
 
   const uncovered = cells.filter((cell) => !cell.covered);
@@ -158,5 +180,6 @@ export function buildCoverageMap(cellFractions: readonly number[]): CoverageMap 
     uncoveredCount: uncovered.length,
     gapEdges,
     centreGap: uncovered.length > 0 && gapEdges.length === 0,
+    saturatedCount: cells.filter((cell) => cell.saturated).length,
   };
 }

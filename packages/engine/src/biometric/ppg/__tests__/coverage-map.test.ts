@@ -11,6 +11,7 @@ import {
   COVERAGE_MAP_GRID,
   buildCoverageMap,
 } from '../coverage-map';
+import { MAX_CLIPPING } from '../quality';
 import { assessFrameComponents } from '../quality';
 import { synthesizePpg } from '../replay';
 
@@ -121,8 +122,53 @@ describe('the map refuses to be something it is not', () => {
     expect(() => buildCoverageMap([])).toThrow(RangeError);
   });
 
-  it('carries coverage only — no pixels, no colour, no image', () => {
+  it('carries measured scalars only — no pixels, no colour, no image', () => {
     const cell = buildCoverageMap(cellsWith(blockAt(0, 0, 1))).cells[0];
-    expect(Object.keys(cell).sort()).toEqual(['col', 'covered', 'fraction', 'row']);
+    expect(Object.keys(cell).sort()).toEqual([
+      'col',
+      'covered',
+      'fraction',
+      'row',
+      'saturated',
+    ]);
+  });
+
+  it('rejects a clipping array that does not match the cells', () => {
+    expect(() => buildCoverageMap(cellsWith([]), [0.1, 0.2])).toThrow(RangeError);
+  });
+});
+
+describe('saturation is marked per cell, not per frame', () => {
+  const full = () => cellsWith([]);
+
+  it('🔴 marks only the cells actually being driven past the range', () => {
+    // The adjustment colour exists to say WHERE to adjust. A frame-level flag
+    // would turn the whole picture amber, which says something is wrong without
+    // saying where — and the founder ruled that out explicitly.
+    const clipping = full().map((_, i) => (i < 3 ? 0.9 : 0));
+    const map = buildCoverageMap(full(), clipping);
+    expect(map.saturatedCount).toBe(3);
+    expect(map.cells.slice(0, 3).every((c) => c.saturated)).toBe(true);
+    expect(map.cells.slice(3).some((c) => c.saturated)).toBe(false);
+  });
+
+  it('uses the pipeline’s own ceiling, not a second threshold', () => {
+    const justUnder = full().map(() => MAX_CLIPPING);
+    const justOver = full().map(() => MAX_CLIPPING + 0.001);
+    expect(buildCoverageMap(full(), justUnder).saturatedCount).toBe(0);
+    expect(buildCoverageMap(full(), justOver).saturatedCount).toBe(full().length);
+  });
+
+  it('🔴 a saturated cell is still a covered cell', () => {
+    // Saturation and coverage are different questions. A fully covered cell
+    // whose exposure is pinned is covered AND needs adjusting — collapsing the
+    // two would let an over-exposed field read as "not covered".
+    const map = buildCoverageMap(
+      full(),
+      full().map(() => 0.9),
+    );
+    expect(map.uncoveredCount).toBe(0);
+    expect(map.saturatedCount).toBe(full().length);
+    expect(map.gapEdges).toEqual([]);
   });
 });
