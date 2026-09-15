@@ -106,7 +106,9 @@ const INSTRUCTION_RULES: readonly {
   },
   {
     instruction: 'camera_adapting',
-    applies: ({ exposure }) => exposure !== null && exposure.slowDriftDominates,
+    // `=== true` rather than an optional chain's `boolean | undefined`: null
+    // means "too few frames to say", and that is not "the camera is hunting".
+    applies: ({ exposure }) => exposure?.slowDriftDominates === true,
   },
   {
     instruction: 'hold_still',
