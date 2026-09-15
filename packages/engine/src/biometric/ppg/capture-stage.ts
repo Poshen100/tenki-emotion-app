@@ -70,6 +70,53 @@ export const CAPTURE_INSTRUCTIONS = [
 export type CaptureInstruction = typeof CAPTURE_INSTRUCTIONS[number];
 
 /**
+ * The states the capture screen shows, exactly as specified (founder
+ * 2026-09-15, COVERAGE LOCK brief).
+ *
+ * 🔴 These are **display** states, derived from `CaptureStage` and the single
+ * instruction — not a second state machine. The engine stage stays the truth;
+ * this is the vocabulary the screen speaks, and it is finer in the places the
+ * user has to act differently (a coverage gap and an over-exposed field are one
+ * engine stage but two different things to do).
+ */
+export const PULSE_LENS_STATES = [
+  'searching_contact',
+  'coverage_gap',
+  'light_locking',
+  'pressure_adjustment',
+  'field_shifted',
+  'coverage_locked',
+  'rhythm_search',
+  'pulse_locked',
+] as const;
+
+export type PulseLensState = typeof PULSE_LENS_STATES[number];
+
+/**
+ * The three things the persistent evidence row reports.
+ *
+ * 🔴 Each is a live reading of a measured condition, not a memory of having
+ * once met it. The brief asks for the row to stay visible through refinement;
+ * staying visible is not the same as staying green, and a row that kept
+ * claiming "confirmed" after the finger slipped would be the sticky-lock
+ * dishonesty the Pulse Lock was specifically built to avoid.
+ *
+ * ⚠️ None of these claims literal physical coverage or a pressure measurement.
+ * `coverageConfirmed` means every cell of the sampled field is transmitting —
+ * a statement about the optical field, which is the thing actually measured.
+ */
+export interface CoverageEvidence {
+  /** Every cell of the coverage field is transmitting. */
+  coverageConfirmed: boolean;
+  /** Exposure has headroom and the camera is not re-deciding its level. */
+  lightUniform: boolean;
+  /** The hand is still and the contact is not wobbling. */
+  contactSteady: boolean;
+  /** All three at once — what `coverage_locked` rests on. */
+  allConfirmed: boolean;
+}
+
+/**
  * The instructions in the order the problems have to be FIXED, each with the
  * condition that raises it. First match wins; that is the whole rule.
  *
@@ -101,14 +148,21 @@ const INSTRUCTION_RULES: readonly {
       reading.contactCoverage < CONTACT_FOR_LIGHT,
   },
   {
-    instruction: 'relax_touch',
-    applies: ({ reading }) => reading.lightStability < LIGHT_SETTLED,
-  },
-  {
+    // 🔴 BEFORE `relax_touch`, and the reason is written two paragraphs up:
+    // a pressure reading is not trustworthy while the exposure is still
+    // hunting. The first version had these the other way round — the comment
+    // said one thing and the table did the other, so a capture whose camera was
+    // re-deciding its own gain would blame the user's grip. founder caught it
+    // in the COVERAGE LOCK brief ("exposure drift triggers light_locking, not a
+    // false pressure claim").
     instruction: 'camera_adapting',
     // `=== true` rather than an optional chain's `boolean | undefined`: null
     // means "too few frames to say", and that is not "the camera is hunting".
     applies: ({ exposure }) => exposure?.slowDriftDominates === true,
+  },
+  {
+    instruction: 'relax_touch',
+    applies: ({ reading }) => reading.lightStability < LIGHT_SETTLED,
   },
   {
     instruction: 'hold_still',
@@ -128,6 +182,10 @@ export const INSTRUCTION_PRIORITY: readonly CaptureInstruction[] = INSTRUCTION_R
 /** What the capture screen may show right now. */
 export interface CaptureStageView {
   stage: CaptureStage;
+  /** The state the screen names, in the brief's own vocabulary. */
+  lensState: PulseLensState;
+  /** Live status of the three evidence items. */
+  evidence: CoverageEvidence;
   /** The one thing to do, or null when nothing needs doing. */
   instruction: CaptureInstruction | null;
   /**
@@ -162,6 +220,12 @@ export interface CaptureStageInput {
    * told a user they lost something they never got.
    */
   previousStage?: CaptureStage;
+  /**
+   * Uncovered cells in the coverage field, or null when no field was computed.
+   *
+   * 🔴 Null is NOT zero. "We did not look" must never render as "confirmed".
+   */
+  uncoveredCells?: number | null;
 }
 
 /**
@@ -188,24 +252,31 @@ export function resolveCaptureStage(input: CaptureStageInput): CaptureStageView 
 
   const instruction = pickInstruction(input);
   const wouldYieldReading = lock.locked;
+  const evidence = assessCoverageEvidence(input);
+  const decorate = (stage: CaptureStage, yieldsReading: boolean): CaptureStageView => ({
+    stage,
+    lensState: resolveLensState(stage, instruction, evidence, reading),
+    evidence,
+    instruction,
+    wouldYieldReading: yieldsReading,
+  });
 
   // Before the clock starts the readiness gate owns the verdict — it is the
   // thing that decides whether the capture may begin at all.
   if (readiness !== undefined && !readiness.ready) {
-    return {
-      stage: readiness.blocker === 'no_signal' || readiness.blocker === 'no_contact'
+    return decorate(
+      readiness.blocker === 'no_signal' || readiness.blocker === 'no_contact'
         ? 'searching_contact'
         : 'locking_light',
-      instruction,
-      wouldYieldReading: false,
-    };
+      false,
+    );
   }
 
-  if (lock.locked) return { stage: 'pulse_locked', instruction, wouldYieldReading };
+  if (lock.locked) return decorate('pulse_locked', wouldYieldReading);
 
   // Contact is the only thing that stops the capture being about light at all.
   if (reading.contactCoverage < CONTACT_FOR_LIGHT) {
-    return { stage: 'searching_contact', instruction, wouldYieldReading };
+    return decorate('searching_contact', wouldYieldReading);
   }
 
   // 🔴 A problem AFTER the light field was established is a regression, and it
@@ -215,27 +286,87 @@ export function resolveCaptureStage(input: CaptureStageInput): CaptureStageView 
     instruction !== null &&
     input.previousStage !== undefined &&
     PAST_LIGHT_LOCK.includes(input.previousStage);
-  if (regressed) {
-    return { stage: 'needs_adjustment', instruction, wouldYieldReading };
-  }
+  if (regressed) return decorate('needs_adjustment', wouldYieldReading);
 
   const lightSettled =
     reading.lightStability >= LIGHT_SETTLED && (exposure === null || !exposure.slowDriftDominates);
-  if (!lightSettled) {
-    return { stage: 'locking_light', instruction, wouldYieldReading };
-  }
-
-  if (instruction !== null) {
-    return { stage: 'locking_light', instruction, wouldYieldReading };
+  if (!lightSettled || instruction !== null) {
+    return decorate('locking_light', wouldYieldReading);
   }
 
   // Candidate vs searching is quoted from the gate the final reading uses, via
   // `meetsReadingGate` — never re-derived from the rhythm number here.
-  return {
-    stage: reading.meetsReadingGate ? 'pulse_candidate' : 'searching_rhythm',
-    instruction: null,
+  return decorate(
+    reading.meetsReadingGate ? 'pulse_candidate' : 'searching_rhythm',
     wouldYieldReading,
+  );
+}
+
+/**
+ * Reads the three evidence items off the measurements.
+ *
+ * @param input - The same measurements the stage rests on.
+ * @returns Live status of each item; `coverageConfirmed` is false when no
+ *   coverage field was computed, because "we did not look" is not "confirmed".
+ */
+export function assessCoverageEvidence(input: CaptureStageInput): CoverageEvidence {
+  const { reading, exposure, uncoveredCells } = input;
+
+  const coverageConfirmed =
+    uncoveredCells !== undefined && uncoveredCells !== null && uncoveredCells === 0;
+  const lightUniform =
+    reading.lightStability >= LIGHT_SETTLED && exposure?.slowDriftDominates !== true;
+  const contactSteady =
+    1 - reading.motionArtifact >= STILLNESS_FOR_RHYTHM &&
+    reading.contactCoverage >= CONTACT_FOR_LIGHT;
+
+  return {
+    coverageConfirmed,
+    lightUniform,
+    contactSteady,
+    allConfirmed: coverageConfirmed && lightUniform && contactSteady,
   };
+}
+
+/**
+ * Names the display state.
+ *
+ * 🔴 An instruction, when there is one, decides the state — the screen shows
+ * the thing to do. Only when nothing needs fixing does the stage speak.
+ *
+ * ⚠️ `warm_fingertip` is the one instruction with no state of its own: a cold
+ * fingertip is not a coverage, light or movement problem, so the state stays
+ * whatever the capture is actually doing and the instruction line carries it.
+ * Inventing a ninth state for it would break "these exact display states".
+ */
+function resolveLensState(
+  stage: CaptureStage,
+  instruction: CaptureInstruction | null,
+  evidence: CoverageEvidence,
+  reading: LiveReading,
+): PulseLensState {
+  switch (instruction) {
+    case 'cover_lens':
+      return 'searching_contact';
+    case 'cover_more':
+      return 'coverage_gap';
+    case 'camera_adapting':
+      return 'light_locking';
+    case 'relax_touch':
+      return 'pressure_adjustment';
+    case 'hold_still':
+      return 'field_shifted';
+    default:
+      break;
+  }
+
+  if (stage === 'pulse_locked') return 'pulse_locked';
+  // Rhythm becomes assessable only once the window is long enough to look;
+  // before that the honest headline is the coverage milestone, not a search
+  // for something nobody has started looking for.
+  if (reading.rhythmicCoherence !== null) return 'rhythm_search';
+  if (evidence.allConfirmed) return 'coverage_locked';
+  return 'light_locking';
 }
 
 /**
