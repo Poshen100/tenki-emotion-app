@@ -53,6 +53,7 @@
 | **量不到就把權重重新分配給量得到的 driver** | 資料變少不得讓分數變高。實測：同一筆讀數把 HRV 拿掉，舊做法從 72 分變 **86 分**。改用「錨點 + 有上限的證據移動」（§15）|
 | 用「分數震盪幅度」判斷系統準不準 | z-score 會把幅度正規化。實測訊噪比 0.33 與 0.97 的分數 SD 幾乎一樣（12.2 vs 11.3），**畫面上分不出來**。要判斷準不準只能量雜訊 → `docs/PHONE-PPG.md` §10 |
 | 看到「節律讀不到」就預設是通道飽和 | 2026-09-12 實機第二次否決了這個預設：光 100%（沒有削波）而節律仍然 0。先看 `strong_pulse` 有沒有同時出現 —— 灌流好＋節律零 = 帶內有不重複的能量，主要嫌疑是 auto-exposure（`docs/PHONE-PPG.md` §19）|
+| 用彩虹（FLIR／jet／rainbow）色階表示「量」 | 彩虹裡每個顏色在這個產品裡都已經有主人（綠=success、青=Clear/ACTIVE、紫=Premium、燒橙=Strain、紅=error、金=SECURED），而且彩虹亮度不單調本來就是爛編碼。表示量用**單一色相、亮度單調**的 sequential ramp（`docs/PHONE-PPG.md` §18）|
 | 把 `strong_pulse` 說成「脈搏清楚」 | 它量的是**帶內 AC/DC**，階梯式曝光擾動會讓它**上升**。舊文案會讓畫面同時宣稱脈搏清楚與找不到節律，而強的其實是干擾 |
 | user-facing 承諾一個訊號鏈做不到的時間／精度 | `SENSOR_CHOICES` 曾承諾「30 秒建立基線」，實測 30 秒產出 HRV **0/12**，而且有一條測試把那個錯的值鎖著。承諾要綁到能力上（`MIN_SECONDS_FOR_HRV_BASELINE`）|
 
@@ -91,7 +92,7 @@ tenki-emotion-app/
 | Pulse Anchor | `packages/engine/src/biometric/pulse-anchor.ts` | 一次擷取＝一個靜息脈搏參考值；四階段基線成形（`docs/PHONE-PPG.md` §11）|
 | Signal Integrity | `packages/engine/src/biometric/ppg/signal-quality.ts` + `live.ts` | 四維儀表（接觸／光／穩定／節律）與掃描中的 Pulse Lock |
 | 就位閘 | `packages/engine/src/biometric/ppg/capture-readiness.ts` | 擷取開始**以前**的定位閘：只擋接觸，光與晃是 advisory（`docs/PHONE-PPG.md` §17）|
-| 覆蓋地圖 | `packages/engine/src/biometric/ppg/coverage-map.ts` | 缺口在「哪裡」：4×4 覆蓋格；coverage 與閘門同一個數字；不講方向（`docs/PHONE-PPG.md` §18）|
+| 覆蓋地圖 | `packages/engine/src/biometric/ppg/coverage-map.ts` | 缺口在「哪裡」：8×8 連續覆蓋場（單一色相色階，不是彩虹）；coverage 與閘門同一個數字；不講方向（`docs/PHONE-PPG.md` §18）|
 | 曝光穩定度 | `packages/engine/src/biometric/ppg/exposure-stability.ts` | 相機有沒有在自己重調增益：DC 慢速擺動 ＋ 時基（`docs/PHONE-PPG.md` §19）|
 | PRV 閘門 | `packages/engine/src/biometric/ppg/beat-template.ts` | 拍形穩定度 —— 唯一看得到感光雜訊的量（§13）|
 | Breath Lock | `packages/engine/src/biometric/ppg/breath-lock.ts` | 相機呼吸率的獨立契約與雙來源和解（§14，擷取層未寫）|
