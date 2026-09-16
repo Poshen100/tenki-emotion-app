@@ -40,8 +40,31 @@ const MIME = {
   '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.woff2': 'font/woff2',
 };
 
+/**
+ * 正式路由 → repo 路徑。
+ *
+ * 🔴 頁面裡的 `<script src="/preview/...">` 用的是**正式路由**，不是 repo 路徑。
+ *    不做這個改寫，那些 script 全部 404 —— 而頁面**照樣渲染**（HTML 是靜態的），
+ *    截出來的圖看起來很正常，只是 JS 一行都沒跑。2026-09-16 實例：我截了
+ *    decision-alert.html 去看新加的入口列，副標是空的，差點當成 bug 去查 ——
+ *    真相是 decision-outcome.js 404 → 檔案頂層 `TENKI_OUTCOME.STORE_KEY` 直接拋錯。
+ *    ⚠️ 這比「截不到」危險：截不到會發現，截到一個死頁面不會。
+ *    preview-token-scale.mjs 早就有同一條改寫，只是沒有人把它搬過來。
+ *
+ * @param {string} pathname
+ * @returns {string}
+ */
+function toRepoPath(pathname) {
+  if (pathname.startsWith('/preview/')) return '/apps' + pathname;
+  if (pathname.startsWith('/v3/')) return '/apps/preview/v6/' + pathname.slice('/v3/'.length);
+  if (pathname.startsWith('/drift/')) return '/apps/preview/' + pathname.slice('/drift/'.length);
+  return pathname;
+}
+
 const server = http.createServer((req, res) => {
-  const clean = normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^(\.\.[/\\])+/, '');
+  const clean = toRepoPath(
+    normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^(\.\.[/\\])+/, ''),
+  );
   let file = join(repoRoot, clean);
   if (existsSync(file) && statSync(file).isDirectory()) file = join(file, 'index.html');
   if (!existsSync(file) || !file.startsWith(repoRoot)) {
