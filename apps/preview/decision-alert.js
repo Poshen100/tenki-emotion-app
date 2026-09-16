@@ -357,6 +357,7 @@
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
     'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
     'resToggle', 'resChevron', 'resBody', 'resShowHistory', 'resShowRecap', 'resShowReflect',
+    'driftStatus',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ── 狀態卡 ──
@@ -1980,8 +1981,31 @@
     else { el.resBody.setAttribute('hidden', ''); el.resChevron.textContent = '▾'; }
   });
 
+  // ── 偏移預警入口的副標 ──
+  /**
+   * 這一列自己講出「你累積了多少」。
+   *
+   * 🔴 數字來自共用的 `readiness-history.js`（唯一來源），這裡不自己數 ——
+   *    不然就會變成「同一份資料，兩頁數字對不起來」的第四次（PLAYBOOK §6）。
+   * 🔴 沒有累積就說「尚未累積」，**不給 0 也不留空**：空白會讓人以為壞了，
+   *    0 會讓人以為它量過而結果是零。
+   * ⚠️ 模組沒載到就說沒載到 —— 不編一個看起來正常的數字頂替。
+   */
+  function renderDriftEntry() {
+    var history = window.TENKI_READINESS_HISTORY;
+    if (!history) {
+      el.driftStatus.textContent = '歷史模組沒載到';
+      return;
+    }
+    var summary = history.summary().summary;
+    el.driftStatus.textContent = summary.sampleCount === 0
+      ? '尚未累積'
+      : summary.sampleCount + ' 次掃描 · ' + summary.distinctDays + ' 天';
+  }
+
   renderSettingsInputs();
   renderResultSettingsInputs();
+  renderDriftEntry();
   renderState();
   refreshDiscipline();
   // 開頁就問「有沒有決策還在跑」—— 這一頁是 PWA 的 start_url，

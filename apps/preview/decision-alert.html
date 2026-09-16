@@ -95,6 +95,10 @@
       color: var(--gold-secured); border: 1px solid rgba(var(--gold-secured-rgb), 0.4);
       border-radius: 999px; padding: 2px 7px; text-transform: uppercase;
     }
+    /* 導覽列（偏移預警 ›）—— 與展開列同一個外觀，只有尾端記號不同：
+       `▾` 是「在這裡展開」，`›` 是「離開這一頁去別的地方」。
+       整列是文字，只把尾端記號交給可動層（沿用 .live-chevron 那條既有規則）。 */
+    a.live-toggle { text-decoration: none; }
     .live-body { padding: 0 14px 12px; }
     .live-hint { font-size: 11px; color: var(--n-500); line-height: 1.5; margin-bottom: 8px; }
     .live-push { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
@@ -660,6 +664,21 @@
         <label class="set-row set-check"><span>顯示這次的決策軌跡</span><input type="checkbox" id="resShowRecap" /></label>
         <label class="set-row set-check"><span>每次詢問反思</span><input type="checkbox" id="resShowReflect" /></label>
       </div>
+    </div>
+
+    <!-- 🔴 這一列是 /drift/ 唯一的入口。沒有它，那一頁只能手打網址 ——
+         而一個點不到的功能等於沒上線。目的地與這裡同網域，manifest 的
+         scope 是 `/`，所以在 PWA 裡點它不會被踢回 Safari，localStorage
+         也跟這裡的掃描共用（同一份讀數歷史）。 -->
+    <div class="live-card">
+      <a class="live-toggle" id="driftLink" href="/drift/">
+        <span class="live-title">偏移預警</span>
+        <!-- 🔴 刻意留空：這一格的字**一律由 JS 寫**（renderDriftEntry）。
+             預設值如果就是 JS 會寫的那句，harness 會在 JS 根本沒跑的情況下
+             綠燈 —— 第一版就是這樣過的。 -->
+        <span class="live-status" id="driftStatus"></span>
+        <span class="live-chevron">›</span>
+      </a>
     </div>
 
     <div class="silent-area" id="silentArea"></div>
