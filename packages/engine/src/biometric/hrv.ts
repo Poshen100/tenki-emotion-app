@@ -154,6 +154,27 @@ export function buildHrvObservation(
 }
 
 /**
+ * How each source's HRV value came to exist, in the vocabulary the biometric
+ * contract defines. `domain/src/contracts/wearable-sample.ts` is canonical for
+ * this vocabulary; it is restated here because the engine package does not
+ * depend on `domain`, and a value crossing into scoring still has to say what
+ * kind of number it is.
+ *
+ *  - `observed` — the platform measured HRV and reports it as its own value.
+ *  - `derived`  — computed by TENKI from a real inter-beat series.
+ *  - `estimated`— inferred from an optical waveform, beat timing not guaranteed.
+ */
+export type HrvDerivation = 'observed' | 'derived' | 'estimated';
+
+/** Which derivation each HRV source produces. */
+export const HRV_DERIVATION_BY_SOURCE: Readonly<Record<HrvSource, HrvDerivation>> = {
+  healthkit: 'observed',
+  health_connect: 'observed',
+  ble_chest: 'derived',
+  finger_scan: 'estimated',
+};
+
+/**
  * Computes the HRV z-score against a metric baseline.
  *
  * The caller is responsible for pairing the value with the baseline track for

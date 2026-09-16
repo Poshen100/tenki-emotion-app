@@ -1433,6 +1433,34 @@ console.log('\n── Hero 讀數不得爆版 ──');
   checkTruthy(`左欄印的是上限（${st.dur}）`, /上限/.test(st.dur) && /30:00/.test(st.dur));
   checkTruthy(`段標仍是結構守望（${st.seg}）`, /結構守望/.test(st.seg));
 
+  // 🔴 **收束那一格也在講這一次怎麼跑** —— 同一個矛盾的第三個出口。
+  // founder 2026-09-10 用真實 TradingView 快訊實走截到：一筆以
+  // 「ES1! / 上限 30:00 / 結構守望」跑完的決策，收束時底座印的是
+  // 「Mancini FBD / **3:00** ✓ 判定不成立 · 未進場」——
+  // 因為 complete 時 `tmplBoundLabel` 退回問 `watchMode()`（Lab 開關，
+  // 主畫面 PWA 裡是預設的關）。
+  // complete 是一份**對剛剛發生的事的報告**，報告必須問事實。
+  // ⚠️ 判定完會因為 `sess.originAlertId` 導回 `/decision-alert/#result`
+  // （那是刻意的：收束頁在那一頁）—— 導走之後這裡就沒有底座可以量了。
+  // 這一條要驗的是**complete 那一格印什麼**，不是回程；回程本身在
+  // preview-strip-color / preview-decision-chain 各有完整覆蓋。
+  // 所以判定前把 originAlertId 拿掉，讓它留在 /v3/ 的 complete 狀態。
+  // 🔴 `sess.watch` 一個字都不動 —— 那才是這條在測的東西。
+  await page.evaluate(() => { if (sess) sess.originAlertId = null; });
+  await page.evaluate(() => window.judgeWatch('stood_down'));
+  await page.waitForTimeout(500);
+  const done = await page.evaluate(() => ({
+    state: STATES[stateIdx],
+    sessAlive: !!sess,
+    dur: document.getElementById('fdcbDur').textContent.trim(),
+  }));
+  check('判定完停在 complete（前提）', done.state, 'complete');
+  // sess 只有 idle 分支才會被清掉 —— 這條同時鎖住那件事，
+  // 因為一旦有人在 complete 之前清掉 sess，上面那條就會退回問設定而沒人發現。
+  check('🔴 complete 時 sess 還在（報告要問得到事實）', done.sessAlive, true);
+  checkTruthy(`🔴 收束那一格不得印倒數時長（現在是「${done.dur}」）`, !done.dur.startsWith('3:00'));
+  checkTruthy(`收束印的是這一次真正的界線（${done.dur}）`, /上限/.test(done.dur) && /30:00/.test(done.dur));
+
   await page.close();
 }
 
@@ -2145,6 +2173,163 @@ console.log('\n── Hero 讀數不得爆版 ──');
     return n;
   });
   checkTruthy(`讀得到樣式表（${ruleCount} 條規則，0 條＝這條是死斷言）`, ruleCount > 200);
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 浮在底座上方的覆蓋列：底下的東西不得透出來
+//
+// founder 2026-09-10 實走截圖：判定列的兩顆按鈕之間，
+// 「以上四張為示意畫面 · …」那一行從縫隙透出來 —— 看起來就是字壓在字上。
+//
+// 🔴 根因不是座標挑錯，是**抄了一半**：`.watch-judge` 的註解寫著
+// 「位置與收合方式抄 .tp-picker」，但 .tp-picker 之所以能站在那個座標上，
+// 靠的是它有一塊不透明底板；判定列抄了座標、沒抄底板。
+//
+// 而那個座標**本來就會撞**。實測 390 寬 × 15 個可視高度（640…932），
+// 兩條覆蓋列與「示意說明／輪播圓點／vitals 卡」的垂直交集：
+//   640 / 660 / 680 / 700 / 720 / 740 / 760 / 780 / 800 / 896 / 932 → 撞（2~42px）
+//   820 / 844 / 852 / 874                                          → 不撞
+// 也就是說「不撞」只發生在 820~874 這一小段 —— 那是設計高度 844 的**巧合**，
+// 不是保證。而 Safari／in-app 瀏覽器的可視高度會落在 700~780
+// （iPhone 的 852/932 是**裝置**高度，扣掉網址列與工具列才是視窗高度）——
+// 那正好是撞得最兇的一段，也是為什麼 founder 看得到、我先前只掃裝置高度看不到。
+//
+// 🔴 這條**不能**用 elementFromPoint 寫。一個沒有背景的 div 仍然會吃到
+// hit test（pointer-events 不看背景透不透明）—— 改壞了它照樣綠，是死斷言。
+// 要問的是那個真正讓覆蓋成立的性質：**背景不透明**。
+// ═════════════════════════════════════════════════
+for (const h of [700, 740, 844, 932]) {
+  console.log(`\n── 覆蓋列不得透出底下的內容（390x${h}）──`);
+  const page = await openV3(h);
+  await page.evaluate(() => {
+    window.toggleDisciplineMode();
+    window.selectTmpl([...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === 'MANCINI_FBD'));
+  });
+  await page.waitForTimeout(450);
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(900);
+  // 兩條列同時打開：這條斷言問的是「有沒有底板」，不是「哪一條先出現」。
+  await page.evaluate(() => {
+    window.logEvent();
+    document.getElementById('watchJudge').classList.add('open');
+  });
+  await page.waitForTimeout(500);
+
+  const layers = await page.evaluate(() => {
+    const flow = ['.vitals-demo-note', '.snap-dots', '.vcard', '.snap-track']
+      .map((s) => document.querySelector(s)).filter(Boolean)
+      .map((e) => ({ name: (e.className || '').toString().split(' ')[0], r: e.getBoundingClientRect() }));
+    const overlaps = (a, c) => Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top) > 0
+      && Math.min(a.right, c.right) - Math.max(a.left, c.left) > 0;
+    const alphaOf = (bg) => {
+      if (!bg || bg === 'transparent') return 0;
+      const m = bg.match(/rgba?\(([^)]+)\)/);
+      if (!m) return 0;
+      const parts = m[1].split(',').map((x) => parseFloat(x));
+      return parts.length > 3 ? parts[3] : 1;
+    };
+    const out = [];
+    // 🔴 掃的是「所有壓在內容上的高層」，不是一份寫死的名單 ——
+    // 下一條覆蓋列加進來時，這條要自動守到它。
+    for (const e of document.querySelectorAll('.phone *')) {
+      const cs = getComputedStyle(e);
+      if (cs.position !== 'absolute' && cs.position !== 'fixed') continue;
+      if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) continue;
+      const z = parseInt(cs.zIndex, 10);
+      if (!(z >= 45)) continue;
+      const r = e.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) continue;
+      const hit = flow.filter((f) => overlaps(r, f.r)).map((f) => f.name);
+      if (!hit.length) continue;
+      out.push({
+        who: e.id || (e.className || '').toString().split(' ')[0],
+        bg: cs.backgroundColor, alpha: alphaOf(cs.backgroundColor), covers: hit.join('/'),
+      });
+    }
+    return out;
+  });
+
+  // 掃得到東西嗎 —— 一條掃不到目標的斷言是裝飾品，不是保險。
+  // ⚠️ 但 844 **本來就掃不到**：它落在 820~874 那段不撞的巧合裡（見上表），
+  //    所以它不能拿來當「這條斷言活著」的證據。活性證明交給會撞的那三個高度；
+  //    844 仍然跑底板檢查 —— 哪天它也開始撞，這條會自動守到。
+  const names = layers.map((l) => l.who);
+  if (h !== 844) {
+    checkTruthy(`掃得到壓在內容上的覆蓋層（${names.join(', ') || '無'}）`, layers.length >= 2);
+    checkTruthy('判定列在名單裡（它就是這一輪壞掉的那條）', names.includes('watchJudge'));
+  } else {
+    // 不對 844 斷言「必須不撞」—— 那會在別人合理地調版面時變成假紅。
+    // 它撞了也沒關係：底板檢查會接住它。這裡只把事實印出來。
+    console.log(`   844 壓在內容上的覆蓋層：${names.join(', ') || '無'}（設計高度剛好不撞）`);
+  }
+  for (const l of layers) {
+    check(`🔴 「${l.who}」壓在 ${l.covers} 上，背景必須不透明（${l.bg}）`, l.alpha, 1);
+  }
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 校準台的歸屬規則：過期的讀數不算，而且要說得出「為什麼不算」
+//
+// founder 2026-09-10 實走：Baseline 寫「最近讀數 · Clear · 49 小時前 校準」，
+// 而一筆用它跑完的決策被歸給 Clear（實測 attributed:1 excluded:0）。
+// 那張圖問的是「我按下判定那一刻在什麼狀態」—— 49 小時前量的東西答不出來。
+// `staleAtDecision` 那個旗標寫進去了、沒有人讀。
+//
+// 🔴 這條同時鎖住兩件事：
+//   ① 過期的不得歸屬（那是誠實紅線）
+//   ② 「沒有讀數」與「讀數已過期」要分開回（合成一句＝把不知道講成沒發生）
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 校準台：過期讀數不得歸屬帶位 ──');
+  const page = await openV3(844);
+  const sum = await page.evaluate(() => {
+    const now = Date.now();
+    const mk = (tag, reading) => ({ ts: now, outcomeTag: tag, templateId: 'MANCINI_FBD', readingAtDecision: reading });
+    const recs = [
+      // 新鮮讀數 → 歸得出來
+      mk('judged_entered', { band: 'clear', confidence: 'high', ts: now - 60e3, evidence: null, staleAtDecision: false }),
+      // 過期讀數 → 不得歸屬（founder 的 49 小時）
+      mk('judged_entered', { band: 'clear', confidence: 'high', ts: now - 49 * 36e5, evidence: null, staleAtDecision: true }),
+      // 完全沒有讀數（2026-09-08 之前的舊紀錄）
+      mk('judged_stood_down', undefined),
+    ];
+    const s = window.TENKI_OUTCOME.disciplineByBand(recs);
+    return {
+      why: recs.map((r) => window.TENKI_OUTCOME.bandExclusionReason(r)),
+      bands: recs.map((r) => window.TENKI_OUTCOME.bandOfRecord(r)),
+      attributed: s.attributed, excluded: s.excluded,
+      noReading: s.excludedNoReading, stale: s.excludedStale, total: s.total,
+      clearTotal: s.stats.filter((x) => x.band === 'clear')[0].total,
+    };
+  });
+  check('🔴 過期的讀數歸不出帶位', sum.bands[1], null);
+  check('新鮮的讀數照樣歸得出來（不得誤傷）', sum.bands[0], 'clear');
+  check('沒有讀數的仍然是 no_reading', sum.why[2], 'no_reading');
+  check('🔴 過期的理由是 stale，不是 no_reading（兩件事不得合成一句）', sum.why[1], 'stale');
+  check('可歸屬只剩那一筆新鮮的', sum.attributed, 1);
+  check('Clear 那一欄只算新鮮的那一筆', sum.clearTotal, 1);
+  check('排除數分得開：沒讀數 1', sum.noReading, 1);
+  check('排除數分得開：已過期 1', sum.stale, 1);
+  check('三個桶加起來等於總數（沒有人被漏掉或重複算）', sum.attributed + sum.noReading + sum.stale, sum.total);
+
+  // 畫面真的把兩個理由分開講 —— 只驗回傳值等於沒驗到 founder 看到的東西
+  const foot = await page.evaluate(() => {
+    const now = Date.now();
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([
+      { ts: now, outcomeTag: 'judged_entered', templateId: 'MANCINI_FBD',
+        readingAtDecision: { band: 'clear', confidence: 'high', ts: now - 49 * 36e5, evidence: null, staleAtDecision: true } },
+      { ts: now - 1e6, outcomeTag: 'judged_stood_down', templateId: 'MANCINI_FBD' },
+    ]));
+    window.goTab('lab');
+    window.renderLab();
+    return document.getElementById('calFoot').textContent;
+  });
+  checkTruthy(`畫面說得出「沒有讀數」（${foot.slice(0, 40)}…）`, foot.includes('1 筆決策當下沒有讀數'));
+  checkTruthy('畫面說得出「讀數已過期」', foot.includes('1 筆決策當下的讀數已過期'));
+  // 🔴 邀請語要對得上：他掃過了、只是太久以前，「先掃一次再進決策」對他是假的
+  checkTruthy('有過期紀錄時邀請語改成「進決策前先掃一次」', foot.includes('進決策前先掃一次'));
   await page.close();
 }
 

@@ -99,6 +99,24 @@ page.on('pageerror', (e) => {
   fail += 1;
 });
 
+// 🔴 先種一筆**既有**紀錄。理由是這支 harness 的核心斷言就是
+// 「momentum strip 本次段落 = 紀律色」（2026-08-07「條紋與完成率互相矛盾」的守門），
+// 而 2026-09-09 起 strip 在**只有 1 筆時整條不出現**（一筆畫不出「最近幾次」）——
+// 只走一次流程的話 strip 根本不存在，那條斷言會以「找不到選擇器」整支腳本崩掉。
+// 種一筆讓 N=2，既保住原本的顏色斷言，也讓下面新增的「N 少於 2 不出現」有對照。
+await page.addInitScript(() => {
+  // 🔴 `addInitScript` **每一次導頁都會再跑一次** —— 而這條鏈會導到 /v3/ 再導回來。
+  // 不擋的話它會在回程時把 /v3/ 剛寫進去的那一筆洗掉，`acceptReturnTicket()`
+  // 依 ts 找不到紀錄 → 收束頁根本不開，症狀看起來像「回程壞了」。
+  // （同一個坑 scratchpad 的 chain-shot.mjs 也踩過，這裡照抄它的一次性旗標。）
+  if (localStorage.getItem('__seeded')) return;
+  localStorage.setItem('__seeded', '1');
+  localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([{
+    symbol: 'ES1!', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+    contextTag: null, reachedReadiness: null, durationSec: 210, marks: 0,
+    ts: Date.now() - 3600e3, source: 'alert', originAlertId: 'seed-1',
+  }]));
+});
 await page.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(400);
 
@@ -195,9 +213,32 @@ const rate = (await page.textContent('#resultRate'))?.trim() ?? '';
 console.log(`\n紀律完成率文字：「${rate}」`);
 check('快速判定進場算紀律（完成率 100%）', /100%/.test(rate), true);
 
-const segBg = await page.$eval('#resultStrip .result-seg', (n) => getComputedStyle(n).backgroundColor);
+// 🔴 `$eval` 找不到元素會**直接丟例外把整支腳本打死**，而 CI 上看到的是一段
+// Playwright stack trace，不是「strip 沒出現」。先問存在，再問顏色。
+const segCount = await page.evaluate(() => document.querySelectorAll('#resultStrip .result-seg').length);
+check(`momentum strip 有畫出來（${segCount} 段；N≥2 才該出現）`, segCount >= 2, true);
+const segBg = segCount
+  ? await page.$eval('#resultStrip .result-seg', (n) => getComputedStyle(n).backgroundColor)
+  : null;
 check('momentum strip 本次段落 = 紀律色', segBg, CLEAR);
 check('momentum strip 不得畫成 strain 橘', segBg !== STRAIN, true);
+
+// 只有一筆時整條不出現 —— 一筆畫不出「最近幾次」，而它長得跟正上方那條
+// 紀律近況進度條一模一樣（founder 2026-09-09 實走：兩條滿版青條）。
+// ⚠️ `[hidden]` 單獨不夠：`.result-strip{display:flex}` 會蓋掉 UA 的 display:none，
+// 所以這裡問的是**盒子真的沒了**（w=h=0），不是問 `hidden` 屬性。
+const stripOne = await page.evaluate(() => {
+  const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1') || '[]');
+  window.__restore = all;
+  const strip = document.getElementById('resultStrip');
+  strip.textContent = '';
+  strip.hidden = true;   // 模擬 renderMomentumStrip 在 N<2 時的輸出
+  const r = strip.getBoundingClientRect();
+  return { w: Math.round(r.width), h: Math.round(r.height) };
+});
+check('🔴 只有一筆時 strip 整條不佔版面（[hidden] + display:none 都要有）',
+  stripOne, { w: 0, h: 0 });
+await page.evaluate(() => { document.getElementById('resultStrip').hidden = false; });
 
 // ── 決策軌跡是「欄位表」，不是散文 ──
 //
@@ -316,11 +357,20 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   const actions = await page.evaluate(() => {
     const btns = [...document.querySelectorAll('#resultSheet .sheet-actions .btn')]
       .filter((b) => b.getBoundingClientRect().width > 0);
-    return btns.map((b) => ({ id: b.id, text: b.textContent.trim(), primary: b.classList.contains('btn-primary') }));
+    return btns.map((b) => ({
+      id: b.id, text: b.textContent.trim(),
+      primary: b.classList.contains('btn-primary'),
+      nav: b.classList.contains('btn-nav'),
+    }));
   });
   check('收束頁動作列有兩顆看得見的按鈕', actions.length, 2);
-  check('第二顆是主動作「查看決策紀錄」',
-    actions[1] && actions[1].text === '查看決策紀錄' && actions[1].primary, true);
+  // 🔴 第二顆仍然是主位（最顯眼的那顆），但 2026-09-09 起**不穿可動層琥珀** ——
+  // 它只是換一頁，什麼都沒改變。可動層留給上面那三顆會寫進紀錄的自評晶片。
+  // 所以這裡同時問「是它」與「不是琥珀」：只問前者，改回琥珀也不會紅。
+  check('第二顆是主位導航「查看決策紀錄」',
+    actions[1] && actions[1].text === '查看決策紀錄' && actions[1].nav, true);
+  check('🔴 而且它不得穿可動層（導航不算改變狀態）',
+    actions[1] && actions[1].primary, false);
   // 「紀律近況」本來就是決策紀錄的預覽 —— 它要說得出自己是什麼。
   const previewLabel = await page.textContent('#resultHistory .result-block-label');
   check('紀律近況說得出它就是決策紀錄', /決策紀錄/.test(previewLabel || ''), true);
@@ -334,7 +384,9 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     count: document.getElementById('statCount').textContent.trim(),
   }));
   check('🔴 /v3/ Session 認得快訊決策（對齊率不是 0%）', session.align, '100%');
-  check('/v3/ Session 看得到那筆決策', session.count, '1');
+  // 2 筆＝這一輪走的 1 筆 + 開頁時種的 1 筆（種它的理由見檔頭的 addInitScript：
+  // momentum strip 在 N<2 時整條不出現，只走一次就沒有 strip 可驗）。
+  check('/v3/ Session 看得到那筆決策', session.count, '2');
 
   // ── 這筆紀錄要**認得出自己是誰** ──
   //
@@ -485,6 +537,97 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     /\d/.test(today.heroScore), false);
   check('Hero 分數槽有話說（不是整格空白）', today.heroScore.trim().length > 0, true);
   check('🔴 Hero 標籤跟槽裡的東西一致（不掛 Edge Score）', today.heroLabel, '狀態讀數');
+}
+
+// ═════════════════════════════════════════════════
+// 收束頁環心：文字要在圓裡，而且斷行只准落在分隔點上
+//
+// founder 2026-09-11 實走：「判定不成立 · 未進場，那個頁面是不是有點裁到了？」
+// 量出來的答案分兩半，而**兩半的結論不一樣**：
+//   · 幾何上**沒有**跑出環外（逐行四個角對圓心量過，全在圓內）
+//   · 壞的是**斷點**：整串在 176px 弧下要約 135px，而環心內容框是
+//     176 − padding 22×2 = **132px** —— 差 3px，於是斷成
+//     「判定不成立 · 未進」／「場」，一個字孤零零掉在第二行，看起來就是被裁掉。
+//
+// 🔴 這是第十二輪那條「容器是圓的時候，拿方框當斷言＝那條斷言不存在」的
+// **同一條規則沒有掃到這一頁** —— 當時只加在 `/v3/` 的 Hero 環心。
+//
+// 🔴 第二條不用魔術數字：**最窄的那一行，不得比最短的那一段還窄**。
+// 段（segment）是把文案照 ' · ' 拆開之後用 Range 量出來的真實寬度 ——
+// 所以「把 word-break 拿掉」會讓末行從「未進場」(45px) 掉成「場」(15px)，當場紅。
+// ═════════════════════════════════════════════════
+{
+  const RING_CASES = [
+    ['judged_stood_down', '判定不成立 · 未進場'],
+    ['judged_entered', '判定成立 · 已進場'],
+    ['abandoned_no_judgment', '沒有做出判定'],
+  ];
+  // ⚠️ 掃高度要掃**視窗**高度不是裝置高度（PLAYBOOK 2026-09-10）。
+  // 932/844 走 176px 弧、700 走短視窗的 128px 弧，兩組都要驗。
+  for (const height of [932, 844, 700]) {
+    for (const [tag, want] of RING_CASES) {
+      const rp = await browser.newPage({ viewport: { width: 390, height }, isMobile: true, hasTouch: true });
+      // 走真的產品路徑：紀錄 + 回程票 + `#result`（判定完 /v3/ 就是這樣導回來的）
+      await rp.addInitScript((t) => {
+        if (localStorage.getItem('__ringSeeded')) return;
+        localStorage.setItem('__ringSeeded', '1');
+        const ts = Date.now();
+        localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([{
+          ts, symbol: 'ES1!', templateId: 'MANCINI_FBD', outcomeTag: t,
+          durationSec: 314, awayCount: 3, awayMs: 251000, sameSymbolUpdates: 1,
+          source: 'alert', originAlertId: 'ring-1',
+        }]));
+        localStorage.setItem('tenki.alert.return.v1', JSON.stringify({ ts, at: Date.now() }));
+      }, tag);
+      await rp.goto(`${base}/decision-alert/#result`, { waitUntil: 'domcontentloaded' });
+      await rp.waitForTimeout(1800);
+
+      const m = await rp.evaluate(() => {
+        const hero = document.querySelector('.result-hero');
+        const out = document.getElementById('resultOutcome');
+        if (!hero || !out || !out.textContent) return null;
+        const hr = hero.getBoundingClientRect();
+        const size = hr.width;
+        const cx = hr.left + size / 2;
+        const cy = hr.top + size / 2;
+        // drawResultArc: r = size/2 - 14, lineWidth = 10 → 環線內緣半徑
+        const R = size / 2 - 14 - 5;
+        const txt = out.textContent;
+        const node = out.firstChild;
+        const lineRects = [...(() => { const r = document.createRange(); r.selectNodeContents(out); return r.getClientRects(); })()];
+        // 每一「段」的真實寬度（照 ' · ' 拆），用 Range 量，不用字數估
+        const segW = [];
+        let at = 0;
+        for (const seg of txt.split(' · ')) {
+          const i = txt.indexOf(seg, at);
+          const r = document.createRange();
+          r.setStart(node, i); r.setEnd(node, i + seg.length);
+          segW.push(Math.round(r.getBoundingClientRect().width));
+          at = i + seg.length;
+        }
+        let worst = -Infinity;
+        for (const q of lineRects) {
+          for (const [x, y] of [[q.left, q.top], [q.right, q.top], [q.left, q.bottom], [q.right, q.bottom]]) {
+            worst = Math.max(worst, Math.hypot(x - cx, y - cy) - R);
+          }
+        }
+        return {
+          txt, arc: Math.round(size), lines: lineRects.length,
+          lineW: lineRects.map((q) => Math.round(q.width)),
+          segW, outside: +worst.toFixed(1),
+        };
+      });
+
+      if (!m) { check(`收束頁環心開得起來（${height} / ${tag}）`, 'missing', 'rendered'); await rp.close(); continue; }
+      check(`收束頁環心印對文案（${height} / ${tag}）`, m.txt, want);
+      // TOL=4：行盒比字高（15px 字、約 21px 行盒），角落距離會被高估約 2~3px。
+      // 來源與第十二輪同一條推導，不從「剛好通過」反推。
+      check(`🔴 環心文字整段在圓內（${height} / 弧 ${m.arc} / 溢出 ${m.outside}px）`, m.outside <= 4, true);
+      check(`🔴 斷行不得切在詞中間（${height} / 行寬 ${m.lineW} / 段寬 ${m.segW}）`,
+        Math.min(...m.lineW) >= Math.min(...m.segW) - 2, true);
+      await rp.close();
+    }
+  }
 }
 
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);

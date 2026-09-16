@@ -18,6 +18,268 @@
 
 ---
 
+# 2026-09-10 Session Update (補充截圖：浮層透出底下的字 —— 我先前掃錯了高度)
+
+⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/decision-timer-completion-sh7ogg`（PR #252 續作）。
+
+## founder 的「補充截圖」在講什麼
+
+判定列（`成立 · 我進場了` / `不成立 · 我不做`）與快選晶片列壓在
+「以上四張為示意畫面 · 心率／HRV／呼吸需要感測器，目前尚未接上」那一行上。
+
+## 🔴 我第一次量的時候回報「乾淨」，而那是我自己挑錯了尺寸
+
+第一輪掃的是 844 / 852 / 874 / 896 / 932 —— **iPhone 的裝置高度**。
+但使用者看到的是**視窗高度**：Safari 與 App 內建瀏覽器扣掉網址列與工具列之後
+落在 700~780，而那正是撞得最兇的一段。補掃 640~932 共 15 個高度之後：
+
+- **撞**：640 660 680 700 720 740 760 780 800 896 932（2~42px）
+- **不撞**：820 844 852 874
+
+也就是說「不撞」只發生在 820~874 —— 那是設計高度 844 的**巧合**，不是保證。
+這條已提煉進 PLAYBOOK。
+
+## 根因：抄了一半
+
+`.watch-judge` 的註解原文寫著「位置與收合方式抄 `.tp-picker`（已驗證過的那組）」。
+抄了 bottom 座標、抄了 `visibility` 收合，**沒抄那塊不透明底板** ——
+而 `.tp-picker` 能站在那個座標上靠的正是底板。判定列沒有背景，於是底下那行字
+從兩顆按鈕的縫隙與 `.wj-anchor` 那一行透出來。
+
+修法：`.watch-judge` 加 `padding:6px` + `background:var(--n-900)` + 1px hairline
++ `border-radius:14px`，與 `.tp-picker` 逐項相同。
+
+## 🔴 守門差點又寫成死斷言
+
+第一版想用 `elementFromPoint` 去問「縫隙那一點打到誰」。**實測否決**：
+把背景改成 transparent 之後，390×740 下縫隙中心 (195,569) 問到的仍然是
+`watchJudge` —— hit test 不看背景透不透明。改成問真正讓覆蓋成立的性質：
+**`backgroundColor` 的 alpha 為 1**，並且掃的是性質（`.phone` 裡所有
+absolute/fixed、z-index ≥ 45、與內容矩形相交的元素）不是寫死名單。
+實測抓到三層：`tpPicker` / `watchJudge` / `fdcb`。
+反向驗證：拿掉背景 → 700/740/932 三個高度的 `watchJudge` 那條紅，其餘全綠。
+
+## 一併查過、沒有動的
+
+- `.snap{justify-content:center}`（`b5a58b6`）**不是**這個 bug 的成因：15 個高度裡
+  只影響兩個（800 的圓點交集 1px→0、932 的 0→7px），其餘逐欄相同。有了底板之後
+  那 7px 是「被蓋住」不是「透出來」，所以維持不動。
+- 700~780 這一段，浮層是真的壓在 vitals 卡下緣（最多 42px）。有底板之後它是
+  一塊乾淨的覆蓋，但內容確實被蓋住 —— 要不要讓版面在浮層打開時縮，是 founder 的決定，
+  這一輪沒有自行決定。
+
+## 同一天第二輪（founder 又走了一次，五張截圖）
+
+**確認落地**：判定列的底板在真機上生效、收束那一格印 `上限 30:00`、`+ 標記` 與
+決策紀律模式磁磚的琥珀、Lab 的「設定 / 即將開放」分區。
+
+**量過、不是 bug**：底座與判定列在 Lab 上壓過磁磚是**捲到一半**的正常疊放 ——
+捲到底時 `.lab-body` 的保留區夠（390×700：最後一塊下緣 458、判定列上緣 495，
+空 37px），三個高度都一樣。沒有動它。
+
+**🔴 但那五張露出一件真的**：Baseline 寫「最近讀數 · Clear · **49 小時前** 校準」，
+而拿同樣條件跑一筆決策，實測 `bandOfRecord → "clear"`、`attributed:1 excluded:0`
+—— **決策被歸給了 Clear**。`staleAtDecision` 這個旗標寫進去了、`bandOfRecord()`
+從來沒讀它。而那正是 `readiness-band.ts` 的 doc comment 自己警告的 fabricate，
+也跟 Hero 自己的標準打架（超過 15 分鐘就印「讀數已過期」）。
+
+修法：`bandExclusionReason()` 回 `'no_reading' | 'stale' | null`；排除數分成
+`excludedNoReading` / `excludedStale` 兩個欄位；邀請語跟著分岔。
+閾值**不另訂** —— 旗標存檔時用 `READING_FRESHNESS_MS_V6` 算好，讀端只讀它。
+兩條規則已提煉進 PLAYBOOK。
+
+⚠️ 代價：這張圖會空更久（要 15 分鐘內掃過再進決策才開始累積）。founder 拍板接受。
+
+## 2026-09-11：收束頁環心「有點裁到了」
+
+**量出來的答案分兩半，而兩半結論不一樣** —— 幾何上沒有溢出（逐行四個角對圓心，
+176px 弧最差 −17.3px），壞的是**斷點**：整串 135px、容器內容框 132px，差 3px，
+斷成「判定不成立 · 未進」／「場」。修 `word-break: keep-all`，不改文案（單一來源）。
+
+🔴 **又一次「規則有了但沒掃到這一頁」**：第十二輪立的圓形斷言只加在 `/v3/` Hero，
+收束頁環心是同一個形狀、同一個風險，一條斷言都沒有。現在補了 9 組
+（3 種判定 × 932/844/700），走真的回程票路徑。
+
+⚠️ **量到、這一輪沒動**：128px 弧（≤740px 短視窗）下圓內餘裕只有 **0.2px**。
+要收得動那段 media query，而它的垂直預算只剩 12px（578→568，上限 580）。
+新守門會在它越線時喊。
+
+🔴 **founder 實走的是 production（main），不是分支 preview** —— 他的收束頁印
+`ES1! · MANCINI_FBD`、「查看決策紀錄」是實心琥珀，那兩件 PR #252 都修了但還沒 merge。
+下次給連結時要講清楚看的是哪一份，否則他會重複回報已修好的東西。
+
+## 下次接手點
+
+- **`resumeActiveDecision()` 接回 marks/events 那一半，仍未在真機上驗證**
+  （從第九輪掛到現在）。強制關閉 App 再打開的實走檢查表已寫好。
+- 待裁：`--good`（35 處）退場；`.snap-track` 要不要長高吃掉剩下的 71px 空白
+  （會動到 Energy 圖表那組調過的數字）。
+
+
+# 2026-09-09 Session Update (founder 實走整條鏈 —— 三個都是「規則有了但沒掃到這一頁」)
+
+⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。
+⚠️ PR #250 已 merge（`d854719`），本輪從最新 main 重開同名分支。
+
+## founder 實走（四張截圖、無文字）確認落地的
+
+- 決策軌跡**在真機上有節點**：`00:58 標記 OBSERVE · Clear · 信心中 · 2 分鐘前`
+- 離開追蹤（`1 次 · 01:15`）兩頁數字一致
+- READINESS 印「—」不是「未達」（守望沒有這個量，寫 null 那條紅線成立）
+- ⚠️ 但這**不能**證明 `resumeActiveDecision()` 接回 marks/events ——
+  截圖看不出頁面有沒有真的被重載過。那一條仍未驗。
+
+## 三個問題，形狀完全一樣：**規則存在，但沒有掃到這一頁**
+
+1. **內部 id 印在畫面上**：收束頁標題與軌跡表都是 `ES1! · MANCINI_FBD`，
+   而同一筆紀錄在 `/v3/` 是 `ES1! · Mancini FBD`。
+   根因 `acceptReturnTicket()` 的 `tplName: rec.templateId`。
+   → 這一頁**本來就有**一條「MODE_2 不得出現在任何 user-facing 文字裡」，
+   但它只掃**模板選單**。同一條紅線在收束頁沒有人守。
+2. **可動層琥珀在收束頁是反的**：兩顆導航穿琥珀、三顆會改變狀態的自評晶片穿中性。
+   → 09-08 已經把規則收窄成「只給會改變狀態的」，但那一輪只掃 Lab。
+   而這一頁既有的守門問的是「琥珀只出現在**可點**元素上」——
+   兩顆導航當然可點，所以**全程綠著**。
+3. **兩條長得一樣的滿版青條**：momentum strip 在只有 1 筆時退化成一條
+   跟紀律近況進度條一模一樣的實心青條（實測 1 個 segment、352px）。
+   → 一筆畫不出「最近幾次」。`MOMENTUM_MIN = 2`，不夠就整條不出現。
+
+## 教訓
+
+- 🔴 **一條規則收窄之後，要問「它現在守的範圍還等於它宣稱的範圍嗎」。**
+  三個問題都不是「沒有規則」，是**規則的掃描範圍比它的宣稱小**。
+  這跟上一輪「名單以外都不准變」那條斷言漏掉 tabbar 是同一個形狀，
+  只是這次漏掉的是**整個頁面**。
+- 🔴 **「會不會改變狀態」機器判斷不出來，所以斷言不要假裝偵測它** ——
+  改成要求把決定寫成名單（穿琥珀的節點集合必須恰好等於列舉的那些）。
+  新增一個用法就會紅，逼下一個人回來說明它改變了什麼。
+- 🔴 **`[hidden]` 單獨用不會生效**：它的 `display:none` 來自 UA 樣式表，
+  而同一個元素上的 `display:flex` 會蓋掉。實測 `hidden = true` 之後
+  `getBoundingClientRect()` 回 `w:352 h:0` —— 元素還在版面裡，margin 也還在。
+- 🔴 **比對顏色要比 RGB 三元組，不要比整個字串**：外框式是
+  `rgba(255,160,40,0.32)`、填色式是 `rgb(255,160,40)`。第一版拿整串比
+  只抓到 1 個節點，斷言看起來很嚴格、實際只守到填色那一半。
+
+## 2026-09-10 追加：founder 用**真實 TradingView 快訊**走完整條鏈
+
+實走順序（截圖時間）：快訊入口收到 `ES1! 下穿 7,649.00` → 決策前讀數（真臉部掃描，
+`468 點 · 42 幀 · 8.0 秒 · 穩定度 89% · 眨眼確認`）→ Clear/信心中 →
+`ES1! / 上限 30:00 / 結構守望` 跑起來 → 判定不成立。**整個產品迴圈第一次用真快訊走通。**
+
+又抓到兩件，**形狀跟這一輪前三個一模一樣**（規則存在、但沒掃到那一面）：
+
+4. 🔴 **收束那一格印「Mancini FBD / 3:00」** —— 而那一筆是以「上限 30:00 結構守望」
+   跑完的。`tmplBoundLabel()` 只在 `running` 時問 `sess.watch`，complete 時退回問
+   `watchMode()`（Lab 開關，主畫面 PWA 裡預設關）。
+   第十四輪修 ready、第十五輪修 running，**這是第三個出口**。
+   → complete 是**對剛剛發生的事的報告**，報告要問事實。`sess` 在 complete 時還在。
+5. 🔴 **`PREMIUM` 徽章還是金色**（`--gold-secured`）—— 而金是 SECURED。
+   09-08 認領紫給 Premium 那一輪只掃了 v6。同一個產品裡兩個 Premium 色。
+
+## 下次接手點
+
+founder 實走 PR #252：收束頁應該只剩一條青條、標題印 `Mancini FBD`、
+琥珀在三顆自評晶片上、收束那一格印「上限 30:00」、PREMIUM 徽章是紫的。
+**仍未驗**：`resumeActiveDecision()` 的 marks/events（要 force quit 再重開才測得到）。
+
+---
+# 2026-09-10 Session Update (Phone-first biometric —— 相機 PPG 量測鏈、derivation、missing-data 的 Edge)
+
+⚠️ 依協議 2b：**不編號**，日期＋主題就是身分。分支 `claude/tenki-biometric-v2-ubzosn`。
+
+## founder 的指令
+
+貼了一整份「REAL BIOMETRIC ARCHITECTURE v2 — PHONE-FIRST + WEARABLE-ENHANCED」執行書：
+41 節，核心命題是**只有一支手機的人才是最大市場**，相機 PPG 不得做成「沒手錶時的退路」。
+明寫「不要只給我 architecture report，要 implement」。
+
+## 現況盤點（動工前查的，寫下來免得下次重查）
+
+已經有的比我以為的多：`BiometricSample` 契約、來源優先序＋freshness 窗、
+三支 mapper（HealthKit SDNN / Health Connect RMSSD / BLE 0x2A37）、devices 頁與
+`DeviceLinkPort`、Android 原生層。**缺的是相機那一條，而且缺得比看起來嚴重。**
+
+## 做了什麼（5 顆 commit）
+
+1. `derivation`（observed/derived/estimated）＋ `classifySampleFreshness` live/recent/stale。
+2. **真的相機 PPG pipeline**（`packages/engine/src/biometric/ppg/`）＋ 合成 replay ＋ scan modes。
+3. Edge Score／baseline 的 missing-data 路徑（`ReadingAvailability`）。
+4. 胸帶 RR → HRV（`beat-series.ts` + `adapters/bleHrv.ts`）。
+5. `docs/PHONE-PPG.md`（canonical）＋ WEARABLE/CLAUDE/PLAYBOOK/ANTIGRAVITY 接線。
+
+`verify.sh` 全綠（含 mobile 與七支 preview harness）。引擎測試 451 → 471。
+
+## 教訓
+
+- 🔴 **「測試綠」跟「演算法對」是兩件事，而中間那步是把數字印出來看。**
+  28 條測試全綠之後我才去印實際回收值，一次抓到三個真問題：
+  ① **呼吸率跟著心率跑** —— 舊的過零計數估計器在 jitter > RSA（光學拍點的常態）時，
+  「呼吸次數」變成拍數的函數：同一個 14 brpm 的 fixture，50bpm 報 14.3、105bpm 報 33.8，
+  **一路上都長得像正常生理數字**。
+  ② **自相關的八度錯誤** —— 16 brpm 報 8、20 報 10，而 8 和 12 一路都對，
+  **只在特定速率才現形**，所以抽兩個點測會全過。
+  ③ **偽跡剔除會靜靜地低報變異度** —— 真值 RMSSD 262ms，剔掉 19% 後 survivors 給 125ms，
+  品質分數 83，看起來完全生理合理，**不到真值一半**。
+  三個都是「測試會綠、量出來才知道錯」的那一類。
+
+- 🔴 **門檻要對著自己的量測值校準，不是對著教科書。**
+  `MIN_PERFUSION`/`GOOD_PERFUSION` 第一版照教科書的 1-3% 灌流指數設，結果
+  **每一次好掃描都被標成 `weak_pulse`** —— 因為我的量測是對帶通後訊號取 RMS，
+  而脈波是窄尖峰，健康的合成指尖只讀到 0.0062。
+  （PLAYBOOK §3「守門員自己也有模型」的同一族，這次是模型從一開始就沒對過。）
+
+- 🔴 **互為備援的兩道防線，會讓彼此的測試變成裝飾。**
+  baseline 有兩道擋佔位值：`updateBaselineProfile` 看 availability、`updateMetricBaseline`
+  拒非有限值。反向驗證時**單獨破壞任何一道，461 條測試照樣全綠** —— 另一道把案例接住了。
+  補了兩條各自隔離的測試（有限值＋availability=false 只驗前者；直接對 Welford 餵 NaN
+  只驗後者）才各紅一條。**冗餘是要的，沒被測到的那一層不是。**
+
+- 🔴 **合成 fixture 的參數不生理，會讓拒答看起來像正確的謹慎。**
+  第一版 `CLEAN_SCAN` 是 jitter 主導（RSA 18ms p-p vs jitter 22ms SD），
+  於是呼吸路徑**每一個 fixture 都回 null**，而我差點就收下那個結果。
+  靜息時 RSA 本來就是拍間變異的大宗，改成 55/12 之後路徑才真的被走到。
+
+- 🔴 **「缺就填一個合理預設值」是這份 codebase 最容易犯的錯，而且它有慣性。**
+  舊 `finger-ppg.ts` 偵測不到拍點時用 1000ms 當平均間期 → 報 60 bpm，呼吸率回 15。
+  `calcConfidence` 寫死 `inputs += 3; // These are always present in a BiometricReading`
+  —— 那句話對**型別**是真的，對**掃描**不是。已全部拆掉並寫進 CLAUDE.md 禁止事項。
+
+- 🟡 **拒答比報一半好，而且要接受它的代價。** 呼吸率受拍點取樣限制（心率就是呼吸的
+  取樣率），68bpm＋20brpm＝每次呼吸 3.4 拍，測不到。最後的處置是拒答 ——
+  連原本會對的也一起放棄。值得，因為報一半的呼吸率下游分不出來。
+
+## 續：接線與 provenance 消費者（同一分支，追加 3 顆 commit）
+
+founder 問「接下來怎麼做」，用 AskUserQuestion 定範圍，選 **P0 接線 + P1 引擎完整性**（不碰 preview）。
+
+- 🔴 **上一輪把能力做好了，但沒接上真正會被呼叫的那條 pipeline。**
+  `runScanPipeline` 有真呼叫者（`useProgressiveScan.ts:187`），把只立住心率的讀數餵進去實測：
+  `success=true / score=NaN / zone=strain / conf=0.67`。
+  `classifyEdgeZone(NaN)` 兩個比較都是 false，**最後一個分支贏** ——
+  量不出 HRV 的使用者會被判「狀態不好」，依據是一個沒人算出來的數字。
+  **教訓：做完能力要問「誰真的會呼叫它」，不是「測試綠了沒」。**
+- 🔴 **同一個裝飾性斷言教訓在同一個 session 內第二次**（pipeline 層的 availability 轉交）。
+  已依協議 4 提煉成 `docs/PLAYBOOK.md` 一條：縱深防禦要用「另一層接不住」的輸入各自測；
+  兩次的解法都是改用**有限但被宣告為未量測**的值。
+- 🔴 **穿戴 HRV 覆寫的觸發條件是反的**：`fingerCalibrated && fingerConfidence >= 0.80`
+  —— 相機**已經**高信心成功才用穿戴值，相機量不出來時反而完全不補。
+  而且吃裸 number，擋不住 HealthKit 的 SDNN（活案例，不是假想），也沒有 freshness。
+  改成帶 provenance 的 `WearableHrvContext` ＋ `evaluateWearableHrv()`。
+  progressive 那條改吃**同一個函式**，不抄第二份（兩份規則＝兩個讀數會不一致）。
+- 🟡 `derivation`/freshness 一開始**零消費者**（grep 證實）。契約逼你標記，
+  但沒有任何一層據此改變行為。補了 `domain/policies/reading-claim.ts`。
+  其中**否定豁免**是把 2026-09-09 那條「檢查器擋得住謊言也擋得住誠實否認」制度化。
+
+`verify.sh` 全綠。引擎 471 → 481，domain 179 → 189。
+
+## 下次接手點
+
+- **相機擷取層（VisionCamera frame processor → `PpgFrame`）還沒寫**，需要實機。
+  接縫已定好：`PpgFrame` 是純量，raw pixel 進不到引擎。
+- **所有準確度證據都來自合成器。** 第一次實機實走要把 perfusion／periodicity 的
+  實際分布印出來，門檻很可能要重校 —— 它們是對合成訊號量出來的。
+- 掃描 UI 還沒有（品質 reasons、模式選擇）。⚠️ **不要塞進 `(tabs)/scan.tsx`**（CLAUDE.md）。
+- iOS HealthKit 橋接、Android 真機實走都還在原地（見 WEARABLE-INTEGRATION §4d/§5）。
 # 2026-09-09 Session Update b (讓讀數開始累積 —— 護城河先前每天被抹掉一次)
 
 ⚠️ 依協議 2b：**不編號**。同一天第二條，接在 PR #253 merge 之後。分支同名重開自 main。

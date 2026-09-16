@@ -10,7 +10,8 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
-      "@tenki/domain": ["../../../../domain/src/index.ts"]
+      "@tenki/domain": ["../../../../domain/src/index.ts"],
+      "@tenki/engine": ["../../../../packages/engine/src/index.ts"]
     }
   }
 }

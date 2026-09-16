@@ -415,6 +415,67 @@ check('🔴 收束頁不得印「同標的更新：0 次」（不知道就別說
 checkTruthy('收束頁的 recap 說得出離開次數（v6 記的欄位接上了）',
   /離開|沒有離開/.test(sheet.recap || ''));
 
+// 🔴 收束頁不得出現任何**內部 id**。
+// 2026-09-09 founder 實走截圖：標題與軌跡表都印著 `ES1! · MANCINI_FBD` ——
+// 而同一筆紀錄在 /v3/ 的 Session 詳情印的是 `ES1! · Mancini FBD`。
+// 根因：回程票那條路 `tplName: rec.templateId`，**拿 id 當名字**。
+//
+// ⚠️ 這一頁本來就有一條「MODE_2 不得出現在任何 user-facing 文字裡」，
+// 但它只掃**模板選單**。同一條紅線在收束頁沒有人守，所以漏了一年。
+// 判準改成**形狀**而不是列舉某幾個 id：內部 key 一律是 `大寫_大寫`，
+// 顯示名一律不是。這樣新增模板不用回來改斷言。
+const sheetText = await page.evaluate(() => {
+  const n = document.getElementById('resultSheet');
+  return n ? n.innerText : '';
+});
+const leakedIds = (sheetText.match(/\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b/g) || []);
+check('🔴 收束頁不得出現內部 template id（大寫_大寫）', leakedIds, []);
+checkTruthy(`收束頁真的有字可掃（${sheetText.length} 字，0 就是死斷言）`, sheetText.length > 40);
+checkTruthy(`收束頁印的是顯示名（${sheet.head}）`, /Mancini FBD/.test(sheet.head || ''));
+
+// 🔴 可動層琥珀在收束頁上只准給**會改變狀態**的東西。
+// founder 2026-09-08 把規則從「可點就上琥珀」收窄成「只給會改變狀態的，導航不算」，
+// 但那一輪只掃了 Lab。2026-09-09 實走截圖顯示這一頁**剛好相反**：
+//   `查看決策紀錄`（導航）實心琥珀、`紀律近況 › `（導航）琥珀字，
+//   而三顆自評晶片（**會把 contextTag 寫進這一筆紀錄**）是中性／青。
+//
+// ⚠️ 「會不會改變狀態」機器判斷不出來，所以這條不假裝偵測 ——
+// 它要求**把決定寫成名單**：穿琥珀的節點集合必須恰好等於下面列舉的那些。
+// 新增一個琥珀用法就會紅，逼下一個人回來說明它改變了什麼。
+// 這比一條「只出現在可點元素上」誠實：那條在這一頁全程綠著，
+// 因為兩顆導航按鈕當然都可點。
+const amberNodes = await page.evaluate(() => {
+  // ⚠️ 比對 **RGB 三元組**，不是整個字串：外框式的琥珀寫成
+  // `rgba(255,160,40,0.32)`，填色式寫成 `rgb(255,160,40)`。
+  // 第一版拿整串比，於是只抓到 1 個節點 —— 那種漏抓會讓斷言看起來很嚴格、
+  // 實際上只守到填色那一半。
+  const isAmber = (v) => {
+    const m = (v || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!m) return false;
+    if (+m[1] !== 255 || +m[2] !== 160 || +m[3] !== 40) return false;
+    // 全透明的宣告不算「畫面上有琥珀」
+    const a = (v.match(/,\s*([\d.]+)\s*\)$/) || [])[1];
+    return a === undefined || Number(a) > 0.05;
+  };
+  const out = [];
+  document.querySelectorAll('#resultSheet *').forEach((n) => {
+    const cs = getComputedStyle(n);
+    if (cs.visibility === 'hidden' || cs.display === 'none') return;
+    const r = n.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return;
+    if ([cs.color, cs.backgroundColor, cs.borderTopColor].some(isAmber)) {
+      // 只取第一個 class token —— 選中態是 `result-chip sel`，
+      // 不正規化的話名單就要同時列舉兩種寫法，那是在守樣式而不是守規則。
+      out.push(String(n.className || n.id || n.tagName).split(' ')[0]);
+    }
+  });
+  return out;
+});
+// 收束頁上唯一會改變狀態的是三顆自評晶片（寫 contextTag）。
+check('🔴 收束頁的琥珀只給會改變狀態的（三顆自評晶片）',
+  [...new Set(amberNodes)].sort(), ['result-chip']);
+checkTruthy(`真的掃到琥珀節點（${amberNodes.length} 個，0 個就是死斷言）`, amberNodes.length >= 3);
+
 // Session 頁：逐欄看那一列長什麼樣（PLAYBOOK：不要只看彙總數字）
 await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(

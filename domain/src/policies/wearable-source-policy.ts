@@ -59,6 +59,32 @@ export const METRIC_FRESHNESS_MS: Readonly<Record<BiometricMetric, number>> = {
   active_energy_kcal: 12 * 60 * 60_000,
 };
 
+/**
+ * How recent a sample must be to describe the body *right now* rather than
+ * earlier today. Only metrics that can be live are listed: a resting heart
+ * rate, last night's sleep and today's step count each summarize a span, so
+ * they are never `live` no matter how recently they were written.
+ *
+ * This exists because "your HRV" and "your HRV as of yesterday morning" are
+ * different claims, and the second one printed without its qualifier is a lie
+ * the UI cannot walk back.
+ */
+export const METRIC_LIVE_MS: Readonly<Partial<Record<BiometricMetric, number>>> = {
+  heart_rate_bpm: 30_000,
+  rr_interval_ms: 30_000,
+  hrv_rmssd_ms: 2 * 60_000,
+  hrv_sdnn_ms: 2 * 60_000,
+  respiratory_rate_brpm: 2 * 60_000,
+  spo2_pct: 2 * 60_000,
+};
+
+/**
+ * How current a sample is, in the three states the UI has to distinguish.
+ * `stale` samples are past their metric's usable window entirely.
+ */
+export const SAMPLE_FRESHNESS_CLASSES = ['live', 'recent', 'stale'] as const;
+export type SampleFreshness = typeof SAMPLE_FRESHNESS_CLASSES[number];
+
 /** Age of a sample in ms; negative values (clock skew) are clamped to 0. */
 export function sampleAgeMs(sample: BiometricSample, now: number): number {
   return Math.max(0, now - sample.observedAt);
@@ -67,6 +93,27 @@ export function sampleAgeMs(sample: BiometricSample, now: number): number {
 /** Whether a sample is still inside its metric's freshness window. */
 export function isSampleFresh(sample: BiometricSample, now: number): boolean {
   return sampleAgeMs(sample, now) <= METRIC_FRESHNESS_MS[sample.metric];
+}
+
+/**
+ * Classifies how current a sample is.
+ *
+ * A metric with no entry in `METRIC_LIVE_MS` can never be `live` — that is the
+ * point of the table being partial, not an omission to fill in later.
+ *
+ * @param sample - The sample to classify.
+ * @param now - Current time (Unix ms).
+ * @returns `live`, `recent`, or `stale`.
+ */
+export function classifySampleFreshness(sample: BiometricSample, now: number): SampleFreshness {
+  const age = sampleAgeMs(sample, now);
+
+  if (age > METRIC_FRESHNESS_MS[sample.metric]) {
+    return 'stale';
+  }
+
+  const liveWindow = METRIC_LIVE_MS[sample.metric];
+  return liveWindow !== undefined && age <= liveWindow ? 'live' : 'recent';
 }
 
 /** Whether a sample is good enough to be considered at all. */

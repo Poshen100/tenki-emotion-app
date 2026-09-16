@@ -13,6 +13,8 @@
 
 - **核心指標**：Decision Edge Score (0-100)
 - **掃描主入口**：Soul Scan（臉部基線）— 方向定調見 `docs/SOUL-SCAN-NORTH-STAR.md`（必讀）；finger PPG 退為校準/補強層，不要把臉部流程塞進 `(tabs)/scan.tsx`
+- **Phone-first**：只有一支手機的使用者是最大市場。**沒有任何穿戴裝置也必須能走完整個核心循環**
+  （掃描 → 基線 → 讀數 → 校準）。穿戴是補強層，不是前置條件 —— 任何「連手錶才能用」的流程都是錯的。
 - **3 Zone**：Clear (70-100) / Neutral (40-69) / Strain (0-39)
   - ⚠️ 長期方向是改用 Baseline 語言（Above/At/Below Baseline），但 mapping 尚未定案（Strain 對應「過度刺激」還是
     「耗竭」不明確），**不要**自行猜測重新命名 `zone-config.ts` / `EdgeZone`。詳見 `docs/brand.md` § 7 Naming Migration。
@@ -40,6 +42,9 @@
 | 累積多個 Todo 才 commit | 違反 Commit-Per-Todo |
 | 把產品框定為 "trading tool" / "signal system" / "meditation app" | 違反 `SYSTEM.md` 核心定位（Decision Infrastructure / Human State Calibration System） |
 | 把 `docs/brand.md` 內部 dopamine/withdrawal/craving 措辭用在 user-facing copy | 違反 compliance 規則，見 `docs/brand.md` § 5 |
+| **量不到就填一個合理的預設值**（HRV 填 50、呼吸率填 15、缺睡眠當 80、沒拍點當 60bpm）| 靜息合理值下游**分不出來**，一路變成假讀數與被推壞的 baseline。缺就是缺：回 `null`，並把 driver 排除、confidence 降下來。詳見 `docs/PHONE-PPG.md` |
+| 把相機 HRV 跟手錶／胸帶 HRV 當同一個數字比較 | 三者 `derivation` 不同（estimated / observed / derived），contract 逼你標記就是為了擋這件事 |
+| 對 SDNN/RMSSD 或相機 HRV 的偏差**乘一個固定係數**修正 | 沒有個人化依據的魔術常數會把偏差藏起來（`harmonizeHrv() × 0.75` 已因此拆掉一次）|
 
 ## Monorepo 架構
 
@@ -72,6 +77,9 @@ tenki-emotion-app/
 | Decision Intelligence | `packages/engine/src/intelligence/` | 個人決策雷達：drift / twin / calibration proof / black box + evidence 契約（規格 `docs/DECISION-INTELLIGENCE.md`） |
 | Session Governance | `packages/engine/src/session/` | modes + templates + timer + gate + violations |
 | Baseline | `packages/engine/src/baseline/` | signal-quality-gate + bootstrap (Welford) |
+| Phone PPG | `packages/engine/src/biometric/ppg/` | 手機相機 PPG 量測鏈：重取樣→帶通→自相關→拍點→品質閘（規格 `docs/PHONE-PPG.md`，動工前必讀）|
+| Beat-series HRV | `packages/engine/src/biometric/beat-series.ts` | 胸帶 RR interval → RMSSD/SDNN；沒有 RR 就沒有 HRV |
+| Scan Modes | `packages/engine/src/biometric/scan-modes.ts` | quick_check / full_scan / precision，各自能報什麼 |
 | Compliance | `packages/engine/src/compliance/` | user-facing copy 審查 |
 | FHZ Scan | `packages/scan/src/` | Finger Heat Zone 掃描 pipeline |
 | Zone Config | `packages/shared/src/zone-config.ts` | 3 zone 閾值 |

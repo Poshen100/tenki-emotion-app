@@ -81,11 +81,34 @@ describe('Finger PPG Engine Logic', () => {
       }
 
       const result = processFingerPpgWindow(samples, sampleRate);
-      expect(result.bpm).toBeCloseTo(60, 0);
+      expect(result.bpm).not.toBeNull();
+      expect(result.bpm as number).toBeCloseTo(60, 0);
       expect(result.validBeats).toBeGreaterThan(0);
       expect(result.signalQuality.acceptable).toBe(true);
       expect(result.signalQuality.coverage).toBeCloseTo(0.95, 2);
       expect(result.precisionTier).toBe('quick'); // 4 beats is quick
+    });
+  });
+
+  describe('no fabricated fallbacks', () => {
+    it('returns null rather than a resting-looking reading from a pulseless window', () => {
+      // 🔴 This is what the module used to do: with no detectable beats it
+      // substituted a 1000 ms mean interval and reported 60 bpm, and reported
+      // 15 breaths per minute. Both look like a calm, healthy person.
+      const flat: FingerPpgSample[] = Array.from({ length: 120 }, (_, i) => ({
+        timestamp: 1_760_000_000_000 + i * 33,
+        redMean: 0.5,
+        greenMean: 0.1,
+        coverage: 0.95,
+        motionDelta: 0.02,
+      }));
+
+      const result = processFingerPpgWindow(flat, 30);
+
+      expect(result.validBeats).toBe(0);
+      expect(result.bpm).toBeNull();
+      expect(result.hrvRmssdMs).toBeNull();
+      expect(result.rrBrpm).toBeNull();
     });
   });
 });

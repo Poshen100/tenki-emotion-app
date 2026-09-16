@@ -1,3 +1,51 @@
+# 2026-09-10 ADDENDUM — Phone-first biometric：相機 PPG 量測鏈落地（演算法完成、擷取層仍需實機）
+
+**規格** → **`docs/PHONE-PPG.md`（canonical，動工前必讀）**；穿戴補強層見 `docs/WEARABLE-INTEGRATION.md`。
+
+## 定位改變（這條比程式碼重要）
+
+**只有一支手機的使用者是 TENKI 最大的市場，不是「沒有手錶時的退路」。**
+相機 PPG 是一級量測鏈：它能量到的就報，量不到的就明說沒量到，
+而且 Edge Score 與 baseline 現在**能誠實表達「這一項沒有」**。
+任何「連了手錶才能用」的流程都是錯的 —— 沒有穿戴裝置必須能走完整個核心循環。
+
+## 這次真正完成的（雲端可驗，全部有測試）
+
+| 範圍 | 位置 |
+|---|---|
+| 相機 PPG 量測鏈（重取樣→零相位帶通→自相關→拍點→偽跡剔除→品質閘）| `packages/engine/src/biometric/ppg/` |
+| 確定性合成 replay ＋ 八個 fixture（含真值回報）| `ppg/replay.ts` |
+| Scan modes（quick_check / full_scan / precision）| `biometric/scan-modes.ts` |
+| 胸帶 RR interval → RMSSD/SDNN | `biometric/beat-series.ts` + `mobile/.../adapters/bleHrv.ts` |
+| `derivation`（observed/derived/estimated）＋ live/recent/stale | `domain/contracts/wearable-sample.ts`、`policies/wearable-source-policy.ts` |
+| Edge Score / baseline 的 missing-data 路徑 | `scoring/edge-score.ts`、`baseline/baseline.ts` |
+
+## 🔴 三個量出來的真問題（合成真值比對抓到的，不是推論）
+
+寫在這裡是因為**下一個人很可能重犯**，完整版見 `docs/PHONE-PPG.md` §3。
+
+1. **呼吸率會跟著心率跑。** 舊的過零計數估計器在 jitter > RSA（光學拍點的常態）時，
+   「呼吸次數」變成拍數的函數：同一個 14 brpm 的 fixture，50bpm 報 14.3、105bpm 報 33.8。
+2. **自相關的八度錯誤**：16 brpm 報 8、20 報 10，而 8 和 12 一路都對 ——
+   **只在特定速率才現形**。
+3. **偽跡剔除會靜靜地低報變異度**：真值 RMSSD 262ms，剔掉 19% 後 survivors 給 125ms ——
+   品質分數 83，看起來完全生理合理，不到真值一半。
+
+## ⚠️ 桌機／實機才做得到的（雲端做不了，不要在雲端假裝做完）
+
+1. **VisionCamera frame processor → `PpgFrame`**：ROI 取樣、閃光燈、曝光鎖定、每幀成本。
+   接縫已經定好（`PpgFrame` 是純量，raw pixel 進不到引擎），實作它就接上了。
+2. **實機準確度抽驗**：目前所有證據都來自合成器。第一次實走要把 perfusion 與
+   periodicity 的**實際分布**印出來 —— 門檻（`MIN_PERFUSION` 等）很可能要重校，
+   它們是對合成訊號量出來的。
+3. **效能／發熱**：逐幀處理**不得**進 React state、**不得**每幀 rerender。
+4. iOS HealthKit 橋接、Android 真機實走（見 WEARABLE-INTEGRATION §4d）。
+
+**嚴禁**用任何形式的模擬訊號填補缺少的相機 —— `replay.ts` 是量具，
+它產生的任何東西都不得成為使用者看得到的讀數。
+
+---
+
 # 2026-08-19 ADDENDUM(b) — 環境 bring-up：讓 founder 親眼看到 mobile UX
 
 **工單** → **`docs/prompts/antigravity-expo-go-kickoff.md`**

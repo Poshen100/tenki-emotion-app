@@ -101,9 +101,15 @@ export function useProgressiveScan({
   const latestSourcesRef = useRef<SourceQuality[] | undefined>(undefined);
   const isScanningRef = useRef(false);
 
-  // Face-only flow: no finger calibration source. Neutral defaults keep the
-  // multi-source pipeline running on the face signal alone.
-  const wearableHrvRmssdMs: number | undefined = undefined;
+  // Face-only flow: no finger calibration source, and no wearable HRV feed —
+  // nothing in the app reads a health hub or a strap into this hook yet.
+  //
+  // Left as explicit `undefined` rather than removed so the wiring point is
+  // visible: when a wearable source exists, build a `WearableHrvContext` here
+  // (metric, value, observedAt, source) and the pipeline arbitrates it. Do NOT
+  // reintroduce a bare RMSSD number — the pipeline needs the provenance to know
+  // whether the value may be used at all.
+  const wearableHrv = undefined;
   const fingerCalibrated = false;
   const fingerConfidence = 0;
 
@@ -136,7 +142,7 @@ export function useProgressiveScan({
       recentScores,
       rrIntervalCount: rrCount,
       availableSources,
-      wearableHrvRmssdMs,
+      wearableHrv,
     };
 
     const result = runProgressiveScan(input);
@@ -145,7 +151,7 @@ export function useProgressiveScan({
     if (levelChanged) {
       onLevelAdvance?.(result);
     }
-  }, [baseline, sleepRecovery, recentScores, wearableHrvRmssdMs, onLevelAdvance]);
+  }, [baseline, sleepRecovery, recentScores, wearableHrv, onLevelAdvance]);
 
   const startScan = useCallback((
     reading: BiometricReading,
@@ -181,14 +187,14 @@ export function useProgressiveScan({
       fingerCalibrated,
       fingerConfidence,
       availableSources: latestSourcesRef.current,
-      wearableHrvRmssdMs,
+      wearableHrv,
     };
 
     const result = runScanPipeline(reading, signalQuality, deps);
     setFinalResult(result);
     onScanComplete?.(result);
   }, [baseline, sleepRecovery, recentScores, consecutiveRedGates,
-      fingerCalibrated, fingerConfidence, wearableHrvRmssdMs, onScanComplete]);
+      fingerCalibrated, fingerConfidence, wearableHrv, onScanComplete]);
 
   const reset = useCallback(() => {
     prevRrCountRef.current = 0;
