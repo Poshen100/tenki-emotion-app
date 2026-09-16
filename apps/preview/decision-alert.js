@@ -291,9 +291,12 @@
     } catch (e) { return null; }
   }
 
-  function saveReading(reading) {
-    localStorage.setItem(READING_STORE_KEY, JSON.stringify(reading));
-  }
+  // ⚠️ 這裡**刻意沒有** saveReading。寫入「當下讀數」的只有一個地方：
+  //    `readiness-scan.js` 的 saveReading —— 因為那支同時會把讀數 append
+  //    進歷史（`readiness-history.js`）。在這裡另開一條寫入路徑，寫進去的
+  //    讀數就會繞過歷史，而那正是「護城河每天被抹掉」的那個 bug 的形狀。
+  //    `scripts/preview-drift.mjs` 有一條斷言鎖住這件事。
+  //    （本檔原本有一個沒有任何呼叫端的 saveReading，2026-09-16 刪除。）
 
   function isReadingFresh(reading, now) {
     if (!reading) return false;
