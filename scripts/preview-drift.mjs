@@ -196,6 +196,22 @@ checkTruthy(
   '挪用 persisted key ＝ 讓既有紀錄靜默壞掉'
 );
 
+console.log('\n── /drift/ 的入口 ──');
+// 🔴 一個點不到的功能等於沒上線。decision-alert.html 是 PWA 的 start_url
+//    （manifest start_url），所以入口放在那裡；沒有它就只能手打網址。
+const ALERT_HTML = read('apps/preview/decision-alert.html');
+const ALERT_HTML_JS = read('apps/preview/decision-alert.js');
+checkTruthy(
+  'PWA 首頁有一條連到 /drift/ 的連結',
+  /<a[^>]+href="\/drift\/"/.test(ALERT_HTML),
+  '沒有入口 = /drift/ 只能手打網址'
+);
+checkTruthy(
+  '入口用絕對路徑（同網域才留得在 PWA 裡）',
+  !/<a[^>]+href="(\.\.|\.)\/?drift/.test(ALERT_HTML),
+  '相對路徑會在不同深度的頁面上指到別的地方'
+);
+
 console.log('\n── 讀數歷史：接線 ──');
 checkTruthy(
   'saveReading 有把讀數送進歷史',
@@ -206,6 +222,17 @@ checkTruthy(
   'readiness-scan.js 沒有自己寫第二份歷史',
   !SCAN.includes(keyFromTs),
   `readiness-scan.js 直接碰 ${keyFromTs} ＝ 又生出第二個來源（PLAYBOOK §6）`
+);
+// 🔴 「當下讀數」只能有一個寫入者，因為**那個寫入者同時負責 append 進歷史**。
+//    任何第二條寫入路徑寫進去的讀數都會繞過歷史 —— 那正是這個 PR 在修的
+//    bug 的形狀。decision-alert.js 原本就有一個沒人呼叫的 saveReading（已刪），
+//    留著遲早會有人接上去。
+const READING_KEY = 'tenki.readiness.reading.v1';
+checkTruthy(
+  '只有 readiness-scan.js 會寫「當下讀數」',
+  !ALERT_HTML_JS.includes('setItem(' + JSON.stringify(READING_KEY)) &&
+    !/setItem\(\s*READING_STORE_KEY/.test(ALERT_HTML_JS),
+  'decision-alert.js 也在寫當下讀數 → 那條路徑的讀數不會進歷史'
 );
 for (const page of PAGES_LOADING_SCAN) {
   const html = read(page);
@@ -240,7 +267,13 @@ const MIME = {
 };
 
 const server = http.createServer((req, res) => {
-  const clean = decodeURIComponent(req.url.split('?')[0]);
+  const raw = decodeURIComponent(req.url.split('?')[0]);
+  // 🔴 頁面用的是**正式路由**（`/preview/readiness-scan.js`），不是 repo 路徑。
+  //    不做這個改寫，decision-alert.html 的 script 全部 404 —— 而頁面照樣渲染，
+  //    只是 JS 沒跑。第一版就是這樣：「沒有累積時說尚未累積」**綠著**，
+  //    因為它量到的是 HTML 裡的預設字，不是 JS 算出來的結果。
+  //    （preview-token-scale.mjs 早就有同一條改寫，我沒抄過來。）
+  const clean = raw.startsWith('/preview/') ? '/apps' + raw : raw;
   const file = join(repoRoot, clean);
   if (!file.startsWith(repoRoot) || !existsSync(file)) {
     res.writeHead(404).end('nf');
@@ -395,6 +428,39 @@ checkTruthy(
   realText
 );
 await seeded.close();
+
+console.log('\n── /drift/ 入口列的副標是算出來的 ──');
+const alertPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const alertErrors = [];
+alertPage.on('pageerror', (e) => alertErrors.push(String(e)));
+await alertPage.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
+check('沒有累積時說「尚未累積」', await alertPage.locator('#driftStatus').innerText(), '尚未累積');
+check('連結指向 /drift/', await alertPage.locator('#driftLink').getAttribute('href'), '/drift/');
+await alertPage.close();
+
+const seededAlert = await browser.newPage({ viewport: { width: 390, height: 844 } });
+await seededAlert.addInitScript(() => {
+  const rows = [];
+  for (let i = 0; i < 6; i++) {
+    rows.push({
+      schema: 1,
+      ts: new Date(2026, 7, 1 + Math.floor(i / 2), i % 2 === 0 ? 9 : 21, 0, 0).getTime(),
+      stillness: 0.6,
+      lighting: 0.6,
+      uniformity: 0.7,
+      blinkCadence: 0.5,
+      tier: 'A',
+      band: 'neutral',
+      confidence: 'moderate',
+    });
+  }
+  localStorage.setItem('tenki.readiness.history.v1', JSON.stringify(rows));
+});
+await seededAlert.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
+// 6 筆、3 天 —— 同一條斷言也證明副標數的是天數不是樣本數。
+check('有累積時報出次數與天數', await seededAlert.locator('#driftStatus').innerText(), '6 次掃描 · 3 天');
+await seededAlert.close();
+check('決策入口頁沒有 runtime error', alertErrors, []);
 
 console.log('\n── 版面與執行時期 ──');
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
