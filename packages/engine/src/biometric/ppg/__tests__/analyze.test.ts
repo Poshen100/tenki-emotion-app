@@ -10,12 +10,22 @@ import { PPG_FIXTURES, synthesizePpg } from '../replay';
 import { analyzePpgScan, hasUsableReading, wasWithheld } from '../analyze';
 import type { PpgAnalysis } from '../types';
 
+/**
+ * ⚠️ These tests exercise the HRV and respiration paths, so they pass
+ * `cameraPrvEstimates: true, cameraBreathLock: true` explicitly. That is NOT the product default —
+ * camera HRV is off (founder decision 2026-09-11, see the
+ * `camera_prv_estimates` kill switch). The pipeline is kept and tested so the
+ * decision can be revisited with real-user data; `camera-claims.test.ts`
+ * is what holds the default in place.
+ */
+const PRV_ENABLED = { cameraPrvEstimates: true, cameraBreathLock: true } as const;
+
 function analyse(
   overrides: Parameters<typeof synthesizePpg>[0] = {},
   mode: 'quick_check' | 'full_scan' = 'full_scan',
 ): { analysis: PpgAnalysis; truth: ReturnType<typeof synthesizePpg>['truth'] } {
   const scan = synthesizePpg(overrides);
-  const outcome = analyzePpgScan(scan.frames, mode);
+  const outcome = analyzePpgScan(scan.frames, mode, PRV_ENABLED);
   if (outcome.status !== 'analysed') {
     throw new Error(`expected an analysis, got rejection: ${outcome.reason}`);
   }
@@ -42,7 +52,7 @@ describe('clean scan', () => {
 
   it('recovers an HRV close to the intervals it was built from', () => {
     const { analysis, truth } = analyse();
-    expect(analysis.hrvRmssdMs).not.toBeNull();
+    expect(analysis.prvRmssdMs).not.toBeNull();
     // Camera beat timing is quantised by the frame rate even after sub-sample
     // interpolation, so this is a tolerance, not an equality — which is exactly
     // why the value ships tagged as an estimate.
@@ -53,7 +63,7 @@ describe('clean scan', () => {
     // `harmonizeHrv() * 0.75` mistake this repo already removed. A personal
     // baseline built from this same pipeline absorbs a consistent bias; a
     // magic constant would hide it.
-    const error = Math.abs((analysis.hrvRmssdMs as number) - truth.rmssdMs) / truth.rmssdMs;
+    const error = Math.abs((analysis.prvRmssdMs as number) - truth.rmssdMs) / truth.rmssdMs;
     expect(error).toBeLessThan(0.2);
   });
 
@@ -79,37 +89,57 @@ describe('refusals', () => {
   it('reports nothing at all from a barely-perfused fingertip', () => {
     const { analysis } = analyse(PPG_FIXTURES.lowPerfusion);
     expect(analysis.heartRateBpm).toBeNull();
-    expect(analysis.hrvRmssdMs).toBeNull();
+    expect(analysis.prvRmssdMs).toBeNull();
     expect(analysis.respiratoryRateBrpm).toBeNull();
     expect(analysis.quality.reasons).toContain('low_perfusion');
     expect(hasUsableReading(analysis)).toBe(false);
   });
 
-  it('withholds HRV when the finger was moving, and says so', () => {
+  it('refuses a heart rate from light that never pulsed, however clean it looks', () => {
+    // 🔴 The gate the pipeline was missing. This capture passes both of the
+    // conditions that used to guard the heart rate — quality 74 against a bar
+    // of 45, and a periodicity component of 1.00 — because the little signal
+    // present is quiet rather than strong. Its perfusion component is 0.00.
+    //
+    // ⚠️ Measured with the perfusion condition removed: **68 bpm**, on a
+    // capture with no blood signal in it. Periodicity had been standing in for
+    // a perfusion gate by accident, and only because weak pulses usually also
+    // arrive noisy. Delete `noPulsatileLight` from `analyze.ts` and this test
+    // is what fails.
+    const { analysis } = analyse(PPG_FIXTURES.quietWeakPulse);
+    expect(analysis.quality.score).toBeGreaterThan(45);
+    expect(analysis.quality.reasons).toContain('good_periodicity');
+    expect(analysis.quality.components.periodicity).toBeGreaterThan(0.9);
+    expect(analysis.quality.components.perfusion).toBeLessThan(0.05);
+    expect(analysis.heartRateBpm).toBeNull();
+    expect(analysis.withheld).toContainEqual({ metric: 'heart_rate', reason: 'low_perfusion' });
+  });
+
+  it('withholds PRV when the finger was moving, and says so', () => {
     const { analysis } = analyse(PPG_FIXTURES.motion);
-    expect(analysis.hrvRmssdMs).toBeNull();
-    expect(wasWithheld(analysis, 'hrv')).toBe(true);
+    expect(analysis.prvRmssdMs).toBeNull();
+    expect(wasWithheld(analysis, 'prv')).toBe(true);
     expect(analysis.quality.reasons).toContain('motion_detected');
   });
 
-  it('withholds HRV rather than reporting one built on rejected beats', () => {
+  it('withholds PRV rather than reporting one built on rejected beats', () => {
     const { analysis, truth } = analyse(PPG_FIXTURES.irregular);
     // The dangerous case, and the reason MAX_ARTIFACT_FRACTION is 0.1: with the
     // gate at 0.2 this fixture reported RMSSD 125 ms against a truth of 262 ms.
     // Not noise — a confident, physiological-looking number less than half the
     // real variability, on a scan whose quality score was 83.
     expect(truth.rmssdMs).toBeGreaterThan(200);
-    expect(analysis.hrvRmssdMs).toBeNull();
-    expect(analysis.withheld).toContainEqual({ metric: 'hrv', reason: 'too_many_artifacts' });
+    expect(analysis.prvRmssdMs).toBeNull();
+    expect(analysis.withheld).toContainEqual({ metric: 'prv', reason: 'too_many_artifacts' });
   });
 
-  it('withholds HRV built across interpolated frame gaps', () => {
+  it('withholds PRV built across interpolated frame gaps', () => {
     const { analysis } = analyse(PPG_FIXTURES.frameDrops);
     // The heart rate survives a third of the frames going missing; the
     // millisecond differences HRV is made of are partly TENKI's interpolation.
     expect(analysis.heartRateBpm).not.toBeNull();
-    expect(analysis.hrvRmssdMs).toBeNull();
-    expect(analysis.withheld).toContainEqual({ metric: 'hrv', reason: 'frame_drops' });
+    expect(analysis.prvRmssdMs).toBeNull();
+    expect(analysis.withheld).toContainEqual({ metric: 'prv', reason: 'frame_drops' });
   });
 
   it('names the reason the user can act on, not the symptom', () => {
@@ -146,7 +176,7 @@ describe('refusals', () => {
 
   it('rejects a capture with too few frames instead of analysing it', () => {
     const scan = synthesizePpg({ durationSec: 1 });
-    expect(analyzePpgScan(scan.frames, 'full_scan')).toEqual({
+    expect(analyzePpgScan(scan.frames, 'full_scan', PRV_ENABLED)).toEqual({
       status: 'rejected',
       reason: 'too_few_frames',
     });
@@ -154,7 +184,7 @@ describe('refusals', () => {
 
   it('refuses to run the camera pipeline for a mode that does not read the camera', () => {
     const scan = synthesizePpg();
-    expect(analyzePpgScan(scan.frames, 'precision')).toEqual({
+    expect(analyzePpgScan(scan.frames, 'precision', PRV_ENABLED)).toEqual({
       status: 'rejected',
       reason: 'not_a_camera_mode',
     });
@@ -162,23 +192,23 @@ describe('refusals', () => {
 });
 
 describe('scan modes', () => {
-  it('never produces HRV in quick check, however good the signal is', () => {
+  it('never produces PRV in quick check, however good the signal is', () => {
     // The signal here is the clean fixture — the refusal is structural, not a
     // consequence of quality.
     const { analysis } = analyse({ durationSec: 30 }, 'quick_check');
     expect(analysis.heartRateBpm).not.toBeNull();
-    expect(analysis.hrvRmssdMs).toBeNull();
-    expect(analysis.withheld).toContainEqual({ metric: 'hrv', reason: 'mode_excludes_metric' });
+    expect(analysis.prvRmssdMs).toBeNull();
+    expect(analysis.withheld).toContainEqual({ metric: 'prv', reason: 'mode_excludes_metric' });
   });
 
   it('produces HRV in a full scan of the same signal', () => {
     const { analysis } = analyse({ durationSec: 60 }, 'full_scan');
-    expect(analysis.hrvRmssdMs).not.toBeNull();
+    expect(analysis.prvRmssdMs).not.toBeNull();
   });
 
   it('never reports respiration without the beat timing HRV needs', () => {
     const { analysis } = analyse(PPG_FIXTURES.motion);
-    expect(analysis.hrvRmssdMs).toBeNull();
+    expect(analysis.prvRmssdMs).toBeNull();
     expect(analysis.respiratoryRateBrpm).toBeNull();
   });
 });

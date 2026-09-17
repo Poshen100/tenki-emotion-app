@@ -21,6 +21,8 @@
  * @see docs/PHONE-PPG.md
  */
 
+import type { PpgChannel, PpgChannelDiagnostic } from './channels';
+
 /**
  * One camera frame, already reduced to the scalars a PPG needs.
  *
@@ -69,11 +71,27 @@ export const PPG_QUALITY_REASONS = [
   'irregular_periodicity',
   'insufficient_duration',
   'unstable_sampling',
+  // Advisory — neither a verdict on the capture nor grounds for refusing it.
+  // 🔴 founder decision, 2026-09-11: record a missing torch, do not reject on
+  // it. iOS Safari has no torch API at all, so rejecting would refuse every
+  // capture on a whole platform; and a bright enough ambient room genuinely
+  // works. The quality gates already refuse a capture whose signal is too weak
+  // — which is what a missing torch USUALLY causes, and the right place to
+  // catch it. This reason exists so the cause is visible when that happens.
+  'torch_unavailable',
 ] as const;
 export type PpgQualityReason = typeof PPG_QUALITY_REASONS[number];
 
-/** Metrics the pipeline may withhold, named so the UI can say which. */
-export const PPG_METRICS = ['heart_rate', 'hrv', 'respiration'] as const;
+/**
+ * Metrics the pipeline may withhold, named so the UI can say which.
+ *
+ * 🔴 `prv` — pulse-rate variability — is NOT `hrv`. A camera infers beat times
+ * from a light curve; RR-interval HRV is measured from the beats themselves.
+ * They are different quantities with different error behaviour, and camera PRV
+ * may never populate an HRV field or be labelled HRV in production (founder
+ * rule, 2026-09-11). The vocabulary is the first place that has to hold.
+ */
+export const PPG_METRICS = ['heart_rate', 'prv', 'respiration'] as const;
 export type PpgMetric = typeof PPG_METRICS[number];
 
 /**
@@ -83,7 +101,37 @@ export type PpgMetric = typeof PPG_METRICS[number];
  */
 export interface PpgWithheld {
   metric: PpgMetric;
-  reason: PpgQualityReason | 'mode_excludes_metric' | 'too_few_beats' | 'too_many_artifacts';
+  reason:
+    | PpgQualityReason
+    | 'mode_excludes_metric'
+    | 'too_few_beats'
+    | 'too_many_artifacts'
+    /** Beats did not resemble each other closely enough to trust their timing. */
+    | 'unstable_beat_shape';
+}
+
+/**
+ * The six normalised components the quality score is built from, each 0..1
+ * with 1 = best.
+ *
+ * These are exposed because the Signal Integrity instrument shows them
+ * directly (see `ppg/signal-quality.ts`). They are the SAME numbers the score
+ * is weighted from — not a second calculation — so an instrument bar can never
+ * disagree with the score beside it.
+ */
+export interface PpgQualityComponents {
+  /** Pulse strength against the calibrated perfusion bounds. */
+  perfusion: number;
+  /** Strength of the dominant repeating period. */
+  periodicity: number;
+  /** Stillness: 1 = no motion, 0 = at or beyond the motion limit. */
+  motion: number;
+  /** Mean coverage, penalised by how much the coverage wobbled. */
+  coverage: number;
+  /** Exposure headroom: 1 = nothing at the sensor ceiling. */
+  clipping: number;
+  /** Timebase completeness: 1 = no dropped frames. */
+  frameDrops: number;
 }
 
 /** Signal quality for one scan window. */
@@ -104,6 +152,19 @@ export interface PpgQuality {
   stability: number;
   /** Fraction of expected frames that never arrived, 0..1. */
   frameDropFraction: number;
+  /** The normalised components behind `score`, for the instrument to show. */
+  components: PpgQualityComponents;
+  /** Frames handed in by the capture layer. */
+  frameCount: number;
+  /**
+   * Frames that individually met the contact, exposure and motion limits.
+   *
+   * ⚠️ Not the same thing as the score: a capture can be 100% usable frames
+   * and still have no readable pulse (a still, well-lit, badly perfused
+   * finger). It answers "how much of the capture was worth analysing", which
+   * is what a user watching a progress readout is actually asking.
+   */
+  usableFrameCount: number;
 }
 
 /**
@@ -117,11 +178,15 @@ export interface PpgAnalysis {
   /** Heart rate in bpm, or null when the signal did not support one. */
   heartRateBpm: number | null;
   /**
-   * HRV RMSSD in ms, or null. Always an ESTIMATE when non-null — beat timing
-   * inferred from an optical waveform is not a chest strap's RR series and is
-   * never presented as one.
+   * Pulse-rate variability (RMSSD of the beat intervals) in ms, or null.
+   *
+   * 🔴 **Not HRV.** Beat timing inferred from an optical waveform is a
+   * different quantity from a chest strap's RR series: it under-reads by 7-9%
+   * even on a pristine capture, and on a capture the quality score rates 99 it
+   * can be 156% wrong (see `beat-template.ts`). It may never populate an HRV
+   * field, feed the HRV score driver, or be labelled HRV to a user.
    */
-  hrvRmssdMs: number | null;
+  prvRmssdMs: number | null;
   /** Respiratory rate in breaths per minute, or null. */
   respiratoryRateBrpm: number | null;
   /** Accepted beats after artifact rejection. */
@@ -132,6 +197,35 @@ export interface PpgAnalysis {
   durationSec: number;
   /** Sample rate the window was resampled onto, in Hz. */
   sampleRateHz: number;
+  /**
+   * How alike this capture's beats were, 0..1, or null when there were too few
+   * complete beats to compare. The gate PRV has to pass — and the only measure
+   * here that notices sensor noise.
+   */
+  beatTemplateCorrelation: number | null;
+  /**
+   * How reproducible this scan's PRV was across its own duration, in ms, or
+   * null when PRV was not reported or the scan was too short to split.
+   *
+   * This is the instrument measuring itself. It feeds the user's noise floor
+   * (`baseline/noise-floor.ts`), which is what stops a difference smaller than
+   * the measurement error from being scored as a change in state.
+   */
+  repeatabilitySdMs: number | null;
+  /**
+   * Which colour channel the reading was taken from.
+   *
+   * 🔴 Measured, not assumed. On a real iPhone with the torch on, red
+   * saturates and carries no pulse — see `channels.ts`.
+   */
+  channel: PpgChannel;
+  /**
+   * What every channel looked like, winner or not.
+   *
+   * "Why did this capture fail" is answerable from this and unanswerable
+   * without it, and on a real device that question is the whole job.
+   */
+  channelDiagnostics: PpgChannelDiagnostic[];
   /** Metrics deliberately not reported, with the reason for each. */
   withheld: PpgWithheld[];
 }

@@ -20,7 +20,11 @@ import {
 } from '../common/types';
 
 import {
+  EDGE_SCORE_ANCHOR,
   EDGE_WEIGHTS,
+  PHONE_EVIDENCE_CAPS,
+  PHONE_ONLY_PHYSIOLOGY_CAP,
+  type PhysiologyEvidenceSources,
   type EdgeZone,
   type EdgeScoreResult,
   type ScoreDriver,
@@ -30,6 +34,7 @@ import {
 } from './types';
 
 import { generateSafeCopy, } from '../compliance/safe-copy';
+import { resolveEffectiveStd } from '../baseline/noise-floor';
 
 // ─────────────────────────────────────────────
 // Helper: clamp
@@ -71,11 +76,20 @@ function zScoreToSubScore(zScore: number, invert: boolean = false): number {
  * @param baseline - Baseline containing mean and std.
  * @returns Z-score, or 0 if baseline is insufficient.
  */
-function computeZScore(value: number, baseline: MetricBaseline): number {
+function computeZScore(
+  value: number,
+  baseline: MetricBaseline,
+  noiseFloorMs: number | null = null
+): number {
   if (baseline.sampleCount === 0 || baseline.std === 0) {
     return 0;
   }
-  return (value - baseline.mean) / baseline.std;
+  // Never divide by less than the instrument can resolve. A baseline spread
+  // below the user's own noise floor does not mean they are remarkably
+  // steady — it means too few samples have been gathered to have seen them
+  // move, and dividing by it turns measurement error into a confident z.
+  const std = resolveEffectiveStd(baseline.std, noiseFloorMs);
+  return (value - baseline.mean) / std;
 }
 
 // ─────────────────────────────────────────────
@@ -167,10 +181,65 @@ export function resolveAvailability(
   };
 }
 
+/**
+ * Fills in the evidence sources a caller did not declare.
+ *
+ * 🔴 Unknown is treated as **phone-derived**, which is the capped case. The cap
+ * exists to stop the system claiming more than it saw, so the default must be
+ * the claim it can always support. A caller with a chest strap says so; silence
+ * is not a wearable.
+ *
+ * @param declared - What the caller stated, if anything.
+ * @param availability - Which metrics actually hold a value.
+ * @returns A complete source map.
+ */
+export function resolveEvidenceSources(
+  declared: Partial<PhysiologyEvidenceSources> | undefined,
+  availability: ReadingAvailability,
+): PhysiologyEvidenceSources {
+  return {
+    pulse: declared?.pulse ?? 'phone_camera',
+    breath: availability.respiration ? declared?.breath ?? 'phone_camera' : 'none',
+    hrv: availability.hrv ? declared?.hrv ?? 'rr_sensor' : 'none',
+    sleep: declared?.sleep ?? 'none',
+  };
+}
+
+/**
+ * The ceiling on this driver's movement, or null when it is not capped.
+ *
+ * Only phone-derived physiology is capped. Context drivers (trend, freshness,
+ * signal quality) describe the measurement rather than the person, and sensor
+ * evidence is not phone evidence.
+ *
+ * @param key - Which driver.
+ * @param evidence - Where this reading's inputs came from.
+ * @returns Points, or null for uncapped.
+ */
+function phoneEvidenceCapFor(
+  key: ScoreDriverKey,
+  evidence: PhysiologyEvidenceSources,
+): number | null {
+  if (key === 'hr_stability' && evidence.pulse === 'phone_camera') {
+    return PHONE_EVIDENCE_CAPS.pulse;
+  }
+  if (key === 'respiration_stability' && evidence.breath === 'phone_camera') {
+    return PHONE_EVIDENCE_CAPS.breath;
+  }
+  // HRV can never be phone-derived — the type forbids it — so its drivers are
+  // either real sensor evidence at full weight or excluded entirely.
+  return null;
+}
+
 /** Input data for Edge Score calculation. */
 export interface EdgeScoreInput {
   /** Current biometric reading. */
   reading: BiometricReading;
+  /**
+   * Where each physiological input came from. Anything omitted is treated as
+   * phone-derived, which is the capped case — see `resolveEvidenceSources`.
+   */
+  evidence?: Partial<PhysiologyEvidenceSources>;
   /** User's baseline profile. */
   baseline: BaselineProfile;
   /** Current signal quality assessment. */
@@ -184,6 +253,12 @@ export interface EdgeScoreInput {
    * @see ReadingAvailability
    */
   availability?: ReadingAvailability;
+  /**
+   * The user's measured HRV noise floor in ms, from
+   * `baseline/noise-floor.ts`. Omit while there is not yet enough evidence —
+   * z-scores then divide by the baseline's own spread, as before.
+   */
+  hrvNoiseFloorMs?: number | null;
 }
 
 /**
@@ -194,8 +269,12 @@ export interface EdgeScoreInput {
  * @param baseline - HRV baseline for current time bucket.
  * @returns Sub-score 0-100.
  */
-function calcHrvVsBaseline(hrvRmssd: number, baseline: MetricBaseline): number {
-  const z = computeZScore(hrvRmssd, baseline);
+function calcHrvVsBaseline(
+  hrvRmssd: number,
+  baseline: MetricBaseline,
+  noiseFloorMs: number | null
+): number {
+  const z = computeZScore(hrvRmssd, baseline, noiseFloorMs);
   return zScoreToSubScore(z, false); // Higher HRV = better
 }
 
@@ -240,11 +319,12 @@ function calcRespirationStability(rrBrpm: number, baseline: MetricBaseline): num
 function calcStressProxy(
   reading: BiometricReading,
   baseline: BaselineProfile,
-  timeBucket: TimeBucket
+  timeBucket: TimeBucket,
+  noiseFloorMs: number | null
 ): number {
   // Stress proxy: combination of HR elevation + HRV depression
   const hrZ = computeZScore(reading.hrBpm, baseline.hr[timeBucket]);
-  const hrvZ = computeZScore(reading.hrvRmssdMs, baseline.hrv[timeBucket]);
+  const hrvZ = computeZScore(reading.hrvRmssdMs, baseline.hrv[timeBucket], noiseFloorMs);
 
   // Higher HR + Lower HRV = more stress
   const stressIndicator = hrZ - hrvZ; // positive = more stress
@@ -524,10 +604,19 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
 
   // Calculate 8 sub-scores
   const subScores: Record<ScoreDriverKey, number> = {
-    hrv_vs_baseline: calcHrvVsBaseline(input.reading.hrvRmssdMs, input.baseline.hrv[timeBucket]),
+    hrv_vs_baseline: calcHrvVsBaseline(
+      input.reading.hrvRmssdMs,
+      input.baseline.hrv[timeBucket],
+      input.hrvNoiseFloorMs ?? null
+    ),
     hr_stability: calcHrStability(input.reading.hrBpm, input.baseline.hr[timeBucket]),
     respiration_stability: calcRespirationStability(input.reading.rrBrpm, input.baseline.rr[timeBucket]),
-    stress_proxy_vs_baseline: calcStressProxy(input.reading, input.baseline, timeBucket),
+    stress_proxy_vs_baseline: calcStressProxy(
+      input.reading,
+      input.baseline,
+      timeBucket,
+      input.hrvNoiseFloorMs ?? null
+    ),
     sleep_recovery: calcSleepRecovery(input.sleepRecovery),
     recent_trend: calcRecentTrend(input.recentScores),
     baseline_freshness: calcBaselineFreshness(input.baseline, now),
@@ -546,12 +635,32 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
     signal_quality: EDGE_WEIGHTS.signalQuality,
   };
 
-  // Drivers with no measurement behind them are EXCLUDED and their weight is
-  // spread across the drivers that do have data. The two obvious alternatives
-  // are both fabrications: a neutral 50 asserts the user is average on a
-  // dimension nobody measured, and a 0 asserts they are at the floor of it.
-  // Excluding says only what is true — this reading rests on less.
+  // ── Aggregation ───────────────────────────────────────────────────────────
+  //
+  // 🔴 Movement from an anchor, NOT a weighted mean over whatever survived.
+  //
+  // This used to exclude unmeasured drivers and renormalise the remaining
+  // weight across the rest. That was chosen to avoid two real fabrications — a
+  // neutral 50 asserts the user is average on a dimension nobody measured, and
+  // a 0 asserts they are at the floor of it — but it introduced a third one
+  // that is worse, because it is invisible: **the weights of whatever WAS
+  // measured silently grow.** Measured on this repo's own weights, a phone-only
+  // reading excludes HRV (25), the stress proxy (15) and respiration (10), so
+  // `hr_stability` goes from 15% of the score to 30% — and to 43% when sleep is
+  // missing too. A single favourable resting pulse could carry someone into the
+  // Clear zone. founder rule, 2026-09-11: *"沒有可用生理訊號 ≠ 自動加高其他
+  // 分項權重 ≠ Edge Score 變高"*.
+  //
+  // So: every reading starts at the anchor, and each driver moves it by its own
+  // weight times how far its sub-score sits from neutral. A driver with no
+  // evidence moves it by nothing. That is not the same claim as scoring it 50 —
+  // it asserts nothing about the user at all, and it leaves every other
+  // driver's weight exactly where it was. With all eight drivers present the
+  // result is identical to the old weighted mean, so nothing changes for a
+  // fully-instrumented reading; what changes is that a thin reading now reads
+  // as "we could not see much", which is what it is.
   const availability = resolveAvailability(input.reading, input.availability);
+  const evidence = resolveEvidenceSources(input.evidence, availability);
   const excludedDrivers: ScoreDriverKey[] = [];
 
   if (!availability.hrv) {
@@ -562,34 +671,73 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
   if (!availability.respiration) {
     excludedDrivers.push('respiration_stability');
   }
-
-  const includedKeys = (Object.keys(subScores) as ScoreDriverKey[]).filter(
-    (key) => !excludedDrivers.includes(key),
-  );
-  const includedWeight = includedKeys.reduce((sum, key) => sum + weightMap[key], 0);
+  // ⚠️ Sleep is deliberately NOT added here. `calcSleepRecovery` already
+  // returns the anchor when there is no sleep data, so under the movement form
+  // it contributes nothing — and `calcConfidence` already counts its absence
+  // in coverage. Listing it as excluded would change what that field means to
+  // every existing reader for no gain.
 
   const drivers: ScoreDriver[] = [];
-  let weightedSum = 0;
-
   for (const key of Object.keys(subScores) as ScoreDriverKey[]) {
     const raw = subScores[key];
-    const direction = getDirection(raw);
-
     drivers.push({
       key,
-      direction,
+      direction: getDirection(raw),
       impact: Math.round(((raw - 50) / 50) * 100) / 100, // Normalize to -1 to 1
       rawSubScore: raw,
+      excluded: excludedDrivers.includes(key),
     });
   }
 
-  for (const key of includedKeys) {
-    // Renormalizing over the included weight keeps the score on the same 0-100
-    // scale; it does NOT change any weight's meaning relative to the others.
-    weightedSum += subScores[key] * (weightMap[key] / includedWeight);
+  /**
+   * How far this driver moves the score, in points.
+   *
+   * ⚠️ The denominator is 100, not 50. With 100 this is algebraically the old
+   * weighted mean (`50 + Σ(sub−50)·w/100 ≡ Σ sub·w/100` when the weights sum to
+   * 100), which is exactly the property that lets a fully-instrumented reading
+   * score the same as before. With 50 every deviation is doubled — a reading
+   * whose weighted mean is 71.7 comes out at 93.4. The first version of this
+   * function had the 50, and the existing suites did not catch it because their
+   * score assertions are all ranges.
+   */
+  const movementOf = (key: ScoreDriverKey): number =>
+    excludedDrivers.includes(key)
+      ? 0
+      : ((subScores[key] - EDGE_SCORE_ANCHOR) * weightMap[key]) / 100;
+
+  // Phone-derived physiology is capped per item and in total. Everything else
+  // moves the score by its full weight.
+  const cappedDrivers: ScoreDriverKey[] = [];
+  let phoneMovement = 0;
+  let openMovement = 0;
+
+  for (const key of Object.keys(subScores) as ScoreDriverKey[]) {
+    const raw = movementOf(key);
+    const cap = phoneEvidenceCapFor(key, evidence);
+
+    if (cap === null) {
+      openMovement += raw;
+      continue;
+    }
+    const capped = clamp(raw, -cap, cap);
+    if (capped !== raw) cappedDrivers.push(key);
+    phoneMovement += capped;
   }
 
-  const finalScore = clamp(Math.round(weightedSum), 0, 100);
+  // The total ceiling, after the per-item ones. Both are needed: per-item stops
+  // one signal standing in for the whole picture, the total stops several thin
+  // signals adding up to a confident one.
+  const cappedPhoneMovement = clamp(
+    phoneMovement,
+    -PHONE_ONLY_PHYSIOLOGY_CAP,
+    PHONE_ONLY_PHYSIOLOGY_CAP,
+  );
+
+  const finalScore = clamp(
+    Math.round(EDGE_SCORE_ANCHOR + openMovement + cappedPhoneMovement),
+    0,
+    100,
+  );
   const zone = classifyEdgeZone(finalScore);
 
   // Calculate confidence
@@ -620,6 +768,9 @@ export function calculateEdgeScore(input: EdgeScoreInput): EdgeScoreResult {
       scanQuality: input.signalQuality.score,
       dataCompleteness: confidence.factors.inputCompleteness,
       excludedDrivers,
+      cappedDrivers,
+      phoneEvidenceMovement: Math.round(cappedPhoneMovement * 10) / 10,
+      phoneEvidenceCap: PHONE_ONLY_PHYSIOLOGY_CAP,
       sourceMix: [], // Populated by caller
       computedAt: now,
     },

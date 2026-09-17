@@ -1,4 +1,5 @@
 import {
+  MIN_SECONDS_FOR_PULSE_ANCHOR,
   NEXT_ACTIONS,
   ONBOARDING_STEP_ORDER,
   SENSOR_CHOICES,
@@ -18,7 +19,7 @@ describe('baseline contract constants', () => {
     const finger = SENSOR_CHOICES.find((c) => c.id === 'finger');
     const face = SENSOR_CHOICES.find((c) => c.id === 'face_beta');
     expect(finger?.isBeta).toBe(false);
-    expect(finger?.estimatedTimeSec).toBe(30);
+    expect(finger?.estimatedTimeSec).toBe(90);
     expect(face?.isBeta).toBe(true);
     expect(face?.estimatedTimeSec).toBe(60);
   });
@@ -44,5 +45,25 @@ describe('createInitialOnboardingState', () => {
     expect(state.completedAt).toBeNull();
     expect(state.startedAt).toBeGreaterThanOrEqual(before);
     expect(state.startedAt).toBeLessThanOrEqual(after);
+  });
+});
+
+describe('the sensor choice cannot promise what the signal chain cannot do', () => {
+  it('never offers an HRV baseline in less time than one can be measured', () => {
+    // 🔴 The previous value was 30 seconds, and a test asserted it — locking a
+    // promise in place without ever checking it was achievable. Measured, a
+    // 30-second window produced an HRV estimate 0 times out of 12.
+    const finger = SENSOR_CHOICES.find((c) => c.id === 'finger');
+
+    expect(finger?.estimatedTimeSec).toBeGreaterThanOrEqual(MIN_SECONDS_FOR_PULSE_ANCHOR);
+  });
+
+  it('does not claim one sensor is steadier than the other', () => {
+    // A comparative claim with no measurement behind it. The source priority
+    // already ranks them; the copy does not need to editorialise.
+    for (const choice of SENSOR_CHOICES) {
+      expect(choice.description).not.toContain('較穩定');
+      expect(choice.description).not.toContain('更準');
+    }
   });
 });

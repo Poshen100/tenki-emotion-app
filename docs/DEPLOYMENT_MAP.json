@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-09",
+  "lastUpdated": "2026-09-11",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -65,6 +65,15 @@
       "source": "apps/preview/decision-alert.html",
       "purpose": "外部快訊 → 決策入口 demo — 模擬 TradingView 快訊走 delivery policy(zone 閘門/冷卻/聚合) → Decision Entry Panel → 模板建議 → 浮動決策計時條 → 事件鏈 log。規格: docs/TRADINGVIEW-ALERT-SPEC.md",
       "status": "active-dev",
+      "editable": true
+    },
+    {
+      "route": "/finger/",
+      "url": "https://tenki-emotion-app.vercel.app/finger/",
+      "source": "apps/preview/finger-baseline.html + finger-baseline.js + engine/",
+      "purpose": "手指 PPG 90 秒基線校準實走頁。真的取後鏡頭、跑 packages/engine 編出來的 PPG pipeline，顯示品質 reasons、拒答理由與雜訊底線。",
+      "status": "active-dev",
+      "note": "🔴 頁面跑的是 apps/preview/engine/（由 scripts/build-preview-ppg.mjs 從 packages/engine/src 編出），不是手抄鏡射。改 TS 沒重建 → scripts/preview-finger.mjs 會紅。⚠️ iOS Safari 沒有 torch API，無補光時訊號較弱 —— 品質門檻不因此放寬。",
       "editable": true
     },
     {

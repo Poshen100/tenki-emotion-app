@@ -200,3 +200,87 @@ export function validateReadingCopy(
 
   return { ok: problems.length === 0, problems };
 }
+
+// ─────────────────────────────────────────────
+// Measurement precision
+// ─────────────────────────────────────────────
+
+/**
+ * How finely this user's own scans can resolve a change in HRV.
+ *
+ * The grade exists so a surface can say something useful without printing
+ * milliseconds. "±2.3 ms" is true and means nothing to most people; "we can
+ * tell apart changes this small" is the same fact in a form someone can act on.
+ *
+ * Derived from the user's measured noise floor
+ * (`packages/engine/src/baseline/noise-floor.ts`), never from a scan's quality
+ * score — a single clean scan says nothing about how reproducible the
+ * measurement is.
+ */
+export const PRECISION_GRADES = ['fine', 'usable', 'coarse'] as const;
+export type PrecisionGrade = typeof PRECISION_GRADES[number];
+
+/**
+ * Boundaries in ms, measured against the synthetic fixtures: a clean finger
+ * scan reproduces to about 2-3.5 ms, a weakly perfused one to about 13 ms.
+ *
+ * ⚠️ These are provisional. They are calibrated against synthetic signals,
+ * and the generator carries no day-to-day physiological variation at all —
+ * so the boundary that actually matters (how this compares with real human
+ * day-to-day spread) cannot be set until there is real-user data.
+ * Re-derive them from the first real cohort rather than trusting them.
+ */
+export const PRECISION_GRADE_BOUNDS = {
+  /** At or below this, the instrument resolves finer than most real changes. */
+  FINE_MAX_MS: 4,
+  /** Above this, only large shifts are distinguishable. */
+  USABLE_MAX_MS: 10,
+} as const;
+
+/** Grades a measured noise floor. */
+export function gradePrecision(noiseFloorMs: number): PrecisionGrade {
+  if (noiseFloorMs <= PRECISION_GRADE_BOUNDS.FINE_MAX_MS) return 'fine';
+  if (noiseFloorMs <= PRECISION_GRADE_BOUNDS.USABLE_MAX_MS) return 'usable';
+  return 'coarse';
+}
+
+/** What a surface may state about the instrument's own precision. */
+export interface PrecisionClaim {
+  grade: PrecisionGrade;
+  /** The measured floor in ms — for the evidence layer, not the headline. */
+  noiseFloorMs: number;
+  /** How many scans the floor rests on. */
+  scanCount: number;
+  /**
+   * True while the floor rests on too few scans to be stated as a fact about
+   * the user. A surface may show it as provisional; it may not present it as
+   * established.
+   */
+  provisional: boolean;
+}
+
+/** Scans below which a precision claim stays provisional. */
+export const MIN_SCANS_FOR_ESTABLISHED_PRECISION = 5;
+
+/**
+ * Builds what may be said about measurement precision.
+ *
+ * @param noiseFloorMs - The measured floor, or null when none is established.
+ * @param scanCount - Scans the floor rests on.
+ * @returns The claim, or null when there is nothing to say yet.
+ */
+export function buildPrecisionClaim(
+  noiseFloorMs: number | null,
+  scanCount: number,
+): PrecisionClaim | null {
+  if (noiseFloorMs === null || !Number.isFinite(noiseFloorMs) || noiseFloorMs <= 0) {
+    return null;
+  }
+
+  return {
+    grade: gradePrecision(noiseFloorMs),
+    noiseFloorMs: Math.round(noiseFloorMs * 10) / 10,
+    scanCount,
+    provisional: scanCount < MIN_SCANS_FOR_ESTABLISHED_PRECISION,
+  };
+}
