@@ -151,13 +151,14 @@ export function analyzePpgScan(
   // 🔴 A third condition, and the only physiological one: no pulsatile light
   // means there is no pulse to report, however periodic the noise looks.
   //
-  // ⚠️ This was missing, and `stabiliseGain` is what exposed it. Removing the
-  // camera's gain drift raised periodicity on the weakly-perfused fixture from
-  // below the bar to 0.38 — and it promptly produced a heart rate of 69 bpm
-  // with a perfusion component of **0.00**. Periodicity had been acting as the
-  // perfusion gate by accident; a capture with no blood signal in it must be
-  // refused because of the missing blood signal, not because the noise happened
-  // to be aperiodic.
+  // ⚠️ This was missing, and it surfaced while trialling a gain-drift
+  // correction (since removed — `docs/PHONE-PPG.md` §22). Taking the camera's
+  // drift out raised periodicity on the weakly-perfused fixture above the bar,
+  // and it promptly produced a heart rate of 69 bpm with a perfusion component
+  // of **0.00**. Periodicity had been acting as the perfusion gate by accident;
+  // a capture with no blood signal in it must be refused because of the missing
+  // blood signal, not because the noise happened to be aperiodic.
+  // `PPG_FIXTURES.quietWeakPulse` is what holds this in place.
   const noPulsatileLight = perfusion < MIN_PERFUSION;
 
   if (qualityBlocksRate || noPulse || noPulsatileLight) {

@@ -314,11 +314,19 @@ function channelNote(channels) {
  *
  * 🔴 The optimistic reading requires a **positive** test, and that ordering is
  * the point. The first version branched on `period === null` and fell through
- * to "slow enough to divide out" otherwise — so when a `NaN` arrived, it
+ * to its most encouraging sentence otherwise — so when a `NaN` arrived, it
  * defeated the null check and then defeated both `<` comparisons (every
- * comparison with NaN is false) and landed on the most encouraging sentence in
- * the function. An unknown value must never be able to reach the good branch by
- * failing tests; it has to pass one.
+ * comparison with NaN is false) and landed on that sentence by failing every
+ * test on the way. An unknown value must never reach a good branch by failing
+ * tests; it has to pass one.
+ *
+ * 🔴 And the encouraging sentence itself is gone. It used to say a period
+ * slower than a heartbeat meant the drift could "in principle be divided out".
+ * A sweep across drift shapes disproved that twice over (`docs/PHONE-PPG.md`
+ * §22): a stepped drift alternating every 2 s has a legitimately slow 4.07 s
+ * fundamental and correcting it still produced a **27 bpm error**, because what
+ * lands in the cardiac band is its harmonics, not its fundamental. This number
+ * describes the drift's shape and licenses nothing.
  *
  * @param period - Median drift period in seconds, or null when unmeasured.
  * @returns The parenthesised reading, including its own leading bracket.
@@ -330,7 +338,7 @@ function driftPeriodNote(period) {
     if (period < DRIFT_PERIOD_TRUSTWORTHY_SEC) {
         return `（低於 ${DRIFT_PERIOD_TRUSTWORTHY_SEC} 秒 = 也可能是更快的擺動被一秒桶折疊，不能當成「慢」）`;
     }
-    return '（比一次心搏慢 = 原理上可以除掉；比心搏快或相當 = 沒有東西分得出來）';
+    return '（只描述形狀 —— 週期慢不代表除得掉，帶內的是諧波不是基頻，§22）';
 }
 /**
  * What the exposure lock actually achieved, as opposed to whether some

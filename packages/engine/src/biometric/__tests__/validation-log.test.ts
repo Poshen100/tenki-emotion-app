@@ -118,7 +118,7 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     const report = formatValidationReport([legacyExposure(), legacyExposure()]);
     expect(report).toContain('慢速擺動週期中位數 — 秒');
     expect(report).toContain('量不到 —— 不代表沒有擺動');
-    expect(report).not.toContain('原理上可以除掉');
+    expect(report).not.toContain('週期慢');
     // 這批紀錄的其他曝光數字照樣要算得出來 —— 缺的只有週期那一個欄位。
     expect(report).toContain('DC 慢速擺動中位數 0.29');
   });
@@ -129,6 +129,21 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
       capture({ exposure: { ...hunting, driftPeriodSec: 5.1 } }),
     ]);
     expect(report).toContain('慢速擺動週期中位數 5.1 秒');
+  });
+
+  it('🔴 週期這個數字不得暗示漂移除得掉', () => {
+    // 🔴 這行文案原本說「比一次心搏慢 = 原理上可以除掉」。橫掃各種漂移形狀
+    // 之後，那句話被否證了兩次（§22）：階梯式漂移每 2 秒交替一次，基頻慢到
+    // 4.07 秒，修正之後誤差仍然 **27 bpm** —— 因為落在心搏帶內的是它的
+    // **諧波**，不是基頻。而且 1 秒桶的折疊會讓 0.8 秒的正弦漂移報成 4.07 秒。
+    //
+    // 所以這個數字只描述形狀，不授權任何修正。報告不得往那個方向講。
+    const report = formatValidationReport([
+      capture({ exposure: { ...hunting, driftPeriodSec: 6.2 } }),
+    ]);
+    expect(report).toContain('慢速擺動週期中位數 6.2 秒');
+    expect(report).not.toContain('可以除掉');
+    expect(report).toContain('不代表除得掉');
   });
 
   it('🔴 報告裡永遠不得出現 NaN 這三個字', () => {

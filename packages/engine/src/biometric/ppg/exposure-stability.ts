@@ -114,12 +114,14 @@ export interface ExposureStability {
    * Period of the dominant slow oscillation in seconds, or null when the slow
    * series does not repeat strongly enough to name one.
    *
-   * 🔴 This is the number that decides what can be done about the drift, and
-   * it was previously missing — so the shape had to be inferred from the ratio
-   * between `largestStepFraction` and `dcDriftFraction`, which is an inference,
-   * not a measurement. A drift slower than a heartbeat can be divided out
-   * (`stabiliseGain`); one at cardiac frequency cannot be separated from a
-   * pulse by anything.
+   * 🔴 **It describes the drift's shape. It does not license a correction.**
+   * It was built to decide whether the drift could be divided out, and a sweep
+   * across drift shapes showed it cannot answer that (`docs/PHONE-PPG.md` §22):
+   * a stepped drift alternating every 2 s has a legitimately slow 4.07 s
+   * fundamental, yet correcting it left a **27 bpm** error, because what sits in
+   * the cardiac band is its harmonics. And one-second buckets fold a 0.8 s
+   * sinusoidal drift into a reported 4.07 s, so "slow" is not even reliably
+   * slow. Read it as a description and nothing more.
    *
    * ⚠️ Null is **not** "steady" and not "no drift". Anything faster than
    * `DRIFT_PERIOD_MIN_SEC` is invisible to one-second buckets — and that is
