@@ -31,7 +31,11 @@
  * @see docs/PHONE-PPG.md §12
  */
 
-import { DC_DRIFT_SUSPECT, type ExposureStability } from './ppg/exposure-stability';
+import {
+  DC_DRIFT_SUSPECT,
+  DRIFT_PERIOD_TRUSTWORTHY_SEC,
+  type ExposureStability,
+} from './ppg/exposure-stability';
 
 /**
  * What the person was doing during a capture.
@@ -179,6 +183,16 @@ export interface Spread {
   min: number;
   median: number;
   max: number;
+  /**
+   * How many values the spread was built from.
+   *
+   * 🔴 Not decoration. Printed without it, `min 0.96 · median 0.96 · max 0.96`
+   * reads as a tight distribution across many captures, when on the device it
+   * was **one** sample repeated three times. §12 item 15 turns on the
+   * distribution — a 0% pass rate at a median of 0.96 and at 0.70 are two
+   * different findings — so the report must never let n hide.
+   */
+  count: number;
 }
 
 /** What check #15 asks. */
@@ -379,7 +393,12 @@ export function formatValidationReport(log: readonly ValidationCapture[]): strin
     lines.push(
       `  綠：選中 ${channels.green.chosenCount} 次 · 節律中位數 ${fmt(channels.green.medianPeriodicity)} · 亮度中位數 ${fmt(channels.green.medianDcMean)}`,
     );
-    lines.push('  （紅的亮度接近 255 且節律遠低於綠 = 補光燈把紅通道打飽和了）');
+    // 🔴 The footnote used to print unconditionally, so it asserted the §16
+    // saturation diagnosis whatever the numbers said. On 2026-09-17 it printed
+    // 「紅的亮度接近 255 且節律遠低於綠」 above a red DC of **201** whose
+    // periodicity was **higher** than green's — the report contradicting itself
+    // in adjacent lines, and steering the next session's debugging with it.
+    lines.push(`  （${channelNote(channels)}）`);
   }
   lines.push('');
 
@@ -404,17 +423,22 @@ export function formatValidationReport(log: readonly ValidationCapture[]): strin
     lines.push(
       `  DC 慢速擺動中位數 ${fmt(drift)} · 最大單秒跳動 ${fmt(step)} · 門檻 ${DC_DRIFT_SUSPECT} · 可疑（擺動 ≥ 門檻）：${hunting}/${exposures.length} 次`,
     );
-    lines.push(
-      `  時基 fps ${fmt(fps)} · 最長間隔 ${fmt(gap)} ms · 曝光鎖 ${
-        locks.length === 0
-          ? '這個瀏覽器沒有可鎖的項目（或沒試過）'
-          : `成功 ${locks.filter((c) => c.exposureLock.applied).length}/${locks.length} 次（${
-              [...new Set(locks.flatMap((c) => c.exposureLock.requested))].join('、') || '無'
-            }）`
-      }`,
+    const period = medianOf(
+      exposures.map((c) => c.exposure.driftPeriodSec).filter((v): v is number => v !== null),
     );
     lines.push(
-      '  （擺動遠大於門檻 = auto-exposure 在擷取中重調增益，會蓋掉心搏起伏；鎖成功但擺動仍大 = 瀏覽器收了約束沒真鎖）',
+      `  慢速擺動週期中位數 ${fmt(period)} 秒${
+        period === null
+          ? '（量不到 —— 不代表沒有擺動）'
+          : period < DRIFT_PERIOD_TRUSTWORTHY_SEC
+            ? `（低於 ${DRIFT_PERIOD_TRUSTWORTHY_SEC} 秒 = 也可能是更快的擺動被一秒桶折疊，不能當成「慢」）`
+            : '（比一次心搏慢 = 原理上可以除掉；比心搏快或相當 = 沒有東西分得出來）'
+      }`,
+    );
+    lines.push(`  時基 fps ${fmt(fps)} · 最長間隔 ${fmt(gap)} ms`);
+    lines.push(`  ${exposureLockNote(locks)}`);
+    lines.push(
+      '  （擺動遠大於門檻 = auto-exposure 在擷取中重調增益，會蓋掉心搏起伏）',
     );
   }
   lines.push('');
@@ -427,7 +451,11 @@ export function formatValidationReport(log: readonly ValidationCapture[]): strin
     lines.push(`  通過率 ${gate.passRate === null ? '—' : `${Math.round(gate.passRate * 100)}%`}`);
     if (gate.templateCorrelation !== null) {
       const t = gate.templateCorrelation;
-      lines.push(`  拍形穩定度 最低 ${t.min} · 中位數 ${t.median} · 最高 ${t.max}`);
+      lines.push(
+        t.count === 1
+          ? `  拍形穩定度 ${t.median}（只有 1 筆，還不是分布）`
+          : `  拍形穩定度 最低 ${t.min} · 中位數 ${t.median} · 最高 ${t.max}（${t.count} 筆）`,
+      );
     }
   }
   lines.push('');
@@ -459,6 +487,81 @@ function describeSpread(spread: DayToDaySpread, unit: string): string {
 // Small statistics
 // ─────────────────────────────────────────────
 
+/**
+ * DC level, out of 255, above which the flash really is pushing a channel at
+ * the sensor ceiling.
+ *
+ * ⚠️ Not 255: a channel saturates in its brightest pixels long before its mean
+ * gets there. 230 is where the §16 device sat. The device on 2026-09-17 sat at
+ * **201**, which is bright and not saturated — and the difference decides which
+ * of two completely different repairs is called for.
+ */
+const CHANNEL_SATURATION_DC = 230;
+
+/**
+ * The channel section's footnote, which has to follow the numbers above it.
+ *
+ * 🔴 Saturation is a **conjunction**: the channel is pinned near the ceiling
+ * AND its rhythm is worse than the other channel's. Print the conclusion
+ * without checking both and the report argues against its own table.
+ *
+ * @param channels - The per-channel summary printed immediately above.
+ * @returns One line of interpretation, in parentheses in the report.
+ */
+function channelNote(channels: ChannelReport): string {
+  const red = channels.red;
+  const green = channels.green;
+  const bothMeasured = red.medianPeriodicity !== null && green.medianPeriodicity !== null;
+  const redPinned = red.medianDcMean !== null && red.medianDcMean >= CHANNEL_SATURATION_DC;
+  const redWorse =
+    bothMeasured && (red.medianPeriodicity as number) < (green.medianPeriodicity as number);
+
+  if (redPinned && redWorse) {
+    return '紅的亮度接近上限且節律低於綠 = 補光燈把紅通道打飽和了（§16）';
+  }
+  if (redPinned) {
+    return '紅的亮度接近上限，但節律沒有低於綠 —— 還不足以說是飽和';
+  }
+  if (bothMeasured && (red.medianPeriodicity as number) < 0.35 && (green.medianPeriodicity as number) < 0.35) {
+    return '兩個通道的節律都低 = 不是選錯通道，兩邊都沒有可用的節律（看曝光那段）';
+  }
+  return '紅沒有接近上限 = 這一批不是 §16 的飽和情形';
+}
+
+/**
+ * What the exposure lock actually achieved, as opposed to whether some
+ * constraint was accepted.
+ *
+ * 🔴 `applied` is one boolean for the whole `applyConstraints` call, and the
+ * call only ever asks for the modes this browser advertises as manual. On
+ * 2026-09-17 that set was `whiteBalanceMode` alone — so the report printed
+ * 「曝光鎖 成功 7/7 次」 for seven captures in which **the exposure was never
+ * locked at all**, and then explained the remaining drift as "the browser
+ * accepted the constraint without really locking". Both halves were wrong, and
+ * they pointed the next step at the wrong problem.
+ *
+ * @param locks - Captures that recorded a lock attempt.
+ * @returns One line naming what was and was not locked.
+ */
+function exposureLockNote(
+  locks: readonly (ValidationCapture & {
+    exposureLock: { requested: string[]; applied: boolean };
+  })[],
+): string {
+  if (locks.length === 0) return '曝光鎖 沒有任何紀錄（這個瀏覽器沒有可鎖的項目，或沒試過）';
+
+  const asked = [...new Set(locks.flatMap((c) => c.exposureLock.requested))];
+  const exposureAsked = locks.filter((c) => c.exposureLock.requested.includes('exposureMode'));
+  const others = asked.filter((mode) => mode !== 'exposureMode');
+  const alsoLocked = others.length === 0 ? '' : `；另外鎖到 ${others.join('、')}`;
+
+  if (exposureAsked.length === 0) {
+    return `曝光鎖 🔴 **這個瀏覽器根本不給鎖曝光**（exposureMode 沒有 manual 可用）${alsoLocked}`;
+  }
+  const applied = exposureAsked.filter((c) => c.exposureLock.applied).length;
+  return `曝光鎖 exposureMode 成功 ${applied}/${exposureAsked.length} 次${alsoLocked}`;
+}
+
 function spreadOf(values: readonly number[]): Spread | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -468,6 +571,7 @@ function spreadOf(values: readonly number[]): Spread | null {
     median:
       sorted.length % 2 === 1 ? sorted[mid] : round2((sorted[mid - 1] + sorted[mid]) / 2),
     max: sorted[sorted.length - 1],
+    count: sorted.length,
   };
 }
 

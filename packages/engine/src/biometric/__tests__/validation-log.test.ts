@@ -39,6 +39,26 @@ function capture(overrides: Partial<ValidationCapture> = {}): ValidationCapture 
   };
 }
 
+/** A camera holding still: the slow movement is respiratory wander, not gain. */
+const steady = {
+  dcMedian: 190,
+  dcDriftFraction: 0.004,
+  largestStepFraction: 0.002,
+  slowDriftDominates: false,
+  driftPeriodSec: 4.4,
+  framesPerSecond: 29.6,
+  longestGapMs: 40,
+  frameCount: 2700,
+};
+/** The device's own 2026-09-17 signature: 28.8% drift on a ~5 s period. */
+const hunting = {
+  ...steady,
+  dcDriftFraction: 0.31,
+  largestStepFraction: 0.22,
+  slowDriftDominates: true,
+  driftPeriodSec: 5.1,
+};
+
 describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整份炸掉', () => {
   /**
    * 一筆**舊版寫下來的**紀錄：後來才加的欄位根本不存在（不是 null，是
@@ -74,6 +94,7 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
         dcDriftFraction: 0.31,
         largestStepFraction: 0.22,
         slowDriftDominates: true,
+        driftPeriodSec: 5.1,
         framesPerSecond: 30,
         longestGapMs: 40,
         frameCount: 1200,
@@ -92,16 +113,6 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
 });
 
 describe('曝光 — 相機有沒有在自己重新決定亮度', () => {
-  const steady = {
-    dcMedian: 190,
-    dcDriftFraction: 0.004,
-    largestStepFraction: 0.002,
-    slowDriftDominates: false,
-    framesPerSecond: 29.6,
-    longestGapMs: 40,
-    frameCount: 2700,
-  };
-  const hunting = { ...steady, dcDriftFraction: 0.31, largestStepFraction: 0.22, slowDriftDominates: true };
 
   it('says nothing about exposure until something measured it', () => {
     // 🔴 Same rule as everywhere else here: "no data" must not render as "fine".
@@ -128,8 +139,47 @@ describe('曝光 — 相機有沒有在自己重新決定亮度', () => {
     const report = formatValidationReport([
       capture({ exposure: hunting, exposureLock: { requested: ['exposureMode'], applied: true } }),
     ]);
-    expect(report).toContain('曝光鎖 成功 1/1 次');
+    expect(report).toContain('曝光鎖 exposureMode 成功 1/1 次');
     expect(report).toContain('可疑（擺動 ≥ 門檻）：1/1 次');
+  });
+
+  it('🔴 does not call the exposure locked when only white balance was', () => {
+    // 🔴 The device on 2026-09-17. `applied` is one boolean for the whole
+    // `applyConstraints` call, and the call only asks for the modes the browser
+    // advertises as manual — which was `whiteBalanceMode` alone. The report
+    // printed 「曝光鎖 成功 7/7 次」 for seven captures whose exposure was never
+    // locked, then blamed the remaining 28.8% drift on "the browser accepted the
+    // constraint without really locking". Both halves wrong, and they aimed the
+    // next step at the wrong problem.
+    const report = formatValidationReport([
+      capture({
+        exposure: hunting,
+        exposureLock: { requested: ['whiteBalanceMode'], applied: true },
+      }),
+    ]);
+    expect(report).toContain('這個瀏覽器根本不給鎖曝光');
+    expect(report).toContain('另外鎖到 whiteBalanceMode');
+    expect(report).not.toContain('曝光鎖 exposureMode 成功');
+    // And the old misdiagnosis must be gone from the footnote entirely.
+    expect(report).not.toContain('瀏覽器收了約束沒真鎖');
+  });
+
+  it('reports the drift period, and refuses to call a fast one slow', () => {
+    // The number that decides whether the drift can be divided out at all.
+    expect(formatValidationReport([capture({ exposure: hunting })])).toContain(
+      '慢速擺動週期中位數 5.1 秒',
+    );
+    // ⚠️ Below the trustworthy floor it must say so rather than reading as
+    // "slow": a 1.4 s drift measures near 3.6 s here, and that error points
+    // the wrong way.
+    const fast = formatValidationReport([
+      capture({ exposure: { ...hunting, driftPeriodSec: 3.6 } }),
+    ]);
+    expect(fast).toContain('不能當成「慢」');
+    expect(fast).not.toContain('原理上可以除掉');
+    // And unmeasurable is not steady.
+    const none = formatValidationReport([capture({ exposure: { ...hunting, driftPeriodSec: null } })]);
+    expect(none).toContain('不代表沒有擺動');
   });
 
   it('says the browser had nothing to lock rather than implying failure', () => {
@@ -181,7 +231,7 @@ describe('#15 — is the PRV gate reachable on a real device', () => {
       capture({ beatTemplateCorrelation: t, prvRmssdMs: null }),
     );
     const result = assessPrvGateReachability(log);
-    expect(result.templateCorrelation).toEqual({ min: 0.91, median: 0.94, max: 0.96 });
+    expect(result.templateCorrelation).toEqual({ min: 0.91, median: 0.94, max: 0.96, count: 3 });
   });
 });
 
@@ -288,9 +338,34 @@ describe('the report is safe to paste', () => {
     // LAST capture's timestamp in the header sailed straight through it.
     expect(report).not.toMatch(/\d{13}/);
     expect(report).not.toMatch(/\d{4}-\d{2}-\d{2}/);
-    // ⚠️ 上限的意義是「一次貼得完」，不是一個固定數字。加曝光那一段之後
-    // 從 20 放寬到 24 —— 放寬時要一起確認它仍然是一次貼得完的長度。
-    expect(report.split('\n').length).toBeLessThan(24);
+  });
+
+  it('stays short enough to paste in one go — measured on the LONGEST form', () => {
+    // 🔴 This bound was vacuous for five days. It ran on the default fixture,
+    // whose `exposure` is null, so the whole 曝光 section collapsed to a single
+    // "nothing measured yet" line and the assertion never saw a real report.
+    // Measured: the populated report is **26** lines against a bound of 24 —
+    // it had already broken the rule it was supposed to be enforcing.
+    //
+    // ⚠️ So the fixture is the assertion here. Every section must produce its
+    // longest form, or the number below means nothing again.
+    const populated = [
+      capture({
+        exposure: hunting,
+        exposureLock: { requested: ['whiteBalanceMode'], applied: true },
+      }),
+      capture({
+        localDateKey: '2026-09-12',
+        exposure: steady,
+        exposureLock: { requested: ['exposureMode'], applied: true },
+      }),
+    ];
+    const report = formatValidationReport(populated);
+    // Every section is present in its long form, not its "no data" form.
+    expect(report).not.toContain('還沒有任何');
+    expect(report).toContain('慢速擺動週期');
+    // 上限的意義是「一次貼得完」，不是一個固定數字。放寬時要重新確認那件事。
+    expect(report.split('\n').length).toBeLessThan(30);
   });
 
   it('says what is missing rather than printing a number it does not have', () => {
@@ -310,6 +385,49 @@ describe('the report is safe to paste', () => {
       capture({ lockEverAchieved: true, accepted: false, heartRateBpm: null, prvRmssdMs: null }),
     ]);
     expect(report).toContain('這條不過');
+  });
+});
+
+describe('the interpretation lines must follow the numbers above them', () => {
+  it('🔴 does not claim red saturation when red is not near the ceiling', () => {
+    // 🔴 The device on 2026-09-17: red DC **201** (bright, not pinned) and red
+    // periodicity **higher** than green's. The footnote printed
+    // 「紅的亮度接近 255 且節律遠低於綠 = 補光燈把紅通道打飽和了」 anyway,
+    // because it printed unconditionally — the report contradicting its own
+    // table two lines up, and steering the next session's debugging with it.
+    const report = formatValidationReport([
+      capture({
+        channel: 'red',
+        channelPeriodicity: { red: 0.15, green: 0.11 },
+        channelDcMean: { red: 201, green: 44.9 },
+      }),
+    ]);
+    expect(report).not.toContain('補光燈把紅通道打飽和');
+    // And it should say what the numbers do say: neither channel had rhythm,
+    // so the channel is not the problem.
+    expect(report).toContain('兩個通道的節律都低');
+  });
+
+  it('still names saturation when both halves of the claim hold', () => {
+    // The §16 case, which is what the footnote was written for: red pinned at
+    // the ceiling AND worse rhythm than green.
+    const report = formatValidationReport([
+      capture({
+        channel: 'green',
+        channelPeriodicity: { red: 0.08, green: 0.82 },
+        channelDcMean: { red: 248, green: 96 },
+      }),
+    ]);
+    expect(report).toContain('補光燈把紅通道打飽和');
+  });
+
+  it('does not let one sample read as a distribution', () => {
+    // 🔴 The device printed 「拍形穩定度 最低 0.96 · 中位數 0.96 · 最高 0.96」
+    // from a single capture. Three numbers, one measurement — and §12 item 15
+    // turns on the distribution, so this is the one place n must not hide.
+    const report = formatValidationReport([capture({ beatTemplateCorrelation: 0.96 })]);
+    expect(report).toContain('只有 1 筆，還不是分布');
+    expect(report).not.toContain('最低 0.96 · 中位數 0.96 · 最高 0.96');
   });
 });
 

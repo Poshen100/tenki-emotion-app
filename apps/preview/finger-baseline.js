@@ -962,10 +962,14 @@ function renderExposure() {
 
   const drift = `${(exposure.dcDriftFraction * 100).toFixed(1)}%`;
   const fps = exposure.framesPerSecond.toFixed(0);
+  // 🔴 週期決定這件事有沒有救：比一次心搏慢的擺動原理上可以除掉，
+  // 跟心搏同頻的沒有東西分得出來。量不到就不講（null 不是「沒有擺動」）。
+  const period =
+    exposure.driftPeriodSec === null ? '' : `，週期約 ${exposure.driftPeriodSec.toFixed(1)} 秒`;
   if (exposure.slowDriftDominates) {
     note.dataset.tone = 'bad';
     note.textContent =
-      `⚠️ 相機在自己重新調亮度（慢速擺動 ${drift}，門檻 ${(DC_DRIFT_SUSPECT * 100).toFixed(0)}%）。` +
+      `⚠️ 相機在自己重新調亮度（慢速擺動 ${drift}，門檻 ${(DC_DRIFT_SUSPECT * 100).toFixed(0)}%${period}）。` +
       '心搏起伏只有百分之一上下，這個幅度會把它整個蓋掉 —— 節律讀不到多半是這個原因。';
     return;
   }

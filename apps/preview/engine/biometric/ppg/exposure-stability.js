@@ -60,6 +60,40 @@ export const DC_BUCKET_SEC = 1;
 /** Fewest frames worth assessing. */
 export const MIN_EXPOSURE_FRAMES = 15;
 /**
+ * Shortest drift period `driftPeriodSec` can report, in seconds.
+ *
+ * 🔴 Set by the bucket width: the one-second means that make the slow series
+ * are themselves a 1 Hz sampling of the drift, so anything faster than two
+ * buckets is aliased and partly averaged away. A null answer therefore means
+ * "not measurable at this resolution", never "no drift".
+ */
+export const DRIFT_PERIOD_MIN_SEC = DC_BUCKET_SEC * 2;
+/** Longest drift period `driftPeriodSec` can report, in seconds. */
+export const DRIFT_PERIOD_MAX_SEC = 20;
+/**
+ * Mean-crossings required before the slow series counts as oscillating.
+ *
+ * 🔴 Four crossings is two full cycles, the same "twice or it is not evidence"
+ * rule `dominantPeriod` applies to its own lag range. Without it a **ramp**
+ * gets a period: a camera that walks its gain one way and stays there still
+ * crosses its own mean once in the middle, and breathing adds one or two more,
+ * which came out as a confident 19.3 s oscillation that was never there.
+ */
+export const MIN_DRIFT_CROSSINGS = 4;
+/**
+ * Below this, a reported period cannot be told apart from an aliased faster
+ * drift, so it must not be used to decide that a drift is slow enough to
+ * divide out.
+ *
+ * 🔴 Measured, and the measurement is worse than the theory: a true 1.4 s gain
+ * oscillation reports **3.58 s** here, because one-second buckets fold it. The
+ * error runs in the dangerous direction — a drift at cardiac frequency, which
+ * nothing can separate from a pulse, comes back looking like a slow drift that
+ * could be corrected. `DRIFT_PERIOD_MIN_SEC` is the resolution floor; this is
+ * the floor for *trusting* the answer, and they are not the same number.
+ */
+export const DRIFT_PERIOD_TRUSTWORTHY_SEC = 4;
+/**
  * Measures how steady the camera's own operating point was.
  *
  * @param frames - The capture's frames, oldest first.
@@ -111,10 +145,53 @@ export function assessExposureStability(frames, channel = 'red') {
         dcDriftFraction: round4(dcDriftFraction),
         largestStepFraction: round4(largestStep / dcMedian),
         slowDriftDominates: dcDriftFraction >= DC_DRIFT_SUSPECT,
+        driftPeriodSec: measureDriftPeriod(slow),
         framesPerSecond: round2((frames.length - 1) / spanSec),
         longestGapMs: Math.round(longestGapMs),
         frameCount: frames.length,
     };
+}
+/**
+ * Names the period of the dominant slow oscillation, when there is one.
+ *
+ * 🔴 Counts mean-crossings rather than autocorrelating, and that is a
+ * correction, not a shortcut. `dominantPeriod` was the obvious tool and it is
+ * the wrong one here: it normalises by the overlap, which deliberately favours
+ * long lags so that a short cardiac window is not penalised — and on a clean
+ * 5 s drift that sends the argmax to **lag 25**, the fifth multiple, with a
+ * periodicity of 1.000. `preferFundamental` only inspects small integer
+ * submultiples, so it cannot walk 25 back to 5. Bending that normalisation to
+ * suit this one caller would change the cardiac and respiration estimates too.
+ *
+ * ⚠️ A sinusoid crosses its mean twice per cycle, and so does a square wave, so
+ * both report their **full** cycle — a gain that alternates every 3 s reports
+ * 6 s. That is the period of the interference, which is what the comparison
+ * against a heartbeat needs.
+ *
+ * @param slow - One-second means of the channel, oldest first.
+ * @returns The period in seconds, or null when the window holds no full cycle,
+ *   or the answer falls outside what one-second buckets can resolve.
+ */
+function measureDriftPeriod(slow) {
+    const spanSec = (slow.length - 1) * DC_BUCKET_SEC;
+    if (spanSec < DRIFT_PERIOD_MIN_SEC)
+        return null;
+    const level = mean(slow);
+    let crossings = 0;
+    for (let i = 1; i < slow.length; i++) {
+        if ((slow[i - 1] - level) * (slow[i] - level) < 0)
+            crossings++;
+    }
+    // Too few crossings means the level went somewhere and stayed — a ramp, not
+    // an oscillation. Naming a period for that would be inventing one.
+    if (crossings < MIN_DRIFT_CROSSINGS)
+        return null;
+    const period = (2 * spanSec) / crossings;
+    // Outside the instrument's range the answer is not wrong, it is unknown:
+    // faster than two buckets is aliased, slower than the window is unsupported.
+    if (period < DRIFT_PERIOD_MIN_SEC || period > DRIFT_PERIOD_MAX_SEC)
+        return null;
+    return round2(period);
 }
 function median(values) {
     const sorted = [...values].sort((a, b) => a - b);
