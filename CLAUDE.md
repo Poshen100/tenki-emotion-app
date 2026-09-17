@@ -51,6 +51,9 @@
 | 讓相機呼吸率以 pulse scan 副產品的形式出現 | 只能是獨立的 Breath Lock：45–60 秒 protocol、自己的閘門、對照參考來源驗證（§14）|
 | 兩個來源的呼吸率不一致時取平均 | 對的答案跟錯的答案的平均是第三個錯答案。不一致就顯示「訊號衝突」或什麼都不顯示 |
 | **量不到就把權重重新分配給量得到的 driver** | 資料變少不得讓分數變高。實測：同一筆讀數把 HRV 拿掉，舊做法從 72 分變 **86 分**。改用「錨點 + 有上限的證據移動」（§15）|
+| **回報一個有界搜尋的 argmax，而沒有檢查它是不是停在邊界上** | 落在牆上的 lag 不是週期，是那個界。實測：±15.5%／5 秒的曝光漂移讓自相關回報 **200 bpm、節律 0.75**（真值 68）—— 過了每一道閘。而且 `preferFundamental` 會把內部 argmax 搬到牆上，所以**修正後的 lag 也要檢查**（`docs/PHONE-PPG.md` §21）|
+| 拿 A 形狀的量測去推 B 形狀的結論 | §20 說「最可能那格救不了」是在**方波**上量的，實機是**平滑漂移**，結論反過來。判準：step/drift ≈ 1.0 是方波，≈0.6 是平滑漂移 |
+| 上限／門檻類的斷言用「一般」fixture | fixture 必須是**最長／最壞形**。報告長度上限 `< 24` 自從加了曝光段就一直是空的（fixture 的 exposure 是 null，整段塌成一行），實測完整報告 26 行 —— 它早就違反了自己要守的規則 |
 | 用「分數震盪幅度」判斷系統準不準 | z-score 會把幅度正規化。實測訊噪比 0.33 與 0.97 的分數 SD 幾乎一樣（12.2 vs 11.3），**畫面上分不出來**。要判斷準不準只能量雜訊 → `docs/PHONE-PPG.md` §10 |
 | 看到「節律讀不到」就預設是通道飽和 | 2026-09-12 實機第二次否決了這個預設：光 100%（沒有削波）而節律仍然 0。先看 `strong_pulse` 有沒有同時出現 —— 灌流好＋節律零 = 帶內有不重複的能量，主要嫌疑是 auto-exposure（`docs/PHONE-PPG.md` §19）|
 | 用彩虹（FLIR／jet／rainbow）色階表示「量」 | 彩虹裡每個顏色在這個產品裡都已經有主人（綠=success、青=Clear/ACTIVE、紫=Premium、燒橙=Strain、紅=error、金=SECURED），而且彩虹亮度不單調本來就是爛編碼。表示量用**單一色相、亮度單調**的 sequential ramp（`docs/PHONE-PPG.md` §18）|
@@ -93,7 +96,7 @@ tenki-emotion-app/
 | Signal Integrity | `packages/engine/src/biometric/ppg/signal-quality.ts` + `live.ts` | 四維儀表（接觸／光／穩定／節律）與掃描中的 Pulse Lock |
 | 就位閘 | `packages/engine/src/biometric/ppg/capture-readiness.ts` | 擷取開始**以前**的定位閘：只擋接觸，光與晃是 advisory（`docs/PHONE-PPG.md` §17）|
 | 覆蓋地圖 | `packages/engine/src/biometric/ppg/coverage-map.ts` | 缺口在「哪裡」：8×8 連續覆蓋場（單一色相色階，不是彩虹）；coverage 與閘門同一個數字；不講方向（`docs/PHONE-PPG.md` §18）|
-| 曝光穩定度 | `packages/engine/src/biometric/ppg/exposure-stability.ts` | 相機有沒有在自己重調增益：DC 慢速擺動 ＋ 時基（`docs/PHONE-PPG.md` §19）|
+| 曝光穩定度 | `packages/engine/src/biometric/ppg/exposure-stability.ts` | 相機有沒有在自己重調增益：DC 慢速擺動＋**漂移週期**＋時基。週期只說形狀，幅度才說來源（乾淨擷取的 4.4 秒是呼吸，不是相機）（§19／§21）|
 | PRV 閘門 | `packages/engine/src/biometric/ppg/beat-template.ts` | 拍形穩定度 —— 唯一看得到感光雜訊的量（§13）|
 | Breath Lock | `packages/engine/src/biometric/ppg/breath-lock.ts` | 相機呼吸率的獨立契約與雙來源和解（§14，擷取層未寫）|
 | Regulation Evidence | `domain/src/contracts/regulation-evidence.ts` | 自律調節的間接證據契約；刻意沒有 SNS/PNS/LF-HF 欄位 |
