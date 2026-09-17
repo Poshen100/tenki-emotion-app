@@ -39,6 +39,58 @@ function capture(overrides: Partial<ValidationCapture> = {}): ValidationCapture 
   };
 }
 
+describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整份炸掉', () => {
+  /**
+   * 一筆**舊版寫下來的**紀錄：後來才加的欄位根本不存在（不是 null，是
+   * undefined）。這是真機上發生過的事，連續三次實走都只看到報告的預設字，
+   * 因為 `!== null` 對 undefined 是 true，過了 filter 之後就在下一行炸掉。
+   */
+  const legacy = (): ValidationCapture => {
+    const old: Record<string, unknown> = {
+      atMs: 1_757_000_000_000,
+      localDateKey: '2026-09-10',
+      durationSec: 90,
+      qualityScore: 80,
+      accepted: true,
+      heartRateBpm: 66,
+      prvRmssdMs: null,
+      beatTemplateCorrelation: null,
+      lockEverAchieved: true,
+      scenario: 'resting',
+      // channel / exposure / exposureLock：那一版還沒有這些欄位。
+    };
+    return old as unknown as ValidationCapture;
+  };
+
+  it('🔴 報告在只有舊紀錄時照樣產得出來', () => {
+    expect(() => formatValidationReport([legacy()])).not.toThrow();
+    expect(formatValidationReport([legacy()])).toContain('還沒有任何量到曝光的擷取');
+  });
+
+  it('🔴 新舊混在一起也產得出來，而且只算得到的那些', () => {
+    const fresh = capture({
+      exposure: {
+        dcMedian: 190,
+        dcDriftFraction: 0.31,
+        largestStepFraction: 0.22,
+        slowDriftDominates: true,
+        framesPerSecond: 30,
+        longestGapMs: 40,
+        frameCount: 1200,
+      },
+    });
+    const report = formatValidationReport([legacy(), fresh]);
+    // 分母是**有量到的**筆數，不是全部筆數 —— 舊紀錄沒有量，不能算進去。
+    expect(report).toContain('可疑（擺動 ≥ 門檻）：1/1 次');
+  });
+
+  it('🔴 通道那一段也一樣（那是更早加的欄位，同一個坑）', () => {
+    expect(() => assessChannels([legacy()])).not.toThrow();
+    expect(assessChannels([legacy()]).captureCount).toBe(0);
+    expect(formatValidationReport([legacy()])).toContain('還沒有任何量到通道的擷取');
+  });
+});
+
 describe('曝光 — 相機有沒有在自己重新決定亮度', () => {
   const steady = {
     dcMedian: 190,

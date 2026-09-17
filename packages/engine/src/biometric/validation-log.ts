@@ -43,6 +43,24 @@ import { DC_DRIFT_SUSPECT, type ExposureStability } from './ppg/exposure-stabili
 export const VALIDATION_SCENARIOS = ['resting', 'walking', 'cold_hands', 'unspecified'] as const;
 export type ValidationScenario = typeof VALIDATION_SCENARIOS[number];
 
+/**
+ * Whether an optional field is actually there.
+ *
+ * 🔴 The log is **persisted across app versions**, so every field added after a
+ * record was written arrives as `undefined` — not `null`. A `!== null` check
+ * passes for `undefined`, so such a record used to slip through the filter and
+ * the next line dereferenced it. That is not a hypothetical: the report threw on
+ * the real device for three separate runs (2026-09-12 through 09-17) and showed
+ * only its placeholder, which is why no exposure numbers ever came back. The
+ * harness never saw it because it clears the log before every run.
+ *
+ * ⚠️ Anything reading this log is reading data written by an older build. Use
+ * this, never `!== null`.
+ */
+function present<T>(value: T | null | undefined): value is T {
+  return value !== null && value !== undefined;
+}
+
 /** One capture attempt, accepted or not. Derived values only. */
 export interface ValidationCapture {
   /** When the capture finished, Unix ms. */
@@ -137,17 +155,15 @@ export interface ChannelReport {
  * @returns Per-channel summary.
  */
 export function assessChannels(log: readonly ValidationCapture[]): ChannelReport {
-  const measured = log.filter((c) => c.channelPeriodicity !== null);
+  const measured = log.filter((c) => present(c.channelPeriodicity));
 
   const summary = (channel: 'red' | 'green'): ChannelSummary => ({
     chosenCount: log.filter((c) => c.channel === channel).length,
     medianPeriodicity: medianOf(
-      measured.map((c) => (c.channelPeriodicity as { red: number; green: number })[channel]),
+      measured.flatMap((c) => (present(c.channelPeriodicity) ? [c.channelPeriodicity[channel]] : [])),
     ),
     medianDcMean: medianOf(
-      measured
-        .filter((c) => c.channelDcMean !== null)
-        .map((c) => (c.channelDcMean as { red: number; green: number })[channel]),
+      measured.flatMap((c) => (present(c.channelDcMean) ? [c.channelDcMean[channel]] : [])),
     ),
   });
 
@@ -369,7 +385,7 @@ export function formatValidationReport(log: readonly ValidationCapture[]): strin
 
   lines.push('曝光（相機有沒有在自己重新決定亮度）');
   const exposures = log.filter(
-    (c): c is ValidationCapture & { exposure: ExposureStability } => c.exposure !== null,
+    (c): c is ValidationCapture & { exposure: ExposureStability } => present(c.exposure),
   );
   if (exposures.length === 0) {
     lines.push('  還沒有任何量到曝光的擷取。');
@@ -381,7 +397,7 @@ export function formatValidationReport(log: readonly ValidationCapture[]): strin
     const hunting = exposures.filter((c) => c.exposure.slowDriftDominates).length;
     const locks = log.filter(
       (c): c is ValidationCapture & { exposureLock: { requested: string[]; applied: boolean } } =>
-        c.exposureLock !== null,
+        present(c.exposureLock) && Array.isArray(c.exposureLock.requested),
     );
     // ⚠️ 擠在三行裡是刻意的：這份報告是要被**貼回對話**的，長度本身有一條
     // 斷言守著。門檻印在數字旁邊，讀的人不必記得它是多少。
