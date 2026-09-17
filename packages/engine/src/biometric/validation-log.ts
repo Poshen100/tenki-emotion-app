@@ -424,17 +424,15 @@ export function formatValidationReport(log: readonly ValidationCapture[]): strin
       `  DC 慢速擺動中位數 ${fmt(drift)} · 最大單秒跳動 ${fmt(step)} · 門檻 ${DC_DRIFT_SUSPECT} · 可疑（擺動 ≥ 門檻）：${hunting}/${exposures.length} 次`,
     );
     const period = medianOf(
-      exposures.map((c) => c.exposure.driftPeriodSec).filter((v): v is number => v !== null),
+      // 🔴 `present`, not `!== null`. A record written before `driftPeriodSec`
+      // existed carries `undefined` there, and `undefined !== null` is **true**
+      // — so the filter passed it through as a number and the median came out
+      // `NaN`. This is bug `86b39915` a second time, in this same file, three
+      // commits after its lesson went into the PLAYBOOK. The helper on line 64
+      // was written for exactly this and I did not use it.
+      exposures.map((c) => c.exposure.driftPeriodSec).filter(present),
     );
-    lines.push(
-      `  慢速擺動週期中位數 ${fmt(period)} 秒${
-        period === null
-          ? '（量不到 —— 不代表沒有擺動）'
-          : period < DRIFT_PERIOD_TRUSTWORTHY_SEC
-            ? `（低於 ${DRIFT_PERIOD_TRUSTWORTHY_SEC} 秒 = 也可能是更快的擺動被一秒桶折疊，不能當成「慢」）`
-            : '（比一次心搏慢 = 原理上可以除掉；比心搏快或相當 = 沒有東西分得出來）'
-      }`,
-    );
+    lines.push(`  慢速擺動週期中位數 ${fmt(period)} 秒${driftPeriodNote(period)}`);
     lines.push(`  時基 fps ${fmt(fps)} · 最長間隔 ${fmt(gap)} ms`);
     lines.push(`  ${exposureLockNote(locks)}`);
     lines.push(
@@ -529,6 +527,30 @@ function channelNote(channels: ChannelReport): string {
 }
 
 /**
+ * How to read the drift period, when there is one to read.
+ *
+ * 🔴 The optimistic reading requires a **positive** test, and that ordering is
+ * the point. The first version branched on `period === null` and fell through
+ * to "slow enough to divide out" otherwise — so when a `NaN` arrived, it
+ * defeated the null check and then defeated both `<` comparisons (every
+ * comparison with NaN is false) and landed on the most encouraging sentence in
+ * the function. An unknown value must never be able to reach the good branch by
+ * failing tests; it has to pass one.
+ *
+ * @param period - Median drift period in seconds, or null when unmeasured.
+ * @returns The parenthesised reading, including its own leading bracket.
+ */
+function driftPeriodNote(period: number | null): string {
+  if (period === null || !Number.isFinite(period)) {
+    return '（量不到 —— 不代表沒有擺動）';
+  }
+  if (period < DRIFT_PERIOD_TRUSTWORTHY_SEC) {
+    return `（低於 ${DRIFT_PERIOD_TRUSTWORTHY_SEC} 秒 = 也可能是更快的擺動被一秒桶折疊，不能當成「慢」）`;
+  }
+  return '（比一次心搏慢 = 原理上可以除掉；比心搏快或相當 = 沒有東西分得出來）';
+}
+
+/**
  * What the exposure lock actually achieved, as opposed to whether some
  * constraint was accepted.
  *
@@ -575,13 +597,29 @@ function spreadOf(values: readonly number[]): Spread | null {
   };
 }
 
+/**
+ * Prints a number, or a dash when there is no number to print.
+ *
+ * 🔴 Non-finite counts as "no number". A `NaN` reached this function once and
+ * printed as the literal text `NaN 秒` in a report the founder then had to
+ * interpret. Anything that is not a real value must render as absent, whatever
+ * upstream mistake produced it — this is the last place that can still catch it.
+ */
 function fmt(value: number | null): string {
-  return value === null ? '—' : String(value);
+  return value === null || !Number.isFinite(value) ? '—' : String(value);
 }
 
+/**
+ * Median of the values that are actually values.
+ *
+ * ⚠️ Filters to finite numbers first, so one `undefined` leaking in from a
+ * legacy record cannot turn the whole aggregate into `NaN`. An empty result is
+ * null — "nothing measured" — never a number.
+ */
 function medianOf(values: readonly number[]): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
+  const finite = values.filter((v) => Number.isFinite(v));
+  if (finite.length === 0) return null;
+  const sorted = [...finite].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 1 ? sorted[mid] : round2((sorted[mid - 1] + sorted[mid]) / 2);
 }

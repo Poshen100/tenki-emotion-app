@@ -87,6 +87,62 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     expect(formatValidationReport([legacy()])).toContain('還沒有任何量到曝光的擷取');
   });
 
+  /**
+   * 🔴 比上面那筆更難抓的一種舊紀錄：**exposure 物件存在，但缺後來才加的
+   * 巢狀欄位**。`driftPeriodSec` 是 2026-09-17 加的，所以之前存下來的每一筆
+   * exposure 在那個欄位上都是 `undefined`。
+   */
+  const legacyExposure = (): ValidationCapture => {
+    const old: Record<string, unknown> = {
+      dcMedian: 200.95,
+      dcDriftFraction: 0.29,
+      largestStepFraction: 0.22,
+      slowDriftDominates: true,
+      framesPerSecond: 59.94,
+      longestGapMs: 61,
+      frameCount: 3600,
+      // driftPeriodSec：那一版還沒有這個欄位。
+    };
+    return capture({ exposure: old as unknown as typeof steady });
+  };
+
+  it('🔴 舊紀錄缺巢狀欄位時說「量不到」，不是印出 NaN', () => {
+    // 🔴 實機第五次（10 次擷取）真的印出了「慢速擺動週期中位數 NaN 秒」，
+    // 而且後面還接著最樂觀的那句「比一次心搏慢 = 原理上可以除掉」。
+    //
+    // 兩個錯：① filter 寫成 `v !== null`，而 `undefined !== null` 是 true，
+    // 所以 undefined 被當成 number 混進去，八筆取中位數變 NaN ——
+    // **這就是 86b39915 同一個 bug，同一個檔案，教訓進 PLAYBOOK 三個 commit 之後。**
+    // ② NaN 打敗了 null 檢查，也打敗了兩個 `<` 比較（NaN 的比較全是 false），
+    // 於是**靠著失敗**落進最鼓舞人心的那一句。
+    const report = formatValidationReport([legacyExposure(), legacyExposure()]);
+    expect(report).toContain('慢速擺動週期中位數 — 秒');
+    expect(report).toContain('量不到 —— 不代表沒有擺動');
+    expect(report).not.toContain('原理上可以除掉');
+    // 這批紀錄的其他曝光數字照樣要算得出來 —— 缺的只有週期那一個欄位。
+    expect(report).toContain('DC 慢速擺動中位數 0.29');
+  });
+
+  it('🔴 新舊混在一起時，週期只由有那個欄位的紀錄算', () => {
+    const report = formatValidationReport([
+      legacyExposure(),
+      capture({ exposure: { ...hunting, driftPeriodSec: 5.1 } }),
+    ]);
+    expect(report).toContain('慢速擺動週期中位數 5.1 秒');
+  });
+
+  it('🔴 報告裡永遠不得出現 NaN 這三個字', () => {
+    // 整類的攔網：不管上游哪裡漏了一個欄位，報告都不該把非數字印成數字。
+    // founder 是拿這份報告在做決定的。
+    const report = formatValidationReport([
+      legacy(),
+      legacyExposure(),
+      capture({ exposure: hunting, exposureLock: { requested: ['exposureMode'], applied: true } }),
+    ]);
+    expect(report).not.toContain('NaN');
+    expect(report).not.toContain('undefined');
+  });
+
   it('🔴 新舊混在一起也產得出來，而且只算得到的那些', () => {
     const fresh = capture({
       exposure: {
