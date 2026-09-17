@@ -254,6 +254,15 @@ const state = {
   running: false,
   lastSample: null,
   torchAvailable: false,
+  /**
+   * 補光燈現在是不是亮的。
+   *
+   * 🔴 可以關，而且關掉是一個**實驗**不是一個偏好：瀏覽器不給鎖曝光，
+   * 所以唯一還剩的辦法是不要給 auto-exposure 東西去追。補光燈貼著指尖會讓
+   * 紅到 201、綠到 37，那是 AE 很難平衡的場景。它是不是 29% 擺動的原因，
+   * 兩次擷取就答得出來 —— 前提是紀錄記得下哪一次開哪一次關。
+   */
+  torchOn: false,
   lock: INITIAL_PULSE_LOCK,
   /** 這次擷取期間是否曾經 lock 過。實機驗收第 6 條問的就是這個。 */
   lockEverAchieved: false,
@@ -389,6 +398,9 @@ function validationEntry(a) {
     // ⚠️ 用**被選中的那個通道**算，不是寫死紅的：漂移要量在讀數真的來自的地方。
     exposure: assessExposureStability(state.frames, a === null ? 'red' : a.channel),
     exposureLock: state.exposureLock,
+    // 🔴 記的是「這次到底亮不亮」，不是「這台機器有沒有補光燈」。
+    // 沒有補光燈可開的瀏覽器（iOS Safari 都是）回 null —— 那不是「關」。
+    torchOn: state.torchAvailable ? state.torchOn : null,
     scenario: state.scenario,
   };
 }
@@ -434,16 +446,48 @@ async function startCamera() {
   const track = stream.getVideoTracks()[0];
   const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
   state.torchAvailable = Boolean(caps && caps.torch);
-  if (state.torchAvailable) {
-    try {
-      await track.applyConstraints({ advanced: [{ torch: true }] });
-    } catch (_) {
-      state.torchAvailable = false;
-    }
+  if (state.torchAvailable) await setTorch(true);
+  renderTorchControl();
+}
+
+/**
+ * 開關補光燈。
+ *
+ * ⚠️ 失敗就把 `torchAvailable` 降下來，因為 `getCapabilities()` 說有不等於
+ * `applyConstraints()` 會收 —— 而 `torchOn` 必須反映**實際**狀態，否則驗收
+ * 報告的那組對照會拿錯的標籤去比。
+ *
+ * @param {boolean} on - 要不要亮。
+ * @returns {Promise<void>}
+ */
+async function setTorch(on) {
+  if (state.stream === null) return;
+  const track = state.stream.getVideoTracks()[0];
+  if (!track) return;
+  try {
+    await track.applyConstraints({ advanced: [{ torch: on }] });
+    state.torchOn = on;
+  } catch (_) {
+    state.torchAvailable = false;
+    state.torchOn = false;
   }
-  $('torchNote').textContent = state.torchAvailable
-    ? '已開啟補光燈。'
-    : '這個瀏覽器不支援補光燈（iOS Safari 都不支援）。訊號會比原生 App 弱 —— 品質門檻不會因此放寬，讀不到就是讀不到。';
+}
+
+/** 補光燈那一行：狀態＋（有的話）切換鈕。 */
+function renderTorchControl() {
+  const note = $('torchNote');
+  const btn = $('torchToggle');
+  if (!state.torchAvailable) {
+    btn.hidden = true;
+    note.textContent =
+      '這個瀏覽器不支援補光燈（iOS Safari 都不支援）。訊號會比原生 App 弱 —— 品質門檻不會因此放寬，讀不到就是讀不到。';
+    return;
+  }
+  btn.hidden = false;
+  btn.textContent = state.torchOn ? '關掉補光燈' : '開啟補光燈';
+  note.textContent = state.torchOn
+    ? '補光燈開著。⚠️ 如果節律一直讀不到，關掉再做一次 —— 驗收報告會把兩種情況的亮度擺動並排。'
+    : '補光燈關著。訊號會弱一些，但相機比較不會一直重調亮度。';
 }
 
 function stopCamera() {
@@ -1439,6 +1483,13 @@ $('precisionBtn').addEventListener('click', () => {
   }
 });
 $('cancelGate').addEventListener('click', abort);
+
+// 補光燈切換。⚠️ 只在就位階段可按 —— 擷取途中改光源等於把兩種條件混進
+// 同一筆資料，那筆就兩邊都不算。
+$('torchToggle').addEventListener('click', async () => {
+  await setTorch(!state.torchOn);
+  renderTorchControl();
+});
 // 🔴 逃生口。按了照樣走完整的 90 秒與同一套閘門 —— 它放寬的是「什麼時候可以
 // 開始」，不是「什麼算得上一次讀數」。
 $('skipGate').addEventListener('click', () => {
@@ -1491,6 +1542,21 @@ window.addEventListener('pagehide', stopCamera);
  * from the browser bundle (see scripts/build-preview-ppg.mjs).
  */
 window.__tenkiFingerHarness = {
+  /**
+   * 假裝相機回報了（或沒回報）補光燈能力，然後跑真的那個 render。
+   *
+   * ⚠️ 這個接縫是必要的：`renderTorchControl` 只在 `setupCamera()` 之後跑，
+   * 而 harness 沒有相機，所以那一整條分支本來 harness 走不到 —— 而它正是
+   * 「這台不支援」跟「忘記開」要分得出來的地方。
+   *
+   * @param {boolean} available - 相機有沒有 torch 能力。
+   * @param {boolean} on - 現在亮不亮。
+   */
+  setTorchCapability(available, on) {
+    state.torchAvailable = available;
+    state.torchOn = available && on;
+    renderTorchControl();
+  },
   renderFrames(frames) {
     state.frames = frames;
     renderOutcome(analyzePpgScan(frames, MODE, captureOptions()));

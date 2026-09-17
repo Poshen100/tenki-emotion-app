@@ -395,6 +395,15 @@
       </details>
     </section>
 
+    <!-- 🔴 補光燈是一個**實驗**，不是一個偏好（2026-09-17）。瀏覽器不給鎖曝光
+         （實機 8/8 次 exposureMode 沒有 manual 可用），所以唯一還剩的辦法是
+         不要給 auto-exposure 東西去追。它是不是 29% 亮度擺動的原因，兩次擷取
+         就答得出來 —— 驗收報告會把開和關的擺動並排。 -->
+    <div class="only-ready" style="margin-top:18px">
+      <button type="button" class="ghost" id="torchToggle" hidden></button>
+      <p class="note" id="torchNote" style="margin-top:10px"></p>
+    </div>
+
     <button class="only-ready ghost" id="skipGate" style="margin-top:auto" hidden>訊號一直不合格，仍要開始</button>
     <button class="only-ready ghost" id="cancelGate">取消</button>
 
@@ -426,7 +435,6 @@
       <div class="dims" id="liveDims"></div>
       <ul id="liveReasons" style="margin-top:14px"></ul>
       <p class="note" id="exposureNote" data-tone="neutral" style="margin-top:10px"></p>
-      <p class="note" id="torchNote" style="margin-top:10px"></p>
     </details>
     <!-- 🔴 Anchor First：30 秒一過就收下錨點並告訴使用者，他可以馬上走。
          「查看今日狀態」隨時可按，而且沒有懲罰 —— 精修只是他選擇留下來

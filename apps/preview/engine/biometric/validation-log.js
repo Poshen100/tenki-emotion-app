@@ -234,6 +234,7 @@ export function formatValidationReport(log) {
         lines.push(`  慢速擺動週期中位數 ${fmt(period)} 秒${driftPeriodNote(period)}`);
         lines.push(`  時基 fps ${fmt(fps)} · 最長間隔 ${fmt(gap)} ms`);
         lines.push(`  ${exposureLockNote(locks)}`);
+        lines.push(`  ${torchSplitNote(exposures)}`);
         lines.push('  （擺動遠大於門檻 = auto-exposure 在擷取中重調增益，會蓋掉心搏起伏）');
     }
     lines.push('');
@@ -339,6 +340,40 @@ function driftPeriodNote(period) {
         return `（低於 ${DRIFT_PERIOD_TRUSTWORTHY_SEC} 秒 = 也可能是更快的擺動被一秒桶折疊，不能當成「慢」）`;
     }
     return '（只描述形狀 —— 週期慢不代表除得掉，帶內的是諧波不是基頻，§22）';
+}
+/**
+ * Drift split by whether the torch was lit — the A/B the device can run itself.
+ *
+ * 🔴 The browser will not lock exposure (`exposureLockNote`), so the only
+ * remaining way to stop auto-exposure hunting is to stop giving it something to
+ * hunt. A torch against a fingertip puts red near 200 and green near 37, which
+ * is about as hard a scene as an AE loop can be handed. Whether that is what
+ * drives the 29% drift is answerable in two captures — but only if the log
+ * records which captures had the torch on, and only if the report puts the two
+ * medians beside each other.
+ *
+ * ⚠️ Says "not compared yet" until both sides exist. One side alone is not a
+ * comparison, and printing a single median under this heading would read like
+ * one.
+ *
+ * @param exposures - Captures that measured exposure.
+ * @returns One line comparing drift with the torch on against off.
+ */
+function torchSplitNote(exposures) {
+    const lit = exposures.filter((c) => c.torchOn === true);
+    const dark = exposures.filter((c) => c.torchOn === false);
+    const unknown = exposures.length - lit.length - dark.length;
+    if (lit.length === 0 && dark.length === 0) {
+        return `補光燈對照 還沒有紀錄（${unknown} 筆沒記到補光燈狀態）`;
+    }
+    if (lit.length === 0 || dark.length === 0) {
+        const side = lit.length === 0 ? '關' : '開';
+        const missing = lit.length === 0 ? '開' : '關';
+        return `補光燈對照 只有「${side}」的資料（${lit.length + dark.length} 筆）—— 再做一次「${missing}」才比得出來`;
+    }
+    const onDrift = medianOf(lit.map((c) => c.exposure.dcDriftFraction));
+    const offDrift = medianOf(dark.map((c) => c.exposure.dcDriftFraction));
+    return `補光燈對照 開：擺動 ${fmt(onDrift)}（${lit.length} 筆）· 關：擺動 ${fmt(offDrift)}（${dark.length} 筆）`;
 }
 /**
  * What the exposure lock actually achieved, as opposed to whether some

@@ -1243,6 +1243,86 @@ if (shotReady) {
   await page.screenshot({ path: shotReady, fullPage: true });
   console.log(`  📸 ${shotReady}`);
 }
+// ── 補光燈對照：可關，而且只有就位階段可關 ──────────────────────────────────
+// 🔴 這是一個實驗不是偏好：瀏覽器不給鎖曝光（實機 8/8 次 exposureMode 沒有
+// manual），所以唯一還剩的辦法是不要給 auto-exposure 東西去追。
+console.log('\n── 補光燈對照 ──');
+
+const readTorch = async (available, on) =>
+  await page.evaluate(
+    ([a, o]) => {
+      window.__tenkiFingerHarness.resetGate();
+      window.__tenkiFingerHarness.setTorchCapability(a, o);
+      const seen = (sel) => {
+        const el = document.querySelector(sel);
+        return el !== null && el.checkVisibility();
+      };
+      const note = document.getElementById('torchNote');
+      const btn = document.getElementById('torchToggle');
+      return {
+        noteVisible: seen('#torchNote'),
+        noteText: note === null ? '' : note.textContent.trim(),
+        toggleVisible: seen('#torchToggle'),
+        toggleText: btn === null ? '' : btn.textContent.trim(),
+        toggleOnReadyScreen:
+          document.querySelector('#torchToggle')?.closest('.only-ready') !== null,
+      };
+    },
+    [available, on],
+  );
+
+const noTorch = await readTorch(false, false);
+check(
+  '沒有補光燈的瀏覽器：切換鈕收起來，但說明還在',
+  !noTorch.toggleVisible && noTorch.noteVisible && noTorch.noteText.length > 0,
+  JSON.stringify(noTorch),
+);
+check(
+  '🔴 說明講的是這台不支援，不是「已開啟」',
+  noTorch.noteText.includes('不支援') && !noTorch.noteText.includes('補光燈開著'),
+  JSON.stringify(noTorch.noteText),
+);
+
+const torchLit = await readTorch(true, true);
+check(
+  '有補光燈而且亮著：按鈕說的是「關掉」（下一步，不是現狀）',
+  torchLit.toggleVisible && torchLit.toggleText.includes('關掉'),
+  JSON.stringify(torchLit),
+);
+check(
+  '🔴 亮著的時候要主動說「讀不到節律就關掉再試一次」',
+  torchLit.noteText.includes('關掉再做一次'),
+  JSON.stringify(torchLit.noteText),
+);
+
+const torchOff = await readTorch(true, false);
+check(
+  '關掉之後按鈕變成「開啟」，而且不假裝訊號一樣強',
+  torchOff.toggleText.includes('開啟') && torchOff.noteText.includes('弱'),
+  JSON.stringify(torchOff),
+);
+check(
+  '切換鈕在就位畫面上（決定是在那裡做的）',
+  torchLit.toggleOnReadyScreen,
+  JSON.stringify(torchLit),
+);
+
+// 擷取途中改光源＝把兩種條件混進同一筆資料，那筆兩邊都不算。
+const torchDuringScan = await page.evaluate((all) => {
+  const t0 = all[0].timestampMs;
+  window.__tenkiFingerHarness.renderLiveFrames(
+    all.filter((f) => f.timestampMs <= t0 + 20 * 1000),
+  );
+  const el = document.querySelector('#torchToggle');
+  return { visible: el !== null && el.checkVisibility() };
+}, synthesizePpg({ durationSec: 90 }).frames);
+
+check(
+  '🔴 擷取途中按不到切換鈕（換光源會讓那筆資料兩邊都不算）',
+  !torchDuringScan.visible,
+  JSON.stringify(torchDuringScan),
+);
+
 const shotCover = process.env.FINGER_SHOT_COVER;
 if (shotCover) {
   // ⚠️ 先 resetGate：截圖是在所有斷言跑完之後，而那時頁面早就被推到 result

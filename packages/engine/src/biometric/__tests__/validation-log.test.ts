@@ -34,6 +34,7 @@ function capture(overrides: Partial<ValidationCapture> = {}): ValidationCapture 
     channelDcMean: { red: 190, green: 92 },
     exposure: null,
     exposureLock: null,
+    torchOn: null,
     scenario: 'resting',
     ...overrides,
   };
@@ -129,6 +130,49 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
       capture({ exposure: { ...hunting, driftPeriodSec: 5.1 } }),
     ]);
     expect(report).toContain('慢速擺動週期中位數 5.1 秒');
+  });
+
+  it('🔴 只有一邊的補光燈資料不算對照', () => {
+    // 🔴 一邊不是對照。印出單獨一個中位數放在「對照」這個標題下面，
+    // 讀起來就像一個對照 —— 而這正是這個欄位存在要回答的問題。
+    const report = formatValidationReport([
+      capture({ exposure: hunting, torchOn: true }),
+      capture({ exposure: hunting, torchOn: true }),
+    ]);
+    expect(report).toContain('只有「開」的資料');
+    expect(report).toContain('再做一次「關」才比得出來');
+  });
+
+  it('兩邊都有了才把兩個擺動中位數並排', () => {
+    const report = formatValidationReport([
+      capture({ exposure: hunting, torchOn: true }),
+      capture({ exposure: { ...hunting, dcDriftFraction: 0.02 }, torchOn: false }),
+    ]);
+    expect(report).toContain('補光燈對照 開：擺動 0.31（1 筆）· 關：擺動 0.02（1 筆）');
+  });
+
+  it('🔴 舊紀錄沒有 torchOn 這個欄位，要說沒紀錄而不是當成關', () => {
+    // 🔴 第三次同一個形狀的坑：`torchOn` 是今天加的，所以之前存下來的每一筆
+    // 在那裡都是 `undefined`。把 undefined 當成 false 會產出一份憑空的
+    // 「補光燈關」對照組 —— 那比沒有對照更糟。
+    const old: Record<string, unknown> = {
+      atMs: 1_757_000_000_000,
+      localDateKey: '2026-09-10',
+      durationSec: 90,
+      qualityScore: 80,
+      accepted: true,
+      heartRateBpm: 66,
+      prvRmssdMs: null,
+      beatTemplateCorrelation: null,
+      lockEverAchieved: true,
+      exposure: hunting,
+      scenario: 'resting',
+      // torchOn：那一版還沒有這個欄位。
+    };
+    const report = formatValidationReport([old as unknown as ValidationCapture]);
+    expect(report).toContain('補光燈對照 還沒有紀錄');
+    expect(report).toContain('1 筆沒記到補光燈狀態');
+    expect(report).not.toContain('關：擺動');
   });
 
   it('🔴 週期這個數字不得暗示漂移除得掉', () => {
