@@ -95,6 +95,26 @@ describe('refusals', () => {
     expect(hasUsableReading(analysis)).toBe(false);
   });
 
+  it('refuses a heart rate from light that never pulsed, however clean it looks', () => {
+    // 🔴 The gate the pipeline was missing. This capture passes both of the
+    // conditions that used to guard the heart rate — quality 74 against a bar
+    // of 45, and a periodicity component of 1.00 — because the little signal
+    // present is quiet rather than strong. Its perfusion component is 0.00.
+    //
+    // ⚠️ Measured with the perfusion condition removed: **68 bpm**, on a
+    // capture with no blood signal in it. Periodicity had been standing in for
+    // a perfusion gate by accident, and only because weak pulses usually also
+    // arrive noisy. Delete `noPulsatileLight` from `analyze.ts` and this test
+    // is what fails.
+    const { analysis } = analyse(PPG_FIXTURES.quietWeakPulse);
+    expect(analysis.quality.score).toBeGreaterThan(45);
+    expect(analysis.quality.reasons).toContain('good_periodicity');
+    expect(analysis.quality.components.periodicity).toBeGreaterThan(0.9);
+    expect(analysis.quality.components.perfusion).toBeLessThan(0.05);
+    expect(analysis.heartRateBpm).toBeNull();
+    expect(analysis.withheld).toContainEqual({ metric: 'heart_rate', reason: 'low_perfusion' });
+  });
+
   it('withholds PRV when the finger was moving, and says so', () => {
     const { analysis } = analyse(PPG_FIXTURES.motion);
     expect(analysis.prvRmssdMs).toBeNull();

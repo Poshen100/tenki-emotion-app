@@ -31,7 +31,7 @@
 
 import { PPG_RESAMPLE_HZ, bandPass, perfusionIndex, resampleUniform } from './filtering';
 import { MIN_PERIODICITY, estimateRate } from './pulse';
-import { assessFrameComponents, assessPpgQuality } from './quality';
+import { MIN_PERFUSION, assessFrameComponents, assessPpgQuality } from './quality';
 import { SCAN_MODE_CONFIGS, type ScanMode } from '../scan-modes';
 import type { PpgFrame, PpgQualityReason } from './types';
 
@@ -174,10 +174,11 @@ export function assessLiveWindow(frames: readonly PpgFrame[], mode: ScanMode): L
   const rate = estimateRate(cardiac, resampled.sampleRateHz);
   const periodicity = rate?.periodicity ?? 0;
 
+  const perfusion = perfusionIndex(resampled.values, cardiac);
   const quality = assessPpgQuality({
     frames,
     periodicity,
-    perfusion: perfusionIndex(resampled.values, cardiac),
+    perfusion,
     frameDropFraction: resampled.gapFraction,
     durationSec,
     // The window's own minimum, not the mode's: a 20-second live window is not
@@ -194,12 +195,19 @@ export function assessLiveWindow(frames: readonly PpgFrame[], mode: ScanMode): L
     secondsAnalysed: round1(durationSec),
     score: quality.score,
     reasons: quality.reasons,
-    // 🔴 The same two conditions `analyzePpgScan` applies to the heart rate.
+    // 🔴 The same THREE conditions `analyzePpgScan` applies to the heart rate.
     // Quoted from the mode's own config rather than restated, so a change to
     // the gate cannot leave the live readout promising the old one.
+    //
+    // ⚠️ The perfusion condition was added to the final gate and initially not
+    // here — which immediately made the lock optimistic: it promised a reading
+    // on a weakly-perfused capture the pipeline then refused. That is the one
+    // direction this module exists to prevent. **Any condition added to the
+    // rate gate has to be added in both places, or the lock lies.**
     meetsReadingGate:
       quality.score >= SCAN_MODE_CONFIGS[mode].minQualityForHeartRate &&
-      periodicity >= MIN_PERIODICITY,
+      periodicity >= MIN_PERIODICITY &&
+      perfusion >= MIN_PERFUSION,
   };
 }
 

@@ -128,7 +128,13 @@ describe('the lock holds only while the signal does', () => {
     // rescued by green — which is the whole point of `channels.ts`, and the
     // reason a real iPhone with the torch on was failing. It is now a
     // channel-switch case, covered in channels.test.ts.
-    for (const fixture of [PPG_FIXTURES.lowPerfusion]) {
+    // ⚠️ `quietWeakPulse` is here because it is the one fixture where the lock
+    // and the verdict could disagree *silently*: it scores 74 with a
+    // periodicity component of 1.00, so the two conditions the lock used to
+    // quote both pass. Only the perfusion condition refuses it — and the lock
+    // has to quote that condition too, or it promises a reading for ninety
+    // seconds that never arrives.
+    for (const fixture of [PPG_FIXTURES.lowPerfusion, PPG_FIXTURES.quietWeakPulse]) {
       const all = frames(fixture);
       expect(finalBpm(all)).toBeNull();
       expect(replayLive(all).everLocked).toBe(false);
