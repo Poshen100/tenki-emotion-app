@@ -293,14 +293,15 @@ export const GAIN_WINDOW_SEC = 1.5;
  * |------------------------|----------------------------|--------------------------|
  * | clean                  | 0.935 → 0.955              | 0.0062 → 0.0069          |
  * | steps ±35% every 1.4 s | **0.111 → 0.483** (refused → accepted) | 0.1481 → 0.1409 |
- * | steps ±50% every 0.8 s | 0.708 → 0.701 (**false 40 bpm**) | 0.3062 → 0.2933     |
+ * | steps ±50% every 0.8 s | refused → refused          | 0.3062 → 0.2933          |
  * | steps ±20% every 3.0 s | 0.000 → 0.104 (**still refused**) | 0.0564 → 0.0551   |
  *
- * 🔴 The ±50%/0.8 s row is worse than "not rescued". At 1.25 Hz the gain
- * oscillation is inside the cardiac band at a plausible pulse rate, so the
- * capture reads as periodic (0.708, over the gate) and yields a confident
- * **40 bpm against a truth near 69**. Nothing here and nothing in the quality
- * gate separates an interference at pulse frequency from a pulse.
+ * 🔴 The ±50%/0.8 s row used to read "0.708 → 0.701, a confident **40 bpm**
+ * against a truth near 69" — a 1.25 Hz gain oscillation sitting inside the
+ * cardiac band at a plausible pulse rate. That 40 was the wall of the
+ * autocorrelation search, and `dominantPeriod` now refuses a boundary lag, so
+ * both sides are honest refusals. Stabilising does not turn one back into a
+ * reading, which is what the test now asserts.
  *
  * 🔴 The ±20%/3.0 s row is the honest limit in the other direction: a slow,
  * large gain plateau is not recoverable this way, because over three seconds
@@ -350,6 +351,18 @@ export interface DominantPeriod {
 }
 
 /**
+ * Whether a lag sits on the edge of the searched range rather than inside it.
+ *
+ * @param lag - The lag in question.
+ * @param minLagSamples - Shortest lag searched.
+ * @param maxLagSamples - Longest lag searched.
+ * @returns True when the lag is one of the two boundaries.
+ */
+function isSearchBoundary(lag: number, minLagSamples: number, maxLagSamples: number): boolean {
+  return lag <= minLagSamples || lag >= maxLagSamples;
+}
+
+/**
  * Finds the strongest repeating component within a lag range.
  *
  * Shared by the cardiac and the respiratory estimates because both ask the same
@@ -357,10 +370,26 @@ export interface DominantPeriod {
  * strongly? The periodicity it returns is what lets a caller refuse — without
  * it, a dominant lag always exists and always looks like an answer.
  *
+ * 🔴 `periodicity` alone is not enough to refuse on, and this is the second
+ * half of that guard. The search is bounded, so when the series' real dominant
+ * component lies **outside** the range the argmax lands on the boundary — and
+ * the correlation there can be high, because whatever is out of range is
+ * usually slow, and slow means smooth, and smooth autocorrelates well at every
+ * short lag. The caller then receives the wall of the search dressed as a
+ * measurement.
+ *
+ * ⚠️ Measured on a 60 s capture with a ±20% / 5 s gain drift on it — the shape
+ * the device reported on 2026-09-17: the cardiac search returned **200 bpm**
+ * (its own `MAX_PLAUSIBLE_BPM`) with a periodicity of **0.75**, against a truth
+ * of 68 bpm. Over every gate, and wrong by 130 bpm. A refusal is the only
+ * honest output there, so a boundary argmax now returns null.
+ *
  * @param values - The series to search.
- * @param minLagSamples - Shortest lag to consider.
- * @param maxLagSamples - Longest lag to consider.
- * @returns The dominant period, or null when the series cannot support the range.
+ * @param minLagSamples - Shortest lag the caller may report.
+ * @param maxLagSamples - Longest lag the caller may report.
+ * @returns The dominant period, or null when the series cannot support the
+ *   range, or when the strongest lag sits on the boundary of the search rather
+ *   than inside it.
  */
 export function dominantPeriod(
   values: readonly number[],
@@ -400,6 +429,16 @@ export function dominantPeriod(
   if (bestLag === 0) return null;
 
   const fundamental = preferFundamental(centred, energy, bestLag, bestScore, minLagSamples);
+
+  // 🔴 The wall of the search is not a period. See the note above the function.
+  //
+  // ⚠️ Both lags are checked, and the second check is the one that actually
+  // fires. `preferFundamental` corrects the octave error by moving to a
+  // **submultiple** — a shorter lag — so it can take an interior argmax and
+  // land the answer on `minLagSamples`. Checking only the argmax let a
+  // measured 200 bpm / periodicity 0.60 through on a drifting capture.
+  if (isSearchBoundary(bestLag, minLagSamples, maxLagSamples)) return null;
+  if (isSearchBoundary(fundamental.lag, minLagSamples, maxLagSamples)) return null;
 
   return {
     lagSamples: fundamental.lag,

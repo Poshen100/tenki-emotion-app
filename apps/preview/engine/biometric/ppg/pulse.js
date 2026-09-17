@@ -24,9 +24,26 @@
  * the dicrotic notch of each beat gets counted and the reported rate doubles.
  */
 import { dominantPeriod, mean, standardDeviation } from './filtering.js';
-/** Slowest heart rate accepted, in bpm. */
+/**
+ * Slowest heart rate the autocorrelation searches for, in bpm.
+ *
+ * ⚠️ This is the **search** bound, not the reportable range. `dominantPeriod`
+ * refuses a lag that sits on the boundary of its search, because that is where
+ * a component from outside the range lands (see its own note). So the slowest
+ * rate that actually comes back is one lag in: 40.9 bpm on the 30 Hz grid.
+ */
 export const MIN_PLAUSIBLE_BPM = 40;
-/** Fastest heart rate accepted, in bpm. */
+/**
+ * Fastest heart rate the autocorrelation searches for, in bpm.
+ *
+ * ⚠️ Same caveat, and it bites harder at this end because the lag grid is
+ * coarse here: lags 10, 11 and 12 are 180, 163.6 and 150 bpm. The fastest rate
+ * that comes back is **180 bpm**, and a capture whose dominant period really is
+ * at 200 bpm is refused. 🔴 That is deliberate: "200 bpm" was never a
+ * measurement this pipeline could make — there is no lag between 180 and 200 —
+ * whereas the false readings the unguarded search emitted at exactly that lag
+ * were real and measured (see `__tests__/rate-bounds.test.ts`).
+ */
 export const MAX_PLAUSIBLE_BPM = 200;
 /**
  * Minimum normalized autocorrelation at the dominant lag for the window to be

@@ -183,17 +183,20 @@ describe('what it does and does not rescue', () => {
     expect(after.periodicity).toBeLessThan(MIN_PERIODICITY);
   });
 
-  it('does NOT remove gain hunting that happens at heart-rate frequency', () => {
+  it('leaves gain hunting at heart-rate frequency refused, before and after', () => {
     // 🔴 The row that should temper any enthusiasm for this function. ±50%
     // every 0.8 s is a 1.25 Hz oscillation — inside the cardiac band, at a
     // plausible pulse rate. The correction cannot touch it, because at that
     // speed the gain is no longer "slower than a beat": it *is* a beat.
     //
-    // ⚠️ Worse than not being rescued, this capture reads as **periodic**
-    // (0.708, comfortably over the gate) and yields a confident rate that is
-    // not the subject's. Measured: 40 bpm before and after, against a truth
-    // near 69. Nothing in this function, and nothing in the quality gate,
-    // separates an interference at pulse frequency from a pulse.
+    // ⚠️ This test used to assert something worse and truer of the old
+    // pipeline: the capture read as **periodic (0.708)** and yielded a
+    // confident **40 bpm** against a truth near 69. That 40 was
+    // `MIN_PLAUSIBLE_BPM` — the wall of the autocorrelation search, not a
+    // measurement. `dominantPeriod` now refuses a boundary lag
+    // (`rate-bounds.test.ts`), so both sides of this comparison are honest
+    // refusals. The claim under test is that stabilising does not turn one
+    // back into a reading.
     const scan = synthesizePpg({ durationSec: DURATION_SEC });
     const stepped = applyGainSteps(scan.frames, 0.5, 0.8);
     const r = resample(stepped);
@@ -202,11 +205,8 @@ describe('what it does and does not rescue', () => {
       bandPass(stabiliseGain(r.values, r.sampleRateHz), r.sampleRateHz),
       r.sampleRateHz,
     );
-    expect(before?.periodicity ?? 0).toBeGreaterThan(MIN_PERIODICITY);
-    expect(after?.periodicity ?? 0).toBeGreaterThan(MIN_PERIODICITY);
-    // And both of them are wrong about the rate, by more than 20 bpm.
-    expect(Math.abs((before?.bpm ?? 0) - scan.truth.meanBpm)).toBeGreaterThan(20);
-    expect(Math.abs((after?.bpm ?? 0) - scan.truth.meanBpm)).toBeGreaterThan(20);
+    expect(before).toBeNull();
+    expect(after).toBeNull();
   });
 
   it('does not make the interference look less like a strong pulse', () => {
