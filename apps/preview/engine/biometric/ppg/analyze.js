@@ -17,7 +17,7 @@
  */
 import { MAX_ARTIFACT_FRACTION, MIN_INTERVALS_FOR_HRV, MIN_INTERVALS_FOR_RESPIRATION, computeRmssd, heartRateFromIntervals, intervalTimes, rejectArtifacts, toIntervals, } from './beats.js';
 import { MAX_PLAUSIBLE_BPM, MIN_PERIODICITY, MIN_PLAUSIBLE_BPM, detectPulsePeaks, } from './pulse.js';
-import { MAX_FRAME_DROPS, assessPpgQuality } from './quality.js';
+import { MAX_FRAME_DROPS, MIN_PERFUSION, assessPpgQuality } from './quality.js';
 import { PRV_MIN_TEMPLATE_CORRELATION, beatTemplateCorrelation } from './beat-template.js';
 import { estimateRepeatability } from './repeatability.js';
 import { estimateRespiration } from './respiration.js';
@@ -90,7 +90,18 @@ export function analyzePpgScan(frames, mode, options = {}) {
     // first — only the second distinguishes a pulse from a well-lit still frame.
     const qualityBlocksRate = quality.score < config.minQualityForHeartRate;
     const noPulse = rate === null || rate.periodicity < MIN_PERIODICITY;
-    if (qualityBlocksRate || noPulse) {
+    // 🔴 A third condition, and the only physiological one: no pulsatile light
+    // means there is no pulse to report, however periodic the noise looks.
+    //
+    // ⚠️ This was missing, and `stabiliseGain` is what exposed it. Removing the
+    // camera's gain drift raised periodicity on the weakly-perfused fixture from
+    // below the bar to 0.38 — and it promptly produced a heart rate of 69 bpm
+    // with a perfusion component of **0.00**. Periodicity had been acting as the
+    // perfusion gate by accident; a capture with no blood signal in it must be
+    // refused because of the missing blood signal, not because the noise happened
+    // to be aperiodic.
+    const noPulsatileLight = perfusion < MIN_PERFUSION;
+    if (qualityBlocksRate || noPulse || noPulsatileLight) {
         // Prefer the reason the user can act on. `irregular_periodicity` is what
         // low perfusion, motion and clipping all collapse into, so naming it first
         // would tell someone whose finger is barely on the lens that their pulse
