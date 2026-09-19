@@ -155,7 +155,7 @@ export const NEXT_ACTION_COPY = {
     '基線會隨著你的數據累積而越來越精準。',
   encouragement: '你的第一個基線已經建立 — 現在可以開始你的第一次掃描了',
   ctaFirstScan: '開始第一次掃描',
-  ctaTraderCheck: 'Trader Mode 前檢查',
+  ctaTraderCheck: '決策紀律模式前檢查',
   ctaExplore: '先看看',
 } as const;
 

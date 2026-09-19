@@ -7,6 +7,7 @@ import { useSubscriptionStore } from '../../stores/subscription-store';
 import { useUserStore } from '../../stores/user-store';
 import { useScanStore } from '../../stores/scan-store';
 import { BackgroundContainer } from '../../components/onboarding-components';
+import { DEVICES_ROUTE } from '../../features/devices/screens/routes';
 import { DopamineJournalSheet } from '../../components/DopamineJournalSheet';
 import {
   useDopamineJournalStore,
@@ -78,7 +79,12 @@ export default function LabScreen() {
   const settingsItems = [
     { icon: '👤', title: 'Profile', description: '管理你的帳號', onPress: undefined },
     { icon: '🔒', title: 'Privacy', description: '數據控制與匹出', onPress: undefined },
-    { icon: '⌚', title: 'Devices', description: '連接 Garmin、Apple Watch', onPress: undefined },
+    {
+      icon: '⌚',
+      title: 'Devices',
+      description: '連接 Apple 健康、Health Connect 或心率胸帶',
+      onPress: () => router.push(DEVICES_ROUTE),
+    },
     {
       icon: '💎',
       title: 'Subscription',

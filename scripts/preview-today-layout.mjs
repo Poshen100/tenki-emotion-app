@@ -17,7 +17,10 @@
  *
  * Run: node scripts/preview-today-layout.mjs
  */
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+// ⚠️ 本分支把 Playwright 的取得集中到 scripts/lib/playwright.mjs（第四輪）——
+// 寫死 /opt/node22/... 的絕對路徑在 CI runner 上不存在。
+import { getChromium } from './lib/playwright.mjs';
+const chromium = await getChromium();
 import http from 'node:http';
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
@@ -66,6 +69,21 @@ const url = `http://127.0.0.1:${server.address().port}/${PAGE}`;
 /** 真機字型與沙箱 fallback 的寬度落差保留量。 */
 const HEADROOM_PX = 6;
 
+// 🔴 A 的界線在這條分支上換了對象，原因不是「放寬讓它過」：
+//
+// main 的版本把兩顆 chip 放在**環心黑圓裡**，所以界線是黑圓寬（~112px @375）。
+// 這條分支第三輪把它們**搬出環心**了 —— 實測依據寫在 index.html 的 markup 註解：
+// 環心只有 121~129px，而「信心中　·　提升精度 ›」要 138px、「信心 · 中　·　提升精度 ›」
+// 要 148.5px，**任何字級微調都塞不進去**；而且圓裡的內容高度在每一個寬度都 >= 圓高。
+// 搬出來之後它們有整個螢幕寬。
+//
+// 所以拿黑圓當界線會對這條分支報 5 條假紅（它們根本不在圓裡）。
+// 但 A 想守的那件事**沒有變**：founder 2026-08-29 看到的是「信心中 · 提／升精度 ›」
+// **斷在詞中間**。那件事在這裡的等價界線是「單行，而且整顆 chip 在畫面內」。
+// 圓**裡面**剩下的內容（讀數／狀態讀數／新鮮度）由 preview-fdcb.mjs 的
+// 圓形容器斷言守著（那支問的是 hypot(角 − 圓心)，不是方框）。
+const CHIP_SCREEN_MARGIN_PX = 16;
+
 const VIEWPORTS = [
   { name: 'iPhone SE 375x667', width: 375, height: 667 },
   { name: 'iPhone 12 390x844', width: 390, height: 844 },
@@ -87,6 +105,10 @@ for (const vp of VIEWPORTS) {
     const centre = document.querySelector('.tl-edge-center');
     if (!centre) return null;
     const discW = centre.getBoundingClientRect().width;
+    // chip 實際住在哪：在圓裡就用圓寬，在圓外就用畫面寬。用 contains 直接問，
+    // 不要用猜的 —— 哪天有人再把它搬回圓裡，這支會自己跟著改回嚴格的界線。
+    const frameW = (document.querySelector('.phone') || document.documentElement)
+      .getBoundingClientRect().width;
     const out = [];
     for (const c of cases) {
       const el = document.getElementById(c.id);
@@ -99,7 +121,8 @@ for (const vp of VIEWPORTS) {
       const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
       const inner = r.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
         - parseFloat(cs.borderTopWidth) - parseFloat(cs.borderBottomWidth);
-      out.push({ ...c, lines: Math.round(inner / lh), w: +r.width.toFixed(1) });
+      out.push({ ...c, lines: Math.round(inner / lh), w: +r.width.toFixed(1),
+        inCircle: centre.contains(el), frameW: +frameW.toFixed(1) });
       el.hidden = was.hidden; el.textContent = was.text;
     }
     return { discW: +discW.toFixed(1), out };
@@ -109,10 +132,14 @@ for (const vp of VIEWPORTS) {
   console.log(`\n── ${vp.name} · 黑圓 ${rows.discW}px ──`);
   for (const r of rows.out) {
     // 6px 安全邊際：沙箱載不到 Inter（Google Fonts 被擋），真機字寬會略有出入。
-    const ok = r.lines === 1 && r.w <= rows.discW - HEADROOM_PX;
+    const limit = r.inCircle
+      ? rows.discW - HEADROOM_PX
+      : r.frameW - CHIP_SCREEN_MARGIN_PX * 2 - HEADROOM_PX;
+    const where = r.inCircle ? '圓內' : '圓外';
+    const ok = r.lines === 1 && r.w <= limit;
     if (ok) pass++; else fail++;
-    console.log(`  ${ok ? '✓' : '✗'} 「${r.text}」 ${r.w}px · ${r.lines} 行` +
-      (ok || r.missing ? '' : `  ← 超出 ${(r.w - (rows.discW - HEADROOM_PX)).toFixed(1)}px`));
+    console.log(`  ${ok ? '✓' : '✗'} 「${r.text}」 ${r.w}px · ${r.lines} 行 · ${where}（上限 ${limit.toFixed(1)}px）` +
+      (ok || r.missing ? '' : `  ← 超出 ${(r.w - limit).toFixed(1)}px`));
   }
   await page.close();
 }

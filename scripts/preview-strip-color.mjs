@@ -13,17 +13,23 @@
  *
  * 2026-08-09 起也守模板選單的終端機排版與兩條內容紅線（MODE_2 不上畫面、不推薦）。
  * ⚠️ 那次改版把 `.tpl-card` 改名成 `.tpl-row`，本 harness 的選擇器當場失效 ——
- * preview harness **沒有進 verify.sh**（Playwright 路徑是容器限定），所以它不會
- * 自己喊痛。改 preview 的 class 名時要一併 grep scripts/*.mjs。
+ * ⚠️ 那時候 preview harness 沒有進 verify.sh（Playwright 路徑是容器限定），所以它
+ * 不會自己喊痛。**2026-08-19 起這支已經進 CI 與 verify.sh**（見 ci.yml 的 preview job）——
+ * 但選擇器失效仍然是靜默的，改 preview 的 class 名時還是要一併 grep scripts/*.mjs。
  *
  * 走法：模擬快訊 → 進入決策 → 選 FBD → 立刻「成立 · 我進場了」→ 讀收束頁條紋。
  * Run:  node scripts/preview-strip-color.mjs
  * Exit: 0 = 全綠，1 = 有失敗。
  */
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+// Playwright 從共用 resolver 拿：CI 走 node_modules、容器退回全域安裝。
+// 這一行原本是寫死的 /opt/node22/... 絕對路徑 —— 那就是 harness 進不了 CI 的原因。
+import { getChromium } from './lib/playwright.mjs';
 import http from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
+
+// top-level await：ESM 可以，且必須在任何 chromium.* 之前解析完。
+const chromium = await getChromium();
 
 const repoRoot = resolve(new URL('..', import.meta.url).pathname);
 
@@ -49,6 +55,11 @@ const server = http.createServer((req, res) => {
   //    **差點照著假畫面去修沒壞的東西。**
   // 靜默 404 的測試環境比沒有測試更糟。
   if (clean.startsWith('/preview/')) clean = '/apps' + clean;
+  // 3. 少了 `/decision-alert/*` —— 2026-08-20 判定完會導回 `/decision-alert/#result`，
+  //    沒有這條 rewrite 就是靜默 404：URL 對、但頁面沒有 #resultSheet，
+  //    於是斷言以「等不到收束頁」逾時，看起來像產品壞了。**同一個坑的第三次。**
+  if (clean === '/decision-alert' || clean === '/decision-alert/') clean = '/apps/preview/decision-alert.html';
+  else if (clean.startsWith('/decision-alert/')) clean = '/apps/preview/' + clean.slice('/decision-alert/'.length);
   if (clean === '/v3' || clean === '/v3/') clean = '/apps/preview/v6/index.html';
   else if (clean.startsWith('/v3/')) clean = '/apps/preview/v6/' + clean.slice('/v3/'.length);
   let file = join(repoRoot, clean);
@@ -88,6 +99,24 @@ page.on('pageerror', (e) => {
   fail += 1;
 });
 
+// 🔴 先種一筆**既有**紀錄。理由是這支 harness 的核心斷言就是
+// 「momentum strip 本次段落 = 紀律色」（2026-08-07「條紋與完成率互相矛盾」的守門），
+// 而 2026-09-09 起 strip 在**只有 1 筆時整條不出現**（一筆畫不出「最近幾次」）——
+// 只走一次流程的話 strip 根本不存在，那條斷言會以「找不到選擇器」整支腳本崩掉。
+// 種一筆讓 N=2，既保住原本的顏色斷言，也讓下面新增的「N 少於 2 不出現」有對照。
+await page.addInitScript(() => {
+  // 🔴 `addInitScript` **每一次導頁都會再跑一次** —— 而這條鏈會導到 /v3/ 再導回來。
+  // 不擋的話它會在回程時把 /v3/ 剛寫進去的那一筆洗掉，`acceptReturnTicket()`
+  // 依 ts 找不到紀錄 → 收束頁根本不開，症狀看起來像「回程壞了」。
+  // （同一個坑 scratchpad 的 chain-shot.mjs 也踩過，這裡照抄它的一次性旗標。）
+  if (localStorage.getItem('__seeded')) return;
+  localStorage.setItem('__seeded', '1');
+  localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([{
+    symbol: 'ES1!', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+    contextTag: null, reachedReadiness: null, durationSec: 210, marks: 0,
+    ts: Date.now() - 3600e3, source: 'alert', originAlertId: 'seed-1',
+  }]));
+});
 await page.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(400);
 
@@ -132,18 +161,133 @@ check('列是硬邊（不是圓角卡片）', term.rowRadius, '0px');
 check('有欄位表頭列', term.hasHead, true);
 check('每一列都有彭博式編號 N)', term.numbered, true);
 
+// ⚠️ 2026-08-20 起這裡不再是「就地起計時」——
+// 選完模板會**交棒到 /v3/ 的決策計時器**，判定完再回到這一頁看收束頁
+// （founder：「從 tradingview快訊 - Tenki core快訊 - 導入決策計時器」）。
+// 底下所有收束頁的斷言照舊有效，只是要先走完這條鏈才會抵達。
 await page.click('.tpl-row'); // 第 1 列 = 快訊標記的 FBD
-await page.waitForTimeout(1200); // 讓守望條累積幾秒（快速判定正是要保護的案例）
-await page.click('#btnStructureConfirmed');
+// ⚠️ 先等導覽真的完成再 waitForFunction —— 點擊會觸發跳頁，
+// 而 waitForFunction 若在導覽當下啟動會綁到**舊頁的執行脈絡**，
+// 於是明明新頁已經跑起來了它還是逾時（實際踩到：sess 明明有值卻 timeout）。
+// ⚠️ 用 try/catch 包起來，等不到就報一條**說得出人話**的失敗。
+// 裸的 waitForFunction 逾時會讓整支腳本以 Playwright 的 stack trace 死掉 ——
+// 下一個人在 CI 上看到的是「TimeoutError at line 156」，而不是「交棒斷了」。
+// 2026-08-20 實際發生過：故意破壞交棒，CI 紅的訊息完全看不出原因。
+let handedOff = true;
+try {
+  await page.waitForURL(/\/v3\//, { timeout: 15000 });
+  await page.waitForFunction(
+    () => typeof sess !== 'undefined' && sess && !!sess.originAlertId,
+    null, { timeout: 15000 },
+  );
+} catch (e) { handedOff = false; }
+check('🔴 選完模板交棒到 /v3/ 的決策計時器（斷了的話底下收束頁的斷言都到不了）', handedOff, true);
+if (!handedOff) {
+  console.log('\n🔴 交棒沒把決策起跑 —— 底下的收束頁斷言全部無法抵達，先修交棒。');
+  await browser.close();
+  server.close();
+  process.exit(1);
+}
+await page.waitForTimeout(1200); // 讓守望累積幾秒（快速判定正是要保護的案例）
+await page.evaluate(() => window.judgeWatch('entered'));
+// 判定完會導回這一頁並開收束頁（同樣先等導覽完成）
+let returned = true;
+try {
+  await page.waitForURL(/decision-alert/, { timeout: 15000 });
+  await page.waitForFunction(
+    () => document.getElementById('resultSheet')
+      && document.getElementById('resultSheet').className.indexOf('show') !== -1,
+    null, { timeout: 15000 },
+  );
+} catch (e) { returned = false; }
+check('🔴 判定完回到 /decision-alert/ 並開出收束頁', returned, true);
+if (!returned) {
+  console.log('\n🔴 回程沒到 —— 底下的收束頁斷言全部無法抵達，先修回程。');
+  await browser.close();
+  server.close();
+  process.exit(1);
+}
 await page.waitForTimeout(1600); // 收束頁的揭示編排
 
 const rate = (await page.textContent('#resultRate'))?.trim() ?? '';
 console.log(`\n紀律完成率文字：「${rate}」`);
 check('快速判定進場算紀律（完成率 100%）', /100%/.test(rate), true);
 
-const segBg = await page.$eval('#resultStrip .result-seg', (n) => getComputedStyle(n).backgroundColor);
+// 🔴 `$eval` 找不到元素會**直接丟例外把整支腳本打死**，而 CI 上看到的是一段
+// Playwright stack trace，不是「strip 沒出現」。先問存在，再問顏色。
+const segCount = await page.evaluate(() => document.querySelectorAll('#resultStrip .result-seg').length);
+check(`momentum strip 有畫出來（${segCount} 段；N≥2 才該出現）`, segCount >= 2, true);
+const segBg = segCount
+  ? await page.$eval('#resultStrip .result-seg', (n) => getComputedStyle(n).backgroundColor)
+  : null;
 check('momentum strip 本次段落 = 紀律色', segBg, CLEAR);
 check('momentum strip 不得畫成 strain 橘', segBg !== STRAIN, true);
+
+// 只有一筆時整條不出現 —— 一筆畫不出「最近幾次」，而它長得跟正上方那條
+// 紀律近況進度條一模一樣（founder 2026-09-09 實走：兩條滿版青條）。
+// ⚠️ `[hidden]` 單獨不夠：`.result-strip{display:flex}` 會蓋掉 UA 的 display:none，
+// 所以這裡問的是**盒子真的沒了**（w=h=0），不是問 `hidden` 屬性。
+const stripOne = await page.evaluate(() => {
+  const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1') || '[]');
+  window.__restore = all;
+  const strip = document.getElementById('resultStrip');
+  strip.textContent = '';
+  strip.hidden = true;   // 模擬 renderMomentumStrip 在 N<2 時的輸出
+  const r = strip.getBoundingClientRect();
+  return { w: Math.round(r.width), h: Math.round(r.height) };
+});
+check('🔴 只有一筆時 strip 整條不佔版面（[hidden] + display:none 都要有）',
+  stripOne, { w: 0, h: 0 });
+await page.evaluate(() => { document.getElementById('resultStrip').hidden = false; });
+
+// ── 決策軌跡是「欄位表」，不是散文 ──
+//
+// founder 2026-09-05 給了彭博終端機的交易確認畫面當參考，要「頂級專業交易者
+// 平台」的手感。這一頁改成欄位表之後，**真正讓它讀起來專業的是「對齊」**，
+// 不是任何一個樣式字串 —— 所以第一條斷言直接問值欄的左緣在不在同一條線上。
+//
+// 🔴 反向驗證過：把 .rc-label 的 `width:62px` 改成 `width:auto`，
+// 值欄就跟著標籤長短跑掉，這條當場紅 —— 它驗的是對齊本身，不是 CSS 寫法。
+const recap = await page.evaluate(() => {
+  const rows = [...document.querySelectorAll('#resultRecapList .result-recap-row')];
+  const mono = (n) => /mono|menlo|sf ?mono/i.test(getComputedStyle(n).fontFamily);
+  return {
+    n: rows.length,
+    labels: rows.map((r) => r.querySelector('.rc-label')?.textContent ?? null),
+    valueLefts: rows.map((r) => Math.round(r.querySelector('.rc-value').getBoundingClientRect().left)),
+    // 每一列的「量」都要是等寬；中文標籤/中文值**不得**是等寬。
+    numsAllMono: rows.every((r) => [...r.querySelectorAll('.num')].every(mono)),
+    labelsAnyMono: rows.some((r) => mono(r.querySelector('.rc-label'))),
+    // 純中文的值（例如「判定成立 · 已進場」）不得被丟進等寬
+    cjkValueMono: rows.some((r) => {
+      const v = r.querySelector('.rc-value');
+      const hasNum = !!v.querySelector('.num');
+      return !hasNum && /[\u4e00-\u9fff]/.test(v.textContent) && mono(v);
+    }),
+    waitValue: (rows.find((r) => r.querySelector('.rc-label')?.textContent === '等待')
+      ?.querySelector('.rc-value')?.textContent ?? '').trim(),
+  };
+});
+check('🔴 值欄左緣在每一列都對齊同一條線', new Set(recap.valueLefts).size, 1);
+check('每一列都有欄位標籤', recap.labels.every((l) => !!l), true);
+check('數字與代號走等寬', recap.numsAllMono, true);
+// 🔴 這兩條擋的是「整頁丟進 mono」那種偷懶做法 —— 等寬 CJK 會把每個字撐成
+// 全形方塊，密度整個垮掉（decision-alert.html:405 那段註解為這件事付過學費）。
+check('🔴 中文標籤不得走等寬', recap.labelsAnyMono, false);
+check('🔴 純中文的值不得走等寬', recap.cjkValueMono, false);
+// 「等了 NN:NN」原本擠在判定那句的尾巴 —— 它是一個量，要有自己的欄位。
+check('等待自成一欄且值是時鐘', /^\d{2}:\d{2}$/.test(recap.waitValue), true);
+
+// 完成率是表頭右邊的「量」：大數字走等寬，中文註腳不走。
+const rateNode = await page.evaluate(() => {
+  const box = document.getElementById('resultRate');
+  const num = box.querySelector('.num');
+  const sub = box.querySelector('.sub');
+  const mono = (n) => n ? /mono|menlo|sf ?mono/i.test(getComputedStyle(n).fontFamily) : null;
+  return { numText: num?.textContent ?? null, numMono: mono(num), subMono: mono(sub) };
+});
+check('完成率的數字走等寬', rateNode.numMono, true);
+check('🔴 完成率的中文註腳不得走等寬', rateNode.subMono, false);
 
 // ── 收束頁的主要動作不得沉到摺線下 ──
 // founder 2026-08-09 實走：「要下滑一點才會出現儲存按鈕」。
@@ -213,11 +357,20 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   const actions = await page.evaluate(() => {
     const btns = [...document.querySelectorAll('#resultSheet .sheet-actions .btn')]
       .filter((b) => b.getBoundingClientRect().width > 0);
-    return btns.map((b) => ({ id: b.id, text: b.textContent.trim(), primary: b.classList.contains('btn-primary') }));
+    return btns.map((b) => ({
+      id: b.id, text: b.textContent.trim(),
+      primary: b.classList.contains('btn-primary'),
+      nav: b.classList.contains('btn-nav'),
+    }));
   });
   check('收束頁動作列有兩顆看得見的按鈕', actions.length, 2);
-  check('第二顆是主動作「查看決策紀錄」',
-    actions[1] && actions[1].text === '查看決策紀錄' && actions[1].primary, true);
+  // 🔴 第二顆仍然是主位（最顯眼的那顆），但 2026-09-09 起**不穿可動層琥珀** ——
+  // 它只是換一頁，什麼都沒改變。可動層留給上面那三顆會寫進紀錄的自評晶片。
+  // 所以這裡同時問「是它」與「不是琥珀」：只問前者，改回琥珀也不會紅。
+  check('第二顆是主位導航「查看決策紀錄」',
+    actions[1] && actions[1].text === '查看決策紀錄' && actions[1].nav, true);
+  check('🔴 而且它不得穿可動層（導航不算改變狀態）',
+    actions[1] && actions[1].primary, false);
   // 「紀律近況」本來就是決策紀錄的預覽 —— 它要說得出自己是什麼。
   const previewLabel = await page.textContent('#resultHistory .result-block-label');
   check('紀律近況說得出它就是決策紀錄', /決策紀錄/.test(previewLabel || ''), true);
@@ -231,7 +384,9 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     count: document.getElementById('statCount').textContent.trim(),
   }));
   check('🔴 /v3/ Session 認得快訊決策（對齊率不是 0%）', session.align, '100%');
-  check('/v3/ Session 看得到那筆決策', session.count, '1');
+  // 2 筆＝這一輪走的 1 筆 + 開頁時種的 1 筆（種它的理由見檔頭的 addInitScript：
+  // momentum strip 在 N<2 時整條不出現，只走一次就沒有 strip 可驗）。
+  check('/v3/ Session 看得到那筆決策', session.count, '2');
 
   // ── 這筆紀錄要**認得出自己是誰** ──
   //
@@ -252,10 +407,19 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
       badgeCls: badge.className,
     };
   });
-  check('Session 列顯示流程名，不是 symbol fallback', row && row.name, 'Mancini FBD');
-  // FBD 的模板色 #5E3A87；fallback 是 #8E8E93 灰。
-  check('圖示是模板色，不是 fallback 灰', row && row.iconColor, 'rgb(94, 58, 135)');
-  check('圖示不是 fallback 的灰', row && row.iconColor !== 'rgb(142, 142, 147)', true);
+  // 🔴 這條守的是第二輪的真傷：紀錄掉進 `|| fallback` 之後，列上只剩 symbol
+  // 加一顆灰色心跳（`❤️ ES1! · 未達 Readiness · [已記錄]`，四處全錯、沒有一處報錯）。
+  // ⚠️ **fallback 的長相正好就是「只有 ES1!」** —— 所以第十輪把列名改成
+  // `ES1! · Mancini FBD` 之後，斷言**不能**放寬成「含 ES1! 就通過」：
+  // 那樣掉進 fallback 也會綠，這條就死了。要同時問「有標的」與「流程名還在」。
+  check('Session 列說得出哪一檔（快訊決策帶標的）', row && row.name, 'ES1! · Mancini FBD');
+  check('🔴 而且流程名還在（沒有掉進 symbol fallback）',
+    !!row && row.name.includes('Mancini FBD'), true);
+  // FBD 的模板色 2026-09-08 從 `#5E3A87` 換成冷族的 `#1089EB`
+  // （舊值對底座只有 1.94:1，而且紫已歸 Premium）。
+  // fallback 是中性階 `--n-500`（舊值 `#8E8E93` ＝ iOS 系統灰，同一輪一併退場）。
+  check('圖示是模板色，不是 fallback 灰', row && row.iconColor, 'rgb(16, 137, 235)');
+  check('圖示不是 fallback 的中性灰', row && row.iconColor !== 'rgb(99, 115, 137)', true);
 
   // 🔴 誠實紅線：快訊決策沒有 `reachedReadiness` 這個量，
   // 先前 `undefined` 落進 else 分支 → 對一次**判定成立並進場**的決策印「未達」。
@@ -347,6 +511,10 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('🔴 示意標記不得吃已被指派意義的顏色（綠=good／琥珀=warn）',
     today.badgeColors.some((c) => c === 'rgb(52, 199, 89)' || c === 'rgb(245, 166, 35)'), false);
   check('說明那一行看得見（給停下來看的人）', today.noteVisible, true);
+  // ⚠️ 這條只跑 390×844 一個尺寸 —— 而 #232 那個 bug（版面活在夾在 844 的 .phone
+  // 外框裡，media query 卻量視窗）只在 430×932 / 1280×900 上發作，所以它從沒紅過。
+  // 多尺寸版本在 `preview-fdcb.mjs` 的「#232」那一段。這條留著是因為它守的是**另一個**
+  // 迴歸：說明行搬到圓點上方時把圓點擠到底座下面（同一個症狀、不同的原因）。
   check('輪播圓點沒有被底座蓋掉（修一個不得換壞另一個）', today.dotsVisible, true);
   check('說明講的是真原因（需要感測器、尚未接上）',
     /感測器/.test(today.noteText) && /尚未接上/.test(today.noteText), true);
@@ -359,8 +527,107 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('🔴 頁面上不得出現寫死的 Edge Score · 72',
     /Edge Score\s*·\s*72/.test(today.bodyText), false);
   check('🔴 沒有讀數時 FDCB 不得報一個分數', today.fdcbSeg, '尚無讀數');
-  check('Hero 分數槽是空的（契約上就沒有 0-100 分）', today.heroScore, '—');
+  // 🔴 這一條原本比對字面的 '—'。#231 把無讀數狀態設計成「尚未量測」（那是更好的
+  // 文案 —— 它說出了正在發生的事），但沒回頭改這條斷言，於是 **main 自己一路紅著**
+  // 44/45 沒人發現：本 harness 不在 verify.sh／CI 裡（Playwright 容器限定路徑），
+  // 它不會自己喊痛。PLAYBOOK 早就寫過這個盲區，這次是它真的發生。
+  // 改成問**意圖**而不是問字形：這一格不准出現任何數字（那才是「契約上沒有分數」
+  // 這條紅線真正要守的東西），而且必須有話說、不能整格空白。
+  check('🔴 Hero 分數槽不得出現任何數字（契約上就沒有 0-100 分）',
+    /\d/.test(today.heroScore), false);
+  check('Hero 分數槽有話說（不是整格空白）', today.heroScore.trim().length > 0, true);
   check('🔴 Hero 標籤跟槽裡的東西一致（不掛 Edge Score）', today.heroLabel, '狀態讀數');
+}
+
+// ═════════════════════════════════════════════════
+// 收束頁環心：文字要在圓裡，而且斷行只准落在分隔點上
+//
+// founder 2026-09-11 實走：「判定不成立 · 未進場，那個頁面是不是有點裁到了？」
+// 量出來的答案分兩半，而**兩半的結論不一樣**：
+//   · 幾何上**沒有**跑出環外（逐行四個角對圓心量過，全在圓內）
+//   · 壞的是**斷點**：整串在 176px 弧下要約 135px，而環心內容框是
+//     176 − padding 22×2 = **132px** —— 差 3px，於是斷成
+//     「判定不成立 · 未進」／「場」，一個字孤零零掉在第二行，看起來就是被裁掉。
+//
+// 🔴 這是第十二輪那條「容器是圓的時候，拿方框當斷言＝那條斷言不存在」的
+// **同一條規則沒有掃到這一頁** —— 當時只加在 `/v3/` 的 Hero 環心。
+//
+// 🔴 第二條不用魔術數字：**最窄的那一行，不得比最短的那一段還窄**。
+// 段（segment）是把文案照 ' · ' 拆開之後用 Range 量出來的真實寬度 ——
+// 所以「把 word-break 拿掉」會讓末行從「未進場」(45px) 掉成「場」(15px)，當場紅。
+// ═════════════════════════════════════════════════
+{
+  const RING_CASES = [
+    ['judged_stood_down', '判定不成立 · 未進場'],
+    ['judged_entered', '判定成立 · 已進場'],
+    ['abandoned_no_judgment', '沒有做出判定'],
+  ];
+  // ⚠️ 掃高度要掃**視窗**高度不是裝置高度（PLAYBOOK 2026-09-10）。
+  // 932/844 走 176px 弧、700 走短視窗的 128px 弧，兩組都要驗。
+  for (const height of [932, 844, 700]) {
+    for (const [tag, want] of RING_CASES) {
+      const rp = await browser.newPage({ viewport: { width: 390, height }, isMobile: true, hasTouch: true });
+      // 走真的產品路徑：紀錄 + 回程票 + `#result`（判定完 /v3/ 就是這樣導回來的）
+      await rp.addInitScript((t) => {
+        if (localStorage.getItem('__ringSeeded')) return;
+        localStorage.setItem('__ringSeeded', '1');
+        const ts = Date.now();
+        localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([{
+          ts, symbol: 'ES1!', templateId: 'MANCINI_FBD', outcomeTag: t,
+          durationSec: 314, awayCount: 3, awayMs: 251000, sameSymbolUpdates: 1,
+          source: 'alert', originAlertId: 'ring-1',
+        }]));
+        localStorage.setItem('tenki.alert.return.v1', JSON.stringify({ ts, at: Date.now() }));
+      }, tag);
+      await rp.goto(`${base}/decision-alert/#result`, { waitUntil: 'domcontentloaded' });
+      await rp.waitForTimeout(1800);
+
+      const m = await rp.evaluate(() => {
+        const hero = document.querySelector('.result-hero');
+        const out = document.getElementById('resultOutcome');
+        if (!hero || !out || !out.textContent) return null;
+        const hr = hero.getBoundingClientRect();
+        const size = hr.width;
+        const cx = hr.left + size / 2;
+        const cy = hr.top + size / 2;
+        // drawResultArc: r = size/2 - 14, lineWidth = 10 → 環線內緣半徑
+        const R = size / 2 - 14 - 5;
+        const txt = out.textContent;
+        const node = out.firstChild;
+        const lineRects = [...(() => { const r = document.createRange(); r.selectNodeContents(out); return r.getClientRects(); })()];
+        // 每一「段」的真實寬度（照 ' · ' 拆），用 Range 量，不用字數估
+        const segW = [];
+        let at = 0;
+        for (const seg of txt.split(' · ')) {
+          const i = txt.indexOf(seg, at);
+          const r = document.createRange();
+          r.setStart(node, i); r.setEnd(node, i + seg.length);
+          segW.push(Math.round(r.getBoundingClientRect().width));
+          at = i + seg.length;
+        }
+        let worst = -Infinity;
+        for (const q of lineRects) {
+          for (const [x, y] of [[q.left, q.top], [q.right, q.top], [q.left, q.bottom], [q.right, q.bottom]]) {
+            worst = Math.max(worst, Math.hypot(x - cx, y - cy) - R);
+          }
+        }
+        return {
+          txt, arc: Math.round(size), lines: lineRects.length,
+          lineW: lineRects.map((q) => Math.round(q.width)),
+          segW, outside: +worst.toFixed(1),
+        };
+      });
+
+      if (!m) { check(`收束頁環心開得起來（${height} / ${tag}）`, 'missing', 'rendered'); await rp.close(); continue; }
+      check(`收束頁環心印對文案（${height} / ${tag}）`, m.txt, want);
+      // TOL=4：行盒比字高（15px 字、約 21px 行盒），角落距離會被高估約 2~3px。
+      // 來源與第十二輪同一條推導，不從「剛好通過」反推。
+      check(`🔴 環心文字整段在圓內（${height} / 弧 ${m.arc} / 溢出 ${m.outside}px）`, m.outside <= 4, true);
+      check(`🔴 斷行不得切在詞中間（${height} / 行寬 ${m.lineW} / 段寬 ${m.segW}）`,
+        Math.min(...m.lineW) >= Math.min(...m.segW) - 2, true);
+      await rp.close();
+    }
+  }
 }
 
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);

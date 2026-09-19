@@ -32,32 +32,73 @@
    TENKI CORE · v3 with 5-Tab Navigation
    Today / Scan / Session / Timeline / Lab
    ═════════════════════════════════════════════════ */
+/* 🔴 這裡曾經有八個**宣告了沒人用**的顏色 token，2026-09-08 刪掉：
+     --zone-clear / --zone-neutral / --zone-strain（帶位色實際是 BAND_COLOR_V6
+       在 JS 裡寫死的，這三個從來沒被 var() 讀過；tokens.css 也各有一份）
+     --card / --border（與 tokens.css 同值，v6 內 0 用量）
+     --sns #FF6B35 / --pns #00B4D8（自律神經色，最後一個消費者在 f1cfacd 被換掉）
+     --bg #000（🔴 而地面其實是 --bg-space #020617 —— 這一個是**地面曾經漂過**
+       的化石，留著只會讓下一個人以為地面是純黑）
+   刪除前逐一驗過：`var(--x)` 全 repo 0 次、無 getPropertyValue 讀取、
+   harness 只在註解裡提過它們。**這一輪的視覺輸出逐位元組不變。** */
 :root{
-  --zone-clear:#00B4D8;
-  --zone-neutral:#64748B;
-  --zone-strain:#C2703D;
-  --bg:#000;
   --surface:#1C1C1E;
-  --card:#2C2C2E;
-  --border:#38383A;
+  /* 🔴 `--primary` 與 `--tmpl` 是**兩件事**，2026-09-08 拆開（founder 拍板）。
+     拆之前 `--primary` 是全域變數，而決策一起跑就被 setProperty 覆寫成
+     **當下那個模板的顏色** —— 全頁 60 幾處 var(--primary) 一起改色。
+     紫時鐘 1.94:1、Lab 六顆紫圖示、滑動膠囊的點，全是同一個根因的不同出口。
+
+       --primary  = ACTIVE / live / 正在量。**永遠是 cyan，不隨模板變。**
+       --tmpl     = 這一次決策的身分。**就是要隨模板變**，但只准出現在
+                    「環境層名單」上（見 `.env-wash` 與 #fdcbFill 原地註解）。
+
+     預設值 = --primary ⇒ **沒有決策在跑時 `--tmpl` 是恆等變換**，
+     跟星塵 setTone 同一個結構性質：沒被設定的頁面逐位元組不變。 */
   --primary:#00B4D8;
+  --tmpl:var(--primary);
+  /* 🔴 `--txt-sec #8E8E93` 與 `--txt-dim #48484A` 已刪（2026-09-08）——
+     它們是 **iOS 系統灰（彩度 ≈ 0）**，而中性階是 268° 的藍調 slate。
+     這一頁最常用的兩個文字色，整個不屬於那個家族 —— §2 破口「灰階來自兩個家族」
+     的本體就是這兩個。而且 `--txt-dim` 對地面只有 **2.21:1**，連大字門檻都不到。
+     → `--txt-sec`（69 處）→ `--n-400`（6.19 → 6.80:1）
+       `--txt-dim`（12 處）→ `--n-500`（**2.21 → 4.17:1**）；
+       其中兩處真的是文字（空狀態訊息、輸入框 placeholder）走 `--n-400` 到得了 AA。
+     ⚠️ `--txt` 保留：它就是純白，是一個站得住的值，而且只有 1 個消費者。 */
   --txt:#FFFFFF;
-  --txt-sec:#8E8E93;
-  --txt-dim:#48484A;
-  --fdcb-bg:rgba(20,20,24,0.9);
+  /* 🔴 儀器世界：不透明。半透明＋模糊是「玻璃」的語言，
+     而底座是你透過它看的那片玻璃本身 —— 玻璃是平的，光在它後面。 */
+  --fdcb-bg:var(--n-900);
   --fdcb-border:rgba(255,255,255,0.08);
   --fdcb-complete:#34C759;
   --tabbar-bg:rgba(18,18,22,0.72);
-  --sns:#FF6B35;
-  --pns:#00B4D8;
   --good:#34C759;
-  --warn:#F5A623;
+  /* 🔴 `--warn:#F5A623` 已刪（2026-09-08）。兩個理由：
+     ① 它與可動層琥珀 `--amber-400 #FFA028` 正常視覺 ΔE **7.5**、
+        **綠色盲下 0.6** —— 只要同框就分不出「警告」與「可以動手」。
+     ② 逐一看過八個消費者，**沒有一個真的在講警告**：
+        no_trade 是紀律、掃描是量測、BETA 是事實標籤、insight 是資訊、
+        校準進度是進行中。它們只是都想要一個「暖一點的強調色」。 */
   --ease-calm:cubic-bezier(0.22, 1, 0.36, 1);
   --ease-breath:cubic-bezier(0.4, 0, 0.6, 1);
+  /* 鎖定/確認落地（MOTION-DIRECTION §3）。tokens.css 也有一份，但這一頁的
+     :root 一向自己帶用得到的 token —— 上面那支是絕對路徑載入的，掉了不能連手感一起掉。 */
+  --ease-secure:cubic-bezier(0.19, 1, 0.22, 1);
 
-  --top-safe:14px;
+  /* 🔴 iPhone 的狀態列（時間 / 訊號 / 電量）會蓋在頁面上 —— 這在**加入主畫面的
+     PWA**（standalone）裡一定發生，而那正是 founder 實走的容器。
+     2026-09-08 實走截圖：`14:31` 壓在「DEEP SCAN」膠囊上。
+     14px 是「內容與螢幕邊緣的呼吸」，不是安全區 —— 兩件事要相加，不是二選一。
+     ⚠️ `viewport-fit=cover` 本來就在 <meta> 裡（沒有它 env() 會是 0），
+     所以這一行改完立刻生效；Safari 分頁裡 inset 是 0，維持原樣。 */
+  --top-safe:calc(env(safe-area-inset-top, 0px) + 14px);
   --tabbar-h:74px;
-  --fdcb-h:58px;
+  /* 底座高度是 state 的函式（applyFdcbHeight 改寫這個變數）：
+     idle 只有「模板 + 開始決策」一列，用不到 58px；跑起來才長回三欄。
+     各分頁的 padding-bottom 保留區吃的是同一個變數 —— 兩邊分開寫死，
+     一定有一邊先過期。 */
+  --fdcb-h:44px;
+  --fdcb-h-idle:44px;
+  --fdcb-h-live:58px;
   --fdcb-gap:10px; /* gap between fdcb and tabbar */
 }
 
@@ -82,13 +123,47 @@ body{
   /* deep-space console backdrop — faint nebula over brand spaceBg */
   background:
     radial-gradient(ellipse 95% 55% at 50% 6%, rgba(0,180,216,0.10), transparent 60%),
-    radial-gradient(ellipse 85% 50% at 50% 96%, rgba(94,58,135,0.08), transparent 72%),
+    /* 🔴 這顆原本是 rgba(94,58,135,0.08) ＝ Mancini 紫。紫 2026-09-08 歸 Premium，
+       一顆常駐在每一頁底部的紫光等於整個 App 都在說「Premium」。換成無主人的
+       slate（跟中性階同一個 268° 家族），語義層改由 #envWash 負責。 */
+    radial-gradient(ellipse 85% 50% at 50% 96%, rgba(72,86,110,0.08), transparent 72%),
     radial-gradient(ellipse 60% 45% at 82% 38%, rgba(0,150,170,0.05), transparent 60%),
     #020617;
   border-radius:44px;
   overflow:hidden;
   box-shadow:0 0 0 2px #1a1a1a, 0 30px 80px rgba(0,0,0,0.6);
 }
+/* ═════════════════════════════════════════════════
+   環境層（env wash）—— 「換模板不得改變畫面顏色」那條規則的替代品
+   ═════════════════════════════════════════════════
+   founder 2026-09-08：把那條規則拿掉。拿掉之後模板色要去哪裡？
+
+   🔴 不是回到舊的做法（`--primary` 全域覆寫 → 時鐘、圖示、膠囊一起變色，
+   其中一個 1.94:1）。**儀器維持中性** —— 底座、判定列、收束頁講的是
+   「活著 / 可以動手」，那跟哪個模板在跑無關。
+
+   會變的是**深空本身**：決策進行中，整片地面染上該模板的色。
+   一大片、低彩度、不宣稱任何事 —— 只是「你現在在這個模式裡」。
+   這也正面回答了「顏色好像有點少」：**顏色變多的來源是面積，不是色相數。**
+   前幾輪一直在調小小的邊框與圖示，那種面積再怎麼調都不會讓畫面變得有顏色。
+
+   實測（wash 疊在 --bg-space #020617 上）：
+     alpha 0.20 → 離最近的帶位色仍有 ΔE 33.4（不會被讀成「你是 Neutral」）
+                  --n-100 壓上去 13.12:1、--n-400 5.00:1（都還過 AA）
+   取 0.18 留餘裕。**上限是守門在管的，不是註解在管的**（見 preview-fdcb.mjs）。
+
+   ⚠️ 預設 opacity:0 且 `--tmpl` 預設 = `--primary` ⇒ 沒有決策在跑時
+   這一層是恆等變換，逐位元組不變。 */
+#envWash{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  opacity:0;transition:opacity 1.2s var(--ease-calm);
+  background:
+    radial-gradient(ellipse 125% 55% at 50% 100%, color-mix(in srgb, var(--tmpl) 27%, transparent), transparent 70%),
+    radial-gradient(ellipse 105% 38% at 50% 62%,  color-mix(in srgb, var(--tmpl) 12%, transparent), transparent 72%),
+    radial-gradient(ellipse 95%  34% at 50% -4%,  color-mix(in srgb, var(--tmpl) 12%, transparent), transparent 66%);
+}
+.phone.decision-live #envWash{opacity:1}
+@media (prefers-reduced-motion: reduce){ #envWash{transition:none} }
 /* full-app deep-space starfield, behind every screen */
 #cosmos{position:absolute;inset:0;z-index:0;pointer-events:none}
 /* 🔴 這個門檻要蓋住所有真手機，不只窄的那些。
@@ -123,7 +198,7 @@ body{
   font-size:28px;font-weight:400;letter-spacing:-0.02em;color:#fff;
 }
 .screen-date{
-  font-size:11px;color:var(--txt-sec);letter-spacing:0.12em;text-transform:uppercase;
+  font-size:11px;color:var(--n-400);letter-spacing:0.12em;text-transform:uppercase;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -148,8 +223,12 @@ body{
   color:rgba(255,255,255,0.75);
   text-transform:uppercase;white-space:nowrap;
 }
+/* 🔴 這一族全都寫著「底色 rgba(0,180,216,…) + 文字 var(--primary)」——
+   也就是它們**本來就想要品牌青**，只是拿了一個會變的變數去要。
+   決策一起跑 --primary 就變成模板色，於是底色青、字紫。改指 --cyan-core
+   （＝ --primary 在 :root 的預設值），**沒有決策在跑時逐位元組不變**。 */
 .scan-badge .spark{
-  color:var(--primary);filter:drop-shadow(0 0 4px var(--primary));
+  color:var(--cyan-core);filter:drop-shadow(0 0 4px var(--cyan-core));
   font-size:10px;
 }
 .source-toggle{
@@ -172,11 +251,11 @@ body{
   transition:stroke 0.3s;
 }
 .source-toggle .src.active{
-  background:rgba(0,180,216,0.12);color:var(--primary);
+  background:rgba(0,180,216,0.12);color:var(--cyan-core);
   box-shadow:inset 0 0 0 1px rgba(0,180,216,0.15);
 }
 .source-toggle .src.active svg.src-svg{
-  stroke:var(--primary);
+  stroke:var(--cyan-core);
 }
 /* Hero area — nebula + big spectrum ring */
 .hero{
@@ -320,6 +399,11 @@ body{
   box-shadow:inset 0 0 20px rgba(0,0,0,0.6);
 }
 .tl-edge-score{
+  /* 🔴 讀數永遠不從中間斷開。斷了就會變成「尚未量」/「測」並把整段推出環心
+     （2026-08-19 實測 360px）。nowrap 是結構保證；下面的 clamp 負責讓它塞得下。
+     兩條一起才成立：只有 nowrap 會變成橫向溢出，只有 clamp 會在文案變長時再爆。
+     harness 同時驗「1 行」與「盒子在圓內」，任何一邊破了都會紅。 */
+  white-space:nowrap;
   font-size:86px;font-weight:700;line-height:0.9;letter-spacing:-0.04em;
   color:#fff;font-variant-numeric:tabular-nums;
   background:linear-gradient(180deg, #fff 0%, #d8e0e4 40%, #a8b8c0 100%);
@@ -333,7 +417,19 @@ body{
    顏色改用帶位色，且要蓋掉上面的 -webkit-text-fill-color:transparent ——
    不蓋的話漸層 clip 會讓文字整個看不見。 */
 .tl-edge-score.band{
-  font-size:40px;letter-spacing:-0.01em;line-height:1;
+  /* 🔴 40px 仍然撐爆 —— 實測「Neutral」（三個帶位裡最長的）在 390 是 136px，
+     而環心只有 128px，左右各溢出 3px。上面那段註解已經知道「Neutral 放上去會
+     撐爆環心」、從 86px 降到 40px，但**降到一個固定值仍然是固定值**：
+     環心是 vw 的函式，字級不是，於是換一個寬度就又不成立。
+     跟 .awaiting 同樣的解法 —— 字級吃同一個 vw，上限 36px 留出餘裕。
+     harness 在 360/375/390/414 四個寬度驗「讀數整個在環心圓內」，
+     以後哪個帶位詞變長都會當場紅。 */
+  /* 上限 36→34px（2026-08-19，harness 進 CI 時順手）：36px 時「Neutral」在容器
+     預設字型下是 124px、環心 128px —— **只剩 4px 餘裕**，字型稍微換一下就紅。
+     斷言現在會在 CI 跑，假紅的代價比字小一點高得多。 */
+  /* 上限同理跟著環在 385px 收手（見 .awaiting）：8.5% × 385 ≈ 32.7 → 32.5px。
+     34px 的舊上限要到 400px 才封頂，而圓在 385 就不長了。 */
+  font-size:clamp(28px, 8.5vw, 32.5px);letter-spacing:-0.01em;line-height:1;
   background:none;-webkit-text-fill-color:currentColor;
 }
 /* 🔴 沒有讀數時的樣子（2026-08-18）。
@@ -356,20 +452,42 @@ body{
 .tl-edge.no-reading .ring-dot{display:none}      /* 沒有讀數就沒有資料點 */
 .tl-edge.no-reading::before{opacity:0.25}
 .tl-edge-score.awaiting{
-  font-size:30px;font-weight:600;letter-spacing:0.01em;line-height:1.1;
+  /* 環心是環的 62%，而環吃 vw —— 所以環心也是 vw 的函式（實測 360→121px、
+     390→129px）。字級卻是寫死的 30px：四個中文字剛好 121px，在 360 上零餘裕就換行。
+     🔴 固定 px 的內容放進 % 的容器，就是「排進量出來的縫隙」——
+     字級改成跟著同一個 vw 走，容器縮它就跟著縮。30px 是上限，寬螢幕維持原樣。 */
+  /* 🔴 上限要跟**環的上限同一個寬度**收手，否則寬螢幕上字還在長、圓已經不長了。
+     環是 min(54vw, 208px) → 54vw 在 **385px** 撞到 208，之後圓固定在 129px。
+     字級若撐到自己的上限（7.2vw 要到 417px 才封頂），385~417 這一段就是
+     「字還在長、容器不長」——「尚未量測」實測 390 是 113px、414 變 121px，
+     角落被推出圓外 6.2px（2026-08-28 新的圓形斷言抓到的）。
+     所以上限取 7.2% × 385 ≈ 27.7 → 27.5px：兩個 clamp 在同一個寬度收手。 */
+  font-size:clamp(24px, 7.2vw, 27.5px);font-weight:600;letter-spacing:0.01em;line-height:1.1;
   background:none;-webkit-text-fill-color:rgba(255,255,255,0.55);
   filter:none;
 }
 /* 「到 Scan 掃一次」本來只是一行字，長得像連結卻點不動 —— 補成真的可點 */
 .tl-edge-cta{
-  appearance:none;border:1px solid rgba(0,180,216,0.35);
-  background:rgba(0,180,216,0.10);color:var(--primary);
-  font-size:11px;font-weight:600;letter-spacing:0.02em;
-  padding:5px 12px;border-radius:999px;margin-top:10px;cursor:pointer;
+  /* 🔴 框跟字**必須是同一個顏色的家族**，否則遲早不一致 —— 而它們曾經不一致：
+     框是寫死的青，字卻吃 `var(--primary)` ＝ 當下哪一個模板在跑，
+     決策一起跑就變成「紫字配青框」，2.34:1（founder 2026-09-07 實機截圖）。
+     🔴 現在整顆走**可動層琥珀** —— 「到 Scan 掃一次」是一個動作，不是一個讀數。
+     框與字同源（`--amber-400`），9.9:1，六個模板一致。
+     ⚠️ 我先前說「鋪琥珀要等 --warning 退場」—— 那句話太強了。
+     真正的條件是**琥珀與 --warning 不得出現在同一個表面**（兩者綠色盲下 ΔE 0.6）。
+     `--warn` 的 12 處全在 Session / Timeline / baseline-flow，跟這一屏不同框，
+     所以這裡可以先鋪。要往那三個表面鋪之前，--warning 必須先退場。 */
+  appearance:none;border:1px solid rgba(var(--amber-400-rgb),0.45);
+  background:rgba(var(--amber-400-rgb),0.10);color:var(--amber-400);
+  font-size:12px;font-weight:600;letter-spacing:0.02em;
+  /* 🔴 這一句永遠不該從詞中間斷開（「到 Scan 掃一」/「次 ›」）。
+     搬出環心之後有整個螢幕寬，nowrap 不會造成橫向溢出。 */
+  white-space:nowrap;
+  padding:7px 16px;border-radius:999px;margin-top:10px;cursor:pointer;
   transition:background .2s var(--ease-calm), border-color .2s var(--ease-calm);
 }
 .tl-edge-cta{white-space:nowrap}
-.tl-edge-cta:active{background:rgba(0,180,216,0.20)}
+.tl-edge-cta:active{background:rgba(var(--amber-400-rgb),0.20)}
 .tl-edge-pr{
   font-size:12px;font-weight:500;color:rgba(255,255,255,0.85);
   letter-spacing:0.14em;margin-top:2px;
@@ -377,9 +495,24 @@ body{
 .tl-edge-zone{
   margin-top:2px;
   font-size:12px;font-weight:400;
-  color:var(--primary);
+  /* 🔴 這一行講的是**讀數多舊**（「剛剛 掃描」／「讀數已過期」）—— 一個量測到的
+     事實，不是分類。所以照「量測值不上色」走中性階。
+     舊值是 `var(--primary)` ＝ **當下哪一個模板在跑**的顏色 —— 決策一起跑，
+     這一行就跟著變色，而 Mancini FBD 的 #5E3A87 在環心上只有 **2.15:1**
+     （founder 2026-09-07 實機截圖）。跟底座紫時鐘是同一個 bug 的第二個出口：
+     一個綁在「哪一個模板」的顏色，爬到跟模板完全無關的元素上。
+     --n-400 在環心 6.27:1（中央）／7.08:1（邊緣），六個模板都一樣。 */
+  color:var(--n-400);
   letter-spacing:0.02em;
   transition:color 1.2s;
+  /* 🔴 這一行住在環心裡（121~129px），過期時的「讀數已過期 · 重新掃一次」
+     一定放不下一行 —— 但**斷在哪裡**是有差的。預設的 CJK 斷行會逐字斷：
+     實測 390 寬是 122px + 12px，也就是「…重新掃一」/「次」，一個孤字掉到第二行
+     （founder 2026-08-25 實走截圖看得到）。`keep-all` 讓它只在空格／間隔號斷開：
+     69px + 61px ＝「讀數已過期 ·」/「重新掃一次」，兩個詞都完整。
+     ⚠️ **不能改用 nowrap** —— 這串在 12px 下約 132px，比環心還寬，
+     nowrap 只會把它推出圓外（第三輪已經為 CTA 付過這個學費）。 */
+  word-break:keep-all;
 }
 
 /* Precision-layer confidence affordance (entry to finger calibration).
@@ -387,24 +520,39 @@ body{
    (docs/FINGER-PRECISION-WIRING.md §6, docs/prompts/antigravity-finger-precision-kickoff.md) */
 .tl-edge-conf{
   margin-top:10px;
-  display:inline-flex;align-items:center;gap:6px;
-  /* 🔴 這顆 chip 住在環心的黑圓裡，那個圓在 375px 手機上只有 ~112px 寬。
-     它會換行（founder 2026-08-29 實走截圖：斷成「信心中 · 提／升精度 ›」）。
-     所以這裡 nowrap 起來當守門員 —— 一旦有人把文案改長，它會明顯地溢出
-     而不是安靜地斷在詞中間。文案長度上限由 scripts/preview-today-layout.mjs 守。 */
+  /* 同上：「信心中 · 提升精度 ›」不得斷成「信心中 · 提」/「升精度 ›」 */
   white-space:nowrap;
+  display:inline-flex;align-items:center;gap:6px;
+  /* ⚠️ 這段註解在 main 上寫的是「這顆 chip 住在環心的黑圓裡」——
+     **在這條分支上不成立**：第三輪已經把兩顆動作鍵搬出環心（見上面 markup 那段
+     註解的實測數字：圓只有 121~129px，而這顆 chip 要 138~148px，塞不進去）。
+     搬出來之後它有整個螢幕寬，nowrap 的意義從「明顯溢出當守門員」變成
+     「這句永遠不從詞中間斷開」。過期的註解比沒有註解更危險，所以就地改掉。
+     長度上限由 scripts/preview-today-layout.mjs 守（那支的界線也一起從
+     「黑圓寬」改成「畫面寬」——同一個原因）。 */
   font-size:11px;font-weight:500;letter-spacing:0.02em;
   font-family:inherit;
-  color:#E8B45A;background:rgba(232,180,90,0.08);
-  border:1px solid rgba(232,180,90,0.38);border-radius:999px;
+  /* 🔴 舊值是 #E8B45A，而它與 --gold-secured #FFD46E 只差 **ΔE 12.2**（肉眼幾乎
+     同一色）。gold 在這個產品裡是 **SECURED / 已鎖定**（CLAUDE.md 顏色所有權），
+     但這顆膠囊講的是「你的讀數精度**還不夠**，去提升」—— 正好相反。
+     一顆長得像「已鎖定 ✓」的膠囊在說「還沒鎖定」，那是顏色在宣稱假的事實。
+     改成中性：**信心等級是分類，而分類由字講**（「信心中」四個字已經說完了），
+     顏色只負責當表面。--n-300 對地面 10.5:1。 */
+  color:var(--n-300);background:transparent;
+  border:1px solid var(--n-700);border-radius:999px;
   padding:5px 12px;cursor:pointer;
   transition:all 0.6s var(--ease-calm);
 }
 .tl-edge-conf:active{transform:scale(0.97)}
 .tl-edge-conf[hidden]{display:none}
+/* 校準完成 ＝ **SECURED**，而 SECURED 在這個產品裡就是 gold（CLAUDE.md 顏色所有權）。
+   舊值 #37E0A8 是第八個顏色，跟 --success #34C759 同一個語義家族卻不是同一個值。
+   ⚠️ 這是一個**語意判斷**，不是純粹的機械替換：我把「精度已鎖定」讀成 SECURED。
+   如果 founder 認為它該是別的意思，改這裡就好 —— 但不要退回一個沒有主人的新綠。
+   gold 對地面 14.3:1。 */
 .tl-edge-conf.calibrated{
-  color:#37E0A8;background:rgba(55,224,168,0.09);
-  border-color:rgba(55,224,168,0.38);
+  color:var(--gold-secured);background:rgba(var(--gold-secured-rgb),0.09);
+  border-color:rgba(var(--gold-secured-rgb),0.38);
 }
 .source-toggle .src.src-finger{color:#37E0A8}
 .source-toggle .src.src-finger[hidden]{display:none}
@@ -436,6 +584,15 @@ body{
      this the carousel + dots fall behind the bottom bars (charts hidden, swipe eaten). */
   padding:2px 14px calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 10px);
   display:flex;flex-direction:column;gap:10px;
+  /* 🔴 剩餘空間置中，不要全部堆在最後一個子元素後面。
+     實測 390×844：圓點下緣 601、底座上緣 702 —— **101px 的空白**全擠在
+     計時器正上方（founder 2026-09-08 實走：「計時器上方有一些空間是空白的」）。
+     `.snap` 是 flex:1 的欄，內容（教練卡／輪播／說明／圓點）加起來比它矮，
+     預設 flex-start 就把差額整塊留在尾巴。置中之後差額上下對半，
+     不再有一條「什麼都沒有」的帶。
+     ⚠️ 這裡刻意**不**改 `.snap-track` 的高度去吃掉空白 —— 那會動到
+     Energy 長條圖的高度推導（那組數字有自己的守門），是另一個決定。 */
+  justify-content:center;
   overflow:hidden;
 }
 /* Card entrance stagger animation */
@@ -619,6 +776,10 @@ body{
 .bb-bars{
   display:flex;gap:4px;height:54px;align-items:flex-end;
   margin-bottom:18px;
+  /* 🔴 它是資料圖表，不是可壓縮的空白。預設 flex-shrink:1 會讓它在矮視窗被
+     壓成 33px，而長條仍是原尺寸 → 被 overflow:hidden 切掉且畫面毫無破綻。
+     高度由設計在斷點決定，不由「剩下多少」決定。 */
+  flex-shrink:0;
 }
 .bb-bars .bar{
   flex:1;border-radius:20px;
@@ -690,16 +851,20 @@ body{
   font-variant-numeric:tabular-nums;line-height:1;
 }
 .scan-last .meta{display:flex;flex-direction:column;gap:2px}
-.scan-last .lbl{font-size:9px;letter-spacing:0.2em;color:var(--txt-sec);text-transform:uppercase;font-weight:600}
+.scan-last .lbl{font-size:9px;letter-spacing:0.2em;color:var(--n-400);text-transform:uppercase;font-weight:600}
 .scan-last .time{font-size:11px;color:rgba(255,255,255,0.6)}
 
+/* 🔴 全 app 最大的一顆動作鍵 → 可動層琥珀（founder 2026-09-07 拍板「全部可點元素都鋪」）。
+   它原本是青色，而青 ＝ ACTIVE / live ＝「這件事正在發生」—— 但這顆是「**你**去讓它發生」。
+   ⚠️ 這是世界 A（深空）的元素，所以**輝光保留**，只換色相：關燈那條管的是儀器世界。
+   漸層的三站照原本的明暗關係換過去（亮→base→暗），呼吸動效一個參數都沒動。 */
 .scan-button{
   width:200px;height:200px;border-radius:50%;
-  background:radial-gradient(circle at 30% 30%, #0dd4f7 0%, #00B4D8 45%, #006b82 100%);
+  background:radial-gradient(circle at 30% 30%, #FFC46B 0%, var(--amber-400) 45%, var(--amber-800) 100%);
   border:none;cursor:pointer;position:relative;
   box-shadow:
-    0 20px 60px rgba(0,180,216,0.4),
-    0 0 0 8px rgba(0,180,216,0.08),
+    0 20px 60px rgba(var(--amber-400-rgb),0.4),
+    0 0 0 8px rgba(var(--amber-400-rgb),0.08),
     inset 0 2px 20px rgba(255,255,255,0.3);
   display:flex;align-items:center;justify-content:center;
   transition:transform 0.2s var(--ease-calm);
@@ -707,13 +872,17 @@ body{
 }
 .scan-button:active{transform:scale(0.94)}
 @keyframes scanBreathe{
-  0%,100%{box-shadow:0 20px 60px rgba(0,180,216,0.3), 0 0 0 8px rgba(0,180,216,0.06), inset 0 2px 20px rgba(255,255,255,0.3)}
-  50%    {box-shadow:0 20px 60px rgba(0,180,216,0.5), 0 0 0 14px rgba(0,180,216,0.12), inset 0 2px 20px rgba(255,255,255,0.3)}
+  0%,100%{box-shadow:0 20px 60px rgba(var(--amber-400-rgb),0.3), 0 0 0 8px rgba(var(--amber-400-rgb),0.06), inset 0 2px 20px rgba(255,255,255,0.3)}
+  50%    {box-shadow:0 20px 60px rgba(var(--amber-400-rgb),0.5), 0 0 0 14px rgba(var(--amber-400-rgb),0.12), inset 0 2px 20px rgba(255,255,255,0.3)}
 }
 .scan-button .txt{
-  font-size:14px;font-weight:600;color:#fff;
+  /* 🔴 白字**不能**壓在琥珀上 —— 實測 2.0:1，完全不可讀。
+     這是我自己在 tokens.css 寫下的那條規則，而我換成琥珀球的第一版就踩了它
+     （截圖上還「看得見」是因為有 text-shadow 在撐，那不是對比，那是描邊）。
+     深空色字壓在 amber-400 上是 9.9:1。 */
+  font-size:14px;font-weight:600;color:var(--n-950);
   letter-spacing:0.24em;text-transform:uppercase;
-  text-shadow:0 1px 4px rgba(0,0,0,0.3);
+  text-shadow:none;
 }
 
 .scan-options{
@@ -732,7 +901,7 @@ body{
   box-shadow:inset 0 0 0 1px rgba(0,180,216,0.2);
 }
 .scan-hint{
-  font-size:11px;color:var(--txt-sec);text-align:center;
+  font-size:11px;color:var(--n-400);text-align:center;
   letter-spacing:0.08em;max-width:240px;line-height:1.6;
 }
 /* 帶位是一個詞不是一個數字 —— 比 .score 的 32px 收一點才不會撐破卡片 */
@@ -740,7 +909,7 @@ body{
 /* 這幾塊自己設了 display，會蓋掉 UA 的 [hidden]{display:none} —— 補回來 */
 .scan-last[hidden],.scan-evidence[hidden],.scan-empty[hidden],.scan-button[hidden]{display:none}
 .scan-empty{
-  font-size:11px;color:var(--txt-sec);text-align:center;
+  font-size:11px;color:var(--n-400);text-align:center;
   letter-spacing:0.06em;max-width:240px;line-height:1.6;
 }
 /* 校準讀出：等寬數字、密度高、刻意不搶戲 */
@@ -751,7 +920,7 @@ body{
   border:1px solid rgba(255,255,255,0.05);
 }
 .scan-evidence .ev{display:flex;justify-content:space-between;gap:14px;font-size:10px}
-.scan-evidence .k{color:var(--txt-sec);letter-spacing:0.14em;text-transform:uppercase}
+.scan-evidence .k{color:var(--n-400);letter-spacing:0.14em;text-transform:uppercase}
 .scan-evidence .v{color:rgba(255,255,255,0.78);font-variant-numeric:tabular-nums}
 
 /* ═══════════════════════════════════════════════════
@@ -777,7 +946,7 @@ body{
 }
 .session-stats .val{font-size:22px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
 .session-stats .val.good{color:var(--good)}
-.session-stats .lbl{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--txt-sec);margin-top:4px;font-weight:600}
+.session-stats .lbl{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-400);margin-top:4px;font-weight:600}
 
 .session-section{font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;padding:8px 4px 2px}
 
@@ -793,11 +962,15 @@ body{
   transform:scale(0.985);
   background:rgba(255,255,255,0.05);
 }
+/* 🔴 這個 `›` 是 Session 每一列**唯一在說「點得進去」**的東西 → 可動層。
+   ⚠️ 舊值 --txt-dim 對地面只有 **2.21:1**（§3.6 ③ 量過），一個看不清楚的
+   affordance 等於沒有 affordance。琥珀 9.9:1。
+   ⚠️ 只動這個記號，**不動列裡的名稱、圖示色與數字** —— 那些是紀錄的身分與量測值。 */
 .session-item .chevron{
-  color:var(--txt-dim);font-size:18px;margin-left:2px;
+  color:var(--amber-400);font-size:18px;margin-left:2px;
   transition:transform 0.3s;flex-shrink:0;
 }
-.session-item:active .chevron{transform:translateX(2px);color:var(--primary)}
+.session-item:active .chevron{transform:translateX(2px);color:var(--amber-500)}
 .session-item .tmpl-ic{
   width:36px;height:36px;border-radius:10px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
@@ -808,16 +981,18 @@ body{
 .session-item.neut .tmpl-ic{background:rgba(142,142,147,0.15);color:#aaa}
 .session-item .info{flex:1;min-width:0}
 .session-item .nm{font-size:13px;font-weight:500;color:#fff;margin-bottom:2px}
-.session-item .meta{font-size:11px;color:var(--txt-sec);display:flex;gap:8px;font-variant-numeric:tabular-nums}
-.session-item .meta span.sep{color:var(--txt-dim)}
+.session-item .meta{font-size:11px;color:var(--n-400);display:flex;gap:8px;font-variant-numeric:tabular-nums}
+.session-item .meta span.sep{color:var(--n-500)}
 .session-item .result{
   font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
   padding:4px 9px;border-radius:8px;
 }
 .result.win{background:rgba(52,199,89,0.15);color:var(--good)}
 .result.loss{background:rgba(255,69,58,0.12);color:#ff7e76}
-.result.breakeven{background:rgba(142,142,147,0.15);color:var(--txt-sec)}
-.result.no_trade{background:rgba(245,166,35,0.12);color:var(--warn)}
+.result.breakeven{background:rgba(142,142,147,0.15);color:var(--n-400)}
+/* 🔴 `no_trade` ＝「不成立 · 我不做」。CLAUDE.md：**兩個出口都算紀律** ——
+   它不是一個警告，把它染成警告色等於用顏色責備一個正確的決定。→ 中性帶位。 */
+.result.no_trade{background:var(--neutral-950);color:var(--n-200)}
 
 .insight-card{
   padding:14px 16px;border-radius:14px;
@@ -838,7 +1013,7 @@ body{
 .session-empty.show{display:flex}
 .session-empty .ic{font-size:34px;opacity:0.85;margin-bottom:2px}
 .session-empty .ttl{font-size:15px;font-weight:600;color:#fff}
-.session-empty .sub{font-size:12px;color:var(--txt-sec);line-height:1.6}
+.session-empty .sub{font-size:12px;color:var(--n-400);line-height:1.6}
 
 /* 進場：清單卡片依序浮現（克制）*/
 @keyframes sessRise{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
@@ -868,12 +1043,12 @@ body{
 }
 .date-switch .mid{text-align:center}
 .date-switch .day{font-size:15px;font-weight:600;color:#fff}
-.date-switch .sub{font-size:10px;color:var(--txt-sec);letter-spacing:0.15em;margin-top:2px;text-transform:uppercase}
+.date-switch .sub{font-size:10px;color:var(--n-400);letter-spacing:0.15em;margin-top:2px;text-transform:uppercase}
 
 /* Edge Score hour chart */
 .tl-edge-chart-card{padding:14px}
 .tl-edge-chart-card .head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
-.tl-edge-chart-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
+.tl-edge-chart-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--n-400);font-weight:600}
 .tl-edge-chart-card .avg{font-size:12px;color:var(--primary);letter-spacing:0.05em;font-variant-numeric:tabular-nums}
 .tl-edge-chart-card .avg b{font-size:18px;font-weight:300;color:#fff;margin-right:2px}
 .tl-edge-chart{
@@ -885,38 +1060,39 @@ body{
 .tl-edge-chart .zone-clear{fill:rgba(0,180,216,0.05)}
 .tl-edge-chart .line{fill:none;stroke:var(--primary);stroke-width:1.6;filter:drop-shadow(0 0 3px rgba(0,180,216,0.4))}
 .tl-edge-chart .area{fill:url(#edgeTraceArea);opacity:0.6}
-.tl-edge-chart .axis{font-size:8px;fill:var(--txt-dim);font-family:inherit}
+.tl-edge-chart .axis{font-size:8px;fill:var(--n-500);font-family:inherit}
 .tl-edge-chart .evt-dot{fill:var(--good);filter:drop-shadow(0 0 4px var(--good))}
 .tl-edge-chart .evt-dot.loss{fill:#ff7e76}
 
 /* 決策時間軸 strip */
 .tl-strip-card{padding:14px}
 .tl-strip-card .head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
-.tl-strip-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
-.tl-strip-card .avg{font-size:12px;color:var(--txt-sec);letter-spacing:0.05em;font-variant-numeric:tabular-nums}
+.tl-strip-card .ttl{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--n-400);font-weight:600}
+.tl-strip-card .avg{font-size:12px;color:var(--n-400);letter-spacing:0.05em;font-variant-numeric:tabular-nums}
 .tl-strip-card .avg b{font-size:18px;font-weight:300;color:#fff;margin-right:2px}
 .tl-strip{position:relative;height:96px;min-height:96px}
 .tl-strip svg{width:100%;height:100%;display:block}
 .tl-strip .grid line{stroke:rgba(255,255,255,0.06);stroke-width:1}
-.tl-strip .axis{font-size:8px;fill:var(--txt-dim);font-family:inherit}
+.tl-strip .axis{font-size:8px;fill:var(--n-500);font-family:inherit}
 .tl-strip .tl-dot{transform-box:fill-box;transform-origin:center;animation:tlDotIn 0.4s var(--ease-calm) both}
 @keyframes tlDotIn{ from{opacity:0;transform:scale(0)} to{opacity:1;transform:scale(1)} }
 .tl-strip-legend{
   display:flex;gap:14px;margin-top:8px;padding-top:8px;
   border-top:1px solid rgba(255,255,255,0.05);
-  font-size:10px;color:var(--txt-sec);
+  font-size:10px;color:var(--n-400);
 }
 .tl-strip-legend span{display:flex;align-items:center;gap:5px}
 .tl-strip-legend .lg{width:7px;height:7px;border-radius:50%;display:inline-block}
 .tl-strip-legend .lg.good{background:var(--good)}
 .tl-strip-legend .lg.pri{background:var(--primary)}
 .tl-strip-legend .lg.loss{background:#ff7e76}
+.tl-strip-legend .lg-note{color:var(--n-500);margin-left:auto}
 
 .tl-empty{display:none;flex-direction:column;align-items:center;text-align:center;padding:36px 20px 16px;gap:8px}
 .tl-empty.show{display:flex}
 .tl-empty .ic{font-size:32px;opacity:0.85}
 .tl-empty .ttl{font-size:15px;font-weight:600;color:#fff}
-.tl-empty .sub{font-size:12px;color:var(--txt-sec);line-height:1.6}
+.tl-empty .sub{font-size:12px;color:var(--n-400);line-height:1.6}
 
 /* Event log 進場 stagger（複用 sessRise）*/
 .tl-event.tl-enter{animation:sessRise 0.42s var(--ease-calm) both}
@@ -927,7 +1103,7 @@ body{
 
 /* Session markers */
 .timeline-events-card{padding:14px}
-.timeline-events-card .head{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:10px}
+.timeline-events-card .head{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--n-400);font-weight:600;margin-bottom:10px}
 .tl-event{
   display:flex;align-items:center;gap:10px;
   padding:8px 0;
@@ -935,7 +1111,7 @@ body{
 }
 .tl-event:last-child{border-bottom:none}
 .tl-event .time{
-  font-size:11px;color:var(--txt-sec);
+  font-size:11px;color:var(--n-400);
   font-variant-numeric:tabular-nums;letter-spacing:0.08em;
   width:42px;flex-shrink:0;
 }
@@ -945,9 +1121,10 @@ body{
 .tl-event .dot.entry{background:var(--good);box-shadow:0 0 8px var(--good)}
 .tl-event .dot.exit{background:var(--primary);box-shadow:0 0 6px var(--primary)}
 .tl-event .dot.cancel{background:#ff7e76}
-.tl-event .dot.scan{background:var(--warn)}
+/* 掃描是一次量測（live）→ cyan ＝ ACTIVE，不是警告。 */
+.tl-event .dot.scan{background:var(--cyan-core)}
 .tl-event .desc{flex:1;font-size:13px;color:#fff}
-.tl-event .tl-edge{font-size:11px;color:var(--txt-sec);font-variant-numeric:tabular-nums}
+.tl-event .tl-edge{font-size:11px;color:var(--n-400);font-variant-numeric:tabular-nums}
 
 /* ═══════════════════════════════════════════════════
    LAB SCREEN
@@ -957,36 +1134,126 @@ body{
 .lab-body::-webkit-scrollbar{display:none}
 .lab-body > *{flex-shrink:0}
 
+/* ═════════════════════════════════════════════════
+   校準台（Lab 的主體）
+   ═════════════════════════════════════════════════
+   founder 2026-09-08：「像 Fable 5 一樣思考」。那兩張贏的圖的共同點不是好看，
+   是 **chrome 幾乎全黑、顏色來自資料本身**。TENKI 剛好相反：顏色都在小小的
+   邊框與圖示上，而畫面上**沒有任何一片資料的光**。那就是為什麼每一輪調完色階，
+   「顏色好像有點少」還是會回來 —— 調的一直是 chrome。
+
+   所以 Lab 不再是九塊設定磁磚，主體換成這台產品真正的主張：
+   **「你在什麼狀態下最跟得住自己的流程」**。
+
+   🔴 這不是我發明的統計：`domain/src/policies/readiness-band.ts` 的
+   `summarizeDisciplineByBand()` 早就寫好，而且**從來沒有東西餵它** ——
+   因為在 readingAtDecision 之前，沒有任何一筆紀錄帶得出帶位。
+
+   🔴 誠實規則寫在那支的 doc comment 裡，這裡逐條遵守：
+     · 沒有讀數的紀錄排除，而且**排除幾筆要講出來**
+     · 樣本 < 3 → 印「資料累積中」，不印一個吵雜的百分比
+     · 零筆 → 三個空通道 + 一句邀請，**不是一張假圖表**
+
+   ⚠️ 光來自**填色**（linear-gradient），不用 box-shadow / blur / radial ——
+   「儀器世界關燈」那條規則沒有被放寬，資料的顏色不是輝光。 */
+.cal{
+  border:1px solid var(--n-800);border-radius:18px;
+  background:var(--n-900);padding:16px 16px 14px;margin-bottom:14px;
+}
+.cal-kicker{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--n-500)}
+.cal-q{font-size:15px;font-weight:600;color:var(--n-100);margin:6px 0 2px;line-height:1.35}
+.cal-chart{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.cal-col{display:flex;flex-direction:column;align-items:center;gap:8px}
+.cal-track{
+  position:relative;width:100%;height:96px;border-radius:10px;
+  background:var(--n-950);border:1px solid var(--n-850);overflow:hidden;
+}
+.cal-bar{position:absolute;left:0;right:0;bottom:0;height:0;transition:height 0.9s var(--ease-calm)}
+.cal-col.clear   .cal-bar{background:linear-gradient(180deg, var(--clear-400),   var(--clear-800))}
+.cal-col.neutral .cal-bar{background:linear-gradient(180deg, var(--neutral-400), var(--neutral-800))}
+.cal-col.strain  .cal-bar{background:linear-gradient(180deg, var(--strain-400),  var(--strain-800))}
+/* 樣本不足：斜線紋 = 「這裡還沒有結論」。**不是**一根矮的實心長條 ——
+   矮長條會被讀成「這個帶位表現差」，那正好是相反的意思。 */
+.cal-col.thin .cal-bar{
+  background:repeating-linear-gradient(135deg, var(--n-700) 0 4px, transparent 4px 8px);
+  height:26px;
+}
+.cal-rate{font-size:17px;font-weight:600;color:var(--n-100);font-variant-numeric:tabular-nums;
+  line-height:20px;height:20px;display:flex;align-items:center;justify-content:center}
+.cal-rate.pending{font-size:11px;font-weight:500;color:var(--n-500)}
+.cal-band{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--n-400)}
+.cal-n{font-size:10px;color:var(--n-500);font-variant-numeric:tabular-nums}
+.cal-foot{
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--n-850);
+  font-size:10px;line-height:1.6;color:var(--n-500);
+}
+.cal-foot b{color:var(--n-300);font-weight:600;font-variant-numeric:tabular-nums}
+.cal-empty{font-size:12px;line-height:1.6;color:var(--n-400);margin-top:14px}
+.lab-sec{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-500);margin:4px 2px 8px}
 .lab-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* 🔴 整塊可點 → 可動層。**只給邊，不填色** —— Lab 有九塊磁磚，
+   全部填琥珀會讓整頁只剩一個顏色（那正是「顏色好像有點少」的另一種版本）。
+   底仍是中性，琥珀只負責說「這塊按得下去」。 */
+/* 🔴 Lab 的磁磚**不是同一種東西**，所以不該長得一樣（founder 2026-09-08）：
+     `is-live`   有真資料在上面（Baseline 顯示 HR/HRV/RR）→ cyan ＝ live
+     `is-control` 點下去**就地改變一件事**（決策紀律開關、CSV 匯出）→ 可動層琥珀
+     （預設）    導航進子畫面（模板自訂、標記標籤）→ 中性
+     `.lab-soon` 還沒有的東西 → 最暗，且**拿掉所有可動訊號**
+
+   🔴 這也修正了上一輪的規則：**在「什麼都可以按」的頁面上，把每一塊都標成
+   可動層等於沒有標。** 琥珀改成只給「會改變狀態」的 —— 導航不算。
+   founder 2026-09-08 拍板：「只給改變狀態的」。 */
 .lab-item{
   padding:16px 14px;border-radius:16px;
   background:rgba(255,255,255,0.03);
-  border:1px solid rgba(255,255,255,0.05);
+  border:1px solid var(--n-700);
   display:flex;flex-direction:column;gap:8px;
   cursor:pointer;transition:all 0.3s var(--ease-calm);
   position:relative;overflow:hidden;
 }
 .lab-item:active{transform:scale(0.97);background:rgba(255,255,255,0.05)}
-.lab-item.featured{
+.lab-item.is-live{
   background:linear-gradient(135deg, rgba(0,180,216,0.08), rgba(0,180,216,0.02));
   border-color:rgba(0,180,216,0.2);
 }
-.lab-item.beta::after{
-  content:'BETA';position:absolute;top:10px;right:10px;
-  font-size:8px;letter-spacing:0.18em;font-weight:700;
-  padding:2px 6px;border-radius:5px;
-  background:rgba(245,166,35,0.18);color:var(--warn);
-}
+/* ⚠️ `.lab-item.beta::after` 已刪：三塊 beta 磁磚都搬進「即將開放」區了，
+   那一區有自己的 `::after`。剛清完八個死 token，不要立刻長出一條死 CSS。 */
+/* 🔴 舊值是 `color:var(--primary)` ＝ **當下哪個決策模板在跑**的顏色。
+   實測：Mancini FBD → 紫 `rgb(94,58,135)`、Health Stress → 綠、Exercise → 橘。
+   **Lab 跟模板毫無關係**，founder 2026-09-08 的截圖裡那六顆紫圖示就是這樣來的
+   （當時 Mancini 正在跑）。跟紫時鐘同一個 bug 的又一個出口。
+   ⚠️ 而上一輪的「換模板不變色」守門**只掃 Today + 底座**，所以看不到這一頁 ——
+   這一輪把它擴到五個分頁，擴完立刻紅在這裡。
+   → 圖示改成講**種類**，不講模板。 */
 .lab-item .ic{
   width:38px;height:38px;border-radius:10px;
   display:flex;align-items:center;justify-content:center;
-  background:rgba(0,180,216,0.12);color:var(--primary);
+  background:var(--n-800);color:var(--n-300);
   margin-bottom:4px;
 }
 .lab-item .ic svg{width:20px;height:20px}
+/* 種類色：只有這三種，而且每一種都說得出自己是什麼 */
+.lab-item.is-live .ic{background:rgba(0,180,216,0.12);color:var(--cyan-core)}
+.lab-item.is-control{border-color:rgba(var(--amber-400-rgb),0.38)}
+.lab-item.is-control .ic{background:rgba(var(--amber-400-rgb),0.12);color:var(--amber-400)}
+/* 「即將開放」：拿掉全部可動訊號 —— 不上色、降對比、邊框最弱。 */
+.lab-soon-head{
+  font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--n-500);margin:18px 2px 8px;
+}
+.lab-soon .lab-item{border-color:var(--n-800);background:rgba(255,255,255,0.015)}
+.lab-soon .lab-item .ic{background:var(--n-850);color:var(--n-500)}
+.lab-soon .lab-item .nm{color:var(--n-400)}
+.lab-soon .lab-item .sub{color:var(--n-500)}
+.lab-soon .lab-item::after{
+  content:'即將開放';position:absolute;top:10px;right:10px;
+  font-size:8px;letter-spacing:0.14em;font-weight:700;
+  padding:2px 6px;border-radius:5px;
+  background:var(--neutral-950);color:var(--n-500);
+}
 .lab-item .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.2}
-.lab-item .sub{font-size:10px;color:var(--txt-sec);line-height:1.4;letter-spacing:0.02em}
-/* ── Lab Fable-5 爽感：進場 stagger（opacity-only，不與 :active transform 衝突）+ tap 深度 + featured glow ── */
+.lab-item .sub{font-size:10px;color:var(--n-400);line-height:1.4;letter-spacing:0.02em}
+/* ── Lab Fable-5 爽感：進場 stagger（opacity-only，不與 :active transform 衝突）+ tap 深度 + is-live glow ── */
 .lab-grid .lab-item, .lab-body .lab-wide{opacity:0}
 #lab-screen.active .lab-grid .lab-item, #lab-screen.active .lab-body .lab-wide{opacity:1}
 #lab-screen.active .lab-grid .lab-item:nth-child(1){transition-delay:0.05s}
@@ -995,9 +1262,18 @@ body{
 #lab-screen.active .lab-grid .lab-item:nth-child(4){transition-delay:0.20s}
 #lab-screen.active .lab-grid .lab-item:nth-child(5){transition-delay:0.25s}
 #lab-screen.active .lab-grid .lab-item:nth-child(6){transition-delay:0.30s}
+#lab-screen.active .lab-grid .lab-item:nth-child(7){transition-delay:0.35s}
+#lab-screen.active .lab-grid .lab-item:nth-child(8){transition-delay:0.40s}
 #lab-screen.active .lab-body .lab-wide{transition-delay:0.35s}
-.lab-item:active{box-shadow:0 6px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,180,216,0.28)}
-.lab-item.featured{box-shadow:0 0 26px rgba(0,180,216,0.10)}
+.lab-item:active{box-shadow:0 6px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(var(--amber-400-rgb),0.45)}
+.lab-item.is-live{box-shadow:0 0 26px rgba(0,180,216,0.10)}
+/* 決策紀律模式開啟時的樣子。用既有的 --primary（cyan = ACTIVE），
+   **不用 --good 綠** —— 綠在這個產品裡是「跟著流程完成」的語意色，
+   一個設定開關沒有資格宣告那件事（CLAUDE.md 顏色所有權）。 */
+/* 🔴 舊的 mode-on 是**青框**，跟 `featured`（有資料）長得一模一樣 ——
+   兩個不同的意思用同一個訊號。開關「開著」是**可動層的一個狀態** → 琥珀。 */
+.lab-item.mode-on{border-color:rgba(var(--amber-400-rgb),0.65);background:rgba(var(--amber-400-rgb),0.07)}
+.lab-item.mode-on .ic{background:var(--amber-400);color:var(--n-950)}
 @media (prefers-reduced-motion: reduce){
   .lab-grid .lab-item, .lab-body .lab-wide{opacity:1;transition:none}
 }
@@ -1012,11 +1288,56 @@ body{
   transition:opacity 0.4s var(--ease-calm), transform 0.2s var(--ease-calm), box-shadow 0.2s var(--ease-calm);
 }
 .lab-wide:active{transform:scale(0.98);box-shadow:0 6px 20px rgba(0,0,0,0.35)}
-.lab-wide .ic{width:40px;height:40px;border-radius:10px;background:rgba(94,58,135,0.2);color:#b78dd6;display:flex;align-items:center;justify-content:center}
+/* 🔴 這顆圖示原本是 `rgba(94,58,135,0.2)` / `#b78dd6` —— 剛好就是 Mancini 紫的色域，
+   只是它沒吃 `var(--primary)` 所以不會跟著模板變。2026-09-08 紫歸 Premium 之後，
+   它從「一個沒人說得出理由的紫」變成**這一族唯一該用紫的地方**。
+   ⚠️ 字與圖示走中性（--n-100），紫只當表面 —— 紫活不過色盲守門，
+   宣稱由字承擔（見 tokens.css 的 premium 註解）。 */
+.lab-wide .ic{width:40px;height:40px;border-radius:10px;background:var(--premium-800);color:var(--n-100);display:flex;align-items:center;justify-content:center}
 .lab-wide .ic svg{width:22px;height:22px}
 .lab-wide .info{flex:1}
+/* ═════ Premium 對照表 ═════
+   🔴 這一塊取代的是一個**假的購買鍵**：舊的「升級到 Pro」點下去只彈一個
+   `labInfo` toast（「即將開放 — 完整 FDCB · 無限掃描 · 藍牙整合」），
+   而右邊還掛著一個 `›`。一個什麼都不會發生的購買 CTA，是這一輪
+   founder 指名要一起想清楚的東西。
+
+   換成真的：內容**逐欄來自 packages/shared/src/subscription-tiers.ts**
+   （FREE_TIER / PREMIUM_TIER 的欄位，不是我編的行銷詞）。
+   🔴 而 `exportEnabled: true, // Privacy controls never paywalled` 那一行
+   是這份設定裡最重要的一條 —— 舊的磁磚完全沒有反映它。
+   🔴 **沒有購買流程就不放購買鍵**：一行「尚未開賣」，不是一個會騙人的按鈕。 */
+.pm-sheet{max-height:88dvh;overflow-y:auto;overscroll-behavior:contain}
+.pm-hero{
+  margin:-10px -20px 16px;padding:22px 20px 18px;
+  background:linear-gradient(160deg, var(--premium-800), var(--premium-950) 70%, transparent);
+  border-bottom:1px solid var(--premium-600);
+}
+.pm-kicker{font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--n-300)}
+.pm-title{font-size:22px;font-weight:600;color:var(--n-100);margin-top:6px}
+.pm-lede{font-size:12px;line-height:1.6;color:var(--n-200);margin-top:8px}
+.pm-row{
+  display:grid;grid-template-columns:1fr 62px 62px;gap:8px;align-items:center;
+  padding:10px 2px;border-bottom:1px solid var(--n-850);
+}
+.pm-row.head{border-bottom-color:var(--n-700);padding-bottom:6px}
+.pm-row.head span{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-500)}
+.pm-k{font-size:12px;color:var(--n-200)}
+.pm-k small{display:block;font-size:10px;color:var(--n-500);margin-top:2px}
+.pm-v{font-size:11px;text-align:center;color:var(--n-400);font-variant-numeric:tabular-nums}
+.pm-v.on{color:var(--n-100);font-weight:600}
+.pm-v.off{color:var(--n-600)}
+/* 隱私那一列不是「功能」，是一條承諾 —— 給它自己的樣子，而且**兩欄都是 ✓**。 */
+.pm-row.keep{border-bottom:none;margin-top:14px;padding:12px;border-radius:12px;
+  background:var(--n-900);border:1px solid var(--n-700)}
+.pm-note{
+  margin-top:16px;padding:12px 14px;border-radius:12px;
+  background:var(--n-900);border:1px dashed var(--n-700);
+  font-size:11px;line-height:1.6;color:var(--n-400);
+}
+.pm-note b{color:var(--n-200);font-weight:600}
 .lab-wide .nm{font-size:14px;font-weight:600;color:#fff}
-.lab-wide .sub{font-size:11px;color:var(--txt-sec);margin-top:2px}
+.lab-wide .sub{font-size:11px;color:var(--n-400);margin-top:2px}
 
 /* ═══════════════════════════════════════════════════
    SESSION DETAIL — slide-in modal
@@ -1036,7 +1357,7 @@ body{
 .te-title{font-size:17px;font-weight:600;color:#fff}
 .te-spacer{flex:1}
 .te-body{flex:1;overflow-y:auto;padding:4px 18px 40px;-webkit-overflow-scrolling:touch}
-.te-hint{font-size:12px;color:var(--txt-sec);line-height:1.5;margin-bottom:14px}
+.te-hint{font-size:12px;color:var(--n-400);line-height:1.5;margin-bottom:14px}
 .te-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
 .te-list:empty{display:none}
 .te-list-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid rgba(255,255,255,0.06);cursor:pointer;transition:background 0.2s}
@@ -1044,34 +1365,36 @@ body{
 .te-list-item .ic{width:30px;height:30px;border-radius:9px;background:rgba(0,180,216,0.1);display:flex;align-items:center;justify-content:center}
 .te-list-item .ic svg{width:16px;height:16px}
 .te-list-item .nm{flex:1;font-size:13px;color:#fff}
-.te-list-item .dur{font-size:12px;color:var(--txt-sec);font-variant-numeric:tabular-nums}
+.te-list-item .dur{font-size:12px;color:var(--n-400);font-variant-numeric:tabular-nums}
 .te-list-item .edit{font-size:11px;color:var(--primary)}
 .te-preview{display:flex;align-items:center;gap:14px;padding:12px;border-radius:16px;background:var(--surface);border:1px solid rgba(0,180,216,0.25);margin-bottom:18px}
 .te-preview-ic{width:38px;height:38px;border-radius:11px;background:rgba(0,180,216,0.12);display:flex;align-items:center;justify-content:center;color:var(--primary)}
 .te-preview-ic svg{width:20px;height:20px}
 .te-preview-info{flex:1;min-width:0}
 .te-preview-info .nm{font-size:14px;font-weight:600;color:#fff}
-.te-preview-info .sub{font-size:11px;color:var(--txt-sec);margin-top:2px}
+.te-preview-info .sub{font-size:11px;color:var(--n-400);margin-top:2px}
 .te-preview-dur{font-size:14px;color:var(--primary);font-variant-numeric:tabular-nums}
-.te-field{display:flex;flex-direction:column;gap:7px;margin-bottom:15px;font-size:12px;color:var(--txt-sec)}
+.te-field{display:flex;flex-direction:column;gap:7px;margin-bottom:15px;font-size:12px;color:var(--n-400)}
 .te-field>span{letter-spacing:0.04em}
-.te-field input[type=text],.te-field input[type=number]{background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-family:inherit;font-size:15px;padding:11px 12px;width:100%}
+.te-field select,.te-field input[type=text],.te-field input[type=number]{background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-family:inherit;font-size:15px;padding:11px 12px;width:100%}
 .te-field-row{flex-direction:row;align-items:center;justify-content:space-between}
 .te-dur{display:flex;align-items:center;gap:6px}
 .te-dur input{width:64px;text-align:center}
-.te-dur em{font-style:normal;color:var(--txt-sec);font-size:12px}
+.te-dur em{font-style:normal;color:var(--n-400);font-size:12px}
 .te-swatches{display:flex;gap:10px;flex-wrap:wrap}
 .te-sw{width:34px;height:34px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform 0.15s,border-color 0.15s}
 .te-sw:active{transform:scale(0.9)}
 .te-sw.sel{border-color:#fff;transform:scale(1.08)}
-.te-ic{width:38px;height:38px;border-radius:11px;background:var(--surface);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:var(--txt-sec);cursor:pointer;transition:transform 0.15s,color 0.15s,border-color 0.15s}
+.te-ic{width:38px;height:38px;border-radius:11px;background:var(--surface);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:var(--n-400);cursor:pointer;transition:transform 0.15s,color 0.15s,border-color 0.15s}
 .te-ic svg{width:19px;height:19px}
 .te-ic:active{transform:scale(0.9)}
 .te-ic.sel{color:var(--primary);border-color:var(--primary)}
 .te-warn{font-size:12px;color:#FF6B35;line-height:1.5;margin-bottom:12px}
 .te-actions{display:flex;gap:10px;margin-top:6px}
 .te-btn{flex:1;border-radius:12px;padding:13px 0;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid transparent}
-.te-save{background:var(--primary);color:#001;}
+/* 儲存是動作 → 琥珀填色，字用深空色（白字壓在琥珀上只有 2.0:1）。
+   ⚠️ 舊值 color:#001 是一個沒有主人的近黑，順手收進 --n-950。 */
+.te-save{background:var(--amber-400);color:var(--n-950);}
 .te-del{flex:0 0 auto;padding:13px 20px;background:transparent;border-color:rgba(255,107,53,0.4);color:#FF6B35}
 @media (prefers-reduced-motion: reduce){ .tmpl-editor{transition:none} .te-sw,.te-ic{transition:none} }
 /* Lab 訊息 toast */
@@ -1084,7 +1407,7 @@ body{
 }
 .lab-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
 .lab-toast-title{font-size:14px;font-weight:600;color:#fff}
-.lab-toast-sub{font-size:12px;color:var(--txt-sec);margin-top:3px;line-height:1.45}
+.lab-toast-sub{font-size:12px;color:var(--n-400);margin-top:3px;line-height:1.45}
 @media (prefers-reduced-motion: reduce){ .lab-toast{transition:none} }
 .session-detail{
   position:absolute;inset:0;
@@ -1115,7 +1438,7 @@ body{
 .sd-back:active{background:rgba(0,180,216,0.15);transform:scale(0.94)}
 .sd-title-wrap{flex:1;min-width:0}
 .sd-title{font-size:17px;font-weight:600;color:#fff;letter-spacing:-0.01em}
-.sd-subtitle{font-size:11px;color:var(--txt-sec);letter-spacing:0.1em;margin-top:2px}
+.sd-subtitle{font-size:11px;color:var(--n-400);letter-spacing:0.1em;margin-top:2px}
 .sd-result{
   font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;
   padding:5px 10px;border-radius:8px;flex-shrink:0;
@@ -1139,18 +1462,18 @@ body{
 .sd-hero-cell{text-align:center;flex:1}
 .sd-hero-cell .lbl{
   font-size:9px;letter-spacing:0.22em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;margin-bottom:4px;
+  color:var(--n-400);font-weight:600;margin-bottom:4px;
 }
 .sd-hero-cell .val{
   font-size:36px;font-weight:200;letter-spacing:-0.03em;
   font-variant-numeric:tabular-nums;color:#fff;line-height:1;
 }
 .sd-hero-cell .sub{
-  font-size:10px;color:var(--txt-sec);margin-top:4px;
+  font-size:10px;color:var(--n-400);margin-top:4px;
   letter-spacing:0.08em;
 }
 .sd-hero-arrow{
-  font-size:22px;color:var(--txt-dim);
+  font-size:22px;color:var(--n-500);
   padding:0 4px;align-self:flex-end;margin-bottom:8px;
 }
 .sd-hero-delta{
@@ -1160,7 +1483,7 @@ body{
 }
 .sd-hero-delta.up{color:var(--good)}
 .sd-hero-delta.down{color:#ff7e76}
-.sd-hero-delta.flat{color:var(--txt-sec)}
+.sd-hero-delta.flat{color:var(--n-400)}
 
 /* Edge Score trace chart */
 .sd-trace-card{padding:14px}
@@ -1170,7 +1493,7 @@ body{
 }
 .sd-trace-ttl{
   font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;
+  color:var(--n-400);font-weight:600;
 }
 .sd-trace-dur{
   font-size:11px;color:var(--primary);
@@ -1185,9 +1508,9 @@ body{
 .sd-trace .seg-line{stroke:rgba(255,255,255,0.04);stroke-width:1;stroke-dasharray:2 3}
 .sd-trace .tl-edge-line{fill:none;stroke:var(--primary);stroke-width:1.8;filter:drop-shadow(0 0 4px rgba(0,180,216,0.5))}
 .sd-trace .tl-edge-area{fill:url(#sdArea)}
-.sd-trace .axis{font-size:9px;fill:var(--txt-dim);font-family:inherit;letter-spacing:0.05em}
+.sd-trace .axis{font-size:9px;fill:var(--n-500);font-family:inherit;letter-spacing:0.05em}
 .sd-trace .seg-label{
-  font-size:8px;fill:var(--txt-sec);
+  font-size:8px;fill:var(--n-400);
   font-weight:600;letter-spacing:0.16em;text-transform:uppercase;
 }
 .sd-trace .evt{
@@ -1205,7 +1528,7 @@ body{
 .sd-events-card{padding:14px 16px}
 .sd-events-head{
   font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;margin-bottom:10px;
+  color:var(--n-400);font-weight:600;margin-bottom:10px;
 }
 .sd-evt{
   display:flex;align-items:center;gap:10px;
@@ -1215,7 +1538,7 @@ body{
 }
 .sd-evt:last-child{border-bottom:none}
 .sd-evt .time{
-  font-size:11px;color:var(--txt-sec);
+  font-size:11px;color:var(--n-400);
   font-variant-numeric:tabular-nums;
   width:52px;flex-shrink:0;font-weight:500;letter-spacing:0.04em;
 }
@@ -1238,7 +1561,9 @@ body{
 .sd-evt.skip .dot{background:#ff7e76;box-shadow:0 0 6px #ff7e76}
 .sd-evt.reduce .dot,
 .sd-evt.soften .dot,
-.sd-evt.pause .dot{background:var(--warn);box-shadow:0 0 6px var(--warn)}
+/* 減量 / 放軟 / 暫停 ＝ **收手**，而「該休息」正是 --zone-strain 的語義。
+   ⚠️ 光暈一併拿掉：Session 詳情是儀器世界。 */
+.sd-evt.pause .dot{background:var(--strain-400)}
 .sd-evt .type{
   font-size:13px;font-weight:500;color:#fff;flex:1;
   display:flex;align-items:center;gap:6px;
@@ -1250,7 +1575,7 @@ body{
   background:rgba(0,180,216,0.1);
 }
 .sd-evt .tl-edge-mark{
-  font-size:11px;color:var(--txt-sec);
+  font-size:11px;color:var(--n-400);
   font-variant-numeric:tabular-nums;letter-spacing:0.04em;
 }
 .sd-evt .tl-edge-mark b{color:#fff;font-weight:600}
@@ -1259,7 +1584,7 @@ body{
 .sd-bio-card{padding:14px}
 .sd-bio-head{
   font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;margin-bottom:12px;
+  color:var(--n-400);font-weight:600;margin-bottom:12px;
 }
 .sd-bio-grid{
   display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;
@@ -1268,13 +1593,14 @@ body{
 .sd-bio-col.end{text-align:right}
 .sd-bio-arrows{
   display:flex;flex-direction:column;gap:18px;
-  color:var(--txt-dim);font-size:14px;text-align:center;
+  /* 空狀態訊息是這一屏唯一的內容 → 要到得了 AA，走 --n-400（6.8:1）而不是 --n-500。 */
+  color:var(--n-400);font-size:14px;text-align:center;
 }
 .sd-bio-item{display:flex;flex-direction:column;gap:2px}
 .sd-bio-col.end .sd-bio-item{align-items:flex-end}
 .sd-bio-lbl{
   font-size:9px;letter-spacing:0.2em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;
+  color:var(--n-400);font-weight:600;
 }
 .sd-bio-val{
   font-size:20px;font-weight:300;color:#fff;
@@ -1282,7 +1608,7 @@ body{
   display:flex;align-items:baseline;gap:3px;line-height:1;
 }
 .sd-bio-col.end .sd-bio-val{flex-direction:row-reverse}
-.sd-bio-val .u{font-size:10px;color:var(--txt-sec);font-weight:400}
+.sd-bio-val .u{font-size:10px;color:var(--n-400);font-weight:400}
 
 /* Reflection section */
 .sd-reflect-card{
@@ -1303,7 +1629,7 @@ body{
 }
 .sd-reflect-clarity .lbl{
   font-size:10px;letter-spacing:0.16em;text-transform:uppercase;
-  color:var(--txt-sec);font-weight:600;
+  color:var(--n-400);font-weight:600;
 }
 .sd-clarity-dots{
   display:flex;gap:5px;margin-left:auto;
@@ -1330,7 +1656,7 @@ body{
   transition:border 0.3s;
 }
 .sd-reflect-input:focus{border-color:rgba(0,180,216,0.4)}
-.sd-reflect-input::placeholder{color:var(--txt-dim);font-style:italic}
+.sd-reflect-input::placeholder{color:var(--n-400);font-style:italic}
 
 /* Learning insight */
 .sd-insight{
@@ -1342,14 +1668,15 @@ body{
 }
 .sd-insight .ic{
   width:32px;height:32px;border-radius:10px;flex-shrink:0;
-  background:rgba(245,166,35,0.12);color:var(--warn);
+  /* insight 是**資訊**，不是警告 —— 這張卡的工作不是宣稱一個狀態。→ 中性。 */
+  background:var(--neutral-950);color:var(--n-300);
   display:flex;align-items:center;justify-content:center;
   font-size:16px;
 }
 .sd-insight .body{flex:1;font-size:12px;line-height:1.5;color:rgba(255,255,255,0.85)}
 .sd-insight .body .head{
   font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
-  color:var(--warn);font-weight:600;margin-bottom:4px;
+  color:var(--n-400);font-weight:600;margin-bottom:4px;
 }
 .sd-insight b{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
 
@@ -1362,17 +1689,51 @@ body{
 }
 .sd-outcome-ic svg{width:24px;height:24px}
 .sd-outcome-headline{font-size:17px;font-weight:600;color:#fff;letter-spacing:-0.01em}
-.sd-outcome-sub{font-size:12px;color:var(--txt-sec);margin-top:3px}
+.sd-outcome-sub{font-size:12px;color:var(--n-400);margin-top:3px}
 
 .sd-seg-card{padding:16px}
 .sd-seg-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
-.sd-seg-ttl{font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--txt-sec);font-weight:600}
+.sd-seg-ttl{font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--n-400);font-weight:600}
 .sd-seg-dur{font-size:13px;color:#fff;font-variant-numeric:tabular-nums}
-.sd-seg-track{display:flex;gap:4px;height:38px}
+.sd-seg-track{display:flex;gap:4px;height:38px;position:relative}
+/* ═══ Turning Point 節點 —— founder 畫的 ——●——●—— 就是這一條 ═══
+   掛在既有的三段軌上（Observe → 核心段 → Extended），x = t / durationSec。
+   ⚠️ 軌本身有 gap:4px，所以映射差約 2%（兩道 gap 佔全寬的比例），肉眼不可辨；
+   要精準到像素就得把節點移出這條 flex 軌，那會失去「節點長在段落上」的意思。
+   🔴 顏色吃帶位（BAND_COLOR_V6 同一組值），沒讀數就空心虛線 —— 不假裝量到。
+   刻意不用 .sd-evt.entry/.add 那組既有的型別色：那組吃 --good 綠，
+   而綠在這個產品裡是「跟著流程完成」的語意色（CLAUDE.md 顏色所有權那條）。 */
+.sd-tp-node{
+  position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
+  transform:translate(-50%,-50%);z-index:2;
+  border:1.5px solid rgba(0,0,0,0.55);
+  background:var(--n-400);
+}
+.sd-tp-node.band-clear{background:#00B4D8;box-shadow:0 0 7px rgba(0,180,216,0.75)}
+.sd-tp-node.band-neutral{background:#64748B;box-shadow:0 0 7px rgba(100,116,139,0.75)}
+.sd-tp-node.band-strain{background:#C2703D;box-shadow:0 0 7px rgba(194,112,61,0.75)}
+.sd-tp-node.no-reading{background:transparent;border:1.5px dashed rgba(255,255,255,0.6);box-shadow:none}
+/* 節點清單的圓點沿用同一套帶位色（.sd-evt 的結構是復活既有 CSS）*/
+.sd-evt .dot.band-clear{background:#00B4D8;box-shadow:0 0 7px rgba(0,180,216,0.6)}
+.sd-evt .dot.band-neutral{background:#64748B;box-shadow:0 0 7px rgba(100,116,139,0.6)}
+.sd-evt .dot.band-strain{background:#C2703D;box-shadow:0 0 7px rgba(194,112,61,0.6)}
+.sd-evt .dot.no-reading{background:transparent;border:1.5px dashed rgba(255,255,255,0.5);box-shadow:none}
+.sd-evt .state{font-size:11px;color:var(--n-400);letter-spacing:0.02em;flex-shrink:0}
+.sd-evt .state.none{color:var(--n-500)}
+.sd-tp-empty{font-size:12px;color:var(--n-400);line-height:1.6;padding:2px 0}
+/* 🔴 .sd-body 是 flex column + overflow-y:auto，子卡片預設 flex-shrink:1 ——
+   內容一長就被壓扁，再被 .card{overflow:hidden} 裁掉（實測：4 個節點的第 4 列
+   直接消失在卡片邊緣）。這個 repo 已經為短視窗踩過同一個坑，修法一樣
+   （見 .screens .screen > * 那條）。 */
+.sd-body > *{flex-shrink:0}
+/* 一列放不下「標籤 + 段落膠囊 + 狀態章」—— 390px 寬會把標籤擠到換行。
+   改成兩行：上行是使用者記的事，下行是當下的狀態章。 */
+.sd-evt .type{flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+.sd-evt .tp-label{display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.3}
 .sd-seg.part{
   border-radius:8px;display:flex;align-items:center;justify-content:center;
   background:rgba(255,255,255,0.05);
-  font-size:10px;letter-spacing:0.06em;color:var(--txt-sec);
+  font-size:10px;letter-spacing:0.06em;color:var(--n-400);
   transition:background 0.3s,color 0.3s;
 }
 .sd-seg.part.obs{flex:33}
@@ -1385,12 +1746,15 @@ body{
 }
 .sd-seg-times{
   display:flex;justify-content:space-between;margin-top:6px;
-  font-size:9px;color:var(--txt-dim);font-variant-numeric:tabular-nums;
+  font-size:9px;color:var(--n-500);font-variant-numeric:tabular-nums;
 }
 
-.sd-facts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:14px}
+/* 欄數跟著「實際看得見的格子數」走，不寫死 3 ——「離開」那格只有在紀錄真的有
+   這個欄位時才出現（舊紀錄沒有就整格不存在，見 PLAYBOOK：缺欄位不准說否定）。
+   [hidden] 是 display:none，不會佔掉一條 grid track。 */
+.sd-facts{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;padding:14px}
 .sd-fact{text-align:center}
-.sd-fact .k{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--txt-sec);font-weight:600;margin-bottom:5px}
+.sd-fact .k{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--n-400);font-weight:600;margin-bottom:5px}
 .sd-fact .v{font-size:16px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums}
 
 /* ═══════════════════════════════════════════════════
@@ -1404,23 +1768,23 @@ body{
   background:var(--fdcb-bg);
   border:1px solid var(--fdcb-border);
   border-radius:18px;
-  backdrop-filter:blur(32px) saturate(140%);
-  -webkit-backdrop-filter:blur(32px) saturate(140%);
   display:flex;align-items:center;
   padding:0 4px;z-index:45;
-  box-shadow:
-    0 12px 40px rgba(0,0,0,0.55),
-    0 0 0 1px rgba(255,255,255,0.02),
-    inset 0 1px 0 rgba(255,255,255,0.05);
-  transition:all 0.5s var(--ease-calm);
+  /* 🔴 靜置狀態零發光（founder 2026-09-05：「頂級專業交易者平台」）。
+     實測：這個檔案有 68 個 box-shadow / 11 text-shadow / 34 radial-gradient /
+     31 blur，而 decision-alert.html（founder 唯一主動說「對了」的那個表面）
+     只有 3/0/1/1。彭博終端機四項全是 0。
+     分隔「儀器」與「wellness app」的不是色相，是畫面裡有多少光。
+     ⚠️ 這裡拿掉的是**靜置光**。狀態轉場的一次性脈動（.in-readiness /
+     closure-*）屬 docs/MOTION-DIRECTION.md 管的動效，不在這一輪。 */
+  transition:border-color 0.5s var(--ease-calm), height 0.5s var(--ease-calm);
 }
 .fdcb.state-running{
-  border-color:rgba(0,180,216,0.25);
-  box-shadow:0 12px 40px rgba(0,0,0,0.55), 0 0 30px rgba(0,180,216,0.12), inset 0 1px 0 rgba(255,255,255,0.05);
+  /* 狀態靠**邊框**講，不靠光暈。 */
+  border-color:rgba(0,180,216,0.55);
 }
 .fdcb.state-complete{
-  border-color:rgba(52,199,89,0.35);
-  box-shadow:0 12px 40px rgba(0,0,0,0.55), 0 0 40px rgba(52,199,89,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+  border-color:rgba(52,199,89,0.6);
 }
 .fdcb::before{
   content:'';position:absolute;top:0;left:20%;right:20%;height:1px;
@@ -1437,20 +1801,43 @@ body{
   cursor:pointer;transition:background 0.3s;
 }
 .fdcb-tmpl:active{background:rgba(255,255,255,0.04)}
+/* 🔴 兩件事一起修（§3.6 裁決摘要第 2 項）：
+   ① `filter:drop-shadow(0 0 6px rgba(0,180,216,0.4))` —— 一個**寫死的青色光暈**，
+      圖示是綠的紫的都照樣發青光。「儀器世界關燈」那一輪沒關掉它，因為我當時的
+      發光計數只數 box-shadow/text-shadow/radial-gradient/blur，**沒數 drop-shadow**。
+   ② 顏色。舊的走 `var(--primary)`，但那被 markup 上的 inline
+      `style="color:#34C759"` 永遠蓋掉 —— 於是**每個模板的圖示都是 --success 綠**，
+      決策一跑起來底座就有一顆「跟著流程完成」的綠環全程亮著。
+      而 `var(--primary)` 自己也不能用：Mancini FBD 的紫在底座上只有 1.94:1。
+   → 中性。模板身分由**圖示的形狀**與左欄的名字講，不靠顏色。--n-300 對底座 9.7:1。 */
 .fdcb-tmpl .ic{
   width:20px;height:20px;
   display:flex;align-items:center;justify-content:center;
-  color:var(--primary);
-  filter:drop-shadow(0 0 6px rgba(0,180,216,0.4));
+  color:var(--n-300);
 }
 .fdcb-tmpl .ic svg{width:18px;height:18px}
 .fdcb-tmpl-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
 .fdcb-tmpl-name{
   font-size:11px;font-weight:600;color:#fff;line-height:1;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px;
+  /* 🔴 上限要從**最長的內建模板名**推導，不是隨手訂一個數字。
+     實測（11px/600，容器字型）：Canslim High RS **89px**、Health Stress 70px、
+     Mancini FBD 67px、Canslim GS 62px、Work Focus 63px、Exercise 45px。
+     舊值 72px 的後果：Canslim High RS **任何字型下都被切**，而 Health Stress
+     只剩 2px 餘裕 —— 容器字型剛好過關，founder 的 iPhone（SF Pro 較寬）就切成
+     「Health Stre…」（2026-08-28 實走截圖）。**模擬器綠、實機壞**，
+     跟 PLAYBOOK 那條「只剩 4px 餘裕，字型換一下就翻」同一族。
+     89px + 約 12% 裝置字型餘裕 → 100px。空間是從中間欄借的（375 寬實測
+     dock 355 ＝ 模板欄 117 + 中間 161 + 標記 53），harness 同時鎖住
+     「每個模板名都不被切」與「中間的時鐘仍是 1 行、不被切」兩邊。
+     ⚠️ 新增內建模板名時要回來重量這個數字。
+     ⚠️ **使用者自訂的模板名不在保證範圍內** —— 那是他自己取的字，
+     太長就讓它 ellipsis，不為了它把中間欄吃掉。 */
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;
 }
 .fdcb-tmpl-dur{
-  font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.08em;
+  /* ⚠️ 原本是寫死的 rgba(255,255,255,0.4) —— 合成到底座底 (--n-900) 上只有
+     3.36:1，六個模板全部不及格（新守門抓到的，我原本以為只有紫色時鐘有問題）。 */
+  font-size:9px;color:var(--n-400);letter-spacing:0.08em;
   font-variant-numeric:tabular-nums;
 }
 
@@ -1459,13 +1846,21 @@ body{
   padding:6px 4px;min-width:0;cursor:pointer;
 }
 .fdcb-time{
-  font-size:20px;font-weight:600;color:var(--primary);
+  /* 🔴 **量測值不上色。** 時鐘原本吃 var(--primary) ＝ **模板的識別色**，
+     所以 Mancini FBD（#5E3A87 紫）壓在底座上只有 **1.94:1** ——
+     連 AA 的大字門檻 3.0 都不到，而 Health Stress（青）是 6.80:1。
+     **同一個元件，換個模板就從能讀變成不能讀。**
+     模板身分不會因此消失：底座左欄本來就印模板名，狀態本來就由邊框講
+     （2026-09-05 關燈那一輪改的）—— 顏色在這一格是多餘的，而且不可讀。
+     改成 --n-100 之後 1.94 → 17.8:1，而且**每個模板都一樣可讀**。 */
+  font-size:20px;font-weight:600;color:var(--n-100);
   font-variant-numeric:tabular-nums;letter-spacing:-0.02em;line-height:1;
-  text-shadow:0 0 16px rgba(0,180,216,0.3);
 }
 .fdcb-seg{
+  /* 段標是**分類**不是量測，本來可以帶色 —— 但同一個 #5E3A87 一樣讀不到。
+     分類由**字**講（「結構守望 · 點一下判定」），顏色退成中性。 */
   font-size:8px;letter-spacing:0.22em;text-transform:uppercase;
-  color:var(--primary);margin-top:3px;font-weight:500;
+  color:var(--n-400);margin-top:3px;font-weight:500;
 }
 .fdcb-prog{
   height:2px;width:100%;max-width:120px;
@@ -1473,66 +1868,217 @@ body{
   overflow:hidden;display:flex;
 }
 .fdcb-prog{position:relative}
-.fdcb-prog .seg-obs{background:var(--sns);opacity:0.35}
-.fdcb-prog .seg-sweet{background:var(--primary);opacity:0.35}
-.fdcb-prog .seg-ext{background:rgba(142,142,147,0.6);opacity:0.35}
-.fdcb-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--primary);border-radius:1px;box-shadow:0 0 6px var(--primary);transition:width 1s linear;z-index:1}
+/* 🔴 **結構元件不得穿語義色。** 三段軌講的是模板的**階段**
+   （Observe / Sweet / Extended）—— 那是結構，不是生理訊號。
+   而 seg-obs 原本吃 --sns #FF6B35 ＝**交感神經**的顏色，等於讓一個結構元件
+   宣稱一件它不知道的事；它還跟 --error 只差 ΔE 19.5（暖色弧上第五個主人）。
+   改成靠**明度**分段，用骨架色。 */
+.fdcb-prog .seg-obs{background:var(--n-600)}
+.fdcb-prog .seg-sweet{background:var(--n-450)}
+.fdcb-prog .seg-ext{background:var(--n-700)}
+/* 🔴 環境層名單成員 #1：倒數填充。它是這一格唯一真的在講「這一次決策」的東西，
+   而且是 2px 的條、不是文字 —— 所以它吃 `--tmpl`（模板身分），不吃 `--primary`。
+   舊的守門把它寫成「唯一的白名單例外」；拆開之後它不是例外，是**名單的第一個成員**。 */
+.fdcb-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--tmpl);border-radius:1px;transition:width 1s linear;z-index:1}
+/* Turning Point 節點刻度 —— 掛在進度軌上，決策跑的時候看得到自己在長出紀錄。
+   顏色吃帶位（BAND_COLOR_V6 同一組值）；🔴 沒讀數就空心，不假裝量到。 */
+.tp-tick{
+  position:absolute;top:50%;width:5px;height:5px;border-radius:50%;
+  transform:translate(-50%,-50%);z-index:2;
+  background:var(--n-400);
+}
+/* 5px 的節點掛 5px 的光暈 = 實心點變成一團霧，位置反而讀不準。 */
+.tp-tick.band-clear{background:#00B4D8}
+.tp-tick.band-neutral{background:#64748B}
+.tp-tick.band-strain{background:#C2703D}
+.tp-tick.no-reading{background:transparent;border:1px dashed rgba(255,255,255,0.55);box-shadow:none}
+/* ── 結構守望的判定列 ──
+   位置與收合方式抄 .tp-picker（已驗證過的那組）。
+   🔴 收起時一併 visibility:hidden —— opacity:0 + pointer-events:none 擋不住
+   descendant 自己宣告 pointer-events（PLAYBOOK 指紋鈕那次的舊傷）。
+   🔴 **這個座標之所以安全，靠的是不透明的底板，不是座標本身。**
+   它浮在 Today 的「示意說明 / 輪播圓點 / vitals 卡」正上方 —— 那條帶在
+   700~780 的可視高度下完全沒有空白（實測 15 個高度，只有 820~874 這一段
+   剛好不撞，而那是設計高度的巧合，不是保證）。
+   第一版只抄了 .tp-picker 的**位置與收合**，沒抄它的**底板** ——
+   於是底下那行說明從兩顆按鈕的縫隙與 .wj-anchor 那一行透出來，
+   實測 740 高度下看起來就是「字壓在字上」。抄座標要連同抄它為什麼安全。 */
+.watch-judge{
+  position:absolute;left:10px;right:10px;
+  bottom:calc(var(--tabbar-h) + var(--fdcb-gap) + var(--fdcb-h) + 8px);
+  z-index:46;display:flex;flex-wrap:wrap;gap:8px;
+  padding:6px;
+  background:var(--n-900);
+  border:1px solid rgba(255,255,255,0.10);
+  border-radius:14px;
+  opacity:0;visibility:hidden;transform:translateY(6px);
+  transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s 0.3s;
+}
+.watch-judge.open{opacity:1;visibility:visible;transform:translateY(0);transition-delay:0s}
+.wj-btn{
+  flex:1;min-width:0;padding:11px 8px;
+  border-radius:12px;border:1px solid rgba(255,255,255,0.14);
+  background:var(--n-800);
+  color:#fff;font-size:12px;font-weight:600;white-space:nowrap;
+  font-family:inherit;cursor:pointer;
+  transition:transform 0.15s var(--ease-secure), background 0.3s;
+}
+.wj-btn:active{transform:scale(0.97)}
+/* 兩個出口都算紀律，所以**都不上綠**（綠 = 跟著流程完成，那是收束後才有資格說的事）。
+   用中性的邊框差異區分，不用語意色宣告勝負。 */
+/* 關鍵價位獨佔一整行（flex-basis:100% + wrap），按鈕仍在下面平分。 */
+.wj-anchor{
+  flex:0 0 100%;text-align:center;
+  font-size:11px;letter-spacing:0.06em;color:var(--n-400);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.wj-in{border-color:rgba(0,180,216,0.42)}
+.wj-out{border-color:rgba(255,255,255,0.22)}
+@media (prefers-reduced-motion: reduce){
+  .watch-judge{transition:opacity 0.01s, visibility 0s}
+  .wj-btn:active{transform:none}
+}
+/* Lock 鎖定：snap 進場 + 一次輝光（一次性，非迴圈） */
+.tp-tick.landing{animation:tpLand 150ms var(--ease-secure) both}
+@keyframes tpLand{ from{transform:translate(-50%,-50%) scale(0)} to{transform:translate(-50%,-50%) scale(1)} }
+@media (prefers-reduced-motion: reduce){ .tp-tick.landing{animation:none} }
 /* 進入 readiness（核心段）：整條 dock 一次微光 + 段標籤強調 */
-.fdcb.in-readiness{box-shadow:0 0 0 1px rgba(0,180,216,0.4), 0 0 22px rgba(0,180,216,0.18);animation:fdcb-readiness-in 0.7s var(--ease-calm)}
-.fdcb.in-readiness .fdcb-seg{color:var(--primary);text-shadow:0 0 10px rgba(0,180,216,0.5)}
+/* ⚠️ 常駐光暈拿掉，只留 keyframes 的一次性微光 —— 下面那行註解寫的本來就是
+   「一次微光 breath」，常駐的 box-shadow 反而違反那個意圖。動效不動。 */
+.fdcb.in-readiness{border-color:rgba(0,180,216,0.65);animation:fdcb-readiness-in 0.7s var(--ease-calm)}
+.fdcb.in-readiness .fdcb-seg{color:var(--primary)}
 /* Fable-5 爽感：進 readiness 一次微光 breath + 收束一次色脈動（一次性，非重複迴圈）*/
 @keyframes fdcb-readiness-in{30%{box-shadow:0 0 0 1px rgba(0,180,216,0.65), 0 0 30px rgba(0,180,216,0.32)}}
 .fdcb.state-complete.closure-disciplined{animation:fdcb-pulse-good 0.7s var(--ease-calm)}
 .fdcb.state-complete.closure-broke{animation:fdcb-pulse-broke 0.7s var(--ease-calm)}
 @keyframes fdcb-pulse-good{40%{box-shadow:0 0 0 1px rgba(52,199,89,0.5), 0 0 26px rgba(52,199,89,0.28)}}
-@keyframes fdcb-pulse-broke{40%{box-shadow:0 0 0 1px rgba(255,159,10,0.5), 0 0 26px rgba(255,159,10,0.24)}}
+/* ⚠️ 這是 **keyframe**（MOTION-DIRECTION 的地盤）。這裡只換**顏色停點**，
+   timing、曲線、形狀一個參數都沒動 —— 換的理由跟上面同一條：
+   `#FF9F0A` 與可動層琥珀 ΔE 6.2，一個在底座上脈動的顏色不能跟「可以動手」撞。 */
+@keyframes fdcb-pulse-broke{40%{box-shadow:0 0 0 1px rgba(194,112,61,0.5), 0 0 26px rgba(194,112,61,0.24)}}
 @media (prefers-reduced-motion: reduce){
   .fdcb.in-readiness, .fdcb.state-complete.closure-disciplined, .fdcb.state-complete.closure-broke{animation:none}
   .fdcb-fill{transition:none}
-  .fdcb-evts .dot{transition:none}
+  .fdcb-mark{transition:none}
 }
 
+/* idle 時整個底座只有一件事可做：起跑。→ 可動層。8.2:1 對底座。 */
 .fdcb.state-idle .fdcb-time{
-  font-size:12px;font-weight:500;color:rgba(255,255,255,0.85);letter-spacing:0.14em;
+  font-size:12px;font-weight:500;color:var(--amber-400);letter-spacing:0.14em;
   text-transform:uppercase;text-shadow:none;
 }
 .fdcb.state-idle .fdcb-seg,
 .fdcb.state-idle .fdcb-prog{display:none}
+/* idle 的 44px 塞不下原本 8px 的膠囊內距（圖示 20 + 兩行字 24 + 內距 16 = 40
+   > 可用的 36）—— 收緊內距而不是壓縮字級，字級一動就跟 running 對不齊。 */
+.fdcb.state-idle .fdcb-tmpl{padding:5px 10px;margin:3px 2px 3px 4px}
+.fdcb.state-idle .fdcb-core{padding:4px}
 .fdcb.state-ready .fdcb-time{font-size:13px;letter-spacing:0.06em;color:#fff;text-shadow:none}
-.fdcb.state-ready .fdcb-time::before{content:'▶ ';color:var(--primary);margin-right:2px}
-.fdcb.state-ready .fdcb-seg{color:rgba(255,255,255,0.4)}
+/* ⚠️ 這個 ▶ 也是 var(--primary)，Mancini FBD 下同樣 1.94:1。
+   它是**動作**標記不是量測，最終歸屬是「可動層」（--amber-400），
+   但琥珀還沒鋪到底座 —— 先給中性讓它讀得到，鋪琥珀時再回來改這一行。
+   🔴 新守門掃不到它：::before 的 content 不是子文字節點。已記在 harness 註解裡。 */
+/* ▶ 是**動作**標記（按一下就起跑）—— f1cfacd 的 commit message 裡寫過
+   「最終歸屬可動層 --amber-400，鋪琥珀時回來改」，這裡兌現。
+   ⚠️ 它是 ::before 的 content，對比守門的節點掃描看不到它（那條的涵蓋邊界
+   寫在守門原地），所以這一處的 8.2:1 是手動量的。 */
+.fdcb.state-ready .fdcb-time::before{content:'▶ ';color:var(--amber-400);margin-right:2px}
+.fdcb.state-ready .fdcb-seg{color:var(--n-400)}   /* 同上：0.4 白在底座上 3.36:1 */
 .fdcb.state-ready .fdcb-prog{display:none}
-.fdcb.state-complete .fdcb-time{font-size:12px;color:var(--fdcb-complete);letter-spacing:0.08em;text-shadow:0 0 16px rgba(52,199,89,0.4)}
+.fdcb.state-complete .fdcb-time{font-size:12px;color:var(--fdcb-complete);letter-spacing:0.08em}
 .fdcb.state-complete .fdcb-time::before{content:'✓ ';font-weight:700}
 .fdcb.state-complete .fdcb-seg,
 .fdcb.state-complete .fdcb-prog{display:none}
-/* 提前收束 = 事實橙、無勾（跟著流程/完整走完維持既有綠 ✓） */
-.fdcb.state-complete.closure-broke .fdcb-time{color:#FF9F0A;text-shadow:0 0 16px rgba(255,159,10,0.35)}
+/* 🔴 「提前收束」舊值是 `#FF9F0A` —— 而它與可動層琥珀 `--amber-400` 只差
+   **ΔE 6.2**（比剛退場的 `--warning` 的 7.5 還近）。這是**樣式表守門**抓到的，
+   runtime 掃描看不到它：`closure-broke` 是一個條件狀態，那一刻畫面上才存在。
+   → 走 `--strain-400`（該休息／收手，跟 `.sd-evt.pause` 同一個主人）。
+   ⚠️ 無勾（`::before{content:''}`）維持不變 —— 那是它跟「完整走完」的真正差別。 */
+.fdcb.state-complete.closure-broke .fdcb-time{color:var(--strain-400)}
 .fdcb.state-complete.closure-broke .fdcb-time::before{content:''}
 
-.fdcb-evts{
-  flex:0 0 auto;display:flex;align-items:center;gap:5px;
-  padding:8px 12px 8px 8px;margin:4px 4px 4px 2px;
-  border-radius:12px;cursor:pointer;transition:background 0.3s;
+/* 標記鍵 —— **只在決策進行中出現**。idle 沒有 session，標記無處可掛，
+   一顆按下去沒反應的鍵就是「做一半」本身。
+   🔴 計數不得用 --good 綠：綠在這個產品裡是「跟著流程完成」的語意色
+   （見 CLAUDE.md 顏色所有權那條），而標記數只是「你按了幾次」，不是結果。
+   舊版那顆綠色數字膠囊等於在決策還沒收束時就先亮起「good」。 */
+.fdcb-mark{
+  flex:0 0 auto;display:none;align-items:center;gap:4px;
+  padding:7px 9px;margin:4px 6px 4px 2px;
+  border-radius:12px;cursor:pointer;
+  /* 🔴 決策跑著的時候，這是底座上**唯一能動手**的東西 —— 可動層琥珀。
+     虛線保留（它表達「還沒標記」），只是顏色從無主的白換成有意義的琥珀。
+     實測對底座 --n-900：8.2:1。 */
+  background:transparent;
+  border:1px dashed rgba(var(--amber-400-rgb),0.45);
+  color:var(--amber-400);
+  font-size:10px;font-weight:600;letter-spacing:0.06em;
+  font-family:inherit;
+  transition:background 0.3s, border-color 0.3s, color 0.3s;
 }
-.fdcb-evts:active{background:rgba(255,255,255,0.04)}
-.fdcb-evts .dot{
-  width:5px;height:5px;border-radius:50%;
-  background:var(--txt-dim);
-  transition:all 0.4s var(--ease-calm);
+.fdcb.state-running .fdcb-mark{display:flex}
+.fdcb-mark:active{background:rgba(var(--amber-400-rgb),0.12)}
+.fdcb-mark .mk-plus{font-size:12px;line-height:1}
+.fdcb-mark .mk-n{
+  min-width:16px;height:16px;padding:0 3px;border-radius:8px;
+  background:rgba(255,255,255,0.16);color:#fff;
+  font-size:10px;line-height:16px;text-align:center;
+  font-variant-numeric:tabular-nums;
 }
-.fdcb-evts .dot.on{background:#fff;box-shadow:0 0 5px rgba(255,255,255,0.5)}
-.fdcb-evts .check{
-  width:22px;height:22px;border-radius:50%;
-  background:var(--good);
-  display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:700;color:#000;
-  box-shadow:0 0 10px rgba(52,199,89,0.45);
+.fdcb-mark.has-marks{
+  /* 有標記了 → 實線（事實變了），但**顏色不變** —— 它仍然是同一個可動的東西，
+     不是一個「完成」的狀態。標記數由旁邊的數字講。 */
+  border-style:solid;border-color:rgba(var(--amber-400-rgb),0.7);
 }
-.fdcb-evts .check.empty{
-  background:transparent;color:rgba(255,255,255,0.35);
-  border:1.2px dashed rgba(255,255,255,0.2);box-shadow:none;
+
+/* ═══════════════════════════════════════════════════
+   Turning Point 快選晶片列 —— 浮在底座正上方
+   ⚠️ 它落在 700px 可視高度下最擠的那一段（底座頂 558）。harness 用
+   elementFromPoint 驗它沒有被底座/tabbar 蓋住（PLAYBOOK：可視高度是變數）。
+   ═══════════════════════════════════════════════════ */
+.tp-picker{
+  position:absolute;
+  left:10px;right:10px;
+  bottom:calc(var(--tabbar-h) + var(--fdcb-gap) + var(--fdcb-h) + 8px);
+  z-index:46; /* 高於 .fdcb 的 45 */
+  display:flex;gap:6px;padding:6px;
+  overflow-x:auto;scrollbar-width:none;
+  background:var(--n-900);
+  border:1px solid rgba(255,255,255,0.10);
+  border-radius:14px;
+  opacity:0;transform:translateY(6px);pointer-events:none;
+  /* 🔴 收起時一併 visibility:hidden，不是只靠 opacity + pointer-events。
+     PLAYBOOK 有一條實傷：`opacity:0 + pointer-events:none` **擋不住 descendant
+     自己宣告 pointer-events:auto** —— v6 的指紋鈕就是這樣，一顆隱形按鈕長期浮在
+     Today 上吃掉滑動。這一列的位置正好落在 390x700 下「示意說明 / 輪播圓點」
+     那一段，是同一個地雷區。visibility 會繼承、且不會被 descendant 推翻，
+     靠結構守住比靠「我記得別加 pointer-events」穩。
+     ⚠️ visibility 延後到淡出結束才切，否則收起來會直接消失而不是淡出。 */
+  visibility:hidden;
+  transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s linear 0.3s;
 }
+.tp-picker.open{
+  opacity:1;transform:translateY(0);pointer-events:auto;visibility:visible;
+  transition:opacity 0.3s var(--ease-calm), transform 0.3s var(--ease-calm), visibility 0s;
+}
+.tp-picker::-webkit-scrollbar{display:none}
+/* 🔴 快選晶片是**動作**（點一顆就給剛剛那個標記貼上標籤）→ 可動層琥珀。
+   founder 2026-09-08 實走時真的用了它，而它當時還是無主的白 ——
+   全 app 唯一還沒鋪到的動作面。外框式：它是次要動作，主要動作是「+ 標記」本身。
+   ⚠️ `.picked` 是**已經選了**（狀態），所以改成實心填色 + 深空色字，
+   而不是換一個顏色 —— 同一個可動層的兩個階，靠明度差講「選了沒」。 */
+.tp-chip{
+  flex:0 0 auto;padding:7px 12px;border-radius:10px;
+  background:rgba(var(--amber-400-rgb),0.08);
+  border:1px solid rgba(var(--amber-400-rgb),0.38);
+  color:var(--amber-400);font-size:12px;font-family:inherit;line-height:1;
+  cursor:pointer;white-space:nowrap;
+  transition:background 0.2s, color 0.2s, border-color 0.2s;
+}
+.tp-chip:active{background:rgba(var(--amber-400-rgb),0.18)}
+.tp-chip.picked{background:var(--amber-400);border-color:var(--amber-400);color:var(--n-950)}
+@media (prefers-reduced-motion: reduce){ .tp-picker{transition:none} }
 
 /* ═══════════════════════════════════════════════════
    TAB BAR — bottom navigation
@@ -1622,7 +2168,7 @@ body{
 .sheet-title{font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:14px;text-align:center}
 .sheet-cat{font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin:16px 4px 8px}
 .tmpl-item{display:flex;align-items:center;gap:14px;padding:10px 12px;border-radius:14px;cursor:pointer;transition:background 0.2s}
-.tmpl-item:active{background:rgba(255,255,255,0.04)}
+.tmpl-item:active{background:rgba(var(--amber-400-rgb),0.08)}
 .tmpl-item.selected{background:rgba(0,180,216,0.08)}
 .tmpl-item .ic{width:34px;height:34px;border-radius:10px;background:rgba(0,180,216,0.1);display:flex;align-items:center;justify-content:center;color:var(--primary)}
 .tmpl-item .ic svg{width:18px;height:18px}
@@ -1714,7 +2260,7 @@ body{
 }
 .baseline-flow .bf-title-display{font-size:11px;letter-spacing:0.32em;text-transform:uppercase;color:var(--primary);text-align:center;margin-bottom:10px;font-weight:600}
 .baseline-flow .bf-title-hero{font-size:26px;font-weight:300;letter-spacing:-0.01em;text-align:center;color:#fff;margin-bottom:12px;line-height:1.2}
-.baseline-flow .bf-title-sub{font-size:13px;color:var(--txt-sec);text-align:center;line-height:1.6;max-width:300px;margin:0 auto 30px}
+.baseline-flow .bf-title-sub{font-size:13px;color:var(--n-400);text-align:center;line-height:1.6;max-width:300px;margin:0 auto 30px}
 
 .baseline-flow .bf-bullets{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
 .baseline-flow .bf-bullet{
@@ -1736,19 +2282,22 @@ body{
   font-size:14px;font-weight:600;letter-spacing:0.02em;
   cursor:pointer;transition:all 0.3s var(--ease-calm);font-family:inherit;
 }
+/* 校準流程的主要鈕（開始校準／開始掃描／進入 TENKI）→ 可動層填色。
+   ⚠️ 字用 --n-950：白字壓在琥珀上只有 2.0:1（掃描球那次剛付過學費）。
+   舊值 #001420 是又一個沒有主人的近黑，一起收掉。 */
 .baseline-flow .bf-btn-primary{
-  background:linear-gradient(180deg, #00C4E8 0%, #00B4D8 100%);color:#001420;
-  box-shadow:0 10px 30px rgba(0,180,216,0.3), inset 0 1px 0 rgba(255,255,255,0.3);
+  background:linear-gradient(180deg, var(--amber-400) 0%, var(--amber-500) 100%);color:var(--n-950);
+  box-shadow:0 10px 30px rgba(var(--amber-400-rgb),0.3), inset 0 1px 0 rgba(255,255,255,0.3);
 }
 .baseline-flow .bf-btn-primary:active{transform:translateY(1px)}
-.baseline-flow .bf-btn-ghost{background:transparent;color:var(--txt-sec);margin-top:8px;padding:10px}
+.baseline-flow .bf-btn-ghost{background:transparent;color:var(--n-400);margin-top:8px;padding:10px}
 .baseline-flow .bf-btn:disabled{opacity:0.4;pointer-events:none}
 
 /* ─── SENSOR_CHOICE ─── */
 .baseline-flow #bf-sensor{padding:84px 20px 32px}
 .baseline-flow .bf-head{text-align:center;margin-bottom:24px}
 .baseline-flow .bf-head h1{font-size:22px;font-weight:300;letter-spacing:-0.01em;margin-bottom:6px}
-.baseline-flow .bf-head .sub{font-size:12px;color:var(--txt-sec);line-height:1.5;max-width:280px;margin:0 auto}
+.baseline-flow .bf-head .sub{font-size:12px;color:var(--n-400);line-height:1.5;max-width:280px;margin:0 auto}
 
 .baseline-flow .bf-sensor-opt{
   padding:14px;margin-bottom:10px;
@@ -1762,13 +2311,13 @@ body{
 .baseline-flow .bf-sensor-opt .info{flex:1;min-width:0}
 .baseline-flow .bf-sensor-opt .nm{font-size:14px;font-weight:600;color:#fff;margin-bottom:2px;display:flex;align-items:center;gap:8px}
 .baseline-flow .bf-sensor-opt .tag{font-size:8px;letter-spacing:0.2em;padding:2px 6px;background:rgba(0,180,216,0.15);color:var(--primary);border-radius:5px;text-transform:uppercase;font-weight:700}
-.baseline-flow .bf-sensor-opt .desc{font-size:11px;color:var(--txt-sec);line-height:1.4}
-.baseline-flow .bf-sensor-opt .arr{color:var(--txt-dim);font-size:16px;flex-shrink:0}
+.baseline-flow .bf-sensor-opt .desc{font-size:11px;color:var(--n-400);line-height:1.4}
+.baseline-flow .bf-sensor-opt .arr{color:var(--n-500);font-size:16px;flex-shrink:0}
 .baseline-flow .bf-sensor-opt.recommended{border-color:rgba(0,180,216,0.25);background:linear-gradient(180deg, rgba(0,180,216,0.06), rgba(0,180,216,0.02))}
 .baseline-flow .bf-sensor-opt.recommended .ic{background:radial-gradient(circle, rgba(0,180,216,0.3) 0%, rgba(0,180,216,0.1) 100%);color:var(--primary);box-shadow:0 0 20px rgba(0,180,216,0.2)}
 .baseline-flow .bf-sensor-opt.standard .ic{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.7)}
 .baseline-flow .bf-sensor-opt.disabled{opacity:0.4;pointer-events:none}
-.baseline-flow .bf-sensor-opt.disabled .ic{background:rgba(142,142,147,0.08);color:var(--txt-sec)}
+.baseline-flow .bf-sensor-opt.disabled .ic{background:rgba(142,142,147,0.08);color:var(--n-400)}
 .baseline-flow .bf-sensor-opt:active{transform:scale(0.98)}
 .baseline-flow .bf-sensor-opt .ic svg{width:22px;height:22px}
 
@@ -1804,7 +2353,7 @@ body{
   border:1px solid rgba(255,255,255,0.1);color:#fff;
   display:flex;align-items:center;gap:6px;z-index:3;
 }
-.baseline-flow .bf-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--warn);box-shadow:0 0 8px var(--warn);animation:bfBlink 1.4s infinite}
+.baseline-flow .bf-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--cyan-active);box-shadow:0 0 8px var(--cyan-active);animation:bfBlink 1.4s infinite}
 .baseline-flow .bf-pill.stabilizing{background:rgba(0,180,216,0.12);border-color:rgba(0,180,216,0.3)}
 .baseline-flow .bf-pill.stabilizing::before{background:var(--primary);box-shadow:0 0 8px var(--primary)}
 .baseline-flow .bf-pill.ready{background:rgba(52,199,89,0.18);border-color:rgba(52,199,89,0.45);color:var(--good)}
@@ -1812,7 +2361,7 @@ body{
 @keyframes bfBlink{0%,100%{opacity:1}50%{opacity:0.3}}
 
 .baseline-flow .bf-checks{padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
-.baseline-flow .bf-chk{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--txt-sec);transition:color 0.4s}
+.baseline-flow .bf-chk{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--n-400);transition:color 0.4s}
 .baseline-flow .bf-chk.done{color:#fff}
 .baseline-flow .bf-chk.active{color:var(--primary)}
 .baseline-flow .bf-chk .ic{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;transition:all 0.4s var(--ease-calm)}
@@ -1822,14 +2371,15 @@ body{
 
 .baseline-flow .bf-meters{padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 .baseline-flow .bf-meter{display:flex;align-items:center;gap:12px}
-.baseline-flow .bf-meter .lbl{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--txt-sec);width:58px;flex-shrink:0;font-weight:600}
+.baseline-flow .bf-meter .lbl{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-400);width:58px;flex-shrink:0;font-weight:600}
 .baseline-flow .bf-meter .bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.05);overflow:hidden}
-.baseline-flow .bf-meter .fill{height:100%;border-radius:2px;background:linear-gradient(90deg, var(--warn), var(--good));transition:width 1.2s var(--ease-calm)}
+.baseline-flow .bf-meter .fill{height:100%;border-radius:2px;/* 進度條：低→高走同一條 cyan 色階，不再用「警告→好」講一個進度 */
+  background:linear-gradient(90deg, var(--cyan-800), var(--cyan-400));transition:width 1.2s var(--ease-calm)}
 .baseline-flow .bf-meter .val{font-size:11px;color:#fff;font-variant-numeric:tabular-nums;width:32px;text-align:right;font-weight:600}
 
-.baseline-flow .bf-hint{text-align:center;font-size:11px;color:var(--txt-sec);line-height:1.5;margin:4px 0 12px;padding:0 12px;transition:color 0.5s}
+.baseline-flow .bf-hint{text-align:center;font-size:11px;color:var(--n-400);line-height:1.5;margin:4px 0 12px;padding:0 12px;transition:color 0.5s}
 .baseline-flow #bf-ready .bf-hint{color:var(--good)}
-.baseline-flow .bf-auto-cd{display:flex;align-items:center;justify-content:center;gap:8px;font-size:10px;color:var(--txt-sec);margin-top:8px;letter-spacing:0.1em}
+.baseline-flow .bf-auto-cd{display:flex;align-items:center;justify-content:center;gap:8px;font-size:10px;color:var(--n-400);margin-top:8px;letter-spacing:0.1em}
 .baseline-flow .bf-auto-cd .num{color:var(--good);font-weight:700;font-variant-numeric:tabular-nums}
 
 /* ─── SCANNING ─── */
@@ -1873,7 +2423,7 @@ body{
 
 .baseline-flow .bf-scan-msg{margin-top:28px;text-align:center;z-index:4}
 .baseline-flow .bf-scan-msg .headline{font-size:18px;font-weight:300;color:#fff;margin-bottom:6px;letter-spacing:-0.01em}
-.baseline-flow .bf-scan-msg .sub{font-size:12px;color:var(--txt-sec);letter-spacing:0.05em;line-height:1.5}
+.baseline-flow .bf-scan-msg .sub{font-size:12px;color:var(--n-400);letter-spacing:0.05em;line-height:1.5}
 
 .baseline-flow .bf-ppg{position:absolute;bottom:120px;left:24px;right:24px;height:36px;border-radius:8px;overflow:hidden;z-index:4}
 .baseline-flow .bf-ppg svg{width:100%;height:100%}
@@ -1889,9 +2439,9 @@ body{
   border:1px solid rgba(255,255,255,0.06);
   backdrop-filter:blur(20px);text-align:center;
 }
-.baseline-flow .bf-stat .lbl{font-size:8px;letter-spacing:0.18em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:3px;font-weight:600}
+.baseline-flow .bf-stat .lbl{font-size:8px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-400);margin-bottom:3px;font-weight:600}
 .baseline-flow .bf-stat .val{font-size:16px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
-.baseline-flow .bf-stat .u{font-size:8px;color:var(--txt-sec);margin-left:2px}
+.baseline-flow .bf-stat .u{font-size:8px;color:var(--n-400);margin-left:2px}
 
 .baseline-flow .bf-early{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -1935,9 +2485,9 @@ body{
 .baseline-flow .bf-analyze-item .ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;background:rgba(255,255,255,0.04);transition:all 0.4s}
 .baseline-flow .bf-analyze-item .info{flex:1;min-width:0}
 .baseline-flow .bf-analyze-item .nm{font-size:13px;color:#fff;margin-bottom:2px;font-weight:500}
-.baseline-flow .bf-analyze-item .st{font-size:10px;color:var(--txt-sec)}
+.baseline-flow .bf-analyze-item .st{font-size:10px;color:var(--n-400)}
 .baseline-flow .bf-analyze-item .val{font-size:16px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;opacity:0;transform:translateX(8px);transition:all 0.5s var(--ease-calm)}
-.baseline-flow .bf-analyze-item .val .u{font-size:9px;color:var(--txt-sec);margin-left:2px}
+.baseline-flow .bf-analyze-item .val .u{font-size:9px;color:var(--n-400);margin-left:2px}
 .baseline-flow .bf-analyze-item.processing .ic{background:rgba(0,180,216,0.15);animation:bfSpin 1.2s linear infinite}
 .baseline-flow .bf-analyze-item.done .ic{background:rgba(52,199,89,0.2);color:var(--good)}
 .baseline-flow .bf-analyze-item.done .st{color:var(--good)}
@@ -1958,15 +2508,15 @@ body{
   50%{transform:scale(1.04)}
 }
 .baseline-flow .bf-done-title{font-size:26px;font-weight:300;color:#fff;text-align:center;margin-bottom:6px;letter-spacing:-0.01em}
-.baseline-flow .bf-done-sub{font-size:12px;color:var(--txt-sec);text-align:center;margin-bottom:28px;line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto}
+.baseline-flow .bf-done-sub{font-size:12px;color:var(--n-400);text-align:center;margin-bottom:28px;line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto}
 .baseline-flow .bf-done-sub b{color:#fff}
 
 .baseline-flow .bf-summary{padding:16px 18px;margin-bottom:18px}
-.baseline-flow .bf-summary-head{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:12px;text-align:center;font-weight:600}
+.baseline-flow .bf-summary-head{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--n-400);margin-bottom:12px;text-align:center;font-weight:600}
 .baseline-flow .bf-summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .baseline-flow .bf-summary-cell{text-align:center}
-.baseline-flow .bf-summary-cell .u{font-size:9px;color:var(--txt-sec);margin-left:2px;letter-spacing:0.1em}
-.baseline-flow .bf-summary-cell .lbl{font-size:8px;letter-spacing:0.2em;text-transform:uppercase;color:var(--txt-sec);margin-bottom:5px;font-weight:600}
+.baseline-flow .bf-summary-cell .u{font-size:9px;color:var(--n-400);margin-left:2px;letter-spacing:0.1em}
+.baseline-flow .bf-summary-cell .lbl{font-size:8px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-400);margin-bottom:5px;font-weight:600}
 .baseline-flow .bf-summary-cell .val{font-size:20px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
 
 .baseline-flow .bf-accuracy{text-align:center;font-size:11px;color:var(--primary);margin-bottom:22px;letter-spacing:0.05em}
@@ -1988,9 +2538,11 @@ body{
 }
 .baseline-flow .bf-demo-nav button.active,
 .baseline-flow .bf-demo-nav button:active{background:rgba(0,180,216,0.4);border-color:var(--primary)}
-.baseline-flow .bf-demo-nav .auto{background:rgba(245,166,35,0.15);border-color:rgba(245,166,35,0.3)}
+/* demo nav 的自動播放鍵 —— 它是可點的，所以走可動層；順帶收掉最後兩處
+   寫死的 #F5A623（那是剛退場的 --warning 的值）。 */
+.baseline-flow .bf-demo-nav .auto{background:rgba(var(--amber-400-rgb),0.15);border-color:rgba(var(--amber-400-rgb),0.3)}
 .baseline-flow .bf-demo-nav .auto.active,
-.baseline-flow .bf-demo-nav .auto:active{background:rgba(245,166,35,0.4)}
+.baseline-flow .bf-demo-nav .auto:active{background:rgba(var(--amber-400-rgb),0.4)}
 /* ═══════════ TENKI Brand v1.0 Splash — iPhone Responsive ═══════════ */
 .tenki-splash {
   position: fixed;
@@ -2167,7 +2719,7 @@ body{
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do1"></script>
+    <script src="/preview/decision-outcome.js?v=do2"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -2200,6 +2752,7 @@ body{
 
 <div class="phone">
   <canvas id="cosmos"></canvas>
+  <div id="envWash"></div>
   <div class="state-pill" id="statePill">Edge Score · Clear</div>
 
   <div class="screens">
@@ -2254,10 +2807,18 @@ body{
                    再把名字掛回來。 -->
               <div class="tl-edge-pr">狀態讀數</div>
               <div class="tl-edge-zone" id="edgeTraceZone">還沒有今天的讀數</div>
-              <button type="button" class="tl-edge-cta" id="edgeScanCta" onclick="goTab('scan')">去掃一次 ›</button>
-              <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心中 · 提升 ›</button>
             </div>
           </div>
+          <!-- 🔴 動作鍵搬出環心（2026-08-19，founder 實走「點了掃描」後回報爆版）。
+               量出來的事實：環心 .tl-edge-center 是環的 62%，實測只有 121~129px，
+               卻要裝下 讀數(30~40px) + 狀態讀數 + 新鮮度 + 膠囊(43px) ——
+               **內容高在 360/375/390/414/430 每一個寬度都 >= 圓高**，零餘裕。
+               而「信心中　·　提升精度 ›」本身就要約 178px，**塞不進 129px 的圓**，
+               任何字級微調都救不了：它在 360~430 全部換行，讀數也全部戳出圓上緣。
+               語意上這兩顆本來就不是讀數 —— 圓心放「量到什麼」，動作放環下面。
+               搬出來之後它們有整個螢幕寬，nowrap 才不會變成橫向溢出。 -->
+          <button type="button" class="tl-edge-cta" id="edgeScanCta" onclick="goTab('scan')">到 Scan 掃一次 ›</button>
+          <button type="button" class="tl-edge-conf" id="edgeConfidence" onclick="openPrecisionBaseline()" hidden>信心 · 中　·　提升精度 ›</button>
         </div>
       </section>
 
@@ -2440,6 +3001,9 @@ body{
             <span><i class="lg good"></i>跟著流程</span>
             <span><i class="lg pri"></i>完整走完</span>
             <span><i class="lg loss"></i>提前收束</span>
+            <!-- 點的**大小**吃 marks（r = 3 + min(marks,6)*0.7），先前完全沒有圖例，
+                 於是「為什麼有的點比較大」在畫面上無法回答。 -->
+            <span class="lg-note">點越大 · 標記越多</span>
           </div>
         </div>
 
@@ -2463,46 +3027,92 @@ body{
         <div class="screen-date">Advanced · Beta</div>
       </div>
       <div class="lab-body">
+        <!-- 校準台 —— Lab 的主體。設定磁磚降級成它下面的一區。 -->
+        <div class="cal" id="calPanel">
+          <div class="cal-kicker">Calibration</div>
+          <div class="cal-q">你在什麼狀態下最跟得住自己的流程</div>
+          <div class="cal-chart" id="calChart"></div>
+          <div class="cal-foot" id="calFoot"></div>
+        </div>
+
+        <div class="lab-sec">設定</div>
         <div class="lab-grid">
-          <div class="lab-item featured" onclick="openBaseline()">
+          <!-- 🔴 這一塊的副標原本寫死 `HR 68 · HRV 52 · RR 14`。
+               那三個數字**跟 Today 四張 vitals 卡上的是同一組**，而那四張每一張
+               都掛著「示意」標記、下面還有一行「需要感測器，目前尚未接上」——
+               **只有這裡一個標記都沒有**。
+               PLAYBOOK：「任何 UI 顯示生理數值 → 不得放假的生理讀數」。
+               ⚠️ 而我上一輪還因為「它有真資料」把它標成 is-live —— 那個分類是錯的，
+               我沒查就分了。現在副標由 renderLab() 從真的讀數 store 填。 -->
+          <div class="lab-item is-live" id="labBaselineTile" onclick="openBaseline()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="14" rx="2"/><circle cx="12" cy="10" r="2"/><path d="M12 17v4M9 21h6"/></svg></div>
             <div class="nm">Baseline</div>
-            <div class="sub">HR 68 · HRV 52 · RR 14<br>重新校準或檢視</div>
-          </div>
-          <div class="lab-item" onclick="labInfo('穿戴裝置整合','即將開放 — Apple Watch / BLE 胸帶 / Garmin 需原生 App 支援。')">
-            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="5" width="10" height="16" rx="2"/><circle cx="12" cy="17" r="1"/><path d="M9 9h6"/></svg></div>
-            <div class="nm">穿戴裝置</div>
-            <div class="sub">整合 Apple Watch<br>BLE 胸帶 / Garmin</div>
-          </div>
-          <div class="lab-item beta" onclick="labInfo('Edge Score Bucket','即將開放 — 按分數區間分析你的決策統計。')">
-            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 002 3h12a2 2 0 002-3l-5-9V3"/><path d="M7 3h10"/></svg></div>
-            <div class="nm">Edge Score Bucket</div>
-            <div class="sub">按區間分析<br>你的決策統計</div>
+            <div class="sub" id="labBaselineSub">重新校準或檢視</div>
           </div>
           <div class="lab-item" onclick="openTmplEditor()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg></div>
             <div class="nm">模板自訂</div>
             <div class="sub">建立個人化<br>決策模板</div>
           </div>
-          <div class="lab-item" onclick="exportOutcomesCsv()">
+          <div class="lab-item" onclick="openTpLabelEditor()">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><circle cx="8" cy="12" r="2.2"/><circle cx="16" cy="12" r="2.2"/></svg></div>
+            <div class="nm">標記標籤</div>
+            <div class="sub">自訂決策中<br>要記下的轉折</div>
+          </div>
+          <!-- 決策紀律模式：Settings opt-in，預設關閉。
+               ⚠️ user-facing 一律「決策紀律」，不得出現「交易者 / Trader」——
+               內部識別字仍是 SessionMode='trader'（TRADINGVIEW-ALERT-SPEC.md §0、
+               APP_STORE_COMPLIANCE.md §6 與送審檢查表 #17）。
+               ⚠️ 入口刻意放在 Lab（設定），不放 onboarding、不開新分頁。 -->
+          <div class="lab-item is-control" id="labDisciplineTile" onclick="toggleDisciplineMode()">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+            <div class="nm">決策紀律模式</div>
+            <div class="sub" id="labDisciplineSub">目前關閉<br>開啟後改用結構守望</div>
+          </div>
+          <div class="lab-item is-control" onclick="exportOutcomesCsv()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
             <div class="nm">CSV 匯出</div>
             <div class="sub">下載原始數據<br>供進階分析</div>
           </div>
-          <div class="lab-item beta" onclick="labInfo('情境行事曆','即將開放 — 同步日程節律、預排 session。')">
+        </div>
+
+        <!-- 🔴 「即將開放」區（founder 2026-09-08 拍板）。
+             這三塊點下去**只彈一個 toast**，什麼都不會發生。放在格線裡跟能用的
+             功能同權，等於**畫面在承諾三件不存在的事** —— 而「穿戴裝置」連 BETA
+             徽章都沒有，看起來完全可用。
+             降級的做法是**拿掉所有「可以動手」的訊號**：無可動層琥珀、圖示不上色、
+             整區降透明度，並在段首明寫「即將開放」。仍然看得到（使用者要知道路線圖），
+             但不再假裝可用。 -->
+        <div class="lab-soon-head">即將開放</div>
+        <div class="lab-grid lab-soon">
+          <div class="lab-item" onclick="labInfo('穿戴裝置整合','即將開放 — Apple Watch / BLE 胸帶 / Garmin 需原生 App 支援。')">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="5" width="10" height="16" rx="2"/><circle cx="12" cy="17" r="1"/><path d="M9 9h6"/></svg></div>
+            <div class="nm">穿戴裝置</div>
+            <div class="sub">整合 Apple Watch<br>BLE 胸帶 / Garmin</div>
+          </div>
+          <div class="lab-item" onclick="labInfo('Edge Score Bucket','即將開放 — 按分數區間分析你的決策統計。')">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 002 3h12a2 2 0 002-3l-5-9V3"/><path d="M7 3h10"/></svg></div>
+            <div class="nm">Edge Score Bucket</div>
+            <div class="sub">按區間分析<br>你的決策統計</div>
+          </div>
+          <div class="lab-item" onclick="labInfo('情境行事曆','即將開放 — 同步日程節律、預排 session。')">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
             <div class="nm">情境行事曆</div>
             <div class="sub">同步日程節律<br>預排 session</div>
           </div>
         </div>
 
-        <div class="lab-wide" onclick="labInfo('升級到 Pro','即將開放 — 完整 FDCB · 無限掃描 · 藍牙整合。')">
+        <!-- 🔴 舊的這一列是**一個假的購買鍵**：點下去只彈一個 toast，右邊卻掛著 `›`。
+             現在點下去打開的是一張**用 subscription-tiers.ts 逐欄建出來的對照表**，
+             所以那個 `›` 第一次是真的（它導航到一個真的存在的東西）。
+             ⚠️ 導航＝中性，不上可動層琥珀（founder 2026-09-08：琥珀只給會改變狀態的）。 -->
+        <div class="lab-wide" onclick="openPremiumSheet()">
           <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.6 7.2L22 10l-5.8 4.4L18 22l-6-4-6 4 1.8-7.6L2 10l7.4-.8z"/></svg></div>
           <div class="info">
-            <div class="nm">升級到 Pro</div>
-            <div class="sub">解鎖完整 FDCB · 無限掃描 · 藍牙整合</div>
+            <div class="nm">Premium</div>
+            <div class="sub">看看它解鎖什麼 · 以及 Free 永遠保留什麼</div>
           </div>
-          <div style="color:var(--txt-sec);font-size:18px">›</div>
+          <div style="color:var(--n-400);font-size:18px">›</div>
         </div>
       </div>
     </div>
@@ -2527,7 +3137,7 @@ body{
         <div class="sd-outcome-ic" id="sdOutcomeIc"></div>
         <div class="sd-outcome-txt">
           <div class="sd-outcome-headline" id="sdOutcomeHeadline">跟著流程完成</div>
-          <div class="sd-outcome-sub" id="sdOutcomeSub">達 Breathe · 0 marks</div>
+          <div class="sd-outcome-sub" id="sdOutcomeSub">達 Breathe · 0 個標記</div>
         </div>
       </div>
 
@@ -2545,11 +3155,25 @@ body{
         <div class="sd-seg-times" id="sdSegTimes"></div>
       </div>
 
+      <!-- 決策軌跡：每個標記一列 —— 時間 / 帶位色圓點 / 標籤 / 段落
+           復活 .sd-evt 那組既有 CSS（連接線 + 型別圓點），全 repo 唯一的
+           「連接線 + 點」元件，先前是一組沒有任何 markup 用到的孤兒樣式。 -->
+      <div class="card sd-tp-card">
+        <div class="sd-seg-head">
+          <div class="sd-seg-ttl">決策軌跡</div>
+          <div class="sd-seg-dur" id="sdTpCount">—</div>
+        </div>
+        <div id="sdTpList"></div>
+      </div>
+
       <!-- Facts（只用 store 有的欄位）-->
       <div class="card sd-facts">
         <div class="sd-fact"><div class="k">用時</div><div class="v" id="sdFactDur">3:00</div></div>
         <div class="sd-fact"><div class="k">Readiness</div><div class="v" id="sdFactReadiness">已進入</div></div>
-        <div class="sd-fact"><div class="k">Marks</div><div class="v" id="sdFactMarks">0</div></div>
+        <div class="sd-fact"><div class="k">標記</div><div class="v" id="sdFactMarks">0</div></div>
+        <!-- 離開：交易者在桌機或券商 APP 下單，離開是常態不是失誤 —— 這裡只陳述事實，
+             不寫成扣分。舊紀錄沒有這個欄位 → 整格 hidden，不顯示「0 次」。 -->
+        <div class="sd-fact" id="sdFactAwayCell" hidden><div class="k">離開</div><div class="v" id="sdFactAway">—</div></div>
       </div>
 
       <!-- Insight（事實語言）-->
@@ -2564,10 +3188,34 @@ body{
     </div>
   </div>
 
+  <!-- ═══════ Turning Point 快選（點完標記之後才滑出）═══════
+       ⚠️ 刻意**不**用既有的 .sheet / openSheet() —— openSheet 與 selectTmpl 在
+       running 時 hard-return（那是上一個 PR 為了擋殭屍計時器加的 guard），
+       而這個快選正好必須在決策進行中打開。所以自己的元素、自己的 open/close。
+       ⚠️ 也刻意不用全屏 bottom sheet：決策正在跑，不該被一張蓋住畫面的表單打斷。
+       晶片列橫向捲動，標籤再多也不用改版面。 -->
+  <div class="tp-picker" id="tpPicker" role="group" aria-label="給剛剛那個標記選一個標籤"></div>
+
+  <!-- ═══════ 結構守望的判定出口（決策紀律模式）═══════
+       ⚠️ 同樣刻意**不**用 .sheet / openSheet() —— 那兩個在 running 時 hard-return，
+       而判定正好只在決策進行中發生。自己的元素、自己的 open/close。
+       ⚠️ 兩個出口都是「做出判定」，所以都算紀律 —— 差別只在做了什麼，
+       不在誰對誰錯（decision-outcome.js 的語意斷點）。 -->
+  <div class="watch-judge" id="watchJudge" role="group" aria-label="這次結構守望的判定">
+    <!-- 關鍵價位：只有從快訊交棒過來、而且那筆快訊真的帶了價位時才出現。
+         擺在判定列裡是刻意的 —— 它正好在「要做判定」的那一刻才被需要，
+         而底座只有 44/58px，沒有它的位置。 -->
+    <div class="wj-anchor" id="wjAnchor" hidden></div>
+    <button type="button" class="wj-btn wj-in" onclick="judgeWatch('entered')">成立 · 我進場了</button>
+    <button type="button" class="wj-btn wj-out" onclick="judgeWatch('stood_down')">不成立 · 我不做</button>
+  </div>
+
   <!-- ═══════ FDCB (floating above tab bar) ═══════ -->
   <div class="fdcb state-idle" id="fdcb">
     <div class="fdcb-tmpl" onclick="openSheet()">
-      <div class="ic" id="fdcbIcon" style="color:#34C759">
+      <!-- ⚠️ 這裡曾經有 style="color:#34C759" —— inline style 把上面那條 CSS
+           變成**永遠被蓋掉的死規則**。顏色現在由 CSS 講，markup 不再插手。 -->
+      <div class="ic" id="fdcbIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg>
       </div>
       <div class="fdcb-tmpl-txt">
@@ -2585,12 +3233,18 @@ body{
         <div class="seg-ext" style="width:34%"></div>
       </div>
     </div>
-    <div class="fdcb-evts" onclick="logEvent()">
-      <div class="dot on"></div>
-      <div class="dot on"></div>
-      <div class="check empty">+</div>
-      <div class="dot"></div>
-    </div>
+    <!-- 標記：決策進行中按一下，記下「這一刻值得回頭看」。
+         🔴 舊版是三顆沒有名字的圓點 + 一顆綠色數字膠囊，DOM 順序還是
+         dot,dot,[+],dot —— 第三顆亮起來的點會出現在 + 的**右邊**，
+         而且 idle 時按下去完全沒有反應。founder 實走一句
+         「不知道它右側的點點按的數字代表什麼意思」（2026-08-12）。
+         現在：有名字、有計數、只在跑決策時出現、按下去段標籤會回報記在第幾分幾秒。 -->
+    <button type="button" class="fdcb-mark" id="fdcbMark" onclick="logEvent()"
+            title="決策進行中按一下，記下值得回頭看的一刻" aria-label="標記這一刻">
+      <span class="mk-plus" aria-hidden="true">+</span>
+      <span class="mk-lbl">標記</span>
+      <span class="mk-n" id="fdcbMarkN" hidden>0</span>
+    </button>
   </div>
 
   <!-- ═══════ TAB BAR ═══════ -->
@@ -2635,6 +3289,34 @@ body{
   <div class="home"></div>
 
   <!-- ═══════ 模板自訂 EDITOR (slide-in) ═══════ -->
+  <!-- ═══════ 標記標籤自訂（沿用 .te-* 既有樣式，不新增一套）═══════
+       自訂只在這裡建，不在跑決策中建 —— 決策進行中那一刻使用者該在跑決策，
+       不是在填表單。建好的標籤會出現在快選晶片列。 -->
+  <div class="tmpl-editor" id="tpLabelEditor">
+    <div class="te-header">
+      <div class="te-back" onclick="closeTpLabelEditor()">‹</div>
+      <div class="te-title">標記標籤</div>
+      <div class="te-spacer"></div>
+    </div>
+    <div class="te-body">
+      <div class="te-hint">決策進行中按「標記」，會跳出這些標籤讓你選。<br>沒選也沒關係 —— 那就是一個純粹的時間點。</div>
+      <div class="te-list" id="tplList"></div>
+      <div class="te-field">
+        <span>標籤文字</span>
+        <input type="text" id="tplText" maxlength="12" placeholder="例：等到了">
+      </div>
+      <div class="te-field">
+        <span>出現在</span>
+        <select id="tplScope"></select>
+      </div>
+      <div class="te-warn" id="tplWarn" hidden></div>
+      <div class="te-actions">
+        <div class="te-btn te-del" id="tplDelete" hidden onclick="deleteTpLabel()">刪除</div>
+        <div class="te-btn te-save" id="tplSave" onclick="saveTpLabel()">儲存標籤</div>
+      </div>
+    </div>
+  </div>
+
   <div class="tmpl-editor" id="tmplEditor">
     <div class="te-header">
       <div class="te-back" onclick="closeTmplEditor()">‹</div>
@@ -2674,6 +3356,41 @@ body{
   </div>
 
   <!-- Template sheet -->
+  <div class="sheet-backdrop" id="premiumBackdrop" onclick="closePremiumSheet()"></div>
+  <div class="sheet pm-sheet" id="premiumSheet">
+    <div class="sheet-handle"></div>
+    <div class="pm-hero">
+      <div class="pm-kicker">Tier</div>
+      <div class="pm-title">Premium</div>
+      <!-- 🔴 這句是 subscription-tiers.ts 的檔頭註解本身：
+           "Unlocks longitudinal intelligence, not basic trust." -->
+      <div class="pm-lede">解鎖的是<b>縱向的理解</b>（更長的歷史、跨時間的規律），
+        不是基本的信任。基本的量測與紀錄，Free 本來就給滿。</div>
+    </div>
+
+    <div class="pm-row head"><span>能力</span><span>Free</span><span>Premium</span></div>
+
+    <div class="pm-row"><div class="pm-k">每日掃描</div><div class="pm-v">1 次</div><div class="pm-v on">無限</div></div>
+    <div class="pm-row"><div class="pm-k">本機歷史<small>紀錄一律留在這台裝置上</small></div><div class="pm-v">7 天</div><div class="pm-v on">無限</div></div>
+    <div class="pm-row"><div class="pm-k">Edge Timeline</div><div class="pm-v">有限</div><div class="pm-v on">完整</div></div>
+    <div class="pm-row"><div class="pm-k">回放洞察</div><div class="pm-v">基本</div><div class="pm-v on">進階</div></div>
+    <div class="pm-row"><div class="pm-k">Session 封存</div><div class="pm-v">有限</div><div class="pm-v on">完整</div></div>
+    <div class="pm-row"><div class="pm-k">個人 Edge 圖譜<small>你自己的狀態隨時間怎麼走</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">Edge 走勢預估<small>對象是你自己的節律</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">偵測器快訊</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">外部快訊接入<small>把外部訊號接進決策流程</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">匿名基準</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">進階洞察</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+
+    <!-- 🔴 這一列不是功能，是一條承諾，而且**兩欄都是 ✓**。
+         來源：subscription-tiers.ts 的 FREE_TIER
+         `exportEnabled: true, // Privacy controls never paywalled`。 -->
+    <div class="pm-row keep"><div class="pm-k">CSV 匯出 · 資料帶得走<small>隱私控制永遠不上鎖 —— 這條不會變</small></div><div class="pm-v on">✓</div><div class="pm-v on">✓</div></div>
+
+    <div class="pm-note"><b>尚未開賣。</b>這裡沒有購買鍵，因為現在還沒有可以買的東西 ——
+      有的時候會出現在這一頁，不會出現在別的地方。</div>
+  </div>
+
   <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
   <div class="sheet" id="sheet">
     <div class="sheet-handle"></div>
@@ -2694,7 +3411,15 @@ body{
       <div class="info"><div class="nm">Exercise</div><div class="sub">運動 · Warm/Active/Cool</div></div>
       <div class="dur">10:00</div>
     </div>
-    <div class="sheet-cat">— 進階 · 交易模式 —</div>
+    <!-- 🔴 交易者模板收在決策紀律模式後面 —— **關閉時整段從 DOM 移除**，不是 CSS 隱藏。
+         `Canslim` / `Mancini FBD` 是第三方方法論的名字（O'Neil / Adam Mancini），
+         是交易者腦子裡本來就在用的詞，改名等於讓他看不懂自己的流程。
+         但 docs/APP_STORE_COMPLIANCE.md 送審檢查表 #18 說它們不得出現在可見 UI ——
+         把它們收到 opt-in 後面，預設安裝（含審核員）就看不到，兩邊都成立。
+         ⚠️ 必須真的移除節點：`display:none` 的文字仍在 DOM 裡，
+         斷言（與任何抓文字的工具）照樣讀得到。 -->
+    <div id="tmplDisciplineGroup">
+    <div class="sheet-cat">— 進階 · 決策紀律 —</div>
     <div class="tmpl-item" data-id="CANSLIM_GS" onclick="selectTmpl(this)">
       <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg></div>
       <div class="info"><div class="nm">Canslim GS</div><div class="sub">一般設定 · Sweet Zone 60–180s</div></div>
@@ -2709,6 +3434,7 @@ body{
       <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 11.5v1M12.5 12h-1"/></svg></div>
       <div class="info"><div class="nm">Mancini FBD</div><div class="sub">失敗突破 · Entry Lock 60s</div></div>
       <div class="dur">3:00</div>
+    </div>
     </div>
   </div>
 
@@ -2996,14 +3722,73 @@ body{
 // ═════════════════════════════════════════════════
 // Templates
 // ═════════════════════════════════════════════════
+// ═════════════════════════════════════════════════
+// 模板身分色 —— 兩個家族 × 三階（2026-09-08 拍板，全部量過）
+//
+// 🔴 改之前六個身分色**沒有一個是乾淨的**：
+//     Canslim GS / Canslim High RS / Work Focus  三個都是 #00B4D8
+//       ＝ cyan ACTIVE ＝ Clear 帶位（一個顏色同時當三個模板 + 兩個語義）
+//     Mancini FBD #5E3A87   對底座 **1.94:1** —— 連大字門檻 3.0 都不到
+//     Health Stress #34C759 ＝ --good「跟著流程完成」
+//     Exercise #FF6B35      ΔE 19.5 → error 紅
+//   六個裡三個重複、三個各偷一個語義主人。那不是身分色系統。
+//
+// 新系統不是六個色相（那是玩具調色盤），是**兩個家族**，
+// 而這兩族程式裡本來就分開了（守望模式 vs 倒數模式）：
+//     冷 276° ＝ 外面的結構（交易者模板，watchMode）
+//     暖 336° ＝ 你自己（節律模板，倒數）
+//   兩族 ΔE 50.3；族內三階 ΔE 8~10 —— **刻意的**：
+//   顏色講「你在哪一類決策裡」，名字講「哪一個模板」。
+//
+// 實測（對地面 #020617 / 對底座 #181E26 / 離最近的語義主人）：
+//   #6EADFF 8.73/7.25 ΔE33.8   #EB8BD1 8.79/7.30 ΔE51.5
+//   #4C9BF8 7.06/5.87 ΔE39.7   #DB75C0 7.03/5.84 ΔE52.4
+//   #1089EB 5.57/4.63 ΔE44.1   #CB5FB0 5.57/4.63 ΔE54.4
+//   最差的一個 4.63:1，仍然過 AA —— 舊的最差是 1.94。
+//
+// ⚠️ 紫 #5E3A87 從這裡退出，正式歸 **Premium**
+//   （docs/VISUAL-DIRECTION.md §5.1 早就寫著「紫留給 session/Premium」，
+//    一直沒人認領，所以 Mancini 還蹲在上面）。
+// ═════════════════════════════════════════════════
 const TEMPLATES = {
-  CANSLIM_GS:      {name:'Canslim GS',      durationSec:300, color:'#00B4D8', icon:'gs',    segLabel:'Sweet Zone'},
-  CANSLIM_HIGH_RS: {name:'Canslim High RS', durationSec:240, color:'#00B4D8', icon:'rs',    segLabel:'Sweet Zone'},
-  MANCINI_FBD:     {name:'Mancini FBD',     durationSec:180, color:'#5E3A87', icon:'fbd',   segLabel:'Lock'},
-  WORK_FOCUS:      {name:'Work Focus',      durationSec:1500,color:'#00B4D8', icon:'work',  segLabel:'Focus'},
-  HEALTH_STRESS:   {name:'Health Stress',   durationSec:180, color:'#34C759', icon:'heart', segLabel:'Breathe'},
-  EXERCISE:        {name:'Exercise',        durationSec:600, color:'#FF6B35', icon:'ex',    segLabel:'Active'}
+  CANSLIM_GS:      {name:'Canslim GS',      durationSec:300, color:'#6EADFF', icon:'gs',    segLabel:'Sweet Zone'},
+  CANSLIM_HIGH_RS: {name:'Canslim High RS', durationSec:240, color:'#4C9BF8', icon:'rs',    segLabel:'Sweet Zone'},
+  MANCINI_FBD:     {name:'Mancini FBD',     durationSec:180, color:'#1089EB', icon:'fbd',   segLabel:'Lock'},
+  WORK_FOCUS:      {name:'Work Focus',      durationSec:1500,color:'#EB8BD1', icon:'work',  segLabel:'Focus'},
+  HEALTH_STRESS:   {name:'Health Stress',   durationSec:180, color:'#DB75C0', icon:'heart', segLabel:'Breathe'},
+  EXERCISE:        {name:'Exercise',        durationSec:600, color:'#CB5FB0', icon:'ex',    segLabel:'Active'}
 };
+// ═════════════════════════════════════════════════
+// Turning Point 標記
+//
+// SYSTEM.md §4：Turning Point =「A moment where behavior shifts from reactive
+// to intentional」。標記就是使用者自己標出來的候選轉折點 —— 語言系統四個桶
+// （Radar / Calibration / Baseline / Turning Point）裡，這是最後一個沒有實作的。
+//
+// 🔴 這裡供應的是 **label**，不是新的 event type。
+// `packages/engine/src/session/types.ts` 的六個 SessionEventType 被
+// docs/TRADINGVIEW-ALERT-SPEC.md §9 明文凍結（process-neutral 是刻意的
+// compliance 設計），節點的 type 一律沿用既有的 'mark'。
+//
+// 轉折點是流程性的，而且**跟著模板走** —— Mancini FBD 的轉折點跟 Health Stress
+// 不是同一種事（founder 2026-08-14 拍板）。
+// ⚠️ 這些字串是 user-facing copy，不得出現金融動作詞（見 check-vocab 與
+// packages/engine/src/compliance/safe-copy.ts 的 PROHIBITED_VOCABULARY_ZH）。
+// ═════════════════════════════════════════════════
+const TP_PRESETS = {
+  CANSLIM_GS:      [{id:'MET', text:'條件到了'}, {id:'SHORT', text:'還差一項'}, {id:'EARLY', text:'想提前動'}, {id:'HOLD', text:'先不動'}],
+  CANSLIM_HIGH_RS: [{id:'MET', text:'條件到了'}, {id:'SHORT', text:'還差一項'}, {id:'EARLY', text:'想提前動'}, {id:'HOLD', text:'先不動'}],
+  MANCINI_FBD:     [{id:'WAITED', text:'等到了'}, {id:'CHANGED', text:'條件變了'}, {id:'EARLY', text:'想提前動'}, {id:'HOLD', text:'先不動'}],
+  WORK_FOCUS:      [{id:'DRIFT', text:'分心了'}, {id:'BACK', text:'回到手上'}, {id:'STUCK', text:'卡住了'}, {id:'SWITCH', text:'想換一件事'}],
+  HEALTH_STRESS:   [{id:'BODY', text:'身體有反應'}, {id:'EASE', text:'呼吸變順'}, {id:'LOOP', text:'念頭停不下'}, {id:'REL', text:'鬆開了'}],
+  EXERCISE:        [{id:'HARD', text:'開始喘'}, {id:'RHYTHM', text:'找到節奏'}, {id:'STOP', text:'想停下來'}, {id:'THROUGH', text:'撐過去了'}],
+};
+/** 自訂模板沒有自己的一套時用這組（通用、流程性）。 */
+const TP_PRESETS_DEFAULT = [
+  {id:'ONPLAN', text:'照流程走'}, {id:'EARLY', text:'想提前收'},
+  {id:'DRIFT', text:'分心了'}, {id:'BODY', text:'身體有反應'},
+];
+
 const ICON_SVG = {
   gs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg>',
   rs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18L12 6L16 12L20 4"/><path d="M16 4H20V8"/></svg>',
@@ -3025,6 +3810,7 @@ function goTab(id){
   if(id === 'timeline') renderTimeline();
   if(id === 'scan') renderScanScreen();
   if(id === 'today') renderHeroReading(); // 讀數可能在別的分頁被更新或過期
+  if(id === 'lab') renderLab();
   const tab = document.querySelector(`.tab[data-tab="${id}"]`);
   if(tab) tab.classList.add('active');
   // Haptic hint (visual tap)
@@ -3040,7 +3826,20 @@ function goTab(id){
   function apply(){
     const hash = (window.location.hash || '').replace('#', '');
     const allowedTabs = ['today', 'scan', 'session', 'timeline', 'lab'];
+    // #decision：從 /decision-alert/ 交棒過來，直接起跑那一筆決策。
+    // 這是 founder 要的那條鏈子的最後一段 —— 在這之前快訊唯一的出口是
+    // /v3/#session（歷史頁），使用者被丟在一個「已經結束的東西」前面。
+    if(hash === 'decision'){
+      goTab('today');
+      // 交棒信物讀完就刪 —— 所以「從桌面點回來、頁面被 iOS 重新載入」這一次
+      // 一定拿不到信物。那時候要走的是 resume，不是空手回到 idle。
+      if(!acceptHandoff()) resumeActiveDecision();
+      return;
+    }
     if(allowedTabs.includes(hash)) goTab(hash);
+    // 🔴 沒有 hash 也要接回來 —— PWA 的 start_url 是 /decision-alert/，
+    // 但使用者也可能直接開 /v3/。決策在不在，跟你是從哪個網址進來的無關。
+    resumeActiveDecision();
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
   else apply();
@@ -3377,6 +4176,15 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
   // realistic Garmin Body Battery day (oldest → newest), ending at the current value (~78,
   // matching #bbVal): overnight recharge → morning peak → daytime drain + stress dip → recovery → now.
   const vals = [56,62,70,80,88,93,89,80,69,57,46,41,52,66,78];
+  // 🔴 長條的靜態高度要**留出待機動效放大的餘裕**，否則最高那根在呼吸的波峰
+  // 會被 overflow:hidden 削掉頂端。
+  // 待機迴圈的最大放大倍率：`now` 那根 1 + 0.13（呼吸）+ 0.03（光暈）= 1.16。
+  // 所以靜態高度上限必須 ≤ 1/1.16 ≈ 0.862 —— 取 0.85 留一點邊。
+  // ⚠️ 這個數字**跟 startIdle() 的振幅是一組的**：改動任何一邊都要同時改另一邊，
+  //    而且 harness 會在動畫跑動時逐幀量，改壞會當場紅（不是靠這段註解守）。
+  //    舊版把這個關係只寫在註解裡（「±10% → 48px 不會切 54px」），
+  //    於是我把高度改成 % 之後它就默默失效了。
+  const BAR_HEADROOM = 0.85;
   function zoneColor(v){
     if(v>=85) return '#46C56B';   // green (high)
     if(v>=70) return '#2FB6C0';   // cyan-green
@@ -3388,7 +4196,12 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
   const bars = vals.map((v,i) => {
     const b = document.createElement('div');
     b.className = 'bar' + (i===vals.length-1 ? ' now' : '');
-    b.style.height = Math.max(14, v*0.52) + 'px';
+    // 🔴 高度是**容器高的百分比**，不是絕對 px。
+    // 舊版寫死 `v*0.52 + 'px'`（最高 48px），而 .bb-bars 是 flex 子項會被壓扁 ——
+    // 視窗高 ≤880px 時容器只剩 33px，長條仍堅持要 53px，於是上緣被
+    // overflow:hidden 整排切掉（founder 2026-08-20 實走：「體能 長條圖被截斷」）。
+    // 用 % 之後，斷點給多少高度它就畫多高，結構上不可能溢出。
+    b.style.height = (v * BAR_HEADROOM) + '%';
     b.style.background = `linear-gradient(180deg, ${zoneColor(v)} 0%, ${shadeColor(zoneColor(v), -22)} 100%)`;
     b.style.transformOrigin = 'bottom';
     b.style.transform = reduce ? 'scaleY(1)' : 'scaleY(0.06)';
@@ -3464,12 +4277,38 @@ let currentTmpl = 'HEALTH_STRESS';
 let runningInterval = null;
 let elapsed = 0;
 
+// 底座高度：idle 只有一列，跑起來才要三欄的 58px。
+// 改的是 :root 的 --fdcb-h，所以每一頁 padding-bottom 的
+// `calc(var(--tabbar-h) + var(--fdcb-h) + ...)` 保留區會跟著縮放 ——
+// 🔴 底座高度與保留區必須是同一個數字的兩個讀者，不得各寫各的。
+function applyFdcbHeight(s){
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue(s === 'idle' ? '--fdcb-h-idle' : '--fdcb-h-live').trim();
+  if(v) document.documentElement.style.setProperty('--fdcb-h', v);
+}
+
 function setState(s){
+  const prev = STATES[stateIdx];
   const fdcb = document.getElementById('fdcb');
   STATES.forEach(x => fdcb.classList.remove('state-'+x));
   fdcb.classList.add('state-'+s);
   stateIdx = STATES.indexOf(s);
+  applyFdcbHeight(s);
   renderFdcb();
+  // 跨頁的「決策進行中」標記。
+  // 🔴 **清除要看「離開 running」這個轉換，不能只看「現在不是 running」。**
+  // 第八輪原本寫的是後者，理由是「少列一條路徑就會留下永遠靜音的旗標」——
+  // 那個顧慮沒錯，但它有一個當時看不到的副作用：**開頁時的 setState('idle')
+  // （檔尾那一行）會在 resume 有機會讀之前就把標記刪掉**，於是「下完單回來
+  // 接回決策」永遠接不到（2026-08-21 實測，probe 打出 running:false）。
+  // 現在的保證換成：離開 running 一定清、endDecision 開頭再清一次（刻意重複），
+  // 而**殘留的標記由 resume 自己處理** —— 過期或模板不存在就清掉，
+  // 沒過期就本來就該接回來。旗標不會永遠留著，只是換一個人負責。
+  if(s === 'running') publishActiveDecision();
+  else if(prev === 'running') clearActiveDecision();
+  // 環境層只在決策進行中亮起 —— 「選好了」還不是「正在做」。
+  const phone = document.querySelector('.phone');
+  if(phone) phone.classList.toggle('decision-live', s === 'running');
 }
 // ── 真實決策計時器（取代假 8 秒 demo）──
 // 三段由時長推導：Observe 0–33% →（tmpl.segLabel = 核心段 / readiness / Sweet Zone）33–66% → Extended 66–100%。
@@ -3484,9 +4323,116 @@ function phaseFor(el, tmpl){
 }
 function fmtClock(sec){ const m = Math.floor(sec/60), s = sec%60; return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0'); }
 
+/**
+ * 這次決策已經過了幾秒 —— **一律從牆鐘算**，不從 tick 累加。
+ * 沒有進行中的 session 就是 0。
+ * 唯一的真實來源：改任何跟時間有關的東西都要走這裡，不要在別處各算各的。
+ * @returns {number} 已經過的整數秒
+ */
+function elapsedNow(){
+  if(!sess || !sess.startedAtMs) return 0;
+  return Math.floor((Date.now() - sess.startedAtMs) / 1000);
+}
+
+// ── 決策期間離開了幾次、多久 ──
+// 交易者是在桌機或券商 APP 下單，**離開是常態不是失誤**。記錄它不是為了扣分，
+// 是因為「離開幾次」比進度條真實得多（decision-alert.js:1260 的原話，語氣照搬）。
+// 短暫切換（通知列、誤觸）不算，避免把雜訊記成紀律事件。
+const AWAY_MIN_MS = 3000;
+let awayAtMs = 0;
+document.addEventListener('visibilitychange', () => {
+  if(!sess) return;
+  if(document.visibilityState === 'hidden'){
+    awayAtMs = Date.now();
+    // 🔴 離開的那一刻就要寫進跨頁快照 —— 這一趟很可能**回不來**
+    // （iOS 把 web app 清出記憶體）。沒有這一行，被清掉之後就再也沒人知道
+    // 這段離開發生過，而「離開幾次」正是這個產品最誠實的紀律指標。
+    sess.hiddenAtMs = awayAtMs;
+    syncActiveDecision();
+    return;
+  }
+  // 回到前景：先把時鐘補到真值，不要等下一次 tick（最多會慢 1 秒才跳對）
+  if(STATES[stateIdx] === 'running'){ elapsed = elapsedNow(); tickFdcb(); }
+  sess.hiddenAtMs = null;
+  if(!awayAtMs) { syncActiveDecision(); return; }
+  const gap = Date.now() - awayAtMs;
+  awayAtMs = 0;
+  if(gap >= AWAY_MIN_MS){
+    sess.awayCount = (sess.awayCount || 0) + 1;
+    sess.awayMs = (sess.awayMs || 0) + gap;
+  }
+  syncActiveDecision();
+});
+
+// 模板膠囊（左欄）。時長一律走 fmtDur ——
+// 🔴 舊版寫死 `${Math.floor(sec/60)}:00`：3:30 的自訂模板在這裡顯示 3:00、
+// 6 秒的顯示 0:00，而同一個膠囊裡的大字時鐘同時寫 `/ 0:06`
+// （2026-08-12 實測）。同一個事實在同一列有兩個講法，其中一個一定是假的。
+// running 時拿掉 ▾：那當下模板不可換（見 openSheet），caret 是一個不能兌現的承諾。
+function renderTmplChip(){
+  const t = TEMPLATES[currentTmpl];
+  if(!t) return;
+  const running = STATES[stateIdx] === 'running';
+  document.getElementById('fdcbName').textContent = t.name;
+  document.getElementById('fdcbDur').textContent = tmplBoundLabel(currentTmpl) + (running ? '' : ' ▾');
+  document.getElementById('fdcbIcon').innerHTML = ICON_SVG[t.icon] || ICON_SVG.heart;
+}
+
+/**
+ * 底座左欄那一行的「界線」。
+ *
+ * 🔴 這一格印的不是「模板設定了多久」，而是**這一筆決策的界線是什麼**——
+ * 兩者在倒數模式下剛好相同，在結構守望下**完全不同**：守望不倒數，
+ * 它唯一的界線是 WATCH_CEILING_SEC（殭屍上限）。
+ *
+ * founder 2026-09-03 實走真實快訊、放了 6 分鐘：底座同一列左邊寫「3:00」、
+ * 中間寫「06:16」。舊碼無條件印 `fmtDur(t.durationSec)`，而守望模板的 3:00
+ * 在那個模式下**根本不是一個存在的量**。
+ *
+ * ⚠️ 這是 renderTmplChip 上面那段註解記載的坑的第二次，但形狀不同：
+ * 第一次是格式化算錯（3:30 印成 3:00），這次是**那個量在這個模式下不存在**。
+ * 判準：換模式時逐一問「這一格的量在新模式下還存在嗎」，
+ * 不存在就換成該模式真正的界線，不要照樣印預設值。
+ *
+ * 「上限」兩個字是刻意的 —— 30:00 是**界線**不是**目標**，
+ * 守望的收束靠判定，不是靠把時間跑完。
+ *
+ * @param {string} tmplId - 模板 id。
+ * @returns {string} 例：'3:00'（倒數）或 '上限 30:00'（守望）。
+ */
+function tmplBoundLabel(tmplId){
+  const t = TEMPLATES[tmplId];
+  if(!t) return '';
+  // 🔴 **正在跑的時候問「這一次怎麼跑」，不是問「設定是什麼」。**
+  //
+  // `watchMode(tmplId)` 是一個**設定**（Lab 的決策紀律開關 + 是不是交易者模板）。
+  // 但一筆正在跑的決策，它的界線是 `sess.watch` —— **那一次跑法的事實**。
+  // 兩者在快訊這條路上**故意不一致**：`acceptHandoff()` 明文寫著
+  //「快訊交棒過來的決策一律 sess.watch = true，不看 Lab 那個開關」。
+  //
+  // founder 2026-09-03 實走截到：主畫面 PWA（開關是預設的關）收到快訊 →
+  // 底座同一列**同時**寫著「結構守望 · 點一下判定」與「3:00」。
+  // 第十四輪我拿設定去代表事實，所以只修好了手動起跑那條路。
+  // ⚠️ 兩張截圖結果不同不是隨機：App 內建瀏覽器與主畫面 PWA 是**兩個 storage
+  // 容器**（PLAYBOOK 既有條目），開關各有一份。
+  // 🔴 **complete 也要問事實**，而這是同一個矛盾的第三個出口
+  //（founder 2026-09-10 用真實 TradingView 快訊實走截到）：
+  // 一筆以「ES1! / 上限 30:00 / 結構守望」跑完的決策，收束那一格印的是
+  // 「Mancini FBD / **3:00** ✓ 判定不成立 · 未進場」—— 因為 complete 時
+  // 這裡退回 `watchMode(tmplId)`，而那是 Lab 開關（主畫面 PWA 裡是預設的關）。
+  //
+  // 第十五輪把「正在跑」修對了，但**收束那一格講的也是那一次跑法**，
+  // 不是「接下來會怎麼跑」。complete 是一份**對剛剛發生的事的報告**，
+  // 而報告必須問事實。`sess` 在 complete 時還在（只有 idle 分支才 `sess = null`）。
+  const reporting = STATES[stateIdx] === 'running' || STATES[stateIdx] === 'complete';
+  const watch = (reporting && sess) ? !!sess.watch : watchMode(tmplId);
+  return watch ? '上限 ' + fmtDur(WATCH_CEILING_SEC) : fmtDur(t.durationSec);
+}
+
 function renderFdcb(){
   const tmpl = TEMPLATES[currentTmpl];
   const s = STATES[stateIdx];
+  renderTmplChip();
   const fdcb = document.getElementById('fdcb');
   const timeEl = document.getElementById('fdcbTime');
   const segEl = document.getElementById('fdcbSeg');
@@ -3504,7 +4450,14 @@ function renderFdcb(){
     renderMarks();
   }
   if(s === 'ready'){
-    timeEl.textContent = `${tmpl.name} · ${fmtDur(tmpl.durationSec)}`;
+    // 守望模板在起跑前也不得印倒數時長（只改左欄等於把同一個謊留一半），
+    // 但這一格**不能**直接套 tmplBoundLabel：實測「Canslim High RS · 上限 30:00」
+    // 在 360/375/390 三個寬度都折成 2 行（180/195/210px）—— 是既有的
+    // 「中間的時鐘仍是 1 行」斷言（第十三輪加的）當場把它擋下來的，不是我自己發現的。
+    // 上限已經由左欄負責；這一格改成講**這是哪一種跑法**，量過 175px、三個寬度都 1 行。
+    timeEl.textContent = watchMode(currentTmpl)
+      ? `${tmpl.name} · 守望`
+      : `${tmpl.name} · ${fmtDur(tmpl.durationSec)}`;
     segEl.textContent = 'Tap to start';
     elapsed = 0;
     if(fill) fill.style.width = '0';
@@ -3512,15 +4465,30 @@ function renderFdcb(){
   }
   if(s === 'running'){
     const b = segBounds(tmpl.durationSec);
-    sess = { templateId: currentTmpl, name: tmpl.name, rs: b.rs, re: b.re, reachedReadiness: false, marks: 0 };
+    // 🔴 牆鐘，不是數 setInterval 的 callback 次數。
+    // 舊版寫 `elapsed += 1`：分頁一進背景（鎖屏、切去券商 APP、切去桌機下單前
+    // 按掉螢幕），瀏覽器就把 setInterval 節流到每分鐘幾次、甚至整個暫停 ——
+    // 時鐘少算，而 saveV6Outcome 又把這個 elapsed 當 durationSec 寫進紀錄，
+    // 於是**紀錄跟著一起說謊**。
+    // 這正是交易者的常態使用情境（下單根本不在這支手機上）。
+    // decision-alert.js:928-956 早就為同一件事改成 Date.now()，這裡照抄，不另發明。
+    sess = { templateId: currentTmpl, name: tmpl.name, rs: b.rs, re: b.re,
+             reachedReadiness: false, marks: 0, events: [], startedAtMs: Date.now(),
+             awayCount: 0, awayMs: 0 };
     elapsed = 0;
+    markFlashUntil = 0;
     renderMarks();
     tickFdcb();
+    sess.watch = watchMode(currentTmpl);
     if(runningInterval) clearInterval(runningInterval);
     runningInterval = setInterval(() => {
-      elapsed += 1;
+      elapsed = elapsedNow();
       tickFdcb();
-      if(elapsed >= tmpl.durationSec){ endDecision('timeout'); }
+      // 守望模式沒有「時間到」這回事 —— 只有 30 分鐘的殭屍上限，
+      // 超過就當成從未做出判定（decision-alert.js 的 WATCH_CEILING_MS 同一個值）。
+      if(sess && sess.watch){
+        if(elapsed >= WATCH_CEILING_SEC){ endDecision('abandoned'); }
+      } else if(elapsed >= tmpl.durationSec){ endDecision('timeout'); }
     }, 1000);
   }
   if(s === 'complete'){
@@ -3533,6 +4501,10 @@ function renderFdcb(){
   }
 }
 
+// 按下「標記」後，段標籤讓位給回報訊息這麼久（tickFdcb 每秒會搶回去寫）
+const MARK_FLASH_MS = 1600;
+let markFlashUntil = 0;
+
 // 每秒繪製：時間 mm:ss / 總長 + 填充 + 當前段 + readiness 偵測
 function tickFdcb(){
   const tmpl = TEMPLATES[currentTmpl];
@@ -3540,25 +4512,40 @@ function tickFdcb(){
   const timeEl = document.getElementById('fdcbTime');
   const segEl = document.getElementById('fdcbSeg');
   const fill = document.getElementById('fdcbFill');
+  // 🔴 守望模式：時鐘只往上數，**不顯示總長、不推進填充條**。
+  // 那條倒數是被刻意拆掉的 —— decision-alert.html:694 記著為什麼：
+  //「用時間當紀律指標的結果是：品質最好的 setup 被罰得最重。」
+  // 這裡不是把 v3 的倒數搬去快訊，而是反過來把守望語意帶進 FDCB。
+  if(sess && sess.watch){
+    timeEl.textContent = fmtClock(elapsed);
+    if(Date.now() >= markFlashUntil) segEl.textContent = '結構守望 · 點一下判定';
+    if(fill) fill.style.width = '0';
+    // reachedReadiness 是「有沒有走到時間上的核心段」—— 守望模式不用時間判紀律，
+    // 所以這個量在這裡沒有意義，維持 false，讓詳情頁誠實顯示「—」而不是編一個。
+    fdcb.classList.remove('in-readiness');
+    return;
+  }
   timeEl.textContent = fmtClock(elapsed) + ' / ' + fmtDur(tmpl.durationSec);
   const ph = phaseFor(elapsed, tmpl);
-  segEl.textContent = ph;
+  if(Date.now() >= markFlashUntil) segEl.textContent = ph;
   if(fill) fill.style.width = Math.min(elapsed / tmpl.durationSec * 100, 100) + '%';
   const inReadiness = (ph === tmpl.segLabel);
   fdcb.classList.toggle('in-readiness', inReadiness);
   if(inReadiness && sess) sess.reachedReadiness = true;
 }
 
-// marks：3 顆 dot 依 marks 點亮，check 顯示計數
+// 標記計數：0 = 虛線框只寫「＋ 標記」，>0 才長出數字。
+// ⚠️ 舊版用三顆 dot 表示數量，但計數會超過 3（實測按 4 下 → 三顆全亮、
+// 膠囊寫 4），而且第三顆 dot 在 DOM 裡排在 + 的後面。數字沒有上限問題。
 function renderMarks(){
-  const evts = document.querySelector('.fdcb-evts');
-  if(!evts) return;
-  const dots = evts.querySelectorAll('.dot');
-  const check = evts.querySelector('.check');
+  const btn = document.getElementById('fdcbMark');
+  const nEl = document.getElementById('fdcbMarkN');
+  if(!btn || !nEl) return;
   const n = sess ? sess.marks : 0;
-  dots.forEach((d, i) => d.classList.toggle('on', i < n));
-  if(n > 0){ check.classList.remove('empty'); check.textContent = String(n); }
-  else { check.classList.add('empty'); check.textContent = '+'; }
+  nEl.hidden = n === 0;
+  nEl.textContent = String(n);
+  btn.classList.toggle('has-marks', n > 0);
+  btn.setAttribute('aria-label', n === 0 ? '標記這一刻' : '標記這一刻，已標記 ' + n + ' 次');
 }
 
 // ── 收束：判定 outcome（鏡射 domain/decision-alert resolveOutcomeTag）+ 存進統一 store ──
@@ -3579,30 +4566,127 @@ function resolveOutcome(type, reached){
 // 兩邊共用同一個 store，資料確實存進去了，只是收端聽不懂寫端的方言。
 // 判定現在只有一個來源（decision-outcome.js），這裡不得再放第二份實作。
 const isDisciplinedV6 = (tag) => window.TENKI_OUTCOME.isDisciplined(tag);
+/**
+ * 把這次收束寫進共用 store。
+ * @returns {number} 這筆紀錄的 ts —— 回程票要靠它指名是哪一筆。
+ */
 function saveV6Outcome(session, outcomeTag){
   let all = [];
   try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
   if(!Array.isArray(all)) all = [];
+  const ts = Date.now();
   all.push({
     symbol: session.name, templateId: session.templateId, outcomeTag,
-    contextTag: null, reachedReadiness: !!session.reachedReadiness,
-    durationSec: elapsed, marks: session.marks, ts: Date.now(), source: 'v6'
+    contextTag: null,
+    // 🔴 守望模式**根本沒有 readiness 這個量**（它不用時間判紀律），所以寫 null＝
+    // 「沒有這個量」，不是 false＝「沒達到」。三元運算子最愛把這兩件事混成同一個
+    // 分支 —— PLAYBOOK 記過一模一樣的傷：一次「判定成立並進場」的決策被印成
+    // 「未達 Readiness」。在來源就寫誠實的值，比在每個讀端各加一個 if 可靠。
+    reachedReadiness: session.watch ? null : !!session.reachedReadiness,
+    durationSec: elapsed,
+    // marks 是既有的持久化欄位（Timeline strip 的點半徑吃它、harness 也有斷言），
+    // SYSTEM.md §6 明訂不得改既有持久化欄位名 —— 所以 events 是**加**，不是換。
+    marks: session.marks,
+    events: Array.isArray(session.events) ? session.events : [],
+    // 離開次數／時長：新增欄位（加，不換 —— SYSTEM.md §6）。
+    // 舊紀錄沒有這兩欄，讀端必須當「不知道」處理，不得顯示 0。
+    awayCount: session.awayCount || 0,
+    awayMs: session.awayMs || 0,
+    // 決策進行中收到幾則同標的快訊（規格 §8）。新增欄位（加，不換 —— SYSTEM.md §6）。
+    // null ＝「跨頁標記當時讀不回來，我不知道」，不是 0 ＝「沒發生過」。
+    sameSymbolUpdates: typeof session.sameSymbolUpdates === 'number' ? session.sameSymbolUpdates : null,
+    // 語意版本：守望模式的收束用的是 structure_watch_v1（「有沒有做出判定」），
+    // 跟倒數模式的舊語意（「有沒有走完計時器」）不是同一把尺。
+    // 標記它，統計端才分得出來 —— 不標就只能猜。
+    judgmentSchema: session.watch ? window.TENKI_OUTCOME.JUDGMENT_SCHEMA : null,
+    // 🔴 決策當下的讀數快照 —— `domain/src/contracts/readiness-reading.ts` 的
+    // `AttachedReadinessReading`（band / confidence / ts / evidence + staleAtDecision）。
+    // 那個介面**宣告很久了，一次都沒有被用上**；而 `summarizeDisciplineByBand()`
+    // 也早就寫好、從來沒有東西餵它 —— 因為今天沒有任何一筆紀錄帶 band。
+    // 這一欄就是那條線的接頭。
+    // ⚠️ 新增欄位（加，不換 —— SYSTEM.md §6）。舊紀錄沒有它 → 讀端一律排除，
+    //    **不得猜一個帶位**（那正是這個統計存在的理由本身會被偽造）。
+    // ⚠️ 沒有讀數時寫 null ＝「這一筆沒有帶位可歸屬」，不是寫一個預設帶位。
+    readingAtDecision: (function(){
+      const r = loadReadingV6();
+      if(!r || typeof r.ts !== 'number') return null;
+      return {
+        band: r.band, confidence: r.confidence, ts: r.ts,
+        evidence: r.evidence || null,
+        staleAtDecision: (ts - r.ts) > READING_FRESHNESS_MS_V6,
+      };
+    })(),
+    // 這一筆從哪來。有 originAlertId 就是快訊決策 —— v6 既有的呈現
+    // （readinessCellV6、Session 列）本來就認得 source==='alert'，沿用它，
+    // 不新增第二種寫法。originAlertId 是真正的 join key
+    // （engine 的 SessionRecord.originAlertId 宣告很久了，這是第一次真的被用上）。
+    originAlertId: session.originAlertId || null,
+    ts, source: session.originAlertId ? 'alert' : 'v6'
   });
   if(all.length > 200) all = all.slice(all.length - 200);
   localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
+  return ts;
 }
+// 收束後回 idle 的那一拍要抓得住 —— 舊版是裸的 setTimeout，
+// 使用者在這 1.8 秒內做別的事（點中間、換模板）會被它從背後拉回 idle。
+let closureTimer = null;
+function clearClosureTimer(){ if(closureTimer){ clearTimeout(closureTimer); closureTimer = null; } }
+
 function endDecision(type){
+  // 🔴 清掉之前先讀回自己那一張 —— /decision-alert/ 在決策期間把「同標的後續觸發」
+  // 累加在上面，那是收束頁「同標的更新：N 次」唯一的來源。
+  const activeMarker = readOwnActiveDecision();
+  if(sess) sess.sameSymbolUpdates = activeMarker && typeof activeMarker.sameSymbolUpdates === 'number'
+    ? activeMarker.sameSymbolUpdates
+    // 🔴 讀不回自己的標記（過期／被別的分頁蓋掉）＝「這條通道當時斷了，我不知道」→ null。
+    // **不寫 0** —— 0 是「有在數，而且真的沒有」。讀端對這兩件事的處理必須不一樣
+    // （PLAYBOOK：缺欄位就不准說否定）。
+    : null;
+  // 🔴 跨頁標記在這裡就要清掉 —— 從快訊來的決策下面會 location.href 回程，
+  // 導頁之後這一頁**沒有機會再清**，而留下來的標記會靜默吃掉之後每一則快訊。
+  // ⚠️ 這一行與 setState() 裡的清除是**刻意重複**的（下面 setState('complete')
+  // 也會清）：兩者單獨拿掉 harness 都抓不到，兩個一起拿掉才會紅 —— 實測過。
+  // 留著是為了導頁與 setState 之間那個競態，不是忘了刪。
+  clearActiveDecision();
+  // 先把時間補到真值再收束。背景節流時最後一個 tick 可能是幾十秒前跑的，
+  // 使用者切回來馬上收束的話，那個舊值會被 saveV6Outcome 當 durationSec 寫進去。
+  if(sess) elapsed = elapsedNow();
+  const watch = !!(sess && sess.watch);
   if(runningInterval){ clearInterval(runningInterval); runningInterval = null; }
-  const tag = resolveOutcome(type, sess ? sess.reachedReadiness : false);
-  if(sess) saveV6Outcome(sess, tag);
+  closeTpPicker();   // 決策收束了，快選沒有東西可以掛
+  closeWatchJudge(); // 判定已經做完（或逾時），列子沒有東西可以掛
+  // 守望模式走共用模組的新語意（judged_entered / judged_stood_down /
+  // abandoned_no_judgment）；一般倒數模式維持既有的舊語意，一個字不動。
+  const tag = watch
+    ? window.TENKI_OUTCOME.resolveOutcomeTag(type)
+    : resolveOutcome(type, sess ? sess.reachedReadiness : false);
+  const savedTs = sess ? saveV6Outcome(sess, tag) : null;
+  // 🔴 從快訊來的決策，收束頁在 /decision-alert/ ——
+  // 那張頁（弧、反思晶片 → contextTag、紀律計）是已經被實走驗收過的東西，
+  // 而 v6 的 state-complete 只有 1.8 秒。所以判定完把人送回去看結果。
+  // ⚠️ 只有快訊決策回程；自己在 /v3/ 起跑的決策本來就不是從那裡來的。
+  if(sess && sess.originAlertId && savedTs){
+    try {
+      localStorage.setItem(RETURN_KEY, JSON.stringify({ ts: savedTs, at: Date.now() }));
+      window.location.href = '/decision-alert/#result';
+    } catch(e){ /* 存不進去就留在原地，至少紀錄已經寫好了 */ }
+  }
   pendingClosure = { tag: tag };
   setState('complete');
-  setTimeout(() => setState('idle'), 1800);
+  clearClosureTimer();
+  closureTimer = setTimeout(() => { closureTimer = null; setState('idle'); }, 1800);
 }
 
 function nextState(){
+  clearClosureTimer();
   const s = STATES[stateIdx];
-  if(s === 'running'){ endDecision('close'); return; }   // running 中點 core = 收束
+  if(s === 'running'){
+    // 守望模式：點 core 不是收束，是打開判定列 ——
+    // 收束必須帶著「你做了什麼判定」，不能只是「結束了」。
+    // 多一拍也擋掉誤觸：手機放在旁邊，一個意外的「我進場了」會寫下一筆假紀錄。
+    if(sess && sess.watch){ watchJudgeOpen() ? closeWatchJudge() : openWatchJudge(); return; }
+    endDecision('close'); return;                        // 一般模式：點 core = 收束
+  }
   if(s === 'complete'){ setState('idle'); return; }
   setState(STATES[(stateIdx + 1) % STATES.length]);        // idle→ready→running
 }
@@ -3611,7 +4695,15 @@ function cycleDemo(){ nextState(); }
 // ═════════════════════════════════════════════════
 // Template sheet
 // ═════════════════════════════════════════════════
+// 🔴 決策在跑的時候不得換模板。舊版換了會留下沒清掉的 interval：
+// state 變成 ready、時鐘卻繼續往前跑，到**舊**模板的時長時在 ready 狀態下
+// 彈出「完整走完」，並往 store 寫一筆使用者根本沒跑完的幽靈紀錄
+// —— 2026-08-12 實測：跑「六秒測試」中途換成 Work Focus，6 秒後畫面顯示
+// Work Focus，Timeline 卻多出一筆「六秒測試 · 完整走完」。
+// 要換模板就先收束（點中間），那一筆才會被誠實記成提前收束。
 function openSheet(){
+  if(STATES[stateIdx] === 'running') return;
+  clearClosureTimer();
   document.getElementById('sheet').classList.add('open');
   document.getElementById('sheetBackdrop').classList.add('open');
 }
@@ -3619,20 +4711,403 @@ function closeSheet(){
   document.getElementById('sheet').classList.remove('open');
   document.getElementById('sheetBackdrop').classList.remove('open');
 }
+// Premium 對照表：自己的元素、自己的 open/close。
+// ⚠️ **不能走 openSheet()** —— 它在 running 時 hard-return（擋殭屍計時器），
+// 而看一眼方案跟決策在不在跑無關。`.tp-picker` 當初為了同一個理由也是這樣做的。
+function openPremiumSheet(){
+  document.getElementById('premiumSheet').classList.add('open');
+  document.getElementById('premiumBackdrop').classList.add('open');
+}
+function closePremiumSheet(){
+  document.getElementById('premiumSheet').classList.remove('open');
+  document.getElementById('premiumBackdrop').classList.remove('open');
+}
 function selectTmpl(el){
+  // openSheet 已經擋過，這裡是第二道 —— 選單以外的呼叫路徑（harness、未來的
+  // 快訊流程）也不得在決策進行中改 currentTmpl，否則同樣長出幽靈紀錄。
+  if(STATES[stateIdx] === 'running') return;
+  clearClosureTimer();
   document.querySelectorAll('.tmpl-item').forEach(x => x.classList.remove('selected'));
   el.classList.add('selected');
   currentTmpl = el.dataset.id;
   const t = TEMPLATES[currentTmpl];
-  document.getElementById('fdcbName').textContent = t.name;
-  const m = Math.floor(t.durationSec / 60);
-  document.getElementById('fdcbDur').textContent = `${m}:00 ▾`;
-  document.getElementById('fdcbIcon').innerHTML = ICON_SVG[t.icon];
-  document.documentElement.style.setProperty('--primary', t.color);
+  renderTmplChip();
+  document.documentElement.style.setProperty('--tmpl', t.color);
   setTimeout(() => { closeSheet(); setState('ready'); }, 260);
 }
 
 // ═════════════════════════════════════════════════
+// ═════════════════════════════════════════════════
+// 決策紀律模式（內部 SessionMode='trader'）
+//
+// 🔴 命名：user-facing **一律「決策紀律」**，畫面上不得出現「交易者 / Trader」。
+// 內部識別字沿用 engine 既有的 SessionMode='trader'（不改）。
+// 依據：docs/TRADINGVIEW-ALERT-SPEC.md §0（唯一權威規格）、
+// docs/APP_STORE_COMPLIANCE.md §6 與送審檢查表 #17。founder 2026-08-20 拍板。
+//
+// 這個模式改變的是**決策計時器怎麼收束**：交易者模板改用結構守望
+// （判定出口，不是倒數壓力），因為「用時間當紀律指標的結果是：品質最好的
+// setup 被罰得最重」（decision-alert.html:694 已付過的學費）。
+//
+// 入口是 Settings（Lab）opt-in，預設關閉 —— 不放 onboarding、不開新分頁。
+// ═════════════════════════════════════════════════
+const DISCIPLINE_KEY = 'tenki.v6.decisionDiscipline.v1';
+/** 交易者模板：只有這幾個在決策紀律模式下改走結構守望。 */
+const DISCIPLINE_TEMPLATES = ['CANSLIM_GS', 'CANSLIM_HIGH_RS', 'MANCINI_FBD'];
+
+/** @returns {boolean} 決策紀律模式是否開啟（預設關）。 */
+function disciplineOn(){
+  try { return localStorage.getItem(DISCIPLINE_KEY) === '1'; } catch(e){ return false; }
+}
+/**
+ * 這次決策是否走結構守望（而不是倒數）。
+ * 條件：模式開啟 **且** 當前模板是交易者模板。其餘一律維持原本的倒數行為。
+ * @param {string} [tmplId] 預設看 currentTmpl
+ * @returns {boolean}
+ */
+function watchMode(tmplId){
+  return disciplineOn() && DISCIPLINE_TEMPLATES.includes(tmplId || currentTmpl);
+}
+// ═════════════════════════════════════════════════
+// 從 /decision-alert/ 交棒過來的一筆決策
+// ═════════════════════════════════════════════════
+const HANDOFF_KEY = 'tenki.v6.handoff.v1';
+/** 回程票：判定完帶著「是哪一筆」回 /decision-alert/ 看收束頁。 */
+const RETURN_KEY = 'tenki.alert.return.v1';
+/** 信物保鮮期，與 decision-alert.js 的 HANDOFF_TTL_MS 同值。 */
+const HANDOFF_TTL_MS = 5 * 60 * 1000;
+
+// ═════════════════════════════════════════════════
+// 「決策進行中」標記（docs/TRADINGVIEW-ALERT-SPEC.md §8）
+//
+// §8：「Session 進行中收到新快訊 → 一律靜默接收」—— 決策過程不被下一個訊號打斷。
+// 但決策跑在這一頁，快訊在 /decision-alert/ ——**那一頁沒有辦法知道**。
+// 所以這裡把「有一筆決策正在跑」寫成跨頁看得到的事實。走 localStorage，
+// 跟讀數、決策紀錄、交棒信物、回程票是同一個做法（同源同裝置）。
+//
+// 🔴 **標記自帶到期時間，寫一次就不再更新。**
+// 最危險的失敗模式是旗標留下來沒被清掉（分頁被殺、瀏覽器崩潰、直接關掉這一頁）——
+// 那樣 /decision-alert/ 會從此靜默吃掉每一則快訊，而且完全沒有跡象，
+// 使用者只會覺得「快訊壞了」。那比沒有這個功能糟糕得多。
+//
+// ⚠️ **心跳（每秒回寫 at）是錯的解法**：這一頁一進背景，interval 就被節流甚至暫停
+// （FDCB 改吃牆鐘就是為了同一件事）—— 而**背景正是這個功能唯一有用的時候**
+// （在桌機下單、手機鎖屏）。心跳會在最該靜音的那一刻宣告「沒有決策在跑」。
+// 到期時間用的是既有的殭屍 session 上限，沒有引進新的不變量。
+// ═════════════════════════════════════════════════
+
+/** 跨頁標記的 key。/decision-alert/ 的 evaluateDelivery 讀它。 */
+const ACTIVE_DECISION_KEY = 'tenki.v6.activeDecision.v1';
+/** 倒數模式的寬限：背景節流會讓自動收束晚到，別讓標記比決策先過期。 */
+const ACTIVE_DECISION_GRACE_MS = 60 * 1000;
+
+/**
+ * 這一筆決策的完整快照 —— **接得回來**所需要的每一個欄位。
+ *
+ * 🔴 為什麼要存到這種程度（founder 2026-08-21 實走情境）：
+ * 交易者的動線是「進入決策 → 跳回桌面 → 開交易 App 下單 → 再回 TENKI Core」。
+ * iOS 會把 standalone web app 從記憶體清掉，回來時整頁重新載入 ——
+ * 而 `sess` 只活在記憶體，全 repo 沒有任何 pagehide/beforeunload 持久化。
+ * 也就是說：**下完單回來，整筆決策連同標記一起蒸發，一筆紀錄都沒有。**
+ * 第五輪的牆鐘讓「時間」不說謊，這一輪讓「決策本身」活得過離開。
+ *
+ * @returns {?Object} 沒有進行中的決策就回 null
+ */
+function activeDecisionSnapshot(){
+  if(!sess || !sess.startedAtMs) return null;
+  const tmpl = TEMPLATES[sess.templateId] || TEMPLATES[currentTmpl];
+  const dur = sess.watch
+    ? WATCH_CEILING_SEC * 1000
+    : ((tmpl ? tmpl.durationSec : WATCH_CEILING_SEC) * 1000 + ACTIVE_DECISION_GRACE_MS);
+  return {
+    startedAtMs: sess.startedAtMs,
+    expiresAtMs: sess.startedAtMs + dur,
+    symbol: sess.symbol || null,
+    templateId: sess.templateId,
+    // 底座左欄顯示的字（快訊決策會被換成標的），重建時要一模一樣。
+    name: sess.name || null,
+    originAlertId: sess.originAlertId || null,
+    anchorPrice: (typeof sess.anchorPrice === 'number') ? sess.anchorPrice : null,
+    watch: !!sess.watch,
+    marks: sess.marks || 0,
+    events: Array.isArray(sess.events) ? sess.events : [],
+    awayCount: sess.awayCount || 0,
+    awayMs: sess.awayMs || 0,
+    // 離開的那一刻。**還沒回來就被清掉記憶體**時，接回來要靠它把這段補記進去。
+    hiddenAtMs: sess.hiddenAtMs || null,
+  };
+}
+
+function writeActiveDecision(snap){
+  try { localStorage.setItem(ACTIVE_DECISION_KEY, JSON.stringify(snap)); }
+  catch(e){ /* 存不進去就當作沒有這個功能，決策照跑 */ }
+}
+
+/**
+ * 發佈「有一筆決策正在跑」。**起跑專用** —— 整份覆寫，計數歸零。
+ * ⚠️ 只在起跑的那個呼叫堆疊裡重發（setState → acceptHandoff / resume），
+ * 中間不可能插進一則快訊。**決策跑起來之後要用 syncActiveDecision()**，
+ * 否則會把 /decision-alert/ 記在上面的同標的計數洗掉。
+ */
+function publishActiveDecision(){
+  const snap = activeDecisionSnapshot();
+  if(!snap) return;
+  // /decision-alert/ 在這裡累加同標的後續觸發；收束時我們讀回來寫進紀錄。
+  snap.sameSymbolUpdates = 0;
+  writeActiveDecision(snap);
+}
+
+/**
+ * 決策進行中更新快照（標記、離開）—— **保留** sameSymbolUpdates。
+ * 讀不回自己那一張就什麼都不做：那是別的分頁的決策，不該被我們蓋掉。
+ */
+function syncActiveDecision(){
+  const own = readOwnActiveDecision();
+  if(!own) return;
+  const snap = activeDecisionSnapshot();
+  if(!snap) return;
+  snap.sameSymbolUpdates = (typeof own.sameSymbolUpdates === 'number') ? own.sameSymbolUpdates : 0;
+  writeActiveDecision(snap);
+}
+
+/** 決策結束（或根本沒在跑）—— 標記一定要消失。 */
+function clearActiveDecision(){
+  try { localStorage.removeItem(ACTIVE_DECISION_KEY); } catch(e){}
+}
+
+/**
+ * 讀回**自己這一筆**的標記。
+ * 🔴 比對 startedAtMs：別的分頁留下的標記不是我們的，不得拿它的計數來寫紀錄。
+ * @returns {?Object} 對得上就回標記本身，否則 null
+ */
+function readOwnActiveDecision(){
+  if(!sess || !sess.startedAtMs) return null;
+  let m = null;
+  try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch(e){ m = null; }
+  if(!m || m.startedAtMs !== sess.startedAtMs) return null;
+  return m;
+}
+
+/**
+ * 讀交棒信物並直接起跑決策。
+ * 🔴 **讀完就刪**，無論用不用得上 —— 留著它，下次開 /v3/#decision
+ * 會再起跑一次同一筆決策（而使用者根本沒收到新快訊）。
+ * @returns {boolean} 有沒有真的起跑
+ */
+function acceptHandoff(){
+  let h = null;
+  try { h = JSON.parse(localStorage.getItem(HANDOFF_KEY)); } catch(e){ h = null; }
+  try { localStorage.removeItem(HANDOFF_KEY); } catch(e){}
+  if(!h || !h.templateId || !TEMPLATES[h.templateId]) return false;
+  // 過期就不自動起跑 —— 昨天的快訊今天不該自己開始一個決策。
+  if(!(typeof h.ts === 'number') || Date.now() - h.ts > HANDOFF_TTL_MS) return false;
+
+  currentTmpl = h.templateId;
+  const t = TEMPLATES[currentTmpl];
+  document.documentElement.style.setProperty('--tmpl', t.color);
+  setState('running');
+  if(sess){
+    // 這一筆的身分：標的名、來源快訊、以及自己定的關鍵價位。
+    sess.symbol = h.symbol || null;
+    sess.originAlertId = h.originAlertId || null;
+    sess.anchorPrice = (typeof h.price === 'number') ? h.price : null;
+    // 🔴 從快訊交棒過來的決策**一律走守望**，不看 Lab 那個開關。
+    // 理由不是圖方便：快訊流程的收束語意本來就是「有沒有做出判定」
+    // （docs/TRADINGVIEW-ALERT-SPEC.md §9、decision-outcome.js 的語意斷點）。
+    // 若這裡退回倒數，就會重新引進那個已經付過學費的問題 ——
+    //「用時間當紀律指標，品質最好的 setup 被罰得最重」。
+    // Lab 的開關管的是「使用者自己起跑」時要不要守望，不管快訊這條路。
+    sess.watch = true;
+    // 🔴 同一個順序陷阱：setState('running') 已經跑過 renderTmplChip() 了，
+    // 而那時 sess.watch 還沒設 —— 左欄會印成該模板的倒數時長（3:00）。
+    // 設完之後補畫一次，理由跟下面再 publishActiveDecision() 一次完全相同。
+    renderTmplChip();
+    // 底座左欄改顯示標的 —— 決策進行中，「ES1!」比「Mancini FBD」有用得多。
+    if(sess.symbol){
+      sess.name = sess.symbol;
+      document.getElementById('fdcbName').textContent = sess.symbol;
+    }
+    renderWatchAnchor();
+    // 🔴 再發佈一次。setState('running') 那次是在這些欄位被設定**之前**跑的 ——
+    // 拿不到 symbol（同標的更新就配不起來），也還不知道要走守望（到期時間會算短）。
+    // 兩次都在同一個呼叫堆疊裡，中間不可能插進一則快訊，覆寫是安全的。
+    publishActiveDecision();
+  }
+  return true;
+}
+
+/**
+ * 開頁時把還在跑的決策接回來。
+ *
+ * 🔴 為什麼需要這個（founder 2026-08-21 實走情境）：交易者的動線是
+ * 「進入決策 → 跳回桌面 → 開交易 App 下單 → 再回 TENKI Core」，而 iOS 會把
+ * standalone web app 清出記憶體 —— 回來時整頁重載，`sess` 是 null。
+ * 沒有這條路徑，**下完單回來整筆決策就消失了**：沒有判定、沒有紀錄、
+ * 標記全丟，而畫面只會安靜地停在 idle，看不出剛剛有東西不見。
+ *
+ * ⚠️ 順序陷阱（跟 acceptHandoff 同一個）：`setState('running')` 會建一個**全新的**
+ * sess 並呼叫 publishActiveDecision()（整份覆寫、計數歸零）。所以要先把快照
+ * 讀出來留在手上，setState 之後再把欄位灌回去，最後**再發佈一次**。
+ *
+ * @returns {boolean} 有沒有真的接回來
+ */
+function resumeActiveDecision(){
+  if(STATES[stateIdx] === 'running') return false;   // 已經在跑，不要蓋掉
+  let m = null;
+  try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch(e){ m = null; }
+  if(!m || typeof m.startedAtMs !== 'number' || typeof m.expiresAtMs !== 'number') return false;
+  if(!m.templateId || !TEMPLATES[m.templateId]){ clearActiveDecision(); return false; }
+
+  const now = Date.now();
+  const tmpl = TEMPLATES[m.templateId];
+  const ceilingSec = m.watch ? WATCH_CEILING_SEC : tmpl.durationSec;
+  const elapsedSec = Math.floor((now - m.startedAtMs) / 1000);
+
+  // 🔴 **超過上限就不是 resume，是收束。** 決策不該憑空消失，也不該假裝還在跑
+  // ——「你離開太久，這一筆沒有做出判定」本身就是要記下來的事實。
+  // 收束走的是既有的 endDecision，語意與紀錄格式完全一致，不另寫第二份。
+  //
+  // ⚠️ 這一段與 running interval 裡的上限檢查是**刻意重複**的：接回來之後那個
+  // interval 一秒內也會收掉它。單獨拿掉任一處 harness 都抓不到（實測），
+  // 兩處一起拿掉才紅。留著是為了不讓使用者看到一個跑了 40 分鐘的計時器 ——
+  // 哪怕只有一秒。不是忘了刪。
+  const overdue = elapsedSec >= ceilingSec || now >= m.expiresAtMs;
+
+  currentTmpl = m.templateId;
+  document.documentElement.style.setProperty('--tmpl', tmpl.color);
+  setState('running');
+  if(!sess){ clearActiveDecision(); return false; }
+
+  sess.startedAtMs = m.startedAtMs;               // 牆鐘的唯一來源，接回原值
+  sess.symbol = m.symbol || null;
+  sess.originAlertId = m.originAlertId || null;
+  sess.anchorPrice = (typeof m.anchorPrice === 'number') ? m.anchorPrice : null;
+  sess.watch = !!m.watch;
+  // 🔴 跟 acceptHandoff() 完全同一個順序陷阱：setState('running') 已經跑過
+  // renderTmplChip() 了，而那時 sess.watch 還沒接回來 —— 一筆守望決策接回來
+  // 之後，左欄會印成該模板的倒數時長。設完補畫一次。
+  renderTmplChip();
+  sess.events = Array.isArray(m.events) ? m.events : [];
+  sess.marks = sess.events.length;                 // marks 一律由節點數導出
+  sess.awayCount = m.awayCount || 0;
+  sess.awayMs = m.awayMs || 0;
+  // 上一趟離開還沒被結算（走的時候頁面就被清掉了）—— 現在補記它。
+  if(typeof m.hiddenAtMs === 'number' && m.hiddenAtMs > 0){
+    const gap = now - m.hiddenAtMs;
+    if(gap >= AWAY_MIN_MS){
+      sess.awayCount += 1;
+      sess.awayMs += gap;
+    }
+  }
+  sess.hiddenAtMs = null;
+  if(sess.symbol){
+    sess.name = sess.symbol;
+    document.getElementById('fdcbName').textContent = sess.symbol;
+  } else if(m.name){
+    sess.name = m.name;
+  }
+  elapsed = elapsedNow();
+  publishActiveDecision();                         // 重建之後重新發佈（計數見下）
+  // 計數是 /decision-alert/ 記在標記上的，publish 會歸零 —— 補回去。
+  if(typeof m.sameSymbolUpdates === 'number' && m.sameSymbolUpdates > 0){
+    const own = readOwnActiveDecision();
+    if(own){ own.sameSymbolUpdates = m.sameSymbolUpdates; writeActiveDecision(own); }
+  }
+  renderMarks();
+  renderLiveNodes();
+  renderWatchAnchor();
+  tickFdcb();
+
+  if(overdue){ endDecision(sess.watch ? 'abandoned' : 'timeout'); return true; }
+  return true;
+}
+
+/**
+ * 判定列上的關鍵價位行。
+ * 🔴 快訊沒帶 price 就整行空著 —— **寧可沒有錨點，也不編一個價位出來**
+ * （decision-alert.js:910 同一條規則，語氣照搬）。
+ */
+function renderWatchAnchor(){
+  const el = document.getElementById('wjAnchor');
+  if(!el) return;
+  const p = sess && typeof sess.anchorPrice === 'number' ? sess.anchorPrice : null;
+  if(p === null){ el.textContent = ''; el.hidden = true; return; }
+  el.hidden = false;
+  el.textContent = '關鍵價位 ' + p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** 守望的牆鐘上限（秒）。超過就當作沒有判定收掉，避免跨日的殭屍 session。
+ *  與 decision-alert.js 的 WATCH_CEILING_MS 同一個值，兩邊要一起改。 */
+const WATCH_CEILING_SEC = 30 * 60;
+
+/** 判定列開著嗎（供 harness 與收束時清理用）。 */
+function watchJudgeOpen(){
+  const el = document.getElementById('watchJudge');
+  return !!el && el.classList.contains('open');
+}
+function openWatchJudge(){
+  if(!(sess && sess.watch)) return;
+  renderWatchAnchor();  // 每次打開都重畫 —— 上一筆決策的價位不得留在畫面上
+  document.getElementById('watchJudge').classList.add('open');
+}
+function closeWatchJudge(){
+  const el = document.getElementById('watchJudge');
+  if(el) el.classList.remove('open');
+}
+/**
+ * 結構守望的判定出口。
+ * 🔴 兩個出口**都算紀律** —— 差別只在你做了什麼，不在誰對誰錯。
+ * outcome tag 一律走共用模組，不得在這裡再寫一份判定
+ * （PLAYBOOK：兩邊各寫一份的下場是「demo 看到 100%，進 Session 變 0%」）。
+ * @param {'entered'|'stood_down'} judgment
+ */
+function judgeWatch(judgment){
+  if(!(sess && sess.watch)) return;
+  closeWatchJudge();
+  endDecision(judgment);
+}
+
+/**
+ * 交易者模板只在決策紀律模式開啟時存在於 DOM。
+ * 🔴 用「移除／插回節點」而不是 CSS 隱藏 —— `display:none` 的文字仍在 DOM 裡，
+ * 任何抓文字的東西（含送審截圖工具、輔助技術、我們自己的斷言）都還讀得到。
+ * 依據：docs/APP_STORE_COMPLIANCE.md 送審檢查表 #18。
+ */
+let disciplineGroupNode = null;   // 被移除時暫存在這裡，開回來時插回原位
+function syncDisciplineTemplates(){
+  const sheet = document.getElementById('sheet');
+  if(!sheet) return;
+  const inDom = document.getElementById('tmplDisciplineGroup');
+  if(disciplineOn()){
+    if(!inDom && disciplineGroupNode) sheet.appendChild(disciplineGroupNode);
+    return;
+  }
+  if(inDom){ disciplineGroupNode = inDom; inDom.remove(); }
+}
+
+function renderDisciplineTile(){
+  const tile = document.getElementById('labDisciplineTile');
+  const sub = document.getElementById('labDisciplineSub');
+  if(!tile || !sub) return;
+  const on = disciplineOn();
+  tile.classList.toggle('mode-on', on);
+  sub.innerHTML = on ? '已開啟<br>快訊接進決策計時器' : '目前關閉<br>開啟後改用結構守望';
+  tile.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+function toggleDisciplineMode(){
+  // 決策進行中不得換模式 —— 跟「跑中不得換模板」同一個理由：
+  // 收束語意會在半路改變，那一筆紀錄就說不清楚自己是怎麼結束的。
+  if(STATES[stateIdx] === 'running'){
+    labInfo('決策進行中', '這一筆決策還沒收束，先收束再切換模式 —— 中途換會讓這筆紀錄說不清楚自己是怎麼結束的。');
+    return;
+  }
+  const next = !disciplineOn();
+  try { localStorage.setItem(DISCIPLINE_KEY, next ? '1' : '0'); } catch(e){}
+  renderDisciplineTile();
+  syncDisciplineTemplates();
+  renderFdcb();
+}
+
 // 自訂模板（Lab / 模板自訂）— 存 localStorage、merge 進 TEMPLATES、
 // 動態插入 Select Template sheet「我的模板」分類。選了走同一 currentTmpl 管線。
 // ═════════════════════════════════════════════════
@@ -3687,9 +5162,14 @@ function renderCustomTmplSheet(list){
 }
 
 syncCustomTemplates();
+renderDisciplineTile();       // 開頁就把磁磚畫成目前真正的狀態
+syncDisciplineTemplates();   // 模式關閉時，交易者模板不進 DOM
 
 // ── 模板自訂 editor（建立/編輯/刪除 + 即時預覽）──
-const TE_COLORS = ['#00B4D8','#34C759','#FF6B35','#5E3A87','#E8B45A','#22D3EE'];
+/* 🔴 自訂模板抽的是**同一套身分色**，不是另一個調色盤。
+   舊那組六個顏色裡有五個已經有主人（cyan ACTIVE / success 綠 / --sns 橘 /
+   紫 Premium / 近 gold 的 #E8B45A），等於讓使用者親手製造撞色。 */
+const TE_COLORS = ['#6EADFF','#4C9BF8','#1089EB','#EB8BD1','#DB75C0','#CB5FB0'];
 const TE_ICONS = ['heart','work','fbd','gs','rs','ex'];
 let teEditId = null, teColor = TE_COLORS[0], teIcon = TE_ICONS[0];
 function genTmplId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
@@ -3798,6 +5278,95 @@ function deleteTmplFromEditor(){
 
 // ── Lab toast（誠實狀態 / 匯出回饋）──
 let labToastTimer = null;
+// ═════════════════════════════════════════════════
+// Lab 的真實面
+//
+// 🔴 這裡只印**真的量得到的東西**。改之前 Baseline 磁磚寫死
+// `HR 68 · HRV 52 · RR 14`，那三個數字跟 Today 那四張標著「示意」的卡是同一組，
+// 但這裡一個標記都沒有 —— 等於在一個沒有感測器的產品上宣稱三個生理讀數。
+//
+// ⚠️ 讀數 store（tenki.readiness.reading.v1）實際只有
+// `band` / `confidence` / `ts` / `evidence` 四個欄位（readiness-scan.js:1670）。
+// **沒有** baselineDays / baselineScans —— 那兩個只出現在 harness 的假資料裡。
+// 所以這裡不印它們：印一個 store 沒有的東西就是下一個假讀數。
+// ═════════════════════════════════════════════════
+function labBaselineLine(){
+  let r = null;
+  try { r = JSON.parse(localStorage.getItem(READING_STORE_KEY_V6)); } catch(e){ r = null; }
+  if(!r || typeof r.ts !== 'number') return '尚未校準<br>做一次掃描開始';
+  const mins = Math.max(0, Math.round((Date.now() - r.ts) / 60000));
+  const ago = mins < 1 ? '剛剛' : mins < 60 ? mins + ' 分鐘前' : Math.round(mins/60) + ' 小時前';
+  const label = (BAND_LABEL_V6 && BAND_LABEL_V6[r.band]) || r.band || '—';
+  return '最近讀數 · ' + label + '<br>' + ago + ' 校準';
+}
+/**
+ * 校準台。三個帶位通道 = `summarizeDisciplineByBand()` 的三列，
+ * 光來自資料本身（帶位色填滿），不是來自 chrome。
+ *
+ * 🔴 三條誠實規則直接照 domain 那支的 doc comment：
+ *   ① 沒有讀數的紀錄排除，**而且排除幾筆要印出來**
+ *   ② 樣本 < MIN_BAND_SAMPLES_FOR_RATE → 印「資料累積中」，不印百分比
+ *   ③ 一筆可歸屬的都沒有 → 空通道 + 一句邀請，不是一張假圖表
+ */
+function renderCalibrationBench(){
+  const chart = document.getElementById('calChart');
+  const foot = document.getElementById('calFoot');
+  if(!chart || !foot) return;
+  const OUT = window.TENKI_OUTCOME;
+  const sum = OUT.disciplineByBand(OUT.load());
+  const LABEL = { clear:'Clear', neutral:'Neutral', strain:'Strain' };
+
+  chart.innerHTML = sum.stats.map(st => {
+    const thin = st.rate === null;
+    // 樣本不足畫斜線紋、不畫矮長條 —— 矮長條會被讀成「這個帶位表現差」，
+    // 而它真正的意思是「還不夠說」。那是兩件完全不同的事。
+    const h = thin ? 0 : Math.round(st.rate * 100);
+    const rate = thin
+      ? '<div class="cal-rate pending">資料累積中</div>'
+      : '<div class="cal-rate">' + h + '%</div>';
+    const n = st.total === 0 ? '尚無紀錄' : st.disciplined + ' / ' + st.total + ' 筆';
+    return '<div class="cal-col ' + st.band + (thin ? ' thin' : '') + '">'
+      // ⚠️ 樣本不足時**不下 inline height** —— inline 會蓋掉 `.thin .cal-bar`
+      // 的斜線紋高度，斜紋就整條消失（第一版就是這樣，Strain 那欄空白）。
+      + '<div class="cal-track"><div class="cal-bar"' + (thin ? '' : ' style="height:' + h + '%"') + '></div></div>'
+      + rate
+      + '<div class="cal-band">' + LABEL[st.band] + '</div>'
+      + '<div class="cal-n">' + n + '</div>'
+      + '</div>';
+  }).join('');
+
+  if(sum.total === 0){
+    foot.innerHTML = '<span class="cal-empty">還沒有決策紀錄。做完第一次收束，這裡就會開始長 ——'
+      + '它比對的是「你當下的狀態」與「你有沒有跟著自己的流程走」。</span>';
+    return;
+  }
+  // 🔴 排除了幾筆一定要講。只印可歸屬的那些，等於用一半的資料宣稱一個全貌。
+  let line = '<b>' + sum.total + '</b> 筆紀錄 · <b>' + sum.attributed + '</b> 筆有讀數可歸屬';
+  // 🔴 「沒有讀數」與「讀數已過期」是兩件事，分開講。合成一句就是把「不知道」
+  //    講成「沒發生」—— 而且會讓「先掃一次」那句話對過期的人變成無效建議
+  //    （他掃過了，只是太久以前）。
+  if(sum.excludedNoReading > 0){
+    line += ' · <b>' + sum.excludedNoReading + '</b> 筆決策當下沒有讀數';
+  }
+  if(sum.excludedStale > 0){
+    line += ' · <b>' + sum.excludedStale + '</b> 筆決策當下的讀數已過期';
+  }
+  if(sum.excluded > 0){
+    line += '（不列入 —— 猜一個帶位會偽造這張圖本身）';
+  }
+  if(sum.attributed === 0){
+    line += '<br>目前沒有一筆帶得出帶位。<b>' + (sum.excludedStale > 0 ? '進決策前先掃一次' : '先掃一次再進決策')
+      + '</b>，這張圖才有東西可講。';
+  }
+  foot.innerHTML = line;
+}
+
+function renderLab(){
+  const sub = document.getElementById('labBaselineSub');
+  if(sub) sub.innerHTML = labBaselineLine();
+  renderCalibrationBench();
+}
+
 function labInfo(title, sub){
   const t = document.getElementById('labToast');
   document.getElementById('labToastTitle').textContent = title;
@@ -3816,12 +5385,21 @@ function exportOutcomesCsv(){
     labInfo('尚無決策紀錄可匯出', '完成幾次決策收束後再回來，這裡會匯出你的 CSV。');
     return;
   }
-  const cols = ['ts','datetime','symbol','templateId','outcomeTag','reachedReadiness','durationSec','contextTag'];
+  // marks 一直寫進 store 卻從來沒進 CSV —— 順手補上這個既有缺口。
+  // 節點攤平成兩欄：markLabels（做了什麼）與 markBands（當下是什麼狀態），
+  // 用 | 串接、對齊同一個順序。csvEscape 已經處理引號/逗號/換行。
+  // 🔴 沒讀數的節點寫 'no_reading'，不留空也不填預設帶位 —— 空白會被下游讀成
+  // 「漏了」，而填一個帶位就是造假。
+  const cols = ['ts','datetime','symbol','templateId','outcomeTag','reachedReadiness','durationSec','contextTag','marks','markLabels','markBands'];
   const lines = [cols.join(',')];
   rows.forEach(r => {
+    const evs = Array.isArray(r.events) ? r.events : [];
     lines.push([
       r.ts, r.ts ? new Date(r.ts).toISOString() : '', r.symbol, r.templateId,
-      r.outcomeTag, r.reachedReadiness, r.durationSec, r.contextTag
+      r.outcomeTag, r.reachedReadiness, r.durationSec, r.contextTag,
+      r.marks == null ? '' : r.marks,
+      evs.map(e => e.label || '').join('|'),
+      evs.map(e => e.band || 'no_reading').join('|')
     ].map(csvEscape).join(','));
   });
   const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
@@ -3833,10 +5411,268 @@ function exportOutcomesCsv(){
   labInfo('已匯出 ' + rows.length + ' 筆決策紀錄', 'CSV 已開始下載。');
 }
 
+/**
+ * 節點的狀態章。鏡射 domain/src/contracts/readiness-reading.ts 的
+ * AttachedReadinessReading（那個型別宣告很久了，一直沒有人用 —— 這是第一次）。
+ *
+ * ⚠️ 讀數 store 只存**一筆**、沒有歷史，所以同一次決策的所有節點共用同一份讀數。
+ * 誠實的 per-node 事實是「那一刻這份讀數幾分鐘大」，不是重新量到的值 ——
+ * 這正是 staleAtDecision 的 carry-forward 語意。
+ *
+ * 🔴 沒有讀數就四個欄位都留 null：不回填預設帶位、不猜、更不生 0-100 分。
+ * readiness 契約上就沒有分數（readiness-reading.ts 明寫 never a fabricated
+ * 0-100 score），而 summarizeDisciplineByBand() 的註解也已經先講死了：
+ * 沒有讀數的紀錄要排除，猜一個等於偽造這個統計存在的意義本身。
+ */
+function stampReadingV6(){
+  const r = loadReadingV6();
+  if(!r) return { band: null, confidence: null, readingTs: null, staleAtDecision: null };
+  return {
+    band: r.band,
+    confidence: r.confidence || null,
+    readingTs: r.ts,
+    staleAtDecision: Date.now() - r.ts >= READING_FRESHNESS_MS_V6,
+  };
+}
+
+/**
+ * 進行中的節點軌。.fdcb-prog 是**全 app 唯一**已經 position:relative
+ * 且內含絕對定位子元素（.fdcb-fill）的水平軌，節點直接掛上去，不新增版面。
+ *
+ * 動效走 docs/MOTION-DIRECTION.md §4 的 **Lock 鎖定** 語彙（snap + 輝光）、
+ * §3 的 --ease-secure 與 150ms 微反饋。不發明新 token、不新增 duration 值。
+ * prefers-reduced-motion 由 CSS 直接 snap 到終態（§2 鐵律 3）。
+ */
+function renderLiveNodes(){
+  const prog = document.querySelector('.fdcb-prog');
+  if(!prog) return;
+  prog.querySelectorAll('.tp-tick').forEach(n => n.remove());
+  if(!sess || !Array.isArray(sess.events)) return;
+  const tmpl = TEMPLATES[currentTmpl];
+  const dur = tmpl && tmpl.durationSec ? tmpl.durationSec : 0;
+  if(dur <= 0) return;
+  // 🔴 同一秒內的節點會疊在同一個位置上 —— founder 實走就是「一下子從 1 按到 5」，
+  // 五顆全部落在 t=1。直接畫五顆等於軌上只看得到一顆，而右邊的計數寫 5：
+  // 同一個畫面上兩個地方講不一樣的事。
+  // 併成一顆、用大小表示數量 —— 沿用 Timeline strip 已經在用的公式
+  // （renderTimeline: r = 3 + min(marks,6) * 0.7），不另創一套視覺語言。
+  const groups = [];
+  sess.events.forEach((ev) => {
+    const last = groups[groups.length - 1];
+    if(last && last.t === ev.t && last.band === ev.band) last.n += 1;
+    else groups.push({ t: ev.t, band: ev.band, n: 1 });
+  });
+  groups.forEach((g, i) => {
+    const tick = document.createElement('div');
+    tick.className = 'tp-tick' + (g.band ? ' band-' + g.band : ' no-reading');
+    tick.style.left = Math.min(g.t / dur * 100, 100) + '%';
+    const size = 5 + Math.min(g.n - 1, 6) * 0.7;
+    tick.style.width = size + 'px';
+    tick.style.height = size + 'px';
+    if(g.n > 1) tick.title = g.n + ' 個標記';
+    // 只有最後一顆帶落地動效 —— 其餘是既成事實，重繪不該讓整排再閃一次。
+    if(i === groups.length - 1) tick.classList.add('landing');
+    prog.appendChild(tick);
+  });
+}
+
+// ── 自訂標籤：沿用自訂模板那條五段管線（load / save / 前綴 id / merge / render）──
+// templateId === null 代表「所有模板都出現」。
+const TP_LABEL_KEY = 'tenki.v6.tplabels.v1';
+function loadCustomTpLabels(){
+  try { const raw = JSON.parse(localStorage.getItem(TP_LABEL_KEY)); return Array.isArray(raw) ? raw : []; }
+  catch(e){ return []; }
+}
+function saveCustomTpLabels(list){ localStorage.setItem(TP_LABEL_KEY, JSON.stringify(list)); }
+
+// 🔴 自訂標籤是**使用者輸入的 user-facing copy** —— 這是本功能開的最大 compliance 面。
+// 鏡射 packages/engine/src/compliance/safe-copy.ts 的 PROHIBITED_VOCABULARY_ZH
+// 與英文清單裡會真的出現在標籤上的那幾個（preview 是 vanilla JS，不能 import）。
+// ⚠️ 兩邊要同步：改那支就要改這裡（同 readiness 門檻的四處鏡射慣例，PLAYBOOK §6）。
+const TP_BANNED_ZH = [
+  '勝率', '買入', '賣出', '買進', '賣壓', '獲利', '虧損',
+  '停損', '停利', '追價', '進場訊號', '出場訊號', '交易建議',
+  '投資建議', '保證報酬', '保證獲利', '快進快出', '現在進場', '立即下單',
+];
+const TP_BANNED_EN = ['trade', 'buy', 'sell', 'profit', 'win rate', 'setup', 'market'];
+/** 回傳踩到的禁用詞（空陣列 = 乾淨）。 */
+function findBannedTpTerms(text){
+  const lower = String(text).toLowerCase();
+  return TP_BANNED_ZH.filter(t => text.includes(t))
+    .concat(TP_BANNED_EN.filter(t => lower.includes(t)));
+}
+
+// ── 標記標籤編輯器（沿用 .te-* 既有樣式與自訂模板的 create-or-update-by-id 慣例）──
+let tplEditId = null;
+function genTpLabelId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function renderTplScope(){
+  const sel = document.getElementById('tplScope');
+  if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '';
+  const all = document.createElement('option');
+  all.value = ''; all.textContent = '所有模板';
+  sel.appendChild(all);
+  Object.keys(TEMPLATES).forEach(k => {
+    const o = document.createElement('option');
+    o.value = k; o.textContent = TEMPLATES[k].name;
+    sel.appendChild(o);
+  });
+  sel.value = cur || '';
+}
+
+function renderTplList(){
+  const wrap = document.getElementById('tplList');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  loadCustomTpLabels().forEach(x => {
+    const row = document.createElement('div');
+    row.className = 'te-list-item';
+    row.onclick = function(){ loadTpLabelIntoForm(x); };
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = x.text;
+    const scope = document.createElement('div'); scope.className = 'dur';
+    scope.textContent = x.templateId && TEMPLATES[x.templateId] ? TEMPLATES[x.templateId].name : '所有模板';
+    const edit = document.createElement('div'); edit.className = 'edit'; edit.textContent = '編輯';
+    row.appendChild(nm); row.appendChild(scope); row.appendChild(edit);
+    wrap.appendChild(row);
+  });
+}
+
+function resetTpLabelForm(){
+  tplEditId = null;
+  document.getElementById('tplText').value = '';
+  renderTplScope();
+  document.getElementById('tplScope').value = '';
+  document.getElementById('tplDelete').hidden = true;
+  document.getElementById('tplSave').textContent = '儲存標籤';
+  document.getElementById('tplWarn').hidden = true;
+}
+
+function loadTpLabelIntoForm(x){
+  tplEditId = x.id;
+  document.getElementById('tplText').value = x.text;
+  renderTplScope();
+  document.getElementById('tplScope').value = x.templateId || '';
+  document.getElementById('tplDelete').hidden = false;
+  document.getElementById('tplSave').textContent = '更新標籤';
+  document.getElementById('tplWarn').hidden = true;
+}
+
+function openTpLabelEditor(){
+  resetTpLabelForm(); renderTplList();
+  document.getElementById('tpLabelEditor').classList.add('open');
+}
+function closeTpLabelEditor(){ document.getElementById('tpLabelEditor').classList.remove('open'); }
+
+function saveTpLabel(){
+  const warn = document.getElementById('tplWarn');
+  const text = document.getElementById('tplText').value.trim();
+  const scope = document.getElementById('tplScope').value || null;
+  if(!text){ warn.textContent = '請先填標籤文字。'; warn.hidden = false; return; }
+  const banned = findBannedTpTerms(text);
+  if(banned.length){
+    // 誠實地講清楚擋在哪 —— 不是預設值靜靜吃掉使用者輸入。
+    warn.textContent = '「' + banned[0] + '」不能用在標籤上。標記記的是你當下的決策過程，不是金融動作。';
+    warn.hidden = false;
+    return;
+  }
+  const list = loadCustomTpLabels();
+  if(tplEditId){
+    const i = list.findIndex(x => x.id === tplEditId);
+    if(i >= 0) list[i] = { id: tplEditId, text, templateId: scope };
+  } else {
+    list.push({ id: genTpLabelId(), text, templateId: scope });
+  }
+  saveCustomTpLabels(list); resetTpLabelForm(); renderTplList();
+}
+
+function deleteTpLabel(){
+  if(!tplEditId) return;
+  saveCustomTpLabels(loadCustomTpLabels().filter(x => x.id !== tplEditId));
+  resetTpLabelForm(); renderTplList();
+}
+
+/** 這個模板當下可選的標籤 = 內建（跟著模板走）+ 適用的自訂。 */
+function tpPresetsFor(tmplId){
+  const base = TP_PRESETS[tmplId] || TP_PRESETS_DEFAULT;
+  const custom = loadCustomTpLabels()
+    .filter(x => !x.templateId || x.templateId === tmplId)
+    .map(x => ({ id: 'CUSTOM_' + x.id, text: x.text }));
+  return base.concat(custom);
+}
+
+// 快選自己收走的時間。⚠️ 不是「選完才算數」——
+// 沒選就是一顆合法的純時間點，快路徑不因為多了這一列而變慢。
+const TP_PICKER_MS = 4200;
+let tpPickerTimer = null;
+
+function closeTpPicker(){
+  const el = document.getElementById('tpPicker');
+  if(el) el.classList.remove('open');
+  if(tpPickerTimer){ clearTimeout(tpPickerTimer); tpPickerTimer = null; }
+}
+
+function openTpPicker(){
+  const el = document.getElementById('tpPicker');
+  if(!el || !pendingTp) return;
+  const list = tpPresetsFor(currentTmpl);
+  el.innerHTML = '';
+  list.forEach(opt => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'tp-chip' + (pendingTp.labelId === opt.id ? ' picked' : '');
+    chip.textContent = opt.text;
+    chip.onclick = function(){ pickTpLabel(opt.id, opt.text); };
+    el.appendChild(chip);
+  });
+  el.scrollLeft = 0;
+  el.classList.add('open');
+  if(tpPickerTimer) clearTimeout(tpPickerTimer);
+  tpPickerTimer = setTimeout(closeTpPicker, TP_PICKER_MS);
+}
+
+/** 回頭幫剛剛那顆節點補上標籤。沒有這一步，那顆節點依然成立。 */
+function pickTpLabel(id, text){
+  if(!pendingTp) { closeTpPicker(); return; }
+  pendingTp.labelId = id;
+  pendingTp.label = text;
+  syncActiveDecision();   // 標籤是後補的，不同步的話接回來只會剩一顆純時間點
+  markFlashUntil = Date.now() + MARK_FLASH_MS;
+  document.getElementById('fdcbSeg').textContent = '已標記 · ' + text;
+  renderLiveNodes();
+  closeTpPicker();
+}
+
+/** 剛落地、還沒補標籤的那一顆（快選會回頭改它）。 */
+let pendingTp = null;
+
 function logEvent(){
-  if(STATES[stateIdx] !== 'running' || !sess) return; // marks 只在跑決策時記
-  sess.marks += 1;
+  // 這顆鍵在 idle 根本不出現（CSS `.fdcb.state-running .fdcb-mark{display:flex}`），
+  // 所以這道 guard 現在只是防呆 —— 舊版是「鍵一直在，按下去靜靜地什麼都不做」。
+  if(STATES[stateIdx] !== 'running' || !sess) return;
+  const tmpl = TEMPLATES[currentTmpl];
+  // 🔴 點一下**先落地**，標籤後補（founder 2026-08-14 拍板）。
+  // 「標記很好按，一下子從 1 按到 5」是這一版唯一被稱讚的地方 ——
+  // 加上選標籤之後不得把那條快路徑弄慢。不選標籤的節點是合法的純時間點。
+  const node = Object.assign({
+    t: elapsed,
+    type: 'mark',                              // 六個凍結成員之一，不新增
+    phase: tmpl ? phaseFor(elapsed, tmpl) : null,
+    labelId: null,
+    label: null,
+  }, stampReadingV6());
+  sess.events.push(node);
+  sess.marks = sess.events.length;             // marks 一律由節點數導出，不再各算各的
+  syncActiveDecision();                        // 標記要活得過「App 被清出記憶體」
+  pendingTp = node;
+  markFlashUntil = Date.now() + MARK_FLASH_MS;
   renderMarks();
+  renderLiveNodes();
+  // 段標籤借用 1.6 秒回報「剛剛那一下記在第幾分幾秒」。
+  // 舊版按下去只有一顆點亮起來，沒有任何一個字告訴你那代表什麼。
+  document.getElementById('fdcbSeg').textContent = '已標記 ' + sess.marks + ' · ' + fmtClock(elapsed);
+  openTpPicker();
 }
 
 // ═════════════════════════════════════════════════
@@ -3954,16 +5790,22 @@ function renderHeroReading(){
   const edgeElOn = document.querySelector('.tl-edge');
   if(edgeElOn) edgeElOn.classList.remove('no-reading');
   const ctaOn = document.getElementById('edgeScanCta');
-  if(ctaOn) ctaOn.hidden = true;
   // 帶位上了主位之後，這一行改報**新鮮度** —— 再說一次「Clear」是廢話，
   // 「什麼時候量的」才是使用者接著會問的問題。
-  zoneEl.textContent = stale
-    ? '讀數已過期 · 重新掃一次'
-    : agoTextV6(r.ts, Date.now()) + ' 掃描';
+  // 🔴 過期時**只留事實，動作交給環下面的 CTA**。
+  // 舊值是「讀數已過期 · 重新掃一次」—— 那句最長、會斷成兩行，而第二行掛在圓的
+  // 下半部，圓在那裡已經收窄：實測超出圓 12.5~13.7px（founder 2026-08-28 實走截圖）。
+  // ⚠️ 當時的斷言拿**方框**去比所以全綠 —— 環心是圓，方框斷言等於沒有斷言。
+  // 「重新掃一次」本來就是**動作**，而第三輪已經拍板「圓心放量到什麼、動作放環下面」，
+  // 而且要用的零件早就在了：#edgeScanCta 就住在環下面、nowrap、已經有斷言守著。
+  zoneEl.textContent = stale ? '讀數已過期' : agoTextV6(r.ts, Date.now()) + ' 掃描';
   zoneEl.style.color = '';
+  // 過期 → 該做的是重掃，不是提升精度；而且兩顆膠囊疊起來會把環往上擠。
+  // 所以這兩顆是互斥的：過期給 CTA、新鮮給信心。
+  if(ctaOn) ctaOn.hidden = !stale;
   if(confEl){
-    confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + ' · 提升 ›';
-    confEl.hidden = false;
+    confEl.textContent = CONFIDENCE_LABEL_V6[r.confidence] + '　·　提升精度 ›';
+    confEl.hidden = stale;
   }
   return true;
 }
@@ -4031,7 +5873,9 @@ function selectSource(el){
   el.classList.add('active');
 }
 
-renderFdcb();
+// 開機走 setState 而不是直接 renderFdcb()：高度／保留區與 state 是同一條路徑，
+// 少走一段就會出現「畫面是 idle、保留區還按 58px 算」這種只差一次載入的偏差。
+setState('idle');
 
 // ═════════════════════════════════════════════════
 // Session 頁 — 由統一決策 store 驅動（tenki.alert.outcomes.v1）
@@ -4069,9 +5913,27 @@ function outcomeMeta(rec){
   // v6 的 TEMPLATES 用自己的一套 key —— **兩套從來沒對上**，於是那筆決策
   // 失去方法論身分，fallback 成一顆灰色心跳圖示加上 symbol。翻譯放共用模組。
   const t = TEMPLATES[window.TENKI_OUTCOME.toV6TemplateId(rec.templateId)];
-  if(t) return { name:t.name, icon:t.icon, color:t.color, segLabel:t.segLabel };
-  return { name: rec.symbol || '決策', icon:'heart', color:'#8E8E93', segLabel:'Readiness' };
+  const meta = t
+    ? { name:t.name, icon:t.icon, color:t.color, segLabel:t.segLabel }
+    // ⚠️ fallback 色原本寫死 `#8E8E93` —— 那是 **iOS 系統灰**，
+    //    正是 2026-09-08 把 `--txt-sec` 退場時認定「不屬於中性階家族」的那個值。
+    //    退了 token 卻留一份寫死的複本，等於沒退。改指中性階。
+    : { name: rec.symbol || '決策', icon:'heart', color:'var(--n-500)', segLabel:'Readiness' };
+  // 🔴 標的另外放一格，**不併進 name** —— 三個面共用這個 meta，其中 Timeline
+  // 那一列是窄四欄，塞不下（這個 repo 已經為溢出付過兩次學費）。由各面自己決定用不用。
+  // ⚠️ 閘門必須是 `source === 'alert'`：自己起跑的決策，`saveV6Outcome` 往
+  // `symbol` 寫的是**模板名**，不設閘門就會印出「Health Stress · Health Stress」。
+  // ⚠️ 舊紀錄可能沒有 source（第五輪之前）→ 條件不成立就維持現狀，不猜。
+  meta.symbol = (rec.source === 'alert' && typeof rec.symbol === 'string' && rec.symbol)
+    ? rec.symbol : null;
+  return meta;
 }
+/**
+ * 列名／標題：有標的就說得出「哪一檔的哪一種決策」，沒有就只說流程。
+ * @param {{name:string, symbol:?string}} m - outcomeMeta 的結果。
+ * @returns {string}
+ */
+function outcomeTitle(m){ return m.symbol ? m.symbol + ' · ' + m.name : m.name; }
 /**
  * 「有沒有進入核心段」這一格。
  *
@@ -4130,7 +5992,7 @@ function renderSessionScreen(){
     const readiness = readinessCellV6(r, m);
     return '<div class="session-item sess-enter" style="animation-delay:' + (Math.min(i, 8) * 45) + 'ms" data-ts="' + r.ts + '" onclick="openSessionDetail(' + r.ts + ')">' +
       '<div class="tmpl-ic" style="color:' + m.color + '">' + (ICON_SVG[m.icon] || ICON_SVG.heart) + '</div>' +
-      '<div class="info"><div class="nm">' + escHtml(m.name) + '</div>' +
+      '<div class="info"><div class="nm">' + escHtml(outcomeTitle(m)) + '</div>' +
       '<div class="meta"><span>' + fmtTimeOfDay(r.ts) + '</span><span class="sep">·</span>' +
       '<span>' + escHtml(readiness) + '</span><span class="sep">·</span><span>' + fmtDur(r.durationSec||0) + '</span></div></div>' +
       '<div class="result ' + badge.cls + '">' + badge.text + '</div>' +
@@ -4145,7 +6007,7 @@ function renderSessionScreen(){
 // ═════════════════════════════════════════════════
 const outcomeDotV6 = (tag) => {
   const v = window.TENKI_OUTCOME.outcomeView(tag);
-  return v ? { cls: v.dot, fill: v.fill } : { cls: 'exit', fill: 'var(--txt-sec)' };
+  return v ? { cls: v.dot, fill: v.fill } : { cls: 'exit', fill: 'var(--n-400)' };
 };
 
 function renderTimeline(){
@@ -4206,6 +6068,83 @@ function buildDetailInsight(rec, meta){
   return '這次進入 <b>' + escHtml(meta.segLabel) + '</b> 段後才收束，跟著流程完成。';
 }
 
+/** 節點的狀態章顯示成一句話。沒讀數就直說沒讀數 —— 不留空、也不編。 */
+function tpStateTextV6(ev){
+  if(!ev.band) return '無讀數';
+  const band = BAND_LABEL_V6[ev.band] || ev.band;
+  const conf = CONFIDENCE_LABEL_V6[ev.confidence] || '';
+  const age = ev.readingTs ? agoTextV6(ev.readingTs, Date.now()) : '';
+  return [band, conf, age].filter(Boolean).join(' · ');
+}
+
+/**
+ * 決策軌跡 —— founder 畫的 `——事件節點——事件節點——`。
+ * 上半掛在既有的三段軌上（位置＝t/durationSec），下半是逐列清單。
+ *
+ * 🔴 舊紀錄只有 marks、沒有 events：顯示「N 個標記（沒有逐一節點）」，
+ * **不得**顯示 0、也不得出現任何否定字樣（PLAYBOOK：缺欄位就不准說否定）。
+ */
+function renderTurningPoints(rec, dur){
+  const track = document.querySelector('.sd-seg-track');
+  const list = document.getElementById('sdTpList');
+  const countEl = document.getElementById('sdTpCount');
+  if(!track || !list || !countEl) return;
+  track.querySelectorAll('.sd-tp-node').forEach(n => n.remove());
+  list.innerHTML = '';
+
+  const events = Array.isArray(rec.events) ? rec.events : null;
+  const marks = rec.marks || 0;
+
+  if(!events || events.length === 0){
+    countEl.textContent = marks > 0 ? marks + ' 個標記' : '—';
+    const p = document.createElement('div');
+    p.className = 'sd-tp-empty';
+    p.textContent = marks > 0
+      ? '這筆只記了標記數，沒有逐一的節點 —— 它是在節點功能之前跑的。'
+      : '這次沒有標記。決策進行中按「標記」，這裡就會畫出你的轉折點。';
+    list.appendChild(p);
+    return;
+  }
+
+  countEl.textContent = events.length + ' 個節點';
+
+  if(dur > 0){
+    events.forEach(ev => {
+      const node = document.createElement('div');
+      node.className = 'sd-tp-node' + (ev.band ? ' band-' + ev.band : ' no-reading');
+      node.style.left = Math.min(Math.max(ev.t / dur * 100, 0), 100) + '%';
+      node.title = (ev.label || '標記') + ' · ' + fmtClock(ev.t);
+      track.appendChild(node);
+    });
+  }
+
+  events.forEach(ev => {
+    const row = document.createElement('div');
+    row.className = 'sd-evt';
+    const time = document.createElement('div');
+    time.className = 'time'; time.textContent = fmtClock(ev.t);
+    const dot = document.createElement('div');
+    dot.className = 'dot ' + (ev.band ? 'band-' + ev.band : 'no-reading');
+    const type = document.createElement('div');
+    type.className = 'type';
+    const lbl = document.createElement('div');
+    lbl.className = 'tp-label';
+    // 沒選標籤的節點是合法的 —— 它就是一個純時間點，照實說。
+    lbl.appendChild(document.createTextNode(ev.label || '標記'));
+    if(ev.phase){
+      const ph = document.createElement('span');
+      ph.className = 'phase'; ph.textContent = ev.phase;
+      lbl.appendChild(ph);
+    }
+    const state = document.createElement('div');
+    state.className = 'state' + (ev.band ? '' : ' none');
+    state.textContent = tpStateTextV6(ev);
+    type.appendChild(lbl); type.appendChild(state);
+    row.appendChild(time); row.appendChild(dot); row.appendChild(type);
+    list.appendChild(row);
+  });
+}
+
 function openSessionDetail(ts){
   const rec = loadOutcomes().find(r => r.ts === ts);
   if(!rec) return;
@@ -4216,7 +6155,7 @@ function openSessionDetail(ts){
   const b = segBounds(dur);
   const marks = rec.marks || 0;
 
-  document.getElementById('sdTitle').textContent = m.name;
+  document.getElementById('sdTitle').textContent = outcomeTitle(m);
   document.getElementById('sdSubtitle').textContent = fmtTimeOfDay(rec.ts) + ' · ' + fmtDur(dur) + ' 用時';
   const resultEl = document.getElementById('sdResult');
   resultEl.textContent = badge.text;
@@ -4228,7 +6167,7 @@ function openSessionDetail(ts){
   icEl.innerHTML = ICON_SVG[m.icon] || ICON_SVG.heart;
   document.getElementById('sdOutcomeHeadline').textContent = outcomeTextV6(rec.outcomeTag);
   document.getElementById('sdOutcomeSub').textContent =
-    readinessCellV6(rec, m) + ' · ' + marks + ' marks';
+    readinessCellV6(rec, m) + ' · ' + marks + ' 個標記';
 
   // Segment track（三段由 durationSec 推導）
   document.getElementById('sdSegDur').textContent = fmtDur(dur);
@@ -4237,12 +6176,24 @@ function openSessionDetail(ts){
   document.getElementById('sdSegTimes').innerHTML =
     '<span>0:00</span><span>' + fmtDur(b.rs) + '</span><span>' + fmtDur(b.re) + '</span><span>' + fmtDur(dur) + '</span>';
 
+  // 決策軌跡：軌上的節點 + 底下的逐列清單
+  renderTurningPoints(rec, dur);
+
   // Facts
   document.getElementById('sdFactDur').textContent = fmtDur(dur);
   document.getElementById('sdFactReadiness').textContent =
     (rec.reachedReadiness === undefined || rec.reachedReadiness === null)
       ? '—' : (rec.reachedReadiness ? '已進入' : '未進入');
   document.getElementById('sdFactMarks').textContent = String(marks);
+  // 🔴 舊紀錄沒有 awayCount → 整格不顯示。不得印「0 次」——
+  // 那是把「不知道」講成「沒發生」（PLAYBOOK：缺欄位就不准說否定）。
+  const awayCell = document.getElementById('sdFactAwayCell');
+  if(typeof rec.awayCount === 'number'){
+    awayCell.hidden = false;
+    document.getElementById('sdFactAway').textContent = rec.awayCount + ' 次';
+  } else {
+    awayCell.hidden = true;
+  }
 
   document.getElementById('sdInsight').innerHTML = buildDetailInsight(rec, m);
 
@@ -4727,6 +6678,8 @@ function closeSessionDetail(){
     <script src="/preview/blink-cadence.js?v=blink2"></script>
     <!-- 正典 Soul Scan 模組：Scan tab 與 /decision-alert/ 共用同一支，
          同樣用絕對路徑（本頁同時掛在 /v3/ 與 /preview/v6/）。 -->
+    <!-- 讀數歷史：必須排在 readiness-scan.js **之前** —— 它的 saveReading 會呼叫 -->
+    <script src="/preview/readiness-history.js?v=rh1"></script>
     <script src="/preview/readiness-scan.js?v=rs20"></script>
     <!-- Stardust Scan Takeover logic script -->
     <script src="stardust-scan-takeover.js?v=gyro_v6"></script>
@@ -4777,7 +6730,8 @@ function closeSessionDetail(){
       .vitals-demo-note b{font-weight:600;color:rgba(255,255,255,0.62);}
       .snap-dots{display:flex;justify-content:center;gap:8px;margin:6px 0 0;}
       .snap-dots .dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.22);transition:all .3s var(--ease-calm);}
-      .snap-dots .dot.active{width:22px;border-radius:4px;background:var(--primary);box-shadow:0 0 10px rgba(0,180,216,.6);}
+      /* 輪播圓點跟「哪一個模板在跑」完全無關 —— 而它的光暈本來就寫死青。 */
+      .snap-dots .dot.active{width:22px;border-radius:4px;background:var(--cyan-core);box-shadow:0 0 10px rgba(0,180,216,.6);}
       /* first-visit swipe coach hint — glass chip + outward-drifting chevrons, shown once.
          FLOATING OVERLAY (position:absolute, JS sets top from the track geometry): out of the
          .snap flex flow so it adds no height and can't be clipped by .snap's overflow:hidden +
@@ -4805,7 +6759,10 @@ function closeSessionDetail(){
       /* fingertip swipe gesture: a glowing touch-dot glides across a short lane, comet trailing behind it */
       .snap-hint .sh-gesture{position:relative;width:34px;height:12px;flex:none;}
       .snap-hint .sh-dot{position:absolute;top:50%;left:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;
-        border-radius:50%;background:radial-gradient(circle at 38% 35%, #d8f7ff, var(--primary) 72%);
+        /* ⚠️ 這顆點也曾經吃 var(--primary) —— 藏在 radial-gradient 裡，
+           所以要把 backgroundImage 加進比對才看得到它。膠囊講的是「可以滑」，
+           跟哪個模板在跑無關。 */
+        border-radius:50%;background:radial-gradient(circle at 38% 35%, #d8f7ff, var(--cyan-core) 72%);
         box-shadow:0 0 8px rgba(0,180,216,.85), 0 0 2px rgba(255,255,255,.9);
         animation:shSwipe 2s var(--ease-breath) infinite;}
       .snap-hint .sh-dot::before{content:'';position:absolute;top:50%;left:100%;width:16px;height:5px;margin-top:-2.5px;
@@ -4828,12 +6785,17 @@ function closeSessionDetail(){
       .ans-card .ans-waves{display:flex;flex-direction:column;gap:8px;margin:2px 0 6px;flex:none;}
       .ans-wave-row{display:flex;align-items:center;gap:10px;}
       .ans-lbl{font-size:12px;font-weight:600;width:84px;flex:none;letter-spacing:.02em;}
-      .ans-lbl.sns{color:var(--warn);}
-      .ans-lbl.pns{color:var(--good);}
+      /* 🔴 舊值是 --warn（＝ --warning）與 --good（＝ --success）—— 兩個都借錯了主人：
+         副交感不是「跟著流程完成」，交感也不是「警告」。而且 --warning 與可動層琥珀
+         綠色盲下 ΔE 0.6，兩者同框就無法分辨 —— 這一屏正好同框（守門抓到的）。
+         改用**已經有主人的帶位色**：交感 ＝ 喚起 → --strain-400，副交感 ＝ 靜息 → --clear-400。
+         ⚠️ 這是語意判斷，不是機械替換；不同意就改這兩行。 */
+      .ans-lbl.sns{color:var(--strain-400);}
+      .ans-lbl.pns{color:var(--clear-400);}
       .ans-wave{flex:1;height:26px;}
       .ans-v{font-size:17px;font-weight:600;width:46px;text-align:right;font-variant-numeric:tabular-nums;}
-      .ans-v.sns{color:var(--warn);}
-      .ans-v.pns{color:var(--good);}
+      /* 數字是量測值 → 不上色（分類已經由左邊那一欄的字＋顏色講完了）。 */
+      .ans-v.sns, .ans-v.pns{color:var(--n-100);}
       /* ── Nervous-system state map (The Yes Brain three-zone model) ──
          a continuous spectrum (NOT a score/progress bar): Blue shutdown · Green regulated · Red
          hyperarousal. Green is widest (the ideal dwell zone). Soft, low-sat colours; the marker
@@ -4897,13 +6859,28 @@ function closeSessionDetail(){
          實測 390×700：hero 281 + coach 80 + track 190 + dots/note + gaps 超出
          可視高度 56px。這裡把輪播與 hero 收一收，讓首屏就放得下。
          量測方式見 PLAYBOOK：用 getBoundingClientRect + elementFromPoint 問瀏覽器。 */
-      @media (max-height:880px){
+      /* 🔴 條件必須跟 `.phone` 的高度規則對齊 —— 版面活在那個外框裡，不是活在視窗裡：
+             `.phone{height:min(100vh,100dvh,844px)}`
+         · 視窗 ≤880 → 外框＝視窗 → 走這裡（原本只有這條）
+         · 視窗 >880 **但寬 ≥421** → 外框被夾在 844，也要走這裡（**原本漏掉的就是這條**）
+         · 視窗 >880 **且寬 ≤420** → 外框真的那麼高（Pixel 412×915、iPhone XR 414×896）→ 維持大版
+         漏掉第二條的後果（實測 圓點下緣→底座上緣）：
+           iPhone 14 Plus 428×926 −20px／16 Pro Max 430×932 −22px／**桌機 1280×900 −11px**
+         → 輪播圓點整排被 FDCB 底座蓋住，而且**桌機預覽永遠在這個破掉的分支上**，
+           所以「我自己看起來沒事」從來不算證據。修好後三者都是 +87px。
+         ⚠️ 不要改用 `max-height:1000px` 這種魔術數字：它只是剛好蓋過今天量到的機型，
+            說不出「為什麼是這個數」。條件要跟它想守的那個盒子長一樣。
+         ⚠️ 下面 `max-height:680px` 那條不需要同樣處理 —— 視窗 ≤680 必然代表外框 ≤680。 */
+      @media (max-height:880px), (min-width:421px){
         /* 短視窗要騰出空間時，縮的是那顆巨環（佔畫面最大宗），不是資料卡 ——
            先前把輪播壓到 130px，圖表幾乎沒了還被 Swipe 提示蓋住，等於用一個
            問題換另一個問題。 */
         #today-screen .hero{min-height:26vh;}
         #today-screen .tl-edge{width:min(54vw,208px);height:min(54vw,208px);}
         .snap-track{height:168px;}
+        /* 軌道縮到 168 時，Energy 卡要自己讓出高度 —— 明寫圖表高度，
+           而不是讓 flex 去壓它（壓出來的結果會被 overflow:hidden 藏起來）。 */
+        .bb-page .bb-bars{height:38px;margin-bottom:10px;}
         /* 圓點是最後一個元素，原本 +10px 的餘裕在這帶不夠，會壓到底座上緣 */
         .snap{gap:8px;padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 26px);}
       }
@@ -4971,32 +6948,33 @@ function closeSessionDetail(){
         function show(){
           if(shown||done) return;
           if(cur!==0){ markSeen(); done=true; return; }   // already explored during the wait → don't nag
+          // 🔴 這顆膠囊**不放在資料卡裡** —— 卡片裡沒有它能站的地方。
+          // 歷史：原本掛在卡片下緣（#231 之後那裡是波形圖）→ founder 回報「遮擋圖表」
+          // → 改放「卡頭與圖表的中點」→ founder 回報「蓋住 HRV 數字」。
+          // 兩次都只是換一個受害者，因為 .vcard 由上到下是
+          //   .vhead / .vlabel / .metric-num / canvas 四層**連續**的內容，
+          // 卡片裡根本沒有空白帶。判準要從「挑一個座標」升級成
+          // **「這個容器有沒有它能站的地方，沒有就不要放」**。
+          //
+          // 真的空的地方只有一處：圓點下緣 → FDCB 底座上緣（那是 .snap 的保留區）。
+          // 座標一律現算，版面再變會自己跟上；量不到就不顯示 ——
+          // **不要退回比例猜測值**，猜出來的位置正是上面那兩次遮擋的來源。
+          var _dots=byId('snapDots'), _dock=byId('fdcb');
+          if(!_dots||!_dock){ markSeen(); done=true; return; }
+          var _db=_dots.getBoundingClientRect(), _kb=_dock.getBoundingClientRect();
+          var _band=_kb.top-_db.bottom, _clear=6;
+          // 放不下就不顯示膠囊 —— 但**還是要 tug 一次**：讓卡片自己滑一下才是真正
+          // 示範動作的部分，膠囊只是加註解。⚠️ 早一版把 tug 也一起 return 掉了，
+          // 而註解卻寫著「手勢還是教得會」—— 註解與行為對不上比沒有註解更糟。
+          // markSeen() 是必要的，否則每次開頁都會再跑一次 tug。
+          // 實測：只有 iPhone XR（414×896，帶寬 43px）會走到這裡。
+          if(_band < hint.offsetHeight + _clear*2){
+            if(!reduce) tug(30,440);
+            markSeen(); done=true; return;
+          }
           shown=true;
-          // 🔴 這顆提示**不准疊在卡片上** —— 卡片裡沒有一塊真正的空白。
-          // 這條規則是踩了兩次才寫下來的：
-          //   1. 舊值 (track.offsetTop+offsetHeight-22) 蓋住 HR/HRV 波形 → founder「遮擋圖表」
-          //   2. 改成「標題列 ↔ 圖表」的中點後，那個帶裡站著數字本身 → 蓋住 68 BPM / 49 ms
-          // 卡片是密的：標題列、單位標籤、大數字、波形，由上到下沒有空隙。
-          // 所以錨到**輪播圓點下方**那塊真空區 —— 提示仍緊貼著它在教的東西，
-          // 但不擋任何讀數。位置用實際元素量（版面再變也跟得上），量不到才退回比例值。
           var _snapTop=snap.getBoundingClientRect().top;
-          var _dots=byId('snapDots');
-          var _top;
-          if(_dots){
-            _top=Math.round(_dots.getBoundingClientRect().bottom-_snapTop+12);
-          } else {
-            _top=Math.round(track.offsetTop+track.offsetHeight+34);
-          }
-          // 圓點下方的空間有多少，取決於 FDCB dock 停在哪（各機型不同）。
-          // 夾住下緣，不夠時就往上收到緊貼 dock —— 上限是圓點正下方 4px，
-          // 再上去就會碰到它自己要教的東西。
-          var _dock=byId('fdcb');
-          if(_dock&&_dots){
-            var _maxTop=Math.round(_dock.getBoundingClientRect().top-_snapTop-hint.offsetHeight-12);
-            var _minTop=Math.round(_dots.getBoundingClientRect().bottom-_snapTop+4);
-            _top=Math.max(_minTop,Math.min(_top,_maxTop));
-          }
-          hint.style.top=_top+'px';
+          hint.style.top=Math.round((_db.bottom+_kb.top)/2-_snapTop-hint.offsetHeight/2)+'px';
           hint.classList.add('on');
           track.addEventListener('pointerdown',dismiss,{passive:true});
           track.addEventListener('touchstart',dismiss,{passive:true});

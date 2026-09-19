@@ -1,5 +1,8 @@
 # Garmin Body Battery — Real Integration Roadmap
 
+> 📍 穿戴資料整合的 canonical 路線在 **`docs/WEARABLE-INTEGRATION.md`**（Apple 健康 / Health Connect / BLE 胸帶為 P0）。
+> 本檔是其中 **Garmin 專屬**的那一段（Body Battery 等健康庫拿不到的指標），兩者不衝突。
+
 > Status: **planning**. The Energy · 體能 (Body Battery) card in `apps/preview/v6/` is a clearly-labelled
 > *shaped demo* today. This doc is the phased plan to make it real, and the prerequisites the founder must
 > start. Aligns with CLAUDE.md: **Local-first + Cloud-minimal, raw biometric never leaves the device.**
