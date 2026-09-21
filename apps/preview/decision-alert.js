@@ -291,9 +291,12 @@
     } catch (e) { return null; }
   }
 
-  function saveReading(reading) {
-    localStorage.setItem(READING_STORE_KEY, JSON.stringify(reading));
-  }
+  // ⚠️ 這裡**刻意沒有** saveReading。寫入「當下讀數」的只有一個地方：
+  //    `readiness-scan.js` 的 saveReading —— 因為那支同時會把讀數 append
+  //    進歷史（`readiness-history.js`）。在這裡另開一條寫入路徑，寫進去的
+  //    讀數就會繞過歷史，而那正是「護城河每天被抹掉」的那個 bug 的形狀。
+  //    `scripts/preview-drift.mjs` 有一條斷言鎖住這件事。
+  //    （本檔原本有一個沒有任何呼叫端的 saveReading，2026-09-16 刪除。）
 
   function isReadingFresh(reading, now) {
     if (!reading) return false;
@@ -357,6 +360,7 @@
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
     'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
     'resToggle', 'resChevron', 'resBody', 'resShowHistory', 'resShowRecap', 'resShowReflect',
+    'driftStatus',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ── 狀態卡 ──
@@ -2005,8 +2009,31 @@
     else { el.resBody.setAttribute('hidden', ''); el.resChevron.textContent = '▾'; }
   });
 
+  // ── 偏移預警入口的副標 ──
+  /**
+   * 這一列自己講出「你累積了多少」。
+   *
+   * 🔴 數字來自共用的 `readiness-history.js`（唯一來源），這裡不自己數 ——
+   *    不然就會變成「同一份資料，兩頁數字對不起來」的第四次（PLAYBOOK §6）。
+   * 🔴 沒有累積就說「尚未累積」，**不給 0 也不留空**：空白會讓人以為壞了，
+   *    0 會讓人以為它量過而結果是零。
+   * ⚠️ 模組沒載到就說沒載到 —— 不編一個看起來正常的數字頂替。
+   */
+  function renderDriftEntry() {
+    var history = window.TENKI_READINESS_HISTORY;
+    if (!history) {
+      el.driftStatus.textContent = '歷史模組沒載到';
+      return;
+    }
+    var summary = history.summary().summary;
+    el.driftStatus.textContent = summary.sampleCount === 0
+      ? '尚未累積'
+      : summary.sampleCount + ' 次掃描 · ' + summary.distinctDays + ' 天';
+  }
+
   renderSettingsInputs();
   renderResultSettingsInputs();
+  renderDriftEntry();
   renderState();
   refreshDiscipline();
   // 開頁就問「有沒有決策還在跑」—— 這一頁是 PWA 的 start_url，
