@@ -1006,7 +1006,11 @@ body{
   font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
   padding:4px 9px;border-radius:8px;
 }
-.result.win{background:rgba(52,199,89,0.15);color:var(--good)}
+/* 🔴 徽章的顏色跟 Timeline 的點講同一件事（紀律／不紀律），不能一個綠一個青 ——
+   同一個事實在兩個面上兩種顏色，其中一種一定是假的。綠退場見 §3.8。
+   ⚠️ 這裡綠是**有字的徽章**的底，本來就屬於「表面」而不是「宣稱」；
+   換掉的理由不是它違規，是它跟隔壁那一頁不一致。 */
+.result.win{background:rgba(0,180,216,0.15);color:var(--zone-clear)}
 .result.loss{background:rgba(255,69,58,0.12);color:#ff7e76}
 .result.breakeven{background:rgba(142,142,147,0.15);color:var(--n-400)}
 /* 🔴 `no_trade` ＝「不成立 · 我不做」。CLAUDE.md：**兩個出口都算紀律** ——
@@ -1080,7 +1084,10 @@ body{
 .tl-edge-chart .line{fill:none;stroke:var(--primary);stroke-width:1.6;filter:drop-shadow(0 0 3px rgba(0,180,216,0.4))}
 .tl-edge-chart .area{fill:url(#edgeTraceArea);opacity:0.6}
 .tl-edge-chart .axis{font-size:8px;fill:var(--n-500);font-family:inherit}
-.tl-edge-chart .evt-dot{fill:var(--good);filter:drop-shadow(0 0 4px var(--good))}
+/* ⚠️ `.tl-edge-chart` 這整組目前**沒有任何 markup 用到**（Edge Score 折線在
+   「契約上沒有分數」那一輪就拿掉了）。這裡不刪整個元件（那是另一次清理），
+   但把綠換掉 —— 留著一顆綠點，等於替未來復活它的人先埋好一條踩掉紅線的路。 */
+.tl-edge-chart .evt-dot{fill:var(--zone-clear);filter:drop-shadow(0 0 4px var(--zone-clear))}
 .tl-edge-chart .evt-dot.loss{fill:#ff7e76}
 
 /* 決策時間軸 strip */
@@ -1527,9 +1534,11 @@ body{
   font-size:8px;fill:var(--n-400);
   font-weight:600;letter-spacing:0.16em;text-transform:uppercase;
 }
+/* ⚠️ `.sd-trace` 這整組目前也沒有 markup 用到（節點改掛 `.sd-seg-track`）。
+   同上：不刪元件，但不留綠。 */
 .sd-trace .evt{
-  fill:#fff;stroke:var(--good);stroke-width:2;
-  filter:drop-shadow(0 0 6px var(--good));
+  fill:#fff;stroke:var(--zone-clear);stroke-width:2;
+  filter:drop-shadow(0 0 6px var(--zone-clear));
   cursor:pointer;
 }
 .sd-trace .evt.cancel{stroke:#ff7e76;filter:drop-shadow(0 0 6px #ff7e76)}
@@ -1565,8 +1574,11 @@ body{
   transform:translateX(-50%);
 }
 .sd-evt:last-child .dot::after{display:none}
+/* ⚠️ `.sd-evt.<型別>` 這一組目前沒有 emitter —— 節點清單走的是
+   `.sd-evt .dot.band-*`（見下面那段註解，它當時就是因為「那組吃 --good 綠」
+   才刻意不用）。同上：不刪，但不留綠。 */
 .sd-evt.entry .dot,
-.sd-evt.start .dot{background:var(--good);box-shadow:0 0 8px var(--good)}
+.sd-evt.start .dot{background:var(--zone-clear);box-shadow:0 0 8px var(--zone-clear)}
 .sd-evt.add .dot,
 .sd-evt.deepen .dot{background:var(--primary);box-shadow:0 0 8px var(--primary)}
 .sd-evt.exit .dot,

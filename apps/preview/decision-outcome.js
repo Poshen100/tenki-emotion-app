@@ -166,7 +166,10 @@
     abandoned_no_judgment: { text: '沒有做出判定', badge: '未判定', cls: 'loss', dot: 'cancel', fill: FILL_OFF },
     // 舊語意（既有紀錄，仍要認得）
     stayed_disciplined: { text: '跟著流程完成', badge: '跟著流程', cls: 'win', dot: 'entry', fill: FILL_ALIGNED },
-    timed_out: { text: '完整走完', badge: '完整走完', cls: 'breakeven', dot: 'exit', fill: FILL_ALIGNED },
+    // ⚠️ `cls` 原本是 'breakeven'，但 `timed_out` 在 LEGACY_DISCIPLINED_TAGS 裡 ——
+    //    也就是說同一筆紀錄，`isDisciplined()` 說算紀律、徽章卻印中性的「breakeven」。
+    //    跟 fill 同一條規則：跟紀律走。
+    timed_out: { text: '完整走完', badge: '完整走完', cls: 'win', dot: 'exit', fill: FILL_ALIGNED },
     broke_discipline: { text: '提前收束', badge: '提前收束', cls: 'loss', dot: 'cancel', fill: FILL_OFF },
   };
 
