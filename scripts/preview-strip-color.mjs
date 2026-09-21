@@ -81,6 +81,7 @@ const CLEAR = 'rgb(0, 180, 216)';
 
 let pass = 0;
 let fail = 0;
+function checkTruthy2(name, ok) { check(name, !!ok, true); }
 function check(name, got, want) {
   const ok = JSON.stringify(got) === JSON.stringify(want);
   if (ok) pass += 1;
@@ -439,7 +440,26 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     const e = document.querySelector('#tlEventLog .tl-event .desc');
     return { fill: c ? c.getAttribute('fill') : null, desc: e ? e.textContent.trim() : null };
   });
-  check('Timeline 的點有 outcome 顏色，不是 fallback 灰', dot.fill, 'var(--good)');
+  // ⚠️ 這條守的是「有沒有掉進 fallback」，不是守某一個特定的顏色 ——
+  // 2026-09-21 顏色從 `var(--good)` 改成紀律色時它會紅，那是**預期的紅**。
+  check('Timeline 的點有 outcome 顏色，不是 fallback 灰', dot.fill, 'var(--zone-clear)');
+
+  // 🔴 真正的不變量：**每一個 tag 的 fill 都要跟 isDisciplined 一致**。
+  // 上面那條只看得到「這一筆」，而壞法是「某一個 tag 被單獨挑了一個顏色」——
+  // `judged_entered` 綠、`judged_stood_down` 青就是這樣來的（兩個都算紀律）。
+  const fillMap = await page.evaluate(() => {
+    const V = window.TENKI_OUTCOME.OUTCOME_VIEW;
+    return Object.keys(V).map((tag) => ({
+      tag, fill: V[tag].fill, disciplined: window.TENKI_OUTCOME.isDisciplined(tag),
+    }));
+  });
+  checkTruthy2(`掃得到全部 outcome（${fillMap.length} 個，0 個＝這條是死斷言）`, fillMap.length >= 6);
+  const wrong = fillMap.filter((x) => x.fill !== (x.disciplined ? 'var(--zone-clear)' : 'var(--zone-strain)'));
+  check('🔴 每個 outcome 的顏色都跟 isDisciplined() 一致（沒有人被單獨挑色）',
+    wrong.map((x) => `${x.tag}=${x.fill}`), []);
+  // 兩組必須真的分得開 —— 全部同色的話上面那條也會綠
+  check('🔴 而且兩組真的是不同的顏色（不是全部塗成同一個）',
+    new Set(fillMap.map((x) => x.fill)).size, 2);
   check('Timeline 那一列認得出流程與結果', dot.desc, 'Mancini FBD · 判定成立 · 已進場');
 
   // ══════════════════════════════════════════════════════════════════

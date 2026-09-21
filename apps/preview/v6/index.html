@@ -1094,9 +1094,8 @@ body{
 }
 .tl-strip-legend span{display:flex;align-items:center;gap:5px}
 .tl-strip-legend .lg{width:7px;height:7px;border-radius:50%;display:inline-block}
-.tl-strip-legend .lg.good{background:var(--good)}
-.tl-strip-legend .lg.pri{background:var(--primary)}
-.tl-strip-legend .lg.loss{background:#ff7e76}
+.tl-strip-legend .lg.ok{background:var(--zone-clear)}
+.tl-strip-legend .lg.off{background:var(--zone-strain)}
 .tl-strip-legend .lg-note{color:var(--n-500);margin-left:auto}
 
 .tl-empty{display:none;flex-direction:column;align-items:center;text-align:center;padding:36px 20px 16px;gap:8px}
@@ -1129,9 +1128,13 @@ body{
 .tl-event .dot{
   width:8px;height:8px;border-radius:50%;flex-shrink:0;
 }
-.tl-event .dot.entry{background:var(--good);box-shadow:0 0 8px var(--good)}
-.tl-event .dot.exit{background:var(--primary);box-shadow:0 0 6px var(--primary)}
-.tl-event .dot.cancel{background:#ff7e76}
+/* 🔴 點的顏色吃**紀律**，不吃 tag 各自的身分色。`entry`/`exit` 兩個類別
+   加起來正好是四個算紀律的 tag、`cancel` 是兩個不算的 —— 所以重新指色
+   零語意損失，而且這一列旁邊本來就印著完整的判定文字（顏色是表面、字是宣稱）。
+   綠退場的理由見 `docs/VISUAL-DIRECTION.md` §3.8（色盲下同時撞四個主人）。 */
+.tl-event .dot.entry,
+.tl-event .dot.exit{background:var(--zone-clear);box-shadow:0 0 6px var(--zone-clear)}
+.tl-event .dot.cancel{background:var(--zone-strain)}
 /* 掃描是一次量測（live）→ cyan ＝ ACTIVE，不是警告。 */
 .tl-event .dot.scan{background:var(--cyan-core)}
 .tl-event .desc{flex:1;font-size:13px;color:#fff}
@@ -2730,7 +2733,7 @@ body{
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do2"></script>
+    <script src="/preview/decision-outcome.js?v=do3"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -3009,9 +3012,12 @@ body{
             </svg>
           </div>
           <div class="tl-strip-legend">
-            <span><i class="lg good"></i>跟著流程</span>
-            <span><i class="lg pri"></i>完整走完</span>
-            <span><i class="lg loss"></i>提前收束</span>
+            <!-- 🔴 舊圖例寫的是**舊語意**（跟著流程／完整走完／提前收束），
+                 而新紀錄走判定語意 —— 一筆「判定不成立」的紀錄，舊圖例會說那個點
+                 的意思是「完整走完」。點真正在分的只有兩組（`isDisciplined()`），
+                 而「對齊」正是這張卡上方那行 meta 已經在用的詞（「N 筆 · X% 對齊」）。 -->
+            <span><i class="lg ok"></i>對齊</span>
+            <span><i class="lg off"></i>未對齊</span>
             <!-- 點的**大小**吃 marks（r = 3 + min(marks,6)*0.7），先前完全沒有圖例，
                  於是「為什麼有的點比較大」在畫面上無法回答。 -->
             <span class="lg-note">點越大 · 標記越多</span>
