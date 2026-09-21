@@ -613,6 +613,54 @@ founder 把「`--good` 退場」列為待裁。先量，再裁 —— 而量出�
 
 ⚠️ **本節只盤點與記錄，`--good` 的值、以及上面任何一處用法，這一輪都沒有改動。**
 
+---
+
+### ✅ 2026-09-21 執行（founder「收 / 全依你建議」）—— 以及**這份盤點本身是不完整的**
+
+A / B / C / D 四組已收；E 組（`.baseline-flow` 14 行）照裁決留著。
+
+🔴 **但執行時發現上面那張表漏了六處。** 漏的原因是盤點的掃描方式：
+它用 `var(--good)` 加兩種字面（`#34C759` / `rgba(52,199,89,…)`）去 grep，
+所以每一條**走別的路**的綠都躲過去了：
+
+| 漏掉的 | 怎麼躲過去的 |
+|---|---|
+| `--fdcb-complete:#34C759` | **第二個同值 token**（底座收束態的綠邊與綠時鐘就是它）|
+| `@keyframes fdcb-pulse-good` | box-shadow 的顏色停點 |
+| `.coach-card::before` | `linear-gradient` 的停點 |
+| `.hrv-spark path` | 孤兒 CSS |
+| `.ans-legend .labels .pns-lbl` | `.pns-pct` 的鄰居 |
+| 模板選單的 `style="color:#34C759"` | **inline style** |
+
+**又一次「掃描範圍比宣稱小」** —— 而這次的受害者是我自己發表的那張表。
+判準：盤點一個顏色要掃的是**值**（含 token 間接、漸層停點、keyframe、inline style、
+以及 JS 傳進 canvas 的字串），不是一個 token 名字。
+
+### 執行後的狀態
+
+- **統一規則**：outcome 的顏色一律由 `isDisciplined()` 推出（`--zone-clear` / `--zone-strain`），
+  底座收束態、Session 徽章、Timeline 的點、收束頁 strip **四個面同一句話**。
+- **順帶修掉的謊**：Timeline 圖例原本寫舊語意（跟著流程／完整走完／提前收束），
+  而新紀錄走判定語意 —— 一筆「判定不成立」的紀錄，圖例會說那個點是「完整走完」。
+  改成兩格「對齊 / 未對齊」，與同卡上方的「N 筆 · X% 對齊」同一個詞。
+- **守門**：`preview-fdcb.mjs` 加「綠只准出現在 `.baseline-flow`」＋「綠 token
+  就 `--good` / `--success` 兩個」。⚠️ 它掃的是 **CSS 規則**，掃不到 JS 畫進 canvas 的
+  顏色 —— `drawWave()` 那三條示意波形（HR 紅 / HRV 綠 / 呼吸 teal）**刻意沒動**：
+  那是三張各自有標題的圖的分類色，不是好壞判斷，動它等於改 Today 的長相。
+
+### 🔴 同一輪修好的另一件：琥珀那條掃描從寫下那天起就幾乎沒在掃
+
+`if (r.cssRules) { walk(r.cssRules); continue; }` —— **支援 CSS nesting 的瀏覽器上，
+一般的 `CSSStyleRule` 也有 `cssRules`**（空的 `CSSRuleList`，而空 list 是 truthy），
+於是每一條普通規則都被當成容器遞迴掉。實測 903 條頂層規則只走到 93 個葉節點。
+而它的活性檢查另外數 `sheet.cssRules.length`，照樣綠 ——
+**活性檢查量的不是同一個東西，就不是活性檢查。**
+
+修好之後它抓到三個命中，三個**都不是違規**：`--warning` 的宣告（v6 零消費者）、
+以及 Hero 巨環的 conic 漸層。琥珀守的是「可以動手」不被借用，那是儀器世界的事；
+巨環是世界 A 的大面積漸層 —— 判準同星塵那條「守的是整顆球的主色，不是每一顆粒子」。
+三個列成具名例外。
+
 ## 4. 儀式三時刻（✅ 已落地，GSAP）
 
 引入 gsap 3.12.5（CDN），全程 `if(window.gsap)` 漸進增強 + 保留原 fallback；不破壞既有星塵手感（CLAUDE.md：v25.8.2 視覺體驗不能改）。
