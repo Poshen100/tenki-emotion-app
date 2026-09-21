@@ -574,7 +574,6 @@ body{
   .screens .screen > .snap{flex:0 0 auto}
 }
 
-
 /* Content area — reserves space for FDCB + tabbar */
 .snap{
   position:relative; /* positioning context for the floating swipe hint overlay */
@@ -1499,14 +1498,6 @@ body{
   font-size:22px;color:var(--n-500);
   padding:0 4px;align-self:flex-end;margin-bottom:8px;
 }
-.sd-hero-delta{
-  font-size:13px;font-weight:600;
-  letter-spacing:0.05em;
-  font-variant-numeric:tabular-nums;
-}
-.sd-hero-delta.up{color:var(--good)}
-.sd-hero-delta.down{color:#ff7e76}
-.sd-hero-delta.flat{color:var(--n-400)}
 
 /* Edge Score trace chart */
 .sd-trace-card{padding:14px}
@@ -4186,7 +4177,6 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
   }
   window.addEventListener('resize', init);
 })();
-
 
 // Body Battery — Garmin-shaped 24h curve, honest "alive" motion
 // ═════════════════════════════════════════════════
