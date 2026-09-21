@@ -85,6 +85,92 @@ describe('clean scan', () => {
   });
 });
 
+/**
+ * Hold a level, jump, hold again — the device's own 2026-09-17 signature
+ * (drift 0.29 of the level, 17 s period, 22% largest one-second step).
+ */
+function rampHold(frames: Parameters<typeof analyzePpgScan>[0]) {
+  const t0 = frames[0].timestampMs;
+  return frames.map((f) => {
+    const phase = (((f.timestampMs - t0) / 1000) % 17) / 17;
+    const r = 0.5 / 17;
+    let level: number;
+    if (phase < r) level = -1 + (2 * phase) / r;
+    else if (phase < 0.5) level = 1;
+    else if (phase < 0.5 + r) level = 1 - (2 * (phase - 0.5)) / r;
+    else level = -1;
+    const k = 1 + 0.16 * level;
+    return { ...f, red: f.red * k, green: f.green * k, blue: f.blue * k };
+  });
+}
+
+describe('a capture the camera kept interrupting', () => {
+  it('reports the rate from the quiet stretches, and says that is what it did', () => {
+    // 🔴 The real-device case: quality 74, blood signal strong, rhythm 0. The
+    // pulse is in the plateaus between the camera's exposure jumps.
+    const scan = synthesizePpg({ durationSec: 60, sampleRateHz: 60 });
+    const outcome = analyzePpgScan(rampHold(scan.frames), 'full_scan', PRV_ENABLED);
+    if (outcome.status !== 'analysed') throw new Error(`rejected: ${outcome.reason}`);
+    const { analysis } = outcome;
+
+    expect(analysis.heartRateBpm).not.toBeNull();
+    expect(Math.abs((analysis.heartRateBpm as number) - scan.truth.meanBpm)).toBeLessThan(3);
+    expect(analysis.rateFromQuietSegments).not.toBeNull();
+    expect(analysis.rateFromQuietSegments?.analysedSec).toBeLessThan(analysis.durationSec);
+  });
+
+  it('🔴 withholds everything that needs consecutive beats', () => {
+    // The transitions were cut out, so beats either side of a cut are not
+    // adjacent. PRV, respiration and the beat template all rest on an
+    // adjacency that no longer exists.
+    const outcome = analyzePpgScan(
+      rampHold(synthesizePpg({ durationSec: 60, sampleRateHz: 60 }).frames),
+      'full_scan',
+      PRV_ENABLED,
+    );
+    if (outcome.status !== 'analysed') throw new Error('expected an analysis');
+    const { analysis } = outcome;
+    expect(analysis.prvRmssdMs).toBeNull();
+    expect(analysis.respiratoryRateBrpm).toBeNull();
+    expect(analysis.beatTemplateCorrelation).toBeNull();
+    expect(analysis.repeatabilitySdMs).toBeNull();
+    expect(wasWithheld(analysis, 'prv')).toBe(true);
+  });
+
+  it('🔴 does not repair the quality score — less data never looks better', () => {
+    // CLAUDE.md's rule. The capture really was interrupted; what changed is
+    // that a rate is recoverable, not that the capture was good.
+    const clean = analyse();
+    const scan = synthesizePpg({ durationSec: 60, sampleRateHz: 60 });
+    const outcome = analyzePpgScan(rampHold(scan.frames), 'full_scan', PRV_ENABLED);
+    if (outcome.status !== 'analysed') throw new Error('expected an analysis');
+    expect(outcome.analysis.quality.score).toBeLessThan(clean.analysis.quality.score);
+    expect(outcome.analysis.quality.reasons).toContain('irregular_periodicity');
+  });
+
+  it('🔴 does not rescue a capture that fails for any other reason', () => {
+    // The ordering is the safeguard: the rescue is attempted only when
+    // periodicity is the SOLE objection. A capture with no blood signal in it
+    // has no pulse to find in its fragments, however quiet they are.
+    for (const fixture of [PPG_FIXTURES.lowPerfusion, PPG_FIXTURES.quietWeakPulse]) {
+      const frames = synthesizePpg({ durationSec: 60, sampleRateHz: 60, ...fixture }).frames;
+      const outcome = analyzePpgScan(rampHold(frames), 'full_scan', PRV_ENABLED);
+      if (outcome.status !== 'analysed') continue;
+      expect(outcome.analysis.heartRateBpm).toBeNull();
+      expect(outcome.analysis.rateFromQuietSegments).toBeNull();
+    }
+  });
+
+  it('leaves an ordinary capture on the ordinary path', () => {
+    // Null here is what "nothing unusual happened" looks like, and the beat
+    // path has to still be the one that ran.
+    const { analysis } = analyse();
+    expect(analysis.rateFromQuietSegments).toBeNull();
+    expect(analysis.beatCount).toBeGreaterThan(0);
+    expect(analysis.prvRmssdMs).not.toBeNull();
+  });
+});
+
 describe('refusals', () => {
   it('reports nothing at all from a barely-perfused fingertip', () => {
     const { analysis } = analyse(PPG_FIXTURES.lowPerfusion);

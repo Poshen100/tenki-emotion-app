@@ -22,6 +22,7 @@
  */
 
 import type { PpgChannel, PpgChannelDiagnostic } from './channels';
+import type { SegmentedRate } from './quiet-segments';
 
 /**
  * One camera frame, already reduced to the scalars a PPG needs.
@@ -226,6 +227,20 @@ export interface PpgAnalysis {
    * without it, and on a real device that question is the whole job.
    */
   channelDiagnostics: PpgChannelDiagnostic[];
+  /**
+   * Set when the heart rate could only be read out of the stretches the camera
+   * left alone, rather than from the capture as a whole.
+   *
+   * 🔴 Null on every ordinary capture, and that is the point: its presence
+   * means the reading rests on **fragments** — a few agreeing seconds, not the
+   * full duration — and anything that shows the rate has to say so. It is also
+   * why `prvRmssdMs` stays null whenever this is set: beat timing needs
+   * consecutive beats, and beats either side of a discarded transition are not
+   * consecutive.
+   *
+   * @see quiet-segments.ts, docs/PHONE-PPG.md §23
+   */
+  rateFromQuietSegments: SegmentedRate | null;
   /** Metrics deliberately not reported, with the reason for each. */
   withheld: PpgWithheld[];
 }

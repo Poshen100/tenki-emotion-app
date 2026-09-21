@@ -33,6 +33,7 @@ import {
   estimateRate,
 } from './pulse';
 import { MAX_FRAME_DROPS, MIN_PERFUSION, assessPpgQuality } from './quality';
+import { estimateRateFromQuietSegments } from './quiet-segments';
 import { PRV_MIN_TEMPLATE_CORRELATION, beatTemplateCorrelation } from './beat-template';
 import { estimateRepeatability } from './repeatability';
 import { estimateRespiration } from './respiration';
@@ -161,7 +162,33 @@ export function analyzePpgScan(
   // `PPG_FIXTURES.quietWeakPulse` is what holds this in place.
   const noPulsatileLight = perfusion < MIN_PERFUSION;
 
-  if (qualityBlocksRate || noPulse || noPulsatileLight) {
+  // 🔴 One rescue, and only for the one failure it was measured against.
+  //
+  // A camera that holds a level, jumps, and holds again leaves most of the
+  // capture undisturbed — but analysing it as one block throws all of that
+  // away, because the transitions are broadband and land in the cardiac band.
+  // The real device produced exactly this: quality 74 and blood signal strong,
+  // rhythm 0 (`docs/PHONE-PPG.md` §23).
+  //
+  // ⚠️ Attempted **only** when periodicity is the sole objection: a capture
+  // that fails on quality or on perfusion has no pulse to recover, and hunting
+  // for one in its fragments is how this becomes a false-reading machine.
+  //
+  // 🔴 Honest note on how much this line is currently doing: **removing it
+  // breaks no test.** The per-segment perfusion check inside
+  // `estimateRateFromQuietSegments` independently refuses every fixture I
+  // could build, and every attempt to construct a capture whose quality falls
+  // below the mode's bar while its quiet stretches still agree failed — below
+  // roughly 50 the signal is too disturbed to segment at all. So this is
+  // defence in depth expressing the intended rule, not the load-bearing
+  // safeguard. **If either this condition or that perfusion check is ever
+  // removed, the other has to be re-verified rather than assumed.**
+  const segmented =
+    noPulse && !qualityBlocksRate && !noPulsatileLight
+      ? estimateRateFromQuietSegments(resampled.values, resampled.sampleRateHz)
+      : null;
+
+  if ((qualityBlocksRate || noPulse || noPulsatileLight) && segmented === null) {
     // Prefer the reason the user can act on. `irregular_periodicity` is what
     // low perfusion, motion and clipping all collapse into, so naming it first
     // would tell someone whose finger is barely on the lens that their pulse
@@ -185,6 +212,7 @@ export function analyzePpgScan(
         // ⚠️ 這條早退路徑也要吃 mode 閘門。否則相機 HRV 被關掉時，
         // 訊號不足的掃描會回報「節律不穩」—— 那是個更弱的理由，而真正的
         // 理由是這個模式根本不報這一項。兩個原因要照同一個優先序講。
+        rateFromQuietSegments: null,
         withheld: [
           ...withheld,
           { metric: 'prv', reason: rateFailureReason(mode, 'prv', options) },
@@ -192,6 +220,51 @@ export function analyzePpgScan(
         ],
       },
     };
+  }
+
+  // ── The rate came out of the quiet stretches ─────────────────────────────
+  // 🔴 Its own branch, and deliberately not a detour through the normal path:
+  // everything below this point is built on beats detected across the WHOLE
+  // capture, and those beats do not exist here. The transitions were cut out,
+  // so consecutive beats either side of a cut are not consecutive — PRV,
+  // respiration and the beat template all rest on an adjacency that was
+  // discarded, and every one of them stays null.
+  if (segmented !== null) {
+    withheld.push({ metric: 'prv', reason: 'irregular_periodicity' });
+    withheld.push({ metric: 'respiration', reason: 'irregular_periodicity' });
+    return {
+      status: 'analysed',
+      analysis: {
+        // ⚠️ The quality score is NOT repaired. The capture really was
+        // interrupted, and CLAUDE.md's rule holds: less data must never make a
+        // number look better. What changed is that a rate is recoverable, not
+        // that the capture was good.
+        quality,
+        heartRateBpm: Math.round(segmented.bpm),
+        prvRmssdMs: null,
+        respiratoryRateBrpm: null,
+        beatCount: 0,
+        artifactFraction: 0,
+        beatTemplateCorrelation: null,
+        repeatabilitySdMs: null,
+        channel: resampled.channel,
+        channelDiagnostics: selection.diagnostics,
+        durationSec: round1(durationSec),
+        sampleRateHz: resampled.sampleRateHz,
+        rateFromQuietSegments: segmented,
+        withheld,
+      },
+    };
+  }
+
+  // ⚠️ Unreachable, and kept as a guard rather than a non-null assertion: the
+  // narrowing should be the compiler's rather than mine. `rate` is null only
+  // when there was no period at all, which makes `noPulse` true — and that
+  // path has already returned, either refused or through the segmented branch.
+  // The compiler lost track of that when the segmented branch was added, which
+  // is precisely when an assertion would have started lying.
+  if (rate === null) {
+    return { status: 'rejected', reason: 'unusable_timebase' };
   }
 
   const peaks = detectPulsePeaks(cardiac, resampled.sampleRateHz, rate.periodSamples);
@@ -296,6 +369,9 @@ export function analyzePpgScan(
       respiratoryRateBrpm,
       beatTemplateCorrelation: templateCorrelation,
       repeatabilitySdMs: repeatability?.sdMs ?? null,
+      // Null on this path by construction: the rate came from the whole
+      // capture, which is what having beats to detect means.
+      rateFromQuietSegments: null,
       channel: resampled.channel,
       channelDiagnostics: selection.diagnostics,
       beatCount: series.accepted.length + (series.accepted.length > 0 ? 1 : 0),
