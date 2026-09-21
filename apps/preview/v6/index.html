@@ -69,7 +69,9 @@
      而底座是你透過它看的那片玻璃本身 —— 玻璃是平的，光在它後面。 */
   --fdcb-bg:var(--n-900);
   --fdcb-border:rgba(255,255,255,0.08);
-  --fdcb-complete:#34C759;
+  /* 🔴 收束態吃紀律色，不吃綠 —— 徽章、Timeline 的點、底座三個面講同一件事。
+     （綠退場的理由見 docs/VISUAL-DIRECTION.md §3.8：色盲下同時撞四個主人）*/
+  --fdcb-complete:var(--zone-clear);
   --tabbar-bg:rgba(18,18,22,0.72);
   --good:#34C759;
   /* 🔴 `--warn:#F5A623` 已刪（2026-09-08）。兩個理由：
@@ -638,7 +640,9 @@ body{
 .coach-card::before{
   content:'';position:absolute;left:0;top:0;bottom:0;
   width:5px;
-  background:linear-gradient(180deg, #34C759 0%, #00B4D8 100%);
+  /* 綠→青的漸層讓這條 accent 一半落在綠上 —— 換成 cyan 自己的兩階，
+     它本來就只是「這張卡是 live 的」的裝飾，不是一個好壞判斷。 */
+  background:linear-gradient(180deg, var(--cyan-200) 0%, var(--cyan-500) 100%);
   box-shadow: 2px 0 16px rgba(0, 180, 216, 0.6);
 }
 .coach-text{
@@ -736,7 +740,8 @@ body{
 .metric-spark{height:32px;width:72px;flex-shrink:0;opacity:0.9;border-radius:4px}
 .metric-spark path{fill:none;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
 .hr-spark path{stroke:#FF5C73;filter:drop-shadow(0 0 3px rgba(255,92,115,0.5))}
-.hrv-spark path{stroke:#34C759;filter:drop-shadow(0 0 3px rgba(52,199,89,0.5))}
+/* 量測值不上色（§3.8 A 組）—— 而且這張卡的數字是動畫不是量出來的。 */
+.hrv-spark path{stroke:var(--n-300);filter:none}
 .rr-spark path{stroke:#2EB6C0;filter:drop-shadow(0 0 3px rgba(46,182,192,0.5))}
 /* Live waveform canvas */
 .live-wave{height:32px;width:72px;flex-shrink:0;border-radius:4px;opacity:0.9}
@@ -846,7 +851,7 @@ body{
   font-weight:500;letter-spacing:0.08em;
 }
 .ans-legend .labels .sns-lbl{color:rgba(255,92,62,0.75)}
-.ans-legend .labels .pns-lbl{color:rgba(52,199,89,0.75)}
+.ans-legend .labels .pns-lbl{color:var(--n-400)}
 
 /* ═══════════════════════════════════════════════════
    SCAN SCREEN
@@ -1810,7 +1815,7 @@ body{
   border-color:rgba(0,180,216,0.55);
 }
 .fdcb.state-complete{
-  border-color:rgba(52,199,89,0.6);
+  border-color:rgba(0,180,216,0.6);
 }
 .fdcb::before{
   content:'';position:absolute;top:0;left:20%;right:20%;height:1px;
@@ -1978,7 +1983,8 @@ body{
 @keyframes fdcb-readiness-in{30%{box-shadow:0 0 0 1px rgba(0,180,216,0.65), 0 0 30px rgba(0,180,216,0.32)}}
 .fdcb.state-complete.closure-disciplined{animation:fdcb-pulse-good 0.7s var(--ease-calm)}
 .fdcb.state-complete.closure-broke{animation:fdcb-pulse-broke 0.7s var(--ease-calm)}
-@keyframes fdcb-pulse-good{40%{box-shadow:0 0 0 1px rgba(52,199,89,0.5), 0 0 26px rgba(52,199,89,0.28)}}
+/* ⚠️ keyframe：只換**顏色停點**，timing／曲線／形狀一個參數都沒動（同下面那條）。 */
+@keyframes fdcb-pulse-good{40%{box-shadow:0 0 0 1px rgba(0,180,216,0.5), 0 0 26px rgba(0,180,216,0.28)}}
 /* ⚠️ 這是 **keyframe**（MOTION-DIRECTION 的地盤）。這裡只換**顏色停點**，
    timing、曲線、形狀一個參數都沒動 —— 換的理由跟上面同一條：
    `#FF9F0A` 與可動層琥珀 ΔE 6.2，一個在底座上脈動的顏色不能跟「可以動手」撞。 */
@@ -3426,7 +3432,7 @@ body{
     <div class="sheet-title">Select Template</div>
     <div class="sheet-cat">— 預設 · 日常情境 —</div>
     <div class="tmpl-item selected" data-id="HEALTH_STRESS" onclick="selectTmpl(this)">
-      <div class="ic" style="color:#34C759"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg></div>
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg></div>
       <div class="info"><div class="nm">Health Stress</div><div class="sub">壓力舒緩 · Box breathing</div></div>
       <div class="dur">3:00</div>
     </div>
