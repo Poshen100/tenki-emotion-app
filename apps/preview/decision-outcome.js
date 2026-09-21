@@ -142,15 +142,35 @@
    * `cls` 對應 v6 既有的 badge 樣式（win / breakeven / loss），
    * `dot` 對應 Timeline 的點類別，`fill` 是點的顏色。
    */
+  // 🔴 `fill` 一律由 `isDisciplined()` 推出來，**不是每個 tag 各挑一個顏色**。
+  // 上面那條規則（「畫面上任何跟紀律有關的數字、顏色、文案都要走這一支」）
+  // 原本沒有掃到這裡：Timeline 的點與 strip 各自寫死三個色，於是
+  //   · `judged_entered` 綠、`judged_stood_down` 青 —— **兩個都算紀律，卻不同色**
+  //   · 而 `/decision-alert/` 收束頁的 `segColor()` 早就是照紀律分兩色的
+  // 同一件事兩頁兩種畫法，其中一種一定是假的。現在兩邊同一條規則。
+  //
+  // ⚠️ 順帶修掉一個更硬的錯：Timeline 的圖例寫的是**舊語意**
+  // （跟著流程／完整走完／提前收束），而新紀錄走的是判定語意 ——
+  // 一個判定「不成立」的紀錄，圖例會告訴使用者那個點的意思是「完整走完」。
+  //
+  // 🔴 綠退場的理由不是不好看：`--good #34C759` 在三種色盲下同時撞掉
+  // gold(10.2) / Clear(12.5) / Strain(12.5) / amber(13.5)，而門檻是 20
+  // （`docs/VISUAL-DIRECTION.md` §3.8）。**它可以當表面，不能當宣稱** ——
+  // 而這裡正是「一顆沒有字的彩色圓點」。
+  var FILL_ALIGNED = 'var(--zone-clear)';
+  var FILL_OFF = 'var(--zone-strain)';
   var OUTCOME_VIEW = {
     // 新語意（structure_watch_v1）
-    judged_entered: { text: '判定成立 · 已進場', badge: '判定成立', cls: 'win', dot: 'entry', fill: 'var(--good)' },
-    judged_stood_down: { text: '判定不成立 · 未進場', badge: '判定不成立', cls: 'win', dot: 'exit', fill: 'var(--primary)' },
-    abandoned_no_judgment: { text: '沒有做出判定', badge: '未判定', cls: 'loss', dot: 'cancel', fill: '#ff7e76' },
+    judged_entered: { text: '判定成立 · 已進場', badge: '判定成立', cls: 'win', dot: 'entry', fill: FILL_ALIGNED },
+    judged_stood_down: { text: '判定不成立 · 未進場', badge: '判定不成立', cls: 'win', dot: 'exit', fill: FILL_ALIGNED },
+    abandoned_no_judgment: { text: '沒有做出判定', badge: '未判定', cls: 'loss', dot: 'cancel', fill: FILL_OFF },
     // 舊語意（既有紀錄，仍要認得）
-    stayed_disciplined: { text: '跟著流程完成', badge: '跟著流程', cls: 'win', dot: 'entry', fill: 'var(--good)' },
-    timed_out: { text: '完整走完', badge: '完整走完', cls: 'breakeven', dot: 'exit', fill: 'var(--primary)' },
-    broke_discipline: { text: '提前收束', badge: '提前收束', cls: 'loss', dot: 'cancel', fill: '#ff7e76' },
+    stayed_disciplined: { text: '跟著流程完成', badge: '跟著流程', cls: 'win', dot: 'entry', fill: FILL_ALIGNED },
+    // ⚠️ `cls` 原本是 'breakeven'，但 `timed_out` 在 LEGACY_DISCIPLINED_TAGS 裡 ——
+    //    也就是說同一筆紀錄，`isDisciplined()` 說算紀律、徽章卻印中性的「breakeven」。
+    //    跟 fill 同一條規則：跟紀律走。
+    timed_out: { text: '完整走完', badge: '完整走完', cls: 'win', dot: 'exit', fill: FILL_ALIGNED },
+    broke_discipline: { text: '提前收束', badge: '提前收束', cls: 'loss', dot: 'cancel', fill: FILL_OFF },
   };
 
   /**

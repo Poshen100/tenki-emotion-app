@@ -81,6 +81,7 @@ const CLEAR = 'rgb(0, 180, 216)';
 
 let pass = 0;
 let fail = 0;
+function checkTruthy2(name, ok) { check(name, !!ok, true); }
 function check(name, got, want) {
   const ok = JSON.stringify(got) === JSON.stringify(want);
   if (ok) pass += 1;
@@ -439,7 +440,26 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     const e = document.querySelector('#tlEventLog .tl-event .desc');
     return { fill: c ? c.getAttribute('fill') : null, desc: e ? e.textContent.trim() : null };
   });
-  check('Timeline 的點有 outcome 顏色，不是 fallback 灰', dot.fill, 'var(--good)');
+  // ⚠️ 這條守的是「有沒有掉進 fallback」，不是守某一個特定的顏色 ——
+  // 2026-09-21 顏色從 `var(--good)` 改成紀律色時它會紅，那是**預期的紅**。
+  check('Timeline 的點有 outcome 顏色，不是 fallback 灰', dot.fill, 'var(--zone-clear)');
+
+  // 🔴 真正的不變量：**每一個 tag 的 fill 都要跟 isDisciplined 一致**。
+  // 上面那條只看得到「這一筆」，而壞法是「某一個 tag 被單獨挑了一個顏色」——
+  // `judged_entered` 綠、`judged_stood_down` 青就是這樣來的（兩個都算紀律）。
+  const fillMap = await page.evaluate(() => {
+    const V = window.TENKI_OUTCOME.OUTCOME_VIEW;
+    return Object.keys(V).map((tag) => ({
+      tag, fill: V[tag].fill, disciplined: window.TENKI_OUTCOME.isDisciplined(tag),
+    }));
+  });
+  checkTruthy2(`掃得到全部 outcome（${fillMap.length} 個，0 個＝這條是死斷言）`, fillMap.length >= 6);
+  const wrong = fillMap.filter((x) => x.fill !== (x.disciplined ? 'var(--zone-clear)' : 'var(--zone-strain)'));
+  check('🔴 每個 outcome 的顏色都跟 isDisciplined() 一致（沒有人被單獨挑色）',
+    wrong.map((x) => `${x.tag}=${x.fill}`), []);
+  // 兩組必須真的分得開 —— 全部同色的話上面那條也會綠
+  check('🔴 而且兩組真的是不同的顏色（不是全部塗成同一個）',
+    new Set(fillMap.map((x) => x.fill)).size, 2);
   check('Timeline 那一列認得出流程與結果', dot.desc, 'Mancini FBD · 判定成立 · 已進場');
 
   // ══════════════════════════════════════════════════════════════════
@@ -620,9 +640,13 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
 
       if (!m) { check(`收束頁環心開得起來（${height} / ${tag}）`, 'missing', 'rendered'); await rp.close(); continue; }
       check(`收束頁環心印對文案（${height} / ${tag}）`, m.txt, want);
-      // TOL=4：行盒比字高（15px 字、約 21px 行盒），角落距離會被高估約 2~3px。
-      // 來源與第十二輪同一條推導，不從「剛好通過」反推。
-      check(`🔴 環心文字整段在圓內（${height} / 弧 ${m.arc} / 溢出 ${m.outside}px）`, m.outside <= 4, true);
+      // 🔴 門檻不是「有沒有跑出去」，是「離環線還有多遠」。
+      // 行盒比字高，角落距離被高估約 2~3px —— 所以要求**行盒本身再內縮 2px**，
+      // 等於墨跡至少離環線 4~5px。這條把 2026-09-11 買到的餘裕鎖住：
+      // 當時 128px 弧下 13px 字只剩 0.2px（行盒剛好還在圓內、但字型一變就出去），
+      // 改成 12px 之後是 3.1px。只問「在不在圓內」的話，那個 0.2px 是綠的。
+      check(`🔴 環心文字離環線至少 2px（${height} / 弧 ${m.arc} / 實測 ${(-m.outside).toFixed(1)}px）`,
+        m.outside <= -2, true);
       check(`🔴 斷行不得切在詞中間（${height} / 行寬 ${m.lineW} / 段寬 ${m.segW}）`,
         Math.min(...m.lineW) >= Math.min(...m.segW) - 2, true);
       await rp.close();
