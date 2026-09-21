@@ -113,6 +113,7 @@ export function toSignalQuality(analysis) {
         // can score well and still fail to establish a pulse, and calling that
         // accepted would put a quality badge on an empty result.
         accepted: analysis.heartRateBpm !== null,
+        fromQuietSegments: analysis.rateFromQuietSegments !== null,
         rejectionReasons: quality.reasons.filter(isRejectionReason),
         advisories: quality.reasons.filter(isAdvisoryReason),
     };

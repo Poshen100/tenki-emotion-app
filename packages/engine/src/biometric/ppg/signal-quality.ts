@@ -117,6 +117,25 @@ export interface PpgSignalQuality {
   captureDurationMs: number;
   /** True when the capture produced a pulse reading. */
   accepted: boolean;
+  /**
+   * True when the rate was read out of the stretches the camera left alone
+   * rather than from the capture as a whole.
+   *
+   * 🔴 Travels with the reading because CLAUDE.md's rule is that two things
+   * measured differently must never merge into one series silently — and a set
+   * of anchors is exactly where that would happen. A fragment-derived rate is
+   * the same quantity as an ordinary one and materially noisier: worst error
+   * 2.4 bpm across the sweep against roughly 1 bpm for a whole capture. That
+   * matters to a baseline whose job is noticing day-to-day shifts, and to
+   * `baseline/noise-floor.ts`, which exists to stop a difference smaller than
+   * the measurement error being read as a change of state.
+   *
+   * ⚠️ It does NOT disqualify the anchor. Whether these should be weighted
+   * down, or excluded from the resting band, is a founder decision — this flag
+   * is what makes that decision possible later instead of the data being
+   * already blended.
+   */
+  fromQuietSegments: boolean;
   /** Every limit this capture missed. Empty on an accepted clean capture. */
   rejectionReasons: PpgRejectionReason[];
   /**
@@ -176,6 +195,7 @@ export function toSignalQuality(analysis: PpgAnalysis): PpgSignalQuality {
     // can score well and still fail to establish a pulse, and calling that
     // accepted would put a quality badge on an empty result.
     accepted: analysis.heartRateBpm !== null,
+    fromQuietSegments: analysis.rateFromQuietSegments !== null,
     rejectionReasons: quality.reasons.filter(isRejectionReason),
     advisories: quality.reasons.filter(isAdvisoryReason),
   };

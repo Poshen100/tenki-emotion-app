@@ -1243,6 +1243,76 @@ if (shotReady) {
   await page.screenshot({ path: shotReady, fullPage: true });
   console.log(`  📸 ${shotReady}`);
 }
+// ── 從片段讀出來的讀數要說出它是片段 ────────────────────────────────────────
+// 🔴 實機第五次：相機停住、跳一下、再停住（擺動 29%／週期 17 秒／單秒跳動 22%）。
+// 整段拒答，中間的平原讀得到。畫面不得讓這種讀數看起來跟整段讀出來的一樣。
+console.log('\n── 片段讀數的誠實 ──');
+
+const rampHoldFrames = (frames) => {
+  const t0 = frames[0].timestampMs;
+  return frames.map((f) => {
+    const phase = (((f.timestampMs - t0) / 1000) % 17) / 17;
+    const r = 0.5 / 17;
+    let level;
+    if (phase < r) level = -1 + (2 * phase) / r;
+    else if (phase < 0.5) level = 1;
+    else if (phase < 0.5 + r) level = 1 - (2 * (phase - 0.5)) / r;
+    else level = -1;
+    const k = 1 + 0.16 * level;
+    return { ...f, red: f.red * k, green: f.green * k, blue: f.blue * k };
+  });
+};
+
+const readSegmentNote = async (frames) =>
+  await page.evaluate((f) => {
+    window.__tenkiFingerHarness.renderFrames(f);
+    const note = document.getElementById('segmentNote');
+    const text = (id) => document.getElementById(id).textContent.trim();
+    return {
+      hr: text('hr'),
+      duration: text('duration'),
+      visible: note.checkVisibility(),
+      noteText: note.textContent.trim(),
+      tone: note.dataset.tone,
+      withheld: text('withheld'),
+    };
+  }, frames);
+
+const seg = await readSegmentNote(
+  rampHoldFrames(synthesizePpg({ durationSec: 60, sampleRateHz: 60 }).frames),
+);
+
+check('相機一直重調亮度時仍讀得到脈搏', /^\d+ bpm$/.test(seg.hr), `hr=${seg.hr}`);
+check(
+  '🔴 而且畫面說出這是從片段讀來的',
+  seg.visible && seg.noteText.includes('沒有被打擾'),
+  JSON.stringify(seg),
+);
+check(
+  '🔴 說得出用了幾秒，而且比實際時長短',
+  /合計 [\d.]+ 秒/.test(seg.noteText) &&
+    Number.parseFloat(seg.noteText.match(/合計 ([\d.]+) 秒/)[1]) <
+      Number.parseFloat(seg.duration),
+  JSON.stringify({ note: seg.noteText, duration: seg.duration }),
+);
+check(
+  '🔴 而且說出這次不報脈搏節律',
+  seg.noteText.includes('不報脈搏節律'),
+  JSON.stringify(seg.noteText),
+);
+check(
+  '不上警示色 —— 這是成功但證據比較薄的讀數，不是錯誤',
+  seg.tone === 'neutral',
+  `tone=${seg.tone}`,
+);
+
+const ordinary = await readSegmentNote(synthesizePpg({ durationSec: 60, sampleRateHz: 60 }).frames);
+check(
+  '一般擷取完全看不到這一行',
+  !ordinary.visible && /^\d+ bpm$/.test(ordinary.hr),
+  JSON.stringify(ordinary),
+);
+
 // ── 補光燈對照：可關，而且只有就位階段可關 ──────────────────────────────────
 // 🔴 這是一個實驗不是偏好：瀏覽器不給鎖曝光（實機 8/8 次 exposureMode 沒有
 // manual），所以唯一還剩的辦法是不要給 auto-exposure 東西去追。

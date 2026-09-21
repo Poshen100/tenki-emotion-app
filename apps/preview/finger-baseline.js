@@ -1138,6 +1138,7 @@ function renderOutcome(outcome) {
   const signal = toSignalQuality(a);
 
   renderAnchor(a.heartRateBpm);
+  renderSegmentNote(a);
   renderDims($('resultDims'), signal);
   renderReasons($('resultReasons'), a.quality.reasons);
   renderWithheld(a.withheld);
@@ -1296,6 +1297,33 @@ function renderPrv(a, anchors) {
     comparison.status === 'established'
       ? `跟你過去 ${comparison.sampleCount} 次可比較的高品質校準相比：${PLACEMENT_COPY[comparison.placement]}。`
       : `還在累積可比較的紀錄（${comparison.sampleCount}/${comparison.required} 次），還不能跟你自己比。`;
+}
+
+/**
+ * 這個讀數是不是從相機沒有打擾的那幾段裡拼出來的。
+ *
+ * 🔴 出現的時候畫面必須說出**用了幾秒**。旁邊的「實際時長」寫的是 60 秒，
+ * 那是擷取的長度、是真的；但讀數只用了其中一部分，兩個數字並排而不解釋，
+ * 等於讓畫面宣稱一個它沒有的東西。
+ *
+ * ⚠️ 不上警示色：這不是錯誤，是一個成功但證據比較薄的讀數。
+ *
+ * @param {object} a - 這次擷取的分析結果。
+ */
+function renderSegmentNote(a) {
+  const note = $('segmentNote');
+  const seg = a.rateFromQuietSegments;
+  if (!seg) {
+    note.hidden = true;
+    note.textContent = '';
+    return;
+  }
+  note.hidden = false;
+  note.dataset.tone = 'neutral';
+  note.textContent =
+    `相機在這 ${a.durationSec} 秒裡一直重調亮度，所以這個脈搏是從中間 ${seg.segmentCount} 段` +
+    `沒有被打擾的時間讀出來的（合計 ${seg.analysedSec} 秒，彼此相差 ${seg.spreadBpm} bpm）。` +
+    '這次不報脈搏節律 —— 被切掉的地方兩邊的拍不是相鄰的。';
 }
 
 function renderAnchor(bpm) {

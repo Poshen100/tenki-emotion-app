@@ -161,3 +161,44 @@ describe('accepted means a reading exists', () => {
     expect(signal.rejectionReasons).toContain('low_perfusion');
   });
 });
+
+describe('a reading from fragments is marked as one', () => {
+  it('carries the mark, so a set of anchors cannot blend two things silently', () => {
+    // 🔴 CLAUDE.md's rule: two things measured differently must not merge into
+    // one series without a mark, and a set of anchors is where that happens.
+    // A fragment-derived rate is the same quantity and materially noisier
+    // (worst error 2.4 bpm swept, against roughly 1 for a whole capture).
+    const scan = synthesizePpg({ durationSec: 60, sampleRateHz: 60 });
+    const t0 = scan.frames[0].timestampMs;
+    const drifted = scan.frames.map((f) => {
+      const phase = (((f.timestampMs - t0) / 1000) % 17) / 17;
+      const r = 0.5 / 17;
+      let level: number;
+      if (phase < r) level = -1 + (2 * phase) / r;
+      else if (phase < 0.5) level = 1;
+      else if (phase < 0.5 + r) level = 1 - (2 * (phase - 0.5)) / r;
+      else level = -1;
+      const k = 1 + 0.16 * level;
+      return { ...f, red: f.red * k, green: f.green * k, blue: f.blue * k };
+    });
+    const outcome = analyzePpgScan(drifted, 'full_scan');
+    if (outcome.status !== 'analysed') throw new Error('expected an analysis');
+    const quality = toSignalQuality(outcome.analysis);
+    expect(quality.accepted).toBe(true);
+    expect(quality.fromQuietSegments).toBe(true);
+  });
+
+  it('is false on an ordinary capture, and on one with no reading at all', () => {
+    const clean = analyzePpgScan(synthesizePpg({ durationSec: 60 }).frames, 'full_scan');
+    if (clean.status !== 'analysed') throw new Error('expected an analysis');
+    expect(toSignalQuality(clean.analysis).fromQuietSegments).toBe(false);
+
+    const weak = analyzePpgScan(
+      synthesizePpg({ durationSec: 60, ...PPG_FIXTURES.lowPerfusion }).frames,
+      'full_scan',
+    );
+    if (weak.status !== 'analysed') throw new Error('expected an analysis');
+    expect(toSignalQuality(weak.analysis).accepted).toBe(false);
+    expect(toSignalQuality(weak.analysis).fromQuietSegments).toBe(false);
+  });
+});
