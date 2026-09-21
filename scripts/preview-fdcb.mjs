@@ -2147,7 +2147,14 @@ console.log('\n── Hero 讀數不得爆版 ──');
       let rules; try { rules = sheet.cssRules; } catch (e) { continue; }
       const walk = (list) => {
         for (const r of list) {
-          if (r.cssRules) { walk(r.cssRules); continue; }
+          // 🔴 `if (r.cssRules)` 是錯的：支援 CSS nesting 的瀏覽器上，**一般的
+          // CSSStyleRule 也有 `cssRules`**（一個空的 CSSRuleList，而空 list 是
+          // truthy）—— 於是每一條普通規則都被當成容器遞迴進去、自己的宣告一行都
+          // 沒被看到。實測 903 條頂層規則只走到 93 個葉節點，而那 93 個是
+          // keyframe/font-face 這類真的沒有 cssRules 的。
+          // 這條掃描因此**從寫下的那天起就幾乎沒在掃東西**，而它的活性檢查
+          // （另外數 `sheet.cssRules.length`）照樣綠 —— 活性檢查量的不是同一個東西。
+          if (r.cssRules && r.cssRules.length) walk(r.cssRules);
           if (!r.style) continue;
           const txt = r.cssText;
           for (const m of txt.matchAll(/#([0-9a-fA-F]{6})\b|rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g)) {
@@ -2164,8 +2171,22 @@ console.log('\n── Hero 讀數不得爆版 ──');
     }
     return [...new Set(out)];
   });
-  if (hits.length) { console.log('   跟琥珀撞的：'); for (const h of hits.slice(0, 8)) console.log(`     ${h}`); }
-  check('🔴 樣式表裡沒有與 --amber-400 ΔE < 12 的其他顏色', hits, []);
+  // 🔴 具名例外 —— 修好 walk 之後這條第一次真的掃到東西，而它掃出來的三個
+  // **都不是違規**，是這條規則的範圍寫得比它想守的事大：
+  //   · `:root` ＝ `tokens.css` 的 `--warning:#F5A623` **宣告**。它在 v6 上
+  //     消費者為 0（僅 `styles.css` 那個沒有路由的頁面用了 2 處）——
+  //     一個沒人用的宣告不會在畫面上跟誰撞。⚠️ 它是下一輪的退場候選。
+  //   · `.ring-outer-wrap` / `.ring-dot.outer` ＝ **Hero 巨環的 conic 漸層**。
+  //     琥珀那條規則守的是「可以動手」這個語義不被別人借用，而那是**儀器世界**
+  //     的事；巨環是世界 A 的大面積漸層，掃過金色不等於在說「這裡可以按」。
+  //     這跟星塵那條「守的是整顆球的主色，不是每一顆粒子」是同一個判準 ——
+  //     把大面積漸層的每一個停點都擋在語義色外面，可用色域會只剩一小段弧。
+  // ⚠️ 名單要**雙向**：名單外的要紅，名單裡的也要真的還在（不然是空頭支票）。
+  const AMBER_EXEMPT = [':root', '.ring-outer-wrap', '.ring-dot.outer'];
+  const amberStray = hits.filter((h) => !AMBER_EXEMPT.some((x) => h.startsWith(x + ' ')));
+  if (amberStray.length) { console.log('   跟琥珀撞的：'); for (const h of amberStray.slice(0, 8)) console.log(`     ${h}`); }
+  check('🔴 樣式表裡沒有與 --amber-400 ΔE < 12 的其他顏色（具名例外除外）', amberStray, []);
+  checkTruthy(`具名例外都還在（${hits.length} 條命中，0 條＝這條是死斷言）`, hits.length >= 3);
   // 掃得到東西嗎 —— cssRules 讀不到（跨來源）時上面會靜靜回 []，那是死斷言。
   const ruleCount = await page.evaluate(() => {
     let n = 0;
@@ -2330,6 +2351,85 @@ for (const h of [700, 740, 844, 932]) {
   checkTruthy('畫面說得出「讀數已過期」', foot.includes('1 筆決策當下的讀數已過期'));
   // 🔴 邀請語要對得上：他掃過了、只是太久以前，「先掃一次再進決策」對他是假的
   checkTruthy('有過期紀錄時邀請語改成「進決策前先掃一次」', foot.includes('進決策前先掃一次'));
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// `--good` 綠：只准留在 onboarding 的流程狀態上
+//
+// §3.8 量到的決定性事實：`#34C759` 在三種色盲下**同時**撞掉四個主人 ——
+// gold 10.2（紅色盲）/ Clear 12.5（藍黃盲）/ Strain 12.5（綠色盲）/
+// amber 13.5（紅色盲），而 §3.6 ③ 的門檻是 20。
+// → 它可以當表面，不能當宣稱。2026-09-21 把 A/B/C/D 四組共 11 處收掉之後，
+//   活著的面上只剩 `.baseline-flow`（onboarding 的「這一步完成了」，都有字）。
+//
+// 🔴 這條是**名單型**的：掃出畫面上每一個吃到綠的節點，必須全部在
+// baseline flow 底下。名單型的理由跟琥珀那條一樣 —— 「這個顏色有沒有在宣稱
+// 一件事」機器判斷不出來，所以不假裝偵測，改成要求把決定寫下來。
+// ⚠️ 而且要**雙向**：名單外的要紅，名單本身也要真的還掃得到東西。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── --good 綠只准留在 onboarding 流程狀態 ──');
+  const page = await openV3(844);
+  const hits = await page.evaluate(() => {
+    const GREEN = [52, 199, 89];
+    const near = (c) => Math.abs(c[0] - GREEN[0]) < 12 && Math.abs(c[1] - GREEN[1]) < 12 && Math.abs(c[2] - GREEN[2]) < 12;
+    // 🔴 掃的是 CSS 規則不是渲染中的節點 —— baseline flow 與 Timeline 有一半
+    // 的東西要走到特定狀態才長出來，只掃當下的 DOM 會漏掉它們（那才是死斷言）。
+    const out = [];
+    const walk = (rules) => {
+      for (const r of rules) {
+        // 🔴 見上面那條註解：不能用 `if (r.cssRules)` 當「這是容器」的判準。
+        if (r.cssRules && r.cssRules.length) walk(r.cssRules);
+        const txt = r.style && r.style.cssText;
+        if (!txt) continue;
+        // `var(--good)` 與寫死的 #34C759 / rgba(52,199,89,…) 都要抓
+        const usesGood = /var\(\s*--good\s*\)/.test(txt)
+          || [...txt.matchAll(/#([0-9a-fA-F]{6})\b|rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g)]
+            .some((m) => near(m[1] ? m[1].match(/../g).map((h) => parseInt(h, 16)) : [+m[2], +m[3], +m[4]]));
+        if (usesGood) out.push((r.selectorText || '?') + '\u0000' + txt);
+      }
+    };
+    for (const sh of document.styleSheets) { try { walk(sh.cssRules); } catch (e) { /* 跨來源 */ } }
+    return [...new Set(out)];
+  });
+  // `:root` 只放行 `--good` **這一條宣告**。E 組（baseline flow）還在用它，
+  // 所以宣告必須留著；一個宣告不會在畫面上宣稱任何事。
+  // 🔴 但**不能整條 `:root` 規則放行** —— 第一版就是那樣寫的，結果反向驗證
+  // （把綠塞回 `--fdcb-complete`）**沒有紅**：新的綠 token 藏在同一條 `:root` 裡，
+  // 被我自己的例外蓋掉了。例外要精確到「哪一個宣告」，不是「哪一條規則」。
+  // ⚠️ 這條掃的是 **CSS 規則**，掃不到 JS 畫進 canvas 的顏色
+  //    （`drawWave(..., '#34C759', ...)` 的示意波形就在範圍外）——
+  //    範圍講清楚，才不會變成一條宣稱比掃描大的斷言。那三條示意波形是一組
+  //    **分類色**（HR / HRV / 呼吸各一條、各自有標題），不是好壞判斷，
+  //    這一輪刻意沒動：動它等於改 Today 的長相，那要 founder 先看過。
+  const GREEN_RE = /var\(\s*--good\s*\)|#34C759\b|rgba?\(\s*5[0-9]\s*,\s*19[0-9]\s*,\s*8[0-9]/i;
+  // 🔴 `:root` 分開處理：**宣告不是宣稱**，所以綠 token 可以存在；
+  // 會出事的是「又多了一個綠 token」——那正是下一個人繞過這條規則的方式
+  // （反向驗證就是這樣抓到的：把綠塞回 `--fdcb-complete` 時，第一版例外沒紅）。
+  // 所以改成鎖住**綠 token 的名單本身**。
+  const greenTokens = [];
+  const strays = hits.map((h) => {
+    const [sel, txt] = h.split('\u0000');
+    if (/\.baseline-flow/.test(sel)) return null;
+    if (/^:root\b/.test(sel)) {
+      for (const decl of (txt || '').split(';')) {
+        const m = decl.match(/^\s*(--[\w-]+)\s*:(.*)$/);
+        if (m && GREEN_RE.test(m[2])) greenTokens.push(m[1]);
+      }
+      return null;
+    }
+    return sel;
+  }).filter(Boolean);
+  // `--good`（v6 私有）與 `--success`（tokens.css）是同一個綠的兩份宣告。
+  // 兩份本身就是 §3.2 那條「同一個顏色兩個名字」的債，但退場是另一輪的事 ——
+  // 這裡先把名單鎖住：多一個就紅。
+  check('🔴 綠 token 就這兩個（多一個＝有人又開了一條路）',
+    [...new Set(greenTokens)].sort(), ['--good', '--success']);
+  if (strays.length) { console.log('   名單外吃到綠的：'); for (const h of strays.slice(0, 10)) console.log(`     ${h}`); }
+  check('🔴 綠只出現在 baseline flow（onboarding 的流程狀態）', strays, []);
+  // 反向：名單本身要真的掃得到，否則上面那條是「掃不到東西所以全綠」
+  checkTruthy(`掃得到吃綠的規則（${hits.length} 條，0 條＝這條是死斷言）`, hits.length >= 5);
   await page.close();
 }
 
