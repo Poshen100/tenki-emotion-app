@@ -52,6 +52,8 @@
 | 兩個來源的呼吸率不一致時取平均 | 對的答案跟錯的答案的平均是第三個錯答案。不一致就顯示「訊號衝突」或什麼都不顯示 |
 | **量不到就把權重重新分配給量得到的 driver** | 資料變少不得讓分數變高。實測：同一筆讀數把 HRV 拿掉，舊做法從 72 分變 **86 分**。改用「錨點 + 有上限的證據移動」（§15）|
 | **回報一個有界搜尋的 argmax，而沒有檢查它是不是停在邊界上** | 落在牆上的 lag 不是週期，是那個界。實測：±15.5%／5 秒的曝光漂移讓自相關回報 **200 bpm、節律 0.75**（真值 68）—— 過了每一道閘。而且 `preferFundamental` 會把內部 argmax 搬到牆上，所以**修正後的 lag 也要檢查**（`docs/PHONE-PPG.md` §21）|
+| **把閘門量在證據來源以外的地方** | 假影會關掉防著它自己的那道閘門。實測：漂移把**整段**的灌流從 0.006 灌到 0.148，於是 `lowPerfusion` 的擷取被推過灌流門檻、救成 67 bpm。段落是證據 → 灌流就要在段落裡重算（`docs/PHONE-PPG.md` §23）|
+| **在註解裡宣稱某條檢查是「承重的那道」而沒有反向驗證過** | 拆掉它如果不會弄紅任何測試，它就是縱深防禦不是承重。照實寫（§23 analyze 的「只有節律」合言就是這種）|
 | **用單一參數點驗證一條門檻** | 一個點不是一條曲線。實測：只量了 1.4 秒的漂移（報成 3.58 秒、低於門檻）就以為 4 秒是安全地板 —— 掃過去才發現 0.8 秒報成 4.07 秒、1.2 秒報成 6.21 秒，全部過門（`docs/PHONE-PPG.md` §22）|
 | **讓「好消息」成為 fallthrough 分支** | 樂觀的結論要靠**通過一個正向測試**拿到。實測：`NaN` 打敗 null 檢查又打敗兩個 `<` 比較（NaN 的比較全是 false），一路失敗掉進最鼓舞人心的那句話 |
 | **把不能上線的程式留在引擎裡當「候選」** | 一個有測試、有文件、看起來隨時可接的候選修法，對下一個 session 是陷阱。`stabiliseGain` 兩個 session 各花一輪重新論證它。量測留文件，程式刪掉（§22）|
@@ -99,6 +101,7 @@ tenki-emotion-app/
 | Signal Integrity | `packages/engine/src/biometric/ppg/signal-quality.ts` + `live.ts` | 四維儀表（接觸／光／穩定／節律）與掃描中的 Pulse Lock |
 | 就位閘 | `packages/engine/src/biometric/ppg/capture-readiness.ts` | 擷取開始**以前**的定位閘：只擋接觸，光與晃是 advisory（`docs/PHONE-PPG.md` §17）|
 | 覆蓋地圖 | `packages/engine/src/biometric/ppg/coverage-map.ts` | 缺口在「哪裡」：8×8 連續覆蓋場（單一色相色階，不是彩虹）；coverage 與閘門同一個數字；不講方向（`docs/PHONE-PPG.md` §18）|
+| 安靜段讀數 | `packages/engine/src/biometric/ppg/quiet-segments.ts` | 相機「停住-跳一下-停住」時，從沒被打擾的那幾段讀脈搏。**靠三段一致，不靠單一視窗**；PRV/呼吸一律 null，品質分數不修補（§23）|
 | 曝光穩定度 | `packages/engine/src/biometric/ppg/exposure-stability.ts` | 相機有沒有在自己重調增益：DC 慢速擺動＋**漂移週期**＋時基。週期只說形狀，幅度才說來源（乾淨擷取的 4.4 秒是呼吸，不是相機）（§19／§21）|
 | PRV 閘門 | `packages/engine/src/biometric/ppg/beat-template.ts` | 拍形穩定度 —— 唯一看得到感光雜訊的量（§13）|
 | Breath Lock | `packages/engine/src/biometric/ppg/breath-lock.ts` | 相機呼吸率的獨立契約與雙來源和解（§14，擷取層未寫）|
