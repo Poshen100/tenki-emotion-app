@@ -89,6 +89,13 @@ export type DeviceConnectionState =
   | 'error';
 
 /** What a provider is doing right now, as held in the store. */
+/**
+ * Every provider's connection state, keyed by provider id. Lives here rather
+ * than inside the store so pure decisions over it can be written and tested
+ * without importing the store.
+ */
+export type ConnectionMap = Record<DeviceProviderId, DeviceConnection>;
+
 export interface DeviceConnection {
   state: DeviceConnectionState;
   /** Populated whenever `state` is `unavailable`. */

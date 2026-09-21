@@ -162,7 +162,43 @@ export type FeatureFlagId =
   | 'lab_prediction'
   | 'benchmark_opt_in'
   | 'reviewer_demo_mode'
-  | 'tradingview_alerts_v1';
+  | 'tradingview_alerts_v1'
+  /**
+   * Camera-derived pulse-rate variability.
+   *
+   * Default ON — but the flag is a kill switch, not the gate. PRV reaches a
+   * user only through `ppg/beat-template.ts`, whose threshold was calibrated
+   * against PRV's actual error: the quality score is blind to sensor noise, so
+   * a capture it rates **99** can carry a **156%** PRV error, and only
+   * beat-shape stability separates the two. This exists so that finding can be
+   * acted on remotely if real devices disagree with the synthetic calibration.
+   *
+   * 🔴 Whatever this flag says, camera PRV is NOT HRV: it never populates
+   * `BiometricReading.hrvRmssdMs`, never feeds the HRV score driver, and is
+   * never labelled HRV in production (founder rule, 2026-09-11).
+   *
+   * @see docs/PHONE-PPG.md
+   */
+  | 'camera_prv_estimates'
+  /**
+   * Camera-derived respiratory rate, as a standalone Breath Lock measurement.
+   *
+   * 🔴 Default OFF, and not as a caution setting. founder rule, 2026-09-11:
+   * camera respiratory rate *may be released only* as Breath Lock — its own
+   * 45-60 s capture protocol, its own independent signal-quality gates,
+   * persisted provenance and rejection reasons, and validation against a
+   * reference source. None of that exists yet, so the metric may not appear
+   * at all. Turning this on before `ppg/breath-lock.ts` has a capture layer
+   * and a device validation behind it would ship exactly the claim the rule
+   * forbids.
+   *
+   * ⚠️ Both flags govern the CAMERA path only. A chest strap's RR intervals
+   * are a different provenance with a different quality path, and
+   * `biometric/beat-series.ts` is not affected.
+   *
+   * @see docs/PHONE-PPG.md
+   */
+  | 'camera_breath_lock';
 
 // ─────────────────────────────────────────────
 // Subscription Types

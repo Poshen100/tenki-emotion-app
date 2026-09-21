@@ -120,3 +120,44 @@ describe('honest denials are not banned claims', () => {
     expect(check.problems).toContain('stale_stated_as_current');
   });
 });
+
+import {
+  MIN_SCANS_FOR_ESTABLISHED_PRECISION,
+  PRECISION_GRADE_BOUNDS,
+  buildPrecisionClaim,
+  gradePrecision,
+} from '../policies/reading-claim';
+
+describe('what the system may say about its own precision', () => {
+  it('grades a measured floor rather than printing milliseconds', () => {
+    expect(gradePrecision(2.5)).toBe('fine');
+    expect(gradePrecision(7)).toBe('usable');
+    expect(gradePrecision(13)).toBe('coarse');
+  });
+
+  it('treats the boundaries as inclusive', () => {
+    expect(gradePrecision(PRECISION_GRADE_BOUNDS.FINE_MAX_MS)).toBe('fine');
+    expect(gradePrecision(PRECISION_GRADE_BOUNDS.FINE_MAX_MS + 0.1)).toBe('usable');
+    expect(gradePrecision(PRECISION_GRADE_BOUNDS.USABLE_MAX_MS)).toBe('usable');
+    expect(gradePrecision(PRECISION_GRADE_BOUNDS.USABLE_MAX_MS + 0.1)).toBe('coarse');
+  });
+
+  it('says nothing when no floor has been established', () => {
+    expect(buildPrecisionClaim(null, 0)).toBeNull();
+    expect(buildPrecisionClaim(Number.NaN, 9)).toBeNull();
+    expect(buildPrecisionClaim(0, 9)).toBeNull();
+  });
+
+  it('marks a claim provisional until enough scans back it', () => {
+    // A floor from three scans is a real number and a weak claim. The surface
+    // may show it as provisional; it may not state it as established fact.
+    expect(buildPrecisionClaim(2.4, 3)?.provisional).toBe(true);
+    expect(buildPrecisionClaim(2.4, MIN_SCANS_FOR_ESTABLISHED_PRECISION)?.provisional).toBe(false);
+  });
+
+  it('carries the raw floor for the evidence layer, not the headline', () => {
+    const claim = buildPrecisionClaim(2.44, 9);
+    expect(claim?.noiseFloorMs).toBe(2.4);
+    expect(claim?.scanCount).toBe(9);
+  });
+});

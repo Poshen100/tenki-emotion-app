@@ -14,12 +14,12 @@ import { transition } from '../machine/deviceLinkMachine';
 import { DEVICE_PROVIDERS, findProvider, resolveUnavailableReason } from '../providers';
 import { createUnwiredLinkPort, type DeviceLinkPort } from '../port';
 import type {
+  ConnectionMap,
   DeviceConnection,
   DeviceEnvironment,
   DeviceProviderId,
 } from '../types/devices.types';
 
-type ConnectionMap = Record<DeviceProviderId, DeviceConnection>;
 
 /** A provider starts unavailable: nothing is connectable until the environment says so. */
 function createEmptyConnection(): DeviceConnection {

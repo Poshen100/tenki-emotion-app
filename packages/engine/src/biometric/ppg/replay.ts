@@ -277,6 +277,18 @@ export const PPG_FIXTURES: Readonly<Record<string, Partial<SyntheticPpgOptions>>
   motion: { motionAmplitude: 3.2, coverageWobble: 0.08, seed: 4242 },
   /** Cold or poorly pressed fingertip: pulse barely above the noise floor. */
   lowPerfusion: { perfusion: 0.08, seed: 991 },
+  /**
+   * 🔴 A quiet sensor with almost no pulse in it — the case that proves
+   * periodicity is not a perfusion gate.
+   *
+   * Low perfusion normally arrives together with low periodicity, because the
+   * pulse drowns in sensor noise. Drop the noise as well and the two come
+   * apart: the little that is there is *clean*, so periodicity scores 1.00 and
+   * the quality score reaches 74, while the perfusion component sits at 0.00.
+   * Measured: before the rate gate quoted perfusion, this capture reported
+   * **68 bpm** with no blood signal in it at all.
+   */
+  quietWeakPulse: { perfusion: 0.05, noiseSd: 0.05, seed: 991 },
   /** Flash too close to the sensor: the waveform is flattened at the ceiling. */
   clipped: { exposureBias: 70, seed: 7007 },
   /** Beat timing that is genuinely irregular rather than noisy. */
