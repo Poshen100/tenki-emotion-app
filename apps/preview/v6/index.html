@@ -690,8 +690,12 @@ body{
   color:rgba(255,255,255,0.65);
 }
 .metric-status.balanced{
-  background:rgba(52,199,89,0.15);
-  color:var(--good);
+  /* 🔴 量測值不上色。「平衡」是一個**量出來的分類**，而綠＝好是一個判斷 ——
+     分類由這格的**字**講就夠了。⚠️ 正下方 `.demo` 的註解早就寫著
+     「刻意不吃任何已被指派意義的顏色 —— 綠是 --good…」，作者當時就認出綠有主人了，
+     只是這一格沒跟著改。（`docs/VISUAL-DIRECTION.md` §3.8 A 組）*/
+  background:rgba(255,255,255,0.08);
+  color:rgba(255,255,255,0.78);
 }
 /* 🔴 示意標記：這張卡的數字是動畫，不是量出來的。
    刻意**不吃任何已被指派意義的顏色** —— 綠是 `--good`、琥珀是 `--warn`、
@@ -758,11 +762,12 @@ body{
   transition:background 0.8s var(--ease-calm);
 }
 .stress-bar .seg.on{
-  background:linear-gradient(90deg, #34C759, #8BD944);
-  box-shadow:0 0 6px rgba(52,199,89,0.4);
+  /* 結構元件（分段條）不穿語義色 —— 靠**明度**分亮暗，跟底座那條三段軌同一個做法。 */
+  background:var(--n-300);
 }
 .stress-pct{
-  font-size:12px;color:var(--good);font-weight:600;
+  /* 量測值不上色（§3.8 A 組）。 */
+  font-size:12px;color:var(--n-100);font-weight:600;
   letter-spacing:0.02em;font-variant-numeric:tabular-nums;
 }
 
@@ -817,15 +822,17 @@ body{
   height:7px;border-radius:4px;position:relative;display:flex;overflow:hidden;
   background:rgba(255,255,255,0.04);
 }
+/* 🔴 交感＝紅、副交感＝綠是**一整組價值判斷**，而這張卡的數字是
+   `Math.sin` 產生的示意值（卡上有「示意」標記）—— 對一組假數字下好壞判斷是
+   最糟的版本。兩半改用中性階的兩階，靠**明度**分左右，不靠紅綠分好壞。
+   （§3.8 A 組；做法同底座那條三段軌「結構元件不得穿語義色」）*/
 .ans-bar .sns-fill{
-  height:100%;background:linear-gradient(90deg, #FF4628, #FF7A4C);
+  height:100%;background:var(--n-600);
   border-radius:4px 0 0 4px;
-  box-shadow:0 0 10px rgba(255,70,40,0.4);
 }
 .ans-bar .pns-fill{
-  height:100%;background:linear-gradient(90deg, #34C759, #87E078);
+  height:100%;background:var(--n-300);
   border-radius:0 4px 4px 0;
-  box-shadow:0 0 10px rgba(52,199,89,0.4);
 }
 
 .ans-legend{
@@ -833,8 +840,8 @@ body{
   font-size:11px;font-weight:600;letter-spacing:0.02em;
   font-variant-numeric:tabular-nums;
 }
-.ans-legend .sns-pct{color:#FF5C3E}
-.ans-legend .pns-pct{color:var(--good)}
+.ans-legend .sns-pct{color:var(--n-400)}
+.ans-legend .pns-pct{color:var(--n-200)}
 .ans-legend .labels{
   display:flex;gap:6px;font-size:10px;color:rgba(255,255,255,0.5);
   font-weight:500;letter-spacing:0.08em;
@@ -956,7 +963,9 @@ body{
   text-align:center;
 }
 .session-stats .val{font-size:22px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
-.session-stats .val.good{color:var(--good)}
+/* 🔴 對齊率是一個**量出來的數字**，不是一個判斷 —— 它跟其他兩格一樣印白。
+   （founder 2026-09-11 截圖裡那個綠色的「100% 對齊率」就是這一格）*/
+.session-stats .val.good{color:#fff}
 .session-stats .lbl{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-400);margin-top:4px;font-weight:600}
 
 .session-section{font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;padding:8px 4px 2px}
