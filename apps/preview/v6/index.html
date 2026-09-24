@@ -765,10 +765,21 @@ body{
   background:rgba(255,255,255,0.05);
   transition:background 0.8s var(--ease-calm);
 }
-.stress-bar .seg.on{
-  /* 結構元件（分段條）不穿語義色 —— 靠**明度**分亮暗，跟底座那條三段軌同一個做法。 */
-  background:var(--n-300);
-}
+/* 🔴 這條是**量級**（0-100 的壓力值點亮幾格），不是好壞 —— 所以漸層走的是
+   同一條 cyan 色階由暗到亮，靠**明度**講「到哪一格」，不換色相去講「好不好」。
+   founder 2026-09-24：「壓力條我要有漸層色」。
+   ⚠️ 整條讀起來要是一個漸層，所以是**逐格遞進**，不是每一格都套同一個漸層
+   （原本 `linear-gradient(90deg,#34C759,#8BD944)` 是後者 —— 五格長得一樣，
+   那不是漸層，是同一個圖案重複五次）。
+   ⚠️ 色階只有 200/400/500/800/950 五階，而中間兩格用 `color-mix()` 從既有兩階
+   推出來 —— **不新增 hex**（兩份一定會漂移，這個 repo 為此付過學費）。
+   ⚠️ 刻意跳過 `--cyan-500`：它就是 `--zone-clear`，帶位有主人，
+   一條壓力量級條不該穿帶位色。 */
+.stress-bar .seg.on{ background:var(--cyan-800); }
+.stress-bar .seg.on:nth-child(2){ background:color-mix(in srgb, var(--cyan-800), var(--cyan-400)); }
+.stress-bar .seg.on:nth-child(3){ background:var(--cyan-400); }
+.stress-bar .seg.on:nth-child(4){ background:color-mix(in srgb, var(--cyan-400), var(--cyan-200)); }
+.stress-bar .seg.on:nth-child(5){ background:var(--cyan-200); }
 .stress-pct{
   /* 量測值不上色（§3.8 A 組）。 */
   font-size:12px;color:var(--n-100);font-weight:600;
