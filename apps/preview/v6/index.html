@@ -1925,6 +1925,28 @@ body{
 .fdcb-prog .seg-obs{background:var(--n-600)}
 .fdcb-prog .seg-sweet{background:var(--n-450)}
 .fdcb-prog .seg-ext{background:var(--n-700)}
+/* 🔴 守望模式下這條軌換一個工作：它不再是模板的三個**階段**，
+   而是一條 30 分鐘的**經過時間軸**，分成 0–3 / 3–10 / 10–30 三段
+   （founder 2026-09-24：「希望可以從長條的分段顏色快速看出時間」）。
+   ⚠️ 段寬**照時間比例**（10% / 23.3% / 66.7%），不是等分三段 ——
+   等分會讓這條軸謊報時間長度，那正是這一格要回答的問題。
+   ⚠️ **`#fdcbFill` 仍然不動**（守望不畫倒數填充，理由見 tickFdcb 原地註解）。
+   會動的只有「現在在哪一段」，那是事實不是進度壓力。
+   🔴 顏色仍然**只用中性階的明度**：走過的中階、現在的最亮、還沒到的最暗。
+   我第一版把「現在」那一段做成 `--cyan-400`（理由是 ACTIVE＝這筆決策正在跑），
+   **既有守門當場擋下來**，而它擋得對 —— 這條軸現在報的是**經過時間**，
+   那是一個量測值，而「量測值不上色」是跨兩個世界的通用規則。
+   亮度差已經夠一眼看出來（`--n-200` 對 `--n-800`），不需要借一個語義色。 */
+.fdcb-prog.watch-axis{gap:1px}
+.fdcb-prog.watch-axis .seg-obs,
+.fdcb-prog.watch-axis .seg-sweet,
+/* ⚠️ **刻意沒有 transition**：淡入淡出會讓這條軌在 0.4 秒內顯示一個
+   「不屬於任何一階」的中間色，而既有那條守門（三段軌只准用中性階的某一階）
+   就是在那個中間點抓到我的 —— 它抓得對，一個過渡色本身不是這條色階的成員。
+   換段一次 30 分鐘只發生兩次，不需要動畫。 */
+.fdcb-prog.watch-axis .seg-ext{background:var(--n-800)}
+.fdcb-prog.watch-axis .wb-past{background:var(--n-600)}
+.fdcb-prog.watch-axis .wb-now{background:var(--n-200)}
 /* 🔴 環境層名單成員 #1：倒數填充。它是這一格唯一真的在講「這一次決策」的東西，
    而且是 2px 的條、不是文字 —— 所以它吃 `--tmpl`（模板身分），不吃 `--primary`。
    舊的守門把它寫成「唯一的白名單例外」；拆開之後它不是例外，是**名單的第一個成員**。 */
@@ -4557,6 +4579,44 @@ function renderFdcb(){
 const MARK_FLASH_MS = 1600;
 let markFlashUntil = 0;
 
+/**
+ * 守望模式的時間軸：把三段軌換成 0–3 / 3–10 / 10–30 分三段。
+ *
+ * 🔴 段寬照**時間比例**算，不是等分 —— 等分的話這條軸會謊報時間長度，
+ * 而「跑了多久」正是 founder 要它回答的問題。上界綁 `WATCH_CEILING_SEC`，
+ * 不另外寫一個 30；邊界也是具名常數，改一個地方就好。
+ *
+ * ⚠️ 只動段的顏色與寬度，**不碰 `#fdcbFill`** —— 守望不畫倒數填充那條規則沒有放寬
+ * （守門有一條在驗它）。這裡講的是「現在在哪一段」，是事實，不是進度壓力。
+ *
+ * @param {?number} elapsedSec 經過秒數；傳 null＝不是守望，還原成模板的三階段
+ */
+function renderWatchAxis(elapsedSec){
+  // 🔴 邊界在**函式內**算，不是模組層的 const —— `WATCH_CEILING_SEC` 宣告在
+  // 這支函式後面幾百行，寫成模組層常數會在載入當下就 TDZ ReferenceError。
+  // （同一個順序陷阱這份檔案記載過一次，這次是我自己差點再踩。）
+  const bounds = [3 * 60, 10 * 60, WATCH_CEILING_SEC];
+  const prog = document.querySelector('.fdcb-prog');
+  if(!prog) return;
+  const segs = [prog.querySelector('.seg-obs'), prog.querySelector('.seg-sweet'), prog.querySelector('.seg-ext')];
+  if(segs.some((x) => !x)) return;
+  if(elapsedSec == null){
+    prog.classList.remove('watch-axis');
+    const back = ['33%', '33%', '34%'];
+    segs.forEach((el, i) => { el.style.width = back[i]; el.classList.remove('wb-past', 'wb-now'); });
+    return;
+  }
+  prog.classList.add('watch-axis');
+  let lo = 0;
+  segs.forEach((el, i) => {
+    const hi = bounds[i];
+    el.style.width = ((hi - lo) / WATCH_CEILING_SEC * 100).toFixed(2) + '%';
+    el.classList.toggle('wb-past', elapsedSec >= hi);
+    el.classList.toggle('wb-now', elapsedSec >= lo && elapsedSec < hi);
+    lo = hi;
+  });
+}
+
 // 每秒繪製：時間 mm:ss / 總長 + 填充 + 當前段 + readiness 偵測
 function tickFdcb(){
   const tmpl = TEMPLATES[currentTmpl];
@@ -4572,11 +4632,13 @@ function tickFdcb(){
     timeEl.textContent = fmtClock(elapsed);
     if(Date.now() >= markFlashUntil) segEl.textContent = '結構守望 · 點一下判定';
     if(fill) fill.style.width = '0';
+    renderWatchAxis(elapsed);
     // reachedReadiness 是「有沒有走到時間上的核心段」—— 守望模式不用時間判紀律，
     // 所以這個量在這裡沒有意義，維持 false，讓詳情頁誠實顯示「—」而不是編一個。
     fdcb.classList.remove('in-readiness');
     return;
   }
+  renderWatchAxis(null);   // 倒數模板：軌回到模板的三個階段
   timeEl.textContent = fmtClock(elapsed) + ' / ' + fmtDur(tmpl.durationSec);
   const ph = phaseFor(elapsed, tmpl);
   if(Date.now() >= markFlashUntil) segEl.textContent = ph;
