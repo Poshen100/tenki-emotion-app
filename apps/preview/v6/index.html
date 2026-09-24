@@ -765,21 +765,28 @@ body{
   background:rgba(255,255,255,0.05);
   transition:background 0.8s var(--ease-calm);
 }
-/* 🔴 這條是**量級**（0-100 的壓力值點亮幾格），不是好壞 —— 所以漸層走的是
-   同一條 cyan 色階由暗到亮，靠**明度**講「到哪一格」，不換色相去講「好不好」。
-   founder 2026-09-24：「壓力條我要有漸層色」。
-   ⚠️ 整條讀起來要是一個漸層，所以是**逐格遞進**，不是每一格都套同一個漸層
-   （原本 `linear-gradient(90deg,#34C759,#8BD944)` 是後者 —— 五格長得一樣，
-   那不是漸層，是同一個圖案重複五次）。
-   ⚠️ 色階只有 200/400/500/800/950 五階，而中間兩格用 `color-mix()` 從既有兩階
-   推出來 —— **不新增 hex**（兩份一定會漂移，這個 repo 為此付過學費）。
-   ⚠️ 刻意跳過 `--cyan-500`：它就是 `--zone-clear`，帶位有主人，
-   一條壓力量級條不該穿帶位色。 */
-.stress-bar .seg.on{ background:var(--cyan-800); }
-.stress-bar .seg.on:nth-child(2){ background:color-mix(in srgb, var(--cyan-800), var(--cyan-400)); }
-.stress-bar .seg.on:nth-child(3){ background:var(--cyan-400); }
-.stress-bar .seg.on:nth-child(4){ background:color-mix(in srgb, var(--cyan-400), var(--cyan-200)); }
-.stress-bar .seg.on:nth-child(5){ background:var(--cyan-200); }
+/* 🔴 綠的漸層（founder 2026-09-24 拍板，並要求把規則改掉而不是開例外）。
+   規則現在是：**綠不得「單獨承載」一個事實**，而判準不是「它出現在哪一頁」，
+   是**資訊由誰承載** —— 驗法很直接：**把顏色全部拿掉，這個元件還說得出同一件事嗎？**
+     · 說不出（一顆沒有字的點、一個純色塊在宣稱分類／好壞）→ 綠不准用
+     · 說得出（資訊在位置／數量／旁邊的字上，顏色只是外觀）→ 可以用
+   這一條就是後者：**它說的是「點亮幾格」**，把顏色全洗成灰仍然是 3/5 ——
+   顏色沒有在承載任何事。完整理由與量測見 `docs/VISUAL-DIRECTION.md` §3.8。
+
+   ⚠️ 實測（給下一個想動它的人）：三階對卡片底 8.2 / 10.5 / 12.7:1，
+   但**相鄰兩階在色盲下會塌**（seg3×seg5 紅色盲 ΔE 5.5、綠色盲 8.7）。
+   那在這裡不構成問題，正因為訊息是位置不是顏色 —— 換到任何「只剩顏色在講話」
+   的地方，同一組值立刻是不可用的。
+
+   ⚠️ 整條讀起來要是一個漸層，所以**逐格遞進**，不是每一格都套同一個漸層
+   （原本 `linear-gradient(90deg,#34C759,#8BD944)` 是後者 —— 五格長得一模一樣，
+     那不是漸層，是同一個圖案重複五次）。
+   ⚠️ 中間兩格用 `color-mix()` 從端點推出來，**不新增 hex**。 */
+.stress-bar .seg.on{ background:#34C759; }
+.stress-bar .seg.on:nth-child(2){ background:color-mix(in srgb, #34C759, #8BD944); }
+.stress-bar .seg.on:nth-child(3){ background:#8BD944; }
+.stress-bar .seg.on:nth-child(4){ background:color-mix(in srgb, #8BD944, #D4E157); }
+.stress-bar .seg.on:nth-child(5){ background:#D4E157; }
 .stress-pct{
   /* 量測值不上色（§3.8 A 組）。 */
   font-size:12px;color:var(--n-100);font-weight:600;
