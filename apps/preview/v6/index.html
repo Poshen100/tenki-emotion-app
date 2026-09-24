@@ -4169,32 +4169,9 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
     const elapsed = (now - startTime) % CYCLE_MS;
     const frame = Math.floor(elapsed / (1000 / FPS)) % TOTAL_FRAMES;
 
-    // 🔴 三條示意波形走**同一條 cyan 色階的三階，靠明度分**（founder 2026-09-24 拍板）。
-    // 原本是 HR 紅 / HRV 綠 / 呼吸 teal —— 三個不同色相，而紅綠在生理數字旁邊
-    // 讀起來就是「壞／好」。這張卡的數字是 `Math.sin` 產生的示意值，
-    // **對一組假數字下好壞判斷是最糟的版本**（同 §3.8 A 組對自律神經那張卡的裁決）。
-    // ⚠️ 只有 HR 與 HRV **並排在同一張卡**，所以那兩階要分得開：
-    //    `--cyan-200` × `--cyan-400` ΔE 16.8。呼吸自己一頁，用最暗的那階。
-    // ⚠️ 刻意跳過 `--cyan-500` —— 它就是 `--zone-clear`，帶位有主人，
-    //    一條示意波形不該穿帶位色。
-    // ⚠️ 顏色從 token 讀，不複製 hex（兩份一定會漂移，這個 repo 為此付過學費）。
-    // 🔴 不能用 `getPropertyValue('--cyan-400')` —— `--cyan-400` 的**值**是
-    //    `var(--cyan-active)`（tokens.css 刻意指過去不複製 hex），拿到的會是那串
-    //    字面而不是顏色。要真的解析，得讓瀏覽器算一次：丟進一個探針元素的
-    //    `color`，再讀回 computed 的 `rgb(...)`。
-    const waveHue = (token, alpha) => {
-      const probe = document.createElement('span');
-      probe.style.cssText = 'position:absolute;opacity:0;pointer-events:none;color:var(' + token + ')';
-      document.body.appendChild(probe);
-      const rgb = getComputedStyle(probe).color;   // 一律回 rgb(r, g, b)
-      probe.remove();
-      if (alpha == null) return rgb;
-      const m = rgb.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-      return m ? `rgba(${m[1]},${m[2]},${m[3]},${alpha})` : rgb;
-    };
-    drawWave(hrSetup,  hrData,  waveHue('--cyan-200'), waveHue('--cyan-200', 0.4), frame, 80);
-    drawWave(hrvSetup, hrvData, waveHue('--cyan-400'), waveHue('--cyan-400', 0.4), frame, 90);
-    drawWave(rrSetup,  rrData,  waveHue('--cyan-800'), waveHue('--cyan-800', 0.4), frame, 70);
+    drawWave(hrSetup, hrData, '#FF5C73', 'rgba(255,92,115,0.4)', frame, 80);
+    drawWave(hrvSetup, hrvData, '#34C759', 'rgba(52,199,89,0.4)', frame, 90);
+    drawWave(rrSetup, rrData, '#2EB6C0', 'rgba(46,182,192,0.4)', frame, 70);
 
     updateANS(elapsed);
 
