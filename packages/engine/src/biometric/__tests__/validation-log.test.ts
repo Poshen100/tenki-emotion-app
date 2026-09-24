@@ -35,6 +35,7 @@ function capture(overrides: Partial<ValidationCapture> = {}): ValidationCapture 
     exposure: null,
     exposureLock: null,
     torchOn: null,
+    quietSegments: null,
     scenario: 'resting',
     ...overrides,
   };
@@ -173,6 +174,40 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     expect(report).toContain('補光燈對照 還沒有紀錄');
     expect(report).toContain('1 筆沒記到補光燈狀態');
     expect(report).not.toContain('關：擺動');
+  });
+
+  it('🔴 安靜段救起來的時候報告要說', () => {
+    const report = formatValidationReport([
+      capture({
+        quietSegments: { bpm: 67, foundCount: 5, periodicCount: 5, longestSec: 6.2, spreadBpm: 3 },
+      }),
+    ]);
+    expect(report).toContain('安靜段讀數 救起 1/1 次');
+  });
+
+  it('🔴 沒救起來的時候要說是哪一種沒救起來', () => {
+    // 🔴 三種原因、三種修法。只回報「失敗 N 次」等於下一輪實機還是瞎的 ——
+    // 而每一輪實機都是一天。
+    const tooFew = formatValidationReport([
+      capture({
+        quietSegments: { bpm: null, foundCount: 1, periodicCount: 0, longestSec: 3.2, spreadBpm: null },
+      }),
+    ]);
+    expect(tooFew).toContain('切不出夠多段');
+    expect(tooFew).toContain('最長 3.2 秒');
+
+    const notPeriodic = formatValidationReport([
+      capture({
+        quietSegments: { bpm: null, foundCount: 6, periodicCount: 1, longestSec: 5.5, spreadBpm: null },
+      }),
+    ]);
+    expect(notPeriodic).toContain('段裡沒有可用的脈搏');
+    expect(notPeriodic).not.toContain('切不出夠多段');
+  });
+
+  it('沒走到這一步就說沒走到，不說失敗', () => {
+    // 節律不是唯一被擋的理由時，這條路根本沒被嘗試 —— 那不是一次失敗。
+    expect(formatValidationReport([capture()])).toContain('沒有任何擷取走到這一步');
   });
 
   it('🔴 週期這個數字不得暗示漂移除得掉', () => {

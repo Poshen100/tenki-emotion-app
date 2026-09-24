@@ -66,9 +66,16 @@ function wholeCaptureRate(frames: readonly PpgFrame[]) {
   return estimateRate(bandPass(r.values, r.sampleRateHz), r.sampleRateHz);
 }
 
-function segmentedRate(frames: readonly PpgFrame[]) {
+/** The assessment, including the counts behind a refusal. */
+function assess(frames: readonly PpgFrame[]) {
   const r = grid(frames);
   return estimateRateFromQuietSegments(r.values, r.sampleRateHz);
+}
+
+/** Just the rate, or null — what the pipeline actually acts on. */
+function segmentedRate(frames: readonly PpgFrame[]) {
+  const got = assess(frames);
+  return got.bpm === null ? null : got;
 }
 
 describe('the device-shaped capture', () => {
@@ -82,9 +89,9 @@ describe('the device-shaped capture', () => {
     const recovered = segmentedRate(drifted);
     expect(recovered).not.toBeNull();
     if (recovered === null) return;
-    expect(Math.abs(recovered.bpm - scan.truth.meanBpm)).toBeLessThan(3);
-    expect(recovered.segmentCount).toBeGreaterThanOrEqual(MIN_AGREEING_SEGMENTS);
-    expect(recovered.spreadBpm).toBeLessThanOrEqual(MAX_SEGMENT_SPREAD_BPM);
+    expect(Math.abs((recovered.bpm as number) - scan.truth.meanBpm)).toBeLessThan(3);
+    expect(recovered.periodicCount).toBeGreaterThanOrEqual(MIN_AGREEING_SEGMENTS);
+    expect(recovered.spreadBpm as number).toBeLessThanOrEqual(MAX_SEGMENT_SPREAD_BPM);
   });
 
   it('reports how much of the capture it actually used', () => {
@@ -219,5 +226,75 @@ describe('finding the quiet stretches', () => {
     // it exists to find are inside the segments.
     expect(QUIET_SLEW_PER_SEC).toBeGreaterThan(0.023);
     expect(QUIET_SLEW_PER_SEC).toBeLessThan(0.10);
+  });
+});
+
+describe('🔴 a refusal has to say which refusal it was', () => {
+  // Three different causes, three different repairs — and without the counts
+  // the device can only say no, which costs another day per round.
+  it('too few stretches: says how many it found and how long the best one was', () => {
+    // A clean capture is one long stretch, so it can never reach three.
+    const got = assess(synthesizePpg({ durationSec: 60, sampleRateHz: 60 }).frames);
+    expect(got.bpm).toBeNull();
+    expect(got.foundCount).toBeLessThan(MIN_AGREEING_SEGMENTS);
+    expect(got.longestSec).toBeGreaterThan(MIN_QUIET_SEGMENT_SEC);
+  });
+
+  it('stretches found but not periodic: separates the two counts', () => {
+    // 🔴 The case the device was probably hitting. Plenty of stretches, none of
+    // them carrying a usable pulse — which is a completely different problem
+    // from not finding stretches at all.
+    const noise = synthesizePpg({
+      durationSec: 60,
+      sampleRateHz: 60,
+      perfusion: 0,
+      noiseSd: 1.2,
+    });
+    const got = assess(rampHold(noise.frames));
+    expect(got.bpm).toBeNull();
+    expect(got.foundCount).toBeGreaterThanOrEqual(MIN_AGREEING_SEGMENTS);
+    expect(got.periodicCount).toBe(0);
+  });
+
+  it('reports the actual periodic count when it is short, not just "fewer than three"', () => {
+    // 🔴 The refusal that needs a NUMBER. One jump in an otherwise clean
+    // capture gives exactly two usable stretches — and "two" is a completely
+    // different message from "none": two means the pulse is there and the
+    // capture was simply not interrupted often enough to prove it.
+    //
+    // ⚠️ The first version of this asserted only `< MIN_AGREEING_SEGMENTS`,
+    // which the default of 0 satisfies — so dropping the count from the refusal
+    // broke nothing. Asserting the value is what makes it observable.
+    const scan = synthesizePpg({ durationSec: 60, sampleRateHz: 60 });
+    const t0 = scan.frames[0].timestampMs;
+    const oneJump = scan.frames.map((f) => {
+      const k = (f.timestampMs - t0) / 1000 < 30 ? 1 : 1.16;
+      return { ...f, red: f.red * k, green: f.green * k, blue: f.blue * k };
+    });
+    const got = assess(oneJump);
+    expect(got.bpm).toBeNull();
+    expect(got.foundCount).toBe(2);
+    expect(got.periodicCount).toBe(2);
+    expect(got.analysedSec).toBeGreaterThan(0);
+  });
+
+  it('stretches disagreed: reports the spread that refused them', () => {
+    const parts = [48, 76, 104].map((bpm, i) => ({
+      scan: synthesizePpg({ durationSec: 24, sampleRateHz: 60, bpm, seed: bpm }),
+      gain: 1 + 0.16 * (i % 2 === 0 ? 1 : -1),
+    }));
+    let t = 0;
+    const stitched: PpgFrame[] = [];
+    for (const { scan: part, gain } of parts) {
+      const t0 = part.frames[0].timestampMs;
+      for (const f of part.frames) {
+        stitched.push({ ...f, timestampMs: t + (f.timestampMs - t0), red: f.red * gain });
+      }
+      t += 24_000;
+    }
+    const got = assess(stitched);
+    expect(got.bpm).toBeNull();
+    expect(got.periodicCount).toBeGreaterThanOrEqual(MIN_AGREEING_SEGMENTS);
+    expect(got.spreadBpm as number).toBeGreaterThan(MAX_SEGMENT_SPREAD_BPM);
   });
 });

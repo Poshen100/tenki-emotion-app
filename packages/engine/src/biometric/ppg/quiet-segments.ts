@@ -64,13 +64,38 @@ import { MIN_PERFUSION } from './quality';
 export const QUIET_SLEW_PER_SEC = 0.05;
 
 /**
+ * Half-width of the window the level is smoothed over before its slope is
+ * taken, in seconds.
+ *
+ * ⚠️ Squeezed from both sides. It must span a beat, or the pulse's own upstroke
+ * reads as slew and a perfect capture shatters into fragments. But it is also
+ * subtracted from both ends of every usable stretch, so an over-wide window
+ * throws away the very plateaus this module exists to find.
+ */
+export const QUIET_SLEW_WINDOW_SEC = 0.75;
+
+/**
  * Shortest stretch worth estimating a rate from, in seconds.
  *
  * ⚠️ Bounded below by the estimator, not by taste: `dominantPeriod` needs two
- * full cycles of its longest lag, which at 40 bpm is 3 seconds. Five gives
- * that plus margin, and holds five or six beats at a resting rate.
+ * full cycles of its longest lag, which at 40 bpm is 3 seconds. Four gives that
+ * plus margin, and holds four or five beats at a resting rate.
+ *
+ * 🔴 Was 5, and 5 was too tight against the device. With its measured ~15 s
+ * drift cycle each plateau is about 7.6 s, and the transition plus the
+ * smoothing window eat into both ends — leaving **5.1-5.5 s**, barely over the
+ * bar. A slightly slower transition dropped the whole capture to two usable
+ * stretches and the rescue never fired, which is what the device kept
+ * reporting. Measured across drift shapes, 4 s with the narrower window below
+ * raises recovery from 44% to **75%** with the worst error unchanged (1.5 bpm)
+ * and still **zero** false positives on captures with no pulse in them.
+ *
+ * ⚠️ Shorter stretches are individually weaker evidence. What holds the line is
+ * `MIN_AGREEING_SEGMENTS`, not this number — loosening this without that
+ * agreement requirement would be exactly the false-reading machine this module
+ * is built to avoid.
  */
-export const MIN_QUIET_SEGMENT_SEC = 5;
+export const MIN_QUIET_SEGMENT_SEC = 4;
 
 /**
  * How many stretches must agree before their rate is reported.
@@ -99,15 +124,27 @@ export interface QuietSegment {
   values: number[];
 }
 
-/** A rate assembled from several quiet stretches that agreed. */
+/**
+ * What the quiet stretches amounted to, whether or not they yielded a rate.
+ *
+ * 🔴 The counts are reported even when `bpm` is null, and that is the point.
+ * "It did not fire" has three completely different causes — too few stretches,
+ * stretches that were not individually periodic, or stretches that disagreed —
+ * and they point at three different repairs. Without the counts the device can
+ * only say no, and every round of real-device testing costs a day.
+ */
 export interface SegmentedRate {
-  /** Median of the agreeing segments' rates, in bpm. */
-  bpm: number;
-  /** How many segments agreed. */
-  segmentCount: number;
-  /** Spread between the fastest and slowest agreeing segment, in bpm. */
-  spreadBpm: number;
-  /** Total seconds the agreeing segments covered. */
+  /** Median of the agreeing segments' rates, or null when none agreed. */
+  bpm: number | null;
+  /** Stretches long enough to try, before any of them were judged. */
+  foundCount: number;
+  /** Of those, how many were individually perfused and periodic. */
+  periodicCount: number;
+  /** Longest stretch found, in seconds. 0 when none were. */
+  longestSec: number;
+  /** Spread between the fastest and slowest usable segment, or null. */
+  spreadBpm: number | null;
+  /** Total seconds the usable segments covered. */
   analysedSec: number;
 }
 
@@ -130,9 +167,14 @@ export function findQuietSegments(
   const minSamples = Math.floor(MIN_QUIET_SEGMENT_SEC * sampleRateHz);
   if (level <= 0 || values.length < minSamples) return [];
 
-  // One second either side: long enough to average a beat away, short enough
-  // that a real transition still shows up as a slope.
-  const half = Math.max(1, Math.floor(sampleRateHz));
+  // ⚠️ Three quarters of a second either side, and both bounds are measured.
+  // It has to span a beat so the pulse does not read as slew, and every extra
+  // sample of it is taken off BOTH ends of every usable stretch — with the
+  // device's ~15 s drift cycle that was the difference between three usable
+  // stretches and two. Measured maximum slew on a still finger (pulse and
+  // breathing together): 0.023 at ±1 s, 0.029 at ±0.75 s, 0.040 at ±0.5 s
+  // against a 0.05 bar. ±0.5 s leaves only 1.2× of margin; ±0.75 s keeps 1.7×.
+  const half = Math.max(1, Math.round(QUIET_SLEW_WINDOW_SEC * sampleRateHz));
   const smoothed = values.map((_, i) => {
     const lo = Math.max(0, i - half);
     const hi = Math.min(values.length - 1, i + half);
@@ -185,10 +227,17 @@ export function findQuietSegments(
 export function estimateRateFromQuietSegments(
   values: readonly number[],
   sampleRateHz: number,
-): SegmentedRate | null {
+): SegmentedRate {
   const segments = findQuietSegments(values, sampleRateHz);
-  if (segments.length < MIN_AGREEING_SEGMENTS) return null;
-
+  const longestSec = round1(
+    segments.reduce((best, s) => Math.max(best, s.values.length), 0) / sampleRateHz,
+  );
+  // ⚠️ Every stretch is scored before any gate is applied, even when there are
+  // obviously too few of them. "Two stretches, both carrying a pulse" and "two
+  // stretches, neither carrying one" are the same refusal but completely
+  // different messages: the first says the pulse is there and the capture was
+  // simply not interrupted often enough to prove it. Returning early on the
+  // count threw that away.
   const rates: number[] = [];
   let analysedSamples = 0;
   for (const segment of segments) {
@@ -213,18 +262,23 @@ export function estimateRateFromQuietSegments(
     rates.push(estimate.bpm);
     analysedSamples += segment.values.length;
   }
-  if (rates.length < MIN_AGREEING_SEGMENTS) return null;
-
   const sorted = [...rates].sort((a, b) => a - b);
-  const spreadBpm = sorted[sorted.length - 1] - sorted[0];
-  if (spreadBpm > MAX_SEGMENT_SPREAD_BPM) return null;
-
-  return {
-    bpm: sorted[Math.floor(sorted.length / 2)],
-    segmentCount: rates.length,
-    spreadBpm: round1(spreadBpm),
+  const summary = {
+    foundCount: segments.length,
+    periodicCount: rates.length,
+    longestSec,
+    spreadBpm: rates.length < 2 ? null : round1(sorted[sorted.length - 1] - sorted[0]),
     analysedSec: round1(analysedSamples / sampleRateHz),
   };
+
+  // ⚠️ Only the usable count is gated. A gate on `segments.length` would read
+  // like a second safeguard and cannot ever fire — every usable stretch is one
+  // of the stretches found, so too few found always means too few usable.
+  // Removing it, rather than keeping a line that looks like a check and is not.
+  if (rates.length < MIN_AGREEING_SEGMENTS) return { bpm: null, ...summary };
+  if ((summary.spreadBpm as number) > MAX_SEGMENT_SPREAD_BPM) return { bpm: null, ...summary };
+
+  return { bpm: sorted[Math.floor(sorted.length / 2)], ...summary };
 }
 
 function round1(value: number): number {

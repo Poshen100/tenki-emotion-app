@@ -237,6 +237,10 @@ export function formatValidationReport(log) {
         lines.push(`  ${torchSplitNote(exposures)}`);
         lines.push('  （擺動遠大於門檻 = auto-exposure 在擷取中重調增益，會蓋掉心搏起伏）');
     }
+    // ⚠️ Outside the exposure branch on purpose: this is about the rescue, and a
+    // capture can reach it whether or not exposure was measurable. Nesting it in
+    // there meant the line silently vanished on exactly the logs that needed it.
+    lines.push(`  ${quietSegmentNote(log)}`);
     lines.push('');
     lines.push('#15 PRV 閘門可達性');
     if (gate.captureCount === 0) {
@@ -340,6 +344,35 @@ function driftPeriodNote(period) {
         return `（低於 ${DRIFT_PERIOD_TRUSTWORTHY_SEC} 秒 = 也可能是更快的擺動被一秒桶折疊，不能當成「慢」）`;
     }
     return '（只描述形狀 —— 週期慢不代表除得掉，帶內的是諧波不是基頻，§22）';
+}
+/**
+ * Whether the quiet-stretch rescue fired, and when it did not, which refusal.
+ *
+ * 🔴 Names the refusal rather than reporting a count of failures, because the
+ * three causes need three different repairs: too few stretches means the cuts
+ * or the minimum length are wrong for this camera; stretches without a usable
+ * pulse means the pulse is genuinely not there; disagreement means the
+ * stretches are seeing different things.
+ *
+ * @param log - Every recorded capture.
+ * @returns One line summarising the rescue across the log.
+ */
+function quietSegmentNote(log) {
+    const tried = log.filter((c) => present(c.quietSegments));
+    if (tried.length === 0)
+        return '安靜段讀數 沒有任何擷取走到這一步（節律不是唯一被擋的理由）';
+    const rescued = tried.filter((c) => c.quietSegments.bpm !== null).length;
+    if (rescued > 0) {
+        return `安靜段讀數 救起 ${rescued}/${tried.length} 次`;
+    }
+    const tooFew = tried.filter((c) => c.quietSegments.foundCount < 3);
+    const notPeriodic = tried.filter((c) => c.quietSegments.foundCount >= 3 && c.quietSegments.periodicCount < 3);
+    const longest = medianOf(tried.map((c) => c.quietSegments.longestSec));
+    const found = medianOf(tried.map((c) => c.quietSegments.foundCount));
+    if (tooFew.length >= notPeriodic.length) {
+        return `安靜段讀數 0/${tried.length} —— 多數是**切不出夠多段**（找到 ${fmt(found)} 段，最長 ${fmt(longest)} 秒，需要 3 段各 ≥4 秒）`;
+    }
+    return `安靜段讀數 0/${tried.length} —— 段切得出來（${fmt(found)} 段）但**段裡沒有可用的脈搏**`;
 }
 /**
  * Drift split by whether the torch was lit — the A/B the device can run itself.

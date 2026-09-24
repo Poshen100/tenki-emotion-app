@@ -127,7 +127,11 @@ export function analyzePpgScan(frames, mode, options = {}) {
     const segmented = noPulse && !qualityBlocksRate && !noPulsatileLight
         ? estimateRateFromQuietSegments(resampled.values, resampled.sampleRateHz)
         : null;
-    if ((qualityBlocksRate || noPulse || noPulsatileLight) && segmented === null) {
+    // ⚠️ An assessment with a null `bpm` is NOT a rescue — it is the counts
+    // explaining why there was none. It still travels with the analysis so the
+    // validation report can say which of the three refusals happened.
+    const segmentedRate = segmented !== null && segmented.bpm !== null ? segmented : null;
+    if ((qualityBlocksRate || noPulse || noPulsatileLight) && segmentedRate === null) {
         // Prefer the reason the user can act on. `irregular_periodicity` is what
         // low perfusion, motion and clipping all collapse into, so naming it first
         // would tell someone whose finger is barely on the lens that their pulse
@@ -152,6 +156,7 @@ export function analyzePpgScan(frames, mode, options = {}) {
                 // 訊號不足的掃描會回報「節律不穩」—— 那是個更弱的理由，而真正的
                 // 理由是這個模式根本不報這一項。兩個原因要照同一個優先序講。
                 rateFromQuietSegments: null,
+                quietSegments: segmented,
                 withheld: [
                     ...withheld,
                     { metric: 'prv', reason: rateFailureReason(mode, 'prv', options) },
@@ -167,7 +172,7 @@ export function analyzePpgScan(frames, mode, options = {}) {
     // so consecutive beats either side of a cut are not consecutive — PRV,
     // respiration and the beat template all rest on an adjacency that was
     // discarded, and every one of them stays null.
-    if (segmented !== null) {
+    if (segmentedRate !== null) {
         withheld.push({ metric: 'prv', reason: 'irregular_periodicity' });
         withheld.push({ metric: 'respiration', reason: 'irregular_periodicity' });
         return {
@@ -178,7 +183,7 @@ export function analyzePpgScan(frames, mode, options = {}) {
                 // number look better. What changed is that a rate is recoverable, not
                 // that the capture was good.
                 quality,
-                heartRateBpm: Math.round(segmented.bpm),
+                heartRateBpm: Math.round(segmentedRate.bpm),
                 prvRmssdMs: null,
                 respiratoryRateBrpm: null,
                 beatCount: 0,
@@ -189,7 +194,8 @@ export function analyzePpgScan(frames, mode, options = {}) {
                 channelDiagnostics: selection.diagnostics,
                 durationSec: round1(durationSec),
                 sampleRateHz: resampled.sampleRateHz,
-                rateFromQuietSegments: segmented,
+                rateFromQuietSegments: segmentedRate,
+                quietSegments: segmented,
                 withheld,
             },
         };
@@ -300,6 +306,7 @@ export function analyzePpgScan(frames, mode, options = {}) {
             // Null on this path by construction: the rate came from the whole
             // capture, which is what having beats to detect means.
             rateFromQuietSegments: null,
+            quietSegments: null,
             channel: resampled.channel,
             channelDiagnostics: selection.diagnostics,
             beatCount: series.accepted.length + (series.accepted.length > 0 ? 1 : 0),

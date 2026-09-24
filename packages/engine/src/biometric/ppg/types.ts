@@ -241,6 +241,17 @@ export interface PpgAnalysis {
    * @see quiet-segments.ts, docs/PHONE-PPG.md §23
    */
   rateFromQuietSegments: SegmentedRate | null;
+  /**
+   * The quiet-stretch assessment, when one was attempted — including when it
+   * refused.
+   *
+   * ⚠️ Distinct from `rateFromQuietSegments`, which is only set when a rate
+   * actually came out. This one carries the counts behind a refusal, because
+   * "too few stretches", "stretches not periodic" and "stretches disagreed"
+   * are three different problems with three different repairs, and every round
+   * of real-device testing without them costs a day.
+   */
+  quietSegments: SegmentedRate | null;
   /** Metrics deliberately not reported, with the reason for each. */
   withheld: PpgWithheld[];
 }
