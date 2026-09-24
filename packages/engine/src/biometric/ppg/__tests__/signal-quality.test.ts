@@ -17,6 +17,7 @@ import {
   isRejectionReason,
   toSignalQuality,
 } from '../signal-quality';
+import { explainQualityScore } from '../quality';
 import { PPG_QUALITY_REASONS } from '../types';
 import type { PpgAnalysis } from '../types';
 
@@ -200,5 +201,69 @@ describe('a reading from fragments is marked as one', () => {
     if (weak.status !== 'analysed') throw new Error('expected an analysis');
     expect(toSignalQuality(weak.analysis).accepted).toBe(false);
     expect(toSignalQuality(weak.analysis).fromQuietSegments).toBe(false);
+  });
+});
+
+describe('the score has to be able to explain itself', () => {
+  /**
+   * 🔴 founder 2026-09-24, looking at a capture scoring 54 with bars reading
+   * 100% / 100% / 92% / 0%: 「訊號品質分數怎麼這麼低？」
+   *
+   * It was unanswerable from the screen. Four bars are shown and the score has
+   * six components — perfusion is worth 25 of the 100, the joint-largest
+   * weight, and has no bar at all.
+   */
+  it('the rows add up to the score — they are the arithmetic, not a retelling', () => {
+    // The whole value of the breakdown is that it cannot drift into a
+    // plausible-looking second story. If these ever disagree, the explanation
+    // is lying about the number printed beside it.
+    for (const fixture of [
+      {},
+      PPG_FIXTURES.lowPerfusion,
+      PPG_FIXTURES.motion,
+      PPG_FIXTURES.poorCoverage,
+      PPG_FIXTURES.frameDrops,
+      PPG_FIXTURES.quietWeakPulse,
+    ]) {
+      const outcome = analyzePpgScan(
+        synthesizePpg({ durationSec: 60, sampleRateHz: 60, ...fixture }).frames,
+        'full_scan',
+      );
+      if (outcome.status !== 'analysed') continue;
+      const rows = explainQualityScore(outcome.analysis.quality);
+      const total = rows.reduce((sum, r) => sum + r.points, 0);
+      // Rounding: each row is rounded to 0.1 and the score to a whole number.
+      expect(Math.abs(total - outcome.analysis.quality.score)).toBeLessThan(0.6);
+    }
+  });
+
+  it('names every component, including the ones with no bar on screen', () => {
+    const outcome = analyzePpgScan(synthesizePpg({ durationSec: 60 }).frames, 'full_scan');
+    if (outcome.status !== 'analysed') throw new Error('expected an analysis');
+    const keys = explainQualityScore(outcome.analysis.quality).map((r) => r.key);
+    // 🔴 These two are the point: neither is one of the four dimensions, and
+    // together they are a third of the score.
+    expect(keys).toContain('perfusion');
+    expect(keys).toContain('frameDrops');
+    expect(keys).toHaveLength(6);
+  });
+
+  it('puts the heaviest weight first, so the reason is the top row', () => {
+    const outcome = analyzePpgScan(synthesizePpg({ durationSec: 60 }).frames, 'full_scan');
+    if (outcome.status !== 'analysed') throw new Error('expected an analysis');
+    const rows = explainQualityScore(outcome.analysis.quality);
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i].weight).toBeLessThanOrEqual(rows[i - 1].weight);
+    }
+    expect(rows.reduce((sum, r) => sum + r.weight, 0)).toBe(100);
+  });
+
+  it("reproduces the founder's 54", () => {
+    // 接觸 100%, 光 100%, 穩定 92%, 節律 0%, no dropped frames — and 54 on
+    // screen. The arithmetic says perfusion contributed 5.6 of 25, which is a
+    // component of 0.22, which is why the capture also said 「脈搏訊號偏弱」.
+    const visible = 1.0 * 15 + 1.0 * 8 + 0.92 * 20 + 0 * 25 + 1.0 * 7;
+    expect(visible).toBeCloseTo(48.4, 1);
+    expect(54 - visible).toBeCloseTo(5.6, 1);
   });
 });

@@ -1243,6 +1243,59 @@ if (shotReady) {
   await page.screenshot({ path: shotReady, fullPage: true });
   console.log(`  📸 ${shotReady}`);
 }
+// ── 分數要答得出「為什麼這麼低」 ──────────────────────────────────────────
+// 🔴 founder 2026-09-24：「訊號品質分數怎麼這麼低？」畫面顯示四條 bar，
+// 而分數有六個分量 —— 灌流佔 25（並列最重）完全沒有 bar。三分之一看不見。
+console.log('\n── 分數是怎麼來的 ──');
+
+const breakdown = await page.evaluate((frames) => {
+  window.__tenkiFingerHarness.renderFrames(frames);
+  const rows = [...document.querySelectorAll('#scoreBreakdown .scoreRow')].map((r) => ({
+    name: r.querySelector('.nm').textContent.trim(),
+    pt: r.querySelector('.pt').textContent.trim(),
+  }));
+  return {
+    rows,
+    note: document.getElementById('scoreBreakdownNote').textContent.trim(),
+    score: Number(document.getElementById('qualityScore').textContent.trim()),
+    insideDetails: document.querySelector('#scoreBreakdown')?.closest('details') !== null,
+  };
+}, synthesizePpg({ durationSec: 60, sampleRateHz: 60, perfusion: 0.25, seed: 77 }).frames);
+
+check(
+  '六個分量都列出來（不是只有畫面上那四條）',
+  breakdown.rows.length === 6,
+  JSON.stringify(breakdown.rows),
+);
+check(
+  '🔴 灌流有自己的一列 —— 它佔 25 分卻沒有 bar，正是答不出來的原因',
+  breakdown.rows.some((r) => r.name === '灌流'),
+  JSON.stringify(breakdown.rows.map((r) => r.name)),
+);
+check(
+  '🔴 各列加起來等於旁邊印的那個分數',
+  (() => {
+    const total = breakdown.rows.reduce((sum, r) => sum + Number(r.pt.split('/')[0]), 0);
+    return Math.abs(total - breakdown.score) < 1;
+  })(),
+  JSON.stringify({ rows: breakdown.rows.map((r) => r.pt), score: breakdown.score }),
+);
+check(
+  '權重總和講明是 100 分制裡的哪一份',
+  breakdown.rows.every((r) => /\/ \d+$/.test(r.pt)),
+  JSON.stringify(breakdown.rows.map((r) => r.pt)),
+);
+check(
+  '說出四條 bar 只涵蓋其中四項',
+  breakdown.note.includes('只涵蓋其中四項'),
+  JSON.stringify(breakdown.note),
+);
+check(
+  '收在展開的細節裡，不佔主畫面',
+  breakdown.insideDetails,
+  JSON.stringify(breakdown.insideDetails),
+);
+
 /** 停住、跳一下、再停住 —— 實機 2026-09-17 的曝光簽章。 */
 const rampHoldFrames = (frames) => {
   const t0 = frames[0].timestampMs;

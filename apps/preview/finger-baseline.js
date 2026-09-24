@@ -16,6 +16,7 @@
  *   2. getUserMedia 必須由**使用者手勢**觸發，而且 `<video>` 要 `playsinline`。
  */
 
+import { explainQualityScore } from './engine/biometric/ppg/quality.js';
 import { analyzePpgScan } from './engine/biometric/ppg/analyze.js';
 import { SCAN_MODE_CONFIGS } from './engine/biometric/scan-modes.js';
 import { toEngineInput } from './engine/biometric/ppg/to-reading.js';
@@ -1184,6 +1185,7 @@ function renderOutcome(outcome) {
   renderReasons($('resultReasons'), a.quality.reasons);
   renderWithheld(a.withheld);
 
+  renderScoreBreakdown(a.quality);
   renderAdvisories(signal.advisories);
   const anchors = renderStage(a);
   renderPrv(a, anchors);
@@ -1365,6 +1367,57 @@ function renderSegmentNote(a) {
     `相機在這 ${a.durationSec} 秒裡一直重調亮度，所以這個脈搏是從中間 ${seg.periodicCount} 段` +
     `沒有被打擾的時間讀出來的（合計 ${seg.analysedSec} 秒，彼此相差 ${seg.spreadBpm} bpm）。` +
     '這次不報脈搏節律 —— 被切掉的地方兩邊的拍不是相鄰的。';
+}
+
+/** 六個分量的中文名。四條 bar 只涵蓋其中四個。 */
+const SCORE_COMPONENT_COPY = {
+  perfusion: '灌流',
+  periodicity: '節律',
+  motion: '穩定',
+  coverage: '接觸',
+  clipping: '光',
+  frameDrops: '掉幀',
+};
+
+/**
+ * 分數是怎麼來的 —— 六列，加起來就是那個分數。
+ *
+ * 🔴 founder 2026-09-24：「訊號品質分數怎麼這麼低？」畫面上答不出來，因為
+ * 畫面顯示四條 bar 而分數有**六個**分量。灌流佔 **25**（跟節律並列最重）
+ * 而且完全沒有 bar；掉幀佔 7、只出現在一句話裡。**三分之一的分數看不見**，
+ * 於是那個數字讀起來是任意的。
+ *
+ * ⚠️ 列是從引擎的 `explainQualityScore` 來的，不是這裡重算一次 ——
+ * 否則它會漂成一個看起來很合理的第二套說法。有測試驗它們加起來等於分數。
+ *
+ * @param {object} quality - 這次擷取的品質評估。
+ */
+function renderScoreBreakdown(quality) {
+  const rows = explainQualityScore(quality);
+  const host = $('scoreBreakdown');
+  host.innerHTML = '';
+  for (const row of rows) {
+    const el = document.createElement('div');
+    el.className = 'scoreRow';
+    el.dataset.zero = row.points < row.weight * 0.25 ? 'yes' : 'no';
+    const name = document.createElement('span');
+    name.className = 'nm';
+    name.textContent = SCORE_COMPONENT_COPY[row.key] ?? row.key;
+    const bar = document.createElement('span');
+    bar.className = 'bar';
+    const fill = document.createElement('i');
+    fill.style.width = `${Math.round(row.component * 100)}%`;
+    bar.appendChild(fill);
+    const pt = document.createElement('span');
+    pt.className = 'pt';
+    pt.textContent = `${row.points} / ${row.weight}`;
+    el.append(name, bar, pt);
+    host.appendChild(el);
+  }
+  const total = rows.reduce((sum, r) => sum + r.points, 0);
+  $('scoreBreakdownNote').textContent =
+    `加起來 ${Math.round(total)} 分。⚠️ 上面四條訊號完整度只涵蓋其中四項 —— ` +
+    '灌流跟節律各佔 25 分，是最重的兩項，任何一項掉下來分數就會明顯低。';
 }
 
 function renderAnchor(bpm) {

@@ -268,6 +268,12 @@
     .lock { font-size: 12px; line-height: 1.6; color: var(--n-500); }
     [data-locked="yes"] .lock { color: var(--cyan-core); }
 
+    .scoreRow { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; font-size: 13px; }
+    .scoreRow .nm { flex: 0 0 4.5em; color: var(--n-300); }
+    .scoreRow .bar { flex: 1 1 auto; height: 4px; border-radius: 2px; background: var(--n-800); overflow: hidden; }
+    .scoreRow .bar i { display: block; height: 100%; background: var(--cyan-active); }
+    .scoreRow .pt { flex: 0 0 4.5em; text-align: right; color: var(--n-100); font-variant-numeric: tabular-nums; }
+    .scoreRow[data-zero="yes"] .pt { color: var(--amber-400); }
     .scenarios { display: flex; gap: 8px; }
     .scenario {
       flex: 1; width: auto; padding: 10px 6px; font-size: 14px; border-radius: 12px;
@@ -508,6 +514,14 @@
          讀數，不進 Edge Score，而且要收在使用者主動展開的地方。 -->
     <details class="only-result card" id="how">
       <summary class="dialLabel" style="cursor:pointer">量測細節與證據</summary>
+
+      <!-- 🔴 founder 2026-09-24：「訊號品質分數怎麼這麼低？」—— 從畫面上答不出來。
+           畫面顯示四條 bar，而分數有**六個**分量：灌流佔 25（並列最重）完全
+           沒有 bar，掉幀佔 7 只出現在一句話裡。三分之一的分數是看不見的。 -->
+      <div class="dialLabel" style="margin-top:12px">分數是怎麼來的</div>
+      <div id="scoreBreakdown" style="margin-top:10px"></div>
+      <p class="fine" id="scoreBreakdownNote" style="margin-top:8px"></p>
+      <hr style="border:none;border-top:1px solid var(--n-800);margin:14px 0" />
 
       <div class="precisionRow" id="prvRow" style="margin-top:12px" hidden>
         <span class="dialLabel">脈搏節律</span>
