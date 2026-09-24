@@ -196,6 +196,30 @@ const INSTRUCTION_EXTRA_COPY = {
   warm_fingertip: '手指偏冷時透光會很弱 —— 搓一下手再試。',
 };
 
+/**
+ * `light_locking` 是**兩件事**共用的狀態，而原本的那句話只符合其中一件。
+ *
+ * 🔴 founder 2026-09-24 實走：「光場穩定燈號沒有亮，是不是應該要提示怎麼調整
+ * 動作」。查下去發現畫面當時說的是「光已經穿過來了。保持這個位置。」——
+ * 而同一個畫面的證據列正顯示「光場均勻 ✗」。**畫面在跟自己的證據打架。**
+ *
+ * 原因是狀態被兩條路徑共用：
+ *   1. `resolveLensState` 的 fallback（還沒開始找節律、覆蓋還沒全確認）——
+ *      那是良性的「光正在穩定下來」，原句剛好適合。
+ *   2. `camera_adapting` 指令（`slowDriftDominates === true`）—— 相機正在自己
+ *      重新決定亮度。原句在這裡是**反過來的**。
+ *
+ * 🔴 **不新增第九個狀態**（brief 指定就是這八個）。指令本來就分得出這兩件事，
+ * 所以由指令挑文案。
+ *
+ * ⚠️ 而且這句話**刻意不是一個姿勢指令**。相機在自己調增益，換姿勢改不了它 ——
+ * 叫使用者「調整一下手指」會是**假的指引**，而且會把責任推給他。能做的那件事
+ * （關掉補光燈）在就位畫面的切換鈕旁邊講，那裡才按得到。
+ */
+const INSTRUCTION_STATE_COPY = {
+  camera_adapting: '相機正在自己重新調整亮度（不是你的手）。維持不動等它穩定。',
+};
+
 
 /**
  * 各階段的名字。英文是對外溝通的 canonical 詞，中文是畫面上的說法。
@@ -401,6 +425,19 @@ function validationEntry(a) {
     // 🔴 記的是「這次到底亮不亮」，不是「這台機器有沒有補光燈」。
     // 沒有補光燈可開的瀏覽器（iOS Safari 都是）回 null —— 那不是「關」。
     torchOn: state.torchAvailable ? state.torchOn : null,
+    // 🔴 連拒絕一起記。救不起來不是一件事而是三件（切不出段／段裡沒脈搏／
+    // 段之間不一致），而它們要的修法不同 —— 只記「又是 0%」等於下一輪實機
+    // 還是瞎的。
+    quietSegments:
+      a === null || a.quietSegments === null
+        ? null
+        : {
+            bpm: a.quietSegments.bpm,
+            foundCount: a.quietSegments.foundCount,
+            periodicCount: a.quietSegments.periodicCount,
+            longestSec: a.quietSegments.longestSec,
+            spreadBpm: a.quietSegments.spreadBpm,
+          },
     scenario: state.scenario,
   };
 }
@@ -661,7 +698,11 @@ function renderGate() {
   const view = resolveCaptureStage(input);
   state.lensView = view;
 
-  $('lensState').textContent = LENS_STATE_COPY[view.lensState] ?? '';
+  // 指令優先：同一個狀態可能由兩條不同的路徑到達，而只有指令分得出來。
+  $('lensState').textContent =
+    (view.instruction === null ? null : INSTRUCTION_STATE_COPY[view.instruction]) ??
+    LENS_STATE_COPY[view.lensState] ??
+    '';
 
   // 🔴 只有當指令**多講了狀態沒講的事**時才出現第二行。八個狀態裡有五個
   // 本身就是那句指令，再印一次只是重複。
@@ -1321,7 +1362,7 @@ function renderSegmentNote(a) {
   note.hidden = false;
   note.dataset.tone = 'neutral';
   note.textContent =
-    `相機在這 ${a.durationSec} 秒裡一直重調亮度，所以這個脈搏是從中間 ${seg.segmentCount} 段` +
+    `相機在這 ${a.durationSec} 秒裡一直重調亮度，所以這個脈搏是從中間 ${seg.periodicCount} 段` +
     `沒有被打擾的時間讀出來的（合計 ${seg.analysedSec} 秒，彼此相差 ${seg.spreadBpm} bpm）。` +
     '這次不報脈搏節律 —— 被切掉的地方兩邊的拍不是相鄰的。';
 }

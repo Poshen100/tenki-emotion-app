@@ -1243,11 +1243,7 @@ if (shotReady) {
   await page.screenshot({ path: shotReady, fullPage: true });
   console.log(`  📸 ${shotReady}`);
 }
-// ── 從片段讀出來的讀數要說出它是片段 ────────────────────────────────────────
-// 🔴 實機第五次：相機停住、跳一下、再停住（擺動 29%／週期 17 秒／單秒跳動 22%）。
-// 整段拒答，中間的平原讀得到。畫面不得讓這種讀數看起來跟整段讀出來的一樣。
-console.log('\n── 片段讀數的誠實 ──');
-
+/** 停住、跳一下、再停住 —— 實機 2026-09-17 的曝光簽章。 */
 const rampHoldFrames = (frames) => {
   const t0 = frames[0].timestampMs;
   return frames.map((f) => {
@@ -1262,6 +1258,76 @@ const rampHoldFrames = (frames) => {
     return { ...f, red: f.red * k, green: f.green * k, blue: f.blue * k };
   });
 };
+
+// ── 相機在自己調亮度時，畫面不得說「保持這個位置」就好 ──────────────────────
+// 🔴 founder 2026-09-24 實走：「光場穩定燈號沒有亮，是不是應該要提示怎麼調整
+// 動作」。查下去發現畫面當時說的是「光已經穿過來了。保持這個位置。」，而同一
+// 個畫面的證據列正顯示「光場均勻 ✗」—— **畫面在跟自己的證據打架**。
+// 原因是 `light_locking` 被兩條路徑共用（良性 fallback ＋ camera_adapting）。
+console.log('\n── 相機在自己調亮度時說什麼 ──');
+
+const aeHunt = await page.evaluate((frames) => {
+  const h = window.__tenkiFingerHarness;
+  h.resetGate();
+  const out = h.renderGateWindow(frames);
+  const light = document.querySelector('.evidenceItem[data-key="lightUniform"]');
+  return {
+    instruction: out.instruction,
+    lensState: out.lensState,
+    stateText: document.getElementById('lensState').textContent.trim(),
+    lightOn: light === null ? null : light.dataset.on,
+  };
+}, rampHoldFrames(synthesizePpg({ durationSec: 20, sampleRateHz: 60 }).frames));
+
+check(
+  '相機漂移會觸發 camera_adapting／light_locking',
+  aeHunt.instruction === 'camera_adapting' && aeHunt.lensState === 'light_locking',
+  JSON.stringify(aeHunt),
+);
+check(
+  '🔴 證據列的「光場均勻」是沒亮的',
+  aeHunt.lightOn === 'no',
+  JSON.stringify(aeHunt),
+);
+check(
+  '🔴 而畫面不得同時說「光已經穿過來了」',
+  !aeHunt.stateText.includes('光已經穿過來了'),
+  JSON.stringify(aeHunt.stateText),
+);
+check(
+  '🔴 要說出是相機在調，而且明說不是使用者的手',
+  aeHunt.stateText.includes('相機') && aeHunt.stateText.includes('不是你的手'),
+  JSON.stringify(aeHunt.stateText),
+);
+check(
+  '⚠️ 而且不得變成一句假的姿勢指令（換姿勢改不了 AE）',
+  !/移|壓|放鬆|蓋住|再蓋/.test(aeHunt.stateText),
+  JSON.stringify(aeHunt.stateText),
+);
+
+// 良性的那條路徑（沒有漂移）必須還是原本那句 —— 那句話在那裡是對的。
+const settling = await page.evaluate((frames) => {
+  const h = window.__tenkiFingerHarness;
+  h.resetGate();
+  const out = h.renderGateWindow(frames);
+  return {
+    instruction: out.instruction,
+    lensState: out.lensState,
+    stateText: document.getElementById('lensState').textContent.trim(),
+  };
+}, synthesizePpg({ durationSec: 3, sampleRateHz: 60 }).frames);
+
+check(
+  '沒有漂移時，light_locking 仍然是原本那句（那句在那裡是對的）',
+  settling.lensState !== 'light_locking' ||
+    settling.stateText.includes('光已經穿過來了'),
+  JSON.stringify(settling),
+);
+
+// ── 從片段讀出來的讀數要說出它是片段 ────────────────────────────────────────
+// 🔴 實機第五次：相機停住、跳一下、再停住（擺動 29%／週期 17 秒／單秒跳動 22%）。
+// 整段拒答，中間的平原讀得到。畫面不得讓這種讀數看起來跟整段讀出來的一樣。
+console.log('\n── 片段讀數的誠實 ──');
 
 const readSegmentNote = async (frames) =>
   await page.evaluate((f) => {
