@@ -275,6 +275,57 @@ check('🔴 標記過期之後，快訊必須照常彈出決策入口（不得�
   await entryOpen(), true);
 await alertPage.evaluate(() => document.getElementById('btnDismiss').click());
 await patchMarker({ expiresAtMs: liveUntil });
+// ═══════════════════════════════════════════════
+// §8 的**真實動線**：PWA 被清出記憶體 → 冷開 start_url → 收到快訊
+//
+// 🔴 上面那一段驗的是「兩頁同時開著」，但 PWA 實際走的**不是**那條路：
+// `start_url` 是 `/decision-alert/`，所以 iOS 把 App 清掉之後，使用者點開
+// 看到的是一個**冷開的快訊頁**，而 `/v3/` 那一頁已經不存在了。
+// 那條路上「決策還在跑」完全靠 localStorage 的標記獨自撐著 ——
+// 規則有了，但先前沒有一條斷言走過這一條路。
+//
+// （founder 2026-09-24 回報：在主畫面的 TENKI 裡，決策跑著卻看到面板彈出來。
+//  這一段就是為了把那條路釘住而加的；實測這條路徑本身是對的，見下。）
+// ═══════════════════════════════════════════════
+{
+  const relaunch = await ctx.newPage();
+  relaunch.on('pageerror', (e) => pageErrors.push('[relaunch] ' + e.message));
+  await relaunch.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await relaunch.waitForTimeout(2200);
+
+  const before = await relaunch.evaluate(
+    (k) => JSON.parse(localStorage.getItem(k)), ACTIVE_KEY);
+  const marker = before;
+  checkTruthy('🔴 冷開之後標記還在（它是這條路上唯一的依據）',
+    !!marker && marker.expiresAtMs > Date.now());
+
+  const open = () => relaunch.evaluate(
+    () => document.getElementById('entrySheet').className.includes('show'));
+  await relaunch.evaluate(() => document.getElementById('btnSingle').click());
+  await relaunch.waitForTimeout(700);
+  check('🔴 冷開的快訊頁，決策進行中仍然不得彈出面板', await open(), false);
+
+  // 對照：標記過期 → 必須照常彈（否則這條斷言只是「面板永遠不開」）
+  await relaunch.evaluate((k) => {
+    const m = JSON.parse(localStorage.getItem(k));
+    m.expiresAtMs = Date.now() - 1000;
+    localStorage.setItem(k, JSON.stringify(m));
+  }, ACTIVE_KEY);
+  await relaunch.evaluate(() => document.getElementById('btnSingle').click());
+  await relaunch.waitForTimeout(700);
+  check('🔴 而標記過期之後照常彈（證明上一條不是「永遠不開」）', await open(), true);
+  await relaunch.evaluate(() => document.getElementById('btnDismiss').click());
+  // 🔴 把標記還原成進來時的樣子 —— 這一段是**插隊**進整條鏈的，
+  //    不還原的話後面那條「收束頁印『同標的更新：1 次』」會被我多按的兩下打壞。
+  await relaunch.evaluate(([k, n, t]) => {
+    const m = JSON.parse(localStorage.getItem(k));
+    m.sameSymbolUpdates = n;
+    m.expiresAtMs = t;
+    localStorage.setItem(k, JSON.stringify(m));
+  }, [ACTIVE_KEY, before.sameSymbolUpdates, before.expiresAtMs]);
+  await relaunch.close();
+}
+
 
 // ── 點橫幅回到那一筆決策 ──
 // 先重新載入這一頁 —— 那正是 iOS 把 App 換回前景時實際會發生的事，
