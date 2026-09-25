@@ -188,6 +188,7 @@
     blink: null, blinkEarned: false, // blink-cadence counter (TENKI_BLINK) + saved-this-run flag
     // visuals
     halo: 0, secured: 0, settle: 0, bloom: 0,
+    orbR: 76, orbClimax: 0,
     raf: null, lastT: 0,
   };
 
@@ -597,269 +598,380 @@
     }
   }
 
-  // gold orbital sphere — the processing "Securing…" screen and the baseline
-  // result screens (enlarged via opts.R). Volumetric glass look: single virtual
-  // light (upper-left) drives a lit body, a lower-right inner shadow, a fresnel
-  // rim, a specular hotspot + glass crescent. The interior is three true-3D rings
-  // of gold "sand" grains that precess like a gyroscope; grains are depth-split
-  // around the hot core (far grains dim & behind it, near grains hot & in front).
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CINEMATIC CRYSTAL ORB — Processing & Baseline Locked Volumetric Glass Sphere
+  // Target: docs/refs/crystal-ball-target-IMG_8437.png
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CINEMATIC CRYSTAL ORB — Processing & Baseline Locked Volumetric Glass Sphere
+  // Target: docs/refs/crystal-ball-target-IMG_8437.png
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Ultra-smooth flowing golden sand fluid dynamics: 2,200+ multi-scale micro-grains
+  // across 4 tangled Keplerian orbits with non-linear velocity gradients, organic
+  // viscous stream turbulence, curved Bezier motion streaks, and crystalline specular glints.
   function drawProcessingOrb(c, cx, cy, t, opts = {}) {
     c.save();
     const R = opts.R || 76;
-    // ── lighting (matches IMG_8437): a MAIN key light anchored at the TOP with a
-    // gentle sway + breathing so it stays alive, and a softer REFLECTION/fill at the
-    // LOWER-RIGHT. The lit body + highlight sit up top; the bottom stays in shadow
-    // with a bright refraction rim; the lower-right fill lifts the shadow side. ──
-    const sway = Math.sin(t * 0.00045) * 0.16;       // gentle ±9° drift of the key light
-    const lang = -Math.PI / 2 + sway;                // TOP (12 o'clock)
-    const lx = cx + Math.cos(lang) * R * 0.5;
-    const ly = cy + Math.sin(lang) * R * 0.5;        // above centre
-    const ux = Math.cos(lang), uy = Math.sin(lang);  // unit light direction (centre→light)
-    const shimmer = 0.85 + 0.15 * Math.sin(t * 0.0016); // reflections breathe
-
-    // ── flowing gold sand: 3 true-3D grain rings that tumble like a gyroscope ──
+    const climax = opts.climax || 0; // 0..1 transition surge
     const TAU = Math.PI * 2;
-    const hash = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
-    // Four intertwined 3D orbits, each a dense luminous gold ribbon (bright sweeping
-    // head + fading tail) dusted with fine sand. Each has a FIXED orientation
-    // (tilt about X, yaw about Y, roll in-screen) that defines the tangled knot;
-    // they CROSS at large angles, not coplanar Saturn bands.
-    const ORBITS = [
-      { rr: R * 0.96, tilt: 1.18, roll: 0.00, yaw: 0.0, head: 0.00400, grit: 420 },
-      { rr: R * 0.86, tilt: -0.82, roll: 1.15, yaw: 1.7, head: 0.00560, grit: 390 },
-      { rr: R * 0.74, tilt: 0.50, roll: -1.05, yaw: 3.4, head: -0.00700, grit: 340 },
-      { rr: R * 0.60, tilt: -1.30, roll: 0.55, yaw: 5.1, head: 0.00900, grit: 280 },
-    ];
-    // ONE shared rolling rotation applied to every orbit → the whole knot turns as a
-    // single rigid crystal ball (not independent rings spinning at different rates).
-    // Two incommensurate rates make the roll axis slowly drift → a natural, continuous,
-    // never-repeating roll. (Tune these for roll speed.)
-    const GROT = { pitch: 0.00080, yaw: 0.00031 };
-    const SEG = 112; // samples per ribbon → a continuous stream, not discrete beads
-    // project every orbit once: screen polyline + depth + the sweeping head angle.
-    const O = ORBITS.map((o, k) => {
-      const ax = o.tilt + t * GROT.pitch;  // fixed tilt + shared rolling pitch (about X)
-      const ay = o.yaw + t * GROT.yaw;     // fixed yaw  + shared slow axis drift (about Y)
-      const ca = Math.cos(ax), sa = Math.sin(ax), cb = Math.cos(ay), sb = Math.sin(ay);
-      const cr = Math.cos(o.roll || 0), sr = Math.sin(o.roll || 0); // in-screen roll
-      const project = (phi) => {
-        const x0 = Math.cos(phi) * o.rr, y0 = Math.sin(phi) * o.rr;
-        const y1 = y0 * ca, z1 = y0 * sa;                       // rotate about X (tilt)
-        const x2 = x0 * cb + z1 * sb, z2 = -x0 * sb + z1 * cb;  // rotate about Y (spin)
-        const xr = x2 * cr - y1 * sr, yr = x2 * sr + y1 * cr;   // rotate in screen plane (roll)
-        return { x: cx + xr, y: cy + yr, z: z2 };
-      };
-      const pts = [];
-      for (let i = 0; i <= SEG; i++) { const phi = (i / SEG) * TAU; const p = project(phi); p.phi = phi; pts.push(p); }
-      const dir = Math.sign(o.head) || 1;
-      const head = ((t * o.head) % TAU + TAU) % TAU;
-      // comet brightness: 1 at the head, fading along the tail behind the motion.
-      // gentle decay (0.38) keeps more of each loop lit → bold continuous rings.
-      const comet = (phi) => Math.exp(-(((dir * (head - phi)) % TAU + TAU) % TAU) * 0.38);
-      return { o, pts, project, comet };
-    });
 
-    // continuous ribbon body for one depth side (back = behind the core)
-    const drawRibbons = (front) => {
-      c.save();
-      c.lineCap = 'round'; c.lineJoin = 'round';
-      c.shadowColor = COLORS.gold; c.shadowBlur = front ? 12 : 4;
-      for (const { o, pts, comet } of O) {
-        for (let i = 0; i < SEG; i++) {
-          const p = pts[i];
-          if ((p.z >= 0) !== front) continue;
-          const q = pts[i + 1];
-          const d = (p.z / o.rr) * 0.5 + 0.5;
-          const ci = comet(p.phi);
-          const a = (0.20 + ci * 1.0) * (front ? 0.6 + 0.4 * d : 0.24 + 0.18 * d);
-          if (a < 0.012) continue;
-          c.globalAlpha = clamp01(a);
-          c.lineWidth = (1.6 + d * 3.0 + ci * 3.6) * (R / 76);
-          // white-hot at the dragon head, gold along the body, deep amber in the tail
-          c.strokeStyle = ci > 0.6 ? '#FFFBEF' : ci > 0.25 ? '#FFE6A6' : COLORS.gold;
-          c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); c.stroke();
-        }
-      }
-      c.restore();
+    // Check reduced motion
+    const reducedMotion = typeof window !== 'undefined' &&
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // ── Optical Lighting Model (Matches IMG_8437) ──────────────────────────
+    // Key light at 12 o'clock with organic sway + breathing; fill bounce at 4 o'clock
+    const sway = reducedMotion ? 0 : Math.sin(t * 0.00045) * 0.14;
+    const lang = -Math.PI / 2 + sway;
+    const lx = cx + Math.cos(lang) * R * 0.48;
+    const ly = cy + Math.sin(lang) * R * 0.48;
+    const ux = Math.cos(lang), uy = Math.sin(lang);
+    const shimmer = reducedMotion ? 0.95 : (0.86 + 0.14 * Math.sin(t * 0.0016));
+
+    // ── 4 Tangled Keplerian Orbits (Non-coplanar 3D Golden Knot) ────────────
+    const ORBITS = [
+      { rr: R * 0.94, tilt: 1.15, roll: 0.00, yaw: 0.0, head: 0.00340, grit: 620, ecc: 0.12 },
+      { rr: R * 0.82, tilt: -0.85, roll: 1.18, yaw: 1.7, head: 0.00460, grit: 580, ecc: 0.15 },
+      { rr: R * 0.68, tilt: 0.52, roll: -1.08, yaw: 3.4, head: -0.00580, grit: 520, ecc: 0.18 },
+      { rr: R * 0.52, tilt: -1.28, roll: 0.58, yaw: 5.1, head: 0.00720, grit: 480, ecc: 0.22 },
+    ];
+
+    // Asynchronous multi-harmonic precession (Keplerian drift)
+    const GROT = reducedMotion ? { pitch: 0, yaw: 0 } : {
+      pitch: 0.00065 + Math.sin(t * 0.00015) * 0.00015,
+      yaw: 0.00028 + Math.cos(t * 0.00012) * 0.00008
     };
 
-    // dense sand streaming along each ribbon → a flowing river of gold, not dots.
-    // Each grain is a tangential motion-streak inside a centre-bright "sand tube",
-    // with per-grain speed turbulence so the stream visibly flows.
-    const EPS = 0.06; // small Δφ → local tangent (flow direction)
-    const drawSand = (front) => {
+    const hash = (n) => {
+      const s = Math.sin(n * 127.1) * 43758.5453;
+      return s - Math.floor(s);
+    };
+
+    // Project orbits to 3D space with continuous angular velocity and fluid stream harmonics
+    const O = ORBITS.map((o) => {
+      const ax = o.tilt + (reducedMotion ? 0 : t * GROT.pitch);
+      const ay = o.yaw + (reducedMotion ? 0 : t * GROT.yaw);
+      const ca = Math.cos(ax), sa = Math.sin(ax);
+      const cb = Math.cos(ay), sb = Math.sin(ay);
+      const cr = Math.cos(o.roll || 0), sr = Math.sin(o.roll || 0);
+
+      const project = (phi, radOffset = 0, zOffset = 0) => {
+        // Keplerian radial breathing + fluid eccentricity
+        const curR = (o.rr + radOffset) * (1 - o.ecc * Math.cos(phi));
+        const x0 = Math.cos(phi) * curR, y0 = Math.sin(phi) * curR;
+        const y1 = y0 * ca, z1 = y0 * sa + zOffset;
+        const x2 = x0 * cb + z1 * sb, z2 = -x0 * sb + z1 * cb;
+        const xr = x2 * cr - y1 * sr, yr = x2 * sr + y1 * cr;
+        return { x: cx + xr, y: cy + yr, z: z2 };
+      };
+
+      const dir = Math.sign(o.head) || 1;
+      const head = reducedMotion ? 0 : (((t * o.head) % TAU + TAU) % TAU);
+      const comet = (phi) => Math.exp(-(((dir * (head - phi)) % TAU + TAU) % TAU) * 0.28);
+
+      return { o, project, comet };
+    });
+
+    // ── High-Density Golden Sand Fluid Particles Stream (2,200+ grains) ──────
+    const EPS = 0.035; // Fine tangent delta for curved motion streaks
+    const drawMicroStardust = (front) => {
       c.save();
       c.lineCap = 'round';
-      c.shadowColor = COLORS.gold;
+
       for (const { o, project, comet } of O) {
-        for (let i = 0; i < o.grit; i++) {
-          const h = hash(o.rr * 7.3 + i * 13.3);
-          const h2 = hash(i * 3.1 + o.rr * 2.7);
-          const spd = 0.5 + h * 1.2;                 // wider turbulence: 0.5–1.7×
-          const phi = h * TAU + t * (o.head * spd);
-          const p = project(phi);
+        const count = o.grit;
+        for (let i = 0; i < count; i++) {
+          const h1 = hash(o.rr * 9.1 + i * 17.3);
+          const h2 = hash(i * 5.7 + o.rr * 3.3);
+          const h3 = hash(i * 11.9 + 101.1);
+          const h4 = hash(i * 23.3 + 47.9);
+
+          // Natural speed distribution: core flow is faster, boundary layer slower
+          const spd = 0.72 + h1 * 0.95;
+          // Organic fluid turbulence: slight sinusoidal cross-drift over time
+          const turb = reducedMotion ? 0 : Math.sin(t * 0.0018 + h3 * TAU) * 0.04;
+          const phi = reducedMotion ? (h1 * TAU) : (h1 * TAU + t * (o.head * spd) + turb);
+
+          // Non-linear Keplerian orbital velocity acceleration (faster near periapsis)
+          const kepPhi = phi + 0.12 * Math.sin(phi);
+
+          // Cross-stream Gaussian dispersion (fluid stream tube thickness)
+          const off = (h2 - 0.5) * 2;
+          const spreadRad = off * R * 0.11 * (1 - 0.3 * Math.abs(off));
+          const spreadZ = (h3 - 0.5) * R * 0.08;
+
+          const p = project(kepPhi, spreadRad, spreadZ);
           if ((p.z >= 0) !== front) continue;
-          const q = project(phi + EPS);
-          let tx = q.x - p.x, ty = q.y - p.y;
-          const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl; // unit tangent
-          const nx = -ty, ny = tx;                                // screen normal
-          const d = (p.z / o.rr) * 0.5 + 0.5;
-          const ci = comet(phi);
-          const tw = 0.5 + 0.5 * Math.sin(t * 0.008 + h * 6.28);
-          const a = (0.24 + ci * 0.95) * (front ? 0.65 + 0.4 * d : 0.30) * tw;
-          if (a < 0.02) continue;
-          // cross-section spread → a tube of sand: bright centre, faint edges
-          const off = (h2 - 0.5) * 2;                             // -1..1
-          const spread = off * R * 0.14 * (1 - 0.4 * Math.abs(off));
-          const gx = p.x + nx * spread, gy = p.y + ny * spread;
-          const len = (2.6 + d * 5.6 + spd * 2.8) * (R / 76);     // long streak = flowing ribbon
-          c.globalAlpha = clamp01(a * (1 - 0.45 * Math.abs(off)));
-          c.lineWidth = (0.5 + d * 1.0) * (R / 76);
-          c.strokeStyle = ci > 0.5 ? '#FFF8E6' : COLORS.gold;
-          c.shadowBlur = 2.5 + d * 6;
+
+          // Compute instantaneous curvature and tangents for curved fluid motion
+          const pPrev = project(kepPhi - EPS * 0.8, spreadRad, spreadZ);
+          const pNext = project(kepPhi + EPS * 0.8, spreadRad, spreadZ);
+
+          const d = (p.z / o.rr) * 0.5 + 0.5; // Normalized depth: 0 (deep back) -> 1 (closest front)
+          const ci = comet(kepPhi);
+          
+          // Organic crystal facet twinkle (tumbles as it travels)
+          const facetAngle = (t * 0.008 + h4 * TAU) % TAU;
+          const facetReflect = Math.max(0, Math.cos(facetAngle));
+          const isSpark = h4 > 0.88; // 12% crystalline flake grains with specular glint
+          const isEmbers = h4 < 0.08; // 8% blazing core embers
+
+          // Alpha blending with depth attenuation & Doppler boost
+          let a = (0.30 + ci * 0.95 + climax * 0.45) * (front ? (0.75 + 0.35 * d) : (0.26 + 0.14 * d));
+          if (isSpark) a *= (0.8 + 0.8 * facetReflect);
+          if (a < 0.012) continue;
+
+          // Motion streak length scaled by orbital speed & depth
+          const lenScale = (1.8 + d * 3.6 + spd * 1.8 + climax * 2.8) * (R / 76);
+          const tx = (pNext.x - pPrev.x) * 0.5;
+          const ty = (pNext.y - pPrev.y) * 0.5;
+          const tl = Math.hypot(tx, ty) || 1;
+          const ux = (tx / tl) * lenScale;
+          const uy = (ty / tl) * lenScale;
+
+          c.globalAlpha = clamp01(a * (1 - 0.35 * Math.abs(off)));
+
+          // Grain size hierarchy:
+          // - Embers: 1.2 ~ 2.2px
+          // - Sparks: 0.8 ~ 1.5px
+          // - Micro-sand: 0.35 ~ 0.85px
+          const baseW = isEmbers ? (1.1 + d * 0.9) : isSpark ? (0.75 + d * 0.65) : (0.38 + d * 0.52);
+          c.lineWidth = baseW * (R / 76);
+
+          // Rich Doppler color palette: White-gold head -> Radiant sovereign gold -> Deep honey amber
+          if (isEmbers || (ci > 0.68 && front)) {
+            c.strokeStyle = '#FFFFFF';
+            c.shadowColor = '#FFEAA7';
+            c.shadowBlur = 4.5 + d * 8.0 + climax * 9.0;
+          } else if (isSpark && facetReflect > 0.6) {
+            c.strokeStyle = '#FFFDF0';
+            c.shadowColor = '#FFD46E';
+            c.shadowBlur = 3.5 + d * 6.0;
+          } else if (ci > 0.28 || (front && d > 0.6)) {
+            c.strokeStyle = '#FFDF78';
+            c.shadowColor = '#F3A92A';
+            c.shadowBlur = 2.2 + d * 4.5;
+          } else if (front) {
+            c.strokeStyle = '#F0B842';
+            c.shadowColor = '#D48B1E';
+            c.shadowBlur = 1.6;
+          } else {
+            c.strokeStyle = '#C27F18';
+            c.shadowColor = '#7A4806';
+            c.shadowBlur = 1.0;
+          }
+
+          // Render curved quadratic Bezier fluid trail
           c.beginPath();
-          c.moveTo(gx - tx * len * 0.5, gy - ty * len * 0.5);
-          c.lineTo(gx + tx * len * 0.5, gy + ty * len * 0.5);
+          c.moveTo(p.x - ux, p.y - uy);
+          c.quadraticCurveTo(p.x, p.y, p.x + ux, p.y + uy);
           c.stroke();
         }
       }
-      c.globalAlpha = 1; c.restore();
+      c.globalAlpha = 1;
+      c.restore();
     };
 
-    // outer bloom behind the glass — warm golden halo bleeding out (matches IMG_8437)
-    const glow = c.createRadialGradient(cx, cy, R * 0.30, cx, cy, R * 1.85);
-    glow.addColorStop(0, 'rgba(255,206,110,0.34)');
-    glow.addColorStop(0.5, 'rgba(255,190,80,0.12)');
-    glow.addColorStop(1, 'rgba(255,196,90,0)');
-    c.fillStyle = glow; c.beginPath(); c.arc(cx, cy, R * 1.85, 0, Math.PI * 2); c.fill();
+    // ── Outer Volumetric Bloom Halo (Bleeds Warm Gold) ───────────────────────
+    const glow = c.createRadialGradient(cx, cy, R * 0.25, cx, cy, R * 1.95);
+    const bloomAlpha = (0.32 + climax * 0.28) * shimmer;
+    glow.addColorStop(0, `rgba(255,212,118,${(0.38 * bloomAlpha).toFixed(3)})`);
+    glow.addColorStop(0.45, `rgba(255,188,76,${(0.16 * bloomAlpha).toFixed(3)})`);
+    glow.addColorStop(0.85, `rgba(255,170,50,${(0.04 * bloomAlpha).toFixed(3)})`);
+    glow.addColorStop(1, 'rgba(255,170,50,0)');
+    c.fillStyle = glow;
+    c.beginPath();
+    c.arc(cx, cy, R * 1.95, 0, TAU);
+    c.fill();
 
-    // volumetric glass body — strong lit upper-left → dark shadow side, edge
-    // darkened toward the rim so the sphere has a defined volume & terminator
-    const body = c.createRadialGradient(lx, ly, R * 0.05, cx, cy, R * 1.06);
-    body.addColorStop(0, 'rgba(124,94,46,0.54)');
-    body.addColorStop(0.42, 'rgba(50,36,15,0.36)');
-    body.addColorStop(0.82, 'rgba(12,8,4,0.34)');
-    body.addColorStop(1, 'rgba(0,0,0,0.10)');
-    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fillStyle = body; c.fill();
+    // ── Volumetric Optical Glass Body (Deep Amber to Obsidian) ───────────────
+    const body = c.createRadialGradient(lx, ly, R * 0.05, cx, cy, R * 1.08);
+    body.addColorStop(0, 'rgba(140,105,52,0.52)');
+    body.addColorStop(0.40, 'rgba(56,40,16,0.38)');
+    body.addColorStop(0.80, 'rgba(14,10,4,0.36)');
+    body.addColorStop(1, 'rgba(0,0,0,0.12)');
+    c.beginPath();
+    c.arc(cx, cy, R, 0, TAU);
+    c.fillStyle = body;
+    c.fill();
 
-    // contain the interior (orbits, core, highlights) inside the glass
+    // ── Inner Glass Cavity (Clip & Render Internal Layers) ───────────────────
     c.save();
-    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.clip();
+    c.beginPath();
+    c.arc(cx, cy, R, 0, TAU);
+    c.clip();
 
-    // inner shadow opposite the key light → a terminator that sweeps with the light
-    const shade = c.createRadialGradient(cx - ux * R * 0.44, cy - uy * R * 0.44, R * 0.1, cx, cy, R);
-    shade.addColorStop(0, 'rgba(0,0,0,0.46)');
-    shade.addColorStop(0.7, 'rgba(0,0,0,0)');
-    c.fillStyle = shade; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
+    // Dynamic Inner Shadow (Terminator sweeps with Key Light)
+    const shade = c.createRadialGradient(cx - ux * R * 0.44, cy - uy * R * 0.44, R * 0.08, cx, cy, R);
+    shade.addColorStop(0, 'rgba(0,0,0,0.48)');
+    shade.addColorStop(0.72, 'rgba(0,0,0,0)');
+    c.fillStyle = shade;
+    c.beginPath();
+    c.arc(cx, cy, R, 0, TAU);
+    c.fill();
 
-    drawRibbons(false); drawSand(false); // far streams (behind the core)
+    // Far Stardust Streams (Deep behind core)
+    drawMicroStardust(false);
 
-    // hot core
-    const coreR = R * 0.46;
+    // ── Volumetric Radiant Core (Breathing Harmonic Soul Heart) ───────────────
+    const coreBreathe = reducedMotion ? 1.0 : (0.94 + 0.06 * Math.sin(t * 0.0018));
+    const coreR = R * (0.44 + climax * 0.16) * coreBreathe;
     const core = c.createRadialGradient(cx, cy, 0, cx, cy, coreR);
-    core.addColorStop(0, 'rgba(255,255,250,1.0)');
-    core.addColorStop(0.30, 'rgba(255,240,190,0.92)');
-    core.addColorStop(0.62, 'rgba(255,200,96,0.50)');
-    core.addColorStop(1, 'rgba(255,200,96,0)');
-    c.beginPath(); c.arc(cx, cy, coreR, 0, Math.PI * 2); c.fillStyle = core; c.fill();
+    core.addColorStop(0, 'rgba(255,255,252,1.0)');
+    core.addColorStop(0.28, `rgba(255,242,198,${(0.94 + climax * 0.06).toFixed(2)})`);
+    core.addColorStop(0.60, 'rgba(255,198,92,0.54)');
+    core.addColorStop(0.88, 'rgba(255,180,60,0.18)');
+    core.addColorStop(1, 'rgba(255,180,60,0)');
+    c.beginPath();
+    c.arc(cx, cy, coreR, 0, TAU);
+    c.fillStyle = core;
+    c.fill();
 
-    drawRibbons(true); drawSand(true); // near streams (in front of the core)
+    // Near Stardust Streams (In front of core)
+    drawMicroStardust(true);
 
-    // inner ambient-occlusion ring → reads as glass thickness at the edge
+    // ── Inner Ambient Occlusion Ring (Glass Wall Thickness) ───────────────────
     c.save();
-    c.beginPath(); c.arc(cx, cy, R * 0.985, 0, TAU);
-    c.strokeStyle = 'rgba(0,0,0,0.30)'; c.lineWidth = R * 0.06;
+    c.beginPath();
+    c.arc(cx, cy, R * 0.985, 0, TAU);
+    c.strokeStyle = 'rgba(0,0,0,0.32)';
+    c.lineWidth = R * 0.055;
     c.stroke();
     c.restore();
 
-    // ── frosted white edge-haze (Fable-5 "thinking") ──
-    // a cool-white mist hugging the inner rim that slowly breathes, plus a few
-    // drifting haze lobes → a living, pondering crystal. Centre stays clear so the
-    // gold sand shows through; cool tint reads as frosted glass against the gold.
+    // ── Frosted Edge-Haze (Breathing Thinking Nebula) ────────────────────────
     c.save();
-    const breathe = 0.5 + 0.5 * Math.sin(t * 0.0019); // breathing in/out (~5.5s)
-    const A = 0.30 + 0.12 * breathe;                   // peak mist alpha at the rim
-    const aa = (f) => 'rgba(242,248,255,' + (A * f).toFixed(3) + ')';
-    // smooth frosted gradient: many stops easing up gradually from mid-radius to the
-    // rim (brightest at the glass edge, fading softly inward) → natural blend, no band
-    const ringHaze = c.createRadialGradient(cx, cy, R * 0.4, cx, cy, R);
-    ringHaze.addColorStop(0.00, 'rgba(242,248,255,0)');
-    ringHaze.addColorStop(0.55, aa(0.03));
-    ringHaze.addColorStop(0.70, aa(0.10));
-    ringHaze.addColorStop(0.80, aa(0.22));
-    ringHaze.addColorStop(0.88, aa(0.42));
-    ringHaze.addColorStop(0.94, aa(0.66));
-    ringHaze.addColorStop(0.98, aa(0.90));
-    ringHaze.addColorStop(1.00, aa(1.0));
-    c.fillStyle = ringHaze; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.fill();
-    // large, very-soft, low-alpha drifting density variations → keep the mist alive
-    // and breathing without reading as discrete brushed blobs
-    for (let i = 0; i < 3; i++) {
-      const ha = t * (0.00058 + i * 0.00024) + i * 2.27;       // varied orbit
-      const hr = R * (0.92 + 0.05 * Math.sin(t * 0.0013 + i * 1.7)); // radial in/out bob
-      const hx = cx + Math.cos(ha) * hr, hy = cy + Math.sin(ha) * hr;
-      const lb = 0.4 + 0.6 * Math.sin(t * 0.0027 + i * 2.1);   // each lobe pulses
-      const lobe = c.createRadialGradient(hx, hy, 0, hx, hy, R * 0.6);
-      lobe.addColorStop(0, 'rgba(244,249,255,' + (0.08 * lb).toFixed(3) + ')');
-      lobe.addColorStop(1, 'rgba(244,249,255,0)');
-      c.fillStyle = lobe; c.beginPath(); c.arc(hx, hy, R * 0.6, 0, TAU); c.fill();
+    const mistBreathe = reducedMotion ? 0.5 : (0.5 + 0.5 * Math.sin(t * 0.0019));
+    const mistPeak = (0.28 + 0.12 * mistBreathe);
+    const mistAlpha = (f) => `rgba(240,246,255,${(mistPeak * f).toFixed(3)})`;
+
+    const ringHaze = c.createRadialGradient(cx, cy, R * 0.42, cx, cy, R);
+    ringHaze.addColorStop(0.00, 'rgba(240,246,255,0)');
+    ringHaze.addColorStop(0.55, mistAlpha(0.03));
+    ringHaze.addColorStop(0.72, mistAlpha(0.12));
+    ringHaze.addColorStop(0.84, mistAlpha(0.26));
+    ringHaze.addColorStop(0.92, mistAlpha(0.50));
+    ringHaze.addColorStop(0.97, mistAlpha(0.78));
+    ringHaze.addColorStop(1.00, mistAlpha(1.00));
+    c.fillStyle = ringHaze;
+    c.beginPath();
+    c.arc(cx, cy, R, 0, TAU);
+    c.fill();
+
+    if (!reducedMotion) {
+      // 3 Drifting soft density lobes
+      for (let i = 0; i < 3; i++) {
+        const ha = t * (0.00055 + i * 0.00022) + i * 2.27;
+        const hr = R * (0.91 + 0.05 * Math.sin(t * 0.0012 + i * 1.7));
+        const hx = cx + Math.cos(ha) * hr, hy = cy + Math.sin(ha) * hr;
+        const lb = 0.4 + 0.6 * Math.sin(t * 0.0026 + i * 2.1);
+        const lobe = c.createRadialGradient(hx, hy, 0, hx, hy, R * 0.55);
+        lobe.addColorStop(0, `rgba(244,249,255,${(0.075 * lb).toFixed(3)})`);
+        lobe.addColorStop(1, 'rgba(244,249,255,0)');
+        c.fillStyle = lobe;
+        c.beginPath();
+        c.arc(hx, hy, R * 0.55, 0, TAU);
+        c.fill();
+      }
     }
     c.restore();
 
-    // refraction caustic — light bent through the sphere emerges on the side
-    // OPPOSITE the key light, so this bright pool sweeps round as the light moves;
-    // the single strongest "this is a 3D crystal orb" cue. Brightness breathes.
+    // ── Ray-Bent Refractive Caustic Pool (Dual-Layer Optical Arc) ────────────
+    // Emerges exactly opposite the key light with chromatic dispersion
     const rca = lang + Math.PI;
     c.save();
     c.lineCap = 'round';
     c.globalAlpha = shimmer;
-    c.beginPath(); c.arc(cx, cy, R * 0.9, rca - 0.38 * Math.PI, rca + 0.38 * Math.PI);
-    c.strokeStyle = 'rgba(255,228,158,0.5)'; c.lineWidth = R * 0.085;
-    c.shadowColor = COLORS.gold; c.shadowBlur = R * 0.28; c.stroke();
-    // a brighter, tighter inner line of that caustic
-    c.beginPath(); c.arc(cx, cy, R * 0.94, rca - 0.30 * Math.PI, rca + 0.30 * Math.PI);
-    c.strokeStyle = 'rgba(255,248,224,0.45)'; c.lineWidth = R * 0.03;
-    c.shadowBlur = R * 0.12; c.stroke();
+
+    // Outer broad caustic fan
+    c.beginPath();
+    c.arc(cx, cy, R * 0.91, rca - 0.38 * Math.PI, rca + 0.38 * Math.PI);
+    c.strokeStyle = 'rgba(255,230,165,0.52)';
+    c.lineWidth = R * 0.088;
+    c.shadowColor = COLORS.gold;
+    c.shadowBlur = R * 0.30;
+    c.stroke();
+
+    // Inner sharp focal caustics line
+    c.beginPath();
+    c.arc(cx, cy, R * 0.945, rca - 0.30 * Math.PI, rca + 0.30 * Math.PI);
+    c.strokeStyle = 'rgba(255,250,230,0.58)';
+    c.lineWidth = R * 0.032;
+    c.shadowBlur = R * 0.14;
+    c.stroke();
     c.globalAlpha = 1;
     c.restore();
 
-    // secondary fill reflection — a softer warm bounce anchored at the LOWER-RIGHT
-    // (主光在上、反光在右下); gently sways so the crystal still feels alive
-    const fa = Math.PI * 0.25 + Math.sin(t * 0.0005) * 0.12; // lower-right (~45° down-right)
+    // ── Secondary Fill Reflection (4 o'clock Lower-Right Bounce) ─────────────
+    const fa = Math.PI * 0.25 + (reducedMotion ? 0 : Math.sin(t * 0.0005) * 0.10);
     const fxs = cx + Math.cos(fa) * R * 0.62, fys = cy + Math.sin(fa) * R * 0.62;
-    const fill = c.createRadialGradient(fxs, fys, 0, fxs, fys, R * 0.44);
-    fill.addColorStop(0, 'rgba(255,244,218,' + (0.2 * shimmer).toFixed(3) + ')');
-    fill.addColorStop(1, 'rgba(255,244,218,0)');
-    c.fillStyle = fill; c.beginPath(); c.arc(fxs, fys, R * 0.44, 0, TAU); c.fill();
+    const fill = c.createRadialGradient(fxs, fys, 0, fxs, fys, R * 0.45);
+    fill.addColorStop(0, `rgba(255,245,220,${(0.22 * shimmer).toFixed(3)})`);
+    fill.addColorStop(1, 'rgba(255,245,220,0)');
+    c.fillStyle = fill;
+    c.beginPath();
+    c.arc(fxs, fys, R * 0.45, 0, TAU);
+    c.fill();
 
-    // crisp specular hotspot (glossy reflection of the key light) — tight & bright,
-    // rides the light spot and brightens with the shimmer = a live glassy sphere
-    const spec = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.40);
-    spec.addColorStop(0, 'rgba(255,255,255,' + (0.72 * shimmer).toFixed(3) + ')');
-    spec.addColorStop(0.4, 'rgba(255,248,228,0.20)');
+    // ── Specular Hotspot & Sub-Pixel Catchlight ──────────────────────────────
+    const spec = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.38);
+    spec.addColorStop(0, `rgba(255,255,255,${(0.78 * shimmer).toFixed(3)})`);
+    spec.addColorStop(0.38, 'rgba(255,248,228,0.22)');
     spec.addColorStop(1, 'rgba(255,255,255,0)');
-    c.fillStyle = spec; c.beginPath(); c.arc(lx, ly, R * 0.40, 0, Math.PI * 2); c.fill();
-    // tiny sharp catch-light dot, just rim-ward of the hotspot, for extra gloss
-    c.beginPath(); c.arc(lx + ux * R * 0.05, ly + uy * R * 0.05, R * 0.05, 0, TAU);
-    c.fillStyle = 'rgba(255,255,255,0.95)'; c.fill();
+    c.fillStyle = spec;
+    c.beginPath();
+    c.arc(lx, ly, R * 0.38, 0, TAU);
+    c.fill();
 
-    // bright glass crescent on the lit rim — follows the key light around
-    c.beginPath(); c.arc(cx, cy, R * 0.86, lang - 0.30, lang + 0.30);
-    c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 2.4 * (R / 76); c.lineCap = 'round';
-    c.shadowColor = 'rgba(255,255,255,0.7)'; c.shadowBlur = 7; c.stroke();
-    c.restore(); // end clip
+    // Crisp catchlight dot
+    c.beginPath();
+    c.arc(lx + ux * R * 0.05, ly + uy * R * 0.05, R * 0.048, 0, TAU);
+    c.fillStyle = 'rgba(255,255,255,0.98)';
+    c.fill();
 
-    // fresnel rim (bright glass edge), drawn over the clip boundary — defines
-    // the spherical silhouette against the dark background
+    // Luminous glass rim crescent
+    c.beginPath();
+    c.arc(cx, cy, R * 0.865, lang - 0.32, lang + 0.32);
+    c.strokeStyle = 'rgba(255,255,255,0.68)';
+    c.lineWidth = 2.4 * (R / 76);
+    c.lineCap = 'round';
+    c.shadowColor = 'rgba(255,255,255,0.75)';
+    c.shadowBlur = 7;
+    c.stroke();
+
+    c.restore(); // End clip
+
+    // ── Fresnel Rim Glow (Defines Sphere Silhouette) ─────────────────────────
     c.save();
-    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2);
-    c.strokeStyle = 'rgba(255,224,152,0.26)'; c.lineWidth = 1.2 * (R / 76);
-    c.shadowColor = COLORS.gold; c.shadowBlur = 8; c.stroke();
-    // brighter rim where the moving light grazes the edge (Fresnel follows the light)
-    c.beginPath(); c.arc(cx, cy, R, lang - 0.42 * Math.PI, lang + 0.42 * Math.PI);
-    c.strokeStyle = 'rgba(255,240,200,0.42)'; c.lineWidth = 1.6 * (R / 76); c.lineCap = 'round';
-    c.shadowBlur = 11; c.stroke();
-    c.restore();
+    c.beginPath();
+    c.arc(cx, cy, R, 0, TAU);
+    c.strokeStyle = 'rgba(255,226,156,0.28)';
+    c.lineWidth = 1.25 * (R / 76);
+    c.shadowColor = COLORS.gold;
+    c.shadowBlur = 8;
+    c.stroke();
+
+    // Grazing key light boost
+    c.beginPath();
+    c.arc(cx, cy, R, lang - 0.42 * Math.PI, lang + 0.42 * Math.PI);
+    c.strokeStyle = 'rgba(255,244,208,0.48)';
+    c.lineWidth = 1.65 * (R / 76);
+    c.lineCap = 'round';
+    c.shadowBlur = 12;
+    c.stroke();
+
+    // Harmonic Climax Shockwave Ring (Plays during state transition)
+    if (climax > 0.01) {
+      const shockR = R * (1.0 + (1 - climax) * 0.4);
+      c.beginPath();
+      c.arc(cx, cy, shockR, 0, TAU);
+      c.strokeStyle = `rgba(255,235,170,${(climax * 0.65).toFixed(3)})`;
+      c.lineWidth = (2.0 * climax) * (R / 76);
+      c.shadowColor = '#FFE8A3';
+      c.shadowBlur = 14 * climax;
+      c.stroke();
+    }
+
     c.restore();
   }
 
@@ -1289,14 +1401,12 @@
       ctx.restore();
 
       const coreHeld = ph.confirmed || ph.keepCore;
-      if (coreHeld) {
-        // result screens ("Baseline locked." / "established"): a single enlarged
-        // 3D gold-sand sphere — no scale ring, corner brackets or stardust lattice.
-        drawProcessingOrb(ctx, cx, cy, t, { R: 98 });
+      if (coreHeld || ph.processing) {
+        // result screens & processing: smooth transition of radius R (76 -> 98) + climax surge
+        drawProcessingOrb(ctx, cx, cy, t, { R: state.orbR, climax: state.orbClimax });
       } else {
         if (!show3d) drawParticles(ctx, cx, cy, t); // 3D model replaces the 2D mesh during capture
         if (!state.started && !ph.processing) drawScanLine(ctx, cx, cy, half, accent, t);
-        if (ph.processing) drawProcessingOrb(ctx, cx, cy, t);
         drawCorners(ctx, cx, cy, half, accent, state.started ? 0.95 : 0.5, t);
         drawHalo(ctx, cx, cy, half + 26, state.halo, accent, t);
         if (ph.guide !== undefined && state.halo < 0.82) drawGuide(ctx, cx, cy, ph.guide, accent);
@@ -1465,6 +1575,13 @@
     state.step = step;
     state.stepStart = now();
     document.getElementById('stage').dataset.step = step; // scopes per-step layout (e.g. compact end screen)
+    
+    // Toggle Camera Permission Hub if permission denied
+    const permHub = document.getElementById('perm-hub');
+    if (permHub) {
+      permHub.classList.toggle('show', step === 'permission_denied');
+    }
+
     if (step === 'face_detecting') { // fresh Guided Lock-On each entry
       state.alignHold = {}; state.alignLocked = {}; state.alignProg = 0; state.shownNudge = ''; state.candNudge = '';
     }
@@ -1539,6 +1656,62 @@
     state.secured += ((ph.secured ? 1 : 0) - state.secured) * 0.06;
     state.settle += ((ph.settle || ph.processing || coreHeld ? 1 : 0) - state.settle) * 0.05;
     state.bloom += ((coreHeld ? 1 : 0) - state.bloom) * 0.08;
+    const targetOrbR = coreHeld ? 98 : 76;
+    state.orbR += (targetOrbR - state.orbR) * 0.075;
+    if (state.step === 'baseline_confirmed' && t - state.stepStart < 1400) {
+      const p = (t - state.stepStart) / 1400;
+      state.orbClimax = Math.sin(p * Math.PI) * (1 - p * 0.4);
+    } else {
+      state.orbClimax *= 0.92;
+    }
+
+    // Demo simulation loop when camera is not available
+    if (state.isDemo) {
+      const gDemo = { lighting: true, centering: true, stillness: true };
+      INDICATORS.forEach((ind) => {
+        const dot = document.querySelector('#pin-' + ind.key + ' .pindot');
+        if (dot) dot.classList.add('on');
+      });
+      switch (state.step) {
+        case 'environment_check':
+          if (t - state.stepStart >= 1200) go('face_detecting');
+          break;
+        case 'face_detecting':
+          if (t - state.stepStart >= 1500) go('face_locked');
+          break;
+        case 'face_locked':
+          if (t - state.stepStart >= 800) go('neutral_capture');
+          break;
+        case 'neutral_capture':
+          state.neutral += 0.008;
+          if (state.neutral >= 1) go('arc_left');
+          break;
+        case 'arc_left':
+          state.arc += 0.008;
+          if (state.arc >= 0.5) go('arc_right');
+          break;
+        case 'arc_right':
+          state.arc += 0.008;
+          if (state.arc >= 1.0) go('stability_pass');
+          break;
+        case 'stability_pass':
+          state.stability += 0.008;
+          if (state.stability >= 1.0) go('processing');
+          break;
+        case 'processing': {
+          const pp = clamp01((t - state.stepStart) / 2200);
+          const numEl = document.getElementById('proc-pct-num');
+          if (numEl) numEl.textContent = String(Math.round(pp * 100));
+          if (pp >= 1) {
+            updateConfidenceCopy();
+            go('baseline_confirmed');
+          }
+          break;
+        }
+        default: break;
+      }
+      return;
+    }
 
     if (!state.started || !state.stream) return;
 
@@ -1699,12 +1872,15 @@
   async function begin() {
     if (state.started) return;
     state.started = true;
+    state.isDemo = false;
     state.blink = window.TENKI_BLINK
       ? window.TENKI_BLINK.createCounter({ closeBelow: BLINK_CLOSE, openAbove: BLINK_OPEN })
       : null;
     state.blinkEarned = false;
     document.getElementById('cta').classList.add('hidden');
     document.getElementById('indicators').style.opacity = '1';
+    const permHub = document.getElementById('perm-hub');
+    if (permHub) permHub.classList.remove('show');
     go('permission_check');
     try {
       await startCamera();
@@ -1713,6 +1889,20 @@
     } catch (_) {
       go('permission_denied');
     }
+  }
+
+  function startDemoSimulation() {
+    state.isDemo = true;
+    state.started = true;
+    const permHub = document.getElementById('perm-hub');
+    if (permHub) permHub.classList.remove('show');
+    document.getElementById('cta').classList.add('hidden');
+    document.getElementById('indicators').style.opacity = '1';
+    state.tierA = true;
+    state.confSum = 50;
+    state.confN = 55;
+    state.envHoldStart = 0;
+    go('environment_check');
   }
 
   function onCta() {
@@ -1732,7 +1922,7 @@
     stopCamera();
     document.getElementById('stage').dataset.step = 'intro';
     Object.assign(state, {
-      step: 'intro', stepStart: 0, started: false, tierA: false, detector: null, face: null,
+      step: 'intro', stepStart: 0, started: false, isDemo: false, tierA: false, detector: null, face: null,
       q: { brightness: 0, uniformity: 0, motion: 1, detail: 0, coverage: 0, centerOffset: 1 },
       gates: { lighting: false, centering: false, stillness: false },
       mpActive: false, lm: { present: false, yaw: 0, centerOffset: 1, coverage: 0, cx: 0.5, cy: 0.5, dist: 0, roll: 0, pitch: 0, eyeOpen: 1 },
@@ -1757,6 +1947,8 @@
     pill.textContent = '🔒 PRIVACY SECURED · ON-DEVICE';
     document.getElementById('baseline-extra').classList.remove('on');
     document.getElementById('proc-pct').classList.remove('on');
+    const permHub = document.getElementById('perm-hub');
+    if (permHub) permHub.classList.remove('show');
     m3d.seen = false; // re-seed the 3D model on the next run
     const m3dHost = document.getElementById('model3d');
     if (m3dHost) m3dHost.classList.remove('on');
@@ -1781,10 +1973,24 @@
     sampler = document.createElement('canvas');
     sampler.width = SAMP; sampler.height = SAMP;
     sctx = sampler.getContext('2d', { willReadFrequently: true });
+    
     // route the static HTML CTA through the state-aware handler
     const cta = document.getElementById('cta');
-    cta.dataset.action = 'begin';
-    cta.onclick = onCta;
+    if (cta) {
+      cta.dataset.action = 'begin';
+      cta.onclick = onCta;
+    }
+
+    // Connect Permission Hub buttons
+    const retryBtn = document.getElementById('perm-retry-btn');
+    if (retryBtn) {
+      retryBtn.onclick = () => { state.started = false; begin(); };
+    }
+    const demoBtn = document.getElementById('perm-demo-btn');
+    if (demoBtn) {
+      demoBtn.onclick = () => { startDemoSimulation(); };
+    }
+
     window.addEventListener('resize', () => { initStarfield(); });
     requestAnimationFrame(render);
     requestAnimationFrame(loop);

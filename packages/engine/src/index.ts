@@ -99,11 +99,18 @@ export type { NotificationTemplateId } from './compliance/notification-guard';
 export {
   calculateHrvBaselineRange,
   getHrvStatus,
-  harmonizeHrv,
+  buildHrvObservation,
   computeHrvZScore,
+  NATIVE_HRV_METRIC,
 } from './biometric/hrv';
 
-export type { HrvStatus, HrvBaselineRange, HrvSource } from './biometric/hrv';
+export type {
+  HrvStatus,
+  HrvBaselineRange,
+  HrvSource,
+  HrvMetric,
+  HrvObservation,
+} from './biometric/hrv';
 
 export {
   clampBrpm,
@@ -135,6 +142,24 @@ export {
 
 export type { FingerPpgSample, FingerPpgResult, Peak } from './biometric/finger-ppg';
 
+// ─── Beat-Series HRV (chest strap RR) ───────
+export { computeBeatSeriesHrv, extendBeatWindow } from './biometric/beat-series';
+
+export type { BeatSeriesHrv, BeatSeriesOptions, BeatSeriesRefusal } from './biometric/beat-series';
+
+// ─── Phone Camera PPG (v2 pipeline) ─────────
+// 手機相機 PPG。規格: docs/PHONE-PPG.md
+export * from './biometric/ppg';
+
+export {
+  SCAN_MODES,
+  SCAN_MODE_CONFIGS,
+  isCameraMode,
+  modeReports,
+} from './biometric/scan-modes';
+
+export type { ScanMode, ScanModeConfig, ScanSignalSource } from './biometric/scan-modes';
+
 // ─── Baseline ───────────────────────────────
 export {
   updateMetricBaseline,
@@ -143,6 +168,7 @@ export {
   resolveTimeBucket,
   assessMaturity,
   updateBaselineProfile,
+  selectHrvBaseline,
 } from './baseline/baseline';
 
 // ─── Scoring Engine ─────────────────────────
@@ -219,3 +245,109 @@ export {
   legacyZoneToEdgeZone,
   edgeZoneToLegacyZone,
 } from './common/legacy-tei-adapter';
+
+// ─── Decision Intelligence ──────────────────
+// 個人決策雷達。規格: docs/DECISION-INTELLIGENCE.md
+export {
+  buildEvidence,
+  capBand,
+  countDistinctDays,
+  insufficientEvidence,
+  normalizeProvenance,
+  samplesShortOfFloor,
+  CAPPING_REASONS,
+  INSIGHT_PROVENANCES,
+  MS_PER_DAY,
+} from './intelligence/evidence';
+
+export type {
+  EvidenceBasis,
+  EvidenceInput,
+  EvidenceReasonCode,
+  EvidenceRequirement,
+  InsightProvenance,
+  InsufficientEvidence,
+} from './intelligence/evidence';
+
+export {
+  assessDrift,
+  buildPersonalReference,
+  isDriftAssessed,
+  selectComparableSamples,
+  AT_REFERENCE_POINTS,
+  DRIFT_ABSOLUTE_THRESHOLDS,
+  DRIFT_EVIDENCE_REQUIREMENT,
+  DRIFT_Z_THRESHOLDS,
+  MIN_MEANINGFUL_STD,
+  REFERENCE_WINDOW_DAYS,
+} from './intelligence/drift';
+
+export type {
+  DriftAssessment,
+  DriftDirection,
+  DriftMagnitude,
+  DriftOptions,
+  DriftResult,
+  PersonalReference,
+  ReadinessSample,
+} from './intelligence/drift';
+
+export {
+  assessCalibration,
+  classifyShift,
+  isCalibrationAssessed,
+  meaningfulShiftThreshold,
+  summarizePriors,
+  CALIBRATION_EVIDENCE_REQUIREMENT,
+  MIN_MEANINGFUL_SHIFT,
+  SHIFT_STD_FRACTION,
+} from './intelligence/calibration';
+
+export type {
+  CalibrationInput,
+  CalibrationProof,
+  CalibrationReading,
+  CalibrationResult,
+  CalibrationVerdict,
+  PriorCalibration,
+  PriorCalibrationSummary,
+} from './intelligence/calibration';
+
+export {
+  findDecisionTwins,
+  isTwinAssessed,
+  sharedFeatures,
+  twinSimilarity,
+  TWIN_EVIDENCE_REQUIREMENT,
+  TWIN_FEATURE_WEIGHTS,
+  TWIN_MATCH_THRESHOLD,
+} from './intelligence/twin';
+
+export type {
+  DecisionMoment,
+  DecisionTwinMatch,
+  DecisionTwinRecord,
+  DecisionTwinResult,
+  TwinFeature,
+} from './intelligence/twin';
+
+export { buildBlackBox } from './intelligence/black-box';
+
+export type {
+  BlackBoxDetail,
+  BlackBoxEvent,
+  BlackBoxSource,
+  BlackBoxTimeline,
+} from './intelligence/black-box';
+
+export {
+  calibrationCopy,
+  driftCopy,
+  evidenceLine,
+  evidenceReasonCopy,
+  formatConfidence,
+  formatCount,
+  twinCopy,
+} from './intelligence/copy';
+
+export type { InsightCopy } from './intelligence/copy';

@@ -20,7 +20,14 @@
  */
 
 import type { BiometricReading, BaselineProfile, SignalQuality, SleepRecoveryInput } from '../common/types';
-import { calculateEdgeScore, classifyEdgeZone, type EdgeScoreInput } from '../scoring/edge-score';
+import {
+  calculateEdgeScore,
+  classifyEdgeZone,
+  type EdgeScoreInput,
+  type ReadingAvailability,
+  resolveAvailability,
+} from '../scoring/edge-score';
+import { evaluateWearableHrv, type WearableHrvContext } from './scan-pipeline';
 import { selectSource, buildFusionLog, type SourceQuality } from '../fusion';
 import type { FusionLog } from '../types';
 import type { EdgeScoreResult } from '../scoring/types';
@@ -107,10 +114,19 @@ export interface ProgressiveScanInput {
   /** Available sensor sources for fusion selection. */
   availableSources?: SourceQuality[];
   /**
-   * Wearable HRV override (RMSSD ms). When present and > 0,
-   * replaces rPPG HRV before the engine runs (same logic as scan-pipeline v3.1).
+   * Which of the reading's physiological fields are real measurements.
+   * Omit when all of them are.
    */
-  wearableHrvRmssdMs?: number;
+  availability?: ReadingAvailability;
+  /**
+   * HRV from a connected wearable, with the provenance needed to arbitrate it.
+   * Evaluated by the SAME rule as the final pipeline (`evaluateWearableHrv`):
+   * RMSSD only, fresh only. Two copies of that rule is how the in-scan reading
+   * and the final one come to disagree.
+   */
+  wearableHrv?: WearableHrvContext;
+  /** Current time, injected for the freshness check. Defaults to `Date.now()`. */
+  now?: number;
 }
 
 export interface PartialScanResult {
@@ -185,13 +201,16 @@ export function runProgressiveScan(input: ProgressiveScanInput): PartialScanResu
     ? selectSource(input.availableSources)
     : buildFusionLog('rppg_cheek', input.signalQuality.score);
 
-  // ── Wearable HRV override (mirrors scan-pipeline Step 2) ────────────────
+  // ── Wearable HRV (same rule as the final pipeline, not a copy of it) ────
   let effectiveReading = input.reading;
   let wearableHrvApplied = false;
 
-  if (input.wearableHrvRmssdMs && input.wearableHrvRmssdMs > 0) {
-    effectiveReading = { ...input.reading, hrvRmssdMs: input.wearableHrvRmssdMs };
-    wearableHrvApplied = true;
+  if (input.wearableHrv !== undefined) {
+    const verdict = evaluateWearableHrv(input.wearableHrv, input.now ?? Date.now());
+    if ('valueMs' in verdict) {
+      effectiveReading = { ...input.reading, hrvRmssdMs: verdict.valueMs };
+      wearableHrvApplied = true;
+    }
   }
 
   // ── Level-appropriate factor masking ────────────────────────────────────
@@ -207,6 +226,7 @@ export function runProgressiveScan(input: ProgressiveScanInput): PartialScanResu
     signalQuality: input.signalQuality,
     sleepRecovery: sleepInput,
     recentScores: recentScoresInput,
+    availability: resolveAvailability(effectiveReading, input.availability),
   };
 
   const edgeScoreResult = calculateEdgeScore(edgeInput);

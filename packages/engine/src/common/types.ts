@@ -15,7 +15,11 @@
 export interface BiometricReading {
   /** Heart rate in beats per minute. */
   hrBpm: number;
-  /** HRV RMSSD in milliseconds (harmonized across sources). */
+  /**
+   * HRV RMSSD in milliseconds. RMSSD ONLY — an SDNN value (Apple Health) must
+   * never be converted into this field; it belongs on its own baseline track.
+   * @see packages/engine/src/biometric/hrv.ts — `HrvMetric`
+   */
   hrvRmssdMs: number;
   /** Respiratory rate in breaths per minute. */
   rrBrpm: number;
@@ -80,8 +84,15 @@ export interface MetricBaseline {
 export interface BaselineProfile {
   /** HR baseline per time bucket. */
   hr: Record<TimeBucket, MetricBaseline>;
-  /** HRV baseline per time bucket. */
+  /** HRV RMSSD baseline per time bucket. */
   hrv: Record<TimeBucket, MetricBaseline>;
+  /**
+   * HRV SDNN baseline per time bucket — a SEPARATE track, because SDNN and
+   * RMSSD are different statistics and cannot share a baseline. Absent on
+   * profiles persisted before the track existed; treat that as "no SDNN
+   * baseline yet" rather than backfilling it from the RMSSD track.
+   */
+  hrvSdnn?: Record<TimeBucket, MetricBaseline>;
   /** Respiratory rate baseline per time bucket. */
   rr: Record<TimeBucket, MetricBaseline>;
   /** Stress proxy baseline (overall, not bucketed). */

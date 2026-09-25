@@ -163,6 +163,12 @@ export interface EdgeScoreResult {
 
 /** Edge Score computation metadata. */
 export interface EdgeScoreMetadata {
+  /**
+   * Drivers left out because the phone-only scan produced no input for them,
+   * with their weight redistributed across the drivers that did have data.
+   * Empty for a complete reading.
+   */
+  excludedDrivers?: ScoreDriverKey[];
   /** Baseline version used. */
   baselineVersion: string;
   /** Scan quality score 0-100. */

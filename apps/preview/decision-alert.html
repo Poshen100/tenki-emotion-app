@@ -7,6 +7,15 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="TENKI" />
+  <!-- ⚠️ manifest 的 scope 是 "/"（不是 "/decision-alert/"）。
+       原因：從這裡進入決策會導到 /v3/ 的決策計時器，而**離開 scope 的導覽
+       會讓 iOS standalone 把使用者踢回 Safari** —— 連帶失去 PWA 的執行脈絡，
+       而 Web Push 正是綁在那個 PWA 上（PLAYBOOK:312、:390 同一家族的坑）。
+       start_url 仍是 /decision-alert/（scope 內，合法）。
+       ⚠️ service worker 不受影響：它註冊在 /decision-alert/sw.js、沒指定 scope，
+       所以 SW scope 仍是 /decision-alert/，推播照舊。
+       ⚠️ 已經加到主畫面的 PWA 要**重裝**才會吃到新的 scope。
+       .webmanifest 是 JSON、不能寫註解，所以理由記在這裡。 -->
   <link rel="manifest" href="/decision-alert/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/brand/favicon/apple-touch-icon-180.png" />
   <title>TENKI — 外部快訊 → 決策入口（Demo）</title>
@@ -16,7 +25,7 @@
     html, body {
       height: 100vh; height: 100dvh;
       background: var(--bg-space);
-      color: #E5E7EB;
+      color: var(--n-200);
       font-family: -apple-system, "SF Pro Text", "PingFang TC", "Noto Sans TC", sans-serif;
       overscroll-behavior: none;
       -webkit-user-select: none; user-select: none;
@@ -30,9 +39,9 @@
 
     /* ── Header ── */
     header { flex: none; padding-bottom: 12px; }
-    .kicker { font-size: 11px; letter-spacing: 0.14em; color: #64748B; text-transform: uppercase; }
+    .kicker { font-size: 11px; letter-spacing: 0.14em; color: var(--n-500); text-transform: uppercase; }
     h1 { font-size: 20px; font-weight: 700; margin-top: 4px; }
-    .demo-note { margin-top: 6px; font-size: 11px; color: #64748B; }
+    .demo-note { margin-top: 6px; font-size: 11px; color: var(--n-500); }
 
     /* ── State card ── */
     .state-card {
@@ -44,53 +53,70 @@
     .state-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; transition: opacity 0.3s var(--ease-calm); }
     .state-main { flex: 1; min-width: 0; }
     .state-line { font-size: 14px; font-weight: 600; }
-    .state-sub { font-size: 11px; color: #64748B; margin-top: 2px; }
-    .state-tap { font-size: 11px; color: #64748B; flex: none; }
+    .state-sub { font-size: 11px; color: var(--n-500); margin-top: 2px; }
+    .state-tap { font-size: 11px; color: var(--n-500); flex: none; }
     /* 示意模式：一眼看得出這張卡現在講的不是真讀數（虛線邊 + 副標自己承認）。 */
     .state-card.demo { border-style: dashed; border-color: rgba(148, 163, 184, 0.45); }
-    .state-card.demo .state-sub { color: #94A3B8; }
+    .state-card.demo .state-sub { color: var(--n-400); }
 
     /* ── Sim controls ── */
     .sim-row { flex: none; display: flex; gap: 8px; margin-bottom: 12px; }
+    /* 三顆都是動作（觸發一則模擬快訊）→ 可動層的邊。不填色：它們是次要動作。 */
     .sim-btn {
-      flex: 1; border: 1px solid var(--border); border-radius: 12px;
-      background: var(--surface); color: #E5E7EB;
+      flex: 1; border: 1px solid rgba(var(--amber-400-rgb), 0.30); border-radius: 12px;
+      background: var(--surface); color: var(--n-200);
       font-size: 12px; line-height: 1.35; padding: 10px 6px;
       font-family: inherit; cursor: pointer;
       transition: transform 0.15s var(--ease-calm), opacity 0.15s;
     }
     .sim-btn:active { transform: scale(0.97); opacity: 0.85; }
-    .sim-btn small { display: block; color: #64748B; font-size: 10px; margin-top: 3px; }
+    .sim-btn small { display: block; color: var(--n-500); font-size: 10px; margin-top: 3px; }
 
     /* ── 連接真實快訊 ── */
     .live-card {
       flex: none; background: var(--glass-bg); border: 1px solid var(--glass-border);
       border-radius: 14px; margin-bottom: 12px; overflow: hidden;
     }
+    /* 展開列（決策節奏設定 ▾ / 收束頁設定 ▾ / 連接 TradingView）—— 點了會展開，
+       所以是動作；但它整列是文字，只把**尾端那個記號**交給可動層即可。 */
     .live-toggle {
       display: flex; align-items: center; gap: 8px; width: 100%;
-      background: transparent; border: none; color: #E5E7EB;
+      background: transparent; border: none; color: var(--n-200);
       font-family: inherit; font-size: 13px; padding: 11px 14px; cursor: pointer;
     }
-    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #475569; flex: none; transition: opacity 0.3s; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--n-600); flex: none; transition: opacity 0.3s; }
     .live-dot.on { background: var(--cyan-active); }
     .live-dot.err { background: var(--error); }
     .live-title { font-weight: 600; }
-    .live-status { flex: 1; text-align: right; color: #64748B; font-size: 11px; }
-    .live-chevron { color: #64748B; font-size: 11px; }
+    .live-status { flex: 1; text-align: right; color: var(--n-500); font-size: 11px; }
+    .live-chevron { color: var(--amber-400); font-size: 11px; }
+    /* 🔴 這顆 `PREMIUM` 徽章原本吃 `--gold-secured`。
+       2026-09-08 把**紫**正式認領為 Premium 的顏色之後，那一輪只掃了 v6 ——
+       於是同一個產品裡「Premium」有兩個顏色，而其中一個（金）是別人的：
+       金 = SECURED（baseline 鎖定／校準完成）。founder 2026-09-10 實走截到。
+       ⚠️ 紫只當**表面**（它活不過色盲守門，見 tokens.css），
+       所以是「紫 wash 底 + 中性字」：`--n-200` 壓在 `--premium-950` 上 9.65:1。 */
     .live-badge {
       flex: none; font-size: 9px; letter-spacing: 0.08em; font-weight: 700;
-      color: var(--gold-secured); border: 1px solid rgba(var(--gold-secured-rgb), 0.4);
+      color: var(--n-200); background: var(--premium-950);
+      border: 1px solid var(--premium-600);
       border-radius: 999px; padding: 2px 7px; text-transform: uppercase;
     }
+    /* 導覽列（偏移預警 ›）—— 與展開列同一個外觀，只有尾端記號不同：
+       `▾` 是「在這裡展開」，`›` 是「離開這一頁去別的地方」。
+       整列是文字，只把尾端記號交給可動層（沿用 .live-chevron 那條既有規則）。 */
+    a.live-toggle { text-decoration: none; }
     .live-body { padding: 0 14px 12px; }
-    .live-hint { font-size: 11px; color: #64748B; line-height: 1.5; margin-bottom: 8px; }
+    .live-hint { font-size: 11px; color: var(--n-500); line-height: 1.5; margin-bottom: 8px; }
     .live-push { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
     .live-push-btn { width: 100%; }
     .live-push-btn.on { color: var(--cyan-active); border-color: var(--cyan-active); }
-    .live-push-hint { font-size: 11px; color: #64748B; line-height: 1.5; margin-top: 6px; }
-    .set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: #CBD5E1; padding: 7px 0; }
-    .set-row input[type="number"] { width: 72px; text-align: right; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #E5E7EB; font-family: inherit; font-size: 12px; padding: 5px 8px; }
+    /* 🔴 不支援推播的瀏覽器裡這顆是停用的，外觀必須看得出來 ——
+       PLAYBOOK：「按下去什麼都不做的鍵 = 做一半」。下面那行 hint 會說原因與下一步。 */
+    .live-push-btn:disabled { opacity: 0.5; cursor: default; }
+    .live-push-hint { font-size: 11px; color: var(--n-500); line-height: 1.5; margin-top: 6px; }
+    .set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--n-300); padding: 7px 0; }
+    .set-row input[type="number"] { width: 72px; text-align: right; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--n-200); font-family: inherit; font-size: 12px; padding: 5px 8px; }
     .set-row.set-check { cursor: pointer; }
     .set-row.set-check input { width: 16px; height: 16px; flex: none; accent-color: var(--cyan-active); }
     .live-row { display: flex; gap: 8px; }
@@ -111,14 +137,14 @@
     .live-selftest-btn { display: block; width: 100%; padding: 10px 0; font-size: 13px; }
     .live-selftest-btn:disabled { opacity: 0.5; }
     .live-fields { display: flex; gap: 8px; margin-bottom: 8px; }
-    .live-field { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #94A3B8; }
-    .live-field input { width: 100%; box-sizing: border-box; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #E5E7EB; font-family: inherit; font-size: 13px; padding: 7px 8px; }
+    .live-field { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--n-400); }
+    .live-field input { width: 100%; box-sizing: border-box; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--n-200); font-family: inherit; font-size: 13px; padding: 7px 8px; }
     .live-warn { font-size: 11px; color: #F59E0B; line-height: 1.5; margin-bottom: 8px; }
 
     /* ── Silent chips ── */
     .silent-area { flex: none; display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; margin-bottom: 10px; }
     .silent-chip {
-      font-size: 11px; color: #94A3B8; background: var(--surface);
+      font-size: 11px; color: var(--n-400); background: var(--surface);
       border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px;
       opacity: 0; transform: translateY(4px);
       animation: chip-in 0.35s var(--ease-calm) forwards;
@@ -127,7 +153,7 @@
 
     /* ── Event chain log ── */
     .log-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    .log-title { flex: none; font-size: 11px; letter-spacing: 0.12em; color: #64748B; text-transform: uppercase; margin-bottom: 6px; }
+    .log-title { flex: none; font-size: 11px; letter-spacing: 0.12em; color: var(--n-500); text-transform: uppercase; margin-bottom: 6px; }
     .log-list {
       flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
       border: 1px solid var(--glass-border); border-radius: 14px;
@@ -135,7 +161,7 @@
       /* 底部預留：浮動計時條 + safe area */
       margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 76px);
     }
-    .log-empty { font-size: 12px; color: #475569; padding: 10px 0; }
+    .log-empty { font-size: 12px; color: var(--n-600); padding: 10px 0; }
     /* 收束之後通往 /v3/ 決策紀錄的路。放在 log 這一層 = 零收束頁高度成本。 */
     .log-link {
       flex: none; margin-left: auto; font-size: 12px; font-weight: 600;
@@ -149,15 +175,15 @@
       opacity: 0; animation: chip-in 0.3s var(--ease-calm) forwards;
     }
     .log-item:last-child { border-bottom: none; }
-    .log-time { flex: none; font-variant-numeric: tabular-nums; color: #475569; font-size: 11px; }
+    .log-time { flex: none; font-variant-numeric: tabular-nums; color: var(--n-600); font-size: 11px; }
     .log-type { flex: none; font-weight: 600; }
-    .log-type.received   { color: #94A3B8; }
+    .log-type.received   { color: var(--n-400); }
     .log-type.surfaced   { color: var(--cyan-active); }
     .log-type.engaged    { color: var(--gold-secured); }
-    .log-type.dismissed  { color: #64748B; }
+    .log-type.dismissed  { color: var(--n-500); }
     .log-type.suppressed { color: var(--zone-strain); }
     .log-type.outcome    { color: var(--success); }
-    .log-detail { color: #94A3B8; min-width: 0; }
+    .log-detail { color: var(--n-400); min-width: 0; }
 
     /* ── Bottom sheet（entry panel / 模板 / 聚合）── */
     .sheet-backdrop {
@@ -186,19 +212,31 @@
     .sheet.show { transform: translateY(0); }
     .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 14px; }
     .alert-head { font-size: 17px; font-weight: 700; }
-    .alert-mode { font-size: 12px; color: #94A3B8; margin-top: 6px; display: none; }
+    .alert-mode { font-size: 12px; color: var(--n-400); margin-top: 6px; display: none; }
     .alert-mode.show { display: block; }
-    .alert-note { font-size: 13px; color: #94A3B8; margin-top: 4px; }
+    .alert-note { font-size: 13px; color: var(--n-400); margin-top: 4px; }
     .alert-state {
       margin-top: 12px; padding: 10px 12px; border-radius: 12px;
       background: var(--surface); border: 1px solid var(--border);
       font-size: 13px; line-height: 1.5;
     }
-    .alert-state .stat-sub { color: #64748B; font-size: 12px; }
-    .result-outcome { font-size: 15px; font-weight: 700; }
+    .alert-state .stat-sub { color: var(--n-500); font-size: 12px; }
+    /* 🔴 斷行只准落在分隔點上，不得從詞中間切。
+       實測（390 寬，收束頁走真的回程票路徑）：「判定不成立 · 未進場」在 176px 弧下
+       需要約 135px，而環心容器的內容框只有 **132px**（176 − padding 22×2）——
+       **差 3px**。於是它斷成「判定不成立 · 未進」／「場」，一個字孤零零掉在第二行，
+       看起來就是被裁掉（founder 2026-09-11 實走：「那個頁面是不是有點裁到了？」）。
+       ⚠️ 它其實**沒有**跑出環外（逐行四個角對圓心量過，全部在圓內）——
+       壞的是斷點，不是幾何。所以修的是斷點，不是把字縮小。
+       `word-break: keep-all` 讓 CJK 字元之間不再是斷行機會，只剩分隔號兩側的
+       空白可斷 → 最差情況是「判定不成立 ·」／「未進場」，兩半各自完整。
+       ⚠️ **不改文案字串** —— 那三句同時給底座、Session 徽章、收束頁用
+       （`decision-outcome.js` 的 OUTCOME_VIEW 是單一來源），為了一頁的版面去動它
+       會牽連另外兩頁。 */
+    .result-outcome { font-size: 15px; font-weight: 700; word-break: keep-all; }
     .result-outcome.disciplined { color: var(--zone-clear); }
     .result-outcome.broke { color: var(--zone-strain); }
-    .result-outcome.neutral { color: #94A3B8; }
+    .result-outcome.neutral { color: var(--n-400); }
     /* ── 決策收束頁（視覺化）── */
     #resultSheet { max-height: 88dvh; overflow-y: auto; }
     /* 弧的尺寸只有**一個來源**：這個 CSS 變數。drawResultArc() 讀 computed 寬度
@@ -215,19 +253,38 @@
       .result-sheet .result-strip { margin-top: 6px; }
       .result-sheet .result-reflect-wrap { margin-top: 10px; }
       .result-sheet .sheet-actions { margin-top: 8px; }
-      /* 弧縮小之後中央文字要跟著縮，否則「判定成立 · 已進場」會擠成兩行貼住環。 */
-      .result-sheet .result-outcome { font-size: 13px; }
+      /* 弧縮小之後中央文字要跟著縮，否則「判定成立 · 已進場」會擠成兩行貼住環。
+         🔴 13px 仍然太大：2026-09-11 逐行四個角對圓心量過，最壞的
+         「判定不成立 · 未進場」在 128px 弧下離環線內緣只剩 **0.2px** ——
+         行盒比字高、所以墨跡還沒真的碰到環，但那是「餘裕只剩幾 px，字型稍微
+         換一下就紅」的同一族（這個 repo 已經為它付過兩次學費）。
+         12px → **3.1px**，而且 `.result-hero` 是固定高、`.result-arc-center`
+         是 `inset:0`，所以這一格**不花任何垂直空間**（那段預算只剩 12px，
+         見下面 result-recap-row 那條）。
+         ⚠️ 三個判定實測（12px）：不成立 2 行 `[67,36]` 餘裕 3.1、
+         成立 2 行 `[55,36]` 餘裕 6.2、未判定 1 行 `[72]` 餘裕 5.4。
+         再往下調到 11px 可以買到 7.1px，但那是收束頁的**結論**那一行，
+         11px 太小 —— 停在 12px。 */
+      .result-sheet .result-outcome { font-size: 12px; }
       /* 弧縮到 128px 之後，環線的內側淨寬只剩約 90px（r = size/2 - 14、線寬 10）。
          內距要夠大才逼得動換行 —— 給太小的話文字不是溢出，是**壓在環線上**
          （量過：文字 103px、容器 128px，看起來像溢出其實是撞線）。 */
       .result-sheet .result-arc-center { padding: 0 22px; }
       .result-sheet .result-arc-time { font-size: 11px; margin-top: 3px; }
+      /* 決策軌跡在短視窗再密一格。⚠️ 這是**買空間**不是隨手調：
+         2026-09-05 把軌跡從散文改成欄位表（多了「等待」一列 + hairline），
+         660px 實測 sheet 561 → 578，而上限是 88dvh = 580 —— 只剩 2px。
+         PLAYBOOK 記載過「只剩 4px 餘裕，字型稍微換一下就紅」是同一族的傷，
+         2px 更糟。這一條把列距收到 2px，578 → 568，餘裕回到 12px。
+         壓的是留白，**一個欄位都沒砍**（跟這個 media query 其餘各條同一個原則）。 */
+      .result-sheet .result-recap-row { padding-top: 2px; padding-bottom: 2px; }
     }
     .result-arc-center {
       position: absolute; inset: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; text-align: center; padding: 0 22px;
     }
-    .result-arc-time { font-size: 12px; color: #94A3B8; margin-top: 5px; font-variant-numeric: tabular-nums; }
+    .result-arc-time { font-size: 12px; color: var(--n-400); margin-top: 5px; font-variant-numeric: tabular-nums; }
+    .result-arc-time .num { font-family: var(--mono); letter-spacing: 0.02em; color: var(--n-300); }
     /* 揭示編排：一次性微光 breath + outcome 落定 + 下方區塊 cascade（reduced-motion 一律終態）*/
     .result-arc-glow {
       position: absolute; top: 50%; left: 50%; width: 150px; height: 150px; margin: -75px 0 0 -75px;
@@ -252,21 +309,79 @@
     }
     .result-block { margin-top: 16px; }
     /* 紀律近況本來就是「決策紀錄」的預覽 —— 讓它說得出自己是什麼，並且可點進去。 */
+    /* 🔴 這一列點下去是**導航**（進決策紀錄），不是改變狀態。
+       founder 2026-09-08 把可動層規則收窄成「只給會改變狀態的，導航不算」——
+       那一輪只掃了 Lab，這一頁 2026-09-09 才跟上。改中性。 */
     .result-history-link { cursor: pointer; }
+    .result-history-link .result-block-label { color: var(--n-300); }
     .result-history-link:active { opacity: 0.75; }
-    .result-block-label { font-size: 11px; letter-spacing: 0.08em; color: #64748B; text-transform: uppercase; margin-bottom: 8px; }
+    .result-block-label { font-size: 11px; letter-spacing: 0.08em; color: var(--n-500); text-transform: uppercase; margin-bottom: 8px; }
+    /* 儀器表頭：左微標籤、右數字、底下一條 hairline。
+       ⚠️ 完成率數字是**搬**上來的（原本在 meter 下面自己一行），不是新增 ——
+       所以這一列的高度成本是負的，實測 sheet 568 → 563。 */
+    .result-block-head {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+      padding-bottom: 5px; margin-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    .result-block-head .result-block-label { margin-bottom: 0; }
+    .result-rate { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+    /* 「量」的樣子：等寬、tabular、比周圍大一級。中文註腳不吃等寬。 */
+    .result-rate .num {
+      font-family: var(--mono); font-variant-numeric: tabular-nums;
+      font-size: 15px; font-weight: 600; letter-spacing: 0.02em; color: var(--n-200);
+    }
+    .result-rate .sub { font-size: 10px; color: var(--n-500); }
     .result-meter { height: 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
     .result-meter-fill { height: 100%; width: 0; border-radius: 4px; background: linear-gradient(90deg, var(--zone-clear), var(--cyan-active)); transition: width 0.9s var(--ease-calm); }
     .result-strip { display: flex; gap: 4px; margin-top: 10px; align-items: center; }
+    /* 🔴 `[hidden]` 的 `display:none` 來自 UA 樣式表，**同一個元素上的
+       `display:flex` 會蓋掉它**。少了這一行，`strip.hidden = true` 只會讓它
+       變成一個 0 高的 flex 容器 —— 元素還在版面裡，`margin-top:10px` 也還在。
+       實測：hidden 之後 `getBoundingClientRect()` 回 `w:352 h:0`（真的
+       display:none 會四個值全 0）。 */
+    .result-strip[hidden] { display: none; }
     .result-seg { flex: 1; height: 18px; border-radius: 4px; background: var(--border); min-width: 0; transition: opacity 0.3s; }
     .result-seg.now { outline: 2px solid rgba(var(--cyan-active-rgb), 0.6); outline-offset: 1px; height: 22px; }
-    .result-recap { display: flex; flex-direction: column; gap: 8px; }
-    .result-recap-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #CBD5E1; }
-    .result-recap-row .rc-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--zone-neutral); }
-    .result-recap-row.on .rc-dot { background: var(--cyan-active); }
-    .result-recap-row.off .rc-dot { background: var(--zone-strain); }
+    /* ── 決策軌跡：欄位表，不是散文 ──
+       founder 2026-09-05 給了三張參考（彭博終端機的交易確認畫面等），要的是
+       「頂級專業交易者平台」的手感。**這一頁不是新設計** —— 同一份檔案的模板表
+       （.tpl-status / .tpl-head / .tpl-row，見下面約 :405 那段註解）2026-08-09
+       就已經照終端機做過一次了，這裡是把那套語言接到收束頁，值一律沿用它的：
+       9~10px 微標籤、0.08~0.14em 字距、1px hairline、零圓角、欄位固定寬對齊。
+
+       🔴 **不抄琥珀色**（founder 2026-09-05 拍板）。實測彭博琥珀 #FFA028 落在
+       hue 69.1°，而它兩邊站著 --zone-strain(56.0°，「該休息」) 與
+       --gold-secured(86.4°，SECURED)，跟 --warning #F5A623 更是 ΔE 只有 7.5
+       —— 鋪成主色等於同時弄壞兩個已經有主人的語義。cyan-on-black 的儀器感
+       一點都不輸 amber-on-black。
+
+       🔴 狀態色從圓點改成**左緣 2px 色條**：彭博沒有圓點，而且色條吃 0 垂直空間
+       —— 這一頁在 660px in-app 瀏覽器只剩 19px 餘裕（實測 sheet 561 / 上限
+       88dvh=580），每一 px 都要付得出理由。 */
+    .result-recap { display: flex; flex-direction: column; }
+    .result-recap-row {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 3px 0 3px 8px; border-bottom: 1px solid var(--border);
+      border-left: 2px solid transparent; border-radius: 0;
+      font-size: 12px; line-height: 1.25; color: var(--n-300);
+    }
+    .result-recap-row:last-child { border-bottom: none; }
+    .result-recap-row.on { border-left-color: var(--cyan-active); }
+    .result-recap-row.off { border-left-color: var(--zone-strain); }
+    /* 固定寬才是「對齊」的來源 —— 值欄的左緣因此在每一列都落在同一個 x。
+       ⚠️ 標籤是中文，**不吃 --mono**（等寬 CJK 會撐成全形方塊）。 */
+    .result-recap-row .rc-label {
+      flex: none; width: 62px; font-size: 10px; letter-spacing: 0.06em;
+      color: var(--n-500); white-space: nowrap;
+    }
+    .result-recap-row .rc-value { flex: 1; min-width: 0; }
+    /* 數字與代號才走等寬 —— 這就是「量得出來」的樣子。 */
+    .result-recap-row .num {
+      font-family: var(--mono); font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em; color: var(--n-200);
+    }
     .result-reflect-wrap { margin-top: 16px; }
-    .result-reflect-q { font-size: 13px; color: #CBD5E1; }
+    .result-reflect-q { font-size: 13px; color: var(--n-300); }
     .result-reflect { display: flex; gap: 8px; margin-top: 8px; }
     @media (prefers-reduced-motion: reduce) {
       .result-meter-fill { transition: none; }
@@ -274,18 +389,24 @@
       .result-sheet.reveal .result-arc-center,
       .result-sheet.reveal .reveal-item { opacity: 1; transform: none; transition: none; }
     }
+    /* 🔴 這三顆**會改變狀態**（把 contextTag 寫進這一筆紀錄）——
+       在可動層的規則下，它們才是這張收束頁上真正該穿琥珀的東西。
+       改之前剛好相反：兩顆導航穿琥珀，這三顆穿中性／青。
+       ⚠️ 選中態原本用 cyan（＝ ACTIVE / live / 正在量）——
+       一個「我覺得自己有點急」的自評不是一個 live 訊號。 */
     .result-chip {
       flex: 1; padding: 9px 6px; border-radius: 10px; font-size: 12px;
-      background: var(--surface); border: 1px solid var(--border);
-      color: #CBD5E1; cursor: pointer; text-align: center;
+      background: var(--surface); border: 1px solid rgba(var(--amber-400-rgb), 0.32);
+      color: var(--n-300); cursor: pointer; text-align: center;
       transition: transform 0.18s var(--ease-calm), border-color 0.18s, box-shadow 0.18s, color 0.18s, background 0.18s;
     }
     .result-chip:active { transform: scale(0.97); }
+    /* 選中＝填色塊；字用深空底色（白字壓在 amber-400 上只有 2.0:1）。 */
     .result-chip.sel {
-      border-color: var(--cyan-active); color: #fff;
-      background: rgba(var(--cyan-active-rgb), 0.10);
+      border-color: var(--amber-400); color: var(--n-950); font-weight: 600;
+      background: var(--amber-400);
       transform: translateY(-1px) scale(1.04);
-      box-shadow: 0 0 0 1px rgba(var(--cyan-active-rgb), 0.45), 0 4px 16px rgba(var(--cyan-active-rgb), 0.16);
+      box-shadow: 0 0 0 1px rgba(var(--amber-400-rgb), 0.45);
     }
     @media (prefers-reduced-motion: reduce) {
       .result-chip, .result-chip:active, .result-chip.sel { transition: none; transform: none; }
@@ -308,20 +429,20 @@
     }
     .sig-main { flex: 1; min-width: 0; }
     .sig-symbol { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
-    .sig-cond { font-size: 13px; color: #94A3B8; margin-top: 2px; }
+    .sig-cond { font-size: 13px; color: var(--n-400); margin-top: 2px; }
     .sig-age {
       font-size: 12px; color: var(--cyan-active); font-variant-numeric: tabular-nums;
       flex: none; letter-spacing: 0.02em;
     }
     .sig-source {
-      font-size: 11px; color: #64748B; margin-top: 8px;
+      font-size: 11px; color: var(--n-500); margin-top: 8px;
       letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
     }
     .entry-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     .entry-chips:empty { display: none; }
     .entry-chip {
       font-size: 11px; padding: 4px 9px; border-radius: 999px;
-      background: var(--surface); border: 1px solid var(--border); color: #94A3B8;
+      background: var(--surface); border: 1px solid var(--border); color: var(--n-400);
     }
     .entry-chip.warn { color: var(--zone-strain); border-color: rgba(194, 112, 61, 0.5); }
 
@@ -333,33 +454,42 @@
     .es-row { display: flex; align-items: center; gap: 11px; }
     .es-band {
       font-size: 14px; font-weight: 700; padding: 5px 11px; border-radius: 9px;
-      background: var(--card); border: 1px solid var(--border); color: #94A3B8; flex: none;
+      background: var(--card); border: 1px solid var(--border); color: var(--n-400); flex: none;
     }
-    .es-band.clear { color: var(--zone-clear); border-color: rgba(0, 180, 216, 0.5); }
-    .es-band.neutral { color: var(--zone-neutral); }
-    .es-band.strain { color: var(--zone-strain); border-color: rgba(194, 112, 61, 0.5); }
+    /* 🔴 帶位 chip ＝ **wash 底 + 帶位色的邊 + 中性白的字**。
+       為什麼字不用帶位色（雖然看起來比較「有顏色」）：實測它壓在 --card 上
+       **neutral 只有 2.93:1、strain 3.77:1**，兩個都不到 AA ——
+       這是現況就在漏的，只是 founder 的讀數一直是 Clear（5.65:1）所以沒撞到。
+       而且沒有任何 wash 配置能同時保住帶位色的字與 AA（三種組合最好也只有 4.87）。
+       → **顏色當表面、字當宣稱**（tokens.css 那條）：wash + 邊承載帶位，
+       字用 --n-200（7.4 / 13.0 / 11.0:1 ✅）。
+       ⚠️ 附帶好處：三個帶位現在**真的長得不一樣**了 —— 舊的 neutral 連邊框顏色都沒有。 */
+    .es-band.clear   { background: var(--clear-950);   border-color: var(--clear-500);   color: var(--n-200); }
+    .es-band.neutral { background: var(--neutral-950); border-color: var(--neutral-500); color: var(--n-200); }
+    .es-band.strain  { background: var(--strain-950);  border-color: var(--strain-500);  color: var(--n-200); }
     .es-meta { flex: 1; min-width: 0; }
-    .es-lbl { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #64748B; }
-    .es-age { font-size: 13px; color: #CBD5E1; margin-top: 2px; }
+    .es-lbl { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--n-500); }
+    .es-age { font-size: 13px; color: var(--n-300); margin-top: 2px; }
     .es-scan {
       flex: none; font-family: inherit; font-size: 12px; font-weight: 600;
       padding: 7px 13px; border-radius: 10px; cursor: pointer;
-      background: transparent; color: var(--cyan-active);
-      border: 1px solid rgba(var(--cyan-active-rgb), 0.5);
+      /* 「掃描 / 重掃」是動作 → 可動層。外框式，因為它是次要動作（主要是「進入決策」）。 */
+      background: transparent; color: var(--amber-400);
+      border: 1px solid rgba(var(--amber-400-rgb), 0.5);
       transition: transform 0.15s var(--ease-calm);
     }
     .es-scan:active { transform: scale(0.96); }
-    .es-evidence { font-size: 11px; color: #64748B; margin-top: 8px; line-height: 1.5; }
+    .es-evidence { font-size: 11px; color: var(--n-500); margin-top: 8px; line-height: 1.5; }
     .es-evidence:empty { display: none; }
 
     .entry-disc { margin-top: 14px; }
     .ed-head { display: flex; justify-content: space-between; align-items: baseline; }
     .ed-head .result-block-label { margin-bottom: 0; }
-    .ed-rate { font-size: 12px; color: #CBD5E1; font-variant-numeric: tabular-nums; }
+    .ed-rate { font-size: 12px; color: var(--n-300); font-variant-numeric: tabular-nums; }
     .entry-disc .result-strip { margin-top: 7px; }
-    .entry-disc .stat-sub { font-size: 11px; color: #64748B; margin-top: 7px; }
+    .entry-disc .stat-sub { font-size: 11px; color: var(--n-500); margin-top: 7px; }
     .entry-cost {
-      font-size: 11px; color: #64748B; margin-top: 9px; text-align: center;
+      font-size: 11px; color: var(--n-500); margin-top: 9px; text-align: center;
       font-variant-numeric: tabular-nums;
     }
     @media (prefers-reduced-motion: reduce) {
@@ -383,8 +513,22 @@
       transition: transform 0.15s var(--ease-calm), opacity 0.15s;
     }
     .btn:active { transform: scale(0.97); opacity: 0.85; }
-    .btn-primary { background: var(--cyan-core); border-color: var(--cyan-core); color: #02131a; }
-    .btn-ghost { background: transparent; color: #94A3B8; }
+    /* 🔴 琥珀 ＝ 「這裡可以動手」（founder 2026-09-05 拍板，2026-09-07 鋪上）。
+       它不是「好」也不是「鎖定」—— 那兩個位子分別是 --success 與 --gold-secured。
+       彭博畫面上的黃底方塊就是輸入欄，那是這個顏色最主要的用途，而 TENKI
+       一直缺這一層：畫面上「可以按」與「只是資訊」以前用同一個青。
+       🔴 **填色塊上的字用深空底色 --n-950，不是白色** —— 白字壓在 amber-400
+       上只有 2.0:1，完全不可讀。9.9:1 vs 2.0:1，這一條不能省。 */
+    .btn-primary {
+      background: var(--amber-400); border-color: var(--amber-400); color: var(--n-950);
+    }
+    .btn-primary:active { background: var(--amber-500); border-color: var(--amber-500); }
+    .btn-ghost { background: transparent; color: var(--n-400); }
+    /* 🔴 導航用的主位按鈕：仍然是「這一列最顯眼的那顆」，但**不穿可動層**。
+       `查看決策紀錄` 只是換一頁，沒有改變任何東西 —— 而這張收束頁上真正
+       改變狀態的是上面那三顆自評晶片，可動層該給它們。 */
+    .btn-nav { background: var(--n-800); border-color: var(--n-700); color: var(--n-100); }
+    .btn-nav:active { background: var(--n-700); }
 
     /* ── 模板選擇 ── */
     /* ── 模板選單：終端機讀數 ──
@@ -404,13 +548,13 @@
     }
     .tpl-status {
       display: flex; justify-content: space-between; gap: 8px;
-      font-size: 10px; letter-spacing: 0.08em; color: #64748B;
+      font-size: 10px; letter-spacing: 0.08em; color: var(--n-500);
       padding: 2px 0 8px; border-bottom: 1px solid var(--border);
     }
     .tpl-status b { color: var(--cyan-active); font-weight: 600; }
     .tpl-head {
       display: flex; align-items: baseline; gap: 10px;
-      font-size: 9px; letter-spacing: 0.14em; color: #4A5568;
+      font-size: 9px; letter-spacing: 0.14em; color: var(--n-600);
       padding: 8px 0 6px; border-bottom: 1px solid var(--border);
     }
     .tpl-head span:nth-child(1) { flex: none; width: 96px; }
@@ -421,18 +565,20 @@
       padding: 10px 0; border-bottom: 1px solid var(--border);
       border-radius: 0; background: none; cursor: pointer;
     }
-    .tpl-row:active { background: rgba(61, 224, 255, 0.06); }
+    .tpl-row:active { background: rgba(var(--amber-400-rgb), 0.08); }
+    /* 代號欄是這一列**可以按**的視覺把手（整列可點，但眼睛先落在代號上）→ 可動層。
+       ⚠️ `:active` 舊值是寫死的 rgba(61,224,255,…) ＝ 第六種 cyan，順手一起收掉。 */
     .tpl-code {
       flex: none; width: 96px; font-size: 12px; font-weight: 600;
-      letter-spacing: 0.04em; color: var(--cyan-active);
+      letter-spacing: 0.04em; color: var(--amber-400);
     }
     .tpl-main { flex: 1; min-width: 0; }
     .tpl-name { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
-    .tpl-sub { font-size: 10.5px; color: #64748B; margin-top: 3px; line-height: 1.5; }
+    .tpl-sub { font-size: 10.5px; color: var(--n-500); margin-top: 3px; line-height: 1.5; }
     /* 事實欄位，不是徽章 —— 沒有底色、沒有圓角、跟其他欄位同一個字級。 */
     .tpl-flag {
       flex: none; width: 44px; text-align: right;
-      font-size: 9px; letter-spacing: 0.1em; color: #94A3B8;
+      font-size: 9px; letter-spacing: 0.1em; color: var(--n-400);
     }
 
     /* ── 聚合卡 ── */
@@ -448,35 +594,30 @@
       -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
       border-radius: 16px; padding: 10px 14px;
       transform: translateY(140%); transition: transform 0.3s var(--ease-calm);
+      /* 整條可點 → 回 /v3/ 的計時器。是 <button> 所以要重設瀏覽器預設。 */
+      display: block; width: auto; text-align: left; cursor: pointer;
+      font-family: inherit; color: inherit;
     }
     .timer-bar.show { transform: translateY(0); }
+    .timer-bar:active { opacity: 0.85; }
     .timer-row { display: flex; align-items: center; gap: 10px; }
     .timer-label { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .timer-clock { flex: none; font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 700; }
     /* 時間是事實脈絡，不是紀律指標 —— 刻意收成次要字重，不搶戲。 */
-    .timer-clock { font-weight: 600; color: #94A3B8; font-size: 14px; }
+    .timer-clock { font-weight: 600; color: var(--n-400); font-size: 14px; }
 
     /* ── 結構守望 ── */
     /* 錨點：你自己定的關鍵價位與非接受門檻（§3 模組 3）。沒有 price 就整行不顯示，
        絕不編一個數字出來。 */
     .watch-anchor {
-      font-size: 12px; color: #CBD5E1; margin-top: 8px;
+      font-size: 12px; color: var(--n-300); margin-top: 8px;
       font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
     }
     .watch-anchor:empty { display: none; }
-    .watch-ask { font-size: 14px; font-weight: 600; margin-top: 8px; }
-    .watch-actions { display: flex; gap: 8px; margin-top: 8px; }
-    .watch-btn {
-      flex: 1; border-radius: 12px; padding: 11px 8px;
-      font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-      border: 1px solid var(--border); background: var(--surface); color: #E5E7EB;
-      transition: transform 0.15s var(--ease-calm), opacity 0.15s;
-    }
-    .watch-btn:active { transform: scale(0.97); opacity: 0.85; }
-    /* 兩個出口都是紀律 —— 顏色不暗示哪個「比較好」，只區分方向。 */
-    .watch-btn.confirm { border-color: var(--cyan-active); color: var(--cyan-active); }
-    .watch-btn.stand-down { color: #CBD5E1; }
-    .timer-update { font-size: 11px; color: #94A3B8; margin-top: 6px; display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* 回程提示。cyan = ACTIVE（有東西正在進行），不是 --good ——
+       綠是「跟著流程完成」的語意色，決策還沒收束就沒有資格宣告那件事。 */
+    .timer-back { font-size: 13px; font-weight: 600; color: var(--cyan-active); margin-top: 8px; }
+    .timer-update { font-size: 11px; color: var(--n-400); margin-top: 6px; display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .timer-update.show { display: block; }
   </style>
 </head>
@@ -573,6 +714,21 @@
       </div>
     </div>
 
+    <!-- 🔴 這一列是 /drift/ 唯一的入口。沒有它，那一頁只能手打網址 ——
+         而一個點不到的功能等於沒上線。目的地與這裡同網域，manifest 的
+         scope 是 `/`，所以在 PWA 裡點它不會被踢回 Safari，localStorage
+         也跟這裡的掃描共用（同一份讀數歷史）。 -->
+    <div class="live-card">
+      <a class="live-toggle" id="driftLink" href="/drift/">
+        <span class="live-title">偏移預警</span>
+        <!-- 🔴 刻意留空：這一格的字**一律由 JS 寫**（renderDriftEntry）。
+             預設值如果就是 JS 會寫的那句，harness 會在 JS 根本沒跑的情況下
+             綠燈 —— 第一版就是這樣過的。 -->
+        <span class="live-status" id="driftStatus"></span>
+        <span class="live-chevron">›</span>
+      </a>
+    </div>
+
     <div class="silent-area" id="silentArea"></div>
 
     <div class="log-panel">
@@ -664,14 +820,18 @@
     </div>
 
     <div class="result-block reveal-item result-history-link" id="resultHistory">
-      <div class="result-block-label">紀律近況 · 決策紀錄 ›</div>
+      <div class="result-block-head">
+        <span class="result-block-label">紀律近況 · 決策紀錄 ›</span>
+        <span class="result-rate" id="resultRate"></span>
+      </div>
       <div class="result-meter"><div class="result-meter-fill" id="resultMeterFill"></div></div>
-      <div class="stat-sub" id="resultRate"></div>
       <div class="result-strip" id="resultStrip"></div>
     </div>
 
     <div class="result-block reveal-item" id="resultRecap">
-      <div class="result-block-label">這次的決策軌跡</div>
+      <div class="result-block-head">
+        <span class="result-block-label">這次的決策軌跡</span>
+      </div>
       <div class="result-recap" id="resultRecapList"></div>
     </div>
 
@@ -687,7 +847,7 @@
          兩顆**都會記錄** —— 記錄不是選項，是收束的一部分。 -->
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="btnResultSave" type="button">關閉</button>
-      <button class="btn btn-primary" id="btnResultRecord" type="button">查看決策紀錄</button>
+      <button class="btn btn-nav" id="btnResultRecord" type="button">查看決策紀錄</button>
     </div>
   </div>
 
@@ -696,19 +856,21 @@
        結構確認沒有時間表，而 §2.2 又把「失敗迅速」列為最高品質的 FBD。用時間當紀律
        指標的結果是：品質最好的 setup 被罰得最重。現在時間降為事實脈絡，畫面上只剩
        你自己的錨點與一個問題。 -->
-  <div class="timer-bar" id="timerBar">
+  <!-- 決策進行中的回程橫幅。
+       交易者的動線是「進入決策 → 跳回桌面 → 開交易 App 下單 → 回 TENKI Core」，
+       而 PWA 的 start_url 是這一頁 —— iOS 把 web app 清出記憶體之後，回來就落在
+       這裡，看不到正在跑的計時器。這條橫幅是那一刻唯一的線索與去路。
+       🔴 **這裡不放判定鍵**：判定只有一份，在 /v3/。兩份判定 UI 是 PLAYBOOK
+       記載過的傷（「demo 看到 100%，進 Session 變 0%」）。 -->
+  <button class="timer-bar" id="timerBar" type="button">
     <div class="timer-row">
       <div class="timer-label" id="timerLabel"></div>
       <div class="timer-clock" id="timerClock">00:00</div>
     </div>
     <div class="watch-anchor" id="watchAnchor"></div>
-    <div class="watch-ask" id="watchAsk">結構成立了嗎？</div>
-    <div class="watch-actions">
-      <button class="watch-btn confirm" id="btnStructureConfirmed" type="button">成立 · 我進場了</button>
-      <button class="watch-btn stand-down" id="btnStoodDown" type="button">不成立 · 我不做</button>
-    </div>
+    <div class="timer-back" id="timerBack">決策進行中 · 點一下回到計時器 ›</div>
     <div class="timer-update" id="timerUpdate"></div>
-  </div>
+  </button>
 
   <!-- 星塵核心（North Star §4「內核 = 星塵靈魂」）。本頁沒有 #universe，所以
        stardust.js 的 auto-init 會找不到容器直接 return —— 掛載由 readiness-scan.js
@@ -734,9 +896,11 @@
   <!-- 正典 Soul Scan 模組：與 /v3/ 共用同一支（一個掃描，多道門）。絕對路徑不依賴
        /decision-alert/(.*) 的 rewrite。必須排在 decision-alert.js 之前 ——
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
-  <script src="/preview/readiness-scan.js?v=rs16"></script>
+  <!-- 讀數歷史：必須排在 readiness-scan.js **之前** —— 它的 saveReading 會呼叫 -->
+  <script src="/preview/readiness-history.js?v=rh1"></script>
+  <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
-  <script src="/preview/decision-outcome.js?v=do1"></script>
-  <script src="decision-alert.js?v=alert29"></script>
+  <script src="/preview/decision-outcome.js?v=do3"></script>
+  <script src="decision-alert.js?v=alert44"></script>
 </body>
 </html>

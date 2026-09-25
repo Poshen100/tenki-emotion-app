@@ -994,6 +994,59 @@
         expr.browTension = 0.5;
     }
 
+    // ── Camera control (additive; /story/ Hero only) ────────────────────────
+    // The scene has always had a PerspectiveCamera parked at z=5 that nothing
+    // ever moved. These let one page fly it without touching a single particle.
+    //
+    // 🔴 Held by the same structural property as setTone/setReadout: until
+    // setCamera() is called this is completely inert, so /v3/ and /preview/
+    // stay byte-for-byte identical. resetCamera() restores the parked pose.
+    var CAMERA_HOME = { x: 0, y: 0, z: 5, fov: 75 };
+    var cameraActive = false;
+
+    /**
+     * Move the stardust camera. Omitted axes keep their current value.
+     * @param {{x?:number,y?:number,z?:number,fov?:number,
+     *          lookAtX?:number,lookAtY?:number,lookAtZ?:number}} opts
+     */
+    function setCamera(opts) {
+        if (!camera || !opts) return;
+        cameraActive = true;
+        if (typeof opts.x === 'number') camera.position.x = opts.x;
+        if (typeof opts.y === 'number') camera.position.y = opts.y;
+        if (typeof opts.z === 'number') camera.position.z = opts.z;
+        if (typeof opts.fov === 'number' && camera.fov !== opts.fov) {
+            camera.fov = opts.fov;
+            camera.updateProjectionMatrix();
+        }
+        if (typeof opts.lookAtX === 'number' || typeof opts.lookAtY === 'number' || typeof opts.lookAtZ === 'number') {
+            camera.lookAt(opts.lookAtX || 0, opts.lookAtY || 0, opts.lookAtZ || 0);
+        }
+    }
+
+    /** Restore the parked pose and go inert again. */
+    function resetCamera() {
+        cameraActive = false;
+        if (!camera) return;
+        camera.position.set(CAMERA_HOME.x, CAMERA_HOME.y, CAMERA_HOME.z);
+        if (camera.fov !== CAMERA_HOME.fov) {
+            camera.fov = CAMERA_HOME.fov;
+            camera.updateProjectionMatrix();
+        }
+        camera.lookAt(0, 0, 0);
+    }
+
+    /** Inspectable state — `active:false` means this channel changed nothing. */
+    function cameraState() {
+        return {
+            active: cameraActive,
+            x: camera ? camera.position.x : CAMERA_HOME.x,
+            y: camera ? camera.position.y : CAMERA_HOME.y,
+            z: camera ? camera.position.z : CAMERA_HOME.z,
+            fov: camera ? camera.fov : CAMERA_HOME.fov
+        };
+    }
+
     // Auto-init when DOM ready. Unchanged behaviour: pages that ship a
     // `#universe` (v6 / story / soul-enroll) get bound automatically; pages
     // without one (e.g. /decision-alert/) are simply left alone, and whoever
@@ -1021,6 +1074,9 @@
         setReadout: setReadout,
         clearReadout: clearReadout,
         readoutState: readoutState,
+        setCamera: setCamera,
+        resetCamera: resetCamera,
+        cameraState: cameraState,
         // Exported for direct unit verification — the rendered frame is not
         // reachable in the sandbox (three.js is CDN-blocked), but this is.
         toneMatrix: toneMatrix,

@@ -1,3 +1,157 @@
+# 2026-09-19 ADDENDUM — 今天的工單在這裡（**先讀這一段再往下讀任何東西**）
+
+**➡️ `docs/prompts/antigravity-2026-09-19-kickoff.md`**
+
+底下那幾份舊 ADDENDUM 仍寫著 "TOP PRIORITY" —— **那是歷史，不是待辦。**
+一路往下讀會讓你重做四件已經上線的事。
+
+## 已完成，不要重做
+
+| 舊工單 | 狀態 |
+|---|---|
+| Soul Lock 四拍儀式（2026-08-19 ADDENDUM）| ✅ #233 / #236 / #240，眨眼確認已在真機驗證 |
+| Hero「鏡頭感」進場（2026-08-01 ADDENDUM）| ✅ #229 / #235 |
+| #1-A 水晶球對標 IMG_8437（2026-07-09）| ✅ #234 |
+| #1-B 超立體盾牌（2026-07-09）| ✅ #229 |
+
+## 今天做得到的，與今天做不到的
+
+- **做得到**：①在 `main` 上跑 Expo Go，讓 founder 第一次看到現在的 mobile app；
+  ②把 Soul Scan 的相機掃描 UI 做出來（模式選擇、品質 reasons、
+  「擷取層還沒接上」的誠實阻擋態）—— 純 JS，Expo Go 看得到。
+- **做不到（先決條件不在場，不要耗）**：VisionCamera 擷取層與 HealthKit 橋接。
+  Expo Go 載不了自訂原生模組 → 需要 development build → 裝進 iPhone 需要
+  **Apple Developer 付費帳號**（沒有）；EAS 的 Android build 走得通但**沒有 Android 機**。
+
+## ⚠️ Expo 工單的分支那一段已過期
+
+`docs/prompts/antigravity-expo-go-kickoff.md` 叫你切到
+`claude/tenki-core-growth-arch-7teiqj`。那條分支最後一個程式碼 commit 停在
+**2026-08-19**、從 main 分叉在 **2026-08-11**，而 `main` 的 `apps/mobile`
+之後**又走了 17 個 commit**。切過去等於給 founder 看一個少掉整個九月的 app。
+**今天在 `main` 上跑**；那條分支要不要 rebase 回來，由 founder 看完截圖後拍板。
+
+---
+
+# 2026-09-10 ADDENDUM — Phone-first biometric：相機 PPG 量測鏈落地（演算法完成、擷取層仍需實機）
+
+**規格** → **`docs/PHONE-PPG.md`（canonical，動工前必讀）**；穿戴補強層見 `docs/WEARABLE-INTEGRATION.md`。
+
+## 定位改變（這條比程式碼重要）
+
+**只有一支手機的使用者是 TENKI 最大的市場，不是「沒有手錶時的退路」。**
+相機 PPG 是一級量測鏈：它能量到的就報，量不到的就明說沒量到，
+而且 Edge Score 與 baseline 現在**能誠實表達「這一項沒有」**。
+任何「連了手錶才能用」的流程都是錯的 —— 沒有穿戴裝置必須能走完整個核心循環。
+
+## 這次真正完成的（雲端可驗，全部有測試）
+
+| 範圍 | 位置 |
+|---|---|
+| 相機 PPG 量測鏈（重取樣→零相位帶通→自相關→拍點→偽跡剔除→品質閘）| `packages/engine/src/biometric/ppg/` |
+| 確定性合成 replay ＋ 八個 fixture（含真值回報）| `ppg/replay.ts` |
+| Scan modes（quick_check / full_scan / precision）| `biometric/scan-modes.ts` |
+| 胸帶 RR interval → RMSSD/SDNN | `biometric/beat-series.ts` + `mobile/.../adapters/bleHrv.ts` |
+| `derivation`（observed/derived/estimated）＋ live/recent/stale | `domain/contracts/wearable-sample.ts`、`policies/wearable-source-policy.ts` |
+| Edge Score / baseline 的 missing-data 路徑 | `scoring/edge-score.ts`、`baseline/baseline.ts` |
+
+## 🔴 三個量出來的真問題（合成真值比對抓到的，不是推論）
+
+寫在這裡是因為**下一個人很可能重犯**，完整版見 `docs/PHONE-PPG.md` §3。
+
+1. **呼吸率會跟著心率跑。** 舊的過零計數估計器在 jitter > RSA（光學拍點的常態）時，
+   「呼吸次數」變成拍數的函數：同一個 14 brpm 的 fixture，50bpm 報 14.3、105bpm 報 33.8。
+2. **自相關的八度錯誤**：16 brpm 報 8、20 報 10，而 8 和 12 一路都對 ——
+   **只在特定速率才現形**。
+3. **偽跡剔除會靜靜地低報變異度**：真值 RMSSD 262ms，剔掉 19% 後 survivors 給 125ms ——
+   品質分數 83，看起來完全生理合理，不到真值一半。
+
+## ⚠️ 桌機／實機才做得到的（雲端做不了，不要在雲端假裝做完）
+
+1. **VisionCamera frame processor → `PpgFrame`**：ROI 取樣、閃光燈、曝光鎖定、每幀成本。
+   接縫已經定好（`PpgFrame` 是純量，raw pixel 進不到引擎），實作它就接上了。
+2. **實機準確度抽驗**：目前所有證據都來自合成器。第一次實走要把 perfusion 與
+   periodicity 的**實際分布**印出來 —— 門檻（`MIN_PERFUSION` 等）很可能要重校，
+   它們是對合成訊號量出來的。
+3. **效能／發熱**：逐幀處理**不得**進 React state、**不得**每幀 rerender。
+4. iOS HealthKit 橋接、Android 真機實走（見 WEARABLE-INTEGRATION §4d）。
+
+**嚴禁**用任何形式的模擬訊號填補缺少的相機 —— `replay.ts` 是量具，
+它產生的任何東西都不得成為使用者看得到的讀數。
+
+---
+
+# 2026-08-19 ADDENDUM(b) — 環境 bring-up：讓 founder 親眼看到 mobile UX
+
+**工單** → **`docs/prompts/antigravity-expo-go-kickoff.md`**
+
+> **這份不取代上面的 Soul Lock 工單。** Soul Lock 仍是**建置任務**的 TOP PRIORITY。
+> 這份是**環境 bring-up** —— 桌機 session 一開始先花約一小時把 dev server 跑起來，
+> founder 才有辦法用 iPhone 判斷任何 mobile 的東西。做完就回去做 Soul Lock。
+> 若時間只夠一件，由 founder 當場決定。
+
+分支 `claude/tenki-core-growth-arch-7teiqj` 累積了 40 個 commit 的 mobile UX 工作
+（多感官掃描儀式、Skia orb 物理 + 傾斜視差、Zone 自適應宇宙背景、手勢微互動語言），
+**founder 一次都沒看過** —— 全部在雲端寫的，容器裡沒有裝置也沒有 `apps/mobile/node_modules`。
+
+工單目標只有一個：**把 dev server 跑起來，讓他用 iPhone 透過 Expo Go 看到它。**
+不重構、不加功能。能跑 + 能看 + 誠實回報就是完成。
+
+### 四個會吃掉整個下午的坑
+
+1. **程式碼不在 `main` 上。** 這份 ADDENDUM 與工單在 main，程式碼只在那條分支。
+2. **不要用 GitHub API 找分支。** repo 有 **71 條分支**，未認證 API 每小時 **60 次**。
+   逐條拉 tree 會被 rate limit 擋掉；若 `catch {}` 吞掉錯誤，agent 會得到
+   「找不到」的錯誤結論然後開始編造。**2026-08-19 已發生過一次。**
+   已 clone 的 repo 就在磁碟上 —— `git checkout` 即可，零 API 呼叫。
+3. **`apps/mobile` 刻意不在 npm workspace 裡** —— root `npm install` 不會裝它的依賴，
+   而該分支新增了 `expo-sensors`。必須另外 `cd apps/mobile && npm install`。
+4. **圖書館 Wi-Fi 幾乎一定開 client isolation** —— 一開始就用 `--tunnel`，
+   不要 debug 連不上的 `exp://192.168.x.x`。
+
+### 已知限制（不是 bug，不要「修」）
+
+Expo Go 不帶 `react-native-vision-camera` 也不帶 `@shopify/react-native-skia`。
+分支上已加探測 + 降級（`apps/mobile/features/face-baseline/utils/optionalNative.ts`），
+畫面**不再崩**，但看到的東西不同：擷取畫面在框裡明說「沒有相機」（**刻意不假裝**），
+Processing/Resonance 顯示純 RN Animated 的降級 orb。
+
+結果：**掃描儀式在 Expo Go 看得到**；**Skia orb 物理 + 傾斜視差看不到真樣子**
+（環速/視差/模糊都是 Skia 專屬），仍需 development build。
+
+**嚴禁**為了讓它「完整」就拔掉那兩個套件、把降級版當正式實作、
+或用任何形式的模擬訊號填補缺少的相機。
+分支上的 `__tests__/optionalNative.test.ts` 會掃原始碼，把這兩個模組寫回
+module scope 的 static import 就會紅燈 —— 那正是當初崩潰的成因。
+
+> 順帶修正下方 2026-07-03 工作清單第 3 項「原生 lane（需 Mac）」的說法：**編譯不需要 Mac**
+> —— EAS 免費層在 Expo 託管的 macOS runner 上編 iOS。真正的門檻是**裝到自己 iPhone**
+> 需要 Apple Developer Program（$99/年），因為免費 Apple ID 側載必須透過只跑 macOS 的
+> Xcode。Android 兩者都不需要，但 founder 手上沒有 Android 機。
+
+---
+
+# 2026-08-19 ADDENDUM — TOP PRIORITY: Soul Lock 柔性鎖定儀式
+
+**下次桌機 session 先做這個** → **`docs/prompts/antigravity-soul-lock-kickoff.md`**
+
+按下 Scan 後的頭 2 秒改成四拍儀式：**Seek → Align → Sync → Hold**（找到你 → 對準你 →
+眨眼同步 → 鎖定有效訊號）。定調：**TENKI 不是在監控你，它正在等你與自己回到同一個節奏。**
+
+重點：**這不是新的感測，是編排層**。`readiness-scan.js` 已經有 `stillness`、眼睛開合（眨眼）、
+`headPose`、`computeFaceBox`、Tier A 有效樣本門檻；`v6/stardust.js` 已經有 `setExpression` /
+`setTone` / `setReadout` / `setCamera` 等「沒呼叫就 inert」的公開通道 —— 把兩排接起來即可，
+**星塵 v25.8.2 內部手感仍然鎖定**（`SYSTEM.md` §8），要加通道就照 `setCamera` 的加法作法。
+
+硬紅線：不得宣稱偵測情緒、不得放假生理讀數、不得出現人臉方框／準星／「Face Locked」等監控語彙、
+掃描中不得先染上 zone 結果色、相機權限只在使用者手勢內請求、reduced-motion 要有靜態終態。
+**第一刀只做四拍；Echo Ring 明確不在範圍**（founder 指示，且冷啟動期永遠不得顯示）。
+**Rule #0 防丟失**：開工第一分鐘建 `feat/soul-lock` 並 push，每完成一拍就 commit+push。
+
+Hero 相機（開工單 v2）已完成並 merge（#229/#230）；水晶球與 3D 盾牌亦已隨該批入庫。
+
+---
+
 # 2026-08-01 ADDENDUM — TOP PRIORITY: Hero「鏡頭感」進場（開工單 v2）
 
 **下次桌機 session 先做這個** → **`docs/prompts/antigravity-hero-camera-kickoff.md`**

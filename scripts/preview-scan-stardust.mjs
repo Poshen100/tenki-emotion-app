@@ -16,10 +16,15 @@
  * Run:  node scripts/preview-scan-stardust.mjs
  * Exit: 0 = 全綠，1 = 有失敗。
  */
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+// Playwright 從共用 resolver 拿：CI 走 node_modules、容器退回全域安裝。
+// 這一行原本是寫死的 /opt/node22/... 絕對路徑 —— 那就是 harness 進不了 CI 的原因。
+import { getChromium } from './lib/playwright.mjs';
 import http from 'node:http';
 import { createReadStream, existsSync, statSync, readFileSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
+
+// top-level await：ESM 可以，且必須在任何 chromium.* 之前解析完。
+const chromium = await getChromium();
 
 const repoRoot = resolve(new URL('..', import.meta.url).pathname);
 
@@ -869,9 +874,23 @@ async function scanAndCancel(page) {
     return o('.rs-reticle') === '0' && o('.rs-target') === '0';
   }), true);
 
-  check('收束成功時帶位是 gold（SECURED）', await page.evaluate(() =>
-    getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-verdict-band')).color),
+  // gold = SECURED 仍然守著，但由**狀態元件**（外框、完成鈕）承接，不是帶位大字。
+  // founder 2026-08-29：Today 環上的「Clear」是青的、結果頁的是金的 —— 同一個
+  // 帶位兩種顏色會混淆。大字改報帶位色，狀態與帶位分開講。
+  check('收束成功時完成鈕是 gold（SECURED 由狀態元件承接）', await page.evaluate(() =>
+    getComputedStyle(document.querySelector('#tenki-readiness-scan .rs-done')).color),
   'rgb(255, 212, 110)');
+
+  // 帶位色由 showVerdict() 逐次寫進 inline style（它跟著讀數變）。這裡驗的是
+  // 「CSS 不會把它蓋掉」—— 一旦有人在 .secured 那條規則上加回 color/!important，
+  // 大字就會又變成金的，而那是靜態掃 CSS 看不出來的。
+  check('帶位大字吃得到帶位色（inline 不被 CSS 蓋掉）', await page.evaluate(() => {
+    const el = document.querySelector('#tenki-readiness-scan .rs-verdict-band');
+    el.style.color = '#00B4D8'; // BAND_TONE.clear
+    const got = getComputedStyle(el).color;
+    el.style.color = '';
+    return got;
+  }), 'rgb(0, 180, 216)');
 
   // 訊號不足**不得**上 gold —— gold 代表 secured/calibrated，
   // 用它宣稱一個不存在的結果就是拿顏色說謊。
