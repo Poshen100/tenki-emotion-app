@@ -275,6 +275,57 @@ check('🔴 標記過期之後，快訊必須照常彈出決策入口（不得�
   await entryOpen(), true);
 await alertPage.evaluate(() => document.getElementById('btnDismiss').click());
 await patchMarker({ expiresAtMs: liveUntil });
+// ═══════════════════════════════════════════════
+// §8 的**真實動線**：PWA 被清出記憶體 → 冷開 start_url → 收到快訊
+//
+// 🔴 上面那一段驗的是「兩頁同時開著」，但 PWA 實際走的**不是**那條路：
+// `start_url` 是 `/decision-alert/`，所以 iOS 把 App 清掉之後，使用者點開
+// 看到的是一個**冷開的快訊頁**，而 `/v3/` 那一頁已經不存在了。
+// 那條路上「決策還在跑」完全靠 localStorage 的標記獨自撐著 ——
+// 規則有了，但先前沒有一條斷言走過這一條路。
+//
+// （founder 2026-09-24 回報：在主畫面的 TENKI 裡，決策跑著卻看到面板彈出來。
+//  這一段就是為了把那條路釘住而加的；實測這條路徑本身是對的，見下。）
+// ═══════════════════════════════════════════════
+{
+  const relaunch = await ctx.newPage();
+  relaunch.on('pageerror', (e) => pageErrors.push('[relaunch] ' + e.message));
+  await relaunch.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await relaunch.waitForTimeout(2200);
+
+  const before = await relaunch.evaluate(
+    (k) => JSON.parse(localStorage.getItem(k)), ACTIVE_KEY);
+  const marker = before;
+  checkTruthy('🔴 冷開之後標記還在（它是這條路上唯一的依據）',
+    !!marker && marker.expiresAtMs > Date.now());
+
+  const open = () => relaunch.evaluate(
+    () => document.getElementById('entrySheet').className.includes('show'));
+  await relaunch.evaluate(() => document.getElementById('btnSingle').click());
+  await relaunch.waitForTimeout(700);
+  check('🔴 冷開的快訊頁，決策進行中仍然不得彈出面板', await open(), false);
+
+  // 對照：標記過期 → 必須照常彈（否則這條斷言只是「面板永遠不開」）
+  await relaunch.evaluate((k) => {
+    const m = JSON.parse(localStorage.getItem(k));
+    m.expiresAtMs = Date.now() - 1000;
+    localStorage.setItem(k, JSON.stringify(m));
+  }, ACTIVE_KEY);
+  await relaunch.evaluate(() => document.getElementById('btnSingle').click());
+  await relaunch.waitForTimeout(700);
+  check('🔴 而標記過期之後照常彈（證明上一條不是「永遠不開」）', await open(), true);
+  await relaunch.evaluate(() => document.getElementById('btnDismiss').click());
+  // 🔴 把標記還原成進來時的樣子 —— 這一段是**插隊**進整條鏈的，
+  //    不還原的話後面那條「收束頁印『同標的更新：1 次』」會被我多按的兩下打壞。
+  await relaunch.evaluate(([k, n, t]) => {
+    const m = JSON.parse(localStorage.getItem(k));
+    m.sameSymbolUpdates = n;
+    m.expiresAtMs = t;
+    localStorage.setItem(k, JSON.stringify(m));
+  }, [ACTIVE_KEY, before.sameSymbolUpdates, before.expiresAtMs]);
+  await relaunch.close();
+}
+
 
 // ── 點橫幅回到那一筆決策 ──
 // 先重新載入這一頁 —— 那正是 iOS 把 App 換回前景時實際會發生的事，
@@ -521,6 +572,126 @@ check('🔴 超過上限的標記要被清掉', stale.marker, null);
 check('🔴 而且要留下一筆誠實的紀錄（決策不能憑空消失）', stale.store.length, 1);
 checkTruthy(`那筆紀錄說得出它是怎麼結束的（${stale.store[0] && stale.store[0].outcomeTag}）`,
   stale.store.length === 1 && !!stale.store[0].outcomeTag);
+
+// ═══════════════════════════════════════════════
+// 真實快訊沒有指名結構：MATCH 欄整欄不出現，並就地說出為什麼
+//
+// 🔴 為什麼要用 **live 頻道**而不是 demo 按鈕：demo 的 `strategyHint` 是
+// 'Mancini'，永遠比對得到，所以「沒有比對到」那一格在 demo 路徑上根本走不到。
+// founder 2026-09-24 的真快訊是「ES1! 下穿 7,740.00」—— 沒有 strategyHint、
+// 訊息欄也沒有結構名，於是 MATCH 欄頭立在那裡承諾一個它給不出來的值。
+// 這一段照真路徑走：塞頻道 id + 攔 /api/alerts，讓產品自己 ingest。
+//
+// ⚠️ 方向詞（下穿 / 上穿 / 跌破）刻意**不**列入關鍵字：它只說了價格穿過一個
+// 數字，沒說這是不是一個 failed breakdown —— 那正是使用者要守望的事。
+// 所以「沒有比對到」是**正常情形**，不是壞掉，畫面必須這樣講。
+// ═══════════════════════════════════════════════
+console.log('\n── 真快訊（沒有指名結構）── ');
+{
+  const ctx2 = await browser.newContext({
+    viewport: { width: 390, height: 700 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+  });
+  const p2 = await ctx2.newPage();
+  const errs2 = [];
+  p2.on('pageerror', (e) => errs2.push(e.message));
+  // 頻道只是一個 localStorage key —— 有它產品就自動開始輪詢。
+  await ctx2.addInitScript(() => {
+    localStorage.setItem('tenki.alert.channel', 'harness');
+  });
+  await p2.route('**/api/channel*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ bypassQuery: '' }),
+  }));
+  // 真快訊的形狀：條件是一句方向描述，strategyHint 與 note 都空。
+  await p2.route('**/api/alerts*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ alerts: [{
+      id: 'live-nomatch-1', symbol: 'ES1!', condition: '下穿 7,740.00',
+      timeframe: '1m', price: 7740, receivedAt: Date.now(),
+    }] }),
+  }));
+  await p2.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await p2.waitForTimeout(2500);
+  checkTruthy('真快訊自己把決策面板浮出來了',
+    await p2.evaluate(() => document.getElementById('entrySheet').className.includes('show')));
+  await p2.evaluate(() => document.getElementById('btnEngage').click());
+  await p2.waitForTimeout(700);
+
+  const nomatch = await p2.evaluate(() => {
+    const head = document.querySelector('#tplList .tpl-head');
+    const why = document.querySelector('#tplList .tpl-nomatch');
+    return {
+      headCells: head ? head.children.length : null,
+      headLabels: head ? Array.from(head.children).map((c) => c.textContent) : null,
+      flags: document.querySelectorAll('#tplList .tpl-flag').length,
+      why: why ? why.textContent.trim() : null,
+      whyVisible: why ? getComputedStyle(why).display !== 'none' : false,
+      rows: document.querySelectorAll('#tplList .tpl-row').length,
+    };
+  });
+  // 🔴 「印一個破折號」被 founder 2026-09-25 否決了：那只是把空白換一個寫法，
+  // 欄頭仍然在承諾一個給不出來的值。所以第三欄**整欄不存在**。
+  check('🔴 沒有比對到時 MATCH 欄整欄不出現（不是留一欄印「—」）',
+    { headCells: nomatch.headCells, headLabels: nomatch.headLabels },
+    { headCells: 2, headLabels: ['CODE', 'STRUCTURE'] });
+  check('🔴 每一列也沒有那個空欄', nomatch.flags, 0);
+  checkTruthy(`而且就地說出為什麼沒有值（${nomatch.why}）`,
+    !!nomatch.why && nomatch.whyVisible && nomatch.why.indexOf('沒有指名結構') !== -1);
+  // 三個流程照樣全部可選 —— 沒有比對到不代表少一條路。
+  check('三個流程照樣都在（沒有比對到不等於不能選）', nomatch.rows, 3);
+  // ⚠️ 語氣：陳述事實，不下指示。「請選擇 / 建議你」都是在替使用者決定。
+  check('🔴 那句話不得寫成建議語氣', /請選|建議你|應該/.test(nomatch.why || ''), false);
+
+  check('這一段沒有 page error', errs2, []);
+  await ctx2.close();
+}
+
+// 對照組：同一支渲染器在**真的比對到**的時候必須把第三欄放回來 ——
+// 否則上面那幾條可以用「永遠不畫第三欄」造假通過。
+//
+// ⚠️ 必須開**新的 context**，不能在同一頁再點 demo 按鈕：同標的冷卻
+// （`lastSurfacedAtBySymbol`）會把第二則 ES1! 直接吃掉，畫面根本不會重畫，
+// 於是「第三欄沒回來」這件事會被誤讀成規則壞了（寫這支時實際踩到）。
+//
+// 順便驗到中文關鍵字走得通：結構名寫在**條件欄**（不是 strategyHint）也要比對到 ——
+// 那正是這一輪改動的重點，真實 TradingView 快訊就是這樣填的。
+{
+  const ctx3 = await browser.newContext({
+    viewport: { width: 390, height: 700 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+  });
+  const p3 = await ctx3.newPage();
+  const errs3 = [];
+  p3.on('pageerror', (e) => errs3.push(e.message));
+  await ctx3.addInitScript(() => { localStorage.setItem('tenki.alert.channel', 'harness'); });
+  await p3.route('**/api/channel*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ bypassQuery: '' }),
+  }));
+  await p3.route('**/api/alerts*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ alerts: [{
+      id: 'live-match-1', symbol: 'ES1!', condition: '假跌破 掃低後收回',
+      timeframe: '1m', price: 7740, receivedAt: Date.now(),
+    }] }),
+  }));
+  await p3.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await p3.waitForTimeout(2500);
+  await p3.evaluate(() => document.getElementById('btnEngage').click());
+  await p3.waitForTimeout(700);
+  const matched = await p3.evaluate(() => {
+    const head = document.querySelector('#tplList .tpl-head');
+    return {
+      headLabels: head ? Array.from(head.children).map((c) => c.textContent) : null,
+      alerts: Array.from(document.querySelectorAll('#tplList .tpl-flag'))
+        .map((f) => f.textContent).filter(Boolean),
+      why: !!document.querySelector('#tplList .tpl-nomatch'),
+    };
+  });
+  check('🔴 結構名寫在條件欄也要比對到（strategyHint 是空的）',
+    matched.headLabels, ['CODE', 'STRUCTURE', 'MATCH']);
+  check('而且只標一列', matched.alerts, ['ALERT']);
+  check('比對到就不再說「沒有指名結構」', matched.why, false);
+  check('對照組沒有 page error', errs3, []);
+  await ctx3.close();
+}
 
 check('整條鏈走完沒有任何 page error', pageErrors, []);
 

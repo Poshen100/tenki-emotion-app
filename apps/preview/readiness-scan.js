@@ -1329,9 +1329,14 @@
    * 有讀數：先閃過 gold（`--gold-secured` = SECURED，跟光弧同一拍），
    * 再落到該次帶位色。**沒有讀數就不准碰 gold** —— 顏色跟文案一樣會宣稱事實。
    *
+   * ⚠️ 信心低時**跳過 gold 那一拍**，直接落到帶位色（founder 2026-09-25）——
+   * 跟外框／完成鈕同一條：一份自己都說「僅供參考」的讀數不該閃 SECURED。
+   * 帶位色照常給，因為帶位本身仍然是量出來的。
+   *
    * @param {?string} band - `clear` / `neutral` / `strain`；null = 訊號不足。
+   * @param {boolean} [skipSecured] - true＝信心低，不閃 gold
    */
-  function revealTone(band) {
+  function revealTone(band, skipSecured) {
     if (!session) return;
     session.toneStage = 'reveal';
     var S = global.TENKI_STARDUST;
@@ -1346,6 +1351,7 @@
       S.setTone({ hue: 0, sat: 0.75, mix: 0 });
       return;
     }
+    if (skipSecured) { S.setTone(target); return; }
     S.setTone({ hue: 0, sat: 1.1, toward: HALO_SECURED, mix: TONE_SECURED_MIX });
     session.toneTimer = setTimeout(function () {
       if (!session || session.toneStage !== 'reveal') return;
@@ -1487,6 +1493,25 @@
       return 'high';
     }
     return quality >= MODERATE_CONFIDENCE_AT ? 'moderate' : 'low';
+  }
+
+  /**
+   * 這份讀數**配不配得上 SECURED（gold）這一拍**。
+   *
+   * 🔴 gold 在視覺世界規則裡代表 baseline locked / calibrated（`docs/VISUAL-DIRECTION.md` §3）。
+   * 兩種情形不得穿它：
+   *   1. 根本沒有讀數（`giveUp()` 那條路）—— 拿顏色宣稱一個不存在的結果。
+   *   2. 有讀數但**信心低** —— founder 2026-09-25 拍板。一次 穩定度 58% /
+   *      未偵測到眨眼 的掃描，教練文案正說「讀數僅供參考」，外框與完成鈕卻是金的。
+   *      **顏色宣稱的比文字強**：兩個一起出現時，使用者信的是顏色。
+   *
+   * ⚠️ 這一條只收 gold。讀數照常存、帶位色照常給 —— 帶位本身仍然是量出來的。
+   *
+   * @param {?Object} reading - `finalize()` 算出來的讀數，或 null。
+   * @returns {boolean}
+   */
+  function securedEarned(reading) {
+    return !!reading && reading.confidence !== 'low';
   }
 
   /** 眨眼缺席時把權重併回穩定度 —— 缺的訊號不得自己把帶位推上或推下。 */
@@ -1706,8 +1731,14 @@
     // （giveUp）不得使用，否則等於用顏色宣稱一個不存在的結果。
     setProgress(1);
     var frame = q('frame');
-    if (frame) frame.classList.add('secured'); // 顏色由 CSS 的 .secured 承接
-    revealTone(reading.band); // 星塵跟著同一拍走：先 gold，再落到帶位色
+    // 🔴 gold 的唯一判準是 `securedEarned()`（理由寫在那裡）。**兩個出口都要問它**：
+    // 外框／完成鈕吃 `.secured`，星塵吃 `revealTone` 的第二個參數 —— 只擋一邊
+    // 等於文字說「僅供參考」、星塵還閃 SECURED。
+    // ⚠️ `scripts/preview-scan-stardust.mjs` 有一條接線守衛：檔案裡任何一處
+    //    `classList.add('secured')` 與 `revealTone(` 都必須在同一行問到
+    //    `securedEarned` —— 改寫這兩行時請一起看它。
+    if (frame && securedEarned(reading)) frame.classList.add('secured'); // 顏色由 CSS 的 .secured 承接
+    revealTone(reading.band, !securedEarned(reading)); // 信心低就不閃 gold，直接落帶位色
     showVerdict(BAND_LABEL[reading.band], verdictFact(evidence), reading);
   }
 
@@ -1716,7 +1747,7 @@
     enterReveal();
     // 不加 .secured：沒有讀數就不准上 gold。失敗更需要被看見，
     // 所以走同一個面板、同樣停著等點，不是一閃而過。
-    revealTone(null); // 星塵同理：退彩度，不給一個看起來像結果的顏色
+    revealTone(null, !securedEarned(null)); // 星塵同理：退彩度，不給一個看起來像結果的顏色
     showVerdict('訊號不足', {
       spec: '這次沒有取得讀數',
       quality: '光線或穩定度不足 · 再試一次',
@@ -2237,6 +2268,12 @@
      * 而且 CI 不涵蓋 apps/preview/**。所以把純狀態機開出來直接餵。
      * ⚠️ 這是**唯讀的測試出口**：不得從外面拿它去驅動 UI。
      */
+    /**
+     * Harness contract（`scripts/preview-scan-stardust.mjs` 用）。**唯讀**。
+     * gold 該不該上是一條純規則，開出來才驗得到真值表 ——
+     * 走完整場掃描才能碰到「信心低」那一格，CI 裡跑不出來。
+     */
+    __policy: { securedEarned: securedEarned },
     __blink: {
       detect: detectBlink,
       newState: function () { return { prevEyeOpen: 1, eyeBaseline: null, eyeDip: null }; },

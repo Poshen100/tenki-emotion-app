@@ -2453,6 +2453,82 @@ for (const h of [700, 740, 844, 932]) {
   await page.close();
 }
 
+// ═════════════════════════════════════════════════
+// 守望模式的三段軌 = 30 分鐘的經過時間軸（0–3 / 3–10 / 10–30）
+//
+// founder 2026-09-24：「希望可以從長條的分段顏色快速看出時間」。
+// 🔴 段寬必須照**時間比例**（10% / 23.33% / 66.67%），不是等分 ——
+//    等分會讓這條軸謊報時間長度，而「跑了多久」正是它要回答的問題。
+// 🔴 `#fdcbFill` 仍然是 0 —— 守望不畫倒數填充那條規則沒有放寬。
+//    會動的只有「現在在哪一段」，那是事實不是進度壓力。
+// ⚠️ 顏色由既有那條「三段軌只准用中性階」守著（第一版我把 now 做成 cyan，
+//    那條當場擋下來，而且擋得對：這條軸報的是量測值）。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 守望三段軌 = 經過時間軸 ──');
+  const page = await openV3(844);
+  await page.evaluate(() => {
+    window.toggleDisciplineMode();
+    window.selectTmpl([...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === 'MANCINI_FBD'));
+  });
+  await page.waitForTimeout(450);
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(700);
+
+  const read = async (sec) => page.evaluate((s) => {
+    sess.startedAtMs = Date.now() - s * 1000;
+    elapsed = s;
+    tickFdcb();
+    const q = (k) => document.querySelector('.fdcb-prog .' + k);
+    const one = (k) => ({ w: q(k).style.width, now: q(k).classList.contains('wb-now'), past: q(k).classList.contains('wb-past') });
+    return {
+      fill: document.getElementById('fdcbFill').style.width,
+      segs: ['seg-obs', 'seg-sweet', 'seg-ext'].map(one),
+    };
+  }, sec);
+
+  // 段寬：3 / 7 / 20 分之於 30 分
+  const at5 = await read(5);
+  // ⚠️ 讀回來的是 CSSOM **正規化過**的值：寫進去 `10.00%`、讀出來是 `10%`
+  //    （`23.33%` / `66.67%` 沒有尾隨零所以原樣）。期待值照它實際回什麼寫。
+  check('🔴 段寬照時間比例（0–3 分 → 10%）', at5.segs[0].w, '10%');
+  check('🔴 段寬照時間比例（3–10 分 → 23.33%）', at5.segs[1].w, '23.33%');
+  check('🔴 段寬照時間比例（10–30 分 → 66.67%）', at5.segs[2].w, '66.67%');
+
+  for (const [sec, idx, label] of [[5, 0, '00:05'], [160, 0, '02:40'], [390, 1, '06:30'], [1080, 2, '18:00'], [1710, 2, '28:30']]) {
+    const r = await read(sec);
+    check(`${label} 落在第 ${idx + 1} 段`, r.segs.map((x) => x.now), [idx === 0, idx === 1, idx === 2]);
+    check(`${label} 之前的段都標成走過`, r.segs.slice(0, idx).every((x) => x.past), true);
+    // 🔴 這條是原本那條規則，換了外觀之後仍然要成立
+    check(`🔴 ${label} 守望仍然不推進填充條`, r.fill === '0' || r.fill === '0px' || r.fill === '', true);
+  }
+
+  // 倒數模板不得被誤傷：軌要回到模板的三階段（等分），且填充照常推進
+  await page.evaluate(() => {
+    window.setState('idle');
+    window.toggleDisciplineMode();           // 關掉決策紀律模式 → 走倒數
+  });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === 'HEALTH_STRESS');
+    if (el) window.selectTmpl(el);
+  });
+  await page.waitForTimeout(450);
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(1200);
+  const cd = await page.evaluate(() => ({
+    axis: document.querySelector('.fdcb-prog').classList.contains('watch-axis'),
+    w: [...document.querySelectorAll('.fdcb-prog .seg-obs, .fdcb-prog .seg-sweet, .fdcb-prog .seg-ext')].map((n) => n.style.width),
+    fill: document.getElementById('fdcbFill').style.width,
+    watch: !!(window.sess && sess.watch),
+  }));
+  check('倒數模板不是守望（前提成立，否則下面幾條是空的）', cd.watch, false);
+  check('🔴 倒數模板的軌回到模板三階段（等分）', cd.w, ['33%', '33%', '34%']);
+  check('🔴 倒數模板不掛時間軸的 class', cd.axis, false);
+  checkTruthy(`倒數模板照常推進填充條（${cd.fill}）`, cd.fill !== '0' && cd.fill !== '0px' && cd.fill !== '');
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);
