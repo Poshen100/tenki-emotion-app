@@ -906,6 +906,10 @@ async function scanAndCancel(page) {
   check('訊號不足時帶位與完成鈕都不得是 gold',
     failColor.band !== 'rgb(255, 212, 110)' && failColor.done !== 'rgb(255, 212, 110)', true);
 
+  // ⚠️ gold 的真值表與接線守衛不在這裡 —— 本 harness **不在 verify.sh 也不在 CI**
+  //    （見檔頭：它倚賴「連不到 cdnjs」這個前提）。放這裡等於永遠不會跑。
+  //    那兩條在 `scripts/preview-scan-blink.mjs`，那支兩邊都跑得到。
+
   // 規格行用等寬 + tabular-nums：數字要對得齊才有儀器讀數的樣子，
   // 而且點數/幀數在不同掃描之間位數會變，比例字體會讓它左右跳。
   check('規格行是等寬 + tabular-nums', await page.evaluate(() => {
