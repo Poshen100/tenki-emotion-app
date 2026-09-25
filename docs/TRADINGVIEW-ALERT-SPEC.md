@@ -106,7 +106,7 @@ TradingView Alert 勾選 Webhook URL，指向使用者的**專屬頻道連結**�
 6. 其餘 → `surfaced`：彈出 Decision Entry Panel。
 
 **✅ 使用者可調（Phase C，2026-07-19）**：上述 3–5 的常數改為可注入 `AlertDeliverySettings`（`createDefaultAlertSettings()` ＝現值，`evaluateAlertDelivery` 未給 settings 時向後相容用預設）。使用者可調：同標的冷卻秒數、每日上限、聚合窗、Strain 靜默（開關，預設開＝保護閘門）、同標的安靜更新（開關）。preview `/decision-alert/` 有設定面板（localStorage 持久，`?v=alert10`）。
-- **Quiet window（軟性提示，非閘門）**：`isWithinQuietWindowET`（美東 11:00–14:00，DST-aware）。開啟時該時段快訊面板加事實行「盤整迴避時段」（`QUIET_WINDOW_CONTEXT_ZH`），**不硬靜音**（軟性提示決策 2026-07-18）。
+- **Quiet window（軟性提示，非閘門）**：`isWithinQuietWindowET`（美東 11:00–14:00，DST-aware）。開啟時該時段快訊面板加事實行「安靜時段」（`QUIET_WINDOW_CONTEXT_ZH`），**不硬靜音**（軟性提示決策 2026-07-18）。
 
 ## 6. Decision Entry Panel（快訊觸發當下）
 
