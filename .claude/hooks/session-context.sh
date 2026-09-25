@@ -32,6 +32,9 @@ cat << 'CONTEXT'
   workspaces,verify.sh 會自動分開跑)
 【盲區】CI/Biome 不涵蓋 apps/preview/** → 改 preview
  需 founder 手機實走;細節見 docs/PLAYBOOK.md §3/§6
+【必給】推了 preview 改動 → 回覆一定要附「可直接點的
+ 實走網址」(含路徑,如 .../decision-alert/);取得法
+ 見 PLAYBOOK §4。沒附 = 沒做完
 ══════════════════════════════════════════════════════
 CONTEXT
 

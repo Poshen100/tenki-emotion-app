@@ -74,6 +74,29 @@
     return 'near';
   }
 
+  /**
+   * Cadence regularity as a 0..1 scalar, for consumers that need to feed a
+   * weighted model rather than show a word (readiness `evidence.blinkCadence`).
+   * 1 = sitting on your baseline; 0 = at or beyond the same strong-deviation
+   * edges `band()` uses, in either direction. Lives here so the thresholds keep
+   * exactly one home — a copy in the caller would fork the moment either moves.
+   *
+   * Returns null when it cannot be judged (window too short, or no enrollment
+   * baseline yet): an absent signal must stay absent, never default to a value.
+   *
+   * @param {?number} dailyCpm - This scan's cadence, or null.
+   * @param {?number} baseCpm - The enrollment baseline cadence, or null.
+   * @returns {?number} Regularity in 0..1, or null when unjudgeable.
+   */
+  function regularity(dailyCpm, baseCpm) {
+    if (dailyCpm == null || baseCpm == null || !(baseCpm > 0)) return null;
+    var ratio = dailyCpm / baseCpm;
+    var deviation = ratio < 1
+      ? (1 - ratio) / (1 - BAND_BELOW)
+      : (ratio - 1) / (BAND_ABOVE - 1);
+    return Math.min(1, Math.max(0, 1 - deviation));
+  }
+
   /** Persist the enrollment baseline (derived scalars only). */
   function save(snapshot) {
     try {
@@ -115,6 +138,7 @@
     createCounter: createCounter,
     cadencePerMin: cadencePerMin,
     band: band,
+    regularity: regularity,
     save: save,
     load: load,
   };

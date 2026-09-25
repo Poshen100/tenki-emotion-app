@@ -7,11 +7,52 @@
 
 ---
 
-## 1. 一次性部署設定（founder，只有一步）
+## 1. 一次性部署設定（founder，兩步）
 
-**開通儲存**：Vercel dashboard → 專案 `tenki-emotion-app` → **Storage** → Create → **Upstash Redis**（Marketplace，免費層即可）→ Connect to project → Redeploy 一次。連好後 `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`（或 KV_ 命名）自動注入。
+**① 開通儲存**：Vercel dashboard → 專案 `tenki-emotion-app` → **Storage** → Create → **Upstash Redis**（Marketplace，免費層即可）→ Connect to project → Redeploy 一次。連好後 `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`（或 KV_ 命名）自動注入。
 
 > 沒開通時所有端點會回明確的 500 訊息（不會靜默壞掉）。舊版的 `ALERT_INGEST_TOKEN` 已不再使用，設了也不會被讀。
+
+**② 開 Protection Bypass for Automation**（**只有要在 preview 分支上收快訊時才需要**）：
+Settings → **Deployment Protection** → 捲到 **Protection Bypass for Automation** → **Add Secret**
+→ Save → Redeploy 一次。
+
+> ### 正式站不需要這一步（2026-08-06 更正）
+>
+> **`tenki-emotion-app.vercel.app`（正式站）是匿名可達的**，即使 Vercel Authentication 開著、
+> `deploymentType` 是 `all_except_custom_domains`。Standard Protection 豁免的是**正式站網址本身**，
+> 不是只有自訂網域。
+>
+> **實測證據（2026-08-06）**：SSO 維持 `enabled: true`、webhook 連結裡**沒有任何 bypass 密鑰**，
+> 一個 `credentials: 'omit'`（不帶登入 cookie）的請求仍然打進了函式 —— runtime log 出現
+> `GET /api/alert 405`，之後 TradingView 的真實 webhook 也拿到 `POST /api/alert 200`。
+>
+> **被保護的是分支 preview**（`...-git-<branch>-....vercel.app`）。要在 merge 前用 TradingView
+> 實測 preview，才需要這個密鑰。
+>
+> 密鑰存在後，`/api/channel` 會自動把 `&x-vercel-protection-bypass=…` 烤進頁面產生的 webhook 連結
+> ——**不用手貼**，但既有的舊連結要回頁面重新複製一次。
+>
+> 密鑰在網址裡＝看得到螢幕的人就拿得到。截圖分享那條連結時**要連 `ch=` 一起遮掉**（本來就該遮）。
+>
+> **✅ 已實測（founder 2026-08-21，分支 `claude/decision-timer-completion-sh7ogg` 的 preview）**：
+> 生密鑰 → 指定為系統環境變數 → **重新部署**（環境變數是部署時綁的，既有部署讀不到）→
+> 回頁面重整，網址自動長出 `&x-vercel-protection-bypass=…` → 「測試這條連結」✅ →
+> TradingView 真實觸發 → 決策入口面板自動彈出（帶真實價位）→ TENKI 自己的推播也跳出來。
+> **整條鏈在分支 preview 上是通的。**
+
+> ### ⚠️ 本檔曾經寫錯，錯的方向值得記住
+>
+> 2026-08-05 這裡寫著「正式站也在牆後，不做這步會完全靜默地收不到」。**那是錯的**，
+> 並且讓一整輪除錯走向錯的方向（去關 SSO、去生密鑰），真正的原因完全在別處（見 §5）。
+>
+> 錯誤的來源是把 `get_runtime_logs` 的空結果當成「請求沒進來」的證據。
+> **Vercel runtime log 沒有長時間歷史** —— 2、6、24 小時三個視窗回的是一模一樣的計數，
+> 全都只涵蓋最近很短一段。查不到 ≠ 沒發生。
+
+**驗證有沒有設好**：`/decision-alert/` → 連接 TradingView → 按「**測試這條連結**」。
+它會用 TradingView 的身分（`credentials: 'omit'`，不帶你的登入 cookie）打一次自己的 webhook URL，
+當場回答通或不通 —— 不寫入任何快訊。這是唯一能在「等下一根 K 棒」之前確認接線的方法。
 
 ## 2. 配對（使用者，零輸入）
 
@@ -128,8 +169,16 @@ TradingView 原生推播的觀感：JSON 模式推播含代碼，乾淨模式零
 
 ## 5. 測試
 
-- **正式**：merge 後 production URL 直接走一遍（TradingView alert 設成必觸發條件）。
-- **Preview 分支**：preview 部署有 protection，TradingView 不能帶自訂 header → 需在 Vercel 開 Protection Bypass for Automation，webhook URL 再附 `&x-vercel-protection-bypass=<bypass密鑰>`。
+- **先按「測試這條連結」**（§1 末）。沒過就不用等 K 棒了。
+- **測試通過但快訊還是沒來 → 檢查 TradingView 那格網址是不是完整的。**
+  這是 2026-08-06 真正的原因：TradingView 裡存的是一條**不完整的舊連結**，
+  `POST /api/alert` 有打進來、但被我們自己回了 **400**。`/api/alert` 只有兩個 400 出口：
+  `ch` 不是 32–64 個十六進位字元，或 payload 缺 `symbol`（`domain/src/schemas/alert-schema.ts`
+  唯一的必填欄位）。修法不用分辨是哪一個 —— 回頁面按「複製連結」，在 TradingView
+  **全選覆蓋**再套用，兩個原因一起解掉。
+  > 訊息是純文字（例如 `ES1! 下穿 7,762.00`）**不是**問題 —— 純文字會變成 `note` 欄位，那是刻意設計，
+  > 讓 TradingView 自己的推播在鎖屏上顯示人話。
+- **正式站不需要 bypass 密鑰**（見 §1 ②）。要在**分支 preview** 上實測才需要。
 - **不碰 TradingView 的乾測**（把 `ch=` 換成你頁面產生的連結裡那串）：
   ```bash
   curl -X POST 'https://tenki-emotion-app.vercel.app/api/alert?ch=你的頻道id' \
@@ -161,7 +210,16 @@ TradingView 原生推播的觀感：JSON 模式推播含代碼，乾淨模式零
 **B. 手機端（使用者，一次性）**
 1. Safari 開 `/decision-alert/` → 分享鈕 → **加入主畫面**（iOS Web Push 只在主畫面 App 生效）。
 2. 從主畫面打開該 App → 連接面板 → **🔔 開啟手機推播** → 允許通知。
-3. 之後即使關掉，ES1! 觸發 → webhook → 存頻道 → **伺服器主動推播** → 手機跳通知；點通知開回決策面板。
+3. 🔴 **回到同一頁按「複製連結」，把 webhook 重貼進 TradingView。**
+   **加入主畫面之後的 App 有自己的 storage** —— 它會產生**一條新的專屬連結（新頻道）**，
+   而推播訂閱是綁在**當下那個頻道**上的。不重貼的話，TradingView 還在打舊頻道 ——
+   快訊會照常入鏈（那個頻道還活著），但**推播不會來**，而且畫面上看不出哪裡不對。
+   （founder 2026-08-21 實走實證：同一支手機、同一個網址，in-app 瀏覽器 `61b459…`、
+   主畫面 App `eff4d558…`，是兩個不同的頻道。）
+4. 之後即使關掉，ES1! 觸發 → webhook → 存頻道 → **伺服器主動推播** → 手機跳通知；點通知開回決策面板。
+
+> ⚠️ **在 Safari 分頁或 App 內建瀏覽器裡看不到「開啟手機推播」是正常的** —— iOS 的網頁推播
+> 只在主畫面 App 裡存在。`?v=alert33` 起那一列不再整個消失，而是停用並在原地說明原因與下一步。
 
 - 推播內容只有事實（symbol · condition · 你的備註），**無買賣指令**，過 `notification-guard` 精神。
 - 訂閱存每頻道最多 5 個裝置、隨頻道 30 天 TTL；死掉的 endpoint（404/410）自動修剪。

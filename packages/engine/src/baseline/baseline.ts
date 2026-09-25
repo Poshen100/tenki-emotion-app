@@ -14,6 +14,17 @@ import {
   type BiometricReading,
   BASELINE_THRESHOLDS,
 } from '../common/types';
+import type { HrvMetric } from '../biometric/hrv';
+
+/**
+ * Which physiological tracks this reading may update. Mirrors
+ * `ReadingAvailability` in scoring/edge-score; kept as its own type so the
+ * baseline module does not depend on the scoring module.
+ */
+export interface BaselineInputAvailability {
+  hrv: boolean;
+  respiration: boolean;
+}
 
 // ─────────────────────────────────────────────
 // Welford's Online Algorithm
@@ -39,6 +50,13 @@ export function updateMetricBaseline(
   value: number,
   timestamp: number
 ): MetricBaseline {
+  // A non-finite value is never a measurement. Phone-only readings carry NaN
+  // in the fields the camera withheld, and a NaN reaching Welford poisons the
+  // running mean permanently — every later scan inherits it.
+  if (!Number.isFinite(value)) {
+    return baseline;
+  }
+
   let { mean, std, sampleCount } = baseline;
 
   // Apply decay if at cap
@@ -94,6 +112,7 @@ export function createEmptyBaselineProfile(): BaselineProfile {
   return {
     hr: { morning: empty(), midday: empty(), evening: empty() },
     hrv: { morning: empty(), midday: empty(), evening: empty() },
+    hrvSdnn: { morning: empty(), midday: empty(), evening: empty() },
     rr: { morning: empty(), midday: empty(), evening: empty() },
     stressProxy: empty(),
     maturity: 'new',
@@ -154,37 +173,100 @@ export function assessMaturity(
  * Updates the full baseline profile with a new biometric reading.
  * Routes the reading to the correct time bucket and updates all relevant metrics.
  *
+ * `reading.hrvRmssdMs` feeds the RMSSD track only. An SDNN value (Apple
+ * Health) is passed separately so the two statistics keep their own baselines.
+ *
  * @param profile - Current baseline profile.
  * @param reading - New biometric reading.
  * @param stressScore - Stress proxy score for this reading (0-100).
  * @param distinctDays - Number of unique days with scans (for maturity).
+ * @param hrvSdnnMs - SDNN value for this reading, when the source reports one.
  * @returns Updated BaselineProfile.
  */
 export function updateBaselineProfile(
   profile: BaselineProfile,
   reading: BiometricReading,
   stressScore: number,
-  distinctDays: number = 0
+  distinctDays: number = 0,
+  hrvSdnnMs: number | null = null,
+  availability: BaselineInputAvailability = { hrv: true, respiration: true }
 ): BaselineProfile {
   const bucket = resolveTimeBucket(reading.timestamp);
   const ts = reading.timestamp;
 
+  // A track the scan did not measure is left exactly as it was. Feeding it a
+  // placeholder would not merely mis-report one scan — it would move the
+  // reference every future scan is compared against.
   return {
     hr: {
       ...profile.hr,
       [bucket]: updateMetricBaseline(profile.hr[bucket], reading.hrBpm, ts),
     },
-    hrv: {
-      ...profile.hrv,
-      [bucket]: updateMetricBaseline(profile.hrv[bucket], reading.hrvRmssdMs, ts),
-    },
-    rr: {
-      ...profile.rr,
-      [bucket]: updateMetricBaseline(profile.rr[bucket], reading.rrBrpm, ts),
-    },
+    hrv: availability.hrv
+      ? {
+          ...profile.hrv,
+          [bucket]: updateMetricBaseline(profile.hrv[bucket], reading.hrvRmssdMs, ts),
+        }
+      : profile.hrv,
+    hrvSdnn: updateSdnnTrack(profile.hrvSdnn, bucket, hrvSdnnMs, ts),
+    rr: availability.respiration
+      ? {
+          ...profile.rr,
+          [bucket]: updateMetricBaseline(profile.rr[bucket], reading.rrBrpm, ts),
+        }
+      : profile.rr,
     stressProxy: updateMetricBaseline(profile.stressProxy, stressScore, ts),
     maturity: assessMaturity(profile.totalScanCount + 1, distinctDays),
     totalScanCount: profile.totalScanCount + 1,
     version: profile.version,
   };
+}
+
+/**
+ * Updates the SDNN track, creating it on a profile persisted before the track
+ * existed. Returns the track unchanged when this reading carries no SDNN — an
+ * absent statistic must not be imputed from the RMSSD one.
+ */
+function updateSdnnTrack(
+  track: Record<TimeBucket, MetricBaseline> | undefined,
+  bucket: TimeBucket,
+  hrvSdnnMs: number | null,
+  ts: number
+): Record<TimeBucket, MetricBaseline> | undefined {
+  if (hrvSdnnMs === null || !Number.isFinite(hrvSdnnMs) || hrvSdnnMs <= 0) {
+    return track;
+  }
+
+  const existing: Record<TimeBucket, MetricBaseline> = track ?? {
+    morning: createEmptyMetricBaseline(),
+    midday: createEmptyMetricBaseline(),
+    evening: createEmptyMetricBaseline(),
+  };
+
+  return {
+    ...existing,
+    [bucket]: updateMetricBaseline(existing[bucket], hrvSdnnMs, ts),
+  };
+}
+
+/**
+ * Returns the baseline track for one HRV statistic, or null when that
+ * statistic has no baseline yet. Pair a value with its OWN track before
+ * scoring — an SDNN value scored against an RMSSD baseline yields a number
+ * that looks valid and means nothing.
+ *
+ * @param profile - The user's baseline profile.
+ * @param metric - Which HRV statistic the value to be scored is.
+ * @param bucket - Time bucket the value falls in.
+ * @returns The matching baseline, or null when it holds no samples.
+ */
+export function selectHrvBaseline(
+  profile: BaselineProfile,
+  metric: HrvMetric,
+  bucket: TimeBucket
+): MetricBaseline | null {
+  const track = metric === 'rmssd' ? profile.hrv : profile.hrvSdnn;
+  const baseline = track?.[bucket];
+
+  return baseline && baseline.sampleCount > 0 ? baseline : null;
 }

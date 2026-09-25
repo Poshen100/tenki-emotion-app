@@ -1,8 +1,21 @@
 /**
  * @module biometric/finger-ppg
- * @description Finger PPG signal processing module for TENKI CORE.
+ * @description ⚠️ SUPERSEDED by `biometric/ppg/` — see docs/PHONE-PPG.md.
  *
- * @version 1.0
+ * Kept only for the callers that predate the v2 pipeline. Nothing new may use
+ * `processFingerPpgWindow()`: it peak-picks a raw channel mean with no
+ * detrending and no band-pass, which cannot separate a 1-3% pulse from
+ * exposure drift, and — the reason it is fenced off rather than merely
+ * deprecated — it FABRICATES on empty input. With no detectable beats it
+ * substituted a 1000 ms mean interval and returned 60 bpm, and substituted 15
+ * for the respiratory rate. Both are plausible resting values, indistinguishable
+ * downstream from a real measurement.
+ *
+ * The two fabrications are removed below rather than left in place: they are
+ * reachable from the existing export, and a caller that hits them gets a number
+ * that never came from a fingertip.
+ *
+ * @version 1.1 — fabricated fallbacks removed; superseded by biometric/ppg/.
  */
 
 import type { SignalQuality } from '../common/types';
@@ -23,9 +36,12 @@ export interface Peak {
 }
 
 export interface FingerPpgResult {
-  bpm: number;
-  hrvRmssdMs: number;
-  rrBrpm: number;
+  /** Heart rate, or null when no beats were detected. Never a stand-in value. */
+  bpm: number | null;
+  /** HRV RMSSD, or null when there were too few intervals to compute one. */
+  hrvRmssdMs: number | null;
+  /** Respiratory rate, or null when the intervals did not support one. */
+  rrBrpm: number | null;
   validBeats: number;
   signalQuality: SignalQuality;
   precisionTier: 'quick' | 'stable' | 'strong' | 'best';
@@ -95,6 +111,9 @@ export function computeIBI(peaks: Peak[]): number[] {
 
 /**
  * Calculates HRV RMSSD in milliseconds from IBI intervals.
+ * Returns 0 for fewer than two intervals — retained for the legacy callers that
+ * depend on that; new code uses `computeRmssd()` in `ppg/beats.ts`, which
+ * returns null instead of a value that reads as "no variability".
  */
 export function estimateHrvFromIBI(ibis: number[]): number {
   if (ibis.length < 2) return 0;
@@ -138,11 +157,16 @@ export function processFingerPpgWindow(
   const ibis = computeIBI(peaks);
 
   // 2. Metrics calculation
+  // Each of these is null rather than a substituted value. The previous version
+  // defaulted the mean interval to 1000 ms (reporting 60 bpm from a window with
+  // no beats in it) and the respiratory rate to 15.
   const validBeats = peaks.length;
-  const meanIbi = ibis.length > 0 ? ibis.reduce((a, b) => a + b, 0) / ibis.length : 1000;
-  const bpm = Math.round(60000 / meanIbi);
-  const hrvRmssdMs = estimateHrvFromIBI(ibis);
-  const rrBrpm = estimateBrpmFromRRIntervals(ibis) ?? 15;
+  const bpm =
+    ibis.length > 0
+      ? Math.round(60000 / (ibis.reduce((a, b) => a + b, 0) / ibis.length))
+      : null;
+  const hrvRmssdMs = ibis.length >= 2 ? estimateHrvFromIBI(ibis) : null;
+  const rrBrpm = estimateBrpmFromRRIntervals(ibis);
 
   // 3. Quality evaluation
   const avgCoverage = samples.reduce((sum, s) => sum + s.coverage, 0) / samples.length;

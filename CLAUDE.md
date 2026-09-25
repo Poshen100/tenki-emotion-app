@@ -13,6 +13,8 @@
 
 - **核心指標**：Decision Edge Score (0-100)
 - **掃描主入口**：Soul Scan（臉部基線）— 方向定調見 `docs/SOUL-SCAN-NORTH-STAR.md`（必讀）；finger PPG 退為校準/補強層，不要把臉部流程塞進 `(tabs)/scan.tsx`
+- **Phone-first**：只有一支手機的使用者是最大市場。**沒有任何穿戴裝置也必須能走完整個核心循環**
+  （掃描 → 基線 → 讀數 → 校準）。穿戴是補強層，不是前置條件 —— 任何「連手錶才能用」的流程都是錯的。
 - **3 Zone**：Clear (70-100) / Neutral (40-69) / Strain (0-39)
   - ⚠️ 長期方向是改用 Baseline 語言（Above/At/Below Baseline），但 mapping 尚未定案（Strain 對應「過度刺激」還是
     「耗竭」不明確），**不要**自行猜測重新命名 `zone-config.ts` / `EdgeZone`。詳見 `docs/brand.md` § 7 Naming Migration。
@@ -40,6 +42,9 @@
 | 累積多個 Todo 才 commit | 違反 Commit-Per-Todo |
 | 把產品框定為 "trading tool" / "signal system" / "meditation app" | 違反 `SYSTEM.md` 核心定位（Decision Infrastructure / Human State Calibration System） |
 | 把 `docs/brand.md` 內部 dopamine/withdrawal/craving 措辭用在 user-facing copy | 違反 compliance 規則，見 `docs/brand.md` § 5 |
+| **量不到就填一個合理的預設值**（HRV 填 50、呼吸率填 15、缺睡眠當 80、沒拍點當 60bpm）| 靜息合理值下游**分不出來**，一路變成假讀數與被推壞的 baseline。缺就是缺：回 `null`，並把 driver 排除、confidence 降下來。詳見 `docs/PHONE-PPG.md` |
+| 把相機 HRV 跟手錶／胸帶 HRV 當同一個數字比較 | 三者 `derivation` 不同（estimated / observed / derived），contract 逼你標記就是為了擋這件事 |
+| 對 SDNN/RMSSD 或相機 HRV 的偏差**乘一個固定係數**修正 | 沒有個人化依據的魔術常數會把偏差藏起來（`harmonizeHrv() × 0.75` 已因此拆掉一次）|
 
 ## Monorepo 架構
 
@@ -69,8 +74,12 @@ tenki-emotion-app/
 | 模組 | 位置 | 職責 |
 |------|------|------|
 | Edge Score | `packages/engine/src/scoring/` | 8 維度加權正規化 → 0-100 |
+| Decision Intelligence | `packages/engine/src/intelligence/` | 個人決策雷達：drift / twin / calibration proof / black box + evidence 契約（規格 `docs/DECISION-INTELLIGENCE.md`） |
 | Session Governance | `packages/engine/src/session/` | modes + templates + timer + gate + violations |
 | Baseline | `packages/engine/src/baseline/` | signal-quality-gate + bootstrap (Welford) |
+| Phone PPG | `packages/engine/src/biometric/ppg/` | 手機相機 PPG 量測鏈：重取樣→帶通→自相關→拍點→品質閘（規格 `docs/PHONE-PPG.md`，動工前必讀）|
+| Beat-series HRV | `packages/engine/src/biometric/beat-series.ts` | 胸帶 RR interval → RMSSD/SDNN；沒有 RR 就沒有 HRV |
+| Scan Modes | `packages/engine/src/biometric/scan-modes.ts` | quick_check / full_scan / precision，各自能報什麼 |
 | Compliance | `packages/engine/src/compliance/` | user-facing copy 審查 |
 | FHZ Scan | `packages/scan/src/` | Finger Heat Zone 掃描 pipeline |
 | Zone Config | `packages/shared/src/zone-config.ts` | 3 zone 閾值 |
@@ -153,6 +162,32 @@ refactor(session): extract timer segment logic
 - Skia 畫環形圖（禁用 SVG ring）
 - EWMA α=0.05 極慢收斂
 - 星塵動效「感覺」不能改，保持 v25.8.2 視覺體驗
+  - ⚠️ **例外（founder 2026-08-10 兩次授權，範圍就是這麼大，不得外推）**：
+    **掃描期間**星塵可以隨實測值變化 —— 色彩（`setTone()`）與**收散**（`setReadout()`）。
+    做法是旋轉整條 cyan→purple→pink 漸層並往當下的色收，**不換調色盤**；
+    收散只調漂移倍率與整體尺度。⚠️ **粒子數量與 Fibonacci 分布、entrance
+    仍然不在授權內**；其他頁面（story / soul-enroll / v6 takeover）也不在。
+  - 🔴 **鎖定資產靠「預設值 = 恆等變換」這個結構性質守住，不是靠小心**：
+    `setTone` / `setReadout` 沒被呼叫時完全 inert，沒呼叫的頁面逐位元組不變，
+    而且 harness 直接驗那件事。新增任何會動到星塵的通道都要照這個做法。
+  - 🔴 **訊號正規化成 0..1，不代表它會走遍 0..1** —— 動手前查真實分布。
+    2026-08-10 實例：色調第一版吃 `browTension`（兩眉的解剖學距離比值），
+    用力皺眉只讓色相動 **0.69°**，founder 實走一句「顏色好像沒變化？」。
+    現在吃 `stillness`（每幀、真 0..1、**而且正是畫面要求使用者控制的那個量**）。
+  - 🔴 顏色也會宣稱事實：`gold = SECURED`、`cyan = ACTIVE`（`docs/VISUAL-DIRECTION.md` §3）。
+    **沒有讀數就不准上 gold** —— 跟文案同一條紅線。
+  - 🔴 **產生新顏色之前，先問「這個顏色在這個產品裡是不是已經有主人」**。
+    2026-08-10 實例：我擋住了自己要用的 gold，卻讓色相旋轉把 cyan 轉成綠 ——
+    而 v6 的 `--good` 就是綠 `#34C759`，等於還沒有結果就亮起「good」。
+  - 🔴 **但守的是「整顆球的主色」，不是每一顆粒子**（founder 2026-08-10 裁決）。
+    星塵是大面積、流動的多色場，不是一顆訊號燈 —— 單顆粒子是綠的不會被讀成
+    「good」。⚠️ 把每顆粒子都擋在語意色外面，會讓可用色域只剩青紫粉一小段弧，
+    那正是 founder 連三次說「顏色變化很少」的根源。
+    ⚠️ 新守則自己的陷阱：**色相散太開，整顆的平均色會趨近灰 —— 而灰就是
+    `--zone-neutral`（Neutral 帶位色）**。`scripts/preview-scan-stardust.mjs`
+    有一條主色 ΔE 掃描守著，改任何色彩上下限前先看它。
+  - 🔴 顏色吃的是**量得到的東西**（landmark 幾何、位移穩定度、該次 band）。
+    **不得宣稱偵測情緒**，也不得有任何 user-facing 文案往那個方向講。
 
 ## 語言慣例
 - 對話 / commit message / 文件：繁體中文 OK
@@ -172,6 +207,8 @@ refactor(session): extract timer segment logic
 - **固定網址只反映 `main`**：`/v3/` 看最新 v3 UI、`/preview/` 看 onboarding；根網址 `/` 會 307 redirect 到 `/story/`（#152 起，Hero 正式門面）。
 - 想在手機瀏覽器看到的東西做在 `apps/preview/`；`apps/mobile` 沒有公開網址，不要編造 Expo/TestFlight 連結。
 - merge 前預覽：GitHub PR 頁的 Vercel bot 留言有分支 preview 連結。
+  **推了 preview 改動就必須主動附上可直接點的實走網址**（含路徑，founder 2026-08-07 指示）——
+  沒附等於沒做完。取得法與備援（`list_deployments` 的 `meta.branchAlias`）見 `docs/PLAYBOOK.md` §4。
 - 新增 route 時要同步更新 `docs/DEPLOYMENT_MAP.md` + `.json`。
 
 ## Session 結束時

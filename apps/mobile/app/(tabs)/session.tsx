@@ -14,7 +14,7 @@ const MODES: { key: SessionMode; icon: string; name: string; description: string
   { key: 'health_reset', icon: '🧘', name: 'Health Reset', description: 'Recovery and grounding' },
   { key: 'focus', icon: '🎯', name: 'Focus', description: 'Pre-check before deep work' },
   { key: 'performance', icon: '⚡', name: 'Performance', description: 'High-stakes preparation' },
-  { key: 'trader', icon: '📊', name: 'Trader', description: 'Decision process discipline' },
+  { key: 'trader', icon: '📊', name: 'Decision Mode', description: 'Decision process discipline' },
 ];
 
 const STATE_LABELS: Record<SessionState, string> = {

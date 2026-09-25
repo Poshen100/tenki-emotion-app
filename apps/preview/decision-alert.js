@@ -77,6 +77,37 @@
     },
   };
 
+  // 模板選單的副標。以前寫的是「3 分鐘 · Ground → Execute → Confirm」——
+  // 那組時長與段落是舊的時間紀律語意，會暗示「等這麼久才對」。模板現在只回答
+  // 「這是哪一種 setup」。engine 的 durationSec / segments / readinessWindow 三個欄位
+  // 保留不動（mobile 與既有紀錄仍依賴），只是 preview 不再拿它們判紀律或報時長。
+  var TEMPLATE_SUBTITLE_ZH = {
+    FBD: '跌破關鍵低點後迅速收回 · Mancini 招牌結構',
+    CANSLIM: '成長股回檔／突破 · swing 系統',
+    MODE_2: '高相對強度突破 · swing 系統',
+  };
+
+  /**
+   * 畫面上顯示的代號 —— **內部 template id 一律不上畫面**。
+   *
+   * 🔴 `MODE_2` 絕對不能出現在任何 user-facing 字串裡。理由不是美觀：
+   * 在 Adam Mancini 的語彙裡「Mode 2」指的是**盤整日盤勢**，跟這個模板
+   * （Canslim High RS Breakout）完全是兩回事。engine 自己也記著這件事 ——
+   * `packages/engine/src/session/templates.ts` 的註解寫明那個 id 是歷史遺留、
+   * 因為是 persisted contract 才留著。
+   *
+   * 2026-08-09 founder 實走當場指出：「Canslim 不是 mode2，mode2 是 Adam 交易
+   * 系統的盤整環境」—— 當時畫面把 id 直接印在標題後面（`nameZh（id）`），
+   * 等於讓介面洩漏實作細節，還剛好撞上他每天在用的專業術語。
+   *
+   * engine 的 id 不動（會壞掉既有紀錄），只有這張表決定顯示什麼。
+   */
+  var TEMPLATE_CODE = {
+    FBD: 'FBD',        // Failed Breakdown —— 交易者通用術語，照用
+    CANSLIM: 'CANSLIM', // 真實方法論名稱，照用
+    MODE_2: 'HIGH RS',  // ⚠️ 不得顯示為 MODE_2，理由見上
+  };
+
   // Mirror of suggestTemplateForStrategyHint（先匹配者優先）
   var STRATEGY_KEYWORDS = [
     { keyword: 'canslim', templateId: 'CANSLIM' },
@@ -119,7 +150,7 @@
   }
 
   // Mirror of domain decision-outcome（流程語言，非勝負；禁 PnL/勝率）
-  var OUTCOME_STORE_KEY = 'tenki.alert.outcomes.v1';
+  var OUTCOME_STORE_KEY = window.TENKI_OUTCOME.STORE_KEY; // 唯一來源見 decision-outcome.js
   var REFLECT_TAGS = ['跟計畫', '有點急', '偏離計畫'];
 
   // 收束頁顯示偏好（可調 + 持久）。記錄一律 on（安全、不可關）→ 不提供關閉記錄的開關。
@@ -141,40 +172,81 @@
     else node.setAttribute('hidden', '');
   }
 
-  function resolveOutcomeTag(endType, reachedReadiness) {
-    if (endType === 'timeout') return 'timed_out';
-    if (endType === 'cancel') return 'broke_discipline';
-    return reachedReadiness ? 'stayed_disciplined' : 'broke_discipline';
-  }
+  // ═══════════════════════════════════════════════
+  // 紀律的定義（結構守望語意，2026-08-04 切換）
+  //
+  // 舊語意用「有沒有走完計時器」判紀律，與方法論相反：§7 step 3 的結構確認沒有
+  // 時間表，而 §2.2 把「失敗迅速（fast failure）」列為**最高品質**的 FBD。實機證據
+  // （founder 2026-08-04 15:51）：11 秒判定進場被打成「提前收束」、紀律 0%。
+  //
+  // 新語意只問一件事：**你有沒有做出判定。**
+  //   判定成立並進場（judged_entered）        → 紀律
+  //   判定不成立、放棄（judged_stood_down）   → 紀律（§7 step 7「無觸發 → 不交易」）
+  //   離開/逾時而從未判定（abandoned_no_judgment）→ 不算紀律
+  // 時間不再進入這個判斷，只作為事實脈絡呈現。
+  // ═══════════════════════════════════════════════
 
-  function isDisciplined(tag) {
-    return tag === 'stayed_disciplined' || tag === 'timed_out';
-  }
+  // 判定、tag 對照與語意標記全部住在 `decision-outcome.js`（唯一來源）。
+  // 這裡**不留本地實作、也不留 fallback** —— 「載不到就用本地那份」等於又生出
+  // 第二份判定，正是 2026-08-09 讓 /v3/ Session 報 0% 的那個 bug。
+  var OUTCOME = window.TENKI_OUTCOME;
+  var JUDGMENT_SCHEMA = OUTCOME.JUDGMENT_SCHEMA;
+  var resolveOutcomeTag = OUTCOME.resolveOutcomeTag;
+  var isDisciplined = OUTCOME.isDisciplined;
 
-  // 收束頁顯示文字：由 endType + 是否進入 readiness 窗決定（比 tag 更細）
-  function outcomeDisplay(endType, reachedReadiness) {
-    if (endType === 'timeout') return { text: '完整走完', cls: 'disciplined' };
-    if (endType === 'cancel') return { text: '中途退出', cls: 'broke' };
-    if (reachedReadiness) return { text: '跟著流程完成', cls: 'disciplined' };
-    return { text: '提前收束（Readiness 窗前）', cls: 'broke' };
+  /** 收束頁顯示文字。兩個判定都是紀律 —— 措辭不暗示哪個「比較好」。 */
+  function outcomeDisplay(judgment) {
+    if (judgment === 'entered') return { text: '判定成立 · 已進場', cls: 'disciplined' };
+    if (judgment === 'stood_down') return { text: '判定不成立 · 未進場', cls: 'disciplined' };
+    return { text: '沒有做出判定', cls: 'broke' };
   }
 
   function loadOutcomes() {
     try { return JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY)) || []; } catch (e) { return []; }
   }
 
+  /**
+   * 寫進統一 store。
+   * 🔴 從 /v3/ 回程過來的那一筆**已經在 store 裡了**（計時器那邊寫的）——
+   * 這時要**就地更新**（反思晶片會補 contextTag），不能再 push 一筆，
+   * 否則同一筆決策存兩份，紀律統計立刻失真。
+   * @param {Object} record 這次收束的紀錄
+   */
   function saveOutcome(record) {
     var all = loadOutcomes();
-    all.push(record);
+    var idx = -1;
+    if (record.alreadyPersisted) {
+      for (var i = 0; i < all.length; i += 1) {
+        if (all[i].ts === record.ts) { idx = i; break; }
+      }
+    }
+    if (idx >= 0) {
+      // 只補這一頁真的產生的欄位，其餘沿用計時器那邊寫的事實。
+      all[idx].contextTag = record.contextTag;
+    } else {
+      all.push(record);
+    }
     if (all.length > 200) all = all.slice(all.length - 200);
     localStorage.setItem(OUTCOME_STORE_KEY, JSON.stringify(all));
+  }
+
+  /**
+   * 語意斷點註記。2026-08-04 起紀律的定義從「有沒有走完計時器」換成「有沒有做出判定」，
+   * 兩種語意的紀錄不可靜默混成同一個百分比 —— 舊紀錄裡的 timed_out（乾等到底）在新語意
+   * 下根本不算紀律。混算就直說混了幾筆，不假裝是同一條曲線。
+   */
+  function schemaNote(records) {
+    var legacy = 0;
+    records.forEach(function (r) { if (r.judgmentSchema !== JUDGMENT_SCHEMA) legacy += 1; });
+    return legacy > 0 && legacy < records.length ? '（含 ' + legacy + ' 筆舊語意）' : '';
   }
 
   function rateText(records) {
     if (records.length === 0) return '紀律完成率：—（資料累積中）';
     var d = 0;
     records.forEach(function (r) { if (isDisciplined(r.outcomeTag)) d += 1; });
-    return '紀律完成率：' + Math.round((d / records.length) * 100) + '%（' + d + '/' + records.length + '）';
+    return '紀律完成率：' + Math.round((d / records.length) * 100)
+      + '%（' + d + '/' + records.length + '）' + schemaNote(records);
   }
 
   /** 進入決策面板的紀律脈絡由 renderEntryDiscipline 負責（含標的範圍）；
@@ -190,11 +262,14 @@
     return !!(window.TENKI_READINESS_SCAN && window.TENKI_READINESS_SCAN.begin);
   }
 
-  // ── 示意狀態（點擊循環；合成值，非真實讀數）──
+  // ── 帶位視覺對照 ──
+  // 曾經每個帶位還掛著一個 score（78/58/32），狀態卡直接印「Clear · Decision Edge
+  // Score 78」—— 編造的。readiness 讀數契約上沒有 0-100 分，score 欄位整個拿掉。
+  // 這張表現在只剩「帶位 → 標籤/顏色」，真實模式與示意模式共用。
   var ZONE_STATES = [
-    { zone: 'clear', label: 'Clear', score: 78, cssVar: '--zone-clear' },
-    { zone: 'neutral', label: 'Neutral', score: 58, cssVar: '--zone-neutral' },
-    { zone: 'strain', label: 'Strain', score: 32, cssVar: '--zone-strain' },
+    { zone: 'clear', label: 'Clear', cssVar: '--zone-clear' },
+    { zone: 'neutral', label: 'Neutral', cssVar: '--zone-neutral' },
+    { zone: 'strain', label: 'Strain', cssVar: '--zone-strain' },
   ];
 
   // ═══════════════════════════════════════════════
@@ -216,9 +291,12 @@
     } catch (e) { return null; }
   }
 
-  function saveReading(reading) {
-    localStorage.setItem(READING_STORE_KEY, JSON.stringify(reading));
-  }
+  // ⚠️ 這裡**刻意沒有** saveReading。寫入「當下讀數」的只有一個地方：
+  //    `readiness-scan.js` 的 saveReading —— 因為那支同時會把讀數 append
+  //    進歷史（`readiness-history.js`）。在這裡另開一條寫入路徑，寫進去的
+  //    讀數就會繞過歷史，而那正是「護城河每天被抹掉」的那個 bug 的形狀。
+  //    `scripts/preview-drift.mjs` 有一條斷言鎖住這件事。
+  //    （本檔原本有一個沒有任何呼叫端的 saveReading，2026-09-16 刪除。）
 
   function isReadingFresh(reading, now) {
     if (!reading) return false;
@@ -244,56 +322,110 @@
   }
 
   var state = {
-    zoneIdx: 1, // Neutral 起手
+    // null ＝ 真實模式（讀 store）。0/1/2 ＝ 示意覆蓋，給你手動切三個帶位測快訊行為。
+    zoneOverride: null,
     settings: loadSettings(),
     resultSettings: loadResultSettings(),
     lastSurfacedAtBySymbol: {},
-    sessionActive: false,
-    activeSessionSymbol: null,
-    session: null,
+    // ⚠️ sessionActive / activeSessionSymbol / session / timer 是舊守望條的欄位，
+    // 已隨那塊碼一起刪掉。「有沒有決策在跑」現在只有一個來源：
+    // readActiveDecision()（/v3/ 寫的跨頁快照）。
     pendingOutcome: null,
     pendingAlert: null,
     entryGate: 'no_reading',
     entryAgeTimer: null,
     pendingGroup: null,
     alertSeq: 0,
-    timer: null,
   };
 
   var el = {};
   [
-    'stateCard', 'stateDot', 'stateLine', 'btnSingle', 'btnMulti', 'btnRepeat',
+    'stateCard', 'stateDot', 'stateLine', 'stateSub', 'btnSingle', 'btnMulti', 'btnRepeat',
     'silentArea', 'logList', 'backdrop', 'entrySheet',
     'entryPing', 'entrySymbol', 'entryCond', 'entryAge', 'entrySource', 'entryChips',
     'entryNote', 'entryState', 'entryBand', 'entryReadingAge', 'entryRescan', 'entryEvidence',
     'entryDiscLabel', 'entryDiscRate', 'entryStrip', 'entryDiscipline', 'entryCost',
     'btnDismiss', 'btnEngage',
-    'tplSheet', 'tplList', 'aggSheet', 'aggHead', 'aggList',
+    'tplSheet', 'tplList', 'tplStatus', 'aggSheet', 'aggHead', 'aggList',
     'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcCenter', 'resultArcGlow', 'resultArcTime',
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
-    'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave',
+    'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave', 'btnResultRecord',
     'timerBar', 'timerLabel', 'timerClock',
-    'btnComplete', 'btnCancel', 'segTrack', 'segLabels', 'timerPhase', 'timerUpdate',
+    'watchAnchor', 'timerBack', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveUrlWarn', 'liveCopy', 'liveReset',
     'liveSymbol', 'liveTimeframe', 'liveStrategy',
     'livePushRow', 'livePushBtn', 'livePushStatus',
+    'liveSelfTest', 'liveSelfTestResult',
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
     'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
     'resToggle', 'resChevron', 'resBody', 'resShowHistory', 'resShowRecap', 'resShowReflect',
+    'driftStatus',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ── 狀態卡 ──
-  function currentZone() { return ZONE_STATES[state.zoneIdx]; }
 
-  function renderState() {
-    var z = currentZone();
-    el.stateDot.style.background = 'var(' + z.cssVar + ')';
-    el.stateLine.textContent = z.label + ' · Decision Edge Score ' + z.score;
+  function zoneMeta(band) {
+    for (var i = 0; i < ZONE_STATES.length; i++) {
+      if (ZONE_STATES[i].zone === band) return ZONE_STATES[i];
+    }
+    return null;
   }
 
+  /**
+   * 目前據以判斷的狀態。優先序：示意覆蓋 > 新鮮真讀數 > 沒有（不猜）。
+   * 回傳 null 代表「我不知道你現在是什麼狀態」—— 呼叫端不得把它當成任何帶位。
+   *
+   * @returns {?{zone: string, label: string, cssVar: string, demo: boolean}}
+   */
+  function effectiveZone() {
+    if (state.zoneOverride !== null) {
+      var z = ZONE_STATES[state.zoneOverride];
+      return { zone: z.zone, label: z.label, cssVar: z.cssVar, demo: true };
+    }
+    var reading = loadReading();
+    if (!reading || !isReadingFresh(reading, Date.now())) return null;
+    var meta = zoneMeta(reading.band);
+    if (!meta) return null;
+    return { zone: meta.zone, label: meta.label, cssVar: meta.cssVar, demo: false };
+  }
+
+  /** 狀態卡：真實模式報 store 的讀數，示意模式明確承認自己是假的。 */
+  function renderState() {
+    var reading = loadReading();
+    var eff = effectiveZone();
+    el.stateCard.classList.toggle('demo', !!(eff && eff.demo));
+
+    if (eff && eff.demo) {
+      el.stateDot.style.background = 'var(' + eff.cssVar + ')';
+      el.stateLine.textContent = eff.label;
+      el.stateSub.textContent = '示意值 · 非真實讀數';
+      return;
+    }
+    if (eff) {
+      el.stateDot.style.background = 'var(' + eff.cssVar + ')';
+      el.stateLine.textContent = eff.label;
+      el.stateSub.textContent = agoText(reading.ts, Date.now())
+        + (CONFIDENCE_LABEL[reading.confidence] ? ' · ' + CONFIDENCE_LABEL[reading.confidence] : '');
+      return;
+    }
+    // 無讀數或已過期 —— 中性點，不借任何帶位的顏色。
+    el.stateDot.style.background = 'var(--zone-neutral)';
+    if (reading) {
+      el.stateLine.textContent = BAND_LABEL[reading.band];
+      el.stateSub.textContent = '讀數已過期 · 建議重掃';
+    } else {
+      el.stateLine.textContent = '尚無狀態讀數';
+      el.stateSub.textContent = '從快訊的進入決策面板掃一次';
+    }
+  }
+
+  // 點擊循環：真實 → Clear(示意) → Neutral(示意) → Strain(示意) → 真實 → …
+  // 保留手動切三個帶位的能力（測快訊行為用），但預設是真實模式。
   el.stateCard.addEventListener('click', function () {
-    state.zoneIdx = (state.zoneIdx + 1) % ZONE_STATES.length;
+    state.zoneOverride = state.zoneOverride === null
+      ? 0
+      : (state.zoneOverride + 1 >= ZONE_STATES.length ? null : state.zoneOverride + 1);
     renderState();
   });
 
@@ -318,7 +450,17 @@
     return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
 
-  function log(type, detail) {
+  /**
+   * 事件鏈的一列。
+   *
+   * @param {string} type - TYPE_LABELS 的 key。
+   * @param {string} detail - 說明文字。
+   * @param {{text:string, href:string}} [link] - 可選的去處。
+   *   用在「收束之後有路可走」：決策記進統一 store 之後，這裡留一條通往
+   *   `/v3/#session` 的路。**刻意放在 log 這一層而不是收束頁** —— 收束頁剛被
+   *   壓到 660px 一屏放得下，再加按鈕會把它推回摺線下（2026-08-09 的教訓）。
+   */
+  function log(type, detail, link) {
     var empty = el.logList.querySelector('.log-empty');
     if (empty) empty.remove();
 
@@ -341,6 +483,13 @@
     item.appendChild(time);
     item.appendChild(typeEl);
     item.appendChild(detailEl);
+    if (link) {
+      var a = document.createElement('a');
+      a.className = 'log-link';
+      a.href = link.href;
+      a.textContent = link.text + ' ›';
+      item.appendChild(a);
+    }
     el.logList.insertBefore(item, el.logList.firstChild);
   }
 
@@ -354,15 +503,47 @@
     }
   }
 
+  // ── 決策進行中？（docs/TRADINGVIEW-ALERT-SPEC.md §8）──
+  //
+  // 計時器自從交棒之後跑在 /v3/ —— **這一頁看不到它**。所以「有沒有決策在跑」
+  // 這件事改讀 /v3/ 寫出來的跨頁標記（同源 localStorage，跟讀數／決策紀錄／
+  // 交棒信物／回程票同一個做法）。
+  //
+  // 🔴 一定要看到期時間。標記可能被留下來沒清掉（/v3/ 的分頁被殺、瀏覽器崩潰、
+  // 使用者直接關掉那一頁）—— 沒有到期檢查的話，這一頁會從此靜默吃掉每一則快訊，
+  // 而且完全沒有跡象，使用者只會覺得「快訊壞了」。
+  var ACTIVE_DECISION_KEY = 'tenki.v6.activeDecision.v1';
+
+  /**
+   * 讀「決策進行中」的快照，**唯一的來源**。
+   * 過期一律當作沒有 —— 見上面那段紅字。
+   * @param {number} nowMs
+   * @returns {?Object} 標記本身，沒有就 null
+   */
+  function readActiveDecision(nowMs) {
+    var m = null;
+    try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch (e) { m = null; }
+    if (!m || typeof m.expiresAtMs !== 'number' || typeof m.startedAtMs !== 'number') return null;
+    if (nowMs >= m.expiresAtMs) return null;
+    return m;
+  }
+
   // ── Delivery policy（mirror of domain alert-policy 判定順序）──
   function evaluateDelivery(alert, nowMs) {
-    if (state.sessionActive) {
-      if (state.settings.sessionQuietUpdate && state.activeSessionSymbol !== null && state.activeSessionSymbol === alert.symbol) {
+    var active = readActiveDecision(nowMs);
+    if (active) {
+      var activeSymbol = (typeof active.symbol === 'string') ? active.symbol : null;
+      if (state.settings.sessionQuietUpdate && activeSymbol !== null && activeSymbol === alert.symbol) {
         return { decision: 'session_update', reason: '同標的後續觸發' };
       }
       return { decision: 'silent', reason: '決策進行中' };
     }
-    if (state.settings.strainSilent && currentZone().zone === 'strain') {
+    // 以前這裡看的是點擊循環出來的假 zone（預設 Neutral），等於這個設定的行為
+    // 由一個 demo 開關決定。改看 effectiveZone()：真讀數優先、示意覆蓋次之。
+    // **null（沒有讀數／已過期）時不靜音** —— 沒有狀態，就不該拿「你在 Strain」
+    // 當理由吃掉一則快訊。
+    var zone = effectiveZone();
+    if (state.settings.strainSilent && zone && zone.zone === 'strain') {
       return { decision: 'silent', reason: 'Strain 狀態' };
     }
     var last = state.lastSurfacedAtBySymbol[alert.symbol];
@@ -372,12 +553,16 @@
     return { decision: 'surfaced', reason: '' };
   }
 
-  function makeAlert(symbol, condition, timeframe, strategy, note) {
+  function makeAlert(symbol, condition, timeframe, strategy, note, price) {
     state.alertSeq += 1;
     return {
       id: 'demo-' + state.alertSeq,
       symbol: symbol, condition: condition, timeframe: timeframe,
-      strategyHint: strategy, note: note, receivedAt: Date.now(),
+      strategyHint: strategy, note: note,
+      // 結構守望的錨點來源。真實快訊由 TradingView 帶（schema 早有這欄），
+      // demo 也給一個，否則錨點行永遠空著、看不出這個功能存在。
+      price: typeof price === 'number' ? price : null,
+      receivedAt: Date.now(),
     };
   }
 
@@ -506,10 +691,14 @@
 
     var recent = scope.slice(Math.max(0, scope.length - 8));
     el.entryStrip.innerHTML = '';
+    // 同一個理由：一筆畫不出「最近幾次」（見 MOMENTUM_MIN）。
+    el.entryStrip.hidden = recent.length < MOMENTUM_MIN;
     recent.forEach(function (r, i) {
       var seg = document.createElement('div');
       seg.className = 'result-seg' + (i === recent.length - 1 ? ' now' : '');
-      seg.style.background = isDisciplined(r.outcomeTag) ? 'var(--zone-clear)' : 'var(--zone-strain)';
+      // 與收束頁的 momentum strip 共用同一支 segColor —— 這段原本是內聯重寫的
+      // 第二份判定，正是 2026-08-07 那個「條紋與完成率互相矛盾」的漂移溫床。
+      seg.style.background = segColor(r.outcomeTag);
       el.entryStrip.appendChild(seg);
     });
 
@@ -525,9 +714,8 @@
   function renderEntryCost(alert) {
     var tpl = TEMPLATES[suggestTemplate(alert.strategyHint)];
     if (!tpl) { el.entryCost.textContent = ''; return; }
-    var m = Math.floor(tpl.durationSec / 60), s = tpl.durationSec % 60;
-    el.entryCost.textContent =
-      '建議流程 ' + tpl.nameZh + ' · ' + m + ':' + String(s).padStart(2, '0') + '（可自由更換）';
+    // 不再報時長 —— 結構確認沒有時間表（§7 step 3），報一個分鐘數會變成「等這麼久才對」的暗示。
+    el.entryCost.textContent = '建議流程 ' + tpl.nameZh + '（可自由更換）';
   }
 
   /** 訊號「N 秒前」持續跳動 — 讓訊號有生命。 */
@@ -547,15 +735,37 @@
     if (state.entryAgeTimer) { clearInterval(state.entryAgeTimer); state.entryAgeTimer = null; }
   }
 
-  // ── session 中同標的：計時條下浮一行事實更新，不彈新面板 ──
+  // ── session 中同標的：安靜接收 + 記一筆事實，不彈新面板 ──
+  //
+  // 計數寫回**跨頁標記本身**：/v3/ 收束時讀回來寫進紀錄，收束頁的
+  // 「同標的更新：N 次」才有真數字可印（在這之前只能誠實留白）。
+  //
+  // ⚠️ 舊版把這行事實寫進 `el.timerUpdate`（那條守望條下面的一行）——
+  // 而 `#timerBar` 自從交棒之後**永遠不會 .show**，等於寫進一個看不見的元素。
+  // 改用這一頁真的看得到的兩個面：靜默區的 chip + 事件日誌。
   function sessionQuietUpdate(alert) {
-    if (state.session) state.session.sameSymbolUpdates += 1;
+    bumpActiveDecisionUpdates();
     var parts = [alert.symbol];
     if (alert.condition) parts.push(alert.condition);
     if (alert.note) parts.push(alert.note);
+    // 規格 §8 原本的形狀：計時條下浮一行事實更新，不彈新面板。
+    // 第八輪寫不到這裡（#timerBar 那時候永遠不會 .show），現在橫幅是活的了。
     el.timerUpdate.textContent = '↳ ' + parts.join(' · ');
     el.timerUpdate.classList.add('show');
+    silentChip(alert.symbol + ' · ' + (alert.condition || '') + '（決策進行中 · 已接收）');
     log('mark', alert.symbol + ' — 同標的後續觸發（決策進行中，安靜更新）');
+  }
+
+  /**
+   * 同標的後續觸發 +1，寫回跨頁標記。
+   * 讀完再寫（read-modify-write）—— 標記的擁有者是 /v3/，這裡只碰這一個欄位。
+   */
+  function bumpActiveDecisionUpdates() {
+    var m = null;
+    try { m = JSON.parse(localStorage.getItem(ACTIVE_DECISION_KEY)); } catch (e) { m = null; }
+    if (!m || typeof m.expiresAtMs !== 'number' || Date.now() >= m.expiresAtMs) return;
+    m.sameSymbolUpdates = (typeof m.sameSymbolUpdates === 'number' ? m.sameSymbolUpdates : 0) + 1;
+    try { localStorage.setItem(ACTIVE_DECISION_KEY, JSON.stringify(m)); } catch (e) { /* 記不下就算了，不擋靜默接收 */ }
   }
 
   // ── 聚合（多快訊同窗）──
@@ -645,161 +855,257 @@
     openSheet(el.tplSheet);
   });
 
+  // 進入決策面板的掃描鈕 → 正典模組（同 /v3/ Scan tab 那一支）。
+  // mission 'decision'：8 秒預算、角落掛著你正要決策的標的。
+  // 掃描層 z9700 蓋過 sheet 的 z31，sheet 留在原地，收尾後原地更新 ——
+  // 「掃完自動接回決策」與待命狀態卡是 PR3 的事，這裡不搶跑。
+  el.entryRescan.addEventListener('click', function () {
+    var S = window.TENKI_READINESS_SCAN;
+    if (!S || !S.begin) return;
+    S.begin({
+      mission: 'decision',
+      symbol: state.pendingAlert ? state.pendingAlert.symbol : null,
+    }).then(function () {
+      // 取消（回 null）也只是重畫 —— 讀數槽自己會誠實顯示現況，不會假裝有讀數。
+      renderEntryState();
+      renderState();
+    });
+  });
+
   // ── 模板選擇 ──
+  /**
+   * 模板選單 —— 終端機讀數，不是卡片選單。
+   *
+   * founder 2026-08-09：「這個頁面太遜 … 想要像彭博（系統的高精度專業風格）」，
+   * 而且第一版計畫只寫「拿掉 emoji、加分隔線」時他直接回：**「少了 彭博終端機」**。
+   * 所以這裡照終端機的**排版形式**做，不是把卡片整理乾淨：
+   * 等寬字、欄位表頭、`1)` 列編號、硬邊 hairline、欄位對齊。
+   *
+   * **不用琥珀色**：彭博的排版 + TENKI 的顏色。gold 在視覺世界規則裡專指 SECURED，
+   * 拿去鋪整片終端機會把那個意義稀釋掉。代號用 cyan（可選 = ACTIVE）。
+   *
+   * 「建議」也拿掉了 —— 交易者本來就有自己的偏好。右欄改成中性欄位值 `ALERT`：
+   * 「這筆快訊標的是這個結構」是**關於快訊的事實**，不是對使用者的指示。
+   */
   function renderTemplatePicker(alert) {
-    var suggested = suggestTemplate(alert.strategyHint);
+    var matched = suggestTemplate(alert.strategyHint);
+
+    // 狀態列：標的 · 快訊標記的結構 · 收到時間。三個都是這筆快訊真的帶著的資料，
+    // 沒有一個是為了「看起來像終端機」湊出來的。
+    if (el.tplStatus) {
+      el.tplStatus.textContent = '';
+      var sym = document.createElement('b');
+      sym.textContent = alert.symbol || '—';
+      var mid = document.createElement('span');
+      mid.textContent = TEMPLATE_CODE[matched] || '';
+      var when = document.createElement('span');
+      when.textContent = new Date(alert.receivedAt).toTimeString().slice(0, 8);
+      el.tplStatus.appendChild(sym);
+      el.tplStatus.appendChild(mid);
+      el.tplStatus.appendChild(when);
+    }
+
     el.tplList.textContent = '';
 
-    Object.keys(TEMPLATES).forEach(function (id) {
-      var tpl = TEMPLATES[id];
-      var card = document.createElement('div');
-      card.className = 'tpl-card' + (id === suggested ? ' suggested' : '');
+    var head = document.createElement('div');
+    head.className = 'tpl-head';
+    ['CODE', 'STRUCTURE', 'MATCH'].forEach(function (label) {
+      var cell = document.createElement('span');
+      cell.textContent = label;
+      head.appendChild(cell);
+    });
+    el.tplList.appendChild(head);
 
-      var icon = document.createElement('div');
-      icon.className = 'tpl-icon';
-      icon.textContent = tpl.icon;
+    Object.keys(TEMPLATES).forEach(function (id, index) {
+      var tpl = TEMPLATES[id];
+      var row = document.createElement('div');
+      row.className = 'tpl-row';
+
+      var code = document.createElement('div');
+      code.className = 'tpl-code';
+      // 彭博式列編號 —— 可選項目一律編號，這是終端機最強的識別特徵。
+      code.textContent = (index + 1) + ') ' + (TEMPLATE_CODE[tpl.id] || tpl.id);
 
       var main = document.createElement('div');
       main.className = 'tpl-main';
       var name = document.createElement('div');
       name.className = 'tpl-name';
-      name.textContent = tpl.nameZh + '（' + tpl.id + '）';
+      // ⚠️ 只放中文名，**不再把內部 id 印在後面**（見 TEMPLATE_CODE 的註解）。
+      name.textContent = tpl.nameZh;
       var sub = document.createElement('div');
       sub.className = 'tpl-sub';
-      sub.textContent = Math.round(tpl.durationSec / 60) + ' 分鐘 · ' +
-        tpl.segments.map(function (s) { return s.label; }).join(' → ');
+      // 模板現在只回答「這是哪一種 setup」，不再回答「你該等幾秒」。
+      sub.textContent = TEMPLATE_SUBTITLE_ZH[tpl.id] || '';
       main.appendChild(name);
       main.appendChild(sub);
 
-      card.appendChild(icon);
-      card.appendChild(main);
+      var flag = document.createElement('div');
+      flag.className = 'tpl-flag';
+      // 陳述事實，不下指示：這筆快訊標的就是這個結構。
+      flag.textContent = id === matched ? 'ALERT' : '';
 
-      if (id === suggested) {
-        var star = document.createElement('div');
-        star.className = 'tpl-star';
-        star.textContent = '⭐ 建議';
-        card.appendChild(star);
-      }
+      row.appendChild(code);
+      row.appendChild(main);
+      row.appendChild(flag);
 
-      card.addEventListener('click', function () {
+      row.addEventListener('click', function () {
         closeSheets();
-        startSession(alert, tpl);
+        handOffToDecisionTimer(alert, tpl);
       });
-      el.tplList.appendChild(card);
+      el.tplList.appendChild(row);
     });
   }
 
-  // ── 浮動決策計時條 ──
+  // ═══════════════════════════════════════════════
+  // 從 /v3/ 判定完回程 —— 收束頁還是在這裡
+  //
+  // 計時器搬去 /v3/ 之後，這張收束頁（弧、反思晶片 → contextTag、紀律計、
+  // 660px 一屏放得下）仍然是收束的地方 —— 它是已經被實走驗收過的東西，
+  // 而 /v3/ 的 state-complete 只有 1.8 秒。所以判定完把人送回來看結果。
+  // ═══════════════════════════════════════════════
+
+  /** 回程票：/v3/ 判定完寫的，指名要顯示哪一筆。 */
+  var RETURN_KEY = 'tenki.alert.return.v1';
+
+  /**
+   * 收下回程票並開收束頁。
+   * 🔴 **票讀完就刪**（同交棒信物的規矩）—— 留著它，下次開這頁會再彈一次
+   * 同一張收束頁，而使用者根本沒做新的決策。
+   * @returns {boolean} 有沒有真的開起來
+   */
+  function acceptReturnTicket() {
+    var t = null;
+    try { t = JSON.parse(localStorage.getItem(RETURN_KEY)); } catch (e) { t = null; }
+    try { localStorage.removeItem(RETURN_KEY); } catch (e) { /* 無妨 */ }
+    if (!t || typeof t.ts !== 'number') return false;
+    if (typeof t.at !== 'number' || Date.now() - t.at > HANDOFF_TTL_MS) return false;
+
+    var all = loadOutcomes();
+    var rec = null;
+    for (var i = 0; i < all.length; i += 1) { if (all[i].ts === t.ts) { rec = all[i]; break; } }
+    if (!rec) return false;
+
+    // 把紀錄翻回 openResult 要的 session 形狀。
+    // ⚠️ renderRecap 吃 awayCount / awayMs / elapsedSec —— v6 這一輪剛好都記了。
+    var judgment = rec.outcomeTag === 'judged_entered' ? 'entered'
+      : rec.outcomeTag === 'judged_stood_down' ? 'stood_down' : 'abandoned';
+    openResult(judgment, {
+      symbol: rec.symbol || '—',
+      templateId: rec.templateId,
+      // 🔴 這一行原本是 `tplName: rec.templateId` —— **拿內部 id 當顯示名**，
+      // 於是收束頁的標題與軌跡表印出 `ES1! · MANCINI_FBD`
+      // （founder 2026-09-09 實走截圖）。而同一筆紀錄在 `/v3/` 的 Session
+      // 詳情印的是 `ES1! · Mancini FBD` —— 兩頁對同一筆紀錄有兩種講法。
+      // 名字現在由共用模組給（跟判定、呈現對照同一個來源）。
+      // ⚠️ 認不得就是 `null`，讓下面兩處自己誠實留白，**不得退回 id**。
+      tplName: window.TENKI_OUTCOME.templateName(rec.templateId),
+      elapsedSec: rec.durationSec || 0,
+      awayCount: typeof rec.awayCount === 'number' ? rec.awayCount : 0,
+      awayMs: typeof rec.awayMs === 'number' ? rec.awayMs : 0,
+      // 🔴 `null` ＝「我們沒有這個數」，不是 `0` ＝「沒發生過」。
+      // 決策進行中的同標的後續觸發由這一頁記在跨頁標記上、由 /v3/ 收束時寫進紀錄
+      // （規格 §8）。**沒有這一欄的舊紀錄仍然是 null** —— renderRecap 會整列不顯示，
+      // 而不是印一個謊報的「0 次」。
+      sameSymbolUpdates: typeof rec.sameSymbolUpdates === 'number' ? rec.sameSymbolUpdates : null,
+      // 🔴 這一筆**已經在 store 裡**（計時器那邊寫的）—— 收尾只能就地更新，
+      // 不能再 push 一筆，否則同一筆決策存兩份、紀律統計失真。
+      alreadyPersisted: true,
+      recordTs: rec.ts,
+    });
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════
+  // 交棒到 /v3/ 的決策計時器
+  //
+  // 在這之前，快訊有自己的一套守望條，而 /v3/ 的 FDCB 是另一套 —— **兩個計時器
+  // 從來沒有見過面**，快訊唯一通往 v3 的出口是 /v3/#session（歷史頁，不是一個
+  // 跑起來的計時器）。founder：「從 tradingview快訊 - Tenki core快訊 -
+  // 導入決策計時器」。所以這裡不再自己起計時，改成把這一筆交出去。
+  //
+  // 交棒走 localStorage 而不是 query string：**價位與標的不該進網址**
+  // （會留在瀏覽歷史、被分享出去）。同源同裝置，localStorage 就夠，
+  // 而且跟這個 repo 既有的跨頁共用（讀數、決策紀錄）是同一個做法。
+  // ═══════════════════════════════════════════════
+
+  /** 交棒信物的 key。v6 開頁時讀它。 */
+  var HANDOFF_KEY = 'tenki.v6.handoff.v1';
+  /** 信物的保鮮期。過期就不自動起跑 —— 昨天的快訊今天不該自己開始一個決策。 */
+  var HANDOFF_TTL_MS = 5 * 60 * 1000;
+
+  /**
+   * 把這一筆快訊交給 /v3/ 的決策計時器，然後導過去。
+   * @param {Object} alert 這筆快訊
+   * @param {Object} tpl 使用者選的模板
+   */
+  function handOffToDecisionTimer(alert, tpl) {
+    var payload = {
+      symbol: alert.symbol,
+      // 🔴 兩套 id 從來沒對上過（engine 的 FBD vs v6 的 MANCINI_FBD）——
+      // PLAYBOOK 記著那次「名稱、圖示、readiness、badge 四處全錯而且沒有一處會報錯」。
+      // 翻譯走共用模組，**兩邊的 id 都不改**（persisted contract）。
+      templateId: window.TENKI_OUTCOME.toV6TemplateId(tpl.id),
+      originAlertId: alert.id,
+      price: typeof alert.price === 'number' && isFinite(alert.price) ? alert.price : null,
+      condition: alert.condition || null,
+      ts: Date.now(),
+    };
+    try { localStorage.setItem(HANDOFF_KEY, JSON.stringify(payload)); }
+    catch (e) { /* 存不進去就不要導過去，免得那頁空手起跑一個不知道是誰的決策 */ return; }
+    log('engaged', alert.symbol + ' — 交給決策計時器');
+    window.location.href = '/v3/#decision';
+  }
+
+  // ── 決策進行中的回程橫幅 ──
+  //
+  // 這一塊以前是這一頁自己的守望條（startSession / endSession / 兩顆判定鍵）。
+  // 第五輪把計時器交棒給 /v3/ 之後它就沒有呼叫者了；第七輪決定留著，理由是
+  // 「它是規格 §8 唯一的實作」；第八輪把 §8 用跨頁標記正式補回來，那個理由失效。
+  // 現在整塊改成它真正該做的事：**告訴你有一筆決策還在跑，並把你送回去。**
+  //
+  // 為什麼這一頁需要它（founder 2026-08-21 實走情境）：交易者的動線是
+  // 「進入決策 → 跳回桌面 → 開交易 App 下單 → 回 TENKI Core」，而 PWA 的
+  // start_url 就是這一頁 —— iOS 把 web app 清出記憶體之後，回來就落在這裡，
+  // 看不到正在跑的計時器。沒有這條橫幅，那一刻畫面上完全沒有線索。
+  //
+  // 🔴 這裡**不放判定鍵**：判定只有一份，在 /v3/。
+
   function formatClock(sec) {
     var m = Math.floor(sec / 60);
     var s = sec % 60;
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
-  function startSession(alert, tpl) {
-    state.pendingAlert = null;
-    state.sessionActive = true;
-    state.activeSessionSymbol = alert.symbol;
-    state.session = {
-      symbol: alert.symbol,
-      templateId: tpl.id,
-      tplName: tpl.nameZh,
-      durationSec: tpl.durationSec,
-      readinessStartSec: tpl.readinessWindow.startSec,
-      reachedReadiness: false,
-      sameSymbolUpdates: 0,
-      elapsedSec: 0,
-    };
-    el.timerUpdate.textContent = '';
-    el.timerUpdate.classList.remove('show');
+  function formatLevel(price) {
+    return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
 
-    el.timerLabel.textContent = alert.symbol + ' · ' + tpl.nameZh;
-    el.timerClock.textContent = formatClock(0);
-    el.timerClock.classList.remove('in-window');
+  var decisionBarTimer = null;
 
-    el.segTrack.textContent = '';
-    el.segLabels.textContent = '';
-    el.timerPhase.textContent = '';
-    el.timerPhase.classList.remove('readiness');
-    var fills = [];
-    var labelSpans = [];
-    tpl.segments.forEach(function (segment) {
-      var span = segment.endSec - segment.startSec;
-      var seg = document.createElement('div');
-      seg.className = 'seg';
-      seg.style.flexGrow = String(span);
-      var fill = document.createElement('div');
-      fill.className = 'seg-fill';
-      fill.style.background = segment.color;
-      seg.appendChild(fill);
-      el.segTrack.appendChild(seg);
-      fills.push({ el: fill, startSec: segment.startSec, endSec: segment.endSec });
-
-      var label = document.createElement('div');
-      label.className = 'seg-label';
-      label.style.flexGrow = String(span);
-      label.style.flexBasis = '0';
-      label.textContent = segment.label;
-      el.segLabels.appendChild(label);
-      labelSpans.push({ el: label, name: segment.label, startSec: segment.startSec, endSec: segment.endSec });
-    });
-
+  /** 有決策在跑就顯示橫幅，沒有就收起來。每秒重畫一次時鐘。 */
+  function renderDecisionBar() {
+    var m = readActiveDecision(Date.now());
+    if (!m) {
+      el.timerBar.classList.remove('show');
+      el.timerUpdate.classList.remove('show');
+      el.timerUpdate.textContent = '';
+      if (decisionBarTimer) { clearInterval(decisionBarTimer); decisionBarTimer = null; }
+      return;
+    }
+    el.timerLabel.textContent = m.symbol || m.name || '決策進行中';
+    // 牆鐘 —— 跟 /v3/ 讀同一個 startedAtMs，兩邊的時鐘不會各說各話。
+    el.timerClock.textContent = formatClock(Math.max(0, Math.floor((Date.now() - m.startedAtMs) / 1000)));
+    // 快訊沒帶 price 就整行空著 —— 寧可沒有錨點，也不編一個價位出來。
+    el.watchAnchor.textContent = (typeof m.anchorPrice === 'number')
+      ? '關鍵價位 ' + formatLevel(m.anchorPrice) : '';
     el.timerBar.classList.add('show');
-    log('mark', alert.symbol + ' — ' + tpl.nameZh + ' 計時開始');
-
-    var elapsed = 0;
-    state.timer = setInterval(function () {
-      elapsed += 1;
-      el.timerClock.textContent = formatClock(elapsed);
-      if (state.session) {
-        state.session.elapsedSec = elapsed;
-        if (elapsed >= state.session.readinessStartSec) state.session.reachedReadiness = true;
-      }
-
-      var w = tpl.readinessWindow;
-      var inReadiness = elapsed >= w.startSec && elapsed < w.endSec;
-      el.timerClock.classList.toggle('in-window', inReadiness);
-
-      // 當前段落標籤高亮 + 事實脈絡行（Readiness 窗更明確）
-      var current = null;
-      labelSpans.forEach(function (ls) {
-        var active = elapsed >= ls.startSec && elapsed < ls.endSec;
-        ls.el.classList.toggle('active', active);
-        if (active) current = ls;
-      });
-      if (inReadiness) {
-        el.timerPhase.textContent = 'Readiness 窗開啟';
-        el.timerPhase.classList.add('readiness');
-      } else {
-        el.timerPhase.textContent = current ? '目前：' + current.name : '';
-        el.timerPhase.classList.remove('readiness');
-      }
-
-      fills.forEach(function (f) {
-        var span = f.endSec - f.startSec;
-        var ratio = Math.min(Math.max((elapsed - f.startSec) / span, 0), 1);
-        f.el.style.transform = 'scaleX(' + ratio + ')';
-      });
-
-      if (elapsed >= tpl.durationSec) {
-        endSession('timeout', alert.symbol + ' — 完整走完 ' + tpl.nameZh);
-      }
-    }, 1000);
+    if (!decisionBarTimer) decisionBarTimer = setInterval(renderDecisionBar, 1000);
   }
 
-  function endSession(type, detail) {
-    if (state.timer) { clearInterval(state.timer); state.timer = null; }
-    var s = state.session;
-    state.sessionActive = false;
-    state.activeSessionSymbol = null;
-    state.session = null;
-    el.timerBar.classList.remove('show');
-    el.timerUpdate.classList.remove('show');
-    el.timerPhase.textContent = '';
-    el.timerPhase.classList.remove('readiness');
-    log(type, detail);
-    if (s) openResult(type, s);
-  }
+  el.timerBar.addEventListener('click', function () {
+    // 回到那一筆決策。/v3/ 開頁時 acceptHandoff() 拿不到信物就會走 resume。
+    window.location.href = '/v3/#decision';
+  });
 
   // ── 決策收束頁（計時器結束後，事件鏈的 Result 階段）— 視覺化收束 ──
   var MOMENTUM_LIMIT = 12;
@@ -810,13 +1116,14 @@
   }
   function easeOutCubic(p) { return 1 - Math.pow(1 - p, 3); }
 
-  // 弧規格：跟著流程/完整走完 → 整圈青；提前收束/中途退出 → 走多完整的部分弧（strain 色）。
-  // 「弧長就是你這次走了多完整」— 數值本身即畫面。
-  function resultArcSpec(endType, s) {
-    var tag = resolveOutcomeTag(endType, s.reachedReadiness);
-    if (isDisciplined(tag)) return { ratio: 1, colorVar: '--cyan-active' };
-    var ratio = s.durationSec > 0 ? s.elapsedSec / s.durationSec : 0;
-    return { ratio: Math.min(Math.max(ratio, 0.06), 1), colorVar: '--zone-strain' };
+  // 弧規格：有做出判定（進場或放棄）→ 整圈青；沒有判定 → 短弧（strain 色）。
+  // 弧長不再代表「走了多完整」—— 那是舊的時間紀律語意。現在它只有兩種狀態：
+  // 你做了判定，或你沒有。11 秒的判定與 8 分鐘的判定一樣是整圈。
+  function resultArcSpec(judgment) {
+    if (isDisciplined(resolveOutcomeTag(judgment))) {
+      return { ratio: 1, colorVar: '--cyan-active' };
+    }
+    return { ratio: 0.12, colorVar: '--zone-strain' };
   }
 
   // canvas 弧（禁 SVG ring；比照 tissue-instrument 既有 canvas 先例）。固定 176px 尺寸，
@@ -827,9 +1134,10 @@
     canvas.dataset.ratio = String(ratio); // 供 headless 驗證（canvas 像素難斷言）
     canvas.dataset.colorVar = colorVar;
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var size = 176;
-    canvas.style.width = size + 'px';
-    canvas.style.height = size + 'px';
+    // 顯示尺寸由 CSS 的 --result-arc 決定（短視窗會縮小），這裡只跟著它調
+    // backing store。**不要**在這裡再寫一次 style.width/height —— 那會蓋掉 CSS，
+    // 兩個地方各記一份尺寸遲早不同步（PLAYBOOK §6：判定/尺寸只能有一個來源）。
+    var size = Math.round(parseFloat(getComputedStyle(canvas).width)) || 176;
     canvas.width = Math.round(size * dpr);
     canvas.height = Math.round(size * dpr);
     var ctx = canvas.getContext('2d');
@@ -864,32 +1172,73 @@
     requestAnimationFrame(step);
   }
 
-  // 完成率數字遞增（0 → 最終%）。末值與 rateText 完全一致（供頁面與測試對齊）。
+  /**
+   * 把完成率寫成「大數字 + 小註腳」兩段（收束頁的儀器表頭用）。
+   * 🔴 只有 `.num` 走等寬 —— 註腳是中文，等寬 CJK 會撐成全形方塊。
+   * ⚠️ `#resultRate` 的 textContent 仍然含「NN%」：preview-strip-color.mjs
+   * 在驗 /100%/，把它拆成節點不能讓那條斷言紅。
+   * @param {HTMLElement} node #resultRate
+   * @param {string} value 大數字（'100%' 或 '—'）
+   * @param {string} sub 註腳（'（1/1）'…），可為空
+   */
+  function setRateNode(node, value, sub) {
+    node.textContent = '';
+    var v = document.createElement('span'); v.className = 'num'; v.textContent = value;
+    node.appendChild(v);
+    if (sub) { var t = document.createElement('span'); t.className = 'sub'; t.textContent = sub; node.appendChild(t); }
+  }
+
+  // 完成率數字遞增（0 → 最終%）。末值與 rateText 的數字完全一致（供頁面與測試對齊）。
+  // ⚠️ 標題文字「紀律完成率：」不再由這裡印 —— 它現在是表頭左邊那個微標籤。
+  // rateText() 本身一個字不動：進入決策面板（renderEntryDiscipline）還在共用它。
   function countUpRate(records, animate) {
     var node = el.resultRate;
     if (!node) return;
-    if (records.length === 0) { node.textContent = rateText(records); return; }
+    if (records.length === 0) { setRateNode(node, '—', '（資料累積中）'); return; }
     var d = 0;
     records.forEach(function (r) { if (isDisciplined(r.outcomeTag)) d += 1; });
     var finalPct = Math.round((d / records.length) * 100);
-    var suffix = '%（' + d + '/' + records.length + '）';
-    if (!animate) { node.textContent = '紀律完成率：' + finalPct + suffix; return; }
+    var suffix = '（' + d + '/' + records.length + '）' + schemaNote(records);
+    if (!animate) { setRateNode(node, finalPct + '%', suffix); return; }
     var t0 = null, dur = 600;
     function step(ts) {
       if (t0 === null) t0 = ts;
       var p = Math.min((ts - t0) / dur, 1);
-      node.textContent = '紀律完成率：' + Math.round(finalPct * easeOutCubic(p)) + suffix;
+      setRateNode(node, Math.round(finalPct * easeOutCubic(p)) + '%', suffix);
       if (p < 1) requestAnimationFrame(step);
-      else node.textContent = '紀律完成率：' + finalPct + suffix;
+      else setRateNode(node, finalPct + '%', suffix);
     }
     requestAnimationFrame(step);
   }
 
+  /**
+   * Momentum strip 的段落顏色。**必須與 isDisciplined() 用同一個判定** ——
+   * 兩者一旦分岔，同一筆決策會被條紋畫成跟完成率相反的意思。
+   *
+   * 2026-08-07 founder 實走查出：本函式原本逐一比對舊 tag 名
+   * （stayed_disciplined / timed_out），結構守望改名後 `judged_entered`
+   * 掉進 else 分支被畫成 strain 橘色，而正上方寫著「完成率 100%」。
+   * 改成單一判定來源，讓它不可能再漂移。
+   *
+   * 兩個判定出口（進場 / 不做）**刻意同色** —— 配色不得暗示哪個「比較好」。
+   *
+   * @param {string} tag - outcomeTag（新舊語意皆可）。
+   * @returns {string} CSS 色值。
+   */
   function segColor(tag) {
-    if (tag === 'stayed_disciplined') return cssVar('--cyan-active');
-    if (tag === 'timed_out') return cssVar('--zone-clear');
-    return cssVar('--zone-strain'); // broke_discipline / no_action_taken
+    return isDisciplined(tag) ? cssVar('--zone-clear') : cssVar('--zone-strain');
   }
+
+  /**
+   * 一條 strip 至少要有這麼多筆才畫得出「趨勢」。
+   *
+   * 🔴 只有 1 筆時 strip 退化成**一條滿版的實心青條**，而它正上方就是紀律近況
+   * 那條滿版青色進度條 —— 兩條長得一樣、講同一件事，第一次決策的使用者看到的
+   * 就是這個（founder 2026-09-09 實走截圖）。實測：1 個 segment、寬 352px、
+   * 實心 `rgb(0,180,216)`。
+   * **一筆資料畫不出「最近幾次」**，那不是稀疏，是根本沒有那個量。
+   */
+  var MOMENTUM_MIN = 2;
 
   // momentum strip：最近 N 次收束（鏡射 domain selectRecentOutcomes），最右＝本次高亮。
   function renderMomentumStrip(records) {
@@ -897,6 +1246,10 @@
     if (!strip) return;
     strip.textContent = '';
     var recent = records.slice(Math.max(0, records.length - MOMENTUM_LIMIT));
+    // 不夠就整條不出現 —— 跟「缺欄位就不准說否定」同一條規矩：
+    // 沒有那個量的時候，留白比畫一條看起來像壞掉的進度條誠實。
+    strip.hidden = recent.length < MOMENTUM_MIN;
+    if (strip.hidden) return;
     recent.forEach(function (r, i) {
       var seg = document.createElement('div');
       seg.className = 'result-seg' + (i === recent.length - 1 ? ' now' : '');
@@ -906,23 +1259,53 @@
   }
 
   // 本次事件鏈 recap（流程語言、事實）：快訊 → 同標的更新 → Readiness → 收束。
-  function renderRecap(endType, s) {
+  /**
+   * 值欄的一個片段。`num: true` 的才走等寬（--mono）。
+   * 🔴 **不自動偵測數字**：`ES1!` 裡有一個 1，自動偵測會把 "ES" 排成比例字、
+   * "1" 排成等寬，同一個代號兩種字體。哪些片段是「量」由呼叫端明講。
+   * @param {string} t 文字
+   * @param {boolean} [num] 是否為數字/代號（走等寬）
+   */
+  function seg(t, num) { return { t: String(t), num: !!num }; }
+
+  function renderRecap(judgment, s) {
     var list = el.resultRecapList;
     if (!list) return;
     list.textContent = '';
-    var disp = outcomeDisplay(endType, s.reachedReadiness);
+    var disp = outcomeDisplay(judgment);
+    // 欄位表：標籤 : 值。值欄左緣靠 .rc-label 的固定寬對齊成一條線。
     var rows = [
-      { cls: 'on', text: '快訊收到 · ' + s.symbol + '（' + s.tplName + '）' },
-      { cls: s.sameSymbolUpdates > 0 ? 'on' : '', text: '同標的更新：' + s.sameSymbolUpdates + ' 次' },
-      { cls: s.reachedReadiness ? 'on' : 'off', text: 'Readiness 窗：' + (s.reachedReadiness ? '已進入' : '未進入') },
-      { cls: disp.cls === 'disciplined' ? 'on' : 'off', text: '收束：' + disp.text + ' · 用時 ' + formatClock(s.elapsedSec) },
+      // 標的代號整段走等寬 —— 它是代號不是句子（跟模板表的 .tpl-code 同一個理由）。
+      { cls: 'on', label: '標的', segs: [seg(s.tplName ? s.symbol + ' · ' + s.tplName : s.symbol, true)] },
+      // 缺欄位就不准說否定：不知道就整列不出現，不印「0 次」（PLAYBOOK）。
+      typeof s.sameSymbolUpdates === 'number'
+        ? { cls: s.sameSymbolUpdates > 0 ? 'on' : '', label: '同標的更新',
+            segs: [seg(s.sameSymbolUpdates, true), seg(' 次')] }
+        : null,
+      // 事實，不是扣分項：在桌機/券商 APP 下單本來就會離開。
+      { cls: '', label: '期間離開', segs: s.awayCount > 0
+        ? [seg(s.awayCount, true), seg(' 次 · '), seg(formatClock(Math.round(s.awayMs / 1000)), true)]
+        : [seg('沒有離開')] },
+      { cls: disp.cls === 'disciplined' ? 'on' : 'off', label: '判定', segs: [seg(disp.text)] },
+      // 「等了 NN:NN」原本擠在判定那句的尾巴。它是一個**量**，不是判定的形容詞
+      // —— 給它自己的欄位，數字才對得齊上面那些。
+      { cls: '', label: '等待', segs: [seg(formatClock(s.elapsedSec), true)] },
     ];
-    rows.forEach(function (row) {
+    rows.filter(Boolean).forEach(function (row) {
       var rowEl = document.createElement('div');
       rowEl.className = 'result-recap-row ' + row.cls;
-      var dot = document.createElement('span'); dot.className = 'rc-dot';
-      var txt = document.createElement('span'); txt.textContent = row.text;
-      rowEl.appendChild(dot); rowEl.appendChild(txt);
+      var lab = document.createElement('span');
+      lab.className = 'rc-label';
+      lab.textContent = row.label;
+      var val = document.createElement('span');
+      val.className = 'rc-value';
+      row.segs.forEach(function (sg) {
+        var node = document.createElement('span');
+        if (sg.num) node.className = 'num';
+        node.textContent = sg.t;
+        val.appendChild(node);
+      });
+      rowEl.appendChild(lab); rowEl.appendChild(val);
       list.appendChild(rowEl);
     });
   }
@@ -934,26 +1317,45 @@
     return d / records.length;
   }
 
-  function openResult(endType, s) {
-    var disp = outcomeDisplay(endType, s.reachedReadiness);
+  function openResult(judgment, s) {
+    var disp = outcomeDisplay(judgment);
     state.pendingOutcome = {
       symbol: s.symbol,
       templateId: s.templateId,
-      outcomeTag: resolveOutcomeTag(endType, s.reachedReadiness),
+      outcomeTag: resolveOutcomeTag(judgment),
       contextTag: null,
-      reachedReadiness: s.reachedReadiness,
+      // 語意標記：讓統計認得出這筆是新語意，不與舊紀錄混算（見 disciplineRate 註解）。
+      judgmentSchema: JUDGMENT_SCHEMA,
+      awayCount: s.awayCount,
+      awayMs: s.awayMs,
       durationSec: s.elapsedSec,
-      ts: Date.now(),
+      // 回程時沿用既有紀錄的 ts —— 它是就地更新要用的 key。
+      ts: s.recordTs || Date.now(),
+      alreadyPersisted: !!s.alreadyPersisted,
+      // 這筆決策從哪個入口來（v6 的計時器決策寫 'v6'）。統一 store 是兩個入口
+      // 合流的地方，沒有這個欄位 Session 頁就分不出來源。
+      source: 'alert',
     };
 
-    var withThis = loadOutcomes().concat([state.pendingOutcome]);
+    // 回程的那一筆已經在 store 裡 —— 再 concat 一次等於把同一筆算兩遍。
+    var withThis = s.alreadyPersisted
+      ? loadOutcomes()
+      : loadOutcomes().concat([state.pendingOutcome]);
 
-    el.resultHead.textContent = s.symbol + ' · ' + s.tplName;
+    // 認不得模板時只印標的 —— 標的本來就是這筆決策最重要的身分，
+    // 而印一個內部 id 比少印一個名字糟得多。
+    el.resultHead.textContent = s.tplName ? s.symbol + ' · ' + s.tplName : s.symbol;
     el.resultOutcome.textContent = disp.text;
     el.resultOutcome.className = 'result-outcome ' + disp.cls;
-    el.resultArcTime.textContent = '用時 ' + formatClock(s.elapsedSec) + ' / ' + formatClock(s.durationSec);
+    // 沒有分母了 —— 沒有「應該等多久」這回事（§7 step 3 沒有時間表）。
+    // 數字走等寬（跟軌跡表的 .num 同一個理由），「等了」兩個中文字不走。
+    el.resultArcTime.textContent = '等了 ';
+    var arcNum = document.createElement('span');
+    arcNum.className = 'num';
+    arcNum.textContent = formatClock(s.elapsedSec);
+    el.resultArcTime.appendChild(arcNum);
     renderMomentumStrip(withThis);
-    renderRecap(endType, s);
+    renderRecap(judgment, s);
 
     el.resultReflect.textContent = '';
     REFLECT_TAGS.forEach(function (tag) {
@@ -983,7 +1385,7 @@
     // 弧掃完才依序放出：微光 breath → outcome 落定 → 完成率遞增 + meter 填 → 下方區塊 cascade。
     // reduced-motion 一律畫終態（不加 .reveal，元素預設可見；onDone 同步觸發、無 glow）。
     var animate = !prefersReducedMotion;
-    var spec = resultArcSpec(endType, s);
+    var spec = resultArcSpec(judgment);
     var rate = disciplineRate(withThis);
     var revealItems = [el.resultHistory, el.resultRecap, el.resultReflectWrap];
 
@@ -992,7 +1394,8 @@
     if (el.resultArcGlow) el.resultArcGlow.classList.remove('pulse');
     revealItems.forEach(function (node) { if (node) node.classList.remove('in'); });
     el.resultSheet.classList.toggle('reveal', animate);
-    el.resultRate.textContent = animate ? '紀律完成率：0%' : rateText(withThis);
+    if (animate) setRateNode(el.resultRate, '0%', '');
+    else countUpRate(withThis, false);
     el.resultMeterFill.style.width = '0';
 
     openSheet(el.resultSheet);
@@ -1026,21 +1429,41 @@
     if (!state.pendingOutcome) return;
     saveOutcome(state.pendingOutcome);
     refreshDiscipline();
-    log('mark', state.pendingOutcome.symbol + ' — 決策已收束並記錄');
+    // 收束不是終點：這筆已經寫進統一 store（`tenki.alert.outcomes.v1`），
+    // /v3/ 的 Session 頁就是它的去處。`applyEntryHash()` 認得 `#session`，
+    // 所以這條連結直接落在決策紀錄那一頁。
+    log('mark', state.pendingOutcome.symbol + ' — 已記入決策紀錄',
+      { text: '看歷史', href: '/v3/#session' });
     state.pendingOutcome = null;
   }
 
+  /** 決策紀錄的所在。`applyEntryHash()` 認得 `#session`，直接落在那一頁。 */
+  var RECORD_HREF = '/v3/#session';
+
+  // 兩個出口**都先記錄** —— 記錄不是選項，是收束的一部分。
+  // 差別只在記錄完要留在這裡，還是去看它在紀錄裡的樣子。
   el.btnResultSave.addEventListener('click', function () {
     finalizeResult();
     closeSheets();
   });
-
-  el.btnComplete.addEventListener('click', function () {
-    endSession('close', el.timerLabel.textContent + ' — 流程完成');
+  el.btnResultRecord.addEventListener('click', function () {
+    finalizeResult();
+    window.location.href = RECORD_HREF;
+  });
+  // 紀律近況那一塊本來就是決策紀錄的預覽，點它等同「去看完整的」。
+  el.resultHistory.addEventListener('click', function () {
+    finalizeResult();
+    window.location.href = RECORD_HREF;
   });
 
-  el.btnCancel.addEventListener('click', function () {
-    endSession('cancel', el.timerLabel.textContent);
+  // 「結構確認期間離開了多久」現在由 /v3/ 記 —— 決策真正在跑的地方是那一頁，
+  // 而且它把離開寫進跨頁快照，連「離開之後沒回來就被清掉記憶體」都記得住。
+  // 這一頁曾經有一份同樣的追蹤，但它靠 state.session（只有 startSession 會設），
+  // 交棒之後永遠進不去 —— 兩份同語意的實作留一份就好。
+
+  // 回到這一頁時（含 iOS 把 App 換回前景）重畫橫幅，不用等下一次 tick。
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') renderDecisionBar();
   });
 
   // ── 連接 TradingView（專屬頻道，零輸入配對；真訊號與模擬走同一條 ingest 管線）──
@@ -1056,9 +1479,30 @@
     sinceMs: 0,
     seenIds: {},
     catchUp: false,
+    // Vercel Deployment Protection 的 bypass query（如 'x-vercel-protection-bypass=xxx'）。
+    // 這個部署有 SSO 保護時，匿名的 TradingView POST 會在 edge 就被擋掉、根本進不到
+    // /api/alert。TradingView 不能帶自訂 header，所以官方解法是把同一組密鑰放進 query。
+    // 專案沒開 Protection Bypass for Automation 時是空字串 → 網址跟以前一模一樣。
+    //
+    // ⚠️ 範圍更正（2026-08-06）：實際被保護的只有**分支 preview**。正式站
+    // （<project>.vercel.app）即使 SSO 開著也匿名可達 —— Standard Protection
+    // 豁免的是正式站網址本身，不是只有自訂網域。此處原本的註解宣稱正式站也在牆後，
+    // 那是錯的（見 docs/PLAYBOOK.md §4）。
+    bypassQuery: '',
   };
 
   function getChannel() { return localStorage.getItem(CHANNEL_KEY) || ''; }
+
+  // 向 server 問這個部署的 bypass query。既有頻道不用重新配對就能補上。
+  function loadBypassQuery() {
+    // no-store：密鑰是「之後才會出現」的東西，不能讓瀏覽器把「還沒有」那一版快取住。
+    return fetch('/api/channel', { method: 'GET', cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        live.bypassQuery = (data && typeof data.bypassQuery === 'string') ? data.bypassQuery : '';
+      })
+      .catch(function () { live.bypassQuery = ''; });
+  }
 
   function loadLastSeen(channelId) {
     return Number(localStorage.getItem(LASTSEEN_PREFIX + channelId)) || 0;
@@ -1102,6 +1546,7 @@
     if (f.symbol) url += '&symbol=' + encodeURIComponent(f.symbol);
     if (f.timeframe) url += '&timeframe=' + encodeURIComponent(f.timeframe);
     if (f.strategy) url += '&strategy=' + encodeURIComponent(f.strategy);
+    if (live.bypassQuery) url += '&' + live.bypassQuery;
     return url;
   }
 
@@ -1149,6 +1594,9 @@
       timeframe: raw.timeframe || '—',
       strategyHint: raw.strategyHint,
       note: raw.note || '',
+      // TradingView payload 的 price 欄位（docs/TRADINGVIEW-ALERT-SPEC.md）——
+      // 結構守望拿它當錨點。沒帶就是 null，錨點行不顯示，不編數字。
+      price: typeof raw.price === 'number' && isFinite(raw.price) ? raw.price : null,
       receivedAt: raw.receivedAt,
     };
   }
@@ -1215,12 +1663,19 @@
     live.pollTimer = setInterval(function () { pollOnce(channelId); }, POLL_INTERVAL_MS);
   }
 
+  var bypassAsked = false;
+
   function renderLive() {
     var channelId = getChannel();
     if (channelId) {
       el.liveSetup.setAttribute('hidden', '');
       el.liveReady.removeAttribute('hidden');
       renderWebhookUrl();
+      if (!bypassAsked) {
+        bypassAsked = true;
+        // 問完再重畫一次網址 —— 拿不到就維持原樣，不擋任何流程。
+        loadBypassQuery().then(renderWebhookUrl);
+      }
       syncChannelSymbol(); // 開頁即把目前標的綁成頻道預設（既有頻道也回填）
       startPolling(channelId); // 有連結就自動接收，零動作
     } else {
@@ -1269,11 +1724,26 @@
 
   function refreshPushRow() {
     if (!el.livePushRow) return;
-    if (!pushSupported() || !getChannel()) {
+    // 還沒配對頻道 → 整列不出現（推播綁在頻道上，沒頻道就無從談起）。
+    if (!getChannel()) {
       el.livePushRow.setAttribute('hidden', '');
       return;
     }
     el.livePushRow.removeAttribute('hidden');
+    // 🔴 瀏覽器不支援時**不要整列消失** —— 那樣畫面上完全沒有解釋，
+    // 使用者只會看到「推播的按鈕不見了」。founder 2026-08-21 實走就卡在這裡：
+    // in-app 瀏覽器沒有 PushManager，那一列整個不見，看不出下一步是什麼。
+    // 留著並說出原因與下一步，跟自我測試那句紅字同一條規則（要講出範圍）。
+    if (!pushSupported()) {
+      el.livePushBtn.disabled = true;
+      el.livePushBtn.textContent = '🔔 手機推播（這個瀏覽器不支援）';
+      setPushStatus('iOS 只有「加入主畫面」後、從主畫面那顆圖示開啟的 App 才有網頁推播'
+        + '（Safari 分頁與 App 內建瀏覽器都沒有）。⚠️ 主畫面 App 有自己的儲存空間，'
+        + '會產生一條新的專屬連結 —— 開啟推播後記得回來「複製連結」重貼進 TradingView，'
+        + '否則快訊會送到舊的通道。', false);
+      return;
+    }
+    el.livePushBtn.disabled = false;
     navigator.serviceWorker.getRegistration('/decision-alert/').then(function (reg) {
       if (!reg || !reg.pushManager) return;
       reg.pushManager.getSubscription().then(function (sub) {
@@ -1364,6 +1834,68 @@
     }
   });
 
+  // 「測試這條連結」：用 TradingView 的身分打一次自己的 webhook URL。
+  //
+  // 為什麼要 credentials:'omit' —— 這頁自己輪詢 /api/alerts 會通，是因為瀏覽器帶著
+  // Vercel SSO 的登入 cookie；TradingView 沒有那顆 cookie，會在 edge 就被擋掉。
+  // 不拆掉 cookie 的測試只會測到「我登入了」，測不出 TradingView 的處境。
+  //
+  // 探針用 GET：/api/alert 的第一道檢查就是 method，會回 405 JSON。到得了那個 405
+  // 就代表請求穿過了保護層（而且不會寫進任何一筆快訊、不污染紀錄）。收到別的東西
+  // ——轉址、HTML 登入頁、401——就是被保護層擋在門外。
+  /**
+   * 這道牆的範圍。分支 preview 才有，正式站不受影響 —— 不講的話，
+   * 上面那句紅字看起來像是整個快訊功能壞掉。
+   * @returns {string} 要接在錯誤訊息後面的補充（正式站上是空字串）
+   */
+  function scopeNote() {
+    if (!/-git-/.test(location.hostname)) return '';
+    // ⚠️ 這是 textContent，不是 markdown —— 這裡不能用 ** 標粗體，會原樣印出星號。
+    return ' ⚠️ 你現在在分支預覽上，這道牆是分支預覽才有的 —— 正式站'
+      + '（tenki-emotion-app.vercel.app）匿名可達，不受影響。要在這條分支上'
+      + '實測 TradingView 才需要補密鑰；只是要走流程的話，用上面三顆模擬快訊鍵就夠了。';
+  }
+
+  function runWebhookSelfTest() {
+    var url = el.liveUrl.textContent;
+    if (!url) return;
+    el.liveSelfTest.disabled = true;
+    el.liveSelfTestResult.textContent = '測試中…';
+    fetch(url, { method: 'GET', credentials: 'omit', redirect: 'manual', cache: 'no-store' })
+      .then(function (res) {
+        if (res.status === 405) return res.json().then(function () { return null; });
+        if (res.status === 0 || res.type === 'opaqueredirect') {
+          return '被部署保護擋下（轉址到登入頁）—— TradingView 送來的快訊也會這樣消失。修法見 docs/TRADINGVIEW-SETUP.md §1。';
+        }
+        if (res.status === 401 || res.status === 403) {
+          return '被部署保護擋下（' + res.status + '）—— TradingView 送來的快訊也會這樣消失。修法見 docs/TRADINGVIEW-SETUP.md §1。';
+        }
+        return '回了非預期的 ' + res.status + ' —— 這條連結不能用。';
+      })
+      .then(function (problem) {
+        if (problem) {
+          // 分辨「密鑰沒進到這個部署」與「密鑰有了但仍被擋」—— 兩者的下一步不同，
+          // 只說「被擋下」會讓人反覆重試同一件事。
+          var cause = live.bypassQuery
+            ? '這個部署有 bypass 密鑰，但仍被擋 —— 密鑰可能已失效或被撤銷。'
+            : '這個部署讀不到 bypass 密鑰（VERCEL_AUTOMATION_BYPASS_SECRET 未注入）—— 密鑰沒生成、沒勾「設為環境變數」，或生成後還沒重新部署。';
+          // 🔴 **講清楚這道牆的範圍，否則這句紅字會被讀成「快訊功能壞了」。**
+          // TRADINGVIEW-SETUP.md §1 有一整個框在講這個誤會：2026-08-05 的文件寫成
+          // 「正式站也在牆後」，害一整輪除錯走去關 SSO、生密鑰，而真正的原因在別處。
+          // 實測（2026-08-06）：正式站匿名可達，被保護的只有分支 preview。
+          el.liveSelfTestResult.textContent = '❌ ' + problem + ' ' + cause + scopeNote();
+        } else {
+          el.liveSelfTestResult.textContent = '✅ 這條連結通到 TENKI —— TradingView 可以送達（沒有寫入任何快訊）。';
+        }
+      })
+      .catch(function () {
+        el.liveSelfTestResult.textContent = '❌ 連不上 —— 多半是被部署保護擋在門外。修法見 docs/TRADINGVIEW-SETUP.md §1。';
+      })
+      .then(function () { el.liveSelfTest.disabled = false; });
+  }
+
+  el.liveSelfTest.addEventListener('click', runWebhookSelfTest);
+
   el.liveToggle.addEventListener('click', function () {
     var hidden = el.liveBody.hasAttribute('hidden');
     if (hidden) { el.liveBody.removeAttribute('hidden'); el.liveChevron.textContent = '▴'; }
@@ -1390,14 +1922,14 @@
   // ── 模擬按鈕 ──
   // ES1! 單一標的 · Mancini 假跌破（FBD）— 對齊 founder 實際交易型態（示意值）
   el.btnSingle.addEventListener('click', function () {
-    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '關鍵價位掃低後收回（示意）'));
+    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '關鍵價位掃低後收回（示意）', 6851));
   });
 
   // 同一檔快速下殺，一波內連踩兩個關鍵價位 → 60s 窗聚合（不是多檔同時）
   el.btnMulti.addEventListener('click', function () {
     var now = Date.now();
-    var a = makeAlert('ES1!', '掃下緣', '1m', 'Mancini', '快速下殺掃到下緣（示意）');
-    var b = makeAlert('ES1!', '續破下一級', '1m', 'Mancini', '同一波再破下一個關鍵價位（示意）');
+    var a = makeAlert('ES1!', '掃下緣', '1m', 'Mancini', '快速下殺掃到下緣（示意）', 6851);
+    var b = makeAlert('ES1!', '續破下一級', '1m', 'Mancini', '同一波再破下一個關鍵價位（示意）', 6844);
     a.receivedAt = now;
     b.receivedAt = now + 3000; // 同一波 3 秒內連踩兩級
     ingestGroup([a, b]);
@@ -1405,7 +1937,7 @@
 
   // 同一價位 K 棒內反覆穿越 → 冷卻抑制（不轟炸）
   el.btnRepeat.addEventListener('click', function () {
-    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '同一價位 K 棒內反覆穿越（示意）'));
+    ingest(makeAlert('ES1!', '假跌破 FBD', '1m', 'Mancini', '同一價位 K 棒內反覆穿越（示意）', 6851));
   });
 
   // ── 決策節奏設定面板 ──
@@ -1477,8 +2009,38 @@
     else { el.resBody.setAttribute('hidden', ''); el.resChevron.textContent = '▾'; }
   });
 
+  // ── 偏移預警入口的副標 ──
+  /**
+   * 這一列自己講出「你累積了多少」。
+   *
+   * 🔴 數字來自共用的 `readiness-history.js`（唯一來源），這裡不自己數 ——
+   *    不然就會變成「同一份資料，兩頁數字對不起來」的第四次（PLAYBOOK §6）。
+   * 🔴 沒有累積就說「尚未累積」，**不給 0 也不留空**：空白會讓人以為壞了，
+   *    0 會讓人以為它量過而結果是零。
+   * ⚠️ 模組沒載到就說沒載到 —— 不編一個看起來正常的數字頂替。
+   */
+  function renderDriftEntry() {
+    var history = window.TENKI_READINESS_HISTORY;
+    if (!history) {
+      el.driftStatus.textContent = '歷史模組沒載到';
+      return;
+    }
+    var summary = history.summary().summary;
+    el.driftStatus.textContent = summary.sampleCount === 0
+      ? '尚未累積'
+      : summary.sampleCount + ' 次掃描 · ' + summary.distinctDays + ' 天';
+  }
+
   renderSettingsInputs();
   renderResultSettingsInputs();
+  renderDriftEntry();
   renderState();
   refreshDiscipline();
+  // 開頁就問「有沒有決策還在跑」—— 這一頁是 PWA 的 start_url，
+  // 交易者下完單回來第一眼看到的就是它。
+  renderDecisionBar();
+
+  // 從 /v3/ 判定完回來 → 直接開收束頁。放在最後，確保所有 render* 與
+  // openResult 需要的元素／狀態都已就緒。
+  if ((window.location.hash || '').replace('#', '') === 'result') acceptReturnTicket();
 })();

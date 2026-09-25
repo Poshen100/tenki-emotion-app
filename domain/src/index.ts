@@ -167,6 +167,31 @@ export type {
 } from './contracts/readiness-reading';
 
 export {
+  READINESS_HISTORY_KEY,
+  READINESS_HISTORY_MAX,
+  READINESS_HISTORY_SCHEMA,
+} from './contracts/readiness-history';
+
+export type {
+  ReadinessHistoryLoad,
+  ReadinessHistorySample,
+} from './contracts/readiness-history';
+
+export {
+  appendHistorySample,
+  histogram,
+  loadHistory,
+  summarizeHistory,
+  summarizeSignal,
+  toHistorySample,
+} from './policies/readiness-history';
+
+export type {
+  ReadinessHistorySummary,
+  SignalDistribution,
+} from './policies/readiness-history';
+
+export {
   MIN_BAND_SAMPLES_FOR_RATE,
   READING_FRESHNESS_MS,
   buildReading,
@@ -180,6 +205,69 @@ export {
 } from './policies/readiness-band';
 
 export type { BandDisciplineStat, ReadingGate } from './policies/readiness-band';
+
+export {
+  BIOMETRIC_METRICS,
+  BIOMETRIC_PERMISSION_SCOPES,
+  BIOMETRIC_SOURCE_PLATFORMS,
+  LOCAL_ONLY_METRICS,
+  MIN_USABLE_QUALITY,
+  SAMPLE_DERIVATIONS,
+  SAMPLE_QUALITY_GRADES,
+  isEstimatedSample,
+  isHrvMetric,
+  mayLeaveDevice,
+} from './contracts/wearable-sample';
+
+export type {
+  BiometricMetric,
+  BiometricPermissionScope,
+  BiometricSample,
+  BiometricSourcePlatform,
+  SampleDerivation,
+  SampleQualityGrade,
+} from './contracts/wearable-sample';
+
+export {
+  MAX_CLOCK_SKEW_MS,
+  METRIC_PLAUSIBLE_RANGES,
+  partitionValidSamples,
+  validateBiometricSample,
+} from './schemas/wearable-schema';
+
+export {
+  METRIC_FRESHNESS_MS,
+  METRIC_LIVE_MS,
+  SAMPLE_FRESHNESS_CLASSES,
+  SOURCE_PLATFORM_PRIORITY,
+  classifySampleFreshness,
+  isSampleFresh,
+  isUsableSample,
+  resolveLatestByMetric,
+  resolveSourcePlatform,
+  sampleAgeMs,
+  selectPreferredSample,
+} from './policies/wearable-source-policy';
+
+export type { SampleFreshness } from './policies/wearable-source-policy';
+
+export {
+  CLAIM_QUALIFIERS,
+  CLAIM_TIMINGS,
+  ESTIMATE_TERMS,
+  IMMEDIACY_TERMS,
+  buildReadingClaim,
+  mayClaimAsCurrent,
+  validateReadingCopy,
+} from './policies/reading-claim';
+
+export type {
+  ClaimQualifier,
+  ClaimTiming,
+  ReadingClaim,
+  ReadingCopyCheck,
+  ReadingCopyProblem,
+} from './policies/reading-claim';
 
 export {
   DOMAIN_TRADE_RESULTS,
