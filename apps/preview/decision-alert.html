@@ -560,6 +560,13 @@
     .tpl-head span:nth-child(1) { flex: none; width: 96px; }
     .tpl-head span:nth-child(2) { flex: 1; min-width: 0; }
     .tpl-head span:nth-child(3) { flex: none; width: 44px; text-align: right; }
+    /* 為什麼沒有值 —— 一句話，不是一個破折號。
+       ⚠️ 沒有比對到時第三欄整欄不存在，中間那欄靠上面的 `flex: 1` 自動吃滿寬度，
+       不需要（也不該）為那個狀態另外寫一條規則。 */
+    .tpl-nomatch {
+      font-size: 11px; line-height: 1.5; color: var(--n-400);
+      padding: 8px 0 2px; border-bottom: 1px solid var(--n-800);
+    }
     .tpl-row {
       display: flex; align-items: baseline; gap: 10px;
       padding: 10px 0; border-bottom: 1px solid var(--border);
@@ -901,6 +908,6 @@
   <script src="/preview/readiness-scan.js?v=rs20"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do3"></script>
-  <script src="decision-alert.js?v=alert44"></script>
+  <script src="decision-alert.js?v=alert45"></script>
 </body>
 </html>

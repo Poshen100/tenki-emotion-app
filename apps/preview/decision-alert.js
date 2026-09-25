@@ -116,11 +116,38 @@
     { keyword: 'high rs', templateId: 'MODE_2' },
     { keyword: 'mode 2', templateId: 'MODE_2' },
     { keyword: 'sensitivity', templateId: 'MODE_2' },
+    // 中文：交易者在 TradingView 的訊息欄就是這樣寫的。
+    // ⚠️ 全部都是**指名結構**的詞，沒有一個是方向詞（見 suggestTemplate 的註解）。
+    { keyword: '假跌破', templateId: 'FBD' },
+    { keyword: 'failed breakdown', templateId: 'FBD' },
+    { keyword: '曼奇尼', templateId: 'FBD' },
+    { keyword: '高相對強度', templateId: 'MODE_2' },
+    { keyword: '高 rs', templateId: 'MODE_2' },
+    { keyword: '成長股', templateId: 'CANSLIM' },
   ];
 
+  /** 快訊自己帶的文字：結構提示 + 條件 + 訊息欄。三個都是它說的，不是我們猜的。 */
+  function alertOwnWords(alert) {
+    return [alert && alert.strategyHint, alert && alert.condition, alert && alert.note]
+      .filter(Boolean).join(' ');
+  }
+
+  /**
+   * 這則快訊**自己說**了哪一種結構。
+   *
+   * 🔴 只吃 `strategyHint` 是不夠的：真實的 TradingView 快訊把結構寫在
+   * **訊息欄**（`note`）或條件欄裡 —— founder 2026-09-24 那則是
+   * 「ES1! 下穿 7,740.00」，`strategyHint` 是空的，於是 MATCH 欄永遠沒有值。
+   * 現在三個欄位一起看。
+   *
+   * ⚠️ **只加「指名結構」的詞，不加方向詞。**「下穿 / 上穿 / 跌破」只說了價格
+   * 穿過一個數字，**沒有說這是不是一個 failed breakdown** —— 那正是交易者要
+   * 守望的事。把方向詞映射到某個流程，等於讓 App 替使用者猜一件還沒發生的事，
+   * 那是這一整條產品線最不能做的動作。
+   */
   function suggestTemplate(hint) {
     if (!hint) return null;
-    var normalized = hint.trim().toLowerCase();
+    var normalized = String(hint).trim().toLowerCase();
     if (!normalized) return null;
     for (var i = 0; i < STRATEGY_KEYWORDS.length; i++) {
       if (normalized.indexOf(STRATEGY_KEYWORDS[i].keyword) !== -1) {
@@ -712,7 +739,7 @@
 
   /** 成本預期（呼應 Fable-5 的 ⏱ chip）。 */
   function renderEntryCost(alert) {
-    var tpl = TEMPLATES[suggestTemplate(alert.strategyHint)];
+    var tpl = TEMPLATES[suggestTemplate(alertOwnWords(alert))];
     if (!tpl) { el.entryCost.textContent = ''; return; }
     // 不再報時長 —— 結構確認沒有時間表（§7 step 3），報一個分鐘數會變成「等這麼久才對」的暗示。
     el.entryCost.textContent = '建議流程 ' + tpl.nameZh + '（可自由更換）';
@@ -888,7 +915,7 @@
    * 「這筆快訊標的是這個結構」是**關於快訊的事實**，不是對使用者的指示。
    */
   function renderTemplatePicker(alert) {
-    var matched = suggestTemplate(alert.strategyHint);
+    var matched = suggestTemplate(alertOwnWords(alert));
 
     // 狀態列：標的 · 快訊標記的結構 · 收到時間。三個都是這筆快訊真的帶著的資料，
     // 沒有一個是為了「看起來像終端機」湊出來的。
@@ -907,14 +934,30 @@
 
     el.tplList.textContent = '';
 
+    // 🔴 沒有比對到時，**第三欄整欄不出現**，而不是每一列印一個「—」。
+    // founder 2026-09-25：「印『—』這樣看起來會像壞掉」—— 他是對的，
+    // 破折號只是把空白換一個寫法，欄頭仍然在承諾一個它給不出來的值。
+    // 快訊沒有指名結構是**正常情形**（單純的價格穿越快訊本來就沒說），
+    // 不是錯誤 —— 所以把那件事**用一句話說出來**，而不是留一欄標點。
+    // （同 PLAYBOOK 那條：不支援時不要整列隱藏，要留著並就地說出原因；
+    //   這裡是它的另一面 —— 沒有值的欄位不要硬留，但要說出為什麼沒有。）
     var head = document.createElement('div');
     head.className = 'tpl-head';
-    ['CODE', 'STRUCTURE', 'MATCH'].forEach(function (label) {
+    var cols = matched ? ['CODE', 'STRUCTURE', 'MATCH'] : ['CODE', 'STRUCTURE'];
+    cols.forEach(function (label) {
       var cell = document.createElement('span');
       cell.textContent = label;
       head.appendChild(cell);
     });
     el.tplList.appendChild(head);
+
+    if (!matched) {
+      var why = document.createElement('div');
+      why.className = 'tpl-nomatch';
+      // 陳述事實 + 下一步，不下指示。⚠️ 不得寫成「請選擇最適合的」那種建議語氣。
+      why.textContent = '這則快訊沒有指名結構 —— 三個流程都可以選';
+      el.tplList.appendChild(why);
+    }
 
     Object.keys(TEMPLATES).forEach(function (id, index) {
       var tpl = TEMPLATES[id];
@@ -939,14 +982,17 @@
       main.appendChild(name);
       main.appendChild(sub);
 
-      var flag = document.createElement('div');
-      flag.className = 'tpl-flag';
-      // 陳述事實，不下指示：這筆快訊標的就是這個結構。
-      flag.textContent = id === matched ? 'ALERT' : '';
-
       row.appendChild(code);
       row.appendChild(main);
-      row.appendChild(flag);
+      // 第三欄只在真的有比對到的時候存在 —— 沒有比對到就沒有這一欄，
+      // 不是有一欄但裡面是空的。
+      if (matched) {
+        var flag = document.createElement('div');
+        flag.className = 'tpl-flag';
+        // 陳述事實，不下指示：這筆快訊標的就是這個結構。
+        flag.textContent = id === matched ? 'ALERT' : '';
+        row.appendChild(flag);
+      }
 
       row.addEventListener('click', function () {
         closeSheets();
