@@ -150,7 +150,17 @@ describe('resolveDayCadence — §6.1 daily cadence', () => {
 });
 
 describe('resolveDayCadence — compliance of the context line', () => {
-  const BANNED = ['勝率', '建議', '應該', '休息', '表現', '獲利率', '期望值', '停手吧'];
+  // 前半是節奏語言的紅線（評價／指示），後半直接照 `PROHIBITED_VOCABULARY_ZH`
+// 抄過來 —— 這份清單原本漏了它們，於是 `contextZh` 曾經有兩句帶著「獲利」
+// 與「停損」出貨（2026-09-26 抓到）。
+//
+// 🔴 為什麼是手抄而不是 import：`domain` 刻意不相依 `packages/engine`，
+//    跨套件的文字檢查住 `scripts/check-vocab.sh`（PLAYBOOK：不要為一條斷言
+//    開新的相依邊）。這裡只抄**這個檔案的文案可能撞到**的那幾個。
+const BANNED = [
+  '勝率', '建議', '應該', '休息', '表現', '獲利率', '期望值', '停手吧',
+  '獲利', '虧損', '停損', '停利', '買入', '賣出', '交易建議',
+];
 
   it('every state produces a factual line with no advice or evaluation', () => {
     const cases = [

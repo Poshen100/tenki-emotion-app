@@ -83,11 +83,11 @@ function contextFor(state: DayCadenceState, tradesToday: number): string {
     case 'fresh':
       return '今天還沒有決策紀錄';
     case 'stop_after_win':
-      return '今天第 1 筆 · 上一筆獲利了結';
+      return '今天第 1 筆 · 上一筆達到目標';
     case 'second_chance':
       return '今天第 1 筆 · 已收束';
     case 'circuit_break':
-      return '今天 2 筆 · 兩筆都停損';
+      return '今天 2 筆 · 兩筆都觸及保護價';
     default:
       return '今天已完成 ' + String(tradesToday) + ' 筆';
   }
