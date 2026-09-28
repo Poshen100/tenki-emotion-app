@@ -2528,6 +2528,30 @@ for (const h of [700, 740, 844, 932]) {
   const over = await read(30 * 60 + 600);
   check('🔴 超過 30 分鐘上限時指針夾在 100%', over.needleLeft, '100%');
 
+  // 🔴 **同一條軌上不得有兩把尺。**
+  // `.tp-tick`（標記）原本一律用 `tmpl.durationSec` 定位，而守望的軌是 30 分鐘 ——
+  // 同一個 t=600s，標記會畫在 100%（Mancini FBD 是 10 分鐘），指針在 33.33%。
+  // 兩個東西指著同一個時刻卻站在不同位置，而且兩邊各自看都很正常、沒有東西會報錯。
+  // 這條把兩個分母綁在一起：標記的位置必須等於「指針在同一個 t 的位置」。
+  const marks = await page.evaluate(() => {
+    sess.events = [{ t: 600, band: 'neutral' }];   // 10 分鐘整 → 30 分鐘尺上的 33.33%
+    sess.startedAtMs = Date.now() - 900 * 1000;
+    elapsed = 900;
+    tickFdcb();
+    renderLiveNodes();
+    const tick = document.querySelector('.fdcb-prog .tp-tick');
+    return {
+      tickLeft: tick ? tick.style.left : null,
+      needleLeft: document.querySelector('.fdcb-prog .wb-needle').style.left,
+      tmplDur: TEMPLATES[currentTmpl].durationSec,
+    };
+  });
+  checkTruthy(`守望模板的倒數時長確實不是 30 分（${marks.tmplDur}s，一樣的話這條驗不到東西）`,
+    marks.tmplDur !== 30 * 60);
+  check('🔴 守望模式下標記跟指針用同一把尺（t=600 → 33.33%）',
+    marks.tickLeft, '33.3333%');
+  check('🔴 而 t=900 的指針在 50%（兩者同一個分母 1800）', marks.needleLeft, '50%');
+
   // 倒數模板不得被誤傷：軌要回到模板的三階段（等分），且填充照常推進
   await page.evaluate(() => {
     window.setState('idle');
