@@ -18,6 +18,78 @@
 
 ---
 
+# 2026-09-26 Session Update (只有 iPhone 13 能做什麼；六張 stale PR 清查)
+
+founder 問「現在 GitHub 狀態，只用 iPhone 13 能用嗎」，接著一路做完 PR 清查。
+本輪 merge 4 張（#227 #218 #262 #263）、關 4 張（#225 #164 #149 #148）、
+#261 仍開著。
+
+## 1. iPhone 13 的真實能力邊界
+
+**卡的不是 Mac** —— EAS 在 Expo 的雲端 macOS 編譯。卡的是 **Apple Developer
+Program 年費**：把自訂原生 build 裝進實體 iPhone 需要 provisioning，沒有免費路徑。
+所以原生 HealthKit / BLE 這條，iPhone 13 單獨做不到。
+
+但產品主線本來就在 Safari 上（`/v3/` `/preview/` `/story/` `/decision-alert/`
+`/drift/`），而 `docs/PHONE-PPG.md` §0 自己寫著「只有一支手機的使用者是最大潛在
+使用者」。所以答案是：**iPhone 13 是主力裝置，被擋住的只有穿戴橋接這條支線。**
+
+而那條支線有零費用替代路線 → `docs/WEARABLE-INTEGRATION.md` §4f（PR #261，**設計
+而已，一行 code 都還沒寫**）：iOS「捷徑」的 `尋找健康樣本` 可以讀健康庫並存成幾 KB
+的 JSON，網頁用 `<input type="file">` 本機讀入。⚠️ **不要用 Health App 的「輸出所有
+健康資料」** —— 那包 `export.xml` 常常數百 MB，丟進 Safari 解析跟 #67 的 OOM 是同一個
+形狀的錯。
+
+## 2. 🔴 三件「看起來做完了，其實沒有」
+
+這一輪的主軸就是這個家族，三件互不相關但形狀相同：
+
+**① `?v=` 沒跳號 ＝ 修的東西到不了使用者。** #227 改了 `decision-alert.js` 的文案卻
+沒動 `?v=alertNN`（repo 慣例是每次都跳，log 上 34→35→40→43→44 無例外）。URL 沒變 →
+已快取的瀏覽器拿舊檔 → founder 手機仍顯示「盤整迴避時段」，然後所有人以為修好了。
+**test-merge 只證明文字貼得上去，不證明貼上去之後仍然有效。**
+
+**② 「落後 N 個 commit」會讓你完全看錯。** #164 / #149 / #148 不是舊，是**孤兒**：
+root commit `f071ccf3`，而現在 main 是 `8812c2ba`/`b9537ec6` —— repo 歷史在 2026-07
+前後被換過，`git merge-tree` 直接回 `refusing to merge unrelated histories`。
+**GitHub 也併不了，rebase 沒有共同基準可用。** 判 stale PR 要先跑 `git merge-base`。
+
+**③ grep 命中的可能是註解。** 查「Skia 落地了嗎」時 `EdgeScoreRing.tsx` 命中
+`@shopify/react-native-skia` —— 打開才發現命中的是註解 `will migrate to …`，
+檔案本身仍是 View placeholder。差一點就回報「已完成」。
+
+## 3. 合規措辭現在有守門了（#263）
+
+#227 只是把字改掉；**第三次再犯仍然只是時間問題**（前兩次：MODE_2 撞專業術語、
+「盤整迴避時段」躺六週）。#263 在 `check-vocab.sh` 加第三條。
+
+關鍵是**沿用該檔既有的哲學：擋命名、不擋解釋** —— 講明「為什麼這個字不能用」的
+註解必須留得住，否則規則會擋掉自己的說明（`alert-policy.ts` 的 JSDoc 就引用了那個
+被禁字串）。做法是先濾掉行首註解行再掃。而「濾註解」不是猜的：動手前實測誤判面，
+八個候選詞在掃描路徑內只有兩處命中，**兩處都是註解**。
+
+四條反向驗證，重點在後兩條：③ 只加解釋註解 → 仍綠（不擋自己的說明）；
+④ HTML `<span>` 放回違規字 → **紅**（#227 修的三處裡有一處是 HTML，只驗引號字串會漏）。
+
+## 4. #225 關掉之前先把兩條教訓搬進 PLAYBOOK（#262）
+
+順序是刻意的：教訓先併進 main、**確認落地**（`PLAYBOOK.md:390` / `:402`）才關 #225，
+中間沒有空窗。兩條：量測條件不同 ≠ 同一個量（不能混池，且**同一個錯會在不同層各出現
+一次**）；百分位端點是必然不是罕見（Weibull `i/(n+1)`）。
+
+## 下次接手點
+
+- **#261**（iPhone-only 設計）等 founder 看。動工前要先在 iPhone 上花五分鐘確認
+  `尋找健康樣本` 的型別選單裡**有沒有「心率變異性」** —— 沒有的話階段 A 要改以
+  靜止心率為主軸。**先問再寫。**
+- **#218 的 UI 還沒接** —— 這是本輪唯一「merge 了但使用者感受不到」的一張。
+  domain 層有 `resolveDayCadence`，但「第一筆贏了之後下一則快訊照樣彈面板」**仍然存在**。
+  接線設計見本日回覆（三個結構性發現：`no_entry` 應由 `judged_stood_down` **推導**而非
+  再問一次、`evaluateDelivery` 目前**只回第一個理由**、結果軸與紀律軸必須分開）。
+- 仍未做：`packages/engine`/`scan` 沒有覆蓋率門檻（原 #164）；`EdgeScoreRing` 仍是
+  placeholder、`TrustShield` 仍有 16 處 legacy `Animated`（原 #149）。
+
+
 # 2026-09-25 Session Update (空欄不要印破折號；顏色不得比文案更確定)
 
 分支 `claude/decision-timer-completion-sh7ogg`（PR #260 開著）。兩條都是 founder
