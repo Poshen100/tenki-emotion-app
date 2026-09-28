@@ -2454,15 +2454,19 @@ for (const h of [700, 740, 844, 932]) {
 }
 
 // ═════════════════════════════════════════════════
-// 守望模式的三段軌 = 30 分鐘的經過時間軸（0–3 / 3–10 / 10–30）
+// 守望模式的軌 = 30 分鐘的經過時間軸：**固定的尺 + 會動的指針**
 //
 // founder 2026-09-24：「希望可以從長條的分段顏色快速看出時間」。
-// 🔴 段寬必須照**時間比例**（10% / 23.33% / 66.67%），不是等分 ——
-//    等分會讓這條軸謊報時間長度，而「跑了多久」正是它要回答的問題。
+// 第一版用三段的亮暗切換，founder 2026-09-28 實走之後仍然讀不出來，量出兩個原因：
+//   ① 走過(--n-600) 對 還沒到(--n-800) 的對比只有 **1.87:1** → 看得到指針、看不到尺。
+//   ② 第三段佔 66.7%（30 分鐘裡的 20 分鐘）→ 12:00 與 25:00 長得一模一樣，
+//      而**這一條換什麼顏色都救不了**：三個離散格子表示不了一個連續量。
+// 於是三段退回去只當刻度（同一階），位置交給指針。founder 從四版裡挑的 D。
+//
+// 🔴 段寬仍然照**時間比例**（10% / 23.33% / 66.67%），不是等分。
 // 🔴 `#fdcbFill` 仍然是 0 —— 守望不畫倒數填充那條規則沒有放寬。
-//    會動的只有「現在在哪一段」，那是事實不是進度壓力。
-// ⚠️ 顏色由既有那條「三段軌只准用中性階」守著（第一版我把 now 做成 cyan，
-//    那條當場擋下來，而且擋得對：這條軸報的是量測值）。
+// 🔴 指針是軌上唯一的非中性色（cyan = ACTIVE = 這筆決策正在跑）；
+//    三段刻度仍然由既有那條「三段軌只准用中性階」守著。
 // ═════════════════════════════════════════════════
 {
   console.log('\n── 守望三段軌 = 經過時間軸 ──');
@@ -2480,10 +2484,14 @@ for (const h of [700, 740, 844, 932]) {
     elapsed = s;
     tickFdcb();
     const q = (k) => document.querySelector('.fdcb-prog .' + k);
-    const one = (k) => ({ w: q(k).style.width, now: q(k).classList.contains('wb-now'), past: q(k).classList.contains('wb-past') });
+    const needle = document.querySelector('.fdcb-prog .wb-needle');
     return {
       fill: document.getElementById('fdcbFill').style.width,
-      segs: ['seg-obs', 'seg-sweet', 'seg-ext'].map(one),
+      w: ['seg-obs', 'seg-sweet', 'seg-ext'].map((k) => q(k).style.width),
+      // 刻度的底色：三段必須**完全一樣**，任何一段自己變亮就是回到舊設計
+      segBg: ['seg-obs', 'seg-sweet', 'seg-ext'].map((k) => getComputedStyle(q(k)).backgroundColor),
+      needleLeft: needle ? needle.style.left : null,
+      needleBg: needle ? getComputedStyle(needle).backgroundColor : null,
     };
   }, sec);
 
@@ -2491,17 +2499,34 @@ for (const h of [700, 740, 844, 932]) {
   const at5 = await read(5);
   // ⚠️ 讀回來的是 CSSOM **正規化過**的值：寫進去 `10.00%`、讀出來是 `10%`
   //    （`23.33%` / `66.67%` 沒有尾隨零所以原樣）。期待值照它實際回什麼寫。
-  check('🔴 段寬照時間比例（0–3 分 → 10%）', at5.segs[0].w, '10%');
-  check('🔴 段寬照時間比例（3–10 分 → 23.33%）', at5.segs[1].w, '23.33%');
-  check('🔴 段寬照時間比例（10–30 分 → 66.67%）', at5.segs[2].w, '66.67%');
+  check('🔴 段寬照時間比例（0–3 分 / 3–10 分 / 10–30 分）', at5.w, ['10%', '23.33%', '66.67%']);
 
-  for (const [sec, idx, label] of [[5, 0, '00:05'], [160, 0, '02:40'], [390, 1, '06:30'], [1080, 2, '18:00'], [1710, 2, '28:30']]) {
+  // 🔴 尺是**固定**的：三段同一階。這條就是「不要回到舊設計」的鎖 ——
+  //    舊版靠 wb-past/wb-now 讓某一段變亮，而那正是 founder 讀不出來的東西。
+  check('🔴 三段刻度是同一階（尺不會自己變亮暗）',
+    new Set(at5.segBg).size, 1);
+  // 🔴 指針是軌上唯一的非中性色，而且就是 cyan-400（ACTIVE）。
+  const cyan400 = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--cyan-400').trim());
+  checkTruthy(`指針是 --cyan-400（${at5.needleBg} / token ${cyan400}）`,
+    !!at5.needleBg && at5.needleBg !== at5.segBg[0]);
+
+  // 指針位置：連續，所以 18:00 跟 28:30 必須是**不同的值** ——
+  // 那正是三個離散格子答不出來的那一段（兩者都落在第 3 段裡）。
+  const seen = [];
+  for (const [sec, label] of [[5, '00:05'], [160, '02:40'], [390, '06:30'], [1080, '18:00'], [1710, '28:30']]) {
     const r = await read(sec);
-    check(`${label} 落在第 ${idx + 1} 段`, r.segs.map((x) => x.now), [idx === 0, idx === 1, idx === 2]);
-    check(`${label} 之前的段都標成走過`, r.segs.slice(0, idx).every((x) => x.past), true);
+    const want = (Math.min(sec / (30 * 60), 1) * 100).toFixed(2).replace(/\.?0+$/, '') + '%';
+    check(`🔴 ${label} 指針落在 ${want}`, r.needleLeft, want);
+    seen.push(r.needleLeft);
     // 🔴 這條是原本那條規則，換了外觀之後仍然要成立
     check(`🔴 ${label} 守望仍然不推進填充條`, r.fill === '0' || r.fill === '0px' || r.fill === '', true);
   }
+  check('🔴 五個時間點的指針位置全都不同（連續量，不是三格）',
+    new Set(seen).size, 5);
+  // 超過上限要夾住，不得跑出軌外
+  const over = await read(30 * 60 + 600);
+  check('🔴 超過 30 分鐘上限時指針夾在 100%', over.needleLeft, '100%');
 
   // 倒數模板不得被誤傷：軌要回到模板的三階段（等分），且填充照常推進
   await page.evaluate(() => {
@@ -2520,11 +2545,15 @@ for (const h of [700, 740, 844, 932]) {
     axis: document.querySelector('.fdcb-prog').classList.contains('watch-axis'),
     w: [...document.querySelectorAll('.fdcb-prog .seg-obs, .fdcb-prog .seg-sweet, .fdcb-prog .seg-ext')].map((n) => n.style.width),
     fill: document.getElementById('fdcbFill').style.width,
+    needle: !!document.querySelector('.fdcb-prog .wb-needle'),
     watch: !!(window.sess && sess.watch),
   }));
   check('倒數模板不是守望（前提成立，否則下面幾條是空的）', cd.watch, false);
   check('🔴 倒數模板的軌回到模板三階段（等分）', cd.w, ['33%', '33%', '34%']);
   check('🔴 倒數模板不掛時間軸的 class', cd.axis, false);
+  // 🔴 指針要整個拿掉，不是藏起來 —— 倒數模板有自己的填充條，
+  //    留一根指針在上面等於同一條軌上有兩個位置指示。
+  check('🔴 倒數模板沒有指針', cd.needle, false);
   checkTruthy(`倒數模板照常推進填充條（${cd.fill}）`, cd.fill !== '0' && cd.fill !== '0px' && cd.fill !== '');
   await page.close();
 }
