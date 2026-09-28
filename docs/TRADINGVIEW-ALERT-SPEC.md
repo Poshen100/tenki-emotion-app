@@ -184,6 +184,135 @@ UI：三模板卡全列，建議者加 ⭐ 高亮；使用者永遠可自由選�
 - 紀律完成率 `summarizeDisciplineRate`＝（`stayed_disciplined`＋`timed_out`）÷ 已收束數，local-first 存 `localStorage`（`tenki.alert.outcomes.v1`）。
 - 背景關閉仍記錄（不漏資料，呼應 §6「Ignore 也是資料」）。preview `?v=alert8`；Playwright `shoot-result.mjs` 13 斷言。
 
+## 9b. 結果軸（`tradeResult`）與日界節奏的接線設計
+
+> **狀態**：設計。domain 層已落地（#218：`domain/src/contracts/trade-result.ts` +
+> `domain/src/policies/day-cadence.ts`，18 條測試），**UI 一行都還沒接**。
+> 所以「第一筆達到目標之後，下一則快訊照樣彈面板」這個實際問題**目前仍然存在**。
+> ⚠️ §9 上面那段「Result 階段已落地（Phase A，2026-07-19）」描述的是
+> **2026-08-04 語意斷點之前**的 tag（`stayed_disciplined` / `broke_discipline`）。
+> 現行語意的 canonical 是 `apps/preview/decision-outcome.js` 的檔頭。
+
+### 🔴 為什麼這是整條路線裡風險最高的一步
+
+現行判定軸**刻意不看結果**。2026-08-04 那次語意斷點做的事，正是把「時間」
+（一個結果的代理）從判定裡拿掉：「時間不再進入這個判斷，只作為事實脈絡呈現」。
+
+而 `DomainTradeResult` 問的是結果。**畫面一開口問這個，使用者的注意力就從流程
+移到結果上** —— 那正是 `SYSTEM.md` 說這個產品不做的事。
+
+所以結果軸必須在**結構上**從屬，不是靠文件約束。三條硬規則：
+
+1. 🔴 **結果不得改變紀律判定，也不得改變它的顏色。** 判定成立、進場、然後觸及
+   保護價 —— 那是 **100% 紀律**。`isDisciplined()` 一個字都不能動。
+2. 🔴 **結果不得上語意色。** 一個紅一個綠 ＝ app 在評價你的交易結果。這跟
+   `--good` 綠退場、gold 只給 SECURED 是同一條紅線（2026-09-25：**顏色宣稱的
+   比文字強**）。結果只用中性字體，零語意色。判準沿用 #259 那句：
+   **把顏色全部拿掉，這一列還說得出同一件事嗎？**
+3. 🔴 **結果不得聚合。** 不出勝率、期望值、損益。契約檔頭已寫死，但畫面要讓它
+   **做不到**，而不是記得不要做。
+
+### 🔴 文案約束：那三個選項不能用自然的交易詞彙
+
+`PROHIBITED_VOCABULARY_ZH`（`packages/engine/src/compliance/safe-copy.ts`）
+擋掉 **獲利／虧損／停損／停利**。實測（不是憑印象）：
+
+| 候選 | `findProhibitedTerms` |
+|---|---|
+| `獲利了結` | **`['獲利']`** ← 不能用 |
+| `停損出場` | **`['停損']`** ← 不能用 |
+| `達到目標，出場` | `[]` ✅ |
+| `觸及保護價，出場` | `[]` ✅ |
+| `打平出場` | `[]` ✅ |
+| `沒有進場` | `[]` ✅（禁的是「進場訊號」，不是「進場」）|
+
+⚠️ **內部識別字不受此限** —— `profit_taken` / `stopped_out` 是 persisted
+contract，照 §10 對「命名 vs 否認」的既有判準處理。
+
+⚠️ 這條約束是**被踩到才發現的**：#218 的 `contextZh` 原本有兩句帶著「獲利」
+與「停損」出貨，而該檔的紅線掃描掃的是評價詞、不是合規詞 —— 綠著，看起來像有在守
+（2026-09-26 修）。**新增任何 user-facing 字串前，先對 `findProhibitedTerms` 跑一次。**
+
+### 三個結構性發現（每個都改變了做法）
+
+#### ① `no_entry` 不該問 —— 應該推導。四選一其實是三選一
+
+`judged_stood_down`（判定不成立、放棄）與 `no_entry`（結構沒成形而收手）
+**描述的是同一件事**。兩個都問，使用者可以答出「判定不成立」＋「達到目標」——
+一筆自相矛盾、而且會污染節奏計數的紀錄。
+
+| `outcomeTag` | `tradeResult` | 怎麼來 |
+|---|---|---|
+| `judged_entered` | 三選一 | **問**（唯一要問的一條路）|
+| `judged_stood_down` | `no_entry` | **推導**，不問 |
+| `abandoned_no_judgment` | `null` | 不問（契約：不猜）|
+
+一次消掉一整類矛盾，UI 也少一個選項、少一條路徑。
+
+⚠️ **誠實說出邊界**：`abandoned` 的人**可能真的有交易**，我們不知道 → `null`
+→ `countsAsTrade` false → 節奏計數會少算。這是刻意選的（契約明訂不猜），
+但它是一個真的洞，不要假裝它不存在。
+
+#### ② `evaluateDelivery` 只回**第一個**理由 —— 直接加第四個閘門會讓畫面說謊
+
+`apps/preview/decision-alert.js` 的 `evaluateDelivery()` 是早退 + 單一
+`reason` 字串（決策進行中 → Strain → 冷卻）。
+
+**雙輸熔斷與 Strain 同時成立時，使用者只會看到一個** —— 然後學到錯的規則
+（「是因為我在 Strain」），而真正攔住他的是他自己的方法論。這是 §6 那個
+「畫面宣稱了一件不成立的事」的家族。
+
+**修法**：收集**全部**成立的理由，`decision` 取最強的那個，畫面列出全部。
+這是既有函式的改寫，不是新增分支，而且可被 harness 直接驗。
+
+#### ③ 不要硬靜音 —— 這個 repo 自己有先例
+
+Quiet window 當年的裁決是**「面板仍浮出、加一行脈絡，不硬靜音」**（2026-07-18）。
+而且靜音是不誠實的：快訊真的來了。
+
+熔斷該做的是**收摺 + 事實行**，要多按一下才展開。摩擦，不是消失。
+
+### 分三階段，順序有理由
+
+| 階段 | 做什麼 | 動哪裡 | 驗收 |
+|---|---|---|---|
+| **A** | 結果三選一 + 推導 + `null` 一等公民 | `apps/preview/v6/index.html` 的 `judgeWatch()` 之後 | 紀錄帶 `tradeResult`；**紀律判定與顏色逐位元組不變** |
+| **B** | Entry Panel 顯示 `contextZh`（**唯讀，不閘門**）| `decision-alert.js` | 使用者第一次「看見」節奏存在 |
+| **C** | 熔斷收摺 + `evaluateDelivery` 多理由改寫 | `decision-alert.js` | 兩個理由同時成立時**兩個都印出來** |
+
+🔴 **順序的理由**：C 需要真實紀錄才有意義。先做 C 的話它永遠觸發不了 ——
+沒有人填過結果，`resolveDayCadence` 永遠回 `fresh`，於是你會得到一個
+「看起來沒壞」的空功能。這跟 2026-09-25 那條「demo 路徑走不到那一格，
+所以它看起來一直是好的」是同一個陷阱。
+
+### 要立的守門
+
+- **鏡射比對**：`day-cadence.ts` 的常數 vs preview 手抄版，照
+  `scripts/preview-drift.mjs` 既有做法**逐一比對常數值**。
+  這個 repo 為鏡射漂移付過三次學費（同一筆決策，一頁 100%、另一頁 0%）。
+- **結果不得上色**：接進 `preview-strip-color` 家族 —— 顏色洗掉之後，
+  結果那一列要仍然說得出同一件事。
+- **多理由**：兩個靜默理由同時成立 → 斷言兩個都出現。
+  反向驗證：改回早退 → 必須紅。
+- **文案**：任何新的 user-facing 字串先過 `findProhibitedTerms`。
+
+### ⏸ 待 founder 裁決：結果什麼時候填
+
+決策計時器 30 分鐘就收束，但那筆交易可能**幾小時後才平倉**。
+
+| 選項 | 代價 |
+|---|---|
+| **A** 收束當下問 | 大多數時候使用者**不知道** → 亂選一個 → 捏造的資料污染節奏計數，**比沒有更糟** |
+| **B** 事後回填 | 資料誠實，但要多一個「今天的決策」列表，而他可能永遠不回來 |
+
+**建議 A+，但「還沒有結果」是預設且完全正常的選項**，之後可回填 ——
+因為 CLAUDE.md 有一條硬規則正好管這個：
+
+> 量不到就填一個合理的預設值 …… 缺就是缺：回 `null`
+
+⚠️ 「他會不會回來回填」取決於 founder 的實際使用習慣，猜不到。
+**這題的答案會改變階段 A 的形狀**，所以動工前先問。
+
 ## 10. Compliance（紅線）
 
 - 英文禁用詞照舊（`packages/engine/src/compliance/safe-copy.ts` `PROHIBITED_VOCABULARY`：trade/buy/sell/win rate/setup…）。
@@ -205,6 +334,7 @@ UI：三模板卡全列，建議者加 ⭐ 高亮；使用者永遠可自由選�
 | **v1** | 規格書 + domain contract/schema/policy + engine 模板建議/compliance/連結欄位 + shared flag/tier + `/decision-alert/` preview demo（模擬快訊） | ✅ 已交付 |
 | **v1.1（Phase 2 ingestion）** | HTTP 接收薄層（`api/alert.ts`：收 → validate → Upstash 暫存）+ `api/alerts.ts` 裝置輪詢 + `/decision-alert/` 連接真實快訊模式 + `docs/TRADINGVIEW-SETUP.md` | ✅ 已交付 |
 | **v1.2（channel 模型）** | 專屬 webhook 連結取代共用 token：`api/channel.ts` 配對端點、per-channel 佇列隔離、零輸入配對 UX、Premium 標示 + entitlement 掛載點（§11） | ✅ 已交付（founder 僅需開通 Upstash） |
+| **日界節奏 UI（§9b）** | 結果三選一 → Entry Panel 事實行 → 熔斷收摺 + `evaluateDelivery` 多理由 | domain 層 ✅ 已交付（#218）；**UI 未接**，且動工前需 founder 裁決「結果什麼時候填」（§9b 末）|
 | Phase 2 後段 | mobile UI（Decision Entry Panel / 浮動條，用 preview 驗證過的互動移植 apps/mobile） | 待排 |
 | **Phase D（Web Push）** | ✅ 手機網頁推播（不用原生 App/Mac）：`api/subscribe.ts` 訂閱端點 + `api/_lib/push.ts`（web-push/VAPID）+ `sw.js`/`manifest.webmanifest` PWA + 連接面板「開啟手機推播」。Safari 關著也跳通知（iOS 16.4+，需加入主畫面 + VAPID env）。設定見 `docs/TRADINGVIEW-SETUP.md §7` | ✅ 已交付（founder 需設 VAPID env + 加入主畫面） |
 | Phase 3（原生） | 原生 App 推播（expo-notifications + `tenki://` deep link）+ Watchlist 綁定 + 快訊自動分類 | 需 mobile app + Mac |
