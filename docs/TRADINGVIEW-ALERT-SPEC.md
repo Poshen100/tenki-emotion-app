@@ -276,7 +276,8 @@ Quiet window 當年的裁決是**「面板仍浮出、加一行脈絡，不硬�
 
 | 階段 | 做什麼 | 動哪裡 | 驗收 |
 |---|---|---|---|
-| **A** | 結果三選一 + 推導 + `null` 一等公民 | `apps/preview/v6/index.html` 的 `judgeWatch()` 之後 | 紀錄帶 `tradeResult`；**紀律判定與顏色逐位元組不變** |
+| **A0** | 契約新增 `pending`（`countsAsTrade` 回 true、`isWin`/`isLoss` 回 false）| `domain/src/contracts/trade-result.ts` | `pending` 算一筆但不是贏也不是輸；`null` 行為不變 |
+| **A** | 結果三選一 + 推導 + 「還沒有結果」為預設 | `apps/preview/v6/index.html` 的 `judgeWatch()` 之後 | 紀錄帶 `tradeResult`；**紀律判定與顏色逐位元組不變** |
 | **B** | Entry Panel 顯示 `contextZh`（**唯讀，不閘門**）| `decision-alert.js` | 使用者第一次「看見」節奏存在 |
 | **C** | 熔斷收摺 + `evaluateDelivery` 多理由改寫 | `decision-alert.js` | 兩個理由同時成立時**兩個都印出來** |
 
@@ -296,22 +297,61 @@ Quiet window 當年的裁決是**「面板仍浮出、加一行脈絡，不硬�
   反向驗證：改回早退 → 必須紅。
 - **文案**：任何新的 user-facing 字串先過 `findProhibitedTerms`。
 
-### ⏸ 待 founder 裁決：結果什麼時候填
+### ✅ 已裁決：收束當下問，「還沒有結果」是預設（founder 2026-09-28）
 
-決策計時器 30 分鐘就收束，但那筆交易可能**幾小時後才平倉**。
+> 收束當下問、但**「還沒有結果」是預設且完全正常的選項**，之後可回填。
 
-| 選項 | 代價 |
+理由與 CLAUDE.md 的硬規則同源：**量不到就是量不到，不要填一個合理的預設值。**
+決策計時器 30 分鐘就收束，而那筆交易可能幾小時後才平倉 —— 逼使用者選一個，
+拿到的是捏造的資料，**比沒有更糟**。
+
+#### 🔴 這個裁決逼出一個契約修正：要新增 `'pending'`
+
+對照實際程式碼（`resolveDayCadence`）之後發現的 —— **不改的話整條規則會靜默失效**：
+
+```ts
+const todays = records.filter((r) => countsAsTrade(r.tradeResult) && …);
+countsAsTrade = (result) => result !== null && result !== 'no_entry';
+```
+
+「還沒有結果」如果存成 `null`，`countsAsTrade` 回 false → **那筆紀錄被整個濾掉**
+→ 每日額度沒被消耗 → 面板照樣彈。也就是說：**沒有回填的人，這個功能等於不存在，
+而且畫面上看不出任何異狀。**
+
+所以 `DOMAIN_TRADE_RESULTS` 要新增 **`'pending'`**，讓三個**真的不同**的狀態各有其值：
+
+| 值 | 意思 | `countsAsTrade` | `isWin` / `isLoss` |
+|---|---|---|---|
+| `'pending'` | 進場了，**結果還不知道** | **true** | false / false |
+| `null` | **連有沒有交易都不知道**（契約前紀錄、`abandoned`）| false | false / false |
+| `'no_entry'` | 確定沒進場 | false | false / false |
+
+🔴 **判準沿用契約自己的哲學**：差異必須**跟著值一起走**，因為那正是
+「TENKI 可以宣稱什麼／不可以宣稱什麼」的分界。把 `pending` 和 `null` 併成一個值，
+就是把「我不知道結果」和「我不知道有沒有交易」當成同一件事。
+
+#### 每個分支都往保守的方向倒（實際推過，不是猜的）
+
+| 今天的紀錄 | `tradesToday` | state | 對不對 |
+|---|---|---|---|
+| 1 筆 `pending` | 1 | `second_chance` | ✅ 未知 ≠ 贏，第二次機會**保持開著** |
+| 2 筆 `pending` | 2 | `day_complete` | ✅ 額度用完是事實；但不宣稱雙輸 |
+| `pending` + 觸及保護價 | 2 | `day_complete` | ✅ **不**宣稱一個驗證不了的雙輸 |
+
+**它從不宣稱一個驗證不了的停手點，但確實會消耗額度。**
+
+#### 因此這個功能是逐級降級的，不是全有全無
+
+| 規則 | 需要回填嗎 |
 |---|---|
-| **A** 收束當下問 | 大多數時候使用者**不知道** → 亂選一個 → 捏造的資料污染節奏計數，**比沒有更糟** |
-| **B** 事後回填 | 資料誠實，但要多一個「今天的決策」列表，而他可能永遠不回來 |
+| **每日額度（1–2 筆）** | **不需要** —— `pending` 就算一筆 |
+| **贏停 / 雙輸熔斷** | **需要** —— 那兩條必須知道結果才成立 |
 
-**建議 A+，但「還沒有結果」是預設且完全正常的選項**，之後可回填 ——
-因為 CLAUDE.md 有一條硬規則正好管這個：
+⚠️ 所以階段 B 的事實行應該**順便報出「還有 N 筆沒填結果」**（那是事實，不是指示，
+而且它正好是回填的入口）。文案記得先過 `findProhibitedTerms`。
 
-> 量不到就填一個合理的預設值 …… 缺就是缺：回 `null`
-
-⚠️ 「他會不會回來回填」取決於 founder 的實際使用習慣，猜不到。
-**這題的答案會改變階段 A 的形狀**，所以動工前先問。
+⚠️ **回填會讓節奏狀態回溯改變** —— 那是對的（狀態是從紀錄重算出來的），
+但代表事實行的內容在回填後會變。不要把它快取成「當天決定一次」。
 
 ## 10. Compliance（紅線）
 
@@ -334,7 +374,7 @@ Quiet window 當年的裁決是**「面板仍浮出、加一行脈絡，不硬�
 | **v1** | 規格書 + domain contract/schema/policy + engine 模板建議/compliance/連結欄位 + shared flag/tier + `/decision-alert/` preview demo（模擬快訊） | ✅ 已交付 |
 | **v1.1（Phase 2 ingestion）** | HTTP 接收薄層（`api/alert.ts`：收 → validate → Upstash 暫存）+ `api/alerts.ts` 裝置輪詢 + `/decision-alert/` 連接真實快訊模式 + `docs/TRADINGVIEW-SETUP.md` | ✅ 已交付 |
 | **v1.2（channel 模型）** | 專屬 webhook 連結取代共用 token：`api/channel.ts` 配對端點、per-channel 佇列隔離、零輸入配對 UX、Premium 標示 + entitlement 掛載點（§11） | ✅ 已交付（founder 僅需開通 Upstash） |
-| **日界節奏 UI（§9b）** | 結果三選一 → Entry Panel 事實行 → 熔斷收摺 + `evaluateDelivery` 多理由 | domain 層 ✅ 已交付（#218）；**UI 未接**，且動工前需 founder 裁決「結果什麼時候填」（§9b 末）|
+| **日界節奏 UI（§9b）** | 結果三選一 → Entry Panel 事實行 → 熔斷收摺 + `evaluateDelivery` 多理由 | domain 層 ✅ 已交付（#218）；**UI 未接**。填寫時機已裁決（founder 2026-09-28，§9b）→ 階段 A 的第一刀是**契約新增 `pending`**，不做的話整條規則靜默失效 |
 | Phase 2 後段 | mobile UI（Decision Entry Panel / 浮動條，用 preview 驗證過的互動移植 apps/mobile） | 待排 |
 | **Phase D（Web Push）** | ✅ 手機網頁推播（不用原生 App/Mac）：`api/subscribe.ts` 訂閱端點 + `api/_lib/push.ts`（web-push/VAPID）+ `sw.js`/`manifest.webmanifest` PWA + 連接面板「開啟手機推播」。Safari 關著也跳通知（iOS 16.4+，需加入主畫面 + VAPID env）。設定見 `docs/TRADINGVIEW-SETUP.md §7` | ✅ 已交付（founder 需設 VAPID env + 加入主畫面） |
 | Phase 3（原生） | 原生 App 推播（expo-notifications + `tenki://` deep link）+ Watchlist 綁定 + 快訊自動分類 | 需 mobile app + Mac |
