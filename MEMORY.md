@@ -18,6 +18,22 @@
 
 ---
 
+# 2026-09-28 Session Update (電影級視覺開工單交給 Antigravity)
+
+## What was done
+- founder 丟 Threads 的「電影級視覺」參考 → 寫成 `docs/prompts/antigravity-cinematic-kickoff.md`。
+  範圍：P0 掃描 takeover + 結果揭曉；P1 `/story/` 只加質感層；mobile 不做。
+- 沿用 hero-camera v2 方法論：不給逐拍表，給判準 + guardrails + 彈藥庫，三個 take 讓 founder 挑。
+
+## 教訓 / 注意
+- ⚠️ **雲端打不開 threads.com**（egress 擋）—— 內容沒有逐格對照原片，開工單已註明請 founder 把原片直接給 Antigravity。
+- 🟡 **掃描期間的鏡頭運動不在星塵既有授權內**（只有 setTone/setReadout）。開工單要求全部藏在 `?cine=N` 後面，
+  founder 挑定後要把授權寫進 CLAUDE.md 星塵例外清單（🔴 級，需 founder 同意）才能轉正。
+- token 名是 `--bg-space`，不是 `--space-bg`（寫規格時差點引錯）。
+
+## 下次接手點
+- Antigravity 交回三個 take + 錄影 → 雲端 review（重點：`?cine` 缺席時逐位元組不變、所有 gold 出口問 `securedEarned`）。
+
 # 2026-09-26 Session Update (只有 iPhone 13 能做什麼；六張 stale PR 清查)
 
 founder 問「現在 GitHub 狀態，只用 iPhone 13 能用嗎」，接著一路做完 PR 清查。
