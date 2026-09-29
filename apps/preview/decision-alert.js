@@ -179,6 +179,26 @@
   var OUTCOME_STORE_KEY = window.TENKI_OUTCOME.STORE_KEY; // 唯一來源見 decision-outcome.js
   var REFLECT_TAGS = ['跟計畫', '有點急', '偏離計畫'];
 
+  /**
+   * 結果三選一 —— `domain/src/contracts/trade-result.ts` 的鏡射（規格 §9b）。
+   *
+   * 🔴 文案不能用自然的交易詞彙：`PROHIBITED_VOCABULARY_ZH` 擋掉
+   * 獲利／虧損／停損／停利，所以「獲利了結」「停損」都不得上畫面。
+   * 這三句是實際跑過 `findProhibitedTerms` 確認乾淨的。
+   * ⚠️ 內部識別字（`profit_taken` / `stopped_out`）不受此限 —— 那是 persisted
+   * contract，照 §10 對「命名 vs 否認」的既有判準處理。
+   *
+   * 🔴 沒有第四顆「還沒有結果」：那是**未選取**的狀態（值＝ `pending`），
+   * 多一顆可切換的晶片會讓「取消選取」變成兩個意思。下方說明行負責講清楚
+   * 那是正常狀態。
+   */
+  var TRADE_RESULT_CHIPS = [
+    { value: 'profit_taken', label: '達到目標' },
+    { value: 'stopped_out', label: '觸及保護價' },
+    { value: 'scratch', label: '打平出場' },
+  ];
+
+
   // 收束頁顯示偏好（可調 + 持久）。記錄一律 on（安全、不可關）→ 不提供關閉記錄的開關。
   var RESULT_SETTINGS_KEY = 'tenki.alert.result.settings.v1';
   var DEFAULT_RESULT_SETTINGS = { showHistory: true, showRecap: true, showReflect: true };
@@ -249,6 +269,9 @@
     if (idx >= 0) {
       // 只補這一頁真的產生的欄位，其餘沿用計時器那邊寫的事實。
       all[idx].contextTag = record.contextTag;
+      // 🔴 結果也是這一頁產生的 —— 漏掉這一行，使用者選的結果會被靜默丟掉，
+      // 而畫面上看起來完全正常（晶片亮著、存檔成功）。
+      all[idx].tradeResult = record.tradeResult;
     } else {
       all.push(record);
     }
@@ -376,6 +399,7 @@
     'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcCenter', 'resultArcGlow', 'resultArcTime',
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
     'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave', 'btnResultRecord',
+    'resultTradeWrap', 'resultTrade',
     'timerBar', 'timerLabel', 'timerClock',
     'watchAnchor', 'timerBack', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
@@ -1369,6 +1393,11 @@
       templateId: s.templateId,
       outcomeTag: resolveOutcomeTag(judgment),
       contextTag: null,
+      // 結果軸（§9b）。進場 → pending（算一筆，結果待回填）；判定不成立 →
+      // no_entry（推導）；未判定就離開 → null（不猜）。
+      // 映射走共用模組（`/v3/` 建立紀錄時用的是同一支）——
+      // 兩邊各抄一份的下場這個 repo 付過三次學費。
+      tradeResult: window.TENKI_OUTCOME.defaultTradeResult(resolveOutcomeTag(judgment)),
       // 語意標記：讓統計認得出這筆是新語意，不與舊紀錄混算（見 disciplineRate 註解）。
       judgmentSchema: JUDGMENT_SCHEMA,
       awayCount: s.awayCount,
@@ -1421,7 +1450,36 @@
       el.resultReflect.appendChild(chip);
     });
 
+    // ── 結果三選一（§9b）──
+    // 🔴 只在「判定成立並進場」時問。其餘兩條路的結果是**推導**出來的，
+    // 再問一次只會製造矛盾的紀錄。
+    var asksTrade = judgment === 'entered';
+    el.resultTrade.textContent = '';
+    if (asksTrade) {
+      TRADE_RESULT_CHIPS.forEach(function (opt) {
+        var chip = document.createElement('button');
+        chip.className = 'result-chip';
+        chip.type = 'button';
+        chip.textContent = opt.label;
+        chip.setAttribute('data-trade-result', opt.value);
+        chip.addEventListener('click', function () {
+          var picked = state.pendingOutcome && state.pendingOutcome.tradeResult === opt.value;
+          Array.prototype.forEach.call(el.resultTrade.children, function (c) { c.classList.remove('sel'); });
+          if (!picked) {
+            chip.classList.add('sel');
+            if (state.pendingOutcome) state.pendingOutcome.tradeResult = opt.value;
+          } else if (state.pendingOutcome) {
+            // 🔴 取消選取回到 `pending`，**不是 null** —— 這筆交易確實發生了，
+            // 只是結果未知。回到 null 會讓它從當日計數裡消失（契約檔頭）。
+            state.pendingOutcome.tradeResult = 'pending';
+          }
+        });
+        el.resultTrade.appendChild(chip);
+      });
+    }
+
     // 依收束頁設定決定各區塊顯示（記錄一律照常，只影響呈現）。
+    toggleHidden(el.resultTradeWrap, asksTrade);
     toggleHidden(el.resultHistory, state.resultSettings.showHistory);
     toggleHidden(el.resultRecap, state.resultSettings.showRecap);
     toggleHidden(el.resultReflectWrap, state.resultSettings.showReflect);
@@ -1432,7 +1490,7 @@
     var animate = !prefersReducedMotion;
     var spec = resultArcSpec(judgment);
     var rate = disciplineRate(withThis);
-    var revealItems = [el.resultHistory, el.resultRecap, el.resultReflectWrap];
+    var revealItems = [el.resultHistory, el.resultRecap, el.resultReflectWrap, el.resultTradeWrap];
 
     // 重置上一次的編排殘留
     el.resultArcCenter.classList.remove('landed');

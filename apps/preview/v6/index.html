@@ -2791,7 +2791,7 @@ body{
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do3"></script>
+    <script src="/preview/decision-outcome.js?v=do4"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -4692,6 +4692,12 @@ function saveV6Outcome(session, outcomeTag){
   all.push({
     symbol: session.name, templateId: session.templateId, outcomeTag,
     contextTag: null,
+    // 🔴 結果軸的預設值**在這裡就要寫**（規格 §9b）。等收束頁的收尾鍵才寫是不夠的
+    // —— 判定完直接關掉那一頁是很正常的事，而那樣寫出來的紀錄沒有這一欄：
+    // 讀回來是 null → countsAsTrade 回 false → 那筆交易從當日計數裡整個消失
+    // （額度永遠用不完、面板照樣彈，畫面上完全看不出異狀）。
+    // 映射走共用模組，不在這裡再抄一份判定。
+    tradeResult: window.TENKI_OUTCOME.defaultTradeResult(outcomeTag),
     // 🔴 守望模式**根本沒有 readiness 這個量**（它不用時間判紀律），所以寫 null＝
     // 「沒有這個量」，不是 false＝「沒達到」。三元運算子最愛把這兩件事混成同一個
     // 分支 —— PLAYBOOK 記過一模一樣的傷：一次「判定成立並進場」的決策被印成
