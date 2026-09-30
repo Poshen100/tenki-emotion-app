@@ -126,6 +126,19 @@
     .hist i { flex: 1; background: var(--n-700); border-radius: 1px 1px 0 0; min-height: 1px; }
     .hist i.on { background: var(--n-450); }
 
+    /* ── 真 / 假的分界線 ──
+       🔴 這條線本身不是裝飾：它是「上面那些是你的、下面那些不是」這句話的
+       視覺版本。用中性線 + 中性字，**不上任何語義色** —— 它陳述的是資料來源，
+       不是狀態。 */
+    .synthetic-divider {
+      display: flex; align-items: center; gap: 10px;
+      margin: 6px 0 2px; color: var(--n-550);
+      font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .synthetic-divider::before, .synthetic-divider::after {
+      content: ""; flex: 1; height: 1px; background: var(--n-800);
+    }
+
     /* ── Black box chain ── */
     .chain { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
     .chain li { display: grid; grid-template-columns: 52px 1fr; gap: 10px; font-size: 12px; line-height: 1.5; }
@@ -146,10 +159,29 @@
       <div class="kicker">Decision Radar</div>
       <h1>Drift Alert — 偏移預警</h1>
       <p class="demo-note">
-        全部是合成資料，沒有真實掃描。判定由 <code>drift.js</code> 當場算出來（engine
-        <code>intelligence/</code> 的鏡射），畫面上的每個數字都是真的跑出來的，不是寫死的字串。
+        這一頁有兩半：<b>上面是你自己的資料</b>，下面是合成 demo。
+        兩邊的判定都由 <code>drift.js</code>（engine <code>intelligence/</code> 的鏡射）
+        當場算出來，沒有寫死的字串。
       </p>
     </header>
+
+    <!-- ── 真實累積（不是合成）── -->
+    <section class="card" id="real-card">
+      <div class="card-kicker">Your own data · 真的，不是合成</div>
+      <h2 class="headline" id="real-headline"></h2>
+      <p class="body" id="real-body"></p>
+      <div class="dist" id="real-dist"></div>
+      <div class="evidence-line" id="real-dropped" hidden></div>
+    </section>
+
+    <!-- 🔴 這條線之下全部是合成。
+         先前真資料卡在**最下面**，於是從 app 點進來第一眼看到的是一個
+         合成的「+17 away from your baseline」—— founder 2026-09-16 實走時
+         正是為此問「這樣有接在一起嗎」。真的東西要在上面，假的要有一條
+         看得見的界線，而不是靠頁首一句小字。 -->
+    <div class="synthetic-divider">
+      <span>以下為合成 demo · 不是你的讀數</span>
+    </div>
 
     <section class="sim" id="scenario-row">
       <div class="sim-label">情境（換一個就整頁重算）</div>
@@ -202,15 +234,6 @@
       <h2 class="headline" id="twin-headline"></h2>
       <p class="body" id="twin-body"></p>
       <div class="evidence-line" id="twin-evidence"></div>
-    </section>
-
-    <!-- ── 真實累積（不是合成）── -->
-    <section class="card" id="real-card">
-      <div class="card-kicker">Your own data · 真的，不是合成</div>
-      <h2 class="headline" id="real-headline"></h2>
-      <p class="body" id="real-body"></p>
-      <div class="dist" id="real-dist"></div>
-      <div class="evidence-line" id="real-dropped" hidden></div>
     </section>
 
     <!-- ── Decision Black Box ── -->
