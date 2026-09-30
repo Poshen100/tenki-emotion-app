@@ -1225,10 +1225,17 @@ body{
 .cal-col.neutral .cal-bar{background:linear-gradient(180deg, var(--neutral-400), var(--neutral-800))}
 .cal-col.strain  .cal-bar{background:linear-gradient(180deg, var(--strain-400),  var(--strain-800))}
 /* 樣本不足：斜線紋 = 「這裡還沒有結論」。**不是**一根矮的實心長條 ——
-   矮長條會被讀成「這個帶位表現差」，那正好是相反的意思。 */
+   矮長條會被讀成「這個帶位表現差」，那正好是相反的意思。
+   🔴 但換材質還不夠：**編碼量值的是位置，不是材質**。第一版斜紋一樣
+   `height:26px` 貼在軌道底，於是它照樣落在「低」的位置上 —— 旁邊 75%
+   的長條高、它矮，三欄並排讀起來就是「Strain 表現最差」，而真正的意思
+   是「Strain 還沒有結論」。材質只降低了信心，沒有改掉那句話。
+   改成**填滿整條軌道**：滿格不是一個量值上的極端（那是 100%，而 100%
+   要靠實心填色講），而是「這一欄整個還在收集」—— 沒有任何一段是空的，
+   也就沒有一個高度可以拿去跟隔壁比。 */
 .cal-col.thin .cal-bar{
-  background:repeating-linear-gradient(135deg, var(--n-700) 0 4px, transparent 4px 8px);
-  height:26px;
+  background:repeating-linear-gradient(135deg, var(--n-800) 0 4px, transparent 4px 8px);
+  height:100%;
 }
 .cal-rate{font-size:17px;font-weight:600;color:var(--n-100);font-variant-numeric:tabular-nums;
   line-height:20px;height:20px;display:flex;align-items:center;justify-content:center}
