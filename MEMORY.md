@@ -18,6 +18,75 @@
 
 ---
 
+# 2026-09-30 Session Update (「這樣有接在一起嗎？」—— 入口、順序，以及一張漂亮的錯誤截圖)
+
+分支 `claude/tenki-decision-intelligence-n7satv`（PR #253 決策雷達引擎、#254 讀數歷史皆已 merge，本輪從最新 main 重開同名分支）。
+
+## founder 第二次問同一句話
+
+9/16 第一次：「我目前放桌面的 Tenki Core，點進去是長這樣。你給我的實走網址是附圖 3、4，**怎麼接在一起？**」
+加了入口之後又問：「**這樣有接在一起嗎？**」
+
+同一句話問第二次 ＝ 第一次沒解到問題。這輪拆出三層，每一層都是獨立的 bug：
+
+### ① 入口放錯頁 —— 我從設定檔推論，沒看他們的畫面
+
+`manifest.webmanifest` 寫 `start_url: /decision-alert/`，我就把入口只放在那裡。
+他們的截圖打臉：桌面那顆「TENKI CORE」是 **`/v3/` 的書籤**（`/v3/` 有
+`apple-mobile-web-app-capable`、**沒有** manifest）。那顆 icon 點進去一個入口都沒有。
+
+> **設定檔說的是「應該落在哪」，不是「他們實際上落在哪」** —— 兩者分岔時沒有任何東西會報錯。
+
+修法：`/v3/` Lab 也加一列，副標由 `renderDriftRow()` 依歷史算（「尚未累積 · 掃描後這裡開始長」／「6 次掃描 · 3 天」），兩頁各補一組斷言。
+
+### ② 第一眼看到的是合成的 +17
+
+`/drift/` 的真實分布卡排在整頁**最下面**，最上面是合成情境算出的
+「+17 away from your baseline」。從 app 點進來第一眼就是它 —— 而它跟他們自己的掃描一點關係都沒有。
+「這樣有接在一起嗎」問的其實是這個。
+
+修法：真卡移到 `<header>` 之後第一張，合成區之前加一條**中性**分界線
+「以下為合成 demo · 不是你的讀數」，並用 DOM 順序斷言釘住。
+
+### ③ 顏色借錯主人（兩次）
+
+- `/drift/` 入口列的 `›` 沿用琥珀的 `.live-chevron` —— 琥珀是「這一層可以動手」，純導覽的箭頭什麼都不會改變。
+- `/v3/` Lab 的入口列沿用 `.lab-wide`，而那個 class 是**紫色 = Premium**。
+
+founder 2026-09-08 的三分法：主要動作＝填色；次要動作／可點列＝琥珀的記號；**導覽與關閉＝中性**。
+
+## 🔴 本輪最該記的一條：一張漂亮的錯誤截圖
+
+要驗 ② 的版面，我跑了截圖，`errors: []`、無 4xx、圖也完整 —— **那是另一頁**。
+
+`preview-shot.mjs` 的 `/drift/` 手抄成 `'/apps/preview/' + pathname.slice(7)`，
+尾巴是空字串 → 解到目錄 `apps/preview/` → 而**那底下真的有 `index.html`** → 回 200。
+
+前兩次手抄 vercel rewrite 出事是**漏抄一條**（子資源 404、頁面照樣渲染）；
+這次是**目錄式路由推錯檔名**，形狀不同，所以「下次記得多抄一條」救不了。
+
+修法改成結構性的：新增 `scripts/lib/preview-routes.mjs`，整組讀 `vercel.json`
+（redirects → rewrites，依序第一條中的就用，`(.*)` 還原成捕捉群組），
+`preview-shot.mjs` 與 `preview-drift.mjs` 都改用它，harness 走的也從檔案路徑改成
+**正式路由**（`${base}/drift/`）。配套三條斷言：每條宣告過的路由本地都解得到真檔案、
+`/drift/` 必須解到 `drift-alert.html` 而不是某個目錄、實走時**同源 4xx 必須是空的**。
+`preview-shot.mjs` 同源 404 現在會吼出來並 exit 1。
+
+反向驗證：把 `/preview/(.*)` 從 vercel.json 拿掉 → preview-drift 紅 3 條（還原後全綠）。
+
+## 自己踩的兩個斷言 bug（都是「量錯東西」家族）
+
+- `.app > *` 的第一個子元素是 `<header>`，`el.id || el.className` 回空字串 → 我把 `realAt === 0` 寫成期待值，紅。改成 `realAt === headerAt + 1`。
+- 分界線是 `text-transform: uppercase`，`innerText()` 拿回**渲染後的大寫**，比對原文假紅。改用 `textContent()`。
+
+## 下次接手點
+
+- `npm run verify` 全綠、`preview-drift` 99 條全過、`/drift/` 空/有資料兩態都自己截圖看過。
+- 已提煉進 `docs/PLAYBOOK.md` §6 四條新規則（路由單一來源／入口放在實際落地頁／真假資料的順序與界線／導覽記號中性）＋ §9 定位表兩列。
+- **還沒做**：drift 軸要吃哪個訊號仍未定案 —— 等真實歷史累積起來，看 `summarizeHistory()` 的 `span` 再決定（`docs/DECISION-INTELLIGENCE.md` §6 Phase 2）。目前 `/drift/` 的真卡就是給這個決策看的儀表，不是給使用者的洞察。
+
+---
+
 # 2026-09-28 Session Update (「看顏色就知道過多久」—— 顏色不是那個槓桿)
 
 分支 `claude/decision-timer-completion-sh7ogg`（PR #260 已 squash merge，依規定從最新 main 重開同名分支）。

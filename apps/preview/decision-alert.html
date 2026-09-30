@@ -104,8 +104,13 @@
     }
     /* 導覽列（偏移預警 ›）—— 與展開列同一個外觀，只有尾端記號不同：
        `▾` 是「在這裡展開」，`›` 是「離開這一頁去別的地方」。
-       整列是文字，只把尾端記號交給可動層（沿用 .live-chevron 那條既有規則）。 */
+       🔴 **而那個差別要吃到顏色上**：`▾` 會改變狀態（展開）→ 可動層琥珀；
+       `›` 是導覽 → **中性**。founder 2026-09-08 的三層規則寫得很清楚：
+       「主要動作＝填色；次要動作／可點列＝琥珀的記號；**導覽與關閉＝中性**」。
+       我第一版直接沿用 `.live-chevron`（琥珀）當導覽記號，違反了那一條 ——
+       /v3/ Lab 的 Premium 列（`›` 用 `--n-400`）才是正確樣板。 */
     a.live-toggle { text-decoration: none; }
+    .live-chevron.nav { color: var(--n-400); }
     .live-body { padding: 0 14px 12px; }
     .live-hint { font-size: 11px; color: var(--n-500); line-height: 1.5; margin-bottom: 8px; }
     .live-push { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
@@ -732,7 +737,7 @@
              預設值如果就是 JS 會寫的那句，harness 會在 JS 根本沒跑的情況下
              綠燈 —— 第一版就是這樣過的。 -->
         <span class="live-status" id="driftStatus"></span>
-        <span class="live-chevron">›</span>
+        <span class="live-chevron nav">›</span>
       </a>
     </div>
 

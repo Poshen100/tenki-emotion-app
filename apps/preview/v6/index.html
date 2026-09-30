@@ -1346,6 +1346,13 @@ body{
    ⚠️ 字與圖示走中性（--n-100），紫只當表面 —— 紫活不過色盲守門，
    宣稱由字承擔（見 tokens.css 的 premium 註解）。 */
 .lab-wide .ic{width:40px;height:40px;border-radius:10px;background:var(--premium-800);color:var(--n-100);display:flex;align-items:center;justify-content:center}
+/* 🔴 `.lab-wide` 的底色與圖示是**紫**，而紫＝Premium（2026-09-08 認領）。
+   任何不是 Premium 的整寬列都必須拿掉那個紫，否則就是借一個已經有主人的
+   顏色去講別的事。`.plain` 把表面換成中性階，其餘版面完全沿用。 */
+.lab-wide.plain{background:var(--surface);border-color:var(--n-700)}
+.lab-wide.plain .ic{background:var(--n-800);color:var(--n-300)}
+.lab-wide.plain .nm{color:var(--n-100)}
+a.lab-wide{text-decoration:none}
 .lab-wide .ic svg{width:22px;height:22px}
 .lab-wide .info{flex:1}
 /* ═════ Premium 對照表 ═════
@@ -3135,6 +3142,26 @@ body{
           <div class="cal-chart" id="calChart"></div>
           <div class="cal-foot" id="calFoot"></div>
         </div>
+
+        <!-- 🔴 `/drift/` 的入口。先前它只掛在 `/decision-alert/`，而 founder 桌面那顆
+             「TENKI CORE」其實是 **`/v3/` 的加入主畫面書籤**（本頁 <title> 就是
+             `TENKI CORE · 5-Tab Navigation`，而且本頁沒有 manifest）—— 所以在他實際
+             會打開的那個 app 裡，那一頁**一次都點不到**。
+             放 Lab 不放 Today 是刻意的：那一頁目前**上半部仍是合成 demo**，
+             擺在 Today 就等於把一個假讀數放在真讀數旁邊一個手勢的距離。
+             Lab 的抬頭是「Advanced · Beta」，而校準台就在它正上方 —— 同一族。
+             ⚠️ 導覽的 `›` 用中性 `--n-400`，**不上可動層琥珀**
+             （founder 2026-09-08：琥珀只給會改變狀態的，導覽與關閉走中性）。 -->
+        <a class="lab-wide plain" id="labDriftRow" href="/drift/">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></div>
+          <div class="info">
+            <div class="nm">偏移預警</div>
+            <!-- 刻意留空：字一律由 renderLab() 寫。預設值等於期望值的話，
+                 JS 沒跑的時候守門也會綠（PLAYBOOK §6 已記）。 -->
+            <div class="sub" id="labDriftSub"></div>
+          </div>
+          <div style="color:var(--n-400);font-size:18px">›</div>
+        </a>
 
         <div class="lab-sec">設定</div>
         <div class="lab-grid">
@@ -5516,6 +5543,27 @@ function renderLab(){
   const sub = document.getElementById('labBaselineSub');
   if(sub) sub.innerHTML = labBaselineLine();
   renderCalibrationBench();
+  renderDriftRow();
+}
+
+/**
+ * 偏移預警那一列的副標：自己講出這個瀏覽器累積了多少讀數。
+ *
+ * 🔴 數字來自共用的 `readiness-history.js`（唯一來源），這一頁不自己數 ——
+ *    不然就是「同一份資料，兩頁數字對不起來」的下一次（PLAYBOOK §6）。
+ * 🔴 沒有累積就說「尚未累積」，**不給 0 也不留空**：空白讓人以為壞了，
+ *    0 讓人以為量過而結果是零。
+ * ⚠️ 模組沒載到就說沒載到，不編一個看起來正常的數字頂替。
+ */
+function renderDriftRow(){
+  const el = document.getElementById('labDriftSub');
+  if(!el) return;
+  const H = window.TENKI_READINESS_HISTORY;
+  if(!H){ el.textContent = '歷史模組沒載到'; return; }
+  const s = H.summary().summary;
+  el.textContent = s.sampleCount === 0
+    ? '尚未累積 · 掃描後這裡開始長'
+    : s.sampleCount + ' 次掃描 · ' + s.distinctDays + ' 天';
 }
 
 function labInfo(title, sub){
