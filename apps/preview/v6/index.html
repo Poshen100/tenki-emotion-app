@@ -1212,7 +1212,7 @@ body{
   border:1px solid var(--n-800);border-radius:18px;
   background:var(--n-900);padding:16px 16px 14px;margin-bottom:14px;
 }
-.cal-kicker{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--n-500)}
+.cal-kicker{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--n-400)}
 .cal-q{font-size:15px;font-weight:600;color:var(--n-100);margin:6px 0 2px;line-height:1.35}
 .cal-chart{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
 .cal-col{display:flex;flex-direction:column;align-items:center;gap:8px}
@@ -1239,16 +1239,16 @@ body{
 }
 .cal-rate{font-size:17px;font-weight:600;color:var(--n-100);font-variant-numeric:tabular-nums;
   line-height:20px;height:20px;display:flex;align-items:center;justify-content:center}
-.cal-rate.pending{font-size:11px;font-weight:500;color:var(--n-500)}
+.cal-rate.pending{font-size:11px;font-weight:500;color:var(--n-400)}
 .cal-band{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--n-400)}
-.cal-n{font-size:10px;color:var(--n-500);font-variant-numeric:tabular-nums}
+.cal-n{font-size:10px;color:var(--n-400);font-variant-numeric:tabular-nums}
 .cal-foot{
   margin-top:14px;padding-top:12px;border-top:1px solid var(--n-850);
-  font-size:10px;line-height:1.6;color:var(--n-500);
+  font-size:10px;line-height:1.6;color:var(--n-400);
 }
 .cal-foot b{color:var(--n-300);font-weight:600;font-variant-numeric:tabular-nums}
 .cal-empty{font-size:12px;line-height:1.6;color:var(--n-400);margin-top:14px}
-.lab-sec{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-500);margin:4px 2px 8px}
+.lab-sec{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-450);margin:4px 2px 8px}
 .lab-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 /* 🔴 整塊可點 → 可動層。**只給邊，不填色** —— Lab 有九塊磁磚，
    全部填琥珀會讓整頁只剩一個顏色（那正是「顏色好像有點少」的另一種版本）。
@@ -1296,9 +1296,12 @@ body{
 .lab-item.is-control{border-color:rgba(var(--amber-400-rgb),0.38)}
 .lab-item.is-control .ic{background:rgba(var(--amber-400-rgb),0.12);color:var(--amber-400)}
 /* 「即將開放」：拿掉全部可動訊號 —— 不上色、降對比、邊框最弱。 */
+/* ⚠️ 這一區整體要「看得出不可用」，但**段標本身是文字，不吃那個折扣** ——
+   降的是磁磚（邊框、圖示、名稱），不是「這裡開始是即將開放」這句話。
+   一個讀不清楚的段標只會讓下面三塊看起來像壞掉的功能。 */
 .lab-soon-head{
   font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
-  color:var(--n-500);margin:18px 2px 8px;
+  color:var(--n-450);margin:18px 2px 8px;
 }
 .lab-soon .lab-item{border-color:var(--n-800);background:rgba(255,255,255,0.015)}
 .lab-soon .lab-item .ic{background:var(--n-850);color:var(--n-500)}
