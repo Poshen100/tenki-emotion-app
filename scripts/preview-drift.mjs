@@ -21,8 +21,9 @@
  * Exit: 0 = 全綠，1 = 有失敗。
  */
 import { getChromium } from './lib/playwright.mjs';
+import { hasExplicitRoute, resolveRoute } from './lib/preview-routes.mjs';
 import http from 'node:http';
-import { createReadStream, existsSync, readFileSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 
 const chromium = await getChromium();
@@ -197,19 +198,62 @@ checkTruthy(
 );
 
 console.log('\n── /drift/ 的入口 ──');
-// 🔴 一個點不到的功能等於沒上線。decision-alert.html 是 PWA 的 start_url
-//    （manifest start_url），所以入口放在那裡；沒有它就只能手打網址。
+// 🔴 一個點不到的功能等於沒上線 —— 而「點得到」要看**使用者實際落在哪一頁**。
+//
+//    2026-09-16 的教訓：我從 manifest 的 `start_url: /decision-alert/` 推論
+//    founder 的 PWA 落在 decision-alert，入口就只放了那裡。他們的截圖打臉 ——
+//    桌面那顆「TENKI CORE」是 `/v3/` 的書籤（`/v3/` 有
+//    `apple-mobile-web-app-capable`、**沒有** manifest），於是那顆 icon 點進去
+//    的頁面上一個入口都沒有，他們問「這樣有接在一起嗎？」。
+//    ⚠️ 設定檔說的是「應該落在哪」，不是「他們實際上落在哪」。兩頁都要有入口。
 const ALERT_HTML = read('apps/preview/decision-alert.html');
 const ALERT_HTML_JS = read('apps/preview/decision-alert.js');
+const V6_HTML = read('apps/preview/v6/index.html');
+for (const [label, html] of [['decision-alert（manifest start_url）', ALERT_HTML], ['v6/index（/v3/，桌面 icon 實際落地頁）', V6_HTML]]) {
+  checkTruthy(
+    `${label} 有一條連到 /drift/ 的連結`,
+    /<a[^>]+href="\/drift\/"/.test(html),
+    '沒有入口 = /drift/ 只能手打網址'
+  );
+  checkTruthy(
+    `${label} 的入口用絕對路徑（同網域才留得在 PWA 裡）`,
+    !/<a[^>]+href="(\.\.|\.)\/?drift/.test(html),
+    '相對路徑會在不同深度的頁面上指到別的地方'
+  );
+}
+// 🔴 副標必須是**算出來的**，不是 HTML 裡寫死的字。寫死的話它會在歷史清空後
+//    繼續宣稱「6 次掃描」—— 顏色會宣稱事實，數字更會。
 checkTruthy(
-  'PWA 首頁有一條連到 /drift/ 的連結',
-  /<a[^>]+href="\/drift\/"/.test(ALERT_HTML),
-  '沒有入口 = /drift/ 只能手打網址'
+  '/v3/ 的入口副標由 JS 依歷史算出',
+  /labDriftSub/.test(V6_HTML) && /function renderDriftRow/.test(V6_HTML),
+  '沒有 renderDriftRow = 副標是靜態字串'
 );
 checkTruthy(
-  '入口用絕對路徑（同網域才留得在 PWA 裡）',
-  !/<a[^>]+href="(\.\.|\.)\/?drift/.test(ALERT_HTML),
-  '相對路徑會在不同深度的頁面上指到別的地方'
+  '/v3/ 的入口副標在 HTML 裡是空的',
+  /<div class="sub" id="labDriftSub"><\/div>/.test(V6_HTML),
+  'HTML 給了預設字 → JS 沒跑也看不出來（PLAYBOOK §6 的假綠燈）'
+);
+
+console.log('\n── 本地路由＝正式路由 ──');
+// 🔴 這一組守的是 harness 自己。本地伺服器每漏抄一條 vercel rewrite，
+//    後果都不是 404，是**靜默指到另一個存在的檔案**：
+//    `/drift/` 曾被解成目錄 `apps/preview/` → `index.html` → 回 200、
+//    截到完整的一頁，只是那是別頁。所以路由表改成讀 vercel.json，
+//    這裡再確認每一條宣告過的路由本地都落在真的檔案上。
+for (const publicPath of ['/drift/', '/decision-alert/', '/v3/', '/preview/', '/story/']) {
+  const route = resolveRoute(publicPath);
+  const resolved = 'redirect' in route ? route.redirect : route.path;
+  checkTruthy(`${publicPath} 有專屬規則（沒有掉到 catch-all）`, hasExplicitRoute(publicPath));
+  checkTruthy(
+    `${publicPath} → ${resolved} 這個檔案真的在`,
+    'redirect' in route || existsSync(join(repoRoot, route.path)),
+    '解出來的檔案不存在 = 正式站也是 404'
+  );
+}
+checkTruthy(
+  '/drift/ 解到 drift-alert.html，不是某個目錄的 index.html',
+  resolveRoute('/drift/').path === '/apps/preview/drift-alert.html',
+  '解到目錄就會靜默 fallback 到 index.html —— 一張看起來很正常的錯誤截圖'
 );
 
 console.log('\n── 讀數歷史：接線 ──');
@@ -266,15 +310,22 @@ const MIME = {
   '.svg': 'image/svg+xml',
 };
 
+// 🔴 頁面用的是**正式路由**（`/preview/readiness-scan.js`），不是 repo 路徑。
+//    不做改寫，decision-alert.html 的 script 全部 404 —— 而頁面照樣渲染，
+//    只是 JS 沒跑。第一版就是這樣：「沒有累積時說尚未累積」**綠著**，
+//    因為它量到的是 HTML 裡的預設字，不是 JS 算出來的結果。
+//
+// 🔴 改寫表整組讀 `vercel.json`，不再手抄 —— 手抄版在 2026-09-30 又出事一次：
+//    `/drift/` 被解成目錄 `apps/preview/`，而那底下**真的有 index.html**，
+//    於是回 200、截到的是另一頁。細節見 `lib/preview-routes.mjs`。
 const server = http.createServer((req, res) => {
-  const raw = decodeURIComponent(req.url.split('?')[0]);
-  // 🔴 頁面用的是**正式路由**（`/preview/readiness-scan.js`），不是 repo 路徑。
-  //    不做這個改寫，decision-alert.html 的 script 全部 404 —— 而頁面照樣渲染，
-  //    只是 JS 沒跑。第一版就是這樣：「沒有累積時說尚未累積」**綠著**，
-  //    因為它量到的是 HTML 裡的預設字，不是 JS 算出來的結果。
-  //    （preview-token-scale.mjs 早就有同一條改寫，我沒抄過來。）
-  const clean = raw.startsWith('/preview/') ? '/apps' + raw : raw;
-  const file = join(repoRoot, clean);
+  const route = resolveRoute(decodeURIComponent(req.url.split('?')[0]));
+  if ('redirect' in route) {
+    res.writeHead(307, { location: route.redirect }).end();
+    return;
+  }
+  let file = join(repoRoot, route.path);
+  if (existsSync(file) && statSync(file).isDirectory()) file = join(file, 'index.html');
   if (!file.startsWith(repoRoot) || !existsSync(file)) {
     res.writeHead(404).end('nf');
     return;
@@ -290,8 +341,40 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
+// 同源 4xx ＝ 本地路由沒解出某條正式路由。頁面會照樣渲染，下面所有斷言
+// 就會改成在量 HTML 的預設字 —— 這條是那種假綠燈的偵測器。
+const missed = [];
+page.on('response', (r) => {
+  if (r.status() >= 400 && r.url().startsWith(base)) missed.push(`${r.status()} ${new URL(r.url()).pathname}`);
+});
 
-await page.goto(`${base}/apps/preview/drift-alert.html`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${base}/drift/`, { waitUntil: 'networkidle' });
+
+console.log('\n── 🔴 真的在上面、假的在線下面 ──');
+// founder 2026-09-16 從 app 點進來，第一眼看到的是合成情境算出的
+// 「+17 away from your baseline」，於是問「這樣有接在一起嗎？」——
+// 那個 +17 跟他們自己的掃描一點關係都沒有。第一眼是誰的資料，這頁就
+// 在講誰。順序是這件事唯一的載體，所以用斷言釘住。
+const domOrder = await page.evaluate(() =>
+  [...document.querySelector('.app').children].map((el) => el.id || el.tagName.toLowerCase())
+);
+const headerAt = domOrder.indexOf('header');
+const realAt = domOrder.indexOf('real-card');
+const dividerAt = domOrder.findIndex((n) => n.includes('div'));
+const firstSyntheticAt = domOrder.indexOf('scenario-row');
+checkTruthy('真資料卡是 header 之後的第一張', realAt === headerAt + 1, domOrder.join(' → '));
+checkTruthy(
+  '分界線夾在真資料與合成之間',
+  realAt < dividerAt && dividerAt < firstSyntheticAt,
+  `real@${realAt} divider@${dividerAt} synthetic@${firstSyntheticAt}`
+);
+check(
+  '分界線明講以下不是你的讀數',
+  // ⚠️ 用 textContent 不用 innerText：這條線是 text-transform: uppercase，
+  //    innerText 拿回來的是渲染後的大寫，比對原文會假紅。
+  (await page.locator('.synthetic-divider').textContent()).trim(),
+  '以下為合成 demo · 不是你的讀數'
+);
 
 const text = (sel) => page.locator(sel).innerText();
 const pickScenario = (label) => page.getByRole('button', { name: new RegExp(label) }).first().click();
@@ -401,7 +484,7 @@ await seeded.addInitScript(() => {
   rows.push({ schema: 99, ts: 1, stillness: 0.5 });
   localStorage.setItem('tenki.readiness.history.v1', JSON.stringify(rows));
 });
-await seeded.goto(`${base}/apps/preview/drift-alert.html`, { waitUntil: 'domcontentloaded' });
+await seeded.goto(`${base}/drift/`, { waitUntil: 'domcontentloaded' });
 
 const realText = await seeded.locator('#real-card').innerText();
 // 40 筆、20 天 —— 同一個斷言同時證明「天數不是樣本數」。
@@ -433,7 +516,7 @@ console.log('\n── /drift/ 入口列的副標是算出來的 ──');
 const alertPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
 const alertErrors = [];
 alertPage.on('pageerror', (e) => alertErrors.push(String(e)));
-await alertPage.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
+await alertPage.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
 check('沒有累積時說「尚未累積」', await alertPage.locator('#driftStatus').innerText(), '尚未累積');
 check('連結指向 /drift/', await alertPage.locator('#driftLink').getAttribute('href'), '/drift/');
 await alertPage.close();
@@ -456,7 +539,7 @@ await seededAlert.addInitScript(() => {
   }
   localStorage.setItem('tenki.readiness.history.v1', JSON.stringify(rows));
 });
-await seededAlert.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
+await seededAlert.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
 // 6 筆、3 天 —— 同一條斷言也證明副標數的是天數不是樣本數。
 check('有累積時報出次數與天數', await seededAlert.locator('#driftStatus').innerText(), '6 次掃描 · 3 天');
 await seededAlert.close();
@@ -466,6 +549,7 @@ console.log('\n── 版面與執行時期 ──');
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 checkTruthy(`390px 下沒有橫向溢出（多出 ${overflow}px）`, overflow <= 1);
 check('沒有 runtime error', errors, []);
+check('沒有同源 404（在 /drift/ 上走完整條正式路由）', missed, []);
 
 await browser.close();
 server.close();
