@@ -1254,12 +1254,25 @@ body{
    全部填琥珀會讓整頁只剩一個顏色（那正是「顏色好像有點少」的另一種版本）。
    底仍是中性，琥珀只負責說「這塊按得下去」。 */
 /* 🔴 Lab 的磁磚**不是同一種東西**，所以不該長得一樣（founder 2026-09-08）：
-     `is-live`   有真資料在上面（Baseline 顯示 HR/HRV/RR）→ cyan ＝ live
-     `is-control` 點下去**就地改變一件事**（決策紀律開關、CSV 匯出）→ 可動層琥珀
-     （預設）    導航進子畫面（模板自訂、標記標籤）→ 中性
+     `is-control` 點下去**就地改變一件事**（決策紀律開關）→ 可動層琥珀
+     （預設）    導航進子畫面（模板自訂、標記標籤、CSV 匯出）→ 中性
      `.lab-soon` 還沒有的東西 → 最暗，且**拿掉所有可動訊號**
 
-   🔴 這也修正了上一輪的規則：**在「什麼都可以按」的頁面上，把每一塊都標成
+   🔴 `is-live`（cyan ＝ 有真資料）**已刪**，2026-09-30。
+   它唯一的使用者是 Baseline 磁磚，而 cyan 在這個產品裡不只一個意思：
+   `--cyan-core` ＝ `--zone-clear`，**逐位元組相同**（tokens.css:135）。
+   同一張卡上，chrome 說 cyan、副標印「最近讀數 · Strain」——
+   顏色在宣稱一個不是使用者當下的帶位，而校準台隔壁那根 cyan 長條
+   講的正是 Clear。這是「產生新顏色前先問這個顏色有沒有主人」那條的
+   反面：**沿用一個已經有主人的顏色去講別的事，一樣會說謊。**
+
+   替代不是把 cyan 換成另一個顏色（這個色盤裡每個顏色都有主人了），
+   而是**讓顏色由資料決定**：磁磚 chrome 回到中性，帶位改由一顆
+   `.band-dot` 承載，而那顆點吃的就是帶位自己的 `--zone-*`。
+   附帶好處是「有沒有真資料」不再靠一個寫死的 class 宣告 ——
+   沒讀數就沒有那顆點，訊號直接長在資料上。
+
+   🔴 這也修正了更早一輪的規則：**在「什麼都可以按」的頁面上，把每一塊都標成
    可動層等於沒有標。** 琥珀改成只給「會改變狀態」的 —— 導航不算。
    founder 2026-09-08 拍板：「只給改變狀態的」。 */
 .lab-item{
@@ -1271,10 +1284,16 @@ body{
   position:relative;overflow:hidden;
 }
 .lab-item:active{transform:scale(0.97);background:rgba(255,255,255,0.05)}
-.lab-item.is-live{
-  background:linear-gradient(135deg, rgba(0,180,216,0.08), rgba(0,180,216,0.02));
-  border-color:rgba(0,180,216,0.2);
+/* 帶位點：Lab 裡唯一會上帶位色的東西，而它吃的就是帶位本身。
+   沒讀數 → `labBaselineLine()` 不輸出這顆點，所以「有沒有量到」是由
+   資料決定的，不是由一個寫死的 class 宣告的。 */
+.band-dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;
+  margin-right:5px;vertical-align:1px;
 }
+.band-dot.clear{background:var(--zone-clear)}
+.band-dot.neutral{background:var(--zone-neutral)}
+.band-dot.strain{background:var(--zone-strain)}
 /* ⚠️ `.lab-item.beta::after` 已刪：三塊 beta 磁磚都搬進「即將開放」區了，
    那一區有自己的 `::after`。剛清完八個死 token，不要立刻長出一條死 CSS。 */
 /* 🔴 舊值是 `color:var(--primary)` ＝ **當下哪個決策模板在跑**的顏色。
@@ -1292,7 +1311,6 @@ body{
 }
 .lab-item .ic svg{width:20px;height:20px}
 /* 種類色：只有這三種，而且每一種都說得出自己是什麼 */
-.lab-item.is-live .ic{background:rgba(0,180,216,0.12);color:var(--cyan-core)}
 .lab-item.is-control{border-color:rgba(var(--amber-400-rgb),0.38)}
 .lab-item.is-control .ic{background:rgba(var(--amber-400-rgb),0.12);color:var(--amber-400)}
 /* 「即將開放」：拿掉全部可動訊號 —— 不上色、降對比、邊框最弱。 */
@@ -1315,7 +1333,7 @@ body{
 }
 .lab-item .nm{font-size:13px;font-weight:600;color:#fff;line-height:1.2}
 .lab-item .sub{font-size:10px;color:var(--n-400);line-height:1.4;letter-spacing:0.02em}
-/* ── Lab Fable-5 爽感：進場 stagger（opacity-only，不與 :active transform 衝突）+ tap 深度 + is-live glow ── */
+/* ── Lab 進場 stagger（opacity-only，不與 :active transform 衝突）+ tap 深度 ── */
 .lab-grid .lab-item, .lab-body .lab-wide{opacity:0}
 #lab-screen.active .lab-grid .lab-item, #lab-screen.active .lab-body .lab-wide{opacity:1}
 #lab-screen.active .lab-grid .lab-item:nth-child(1){transition-delay:0.05s}
@@ -1328,7 +1346,7 @@ body{
 #lab-screen.active .lab-grid .lab-item:nth-child(8){transition-delay:0.40s}
 #lab-screen.active .lab-body .lab-wide{transition-delay:0.35s}
 .lab-item:active{box-shadow:0 6px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(var(--amber-400-rgb),0.45)}
-.lab-item.is-live{box-shadow:0 0 26px rgba(0,180,216,0.10)}
+/* `.is-live` 的 cyan 輝光一併刪 —— 連同它宣稱的那件事。 */
 /* 決策紀律模式開啟時的樣子。用既有的 --primary（cyan = ACTIVE），
    **不用 --good 綠** —— 綠在這個產品裡是「跟著流程完成」的語意色，
    一個設定開關沒有資格宣告那件事（CLAUDE.md 顏色所有權）。 */
@@ -3180,9 +3198,12 @@ a.lab-wide{text-decoration:none}
                都掛著「示意」標記、下面還有一行「需要感測器，目前尚未接上」——
                **只有這裡一個標記都沒有**。
                PLAYBOOK：「任何 UI 顯示生理數值 → 不得放假的生理讀數」。
-               ⚠️ 而我上一輪還因為「它有真資料」把它標成 is-live —— 那個分類是錯的，
-               我沒查就分了。現在副標由 renderLab() 從真的讀數 store 填。 -->
-          <div class="lab-item is-live" id="labBaselineTile" onclick="openBaseline()">
+               ⚠️ 上一輪因為「它有真資料」把它標成 is-live，那個分類是錯的。
+               2026-09-30 連 `is-live` 本身一起拿掉了：它的 cyan 就是
+               `--zone-clear`，於是一筆 Strain 讀數會坐在一張 Clear 色的卡裡。
+               帶位色現在只上在 `.band-dot` 上，副標由 renderLab() 從真的
+               讀數 store 填。 -->
+          <div class="lab-item" id="labBaselineTile" onclick="openBaseline()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="14" rx="2"/><circle cx="12" cy="10" r="2"/><path d="M12 17v4M9 21h6"/></svg></div>
             <div class="nm">Baseline</div>
             <div class="sub" id="labBaselineSub">重新校準或檢視</div>
@@ -5485,7 +5506,15 @@ function labBaselineLine(){
   const mins = Math.max(0, Math.round((Date.now() - r.ts) / 60000));
   const ago = mins < 1 ? '剛剛' : mins < 60 ? mins + ' 分鐘前' : Math.round(mins/60) + ' 小時前';
   const label = (BAND_LABEL_V6 && BAND_LABEL_V6[r.band]) || r.band || '—';
-  return '最近讀數 · ' + label + '<br>' + ago + ' 校準';
+  // 🔴 帶位色只上在**帶位自己**身上。磁磚 chrome 不上色 —— 見 `.band-dot`
+  //    上面那段：cyan ＝ --zone-clear，拿它當「有資料」的底色會讓一筆
+  //    Strain 讀數坐在一張 Clear 色的卡裡。
+  //    未知帶位不給點（不是給一顆灰點）—— 灰是 --zone-neutral 的帶位色，
+  //    「不知道」跟「Neutral」是兩件事。
+  const dot = BAND_LABEL_V6 && BAND_LABEL_V6[r.band]
+    ? '<span class="band-dot ' + r.band + '"></span>'
+    : '';
+  return '最近讀數 · ' + dot + label + '<br>' + ago + ' 校準';
 }
 /**
  * 校準台。三個帶位通道 = `summarizeDisciplineByBand()` 的三列，
