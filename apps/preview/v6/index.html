@@ -5502,7 +5502,18 @@ function renderCalibrationBench(){
     const rate = thin
       ? '<div class="cal-rate pending">資料累積中</div>'
       : '<div class="cal-rate">' + h + '%</div>';
-    const n = st.total === 0 ? '尚無紀錄' : st.disciplined + ' / ' + st.total + ' 筆';
+    // 🔴 樣本不足時**不印分子**。上一版照印 `2 / 2 筆` —— 而 `2 / 2` 就是
+    //    「100%」的另一種寫法，於是同一欄同時說「還不夠說」跟「全中」，
+    //    讀者一定挑數字信。這裡刻意不印百分比，卻用分數把它講回去，
+    //    等於守了形式沒守到那件事。
+    //    改成只講「還差幾筆」：那是這一欄現在唯一說得出口的事實，
+    //    而且它直接回答使用者會問的「什麼時候才會有結論」。
+    const need = OUT.MIN_BAND_SAMPLES_FOR_RATE - st.total;
+    const n = st.total === 0
+      ? '尚無紀錄'
+      : thin
+        ? st.total + ' 筆 · 還需 ' + need + ' 筆'
+        : st.disciplined + ' / ' + st.total + ' 筆';
     return '<div class="cal-col ' + st.band + (thin ? ' thin' : '') + '">'
       // ⚠️ 樣本不足時**不下 inline height** —— inline 會蓋掉 `.thin .cal-bar`
       // 的斜線紋高度，斜紋就整條消失（第一版就是這樣，Strain 那欄空白）。
