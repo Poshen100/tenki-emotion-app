@@ -235,6 +235,13 @@
    * （它才是進閘門的那個量）。**實機幅度由 founder 定裁**（MOTION-DIRECTION §7）。
    */
   var READOUT_SQUARE_WEIGHT = 0.45;
+  /**
+   * 對位弧對 yaw 的靈敏度。對位中（未入框）比較大 —— 那時使用者正在找位置；
+   * 鎖定後縮小，弧的主要工作已經變成「維持 12 點鐘的鎖定感」，朝向只是提醒。
+   * 兩者都**只動 strokeDashoffset**（每幀只寫 transform/opacity 的同類，不改幾何）。
+   */
+  var ARC_YAW_ALIGNING = 0.12;
+  var ARC_YAW_LOCKED = 0.05;
   /** 臉部資料超過這麼久沒更新就當作臉不在（推論比取樣慢，要留寬容）。 */
   var FACE_STALE_MS = 700;
   /** Tier A 要成立，landmark 樣本至少要這麼多 —— 只瞄到一兩幀不算量到。 */
@@ -1956,11 +1963,20 @@
     }
     frame.classList.add('aligning');
     if (framed) {
-      // 磁吸歸位：頂端核心點 (12點鐘)
-      arc.style.strokeDashoffset = (-HALO_START_OFFSET).toFixed(4);
+      // 磁吸歸位：頂端核心點 (12點鐘)。
+      //
+      // ⚠️ 先前這裡**完全不看 pose** —— 入框之後弧直接吸到 12 點鐘不動，於是
+      // 「我已經鎖定了，但我的頭歪了」在畫面上是靜音的。那是 founder 2026-10-01
+      // 「眼睛好像不用看鏡頭或螢幕」的另一半：連唯一那個會回應朝向的元件，
+      // 也在最需要它的時候閉嘴。
+      //
+      // 現在保留磁吸（鎖定感不變），但**歪掉時仍看得出來** —— 權重比未入框時小，
+      // 因為那時主要任務已經不是對位，只是提醒你別轉開。
+      var lockYaw = session.headPose ? session.headPose.yaw * ARC_YAW_LOCKED : 0;
+      arc.style.strokeDashoffset = (-HALO_START_OFFSET + lockYaw).toFixed(4);
     } else {
       var displayX = 1 - box.centerX;
-      var yawOffset = pose ? pose.yaw * 0.12 : 0;
+      var yawOffset = pose ? pose.yaw * ARC_YAW_ALIGNING : 0;
       var posOffset = (displayX - 0.5) * 0.16;
       var offset = -HALO_START_OFFSET + posOffset + yawOffset;
       arc.style.strokeDashoffset = offset.toFixed(4);
