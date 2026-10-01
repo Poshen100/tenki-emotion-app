@@ -1298,7 +1298,15 @@
       ? clamp01(session.heldMs / session.budgetMs)
       : 0;
     if (typeof S.setReadout === 'function') {
-      S.setReadout({ stillness: readoutStillness(still), progress: progress });
+      // 🔴 `squareness` 是**另一個欄位**，不覆寫 `stillness` —— 那個欄位名有意義，
+      // 而且 preview-scan-stardust.mjs 有斷言在看它的跨度。收散吃兩者的乘積
+      // （見 stardust.js 的 convergeStill）：穩住只說「沒有晃」，一個人可以
+      // 一動不動地把頭轉開，那時候畫面上得有東西說「你歪了」。
+      S.setReadout({
+        stillness: readoutStillness(still),
+        progress: progress,
+        squareness: headSquareness(session.headPose),
+      });
     }
     S.setTone({
       // 晃動 → 偏離身分；穩住 → 回到身分。單向，不得為負。
