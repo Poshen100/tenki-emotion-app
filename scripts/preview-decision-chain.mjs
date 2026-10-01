@@ -754,6 +754,104 @@ console.log('\n── 日界節奏的事實行 ──');
 }
 
 // ═══════════════════════════════════════════════
+// 結果回填（規格 §9b）—— Session 詳情是「之後可回填」的唯一入口
+//
+// 🔴 為什麼需要這個入口：收束頁只由一次性回程票開啟，在這之前**沒有任何
+//    路徑回到一筆過去的決策**。而填寫時機的裁決（founder 2026-09-28）是
+//    「收束當下問，但『還沒有結果』是預設」—— 那個裁決假設了回填可行。
+//
+// 🔴 這一段最重要的兩條：
+//   1. 回填只動 `tradeResult`，其餘欄位逐一不變（這一頁是回填，不是重寫）。
+//   2. 一筆決策仍然只留一筆紀錄（寫成 push 的話紀律統計立刻失真）。
+// ═══════════════════════════════════════════════
+console.log('\n── 結果回填（Session 詳情）──');
+{
+  const TS = Date.now() - 3 * 60 * 60 * 1000;
+  const SEED = {
+    symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+    contextTag: '跟計畫', judgmentSchema: 'structure_watch_v1',
+    reachedReadiness: null, durationSec: 540, marks: 2, events: [],
+    awayCount: 1, awayMs: 45000, sameSymbolUpdates: 2,
+    originAlertId: 'demo-1', ts: TS, source: 'alert', tradeResult: 'pending',
+  };
+
+  async function openDetail(store) {
+    await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    await page.evaluate((s) => {
+      localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(s));
+    }, store);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1800);
+    await page.evaluate((ts) => window.openSessionDetail(ts), store[0].ts);
+    await page.waitForTimeout(500);
+  }
+
+  await openDetail([SEED]);
+
+  const shown = await page.evaluate(() => ({
+    hidden: document.getElementById('sdBackfillCell').hasAttribute('hidden'),
+    chips: [...document.querySelectorAll('#sdBackfillChips .tp-chip')].map((c) => c.textContent),
+    picked: document.querySelectorAll('#sdBackfillChips .tp-chip.picked').length,
+    note: document.getElementById('sdBackfillNote').textContent,
+  }));
+  checkTruthy('詳情表單真的開了、晶片真的長出來（0 顆就是死斷言）', shown.chips.length === 3);
+  check('🔴 判定成立並進場的紀錄才有回填', shown.hidden, false);
+  check('文案與收束頁同一份（共用模組，不是各寫一份）',
+    shown.chips, ['達到目標', '觸及保護價', '打平出場']);
+  check('未回填時一顆都不選', shown.picked, 0);
+  checkTruthy('未回填時就地說出「還沒填」', shown.note.includes('還沒填'));
+
+  // 點一顆 → 立刻落地（這一頁沒有收尾鍵，記錄不是選項）
+  await page.evaluate(() => document.querySelectorAll('#sdBackfillChips .tp-chip')[0].click());
+  await page.waitForTimeout(250);
+  const after = await page.evaluate(() => ({
+    store: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')),
+    picked: [...document.querySelectorAll('#sdBackfillChips .tp-chip')].findIndex((c) => c.classList.contains('picked')),
+    note: document.getElementById('sdBackfillNote').textContent,
+  }));
+  check('🔴 點一顆就寫進那一筆（不必按任何收尾鍵）', after.store[0].tradeResult, 'profit_taken');
+  check('畫面同步標記選中的那顆', after.picked, 0);
+  check('回填完就不再說「還沒填」', after.note, '');
+  check('🔴 一筆決策仍然只留一筆紀錄（回填不得 push）', after.store.length, 1);
+
+  // 🔴 只動 tradeResult —— 這一頁是回填，不是重寫。
+  const untouched = await page.evaluate((seed) => {
+    const r = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    const changed = Object.keys(seed).filter((k) => JSON.stringify(r[k]) !== JSON.stringify(seed[k]));
+    return changed;
+  }, SEED);
+  check('🔴 除了 tradeResult，其他欄位逐一不變', untouched, ['tradeResult']);
+
+  // 再點同一顆 ＝ 取消 → 回到 pending（不是 null）
+  await page.evaluate(() => document.querySelectorAll('#sdBackfillChips .tp-chip')[0].click());
+  await page.waitForTimeout(250);
+  check('🔴 取消回到 pending，不是 null（交易發生過，只是結果未知）',
+    await page.evaluate(() => JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0].tradeResult),
+    'pending');
+
+  // 判定不成立的紀錄不該出現回填（結果是推導出來的）
+  await openDetail([{ ...SEED, outcomeTag: 'judged_stood_down', tradeResult: 'no_entry' }]);
+  check('🔴 判定不成立的紀錄不問結果（整格隱藏）',
+    await page.evaluate(() => document.getElementById('sdBackfillCell').hasAttribute('hidden')), true);
+
+  // 回填會讓節奏狀態回溯改變 —— 這是對的，狀態是從紀錄重算的。
+  await openDetail([SEED]);
+  const beforeState = await page.evaluate(() =>
+    window.TENKI_OUTCOME.resolveDayCadence(
+      JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')), Date.now()).state);
+  await page.evaluate(() => document.querySelectorAll('#sdBackfillChips .tp-chip')[0].click());
+  await page.waitForTimeout(250);
+  const afterState = await page.evaluate(() =>
+    window.TENKI_OUTCOME.resolveDayCadence(
+      JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')), Date.now()).state);
+  check('回填前是 second_chance（未知 ≠ 贏）', beforeState, 'second_chance');
+  check('🔴 回填後節奏狀態回溯改變成 stop_after_win', afterState, 'stop_after_win');
+
+  await page.evaluate(() => localStorage.removeItem('tenki.alert.outcomes.v1'));
+}
+
+// ═══════════════════════════════════════════════
 // 離開太久：不是接回一個殭屍，是誠實收束
 //
 // 🔴 這條守的是 resume 最容易做錯的方向。「決策活得過離開」很容易寫成
