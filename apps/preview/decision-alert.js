@@ -21,6 +21,9 @@
     strainSilent: true,
     sessionQuietUpdate: true,
     quietWindow: false,
+    // 日界節奏收摺（規格 §9b 階段 C）。預設 **on** —— 它實作的是使用者自己
+    // 方法論裡的停手點（§6.1 贏停／雙輸熔斷），不是我們加的意見。
+    cadenceCollapse: true,
   };
 
   function loadSettings() {
@@ -32,6 +35,7 @@
       aggregationSec: (typeof s.aggregationSec === 'number' && s.aggregationSec >= 0) ? s.aggregationSec : DEFAULT_SETTINGS.aggregationSec,
       strainSilent: typeof s.strainSilent === 'boolean' ? s.strainSilent : DEFAULT_SETTINGS.strainSilent,
       sessionQuietUpdate: typeof s.sessionQuietUpdate === 'boolean' ? s.sessionQuietUpdate : DEFAULT_SETTINGS.sessionQuietUpdate,
+      cadenceCollapse: typeof s.cadenceCollapse === 'boolean' ? s.cadenceCollapse : DEFAULT_SETTINGS.cadenceCollapse,
       quietWindow: typeof s.quietWindow === 'boolean' ? s.quietWindow : DEFAULT_SETTINGS.quietWindow,
     };
   }
@@ -390,7 +394,7 @@
     'livePushRow', 'livePushBtn', 'livePushStatus',
     'liveSelfTest', 'liveSelfTestResult',
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
-    'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
+    'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setCadenceCollapse', 'setReset',
     'resToggle', 'resChevron', 'resBody', 'resShowHistory', 'resShowRecap', 'resShowReflect',
     'driftStatus',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
@@ -469,6 +473,7 @@
     dismissed: { text: '已略過', cls: 'dismissed' },
     suppressed: { text: '冷卻抑制', cls: 'suppressed' },
     silent: { text: '靜默接收', cls: 'received' },
+    collapsed: { text: '收摺呈現', cls: 'received' },
     aggregated: { text: '聚合呈現', cls: 'surfaced' },
     mark: { text: '過程標記', cls: 'engaged' },
     close: { text: '完成', cls: 'outcome' },
@@ -525,6 +530,34 @@
     el.logList.insertBefore(item, el.logList.firstChild);
   }
 
+  /**
+   * 收摺的快訊：一顆**可點**的晶片，點了面板照樣開。
+   *
+   * 🔴 這不是靜音 —— 那則快訊真的來了，而且使用者永遠沒有被擋住。
+   * 收摺買的是一拍的摩擦，讓他看見自己方法論裡的停手點，而不是替他決定。
+   * 🔴 可動層 ＝ 琥珀（它真的會做事）。中性的 `.silent-chip` 是「已接收、
+   * 沒事要做」，兩者不能長一樣。
+   * 🔴 文案只陳述事實（節奏狀態那一句，已過合規層）＋ 一個動作提示，
+   * **不得**出現「不要再做」這類指示。
+   *
+   * @param {Object} alert 被收摺的那一則
+   * @param {string} factText 節奏事實（`contextZh`）
+   */
+  function collapsedChip(alert, factText) {
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'silent-chip actionable';
+    chip.textContent = alert.symbol + ' 快訊 · ' + factText + ' · 仍要查看';
+    chip.addEventListener('click', function () {
+      chip.remove();
+      surfaceAlert(alert);
+    });
+    el.silentArea.appendChild(chip);
+    while (el.silentArea.children.length > 3) {
+      el.silentArea.removeChild(el.silentArea.firstChild);
+    }
+  }
+
   function silentChip(text) {
     var chip = document.createElement('div');
     chip.className = 'silent-chip';
@@ -560,15 +593,36 @@
     return m;
   }
 
+  /**
+   * 會讓快訊收摺的節奏狀態 —— §6.1 **明文的兩個停手點**。
+   * ⚠️ `day_complete` 不在內：domain 的註解自己就說它是「較弱的事實」
+   * （額度用完 ≠ 方法論叫你停手），而階段 B 的事實行已經在陳述它。
+   */
+  var CADENCE_COLLAPSE_STATES = ['stop_after_win', 'circuit_break'];
+
   // ── Delivery policy（mirror of domain alert-policy 判定順序）──
+  //
+  // 🔴 這一支**收集全部成立的理由**，不是碰到第一個就 return。
+  //
+  // 改寫前是早退 + 單一 `reason` 字串，於是兩個理由同時成立時（例如決策進行中
+  // ＋ Strain）使用者只看到其中一個 —— 然後他會學到錯的規則（「是因為我在
+  // Strain」），而真正攔住那則快訊的是另一件事。這是「畫面宣稱了一件不成立的
+  // 事」那個家族，而且它在加入第四個閘門（日界節奏）之後只會更糟。
+  //
+  // `decision` 仍然取**最強的那一個**（陣列順序＝強度，強的先 push），所以
+  // 行為與改寫前逐一相同；多出來的是 `reasons`，讓畫面講得出全部。
+  // @returns {{decision:string, reason:string, reasons:string[]}}
   function evaluateDelivery(alert, nowMs) {
+    var matched = [];
+
     var active = readActiveDecision(nowMs);
     if (active) {
       var activeSymbol = (typeof active.symbol === 'string') ? active.symbol : null;
       if (state.settings.sessionQuietUpdate && activeSymbol !== null && activeSymbol === alert.symbol) {
-        return { decision: 'session_update', reason: '同標的後續觸發' };
+        matched.push({ decision: 'session_update', reason: '同標的後續觸發' });
+      } else {
+        matched.push({ decision: 'silent', reason: '決策進行中' });
       }
-      return { decision: 'silent', reason: '決策進行中' };
     }
     // 以前這裡看的是點擊循環出來的假 zone（預設 Neutral），等於這個設定的行為
     // 由一個 demo 開關決定。改看 effectiveZone()：真讀數優先、示意覆蓋次之。
@@ -576,13 +630,38 @@
     // 當理由吃掉一則快訊。
     var zone = effectiveZone();
     if (state.settings.strainSilent && zone && zone.zone === 'strain') {
-      return { decision: 'silent', reason: 'Strain 狀態' };
+      matched.push({ decision: 'silent', reason: 'Strain 狀態' });
     }
     var last = state.lastSurfacedAtBySymbol[alert.symbol];
     if (last !== undefined && nowMs - last < state.settings.cooldownSec * 1000) {
-      return { decision: 'suppressed', reason: '同標的冷卻中' };
+      matched.push({ decision: 'suppressed', reason: '同標的冷卻中' });
     }
-    return { decision: 'surfaced', reason: '' };
+    // 日界節奏（§9b 階段 C）。排在**最後** ＝ 最弱的閘門：
+    // 🔴 不硬靜音。先例是 quiet window 的裁決（「面板仍浮出、加一行脈絡，
+    //    不硬靜音」），而且靜音是不誠實的 —— 那則快訊真的來了。
+    //    收摺 ＝ 摩擦，不是消失：一顆可點的晶片，點了面板照樣開。
+    // 🔴 只收摺方法論**明文的兩個停手點**。`day_complete`（額度用完）
+    //    刻意不收摺 —— domain 自己的註解就說它是「較弱的事實」，
+    //    而階段 B 的事實行已經在講它。
+    if (state.settings.cadenceCollapse) {
+      var cadence = window.TENKI_OUTCOME.resolveDayCadence(loadOutcomes(), nowMs);
+      if (CADENCE_COLLAPSE_STATES.indexOf(cadence.state) !== -1) {
+        matched.push({ decision: 'collapsed', reason: cadence.contextZh });
+      }
+    }
+
+    if (matched.length === 0) return { decision: 'surfaced', reason: '', reasons: [] };
+    return {
+      decision: matched[0].decision,
+      // 保留單數 `reason` ＝ 最強的那一個（既有呼叫端讀它）。
+      reason: matched[0].reason,
+      reasons: matched.map(function (m) { return m.reason; }),
+    };
+  }
+
+  /** 把全部理由串成一句。單一理由時與改寫前逐字相同。 */
+  function reasonText(result) {
+    return (result.reasons && result.reasons.length) ? result.reasons.join('、') : result.reason;
   }
 
   function makeAlert(symbol, condition, timeframe, strategy, note, price) {
@@ -607,12 +686,18 @@
       return;
     }
     if (result.decision === 'silent') {
-      log('silent', alert.symbol + ' — ' + result.reason + '，不打擾');
+      // 🔴 全部理由都講 —— 只講一個，使用者會學到錯的規則。
+      log('silent', alert.symbol + ' — ' + reasonText(result) + '，不打擾');
       silentChip(alert.symbol + ' 快訊（已接收）');
       return;
     }
     if (result.decision === 'suppressed') {
-      log('suppressed', alert.symbol + ' — ' + result.reason);
+      log('suppressed', alert.symbol + ' — ' + reasonText(result));
+      return;
+    }
+    if (result.decision === 'collapsed') {
+      log('collapsed', alert.symbol + ' — ' + reasonText(result));
+      collapsedChip(alert, reasonText(result));
       return;
     }
     surfaceAlert(alert);
@@ -824,7 +909,7 @@
     var first = evaluateDelivery(alerts[0], Date.now());
     if (first.decision !== 'surfaced') {
       alerts.forEach(function (alert) {
-        log('silent', alert.symbol + ' — ' + (first.reason || '靜默接收'));
+        log('silent', alert.symbol + ' — ' + (reasonText(first) || '靜默接收'));
         silentChip(alert.symbol + ' 快訊（已接收）');
       });
       return;
@@ -2039,7 +2124,7 @@
     var d = DEFAULT_SETTINGS, s = state.settings;
     return s.cooldownSec === d.cooldownSec && s.aggregationSec === d.aggregationSec &&
       s.strainSilent === d.strainSilent && s.sessionQuietUpdate === d.sessionQuietUpdate &&
-      s.quietWindow === d.quietWindow;
+      s.quietWindow === d.quietWindow && s.cadenceCollapse === d.cadenceCollapse;
   }
   function updateSettingsStatus() {
     el.setStatus.textContent = settingsIsDefault() ? '預設' : '已自訂';
@@ -2050,6 +2135,7 @@
     el.setStrainSilent.checked = state.settings.strainSilent;
     el.setSessionQuiet.checked = state.settings.sessionQuietUpdate;
     el.setQuietWindow.checked = state.settings.quietWindow;
+    el.setCadenceCollapse.checked = state.settings.cadenceCollapse;
     updateSettingsStatus();
   }
   function persistSettings() {
@@ -2074,6 +2160,7 @@
   el.setStrainSilent.addEventListener('change', function () { state.settings.strainSilent = el.setStrainSilent.checked; persistSettings(); });
   el.setSessionQuiet.addEventListener('change', function () { state.settings.sessionQuietUpdate = el.setSessionQuiet.checked; persistSettings(); });
   el.setQuietWindow.addEventListener('change', function () { state.settings.quietWindow = el.setQuietWindow.checked; persistSettings(); });
+  el.setCadenceCollapse.addEventListener('change', function () { state.settings.cadenceCollapse = el.setCadenceCollapse.checked; persistSettings(); });
   el.setReset.addEventListener('click', function () {
     state.settings = Object.assign({}, DEFAULT_SETTINGS);
     persistSettings();
