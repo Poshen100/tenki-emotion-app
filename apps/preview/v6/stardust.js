@@ -103,7 +103,11 @@
     //
     // 🔴 一樣用結構守住鎖定資產：**沒呼叫 setReadout 就完全 inert**，
     // story / soul-enroll / v6 takeover 逐位元組不變。
-    var readout = { active: false, still: 0.5, prog: 0, sStill: 0.5, sProg: 0 };
+    // ⚠️ `square` 預設 **1 ＝ 恆等變換** —— 沒有人傳 squareness 時，收散的算式
+    // 退化回「只吃 stillness」，逐位元組等同加這條之前的行為。鎖定資產靠這個
+    // 結構性質守住，不是靠小心（CLAUDE.md 星塵硬規則）。
+    var readout = { active: false, still: 0.5, prog: 0, square: 1,
+        sStill: 0.5, sProg: 0, sSquare: 1 };
     /** EWMA per animation frame. 比 tone 稍快 —— 這是回饋迴圈，慢了就感覺不到因果。 */
     var READOUT_SMOOTH = 0.08;
     /**
@@ -115,6 +119,14 @@
      * **倍率聽起來很大不代表看得見。** 收散改由整體尺度承擔（見下），
      * 那個才有絕對幅度。這裡保留一點點，只當作質感而不是訊號。
      */
+    /**
+     * 「正對程度」在收散上的權重。0 ＝ 完全不影響（退回只吃 stillness）。
+     *
+     * 🔴 只進**收散**（drift / scale），**不進色彩**（sat / bloom / rot）——
+     * 色彩那條有主色 ΔE 的守門在，而且這次要解決的是「正對沒有回饋」，不是顏色。
+     * 範圍開最小的那一個。
+     */
+    var READOUT_SQUARE_W = 0.45;
     var READOUT_DRIFT_HI = 1.15;
     var READOUT_DRIFT_LO = 0.85;
     /**
@@ -487,7 +499,7 @@
             // Readout: 你越穩，粒子越安定。這是「保持穩定」那句指令的回饋迴圈 ——
             // 使用者做對了，主角要看得出來。(founder 2026-08-10 放寬了漂移的鎖)
             if (readout.active) {
-                driftMult *= READOUT_DRIFT_HI + (READOUT_DRIFT_LO - READOUT_DRIFT_HI) * readout.sStill;
+                driftMult *= READOUT_DRIFT_HI + (READOUT_DRIFT_LO - READOUT_DRIFT_HI) * convergeStill();
             }
 
             // Throttle drift to ~20fps by ELAPSED TIME (was: assume 60fps), so the
@@ -616,7 +628,7 @@
             // ⚠️ 這一段承擔的是先前交給「粒子漂移」的工作 —— 那個的位移差只有 2.2px，
             // 這裡是整體尺度 32%（300px 的球上約 48px），差一個量級。
             var readoutScale = readout.active
-                ? READOUT_SCALE_HI + (READOUT_SCALE_LO - READOUT_SCALE_HI) * readout.sStill
+                ? READOUT_SCALE_HI + (READOUT_SCALE_LO - READOUT_SCALE_HI) * convergeStill()
                 : 1;
 
             var totalScale = breath * exprScale * entScale * readoutScale;
@@ -898,6 +910,23 @@
         if (!readout.active) return;
         readout.sStill += (readout.still - readout.sStill) * READOUT_SMOOTH;
         readout.sProg += (readout.prog - readout.sProg) * READOUT_SMOOTH;
+        readout.sSquare += (readout.square - readout.sSquare) * READOUT_SMOOTH;
+    }
+
+    /**
+     * 收散真正吃的那個量：穩定度**再乘上正對程度**。
+     *
+     * 為什麼要有這個：穩定度量的是「有沒有晃」，而使用者可以一動不動地把頭轉開 ——
+     * 那時候畫面上完全沒有東西告訴他「你歪了」。乘上正對程度之後，轉開＝收散鬆掉、
+     * 正對＝收緊，於是「面對儀器」這件事在主角身上看得見。
+     *
+     * `sSquare` 預設 1 → 回傳值等同 `sStill`，所以沒傳 squareness 的呼叫端
+     * （以及完全不呼叫 setReadout 的頁面）行為逐位元組不變。
+     *
+     * @returns {number} 0..1
+     */
+    function convergeStill() {
+        return readout.sStill * (1 - READOUT_SQUARE_W + READOUT_SQUARE_W * readout.sSquare);
     }
 
     /**
@@ -923,13 +952,17 @@
         if (d.progress !== undefined) {
             readout.prog = Math.max(0, Math.min(1, d.progress));
         }
+        // 省略時不碰 —— 預設 1（恆等），所以舊呼叫端一個字都不用改。
+        if (d.squareness !== undefined) {
+            readout.square = Math.max(0, Math.min(1, d.squareness));
+        }
     }
 
     /** 關掉讀出層，回到 inert（掃描結束時呼叫）。 */
     function clearReadout() {
         readout.active = false;
-        readout.still = 0.5; readout.prog = 0;
-        readout.sStill = 0.5; readout.sProg = 0;
+        readout.still = 0.5; readout.prog = 0; readout.square = 1;
+        readout.sStill = 0.5; readout.sProg = 0; readout.sSquare = 1;
     }
 
     /**
@@ -949,10 +982,11 @@
             // （顏色散得多開、走過多少色相、球脹縮的比例）。
             bloom: bloomRot().bloom,
             rot: bloomRot().rot,
+            squareness: readout.sSquare,
             scale: readout.active
-                ? READOUT_SCALE_HI + (READOUT_SCALE_LO - READOUT_SCALE_HI) * readout.sStill
+                ? READOUT_SCALE_HI + (READOUT_SCALE_LO - READOUT_SCALE_HI) * convergeStill()
                 : 1,
-            drift: READOUT_DRIFT_HI + (READOUT_DRIFT_LO - READOUT_DRIFT_HI) * readout.sStill,
+            drift: READOUT_DRIFT_HI + (READOUT_DRIFT_LO - READOUT_DRIFT_HI) * convergeStill(),
         };
     }
 
