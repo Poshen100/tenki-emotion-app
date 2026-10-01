@@ -82,6 +82,33 @@
   }
 
   /**
+   * outcomeTag → 結果軸的預設值。`domain/src/contracts/trade-result.ts` 的鏡射。
+   *
+   * 🔴 **在紀錄產生的當下就要寫**，不能等使用者按收束頁的收尾鍵 ——
+   * 他判定「進場」之後直接關掉收束頁是很正常的事，而那樣寫出來的紀錄會沒有
+   * 這一欄 → 讀回來是 `null` → `countsAsTrade` 回 false → **那筆交易從當日
+   * 計數裡整個消失**：額度永遠用不完、面板照樣彈，畫面上完全看不出異狀。
+   *
+   * 🔴 放在這支共用模組而不是兩頁各抄一份：`/v3/` 建立紀錄、`/decision-alert/`
+   * 之後細化它，兩邊對同一個映射的理解必須是同一份（本檔存在的理由）。
+   *
+   * 對照：
+   *   `judged_entered`        → `pending`（交易發生了，結果待回填，**算一筆**）
+   *   `judged_stood_down`     → `no_entry`（推導，不再問一次）
+   *   `abandoned_no_judgment` → `null`（連有沒有交易都不知道，不猜）
+   *   舊語意的 tag            → `null`（倒數模式不是節奏規則的流程）
+   *
+   * @param {string} outcomeTag
+   * @returns {string|null}
+   * @see docs/TRADINGVIEW-ALERT-SPEC.md §9b
+   */
+  function defaultTradeResult(outcomeTag) {
+    if (outcomeTag === 'judged_entered') return 'pending';
+    if (outcomeTag === 'judged_stood_down') return 'no_entry';
+    return null;
+  }
+
+  /**
    * 讀統一 store。壞資料一律當成空陣列 —— 讀不到歷史不該讓整頁掛掉。
    *
    * @returns {Array<Object>}
@@ -344,6 +371,7 @@
     LEGACY_DISCIPLINED_TAGS: LEGACY_DISCIPLINED_TAGS,
     isDisciplined: isDisciplined,
     resolveOutcomeTag: resolveOutcomeTag,
+    defaultTradeResult: defaultTradeResult,
     load: load,
     MIN_BAND_SAMPLES_FOR_RATE: MIN_BAND_SAMPLES_FOR_RATE,
     BAND_ORDER: BAND_ORDER,

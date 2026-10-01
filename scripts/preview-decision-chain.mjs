@@ -409,6 +409,13 @@ checkTruthy('紀錄帶著來源快訊 id（join key）', !!rec.originAlertId);
 // §8：決策期間收到的同標的快訊，數字要真的走到紀錄裡（不是 null、更不是 0）。
 check('🔴 同標的更新的真數字進了紀錄', rec.sameSymbolUpdates, 1);
 check('紀錄認得自己是快訊決策', rec.source, 'alert');
+// ── 結果軸（規格 §9b ①）──
+// 🔴 「判定不成立」與「沒有進場」描述的是同一件事 —— 結果要**推導**出來，
+// 不得再問一次。兩個都問會讓使用者答出「判定不成立」＋「達到目標」這種
+// 自相矛盾、而且會污染節奏計數的紀錄。
+check('🔴 判定不成立 → tradeResult 推導成 no_entry', rec.tradeResult, 'no_entry');
+check('🔴 而且這條路不問結果（區塊隱藏）',
+  await page.evaluate(() => document.getElementById('resultTradeWrap').hasAttribute('hidden')), true);
 check('紀錄標上語意版本', rec.judgmentSchema, 'structure_watch_v1');
 checkTruthy('這筆算紀律', await page.evaluate((t) => window.TENKI_OUTCOME.isDisciplined(t), rec.outcomeTag));
 
@@ -540,6 +547,116 @@ checkTruthy(`Session 列畫得出來（${row}）`, !!row);
 checkTruthy('Session 列說得出這是快訊決策', row && row.includes('快訊決策'));
 check('🔴 Session 列不得出現否定的 readiness（守望沒有這個量）',
   /未達|未進入/.test(row || ''), false);
+
+// ═══════════════════════════════════════════════
+// 結果三選一（規格 §9b）—— 走「判定成立並進場」那條路
+//
+// 🔴 為什麼另開一段而不是在上面那條鏈裡做：上面走的是 `stood_down`，
+// 那條路**刻意不問結果**。要驗晶片就必須有一筆 `judged_entered`。
+// 這裡種一筆紀錄 + 一張回程票，然後走**真實入口**
+// （acceptReturnTicket → openResult → saveOutcome），不是直接呼叫內部函式。
+//
+// 🔴 最關鍵的是「取消選取回到 pending 而不是 null」那條：null 會讓這筆交易
+// 從當日計數裡整個消失（額度永遠用不完、面板照樣彈），而畫面上完全看不出來。
+// ═══════════════════════════════════════════════
+console.log('\n── 結果三選一（進場路徑）──');
+{
+  const ENTERED_TS = Date.now() - 5 * 60 * 1000;
+  const SEED = {
+    symbol: 'ES1!', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+    contextTag: null, judgmentSchema: 'structure_watch_v1',
+    awayCount: 0, awayMs: 0, durationSec: 420, ts: ENTERED_TS, source: 'alert',
+  };
+
+  /**
+   * 開一次收束頁（判定成立並進場那一筆）。
+   *
+   * ⚠️ 每一輪都**先回 /v3/ 再跨頁進來** —— 兩個理由，兩個都踩過：
+   *   1. `goto` 到「只有 hash 不同」或「完全相同」的 URL 是 same-document
+   *      navigation，文件不會重載 → 回程票不會被消費 → 晶片一顆都不長，
+   *      而畫面看起來沒壞。
+   *   2. 反過來，已經跨頁載入之後再補一個 `reload()` 也會壞：票在第一次載入
+   *      就被消費掉了（讀完即刪），重載等於開一張沒有票的收束頁。
+   * 先離開再回來就沒有這兩個坑，而且這正是真實動線（使用者從 /v3/ 判定完回來）。
+   */
+  async function openEnteredResult(seedStore) {
+    await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(600);
+    await page.evaluate(({ store, ts }) => {
+      if (store) localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(store));
+      localStorage.setItem('tenki.alert.return.v1', JSON.stringify({ ts, at: Date.now() }));
+    }, { store: seedStore || null, ts: ENTERED_TS });
+    await page.goto(`${base}/decision-alert/#result`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2200);
+  }
+
+  await openEnteredResult([SEED]);
+
+  const shown = await page.evaluate(() => ({
+    // 🔴 問「有沒有 hidden」是假綠：這個區塊在 HTML 裡本來就沒有 hidden 屬性，
+    //    所以 openResult 根本沒跑時它照樣讀成「可見」。改問真正的證據 ——
+    //    收束頁有沒有開，以及晶片有沒有長出來。
+    sheetOpen: document.getElementById('resultSheet').className.includes('show')
+      || document.getElementById('resultSheet').className.includes('reveal'),
+    hidden: document.getElementById('resultTradeWrap').hasAttribute('hidden'),
+    chips: [...document.querySelectorAll('#resultTrade .result-chip')].map((c) => c.textContent),
+    selected: document.querySelectorAll('#resultTrade .result-chip.sel').length,
+  }));
+  checkTruthy('收束頁真的開起來了（0 顆晶片就是死斷言）', shown.sheetOpen && shown.chips.length === 3);
+  check('🔴 判定成立並進場 → 才問結果', shown.hidden, false);
+  check('三選一，而且用的是合規文案（不得出現自然的交易詞彙）',
+    shown.chips, ['達到目標', '觸及保護價', '打平出場']);
+  // 🔴 預設不選取 ＝「還沒有結果」。逼使用者選一個會拿到捏造的資料，
+  // 而捏造的資料比沒有更糟（CLAUDE.md：量不到就回 null，不要填合理的預設值）。
+  check('🔴 預設一顆都不選（「還沒有結果」是正常狀態）', shown.selected, 0);
+
+  // 🔴 一顆都不選就收尾 → 值必須是 `pending`，**不是 null**。
+  // null 會讓這筆交易從當日計數裡整個消失：額度永遠用不完、面板照樣彈，
+  // 而畫面上完全看不出異狀。這是整個階段 A 最重要的一條。
+  await page.evaluate(() => document.getElementById('btnResultSave').click());
+  await page.waitForTimeout(400);
+  const untouched = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0]);
+  check('🔴 一顆都不選 → tradeResult 是 pending（不是 null）', untouched.tradeResult, 'pending');
+
+  // 選一顆 → 值要落地（走的是 saveOutcome 的**就地更新**分支）。
+  await openEnteredResult();
+  await page.evaluate(() => document.querySelectorAll('#resultTrade .result-chip')[1].click());
+  await page.waitForTimeout(150);
+  check('選中的是第二顆', await page.evaluate(() =>
+    [...document.querySelectorAll('#resultTrade .result-chip')].findIndex((c) => c.classList.contains('sel'))), 1);
+  await page.evaluate(() => document.getElementById('btnResultSave').click());
+  await page.waitForTimeout(400);
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')));
+  // 🔴 這一條守的是 saveOutcome 的就地更新分支：收束頁只補「這一頁真的產生的
+  // 欄位」，漏掉 tradeResult 的話使用者選的結果會被靜默丟掉 —— 而晶片仍然亮著、
+  // 存檔仍然成功，畫面上完全正常。
+  check('🔴 選的結果有寫進那一筆（就地更新不得漏欄位）', saved[0].tradeResult, 'stopped_out');
+  check('一筆決策仍然只留一筆紀錄', saved.length, 1);
+  checkTruthy('結果沒有改變紀律判定', await page.evaluate((t) =>
+    window.TENKI_OUTCOME.isDisciplined(t), saved[0].outcomeTag));
+  check('就地更新的是同一筆（ts 沒變 ＝ 沒有被 push 成第二筆）', saved[0].ts, ENTERED_TS);
+
+  // 再次點同一顆 ＝ 取消選取 → 必須回到 pending。
+  await openEnteredResult();
+  await page.evaluate(() => document.querySelectorAll('#resultTrade .result-chip')[0].click());
+  await page.waitForTimeout(120);
+  await page.evaluate(() => document.querySelectorAll('#resultTrade .result-chip')[0].click());
+  await page.waitForTimeout(120);
+  await page.evaluate(() => document.getElementById('btnResultSave').click());
+  await page.waitForTimeout(400);
+  const cleared = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0]);
+  check('🔴 取消選取回到 pending，不是 null（交易發生過，只是結果未知）',
+    cleared.tradeResult, 'pending');
+
+  // 🔴 把頁面還原回 /v3/ —— 下一段吃 v6 的全域（window.nextState）。
+  // 不還原的話那一段會以 `window.nextState is not a function` 整支崩掉，
+  // 而錯誤訊息完全看不出是「上一段把頁面開走了」。
+  await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+}
 
 // ═══════════════════════════════════════════════
 // 離開太久：不是接回一個殭屍，是誠實收束
