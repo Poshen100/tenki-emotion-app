@@ -720,7 +720,16 @@ console.log('\n── 日界節奏的事實行 ──');
 
   // ── 接線：事實行真的在畫面上 ──
   // ⚠️ 先種紀錄再開面板 —— renderEntryDiscipline 在面板浮出時才跑。
+  //
+  // 🔴 這一段**刻意把階段 C 的收摺關掉**。它要驗的是「事實行渲染得出來」，
+  //    而那需要面板是開著的；階段 C 預設會把贏停的快訊收摺起來（面板不自己
+  //    浮出），兩段耦在一起的話這裡會測到別人的行為。
+  //    收摺本身由「到了停手點就收摺」那一段完整驗。
+  // ⚠️ 這一行是補上去的：原本沒有它，於是階段 C 一落地，這一段當場紅三條 ——
+  //    其中一條還寫著「階段 B 不閘門」，那句話在階段 C 之後就不再成立了。
+  //    教訓：斷言的文字會把當下的產品狀態寫死，下一階段要記得回來改它。
   await page.evaluate((ts) => {
+    localStorage.setItem('tenki.alert.settings.v1', JSON.stringify({ cadenceCollapse: false }));
     localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([{
       symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
       judgmentSchema: 'structure_watch_v1', durationSec: 300,
@@ -738,7 +747,9 @@ console.log('\n── 日界節奏的事實行 ──');
   checkTruthy('決策入口面板打開了（沒開就讀不到那一行，會是死斷言）', line.panelOpen);
   check('🔴 事實行真的上了畫面', line.text, '今天第 1 筆 · 上一筆達到目標');
   // 🔴 階段 B 不閘門 —— 贏停狀態下面板照樣浮出（quiet window 的先例）。
-  checkTruthy('🔴 贏停狀態下面板仍然浮出（階段 B 不閘門）', line.panelOpen);
+  // 🔴 原本寫「階段 B 不閘門」—— 階段 C 之後那句話不成立了。它現在驗的是
+  // 「把收摺關掉時，贏停的快訊仍然照常浮出」，也就是那個設定真的有效。
+  checkTruthy('🔴 收摺關掉時，贏停的快訊仍然照常浮出', line.panelOpen);
 
   // 事實行不得出現評價或指示。紅線詞與 domain 那一組同源。
   const bannedInLine = await page.evaluate(() => {
@@ -748,7 +759,11 @@ console.log('\n── 日界節奏的事實行 ──');
   });
   check('🔴 事實行不得評價或指示', bannedInLine, []);
 
-  await page.evaluate(() => localStorage.removeItem('tenki.alert.outcomes.v1'));
+  await page.evaluate(() => {
+    localStorage.removeItem('tenki.alert.outcomes.v1');
+    // 自己塞的設定自己清 —— 留著會讓後面每一段都在「收摺關掉」的狀態下跑。
+    localStorage.removeItem('tenki.alert.settings.v1');
+  });
   await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1200);
 }
@@ -918,6 +933,107 @@ console.log('\n── 靜默理由要講全部 ──');
   // 🔴 還原回 /v3/ —— 下一段吃 v6 的全域。這是我在這支 harness 上**第二次**
   // 忘記還原（上一段已經為此寫了同樣的註解），所以這裡再寫一次：
   // 任何把 page 導去別的路由的區塊，離開前都要導回來。
+  await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+}
+
+// ═══════════════════════════════════════════════
+// 到了停手點就收摺（規格 §9b 階段 C）
+//
+// 🔴 這是整條路線上**第一次真的改變快訊行為**的改動 —— 前面全是「多一行事實」
+//    或「多一個可填的欄位」。所以守得最緊。
+//
+// 🔴 收摺**不是靜音**：那則快訊真的來了，而且使用者永遠沒有被擋住。
+//    一顆可點的晶片，點了面板照樣開。先例是 quiet window 的裁決
+//    （「面板仍浮出、加一行脈絡，不硬靜音」）。
+// 🔴 只收摺 §6.1 明文的兩個停手點。`day_complete`（額度用完）刻意不收摺 ——
+//    domain 自己的註解就說它是「較弱的事實」。
+// ═══════════════════════════════════════════════
+console.log('\n── 到了停手點就收摺 ──');
+{
+  const H = 60 * 60 * 1000;
+  const rec = (offset, result) => ({
+    symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+    judgmentSchema: 'structure_watch_v1', durationSec: 300,
+    ts: Date.now() + offset, source: 'alert', tradeResult: result,
+  });
+
+  async function fireWith(store) {
+    await page.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    await page.evaluate((s) => {
+      localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(s));
+      localStorage.removeItem('tenki.v6.activeDecision.v1');
+      localStorage.removeItem('tenki.readiness.reading.v1');
+    }, store);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2200);
+    await page.evaluate(() => document.getElementById('btnSingle').click());
+    await page.waitForTimeout(900);
+    return page.evaluate(() => ({
+      panelOpen: document.getElementById('entrySheet').className.includes('show'),
+      chips: [...document.querySelectorAll('#silentArea .silent-chip')].map((c) => ({
+        text: c.textContent, actionable: c.classList.contains('actionable'), tag: c.tagName,
+      })),
+    }));
+  }
+
+  // ① 贏停（§6.1 明文停手點）→ 收摺
+  const win = await fireWith([rec(-2 * H, 'profit_taken')]);
+  check('🔴 贏停 → 面板不自己浮出', win.panelOpen, false);
+  checkTruthy(`🔴 但留下一顆**可點**的晶片（實際：${JSON.stringify(win.chips)}）`,
+    win.chips.length === 1 && win.chips[0].actionable && win.chips[0].tag === 'BUTTON');
+  checkTruthy('晶片就地說出那個事實（不是只說「已靜默」）',
+    win.chips[0] && win.chips[0].text.includes('上一筆達到目標'));
+  checkTruthy('🔴 而且給得出一條路（仍要查看）',
+    win.chips[0] && win.chips[0].text.includes('仍要查看'));
+
+  // 🔴 點它 → 面板真的開得起來。收摺買的是摩擦，不是封鎖。
+  await page.evaluate(() => document.querySelector('#silentArea .silent-chip.actionable').click());
+  await page.waitForTimeout(800);
+  check('🔴 點了晶片，面板照樣開（使用者永遠沒有被擋住）',
+    await page.evaluate(() => document.getElementById('entrySheet').className.includes('show')), true);
+
+  // ② 雙輸熔斷 → 同樣收摺
+  const brk = await fireWith([rec(-3 * H, 'stopped_out'), rec(-2 * H, 'stopped_out')]);
+  check('🔴 雙輸熔斷 → 收摺', brk.panelOpen, false);
+  checkTruthy('熔斷的晶片說出的是熔斷那句事實',
+    brk.chips.length === 1 && brk.chips[0].text.includes('兩筆都觸及保護價'));
+
+  // ③ 額度用完（較弱的事實）→ **不**收摺
+  const done = await fireWith([rec(-3 * H, 'pending'), rec(-2 * H, 'stopped_out')]);
+  check('🔴 額度用完不收摺（domain 自己說它是較弱的事實）', done.panelOpen, true);
+
+  // ④ 還有第二次機會 → 照常浮出
+  const second = await fireWith([rec(-2 * H, 'pending')]);
+  check('第二次機會仍然照常浮出', second.panelOpen, true);
+
+  // ⑤ 關掉設定 → 回到收摺前的行為
+  await page.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+  await page.evaluate((s) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(s));
+    const k = 'tenki.alert.settings.v1';
+    const cur = JSON.parse(localStorage.getItem(k) || '{}');
+    cur.cadenceCollapse = false;
+    localStorage.setItem(k, JSON.stringify(cur));
+  }, [rec(-2 * H, 'profit_taken')]);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2200);
+  const toggle = await page.evaluate(() => ({
+    checked: document.getElementById('setCadenceCollapse').checked,
+  }));
+  check('設定讀得回來（關掉就是關掉）', toggle.checked, false);
+  await page.evaluate(() => document.getElementById('btnSingle').click());
+  await page.waitForTimeout(900);
+  check('🔴 關掉設定 → 贏停也照常浮出（這條確認閘門真的由設定控制）',
+    await page.evaluate(() => document.getElementById('entrySheet').className.includes('show')), true);
+
+  await page.evaluate(() => {
+    localStorage.removeItem('tenki.alert.outcomes.v1');
+    localStorage.removeItem('tenki.alert.settings.v1');
+  });
+  // 🔴 還原回 /v3/ —— 下一段吃 v6 的全域（這支 harness 上我已經忘記兩次）。
   await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
 }
