@@ -852,6 +852,77 @@ console.log('\n── 結果回填（Session 詳情）──');
 }
 
 // ═══════════════════════════════════════════════
+// 靜默理由不只一個時，要**全部**講得出來（規格 §9b ②）
+//
+// 🔴 改寫前 `evaluateDelivery` 是早退 + 單一 `reason` 字串：兩個理由同時成立
+//    （決策進行中 ＋ Strain）時，事件鏈只印其中一個，使用者會學到錯的規則
+//    （「是因為我在 Strain」），而真正攔住那則快訊的是另一件事。
+//
+// ⚠️ 刻意**不**為測試把 `evaluateDelivery` 掛到 window（那支檔是封閉 IIFE，
+//    什麼都不外露）。改從使用者真正看得到的地方驗：事件鏈那一行。
+//    這也順便守住「值對 ≠ 看得見」。
+// ⚠️ 必須先確認真的有**兩個**條件成立 —— 只有一個的話，下面那條看不出差別，
+//    會是一條死斷言。
+// ═══════════════════════════════════════════════
+console.log('\n── 靜默理由要講全部 ──');
+{
+  await page.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1800);
+
+  // 同時造出「決策進行中」（跨頁標記，**不同標的**才不會走 session_update）
+  // 與「Strain 狀態」（一筆新鮮讀數 —— effectiveZone 真讀數優先）。
+  await page.evaluate(() => {
+    const now = Date.now();
+    localStorage.setItem('tenki.v6.activeDecision.v1', JSON.stringify({
+      symbol: 'ZZZZ', startedAtMs: now - 60000, expiresAtMs: now + 20 * 60 * 1000,
+    }));
+    localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify({
+      band: 'strain', confidence: 'high', ts: now, evidence: null,
+    }));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2200);
+
+  // 前置條件要先證明成立，否則整段是死的。
+  const pre = await page.evaluate(() => ({
+    marker: !!localStorage.getItem('tenki.v6.activeDecision.v1'),
+    strainOn: document.getElementById('setStrainSilent')
+      ? document.getElementById('setStrainSilent').checked : null,
+  }));
+  checkTruthy('前置：決策進行中的標記在（不在就驗不到第一個理由）', pre.marker);
+  checkTruthy('前置：Strain 靜默是開著的（預設 on）', pre.strainOn === true);
+
+  await page.evaluate(() => document.getElementById('btnSingle').click());
+  await page.waitForTimeout(900);
+
+  const silentLine = await page.evaluate(() => {
+    const items = [...document.querySelectorAll('#logList .log-item')];
+    const hit = items.reverse().find((n) => {
+      const t = n.querySelector('.log-type');
+      return t && t.textContent.includes('靜默');
+    });
+    return hit ? hit.querySelector('.log-detail').textContent : null;
+  });
+  checkTruthy(`事件鏈真的印了一條靜默（實際：${JSON.stringify(silentLine)}）`, !!silentLine);
+  checkTruthy('🔴 兩個理由都講出來了（只講一個，使用者會學到錯的規則）',
+    !!silentLine && silentLine.includes('決策進行中') && silentLine.includes('Strain 狀態'));
+  // 行為不得變：決策仍然是 silent（面板不浮出）。
+  check('🔴 decision 不變 —— 面板仍然沒有浮出',
+    await page.evaluate(() => document.getElementById('entrySheet').className.includes('show')), false);
+
+  await page.evaluate(() => {
+    localStorage.removeItem('tenki.v6.activeDecision.v1');
+    localStorage.removeItem('tenki.readiness.reading.v1');
+  });
+
+  // 🔴 還原回 /v3/ —— 下一段吃 v6 的全域。這是我在這支 harness 上**第二次**
+  // 忘記還原（上一段已經為此寫了同樣的註解），所以這裡再寫一次：
+  // 任何把 page 導去別的路由的區塊，離開前都要導回來。
+  await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+}
+
+// ═══════════════════════════════════════════════
 // 離開太久：不是接回一個殭屍，是誠實收束
 //
 // 🔴 這條守的是 resume 最容易做錯的方向。「決策活得過離開」很容易寫成
