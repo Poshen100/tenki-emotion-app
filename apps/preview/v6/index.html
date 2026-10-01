@@ -2212,6 +2212,13 @@ a.lab-wide{text-decoration:none}
   transition:background 0.2s, color 0.2s, border-color 0.2s;
 }
 .tp-chip:active{background:rgba(var(--amber-400-rgb),0.18)}
+/* 結果回填（§9b）。沿用 `.tp-chip` 的可動層琥珀 —— 它是這一頁既有的「動作晶片」
+   語彙，不為這件事新造一組。⚠️ 三顆 `.picked` 長得完全一樣是刻意的：
+   這個 app 不評價你的交易結果，所以不得有任何一顆比較好或比較壞。 */
+.sd-backfill-q{font-size:12px;color:var(--n-300)}
+.sd-backfill-note{font-size:11px;color:var(--n-400)}
+.sd-backfill-chips{display:flex;gap:8px;margin-top:8px}
+.sd-backfill-chips .tp-chip{flex:1 1 0;text-align:center;white-space:normal}
 .tp-chip.picked{background:var(--amber-400);border-color:var(--amber-400);color:var(--n-950)}
 @media (prefers-reduced-motion: reduce){ .tp-picker{transition:none} }
 
@@ -2854,7 +2861,7 @@ a.lab-wide{text-decoration:none}
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do5"></script>
+    <script src="/preview/decision-outcome.js?v=do6"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -3335,6 +3342,18 @@ a.lab-wide{text-decoration:none}
         <!-- 離開：交易者在桌機或券商 APP 下單，離開是常態不是失誤 —— 這裡只陳述事實，
              不寫成扣分。舊紀錄沒有這個欄位 → 整格 hidden，不顯示「0 次」。 -->
         <div class="sd-fact" id="sdFactAwayCell" hidden><div class="k">離開</div><div class="v" id="sdFactAway">—</div></div>
+      </div>
+
+      <!-- 結果回填（規格 §9b）。
+           🔴 這是「之後可回填」的**唯一入口** —— 收束頁只由一次性回程票開啟，
+           在這之前沒有任何路徑回到一筆過去的決策。部位常常在 30 分鐘決策窗
+           關掉之後好幾小時才平倉，所以回填不是補救，是正常動線。
+           🔴 只在「判定成立並進場」的紀錄上出現：判定不成立 ＝ no_entry（推導），
+           未判定就離開 ＝ null（不猜）。整格 hidden，不顯示一組按不動的晶片。
+           🔴 三顆選中態完全相同（.tp-chip.picked）—— 這個 app 不評價交易結果。 -->
+      <div class="card sd-backfill" id="sdBackfillCell" hidden>
+        <div class="sd-backfill-q">這筆的結果<span class="sd-backfill-note" id="sdBackfillNote"></span></div>
+        <div class="sd-backfill-chips" id="sdBackfillChips"></div>
       </div>
 
       <!-- Insight（事實語言）-->
@@ -6408,6 +6427,74 @@ function renderTurningPoints(rec, dur){
   });
 }
 
+/**
+ * 把一筆紀錄的結果就地寫回統一 store。
+ *
+ * 🔴 **只動 `tradeResult` 這一欄**，其餘沿用原紀錄的事實。這一頁是回填，
+ * 不是重寫 —— 碰到別的欄位就等於用現在的狀態覆寫當時的事實。
+ * 🔴 按 `ts` 找，找不到就什麼都不做（不 push）—— push 會讓同一筆決策存兩份，
+ * 紀律統計立刻失真（PLAYBOOK：一筆決策只能有一筆紀錄）。
+ *
+ * @param {number} ts 紀錄的 ts（store 的 key）
+ * @param {string} result `domain` 契約的結果值
+ * @returns {boolean} 有沒有真的寫到
+ */
+function writeTradeResult(ts, result){
+  let all = [];
+  try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
+  if(!Array.isArray(all)) return false;
+  const idx = all.findIndex(r => r && r.ts === ts);
+  if(idx < 0) return false;
+  all[idx].tradeResult = result;
+  localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
+  return true;
+}
+
+/**
+ * 結果回填的晶片列。
+ *
+ * 🔴 只在 `judged_entered` 出現。其餘兩條路的結果是**推導**出來的
+ * （判定不成立 ＝ no_entry、未判定就離開 ＝ null），再問一次只會製造矛盾。
+ * 🔴 未選取 ＝ `pending`（交易發生了、結果未知），**不是 null** ——
+ * null 會讓這筆從當日計數裡整個消失（見 trade-result 契約檔頭）。
+ * 🔴 文案與值都走共用模組，這一頁不自己寫一份清單。
+ *
+ * @param {Object} rec store 裡的那一筆
+ */
+function renderResultBackfill(rec){
+  const cell = document.getElementById('sdBackfillCell');
+  const wrap = document.getElementById('sdBackfillChips');
+  const note = document.getElementById('sdBackfillNote');
+  if(!cell || !wrap) return;
+
+  const asks = rec.outcomeTag === 'judged_entered';
+  cell.hidden = !asks;
+  wrap.textContent = '';
+  if(!asks) return;
+
+  const current = rec.tradeResult;
+  note.textContent = (!current || current === 'pending') ? '（還沒填，點一顆就記下來）' : '';
+
+  window.TENKI_OUTCOME.TRADE_RESULT_CHIPS.forEach(opt => {
+    const chip = document.createElement('button');
+    chip.className = 'tp-chip' + (current === opt.value ? ' picked' : '');
+    chip.type = 'button';
+    chip.textContent = opt.label;
+    chip.setAttribute('data-trade-result', opt.value);
+    chip.addEventListener('click', () => {
+      // 再點同一顆 ＝ 取消 → 回到 pending，不是 null。
+      const next = rec.tradeResult === opt.value ? 'pending' : opt.value;
+      if(!writeTradeResult(rec.ts, next)) return;
+      // 就地更新手上這份，讓重繪讀得到新值（不重新 load 整個 store）。
+      rec.tradeResult = next;
+      renderResultBackfill(rec);
+      // 列表上的呈現不吃 tradeResult，所以不必重畫 —— 但紀律統計與節奏事實行
+      // 都是從 store 重算的，下次開就會反映。
+    });
+    wrap.appendChild(chip);
+  });
+}
+
 function openSessionDetail(ts){
   const rec = loadOutcomes().find(r => r.ts === ts);
   if(!rec) return;
@@ -6441,6 +6528,9 @@ function openSessionDetail(ts){
 
   // 決策軌跡：軌上的節點 + 底下的逐列清單
   renderTurningPoints(rec, dur);
+
+  // 結果回填（§9b）
+  renderResultBackfill(rec);
 
   // Facts
   document.getElementById('sdFactDur').textContent = fmtDur(dur);

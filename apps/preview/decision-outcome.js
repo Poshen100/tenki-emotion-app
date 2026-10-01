@@ -119,6 +119,27 @@
   // 🔴 本段**只報事實，不報該怎麼做**：回傳「今天幾筆、上一筆怎麼結束」，
   //    不回傳任何指示。`contextZh` 可以逐字上畫面（已過合規層）。
 
+  /**
+   * 結果三選一的畫面文案 —— `domain/src/contracts/trade-result.ts` 的鏡射。
+   *
+   * 🔴 **住在這裡而不是各頁各寫一份**：收束頁（`/decision-alert/`）問這一題，
+   * Session 詳情（`/v3/`）回填同一題。兩份清單遲早漂移，而漂移的那一份會讓
+   * 同一筆紀錄在兩頁顯示不同的結果。
+   *
+   * 🔴 文案不得用自然的交易詞彙：`PROHIBITED_VOCABULARY_ZH` 擋掉
+   * 獲利／虧損／停損／停利，所以「獲利了結」「停損」都不能上畫面。
+   * 這三句是實際跑過 `findProhibitedTerms` 確認乾淨的。
+   * ⚠️ 內部識別字（`profit_taken` / `stopped_out`）不受此限 —— 那是 persisted contract。
+   *
+   * 🔴 沒有第四顆「還沒有結果」：那是**未選取**的狀態（值＝ `pending`）。
+   * 多一顆可切換的晶片會讓「取消選取」變成兩個意思。
+   */
+  var TRADE_RESULT_CHIPS = [
+    { value: 'profit_taken', label: '達到目標' },
+    { value: 'stopped_out', label: '觸及保護價' },
+    { value: 'scratch', label: '打平出場' },
+  ];
+
   /** 方法論的時鐘：交易日是 ET 日，不是 UTC 日。 */
   var TRADING_DAY_TZ = 'America/New_York';
 
@@ -453,6 +474,7 @@
     isDisciplined: isDisciplined,
     resolveOutcomeTag: resolveOutcomeTag,
     defaultTradeResult: defaultTradeResult,
+    TRADE_RESULT_CHIPS: TRADE_RESULT_CHIPS,
     TRADING_DAY_TZ: TRADING_DAY_TZ,
     DAILY_TRADE_BUDGET: DAILY_TRADE_BUDGET,
     DAY_CADENCE_STATES: DAY_CADENCE_STATES,

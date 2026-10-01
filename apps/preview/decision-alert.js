@@ -179,24 +179,6 @@
   var OUTCOME_STORE_KEY = window.TENKI_OUTCOME.STORE_KEY; // 唯一來源見 decision-outcome.js
   var REFLECT_TAGS = ['跟計畫', '有點急', '偏離計畫'];
 
-  /**
-   * 結果三選一 —— `domain/src/contracts/trade-result.ts` 的鏡射（規格 §9b）。
-   *
-   * 🔴 文案不能用自然的交易詞彙：`PROHIBITED_VOCABULARY_ZH` 擋掉
-   * 獲利／虧損／停損／停利，所以「獲利了結」「停損」都不得上畫面。
-   * 這三句是實際跑過 `findProhibitedTerms` 確認乾淨的。
-   * ⚠️ 內部識別字（`profit_taken` / `stopped_out`）不受此限 —— 那是 persisted
-   * contract，照 §10 對「命名 vs 否認」的既有判準處理。
-   *
-   * 🔴 沒有第四顆「還沒有結果」：那是**未選取**的狀態（值＝ `pending`），
-   * 多一顆可切換的晶片會讓「取消選取」變成兩個意思。下方說明行負責講清楚
-   * 那是正常狀態。
-   */
-  var TRADE_RESULT_CHIPS = [
-    { value: 'profit_taken', label: '達到目標' },
-    { value: 'stopped_out', label: '觸及保護價' },
-    { value: 'scratch', label: '打平出場' },
-  ];
 
 
   // 收束頁顯示偏好（可調 + 持久）。記錄一律 on（安全、不可關）→ 不提供關閉記錄的開關。
@@ -1465,7 +1447,7 @@
     var asksTrade = judgment === 'entered';
     el.resultTrade.textContent = '';
     if (asksTrade) {
-      TRADE_RESULT_CHIPS.forEach(function (opt) {
+      window.TENKI_OUTCOME.TRADE_RESULT_CHIPS.forEach(function (opt) {
         var chip = document.createElement('button');
         chip.className = 'result-chip';
         chip.type = 'button';
