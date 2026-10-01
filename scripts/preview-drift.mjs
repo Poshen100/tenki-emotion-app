@@ -183,6 +183,54 @@ checkTruthy(
 // 頁面照跑、掃描照給讀數，只有歷史一直是空的 —— 而依賴歷史的三個支柱
 // 要好幾天之後才會有人發現它們永遠說「證據不足」。
 // ═══════════════════════════════════════════════════
+// 第三組鏡射：日界節奏（規格 §9b）
+//
+// `domain/src/policies/day-cadence.ts` + `contracts/trade-result.ts`
+//   ↔ `apps/preview/decision-outcome.js`
+//
+// 🔴 這一組的漂移後果特別安靜：節奏規則不會報錯，它只會**少算一筆**
+//    （例如 `pending` 在一邊算一筆、另一邊不算），於是當日額度永遠用不完、
+//    面板照樣彈，而兩頁各自看起來都正常。
+// ⚠️ 常數比字面，**語意比行為** —— `countsAsTrade` 兩邊是不同語言，
+//    比不了原始碼，所以下面在瀏覽器裡實跑同一組情境。
+// ═══════════════════════════════════════════════════
+console.log('\n── 日界節奏：鏡射常數 ──');
+
+const CADENCE_TS = read('domain/src/policies/day-cadence.ts');
+const TRADE_TS = read('domain/src/contracts/trade-result.ts');
+const CADENCE_MIRROR = read('apps/preview/decision-outcome.js');
+
+check('DAILY_TRADE_BUDGET 一致',
+  scalarConst(CADENCE_MIRROR, 'DAILY_TRADE_BUDGET'),
+  scalarConst(CADENCE_TS, 'DAILY_TRADE_BUDGET'));
+check('TRADING_DAY_TZ 一致（UTC 日界會把傍晚的交易歸到隔天）',
+  stringConst(CADENCE_MIRROR, 'TRADING_DAY_TZ'),
+  stringConst(CADENCE_TS, 'TRADING_DAY_TZ'));
+
+/** 抓 `NAME = [ 'a', 'b' ]` 的字串陣列（TS 可能帶 `as const`）。 */
+function stringArrayConst(src, name) {
+  const start = src.search(new RegExp(`\\b${name}\\b[^=\\n]*=\\s*\\[`));
+  if (start === -1) return null;
+  const open = src.indexOf('[', start);
+  const close = src.indexOf(']', open);
+  return [...src.slice(open + 1, close).matchAll(/'([^']+)'/g)].map((m) => m[1]);
+}
+
+check('DAY_CADENCE_STATES 五個狀態一致（含順序）',
+  stringArrayConst(CADENCE_MIRROR, 'DAY_CADENCE_STATES'),
+  stringArrayConst(CADENCE_TS, 'DAY_CADENCE_STATES'));
+
+// 🔴 `pending` 是在這兩邊都存在才有意義的值 —— 少一邊就是上面說的「安靜少算」。
+checkTruthy('domain 的結果枚舉含 pending',
+  (stringArrayConst(TRADE_TS, 'DOMAIN_TRADE_RESULTS') || []).includes('pending'));
+
+// 五句事實行逐字比對。TS 在 switch 裡、鏡射在 if 鏈裡，所以比的是「出現了哪些
+// 『今天…』字串」，而不是程式結構。⚠️ 排序後比 —— 兩邊的分支順序本來就不同。
+const cadenceCopy = (src) => [...src.matchAll(/'(今天[^']*)'/g)].map((m) => m[1]).sort();
+check('五句事實行逐字一致',
+  cadenceCopy(CADENCE_MIRROR), cadenceCopy(CADENCE_TS));
+
+// ═══════════════════════════════════════════════════
 
 console.log('\n── 讀數歷史：鏡射 ──');
 for (const name of ['READINESS_HISTORY_SCHEMA', 'READINESS_HISTORY_MAX']) {

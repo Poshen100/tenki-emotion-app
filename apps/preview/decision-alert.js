@@ -393,7 +393,7 @@
     'silentArea', 'logList', 'backdrop', 'entrySheet',
     'entryPing', 'entrySymbol', 'entryCond', 'entryAge', 'entrySource', 'entryChips',
     'entryNote', 'entryState', 'entryBand', 'entryReadingAge', 'entryRescan', 'entryEvidence',
-    'entryDiscLabel', 'entryDiscRate', 'entryStrip', 'entryDiscipline', 'entryCost',
+    'entryDiscLabel', 'entryDiscRate', 'entryStrip', 'entryDiscipline', 'entryCadence', 'entryCost',
     'btnDismiss', 'btnEngage',
     'tplSheet', 'tplList', 'tplStatus', 'aggSheet', 'aggHead', 'aggList',
     'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcCenter', 'resultArcGlow', 'resultArcTime',
@@ -758,6 +758,15 @@
       el.entryDiscipline.textContent =
         (scoped ? '這個標的' : '') + '你過去 ' + scope.length + ' 次：' + d + ' 次跟著流程。';
     }
+
+    // ── 日界節奏（§9b 階段 B）──
+    // 🔴 這一行**唯讀**：只陳述今天走到哪，不閘門、不建議。閘門是階段 C。
+    // 🔴 判定走共用模組（`domain/src/policies/day-cadence.ts` 的鏡射），
+    //    這一頁不自己數 —— 自己數就是第二份判定，正是這個 repo 付過三次學費的東西。
+    // ⚠️ 範圍是**全部紀錄**，不跟著上面那塊的 `scope` 走：節奏規則問的是
+    //    「你今天做了幾筆」，那是跨標的的事實；只算這個標的會低報。
+    var cadence = window.TENKI_OUTCOME.resolveDayCadence(all, Date.now());
+    el.entryCadence.textContent = cadence.contextZh;
   }
 
   /** 成本預期（呼應 Fable-5 的 ⏱ chip）。 */
