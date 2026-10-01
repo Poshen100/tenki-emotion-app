@@ -659,6 +659,101 @@ console.log('\n── 結果三選一（進場路徑）──');
 }
 
 // ═══════════════════════════════════════════════
+// 日界節奏的事實行（規格 §9b 階段 B）
+//
+// 🔴 這一段驗兩件不同的事：
+//   1. **行為** —— 鏡射的 `resolveDayCadence` 在同一組情境下，要跟 domain 那
+//      28 條 jest 斷言算出同一個答案。常數可以比字面（preview-drift 在做），
+//      但 `countsAsTrade` 這類語意兩邊是不同語言，比不了原始碼，只能實跑。
+//   2. **接線** —— 那句事實行真的上了畫面。「值對」與「看得見」是兩件事
+//      （PLAYBOOK §3：進度環被一條 legacy CSS 整個關掉，而值全部正確）。
+//
+// 🔴 階段 B 刻意**不閘門**：面板照常浮出，只多一行事實。先例是 quiet window
+//    的裁決（「面板仍浮出、加一行脈絡，不硬靜音」）。閘門是階段 C。
+// ═══════════════════════════════════════════════
+console.log('\n── 日界節奏的事實行 ──');
+{
+  const H = 60 * 60 * 1000;
+  // 情境表與 domain 的 jest 斷言同一組 —— 兩邊算出不同答案就是漂移。
+  const CASES = [
+    ['沒有紀錄 → fresh', [], 'fresh', '今天還沒有決策紀錄'],
+    ['一筆達到目標 → stop_after_win（贏停）',
+      [[-2 * H, 'profit_taken']], 'stop_after_win', '今天第 1 筆 · 上一筆達到目標'],
+    ['🔴 一筆未回填仍然算一筆（second_chance，不是 fresh）',
+      [[-2 * H, 'pending']], 'second_chance', '今天第 1 筆 · 已收束'],
+    ['兩筆都觸及保護價 → circuit_break（雙輸熔斷）',
+      [[-3 * H, 'stopped_out'], [-2 * H, 'stopped_out']],
+      'circuit_break', '今天 2 筆 · 兩筆都觸及保護價'],
+    ['🔴 未回填 + 停損 → day_complete，不宣稱驗證不了的雙輸',
+      [[-3 * H, 'pending'], [-2 * H, 'stopped_out']], 'day_complete', '今天已完成 2 筆'],
+    ['🔴 no_entry 不吃額度（收手是紀律，不是交易）',
+      [[-2 * H, 'no_entry'], [-1 * H, 'no_entry']], 'fresh', '今天還沒有決策紀錄'],
+    ['🔴 契約前的紀錄（沒有這一欄）不猜、不計入',
+      [[-2 * H, undefined]], 'fresh', '今天還沒有決策紀錄'],
+  ];
+
+  await page.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+
+  for (const [name, recs, state, zh] of CASES) {
+    const got = await page.evaluate(({ offsets }) => {
+      const now = Date.now();
+      const records = offsets.map(([off, result]) => {
+        const r = { ts: now + off };
+        if (result !== undefined) r.tradeResult = result;
+        return r;
+      });
+      const out = window.TENKI_OUTCOME.resolveDayCadence(records, now);
+      return { state: out.state, zh: out.contextZh };
+    }, { offsets: recs });
+    check(name, got, { state, zh });
+  }
+
+  // 🔴 ET 日界：昨天的不算。用一個「UTC 已經換日、ET 還沒」的時刻會驗不到
+  // 真正的差別，所以直接用 30 小時前 —— 那在任何時區都是昨天。
+  const yesterday = await page.evaluate(() => {
+    const now = Date.now();
+    return window.TENKI_OUTCOME.resolveDayCadence(
+      [{ ts: now - 30 * 60 * 60 * 1000, tradeResult: 'profit_taken' }], now).state;
+  });
+  check('🔴 昨天的紀錄不算進今天', yesterday, 'fresh');
+
+  // ── 接線：事實行真的在畫面上 ──
+  // ⚠️ 先種紀錄再開面板 —— renderEntryDiscipline 在面板浮出時才跑。
+  await page.evaluate((ts) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([{
+      symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+      judgmentSchema: 'structure_watch_v1', durationSec: 300,
+      ts, source: 'alert', tradeResult: 'profit_taken',
+    }]));
+  }, Date.now() - 2 * 60 * 60 * 1000);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2000);
+  await page.evaluate(() => document.getElementById('btnSingle').click());
+  await page.waitForTimeout(900);
+  const line = await page.evaluate(() => {
+    const n = document.getElementById('entryCadence');
+    return { text: n ? n.textContent : null, panelOpen: document.getElementById('entrySheet').className.includes('show') };
+  });
+  checkTruthy('決策入口面板打開了（沒開就讀不到那一行，會是死斷言）', line.panelOpen);
+  check('🔴 事實行真的上了畫面', line.text, '今天第 1 筆 · 上一筆達到目標');
+  // 🔴 階段 B 不閘門 —— 贏停狀態下面板照樣浮出（quiet window 的先例）。
+  checkTruthy('🔴 贏停狀態下面板仍然浮出（階段 B 不閘門）', line.panelOpen);
+
+  // 事實行不得出現評價或指示。紅線詞與 domain 那一組同源。
+  const bannedInLine = await page.evaluate(() => {
+    const t = document.getElementById('entryCadence').textContent;
+    return ['建議', '應該', '休息', '停手', '表現', '勝率', '獲利', '停損']
+      .filter((w) => t.includes(w));
+  });
+  check('🔴 事實行不得評價或指示', bannedInLine, []);
+
+  await page.evaluate(() => localStorage.removeItem('tenki.alert.outcomes.v1'));
+  await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1200);
+}
+
+// ═══════════════════════════════════════════════
 // 離開太久：不是接回一個殭屍，是誠實收束
 //
 // 🔴 這條守的是 resume 最容易做錯的方向。「決策活得過離開」很容易寫成

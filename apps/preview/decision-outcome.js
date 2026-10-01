@@ -108,6 +108,87 @@
     return null;
   }
 
+  // ═══════════════════════════════════════════════
+  // 日界節奏（§6.1 贏停 / 雙輸熔斷）—— `domain/src/policies/day-cadence.ts`
+  // 與 `domain/src/contracts/trade-result.ts` 的鏡射
+  // ═══════════════════════════════════════════════
+  // ⚠️ preview 不能 import `domain/`（CLAUDE.md 架構限制），所以這裡是手抄。
+  // 🔴 這個 repo 為鏡射漂移付過三次學費（同一筆決策，一頁 100%、另一頁 0%）——
+  //    `scripts/preview-drift.mjs` 的做法是逐一比對兩邊的常數值與每一句文案，
+  //    這一段照同一個方式被守著：改這裡**必須**同時改 domain，否則守門會紅。
+  // 🔴 本段**只報事實，不報該怎麼做**：回傳「今天幾筆、上一筆怎麼結束」，
+  //    不回傳任何指示。`contextZh` 可以逐字上畫面（已過合規層）。
+
+  /** 方法論的時鐘：交易日是 ET 日，不是 UTC 日。 */
+  var TRADING_DAY_TZ = 'America/New_York';
+
+  /** §6.1 頻率：每天 1–2 筆。 */
+  var DAILY_TRADE_BUDGET = 2;
+
+  var DAY_CADENCE_STATES = [
+    'fresh', 'second_chance', 'stop_after_win', 'circuit_break', 'day_complete',
+  ];
+
+  /**
+   * 這筆結果算不算當日的一筆交易。
+   * 🔴 `pending`（結果還沒回填）**算**：交易發生了，只是結果未知。
+   * 當成不算的話當日額度永遠用不完 —— 見 trade-result 契約檔頭。
+   * ⚠️ 也收 `undefined`（契約之前寫的紀錄根本沒有這一欄）。
+   */
+  function countsAsTrade(result) {
+    return result !== null && result !== undefined && result !== 'no_entry';
+  }
+
+  /** 只有停損算輸（平手不算 —— 熔斷是為了止血，平手沒有在流血）。 */
+  function isLoss(result) { return result === 'stopped_out'; }
+
+  /** 只有達到目標算贏（`pending` 不算 —— 未知不等於好）。 */
+  function isWin(result) { return result === 'profit_taken'; }
+
+  /**
+   * 某個時刻屬於哪一個 ET 日。
+   * ⚠️ **不得**改用 UTC 日界（`toISOString`）—— 那會在 ET 19:00／20:00 換日，
+   * 把傍晚的交易歸到隔天。`en-CA` 直接吐 YYYY-MM-DD，DST 交給 `Intl`。
+   */
+  function resolveTradingDayKey(nowMs) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: TRADING_DAY_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date(nowMs));
+  }
+
+  function cadenceContext(state, tradesToday) {
+    if (state === 'fresh') return '今天還沒有決策紀錄';
+    if (state === 'stop_after_win') return '今天第 1 筆 · 上一筆達到目標';
+    if (state === 'second_chance') return '今天第 1 筆 · 已收束';
+    if (state === 'circuit_break') return '今天 2 筆 · 兩筆都觸及保護價';
+    return '今天已完成 ' + String(tradesToday) + ' 筆';
+  }
+
+  /**
+   * 今天走到哪裡了。
+   * @param {Array<{ts:number, tradeResult:string|null}>} records
+   * @param {number} nowMs
+   * @returns {{tradesToday:number, state:string, contextZh:string}}
+   */
+  function resolveDayCadence(records, nowMs) {
+    var today = resolveTradingDayKey(nowMs);
+    var todays = (records || []).filter(function (r) {
+      return r && countsAsTrade(r.tradeResult) && resolveTradingDayKey(r.ts) === today;
+    }).slice().sort(function (a, b) { return a.ts - b.ts; });
+
+    var tradesToday = todays.length;
+    var state;
+    if (tradesToday === 0) state = 'fresh';
+    else if (tradesToday === 1) {
+      state = isWin(todays[0].tradeResult) ? 'stop_after_win' : 'second_chance';
+    } else if (isLoss(todays[0].tradeResult) && isLoss(todays[1].tradeResult)) {
+      state = 'circuit_break';
+    } else {
+      state = 'day_complete';
+    }
+    return { tradesToday: tradesToday, state: state, contextZh: cadenceContext(state, tradesToday) };
+  }
+
   /**
    * 讀統一 store。壞資料一律當成空陣列 —— 讀不到歷史不該讓整頁掛掉。
    *
@@ -372,6 +453,14 @@
     isDisciplined: isDisciplined,
     resolveOutcomeTag: resolveOutcomeTag,
     defaultTradeResult: defaultTradeResult,
+    TRADING_DAY_TZ: TRADING_DAY_TZ,
+    DAILY_TRADE_BUDGET: DAILY_TRADE_BUDGET,
+    DAY_CADENCE_STATES: DAY_CADENCE_STATES,
+    countsAsTrade: countsAsTrade,
+    isLoss: isLoss,
+    isWin: isWin,
+    resolveTradingDayKey: resolveTradingDayKey,
+    resolveDayCadence: resolveDayCadence,
     load: load,
     MIN_BAND_SAMPLES_FOR_RATE: MIN_BAND_SAMPLES_FOR_RATE,
     BAND_ORDER: BAND_ORDER,
