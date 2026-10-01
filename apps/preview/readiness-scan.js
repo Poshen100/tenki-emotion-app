@@ -2338,6 +2338,25 @@
      * 走完整場掃描才能碰到「信心低」那一格，CI 裡跑不出來。
      */
     __policy: { securedEarned: securedEarned },
+    /**
+     * Harness contract（`scripts/preview-scan-squareness.mjs` 用）。**唯讀**。
+     *
+     * 開這個出口的理由跟 `__blink` 同一條：要驗的是兩條純規則，而走完整場掃描
+     * 既慢又不可控。這裡要鎖住的是兩件事 ——
+     *   1. squareness 的極值真的對齊「正對鏡頭」提示的門檻（不是隨手挑的數）
+     *   2. 🔴 **pose 進不了閘門** —— 歪到爆也不能讓掃描推不動。那是刻意的設計
+     *      （門檻沒實機調過，抓錯會掃不完），所以要有斷言鎖著，不是靠註解。
+     */
+    __pose: {
+      squareness: headSquareness,
+      gatesAdvance: gatesAdvance,
+      constants: {
+        YAW_SQUARE_MAX: YAW_SQUARE_MAX,
+        PITCH_SQUARE_MIN: PITCH_SQUARE_MIN,
+        PITCH_SQUARE_MAX: PITCH_SQUARE_MAX,
+        READOUT_SQUARE_WEIGHT: READOUT_SQUARE_WEIGHT,
+      },
+    },
     __blink: {
       detect: detectBlink,
       newState: function () { return { prevEyeOpen: 1, eyeBaseline: null, eyeDip: null }; },
