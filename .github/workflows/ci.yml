@@ -174,3 +174,8 @@ jobs:
       # 比對兩邊的常數與文案，並實走誠實分支（證據不足 / 沒有明顯改變）。
       - name: Drift alert harness (鏡射比對 + 誠實分支)
         run: node scripts/preview-drift.mjs
+
+      # Lab 分頁：校準台的誠實規則（樣本不足不印分子、滿格斜紋）、
+      # 帶位色只上在帶位身上、以及那些「講排除了幾筆」的字讀不讀得動。
+      - name: Lab harness
+        run: node scripts/preview-lab.mjs
