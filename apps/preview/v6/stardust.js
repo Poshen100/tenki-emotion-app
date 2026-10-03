@@ -1115,6 +1115,11 @@
         // reachable in the sandbox (three.js is CDN-blocked), but this is.
         toneMatrix: toneMatrix,
         hueBandOf: hueBandOf,
+        // 🔴 開出來是為了驗一條**時間免疫**的規則：squareness 只進收散，
+        // 不進色彩。用取樣去比 sat 會夾到平滑的殘量（sStill 還在逼近目標值），
+        // 那正是 PR #274 第一次 CI 紅燈的成因 —— 紅的是斷言不是產品。
+        // 直接讀原始碼問「色彩那條路上有沒有 squareness」才問得準。
+        effectiveSat: effectiveSat,
         HUE_BANDS: HUE_BANDS,
         // 🔴 鎖定資產的**真正**閘門：它是 false 的那一刻，粒子就一顆都不重新上色。
         // harness 本來只驗 `readoutState().active === false`，但那是一個記帳用的

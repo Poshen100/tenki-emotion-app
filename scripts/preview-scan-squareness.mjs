@@ -100,32 +100,70 @@ check('🔴 閘門仍然真的在看 centering 與 stillness（上一條不是�
 // ── 4. 星塵端：預設恆等、傳了才動，而且只動收散不動色彩 ──
 //
 // ⚠️ 平滑（stepReadout）是由 rAF 渲染迴圈推的，而容器連不到 cdnjs → three.js
-// 走 stub → 迴圈可能根本沒在跑。所以這裡先**實測平滑有沒有前進**，沒有就誠實
-// 跳過，而不是讓一組永遠不會動的數字變成「通過」。
+// 走 stub → 迴圈可能根本沒在跑。所以先**實測平滑有沒有前進**，沒有就誠實跳過，
+// 而不是讓一組永遠不會動的數字變成「通過」。
+//
+// 🔴 **等它真的收斂再比，不要用固定 timeout。** PR #274 第一次 CI 紅燈就是這個：
+// 第一次 setReadout 之後只等 900ms（≈54 幀 × READOUT_SMOOTH 0.08），sStill 還在
+// 從 0.5 爬向 0.9（0.89557 → 0.89995），於是 sat 在兩次取樣之間自己動了 0.00285，
+// 而容差寫 1e-9。那個變化**與 squareness 無關**，是上一個量還沒收斂完的殘量。
+// 教訓：把「X 不驅動 Y」寫成「這兩個取樣點的 Y 相同」，中間就會夾進別的未收斂量。
 const star = await page.evaluate(async () => {
   const S = window.TENKI_STARDUST;
   if (!S || typeof S.setReadout !== 'function' || typeof S.readoutState !== 'function') return null;
-  const settle = () => new Promise((r) => setTimeout(r, 900));
+  // 輪詢到穩定：連續兩次讀數差 < 1e-6 才算收斂（上限 ~5s）。
+  const settle = async () => {
+    let prev = null;
+    for (let i = 0; i < 100; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      const st = S.readoutState();
+      const now = st.stillness + st.progress + st.squareness;
+      if (prev !== null && Math.abs(now - prev) < 1e-6) return true;
+      prev = now;
+    }
+    return false; // 沒收斂（多半是 rAF 沒在跑）
+  };
   S.setReadout({ stillness: 0.9, progress: 0.3, squareness: 1 });
-  await settle();
+  const settledA = await settle();
   const base = S.readoutState();
   S.setReadout({ squareness: 0 });
-  await settle();
+  const settledB = await settle();
   const crooked = S.readoutState();
   S.clearReadout();
-  return { base, crooked, smoothingRan: Math.abs(crooked.squareness - base.squareness) > 1e-6 };
+  return {
+    base, crooked, settled: settledA && settledB,
+    smoothingRan: Math.abs(crooked.squareness - base.squareness) > 1e-6,
+    satSrc: typeof S.effectiveSat === 'function' ? S.effectiveSat.toString() : null,
+  };
 });
 if (!star) {
   console.log('– 星塵端跳過：TENKI_STARDUST 不可用（容器連不到 cdnjs，three.js 走 stub）');
-} else if (!star.smoothingRan) {
-  console.log('– 星塵端跳過：平滑迴圈沒在跑（rAF 由 three.js 渲染推，容器裡走 stub）'
-    + ` — sSquare 停在 ${star.base.squareness}`);
+} else if (!star.smoothingRan || !star.settled) {
+  console.log('– 星塵端跳過：平滑迴圈沒在跑或沒收斂（rAF 由 three.js 渲染推，容器裡走 stub）'
+    + ` — settled=${star.settled} sSquare=${star.base.squareness}`);
 } else {
   check('星塵：沒傳 squareness 時 sSquare 為 1（恆等）', star.base.squareness, 1, 1e-6);
   check('🔴 星塵：轉開之後收散真的鬆掉（scale 變大）', star.crooked.scale > star.base.scale, true);
   check('🔴 星塵：轉開之後漂移真的變大（drift 變大）', star.crooked.drift > star.base.drift, true);
+  // 收斂之後只動了 squareness，所以 sat 若動就真的只能是它造成的。
   check('🔴 星塵：收散變了但飽和度沒變（只動收散，不動色彩）',
     Math.abs(star.crooked.sat - star.base.sat) < 1e-9, true);
+}
+
+// ── 5. 🔴 時間免疫版：色彩那條路上根本沒有 squareness ──
+//
+// 上面那條要等收斂、而且在容器裡跑不到。這兩條直接問原始碼，不受取樣時機影響，
+// 而且**成對寫**：少了第二條的話，把 effectiveSat 掏空也能讓第一條變綠。
+const satSrc = await page.evaluate(
+  () => (window.TENKI_STARDUST && typeof window.TENKI_STARDUST.effectiveSat === 'function'
+    ? window.TENKI_STARDUST.effectiveSat.toString() : null));
+if (satSrc === null) {
+  console.log('– 色彩結構斷言跳過：TENKI_STARDUST 不可用（容器連不到 cdnjs）');
+} else {
+  check('🔴 色彩路徑上沒有 squareness / convergeStill（收散與色彩分家）',
+    /square|convergeStill/i.test(satSrc), false);
+  check('🔴 色彩路徑仍然真的在讀 sStill（上一條不是死斷言）',
+    /sStill/.test(satSrc), true);
 }
 
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
