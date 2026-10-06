@@ -155,6 +155,16 @@
       animation: chip-in 0.35s var(--ease-calm) forwards;
     }
     @keyframes chip-in { to { opacity: 1; transform: translateY(0); } }
+    /* 🔴 收摺的晶片**真的會做事**（點了面板就開）→ 可動層琥珀。
+       中性的 `.silent-chip` 是「已接收、沒事要做」，兩者不能長一樣，
+       否則使用者學不到哪一顆可以點。 */
+    .silent-chip.actionable {
+      color: var(--amber-400); font-family: inherit;
+      border-color: rgba(var(--amber-400-rgb), 0.38);
+      background: rgba(var(--amber-400-rgb), 0.08);
+      cursor: pointer;
+    }
+    .silent-chip.actionable:active { background: rgba(var(--amber-400-rgb), 0.18); }
 
     /* ── Event chain log ── */
     .log-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -720,6 +730,9 @@
         <label class="set-row set-check"><span>Strain 狀態靜默接收</span><input type="checkbox" id="setStrainSilent" /></label>
         <label class="set-row set-check"><span>決策中同標的安靜更新</span><input type="checkbox" id="setSessionQuiet" /></label>
         <label class="set-row set-check"><span>安靜時段提示</span><input type="checkbox" id="setQuietWindow" /></label>
+        <!-- 日界節奏收摺（§9b 階段 C）。預設 on —— 它實作的是使用者自己方法論
+             裡的停手點，不是我們加的意見。收摺不是靜音：晶片可以點開。 -->
+        <label class="set-row set-check"><span>到了停手點就收摺快訊</span><input type="checkbox" id="setCadenceCollapse" /></label>
         <div class="live-row">
           <button class="btn btn-ghost" id="setReset" type="button">回到預設</button>
         </div>
@@ -943,6 +956,6 @@
   <script src="/preview/readiness-scan.js?v=rs21"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do6"></script>
-  <script src="decision-alert.js?v=alert48"></script>
+  <script src="decision-alert.js?v=alert50"></script>
 </body>
 </html>
