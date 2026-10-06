@@ -166,6 +166,12 @@ jobs:
       - name: Scan blink harness (谷底偵測)
         run: node scripts/preview-scan-blink.mjs
 
+      # 「正對儀器」那條回饋（founder 2026-10-01：「眼睛好像不用看鏡頭或螢幕」）。
+      # ⚠️ 這支的星塵那一段在**開發容器裡會跳過**（連不到 cdnjs → three.js 走 stub），
+      # 但 CI 連得到 → 那幾條在這裡才第一次真的跑。第一次 run 就是它們的驗收。
+      - name: Scan squareness harness (正對回饋)
+        run: node scripts/preview-scan-squareness.mjs
+
       - name: Token scale harness (色階系統守門)
         run: node scripts/preview-token-scale.mjs
 

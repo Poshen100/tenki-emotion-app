@@ -227,6 +227,21 @@
   var YAW_SQUARE_MAX = 0.22;
   var PITCH_SQUARE_MIN = 0.16;
   var PITCH_SQUARE_MAX = 0.62;
+  /**
+   * 正對程度（squareness）在收散上的權重 —— 0 = 完全不影響，1 = 與 stillness 等重。
+   *
+   * ⚠️ 這是**手感旋鈕**，而且它錨在上面那兩個「還沒實機調過」的門檻上。
+   * 取 0.45：正對時看得出來收緊、轉開時看得出來鬆掉，但 stillness 仍然是主角
+   * （它才是進閘門的那個量）。**實機幅度由 founder 定裁**（MOTION-DIRECTION §7）。
+   */
+  var READOUT_SQUARE_WEIGHT = 0.45;
+  /**
+   * 對位弧對 yaw 的靈敏度。對位中（未入框）比較大 —— 那時使用者正在找位置；
+   * 鎖定後縮小，弧的主要工作已經變成「維持 12 點鐘的鎖定感」，朝向只是提醒。
+   * 兩者都**只動 strokeDashoffset**（每幀只寫 transform/opacity 的同類，不改幾何）。
+   */
+  var ARC_YAW_ALIGNING = 0.12;
+  var ARC_YAW_LOCKED = 0.05;
   /** 臉部資料超過這麼久沒更新就當作臉不在（推論比取樣慢，要留寬容）。 */
   var FACE_STALE_MS = 700;
   /** Tier A 要成立，landmark 樣本至少要這麼多 —— 只瞄到一兩幀不算量到。 */
@@ -1290,7 +1305,15 @@
       ? clamp01(session.heldMs / session.budgetMs)
       : 0;
     if (typeof S.setReadout === 'function') {
-      S.setReadout({ stillness: readoutStillness(still), progress: progress });
+      // 🔴 `squareness` 是**另一個欄位**，不覆寫 `stillness` —— 那個欄位名有意義，
+      // 而且 preview-scan-stardust.mjs 有斷言在看它的跨度。收散吃兩者的乘積
+      // （見 stardust.js 的 convergeStill）：穩住只說「沒有晃」，一個人可以
+      // 一動不動地把頭轉開，那時候畫面上得有東西說「你歪了」。
+      S.setReadout({
+        stillness: readoutStillness(still),
+        progress: progress,
+        squareness: headSquareness(session.headPose),
+      });
     }
     S.setTone({
       // 晃動 → 偏離身分；穩住 → 回到身分。單向，不得為負。
@@ -1321,6 +1344,38 @@
     var span = READOUT_STILL_HI - LANDMARK_STILL_GATE;
     if (span <= 0) return clamp01(still);
     return clamp01((still - LANDMARK_STILL_GATE) / span);
+  }
+
+  /**
+   * 頭部朝向 → 一個 0..1 的「正對程度」。
+   *
+   * 為什麼需要：`headPose` 早就每幀在算，但它只驅動一行文字提示與對位弧的一點點
+   * 旋轉（`yaw * 0.12`）—— 而且 `updateAlignArc` 入框之後連那點點都丟掉。結果是
+   * **一旦入框，臉朝哪裡對儀器完全沒差**，founder 2026-10-01 實走的說法是
+   * 「眼睛好像不用看鏡頭或螢幕，感覺有點奇怪」。這個函式把那個已經量到的東西
+   * 換算成可以餵給收散的純量。
+   *
+   * 🔴 **低端錨在「正對鏡頭」提示觸發的那一刻**，與 `readoutStillness()` 同一個
+   * 作法（它錨在 `LANDMARK_STILL_GATE` 上）：畫面的極值要跟量測自己的判準對齊，
+   * 不是隨手挑一個數。提示亮起來的那一刻，正好就是收散最鬆的那一刻。
+   *
+   * ⚠️ pitch 的中性值**不是 0** —— 正臉時鼻尖本來就在兩眼中點下方（見
+   * `YAW_SQUARE_MAX` 那組常數的註解），所以中性取容許帶的中點、誤差除以半寬。
+   *
+   * ⚠️ 這整條錨在兩個**還沒實機調過**的門檻上。當視覺耦合可以接受（最壞是手感
+   * 不對）；**當閘門不行** —— 所以 `gatesAdvance()` 刻意不吃它，見那裡的註解。
+   *
+   * @param {?{yaw:number,pitch:number}} pose - `headPose()` 的輸出；null = 沒有臉。
+   * @returns {number} 1 = 正對，0 = 已經歪到提示門檻以外。沒有 pose 時回 1
+   *   （＝恆等：沒量到就不要因此懲罰收散）。
+   */
+  function headSquareness(pose) {
+    if (!pose) return 1;
+    var pitchMid = (PITCH_SQUARE_MIN + PITCH_SQUARE_MAX) / 2;
+    var pitchHalf = (PITCH_SQUARE_MAX - PITCH_SQUARE_MIN) / 2;
+    var yawErr = YAW_SQUARE_MAX > 0 ? Math.abs(pose.yaw) / YAW_SQUARE_MAX : 0;
+    var pitchErr = pitchHalf > 0 ? Math.abs(pose.pitch - pitchMid) / pitchHalf : 0;
+    return 1 - clamp01(Math.max(yawErr, pitchErr));
   }
 
   /**
@@ -1908,11 +1963,20 @@
     }
     frame.classList.add('aligning');
     if (framed) {
-      // 磁吸歸位：頂端核心點 (12點鐘)
-      arc.style.strokeDashoffset = (-HALO_START_OFFSET).toFixed(4);
+      // 磁吸歸位：頂端核心點 (12點鐘)。
+      //
+      // ⚠️ 先前這裡**完全不看 pose** —— 入框之後弧直接吸到 12 點鐘不動，於是
+      // 「我已經鎖定了，但我的頭歪了」在畫面上是靜音的。那是 founder 2026-10-01
+      // 「眼睛好像不用看鏡頭或螢幕」的另一半：連唯一那個會回應朝向的元件，
+      // 也在最需要它的時候閉嘴。
+      //
+      // 現在保留磁吸（鎖定感不變），但**歪掉時仍看得出來** —— 權重比未入框時小，
+      // 因為那時主要任務已經不是對位，只是提醒你別轉開。
+      var lockYaw = session.headPose ? session.headPose.yaw * ARC_YAW_LOCKED : 0;
+      arc.style.strokeDashoffset = (-HALO_START_OFFSET + lockYaw).toFixed(4);
     } else {
       var displayX = 1 - box.centerX;
-      var yawOffset = pose ? pose.yaw * 0.12 : 0;
+      var yawOffset = pose ? pose.yaw * ARC_YAW_ALIGNING : 0;
       var posOffset = (displayX - 0.5) * 0.16;
       var offset = -HALO_START_OFFSET + posOffset + yawOffset;
       arc.style.strokeDashoffset = offset.toFixed(4);
@@ -2274,6 +2338,25 @@
      * 走完整場掃描才能碰到「信心低」那一格，CI 裡跑不出來。
      */
     __policy: { securedEarned: securedEarned },
+    /**
+     * Harness contract（`scripts/preview-scan-squareness.mjs` 用）。**唯讀**。
+     *
+     * 開這個出口的理由跟 `__blink` 同一條：要驗的是兩條純規則，而走完整場掃描
+     * 既慢又不可控。這裡要鎖住的是兩件事 ——
+     *   1. squareness 的極值真的對齊「正對鏡頭」提示的門檻（不是隨手挑的數）
+     *   2. 🔴 **pose 進不了閘門** —— 歪到爆也不能讓掃描推不動。那是刻意的設計
+     *      （門檻沒實機調過，抓錯會掃不完），所以要有斷言鎖著，不是靠註解。
+     */
+    __pose: {
+      squareness: headSquareness,
+      gatesAdvance: gatesAdvance,
+      constants: {
+        YAW_SQUARE_MAX: YAW_SQUARE_MAX,
+        PITCH_SQUARE_MIN: PITCH_SQUARE_MIN,
+        PITCH_SQUARE_MAX: PITCH_SQUARE_MAX,
+        READOUT_SQUARE_WEIGHT: READOUT_SQUARE_WEIGHT,
+      },
+    },
     __blink: {
       detect: detectBlink,
       newState: function () { return { prevEyeOpen: 1, eyeBaseline: null, eyeDip: null }; },
