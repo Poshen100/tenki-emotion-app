@@ -79,6 +79,35 @@ run_step "preview syntax (node --check)" check_preview
 # ── 6. 禁用詞彙（TEI/PR99 不得進新代碼）──────────────────
 run_step "banned vocab (check-vocab)" bash scripts/check-vocab.sh
 
+# ── 6b. MEMORY.md 的插入點標記 ──────────────────────────
+# 協議第 1 條說「新條目加在協議正下方」，但那是一個**位置**，而位置需要一個
+# 機械上唯一的 anchor 才找得準。`# YYYY-MM-DD` 標題與 `---` 都不唯一
+# （2026-09-30 就有兩條同日紀錄），拿它們當 anchor 會插到檔案中間。
+#
+# 🔴 這條守的是「標記還在、還在正確的位置」。標記被刪或被搬走的話，下個 session
+#    會靜靜地退回那個不唯一的 anchor —— 而那是出事那天的狀況。
+check_memory_marker() {
+  local n before_first
+  # 🔴 只數**註解形式** `<!-- MEMORY-INSERT-HERE`。
+  #    第一版數的是裸 token，而協議第 1 條的散文裡也寫了它一次 —— 於是乾淨時
+  #    就報 2 次，而把標記刪掉反而變成 1 次＝綠。那是一條在量錯東西的檢查
+  #    （PLAYBOOK：活性檢查量的不是同一個東西，就不是活性檢查）。
+  #    反向驗證抓到的，不是推理出來的。
+  n=$(grep -c '<!-- MEMORY-INSERT-HERE' MEMORY.md)
+  if [ "$n" -ne 1 ]; then
+    echo "🚫 MEMORY.md 的插入點標記出現 $n 次（應為 1）—— 協議第 1 條靠它定位"
+    return 1
+  fi
+  # 標記必須排在所有條目之前，否則新條目會被插到檔案中間。
+  before_first=$(awk '/<!-- MEMORY-INSERT-HERE/{m=NR} /^# 20[0-9][0-9]-/{if(!f)f=NR} END{print (m && f && m<f) ? "ok" : "bad"}' MEMORY.md)
+  if [ "$before_first" != "ok" ]; then
+    echo "🚫 MEMORY.md 的插入點標記不在所有條目之前 —— 新條目會被插到檔案中間"
+    return 1
+  fi
+  return 0
+}
+run_step "memory insert marker" check_memory_marker
+
 # ── 7. Preview harness（Playwright）─────────────────────
 # 這兩支以前是 CI／verify 的盲區，而那個盲區咬過兩次（#231 改文案沒改斷言、
 # Hero 爆版連三個 PR 沒紅）。現在 CI 一定會跑它們（.github/workflows/ci.yml
