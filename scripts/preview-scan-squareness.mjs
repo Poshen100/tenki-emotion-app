@@ -145,9 +145,15 @@ if (!star) {
   check('星塵：沒傳 squareness 時 sSquare 為 1（恆等）', star.base.squareness, 1, 1e-6);
   check('🔴 星塵：轉開之後收散真的鬆掉（scale 變大）', star.crooked.scale > star.base.scale, true);
   check('🔴 星塵：轉開之後漂移真的變大（drift 變大）', star.crooked.drift > star.base.drift, true);
-  // 收斂之後只動了 squareness，所以 sat 若動就真的只能是它造成的。
-  check('🔴 星塵：收散變了但飽和度沒變（只動收散，不動色彩）',
-    Math.abs(star.crooked.sat - star.base.sat) < 1e-9, true);
+  // ⚠️ **這裡刻意沒有「sat 完全沒變」那一條** —— 它在原理上就過不了，不是調一下
+  // 就好。`sat = 1.20 + 0.35 × sStill`，而 sStill 是指數逼近、只會**漸近**收斂：
+  // settle 判定允許 1e-6 的殘量 → Δsat 可達 3.5e-7，而嚴格比較要 < 1e-9，
+  // **比較容差比 settle 容差嚴格 350 倍**。要把殘量壓到 1e-12 得跑 ≈332 幀（5.5s），
+  // 超過輪詢上限，而且仍然只是追一條漸近線。
+  //
+  // 「squareness 不碰色彩」這個不變量由下面那組**結構斷言**精確守住（而且時間免疫）。
+  // 在一條精確斷言旁邊再擺一條更弱、又會偶紅的行為斷言，是淨損失 ——
+  // PLAYBOOK：偶紅的斷言比紅的更貴，它會訓練你忽略紅燈。
 }
 
 // ── 5. 🔴 時間免疫版：色彩那條路上根本沒有 squareness ──
