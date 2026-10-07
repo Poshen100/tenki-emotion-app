@@ -38,6 +38,7 @@
  *
  * @see docs/PHONE-PPG.md §12
  */
+import { MIN_PERFUSION } from './ppg/quality.js';
 import { DC_DRIFT_SUSPECT, DRIFT_PERIOD_TRUSTWORTHY_SEC, } from './ppg/exposure-stability.js';
 /**
  * What the person was doing during a capture.
@@ -370,6 +371,14 @@ function quietSegmentNote(log) {
     const rhythm = medianOf(tried
         .map((c) => c.quietSegments.longestPeriodicity)
         .filter((v) => present(v)));
+    const pulsatile = medianOf(tried
+        .map((c) => c.quietSegments.longestPerfusion)
+        .filter((v) => present(v)));
+    // 🔴 Every capture that had a stretch but no nameable period. That is not a
+    // periodicity of zero — it is the estimator refusing because the dominant
+    // component lies outside the cardiac band (§21), which is a different
+    // finding with a different repair.
+    const unnameable = tried.filter((c) => c.quietSegments.foundCount > 0 && !present(c.quietSegments.longestPeriodicity)).length;
     // 🔴 No "most of them were X". With two or three captures a 1-1 split is
     // normal, and the old `>=` tie-break silently picked one cause and hid the
     // other — on 2026-10-07 it printed 「多數是切不出夠多段」 for a 1-1 split,
@@ -378,10 +387,19 @@ function quietSegmentNote(log) {
     // ⚠️ `longestPeriodicity` is the one that decides: a long undisturbed stretch
     // with no rhythm in it means the pulse is not in the light, and nothing about
     // segmentation or exposure will change that.
+    // 🔴 The physical question first, because it decides which of the others
+    // are even worth asking: is there pulsatile light at all? A fingertip runs
+    // about 0.005-0.02. Below MIN_PERFUSION there is no blood signal to find a
+    // rhythm in, and nothing about exposure, segmenting or filtering can make one.
+    const noPulsatileLight = pulsatile !== null && pulsatile < MIN_PERFUSION;
+    const rhythmText = unnameable === tried.length
+        ? `估不出來（${unnameable}/${tried.length} 次主成分不在心搏帶內）`
+        : fmt(rhythm);
     return (`安靜段讀數 0/${tried.length} —— 可用視窗 ${fmt(windows)}（需要 3）· ` +
-        `最長安靜段 ${fmt(longest)} 秒、它自己的節律 ${fmt(rhythm)}` +
-        (rhythm !== null && rhythm < 0.35
-            ? ' 🔴 **連不受干擾的那段都沒有節律 —— 脈搏不在光裡，不是曝光的問題**'
+        `最長安靜段 ${fmt(longest)} 秒 · 脈動光 AC/DC ${fmt(pulsatile)}（指尖約 0.005–0.02）· ` +
+        `節律 ${rhythmText}` +
+        (noPulsatileLight
+            ? ' 🔴 **脈動光低於可用下限 —— 光裡沒有血流訊號，不是曝光的問題。往接觸／壓力／補光燈查**'
             : ''));
 }
 /**

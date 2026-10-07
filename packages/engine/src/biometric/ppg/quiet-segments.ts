@@ -162,17 +162,33 @@ export interface SegmentedRate {
   /** Windows across all stretches that were individually perfused and periodic. */
   usableWindowCount: number;
   /**
-   * Periodicity measured over the longest quiet stretch as a whole, or null
-   * when there were none.
+   * Periodicity over the longest quiet stretch as a whole, or null when there
+   * was no stretch **or the estimator refused to name a period at all**.
    *
-   * 🔴 The number that separates the two diagnoses, and the reason it is
-   * reported at all. If the longest undisturbed stretch is 36 seconds and its
-   * periodicity is ~0.9, the pulse is there and something in the gating is
-   * refusing it. If it is ~0.1, the pulse is **not in the light** and every
-   * conclusion about exposure drift is beside the point for that capture.
-   * Without it the report can only say the rescue did not fire.
+   * 🔴 Null is not zero, and conflating them cost a round. The first version
+   * recorded `whole === null ? 0`, so the device reported 「節律 0」 for two
+   * opposite situations: a stretch full of broadband noise with no cardiac
+   * component (periodicity genuinely ~0.00), and a stretch whose dominant
+   * component lies **outside** the cardiac band, where `dominantPeriod` refuses
+   * rather than return the wall of its search (§21). The first means there is
+   * no pulse; the second means something slow is swamping it. Different
+   * repairs, same printed digit.
    */
   longestPeriodicity: number | null;
+  /**
+   * Pulsatile light in the longest quiet stretch, as a raw AC/DC ratio, or null
+   * when there was no stretch.
+   *
+   * 🔴 The physical question, asked without any rhythm estimation in the way:
+   * **is there pulsatile light at all?** A fingertip runs roughly 0.005-0.02
+   * (`GOOD_PERFUSION` is 0.0055). A capture reading 0.0001 has no blood signal
+   * to find a rhythm in, and no amount of segmenting, filtering or exposure
+   * work will produce one — that is an optics, contact or pressure problem.
+   *
+   * ⚠️ Raw, not the normalised quality component. The component saturates and
+   * cannot be compared against the physiological range; this can.
+   */
+  longestPerfusion: number | null;
   /** Longest stretch found, in seconds. 0 when none were. */
   longestSec: number;
   /** Spread between the fastest and slowest usable segment, or null. */
@@ -293,6 +309,7 @@ export function estimateRateFromQuietSegments(
   const rates: number[] = [];
   let analysedSamples = 0;
   let longestPeriodicity: number | null = null;
+  let longestPerfusion: number | null = null;
   let longestSamples = 0;
 
   for (const segment of segments) {
@@ -301,8 +318,12 @@ export function estimateRateFromQuietSegments(
     // which of two completely different problems this capture has.
     if (segment.values.length > longestSamples) {
       longestSamples = segment.values.length;
-      const whole = estimateRate(bandPass(segment.values, sampleRateHz), sampleRateHz);
-      longestPeriodicity = whole === null ? 0 : round2(whole.periodicity);
+      const wholeCardiac = bandPass(segment.values, sampleRateHz);
+      const whole = estimateRate(wholeCardiac, sampleRateHz);
+      // ⚠️ Null stays null. A refusal is not a periodicity of zero — see the
+      // field's own note.
+      longestPeriodicity = whole === null ? null : round2(whole.periodicity);
+      longestPerfusion = round4(perfusionIndex(segment.values, wholeCardiac));
     }
 
     for (const window of windowsOf(segment.values, sampleRateHz)) {
@@ -337,6 +358,7 @@ export function estimateRateFromQuietSegments(
     foundCount: segments.length,
     usableWindowCount: rates.length,
     longestPeriodicity,
+    longestPerfusion,
     longestSec,
     spreadBpm: rates.length < 2 ? null : round1(sorted[sorted.length - 1] - sorted[0]),
     analysedSec: round1(analysedSamples / sampleRateHz),
@@ -358,4 +380,8 @@ function round1(value: number): number {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function round4(value: number): number {
+  return Math.round(value * 10_000) / 10_000;
 }

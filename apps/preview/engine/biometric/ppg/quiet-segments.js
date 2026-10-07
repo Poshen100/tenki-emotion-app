@@ -237,6 +237,7 @@ export function estimateRateFromQuietSegments(values, sampleRateHz) {
     const rates = [];
     let analysedSamples = 0;
     let longestPeriodicity = null;
+    let longestPerfusion = null;
     let longestSamples = 0;
     for (const segment of segments) {
         // 🔴 Measured over the stretch as a WHOLE, before it is cut into windows,
@@ -244,8 +245,12 @@ export function estimateRateFromQuietSegments(values, sampleRateHz) {
         // which of two completely different problems this capture has.
         if (segment.values.length > longestSamples) {
             longestSamples = segment.values.length;
-            const whole = estimateRate(bandPass(segment.values, sampleRateHz), sampleRateHz);
-            longestPeriodicity = whole === null ? 0 : round2(whole.periodicity);
+            const wholeCardiac = bandPass(segment.values, sampleRateHz);
+            const whole = estimateRate(wholeCardiac, sampleRateHz);
+            // ⚠️ Null stays null. A refusal is not a periodicity of zero — see the
+            // field's own note.
+            longestPeriodicity = whole === null ? null : round2(whole.periodicity);
+            longestPerfusion = round4(perfusionIndex(segment.values, wholeCardiac));
         }
         for (const window of windowsOf(segment.values, sampleRateHz)) {
             scoreWindow(window);
@@ -280,6 +285,7 @@ export function estimateRateFromQuietSegments(values, sampleRateHz) {
         foundCount: segments.length,
         usableWindowCount: rates.length,
         longestPeriodicity,
+        longestPerfusion,
         longestSec,
         spreadBpm: rates.length < 2 ? null : round1(sorted[sorted.length - 1] - sorted[0]),
         analysedSec: round1(analysedSamples / sampleRateHz),
@@ -299,4 +305,7 @@ function round1(value) {
 }
 function round2(value) {
     return Math.round(value * 100) / 100;
+}
+function round4(value) {
+    return Math.round(value * 10_000) / 10_000;
 }

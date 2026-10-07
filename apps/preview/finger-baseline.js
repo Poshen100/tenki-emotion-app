@@ -438,6 +438,7 @@ function validationEntry(a) {
             usableWindowCount: a.quietSegments.usableWindowCount,
             longestSec: a.quietSegments.longestSec,
             longestPeriodicity: a.quietSegments.longestPeriodicity,
+            longestPerfusion: a.quietSegments.longestPerfusion,
             spreadBpm: a.quietSegments.spreadBpm,
           },
     scenario: state.scenario,

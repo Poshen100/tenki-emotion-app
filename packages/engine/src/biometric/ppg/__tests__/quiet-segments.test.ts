@@ -330,3 +330,51 @@ describe('🔴 a refusal has to say which refusal it was', () => {
     expect(got.spreadBpm as number).toBeGreaterThan(MAX_SEGMENT_SPREAD_BPM);
   });
 });
+
+describe("🔴 a refusal to name a period is not a periodicity of zero", () => {
+  it('keeps null as null when the estimator will not name a period', () => {
+    // 🔴 My own bug, found in the 2026-10-07 report. `whole === null ? 0`
+    // printed 「節律 0」 for two opposite situations: a stretch of broadband
+    // noise with no cardiac component, and a stretch whose dominant component
+    // lies outside the cardiac band, where `dominantPeriod` refuses rather than
+    // return the wall of its search (§21). Different findings, same digit.
+    //
+    // A flat channel is the simplest input the estimator refuses on: band-passed
+    // it carries no energy at all, so there is no period to name.
+    const flat = new Array<number>(PPG_RESAMPLE_HZ * 30).fill(180);
+    const got = estimateRateFromQuietSegments(flat, PPG_RESAMPLE_HZ);
+    expect(got.foundCount).toBe(1);
+    expect(got.longestPeriodicity).toBeNull();
+    expect(got.longestPeriodicity).not.toBe(0);
+  });
+
+  it('🔴 and real noise does NOT look like zero — which is why zero was suspicious', () => {
+    // Measured: a capture with no pulse in it reports a periodicity around
+    // 0.06, never 0.00. So a reported 0 was far more likely to have been a
+    // refusal rendered as a digit than a genuine measurement — which is what
+    // sent me looking at the mapping in the first place.
+    const noise = synthesizePpg({
+      durationSec: 60,
+      sampleRateHz: 60,
+      perfusion: 0,
+      noiseSd: 1.2,
+    });
+    const got = assess(noise.frames);
+    expect(got.longestPeriodicity).not.toBeNull();
+    expect(got.longestPeriodicity as number).toBeGreaterThan(0.01);
+    expect(got.longestPeriodicity as number).toBeLessThan(0.35);
+  });
+
+  it('reports pulsatile light as a raw ratio, comparable to the physiological range', () => {
+    // 🔴 The physical question with no rhythm estimation in the way: is there
+    // pulsatile light at all? A fingertip runs about 0.005-0.02.
+    const clean = assess(synthesizePpg({ durationSec: 60, sampleRateHz: 60 }).frames);
+    expect(clean.longestPerfusion).not.toBeNull();
+    expect(clean.longestPerfusion as number).toBeGreaterThan(0.002);
+
+    const none = assess(
+      synthesizePpg({ durationSec: 60, sampleRateHz: 60, perfusion: 0, noiseSd: 0.02 }).frames,
+    );
+    expect(none.longestPerfusion as number).toBeLessThan(clean.longestPerfusion as number / 5);
+  });
+});

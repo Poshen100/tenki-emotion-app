@@ -179,7 +179,7 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
   it('🔴 安靜段救起來的時候報告要說', () => {
     const report = formatValidationReport([
       capture({
-        quietSegments: { bpm: 67, foundCount: 5, usableWindowCount: 5, longestSec: 6.2, longestPeriodicity: 0.9, spreadBpm: 3 },
+        quietSegments: { bpm: 67, foundCount: 5, usableWindowCount: 5, longestSec: 6.2, longestPeriodicity: 0.9, longestPerfusion: 0.008, spreadBpm: 3 },
       }),
     ]);
     expect(report).toContain('安靜段讀數 救起 1/1 次');
@@ -198,6 +198,7 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
           usableWindowCount: 2,
           longestSec: 35.8,
           longestPeriodicity: 0.11,
+          longestPerfusion: 0.008,
           spreadBpm: null,
         },
       }),
@@ -207,38 +208,65 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     expect(report).not.toContain('多數是');
   });
 
-  it('🔴 不受干擾的那段也沒節律時，直接說脈搏不在光裡', () => {
-    // 這是整個診斷鏈的終點：一段 35.8 秒完全沒被打擾的訊號裡找不到節律，
-    // 就不是曝光的問題，再怎麼切段都沒用。
-    const noPulse = formatValidationReport([
+  it('🔴 脈動光低於下限時，直接說光裡沒有血流訊號', () => {
+    // 🔴 這是整條診斷鏈的終點，而判準是**脈動光的原始 AC/DC**，不是節律。
+    // 「找不到節律」不等於「沒有脈動光」—— 節律估不出來可能是別的東西在蓋，
+    // 但 AC/DC 低於可用下限就是光裡真的沒有血流訊號，再怎麼處理曝光都沒用。
+    const noLight = formatValidationReport([
       capture({
         quietSegments: {
           bpm: null,
           foundCount: 2,
-          usableWindowCount: 2,
-          longestSec: 35.8,
-          longestPeriodicity: 0.11,
+          usableWindowCount: 0,
+          longestSec: 11.6,
+          longestPeriodicity: null,
+          longestPerfusion: 0.0002,
           spreadBpm: null,
         },
       }),
     ]);
-    expect(noPulse).toContain('脈搏不在光裡');
+    expect(noLight).toContain('脈動光 AC/DC 0.0002');
+    expect(noLight).toContain('脈動光低於可用下限');
+    expect(noLight).toContain('往接觸／壓力／補光燈查');
 
-    // 反過來：那段有節律 → 問題在閘門／切段，報告不得說脈搏不在。
-    const hasPulse = formatValidationReport([
+    // 反過來：脈動光夠，但節律讀不到 → 不得說光裡沒有血流訊號。
+    const hasLight = formatValidationReport([
       capture({
         quietSegments: {
           bpm: null,
           foundCount: 2,
-          usableWindowCount: 2,
-          longestSec: 35.8,
-          longestPeriodicity: 0.92,
+          usableWindowCount: 0,
+          longestSec: 11.6,
+          longestPeriodicity: 0.11,
+          longestPerfusion: 0.008,
           spreadBpm: null,
         },
       }),
     ]);
-    expect(hasPulse).toContain('它自己的節律 0.92');
-    expect(hasPulse).not.toContain('脈搏不在光裡');
+    expect(hasLight).toContain('節律 0.11');
+    expect(hasLight).not.toContain('脈動光低於可用下限');
+  });
+
+  it('🔴 估不出週期要說「估不出來」，不得印成節律 0', () => {
+    // 🔴 我自己犯的：`whole === null ? 0` 把兩個相反的診斷印成同一個數字。
+    // 估不出來 = 主成分不在心搏帶內（§21 的邊界守衛），跟「節律真的是 0」
+    // 是不同的事，要的修法也不同。實機 2026-10-07 印出的「節律 0」就是這個。
+    const report = formatValidationReport([
+      capture({
+        quietSegments: {
+          bpm: null,
+          foundCount: 2,
+          usableWindowCount: 0,
+          longestSec: 11.6,
+          longestPeriodicity: null,
+          longestPerfusion: 0.008,
+          spreadBpm: null,
+        },
+      }),
+    ]);
+    expect(report).toContain('估不出來');
+    expect(report).toContain('主成分不在心搏帶內');
+    expect(report).not.toContain('節律 0（');
   });
 
   it('沒走到這一步就說沒走到，不說失敗', () => {
