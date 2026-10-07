@@ -91,20 +91,41 @@ export const QUIET_SLEW_WINDOW_SEC = 0.75;
  * and still **zero** false positives on captures with no pulse in them.
  *
  * ⚠️ Shorter stretches are individually weaker evidence. What holds the line is
- * `MIN_AGREEING_SEGMENTS`, not this number — loosening this without that
+ * `MIN_AGREEING_WINDOWS`, not this number — loosening this without that
  * agreement requirement would be exactly the false-reading machine this module
  * is built to avoid.
  */
 export const MIN_QUIET_SEGMENT_SEC = 4;
 
 /**
- * How many stretches must agree before their rate is reported.
+ * How many windows must agree before their rate is reported.
  *
  * 🔴 Three, because two agreeing is a coincidence with no way to tell. This is
- * the load-bearing constant: in the sweep, no capture without a pulse ever
- * produced three passing segments, drift or no drift.
+ * the load-bearing constant: across every sweep, no capture without a pulse in
+ * it has ever produced three agreeing windows, drift or no drift.
  */
-export const MIN_AGREEING_SEGMENTS = 3;
+export const MIN_AGREEING_WINDOWS = 3;
+
+/**
+ * Length a quiet stretch is divided into before each piece is judged.
+ *
+ * 🔴 Added because requiring three *stretches* refused the best evidence there
+ * is. The device reported a capture whose longest undisturbed stretch was
+ * **35.8 seconds** and only 2-3 stretches in total — so it was refused, while a
+ * capture chopped into three 5-second plateaus was accepted. That is backwards:
+ * 36 undisturbed seconds is more evidence than three 5-second scraps, not less.
+ *
+ * ⚠️ It does weaken what "agreeing" means. Three separate stretches are
+ * separated by a disturbance; three windows of one stretch are contiguous. The
+ * defence is measured rather than argued: across 56 no-pulse controls here and
+ * 160 in the earlier sweep, windowing never produced a false reading, because
+ * noise does not hold a consistent rate across windows either.
+ *
+ * ⚠️ A stretch always contributes at least itself, however short — otherwise
+ * the many-short-plateaus case this module was built for (§23) would regress to
+ * nothing, since a 5-second stretch holds no 10-second window.
+ */
+export const QUIET_WINDOW_SEC = 10;
 
 /**
  * How far apart the segments' rates may be before they are not agreeing.
@@ -138,8 +159,20 @@ export interface SegmentedRate {
   bpm: number | null;
   /** Stretches long enough to try, before any of them were judged. */
   foundCount: number;
-  /** Of those, how many were individually perfused and periodic. */
-  periodicCount: number;
+  /** Windows across all stretches that were individually perfused and periodic. */
+  usableWindowCount: number;
+  /**
+   * Periodicity measured over the longest quiet stretch as a whole, or null
+   * when there were none.
+   *
+   * 🔴 The number that separates the two diagnoses, and the reason it is
+   * reported at all. If the longest undisturbed stretch is 36 seconds and its
+   * periodicity is ~0.9, the pulse is there and something in the gating is
+   * refusing it. If it is ~0.1, the pulse is **not in the light** and every
+   * conclusion about exposure drift is beside the point for that capture.
+   * Without it the report can only say the rescue did not fire.
+   */
+  longestPeriodicity: number | null;
   /** Longest stretch found, in seconds. 0 when none were. */
   longestSec: number;
   /** Spread between the fastest and slowest usable segment, or null. */
@@ -207,6 +240,25 @@ export function findQuietSegments(
 }
 
 /**
+ * Cuts a quiet stretch into the windows its rate is judged on.
+ *
+ * ⚠️ Always at least one. A stretch short enough to hold no full window still
+ * contributes itself — otherwise the many-short-plateaus case (§23), where
+ * every stretch is about five seconds, would regress to producing nothing.
+ *
+ * @param values - One quiet stretch.
+ * @param sampleRateHz - The grid rate.
+ * @returns Equal-length windows covering the stretch.
+ */
+function windowsOf(values: readonly number[], sampleRateHz: number): number[][] {
+  const count = Math.max(1, Math.floor(values.length / (QUIET_WINDOW_SEC * sampleRateHz)));
+  const size = Math.floor(values.length / count);
+  return Array.from({ length: count }, (_, i) =>
+    values.slice(i * size, i === count - 1 ? values.length : (i + 1) * size),
+  );
+}
+
+/**
  * Estimates a rate from the quiet stretches, but only when they agree.
  *
  * 🔴 Returns null far more often than it returns a number, and that is the
@@ -240,8 +292,26 @@ export function estimateRateFromQuietSegments(
   // count threw that away.
   const rates: number[] = [];
   let analysedSamples = 0;
+  let longestPeriodicity: number | null = null;
+  let longestSamples = 0;
+
   for (const segment of segments) {
-    const cardiac = bandPass(segment.values, sampleRateHz);
+    // 🔴 Measured over the stretch as a WHOLE, before it is cut into windows,
+    // and recorded whether or not it ends up usable. It is the number that says
+    // which of two completely different problems this capture has.
+    if (segment.values.length > longestSamples) {
+      longestSamples = segment.values.length;
+      const whole = estimateRate(bandPass(segment.values, sampleRateHz), sampleRateHz);
+      longestPeriodicity = whole === null ? 0 : round2(whole.periodicity);
+    }
+
+    for (const window of windowsOf(segment.values, sampleRateHz)) {
+      scoreWindow(window);
+    }
+  }
+
+  function scoreWindow(values_: readonly number[]): void {
+    const cardiac = bandPass(values_, sampleRateHz);
     // 🔴 Perfusion is re-checked **inside** the segment, and that is not
     // belt-and-braces — it closes a hole the caller cannot close.
     //
@@ -256,16 +326,17 @@ export function estimateRateFromQuietSegments(
     // The segments are the evidence, so the evidence about blood has to come
     // from the same place. Inside a quiet stretch there is no drift left to
     // inflate it.
-    if (perfusionIndex(segment.values, cardiac) < MIN_PERFUSION) continue;
+    if (perfusionIndex(values_, cardiac) < MIN_PERFUSION) return;
     const estimate = estimateRate(cardiac, sampleRateHz);
-    if (estimate === null || estimate.periodicity < MIN_PERIODICITY) continue;
+    if (estimate === null || estimate.periodicity < MIN_PERIODICITY) return;
     rates.push(estimate.bpm);
-    analysedSamples += segment.values.length;
+    analysedSamples += values_.length;
   }
   const sorted = [...rates].sort((a, b) => a - b);
   const summary = {
     foundCount: segments.length,
-    periodicCount: rates.length,
+    usableWindowCount: rates.length,
+    longestPeriodicity,
     longestSec,
     spreadBpm: rates.length < 2 ? null : round1(sorted[sorted.length - 1] - sorted[0]),
     analysedSec: round1(analysedSamples / sampleRateHz),
@@ -275,7 +346,7 @@ export function estimateRateFromQuietSegments(
   // like a second safeguard and cannot ever fire — every usable stretch is one
   // of the stretches found, so too few found always means too few usable.
   // Removing it, rather than keeping a line that looks like a check and is not.
-  if (rates.length < MIN_AGREEING_SEGMENTS) return { bpm: null, ...summary };
+  if (rates.length < MIN_AGREEING_WINDOWS) return { bpm: null, ...summary };
   if ((summary.spreadBpm as number) > MAX_SEGMENT_SPREAD_BPM) return { bpm: null, ...summary };
 
   return { bpm: sorted[Math.floor(sorted.length / 2)], ...summary };
@@ -283,4 +354,8 @@ export function estimateRateFromQuietSegments(
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }

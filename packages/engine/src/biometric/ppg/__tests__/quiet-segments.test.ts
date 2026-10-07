@@ -12,7 +12,7 @@ import { PPG_RESAMPLE_HZ, bandPass, resampleUniform } from '../filtering';
 import { estimateRate } from '../pulse';
 import {
   MAX_SEGMENT_SPREAD_BPM,
-  MIN_AGREEING_SEGMENTS,
+  MIN_AGREEING_WINDOWS,
   MIN_QUIET_SEGMENT_SEC,
   QUIET_SLEW_PER_SEC,
   estimateRateFromQuietSegments,
@@ -90,7 +90,7 @@ describe('the device-shaped capture', () => {
     expect(recovered).not.toBeNull();
     if (recovered === null) return;
     expect(Math.abs((recovered.bpm as number) - scan.truth.meanBpm)).toBeLessThan(3);
-    expect(recovered.periodicCount).toBeGreaterThanOrEqual(MIN_AGREEING_SEGMENTS);
+    expect(recovered.usableWindowCount).toBeGreaterThanOrEqual(MIN_AGREEING_WINDOWS);
     expect(recovered.spreadBpm as number).toBeLessThanOrEqual(MAX_SEGMENT_SPREAD_BPM);
   });
 
@@ -123,7 +123,7 @@ describe('🔴 it must not manufacture a pulse', () => {
     // It really is being cut into candidate segments — the refusal is not
     // "there was nothing to look at".
     expect(findQuietSegments(grid(drifted).values, PPG_RESAMPLE_HZ).length).toBeGreaterThanOrEqual(
-      MIN_AGREEING_SEGMENTS,
+      MIN_AGREEING_WINDOWS,
     );
     expect(segmentedRate(drifted)).toBeNull();
   });
@@ -159,27 +159,47 @@ describe('🔴 it must not manufacture a pulse', () => {
       t += 24_000;
     }
     const segments = findQuietSegments(grid(stitched).values, PPG_RESAMPLE_HZ);
-    expect(segments.length).toBeGreaterThanOrEqual(MIN_AGREEING_SEGMENTS);
+    expect(segments.length).toBeGreaterThanOrEqual(MIN_AGREEING_WINDOWS);
     expect(segmentedRate(stitched)).toBeNull();
   });
 
-  it('refuses two agreeing stretches, because two agreeing is a coincidence', () => {
-    // 🔴 A single level jump in the middle of an otherwise perfect capture:
-    // exactly two quiet stretches, each long, each periodic, both landing on
-    // the same rate. It must still come back null.
+  it('refuses too few WINDOWS, which short stretches is what that means now', () => {
+    // 🔴 This test used to say "two agreeing stretches is a coincidence" and
+    // used a capture with one jump in the middle — two stretches of ~29 s. That
+    // capture is now **accepted**, and deliberately: each 29-second stretch
+    // carries several windows, and 58 undisturbed seconds is more evidence than
+    // three 5-second scraps, not less.
     //
-    // ⚠️ The first version of this test used a short drifting capture and
-    // asserted conditionally — so it passed whether the bar was 2 or 3, which
-    // made the constant it was supposed to be guarding unobservable.
+    // What is still refused is too few *windows*. Two short plateaus give two
+    // windows and nothing corroborates them.
+    const scan = synthesizePpg({ durationSec: 20, sampleRateHz: 60 });
+    const t0 = scan.frames[0].timestampMs;
+    const twoShort = scan.frames.map((f) => {
+      const t = (f.timestampMs - t0) / 1000;
+      // One fast transition in the middle of a short capture: two ~9 s halves.
+      const k = t < 10 ? 1 : 1.16;
+      return { ...f, red: f.red * k, green: f.green * k, blue: f.blue * k };
+    });
+    const got = assess(twoShort);
+    expect(got.usableWindowCount).toBeLessThan(MIN_AGREEING_WINDOWS);
+    expect(got.bpm).toBeNull();
+  });
+
+  it('🔴 accepts one long undisturbed stretch, which it used to refuse', () => {
+    // The device reported a capture whose longest quiet stretch was **35.8 s**
+    // with only 2-3 stretches in total — refused, while a capture chopped into
+    // three 5-second plateaus was accepted. That was backwards.
     const scan = synthesizePpg({ durationSec: 60, sampleRateHz: 60 });
     const t0 = scan.frames[0].timestampMs;
     const oneJump = scan.frames.map((f) => {
       const k = (f.timestampMs - t0) / 1000 < 30 ? 1 : 1.16;
       return { ...f, red: f.red * k, green: f.green * k, blue: f.blue * k };
     });
-    const segments = findQuietSegments(grid(oneJump).values, PPG_RESAMPLE_HZ);
-    expect(segments).toHaveLength(2);
-    expect(segmentedRate(oneJump)).toBeNull();
+    const got = assess(oneJump);
+    expect(got.foundCount).toBe(2);
+    expect(got.usableWindowCount).toBeGreaterThanOrEqual(MIN_AGREEING_WINDOWS);
+    expect(got.bpm).not.toBeNull();
+    expect(Math.abs((got.bpm as number) - scan.truth.meanBpm)).toBeLessThan(3);
   });
 });
 
@@ -205,7 +225,7 @@ describe('finding the quiet stretches', () => {
   it('cuts where the level is moving faster than a pulse could move it', () => {
     const r = grid(rampHold(synthesizePpg({ durationSec: DURATION_SEC, sampleRateHz: 60 }).frames));
     const segments = findQuietSegments(r.values, r.sampleRateHz);
-    expect(segments.length).toBeGreaterThanOrEqual(MIN_AGREEING_SEGMENTS);
+    expect(segments.length).toBeGreaterThanOrEqual(MIN_AGREEING_WINDOWS);
     // Every stretch clears the minimum, and none of them spans a transition.
     for (const segment of segments) {
       expect(segment.values.length / r.sampleRateHz).toBeGreaterThanOrEqual(MIN_QUIET_SEGMENT_SEC);
@@ -232,12 +252,25 @@ describe('finding the quiet stretches', () => {
 describe('🔴 a refusal has to say which refusal it was', () => {
   // Three different causes, three different repairs — and without the counts
   // the device can only say no, which costs another day per round.
-  it('too few stretches: says how many it found and how long the best one was', () => {
-    // A clean capture is one long stretch, so it can never reach three.
-    const got = assess(synthesizePpg({ durationSec: 60, sampleRateHz: 60 }).frames);
-    expect(got.bpm).toBeNull();
-    expect(got.foundCount).toBeLessThan(MIN_AGREEING_SEGMENTS);
-    expect(got.longestSec).toBeGreaterThan(MIN_QUIET_SEGMENT_SEC);
+  it('🔴 reports the longest stretch\'s own periodicity — the number that decides', () => {
+    // 🔴 The diagnostic the device needed and did not have. If the longest
+    // undisturbed stretch is 36 seconds and its periodicity is ~0.9, the pulse
+    // is there and the gating refused it. If it is ~0.1, the pulse is **not in
+    // the light**, and everything about exposure drift is beside the point for
+    // that capture. Those need opposite repairs.
+    const withPulse = assess(
+      rampHold(synthesizePpg({ durationSec: 60, sampleRateHz: 60 }).frames),
+    );
+    expect(withPulse.longestPeriodicity).not.toBeNull();
+    expect(withPulse.longestPeriodicity as number).toBeGreaterThan(0.5);
+
+    const noPulse = assess(
+      rampHold(
+        synthesizePpg({ durationSec: 60, sampleRateHz: 60, perfusion: 0, noiseSd: 1.2 }).frames,
+      ),
+    );
+    expect(noPulse.longestPeriodicity).not.toBeNull();
+    expect(noPulse.longestPeriodicity as number).toBeLessThan(0.35);
   });
 
   it('stretches found but not periodic: separates the two counts', () => {
@@ -252,29 +285,28 @@ describe('🔴 a refusal has to say which refusal it was', () => {
     });
     const got = assess(rampHold(noise.frames));
     expect(got.bpm).toBeNull();
-    expect(got.foundCount).toBeGreaterThanOrEqual(MIN_AGREEING_SEGMENTS);
-    expect(got.periodicCount).toBe(0);
+    expect(got.foundCount).toBeGreaterThanOrEqual(MIN_AGREEING_WINDOWS);
+    expect(got.usableWindowCount).toBe(0);
   });
 
-  it('reports the actual periodic count when it is short, not just "fewer than three"', () => {
-    // 🔴 The refusal that needs a NUMBER. One jump in an otherwise clean
-    // capture gives exactly two usable stretches — and "two" is a completely
-    // different message from "none": two means the pulse is there and the
-    // capture was simply not interrupted often enough to prove it.
+  it('reports the window count even when it is too small to act on', () => {
+    // 🔴 "Two usable windows" and "none" are the same refusal and completely
+    // different messages: the first says the pulse is there and the capture was
+    // simply too short to corroborate it.
     //
-    // ⚠️ The first version of this asserted only `< MIN_AGREEING_SEGMENTS`,
-    // which the default of 0 satisfies — so dropping the count from the refusal
-    // broke nothing. Asserting the value is what makes it observable.
-    const scan = synthesizePpg({ durationSec: 60, sampleRateHz: 60 });
+    // ⚠️ An earlier version asserted only `< MIN_AGREEING_WINDOWS`, which the
+    // default of 0 satisfies — so dropping the count from the refusal broke
+    // nothing. Asserting the value is what makes it observable.
+    const scan = synthesizePpg({ durationSec: 20, sampleRateHz: 60 });
     const t0 = scan.frames[0].timestampMs;
-    const oneJump = scan.frames.map((f) => {
-      const k = (f.timestampMs - t0) / 1000 < 30 ? 1 : 1.16;
+    const twoShort = scan.frames.map((f) => {
+      const k = (f.timestampMs - t0) / 1000 < 10 ? 1 : 1.16;
       return { ...f, red: f.red * k, green: f.green * k, blue: f.blue * k };
     });
-    const got = assess(oneJump);
+    const got = assess(twoShort);
     expect(got.bpm).toBeNull();
     expect(got.foundCount).toBe(2);
-    expect(got.periodicCount).toBe(2);
+    expect(got.usableWindowCount).toBe(2);
     expect(got.analysedSec).toBeGreaterThan(0);
   });
 
@@ -294,7 +326,7 @@ describe('🔴 a refusal has to say which refusal it was', () => {
     }
     const got = assess(stitched);
     expect(got.bpm).toBeNull();
-    expect(got.periodicCount).toBeGreaterThanOrEqual(MIN_AGREEING_SEGMENTS);
+    expect(got.usableWindowCount).toBeGreaterThanOrEqual(MIN_AGREEING_WINDOWS);
     expect(got.spreadBpm as number).toBeGreaterThan(MAX_SEGMENT_SPREAD_BPM);
   });
 });

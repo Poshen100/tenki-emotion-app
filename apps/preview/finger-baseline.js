@@ -435,8 +435,9 @@ function validationEntry(a) {
         : {
             bpm: a.quietSegments.bpm,
             foundCount: a.quietSegments.foundCount,
-            periodicCount: a.quietSegments.periodicCount,
+            usableWindowCount: a.quietSegments.usableWindowCount,
             longestSec: a.quietSegments.longestSec,
+            longestPeriodicity: a.quietSegments.longestPeriodicity,
             spreadBpm: a.quietSegments.spreadBpm,
           },
     scenario: state.scenario,
@@ -1364,7 +1365,7 @@ function renderSegmentNote(a) {
   note.hidden = false;
   note.dataset.tone = 'neutral';
   note.textContent =
-    `相機在這 ${a.durationSec} 秒裡一直重調亮度，所以這個脈搏是從中間 ${seg.periodicCount} 段` +
+    `相機在這 ${a.durationSec} 秒裡一直重調亮度，所以這個脈搏是從中間 ${seg.usableWindowCount} 段` +
     `沒有被打擾的時間讀出來的（合計 ${seg.analysedSec} 秒，彼此相差 ${seg.spreadBpm} bpm）。` +
     '這次不報脈搏節律 —— 被切掉的地方兩邊的拍不是相鄰的。';
 }

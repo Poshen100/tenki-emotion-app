@@ -179,30 +179,66 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
   it('🔴 安靜段救起來的時候報告要說', () => {
     const report = formatValidationReport([
       capture({
-        quietSegments: { bpm: 67, foundCount: 5, periodicCount: 5, longestSec: 6.2, spreadBpm: 3 },
+        quietSegments: { bpm: 67, foundCount: 5, usableWindowCount: 5, longestSec: 6.2, longestPeriodicity: 0.9, spreadBpm: 3 },
       }),
     ]);
     expect(report).toContain('安靜段讀數 救起 1/1 次');
   });
 
-  it('🔴 沒救起來的時候要說是哪一種沒救起來', () => {
-    // 🔴 三種原因、三種修法。只回報「失敗 N 次」等於下一輪實機還是瞎的 ——
-    // 而每一輪實機都是一天。
-    const tooFew = formatValidationReport([
+  it('🔴 沒救起來的時候要給兩個數字，不是挑一個「多數」', () => {
+    // 🔴 舊版用 `tooFew.length >= notPeriodic.length` 挑一個原因印出來。
+    // 擷取只有兩三筆時 1-1 平手是常態，而 `>=` 會**靜靜地選一邊、藏掉另一邊** ——
+    // 2026-10-07 實機就是 1-1 平手卻印成「多數是切不出夠多段」，把真正要緊的
+    // 那一半埋掉了。現在兩個數字一律都給。
+    const report = formatValidationReport([
       capture({
-        quietSegments: { bpm: null, foundCount: 1, periodicCount: 0, longestSec: 3.2, spreadBpm: null },
+        quietSegments: {
+          bpm: null,
+          foundCount: 2,
+          usableWindowCount: 2,
+          longestSec: 35.8,
+          longestPeriodicity: 0.11,
+          spreadBpm: null,
+        },
       }),
     ]);
-    expect(tooFew).toContain('切不出夠多段');
-    expect(tooFew).toContain('最長 3.2 秒');
+    expect(report).toContain('可用視窗 2（需要 3）');
+    expect(report).toContain('最長安靜段 35.8 秒');
+    expect(report).not.toContain('多數是');
+  });
 
-    const notPeriodic = formatValidationReport([
+  it('🔴 不受干擾的那段也沒節律時，直接說脈搏不在光裡', () => {
+    // 這是整個診斷鏈的終點：一段 35.8 秒完全沒被打擾的訊號裡找不到節律，
+    // 就不是曝光的問題，再怎麼切段都沒用。
+    const noPulse = formatValidationReport([
       capture({
-        quietSegments: { bpm: null, foundCount: 6, periodicCount: 1, longestSec: 5.5, spreadBpm: null },
+        quietSegments: {
+          bpm: null,
+          foundCount: 2,
+          usableWindowCount: 2,
+          longestSec: 35.8,
+          longestPeriodicity: 0.11,
+          spreadBpm: null,
+        },
       }),
     ]);
-    expect(notPeriodic).toContain('段裡沒有可用的脈搏');
-    expect(notPeriodic).not.toContain('切不出夠多段');
+    expect(noPulse).toContain('脈搏不在光裡');
+
+    // 反過來：那段有節律 → 問題在閘門／切段，報告不得說脈搏不在。
+    const hasPulse = formatValidationReport([
+      capture({
+        quietSegments: {
+          bpm: null,
+          foundCount: 2,
+          usableWindowCount: 2,
+          longestSec: 35.8,
+          longestPeriodicity: 0.92,
+          spreadBpm: null,
+        },
+      }),
+    ]);
+    expect(hasPulse).toContain('它自己的節律 0.92');
+    expect(hasPulse).not.toContain('脈搏不在光裡');
   });
 
   it('沒走到這一步就說沒走到，不說失敗', () => {

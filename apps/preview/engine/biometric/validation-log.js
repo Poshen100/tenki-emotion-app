@@ -365,14 +365,24 @@ function quietSegmentNote(log) {
     if (rescued > 0) {
         return `安靜段讀數 救起 ${rescued}/${tried.length} 次`;
     }
-    const tooFew = tried.filter((c) => c.quietSegments.foundCount < 3);
-    const notPeriodic = tried.filter((c) => c.quietSegments.foundCount >= 3 && c.quietSegments.periodicCount < 3);
     const longest = medianOf(tried.map((c) => c.quietSegments.longestSec));
-    const found = medianOf(tried.map((c) => c.quietSegments.foundCount));
-    if (tooFew.length >= notPeriodic.length) {
-        return `安靜段讀數 0/${tried.length} —— 多數是**切不出夠多段**（找到 ${fmt(found)} 段，最長 ${fmt(longest)} 秒，需要 3 段各 ≥4 秒）`;
-    }
-    return `安靜段讀數 0/${tried.length} —— 段切得出來（${fmt(found)} 段）但**段裡沒有可用的脈搏**`;
+    const windows = medianOf(tried.map((c) => c.quietSegments.usableWindowCount));
+    const rhythm = medianOf(tried
+        .map((c) => c.quietSegments.longestPeriodicity)
+        .filter((v) => present(v)));
+    // 🔴 No "most of them were X". With two or three captures a 1-1 split is
+    // normal, and the old `>=` tie-break silently picked one cause and hid the
+    // other — on 2026-10-07 it printed 「多數是切不出夠多段」 for a 1-1 split,
+    // burying the half that actually mattered. Both numbers, every time.
+    //
+    // ⚠️ `longestPeriodicity` is the one that decides: a long undisturbed stretch
+    // with no rhythm in it means the pulse is not in the light, and nothing about
+    // segmentation or exposure will change that.
+    return (`安靜段讀數 0/${tried.length} —— 可用視窗 ${fmt(windows)}（需要 3）· ` +
+        `最長安靜段 ${fmt(longest)} 秒、它自己的節律 ${fmt(rhythm)}` +
+        (rhythm !== null && rhythm < 0.35
+            ? ' 🔴 **連不受干擾的那段都沒有節律 —— 脈搏不在光裡，不是曝光的問題**'
+            : ''));
 }
 /**
  * Drift split by whether the torch was lit — the A/B the device can run itself.
