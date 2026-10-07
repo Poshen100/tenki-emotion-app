@@ -236,11 +236,108 @@ GitHub → Actions → **Android dev build (EAS)** → Run workflow → 等約 1
   那是缺資訊，不是壞讀數。不擋，但扣 confidence。
 - SDNN 與 RMSSD 各自成筆，永不互換。
 
+## 4f. iPhone-only 路線 —— Apple 健康 Lite 匯入（**設計**，2026-09-24）
+
+> **狀態**：設計而已，**一行 code 都還沒寫**。階段 B 會動 canonical 契約，需 founder 同意才開工。
+
+### 為什麼需要這條
+
+原生 HealthKit 橋接卡的是 **Apple Developer Program 年費**，不是 Mac（§5 已澄清：
+EAS 在雲端 macOS 編譯）。在那筆錢付下去之前，iPhone 使用者的連接頁**每一列都是灰的**。
+
+但 Apple 自己的「捷徑」App 就讀得到健康庫 —— 這條路不需要開發者帳號、不需要 dev build、
+不需要 Mac，而且**資料一步都沒有離開裝置**。
+
+⚠️ 這**不是**原生橋接的替代品。它是原生到位前的真實資料來源，而且長期仍有價值：
+不願意授權長期讀取的使用者，一次性匯入是**更小的權限要求**。
+
+### 三步
+
+| 步 | 在哪 | 做什麼 |
+|---|---|---|
+| 1 | iPhone「捷徑」App | `尋找健康樣本`（Apple 官方 Find action，直接從「健康」取資料）→ 篩心率變異性／靜止心率／睡眠分析／呼吸速率 → 近 30 天 → 組 JSON → `儲存檔案` |
+| 2 | Safari `/health-import/` | `<input type="file">` 讓使用者挑那個檔（不是上傳，是本機讀取） |
+| 3 | 既有的 domain 層 | → `BiometricSample[]` → `validateBiometricSample` / `partitionValidSamples` → SDNN 進 **SDNN 軌** |
+
+第 3 步刻意不新寫驗證：§3 的兩張安全網（adapter 拒收未知單位 + domain 合理範圍）
+正是為了讓**新來源不必自帶一套規則**。
+
+### 🔴 為什麼不用「輸出所有健康資料」
+
+Health App 那個匯出產生的是一包 `export.xml`，長期使用者常常**數百 MB**。
+這個 repo 已經因為 iOS Safari 的記憶體上限吃過虧（#67：兩個 video decoder 同時活著就
+OOM 到 reload tab）。把數百 MB XML 丟進 Safari 解析是**同一個形狀的錯**。
+
+捷徑輸出的是我們自己挑過的欄位 —— 30 天大約**幾 KB**。
+
+### 🔴 `sourcePlatform` 不得標成 `healthkit`
+
+資料確實出自 HealthKit、同一個儀器、同一個單位。但**它允許 TENKI 宣稱的事情不一樣**：
+
+| | 原生橋接 | 捷徑匯入 |
+|---|---|---|
+| 持續連線 | 是 | **否 —— 一次性快照** |
+| 畫面可否說「已連接 Apple 健康」 | 可以 | **不可以** |
+| 缺口 | 平台負責 | 使用者選的區間，**缺口看不見** |
+| 重複 | 不會 | **會 —— 同一個檔可以匯入兩次** |
+
+任何從樣本 provenance 反推「哪些來源已連接」的 UI，看到 `healthkit` 就會宣稱一條
+**不存在的即時連線** —— 那正是 §5 義務 1 寫的「畫面開始說謊」。
+
+而這正好是契約自己訂的判準（`SAMPLE_DERIVATIONS` 的註解）：
+
+> The distinction has to travel with the value because it is the difference
+> between what TENKI may and may not claim about it.
+
+→ 新增 source platform **`healthkit_export`**，`SOURCE_PLATFORM_PRIORITY` 給 **70**。
+
+為什麼是 70：
+
+- **低於 `healthkit`(80)** —— 真的接上原生橋接那天，live 的那條要贏，不必改任何呼叫端
+- **高於 `finger_scan`(60)** —— Apple Watch 的整夜靜止心率確實優於指尖推估
+- **過期不靠優先序解**：`METRIC_FRESHNESS_MS` 已經在擋（SDNN 1 小時、RHR 36 小時），
+  一筆三天前的 SDNN 根本進不了仲裁 —— 所以**不需要**把它壓到 `manual`(20) 去模擬「不新鮮」。
+  優先序回答的是「一樣新的時候誰贏」，不是「它有多舊」。
+
+其餘欄位：`derivation` 一律 **`observed`**（值是手錶量的，不是我們推的）；
+`permissionScope` 一律 **`history`**（使用者給的是一段歷史，不是即時讀取權）。
+
+### 去重：用 `(metric, observedAt)`，不要用檔名
+
+同一支檔會被挑第二次。以 `(metric, observedAt)` 去重 —— HealthKit 的樣本時戳是
+**量測時間**不是寫入時間（契約 `observedAt` 的定義），所以它跨匯出穩定。
+
+⚠️ **不要用檔名或匯入時間去重**：使用者會重新匯出一份區間重疊的新檔，
+那是正常用法不是重複，用檔名判斷會把新資料整包丟掉。
+
+### 三階段，各自可獨立驗
+
+| 階段 | 做什麼 | 驗收 | 卡誰 |
+|---|---|---|---|
+| **A** | 捷徑 + `/health-import/` 最小頁：讀得到、數字對得上 Health App | iPhone 13 **當天**走得完 | 無 |
+| **B** | `healthkit_export` 進契約與政策、寫進 baseline SDNN 軌 | `npm run verify` + 新測試 | **契約變更需 founder 同意** |
+| **C** | Devices 連接頁新增「Apple 健康（匯入）」一列 | iOS 上不再整片灰 | 要 dev build 才看得到 → **仍卡年費** |
+
+🔴 **階段 C 之前，畫面上不得出現「已連接」。** A／B 的文案基準：
+
+> 已匯入 9/1–9/24 的 Apple 健康資料（24 筆）
+
+陳述事實、帶區間、帶筆數 —— 三樣都在，讀的人才知道這是快照不是連線。
+
+### ⚠️ 動工前要先花五分鐘在 iPhone 上確認的一件事
+
+`尋找健康樣本` 的**型別篩選選單裡到底有沒有「心率變異性」**，以及它的輸出能不能
+直接接 `儲存檔案`。Apple 官方文件證實這個 action 存在、會從「健康」取資料、
+且已支援回傳睡眠階段，但**沒有列出完整型別清單**。
+
+如果 HRV 不在選單裡，階段 A 的價值剩一半（靜止心率／睡眠仍可用），
+設計要改成以 RHR 為主軸。**這個分岔五分鐘就問得出答案 —— 不要先寫 code。**
+
 ## 5. Phase 1–4 —— 還缺什麼
 
 | Phase | 內容 | 為什麼還沒做 |
 |---|---|---|
-| 1 | iOS HealthKit 橋接（實作 `DeviceLinkPort`）、30 天基線首次同步 | 需要 Apple Developer 帳號才能把 dev build 裝進 iPhone（見下節）|
+| 1 | iOS HealthKit 橋接（實作 `DeviceLinkPort`）、30 天基線首次同步 | 需要 Apple Developer 帳號才能把 dev build 裝進 iPhone（見下節）。⚠️ **不需要等它的 iPhone-only 替代路線見 §4f** |
 | 2 | Android Health Connect | **程式已寫（§4c），等真機實走（§4d）** |
 | 3 | BLE Precision Link：只支援標準 Heart Rate Service | **連線、解析、RR→HRV 已寫（§4c、§4e），等真機實走**。⚠️ 沒有 RR interval 的裝置只能提升心率品質，**不得宣稱量到胸帶 HRV** —— 現已由 `bleHrv.ts` 結構性擋住，不是靠記得 |
 | 4 | Garmin Health API（先申請 evaluation，不把授權費放進 MVP 必要條件） | 審核制外部相依 → `docs/garmin-integration.md` |
@@ -274,7 +371,7 @@ Phase 1–3 的共同驗收線：**權限被拒時相機 Soul Scan 仍完整可�
 - **Android**：Health Connect 與 BLE 胸帶的原生層已寫（§4c），相依套件已裝，
   但**沒有任何一行在真裝置上跑過**。第一次實走照 §4d。
 - **iOS**：完全沒有 HealthKit 實作，連接頁上每一列都會顯示「尚未開放連接」——
-  設計行為，不是 bug。
+  設計行為，不是 bug。零費用的 Lite 匯入路線已設計、**尚未實作**，見 §4f。
 - 尚未 prebuild（沒有 `ios/` 或 `android/` 資料夾）—— EAS build 時才產生。
 
 既有的其他槽位：
