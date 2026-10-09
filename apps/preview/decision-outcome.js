@@ -140,6 +140,30 @@
     { value: 'scratch', label: '打平出場' },
   ];
 
+  /**
+   * 這一筆**還在等結果**嗎。
+   *
+   * 🔴 住在這支共用模組的理由跟 `defaultTradeResult` 一樣：Session 列表、
+   * Session 詳情、未來任何想提醒的面都要用**同一個判準**。兩份實作遲早漂移，
+   * 而漂移的那一份會讓同一筆紀錄在一頁「待填」、另一頁「已完成」。
+   *
+   * 🔴 只有 `judged_entered` 會等結果 —— 另外兩條路的結果是**推導**出來的
+   * （判定不成立 ＝ `no_entry`、未判定就離開 ＝ `null`），它們沒有在等任何人。
+   *
+   * ⚠️ 也收 `undefined`：契約之前寫的紀錄根本沒有這一欄。那種紀錄**不算在等**
+   * —— 我們連它有沒有交易都不知道，催使用者去填一個他也回答不了的問題，
+   * 等於把「我們沒存」說成「你沒填」。所以舊紀錄走 `tradeResult === undefined`
+   * 這一支時要看 `outcomeTag`：它是 `judged_entered` 才算真的在等。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function awaitsResult(rec) {
+    if (!rec || rec.outcomeTag !== 'judged_entered') return false;
+    var r = rec.tradeResult;
+    return r === 'pending' || r === null || r === undefined;
+  }
+
   /** 方法論的時鐘：交易日是 ET 日，不是 UTC 日。 */
   var TRADING_DAY_TZ = 'America/New_York';
 
@@ -474,6 +498,7 @@
     isDisciplined: isDisciplined,
     resolveOutcomeTag: resolveOutcomeTag,
     defaultTradeResult: defaultTradeResult,
+    awaitsResult: awaitsResult,
     TRADE_RESULT_CHIPS: TRADE_RESULT_CHIPS,
     TRADING_DAY_TZ: TRADING_DAY_TZ,
     DAILY_TRADE_BUDGET: DAILY_TRADE_BUDGET,
