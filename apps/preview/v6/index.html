@@ -1025,6 +1025,27 @@ body{
 .session-item .nm{font-size:13px;font-weight:500;color:#fff;margin-bottom:2px}
 .session-item .meta{font-size:11px;color:var(--n-400);display:flex;gap:8px;font-variant-numeric:tabular-nums}
 .session-item .meta span.sep{color:var(--n-500)}
+/* 🔴 「這一列還在等結果」的記號。
+   機制（§9b 結果回填）早就做好了，但**列表上一個字都沒講** —— founder 2026-10-09
+   實走：他昨天掃描、等了快一小時、照計劃進場走完，回來看 Session 是四列長得
+   一模一樣的完成品，其中三列其實是 `pending`。他的結論是「後面這一段沒有記錄到」，
+   而真相是「有地方放，但畫面從來沒說那個地方是空的」。
+   —— 同一個家族：機制存在，但它的**可見範圍**小於它的宣稱。
+
+   🔴 **不得上語意色**（§9b 硬規則 2：結果一個紅一個綠 ＝ app 在評價你的交易）。
+   這裡連「待填」本身都不是評價，所以走中性階。判準沿用 #259：
+   把顏色全部拿掉，這一列還說得出同一件事嗎？—— 說得出，資訊在字上。
+
+   ⚠️ 空心圓沿用這個 repo 既有的語彙（`.tp-tick.no-reading`）：**空心 ＝ 還沒有東西**。
+   不另發明一個記號。 */
+.session-item .needs-result{
+  font-size:11px;color:var(--n-300);margin-top:3px;
+  display:flex;align-items:center;gap:5px;
+}
+.session-item .needs-result::before{
+  content:'';width:5px;height:5px;border-radius:50%;
+  border:1px solid var(--n-400);background:transparent;flex-shrink:0;
+}
 .session-item .result{
   font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
   padding:4px 9px;border-radius:8px;
@@ -2861,7 +2882,7 @@ a.lab-wide{text-decoration:none}
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do6"></script>
+    <script src="/preview/decision-outcome.js?v=do7"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -6263,20 +6284,31 @@ function renderSessionScreen(){
   document.getElementById('sessionList').style.display = empty ? 'none' : '';
 
   if(!empty){
+    // 🔴 「已完成 N 次決策…N 次跟著流程走完」讀起來像全部做完了，而其中幾筆的
+    // **結果**可能還沒填。不講出來就是讓畫面宣稱一件它不知道的事。
+    // ⚠️ 只陳述事實，不下指示（不寫「請去填」）—— 同 §9b 硬規則 3 的精神：
+    // 這一句是在報「有幾筆還不知道」，不是在評價。
+    const awaiting = recs.filter(r => window.TENKI_OUTCOME.awaitsResult(r)).length;
     document.getElementById('sessionInsightBody').innerHTML =
       '已完成 <b>' + count + '</b> 次決策，對齊率 <b>' + align + '%</b>。' +
-      '平均用時 <b>' + fmtDur(avgDur) + '</b>，其中 <b>' + disciplined + '</b> 次跟著流程走完。';
+      '平均用時 <b>' + fmtDur(avgDur) + '</b>，其中 <b>' + disciplined + '</b> 次跟著流程走完。' +
+      (awaiting ? '還有 <b>' + awaiting + '</b> 次的結果沒填。' : '');
   }
 
   document.getElementById('sessionList').innerHTML = recs.map((r, i) => {
     const m = outcomeMeta(r);
     const badge = outcomeBadgeV6(r.outcomeTag);
     const readiness = readinessCellV6(r, m);
+    // 🔴 判準走共用模組，這一頁不自己判一次（見 awaitsResult 的 doc comment）。
+    // 第二行只在真的在等的時候長出來 —— 不是每一列都掛一個空的槽。
+    const awaiting = window.TENKI_OUTCOME.awaitsResult(r)
+      ? '<div class="needs-result">結果還沒填 · 點進去補上</div>' : '';
     return '<div class="session-item sess-enter" style="animation-delay:' + (Math.min(i, 8) * 45) + 'ms" data-ts="' + r.ts + '" onclick="openSessionDetail(' + r.ts + ')">' +
       '<div class="tmpl-ic" style="color:' + m.color + '">' + (ICON_SVG[m.icon] || ICON_SVG.heart) + '</div>' +
       '<div class="info"><div class="nm">' + escHtml(outcomeTitle(m)) + '</div>' +
       '<div class="meta"><span>' + fmtTimeOfDay(r.ts) + '</span><span class="sep">·</span>' +
-      '<span>' + escHtml(readiness) + '</span><span class="sep">·</span><span>' + fmtDur(r.durationSec||0) + '</span></div></div>' +
+      '<span>' + escHtml(readiness) + '</span><span class="sep">·</span><span>' + fmtDur(r.durationSec||0) + '</span></div>' +
+      awaiting + '</div>' +
       '<div class="result ' + badge.cls + '">' + badge.text + '</div>' +
       '<div class="chevron">›</div></div>';
   }).join('');

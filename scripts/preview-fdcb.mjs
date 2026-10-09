@@ -2582,6 +2582,137 @@ for (const h of [700, 740, 844, 932]) {
   await page.close();
 }
 
+// ═════════════════════════════════════════════════
+// 🔴 「結果還沒填」必須在**列表上**看得見
+//
+// founder 2026-10-09 實走：他前一天掃描、等了快一小時、照計劃進場走完，
+// 回來看 Session 是四列長得一模一樣的完成品 —— 其中三列其實是 `pending`。
+// 他的結論是「後面這一段沒有記錄到」。
+// 真相是：§9b 的回填機制早就做好了（#272/#273/#275），但
+//   · 列表一個字都沒講
+//   · insight 行說「N 次跟著流程走完」，讀起來像全部做完了
+//   · 收束頁的三選一**只由一次性回程票打開** —— 判定完直接離開就再也不會被問
+// 也就是：機制存在，但它的**可見範圍**小於它的宣稱（本檔反覆記載的同一個家族）。
+//
+// ⚠️ 這組斷言守的是「看得見」，不是「存得對」—— 存得對由 day-cadence 那組守。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 結果還沒填：列表上要看得見 ──');
+  const page = await openV3(844);
+  const now = Date.now();
+  // 三種紀錄各一筆：在等的、不在等的（推導出 no_entry）、已經填過的。
+  await page.evaluate((now) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([
+      { ts: now - 300e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+        outcomeTag: 'judged_entered', tradeResult: 'pending',
+        durationSec: 17, marks: 0, events: [], reachedReadiness: null },
+      { ts: now - 600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+        // 🔴 **刻意不給 tradeResult**。給 'no_entry' 的話，就算 awaitsResult 完全
+        // 不看 outcomeTag 也照樣擋得掉 —— 那條主斷言就變成在驗一件它沒在驗的事。
+        // 反向驗證（把 outcomeTag 檢查拿掉）當場證明了這點：主斷言照樣綠，
+        // 只有下面那條舊紀錄的紅。缺欄位才逼得出「判定不成立不該被催」這條規則。
+        outcomeTag: 'judged_stood_down',
+        durationSec: 80, marks: 0, events: [], reachedReadiness: null },
+      { ts: now - 900e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+        outcomeTag: 'judged_entered', tradeResult: 'profit_taken',
+        durationSec: 14, marks: 0, events: [], reachedReadiness: null },
+    ]));
+    window.goTab('session');
+  }, now);
+  await page.waitForTimeout(700);
+
+  const list = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#sessionList .session-item')];
+    return {
+      n: rows.length,
+      marks: rows.map((r) => !!r.querySelector('.needs-result')),
+      text: (rows.find((r) => r.querySelector('.needs-result')) || {}).textContent || '',
+      insight: document.getElementById('sessionInsightBody').textContent,
+      overflow: document.getElementById('sessionList').scrollWidth
+        > document.getElementById('sessionList').clientWidth + 1,
+    };
+  });
+  check('三筆都畫出來了（0 筆＝下面全是死斷言）', list.n, 3);
+  // 🔴 只有 judged_entered + pending 那一筆在等。判定不成立是**推導**出來的
+  //    `no_entry`，它沒有在等任何人 —— 對它催填等於問一個不存在的問題。
+  check('🔴 只有「進場了但結果未知」那一筆帶記號', list.marks, [true, false, false]);
+  checkTruthy(`記號說得出要幹嘛（${list.text.replace(/\s+/g, ' ').trim().slice(-14)}）`,
+    /結果還沒填/.test(list.text) && /點進去/.test(list.text));
+  check('🔴 insight 行要把「還有幾次沒填」講出來', /還有\s*1\s*次的結果沒填/.test(list.insight), true);
+  check('列表不得橫向溢出', list.overflow, false);
+
+  // 🔴 結果不得上語意色（§9b 硬規則 2）—— 記號與它的圓點都必須是中性階。
+  // ⚠️ 記號不存在時要回一條**看得懂的紅字**，不是讓 getComputedStyle(null) 把整支
+  //    harness 以 stack trace 炸掉 —— 下一個人看到的會是「TypeError」而不是
+  //    「記號不見了」。反向驗證（拿掉記號）當場踩到這件事，它抓得對。
+  //    本檔早有同一條教訓：裸的 waitForFunction 逾時會讓腳本以 stack trace 死掉。
+  const tone = await page.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const ramp = ['--n-950', '--n-900', '--n-850', '--n-800', '--n-700', '--n-600',
+      '--n-550', '--n-500', '--n-450', '--n-400', '--n-300', '--n-200', '--n-100']
+      .map((n) => cs.getPropertyValue(n).trim().toUpperCase());
+    const hex = (v) => {
+      const c = (v.match(/\d+/g) || []).map(Number);
+      return c.length >= 3 ? '#' + c.slice(0, 3)
+        .map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase() : null;
+    };
+    const el = document.querySelector('#sessionList .needs-result');
+    if (!el) return { missing: true, ramp };
+    const dot = getComputedStyle(el, '::before');
+    return {
+      missing: false,
+      color: hex(getComputedStyle(el).color),
+      border: hex(dot.borderTopColor),
+      // 空心 ＝ 還沒有東西（沿用 .tp-tick.no-reading 的語彙）
+      hollow: dot.backgroundColor === 'rgba(0, 0, 0, 0)' || dot.backgroundColor === 'transparent',
+      ramp,
+    };
+  });
+  check('🔴 待填記號的字是中性階（結果不得上語意色）',
+    tone.missing ? '記號不存在' : tone.ramp.includes(tone.color), true);
+  check('🔴 它的圓點也是中性階',
+    tone.missing ? '記號不存在' : tone.ramp.includes(tone.border), true);
+  check('🔴 圓點是空心的（空心＝還沒有東西，沿用既有語彙）',
+    tone.missing ? '記號不存在' : tone.hollow, true);
+
+  // 🔴 填完之後記號必須消失 —— 一個永遠在的提醒就不是提醒。
+  await page.evaluate((ts) => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all.find((r) => r.ts === ts).tradeResult = 'profit_taken';
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.goTab('today'); window.goTab('session');
+  }, now - 300e3);
+  await page.waitForTimeout(600);
+  const after = await page.evaluate(() => ({
+    marks: [...document.querySelectorAll('#sessionList .session-item')]
+      .map((r) => !!r.querySelector('.needs-result')),
+    insight: document.getElementById('sessionInsightBody').textContent,
+  }));
+  check('🔴 填完之後記號消失', after.marks, [false, false, false]);
+  check('🔴 而且 insight 行也不再提', /還有/.test(after.insight), false);
+
+  // 🔴 契約之前的舊紀錄（根本沒有 tradeResult 這一欄）不得被催 ——
+  //    那是「我們沒存」，不是「你沒填」。但它如果是 judged_entered，
+  //    就**確實**還不知道結果，該算在等。這一條把那個分界釘住。
+  const legacy = await page.evaluate((now) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([
+      { ts: now - 100e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+        outcomeTag: 'judged_entered', durationSec: 9, marks: 0, events: [], reachedReadiness: null },
+      { ts: now - 200e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+        outcomeTag: 'abandoned_no_judgment', durationSec: 9, marks: 0, events: [], reachedReadiness: null },
+    ]));
+    window.goTab('today'); window.goTab('session');
+    return null;
+  }, now);
+  await page.waitForTimeout(600);
+  const legacyMarks = await page.evaluate(() =>
+    [...document.querySelectorAll('#sessionList .session-item')]
+      .map((r) => !!r.querySelector('.needs-result')));
+  check('🔴 沒有 tradeResult 欄的舊紀錄：judged_entered 算在等，abandoned 不算',
+    legacyMarks, [true, false]);
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);

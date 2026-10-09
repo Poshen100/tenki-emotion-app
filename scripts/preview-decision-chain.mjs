@@ -673,7 +673,18 @@ console.log('\n── 結果三選一（進場路徑）──');
 // ═══════════════════════════════════════════════
 console.log('\n── 日界節奏的事實行 ──');
 {
-  const H = 60 * 60 * 1000;
+  // 🔴 **偏移用秒，不要用小時。**
+  // `resolveDayCadence` 按 **ET 日**過濾，而這支 harness 任何時刻都可能被跑到 ——
+  // 在 ET 午夜到凌晨 3 點之間，「2 小時前」是**昨天**，整組情境會全部回 `fresh`。
+  // 2026-10-09 04:52 UTC（＝ 00:52 EDT）實際踩到：**乾淨的 main 紅 11 條**，
+  // 而且那 11 條每一條的訊息都長得像產品壞了。
+  // 這條 policy 不看「多久以前」，只看「是不是同一個 ET 日」＋筆數＋輸贏 ——
+  // 所以秒級偏移對它跟小時級是同一件事，而秒級在任何時刻都安全。
+  // ⚠️ 「昨天不算」那條**仍然要用 30 小時**（它驗的就是跨日），不要一起改。
+  const H = 1000; // ＝ 1 秒（名字保留，免得下面整張表重寫；語意見上）
+  // 🔴 這一組是**純函式**，`now` 是參數 —— 所以直接釘在一個固定時刻，
+  //    連「現在幾點」都不問。2026-01-15 12:00 EST，永遠是 ET 的正中午。
+  const FIXED_NOW = Date.UTC(2026, 0, 15, 17, 0, 0);
   // 情境表與 domain 的 jest 斷言同一組 —— 兩邊算出不同答案就是漂移。
   const CASES = [
     ['沒有紀錄 → fresh', [], 'fresh', '今天還沒有決策紀錄'],
@@ -696,8 +707,7 @@ console.log('\n── 日界節奏的事實行 ──');
   await page.waitForTimeout(1500);
 
   for (const [name, recs, state, zh] of CASES) {
-    const got = await page.evaluate(({ offsets }) => {
-      const now = Date.now();
+    const got = await page.evaluate(({ offsets, now }) => {
       const records = offsets.map(([off, result]) => {
         const r = { ts: now + off };
         if (result !== undefined) r.tradeResult = result;
@@ -705,7 +715,7 @@ console.log('\n── 日界節奏的事實行 ──');
       });
       const out = window.TENKI_OUTCOME.resolveDayCadence(records, now);
       return { state: out.state, zh: out.contextZh };
-    }, { offsets: recs });
+    }, { offsets: recs, now: FIXED_NOW });
     check(name, got, { state, zh });
   }
 
@@ -735,7 +745,7 @@ console.log('\n── 日界節奏的事實行 ──');
       judgmentSchema: 'structure_watch_v1', durationSec: 300,
       ts, source: 'alert', tradeResult: 'profit_taken',
     }]));
-  }, Date.now() - 2 * 60 * 60 * 1000);
+  }, Date.now() - 2000); // 2 秒前 —— 小時級偏移在 ET 凌晨會變成昨天（見上）
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2000);
   await page.evaluate(() => document.getElementById('btnSingle').click());
@@ -781,7 +791,7 @@ console.log('\n── 日界節奏的事實行 ──');
 // ═══════════════════════════════════════════════
 console.log('\n── 結果回填（Session 詳情）──');
 {
-  const TS = Date.now() - 3 * 60 * 60 * 1000;
+  const TS = Date.now() - 3000; // 3 秒前（同上：不得用小時）
   const SEED = {
     symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
     contextTag: '跟計畫', judgmentSchema: 'structure_watch_v1',
@@ -951,7 +961,9 @@ console.log('\n── 靜默理由要講全部 ──');
 // ═══════════════════════════════════════════════
 console.log('\n── 到了停手點就收摺 ──');
 {
-  const H = 60 * 60 * 1000;
+  // 同上：偏移用秒。這一段走的是真實 UI，產品內部自己讀 Date.now()，
+  // 所以沒辦法像上面那樣釘死 now —— 只能把偏移縮到不可能跨 ET 日界。
+  const H = 1000; // ＝ 1 秒
   const rec = (offset, result) => ({
     symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
     judgmentSchema: 'structure_watch_v1', durationSec: 300,
