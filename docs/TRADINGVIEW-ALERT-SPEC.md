@@ -186,12 +186,28 @@ UI：三模板卡全列，建議者加 ⭐ 高亮；使用者永遠可自由選�
 
 ## 9b. 結果軸（`tradeResult`）與日界節奏的接線設計
 
-> **狀態**：設計。domain 層已落地（#218：`domain/src/contracts/trade-result.ts` +
-> `domain/src/policies/day-cadence.ts`，18 條測試），**UI 一行都還沒接**。
-> 所以「第一筆達到目標之後，下一則快訊照樣彈面板」這個實際問題**目前仍然存在**。
+> **狀態**：✅ **A0 / A / B / C 全部已落地**（#218 domain 層；#272 階段 B；
+> #273 階段 A 的回填入口；#275 階段 C）。
+> ⚠️ 以下那句「**UI 一行都還沒接**」是 2026-09-28 寫的，**已經過期** ——
+> 保留原文供對照，但**不要照著它做決定**。
+>
+> 🔴 **而這份過期狀態本身造成了一次真實的損失**（2026-10-09）：
+> founder 實走回報「後面這一段沒有記錄到」，我照這句話判斷成「功能還沒做」，
+> 差點重做一次已經存在的東西。真正的問題是另一件事 ——
+> 機制全在，但 **`pending` 在 Session 列表上一個字都沒講**，
+> 所以他的四筆紀錄看起來全都是完成品（#279 修）。
+> **狀態行過期的成本不是「文件不準」，是「下一個人會去修錯的地方」。**
+>
 > ⚠️ §9 上面那段「Result 階段已落地（Phase A，2026-07-19）」描述的是
 > **2026-08-04 語意斷點之前**的 tag（`stayed_disciplined` / `broke_discipline`）。
 > 現行語意的 canonical 是 `apps/preview/decision-outcome.js` 的檔頭。
+>
+> <details><summary>原始狀態行（2026-09-28，已過期）</summary>
+>
+> > 設計。domain 層已落地（#218），**UI 一行都還沒接**。
+> > 所以「第一筆達到目標之後，下一則快訊照樣彈面板」這個實際問題**目前仍然存在**。
+>
+> </details>
 
 ### 🔴 為什麼這是整條路線裡風險最高的一步
 
@@ -374,7 +390,7 @@ countsAsTrade = (result) => result !== null && result !== 'no_entry';
 | **v1** | 規格書 + domain contract/schema/policy + engine 模板建議/compliance/連結欄位 + shared flag/tier + `/decision-alert/` preview demo（模擬快訊） | ✅ 已交付 |
 | **v1.1（Phase 2 ingestion）** | HTTP 接收薄層（`api/alert.ts`：收 → validate → Upstash 暫存）+ `api/alerts.ts` 裝置輪詢 + `/decision-alert/` 連接真實快訊模式 + `docs/TRADINGVIEW-SETUP.md` | ✅ 已交付 |
 | **v1.2（channel 模型）** | 專屬 webhook 連結取代共用 token：`api/channel.ts` 配對端點、per-channel 佇列隔離、零輸入配對 UX、Premium 標示 + entitlement 掛載點（§11） | ✅ 已交付（founder 僅需開通 Upstash） |
-| **日界節奏 UI（§9b）** | 結果三選一 → Entry Panel 事實行 → 熔斷收摺 + `evaluateDelivery` 多理由 | domain 層 ✅ 已交付（#218）；**UI 未接**。填寫時機已裁決（founder 2026-09-28，§9b）→ 階段 A 的第一刀是**契約新增 `pending`**，不做的話整條規則靜默失效 |
+| **日界節奏 UI（§9b）** | 結果三選一 → Entry Panel 事實行 → 熔斷收摺 + `evaluateDelivery` 多理由 | ✅ **全部已交付**：domain（#218）、階段 B（#272）、階段 A 回填入口（#273）、階段 C（#275）、`pending` 在列表上可見（#279）。⚠️ 仍有一個**已知缺口**：收束頁的三選一只由**一次性回程票**打開 —— 判定完直接離開就不會在當下被問，只能靠 Session 列表的待填記號回來補 |
 | Phase 2 後段 | mobile UI（Decision Entry Panel / 浮動條，用 preview 驗證過的互動移植 apps/mobile） | 待排 |
 | **Phase D（Web Push）** | ✅ 手機網頁推播（不用原生 App/Mac）：`api/subscribe.ts` 訂閱端點 + `api/_lib/push.ts`（web-push/VAPID）+ `sw.js`/`manifest.webmanifest` PWA + 連接面板「開啟手機推播」。Safari 關著也跳通知（iOS 16.4+，需加入主畫面 + VAPID env）。設定見 `docs/TRADINGVIEW-SETUP.md §7` | ✅ 已交付（founder 需設 VAPID env + 加入主畫面） |
 | Phase 3（原生） | 原生 App 推播（expo-notifications + `tenki://` deep link）+ Watchlist 綁定 + 快訊自動分類 | 需 mobile app + Mac |
