@@ -2607,7 +2607,11 @@ for (const h of [700, 740, 844, 932]) {
         outcomeTag: 'judged_entered', tradeResult: 'pending',
         durationSec: 17, marks: 0, events: [], reachedReadiness: null },
       { ts: now - 600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
-        outcomeTag: 'judged_stood_down', tradeResult: 'no_entry',
+        // 🔴 **刻意不給 tradeResult**。給 'no_entry' 的話，就算 awaitsResult 完全
+        // 不看 outcomeTag 也照樣擋得掉 —— 那條主斷言就變成在驗一件它沒在驗的事。
+        // 反向驗證（把 outcomeTag 檢查拿掉）當場證明了這點：主斷言照樣綠，
+        // 只有下面那條舊紀錄的紅。缺欄位才逼得出「判定不成立不該被催」這條規則。
+        outcomeTag: 'judged_stood_down',
         durationSec: 80, marks: 0, events: [], reachedReadiness: null },
       { ts: now - 900e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
         outcomeTag: 'judged_entered', tradeResult: 'profit_taken',
@@ -2638,6 +2642,10 @@ for (const h of [700, 740, 844, 932]) {
   check('列表不得橫向溢出', list.overflow, false);
 
   // 🔴 結果不得上語意色（§9b 硬規則 2）—— 記號與它的圓點都必須是中性階。
+  // ⚠️ 記號不存在時要回一條**看得懂的紅字**，不是讓 getComputedStyle(null) 把整支
+  //    harness 以 stack trace 炸掉 —— 下一個人看到的會是「TypeError」而不是
+  //    「記號不見了」。反向驗證（拿掉記號）當場踩到這件事，它抓得對。
+  //    本檔早有同一條教訓：裸的 waitForFunction 逾時會讓腳本以 stack trace 死掉。
   const tone = await page.evaluate(() => {
     const cs = getComputedStyle(document.documentElement);
     const ramp = ['--n-950', '--n-900', '--n-850', '--n-800', '--n-700', '--n-600',
@@ -2649,8 +2657,10 @@ for (const h of [700, 740, 844, 932]) {
         .map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase() : null;
     };
     const el = document.querySelector('#sessionList .needs-result');
+    if (!el) return { missing: true, ramp };
     const dot = getComputedStyle(el, '::before');
     return {
+      missing: false,
       color: hex(getComputedStyle(el).color),
       border: hex(dot.borderTopColor),
       // 空心 ＝ 還沒有東西（沿用 .tp-tick.no-reading 的語彙）
@@ -2659,9 +2669,11 @@ for (const h of [700, 740, 844, 932]) {
     };
   });
   check('🔴 待填記號的字是中性階（結果不得上語意色）',
-    tone.ramp.includes(tone.color), true);
-  check('🔴 它的圓點也是中性階', tone.ramp.includes(tone.border), true);
-  check('🔴 圓點是空心的（空心＝還沒有東西，沿用既有語彙）', tone.hollow, true);
+    tone.missing ? '記號不存在' : tone.ramp.includes(tone.color), true);
+  check('🔴 它的圓點也是中性階',
+    tone.missing ? '記號不存在' : tone.ramp.includes(tone.border), true);
+  check('🔴 圓點是空心的（空心＝還沒有東西，沿用既有語彙）',
+    tone.missing ? '記號不存在' : tone.hollow, true);
 
   // 🔴 填完之後記號必須消失 —— 一個永遠在的提醒就不是提醒。
   await page.evaluate((ts) => {
