@@ -23,7 +23,7 @@
  */
 // Playwright 從共用 resolver 拿：CI 走 node_modules、容器退回全域安裝。
 // 這一行原本是寫死的 /opt/node22/... 絕對路徑 —— 那就是 harness 進不了 CI 的原因。
-import { getChromium } from './lib/playwright.mjs';
+import { getChromium, checkFontCanary } from './lib/playwright.mjs';
 import http from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
@@ -99,6 +99,23 @@ page.on('pageerror', (e) => {
   console.error('[pageerror]', e.message);
   fail += 1;
 });
+
+// ═══════════════ 字型金絲雀（必須跑在所有版面斷言之前）═══════════════
+// 🔴 這支有好幾條在量**文字寬度**（「一屏放得下」「離環線至少 2px」
+//    「斷行不得切在詞中間」）—— 全部是字型的函式。
+// 2026-10-10 實際踩到：開發容器換 image 之後 `sans-serif` 變成 Inter，
+// 「短視窗(660px)下收束頁一屏放得下」溢出 3px 而紅，**而這支沒有金絲雀，
+// 所以那條紅得沒有任何解釋**。隔壁 preview-fdcb 早就有這個區塊了。
+console.log('\n── 字型金絲雀 ──');
+{
+  const { drift, measured } = await checkFontCanary(page);
+  measured.forEach((m) => console.log('   ' + m));
+  check('字型與基準一致（不一致就不要相信下面的版面斷言）', drift, []);
+  if (drift.length) {
+    console.log('   ⚠️ 這台機器的字型跟基準不同 —— 先修環境，');
+    console.log('      不要去改產品的版面來迎合它。下面每一條量文字寬度的都不算數。');
+  }
+}
 
 // 🔴 先種一筆**既有**紀錄。理由是這支 harness 的核心斷言就是
 // 「momentum strip 本次段落 = 紀律色」（2026-08-07「條紋與完成率互相矛盾」的守門），

@@ -1061,6 +1061,43 @@ body{
    它不是一個警告，把它染成警告色等於用顏色責備一個正確的決定。→ 中性帶位。 */
 .result.no_trade{background:var(--neutral-950);color:var(--n-200)}
 
+/* 🔴 補記入口。在這之前，建檔的唯一方式是**現在跑一次** —— 於是 founder
+   昨天的交易變成今天的時間戳加一個 17 秒的「用時」，而那個數字是假的。
+   一個以「絕不捏造」為核心承諾的產品，不能讓使用者為了留下紀錄而捏造。
+   ⚠️ 琥珀 ＝ 可動層（按得下去），符合既有的三分法。 */
+.session-section-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.bf-open{
+  background:none;border:none;font-family:inherit;cursor:pointer;
+  font-size:11px;color:var(--amber-400);padding:8px 4px 2px;letter-spacing:0.04em;
+}
+.bf-open:active{color:var(--amber-500)}
+/* 補記表單 —— 沿用站內 .sheet 的殼，只加自己的欄位樣式。 */
+.bf-field{margin-bottom:14px}
+.bf-label{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-400);font-weight:600;margin-bottom:6px}
+.bf-input, .bf-select{
+  width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;
+  color:#fff;background:rgba(255,255,255,0.05);
+  border:1px solid var(--n-700);border-radius:10px;padding:10px 12px;
+}
+.bf-input::placeholder{color:var(--n-500)}
+.bf-row{display:flex;gap:8px}
+.bf-row .bf-btn{flex:1}
+.bf-btn{
+  font-family:inherit;font-size:13px;cursor:pointer;padding:11px 10px;border-radius:12px;
+  background:rgba(255,255,255,0.05);border:1px solid var(--n-700);color:var(--n-200);
+}
+/* 🔴 選取狀態不得上語意色：兩個判定出口**都算紀律**，把其中一個染成警告色
+   等於用顏色責備一個正確的決定（CLAUDE.md 既有裁決）。→ 選取 ＝ 中性變亮。 */
+.bf-btn.picked{background:var(--n-800);border-color:var(--n-500);color:#fff;font-weight:600}
+/* 「不知道的那幾欄」就地說出來，不要讓使用者以為是他漏填。 */
+.bf-note{font-size:11px;line-height:1.55;color:var(--n-400);margin:2px 0 16px}
+.bf-submit{
+  width:100%;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
+  padding:13px;border-radius:14px;border:none;
+  background:var(--amber-400);color:#1a1200;
+}
+.bf-submit:disabled{background:var(--n-800);color:var(--n-500);cursor:default}
+
 .insight-card{
   padding:14px 16px;border-radius:14px;
   background:linear-gradient(135deg, rgba(0,180,216,0.08), rgba(0,180,216,0.02));
@@ -2882,7 +2919,7 @@ a.lab-wide{text-decoration:none}
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do7"></script>
+    <script src="/preview/decision-outcome.js?v=do8"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -3119,7 +3156,10 @@ a.lab-wide{text-decoration:none}
           <div class="body" id="sessionInsightBody">完成一次決策後，這裡會出現你的節奏統計。</div>
         </div>
 
-        <div class="session-section" id="sessionListHead">最近的決策</div>
+        <div class="session-section-row" id="sessionListHead">
+          <div class="session-section">最近的決策</div>
+          <button type="button" class="bf-open" onclick="openBackfill()">＋ 補記一筆</button>
+        </div>
 
         <div id="sessionList"></div>
 
@@ -3331,7 +3371,10 @@ a.lab-wide{text-decoration:none}
       </div>
 
       <!-- Segment timeline（三段由 durationSec 推導：Observe → 核心段 → Extended）-->
-      <div class="card sd-seg-card">
+      <!-- ⚠️ 整張卡片都是從 `durationSec` 推導出來的 —— 補記的紀錄沒有那個量，
+           所以它**整張不出現**（`openSessionDetail` 控制）。留著印 0:00 等於
+           宣稱一次 0 秒的決策。 -->
+      <div class="card sd-seg-card" id="sdSegCard">
         <div class="sd-seg-head">
           <div class="sd-seg-ttl">決策節奏</div>
           <div class="sd-seg-dur" id="sdSegDur">3:00</div>
@@ -3590,6 +3633,49 @@ a.lab-wide{text-decoration:none}
 
     <div class="pm-note"><b>尚未開賣。</b>這裡沒有購買鍵，因為現在還沒有可以買的東西 ——
       有的時候會出現在這一頁，不會出現在別的地方。</div>
+  </div>
+
+  <!-- ═══ 補記一筆 ═══
+       🔴 這張表單**刻意只問四件我們問得到答案的事**：哪一天、標的、流程、判定
+       （進場的話再加結果）。用時、軌跡、當下的讀數一律不問 —— 使用者事後回答
+       那些只會得到猜的數字，而捏造的資料比沒有更糟。 -->
+  <div class="sheet-backdrop" id="bfBackdrop" onclick="closeBackfill()"></div>
+  <div class="sheet" id="bfSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">補記一筆</div>
+
+    <div class="bf-field">
+      <div class="bf-label">這件事發生在哪一天</div>
+      <input type="date" class="bf-input" id="bfDate">
+    </div>
+
+    <div class="bf-field">
+      <div class="bf-label">標的（可留空）</div>
+      <input type="text" class="bf-input" id="bfSymbol" placeholder="ES1!" autocomplete="off">
+    </div>
+
+    <div class="bf-field">
+      <div class="bf-label">用哪一個流程</div>
+      <select class="bf-select" id="bfTemplate"></select>
+    </div>
+
+    <div class="bf-field">
+      <div class="bf-label">當時的判定</div>
+      <div class="bf-row">
+        <button type="button" class="bf-btn" id="bfJudgeIn"  onclick="bfPickJudge('entered')">成立 · 我進場了</button>
+        <button type="button" class="bf-btn" id="bfJudgeOut" onclick="bfPickJudge('stood_down')">不成立 · 我不做</button>
+      </div>
+    </div>
+
+    <!-- 只有「成立 · 我進場了」才問結果 —— 另一條路的結果是**推導**出來的
+         （no_entry），再問一次只會製造自相矛盾的紀錄（§9b ①）。 -->
+    <div class="bf-field" id="bfResultField" hidden>
+      <div class="bf-label">後來的結果</div>
+      <div class="bf-row" id="bfResultRow"></div>
+    </div>
+
+    <div class="bf-note" id="bfNote"></div>
+    <button type="button" class="bf-submit" id="bfSubmit" onclick="bfSave()" disabled>記下來</button>
   </div>
 
   <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
@@ -6227,8 +6313,10 @@ function outcomeMeta(rec){
   // ⚠️ 閘門必須是 `source === 'alert'`：自己起跑的決策，`saveV6Outcome` 往
   // `symbol` 寫的是**模板名**，不設閘門就會印出「Health Stress · Health Stress」。
   // ⚠️ 舊紀錄可能沒有 source（第五輪之前）→ 條件不成立就維持現狀，不猜。
-  meta.symbol = (rec.source === 'alert' && typeof rec.symbol === 'string' && rec.symbol)
-    ? rec.symbol : null;
+  // ⚠️ 補記也走這條：它的 `symbol` 是使用者自己打的標的（沒打就不存這個欄位），
+  //    不是模板名 —— 所以不會有「Health Stress · Health Stress」那個問題。
+  meta.symbol = ((rec.source === 'alert' || window.TENKI_OUTCOME.isBackfilled(rec))
+    && typeof rec.symbol === 'string' && rec.symbol) ? rec.symbol : null;
   return meta;
 }
 /**
@@ -6252,6 +6340,10 @@ function outcomeTitle(m){ return m.symbol ? m.symbol + ' · ' + m.name : m.name;
  */
 function readinessCellV6(rec, meta){
   if(rec.reachedReadiness === undefined || rec.reachedReadiness === null){
+    // 🔴 補記要說得出自己是補記 —— 否則它跟一筆真的在 App 裡跑完的決策
+    // 在列表上長得一模一樣，而那兩件事能宣稱的東西不一樣（它沒有用時、
+    // 沒有軌跡、沒有當下的讀數）。這一格的職責本來就是「缺讀數時報來源」。
+    if(window.TENKI_OUTCOME.isBackfilled(rec)) return '補記';
     return rec.source === 'alert' ? '快訊決策' : '—';
   }
   return (rec.reachedReadiness ? '達 ' : '未達 ') + meta.segLabel;
@@ -6260,12 +6352,51 @@ function fmtTimeOfDay(ts){
   const d = new Date(ts); if(isNaN(d.getTime())) return '—';
   return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
+/**
+ * 這一筆「什麼時候」那一格。
+ *
+ * 🔴 補記的紀錄**只知道哪一天**（`tsPrecision:'day'`）—— 印一個時刻出來就是
+ * 宣稱一件不知道的事。那一格改印日期。
+ * ⚠️ 既有紀錄沒有這個欄位 → 走原本那條，行為逐字不變。
+ *
+ * @param {Object} rec
+ * @returns {string}
+ */
+function fmtWhen(rec){
+  if(!window.TENKI_OUTCOME.isDayPrecision(rec)) return fmtTimeOfDay(rec.ts);
+  const d = new Date(rec.ts);
+  if(isNaN(d.getTime())) return '—';
+  // 用 ET 的日期來印 —— 時間戳本來就是照 ET 交易日挑的（backfillTsFor），
+  // 用當地時區格式化會在時差大的地方印出前一天。
+  return new Intl.DateTimeFormat('zh-TW', {
+    timeZone: window.TENKI_OUTCOME.TRADING_DAY_TZ, month: 'numeric', day: 'numeric',
+  }).format(d);
+}
+/**
+ * 「用了多久」那一格。
+ *
+ * 🔴 `durationSec` 是 `null` ＝ **不知道**（補記的紀錄不是在 App 裡跑的），
+ * 不是 0。`fmtDur(rec.durationSec || 0)` 會把它印成「0:00」——
+ * 那正是這個 repo 反覆記載的那條傷：把「不知道」講成「沒發生」。
+ *
+ * @param {Object} rec
+ * @returns {string} `m:ss`，或不知道時的「—」
+ */
+function fmtDurCell(rec){
+  return typeof rec.durationSec === 'number' ? fmtDur(rec.durationSec) : '—';
+}
 function renderSessionScreen(){
   const recs = loadOutcomes().slice().sort((a,b) => (b.ts||0) - (a.ts||0));
   const count = recs.length;
   const disciplined = recs.filter(r => isDisciplinedV6(r.outcomeTag)).length;
   const align = count ? Math.round(disciplined / count * 100) : 0;
-  const avgDur = count ? Math.round(recs.reduce((a,r) => a + (r.durationSec||0), 0) / count) : 0;
+  // 🔴 補記的紀錄沒有用時（`durationSec` 是 null）—— **不得算進平均**。
+  // `(r.durationSec||0)` 會把「不知道」當成 0 塞進分子，而且分母照算，
+  // 於是補記得越多、平均用時被壓得越低，看起來像「你越來越快」。
+  // 缺就是缺：把它從分子**和分母**一起排除（同校準台那條排除規則）。
+  const timed = recs.filter(r => typeof r.durationSec === 'number');
+  const avgDur = timed.length
+    ? Math.round(timed.reduce((a,r) => a + r.durationSec, 0) / timed.length) : null;
 
   document.getElementById('sessionDate').textContent = count ? ('決策紀錄 · ' + count + ' 次') : '決策紀錄';
   if(count){
@@ -6275,12 +6406,16 @@ function renderSessionScreen(){
     document.getElementById('statAlign').textContent = '—';
     document.getElementById('statCount').textContent = '—';
   }
-  document.getElementById('statAvgDur').textContent = count ? fmtDur(avgDur) : '—';
+  // 一筆有用時的都沒有（全部是補記）→ 這一格就是「—」，不編一個 0:00。
+  document.getElementById('statAvgDur').textContent = avgDur === null ? '—' : fmtDur(avgDur);
 
   const empty = count === 0;
   document.getElementById('sessionEmpty').classList.toggle('show', empty);
   document.getElementById('sessionInsight').style.display = empty ? 'none' : '';
-  document.getElementById('sessionListHead').style.display = empty ? 'none' : '';
+  // ⚠️ 空清單時只收起「最近的決策」那個標題，**不收整列** ——
+  // 一個還沒有任何紀錄的人正是最需要補記的人，把入口一起藏掉等於沒做。
+  document.getElementById('sessionListHead').querySelector('.session-section')
+    .style.display = empty ? 'none' : '';
   document.getElementById('sessionList').style.display = empty ? 'none' : '';
 
   if(!empty){
@@ -6291,7 +6426,8 @@ function renderSessionScreen(){
     const awaiting = recs.filter(r => window.TENKI_OUTCOME.awaitsResult(r)).length;
     document.getElementById('sessionInsightBody').innerHTML =
       '已完成 <b>' + count + '</b> 次決策，對齊率 <b>' + align + '%</b>。' +
-      '平均用時 <b>' + fmtDur(avgDur) + '</b>，其中 <b>' + disciplined + '</b> 次跟著流程走完。' +
+      (avgDur === null ? '' : '平均用時 <b>' + fmtDur(avgDur) + '</b>，') +
+      '其中 <b>' + disciplined + '</b> 次跟著流程走完。' +
       (awaiting ? '還有 <b>' + awaiting + '</b> 次的結果沒填。' : '');
   }
 
@@ -6306,8 +6442,8 @@ function renderSessionScreen(){
     return '<div class="session-item sess-enter" style="animation-delay:' + (Math.min(i, 8) * 45) + 'ms" data-ts="' + r.ts + '" onclick="openSessionDetail(' + r.ts + ')">' +
       '<div class="tmpl-ic" style="color:' + m.color + '">' + (ICON_SVG[m.icon] || ICON_SVG.heart) + '</div>' +
       '<div class="info"><div class="nm">' + escHtml(outcomeTitle(m)) + '</div>' +
-      '<div class="meta"><span>' + fmtTimeOfDay(r.ts) + '</span><span class="sep">·</span>' +
-      '<span>' + escHtml(readiness) + '</span><span class="sep">·</span><span>' + fmtDur(r.durationSec||0) + '</span></div>' +
+      '<div class="meta"><span>' + fmtWhen(r) + '</span><span class="sep">·</span>' +
+      '<span>' + escHtml(readiness) + '</span><span class="sep">·</span><span>' + fmtDurCell(r) + '</span></div>' +
       awaiting + '</div>' +
       '<div class="result ' + badge.cls + '">' + badge.text + '</div>' +
       '<div class="chevron">›</div></div>';
@@ -6527,18 +6663,178 @@ function renderResultBackfill(rec){
   });
 }
 
+// ═════════════════════════════════════════════════
+// 補記一筆 —— 「這件事發生過，但不是在 App 裡跑的」
+//
+// founder 2026-10-09：「我昨天…依照計劃進場完成，但是後面這一段就沒有記錄到。
+// 我今天才補進去看長這樣。」—— 他的四筆紀錄全是今天的時間戳，用時 5~80 秒，
+// 而真正的那筆交易橫跨一小時。**在這之前，建檔的唯一方式是現在跑一次。**
+//
+// 🔴 一個以「絕不捏造」為核心承諾的產品，不能讓使用者**為了留下紀錄而捏造**。
+//
+// 🔴 這張表單只問四件問得到答案的事。用時、軌跡、當下的讀數一律**不問**：
+//    事後回答那些只會得到猜的數字，而捏造的資料比沒有更糟
+//    （CLAUDE.md：量不到就是量不到，不要填一個合理的預設值）。
+// ═════════════════════════════════════════════════
+let bfJudgment = null;      // 'entered' | 'stood_down' | null
+let bfTradeResult = null;   // 使用者挑的結果；沒挑就是 pending（＝未選取）
+
+/** 今天（當地）的 `YYYY-MM-DD` —— `<input type="date">` 的 max。 */
+function bfTodayYmd(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+    + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function openBackfill(){
+  bfJudgment = null;
+  bfTradeResult = null;
+
+  // 預設昨天 —— 補記最常見的情形就是「昨天做的，今天才想到要記」。
+  const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const ymd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+    + '-' + String(d.getDate()).padStart(2, '0');
+  const dateEl = document.getElementById('bfDate');
+  dateEl.value = ymd;
+  // 🔴 不得補記未來 —— 一筆還沒發生的決策不是紀錄，是計畫。
+  dateEl.max = bfTodayYmd();
+
+  document.getElementById('bfSymbol').value = '';
+
+  // 流程清單走 TEMPLATES（含自訂）—— 不另外抄一份。
+  // 🔴 決策紀律模式關著時，交易者模板**一個 option 都不准進 DOM**。
+  //    `display:none` 的文字仍然讀得到（送審截圖工具、輔助技術、我們自己的
+  //    斷言都讀得到）—— 依據 docs/APP_STORE_COMPLIANCE.md 送審檢查表 #18，
+  //    主模板表走的也是「移除節點」那條，這裡不得自己發明一套寬鬆的。
+  const sel = document.getElementById('bfTemplate');
+  const allowed = Object.keys(TEMPLATES)
+    .filter(id => disciplineOn() || !DISCIPLINE_TEMPLATES.includes(id));
+  sel.innerHTML = allowed
+    .map(id => '<option value="' + escHtml(id) + '">' + escHtml(TEMPLATES[id].name) + '</option>')
+    .join('');
+  // 預設挑他現在在用的那個流程 —— 補記的多半就是同一個。
+  if(allowed.includes(currentTmpl)) sel.value = currentTmpl;
+
+  bfRender();
+  document.getElementById('bfBackdrop').classList.add('open');
+  document.getElementById('bfSheet').classList.add('open');
+}
+
+function closeBackfill(){
+  document.getElementById('bfBackdrop').classList.remove('open');
+  document.getElementById('bfSheet').classList.remove('open');
+  // 🔴 關掉就把 option 清空 —— 否則「開著表單時把決策紀律模式關掉」會讓
+  //    交易者模板的字留在 DOM 裡。同 #18：移除，不是隱藏。
+  document.getElementById('bfTemplate').innerHTML = '';
+}
+
+function bfPickJudge(j){
+  // 再點同一顆 ＝ 取消。沒選判定就不能存 —— 那是這張表單唯一的必填。
+  bfJudgment = (bfJudgment === j) ? null : j;
+  // 🔴 改選「不成立」時要把結果清掉：那條路的結果是推導的 no_entry，
+  //    留著一個使用者先前挑的「達到目標」會存出自相矛盾的紀錄（§9b ①）。
+  if(bfJudgment !== 'entered') bfTradeResult = null;
+  bfRender();
+}
+
+function bfPickResult(v){
+  bfTradeResult = (bfTradeResult === v) ? null : v;  // 取消 → 回 pending
+  bfRender();
+}
+
+function bfRender(){
+  document.getElementById('bfJudgeIn').classList.toggle('picked', bfJudgment === 'entered');
+  document.getElementById('bfJudgeOut').classList.toggle('picked', bfJudgment === 'stood_down');
+
+  const asks = bfJudgment === 'entered';
+  document.getElementById('bfResultField').hidden = !asks;
+  if(asks){
+    const row = document.getElementById('bfResultRow');
+    row.textContent = '';
+    // 文案與值走共用模組，這一頁不自己寫一份清單（兩份遲早漂移）。
+    window.TENKI_OUTCOME.TRADE_RESULT_CHIPS.forEach(opt => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'bf-btn' + (bfTradeResult === opt.value ? ' picked' : '');
+      b.textContent = opt.label;
+      b.setAttribute('data-trade-result', opt.value);
+      b.addEventListener('click', () => bfPickResult(opt.value));
+      row.appendChild(b);
+    });
+  }
+
+  // 🔴 就地說出「哪幾欄我們不會問、為什麼」—— 不說的話使用者會以為是自己漏填。
+  document.getElementById('bfNote').textContent = asks
+    ? '結果可以先不選，之後在這一筆裡補。用時與軌跡不會問 —— 這一筆不是在 App 裡跑的，問了也只能猜。'
+    : '用時與軌跡不會問 —— 這一筆不是在 App 裡跑的，問了也只能猜。';
+
+  document.getElementById('bfSubmit').disabled = !bfJudgment;
+}
+
+/**
+ * 把補記寫進共用 store。
+ *
+ * 🔴 **不知道的欄位一律不寫**，而不是寫一個看起來合理的值：
+ *   `durationSec: null`      —— 不是 0（0 會被讀成「一次 0 秒的決策」）
+ *   `reachedReadiness: null` —— 守望本來就沒有這個量
+ *   `readingAtDecision: null`—— 當時有沒有讀數我們不知道，不猜
+ *   `awayCount` / `awayMs`   —— **整個欄位不存在**，詳情頁已經會整格隱藏
+ * 🔴 `tsPrecision:'day'` —— 我們知道哪一天，不知道幾點。讀端印日期、不印時刻。
+ */
+function bfSave(){
+  if(!bfJudgment) return;
+  const ts = window.TENKI_OUTCOME.backfillTsFor(document.getElementById('bfDate').value);
+  if(ts === null) return;   // 日期格式不對就什麼都不做，不猜一個日期
+
+  const outcomeTag = window.TENKI_OUTCOME.resolveOutcomeTag(bfJudgment);
+  const symbol = document.getElementById('bfSymbol').value.trim();
+
+  const rec = {
+    ts,
+    tsPrecision: 'day',
+    source: 'backfill',
+    templateId: document.getElementById('bfTemplate').value,
+    outcomeTag,
+    contextTag: null,
+    judgmentSchema: window.TENKI_OUTCOME.JUDGMENT_SCHEMA,
+    // 挑了就用挑的，沒挑就走共用模組的預設（進場 → pending、不成立 → no_entry）。
+    tradeResult: bfTradeResult || window.TENKI_OUTCOME.defaultTradeResult(outcomeTag),
+    reachedReadiness: null,
+    durationSec: null,
+    marks: 0,
+    events: [],
+    sameSymbolUpdates: null,
+    readingAtDecision: null,
+  };
+  // 沒打標的就**不寫這個欄位** —— 空字串會讓讀端的 `typeof === 'string'` 成立。
+  if(symbol) rec.symbol = symbol;
+
+  let all = [];
+  try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
+  if(!Array.isArray(all)) all = [];
+  all.push(rec);
+  localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
+
+  closeBackfill();
+  renderSessionScreen();
+}
+
 function openSessionDetail(ts){
   const rec = loadOutcomes().find(r => r.ts === ts);
   if(!rec) return;
   currentSessionTs = ts;
   const m = outcomeMeta(rec);
   const badge = outcomeBadgeV6(rec.outcomeTag);
-  const dur = rec.durationSec || 0;
+  // 🔴 `timed` ＝ 這一筆真的有「用了多久」這個量。補記的沒有（它不是在 App 裡
+  // 跑的），所以凡是從 `durationSec` 推導出來的呈現都要整個退場，不是印 0。
+  const timed = typeof rec.durationSec === 'number';
+  const dur = timed ? rec.durationSec : 0;
   const b = segBounds(dur);
   const marks = rec.marks || 0;
 
   document.getElementById('sdTitle').textContent = outcomeTitle(m);
-  document.getElementById('sdSubtitle').textContent = fmtTimeOfDay(rec.ts) + ' · ' + fmtDur(dur) + ' 用時';
+  document.getElementById('sdSubtitle').textContent =
+    fmtWhen(rec) + (timed ? ' · ' + fmtDur(dur) + ' 用時' : ' · 補記');
   const resultEl = document.getElementById('sdResult');
   resultEl.textContent = badge.text;
   resultEl.className = 'sd-result result ' + badge.cls;
@@ -6551,7 +6847,8 @@ function openSessionDetail(ts){
   document.getElementById('sdOutcomeSub').textContent =
     readinessCellV6(rec, m) + ' · ' + marks + ' 個標記';
 
-  // Segment track（三段由 durationSec 推導）
+  // Segment track（三段由 durationSec 推導）—— 沒有那個量就整張卡片不出現。
+  document.getElementById('sdSegCard').hidden = !timed;
   document.getElementById('sdSegDur').textContent = fmtDur(dur);
   document.getElementById('sdSegCoreLbl').textContent = m.segLabel;
   document.getElementById('sdSegCore').classList.toggle('reached', !!rec.reachedReadiness);
@@ -6565,7 +6862,7 @@ function openSessionDetail(ts){
   renderResultBackfill(rec);
 
   // Facts
-  document.getElementById('sdFactDur').textContent = fmtDur(dur);
+  document.getElementById('sdFactDur').textContent = fmtDurCell(rec);
   document.getElementById('sdFactReadiness').textContent =
     (rec.reachedReadiness === undefined || rec.reachedReadiness === null)
       ? '—' : (rec.reachedReadiness ? '已進入' : '未進入');

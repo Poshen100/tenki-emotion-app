@@ -164,6 +164,56 @@
     return r === 'pending' || r === null || r === undefined;
   }
 
+  /**
+   * 這一筆是**事後補記**的嗎。
+   *
+   * 補記 ＝ 這段決策真的發生過，但**不是在 App 裡跑的**（founder 2026-10-09：
+   * 「我昨天…依照計劃進場完成，但是後面這一段就沒有記錄到。我今天才補進去」）。
+   * 在這之前，建檔的唯一方式是**現在跑一次** —— 於是昨天的事變成今天的時間戳
+   * 加上一個 17 秒的「用時」，而那個數字是假的。
+   *
+   * 🔴 一個以「絕不捏造」為核心承諾的產品，不能讓使用者**為了留下紀錄而捏造**。
+   *
+   * @param {Object} rec
+   * @returns {boolean}
+   */
+  function isBackfilled(rec) {
+    return !!rec && rec.source === 'backfill';
+  }
+
+  /**
+   * 這一筆的時間戳**只精確到天**嗎。
+   *
+   * 🔴 補記時我們知道「哪一天」，不知道「幾點」。印一個時間出來就是宣稱一件
+   * 不知道的事 —— 所以時間戳帶 `tsPrecision: 'day'`，讀端印日期、不印時刻。
+   * ⚠️ 沒有這個欄位 ＝ 分鐘級（所有既有紀錄），行為一個字都不變。
+   *
+   * @param {Object} rec
+   * @returns {boolean}
+   */
+  function isDayPrecision(rec) {
+    return !!rec && rec.tsPrecision === 'day';
+  }
+
+  /**
+   * 補記那一天的時間戳：**該日 ET 的中午**。
+   *
+   * 🔴 為什麼不是當地中午：這個方法論的「一天」是 **ET 交易日**
+   * （`resolveTradingDayKey`），而日界節奏 §6.1 按它計數。使用者在台北挑
+   * 「10/8」，指的是 10/8 那個**盤**，不是台北的 10/8 —— 兩者差一整個日界。
+   *
+   * ⚠️ 16:30 UTC ＝ EDT 的 12:30 或 EST 的 11:30，兩種都穩穩落在同一個 ET 日的
+   * 正中間，不必處理日光節約的切換，也不會卡在午夜邊界上。
+   *
+   * @param {string} ymd `YYYY-MM-DD`（`<input type="date">` 的值）
+   * @returns {?number} epoch ms；格式不對回 null（不猜一個日期）
+   */
+  function backfillTsFor(ymd) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ''));
+    if (!m) return null;
+    return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 16, 30, 0);
+  }
+
   /** 方法論的時鐘：交易日是 ET 日，不是 UTC 日。 */
   var TRADING_DAY_TZ = 'America/New_York';
 
@@ -499,6 +549,9 @@
     resolveOutcomeTag: resolveOutcomeTag,
     defaultTradeResult: defaultTradeResult,
     awaitsResult: awaitsResult,
+    isBackfilled: isBackfilled,
+    isDayPrecision: isDayPrecision,
+    backfillTsFor: backfillTsFor,
     TRADE_RESULT_CHIPS: TRADE_RESULT_CHIPS,
     TRADING_DAY_TZ: TRADING_DAY_TZ,
     DAILY_TRADE_BUDGET: DAILY_TRADE_BUDGET,
