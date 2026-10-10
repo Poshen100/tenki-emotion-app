@@ -248,7 +248,10 @@ const outcomes = (page) => page.evaluate(() => {
 console.log('\n── 字型金絲雀 ──');
 {
   const page = await openV3(700);
-  const drift = await checkFontCanary(page);
+  const { drift, measured } = await checkFontCanary(page);
+  // 🔴 **無論過不過都把數字印出來** —— 容差訂得對不對，要靠各環境的真值來判斷，
+  //    不是靠感覺。CI 的 log 裡從此就有 runner 的實測值。
+  measured.forEach((m) => console.log('   ' + m));
   check('字型與基準一致（不一致就不要相信下面的版面斷言）', drift, []);
   if (drift.length) {
     console.log('   ⚠️ 這台機器的字型跟基準不同 —— 先修環境（CI 應裝 fonts-wqy-zenhei），');

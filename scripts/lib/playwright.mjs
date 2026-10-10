@@ -71,8 +71,22 @@ const FONT_BASELINE = [
 /**
  * 在給定的 page 上量基準字串，回傳不符的項目（空陣列 = 環境對得上）。
  *
+ * 🔴 **一律把量到的數字回報出去，不只回報通過與否。**
+ * 2026-10-10 踩到：容器重啟換了 image，`sans-serif` 從原本的字型變成 **Inter**，
+ * 「Neutral」@36px 從 124px 變成 **127.4px** —— 偏 3.4px，在 ±8 的容差內，
+ * 所以金絲雀放行了。但環心那條版面斷言的容差只有 4px，而通過時本來就只剩
+ * 約 1px 餘裕，於是 **8 條「讀數不在環心圓內」當場紅**。
+ *
+ * 那正是這支函式的註解自己說它存在要擋的事：
+ * 「對不上就以字型不符失敗，而不是讓它去翻掉『讀數不在圓內』那條」。
+ * 它擋不住，因為**容差比版面的餘裕還寬**。
+ *
+ * 要訂一個對的容差得先知道各個環境實際量到多少 —— 所以先讓它每次都把數字
+ * 印出來（CI 的 log 裡就會有 runner 的真值），**不要憑感覺縮容差**。
+ *
  * @param {import('playwright').Page} page
- * @returns {Promise<string[]>} 人看得懂的偏差描述
+ * @returns {Promise<{drift: string[], measured: string[]}>}
+ *   `drift` 空陣列 ＝ 環境對得上；`measured` 一律有值，給人看的實測數字。
  */
 export async function checkFontCanary(page) {
   const measured = await page.evaluate(([stack, samples]) => {
@@ -89,9 +103,13 @@ export async function checkFontCanary(page) {
     return out;
   }, [PAGE_FONT_STACK, FONT_BASELINE]);
 
-  return FONT_BASELINE.flatMap((s, i) => {
-    const got = measured[i];
-    if (Math.abs(got - s.expect) <= s.tol) return [];
-    return [`「${s.text}」@${s.px}px 量到 ${got}px，基準是 ${s.expect}±${s.tol}px`];
-  });
+  return {
+    drift: FONT_BASELINE.flatMap((s, i) => {
+      const got = measured[i];
+      if (Math.abs(got - s.expect) <= s.tol) return [];
+      return [`「${s.text}」@${s.px}px 量到 ${got}px，基準是 ${s.expect}±${s.tol}px`];
+    }),
+    measured: FONT_BASELINE.map((s, i) =>
+      `「${s.text}」@${s.px}px = ${measured[i]}px（基準 ${s.expect}±${s.tol}）`),
+  };
 }
