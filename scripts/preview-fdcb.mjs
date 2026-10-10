@@ -2850,13 +2850,15 @@ for (const h of [700, 740, 844, 932]) {
     const on = window.disciplineOn();
     window.openBackfill();
     const opened = document.getElementById('bfSheet').textContent;
+    // ⚠️ 數量要在**表單還開著**的時候數 —— `closeBackfill()` 會把 option 清空
+    //    （那正是上面那條「關掉之後不得留下殘字」在驗的事）。
+    //    第一版在關閉之後才數，量到 0，活性斷言自己紅了。它抓得對。
+    const n = document.getElementById('bfTemplate').options.length;
     window.closeBackfill();
     return {
-      on,
+      on, n,
       hasTrader: /Canslim|Mancini|FBD/.test(opened),
       closed: document.getElementById('bfSheet').textContent,
-      // 活性：表單真的有列出東西，否則下面兩條可以靠「永遠空白」造假通過。
-      n: document.getElementById('bfTemplate').options.length,
     };
   });
   check('前提：決策紀律模式是關著的（開著的話下一條驗不到東西）', gated.on, false);
