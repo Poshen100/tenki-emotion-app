@@ -2838,12 +2838,23 @@ for (const h of [700, 740, 844, 932]) {
   // 🔴 決策紀律模式關著時，交易者模板一個 option 都不准進 DOM。
   //    `display:none` 的文字仍然讀得到（送審截圖工具／輔助技術／我們自己的斷言）
   //    —— docs/APP_STORE_COMPLIANCE.md 送審檢查表 #18，主模板表走的就是這條。
+  // ⚠️ 掃的是**補記表單這棵子樹**，不是 `document.body` ——
+  //    第一版掃整頁，而同一段前面才塞過一筆 `templateId: MANCINI_FBD` 的紀錄，
+  //    Session 列表那一列的標題當然印著「Mancini FBD」。那是**使用者自己的
+  //    歷史紀錄**，不是這張表單在提供選項，兩件事不能用同一條斷言掃。
+  //    （整頁那條另有既有斷言在守，而它掃的是一個沒有這種紀錄的頁面。）
   const gated = await page.evaluate(() => {
     const on = window.disciplineOn();
     window.openBackfill();
-    const open = document.body.textContent;
+    const opened = document.getElementById('bfSheet').textContent;
     window.closeBackfill();
-    return { on, hasTrader: /Canslim|Mancini|FBD/.test(open), closed: document.body.textContent };
+    return {
+      on,
+      hasTrader: /Canslim|Mancini|FBD/.test(opened),
+      closed: document.getElementById('bfSheet').textContent,
+      // 活性：表單真的有列出東西，否則下面兩條可以靠「永遠空白」造假通過。
+      n: document.getElementById('bfTemplate').options.length,
+    };
   });
   check('前提：決策紀律模式是關著的（開著的話下一條驗不到東西）', gated.on, false);
   check('🔴 模式關著時，補記表單裡不得出現交易者模板', gated.hasTrader, false);
@@ -2855,12 +2866,17 @@ for (const h of [700, 740, 844, 932]) {
     window.toggleDisciplineMode();
     window.openBackfill();
     const t = document.getElementById('bfTemplate').textContent;
+    const n = document.getElementById('bfTemplate').options.length;
     window.closeBackfill();
     window.toggleDisciplineMode();
-    return t;
+    return { t, n };
   });
   check('🔴 開啟模式之後交易者模板要回來（否則上一條是假綠）',
-    /Mancini/.test(onList), true);
+    /Mancini/.test(onList.t), true);
+  // 🔴 關著時**不是空的**，只是少了交易者那三個 —— 不然「永遠不列任何東西」
+  //    也能讓上面那條綠，而那是一張沒得選的表單。
+  checkTruthy(`關著時仍然列得出日常流程（${gated.n} 個，開著是 ${onList.n} 個）`,
+    gated.n > 0 && onList.n === gated.n + 3);
   await page.close();
 }
 
