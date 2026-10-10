@@ -62,10 +62,30 @@ export async function getChromium() {
 const PAGE_FONT_STACK =
   "-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',sans-serif";
 
-/** 基準值（容器 sans-serif 實測）。中文容差極小、英文放寬到 ±8px。 */
+/**
+ * 基準值。
+ *
+ * 🔴 **容差是從版面的餘裕推導的，不是憑感覺訂的。**
+ * 2026-10-10 之前英文那一欄是 ±8px，而那比版面能承受的還寬 ——
+ * 容器換 image 之後 `sans-serif` 變成 Inter，「Neutral」從 124 → 127px（+3），
+ * 金絲雀照樣放行，然後 **9 條版面斷言紅**（fdcb 8 條 + strip-color 1 條），
+ * 每一條都長得像產品壞了。那正是這支金絲雀存在要擋的事。
+ *
+ * 推導：環心那條（`OUTSIDE_CIRCLE_TOL`）容差 4px，而通過時最差的一組是 2.9px
+ * —— 只剩 **1.1px 的角落餘裕**。字串變寬 W px，左右各外推約 W/2，
+ * 所以可容忍的字寬偏差約 **2.2px** → 取 **±2**，跟中文那一組同級。
+ *
+ * 佐證（兩邊都實測過，不是推測）：
+ *   CI runner（GitHub Actions）    「Neutral」@36px = **124px** ← 正中基準
+ *   2026-10-10 的開發容器            「Neutral」@36px = **127px** ← 已經會翻掉版面
+ *
+ * ⚠️ 哪天 runner 又飄了，這裡會**先**紅，而且訊息直接說是字型 ——
+ *    那比讓它去翻掉九條「讀數不在環心圓內」好得多。**那時候要修的是環境，
+ *    不是去改產品的版面來迎合它。**
+ */
 const FONT_BASELINE = [
   { text: '尚未量測', px: 30, expect: 120, tol: 2 },
-  { text: 'Neutral', px: 36, expect: 124, tol: 8 },
+  { text: 'Neutral', px: 36, expect: 124, tol: 2 },
 ];
 
 /**
