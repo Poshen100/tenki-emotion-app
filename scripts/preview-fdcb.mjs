@@ -2713,6 +2713,157 @@ for (const h of [700, 740, 844, 932]) {
   await page.close();
 }
 
+// ═════════════════════════════════════════════════
+// 🔴 補記一筆 —— 「這件事發生過，但不是在 App 裡跑的」
+//
+// founder 2026-10-09：「我昨天…依照計劃進場完成，但是後面這一段就沒有記錄到。
+// 我今天才補進去看長這樣。」他那四筆全是**今天**的時間戳、用時 5~80 秒，
+// 而真正的交易橫跨一小時 —— 因為在這之前，建檔的唯一方式是**現在跑一次**。
+//
+// 🔴 這一組守的不是「表單能不能填」，是**它不得捏造**：
+//    用時要 null 不是 0、時間要印日期不是假時刻、補記不得混進平均用時。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 補記一筆：不得捏造 ──');
+  const page = await openV3(844);
+
+  // ── 寫入端：不知道的欄位一律不寫 ──
+  const rec = await page.evaluate(() => {
+    localStorage.setItem('tenki.alert.outcomes.v1', '[]');
+    window.goTab('session');
+    window.openBackfill();
+    document.getElementById('bfDate').value = '2026-10-08';
+    document.getElementById('bfSymbol').value = 'ES1!';
+    window.bfPickJudge('entered');
+    window.bfSave();
+    return JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+  });
+  check('🔴 用時是 null，不是 0（0 會被讀成「一次 0 秒的決策」）', rec.durationSec, null);
+  check('🔴 時間戳標成只精確到天', rec.tsPrecision, 'day');
+  check('來源標成補記', rec.source, 'backfill');
+  check('🔴 readiness 是 null（守望沒有這個量，不是「未達」）', rec.reachedReadiness, null);
+  check('🔴 當時有沒有讀數不知道 → null，不猜', rec.readingAtDecision, null);
+  check('🔴 離開次數**整個欄位不存在**（不是 0）', 'awayCount' in rec, false);
+  check('判定存成既有語意的 tag', rec.outcomeTag, 'judged_entered');
+  check('結果沒挑 → pending（算一筆，但不是贏也不是輸）', rec.tradeResult, 'pending');
+  // 🔴 補記那一天的時間戳必須落在**所選日期的 ET 交易日**：使用者挑「10/8」
+  //    指的是 10/8 那個盤，不是他當地的 10/8（台北與 ET 差一整個日界）。
+  const dayKey = await page.evaluate((ts) =>
+    window.TENKI_OUTCOME.resolveTradingDayKey(ts), rec.ts);
+  check('🔴 時間戳落在所選日期的 ET 交易日', dayKey, '2026-10-08');
+
+  // ── 讀端：列表三格都不得說謊 ──
+  const row = await page.evaluate(() => {
+    const r = document.querySelector('#sessionList .session-item');
+    return {
+      meta: [...r.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent),
+      title: r.querySelector('.nm').textContent,
+      avg: document.getElementById('statAvgDur').textContent,
+      insight: document.getElementById('sessionInsightBody').textContent,
+    };
+  });
+  check('🔴 用時那一格是「—」，不得是 0:00', row.meta[2], '—');
+  check('🔴 類型那一格說得出自己是補記', row.meta[1], '補記');
+  check('🔴 時間那一格印日期、不印一個不知道的時刻', /^\d+\/\d+$/.test(row.meta[0]), true);
+  check('標的印得出來（補記的 symbol 是使用者打的，不是模板名）',
+    /ES1!/.test(row.title), true);
+  check('🔴 全部都是補記時，平均用時那一格是「—」', row.avg, '—');
+  check('🔴 而且 insight 行整句不提平均用時', /平均用時/.test(row.insight), false);
+
+  // ── 補記不得混進平均用時 ──
+  // 一筆真的跑了 60 秒 + 一筆補記 → 平均是 1:00（分母 1），不是 0:30（分母 2）。
+  const avg = await page.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all.push({ ts: Date.now(), symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'judged_entered', tradeResult: 'profit_taken', durationSec: 60,
+      marks: 0, events: [], reachedReadiness: null });
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.goTab('today'); window.goTab('session');
+    return document.getElementById('statAvgDur').textContent;
+  });
+  check('🔴 補記不進平均用時的分子**也不進分母**（1:00，不是 0:30）', avg, '1:00');
+
+  // ── 詳情頁：從 durationSec 推導的東西整個退場 ──
+  const detail = await page.evaluate((ts) => {
+    window.openSessionDetail(ts);
+    return {
+      segHidden: document.getElementById('sdSegCard').hidden,
+      factDur: document.getElementById('sdFactDur').textContent,
+      sub: document.getElementById('sdSubtitle').textContent,
+      awayHidden: document.getElementById('sdFactAwayCell').hidden,
+    };
+  }, rec.ts);
+  check('🔴 節奏卡片整張不出現（它整張都是從用時推導的）', detail.segHidden, true);
+  check('🔴 用時那一格是「—」', detail.factDur, '—');
+  check('🔴 副標不得印「0:00 用時」', /0:00/.test(detail.sub), false);
+  check('副標說得出這是補記', /補記/.test(detail.sub), true);
+  check('離開格整格不顯示（欄位不存在）', detail.awayHidden, true);
+
+  // ── 不成立那條路：不問結果，而且存出來是推導的 no_entry ──
+  const stood = await page.evaluate(() => {
+    localStorage.setItem('tenki.alert.outcomes.v1', '[]');
+    window.openBackfill();
+    window.bfPickJudge('stood_down');
+    const hidden = document.getElementById('bfResultField').hidden;
+    window.bfSave();
+    const r = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return { hidden, tag: r.outcomeTag, result: r.tradeResult, hasSymbol: 'symbol' in r };
+  });
+  check('🔴 判定不成立時不問結果（那條路的結果是推導的）', stood.hidden, true);
+  check('存成 judged_stood_down', stood.tag, 'judged_stood_down');
+  check('🔴 結果推導成 no_entry，不是 pending', stood.result, 'no_entry');
+  check('🔴 沒打標的就**不寫這個欄位**（空字串會讓讀端誤判有值）', stood.hasSymbol, false);
+
+  // ── 沒選判定不得存 ──
+  const guard = await page.evaluate(() => {
+    localStorage.setItem('tenki.alert.outcomes.v1', '[]');
+    window.openBackfill();
+    const disabled = document.getElementById('bfSubmit').disabled;
+    window.bfSave();   // 直接呼叫也不該寫進去
+    return { disabled, n: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')).length };
+  });
+  check('沒選判定時「記下來」是停用的', guard.disabled, true);
+  check('🔴 而且直接呼叫 bfSave 也寫不進去（不是只靠 UI 擋）', guard.n, 0);
+
+  // ── 不得補記未來 ──
+  const max = await page.evaluate(() => {
+    window.openBackfill();
+    const d = new Date();
+    const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+      + '-' + String(d.getDate()).padStart(2, '0');
+    return { max: document.getElementById('bfDate').max, today };
+  });
+  check('🔴 日期上限是今天 —— 還沒發生的不是紀錄，是計畫', max.max, max.today);
+
+  // 🔴 決策紀律模式關著時，交易者模板一個 option 都不准進 DOM。
+  //    `display:none` 的文字仍然讀得到（送審截圖工具／輔助技術／我們自己的斷言）
+  //    —— docs/APP_STORE_COMPLIANCE.md 送審檢查表 #18，主模板表走的就是這條。
+  const gated = await page.evaluate(() => {
+    const on = window.disciplineOn();
+    window.openBackfill();
+    const open = document.body.textContent;
+    window.closeBackfill();
+    return { on, hasTrader: /Canslim|Mancini|FBD/.test(open), closed: document.body.textContent };
+  });
+  check('前提：決策紀律模式是關著的（開著的話下一條驗不到東西）', gated.on, false);
+  check('🔴 模式關著時，補記表單裡不得出現交易者模板', gated.hasTrader, false);
+  check('🔴 關掉表單後 option 也清空（開著時關模式不得留下殘字）',
+    /Canslim|Mancini|FBD/.test(gated.closed), false);
+
+  // 開啟模式之後才拿得到 —— 否則上面那條可以靠「永遠不列任何模板」造假通過。
+  const onList = await page.evaluate(() => {
+    window.toggleDisciplineMode();
+    window.openBackfill();
+    const t = document.getElementById('bfTemplate').textContent;
+    window.closeBackfill();
+    window.toggleDisciplineMode();
+    return t;
+  });
+  check('🔴 開啟模式之後交易者模板要回來（否則上一條是假綠）',
+    /Mancini/.test(onList), true);
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);
