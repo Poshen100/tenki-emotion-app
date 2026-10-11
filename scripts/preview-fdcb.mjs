@@ -2766,7 +2766,14 @@ for (const h of [700, 740, 844, 932]) {
       insight: document.getElementById('sessionInsightBody').textContent,
       statLabels: [...document.querySelectorAll('#sessionStats .lbl')].map((n) => n.textContent.trim()),
       statText: document.getElementById('sessionStats').textContent,
-      filled: document.getElementById('statResultFilled').textContent.trim(),
+      // 🔴 `getElementById(...).textContent` 在那一格被改名／拿掉時會拋，
+      //    而 page.evaluate 一拋就**整支 harness 當場死掉** —— 後面所有斷言
+      //    （含守這件事的那幾條）一條都不會跑，失敗數剛好等於環境基線，
+      //    於是報告看起來像「沒事」。2026-10-11 反向驗證實證：破壞④把這一格
+      //    改名成 `statPace`，harness 在這一行炸掉，而我差點讀成「守門有洞」。
+      //    缺的格子要變成一個**讀得出來的值**，讓標籤那條斷言去紅。
+      filled: (document.getElementById('statResultFilled') || { textContent: '(缺這一格)' })
+        .textContent.trim(),
     };
   });
   check('🔴 用時那一格是「—」，不得是 0:00', row.meta[2], '—');
@@ -2923,14 +2930,22 @@ for (const h of [700, 740, 844, 932]) {
     localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
     window.goTab('today'); window.goTab('session');
   }, recs);
-  const readStats = () => page.evaluate(() => ({
-    count: document.getElementById('statCount').textContent.trim(),
-    stood: document.getElementById('statStoodDown').textContent.trim(),
-    filled: document.getElementById('statResultFilled').textContent.trim(),
-    labels: [...document.querySelectorAll('#sessionStats .lbl')].map((n) => n.textContent.trim()),
-    statText: document.getElementById('sessionStats').textContent,
-    insight: document.getElementById('sessionInsightBody').textContent,
-  }));
+  // 🔴 一格都不准直接 `.textContent` —— 見上面那段註解：那一格被改名之後
+  //    這裡會拋，而拋掉的代價是**整支 harness 不再跑**，報告讀起來像全綠。
+  const readStats = () => page.evaluate(() => {
+    const txt = (id) => {
+      const el = document.getElementById(id);
+      return el ? el.textContent.trim() : '(缺這一格)';
+    };
+    return {
+      count: txt('statCount'),
+      stood: txt('statStoodDown'),
+      filled: txt('statResultFilled'),
+      labels: [...document.querySelectorAll('#sessionStats .lbl')].map((n) => n.textContent.trim()),
+      statText: document.getElementById('sessionStats').textContent,
+      insight: document.getElementById('sessionInsightBody').textContent,
+    };
+  });
 
   const now = Date.now();
   const mk = (tag, result, durationSec, i) => ({
