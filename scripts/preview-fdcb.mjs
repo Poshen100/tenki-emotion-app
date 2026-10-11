@@ -2805,7 +2805,9 @@ for (const h of [700, 740, 844, 932]) {
       marks: 0, events: [], reachedReadiness: null });
     localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
     window.goTab('today'); window.goTab('session');
-    return document.getElementById('statResultFilled').textContent.trim();
+    // 同上：缺的格子讀成一個值，不要拋。
+    const el = document.getElementById('statResultFilled');
+    return el ? el.textContent.trim() : '(缺這一格)';
   });
   check('🔴 一筆已填 + 一筆在等 → 1/2', filled2, '1/2');
 

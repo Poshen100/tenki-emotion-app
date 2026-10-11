@@ -402,8 +402,13 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   await page.waitForTimeout(2500);
   const session = await page.evaluate(() => ({
     insight: document.getElementById('sessionInsightBody').textContent,
-    count: document.getElementById('statCount').textContent.trim(),
-    stood: document.getElementById('statStoodDown').textContent.trim(),
+    // 🔴 缺的格子讀成一個值，不要拋 —— page.evaluate 一拋就整支 harness
+    //    當場死掉，後面所有斷言一條都不會跑，而失敗數會剛好等於環境基線，
+    //    報告讀起來像「全部通過」。2026-10-11 反向驗證實證（見 preview-fdcb.mjs）。
+    count: (document.getElementById('statCount') || { textContent: '(缺這一格)' })
+      .textContent.trim(),
+    stood: (document.getElementById('statStoodDown') || { textContent: '(缺這一格)' })
+      .textContent.trim(),
   }));
   check('🔴 /v3/ Session 認得快訊決策（算進「判定成立並進場」）',
     /2 次判定成立並進場/.test(session.insight), true);
