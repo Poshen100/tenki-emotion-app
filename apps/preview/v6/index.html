@@ -6440,8 +6440,9 @@ function renderSessionScreen(){
   document.getElementById('sessionList').style.display = empty ? 'none' : '';
 
   if(!empty){
-    // 🔴 「已完成 N 次決策…N 次跟著流程走完」讀起來像全部做完了，而其中幾筆的
-    // **結果**可能還沒填。不講出來就是讓畫面宣稱一件它不知道的事。
+    // 🔴 這一行逐類講出來，而不是算一個比率 —— 比率會把「2 進場 / 1 不成立」
+    // 跟「3 進場 / 0 不成立」寫成同一個數（那是上面換掉「對齊率」的同一個理由）。
+    // 而且有幾筆的**結果**可能還沒填：不講出來就是讓畫面宣稱一件它不知道的事。
     // ⚠️ 只陳述事實，不下指示（不寫「請去填」）—— 同 §9b 硬規則 3 的精神：
     // 這一句是在報「有幾筆還不知道」，不是在評價。
     const awaiting = recs.filter(r => window.TENKI_OUTCOME.awaitsResult(r)).length;

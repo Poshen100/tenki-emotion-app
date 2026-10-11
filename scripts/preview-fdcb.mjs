@@ -2980,6 +2980,20 @@ for (const h of [700, 740, 844, 932]) {
   check('insight 行不印一句沒發生的事（沒有「離開時沒有判定」）',
     /離開時沒有判定/.test(b.insight), false);
 
+  // 第三組：「在等結果」有**三種寫法** —— `pending` / `null` / 欄位根本不存在。
+  // 🔴 三種都必須算「在等」。自己比 `r.tradeResult !== 'pending'` 的話，
+  //    後兩種會被算成「已填」—— 又一次把「不知道」講成「做完了」。
+  //    （讀端走 `awaitsResult()`，這條就是在驗它真的走了那個判準。）
+  await seed([
+    mk('judged_entered', 'profit_taken', 120, 1),
+    mk('judged_entered', null, 90, 2),
+    (() => { const r = mk('judged_entered', 'pending', 60, 3); delete r.tradeResult; return r; })(),
+  ]);
+  await page.waitForTimeout(800);
+  const c = await readStats();
+  check('🔴 `null` 與「欄位不存在」都算在等結果（1/3，不是 3/3）', c.filled, '1/3');
+  check('insight 行數得出在等的有 2 筆', /還有 2 次的結果沒填/.test(c.insight), true);
+
   // ── Timeline：同一個百分比在那張卡上也退場了 ──
   const tl = await page.evaluate(() => {
     window.goTab('timeline');
@@ -2989,7 +3003,8 @@ for (const h of [700, 740, 844, 932]) {
     };
   });
   check('🔴 Timeline meta 不再印百分比對齊', /%|對齊/.test(tl.meta), false);
-  check('0 筆未判定時不印那一句（只講筆數）', tl.meta, '2 筆');
+  // 承上一組 fixture（3 筆全是進場 → 0 筆未判定）。
+  check('0 筆未判定時不印那一句（只講筆數）', tl.meta, '3 筆');
   check('🔴 圖例講的是它量得到的那句話（有判定／未判定）',
     /有判定/.test(tl.legend) && /未判定/.test(tl.legend) && !/對齊/.test(tl.legend), true);
 
