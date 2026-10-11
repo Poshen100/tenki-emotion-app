@@ -2724,7 +2724,9 @@ for (const h of [700, 740, 844, 932]) {
 // 而真正的交易橫跨一小時 —— 因為在這之前，建檔的唯一方式是**現在跑一次**。
 //
 // 🔴 這一組守的不是「表單能不能填」，是**它不得捏造**：
-//    用時要 null 不是 0、時間要印日期不是假時刻、補記不得混進平均用時。
+//    用時要 null 不是 0、時間要印日期不是假時刻、補記不得被推導成任何統計數字。
+//    （2026-10-11 起「平均用時」整格退場 —— 守的事情沒變，守的對象從
+//     「別把補記算進平均」變成「那個平均不准回來」。）
 // ═════════════════════════════════════════════════
 {
   console.log('\n── 補記一筆：不得捏造 ──');
@@ -2761,8 +2763,10 @@ for (const h of [700, 740, 844, 932]) {
     return {
       meta: [...r.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent),
       title: r.querySelector('.nm').textContent,
-      avg: document.getElementById('statAvgDur').textContent,
       insight: document.getElementById('sessionInsightBody').textContent,
+      statLabels: [...document.querySelectorAll('#sessionStats .lbl')].map((n) => n.textContent.trim()),
+      statText: document.getElementById('sessionStats').textContent,
+      filled: document.getElementById('statResultFilled').textContent.trim(),
     };
   });
   check('🔴 用時那一格是「—」，不得是 0:00', row.meta[2], '—');
@@ -2770,21 +2774,33 @@ for (const h of [700, 740, 844, 932]) {
   check('🔴 時間那一格印日期、不印一個不知道的時刻', /^\d+\/\d+$/.test(row.meta[0]), true);
   check('標的印得出來（補記的 symbol 是使用者打的，不是模板名）',
     /ES1!/.test(row.title), true);
-  check('🔴 全部都是補記時，平均用時那一格是「—」', row.avg, '—');
-  check('🔴 而且 insight 行整句不提平均用時', /平均用時/.test(row.insight), false);
+  // 🔴 「平均用時」整格已退場（2026-10-11）。先前這裡守的是「補記不得混進
+  //    分子也不得混進分母」；格子沒了之後那條謊**結構上就說不出來**，所以守門
+  //    改成守「它不准回來」—— 而且不是按 id 問（換個 id 就繞過去了），
+  //    是問這一列**有沒有任何一格長成時間**。
+  check('🔴 統計列的三格就是這三個名字（「平均用時」不准回來）',
+    row.statLabels, ['決策次數', '判定不成立', '結果已填']);
+  check('🔴 而且整列沒有任何一格長成 m:ss（任何從用時推導的數字都算）',
+    /\d+:\d\d/.test(row.statText), false);
+  check('🔴 insight 行整句不提平均用時', /平均用時/.test(row.insight), false);
+  check('🔴 insight 行整句不提對齊率（它量不到「照不照計劃走」）',
+    /對齊/.test(row.insight), false);
+  // 只有一筆補記、結果還沒填 → 「0/1」。分母是**進場筆數**，不是總筆數。
+  check('🔴 結果已填：補記那筆算進分母、但沒填就不算進分子', row.filled, '0/1');
 
-  // ── 補記不得混進平均用時 ──
-  // 一筆真的跑了 60 秒 + 一筆補記 → 平均是 1:00（分母 1），不是 0:30（分母 2）。
-  const avg = await page.evaluate(() => {
+  // ── 結果已填的分母只數進場的那些 ──
+  // 加一筆真的跑完、結果也填了的 → 1/2。
+  // （先前這裡放的是「平均 1:00 不是 0:30」，同一組 fixture 改問新的那一格。）
+  const filled2 = await page.evaluate(() => {
     const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
     all.push({ ts: Date.now(), symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
       outcomeTag: 'judged_entered', tradeResult: 'profit_taken', durationSec: 60,
       marks: 0, events: [], reachedReadiness: null });
     localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
     window.goTab('today'); window.goTab('session');
-    return document.getElementById('statAvgDur').textContent;
+    return document.getElementById('statResultFilled').textContent.trim();
   });
-  check('🔴 補記不進平均用時的分子**也不進分母**（1:00，不是 0:30）', avg, '1:00');
+  check('🔴 一筆已填 + 一筆在等 → 1/2', filled2, '1/2');
 
   // ── 詳情頁：從 durationSec 推導的東西整個退場 ──
   const detail = await page.evaluate((ts) => {
@@ -2882,6 +2898,116 @@ for (const h of [700, 740, 844, 932]) {
   //    也能讓上面那條綠，而那是一張沒得選的表單。
   checkTruthy(`關著時仍然列得出日常流程（${gated.n} 個，開著是 ${onList.n} 個）`,
     gated.n > 0 && onList.n === gated.n + 3);
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 🔴 統計列換掉的那兩格 —— 「名字比量到的東西大」
+//
+// founder 2026-10-09 的截圖裡那一列是：對齊率 100% · 決策次數 4 · 平均用時 0:29。
+// 而他那天真正做的事是「掃描 → 等了快一個小時 → 依計劃進場 → 完成」。
+//   · 「平均用時 0:29」量的是按鈕之間的秒數，對一個等了一小時的人說 29 秒。
+//   · 「對齊率 100%」對**判定成立並進場**和**判定不成立**都算對齊，
+//     所以只要做出判定就是 100%；而它的名字聽起來涵蓋「照不照計劃走」
+//     —— 進場之後的事（提早砍 runner、沒鎖 75%、加碼攤平）一欄都沒記，
+//     docs/TRADING-METHODOLOGY.md §7 自己寫著這件事。
+//
+// 這一組守的是**換上去的三格各自獨立、而且真的會動**，
+// 以及那兩個舊數字（含任何從用時推導的數字）不准從別的 id 回來。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 統計列：三格都要真的會動 ──');
+  const page = await openV3(844);
+
+  const seed = (recs) => page.evaluate((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    window.goTab('today'); window.goTab('session');
+  }, recs);
+  const readStats = () => page.evaluate(() => ({
+    count: document.getElementById('statCount').textContent.trim(),
+    stood: document.getElementById('statStoodDown').textContent.trim(),
+    filled: document.getElementById('statResultFilled').textContent.trim(),
+    labels: [...document.querySelectorAll('#sessionStats .lbl')].map((n) => n.textContent.trim()),
+    statText: document.getElementById('sessionStats').textContent,
+    insight: document.getElementById('sessionInsightBody').textContent,
+  }));
+
+  const now = Date.now();
+  const mk = (tag, result, durationSec, i) => ({
+    ts: now - i * 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: tag, tradeResult: result, durationSec, marks: 0, events: [],
+    reachedReadiness: null,
+  });
+
+  // 四筆：2 進場（1 已填 / 1 在等）、1 判定不成立、1 離開時沒有判定。
+  // ⚠️ 這組 fixture 下舊的對齊率是 75% —— 它會動，但**動的不是這件事**：
+  //    「有一筆是看了沒做」在 75% 裡面完全看不出來（4 筆全進場時它是 100%，
+  //    而 3 進場 + 1 不成立時它**也是** 100%）。
+  await seed([
+    mk('judged_entered', 'profit_taken', 120, 1),
+    mk('judged_entered', 'pending', 90, 2),
+    mk('judged_stood_down', 'no_entry', 30, 3),
+    mk('abandoned_no_judgment', null, 45, 4),
+  ]);
+  await page.waitForTimeout(800);   // countUpEl 跑 550ms
+  const a = await readStats();
+  check('🔴 統計列的三格就是這三個名字', a.labels,
+    ['決策次數', '判定不成立', '結果已填']);
+  check('決策次數數的是全部', a.count, '4');
+  check('🔴 判定不成立自己有一格（舊的 75% 裡看不出有這一筆）', a.stood, '1');
+  check('🔴 結果已填的分母只數進場的那些（1/2，不是 1/4）', a.filled, '1/2');
+  // 🔴 這組 fixture 的每一筆都**有** durationSec（120/90/30/45）——
+  //    所以這條不是「沒資料所以印不出時間」，是「有資料也不准推成統計數字」。
+  check('🔴 四筆都有用時，統計列仍然沒有任何一格長成 m:ss', /\d+:\d\d/.test(a.statText), false);
+  check('🔴 統計列不得再出現「對齊率」或「平均用時」',
+    /對齊|平均用時/.test(a.statText), false);
+  check('insight 行逐類講出來（2 進場 / 1 不成立）',
+    /4<\/b> 次決策|4 次決策/.test(a.insight) && /2 次判定成立並進場/.test(a.insight)
+      && /1 次判定不成立/.test(a.insight), true);
+  check('🔴 離開時沒有判定那一筆用減法推得出來（不是默默消失）',
+    /另有 1 次離開時沒有判定/.test(a.insight), true);
+  check('在等結果的那一筆照舊講得出來', /還有 1 次的結果沒填/.test(a.insight), true);
+
+  // 第二組：全部判定不成立 → 這一格要跟著動，而「結果已填」沒有分母。
+  await seed([
+    mk('judged_stood_down', 'no_entry', 20, 1),
+    mk('judged_stood_down', 'no_entry', 25, 2),
+  ]);
+  await page.waitForTimeout(800);
+  const b = await readStats();
+  check('🔴 判定不成立那一格真的跟著 fixture 動（1 → 2）', b.stood, '2');
+  check('🔴 一筆都沒進場時「結果已填」是「—」，不是「0/0」', b.filled, '—');
+  check('insight 行不印一句沒發生的事（沒有「離開時沒有判定」）',
+    /離開時沒有判定/.test(b.insight), false);
+
+  // ── Timeline：同一個百分比在那張卡上也退場了 ──
+  const tl = await page.evaluate(() => {
+    window.goTab('timeline');
+    return {
+      meta: document.getElementById('tlStripMeta').textContent.trim(),
+      legend: document.querySelector('.tl-strip-legend').textContent,
+    };
+  });
+  check('🔴 Timeline meta 不再印百分比對齊', /%|對齊/.test(tl.meta), false);
+  check('0 筆未判定時不印那一句（只講筆數）', tl.meta, '2 筆');
+  check('🔴 圖例講的是它量得到的那句話（有判定／未判定）',
+    /有判定/.test(tl.legend) && /未判定/.test(tl.legend) && !/對齊/.test(tl.legend), true);
+
+  // 有一筆未判定時才印，而且印的是**計數**不是百分比。
+  const tl2 = await page.evaluate((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    window.goTab('today'); window.goTab('timeline');
+    return document.getElementById('tlStripMeta').textContent.trim();
+  }, [
+    { ts: now - 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'judged_entered', tradeResult: 'profit_taken', durationSec: 120,
+      marks: 0, events: [], reachedReadiness: null },
+    { ts: now - 7200e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'abandoned_no_judgment', tradeResult: null, durationSec: 45,
+      marks: 0, events: [], reachedReadiness: null },
+  ]);
+  check('🔴 有未判定的那筆時才印，而且印計數（2 筆 · 1 次未判定）', tl2, '2 筆 · 1 次未判定');
+
   await page.close();
 }
 

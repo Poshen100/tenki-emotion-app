@@ -985,9 +985,9 @@ body{
   text-align:center;
 }
 .session-stats .val{font-size:22px;font-weight:300;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
-/* 🔴 對齊率是一個**量出來的數字**，不是一個判斷 —— 它跟其他兩格一樣印白。
-   （founder 2026-09-11 截圖裡那個綠色的「100% 對齊率」就是這一格）*/
-.session-stats .val.good{color:#fff}
+/* 🔴 `.val.good` 連同「對齊率」那一格一起退場（2026-10-11）。
+   它是 docs/VISUAL-DIRECTION.md 列管的「量測值上色」最後一例 —— 規則留著就是
+   留一個隨時會被重新套上的鉤子，所以**連規則一起拔**，不只是不用它。 */
 .session-stats .lbl{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-400);margin-top:4px;font-weight:600}
 
 .session-section{font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;padding:8px 4px 2px}
@@ -3137,17 +3137,20 @@ a.lab-wide{text-decoration:none}
       </div>
       <div class="session-body">
         <div class="session-stats" id="sessionStats">
-          <div class="cell">
-            <div class="val good" id="statAlign">—</div>
-            <div class="lbl">對齊率</div>
-          </div>
+          <!-- 🔴 這一列在 2026-10-11 換過：原本是「對齊率 / 決策次數 / 平均用時」，
+               其中兩格的名字都比它們量到的東西大。換掉的理由寫在
+               renderSessionScreen() 的註解裡（那裡才看得到算式）。 -->
           <div class="cell">
             <div class="val" id="statCount">—</div>
             <div class="lbl">決策次數</div>
           </div>
           <div class="cell">
-            <div class="val" id="statAvgDur">—</div>
-            <div class="lbl">平均用時</div>
+            <div class="val" id="statStoodDown">—</div>
+            <div class="lbl">判定不成立</div>
+          </div>
+          <div class="cell">
+            <div class="val" id="statResultFilled">—</div>
+            <div class="lbl">結果已填</div>
           </div>
         </div>
 
@@ -3203,10 +3206,13 @@ a.lab-wide{text-decoration:none}
           <div class="tl-strip-legend">
             <!-- 🔴 舊圖例寫的是**舊語意**（跟著流程／完整走完／提前收束），
                  而新紀錄走判定語意 —— 一筆「判定不成立」的紀錄，舊圖例會說那個點
-                 的意思是「完整走完」。點真正在分的只有兩組（`isDisciplined()`），
-                 而「對齊」正是這張卡上方那行 meta 已經在用的詞（「N 筆 · X% 對齊」）。 -->
-            <span><i class="lg ok"></i>對齊</span>
-            <span><i class="lg off"></i>未對齊</span>
+                 的意思是「完整走完」。點真正在分的只有兩組（`isDisciplined()`）。
+                 🔴 2026-10-11：那兩組原本叫「對齊 / 未對齊」。`isDisciplined()`
+                 量到的是**有沒有做出判定**，不是有沒有照計劃走完（進場之後的事
+                 一欄都沒記，見 docs/TRADING-METHODOLOGY.md §7），所以兩格都改成
+                 它量得到的那句話 —— 與上方 meta 的「N 次未判定」同一個詞。 -->
+            <span><i class="lg ok"></i>有判定</span>
+            <span><i class="lg off"></i>未判定</span>
             <!-- 點的**大小**吃 marks（r = 3 + min(marks,6)*0.7），先前完全沒有圖例，
                  於是「為什麼有的點比較大」在畫面上無法回答。 -->
             <span class="lg-note">點越大 · 標記越多</span>
@@ -6388,26 +6394,41 @@ function fmtDurCell(rec){
 function renderSessionScreen(){
   const recs = loadOutcomes().slice().sort((a,b) => (b.ts||0) - (a.ts||0));
   const count = recs.length;
-  const disciplined = recs.filter(r => isDisciplinedV6(r.outcomeTag)).length;
-  const align = count ? Math.round(disciplined / count * 100) : 0;
-  // 🔴 補記的紀錄沒有用時（`durationSec` 是 null）—— **不得算進平均**。
-  // `(r.durationSec||0)` 會把「不知道」當成 0 塞進分子，而且分母照算，
-  // 於是補記得越多、平均用時被壓得越低，看起來像「你越來越快」。
-  // 缺就是缺：把它從分子**和分母**一起排除（同校準台那條排除規則）。
-  const timed = recs.filter(r => typeof r.durationSec === 'number');
-  const avgDur = timed.length
-    ? Math.round(timed.reduce((a,r) => a + r.durationSec, 0) / timed.length) : null;
+  // 🔴 2026-10-11：這三格原本是「對齊率 / 決策次數 / 平均用時」，
+  //    其中兩格的**名字比它量到的東西大**，而那正是這個 repo 反覆記載的那條傷。
+  //
+  //    · 對齊率 ＝ `disciplined / count`。但 `isDisciplinedV6()` 對「判定成立並
+  //      進場」與「判定不成立」**兩者都回 true** —— 只要做出判定就是 100%，
+  //      它唯一會掉下來的情形是「離開而未判定」。名字聽起來涵蓋「照不照計劃走」，
+  //      而 `docs/TRADING-METHODOLOGY.md` §7 自己寫著它只量到進場之前：
+  //      提早砍 runner、沒鎖 75%、加碼攤平**一欄都沒記**。
+  //      ⚠️ 底層那個布林沒有錯，錯的是把它取名成「對齊率」再乘以 100。
+  //    · 平均用時 ＝ 按鈕與按鈕之間的秒數。同份文件 §6 記的就是這條教訓 ——
+  //      用時間當紀律指標「對品質最好的 setup 罰得最重」（實機：11 秒判定進場
+  //      被打成紀律 0%），所以倒數計時器已經拆掉了。平均值是它留下的最後一塊，
+  //      而且它會對一個等了一小時才進場的人印「0:29」。
+  //      🔴 這一格**不換成「等了多久」**：把等待做成一個統計數字，就是把倒數
+  //      計時器用另一個方向裝回去。沒有 founder 的話之前不要加。
+  //
+  //    換上三個**各自獨立、而且真的會變動**的計數；判準全部走共用模組。
+  const stoodDown = recs.filter(r => r.outcomeTag === 'judged_stood_down').length;
+  const entered = recs.filter(r => r.outcomeTag === 'judged_entered');
+  // 「已填」＝ 不在等結果。這裡不自己比 `tradeResult`，走 awaitsResult() ——
+  // `pending` / `null` / 沒有這個欄位是三種寫法同一件事，那個判準只有一份。
+  const filled = entered.filter(r => !window.TENKI_OUTCOME.awaitsResult(r)).length;
 
   document.getElementById('sessionDate').textContent = count ? ('決策紀錄 · ' + count + ' 次') : '決策紀錄';
   if(count){
-    countUpEl(document.getElementById('statAlign'), align, '%');
     countUpEl(document.getElementById('statCount'), count, '');
+    countUpEl(document.getElementById('statStoodDown'), stoodDown, '');
   } else {
-    document.getElementById('statAlign').textContent = '—';
     document.getElementById('statCount').textContent = '—';
+    document.getElementById('statStoodDown').textContent = '—';
   }
-  // 一筆有用時的都沒有（全部是補記）→ 這一格就是「—」，不編一個 0:00。
-  document.getElementById('statAvgDur').textContent = avgDur === null ? '—' : fmtDur(avgDur);
+  // 一筆都沒進場 → 這一格是「—」，不是「0/0」。`0/0` 會被讀成「你一次都沒填」，
+  // 而事實是「沒有任何一筆在等結果」—— 又一次把「不知道」講成「沒做到」。
+  document.getElementById('statResultFilled').textContent =
+    entered.length ? (filled + '/' + entered.length) : '—';
 
   const empty = count === 0;
   document.getElementById('sessionEmpty').classList.toggle('show', empty);
@@ -6424,10 +6445,13 @@ function renderSessionScreen(){
     // ⚠️ 只陳述事實，不下指示（不寫「請去填」）—— 同 §9b 硬規則 3 的精神：
     // 這一句是在報「有幾筆還不知道」，不是在評價。
     const awaiting = recs.filter(r => window.TENKI_OUTCOME.awaitsResult(r)).length;
+    // 「離開而未判定」不是上面兩類的任何一類，而它是這頁唯一真正算得上「沒走完」
+    // 的情形 —— 用減法推，才不會因為以後多一個 tag 就默默漏掉一群紀錄。
+    const abandoned = count - entered.length - stoodDown;
     document.getElementById('sessionInsightBody').innerHTML =
-      '已完成 <b>' + count + '</b> 次決策，對齊率 <b>' + align + '%</b>。' +
-      (avgDur === null ? '' : '平均用時 <b>' + fmtDur(avgDur) + '</b>，') +
-      '其中 <b>' + disciplined + '</b> 次跟著流程走完。' +
+      '<b>' + count + '</b> 次決策：<b>' + entered.length + '</b> 次判定成立並進場、' +
+      '<b>' + stoodDown + '</b> 次判定不成立。' +
+      (abandoned ? '另有 <b>' + abandoned + '</b> 次離開時沒有判定。' : '') +
       (awaiting ? '還有 <b>' + awaiting + '</b> 次的結果沒填。' : '');
   }
 
@@ -6463,8 +6487,11 @@ const outcomeDotV6 = (tag) => {
 function renderTimeline(){
   const recs = loadOutcomes().slice().sort((a,b) => (b.ts||0) - (a.ts||0));
   const count = recs.length;
-  const disciplined = recs.filter(r => isDisciplinedV6(r.outcomeTag)).length;
-  const align = count ? Math.round(disciplined / count * 100) : 0;
+  // 🔴 這張卡的 meta 原本是「N 筆 · X% 對齊」—— 跟 Session 那格退場的
+  //    是**同一個百分比、同一個名字**（見 renderSessionScreen 的註解）。
+  //    `isDisciplinedV6()` 真正量到的是「有沒有做出判定」，所以這裡就講那件事，
+  //    而且講成**計數**：百分比會把「3 筆裡 3 筆」寫成 100%，而點只有三顆。
+  const noJudgment = recs.filter(r => !isDisciplinedV6(r.outcomeTag)).length;
   const empty = count === 0;
 
   document.getElementById('tlEmpty').classList.toggle('show', empty);
@@ -6476,7 +6503,10 @@ function renderTimeline(){
     return;
   }
 
-  document.getElementById('tlStripMeta').innerHTML = '<b>' + count + '</b> 筆 · ' + align + '% 對齊';
+  // 0 筆未判定時**不印那一句**：「0 次離開時沒有判定」是把一件沒發生的事
+  // 擺上畫面，而且會被讀成一個待辦。沒有就只講筆數。
+  document.getElementById('tlStripMeta').innerHTML = '<b>' + count + '</b> 筆'
+    + (noJudgment ? ' · ' + noJudgment + ' 次未判定' : '');
 
   // strip dots：24h 軸 — x=時間、色=outcome、r 依 marks 微幅放大
   const W = 320, padL = 12, padR = 12, plot = W - padL - padR, y = 56;
