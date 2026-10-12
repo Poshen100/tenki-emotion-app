@@ -3043,6 +3043,145 @@ for (const h of [700, 740, 844, 932]) {
   await page.close();
 }
 
+// ═════════════════════════════════════════════════
+// 🔴 判定後來改了 —— 「先不動，後來還是照計劃進場」
+//
+// founder 2026-10-09 的那一天：掃描 → 標「先不動」→ 等快一小時 → 依計劃進場
+// → 完成。而填結果那一格只在 `judged_entered` 出現，所以**它在他那一筆上是
+// 隱藏的** —— 判定在當時是終局的。founder 2026-10-12 裁決：算一筆，判定可以改。
+//
+// 🔴 這一組守的是**改寫一筆已存在的紀錄而不說謊**：
+//    原始判定留得住、按錯收得回來、翻了之後整頁跟著翻、不捏造進場時間。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 判定後來改了：改寫紀錄而不說謊 ──');
+  const page = await openV3(844);
+
+  const now = Date.now();
+  const stood = {
+    ts: now - 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: 'judged_stood_down', tradeResult: 'no_entry', durationSec: 120,
+    marks: 0, events: [], reachedReadiness: null,
+  };
+  const seed = (recs) => page.evaluate((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    window.goTab('today'); window.goTab('session');
+  }, recs);
+
+  // ── 入口只長在該長的地方 ──
+  const gates = await seed([stood]).then(() => page.evaluate((ts) => {
+    const out = {};
+    window.openSessionDetail(ts);
+    out.onStoodDown = !document.getElementById('sdLaterEntryCell').hidden;
+    out.resultCellBefore = !document.getElementById('sdBackfillCell').hidden;
+    window.closeSessionDetail();
+    // 離開時沒有判定那一條路**刻意不收** —— 連有沒有看過都不確定。
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].outcomeTag = 'abandoned_no_judgment';
+    all[0].tradeResult = null;
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.goTab('today'); window.goTab('session');
+    window.openSessionDetail(ts);
+    out.onAbandoned = !document.getElementById('sdLaterEntryCell').hidden;
+    window.closeSessionDetail();
+    return out;
+  }, stood.ts));
+  check('🔴 「後來我進場了」只長在判定不成立那一筆上', gates.onStoodDown, true);
+  check('🔴 而且那時候「這筆的結果」還沒出現（先問進場、再問結果）',
+    gates.resultCellBefore, false);
+  check('🔴 離開時沒有判定那一筆上不得出現（刻意不收這條路）',
+    gates.onAbandoned, false);
+
+  // ── 翻過去：欄位對、而且整頁跟著翻 ──
+  const flipped = await seed([stood]).then(() => page.evaluate((ts) => {
+    window.openSessionDetail(ts);
+    document.getElementById('sdLaterEntryBtn').click();
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      tag: rec.outcomeTag,
+      original: rec.originalOutcomeTag,
+      result: rec.tradeResult,
+      // 🔴 按下按鈕的那一刻**不是他進場的時刻**（可能收盤後才回來按）。
+      hasEnteredAt: 'enteredAt' in rec,
+      badge: document.getElementById('sdResult').textContent.trim(),
+      headline: document.getElementById('sdOutcomeHeadline').textContent.trim(),
+      resultCell: !document.getElementById('sdBackfillCell').hidden,
+      says: document.getElementById('sdLaterEntryQ').textContent.trim(),
+      btn: document.getElementById('sdLaterEntryBtn').textContent.trim(),
+    };
+  }, stood.ts));
+  check('判定翻成 judged_entered', flipped.tag, 'judged_entered');
+  check('🔴 原始判定留在紀錄上（少了它這筆就說不出當時判了什麼）',
+    flipped.original, 'judged_stood_down');
+  check('🔴 結果變 pending，不是 null（null 會讓它從當日計數裡消失）',
+    flipped.result, 'pending');
+  check('🔴 **不捏造進場時間** —— enteredAt 整個欄位不存在',
+    flipped.hasEnteredAt, false);
+  check('🔴 徽章跟著翻（不得一邊說判定不成立、一邊問交易結果）',
+    flipped.badge, '判定成立');
+  check('headline 也跟著翻', /已進場/.test(flipped.headline), true);
+  check('🔴 翻完「這筆的結果」那一格長出來了', flipped.resultCell, true);
+  check('🔴 而且頁面說得出判定改過', flipped.says, '當時判定不成立 · 後來進場');
+  check('還收得回來（按錯不是不可逆的）', flipped.btn, '其實沒進場');
+
+  // ── 收回去：欄位要**消失**，不是留一個空值 ──
+  const undone = await page.evaluate((ts) => {
+    document.getElementById('sdLaterEntryBtn').click();
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      tag: rec.outcomeTag,
+      hasOriginal: 'originalOutcomeTag' in rec,
+      result: rec.tradeResult,
+      says: document.getElementById('sdLaterEntryQ').textContent.trim(),
+      resultCell: !document.getElementById('sdBackfillCell').hidden,
+    };
+  }, stood.ts);
+  check('收回去之後判定回到不成立', undone.tag, 'judged_stood_down');
+  check('🔴 originalOutcomeTag **整個欄位消失**（留空值的話畫面會繼續說改過）',
+    undone.hasOriginal, false);
+  check('結果推導回 no_entry', undone.result, 'no_entry');
+  check('那一格回到問句', undone.says, '後來還是進場了？');
+  check('「這筆的結果」又收起來了', undone.resultCell, false);
+
+  // ── 填了結果之後：收回的路關起來，但**那句話要留著** ──
+  const filled = await page.evaluate((ts) => {
+    document.getElementById('sdLaterEntryBtn').click();          // 再翻過去
+    const chip = document.querySelector('#sdBackfillChips [data-trade-result="profit_taken"]');
+    chip.click();                                                 // 填結果
+    return {
+      result: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0].tradeResult,
+      cellShown: !document.getElementById('sdLaterEntryCell').hidden,
+      says: document.getElementById('sdLaterEntryQ').textContent.trim(),
+      btnHidden: document.getElementById('sdLaterEntryBtn').hidden,
+    };
+  }, stood.ts);
+  check('結果填進去了', filled.result, 'profit_taken');
+  check('🔴 填了結果之後那一格**仍然顯示**（資料裡記著，螢幕上就不准消失）',
+    filled.cellShown, true);
+  check('🔴 而且仍然說得出判定改過', filled.says, '當時判定不成立 · 後來進場');
+  check('🔴 但收回的按鈕收起來了（已經有結果了）', filled.btnHidden, true);
+
+  // ── 統計列要跟著動：幽靈「判定不成立」不得留在那裡 ──
+  await page.evaluate(() => {
+    window.closeSessionDetail();
+    window.goTab('today'); window.goTab('session');
+  });
+  await page.waitForTimeout(800);   // countUpEl 跑 550ms
+  const stats = await page.evaluate(() => {
+    const txt = (id) => {
+      const el = document.getElementById(id);
+      return el ? el.textContent.trim() : '(缺這一格)';
+    };
+    return { count: txt('statCount'), stood: txt('statStoodDown'), filled: txt('statResultFilled') };
+  });
+  check('🔴 還是一筆決策（算一筆，不是兩筆 —— founder 2026-10-12 裁決）',
+    stats.count, '1');
+  check('🔴 判定不成立那一格回到 0（幽靈不得留在統計上）', stats.stood, '0');
+  check('🔴 結果已填 1/1', stats.filled, '1/1');
+
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(failed === 0 ? '\n🟢 全綠' : `\n🔴 ${failed} 條失敗`);
