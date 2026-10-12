@@ -470,7 +470,14 @@ console.log('\n── Turning Point 節點 ──');
   check('同一秒的節點併成一顆（軌上不得與計數打架）', live.ticks, 1);
 
   // 選一個標籤 → 只補在剛剛那一顆上
-  await page.evaluate(() => document.querySelectorAll('.tp-chip')[0].click());
+  // 🔴 **範圍要對**：這一行原本是 `document.querySelectorAll('.tp-chip')[0]`
+  //    —— 掃整頁拿第一顆。它一直綠著是因為「快選以外的 `.tp-chip` 都是動態生出來的」
+  //    （結果回填那幾顆要先開詳情頁才存在），所以 `[0]` 碰巧總是快選裡的。
+  //    2026-10-12 加了一顆**靜態**的 `.tp-chip`（詳情頁的「後來我進場了」）之後
+  //    `[0]` 變成它 —— 而它是 `hidden`，點了什麼都沒發生，於是**四條完全無關的
+  //    斷言一起紅**，而且紅的訊息長得像轉折點功能壞了。
+  //    這條斷言要說的是「點快選裡的第一顆標籤」，就讓它那樣問。
+  await page.evaluate(() => document.querySelector('#tpPicker .tp-chip').click());
   await page.waitForTimeout(200);
   const afterPick = await dock(page);
   checkTruthy('選完標籤，段標籤回報選了什麼', afterPick.seg.indexOf('已標記 · ') === 0);

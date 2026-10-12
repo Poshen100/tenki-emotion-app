@@ -6771,6 +6771,11 @@ function renderResultBackfill(rec){
       // 就地更新手上這份，讓重繪讀得到新值（不重新 load 整個 store）。
       rec.tradeResult = next;
       renderResultBackfill(rec);
+      // 🔴 「後來我進場了」那一格也要跟著重繪 —— 收回的路開不開
+      //    取決於 `canUndoLaterEntry()`，而它問的是 `awaitsResult()`，
+      //    也就是**剛剛被這一下改掉的那個值**。不重繪的話那顆按鈕的
+      //    顯示狀態會停在上一次的答案（harness 2026-10-12 抓到）。
+      renderLaterEntry(rec);
       // 列表上的呈現不吃 tradeResult，所以不必重畫 —— 但紀律統計與節奏事實行
       // 都是從 store 重算的，下次開就會反映。
     });
