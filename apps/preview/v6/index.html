@@ -7061,7 +7061,14 @@ function openSessionDetail(ts){
   const waited = window.TENKI_OUTCOME.waitedSec(rec);
   const waitedCell = document.getElementById('sdFactWaitedCell');
   waitedCell.hidden = waited === null;
-  if(waited !== null) document.getElementById('sdFactWaited').textContent = fmtDur(waited);
+  if(waited !== null){
+    // 🔴 使用者回想的進場時間只有分鐘精度 → 這一格**不准印 m:ss**。
+    //    `29:22` 看起來精確到秒，而那個秒數是判定時刻的零頭，不是他給的。
+    document.getElementById('sdFactWaited').textContent =
+      window.TENKI_OUTCOME.waitedPrecision(rec) === 'minute'
+        ? '約 ' + Math.round(waited / 60) + ' 分'
+        : fmtDur(waited);
+  }
 
   document.getElementById('sdInsight').innerHTML = buildDetailInsight(rec, m);
 

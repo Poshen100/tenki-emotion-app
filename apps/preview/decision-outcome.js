@@ -718,6 +718,24 @@
   }
 
   /**
+   * 等待那一格該印到什麼精度。
+   *
+   * 🔴 使用者回想的時間只有**分鐘**精度（`<input type="time">` 給的是
+   * `HH:MM`，`entryTimeFrom()` 把秒歸零）。而判定時刻帶著秒，所以相減的
+   * 結果會長成 `29:22` 這種**看起來精確到秒**的數字 —— 那是在宣稱一個
+   * 使用者從來沒給過的精度。2026-10-12 的守門就是這樣抓到的：
+   * 我斷言「30:00」，實際跑出 `29:22`，而錯的不是斷言，是那一格。
+   *
+   * 將來收束頁的「我下單了」是 `'observed'`（誤差幾秒）→ 印到秒才合理。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {'minute'|'second'}
+   */
+  function waitedPrecision(rec) {
+    return (rec && rec.enteredAtSource === 'reported') ? 'minute' : 'second';
+  }
+
+  /**
    * 等了多久（判定 → 進場），秒。算不出來回 `null`。
    *
    * 🔴 回 `null` 不是 `0`。沒答進場時間的紀錄不是「等了 0 秒」。
@@ -756,6 +774,7 @@
     entryTimeFrom: entryTimeFrom,
     entryTimePatch: entryTimePatch,
     waitedSec: waitedSec,
+    waitedPrecision: waitedPrecision,
     ENTRY_TIME_REASON_ZH: ENTRY_TIME_REASON_ZH,
     isBackfilled: isBackfilled,
     isDayPrecision: isDayPrecision,

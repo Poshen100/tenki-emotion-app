@@ -3066,7 +3066,11 @@ for (const h of [700, 740, 844, 932]) {
 
   const now = Date.now();
   const stood = {
-    ts: now - 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+    // 🔴 對齊到整分。使用者答的進場時間只有分鐘精度（秒被歸零），
+    //    所以判定時刻帶著秒的話，相減的結果會差那個零頭 ——
+    //    斷言就只能寫成範圍，而範圍斷言守不住四捨五入的方向。
+    ts: Math.floor((now - 3600e3) / 60000) * 60000,
+    symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
     outcomeTag: 'judged_stood_down', tradeResult: 'no_entry', durationSec: 120,
     marks: 0, events: [], reachedReadiness: null,
   };
@@ -3252,7 +3256,11 @@ for (const h of [700, 740, 844, 932]) {
   check('進場時間寫進去了', answered.hasAt, true);
   check('🔴 標得出這個數字是**使用者回想的**（不是 App 量到的）',
     answered.source, 'reported');
-  check('🔴 等待那一格長出來，而且是 30:00', answered.waited, '30:00');
+  // 🔴 「約 30 分」而不是「30:00」—— 使用者答的是 `HH:MM`，
+  //    印成 m:ss 就是在宣稱一個他從來沒給過的精度。
+  //    這一條原本寫 '30:00'，實際跑出 '29:22'（判定時刻的秒數零頭）——
+  //    錯的不是斷言，是那一格。
+  check('🔴 等待那一格長出來，而且印到**分**不是秒', answered.waited, '約 30 分');
   check('等待那一格顯示', answered.waitedCell, true);
   check('答過了就不再問', answered.asksAgain, false);
 
