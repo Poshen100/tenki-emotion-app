@@ -3177,8 +3177,138 @@ for (const h of [700, 740, 844, 932]) {
   check('🔴 但收回的按鈕收起來了（已經有結果了）', filled.btnHidden, true);
 
   // ── 統計列要跟著動：幽靈「判定不成立」不得留在那裡 ──
+  // ── 「大概幾點進的」—— 問一句，而且可略過 ──
+  //
+  // founder 2026-10-12：要問。規格 §2 的紅線沒變：**不知道的人仍然是一下
+  // 點完** —— 所以這一組守的是「翻判定那一下不等這一題」＋「略過就沒有
+  // 這個欄位」＋「兩個邊界都擋」＋「這個數字標得出自己是回想來的」。
+  const et = await page.evaluate(() => {
+    // 回到還在等結果的狀態（上面那一段已經填了 profit_taken）
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].tradeResult = 'pending';
+    delete all[0].enteredAt;
+    delete all[0].enteredAtSource;
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.openSessionDetail(all[0].ts);
+    const out = { asks: !document.getElementById('sdEntryTimeRow').hidden };
+    // 結果晶片在這一題還沒答的時候就已經在了 —— 一下點完那條路沒被卡住。
+    out.resultCellReady = !document.getElementById('sdBackfillCell').hidden;
+    out.waitedCell = !document.getElementById('sdFactWaitedCell').hidden;
+    return out;
+  });
+  check('🔴 翻完之後會問「大概幾點進的」', et.asks, true);
+  check('🔴 而且結果晶片不等這一題（一下點完那條路沒被卡住）',
+    et.resultCellReady, true);
+  check('🔴 還沒答之前「等待」整格不存在（不印 0:00）', et.waitedCell, false);
+
+  // 兩個邊界：不得早於判定、不得是未來
+  const bounds = await page.evaluate((ts) => {
+    const set = (v) => { document.getElementById('sdEntryTime').value = v; };
+    const click = () => document.getElementById('sdEntryTimeSave').click();
+    const note = () => document.getElementById('sdEntryTimeNote').textContent.trim();
+    const stored = () => 'enteredAt' in JSON.parse(
+      localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    const d = new Date(ts);
+    const hh = (n) => String(n).padStart(2, '0');
+    const out = {};
+    // 判定時刻的前一分鐘
+    const before = new Date(ts - 60e3);
+    set(hh(before.getHours()) + ':' + hh(before.getMinutes()));
+    click();
+    out.beforeNote = note(); out.beforeWrote = stored();
+    // 23:59 —— 這筆 fixture 的判定在一小時前，所以當天的 23:59 還沒到
+    set('23:59'); click();
+    out.futureNote = note(); out.futureWrote = stored();
+    // 看不懂的
+    set(''); click();
+    out.badNote = note(); out.badWrote = stored();
+    void d;
+    return out;
+  }, stood.ts);
+  check('🔴 比判定還早的時間不收，而且說得出為什麼',
+    bounds.beforeNote, '這比判定的時候還早');
+  check('🔴 而且真的沒寫進去', bounds.beforeWrote, false);
+  check('🔴 還沒到的時間不收（還沒發生的不是紀錄）',
+    bounds.futureNote, '這個時間還沒到');
+  check('🔴 而且真的沒寫進去', bounds.futureWrote, false);
+  check('看不懂的時間不收', bounds.badNote, '看不懂這個時間');
+  check('🔴 而且真的沒寫進去', bounds.badWrote, false);
+
+  // 答得出來：欄位 + 來源標記 + 等待那一格
+  const answered = await page.evaluate((ts) => {
+    const d = new Date(ts + 30 * 60e3);   // 判定後 30 分鐘
+    const hh = (n) => String(n).padStart(2, '0');
+    document.getElementById('sdEntryTime').value = hh(d.getHours()) + ':' + hh(d.getMinutes());
+    document.getElementById('sdEntryTimeSave').click();
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      source: rec.enteredAtSource,
+      hasAt: typeof rec.enteredAt === 'number',
+      waited: document.getElementById('sdFactWaited').textContent.trim(),
+      waitedCell: !document.getElementById('sdFactWaitedCell').hidden,
+      asksAgain: !document.getElementById('sdEntryTimeRow').hidden,
+    };
+  }, stood.ts);
+  check('進場時間寫進去了', answered.hasAt, true);
+  check('🔴 標得出這個數字是**使用者回想的**（不是 App 量到的）',
+    answered.source, 'reported');
+  check('🔴 等待那一格長出來，而且是 30:00', answered.waited, '30:00');
+  check('等待那一格顯示', answered.waitedCell, true);
+  check('答過了就不再問', answered.asksAgain, false);
+
+  // 🔴 收回「後來我進場了」之後，進場時間必須跟著消失 ——
+  //    留著的話這筆紀錄會同時說「我沒進場」跟「我 10:28 進場」。
+  const afterUndo = await page.evaluate((ts) => {
+    document.getElementById('sdLaterEntryBtn').click();   // 其實沒進場
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      tag: rec.outcomeTag,
+      hasAt: 'enteredAt' in rec,
+      hasSource: 'enteredAtSource' in rec,
+      waitedCell: !document.getElementById('sdFactWaitedCell').hidden,
+    };
+  }, stood.ts);
+  check('收回之後判定回到不成立', afterUndo.tag, 'judged_stood_down');
+  check('🔴 進場時間整個欄位跟著消失（不得同時說沒進場又說幾點進場）',
+    afterUndo.hasAt, false);
+  check('🔴 來源標記也跟著消失', afterUndo.hasSource, false);
+  check('等待那一格也收起來', afterUndo.waitedCell, false);
+
+  // 🔴 補記的紀錄**不問** —— 判定時刻本身只知道哪一天，等待算不出來，
+  //    問到了也只是多騷擾一次。
+  const dayPrec = await page.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].outcomeTag = 'judged_entered';
+    all[0].originalOutcomeTag = 'judged_stood_down';
+    all[0].tradeResult = 'pending';
+    all[0].tsPrecision = 'day';
+    all[0].source = 'backfill';
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.openSessionDetail(all[0].ts);
+    return {
+      asks: !document.getElementById('sdEntryTimeRow').hidden,
+      laterCell: !document.getElementById('sdLaterEntryCell').hidden,
+    };
+  });
+  check('🔴 只知道哪一天的紀錄不問進場時間（等待的另一端不存在）',
+    dayPrec.asks, false);
+  check('但「當時判定不成立 · 後來進場」那句話照舊留著', dayPrec.laterCell, true);
+
+  // ⚠️ 上面那幾段把這一筆翻來翻去（還加了 tsPrecision/source），
+  //    而下面那三條統計斷言要的是「翻過判定、結果已填」那個狀態。
+  //    **明確地把它放回那個狀態**，不要指望上一段剛好留對 ——
+  //    共用 fixture 被前一段改掉是這支 harness 已經踩過的坑。
   await page.evaluate(() => {
     window.closeSessionDetail();
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].outcomeTag = 'judged_entered';
+    all[0].originalOutcomeTag = 'judged_stood_down';
+    all[0].tradeResult = 'profit_taken';
+    delete all[0].tsPrecision;
+    delete all[0].source;
+    delete all[0].enteredAt;
+    delete all[0].enteredAtSource;
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
     window.goTab('today'); window.goTab('session');
   });
   await page.waitForTimeout(800);   // countUpEl 跑 550ms
