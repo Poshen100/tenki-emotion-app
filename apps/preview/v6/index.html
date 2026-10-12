@@ -1074,6 +1074,11 @@ body{
 /* 補記表單 —— 沿用站內 .sheet 的殼，只加自己的欄位樣式。 */
 .bf-field{margin-bottom:14px}
 .bf-label{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--n-400);font-weight:600;margin-bottom:6px}
+/* 「大概幾點進的」那一列。可略過，所以它長得像一個附帶的問題，不像必填欄位。 */
+.sd-entry-time{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)}
+.sd-entry-time-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.sd-entry-time-row .bf-input{flex:0 0 auto;width:auto}
+
 .bf-input, .bf-select{
   width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;
   color:#fff;background:rgba(255,255,255,0.05);
@@ -2919,7 +2924,7 @@ a.lab-wide{text-decoration:none}
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do9"></script>
+    <script src="/preview/decision-outcome.js?v=do10"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -3412,6 +3417,9 @@ a.lab-wide{text-decoration:none}
         <!-- 離開：交易者在桌機或券商 APP 下單，離開是常態不是失誤 —— 這裡只陳述事實，
              不寫成扣分。舊紀錄沒有這個欄位 → 整格 hidden，不顯示「0 次」。 -->
         <div class="sd-fact" id="sdFactAwayCell" hidden><div class="k">離開</div><div class="v" id="sdFactAway">—</div></div>
+        <!-- 等待：判定 → 進場。只有在使用者**真的答過**進場時間時才出現。
+             沒答過整格不存在 —— 不印「0:00」，那是把「不知道」講成「沒等」。 -->
+        <div class="sd-fact" id="sdFactWaitedCell" hidden><div class="k">等待</div><div class="v" id="sdFactWaited">—</div></div>
       </div>
 
       <!-- 結果回填（規格 §9b）。
@@ -3429,6 +3437,17 @@ a.lab-wide{text-decoration:none}
         <div class="sd-backfill-q" id="sdLaterEntryQ">後來還是進場了？</div>
         <div class="sd-backfill-chips">
           <button class="tp-chip" type="button" id="sdLaterEntryBtn">後來我進場了</button>
+        </div>
+        <!-- 🔴 **可略過**（founder 2026-10-12 要問，而規格 §2 的紅線沒變：
+             不知道的人仍然是一下點完）。略過就沒有這個欄位 —— 不填預設值。
+             問的是**當地時間**，因為這一頁印時刻用的就是當地時間。 -->
+        <div class="sd-entry-time" id="sdEntryTimeRow" hidden>
+          <div class="sd-backfill-q">大概幾點進的？<span class="sd-backfill-note">（不確定就略過）</span></div>
+          <div class="sd-entry-time-row">
+            <input type="time" class="bf-input" id="sdEntryTime">
+            <button class="tp-chip" type="button" id="sdEntryTimeSave">記下來</button>
+          </div>
+          <div class="sd-backfill-note" id="sdEntryTimeNote"></div>
         </div>
       </div>
 
@@ -6680,6 +6699,42 @@ function patchOutcome(ts, patch){
 }
 
 /**
+ * 「大概幾點進的」那一列。
+ *
+ * 🔴 **可略過。** founder 2026-10-12 要問，而規格 §2 的紅線沒變：
+ * 不知道的人仍然是一下點完 —— 翻判定那一下**不等**這一題，
+ * 結果晶片也不等。略過就沒有 `enteredAt` 這個欄位。
+ * 🔴 判準全部走共用模組（`allowsEntryTime` / `entryTimeFrom`）——
+ * 兩個邊界（不得早於判定、不得是未來）在那裡驗，這一頁只負責顯示。
+ *
+ * @param {Object} rec store 裡的那一筆
+ */
+function renderEntryTime(rec){
+  const row = document.getElementById('sdEntryTimeRow');
+  const note = document.getElementById('sdEntryTimeNote');
+  if(!row) return;
+  const OUT = window.TENKI_OUTCOME;
+  row.hidden = !OUT.allowsEntryTime(rec);
+  if(row.hidden) return;
+
+  note.textContent = '';
+  const save = document.getElementById('sdEntryTimeSave');
+  // 同「後來我進場了」那顆：每次重繪換掉整顆，否則 listener 疊上去。
+  const fresh = save.cloneNode(true);
+  save.parentNode.replaceChild(fresh, save);
+  fresh.addEventListener('click', () => {
+    const r = OUT.entryTimeFrom(rec, document.getElementById('sdEntryTime').value);
+    if(!r.ok){
+      // 🔴 只說**那個時間怎麼了**，不說使用者怎麼了。
+      note.textContent = OUT.ENTRY_TIME_REASON_ZH[r.reason] || '這個時間記不下來';
+      return;
+    }
+    if(!patchOutcome(rec.ts, OUT.entryTimePatch(r.at))) return;
+    openSessionDetail(rec.ts);   // 等待那一格要跟著長出來
+  });
+}
+
+/**
  * 「後來我進場了」那一格。
  *
  * 🔴 判準一律走共用模組，這一頁不自己判一次 outcomeTag。
@@ -6719,6 +6774,7 @@ function renderLaterEntry(rec){
   // 🔴 每次重繪都換掉整顆按鈕 —— addEventListener 疊上去的話，
   //    點一下會跑兩次（第二次拿的是舊的 rec），那是這個檔案裡
   //    已經記過一次的坑。
+  renderEntryTime(rec);
   const fresh = btn.cloneNode(true);
   btn.parentNode.replaceChild(fresh, btn);
   fresh.addEventListener('click', () => {
@@ -7000,6 +7056,12 @@ function openSessionDetail(ts){
   } else {
     awayCell.hidden = true;
   }
+  // 等待（判定 → 進場）。算不出來（沒答進場時間、或判定只知道哪一天）
+  // → 整格不存在。**不印 0:00** —— 那是把「不知道」講成「沒等」。
+  const waited = window.TENKI_OUTCOME.waitedSec(rec);
+  const waitedCell = document.getElementById('sdFactWaitedCell');
+  waitedCell.hidden = waited === null;
+  if(waited !== null) document.getElementById('sdFactWaited').textContent = fmtDur(waited);
 
   document.getElementById('sdInsight').innerHTML = buildDetailInsight(rec, m);
 

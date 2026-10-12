@@ -628,8 +628,108 @@
       // 🔴 收回去之後這一欄要**消失**，不是留一個空字串 —— 留著的話
       //    `hasRevisedJudgment()` 還是真的，詳情頁會繼續印「後來進場」。
       originalOutcomeTag: null,
+      // 🔴 進場時間也要跟著消失。留著的話這筆紀錄會同時說
+      //    「我沒進場」跟「我 10:28 進場」—— 自相矛盾，而且不會有人報錯。
+      enteredAt: null,
+      enteredAtSource: null,
       tradeResult: defaultTradeResult(back),
     };
+  }
+
+  // ═════════════════════════════════════════════════
+  // 🔴 「大概幾點進的」—— 問一句，換一段等待時長
+  //
+  // founder 2026-10-12：要問。而規格 §2 的紅線沒變：**不知道的人仍然是
+  // 一下點完**。所以這一題是**可略過**的，略過就沒有這個欄位 ——
+  // 不是填一個「判定後 10 分鐘吧」的預設值。
+  //
+  // 🔴 這個數字是**使用者回想的**，不是 App 量到的，所以要標記來源
+  //    （`enteredAtSource: 'reported'`）。同 CLAUDE.md 對 HRV 的要求
+  //    （estimated / observed / derived）—— contract 逼你標記就是為了擋
+  //    「把兩種來源的數字當同一個數字比較」。將來收束頁的「我下單了」
+  //    會寫 `'observed'`，兩者不可混算。
+  // ═════════════════════════════════════════════════
+
+  /**
+   * 這一筆問得出「大概幾點進的」嗎。
+   *
+   * 🔴 只問「後來才進場」那條路。本來就 `judged_entered` 的紀錄要等
+   * 收束頁的「我下單了」（規格 §7 第 3 項），那條路的時間是量到的、不用問。
+   * 🔴 判定時刻本身只知道哪一天（補記的紀錄）→ **不問**：
+   * 等待的另一端不存在，問到了也算不出來，只是多騷擾一次。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function allowsEntryTime(rec) {
+    if (!rec || rec.outcomeTag !== 'judged_entered') return false;
+    if (!hasRevisedJudgment(rec)) return false;
+    if (isDayPrecision(rec)) return false;
+    return typeof rec.enteredAt !== 'number';
+  }
+
+  /** 看不懂／不合理的時間，各自的說法（只陳述事實，不責備）。 */
+  var ENTRY_TIME_REASON_ZH = {
+    unparsable: '看不懂這個時間',
+    before_judgment: '這比判定的時候還早',
+    future: '這個時間還沒到',
+    no_record: '找不到這筆紀錄',
+  };
+
+  /**
+   * 把「HH:MM」換成時間戳 —— 在**這筆紀錄判定的那一天**、使用者的當地時間。
+   *
+   * 🔴 當地時間，因為這一頁印時刻用的就是當地時間（`fmtTimeOfDay`
+   * 走 `getHours()`）。問的框架跟印的框架不一致，使用者會填錯而且沒人會發現。
+   * 🔴 兩個邊界都要擋：**不得早於判定**（還沒判定就進場講不通），
+   * **不得是未來**（還沒發生的不是紀錄，同補記表單那條日期上限）。
+   * ⚠️ 跨午夜進場（23:50 判定、00:20 進場）會被擋下來 —— 這一版刻意只認
+   * 同一天，要放寬得先決定「那一天」對跨日持倉是什麼意思。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @param {string} hhmm `<input type="time">` 給的值
+   * @param {number} [now] 現在（測試可注入）
+   * @returns {{ok: true, at: number}|{ok: false, reason: string}}
+   */
+  function entryTimeFrom(rec, hhmm, now) {
+    if (!rec || typeof rec.ts !== 'number') return { ok: false, reason: 'no_record' };
+    var m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ''));
+    if (!m) return { ok: false, reason: 'unparsable' };
+    var h = Number(m[1]);
+    var min = Number(m[2]);
+    if (h > 23 || min > 59) return { ok: false, reason: 'unparsable' };
+    var d = new Date(rec.ts);
+    if (isNaN(d.getTime())) return { ok: false, reason: 'no_record' };
+    d.setHours(h, min, 0, 0);
+    var at = d.getTime();
+    if (at < rec.ts) return { ok: false, reason: 'before_judgment' };
+    if (at > (typeof now === 'number' ? now : Date.now())) return { ok: false, reason: 'future' };
+    return { ok: true, at: at };
+  }
+
+  /**
+   * 答出進場時間之後該套的欄位。
+   *
+   * @param {number} at 進場時間戳
+   * @returns {{enteredAt: number, enteredAtSource: string}}
+   */
+  function entryTimePatch(at) {
+    return { enteredAt: at, enteredAtSource: 'reported' };
+  }
+
+  /**
+   * 等了多久（判定 → 進場），秒。算不出來回 `null`。
+   *
+   * 🔴 回 `null` 不是 `0`。沒答進場時間的紀錄不是「等了 0 秒」。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {number|null}
+   */
+  function waitedSec(rec) {
+    if (!rec || typeof rec.ts !== 'number' || typeof rec.enteredAt !== 'number') return null;
+    if (isDayPrecision(rec)) return null;
+    var sec = Math.round((rec.enteredAt - rec.ts) / 1000);
+    return sec >= 0 ? sec : null;
   }
 
   global.TENKI_OUTCOME = {
@@ -652,6 +752,11 @@
     canUndoLaterEntry: canUndoLaterEntry,
     laterEntryPatch: laterEntryPatch,
     undoLaterEntryPatch: undoLaterEntryPatch,
+    allowsEntryTime: allowsEntryTime,
+    entryTimeFrom: entryTimeFrom,
+    entryTimePatch: entryTimePatch,
+    waitedSec: waitedSec,
+    ENTRY_TIME_REASON_ZH: ENTRY_TIME_REASON_ZH,
     isBackfilled: isBackfilled,
     isDayPrecision: isDayPrecision,
     backfillTsFor: backfillTsFor,
