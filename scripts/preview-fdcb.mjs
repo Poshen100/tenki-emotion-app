@@ -3158,7 +3158,15 @@ for (const h of [700, 740, 844, 932]) {
     return {
       result: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0].tradeResult,
       cellShown: !document.getElementById('sdLaterEntryCell').hidden,
-      says: document.getElementById('sdLaterEntryQ').textContent.trim(),
+      // 🔴 **收起來的那一格裡的字不算「說得出」。** 破壞⑥（填完結果整格
+      //    收起來）讓「仍然顯示」紅了，而這一條**照樣綠** —— 因為
+      //    `renderLaterEntry()` 在 `cell.hidden` 時提早 return，
+      //    `sdLaterEntryQ` 還留著上一次算出來的那句話，`textContent` 讀得到。
+      //    綠得對、理由錯：一個藏起來的元素說不出任何話。
+      //    所以讀之前先問整格看不看得見。
+      says: document.getElementById('sdLaterEntryCell').hidden
+        ? '(整格收起來了)'
+        : document.getElementById('sdLaterEntryQ').textContent.trim(),
       btnHidden: document.getElementById('sdLaterEntryBtn').hidden,
     };
   }, stood.ts);
