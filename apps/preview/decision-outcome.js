@@ -534,6 +534,104 @@
     };
   }
 
+  // ═════════════════════════════════════════════════
+  // 🔴 判定後來改了 —— 「先不動，後來還是照計劃進場」
+  //
+  // founder 2026-10-09 的那一天：掃描 → 標「先不動」→ 等了快一個小時 →
+  // 依計劃進場 → 完成。而 `renderResultBackfill()` 的那一格只在
+  // `judged_entered` 出現，所以**填結果那一格在他那一筆上是隱藏的** ——
+  // 一般情況下那是對的（看了沒做沒有結果可填），但他的「先不動」後面接的是
+  // 一次真的交易，而**判定在當時是終局的：沒有任何路可以說「後來我進場了」**。
+  //
+  // founder 2026-10-12 裁決：**算一筆，判定可以後來改。**
+  // （另外兩個選項是「加第三個判定出口（等觸發）」與「維持兩筆只把路指出來」。）
+  //
+  // 🔴 改寫一筆已存在的紀錄，所以**原始判定必須留得住**：翻 `outcomeTag` 的
+  //    同時把舊值寫進 `originalOutcomeTag`，詳情頁據此印「當時判定不成立 ·
+  //    後來進場」。少了它，這筆紀錄就不再說得出使用者當時判了什麼 ——
+  //    而這個 app 的全部價值就是那句話還在。
+  // 🔴 **沒有 `enteredAt`。** 使用者按下按鈕的那一刻**不是他進場的時刻**
+  //    （他可能收盤後才回來按）。`Date.now()` 塞進去就是 CLAUDE.md 禁止的
+  //    「量不到就填一個合理的預設值」。等待時長要有真的進場時間才算得出來，
+  //    那是 `docs/DECISION-RECORD-LOOP.md` §7 第 2 項，要**問**不是蓋章。
+  // 🔴 只認 `judged_stood_down`。`abandoned_no_judgment`（離開時沒有判定）
+  //    刻意不收 —— 那條路連「有沒有看過」都不確定，在上面接一次交易是另一個
+  //    故事，要做得 founder 另外拍板。
+  // ═════════════════════════════════════════════════
+
+  /**
+   * 這一筆可以說「後來我進場了」嗎。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function allowsLaterEntry(rec) {
+    return !!rec && rec.outcomeTag === 'judged_stood_down';
+  }
+
+  /**
+   * 這一筆的判定**後來被改過**嗎。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function hasRevisedJudgment(rec) {
+    return !!rec && typeof rec.originalOutcomeTag === 'string';
+  }
+
+  /**
+   * 改過的判定還**收得回來**嗎（按錯了）。
+   *
+   * 🔴 只要還沒填結果就收得回來 —— 一個不可逆的誤觸會讓使用者的紀錄從此
+   * 說錯話，而這一下就只是一個按鈕。填了結果之後這條路關起來（要收回就先
+   * 把結果那顆晶片再點一次回到 `pending`，那條路本來就存在）。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function canUndoLaterEntry(rec) {
+    return hasRevisedJudgment(rec) && awaitsResult(rec);
+  }
+
+  /**
+   * 把一筆「判定不成立」改成「後來進場」後該長什麼樣。
+   *
+   * 🔴 回的是**要套上去的欄位**，不自己寫 store —— 寫入在各頁，判準在這裡。
+   * 兩頁各寫一份判準就是這支模組存在的理由（2026-08-09 那次兩頁方言不同）。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {{outcomeTag: string, originalOutcomeTag: string, tradeResult: string}|null}
+   *   不適用時回 `null`
+   */
+  function laterEntryPatch(rec) {
+    if (!allowsLaterEntry(rec)) return null;
+    return {
+      outcomeTag: 'judged_entered',
+      originalOutcomeTag: rec.outcomeTag,
+      // 🔴 `pending` ＝ 交易發生了、結果未知。**不是 null** ——
+      //    null 會讓這筆從當日計數裡整個消失（見 trade-result 契約檔頭）。
+      tradeResult: 'pending',
+    };
+  }
+
+  /**
+   * 把「後來進場」收回去後該長什麼樣。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {{outcomeTag: string, originalOutcomeTag: null, tradeResult: string}|null}
+   */
+  function undoLaterEntryPatch(rec) {
+    if (!canUndoLaterEntry(rec)) return null;
+    var back = rec.originalOutcomeTag;
+    return {
+      outcomeTag: back,
+      // 🔴 收回去之後這一欄要**消失**，不是留一個空字串 —— 留著的話
+      //    `hasRevisedJudgment()` 還是真的，詳情頁會繼續印「後來進場」。
+      originalOutcomeTag: null,
+      tradeResult: defaultTradeResult(back),
+    };
+  }
+
   global.TENKI_OUTCOME = {
     TEMPLATE_ID_TO_V6: TEMPLATE_ID_TO_V6,
     OUTCOME_VIEW: OUTCOME_VIEW,
@@ -549,6 +647,11 @@
     resolveOutcomeTag: resolveOutcomeTag,
     defaultTradeResult: defaultTradeResult,
     awaitsResult: awaitsResult,
+    allowsLaterEntry: allowsLaterEntry,
+    hasRevisedJudgment: hasRevisedJudgment,
+    canUndoLaterEntry: canUndoLaterEntry,
+    laterEntryPatch: laterEntryPatch,
+    undoLaterEntryPatch: undoLaterEntryPatch,
     isBackfilled: isBackfilled,
     isDayPrecision: isDayPrecision,
     backfillTsFor: backfillTsFor,

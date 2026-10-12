@@ -2919,7 +2919,7 @@ a.lab-wide{text-decoration:none}
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do8"></script>
+    <script src="/preview/decision-outcome.js?v=do9"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -3421,6 +3421,17 @@ a.lab-wide{text-decoration:none}
            🔴 只在「判定成立並進場」的紀錄上出現：判定不成立 ＝ no_entry（推導），
            未判定就離開 ＝ null（不猜）。整格 hidden，不顯示一組按不動的晶片。
            🔴 三顆選中態完全相同（.tp-chip.picked）—— 這個 app 不評價交易結果。 -->
+      <!-- 🔴 「先不動，後來還是照計劃進場」—— founder 2026-10-09 的那一天。
+           判定在當時是終局的，所以填結果那一格在他那一筆上是隱藏的，
+           而他真的做了一次交易。founder 2026-10-12 裁決：算一筆，判定可以後來改。
+           判準全部在 decision-outcome.js（allowsLaterEntry / laterEntryPatch）。 -->
+      <div class="card sd-backfill" id="sdLaterEntryCell" hidden>
+        <div class="sd-backfill-q" id="sdLaterEntryQ">後來還是進場了？</div>
+        <div class="sd-backfill-chips">
+          <button class="tp-chip" type="button" id="sdLaterEntryBtn">後來我進場了</button>
+        </div>
+      </div>
+
       <div class="card sd-backfill" id="sdBackfillCell" hidden>
         <div class="sd-backfill-q">這筆的結果<span class="sd-backfill-note" id="sdBackfillNote"></span></div>
         <div class="sd-backfill-chips" id="sdBackfillChips"></div>
@@ -6639,14 +6650,87 @@ function renderTurningPoints(rec, dur){
  * @returns {boolean} 有沒有真的寫到
  */
 function writeTradeResult(ts, result){
+  return patchOutcome(ts, { tradeResult: result });
+}
+
+/**
+ * 就地套一組欄位到 store 裡的那一筆。
+ *
+ * 🔴 `null` 當作「把這一欄刪掉」，不是「寫一個 null 進去」——
+ * `originalOutcomeTag` 留著空值的話 `hasRevisedJudgment()` 還是真的，
+ * 詳情頁會繼續印「後來進場」。這一條是這個 repo 反覆記載的那條傷的另一面：
+ * 寫入端也要分得清「沒有這一欄」跟「這一欄的值是空的」。
+ *
+ * @param {number} ts 那一筆的時間戳（身分）
+ * @param {Object} patch 要套上去的欄位；值為 `null` 的欄位會被刪掉
+ * @returns {boolean} 找到並寫進去為 true
+ */
+function patchOutcome(ts, patch){
   let all = [];
   try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
   if(!Array.isArray(all)) return false;
   const idx = all.findIndex(r => r && r.ts === ts);
   if(idx < 0) return false;
-  all[idx].tradeResult = result;
+  Object.keys(patch).forEach(k => {
+    if(patch[k] === null) delete all[idx][k];
+    else all[idx][k] = patch[k];
+  });
   localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
   return true;
+}
+
+/**
+ * 「後來我進場了」那一格。
+ *
+ * 🔴 判準一律走共用模組，這一頁不自己判一次 outcomeTag。
+ * 🔴 按錯收得回來（還沒填結果之前）—— 一個不可逆的誤觸會讓使用者的紀錄
+ * 從此說錯話，而這一下就只是一個按鈕。
+ *
+ * @param {Object} rec store 裡的那一筆
+ */
+function renderLaterEntry(rec){
+  const cell = document.getElementById('sdLaterEntryCell');
+  const q = document.getElementById('sdLaterEntryQ');
+  const btn = document.getElementById('sdLaterEntryBtn');
+  if(!cell || !btn) return;
+
+  const OUT = window.TENKI_OUTCOME;
+  const canMark = OUT.allowsLaterEntry(rec);
+  const revised = OUT.hasRevisedJudgment(rec);
+  const canUndo = OUT.canUndoLaterEntry(rec);
+  // 🔴 判定改過的紀錄**一直顯示這一格**，不只在還收得回來的時候 ——
+  //    第一版寫 `!(canMark || canUndo)`，於是填了結果之後整格收起來，
+  //    紀錄裡還記著原始判定、而畫面上它消失了。那正是這個 session 一直在
+  //    抓的同一種傷：資料誠實、螢幕不誠實。
+  cell.hidden = !(canMark || revised);
+  if(cell.hidden) return;
+
+  // 原始判定從共用模組的對照取，不寫死 —— 以後多一個判定出口也講得對。
+  // ⚠️ 認不得就只講「後來進場」，**不退回一個猜的詞**。
+  const before = revised ? OUT.outcomeView(rec.originalOutcomeTag) : null;
+  q.textContent = canMark
+    ? '後來還是進場了？'
+    : (before ? '當時' + before.badge + ' · 後來進場' : '後來進場');
+  // 填了結果之後收回的路關起來（要收回就先把結果那顆晶片再點一次回到
+  // pending），但**上面那句話要留著**。
+  btn.hidden = !(canMark || canUndo);
+  btn.textContent = canMark ? '後來我進場了' : '其實沒進場';
+  btn.classList.toggle('picked', canUndo);
+  // 🔴 每次重繪都換掉整顆按鈕 —— addEventListener 疊上去的話，
+  //    點一下會跑兩次（第二次拿的是舊的 rec），那是這個檔案裡
+  //    已經記過一次的坑。
+  const fresh = btn.cloneNode(true);
+  btn.parentNode.replaceChild(fresh, btn);
+  fresh.addEventListener('click', () => {
+    const patch = canMark ? OUT.laterEntryPatch(rec) : OUT.undoLaterEntryPatch(rec);
+    if(!patch || !patchOutcome(rec.ts, patch)) return;
+    // 🔴 **整頁重開，不就地補**。徽章、標題、headline、readiness 那一列、
+    //    insight —— 全部都吃 `outcomeTag`。就地改手上那份 `rec` 會漏掉其中
+    //    任何一處，而漏掉的那一處**不會報錯**，只會讓同一張頁面上徽章說
+    //    「判定不成立」、下面那一格在問交易結果。
+    //    `openSessionDetail()` 重新從 store 讀，所以也不會留下舊值。
+    openSessionDetail(rec.ts);
+  });
 }
 
 /**
@@ -6888,6 +6972,10 @@ function openSessionDetail(ts){
 
   // 決策軌跡：軌上的節點 + 底下的逐列清單
   renderTurningPoints(rec, dur);
+
+  // 判定後來改了那一格（要排在結果回填**上面**：先問「進場了嗎」，
+  // 翻了之後下面那一格才會長出來）
+  renderLaterEntry(rec);
 
   // 結果回填（§9b）
   renderResultBackfill(rec);
