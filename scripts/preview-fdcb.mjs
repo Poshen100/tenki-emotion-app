@@ -3158,8 +3158,16 @@ for (const h of [700, 740, 844, 932]) {
   const filled = await page.evaluate((ts) => {
     document.getElementById('sdLaterEntryBtn').click();          // 再翻過去
     const chip = document.querySelector('#sdBackfillChips [data-trade-result="profit_taken"]');
+    // 🔴 晶片不在就**回報它不在**，不要拋。反向驗證破壞①（讓結果晶片
+    //    等進場時間）會讓這一格整個不出現 —— 第一版直接 `chip.click()`，
+    //    於是整支 harness 在這裡炸掉，那一輪的失敗數變成不可信，
+    //    而「結果晶片不等這一題」那條守門一條都沒跑。
+    //    ⚠️ 這是本 session **第三次**同一類坑，而且規則是我幾小時前自己
+    //    寫進 PLAYBOOK 的 —— 「記得小心」顯然不是一個有效的控制。
+    if(!chip) return { noChip: true };
     chip.click();                                                 // 填結果
     return {
+      noChip: false,
       result: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0].tradeResult,
       cellShown: !document.getElementById('sdLaterEntryCell').hidden,
       // 🔴 **收起來的那一格裡的字不算「說得出」。** 破壞⑥（填完結果整格
@@ -3174,6 +3182,7 @@ for (const h of [700, 740, 844, 932]) {
       btnHidden: document.getElementById('sdLaterEntryBtn').hidden,
     };
   }, stood.ts);
+  check('🔴 前提：結果晶片在（不在的話下面四條驗不到東西）', filled.noChip, false);
   check('結果填進去了', filled.result, 'profit_taken');
   check('🔴 填了結果之後那一格**仍然顯示**（資料裡記著，螢幕上就不准消失）',
     filled.cellShown, true);
