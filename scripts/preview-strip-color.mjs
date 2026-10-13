@@ -341,9 +341,12 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
 //
 // 這一組是**真的端到端**，不是分開驗兩邊：Playwright 同一個 context ＝ 同源
 // ＝ 共用 localStorage，跟正式站上兩頁同源的情形一致。上面那次決策已經寫進
-// store，這裡直接開 /v3/#session 讀它算出來的對齊率。
+// store，這裡直接開 /v3/#session 問它把那筆決策歸到哪一類。
 //
-// 反向驗證過：把 isDisciplinedV6 改回只認舊 tag → 對齊率變 0%，這條會紅。
+// 🔴 2026-10-11：這條原本讀「對齊率 100%」。那一格已退場（它對「判定成立並
+// 進場」和「判定不成立」都算對齊，所以只要有判定就是 100%）。現在讀的是
+// insight 行的**分類計數** —— 方言沒對上時 `judged_entered` 會一路掉進
+// 「離開時沒有判定」，那句話會整句變樣，比百分比更貼近這條要守的事。
 {
   // 先真的按下「記錄並關閉」—— 決策要**被記錄**才會進統一 store。
   // （這一步先前的 harness 沒做過，所以 store 一直是空的。）
@@ -398,17 +401,27 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
   const session = await page.evaluate(() => ({
-    align: document.getElementById('statAlign').textContent.trim(),
-    count: document.getElementById('statCount').textContent.trim(),
+    insight: document.getElementById('sessionInsightBody').textContent,
+    // 🔴 缺的格子讀成一個值，不要拋 —— page.evaluate 一拋就整支 harness
+    //    當場死掉，後面所有斷言一條都不會跑，而失敗數會剛好等於環境基線，
+    //    報告讀起來像「全部通過」。2026-10-11 反向驗證實證（見 preview-fdcb.mjs）。
+    count: (document.getElementById('statCount') || { textContent: '(缺這一格)' })
+      .textContent.trim(),
+    stood: (document.getElementById('statStoodDown') || { textContent: '(缺這一格)' })
+      .textContent.trim(),
   }));
-  check('🔴 /v3/ Session 認得快訊決策（對齊率不是 0%）', session.align, '100%');
+  check('🔴 /v3/ Session 認得快訊決策（算進「判定成立並進場」）',
+    /2 次判定成立並進場/.test(session.insight), true);
+  check('🔴 而且沒有任何一筆掉進「離開時沒有判定」',
+    /沒有判定/.test(session.insight), false);
+  check('判定不成立那一格是 0（這兩筆都進場了，它不是一個固定值）', session.stood, '0');
   // 2 筆＝這一輪走的 1 筆 + 開頁時種的 1 筆（種它的理由見檔頭的 addInitScript：
   // momentum strip 在 N<2 時整條不出現，只走一次就沒有 strip 可驗）。
   check('/v3/ Session 看得到那筆決策', session.count, '2');
 
   // ── 這筆紀錄要**認得出自己是誰** ──
   //
-  // ⚠️ 上一刀的教訓：我修好 isDisciplined 讓對齊率變 100%，就宣告「接通了」。
+  // ⚠️ 上一刀的教訓：我修好 isDisciplined 讓那個百分比變 100%，就宣告「接通了」。
   // **一個數字對了不等於這筆紀錄被認得。** 同一筆決策當時在 Session 頁長這樣：
   //     ❤️ ES1!  ·  15:23 · 未達 Readiness · 0:04  ·  [已記錄]
   // 四處都錯，而且**沒有一處會報錯** —— 全是 `|| fallback`。

@@ -470,7 +470,14 @@ console.log('\n── Turning Point 節點 ──');
   check('同一秒的節點併成一顆（軌上不得與計數打架）', live.ticks, 1);
 
   // 選一個標籤 → 只補在剛剛那一顆上
-  await page.evaluate(() => document.querySelectorAll('.tp-chip')[0].click());
+  // 🔴 **範圍要對**：這一行原本是 `document.querySelectorAll('.tp-chip')[0]`
+  //    —— 掃整頁拿第一顆。它一直綠著是因為「快選以外的 `.tp-chip` 都是動態生出來的」
+  //    （結果回填那幾顆要先開詳情頁才存在），所以 `[0]` 碰巧總是快選裡的。
+  //    2026-10-12 加了一顆**靜態**的 `.tp-chip`（詳情頁的「後來我進場了」）之後
+  //    `[0]` 變成它 —— 而它是 `hidden`，點了什麼都沒發生，於是**四條完全無關的
+  //    斷言一起紅**，而且紅的訊息長得像轉折點功能壞了。
+  //    這條斷言要說的是「點快選裡的第一顆標籤」，就讓它那樣問。
+  await page.evaluate(() => document.querySelector('#tpPicker .tp-chip').click());
   await page.waitForTimeout(200);
   const afterPick = await dock(page);
   checkTruthy('選完標籤，段標籤回報選了什麼', afterPick.seg.indexOf('已標記 · ') === 0);
@@ -2724,7 +2731,9 @@ for (const h of [700, 740, 844, 932]) {
 // 而真正的交易橫跨一小時 —— 因為在這之前，建檔的唯一方式是**現在跑一次**。
 //
 // 🔴 這一組守的不是「表單能不能填」，是**它不得捏造**：
-//    用時要 null 不是 0、時間要印日期不是假時刻、補記不得混進平均用時。
+//    用時要 null 不是 0、時間要印日期不是假時刻、補記不得被推導成任何統計數字。
+//    （2026-10-11 起「平均用時」整格退場 —— 守的事情沒變，守的對象從
+//     「別把補記算進平均」變成「那個平均不准回來」。）
 // ═════════════════════════════════════════════════
 {
   console.log('\n── 補記一筆：不得捏造 ──');
@@ -2761,8 +2770,17 @@ for (const h of [700, 740, 844, 932]) {
     return {
       meta: [...r.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent),
       title: r.querySelector('.nm').textContent,
-      avg: document.getElementById('statAvgDur').textContent,
       insight: document.getElementById('sessionInsightBody').textContent,
+      statLabels: [...document.querySelectorAll('#sessionStats .lbl')].map((n) => n.textContent.trim()),
+      statText: document.getElementById('sessionStats').textContent,
+      // 🔴 `getElementById(...).textContent` 在那一格被改名／拿掉時會拋，
+      //    而 page.evaluate 一拋就**整支 harness 當場死掉** —— 後面所有斷言
+      //    （含守這件事的那幾條）一條都不會跑，失敗數剛好等於環境基線，
+      //    於是報告看起來像「沒事」。2026-10-11 反向驗證實證：破壞④把這一格
+      //    改名成 `statPace`，harness 在這一行炸掉，而我差點讀成「守門有洞」。
+      //    缺的格子要變成一個**讀得出來的值**，讓標籤那條斷言去紅。
+      filled: (document.getElementById('statResultFilled') || { textContent: '(缺這一格)' })
+        .textContent.trim(),
     };
   });
   check('🔴 用時那一格是「—」，不得是 0:00', row.meta[2], '—');
@@ -2770,21 +2788,35 @@ for (const h of [700, 740, 844, 932]) {
   check('🔴 時間那一格印日期、不印一個不知道的時刻', /^\d+\/\d+$/.test(row.meta[0]), true);
   check('標的印得出來（補記的 symbol 是使用者打的，不是模板名）',
     /ES1!/.test(row.title), true);
-  check('🔴 全部都是補記時，平均用時那一格是「—」', row.avg, '—');
-  check('🔴 而且 insight 行整句不提平均用時', /平均用時/.test(row.insight), false);
+  // 🔴 「平均用時」整格已退場（2026-10-11）。先前這裡守的是「補記不得混進
+  //    分子也不得混進分母」；格子沒了之後那條謊**結構上就說不出來**，所以守門
+  //    改成守「它不准回來」—— 而且不是按 id 問（換個 id 就繞過去了），
+  //    是問這一列**有沒有任何一格長成時間**。
+  check('🔴 統計列的三格就是這三個名字（「平均用時」不准回來）',
+    row.statLabels, ['決策次數', '判定不成立', '結果已填']);
+  check('🔴 而且整列沒有任何一格長成 m:ss（任何從用時推導的數字都算）',
+    /\d+:\d\d/.test(row.statText), false);
+  check('🔴 insight 行整句不提平均用時', /平均用時/.test(row.insight), false);
+  check('🔴 insight 行整句不提對齊率（它量不到「照不照計劃走」）',
+    /對齊/.test(row.insight), false);
+  // 只有一筆補記、結果還沒填 → 「0/1」。分母是**進場筆數**，不是總筆數。
+  check('🔴 結果已填：補記那筆算進分母、但沒填就不算進分子', row.filled, '0/1');
 
-  // ── 補記不得混進平均用時 ──
-  // 一筆真的跑了 60 秒 + 一筆補記 → 平均是 1:00（分母 1），不是 0:30（分母 2）。
-  const avg = await page.evaluate(() => {
+  // ── 結果已填的分母只數進場的那些 ──
+  // 加一筆真的跑完、結果也填了的 → 1/2。
+  // （先前這裡放的是「平均 1:00 不是 0:30」，同一組 fixture 改問新的那一格。）
+  const filled2 = await page.evaluate(() => {
     const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
     all.push({ ts: Date.now(), symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
       outcomeTag: 'judged_entered', tradeResult: 'profit_taken', durationSec: 60,
       marks: 0, events: [], reachedReadiness: null });
     localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
     window.goTab('today'); window.goTab('session');
-    return document.getElementById('statAvgDur').textContent;
+    // 同上：缺的格子讀成一個值，不要拋。
+    const el = document.getElementById('statResultFilled');
+    return el ? el.textContent.trim() : '(缺這一格)';
   });
-  check('🔴 補記不進平均用時的分子**也不進分母**（1:00，不是 0:30）', avg, '1:00');
+  check('🔴 一筆已填 + 一筆在等 → 1/2', filled2, '1/2');
 
   // ── 詳情頁：從 durationSec 推導的東西整個退場 ──
   const detail = await page.evaluate((ts) => {
@@ -2882,6 +2914,433 @@ for (const h of [700, 740, 844, 932]) {
   //    也能讓上面那條綠，而那是一張沒得選的表單。
   checkTruthy(`關著時仍然列得出日常流程（${gated.n} 個，開著是 ${onList.n} 個）`,
     gated.n > 0 && onList.n === gated.n + 3);
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 🔴 統計列換掉的那兩格 —— 「名字比量到的東西大」
+//
+// founder 2026-10-09 的截圖裡那一列是：對齊率 100% · 決策次數 4 · 平均用時 0:29。
+// 而他那天真正做的事是「掃描 → 等了快一個小時 → 依計劃進場 → 完成」。
+//   · 「平均用時 0:29」量的是按鈕之間的秒數，對一個等了一小時的人說 29 秒。
+//   · 「對齊率 100%」對**判定成立並進場**和**判定不成立**都算對齊，
+//     所以只要做出判定就是 100%；而它的名字聽起來涵蓋「照不照計劃走」
+//     —— 進場之後的事（提早砍 runner、沒鎖 75%、加碼攤平）一欄都沒記，
+//     docs/TRADING-METHODOLOGY.md §7 自己寫著這件事。
+//
+// 這一組守的是**換上去的三格各自獨立、而且真的會動**，
+// 以及那兩個舊數字（含任何從用時推導的數字）不准從別的 id 回來。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 統計列：三格都要真的會動 ──');
+  const page = await openV3(844);
+
+  const seed = (recs) => page.evaluate((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    window.goTab('today'); window.goTab('session');
+  }, recs);
+  // 🔴 一格都不准直接 `.textContent` —— 見上面那段註解：那一格被改名之後
+  //    這裡會拋，而拋掉的代價是**整支 harness 不再跑**，報告讀起來像全綠。
+  const readStats = () => page.evaluate(() => {
+    const txt = (id) => {
+      const el = document.getElementById(id);
+      return el ? el.textContent.trim() : '(缺這一格)';
+    };
+    return {
+      count: txt('statCount'),
+      stood: txt('statStoodDown'),
+      filled: txt('statResultFilled'),
+      labels: [...document.querySelectorAll('#sessionStats .lbl')].map((n) => n.textContent.trim()),
+      statText: document.getElementById('sessionStats').textContent,
+      insight: document.getElementById('sessionInsightBody').textContent,
+    };
+  });
+
+  const now = Date.now();
+  const mk = (tag, result, durationSec, i) => ({
+    ts: now - i * 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: tag, tradeResult: result, durationSec, marks: 0, events: [],
+    reachedReadiness: null,
+  });
+
+  // 四筆：2 進場（1 已填 / 1 在等）、1 判定不成立、1 離開時沒有判定。
+  // ⚠️ 這組 fixture 下舊的對齊率是 75% —— 它會動，但**動的不是這件事**：
+  //    「有一筆是看了沒做」在 75% 裡面完全看不出來（4 筆全進場時它是 100%，
+  //    而 3 進場 + 1 不成立時它**也是** 100%）。
+  await seed([
+    mk('judged_entered', 'profit_taken', 120, 1),
+    mk('judged_entered', 'pending', 90, 2),
+    mk('judged_stood_down', 'no_entry', 30, 3),
+    mk('abandoned_no_judgment', null, 45, 4),
+  ]);
+  await page.waitForTimeout(800);   // countUpEl 跑 550ms
+  const a = await readStats();
+  check('🔴 統計列的三格就是這三個名字', a.labels,
+    ['決策次數', '判定不成立', '結果已填']);
+  check('決策次數數的是全部', a.count, '4');
+  check('🔴 判定不成立自己有一格（舊的 75% 裡看不出有這一筆）', a.stood, '1');
+  check('🔴 結果已填的分母只數進場的那些（1/2，不是 1/4）', a.filled, '1/2');
+  // 🔴 這組 fixture 的每一筆都**有** durationSec（120/90/30/45）——
+  //    所以這條不是「沒資料所以印不出時間」，是「有資料也不准推成統計數字」。
+  check('🔴 四筆都有用時，統計列仍然沒有任何一格長成 m:ss', /\d+:\d\d/.test(a.statText), false);
+  check('🔴 統計列不得再出現「對齊率」或「平均用時」',
+    /對齊|平均用時/.test(a.statText), false);
+  check('insight 行逐類講出來（2 進場 / 1 不成立）',
+    /4<\/b> 次決策|4 次決策/.test(a.insight) && /2 次判定成立並進場/.test(a.insight)
+      && /1 次判定不成立/.test(a.insight), true);
+  check('🔴 離開時沒有判定那一筆用減法推得出來（不是默默消失）',
+    /另有 1 次離開時沒有判定/.test(a.insight), true);
+  check('在等結果的那一筆照舊講得出來', /還有 1 次的結果沒填/.test(a.insight), true);
+
+  // 第二組：全部判定不成立 → 這一格要跟著動，而「結果已填」沒有分母。
+  await seed([
+    mk('judged_stood_down', 'no_entry', 20, 1),
+    mk('judged_stood_down', 'no_entry', 25, 2),
+  ]);
+  await page.waitForTimeout(800);
+  const b = await readStats();
+  check('🔴 判定不成立那一格真的跟著 fixture 動（1 → 2）', b.stood, '2');
+  check('🔴 一筆都沒進場時「結果已填」是「—」，不是「0/0」', b.filled, '—');
+  check('insight 行不印一句沒發生的事（沒有「離開時沒有判定」）',
+    /離開時沒有判定/.test(b.insight), false);
+
+  // 第三組：「在等結果」有**三種寫法** —— `pending` / `null` / 欄位根本不存在。
+  // 🔴 三種都必須算「在等」。自己比 `r.tradeResult !== 'pending'` 的話，
+  //    後兩種會被算成「已填」—— 又一次把「不知道」講成「做完了」。
+  //    （讀端走 `awaitsResult()`，這條就是在驗它真的走了那個判準。）
+  await seed([
+    mk('judged_entered', 'profit_taken', 120, 1),
+    mk('judged_entered', null, 90, 2),
+    (() => { const r = mk('judged_entered', 'pending', 60, 3); delete r.tradeResult; return r; })(),
+  ]);
+  await page.waitForTimeout(800);
+  const c = await readStats();
+  check('🔴 `null` 與「欄位不存在」都算在等結果（1/3，不是 3/3）', c.filled, '1/3');
+  check('insight 行數得出在等的有 2 筆', /還有 2 次的結果沒填/.test(c.insight), true);
+
+  // ── Timeline：同一個百分比在那張卡上也退場了 ──
+  const tl = await page.evaluate(() => {
+    window.goTab('timeline');
+    return {
+      meta: document.getElementById('tlStripMeta').textContent.trim(),
+      legend: document.querySelector('.tl-strip-legend').textContent,
+    };
+  });
+  check('🔴 Timeline meta 不再印百分比對齊', /%|對齊/.test(tl.meta), false);
+  // 承上一組 fixture（3 筆全是進場 → 0 筆未判定）。
+  check('0 筆未判定時不印那一句（只講筆數）', tl.meta, '3 筆');
+  check('🔴 圖例講的是它量得到的那句話（有判定／未判定）',
+    /有判定/.test(tl.legend) && /未判定/.test(tl.legend) && !/對齊/.test(tl.legend), true);
+
+  // 有一筆未判定時才印，而且印的是**計數**不是百分比。
+  const tl2 = await page.evaluate((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    window.goTab('today'); window.goTab('timeline');
+    return document.getElementById('tlStripMeta').textContent.trim();
+  }, [
+    { ts: now - 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'judged_entered', tradeResult: 'profit_taken', durationSec: 120,
+      marks: 0, events: [], reachedReadiness: null },
+    { ts: now - 7200e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'abandoned_no_judgment', tradeResult: null, durationSec: 45,
+      marks: 0, events: [], reachedReadiness: null },
+  ]);
+  check('🔴 有未判定的那筆時才印，而且印計數（2 筆 · 1 次未判定）', tl2, '2 筆 · 1 次未判定');
+
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 🔴 判定後來改了 —— 「先不動，後來還是照計劃進場」
+//
+// founder 2026-10-09 的那一天：掃描 → 標「先不動」→ 等快一小時 → 依計劃進場
+// → 完成。而填結果那一格只在 `judged_entered` 出現，所以**它在他那一筆上是
+// 隱藏的** —— 判定在當時是終局的。founder 2026-10-12 裁決：算一筆，判定可以改。
+//
+// 🔴 這一組守的是**改寫一筆已存在的紀錄而不說謊**：
+//    原始判定留得住、按錯收得回來、翻了之後整頁跟著翻、不捏造進場時間。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 判定後來改了：改寫紀錄而不說謊 ──');
+  const page = await openV3(844);
+
+  const now = Date.now();
+  const stood = {
+    // 🔴 對齊到整分。使用者答的進場時間只有分鐘精度（秒被歸零），
+    //    所以判定時刻帶著秒的話，相減的結果會差那個零頭 ——
+    //    斷言就只能寫成範圍，而範圍斷言守不住四捨五入的方向。
+    ts: Math.floor((now - 3600e3) / 60000) * 60000,
+    symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: 'judged_stood_down', tradeResult: 'no_entry', durationSec: 120,
+    marks: 0, events: [], reachedReadiness: null,
+  };
+  const seed = (recs) => page.evaluate((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    window.goTab('today'); window.goTab('session');
+  }, recs);
+
+  // ── 入口只長在該長的地方 ──
+  const gates = await seed([stood]).then(() => page.evaluate((ts) => {
+    const out = {};
+    window.openSessionDetail(ts);
+    out.onStoodDown = !document.getElementById('sdLaterEntryCell').hidden;
+    out.resultCellBefore = !document.getElementById('sdBackfillCell').hidden;
+    window.closeSessionDetail();
+    // 離開時沒有判定那一條路**刻意不收** —— 連有沒有看過都不確定。
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].outcomeTag = 'abandoned_no_judgment';
+    all[0].tradeResult = null;
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.goTab('today'); window.goTab('session');
+    window.openSessionDetail(ts);
+    out.onAbandoned = !document.getElementById('sdLaterEntryCell').hidden;
+    window.closeSessionDetail();
+    return out;
+  }, stood.ts));
+  check('🔴 「後來我進場了」只長在判定不成立那一筆上', gates.onStoodDown, true);
+  check('🔴 而且那時候「這筆的結果」還沒出現（先問進場、再問結果）',
+    gates.resultCellBefore, false);
+  check('🔴 離開時沒有判定那一筆上不得出現（刻意不收這條路）',
+    gates.onAbandoned, false);
+
+  // ── 翻過去：欄位對、而且整頁跟著翻 ──
+  const flipped = await seed([stood]).then(() => page.evaluate((ts) => {
+    window.openSessionDetail(ts);
+    document.getElementById('sdLaterEntryBtn').click();
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      tag: rec.outcomeTag,
+      original: rec.originalOutcomeTag,
+      result: rec.tradeResult,
+      // 🔴 按下按鈕的那一刻**不是他進場的時刻**（可能收盤後才回來按）。
+      hasEnteredAt: 'enteredAt' in rec,
+      badge: document.getElementById('sdResult').textContent.trim(),
+      headline: document.getElementById('sdOutcomeHeadline').textContent.trim(),
+      resultCell: !document.getElementById('sdBackfillCell').hidden,
+      says: document.getElementById('sdLaterEntryQ').textContent.trim(),
+      btn: document.getElementById('sdLaterEntryBtn').textContent.trim(),
+    };
+  }, stood.ts));
+  check('判定翻成 judged_entered', flipped.tag, 'judged_entered');
+  check('🔴 原始判定留在紀錄上（少了它這筆就說不出當時判了什麼）',
+    flipped.original, 'judged_stood_down');
+  check('🔴 結果變 pending，不是 null（null 會讓它從當日計數裡消失）',
+    flipped.result, 'pending');
+  check('🔴 **不捏造進場時間** —— enteredAt 整個欄位不存在',
+    flipped.hasEnteredAt, false);
+  check('🔴 徽章跟著翻（不得一邊說判定不成立、一邊問交易結果）',
+    flipped.badge, '判定成立');
+  check('headline 也跟著翻', /已進場/.test(flipped.headline), true);
+  check('🔴 翻完「這筆的結果」那一格長出來了', flipped.resultCell, true);
+  check('🔴 而且頁面說得出判定改過', flipped.says, '當時判定不成立 · 後來進場');
+  check('還收得回來（按錯不是不可逆的）', flipped.btn, '其實沒進場');
+
+  // ── 收回去：欄位要**消失**，不是留一個空值 ──
+  const undone = await page.evaluate((ts) => {
+    document.getElementById('sdLaterEntryBtn').click();
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      tag: rec.outcomeTag,
+      hasOriginal: 'originalOutcomeTag' in rec,
+      result: rec.tradeResult,
+      says: document.getElementById('sdLaterEntryQ').textContent.trim(),
+      resultCell: !document.getElementById('sdBackfillCell').hidden,
+    };
+  }, stood.ts);
+  check('收回去之後判定回到不成立', undone.tag, 'judged_stood_down');
+  check('🔴 originalOutcomeTag **整個欄位消失**（留空值的話畫面會繼續說改過）',
+    undone.hasOriginal, false);
+  check('結果推導回 no_entry', undone.result, 'no_entry');
+  check('那一格回到問句', undone.says, '後來還是進場了？');
+  check('「這筆的結果」又收起來了', undone.resultCell, false);
+
+  // ── 填了結果之後：收回的路關起來，但**那句話要留著** ──
+  const filled = await page.evaluate((ts) => {
+    document.getElementById('sdLaterEntryBtn').click();          // 再翻過去
+    const chip = document.querySelector('#sdBackfillChips [data-trade-result="profit_taken"]');
+    // 🔴 晶片不在就**回報它不在**，不要拋。反向驗證破壞①（讓結果晶片
+    //    等進場時間）會讓這一格整個不出現 —— 第一版直接 `chip.click()`，
+    //    於是整支 harness 在這裡炸掉，那一輪的失敗數變成不可信，
+    //    而「結果晶片不等這一題」那條守門一條都沒跑。
+    //    ⚠️ 這是本 session **第三次**同一類坑，而且規則是我幾小時前自己
+    //    寫進 PLAYBOOK 的 —— 「記得小心」顯然不是一個有效的控制。
+    if(!chip) return { noChip: true };
+    chip.click();                                                 // 填結果
+    return {
+      noChip: false,
+      result: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0].tradeResult,
+      cellShown: !document.getElementById('sdLaterEntryCell').hidden,
+      // 🔴 **收起來的那一格裡的字不算「說得出」。** 破壞⑥（填完結果整格
+      //    收起來）讓「仍然顯示」紅了，而這一條**照樣綠** —— 因為
+      //    `renderLaterEntry()` 在 `cell.hidden` 時提早 return，
+      //    `sdLaterEntryQ` 還留著上一次算出來的那句話，`textContent` 讀得到。
+      //    綠得對、理由錯：一個藏起來的元素說不出任何話。
+      //    所以讀之前先問整格看不看得見。
+      says: document.getElementById('sdLaterEntryCell').hidden
+        ? '(整格收起來了)'
+        : document.getElementById('sdLaterEntryQ').textContent.trim(),
+      btnHidden: document.getElementById('sdLaterEntryBtn').hidden,
+    };
+  }, stood.ts);
+  check('🔴 前提：結果晶片在（不在的話下面四條驗不到東西）', filled.noChip, false);
+  check('結果填進去了', filled.result, 'profit_taken');
+  check('🔴 填了結果之後那一格**仍然顯示**（資料裡記著，螢幕上就不准消失）',
+    filled.cellShown, true);
+  check('🔴 而且仍然說得出判定改過', filled.says, '當時判定不成立 · 後來進場');
+  check('🔴 但收回的按鈕收起來了（已經有結果了）', filled.btnHidden, true);
+
+  // ── 統計列要跟著動：幽靈「判定不成立」不得留在那裡 ──
+  // ── 「大概幾點進的」—— 問一句，而且可略過 ──
+  //
+  // founder 2026-10-12：要問。規格 §2 的紅線沒變：**不知道的人仍然是一下
+  // 點完** —— 所以這一組守的是「翻判定那一下不等這一題」＋「略過就沒有
+  // 這個欄位」＋「兩個邊界都擋」＋「這個數字標得出自己是回想來的」。
+  const et = await page.evaluate(() => {
+    // 回到還在等結果的狀態（上面那一段已經填了 profit_taken）
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].tradeResult = 'pending';
+    delete all[0].enteredAt;
+    delete all[0].enteredAtSource;
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.openSessionDetail(all[0].ts);
+    const out = { asks: !document.getElementById('sdEntryTimeRow').hidden };
+    // 結果晶片在這一題還沒答的時候就已經在了 —— 一下點完那條路沒被卡住。
+    out.resultCellReady = !document.getElementById('sdBackfillCell').hidden;
+    out.waitedCell = !document.getElementById('sdFactWaitedCell').hidden;
+    return out;
+  });
+  check('🔴 翻完之後會問「大概幾點進的」', et.asks, true);
+  check('🔴 而且結果晶片不等這一題（一下點完那條路沒被卡住）',
+    et.resultCellReady, true);
+  check('🔴 還沒答之前「等待」整格不存在（不印 0:00）', et.waitedCell, false);
+
+  // 兩個邊界：不得早於判定、不得是未來
+  const bounds = await page.evaluate((ts) => {
+    const set = (v) => { document.getElementById('sdEntryTime').value = v; };
+    const click = () => document.getElementById('sdEntryTimeSave').click();
+    const note = () => document.getElementById('sdEntryTimeNote').textContent.trim();
+    const stored = () => 'enteredAt' in JSON.parse(
+      localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    const d = new Date(ts);
+    const hh = (n) => String(n).padStart(2, '0');
+    const out = {};
+    // 判定時刻的前一分鐘
+    const before = new Date(ts - 60e3);
+    set(hh(before.getHours()) + ':' + hh(before.getMinutes()));
+    click();
+    out.beforeNote = note(); out.beforeWrote = stored();
+    // 23:59 —— 這筆 fixture 的判定在一小時前，所以當天的 23:59 還沒到
+    set('23:59'); click();
+    out.futureNote = note(); out.futureWrote = stored();
+    // 看不懂的
+    set(''); click();
+    out.badNote = note(); out.badWrote = stored();
+    void d;
+    return out;
+  }, stood.ts);
+  check('🔴 比判定還早的時間不收，而且說得出為什麼',
+    bounds.beforeNote, '這比判定的時候還早');
+  check('🔴 而且真的沒寫進去', bounds.beforeWrote, false);
+  check('🔴 還沒到的時間不收（還沒發生的不是紀錄）',
+    bounds.futureNote, '這個時間還沒到');
+  check('🔴 而且真的沒寫進去', bounds.futureWrote, false);
+  check('看不懂的時間不收', bounds.badNote, '看不懂這個時間');
+  check('🔴 而且真的沒寫進去', bounds.badWrote, false);
+
+  // 答得出來：欄位 + 來源標記 + 等待那一格
+  const answered = await page.evaluate((ts) => {
+    const d = new Date(ts + 30 * 60e3);   // 判定後 30 分鐘
+    const hh = (n) => String(n).padStart(2, '0');
+    document.getElementById('sdEntryTime').value = hh(d.getHours()) + ':' + hh(d.getMinutes());
+    document.getElementById('sdEntryTimeSave').click();
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      source: rec.enteredAtSource,
+      hasAt: typeof rec.enteredAt === 'number',
+      waited: document.getElementById('sdFactWaited').textContent.trim(),
+      waitedCell: !document.getElementById('sdFactWaitedCell').hidden,
+      asksAgain: !document.getElementById('sdEntryTimeRow').hidden,
+    };
+  }, stood.ts);
+  check('進場時間寫進去了', answered.hasAt, true);
+  check('🔴 標得出這個數字是**使用者回想的**（不是 App 量到的）',
+    answered.source, 'reported');
+  // 🔴 「約 30 分」而不是「30:00」—— 使用者答的是 `HH:MM`，
+  //    印成 m:ss 就是在宣稱一個他從來沒給過的精度。
+  //    這一條原本寫 '30:00'，實際跑出 '29:22'（判定時刻的秒數零頭）——
+  //    錯的不是斷言，是那一格。
+  check('🔴 等待那一格長出來，而且印到**分**不是秒', answered.waited, '約 30 分');
+  check('等待那一格顯示', answered.waitedCell, true);
+  check('答過了就不再問', answered.asksAgain, false);
+
+  // 🔴 收回「後來我進場了」之後，進場時間必須跟著消失 ——
+  //    留著的話這筆紀錄會同時說「我沒進場」跟「我 10:28 進場」。
+  const afterUndo = await page.evaluate((ts) => {
+    document.getElementById('sdLaterEntryBtn').click();   // 其實沒進場
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      tag: rec.outcomeTag,
+      hasAt: 'enteredAt' in rec,
+      hasSource: 'enteredAtSource' in rec,
+      waitedCell: !document.getElementById('sdFactWaitedCell').hidden,
+    };
+  }, stood.ts);
+  check('收回之後判定回到不成立', afterUndo.tag, 'judged_stood_down');
+  check('🔴 進場時間整個欄位跟著消失（不得同時說沒進場又說幾點進場）',
+    afterUndo.hasAt, false);
+  check('🔴 來源標記也跟著消失', afterUndo.hasSource, false);
+  check('等待那一格也收起來', afterUndo.waitedCell, false);
+
+  // 🔴 補記的紀錄**不問** —— 判定時刻本身只知道哪一天，等待算不出來，
+  //    問到了也只是多騷擾一次。
+  const dayPrec = await page.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].outcomeTag = 'judged_entered';
+    all[0].originalOutcomeTag = 'judged_stood_down';
+    all[0].tradeResult = 'pending';
+    all[0].tsPrecision = 'day';
+    all[0].source = 'backfill';
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.openSessionDetail(all[0].ts);
+    return {
+      asks: !document.getElementById('sdEntryTimeRow').hidden,
+      laterCell: !document.getElementById('sdLaterEntryCell').hidden,
+    };
+  });
+  check('🔴 只知道哪一天的紀錄不問進場時間（等待的另一端不存在）',
+    dayPrec.asks, false);
+  check('但「當時判定不成立 · 後來進場」那句話照舊留著', dayPrec.laterCell, true);
+
+  // ⚠️ 上面那幾段把這一筆翻來翻去（還加了 tsPrecision/source），
+  //    而下面那三條統計斷言要的是「翻過判定、結果已填」那個狀態。
+  //    **明確地把它放回那個狀態**，不要指望上一段剛好留對 ——
+  //    共用 fixture 被前一段改掉是這支 harness 已經踩過的坑。
+  await page.evaluate(() => {
+    window.closeSessionDetail();
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].outcomeTag = 'judged_entered';
+    all[0].originalOutcomeTag = 'judged_stood_down';
+    all[0].tradeResult = 'profit_taken';
+    delete all[0].tsPrecision;
+    delete all[0].source;
+    delete all[0].enteredAt;
+    delete all[0].enteredAtSource;
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.goTab('today'); window.goTab('session');
+  });
+  await page.waitForTimeout(800);   // countUpEl 跑 550ms
+  const stats = await page.evaluate(() => {
+    const txt = (id) => {
+      const el = document.getElementById(id);
+      return el ? el.textContent.trim() : '(缺這一格)';
+    };
+    return { count: txt('statCount'), stood: txt('statStoodDown'), filled: txt('statResultFilled') };
+  });
+  check('🔴 還是一筆決策（算一筆，不是兩筆 —— founder 2026-10-12 裁決）',
+    stats.count, '1');
+  check('🔴 判定不成立那一格回到 0（幽靈不得留在統計上）', stats.stood, '0');
+  check('🔴 結果已填 1/1', stats.filled, '1/1');
+
   await page.close();
 }
 
