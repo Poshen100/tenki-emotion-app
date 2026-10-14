@@ -199,6 +199,40 @@
   var FACE_CENTER_X_TOL = 0.08;
   var FACE_CENTER_Y_TOL = 0.09;
   /**
+   * 掃描框該離視窗頂端多近 —— 也就是**把儀器放到鏡頭軸線附近**。
+   *
+   * 🔴 這不是美術決定，是幾何。前鏡頭在手機最上緣，而覆蓋層原本把整個 stage
+   * 置中（`justify-content:center`），量到的框心落在 **0.43–0.47H**。使用者盯著
+   * 星塵球看 → 視線落在螢幕中段 → 相機從上方俯看 → 臉就出現在畫面**下半部**。
+   *
+   * 換算（H=852、機身顯示區約 149mm、手持約 325mm、鏡頭約在 y=55px）：
+   *   原本 frameCY=380.5 → 偏離鏡頭 325px ≈ 57mm → **約 10°**
+   * 而視訊研究裡超過約 **5°** 就讀得出「沒有看著對方」。同一個 10° 也正是
+   * `resolveHint` 一直回「向上對齊」的成因：10° 在垂直 FOV 約 65° 的前鏡頭上
+   * 換算成 `box.centerY ≈ 0.67`，遠在 `FACE_CENTER_Y_TOL = 0.09` 的容許帶外。
+   * **「眼睛沒對正」與「向上對齊一直跳」是同一條幾何**，所以一起修。
+   *
+   * 取 20：H=852 時框心落在 ~0.205H，偏離降到 **約 3.6°**；decision mission 多一行
+   * symbol（+33px）落在 ~0.244H ≈ **4.6°**，兩個都在 5° 以內。
+   * ⚠️ 這是**一個數字就能調的旋鈕** —— 實機覺得太高就把它調大，不要去動
+   * `FACE_CENTER_Y_TOL`（容許帶沒錯，錯的是版面；兩個一起改就分不出哪個有效）。
+   */
+  var LENS_TARGET_VH = 20;
+  /**
+   * stage 頂端到框心的距離，**量出來的不是算出來的**：
+   * `.rs-mission` 15px + stage gap 18px + 半個框 118px = 151px。
+   * （decision mission 會多一個 `.rs-symbol` 15 + gap 18 = +33px，所以框心再低 33px；
+   * harness 兩個 mission 各驗一條。）
+   */
+  var STAGE_TOP_TO_FRAME_PX = 151;
+  /**
+   * padding 的下限 —— **短螢幕的保命索**。
+   * `LENS_TARGET_VH` 的算式在 iPhone SE（667px）會解出 **-17.6px**，照單全收
+   * 會把 mission 標籤推到視窗外。取 24 + safe-area：SE 上框心反而落在 0.26H，
+   * 但 SE 機身更短、手也拿得更近，換算出來約 4.3°，一樣在門檻內。
+   */
+  var LENS_PAD_FLOOR_PX = 24;
+  /**
    * 鎖定遲滯（見 `evalFramed`）。
    *
    * `FRAME_LOCK_STREAK = 2`：以 `FACE_INTERVAL_MS`(180ms) 計 ≈ 360ms 才入鎖。
@@ -290,7 +324,14 @@
     style.textContent = [
       '#' + OVERLAY_ID + '{position:fixed;inset:0;z-index:' + OVERLAY_Z + ';display:none;',
       'background:#05060A;color:#F4F6FF;font-family:inherit;',
-      'flex-direction:column;align-items:center;justify-content:center;gap:18px;}',
+      // 🔴 `flex-start` 而不是 `center`：整個儀器往鏡頭軸線靠（見 LENS_TARGET_VH）。
+      // 置中的版面把「你該看的東西」放在螢幕中段，而鏡頭在最上緣 ——
+      // 於是「看著儀器」與「看著鏡頭」在物理上是兩個不同的動作。
+      'flex-direction:column;align-items:center;justify-content:flex-start;gap:18px;',
+      // `max()` 而不是 `clamp()`：這裡只需要下限。算式在矮螢幕會解出負值，
+      // 下限同時吃 safe-area，瀏海機不會把 mission 標籤塞進瀏海裡。
+      '--rs-lens-pad:max(calc(env(safe-area-inset-top, 0px) + ' + LENS_PAD_FLOOR_PX + 'px),',
+      ' calc(' + LENS_TARGET_VH + 'vh - ' + STAGE_TOP_TO_FRAME_PX + 'px));}',
       '#' + OVERLAY_ID + '.open{display:flex;}',
       // 🔴 相機影像一幀都不顯示（North Star §4，founder 2026-08-08 拍板）。
       // 看到自己的臉會變成自拍、有容貌焦慮的人反而更緊張，而且牽涉肖像權與免責。
@@ -313,7 +354,9 @@
       '#' + OVERLAY_ID + ' .rs-stardust{position:absolute;inset:0;border-radius:64px;',
       'overflow:hidden;pointer-events:none;}',
       '#' + OVERLAY_ID + ' .rs-stage{position:relative;z-index:1;display:flex;',
-      'flex-direction:column;align-items:center;gap:18px;padding:0 24px;text-align:center;}',
+      'flex-direction:column;align-items:center;gap:18px;text-align:center;',
+      // padding-top 走覆蓋層算好的 --rs-lens-pad —— 框心的位置由它決定。
+      'padding:var(--rs-lens-pad) 24px 0;}',
       '#' + OVERLAY_ID + ' .rs-mission{font-size:11px;letter-spacing:0.24em;',
       'text-transform:uppercase;color:#A6ADC8;}',
       '#' + OVERLAY_ID + ' .rs-symbol{font-size:13px;color:#3DE0FF;letter-spacing:0.08em;}',
@@ -2355,6 +2398,19 @@
         PITCH_SQUARE_MIN: PITCH_SQUARE_MIN,
         PITCH_SQUARE_MAX: PITCH_SQUARE_MAX,
         READOUT_SQUARE_WEIGHT: READOUT_SQUARE_WEIGHT,
+      },
+    },
+    /**
+     * Harness contract（`scripts/preview-scan-lens-offset.mjs` 用）。**唯讀**。
+     *
+     * 版面常數開出來，是為了讓 harness 能問「算式用的是不是這幾個具名常數」，
+     * 而不是自己抄一份數字 —— 抄一份的 harness 在常數被改掉時不會紅。
+     */
+    __layout: {
+      constants: {
+        LENS_TARGET_VH: LENS_TARGET_VH,
+        STAGE_TOP_TO_FRAME_PX: STAGE_TOP_TO_FRAME_PX,
+        LENS_PAD_FLOOR_PX: LENS_PAD_FLOOR_PX,
       },
     },
     __blink: {
