@@ -927,6 +927,15 @@
         || pose.pitch < PITCH_SQUARE_MIN || pose.pitch > PITCH_SQUARE_MAX)) {
         return { key: 'square', text: '正對鏡頭', icon: '⊕' };
       }
+      // 頭已經正了，但眼睛飄在別處 —— founder 2026-10-14：「臉跟眼睛都要正對
+      // 螢幕才對」。⚠️ **跟上面那條分開講**，因為要使用者做的動作不一樣：
+      // 一個是轉頭、一個是把視線移回來。合成一句「正對鏡頭」他會一直轉頭。
+      // ⚠️ 排在姿勢**之後**：頭歪時包圍盒本身就被扭曲了，而虹膜位移在那種
+      // 時候也不可靠（遠側眼被壓縮）。先把頭喬正，眼睛這條才有意義。
+      var gaze = session.gaze;
+      if (gaze && (Math.abs(gaze.x) > GAZE_X_MAX || Math.abs(gaze.y) > GAZE_Y_MAX)) {
+        return { key: 'gaze', text: '看向鏡頭', icon: '◉' };
+      }
       if (box.size < FACE_SIZE_MIN) return { key: 'closer', text: '再靠近一些', icon: '＋' };
       if (box.size > FACE_SIZE_MAX) return { key: 'farther', text: '退遠一點', icon: '－' };
       if (box.centerY > 0.5 + FACE_CENTER_Y_TOL) return { key: 'up', text: '向上對齊', icon: '↑' };
@@ -1486,10 +1495,13 @@
       // 而且 preview-scan-stardust.mjs 有斷言在看它的跨度。收散吃兩者的乘積
       // （見 stardust.js 的 convergeStill）：穩住只說「沒有晃」，一個人可以
       // 一動不動地把頭轉開，那時候畫面上得有東西說「你歪了」。
+      // 🔴 **眼睛也走這個欄位，不另開星塵通道**（`facingSquareness` = 臉與眼睛
+      // 取 min）。星塵的「預設值 = 恆等變換」是靠通道數量不長大守住的，
+      // 而 `READOUT_SQUARE_WEIGHT` 因此仍然是收散強度的單一旋鈕。
       S.setReadout({
         stillness: readoutStillness(still),
         progress: progress,
-        squareness: headSquareness(session.headPose),
+        squareness: facingSquareness(session.headPose, session.gaze),
       });
     }
     S.setTone({
@@ -1553,6 +1565,47 @@
     var yawErr = YAW_SQUARE_MAX > 0 ? Math.abs(pose.yaw) / YAW_SQUARE_MAX : 0;
     var pitchErr = pitchHalf > 0 ? Math.abs(pose.pitch - pitchMid) / pitchHalf : 0;
     return 1 - clamp01(Math.max(yawErr, pitchErr));
+  }
+
+  /**
+   * 眼睛的正對程度 —— `headSquareness` 的同形兄弟，只是量的是眼睛。
+   *
+   * 為什麼要分成兩個函式而不是把視線塞進 `headSquareness`：
+   * 它們錨在**不同的門檻**上（頭是 yaw/pitch，眼睛是虹膜位移），
+   * 分開寫兩邊都驗得到極值；合在一起之後，harness 就只能驗合併後的結果，
+   * 分不出是哪一半壞了。合併放在呼叫端（見 `facingSquareness`）。
+   *
+   * ⚠️ 水平與垂直**各自正規化再取 max**，不取向量長度 —— 這樣每一軸的門檻
+   * 就是它自己那個常數的意思（「x 到 0.14 就是 0」），調的時候才直覺。
+   * 跟 `headSquareness` 對 yaw/pitch 的作法一致。
+   *
+   * @param {?{x:number,y:number}} gaze - `eyeGaze()` 的輸出；null = 沒量到虹膜。
+   * @returns {number} 1 = 虹膜在眼眶中央，0 = 已經飄到提示門檻以外。
+   *   沒有 gaze 時回 1（＝恆等：沒量到就不要因此懲罰收散，同 `headSquareness`）。
+   */
+  function gazeSquareness(gaze) {
+    if (!gaze) return 1;
+    var xErr = GAZE_X_MAX > 0 ? Math.abs(gaze.x) / GAZE_X_MAX : 0;
+    var yErr = GAZE_Y_MAX > 0 ? Math.abs(gaze.y) / GAZE_Y_MAX : 0;
+    return 1 - clamp01(Math.max(xErr, yErr));
+  }
+
+  /**
+   * 「臉**跟**眼睛都正對螢幕」—— founder 2026-10-14 要的那個連言，換算成一個純量。
+   *
+   * 🔴 **取 `min` 而不是加權平均。** 臉歪或眼睛飄，**任何一個**都該讓收散鬆掉；
+   * 平均會讓「頭擺得超正但眼睛完全看別處」得到一個中間分數，而那個狀態
+   * 一點都不像「正對儀器」。min 讀起來就是那句話本身：兩個都要成立。
+   *
+   * ⚠️ 兩邊都用「沒量到就回 1」，所以 `min` 在只有一半資料時會自動退化成
+   * 另一半 —— 不需要在這裡再寫一次 null 分支。
+   *
+   * @param {?{yaw:number,pitch:number}} pose
+   * @param {?{x:number,y:number}} gaze
+   * @returns {number} 1 = 臉與眼睛都正對。
+   */
+  function facingSquareness(pose, gaze) {
+    return Math.min(headSquareness(pose), gazeSquareness(gaze));
   }
 
   /**
@@ -2545,6 +2598,27 @@
      * 版面常數開出來，是為了讓 harness 能問「算式用的是不是這幾個具名常數」，
      * 而不是自己抄一份數字 —— 抄一份的 harness 在常數被改掉時不會紅。
      */
+    /**
+     * Harness contract（`scripts/preview-scan-squareness.mjs` 用）。**唯讀**。
+     *
+     * 跟 `__pose` 分開開出來，是因為它們錨在不同的門檻上 —— 分開才驗得到
+     * 各自的極值。`facing` 是兩者的連言（founder 2026-10-14 那句話本身），
+     * 它要有自己的斷言：頭正 + 眼睛飄必須讓合併分數掉下來，否則「都要正對」
+     * 這個需求等於沒驗到。
+     */
+    __gaze: {
+      measure: eyeGaze,
+      squareness: gazeSquareness,
+      facing: facingSquareness,
+      constants: {
+        GAZE_X_MAX: GAZE_X_MAX,
+        GAZE_Y_MAX: GAZE_Y_MAX,
+        GAZE_SMOOTH_ALPHA: GAZE_SMOOTH_ALPHA,
+        IRIS_L: IRIS_L, IRIS_R: IRIS_R,
+        EYE_OUTER_L: EYE_OUTER_L, EYE_OUTER_R: EYE_OUTER_R,
+        EYE_INNER_L: EYE_INNER_L, EYE_INNER_R: EYE_INNER_R,
+      },
+    },
     __layout: {
       constants: {
         LENS_TARGET_VH: LENS_TARGET_VH,
