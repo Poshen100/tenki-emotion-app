@@ -128,33 +128,49 @@ async function measure(h, mission, symbol) {
       // + 半框」那條等號兩邊各含一次 padding —— 第一版就是這樣紅的。
       aboveFrame: frame.top - (stage.top + padTop),
       mission: { left: mis.left, right: mis.right, top: mis.top, bottom: mis.bottom },
+      privacyBottom: R('.rs-privacy').bottom,
       cancel: { left: cancel.left, right: cancel.right, top: cancel.top, bottom: cancel.bottom },
     };
   });
 
-  // 反向斷言用：把版面改回「置中、沒有鏡頭 padding」，框心必須回到 0.44 附近。
-  // ⚠️ **一定要在揭曉狀態之前量** —— 揭曉會把 stage 撐高約 120px，置中的版面
-  // 就會把框心往上拉到 0.37H，於是這條反向斷言會以「產品沒壞」的樣子紅掉。
-  // 量完立刻還原，不讓它汙染後面的量測。
-  geom.centredCY = await page.evaluate(() => {
+  // 反向斷言用：把 --rs-lens-pad 推開 120px，框心必須**剛好**跟著走 120px。
+  //
+  // 為什麼是這個形式而不是「把版面改回置中再量一次」：後者要在 harness 裡重建
+  // 一份舊版面（justify-content + flex + margin 全都要還原），而那份複製品
+  // 會自己腐爛 —— 第一版就是這樣，`.rs-stage` 改成 `flex:1` 之後它整組紅掉，
+  // 紅的是 harness 的仿造品，不是產品。
+  //
+  // 「推旋鈕、看框心跟著走」不需要知道版面長什麼樣，只證明一件事：
+  // **這支量到的就是這次改動在動的那個量**。量完立刻還原。
+  //
+  // ⚠️ 一定要在揭曉狀態之前量 —— 揭曉會把版面撐高，污染這一次的位移。
+  geom.padProbe = await page.evaluate(() => {
     const ov = document.getElementById('tenki-readiness-scan');
-    ov.style.justifyContent = 'center';
-    ov.style.setProperty('--rs-lens-pad', '0px');
-    const f = ov.querySelector('.rs-frame').getBoundingClientRect();
-    const cy = f.top + f.height / 2;
-    ov.style.justifyContent = '';
+    const frame = () => {
+      const f = ov.querySelector('.rs-frame').getBoundingClientRect();
+      return f.top + f.height / 2;
+    };
+    const before = frame();
+    const pad = parseFloat(getComputedStyle(ov.querySelector('.rs-stage')).paddingTop);
+    ov.style.setProperty('--rs-lens-pad', (pad + 120) + 'px');
+    const after = frame();
     ov.style.removeProperty('--rs-lens-pad');
-    return cy;
+    return { delta: after - before };
   });
 
   // 揭曉狀態：規格行與完成鈕都掀開，看最高的那個版面會不會爆底。
+  //
+  // ⚠️ 量的是**最後一個看得見的元素**，不是 `.rs-stage` 的 bottom。stage 是
+  // `flex:1`（撐滿覆蓋層好讓隱私註腳靠底），它的 bottom 恆等於 H ——
+  // 拿它來驗「有沒有爆底」會是一條**永遠綠的死斷言**。
   geom.revealBottom = await page.evaluate(() => {
     const q = (s) => document.querySelector('#tenki-readiness-scan ' + s);
     q('[data-rs="verdict-fact"]').hidden = false;
     q('[data-rs="verdict-spec"]').textContent = '468 點臉部特徵 · 10.0 秒 · 眨眼 16/分';
     q('[data-rs="verdict-quality"]').textContent = '擷取品質 moderate';
     q('[data-rs="done"]').hidden = false;
-    return q('.rs-stage').getBoundingClientRect().bottom;
+    return Math.max(...['.rs-privacy', '.rs-dots', '[data-rs="done"]', '[data-rs="verdict-fact"]']
+      .map((sel) => q(sel).getBoundingClientRect().bottom));
   });
 
   await ctx.close();
@@ -195,16 +211,22 @@ for (const dev of DEVICES) {
     check(`${tag} 揭曉狀態 ${g.revealBottom.toFixed(0)}px 沒爆底 (H=${g.H})`,
       g.revealBottom <= g.H, true);
 
+    // 隱私註腳要真的吸在底緣 —— 儀器上移之後底下空出約半個螢幕，靠底的註腳
+    // 是讓版面讀起來「刻意」而不是「沒做完」的那一件事。
+    // 和上一條成對：margin-top:auto 被拿掉時註腳會跟著指示燈往上跑，這條紅；
+    // flex:1 被拿掉時 stage 不再撐滿，註腳也靠不了底，一樣紅。
+    check(`${tag} 隱私註腳吸在底緣（距底 ${(g.H - g.privacyBottom).toFixed(0)}px）`,
+      g.H - g.privacyBottom <= 40, true);
+
     // 5. 取消鈕與 mission 標籤的 bounding box 不重疊（上移之後兩者同高）。
     const overlap = g.mission.right > g.cancel.left && g.mission.left < g.cancel.right
       && g.mission.bottom > g.cancel.top && g.mission.top < g.cancel.bottom;
     check(`${tag} 取消鈕沒壓到 mission 標籤`, overlap, false);
 
-    // 6. 🔴 反向斷言：改回置中就必須退回 0.44 附近。
+    // 6. 🔴 反向斷言：把 padding 推開 120px，框心必須剛好跟著走 120px。
     //    它跟第 3 條成對 —— 少了這條，把量測掏空也能讓第 3 條變綠。
-    const centredRatio = g.centredCY / g.H;
-    check(`${tag} 🔴 改回置中會退回 ~0.44H（量的就是這個量）`,
-      centredRatio > 0.40 && centredRatio < 0.50, true);
+    check(`${tag} 🔴 padding 推 120px → 框心跟著走 120px（量的就是這個量）`,
+      g.padProbe.delta, 120, 0.6);
   }
 }
 

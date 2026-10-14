@@ -324,9 +324,14 @@
     style.textContent = [
       '#' + OVERLAY_ID + '{position:fixed;inset:0;z-index:' + OVERLAY_Z + ';display:none;',
       'background:#05060A;color:#F4F6FF;font-family:inherit;',
-      // 🔴 `flex-start` 而不是 `center`：整個儀器往鏡頭軸線靠（見 LENS_TARGET_VH）。
-      // 置中的版面把「你該看的東西」放在螢幕中段，而鏡頭在最上緣 ——
-      // 於是「看著儀器」與「看著鏡頭」在物理上是兩個不同的動作。
+      // 整個儀器往鏡頭軸線靠（見 LENS_TARGET_VH）。置中的版面把「你該看的東西」
+      // 放在螢幕中段，而鏡頭在最上緣 —— 於是「看著儀器」與「看著鏡頭」
+      // 在物理上是兩個不同的動作。
+      //
+      // ⚠️ 真正決定位置的是 `.rs-stage` 的 `flex:1` + `padding-top`，**不是這行
+      // `justify-content`** —— stage 會撐滿覆蓋層，justify-content 因此沒有作用。
+      // （反向驗證時把它改回 `center`，49 條斷言一條都沒紅，就是這個原因。）
+      // 留 `flex-start` 只當 `flex:1` 哪天被拿掉時的正確退路，不要把它讀成機制。
       'flex-direction:column;align-items:center;justify-content:flex-start;gap:18px;',
       // `max()` 而不是 `clamp()`：這裡只需要下限。算式在矮螢幕會解出負值，
       // 下限同時吃 safe-area，瀏海機不會把 mission 標籤塞進瀏海裡。
@@ -356,7 +361,9 @@
       '#' + OVERLAY_ID + ' .rs-stage{position:relative;z-index:1;display:flex;',
       'flex-direction:column;align-items:center;gap:18px;text-align:center;',
       // padding-top 走覆蓋層算好的 --rs-lens-pad —— 框心的位置由它決定。
-      'padding:var(--rs-lens-pad) 24px 0;}',
+      // `flex:1` 讓 stage 撐滿覆蓋層，隱私註腳才有「底部」可以靠（見下）。
+      'flex:1;align-self:stretch;',
+      'padding:var(--rs-lens-pad) 24px calc(env(safe-area-inset-bottom, 0px) + 20px);}',
       '#' + OVERLAY_ID + ' .rs-mission{font-size:11px;letter-spacing:0.24em;',
       'text-transform:uppercase;color:#A6ADC8;}',
       '#' + OVERLAY_ID + ' .rs-symbol{font-size:13px;color:#3DE0FF;letter-spacing:0.08em;}',
@@ -619,7 +626,12 @@
       'background:#5A6178;display:inline-block;}',
       '#' + OVERLAY_ID + ' .rs-dot.pass i{background:#46E0B0;}',
       '#' + OVERLAY_ID + ' .rs-dot.fail i{background:#FF6B6B;}',
-      '#' + OVERLAY_ID + ' .rs-privacy{font-size:11px;color:#5A6178;}',
+      // 儀器上移到鏡頭軸線之後，底下空出約半個螢幕。隱私註腳本來就是註腳，
+      // 把它吸到底緣，整個版面才讀得像「刻意的」而不是「沒做完」。
+      // ⚠️ `margin-top:auto` 吃掉的是**剩餘空間**，不是固定值 —— 矮螢幕上剩餘
+      // 空間接近 0 時它自然退回緊接在指示燈下方，不會把自己推出視窗。
+      '#' + OVERLAY_ID + ' .rs-privacy{font-size:11px;color:#5A6178;margin-top:auto;',
+      'padding-top:18px;}',
       '#' + OVERLAY_ID + ' .rs-cancel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);',
       'right:16px;z-index:2;background:none;border:0;color:#A6ADC8;font-size:15px;',
       'font-family:inherit;padding:10px 14px;cursor:pointer;}',
