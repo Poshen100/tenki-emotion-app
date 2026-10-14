@@ -92,10 +92,135 @@ check('曲線單調不增（轉得越開越鬆）',
 //   少了第二條的話，把函式內容整個刪掉也能讓第一條變綠，那就是一條死斷言。
 const gateSrc = await page.evaluate(
   () => window.TENKI_READINESS_SCAN.__pose.gatesAdvance.toString());
-check('🔴 閘門裡沒有 pose/yaw/pitch/square（進不了閘門就不會卡死）',
-  /pose|yaw|pitch|square/i.test(gateSrc), false);
+check('🔴 閘門裡沒有 pose/yaw/pitch/square/gaze（進不了閘門就不會卡死）',
+  /pose|yaw|pitch|square|gaze|iris/i.test(gateSrc), false);
 check('🔴 閘門仍然真的在看 centering 與 stillness（上一條不是死斷言）',
   /centering/.test(gateSrc) && /stillness/.test(gateSrc), true);
+
+// ── 3b. 眼睛：虹膜在眼眶裡的位移（founder 2026-10-14「臉跟眼睛都要正對螢幕」）──
+//
+// 合成 landmark 直接餵純函式，不開相機。眼睛的幾何刻意做成不對稱
+// （左右眼的 span 不同、兩眼不在同一條水平線上），這樣「兩眼取平均」與
+// 「各自以自己的 span 正規化」這兩件事才驗得到 —— 做成對稱的話，
+// 把其中一隻眼整個忽略掉也能讓斷言變綠。
+const G = await page.evaluate(() => window.TENKI_READINESS_SCAN.__gaze.constants);
+
+/**
+ * 造一組 478 點 landmark：兩隻眼的虹膜各自偏離眼眶中心 (gx, gy)（已正規化）。
+ * `irisSpread` 把 5 個虹膜點散開但**維持形心** —— 用來驗程式取的是形心，
+ * 不是賭 468/473 一定是中心點。
+ */
+function makeEyeLm(gx, gy, opts) {
+  const o = opts || {};
+  const lm = [];
+  for (let i = 0; i < 478; i++) lm.push({ x: 0.5, y: 0.5, z: 0 });
+  const eyes = [
+    // 左：span 0.06、y 0.45 ／ 右：span 0.08、y 0.47 —— 刻意不一樣
+    { iris: G.IRIS_L, outer: G.EYE_OUTER_L, inner: G.EYE_INNER_L, ox: 0.40, ix: 0.46, y: 0.45 },
+    { iris: G.IRIS_R, outer: G.EYE_OUTER_R, inner: G.EYE_INNER_R, ox: 0.62, ix: 0.54, y: 0.47 },
+  ];
+  for (const e of eyes) {
+    lm[e.outer] = { x: e.ox, y: e.y, z: 0 };
+    lm[e.inner] = { x: e.ix, y: e.y, z: 0 };
+    const span = Math.abs(e.ox - e.ix);
+    const cx = (e.ox + e.ix) / 2 + gx * span;
+    const cy = e.y + gy * span;
+    // 散開但形心不變：四個點 ±d 對稱，第五個點放在形心上。
+    const d = (o.irisSpread || 0) * span;
+    const ring = [[-d, 0], [d, 0], [0, -d], [0, d], [0, 0]];
+    e.iris.forEach((idx, k) => {
+      lm[idx] = { x: cx + ring[k][0], y: cy + ring[k][1], z: 0 };
+    });
+  }
+  if (o.dropIris) for (const e of eyes) for (const idx of e.iris) lm[idx] = undefined;
+  if (o.dropRightEye) { const e = eyes[1]; for (const idx of e.iris) lm[idx] = undefined; }
+  if (o.truncate468) lm.length = 468;
+  return lm;
+}
+
+const gz = (gx, gy, opts) => page.evaluate(
+  ([l]) => window.TENKI_READINESS_SCAN.__gaze.squareness(
+    window.TENKI_READINESS_SCAN.__gaze.measure(l)), [makeEyeLm(gx, gy, opts)]);
+const raw = (gx, gy, opts) => page.evaluate(
+  ([l]) => window.TENKI_READINESS_SCAN.__gaze.measure(l), [makeEyeLm(gx, gy, opts)]);
+
+// 🔴 門檻本身要被守住 —— 上面每一條都是**相對**門檻寫的（餵 GAZE_X_MAX 進去
+// 期望得到 0），所以把門檻改成任何值它們都照樣綠。實測過：改成 0.40 時
+// 29 條一條都沒紅。那正是「自洽但沒有外部真值」的死角。
+//
+// 外部真值就是註解裡那條推導：眼球半徑約 12mm / 兩眥距離約 30mm
+// → 正規化位移 ≈ 0.4·sin(θ)。把門檻換算回**角度**來驗，兩側都卡住：
+//   下限 10°：使用者盯著儀器時視線本來就偏約 3.7°（≈0.026）。門檻掉到
+//            那附近就變成一個**一直亮的提示** —— 比沒有提示更糟。
+//   上限 30°：再寬就等於這條提示永遠不會亮，形同沒做。
+// 要調靈敏度請調角度，然後把常數改成對應的值 —— 不要直接動數字。
+const IRIS_RATIO = 0.4; // 眼球半徑 / 兩眥距離
+const degOf = (v) => (Math.asin(Math.min(1, v / IRIS_RATIO)) * 180) / Math.PI;
+const degX = degOf(G.GAZE_X_MAX);
+const degY = degOf(G.GAZE_Y_MAX);
+console.log(`視線門檻換算：水平 ${G.GAZE_X_MAX} = ${degX.toFixed(1)}°`
+  + ` · 垂直 ${G.GAZE_Y_MAX} = ${degY.toFixed(1)}°`);
+check(`🔴 水平門檻換算成角度 ${degX.toFixed(1)}° 落在 10°–30°（不會一直亮、也不會永不亮）`,
+  degX >= 10 && degX <= 30, true);
+check(`🔴 垂直門檻 ${degY.toFixed(1)}° 比水平寬（虹膜垂直基線未知，寬容差是刻意的）`,
+  G.GAZE_Y_MAX > G.GAZE_X_MAX, true);
+check(`垂直門檻 ${degY.toFixed(1)}° 仍在 45° 以內（寬不等於沒有門檻）`,
+  degY <= 45, true);
+
+// 極值錨在「看向鏡頭」提示門檻上（同 headSquareness 錨在「正對鏡頭」上）
+check('虹膜在眼眶中央 ＝ 1', await gz(0, 0), 1, 1e-9);
+check('🔴 水平剛好到「看向鏡頭」提示門檻 ＝ 0', await gz(G.GAZE_X_MAX, 0), 0, 1e-9);
+check('🔴 垂直剛好到提示門檻 ＝ 0', await gz(0, G.GAZE_Y_MAX), 0, 1e-9);
+check('超出門檻不會變負（夾在 0）', await gz(G.GAZE_X_MAX * 3, 0), 0, 1e-9);
+check('水平的正負對稱',
+  await gz(-G.GAZE_X_MAX / 2, 0), await gz(G.GAZE_X_MAX / 2, 0), 1e-9);
+
+// 🔴 量不到就是量不到 —— 不得回 0（CLAUDE.md：缺就是缺，不要填合理的預設值）
+check('🔴 沒有虹膜點時 measure 回 null（不造假成「置中」）',
+  await raw(0, 0, { dropIris: true }), null);
+check('🔴 refineLandmarks 關著（只有 468 點）時也回 null',
+  await raw(0, 0, { truncate468: true }), null);
+check('沒有 gaze 時 squareness 回 1（恆等，不因「沒量到」懲罰收散）',
+  await page.evaluate(() => window.TENKI_READINESS_SCAN.__gaze.squareness(null)), 1, 1e-9);
+check('🔴 上面那三條不是死斷言：有虹膜點時 measure 真的回得出數字',
+  typeof (await raw(G.GAZE_X_MAX, 0))?.x === 'number', true);
+
+// 單眼可用（側臉時遠側眼會掉點）—— 剩一隻仍然比沒有有用
+const oneEye = await raw(G.GAZE_X_MAX, 0, { dropRightEye: true });
+check('只剩一隻眼仍然量得到（不是 null）', oneEye !== null, true);
+
+// 🔴 取的是 5 點的**形心**，不是賭 468/473 是中心點
+check('🔴 虹膜點散開但形心不變時，量到的值不變（取形心不是取單點）',
+  await gz(G.GAZE_X_MAX / 2, 0, { irisSpread: 0.35 }),
+  await gz(G.GAZE_X_MAX / 2, 0), 1e-9);
+
+// 真的走遍 0..1（CLAUDE.md：定義域 ≠ 會走到的範圍）
+const gcurve = [];
+for (let i = 0; i <= 20; i++) gcurve.push(await gz((G.GAZE_X_MAX * i) / 20, 0));
+check('🔴 眼睛飄開時 squareness 真的走遍 0..1（跨度 ≥ 0.9）',
+  Math.max(...gcurve) - Math.min(...gcurve) >= 0.9, true);
+check('曲線單調不增（飄得越開越鬆）',
+  gcurve.every((v, i) => i === 0 || v <= gcurve[i - 1] + 1e-9), true);
+
+// ── 3c. 🔴 連言：臉**跟**眼睛都要正對 ──
+//
+// 這一組直接驗 founder 那句話。缺它的話，上面每一條都綠著，而
+// 「兩個都要成立」這個需求可以完全沒接上（例如 facing 只回 headSquareness）。
+const facing = (pose, gaze) => page.evaluate(
+  ([p, g]) => window.TENKI_READINESS_SCAN.__gaze.facing(p, g), [pose, gaze]);
+const squarePose = { yaw: 0, pitch: pitchMid };
+const crookedPose = { yaw: C.YAW_SQUARE_MAX, pitch: pitchMid };
+const centredGaze = { x: 0, y: 0 };
+const driftGaze = { x: G.GAZE_X_MAX, y: 0 };
+
+check('臉正 + 眼睛正 ＝ 1', await facing(squarePose, centredGaze), 1, 1e-9);
+check('🔴 臉正但眼睛飄 → 掉到 0（頭擺得再正也救不回來）',
+  await facing(squarePose, driftGaze), 0, 1e-9);
+check('🔴 眼睛正但臉歪 → 掉到 0（眼睛看著也救不回來）',
+  await facing(crookedPose, centredGaze), 0, 1e-9);
+check('取 min 不是取平均（任一邊歪掉就等於那一邊的分數）',
+  await facing(squarePose, { x: G.GAZE_X_MAX / 2, y: 0 }), 0.5, 1e-9);
+check('兩邊都沒資料時回 1（恆等）', await facing(null, null), 1, 1e-9);
 
 // ── 4. 星塵端：預設恆等、傳了才動，而且只動收散不動色彩 ──
 //
