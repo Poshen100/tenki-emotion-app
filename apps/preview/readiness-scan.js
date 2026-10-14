@@ -251,6 +251,21 @@
   var EYE_OUTER_L = 33;
   var EYE_OUTER_R = 263;
   /**
+   * 眼睛朝向要用的額外索引（見 `eyeGaze`）。
+   *
+   * 內眥（眼頭）133 / 362 配上面的外眥（眼尾）33 / 263，兩者的中點就是眼眶中心；
+   * 虹膜 468–472（左）/ 473–477（右）**只有 `refineLandmarks: true` 才有** ——
+   * 關著的時候 `lm` 只有 468 點，這些索引全部是 undefined，`eyeGaze` 會回 `null`。
+   *
+   * ⚠️ MediaPipe 的 left/right 是**模型自己那套**（與 33/263 同一套），
+   * 不是畫面上的左右。這裡只做「同一隻眼的虹膜配同一隻眼的眥」，不跨邊，
+   * 所以就算哪天命名反過來也不影響結果。
+   */
+  var EYE_INNER_L = 133;
+  var EYE_INNER_R = 362;
+  var IRIS_L = [468, 469, 470, 471, 472];
+  var IRIS_R = [473, 474, 475, 476, 477];
+  /**
    * 「沒有正對鏡頭」的門檻（以兩眼外角距離正規化的偏移）。
    *
    * ⚠️ 這兩個值是**先驗的保守估計，還沒實機調過** —— 手感調參歸桌機 lane
@@ -261,6 +276,39 @@
   var YAW_SQUARE_MAX = 0.22;
   var PITCH_SQUARE_MIN = 0.16;
   var PITCH_SQUARE_MAX = 0.62;
+  /**
+   * 「眼睛沒有看向鏡頭」的門檻（虹膜在眼眶裡的位移，以兩眥距離正規化）。
+   *
+   * 🔴 **這個數是推導的，不是挑的。** 眼球半徑約 12mm、兩眥距離約 30mm，
+   * 眼睛轉 θ 度時虹膜中心的位移約 `12·sin(θ)`，正規化後 ≈ `0.4·sin(θ)`：
+   *
+   *     θ = 10° → 0.069     θ = 15° → 0.104     θ = 20° → 0.137
+   *
+   * 取 **0.14（≈20°）**：明顯看開了才喊。要改靈敏度就改這個角度，
+   * 不要直接改數字 —— 數字是角度的函式。
+   *
+   * 🔴 **為什麼門檻必須遠大於日常值**：儀器現在在 0.20H、鏡頭約在 0.05H，
+   * 使用者盯著星塵球時視線只偏約 3.7°（見 `LENS_TARGET_VH`），
+   * 換算 `0.4·sin(3.7°) ≈ 0.026`。門檻若訂在那附近就會變成**一直亮的提示** ——
+   * 而上面 `YAW_SQUARE_MAX` 的註解已經說過，那比沒有提示更糟。
+   *
+   * ⚠️ **垂直方向另開一組，而且刻意更寬。** 虹膜正視時不保證落在兩眥連線上
+   * （上眼瞼會蓋、眥的連線本身是斜的），基線不是 0 —— 跟
+   * `PITCH_SQUARE_MIN/MAX` 是同一回事。而真人的基線**沙箱量不到**，
+   * 所以：不知道就給寬容差。`GAZE_Y_MAX` 比 `GAZE_X_MAX` 寬，
+   * 不是因為垂直比較不重要，是因為我們對它知道得比較少。
+   * 兩個都**還沒實機調過**，founder 回一句就能調。
+   */
+  var GAZE_X_MAX = 0.14;
+  var GAZE_Y_MAX = 0.22;
+  /**
+   * 虹膜位移的 EWMA 係數。
+   *
+   * 為什麼要平滑：虹膜 landmark 本來就會抖，而 `FACE_INTERVAL_MS` 是 180ms ——
+   * 每秒只有 5~6 個樣本，單一幀的雜訊會讓「看向鏡頭」這條提示閃爍。
+   * 0.35 是快到跟得上真的轉眼、慢到吃掉單幀跳動的折衷（**先驗，未實機調**）。
+   */
+  var GAZE_SMOOTH_ALPHA = 0.35;
   /**
    * 正對程度（squareness）在收散上的權重 —— 0 = 完全不影響，1 = 與 stillness 等重。
    *
@@ -792,6 +840,64 @@
   }
 
   /**
+   * 眼睛**在眼眶裡**偏到哪 —— 也就是「眼睛有沒有看向鏡頭」。
+   *
+   * 為什麼這跟 `headPose` 是兩件事（founder 2026-10-14：「應該是臉跟眼睛都要
+   * 正對螢幕才對，使用者的感受才會合理」）：`headPose` 量的是**頭的朝向**，
+   * 頭擺得再正，眼睛也可以飄到旁邊 —— 而那時畫面上沒有任何東西說得出這件事。
+   *
+   * 🔴 **為什麼這裡不需要做頭姿補償。** 一般的視線估計很難，因為虹膜在眼眶裡的
+   * 位移（eye-in-head）跟頭的朝向混在一起：頭轉開但眼睛追著鏡頭，虹膜會偏到
+   * 眼角，看起來像「沒在看」。但這個產品要的是那個**連言** ——
+   * 頭正（`headSquareness`）**且**眼睛在眼眶中央（這裡）⇒ 視線落在鏡頭上。
+   * 混淆項被前者吃掉了，所以兩個各自量就夠，不必把難題整個解開。
+   *
+   * 量法：每隻眼取虹膜 5 點的**形心**（不賭 468/473 一定是中心點），
+   * 減掉內外眥的中點，再以**兩眥距離**正規化 —— 所以距離遠近不影響這個比值，
+   * 跟 `headPose` 用兩眼外角距離正規化是同一個理由。兩眼取平均。
+   *
+   * 🔴 **拿不到虹膜點就回 `null`，不回 0、不回「置中」。**
+   * `refineLandmarks` 關著時 `lm` 只有 468 點，這些索引全是 undefined；
+   * 填一個「看起來合理」的 0 會讓下游**分不出**「他正在看鏡頭」和
+   * 「我們根本沒量」—— 那正是 CLAUDE.md 明列的那條硬規則。
+   *
+   * @param {Array<{x:number,y:number}>} lm - FaceMesh landmarks（需 478 點）。
+   * @returns {?{x:number, y:number}} 正規化位移（0 = 虹膜在眼眶中央）；量不到為 null。
+   */
+  function eyeGaze(lm) {
+    var acc = { x: 0, y: 0, n: 0 };
+    var eyes = [
+      { iris: IRIS_L, outer: EYE_OUTER_L, inner: EYE_INNER_L },
+      { iris: IRIS_R, outer: EYE_OUTER_R, inner: EYE_INNER_R },
+    ];
+    for (var e = 0; e < eyes.length; e++) {
+      var outer = lm[eyes[e].outer];
+      var inner = lm[eyes[e].inner];
+      if (!outer || !inner) continue;
+      var span = Math.hypot(outer.x - inner.x, outer.y - inner.y);
+      if (span < 1e-4) continue; // 退化幾何：不猜，跳過這隻眼
+      var ix = 0;
+      var iy = 0;
+      var n = 0;
+      for (var i = 0; i < eyes[e].iris.length; i++) {
+        var pt = lm[eyes[e].iris[i]];
+        if (!pt) continue;
+        ix += pt.x;
+        iy += pt.y;
+        n += 1;
+      }
+      if (n === 0) continue; // 這隻眼沒有虹膜點
+      acc.x += (ix / n - (outer.x + inner.x) / 2) / span;
+      acc.y += (iy / n - (outer.y + inner.y) / 2) / span;
+      acc.n += 1;
+    }
+    // 🔴 兩隻眼都量不到才是 null；量到一隻就用那一隻（側臉時遠側眼會掉點，
+    // 那時候「只有一隻眼的資料」仍然比「沒有資料」有用）。
+    if (acc.n === 0) return null;
+    return { x: acc.x / acc.n, y: acc.y / acc.n };
+  }
+
+  /**
    * 推導**唯一**那一條主指令。
    *
    * 資料早就在了 —— `onFaceResults` 每幀都算出臉框的中心與大小，先前卻被壓成一個
@@ -1183,6 +1289,22 @@
     session.landmarkCount = lm.length;
     // 頭部朝向：只餵指令，**不進閘門**（見 gatesAdvance 的註解）。
     session.headPose = headPose(lm);
+    // 眼睛朝向：同樣只餵指令與收散，不進閘門。
+    // EWMA 平滑 —— 虹膜 landmark 會抖，而 180ms 一幀的取樣率讓單幀雜訊足以
+    // 讓提示閃爍。⚠️ **量不到時不要讓舊值繼續漂著**：回 null 就把平滑值一起
+    // 清掉，否則臉離開畫面之後畫面還在根據一個過期的視線講話。
+    var gaze = eyeGaze(lm);
+    if (gaze === null) {
+      session.gaze = null;
+    } else if (session.gaze === null) {
+      session.gaze = gaze; // 第一筆直接採用，不從 0 爬上來
+    } else {
+      var a = GAZE_SMOOTH_ALPHA;
+      session.gaze = {
+        x: session.gaze.x + a * (gaze.x - session.gaze.x),
+        y: session.gaze.y + a * (gaze.y - session.gaze.y),
+      };
+    }
     session.lastFaceCenter = { x: centerX, y: centerY };
     session.lastFaceAt = now;
     // 保留中心與大小 —— 方向指令（resolveHint）需要它們。先前這裡直接壓成
@@ -1479,7 +1601,12 @@
         },
       });
       instance.setOptions({
-        maxNumFaces: 1, refineLandmarks: false,
+        // 🔴 `refineLandmarks: true` 是為了拿**虹膜**（468–477）—— 沒有它就沒有
+        // `eyeGaze`，「眼睛有沒有看向鏡頭」這件事量不到（founder 2026-10-14）。
+        // 代價：attention mesh 讓單次推論變重（約 2×）。不會爆記憶體 ——
+        // 下面的 `faceBusy` 重疊防護 + `FACE_INTERVAL_MS` 間隔還在，最差只是
+        // **推論幀數變少**；而那件事揭曉畫面自己會說（規格行印「N 幀推論」）。
+        maxNumFaces: 1, refineLandmarks: true,
         minDetectionConfidence: 0.5, minTrackingConfidence: 0.5,
       });
       instance.onResults(onFaceResults);
@@ -2339,7 +2466,7 @@
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         // 谷底式眨眼偵測的狀態（見 BLINK_DIP_RATIO 的註解）。
         eyeBaseline: null, eyeDip: null,
-        lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0,
+        lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0, gaze: null,
         stardust: false,
         // 借來的星塵綁定（`{node, fitContainer}`）。非 null 就代表**欠著一次歸還**。
         borrowedFrom: null,
