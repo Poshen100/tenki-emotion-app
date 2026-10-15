@@ -7045,7 +7045,13 @@ function openSessionDetail(ts){
   const badge = outcomeBadgeV6(rec.outcomeTag);
   // 🔴 `timed` ＝ 這一筆真的有「用了多久」這個量。補記的沒有（它不是在 App 裡
   // 跑的），所以凡是從 `durationSec` 推導出來的呈現都要整個退場，不是印 0。
-  const timed = typeof rec.durationSec === 'number';
+  // 🔴 **被上限收掉的舊紀錄也沒有**，即使 `durationSec` 欄位裡躺著一個數字 ——
+  //    那個數字是「他隔多久才開 App」（見 decision-outcome.js 的 endedByCeiling）。
+  //    欄位的**型別**說它是數字，欄位的**意義**說它不是用時；這一行問的是後者。
+  //    2026-10-15 守門抓到：少了這一半，節奏卡片會拿那個數字畫出一條三段軌跡，
+  //    而副標會印「41:20 用時」—— 兩個都在宣稱我們沒量到的東西。
+  const timed = typeof rec.durationSec === 'number'
+    && !window.TENKI_OUTCOME.endedByCeiling(rec);
   const dur = timed ? rec.durationSec : 0;
   const b = segBounds(dur);
   const marks = rec.marks || 0;
