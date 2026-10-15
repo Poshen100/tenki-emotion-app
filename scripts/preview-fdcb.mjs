@@ -3418,6 +3418,28 @@ for (const h of [700, 740, 844, 932]) {
   check('節奏卡片不出現（它整張都是從用時推導的）', legacy.segHidden, true);
   check('🔴 **推導，不改寫 store** —— 舊紀錄原值原封不動', legacy.stored, 41 * 60 + 20);
 
+  // 🔴 **寫入端產生的那個形狀也要驗。** 上面幾條餵的都是**舊**紀錄
+  //    （`durationSec` 裡有數字、沒有 `endedBy`），而新寫進去的長相相反：
+  //    `durationSec: null` + `endedBy: 'ceiling'`。只驗舊形狀的話，
+  //    寫入端改壞了這裡一聲都不吭。
+  //    ⚠️ 誠實說清楚這條驗的是**讀端對新形狀的處理**；真的跑滿 30 分鐘的
+  //    寫入路徑在 harness 裡跑不動，`endedBy` 那一欄是靠推導以外的保險。
+  const fresh = await seed([{
+    ...mk(null), endedBy: 'ceiling', durationSec: null,
+  }]).then(() => page.evaluate((ts) => {
+    window.openSessionDetail(ts);
+    const row = document.querySelector('#sessionList .session-item');
+    return {
+      listDur: [...row.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[2],
+      sub: document.getElementById('sdSubtitle').textContent.trim(),
+      segHidden: document.getElementById('sdSegCard').hidden,
+    };
+  }, now - 2 * 3600e3));
+  check('🔴 新形狀（durationSec:null + endedBy）也印「超過 30:00」',
+    fresh.listDur, '超過 30:00');
+  check('新形狀的副標一樣說得出未判定', /超過 30:00 未判定/.test(fresh.sub), true);
+  check('新形狀也不畫節奏卡片', fresh.segHidden, true);
+
   // ── 剛好等於上限不算超過（邊界）──
   const atCeil = await seed([mk(CEIL)]).then(() => page.evaluate(() => {
     const row = document.querySelector('#sessionList .session-item');
