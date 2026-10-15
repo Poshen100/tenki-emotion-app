@@ -684,6 +684,134 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   }
 }
 
+// ═════════════════════════════════════════════════
+// 🔴 L1：上一筆還沒填結果，順手帶一下
+//
+// founder 2026-10-11 的主意（規格 `docs/DECISION-RECORD-LOOP.md` §4）。
+// 這一組守的**不是「帶子會不會出現」**，是它的那幾條硬規則：
+//   · 不得阻擋、不得搶焦點 —— 忽略它，新快訊的流程逐步不變
+//   · 一條帶最多講**一筆**
+//   · 填完**就地收起，不跳頁**
+//   · 走共用判準（`awaitsResult`），不自己判一次
+//   · 不得把人導去**補記那張表單**（補填 ≠ 補記，成本差八倍）
+// ═════════════════════════════════════════════════
+{
+  const rp = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const mk = (ts, symbol, tradeResult) => ({
+    ts, symbol, templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: 'judged_entered', tradeResult,
+    durationSec: 90, marks: 0, events: [], reachedReadiness: null,
+  });
+  const now = Date.now();
+  await rp.addInitScript((rs) => {
+    localStorage.setItem('__seeded', '1');
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+  }, [mk(now - 7200e3, 'ES1!', 'pending'), mk(now - 10800e3, 'NQ1!', 'profit_taken')]);
+  await rp.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(400);
+  await rp.click('#btnSingle');
+  await rp.waitForTimeout(600);
+
+  const band = await rp.evaluate(() => {
+    const b = document.getElementById('pendingBand');
+    const vis = (el) => !!el && !el.hidden && el.getBoundingClientRect().height > 0;
+    return {
+      shown: vis(b),
+      text: document.getElementById('pendingBandText').textContent.trim(),
+      chips: [...document.querySelectorAll('#pendingBandChips .result-chip')]
+        .map((c) => c.textContent.trim()),
+      moreHidden: document.getElementById('pendingBandMore').hidden,
+      // 🔴 主動線必須原封不動：新快訊的兩顆按鈕還在、還看得見。
+      actions: [...document.querySelectorAll('#entrySheet .sheet-actions .btn')]
+        .filter((x) => x.getBoundingClientRect().width > 0).map((x) => x.textContent.trim()),
+      // 🔴 帶子不得搶焦點。
+      focusInBand: !!(document.activeElement && b.contains(document.activeElement)),
+      sheetText: document.getElementById('entrySheet').textContent,
+    };
+  });
+  check('🔴 有一筆在等結果時，快訊面板上長出那條帶', band.shown, true);
+  check('帶子講的是那一筆的標的', band.text, 'ES1! 還沒填結果');
+  check('🔴 晶片走共用模組的三顆（不自己寫一份清單）',
+    band.chips, ['達到目標', '觸及保護價', '打平出場']);
+  check('🔴 只有一筆在等 → 不印「還有 N 筆」', band.moreHidden, true);
+  check('🔴 新快訊的主動線一步不變（兩顆按鈕都還在）',
+    band.actions, ['略過', '進入決策']);
+  check('🔴 帶子不得搶焦點', band.focusInBand, false);
+  // 🔴 補填 ≠ 補記：這條帶不得把人導去那張表單。
+  check('🔴 帶子不得出現「補記」那條路（那是把一下變成八下）',
+    /補記/.test(band.sheetText), false);
+  check('🔴 不得用倒數／逾期的措辭', /逾期|過期|剩餘|倒數/.test(band.text), false);
+
+  // ── 點一下 → 就地收起、不跳頁、真的寫進 store ──
+  const after = await rp.evaluate(() => {
+    const url = location.href;
+    document.querySelector('#pendingBandChips [data-trade-result="profit_taken"]').click();
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    return {
+      stored: all.find((r) => r.symbol === 'ES1!').tradeResult,
+      // 另一筆**不准被碰到**
+      other: all.find((r) => r.symbol === 'NQ1!').tradeResult,
+      bandHidden: document.getElementById('pendingBand').hidden,
+      sameUrl: location.href === url,
+      sheetOpen: document.getElementById('entrySheet').classList.contains('show'),
+      log: document.querySelector('#logList .log-item .log-type')
+        ? document.querySelector('#logList .log-item .log-type').textContent.trim() : '(沒有)',
+    };
+  });
+  check('點一下就把結果寫進去了', after.stored, 'profit_taken');
+  check('🔴 只動那一筆，別人的結果不准被碰到', after.other, 'profit_taken');
+  check('🔴 填完就地收起（沒有別的在等了）', after.bandHidden, true);
+  check('🔴 **不跳頁**（跳頁會把人從新快訊上扯走）', after.sameUrl, true);
+  check('🔴 而且面板還開著，新快訊的流程沒有被打斷', after.sheetOpen, true);
+  check('🔴 事件鏈上是中文的「結果補填」，不是 fallback 印出的英文 kind',
+    after.log, '結果補填');
+
+  // ── 兩筆在等 → 仍然只講一筆，但說得出還有幾筆 ──
+  // ⚠️ 帶子在**開面板時**渲染，所以改完 store 要關掉再開一次 ——
+  //    直接改 localStorage 不會讓畫面自己更新（那是對的：它不該輪詢）。
+  await rp.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all.forEach((r) => { r.tradeResult = 'pending'; });
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+  });
+  await rp.click('#btnDismiss');
+  await rp.waitForTimeout(300);
+  await rp.click('#btnSingle');
+  await rp.waitForTimeout(600);
+  const two = await rp.evaluate(() => ({
+    text: document.getElementById('pendingBandText').textContent.trim(),
+    chipGroups: document.querySelectorAll('#pendingBandChips').length,
+    chips: document.querySelectorAll('#pendingBandChips .result-chip').length,
+    more: document.getElementById('pendingBandMore').hidden
+      ? '(沒印)' : document.getElementById('pendingBandMore').textContent.trim(),
+    href: document.getElementById('pendingBandMore').getAttribute('href'),
+  }));
+  check('🔴 兩筆在等時，帶子仍然只講一筆（最新的那筆）',
+    /^NQ1!|^ES1!/.test(two.text) && two.chips === 3, true);
+  check('🔴 而且說得出還有幾筆', two.more, '還有 1 筆 · 到決策紀錄補');
+  check('那條路連到 Session 頁', two.href, '/v3/#session');
+
+  // ── 一筆都沒在等 → 整條帶不存在 ──
+  await rp.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all.forEach((r) => { r.tradeResult = 'profit_taken'; });
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+  });
+  await rp.click('#btnDismiss');
+  await rp.waitForTimeout(300);
+  await rp.click('#btnSingle');
+  await rp.waitForTimeout(600);
+  const none = await rp.evaluate(() => ({
+    hidden: document.getElementById('pendingBand').hidden,
+    actions: [...document.querySelectorAll('#entrySheet .sheet-actions .btn')]
+      .filter((x) => x.getBoundingClientRect().width > 0).length,
+  }));
+  check('🔴 一筆都沒在等 → 整條帶不存在（不留一個空槽）', none.hidden, true);
+  check('而主動線照樣完整', none.actions, 2);
+
+  await rp.close();
+}
+
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
 await browser.close();
 server.close();
