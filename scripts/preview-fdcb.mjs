@@ -3065,11 +3065,19 @@ for (const h of [700, 740, 844, 932]) {
   const page = await openV3(844);
 
   const now = Date.now();
+  // 🔴 **昨天中午**，不是「一小時前」。
+  //    對齊到整分：使用者答的進場時間只有分鐘精度（秒被歸零），判定時刻帶著秒
+  //    的話相減會差那個零頭，斷言就只能寫成範圍 —— 而範圍守不住四捨五入的方向。
+  //    🔴 而「一小時前」在 00:00–01:00 之間跑會變成**昨天** ——
+  //    於是「判定那一天的 23:59」變成過去，「不得是未來」那條當場誤判，
+  //    連帶把後面三條一起帶紅（2026-10-15 00:35 UTC 實際踩到）。
+  //    這跟 decision-chain 那次是同一個坑：**fixture 的「哪一天」吃真實時鐘**。
+  //    釘在昨天中午 → 它永遠在過去、永遠離日界很遠、+30 分不會跨日。
+  const anchor = new Date(now);
+  anchor.setDate(anchor.getDate() - 1);
+  anchor.setHours(12, 0, 0, 0);
   const stood = {
-    // 🔴 對齊到整分。使用者答的進場時間只有分鐘精度（秒被歸零），
-    //    所以判定時刻帶著秒的話，相減的結果會差那個零頭 ——
-    //    斷言就只能寫成範圍，而範圍斷言守不住四捨五入的方向。
-    ts: Math.floor((now - 3600e3) / 60000) * 60000,
+    ts: anchor.getTime(),
     symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
     outcomeTag: 'judged_stood_down', tradeResult: 'no_entry', durationSec: 120,
     marks: 0, events: [], reachedReadiness: null,
@@ -3229,9 +3237,6 @@ for (const h of [700, 740, 844, 932]) {
     set(hh(before.getHours()) + ':' + hh(before.getMinutes()));
     click();
     out.beforeNote = note(); out.beforeWrote = stored();
-    // 23:59 —— 這筆 fixture 的判定在一小時前，所以當天的 23:59 還沒到
-    set('23:59'); click();
-    out.futureNote = note(); out.futureWrote = stored();
     // 看不懂的
     set(''); click();
     out.badNote = note(); out.badWrote = stored();
@@ -3241,11 +3246,31 @@ for (const h of [700, 740, 844, 932]) {
   check('🔴 比判定還早的時間不收，而且說得出為什麼',
     bounds.beforeNote, '這比判定的時候還早');
   check('🔴 而且真的沒寫進去', bounds.beforeWrote, false);
-  check('🔴 還沒到的時間不收（還沒發生的不是紀錄）',
-    bounds.futureNote, '這個時間還沒到');
-  check('🔴 而且真的沒寫進去', bounds.futureWrote, false);
   check('看不懂的時間不收', bounds.badNote, '看不懂這個時間');
   check('🔴 而且真的沒寫進去', bounds.badWrote, false);
+
+  // 🔴 「不得是未來」改問**純函式**，而且把 `now` 釘死。
+  //    走 UI 的話那條規則的答案會跟著 harness 幾點跑而變
+  //    —— 2026-10-15 00:35 UTC 實際踩到。同 decision-chain 那次的修法：
+  //    規則本身用釘死的時鐘問，UI 只留跟時鐘無關的那幾條。
+  const futureRule = await page.evaluate(() => {
+    const OUT = window.TENKI_OUTCOME;
+    const base = Date.UTC(2026, 0, 15, 12, 0, 0);
+    const rec = { ts: base, outcomeTag: 'judged_entered' };
+    const hh = (n) => String(n).padStart(2, '0');
+    const later = new Date(base + 3600e3);
+    const hhmm = hh(later.getHours()) + ':' + hh(later.getMinutes());
+    return {
+      rejected: OUT.entryTimeFrom(rec, hhmm, base),
+      accepted: OUT.entryTimeFrom(rec, hhmm, base + 2 * 3600e3),
+    };
+  });
+  check('🔴 還沒到的時間不收（now 釘死，不吃 harness 幾點跑）',
+    futureRule.rejected.reason, 'future');
+  // 🔴 活性：同一個時間，把 now 往後推就收得進去。
+  //    少了這一條，「永遠拒絕」也能讓上一條綠。
+  check('🔴 而 now 往後推之後同一個時間就收（上一條不是永遠拒絕）',
+    futureRule.accepted.ok, true);
 
   // 答得出來：欄位 + 來源標記 + 等待那一格
   const answered = await page.evaluate((ts) => {
