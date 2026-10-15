@@ -28,6 +28,42 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-10-15 Session Update（PR #281 的紅燈不是 PR 的 —— 一條會看牆上時鐘的斷言）
+
+## What was done
+
+PR #281 開了之後 CI 紅在**第一支** `FDCB + Turning Point harness`，後面九支全
+`skipped` —— 包括這次最想看的 `Scan squareness`（星塵那四條只有 CI 驗得到），
+等於**還沒驗到**。
+
+根因與 #281 無關：`preview-fdcb.mjs` 的進場時間 fixture 取 `Date.now() - 3600e3`，
+CI 跑在 00:36 UTC → 判定落到前一天 23:36，而 `entryTimeFrom()` 把 `HH:MM` 解在
+判定那一天 → 當「未來」用的 `23:59` 探針變成前一天的 23:59，已經過去 → 合法 →
+被寫進去，翻掉 4 條。修法是把這一段的時鐘釘在當天 14:00（page 端一起釘 `Date.now`）。
+
+## 教訓 / 注意
+
+1. 🔴 **「我的 PR 讓 CI 紅了」要先證明因果，不要先認罪。** 兩個各自獨立的證明：
+   ① 同機器同 commit，幾小時前綠、現在紅 —— 中間只有時鐘變了；
+   ② `readiness-scan.js` 注入 CSS 的 `ensureOverlay()` **只在 `begin()` 裡呼叫**，
+   而 fdcb 全檔不呼叫 `begin()`，分支對 `v6/index.html` 的 diff 只有 1 行 `?v=`。
+2. 🔴 **「重跑到綠」不是修法。** PLAYBOOK 自己的話：偶紅的斷言比紅的更貴，
+   它會訓練你忽略紅燈。這次剛好本機重現得出來，不必在 CI 賭。
+3. 🔴 **同一個教訓第二次出現，因為它只被寫在某一支檔案的註解裡。**
+   `preview-decision-chain.mjs:748/794` 早就寫著「小時級偏移在 ET 凌晨會變成昨天」
+   「不得用小時」—— 已提煉進 PLAYBOOK §6。
+4. 🔴 **破壞腳本在跑的時候不得 commit。** 反向驗證期間 stop hook 連兩次要求
+   commit，而當下工作樹是**故意弄壞的版本**（pin 改成 00:05）。PLAYBOOK 既有那條
+   規則擋住了 —— 這是它第一次真的派上用場。
+
+## 下次接手點
+
+- PR #281 等 CI 重跑；**這次要真的看到 `Scan squareness` 那一步的輸出**。
+- 五個常數仍等 founder 實機定裁（見前一條）。
+- `preview-fdcb.mjs:2042` 也用 `Date.now() - 3600e3`，但它只是種一筆紀錄讓清單
+  不為空（給琥珀覆蓋率數的），不走 `entryTimeFrom`、不碰日界 —— **不是同一個
+  bug，刻意不動**。
+
 # 2026-10-14 Session Update（眼睛也量出來 —— 「臉跟眼睛都正對」是一個連言，不是一個難題）
 
 ## What was done
