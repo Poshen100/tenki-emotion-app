@@ -439,6 +439,23 @@
     @media (prefers-reduced-motion: reduce) {
       .result-chip, .result-chip:active, .result-chip.sel { transition: none; transform: none; }
     }
+    /* 🔴 L1 的那條帶。刻意長得**像一句旁註**，不像一張待辦卡：
+       沒有邊框色、沒有紅、沒有計數徽章。它只是順手問一句。 */
+    .pending-band{
+      margin:2px 0 14px;padding:10px 12px;border-radius:12px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.06);
+    }
+    .pending-band[hidden]{display:none}
+    .pb-text{font-size:12px;color:var(--n-300);margin-bottom:8px;
+      display:flex;align-items:center;gap:6px}
+    /* 中性的空心點 —— 跟 Session 列表那個「結果還沒填」同一個語彙。 */
+    .pb-text::before{content:'';width:5px;height:5px;border-radius:50%;
+      border:1px solid var(--n-400);background:transparent;flex-shrink:0}
+    .pb-chips{display:flex;gap:6px;flex-wrap:wrap}
+    .pb-more{display:block;margin-top:8px;font-size:11px;color:var(--n-400);
+      text-decoration:none}
+
     /* ── 進入決策：交易者儀器面板 ── */
     .sig { display: flex; align-items: center; gap: 12px; position: relative; }
     .sig-ping {
@@ -783,6 +800,21 @@
   <div class="sheet entry-sheet" id="entrySheet">
     <div class="sheet-handle"></div>
 
+    <!-- 🔴 L1：上一筆還沒填結果，順手帶一下（規格 docs/DECISION-RECORD-LOOP.md §4）。
+         founder 自己的主意，而它是三層提醒裡最好的那一層 —— 它搭的是一個
+         **你已經同意被打擾**的時刻（快訊進來了），所以額外打擾成本是 0，
+         而且零新基礎設施（面板、晶片、store 全是現成的）。
+         🔴 硬規則：它是一條**帶**不是 modal ——
+           · 不得阻擋、不得搶焦點：忽略它，下面新快訊的流程逐步不變
+           · 一條帶最多講**一筆**（多筆就講「還有 N 筆」並連到 Session 頁）
+           · 填完就地收起，**不跳頁**（跳頁會把人從新快訊上扯走）
+           · 不得倒數、不得用紅色 —— 它是一句事實，不是逾期通知 -->
+    <div class="pending-band" id="pendingBand" hidden>
+      <div class="pb-text" id="pendingBandText"></div>
+      <div class="pb-chips" id="pendingBandChips"></div>
+      <a class="pb-more" id="pendingBandMore" href="/v3/#session" hidden></a>
+    </div>
+
     <!-- 訊號讀出（活的：N 秒前持續跳動）-->
     <div class="sig">
       <div class="sig-ping" id="entryPing"></div>
@@ -955,7 +987,7 @@
   <script src="/preview/readiness-history.js?v=rh1"></script>
   <script src="/preview/readiness-scan.js?v=rs21"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
-  <script src="/preview/decision-outcome.js?v=do11"></script>
+  <script src="/preview/decision-outcome.js?v=do12"></script>
   <script src="decision-alert.js?v=alert50"></script>
 </body>
 </html>
