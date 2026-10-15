@@ -121,6 +121,7 @@ if node -e "import('playwright')" >/dev/null 2>&1 \
   run_step "preview harness (today-layout)" node scripts/preview-today-layout.mjs
   run_step "preview harness (scan-blink)" node scripts/preview-scan-blink.mjs
   run_step "preview harness (squareness)" node scripts/preview-scan-squareness.mjs
+  run_step "preview harness (lens-offset)" node scripts/preview-scan-lens-offset.mjs
   run_step "preview harness (token-scale)" node scripts/preview-token-scale.mjs
   run_step "preview harness (drift)" node scripts/preview-drift.mjs
   run_step "preview harness (lab)" node scripts/preview-lab.mjs

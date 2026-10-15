@@ -3064,7 +3064,25 @@ for (const h of [700, 740, 844, 932]) {
   console.log('\n── 判定後來改了：改寫紀錄而不說謊 ──');
   const page = await openV3(844);
 
-  const now = Date.now();
+  // 🔴 **把這一段的時鐘釘死在當天 14:00，不要用 `Date.now()`。**
+  //
+  // 2026-10-15 00:28 UTC 的 CI 實際踩到：這裡原本是 `Date.now()`，判定取
+  // 「一小時前」—— 在午夜後的第一個小時，那會落到**前一天**。而
+  // `entryTimeFrom()` 是把 `HH:MM` 解在**判定那一天**的（它的註解寫明刻意
+  // 只認同一天），於是下面那個本來要當「未來」的 `23:59` 探針變成**前一天的
+  // 23:59**，已經過去了 → 合法 → 被寫進去，一口氣翻掉 4 條斷言。
+  // （當時實測 23:59 − 23:36 = 23 分，正好就是紅燈印的「約 23 分」。）
+  //
+  // 🔴 這一段需要同時成立三件事，而**在每天開頭的半小時內它們湊不齊**：
+  //    判定要在同一天、要已經過去 30 分鐘、而且當天的 23:59 還沒到。
+  //    所以不是挑一個更好的探針時刻就能修 —— 得把時鐘本身釘住。
+  //
+  // 只釘 `Date.now`（不動 `Date` 建構子）：`entryTimeFrom` 拿它比「是不是未來」，
+  // 而日期換算走的是 `new Date(rec.ts)`，兩邊因此仍然一致。
+  const pinned = new Date();
+  pinned.setHours(14, 0, 0, 0);
+  const now = pinned.getTime();
+  await page.evaluate((t) => { Date.now = () => t; }, now);
   const stood = {
     // 🔴 對齊到整分。使用者答的進場時間只有分鐘精度（秒被歸零），
     //    所以判定時刻帶著秒的話，相減的結果會差那個零頭 ——
@@ -3229,7 +3247,8 @@ for (const h of [700, 740, 844, 932]) {
     set(hh(before.getHours()) + ':' + hh(before.getMinutes()));
     click();
     out.beforeNote = note(); out.beforeWrote = stored();
-    // 23:59 —— 這筆 fixture 的判定在一小時前，所以當天的 23:59 還沒到
+    // 23:59 —— 判定釘在當天 13:00（見上方 `pinned`），所以當天的 23:59
+    // **保證**還沒到。⚠️ 這句話以前是靠 `Date.now()` 碰運氣成立的。
     set('23:59'); click();
     out.futureNote = note(); out.futureWrote = stored();
     // 看不懂的
