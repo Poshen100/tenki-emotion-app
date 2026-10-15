@@ -766,6 +766,13 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   await rp.waitForTimeout(700);
   const navigated = !rp.url().includes('decision-alert');
   check('🔴 **不跳頁**（跳頁會把人從新快訊上扯走）', navigated, false);
+  // ⚠️ 真的被導走的話**先導回來**，否則後面兩個情境會對著 /v3/ 點
+  //    `#btnSingle`（那顆在新頁上不存在）→ click timeout → 整支拋掉，
+  //    於是失敗數不可信。斷言該紅的已經紅了，剩下的要能跑完才有意義。
+  if (navigated) {
+    await rp.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
+    await rp.waitForTimeout(400);
+  }
 
   // ⚠️ 真的被導走的話下面讀不到那些元素 —— 容錯，讓該紅的那條去紅，
   //    不要讓行程去死（同 PLAYBOOK：會拋的解參考會無聲拆掉它後面的守門）。
